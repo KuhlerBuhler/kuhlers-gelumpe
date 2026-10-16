@@ -1,5 +1,9 @@
 name: Windows Unicorn probe
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/windows-sidecar]
+    paths: [".github/workflows/win-probe.yml", "tools/emu/probe/**"]
 jobs:
   probe:
     runs-on: windows-latest
