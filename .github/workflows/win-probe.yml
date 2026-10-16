@@ -40,6 +40,13 @@ jobs:
           editbin /CETCOMPAT:NO dist\bootprobe-nocet.exe
           dumpbin /headers dist\bootprobe-nocet.exe | findstr /i "CET"
           echo done
+      - name: run probes for several Unicorn versions
+        run: |
+          for v in 2.1.4 2.1.3 2.1.1 2.0.1.post1; do
+            pip install -q "unicorn==$v"
+            pyinstaller --onefile --collect-all unicorn --name "runprobe-$v" tools/emu/probe/run_probe.py > /dev/null 2>&1
+          done
+          ls dist
       - uses: actions/upload-artifact@v4
         with:
           name: ucprobe
@@ -47,3 +54,4 @@ jobs:
             dist/ucprobe.exe
             dist/bootprobe.exe
             dist/bootprobe-nocet.exe
+            dist/runprobe-*.exe

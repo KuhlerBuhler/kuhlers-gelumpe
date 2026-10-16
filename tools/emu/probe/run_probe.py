@@ -19,9 +19,17 @@ def make(cpu, exits, mmio):
         uc.ctl_set_exits([BASE + 0x800, BASE + 0x900])
     return uc
 
-case = sys.argv[1]
-cpu, exits, mmio = ("cpu" in case), ("exits" in case), ("mmio" in case)
-uc = make(cpu, exits, mmio)
-print(case, "built", flush=True)
-uc.emu_start(BASE, 0 if exits else BASE + 0x1000, count=100)
-print(case, "ran, pc", hex(uc.reg_read(A.UC_ARM_REG_PC)), flush=True)
+def run(case):
+    cpu, exits, mmio = ("cpu" in case), ("exits" in case), ("mmio" in case)
+    uc = make(cpu, exits, mmio)
+    print(case, "built", flush=True)
+    uc.emu_start(BASE, 0 if exits else BASE + 0x1000, count=100)
+    print(case, "ran, pc", hex(uc.reg_read(A.UC_ARM_REG_PC)), flush=True)
+
+
+print("unicorn", unicorn.__version__, flush=True)
+for case in (sys.argv[1:] or ["plain", "cpu", "exits", "cpu-exits", "cpu-exits-mmio"]):
+    run(case)
+print("all done", flush=True)
+if getattr(sys, "frozen", False) and len(sys.argv) < 2:
+    input("Enter zum Beenden ")
