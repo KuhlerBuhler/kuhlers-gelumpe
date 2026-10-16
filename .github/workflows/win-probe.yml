@@ -1,0 +1,23 @@
+name: Windows Unicorn probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install unicorn==2.1.4 pyinstaller
+      - name: plain python, main thread
+        run: python tools/emu/probe/uc_probe.py main || echo "EXIT $?"
+      - name: plain python, threads
+        run: python tools/emu/probe/uc_probe.py thread || echo "EXIT $?"
+      - name: frozen
+        run: |
+          pyinstaller --onefile --collect-all unicorn --name ucprobe tools/emu/probe/uc_probe.py > /dev/null 2>&1
+          ./dist/ucprobe.exe main || echo "EXIT $?"
+          ./dist/ucprobe.exe thread || echo "EXIT $?"
