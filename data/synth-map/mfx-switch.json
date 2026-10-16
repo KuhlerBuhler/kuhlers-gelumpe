@@ -1,0 +1,46 @@
+{
+ "entries": [
+  {
+   "from": "0xC034029C",
+   "to": "0xC0340494",
+   "kind": "ram",
+   "why": "SEQ: pointer to the sequencer object (pattern number at +0x318). Both getters are the same function (push, ldr r4,=ptr, ldr r3,[r4], alloc 0x324, ctor, str): Sampler 0xC002FAFC, synth 0xC002C9E8; synth literal 0xC0340494 (mfx-switch, read both listings)"
+  },
+  {
+   "from": "0xC03404C0",
+   "to": "0xC03406B0",
+   "kind": "ram",
+   "why": "MGR: pointer to the screen manager. Same getter (alloc 0x74, ctor, store): Sampler 0xC002D048, synth 0xC002A1AC loads 0xC03406B0 (mfx-switch, read both listings)"
+  },
+  {
+   "from": "0xC06912E0",
+   "to": "0xC056B58C",
+   "kind": "ram",
+   "why": "CTL: pointer to the touch pad object (mode word at +0x334). The pad key handler is the same function: Sampler 0xC006FF94 loads 0xC06912E0 and reads [obj+0x334], synth 0xC006307C loads 0xC056B58C and reads [obj+0x334]; the mode setter writes +0x334 in both (Sampler 0xC00819D8, synth 0xC00724E4)"
+  },
+  {
+   "from": "0xC006FF94",
+   "to": "0xC006307C",
+   "kind": "code",
+   "why": "PAD_KEY: the touch pad key handler (r1 = key 4 GATE ARP, 5 TOUCH SCALE, 6 MASTER FX), same structure in both: SHIFT test at +0x358, mode 3 from GATE ARP in mode 1, mode 2 for MASTER FX, tail call of the mode setter (read both listings; the Sampler's extra test of [obj+0x308]/[+0x312] is missing in the synth)"
+  },
+  {
+   "from": "0xC0040F04",
+   "to": "0xC003BA4C",
+   "kind": "code",
+   "why": "SHIFT_OBJ: getter of the object that holds the SHIFT flag at +0x358 (alloc 0x428); identical function, the same bl in both key handlers (Sampler 0xC0070160, synth 0xC0063220)"
+  },
+  {
+   "from": "0xC0029A40",
+   "to": "0xC0026DAC",
+   "kind": "code",
+   "why": "FLASH_OBJ: the flash object getter, called right before the pattern flash write in both (Sampler 0xC004C2C0, synth 0xC00460C4); 0x34 below FLASH_READ in both (0xC0029A74 -> 0xC0026DE0, auto.json)"
+  },
+  {
+   "from": "0xC002D634",
+   "to": "0xC002A798",
+   "kind": "code",
+   "why": "LOCKED: getter of the input lock byte (ldr r3,=ptr; ldr r3,[r3]; ldrb r0,[r3,#0x10]; bx lr): identical 4 instructions, pointer 0xC034057C in the Sampler, 0xC0340734 in the synth; both touch pad key handlers call it first and return when it is nonzero (Sampler 0xC006FF9C, synth 0xC0063084). Measured in the synth emulator: the byte is 1 from 0.30 to 0.49 s after power-on"
+  }
+ ]
+}

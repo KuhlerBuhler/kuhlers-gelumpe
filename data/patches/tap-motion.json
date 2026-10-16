@@ -1,0 +1,87 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "tap-motion",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "name": "TAP schaltet die aufgenommene Motion Sequence (TAP MOTION)",
+ "changes": [
+  {
+   "file": 1605888,
+   "bytes": "80c29fe500c09ce500005ce31000000a18009ce5020a10e30d00001a68c29fe500c09ce500005ce30900000a00c0dce500005ce30600000a50c29fe500c09ce501007ce30100a0031eff2f0101001ce21eff2f110000a0e31eff2fe1000052e30200000a0020c7e50020a0e31eff2fe10020d7e5013042e2010053e30120a0831eff2fe10f502de9dcffffeb000050e30200000a040000eb0f50bde85debfaea0f50bde8e8019fe505ebfaeaf0402de9e0419fe5004094e5000054e32600000ac8519fe5d0019fe5000090e5000050e31200001ac4619fe5006096e50f0056e31d00008a330ea0e3960001e0011084e00728d1e5107085e2067087e0d6ffffeb9c019fe5000090e5000050e31200000a0610a0e10030a0e3bc04fbeb0e0000ea4420d4e5207085e2cbffffeb4420c4e5000052e30800001a68019fe5000090e5000050e30400000a4000d4e5000050e30100001a0000a0e3b23efbebf080bde80f402de9a5ffffeb000050e30f40bde80100001aa42bd0e51900fcea1eff2fe1ff512de90080a0e100519fe59bffffeb000050e32e00000a0c019fe5000090e5081095e5010050e10600000a080085e50010a0e3101085e5141085e5181085e51c1085e5201085e50060a0e3c4409fe5004094e5000054e30d00000ab8009fe5000090e5000050e30100000a4460d4e5070000eaa4009fe5000090e50f0050e30300008a331ea0e3900102e0022084e00768d2e5000056e30160a013040095e5010050e30200001aed00d8e5060050e10400000a0800a0e11410a0e30620a0e10030a0e331fdfbeb0100a0e3040085e5090000ea040095e5010050e30600001a0000a0e3040085e50800a0e11410a0e30020a0e30030a0e324fdfbebff51bde870402de92efdfbeaf8e633c00c016ac0008f18c0580334c0a4e633c0a0ca6bc028246bc0008934c074d068c020246bc0",
+   "expect": "631146c1eaa9f8d53fc3dbe16218a4217a429d5dc294e39c4aa18e1734744ac6",
+   "note": "TAP motion: the TAP switch, the TAP LED, and what the BLECH menu's TAP MOTION page writes (TM_SETTING)"
+  },
+  {
+   "file": 273856,
+   "bytes": "ef1405ea",
+   "expect": "fc7b5d1ce8dafd6aaefec86b0389629ea6c0e373a4df5f874b521d47e3108a9b",
+   "note": "the instruction before the call of the tap tempo calculation jumps to the hook"
+  },
+  {
+   "file": 557792,
+   "bytes": "deff03ea",
+   "expect": "c76eb7ace29ba9739bfc87a72ef27b450dc2dd98251ab35813517503bbebe2b4",
+   "note": "first instruction of the TAP LED beat flash jumps to the hook"
+  },
+  {
+   "file": 555072,
+   "bytes": "8e0204ea",
+   "expect": "cb2450f37bd96fdbd6b5ca0da7f783e6a195e37f754014852618c0f6593e4d89",
+   "note": "first instruction of the LED manager's tick jumps to the hook"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC0042CC0",
+   "kind": "instruction",
+   "chain": "key-dispatch",
+   "position": "before",
+   "swallow": true,
+   "note": "TAP with the patch on switches the motion and does not call the tap tempo calculation"
+  },
+  {
+   "site": "0xC00881E0",
+   "kind": "instruction",
+   "chain": "tap-led",
+   "position": "before",
+   "swallow": true,
+   "note": "with the patch on there is no beat flash on the TAP LED"
+  },
+  {
+   "site": "0xC0087740",
+   "kind": "instruction",
+   "chain": "tap-led",
+   "position": "before",
+   "swallow": false,
+   "note": "keeps the TAP LED at the state of the motion and lets it go when the patch goes off"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 557792,
+   "length": 4,
+   "why": "the sequencer's first beat (about 100 ms, after the rescue paths at 57 to 60 ms) calls the TAP LED's beat flash, which now jumps to beat_hook"
+  },
+  {
+   "file": 555072,
+   "length": 4,
+   "why": "the LED manager's tick runs from about 140 ms, after the rescue paths, and now jumps to tick_hook"
+  },
+  {
+   "file": 1605888,
+   "length": 688,
+   "why": "tm_active, beat_hook and tick_hook: at start they only look at the panel object, the kill switch, the card and the setting word and hand over to the firmware's own code; the rest runs on a key or when the patch is on"
+  }
+ ],
+ "ram": [
+  {
+   "at": "0xC0188F00",
+   "length": 64,
+   "what": "run time state: TM_SETTING at +0 for the BLECH menu, the LED, the pattern number, the remembered modes",
+   "source": "tools/patch/tap_motion.py:STATE"
+  }
+ ]
+}

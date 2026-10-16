@@ -1,0 +1,29 @@
+{
+ "format": "gelumpe-patch-set",
+ "version": 1,
+ "id": "blech",
+ "name": "BLECH",
+ "patches": [
+  "data/patches/splash-editor.json",
+  "data/patches/mfx-switch.json",
+  "data/patches/pattern-switch.json",
+  "data/patches/tap-motion.json",
+  "data/patches/note-assistant.json",
+  "data/patches/dice.json",
+  "data/patches/load-bar.json",
+  "data/patches/sample-errors.json",
+  "data/patches/script-runtime.json",
+  "data/patches/script-runtime-stock.json",
+  "data/patches/blechtribe.json",
+  "data/patches/blechtribe-stock.json",
+  "assets/blechy/splash.json",
+  "data/patches/blech-theme.json",
+  "data/patches/preset-tables.json",
+  "data/patches/preset-tables-stock.json",
+  "data/patches/synth-filters.json",
+  "data/patches/power-off.json",
+  "data/patches/doom-loader.json",
+  "data/patches/blech-sysex.json",
+  "data/patches/blech-sysex-stock.json"
+ ]
+}

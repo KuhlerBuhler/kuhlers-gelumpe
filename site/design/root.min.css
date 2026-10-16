@@ -1,0 +1,2843 @@
+/* Schriften selbst gehostet (routes/Main/fonts.mjs), SIL Open Font License: Sora (Display),
+   IBM Plex Sans (Text), IBM Plex Mono (Zahlen). Kein Google-Request, keine Besucher-IP an Dritte. */
+@font-face {
+  font-family: "Sora";
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+  src: url("fonts/sora-latin-ext.woff2?v=1") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Sora";
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+  src: url("fonts/sora-latin.woff2?v=1") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("fonts/ibm-plex-sans-latin-ext.woff2?v=1") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("fonts/ibm-plex-sans-latin.woff2?v=1") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("fonts/ibm-plex-mono-500-latin-ext.woff2?v=1") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("fonts/ibm-plex-mono-500-latin.woff2?v=1") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ========== BASE ========== */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --space-16: 64px;
+  --control-target-min: 44px;
+
+  /* Radien: Werte der Startseite, klein nach gross. */
+  --radius-xs: 8px;     /* Tastenkuerzel, Mini-Badges */
+  --radius-sm: 12px;    /* Eingaben, Icon-Flaechen */
+  --radius-md: 14px;    /* Buttons, Listenzeilen */
+  --radius-lg: 16px;    /* Suchfeld, App-Zeilen */
+  --radius-xl: 20px;    /* Panels, Kacheln, Karten */
+  --radius-2xl: 24px;   /* grosse Flaechen, Dialoge */
+  --radius-pill: 999px; /* Chips, Badges, Fortschritt */
+
+  /* Schriftgroessen: eine Skala fuer alle Apps. */
+  --text-2xs: 12px;     /* Label, Eyebrow */
+  --text-xs: 13px;      /* Meta, Mono-Angaben */
+  --text-sm: 14px;      /* Buttons, Eingaben, Tabellen */
+  --text-md: 15px;      /* Listenzeilen, Leerzustand */
+  --text-base: 16px;    /* Fliesstext */
+  --text-lg: 18px;      /* Einleitung */
+  --text-xl: 20px;      /* Kachel-Titel, Abschnitt mobil */
+  --text-2xl: 26px;     /* Abschnitt */
+  --text-3xl: 32px;     /* Seitentitel mobil */
+  --text-4xl: 44px;     /* Seitentitel */
+  --text-display: 68px; /* nur der Startseiten-Hero */
+  --leading-tight: 1.1;
+  --leading-snug: 1.25;
+  --leading-normal: 1.5;
+
+  /* Bewegung */
+  --dur-fast: 150ms;
+  --dur-base: 180ms;
+  --dur-slow: 280ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+
+  /* Glas: was hinter Kacheln liegt (Sternenfeld, Fraktal) wird weich. */
+  --glass-blur: 10px;
+  --glass-blur-hover: 18px;
+
+  /* Seite */
+  --page-max: 1280px;
+  --page-gutter: var(--space-8);
+  --font-size-readout: 1.5rem;
+  --bg-0: var(--color-bg-page);
+  --bg-1: var(--color-bg-page-alt);
+  --bg-2: var(--color-surface-item-muted);
+  --bg-3: var(--color-border-strong);
+  --fg-0: var(--color-text-primary);
+  --fg-1: var(--color-text-secondary);
+  --fg-2: var(--color-text-muted);
+  --radius: 24px;
+  --shadow: 0 10px 30px -12px var(--color-shadow-strong);
+  --speed: 220ms;
+  --font-sans: "IBM Plex Sans", system-ui, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
+  --font-display: Sora, var(--font-sans);
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --glass: var(--color-surface-panel);
+}
+
+html {
+  background: var(--bg-0);
+  color: var(--fg-0);
+}
+
+body {
+  margin: 0;
+  color: inherit;
+  font: 16px/1.45 var(--font-sans) !important;
+  min-height: 100vh;
+  /* Lange URLs, Pfade und Dateinamen brechen um, statt aus ihrem Kasten zu laufen.
+     break-word aendert die Mindestbreite nicht, Layouts bleiben wie sie sind. In Flex- und
+     Grid-Zeilen braucht das Textelement zusaetzlich min-width: 0. */
+  overflow-wrap: break-word;
+}
+
+body, button, input, select, textarea {
+  font-family: var(--font-sans) !important;
+}
+
+body.page-transition--locked {
+  overflow: hidden;
+}
+
+#page-transition-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-0);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms ease;
+  z-index: 9999;
+}
+
+#page-transition-overlay.page-transition--visible {
+  pointer-events: auto;
+}
+
+#page-transition-overlay.page-transition--opaque {
+  opacity: 1;
+}
+
+/* View Transitions (cross-document) */
+:root {
+  view-transition-name: root;
+}
+
+@keyframes vt-fade-in {
+  from { opacity: 0 }
+  to   { opacity: 1 }
+}
+
+@keyframes vt-fade-out {
+  from { opacity: 1 }
+  to   { opacity: 0 }
+}
+
+::view-transition-old(root) {
+  animation: vt-fade-out 160ms ease both;
+}
+
+::view-transition-new(root) {
+  animation: vt-fade-in 180ms ease both;
+}
+
+body.fade-out {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+/* ========== TYPOGRAPHY ========== */
+h1, h2, h3 {
+  font-weight: 600;
+  color: var(--fg-0);
+  line-height: 1.2;
+}
+
+h1 { font-size: 28px; margin: 0 0 8px; }
+h2 { font-size: 22px; margin: 0 0 6px; }
+h3 { font-size: var(--text-lg); margin: 0 0 4px; }
+
+h1, h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--fg-0);
+  margin: 0 0 8px;
+}
+
+.subtitle {
+  font-size: var(--text-lg);
+  font-weight: 500;
+  color: var(--fg-0);
+  margin: 0 0 4px;
+}
+
+.description {
+  color: var(--fg-1);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  margin: 0 0 8px;
+}
+
+.muted {
+  color: var(--fg-2);
+  margin: 6px 6px 0;
+}
+
+.label {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--fg-1);
+}
+
+/* ========== BUTTONS ========== */
+button, .button, .btn {
+  appearance: none;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-button-secondary-bg);
+  color: var(--color-button-secondary-text);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  padding: 10px 22px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition: filter var(--speed), background var(--speed), border-color var(--speed), scale var(--dur-fast) var(--ease-out), translate var(--dur-base) var(--ease-out);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* display: inline-flex oben wuerde das hidden-Attribut sonst ueberstimmen. */
+button[hidden], .button[hidden], .btn[hidden] {
+  display: none;
+}
+
+button:hover, .button:hover, .btn:hover {
+  background: var(--color-button-secondary-bg-hover);
+}
+
+button:disabled, .button:disabled, .btn:disabled,
+.btn[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/*
+ * Glass-Button-System: alle Varianten haben den transparenten Glass-
+ * Hintergrund von .btn — die Border-Farbe markiert die Semantik:
+ *   .btn          → neutral (weißliche Border)
+ *   .btn.primary  → positive Aktion (Save/Confirm) — grüne Border
+ *   .btn.success  → Alias für .primary (semantische Klarheit)
+ *   .btn.danger   → negative Aktion (Cancel/Delete) — rote Border
+ *   .btn.ghost    → dashed, transparent (sekundäre Aktion)
+ *   .btn.outline  → wie .btn, explizit transparent
+ */
+.btn.primary, .btn-primary,
+.btn.success, .btn-success {
+  border-color: color-mix(in srgb, var(--color-btn-success) 78%, transparent);
+  color: var(--fg-0);
+}
+
+.btn.primary:hover, .btn-primary:hover,
+.btn.success:hover, .btn-success:hover {
+  background: color-mix(in srgb, var(--color-btn-success) 12%, transparent);
+  border-color: var(--color-btn-success);
+}
+
+.btn.ghost, .btn-ghost {
+  border-style: dashed;
+  background: transparent;
+  color: var(--fg-0);
+}
+
+.btn.ghost:hover, .btn-ghost:hover {
+  background: var(--color-surface-item-muted);
+}
+
+.btn.danger, .btn-danger {
+  border-color: color-mix(in srgb, var(--color-btn-danger) 78%, transparent);
+  color: var(--fg-0);
+}
+
+.btn.danger:hover, .btn-danger:hover {
+  background: color-mix(in srgb, var(--color-btn-danger) 12%, transparent);
+  border-color: var(--color-btn-danger);
+}
+
+.btn.secondary, .btn-secondary {
+  /* Alias für .btn-Standard */
+  border-color: var(--color-border-strong);
+  color: var(--fg-0);
+}
+
+.btn.outline, .btn-outline {
+  background: transparent;
+  border-color: var(--color-border-strong);
+  color: var(--fg-0);
+}
+
+.btn.outline:hover, .btn-outline:hover {
+  background: var(--color-surface-item-muted);
+}
+
+.btn.sm, .btn-sm {
+  padding: 6px 14px;
+  font-size: var(--text-xs);
+  border-radius: 10px;
+}
+
+.btn.lg, .btn-lg {
+  padding: 14px 28px;
+  font-size: var(--text-base);
+  border-radius: var(--radius-lg);
+}
+
+.btn.icon, .btn-icon {
+  box-sizing: border-box;
+  padding: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+/* 36px trifft sich am Finger schlecht. Gleiche Abgrenzung wie bei den Feldern:
+   Zeigergeraete behalten die kompakte Groesse. */
+@media (pointer: coarse) {
+  .btn.icon, .btn-icon {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* ========== CARDS / PANELS / TILES ========== */
+.panel {
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-panel);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-top: 14px;
+  overflow: hidden;
+  transition: max-height 0.2s ease;
+  backdrop-filter: blur(2px);
+}
+
+.panel h1 {
+  margin: 4px 6px 0;
+  font-weight: 600;
+}
+
+.card {
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-panel);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.card-muted {
+  background: var(--color-surface-item-muted);
+}
+
+.card-strong {
+  background: var(--color-surface-item-strong);
+}
+
+.tile {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-item-muted);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+  cursor: pointer;
+  transition: transform var(--speed), background var(--speed), border-color var(--speed), scale var(--dur-fast) var(--ease-out);
+}
+
+.tile:hover {
+  transform: translateY(-2px);
+  background: var(--color-surface-item);
+}
+
+.tile .ic {
+  height: 48px;
+  width: 48px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-item);
+  display: grid;
+  place-items: center;
+}
+
+.tile .name {
+  margin-top: 12px;
+  font-weight: 600;
+  font-size: var(--text-lg);
+  overflow-wrap: break-word;
+}
+
+/* ========== FORMS ========== */
+input, select, textarea,
+.input, .select, .textarea {
+  /* Ohne border-box addiert ein width:100% Rahmen und Innenabstand obendrauf und
+     laeuft aus dem Panel heraus -- bei der Textarea waren das 25px. */
+  box-sizing: border-box;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-button-secondary-bg);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: var(--text-sm);
+}
+
+/* Unter 16px zoomt iOS Safari beim Fokussieren die ganze Seite heran und laesst
+   sie so stehen. Gilt fuer Zeigergeraet-lose Geraete, nicht fuer schmale
+   Desktop-Fenster: dort zoomt nichts, und 14px bleibt das gewollte Mass. */
+@media (pointer: coarse) {
+  input, select, textarea,
+  .input, .select, .textarea {
+    font-size: var(--text-base);
+  }
+}
+
+input:focus, select:focus, textarea:focus,
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  border-color: var(--color-border-accent);
+}
+
+/* Haekchen und Optionsfelder haben keinen Rand, an dem sich der Fokus zeigen koennte. */
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Native <option> lists render white-on-white on Chrome/Windows without this. */
+select option,
+.select option {
+  background-color: var(--bg-0, #0a0a0b);
+  color: var(--fg-0, #f4f4f5);
+}
+
+.searchbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-item-muted);
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  height: 42px;
+}
+
+.searchbox input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg-0);
+  flex: 1;
+  padding: 0;
+}
+
+/* ========== LAYOUT ========== */
+/*
+ * .actions: flexrow, items linksbündig per Default.
+ * Für "Text links, Buttons rechts" innerhalb von .actions
+ * den .actions-buttons Wrapper nutzen (margin-left:auto pusht ihn rechts).
+ */
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.actions-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+}
+
+/* Grid-Items duerfen unter ihre min-content-Breite schrumpfen, sonst sprengen lange
+   App-Namen die 1fr-Spalten und das Grid laeuft auf schmalen Screens aus dem Panel. */
+.grid > * {
+  min-width: 0;
+}
+
+@media (min-width:560px) {
+  .grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width:840px) {
+  .grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (min-width:1040px) {
+  .grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+@media (max-width:640px) {
+  .actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .actions-buttons {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .actions-buttons .btn { width: 100%; }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+}
+
+/* ========== FEEDBACK ========== */
+.apploading-container {
+  position: relative;
+}
+
+.apploading-container[data-app-loading="true"] > .app-loader {
+  opacity: 1;
+  visibility: visible;
+}
+
+.app-loader, .loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 20px;
+  border-radius: inherit;
+  color: var(--color-text-accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: .3px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 160ms ease, visibility 160ms ease;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.app-loader.app-loader--inline {
+  position: relative;
+  inset: auto;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 16px 0;
+  padding: 22px 18px;
+  border-radius: var(--radius-md);
+}
+
+/* Unsichtbar allein laesst eine leere Luecke im Fluss stehen. */
+.apploading-container:not([data-app-loading="true"]) > .app-loader--inline {
+  display: none;
+}
+
+.app-loader__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--color-loader-ring);
+  border-top-color: var(--color-loader-highlight);
+  animation: app-loader-spin .9s linear infinite;
+}
+
+.app-loader__label {
+  color: inherit;
+}
+
+@keyframes app-loader-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-loader__spinner { animation-duration: 1.6s; }
+}
+
+.app-btn--loading {
+  pointer-events: none;
+}
+
+.app-btn-loader {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.app-btn-loader--no-label .app-btn-loader__label {
+  display: none;
+}
+
+.app-btn-loader__spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--color-loader-alt-ring);
+  border-top-color: var(--color-loader-alt-highlight);
+  animation: app-loader-spin .8s linear infinite;
+}
+
+.app-btn-loader__label {
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+
+#app-toasts {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.app-toast, .toast {
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-popover);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--bg-3);
+  color: var(--fg-0);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  max-width: 340px;
+  word-break: break-word;
+  pointer-events: auto;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .25s, transform .25s;
+}
+
+.app-toast.visible, .toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.app-toast.ok, .toast.ok {
+  border-color: var(--color-accent-primary);
+}
+
+.app-toast.err, .toast.err {
+  border-color: rgba(255, 80, 80, .6);
+  background: rgba(40, 10, 10, .92);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  background: var(--color-surface-item-muted);
+  color: var(--fg-1);
+  border: 1px solid var(--color-border-strong);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--fg-2);
+}
+
+.status-dot.online {
+  background: var(--color-status-ok);
+}
+
+.status-dot.offline,
+.status-dot.danger {
+  background: var(--color-status-error);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ========== LANGE TEXTE (ui-truncate, ui-break) ==========
+   ui-truncate: eine Zeile mit "...", fuer Titel und Namen aus Nutzerdaten (Datei, URL, Betreff).
+   Wo JS den Text setzt, den vollen Text auch als title-Attribut setzen.
+   ui-break: Fliesstext, Fehlermeldungen, Pfade; bricht auch mitten im Wort um.
+   Beide tragen min-width: 0, damit sie in Flex- und Grid-Zeilen schrumpfen duerfen. */
+.ui-truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-break {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ========== SEITENGERUEST (ui-*) ==========
+   Neue geteilte Komponenten tragen das Prefix ui-, damit sie nicht mit aelteren
+   App-Klassen wie .page-header oder .section kollidieren. Referenz mit allen
+   Zustaenden: /designsystem. */
+
+/* Seite: Breite, Rand und Abstand zwischen den Abschnitten wie auf der Startseite. */
+.ui-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(var(--page-max) + 2 * var(--page-gutter));
+  margin-inline: auto;
+  padding: 0 var(--page-gutter) var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-14);
+}
+
+/* Seitenkopf: Titel, optional ein Satz mit Info, die die Seite nicht selbst zeigt, Aktionen rechts.
+   Der Titel wiederholt nie den App-Namen, den die Navbar schon zeigt: kein Kopf noetig, dann
+   entfaellt das ganze header.ui-page-header und die Seite braucht den Abstand hier oben. */
+.ui-page:not(:has(> .ui-page-header:not([hidden]))) {
+  padding-top: var(--space-12);
+}
+
+.ui-page-header {
+  padding-top: var(--space-12);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-3) var(--space-6);
+}
+
+.ui-page-header > :not(.ui-page-actions) {
+  grid-column: 1;
+}
+
+.ui-page-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: -1px;
+  color: var(--fg-0);
+  text-wrap: balance;
+}
+
+.ui-page-lead {
+  margin: 0;
+  max-width: 60ch;
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  color: var(--fg-1);
+}
+
+.ui-page-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Abschnitt: Ueberschrift, Zaehler/Meta, Aktionen. */
+.ui-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.ui-section-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.ui-section-title {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: var(--leading-snug);
+  color: var(--fg-0);
+}
+
+.ui-section-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.ui-section-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Split: Seitenleiste + Inhalt. Mobil klappt die Leiste ueber dem Inhalt auf,
+   gesteuert von .ui-split-toggle (ui.js setzt data-open und aria-expanded). */
+.ui-split {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-6);
+}
+
+.ui-split-side {
+  position: sticky;
+  top: var(--space-4);
+  min-width: 0;
+}
+
+.ui-split-main {
+  min-width: 0;
+}
+
+.ui-split-toggle {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  :root {
+    --page-gutter: var(--space-4);
+  }
+
+  .ui-page {
+    gap: var(--space-8);
+    padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ui-page:not(:has(> .ui-page-header:not([hidden]))) {
+    padding-top: var(--space-6);
+  }
+
+  .ui-page-header {
+    padding-top: var(--space-6);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ui-page-title {
+    font-size: var(--text-3xl);
+    letter-spacing: -.6px;
+  }
+
+  .ui-page-lead {
+    font-size: var(--text-base);
+  }
+
+  .ui-page-actions {
+    grid-column: 1;
+    grid-row: auto;
+    margin-top: var(--space-2);
+  }
+
+  .ui-section {
+    gap: var(--space-3);
+  }
+
+  .ui-section-title {
+    font-size: var(--text-xl);
+  }
+
+  .ui-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .ui-split-side {
+    position: static;
+    display: none;
+  }
+
+  .ui-split[data-open] > .ui-split-side {
+    display: block;
+  }
+
+  .ui-split-toggle {
+    display: inline-flex;
+    justify-self: start;
+  }
+}
+
+/* ========== FORMULARFELD (ui-field, ui-input) ========== */
+.ui-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ui-field-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg-0);
+}
+
+.ui-field-required {
+  margin-left: 2px;
+  color: var(--color-text-danger);
+}
+
+.ui-field > .input,
+.ui-field > .select,
+.ui-field > .textarea,
+.ui-field > input,
+.ui-field > select,
+.ui-field > textarea,
+.ui-field > .ui-input {
+  width: 100%;
+  min-height: var(--control-target-min);
+}
+
+.ui-field-help,
+.ui-field-error {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+}
+
+.ui-field-help {
+  color: var(--fg-2);
+}
+
+.ui-field-error {
+  color: var(--color-text-danger);
+}
+
+.ui-field-error[hidden] {
+  display: none;
+}
+
+.ui-field [aria-invalid="true"],
+.ui-field[data-invalid] .ui-input {
+  border-color: var(--color-border-danger);
+}
+
+/* Der rote Rand ueberdeckt den Fokus-Rand; der Fokus zeigt sich dann als Ring daneben. */
+.ui-field [aria-invalid="true"]:focus-visible,
+.ui-field[data-invalid] .ui-input:focus-within {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-field :disabled,
+.ui-input:has(:disabled) {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* Eingabe mit Icon vorne und/oder Suffix hinten, Rahmen liegt am Wrapper. */
+.ui-input {
+  box-sizing: border-box;
+  min-height: var(--control-target-min);
+  padding: 0 var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-button-secondary-bg);
+  color: var(--fg-1);
+  cursor: text;
+}
+
+.ui-input:focus-within {
+  border-color: var(--color-border-accent);
+}
+
+.ui-input > svg,
+.ui-input > i {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.ui-input > input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-0);
+}
+
+.ui-input > input:focus,
+.ui-input > input:focus-visible {
+  outline: none;
+}
+
+.ui-input-suffix {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+/* ========== DIALOG (ui-dialog) ==========
+   Natives <dialog> mit showModal(): Fokus bleibt im Dialog, der Rest der Seite ist inert.
+   Verhalten (Fokus-Rueckgabe, Hintergrund-Klick, ui.confirm, ui.prompt) in ui.js. */
+.ui-dialog {
+  width: min(560px, calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100dvh - 2 * var(--space-8));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: transparent;
+  color: var(--fg-0);
+  overflow: visible;
+}
+
+.ui-dialog-narrow {
+  width: min(440px, calc(100vw - 2 * var(--space-4)));
+}
+
+.ui-dialog-wide {
+  width: min(820px, calc(100vw - 2 * var(--space-4)));
+}
+
+.ui-dialog::backdrop {
+  background: var(--color-scrim-blur);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+.ui-dialog-box {
+  box-sizing: border-box;
+  max-height: inherit;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: inherit;
+  border: 1px solid var(--color-border-strong);
+  background: linear-gradient(var(--color-surface-panel), var(--color-surface-panel)), var(--color-bg-popover);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.ui-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5) 0 var(--space-6);
+}
+
+.ui-dialog-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: var(--leading-snug);
+}
+
+/* Knoepfe im Kopf behalten ihre Breite, der Titel gibt nach. Eigene Knopfgruppen im Kopf
+   brauchen dasselbe in der App (flex-shrink: 0). */
+.ui-dialog-head > .btn,
+.ui-dialog-head > button {
+  flex-shrink: 0;
+}
+
+.ui-dialog-head:not(:has(.ui-dialog-close)) {
+  padding-right: var(--space-6);
+}
+
+.ui-dialog-body {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-4) var(--space-6) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ui-dialog-text {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--fg-1);
+}
+
+.ui-dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6) var(--space-5);
+  border-top: 1px solid var(--color-border-faint);
+}
+
+.ui-dialog[open] {
+  animation: ui-dialog-in var(--dur-base) var(--ease-out);
+}
+
+@keyframes ui-dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+html.ui-dialog-lock {
+  overflow: hidden;
+}
+
+/* Toasts liegen in der obersten Ebene (popover), damit sie auch ueber offenen Dialogen stehen. */
+#app-toasts[popover] {
+  inset: auto var(--space-6) var(--space-6) auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  color: inherit;
+}
+
+@media (max-width: 720px) {
+  /* Mobil: Sheet von unten, volle Breite, Platz fuer die Home-Leiste des Telefons. */
+  .ui-dialog,
+  .ui-dialog-narrow,
+  .ui-dialog-wide {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    margin: auto 0 0;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  }
+
+  .ui-dialog-box {
+    border-bottom: 0;
+  }
+
+  .ui-dialog-foot {
+    padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ui-dialog-foot .btn {
+    flex: 1;
+    min-height: var(--control-target-min);
+  }
+
+  .ui-dialog[open] {
+    animation-name: ui-sheet-in;
+  }
+
+  @keyframes ui-sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: none; }
+  }
+
+  #app-toasts[popover] {
+    inset: auto var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom, 0px)) var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-dialog[open] {
+    animation: none;
+  }
+}
+
+/* ========== ZUSTAENDE (ui-state, ui-skeleton) ==========
+   Leer, Laden, Fehler: ein Muster fuer Flaechen und Listen. JS: window.ui.state(). */
+.ui-state {
+  box-sizing: border-box;
+  padding: var(--space-6) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  border-radius: var(--radius-xl);
+  border: 1px dashed var(--color-border-dashed);
+  color: var(--fg-2);
+}
+
+.ui-state-icon,
+.ui-state > svg {
+  width: 28px;
+  height: 28px;
+  color: var(--fg-2);
+}
+
+.ui-state-text {
+  margin: 0;
+  max-width: 48ch;
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  /* Zentriert ist der Absatz nur so breit wie sein Inhalt; break-word wuerde daran nichts aendern. */
+  overflow-wrap: anywhere;
+}
+
+.ui-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.ui-state-actions > .btn {
+  min-height: var(--control-target-min);
+}
+
+/* Nur fuer Screenreader sichtbar. */
+.ui-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ui-state[data-kind="error"] {
+  border-style: solid;
+  border-color: var(--color-border-danger);
+  color: var(--fg-1);
+}
+
+.ui-state[data-kind="error"] .ui-state-icon,
+.ui-state[data-kind="error"] > svg {
+  color: var(--color-text-danger);
+}
+
+.ui-state[data-kind="loading"] {
+  padding: 0;
+  border: 0;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.ui-skeleton {
+  display: block;
+  min-height: 56px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-faint);
+  background: var(--color-surface-panel-alt);
+  animation: ui-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ui-pulse {
+  0%, 100% { opacity: .45; }
+  50% { opacity: 1; }
+}
+
+/* ========== LISTE (ui-list, ui-row) ========== */
+.ui-list {
+  margin: 0;
+  padding: var(--space-2);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-panel-alt);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+/* Ohne eigenen Rahmen, Zeilen durch Linien getrennt (z. B. in einem Panel). */
+.ui-list-plain {
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.ui-list-plain > li {
+  border-bottom: 1px solid var(--color-border-faint);
+}
+
+.ui-list-plain .ui-row {
+  border-radius: 0;
+}
+
+.ui-row {
+  box-sizing: border-box;
+  min-height: 56px;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--fg-0);
+  text-decoration: none;
+  transition: background var(--dur-fast) ease, scale var(--dur-fast) var(--ease-out);
+}
+
+a.ui-row,
+button.ui-row,
+.ui-row:has(> .ui-row-link) {
+  cursor: pointer;
+}
+
+a.ui-row:hover,
+button.ui-row:hover,
+.ui-row:has(> .ui-row-link:hover) {
+  background: var(--color-surface-panel);
+}
+
+button.ui-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+/* Klickbare Hauptflaeche neben eigenen Aktionen (wie die App-Zeile der Startseite). */
+/* Titel behaelt mindestens 140px; Pille und Aktionen rutschen sonst in die naechste Zeile. */
+.ui-row-link {
+  flex: 1 1 140px;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.ui-row-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-item-muted);
+  color: var(--color-accent-primary);
+}
+
+.ui-row-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.7;
+}
+
+.ui-row-text {
+  flex: 1 1 140px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ui-row-title {
+  font-size: var(--text-md);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-row-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-row-end {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+}
+
+.ui-row-actions {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ========== STATUS-PILLE (ui-pill) ==========
+   Immer mit Wort, der Punkt ist nur Zusatz. data-tone: ok, warn, error, info, running, neutral. */
+.ui-pill {
+  box-sizing: border-box;
+  min-height: 26px;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-muted);
+  background: var(--color-surface-panel-alt);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  color: var(--fg-1);
+  white-space: nowrap;
+}
+
+.ui-pill::before {
+  content: "";
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--fg-2);
+}
+
+.ui-pill[data-tone="ok"] { color: var(--color-status-ok-text); }
+.ui-pill[data-tone="ok"]::before { background: var(--color-status-ok); }
+.ui-pill[data-tone="warn"] { color: var(--color-status-warn-text); }
+.ui-pill[data-tone="warn"]::before { background: var(--color-status-warn); }
+.ui-pill[data-tone="error"] { color: var(--color-status-error-text); }
+.ui-pill[data-tone="error"]::before { background: var(--color-status-error); }
+.ui-pill[data-tone="info"] { color: var(--color-status-info-text); }
+.ui-pill[data-tone="info"]::before { background: var(--color-status-info); }
+.ui-pill[data-tone="running"] { color: var(--color-status-info-text); }
+.ui-pill[data-tone="running"]::before {
+  background: var(--color-status-info);
+  animation: ui-pulse 1.2s ease-in-out infinite;
+}
+
+/* ========== CHIPS (ui-chip, ui-chipgroup, ui-filterbar) ========== */
+.ui-chip {
+  box-sizing: border-box;
+  height: var(--control-target-min);
+  padding: 0 var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--fg-1);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease, scale var(--dur-fast) var(--ease-out);
+}
+
+button.ui-chip {
+  cursor: pointer;
+}
+
+button.ui-chip:not([aria-pressed="true"]):hover {
+  background: transparent;
+  border-color: var(--color-accent-primary-ring-strong);
+  color: var(--fg-0);
+}
+
+.ui-chip[aria-pressed="true"] {
+  border-color: var(--color-accent-primary-ring-strong);
+  background: var(--color-surface-item-muted);
+  color: var(--fg-0);
+}
+
+.ui-chip-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+/* Kleine, nicht klickbare Chips (Tags). */
+.ui-chip-sm {
+  height: 28px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.ui-chip-remove {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  margin-right: calc(-1 * var(--space-2));
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+
+/* Sichtbar 22px, getroffen wird auf 44px. */
+.ui-chip-remove::before {
+  content: "";
+  position: absolute;
+  inset: calc((22px - var(--control-target-min)) / 2);
+}
+
+.ui-chip-remove svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ui-chip-remove:hover {
+  background: var(--color-surface-item);
+  color: var(--fg-0);
+}
+
+.ui-chipgroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ui-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ui-filterbar > .ui-input {
+  flex: 1 1 240px;
+}
+
+/* Mit beschrifteten Feldern stehen Chips und Knoepfe auf der Hoehe der Eingabe, nicht der Beschriftung. */
+.ui-filterbar:has(> .ui-field) {
+  align-items: flex-end;
+}
+
+.ui-filterbar > .select,
+.ui-filterbar > select {
+  min-height: var(--control-target-min);
+}
+
+/* ========== TABS (ui-tabs) ========== */
+/* Ein Tab ist ein <button> und erbt Radius, Rand und Schrift von den Buttons oben. Dazu kommt das
+   Touch-Ziel als Mindesthoehe und der gewaehlte Zustand: Akzentrand, Akzentflaeche, Akzenttext. */
+.ui-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ui-tab {
+  min-height: var(--control-target-min);
+}
+
+.ui-tab[aria-selected="true"],
+.ui-tab[aria-selected="true"]:hover {
+  border-color: var(--color-accent-primary-ring-strong);
+  background: var(--color-accent-primary-ring-soft);
+  color: var(--color-text-accent);
+}
+
+.ui-tab-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.ui-tab[aria-selected="true"] .ui-tab-count {
+  color: var(--color-text-accent-soft);
+}
+
+.ui-tab-count:empty {
+  display: none;
+}
+
+.ui-tabpanel[hidden] {
+  display: none;
+}
+
+/* Schmale Bildschirme: die Tabs teilen sich die Zeile und behalten ihre Buttonform. */
+@media (max-width: 640px) {
+  .ui-tabs > .ui-tab {
+    flex: 1 1 auto;
+    padding-inline: var(--space-3);
+  }
+}
+
+/* ========== SEGMENTED CONTROL (ui-segmented) ==========
+   Eine Auswahl aus wenigen Werten, die sofort gilt (Format, Ansicht, Zeitraum). Native Radios:
+   Pfeiltasten, Formular und Screenreader funktionieren ohne JS. Tabs wechseln dagegen Bereiche. */
+.ui-segmented {
+  box-sizing: border-box;
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-panel-alt);
+}
+
+.ui-segmented[data-fill] {
+  display: flex;
+  width: auto;
+}
+
+/* Ohne data-fill so breit wie der Text; zu wenig Platz (mobil) bricht in eine zweite Zeile um. */
+.ui-segmented {
+  flex-wrap: wrap;
+}
+
+.ui-segmented-option {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.ui-segmented[data-fill] > .ui-segmented-option {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ui-segmented-option > input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ui-segmented-option > span {
+  box-sizing: border-box;
+  min-height: calc(var(--control-target-min) - var(--space-2));
+  padding: 0 var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg-1);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: background var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease, scale var(--dur-fast) var(--ease-out);
+}
+
+.ui-segmented-option > span svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.ui-segmented-option:hover > input:not(:checked, :disabled) + span {
+  background: var(--color-surface-item-muted);
+  color: var(--fg-0);
+}
+
+.ui-segmented-option > input:checked + span {
+  border-color: var(--color-accent-primary-ring-strong);
+  background: var(--color-accent-primary-ring-soft);
+  color: var(--color-text-accent);
+}
+
+.ui-segmented-option > input:focus-visible + span {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-segmented-option > input:disabled {
+  cursor: not-allowed;
+}
+
+.ui-segmented-option > input:disabled + span {
+  opacity: .5;
+}
+
+@media (max-width: 640px) {
+  .ui-segmented-option > span {
+    padding: 0 var(--space-3);
+  }
+}
+
+/* ========== SCHALTER (ui-switch) ==========
+   An/aus, das sofort gilt. Ein Checkbox-Input mit role="switch": Leertaste schaltet, das
+   change-Ereignis kommt wie bei jeder Checkbox. Fuer "bestaetigen und speichern" bleibt die Checkbox. */
+.ui-switch {
+  box-sizing: border-box;
+  min-height: var(--control-target-min);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  color: var(--fg-0);
+  font-size: var(--text-sm);
+}
+
+.ui-switch > input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ui-switch-track {
+  position: relative;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 44px;
+  height: var(--space-6);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-item-muted);
+  transition: background var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+
+.ui-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--fg-1);
+  transition: translate var(--dur-base) var(--ease-out), background var(--dur-fast) ease;
+}
+
+.ui-switch > input:checked + .ui-switch-track {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-primary);
+}
+
+.ui-switch > input:checked + .ui-switch-track::after {
+  translate: var(--space-5) 0;
+  background: var(--color-accent-primary-contrast);
+}
+
+.ui-switch > input:focus-visible + .ui-switch-track {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-switch:has(> input:disabled) {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.ui-switch-text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.ui-switch-hint {
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+/* Schalter am rechten Rand einer Einstellungszeile: Text links, Schalter rechts. */
+.ui-switch[data-end] {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: space-between;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-switch-track,
+  .ui-switch-track::after,
+  .ui-segmented-option > span {
+    transition: none;
+  }
+}
+
+/* ========== KENNZAHL (ui-kpi, ui-kpis) ========== */
+.ui-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-3);
+}
+
+.ui-kpi {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-panel);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+.ui-kpi-label {
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.ui-kpi-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-3xl);
+  font-weight: 500;
+  line-height: var(--leading-tight);
+  color: var(--fg-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-kpi-unit {
+  margin-left: 2px;
+  font-size: var(--text-md);
+  color: var(--fg-2);
+}
+
+.ui-kpi-trend {
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.ui-kpi-trend[data-tone="ok"] { color: var(--color-status-ok-text); }
+.ui-kpi-trend[data-tone="warn"] { color: var(--color-status-warn-text); }
+.ui-kpi-trend[data-tone="error"] { color: var(--color-status-error-text); }
+
+@media (max-width: 720px) {
+  .ui-kpis {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .ui-kpi {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .ui-kpi-value {
+    font-size: var(--text-2xl);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-skeleton,
+  .ui-pill[data-tone="running"]::before {
+    animation: none;
+  }
+}
+
+/* ========== DIAGRAMM (ui-chart) ==========
+   Karte fuer Chart.js oder Canvas: Kopf, Flaeche mit fester Hoehe, Leer/Laden/Fehler als
+   Ueberlagerung (window.ui.chartState). Die Hoehe kommt aus --chart-height. */
+.ui-chart {
+  --chart-height: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-panel-alt);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+.ui-chart-lg {
+  --chart-height: 420px;
+}
+
+.ui-chart-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  flex-wrap: wrap;
+}
+
+.ui-chart-title {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  color: var(--fg-0);
+}
+
+.ui-chart-actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ui-chart-body {
+  position: relative;
+  height: var(--chart-height);
+  min-width: 0;
+}
+
+.ui-chart-body > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ui-chart-state {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* Waehrend ein Zustand anliegt, bleibt das Diagramm darunter unsichtbar (die Karte ist durchscheinend). */
+.ui-chart-body[data-state] > canvas {
+  visibility: hidden;
+}
+
+.ui-chart-state[hidden] {
+  display: none;
+}
+
+.ui-chart-state > .ui-state {
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+}
+
+.ui-chart-state > .ui-state[data-kind="loading"] {
+  align-items: stretch;
+  border-style: solid;
+  border-color: transparent;
+}
+
+.ui-chart-foot {
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--fg-1);
+}
+
+@media (max-width: 720px) {
+  .ui-chart {
+    --chart-height: 260px;
+    padding: var(--space-4);
+  }
+
+  .ui-chart-lg {
+    --chart-height: 320px;
+  }
+}
+
+/* ========== FORTSCHRITT (ui-progress, ui-job) ==========
+   Wert per window.ui.setProgress(el, 0..100 | null); null = unbestimmt. */
+.ui-progress {
+  --value: 0%;
+  --fill: var(--color-accent-primary);
+  position: relative;
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+}
+
+.ui-progress-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--value);
+  border-radius: inherit;
+  background: var(--fill);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+
+.ui-progress[data-tone="error"] { --fill: var(--color-status-error); }
+.ui-progress[data-tone="ok"] { --fill: var(--color-status-ok); }
+
+/* Unbestimmt: volle Breite mit laufenden diagonalen Streifen. */
+.ui-progress[data-indeterminate] .ui-progress-bar {
+  width: 100%;
+  background-image: linear-gradient(45deg, var(--color-border-strong) 25%, transparent 25%, transparent 50%, var(--color-border-strong) 50%, var(--color-border-strong) 75%, transparent 75%);
+  background-size: 16px 16px;
+  transition: none;
+  animation: ui-progress-stripes 1s linear infinite;
+}
+
+@keyframes ui-progress-stripes {
+  from { background-position: 0 0; }
+  to { background-position: 16px 0; }
+}
+
+.ui-job {
+  box-sizing: border-box;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-muted);
+  background: var(--color-surface-panel-alt);
+}
+
+.ui-job-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.ui-job-name {
+  flex: 1 1 160px;
+  min-width: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-job-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.ui-job-actions > .btn {
+  min-height: var(--control-target-min);
+}
+
+.ui-job-actions > .btn.icon {
+  width: var(--control-target-min);
+  height: var(--control-target-min);
+}
+
+.ui-job-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+/* ========== UPLOAD (ui-dropzone) ==========
+   <label> um ein verstecktes <input type=file>: Klick, Tastatur und Ziehen gehen ueber
+   dasselbe Feld. ui.js setzt beim Ziehen data-dragover und reicht abgelegte Dateien an das
+   Input weiter (change-Event), Apps hoeren nur auf das Input. */
+.ui-dropzone {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 140px;
+  padding: var(--space-6) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
+  border-radius: var(--radius-xl);
+  border: 1px dashed var(--color-border-dashed);
+  background: var(--color-surface-panel-alt);
+  color: var(--fg-1);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+}
+
+.ui-dropzone:hover,
+.ui-dropzone[data-dragover] {
+  border-color: var(--color-accent-primary-ring-strong);
+  background: var(--color-surface-panel);
+}
+
+.ui-dropzone[data-dragover] {
+  border-style: solid;
+}
+
+.ui-dropzone:has(.ui-dropzone-input:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-dropzone-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ui-dropzone-icon,
+.ui-dropzone > svg {
+  width: 28px;
+  height: 28px;
+  color: var(--color-accent-primary);
+}
+
+.ui-dropzone-title {
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--fg-0);
+}
+
+.ui-dropzone-hint,
+.ui-dropzone-files {
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.ui-dropzone-files {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.ui-dropzone-files:empty {
+  display: none;
+}
+
+.ui-dropzone[data-invalid] {
+  border-color: var(--color-border-danger);
+}
+
+.ui-dropzone[data-invalid] .ui-dropzone-files {
+  font-family: var(--font-sans);
+  color: var(--color-text-danger);
+}
+
+.ui-dropzone:has(.ui-dropzone-input:disabled) {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* Gewaehlte Dateien unter der Dropzone (ui.dropzoneFiles): Name und "bereit bis" brechen um statt
+   abgeschnitten zu werden, sonst fehlt auf dem Handy genau die Uhrzeit. */
+.ui-dropzone-selected .ui-row-title,
+.ui-dropzone-selected .ui-row-meta {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Auf Touch-Geraeten gibt es kein Ziehen: nur "auswaehlen" anbieten. */
+@media (pointer: coarse) {
+  .ui-dropzone-drag {
+    display: none;
+  }
+}
+
+/* ========== AUFKLAPPER (ui-details) ========== */
+.ui-details {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-muted);
+  background: var(--color-surface-panel-alt);
+}
+
+.ui-details > summary {
+  box-sizing: border-box;
+  min-height: var(--control-target-min);
+  padding: 0 var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  list-style: none;
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--fg-0);
+  cursor: pointer;
+  border-radius: inherit;
+}
+
+.ui-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ui-details > summary::after {
+  content: "";
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--fg-2);
+  border-bottom: 2px solid var(--fg-2);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform var(--dur-fast) ease;
+}
+
+.ui-details[open] > summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.ui-details > summary:hover {
+  background: var(--color-surface-panel);
+}
+
+.ui-details-body {
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ========== SLIDER (ui-range) ==========
+   ui.js haelt --fill und ein <output for="id"> aktuell; data-unit am output haengt die Einheit an. */
+.ui-range {
+  --fill: 50%;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: var(--control-target-min);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ui-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  /* Fuellung als einfarbige Ebene mit fester Breite, kein Verlauf. */
+  background: linear-gradient(var(--color-accent-primary), var(--color-accent-primary)) 0 0 / var(--fill) 100% no-repeat, var(--color-border-strong);
+}
+
+.ui-range::-moz-range-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+}
+
+.ui-range::-moz-range-progress {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-primary);
+}
+
+.ui-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-bg-page);
+  background: var(--color-text-primary);
+  box-shadow: var(--shadow);
+  transition: scale var(--dur-fast) var(--ease-out);
+}
+
+.ui-range::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-bg-page);
+  background: var(--color-text-primary);
+}
+
+.ui-range:focus-visible {
+  outline: none;
+}
+
+.ui-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-range:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-range-value {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-1);
+}
+
+.ui-field-label:has(.ui-range-value) {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-progress-bar {
+    transition: none;
+  }
+
+  .ui-progress[data-indeterminate] .ui-progress-bar {
+    animation: none;
+  }
+}
+
+/* ========== FUELLSTAND (ui-meter, ui-meter-ring) ==========
+   Stand einer Groesse (Auslastung, Belegung, Rang), nicht Fortschritt einer Aufgabe; das ist
+   ui-progress. Wert per window.ui.setMeter(el, 0..100, { label, tone, valueText, warnAt, errorAt }).
+   Ohne Ton in der Akzentfarbe, sonst data-tone="ok|warn|error". Groesse: data-size="sm|lg".
+   Ring: dasselbe mit ui-meter-ring, data-shape="arc" fuer den Halbkreis. */
+.ui-meter {
+  --value: 0%;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: calc(var(--space-1) * 1.5);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-muted);
+}
+
+.ui-meter[data-size="sm"] { height: var(--space-1); }
+.ui-meter[data-size="lg"] { height: var(--space-2); }
+
+.ui-meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--value);
+  border-radius: inherit;
+  background: var(--color-accent-primary);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+
+.ui-meter[data-tone="ok"] .ui-meter-fill { background: var(--color-status-ok); }
+.ui-meter[data-tone="warn"] .ui-meter-fill { background: var(--color-status-warn); }
+.ui-meter[data-tone="error"] .ui-meter-fill { background: var(--color-status-error); }
+
+:where(.ui-meter-ring) { width: var(--space-8); }
+
+.ui-meter-ring {
+  --value-n: 0;
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+}
+
+.ui-meter-ring[data-shape="arc"] { aspect-ratio: 40 / 23; }
+.ui-meter-ring[hidden] { display: none; }
+
+.ui-meter-ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ui-meter-ring:not([data-shape="arc"]) svg { transform: rotate(-90deg); }
+
+.ui-meter-ring-track,
+.ui-meter-ring-fill {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.ui-meter-ring-track { stroke: var(--color-border-muted); }
+
+.ui-meter-ring-fill {
+  stroke: var(--color-accent-primary);
+  stroke-dasharray: var(--value-n) 100;
+  transition: stroke-dasharray var(--dur-slow) var(--ease-out);
+}
+
+.ui-meter-ring[data-empty] .ui-meter-ring-fill { opacity: 0; }
+.ui-meter-ring[data-tone="ok"] .ui-meter-ring-fill { stroke: var(--color-status-ok); }
+.ui-meter-ring[data-tone="warn"] .ui-meter-ring-fill { stroke: var(--color-status-warn); }
+.ui-meter-ring[data-tone="error"] .ui-meter-ring-fill { stroke: var(--color-status-error); }
+
+/* Zahl im Ring: Mitte beim Vollring, unten beim Halbkreis. */
+.ui-meter-ring-value {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--fg-0);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1;
+}
+
+.ui-meter-ring[data-shape="arc"] .ui-meter-ring-value {
+  inset: auto 0 0;
+  padding-bottom: var(--space-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-meter-fill,
+  .ui-meter-ring-fill {
+    transition: none;
+  }
+}
+
+/* ========== AUDIO-PLAYER (ui-player) ==========
+   Wird von ui.player() gebaut: Knopf, Wellenform mit Abspielstrich, Zeit. Der Strich sitzt
+   immer in der Wellenform und verschwindet, sobald ein anderer Player startet. */
+.ui-player {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.ui-player-toggle {
+  flex: 0 0 auto;
+}
+
+.ui-player-wave {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 3.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-item-strong);
+  color: var(--color-accent-primary);
+  overflow: hidden;
+  cursor: pointer;
+  /* Senkrecht bleibt die Seite scrollbar, waagerecht zieht der Finger den Strich. */
+  touch-action: pan-y;
+}
+
+.ui-player-wave:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Absolut, sonst zaehlt die Pixelbreite der Leinwand (x Geraete-Pixel) als Inhaltsbreite
+   und die Wellenform bricht auf dem Handy unter den Knopf. */
+.ui-player-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ui-player-wave[data-wave="loading"] .ui-player-canvas {
+  animation: ui-pulse 1.2s ease-in-out infinite;
+}
+
+.ui-player-head {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-text-primary);
+  pointer-events: none;
+}
+
+.ui-player-time {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.ui-player[data-state="loading"] .ui-player-toggle svg {
+  animation: app-loader-spin .9s linear infinite;
+}
+
+.ui-player[data-state="error"] .ui-player-wave {
+  opacity: .5;
+  cursor: default;
+}
+
+.ui-player[data-state="error"] .ui-player-time {
+  color: var(--color-text-danger);
+}
+
+.ui-player-sm {
+  column-gap: var(--space-2);
+}
+
+.ui-player-sm .ui-player-wave {
+  height: var(--control-target-min);
+}
+
+.ui-player-lg .ui-player-wave {
+  height: 6rem;
+}
+
+@media (max-width: 640px) {
+  .ui-player-lg .ui-player-wave {
+    height: 4.5rem;
+  }
+}
+
+/* Mit title: Name oben links, Zeit oben rechts, darunter Knopf, Wellenform und Aktionen. */
+.ui-player-titled {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ui-player-titled:has(> .ui-player-actions) {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.ui-player-top {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ui-player-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* Lange Namen (Prompts, Dateinamen) brechen um statt abgeschnitten zu werden. */
+.ui-player-title {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.ui-player-meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.ui-player-top-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+
+.ui-player-top .ui-player-time {
+  order: 0;
+  flex-basis: auto;
+}
+
+.ui-player-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Nach der Breite des Players, nicht des Bildschirms: auch eine schmale Karte auf dem
+   Desktop liesse der Wellenform neben Knopf und Zeit nur einen Streifen. */
+@container (max-width: 26rem) {
+  .ui-player-time {
+    order: 1;
+    flex-basis: 100%;
+    text-align: right;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-player-wave[data-wave="loading"] .ui-player-canvas,
+  .ui-player[data-state="loading"] .ui-player-toggle svg {
+    animation: none;
+  }
+}
+
+/* Die ui-Bausteine setzen display selbst; ohne diese Regel wuerde das hidden-Attribut ueberstimmt.
+   :where() haelt die Spezifitaet bei der von [hidden], App-CSS kann das weiter uebersteuern. */
+:where([class^="ui-"], [class*=" ui-"])[hidden] {
+  display: none;
+}
+
+/* ========== BEWEGUNG (Micro-Interaktionen) ==========
+   Gilt fuer alle Apps automatisch und nur bei prefers-reduced-motion: no-preference.
+   scale/translate/rotate statt transform: App-eigene transform-Werte (Zentrieren,
+   gedrehte Regler) bleiben unberuehrt, beide Angaben setzen sich zusammen.
+   Druck: 100 bis 150 ms; Einblenden: --dur-enter, gestaffelt um --stagger. */
+:root {
+  --press-scale: .97;
+  --press-scale-wide: .99;
+  --rise: var(--space-2);
+  --dur-enter: 320ms;
+  --stagger: 40ms;
+  --reveal-delay: 0ms;
+}
+
+/* Laufender Knopf: Kreis statt Icon. window.ui.busy(knopf, true) setzt aria-busy und sperrt. */
+:is(button, .btn, .button)[aria-busy="true"] {
+  cursor: progress;
+}
+
+/* Gesperrt, aber nicht ausgegraut: der Knopf arbeitet gerade. */
+:is(button, .btn, .button)[aria-busy="true"]:disabled {
+  opacity: .8;
+}
+
+:is(button, .btn, .button)[aria-busy="true"] > svg {
+  display: none;
+}
+
+:is(button, .btn, .button)[aria-busy="true"]::before {
+  content: "";
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Druck: der Knopf gibt sichtbar nach, breite Flaechen weniger. */
+  :is(button, .btn, .button, .ui-chip, .avatar):active:not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+    scale: var(--press-scale);
+  }
+
+  :is(.tile, a.ui-row, button.ui-row, .ui-row-link):active {
+    scale: var(--press-scale-wide);
+  }
+
+  .ui-segmented-option:active > input:not(:disabled) + span {
+    scale: var(--press-scale);
+  }
+
+  /* Hover: Knoepfe heben sich leicht an und setzen beim Druecken wieder auf. */
+  :is(.btn, .button):hover:not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+    translate: 0 -1px;
+  }
+
+  :is(.btn, .button):active {
+    translate: none;
+  }
+
+  /* Aufklapper: der Inhalt steigt beim Oeffnen auf, der Pfeil dreht schon mit. */
+  .ui-details[open] > .ui-details-body {
+    animation: ui-rise var(--dur-base) var(--ease-out);
+  }
+
+  .ui-range:active::-webkit-slider-thumb {
+    scale: 1.15;
+  }
+
+  :is(button, .btn, .button)[aria-busy="true"]::before {
+    animation: app-loader-spin .8s linear infinite;
+  }
+
+  /* Hover: Icons zeigen, was der Knopf tut. */
+  svg.lucide {
+    transition: translate var(--dur-base) var(--ease-out), rotate var(--dur-slow) var(--ease-out), scale var(--dur-base) var(--ease-out);
+  }
+
+  :where(a, button, .btn, summary):is(:hover, :focus-visible) :is(.lucide-arrow-right, .lucide-chevron-right, .lucide-move-right, .lucide-log-out) {
+    translate: 2px 0;
+  }
+
+  :where(a, button, .btn):is(:hover, :focus-visible) :is(.lucide-arrow-left, .lucide-chevron-left) {
+    translate: -2px 0;
+  }
+
+  :where(a, button, .btn):is(:hover, :focus-visible) :is(.lucide-arrow-up-right, .lucide-external-link, .lucide-send) {
+    translate: 2px -2px;
+  }
+
+  :where(a, button, .btn):is(:hover, :focus-visible) :is(.lucide-download, .lucide-arrow-down, .lucide-chevron-down) {
+    translate: 0 2px;
+  }
+
+  :where(a, button, .btn):is(:hover, :focus-visible) :is(.lucide-upload, .lucide-arrow-up, .lucide-chevron-up) {
+    translate: 0 -2px;
+  }
+
+  :where(a, button, .btn):is(:hover, :focus-visible) :is(.lucide-plus, .lucide-x) {
+    rotate: 90deg;
+  }
+
+  :where(a, button, .btn):is(:hover, :focus-visible) :is(.lucide-refresh-cw, .lucide-rotate-cw) {
+    rotate: 180deg;
+  }
+
+  :where(a, button, .btn):is(:hover, :focus-visible) :is(.lucide-refresh-ccw, .lucide-rotate-ccw) {
+    rotate: -180deg;
+  }
+
+  :where(a, button, .btn):is(:hover, :focus-visible) :is(.lucide-settings, .lucide-cog) {
+    rotate: 60deg;
+  }
+
+  :where(a, button, .btn):is(:hover, :focus-visible) :is(.lucide-play, .lucide-search, .lucide-star, .lucide-heart) {
+    scale: 1.12;
+  }
+
+  a.card:hover, button.card:hover {
+    translate: 0 -2px;
+  }
+
+  a.card, button.card {
+    transition: translate var(--speed) var(--ease-out), scale var(--dur-fast) var(--ease-out), background var(--speed);
+  }
+
+  /* Laden: mehrere Skeleton-Zeilen pulsieren versetzt statt im Gleichtakt. */
+  .ui-skeleton:nth-child(2) { animation-delay: 120ms; }
+  .ui-skeleton:nth-child(3) { animation-delay: 240ms; }
+  .ui-skeleton:nth-child(4) { animation-delay: 360ms; }
+  .ui-skeleton:nth-child(n+5) { animation-delay: 480ms; }
+
+  /* Einblenden: die ersten Bloecke der Seite steigen beim Laden gestaffelt auf. */
+  @keyframes ui-rise {
+    from { opacity: 0; translate: 0 var(--rise); }
+  }
+
+  /* :where haelt die Spezifitaet bei null, damit eigene Animationen einer App gewinnen. */
+  :where(.ui-page) > :where(:not(script, style, template, dialog, noscript)) {
+    animation: ui-rise var(--dur-enter) var(--ease-out) backwards;
+  }
+
+  :where(.ui-page) > :where(:nth-child(2)) { animation-delay: var(--stagger); }
+  :where(.ui-page) > :where(:nth-child(3)) { animation-delay: calc(var(--stagger) * 2); }
+  :where(.ui-page) > :where(:nth-child(4)) { animation-delay: calc(var(--stagger) * 3); }
+  :where(.ui-page) > :where(:nth-child(n+5)) { animation-delay: calc(var(--stagger) * 4); }
+
+  /* Scrollen: ui.js markiert Bloecke unterhalb des Sichtbereichs mit "wait" und setzt
+     "in", sobald sie hineinlaufen. Was beim Laden schon sichtbar ist, bleibt unmarkiert. */
+  [data-ui-reveal="wait"] {
+    opacity: 0;
+    translate: 0 calc(var(--rise) * 2);
+  }
+
+  [data-ui-reveal="in"] {
+    transition: opacity var(--dur-enter) var(--ease-out), translate var(--dur-enter) var(--ease-out);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+}
+
+@media print {
+  [data-ui-reveal] {
+    opacity: 1 !important;
+    translate: none !important;
+  }
+}
+
+.ui-player-stacked,
+.ui-player-stacked:has(> .ui-player-actions) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.ui-player-stacked > .ui-player-time {
+  grid-column: 2;
+  justify-self: end;
+}
+.ui-player-stacked .ui-player-heading { flex: 1; }
+.ui-player-stacked .ui-player-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: inherit;
+}
+.ui-player-stacked .ui-player-meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ui-media-card {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-item);
+}
+.ui-media-download, .ui-player-stacked .ui-player-toggle {
+  min-width: 44px;
+  min-height: 44px;
+}
+.ui-media-download[hidden] { display: none; }
+.ui-media-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+.ui-media-facts > div { min-width: 0; max-width: 100%; }
+.ui-media-facts dt { font-size: var(--text-xs); color: var(--color-text-muted); }
+.ui-media-facts dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ui-media-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ui-media-actions .btn { box-sizing: border-box; min-height: 44px; }

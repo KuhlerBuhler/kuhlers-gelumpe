@@ -1,0 +1,38 @@
+{
+ "bzip2": {
+  "empty": {
+   "length": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "one": {
+   "length": 1,
+   "sha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+  },
+  "runs": {
+   "length": 3410,
+   "sha256": "49a2507c260156ea44f892615dbe80bf4c19fd4fe04d169e7a2e82c6cea06d99"
+  },
+  "small-alphabet-3-blocks": {
+   "length": 250000,
+   "sha256": "d421bd297b4681a9768000573e0cf01a865bfe03405f1a025b603f57981d9011"
+  },
+  "noise-level-9": {
+   "length": 70000,
+   "sha256": "7b844f840dec200a7d02f8519a5601d8ea99aa0f940b0eb8feb93ad8d3c1fbe8"
+  },
+  "zeros-2mib": {
+   "length": 2097152,
+   "sha256": "5647f05ec18958947d32874eeb788fa396a05d0bab7c1b71f112ceb7e9b31eee"
+  }
+ },
+ "fake": {
+  "original": "88a6c5817ff8145fd80e6e909a415242d037420652b780ade2ac1717c9492a08",
+  "hacktribe": "ea54ce72b5d036347799afc6d0c67ed692d0968f0de6d698f7b95532df093025"
+ },
+ "patch": {
+  "old": "06dfaa4d07847a89e0fbdef140a7e44bd258c62a611601151f284073913e8dd7",
+  "new": "c8103dcf33c772a5caabced16bb3618819afe91c6cba67f80c6e93f08d2da125",
+  "size": 2097408,
+  "patchBytes": 312
+ }
+}

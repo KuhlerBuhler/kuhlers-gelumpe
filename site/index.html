@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>Kuhler's GELUMPE</title>
+  <link rel="stylesheet" href="design/colors.min.css" />
+  <link rel="stylesheet" href="design/root.min.css" />
+  <link rel="stylesheet" href="app.css" />
+  <link rel="stylesheet" href="app/rescue.css" />
+  <script src="design/ui.js" defer></script>
+  <script src="design/bg.js" defer></script>
+  <script type="module" src="app/main.mjs"></script>
+</head>
+<body>
+  <canvas id="bg-canvas" class="cee-bg" aria-hidden="true"></canvas>
+  <div class="cee-app">
+    <aside class="cee-sidebar" id="cee-sidebar">
+      <div class="cee-side-head">
+        <a class="cee-brand" id="cee-brand" href="#start">Kuhler's GELUMPE</a>
+        <button type="button" class="btn icon cee-collapse" id="cee-collapse" aria-label="Seitenleiste ein/ausklappen" aria-expanded="true" aria-controls="cee-side-body">
+          <svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+      </div>
+      <div class="cee-side-body" id="cee-side-body">
+      <nav class="cee-nav" aria-label="Bereiche">
+        <div role="tablist" aria-label="Bereiche" aria-orientation="vertical" id="cee-areas">
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-start" data-tab="start" aria-controls="cee-area-start" aria-selected="true">Start</button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-emu" data-gap data-tab="emu" aria-controls="cee-area-emu" aria-selected="false" tabindex="-1">Emulator</button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-device" hidden data-tab="device" aria-controls="cee-area-device" aria-selected="false" tabindex="-1">Gerät</button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-patcher" data-gap data-tab="patcher" aria-controls="cee-area-patcher" aria-selected="false" tabindex="-1">Patcher</button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-fx" data-gap data-tab="fx" aria-controls="cee-area-fx" aria-selected="false" tabindex="-1">Presets</button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-mod" data-gap data-tab="mod" aria-controls="cee-area-mod" aria-selected="false" tabindex="-1">Modulationen</button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-ptools" data-gap data-labs data-tab="ptools" aria-controls="cee-area-ptools" aria-selected="false" tabindex="-1">Pattern-Werkzeuge</button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-samples" data-gap data-labs data-tab="samples" aria-controls="cee-area-samples" aria-selected="false" tabindex="-1">Samples</button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-scripts" data-gap data-tab="scripts" aria-controls="cee-area-scripts" aria-selected="false" tabindex="-1">Plugins</button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-rescue" data-gap data-tab="rescue" aria-controls="cee-area-rescue" aria-selected="false" tabindex="-1">Rettung</button>
+        </div>
+      </nav>
+      <p class="cee-sidebar-lead">Für die Electribe 2 Sampler mit Firmware 2.02 und Hacktribe. Deine Dateien verlassen deinen Rechner nicht.</p>
+      <button type="button" class="btn cee-settings-button" id="cee-settings-button">Einstellungen</button>
+      <a class="cee-text-link cee-donate" id="cee-donate" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Spenden per PayPal</a>
+      </div>
+    </aside>
+
+    <div class="cee-right">
+      <header class="cee-navbar">
+        <button type="button" class="btn cee-menu" id="cee-menu" aria-expanded="false" aria-controls="cee-sidebar">Menü</button>
+        <strong class="cee-nav-title" id="cee-nav-title">Start</strong>
+        <div class="cee-mode" id="cee-mode" hidden>
+          <button type="button" class="cee-mode-button" id="cee-mode-button" aria-haspopup="menu" aria-expanded="false" aria-controls="cee-mode-menu">
+            <span id="cee-mode-label">Emulator</span>
+          </button>
+          <div class="cee-mode-menu" id="cee-mode-menu" role="menu" aria-label="Emulator oder echtes Gerät" hidden>
+            <button type="button" class="cee-mode-item" role="menuitemradio" aria-checked="true" data-value="emu" tabindex="-1">Emulator</button>
+            <button type="button" class="cee-mode-item" role="menuitemradio" aria-checked="false" data-value="device" tabindex="-1">Echtes Gerät</button>
+          </div>
+        </div>
+        <a class="btn" id="cee-update" href="#" hidden target="_self" rel="noopener"></a>
+        <div class="cee-nav-state" id="cee-nav-state" aria-live="polite"></div>
+      </header>
+
+      <main class="ui-page cee-main">
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-start" aria-labelledby="cee-tab-start" tabindex="0" hidden>
+        <section class="ui-section cee-home" id="cee-start-page" data-no-reveal>
+          <h1 class="cee-home-title">Atze, wat wird'n ditte hier? Korg verkuhlen or wa?</h1>
+          <p class="cee-note"><strong>Gerät kaputt?</strong> Zeigt deine Electribe nur „00“ oder startet nicht mehr? Die <a class="cee-text-link" href="#rescue" id="cee-start-rescue">Rettung</a> führt durch den dokumentierten Weg zurück.</p>
+
+          <div class="cee-sec">
+            <h2>Was ist das?</h2>
+            <p>Ein grafischer Leser und Modifizierer für die Electribe 2 Sampler, dazu ein Emulator und ein Patcher für die BLECH-Firmware, die "Blechtribe". BLECH läuft entweder auf Hacktribe oder direkt auf Korgs Original-Firmware des roten Samplers. Für die blaue Electribe 2 mit Firmware 2.02 gibt es einen eigenen, im Emulator geprüften Synth-Satz mit Theme, Startbild, Spielhilfen, BLECH-Menü und Plugins.</p>
+          </div>
+
+          <div class="cee-sec">
+            <h2>Was man damit machen kann</h2>
+            <ul class="cee-cards">
+              <li class="cee-card"><h3>BLECH patchen</h3><p>Du lädst deine eigene Firmware, wählst die Patches und bekommst eine neue Datei für die SD-Karte. Der Emulator bootet sie vorher.</p></li>
+              <li class="cee-card"><h3>Presets bauen und reparieren</h3><p>Eigene MFX- und IFX-Presets anlegen oder welche glattziehen, die dir nicht gefallen. Mit Namen und echten Einheiten statt Bytes.</p></li>
+              <li class="cee-card"><h3>Plugins</h3><p>Komplette Firmware-Erweiterungen selbst bauen oder fertige aus dem Katalog holen.</p></li>
+              <li class="cee-card"><h3>Emulator</h3><p>Plugins ausprobieren, ohne dass ein Gerät dranhängt.</p></li>
+              <li class="cee-card"><h3>Live am Gerät</h3><p>Mit BLECH auf einer echten Electribe: live mit dem Gerät reden, neue Presets in den RAM schreiben und probieren, Plugins direkt drauf testen.</p></li>
+              <li class="cee-card"><h3>Nichts geht kaputt</h3><p>Der Emulator sitzt immer davor. Jeder Schreibzugriff wird dort zuerst geprüft, der Bootloader wird nie angefasst. Gefährliche Befehle kommen nicht durch.</p></li>
+            </ul>
+          </div>
+
+          <div class="cee-sec">
+            <h2>Wer ich bin</h2>
+            <p>Kuhler Buhler aka Pascal. Ich bin Softwareentwickler und mache Live-Acts. Nachdem ich Hacktribe installiert hatte, ist mir aufgefallen, dass man die MFX- und IFX-Presets bearbeiten kann. Danach war ich ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.</p>
+          </div>
+
+          <div class="cee-sec">
+            <h2>Wieso</h2>
+            <p>Mich nervt, was Korg mit der Electribe 2 gemacht hat: liegen gelassen. Mit BLECH hab ich praktisch die Electribe 3 gebaut.</p>
+          </div>
+
+          <div class="cee-sec">
+            <h2>Spenden</h2>
+            <p>Wenn dir das was bringt: <a class="cee-text-link" id="cee-donate-start" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Spende per PayPal</a>.</p>
+          </div>
+
+          <div class="cee-sec">
+            <h2>Was du brauchst</h2>
+            <p>Alles läuft auf deinem Rechner: die App oder die Seite im Browser und ein kleiner Emulator daneben. Deine Dateien verlassen ihn nicht, Korg-Firmware ist nicht dabei. Du brauchst:</p>
+            <ul>
+              <li>deine eigene Korg Electribe 2 Sampler mit Firmware 2.02, Korgs Original oder Hacktribe,</li>
+              <li>deine eigene Firmware-Datei (SYSTEM.VSB),</li>
+              <li>optional deine Samples (<code>e2sSample.all</code>) und Patterns (<code>.e2sallpat</code>) im Kartenordner des Emulators,</li>
+              <li>zum Verbinden mit dem echten Gerät USB-MIDI in Chrome oder Edge.</li>
+            </ul>
+          </div>
+
+          <div class="cee-sec">
+            <h2>Woher es kommt</h2>
+            <p>Baut auf Hacktribe auf (offene Mods für die Electribe, AGPL) und auf Wissen aus dem Freetribe-Projekt. Alles wird aus deinen eigenen Dateien gelesen.</p>
+          </div>
+          <p class="cee-home-foot">Viel Spaß beim Verkuhlen.</p>
+        </section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-emu" aria-labelledby="cee-tab-emu" tabindex="0" hidden>
+        <section class="ui-section" id="cee-emu" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-device" aria-labelledby="cee-tab-device" tabindex="0" hidden>
+        <section class="ui-section" id="cee-device" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-patcher" aria-labelledby="cee-tab-patcher" tabindex="0" hidden>
+        <section class="ui-section" id="cee-patcher" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-fx" aria-labelledby="cee-tab-fx" tabindex="0" hidden>
+        <section class="ui-section" id="cee-fx" data-no-reveal></section>
+        <section class="ui-section" id="cee-levels" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-mod" aria-labelledby="cee-tab-mod" tabindex="0" hidden>
+        <section class="ui-section" id="cee-mod" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-ptools" aria-labelledby="cee-tab-ptools" tabindex="0" hidden>
+        <section class="ui-section" id="cee-ptools" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-samples" aria-labelledby="cee-tab-samples" tabindex="0" hidden>
+        <section class="ui-section" id="cee-samples" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-patterns" aria-labelledby="cee-tab-patterns" tabindex="0" hidden>
+        <div class="actions cee-pattern-actions">
+          <span class="muted" id="cee-changes" aria-live="polite"></span>
+          <div class="actions-buttons">
+            <button type="button" class="btn" id="cee-undo" disabled>Rückgängig</button>
+            <button type="button" class="btn primary" id="cee-save" disabled>Speichern</button>
+          </div>
+        </div>
+        <div class="actions cee-pattern-device" id="cee-pattern-device" hidden>
+          <button type="button" class="btn" id="cee-fetch">Vom Gerät holen</button>
+          <button type="button" class="btn" id="cee-send-pattern" disabled>An Gerät senden</button>
+          <button type="button" class="btn" id="cee-pattern-undo" disabled>Senden zurücknehmen</button>
+        </div>
+
+        <p class="cee-error" id="cee-error" role="alert" hidden></p>
+        <section class="ui-section" id="cee-start">
+          <label class="ui-dropzone">
+            <input type="file" class="ui-dropzone-input" id="cee-file" accept=".e2sallpat,.e2spat">
+            <span class="ui-dropzone-title"><span class="ui-dropzone-drag">Pattern-Sicherung hierher ziehen oder </span>auswählen</span>
+            <span class="ui-dropzone-hint">.e2sallpat mit allen Patterns oder .e2spat mit einem</span>
+            <span class="ui-dropzone-files"></span>
+          </label>
+          <p class="muted">Gespeichert wird nur, was du änderst. Alles andere bleibt Byte für Byte, wie das Gerät es geschrieben hat.</p>
+        </section>
+
+        <div class="ui-split" id="cee-split" hidden>
+          <button type="button" class="btn ui-split-toggle" aria-expanded="false" aria-controls="cee-side">Patterns</button>
+          <aside class="ui-split-side" id="cee-side"></aside>
+          <div class="ui-split-main">
+            <div class="cee-loaded-bar">
+              <span class="muted ui-truncate" id="cee-loaded"></span>
+              <label class="btn sm cee-reload">Andere Datei<input type="file" id="cee-reload" accept=".e2sallpat,.e2spat" class="cee-visually-hidden"></label>
+            </div>
+            <div id="cee-main" data-no-reveal></div>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-scripts" aria-labelledby="cee-tab-scripts" tabindex="0" hidden>
+        <section class="ui-section" id="cee-scripts" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-rescue" aria-labelledby="cee-tab-rescue" tabindex="0" hidden>
+        <section class="ui-section" id="cee-rescue" data-no-reveal></section>
+      </div>
+
+      </main>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,2141 @@
+/* Editor-eigene Klassen, alle mit Praefix cee-. Standard-Klassen aus
+   design/root.min.css werden hier nicht umdefiniert. */
+:root {
+  --cee-navbar-h: var(--space-16);
+}
+
+html {
+  scroll-padding-top: 6rem;
+}
+
+/* Thin, quiet scrollbars. WebKit (the app's web view) has no scrollbar-color yet, so it gets the
+   pseudo elements; the standard properties cover Chrome and Firefox. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: var(--space-2);
+  height: var(--space-2);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The transparent border keeps the visible thumb half as wide as the track. */
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-strong);
+  background-clip: padding-box;
+  border: calc(var(--space-1) / 2) solid transparent;
+  border-radius: var(--space-1);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-muted);
+}
+
+/* The design's sticky side column sticks at 1rem, which is under the sticky navbar. */
+#cee-scripts-side,
+#cee-side {
+  top: 6rem;
+}
+
+/* Page background, drawn by design/bg.js on a 1-bit cell grid (one canvas pixel per cell,
+   scaled up without smoothing). The opacities are per layer, the pixels themselves are on or off. */
+.cee-bg {
+  --cee-bg-cell: 4;
+  --cee-bg-ink: var(--color-accent-primary);
+  --cee-bg-eye: var(--color-text-primary);
+  --cee-bg-dust: 0.07;
+  --cee-bg-band: 0.14;
+  --cee-bg-star-dim: 0.18;
+  --cee-bg-star: 0.32;
+  --cee-bg-eye-opacity: 0.26;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+.cee-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.cee-error {
+  color: var(--color-text-danger);
+  margin-top: var(--space-3);
+}
+
+.cee-hint {
+  color: var(--color-text-warning);
+  margin: var(--space-2) 0;
+}
+
+.cee-loaded-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  min-width: 0;
+}
+
+.cee-reload:focus-within,
+label.btn:has(+ .cee-visually-hidden:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cee-reload {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.cee-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-4) var(--space-6);
+  align-items: start;
+}
+
+.cee-group + .cee-group {
+  margin-top: var(--space-6);
+}
+
+.cee-group h3,
+.cee-step-detail h3 {
+  margin-bottom: var(--space-3);
+}
+
+.cee-outside {
+  color: var(--color-text-warning);
+  font-size: var(--text-xs);
+  margin-left: var(--space-2);
+}
+
+.cee-part-tabs {
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.cee-pattern-list {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+
+.cee-pattern-item {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  min-height: var(--control-target-min);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--color-text-secondary);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.cee-pattern-item:hover {
+  background: var(--color-surface-item-muted);
+}
+
+.cee-pattern-item[aria-current="true"] {
+  border-color: var(--color-border-accent);
+  color: var(--color-text-primary);
+}
+
+.cee-pattern-num {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  min-width: var(--space-10);
+  flex-shrink: 0;
+}
+
+/* Step-Raster */
+.cee-steps {
+  margin: var(--space-4) 0;
+  container-type: inline-size;
+}
+
+.cee-steps-row {
+  display: grid;
+  grid-template-columns: repeat(16, minmax(var(--control-target-min), 1fr));
+  gap: var(--space-1);
+}
+
+.cee-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: var(--space-16);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-panel-alt);
+  color: var(--color-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+[role="gridcell"]:nth-child(4n + 1) .cee-step {
+  border-color: var(--color-border-strong);
+}
+
+.cee-step[aria-pressed="true"] {
+  background: var(--color-surface-item-strong);
+  border-color: var(--color-border-accent-strong);
+  color: var(--color-text-accent);
+}
+
+.cee-step[aria-pressed="true"][data-trigger="false"] {
+  border-style: dashed;
+  border-color: var(--color-border-warning);
+}
+
+.cee-step-num {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.cee-step-note {
+  font-size: var(--text-2xs);
+  min-height: var(--space-4);
+}
+
+.cee-step-detail {
+  margin-top: var(--space-4);
+}
+
+/* 16 tap targets of 44 px plus gaps need about 770 px; below that, two rows of 8. */
+@container (max-width: 780px) {
+  .cee-steps-row {
+    grid-template-columns: repeat(8, minmax(var(--control-target-min), 1fr));
+  }
+}
+
+/* Eight targets of 44 px plus gaps need about 380 px; on a phone, four to a row. */
+@container (max-width: 400px) {
+  .cee-steps-row {
+    grid-template-columns: repeat(4, minmax(var(--control-target-min), 1fr));
+  }
+}
+
+.cee-pattern-actions {
+  margin-bottom: var(--space-4);
+}
+
+.cee-identity {
+  margin: var(--space-4) 0;
+}
+
+.cee-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: end;
+  margin-bottom: var(--space-6);
+}
+
+.cee-fxmap-row {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border-faint);
+}
+
+.cee-small {
+  font-size: var(--text-xs);
+}
+
+.cee-fxhead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-6);
+  align-items: end;
+  justify-content: space-between;
+}
+
+.cee-fxsec + .cee-fxsec {
+  margin-top: var(--space-5);
+}
+
+.cee-fxsec h4 {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.cee-sentence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.cee-num {
+  width: calc(var(--space-16) + var(--space-3));
+}
+
+.cee-range {
+  display: block;
+  position: relative;
+  height: var(--space-1);
+  margin-top: var(--space-2);
+  background: var(--color-border-faint);
+}
+
+.cee-range-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-color: var(--color-text-muted);
+}
+
+.cee-bytes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.cee-byte {
+  width: var(--space-16);
+}
+
+.cee-verdict {
+  margin-top: var(--space-6);
+}
+
+.cee-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-4) 0;
+}
+
+.cee-device-status,
+.cee-emu-status {
+  margin-top: var(--space-4);
+}
+
+.cee-job {
+  margin-top: var(--space-4);
+}
+
+.cee-lcd-frame {
+  display: block;
+  box-sizing: border-box;
+  width: min(100%, 32rem);
+  padding: var(--space-3);
+  margin: var(--space-4) 0 var(--space-2);
+  background: var(--color-bg-page-deep);
+  max-width: 100%;
+}
+
+.cee-lcd {
+  --cee-lcd-on: var(--color-print-ink);
+  --cee-lcd-off: var(--color-print-paper);
+  display: block;
+  width: min(100%, 32rem);
+  aspect-ratio: 2 / 1;
+  image-rendering: pixelated;
+}
+
+.cee-emu-export {
+  margin-top: var(--space-8);
+}
+
+.cee-icon {
+  flex-shrink: 0;
+  width: var(--space-5);
+  height: var(--space-5);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cee-icon-solid {
+  fill: currentColor;
+}
+
+/* Emulator page: the controls to start it come first, then the device. */
+.cee-emu-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.cee-emu-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cee-emu-status {
+  margin: 0;
+}
+
+.cee-emu-device {
+  margin: var(--space-6) 0;
+}
+
+/* Bedienbare Electribe im Emulator: eigene Zeichnung aus Tokenfarben, kein
+   Foto, keine Marke. Positionen im 1200 x 700 Raum des Prototyps; das
+   Gehäuse ist darin der Ausschnitt 88..1109 x 68..636. Die Zeichnung skaliert
+   mit ihrer Breite (cqw) und behält jedes Seitenverhältnis. */
+.cee-e2 {
+  --cee-tone-red: var(--color-status-error);
+  --cee-tone-blue: var(--color-chart-blue);
+  --cee-tone-purple: color-mix(in oklch, var(--color-status-error) 50%, var(--color-chart-blue));
+  min-width: 0;
+}
+
+.cee-main > .ui-tabpanel,
+.cee-main > .ui-tabpanel > .ui-section {
+  min-width: 0;
+}
+
+/* One rule for the space between the sections of a page, so a heading never sits on the block above it. */
+.cee-main > .ui-tabpanel:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* A mount point that has nothing in it yet (status line, editor, verdict) would still cost one section gap.
+   It stays in the tree for screen readers and takes its own gap back. */
+.cee-main .ui-section > :is(div, p, span):empty {
+  margin-block: calc(var(--space-5) * -1) 0;
+}
+
+@media (max-width: 720px) {
+  .cee-main .ui-section > :is(div, p, span):empty {
+    margin-block: calc(var(--space-3) * -1) 0;
+  }
+}
+
+.cee-e2-viewport {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.cee-e2-body {
+  --cee-e2-fill: var(--color-surface-item);
+  --cee-e2-chrome: 14rem;
+  container-type: inline-size;
+  position: relative;
+  /* The border counts into the width, else 100% plus the border overflows the viewport by 2px and scrolls. */
+  box-sizing: border-box;
+  /* The whole device fits the viewport height below the navbar and toolbar. */
+  width: min(100%, (100dvh - var(--cee-e2-chrome)) * 1021 / 568);
+  margin-inline: auto;
+  aspect-ratio: 1021 / 568;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface-panel);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.cee-e2-at {
+  position: absolute;
+  left: calc((var(--x) - 88) / 1021 * 100%);
+  top: calc((var(--y) - 68) / 568 * 100%);
+  width: calc(var(--w) / 1021 * 100%);
+  height: calc(var(--h) / 568 * 100%);
+  box-sizing: border-box;
+}
+
+.cee-e2-section {
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  pointer-events: none;
+}
+
+.cee-e2-section-name {
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(100% + 0.3cqw);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+/* INSERT FX sits next to the case edge: centred, its title would run out of the device on a narrow window. */
+.cee-e2-section-name-end {
+  inset-inline-start: auto;
+  text-align: end;
+}
+
+.cee-e2-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6cqw;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-page-deep);
+}
+
+.cee-e2-screen .cee-lcd-frame {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  background: none;
+}
+
+.cee-e2-screen .cee-lcd {
+  width: 100%;
+}
+
+.cee-e2[data-power="off"] .cee-lcd {
+  visibility: hidden;
+}
+
+.cee-e2-label {
+  color: var(--color-text-secondary);
+  font-size: 0.8cqw;
+  font-family: var(--font-mono);
+  text-align: center;
+  line-height: 1.1;
+}
+
+.cee-e2-btn,
+.cee-e2-pad {
+  transition: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.cee-e2-btn {
+  background: color-mix(in srgb, var(--cee-tone-red) calc(var(--cee-e2-glow, 0) * 75%), var(--cee-e2-fill));
+}
+
+.cee-e2-btn .cee-e2-label {
+  color: inherit;
+}
+
+.cee-e2-btn .cee-icon {
+  width: 1.6cqw;
+  height: 1.6cqw;
+}
+
+.cee-e2-btn-fit .cee-e2-label {
+  font-size: 0.72cqw;
+  white-space: nowrap;
+}
+
+.cee-e2-btn[data-lit="on"],
+.cee-e2-pad[data-tone="red"],
+.cee-e2-pad[data-tone="blue"],
+.cee-e2-pad[data-tone="purple"] {
+  color: var(--color-text-primary);
+}
+
+/* A lit key keeps its LED colour under the pointer; the standard hover grey would read as off. */
+.cee-e2-btn:hover {
+  background: color-mix(in srgb, var(--cee-tone-red) calc(var(--cee-e2-glow, 0) * 75%), var(--cee-e2-fill));
+  filter: brightness(1.12);
+}
+
+.cee-e2-btn[data-down="true"] {
+  border-color: var(--color-accent-primary);
+}
+
+.cee-e2-btn[data-latched="true"] {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: -3px;
+}
+
+.cee-e2-btn:focus-visible,
+.cee-e2-pad:focus-visible,
+.cee-e2-dial:focus-visible,
+.cee-e2-touchpad:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cee-e2-pad {
+  --cee-e2-base: color-mix(in srgb, var(--color-bg-page-deep) 80%, transparent);
+  position: absolute;
+  border-radius: var(--radius-md);
+  background: var(--cee-e2-base);
+}
+
+.cee-e2-pad[data-tone="red"] {
+  --cee-e2-lit: var(--cee-tone-red);
+}
+
+.cee-e2-pad[data-tone="blue"] {
+  --cee-e2-lit: var(--cee-tone-blue);
+}
+
+.cee-e2-pad[data-tone="purple"] {
+  --cee-e2-lit: var(--cee-tone-purple);
+}
+
+/* The pad stays dark; its LED is a soft glow filling most of the pad, brightest in a small core. */
+.cee-e2-pad::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 78%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: var(--cee-e2-glow, 0);
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--cee-e2-lit, transparent) 55%, white) 0,
+    var(--cee-e2-lit, transparent) 14%,
+    color-mix(in srgb, var(--cee-e2-lit, transparent) 55%, transparent) 38%,
+    transparent 70%);
+}
+
+.cee-e2-pad:not([data-tone="off"]) {
+  border-color: var(--cee-e2-lit);
+}
+
+.cee-e2-pad .cee-e2-label {
+  position: absolute;
+  right: 8%;
+  top: 6%;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.cee-e2-pad:not([data-tone="off"]) .cee-e2-label {
+  color: var(--color-text-primary);
+}
+
+.cee-e2-control {
+  display: block;
+}
+
+.cee-e2-control .cee-e2-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.25cqw);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.cee-e2-dial {
+  --cee-e2-angle: 0;
+  display: block;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--cee-e2-fill);
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.cee-e2-encoder {
+  border-width: 0.3cqw;
+  border-style: double;
+}
+
+.cee-e2-fixed {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.cee-e2-mark {
+  position: absolute;
+  left: calc(50% - 0.125cqw);
+  top: 12%;
+  width: 0.25cqw;
+  height: 38%;
+  background: var(--color-text-primary);
+  transform-origin: 50% 100%;
+  transform: rotate(calc(var(--cee-e2-angle, 0) * 1deg));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cee-e2-mark {
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+}
+
+.cee-e2-touchpad {
+  --cee-e2-x: 0.5;
+  --cee-e2-y: 0.5;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-page-deep);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.cee-e2-touchpoint {
+  position: absolute;
+  left: calc(var(--cee-e2-x) * 100%);
+  top: calc(var(--cee-e2-y) * 100%);
+  box-sizing: border-box;
+  width: 1.2cqw;
+  height: 1.2cqw;
+  flex: none;
+  border: 2px solid var(--color-text-muted);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.4;
+}
+
+.cee-e2-touchpad[data-down="true"] .cee-e2-touchpoint {
+  border-color: var(--color-accent-primary);
+  opacity: 1;
+}
+
+.cee-e2-pop {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 11rem;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-popover);
+  backdrop-filter: blur(var(--glass-blur));
+  font-size: var(--text-sm);
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+.cee-e2-pop[hidden] {
+  display: none;
+}
+
+.cee-e2-pop-title {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* App shell: full-height sidebar on the left, navbar and page to its right. */
+.cee-app {
+  display: grid;
+  grid-template-columns: 28.125rem minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* Folded, the sidebar is no column any more: title and toggle float in the top left, in the navbar row. */
+.cee-app[data-collapsed] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cee-app[data-collapsed] .cee-sidebar {
+  position: fixed;
+  inset: 0 auto auto 0;
+  z-index: 11;
+  height: var(--space-16);
+  justify-content: center;
+  padding: 0 var(--space-6);
+  border-right-width: 0;
+  background: none;
+}
+
+.cee-app[data-collapsed] .cee-navbar {
+  padding-inline-start: 22rem;
+}
+
+.cee-app[data-collapsed] .cee-side-body {
+  display: none;
+}
+
+.cee-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  box-sizing: border-box;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: 0 var(--space-4) var(--space-5);
+  /* Mostly covers the page background: the dither shows through faintly, the labels keep 4.5:1. */
+  --cee-sidebar-opacity: 0.8;
+  background: color-mix(in srgb, color-mix(in srgb, var(--color-bg-page) 96%, white) calc(var(--cee-sidebar-opacity) * 100%), transparent);
+  border-right: 1px solid var(--color-border-muted);
+}
+
+.cee-brand {
+  color: var(--color-text-primary);
+  text-decoration: none;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.cee-brand:focus-visible,
+.cee-nav-item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cee-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cee-nav [role="tablist"] {
+  display: contents;
+}
+
+.cee-nav-item[hidden] {
+  display: none;
+}
+
+.cee-nav-item[data-gap] {
+  margin-top: var(--space-3);
+}
+
+.cee-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: var(--control-target-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cee-nav-item:hover {
+  background: var(--color-surface-item-muted);
+  color: var(--color-text-primary);
+}
+
+.cee-nav-item[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: none;
+  color: var(--color-text-secondary);
+}
+
+.cee-nav-item[aria-selected="true"],
+.cee-nav-item[data-active] {
+  background: var(--color-surface-item-strong);
+  border-color: var(--color-border-accent-strong);
+  color: var(--color-text-accent);
+}
+
+/* Options of the open page, folded under its entry. */
+.cee-nav-sub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.cee-nav-sub[hidden] {
+  display: none;
+}
+
+.cee-sidebar-lead {
+  margin-top: auto;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.cee-right {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+}
+
+.cee-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  box-sizing: border-box;
+  min-height: var(--cee-navbar-h);
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-bg-page-alt);
+  border-bottom: 1px solid var(--color-border-muted);
+}
+
+.cee-nav-title {
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+}
+
+.cee-nav-state {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.cee-nav-title[hidden],
+.cee-mode[hidden] {
+  display: none;
+}
+
+.cee-mode {
+  position: relative;
+}
+
+.cee-mode-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-target-min);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cee-mode-button:hover {
+  background: var(--color-surface-item-muted);
+}
+
+.cee-mode-button:focus-visible,
+.cee-mode-item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cee-mode-button .cee-icon {
+  transition: rotate var(--dur-base) var(--ease-out);
+}
+
+.cee-mode-button[aria-expanded="true"] .cee-icon {
+  rotate: 180deg;
+}
+
+.cee-mode-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + var(--space-1));
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 13rem;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-popover);
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+.cee-mode-menu[hidden] {
+  display: none;
+}
+
+.cee-mode-item {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-target-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cee-mode-item:hover {
+  background: var(--color-surface-item-muted);
+  color: var(--color-text-primary);
+}
+
+.cee-mode-item[aria-checked="true"] {
+  background: var(--color-surface-item-strong);
+  border-color: var(--color-border-accent-strong);
+  color: var(--color-text-accent);
+}
+
+.cee-menu {
+  display: none;
+}
+
+.cee-side-head {
+  display: flex;
+  box-sizing: border-box;
+  /* As tall as the navbar, so brand and toggle sit on the same centre line as the page title, folded or not. */
+  min-height: var(--space-16);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.cee-side-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+}
+
+.cee-collapse {
+  flex-shrink: 0;
+}
+
+.cee-main.ui-page {
+  padding-top: var(--space-6);
+}
+
+.cee-home-title {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  line-height: 1.15;
+  max-width: 42rem;
+}
+
+.cee-home {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.cee-note {
+  max-width: 46rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-accent-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-item-muted);
+}
+
+.cee-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 46rem;
+}
+
+.cee-sec p {
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.cee-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-card {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-card h3 {
+  margin-bottom: var(--space-1);
+  font-size: var(--text-md);
+}
+
+.cee-home-foot {
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 60rem) {
+  .cee-app {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cee-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    width: min(18.75rem, 85vw);
+    background: var(--color-bg-page-alt);
+    transform: translateX(-100%);
+    visibility: hidden;
+  }
+
+  .cee-sidebar[data-open] {
+    transform: none;
+    visibility: visible;
+  }
+
+  .cee-menu {
+    display: inline-flex;
+  }
+
+  .cee-collapse {
+    display: none;
+  }
+
+  /* A folded desktop sidebar has no meaning for the drawer. */
+  .cee-app[data-collapsed] .cee-side-body {
+    display: flex;
+  }
+
+  .cee-app[data-collapsed] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cee-navbar {
+    padding-inline: var(--space-4);
+  }
+}
+
+.cee-emu-live {
+  margin-top: var(--space-6);
+}
+
+.cee-side-where:empty,
+.cee-emu-live p:empty {
+  display: none;
+}
+
+.cee-term-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 16rem;
+  max-height: 60vh;
+  overflow: auto;
+  margin: var(--space-4) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-page-deep);
+}
+
+.cee-term-line {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+
+.cee-term-in { color: var(--color-text-accent); }
+.cee-term-error { color: var(--color-text-danger); }
+
+.cee-term-prompt {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.cee-term-input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-item-muted);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  resize: vertical;
+}
+
+.cee-term-target { margin: 0; }
+.cee-term-rehearsal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+.cee-term-rehearsal[hidden] { display: none; }
+.cee-term-rehearsal-head { margin: 0; }
+.cee-term-steps { margin: 0; padding-left: var(--space-5); font-family: var(--font-mono); font-size: var(--text-xs); }
+.cee-term-failed { color: var(--color-text-danger); }
+
+/* The power key is a round recessed button, as on the device. */
+.btn.cee-e2-power {
+  width: calc(var(--w) / 1021 * 100%);
+  height: calc(var(--h) / 568 * 100%);
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-bg-page-deep);
+  box-shadow: inset 0 0.25cqw 0.6cqw color-mix(in srgb, var(--color-bg-page-deep) 60%, black);
+  touch-action: none;
+}
+
+.cee-e2-power .cee-icon {
+  width: 55%;
+  height: 55%;
+}
+
+.cee-e2-power[data-down="true"] {
+  border-color: var(--color-accent-primary);
+}
+
+.cee-e2-power-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cee-e2-power-label .cee-icon {
+  width: 1cqw;
+  height: 1cqw;
+}
+
+/* Keys with two LEDs (PLAY, bars 1 to 4): blue in the upper part, red in the lower; the key stays dark. */
+.cee-e2-btn-dots,
+.cee-e2-btn-dots:hover {
+  background: var(--cee-e2-fill);
+  filter: none;
+}
+
+.cee-e2-led {
+  position: absolute;
+  left: 50%;
+  width: 0.7cqw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  --cee-e2-lit: var(--cee-tone-red);
+  background: color-mix(in srgb, var(--cee-e2-lit) calc(var(--cee-e2-glow, 0) * 100%), transparent);
+  box-shadow: 0 0 0.7cqw 0.15cqw color-mix(in srgb, var(--cee-e2-lit) calc(var(--cee-e2-glow, 0) * 70%), transparent);
+}
+
+.cee-e2-led[data-color="blue"] {
+  --cee-e2-lit: var(--cee-tone-blue);
+  top: 18%;
+}
+
+.cee-e2-led[data-color="red"] {
+  top: 82%;
+}
+
+/* Endless encoders have no end stop, so no marker line. */
+.cee-e2-endless .cee-e2-mark {
+  display: none;
+}
+
+/* PLAY has only blue LEDs: the key itself glows blue. */
+.cee-e2-btn-blue,
+.cee-e2-btn-blue:hover {
+  background: color-mix(in srgb, var(--cee-tone-blue) calc(var(--cee-e2-glow, 0) * 60%), var(--cee-e2-fill));
+}
+
+/* The app is a tool, not a document: chrome is not selectable and the drawing cannot be dragged away.
+   Inputs, the terminal and other real text keep their selection. */
+.cee-sidebar,
+.cee-navbar,
+.cee-e2,
+.cee-e2 *,
+.cee-emu-device,
+.cee-brand,
+.cee-nav-item,
+.cee-side-head,
+.ui-section-head,
+button,
+summary,
+label {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.cee-e2,
+.cee-e2 * {
+  -webkit-user-drag: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable],
+.cee-e2-pop,
+.cee-e2-pop *,
+.cee-term-log,
+.cee-term-log *,
+.cee-term-input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Plugins-Seite: Editor (CodeMirror aus site/vendor), Probe-Anzeige und simuliertes Gerät. */
+.cee-script-editor {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 16rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-item-muted);
+  overflow: hidden;
+}
+
+.cee-script-editor:focus-within {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cee-script-editor .cm-editor {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: none;
+  color: var(--color-text-primary);
+}
+
+.cee-script-editor .cm-editor.cm-focused { outline: none; }
+
+.cee-script-editor .cm-scroller {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.cee-script-editor .cm-content {
+  padding-block: var(--space-3);
+  caret-color: var(--color-text-primary);
+}
+
+.cee-script-editor .cm-line { padding-inline: var(--space-3); }
+.cee-script-editor .cm-content[aria-readonly="true"] { color: var(--color-text-secondary); }
+.cee-script-editor .cm-activeLine { background: var(--color-surface-faint); }
+.cee-script-editor .cm-matchingBracket { background: var(--color-surface-highlight); outline: 1px solid var(--color-border-strong); }
+.cee-script-editor .cm-nonmatchingBracket { color: var(--color-text-danger); }
+.cee-script-editor .cm-specialChar { color: var(--color-text-danger); }
+
+.cee-script-editor .cm-gutters {
+  min-width: var(--space-10);
+  border: 0;
+  border-right: 1px solid var(--color-border-faint);
+  background: none;
+  color: var(--color-text-muted);
+}
+
+.cee-script-editor .cm-gutterElement {
+  padding-inline: var(--space-2);
+  text-align: right;
+}
+
+.cee-script-line[data-state="covered"] { color: var(--color-text-success); }
+.cee-script-line[data-state="missing"] { color: var(--color-text-warning); font-weight: 700; }
+.cee-script-line[data-state="error"] { color: var(--color-text-danger); font-weight: 700; }
+
+/* Farben der Wörter: nur Tokens, in beiden Themen mit Kontrast für Text. */
+.cee-script-editor .tok-keyword { color: var(--color-accent-primary); }
+.cee-script-editor .tok-string { color: var(--color-text-success); }
+.cee-script-editor .tok-number,
+.cee-script-editor .tok-bool,
+.cee-script-editor .tok-null { color: var(--color-text-warning); }
+.cee-script-editor .tok-comment { color: var(--color-text-muted); font-style: italic; }
+.cee-script-editor .tok-namespace { color: var(--color-text-accent-soft); }
+.cee-script-editor .tok-atom { color: var(--color-chart-blue); }
+.cee-script-editor .tok-definition { font-weight: 700; }
+.cee-script-editor .tok-operator,
+.cee-script-editor .tok-punctuation { color: var(--color-text-secondary); }
+
+.cee-script-editor .cm-lintRange-error {
+  background-image: none;
+  text-decoration: underline wavy var(--color-text-danger);
+  text-underline-offset: 3px;
+}
+
+.cee-script-editor .cm-tooltip {
+  max-width: min(28rem, 90vw);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-popover);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--text-xs);
+}
+
+.cee-script-editor .cm-tooltip-lint { padding: var(--space-1) var(--space-2); }
+.cee-script-editor .cm-diagnostic-error { border-left-color: var(--color-border-danger); }
+
+.cee-script-editor .cm-tooltip-autocomplete > ul {
+  max-height: 14rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.cee-script-editor .cm-tooltip-autocomplete > ul > li { padding: var(--space-1) var(--space-2); }
+
+.cee-script-editor .cm-tooltip-autocomplete > ul > li[aria-selected="true"] {
+  background: var(--color-surface-item-bright);
+  color: var(--color-text-primary);
+}
+
+.cee-script-editor .cm-completionDetail { color: var(--color-text-secondary); }
+.cee-script-editor .cm-completionMatchedText { text-decoration: none; font-weight: 700; }
+
+.cee-script-editor .cm-completionInfo {
+  max-width: 22rem;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-sans);
+}
+
+.cee-script-tip { padding: var(--space-2) var(--space-3); line-height: 1.4; }
+.cee-script-editor .cm-completionInfo .cee-script-tip { padding: 0; }
+.cee-script-tip p,
+.cee-script-tip ul { margin: var(--space-1) 0 0; }
+.cee-script-tip ul { padding-left: var(--space-4); }
+.cee-script-tip-sig { font-family: var(--font-mono); }
+.cee-script-tip-active { font-weight: 700; text-decoration: underline; }
+.cee-script-tip-note { color: var(--color-text-secondary); }
+
+.cee-script-status { margin: 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cee-script-message { margin: 0; }
+.cee-script-message:empty { display: none; }
+
+.cee-script-hint { margin: 0; }
+.cee-script-hint:empty { display: none; }
+
+.cee-names-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cee-names {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.cee-names caption {
+  padding-bottom: var(--space-1);
+  text-align: left;
+  font-weight: 600;
+}
+
+.cee-names th,
+.cee-names td {
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-faint);
+}
+
+.cee-names-name {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.cee-names-name:hover { text-decoration: underline; }
+
+.cee-script-problems,
+.cee-script-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.cee-script-problems:empty,
+.cee-script-log:empty { display: none; }
+
+.cee-script-problem {
+  padding: var(--space-1) 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-danger);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cee-script-fault { color: var(--color-text-danger); padding: var(--space-1) 0; }
+
+.cee-sim-state { margin: 0 0 var(--space-3); }
+.cee-sim-screen { margin: 0 0 var(--space-3); }
+.cee-sim-appbox { margin: 0 0 var(--space-3); }
+.cee-sim-appbox p { margin: 0 0 var(--space-2); }
+.cee-sim-apps { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* Modulationen-Seite (modulations.mjs) */
+.cee-mod-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 46rem;
+  margin-bottom: var(--space-3);
+  line-height: 1.6;
+}
+
+.cee-mod-intro[hidden],
+.cee-mod-actions[hidden],
+.cee-mod-changed[hidden] {
+  display: none;
+}
+
+.cee-mod-changed {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.cee-mod-slot-state:not(:empty) {
+  margin-bottom: var(--space-3);
+}
+
+.cee-mod-form .actions {
+  margin-top: var(--space-4);
+}
+
+.cee-mod-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+/* With a firmware loaded the page is as tall as the space below the navbar: intro on top, the checks at the bottom,
+   the type list and the form beside it share the rest, and the form scrolls inside. */
+#cee-mod:has(> #cee-mod-split:not([hidden])) {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--cee-navbar-h) - var(--space-12) - var(--space-4));
+  height: calc(100dvh - var(--cee-navbar-h) - var(--space-12) - var(--space-4));
+  min-height: 24rem;
+}
+
+#cee-mod-split {
+  flex: 1 1 0;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+#cee-mod-side .ui-section-title {
+  margin-bottom: var(--space-3);
+}
+
+#cee-mod-side {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#cee-mod-side .cee-pattern-list {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+}
+
+#cee-mod-split > .ui-split-main {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  padding-inline-end: var(--space-2);
+}
+
+#cee-mod .cee-mod-intro,
+#cee-mod .cee-mod-actions {
+  flex: none;
+}
+
+#cee-mod .cee-mod-actions {
+  max-height: 40%;
+  overflow-y: auto;
+}
+
+@media (max-width: 720px) {
+  #cee-mod:has(> #cee-mod-split:not([hidden])) { display: block; height: auto; }
+  #cee-mod-split { grid-template-rows: none; }
+  #cee-mod-split > .ui-split-main { position: static; overflow: visible; }
+  #cee-mod .cee-mod-actions { max-height: none; overflow: visible; }
+}
+
+#cee-mod-note[data-tone="error"] {
+  color: var(--color-text-danger);
+}
+
+/* Pattern-Werkzeuge (pattern-tools.mjs) */
+.cee-pt-intro {
+  max-width: 46rem;
+  margin-bottom: var(--space-6);
+  line-height: 1.6;
+}
+
+#cee-ptools > .ui-section + .ui-section {
+  margin-top: var(--space-8);
+}
+
+#cee-ptools .ui-section > .cee-grid {
+  margin-top: var(--space-4);
+}
+
+.cee-pt-device-row {
+  margin-top: var(--space-3);
+}
+
+.cee-pt-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.cee-pt-scroll {
+  overflow-x: auto;
+}
+
+.cee-pt-grid {
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+.cee-pt-grid caption {
+  caption-side: bottom;
+  padding-top: var(--space-2);
+  color: var(--color-text-muted);
+  text-align: left;
+}
+
+.cee-pt-grid th,
+.cee-pt-grid td {
+  min-width: var(--space-6);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-muted);
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.cee-pt-grid th[scope="row"] {
+  text-align: left;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.cee-pt-grid td {
+  color: var(--color-text-muted);
+}
+
+.cee-pt-grid td.cee-pt-on {
+  background: var(--color-surface-item-strong);
+  color: var(--color-text-accent);
+}
+
+.cee-pt-text {
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.cee-pt-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.cee-pt-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-pt-notes {
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--color-text-secondary);
+}
+
+/* Pegel eines Patterns (levels.mjs) */
+.cee-levels-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-6);
+  align-items: end;
+  margin-bottom: var(--space-4);
+}
+
+.cee-level-rows {
+  margin: var(--space-4) 0;
+}
+
+.cee-level-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 11rem) minmax(4rem, 1fr) minmax(4.5rem, auto) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border-faint);
+}
+
+.cee-level-value {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.cee-level-row[data-changed="true"] .cee-level-value {
+  color: var(--color-text-accent);
+}
+
+#cee-lv-fx {
+  margin-top: var(--space-6);
+}
+
+/* Samples-Seite (samples.mjs) */
+.cee-sample-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 46rem;
+  margin-bottom: var(--space-4);
+  line-height: 1.6;
+}
+
+.cee-sample-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+.cee-sample-form .actions {
+  margin-top: var(--space-4);
+}
+
+#cee-sample-status[data-tone="error"] {
+  color: var(--color-text-danger);
+}
+
+/* Links inside running text: the design system has none, the browser's blue fails the contrast. */
+.cee-text-link {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.cee-text-link:hover,
+.cee-text-link:focus-visible {
+  color: var(--color-accent-primary);
+}
+
+/* Plugins-Seite: Typografie der Liste. Die Abschnittstitel sind Beschriftungen, keine Seitenüberschriften, und tragen ihren Abstand nach oben selbst. */
+.cee-list-title {
+  margin: var(--space-6) 0 var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.cee-list-title:first-child { margin-top: 0; }
+
+.cee-plugin-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.cee-plugin-detail { font-size: var(--text-xs); }
+
+/* Plugins-Seite: Flächen. Das Display steht auch ohne Lauf als Fläche da, die Meldungen unter dem Editor tragen ihren Ton am Rand. */
+.cee-sim-lcd {
+  box-sizing: border-box;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--cee-lcd-off);
+}
+
+.cee-script-problems:not(:empty),
+.cee-script-log:not(:empty) {
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--color-border-danger);
+  background: var(--color-surface-faint);
+}
+
+/* Plugins-Seite: Zustände der Listeneinträge. Der gewählte Eintrag hat Fläche und Rand, der Fokus einen Ring. */
+.cee-plugin-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+.cee-plugin-item:hover { background: var(--color-surface-item-muted); color: var(--color-text-primary); }
+
+.cee-plugin-item[aria-current="true"] {
+  background: var(--color-accent-primary-ring-soft);
+  border-color: var(--color-accent-primary-ring-strong);
+}
+
+.cee-plugin-item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Plugins-Seite: Editor, Lauf, Konsole, Namen und Katalog sind eigene Seiten unter dem Eintrag Plugins. Jede füllt die Fensterhöhe, die Seite
+   selbst scrollt nicht. Im Editor sitzt links die Liste, rechts Werkzeugleiste und Editor; nur der Editor und die Liste scrollen bei Bedarf. */
+.cee-main:has(#cee-area-scripts:not([hidden])) {
+  padding-block: var(--space-4);
+}
+
+#cee-scripts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: calc(100dvh - 7.75rem);
+  min-height: 34rem;
+  padding: 0;
+}
+
+#cee-scripts > .cee-workspace,
+#cee-scripts > .cee-plug-page {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+}
+
+.cee-workspace {
+  grid-template-columns: clamp(11rem, 17vw, 15rem) minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--space-4);
+  height: calc(100dvh - 7.75rem);
+  min-height: 34rem;
+}
+
+.cee-ws-side {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: var(--space-2);
+}
+
+.cee-ws-side-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.cee-ws-side-actions .btn { justify-content: center; padding-inline: var(--space-2); }
+.cee-ws-side-actions #cee-script-export-all { grid-column: 1 / -1; }
+.cee-ws-side .cee-pattern-list { max-height: none; overflow: visible; }
+.cee-ws-side-note { margin: var(--space-4) 0 0; font-size: var(--text-xs); }
+
+.cee-ws-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+}
+
+.cee-ws-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.cee-ws-name { display: flex; align-items: center; gap: var(--space-2); }
+.cee-ws-name label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.cee-ws-name .input { width: 11rem; }
+.cee-ws-toolbar [hidden] { display: none; }
+.cee-ws-toolbar-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-left: auto; }
+
+.cee-ws-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-4);
+  font-size: var(--text-xs);
+}
+
+.cee-ws-strip:empty { display: none; }
+.cee-ws-strip p { margin: 0; }
+
+.cee-sim-appbox[hidden] { display: none; }
+.cee-sim-appbox { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.cee-sim .cee-sim-appbox p { margin: 0; font-size: var(--text-xs); }
+
+.cee-run-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.cee-run-bar p { margin: 0 0 0 var(--space-2); font-size: var(--text-xs); }
+
+/* The run page: a small toolbar, then the device drawing of the emulator page, then the apps and menu pages of the plugins. */
+.cee-run { display: flex; flex-direction: column; gap: var(--space-3); }
+.cee-sim { display: flex; flex-direction: column; gap: var(--space-2); max-width: 64rem; }
+.cee-sim-state,
+.cee-sim-screen { margin: 0; font-size: var(--text-xs); }
+
+.cee-names-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-bottom: var(--space-3); }
+.cee-names-head p { margin: 0; font-size: var(--text-xs); }
+.cee-names-head .input { width: 18rem; max-width: 100%; }
+
+.cee-ws-console { display: flex; flex-direction: column; gap: var(--space-2); height: 100%; }
+.cee-term-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); font-size: var(--text-xs); }
+.cee-term-head p { margin: 0; }
+.cee-ws-console .cee-term-log { flex: 1 1 4rem; min-height: 4rem; max-height: none; margin: 0; }
+.cee-ws-console .cee-term-prompt { align-items: flex-start; }
+
+@media (max-width: 720px) {
+  #cee-scripts { height: auto; min-height: 0; }
+  #cee-scripts > .cee-workspace,
+  #cee-scripts > .cee-plug-page { flex: none; }
+  .cee-workspace { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); height: auto; min-height: 0; }
+  .cee-ws-side { display: none; overflow: visible; padding-right: 0; }
+  .cee-workspace[data-open] > .cee-ws-side { display: flex; }
+  .cee-script-editor { flex: none; height: 24rem; }
+  .cee-ws-name .input { width: 100%; }
+  .cee-ws-name { flex: 1 1 100%; }
+}
+
+/* Plain status text in the status colour, with a small dot. No box, border or background. */
+.cee-status {
+  display: inline;
+  margin-inline-end: var(--space-2);
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.cee-status::before {
+  content: "";
+  display: inline-block;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-inline-end: var(--space-2);
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 0.1em;
+}
+
+.cee-status[data-tone="ok"] { color: var(--color-status-ok-text); }
+.cee-status[data-tone="warn"] { color: var(--color-status-warn-text); }
+.cee-status[data-tone="error"] { color: var(--color-status-error-text); }
+.cee-status[data-tone="info"],
+.cee-status[data-tone="running"] { color: var(--color-status-info-text); }
+.cee-status[data-tone="running"]::before { animation: ui-pulse 1.2s ease-in-out infinite; }
+
+/* Sub-pages under a sidebar entry (subnav.mjs, pages). */
+.cee-nav-pages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-3);
+}
+
+.cee-nav-subitem {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: var(--control-target-min);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cee-nav-subitem:hover {
+  background: var(--color-surface-item-muted);
+  color: var(--color-text-primary);
+}
+
+.cee-nav-subitem:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cee-nav-subitem[aria-current] {
+  color: var(--color-text-accent);
+  border-color: var(--color-border-accent-strong);
+  background: var(--color-surface-item-strong);
+}
+
+/* One page of Plugins other than the editor: as tall as the editor workspace, scrolls inside. */
+.cee-plug-page {
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding-inline-end: var(--space-2);
+}
+
+.cee-plug-page[hidden],
+.cee-workspace[hidden] {
+  display: none;
+}
+
+.cee-ws-side [hidden] { display: none; }
+.cee-ws-empty { margin: 0; padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
+
+/* The catalog: the bundled plugins as cards. */
+.cee-catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-catalog-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-catalog-card h3 { margin: 0; font-size: var(--text-base); }
+.cee-catalog-card p { margin: 0; font-size: var(--text-sm); }
+
+.cee-catalog-thumb {
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  image-rendering: pixelated;
+}
+
+.cee-catalog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+/* Toasts (toast.mjs): the design draws the bubble, these add the close button and keep the live regions out of the way. */
+.cee-toast-live { display: flex; flex-direction: column; gap: var(--space-2); }
+.cee-toast-live:empty { display: none; }
+#app-toasts { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.cee-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.cee-toast-text { flex: 1; min-width: 0; }
+.cee-toast-close { flex: none; margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1) calc(var(--space-1) * -1) 0; }
+
+/* Settings (settings.mjs). */
+.cee-settings { display: flex; flex-direction: column; gap: var(--space-4); }
+.cee-settings-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.cee-settings-button { justify-content: flex-start; gap: var(--space-2); }
+.cee-donate { font-size: var(--text-xs); }
+.cee-settings-button .cee-icon { flex: none; }
+
+/* Reduced motion: chosen in the settings, or the system setting while that choice stands. */
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.cee-bg[hidden] { display: none; }
+
+/* The documentation page (scripts.mjs, markdown.mjs). */
+.cee-docs-head { display: flex; gap: var(--space-3); margin-bottom: var(--space-3); }
+.cee-docs-head .input { width: 24rem; max-width: 100%; }
+.cee-docs { max-width: 60rem; line-height: 1.6; }
+.cee-docs-article { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-4); }
+.cee-doc-section { display: flex; flex-direction: column; gap: var(--space-3); }
+.cee-doc-section[hidden] { display: none; }
+.cee-doc-heading { margin: var(--space-4) 0 0; }
+.cee-docs p, .cee-docs li { margin: 0; }
+.cee-doc-list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding-inline-start: var(--space-6); }
+.cee-doc-code { margin: 0; padding: var(--space-3); overflow-x: auto; border: 1px solid var(--color-border-muted); border-radius: var(--radius-sm); background: var(--color-surface-faint); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.5; }
+.cee-docs code { font-family: var(--font-mono); font-size: 0.92em; }
+.cee-doc-table { overflow-x: auto; }
+.cee-doc-quote { margin: 0; padding-inline-start: var(--space-4); border-inline-start: 2px solid var(--color-border-strong); color: var(--color-text-secondary); }
+.cee-doc-jump { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.cee-doc-toc { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.cee-doc-toc-3 { padding-inline-start: var(--space-4); font-size: var(--text-sm); }
+.cee-doc-toc .cee-text-link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-align: left; }
+
+/* The device area above the drawing: with the connect button in the navbar it is often empty (hidden fields,
+   empty notes, an actions row whose buttons are all hidden). Then it takes no room, so the drawing sits where
+   it sits on the emulator page. */
+#cee-device:not(:has(> :is(p, div):not([hidden]):not(:empty):not(.actions), > .actions > :not([hidden]))) {
+  display: none;
+}

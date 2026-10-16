@@ -1,0 +1,10 @@
+name: Bug
+description: Something does not work as it should
+body:
+  - type: textarea
+    attributes: { label: What happened, description: Steps, what you expected, what you saw }
+    validations: { required: true }
+  - type: input
+    attributes: { label: Firmware, description: "Korg 2.02, Hacktribe 2.02, BLECH version, red or blue Electribe" }
+  - type: dropdown
+    attributes: { label: Where, options: [App, Browser, Emulator, Real device] }

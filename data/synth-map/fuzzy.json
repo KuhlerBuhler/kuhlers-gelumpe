@@ -1,0 +1,81 @@
+{
+ "entries": [
+  {
+   "from": "0xC0029A40",
+   "to": "0xC0026DAC",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 0.95), not yet read by a person",
+   "fuzzy": true
+  },
+  {
+   "from": "0xC0032A04",
+   "to": "0xC002F860",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 0.95), not yet read by a person",
+   "fuzzy": true
+  },
+  {
+   "from": "0xC0032A1C",
+   "to": "0xC002F878",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 0.95), not yet read by a person",
+   "fuzzy": true
+  },
+  {
+   "from": "0xC00369F0",
+   "to": "0xC0032A04",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 0.90), not yet read by a person",
+   "fuzzy": true
+  },
+  {
+   "from": "0xC0038A54",
+   "to": "0xC0034B34",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 0.95), not yet read by a person",
+   "fuzzy": true
+  },
+  {
+   "from": "0xC00431F0",
+   "to": "0xC003D6EC",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 0.90), not yet read by a person",
+   "fuzzy": true
+  },
+  {
+   "from": "0xC005F1C4",
+   "to": "0xC0055C84",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 0.95), not yet read by a person",
+   "fuzzy": true
+  },
+  {
+   "from": "0xC006FDDC",
+   "to": "0xC0062F0C",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 0.90), not yet read by a person",
+   "fuzzy": true
+  },
+  {
+   "from": "0xC0072E10",
+   "to": "0xC0065E60",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 1.00), not yet read by a person",
+   "fuzzy": true
+  },
+  {
+   "from": "0xC0086DC4",
+   "to": "0xC0076E5C",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 0.85), not yet read by a person",
+   "fuzzy": true
+  },
+  {
+   "from": "0xC009AF20",
+   "to": "0xC0087B60",
+   "kind": "code",
+   "why": "synthfind: the closest instructions (ratio 0.90), not yet read by a person",
+   "fuzzy": true
+  }
+ ]
+}

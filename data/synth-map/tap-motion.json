@@ -1,0 +1,64 @@
+{
+ "entries": [
+  {
+   "from": "0xC0042E18",
+   "to": "0xC003D368",
+   "kind": "code",
+   "why": "the exit of the key handler (the add sp / pop pair every early return of the handler branches to: D1FC, D20C and D21C of the synth branch to it as the red C0042CAC, CBC and CCC do to E18). The synth's frame is 0x10 and it pops r4 to r6 (the red 0x14, r4 to r7); the hook stub only has to branch to that exit"
+  },
+  {
+   "from": "0xC0042E34",
+   "to": "0xC003D37C",
+   "kind": "data",
+   "why": "the literal pool word of the hook's replaced ldr r0, [pc, #0x164] at 0xC003D210 (0xC003D210 + 8 + 0x164 = 0xC003D37C) holds 0xC0340548, the synth place of the red 0xC0340358 (red 0xC0042E34, same instruction, same load)"
+  },
+  {
+   "from": "0xC06B2420",
+   "to": "0xC0583290",
+   "kind": "ram",
+   "why": "pattern number: the model object (heap, pointer variable 0xC034858C in the synth, 0xC0348884 in the red, found as the globals of the twin getters at 0xC003D4A0/0xC0042F58 which load [model + 0x320]) is at 0xC0582F78 in the booted synth; +0x318 as in the red (0xC06B2108 + 0x318). Emulator value, the pointer variable is the stable one"
+  },
+  {
+   "from": "0xC06B2428",
+   "to": "0xC0583298",
+   "kind": "ram",
+   "why": "selected part: model 0xC0582F78 + 0x320 as in the red (0xC06B2108 + 0x320); the twin getter of the part is at 0xC003D4A0 (ldr r0, [r2, #0x320]) like the red 0xC0042F58. Emulator value, see the pattern number"
+  },
+  {
+   "from": "0xC06BCA70",
+   "to": "0xC058DBD0",
+   "kind": "ram",
+   "why": "key state array of the UI task object (8 bytes per key, the word is 3 while held): the TAP key (3) word changes at 0xC058DBE8 and the MASTER FX key (6) at 0xC058DC00 in the emulator while held, as 0xC06BCA88 and 0xC06BCAA0 in the red; array start = key 3 address minus 0x18. The red's setup stores to +0xA60 at 0xC005204C, the synth's at 0xC0048E40 (same sequence)"
+  },
+  {
+   "from": "0xC0691518",
+   "to": "0xC056B780",
+   "kind": "ram",
+   "why": "tempo in tenths of BPM: after four TAPs 0.65 s apart on the stock synth three RAM words read 923 (0xC056B780, 0xC0592FD8, 0xC05976E8), on the Sampler 0xC0691518, 0xC06C1E88, 0xC06CB170: the same three in the same order, the lowest is the one the cases read (emulator only)"
+  },
+  {
+   "from": "0xC06904B0",
+   "to": "0xC056A790",
+   "kind": "ram",
+   "why": "step counter of part 1 (0x48 per part): while playing, the words that count 0 to 15 steps are the same group in both builds (Sampler 0xC06904A8, 0xC06904B0, 0xC06904BC, 0xC06904C0, then +0x48; synth 0xC056A788, 0xC056A790, 0xC056A79C, 0xC056A7A0, then +0x48); the Sampler's 0xC06904B0 is the second of the group, so the synth's is 0xC056A790 (emulator, stock firmware)"
+  },
+  {
+   "from": "0xC0059300",
+   "to": "0xC004FF30",
+   "kind": "code",
+   "why": "fwmap: 16 masked words equal; both store the silent motion output at r7-0x10"
+  },
+  {
+   "from": "0xC0059394",
+   "to": "0xC004FFC4",
+   "kind": "code",
+   "why": "fwmap: 16 masked words equal; both store the interpolated motion output at r7-0x10"
+  },
+  {
+   "from": "0xC068DB1C",
+   "to": "0xC0567E14",
+   "kind": "ram",
+   "why": "motion output lane 0: the two equal-code writers above store to Sampler C068DB1C and synth C0567E14, observed through memory writes and r7-0x10 while recording and playing the same generated knob sweep; no assertion"
+  }
+ ]
+}

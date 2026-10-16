@@ -1,0 +1,31 @@
+node_modules
+.e2/
+
+# Firmware images belong to Korg and to whoever dumped them. Never in here.
+*.VSB
+*.vsb
+*.syx
+*.e2sallpat
+*.e2spat
+e2sSample.all
+flash_*.bin
+
+# Review verdicts are local working state.
+.agentkit/
+dist/
+
+# Local tool state.
+.claude/
+.cortexignore
+thoughts/
+tools/emu/.venv*
+__pycache__/
+*.pyc
+
+# Card images can hold Korg samples. They live outside the repository.
+*.img
+
+# Tauri app and frozen emulator service.
+build/
+# Built apps collected for tools/release.mjs.
+dist-release/

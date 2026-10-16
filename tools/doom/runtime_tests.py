@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Isolierte ARM Tests des gebauten Adapters mit ausdrücklich simulierten Treibern."""
+import argparse
+import json
+from pathlib import Path
+import struct
+import unittest
+from unicorn import Uc, UC_ARCH_ARM, UC_MODE_ARM, UC_HOOK_CODE
+from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
+
+BUILD = None
+SHARED = json.loads((Path(__file__).parent / "layout.json").read_text())["shared"]
+TICK, SCRATCH, TRAP = 0xC06A2930, 0xC0E00000, 0xC0F00000
+WAD = b"SD:/KORG/blechtribe/Doom/doom.wad\0"
+REGS = [UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3]
+
+
+class Adapter:
+    def __init__(self):
+        self.uc = Uc(UC_ARCH_ARM, UC_MODE_ARM)
+        self.uc.mem_map(0xC0000000, 0x2000000)
+        self.uc.mem_write(0xC1000000, (BUILD / "doom-runtime.bin").read_bytes())
+        self.symbols = {}
+        for line in (BUILD / "symbols.txt").read_text().splitlines():
+            fields = line.split()
+            if len(fields) == 3:
+                self.symbols[fields[2]] = int(fields[0], 16)
+        self.word(self.symbols["shared"], SHARED)
+        self.word(self.symbols["heap_end"], self.symbols["__heap_start"])
+        self.word(self.symbols["clock_start"], 100)
+        self.word(TICK, 100)
+        self.uc.mem_write(SCRATCH, WAD)
+        self.content = b"0123456789abcdef"
+        self.messages, self.calls = [], []
+        self.open_error = self.read_error = self.seek_error = 0
+        self.powered = True
+        self.instructions = 0
+        self.clock_step = False
+        self.uc.hook_add(UC_HOOK_CODE, self.step)
+
+    def word(self, at, value=None):
+        if value is None:
+            return struct.unpack("<I", self.uc.mem_read(at, 4))[0]
+        self.uc.mem_write(at, struct.pack("<I", value & 0xFFFFFFFF))
+
+    def step(self, uc, at, size, data):
+        self.instructions += 1
+        if self.clock_step and self.instructions % 100 == 0:
+            self.word(TICK, self.word(TICK) + 1)
+        if at == TRAP:
+            uc.emu_stop()
+            return
+        if at not in (0xC009DB60, 0xC009DD74, 0xC009E404, 0xC009E3DC, 0xC0024B6C, 0xC0015DD0, 0xC001734C):
+            return
+        args = [uc.reg_read(r) for r in REGS]
+        self.calls.append((at, args))
+        result = 0
+        if at == 0xC001734C:
+            self.powered = False
+            uc.emu_stop()
+            return
+        if at == 0xC009DB60:
+            result = self.open_error
+            self.word(args[0] + 8, 0)
+            self.word(args[0] + 12, len(self.content))
+        elif at == 0xC009DD74:
+            result = self.read_error
+            offset = self.word(args[0] + 8)
+            chunk = self.content[offset:offset + args[2]] if not result else b""
+            if chunk:
+                uc.mem_write(args[1], chunk)
+            self.word(args[3], len(chunk))
+            self.word(args[0] + 8, offset + len(chunk))
+        elif at == 0xC009E404:
+            result = self.seek_error
+            if not result:
+                self.word(args[0] + 8, args[1])
+        elif at == 0xC0024B6C:
+            if self.messages:
+                uc.mem_write(args[1], bytes(self.messages.pop(0)))
+                result = 1
+        uc.reg_write(UC_ARM_REG_R0, result)
+        uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
+
+    def call(self, name, *args, count=300000):
+        for reg, value in zip(REGS, args):
+            self.uc.reg_write(reg, value & 0xFFFFFFFF)
+        self.uc.reg_write(UC_ARM_REG_SP, 0xC1800000)
+        self.uc.reg_write(UC_ARM_REG_LR, TRAP)
+        self.uc.emu_start(self.symbols[name], 0xFFFFFFFF, count=count)
+        if self.uc.reg_read(UC_ARM_REG_PC) != TRAP:
+            raise AssertionError(f"{name} kehrt nicht innerhalb {count} Instruktionen zurück")
+        return self.uc.reg_read(UC_ARM_REG_R0)
+
+
+class NativeAdapterTest(unittest.TestCase):
+    def setUp(self):
+        self.arm = Adapter()
+
+    def test_only_wad_and_readonly_reach_fatfs(self):
+        a = self.arm
+        self.assertEqual(a.call("_open", SCRATCH, 0, 0), 3)
+        for flags in (1, 2, 0x200, 0x400, 8):
+            self.assertEqual(a.call("_open", SCRATCH, flags, 0), 0xFFFFFFFF)
+        a.uc.mem_write(SCRATCH + 100, b"SD:/OTHER.WAD\0")
+        self.assertEqual(a.call("_open", SCRATCH + 100, 0, 0), 0xFFFFFFFF)
+        self.assertEqual(len(a.calls), 1)
+        self.assertEqual(a.calls[0][1][2], 1)
+
+    def test_file_slots_close_and_io_failure(self):
+        a = self.arm
+        self.assertEqual([a.call("_open", SCRATCH, 0, 0) for _ in range(5)], [3, 4, 5, 6, 0xFFFFFFFF])
+        self.assertEqual(a.call("_close", 4), 0)
+        self.assertEqual(a.call("_read", 4, SCRATCH + 200, 1), 0xFFFFFFFF)
+        self.assertEqual(a.call("_open", SCRATCH, 0, 0), 4)
+        a.open_error = 1
+        a.call("_close", 4)
+        self.assertEqual(a.call("_open", SCRATCH, 0, 0), 0xFFFFFFFF)
+
+    def test_read_seek_positions_and_bounds(self):
+        a = self.arm
+        a.call("_open", SCRATCH, 0, 0)
+        self.assertEqual(a.call("_read", 3, SCRATCH + 200, 4), 4)
+        self.assertEqual(bytes(a.uc.mem_read(SCRATCH + 200, 4)), b"0123")
+        self.assertEqual(a.call("_lseek", 3, -2, 1), 2)
+        self.assertEqual(a.call("_lseek", 3, -1, 2), 15)
+        self.assertEqual(a.call("_read", 3, SCRATCH + 200, 8), 1)
+        self.assertEqual(a.word(SHARED + 32), 2)
+        self.assertEqual(a.word(SHARED + 36), 5)
+        for offset, whence in ((-1, 0), (17, 0), (0x7FFFFFFF, 1), (0, 9)):
+            self.assertEqual(a.call("_lseek", 3, offset, whence), 0xFFFFFFFF)
+        a.seek_error = 1
+        self.assertEqual(a.call("_lseek", 3, 0, 0), 0xFFFFFFFF)
+        a.read_error = 1
+        self.assertEqual(a.call("_read", 3, SCRATCH + 200, 1), 0xFFFFFFFF)
+
+    def test_heap_rejects_overflow_and_negative_without_advancing(self):
+        a = self.arm
+        start, end = a.symbols["__heap_start"], a.symbols["__heap_limit"]
+        self.assertEqual(a.call("_sbrk", end - start), start)
+        self.assertEqual(a.call("_sbrk", 1), 0xFFFFFFFF)
+        self.assertEqual(a.call("_sbrk", -1), 0xFFFFFFFF)
+        self.assertEqual(a.word(a.symbols["heap_end"]), end)
+        self.assertEqual(a.word(SHARED + 40), end - start)
+
+    def test_panel_translation_releases_unknown_and_bounded_drain(self):
+        a = self.arm
+        for panel, key in ((11, 0xAD), (15, 0xAF), (8, 0xAC), (12, 0xAE), (2, 0xA3), (3, 0xA2), (0, 13), (9, 27), (13, 27)):
+            for down in (1, 0):
+                a.messages.append([0, panel, down, 0, 0])
+                self.assertEqual(a.call("DG_GetKey", SCRATCH + 200, SCRATCH + 204), 1)
+                self.assertEqual(a.word(SCRATCH + 200), down)
+                self.assertEqual(a.uc.mem_read(SCRATCH + 204, 1)[0], key)
+        a.messages = [[2, 0, 0, 0, 0]] * 40
+        self.assertEqual(a.call("DG_GetKey", SCRATCH + 200, SCRATCH + 204), 0)
+        self.assertEqual(len(a.messages), 8)
+        self.assertEqual(a.word(SHARED + 44), 18)
+
+    def test_clock_does_not_advance_on_reads_and_sleep_uses_external_ticks(self):
+        a = self.arm
+        a.word(TICK, 1234)
+        self.assertEqual(a.call("DG_GetTicksMs"), 1134)
+        self.assertEqual(a.call("DG_GetTicksMs"), 1134)
+        self.assertEqual(a.word(TICK), 1234)
+        a.clock_step = True
+        before = a.word(TICK)
+        a.call("DG_SleepMs", 5, count=5000)
+        self.assertGreaterEqual(a.word(TICK) - before, 5)
+        a.word(a.symbols["clock_start"], 0xFFFFFFF0)
+        a.word(TICK, 0x20)
+        a.clock_step = False
+        self.assertEqual(a.call("DG_GetTicksMs"), 0x30)
+
+    def test_console_wraps_and_sd_write_is_rejected(self):
+        a = self.arm
+        text = bytes(range(256)) * 9
+        a.uc.mem_write(SCRATCH + 512, text)
+        self.assertEqual(a.call("_write", 1, SCRATCH + 512, len(text)), len(text))
+        self.assertEqual(a.word(SHARED + 56), len(text))
+        self.assertEqual(bytes(a.uc.mem_read(SHARED + 68, 256)), text[-256:])
+        a.call("_open", SCRATCH, 0, 0)
+        calls = len(a.calls)
+        self.assertEqual(a.call("_write", 3, SCRATCH + 512, 1), 0xFFFFFFFF)
+        self.assertEqual(len(a.calls), calls)
+
+    def test_exit_keeps_failure_visible_without_returning(self):
+        a = self.arm
+        a.word(SHARED + 16, 17)
+        a.uc.reg_write(UC_ARM_REG_R0, 0xFFFFFFFF)
+        a.uc.reg_write(UC_ARM_REG_SP, 0xC1800000)
+        a.uc.reg_write(UC_ARM_REG_LR, TRAP)
+        a.uc.emu_start(a.symbols["_exit"], 0xFFFFFFFF, count=100000)
+        self.assertNotEqual(a.uc.reg_read(UC_ARM_REG_PC), TRAP)
+        self.assertEqual(a.word(SHARED + 8), 0x80000000)
+        self.assertEqual(a.word(SHARED + 12), 0xFFFFFFFF)
+        self.assertEqual(a.word(SHARED + 60), 0xFFFFFFFF)
+        self.assertEqual(a.word(SHARED + 16), 17)
+
+    def test_quit_wrapper_runs_cleanup_and_displays_stopped(self):
+        a = self.arm
+        a.uc.reg_write(UC_ARM_REG_SP, 0xC1800000)
+        a.uc.reg_write(UC_ARM_REG_LR, TRAP)
+        a.uc.emu_start(a.symbols["__wrap_I_Quit"], 0xFFFFFFFF, count=100000)
+        self.assertNotEqual(a.uc.reg_read(UC_ARM_REG_PC), TRAP)
+        self.assertEqual(a.word(SHARED + 8), 6)
+        self.assertEqual(a.word(SHARED + 12), 0)
+        self.assertEqual(a.word(SHARED + 60), 0)
+        self.assertEqual(bytes(a.uc.mem_read(0xC031B310 + 128 + 4, 5)), bytes([0x7F, 0x41, 0x41, 0x22, 0x1C]))
+        self.assertEqual([regs[1] for at, regs in a.calls if at == 0xC0015DD0], [2, 3])
+
+    def test_power_release_is_ignored_and_press_calls_only_final_gpio_service(self):
+        a = self.arm
+        a.messages = [[6, 0, 0, 0, 0], [0, 12, 1, 0, 0]]
+        self.assertEqual(a.call("DG_GetKey", SCRATCH + 200, SCRATCH + 204), 1)
+        self.assertTrue(a.powered)
+        a.messages = [[6, 1, 0, 0, 0]]
+        a.uc.reg_write(UC_ARM_REG_R0, SCRATCH + 200)
+        a.uc.reg_write(UC_ARM_REG_R1, SCRATCH + 204)
+        a.uc.reg_write(UC_ARM_REG_SP, 0xC1800000)
+        a.uc.emu_start(a.symbols["DG_GetKey"], 0xFFFFFFFF, count=100000)
+        self.assertFalse(a.powered)
+        self.assertEqual(a.calls[-1][0], 0xC001734C)
+        self.assertEqual(a.calls[-1][1][:2], [0x01E26000, 1])
+
+    def test_error_idle_still_accepts_native_power_button(self):
+        a = self.arm
+        a.messages = [[6, 0, 0, 0, 0], [6, 1, 0, 0, 0]]
+        a.uc.reg_write(UC_ARM_REG_R0, 0xFFFFFFFF)
+        a.uc.reg_write(UC_ARM_REG_SP, 0xC1800000)
+        a.uc.emu_start(a.symbols["_exit"], 0xFFFFFFFF, count=100000)
+        self.assertFalse(a.powered)
+        self.assertEqual(a.word(SHARED + 8), 0x80000000)
+        self.assertEqual(a.word(SHARED + 12), 0xFFFFFFFF)
+        self.assertEqual(a.calls[-1][0], 0xC001734C)
+        self.assertEqual(a.calls[-1][1][:2], [0x01E26000, 1])
+
+    def test_display_conversion_calls_both_native_spi_halves(self):
+        a = self.arm
+        pixels = a.symbols["__heap_start"]
+        a.uc.mem_write(pixels, b"\xff\xff\xff\x00" * (320 * 200))
+        a.word(a.symbols["DG_ScreenBuffer"], pixels)
+        a.call("DG_DrawFrame", count=3000000)
+        self.assertEqual(bytes(a.uc.mem_read(0xC031B310, 1024)), bytes(1024))
+        self.assertEqual([(at, regs[:3]) for at, regs in a.calls], [(0xC0015DD0, [0xC031BB2C, 2, 0]), (0xC0015DD0, [0xC031BB2C, 3, 0])])
+        self.assertEqual(a.word(SHARED + 16), 1)
+        a.uc.mem_write(pixels, bytes(320 * 200 * 4))
+        a.call("DG_DrawFrame", count=3000000)
+        self.assertEqual(bytes(a.uc.mem_read(0xC031B310, 1024)), bytes([255]) * 1024)
+        self.assertEqual(a.word(SHARED + 16), 2)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--build", type=Path, required=True)
+    args, remaining = parser.parse_known_args()
+    BUILD = args.build
+    unittest.main(argv=[__file__, *remaining])

@@ -1,0 +1,18 @@
+{
+ "entries": [
+  {"from":"0xC002AFAC","to":"0xC0028170","kind":"code","why":"normal startup after the native model and UI initialization: 16 instructions match with fwmap.same_code(target=C0028170); the instruction reads the startup object's flag at +4. Full runtime initialization here preserves the native LPF and MFX SEND LEDs; the earlier C0028084 file-access site does not"},
+  {"from":"0xC0064D84","to":"0xC005B214","kind":"code","why":"Global EDIT right, reached through the Global screen: the complete six-instruction pair of neighbour functions matches with fwmap.same_code(window=6); its next constructor belongs to another function"},
+  {"from":"0xC0064D88","to":"0xC005B218","kind":"code","why":"return behind the displaced Global neighbour instruction; the remaining five instructions of both neighbour functions match with fwmap.same_code(window=5)"},
+  {"from":"0xC006F094","to":"0xC00621A8","kind":"code","why":"WRITE handler of the UI manager: first eight instructions match with fwmap.same_code(window=8), including the complete guard and current screen load; the later screen-specific cases differ and remain native"},
+  {"from":"0xC006F098","to":"0xC00621AC","kind":"code","why":"WRITE continuation behind the same displaced push: seven instructions through the current screen guard match with fwmap.same_code(window=7)"},
+  {"from":"0xC00E5218","to":"0xC00CB660","kind":"data","why":"counter widget vtable: its native constructor C007A110 loads this value at C007A150 from pool C007A178; the equal Sampler constructor C008A83C loads C00E5218 from C008A8A4"},
+  {"from":"0xC00F9310","to":"0xC00DF0CC","kind":"data","why":"power-save dimming byte: the three literal pools at sampler C0028AA4/C0028B00/C0028B18 map to synth C0025F18/C0025F74/C0025F8C and all contain this pointer; the surrounding accessors have equal code"},
+  {"from":"0xC06A24C0","to":"0xC057387C","kind":"ram","why":"semaphore 5 counter of the UART0 writer: native panel traffic writes 0 and 1 here through the semaphore acquire/release code at synth C0000C1C/C0000B78, as sampler C0000DF4/C0000D50 writes C06A24C0; the UART queue at C033E648 names semaphore 5 in both builds. The heap-offset candidate C05740D0 was measured FF and rejected"},
+  {"from":"0xC06B2108","to":"0xC0582F78","kind":"ram","why":"sequencer model from the stable pointer C034858C, measured in native startup; its part at +320 and pattern number at +318 are covered by the existing Synth tests"},
+  {"from":"0xC06B2798","to":"0xC0583FF0","kind":"ram","why":"current pattern object from C033E6A4, measured on both originals; the header and parts at +804 with stride 330 match the existing pattern layout"},
+  {"from":"0xC06B2F9D","to":"0xC05847F5","kind":"ram","why":"mute byte of part 0: current pattern object plus 805 in both builds; native mute getter C0042ED8 and setter C00434F0 operate on the same pattern layout"},
+  {"from":"0xC06BC318","to":"0xC0583C98","kind":"ram","why":"transport word: the native object pointer C03405BC maps to C0340774 and holds C06BC010/C0583990 after startup; the transport word is object +308 in the equal native mode accessors"},
+  {"from":"0xC06C2220","to":"0xC0593370","kind":"ram","why":"UI manager tick argument: native hooks at C006F178/C00623F0 observe these r0 values in three successive frames; each is the screen-manager singleton plus 10"},
+  {"from":"0xC06C226C","to":"0xC05933BC","kind":"ram","why":"redraw byte: the measured UI manager tick argument plus 4C in both builds; the equal tick code consumes it before redrawing widgets"}
+ ]
+}

@@ -1,0 +1,71 @@
+# Korg's firmware, patterns and samples never go into this repository (tools/korg-guard.mjs).
+# A pull request that carries any is closed at once with a comment. pull_request_target runs this
+# workflow as it is on the base branch and never executes code of the pull request: its files are
+# only read as data.
+name: Korg data guard
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check the files of the push
+        if: github.event_name == 'push'
+        run: git ls-files -z | xargs -0 node tools/korg-guard.mjs
+      - name: Check the files the pull request changes
+        if: github.event_name == 'pull_request_target'
+        id: scan
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          git fetch --no-tags origin "pull/$PR/head"
+          mkdir -p "$RUNNER_TEMP/pr"
+          git diff --name-only --diff-filter=AM -z "${{ github.event.pull_request.base.sha }}" "$HEAD_SHA" |
+            while IFS= read -r -d '' f; do
+              mkdir -p "$RUNNER_TEMP/pr/$(dirname "$f")"
+              git show "$HEAD_SHA:$f" > "$RUNNER_TEMP/pr/$f"
+            done
+          cd "$RUNNER_TEMP/pr"
+          if find . -type f -print0 | xargs -0 -r node "$GITHUB_WORKSPACE/tools/korg-guard.mjs" > "$RUNNER_TEMP/report.txt"; then
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+          fi
+          cat "$RUNNER_TEMP/report.txt"
+      - name: Close the pull request
+        if: steps.scan.outputs.hit == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          {
+            echo "This pull request carries Korg data and was closed automatically."
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/report.txt"
+            echo '```'
+            echo
+            echo "Korg's firmware, patterns and samples never go into this repository, not even as a test fixture."
+            echo "Remove the files from the branch history and open a new pull request. See CONTRIBUTING.md."
+          } > "$RUNNER_TEMP/comment.md"
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          gh pr close "$PR" --repo "$GITHUB_REPOSITORY"
+          exit 1

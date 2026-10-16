@@ -1,0 +1,13 @@
+e2: tools for Korg Electribe 2 effect presets
+
+  e2 ls       <SYSTEM.VSB> [mfx|ifx]        list the presets in a firmware image
+  e2 show     <SYSTEM.VSB> <mfx|ifx> <slot> one preset in full
+  e2 lint     <SYSTEM.VSB> [mfx|ifx] [slot] check presets against everything
+                                            that has gone wrong before
+  e2 profile  <SYSTEM.VSB>                  learn the factory value ranges,
+                                            which the linter then uses
+  e2 selftest <SYSTEM.VSB>                  drive the simulated device and show
+                                            what it refuses and why
+
+The firmware image is yours. Nothing here writes to it, and no part of it is
+stored in this repository.

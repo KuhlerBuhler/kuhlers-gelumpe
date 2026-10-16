@@ -1,0 +1,560 @@
+# SPDX-License-Identifier: GPL-2.0-only
+"""Emulator checks for the note assistant patch (tools/patch/note_assist.py, docs/messungen/2026-10-15-note-assistant.md).
+
+check.py runs `cases` on every patched copy that carries the patch's hooks. In KEYBOARD mode, right after a pad note (the next tick of the
+LED manager) the pads of the notes that fit (0, 3, 4, 5, 7, 8 or 9 semitones from it) show a dim pink, the pad's red and blue LED together
+at the patch's two values, and go off again 1.5 s after the note;
+the pads of the layout are the pattern's own key and scale already. The firmware's own pad lighting wins, and outside KEYBOARD mode and
+the main screen the pads are the firmware's. With EXIT held at power-on, without a card or with the setting off the firmware is exactly as
+it was; the reference for "as it was" is the same copy with EXIT held at power-on (no hook of the patch does anything then).
+
+What the panel shows is what the firmware last sent it (`Machine.leds`, set by every `00 LED brightness` message), so every check
+reads the LEDs the way the panel would.
+
+    tools/emu/.venv/bin/python tools/emu/note_assist_cases.py cases --patched NEW.VSB [--flash dump.bin] [--only N]
+"""
+
+import argparse
+import json
+import struct
+import sys
+from pathlib import Path
+
+ROOT = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])   # the app's frozen service unpacks its data files here
+sys.path.insert(0, str(ROOT / "tools" / "patch"))
+sys.path.insert(0, str(Path(__file__).parent))
+
+import note_assist as spec  # noqa: E402
+import synthaddr  # noqa: E402
+from machine import load_flash  # noqa: E402
+from pswitch_cases import Box  # noqa: E402
+from sdcard import MemoryMedium, SDCard  # noqa: E402
+from splash_cases import Dev  # noqa: E402
+
+IMAGE = 0xC0000000
+PATTERN_PTR = 0xC033E6A4
+LED_MANAGER_PTR = 0xC0345A1C
+SET_KEY, SET_SCALE = 0xC004A6FC, 0xC004A77C        # (pattern, value, notify): the setters the Pattern menu calls
+KEYS = {"rec": 0x00, "stop": 0x01, "play": 0x02, "menu": 0x09, "exit": 0x0D, "part_right": 0x0F, "part_left": 0x0B, "trigger": 0x13, "sequencer": 0x15,
+        "keyboard": 0x17, "chord": 0x18, "step_jump": 0x19, "pattern_set": 0x1B, "bar1": 0x1C, "bar4": 0x1F}
+KILL = spec.KILL_SWITCH
+HINT = (spec.HINT_RED, spec.HINT_BLUE)
+FITS = (0, 3, 4, 5, 7, 8, 9)                       # semitones from the played note, modulo 12: unison, thirds, fourth, fifth, sixths
+DELAY_S = spec.DELAY_TICKS * 0.040
+PART_BLUE = 255                                     # what the firmware lights on the pad of the selected part
+STEP_BASE = 0x800 + 0x30 + 4                        # part 0, step 0 in the pattern object; 12 bytes a step: on, gate, velocity, trigger, 4 notes
+# the notes of each scale over its root, music theory (the same as src/dice.mjs knows), to check that the pads are in the key and scale
+SCALES = {0: range(12), 1: (0, 2, 4, 5, 7, 9, 11), 2: (0, 2, 3, 5, 7, 9, 10), 6: (0, 2, 3, 5, 7, 8, 10), 14: (0, 2, 4, 7, 9), 15: (0, 3, 5, 7, 10)}
+NAMES = {0: "Chromatic", 1: "Ionian", 2: "Dorian", 6: "Aeolian", 14: "Major Penta", 15: "minor Penta"}
+
+
+def for_build(payload):
+    """Put the patch module's places to the build of this image (the synth has its own addresses, data/synth-map/).
+    The cases name the firmware's places by their Sampler address (PATTERN_PTR, LED_MANAGER_PTR, SET_KEY, SET_SCALE, the LED send function);
+    Dev translates them for the synth (dev.a), so only the module's own constants are put here."""
+    spec.use_build("synth" if synthaddr.is_synth(payload) else "hacktribe")
+
+
+def has_hooks(payload):
+    """True when the end of the LED manager's tick branches into the patch's code."""
+    for_build(payload)
+    word = struct.unpack_from("<I", payload, spec.TICK_HOOK - IMAGE)[0]
+    return word >> 24 == 0xEA and spec.CODE_AT <= spec.TICK_HOOK + 8 + ((word & 0xFFFFFF) << 2) < spec.CODE_END
+
+
+def entry(name, ok, detail):
+    return {"id": f"noteassist:{name}", "ok": bool(ok), "detail": str(detail)}
+
+
+class NBox(Box):
+    """A booted device (card mounted unless asked otherwise) with the helpers of these cases."""
+
+    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0):
+        for_build(payload)
+        if not synthaddr.is_synth(payload):
+            super().__init__(payload, flash, held, card, seconds)
+            return
+        # the synth: no sample bank and no flash dump of its own (the dump is the Sampler's). Box's tweaks of the pattern length and chain mode
+        # write Sampler RAM addresses, so they are left out; the cases here need a pattern only for part 5's step, which they write themselves.
+        self.payload = bytes(payload)
+        self.dev = Dev(self.payload, None, held)
+        self.m = self.dev.m
+        if card:
+            self.m.insert_card(SDCard(MemoryMedium(bytearray(self.card_image()))))
+        self.dev.run(seconds)
+        self.marks = {}
+
+    @staticmethod
+    def card_image():
+        from pswitch_cases import card_image
+        return card_image()
+
+    def key(self, name, wait=0.3):
+        self.dev.press(KEYS[name], wait)
+
+    def leds(self):
+        """{pad: (red, blue)} of the pads that are not dark, as the panel last got them."""
+        out = {}
+        for n in range(16):
+            red, blue = self.m.leds.get(0x2C + 2 * n, 0), self.m.leds.get(0x2D + 2 * n, 0)
+            if red or blue:
+                out[n] = (red, blue)
+        return out
+
+    def hinted(self):
+        return sorted(n for n, v in self.leds().items() if v == HINT)
+
+    def others(self):
+        """The pads that hold something but not the patch's pair."""
+        return {n: v for n, v in self.leds().items() if v != HINT}
+
+    def pad_down(self, n, velocity=100, wait=0.15):
+        self.m.send([4, n, 0, velocity, 1])
+        self.run(wait)
+
+    def pad_up(self, n, wait=0.2):
+        self.m.send([4, n, 0, 0, 0])
+        self.run(wait)
+
+    def tap_pad(self, n, hold=0.1, wait=0.2):
+        self.pad_down(n, wait=hold)
+        self.pad_up(n, wait=wait)
+
+    def pattern(self):
+        return self.u32(PATTERN_PTR)
+
+    def set_scale(self, key, scale):
+        """The key and the scale as the Pattern menu sets them: through the firmware's setters, which build the layout again."""
+        self.dev.call(SET_KEY, self.pattern(), key, 0)
+        self.dev.call(SET_SCALE, self.pattern(), scale, 0)
+        self.run(0.3)
+
+    def manager(self):
+        return self.u32(LED_MANAGER_PTR)
+
+    def state(self, offset):
+        return self.u32(spec.STATE + offset)
+
+    def clear_steps(self, part=0):
+        base = self.pattern() + STEP_BASE + 0x330 * part
+        self.m.uc.mem_write(base, bytes(12 * 64))
+
+    def layout(self):
+        """The note of each pad, from the MIDI out of the firmware (only the firmware's own, no hook needed)."""
+        notes = []
+        for n in range(16):
+            self.mark("l")
+            self.pad_down(n, wait=0.1)
+            on = [d[0] for st, d in self.midi("l") if st & 0xF0 == 0x90]
+            self.pad_up(n, wait=0.1)
+            notes.append(on[0] if on else None)
+        return notes
+
+    def wait_hints(self, limit=3.0):
+        """Waits (in steps of 10 ms) for the first hint; returns the seconds, None when none comes."""
+        t = 0.0
+        while t < limit:
+            if self.hinted():
+                return round(t, 2)
+            self.run(0.01)
+            t += 0.01
+        return None
+
+
+_layouts = {}
+
+
+def layout_of(payload, flash, key, scale):
+    """The 16 notes of the keyboard for a key and scale, measured with the patch off (EXIT held at power-on), so it is the firmware's alone."""
+    if (key, scale) not in _layouts:
+        box = NBox(payload, flash, KILL)
+        box.dev.press(KEYS["keyboard"], 0.4)
+        box.set_scale(key, scale)
+        _layouts[(key, scale)] = box.layout()
+    return _layouts[(key, scale)]
+
+
+def fitting(layout, pad, skip=()):
+    """The pads that should show a hint after `pad`: the notes 0, 3, 4, 5, 7, 8, 9 semitones away. The pad of the selected part is one of them like any other."""
+    note = layout[pad]
+    return sorted(p for p, n in enumerate(layout) if n is not None and (n - note) % 12 in FITS and p not in skip)
+
+
+# ---------------------------------------------------------------------------------------- the cases
+SOON = 0.15          # seconds after a pad went down by which the hints are there: the next 40 ms tick and the LED messages
+
+
+def case_layout_and_hints(payload, flash):
+    """For a few keys and scales: the pads are notes of the key and the scale; right after a note the pads that fit show the pair of values, the rest stays dark."""
+    out = []
+    bad_layout, bad_hints, bad_dark, seen = [], [], [], []
+    for key, scale, pads in ((0, 2, (3, 12)), (3, 14, (1, 9)), (0, 0, (5,)), (7, 1, (10,)), (5, 15, (8,)), (9, 6, (2, 14))):
+        layout = layout_of(payload, flash, key, scale)
+        box = NBox(payload, flash)
+        box.key("keyboard", 0.4)
+        box.set_scale(key, scale)
+        in_scale = {(key + i) % 12 for i in SCALES[scale]}
+        if any(n is None or n % 12 not in in_scale for n in layout):
+            bad_layout.append((key, scale, layout))
+        for pad in pads:
+            box.tap_pad(pad, hold=0.1, wait=0.1)
+            got = box.hinted()
+            # the pads of the played note (the same note on another pad) are the firmware's red while the note sounds; after the 0.1 s hold they are dark again
+            want = fitting(layout, pad)
+            dark = {n for n in range(16) if n not in got and n not in box.leds()}
+            if got != want:
+                bad_hints.append((key, scale, pad, got, want))
+            if box.others() != {}:
+                bad_dark.append((key, scale, pad, box.others()))
+            seen.append((NAMES[scale], key, pad, layout[pad], got))
+            if len(dark) != 16 - len(got):
+                bad_dark.append((key, scale, pad, "dark pads", sorted(dark)))
+            box.run(DELAY_S + 0.3)           # let them end before the next note
+    out.append(entry("layout_is_the_key_and_scale", not bad_layout, f"the 16 pad notes of the firmware's layout are notes of the pattern's key and scale in every case tried ({len(seen)} runs), so the interval rule alone filters; wrong: {bad_layout}"))
+    out.append(entry("fitting_pads_show_the_hint", not bad_hints, f"{len(seen)} runs over six keys and scales, 0.2 s after the note: the lit pads are the ones the played note's MIDI note and the layout the firmware sent give (0, 3, 4, 5, 7, 8, 9 semitones); wrong: {bad_hints}; (scale, key, pad, note, lit pads): {seen}"))
+    out.append(entry("other_pads_stay_dark", not bad_dark, f"every other pad is dark, the part's pad (pad 0) included, which shows the hint or is dark like the rest; wrong: {bad_dark}"))
+    return out
+
+
+def case_timing(payload, flash):
+    """The hints are there right after the note (next tick) and go off about 1.5 s after it, and stay off."""
+    box = NBox(payload, flash)
+    box.key("keyboard", 0.4)
+    t0 = box.m.time_ns
+    box.pad_down(3, wait=0.0)
+    first = box.wait_hints(1.0)
+    appeared = round((box.m.time_ns - t0) / 1e9, 3) if first is not None else None
+    box.pad_up(3, wait=0.0)
+    gone = None
+    while (box.m.time_ns - t0) / 1e9 < 3.0:
+        if not box.hinted():
+            gone = round((box.m.time_ns - t0) / 1e9, 3)
+            break
+        box.run(0.01)
+    box.run(4.0)
+    still = box.hinted()
+    part = box.leds().get(0)
+    return [entry("part_blue_comes_back_when_the_hints_end", part == (0, PART_BLUE) and 0 not in box.hinted(),
+                  f"the pad of the selected part (pad 0) holds the firmware's blue {part} four seconds after the note, the hints are over"),
+            entry("hints_come_with_the_next_tick", appeared is not None and appeared <= 0.1, f"the first hint {appeared} s after the pad went down (one tick of the LED manager is 0.04 s)"),
+            entry("hints_end_after_a_second_and_a_half", gone is not None and 1.4 <= gone <= 1.7 and spec.DELAY_TICKS == 38,
+                  f"the last hint is gone {gone} s after the pad went down ({spec.DELAY_TICKS} ticks of 40 ms = {DELAY_S:.2f} s)"),
+            entry("hints_stay_off", still == [] and not box.m.asserts, f"four seconds later hints {still}")]
+
+
+def case_new_note(payload, flash):
+    """A new pad note replaces the hints at once; they are the new note's and last 1.5 s from it, not from the old one."""
+    layout = layout_of(payload, flash, 0, 2)
+    box = NBox(payload, flash)
+    box.key("keyboard", 0.4)
+    box.tap_pad(3, hold=0.1, wait=0.1)
+    first = box.hinted()
+    box.run(1.0)
+    still = box.hinted()
+    box.pad_down(12, wait=SOON)
+    down = box.leds()
+    second = box.hinted()
+    box.pad_up(12, wait=0.1)
+    box.run(1.0)                            # 1.5 s after the first note is over, 1.1 s after the second are not
+    later = box.hinted()
+    box.run(0.6)
+    end = box.hinted()
+    return [entry("new_note_replaces_the_hints", first == fitting(layout, 3) and still == first and second == fitting(layout, 12, skip=(12,)) and second != first and down.get(12) == (192, 0),
+                  f"hints for pad 3 {first}, still {still} a second later; a new note on pad 12 (note {layout[12]}): {SOON} s later {second} (pad 12 itself is the firmware's {down.get(12)})"),
+            entry("new_note_restarts_the_time", later == fitting(layout, 12) and end == [],
+                  f"1.25 s after the second note (2.4 s after the first) hints {later}; 1.8 s after it {end}")]
+
+
+def case_firmware_wins(payload, flash):
+    """The pressed pad and the pads of its note keep the firmware's red, the blue of the part stays, the sequencer's own pad light wins."""
+    out = []
+    layout = layout_of(payload, flash, 0, 2)
+    # 1. a pad that is held keeps the firmware's value while the hints show around it, and gets the hint when it is let go
+    box = NBox(payload, flash)
+    box.key("keyboard", 0.4)
+    box.pad_down(3, wait=SOON + 0.1)
+    held = box.leds()
+    others_hinted = box.hinted()
+    box.pad_up(3, wait=0.2)
+    after = box.leds()
+    box.run(DELAY_S)
+    out.append(entry("held_pad_keeps_the_firmwares_light", held.get(3) == (192, 0) and 3 not in others_hinted and others_hinted == [p for p in fitting(layout, 3) if p != 3]
+                     and held.get(0) == (HINT if 0 in fitting(layout, 3) else None) and after.get(3) == HINT and box.hinted() == [] and box.leds().get(0) == (0, PART_BLUE),
+                     f"a pad held: pad 3 {held.get(3)} (the firmware's red), the part's pad {held.get(0)} (a hint when its note fits), hints on the others {others_hinted}; let go, pad 3 {after.get(3)}; 1.5 s later {box.hinted()}, the part's pad {box.leds().get(0)}"))
+    # 2. the pad of the selected part is a pad like any other while the hints show: its hint when its note fits, dark when not, the
+    #    firmware's blue 255 again when they end
+    part_pad = 3
+    fits_pad = next(p for p in range(16) if p != part_pad and part_pad in fitting(layout, p))
+    dark_pad = next(p for p in range(16) if p != part_pad and part_pad not in fitting(layout, p))
+    rows = {}
+    for label, played in (("fits", fits_pad), ("does_not_fit", dark_pad)):
+        box = NBox(payload, flash)
+        box.key("keyboard", 0.4)
+        for _ in range(3):
+            box.key("part_right", 0.3)
+        box.tap_pad(played, hold=0.1, wait=0.1)
+        shown = box.leds().get(part_pad)
+        want = fitting(layout, played)
+        hints = box.hinted()
+        box.run(DELAY_S + 0.3)
+        rows[label] = (played, shown, hints == want, box.leds().get(part_pad), box.m.asserts)
+    out.append(entry("blue_of_the_part_is_a_pad_like_any_other", rows["fits"][1] == HINT and rows["fits"][2] and rows["does_not_fit"][1] is None and rows["does_not_fit"][2],
+                     f"part 4 selected (pad {part_pad}): after pad {rows['fits'][0]}, whose note fits it, the pad holds {rows['fits'][1]} (the hint); after pad {rows['does_not_fit'][0]}, whose note does not, it is dark ({rows['does_not_fit'][1]}); the other pads are the fitting ones as always"))
+    out.append(entry("blue_of_the_part_comes_back", all(r[3] == (0, PART_BLUE) and not r[4] for r in rows.values()),
+                     f"1.8 s after the note the firmware's blue 255 is back on the part's pad, hint or dark before: {[(k, r[3]) for k, r in rows.items()]}"))
+    # why the patch has to give the blue back: the firmware does not light it again by itself (measured with the patch off, EXIT held at power-on)
+    box = NBox(payload, flash, KILL)
+    box.key("keyboard", 0.5)
+    mgr, led = box.manager(), 0x2D
+    for offset in (0x4E, 0x4E + 0x2C0):
+        box.m.uc.mem_write(mgr + offset + 8 * led, b"\x00")
+    box.dev.call(0xC00875F4, mgr, led, 1)
+    box.run(4.0)
+    out.append(entry("firmware_does_not_redraw_the_part_blue", box.leds().get(0) is None and not box.m.asserts,
+                     f"patch off, the blue of the part's pad set dark through the LED manager's tables and send function: four seconds later the pad holds {box.leds().get(0)} (the firmware never lights it again)"))
+    # the part changes while the hints show: the new part's pad is a pad like any other, the old one ends dark, no stale blue is written
+    box = NBox(payload, flash)
+    box.key("keyboard", 0.4)
+    for _ in range(3):
+        box.key("part_right", 0.3)
+    box.tap_pad(dark_pad, hold=0.1, wait=0.1)
+    box.key("part_right", 0.3)
+    during = box.leds()
+    box.run(DELAY_S + 0.3)
+    after = box.leds()
+    out.append(entry("part_change_leaves_no_stale_blue", after.get(4) == (0, PART_BLUE) and after.get(3) is None and not box.m.asserts,
+                     f"part 4 to 5 while the hints show: pads 3 and 4 then {during.get(3)}, {during.get(4)}; 1.8 s later pad 3 {after.get(3)}, pad 4 {after.get(4)} (the firmware's blue on the new part's pad only)"))
+    # 3. a note of the sequencer: part 5 of the factory pattern plays the note 63 on its first step, the firmware lights the pad of that note,
+    #    which the patch would have hinted (pad 0 is the note 60, 63 is a minor third up). PLAY comes while the hints last.
+    box = NBox(payload, flash)
+    # an empty flash holds Init patterns without a note: step 1 of part 5 gets the note 63 (block offset 0x800 + 4 * 0x330 + 0x30: on, gate,
+    # velocity, trigger, note), as it has in the factory pattern; the live pattern's block starts 4 bytes behind its pointer
+    first_step = box.u32(0xC033E6A4) + 4 + 0x800 + 4 * 0x330 + 0x30
+    if not box.dev.read(first_step, 1)[0]:
+        box.m.uc.mem_write(first_step, bytes([1, 0xFF, 0x60, 1, 0x40]))
+    box.key("keyboard", 0.4)
+    for _ in range(4):
+        box.key("part_right", 0.3)
+    box.tap_pad(0, hold=0.1, wait=0.1)
+    before = box.hinted()
+    box.key("play", 0.0)
+    flashed, seen_flash, t = None, False, 0.0
+    while t < 1.0 and not seen_flash:
+        box.run(0.01)
+        t += 0.01
+        leds = box.leds()
+        if leds.get(2) == (192, 0):
+            seen_flash, flashed = True, dict(leds)
+    back = None
+    for _ in range(60):
+        box.run(0.01)
+        if box.leds().get(2) == HINT:
+            back = box.leds().get(2)
+            break
+    box.key("stop", 0.5)
+    out.append(entry("sequencer_light_wins", before == fitting(layout, 0) and 2 in before and seen_flash and flashed.get(2) == (192, 0) and back == HINT,
+                     f"part 5 selected, hints for pad 0 {before} (pad 2, the note 63, is one of them); then the sequencer plays that note: pad 2 {flashed.get(2) if flashed else None} (the firmware's light, not the hint), "
+                     f"and after the note the hint is back ({back}) while the 1.5 s last"))
+    return out
+
+
+def case_modes(payload, flash):
+    """Nothing outside KEYBOARD mode and the main screen: not in the other pad modes, not in the menu, not after an octave shift."""
+    out = []
+    layout = layout_of(payload, flash, 0, 2)
+    count = len(fitting(layout, 3))
+    rows = {}
+    for label, mode in (("sequencer", "sequencer"), ("trigger", "trigger"), ("chord", "chord"), ("step_jump", "step_jump"), ("pattern_set", "pattern_set")):
+        box = NBox(payload, flash)
+        box.key("keyboard", 0.4)
+        box.tap_pad(3, hold=0.05, wait=0.0)
+        box.key(mode, 0.1)
+        box.run(0.3)
+        in_mode = box.hinted()
+        box.run(DELAY_S)
+        box.key("keyboard", 0.2)
+        box.run(DELAY_S + 0.5)
+        rows[label] = (in_mode, box.hinted())
+    out.append(entry("no_hint_in_other_pad_modes", all(v == ([], []) for v in rows.values()),
+                     f"a pad played in KEYBOARD, then the mode changed within 0.15 s: no hint in that mode and none when KEYBOARD is back (the note is forgotten): {rows}"))
+    rows = {}
+    for label, mode in (("sequencer", "sequencer"), ("trigger", "trigger"), ("chord", "chord"), ("step_jump", "step_jump")):
+        box = NBox(payload, flash)
+        box.key("keyboard", 0.4)
+        box.tap_pad(3, hold=0.1, wait=0.1)
+        shown = len(box.hinted())
+        box.key(mode, 0.1)
+        gone = box.hinted()
+        part_in_mode = box.leds().get(0)
+        box.run(DELAY_S)
+        box.key("keyboard", 0.2)
+        box.run(DELAY_S + 0.5)
+        rows[label] = (shown, gone, box.hinted(), part_in_mode, box.leds().get(0))
+    out.append(entry("hints_go_when_the_mode_changes", all(v[0] == count and v[1] == [] and v[2] == [] for v in rows.values()),
+                     f"hints shown, the mode changed: gone within 0.1 s and not back with KEYBOARD (shown, left, after returning): {rows}"))
+    out.append(entry("part_blue_back_when_the_mode_changes", all(v[3] is not None and v[3][1] == PART_BLUE and v[4] == (0, PART_BLUE) for v in rows.values()),
+                     f"the part's pad holds the blue 255 right after the mode changed (the firmware's own light in that mode, the sequencer's step LED adds red) and the firmware's blue after KEYBOARD is back: {[(k, v[3], v[4]) for k, v in rows.items()]}"))
+    box = NBox(payload, flash)
+    for mode in ("trigger", "sequencer", "chord"):
+        box.key(mode, 0.3)
+        box.tap_pad(5, wait=0.3)
+    box.key("keyboard", 0.3)
+    box.run(DELAY_S + 1.0)
+    out.append(entry("pads_in_other_modes_leave_nothing", box.hinted() == [], f"pads pressed in TRIGGER, SEQUENCER and CHORD, then KEYBOARD: hints {box.hinted()}"))
+    box = NBox(payload, flash)
+    box.key("keyboard", 0.4)
+    box.tap_pad(3, hold=0.1, wait=0.05)
+    shown = len(box.hinted())
+    box.key("menu", 0.3)
+    in_menu = box.hinted()
+    screen = box.dev.screen()["number"]
+    box.key("exit", 0.4)
+    back = box.dev.screen()["number"]
+    box.run(DELAY_S + 1.0)
+    out.append(entry("no_hint_in_the_menu", shown == count and in_menu == [] and screen != 1 and back == 1 and box.hinted() == [] and box.leds().get(0) == (0, PART_BLUE),
+                     f"hints shown ({shown}), MENU (screen {screen}): hints {in_menu}; EXIT (screen {back}): hints {box.hinted()} until a new note, the part's pad {box.leds().get(0)}"))
+    box = NBox(payload, flash)
+    box.key("keyboard", 0.4)
+    box.tap_pad(3, hold=0.1, wait=0.05)
+    shown = len(box.hinted())
+    box.key("bar4", 0.3)
+    after_octave = box.hinted()
+    box.run(DELAY_S + 1.0)
+    later = box.hinted()
+    box.tap_pad(3, hold=0.1, wait=0.1)
+    again = box.hinted()
+    out.append(entry("octave_shift_ends_the_hints", shown == count and after_octave == [] and later == [] and len(again) == count and box.leds().get(0) in (HINT, None),
+                     f"shown {shown}, BAR 4 (an octave up): {after_octave}, later {later}; the next note brings them back {again}"))
+    return out
+
+
+def case_stock(payload, flash):
+    """EXIT held at power-on, no card, the setting off: the patch does nothing, the pads are the firmware's; the setting off at run time gives the LEDs back."""
+    out = []
+    count = len(fitting(layout_of(payload, flash, 0, 2), 3))
+    rows = {}
+    makers = {
+        "exit_held": lambda: NBox(payload, flash, KILL),
+        "no_card": lambda: NBox(payload, flash, card=False),
+        "setting_off": lambda: _setting_off(payload, flash),
+    }
+    for name, make in makers.items():
+        box = make()
+        box.key("keyboard", 0.4)
+        values, hints = set(), []
+        for pad in (3, 9, 12):
+            box.pad_down(pad)
+            values |= {v for pair in box.leds().values() for v in pair}
+            box.pad_up(pad, wait=0.3)
+            hints += box.hinted()
+            values |= {v for pair in box.leds().values() for v in pair}
+            box.run(DELAY_S + 0.3)
+        rows[name] = (sorted(values), hints, [box.state(o) for o in (spec.S_SINCE, spec.S_NOTE, spec.S_PAD)], box.m.asserts)
+    untouched = [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]
+    out.append(entry("stock_without_the_patch", all(r[0] == [0, 192, 255] and r[1] == [] and not r[3] for r in rows.values()) and rows["exit_held"][2] == untouched and rows["no_card"][2] == untouched,
+                     f"three notes each (values of the pad LEDs, hints, state words, assertions): {rows}; with EXIT held or without a card the patch does not write its state either"))
+    box = NBox(payload, flash)
+    box.key("keyboard", 0.4)
+    box.tap_pad(3, hold=0.1, wait=0.1)
+    shown = len(box.hinted())
+    box.m.uc.mem_write(spec.NA_SETTING, struct.pack("<I", 0))
+    box.run(0.3)
+    gone = box.hinted()
+    box.run(DELAY_S)
+    box.tap_pad(3, hold=0.1, wait=0.1)
+    off_again = box.hinted()
+    out.append(entry("setting_off_gives_the_leds_back", shown == count and gone == [] and off_again == [] and not box.m.asserts and box.leds().get(0) == (0, PART_BLUE),
+                     f"{shown} hints shown, the setting word set to 0: {gone} within 0.3 s, and no hint after a new note {off_again}; the part's pad {box.leds().get(0)}"))
+    box.m.uc.mem_write(spec.NA_SETTING, struct.pack("<I", 1))
+    box.run(DELAY_S)
+    box.tap_pad(3, hold=0.1, wait=0.1)
+    out.append(entry("setting_on_again", len(box.hinted()) == count, f"set to 1: the next note shows {len(box.hinted())} hints"))
+    return out
+
+
+def _setting_off(payload, flash):
+    box = NBox(payload, flash)
+    box.m.uc.mem_write(spec.NA_SETTING, struct.pack("<I", 0))
+    box.run(0.1)
+    return box
+
+
+def case_values(payload, flash):
+    """What the firmware itself writes to the pad LEDs: 0, 192, 255, or twice a velocity with Pad Velocity on. The patch's two values are odd and not 255, so the patch tells its own from them."""
+    rows = {}
+    for label, pad_velocity in (("pad velocity off", 0), ("pad velocity on", 1)):
+        box = NBox(payload, flash, KILL)
+        for part in range(16):                          # the pads of TRIGGER mode select parts, so every part gets the setting
+            box.m.uc.mem_write(box.pattern() + 0x808 + 0x330 * part, bytes([pad_velocity]))
+        values = set()
+        box.m.panel_log.clear()
+        for mode in ("trigger", "sequencer", "keyboard", "chord", "step_jump", "pattern_set"):
+            box.key(mode, 0.3)
+            for pad, velocity in ((1, 5), (6, 40), (11, 90), (14, 127)):
+                box.pad_down(pad, velocity=velocity, wait=0.15)
+                box.pad_up(pad, wait=0.15)
+                box.key("play", 0.0)
+                box.run(0.4)
+                box.key("stop", 0.2)
+            values |= {m[2] for m in box.m.panel_log if m[0] == 0 and 0x2C <= m[1] <= 0x4B}
+            box.m.panel_log.clear()
+        rows[label] = sorted(values)
+    every = set(rows["pad velocity off"]) | set(rows["pad velocity on"])
+    graded = sorted(v for v in rows["pad velocity on"] if v not in (0, 192, 255))
+    return [entry("firmware_pad_values", set(rows["pad velocity off"]) == {0, 192, 255} and len(graded) >= 3 and all(v % 2 == 0 or v == 255 for v in every) and not (every & set(HINT)) and 255 not in HINT,
+                  f"values the firmware sent to the pad LEDs over all six pad modes, playing and not: {rows}; with Pad Velocity on the pad light follows the hit (graded values {graded}), "
+                  f"so the pad LEDs take intermediate values in the protocol; the patch's pair {HINT} is odd and never among them")]
+
+
+def case_lock(payload, flash):
+    """A plugin that holds the LED lock keeps the pads: the patch writes nothing while the lock is held."""
+    box = NBox(payload, flash)
+    box.key("keyboard", 0.4)
+    box.m.uc.mem_write(box.manager() + 0xB98, bytes([1]))
+    box.m.panel_log.clear()
+    box.tap_pad(3, hold=0.1, wait=0.1)
+    held = box.hinted()
+    written = [m for m in box.m.panel_log if m[0] == 0 and 0x2C <= m[1] <= 0x4B and m[2] in HINT]
+    box.m.uc.mem_write(box.manager() + 0xB98, bytes([0]))
+    box.run(0.3)
+    count = len(fitting(layout_of(payload, flash, 0, 2), 3))
+    return [entry("led_lock_keeps_the_pads", held == [] and written == [] and len(box.hinted()) == count,
+                  f"lock held while the note plays: hints {held}, LED messages with the patch's values {len(written)}; lock let go within the 1.5 s: {len(box.hinted())} hints (the time counted on)")]
+
+
+GROUPS = (case_layout_and_hints, case_timing, case_new_note, case_firmware_wins, case_modes, case_stock, case_values, case_lock)
+
+
+def group_entries(payload, flash, i):
+    """check.py entries of case group i; each boots its own devices, so they can run side by side."""
+    return GROUPS[i](payload, flash)
+
+
+def cases_task(i):
+    """group_entries in a worker (parallel.py)."""
+    import parallel
+    return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
+
+
+def cases(payload, flash=None):
+    return [e for i in range(len(GROUPS)) for e in group_entries(payload, flash, i)]
+
+
+def main():
+    import lifetime
+    lifetime.exit_with_parent()
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("what", choices=("cases",))
+    p.add_argument("--patched", required=True, type=Path)
+    p.add_argument("--flash", nargs="*", default=[], type=Path)
+    p.add_argument("--only", type=int, help="run one group")
+    a = p.parse_args()
+    payload = a.patched.read_bytes()[0x100:]
+    flash = load_flash(a.flash) if a.flash else None
+    entries = group_entries(payload, flash, a.only) if a.only is not None else cases(payload, flash)
+    print(json.dumps(entries, indent=1))
+    return 0 if all(e["ok"] for e in entries) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

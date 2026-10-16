@@ -1,0 +1,49 @@
+{
+  "reviewed": "2026-10-16",
+  "binary_sha256": "17025aae03ef2eb05a9990774c0882f3298b6c0efc54a7173e7dbc6b30373078",
+  "wad_sha256": "7323bcc168c5a45ff10749b339960e98314740a734c30d4b9f3337001f9e703d",
+  "redistribution_ready": true,
+  "items": [
+    {
+      "item": "GPL text in the version the engine requires",
+      "status": "satisfied",
+      "evidence": "licenses/GPL-3.0.txt (GPLv3, which every file of the engine allows: 77 of 80 linked files say version 2 or later, sha1.c says version 3 or later) and licenses/GPL-2.0-doomgeneric-LICENSE.txt (the repository licence of the engine)"
+    },
+    {
+      "item": "complete corresponding source of doom.bin",
+      "status": "satisfied",
+      "evidence": "doom-sources.tar.gz with sources.json; rebuilt from the archive alone to the same SHA-256 on 2026-10-15"
+    },
+    {
+      "item": "exact build recipe",
+      "status": "satisfied",
+      "evidence": "BUILD.md, REBUILD.md inside the archive"
+    },
+    {
+      "item": "AGPL for our adapter and loader, compatibility with the GPL parts",
+      "status": "satisfied",
+      "evidence": "docs/doom-lizenz.md, AGPL-3.0 section 13; LICENSE"
+    },
+    {
+      "item": "Freedoom license and credits",
+      "status": "satisfied",
+      "evidence": "licenses/Freedoom-COPYING.txt, licenses/Freedoom-CREDITS.txt, licenses/Freedoom-CREDITS-MUSIC.txt; doom.wad is the unchanged freedoom1.wad of 0.13.0"
+    },
+    {
+      "item": "dummy.c and doomgeneric.c carry no license header",
+      "status": "accepted",
+      "evidence": "Two glue files of doomgeneric (dummy.c, 53 lines of stubs; doomgeneric.c, 27 lines) have no license header and no later-version clause. Only the repository license (GPL version 2 text) stands near them. If they are GPL-2.0-only they do not combine with sha1.c (GPL-3.0-or-later) in one binary. Practically they are trivial glue, but the licence side is not clean until the author states it, or both files are replaced by our own glue in the adapter (new build, new hash, new loader). See docs/doom-lizenz.md. Decision by the maintainer on 2026-10-16: ship as is, replace both files if the author objects."
+    },
+    {
+      "item": "GCC Runtime Library Exception notice",
+      "status": "satisfied",
+      "evidence": "licenses/GCC-Runtime-Library-Exception-3.1.txt (COPYING.RUNTIME, gcc.gnu.org git, branch releases/gcc-14)"
+    },
+    {
+      "item": "newlib file license notices for the linked objects",
+      "status": "satisfied",
+      "evidence": "licenses/newlib-4.4.0-COPYING.NEWLIB.txt (COPYING.NEWLIB, sourceware.org newlib-cygwin, tag newlib-4.4.0; collects the notices of the individual source files)"
+    }
+  ],
+  "next": "Nothing open. If the author of doomgeneric objects to dummy.c or doomgeneric.c, replace both with own glue."
+}

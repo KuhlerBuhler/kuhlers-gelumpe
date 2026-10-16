@@ -1,0 +1,181 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "preset-tables",
+ "name": "Presets: Platz f\u00fcr 128 Insert- und 128 Master-Effekte",
+ "builds": [
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 1556736,
+   "expect": "c323c96b39b5155a4788a606c6fc05571befd551e693af4ec6b7f369cc42a834",
+   "copy": {
+    "file": 712852,
+    "length": 400,
+    "expect": "bce1f81dfcfc65fd554250a81416c3238f4f48a95ba89a14c3df487063180720"
+   }
+  },
+  {
+   "file": 1557136,
+   "bytes": "bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0bc150cc0",
+   "expect": "d583aef59874543a14822c32be48385b86bd239a918575d36cf695b0eb1e0c1c"
+  },
+  {
+   "file": 1557248,
+   "expect": "c323c96b39b5155a4788a606c6fc05571befd551e693af4ec6b7f369cc42a834",
+   "copy": {
+    "file": 717968,
+    "length": 400,
+    "expect": "55f0d66d85291c2d82efc72238a1cb57ba3e4717acf17420d2e491ee6aed0fdc"
+   }
+  },
+  {
+   "file": 1557648,
+   "bytes": "dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0dcc30bc0",
+   "expect": "d583aef59874543a14822c32be48385b86bd239a918575d36cf695b0eb1e0c1c"
+  },
+  {
+   "file": 256060,
+   "bytes": "7f0050e3",
+   "expect": "0f2fc2b6ce51acc7c146603f5b3d9b8878a0a829cc14928e418cbce580a95729"
+  },
+  {
+   "file": 256064,
+   "bytes": "7f00a023",
+   "expect": "506a9e10bce7829a08f40731f6aedcaa0d28ba0e0873bd560a8c9e829a066dab"
+  },
+  {
+   "file": 256084,
+   "bytes": "7f0050e3",
+   "expect": "0f2fc2b6ce51acc7c146603f5b3d9b8878a0a829cc14928e418cbce580a95729"
+  },
+  {
+   "file": 256088,
+   "bytes": "7f00a023",
+   "expect": "506a9e10bce7829a08f40731f6aedcaa0d28ba0e0873bd560a8c9e829a066dab"
+  },
+  {
+   "file": 256076,
+   "bytes": "00c017c0",
+   "expect": "740fe60b9ae9380e99b9dc1195aa73015193da6ede7b9ce8f137d39d4522b63d"
+  },
+  {
+   "file": 256100,
+   "bytes": "00c217c0",
+   "expect": "2b3d4d8651b7a2ec9d8ce909361a863f758ffd136d01f2dfe4dee41532c77391"
+  },
+  {
+   "file": 623016,
+   "bytes": "00c417c0",
+   "expect": "9686f516abaf27e000e7267e6f047f33f12b0a45e4066c35e102ad6f32874082"
+  },
+  {
+   "file": 623104,
+   "bytes": "00c417c0",
+   "expect": "9686f516abaf27e000e7267e6f047f33f12b0a45e4066c35e102ad6f32874082"
+  },
+  {
+   "file": 623172,
+   "bytes": "00c417c0",
+   "expect": "9686f516abaf27e000e7267e6f047f33f12b0a45e4066c35e102ad6f32874082"
+  },
+  {
+   "file": 623208,
+   "bytes": "00c417c0",
+   "expect": "9686f516abaf27e000e7267e6f047f33f12b0a45e4066c35e102ad6f32874082"
+  },
+  {
+   "file": 623284,
+   "bytes": "00c417c0",
+   "expect": "9686f516abaf27e000e7267e6f047f33f12b0a45e4066c35e102ad6f32874082"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 256076,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 256100,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 623016,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 623104,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 623172,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 623208,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 623284,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 256060,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 256064,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 256084,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 256088,
+   "length": 4,
+   "why": "the firmware runs the preset getters and the knob memory set-up at start"
+  },
+  {
+   "file": 1556736,
+   "length": 512,
+   "why": "the preset getters read their pointer from this array while the firmware sets up its FX channels at start"
+  },
+  {
+   "file": 1557248,
+   "length": 512,
+   "why": "the preset getters read their pointer from this array while the firmware sets up its FX channels at start"
+  }
+ ],
+ "ram": [
+  {
+   "at": "0xC0174000",
+   "length": 14672,
+   "what": "room for 28 more insert preset records, written by the editor",
+   "source": "tools/patch/preset_tables.py:RES_IFX"
+  },
+  {
+   "at": "0xC0178000",
+   "length": 14672,
+   "what": "room for 28 more master preset records, written by the editor",
+   "source": "tools/patch/preset_tables.py:RES_MFX"
+  },
+  {
+   "at": "0xC017C400",
+   "length": 2048,
+   "what": "knob memory of the insert effect, 16 parts by CAPACITY entries, filled by the firmware at start",
+   "source": "tools/patch/preset_tables.py:EDIT_TABLE"
+  }
+ ]
+}

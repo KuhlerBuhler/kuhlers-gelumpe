@@ -1,0 +1,177 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "splash-editor",
+ "name": "Startbild-Editor (Global, Seite 20)",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 1712640,
+   "bytes": "f0412de94f20faeb0040a0e10180a0e3a4519fe5005095e5186095e5020a16e30080a0132260d5e5000056e30080a013000058e31600000a401efaeb7c119fe57c219fe57c319fe5491efaeb000050e30600000a64019fe5190000eb000050e30200000a60119fe560219fe5002081e55c019fe50010a0e34020a0e3041080e4012052e2fcffff1a44019fe544119fe5001080e50000a0e32c0000eb38019fe50210a0e30020a0e308cff9eb28019fe50310a0e30020a0e304cff9eb0400a0e1f081bde810402de90040a0e1001094e508219fe5020051e10b00001a041094e5fc209fe5020051e10700001a0400a0e1f0109fe5060000eb081494e5010050e10100001a0100a0e31080bde80000a0e31080bde8d0c09fe50020e0e3000051e30800000a0130d0e4032022e00830a0e3a220b0e10c202220013053e2fbffff1a011041e2f4ffffea0200e0e11eff2fe170402de90cd04de20040a0e168509fe5006095e5000054e3004085159873faeba373faeb0d00a0e300008de50010a0e304108de508108de50d00a0e104108de208208de2ed74faeb9a73faeb006085e50000a0e30010a0e38020a0e34030a0e319ccf9eb0cd08de27080bde8f8e633c0002118c000007f000c040000545a0cc0082118c0002018c053504c312cbb31c0474c535001000004080400002083b8ed",
+   "expect": "1dd7b5aec086135580c588a9e91cb20983cfdb38ce06d49567355c7944980ffc",
+   "note": "start code: draw the stored start image, or the VSB one"
+  },
+  {
+   "file": 1713664,
+   "bytes": "20c69fe500f09ce51cc69fe500f09ce518c69fe500f09ce514c69fe500f09ce510c69fe500f09ce50cc69fe500f09ce508c69fe500f09ce504c69fe500f09ce500c69fe500c09ce5fc359fe503005ce1eaffff1af4c59fe500c09ce518c09ce5020a1ce3e5ffff1ad8359fe50020a0e3042083e5182083e5e0ffffeac4c59fe500c09ce5c0359fe503005ce1ddffff1ab8c59fe500c09ce518c09ce5020a1ce3d8ffff1a9c359fe50020a0e3042083e5182083e5d3ffffea88c59fe500c09ce584359fe503005ce1d0ffff1a7cc59fe500c09ce518c09ce5020a1ce3cbffff1a60359fe5043093e5010053e3c7ffff1aa30000ea4cc59fe500c09ce548359fe503005ce1c3ffff1a40c59fe500c09ce518c09ce5020a1ce3beffff1a24359fe5043093e5010053e3baffff1a0e0051e3b8ffff1a010052e3b6ffff1a07402de9010100eb0740bde8b2ffffeaf4c49fe500c09ce5f0349fe503005ce1afffff1ae8c49fe500c09ce518c09ce5020a1ce3aaffff1acc349fe5043093e5010053e31eff2f012c3090e5000053e33a00000a140053e3a1ffff1a1330a0e32c3080e5a808fbea9cc49fe500c09ce598349fe503005ce19bffff1a90c49fe500c09ce518c09ce5020a1ce396ffff1a74349fe5043093e5010053e31eff2f012c3090e5130053e32400000a8effffea54c49fe500c09ce550349fe503005ce18bffff1a48c49fe500c09ce518c09ce5020a1ce386ffff1a2c349fe5043093e5010053e37100000a2c3090e5140053e32b00000a7effffea0cc49fe500c09ce508349fe503005ce17bffff1a00c49fe500c09ce518c09ce5020a1ce376ffff1ae4339fe5043093e5010053e34d00000a2c3090e5140053e31eff2f016effffea10402de90040a0e11400a0e32c0084e5c0039fe5000090e51310a0e33962fbeb240094e51410a0e3678cfbeb240094e5a4139fe5348cfbeb280094e51410a0e31520a0e338a0fbeb240094e58c139fe5048cfbeb240094e584139fe5128cfbeb1080bde810402de90040a0e158339fe50120a0e3042083e50020a0e3082083e5102083e5142083e558039fe558139fe5001091e5012ba0e3aa0000eb28339fe5182093e5040052e10f00000a184083e5400083e20010a0e31020a0e3041080e4012052e2fcffff1a20139fe5401083e5401083e208d04de200108de5100084e20d10a0e125fbfaeb08d08de2f4029fe577feffebd0329fe50120a0e30c2083e52c0000eb1080bde8bc329fe50020a0e3042083e5d8329fe5003093e50120a0e35c20c3e51eff2fe110402de90140a0e194329fe50020a0e30c2083e51d0000eb84329fe5082093e5042082e0a4129fe5012002e0082083e50120a0e30c2083e50020a0e3102083e5120000eb1080bde810402de950429fe5080094e5a013a0e17f0000e2a121a0e18223a0e1020080e0071001e2071061e20120a0e31221a0e140329fe50010d3e7021021e00010c3e7000000eb1080bde870402de90cd04de204429fe5085094e5a563a0e17f5005e200508de504608de5a601a0e18003a0e1050080e0fc119fe50020d1e7073006e2073063e23223a0e1012002e20c3094e5032022e008208de50d00a0e104108de208208de2a3cbf9eb0cd08de27080bde810402de9a0419fe5040094e5010050e32300001a140094e5000050e31500000aac119fe5001091e5241091e5000051e30200000a0200a0e3140084e5180000ea020050e30400000a101094e5011081e2101084e5280051e3110000ba0000a0e3140084e5100084e558019fe510feffebc8ffffeb0a0000ea100094e5010080e2100084e5060050e3050000ba0000a0e3100084e50c0094e5010020e20c0084e5bcffffeb1080bde80000a0e31eff2fe110402de920419fe520019fe5000084e51c019fe5040084e5080084e2f4109fe5012ba0e3130000eb0400a0e104119fe5e4fdffeb080484e5ed1bfaebf8109fe5f8209fe50430a0e1071cfaeb000050e30700000ac0109fe5082084e2002081e594309fe50120a0e3142083e50020a0e3102083e51080bde8043091e4043080e4042052e2fbffff1a1eff2fe153504c4153482053435245454e000000442a1ac0442a1ac09c291ac0442a1ac0442a1ac0442a1ac0442a1ac0442a1ac0442a1ac0442a1ac0442a1ac0442a1ac0442a1ac0442a1ac0442a1ac0442a1ac0f8330ec0fc330ec000340ec004340ec008340ec00c340ec010340ec020340ec0002018c053504c31f8e633c0401269c0d1650ac0d82a1ac0235a0ac0202918c0545a0cc0e82a1ac0c00434c0ff1f0000002118c0474c5350010000040804000000007f000c040000",
+   "expect": "38fb6b0bbebd27d49e668749eb84effa3b9f30e20a5f8e76f1df57f76b9f396f",
+   "note": "editor: page 20, cursor, WRITE"
+  },
+  {
+   "file": 1719552,
+   "copy": {
+    "file": 931064,
+    "length": 72,
+    "expect": "a95cb2150b05b34138aab7b79ae47ac6148a43f629e3b4b5c5eff44a36ba308b"
+   },
+   "over": [
+    {
+     "at": 0,
+     "bytes": "40251ac0"
+    },
+    {
+     "at": 4,
+     "bytes": "7c251ac0"
+    },
+    {
+     "at": 8,
+     "bytes": "b8251ac0"
+    },
+    {
+     "at": 12,
+     "bytes": "f4251ac0"
+    },
+    {
+     "at": 16,
+     "bytes": "4c261ac0"
+    },
+    {
+     "at": 20,
+     "bytes": "a4261ac0"
+    },
+    {
+     "at": 24,
+     "bytes": "ec261ac0"
+    },
+    {
+     "at": 40,
+     "bytes": "34271ac0"
+    }
+   ],
+   "expect": "51cfa32fece0135f38198da2529e7c6a0c1f53747984d55705077b7f6920cc76",
+   "note": "the Global screen's vtable with our slots"
+  },
+  {
+   "file": 413244,
+   "bytes": "003c1ac0",
+   "expect": "a1df7d718467c9da6f9d7c72e19f8ef2500b4b3ff3cecadfd9c5c8e90deba512",
+   "note": "the constructor of screen 9 takes the copy"
+  },
+  {
+   "file": 175788,
+   "bytes": "d3dc05eb",
+   "expect": "51761338abc0289c65db6b83a78d5d83066b2aabbe4da4b788bd05167072afe4",
+   "note": "start hook after the rescue paths"
+  },
+  {
+   "file": 175416,
+   "bytes": "0000a0e1",
+   "expect": "333faa5accb738aab3635532c546cecb825796dbae0648b7ecc0afffa566a6b0",
+   "note": "no start image before the rescue paths (nop)"
+  },
+  {
+   "file": 412288,
+   "bytes": "1520a0e3",
+   "expect": "8cf9d6744f2aee948d4c403a8af6474bf66cd7a2dc01c270ebbe0d1856c9e9a0",
+   "note": "page display shows /21"
+  },
+  {
+   "file": 413188,
+   "bytes": "1520a0e3",
+   "expect": "8cf9d6744f2aee948d4c403a8af6474bf66cd7a2dc01c270ebbe0d1856c9e9a0",
+   "note": "page display shows /21"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC002ADAC",
+   "kind": "call",
+   "chain": "start",
+   "position": "after",
+   "swallow": false,
+   "note": "runs the original call, then draws the stored start image"
+  },
+  {
+   "site": "0xC002AC38",
+   "kind": "call",
+   "chain": "start-image",
+   "position": "replace",
+   "swallow": true,
+   "note": "the early start image call is dropped"
+  },
+  {
+   "site": "0xC0064D3C",
+   "kind": "literal",
+   "chain": "global-screen",
+   "position": "replace",
+   "swallow": true,
+   "note": "the Global screen's class is the copy with our slots"
+  },
+  {
+   "site": "0xC0064980",
+   "kind": "instruction",
+   "chain": "global-screen",
+   "position": "replace",
+   "swallow": false,
+   "note": "page display shows /21"
+  },
+  {
+   "site": "0xC0064D04",
+   "kind": "instruction",
+   "chain": "global-screen",
+   "position": "replace",
+   "swallow": false,
+   "note": "page display shows /21"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 175788,
+   "length": 4,
+   "why": "the call after the rescue paths now runs splash_start"
+  },
+  {
+   "file": 175416,
+   "length": 4,
+   "why": "the start image call before the rescue paths is dropped"
+  },
+  {
+   "file": 1712640,
+   "length": 496,
+   "why": "splash_start and what it calls: flash read, CRC, draw"
+  }
+ ],
+ "ram": [
+  {
+   "at": "0xC0182000",
+   "length": 256,
+   "what": "run time state of the start code and the editor",
+   "source": "tools/patch/splash_editor.py:STATE"
+  },
+  {
+   "at": "0xC0182100",
+   "length": 2080,
+   "what": "the record as read from or about to be written to flash",
+   "source": "tools/patch/splash_editor.py:RECBUF"
+  },
+  {
+   "at": "0xC0182920",
+   "length": 1760,
+   "what": "the image being edited, and the rest of the editor's 4 KiB kept free",
+   "source": "tools/patch/splash_editor.py:EDIT"
+  }
+ ]
+}

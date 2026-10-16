@@ -1,0 +1,18 @@
+{
+ "format": "gelumpe-patch-set",
+ "version": 1,
+ "id": "blech-synth",
+ "name": "BLECH für die blaue Electribe 2 (Synth)",
+ "patches": [
+  "data/patches/blech-sysex-synth.json",
+  "data/patches/splash-synth.json",
+  "data/patches/blech-theme-synth.json",
+  "data/patches/power-off-synth.json",
+  "data/patches/pattern-switch-synth.json",
+  "data/patches/tap-motion-synth.json",
+  "data/patches/note-assistant-synth.json",
+  "data/patches/dice-synth.json",
+  "data/patches/mfx-switch-synth.json",
+  "data/patches/script-runtime-synth.json"
+ ]
+}

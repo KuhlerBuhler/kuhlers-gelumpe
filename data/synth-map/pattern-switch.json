@@ -1,0 +1,100 @@
+{
+ "entries": [
+  {
+   "from": "0xC00431F0",
+   "to": "0xC003D6EC",
+   "kind": "code",
+   "why": "pattern selection singleton getter: same shape (alloc, ctor, cached pointer); the ctor 0xC00726C0 twins the Sampler's 0xC008179C (struct 0x34C instead of 0x350, +0x308 field loop equal); the main screen's VALUE and MENU handlers call it right before reading +0x341 in both builds (0xC005B5E4, 0xC005B614)"
+  },
+  {
+   "from": "0xC006513C",
+   "to": "0xC005B604",
+   "kind": "code",
+   "why": "tail call of the main screen's VALUE handler into the selector (pop {r4,r5,r6,lr}; b selector), after the same wheel-step times ten code (mul r1,r4,#10) as 0xC00650F8..0xC006513C in the Sampler"
+  },
+  {
+   "from": "0xC008206C",
+   "to": "0xC0072A64",
+   "kind": "code",
+   "why": "the selector: the synth inlined the wrap (ldr 0x318; adds; addmi #0xfa; cmp #0xf9; subgt #0xfa) and tail calls set_number 0xC0072948 with r2=1; the only branch to it is the wheel hook site above. Arguments as in the Sampler: r0 = psel, r1 = steps. The synth has no wrap function, the patch carries its own"
+  },
+  {
+   "from": "0xC006EDE4",
+   "to": "0xC00627FC",
+   "kind": "code",
+   "why": "pad selection: push {r4,lr}; mov r4,r1; bl psel; mov r1,r4; mov r2,#1; pop {r4,lr}; b set_number stub (0xC0072A84 = the Sampler's 0xC008209C), instruction for instruction"
+  },
+  {
+   "from": "0xC006EDE8",
+   "to": "0xC0062800",
+   "kind": "code",
+   "why": "second instruction of the pad selection, where the hook continues"
+  },
+  {
+   "from": "0xC006EE00",
+   "to": "0xC0062818",
+   "kind": "code",
+   "why": "MIDI program change handler: push {r3,r4,r5,lr}; mov r5,r1; mov r4,r2; bl psel; ...; b the set_number copy without MIDI (0xC0072858, the Sampler's 0xC0081E60), instruction for instruction"
+  },
+  {
+   "from": "0xC006EE04",
+   "to": "0xC006281C",
+   "kind": "code",
+   "why": "second instruction of the program change handler, where the hook continues"
+  },
+  {
+   "from": "0xC0065144",
+   "to": "0xC005B60C",
+   "kind": "code",
+   "why": "MENU handler of the main screen: push {r4,lr}; psel; ldrb 0x341; cmp; popne. It is slot 6 of the class table at 0xC00C9C30 (value read there). The Sampler's also has a transport state check (0xB) that the synth's lacks; the patch does not depend on it"
+  },
+  {
+   "from": "0xC005F1C4",
+   "to": "0xC0055C84",
+   "kind": "code",
+   "why": "the call that fetches the number to start at the sequence end: bl PLAYER; mov r4,r0; bl psel; bl getter; mov r2,#0; mov r1,r0; mov r0,r4; bl change (0xC006C434, the Sampler's 0xC0079AA8), then PLAYER +0x320 test, all equal in shape"
+  },
+  {
+   "from": "0xC00818D8",
+   "to": "0xC0072330",
+   "kind": "code",
+   "why": "the number fetch: ldr r0,[r0,#0x318]; bx lr, same two instructions"
+  },
+  {
+   "from": "0xC0086DC4",
+   "to": "0xC0076E5C",
+   "kind": "code",
+   "why": "the load of the NEXT: pointer in the lower line builder. The builder's entry differs (synth push {r0-r6,lr}, Sampler push {r4,r5,lr}; sub sp), the body is the same: ldr r1 pool; mov r5,#1; add r2,sp,#0xc; strb r5,[r0,#0x5c]; strb r5,[r0,#0x14]; mov r4,r0; add r0,sp,#4; bl; bl psel; bl getter; mov r3,r5; mov r2,#3; add r1,r0,r5. r0 must survive, r1 is loaded, r2 and r3 are set after, in both"
+  },
+  {
+   "from": "0xC00A72E0",
+   "to": "0xC0091F7A",
+   "kind": "data",
+   "why": "the string NEXT: in the text pool, between ScaleMode: and MFX:%s in both builds; the literal pool word of the load above (0xC0076F60) holds this address"
+  },
+  {
+   "from": "0xC03405BC",
+   "to": "0xC0340774",
+   "kind": "ram",
+   "why": "the transport singleton pointer: the literal pool word of the synth's transport getter 0xC002DBC8 (the Sampler's 0xC0030D28 loads 0xC03405BC), the same getter shape; set_number reads +0x308 of its result in both"
+  },
+  {
+   "from": "0xC08B2940",
+   "to": "0xC0783D00",
+   "kind": "ram",
+   "why": "the pattern bank in RAM: booted synth in the emulator, scan for the pattern signature PTST gives 250 blocks at a 0x4000 stride from 0xC0783D00 (plus the two live copies), block layout as the Sampler's (name at +0x14, tempo at +38, length byte at +41, the chain fields at 0x3B00 are read by the UI code at 0xC007D88C and 0xC007E43C like the Sampler's 0xC008F30C and 0xC008FC30)"
+  },
+  {
+   "from": "0xC08A2940",
+   "to": "0xC0773D00",
+   "kind": "ram",
+   "why": "the bank's global block copy (GLST) 0x10000 before the pattern bank in both builds; found by the same scan of the booted synth"
+  },
+  {
+   "from": "0xC06A2A94",
+   "to": "0xC0573E54",
+   "kind": "ram",
+   "why": "the live global block (GLST), found by the same scan of the booted synth; the distance to the bank's copy (0x1FFEAC) equals the Sampler's"
+  }
+ ]
+}

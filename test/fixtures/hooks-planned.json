@@ -1,0 +1,134 @@
+{
+ "note": "Planned patches that are not built yet, described by their hooks only. Source: docs/hintergrund/skript-laufzeit.md. The pattern switch (Idee 46) is built, see data/patches/pattern-switch.json.",
+ "patches": [
+  {
+   "id": "script-runtime",
+   "name": "Skript-Laufzeit (geplant, Idee 50)",
+   "hooks": [
+    {
+     "site": "0xC002837C",
+     "kind": "instruction",
+     "chain": [
+      "key-dispatch",
+      "pattern-set"
+     ],
+     "position": "before",
+     "swallow": true,
+     "note": "input filter: ring, kill switch, swallow mask"
+    },
+    {
+     "site": "0xC00836FC",
+     "kind": "instruction",
+     "chain": "frame",
+     "position": "after",
+     "swallow": false,
+     "note": "frame hook behind the screen tick: ring, VM, frame budget"
+    },
+    {
+     "site": "0xC002ADAC",
+     "kind": "call",
+     "chain": "start",
+     "position": "after",
+     "swallow": false,
+     "note": "start hook after the rescue paths, takes over from the start image editor"
+    },
+    {
+     "site": "0xC0064D3C",
+     "kind": "literal",
+     "chain": "global-screen",
+     "position": "replace",
+     "swallow": true,
+     "note": "Global vtable literal, hosts the start image editor's page"
+    },
+    {
+     "site": "0xC004C1B4",
+     "kind": "instruction",
+     "chain": "save",
+     "position": "before",
+     "swallow": false,
+     "note": "save event for scripts"
+    },
+    {
+     "site": "0xC0081F50",
+     "kind": "instruction",
+     "chain": "pattern-set",
+     "position": "before",
+     "swallow": false,
+     "note": "patternChange event at set_number"
+    },
+    {
+     "site": "0xC00589EC",
+     "kind": "instruction",
+     "chain": "seq-step",
+     "position": "before",
+     "swallow": false,
+     "note": "step event"
+    },
+    {
+     "site": "0xC005BD7C",
+     "kind": "instruction",
+     "chain": "seq-beat",
+     "position": "before",
+     "swallow": false,
+     "note": "beat event"
+    },
+    {
+     "site": "0xC005E918",
+     "kind": "instruction",
+     "chain": "seq-tick",
+     "position": "before",
+     "swallow": false,
+     "note": "tick, entered behind the pc-relative first instruction"
+    },
+    {
+     "site": "0xC0083000",
+     "kind": "instruction",
+     "chain": "play",
+     "position": "before",
+     "swallow": false,
+     "note": "play event"
+    },
+    {
+     "site": "0xC0082D40",
+     "kind": "instruction",
+     "chain": "stop",
+     "position": "before",
+     "swallow": false,
+     "note": "stop event"
+    },
+    {
+     "site": "0xC0082944",
+     "kind": "instruction",
+     "chain": "rec",
+     "position": "before",
+     "swallow": false,
+     "note": "rec event"
+    },
+    {
+     "site": "0xC006E664",
+     "kind": "instruction",
+     "chain": "menu-ring",
+     "position": "replace",
+     "swallow": false,
+     "note": "screen factory limit for screen 0x2D"
+    },
+    {
+     "site": "0xC0064D84",
+     "kind": "instruction",
+     "chain": "menu-ring",
+     "position": "replace",
+     "swallow": false,
+     "note": "Edit-right of Global goes to screen 0x2D"
+    },
+    {
+     "site": "0xC0061880",
+     "kind": "instruction",
+     "chain": "menu-ring",
+     "position": "replace",
+     "swallow": false,
+     "note": "Edit-left of Data Util comes from screen 0x2D"
+    }
+   ]
+  }
+ ]
+}

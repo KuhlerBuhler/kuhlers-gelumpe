@@ -1,0 +1,1020 @@
+# Plugins für die Electribe
+
+Deutsche Version | [English version](plugins.en.md)
+
+Stand 2026-10-15.
+
+Ein Plugin gibt der Electribe eine neue Funktion, etwa ein Lauflicht, ein Spiel auf
+dem Display oder eine eigene Menüseite. Man lädt es über die SD-Karte aufs Gerät,
+wie ein Plugin in einem Musikprogramm. Wer will, schreibt eigene Plugins: der
+Plugin-Code ist eine Teilmenge von JavaScript.
+
+Der Editor übersetzt ein Plugin in einen Block aus Bytecode, den eine kleine VM in
+der Firmware ausführt. Ein Fehler schaltet das Plugin ab und zeigt eine Meldung im
+Menü BLECH, die Electribe läuft weiter.
+
+Alle Plugins werden beim Start geladen und laufen sofort: ein Plugin, das nur LEDs
+setzt oder Tasten umbelegt, braucht keinen Menüschritt. Das **Display** gehört dem
+Gerät. Ein Plugin mit eigenem Bildschirm ist eine **App**: sie steht im Menü BLECH
+unter GAMES oder TOOLS, erst ENTER öffnet sie, und EXIT schließt sie immer. Wer
+unbedingt direkt aufs Display will, nimmt es mit `korg.display.take()` und gibt es
+mit EXIT zurück. Das Laden eines Plugins zeichnet nie etwas (Abschnitt "Apps und das
+Display").
+
+Die Seite hat fünf Teile: die Sprachreferenz (Aufbau, Apps und Display, Sprache,
+Ereignisse, Funktionen, Grenzen), die Karte mit dem Dateiformat, das Menü BLECH am Gerät, die
+Seite Plugins im Editor und den Abschnitt Stand. Was in der Sprachreferenz steht,
+gilt für die Sprache und ihre Prüfung im Browser und im Emulator. Am Gerät ist von
+der Plugin-Laufzeit noch nichts geprüft, Einzelheiten stehen unter Stand.
+
+## Sprachreferenz
+
+### Aufbau
+
+Die Anweisungen ganz oben sind der Rumpf des Plugins. Er läuft einmal beim
+Start: Variablen anlegen, Werte setzen, Handler anmelden. Danach laufen nur
+noch die Handler, jeweils wenn ihr Ereignis eintritt.
+
+```js
+korg.app("Zaehler", "TOOLS");
+let count = 0;
+
+function show() {
+  korg.display.clear();
+  korg.display.number(count, 0, 16);
+}
+
+korg.onEvent("open", () => show());
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.TAP) { count += 1; show(); }
+});
+```
+
+`korg.onEvent("Ereignis", Handler)` steht nur ganz oben, ein Handler je
+Ereignis und Plugin. Der Handler ist eine Pfeilfunktion oder der Name einer
+Funktion. Er darf weniger Werte nehmen, als das Ereignis liefert. Die Handler
+werden aktiv, wenn der Rumpf ohne Fehler zu Ende gelaufen ist.
+
+### Apps und das Display
+
+Das Display der Electribe gehört der Firmware. Ein Plugin zeichnet nur dann hinein,
+wenn es das Display besitzt, und das kann auf zwei Wegen passieren. Beide enden mit
+EXIT: die Firmware wertet EXIT im Eingangsfilter aus, bevor ein Plugin die Taste
+sieht, ein Plugin kann EXIT nicht abfangen und nicht verschlucken. Ein Plugin, das
+kein Display besitzt und trotzdem zeichnet, wird übergangen: die Aufrufe tun nichts
+und melden nichts. Das Laden und Importieren eines Plugins besetzt das Display nie.
+
+**Weg 1, die App im Menü (der Normalfall).** Das Plugin meldet sich ganz oben im Code
+mit `korg.app("Name", "Gruppe")` an. Der Name hat 1 bis 15 Zeichen (ASCII), die Gruppe
+ist `"GAMES"` oder `"TOOLS"`, die Anmeldung steht einmal und nicht in einer Funktion.
+Das Plugin läuft vom Start an, auch die App: ihre Handler für Tasten, Pads, Takt und
+alles andere laufen immer, nur `frame` kommt erst, wenn sie offen ist. Im Menü BLECH
+steht die App unter GAMES oder TOOLS. ENTER (die Taste MENU) öffnet sie: das Display
+wird gelöscht, die Firmware zeigt ihren Hauptbildschirm, die App bekommt `open` und
+von da an `frame` und das Display. Solange sie offen ist, gehören ihr die Tasten:
+die Firmware sieht sie nicht (Encoder, Regler, Pads und Touchpad bleiben bei der
+Firmware, das Spielen geht weiter). Eine Ausnahme bilden **PLAY, STOP und REC**: sie
+erreichen die Firmware auch bei offener App (der Sequencer startet und hält an), und
+die App bekommt `buttonPress` und `buttonRelease` für sie ebenfalls. Alle anderen
+Tasten, auch die Part Tasten, ändern an der Firmware nichts. EXIT schließt sie, sie bekommt `close`, das
+Display ist wieder das der Firmware. Verlässt die Firmware den Hauptbildschirm aus
+anderem Grund, schließt die App ebenso.
+
+```js
+// Snake als App: öffnet im Menü unter GAMES, fängt bei jedem Öffnen neu an.
+korg.app("Snake", "GAMES");
+// ... Spielzustand und Funktionen wie im Beispiel-Plugin Snake ...
+korg.onEvent("open", () => { reset(); frames = 0; draw(); });
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.PART_LEFT) dir = (dir + 3) % 4;
+  if (key == korg.key.PART_RIGHT) dir = (dir + 1) % 4;
+});
+korg.onEvent("frame", () => { frames += 1; if (frames >= 3) { frames = 0; step(); } draw(); });
+```
+
+**Weg 2, das Display nehmen (sparsam benutzen).** Ein Plugin, das keine App ist, kann in
+einem Ereignis `korg.display.take()` rufen, solange die Firmware ihren Hauptbildschirm
+zeigt und das Display niemand besitzt. Die Funktion gibt 1 zurück, wenn es klappt,
+sonst 0. Danach zeichnet das Plugin, bis es `korg.display.release()` ruft oder der
+Nutzer EXIT drückt (das Plugin bekommt dann `close`). Eine App nimmt das Display nicht,
+sie wird im Menü geöffnet. Nicht im Rumpf: dort gibt es kein Display.
+
+```js
+// Ein Hinweis auf dem Display, solange PLAY gehalten wird.
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.PLAY && korg.display.take()) korg.display.text("PLAY aktiv", 0, 0);
+});
+korg.onEvent("buttonRelease", (key) => {
+  if (key == korg.key.PLAY) korg.display.release();
+});
+```
+
+Nimm Weg 2 nur, wenn ein Menüeintrag nicht passt: das Display ist dann belegt, bis
+jemand EXIT drückt, und die Tasten gehören dem Plugin, solange es das Display hat.
+Ein Plugin, das nur LEDs oder Tasten braucht, nimmt das Display nie.
+
+### Sprache
+
+- **Werte:** ganze 32-Bit-Zahlen (`-2147483648` bis `2147483647`, Hex bis
+  `0xFFFFFFFF`) und kurzer Text. `true` ist 1, `false` ist 0.
+- **Text:** nur ein Literal in Anführungszeichen (ASCII, höchstens 31 Zeichen)
+  oder eine Variable, die einen hält. Vergleichen mit `==` und `!=`, an
+  `korg.*` übergeben, mehr nicht: kein Verbinden, kein Zerlegen. Zahlen zeigt
+  `korg.display.number`.
+- **Variablen:** `let` und `const`. Eine `const` mit festem Wert ist eine
+  Konstante und braucht keinen Platz. Jede Variable hat einen festen Platz
+  (4 Byte) im Variablenbereich des Plugins. Der Bereich ist so groß, wie das
+  Plugin Variablen und Felder anlegt, ein Plugin ohne Felder braucht kaum
+  Platz. Das Blockformat erlaubt bis zu 65536 Plätze pro Plugin. Auf dem
+  Gerät teilen sich Blöcke, Variablen und Plugin-Einträge 128 KiB, siehe „Grenzen“.
+- **Felder:** `const a = new Array(16);` oder `const a = [1, 2, 3];`, nur ganz
+  oben, fest 1 bis 65535 Plätze, Zahlen. `a[i]`, `a[i] = x`, `a[i] += x`,
+  `a.length`. Ein Index außerhalb des Felds beendet das Plugin mit einem Fehler.
+- **Rechnen:** `+ - * / %`, `& | ^ << >> ~`, Vergleiche `== != === !== < <= > >=`,
+  `&& || !`, `? :`. Alles rechnet mit 32 Bit und läuft über. `/` teilt ganzzahlig
+  und schneidet gegen null ab (anders als in JavaScript), `%` hat das Vorzeichen
+  des Dividenden, die Schiebezahl zählt mit ihren unteren 5 Bit, `>>` erhält
+  das Vorzeichen. `&&` und `||` liefern wie in JavaScript einen der beiden Werte.
+- **Anweisungen:** Zuweisung (`= += -= *= /= %= &= |= ^= <<= >>=`), `++` und
+  `--` als eigene Anweisung, `if` / `else`, `while`, `for`, `break`,
+  `continue`, `return`, Blöcke. Jede Anweisung endet mit `;`.
+- **Funktionen:** `function name(a, b) { … }` ganz oben, mit Zahlen als
+  Argumenten und Ergebnis (`return;` oder das Ende gibt 0). Eine Funktion sieht
+  die Variablen ganz oben und ihre eigenen, sonst nichts: es gibt keine
+  Closures. Eine Funktion darf sich nicht selbst aufrufen, auch nicht über
+  andere (Rekursion), weil alle Variablen feste Plätze haben.
+- **Nicht dabei:** Kommazahlen, Objekte, `var`, `switch`, `do`, Ausnahmen,
+  Vorlagentexte, `null`, Zuweisung innerhalb eines Ausdrucks.
+
+Ein Fehler beim Übersetzen nennt Zeile und Spalte und sagt auf Deutsch, was
+zu tun ist.
+
+### Ereignisse
+
+| Ereignis | Werte | Wann |
+|---|---|---|
+| `ready` | | einmal, im ersten Rahmen nach dem Start |
+| `frame` | | 25 Mal je Sekunde; eine App bekommt es nur, solange sie offen ist |
+| `buttonPress`, `buttonRelease` | `key` | Taste gedrückt, losgelassen; `key` vergleicht man mit einem Namen wie `korg.key.TAP`, siehe „Namen für Tasten und LEDs“ |
+| `knob` | `index`, `value` | Regler bewegt (0 bis 1023) |
+| `encoder` | `index`, `delta` | Drehgeber gedreht |
+| `pad` | `index`, `down`, `velocity` | Pad gedrückt oder losgelassen |
+| `touch` | `x`, `y`, `first` | Touchpad berührt oder der Finger darauf bewegt. `x` und `y` sind die Werte der Panel-Nachricht (0 bis 1023, `y` nach oben, am Gerät nicht geprüft). `first` ist 1 bei der ersten Stelle einer Berührung, also dort, wo der Finger aufsetzt, sonst 0. `buttonPress` mit `korg.key.TOUCHPAD` hat keine Lage; sie kommt mit dem `touch` danach, und der trägt `first`. Ein Handler, der nur `x` und `y` nimmt, bleibt Version 1; wer `first` nimmt, braucht API Version 6 |
+| `step` | `step` | Sequencer-Schritt (16tel) |
+| `beat` | | Viertel |
+| `play`, `stop`, `rec` | | Transport |
+| `patternChange` | `index` | Pattern gewechselt |
+| `partChange` | `part` | Part gewechselt |
+| `mute` | `part`, `muted` | Part stumm oder nicht |
+| `tempo` | `tenthsBpm` | Tempo geändert |
+| `save` | | WRITE in Global, Ausschalten |
+| `menu` | `id`, `value` | am Hauptrad wurde eine Seite gedreht, die das Plugin mit `korg.menu.add` angelegt hat |
+| `open`, `close` | | nur für Apps und für ein Plugin, das das Display nahm: `open`, wenn der Nutzer die App im Menü öffnet; `close`, wenn EXIT sie schließt (oder die Firmware den Hauptbildschirm verlässt). Sie gehen nur an dieses Plugin und kommen nie von außen |
+
+Die Sequencer-Ereignisse (`step`, `beat`, `play`, `stop`, `rec`, `patternChange`,
+`partChange`, `mute`, `tempo`) entstehen auf dem Gerät nicht in der SeqTask: der
+Rahmenhaken vergleicht einmal je Rahmen die Zustandswörter der Firmware (Transport,
+Tempo, Pattern, Part, Schritt von Part 0, Mutes) mit denen des vorigen Rahmens und
+legt für jede Änderung ein Ereignis in den Ring. Das Raster ist damit 40 ms: bei
+höchstem Tempo (300 BPM, 20 Schritte je Sekunde) kommt noch jeder Schritt, was
+zwischen zwei Rahmen mehrfach wechselt, sieht ein Plugin als eine Änderung. Das
+erste Lesen nach dem Scharfschalten gilt als Ausgangszustand und löst nichts aus.
+`step` trägt den Schrittzähler von Part 0 (0 bis 63), `beat` kommt bei jedem vierten
+Schritt, `play` bei Transport 1, `stop` bei 0 oder 2, `rec` beim Übergang in 3 oder 4,
+`mute` je geänderten Part mit dem neuen Zustand. Ein Plugin sieht auch, was es
+selbst ausgelöst hat (`korg.tempo` löst `tempo` aus). Ein Patternwechsel setzt das
+Tempo des neuen Patterns, `tempo` folgt ihm dann. `save` kommt aus einem Haken am
+Eingang der Einstellungs-Schreibfunktion `0xC004C1B4` (CommandTask), die nur den
+Ring beschreibt. Beim Ausschalten läuft die Laufzeit noch rund eine Sekunde, doch
+`korg.store` schreibt dann nicht mehr, weil das Fenster "Power Off" offen ist.
+
+Die Ereignisse außer `ready` und `frame` kommen über einen Ring mit 64
+Plätzen. Ist er voll, geht das neue Ereignis verloren und wird gezählt. Ein
+Regler, der sofort wieder gedreht wird, behält nur seinen letzten Wert.
+Die Handler eines Rahmens laufen zusammen höchstens 5 ms; wer darüber
+kommt, wird abgeschaltet. Ein einzelner Handler über 0,5 ms ist eine Warnung.
+Der Status hält die höchsten Kosten und den höchsten Zeitverbrauch getrennt
+für jeden Handler. In der JS Referenzlaufzeit nennt `maxMs` diese Zeiten in
+Millisekunden; der ARM Eintrag hält Timer3 Ticks je Ereignis.
+
+Die Laufzeit verwendet einen gemeinsamen Rahmenanfang für alle Handler.
+Die VM prüft die Zeit vor dem ersten Befehl, bei erfolgreichem Ende und alle
+256 Operationen. Damit fallen auch viele kurze Handler unter das gemeinsame
+Budget. Genau 5 ms sind erlaubt; erst darüber entsteht `TIME`. Ein solcher
+Fehler schaltet nur das gerade laufende Plugin ab. Die übrigen Plugins des
+aktuellen Ereignisses, danach die weiteren Eingaben und der Rahmenhandler
+laufen im nächsten Rahmen weiter, ohne bereits gelieferte Ereignisse zu
+wiederholen. Noch nicht begonnene Handler werden bei abgelaufener Zeit
+verschoben und bleiben eingeschaltet.
+
+Ein Zyklus liefert zunächst einmal `ready` je Plugin, erfasst danach die
+wartenden Eingaben und liefert zuletzt `frame`. Später eintreffende Eingaben
+bleiben bis zum nächsten Zyklus im Ring. Neue Plugins erhalten `ready`, wenn
+die verbliebene Folge des vorherigen Zyklus abgeschlossen ist. Die JS
+Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
+`frame({ ready: false })` warten. Nach dem ersten freigegebenen Rahmen bleibt
+diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
+Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
+
+### Funktionen der Electribe
+
+Alle Namen beginnen mit `korg.`. Zahlen außerhalb des Bereichs beenden das
+Plugin mit einem Fehler.
+
+| Aufruf | Wirkung | Erlaubt in |
+|---|---|---|
+| `korg.led(index, level)` | LED Auftrag vormerken, `index` 0 bis 87 (am besten ein Name wie `korg.led.TAP`), `level` 0 bis 255 | allen Ereignissen außer dem Rumpf und `save` |
+| `korg.millis()` | Millisekunden seit dem ersten Aufruf, aus Timer3 (150 MHz), das alle 150 Millionen Ticks überläuft | überall |
+| `korg.app(name, gruppe)` | meldet das Plugin als App an: `name` 1 bis 15 Zeichen, `gruppe` `"GAMES"` oder `"TOOLS"`. Gibt die Nummer der App zurück, -1 wenn alle 8 Plätze belegt sind. Als eigene Anweisung ganz oben, einmal je Plugin (der Übersetzer prüft das) | nur im Rumpf |
+| `korg.display.take()` | das Display nehmen (Weg 2, siehe oben); 1 wenn es klappt, 0 wenn nicht (eine App, ein anderer Besitzer, nicht der Hauptbildschirm) | wie `korg.led` |
+| `korg.display.release()` | das Display zurückgeben | wie `korg.led` |
+| `korg.display.clear()` | Display löschen; die Zeichenaufrufe wirken nur für den Besitzer des Displays (die offene App, oder wer es nahm) | wie `korg.led` |
+| `korg.display.text(text, x, y)` | Text mit der linken oberen Ecke bei `x`, `y` (0 bis 127, 0 bis 63) | wie `korg.led` |
+| `korg.display.number(wert, x, y)` | Zahl | wie `korg.led` |
+| `korg.display.pixel(x, y, an)` | ein Pixel, `an` 0 oder 1 | wie `korg.led` |
+| `korg.display.textNumber(text, wert, x, y)` | Text und gleich dahinter die Zahl, ohne dass das Plugin Ziffern zählt; wie `text` und danach `number`, die Zahl beginnt beim Zeichen hinter dem Text (6 Pixel je Zeichen). Ab API Version 6 | wie `korg.led` |
+| `korg.display.bitmap(feld, x, y, breite)` | zeichnet ein Bild aus einem globalen Feld, links oben bei `x` (-128 bis 127), `y` (-64 bis 63); was über den Rand reicht, wird abgeschnitten. Aufbau und Kosten siehe unten. Ab API Version 6 | wie `korg.led` |
+| `korg.display.rect(x, y, breite, hoehe)` | gefülltes Rechteck | wie `korg.led` |
+| `korg.display.clearRect(x, y, breite, hoehe)` | Rechteck löschen | wie `korg.led` |
+| `korg.store.get(slot, vorgabe)` | gespeicherten Wert des Platzes `slot` (0 bis 15) dieses Plugins, oder `vorgabe`, wenn dort nie einer gespeichert wurde | überall, auch im Rumpf |
+| `korg.store.set(slot, wert)` | Wert im RAM setzen, noch nicht auf der Karte | überall |
+| `korg.store.save()` | Speichern vormerken | wie `korg.led` |
+| `korg.read.transport()` | Zustand des Transports: 0 Stop, 1 Play, 2 Pause, 3 REC bereit, 4 Aufnahme | überall |
+| `korg.read.tempo()` | Tempo in Zehntel BPM (1600 gleich 160,0) | überall |
+| `korg.read.pattern()` | gewähltes Pattern, 0 bis 249 | überall |
+| `korg.read.part()` | gewählter Part 0 bis 15, 16 für alle | überall |
+| `korg.read.step(part)` | Schrittzähler des Parts, 0 bis 63 | überall |
+| `korg.read.mute(part)` | 1, wenn der Part gemutet ist | überall |
+| `korg.read.knob(index)` | letzter Rohwert des Reglers `index` (0 bis 19), den die Laufzeit gesehen hat, bis dahin 0 | überall |
+| `korg.play()` | PLAY drücken und loslassen, über den Tastenweg der Firmware | wie `korg.led` |
+| `korg.stop()` | STOP drücken und loslassen | wie `korg.led` |
+| `korg.pattern(index)` | Pattern wählen, 0 bis 249 | wie `korg.led` |
+| `korg.tempo(zehntelBpm)` | Tempo setzen, 100 bis 3000 | wie `korg.led` |
+| `korg.part(part)` | Part wählen, 0 bis 15 | wie `korg.led` |
+| `korg.mute(part, stumm)` | Part stumm schalten (1) oder spielen lassen (0); die Firmware kennt nur Umschalten, die Laufzeit drückt das Pad nur, wenn der Zustand nicht schon stimmt | wie `korg.led` |
+| `korg.backlight(rot, gruen, blau)` | die drei Farben des Display Lichts ein (1) oder aus (0), über die GPIO Funktion der Firmware; auf Batterie mit Power Save "Auto" überschreibt die Dimm Routine der Firmware die Farbe laufend; hat der Nutzer im Menü eine Mischfarbe mit Pegeln zwischen 1 und 14 gewählt, überschreibt auch deren PWM die Farbe | wie `korg.led` |
+| `korg.menu.add(name, min, max, wert)` | legt eine Seite im Menü BLECH am Gerät an und gibt ihre Nummer zurück (-1, wenn alle 12 Plätze belegt sind). `name` höchstens 15 Zeichen, die Seite zeigt `wert` (in `min` bis `max` geklemmt, Betrag unter 100 Millionen) und den Plugin-Namen. Wird am Hauptrad gedreht, bekommt das Plugin `menu`(nummer, wert). Derselbe Name vom selben Plugin ist dieselbe Seite. `min` über `max` ist ein Argumentfehler | nur im Rumpf und in `ready` |
+| `korg.ledHold(an)` | 1 hält die Firmware davon ab, die Panel LEDs neu zu schreiben (Pads, Tasten, untere RGB LEDs zeigen dann, was das Plugin gesetzt hat), 0 gibt sie zurück und lässt die Firmware alle LEDs neu senden; fällt das letzte laufende Plugin aus, gibt die Laufzeit sie selbst zurück | wie `korg.led` |
+
+**Display auf dem Gerät** (`tools/patch/script_display.s`): Die Laufzeit hält ein
+eigenes Bild von 1024 Byte (8 Seiten zu 128 Spalten, Bit 0 die oberste Zeile) und
+zeichnet nur dort hinein, Koordinaten über dem Rand werden abgeschnitten, nie
+umgebrochen. Zeichnen darf nur der Besitzer des Displays (die offene App, oder ein
+Plugin, das es nahm): die Aufrufe jedes anderen Plugins tun nichts. Solange es einen
+Besitzer gibt, kopiert der Rahmenhaken das Bild in jedem Rahmen über das Display RAM
+der Firmware (`0xC031B310`, nach dem Zeichnen ihrer Widgets), aber nur, solange der
+Hauptbildschirm offen ist. Ohne Besitzer rührt die Laufzeit das Display nicht an.
+Menüs und Fenster zeigt die Firmware wie gewohnt, ein Plugin sieht sie nicht. Die
+Schrift ist eine eigene 5 mal 7 Schrift mit 6 Pixel Zeichenabstand
+(`data/script/font.mjs`), dieselbe Tabelle in Browser und Laufzeit; die Ausgabe
+ist Pixel für Pixel gleich dem Browsermodell (`src/script/display.mjs`, 70
+Fälle in `tools/patch/test_script_display.py`). Texte sind höchstens 31 Zeichen
+(ein Textplatz), Zahlen werden dezimal gezeichnet.
+
+**Bilder aus Feldern** (`korg.display.bitmap`): ein Platz des Felds hält die 8 Pixel einer Spalte,
+das niedrigste Bit ist das oberste Pixel (nur die unteren 8 Bit zählen); das ist der Aufbau des
+Display RAMs und der gängigen Bitmaps für OLED-Anzeigen. Ein Streifen sind `breite` Plätze, von
+links nach rechts, die Streifen folgen von oben nach unten. Die Höhe ist 8 mal die Zahl ganzer
+Streifen (Länge des Felds geteilt durch `breite`, Rest ungelesen); die Breite geht bis 128. Es werden
+nur gesetzte Pixel gezeichnet, nichts gelöscht, `clearRect` davor löscht. `y` muss kein Vielfaches
+von 8 sein, dann teilt jeder Platz sich auf zwei Seiten des Display RAMs. Beispiel, ein Smiley von
+8 mal 8 Pixeln:
+
+    const gesicht = [0x3C, 0x42, 0xA5, 0x81, 0xA5, 0x99, 0x42, 0x3C];
+    korg.display.bitmap(gesicht, 10, 5, 8);
+
+Als Feld kommt nur der Name eines globalen Felds in Frage (`const bild = [...]` oder
+`new Array(n)`). Der Übersetzer reicht es als ein Wert weiter (erster Platz in den unteren 16 Bit,
+Länge in den oberen 16) und prüft, wenn `breite` eine feste Zahl ist, dass mindestens ein Streifen
+im Feld liegt; die VM prüft bei jedem Aufruf, dass das Feld im Variablenbereich liegt (sonst
+`BAD_VAR`). Nullen im Feldliteral kosten keinen Code, weil die Laufzeit jeden Variablenplatz beim
+Laden löscht. Ein Aufruf kostet 14 Einheiten und 3 für jeden Platz des Felds (ein Bild von 41 mal
+56 Pixeln mit 287 Plätzen also 875). Der Wert ist an den ARM Befehlszahlen gemessen: 63 Befehle für den
+Aufruf, höchstens 28 für einen gesetzten Platz, bei Bildern von einem Platz Breite rund 20 mehr für
+jeden Streifen, zu 10 Befehlen je Einheit (`tools/patch/test_script_display.py` prüft die Zahlen).
+Leere Plätze und Plätze außerhalb des Displays kosten weniger, als berechnet wird.
+`textNumber` kostet wie `text` die Obergrenze von 250: der echte Aufwand liegt darüber (rund 4900
+Befehle für 5 Zeichen und 3 Ziffern), die 5 ms des Rahmens bleiben die Grenze.
+
+**Berührung mit Lage:** Das Panel schickt `05 xh xl yh yl`; der Eingangsfilter macht daraus
+`x = xh * 256 + xl` und `y = yh * 256 + yl`, ohne zu begrenzen (im Emulator mit der Firmware
+gemessen: `01 23 03 FF` ergibt 291 und 1023, `FF FF FF FE` ergibt 65535 und 65534). Die Taste 34
+(`0x22`) kommt für sich, ohne Lage, und löst kein `touch` aus. Der Filter merkt sich je Berührung, ob die
+erste Lage schon da war: Aufsetzen (Taste 34 gedrückt) setzt es zurück, die erste Lage danach ist
+`first` = 1, auch ohne vorherigen Tastendruck, Loslassen setzt es zurück. Läuft der Ring voll, geht
+auch ein erstes `touch` verloren. Wie das Pad zum Display liegt, ist nicht gemessen: der Editor und
+der Emulator senden 0 bis 1023 über das ganze Pad, `y` nach oben; Blechy rechnet angenommen
+`x / 8` zur Display-Spalte. Am Gerät offen.
+
+**Fehlermeldung am Display:** Schaltet ein Fehler das Plugin ab, das das Display
+besitzt (die offene App), ersetzt die Laufzeit das Bild durch drei Zeilen: den
+Plugin-Namen, `Zeile` mit der Quellzeile und den Namen des Fehlers (`DIV_ZERO`). Der
+Fehler jedes anderen Plugins steht im Menü BLECH auf seiner Seite (`DIV_ZERO L3`),
+das Display bleibt unberührt. Die Firmware bleibt bedienbar, andere Plugins laufen
+weiter.
+
+Im Rumpf darf noch nichts ausgegeben werden: LEDs überschreibt die Firmware beim
+Start, und ein Display gibt es dort nicht. Ausgaben gehören in `ready`, `frame`, `open`
+oder die Handler der Eingaben.
+
+LED Aufträge werden im Hostmodell `src/script/led.mjs` gesammelt. Die letzte
+Anforderung je LED zählt, auch der Wert null ist eine ausdrückliche
+Anforderung. Gleiche Aufträge werden innerhalb desselben Rahmens
+zusammengefasst. Je Rahmen werden höchstens 16 Pakete angenommen, auch bei
+mehreren Aufrufen des Sendeschritts. Der Rahmenbesitzer prüft vor jedem
+Paket sein verbleibendes Zeitbudget. Ohne Budget, bei voller Warteschlange
+oder bei abgelehntem Transport bleibt der Auftrag ausstehend.
+
+Ein Paket braucht fünf Byte. Nach seiner Annahme müssen noch mindestens
+256 Byte in der Firmwarewarteschlange frei bleiben. Die Begrenzung ist eine
+hergeleitete Vorgabe: 16 Pakete bei 25 Hz ergeben maximal 400 Plugin-Pakete
+je Sekunde, kein am Gerät gemessener Durchsatz. Freier Platz allein beweist
+keine Annahme; der Transport muss sie atomar bestätigen. Es gibt keine
+Warteschleife auf freien Platz.
+
+Die Firmware darf LEDs weiter ändern. Der Anfang eines neuen Rahmens
+verwirft deshalb das Wissen über die zuletzt angenommene Ausgabe, ohne
+automatisch alte Anforderungen erneut zu senden. Ein Plugin, das einen Wert
+in jedem Rahmen haben möchte, fordert ihn in `frame` erneut an. Eine feste
+Übernahme der RGB LEDs und das Sperren von Firmwarewegen sind damit nicht
+vorausgesetzt. Das eigenständige Hostmodell wird ausdrücklich über
+`ScriptRuntime` und dessen `api["korg.led"]` verbunden; es gibt keine
+versteckte globale Warteschlange.
+
+### Namen für Tasten und LEDs
+
+Statt `key == 11` oder `korg.led(20, 255)` schreibt man, was gemeint ist:
+
+```js
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.TAP) korg.led(korg.led.TAP, 255);
+  if (key == korg.key.PART_LEFT) korg.led(korg.led.PAD_1_RED, 255);
+});
+```
+
+`korg.key.NAME` ist der Tastencode, den `buttonPress` und `buttonRelease` als `key`
+liefern. `korg.led.NAME` ist die LED Nummer für das erste Argument von `korg.led`.
+Die Namen sind Konstanten der Sprache: der Compiler schreibt die Nummer hin, wo der
+Name steht. Ein Block mit Namen ist deshalb Byte für Byte derselbe wie einer mit
+Nummern (`test/script-names.test.mjs` prüft das an allen Beispiel-Plugins), am Gerät
+und in der Blockgröße ändert sich nichts, und die Blockversion bleibt. Nummern bleiben
+erlaubt. Ein Name lässt sich wie eine Zahl in `const` und in Ausdrücken benutzen
+(`const BASE = korg.led.PAD_1_RED;`, `BASE + 2`). Ein Name, den es nicht gibt, ist ein
+Fehler beim Übersetzen und nennt ähnliche Namen. Dass `korg.led` zugleich die Funktion
+ist, stört nicht: mit Klammern ist es der Aufruf, mit `.NAME` die Konstante.
+
+Der Name ist die Beschriftung am Gerät in GROSSBUCHSTABEN mit Unterstrich: `GATE ARP`
+ist `GATE_ARP`, `◄ Part` und `Part ►` sind `PART_LEFT` und `PART_RIGHT`, `◄ Edit` und
+`Edit ►` sind `EDIT_LEFT` und `EDIT_RIGHT`, die Tasten `1` bis `4` sind `BAR_1` bis
+`BAR_4`. Eine zweite LED derselben Taste trägt ihre Farbe im Namen (`PLAY_BLUE`,
+`BAR_1_BLUE`), ebenso die Pads: `PAD_1_RED`, `PAD_1_BLUE` bis `PAD_16_BLUE`. Die blaue Pad
+LED zeigt den gewählten Part. Die roten Pad LEDs liegen 2 auseinander, `PAD_1_RED + 2`
+ist `PAD_2_RED`. Die Tabellen entstehen aus `data/panel.mjs` (`data/script/names.mjs`);
+ein neues Bedienelement dort bekommt seinen Namen von selbst, die LED Nummern prüft das
+Laden des Moduls gegen den Bereich von `korg.led`. Woher die Nummern kommen
+(gemessen, von Freetribe hergeleitet), steht in `data/panel.mjs`.
+
+**Tasten** (`korg.key`):
+
+| Name | Nummer | Taste |
+|---|---|---|
+| `korg.key.REC` | 0 | REC |
+| `korg.key.STOP` | 1 | STOP |
+| `korg.key.PLAY` | 2 | PLAY |
+| `korg.key.TAP` | 3 | TAP |
+| `korg.key.GATE_ARP` | 4 | GATE ARP |
+| `korg.key.TOUCH_SCALE` | 5 | TOUCH SCALE |
+| `korg.key.MASTER_FX` | 6 | MASTER FX |
+| `korg.key.MFX_HOLD` | 7 | MFX HOLD |
+| `korg.key.EDIT_LEFT` | 8 | ◄ Edit |
+| `korg.key.MENU` | 9 | MENU |
+| `korg.key.SHIFT` | 10 | SHIFT |
+| `korg.key.PART_LEFT` | 11 | ◄ Part |
+| `korg.key.EDIT_RIGHT` | 12 | Edit ► |
+| `korg.key.EXIT` | 13 | EXIT |
+| `korg.key.WRITE` | 14 | WRITE |
+| `korg.key.PART_RIGHT` | 15 | Part ► |
+| `korg.key.PART_MUTE` | 16 | PART MUTE |
+| `korg.key.PART_ERASE` | 17 | PART ERASE |
+| `korg.key.LPF` | 18 | LPF |
+| `korg.key.TRIGGER` | 19 | TRIGGER |
+| `korg.key.HPF` | 20 | HPF |
+| `korg.key.SEQUENCER` | 21 | SEQUENCER |
+| `korg.key.BPF` | 22 | BPF |
+| `korg.key.KEYBOARD` | 23 | KEYBOARD |
+| `korg.key.CHORD` | 24 | CHORD |
+| `korg.key.STEP_JUMP` | 25 | STEP JUMP |
+| `korg.key.MFX_SEND` | 26 | MFX SEND |
+| `korg.key.PATTERN_SET` | 27 | PATTERN SET |
+| `korg.key.BAR_1` | 28 | 1 (Takt-Taste) |
+| `korg.key.BAR_2` | 29 | 2 (Takt-Taste) |
+| `korg.key.BAR_3` | 30 | 3 (Takt-Taste) |
+| `korg.key.BAR_4` | 31 | 4 (Takt-Taste) |
+| `korg.key.AMP_EG` | 32 | AMP EG |
+| `korg.key.IFX_ON` | 33 | IFX ON |
+| `korg.key.TOUCHPAD` | 34 | Touchpad berührt |
+
+Die Tasten `1` bis `4` und `TOUCHPAD` (das Berühren des Touchpads, mit `touch` für die
+Lage) kommen wie jede Taste als `buttonPress`. Ein Drehgeber, ein Regler oder ein Pad
+sendet kein `buttonPress`, sondern `encoder`, `knob` und `pad` mit ihrem `index`.
+
+**LEDs** (`korg.led`):
+
+| Name | Nummer | LED |
+|---|---|---|
+| `korg.led.REC` | 18 | REC |
+| `korg.led.STOP` | 19 | STOP |
+| `korg.led.PLAY` | 9 | PLAY |
+| `korg.led.PLAY_BLUE` | 21 | PLAY, blaue LED |
+| `korg.led.TAP` | 20 | TAP |
+| `korg.led.GATE_ARP` | 26 | GATE ARP |
+| `korg.led.TOUCH_SCALE` | 27 | TOUCH SCALE |
+| `korg.led.MASTER_FX` | 28 | MASTER FX |
+| `korg.led.MFX_HOLD` | 29 | MFX HOLD |
+| `korg.led.EDIT_LEFT` | 5 | ◄ Edit |
+| `korg.led.MENU` | 7 | MENU |
+| `korg.led.SHIFT` | 10 | SHIFT |
+| `korg.led.PART_LEFT` | 30 | ◄ Part |
+| `korg.led.EDIT_RIGHT` | 6 | Edit ► |
+| `korg.led.EXIT` | 8 | EXIT |
+| `korg.led.WRITE` | 11 | WRITE |
+| `korg.led.PART_RIGHT` | 31 | Part ► |
+| `korg.led.PART_MUTE` | 32 | PART MUTE |
+| `korg.led.PART_ERASE` | 33 | PART ERASE |
+| `korg.led.LPF` | 12 | LPF |
+| `korg.led.TRIGGER` | 34 | TRIGGER |
+| `korg.led.HPF` | 13 | HPF |
+| `korg.led.SEQUENCER` | 35 | SEQUENCER |
+| `korg.led.BPF` | 14 | BPF |
+| `korg.led.KEYBOARD` | 36 | KEYBOARD |
+| `korg.led.CHORD` | 37 | CHORD |
+| `korg.led.STEP_JUMP` | 38 | STEP JUMP |
+| `korg.led.MFX_SEND` | 15 | MFX SEND |
+| `korg.led.PATTERN_SET` | 39 | PATTERN SET |
+| `korg.led.BAR_1` | 40 | 1 (Takt-Taste) |
+| `korg.led.BAR_1_BLUE` | 22 | Taste 1, blaue LED |
+| `korg.led.BAR_2` | 41 | 2 (Takt-Taste) |
+| `korg.led.BAR_2_BLUE` | 23 | Taste 2, blaue LED |
+| `korg.led.BAR_3` | 42 | 3 (Takt-Taste) |
+| `korg.led.BAR_3_BLUE` | 24 | Taste 3, blaue LED |
+| `korg.led.BAR_4` | 43 | 4 (Takt-Taste) |
+| `korg.led.BAR_4_BLUE` | 25 | Taste 4, blaue LED |
+| `korg.led.AMP_EG` | 16 | AMP EG |
+| `korg.led.IFX_ON` | 17 | IFX ON |
+| `korg.led.VALUE_PATTERN` | 0 | VALUE / PATTERN |
+| `korg.led.SAMPLE_OSC` | 1 | SAMPLE / OSC |
+| `korg.led.CUTOFF` | 2 | CUTOFF |
+| `korg.led.MOD_TYPE` | 3 | MOD. TYPE |
+| `korg.led.IFX_TYPE` | 4 | IFX TYPE |
+| `korg.led.PAD_n_RED` | 44 + 2 (n - 1) | Pad n, rote LED (n = 1 bis 16) |
+| `korg.led.PAD_n_BLUE` | 45 + 2 (n - 1) | Pad n, blaue LED, zeigt den gewählten Part (n = 1 bis 16) |
+
+Der Editor zeigt dieselbe Liste unter dem Code („Namen der Tasten und LEDs“, mit
+Filter, ein Klick fügt den Namen am Cursor ein). Steht der Cursor in einer Nummer, die
+nach Taste oder LED aussieht (`key == 11`, `korg.led(20, …)`), sagt eine Zeile unter
+dem Code, welche Taste oder LED das ist, und nach `korg.key.` oder `korg.led.` bietet
+die Vervollständigung des Editors alle Namen an (siehe „Die Seite Plugins im Editor“).
+
+### Grenzen
+
+| | Grenze |
+|---|---|
+| Variablenbereich eines Plugins | bis 65536 Plätze (je 4 Byte), so groß wie angelegt |
+| Blöcke, Variablen und Plugin-Einträge zusammen | 128 KiB |
+| Plugin-Zahl | keine feste Grenze, solange der gemeinsame Speicher reicht |
+| Ein Feld | 1 bis 65535 Plätze |
+| Verschiedene Texte | 64, je 31 Zeichen |
+| Verschiedene Zahlen über 255 oder negativ | 256 |
+| Code | 16 KiB |
+| Stapel (Ausdrücke) | 32 Werte |
+| Aufrufe ineinander | 8 |
+| Rechenbudget je Lauf | 20000 Kosteneinheiten |
+
+Die Laufzeit rechnet je Plugin die auf 4 Byte ausgerichtete Blockgröße
+`totalSize`, vier Byte je Variablenplatz und einen Plugin-Eintrag zusammen.
+Der Eintrag braucht derzeit 292 Byte: 48 Byte feste Felder einschließlich
+des `ready` Merkers, je vier Byte für die höchsten Kosten und Zeiten der
+22 Ereignisse (der Rumpf `start` zählt mit) und 68 Byte für die dauerhaften
+Werte (Maske und 16 Plätze). Sein Aufbau steht im gemeinsamen
+Vertrag `SCRIPT_ENTRY`, aus dem auch die ARM Konstanten entstehen. Stapel,
+Prüfpuffer, globaler Status und Ereignisring liegen außerhalb des Pools.
+Abgeschaltete Plugins behalten ihren Speicher und Fehlerstatus.
+
+Reicht der gemeinsame Speicher nicht, lehnt die Laufzeit den Block vor dem
+Anlegen der Variablen und vor dem Rumpf ab („Plugin-Budget aller Plugins reicht
+nicht“, Code `POOL_BUDGET`). Dabei bleiben der belegte Speicher und die
+geladenen Plugins unverändert. `ScriptRuntime.status().memory` nennt die
+belegten Bytes und das Budget. Der Quelltextanhang einer `.blech` liegt hinter
+`totalSize`, wird auf dem Gerät nicht geladen und kostet keinen Poolplatz.
+
+Der Compiler prüft mit `slotsAvailable` vorab nur die Variablenzahl an ihrer
+Deklaration. Sein Standard von 32768 Plätzen ist aus 128 KiB geteilt durch
+vier hergeleitet; Block und Eintrag brauchen zusätzlich Platz. Ein erfolgreich
+übersetzter Block kann deshalb beim Laden noch `POOL_BUDGET` auslösen.
+Ein ausdrücklich kleineres `varSlots` der Referenzlaufzeit bleibt eine
+zusätzliche Grenze mit `VARS_BUDGET`, unabhängig vom gemeinsamen Pool.
+Die 65536 Plätze und 65535 Feldplätze bleiben Formatgrenzen für Prüfer und VM,
+kein Versprechen, dass so große Bereiche in den Gerätpool passen.
+
+Der Pool liegt im freien FF-Bereich des Abbilds, von `0xC01D7000` bis
+`0xC01F7000` (131072 Byte). Offline an den eigenen Abbildern gemessen: der
+Bereich ist dort FF. Das belegt eine freie Abbildfläche, keine dauerhafte
+Nichtnutzung am Gerät ([Messung](messungen/2026-10-14-skript-haken.md)). Die
+Speicherbilanz des Bereichs steht in der
+[Recherche zur Laufzeit](hintergrund/skript-laufzeit.md), Abschnitt 3. Das
+gemeinsame 128 KiB Budget ersetzt ein älteres Modell mit 64 KiB nur für
+Variablen.
+
+### Format 2 und die Kosten
+
+Blockformat 2 ist das einzige Format; ein Block aus Format 1 (nie
+ausgeliefert) wird mit der Versionsmeldung abgelehnt. Gegenüber Format 1 sind
+die Operanden von `LOAD`, `STORE`, `ALOAD` und `ASTORE` (Platz, Feldanfang,
+Feldlänge) 16 Bit breit, der Kopf wächst von 48 auf 52 Byte und nennt die
+Variablenzahl mit 32 Bit (ein voller Bereich von 65536 Plätzen passt nicht in
+16 Bit). Die Länge eines Felds ist ein 16-Bit-Operand und kann daher höchstens
+65535 sein; Feldanfang plus Länge muss in den Bereich des Plugins passen, und
+jeder Zugriff wird wie vorher gegen die Länge geprüft (Prüfer und VM,
+Fehlercodes unverändert `BAD_VAR` und `BOUNDS`).
+
+Mehrkosten, hergeleitet und nicht gemessen:
+ein 16-Bit-Operand liegt hinter dem Opcode auf einer ungeraden Adresse, ein
+`ldrh` geht dort nicht; die VM liest zwei Bytes und fügt sie zusammen, das
+sind 2 Befehle mehr je Operand. `LOAD` und `STORE` kosten damit 11 statt 9
+Befehle (Dispatch inklusive, Messwert 9 aus der [Recherche](hintergrund/skript-laufzeit.md), Abschnitt 2.3),
+`ALOAD` und `ASTORE` mit zwei Operanden 4 mehr. Die Kosteneinheiten im
+Vertrag bleiben, sie sind ohnehin Schätzungen. Beim Lauf von Snake (300
+Rahmen mit Tastendrücken in der JS-VM, Operationen nach Art gezählt, mit den
+Messwerten der Recherche gewichtet) sind 30,4 % der Operationen `LOAD` oder
+`STORE` und 6,2 % `ALOAD` oder `ASTORE`: von 9,25 auf 10,11 Befehle je
+Operation, rund 9 %. Beim Klicker rund 6 %. Der Block wächst: Snake von 952 auf
+1080 Byte (davon 4 im Kopf), Klicker von 220 auf 232. Wird der Aufschlag auf
+dem Gerät zu teuer (die Zeit je Operation ist dort noch nicht gemessen), ist eine Kurzform mit
+8-Bit-Platz für die ersten 256 Variablen ein Zusatz-Opcode und kein
+Formatbruch.
+
+### Wenn etwas schiefgeht
+
+Der Block wird vor dem Laden geprüft: Sprungziele, Konstanten, Variablen,
+Aufrufe, Stapelhöhe, Aufruftiefe und die erlaubten Funktionen je Ereignis.
+Zur Laufzeit beendet die VM ein Plugin bei einer Endlosschleife
+(Rechenbudget oder Zeit), einem Feldindex außerhalb, Division durch null und
+einem Argument außerhalb des Bereichs. Das Plugin ist dann aus, die Meldung
+nennt Plugin, Zeile und Art des Fehlers, andere Plugins laufen weiter.
+Die Fehlercodes stehen in `data/script/contract.mjs`.
+
+## Karte und Dateiformat
+
+### Dateien für die Karte
+
+Plugins kommen nur über die SD-Karte aufs Gerät, nie in die VSB. Der Ordner ist
+`KORG/blechtribe/Plugin/`, den die Firmware nicht selbst anlegt.
+
+- `e2sPlugin.all` ist die Sammeldatei, die das Gerät beim Start liest. Kopf, 16
+  Byte, little endian: Kennung `GSAL`, Dateiversion 1 (u16), Anzahl Blöcke
+  (u16), Gesamtgröße (u32), CRC-32 über alles ab Byte 16 (u32). Danach die
+  Blöcke im Format 2 unverändert hintereinander (jeder hat seine eigene Größe
+  und CRC; eine Blockgröße ist durch 4 teilbar, es gibt kein Auffüllen).
+  Ein Block darf höchstens 32752 Byte haben (Puffer des Laders).
+- `<name>.blech` ist ein Block mit angehängtem Quelltext: nach dem Block die
+  Kennung `GSRC`, die Länge (u32) und der Text in UTF-8. Das Gerät liest nur
+  den Block, der Editor liest den Anhang, um das Plugin wieder zu öffnen.
+
+Der Lader läuft einmal beim Start direkt nach dem Laden der `e2sSample.all`
+(Einhängestelle `0xC0038D68`, Kette `start`). Mit EXIT beim Einschalten, ohne
+Karte oder ohne Datei tut er nichts und die Electribe startet wie ohne ihn.
+Eine Datei mit falschem Kopf, falscher Prüfsumme oder abgeschnittenem Inhalt
+wird ganz abgelehnt. Ein einzelner Block, der nicht lädt (Prüfsumme, Budget,
+ungültiger Code), wird übersprungen, die übrigen laufen. Danach läuft der Rumpf
+(`start`) jedes geladenen Plugins, dann ist die Laufzeit scharf; `ready` kommt
+mit dem ersten Rahmen nach dem Hauptbildschirm. Was der Lader gemacht hat, steht
+im Kontrollblock der Laufzeit (`cardStatus`, `cardLoaded`, `cardRejected`,
+`cardFirstError` bei 164 bis 176 Byte hinter dem Laufzeitanfang).
+
+Dateien schreibt der Editor (`src/script/archive.mjs`: `packAll`, `parseAll`,
+`packBlech`, `parseBlech`). Ein Plugin, das nur auf der Karte liegt, läuft erst
+beim nächsten Start; über "IMPORT PLUGIN" am Gerät (siehe unten) läuft es sofort.
+
+**Das Kennzeichen "geprobt".** Der Kopf eines Blocks hat ein Feld `flags` (Byte 34,
+u16). Bit 0 heißt PROBED: der Editor setzt es beim Export, nachdem er den Text
+geprobt hat (`markProbed` in `src/script/blob.mjs`, die Prüfsumme wird neu
+gerechnet). Alle anderen Bits sind verboten, Browser und Gerät lehnen den Block
+dann ab. Ein Block ohne das Bit ist fremd: das Gerät lädt ihn, startet ihn aber
+erst, wenn am Gerät einmal zugestimmt wurde (siehe "Das Menü BLECH am Gerät"). Das Bit ist
+ein Hinweis, kein Schutz, jeder kann es setzen.
+
+### Dauerhafte Werte
+
+Jedes Plugin hat 16 ganze Zahlen als dauerhafte Plätze, getrennt nach dem
+Plugin-Namen. `korg.store.get` liest einen Platz (im Rumpf, vor allen
+Handlern, sind die gespeicherten Werte schon da), `korg.store.set` ändert ihn im
+RAM. Auf die Karte kommt nur, was `korg.store.save()` anfordert; die Laufzeit
+schreibt nie von selbst, auch nicht beim Ausschalten. Ein Plugin, das die
+Funktionen nutzt, trägt API Version 2 im Block; ein Plugin ohne sie bleibt bei
+Version 1.
+
+Die Werte liegen in `KORG/blechtribe/Plugin/store.a.bin` und `store.b.bin`. Sie
+wechseln sich ab: jeder Schreibvorgang bringt die nächste Generation in die andere
+Datei, beim Start gilt die neuere gültige, eine beschädigte oder fehlende Datei
+fällt auf die andere zurück, ohne Datei gelten die Vorgaben von `get`. Aufbau (little
+endian, `STORE` im Vertrag): 16 Byte Kopf (`GSST`, Version 1, Anzahl der Einträge,
+Generation, CRC-32 ab Byte 16), je Plugin 84 Byte: Name (16 Byte), Maske der
+belegten Plätze (u32), 16 Werte (i32). Einträge von Plugins, die gerade nicht auf
+der Karte liegen, bleiben beim Schreiben erhalten (höchstens 194 Einträge).
+`src/script/store.mjs` baut und liest die Datei im Browser.
+
+Geschrieben wird frühestens 50 Rahmen (2 Sekunden) nach dem letzten Schreiben und
+nur, solange der Hauptbildschirm offen ist; ein weiterer `save()` davor bleibt
+vorgemerkt. Ein Fehlschlag (keine Karte, Karte voll) zählt im Kontrollblock
+(`storeErrors`) und wiederholt sich nicht von selbst. Im Lauf im Browser halten die
+Werte bis zum Neuladen der Seite.
+
+## Das Menü BLECH am Gerät
+
+Mit dem BLECH Patch hat die Electribe einen eigenen Bildschirm "BLECH", im EDIT Ring
+zwischen Global und Data Util (Bildschirm 0x2D). Er hat drei Ebenen und sieht aus wie
+Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
+
+- **Im Ring** ist BLECH eine einzige Seite ("BLECH 28/31") zwischen Global und Data Util.
+  EDIT links und rechts blättern durch den Ring. Mit EXIT beim Einschalten ist der
+  Bildschirm nicht da und der Ring ist der der Firmware. Am Ende des Rings, hinter Event und
+  vor dem Pattern Menü, steht eine zweite Seite des Patches: [Blechy](#blechy-die-letzte-seite-des-rings)
+  (31/31). Deshalb zählt der Ring bis 31 statt bis 29.
+- **ENTER**, die Taste MENU, öffnet die Liste der Gruppen. Das Schild oben links nennt
+  BLECH, der Zähler zählt nur die Gruppen ("BLECH 2/5"), EDIT blättert darin im Kreis.
+- **ENTER auf einer Gruppe** zeigt ihre Seiten. Das Schild nennt die Gruppe ("Plugins 3/5"),
+  der Zähler zählt nur ihre Seiten, EDIT blättert darin im Kreis, das Hauptrad ändert den
+  Wert, WRITE führt aus oder speichert.
+- **EXIT** geht immer eine Ebene zurück (Seite einer Gruppe, Liste der Gruppen, Ring) und
+  auf der Ringseite zum Hauptbildschirm. MENU auf dem Hauptbildschirm kehrt dorthin zurück,
+  wo man das Menü verlassen hat, auch in eine Gruppe.
+- Solange der Bildschirm offen ist, sehen die Plugins keine Eingaben, damit ein Plugin,
+  das Tasten abfängt, das Menü nicht sperren kann.
+
+Die Liste der ersten Ebene, in dieser Reihenfolge (die drei letzten sind Einstellungen, keine Gruppen):
+
+| Eintrag | Was dahinter liegt |
+|---|---|
+| PLUGINS | Gruppe, siehe unten |
+| GAMES | je App eine Seite; erscheint nur, wenn es eine App der Gruppe gibt |
+| TOOLS | wie GAMES |
+| MFX 2 | ON, OFF: MFX 2 auf TOUCH SCALE, gilt ab dem nächsten Start (Wert zeigt dann "ON, RESTART") |
+| CUSTOMIZATION | acht Seiten, siehe unten |
+| PATTERN CONFIRM | ON, OFF: eine Seite der Liste selbst, kein ENTER, das Hauptrad ändert den Wert (siehe unten) |
+| TAP MOTION | wie PATTERN CONFIRM |
+| NOTE ASSIST | wie PATTERN CONFIRM |
+
+Eine Gruppe ABOUT gibt es nicht mehr: sie zeigte nur die Zahl der geladenen Plugins und verwirrte.
+
+Die Seiten der Gruppen:
+
+| Gruppe, Seite | Wert | Wirkung |
+|---|---|---|
+| PLUGINS, RUNTIME | ON, OFF | die Plugins der Karte an oder aus, gilt ab dem nächsten Start ("OFF, RESTART" zeigt, dass es noch nicht gilt); Blechy ist kein Plugin der Karte und bleibt |
+| PLUGINS, ein Plugin je Seite | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen; bei einem Fehler steht sein Name mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal) |
+| PLUGINS, je `korg.menu.add` eine Seite | die Zahl | Hauptrad ändert sie, das Plugin bekommt `menu` |
+| PLUGINS, EXPORT ALL | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt |
+| PLUGINS, IMPORT PLUGIN | (leer, `press  [ Enter ]`), dann Dateiname | ENTER zeigt die erste `*.blech` aus `KORG/blechtribe/Plugin/` (höchstens 14 Zeichen lang gezeigt), das Hauptrad oder EDIT blättert Datei für Datei, ENTER oder WRITE lädt und startet die gezeigte sofort, EXIT geht zurück auf die Seite. Dateien, deren Name mit einem Punkt beginnt (die `._Name.blech` des Mac auf FAT Karten), und versteckte oder Systemdateien fehlen in der Liste |
+| GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
+| CUSTOMIZATION, BOTTOM LEDS | METER, COLOR, OFF | die vier unteren RGB-LEDs: METER ist die Pegelanzeige der Firmware, COLOR eine feste Farbe, OFF dunkel; gilt sofort |
+| CUSTOMIZATION, LED RED, GREEN, BLUE | 0 bis 15 | Farbe der unteren LEDs, gilt für METER und COLOR; 0 0 0 heißt die Farben der Firmware ("0 stock"); bei METER bestimmt der Pegel die Helligkeit dieser Farbe; gilt sofort |
+| CUSTOMIZATION, BACKLIGHT RED, GREEN, BLUE | 0 bis 15 | Farbe des Display-Lichts, frei gemischt; 0 0 0 heißt das Weiß der Firmware; gilt sofort |
+| CUSTOMIZATION, DISPLAY INVERT | OFF, ON | kehrt das Display um: helle Punkte dunkel und dunkle hell (Befehl `0xA7` an den Display-Baustein, `0xA6` stellt zurück); gilt sofort; OFF ist die Vorgabe |
+| PATTERN CONFIRM (Liste) | ON, OFF | ON: ein anderes Pattern, das am Rad gewählt wird, wartet beim Spielen auf MENU (ENTER) und startet am Sequenzende; OFF: die Firmware wie ohne den Patch Patternwechsel; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 2 der Flags in der Einstellungsdatei |
+| TAP MOTION (Liste) | ON, OFF | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus (Idee 39); OFF: TAP ist wieder das Tap-Tempo der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3 der Flags in der Einstellungsdatei |
+| NOTE ASSIST (Liste) | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Pad-Note die Pads der passenden Noten rosa und gehen nach 1,5 s aus ([Messung](messungen/2026-10-15-note-assistant.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
+
+Rückmeldungen ("saved", "no card", "imported", "2 exported" und so weiter) ersetzen den
+Wert der Seite, bis man das Hauptrad dreht oder die Seite wechselt. Die dritte Zeile der
+Firmware (die Einheit hinter einem Wert) beginnt bei jedem Bildschirm in Spalte 28 der
+Wertzeile: jeder Wert, der breiter ist als ein oder zwei Zeichen, läuft hinein. Das Menü
+benutzt sie deshalb nie. Was eine Seite sagt, steht im Wert, der rund 14 Zeichen fasst, der
+Titel rund 18. IMPORT PLUGIN und EXPORT ALL stehen in der Gruppe PLUGINS, nicht in DATA
+UTILITY (siehe Stand).
+
+Auf den Seiten RUNTIME, MFX 2, CUSTOMIZATION, PATTERN CONFIRM, TAP MOTION und NOTE ASSIST und bei der Zustimmung für fremde Plugins
+speichert WRITE die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
+sich mit einer Generationsnummer abwechseln (24 bis 88 Byte: Kennung `GSET`, Version 2, Anzahl
+erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
+erlaubten fremden Blöcke, CRC-32; höchstens 16 erlaubte Blöcke, danach fliegt die älteste raus;
+Dateien der Version 1 ohne das Wort werden weiter gelesen). Ohne Datei, Karte oder bei
+beschädigter Datei gelten die Voreinstellungen (alles an, die Anpassung auf den Werten der
+Firmware). Die Seite meldet "saved", "no card", "card protected", "folder missing" oder "write error".
+Es wird nichts in den Flash geschrieben.
+
+**Anpassung (CUSTOMIZATION):** Was am Gerät sichtbar ist, gilt sofort beim Drehen, das Menü ist die
+Vorschau; erst WRITE merkt es sich für den nächsten Start. Die Firmware behält ihre eigenen Schalter:
+Power Save (die unteren LEDs aus, das Display-Licht gedimmt) bleibt, wie sie es macht, ein Plugin, das
+die LEDs sperrt (`korg.ledHold`), behält sie, und mit EXIT beim Einschalten ist alles wie im
+Original. Die Farben der Firmware sind der Vorgabewert. Gespeichert sind sie weiter als alle Pegel 0 (so lesen
+auch alte Dateien wie bisher, die Datei bekommt kein neues Bit), die Seiten zeigen diesen Zustand aber als 15 mit dem
+Zusatz "stock", denn das Gerät leuchtet dann voll: der Wert, der "nichts eingestellt" heißt, ist die hellste Stufe.
+Das Hauptrad geht von dort nach unten (15 für alle drei, dann der gewählte Kanal tiefer), nach oben ändert es nichts; stellt
+man den letzten Kanal auf 0 zurück, ist wieder der Zustand der Firmware da und die Seiten zeigen wieder 15 "stock". Eine Datei
+mit eigenen Werten zeigt diese Werte, auch 0. Die Einstellungen gelten ab dem Befehl, der die `e2sSample.all` lädt, also schon
+vor dem Laden der Samples und nicht erst danach ([Zeitlinie](messungen/2026-10-16-blech-look-frueh.md)). Messungen und Grenzen:
+[Anpassung](messungen/2026-10-14-blech-anpassung.md).
+
+Der Startbild Schalter fehlt mit Absicht: das Startbild wird rund 290 ms gezeichnet, bevor
+die Karte lesbar ist, eine Einstellung von der Karte kann es nicht mehr ändern.
+
+## Blechy, die letzte Seite des Rings
+
+Blechy, das heruntergekommene Nasenwesen, ist kein Plugin. Er ist in BLECH eingebaut und hat die
+**letzte Seite im EDIT Ring** der Firmware: hinter Event, vor dem Pattern Menü ("31/31"). Vom Pattern
+Menü aus erreicht man ihn mit EDIT links auf dessen erster Seite. Auf der Seite steht er sofort da, live:
+kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Seitenzahl ist dabei nicht zu sehen).
+
+- **Wie jede Seite des Rings:** EDIT links geht zu Event, EDIT rechts zum Pattern Menü, EXIT zum
+  Hauptbildschirm. Das Hauptrad, MENU und WRITE ändern auf seiner Seite nichts (das Hauptrad blättert auf den
+  Ringseiten der Firmware auch nicht). Gemessen im Emulator ([Messung](messungen/2026-10-15-blechy.md)).
+- **Er winkt.** Landet man auf der Seite, steht er da. Etwa eine Sekunde später winkt er einmal: die Hand schwingt
+  alle 220 ms hin und her, 1,76 s lang (vier volle Schwünge), dann steht er wieder. Einmal je Landung: wer weg- und
+  zurückblättert, wird wieder begrüßt. Die Sekunde ist eine Wahl, keine Messung am Gerät: kurz genug, dass es
+  wie ein Gruß wirkt, lang genug, dass er nicht schon beim Bildschirmwechsel mitten in der Bewegung ist und man ihn
+  erst als stehendes Bild sieht. Tippt man ihn in der Wartezeit an, kommt zuerst der Ärger und der Gruß danach.
+  Die zwei Winkbilder (`blechy-wave-1.png`, `blechy-wave-2.png`) sind aus der ruhigen Pose abgeleitet, nur der rechte
+  Arm und die Hand sind anders (`tools/art/make_blechy.py`).
+- **Er geht.** Nach dem Winken läuft er langsam über das Display, ein Pixel alle 120 ms (rund 10 s von einem Rand zum
+  anderen) und zurück, mit dem Gehbild (`blechy-walk.png`); an jedem Rand bleibt er eine Sekunde stehen und kehrt um.
+  Beim Gehen senkt er sich alle zwei Pixel um eine Zeile, mehr Schritt gibt das eine Gehbild nicht her. Wo er gerade steht,
+  gilt auch das Antippen (wütend) und das Streicheln (froh); danach geht er weiter.
+- **Er redet.** Hin und wieder, wenn er einen Rand erreicht hat, bleibt er 3,5 s stehen und sagt etwas in einer Sprechblase,
+  auf der Seite, auf der Platz ist: am linken Rand rechts von ihm, am rechten links. Die erste Blase kommt nach gut 12 s,
+  danach alle 20 s oder 30 s (8 s plus 0 bis 8 s Zufall nach der letzten, dazu der Weg zum nächsten Rand). Die Zeilen kommen
+  der Reihe nach: "yo, na du?", das Lieblingstempo (das am häufigsten gespielte, je Beat gezählt; solange noch nichts
+  gespielt wurde, die feste Zeile "mein Tempo ist 150 bpm"), seit wann es läuft ("Spielt seit n min" seit dem ersten PLAY,
+  sonst "Laeuft seit" seit dem Einschalten, unter einer Minute in Sekunden), "Blech ist mein Ding", "kein Mund, kein Problem",
+  "bisschen mehr Bass?", "nicht so doll tippen", "Schranz ist Liebe". Alles in der eigenen Schrift (5 mal 7, nur ASCII, darum
+  "hoer" und "Laeuft"). Die Wartezeiten, das Tempo des Gehens und die Texte sind eine Wahl, am Gerät nicht erprobt.
+- **PLAY.** Drückt man PLAY, geht er zügig (zwei Pixel alle 70 ms) in die Mitte, ein Stück links davon, damit neben ihm Platz
+  für die Blase bleibt, sagt "ich hoer mir das kurz an" (2,8 s), steht noch und tanzt dann, solange das Pattern spielt, ein Bild
+  je Achtel. Die Wartezeit von 12 s bis zum Tanz gibt es nicht mehr. STOP beendet den Tanz, er geht wieder; die Frage "wat
+  machst'n du da atze?" ist weg, sie passte nur auf den Hauptbildschirm.
+- **Sonst wie vorher:** ein Tipp des Touchpads nahe an ihm macht ihn wütend, Streicheln froh. Die Zahlen (Tempo, Spielzeit)
+  leben nur im RAM und beginnen mit jedem Start neu.
+- **Kein Plugin der Karte:** er steht weder unter GAMES noch unter PLUGINS, wird nicht gezählt, nicht von EXPORT ALL
+  geschrieben und lässt sich nicht ausschalten. Er braucht keine Karte und keine Datei `e2sPlugin.all` und läuft auch mit
+  der Einstellung RUNTIME auf OFF. Mit EXIT beim Einschalten fehlt er (und mit ihm die Seite): der Ring ist der der Firmware.
+- **Eingaben:** auf seiner Seite sehen die Plugins der Karte nur das Touchpad (die Taste und die Lage), alles andere geht
+  allein an die Firmware, und ein Plugin kann dort keine Taste abfangen: EDIT und EXIT funktionieren immer.
+- **Eingebaut heißt:** sein Block (15476 Byte, ein ganz normaler Plugin-Block der API 6, vom Editor übersetzt und im
+  Browser geprüft, `tools/blechy-build.mjs`) steht im Abbild der Firmware bei `0xC0184000` und bleibt dort. Der Lader
+  legt für ihn nur den Eintrag und seine Variablen in den Pool (15904 Byte von 128 KiB), den Block nicht. Beim Start
+  lädt BLECH ihn vor der Karte, meldet ihn als verborgene App an (Eintrag 0 der Tabelle, in einer Gruppe, die kein Menü
+  zeigt) und lässt seinen Rumpf laufen. Öffnen und Schließen folgt der Seite: sobald die Firmware sie zeigt, bekommt er `open`
+  und das Display, wenn sie etwas anderes zeigt, `close`. Die Quelle bleibt `data/script/blechy-source.mjs`, auch wenn er
+  kein Beispiel-Plugin mehr ist. Der Start kostet rund 5,4 Millionen Befehle (gezählt im Emulator; am Gerät sind das geschätzt
+  einige zehn Millisekunden), davon 70 % das byteweise Nullen der Laufzeit und der Prüftabellen (`mem_fill`), 8 % die
+  Prüfsumme des Blocks.
+
+## Die Beispiel-Plugins
+
+Alle acht Apps stehen im Katalog der Seite Plugins und in `data/script/presets.mjs`. Sie laufen im Emulator
+der Plugin-Laufzeit (Browser-VM), am Gerät ist von ihnen nichts geprüft. `test/script-plugins.test.mjs` spielt jede
+mit Eingaben durch. Die Kosten sind der teuerste Handler in Kosteneinheiten, gezählt in einem Lauf mit Eingaben
+(Tetris 3000 Rahmen, Mandelbrot 3000, Set-Timer 90 Sekunden). Die Zeit daneben ist **hergeleitet**: der Snake-Rahmen
+mit 542 Einheiten brauchte im Emulator 0,103 ms ([Messung](messungen/2026-10-14-skript-snake.md)), die Warnschwelle von
+0,5 ms liegt also bei rund 2630 Einheiten. Jede App bleibt darunter, die Tests prüfen es. Am Gerät kann die Zeit je
+Einheit anders sein.
+
+| App | Gruppe | Bedienung | Block | Teuerster Handler |
+|---|---|---|---|---|
+| BLECH Clicker | GAMES | jeder Pad-Druck zählt eins hoch, der Kristall wackelt; der Stand bleibt über `korg.store` | 1720 Byte | 1041 Einheiten, 0,20 ms |
+| Set-Timer | TOOLS | große Uhr mm:ss, ab einer Stunde h:mm:ss; Taste 1 startet, Taste 4 setzt zurück (zweimal drücken) | 1996 Byte | 2434 Einheiten, 0,46 ms (Bildaufbau); ohne Änderung 201, geschlossen nichts je Rahmen |
+| Snake | GAMES | Part links und rechts drehen | 1180 Byte | 2215 Einheiten (das Öffnen), Rahmen 537 |
+| Tetris | GAMES | Part links und rechts bewegen, Edit rechts dreht, Edit links gehalten lässt schneller fallen, jede Taste startet nach Game Over neu | 3772 Byte | 2305 Einheiten, 0,44 ms |
+| Game of Life | GAMES | das Touchpad setzt Zellen, Taste 1 startet und pausiert (LED), Taste 2 ein Schritt, Taste 3 löscht, Taste 4 füllt zufällig | 2184 Byte | 2484 Einheiten, 0,47 ms |
+| Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt | 2068 Byte | 1190 Einheiten, 0,23 ms |
+| Simon | GAMES | die vier mittleren Pads (3, 4, 11, 12, von 0 gezählt) leuchten eine Folge vor, man spielt sie nach, jede Runde einen Schritt mehr; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2344 Byte | 2114 Einheiten (das Öffnen), Rahmen 693 |
+| Mandelbrot | TOOLS | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 2436 Byte | 2135 Einheiten, 0,41 ms |
+
+**Set-Timer** ist für den Einsatz im Set gedacht. Die Uhr ist `korg.millis()`, die die Laufzeit in jedem Rahmen
+nachführt, auch wenn die App geschlossen ist. Er abonniert nur `play`, die Tasten und `open` und `close`: geschlossen
+kostet er je Taste ein paar Operationen und je Rahmen nichts (`frame` bekommt eine App nur, solange sie offen ist), offen
+zeichnet er nur die Ziffern neu, die sich geändert haben. Das erste PLAY (der Übergang des Transports auf Play) startet
+ihn, danach zählt er einfach weiter: PLAY und STOP ändern nichts, er ruft nie `korg.play`, `korg.stop` oder
+`korg.led` und liest die Pads nicht. Die Tasten 1 und 4 gelten nur bei offener App. Nach dem Zurücksetzen wartet er
+wieder auf ein PLAY, das ein STOP davor braucht (das Ereignis kommt beim Übergang). Er kennt keinen Speicher: nach dem
+Ausschalten und im Menü auf OFF gestellt zählt er nicht, ein Neustart beginnt bei 0.
+
+**Game of Life** rechnet eine Zeile des Felds (32 Zellen) als eine 32-Bit-Zahl und die nächste Generation für alle 32
+Zellen einer Zeile gleichzeitig mit Bitoperationen. Das Bild wird nur zellenweise nachgezogen, die nächste Generation
+beginnt erst, wenn es eingeholt hat, so bleibt jeder Rahmen klein. **Mandelbrot** rechnet mit 14 Nachkommabits (1,0 ist
+16384), die Ganzzahl-Arithmetik der VM reicht dafür, Kommazahlen braucht es nicht; das Bild kommt in vier Durchgängen mit
+Blöcken von 8, 4, 2 und 1 Pixel, und ein Pixel, das mehr als den Rest des Rahmens braucht, wird im nächsten Rahmen
+weitergerechnet. Die ersten Bilder stehen nach etwa einer bis drei Sekunden da, das volle Bild braucht rund 3400 Rahmen
+(gut zwei Minuten, im Emulator gezählt); jede Eingabe beginnt wieder beim groben Durchgang. Die Zoomstufe geht bis 7,
+tiefer reichen die 14 Bit nicht.
+
+## Die Seite Plugins im Editor
+
+Der Reiter Plugins hat links Beispiel-Plugins (die Apps BLECH Clicker, Snake, Tetris, Game of Life,
+Pong, Simon unter GAMES, Set-Timer und Mandelbrot unter TOOLS, dazu Lauflicht und Pulsieren, Quelle
+`data/script/presets.mjs`, alle mit Namen wie `korg.key.TAP`; dieselben Beispiele stehen im Katalog als Karten)
+und die eigenen Plugins, rechts den Editor mit Zeilenspalte, das
+Ergebnis des Übersetzens (Fehler mit Zeile und Spalte, ein Klick setzt den Cursor dorthin), die
+Liste „Namen der Tasten und LEDs“ und den Bereich Lauf.
+Darunter steht die Konsole. Eigene Plugins liegen im Browser (`localStorage`)
+und verlassen ihn nicht. Ein Plugin-Name ist der Blockname: ASCII, ein Buchstabe
+am Anfang, höchstens 15 Zeichen.
+
+**Neues Plugin:** fragt nach dem Namen und dann nach der Art. „App in GAMES“ und
+„App in TOOLS“ legen eine App mit `korg.app(name, gruppe)` an, „Hintergrund“ ein Plugin
+ohne Display und ohne Menüeintrag. Der gewählte Name ist auch der Name der App im Menü
+BLECH. Jede Vorlage ist ein kurzes, lauffähiges Plugin mit den Handlern `frame` und
+`buttonPress` (die Apps zusätzlich mit `open`), Namen wie `korg.key.TAP` und ein paar
+deutschen Kommentaren. Die Quelle ist `data/script/templates.mjs`;
+`test/script-templates.test.mjs` übersetzt jede Vorlage, lässt sie die Probe bestehen
+(mit ein paar TAP-Drücken laufen alle Zeilen) und prüft, dass sie den Namen und die
+Gruppe anmeldet.
+
+**Der Editor** ist CodeMirror 6 (`site/app/script-editor.mjs`). Das Paket liegt fertig
+gebaut in `site/vendor/codemirror.mjs`, die Seite lädt nichts aus dem Netz und
+läuft auch offline in der App. Neu bauen: `npm install`, dann `npm run build:codemirror`
+(`tools/build-codemirror.mjs`; esbuild und die CodeMirror-Pakete sind Entwicklungsabhängigkeiten,
+die Lizenztexte liegen in `site/vendor/codemirror.LICENSE.txt`, siehe NOTICE). Er kann:
+
+- **Farben und Zeilennummern:** JavaScript-Wörter, Texte, Zahlen und Kommentare, `korg` und
+  die Namen nach `korg.key.` und `korg.led.` abgesetzt (`src/script/highlight.mjs`, ein kleiner
+  Tokenizer statt der JavaScript-Grammatik, das spart knapp 100 KiB). Die Farben sind die Tokens
+  des Designs. Die Zeilennummern zeigen wie bisher die Probe: grün gelaufen, gelb nie gelaufen,
+  rot Fehler. Ein Beispiel-Plugin ist schreibgeschützt (`aria-readonly`), man kann
+  darin markieren und kopieren.
+- **Vervollständigung:** tippt man `korg.disp`, bietet der Editor alle Funktionen an, die so
+  anfangen, jede mit ihren Parametern, einem deutschen Satz, den erlaubten Bereichen und
+  der Angabe, wo sie aufgerufen werden darf (aus dem `events`-Eintrag des Vertrags). Enter
+  setzt den Aufruf mit seinen Parametern als Felder ein, Tab springt zum nächsten. Nach
+  `korg.key.` und `korg.led.` kommen alle Namen mit Nummer und Bezeichnung, in
+  `korg.onEvent("` alle Ereignisse mit den Werten ihres Handlers (Enter setzt den
+  Handler gleich mit ein), im zweiten Argument von `korg.app` die Gruppen. Strg+Leertaste ruft die
+  Liste von Hand, Escape schließt sie.
+- **Parameterhinweis und Hover:** steht der Cursor in einem Aufruf, zeigt ein Hinweis über
+  dem Cursor die Schreibweise und den Parameter, den man gerade tippt, mit seinem Bereich.
+  Fährt man mit der Maus über einen Namen, eine Ereignisbezeichnung oder einen Handler-Wert,
+  steht dort dieselbe Beschreibung; über einer Zahl, die nach Taste oder LED aussieht,
+  steht ihr Name.
+- **Fehler im Text:** der Fehler des Übersetzers wird im Text unterstrichen (Zeile und Spalte
+  des Fehlers), unter dem Editor steht er weiter als Liste, ein Klick setzt den Cursor hin.
+- **Tastatur:** Tab verlässt den Editor (er fängt Tab nicht ab, damit niemand darin
+  stecken bleibt), eingerückt wird mit Strg+] und Strg+[ (am Mac Cmd statt Strg), rückgängig mit Strg+Z. Der Editor
+  hat die Beschriftung „Plugin-Code“, die Vervollständigung ist eine Liste, die Hilfsmittel
+  vorlesen.
+
+**Woher die Texte kommen:** die Funktionen, Ereignisse und Werte stehen in
+`data/script/contract.mjs`, ihre deutschen Beschreibungen in `data/script/describe.mjs`,
+die Namen der Tasten und LEDs in `data/script/names.mjs`. `src/script/editor-model.mjs` macht daraus
+Vervollständigung, Hinweis und Hover als reine Funktionen von Text und Cursor
+(`test/script-editor-model.test.mjs`). `test/script-describe.test.mjs` schlägt fehl, wenn
+eine Funktion oder ein Ereignis des Vertrags keine Beschreibung hat: wer einen Eintrag
+in den Vertrag aufnimmt, schreibt den Satz dazu.
+
+**Lauf** (`src/script/sim.mjs`): ein simuliertes Gerät auf der Referenz-VM mit
+Display (128 mal 64, Vorschau-Schrift, nicht die der Firmware), LED-Buch und
+Millisekundentakt, ein Rahmen alle 40 ms. Tasten, Pads, Regler, Encoder und
+Touchpad schicken ihre Ereignisse an die Laufzeit. Das Display zeigt, was das Gerät
+zeigen würde: das Bild der offenen App oder des Plugins, das das Display nahm, sonst
+nichts (am Gerät steht dort der Hauptbildschirm der Firmware). Hat das Plugin eine App,
+öffnet der Lauf sie wie ENTER im Menü; unter dem Display stehen die Apps wie im Menü
+BLECH ("GAMES > Snake: öffnen") und eine Taste EXIT, die wie am Gerät die App schließt,
+bevor das Plugin die Taste sieht. Das ist nicht die Firmware: ihr Zeitverhalten zeigt
+der Lauf nicht (im Browser gilt nur das Rechenbudget, kein Zeitlimit). Die Laufzeit in
+der Firmware läuft im Emulator, siehe Stand.
+
+**Eingaben und Probe:** Aufnehmen speichert die Eingaben mit ihrem Rahmen beim
+Plugin, Proben lädt den Block in ein frisches simuliertes Gerät, spielt die
+Eingabefolge ab (mindestens 100 Rahmen) und sagt, welche Zeilen mit Code nie
+gelaufen sind. Hat das Plugin eine App, öffnet die Probe sie zuerst. Ohne Eingaben
+laufen nur `ready`, `open` und `frame`.
+
+**Export:** `.blech` (ein Plugin mit Quelltext) und `e2sPlugin.all` (alle eigenen
+Plugins) gibt es erst nach einer Probe genau dieses Textes (`src/script/gate.mjs`).
+Jede Änderung am Text wirft die Probe weg. Bleiben Zeilen ohne Lauf, fragt die
+Seite einmal nach und nennt sie. Ein Fehler in der Probe sperrt den Export.
+
+**Konsole:** `run("name")` startet ein eigenes Plugin oder ein Beispiel-Plugin im Bereich
+Lauf; eine Zeile, die mit `korg.` beginnt (zum Beispiel
+`korg.display.text("Hi", 0, 0)`), läuft dort als Plugin-Code sofort einmal, als App
+„einzeiler“ in TOOLS, die der Lauf öffnet.
+Alles andere ist wie bisher JavaScript mit `KORG` für den Emulator.
+
+## Stand
+
+Marker wie in den Messungen: gemessen, hergeleitet, offen.
+
+### Im Emulator
+
+Alles hier lief in der echten Firmware (2.02 mit Hacktribe) im Emulator mit
+virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
+
+- Compiler, Prüfer und Referenz-VM in JavaScript (`src/script/`), die Seite
+  Plugins mit Lauf, Probe und Export (`site/app/scripts.mjs`), Tests in
+  `test/script-*.test.mjs`. Blockformat 2, API Version 6
+  (`data/script/contract.mjs`).
+- ARM-VM (`tools/patch/script_vm.s`): alle 34 Opcodes, 506 Vergleichsfälle gegen
+  die JS-VM stimmen ([Messung](messungen/2026-10-14-skript-arm-vm.md)).
+- Eingangsfilter (`0xC002837C`) und Rahmenhaken (`0xC00836FC`,
+  `tools/patch/script_hooks.s`): Ring mit 64 Plätzen, 25 Hz, gemeinsames Budget von
+  5 ms, ein Fehler schaltet nur das auslösende Plugin ab, die Firmware bleibt
+  bedienbar ([Messung](messungen/2026-10-14-skript-haken.md)).
+- `korg.led` (`tools/patch/script_led.s`): im Firmwarelauf sendet `ready` den
+  Nullwert einmal, ein Tastendruck 255 und 0 je ein Paket, alle 88 LEDs auf einmal
+  ergeben 88 Pakete ([Messung](messungen/2026-10-14-skript-led.md)).
+- Display (`tools/patch/script_display.s`): 70 Fälle Byte für Byte gleich dem
+  Browsermodell, auch das Fehlerbild, Menüs der Firmware bleiben sichtbar
+  ([Messung](messungen/2026-10-14-skript-display.md)).
+- Kartenlader (`tools/patch/script_card.s`): eine Datei mit zwei Blöcken lädt und
+  läuft, ein einzelner kaputter Block wird übersprungen. Falsche Prüfsumme, falsche
+  Kennung, eine abgeschnittene Datei und EXIT beim Einschalten lassen die Firmware
+  wie im Original starten ([Messung](messungen/2026-10-14-skript-karte.md)).
+- Dauerhafte Werte (`tools/patch/script_store.s`): ein Zählerstand übersteht Aus-
+  und Einschalten über die virtuelle Karte
+  ([Messung](messungen/2026-10-14-skript-speicher.md)).
+- Uhr, Lesen, Handeln, Sequencer-Ereignisse, Hintergrundlicht und LED-Sperre
+  (`tools/patch/script_hw.s`, `tools/patch/script_events.s`). Befund: die Firmware
+  kennt für Mute nur Umschalten, `korg.mute` liest darum den Zustand zuerst
+  ([Messung](messungen/2026-10-14-skript-hardware.md)).
+- Snake läuft als App aus dem Menü: 150 Rahmen in der Firmware, das Display-RAM ist
+  danach Byte für Byte gleich dem Browsermodell, `frame` braucht höchstens 0,103 ms
+  ([Messung](messungen/2026-10-14-skript-snake.md), [Apps](messungen/2026-10-14-plugin-apps.md)).
+- Apps und Display (`tools/patch/script_app.s`, [Messung](messungen/2026-10-14-plugin-apps.md)):
+  das Laden ändert das Display nicht, eine App öffnet im Menü unter GAMES oder TOOLS und
+  zeichnet erst dann, EXIT schließt sie und der Hauptbildschirm ist danach Pixel für Pixel
+  der eines Geräts ohne App, EXIT lässt sich nicht abfangen (App und `korg.display.take()`),
+  ein Plugin ohne Display zeichnet nichts.
+- Blechy ist in BLECH eingebaut, die letzte Seite des Rings: im Emulator ohne Karte geladen, winkt nach etwa einer
+  Sekunde einmal je Landung, geht dann über das Display, redet an den Rändern, antippen, streicheln, bei PLAY in die Mitte,
+  zuhören und Schranz, EDIT und EXIT blättern weg, mit EXIT beim Einschalten fehlt er; der teuerste Rahmen braucht 0,40 ms
+  ([Messung](messungen/2026-10-15-blechy.md)).
+- Menü BLECH (`tools/patch/script_menu.s`): zwei Ebenen mit Gruppen, Zähler und Schild je
+  Gruppe, EXIT geht eine Ebene zurück, WRITE, MENU als ENTER, Einstellungen, Plugin-Seiten,
+  Apps, EXPORT ALL, IMPORT PLUGIN, fremde Plugins, `korg.menu.add`; jede Seite ist ohne dritte
+  Zeile gezeichnet, ein Fall prüft alle auf Überlappung
+  ([Messung](messungen/2026-10-14-blech-menue.md)).
+- Firmwaredatei: das Patch-Set `data/patches/blech.json` (Startbild-Editor, MFX 2,
+  Plugin-Laufzeit mit Menü, Kartenordner `blechtribe`, Blech-Startbild) ist gebaut
+  und im Emulator geprüft ([Gerätedatei](geraetetests/blech-datei.md)).
+
+Der Platz im Abbild: VM und Haken ab `0xC01A6000`, Laufzeit ab `0xC01AE000`, Pool
+`0xC01D7000` bis `0xC01F7000`, alles in dem Bereich, der in den eigenen Abbildern
+FF ist (offline gemessen). Der Block von Blechy liegt außerhalb davon bei `0xC0184000`
+(12668 Byte), im FF-Lauf `0xC01720B0` bis `0xC01A0000`, in dem auch der Patternwechsel und
+der Ladebalken liegen; dort ist am Gerät noch nichts geprüft.
+
+### Am Gerät
+
+Von der Plugin-Laufzeit ist am Gerät nichts geprüft. Die Firmwaredatei mit der
+Laufzeit ist gebaut, aber noch nicht aufs Gerät gespielt. Am Gerät gelesen ist nur
+eine Grundlage: die Display-Adresse `0xC031B310`, dort liegt das Bild des
+Hauptbildschirms ([Messung](messungen/2026-10-09-menuezustand.md)).
+
+Der erste Test am Gerät ist der Kartentest: Dateien lesen und schreiben über die
+FatFs-Funktionen der Firmware, ohne Flash ([Schrittliste](geraetetests/karte.md)).
+Danach folgt die Firmwaredatei mit der Laufzeit
+([Schrittliste](geraetetests/blech-datei.md)).
+
+### Offen
+
+- **Alles am Gerät:** Lesen, Schreiben und Verzeichnis lesen über FatFs in unserem
+  Code, die Zeit je Rahmen gegen das Budget von 5 ms (hergeleitet etwa 0,17 ms je
+  Snake-Rahmen), der Hörtest (keine hörbaren Aussetzer bei Musik und Snake), das
+  Hintergrundlicht auf Batterie mit Power Save "Auto", die LED-Sperre, das Menü in
+  der Hand.
+- **Timer3:** die Periode von einer Sekunde ist im Emulator gemessen, am Gerät nicht
+  gelesen.
+- **Haken `save`:** im Emulator eingehängt, dort aber nicht ausgelöst (WRITE auf
+  Global schreibt Flash). Die Wirkung ist nur im Unit-Test geprüft.
+- **Karte:** ein Schreibvorgang auf einer echten Karte kann länger als ein Rahmen
+  dauern, gemessen ist das nicht. Gegen gleichzeitigen Kartenzugriff der Firmware
+  schützt nur der offene Hauptbildschirm. Was die Firmware tut, wenn
+  `KORG/blechtribe/` auf der Karte fehlt, ist im Emulator nicht gespielt.
+- **Echte `e2sSample.all`:** der Kartenlader wird im Test nicht mit einer echten
+  Datei gespielt, weil keine Korg-Daten im Repository liegen dürfen. Der Haken sitzt
+  an der Stelle, die ein früherer Prototyp mit einer echten Datei gemessen hat
+  ([Recherche zur virtuellen SD](hintergrund/virtuelle-sd.md)).
+- **LEDs:** die Grenze von 400 Paketen je Sekunde gilt nur bei etwa 25 Hz Aufrufen
+  des Rahmens, ein dauerhaft abgelehnter Index blockiert die übrigen LEDs ohne
+  Meldung, und das Ausschalten der Interrupts setzt einen privilegierten Modus
+  voraus ([Messung](messungen/2026-10-14-skript-led.md)).
+- **Menü:** kein Schalter für das Startbild, pausierte Plugins merkt sich die Datei
+  nicht, lange Namen werden abgeschnitten, die Dateiliste merkt höchstens 8 Namen
+  ([Messung](messungen/2026-10-14-blech-menue.md)).
+- **IMPORT PLUGIN und EXPORT ALL in DATA UTILITY:** nicht gebaut, sie stehen in der Gruppe
+  PLUGINS des Menüs BLECH. Die Funktionsliste von DATA UTILITY ist der Bildschirm 15, eine
+  Zustandsmaschine mit einer Sprungtabelle von 40 Zuständen in einer einzigen Funktion
+  (`0xC0061A24`); zwei Seiten mehr heißen eine Kopie der Klassentabelle, einen Seitenzähler
+  "n/16" und eigene Zustände für Dateiauswahl und Ausführung, ein eigener Auftrag
+  ([Messung](messungen/2026-10-14-blech-menue.md), Abschnitt "DATA UTILITY").
+- **Apps am Gerät:** das Öffnen und Schließen, der Neuzeichner des Hauptbildschirms
+  (Byte `0xC06C226C`) und die Tasten der offenen App sind nur im Emulator gespielt.
+- **Format 2:** der Aufschlag der 16-Bit-Operanden ist hergeleitet (Abschnitt
+  "Format 2 und die Kosten"), in den genannten Messungen nicht gesondert
+  nachgemessen.
+
+### Quelltext
+
+Im Quelltext und in den Tests heißt das Ganze noch `script`: `src/script/`,
+`data/script/`, `site/app/scripts.mjs`, `tools/patch/script_*.s`. `korg.*` ist die
+Schnittstelle. Messungen tragen `skript` im Dateinamen
+(`docs/messungen/2026-10-14-skript-*.md`). Auf dem Gerät, im Editor und in der
+Doku heißt es Plugin.

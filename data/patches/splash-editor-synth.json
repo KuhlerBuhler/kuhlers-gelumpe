@@ -1,0 +1,206 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "splash-editor",
+ "name": "Startbild-Editor (Global, Seite 20)",
+ "builds": [],
+ "changes": [
+  {
+   "file": 1712640,
+   "bytes": "f0412de9eb14faeb0040a0e10180a0e310539fe5005095e5186095e5020a16e30080a0132260d5e5000056e30080a013000058e30900000aec029fe50010a0e34020a0e3041080e4012052e2fcffff1ad4029fe5d4129fe5001080e5000000ea010000eb0400a0e1f081bde810402de90000a0e3800000ebb4029fe50210a0e30020a0e340bdf9eba4029fe50310a0e30020a0e33cbdf9eb1080bde8f3412de984429fe5000094e580129fe5010050e10a00001a6c529fe5005095e5180095e5020a10e30500001a070000eb000050e360129f1560229f1500208115e2ffffebf341bde82200d4e5a217faeaf0412de934429fe50060a0e31c6084e53c029fe5000090e5000050e31900000a0070a0e32c829fe50800a0e1170000eb000050e30e00000a1c029fe5081090e5000056e30100000a070051e10800009a0170a0e10160a0e30c1080e2ec019fe5012ba0e3043091e4043080e4042052e2fbffff1ae4019fe5000058e10080a011e8ffff1a1c7084e50600a0e1f081bde830402de90010a0e1c4019fe50120a0e3c0c19fe53cff2fe1000050e31200001aac019fe5a0119fe5ac219fe5ac319fe5acc19fe53cff2fe10040a0e190019fe5a0c19fe53cff2fe1000054e30600001a58019fe5200090e5410e50e30200001a64019fe5020000eb3080bde80000a0e33080bde810402de90040a0e1001094e564219fe5020051e10b00001a041094e558219fe5020051e10700001a0400a0e14c119fe5060000eb0c1494e5010050e10100001a0100a0e31080bde80000a0e31080bde82cc19fe50020e0e3000051e30800000a0130d0e4032022e00830a0e3a220b0e10c202220013053e2fbffff1a011041e2f4ffffea0200e0e11eff2fe170402de90cd04de20040a0e1a8509fe5006095e5000054e3004085155b5efaeb665efaeb0d00a0e300008de50010a0e304108de508108de50d00a0e104108de208208de2b05ffaeb5d5efaeb006085e50000a0e30010a0e38020a0e34030a0e3fdb9f9eb0cd08de27080bde853443a4b4f52472f626c65636874726962652f73706c6173682e612e62696e0053443a4b4f52472f626c65636874726962652f73706c6173682e622e62696e00f8e833c0002018c053504c312cbb31c038040bc0202518c0942f57c0e8231ac0002118c008241ac0202d18c0b8a608c014040000202018c0cca808c034af08c0474c5350020000040c0400002083b8ed",
+   "expect": "b0d93d06c229a741a44433c35a1ec1af1dd973756d01a7e527533efdf7ec901a",
+   "note": "start code: draw the stored start image, or the VSB one"
+  },
+  {
+   "file": 1714176,
+   "bytes": "a8c69fe500f09ce5a4c69fe500f09ce5a0c69fe500f09ce59cc69fe500f09ce598c69fe500f09ce594c69fe500f09ce590c69fe500f09ce58cc69fe500f09ce588c69fe500c09ce584369fe503005ce1eaffff1a7cc69fe500c09ce518c09ce5020a1ce3e5ffff1a60369fe50020a0e3042083e5182083e5e0ffffea4cc69fe500c09ce548369fe503005ce1ddffff1a40c69fe500c09ce518c09ce5020a1ce3d8ffff1a24369fe50020a0e3042083e5182083e5d3ffffea10c69fe500c09ce50c369fe503005ce1d0ffff1a04c69fe500c09ce518c09ce5020a1ce3cbffff1ae8359fe5043093e5010053e3c7ffff1aa30000ead4c59fe500c09ce5d0359fe503005ce1c3ffff1ac8c59fe500c09ce518c09ce5020a1ce3beffff1aac359fe5043093e5010053e3baffff1a0e0051e3b8ffff1a010052e3b6ffff1a07402de9010100eb0740bde8b2ffffea7cc59fe500c09ce578359fe503005ce1afffff1a70c59fe500c09ce518c09ce5020a1ce3aaffff1a54359fe5043093e5010053e31eff2f012c3090e5000053e33a00000a140053e3a1ffff1a1330a0e32c3080e54fe1faea24c59fe500c09ce520359fe503005ce19bffff1a18c59fe500c09ce518c09ce5020a1ce396ffff1afc349fe5043093e5010053e31eff2f012c3090e5130053e32400000a8effffeadcc49fe500c09ce5d8349fe503005ce18bffff1ad0c49fe500c09ce518c09ce5020a1ce386ffff1ab4349fe5043093e5010053e37100000a2c3090e5140053e32b00000a7effffea94c49fe500c09ce590349fe503005ce17bffff1a88c49fe500c09ce518c09ce5020a1ce376ffff1a6c349fe5043093e5010053e34d00000a2c3090e5140053e31eff2f016effffea10402de90040a0e11400a0e32c0084e548049fe5000090e51310a0e31a2cfbeb240094e51410a0e3414cfbeb240094e52c149fe50e4cfbeb280094e51410a0e31520a0e3ed5dfbeb240094e514149fe5de4bfbeb240094e50c149fe5ec4bfbeb1080bde810402de90040a0e1e0339fe50120a0e3042083e50020a0e3082083e5102083e5142083e5e0039fe5e0139fe5001091e5012ba0e3cc0000ebb0339fe5182093e5040052e10f00000a184083e5400083e20010a0e31020a0e3041080e4012052e2fcffff1aa8139fe5401083e5401083e208d04de200108de5100084e20d10a0e11ed5faeb08d08de27c039fe542feffeb58339fe50120a0e30c2083e52c0000eb1080bde844339fe50020a0e3042083e560339fe5003093e50120a0e35c20c3e51eff2fe110402de90140a0e11c339fe50020a0e30c2083e51d0000eb0c339fe5082093e5042082e02c139fe5012002e0082083e50120a0e30c2083e50020a0e3102083e5120000eb1080bde810402de9d8429fe5080094e5a013a0e17f0000e2a121a0e18223a0e1020080e0071001e2071061e20120a0e31221a0e1c8329fe50010d3e7021021e00010c3e7000000eb1080bde870402de90cd04de28c429fe5085094e5a563a0e17f5005e200508de504608de5a601a0e18003a0e1050080e084129fe50020d1e7073006e2073063e23223a0e1012002e20c3094e5032022e008208de50d00a0e104108de208208de252b9f9eb0cd08de27080bde810402de928429fe5040094e5010050e32300001a140094e5000050e31500000a34129fe5001091e5241091e5000051e30200000a0200a0e3140084e5180000ea020050e30400000a101094e5011081e2101084e5280051e3110000ba0000a0e3140084e5100084e5e0019fe5dbfdffebc8ffffeb0a0000ea100094e5010080e2100084e5060050e3050000ba0000a0e3100084e50c0094e5010020e20c0084e5bcffffeb1080bde80000a0e31eff2fe1f0402de904d04de264fdffeb70419fe51c5094e5015085e294619fe594019fe5000086e590019fe5040086e5085086e50c0086e264119fe5012ba0e32a0000eb0600a0e174119fe5a9fdffeb0c0486e56c119fe5010015e368119f1568019fe50a20a0e364c19fe53cff2fe1000050e31b00001a50019fe50610a0e150219fe5203084e24cc19fe53cff2fe10070a0e134019fe540c19fe53cff2fe1000057e30f00001a200094e524119fe5010050e10b00001a24019fe5e0109fe5012ba0e3090000ebd8109fe510219fe5002081e51c5084e50120a0e3142084e50020a0e3102084e504d08de2f080bde8043091e4043080e4042052e2fbffff1a1eff2fe10130d1e40130c0e4012052e2fbffff1a1eff2fe153504c4153482053435245454e000000442c1ac0442c1ac09c2b1ac0442c1ac0442c1ac0442c1ac0442c1ac0442c1ac0442c1ac0442c1ac0442c1ac0442c1ac0442c1ac0442c1ac0442c1ac0442c1ac0909b0cc0949b0cc0989b0cc09c9b0cc0a09b0cc0a49b0cc0a89b0cc0b89b0cc0002018c053504c31f8e833c020b556c0f21209c0602d1ac0680809c0202918c038040bc0702d1ac0b00634c0ff1f0000002118c0474c5350020000040c040000e8231ac008241ac0202d18c0b8a608c01004000010ab08c034af08c0202518c0",
+   "expect": "c93ced87694fd2b8f050146fd16f4293958e06470d9052bd6458aa4bb6d174a4",
+   "note": "editor: page 20, cursor, WRITE"
+  },
+  {
+   "file": 1719552,
+   "copy": {
+    "file": 826512,
+    "length": 72,
+    "expect": "da6b5c16a4ceb093a8182db1230afaf45ebfe23555e5c48bf08272ea68cab1f6"
+   },
+   "over": [
+    {
+     "at": 0,
+     "bytes": "40271ac0"
+    },
+    {
+     "at": 4,
+     "bytes": "7c271ac0"
+    },
+    {
+     "at": 8,
+     "bytes": "b8271ac0"
+    },
+    {
+     "at": 12,
+     "bytes": "f4271ac0"
+    },
+    {
+     "at": 16,
+     "bytes": "4c281ac0"
+    },
+    {
+     "at": 20,
+     "bytes": "a4281ac0"
+    },
+    {
+     "at": 24,
+     "bytes": "ec281ac0"
+    },
+    {
+     "at": 40,
+     "bytes": "34291ac0"
+    }
+   ],
+   "expect": "51cfa32fece0135f38198da2529e7c6a0c1f53747984d55705077b7f6920cc76",
+   "note": "the Global screen's vtable with our slots"
+  },
+  {
+   "file": 373464,
+   "bytes": "003c1ac0",
+   "expect": "7788b8cc89150bdaed795a17083661cb58da2d05c42abd393b424eeca4068524",
+   "note": "the constructor of screen 9 takes the copy"
+  },
+  {
+   "file": 164072,
+   "bytes": "44e805eb",
+   "expect": "a16500612d2c7c2b28f8e197226883d49a72f477f4d338b0d7417f8557592824",
+   "note": "start hook after the rescue paths"
+  },
+  {
+   "file": 164212,
+   "bytes": "48e805ea",
+   "expect": "5d208437ad3eaa59de7e19aacc730b3de854ccb16814ab55f705bef1efc0b87a",
+   "note": "the start image is drawn behind the firmware's check for e2sSample.all, when the card is mounted"
+  },
+  {
+   "file": 163700,
+   "bytes": "0000a0e1",
+   "expect": "39c17672621c62c7ad8be6399e98c30ff9bd0752710a71c5bf83ab6f66f69de9",
+   "note": "no start image before the rescue paths (nop)"
+  },
+  {
+   "file": 372508,
+   "bytes": "1520a0e3",
+   "expect": "8cf9d6744f2aee948d4c403a8af6474bf66cd7a2dc01c270ebbe0d1856c9e9a0",
+   "note": "page display shows /21"
+  },
+  {
+   "file": 373408,
+   "bytes": "1520a0e3",
+   "expect": "8cf9d6744f2aee948d4c403a8af6474bf66cd7a2dc01c270ebbe0d1856c9e9a0",
+   "note": "page display shows /21"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC0027FE8",
+   "kind": "call",
+   "chain": "start",
+   "position": "after",
+   "swallow": false,
+   "note": "runs the original call, then draws the VSB image when EXIT is held or the panel is updated, else arms the editor"
+  },
+  {
+   "site": "0xC0028074",
+   "kind": "instruction",
+   "chain": "start",
+   "position": "after",
+   "swallow": false,
+   "note": "behind the firmware's check for e2sSample.all the stored start image is drawn from the card, or the VSB one"
+  },
+  {
+   "site": "0xC0027E74",
+   "kind": "call",
+   "chain": "start-image",
+   "position": "replace",
+   "swallow": true,
+   "note": "the early start image call is dropped"
+  },
+  {
+   "site": "0xC005B1D8",
+   "kind": "literal",
+   "chain": "global-screen",
+   "position": "replace",
+   "swallow": true,
+   "note": "the Global screen's class is the copy with our slots"
+  },
+  {
+   "site": "0xC005AE1C",
+   "kind": "instruction",
+   "chain": "global-screen",
+   "position": "replace",
+   "swallow": false,
+   "note": "page display shows /21"
+  },
+  {
+   "site": "0xC005B1A0",
+   "kind": "instruction",
+   "chain": "global-screen",
+   "position": "replace",
+   "swallow": false,
+   "note": "page display shows /21"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 164072,
+   "length": 4,
+   "why": "the call after the rescue paths now runs splash_start"
+  },
+  {
+   "file": 164212,
+   "length": 4,
+   "why": "the instruction behind the firmware's check for e2sSample.all (about 75 ms, after the rescue paths) now runs splash_late"
+  },
+  {
+   "file": 163700,
+   "length": 4,
+   "why": "the start image call before the rescue paths is dropped"
+  },
+  {
+   "file": 1712640,
+   "length": 888,
+   "why": "splash_start, splash_late and what they call: the volume table, card read, CRC, draw"
+  }
+ ],
+ "ram": [
+  {
+   "at": "0xC0182000",
+   "length": 256,
+   "what": "run time state of the start code and the editor",
+   "source": "tools/patch/splash_editor.py:STATE"
+  },
+  {
+   "at": "0xC0182100",
+   "length": 1056,
+   "what": "a record as read from or about to be written to the card",
+   "source": "tools/patch/splash_editor.py:RECBUF"
+  },
+  {
+   "at": "0xC0182520",
+   "length": 1024,
+   "what": "the image the start drew, from the card",
+   "source": "tools/patch/splash_editor.py:ACTIVE"
+  },
+  {
+   "at": "0xC0182920",
+   "length": 1024,
+   "what": "the image being edited",
+   "source": "tools/patch/splash_editor.py:EDIT"
+  },
+  {
+   "at": "0xC0182D20",
+   "length": 736,
+   "what": "the FatFs file object of the card access, 0x2E0 bytes",
+   "source": "tools/patch/splash_editor.py:FIL"
+  }
+ ],
+ "rejected": "The late start hook has different code on the synth; the prototype is not an applicable patch."
+}

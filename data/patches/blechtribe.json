@@ -1,0 +1,34 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "blechtribe",
+ "name": "Kartenordner blechtribe statt hacktribe",
+ "builds": [
+  "hacktribe"
+ ],
+ "changes": [
+  {
+   "file": 677718,
+   "bytes": "626c656368747269626500",
+   "expect": "c7fabcecd59146827b4185a719b20a286262a758381a2718908310065c00e957"
+  },
+  {
+   "file": 677752,
+   "bytes": "4b4f52472f626c65636874726962652f00",
+   "expect": "d9d8065aa4b507da57c9c39b8d451963a8160a9b7558481c15e336b6d920b935"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 677718,
+   "length": 11,
+   "why": "the firmware reads its card folder name from this string while it builds the sample path at start"
+  },
+  {
+   "file": 677752,
+   "length": 17,
+   "why": "the firmware reads its card folder name from this string while it builds the sample path at start"
+  }
+ ],
+ "ram": []
+}

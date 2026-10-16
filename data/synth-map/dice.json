@@ -1,0 +1,40 @@
+{
+ "entries": [
+  {
+   "from": "0xC006FEDC",
+   "to": "0xC0063008",
+   "kind": "code",
+   "why": "the key function of the mode keys: the dispatcher (red C00700D8, synth C0063198) sends keys 0x11 to 0x1B under the mask 0x1D5 (and key 0x1B) to it with the object, the key and 1 or 0 (red C0070384 to C00703BC, synth C0063424 to C0063450). The synth's version is shorter: it starts with push {r3, r4, r5, lr} (red push {r3, r4, r5, r6, r7, lr}), asks the key table C0062C84 for the mode (the red C006FBC8, same jump table, key 0x11 gives mode 2 in both), then checks the SHIFT flag the same way. Read both listings"
+  },
+  {
+   "from": "0xC006FEE0",
+   "to": "0xC006300C",
+   "kind": "code",
+   "why": "the second instruction of that function: the hook stub re-executes the displaced push and goes on here. Synth: mov r5, r1 (E1A05001), the red has ldr r3, [pc, #0xa8] there; the stub of the synth build is assembled with the synth's own push"
+  },
+  {
+   "from": "0xC0348884",
+   "to": "0xC034858C",
+   "kind": "ram",
+   "why": "pointer to the sequencer model (heap object: +4 its observer list, +0x320 the selected part, +0x344 the bar section): the twin getters red C0042F48 and synth C003D490 both load it with ldr r2, [pc] then [r2] then [r2, #0x320]; in the booted emulators it holds 0xC06B2108 (red) and 0xC0582F78 (synth)"
+  },
+  {
+   "from": "0xC03404C0",
+   "to": "0xC03406B0",
+   "kind": "ram",
+   "why": "pointer to the screen manager (+0x2C the screen number, +0x24 the window): the getters red C002D048 and synth C002A1AC are the same code (allocate 0x74 bytes, store); booted synth: [C0593360 + 0x2C] is 1 on the main screen, +0x24 is 0"
+  },
+  {
+   "from": "0xC0040F04",
+   "to": "0xC003BA4C",
+   "kind": "code",
+   "why": "getter of the object that holds the SHIFT flag at +0x358: the synth's key function calls it and reads [r0, #0x358] at C0063048 to C006304C exactly as the red does at C006FF5C to C006FF60 (alloc 0x428 bytes, store)"
+  },
+  {
+   "from": "0xC033E6A4",
+   "to": "0xC033E6A4",
+   "kind": "same",
+   "why": "pointer to the pattern object (PTST, name at +0x14, key +0x2B, scale +0x2C, length +0x29, parts from +0x804 every 0x330): the booted synth holds 0xC0583FF0 there and the header bytes equal the red's Init Pattern; the setters at synth C00447DC (key), C004485C (scale), C0044650 (length) store to the same offsets as the red C004A6FC, C004A77C, C004A570"
+  }
+ ]
+}

@@ -1,0 +1,63 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "synth-filters",
+ "builds": [
+  "stock"
+ ],
+ "notNeededOn": [
+  "hacktribe"
+ ],
+ "name": "Synth-Filter auf LPF, HPF und BPF in Korgs Original (MS20, MG, P5, OB, Acid)",
+ "changes": [
+  {
+   "file": 1638656,
+   "bytes": "7c009fe5000090e5000050e31100000a180090e5020a10e30e00001a100055e30a00008a120044e2040050e30700008a010010e30500001aa000a0e1000280e0050080e03c109fe50040d1e7627ffbea0040a0e3607ffbea140054e3227ffbea68e5fa8a18309fe5003093e5000053e30200000a183093e5020a13e361e5fa0a56e5faeaf8e633c08c0019c0010203040506000102040506010204050607070807090a0b08090a0b000708090a0b0c0c0d0c0e0f100c0d0e0f100d0e0f1000",
+   "expect": "9362c6ea998bd95bc34e9c71a5ecdb7631aa390d3263fc547a8e78d15c227d95",
+   "note": "the selection of the next filter type for the LPF, HPF and BPF keys, the setter's skip of the folding, and the table"
+  },
+  {
+   "file": 458216,
+   "bytes": "c48004ea",
+   "expect": "82cb81057be159e4282bbb398c55894592f3e81147e373969f34a0030322c6c2",
+   "note": "the key handler's comparison of the key with 0x14 jumps to the selection"
+  },
+  {
+   "file": 300764,
+   "bytes": "9f1a05ea",
+   "expect": "67e01650cfac3f37d5d62db37861d59afda9076884fe73d09ca3f21597147c68",
+   "note": "the filter type setter's branch past the folding of types 2 to 6, 8 to 11 and 13 to 16 jumps to the patch"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC006FCE8",
+   "kind": "instruction",
+   "chain": "filter-key",
+   "position": "replace",
+   "swallow": true,
+   "note": "the keys choose the next filter type from the table instead of the firmware's jump tables (the firmware's comparison runs with EXIT held at power-on)"
+  },
+  {
+   "site": "0xC00495DC",
+   "kind": "instruction",
+   "chain": "filter-type-store",
+   "position": "replace",
+   "swallow": true,
+   "note": "the setter stores the type as given (it folds it with EXIT held at power-on)"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 300764,
+   "length": 4,
+   "why": "the part setter runs for the 16 parts of the first pattern at about 310 ms, after the rescue paths, and now jumps to store"
+  },
+  {
+   "file": 1638656,
+   "length": 191,
+   "why": "store: at start it only looks at the panel object and the kill switch and then does what the firmware's branch did or skips the folding; select and the table run on a key"
+  }
+ ],
+ "ram": []
+}

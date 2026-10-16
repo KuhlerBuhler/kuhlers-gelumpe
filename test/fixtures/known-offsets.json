@@ -1,0 +1,87 @@
+{
+  "note": "Frozen 2026-10-03 from src/layout.mjs before it became a view on the device map. Never regenerate: the point is to compare the map against what was known before it existed.",
+  "recordSize": 524,
+  "record": {
+    "name": 1,
+    "nameWidth": 15,
+    "map": 18,
+    "mapEntries": 10,
+    "mapEntrySize": 28,
+    "mapFields": {
+      "source": 0,
+      "chain": 1,
+      "param": 2,
+      "low": 4,
+      "high": 6
+    },
+    "stages": {
+      "ifx1": {
+        "device": 298,
+        "params": 309
+      },
+      "ifx2": {
+        "device": 372,
+        "params": 383
+      },
+      "mfx": {
+        "device": 446,
+        "params": 457
+      }
+    }
+  },
+  "tables": {
+    "mfx": {
+      "ram": 3221966640,
+      "slots": 100
+    },
+    "ifx": {
+      "ram": 3221913840,
+      "slots": 100
+    },
+    "grooveTemplates": {
+      "file": 1326080,
+      "ram": 3222551296,
+      "stride": 320,
+      "count": 96
+    },
+    "modulationTypes": {
+      "file": 1704188,
+      "ram": 3222929404,
+      "stride": 88,
+      "count": 72
+    },
+    "crc16": {
+      "file": 686160,
+      "ram": 3221911376,
+      "stride": 2,
+      "count": 256
+    },
+    "splashBitmap": {
+      "file": 1022292,
+      "bytes": 1024,
+      "note": "1 bit per pixel, 128 by 64"
+    },
+    "initPattern": {
+      "file": 852056,
+      "bytes": 15360
+    }
+  },
+  "mfxCountRam": 3221483492,
+  "ifxLastIndexFile": [
+    299136,
+    303088,
+    303864,
+    623180,
+    623240,
+    623080
+  ],
+  "ifxCountFile": [
+    258268,
+    623184,
+    623252,
+    623084,
+    623004,
+    623132,
+    623160
+  ]
+}

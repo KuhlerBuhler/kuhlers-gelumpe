@@ -1,0 +1,173 @@
+{
+  "note": "Frozen 2026-10-03 from src/layout.mjs at fd12124, the behaviour knowledge before it moved into data/findings.mjs. Never regenerate.",
+  "STAGE2": {
+    "1": {
+      "verdict": "silent",
+      "note": "mkp2_comp: runs, passes no audio"
+    },
+    "2": {
+      "verdict": "fatal",
+      "note": "sr1_comp: crash"
+    },
+    "3": {
+      "verdict": "ok",
+      "note": "cheap_comp"
+    },
+    "4": {
+      "verdict": "ok",
+      "note": "punch"
+    },
+    "5": {
+      "verdict": "ok",
+      "note": "limiter"
+    },
+    "6": {
+      "verdict": "ok",
+      "note": "eq_2_band, and Korg uses it itself"
+    },
+    "7": {
+      "verdict": "ok",
+      "note": "eq_4_band"
+    },
+    "8": {
+      "verdict": "silent",
+      "note": "exciter: runs, passes no audio"
+    },
+    "9": {
+      "verdict": "fatal",
+      "note": "decimator: crash"
+    },
+    "10": {
+      "verdict": "ok",
+      "note": "filter, and Korg uses it itself"
+    },
+    "16": {
+      "verdict": "ok",
+      "note": "acid driver, and Korg uses it itself"
+    },
+    "22": {
+      "verdict": "silent",
+      "note": "ring mod: runs, passes no audio (heard 2026-09-21)"
+    },
+    "24": {
+      "verdict": "fatal",
+      "note": "short delay: kills sound device-wide, needs a restart"
+    }
+  },
+  "FACTORY_CHAINS": [
+    [
+      16,
+      6
+    ],
+    [
+      10,
+      10
+    ],
+    [
+      10,
+      16
+    ]
+  ],
+  "MFX_MUTE": 39,
+  "REFUTED": {
+    "lfoResetHeldSilences": "held lfo_reset does not silence the level modulator (heard 2026-09-21)",
+    "levelModSourceFour": "level_mod_source = 4 is what the factory Pumper uses and it works",
+    "lfoResetHeldSyncs": "holding it without a play row does not keep the beat, it loses it entirely"
+  },
+  "PLAY_ROW_RESYNCS": {
+    "units": [
+      21
+    ],
+    "note": "a play row on lfo_reset gives a deterministic start; without it the modulator free-runs"
+  },
+  "OFF_AT": {
+    "dry_wet": 0,
+    "dry_level": 0,
+    "level_mod_int": 63,
+    "mod_int": null,
+    "loopswitch": 0,
+    "pad_on": 0
+  },
+  "LOUDNESS": {
+    "outputCeiling": 90,
+    "outputTypical": [
+      30,
+      60
+    ],
+    "feedbackCeiling": 90,
+    "note": "output_level at 124 is unplayable; delay feedback above 90 stacks until nothing is left"
+  },
+  "STAGE1_NEEDS_SOLO": {
+    "9": {
+      "note": "decimator crashed with 0x0a behind it; alone it runs"
+    }
+  },
+  "MFX_DEVICE_RANGE": [
+    39,
+    64
+  ],
+  "SOURCES": {
+    "65": {
+      "name": "FX on/off",
+      "ifx": true,
+      "mfx": true
+    },
+    "66": {
+      "name": "X / knob",
+      "ifx": true,
+      "mfx": true
+    },
+    "67": {
+      "name": "Y",
+      "ifx": false,
+      "mfx": true
+    },
+    "68": {
+      "name": "knob upper half / X upper half",
+      "ifx": true,
+      "mfx": true
+    },
+    "69": {
+      "name": "knob lower half / X lower half",
+      "ifx": true,
+      "mfx": true
+    },
+    "70": {
+      "name": "Y upper half",
+      "ifx": false,
+      "mfx": true
+    },
+    "71": {
+      "name": "Y lower half",
+      "ifx": false,
+      "mfx": true
+    },
+    "74": {
+      "name": "play pressed",
+      "ifx": true,
+      "mfx": true
+    }
+  },
+  "CHAINS": {
+    "0": {
+      "name": "insert stage 1",
+      "stage": "ifx1"
+    },
+    "1": {
+      "name": "insert stage 2",
+      "stage": "ifx2"
+    },
+    "2": {
+      "name": "master",
+      "stage": "mfx"
+    },
+    "7": {
+      "name": "input level",
+      "stage": null
+    },
+    "10": {
+      "name": "output level",
+      "stage": null
+    }
+  }
+}

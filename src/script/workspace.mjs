@@ -1,0 +1,74 @@
+/** Own scripts in the browser. Storage is injected and may throw or be missing; the workspace then lives in memory. */
+import { LIMITS } from "../../data/script/contract.mjs";
+
+const NAME = new RegExp(`^[A-Za-z][A-Za-z0-9_]{0,${LIMITS.nameLength - 1}}$`);
+export const STORAGE_KEY = "cee.scripts.v1";
+
+export const validName = name => typeof name === "string" && NAME.test(name);
+
+/** A short fingerprint of the source text, to tell whether a probe belongs to it. */
+export function sourceKey(source) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < source.length; i++) h = Math.imul(h ^ source.charCodeAt(i), 0x01000193) >>> 0;
+  return `${source.length}:${h.toString(16)}`;
+}
+
+export class Workspace {
+  constructor(storage = null, key = STORAGE_KEY) {
+    this.storage = storage;
+    this.key = key;
+    this.items = this.#load();
+  }
+
+  #load() {
+    try {
+      const raw = this.storage?.getItem(this.key);
+      const data = raw ? JSON.parse(raw) : [];
+      return Array.isArray(data) ? data.filter(s => validName(s?.name) && typeof s.source === "string").map(s => ({ name: s.name, source: s.source, inputs: Array.isArray(s.inputs) ? s.inputs : [], probe: s.probe ?? null })) : [];
+    } catch { return []; }
+  }
+
+  #store() {
+    try { this.storage?.setItem(this.key, JSON.stringify(this.items)); } catch { /* the workspace stays in memory */ }
+  }
+
+  list() { return this.items.map(s => ({ ...s })); }
+
+  get(name) { const s = this.items.find(i => i.name === name); return s ? { ...s } : null; }
+
+  /** A name nobody uses yet, built from `base`. */
+  freeName(base = "plugin") {
+    const stem = (base.replace(/[^A-Za-z0-9_]/g, "") || "plugin").replace(/^[^A-Za-z]+/, "s").slice(0, LIMITS.nameLength - 3);
+    if (!this.get(stem)) return stem;
+    for (let n = 2; ; n++) if (!this.get(`${stem}${n}`)) return `${stem}${n}`;
+  }
+
+  /** Create or replace the script `name`. A changed source drops the recorded probe, which belongs to the old text. */
+  save({ name, source, inputs, probe }) {
+    if (!validName(name)) throw new RangeError(`Name: ASCII, Buchstabe am Anfang, höchstens ${LIMITS.nameLength} Zeichen`);
+    const at = this.items.findIndex(s => s.name === name);
+    const old = at >= 0 ? this.items[at] : null;
+    const next = {
+      name, source,
+      inputs: inputs ?? old?.inputs ?? [],
+      probe: probe !== undefined ? probe : old && old.source === source ? old.probe : null,
+    };
+    if (at >= 0) this.items[at] = next; else this.items.push(next);
+    this.#store();
+    return { ...next };
+  }
+
+  rename(from, to) {
+    if (!validName(to)) throw new RangeError(`Name: ASCII, Buchstabe am Anfang, höchstens ${LIMITS.nameLength} Zeichen`);
+    if (this.get(to)) throw new Error(`„${to}“ gibt es schon.`);
+    const item = this.items.find(s => s.name === from);
+    if (!item) throw new Error(`„${from}“ gibt es nicht.`);
+    item.name = to;
+    this.#store();
+  }
+
+  remove(name) {
+    this.items = this.items.filter(s => s.name !== name);
+    this.#store();
+  }
+}

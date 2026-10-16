@@ -1,0 +1,66 @@
+{
+ "entries": [
+  {
+   "from": "0xC002AE64",
+   "to": "0xC0028074",
+   "kind": "code",
+   "why": "the late start hook (the card-mount stage of the chain start). Not the same code: the Sampler hooks the mov r4, r0 behind its check for e2sSample.all, the synth has no such check; its start goes from the rescue paths (panel update flag at +0x22 of the panel object) straight to the loading of the user data, and ldrb r0, [r4, #0x22] at 0xC0028074 is the same place of the flow (the first instruction after the rescue paths, r4 = the panel object, as the Sampler's 0xC002AE40 ldrb r3, [r4, #0x22]); listings read 2026-10-16",
+   "rejected": true
+  },
+  {
+   "from": "0xC002AE68",
+   "to": "0xC0028078",
+   "kind": "code",
+   "why": "the instruction behind the late hook: where the code jumps back to after running the displaced instruction (cmp r0, #0 behind ldrb r0, [r4, #0x22] in the synth)",
+   "rejected": true
+  },
+  {
+   "from": "0xC0064D3C",
+   "to": "0xC005B1D8",
+   "kind": "data",
+   "why": "the literal the constructor of Global screen 9 loads its vtable from: the constructors 0xC0064C30 and 0xC005B0CC are instruction for instruction the same (synthfind, ratio 1.0), the literal pool word of the Sampler's is 0xC00E33F8, the synth's 0xC00C9B90, which is the Sampler's vtable at the synth address (auto.json: 0xC00E33F8 to 0xC00C9B90), and it is loaded by exactly two literals in each image (destructor 0xC0064928 and 0xC005ADC4, constructor 0xC0064D3C and 0xC005B1D8)"
+  },
+  {
+   "from": "0xC0085948",
+   "to": "0xC0075AB0",
+   "kind": "code",
+   "why": "str r1, [r0, #0x64] and b to the refresh: synthfind candidate 0xC0075AB0, the branch target 0xC00858E8 and 0xC0075A50 compare equal over 24 instructions (only a pool word differs)"
+  },
+  {
+   "from": "0xC00A5A23",
+   "to": "0xC0090868",
+   "kind": "data",
+   "why": "the string 'press  [ Enter ]': the pool word of the XY CALIBRATION page (Sampler 0xC0064B50, synth 0xC005AFEC, same position in the shifted code) points at it in each image"
+  },
+  {
+   "from": "0xC00A65D1",
+   "to": "0xC00912F2",
+   "kind": "data",
+   "why": "the empty string in front of '%d ' and 'Done' (the text the page code clears its widgets with): the pool word of the same place of the Global screen code (Sampler 0xC0064AFC, synth 0xC005AF98) points at it in each image"
+  },
+  {
+   "from": "0xC00C5A54",
+   "to": "0xC00B0438",
+   "kind": "data",
+   "why": "the data pointer of image 13, the start image: the image table (loaded by the draw function 0xC003F650 and 0xC003A288, the same code) has the descriptor 0xC00B0430 = {128, 64, 0xC00DF5FE} at index 13, the pointer word is descriptor + 8, and it is the only word that points at the data (find of 0xC00DF5FE)"
+  },
+  {
+   "from": "0xC00F9854",
+   "to": "0xC00DF5FE",
+   "kind": "data",
+   "why": "the start image, 1024 bytes: the data of the descriptor of image 13. The synth's lies at an address that is 2 mod 4"
+  },
+  {
+   "from": "0xC03404C0",
+   "to": "0xC03406B0",
+   "kind": "ram",
+   "why": "the screen manager singleton: the literal the screen manager's accessor loads, tools/emu/firmware.py profile value 'screens' of the synth image (0xC002A1AC reads it)"
+  },
+  {
+   "from": "0xC0691328",
+   "to": "0xC056B5D8",
+   "kind": "ram",
+   "why": "the byte of the last Global page: the pool word of the getter and setter 0xC007B074 and 0xC007B084, whose synth twins are 0xC006D9F8 and 0xC006DA08 (instruction for instruction the same)"
+  }
+ ]
+}

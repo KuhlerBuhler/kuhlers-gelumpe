@@ -1,0 +1,6 @@
+name: Idea
+description: A feature or a plugin idea
+body:
+  - type: textarea
+    attributes: { label: The idea, description: What should it do and why }
+    validations: { required: true }

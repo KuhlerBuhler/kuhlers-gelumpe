@@ -1,0 +1,2943 @@
+{
+ "ifx_device": {
+  "0x00": {
+   "unit": "nofx_thru",
+   "params": []
+  },
+  "0x01": {
+   "unit": "I_mkp2_comp",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "envelope_select",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "sensitivity",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "attack",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0x8"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "pre_leq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_leq_frequency",
+     "type": "Int8ul",
+     "default": "0xA"
+    },
+    {
+     "name": "pre_heq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_heq_frequency",
+     "type": "Int8ul",
+     "default": "0x27"
+    }
+   ]
+  },
+  "0x02": {
+   "unit": "I_sr1_comp",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "envelope_select",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "threshold",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "ratio",
+     "type": "Int8ul",
+     "default": "0x8"
+    },
+    {
+     "name": "knee",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "attack",
+     "type": "Int8ul",
+     "default": "0xC"
+    },
+    {
+     "name": "release",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "hold_time",
+     "type": "Int8ul",
+     "default": "0x4"
+    },
+    {
+     "name": "tube_sat",
+     "type": "Int8ul",
+     "default": "0x3C"
+    },
+    {
+     "name": "output_gain",
+     "type": "Int8ul",
+     "default": "0x36"
+    }
+   ]
+  },
+  "0x03": {
+   "unit": "I_cheap_comp",
+   "params": [
+    {
+     "name": "hpf_b1",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "peak_hold_b1",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "env_bit_shift_amount",
+     "type": "Int8ul",
+     "default": "0x4"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0xC"
+    }
+   ]
+  },
+  "0x04": {
+   "unit": "I_punch",
+   "params": []
+  },
+  "0x05": {
+   "unit": "I_limiter",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "envelope_select",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "threshold",
+     "type": "Int8ul",
+     "default": "0x30"
+    },
+    {
+     "name": "attack",
+     "type": "Int8ul",
+     "default": "0xA"
+    },
+    {
+     "name": "release",
+     "type": "Int8ul",
+     "default": "0x3"
+    },
+    {
+     "name": "hold_time",
+     "type": "Int8ul",
+     "default": "0x3"
+    },
+    {
+     "name": "tubesat",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "output_gain",
+     "type": "Int8ul",
+     "default": "0x40"
+    }
+   ]
+  },
+  "0x06": {
+   "unit": "I_eq_2_band",
+   "params": [
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "b1_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "b2_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "b1_frequency",
+     "type": "Int8ul",
+     "default": "0xC"
+    },
+    {
+     "name": "b1_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "b1_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "b2_frequency",
+     "type": "Int8ul",
+     "default": "0x38"
+    },
+    {
+     "name": "b2_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "b2_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    }
+   ]
+  },
+  "0x07": {
+   "unit": "I_eq_4_band",
+   "params": [
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "b1_type",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "b2_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "b3_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "b4_type",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "b1_frequency",
+     "type": "Int8ul",
+     "default": "0x10"
+    },
+    {
+     "name": "b1_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "b1_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "b2_frequency",
+     "type": "Int8ul",
+     "default": "0x21"
+    },
+    {
+     "name": "b2_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "b2_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "b3_frequency",
+     "type": "Int8ul",
+     "default": "0x30"
+    },
+    {
+     "name": "b3_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "b3_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "b4_frequency",
+     "type": "Int8ul",
+     "default": "0x34"
+    },
+    {
+     "name": "b4_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "b4_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    }
+   ]
+  },
+  "0x08": {
+   "unit": "I_exciter",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "blend",
+     "type": "Int8ul",
+     "default": "0x34"
+    },
+    {
+     "name": "input_trim",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "pre_leq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_leq_frequency",
+     "type": "Int8ul",
+     "default": "0x10"
+    },
+    {
+     "name": "pre_heq_gain",
+     "type": "Int8ul",
+     "default": "0x30"
+    },
+    {
+     "name": "pre_heq_frequency",
+     "type": "Int8ul",
+     "default": "0x2C"
+    },
+    {
+     "name": "emphatic_point",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "emphatic_lag",
+     "type": "Int8ul",
+     "default": "0x0"
+    }
+   ]
+  },
+  "0x09": {
+   "unit": "I_decimator",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "pre_lpf_sw",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "pre_lpf",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x74"
+    },
+    {
+     "name": "sample_freq",
+     "type": "Int8ul",
+     "default": "0x3F"
+    },
+    {
+     "name": "bit_depth",
+     "type": "Int8ul",
+     "default": "0x8"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "mask_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    }
+   ]
+  },
+  "0x0a": {
+   "unit": "I_filter",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "output_select",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "frequency",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "resonance",
+     "type": "Int8ul",
+     "default": "0x40"
+    }
+   ]
+  },
+  "0x0f": {
+   "unit": "I_distortion",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x00"
+    },
+    {
+     "name": "gain",
+     "type": "Int8ul",
+     "default": "0x40"
+    },
+    {
+     "name": "pre_eq_frequency",
+     "type": "Int8ul",
+     "default": "0x23"
+    },
+    {
+     "name": "pre_eq_q",
+     "type": "Int8ul",
+     "default": "0xF"
+    },
+    {
+     "name": "pre_eq_gain",
+     "type": "Int8ul",
+     "default": "0x30"
+    },
+    {
+     "name": "post_eq1_frequency",
+     "type": "Int8ul",
+     "default": "0x10"
+    },
+    {
+     "name": "post_eq1_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "post_eq1_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "post_eq2_frequency",
+     "type": "Int8ul",
+     "default": "0x2B"
+    },
+    {
+     "name": "post_eq2_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "post_eq2_gain",
+     "type": "Int8ul",
+     "default": "0x2A"
+    },
+    {
+     "name": "post_eq3_frequency",
+     "type": "Int8ul",
+     "default": "0x35"
+    },
+    {
+     "name": "post_eq3_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "post_eq3_gain",
+     "type": "Int8ul",
+     "default": "0x19"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0x19"
+    }
+   ]
+  },
+  "0x10": {
+   "unit": "I_acid_driver",
+   "params": [
+    {
+     "name": "drive",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0x28"
+    }
+   ]
+  },
+  "0x11": {
+   "unit": "I_chorus",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "mod_src",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_int",
+     "type": "Int8ul",
+     "default": "0x40"
+    },
+    {
+     "name": "lfo_wave",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x1C"
+    },
+    {
+     "name": "lfo_sync_note",
+     "type": "Int8ul",
+     "default": "0x6"
+    },
+    {
+     "name": "lfo_phase",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset_phase",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_leq_gain",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "pre_leq_frequency",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "pre_heq_gain",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "pre_heq_frequency",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "l_delay",
+     "type": "Int8ul",
+     "default": "0x2E"
+    },
+    {
+     "name": "r_delay",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lodamp",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "hidamp",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "spread",
+     "type": "Int8ul",
+     "default": "0x0"
+    }
+   ]
+  },
+  "0x12": {
+   "unit": "I_flanger",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x4B"
+    },
+    {
+     "name": "mod_src",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_int",
+     "type": "Int8ul",
+     "default": "0x4B"
+    },
+    {
+     "name": "lfo_wave",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x6"
+    },
+    {
+     "name": "lfo_sync_note",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "lfo_shape",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "lfo_phase",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset_phase",
+     "type": "Int8ul",
+     "default": "0x12"
+    },
+    {
+     "name": "manual",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "delay",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "lodamp",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "hidamp",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "feedback",
+     "type": "Int8ul",
+     "default": "0x4B"
+    },
+    {
+     "name": "fb_hicut",
+     "type": "Int8ul",
+     "default": "0x0"
+    }
+   ]
+  },
+  "0x13": {
+   "unit": "I_phaser",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "type",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "manual",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "modint",
+     "type": "Int8ul",
+     "default": "0x3C"
+    },
+    {
+     "name": "resonance",
+     "type": "Int8ul",
+     "default": "0x68"
+    },
+    {
+     "name": "phase",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "high_damp",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "mod_wave",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "lfo_sync_note",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "lfo_phase",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset_phase",
+     "type": "Int8ul",
+     "default": "0x12"
+    }
+   ]
+  },
+  "0x14": {
+   "unit": "I_tremolo",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "mod_src",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_int",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "lfo_wave",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "lfo_squ_dur",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "lfo_squ_lag",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x50"
+    },
+    {
+     "name": "lfo_sync_note",
+     "type": "Int8ul",
+     "default": "0x6"
+    },
+    {
+     "name": "lfo_shape",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "do_nothing",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset_phase",
+     "type": "Int8ul",
+     "default": "0x12"
+    }
+   ]
+  },
+  "0x15": {
+   "unit": "I_level_mod",
+   "params": [
+    {
+     "name": "amp_level",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "output_gain",
+     "type": "Int8ul",
+     "default": "0x18"
+    },
+    {
+     "name": "level_mod_source",
+     "type": "Int8ul",
+     "default": "0x6"
+    },
+    {
+     "name": "level_mod_int",
+     "type": "Int8ul",
+     "default": "0x7E"
+    },
+    {
+     "name": "level_mod_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "saturation",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x21"
+    },
+    {
+     "name": "lfo_sync_note",
+     "type": "Int8ul",
+     "default": "0x6"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset_phase",
+     "type": "Int8ul",
+     "default": "0x12"
+    }
+   ]
+  },
+  "0x16": {
+   "unit": "I_ring_mod",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "osc_freq",
+     "type": "Int8ul",
+     "default": "0x43"
+    },
+    {
+     "name": "mod_int",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0xE"
+    },
+    {
+     "name": "lfo_syncnote",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset_phase",
+     "type": "Int8ul",
+     "default": "0x12"
+    },
+    {
+     "name": "input_level",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "delay",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "feedback",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "delay_lag",
+     "type": "Int8ul",
+     "default": "0x0"
+    }
+   ]
+  },
+  "0x18": {
+   "unit": "I_short_delay",
+   "params": [
+    {
+     "name": "dry_level",
+     "type": "Int8ul",
+     "default": "0x78"
+    },
+    {
+     "name": "wet_level",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "input_trim",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "tempo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "off_time_ratio",
+     "type": "Int8ul",
+     "default": "0x41"
+    },
+    {
+     "name": "off_delay_time",
+     "type": "Int8ul",
+     "default": "0x18"
+    },
+    {
+     "name": "on_time_ratio",
+     "type": "Int8ul",
+     "default": "0x23"
+    },
+    {
+     "name": "on_syncnote",
+     "type": "Int8ul",
+     "default": "0x11"
+    },
+    {
+     "name": "fb_depth",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "high_damp",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "low_damp",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "delay_lag",
+     "type": "Int8ul",
+     "default": "0xF"
+    }
+   ]
+  },
+  "0x27": {
+   "unit": "nofx_mute",
+   "params": [
+    {
+     "name": "fader",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "envelope_select",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "sensitivity",
+     "type": "Int8ul",
+     "default": "0x31"
+    },
+    {
+     "name": "attack",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0xC"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "pre_leq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_leq_frequency",
+     "type": "Int8ul",
+     "default": "0x10"
+    },
+    {
+     "name": "pre_heq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_heq_frequency",
+     "type": "Int8ul",
+     "default": "0x32"
+    }
+   ]
+  }
+ },
+ "mfx_device": {
+  "0x00": {
+   "unit": "nofx_thru",
+   "params": []
+  },
+  "0x27": {
+   "unit": "nofx_mute",
+   "params": [
+    {
+     "name": "fader",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "envelope_select",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "sensitivity",
+     "type": "Int8ul",
+     "default": "0x31"
+    },
+    {
+     "name": "attack",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0xC"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "pre_leq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_leq_frequency",
+     "type": "Int8ul",
+     "default": "0x10"
+    },
+    {
+     "name": "pre_heq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_heq_frequency",
+     "type": "Int8ul",
+     "default": "0x32"
+    }
+   ]
+  },
+  "0x28": {
+   "unit": "M_mkp2_comp",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "envelope_select",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "sensitivity",
+     "type": "Int8ul",
+     "default": "0x31"
+    },
+    {
+     "name": "attack",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0xC"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "pre_leq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_leq_frequency",
+     "type": "Int8ul",
+     "default": "0x10"
+    },
+    {
+     "name": "pre_heq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_heq_frequency",
+     "type": "Int8ul",
+     "default": "0x32"
+    }
+   ]
+  },
+  "0x29": {
+   "unit": "M_sr1_comp",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "envelope_select",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "threshold",
+     "type": "Int8ul",
+     "default": "0x2A"
+    },
+    {
+     "name": "ratio",
+     "type": "Int8ul",
+     "default": "0x8"
+    },
+    {
+     "name": "knee",
+     "type": "Int8ul",
+     "default": "0x6"
+    },
+    {
+     "name": "attack",
+     "type": "Int8ul",
+     "default": "0xB"
+    },
+    {
+     "name": "release",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "hold_time",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "tube_sat",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "output_gain",
+     "type": "Int8ul",
+     "default": "0x30"
+    }
+   ]
+  },
+  "0x2a": {
+   "unit": "M_limiter",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "envelope_select",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "threshold",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "attack",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "release",
+     "type": "Int8ul",
+     "default": "0x8"
+    },
+    {
+     "name": "hold_time",
+     "type": "Int8ul",
+     "default": "0x8"
+    },
+    {
+     "name": "tube_sat",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "output_gain",
+     "type": "Int8ul",
+     "default": "0x48"
+    }
+   ]
+  },
+  "0x2b": {
+   "unit": "M_eq_4_band",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "b1_type",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "b2_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "b3_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "b4_type",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "b1_frequency",
+     "type": "Int8ul",
+     "default": "0x10"
+    },
+    {
+     "name": "b1_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "b1_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "b2_frequency",
+     "type": "Int8ul",
+     "default": "0x21"
+    },
+    {
+     "name": "b2_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "b2_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "b3_frequency",
+     "type": "Int8ul",
+     "default": "0x30"
+    },
+    {
+     "name": "b3_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "b3_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "b4_frequency",
+     "type": "Int8ul",
+     "default": "0x34"
+    },
+    {
+     "name": "b4_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "b4_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    }
+   ]
+  },
+  "0x2c": {
+   "unit": "M_wah",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "wah_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_src",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_int",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "control",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "env_select",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "env_response",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "env_sens",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "lfo_step",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_wave",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x2F"
+    },
+    {
+     "name": "lfo_syncnote",
+     "type": "Int8ul",
+     "default": "0x6"
+    },
+    {
+     "name": "lfo_rch_degree",
+     "type": "Int8ul",
+     "default": "0x13"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_resetphase",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "manual",
+     "type": "Int8ul",
+     "default": "0x38"
+    }
+   ]
+  },
+  "0x2d": {
+   "unit": "M_multimodefilter",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "frequency",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "resonance",
+     "type": "Int8ul",
+     "default": "0x4B"
+    },
+    {
+     "name": "mod_source",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "mod_lag",
+     "type": "Int8ul",
+     "default": "0x40"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x19"
+    },
+    {
+     "name": "lfo_syncnote",
+     "type": "Int8ul",
+     "default": "0x6"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_resetphase",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "freq_mod_int",
+     "type": "Int8ul",
+     "default": "0x3F"
+    },
+    {
+     "name": "drive",
+     "type": "Int8ul",
+     "default": "0x28"
+    },
+    {
+     "name": "drive_mod_int",
+     "type": "Int8ul",
+     "default": "0x3F"
+    },
+    {
+     "name": "drive_tone",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "hpf_level",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "bpf_level",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lpf_level",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lpf24_level",
+     "type": "Int8ul",
+     "default": "0x7F"
+    }
+   ]
+  },
+  "0x2e": {
+   "unit": "M_distortion",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "gain",
+     "type": "Int8ul",
+     "default": "0x46"
+    },
+    {
+     "name": "pre_eq_frequency",
+     "type": "Int8ul",
+     "default": "0x23"
+    },
+    {
+     "name": "pre_eq_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "pre_eq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "post_eq1_frequency",
+     "type": "Int8ul",
+     "default": "0xE"
+    },
+    {
+     "name": "post_eq1_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "post_eq1_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "post_eq2_frequency",
+     "type": "Int8ul",
+     "default": "0x2C"
+    },
+    {
+     "name": "post_eq2_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "post_eq2_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "post_eq3_frequency",
+     "type": "Int8ul",
+     "default": "0x34"
+    },
+    {
+     "name": "post_eq3_q",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "post_eq3_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0x2D"
+    }
+   ]
+  },
+  "0x2f": {
+   "unit": "M_tubepre",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "tube1_gain",
+     "type": "Int8ul",
+     "default": "0x30"
+    },
+    {
+     "name": "tube1_sat",
+     "type": "Int8ul",
+     "default": "0x4C"
+    },
+    {
+     "name": "tube2_gain",
+     "type": "Int8ul",
+     "default": "0x30"
+    },
+    {
+     "name": "tube2_sat",
+     "type": "Int8ul",
+     "default": "0x6C"
+    },
+    {
+     "name": "lo_cut1",
+     "type": "Int8ul",
+     "default": "0x4"
+    },
+    {
+     "name": "hi_cut1",
+     "type": "Int8ul",
+     "default": "0x7A"
+    },
+    {
+     "name": "lo_cut2",
+     "type": "Int8ul",
+     "default": "0x4"
+    },
+    {
+     "name": "hi_cut2",
+     "type": "Int8ul",
+     "default": "0x7E"
+    },
+    {
+     "name": "tube1_bias",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "tube1_phase",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "tube2_bias",
+     "type": "Int8ul",
+     "default": "0x28"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0x34"
+    }
+   ]
+  },
+  "0x31": {
+   "unit": "M_chorus",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "mod_src",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_int",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "lfo_wave",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x23"
+    },
+    {
+     "name": "lfo_sync_note",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "lfo_phase",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset_phase",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_leq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_leq_frequency",
+     "type": "Int8ul",
+     "default": "0x10"
+    },
+    {
+     "name": "pre_heq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_heq_frequency",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "l_delay",
+     "type": "Int8ul",
+     "default": "0x2E"
+    },
+    {
+     "name": "r_delay",
+     "type": "Int8ul",
+     "default": "0x40"
+    },
+    {
+     "name": "lo_damp",
+     "type": "Int8ul",
+     "default": "0x1A"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "spread",
+     "type": "Int8ul",
+     "default": "0x7F"
+    }
+   ]
+  },
+  "0x32": {
+   "unit": "M_flanger",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x4B"
+    },
+    {
+     "name": "mod_src",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_int",
+     "type": "Int8ul",
+     "default": "0x55"
+    },
+    {
+     "name": "lfo_wave",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0xE"
+    },
+    {
+     "name": "lfo_syncnote",
+     "type": "Int8ul",
+     "default": "0x3"
+    },
+    {
+     "name": "lfo_shape",
+     "type": "Int8ul",
+     "default": "0x59"
+    },
+    {
+     "name": "lfo_phase",
+     "type": "Int8ul",
+     "default": "0x1B"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_resetphase",
+     "type": "Int8ul",
+     "default": "0x1B"
+    },
+    {
+     "name": "manual",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "delay",
+     "type": "Int8ul",
+     "default": "0xB"
+    },
+    {
+     "name": "lo_damp",
+     "type": "Int8ul",
+     "default": "0xA"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "feedback",
+     "type": "Int8ul",
+     "default": "0x4B"
+    },
+    {
+     "name": "fb_hicut",
+     "type": "Int8ul",
+     "default": "0x7F"
+    }
+   ]
+  },
+  "0x33": {
+   "unit": "M_phaser",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "type",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "manual",
+     "type": "Int8ul",
+     "default": "0x5A"
+    },
+    {
+     "name": "mod_int",
+     "type": "Int8ul",
+     "default": "0x3F"
+    },
+    {
+     "name": "resonance",
+     "type": "Int8ul",
+     "default": "0x55"
+    },
+    {
+     "name": "phase",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "high_damp",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_wave",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x13"
+    },
+    {
+     "name": "lfo_syncnote",
+     "type": "Int8ul",
+     "default": "0x3"
+    },
+    {
+     "name": "lfo_phase",
+     "type": "Int8ul",
+     "default": "0x1B"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_resetphase",
+     "type": "Int8ul",
+     "default": "0x9"
+    }
+   ]
+  },
+  "0x34": {
+   "unit": "M_tremolo",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "mod_src",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_int",
+     "type": "Int8ul",
+     "default": "0x50"
+    },
+    {
+     "name": "lfo_wave",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "lfo_squdur",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "lfo_squlag",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x42"
+    },
+    {
+     "name": "lfo_sync_note",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "lfo_shape",
+     "type": "Int8ul",
+     "default": "0x19"
+    },
+    {
+     "name": "lfo_phase",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset_phase",
+     "type": "Int8ul",
+     "default": "0x12"
+    }
+   ]
+  },
+  "0x35": {
+   "unit": "M_level_mod",
+   "params": [
+    {
+     "name": "amp_level",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "output_gain_adjust",
+     "type": "Int8ul",
+     "default": "0x18"
+    },
+    {
+     "name": "level_mod_source",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "level_mod_int",
+     "type": "Int8ul",
+     "default": "0x7E"
+    },
+    {
+     "name": "level_mod_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "saturation",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "lfo_sync",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x21"
+    },
+    {
+     "name": "lfo_sync_note",
+     "type": "Int8ul",
+     "default": "0x6"
+    },
+    {
+     "name": "lfo_phase",
+     "type": "Int8ul",
+     "default": "0x1B"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_reset_phase",
+     "type": "Int8ul",
+     "default": "0x24"
+    }
+   ]
+  },
+  "0x36": {
+   "unit": "M_hall_reverb",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "time",
+     "type": "Int8ul",
+     "default": "0x26"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x5C"
+    },
+    {
+     "name": "pre_delay",
+     "type": "Int8ul",
+     "default": "0x26"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x30"
+    },
+    {
+     "name": "trim2",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "lo_eq",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "hi_eq",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "pd_thru",
+     "type": "Int8ul",
+     "default": "0x1A"
+    }
+   ]
+  },
+  "0x37": {
+   "unit": "M_smooth_hall",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "time",
+     "type": "Int8ul",
+     "default": "0x26"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x4E"
+    },
+    {
+     "name": "pre_delay",
+     "type": "Int8ul",
+     "default": "0x26"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x35"
+    },
+    {
+     "name": "trim2",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "lo_eq",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "hi_eq",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "pd_thru",
+     "type": "Int8ul",
+     "default": "0x1A"
+    }
+   ]
+  },
+  "0x38": {
+   "unit": "M_wet_plate_reverb",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "time",
+     "type": "Int8ul",
+     "default": "0x1F"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x6A"
+    },
+    {
+     "name": "pre_delay",
+     "type": "Int8ul",
+     "default": "0x26"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x2B"
+    },
+    {
+     "name": "trim2",
+     "type": "Int8ul",
+     "default": "0x5F"
+    },
+    {
+     "name": "lo_eq",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "hi_eq",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "pd_thru",
+     "type": "Int8ul",
+     "default": "0x1A"
+    }
+   ]
+  },
+  "0x39": {
+   "unit": "M_dry_plate_reverb",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "time",
+     "type": "Int8ul",
+     "default": "0x1F"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x3D"
+    },
+    {
+     "name": "pre_delay",
+     "type": "Int8ul",
+     "default": "0x33"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x27"
+    },
+    {
+     "name": "trim2",
+     "type": "Int8ul",
+     "default": "0x40"
+    },
+    {
+     "name": "lo_eq",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "hi_eq",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "pd_thru",
+     "type": "Int8ul",
+     "default": "0x1A"
+    }
+   ]
+  },
+  "0x3a": {
+   "unit": "M_room_reverb",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "time",
+     "type": "Int8ul",
+     "default": "0x1F"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x44"
+    },
+    {
+     "name": "pre_delay",
+     "type": "Int8ul",
+     "default": "0x7"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x2E"
+    },
+    {
+     "name": "trim2",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "lo_eq",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "hi_eq",
+     "type": "Int8ul",
+     "default": "0x1E"
+    },
+    {
+     "name": "pd_thru",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "rev_level",
+     "type": "Int8ul",
+     "default": "0x66"
+    },
+    {
+     "name": "er_level",
+     "type": "Int8ul",
+     "default": "0x40"
+    }
+   ]
+  },
+  "0x3b": {
+   "unit": "M_mod_delay",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "wet_spread",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "input_trim",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "pre_leq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_leq_frequency",
+     "type": "Int8ul",
+     "default": "0x14"
+    },
+    {
+     "name": "pre_heq_gain",
+     "type": "Int8ul",
+     "default": "0x24"
+    },
+    {
+     "name": "pre_heq_frequency",
+     "type": "Int8ul",
+     "default": "0x2C"
+    },
+    {
+     "name": "delay_time_tempo_sync",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "off_time_ratio",
+     "type": "Int8ul",
+     "default": "0x41"
+    },
+    {
+     "name": "off_l_delay_time",
+     "type": "Int8ul",
+     "default": "0x2F"
+    },
+    {
+     "name": "off_r_delay_time",
+     "type": "Int8ul",
+     "default": "0x29"
+    },
+    {
+     "name": "on_time_ratio",
+     "type": "Int8ul",
+     "default": "0x23"
+    },
+    {
+     "name": "on_l_syncnote",
+     "type": "Int8ul",
+     "default": "0x11"
+    },
+    {
+     "name": "on_r_syncnote",
+     "type": "Int8ul",
+     "default": "0x2B"
+    },
+    {
+     "name": "fb_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "fb_depth",
+     "type": "Int8ul",
+     "default": "0x46"
+    },
+    {
+     "name": "high_damp",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "low_damp",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_depth",
+     "type": "Int8ul",
+     "default": "0x23"
+    },
+    {
+     "name": "mod_wave",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "mod_freq",
+     "type": "Int8ul",
+     "default": "0x1A"
+    },
+    {
+     "name": "mod_rch_degree",
+     "type": "Int8ul",
+     "default": "0x9"
+    },
+    {
+     "name": "delay_lag",
+     "type": "Int8ul",
+     "default": "0x0"
+    }
+   ]
+  },
+  "0x3c": {
+   "unit": "M_tape_echo",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "time_ratio",
+     "type": "Int8ul",
+     "default": "0x19"
+    },
+    {
+     "name": "sync_on",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "s_note1",
+     "type": "Int8ul",
+     "default": "0x8"
+    },
+    {
+     "name": "s_note2",
+     "type": "Int8ul",
+     "default": "0x8"
+    },
+    {
+     "name": "time1",
+     "type": "Int8ul",
+     "default": "0x13"
+    },
+    {
+     "name": "time2",
+     "type": "Int8ul",
+     "default": "0x13"
+    },
+    {
+     "name": "delay_lag",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0x35"
+    },
+    {
+     "name": "tap1_level",
+     "type": "Int8ul",
+     "default": "0x58"
+    },
+    {
+     "name": "tap2_level",
+     "type": "Int8ul",
+     "default": "0x58"
+    },
+    {
+     "name": "feedback",
+     "type": "Int8ul",
+     "default": "0x46"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x4D"
+    },
+    {
+     "name": "lo_damp",
+     "type": "Int8ul",
+     "default": "0x30"
+    },
+    {
+     "name": "trim",
+     "type": "Int8ul",
+     "default": "0x50"
+    },
+    {
+     "name": "saturation",
+     "type": "Int8ul",
+     "default": "0x35"
+    },
+    {
+     "name": "gain",
+     "type": "Int8ul",
+     "default": "0x37"
+    },
+    {
+     "name": "gainshift",
+     "type": "Int8ul",
+     "default": "0x5"
+    },
+    {
+     "name": "lfo_wave",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "lfo_depth",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "lfo_speed",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "pre_lpf",
+     "type": "Int8ul",
+     "default": "0x6D"
+    },
+    {
+     "name": "spread",
+     "type": "Int8ul",
+     "default": "0x64"
+    }
+   ]
+  },
+  "0x3d": {
+   "unit": "M_grain_shifter",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "duration_bpm_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "off_time_ratio",
+     "type": "Int8ul",
+     "default": "0x2D"
+    },
+    {
+     "name": "off_duration",
+     "type": "Int8ul",
+     "default": "0x2A"
+    },
+    {
+     "name": "on_time_ratio",
+     "type": "Int8ul",
+     "default": "0x3"
+    },
+    {
+     "name": "on_duration",
+     "type": "Int8ul",
+     "default": "0x6"
+    },
+    {
+     "name": "lfo_bpm_sync",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "off_lfo_freq",
+     "type": "Int8ul",
+     "default": "0x4E"
+    },
+    {
+     "name": "on_sync_note",
+     "type": "Int8ul",
+     "default": "0x7"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "duration_lag",
+     "type": "Int8ul",
+     "default": "0x0"
+    }
+   ]
+  },
+  "0x3e": {
+   "unit": "M_decimator",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "pre_lpf_sw",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "pre_lpf",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "hi_damp",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "sample_freq",
+     "type": "Int8ul",
+     "default": "0x2D"
+    },
+    {
+     "name": "bit_depth",
+     "type": "Int8ul",
+     "default": "0x8"
+    },
+    {
+     "name": "output_level",
+     "type": "Int8ul",
+     "default": "0x7F"
+    },
+    {
+     "name": "mask_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_src",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "mod_int",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "wave",
+     "type": "Int8ul",
+     "default": "0x1"
+    },
+    {
+     "name": "squ_dur",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "lfo_reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "reset_phase",
+     "type": "Int8ul",
+     "default": "0x12"
+    },
+    {
+     "name": "sync_on",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "off_freq",
+     "type": "Int8ul",
+     "default": "0x22"
+    },
+    {
+     "name": "on_sync_note",
+     "type": "Int8ul",
+     "default": "0x4"
+    }
+   ]
+  },
+  "0x3f": {
+   "unit": "M_kpq_looper",
+   "params": [
+    {
+     "name": "loopswitch",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "loop_length",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "loop_type",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "loop_trigger",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "reset",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "step",
+     "type": "Int8ul",
+     "default": "0xD"
+    },
+    {
+     "name": "fine",
+     "type": "Int8ul",
+     "default": "0x40"
+    },
+    {
+     "name": "pitch_lag",
+     "type": "Int8ul",
+     "default": "0x65"
+    }
+   ]
+  },
+  "0x40": {
+   "unit": "M_vinyl_break",
+   "params": [
+    {
+     "name": "dry_wet",
+     "type": "Int8ul",
+     "default": "0x64"
+    },
+    {
+     "name": "pad_on",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "delta_pitch",
+     "type": "Int8ul",
+     "default": "0x50"
+    },
+    {
+     "name": "scratch",
+     "type": "Int8ul",
+     "default": "0x0"
+    },
+    {
+     "name": "scratch_width",
+     "type": "Int8ul",
+     "default": "0x32"
+    },
+    {
+     "name": "scratch_lag",
+     "type": "Int8ul",
+     "default": "0x2"
+    },
+    {
+     "name": "asobi",
+     "type": "Int8ul",
+     "default": "0x10"
+    }
+   ]
+  }
+ },
+ "source_control": {
+  "1": "fx_on",
+  "2": "fx_edit_x",
+  "3": "fx_edit_y",
+  "4": "fx_edit_x_hi",
+  "5": "fx_edit_x_lo",
+  "6": "fx_edit_y_hi",
+  "7": "fx_edit_y_lo",
+  "10": "press_play"
+ }
+}

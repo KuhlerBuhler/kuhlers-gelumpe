@@ -1,0 +1,48 @@
+# Everything that runs without hardware and without Korg data.
+name: Test
+
+on:
+  # A pull request is tested by its own run; a push to its branch would be the same run twice.
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to a branch makes the run before it pointless.
+concurrency:
+  group: test-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    # The suites outgrew 10 minutes (browser 10:19 on PR 27); 20 leaves room before a run counts as hung.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: python3 -m pip install -r tools/emu/requirements.txt
+      - run: npm run test:ci
+        env:
+          E2_ARM_REQUIRED: "1"
+
+  browser:
+    runs-on: ubuntu-latest
+    # The suites outgrew 10 minutes (browser 10:19 on PR 27); 20 leaves room before a run counts as hung.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The runner image ships Chrome and the tests drive that one (channel "chrome"),
+      # so there is no browser download to cache or to limit to Chromium.
+      - run: npm run test:e2e

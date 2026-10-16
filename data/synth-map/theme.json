@@ -1,0 +1,28 @@
+{
+ "entries": [
+  {
+   "from": "0xC003F74C",
+   "to": "0xC003A384",
+   "kind": "code",
+   "why": "fwmap.same_code with explicit target: 30 masked instruction words equal; both font getters load their table literal at instruction 3"
+  },
+  {
+   "from": "0xC003F650",
+   "to": "0xC003A288",
+   "kind": "code",
+   "why": "fwmap.same_code with explicit target: 16 masked instruction words equal; image renderer and its image table literal"
+  },
+  {
+   "from": "0xC00C2818",
+   "to": "0xC00AD208",
+   "kind": "data",
+   "why": "font table loaded by the equal-code font getters C003F74C and C003A384; four fonts: 98/8, 95/16, 224/12, 95/16 glyphs/height"
+  },
+  {
+   "from": "0xC00C1C2C",
+   "to": "0xC00AC624",
+   "kind": "data",
+   "why": "fwmap matching run; image renderer C003A288 loads this table; 17 descriptors, image 13 is 128 by 64"
+  }
+ ]
+}

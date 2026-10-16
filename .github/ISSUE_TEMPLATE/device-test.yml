@@ -1,0 +1,9 @@
+name: Device test report
+description: You tried something on a real Electribe
+body:
+  - type: input
+    attributes: { label: Firmware, description: "e.g. SYSTEM-blech-v26.VSB on Hacktribe 2.02, red" }
+    validations: { required: true }
+  - type: textarea
+    attributes: { label: What you tested and what happened }
+    validations: { required: true }

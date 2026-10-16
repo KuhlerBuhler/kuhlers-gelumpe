@@ -1,0 +1,244 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "sample-errors",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "name": "Sample-Fehler: ein Sample \u00fcberspringen und sagen, welches",
+ "changes": [
+  {
+   "file": 1585408,
+   "bytes": "0cc39fe500c09ce500005ce301c0a0031eff2f0118c09ce5020a1ce301c0a01300c0a0031eff2fe1f04f2de9f3ffffeb00005ce30500001ad8c29fe50010a0e34020a0e3042052e202108ce7fcffff1a27cdfaea0100a0e3000000ea0300a0e30320a0e1010000ea0200a0e30b20a0e1a4129fe5070000ea0400a0e30320a0e1030000ea0500a0e30020a0e3000000ea0600a0e384129fe50130a0e1d7ffffeb00005ce30200001a68c29fe514008ce518208ce513ff2fe1d0ffffeb00005ce31400001a200050e3240050131100001a40c29fe500109ce5000051e30800001a052048e0142042e22221a0e104208ce508008ce514209ce50c208ce518209ce510208ce5011081e200108ce50020a0e314208ce57bcdfaea004050e278cdfaea0640a0e1b5ffffeb00005ce30500001ae0c19fe500009ce5000050e30100000a010000eb4040a0e372cdfaea10402de9c0419fe5c8019fe5c8119fe5042094e5012082e2150000eb0c2094e5b8019fe5083094e5000052e324005303ac019f05010052e3a8019f05020052e3a4019f05030052e3a0019f05040052e39c019f05050052e398019f05060052e394019f0594119fe5102094e5000000eb1080bde810402de90240a0e10130d0e4230053e30300000a0130c1e4000053e3f9ffff1a1080bde801002de90400a0e1010000eb0100bde8f3ffffea50219fe5020050e1010042220030a0e30020a0e3fa0f50e3fa0f402201208222fbffff2a023093e1302082120120c1140020a0e3640050e36400402201208222fbffff2a023093e1302082120120c1140020a0e30a0050e30a00402201208222fbffff2a023093e1302082120120c114300080e20100c1e41eff2fe1400056e3a8909f05d296faea400056e3c0909f05cf96faea53616d706c652023006e6f742050434d2c2074616720230023206368616e6e656c732c206d617820320023206269742c207573652031362f323400736c6f74206e6f7420757361626c6500736c6f7420696e2075736500746f6f2062696720666f72206d656d6f727900626164205741562066696c650063616e6e6f74206265206c6f6164656400f8e633c0003818c0705b03c0fcee04c08c3218c0403818c0f63218c0033318c0953218c0a43218c0b63218c0c73218c0d73218c0e33218c0603818c010270000",
+   "expect": "4a477c949106670d9127123c2b6471af75ac8e0ce855200774ce377da8c36f98",
+   "note": "sample errors: the stubs, the two lines and their texts"
+  },
+  {
+   "file": 222704,
+   "bytes": "cc3205ea",
+   "expect": "0364d1b7df2db60c4cd96870820a20bb7afe45b2c2b6e133ed65e1150b17019a",
+   "note": "the loader's first instruction jumps to a stub that clears the state and runs it"
+  },
+  {
+   "file": 221364,
+   "bytes": "2634051a",
+   "expect": "00786f53d6a324b44a091ae8676df3b29d8b69a91f676eab309148c48feecada",
+   "note": "the branch that refuses a format tag other than PCM goes to a stub that notes it"
+  },
+  {
+   "file": 221380,
+   "bytes": "2734058a",
+   "expect": "cd9eb720a24a6547cb06ff0b1039f604656fa2dfe32341f3e0551fac458e2ac0",
+   "note": "the branch that refuses a channel count other than 1 or 2 goes to a stub that notes it"
+  },
+  {
+   "file": 221396,
+   "bytes": "2034051a",
+   "expect": "a590a150d197d30166b91e6bdb9f19be57867333c1e443c5815dab465fdd6962",
+   "note": "the branch that refuses a bit depth other than 16 or 24 goes to a stub that notes it"
+  },
+  {
+   "file": 323340,
+   "bytes": "99d0049a",
+   "expect": "ecb67ff66d05c05974c537f258752406779dadcf52d1279396862d0b3909bcc1",
+   "note": "the branch that refuses a slot of a category no sample may have goes to a stub that notes it"
+  },
+  {
+   "file": 323408,
+   "bytes": "8bd0040a",
+   "expect": "8afbe07df89795ced19ad08fd63cde11a35619cc0ed930ab20224a8aa38db589",
+   "note": "the branch that refuses a slot that is in use goes to a stub that notes it"
+  },
+  {
+   "file": 323432,
+   "bytes": "88d0048a",
+   "expect": "2f2682f34eaa29c7cf181d024a48d726f07bf6e6280f106bf15119180a19fe23",
+   "note": "the branch that refuses a sample longer than the free memory goes to a stub that notes it"
+  },
+  {
+   "file": 223232,
+   "bytes": "6c3205ea",
+   "expect": "059a1852116dbbfda2d3b6ac982029efd6f98daa826f20454544171c2b9f069d",
+   "note": "the instruction after the sample function (subs r4, r0, #0) jumps to a stub that skips a result of 32 or 36"
+  },
+  {
+   "file": 223252,
+   "bytes": "813205ea",
+   "expect": "d19f44509d2e5d9b75b556f7282189827239a6bc5e5a617ba0a6a2b18f6ea1df",
+   "note": "the instruction at the end of a complete load (mov r4, r6) jumps to a stub that returns our code when a sample was skipped"
+  },
+  {
+   "file": 406000,
+   "bytes": "5f8004eb",
+   "expect": "a0ad29eff994d9bf19fbf9460c6e5c1c2a63b4b756f0dc6a3c546c9985cd27da",
+   "note": "the call that makes the title object of the error window goes through a stub that gives our code its own title"
+  },
+  {
+   "file": 406084,
+   "bytes": "4d8004eb",
+   "expect": "604319a92440b08401b699d4a9b8a6a235b8d5d9c4ae2783208158d63a55c2b0",
+   "note": "the call that makes the text object of the error window goes through a stub that gives our code its own line"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 1585408,
+   "length": 852,
+   "why": "the stubs run while e2sSample.all loads, at start before the main screen and for a restore from the card"
+  },
+  {
+   "file": 222704,
+   "length": 4,
+   "why": "the loader starts: the state of the skipped samples is cleared (all hooks pass on at once with EXIT held at power-on)"
+  },
+  {
+   "file": 221364,
+   "length": 4,
+   "why": "inside the sample loader, which runs at start before the main screen, and calls the stub"
+  },
+  {
+   "file": 221380,
+   "length": 4,
+   "why": "inside the sample loader, which runs at start before the main screen, and calls the stub"
+  },
+  {
+   "file": 221396,
+   "length": 4,
+   "why": "inside the sample loader, which runs at start before the main screen, and calls the stub"
+  },
+  {
+   "file": 323340,
+   "length": 4,
+   "why": "inside the sample loader, which runs at start before the main screen, and calls the stub"
+  },
+  {
+   "file": 323408,
+   "length": 4,
+   "why": "inside the sample loader, which runs at start before the main screen, and calls the stub"
+  },
+  {
+   "file": 323432,
+   "length": 4,
+   "why": "inside the sample loader, which runs at start before the main screen, and calls the stub"
+  },
+  {
+   "file": 223232,
+   "length": 4,
+   "why": "inside the sample loader, which runs at start before the main screen, and calls the stub"
+  },
+  {
+   "file": 223252,
+   "length": 4,
+   "why": "when the loop is complete, the first skipped sample's two lines are built"
+  },
+  {
+   "file": 406000,
+   "length": 4,
+   "why": "inside the sample loader, which runs at start before the main screen, and calls the stub"
+  },
+  {
+   "file": 406084,
+   "length": 4,
+   "why": "inside the sample loader, which runs at start before the main screen, and calls the stub"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC00364F0",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": false,
+   "note": "the loader's first instruction jumps to a stub that clears the state and runs it"
+  },
+  {
+   "site": "0xC0035FB4",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": false,
+   "note": "the branch that refuses a format tag other than PCM goes to a stub that notes it"
+  },
+  {
+   "site": "0xC0035FC4",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": false,
+   "note": "the branch that refuses a channel count other than 1 or 2 goes to a stub that notes it"
+  },
+  {
+   "site": "0xC0035FD4",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": false,
+   "note": "the branch that refuses a bit depth other than 16 or 24 goes to a stub that notes it"
+  },
+  {
+   "site": "0xC004EE0C",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": false,
+   "note": "the branch that refuses a slot of a category no sample may have goes to a stub that notes it"
+  },
+  {
+   "site": "0xC004EE50",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": false,
+   "note": "the branch that refuses a slot that is in use goes to a stub that notes it"
+  },
+  {
+   "site": "0xC004EE68",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": false,
+   "note": "the branch that refuses a sample longer than the free memory goes to a stub that notes it"
+  },
+  {
+   "site": "0xC0036700",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": true,
+   "note": "the instruction after the sample function (subs r4, r0, #0) jumps to a stub that skips a result of 32 or 36"
+  },
+  {
+   "site": "0xC0036714",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": true,
+   "note": "the instruction at the end of a complete load (mov r4, r6) jumps to a stub that returns our code when a sample was skipped"
+  },
+  {
+   "site": "0xC00630F0",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": false,
+   "note": "the call that makes the title object of the error window goes through a stub that gives our code its own title"
+  },
+  {
+   "site": "0xC0063144",
+   "kind": "instruction",
+   "chain": "sample-errors",
+   "position": "before",
+   "swallow": false,
+   "note": "the call that makes the text object of the error window goes through a stub that gives our code its own line"
+  }
+ ],
+ "ram": [
+  {
+   "at": "0xC0183800",
+   "length": 256,
+   "what": "run time state: count and reason of the first skipped sample, and the two lines of the error window",
+   "source": "tools/patch/sample_errors.py:STATE"
+  }
+ ]
+}

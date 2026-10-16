@@ -1,0 +1,126 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "mfx-switch",
+ "name": "MFX 2 (TOUCH SCALE, Vorgabe Typ 7)",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 1724672,
+   "bytes": "f0412de90040a0e10150a0e10260a0e1500000eb000050e30700001a010056e30500001a050055e30800000a060055e32400000a040055e32d00000a0400a0e10510a0e10620a0e13e0000ebf081bde84f0000eb000050e30c00001ae0069fe5000090e5010050e3f7ffff0a0400a0e10610a0e30120a0e3320000eb4a0000eb020050e3f0ffff1a4e0000ebeeffffea930000eb670000eb996ffaeb0070a0e1588397e50030a0e3583387e50400a0e10510a0e10620a0e1220000eb588387e5740100ebe0ffffea310000eb000050e3d9ffff1a820000eb560000eb0400a0e10510a0e10620a0e1160000eb690100ebd5ffffea260000eb000050e3ceffff1a0270a0e3280000eb030050e30900000aff0050e30700000a0410a0e3000050e30510a0030400a0e10120a0e3050000eb017057e2f2ffff1a690000eb3d0000eb540100ebc0ffffea00402de9043090e5e12bfbeb0080bde8e8059fe5000090e5000050e30800000adc059fe5000090e5000050e30400000a180090e5020a10e30100001a0000a0e31eff2fe10100a0e31eff2fe100402de9596ffaeb580390e5000050e30100a0130080bde89c059fe5000090e5000050e3ff00a0031eff2f01340390e51eff2fe130402de970459fe5cc0000eb78059fe5005090e5000055e31300000a6c059fe5000090e5000050e30f00000a180390e5f90050e30c00008a0c0084e5280000eb080084e54110d5e5041084e50010a0e3101084e50110a0e3001084e5081094e50d0000eb300100eb0c0100eb3080bde810402de900459fe5000094e5010050e30400001a0000a0e3000084e5041094e5010000eb240100eb1080bde800402de9e4049fe5000090e5000050e30080bd084120d0e5010052e10080bd08d0049fe5000090e5000050e30080bd08010980e2040080e20120a0e3043090e5ef8dfaeb0080bde890149fe5141091e5010051e30700001a9c149fe50000d1e7010050e30300003a640050e30100008a010040e21eff2fe10600a0e31eff2fe130402de954449fe5000094e5010050e32700001aabffffeb020050e30600000a0000a0e3000084e5041094e5d3ffffebf60000ebde0000eb1d0000ea30049fe5000090e5000050e31900000a185390e5f90055e31600008a100094e5000050e30900001a0c0094e5050050e10600001a1c0094e5010080e21c0084e50f0010e20b00001abe0000eb090000ea0000a0e3100084e50c5084e50500a0e1c9ffffeb080084e50010a0e1b4ffffebd70000ebb30000eb3080bde810402de99c439fe5200094e5010050e31700000aac039fe5000090e5000050e31300000a2c0090e5010050e31000001a0100a0e3200084e570039fe5000090e5000050e30a00000a180090e5000050e30700001a67ffffeb000050e30400001a6affffeb010050e30100001a0610a0e3e02afbeb1080bde810402de95627fbeb4dffffeb000050e30100001adbffffebacffffeb1080bde870402de90040a0e10150a0e10260a0e143ffffeb000050e31600001aec329fe5000093e5010050e31200001a000056e30300001a045083e50100a0e3100083e50c0000ea085083e5d4029fe5000090e5000050e30700000a180390e5f90050e30400008ac0129fe5012085e20020c1e70100a0e3180083e50400a0e10510a0e10620a0e1043090e5698dfaeb7080bde810402de90040a0e1e290f9eb20ffffeb000050e30900001a60329fe5000093e5010050e30100001a040093e53d00c4e5180093e5010050e30000001a190000eb1080bde810402de930429fe5140094e5010050e31080bd080100a0e3140084e54511faeb38129fe538229fe538329fe54e11faeb000050e30300000a20029fe51d0000eb000050e30500001a08029fe50010a0e34020a0e3041080e4012052e2fcffff1a1080bde810402de9f0419fe5f8019fe5000084e5f4019fe5040084e50400a0e1ec119fe51f0000eb080184e52911faebcc119fe5cc219fe50430a0e14311faeb000050e30200000a8c319fe50000a0e3180083e51080bde810402de90040a0e1001094e5a0219fe5020051e10b00001a041094e594219fe5020051e10700001a0400a0e188119fe5060000eb081194e5010050e10100001a0100a0e31080bde80000a0e31080bde868c19fe50020e0e3000051e30800000a0130d0e4032022e00830a0e3a220b0e10c202220013053e2fbffff1a011041e2f4ffffea0200e0e11eff2fe100402de9813184e04e20c3e50400a0e10020a0e3e387fbeb0080bde810402de910419fe5004094e5000054e31080bd081b10a0e3ff20a0e3f0ffffeb1c10a0e30020a0e3edffffeb1080bde810402de9e0409fe5004094e5000054e31000000abefeffeb030050e30d00008a0300000a0010a0e10400a0e1938afbeb080000ea1a10a0e3ff20a0e3dcffffeb1b10a0e30020a0e3d9ffffeb1c10a0e30020a0e3d6ffffeb1080bde810402de964009fe5000090e5000050e31080bd082c1090e5030051e31080bd18241090e5000051e31080bd18204090e5000054e31080bd082c1094e5050051e31080bd180400a0e1cb06fbeb1080bde8005c1ac01c6e1dc0f8e633c0e01269c0a4e633c09c0234c0341369c0085d1ac0c00434c0005d1ac000807e000c0100004d46583201000001080100002083b8ed1c5a34c0",
+   "expect": "9be64d8ee4025ed2673e54b7ff578cdcfbd086850fe9b9a25bff874ea7bb9a9e",
+   "note": "MFX 2: key, tick, type setter and pattern write hooks, flash table"
+  },
+  {
+   "file": 459224,
+   "bytes": "c8d304ea",
+   "expect": "801004868ef2754499c3551ca82eb115343ef83c3efd814956f987c193071fbb",
+   "note": "first instruction of the key dispatcher jumps to the hook"
+  },
+  {
+   "file": 538616,
+   "bytes": "458704eb",
+   "expect": "7837b30b268522501ab690566e1b92b131f0dc4d66178578edcc108463db1fb1",
+   "note": "the screen tick call goes through the hook"
+  },
+  {
+   "file": 297828,
+   "bytes": "727205ea",
+   "expect": "801004868ef2754499c3551ca82eb115343ef83c3efd814956f987c193071fbb",
+   "note": "first instruction of the type setter jumps to the hook"
+  },
+  {
+   "file": 312252,
+   "bytes": "806405eb",
+   "expect": "1abbc5a01da2fe61ee7adce1f4c6507d5370d40525c308730d9eb410c86152ee",
+   "note": "the pattern copy call goes through the hook"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC00700D8",
+   "kind": "instruction",
+   "chain": "key-dispatch",
+   "position": "before",
+   "swallow": true,
+   "note": "TOUCH SCALE, MASTER FX and SHIFT combinations are handled here, the other keys go on to the original"
+  },
+  {
+   "site": "0xC00836F8",
+   "kind": "call",
+   "chain": "frame",
+   "position": "after",
+   "swallow": false,
+   "note": "the original tick runs first, then the hook sets the start mode (once) and follows pattern changes"
+  },
+  {
+   "site": "0xC0048A64",
+   "kind": "instruction",
+   "chain": "type-set",
+   "position": "before",
+   "swallow": false,
+   "note": "sees every type change, then enters the original"
+  },
+  {
+   "site": "0xC004C2BC",
+   "kind": "call",
+   "chain": "pattern-write",
+   "position": "after",
+   "swallow": false,
+   "note": "the original copy runs first, then the hook sets the pattern's own type"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 297828,
+   "length": 4,
+   "why": "the type setter runs when the first pattern is loaded (about 99 ms, after the rescue paths at 75 ms) and jumps to set_hook"
+  },
+  {
+   "file": 538616,
+   "length": 4,
+   "why": "the screen tick runs before the main screen (about 340 ms) and now calls tick_hook"
+  },
+  {
+   "file": 1725016,
+   "length": 60,
+   "why": "the kill switch test every hook starts with"
+  },
+  {
+   "file": 1725412,
+   "length": 480,
+   "why": "mfx2_sync, boot_mode, tick_hook and set_hook: at start they only test the kill switch, the screen and that MFX 2 is off"
+  },
+  {
+   "file": 1726532,
+   "length": 68,
+   "why": "the literal words those functions load"
+  }
+ ],
+ "ram": [
+  {
+   "at": "0xC01A5C00",
+   "length": 64,
+   "what": "run time state, FF means MFX 2 off",
+   "source": "tools/patch/mfx_switch.py:STATE"
+  },
+  {
+   "at": "0xC01A5D00",
+   "length": 288,
+   "what": "the table record as stored in flash, 268 bytes",
+   "source": "tools/patch/mfx_switch.py:RECBUF"
+  }
+ ],
+ "shares": [
+  {
+   "at": "0xC01D6E1C",
+   "length": 4,
+   "what": "the BLECH menu's effective MFX 2 setting, read at every hook (MENU_STATE + M_EFF_MFX)",
+   "source": "tools/patch/mfx_switch.py:BLECH_MFX",
+   "with": "script-runtime"
+  }
+ ]
+}

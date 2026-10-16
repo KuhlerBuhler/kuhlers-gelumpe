@@ -1,0 +1,134 @@
+/* Ein Farbschema fuer die ganze App (keine Themes mehr): Hintergrund aus Gold/Onyx,
+   Status und hellere Flaechen aus Titanium, Kontrast und Eis-Akzent aus Nord.
+   Referenz: DESIGN.md */
+:root {
+  /* App backgrounds */
+  --color-bg-page: #0a0a0b;
+  --color-bg-page-alt: #0e0e10;
+  --color-bg-page-deep: #050505;
+  --color-bg-navbar: rgba(8, 8, 9, .55);
+  --color-bg-popover: #121212f1;
+  --color-backdrop: rgba(5, 5, 6, .72);
+
+  /* Containers & surfaces */
+  --color-surface-panel: rgba(255, 255, 255, .06);
+  --color-surface-panel-alt: rgba(255, 255, 255, .04);
+  --color-surface-item: rgba(255, 255, 255, .14);
+  --color-surface-item-muted: rgba(255, 255, 255, .08);
+  --color-surface-item-strong: rgba(255, 255, 255, .17);
+  --color-surface-item-bright: rgba(255, 255, 255, .20);
+  --color-surface-highlight: rgba(255, 255, 255, .35);
+  --color-surface-sheen: rgba(255, 255, 255, .02);
+  --color-surface-soft: rgba(255, 255, 255, .05);
+  --color-surface-faint: rgba(255, 255, 255, .04);
+  --color-surface-veil: rgba(255, 255, 255, .07);
+  --color-surface-card-face: #fafafa;
+  --color-card-suit-red: #cc0000;
+  --color-card-suit-black: #000;
+  --color-surface-edge: rgba(255, 255, 255, .25);
+  /* Papier und Tinte fuer Druckvorlagen (Orimoto): bleibt schwarz auf weiss */
+  --color-print-paper: #fff;
+  --color-print-ink: #000;
+
+  /* Borders & strokes */
+  --color-border-strong: rgba(255, 255, 255, .16);
+  --color-border-muted: rgba(255, 255, 255, .10);
+  --color-border-faint: rgba(255, 255, 255, .08);
+  --color-border-dashed: rgba(255, 255, 255, .22);
+  --color-border-success: color-mix(in srgb, var(--color-accent-secondary) 50%, rgba(60, 255, 120, .35));
+  --color-border-warning: color-mix(in srgb, var(--color-accent-secondary) 50%, rgba(255, 90, 90, .35));
+  --color-border-accent: rgba(158, 195, 209, .35);
+  --color-border-accent-strong: rgba(158, 195, 209, .45);
+
+  /* Buttons */
+  --color-button-primary-bg: rgba(255, 255, 255, .12);
+  --color-button-primary-text: #fff;
+  --color-button-secondary-bg: rgba(255, 255, 255, .08);
+  --color-button-secondary-text: #fff;
+  --color-chart-green: var(--color-status-ok);
+  --color-chart-blue: #38bdf8;
+  /* Chart.js-Serienpalette: Akzent, Titan-Silber, Gruen, Gold */
+  --chart-1: #9ec3d1;
+  --chart-2: #c4c8cf;
+  --chart-3: #79c79b;
+  --chart-4: #c9b27e;
+  --chart-grid: rgba(255, 255, 255, .08);
+  --chart-tick: rgba(255, 255, 255, .7);
+  /* Sequentielle Datenskala (kalt nach warm), z. B. fuer Heatmaps. */
+  --data-seq-1: #2f5d7c;
+  --data-seq-2: #5f93ab;
+  --data-seq-3: #b9d3c8;
+  --data-seq-4: #e0b872;
+  --data-seq-5: #d9694f;
+  --data-empty: rgba(255, 255, 255, .05);
+  --color-button-success-bg: #22c55e;
+  --color-button-success-bg-hover: #4ade80;
+  --color-button-warning-bg: #ef4444;
+  --color-button-warning-bg-hover: #f87171;
+  --color-button-secondary-bg-hover: rgba(255, 255, 255, .12);
+  --color-button-accent-bg: var(--color-accent-primary);
+  --color-button-accent-text: var(--color-accent-primary-contrast);
+  /* Save/Cancel-Buttons: Titan-Silber in Gruen/Rot eingemischt (35%, Semantik bleibt) */
+  --color-btn-success: color-mix(in srgb, var(--color-accent-secondary) 35%, #2ee86a);
+  --color-btn-danger: color-mix(in srgb, var(--color-accent-secondary) 35%, #ff5a5a);
+
+  /* Text colors */
+  --color-text-primary: #f4f4f5;
+  --color-text-secondary: rgba(255, 255, 255, .72);
+  --color-text-muted: rgba(255, 255, 255, .55);
+  --color-text-accent: #e5edf2;
+  --color-text-accent-soft: #c8d6df;
+
+  /* Overlays / scrims */
+  --color-scrim: rgba(0, 0, 0, .6);
+  --color-scrim-blur: rgba(10, 10, 11, .72);
+
+  /* Shadows & glows */
+  --color-shadow-strong: rgba(0, 0, 0, .5);
+  --color-shadow-soft: rgba(0, 0, 0, .30);
+  --color-shadow-ambient: rgba(0, 0, 0, .25);
+  --color-shadow-ambient-strong: rgba(0, 0, 0, .35);
+  --color-shadow-ambient-heavy: rgba(0, 0, 0, .40);
+  --color-shadow-strong-soft: rgba(0, 0, 0, .45);
+  --color-shadow-success-glow: rgba(60, 255, 120, .45);
+  --color-shadow-warning-glow: rgba(255, 90, 90, .25);
+  --color-shadow-accent-glow: rgba(0, 0, 0, 0);
+  --color-shadow-accent-strong: rgba(0, 0, 0, 0);
+
+  /* Loaders */
+  --color-loader-ring: rgba(255, 255, 255, .18);
+  --color-loader-highlight: rgba(255, 255, 255, .75);
+  --color-loader-alt-ring: rgba(255, 255, 255, .22);
+  --color-loader-alt-highlight: rgba(255, 255, 255, .85);
+
+  /* Accent palette */
+  --color-accent-primary: #9ec3d1;
+  --color-accent-primary-soft: #cfe1e8;
+  --color-accent-primary-contrast: #0b1417;
+  --color-accent-primary-ring-soft: rgba(158, 195, 209, .15);
+  --color-accent-primary-ring: rgba(158, 195, 209, .35);
+  --color-accent-primary-ring-strong: rgba(158, 195, 209, .45);
+  --color-accent-primary-ring-ultra: rgba(158, 195, 209, .60);
+  --color-accent-secondary: #c4c8cf;
+  --color-focus-ring: #88c0d0;
+
+  /* Favorit: Gold nur fuer den gefuellten Stern */
+  --color-favorite: #c9b27e;
+
+  /* Status: immer Punkt und Wort, nie nur Farbe */
+  --color-status-ok: #22c55e;
+  --color-status-ok-text: #4ade80;
+  --color-status-error: #ef4444;
+  --color-status-error-text: #fca5a5;
+  --color-status-warn: #f59e0b;
+  --color-status-warn-text: #fcd34d;
+  --color-status-info: var(--color-accent-primary);
+  --color-status-info-text: var(--color-text-accent-soft);
+
+  /* Semantische Text- und Randfarben. Apps haben sie schon benutzt, bevor es sie gab
+     (Visualizer, Electribe), und sind dabei still auf rohe Fallbacks gefallen. */
+  --color-text-success: var(--color-status-ok-text);
+  --color-text-warning: var(--color-status-warn-text);
+  --color-text-danger: var(--color-status-error-text);
+  --color-border-danger: var(--color-border-warning);
+}
