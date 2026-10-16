@@ -153,9 +153,11 @@ A wrong write or a faulty firmware can hang the device. So:
 - **Test it yourself:** the [device tests](docs/geraetetests/README.md) describe how to repeat BLECH and
   the card functions on your own device, with a warning, prerequisites, a backup and the way back.
 
-The linter and the simulated device check known memory regions, message format and documented failure
-cases. They run no ARM or DSP code and make no sound. Whether something sounds good, only your ears can
-say. Details: [docs/linter.md](docs/linter.md).
+The linter checks known memory regions, message format and documented failure cases. The emulator runs
+the firmware's real ARM code, but the DSP only as a stand-in: it makes no sound, and it only imitates the
+panel and the timing. Whether something sounds good, only your ears can say. Much is so far checked in
+the emulator only, not yet on a real device. Details: [docs/linter.md](docs/linter.md),
+[docs/emulator.md](docs/emulator.md) (German).
 
 ## Documentation
 

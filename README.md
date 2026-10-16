@@ -163,9 +163,11 @@ Ein falscher Schreibzugriff oder eine fehlerhafte Firmware kann das Gerät häng
   Kartenfunktionen an deinem Gerät nachvollziehst, mit Warnung, Voraussetzungen, Sicherung und
   Rückweg.
 
-Der Linter und das simulierte Gerät prüfen bekannte Speicherbereiche, das Nachrichtenformat und
-dokumentierte Fehlerfälle. Sie führen keinen ARM- oder DSP-Code aus und erzeugen keinen Ton. Ob etwas
-gut klingt, sagt nur das Gehör. Details: [docs/linter.md](docs/linter.md).
+Der Linter prüft bekannte Speicherbereiche, das Nachrichtenformat und dokumentierte Fehlerfälle. Der
+Emulator führt den echten ARM-Code der Firmware aus, den DSP aber nur als Attrappe: er erzeugt keinen Ton,
+und das Bedienfeld und das Timing bildet er nur nach. Ob etwas gut klingt, sagt nur das Gehör. Vieles ist
+bisher nur im Emulator geprüft und am echten Gerät noch nicht. Details: [docs/linter.md](docs/linter.md),
+[docs/emulator.md](docs/emulator.md).
 
 ## Dokumentation
 
