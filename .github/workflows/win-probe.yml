@@ -25,3 +25,7 @@ jobs:
           pyinstaller --onefile --collect-all unicorn --name ucprobe tools/emu/probe/uc_probe.py > /dev/null 2>&1
           ./dist/ucprobe.exe main || echo "EXIT $?"
           ./dist/ucprobe.exe thread || echo "EXIT $?"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ucprobe
+          path: dist/ucprobe.exe

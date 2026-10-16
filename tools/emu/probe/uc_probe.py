@@ -31,3 +31,6 @@ if mode in ("all", "thread"):
     in_thread("thread-128M", 0x08000000)
     in_thread("thread-128M-nocpu", 0x08000000, cpu=False)
     in_thread("thread-128M-64Mstack", 0x08000000, stack=64 * 1024 * 1024)
+print("all done", flush=True)
+if getattr(sys, "frozen", False) and len(sys.argv) < 2:
+    input("Enter zum Beenden ")
