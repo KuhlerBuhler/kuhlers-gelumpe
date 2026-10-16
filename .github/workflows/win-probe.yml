@@ -25,7 +25,10 @@ jobs:
           pyinstaller --onefile --collect-all unicorn --name ucprobe tools/emu/probe/uc_probe.py > /dev/null 2>&1
           ./dist/ucprobe.exe main || echo "EXIT $?"
           ./dist/ucprobe.exe thread || echo "EXIT $?"
+          pyinstaller --onefile --collect-all unicorn --paths tools/emu --hidden-import machine --name bootprobe tools/emu/probe/boot_probe.py > /dev/null 2>&1
       - uses: actions/upload-artifact@v4
         with:
           name: ucprobe
-          path: dist/ucprobe.exe
+          path: |
+            dist/ucprobe.exe
+            dist/bootprobe.exe
