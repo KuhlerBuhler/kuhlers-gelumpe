@@ -44,6 +44,7 @@ from splash_cases import Dev  # noqa: E402
 FIRMWARE = (0x20000, 0x220000)          # where SOFTWARE UPDATE writes the firmware (the Sampler's measurement, docs/messungen/2026-10-13-globals-zurueckgesetzt.md)
 BANK = (0x800000, 0x1000000)
 USER = (0x220000, 0x800000)
+DATA_UTILITY_HEADER = 14                 # measured: the screen of the ring page "DATA UTILITY press [ Enter ]"
 SOFTWARE_UPDATE_PAGE = 10               # DATA UTILITY 11 of 11: ten steps right from page 1 (measured, the picture of each step is in --shots)
 FILES_TRIED = ("BOOT.VSB", "USER.VSB", "PCM.VSB", "SYSTEM.VSB")
 
@@ -117,8 +118,13 @@ class Rig:
 
     def to_software_update(self, log):
         """MENU, two steps left, MENU: DATA UTILITY page 1; then to the last page, SOFTWARE UPDATE."""
-        for key in ("menu", "edit_prev", "edit_prev", "menu"):
-            self.press(key)
+        # the BLECH set adds pages to the menu ring (BLECH, Blechy), so DATA UTILITY's header page is looked for instead of counted
+        self.press("menu")
+        for _ in range(32):
+            if self.m.screen() == DATA_UTILITY_HEADER:
+                break
+            self.press("edit_prev")
+        self.press("menu")
         log.append(self.shot("data-utility-1"))
         for _ in range(SOFTWARE_UPDATE_PAGE):
             self.press("edit_next", 0.25)
@@ -176,6 +182,14 @@ def probe_empty_card(original, flash, shots):
     log.append(rig.shot("enter-without-a-card-file"))
     rig.run(1.0)
     return {"opened": rig.opened, "steps": log, "flash_commands_during_enter": [len(rig.erases) - before[0], len(rig.programs) - before[1]]}
+
+
+def update_folder(opened):
+    """The folder of the SYSTEM.VSB the firmware asked for; the patched build opens its settings and plugins first."""
+    for path in opened:
+        if path.endswith("/System/SYSTEM.VSB"):
+            return path.split("/")[1]
+    return None
 
 
 def run_update(name, payload, flash, folder, new_vsb, shots, expect_new_payload):
@@ -282,7 +296,7 @@ def main():
     report = {"first_boot_of_the_image_wrote": {"erases": prime.erases, "program_bytes": sum(p["bytes"] for p in prime.programs)},
               "flash_sha256_before": __import__("hashlib").sha256(flash).hexdigest()}
     report["1_where_the_firmware_looks"] = probe_empty_card(orig[0x100:], flash, a.shots)
-    folder = report["1_where_the_firmware_looks"]["opened"][0].split("/")[1] if report["1_where_the_firmware_looks"]["opened"] else None
+    folder = update_folder(report["1_where_the_firmware_looks"]["opened"])
     if folder is None:
         raise SystemExit("the firmware did not open any file")
     report["folder"] = f"KORG/{folder}/System/"
@@ -292,7 +306,7 @@ def main():
     # the folder the patched build reads: measured on the running patched firmware, with an empty card
     back_folder = probe_empty_card(patched[0x100:], flash2, a.shots)
     report["4_where_the_patched_firmware_looks"] = back_folder
-    folder2 = back_folder["opened"][0].split("/")[1] if back_folder["opened"] else folder
+    folder2 = update_folder(back_folder["opened"]) or folder
     back, flash3 = run_update("5-back", patched[0x100:], flash2, folder2, orig, a.shots, orig[0x100:])
     report["5_way_back_to_the_original"] = back
     report["6_reboot_into_the_original"] = reboot("6-reboot", flash3[FIRMWARE[0]:FIRMWARE[1]], flash3, a.shots)
