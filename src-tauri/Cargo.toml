@@ -1,6 +1,6 @@
 [package]
 name = "kuhlers-gelumpe"
-version = "0.1.0"
+version = "1.0.0"
 description = "Kuhler's GELUMPE"
 edition = "2021"
 license = "AGPL-3.0-only"
