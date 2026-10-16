@@ -9,7 +9,7 @@ license = "AGPL-3.0-only"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["devtools"] }
 getrandom = "0.3"
 serde_json = "1"
 tauri-plugin-dialog = "2"

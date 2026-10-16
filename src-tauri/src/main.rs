@@ -9,7 +9,7 @@
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -54,6 +54,12 @@ fn start_service(port: u16, token: &str) -> Result<Child, String> {
         .arg("--allow-origin").arg("https://tauri.localhost")
         .arg("--parent-pid").arg(std::process::id().to_string())
         .env("E2_EMU_TOKEN", token);
+    // What the service prints goes to ~/.gelumpe/emu.log, so a failure on a user's machine can be read afterwards.
+    if let Some(log) = log_file() {
+        if let (Ok(out), Ok(err)) = (log.try_clone(), log.try_clone()) {
+            cmd.stdout(Stdio::from(out)).stderr(Stdio::from(err));
+        }
+    }
     cmd.spawn().map_err(|e| format!("Der Emulator-Dienst ließ sich nicht starten: {e}"))
 }
 
@@ -73,6 +79,12 @@ fn wait_for(port: u16, child: &mut Child) -> Result<(), String> {
 }
 
 /// Where a running service announces itself: next to the card folder's lock.
+fn log_file() -> Option<std::fs::File> {
+    let dir = PathBuf::from(std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })?).join(".gelumpe");
+    std::fs::create_dir_all(&dir).ok()?;
+    std::fs::File::create(dir.join("emu.log")).ok()
+}
+
 fn announce_file() -> Option<PathBuf> {
     let root = match std::env::var_os("GELUMPE_SD_DIR") {
         Some(dir) if !dir.is_empty() => PathBuf::from(dir),
