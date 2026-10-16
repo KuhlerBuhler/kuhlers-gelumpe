@@ -833,6 +833,9 @@ def main():
 
 
 if __name__ == "__main__":
+    import faulthandler
     import multiprocessing
     multiprocessing.freeze_support()       # the frozen service's check workers start from this same binary (parallel.py)
+    faulthandler.enable()                  # a crash inside Unicorn still leaves a trace in the log (~/.gelumpe/emu.log in the app)
+    threading.stack_size(64 * 1024 * 1024) # the device and request threads run Unicorn; Windows gives a thread 1 MiB by default
     sys.exit(main())
