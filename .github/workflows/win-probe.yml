@@ -20,6 +20,11 @@ jobs:
         run: python tools/emu/probe/uc_probe.py main || echo "EXIT $?"
       - name: plain python, threads
         run: python tools/emu/probe/uc_probe.py thread || echo "EXIT $?"
+      - name: running code, one case per process
+        run: |
+          for c in plain cpu exits cpu-exits cpu-exits-mmio mmio; do
+            python tools/emu/probe/run_probe.py $c || echo "$c CRASHED exit $?"
+          done
       - name: frozen
         run: |
           pyinstaller --onefile --collect-all unicorn --name ucprobe tools/emu/probe/uc_probe.py > /dev/null 2>&1
