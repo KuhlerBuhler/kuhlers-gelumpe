@@ -31,9 +31,19 @@ jobs:
           ./dist/ucprobe.exe main || echo "EXIT $?"
           ./dist/ucprobe.exe thread || echo "EXIT $?"
           pyinstaller --onefile --collect-all unicorn --paths tools/emu --hidden-import machine --name bootprobe tools/emu/probe/boot_probe.py > /dev/null 2>&1
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: a copy without the CET flag
+        shell: cmd
+        run: |
+          dumpbin /headers dist\bootprobe.exe | findstr /i "CET"
+          copy dist\bootprobe.exe dist\bootprobe-nocet.exe
+          editbin /CETCOMPAT:NO dist\bootprobe-nocet.exe
+          dumpbin /headers dist\bootprobe-nocet.exe | findstr /i "CET"
+          echo done
       - uses: actions/upload-artifact@v4
         with:
           name: ucprobe
           path: |
             dist/ucprobe.exe
             dist/bootprobe.exe
+            dist/bootprobe-nocet.exe
