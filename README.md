@@ -14,11 +14,11 @@ kann noch nicht alles, was die rote kann. Was genau geht und was nicht, steht in
 
 ## Wer ich bin
 
-Ich bin Kuhler Buhler, also Pascal, Softwareentwickler und Live-Act. Als ich Hacktribe installiert hab,
+Ich bin Kuhler Buhler, also Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab,
 ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich
 ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.
 
-Warum das Ganze? Mich nervt einfach, wie Korg die Electribe 2 hat liegen lassen. Da ist so viel mehr
+Warum das Ganze? Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr
 drin, als Korg jemals rausgeholt hat. Mit BLECH hab ich mir praktisch die Electribe 3 gebaut, die es
 nie gab.
 
