@@ -1,0 +1,50 @@
+# After every push to main (a release commit, a merged PR), develop gets main's commits, so the two never drift apart.
+# develop is protected: a direct push needs SYNC_TOKEN (a token of an admin, branch protection does not bind admins).
+# Without it, or when the merge has conflicts, a pull request main -> develop is opened instead.
+name: Sync develop
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-develop
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+      - name: Merge main into develop
+        id: merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "develop already has main"; echo "done=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git merge --no-edit origin/main && git push origin HEAD:develop; then
+            echo "done=1" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort 2>/dev/null || true
+            echo "done=0" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Otherwise a pull request
+        if: steps.merge.outputs.done != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$(gh pr list --base develop --head main --state open --json number --jq '.[].number')" ]; then
+            gh pr create --base develop --head main --title "Sync develop with main" --body "main has commits develop does not have (for example a release commit). Opened by the workflow Sync develop."
+          fi
