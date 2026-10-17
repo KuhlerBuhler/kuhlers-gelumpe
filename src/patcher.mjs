@@ -134,6 +134,7 @@ export function checkName(id) {
     start_phase: "Startphase unverändert",
     start_phase_exceptions: "Erlaubte Änderungen in der Startphase",
     verified: "Schon geprüft",
+    quick: "Kurzprüfung",
   }[id] ?? id;
 }
 
@@ -229,6 +230,10 @@ export function step(flow, event) {
     case "checking":
       if (flow.phase !== "patching" || flow.steps.some(s => s.id.startsWith("patch:") && s.status !== "ok")) return flow;
       return { ...flow, phase: "checking" };
+    case "recheck":
+      // the thorough check of a copy that passed the quick one
+      if (flow.phase !== "passed" && flow.phase !== "downloaded") return flow;
+      return { ...flow, phase: "checking", report: null, error: null, steps: mark(flow.steps, "check", "todo") };
     case "checked": {
       if (flow.phase !== "checking") return flow;
       const bad = event.report.checks.filter(c => !c.ok).length;

@@ -393,3 +393,17 @@ test("the list of checked copies holds only hashes", () => {
     assert.ok(r.checks > 0);
   }
 });
+
+test("a copy that passed the quick check can be checked thoroughly, and only then", () => {
+  const quick = { ok: true, checks: [{ id: "header", ok: true }, { id: "quick", ok: true }] };
+  let f = { ...newFlow(), phase: "passed", report: quick, steps: [{ id: "check", label: "Prüfung im Emulator", status: "ok", detail: "" }] };
+  f = step(f, { type: "recheck" });
+  assert.equal(f.phase, "checking");
+  assert.equal(f.report, null);
+  assert.equal(f.steps.find(s => s.id === "check").status, "todo");
+  f = step(f, { type: "checked", report: { ok: false, checks: [{ id: "menu:x", ok: false }] } });
+  assert.equal(f.phase, "failed");
+  assert.equal(allowed(f).download, false, "a thorough check that fails takes the download away");
+  assert.equal(step({ ...newFlow(), phase: "ready" }, { type: "recheck" }).phase, "ready");
+  assert.equal(checkName("quick"), "Kurzprüfung");
+});
