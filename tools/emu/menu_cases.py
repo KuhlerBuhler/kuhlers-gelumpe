@@ -893,7 +893,7 @@ def splash_menu_cases(payload, flash=None):
         goto_group(dev, GROUP_CUSTOM, 0)
         add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 8, f"counter {counter(dev)}")
         return out
-    goto_group(dev, GROUP_CUSTOM, 8)
+    goto_group(dev, GROUP_CUSTOM, 10)
     before = texts_of(dev)
     press(dev, "menu", 0.6)
     after = texts_of(dev)
@@ -910,7 +910,7 @@ def splash_menu_cases(payload, flash=None):
     add("draw_opens_the_editor", page == ("SPLASH DRAW", "", PRESS) and dev.screen()["number"] == 9 and dev.screen()["page"] == splash_editor.PAGE and st == 1
         and len(differ) <= 1 and not dev.m.asserts, f"{page}, screen {dev.screen()}, editor mode {st}, display bytes not the image (battery aside): {differ}")
     bare = boot(payload, flash, files=CARD_FOLDER)
-    goto_group(bare, GROUP_CUSTOM, 8)
+    goto_group(bare, GROUP_CUSTOM, 10)
     press(bare, "menu", 0.6)
     add("import_without_file", texts_of(bare)[1] == "no splash.bmp", str(texts_of(bare)))
     return out
@@ -919,6 +919,64 @@ def splash_menu_cases(payload, flash=None):
 def splash_cases_display(image):
     from splash_cases import display_of
     return display_of(image)
+
+
+def pad_colour_cases(payload, flash=None):
+    """CUSTOMIZATION, PAD COLOR and SELECT COLOR (patch pad-colors): the pads take the chosen colours at once, both together take the
+    colour that is left, the two pages never hold the same colour, WRITE keeps them for the next start, EXIT at power-on is stock."""
+    import pad_colors as PC
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:padcolor_{name}", "ok": bool(ok), "detail": detail})
+
+    pad = lambda d, n: (d.m.leds.get(0x2C + 2 * n, 0), d.m.leds.get(0x2D + 2 * n, 0))
+    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    if dev.u32(PC.CODE_AT) == 0xFFFFFFFF:
+        return out
+    stock = pad(dev, 0)
+    goto_group(dev, GROUP_CUSTOM, 8)
+    p8 = texts_of(dev)
+    press(dev, "edit_next", wait=0.4)
+    p9 = texts_of(dev)
+    add("pages", p8 == ("PAD COLOR", "RED", "") and p9 == ("SELECT COLOR", "BLUE", "") and stock == (0, 255),
+        f"{p8} {p9}, pad 1 (the selected part) {stock}")
+    dev.turn(1, wait=0.4)
+    pink = texts_of(dev)[1], pad(dev, 0)
+    dev.turn(1, wait=0.4)
+    skipped = texts_of(dev)[1]
+    add("select_at_once", pink == ("PINK", (255, 255)), f"SELECT one step up: {pink}")
+    add("never_the_same", skipped == "BLUE", f"one more step from PINK skips RED (the PAD COLOR): {skipped}")
+    press(dev, "edit_prev", wait=0.4)
+    dev.turn(1, wait=0.4)
+    pad_pink = texts_of(dev)[1]
+    press(dev, "edit_next", wait=0.4)
+    dev.turn(1, wait=0.4)
+    sel_red = texts_of(dev)[1], pad(dev, 0)
+    add("pad_skips_select", pad_pink == "PINK" and sel_red == ("RED", (255, 0)), f"PAD COLOR from RED skips BLUE: {pad_pink}; SELECT then RED: {sel_red}")
+    go(dev, 1)
+    dev.m.send([4, 3, 0, 100, 1])
+    dev.run(0.15)
+    both = pad(dev, 3)
+    dev.m.send([4, 3, 0, 0, 0])
+    dev.run(0.3)
+    add("overlap_is_the_colour_left", both == (0, 255), f"pad 4 held and selected (PINK and RED): {both}, the colour left is blue")
+    goto_group(dev, GROUP_CUSTOM, 8)
+    press(dev, "write", wait=0.6)
+    word = read_settings_look(dev.m.mmc.card.medium.data).get("b", (0, 0, 0, None))[3]
+    add("file_holds_them", word is not None and (word >> 2) & 3 == PC.PINK and (word >> 29) & 3 == 1, f"look word {word:#x}" if word is not None else "no file")
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
+    again.run(2.0)
+    add("start_reads_them", again.u32(PC.PC_SETTING) == PC.PINK | PC.RED << 4 and pad(again, 0) == (255, 0) and not again.m.asserts,
+        f"setting {again.u32(PC.PC_SETTING):#x}, pad 1 {pad(again, 0)}")
+    held = Dev(payload, flash, KILL)
+    held.m.adapter = True
+    held.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
+    held.run(2.0)
+    add("exit_held_is_stock", pad(held, 0) == (0, 255) and not held.m.asserts, f"pad 1 {pad(held, 0)}")
+    return out
 
 
 def invert_cases(payload, flash=None):
@@ -955,7 +1013,7 @@ def invert_cases(payload, flash=None):
     dev.run(0.5)
     main_on = dev.screen()["number"], status(dev), flipped(dev)
     import splash_editor
-    custom = 8 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 10     # SPLASH IMPORT and SPLASH DRAW follow where the set has the editor
+    custom = 8 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 12     # PAD COLOR, SELECT COLOR, SPLASH IMPORT and SPLASH DRAW follow where the set has them
     add("page", page == (("DISPLAY INVERT", "OFF", ""), (7, custom), "Custom"), f"{page}")
     add("on_swaps_the_display", on == (("DISPLAY INVERT", "ON", ""), (1, True, 1), True) and menu_screen and still == (1, True, 1),
         f"{on}, dial again {still}")
@@ -1359,7 +1417,8 @@ def synth_start_cases(payload, flash=None):
 def look_cases_task():
     """The look cases in a worker (parallel.py)."""
     import parallel
-    return look_cases(parallel.shared["payload"], parallel.shared["flash"]) + splash_menu_cases(parallel.shared["payload"], parallel.shared["flash"])
+    return (look_cases(parallel.shared["payload"], parallel.shared["flash"]) + splash_menu_cases(parallel.shared["payload"], parallel.shared["flash"])
+            + pad_colour_cases(parallel.shared["payload"], parallel.shared["flash"]))
 
 
 def settings_cases_task():
@@ -1377,7 +1436,7 @@ def main():
     args = parser.parse_args()
     payload = Path(args.patched).read_bytes()[HEADER:]
     flash = load_flash(args.flash) if args.flash else None
-    result = cases(payload, flash) + look_cases(payload, flash) + splash_menu_cases(payload, flash)
+    result = cases(payload, flash) + look_cases(payload, flash) + splash_menu_cases(payload, flash) + pad_colour_cases(payload, flash)
     print(json.dumps(result, indent=1))
     return 0 if all(c["ok"] for c in result) else 1
 

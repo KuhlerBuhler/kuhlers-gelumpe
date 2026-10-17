@@ -4,13 +4,13 @@
 .arm
 .section .text.entry,"ax"
 .global doom_boot
+@ Called (bl) from 0xC002AE64, right after the firmware has mounted the card, in place of its mov r4, r0.
+@ Does that instruction and returns with every other register and the flags as they were, unless exactly SHIFT + TAP is held.
 doom_boot:
-    push {r4, lr}
-    ldr r4, =0xC002A35C
-    blx r4
-    push {r0-r3}
-    mrs r4, cpsr
-    push {r4, r5}
+    mov r4, r0
+    push {r0-r3, r12, lr}
+    mrs r12, cpsr
+    push {r12}
     ldr r0, =0xC033E6F8
     ldr r0, [r0]
     ldr r1, [r0, #0x18]
@@ -28,10 +28,9 @@ doom_boot:
     bne normal
     b doom_load
 normal:
-    pop {r4, r5}
-    msr cpsr_f, r4
-    pop {r0-r3}
-    pop {r4, pc}
+    pop {r12}
+    msr cpsr_f, r12
+    pop {r0-r3, r12, pc}
 .global doom_enter
 .type doom_enter,%function
 doom_enter:

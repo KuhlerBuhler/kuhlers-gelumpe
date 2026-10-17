@@ -18,6 +18,7 @@ const CODE = 0x188100;              // file offset of 0xC0188000
 const CODE_END = 0x188900;          // 0xC0188800
 // the replaced words: the key handler's load before the tap tempo call, the TAP LED's beat flash, the LED manager's tick
 const WORDS = [[0x42cc0 - 0x0 + 0x100, 0xc0042cc0], [0x881e0 + 0x100, 0xc00881e0], [0x87740 + 0x100, 0xc0087740]];
+const FRAME = [0x836f0 + 0x100, 0xc00836f0];       // the frame's call: a bl that calls the code, which makes the original call first
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
 const vsb = process.env.E2_VSB;
@@ -41,9 +42,14 @@ test("TAP motion has the v1 format, says what it replaces and declares its RAM",
   assert.deepEqual(PATCH.ram.map(r => [r.at, r.length]), [["0xC0188F00", 64]]);
 });
 
-test("it is our code plus three replaced words, each branching into the code, and every hook is declared", () => {
-  assert.equal(PATCH.changes.length, 1 + WORDS.length);
-  const [code, ...words] = PATCH.changes;
+test("it is our code plus three replaced words branching into the code and a call into it, and every hook is declared", () => {
+  assert.equal(PATCH.changes.length, 2 + WORDS.length);
+  const [code, ...rest] = PATCH.changes;
+  const words = rest.slice(0, WORDS.length);
+  const call = rest[WORDS.length];
+  assert.equal(call.file, FRAME[0]);
+  const bl = Buffer.from(fromHex(call.bytes)).readUInt32LE(0);
+  assert.equal(bl >>> 24, 0xeb, "the frame's call stays a call");
   const n = fromHex(code.bytes).length;
   assert.ok(code.file === CODE && code.file + n <= CODE_END, `${n} bytes`);
   for (const [i, [file, address]] of WORDS.entries()) {
@@ -53,7 +59,9 @@ test("it is our code plus three replaced words, each branching into the code, an
     const target = address + 8 + (((word & 0xffffff) << 8) >> 8) * 4;
     assert.ok(target >= 0xc0188000 && target < 0xc0188000 + n, `0x${address.toString(16)} goes into our code`);
   }
-  assert.deepEqual(PATCH.hooks.map(h => h.site).sort(), WORDS.map(([, a]) => `0x${a.toString(16).toUpperCase()}`).sort());
+  const blTarget = FRAME[1] + 8 + (((bl & 0xffffff) << 8) >> 8) * 4;
+  assert.ok(blTarget >= 0xc0188000 && blTarget < 0xc0188000 + n, "the frame's call goes into our code");
+  assert.deepEqual(PATCH.hooks.map(h => h.site).sort(), [...WORDS, FRAME].map(([, a]) => `0x${a.toString(16).toUpperCase()}`).sort());
   const res = checkHooks([PATCH]);
   assert.equal(res.ok, true, res.reasons.join(" "));
 });

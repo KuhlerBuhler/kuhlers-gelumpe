@@ -59,6 +59,18 @@
    "to": "0xC0567E14",
    "kind": "ram",
    "why": "motion output lane 0: the two equal-code writers above store to Sampler C068DB1C and synth C0567E14, observed through memory writes and r7-0x10 while recording and playing the same generated knob sweep; no assertion"
+  },
+  {
+   "from": "0xC00836F0",
+   "to": "0xC0073CF4",
+   "kind": "code",
+   "why": "the screen manager's frame: red C00836E8 add r4, r0, #0x10; mov r0, r4; bl C006EAE0; mov r0, r4; bl C006F178 is the synth's C0073CEC to C0073CFC, instruction for instruction (C00836F8 -> C0073CFC is in auto.json); the first bl is at C0073CF4"
+  },
+  {
+   "from": "0xC006EAE0",
+   "to": "0xC0061FC8",
+   "kind": "code",
+   "why": "the target of that first bl: the synth's C0073CF4 calls C0061FC8 as the red C00836F0 calls C006EAE0"
   }
  ]
 }

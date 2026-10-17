@@ -58,10 +58,9 @@ test("Original Doom plays through native drivers, changes level, quits and power
   }
   assert.ok(existsSync(join(output, "game-frame.png")));
   assert.ok(report.game_frame_pixels > 0 && report.game_frame_pixels < 8192);
-  assert.equal(report.screen_manager, "0x0");
   assert.equal(report.guards_ok, true);
   assert.deepEqual(report.tasks, [1, 8]);
-  assert.deepEqual(report.sampler, []);
+  assert.ok(report.sampler.every(name => ["globals", "patterns"].includes(name)), "only what the firmware reads before it mounts the card");
   assert.deepEqual(report.asserts, []);
   assert.equal(report.sd_write_calls, 0);
   assert.equal(report.sd_write_commands, 0);

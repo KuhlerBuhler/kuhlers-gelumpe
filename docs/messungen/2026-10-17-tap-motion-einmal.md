@@ -7,7 +7,7 @@ Baut auf [TAP Motion](2026-10-15-tap-motion-patch.md) auf. Markierungen: **gemes
 ## Einmal (Einstellung 2)
 
 Mit dem Einstellungswort `TM_SETTING` auf 2 spielt eine Bewegung, die TAP eingeschaltet hat, bis zum Ende des Patterns und geht dann
-von selbst aus. Gemerkt wird je Part der Schrittzähler (`0xC06904B0 + 0x48 * Part`) beim Einschalten. Alle 40 ms (Takt des LED-Managers)
+von selbst aus. Gemerkt wird je Part der Schrittzähler (`0xC06904B0 + 0x48 * Part`) beim Einschalten. In jedem Bildschirm-Takt der UiTask
 vergleicht der Patch: ist der Zähler kleiner als beim letzten Blick, hat das Pattern neu angefangen, und der Part geht aus wie mit TAP
 (gemerkter Modus, Setter der Firmware). Steht der Sequencer, wird nicht verglichen.
 
@@ -17,6 +17,11 @@ vergleicht der Patch: ist der Zähler kleiner als beim letzten Blick, hat das Pa
 - **Gemessen (`on_keeps_playing`):** mit der Einstellung 1 (an) spielt auch der zweite Durchlauf.
 - **Hergeleitet:** Master FX hat keinen eigenen Zähler, der Patch nimmt den von Part 1. Hat Part 1 einen kürzeren LAST STEP als das
   Pattern, gehen die Master-FX-Spuren früher aus. **Offen** am Gerät.
+- **Am Gerät (Besitzer, 17.10.):** mit ONCE ging die Bewegung der Master-FX-Spuren am Patternende aus, der Effekt (Highpass,
+  Looper) blieb aber an; mit MASTER FX gehalten plus TAP geht er aus. Der Emulator zeigt das nicht (das Pad steht dort danach auf aus).
+- **Behoben (hergeleitet):** TAP läuft in der UiTask, ONCE lief im Takt des LED-Managers. ONCE schaltet jetzt im Bildschirm-Takt der
+  UiTask ab (Haken am Aufruf `0xC00836F0` der Bildschirm-Schleife, beim blauen `0xC0073CF4`), also im selben Task wie TAP. Im Emulator
+  bestehen alle 36 Prüfungen auf beiden Builds; ob der Effekt am Gerät jetzt ausgeht, ist **offen**.
 - **Offen:** ob beim Ausschalten am Patternanfang der Wert von Schritt 1 noch einmal kurz anliegt (der Vergleich läuft im 40-ms-Takt,
   ein Schritt dauert bei 160 BPM 94 ms).
 

@@ -13,8 +13,8 @@
 export const CHAINS = {
   "start": [
     { id: "after-rescue-paths", sites: [0xC002ADAC] },
-    { id: "doom-select", sites: [0xC002ADB0] },
-    { id: "card-mount", sites: [0xC002AE60, 0xC002AE64] },
+    { id: "card-mount", sites: [0xC002AE60] },
+    { id: "doom-select", sites: [0xC002AE64] },
     { id: "before-sample-load", sites: [0xC0038D34] },
     { id: "sample-load", sites: [0xC0038D60, 0xC00366D4] },
     { id: "after-sample-load", sites: [0xC0038D68] },
@@ -49,6 +49,7 @@ export const CHAINS = {
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
   "frame": [
+    { id: "frame-call", sites: [0xC00836F0] },
     { id: "screen-tick", sites: [0xC00836F8] },
     { id: "screen-tick-entry", sites: [0xC006F178] },
     { id: "frame-hook", sites: [0xC00836FC] },
@@ -92,6 +93,7 @@ export const CHAINS = {
     { id: "pad-light", sites: [0xC008870C] },
   ],
   "led-tick-end": [{ id: "tick-end", sites: [0xC00877D4] }],
+  "led-send": [{ id: "sender", sites: [0xC00876A8] }],
   "mode-key": [{ id: "mode-keys", sites: [0xC006FEDC] }],
 };
 

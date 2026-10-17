@@ -62,6 +62,9 @@
 .equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST
 .equ M_STATE_WORDS, 128
 .equ SWITCH_SCREEN, 0xC0083D28
+.equ PC_CODE, 0xC018B000        ; the patch pad-colors (tools/patch/pad_colors.py), FF where the set does not have it; its entries:
+                                ; +0 (look word) takes the colours from it, +4 -> its bits for them, +8 (kind, steps) the next colour,
+                                ; +12 (kind) -> title, r1 = value text; each sends the pads again where the colours change
 .equ SPLASH_IMPORT, 0xC01A2500  ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
 .equ M_LEVEL, 0xE0
@@ -144,7 +147,7 @@ menu_arm_load_end:
 ; magic, version u16 (1 or 2), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
 ; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON), version 2 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
-; means the stock white, bit 28 the display inverted; the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
+; means the stock white, bit 28 the display inverted, bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes. Always written as version 2, version 1 is still read.
 ; Called from the card hook wrapper after menu_arm, before the script loader reads M_EFF_RUN.
 menu_settings_load:
@@ -243,6 +246,11 @@ menu_load_apply:
     mov r12, r3, lsr #28
     and r12, r12, #1
     str r12, [r4, #M_INV]
+    push {r0-r3}
+    mov r0, r3
+    mov r1, #0
+    bl menu_pc_call
+    pop {r0-r3}
     add r0, r0, #20
 menu_load_trust:
     cmp r1, #0
@@ -377,6 +385,10 @@ menu_settings_save:
     orr r0, r0, r1, lsl #24
     ldr r1, [r4, #M_INV]
     orr r0, r0, r1, lsl #28
+    mov r10, r0
+    mov r1, #4
+    bl menu_pc_call
+    orr r0, r10, r0
     str r0, [r7, #16]
     add r0, r7, #20
     add r1, r4, #M_TRUST
@@ -506,6 +518,7 @@ look_led_store:
     str r0, [r4, #M_BL_N]
     bl menu_backlight_now
     pop {r4-r8, pc}
+
 ; r0 = level 0 to 15, r3 = the pin of the channel, r12 = pins that may light, r6 = 1 when a level needs the PWM,
 ; r5 = the table of the pins the PWM clears at tick n
 look_channel:
@@ -1071,6 +1084,10 @@ menu_texts_clear:
     beq menu_text_splash
     cmp r0, #23
     beq menu_text_splash
+    cmp r0, #24
+    beq menu_text_colour
+    cmp r0, #25
+    beq menu_text_colour
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1240,6 +1257,30 @@ menu_text_invert:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
+; PAD COLOR (24) and SELECT COLOR (25): title and value come from the patch pad-colors
+menu_text_colour:
+    mov r1, #12
+    bl menu_pc_call
+    mov r6, r1
+    mov r1, r0
+    add r0, r5, #M_TITLE
+    bl menu_copy
+    mov r1, r6
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+
+; r0, r2 arguments, r1 = offset of the entry of the patch pad-colors -> what it returns (r0, r1); 0 where the set has no such patch.
+menu_pc_call:
+    ldr r12, =PC_CODE
+    ldr r3, [r12]
+    cmn r3, #1
+    moveq r0, #0
+    bxeq lr
+    add r12, r12, r1
+    mov r1, r2
+    bx r12
+
 ; SPLASH IMPORT (22): ENTER reads KORG/blechtribe/splash.bmp into the start image; SPLASH DRAW (23): ENTER opens the editor
 menu_text_splash:
     mov r6, r0
@@ -1674,8 +1715,12 @@ menu_kind_group:
     bne menu_kind_apps
     add r0, r5, #7
     cmp r5, #8
-    moveq r0, #22
+    moveq r0, #24
     cmp r5, #9
+    moveq r0, #25
+    cmp r5, #10
+    moveq r0, #22
+    cmp r5, #11
     moveq r0, #23
     mov r1, #0
     b menu_kind_done
@@ -1754,6 +1799,11 @@ menu_count_group:
     cmp r1, #3
     bne menu_count_features
     mov r0, #8
+    ldr r1, =PC_CODE
+    ldr r1, [r1]
+    cmn r1, #1
+    beq menu_count_out          ; without the pad colours there are no pages behind DISPLAY INVERT (the splash editor comes with them)
+    add r0, r0, #2              ; PAD COLOR and SELECT COLOR
     ldr r1, =SPLASH_IMPORT
     ldr r1, [r1]
     cmn r1, #1
@@ -2368,6 +2418,10 @@ menu_slot_value:
     beq menu_value_tm
     cmp r0, #21
     beq menu_value_na
+    cmp r0, #24
+    beq menu_value_colour
+    cmp r0, #25
+    beq menu_value_colour
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
@@ -2384,6 +2438,13 @@ menu_slot_value:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
+; PAD COLOR and SELECT COLOR: the dial steps the colour in the patch, which skips the other page's and sends the pads; WRITE keeps it.
+menu_value_colour:
+    mov r2, r5
+    mov r1, #8
+    bl menu_pc_call
+    b menu_value_look_done
+
 ; the look pages of the group CUSTOMIZATION act at once (the menu is the preview); only WRITE keeps them
 menu_value_look:
     cmp r0, #7

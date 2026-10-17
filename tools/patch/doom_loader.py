@@ -2,9 +2,9 @@
 
 SHIFT + TAP held at power-on starts Doom from the card, everything else starts the sampler. The loader is our own code
 (AGPL, tools/doom/bootstrap.S, bootstrap.c, sha256.c): it sits in the erased run at 0xC017CC00, just behind the preset
-knob table, the start function's call of 0xC002A35C (0xC002ADB0) goes through it, and it calls that function first, so the
-start is the firmware's own until the keys say Doom. Then it enables startup and the card, reads
-KORG/blechtribe/Doom/doom.bin, checks the exact length and the SHA-256 built into it (the file in third_party/doom) and only then
+knob table, and runs right after the firmware has mounted the card (it replaces mov r4, r0 at 0xC002AE64, behind the mount
+call at 0xC002AE60), so the start is the firmware's own until the keys say Doom. Then it reads, on the firmware's own mounted
+volume, KORG/blechtribe/Doom/doom.bin, checks the exact length and the SHA-256 built into it (the file in third_party/doom) and only then
 jumps into the program. A wrong or missing file stops with DOOM ERROR and a code, never in the sampler's way: without SHIFT + TAP
 nothing of it runs but the key check. EXIT held at power-on is not SHIFT + TAP, so it keeps the patch out like every other.
 
@@ -17,6 +17,7 @@ Every address is a RAM address of the measured build; the file offset in the VSB
 import argparse
 import hashlib
 import json
+import struct
 import sys
 import tempfile
 from pathlib import Path
@@ -49,8 +50,8 @@ def build_patch(vsb, loader):
     if not loader or len(loader) > code_end - base:
         raise SystemExit("the loader does not fit its code area")
     was = vsb[file_offset(site):file_offset(site) + 4]
-    if was != build_bootstrap.branch(site, LAYOUT["originalCall"]):
-        raise SystemExit("the start function does not call 0xC002A35C at the hook site")
+    if was != struct.pack("<I", LAYOUT["originalWord"]):
+        raise SystemExit("the start function does not have mov r4, r0 behind the card mount at the hook site")
     if any(b != 0xFF for b in vsb[file_offset(base):file_offset(LAYOUT["end"])]):
         raise SystemExit("the loader's RAM areas are not erased in this VSB")
     return {
@@ -61,15 +62,15 @@ def build_patch(vsb, loader):
             {"file": file_offset(base), "bytes": loader.hex(), "expect": sha(b"\xff" * len(loader)),
              "note": "the SD loader: key check, card read of doom.bin, length and SHA-256 check, jump into the program"},
             {"file": file_offset(site), "bytes": build_bootstrap.branch(site, base).hex(), "expect": sha(was),
-             "note": "the start function's call of 0xC002A35C goes through the loader, which calls it first"},
+             "note": "the instruction behind the firmware's card mount calls the loader, which does it (mov r4, r0) first"},
         ],
         "hooks": [
-            {"site": f"0x{site:08X}", "kind": "call", "chain": "start", "position": "replace", "swallow": False,
-             "note": "calls the original first and returns to it unless exactly SHIFT + TAP is held (EXIT held at power-on is not that)"},
+            {"site": f"0x{site:08X}", "kind": "instruction", "chain": "start", "position": "replace", "swallow": False,
+             "note": "does the replaced mov r4, r0 and returns unless exactly SHIFT + TAP is held (EXIT held at power-on is not that)"},
         ],
         "startPhase": [
             {"file": file_offset(site), "length": 4,
-             "why": "the start function runs the call at about 0.2 s, after the rescue paths, and now enters the loader"},
+             "why": "the start function reaches it right after mounting the card, after the rescue paths, and now enters the loader"},
             {"file": file_offset(base), "length": len(loader),
              "why": "the loader runs with the call; without SHIFT + TAP it only compares the held keys and returns"},
         ],

@@ -69,12 +69,14 @@ BEAT_BODY = 0xC00881E4
 TICK_HOOK = 0xC0087740          # push {r4, r5, r6, lr}
 TICK_WORD = 0xE92D4070
 TICK_BODY = 0xC0087744
+FRAME_CALL = 0xC00836F0         # bl 0xC006EAE0 in the screen manager's frame, in the UI task (where TAP is handled too)
+FRAME_FUNC = 0xC006EAE0
 
 
 # What the hook sites must hold, per build: the Sampler's words, and the synth's where a pc relative offset differs.
 # The synth's key handler is the same code with a frame 4 bytes smaller (it does not keep r7): its literal pool is 8 bytes nearer
 # (ldr r0, [pc, #0x164] instead of #0x16c) and its exit is add sp, sp, #0x10; pop {r4, r5, r6, pc}.
-FIRMWARE_PLACES = ["TAP_HOOK", "TAP_BODY", "TAP_EXIT", "TAP_LITERAL", "TAP_LITERAL_AT", "BEAT_HOOK", "BEAT_BODY", "TICK_HOOK", "TICK_BODY"]
+FIRMWARE_PLACES = ["TAP_HOOK", "TAP_BODY", "TAP_EXIT", "TAP_LITERAL", "TAP_LITERAL_AT", "BEAT_HOOK", "BEAT_BODY", "TICK_HOOK", "TICK_BODY", "FRAME_CALL", "FRAME_FUNC"]
 BUILD = "hacktribe"
 
 
@@ -127,6 +129,7 @@ SOURCE = """
 .equ TAP_LITERAL, @TAP_LITERAL@
 .equ BEAT_BODY, @BEAT_BODY@
 .equ TICK_BODY, @TICK_BODY@
+.equ FRAME_FUNC, @FRAME_FUNC@
 
 .org @CODE_AT@
 
@@ -278,7 +281,22 @@ tm_mfx_set:
 tms_out:
     pop {pc}
 
-; ONCE, every 40 ms: a marked motion whose step counter went back (the pattern started over) goes off, as TAP would switch it.
+; ONCE, every frame of the UI task (the call at FRAME_CALL goes through here, after the call it replaces): the motions are switched
+; off in the task that handles TAP, so letting the Master FX pad go works as with TAP (from the LED task the effect stayed on, device 17.10.).
+frame_hook:
+    push {r0, r1, r2, r3, r4, r5, r12, lr}
+    bl FRAME_FUNC
+    bl tm_active
+    cmp r0, #0
+    beq fh_out
+    ldr r4, =PATPTR
+    ldr r4, [r4]
+    cmp r4, #0
+    blne tm_once
+fh_out:
+    pop {r0, r1, r2, r3, r4, r5, r12, pc}
+
+; ONCE: a marked motion whose step counter went back (the pattern started over) goes off, as TAP would switch it.
 ; While the sequencer stands the counters are not compared, and the last ones seen are 0. r4 = pattern.
 tm_once:
     push {r4, r5, r6, r7, r8, lr}
@@ -387,7 +405,6 @@ tk_state:
     ldr r4, [r4]
     cmp r4, #0
     beq tk_set
-    bl tm_once
     bl tm_mfx_held
     cmp r0, #0
     beq tk_part
@@ -452,7 +469,7 @@ def source():
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}",
         "S_SETTING": S_SETTING, "S_LED": S_LED, "S_PATNUM": S_PATNUM, "S_LAST": S_LAST, "S_MFXLAST": S_MFXLAST, "S_ONCE": S_ONCE, "S_STEPS": S_STEPS,
         "TAP_BODY": f"{place('TAP_BODY'):#x}", "TAP_EXIT": f"{place('TAP_EXIT'):#x}", "TAP_LITERAL": f"{place('TAP_LITERAL'):#x}",
-        "BEAT_BODY": f"{place('BEAT_BODY'):#x}", "TICK_BODY": f"{place('TICK_BODY'):#x}",
+        "BEAT_BODY": f"{place('BEAT_BODY'):#x}", "TICK_BODY": f"{place('TICK_BODY'):#x}", "FRAME_FUNC": f"{place('FRAME_FUNC'):#x}",
     }.items():
         text = text.replace(f"@{key}@", str(value))
     if BUILD == "synth":
@@ -468,6 +485,10 @@ def build_code():
 
 def file_offset(addr):
     return addr - RAM + HEADER
+
+
+def bl(at, target):
+    return branch(at, target, link=True)
 
 
 def branch(at, target, link=False):
@@ -500,6 +521,8 @@ def build_patch(vsb, build="hacktribe"):
     for addr, want, why in expected:
         if word(addr) != want:
             raise SystemExit(f"{why} in this VSB")
+    if word(FRAME_CALL) != struct.unpack("<I", bl(FRAME_CALL, FRAME_FUNC))[0]:
+        raise SystemExit("the screen manager's frame does not call 0xC006EAE0 where the patch expects it in this VSB")
     if word(TAP_BODY) != TAP_CALL_WORD or word(TAP_EXIT) != TAP_EXIT_WORD or word(TAP_LITERAL_AT) != TAP_LITERAL:
         raise SystemExit("the tap tempo block does not end where the patch expects it in this VSB")
     free(STATE, STATE_END - STATE)
@@ -519,15 +542,20 @@ def build_patch(vsb, build="hacktribe"):
             hook(TAP_HOOK, "tap_hook", "the instruction before the call of the tap tempo calculation jumps to the hook"),
             hook(BEAT_HOOK, "beat_hook", "first instruction of the TAP LED beat flash jumps to the hook"),
             hook(TICK_HOOK, "tick_hook", "first instruction of the LED manager's tick jumps to the hook"),
+            {"file": file_offset(FRAME_CALL), "bytes": bl(FRAME_CALL, symbols["frame_hook"]).hex(), "expect": sha(was(FRAME_CALL, 4)),
+             "note": "the frame's call of 0xC006EAE0 goes through frame_hook, which makes it first (ONCE switches off in the UI task)"},
         ],
         "hooks": [
             declare(TAP_HOOK, "key-dispatch", True, "TAP with the patch on switches the motion and does not call the tap tempo calculation"),
             declare(BEAT_HOOK, "tap-led", True, "with the patch on there is no beat flash on the TAP LED"),
             declare(TICK_HOOK, "tap-led", False, "keeps the TAP LED at the state of the motion and lets it go when the patch goes off"),
+            {"site": f"{FRAME_CALL:#010X}".replace("0X", "0x"), "kind": "call", "chain": "frame", "position": "after", "swallow": False,
+             "note": "makes the original call, then switches off what ONCE marked when its pattern started over"},
         ],
         "startPhase": [
             {"file": file_offset(BEAT_HOOK), "length": 4, "why": "the sequencer's first beat (about 100 ms, after the rescue paths at 57 to 60 ms) calls the TAP LED's beat flash, which now jumps to beat_hook"},
             {"file": file_offset(TICK_HOOK), "length": 4, "why": "the LED manager's tick runs from about 140 ms, after the rescue paths, and now jumps to tick_hook"},
+            {"file": file_offset(FRAME_CALL), "length": 4, "why": "the screen manager's frame calls frame_hook, which makes the original call and then only looks at the setting"},
             {"file": file_offset(CODE_AT), "length": len(code), "why": "tm_active, beat_hook and tick_hook: at start they only look at the panel object, the kill switch, the card and the setting word and hand over to the firmware's own code; the rest runs on a key or when the patch is on"},
         ],
         "ram": [
