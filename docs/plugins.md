@@ -641,7 +641,7 @@ Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
   vor dem Pattern Menü, steht eine zweite Seite des Patches: [Blechy](#blechy-die-letzte-seite-des-rings)
   (31/31). Deshalb zählt der Ring bis 31 statt bis 29.
 - **ENTER**, die Taste MENU, öffnet die Liste der Gruppen. Das Schild oben links nennt
-  BLECH, der Zähler zählt nur die Gruppen ("BLECH 2/5"), EDIT blättert darin im Kreis.
+  BLECH, der Zähler zählt nur die Gruppen ("BLECH 2/3", mit Apps bis 5), EDIT blättert darin im Kreis.
 - **ENTER auf einer Gruppe** zeigt ihre Seiten. Das Schild nennt die Gruppe ("Plugins 3/5"),
   der Zähler zählt nur ihre Seiten, EDIT blättert darin im Kreis, das Hauptrad ändert den
   Wert, WRITE führt aus oder speichert.
@@ -651,18 +651,25 @@ Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
 - Solange der Bildschirm offen ist, sehen die Plugins keine Eingaben, damit ein Plugin,
   das Tasten abfängt, das Menü nicht sperren kann.
 
-Die Liste der ersten Ebene, in dieser Reihenfolge (die drei letzten sind Einstellungen, keine Gruppen):
+Die Liste der ersten Ebene besteht nur aus Gruppen, in dieser Reihenfolge: erst die eingebauten Schalter, dann
+die Anpassung, dann die Plugins, zuletzt die Gruppen, die Plugins selbst anmelden (`korg.app`):
 
 | Eintrag | Was dahinter liegt |
 |---|---|
-| PLUGINS | Gruppe, siehe unten |
-| GAMES | je App eine Seite; erscheint nur, wenn es eine App der Gruppe gibt |
-| TOOLS | wie GAMES |
-| MFX 2 | ON, OFF: MFX 2 auf TOUCH SCALE, gilt ab dem nächsten Start (Wert zeigt dann "ON, RESTART") |
+| FEATURES | vier Seiten mit den Schaltern der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (Tabelle unten) |
 | CUSTOMIZATION | acht Seiten, siehe unten |
-| PATTERN CONFIRM | ON, OFF: eine Seite der Liste selbst, kein ENTER, das Hauptrad ändert den Wert (siehe unten) |
-| TAP MOTION | wie PATTERN CONFIRM |
-| NOTE ASSIST | wie PATTERN CONFIRM |
+| PLUGINS | Gruppe, siehe unten |
+| GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
+| TOOLS | wie GAMES |
+
+Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem Wert ON oder OFF, das Hauptrad ändert ihn:
+
+| Seite | Wert |
+|---|---|
+| MFX 2 | ON, OFF: MFX 2 auf TOUCH SCALE, gilt ab dem nächsten Start (Wert zeigt dann "ON, RESTART") |
+| PATTERN CONFIRM | ON, OFF (siehe unten) |
+| TAP MOTION | OFF, ON, ONCE (siehe unten) |
+| NOTE ASSIST | ON, OFF (siehe unten) |
 
 Eine Gruppe ABOUT gibt es nicht mehr: sie zeigte nur die Zahl der geladenen Plugins und verwirrte.
 
@@ -680,9 +687,11 @@ Die Seiten der Gruppen:
 | CUSTOMIZATION, LED RED, GREEN, BLUE | 0 bis 15 | Farbe der unteren LEDs, gilt für METER und COLOR; 0 0 0 heißt die Farben der Firmware ("0 stock"); bei METER bestimmt der Pegel die Helligkeit dieser Farbe; gilt sofort |
 | CUSTOMIZATION, BACKLIGHT RED, GREEN, BLUE | 0 bis 15 | Farbe des Display-Lichts, frei gemischt; 0 0 0 heißt das Weiß der Firmware; gilt sofort |
 | CUSTOMIZATION, DISPLAY INVERT | OFF, ON | kehrt das Display um: helle Punkte dunkel und dunkle hell (Befehl `0xA7` an den Display-Baustein, `0xA6` stellt zurück); gilt sofort; OFF ist die Vorgabe |
-| PATTERN CONFIRM (Liste) | ON, OFF | ON: ein anderes Pattern, das am Rad gewählt wird, wartet beim Spielen auf MENU (ENTER) und startet am Sequenzende; OFF: die Firmware wie ohne den Patch Patternwechsel; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 2 der Flags in der Einstellungsdatei |
-| TAP MOTION (Liste) | ON, OFF | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus (Idee 39); OFF: TAP ist wieder das Tap-Tempo der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3 der Flags in der Einstellungsdatei |
-| NOTE ASSIST (Liste) | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Pad-Note die Pads der passenden Noten rosa und gehen nach 1,5 s aus ([Messung](messungen/2026-10-15-note-assistant.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
+| CUSTOMIZATION, SPLASH IMPORT | ENTER | liest `KORG/blechtribe/splash.bmp` (128 x 64 Pixel, 1 Bit je Pixel, unkomprimiert; gezeichnet wird die dunklere Farbe) und speichert es als Startbild wie WRITE im Startbild-Editor; ab dem nächsten Start zu sehen. Meldet "loaded", "no splash.bmp" oder "not 128x64 1 bit" (dann bleibt alles, wie es war). Nur wo der Satz den Startbild-Editor hat, also nicht auf der blauen |
+| CUSTOMIZATION, SPLASH DRAW | ENTER | öffnet den Startbild-Editor (Global, Seite SPLASH SCREEN): Rad bewegt den Cursor, MENU kippt das Pixel, WRITE speichert, EXIT verlässt den Editor. Nur wo der Satz den Startbild-Editor hat |
+| FEATURES, PATTERN CONFIRM | ON, OFF | ON: ein anderes Pattern, das am Rad gewählt wird, wartet beim Spielen auf MENU (ENTER) und startet am Sequenzende; OFF: die Firmware wie ohne den Patch Patternwechsel; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 2 der Flags in der Einstellungsdatei |
+| FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus (Idee 39); OFF: TAP ist wieder das Tap-Tempo der Firmware; ONCE (Wert 2 des Einstellungsworts): eine mit TAP eingeschaltete Bewegung spielt bis zum Ende des Patterns und geht dann aus; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3, ONCE als Bit 5 der Flags in der Einstellungsdatei (Bit 3 gewinnt) |
+| FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Pad-Note die Pads der passenden Noten rosa und gehen nach 1,5 s aus ([Messung](messungen/2026-10-15-note-assistant.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
 
 Rückmeldungen ("saved", "no card", "imported", "2 exported" und so weiter) ersetzen den
 Wert der Seite, bis man das Hauptrad dreht oder die Seite wechselt. Die dritte Zeile der
@@ -692,7 +701,7 @@ benutzt sie deshalb nie. Was eine Seite sagt, steht im Wert, der rund 14 Zeichen
 Titel rund 18. IMPORT PLUGIN und EXPORT ALL stehen in der Gruppe PLUGINS, nicht in DATA
 UTILITY (siehe Stand).
 
-Auf den Seiten RUNTIME, MFX 2, CUSTOMIZATION, PATTERN CONFIRM, TAP MOTION und NOTE ASSIST und bei der Zustimmung für fremde Plugins
+Auf den Seiten RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION und bei der Zustimmung für fremde Plugins
 speichert WRITE die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
 sich mit einer Generationsnummer abwechseln (24 bis 88 Byte: Kennung `GSET`, Version 2, Anzahl
 erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der

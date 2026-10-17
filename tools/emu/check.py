@@ -85,7 +85,7 @@ def overlaps(runs, ranges, allow=()):
     return hits
 
 
-def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progress=None):
+def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progress=None, quick=False):
     """base and patched are whole VSB files. Returns {ok, checks, changed}.
 
     The boots it needs do not depend on each other and run side by side (parallel.py). The result is kept
@@ -95,12 +95,14 @@ def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progres
     if len(base) != HEADER + PAYLOAD or len(patched) != HEADER + PAYLOAD:
         raise ValueError("a VSB has a 0x100-byte header and a 0x200000-byte payload")
     return bootcache.cached_result(
-        "check", (bytes(base), bytes(patched), bytes(flash) if flash else b"", sorted(map(tuple, allow)), sorted(map(tuple, allow_code))),
-        lambda: _check(base, patched, flash, allow, allow_code, jobs, progress))
+        "check-quick" if quick else "check", (bytes(base), bytes(patched), bytes(flash) if flash else b"", sorted(map(tuple, allow)), sorted(map(tuple, allow_code))),
+        lambda: _check(base, patched, flash, allow, allow_code, jobs, progress, quick))
 
 
-def _check(base, patched, flash, allow, allow_code, jobs, progress=None):
-    """base and patched are whole VSB files. Returns {ok, checks, changed}."""
+def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=False):
+    """base and patched are whole VSB files. Returns {ok, checks, changed}. `quick` runs only what keeps the device safe:
+    the start scenarios (normal start, update offer, panel update, start modes, EXIT, DSP once, start phase), not the
+    cases of the patches, which test the patches' own code, the same in every file."""
     checks = []
 
     def add(name, ok, detail):
@@ -112,51 +114,52 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None):
     add("dsp_stream", same_dsp_program(base, patched), "der DSP-Strom des Firmware-Builds ist unverändert")
     runs = changed_runs(base[HEADER:], patched[HEADER:])
     payload = patched[HEADER:]
+    want = lambda has: not quick and has(payload)
     # longest first: the cases of the patches, then the start scenarios (about a boot each)
     tasks = []
-    if has_key_hook(payload):
+    if want(has_key_hook):
         tasks.append(("mfx_cases", "switch_cases_task", ()))
-    if has_start_hook(payload):
+    if want(has_start_hook):
         tasks += [("splash_cases", "boot_case_task", (i,)) for i in range(BOOT_CASES)]
-    if has_menu(payload):
+    if want(has_menu):
         tasks += [("menu_cases", "cases_task", ()), ("menu_cases", "settings_cases_task", ()), ("menu_cases", "look_cases_task", ())]
-    if has_pswitch(payload):
+    if want(has_pswitch):
         tasks += [("pswitch_cases", "cases_task", (i,)) for i in range(len(PSWITCH_GROUPS))]
-    if has_tapmotion(payload):
+    if want(has_tapmotion):
         tasks += [("tap_motion_cases", "cases_task", (i,)) for i in range(len(TAPMOTION_GROUPS))]
-    if has_noteassist(payload):
+    if want(has_noteassist):
         tasks += [("note_assist_cases", "cases_task", (i,)) for i in range(len(NOTEASSIST_GROUPS))]
-    if has_dice(payload):
+    if want(has_dice):
         tasks += [("dice_cases", "cases_task", (i,)) for i in range(len(DICE_GROUPS))]
-    if has_loadbar(payload):
+    if want(has_loadbar):
         tasks += [("loadbar_cases", "cases_task", (i,)) for i in range(len(LOADBAR_GROUPS))]
-    if has_sampleerr(payload):
+    if want(has_sampleerr):
         tasks += [("sample_error_cases", "cases_task", (i,)) for i in range(len(SAMPLEERR_GROUPS))]
-    if has_synth(payload):
+    if want(has_synth):
         tasks += [("synth_filter_cases", "cases_task", (i,)) for i in range(len(SYNTH_GROUPS))]
-    if has_sysex(payload):
+    if want(has_sysex):
         tasks += [("sysex_cases", "cases_task", (i,)) for i in range(len(SYSEX_GROUPS))]
-    power_off, combine_power_off = power_off_tasks(payload) if has_power_off_hook(payload) else ([], None)
+    power_off, combine_power_off = power_off_tasks(payload) if want(has_power_off_hook) else ([], None)
     tasks += power_off
-    if has_presets(payload):
+    if want(has_presets):
         tasks.append(("preset_cases", "cases_task", ()))
     names = scenario_names(flash)
     tasks += [("bootmap", "scenario_task", (name,)) for name in names]
     tracker = progress_lib.Tracker(tasks, parallel.workers(len(tasks)) if jobs is None else jobs, progress) if progress else None
     done = parallel.run_tasks(tasks, {"payload": payload, "flash": flash, "base": base[HEADER:]}, jobs, tracker.done if tracker else None)
-    mfx = done.pop(0) if has_key_hook(payload) else []
-    splash = [done.pop(0) for _ in range(BOOT_CASES)] if has_start_hook(payload) else []
-    menu = [c for _ in range(3 if has_menu(payload) else 0) for c in done.pop(0)]
-    pswitch = [c for _ in range(len(PSWITCH_GROUPS) if has_pswitch(payload) else 0) for c in done.pop(0)]
-    tapmotion = [c for _ in range(len(TAPMOTION_GROUPS) if has_tapmotion(payload) else 0) for c in done.pop(0)]
-    noteassist = [c for _ in range(len(NOTEASSIST_GROUPS) if has_noteassist(payload) else 0) for c in done.pop(0)]
-    dice = [c for _ in range(len(DICE_GROUPS) if has_dice(payload) else 0) for c in done.pop(0)]
-    loadbar = [c for _ in range(len(LOADBAR_GROUPS) if has_loadbar(payload) else 0) for c in done.pop(0)]
-    sampleerr = [c for _ in range(len(SAMPLEERR_GROUPS) if has_sampleerr(payload) else 0) for c in done.pop(0)]
-    synth = [c for _ in range(len(SYNTH_GROUPS) if has_synth(payload) else 0) for c in done.pop(0)]
-    sysex = [c for _ in range(len(SYSEX_GROUPS) if has_sysex(payload) else 0) for c in done.pop(0)]
+    mfx = done.pop(0) if want(has_key_hook) else []
+    splash = [done.pop(0) for _ in range(BOOT_CASES)] if want(has_start_hook) else []
+    menu = [c for _ in range(3 if want(has_menu) else 0) for c in done.pop(0)]
+    pswitch = [c for _ in range(len(PSWITCH_GROUPS) if want(has_pswitch) else 0) for c in done.pop(0)]
+    tapmotion = [c for _ in range(len(TAPMOTION_GROUPS) if want(has_tapmotion) else 0) for c in done.pop(0)]
+    noteassist = [c for _ in range(len(NOTEASSIST_GROUPS) if want(has_noteassist) else 0) for c in done.pop(0)]
+    dice = [c for _ in range(len(DICE_GROUPS) if want(has_dice) else 0) for c in done.pop(0)]
+    loadbar = [c for _ in range(len(LOADBAR_GROUPS) if want(has_loadbar) else 0) for c in done.pop(0)]
+    sampleerr = [c for _ in range(len(SAMPLEERR_GROUPS) if want(has_sampleerr) else 0) for c in done.pop(0)]
+    synth = [c for _ in range(len(SYNTH_GROUPS) if want(has_synth) else 0) for c in done.pop(0)]
+    sysex = [c for _ in range(len(SYSEX_GROUPS) if want(has_sysex) else 0) for c in done.pop(0)]
     power_off_done = [done.pop(0) for _ in power_off]
-    presets = done.pop(0) if has_presets(payload) else []
+    presets = done.pop(0) if want(has_presets) else []
     ranges, report = combine(dict(zip(names, done)))
 
     def state(name):
@@ -207,6 +210,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None):
     if power_off:
         checks.extend(combine_power_off(power_off_done))
     checks.extend(presets)
+    if quick:
+        add("quick", True, "Kurzprüfung: Start und Rettungswege; die Tests der einzelnen Funktionen liefen nicht")
     return {"ok": all(c["ok"] for c in checks), "checks": checks,
             "changed": [[f"0x{a:x}", n] for a, n in runs]}
 
@@ -225,11 +230,12 @@ def main():
     p.add_argument("--flash", nargs="*", default=[], type=Path)
     p.add_argument("--allow", action="append", default=[], type=span, metavar="FILE:LEN",
                    help="data the map knows and that may be read at start, e.g. the start image 0xF9954:1024")
+    p.add_argument("--quick", action="store_true", help="only the start scenarios, not the cases of the patches")
     p.add_argument("--allow-code", action="append", default=[], type=span, metavar="FILE:LEN",
                    help="start-phase code a patch replaces on purpose (docs/patcher.md rule 2), e.g. 0x2AEAC:4")
     a = p.parse_args()
     result = check(a.base.read_bytes(), a.patched.read_bytes(), load_flash(a.flash) if a.flash else None, a.allow, a.allow_code,
-                   progress=progress_lib.to_stderr)
+                   progress=progress_lib.to_stderr, quick=a.quick)
     print(json.dumps(result, indent=1, ensure_ascii=False))
     return 0 if result["ok"] else 1
 

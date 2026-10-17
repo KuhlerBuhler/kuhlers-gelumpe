@@ -36,7 +36,7 @@ MOTION_OUT = 0xC068DB1C         # what the motion engine plays for the first lan
 PAD_STATE = 0xC068D074          # the Master FX pad state the effect was last given
 HW_PART, HW_PATTERN = 0xC06B2428, 0xC06B2420
 LED = 0x14
-KEYS = {"rec": 0x00, "stop": 0x01, "play": 0x02, "tap": 0x03, "master_fx": 0x06, "write": 0x0E, "part_right": 0x0F, "part_left": 0x0B, "shift": 0x0A}
+KEYS = {"rec": 0x00, "stop": 0x01, "play": 0x02, "tap": 0x03, "touch_scale": 0x05, "master_fx": 0x06, "write": 0x0E, "part_right": 0x0F, "part_left": 0x0B, "shift": 0x0A}
 KILL = spec.KILL_SWITCH
 MODE, COPY, STRIDE, COPY_STRIDE = 0x807, 0x382E, 0x330, 0x24
 MFX_MODE = 0x44                 # the switch of the Master FX lanes, in the pattern object
@@ -541,7 +541,54 @@ def case_app(payload, flash):
                   f"three TAPs with the runtime armed (mode, tempo unchanged, assertions): {rows}; the first row toggles three times, the other two reach the plugin only")]
 
 
-GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app)
+def case_once(payload, flash):
+    """Setting ONCE (2): a motion TAP switched on plays to the end of the pattern and goes off when the steps start over."""
+    out = []
+    box = TBox(payload, flash)
+    box.m.uc.mem_write(spec.TM_SETTING, struct.pack("<I", 2))
+    box.run(0.1)
+    box.record_knob()
+    tap = TBox.press_in_script
+    seen = box.script({(0, 2): tap, (0, 8): tap}, 3)
+    first, second, third = audible(seen, 0, WINDOW), audible(seen, 1, WINDOW), audible(seen, 2, WINDOW)
+    out.append(entry("once_plays_to_the_end", len(first) >= 15 and not second and not third and box.mode() == (0, 0),
+                     f"TAP off at step 2, on at step 8: the steps 16 to 31 play in the first run ({len(first)} of 16), not in the second ({second}) "
+                     f"or third ({third}); the mode is {box.mode()} afterwards"))
+    box.tap()
+    out.append(entry("once_comes_back_with_tap", box.mode() == (1, 1), f"TAP again: mode {box.mode()}"))
+    on = TBox(payload, flash)
+    on.m.uc.mem_write(spec.TM_SETTING, struct.pack("<I", 1))
+    on.run(0.1)
+    on.record_knob()
+    kept = on.script({(0, 2): tap, (0, 8): tap}, 2)
+    out.append(entry("on_keeps_playing", len(audible(kept, 1, WINDOW)) >= 15 and on.mode() == (1, 1),
+                     f"setting ON: the second run plays too ({len(audible(kept, 1, WINDOW))} of 16), mode {on.mode()}"))
+    out.append(entry("once_no_assertion", not box.m.asserts and not on.m.asserts, f"{box.m.asserts} {on.m.asserts}"))
+    return out
+
+
+def case_touch_scale(payload, flash):
+    """TOUCH SCALE held with TAP switches the Master FX lanes like MASTER FX held (MFX 2 sits on TOUCH SCALE); the LED shows them
+    while it is held; the part stays as it was."""
+    out = []
+    box = TBox(payload, flash)
+    box.record_gesture()
+    before, part = box.mfx_mode(), box.mode()
+    box.hold("touch_scale", True)
+    held_led = box.leds()
+    box.tap(0.2)
+    off, led_off, part_off = box.mfx_mode(), box.leds(), box.mode()
+    box.tap(0.2)
+    on = box.mfx_mode()
+    box.hold("touch_scale", False)
+    out.append(entry("touch_scale_tap_switches_mfx", before == 1 and off == 0 and on == 1 and box.mode() == part,
+                     f"byte {before}, TOUCH SCALE held and TAP: {off}, TAP again: {on}; part {part} -> {box.mode()}"))
+    out.append(entry("touch_scale_led_shows_mfx", held_led == 255 and led_off == 0 and part_off == part,
+                     f"LED while held {held_led}, after switching the lanes off {led_off} while the part stays {part_off}"))
+    return out
+
+
+GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale)
 
 
 def group_entries(payload, flash, i):

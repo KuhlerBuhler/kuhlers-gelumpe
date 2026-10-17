@@ -50,7 +50,7 @@ test("the patch carries our own code and a few words, never a firmware table", (
 });
 
 test("the spans the patch asks to run at start are inside its changes and name a reason", () => {
-  assert.equal(PATCH.startPhase.length, 3);
+  assert.equal(PATCH.startPhase.length, 4);           // the two calls, the start code, the screen tick hook
   for (const span of PATCH.startPhase) {
     assert.ok(span.why.length > 10);
     const inside = PATCH.changes.some(c => span.file >= c.file && span.file + span.length <= c.file + (c.bytes ? c.bytes.length / 2 : c.copy.length));
@@ -136,7 +136,7 @@ test("applied to the own firmware it changes only what it names and the copy is 
     const same = Buffer.compare(copied.subarray(4 * word, 4 * word + 4), source.subarray(4 * word, 4 * word + 4)) === 0;
     assert.equal(same, !slots.includes(word), `vtable word ${word}`);
   }
-  assert.deepEqual(res.allowCode.length, 3);
+  assert.deepEqual(res.allowCode.length, 4);
 });
 
 describe("the splash editor in the emulator", { concurrency: slots }, () => {

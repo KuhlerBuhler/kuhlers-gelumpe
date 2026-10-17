@@ -5,13 +5,15 @@ motion of the selected part on and off, at once and without waiting for the bar,
 
     TAP                 the Motion Sequence of the selected part: on (the mode it had, Smooth when it never had one)
                         or off (the part's mode byte 0)
-    MASTER FX + TAP     the Motion Sequence of the Master FX lanes (the pattern byte 0x44, found as their switch)
+    MASTER FX + TAP     the Motion Sequence of the Master FX lanes (the pattern byte 0x44, found as their switch);
+                        TOUCH SCALE + TAP the same, for MFX 2 on TOUCH SCALE (mfx-switch.json)
     TAP LED             lit while that motion is on, dark while it is off; the part that is selected counts, and
                         while MASTER FX is held the LED shows the Master FX motion instead
 
 The firmware's tap tempo is gone while the patch is on. SHIFT + TAP stays the firmware's (the Pattern menu on the page
 BPM). The patch is on only when EXIT was not held at power-on, a card is available and the setting word TM_SETTING is not
-0 (the BLECH menu page TAP MOTION writes it; never written means on).
+0 (the BLECH menu page TAP MOTION writes it; never written means on). With TM_SETTING 2 (ONCE) a motion TAP switched on
+goes off by itself when its part's step counter comes back to the start: it plays to the end of the pattern once.
 
     python3 tools/patch/tap_motion.py --vsb SYSTEM.VSB [--out data/patches/tap-motion.json]
 
@@ -48,8 +50,8 @@ CODE_AT = 0xC0188000            # free (FF) in the image, behind the block of Bl
 CODE_END = 0xC0188800
 STATE = 0xC0188F00              # run time state, in RAM only; FF there means "nothing"
 STATE_END = 0xC0188F40
-S_SETTING, S_LED, S_PATNUM, S_LAST, S_MFXLAST = 0, 4, 8, 0x10, 0x20
-TM_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off
+S_SETTING, S_LED, S_PATNUM, S_LAST, S_MFXLAST, S_ONCE, S_STEPS = 0, 4, 8, 0x10, 0x20, 0x24, 0x28
+TM_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off, 2 once
 
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13, measured on the device 10.10.)
 
@@ -100,6 +102,9 @@ SOURCE = """
 .equ HW_PATTERN, 0xC06B2420     ; the pattern number
 .equ KEYS, 0xC06BCA70           ; the UI task's key states, 8 bytes per key, the word is not 0 while the key is held
 .equ KEY_MASTER_FX, 6
+.equ KEY_TOUCH_SCALE, 5         ; MFX 2 with mfx-switch.json
+.equ HW_TRANSPORT, 0xC06BC318   ; 0 while the sequencer stands
+.equ HW_STEP, 0xC06904B0        ; part n's step counter at + 0x48 * n
 .equ PAD_STATE, 0xC068D074      ; the Master FX pad state the effect was last given
 .equ PAD_SET, 0xC0057C28        ; (on): the pad on or off through the effect's setter
 .equ LED_SET, 0xC0087710        ; (manager, led, mode, duration): the manager's own path to set an LED and send it
@@ -115,6 +120,8 @@ SOURCE = """
 .equ S_PATNUM, @S_PATNUM@       ; the pattern number the remembered modes belong to
 .equ S_LAST, @S_LAST@           ; 16 bytes: the mode each part had before it was switched off (0 nothing remembered)
 .equ S_MFXLAST, @S_MFXLAST@     ; the same for the Master FX lanes
+.equ S_ONCE, @S_ONCE@           ; ONCE: bit n part n plays to its end and goes off, bit 16 the Master FX lanes (on part 1's counter)
+.equ S_STEPS, @S_STEPS@         ; 17 bytes: the step counter last seen for each of those
 .equ TAP_BODY, @TAP_BODY@
 .equ TAP_EXIT, @TAP_EXIT@
 .equ TAP_LITERAL, @TAP_LITERAL@
@@ -136,10 +143,8 @@ tm_active:
     bne ta_no
 @CARD_CHECK@    ldr r12, =STATE
     ldr r12, [r12, #S_SETTING]
-    cmn r12, #1
-    moveq r0, #1
-    bxeq lr
-    ands r0, r12, #1
+    cmp r12, #0
+    movne r0, #1
     bxne lr
 ta_no:
     mov r0, #0
@@ -177,6 +182,41 @@ th_stock:
     ldr r0, =TAP_LITERAL        ; the replaced instruction
     b TAP_BODY
 
+; r0 = 1 while MASTER FX or TOUCH SCALE (MFX 2) is held. Clobbers r0 and r12.
+tm_mfx_held:
+    ldr r12, =KEYS
+    ldr r0, [r12, #8 * KEY_MASTER_FX]
+    cmp r0, #0
+    ldreq r0, [r12, #8 * KEY_TOUCH_SCALE]
+    cmp r0, #0
+    movne r0, #1
+    bx lr
+
+; r6 = part (16 the Master FX lanes), r2 = the mode just set. With the setting ONCE a motion going on is marked to go
+; off at its end, one going off is unmarked. Clobbers r0 to r3 and r12.
+tm_mark:
+    ldr r12, =STATE
+    ldr r0, [r12, #S_ONCE]
+    mov r1, #1
+    mov r1, r1, lsl r6
+    bic r0, r0, r1
+    cmp r2, #0
+    beq tm_mark_store
+    ldr r3, [r12, #S_SETTING]
+    cmp r3, #2
+    bne tm_mark_store
+    orr r0, r0, r1
+    and r3, r6, #15
+    mov r1, #0x48
+    mul r1, r3, r1
+    ldr r3, =HW_STEP
+    ldr r1, [r3, r1]
+    add r3, r12, #S_STEPS
+    strb r1, [r3, r6]
+tm_mark_store:
+    str r0, [r12, #S_ONCE]
+    bx lr
+
 tm_toggle:
     push {r4, r5, r6, r7, lr}
     ldr r4, =PATPTR
@@ -184,8 +224,7 @@ tm_toggle:
     cmp r4, #0
     beq tt_out
     ldr r5, =STATE
-    ldr r0, =KEYS + 8 * KEY_MASTER_FX
-    ldr r0, [r0]
+    bl tm_mfx_held
     cmp r0, #0
     bne tt_mfx
     ldr r6, =HW_PART
@@ -204,27 +243,104 @@ tm_toggle:
     cmp r0, #0
     beq tt_out
     mov r1, r6
+    mov r7, r2
     mov r3, #0                  ; no notification, TAP is a performance switch
     bl MOTION_SET
+    mov r2, r7
+    bl tm_mark
     b tt_out
 tt_mfx:
     ldrb r2, [r4, #MFX_BYTE]
     add r7, r5, #S_MFXLAST
     bl tm_next
+    mov r6, #16
+    bl tm_mfx_set
+tt_out:
+    pop {r4, r5, r6, r7, pc}
+
+; r4 = pattern, r2 = the Master FX lanes' new mode, r6 = 16. Clobbers r0 to r3 and r12.
+tm_mfx_set:
+    push {lr}
     strb r2, [r4, #MFX_BYTE]
+    bl tm_mark
+    ldrb r2, [r4, #MFX_BYTE]
     cmp r2, #0
-    bne tt_out
+    bne tms_out
     ldr r0, =PAD_STATE          ; switched off in the middle of a gesture: the lane that would have let the pad go
     ldr r0, [r0]                ; never comes, so the pad is let go here (unless a finger is on it)
     cmp r0, #0
-    beq tt_out
+    beq tms_out
     ldrb r0, [r4, #MFX_TOUCH]
     cmp r0, #0
-    bne tt_out
+    bne tms_out
     mov r0, #0
     bl PAD_SET
-tt_out:
-    pop {r4, r5, r6, r7, pc}
+tms_out:
+    pop {pc}
+
+; ONCE, every 40 ms: a marked motion whose step counter went back (the pattern started over) goes off, as TAP would switch it.
+; While the sequencer stands the counters are not compared, and the last ones seen are 0. r4 = pattern.
+tm_once:
+    push {r4, r5, r6, r7, r8, lr}
+    ldr r5, =STATE
+    ldr r8, [r5, #S_ONCE]
+    cmp r8, #0
+    beq to_out
+    ldr r0, =HW_TRANSPORT
+    ldr r0, [r0]
+    mov r6, #0
+to_part:
+    mov r1, #1
+    tst r8, r1, lsl r6
+    beq to_next
+    add r7, r5, #S_STEPS
+    cmp r0, #0
+    moveq r1, #0
+    strbeq r1, [r7, r6]
+    beq to_next
+    and r3, r6, #15
+    mov r1, #0x48
+    mul r1, r3, r1
+    ldr r3, =HW_STEP
+    ldr r1, [r3, r1]
+    ldrb r2, [r7, r6]
+    strb r1, [r7, r6]
+    cmp r1, r2
+    bhs to_next
+    push {r0}
+    cmp r6, #16
+    beq to_mfx
+    mov r0, #0x330
+    mul r1, r6, r0
+    add r1, r4, r1
+    ldrb r2, [r1, #MODE_BYTE]
+    add r7, r5, #S_LAST
+    add r7, r7, r6
+    bl tm_next
+    ldr r0, =MOTION_THIS
+    ldr r0, [r0]
+    cmp r0, #0
+    beq to_done
+    mov r1, r6
+    mov r3, #0
+    bl MOTION_SET
+    mov r2, #0
+    bl tm_mark
+    b to_done
+to_mfx:
+    ldrb r2, [r4, #MFX_BYTE]
+    add r7, r5, #S_MFXLAST
+    bl tm_next
+    bl tm_mfx_set
+to_done:
+    pop {r0}
+    ldr r8, [r5, #S_ONCE]
+to_next:
+    add r6, r6, #1
+    cmp r6, #17
+    blo to_part
+to_out:
+    pop {r4, r5, r6, r7, r8, pc}
 
 ; ===================================================== the beat flash of the TAP LED
 ; First instruction of the function the sequencer calls on every beat to flash LED 0x14 (r0 = the LED manager).
@@ -264,14 +380,15 @@ tick_hook:
     str r1, [r5, #S_LAST + 8]
     str r1, [r5, #S_LAST + 12]
     str r1, [r5, #S_MFXLAST]
+    str r1, [r5, #S_ONCE]
 tk_state:
     mov r6, #0
     ldr r4, =PATPTR
     ldr r4, [r4]
     cmp r4, #0
     beq tk_set
-    ldr r0, =KEYS + 8 * KEY_MASTER_FX
-    ldr r0, [r0]
+    bl tm_once
+    bl tm_mfx_held
     cmp r0, #0
     beq tk_part
     ldrb r6, [r4, #MFX_BYTE]
@@ -333,7 +450,7 @@ def source():
     text = SOURCE.replace("@CARD_CHECK@", card_gate.source(BUILD, "ta_no"))
     for key, value in {
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}",
-        "S_SETTING": S_SETTING, "S_LED": S_LED, "S_PATNUM": S_PATNUM, "S_LAST": S_LAST, "S_MFXLAST": S_MFXLAST,
+        "S_SETTING": S_SETTING, "S_LED": S_LED, "S_PATNUM": S_PATNUM, "S_LAST": S_LAST, "S_MFXLAST": S_MFXLAST, "S_ONCE": S_ONCE, "S_STEPS": S_STEPS,
         "TAP_BODY": f"{place('TAP_BODY'):#x}", "TAP_EXIT": f"{place('TAP_EXIT'):#x}", "TAP_LITERAL": f"{place('TAP_LITERAL'):#x}",
         "BEAT_BODY": f"{place('BEAT_BODY'):#x}", "TICK_BODY": f"{place('TICK_BODY'):#x}",
     }.items():

@@ -211,11 +211,11 @@ probieren, Ausgabe und Display notieren.
 
 8. **Das Menü ansehen.** Hauptbildschirm, MENU, mit EDIT rechts nach Global ("27/31"), EDIT rechts:
    eine einzige Seite "BLECH 28/31" mit dem Titel BLECH und der Zeile "press  [ Enter ]", so wie danach Data Util
-   ("29/31"). Zurück mit EDIT links. ENTER (die Taste MENU) öffnet die Liste der Gruppen: "BLECH 1/6" PLUGINS, dann mit
-   EDIT rechts MFX 2, CUSTOMIZATION (GAMES und TOOLS kommen dazu, wenn eine App der Gruppe geladen ist, die Zähler zählen dann
-   bis 8; eine Gruppe ABOUT gibt es nicht),
-   jede mit "press  [ Enter ]", danach die drei Einstellungen PATTERN CONFIRM, TAP MOTION und NOTE ASSIST mit Wert
-   (ON) statt "press  [ Enter ]". ENTER auf einer Gruppe zeigt ihre Seiten: das Schild oben links nennt sie ("Plugins 1/5"),
+   ("29/31"). Zurück mit EDIT links. ENTER (die Taste MENU) öffnet die Liste der Gruppen: "BLECH 1/3" FEATURES, dann mit
+   EDIT rechts CUSTOMIZATION, PLUGINS (GAMES und TOOLS kommen dazu, wenn eine App der Gruppe geladen ist, die Zähler zählen dann
+   bis 5; eine Gruppe ABOUT gibt es nicht),
+   jede mit "press  [ Enter ]". ENTER auf FEATURES zeigt die vier Schalter MFX 2, PATTERN CONFIRM, TAP MOTION und NOTE ASSIST
+   mit Wert (ON) statt "press  [ Enter ]" (Schild "Feature"). ENTER auf einer Gruppe zeigt ihre Seiten: das Schild oben links nennt sie ("Plugins 1/5"),
    der Zähler zählt nur ihre Seiten, EDIT blättert im Kreis. EXIT geht immer eine Ebene zurück (Seiten, Liste, Ring,
    Hauptbildschirm), MENU auf dem Hauptbildschirm kommt wieder auf die zuletzt benutzte Seite. WRITE auf einer Seite
    darf kein Fenster "Pattern schreiben" öffnen. Auf jeder Seite stehen Titel, Wert und Schild klar lesbar, nichts liegt
@@ -225,7 +225,7 @@ probieren, Ausgabe und Display notieren.
    (siehe Abschnitt 7). Bilder aus dem Emulator: `docs/images/blech-menue-v14/00-all.png` (nur lokal, nicht im Repo).
    Melden: ok, sonst Seitenzähler und Anzeige der Seiten, am besten mit Foto.
 
-9. **Einstellungen.** Eintrag MFX 2: Hauptrad auf OFF, der Wert zeigt "OFF, RESTART". WRITE:
+9. **Einstellungen.** Gruppe FEATURES, Seite MFX 2: Hauptrad auf OFF, der Wert zeigt "OFF, RESTART". WRITE:
    "saved". Ausschalten, die Karte am Rechner ansehen: `KORG/blechtribe/settings.b.bin` ist 24 Byte
    groß. Wieder einschalten. Danach wieder ON und WRITE.
    Erwartet: nach dem Neustart ist MFX 2 aus, TOUCH SCALE verhält sich wie im Original.

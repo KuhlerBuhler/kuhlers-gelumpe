@@ -413,12 +413,12 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     /** The VSB the user loaded; an export booted with bootWith() does not replace it. */
     get baseFirmware() { return base ?? vsb; },
     /** Export check of the original and its patched copy (tools/emu/check.py), minutes. `onProgress(snapshot)` hears the service's progress about once a second while it runs (GET /check/progress). */
-    check(original, patched, allow = [], allowCode = [], onProgress = null) {
+    check(original, patched, allow = [], allowCode = [], onProgress = null, { quick = false } = {}) {
       const body = new Uint8Array(original.length + patched.length);
       body.set(original);
       body.set(patched, original.length);
       const spans = list => list.map(([at, n]) => `0x${at.toString(16)}:${n}`).join(",");
-      const query = [["allow", spans(allow)], ["allowCode", spans(allowCode)]].filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join("&");
+      const query = [["allow", spans(allow)], ["allowCode", spans(allowCode)], ["quick", quick ? "1" : ""]].filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join("&");
       const run = api(`/check${query ? `?${query}` : ""}`, body);
       if (!onProgress || !link) return run;
       let over = false;

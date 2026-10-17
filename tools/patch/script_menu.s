@@ -38,9 +38,9 @@
 .equ M_BL_CLR, 0xD0
 .equ M_PC, 0x158              ; the gap between the two settings buffers (M_FILE_A ends at 0x158, M_FILE_B starts at 0x160)
 .equ PS_SETTING, 0xC0180F10
-.equ M_TM, 0x15C              ; the other word of that gap: the page TAP MOTION, 1 on (the default), 0 off
-.equ TM_SETTING, 0xC0188F00   ; the setting word of the patch tap-motion: never written (FFFFFFFF) or 1 is on, 0 is off
-.equ M_NA, 0xFC               ; the page NOTE ASSIST, 1 on (the default), 0 off (the word behind the 8 bytes of M_TABTEXT, whose longest text is "Plugins")
+.equ M_TM, 0x15C              ; the other word of that gap: the page TAP MOTION, 1 on (the default), 0 off, 2 once
+.equ TM_SETTING, 0xC0188F00   ; the setting word of the patch tap-motion: never written (FFFFFFFF) or 1 is on, 0 is off, 2 is once
+.equ M_NA, 0xFC               ; the page NOTE ASSIST, 1 on (the default), 0 off
 .equ NA_SETTING, 0xC0189F00   ; the setting word of the patch note-assistant: never written (FFFFFFFF) or 1 is on, 0 is off
 .equ GPIO_BASE, 0x01E26000
 .equ GPIO_WRITE, 0xC0016BB4
@@ -62,12 +62,14 @@
 .equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST
 .equ M_STATE_WORDS, 128
 .equ SWITCH_SCREEN, 0xC0083D28
+.equ SPLASH_IMPORT, 0xC01A2500  ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
+.equ SPLASH_DRAW, 0xC01A2504
 .equ M_LEVEL, 0xE0
 .equ M_GROUP, 0xE4
 .equ M_RAW, 0xE8
 .equ M_TOP, 0xEC
 .equ M_TABW, 0xF0
-.equ M_TABTEXT, 0xF4
+; 0xF4 to 0xFB: free (was the 8 bytes of the tab text, which the tab widget now reads straight from tab_names)
 .equ FS_OPENDIR, 0xC009E660
 .equ FS_READDIR, 0xC009E740
 .equ FS_CLOSEDIR, 0xC009E728
@@ -140,7 +142,7 @@ menu_arm_load_end:
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
 ; magic, version u16 (1 or 2), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
-; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON), version 2 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
+; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON), version 2 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted; the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes. Always written as version 2, version 1 is still read.
@@ -196,6 +198,9 @@ menu_load_apply:
     mov r2, r1, lsr #3
     and r2, r2, #1
     eor r2, r2, #1
+    cmp r2, #0
+    tstne r1, #0x20
+    movne r2, #2
     str r2, [r4, #M_TM]
     ldr r12, =TM_SETTING
     str r2, [r12]
@@ -351,6 +356,8 @@ menu_settings_save:
     ldr r1, [r4, #M_TM]
     cmp r1, #0
     orreq r0, r0, #8
+    cmp r1, #2
+    orreq r0, r0, #0x20
     ldr r1, [r4, #M_NA]
     cmp r1, #0
     orreq r0, r0, #16
@@ -1001,7 +1008,8 @@ menu_title_prefix:
     bx lr
 
 ; The tab on top of the screen reads BLECH on the top level and the name of the group inside one. The tab widget keeps a
-; pointer to its text, which points at M_TABTEXT here. r5 = MENU_STATE.
+; pointer to its text, which points straight at the name in tab_names here (no copy, so a name may be longer than 7
+; characters). r5 = MENU_STATE.
 menu_tab_text:
     push {lr}
     ldr r0, [r5, #M_TABW]
@@ -1016,10 +1024,7 @@ menu_tab_go:
     addeq r3, r3, #1
     ldr r1, =tab_names
     ldr r1, [r1, r3, lsl #2]
-    add r0, r5, #M_TABTEXT
-    bl menu_copy
     ldr r0, [r5, #M_TABW]
-    add r1, r5, #M_TABTEXT
     str r1, [r0, #0x38]
     pop {pc}
 .pool
@@ -1062,6 +1067,10 @@ menu_texts_clear:
     beq menu_text_tm
     cmp r0, #21
     beq menu_text_na
+    cmp r0, #22
+    beq menu_text_splash
+    cmp r0, #23
+    beq menu_text_splash
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1231,6 +1240,20 @@ menu_text_invert:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
+; SPLASH IMPORT (22): ENTER reads KORG/blechtribe/splash.bmp into the start image; SPLASH DRAW (23): ENTER opens the editor
+menu_text_splash:
+    mov r6, r0
+    mov r0, #3
+    bl menu_title_prefix
+    cmp r6, #22
+    ldreq r1, =str_splash_import
+    ldrne r1, =str_splash_draw
+    bl menu_copy
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status_value
+    b menu_text_press
+
 ; PATTERN CONFIRM: whether the pattern change waits for a second press (the patch pattern-switch reads the word PS_SETTING)
 menu_text_pc:
     mov r0, #3
@@ -1254,6 +1277,8 @@ menu_text_tm:
     ldr r1, =str_off
     cmp r2, #0
     ldrne r1, =str_on
+    cmp r2, #2
+    ldreq r1, =str_once
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
@@ -1375,6 +1400,15 @@ menu_text_status_more:
     beq menu_text_status_go
     cmp r1, #0x24
     ldreq r1, =str_nofolder
+    beq menu_text_status_go
+    cmp r1, #0x40
+    ldreq r1, =str_splash_saved
+    beq menu_text_status_go
+    cmp r1, #0x41
+    ldreq r1, =str_splash_nofile
+    beq menu_text_status_go
+    cmp r1, #0x42
+    ldreq r1, =str_splash_format
     beq menu_text_status_go
     cmp r1, #0x25
     ldreq r1, =str_nofolder
@@ -1581,12 +1615,13 @@ menu_confirm_add:
 .pool
 
 ; The menu has three levels, the way Data Util has two. Level 0 is the one page BLECH in the ring of the firmware, between Global and
-; Data Util ("press [ Enter ]"); ENTER opens level 1, the list of the groups PLUGINS, GAMES and TOOLS (the last two only when an
-; app is declared in them), MFX 2 and CUSTOMIZATION, each again "press [ Enter ]", and behind them the three pages PATTERN CONFIRM,
-; TAP MOTION and NOTE ASSIST, which are settings and sit on level 1 themselves (the main dial changes them, WRITE keeps them);
-; ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION, 4 MFX 2). EXIT goes one level up. M_PAGE counts
-; within the level, the counter shows only that level. Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, after
-; Event, on which Blechy, the app built into BLECH, shows himself (the frame hook opens and closes him by this level).
+; Data Util ("press [ Enter ]"); ENTER opens level 1, the list of the groups FEATURES, CUSTOMIZATION and PLUGINS, and behind them the
+; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it. Each is again
+; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
+; 4 FEATURES). FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
+; main dial changes them, WRITE keeps them). EXIT goes one level up. M_PAGE counts within the level, the counter shows only that
+; level. Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, after Event, on which Blechy, the app built into
+; BLECH, shows himself (the frame hook opens and closes him by this level).
 ; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 2 a plugin, 3 export, 4 import, 5 unused, 6 a page a
 ; plugin added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST), r1 = its index (the plugin, the page, the app's table index,
@@ -1606,11 +1641,17 @@ menu_kind:
     beq menu_kind_done
     cmp r2, #1
     bne menu_kind_group
+    mov r0, #16
     cmp r5, #0
-    moveq r0, #16
+    moveq r1, #4
+    beq menu_kind_done
+    cmp r5, #1
+    moveq r1, #3
+    beq menu_kind_done
+    cmp r5, #2
     moveq r1, #0
     beq menu_kind_done
-    sub r5, r5, #1
+    sub r5, r5, #3
     mov r0, #0
     bl app_count
     cmp r0, #0
@@ -1619,48 +1660,34 @@ menu_kind:
     moveq r0, #16
     moveq r1, #1
     beq menu_kind_done
-    sub r5, r5, #1
 menu_kind_no_games:
-    mov r0, #1
-    bl app_count
-    cmp r0, #0
-    beq menu_kind_no_tools
-    cmp r5, #0
-    moveq r0, #16
-    moveq r1, #2
-    beq menu_kind_done
-    sub r5, r5, #1
-menu_kind_no_tools:
-    cmp r5, #0
-    moveq r0, #16
-    moveq r1, #4
-    beq menu_kind_done
-    sub r5, r5, #1
-    cmp r5, #0
-    moveq r0, #16
-    moveq r1, #3
-    beq menu_kind_done
-    sub r5, r5, #1
-    mov r1, #0
-    cmp r5, #0
-    moveq r0, #18
-    cmp r5, #1
-    moveq r0, #20
-    cmp r5, #2
-    moveq r0, #21
+    mov r0, #16
+    mov r1, #2
     b menu_kind_done
 menu_kind_group:
     ldr r3, [r4, #M_GROUP]
     cmp r3, #0
     beq menu_kind_plugins
     cmp r3, #4
-    moveq r0, #1
-    moveq r1, #0
-    beq menu_kind_done
+    beq menu_kind_features
     cmp r3, #3
     bne menu_kind_apps
     add r0, r5, #7
+    cmp r5, #8
+    moveq r0, #22
+    cmp r5, #9
+    moveq r0, #23
     mov r1, #0
+    b menu_kind_done
+menu_kind_features:
+    mov r0, #21
+    mov r1, #0
+    cmp r5, #2
+    moveq r0, #20
+    cmp r5, #1
+    moveq r0, #18
+    cmp r5, #0
+    moveq r0, #1
     b menu_kind_done
 menu_kind_apps:
     cmp r3, #2
@@ -1709,7 +1736,7 @@ menu_page_count:
 menu_count_level1:
     cmp r1, #1
     bne menu_count_group
-    mov r4, #6
+    mov r4, #3
     mov r0, #0
     bl app_count
     cmp r0, #0
@@ -1725,10 +1752,16 @@ menu_count_group:
     cmp r1, #0
     beq menu_count_plugins
     cmp r1, #3
-    moveq r0, #8
-    beq menu_count_out
+    bne menu_count_features
+    mov r0, #8
+    ldr r1, =SPLASH_IMPORT
+    ldr r1, [r1]
+    cmn r1, #1
+    addne r0, r0, #2            ; SPLASH IMPORT and SPLASH DRAW, where the build has the splash editor
+    b menu_count_out
+menu_count_features:
     cmp r1, #3
-    movhi r0, #1
+    movhi r0, #4
     bhi menu_count_out
     sub r0, r1, #1
     bl app_count
@@ -2417,9 +2450,14 @@ menu_value_pc:
     b menu_value_done
 ; TAP MOTION acts at once as well: the word of the patch tap-motion follows, WRITE keeps it
 menu_value_tm:
-    mov r1, #1
+    ldr r1, [r6, #M_TM]
     cmp r5, #0
-    movle r1, #0
+    addgt r1, r1, #1
+    sublt r1, r1, #1
+    cmp r1, #0
+    movlt r1, #0
+    cmp r1, #2
+    movgt r1, #2
     str r1, [r6, #M_TM]
     ldr r2, =TM_SETTING
     str r1, [r2]
@@ -2543,6 +2581,10 @@ menu_slot_keys:
     beq menu_keys_import
     cmp r0, #19
     beq menu_keys_done
+    cmp r0, #22
+    beq menu_keys_splash_import
+    cmp r0, #23
+    beq menu_keys_splash_draw
     cmp r6, #0x09
     beq menu_keys_done
     cmp r0, #2
@@ -2590,6 +2632,20 @@ menu_keys_import:
 menu_keys_import_now:
     bl menu_import
     b menu_keys_done
+menu_keys_splash_import:
+    cmp r6, #0x09
+    bne menu_keys_done
+    ldr r12, =SPLASH_IMPORT
+    blx r12
+    add r0, r0, #0x40           ; 0x40 stored, 0x41 no file, 0x42 not such a BMP, 0x43 the flash write failed
+    ldr r1, =MENU_STATE
+    str r0, [r1, #M_STATUS]
+    b menu_keys_done
+menu_keys_splash_draw:
+    cmp r6, #0x09
+    bne menu_keys_done
+    pop {r4, r5, r6, lr}        ; the switch destroys this screen: jump, do not come back
+    ldr pc, =SPLASH_DRAW
 menu_keys_save:
     bl menu_settings_save
 menu_keys_done:
@@ -2667,6 +2723,8 @@ str_tab_tools:
     .asciz "Tools"
 str_tab_custom:
     .asciz "Custom"
+str_tab_features:
+    .asciz "Feature"
 str_press:
     .asciz "press  [ Enter ]"
 str_arrow:
@@ -2741,6 +2799,8 @@ str_stock:
     .asciz " stock"
 str_custom:
     .asciz "CUSTOMIZATION"
+str_features:
+    .asciz "FEATURES"
 str_custom_value:
     .asciz "LEDS, LIGHT"
 str_custom_hint:
@@ -2759,6 +2819,16 @@ str_bl_blue:
     .asciz "BACKLIGHT BLUE"
 str_invert:
     .asciz "DISPLAY INVERT"
+str_splash_import:
+    .asciz "SPLASH IMPORT"
+str_splash_draw:
+    .asciz "SPLASH DRAW"
+str_splash_saved:
+    .asciz "loaded"
+str_splash_nofile:
+    .asciz "no splash.bmp"
+str_splash_format:
+    .asciz "not 128x64 1 bit"
 str_pc:
     .asciz "PATTERN CONFIRM"
 str_tm:
@@ -2767,11 +2837,13 @@ str_na:
     .asciz "NOTE ASSIST"
 .align 4
 tab_names:
-    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_mfx
+    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features
 group_names:
-    .word str_scripts, str_group_games, str_group_tools, str_custom, str_mfx
+    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
+str_once:
+    .asciz "ONCE"
 str_on:
     .asciz "ON"
 str_off:
