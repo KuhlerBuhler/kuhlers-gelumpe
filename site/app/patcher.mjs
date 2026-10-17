@@ -4,7 +4,7 @@ import { icon } from "./icons.mjs";
 import { toast } from "./toast.mjs";
 import { applyPatches } from "../../src/patch.mjs";
 import { buildOf } from "../../src/firmware.mjs";
-import { classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
+import { classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -111,6 +111,16 @@ export function patcherPage(root, { emulator, show = () => {} }) {
       return res.json();
     }, setUrl), setUrl };
     return blech;
+  }
+
+  /** The list of copies that passed already; without it every copy is checked. */
+  async function loadVerified() {
+    try {
+      const res = await fetch(VERIFIED_URL);
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
   }
 
   const dispatch = event => { flow = step(flow, event); render(); };
@@ -264,7 +274,8 @@ export function patcherPage(root, { emulator, show = () => {} }) {
       }
       dispatch({ type: "checking" });
       await tick();
-      const report = await emulator.check(input, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); });
+      const report = await verifiedReport(input, res.bytes, await loadVerified())
+        ?? await emulator.check(input, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); });
       if (report.ok) passed = res.bytes;
       dispatch({ type: "checked", report });
     } catch (e) {

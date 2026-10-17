@@ -18,6 +18,8 @@ export const HACKTRIBE_PATCH_MAX = 1 << 20;
 /** Where the BLECH set lives, relative to the page: the one list of what BLECH is (docs/patcher.md). */
 export const BLECH_SET_URL = "data/patches/blech.json";
 export const BLECH_SYNTH_SET_URL = "data/patches/blech-synth.json";
+/** Copies that already passed the whole emulator check, as SHA-256 of input and result (tools/verify-patches.mjs). */
+export const VERIFIED_URL = "data/patches/verified.json";
 
 /**
  * The BLECH set and its patches, read through `fetchJson(url)` (urls are relative to the page, as the set
@@ -100,6 +102,23 @@ export function sampleFolder(kind) {
   return `KORG/${FOLDER[kind] ?? "hacktribe"}/`;
 }
 
+/**
+ * The report for a patched copy that is byte for byte one that already passed the check (`verified`, the parsed
+ * data/patches/verified.json), or null. The same input and the same result give the same boots, so the check need not
+ * run again: on a slow PC it takes more than an hour.
+ */
+export async function verifiedReport(input, output, verified) {
+  const results = verified?.format === "gelumpe-verified" && verified.version === 1 && Array.isArray(verified.results) ? verified.results : [];
+  if (!results.length) return null;
+  const [from, to] = await Promise.all([sha256(input), sha256(output)]);
+  const hit = results.find(r => r.input === from && r.output === to);
+  if (!hit) return null;
+  return {
+    ok: true, verified: true, changed: [],
+    checks: [{ id: "verified", ok: true, detail: `Genau diese Datei hat am ${hit.date} alle ${hit.checks} Prüfungen im Emulator bestanden.` }],
+  };
+}
+
 /** Names for the checks of tools/emu/check.py. */
 export function checkName(id) {
   if (id.startsWith("start_mode:")) return "Startmodus";
@@ -114,6 +133,7 @@ export function checkName(id) {
     kill_switch: "Notschalter (EXIT beim Einschalten)",
     start_phase: "Startphase unverändert",
     start_phase_exceptions: "Erlaubte Änderungen in der Startphase",
+    verified: "Schon geprüft",
   }[id] ?? id;
 }
 

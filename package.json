@@ -26,6 +26,7 @@
     "test:ci": "node --test --test-timeout=300000 \"test/*.test.mjs\"",
     "serve": "node tools/serve.mjs",
     "build:site": "node tools/build-site.mjs",
+    "verify:patches": "node tools/verify-patches.mjs",
     "build:codemirror": "node tools/build-codemirror.mjs",
     "build:blech-patch": "node tools/build-blech-patch.mjs",
     "test:local": "E2_LOCAL_REQUIRED=1 node --test \"test/*.test.mjs\"",

@@ -21,6 +21,7 @@ npm run setup:emu    # einmalig: Python-Umgebung mit Unicorn für den Emulator
 npm run build:site   # dist/ für die App erzeugen
 npm run build:codemirror   # site/vendor/codemirror.mjs neu bauen, nur nach einer Änderung an tools/codemirror-entry.mjs
 npm run build:blech-patch   # BLECH-Patchdateien für ein Release bauen (siehe unten)
+npm run verify:patches -- VSB...   # die Kopien des Patchers einmal prüfen, ihre Prüfsummen nach data/patches/verified.json (siehe unten)
 
 npm test             # alle Tests, die ohne Hardware und ohne Korg-Daten laufen
 npm run test:e2e     # die Seite in Chrome gegen das simulierte Gerät
@@ -233,6 +234,12 @@ App) passt nur auf genau die Hacktribe-Datei mit diesem sha256-Anfang. Liegen si
 `npm run release` sie mit hoch, `BLECH.patch` muss für die fällige Version gebaut sein
 (`-- --version X.Y.Z`). Beide enthalten keine Firmware, nur eigenen Code und Prüfsummen. Format, Beleg
 und Grenzen: [patcher.md](patcher.md), "Patch-Datei und bsdiff".
+
+**Geprüfte Kopien** (vor jedem Release mit geändertem Patch-Satz): `npm run verify:patches -- <Korgs rote 2.02>
+<Korgs blaue 2.02> <Hacktribe 2.02>` patcht jede Datei wie die Seite, lässt `tools/emu/check.py` laufen und schreibt die
+SHA-256 von Eingabe und Ergebnis nach `data/patches/verified.json`, nur wenn alle bestehen. Der Patcher überspringt die
+Prüfung im Emulator für genau diese Kopien, auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei wird
+weiter ganz geprüft; eine Liste von einem alten Patch-Satz trifft nichts mehr und kostet nur die Zeit.
 
 ## Keine öffentliche Seite
 
