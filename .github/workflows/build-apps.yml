@@ -54,6 +54,16 @@ jobs:
           VERSION: ${{ inputs.version }}
       - run: npm run setup:emu
       - run: npm run app:build -- --bundles ${{ matrix.bundles }}
+      - name: Start the frozen emulator service once, as the app does
+        run: |
+          bin=$(ls src-tauri/binaries/gelumpe-emu-*)
+          "$bin" --port 8791 > sidecar.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://127.0.0.1:8791/; then echo "answers after $i s"; break; fi
+            sleep 1
+          done
+          cat sidecar.log
+          curl -sf -o /dev/null http://127.0.0.1:8791/ || curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8791/ || (echo "the service does not answer"; exit 1)
       - uses: actions/upload-artifact@v4
         with:
           name: app-${{ runner.os }}
