@@ -178,3 +178,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [TAP Motion: einmal abspielen, TOUCH SCALE wie MASTER FX](2026-10-17-tap-motion-einmal.md)
 - [Startbild: Rad im Editor, Bild von der Karte](2026-10-17-startbild-import.md)
 - [Windows: der Emulator stirbt beim ersten Firmware-Befehl, Control Flow Guard im gepackten Dienst](2026-10-17-windows-cfg.md)
+- [Doom: der Lader startet nach dem Einhängen der Karte](2026-10-17-doom-nach-dem-einhaengen.md)

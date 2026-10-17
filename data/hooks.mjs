@@ -13,8 +13,8 @@
 export const CHAINS = {
   "start": [
     { id: "after-rescue-paths", sites: [0xC002ADAC] },
-    { id: "doom-select", sites: [0xC002ADB0] },
-    { id: "card-mount", sites: [0xC002AE60, 0xC002AE64] },
+    { id: "card-mount", sites: [0xC002AE60] },
+    { id: "doom-select", sites: [0xC002AE64] },
     { id: "before-sample-load", sites: [0xC0038D34] },
     { id: "sample-load", sites: [0xC0038D60, 0xC00366D4] },
     { id: "after-sample-load", sites: [0xC0038D68] },

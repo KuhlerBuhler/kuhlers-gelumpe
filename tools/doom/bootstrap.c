@@ -6,7 +6,7 @@
 #include "native_power.h"
 extern unsigned char __bss_start[], __bss_end[];
 extern void doom_enter(struct doom_shared *) __attribute__((noreturn));
-static uint32_t fatfs[0x1000 / 4], fil[0x240 / 4];
+static uint32_t fil[0x240 / 4];
 static volatile struct doom_shared *const state = (void *)DOOM_SHARED_ADDRESS;
 static void zero(void *p, unsigned int n) { unsigned char *b=p; while (n--) *b++=0; }
 static void failed(uint32_t error) __attribute__((noreturn));
@@ -27,10 +27,12 @@ void doom_load(void)
     ((void (*)(int))0xC00005A0u)(8);
     ((void (*)(int))0xC0025A14u)(1);
     ((void (*)(void))0xC003FD20u)();
-    int result=((int (*)(void *,const char *,int))0xC009DAD8u)(fatfs,"SD:",1);
-    if (result) failed(0x100u+(unsigned int)result);
+    /* The firmware has just mounted the card (its own FatFs volume, as the plugins read it). Mounting it again this early
+       failed on the device with FR_DISK_ERR (0x101). Its volume entry is 0 or its type byte 0 when there is no card. */
+    const unsigned char *volume = *(const unsigned char *const *)0xC06A010Cu;
+    if (!volume || !volume[0]) failed(0x100u);
     state->stage=DOOM_STAGE_MOUNTED;
-    result=((int (*)(void *,const char *,int))0xC009DB60u)(fil,DOOM_PROGRAM_PATH,1);
+    int result=((int (*)(void *,const char *,int))0xC009DB60u)(fil,DOOM_PROGRAM_PATH,1);
     if (result) failed(0x200u+(unsigned int)result);
     if (fil[3] != EXPECTED_PROGRAM_BYTES) {
         ((int (*)(void *))0xC009E3DCu)(fil);

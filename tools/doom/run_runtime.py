@@ -84,6 +84,9 @@ def write_frame(path, frame):
     path.write_bytes(b"\x89PNG\r\n\x1a\n"+chunk(b"IHDR",header)+chunk(b"IDAT",zlib.compress(b"".join(rows)))+chunk(b"IEND",b""))
 
 
+BEFORE_MOUNT={"globals","patterns"}       # what the firmware has done before the loader runs
+
+
 def run(image, flash, program, wad, seconds=5.0, held=0x408, fault=None, output=None, card_mib=64, inspection=None, scenario="turn"):
     if output: output=external_output(output)
     machine = Machine(image[0x100:], flash)
@@ -183,7 +186,9 @@ def run(image, flash, program, wad, seconds=5.0, held=0x408, fault=None, output=
                   lcd_sha256=hashlib.sha256(lcd).hexdigest(),
                   framebuffer_nonzero=sum(x.bit_count() for x in lcd),
                   screen_manager=hex(struct.unpack("<I",machine.uc.mem_read(0xC03404C0,4))[0]))
-    common_ok=not error and not machine.asserts and not sampler and tasks=={1,8} and report["guards_ok"] and report["sd_write_calls"]==0 and report["sd_write_commands"]==0 and report["sd_unchanged"] and report["screen_manager"]=="0x0"
+    # The loader runs right after the firmware has mounted the card: by then it has read its globals and patterns from flash and
+    # made its screen manager, nothing else of the sampler (no samples, no other task than 1 and 8).
+    common_ok=not error and not machine.asserts and sampler<=BEFORE_MOUNT and tasks=={1,8} and report["guards_ok"] and report["sd_write_calls"]==0 and report["sd_write_commands"]==0 and report["sd_unchanged"]
     report["ok"] = common_ok and current["magic"]==0x4D4F4F44 and current["stage"]==5 and current["gametic"]>0 and current["key_events"]>=2 and first_playing is not None and current["viewangle"]!=first_playing["viewangle"] and 0<report["framebuffer_nonzero"]<8192
     if controller:
         report.update(scenario="controls",controls=dict(checks=controller.checks,events=controller.events,states=controller.states),game_frame_pixels=sum(x.bit_count() for x in controller.game_frame) if controller.game_frame else 0)
