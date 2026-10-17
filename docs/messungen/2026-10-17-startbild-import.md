@@ -16,6 +16,14 @@ wieder da, nur der Cursor bewegt sich.
 - **Gemessen:** neue Prüfung "the image stays on the display after VALUE": mit dem alten Patch weichen 941 von 1024 Byte ab, mit dem
   neuen nur das Byte unter dem Cursor.
 
+- **Am Gerät (Besitzer, 17.10.):** mit dem Fix bleibt das Bild, beim Drehen sieht man aber zwischendurch kurz die Menüseite. Der Fix
+  zeichnete das Bild erst im nächsten Takt neu; das Display des Geräts überträgt schon dazwischen.
+- **Zweiter Fix:** solange der Editor offen ist, sieht der Bildschirm-Takt nur das Widget des Editors (der Vektor der Seite wird gegen
+  einen mit nur diesem Widget getauscht und beim Verlassen und beim Abbau zurückgegeben), und der Takt-Haken löscht den Wunsch, alles
+  neu zu zeichnen. Das Bild muss dann nicht mehr nachgezeichnet werden.
+- **Gemessen ("the page is not drawn while the dial turns"):** Schreibzugriffe in den Displaypuffer nach einem Klick: mit dem ersten Fix
+  1606 zum Leeren und 8061 Pixel (Seite und Bild), mit dem zweiten 3 (der Cursor).
+
 Bedienung im Editor: Rad bewegt den Cursor (zeilenweise, am Zeilenende in die nächste Zeile), MENU kippt das Pixel unter dem Cursor,
 WRITE speichert, EXIT verlässt den Editor.
 
