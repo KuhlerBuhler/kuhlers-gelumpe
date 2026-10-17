@@ -105,9 +105,9 @@ def real_machine(payload, flash):
     return Machine(payload, flash)
 
 
-def real_check(base, patched, flash, allow, allow_code=(), progress=None):
+def real_check(base, patched, flash, allow, allow_code=(), progress=None, quick=False):
     from check import check
-    return check(base, patched, flash, allow, allow_code, progress=progress)
+    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick)
 
 
 class Emulator:
@@ -414,9 +414,9 @@ class Emulator:
             self.inputs.put(panel_message({"kind": "adapter", "plugged": False})[0])
         self.inputs.put(held)
 
-    def check(self, pair, allow, allow_code=()):
+    def check(self, pair, allow, allow_code=(), quick=False):
         """Export check (check.py) of the original VSB and its patched copy, sent
-        one after the other, with the loaded flash. One check at a time."""
+        one after the other, with the loaded flash. One check at a time; `quick` only the start scenarios."""
         if len(pair) != 2 * VSB_SIZE:
             raise ValueError(f"Die Prüfung braucht Original und Kopie, je {VSB_SIZE} Byte.")
         if not self.checking.acquire(blocking=False):
@@ -424,7 +424,8 @@ class Emulator:
         self.check_progress = {"state": "running"}
         try:
             result = self.checker(bytes(pair[:VSB_SIZE]), bytes(pair[VSB_SIZE:]), self.current_flash(), allow, allow_code,
-                                  progress=lambda snapshot: setattr(self, "check_progress", {"state": "running", **snapshot}))
+                                  progress=lambda snapshot: setattr(self, "check_progress", {"state": "running", **snapshot}),
+                                  **({"quick": True} if quick else {}))
             self.check_progress = {**self.check_progress, "state": "done"}
             return result
         except BaseException:
@@ -676,7 +677,7 @@ def make_handler(emu, token, origins):
                              for key in ("allow", "allowCode")}
                     if any(len(a) != 2 for lst in spans.values() for a in lst):
                         raise ValueError("allow und allowCode sind Listen aus Stelle:Länge.")
-                    return self._send(200, emu.check(body, spans["allow"], spans["allowCode"]))
+                    return self._send(200, emu.check(body, spans["allow"], spans["allowCode"], quick=query.get("quick", [""])[0] == "1"))
                 elif path == "/input":
                     body = self._body(1024)
                     if body is None: return

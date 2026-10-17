@@ -4,7 +4,7 @@ import { icon } from "./icons.mjs";
 import { toast } from "./toast.mjs";
 import { applyPatches } from "../../src/patch.mjs";
 import { buildOf } from "../../src/firmware.mjs";
-import { classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
+import { classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -48,6 +48,7 @@ export function patcherPage(root, { emulator, show = () => {} }) {
   let input = null;             // the bytes the patches go on: the dropped file, or Korg's original turned into Hacktribe's
   let stockFile = null;         // Korg's original as dropped, and what classify made of it, to go back to on the other route
   let passed = null;            // the patched copy that passed the check
+  let applied = null;           // what applyPatches gave for it: the spans the check needs again for the thorough run
   let blech = null;             // the BLECH set (data/patches/blech.json) with its patches parsed, once loaded
   let hint = null;
 
@@ -92,7 +93,8 @@ export function patcherPage(root, { emulator, show = () => {} }) {
   const note = el("p", { className: "muted", id: "cee-patch-note", role: "status", hidden: true });
   const download = el("button", { type: "button", className: "btn primary", id: "cee-patch-download", textContent: "SYSTEM.VSB herunterladen", disabled: true });
   const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: "Ich hab angst dass mein Gerät kaputt geht", disabled: true });
-  const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [download, afraid]);
+  const thorough = el("button", { type: "button", className: "btn", id: "cee-patch-thorough", textContent: "Gründlich prüfen", hidden: true });
+  const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [download, afraid, thorough]);
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
 
   root.replaceChildren(el("div", { className: "cee-patch" }, [
@@ -111,6 +113,16 @@ export function patcherPage(root, { emulator, show = () => {} }) {
       return res.json();
     }, setUrl), setUrl };
     return blech;
+  }
+
+  /** The list of copies that passed already; without it every copy is checked. */
+  async function loadVerified() {
+    try {
+      const res = await fetch(VERIFIED_URL);
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
   }
 
   const dispatch = event => { flow = step(flow, event); render(); };
@@ -192,6 +204,7 @@ export function patcherPage(root, { emulator, show = () => {} }) {
     ])));
 
     result.hidden = !can.download;
+    thorough.hidden = !(flow.report?.checks ?? []).some(c => c.id === "quick");
     download.disabled = !can.download;
     afraid.disabled = !can.test;
     done.hidden = flow.phase !== "downloaded";
@@ -264,10 +277,27 @@ export function patcherPage(root, { emulator, show = () => {} }) {
       }
       dispatch({ type: "checking" });
       await tick();
-      const report = await emulator.check(input, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); });
+      // a copy nobody checked before gets the quick check (start and rescue paths); the thorough one is a button after it
+      const report = await verifiedReport(input, res.bytes, await loadVerified())
+        ?? await emulator.check(input, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: true });
+      applied = res;
       if (report.ok) passed = res.bytes;
       dispatch({ type: "checked", report });
     } catch (e) {
+      dispatch({ type: "error", message: e.message });
+    }
+  });
+
+  thorough.addEventListener("click", async () => {
+    if (!passed || !applied) return;
+    const copy = passed;
+    dispatch({ type: "recheck" });
+    try {
+      const report = await emulator.check(input, copy, applied.allow, applied.allowCode, snapshot => { latest = snapshot; showProgress(); });
+      if (!report.ok) passed = null;
+      dispatch({ type: "checked", report });
+    } catch (e) {
+      passed = null;
       dispatch({ type: "error", message: e.message });
     }
   });

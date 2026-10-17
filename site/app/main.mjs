@@ -18,6 +18,7 @@ import { sdcardPanel } from "./sdcard.mjs";
 import { patcherPage } from "./patcher.mjs";
 import { patternToolsPage } from "./pattern-tools.mjs";
 import { rescuePage } from "./rescue.mjs";
+import { splashPage } from "./splash.mjs";
 import { terminalPanel } from "./terminal.mjs";
 import { scriptsPanel } from "./scripts.mjs";
 import { Terminal } from "../../src/terminal.mjs";
@@ -546,6 +547,7 @@ function boot() {
   sidebar = contextSidebar(emulator.aside, { device, emulator, probe });
   patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id) });
   rescuePage($("#cee-rescue"));
+  splashPage($("#cee-splash"));
   let storage = null;
   try { storage = window.localStorage; } catch { /* blocked: the scripts stay in memory */ }
   const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options });

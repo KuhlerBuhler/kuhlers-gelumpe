@@ -5,44 +5,47 @@
 
 [English version](README.en.md)
 
-Ein grafischer Leser und Modifizierer für die Electribe 2 Sampler, dazu ein Emulator und ein
-Patcher für die BLECH-Firmware, die "Blechtribe". BLECH läuft entweder auf Hacktribe oder direkt auf
-Korgs Original-Firmware des roten Samplers. Für die blaue Electribe 2 mit Firmware 2.02 gibt es
-einen eigenen, im Emulator geprüften Synth-Satz mit Theme, Startbild, Spielhilfen,
-BLECH-Menü und Plugins. Umfang und Grenzen stehen in der
+Moin! GELUMPE ist ein Programm, mit dem du deine Electribe 2 auslesen und umbauen kannst. Mit drin
+ist ein Emulator, also eine Electribe im Rechner, und ein Patcher für meine Firmware BLECH (ich nenn
+sie auch gern "Blechtribe"). BLECH läuft auf dem roten Sampler, entweder über Hacktribe oder direkt
+auf Korgs Original-Firmware. Für die blaue Electribe 2 gibt es inzwischen auch einen eigenen Satz, der
+kann noch nicht alles, was die rote kann. Was genau geht und was nicht, steht in der
 [Synth-Messung](docs/messungen/2026-10-16-blech-synth.md).
 
-**Wer ich bin:** Kuhler Buhler aka Pascal, Softwareentwickler und Live-Act. Nachdem ich Hacktribe
-installiert hatte, ist mir aufgefallen, dass man die MFX- und IFX-Presets bearbeiten kann. Danach war
-ich ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen. Mich nervt,
-was Korg mit der Electribe 2 gemacht hat (liegen gelassen), mit BLECH hab ich praktisch die Electribe 3
-gebaut.
+## Wer ich bin
 
-Wenn dir das was bringt: [Spende per PayPal](https://www.paypal.me/kuhlerbuhler).
+Ich bin Kuhler Buhler, also Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab,
+ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich
+ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.
 
-Ein Editor und Emulator für den Korg Electribe 2 Sampler mit Firmware 2.02, Korgs
-Original oder [Hacktribe](https://github.com/bangcorrupt/hacktribe). Er läuft als App oder
-im Browser. Mit ihm kannst du
+Warum das Ganze? Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr
+drin, als Korg jemals rausgeholt hat. Mit BLECH hab ich mir praktisch die Electribe 3 gebaut, die es
+nie gab.
 
-- die Firmware deiner Electribe in einem **Emulator** starten und bedienen, mit Display,
-  Tasten, Reglern und LEDs, ohne dass etwas an dein Gerät geht,
-- deine `SYSTEM.VSB` **patchen** und als neue Firmware-Datei für die SD-Karte ausgeben
-  (BLECH-Patchsatz, Startbild-Editor, zweiter Master-Effekt und mehr),
-- **Plugins** schreiben, die auf der Electribe laufen: ein Lauflicht, ein Spiel auf dem
-  Display, eine eigene Menüseite,
-- Effekte und Patterns in Klartext und echten Einheiten bearbeiten statt in Bytes und per
-  Web MIDI ans Gerät schicken.
+Wenn dir das was bringt, freu ich mich über eine [Spende per PayPal](https://www.paypal.me/kuhlerbuhler).
 
-Bevor Daten gesendet werden, prüfen ein Linter mit Regeln, die am echten Gerät abgeglichen
-wurden, und ein simuliertes Gerät, ob die Electribe sie voraussichtlich annimmt. Emulator,
-Patcher und Plugins laufen mit Korgs Original 2.02 und mit Hacktribe 2.02. Für die blaue
-Electribe 2 mit Original 2.02 ist ein eigener Patch-Satz im Emulator geprüft. Der Effekt-Editor
-und das Schreiben ins RAM über MIDI brauchen Hacktribe. Bei anderen Ständen verschieben sich
-die Adressen, ein unbekanntes Gerät oder eine unbekannte Firmware-Datei wird deshalb nur
-gelesen.
+## Was du damit machen kannst
 
-**Es wird keine Firmware mitgeliefert.** Du lädst deine eigene `SYSTEM.VSB`. Die Datei
-verlässt deinen Rechner nicht, nichts wird auf einen Server geladen.
+GELUMPE läuft als App oder im Browser und funktioniert mit dem Electribe 2 Sampler mit Firmware
+2.02, egal ob Korgs Original oder [Hacktribe](https://github.com/bangcorrupt/hacktribe). Du kannst
+
+- die Firmware deiner Electribe im **Emulator** starten und bedienen, mit Display, Tasten, Reglern
+  und LEDs, ohne dass irgendwas an dein Gerät geht,
+- deine `SYSTEM.VSB` **patchen** und daraus eine neue Firmware-Datei für die SD-Karte machen
+  (BLECH, eigenes Startbild, zweiter Master-Effekt und einiges mehr),
+- **Plugins** schreiben, die direkt auf der Electribe laufen, zum Beispiel ein Lauflicht, ein Spiel
+  auf dem Display oder eine eigene Menüseite, oder fertige aus dem Katalog nehmen,
+- Effekte und Patterns in Klartext mit echten Einheiten bearbeiten statt in Bytes und sie per Web MIDI
+  ans Gerät schicken.
+
+Bevor irgendwas ans Gerät geht, schauen ein Linter mit Regeln, die ich am echten Gerät abgeglichen hab,
+und der Emulator drüber, ob die Electribe das voraussichtlich schluckt. Emulator, Patcher und Plugins
+laufen mit Korgs Original 2.02 und mit Hacktribe 2.02. Nur der Effekt-Editor und das Schreiben ins RAM
+über MIDI brauchen Hacktribe. Bei anderen Firmware-Ständen liegen die Adressen woanders, deshalb wird
+ein unbekanntes Gerät oder eine unbekannte Datei nur gelesen und nie beschrieben.
+
+**Firmware ist nicht dabei.** Du lädst deine eigene `SYSTEM.VSB`, und die bleibt auf deinem Rechner.
+Nichts davon landet auf irgendeinem Server.
 
 ## Vorschau
 
@@ -110,19 +113,19 @@ nicht. Mehr dazu (Intel-Mac, Windows auf ARM): [Entwicklung](docs/development.md
 
 ## Die Firmware patchen
 
-Auf der Seite "Patcher" lädst du deine eigene `SYSTEM.VSB` (Korgs Original 2.02 für Sampler oder Synth, oder Hacktribe 2.02), wählst die
-Patches und bekommst eine neue Datei. Der Emulator bootet sie vorher und prüft sie
-(Hauptbildschirm, Update-Abfrage, Startmodi, Notschalter). Erst nach bestandener Prüfung gibt die
-Seite die Datei frei, das dauert einige Minuten. Die Anleitung zum Aufspielen zeigt die Seite
-danach an. Alle Patches, ihr Format und die Grenzen stehen in [docs/patcher.md](docs/patcher.md).
-Wer ohne App patchen will, nimmt `BLECH.patch` oder die passende `.bsdiff`-Datei aus dem Release,
-ebenfalls dort beschrieben.
+Auf der Seite "Patcher" ziehst du deine eigene `SYSTEM.VSB` rein (Korgs Original 2.02 für Sampler oder
+Synth, oder Hacktribe 2.02), wählst die Patches aus und bekommst eine neue Datei. Bevor du die
+runterladen kannst, bootet der Emulator sie und prüft, ob alles läuft: Hauptbildschirm, Update-Abfrage,
+Startmodi, Notschalter. Das dauert ein paar Minuten, du siehst dabei, welche Gruppe gerade dran ist.
+Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches und ihre Grenzen stehen in
+[docs/patcher.md](docs/patcher.md). Wer ohne App patchen will, nimmt `BLECH.patch` oder die passende
+`.bsdiff`-Datei aus dem Release, das steht da auch.
 
-Der BLECH-Satz für den Sampler bringt unter anderem: ein eigenes Menü BLECH mit Plugins, Farben für Display und
-LEDs, Patternwechsel mit Bestätigung, TAP Motion, den Notenassistenten im KEYBOARD-Modus, einen
-Melodie-Generator (SHIFT + PART ERASE), Blechy als Haustier, ein Startbild mit Ladebalken, klare
-Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten, Lizenz in
-[docs/doom-lizenz.md](docs/doom-lizenz.md)).
+Was BLECH auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
+LEDs, Patternwechsel erst nach Bestätigung, TAP Motion, den Notenassistenten im KEYBOARD-Modus, einen
+Melodie-Generator (SHIFT + PART ERASE), Blechy als kleines Haustier, ein Startbild mit Ladebalken,
+verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten,
+zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).
 
 So sieht die Electribe mit dem BLECH-Theme aus (im Emulator):
 
@@ -130,19 +133,20 @@ So sieht die Electribe mit dem BLECH-Theme aus (im Emulator):
 
 ## Plugins
 
-Ein Plugin gibt der Electribe eine neue Funktion. Du lädst es über die SD-Karte aufs Gerät, in den
-Ordner `KORG/blechtribe/Plugin/`. Der Code ist eine Teilmenge von JavaScript, der Editor übersetzt
-ihn in Bytecode für eine kleine VM in der Firmware, und ein Fehler schaltet das Plugin ab, ohne die
-Electribe zu stören. Sprache, Ereignisse und Funktionen: [docs/plugins.md](docs/plugins.md).
-Im Katalog liegen fertige Plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong,
-Simon und Mandelbrot.
+Mit einem Plugin bringst du der Electribe was Neues bei. Es kommt über die SD-Karte in den Ordner
+`KORG/blechtribe/Plugin/`. Geschrieben wird in einer abgespeckten Form von JavaScript, der Editor
+übersetzt das in Bytecode für eine kleine VM in der Firmware. Wenn ein Plugin einen Fehler hat, wird
+nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
+[docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
+Snake, Tetris, Game of Life, Pong, Simon und Mandelbrot.
 
 ## Der Emulator
 
-Der Emulator führt die echte Firmware als lokaler Dienst aus, die Seite zeigt ein bedienbares
-Gerät mit virtueller SD-Karte. Er erzeugt keinen Ton und ersetzt keinen Hörtest, aber du kannst alles
-probieren, bevor es ein Gerät sieht. Mehr: [docs/emulator.md](docs/emulator.md). Die
-Tastenkombinationen der Firmware stehen in [docs/tastenkombinationen.md](docs/tastenkombinationen.md).
+Der Emulator lässt die echte Firmware auf deinem Rechner laufen, und die Seite zeigt dir dazu eine
+bedienbare Electribe mit virtueller SD-Karte. Ton gibt es keinen, den Hörtest am Gerät ersetzt er also
+nicht, aber du kannst alles ausprobieren, bevor es überhaupt in die Nähe deines Geräts kommt. Mehr dazu
+in [docs/emulator.md](docs/emulator.md), die Tastenkombinationen der Firmware stehen in
+[docs/tastenkombinationen.md](docs/tastenkombinationen.md).
 
 ## Sicherheit: bevor du etwas aufs Gerät spielst
 

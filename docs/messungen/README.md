@@ -175,3 +175,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Blaue Electribe: Ladebalken, Kartenordner und Sample-Fehler](2026-10-16-blau-ladebalken-ordner.md)
 - [BLECH-Satz für die blaue Electribe 2](2026-10-16-blech-synth.md)
 - [Eigener Start-Haken für BLECH auf dem Synth](2026-10-16-synth-start-haken.md)
+- [TAP Motion: einmal abspielen, TOUCH SCALE wie MASTER FX](2026-10-17-tap-motion-einmal.md)
+- [Startbild: Rad im Editor, Bild von der Karte](2026-10-17-startbild-import.md)
+- [Windows: der Emulator stirbt beim ersten Firmware-Befehl, Control Flow Guard im gepackten Dienst](2026-10-17-windows-cfg.md)

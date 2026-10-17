@@ -510,25 +510,32 @@ line `press  [ Enter ]`.
   page: [Blechy](#blechy-the-last-page-of-the-ring) (31/31). That is why the ring now counts to 31 instead
   of 29.
 - **ENTER**, the MENU key, opens the list of groups. The tag at the top left says BLECH, the counter counts
-  only the groups ("BLECH 2/5"), and EDIT pages through them in a circle.
+  only the groups ("BLECH 2/3", up to 5 with apps), and EDIT pages through them in a circle.
 - **ENTER on a group** shows its pages. The tag names the group ("Plugins 3/5"), the counter counts only its
   pages, EDIT pages through them in a circle, the main dial changes the value, WRITE executes or saves.
 - **EXIT** always goes one level back (page of a group, list of groups, ring) and from the ring page to the
   main screen. MENU on the main screen returns to where you left the menu, also into a group.
 - While the screen is open, plugins see no inputs, so that a plugin that catches keys cannot lock the menu.
 
-The list of the first level, in this order (the last three are settings, not groups):
+The list of the first level holds groups only, in this order: the built-in switches first, then the
+customization, then the plugins, last the groups that plugins register themselves (`korg.app`):
 
 | Entry | What is behind it |
 |---|---|
-| PLUGINS | a group, see below |
-| GAMES | one page per app; appears only if there is an app in the group |
-| TOOLS | like GAMES |
-| MFX 2 | ON, OFF: MFX 2 on TOUCH SCALE, applies from the next start (the value then shows "ON, RESTART") |
+| FEATURES | four pages with the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (table below) |
 | CUSTOMIZATION | eight pages, see below |
-| PATTERN CONFIRM | ON, OFF: a page of the list itself, no ENTER, the main dial changes the value |
-| TAP MOTION | like PATTERN CONFIRM |
-| NOTE ASSIST | like PATTERN CONFIRM |
+| PLUGINS | a group, see below |
+| GAMES | one page per app; appears only if a plugin has registered an app in the group |
+| TOOLS | like GAMES |
+
+The pages of FEATURES (the tag names the group "Feature"), each with the value ON or OFF, the main dial changes it:
+
+| Page | Value |
+|---|---|
+| MFX 2 | ON, OFF: MFX 2 on TOUCH SCALE, applies from the next start (the value then shows "ON, RESTART") |
+| PATTERN CONFIRM | ON, OFF (see below) |
+| TAP MOTION | OFF, ON, ONCE (see below) |
+| NOTE ASSIST | ON, OFF (see below) |
 
 There is no ABOUT group any more: it only showed the number of loaded plugins and confused people.
 
@@ -546,9 +553,11 @@ The pages of the groups:
 | CUSTOMIZATION, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs, for METER and COLOR; 0 0 0 means the firmware's colours ("0 stock"); with METER the level sets the brightness of this colour; applies at once |
 | CUSTOMIZATION, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 0 0 0 means the firmware's white; applies at once |
 | CUSTOMIZATION, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; OFF is the default |
-| PATTERN CONFIRM (list) | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file |
-| TAP MOTION (list) | ON, OFF | ON: TAP switches the recorded motion sequence of the selected part on and off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3 of the flags in the settings file |
-| NOTE ASSIST (list) | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a pad note and go out after 1.5 s; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
+| CUSTOMIZATION, SPLASH IMPORT | ENTER | reads `KORG/blechtribe/splash.bmp` (128 x 64 pixels, 1 bit per pixel, not compressed; the darker colour is drawn) and stores it as the start image like WRITE in the splash editor; shown from the next start. Says "loaded", "no splash.bmp" or "not 128x64 1 bit" (then nothing changes). Only where the set has the splash editor, so not on the blue one |
+| CUSTOMIZATION, SPLASH DRAW | ENTER | opens the splash editor (Global, page SPLASH SCREEN): the dial moves the cursor, MENU flips the pixel, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
+| FEATURES, PATTERN CONFIRM | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file |
+| FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
+| FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a pad note and go out after 1.5 s; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 
 Feedback ("saved", "no card", "imported", "2 exported" and so on) replaces the value of the page until you
 turn the main dial or change the page. The firmware's third line (the unit behind a value) starts in
@@ -557,7 +566,7 @@ The menu therefore never uses it. What a page says goes into the value, which ho
 the title holds about 18. IMPORT PLUGIN and EXPORT ALL are in the PLUGINS group, not in DATA UTILITY (see
 "Status").
 
-On the pages RUNTIME, MFX 2, CUSTOMIZATION, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST, and for the approval of foreign plugins, WRITE saves the
+On the page RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
 number (24 to 88 bytes, tag `GSET`; at most 16 approved blocks are remembered, then the oldest drops out).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at

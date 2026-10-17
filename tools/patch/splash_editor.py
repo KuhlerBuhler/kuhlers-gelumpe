@@ -49,7 +49,14 @@ STATE = 0xC0182000              # run time state, not in the file (stays FF ther
 STATE_SIZE = 0x100
 RECBUF = 0xC0182100             # the record as stored: 0x40C bytes
 EDIT = 0xC0182920               # the image being edited: 1024 bytes
+FIL = 0xC0182D20                # the card file of the import (the firmware's FatFs writes 0x224 bytes of it, measured)
+BR = 0xC0182F60                 # bytes the last read gave
 FREE_END = 0xC0183000
+IMPORT_ENTRY = 0xC01A2500       # EDITOR_AT: b splash_import, for the BLECH menu; r0 = 0 stored, 1 no file, 2 no 128 x 64 BMP with 1 bit, 3 flash
+DRAW_ENTRY = 0xC01A2504         # b splash_draw: Global, page SPLASH SCREEN, the editor open; the menu jumps here instead of returning
+TICK_HOOK = 0xC006F178          # first instruction of the screen manager's tick, ldrb r3, [r0, #0x4c]
+TICK_WORD = 0xE5D0304C
+IMPORT_PATH = "SD:KORG/blechtribe/splash.bmp"
 
 # ---- firmware facts (measured, see the research doc) ---------------------------
 ORIG_VTABLE = 0xC00E33F8        # class of Global screen 9
@@ -87,13 +94,19 @@ SOURCE = f"""
 .equ STATE, {STATE:#x}
 .equ RECBUF, {RECBUF:#x}
 .equ EDIT, {EDIT:#x}
+.equ FIL, {FIL:#x}
+.equ BR, {BR:#x}
+.equ FS_OPEN, 0xC009DB60
+.equ FS_READ, 0xC009DD74
+.equ FS_CLOSE, 0xC009E3DC
 .equ S_MAGIC, 0
 .equ S_MODE, 4                  ; 1 while the editor is open
 .equ S_CUR, 8                   ; cursor, y * 128 + x
 .equ S_PHASE, 12                ; 1 while the cursor shows the inverse of its pixel
 .equ S_TICK, 16
-.equ S_REDRAW, 20               ; after WRITE: 1 waiting for the Working window to come up, 2 it is up; the image is drawn again once it is gone
+.equ S_REDRAW, 20               ; after WRITE: 1 waiting for the Working window to come up, 2 it is up (or VALUE moved the cursor); the image is drawn again once it is gone
 .equ S_PUSHED, 24               ; screen object our widget sits in
+.equ S_PENDING, 28              ; ticks left in which the Global screen the BLECH menu asked for opens on the editor
 .equ S_WIDGET, 0x40
 .equ WINDOW_WAIT, 40            ; ticks to wait for the Working window before drawing without it
 
@@ -234,10 +247,48 @@ draw_image:
     bl 0xC001531C
     add sp, sp, #12
     pop {{r4, r5, r6, pc}}
+; First instruction of the screen manager's tick (r0 = the manager). Does nothing unless splash_draw asked for the editor.
+splash_tick:
+    push {{r0, r1, r2, r3, r12, lr}}
+    ldr r12, =STATE
+    ldr r1, [r12, #S_MAGIC]
+    ldr r2, =MAGIC
+    cmp r1, r2
+    bne tick_out
+    ldr r1, [r12, #S_PENDING]
+    cmp r1, #0
+    beq tick_out
+    sub r1, r1, #1
+    str r1, [r12, #S_PENDING]
+    ldr r1, =MGR
+    ldr r1, [r1]
+    ldr r2, [r1, #0x2C]
+    cmp r2, #9
+    bne tick_out
+    ldr r1, [r1, #0x20]
+    cmp r1, #0
+    beq tick_out
+    mov r2, #0
+    str r2, [r12, #S_PENDING]
+    push {{r1}}
+    mov r0, r1
+    bl show_page
+    pop {{r0}}
+    bl enter_editor
+    ldr r12, =STATE
+    mov r2, #2                  ; the firmware draws the new screen after this tick: the image goes over it on the next
+    str r2, [r12, #S_REDRAW]
+tick_out:
+    pop {{r0, r1, r2, r3, r12, lr}}
+    ldrb r3, [r0, #0x4c]        ; the replaced instruction
+    b {TICK_HOOK + 4:#x}
+
 .pool
 
 ; ------------------------------------------------------------- the editor
 .org {EDITOR_AT:#x}
+    b splash_import             ; IMPORT_ENTRY, called by the BLECH menu
+    b splash_draw               ; DRAW_ENTRY, jumped to by the BLECH menu
 
 ; Checks the replaced slots start with: the state was set up at start and EXIT was
 ; not held. Otherwise the original slot runs, with every argument as it came.
@@ -434,6 +485,8 @@ move_cursor:
     str r2, [r3, #S_PHASE]
     mov r2, #0
     str r2, [r3, #S_TICK]
+    mov r2, #2                      ; the firmware redraws the whole page after VALUE, the image goes over it on the next tick
+    str r2, [r3, #S_REDRAW]
     bl px_update
     pop {{r4, pc}}
 
@@ -574,6 +627,193 @@ save_image:
 save_done:
     pop {{r4, pc}}
 
+; ---- the start image from the card: KORG/blechtribe/splash.bmp, 128 x 64 pixels, 1 bit per pixel, not compressed.
+; The darker of the two colours is drawn. Stored in flash like WRITE in the editor and drawn from the next start on.
+; r0 = 0 stored, 1 no file, 2 not such a BMP (nothing stored), 3 the flash write failed.
+splash_import:
+    push {{r4, r5, r6, r7, r8, lr}}
+    ldr r4, =FIL
+    ldr r5, =RECBUF
+    mov r0, r4
+    ldr r1, =import_path
+    mov r2, #1
+    bl FS_OPEN
+    cmp r0, #0
+    movne r0, #1
+    bne imp_out
+    mov r0, r5
+    mov r1, #54
+    bl imp_read
+    cmp r0, #0
+    bne imp_bad
+    ldrb r0, [r5]
+    cmp r0, #0x42
+    ldrbeq r0, [r5, #1]
+    cmpeq r0, #0x4D
+    bne imp_bad
+    add r0, r5, #10
+    bl imp_u32
+    mov r6, r0                  ; where the pixels start
+    add r0, r5, #14
+    bl imp_u32
+    mov r7, r0                  ; size of the info header, the palette follows it
+    add r0, r5, #18
+    bl imp_u32
+    cmp r0, #128
+    bne imp_bad
+    add r0, r5, #22
+    bl imp_u32
+    mov r8, r0                  ; 64 rows from the bottom, -64 from the top
+    cmp r8, #64
+    cmnne r8, #64
+    bne imp_bad
+    ldr r0, [r5, #28]           ; 1 bit per pixel and no compression: bytes 28 to 33
+    ldr r1, =0x00000001
+    cmp r0, r1
+    bne imp_bad
+    ldrb r0, [r5, #32]
+    ldrb r1, [r5, #33]
+    orrs r0, r0, r1
+    bne imp_bad
+    ldrb r0, [r5, #26]
+    cmp r0, #1
+    bne imp_bad
+    add r0, r7, #22             ; the two palette entries end before the pixels, and the header fits the buffer
+    cmp r0, r6
+    bhi imp_bad
+    cmp r6, #0x200
+    bhi imp_bad
+    sub r1, r6, #54
+    cmp r1, #0
+    beq imp_palette
+    add r0, r5, #54
+    bl imp_read
+    cmp r0, #0
+    bne imp_bad
+imp_palette:
+    add r0, r5, r7
+    add r0, r0, #14
+    ldrb r1, [r0]
+    ldrb r2, [r0, #1]
+    add r1, r1, r2
+    ldrb r2, [r0, #2]
+    add r1, r1, r2
+    ldrb r2, [r0, #4]
+    ldrb r3, [r0, #5]
+    add r2, r2, r3
+    ldrb r3, [r0, #6]
+    add r2, r2, r3
+    cmp r2, r1
+    movlo r7, #1                ; the index of the darker colour
+    movhs r7, #0
+    mov r0, r5
+    mov r1, #1024
+    bl imp_read
+    cmp r0, #0
+    bne imp_bad
+    ldr r0, =EDIT
+    mov r1, #0
+    mov r2, #256
+imp_clear:
+    str r1, [r0], #4
+    subs r2, r2, #1
+    bne imp_clear
+    mov r6, #0                  ; y
+imp_row:
+    cmp r8, #64
+    rsbeq r1, r6, #63
+    movne r1, r6
+    add r1, r5, r1, lsl #4
+    mov r2, #0                  ; x
+imp_px:
+    mov r3, r2, lsr #3
+    ldrb r3, [r1, r3]
+    and r0, r2, #7
+    rsb r0, r0, #7
+    mov r3, r3, lsr r0
+    and r3, r3, #1
+    cmp r3, r7
+    bne imp_next
+    mov r0, r6, lsr #3
+    add r0, r2, r0, lsl #7
+    ldr r12, =EDIT
+    add r12, r12, r0
+    and r0, r6, #7
+    rsb r0, r0, #7
+    mov r3, #1
+    mov r3, r3, lsl r0
+    ldrb r0, [r12]
+    orr r0, r0, r3
+    strb r0, [r12]
+imp_next:
+    add r2, r2, #1
+    cmp r2, #128
+    blo imp_px
+    add r6, r6, #1
+    cmp r6, #64
+    blo imp_row
+    bl save_image
+    cmp r0, #0
+    moveq r0, #3
+    movne r0, #0
+    b imp_close
+imp_bad:
+    mov r0, #2
+imp_close:
+    push {{r0}}
+    mov r0, r4
+    bl FS_CLOSE
+    pop {{r0}}
+imp_out:
+    pop {{r4, r5, r6, r7, r8, pc}}
+
+; ---- from the BLECH menu straight into the editor: the Global parameter screen (9), the page SPLASH SCREEN, the editor open.
+; Jumped to instead of returning from a key slot of the menu screen. The screen manager builds the new screen on a later tick,
+; so the switch is asked for here and the editor opened by the tick hook once screen 9 is up (within 10 ticks, else never).
+splash_draw:
+    ldr r12, =STATE
+    ldr r0, [r12, #S_MAGIC]
+    ldr r1, =MAGIC
+    cmp r0, r1
+    bxne lr
+    mov r0, #10
+    str r0, [r12, #S_PENDING]
+    mov r0, #9
+    mov r1, #0
+    b 0xC0083D28
+
+
+; r0 = to, r1 = bytes -> r0 = 0 when all of them came
+imp_read:
+    push {{r4, lr}}
+    mov r4, r1
+    mov r2, r1
+    mov r1, r0
+    ldr r0, =FIL
+    ldr r3, =BR
+    bl FS_READ
+    cmp r0, #0
+    movne r0, #1
+    bne imp_read_out
+    ldr r0, =BR
+    ldr r0, [r0]
+    cmp r0, r4
+    movne r0, #1
+    moveq r0, #0
+imp_read_out:
+    pop {{r4, pc}}
+
+; r0 = address, any alignment -> the little endian word there
+imp_u32:
+    ldrb r1, [r0]
+    ldrb r2, [r0, #1]
+    orr r1, r1, r2, lsl #8
+    ldrb r2, [r0, #2]
+    orr r1, r1, r2, lsl #16
+    ldrb r2, [r0, #3]
+    orr r0, r1, r2, lsl #24
+    bx lr
+
 ; r0 = to, r1 = from, r2 = bytes, a multiple of 4
 memcpy:
     ldr r3, [r1], #4
@@ -585,6 +825,8 @@ memcpy:
 {{extra}}
 title:
     .asciz "SPLASH SCREEN"
+import_path:
+    .asciz "{IMPORT_PATH}"
 .align 4
 widget_vtable:
     .word widget_stub, widget_stub, widget_draw, widget_stub, widget_stub, widget_stub, widget_stub, widget_stub
@@ -632,7 +874,7 @@ def source():
     return synthaddr.source(text, own=OWN_AREAS) if synth else text
 
 
-FIRMWARE_PLACES = ["ORIG_VTABLE", "VTABLE_LITERAL", "START_CALL", "SPLASH_CALL", "PAGE_SHOWN_1", "PAGE_SHOWN_2"]
+FIRMWARE_PLACES = ["ORIG_VTABLE", "VTABLE_LITERAL", "START_CALL", "SPLASH_CALL", "PAGE_SHOWN_1", "PAGE_SHOWN_2", "TICK_HOOK"]
 
 
 def use_build(build):
@@ -665,6 +907,10 @@ def file_offset(addr):
     return addr - RAM + HEADER
 
 
+def branch(at, target):
+    return struct.pack("<I", 0xEA000000 | ((target - (at + 8)) >> 2) & 0xFFFFFF)
+
+
 def bl(at, target):
     off = (target - (at + 8)) >> 2
     return struct.pack("<I", 0xEB000000 | off & 0xFFFFFF)
@@ -679,13 +925,15 @@ def build_patch(vsb, build="hacktribe"):
     use_build(build)
     sections, symbols = build_code()
     (a_at, a_code), (b_at, b_code) = sections
+    if b_at != IMPORT_ENTRY or DRAW_ENTRY != IMPORT_ENTRY + 4:
+        raise SystemExit("the import entry is not at the start of the editor section")
     if a_at + len(a_code) > START_END:
         raise SystemExit(f"start code is {len(a_code):#x} bytes, room for {START_END - START_AT:#x}")
     if b_at + len(b_code) > EDITOR_END:
         raise SystemExit(f"editor code is {len(b_code):#x} bytes, room for {EDITOR_END - EDITOR_AT:#x}")
     if VTABLE_AT + 4 * VTABLE_WORDS > 0xC01A4A00:
         raise SystemExit("vtable copy runs into the power-off picture")
-    if STATE + STATE_SIZE > RECBUF or RECBUF + RECORD_SIZE > EDIT or EDIT + IMAGE_BYTES > FREE_END:
+    if STATE + STATE_SIZE > RECBUF or RECBUF + RECORD_SIZE > EDIT or EDIT + IMAGE_BYTES > FIL or FIL + 0x224 > BR or BR + 4 > FREE_END:
         raise SystemExit("state and buffers overlap")
 
     def was(addr, n):
@@ -698,6 +946,8 @@ def build_patch(vsb, build="hacktribe"):
         return sha(was(addr, n))
 
     free(STATE, FREE_END - STATE)
+    if struct.unpack("<I", was(TICK_HOOK, 4))[0] != TICK_WORD:
+        raise SystemExit("the screen manager's tick does not start with ldrb r3, [r0, #0x4c] in this VSB")
     changes = [
         {"file": file_offset(a_at), "bytes": a_code.hex(), "expect": free(a_at, len(a_code)),
          "note": "start code: draw the stored start image, or the VSB one"},
@@ -713,6 +963,8 @@ def build_patch(vsb, build="hacktribe"):
          "note": "start hook after the rescue paths"},
         {"file": file_offset(SPLASH_CALL), "bytes": struct.pack("<I", 0xE1A00000).hex(), "expect": sha(was(SPLASH_CALL, 4)),
          "note": "no start image before the rescue paths (nop)"},
+        {"file": file_offset(TICK_HOOK), "bytes": branch(TICK_HOOK, symbols["splash_tick"]).hex(), "expect": sha(was(TICK_HOOK, 4)),
+         "note": "the screen manager's tick looks whether the BLECH menu asked for the editor"},
     ]
     for at in PAGES_SHOWN:
         changes.append({"file": file_offset(at), "bytes": struct.pack("<I", 0xE3A02015).hex(), "expect": sha(was(at, 4)),
@@ -724,18 +976,20 @@ def build_patch(vsb, build="hacktribe"):
         "hooks": [
             hook(START_CALL, "call", "start", "after", False, "runs the original call, then draws the stored start image"),
             hook(SPLASH_CALL, "call", "start-image", "replace", True, "the early start image call is dropped"),
+            hook(TICK_HOOK, "instruction", "frame", "before", False, "opens the editor on the Global screen the BLECH menu asked for"),
             hook(VTABLE_LITERAL, "literal", "global-screen", "replace", True, "the Global screen's class is the copy with our slots"),
             *[hook(at, "instruction", "global-screen", "replace", False, "page display shows /21") for at in PAGES_SHOWN],
         ],
         "startPhase": [
             {"file": file_offset(START_CALL), "length": 4, "why": "the call after the rescue paths now runs splash_start"},
             {"file": file_offset(SPLASH_CALL), "length": 4, "why": "the start image call before the rescue paths is dropped"},
-            {"file": file_offset(a_at), "length": len(a_code), "why": "splash_start and what it calls: flash read, CRC, draw"},
+            {"file": file_offset(a_at), "length": len(a_code), "why": "splash_start and what it calls: flash read, CRC, draw; splash_tick, which before the magic word is set only compares it and hands over"},
+            {"file": file_offset(TICK_HOOK), "length": 4, "why": "the screen manager's tick runs from the start and now enters splash_tick first"},
         ],
         "ram": [
             ramdecl.area(STATE, STATE_SIZE, "run time state of the start code and the editor", "tools/patch/splash_editor.py:STATE"),
             ramdecl.area(RECBUF, EDIT - RECBUF, "the record as read from or about to be written to flash", "tools/patch/splash_editor.py:RECBUF"),
-            ramdecl.area(EDIT, FREE_END - EDIT, "the image being edited, and the rest of the editor's 4 KiB kept free", "tools/patch/splash_editor.py:EDIT"),
+            ramdecl.area(EDIT, FREE_END - EDIT, "the image being edited, the card file and byte count of the import, the rest of the editor's 4 KiB kept free", "tools/patch/splash_editor.py:EDIT"),
         ],
     }
 

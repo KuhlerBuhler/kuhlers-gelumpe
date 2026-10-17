@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE } from "../src/patcher.mjs";
+import { classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE } from "../src/patcher.mjs";
 import { applyPatches, splashPatch, patchesPresent, SPLASH_W, SPLASH_H } from "../src/patch.mjs";
 import { sha256 } from "../src/firmware.mjs";
 import { asStock, makeFirmware } from "./helpers.mjs";
@@ -367,4 +367,43 @@ test("the blue original selects the synth route and its update directory", async
   const patched = await applyPatches(vsb, [patch]);
   assert.equal(patched.ok, true);
   assert.equal((await classify(patched.bytes, [patch], STOCK_SHA256, originalHash)).kind, "blech");
+});
+
+test("a copy that passed before is not checked again, any other copy is", async () => {
+  const input = Uint8Array.of(1, 2, 3);
+  const output = Uint8Array.of(1, 2, 4);
+  const list = { format: "gelumpe-verified", version: 1, results: [{ input: await sha256(input), output: await sha256(output), set: "blech", checks: 87, date: "2026-10-17" }] };
+  const report = await verifiedReport(input, output, list);
+  assert.equal(report.ok, true);
+  assert.deepEqual(report.checks.map(c => [c.id, c.ok]), [["verified", true]]);
+  assert.match(report.checks[0].detail, /87 Prüfungen/);
+  assert.equal(checkName("verified"), "Schon geprüft");
+  assert.equal(await verifiedReport(input, Uint8Array.of(9), list), null, "a different result");
+  assert.equal(await verifiedReport(Uint8Array.of(9), output, list), null, "a different input");
+  assert.equal(await verifiedReport(input, output, null), null);
+  assert.equal(await verifiedReport(input, output, { ...list, format: "x" }), null);
+});
+
+test("the list of checked copies holds only hashes", () => {
+  const list = JSON.parse(readFileSync(fileURLToPath(new URL(`../${VERIFIED_URL}`, import.meta.url)), "utf8"));
+  assert.equal(list.format, "gelumpe-verified");
+  for (const r of list.results) {
+    assert.match(r.input, /^[0-9a-f]{64}$/);
+    assert.match(r.output, /^[0-9a-f]{64}$/);
+    assert.ok(r.checks > 0);
+  }
+});
+
+test("a copy that passed the quick check can be checked thoroughly, and only then", () => {
+  const quick = { ok: true, checks: [{ id: "header", ok: true }, { id: "quick", ok: true }] };
+  let f = { ...newFlow(), phase: "passed", report: quick, steps: [{ id: "check", label: "Prüfung im Emulator", status: "ok", detail: "" }] };
+  f = step(f, { type: "recheck" });
+  assert.equal(f.phase, "checking");
+  assert.equal(f.report, null);
+  assert.equal(f.steps.find(s => s.id === "check").status, "todo");
+  f = step(f, { type: "checked", report: { ok: false, checks: [{ id: "menu:x", ok: false }] } });
+  assert.equal(f.phase, "failed");
+  assert.equal(allowed(f).download, false, "a thorough check that fails takes the download away");
+  assert.equal(step({ ...newFlow(), phase: "ready" }, { type: "recheck" }).phase, "ready");
+  assert.equal(checkName("quick"), "Kurzprüfung");
 });

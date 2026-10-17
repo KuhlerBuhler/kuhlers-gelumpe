@@ -13,6 +13,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { pythonEnv, targetTriple } from "./python-env.mjs";
+import { clearCfgInFile } from "./pe-flags.mjs";
 
 const path = rel => fileURLToPath(new URL(rel, import.meta.url));
 const win = process.platform === "win32";
@@ -59,4 +60,5 @@ const out = path("../../src-tauri/binaries");
 mkdirSync(out, { recursive: true });
 const target = `${out}/gelumpe-emu-${triple}${win ? ".exe" : ""}`;
 copyFileSync(`${work}/dist/gelumpe-emu${win ? ".exe" : ""}`, target);
+if (win) clearCfgInFile(target);   // otherwise Windows 10 kills the emulator at the first firmware instruction (pe-flags.mjs)
 console.log(`Sidecar: ${target}`);

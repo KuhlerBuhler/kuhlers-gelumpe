@@ -448,6 +448,8 @@ def editor_run(base, patched, flash=None, png_dir=None):
     evidence["editor"] = dev.ascii(rows=range(0, 16), cols=range(0, 64))
     dev.turn(5, 0.3)
     step("VALUE moves the cursor", dev.state()["cursor"] == 5)
+    differing = [i for i in range(1024) if dev.fb()[i] != display_of(dev.read(spec.EDIT, 1024))[i]]
+    step("the image stays on the display after VALUE", differing in ([], [5]), f"bytes that differ: {differing}")
     dev.turn(-6, 0.3)
     step("VALUE left of pixel 0 wraps to the last pixel", dev.state()["cursor"] == 8191)
     dev.turn(1, 0.3)
@@ -524,7 +526,67 @@ def editor_run(base, patched, flash=None, png_dir=None):
     if png_dir:
         Path(png_dir).mkdir(parents=True, exist_ok=True)
         dev.png(Path(png_dir) / "editor.png")
+    steps.extend(import_steps(patched, flash_in))
     return {"ok": all(s["ok"] for s in steps), "steps": steps, "evidence": evidence}
+
+
+def bmp(pixels, width=128, top_down=False, ink=0, bpp=1, dib=40):
+    """A Windows bitmap of `pixels` (rows of 0 and 1, 1 drawn) as image editors save it; `ink` is the palette index of black."""
+    palette = [b"\0\0\0\0", b"\xff\xff\xff\0"][::1 if ink == 0 else -1]
+    rows = []
+    for y in range(64):
+        row = bytearray(16)
+        for x in range(min(width, 128)):
+            if (ink if pixels[y][x] else 1 - ink):
+                row[x >> 3] |= 0x80 >> (x & 7)
+        rows.append(bytes(row))
+    data = b"".join(rows if top_down else rows[::-1])
+    off = 14 + dib + 8
+    info = struct.pack("<IiiHHIIiiII", dib, width, -64 if top_down else 64, 1, bpp, 0, len(data), 2835, 2835, 2, 0) + bytes(dib - 40)
+    return b"BM" + struct.pack("<IHHI", off + len(data), 0, 0, off) + info + b"".join(palette) + data
+
+
+def image_of(pixels):
+    """The 1024 bytes of the image format (byte (y/8) * 128 + x, bit 7 - y%8)."""
+    out = bytearray(spec.IMAGE_BYTES)
+    for y in range(64):
+        for x in range(128):
+            if pixels[y][x]:
+                out[(y // 8) * 128 + x] |= 0x80 >> (y % 8)
+    return bytes(out)
+
+
+def import_steps(patched, flash):
+    """KORG/blechtribe/splash.bmp through the import the BLECH menu calls: stored and shown from the next start, refused when it
+    is no 128 x 64 BMP with 1 bit per pixel, reported when it is missing."""
+    import fat32
+    steps = []
+    pic = [[1 if (x // 8 + y // 8) % 2 == 0 or x == y else 0 for x in range(128)] for y in range(64)]
+    files = {"bottom-up": (bmp(pic), 0), "top-down, black as index 1": (bmp(pic, top_down=True, ink=1), 0),
+             "header of 124 bytes": (bmp(pic, dib=124), 0), "100 pixels wide": (bmp(pic, width=100), 2),
+             "4 bits per pixel": (bmp(pic, bpp=4), 2), "missing": (None, 1)}
+    for name, (data, want) in files.items():
+        img = bytearray(fat32.format_image(64 * 1024 * 1024))
+        vol = fat32.open_volume(img)
+        vol.mkdir("/KORG")
+        vol.mkdir("/KORG/blechtribe")
+        if data:
+            vol.write("/KORG/blechtribe/splash.bmp", data)
+        vol.close()
+        dev = Dev(patched, flash)
+        dev.m.insert_card(SDCard(MemoryMedium(img)))
+        dev.run(4)
+        got = dev.call(spec.IMPORT_ENTRY)
+        stored = dev.read(spec.RECBUF + 8, spec.IMAGE_BYTES) == image_of(pic)
+        steps.append({"step": f"import: {name} gives {want}", "ok": got == want and (want != 0 or stored) and not dev.m.asserts,
+                      "detail": f"returned {got}, image {'as drawn' if stored else 'not stored'}"})
+        if name == "bottom-up":
+            again = boot_case(patched, bytes(dev.m.flash.mem))
+            shown = [classify(f, {"stored": display_of(image_of(pic))}) for f in again["frames"]]
+            steps.append({"step": "after a restart the display shows the imported image",
+                          "ok": len(shown) >= MIN_FRAMES and all(x == "stored" for x in shown) and again["screen_1"] and not again["asserts"],
+                          "detail": summary(shown)})
+    return steps
 
 
 def changed_sectors(after, before):

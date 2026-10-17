@@ -342,7 +342,7 @@ def case_play(payload, flash):
             want.append(recs[s][4] - 1)
     box.mark("p")
     box.key("play", 0.0)
-    box.run(2.7)                                          # 28 steps at 160 BPM
+    box.run(3.6)                                          # 28 steps at 120 BPM (an Init pattern on an empty flash), 38 at 160
     box.key("stop", 0.3)
     played = [d[0] for st, d in box.midi("p") if st & 0xF0 == 0x90 and st & 0x0F == 4 and d[1] > 0]
     n = min(len(played), len(want), 20)
