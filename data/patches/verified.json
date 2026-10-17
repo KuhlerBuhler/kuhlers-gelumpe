@@ -1,1 +1,27 @@
-{"format":"gelumpe-verified","version":1,"results":[]}
+{
+ "format": "gelumpe-verified",
+ "version": 1,
+ "results": [
+  {
+   "input": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+   "output": "0c1397300fa9fbb663e3c24863e3a25bb3e89324e4930bfc820e708b4e96d4ad",
+   "set": "blech",
+   "checks": 360,
+   "date": "2026-10-17"
+  },
+  {
+   "input": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+   "output": "c70d23d3b4e07cc22b4ddc38f79cce670c3c4f5caee9b5f6fc6d6672acf86c25",
+   "set": "blech",
+   "checks": 335,
+   "date": "2026-10-17"
+  },
+  {
+   "input": "b0890899cbe5951d0709724c46d38350a35a6134a4a01d3a5bad63e51ac22ae7",
+   "output": "b87910ea12166230b5ddf4d3e82216517d423a847ad97d46bb4bfd962718fc1a",
+   "set": "blech",
+   "checks": 335,
+   "date": "2026-10-17"
+  }
+ ]
+}

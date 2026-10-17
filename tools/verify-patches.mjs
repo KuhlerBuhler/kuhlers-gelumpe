@@ -55,7 +55,7 @@ try {
     let report = null;
     try { report = JSON.parse(run.stdout); } catch { /* reported below */ }
     if (!report?.ok) {
-      const bad = report?.checks.filter(c => !c.ok).map(c => c.id) ?? [`check.py ended with ${run.status}`];
+      const bad = report?.checks.filter(c => !c.ok).map(c => `${c.id} (${JSON.stringify(c.detail)})`) ?? [`check.py ended with ${run.status}`];
       console.error(`${file}: not passed: ${bad.join(", ")}`);
       failed++;
       continue;
