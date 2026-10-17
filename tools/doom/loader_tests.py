@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Prüft SHA256 und Firmwarebereichsgrenzen ohne fremde Binärdaten."""
+import struct
 import argparse
 import ctypes
 import hashlib
@@ -39,7 +40,7 @@ class BoundsTests(unittest.TestCase):
         self.image=bytearray(b"\xff"*0x200100)
         self.site=loader.SITE-0xC0000000+0x100
         self.base=loader.BASE-0xC0000000+0x100
-        self.image[self.site:self.site+4]=loader.branch(loader.SITE,0xC002A35C)
+        self.image[self.site:self.site+4]=struct.pack("<I",loader.LAYOUT["originalWord"])   # mov r4, r0 behind the card mount
         self.previous=loader.SUPPORTED
         loader.SUPPORTED={hashlib.sha256(self.image).hexdigest()}
     def tearDown(self): loader.SUPPORTED=self.previous
@@ -76,7 +77,7 @@ class BoundsTests(unittest.TestCase):
     def test_wrong_site_rejected(self):
         self.image[self.site]^=1
         loader.SUPPORTED={hashlib.sha256(self.image).hexdigest()}
-        with self.assertRaisesRegex(ValueError,"Originalaufruf"): loader.patch_image(self.image,b"x")
+        with self.assertRaisesRegex(ValueError,"Originalanweisung"): loader.patch_image(self.image,b"x")
     def test_empty_and_oversized_bootstrap_rejected(self):
         for data in [b"",b"x"*(loader.LAYOUT["codeEnd"]-loader.BASE+1)]:
             with self.assertRaisesRegex(ValueError,"Codebereich"): loader.patch_image(self.image,data)

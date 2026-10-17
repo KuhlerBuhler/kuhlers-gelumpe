@@ -54,8 +54,8 @@ def patch_image(vsb, bootstrap, *, original=None, patch_set=None, extra_patches=
     offset = lambda a: a - 0xC0000000 + 0x100
     if len(vsb) < offset(RESERVED_END):
         raise ValueError("Firmware ist für den reservierten Bereich zu kurz")
-    if vsb[offset(SITE):offset(SITE) + 4] != branch(SITE, LAYOUT["originalCall"]):
-        raise ValueError("Unerwarteter Originalaufruf")
+    if vsb[offset(SITE):offset(SITE) + 4] != struct.pack("<I", LAYOUT["originalWord"]):
+        raise ValueError("Unerwartete Originalanweisung (mov r4, r0 hinter dem Einhängen der Karte)")
     if any(b != 255 for b in vsb[offset(BASE):offset(RESERVED_END)]):
         raise ValueError("Reservierter Code- oder Zustandsbereich ist belegt")
     out = bytearray(vsb)

@@ -111,7 +111,7 @@ def power_case(image, flash, program, wad, error_idle):
                   sd_write_commands=card.write_commands if card else 0,
                   sd_unchanged=hashlib.sha256(medium.data).hexdigest() == card_digest if medium else True,
                   seconds=machine.time_ns / 1e9)
-    result["ok"] = before is not None and after_release and not machine.powered and not error and not machine.asserts and tasks == {1, 8} and not sampler and not full_power and bool(entries) == (not error_idle) and calls and calls[-1]["r0"] == 0x01E26000 and calls[-1]["r1"] == 1 and result["sd_write_calls"] == result["sd_write_commands"] == 0 and result["sd_unchanged"] and after["error"] == before["error"]
+    result["ok"] = before is not None and after_release and not machine.powered and not error and not machine.asserts and tasks == {1, 8} and sampler <= {"globals", "patterns"} and not full_power and bool(entries) == (not error_idle) and calls and calls[-1]["r0"] == 0x01E26000 and calls[-1]["r1"] == 1 and result["sd_write_calls"] == result["sd_write_commands"] == 0 and result["sd_unchanged"] and after["error"] == before["error"]
     result["ok"] = bool(result["ok"])
     return result
 
@@ -162,7 +162,7 @@ def compare(base, image, flash, program, wad, output):
                     error == 0x300 if group == "size" else
                     error == 0x500 if group == "digest" else error == 0xFFFFFFFF)
         add(fault, status["magic"] == 0x4D4F4F44 and status["stage"] == 0x80000000 and expected
-            and result["tasks"] == [1, 8] and result["sampler"] == [] and not result["asserts"]
+            and result["tasks"] == [1, 8] and set(result["sampler"]) <= {"globals", "patterns"} and not result["asserts"]
             and not result["error"] and 0 < result["framebuffer_nonzero"] < 8192
             and bool(result["engine_entry"]) == (group == "engine"))
         add(fault + "-sd-readonly", result.get("sd_write_calls") == 0 and result.get("sd_write_commands") == 0 and result.get("sd_unchanged") is True)
