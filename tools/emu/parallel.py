@@ -17,7 +17,6 @@ that); 1 runs everything in this process, in order. A worker ends with the proce
 import importlib
 import multiprocessing
 import os
-import threading
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from concurrent.futures.process import BrokenProcessPool
@@ -75,35 +74,9 @@ def crashed(module, name, args, error):
             "detail": f"the cases of {module}{group} stopped with {type(error).__name__}: {error} (at {where}); the others ran"}
 
 
-BIG_STACK = 64 * 1024 * 1024   # a thread on Windows gets 1 MiB of stack, too little for Unicorn running the firmware
-
-
-def on_big_stack(fn, *args):
-    """Run fn in a thread with BIG_STACK and return its result or raise its exception. The workers' main thread has the
-    stack size the binary was linked with (1 MiB on Windows), so the emulation runs in such a thread instead."""
-    box = {}
-
-    def run():
-        try:
-            box["value"] = fn(*args)
-        except BaseException as error:      # noqa: BLE001  handed to the caller as it is
-            box["error"] = error
-
-    old = threading.stack_size(BIG_STACK)
-    try:
-        t = threading.Thread(target=run)
-        t.start()
-    finally:
-        threading.stack_size(old)
-    t.join()
-    if "error" in box:
-        raise box["error"]
-    return box.get("value")
-
-
 def _call(module, name, args):
     try:
-        return on_big_stack(getattr(importlib.import_module(module), name), *args)
+        return getattr(importlib.import_module(module), name)(*args)
     except Exception as error:
         if name in ENTRY_LISTS:
             return [crashed(module, name, args, error)]
