@@ -271,7 +271,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
     pool_end=POOL+vm.symbols['SCRIPT_POOL_BYTES']
     if origin+len(hooks.bytes)>MENU_TABLE or runtime_end>MENU_ITEMS or MENU_ITEMS_END>MENU_STATE or MENU_STATE+0x200>POOL or pool_end>CARD:
-        raise ValueError('script code, runtime or pool exceeds its reserved area')
+        raise ValueError(f'script code, runtime or pool exceeds its reserved area: hooks end {origin+len(hooks.bytes):#x} (limit {MENU_TABLE:#x}), runtime end {runtime_end:#x} (limit {MENU_ITEMS:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
     if s['STORE_IMAGE']+s['STORE_CAPACITY']>s['STORE_OTHER'] or s['STORE_OTHER']+s['STORE_CAPACITY']>END:
         raise ValueError('the store images run over the block buffer')
