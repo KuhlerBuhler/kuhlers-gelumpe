@@ -107,6 +107,10 @@ SOURCE = f"""
 .equ S_REDRAW, 20               ; after WRITE: 1 waiting for the Working window to come up, 2 it is up (or VALUE moved the cursor); the image is drawn again once it is gone
 .equ S_PUSHED, 24               ; screen object our widget sits in
 .equ S_PENDING, 28              ; ticks left in which the Global screen the BLECH menu asked for opens on the editor
+.equ S_VBEGIN, 0x20             ; while the editor is open: the screen's widget vector (begin, end, capacity) as it was,
+.equ S_VEND, 0x24               ; so only our widget is drawn (the page's text widgets redrew themselves after VALUE and
+.equ S_ONE, 0x28                ; showed for a tick on the device); S_ONE is the one-entry vector that stands in for it
+.equ S_VCAP, 0x2C
 .equ S_WIDGET, 0x40
 .equ WINDOW_WAIT, 40            ; ticks to wait for the Working window before drawing without it
 
@@ -255,6 +259,14 @@ splash_tick:
     ldr r2, =MAGIC
     cmp r1, r2
     bne tick_out
+    ldr r1, [r12, #S_MODE]          ; editor open: the firmware's wish to redraw the whole page (set after VALUE) is dropped,
+    cmp r1, #1                      ; so the page never shows over the image (it flickered for a tick, device 17.10.)
+    bne tick_pending
+    ldr r1, =MGR
+    ldr r1, [r1]
+    mov r2, #0
+    strb r2, [r1, #0x5C]
+tick_pending:
     ldr r1, [r12, #S_PENDING]
     cmp r1, #0
     beq tick_out
@@ -297,6 +309,9 @@ tick_out:
 ; ---- slots of the Global screen, this = r0
 slot_dtor:
 {{gate0}}
+    push {{r0, r1, r2, lr}}
+    bl show_widgets
+    pop {{r0, r1, r2, lr}}
     ldr r3, =STATE
     mov r2, #0
     str r2, [r3, #S_MODE]
@@ -305,6 +320,9 @@ slot_dtor:
 
 slot_dtor_free:
 {{gate1}}
+    push {{r0, r1, r2, lr}}
+    bl show_widgets
+    pop {{r0, r1, r2, lr}}
     ldr r3, =STATE
     mov r2, #0
     str r2, [r3, #S_MODE]
@@ -449,6 +467,7 @@ enter_zero:
     bl 0xC00614FC
     add sp, sp, #8
 enter_draw:
+    bl hide_widgets
     ldr r0, =EDIT
     bl draw_image
     ldr r3, =STATE
@@ -458,6 +477,8 @@ enter_draw:
     pop {{r4, pc}}
 
 leave_editor:
+    push {{lr}}
+    bl show_widgets
     ldr r3, =STATE
     mov r2, #0
     str r2, [r3, #S_MODE]
@@ -465,6 +486,44 @@ leave_editor:
     ldr r3, [r3]
     mov r2, #1
     strb r2, [r3, #0x5C]
+    pop {{pc}}
+
+; r4 = the screen: its widget vector becomes the one entry of our widget; begin, end and capacity are kept to be given back.
+; The capacity is the end too, so a widget the firmware adds meanwhile goes to a new buffer, never over our state.
+hide_widgets:
+    ldr r3, =STATE
+    ldr r0, [r3, #S_VBEGIN]
+    cmp r0, #0
+    bxne lr
+    ldr r0, [r4, #0x10]
+    str r0, [r3, #S_VBEGIN]
+    ldr r0, [r4, #0x14]
+    str r0, [r3, #S_VEND]
+    ldr r0, [r4, #0x18]
+    str r0, [r3, #S_VCAP]
+    add r0, r3, #S_WIDGET
+    str r0, [r3, #S_ONE]
+    add r0, r3, #S_ONE
+    str r0, [r4, #0x10]
+    add r0, r0, #4
+    str r0, [r4, #0x14]
+    str r0, [r4, #0x18]
+    bx lr
+
+; the screen (S_PUSHED) gets its widget vector back, when we took it. Clobbers r1 to r3.
+show_widgets:
+    ldr r3, =STATE
+    ldr r1, [r3, #S_VBEGIN]
+    cmp r1, #0
+    bxeq lr
+    ldr r2, [r3, #S_PUSHED]
+    str r1, [r2, #0x10]
+    ldr r1, [r3, #S_VEND]
+    str r1, [r2, #0x14]
+    ldr r1, [r3, #S_VCAP]
+    str r1, [r2, #0x18]
+    mov r1, #0
+    str r1, [r3, #S_VBEGIN]
     bx lr
 
 ; r1 = steps
@@ -485,8 +544,6 @@ move_cursor:
     str r2, [r3, #S_PHASE]
     mov r2, #0
     str r2, [r3, #S_TICK]
-    mov r2, #2                      ; the firmware redraws the whole page after VALUE, the image goes over it on the next tick
-    str r2, [r3, #S_REDRAW]
     bl px_update
     pop {{r4, pc}}
 

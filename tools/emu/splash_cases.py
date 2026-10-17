@@ -450,6 +450,22 @@ def editor_run(base, patched, flash=None, png_dir=None):
     step("VALUE moves the cursor", dev.state()["cursor"] == 5)
     differing = [i for i in range(1024) if dev.fb()[i] != display_of(dev.read(spec.EDIT, 1024))[i]]
     step("the image stays on the display after VALUE", differing in ([], [5]), f"bytes that differ: {differing}")
+    # and nothing is drawn but the cursor in between: on the device the page showed for a tick before the image came back. The
+    # emulator sends the display only after the tick, so what counts is what is written into the display buffer: no clearing of it
+    # (0xC0015988 from 0xC003F5F4) and no drawing of text or images (0xC00158B4, returning to 0xC00158B8), only the cursor pixel
+    import unicorn
+    writes = {}
+    def seen(u, acc, addr, sz, v, d):
+        lr = u.reg_read(dev.m.A.UC_ARM_REG_LR)
+        writes[lr] = writes.get(lr, 0) + 1
+    hook = dev.m.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, seen, begin=dev.a(0xC031B310), end=dev.a(0xC031B310) + 1023)
+    dev.turn(1, 0.4)
+    dev.m.uc.hook_del(hook)
+    pixels, cleared = writes.get(dev.a(0xC00158B8), 0), writes.get(dev.a(0xC003F5F4), 0)
+    # the cursor alone is a few pixels: its old place, its new place, a blink
+    step("the page is not drawn while the dial turns", cleared == 0 and pixels <= 8,
+         f"display writes after a click by return address: { {hex(k): v for k, v in writes.items()} }")
+    dev.turn(-1, 0.3)                        # back to pixel 5 for the steps below
     dev.turn(-6, 0.3)
     step("VALUE left of pixel 0 wraps to the last pixel", dev.state()["cursor"] == 8191)
     dev.turn(1, 0.3)
