@@ -107,13 +107,15 @@ def press(dev, key, wait=0.25):
     dev.press(key, wait=wait)
 
 
-GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_MFX = range(5)
-S_LEVEL, S_GROUP, S_RAW, S_TOP, S_TABW, S_TABTEXT = 0xE0, 0xE4, 0xE8, 0xEC, 0xF0, 0xF4
-LIST_GROUPS = ["PLUGINS", "MFX 2", "CUSTOMIZATION"]                   # the groups of level 1 of a menu without apps (no ABOUT page any more)
-LIST_SETTINGS = ["PATTERN CONFIRM", "TAP MOTION", "NOTE ASSIST"]      # the settings that sit on level 1 behind the groups, each a page with a value
-LIST_PAGES = LIST_GROUPS + LIST_SETTINGS
-LIST_PC, LIST_TM, LIST_NA = range(len(LIST_GROUPS), len(LIST_PAGES))  # their places in the list of a menu without apps
-TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "MFX 2"]
+GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES = range(5)
+S_LEVEL, S_GROUP, S_RAW, S_TOP, S_TABW = 0xE0, 0xE4, 0xE8, 0xEC, 0xF0
+TAB_TEXT_POINTER = 0x38                                               # the tab widget keeps a pointer to its text at this offset
+LIST_PAGES = ["FEATURES", "CUSTOMIZATION", "PLUGINS"]                 # the groups of level 1 of a menu without apps, in this order; GAMES and TOOLS follow when an app is declared in them
+LIST_GROUPS = LIST_PAGES
+LIST_FEATURES, LIST_CUSTOM, LIST_PLUGINS = range(3)                   # their places in that list
+FEATURE_PAGES = ["MFX 2", "PATTERN CONFIRM", "TAP MOTION", "NOTE ASSIST"]   # the pages of the group FEATURES, each with an ON/OFF value
+FEAT_MFX, FEAT_PC, FEAT_TM, FEAT_NA = range(len(FEATURE_PAGES))
+TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature"]
 RING = 31                                                             # the total of the page counter with the page BLECH and the page of Blechy in the ring
 BASE_RING = 29
 LEVEL_BLECHY = 3                                                      # level 3 of the screen: the page of Blechy at the end of the ring
@@ -152,8 +154,9 @@ def goto_group(dev, group, page=0):
 
 
 def tab(dev):
-    """The text on the tab of the BLECH screen: BLECH above the groups, the group's name inside one."""
-    return text(dev, S_TABTEXT)
+    """The text on the tab of the BLECH screen: BLECH above the groups, the group's name inside one (the tab widget points at it)."""
+    widget = state(dev, S_TABW)
+    return dev.read(dev.u32(widget + TAB_TEXT_POINTER), 16).split(b"\0")[0].decode("latin-1")
 
 
 def texts_of(dev):
@@ -184,7 +187,9 @@ def draw_texts(dev, value, line3):
 
 def draw_tab(dev, label, index=None, total=None):
     """Show `label` on the tab (optionally with another counter) and return the display."""
-    dev.m.uc.mem_write(STATE + S_TABTEXT, label.encode() + b"\0")
+    scratch = script_hooks.CARD + 0xE00
+    dev.m.uc.mem_write(scratch, label.encode() + b"\0")
+    dev.m.uc.mem_write(state(dev, S_TABW) + TAB_TEXT_POINTER, struct.pack("<I", scratch))
     dev.m.uc.mem_write(dev.a(UI_REDRAW), b"\1")
     if index is not None:
         counter_widget = dev.u32(screen_object(dev) + COUNTER_WIDGET)
@@ -344,12 +349,22 @@ def cases(payload, flash=None, settings=True):
         steps.append((dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), texts_of(dev), tab(dev)))
         press(dev, "edit_next")
     wrapped = (dev.screen()["number"], state(dev, S_PAGE))
-    want = [(MENU, 1, page, (page, len(LIST_PAGES)), (title, "", PRESS) if title in LIST_GROUPS else (title, "ON", ""), "BLECH") for page, title in enumerate(LIST_PAGES)]
+    want = [(MENU, 1, page, (page, len(LIST_PAGES)), (title, "", PRESS), "BLECH") for page, title in enumerate(LIST_PAGES)]
     add("enter_opens_the_list_of_groups", steps == want and wrapped == (MENU, 0), f"{steps}, then {wrapped}")
-    goto_top(dev, 0)
+    goto_top(dev, LIST_PLUGINS)
     press(dev, "menu")
     inside = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), counter(dev), texts_of(dev))
     add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 3), ("RUNTIME", "ON", "")) and tab(dev) == "Plugins", str(inside))
+    goto_top(dev, LIST_FEATURES)
+    press(dev, "menu")
+    features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
+    for _ in FEATURE_PAGES:
+        features[4].append(texts_of(dev)[:2])
+        press(dev, "edit_next")
+    add("features_group_lists_the_switches", features[:4] == (2, GROUP_FEATURES, (0, len(FEATURE_PAGES)), "Feature")
+        and features[4] == [(title, "ON") for title in FEATURE_PAGES] and state(dev, S_PAGE) == 0, str(features))
+    goto_top(dev, LIST_PLUGINS)
+    press(dev, "menu")
     press(dev, "edit_prev")
     wrapped = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
     press(dev, "edit_next")
@@ -357,13 +372,13 @@ def cases(payload, flash=None, settings=True):
     add("group_pages_wrap_and_count_alone", wrapped == (2, (2, 3), "IMPORT PLUGIN") and forward == (0, (0, 3), "RUNTIME", MENU), f"{wrapped}, {forward}")
     press(dev, "exit")
     up = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
-    add("exit_goes_one_level_up", up == (MENU, 1, 0, (0, len(LIST_PAGES)), "PLUGINS") and tab(dev) == "BLECH", str(up))
-    goto_top(dev, 2)
+    add("exit_goes_one_level_up", up == (MENU, 1, LIST_PLUGINS, (LIST_PLUGINS, len(LIST_PAGES)), "PLUGINS") and tab(dev) == "BLECH", str(up))
+    goto_top(dev, LIST_CUSTOM)
     press(dev, "menu")
     press(dev, "edit_next")
     press(dev, "exit")
     back_at = (state(dev, S_LEVEL), state(dev, S_PAGE), text(dev, S_TITLE))
-    add("exit_returns_to_the_groups_row", back_at == (1, 2, "CUSTOMIZATION"), str(back_at))
+    add("exit_returns_to_the_groups_row", back_at == (1, LIST_CUSTOM, "CUSTOMIZATION"), str(back_at))
     press(dev, "exit")
     to_ring = (dev.screen()["number"], state(dev, S_LEVEL), text(dev, S_TITLE))
     press(dev, "exit")
@@ -371,7 +386,7 @@ def cases(payload, flash=None, settings=True):
     press(dev, "menu")
     add("menu_key_returns", dev.screen()["number"] == MENU and state(dev, S_LEVEL) == 0, f"screen {dev.screen()['number']}, level {state(dev, S_LEVEL)}")
 
-    goto_group(dev, GROUP_MFX, 0)
+    goto_group(dev, GROUP_FEATURES, FEAT_MFX)
     first = dev.screen()
     press(dev, "write", wait=0.4)
     window = dev.screen()
@@ -396,7 +411,7 @@ def cases(payload, flash=None, settings=True):
 
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(3)]
-    pages += [(GROUP_CUSTOM, page) for page in range(8)] + [(GROUP_MFX, 0)]
+    pages += [(GROUP_CUSTOM, page) for page in range(8)] + [(GROUP_FEATURES, page) for page in range(len(FEATURE_PAGES))]
     crowded = []
     for group, page in pages:
         if group == "ring":
@@ -514,7 +529,7 @@ def settings_cases(payload, flash=None):
     goto_group(dev, GROUP_PLUGINS, 0)
     dev.turn(-1, wait=0.2)
     first = (text(dev, S_TITLE), text(dev, S_VALUE), text(dev, S_LINE3))
-    goto_group(dev, GROUP_MFX, 0)
+    goto_group(dev, GROUP_FEATURES, FEAT_MFX)
     dev.turn(-1, wait=0.2)
     second = (text(dev, S_TITLE), text(dev, S_VALUE), text(dev, S_LINE3))
     before = bytes(dev.m.mmc.card.medium.data)
@@ -544,7 +559,7 @@ def settings_cases(payload, flash=None):
     # no card at all: the menu still arms with the defaults, and a save says so and writes nothing
     bare = Dev(payload, flash, 0)
     bare.run(1.2)
-    goto_group(bare, GROUP_MFX, 0)
+    goto_group(bare, GROUP_FEATURES, FEAT_MFX)
     press(bare, "write", wait=0.6)
     add("settings_without_card", state(bare, S_ON) == 1 and (state(bare, S_EFF_RUN), state(bare, S_EFF_MFX)) == (1, 1) and text(bare, S_VALUE) == "no card" and not bare.m.asserts,
         f"on={state(bare, S_ON)}, value {text(bare, S_VALUE)!r}, status {state(bare, S_STATUS):#x}")
@@ -562,14 +577,14 @@ def settings_cases(payload, flash=None):
 
     prot.m.uc.hook_add(unicorn.UC_HOOK_CODE, refuse, begin=prot.a(FS_OPEN), end=prot.a(FS_OPEN))
     prot.m.uc.ctl_flush_tb()
-    goto_group(prot, GROUP_MFX, 0)
+    goto_group(prot, GROUP_FEATURES, FEAT_MFX)
     press(prot, "write", wait=0.6)
     add("settings_protected_card", text(prot, S_VALUE) == "card protected" and bytes(prot.m.mmc.card.medium.data) == before and not prot.m.asserts,
         f"value {text(prot, S_VALUE)!r}, card unchanged {bytes(prot.m.mmc.card.medium.data) == before}")
 
     # no BLECH folder on the card: the open fails with 4 or 5
     nofolder = boot(payload, flash, files={"/KORG/other/file": b"1"})
-    goto_group(nofolder, GROUP_MFX, 0)
+    goto_group(nofolder, GROUP_FEATURES, FEAT_MFX)
     press(nofolder, "write", wait=0.6)
     add("settings_without_folder", text(nofolder, S_VALUE) == "folder missing" and not nofolder.m.asserts, f"value {text(nofolder, S_VALUE)!r}")
 
@@ -613,6 +628,7 @@ PAGE_LED_MODE, PAGE_LED_R, PAGE_LED_G, PAGE_LED_B, PAGE_BL_R, PAGE_BL_G, PAGE_BL
 S_PC = 0x158                          # the page PATTERN CONFIRM: 1 on (the default), 0 off
 S_TM = 0x15C                          # the page TAP MOTION: 1 on (the default), 0 off
 TM_SETTING = 0xC0188F00               # the word of the patch tap-motion: FFFFFFFF never written, 1 on, 0 off
+TM_ONCE_BIT = 32                      # bit 5 of the flags of the settings file: TAP MOTION is ONCE (bit 3, off, wins)
 TM_OFF_BIT = 8                        # bit 3 of the flags of the settings file: TAP MOTION is off
 S_NA = 0xFC                           # the page NOTE ASSIST: 1 on (the default), 0 off
 NA_SETTING = 0xC0189F00               # the word of the patch note-assistant: FFFFFFFF never written, 1 on, 0 off
@@ -954,7 +970,7 @@ def confirm_cases(payload, flash=None):
     add("default_on", status(dev) == (1, 0xFFFFFFFF) and status(bare) == (1, 0xFFFFFFFF) and status(plain) == (1, 1), f"card {status(dev)}, no card {status(bare)}, file without the bit {status(plain)}")
 
     # the page: the same style as the others, the dial acts at once, a second turn the same way changes nothing
-    goto_top(dev, LIST_PC)
+    goto_group(dev, GROUP_FEATURES, FEAT_PC)
     page = texts_of(dev), counter(dev), tab(dev)
     dev.turn(-1, wait=0.3)
     off = texts_of(dev), status(dev)
@@ -962,13 +978,13 @@ def confirm_cases(payload, flash=None):
     still = status(dev)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), status(dev)
-    add("page", page == (("PATTERN CONFIRM", "ON", ""), (LIST_PC, 6), "BLECH"), f"{page}")
+    add("page", page == (("PATTERN CONFIRM", "ON", ""), (FEAT_PC, len(FEATURE_PAGES)), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("PATTERN CONFIRM", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("PATTERN CONFIRM", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
     # WRITE keeps OFF in the flags and leaves the look word and the other flags alone
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     set_look(keep, led=(15, 7, 0))
-    goto_top(keep, LIST_PC)
+    goto_group(keep, GROUP_FEATURES, FEAT_PC)
     keep.turn(-1, wait=0.3)
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
@@ -979,12 +995,12 @@ def confirm_cases(payload, flash=None):
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
     again.run(2.0)
     add("start_reads_off", status(again) == (0, 0) and not again.m.asserts, f"{status(again)}")
-    goto_top(again, LIST_PC)
+    goto_group(again, GROUP_FEATURES, FEAT_PC)
     add("start_shows_off", texts_of(again) == ("PATTERN CONFIRM", "OFF", ""), f"{texts_of(again)}")
 
     # ON written again clears the bit; a damaged file and a file of version 1 with the bit behave as the format says
     on = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3 | PC_OFF_BIT, look_word())}, adapter=True)
-    goto_top(on, LIST_PC)
+    goto_group(on, GROUP_FEATURES, FEAT_PC)
     on.turn(1, wait=0.3)
     press(on, "write", wait=0.6)
     kept = read_settings_look(on.m.mmc.card.medium.data)
@@ -1017,7 +1033,7 @@ def tap_motion_cases(payload, flash=None):
     plain = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(1, (15, 0, 0)))}, adapter=True)
     add("default_on", status(dev) == (1, 0xFFFFFFFF) and status(bare) == (1, 0xFFFFFFFF) and status(plain) == (1, 1), f"card {status(dev)}, no card {status(bare)}, file without the bit {status(plain)}")
 
-    goto_top(dev, LIST_TM)
+    goto_group(dev, GROUP_FEATURES, FEAT_TM)
     page = texts_of(dev), counter(dev), tab(dev)
     dev.turn(-1, wait=0.3)
     off = texts_of(dev), status(dev)
@@ -1025,21 +1041,41 @@ def tap_motion_cases(payload, flash=None):
     still = status(dev)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), status(dev)
-    add("page", page == (("TAP MOTION", "ON", ""), (LIST_TM, 6), "BLECH"), f"{page}")
+    add("page", page == (("TAP MOTION", "ON", ""), (FEAT_TM, len(FEATURE_PAGES)), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("TAP MOTION", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("TAP MOTION", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
+    # ONCE: one step up from ON, the word is 2, the page says ONCE; WRITE keeps it as bit 5, a start reads it back, bit 3 wins
+    dev.turn(1, wait=0.3)
+    once = texts_of(dev), status(dev)
+    dev.turn(1, wait=0.3)
+    capped = status(dev)
+    keep_once = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    goto_group(keep_once, GROUP_FEATURES, FEAT_TM)
+    keep_once.turn(1, wait=0.3)
+    press(keep_once, "write", wait=0.6)
+    stored = read_settings_look(keep_once.m.mmc.card.medium.data).get("b", (0, 0, 0, None))
+    again_once = Dev(payload, flash, 0)
+    again_once.m.adapter = True
+    again_once.m.insert_card(SDCard(MemoryMedium(bytearray(keep_once.m.mmc.card.medium.data))))
+    again_once.run(2.0)
+    both = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3 | TM_OFF_BIT | TM_ONCE_BIT, look_word())}, adapter=True)
+    add("once_value", once == (("TAP MOTION", "ONCE", ""), (2, 2)) and capped == (2, 2) and stored[:2] == (1, 3 | TM_ONCE_BIT)
+        and status(again_once) == (2, 2) and status(both) == (0, 0) and not dev.m.asserts, f"{once}, again {capped}, file {stored}, start {status(again_once)}, bit 3 and 5 {status(both)}")
+    dev.turn(-1, wait=0.3)
+    dev.turn(-1, wait=0.3)
+    dev.turn(1, wait=0.3)
     # NOTE ASSIST follows: EDIT next goes there, EDIT previous comes back
     press(dev, "edit_next", wait=0.4)
     nxt = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    add("page_before_note_assist", nxt == ("NOTE ASSIST", (LIST_NA, 6)) and texts_of(dev)[0] == "TAP MOTION", f"after EDIT next {nxt}, after EDIT previous {texts_of(dev)}")
+    add("page_before_note_assist", nxt == ("NOTE ASSIST", (FEAT_NA, len(FEATURE_PAGES))) and texts_of(dev)[0] == "TAP MOTION", f"after EDIT next {nxt}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     set_look(keep, led=(15, 7, 0))
-    goto_top(keep, LIST_PC)
+    goto_group(keep, GROUP_FEATURES, FEAT_PC)
     keep.turn(-1, wait=0.3)
-    goto_top(keep, LIST_TM)
+    goto_group(keep, GROUP_FEATURES, FEAT_TM)
     keep.turn(-1, wait=0.3)
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
@@ -1050,12 +1086,12 @@ def tap_motion_cases(payload, flash=None):
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
     again.run(2.0)
     add("start_reads_off", status(again) == (0, 0) and not again.m.asserts, f"{status(again)}")
-    goto_top(again, LIST_TM)
+    goto_group(again, GROUP_FEATURES, FEAT_TM)
     add("start_shows_off", texts_of(again) == ("TAP MOTION", "OFF", ""), f"{texts_of(again)}")
 
     # ON written again clears the bit and leaves the pattern confirmation's bit
     on = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3 | PC_OFF_BIT | TM_OFF_BIT, look_word())}, adapter=True)
-    goto_top(on, LIST_TM)
+    goto_group(on, GROUP_FEATURES, FEAT_TM)
     on.turn(1, wait=0.3)
     press(on, "write", wait=0.6)
     kept = read_settings_look(on.m.mmc.card.medium.data)
@@ -1085,7 +1121,7 @@ def note_assist_menu_cases(payload, flash=None):
     plain = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3 | TM_OFF_BIT, look_word(1, (15, 0, 0)))}, adapter=True)
     add("default_on", status(dev) == (1, 0xFFFFFFFF) and status(bare) == (1, 0xFFFFFFFF) and status(plain) == (1, 1), f"card {status(dev)}, no card {status(bare)}, file without the bit {status(plain)}")
 
-    goto_top(dev, LIST_NA)
+    goto_group(dev, GROUP_FEATURES, FEAT_NA)
     page = texts_of(dev), counter(dev), tab(dev)
     dev.turn(-1, wait=0.3)
     off = texts_of(dev), status(dev)
@@ -1093,21 +1129,21 @@ def note_assist_menu_cases(payload, flash=None):
     still = status(dev)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), status(dev)
-    add("page", page == (("NOTE ASSIST", "ON", ""), (LIST_NA, 6), "BLECH"), f"{page}")
+    add("page", page == (("NOTE ASSIST", "ON", ""), (FEAT_NA, len(FEATURE_PAGES)), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("NOTE ASSIST", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("NOTE ASSIST", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
-    # the page is the last of the list of level 1: EDIT next wraps to the first, EDIT previous from there comes back
+    # the page is the last of the group FEATURES: EDIT next wraps to the first, EDIT previous from there comes back
     press(dev, "edit_next", wait=0.4)
     wrapped = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    add("page_is_last", wrapped == ("PLUGINS", (0, 6)) and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
+    add("page_is_last", wrapped == ("MFX 2", (0, len(FEATURE_PAGES))) and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     set_look(keep, led=(15, 7, 0))
-    goto_top(keep, LIST_TM)
+    goto_group(keep, GROUP_FEATURES, FEAT_TM)
     keep.turn(-1, wait=0.3)
-    goto_top(keep, LIST_NA)
+    goto_group(keep, GROUP_FEATURES, FEAT_NA)
     keep.turn(-1, wait=0.3)
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
@@ -1118,12 +1154,12 @@ def note_assist_menu_cases(payload, flash=None):
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
     again.run(2.0)
     add("start_reads_off", status(again) == (0, 0) and state(again, S_TM) == 0 and not again.m.asserts, f"{status(again)}, TAP MOTION {state(again, S_TM)}")
-    goto_top(again, LIST_NA)
+    goto_group(again, GROUP_FEATURES, FEAT_NA)
     add("start_shows_off", texts_of(again) == ("NOTE ASSIST", "OFF", ""), f"{texts_of(again)}")
 
     # ON written again clears the bit and leaves the other bits
     on = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3 | PC_OFF_BIT | NA_OFF_BIT, look_word())}, adapter=True)
-    goto_top(on, LIST_NA)
+    goto_group(on, GROUP_FEATURES, FEAT_NA)
     on.turn(1, wait=0.3)
     press(on, "write", wait=0.6)
     kept = read_settings_look(on.m.mmc.card.medium.data)

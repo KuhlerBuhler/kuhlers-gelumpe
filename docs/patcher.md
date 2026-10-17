@@ -40,8 +40,8 @@ Warum die übrigen Ports abgelehnt wurden und welche Prüfungen bestehen, steht 
 | BLECH direkt auf Korgs Original 2.02: Patches mit `builds`, Ordner-Variante für Korgs Build, Patch-Datei mit zweitem Fingerabdruck | `src/patch.mjs` (`selectFor`), `src/firmware.mjs` (`identifyBase`), `data/patches/blechtribe-stock.json`, `src/patchfile.mjs`, `test/patch.test.mjs`, `test/patch-file.test.mjs`, [Messung](messungen/2026-10-14-stock-blech.md) |
 | Seite Patcher mit Prüfung, Download, Wahl "BLECH direkt" oder "mit Hacktribe" und Umwandlung Korg 2.02 zu Hacktribe | `site/app/patcher.mjs`, `src/patcher.mjs`, `src/bsdiff.mjs`, `src/bzip2.mjs`, `test/patcher.test.mjs`, `test/bsdiff.test.mjs`, `test/bzip2.test.mjs` |
 | Patternwechsel erst nach Bestätigung (Idee 46): beim Spielen blättert das Rad nur, MENU bestätigt, EXIT nimmt zurück | `data/patches/pattern-switch.json`, `tools/patch/pattern_switch.py`, `tools/emu/pswitch_cases.py`, [Messung](messungen/2026-10-15-patternwechsel.md) |
-| TAP Motion (Idee 39): TAP schaltet die aufgenommene Motion Sequence des gewählten Parts sofort an und aus, MASTER FX gehalten plus TAP die der Master-FX-Gesten, die TAP-Lampe zeigt den Zustand, das Tap-Tempo entfällt; Menüseite TAP MOTION in der Liste des Menüs BLECH | `data/patches/tap-motion.json`, `tools/patch/tap_motion.py`, `tools/emu/tap_motion_cases.py`, [Messung](messungen/2026-10-15-tap-motion-patch.md) |
-| Notenassistent (Idee 54): im KEYBOARD-Modus leuchten gleich nach einer Note die Pads der passenden Noten (Prim, Terzen, Quarte, Quinte, Sexten) rosa (rote und blaue LED zusammen) und gehen nach 1,5 s wieder aus; das Licht der Firmware gewinnt; Menüseite NOTE ASSIST in der Liste des Menüs BLECH, Bit 4 der Flags | `data/patches/note-assistant.json`, `tools/patch/note_assist.py`, `tools/emu/note_assist_cases.py`, [Messung](messungen/2026-10-15-note-assistant.md) |
+| TAP Motion (Idee 39): TAP schaltet die aufgenommene Motion Sequence des gewählten Parts sofort an und aus, MASTER FX gehalten plus TAP die der Master-FX-Gesten, die TAP-Lampe zeigt den Zustand, das Tap-Tempo entfällt; Menüseite TAP MOTION in der Gruppe FEATURES des Menüs BLECH | `data/patches/tap-motion.json`, `tools/patch/tap_motion.py`, `tools/emu/tap_motion_cases.py`, [Messung](messungen/2026-10-15-tap-motion-patch.md) |
+| Notenassistent (Idee 54): im KEYBOARD-Modus leuchten gleich nach einer Note die Pads der passenden Noten (Prim, Terzen, Quarte, Quinte, Sexten) rosa (rote und blaue LED zusammen) und gehen nach 1,5 s wieder aus; das Licht der Firmware gewinnt; Menüseite NOTE ASSIST in der Gruppe FEATURES des Menüs BLECH, Bit 4 der Flags | `data/patches/note-assistant.json`, `tools/patch/note_assist.py`, `tools/emu/note_assist_cases.py`, [Messung](messungen/2026-10-15-note-assistant.md) |
 | Würfeln (Idee 29): SHIFT + PART ERASE schreibt eine neue Melodie in den gewählten Part, Töne aus Tonart und Tonleiter des Patterns (die Tonleitertabelle der Firmware), Pausen und Noten auf der 16tel-Folge, Gates mit gelegentlichem Tie, innerhalb von Pattern-Länge und LAST STEP; nur die Step-Records des Parts im RAM, nichts im Flash, ungespeichert bis WRITE; ein Haken am Eingang der Tastenfunktion der Modustasten (`0xC006FEDC`, Kette `mode-key`), keine Startphase; auf Hacktribe und auf Korgs Original | `data/patches/dice.json`, `tools/patch/dice.py`, `tools/emu/dice_cases.py`, `test/dice-firmware.test.mjs`, [Messung](messungen/2026-10-16-wuerfeln.md) |
 | Ladebalken im Startbild (Idee 41): das Bild bleibt, während die Samples laden, der Strich unter BLECH ist der Balken, die Augen wandern, kleine Gesichter blenden am Rand ein und aus | `data/patches/load-bar.json`, `tools/patch/load_bar.py`, `tools/emu/loadbar_cases.py`, [Messung](messungen/2026-10-15-ladebalken.md) |
 | Sample-Fehler: der Lader von `e2sSample.all` überspringt ein Sample, das er nicht nehmen kann (Format, belegter Platz), und lädt das nächste; das Fenster nennt das erste (`Sample 371`, darunter der Grund) statt "Unknown Error."; elf Haken im Lader, auf beiden Builds | `data/patches/sample-errors.json`, `tools/patch/sample_errors.py`, `tools/emu/sample_error_cases.py`, `test/sample-errors.test.mjs`, [Messung](messungen/2026-10-15-sample-fehler.md) |
@@ -309,7 +309,7 @@ ist das Schreiben über FatFs noch nicht geprüft (Schritte in
 ## Schalter, die das Menü ergänzen muss
 
 Der Patternwechsel ist beim Start an, und nur mit gemounteter Karte. Das Menü BLECH schaltet ihn ab, ohne dass der Patch
-dafür umgebaut wird: Seite PATTERN CONFIRM in der Liste des Menüs BLECH (gebaut am 15.10. in der Gruppe CUSTOMIZATION, seitdem eine Seite der Liste selbst, `menu:confirm_*`). Der Vertrag
+dafür umgebaut wird: Seite PATTERN CONFIRM in der Gruppe FEATURES des Menüs BLECH (gebaut am 15.10. in der Gruppe CUSTOMIZATION, dann eine Seite der Liste selbst, seit der Neuordnung in FEATURES, `menu:confirm_*`). Der Vertrag
 und wie das Menü ihn erfüllt:
 
 - Das Wort `PS_SETTING` bei `0xC0180F10` (RAM, vom Patch nie beschrieben): `0xFFFFFFFF` (nie geschrieben) oder 1 heißt an,
@@ -320,10 +320,10 @@ und wie das Menü ihn erfüllt:
 - Beim Laden der Datei (`menu_settings_load`) und bei jedem Umschalten das Wort schreiben, `1` oder `0`. Fehlt die Datei oder
   ist sie ungültig, nichts schreiben. Das Menü hält den Zustand in `MENU_STATE + 0x158` (1 an, 0 aus; die Lücke zwischen den
   beiden Dateipuffern), `menu_arm` setzt 1, `menu_settings_load` und die Seite schreiben das Wort, `menu_settings_save` setzt
-  Bit 2 der Flags, wenn der Zustand 0 ist. Die Bits 0 und 1 (Laufzeit, MFX 2) und das Look-Wort bei `+16` bleiben unberührt.
+  Bit 2 der Flags, wenn der Zustand 0 ist. Die Bits 0 und 1 (Laufzeit, MFX 2) und das Look-Wort bei `+16` bleiben unberührt. Das Menü kennt für TAP Motion einen dritten Wert ONCE (Einstellungswort 2, Bit 5 der Flags, Bit 3 gewinnt); was der Patch damit tut, legt der Patch fest.
 
 Der Notenassistent ist beim Start an, ebenfalls nur mit gemounteter Karte, und das Menü BLECH bekommt dafür eine eigene Seite NOTE ASSISTANT
-in der Liste des Menüs BLECH (gebaut, `menu:note_assist_*`). Der Vertrag, wie bei TAP MOTION:
+in der Gruppe FEATURES des Menüs BLECH (gebaut, `menu:note_assist_*`). Der Vertrag, wie bei TAP MOTION:
 
 - Das Wort `NA_SETTING` bei `0xC0189F00` (RAM, im Zustand des Patches): `0xFFFFFFFF` (nie geschrieben) oder 1 heißt an, 0 heißt aus. Der Patch liest es bei jedem Haken.
 - In der Einstellungsdatei die Flags bei `+12`: **Bit 4 gesetzt heißt aus** (Bit 0 Skripte, 1 MFX 2, 2 Patternwechsel aus, 3 TAP Motion aus). Eine Datei ohne das Bit

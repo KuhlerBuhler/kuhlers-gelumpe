@@ -357,12 +357,12 @@ def menu_script_cases(programs, built, patched, flash, check):
     second = texts(dev)
     check("menu-skriptseiten", first == ("healthy", "ON", "") and second[:2] == ("fault", second[1]) and second[1].startswith("DIV_ZERO L") and second[2] == "" and menu_cases.tab(dev) == "Plugins",
           dict(first=first, second=second))
-    menu_cases.goto_top(dev, 0)
+    menu_cases.goto_top(dev, menu_cases.LIST_FEATURES)
     titles = []
     for _ in range(len(menu_cases.LIST_PAGES)):
         titles.append(menu_cases.text(dev, menu_cases.S_TITLE))
         menu_cases.press(dev, "edit_next")
-    check("menu-liste-ohne-about", titles == menu_cases.LIST_PAGES and "ABOUT" not in titles and menu_cases.text(dev, menu_cases.S_TITLE) == "PLUGINS", titles)
+    check("menu-liste-ohne-about", titles == menu_cases.LIST_PAGES and "ABOUT" not in titles and menu_cases.text(dev, menu_cases.S_TITLE) == "FEATURES", titles)
     check("menu-blechy-keine-plugin-seite", dev.u32(menu_cases.STATE + 40) == 2 and plugin_entry(dev, runtime, 2) == 0, dict(count=dev.u32(menu_cases.STATE + 40)))
     menu_cases.goto_group(dev, menu_cases.GROUP_PLUGINS, 1)
 
@@ -638,13 +638,13 @@ def app_cases(programs, built, patched, flash, check, reference, displays):
     for group, label in [(menu_cases.GROUP_GAMES, "games"), (menu_cases.GROUP_TOOLS, "tools")]:
         menu_cases.goto_group(apps, group, 0)
         pages[label] = (menu_cases.texts_of(apps), menu_cases.tab(apps), menu_cases.counter(apps), menu_cases.page_overlap(apps))
-    menu_cases.goto_top(apps, 0)
+    menu_cases.goto_top(apps, menu_cases.LIST_FEATURES)
     top = []
     for _ in range(5):
         top.append(menu_cases.text(apps, menu_cases.S_TITLE))
         menu_cases.press(apps, "edit_next")
     check("app-gruppen-im-menue", pages["games"] == (("Snake", "", menu_cases.PRESS), "Games", (0, 1), None) and pages["tools"] == (("Klicker", "", menu_cases.PRESS), "Tools", (0, 1), None)
-          and top == ["PLUGINS", "GAMES", "TOOLS", "MFX 2", "CUSTOMIZATION"], dict(pages=pages, top=top))
+          and top == ["FEATURES", "CUSTOMIZATION", "PLUGINS", "GAMES", "TOOLS"], dict(pages=pages, top=top))
 
     open_app(apps, menu_cases.GROUP_TOOLS)
     check("app-oeffnet-aus-dem-menue", apps.screen()["number"] == 1 and shows(apps, "klickerReady") and control(apps, "READY") == 1 and not apps.m.asserts,

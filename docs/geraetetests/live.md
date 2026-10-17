@@ -44,7 +44,7 @@ Ein Pattern spielen lassen (PLAY), am besten eins mit vier Takten.
 7. PATTERN SET und ein Pad während des Spielens. **Erwartet:** wie immer, das gewählte Pattern startet am Sequenzende.
 8. Mit EXIT beim Einschalten: Drehen beim Spielen sendet wieder bei jedem Klick ein Program Change und merkt das Pattern vor (die Firmware ohne den Patch).
 
-9. Menü BLECH, Seite PATTERN CONFIRM in der Liste (ohne Apps "BLECH 4/6"): Hauptrad auf OFF, WRITE, aus- und einschalten, Pattern beim Spielen drehen. **Erwartet:** wie Punkt 8, die Firmware ohne den Patch (jeder Klick sendet ein Program Change). Wieder ON, WRITE, neu starten: Punkt 1 bis 7 gelten. Ohne Karte ist der Patternwechsel aus, was die Seite auch zeigt ([Patcher](../patcher.md), "Schalter, die das Menü ergänzen muss").
+9. Menü BLECH, Gruppe FEATURES, Seite PATTERN CONFIRM ("Feature 2/4"): Hauptrad auf OFF, WRITE, aus- und einschalten, Pattern beim Spielen drehen. **Erwartet:** wie Punkt 8, die Firmware ohne den Patch (jeder Klick sendet ein Program Change). Wieder ON, WRITE, neu starten: Punkt 1 bis 7 gelten. Ohne Karte ist der Patternwechsel aus, was die Seite auch zeigt ([Patcher](../patcher.md), "Schalter, die das Menü ergänzen muss").
 
 ## 4. TAP Motion
 
@@ -61,7 +61,7 @@ Der Patch ersetzt das Tap-Tempo der TAP-Taste; SHIFT + TAP (Seite BPM) bleibt.
 5. Touchpad im Modus MASTER FX aufnehmen (REC, PLAY, Finger auf das Pad, STOP). Danach MASTER FX halten und TAP drücken. **Erwartet:** solange MASTER FX gehalten ist, zeigt die TAP-Lampe die Master-FX-Bewegung, TAP
    schaltet nur sie (der Effekt geht aus, wenn die Geste gerade lief), der Part bleibt unberührt. **Beachte:** MASTER FX stellt das Pad auf Master FX um, das bleibt nach dem Loslassen so.
 6. SHIFT + TAP. **Erwartet:** Pattern-Menü auf der Seite BPM, wie immer, die Bewegung bleibt, wie sie ist.
-7. Menü BLECH, Seite TAP MOTION in der Liste (ohne Apps "BLECH 5/6"): Hauptrad auf OFF, WRITE, neu starten. **Erwartet:** TAP ist wieder das Tap-Tempo, die Lampe blinkt im Takt, nichts schaltet. Wieder ON, WRITE: Punkt 1 bis 6.
+7. Menü BLECH, Gruppe FEATURES, Seite TAP MOTION ("Feature 3/4"): Hauptrad auf OFF, WRITE, neu starten. **Erwartet:** TAP ist wieder das Tap-Tempo, die Lampe blinkt im Takt, nichts schaltet. Wieder ON, WRITE: Punkt 1 bis 6.
 8. Ohne Karte oder mit EXIT beim Einschalten: wie Punkt 7, die Firmware ohne den Patch.
 9. Eine App aus dem BLECH-Menü öffnen und TAP drücken. **Erwartet:** die App bekommt TAP, die Bewegung schaltet nicht.
 
@@ -79,7 +79,7 @@ Part 1 gewählt. Der Patch rührt nichts an, was du spielst; er schaltet nur LED
 4. BAR 4 oder BAR 1 (Oktave) drücken. **Erwartet:** die Hinweise gehen weg und kommen mit der nächsten Note wieder.
 5. TRIGGER, SEQUENCER, CHORD oder STEP JUMP wählen, solange Hinweise da sind. **Erwartet:** sie gehen weg; in diesen Modi und mit MENU und in jedem anderen Bildschirm als dem Hauptbild erscheint nichts.
 6. Ein Part, der selbst Noten spielt (PLAY): **Erwartet:** das Pad jeder Sequencer-Note leuchtet wie immer (das Licht der Firmware gewinnt); die Hinweise der letzten Pad-Note laufen daneben ihre 1,5 s und enden.
-7. Menü BLECH, Seite NOTE ASSIST in der Liste (letzte, ohne Apps "BLECH 6/6"): Hauptrad auf OFF, WRITE, neu starten. **Erwartet:** keine Hinweise mehr, die Pads wie in der Firmware. Wieder ON, WRITE: Punkt 1 bis 6. Mit EXIT beim Einschalten oder ohne Karte: wie OFF.
+7. Menü BLECH, Gruppe FEATURES, Seite NOTE ASSIST (letzte, "Feature 4/4"): Hauptrad auf OFF, WRITE, neu starten. **Erwartet:** keine Hinweise mehr, die Pads wie in der Firmware. Wieder ON, WRITE: Punkt 1 bis 6. Mit EXIT beim Einschalten oder ohne Karte: wie OFF.
 
 ## Was du melden sollst
 
