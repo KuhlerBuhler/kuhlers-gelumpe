@@ -200,9 +200,20 @@ def case_browse(payload, flash):
                      f"EXIT held: a click sends a program change each ({ref.program_changes()}), pending, the number starts at the sequence end after {ref_end} s, the patch's state untouched {ref.flags()}"))
     out.append(entry("browse_is_silent", box.view() == (0, 5, 1) and box.flags()[0] == 1 and box.program_changes() == [] and not box.m.asserts,
                      f"after three clicks: running/chosen/pending {box.view()}, browse flag {box.flags()[0]}, program changes sent {box.program_changes()}"))
-    fb = bytes(box.dev.fb())
-    differ = [i // 128 for i in range(1024) if fb[i] != ref2.dev.fb()[i]]
-    out.append(entry("browse_label_is_view", set(differ) and set(differ) <= {6, 7} and box.flags()[0] == 1,
+    # The firmware's NEXT: display blinks the pattern name; when the sample falls on the dark half moves with every instruction a patch adds
+    # to the frame (the emulator's time is counted in instructions). Look ten times in 0.5 s, both run alike; one look where only the lower
+    # line differs is the answer.
+    differ = None
+    for _ in range(10):
+        fb = bytes(box.dev.fb())
+        now = {i // 128 for i in range(1024) if fb[i] != ref2.dev.fb()[i]}
+        if now and now <= {6, 7}:
+            differ = now
+            break
+        differ = now
+        for b in (box, ref2):
+            b.run(0.05)
+    out.append(entry("browse_label_is_view", differ and differ <= {6, 7} and box.flags()[0] == 1,
                      f"the display differs from the firmware's NEXT: display only in the lower line (pages {sorted(set(differ))}), where the label reads VIEW:"))
     box.run(7.0)
     out.append(entry("browse_keeps_looping", box.running() == 0 and box.view() == (0, 5, 1) and box.transport() == 1 and not box.m.asserts,
