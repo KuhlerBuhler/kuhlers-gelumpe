@@ -53,6 +53,9 @@ FIL = 0xC0182D20                # the card file of the import (the firmware's Fa
 BR = 0xC0182F60                 # bytes the last read gave
 FREE_END = 0xC0183000
 IMPORT_ENTRY = 0xC01A2500       # EDITOR_AT: b splash_import, for the BLECH menu; r0 = 0 stored, 1 no file, 2 no 128 x 64 BMP with 1 bit, 3 flash
+DRAW_ENTRY = 0xC01A2504         # b splash_draw: Global, page SPLASH SCREEN, the editor open; the menu jumps here instead of returning
+TICK_HOOK = 0xC006F178          # first instruction of the screen manager's tick, ldrb r3, [r0, #0x4c]
+TICK_WORD = 0xE5D0304C
 IMPORT_PATH = "SD:KORG/blechtribe/splash.bmp"
 
 # ---- firmware facts (measured, see the research doc) ---------------------------
@@ -103,6 +106,7 @@ SOURCE = f"""
 .equ S_TICK, 16
 .equ S_REDRAW, 20               ; after WRITE: 1 waiting for the Working window to come up, 2 it is up (or VALUE moved the cursor); the image is drawn again once it is gone
 .equ S_PUSHED, 24               ; screen object our widget sits in
+.equ S_PENDING, 28              ; ticks left in which the Global screen the BLECH menu asked for opens on the editor
 .equ S_WIDGET, 0x40
 .equ WINDOW_WAIT, 40            ; ticks to wait for the Working window before drawing without it
 
@@ -248,6 +252,7 @@ draw_image:
 ; ------------------------------------------------------------- the editor
 .org {EDITOR_AT:#x}
     b splash_import             ; IMPORT_ENTRY, called by the BLECH menu
+    b splash_draw               ; DRAW_ENTRY, jumped to by the BLECH menu
 
 ; Checks the replaced slots start with: the state was set up at start and EXIT was
 ; not held. Otherwise the original slot runs, with every argument as it came.
@@ -726,6 +731,59 @@ imp_close:
 imp_out:
     pop {{r4, r5, r6, r7, r8, pc}}
 
+; ---- from the BLECH menu straight into the editor: the Global parameter screen (9), the page SPLASH SCREEN, the editor open.
+; Jumped to instead of returning from a key slot of the menu screen. The screen manager builds the new screen on a later tick,
+; so the switch is asked for here and the editor opened by the tick hook once screen 9 is up (within 10 ticks, else never).
+splash_draw:
+    ldr r12, =STATE
+    ldr r0, [r12, #S_MAGIC]
+    ldr r1, =MAGIC
+    cmp r0, r1
+    bxne lr
+    mov r0, #10
+    str r0, [r12, #S_PENDING]
+    mov r0, #9
+    mov r1, #0
+    b 0xC0083D28
+
+; First instruction of the screen manager's tick (r0 = the manager). Does nothing unless splash_draw asked for the editor.
+splash_tick:
+    push {{r0, r1, r2, r3, r12, lr}}
+    ldr r12, =STATE
+    ldr r1, [r12, #S_MAGIC]
+    ldr r2, =MAGIC
+    cmp r1, r2
+    bne tick_out
+    ldr r1, [r12, #S_PENDING]
+    cmp r1, #0
+    beq tick_out
+    sub r1, r1, #1
+    str r1, [r12, #S_PENDING]
+    ldr r1, =MGR
+    ldr r1, [r1]
+    ldr r2, [r1, #0x2C]
+    cmp r2, #9
+    bne tick_out
+    ldr r1, [r1, #0x20]
+    cmp r1, #0
+    beq tick_out
+    mov r2, #0
+    str r2, [r12, #S_PENDING]
+    push {{r1}}
+    mov r0, r1
+    bl show_page
+    pop {{r0}}
+    bl enter_editor
+    ldr r12, =STATE
+    mov r2, #2                  ; the firmware draws the new screen after this tick: the image goes over it on the next
+    str r2, [r12, #S_REDRAW]
+tick_out:
+    pop {{r0, r1, r2, r3, r12, lr}}
+    ldrb r3, [r0, #0x4c]        ; the replaced instruction
+    b {TICK_HOOK + 4:#x}
+.pool
+splash_tick_end:
+
 ; r0 = to, r1 = bytes -> r0 = 0 when all of them came
 imp_read:
     push {{r4, lr}}
@@ -817,7 +875,7 @@ def source():
     return synthaddr.source(text, own=OWN_AREAS) if synth else text
 
 
-FIRMWARE_PLACES = ["ORIG_VTABLE", "VTABLE_LITERAL", "START_CALL", "SPLASH_CALL", "PAGE_SHOWN_1", "PAGE_SHOWN_2"]
+FIRMWARE_PLACES = ["ORIG_VTABLE", "VTABLE_LITERAL", "START_CALL", "SPLASH_CALL", "PAGE_SHOWN_1", "PAGE_SHOWN_2", "TICK_HOOK"]
 
 
 def use_build(build):
@@ -850,6 +908,10 @@ def file_offset(addr):
     return addr - RAM + HEADER
 
 
+def branch(at, target):
+    return struct.pack("<I", 0xEA000000 | ((target - (at + 8)) >> 2) & 0xFFFFFF)
+
+
 def bl(at, target):
     off = (target - (at + 8)) >> 2
     return struct.pack("<I", 0xEB000000 | off & 0xFFFFFF)
@@ -864,7 +926,7 @@ def build_patch(vsb, build="hacktribe"):
     use_build(build)
     sections, symbols = build_code()
     (a_at, a_code), (b_at, b_code) = sections
-    if symbols["splash_import"] and b_at != IMPORT_ENTRY:
+    if b_at != IMPORT_ENTRY or DRAW_ENTRY != IMPORT_ENTRY + 4:
         raise SystemExit("the import entry is not at the start of the editor section")
     if a_at + len(a_code) > START_END:
         raise SystemExit(f"start code is {len(a_code):#x} bytes, room for {START_END - START_AT:#x}")
@@ -885,6 +947,8 @@ def build_patch(vsb, build="hacktribe"):
         return sha(was(addr, n))
 
     free(STATE, FREE_END - STATE)
+    if struct.unpack("<I", was(TICK_HOOK, 4))[0] != TICK_WORD:
+        raise SystemExit("the screen manager's tick does not start with ldrb r3, [r0, #0x4c] in this VSB")
     changes = [
         {"file": file_offset(a_at), "bytes": a_code.hex(), "expect": free(a_at, len(a_code)),
          "note": "start code: draw the stored start image, or the VSB one"},
@@ -900,6 +964,8 @@ def build_patch(vsb, build="hacktribe"):
          "note": "start hook after the rescue paths"},
         {"file": file_offset(SPLASH_CALL), "bytes": struct.pack("<I", 0xE1A00000).hex(), "expect": sha(was(SPLASH_CALL, 4)),
          "note": "no start image before the rescue paths (nop)"},
+        {"file": file_offset(TICK_HOOK), "bytes": branch(TICK_HOOK, symbols["splash_tick"]).hex(), "expect": sha(was(TICK_HOOK, 4)),
+         "note": "the screen manager's tick looks whether the BLECH menu asked for the editor"},
     ]
     for at in PAGES_SHOWN:
         changes.append({"file": file_offset(at), "bytes": struct.pack("<I", 0xE3A02015).hex(), "expect": sha(was(at, 4)),
@@ -911,6 +977,7 @@ def build_patch(vsb, build="hacktribe"):
         "hooks": [
             hook(START_CALL, "call", "start", "after", False, "runs the original call, then draws the stored start image"),
             hook(SPLASH_CALL, "call", "start-image", "replace", True, "the early start image call is dropped"),
+            hook(TICK_HOOK, "instruction", "frame", "before", False, "opens the editor on the Global screen the BLECH menu asked for"),
             hook(VTABLE_LITERAL, "literal", "global-screen", "replace", True, "the Global screen's class is the copy with our slots"),
             *[hook(at, "instruction", "global-screen", "replace", False, "page display shows /21") for at in PAGES_SHOWN],
         ],
@@ -918,6 +985,8 @@ def build_patch(vsb, build="hacktribe"):
             {"file": file_offset(START_CALL), "length": 4, "why": "the call after the rescue paths now runs splash_start"},
             {"file": file_offset(SPLASH_CALL), "length": 4, "why": "the start image call before the rescue paths is dropped"},
             {"file": file_offset(a_at), "length": len(a_code), "why": "splash_start and what it calls: flash read, CRC, draw"},
+            {"file": file_offset(TICK_HOOK), "length": 4, "why": "the screen manager's tick runs from the start and now enters splash_tick first"},
+            {"file": file_offset(symbols["splash_tick"]), "length": symbols["splash_tick_end"] - symbols["splash_tick"], "why": "splash_tick and its literals: before the start code has set the magic word it only compares it and hands over"},
         ],
         "ram": [
             ramdecl.area(STATE, STATE_SIZE, "run time state of the start code and the editor", "tools/patch/splash_editor.py:STATE"),

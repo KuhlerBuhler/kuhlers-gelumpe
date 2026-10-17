@@ -62,6 +62,8 @@
 .equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST
 .equ M_STATE_WORDS, 128
 .equ SWITCH_SCREEN, 0xC0083D28
+.equ SPLASH_IMPORT, 0xC01A2500  ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
+.equ SPLASH_DRAW, 0xC01A2504
 .equ M_LEVEL, 0xE0
 .equ M_GROUP, 0xE4
 .equ M_RAW, 0xE8
@@ -1065,6 +1067,10 @@ menu_texts_clear:
     beq menu_text_tm
     cmp r0, #21
     beq menu_text_na
+    cmp r0, #22
+    beq menu_text_splash
+    cmp r0, #23
+    beq menu_text_splash
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1234,6 +1240,20 @@ menu_text_invert:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
+; SPLASH IMPORT (22): ENTER reads KORG/blechtribe/splash.bmp into the start image; SPLASH DRAW (23): ENTER opens the editor
+menu_text_splash:
+    mov r6, r0
+    mov r0, #3
+    bl menu_title_prefix
+    cmp r6, #22
+    ldreq r1, =str_splash_import
+    ldrne r1, =str_splash_draw
+    bl menu_copy
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status_value
+    b menu_text_press
+
 ; PATTERN CONFIRM: whether the pattern change waits for a second press (the patch pattern-switch reads the word PS_SETTING)
 menu_text_pc:
     mov r0, #3
@@ -1380,6 +1400,15 @@ menu_text_status_more:
     beq menu_text_status_go
     cmp r1, #0x24
     ldreq r1, =str_nofolder
+    beq menu_text_status_go
+    cmp r1, #0x40
+    ldreq r1, =str_splash_saved
+    beq menu_text_status_go
+    cmp r1, #0x41
+    ldreq r1, =str_splash_nofile
+    beq menu_text_status_go
+    cmp r1, #0x42
+    ldreq r1, =str_splash_format
     beq menu_text_status_go
     cmp r1, #0x25
     ldreq r1, =str_nofolder
@@ -1644,6 +1673,10 @@ menu_kind_group:
     cmp r3, #3
     bne menu_kind_apps
     add r0, r5, #7
+    cmp r5, #8
+    moveq r0, #22
+    cmp r5, #9
+    moveq r0, #23
     mov r1, #0
     b menu_kind_done
 menu_kind_features:
@@ -1719,8 +1752,14 @@ menu_count_group:
     cmp r1, #0
     beq menu_count_plugins
     cmp r1, #3
-    moveq r0, #8
-    beq menu_count_out
+    bne menu_count_features
+    mov r0, #8
+    ldr r1, =SPLASH_IMPORT
+    ldr r1, [r1]
+    cmn r1, #1
+    addne r0, r0, #2            ; SPLASH IMPORT and SPLASH DRAW, where the build has the splash editor
+    b menu_count_out
+menu_count_features:
     cmp r1, #3
     movhi r0, #4
     bhi menu_count_out
@@ -2542,6 +2581,10 @@ menu_slot_keys:
     beq menu_keys_import
     cmp r0, #19
     beq menu_keys_done
+    cmp r0, #22
+    beq menu_keys_splash_import
+    cmp r0, #23
+    beq menu_keys_splash_draw
     cmp r6, #0x09
     beq menu_keys_done
     cmp r0, #2
@@ -2589,6 +2632,20 @@ menu_keys_import:
 menu_keys_import_now:
     bl menu_import
     b menu_keys_done
+menu_keys_splash_import:
+    cmp r6, #0x09
+    bne menu_keys_done
+    ldr r12, =SPLASH_IMPORT
+    blx r12
+    add r0, r0, #0x40           ; 0x40 stored, 0x41 no file, 0x42 not such a BMP, 0x43 the flash write failed
+    ldr r1, =MENU_STATE
+    str r0, [r1, #M_STATUS]
+    b menu_keys_done
+menu_keys_splash_draw:
+    cmp r6, #0x09
+    bne menu_keys_done
+    pop {r4, r5, r6, lr}        ; the switch destroys this screen: jump, do not come back
+    ldr pc, =SPLASH_DRAW
 menu_keys_save:
     bl menu_settings_save
 menu_keys_done:
@@ -2762,6 +2819,16 @@ str_bl_blue:
     .asciz "BACKLIGHT BLUE"
 str_invert:
     .asciz "DISPLAY INVERT"
+str_splash_import:
+    .asciz "SPLASH IMPORT"
+str_splash_draw:
+    .asciz "SPLASH DRAW"
+str_splash_saved:
+    .asciz "loaded"
+str_splash_nofile:
+    .asciz "no splash.bmp"
+str_splash_format:
+    .asciz "not 128x64 1 bit"
 str_pc:
     .asciz "PATTERN CONFIRM"
 str_tm:

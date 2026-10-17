@@ -50,6 +50,7 @@ export const CHAINS = {
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
   "frame": [
     { id: "screen-tick", sites: [0xC00836F8] },
+    { id: "screen-tick-entry", sites: [0xC006F178] },
     { id: "frame-hook", sites: [0xC00836FC] },
     { id: "display-flush", sites: [0xC008370C] },
   ],

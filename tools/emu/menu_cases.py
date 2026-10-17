@@ -877,6 +877,50 @@ def cases_task():
     return cases(parallel.shared["payload"], parallel.shared["flash"], settings=False)
 
 
+def splash_menu_cases(payload, flash=None):
+    """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT reads KORG/blechtribe/splash.bmp into the start image,
+    SPLASH DRAW opens the editor (Global, page SPLASH SCREEN). Without the editor (the synth) the group keeps its 8 pages."""
+    from splash_cases import bmp, image_of
+    import splash_editor
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:splash_{name}", "ok": bool(ok), "detail": detail})
+
+    pic = [[1 if (x + 2 * y) % 7 == 0 else 0 for x in range(128)] for y in range(64)]
+    dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic)})
+    if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF:
+        goto_group(dev, GROUP_CUSTOM, 0)
+        add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 8, f"counter {counter(dev)}")
+        return out
+    goto_group(dev, GROUP_CUSTOM, 8)
+    before = texts_of(dev)
+    press(dev, "menu", 0.6)
+    after = texts_of(dev)
+    stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(pic)
+    add("import", before == ("SPLASH IMPORT", "", PRESS) and after[:2] == ("SPLASH IMPORT", "loaded") and stored and not dev.m.asserts,
+        f"{before} -> {after}, image {'stored' if stored else 'not stored'}")
+    press(dev, "edit_next", 0.4)
+    page = texts_of(dev)
+    press(dev, "menu", 0.8)
+    st = dev.u32(splash_editor.STATE + 4)
+    battery = range(84, 98)                  # the status bar's battery symbol redraws itself in page 0 (docs/hintergrund/startbild-editor.md)
+    want = splash_cases_display(image_of(pic))
+    differ = [i for i, (a, b) in enumerate(zip(dev.fb(), want)) if a != b and i not in battery]
+    add("draw_opens_the_editor", page == ("SPLASH DRAW", "", PRESS) and dev.screen()["number"] == 9 and dev.screen()["page"] == splash_editor.PAGE and st == 1
+        and len(differ) <= 1 and not dev.m.asserts, f"{page}, screen {dev.screen()}, editor mode {st}, display bytes not the image (battery aside): {differ}")
+    bare = boot(payload, flash, files=CARD_FOLDER)
+    goto_group(bare, GROUP_CUSTOM, 8)
+    press(bare, "menu", 0.6)
+    add("import_without_file", texts_of(bare)[1] == "no splash.bmp", str(texts_of(bare)))
+    return out
+
+
+def splash_cases_display(image):
+    from splash_cases import display_of
+    return display_of(image)
+
+
 def invert_cases(payload, flash=None):
     """The page DISPLAY INVERT of the group CUSTOMIZATION: the controller is told 0xA7 (reverse display) or 0xA6 (normal) once per
     change, never when the setting stays OFF, the file keeps it (bit 28 of the look word), and EXIT at power-on leaves the controller
@@ -910,7 +954,9 @@ def invert_cases(payload, flash=None):
     go(dev, 1)
     dev.run(0.5)
     main_on = dev.screen()["number"], status(dev), flipped(dev)
-    add("page", page == (("DISPLAY INVERT", "OFF", ""), (7, 8), "Custom"), f"{page}")
+    import splash_editor
+    custom = 8 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 10     # SPLASH IMPORT and SPLASH DRAW follow where the set has the editor
+    add("page", page == (("DISPLAY INVERT", "OFF", ""), (7, custom), "Custom"), f"{page}")
     add("on_swaps_the_display", on == (("DISPLAY INVERT", "ON", ""), (1, True, 1), True) and menu_screen and still == (1, True, 1),
         f"{on}, dial again {still}")
     add("main_screen_inverted", main_on == (1, (1, True, 1), True) and not dev.m.asserts, f"{main_on}")
@@ -1313,7 +1359,7 @@ def synth_start_cases(payload, flash=None):
 def look_cases_task():
     """The look cases in a worker (parallel.py)."""
     import parallel
-    return look_cases(parallel.shared["payload"], parallel.shared["flash"])
+    return look_cases(parallel.shared["payload"], parallel.shared["flash"]) + splash_menu_cases(parallel.shared["payload"], parallel.shared["flash"])
 
 
 def settings_cases_task():
@@ -1331,7 +1377,7 @@ def main():
     args = parser.parse_args()
     payload = Path(args.patched).read_bytes()[HEADER:]
     flash = load_flash(args.flash) if args.flash else None
-    result = cases(payload, flash) + look_cases(payload, flash)
+    result = cases(payload, flash) + look_cases(payload, flash) + splash_menu_cases(payload, flash)
     print(json.dumps(result, indent=1))
     return 0 if all(c["ok"] for c in result) else 1
 

@@ -31,4 +31,16 @@ ist `0xC01A2500` (`IMPORT_ENTRY`): Rückgabe 0 gespeichert, 1 keine Datei, 2 kei
   (BITMAPV5HEADER): gespeichert, Bild Pixel für Pixel wie gezeichnet. 100 Pixel breit und 4 Bit je Pixel: 2, nichts gespeichert.
   Ohne Datei: 1.
 - **Gemessen:** nach einem Neustart zeigt das Display das importierte Bild (alle Proben während des Startbilds).
-- **Offen:** der Menüpunkt dafür im BLECH-Menü; eine Rückmeldung auf dem Display.
+
+## Im BLECH-Menü
+
+CUSTOMIZATION hat zwei Seiten mehr, wo der Satz den Startbild-Editor hat (das Menü sieht nach, ob bei `0xC01A2500` etwas steht; auf der
+blauen ist dort `FF`): SPLASH IMPORT ruft den Import und zeigt das Ergebnis ("loaded", "no splash.bmp", "not 128x64 1 bit"),
+SPLASH DRAW öffnet den Editor. Der Wechsel auf Global geschieht erst in einem späteren Takt des Bildschirm-Managers; darum merkt sich
+der Editor den Wunsch, und ein Haken am Anfang des Takts (`0xC006F178`) öffnet ihn, sobald Bildschirm 9 steht (höchstens 10 Takte lang).
+
+- **Gemessen (`menu:splash_import`, `menu:splash_import_without_file`):** ENTER auf SPLASH IMPORT speichert das Bild der Karte, ohne Datei steht
+  "no splash.bmp" da.
+- **Gemessen (`menu:splash_draw_opens_the_editor`):** ENTER auf SPLASH DRAW: Bildschirm 9, Seite SPLASH SCREEN, Editor offen, das Display zeigt das
+  Bild (bis auf das Batterie-Symbol der Statusleiste).
+- **Gemessen (`menu:splash_no_pages_without_the_editor`):** auf der blauen hat CUSTOMIZATION weiter 8 Seiten.
