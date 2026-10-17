@@ -54,6 +54,8 @@ before(async () => {
       format: "gelumpe-patch-set", version: 1, id: "blech-synth", name: "BLECH Synth",
       patches: ["data/patches/synth-test.json"],
     }));
+    // no copy of these test files has passed before: the check runs (src/patcher.mjs, verifiedReport)
+    writeFileSync(join(dir, "patches", "verified.json"), JSON.stringify({ format: "gelumpe-verified", version: 1, results: [] }));
     return [["/data/patches/", `${dir}/patches/`], ["/assets/blechy/", `${dir}/blechy/`]];
   });
   fake = await fakeService(new URL(h.url).origin, { sdDir: SD_DIR });

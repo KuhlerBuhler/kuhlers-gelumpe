@@ -247,6 +247,42 @@ draw_image:
     bl 0xC001531C
     add sp, sp, #12
     pop {{r4, r5, r6, pc}}
+; First instruction of the screen manager's tick (r0 = the manager). Does nothing unless splash_draw asked for the editor.
+splash_tick:
+    push {{r0, r1, r2, r3, r12, lr}}
+    ldr r12, =STATE
+    ldr r1, [r12, #S_MAGIC]
+    ldr r2, =MAGIC
+    cmp r1, r2
+    bne tick_out
+    ldr r1, [r12, #S_PENDING]
+    cmp r1, #0
+    beq tick_out
+    sub r1, r1, #1
+    str r1, [r12, #S_PENDING]
+    ldr r1, =MGR
+    ldr r1, [r1]
+    ldr r2, [r1, #0x2C]
+    cmp r2, #9
+    bne tick_out
+    ldr r1, [r1, #0x20]
+    cmp r1, #0
+    beq tick_out
+    mov r2, #0
+    str r2, [r12, #S_PENDING]
+    push {{r1}}
+    mov r0, r1
+    bl show_page
+    pop {{r0}}
+    bl enter_editor
+    ldr r12, =STATE
+    mov r2, #2                  ; the firmware draws the new screen after this tick: the image goes over it on the next
+    str r2, [r12, #S_REDRAW]
+tick_out:
+    pop {{r0, r1, r2, r3, r12, lr}}
+    ldrb r3, [r0, #0x4c]        ; the replaced instruction
+    b {TICK_HOOK + 4:#x}
+
 .pool
 
 ; ------------------------------------------------------------- the editor
@@ -746,43 +782,6 @@ splash_draw:
     mov r1, #0
     b 0xC0083D28
 
-; First instruction of the screen manager's tick (r0 = the manager). Does nothing unless splash_draw asked for the editor.
-splash_tick:
-    push {{r0, r1, r2, r3, r12, lr}}
-    ldr r12, =STATE
-    ldr r1, [r12, #S_MAGIC]
-    ldr r2, =MAGIC
-    cmp r1, r2
-    bne tick_out
-    ldr r1, [r12, #S_PENDING]
-    cmp r1, #0
-    beq tick_out
-    sub r1, r1, #1
-    str r1, [r12, #S_PENDING]
-    ldr r1, =MGR
-    ldr r1, [r1]
-    ldr r2, [r1, #0x2C]
-    cmp r2, #9
-    bne tick_out
-    ldr r1, [r1, #0x20]
-    cmp r1, #0
-    beq tick_out
-    mov r2, #0
-    str r2, [r12, #S_PENDING]
-    push {{r1}}
-    mov r0, r1
-    bl show_page
-    pop {{r0}}
-    bl enter_editor
-    ldr r12, =STATE
-    mov r2, #2                  ; the firmware draws the new screen after this tick: the image goes over it on the next
-    str r2, [r12, #S_REDRAW]
-tick_out:
-    pop {{r0, r1, r2, r3, r12, lr}}
-    ldrb r3, [r0, #0x4c]        ; the replaced instruction
-    b {TICK_HOOK + 4:#x}
-.pool
-splash_tick_end:
 
 ; r0 = to, r1 = bytes -> r0 = 0 when all of them came
 imp_read:
@@ -984,9 +983,8 @@ def build_patch(vsb, build="hacktribe"):
         "startPhase": [
             {"file": file_offset(START_CALL), "length": 4, "why": "the call after the rescue paths now runs splash_start"},
             {"file": file_offset(SPLASH_CALL), "length": 4, "why": "the start image call before the rescue paths is dropped"},
-            {"file": file_offset(a_at), "length": len(a_code), "why": "splash_start and what it calls: flash read, CRC, draw"},
+            {"file": file_offset(a_at), "length": len(a_code), "why": "splash_start and what it calls: flash read, CRC, draw; splash_tick, which before the magic word is set only compares it and hands over"},
             {"file": file_offset(TICK_HOOK), "length": 4, "why": "the screen manager's tick runs from the start and now enters splash_tick first"},
-            {"file": file_offset(symbols["splash_tick"]), "length": symbols["splash_tick_end"] - symbols["splash_tick"], "why": "splash_tick and its literals: before the start code has set the magic word it only compares it and hands over"},
         ],
         "ram": [
             ramdecl.area(STATE, STATE_SIZE, "run time state of the start code and the editor", "tools/patch/splash_editor.py:STATE"),
