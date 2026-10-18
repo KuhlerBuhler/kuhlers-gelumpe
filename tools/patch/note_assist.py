@@ -7,9 +7,9 @@ In KEYBOARD mode, right after a note was played on a pad, the pads of the notes 
             away from the played note (0, 3, 4, 5, 7, 8 or 9 semitones, modulo 12). The pads of the keyboard layout are the
             notes of the pattern's own key and scale already (the firmware builds the layout from them, measured), so that
             half of "fits" needs no check of its own.
-    when    from the next tick of the LED manager (40 ms) after a pad went down, and off again 38 ticks (1.52 s) after it, if no
-            new pad note came; a new pad note replaces them at once, a note of the sequencer only takes them away for the moment
-            (the firmware lights its pad) and they come back on the next tick while the 1.5 s last.
+    when    from the next tick of the LED manager (40 ms) after a pad went down or the sequencer played a note of the selected part
+            that a pad of the layout holds, and off again 38 ticks (1.52 s) after it, if no new note came; a new note replaces them
+            at once.
     never   on a pad the firmware lights itself (the pressed pad and the pads of the same note, the step LEDs), outside the
             KEYBOARD mode, or outside the main screen.
     part    the pad of the selected part holds the firmware's blue 255. While the hints are on it is a pad like any other: its hint
@@ -343,7 +343,8 @@ ph_out:
 ; ===================================================== the firmware's pad light
 ; First instruction of the function that lights the pads of a note (r0 = the LED manager, r1 = the part, r2 = the note, r3 = the
 ; velocity, 0 for a note off). A note on of the selected part takes every hint away, before the firmware writes its own LEDs (it
-; writes a pad only if the pad is dark); the next tick brings back what still fits and is dark.
+; writes a pad only if the pad is dark); the next tick brings back what still fits and is dark. In KEYBOARD mode the note becomes the
+; one the hints are for, when a pad of the layout holds it: so a note of the sequencer shows its hints as a pad note does (device 18.10.).
 light_hook:
     push {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, lr}
     cmp r3, #0
@@ -355,6 +356,35 @@ light_hook:
     bl na_active
     cmp r0, #0
     beq lh_out
+    bl na_kbd
+    cmp r0, #0
+    beq lh_sync
+    cmp r2, #0x7F
+    bhi lh_sync
+    ldr r0, =KBOBJ_PTR
+    ldr r5, [r0]
+    cmp r5, #0
+    beq lh_sync
+    mov r6, #0
+lh_find:
+    cmp r6, #7
+    addls r1, r6, #8
+    subhi r1, r6, #8
+    add r1, r5, r1
+    ldrb r0, [r1, #0x40]
+    cmp r0, r2
+    beq lh_found
+    add r6, r6, #1
+    cmp r6, #16
+    bne lh_find
+    b lh_sync
+lh_found:
+    ldr r12, =STATE
+    str r2, [r12, #S_NOTE]
+    str r6, [r12, #S_PAD]
+    mov r0, #0
+    str r0, [r12, #S_SINCE]
+lh_sync:
     mov r7, #0
     bl na_sync
 lh_out:

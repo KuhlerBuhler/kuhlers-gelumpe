@@ -353,9 +353,24 @@ def case_firmware_wins(payload, flash):
             back = box.leds().get(2)
             break
     box.key("stop", 0.5)
+    after_seq = box.hinted()
     out.append(entry("sequencer_light_wins", before == fitting(layout, 0) and 2 in before and seen_flash and flashed.get(2) == (192, 0) and back == HINT,
                      f"part 5 selected, hints for pad 0 {before} (pad 2, the note 63, is one of them); then the sequencer plays that note: pad 2 {flashed.get(2) if flashed else None} (the firmware's light, not the hint), "
                      f"and after the note the hint is back ({back}) while the 1.5 s last"))
+    # 4. the note of the sequencer gives the hints itself (device 18.10.): no pad pressed, PLAY, the hints are those of pad 2 (the note 63)
+    seq = NBox(payload, flash)
+    if not seq.dev.read(first_step, 1)[0]:
+        seq.m.uc.mem_write(first_step, bytes([1, 0xFF, 0x60, 1, 0x40]))
+    seq.key("keyboard", 0.4)
+    for _ in range(4):
+        seq.key("part_right", 0.3)
+    quiet = seq.hinted()
+    seq.key("play", 0.0)
+    seq.run(0.6)
+    shown = seq.hinted()
+    seq.key("stop", 0.5)
+    out.append(entry("sequencer_note_shows_hints", not quiet and shown == fitting(layout, 2) and after_seq == fitting(layout, 2) and not seq.m.asserts,
+                     f"before PLAY {quiet}, 0.6 s after PLAY {shown} (want those of pad 2, the note 63: {fitting(layout, 2)}); after the pad note and the sequencer's note {after_seq}"))
     return out
 
 
