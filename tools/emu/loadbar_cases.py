@@ -229,10 +229,15 @@ def case_bar(payload, flash):
                      f"the bar went from {fills[0]} to {fills[-1]} of {88 if blech else 128} pixels, never back"))
     out.append(entry("eyes_wander", len(steps) >= 5 and all(-5 <= s <= 5 for s in steps) if blech else True,
                      f"the pupils took {len(steps)} positions between {min(steps)} and {max(steps)} pixels" if blech else "not the BLECH image: no eyes"))
-    mine, theirs = run.loader_ms(), off.loader_ms()
-    out.append(entry("loader_is_no_slower", mine is not None and theirs is not None and mine <= theirs * 1.005,
-                     f"the loader ran {mine and round(mine, 1)} ms with the overlay, {theirs and round(theirs, 1)} ms in the same copy without the overlay's four calls "
-                     f"(with EXIT held, every patch of the set off, it ran {ref.loader_ms() and round(ref.loader_ms(), 1)} ms)"))
+    # One card alone is noise: the same copy measured -0.12 % to +0.63 % with 18, 20 and 22 samples (unrelated changes elsewhere move
+    # where the interrupts fall, docs/messungen/2026-10-18-ladebalken-streuung.md), so the sum over three cards is compared
+    pairs = [(run.loader_ms(), off.loader_ms())] + [(Run(payload, flash, samples=n).loader_ms(), Run(without_overlay(payload), flash, samples=n).loader_ms()) for n in (18, 22)]
+    ok = all(m is not None and t is not None for m, t in pairs)
+    mine, theirs = (sum(m for m, _ in pairs), sum(t for _, t in pairs)) if ok else (None, None)
+    out.append(entry("loader_is_no_slower", ok and mine <= theirs * 1.005,
+                     f"the loader ran {mine and round(mine, 1)} ms with the overlay, {theirs and round(theirs, 1)} ms in the same copy without the overlay's four calls, "
+                     f"summed over cards of 20, 18 and 22 samples ({[(m and round(m, 1), t and round(t, 1)) for m, t in pairs]}); "
+                     f"with EXIT held, every patch of the set off, the card of 20 took {ref.loader_ms() and round(ref.loader_ms(), 1)} ms"))
     out.append(entry("main_screen_is_no_later", run.main_at is not None and off.main_at is not None and run.main_at <= off.main_at + 20,
                      f"the main screen came at {run.main_at and round(run.main_at, 1)} ms with the overlay and at {off.main_at and round(off.main_at, 1)} ms in the same copy without it; "
                      f"with EXIT held, every patch of the set off, at {ref.main_at and round(ref.main_at, 1)} ms: the rest of the set starts later, the overlay does not"))
