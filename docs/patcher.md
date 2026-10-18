@@ -310,7 +310,7 @@ ist das Schreiben über FatFs noch nicht geprüft (Schritte in
 
 ## Schalter, die das Menü ergänzen muss
 
-Der Patternwechsel ist beim Start an, sobald seit dem Einschalten eine Karte gemountet war. Das Menü BLECH schaltet ihn ab, ohne dass der Patch
+Der Patternwechsel ist beim Start an, sobald seit dem Einschalten eine Karte gemountet war. Im Stand blättert das Rad nur, wenn das Pattern ungespeicherte Änderungen hat: `VIEW:` zeigt die Nummer, MENU lädt, EXIT bleibt ([Messung](messungen/2026-10-18-ungespeichert-blaettern.md)). Das Menü BLECH schaltet ihn ab, ohne dass der Patch
 dafür umgebaut wird: Seite PATTERN CONFIRM in der Gruppe FEATURES des Menüs BLECH (gebaut am 15.10. in der Gruppe CUSTOMIZATION, dann eine Seite der Liste selbst, seit der Neuordnung in FEATURES, `menu:confirm_*`). Der Vertrag
 und wie das Menü ihn erfüllt:
 

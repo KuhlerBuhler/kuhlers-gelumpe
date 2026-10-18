@@ -48,6 +48,7 @@ export const CHAINS = {
   "sequence-end": [{ id: "pattern-number", sites: [0xC005F1C4] }],
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
+  "stopped-sync": [{ id: "load-chosen", sites: [0xC0081E18] }],
   "frame": [
     { id: "frame-call", sites: [0xC00836F0] },
     { id: "screen-tick", sites: [0xC00836F8] },

@@ -95,6 +95,18 @@
    "to": "0xC0573E54",
    "kind": "ram",
    "why": "the live global block (GLST), found by the same scan of the booted synth; the distance to the bank's copy (0x1FFEAC) equals the Sampler's"
+  },
+  {
+   "from": "0xC0081E18",
+   "to": "0xC0072810",
+   "kind": "code",
+   "why": "the stopped sync of the pattern selection (stopped, chosen not running: load the chosen one): the same 18 instructions as the Sampler's, calling the twins of the transport getter 0xC002DBC8 and the player getter 0xC002C9E8, offsets 0x308, 0x318, 0x340 equal; it sits 0x138 before set_number in both builds"
+  },
+  {
+   "from": "0xC0081E1C",
+   "to": "0xC0072814",
+   "kind": "code",
+   "why": "the second instruction of that function (the hook's way back)"
   }
  ]
 }

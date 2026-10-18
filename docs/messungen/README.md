@@ -186,3 +186,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [CPU-Last und Laden der Samples im Emulator](2026-10-18-cpu-last-und-laden.md)
 - [Ladebalken: Streuung der Ladezeit im Emulator](2026-10-18-ladebalken-streuung.md)
 - [Energiesparmodus: alle LEDs gedimmt](2026-10-18-energiesparen-leds.md)
+- [Patternwechsel im Stand mit ungespeicherten Änderungen](2026-10-18-ungespeichert-blaettern.md)
