@@ -53,7 +53,7 @@ test("the new plugins are in the catalog, Klicker is not, and each is an app tha
     assert.equal(p.device.apps.length, 1, id);
     assert.match(PRESETS.find(x => x.id === id).description, /^App in (GAMES|TOOLS):/);
   }
-  assert.deepEqual(IDS.map(id => plugin(id, { open: false }).device.apps[0].group), ["GAMES", "TOOLS", "GAMES", "GAMES", "GAMES", "GAMES", "TOOLS"]);
+  assert.deepEqual(IDS.map(id => plugin(id, { open: false }).device.apps[0].group), ["GAMES", "TOOLS", "GAMES", "GAMES", "GAMES", "GAMES", "GAMES"]);
 });
 
 test("every new plugin draws something right after it opens and stays inside the handler budget", () => {
@@ -342,33 +342,36 @@ test("Life: key 4 fills the grid with random cells, and the picture follows the 
 
 // ---- Pong ----
 
-test("Pong: the ball bounces off the walls and off a paddle, and a miss is a point for the other side", () => {
+test("Pong: the ball bounces off the walls and off a paddle, and a miss is a point for the other side; the ball moves on every second frame", () => {
   const p = plugin("pong");
   p.device.run(40);
   assert.equal(p.v("state"), 1, "the ball is served after a short wait");
+  const x0 = p.v("bx");
+  p.device.run(2);
+  assert.equal(Math.abs(p.v("bx") - x0), 12, "two frames are one step of three pixels");
   p.set("bx", 60 * 4);
   p.set("by", 1 * 4);
   p.set("vx", 8);
   p.set("vy", -6);
-  p.device.run(1);
+  p.device.run(2);
   assert.ok(p.v("vy") > 0, "the top wall turns it round");
   p.set("by", 58 * 4);
   p.set("vy", 10);
-  p.device.run(1);
+  p.device.run(2);
   assert.ok(p.v("vy") < 0, "so does the bottom wall");
   p.set("py", 20);
   p.set("bx", 9 * 4);
   p.set("by", 25 * 4);
   p.set("vx", -10);
   p.set("vy", 0);
-  p.device.run(1);
+  p.device.run(2);
   assert.ok(p.v("vx") > 0, "the paddle returns it");
   assert.ok(p.v("vx") >= 10, "and a little faster");
   p.set("py", 0);
   p.set("bx", 6 * 4);
   p.set("by", 45 * 4);
   p.set("vx", -12);
-  p.device.run(4);
+  p.device.run(8);
   assert.equal(p.v("botScore"), 1, "a miss on the left is the bot's point");
   assert.equal(p.v("state"), 0);
   p.device.run(40);
@@ -409,7 +412,7 @@ test("Pong: first to 9 wins and the result is shown, a key starts a new game", (
   p.set("bx", 6 * 4);
   p.set("by", 45 * 4);
   p.set("vx", -12);
-  p.device.run(4);
+  p.device.run(8);
   assert.equal(p.v("state"), 2);
   assert.equal(p.v("botScore"), 9);
   const text = new Display();

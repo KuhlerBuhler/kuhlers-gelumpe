@@ -2,7 +2,8 @@
 // touchpad (the height of the finger is the height of the paddle), with Part left (up) and Part right (down), or
 // with an encoder. The bot is slow on purpose: it only reacts to a ball that comes towards it, it misjudges the height
 // a little after every return, and a steep return is faster than it can follow. The ball speeds up with every hit.
-// Positions of the ball are in quarter pixels.
+// Positions of the ball are in quarter pixels. Ball and bot move on every second frame (12.5 a second): the display is
+// slow, a ball that moves 25 times a second is hardly seen.
 korg.app("Pong", "GAMES");
 const NET = [0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33];
 const PH = 14;
@@ -24,6 +25,7 @@ let up = 0;
 let down = 0;
 let seed = 1;
 let isOpen = 0;
+let tick = 0;
 
 function rnd() {
   seed = seed * 1103515245 + 12345;
@@ -33,7 +35,7 @@ function rnd() {
 function serve() {
   bx = 62 * 4;
   by = 30 * 4;
-  vx = 10 * serveDir;
+  vx = 12 * serveDir;
   vy = (rnd() % 9 - 4) * 2;
   botErr = rnd() % 11 - 5;
   state = 1;
@@ -44,7 +46,7 @@ function newGame() {
   botScore = 0;
   serveDir = 1;
   state = 0;
-  wait = 25;
+  wait = 13;
 }
 
 function clampPaddle(y) {
@@ -65,7 +67,7 @@ function point(mine) {
     state = 2;
   } else {
     state = 0;
-    wait = 25;
+    wait = 13;
   }
 }
 
@@ -94,13 +96,13 @@ function moveBall() {
   if (vx < 0 && x <= PX + 3 && x >= PX - 2 && y + 3 >= py && y <= py + PH) {
     bx = (PX + 4) * 4;
     vx = 0 - vx + 1;
-    if (vx > 20) vx = 20;
+    if (vx > 22) vx = 22;
     vy = (y + 1 - (py + 7)) * 2;
     botErr = rnd() % 11 - 5;
   } else if (vx > 0 && x + 3 >= BOTX && x <= BOTX + 3 && y + 3 >= boty && y <= boty + PH) {
     bx = (BOTX - 4) * 4;
     vx = 0 - vx - 1;
-    if (vx < -20) vx = -20;
+    if (vx < -22) vx = -22;
     vy = (y + 1 - (boty + 7)) * 2;
   } else if (x < 0) {
     point(0);
@@ -163,6 +165,11 @@ korg.onEvent("buttonRelease", (key) => {
 korg.onEvent("frame", () => {
   if (up) py = clampPaddle(py - 3);
   if (down) py = clampPaddle(py + 3);
+  tick = 1 - tick;
+  if (tick == 0) {
+    draw();
+    return;
+  }
   if (state == 0) {
     wait -= 1;
     if (wait <= 0) serve();

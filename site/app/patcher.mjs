@@ -3,6 +3,7 @@ import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
 import { toast } from "./toast.mjs";
 import { applyPatches } from "../../src/patch.mjs";
+import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf } from "../../src/firmware.mjs";
 import { classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
 
@@ -36,7 +37,7 @@ function verdict(flow, items) {
   }
 }
 
-export function patcherPage(root, { emulator, show = () => {} }) {
+export function patcherPage(root, { emulator, show = () => {}, session = () => null }) {
   if (!document.querySelector("link[data-cee-patcher]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-patcher", "");
@@ -51,6 +52,7 @@ export function patcherPage(root, { emulator, show = () => {} }) {
   let applied = null;           // what applyPatches gave for it: the spans the check needs again for the thorough run
   let blech = null;             // the BLECH set (data/patches/blech.json) with its patches parsed, once loaded
   let hint = null;
+  let usb = null;               // the file came over USB: { fromOriginal }; null for a dropped file (then the unpatched one goes to the card too)
 
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-file", accept: ".VSB,.vsb" });
   const drop = el("label", { className: "ui-dropzone" }, [
@@ -60,6 +62,10 @@ export function patcherPage(root, { emulator, show = () => {} }) {
     el("span", { className: "ui-dropzone-files" }),
   ]);
 
+  const usbGet = el("button", { type: "button", className: "btn", id: "cee-patch-usb-get", textContent: "Vom Gerät über USB holen" });
+  const usbNote = el("p", { className: "muted", id: "cee-patch-usb-note", role: "status", hidden: true });
+  const usbBox = el("div", { className: "actions cee-patch-usb", id: "cee-patch-usb" }, [usbGet]);
+  const usbPut = el("button", { type: "button", className: "btn primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
   const verdictBox = el("div", { className: "cee-patch-verdict", id: "cee-patch-verdict", role: "status" });
   const synthSet = el("p", { className: "muted", id: "cee-patch-synth-set", hidden: true });
   const routeInputs = [["direct", "BLECH direkt (kein Hacktribe-Patch nötig)"], ["hacktribe", "BLECH mit Hacktribe (hacktribe-2.patch selbst mitbringen)"]].map(([value, text]) => {
@@ -94,14 +100,14 @@ export function patcherPage(root, { emulator, show = () => {} }) {
   const download = el("button", { type: "button", className: "btn primary", id: "cee-patch-download", textContent: "SYSTEM.VSB herunterladen", disabled: true });
   const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: "Ich hab angst dass mein Gerät kaputt geht", disabled: true });
   const thorough = el("button", { type: "button", className: "btn", id: "cee-patch-thorough", textContent: "Gründlich prüfen", hidden: true });
-  const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [download, afraid, thorough]);
+  const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [usbPut, download, afraid, thorough]);
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
 
   root.replaceChildren(el("div", { className: "cee-patch" }, [
     el("h1", { className: "cee-patch-title", textContent: "Firmware patchen" }),
     el("p", { className: "cee-patch-lead", textContent: "Zieh deine eigene SYSTEM.VSB hierher. Es wird nichts hochgeladen, gepatcht wird in deinem Browser. Eine fertige Firmware gibt es hier nie, nur deine eigene mit BLECH drauf." }),
     el("p", { className: "cee-patch-lead" }, ["Falls danach etwas nicht startet: ", el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: "Rettung" }), " zeigt den dokumentierten Weg zurück."]),
-    drop, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
+    drop, usbBox, usbNote, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
   ]));
 
   async function loadPatches(build = input ? buildOf(input) : "hacktribe") {
@@ -204,6 +210,9 @@ export function patcherPage(root, { emulator, show = () => {} }) {
     ])));
 
     result.hidden = !can.download;
+    usbPut.hidden = !session();
+    usbPut.disabled = !can.download;
+    usbGet.disabled = can.busy;
     thorough.hidden = !(flow.report?.checks ?? []).some(c => c.id === "quick");
     download.disabled = !can.download;
     afraid.disabled = !can.test;
@@ -211,8 +220,12 @@ export function patcherPage(root, { emulator, show = () => {} }) {
   }
 
   async function pick(file) {
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    usb = null;
     fileInput.value = "";           // choosing the same path again, after it changed, must still fire
+    await take(new Uint8Array(await file.arrayBuffer()));
+  }
+
+  async function take(bytes) {
     let kind;
     try {
       kind = await classify(bytes, (await loadPatches(buildOf(bytes))).patches);
@@ -333,6 +346,47 @@ export function patcherPage(root, { emulator, show = () => {} }) {
       el("p", { className: "cee-patch-exit" }, [el("strong", { textContent: "Notausgang: " }), "Halte EXIT beim Einschalten gedrückt, dann startet das Gerät ohne die BLECH-Funktionen. Wenn das nicht reicht: ", el("a", { href: "#rescue", textContent: "Rettung" }), "."]),
     );
   }
+
+  const percent = (done, total) => Math.round(done * 100 / total);
+
+  usbGet.addEventListener("click", async () => {
+    const s = session();
+    if (!s) { toast("Erst auf der Seite Gerät die Electribe verbinden.", "error"); return; }
+    usbGet.disabled = true;
+    usbNote.hidden = false;
+    try {
+      const got = await fetchUpdateFile(s, (done, total) => { usbNote.textContent = `Vom Gerät lesen, ${percent(done, total)} %`; });
+      usbNote.textContent = got.fromOriginal ? "Vom Gerät gelesen: ORIGINAL.BIN, die unveränderte Datei vom ersten Update über USB." : "Vom Gerät gelesen: SYSTEM.VSB.";
+      usb = { fromOriginal: got.fromOriginal };
+      await take(got.bytes);
+      if (flow.input?.kind === "blech") usbNote.textContent = "Auf der Karte liegt schon eine gepatchte SYSTEM.VSB und keine ORIGINAL.BIN daneben. Zieh deine unveränderte SYSTEM.VSB hier hinein; beim Schreiben über USB kommt sie als ORIGINAL.BIN auf die Karte, jedes weitere Update startet dann von ihr.";
+    } catch (e) {
+      usbNote.hidden = true;
+      toast(e.message, "error");
+    } finally {
+      usbGet.disabled = allowed(flow).busy;
+    }
+  });
+
+  usbPut.addEventListener("click", async () => {
+    const s = session();
+    if (!passed || !allowed(flow).download) return;
+    if (!s) { toast("Erst auf der Seite Gerät die Electribe verbinden.", "error"); return; }
+    usbPut.disabled = true;
+    usbNote.hidden = false;
+    try {
+      // the first time the unpatched file goes beside it, so the next update can start from it again
+      await storeUpdateFile(s, passed, usb?.fromOriginal ? null : original, (done, total) => { usbNote.textContent = `Aufs Gerät schreiben, ${percent(done, total)} %`; });
+      usbNote.textContent = "Auf der Karte: die neue SYSTEM.VSB. Am Gerät DATA UTILITY > SOFTWARE UPDATE, ENTER, danach neu starten. Während des Updates nicht ausschalten.";
+      usb = { fromOriginal: true };
+      toast("Über USB geschrieben.", "ok");
+    } catch (e) {
+      usbNote.hidden = true;
+      toast(e.message, "error");
+    } finally {
+      usbPut.disabled = !allowed(flow).download;
+    }
+  });
 
   download.addEventListener("click", () => {
     if (!passed || !allowed(flow).download) return;

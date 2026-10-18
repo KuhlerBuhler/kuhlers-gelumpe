@@ -11,6 +11,7 @@
   "data/patches/note-assistant.json",
   "data/patches/dice.json",
   "data/patches/pad-colors.json",
+  "data/patches/ifx-idle.json",
   "data/patches/load-bar.json",
   "data/patches/sample-errors.json",
   "data/patches/script-runtime.json",

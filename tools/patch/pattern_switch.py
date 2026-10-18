@@ -3,12 +3,14 @@
 While a pattern plays, the wheel only browses: the firmware already shows the chosen pattern as
 NEXT:nnn and holds nothing but a number and a flag, so the patch keeps the choice from being applied.
 MENU (ENTER) on the main screen confirms the browsed pattern, and it starts at the next sequence end.
-EXIT takes the browse or the confirmation back. Stopped, in record and for every other way to choose a
-pattern (pad, MIDI program change, chain), the firmware behaves as it always did.
+EXIT takes the browse or the confirmation back. Stopped with unsaved changes (the pattern in RAM differs from its
+place in the pattern bank) the wheel browses the same way, so the edit is not thrown away by a turn: VIEW:nnn
+shows, MENU loads the browsed pattern at once, EXIT stays on the edited one. Stopped without changes, in record and
+for every other way to choose a pattern (pad, MIDI program change, chain), the firmware behaves as it always did.
 
     python3 tools/patch/pattern_switch.py --vsb SYSTEM.VSB [--out data/patches/pattern-switch.json]
 
-Eight hooks, none of them before the main screen:
+Nine hooks; only the stopped sync runs before the main screen, and there it only reads its own state word:
   wheel        the tail call of the main screen's VALUE handler into the selector, 0xC006513C
   pad          first instruction of the pad selection, 0xC006EDE4, clears browse and confirmation
   MIDI         first instruction of the program change handler, 0xC006EE00, ditto
@@ -17,8 +19,9 @@ Eight hooks, none of them before the main screen:
   sequence end the call that asks for the number to start, 0xC005F1C4 (runs in the engine task, only reads)
   STOP         first instruction of the pending-pattern applier, 0xC0081B5C
   label        the load of "NEXT:" in the lower line builder, 0xC0086DC4, shows VIEW: while browsing
+  stopped sync first instruction of the observer that loads a chosen number while stopped, 0xC0081E18, idle during a stopped browse
 
-The patch is on only when EXIT was not held at power-on, a card is available and the setting word PS_SETTING
+The patch is on only when EXIT was not held at power-on, a card was seen since power-on and the setting word PS_SETTING
 is not 0 (the BLECH menu writes it; never written means on). Off, every hook goes straight to the original.
 Nothing of the firmware is copied and nothing is written to flash or to the card.
 """
@@ -44,7 +47,7 @@ CODE_AT = 0xC0180000            # free (FF) in the image, far from the other pat
 CODE_END = 0xC0180C00
 STATE = 0xC0180F00              # run time state, in RAM only; FF there means "nothing"
 STATE_END = 0xC0180F40
-S_BROWSE, S_ARMED, S_ARMNUM, S_SETTING = 0, 4, 8, 0x10
+S_BROWSE, S_ARMED, S_ARMNUM, S_SETTING, S_STOPPED = 0, 4, 8, 0x10, 0x14
 PS_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off
 
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13, measured on the device 10.10.)
@@ -68,12 +71,16 @@ STOP_HOOK = 0xC0081B5C          # ldrb r3, [r0, #0x341]
 STOP_WORD = 0xE5D03341
 STOP_BODY = 0xC0081B60
 LABEL_HOOK = 0xC0086DC4         # ldr r1, [pc, #0xe0] = "NEXT:"
+SYNC_HOOK = 0xC0081E18          # push {r4, r5, r6, lr}: stopped, a chosen number that does not run is loaded here
+SYNC_WORD = 0xE92D4070
+SYNC_BODY = 0xC0081E1C
 LABEL_WORD = 0xE59F10E0
 NEXT_TEXT = 0xC00A72E0
 
 
 FIRMWARE_PLACES = ["WHEEL_HOOK", "SELECT", "PAD_HOOK", "PAD_BODY", "MIDI_HOOK", "MIDI_BODY", "MENU_SLOT", "MENU_ORIG", "EXIT_SLOT", "EXIT_ORIG",
-                   "SEQ_CALL", "SEQ_FUNC", "STOP_HOOK", "STOP_BODY", "LABEL_HOOK", "NEXT_TEXT"]
+                   "SEQ_CALL", "SEQ_FUNC", "STOP_HOOK", "STOP_BODY", "LABEL_HOOK", "NEXT_TEXT",
+                   "SYNC_HOOK", "SYNC_BODY"]
 SYNTH = False
 SYNTH_LABEL_WORD = 0xE59F10FC   # ldr r1, [pc, #0xfc]: the synth's builder is laid out a little differently
 
@@ -100,6 +107,10 @@ SOURCE = """
 .equ PSEL, 0xC00431F0           ; returns the pattern selection object: +0x318 chosen number, +0x341 pending flag
 .equ PLAYER, 0xC002FAFC         ; returns the player: +0x318 the number that runs
 .equ SET_NUMBER, 0xC0081F50     ; (psel, number, send MIDI)
+.equ NOTIFY, 0xC0070688         ; (psel + 4, message {1, number, ..., word 0}): what SET_NUMBER tells the display with
+.equ PATPTR, 0xC033E6A4         ; the pattern in RAM, its file at + 4
+.equ BANK, 0xC08B2940           ; the pattern bank in RAM, 0x4000 per pattern
+.equ PAT_WORDS, 0x1000
 .equ WRAP, 0xC0040D24           ; (value, 0, 249) wraps into the pattern range
 .equ SELECT, @SELECT@
 .equ MENU_ORIG, @MENU_ORIG@
@@ -111,12 +122,13 @@ SOURCE = """
 .equ S_ARMED, 4                 ; 1 while a pattern is confirmed
 .equ S_ARMNUM, 8                ; the confirmed number, valid while S_ARMED is 1
 .equ S_SETTING, 0x10            ; PS_SETTING: FFFFFFFF or 1 is on, 0 is off
+.equ S_STOPPED, 0x14            ; 1 while the wheel browses away from an unsaved pattern, stopped
 
 .org @CODE_AT@
 
 ; ===================================================== is the patch on
-; r0 = 1 when EXIT was not held at power-on, a card is available and the setting is not off. Clobbers r0 and r12.
-; Reads memory only, so the engine task may call it.
+; r0 = 1 when EXIT was not held at power-on, a card was seen since power-on and the setting is not off. Clobbers r0 and r12.
+; Writes only the card latch (tools/patch/card_gate.py), always the same value, so the engine task may call it too.
 pc_active:
     ldr r12, =PANEL
     ldr r12, [r12]
@@ -150,11 +162,13 @@ wheel_hook:
     bl TRANSPORT
     ldr r0, [r0, #0x308]
     cmp r0, #0
-    beq wh_stock
+    beq wh_stopped
     sub r0, r0, #3
     cmp r0, #2
     bls wh_stock
     ldr r6, =STATE
+    mov r0, #0
+    str r0, [r6, #S_STOPPED]
     ldrb r0, [r4, #0x341]
     cmp r0, #0
     bne wh_go
@@ -195,6 +209,101 @@ wh_stock:
     pop {r4, r5, r6, lr}
     b SELECT
 
+; stopped: an unsaved pattern is not thrown away by a turn. The wheel browses as while playing (the number and the
+; pending flag, told to the display as SET_NUMBER does while playing), nothing is loaded; back on the number in RAM the
+; browse is over. Without changes the firmware's selector runs and loads at once.
+wh_stopped:
+    ldr r6, =STATE
+    ldr r0, [r6, #S_STOPPED]
+    cmp r0, #1
+    beq wh_stopped_go
+    bl pc_dirty
+    cmp r0, #0
+    beq wh_stock
+wh_stopped_go:
+    ldr r0, [r4, #0x318]
+    add r0, r5, r0
+    mov r1, #0
+    mov r2, #249
+    bl WRAP
+    mov r5, r0
+    bl PLAYER
+    ldr r1, [r0, #0x318]
+    mov r0, #1
+    cmp r1, r5
+    moveq r0, #0
+    str r0, [r6, #S_STOPPED]
+    str r0, [r6, #S_BROWSE]
+    str r5, [r4, #0x318]
+    strb r0, [r4, #0x341]
+    mov r0, r4
+    mov r1, r5
+    bl pc_notify
+    pop {r4, r5, r6, pc}
+
+; r0 = the selection object, r1 = number: the display is told as SET_NUMBER tells it. Clobbers r0 to r3 and r12.
+pc_notify:
+    push {r4, lr}
+    sub sp, sp, #8
+    mov r2, #1
+    strb r2, [sp]
+    strb r1, [sp, #1]
+    mov r2, #0
+    str r2, [sp, #4]
+    add r0, r0, #4
+    mov r1, sp
+    bl NOTIFY
+    add sp, sp, #8
+    pop {r4, pc}
+
+; -> r0 = 1 when the pattern in RAM differs from its place in the bank (unsaved changes). Clobbers r0 to r3 and r12.
+pc_dirty:
+    push {r4, lr}
+    bl PLAYER
+    ldr r1, [r0, #0x318]
+    cmp r1, #249
+    bhi pd_clean
+    ldr r2, =BANK
+    add r2, r2, r1, lsl #14
+    ldr r0, =PATPTR
+    ldr r0, [r0]
+    cmp r0, #0
+    beq pd_clean
+    add r0, r0, #4
+    ldr r3, =PAT_WORDS
+pd_word:
+    ldr r1, [r0], #4
+    ldr r12, [r2], #4
+    cmp r1, r12
+    bne pd_dirty
+    subs r3, r3, #1
+    bne pd_word
+pd_clean:
+    mov r0, #0
+    pop {r4, pc}
+pd_dirty:
+    mov r0, #1
+    pop {r4, pc}
+
+; the stopped browse is over: nothing pending, the number in RAM chosen and shown. Keeps r4 to r11.
+pc_stopped_end:
+    push {r4, r5, lr}
+    ldr r3, =STATE
+    mov r0, #0
+    str r0, [r3, #S_STOPPED]
+    str r0, [r3, #S_BROWSE]
+    bl PSEL
+    mov r4, r0
+    mov r0, #0
+    strb r0, [r4, #0x341]
+    bl PLAYER
+    ldr r5, [r0, #0x318]
+    str r5, [r4, #0x318]
+    mov r0, r4
+    mov r1, r5
+    bl pc_notify
+    pop {r4, r5, pc}
+
 ; ===================================================== a pad or a program change chooses: that is a deliberate choice
 pad_hook:
     push {r0, r12}
@@ -202,6 +311,7 @@ pad_hook:
     mov r0, #0
     str r0, [r12, #S_ARMED]
     str r0, [r12, #S_BROWSE]
+    str r0, [r12, #S_STOPPED]
     pop {r0, r12}
     push {r4, lr}               ; the replaced first instruction
     b @PAD_BODY@
@@ -212,6 +322,7 @@ midi_hook:
     mov r0, #0
     str r0, [r12, #S_ARMED]
     str r0, [r12, #S_BROWSE]
+    str r0, [r12, #S_STOPPED]
     pop {r0, r12}
     push {r3, r4, r5, lr}       ; the replaced first instruction
     b @MIDI_BODY@
@@ -225,6 +336,9 @@ menu_hook:
     bl pc_active
     cmp r0, #0
     beq mn_stock
+    bl pc_stopped_browse
+    cmp r0, #0
+    bne mn_load
     bl PSEL
     mov r5, r0
     ldrb r0, [r5, #0x341]
@@ -249,6 +363,35 @@ mn_stock:
     mov r0, r4
     pop {r4, r5, r6, lr}
     b MENU_ORIG
+mn_load:                        ; stopped: the browsed pattern is loaded now, the edit is given up on purpose
+    ldr r3, =STATE
+    mov r1, #0
+    str r1, [r3, #S_STOPPED]
+    str r1, [r3, #S_BROWSE]
+    bl PSEL
+    mov r5, r0
+    mov r1, #0
+    strb r1, [r5, #0x341]
+    ldr r1, [r5, #0x318]
+    mov r2, #1
+    bl SET_NUMBER
+    pop {r4, r5, r6, pc}
+
+; -> r0 = 1 while a stopped browse is open and the sequencer stands. Clobbers r0 to r3 and r12.
+pc_stopped_browse:
+    push {r4, lr}
+    ldr r3, =STATE
+    ldr r0, [r3, #S_STOPPED]
+    cmp r0, #1
+    bne psb_no
+    bl TRANSPORT
+    ldr r0, [r0, #0x308]
+    cmp r0, #0
+    moveq r0, #1
+    popeq {r4, pc}
+psb_no:
+    mov r0, #0
+    pop {r4, pc}
 
 ; ===================================================== EXIT on the main screen
 ; Browsing goes back to the confirmed number, or to the one that runs. A confirmation without browsing is taken back,
@@ -259,6 +402,12 @@ exit_hook:
     bl pc_active
     cmp r0, #0
     beq ex_stock
+    bl pc_stopped_browse
+    cmp r0, #0
+    beq ex_playing
+    bl pc_stopped_end           ; stopped: stay on the edited pattern
+    pop {r4, r5, r6, pc}
+ex_playing:
     bl PSEL
     mov r5, r0
     ldrb r0, [r5, #0x341]
@@ -346,6 +495,13 @@ stop_hook:
     bl pc_active
     cmp r0, #0
     beq st_out
+    ldr r3, =STATE
+    ldr r0, [r3, #S_STOPPED]
+    cmp r0, #1
+    bne st_playing
+    bl pc_stopped_end           ; a stopped browse never loads: the edited pattern stays (the firmware's reload would drop it)
+    b st_out
+st_playing:
     ldrb r0, [r4, #0x341]
     cmp r0, #0
     beq st_out
@@ -399,6 +555,21 @@ lb_next:
     ldr r1, =NEXT_TEXT
     pop {r0, pc}
 
+; ===================================================== the stopped sync
+; First instruction of the function that, stopped, loads a chosen number that does not run (0xC0081E18, called on and on).
+; During a stopped browse it does nothing: the browsed number stays chosen and pending, the edited pattern stays loaded.
+; The function is an observer called through a member pointer, often and from other tasks: the hook only reads its own word
+; (S_STOPPED is 1 only after the wheel found the patch on) and touches nothing but r12, which a callee may use.
+sync_hook:
+    mov r12, #(STATE & 0xFF000000)  ; STATE built without a literal, so the start phase reads nothing outside this code
+    orr r12, r12, #(STATE & 0x00FF0000)
+    orr r12, r12, #(STATE & 0x0000FF00)
+    ldr r12, [r12, #S_STOPPED]
+    cmp r12, #1
+    bxeq lr
+    push {r4, r5, r6, lr}       ; the replaced first instruction
+    b @SYNC_BODY@
+
 view_text:
     .asciz "VIEW:"
 .align 4
@@ -419,13 +590,13 @@ wrap_local:                     ; (value, 0, 249) like the firmware's, the range
 
 
 def source():
-    text = SOURCE.replace("@CARD_CHECK@", card_gate.source("synth" if SYNTH else "hacktribe", "pa_no"))
+    text = SOURCE.replace("@CARD_CHECK@", card_gate.source("synth" if SYNTH else "hacktribe", "pa_no", STATE + card_gate.LATCH_OFFSET))
     if SYNTH:
-        text = synthaddr.source(text, keep={0xC0040D24}).replace("bl WRAP", "bl wrap_local").replace("\nview_text:", WRAP_LOCAL + "\nview_text:")
+        text = synthaddr.source(text, own=[(STATE, STATE_END)], keep={0xC0040D24}).replace("bl WRAP", "bl wrap_local").replace("\nview_text:", WRAP_LOCAL + "\nview_text:")
     for key, value in {
         "SELECT": f"{SELECT:#x}", "MENU_ORIG": f"{MENU_ORIG:#x}", "EXIT_ORIG": f"{EXIT_ORIG:#x}", "NEXT_TEXT": f"{NEXT_TEXT:#x}",
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "PAD_BODY": f"{PAD_BODY:#x}",
-        "MIDI_BODY": f"{MIDI_BODY:#x}", "STOP_BODY": f"{STOP_BODY:#x}",
+        "MIDI_BODY": f"{MIDI_BODY:#x}", "STOP_BODY": f"{STOP_BODY:#x}", "SYNC_BODY": f"{SYNC_BODY:#x}",
     }.items():
         text = text.replace(f"@{key}@", value)
     return text
@@ -480,6 +651,7 @@ def build_patch(vsb, build="hacktribe"):
         (SEQ_CALL, bl_word(SEQ_CALL, SEQ_FUNC), "the sequence end does not call the number fetch where the patch expects it"),
         (STOP_HOOK, STOP_WORD, "the pending applier does not start with ldrb r3, [r0, #0x341]"),
         (LABEL_HOOK, LABEL_WORD, "the lower line builder does not load NEXT: as the patch expects"),
+        (SYNC_HOOK, SYNC_WORD, "the stopped sync of the pattern selection does not start with push {r4, r5, r6, lr}"),
     )
     for addr, want, why in expected:
         if word(addr) != want:
@@ -505,7 +677,7 @@ def build_patch(vsb, build="hacktribe"):
         "name": "Patternwechsel erst nach Bestaetigung (MENU)",
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
-             "note": "pattern switch: wheel, MENU, EXIT, pad, program change, sequence end, STOP and label hooks"},
+             "note": "pattern switch: wheel, MENU, EXIT, pad, program change, sequence end, STOP, label and stopped sync hooks"},
             hook(WHEEL_HOOK, "wheel_hook", False, "the wheel's tail call into the selector goes through the hook"),
             hook(PAD_HOOK, "pad_hook", False, "first instruction of the pad selection jumps to the hook"),
             hook(MIDI_HOOK, "midi_hook", False, "first instruction of the program change handler jumps to the hook"),
@@ -514,6 +686,7 @@ def build_patch(vsb, build="hacktribe"):
             hook(SEQ_CALL, "seq_hook", True, "the sequence end asks the hook for the number to start"),
             hook(STOP_HOOK, "stop_hook", False, "first instruction of the pending applier jumps to the hook"),
             hook(LABEL_HOOK, "label_hook", True, "the load of NEXT: goes through the hook"),
+            hook(SYNC_HOOK, "sync_hook", False, "first instruction of the stopped sync jumps to the hook"),
         ],
         "hooks": [
             declare(WHEEL_HOOK, "instruction", "pattern-set", "replace", False, "wheel while playing: browse with set_number(psel, n, 0) instead of the branch into the selector; set_number is still called, so what reacts to it still sees the number"),
@@ -524,10 +697,14 @@ def build_patch(vsb, build="hacktribe"):
             declare(SEQ_CALL, "call", "sequence-end", "replace", False, "the pattern number the sequence end asks for"),
             declare(STOP_HOOK, "instruction", "stop-pending", "before", False, "STOP drops a browse, or applies the confirmed pattern as the firmware does"),
             declare(LABEL_HOOK, "instruction", "pattern-label", "replace", False, "VIEW: instead of NEXT: while browsing"),
+            declare(SYNC_HOOK, "instruction", "stopped-sync", "before", False, "stopped, an unsaved pattern browsed away from: the chosen number is not loaded"),
         ],
-        "startPhase": [],
+        "startPhase": [
+            {"file": file_offset(SYNC_HOOK), "length": 4, "why": "the stopped sync is an observer the firmware calls from the start on; the hook reads its own state word (FF at start, not 1) and runs the original"},
+            {"file": file_offset(symbols["sync_hook"]), "length": symbols["view_text"] - symbols["sync_hook"], "why": "sync_hook: one load, a compare, then the replaced instruction and the way back"},
+        ],
         "ram": [
-            ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, and PS_SETTING at +0x10 for the BLECH menu", "tools/patch/pattern_switch.py:STATE"),
+            ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14", "tools/patch/pattern_switch.py:STATE"),
         ],
     }
 

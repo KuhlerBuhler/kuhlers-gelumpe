@@ -657,7 +657,7 @@ die Anpassung, dann die Plugins, zuletzt die Gruppen, die Plugins selbst anmelde
 | Eintrag | Was dahinter liegt |
 |---|---|
 | FEATURES | vier Seiten mit den Schaltern der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (Tabelle unten) |
-| CUSTOMIZATION | acht Seiten, siehe unten |
+| CUSTOMIZATION | BOTTOM LEDS, COLORS, DISPLAY INVERT, dazu PAD COLOR, SELECT COLOR und die Startbild-Seiten, wo der Satz sie hat; siehe unten |
 | PLUGINS | Gruppe, siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
 | TOOLS | wie GAMES |
@@ -678,19 +678,20 @@ Die Seiten der Gruppen:
 | Gruppe, Seite | Wert | Wirkung |
 |---|---|---|
 | PLUGINS, RUNTIME | ON, OFF | die Plugins der Karte an oder aus, gilt ab dem nächsten Start ("OFF, RESTART" zeigt, dass es noch nicht gilt); Blechy ist kein Plugin der Karte und bleibt |
-| PLUGINS, ein Plugin je Seite | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen; bei einem Fehler steht sein Name mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal) |
+| PLUGINS, ein Plugin je Seite | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen, WRITE behält den Stand über einen Neustart (ein ausgeschaltetes Plugin startet dann nicht, beim Einschalten läuft sein Start nach); bei einem Fehler steht sein Name mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal) |
 | PLUGINS, je `korg.menu.add` eine Seite | die Zahl | Hauptrad ändert sie, das Plugin bekommt `menu` |
-| PLUGINS, EXPORT ALL | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt |
+| PLUGINS, EXPORT ALL | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
 | PLUGINS, IMPORT PLUGIN | (leer, `press  [ Enter ]`), dann Dateiname | ENTER zeigt die erste `*.blech` aus `KORG/blechtribe/Plugin/` (höchstens 14 Zeichen lang gezeigt), das Hauptrad oder EDIT blättert Datei für Datei, ENTER oder WRITE lädt und startet die gezeigte sofort, EXIT geht zurück auf die Seite. Dateien, deren Name mit einem Punkt beginnt (die `._Name.blech` des Mac auf FAT Karten), und versteckte oder Systemdateien fehlen in der Liste |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, BOTTOM LEDS | METER, COLOR, OFF | die vier unteren RGB-LEDs: METER ist die Pegelanzeige der Firmware, COLOR eine feste Farbe, OFF dunkel; gilt sofort |
-| CUSTOMIZATION, LED RED, GREEN, BLUE | 0 bis 15 | Farbe der unteren LEDs, gilt für METER und COLOR; 0 0 0 heißt die Farben der Firmware ("0 stock"); bei METER bestimmt der Pegel die Helligkeit dieser Farbe; gilt sofort |
-| CUSTOMIZATION, BACKLIGHT RED, GREEN, BLUE | 0 bis 15 | Farbe des Display-Lichts, frei gemischt; 0 0 0 heißt das Weiß der Firmware; gilt sofort |
+| CUSTOMIZATION, COLORS | ENTER | öffnet die sechs Farbseiten darunter; EXIT führt zurück auf COLORS |
+| COLORS, LED RED, GREEN, BLUE | 0 bis 15 | Farbe der unteren LEDs, gilt für METER und COLOR; 0 0 0 heißt die Farben der Firmware ("0 stock"); bei METER bestimmt der Pegel die Helligkeit dieser Farbe; gilt sofort |
+| COLORS, BACKLIGHT RED, GREEN, BLUE | 0 bis 15 | Farbe des Display-Lichts, frei gemischt; 0 0 0 heißt das Weiß der Firmware; gilt sofort |
 | CUSTOMIZATION, DISPLAY INVERT | OFF, ON | kehrt das Display um: helle Punkte dunkel und dunkle hell (Befehl `0xA7` an den Display-Baustein, `0xA6` stellt zurück); gilt sofort; OFF ist die Vorgabe |
 | CUSTOMIZATION, PAD COLOR | RED, BLUE, PINK | die Farbe, in der die Pads zeigen, was die Firmware rot zeigt (Part spielt, Pad gedrückt, Schritt); gilt sofort, WRITE behält sie; RED ist die Vorgabe. Nur wo der Satz den Patch pad-colors hat ([Messung](messungen/2026-10-17-pad-farben.md)) |
 | CUSTOMIZATION, SELECT COLOR | RED, BLUE, PINK | die Farbe des gewählten Parts, nie die von PAD COLOR; leuchten beide, zeigt das Pad die dritte Farbe; BLUE ist die Vorgabe |
 | CUSTOMIZATION, SPLASH IMPORT | ENTER | liest `KORG/blechtribe/splash.bmp` (128 x 64 Pixel, 1 Bit je Pixel, unkomprimiert; gezeichnet wird die dunklere Farbe) und speichert es als Startbild wie WRITE im Startbild-Editor; ab dem nächsten Start zu sehen. Meldet "loaded", "no splash.bmp" oder "not 128x64 1 bit" (dann bleibt alles, wie es war). Nur wo der Satz den Startbild-Editor hat, also nicht auf der blauen |
-| CUSTOMIZATION, SPLASH DRAW | ENTER | öffnet den Startbild-Editor (Global, Seite SPLASH SCREEN): Rad bewegt den Cursor, MENU kippt das Pixel, WRITE speichert, EXIT verlässt den Editor. Nur wo der Satz den Startbild-Editor hat |
+| CUSTOMIZATION, SPLASH DRAW | ENTER | öffnet den Startbild-Editor (Global, Seite SPLASH SCREEN): Rad bewegt den Cursor nach links und rechts, mit gehaltenem SHIFT hoch und runter, MENU kippt das Pixel, gehalten malt es dessen neue Farbe überall hin, wo der Cursor langläuft, WRITE speichert, EXIT verlässt den Editor. Nur wo der Satz den Startbild-Editor hat |
 | FEATURES, PATTERN CONFIRM | ON, OFF | ON: ein anderes Pattern, das am Rad gewählt wird, wartet beim Spielen auf MENU (ENTER) und startet am Sequenzende; OFF: die Firmware wie ohne den Patch Patternwechsel; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 2 der Flags in der Einstellungsdatei |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus (Idee 39); OFF: TAP ist wieder das Tap-Tempo der Firmware; ONCE (Wert 2 des Einstellungsworts): eine mit TAP eingeschaltete Bewegung spielt bis zum Ende des Patterns und geht dann aus; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3, ONCE als Bit 5 der Flags in der Einstellungsdatei (Bit 3 gewinnt) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Pad-Note die Pads der passenden Noten rosa und gehen nach 1,5 s aus ([Messung](messungen/2026-10-15-note-assistant.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
@@ -708,6 +709,8 @@ speichert WRITE die Einstellungen in `KORG/blechtribe/settings.a.bin` und `setti
 sich mit einer Generationsnummer abwechseln (24 bis 88 Byte: Kennung `GSET`, Version 2, Anzahl
 erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
 erlaubten fremden Blöcke, CRC-32; höchstens 16 erlaubte Blöcke, danach fliegt die älteste raus;
+in derselben Liste steht für jedes ausgeschaltete Plugin seine Prüfsumme invertiert, ein älteres BLECH liest sie als
+Prüfsumme, die nie passt, [Messung](messungen/2026-10-18-plugin-bleibt-aus.md);
 Dateien der Version 1 ohne das Wort werden weiter gelesen). Ohne Datei, Karte oder bei
 beschädigter Datei gelten die Voreinstellungen (alles an, die Anpassung auf den Werten der
 Firmware). Die Seite meldet "saved", "no card", "card protected", "folder missing" oder "write error".
@@ -796,9 +799,9 @@ Einheit anders sein.
 | Snake | GAMES | Part links und rechts drehen | 1180 Byte | 2215 Einheiten (das Öffnen), Rahmen 537 |
 | Tetris | GAMES | Part links und rechts bewegen, Edit rechts dreht, Edit links gehalten lässt schneller fallen, jede Taste startet nach Game Over neu | 3772 Byte | 2305 Einheiten, 0,44 ms |
 | Game of Life | GAMES | das Touchpad setzt Zellen, Taste 1 startet und pausiert (LED), Taste 2 ein Schritt, Taste 3 löscht, Taste 4 füllt zufällig | 2184 Byte | 2484 Einheiten, 0,47 ms |
-| Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt | 2068 Byte | 1190 Einheiten, 0,23 ms |
+| Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt; Ball und Bot ziehen nur jeden zweiten Rahmen, sonst sieht man den Ball auf dem trägen Display kaum | 2120 Byte | 1221 Einheiten, 0,23 ms |
 | Simon | GAMES | die vier mittleren Pads (3, 4, 11, 12, von 0 gezählt) leuchten eine Folge vor, man spielt sie nach, jede Runde einen Schritt mehr; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2344 Byte | 2114 Einheiten (das Öffnen), Rahmen 693 |
-| Mandelbrot | TOOLS | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 2436 Byte | 2135 Einheiten, 0,41 ms |
+| Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 2436 Byte | 2135 Einheiten, 0,41 ms |
 
 **Set-Timer** ist für den Einsatz im Set gedacht. Die Uhr ist `korg.millis()`, die die Laufzeit in jedem Rahmen
 nachführt, auch wenn die App geschlossen ist. Er abonniert nur `play`, die Tasten und `open` und `close`: geschlossen
@@ -821,7 +824,7 @@ tiefer reichen die 14 Bit nicht.
 ## Die Seite Plugins im Editor
 
 Der Reiter Plugins hat links Beispiel-Plugins (die Apps BLECH Clicker, Snake, Tetris, Game of Life,
-Pong, Simon unter GAMES, Set-Timer und Mandelbrot unter TOOLS, dazu Lauflicht und Pulsieren, Quelle
+Pong, Simon und Mandelbrot unter GAMES, Set-Timer unter TOOLS, dazu Lauflicht und Pulsieren, Quelle
 `data/script/presets.mjs`, alle mit Namen wie `korg.key.TAP`; dieselben Beispiele stehen im Katalog als Karten)
 und die eigenen Plugins, rechts den Editor mit Zeilenspalte, das
 Ergebnis des Übersetzens (Fehler mit Zeile und Spalte, ein Klick setzt den Cursor dorthin), die

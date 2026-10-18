@@ -335,6 +335,7 @@ menu_read_fail:
 ; Sets M_STATUS: 1 written, 0x20 + code of the failing FatFs call otherwise.
 menu_settings_save:
     push {r4-r10, lr}
+    bl menu_off_sync
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
@@ -1619,6 +1620,90 @@ menu_needs_loop:
     b menu_needs_loop
 .pool
 
+; Plugins switched off stay off over a restart: the checksum list of the settings file holds, beside the checksums of the
+; foreign plugins the user allowed, the inverted checksum (mvn) of every plugin that is off. The file format stays as it was
+; (an older BLECH reads them as allowed checksums that match nothing). The loader does not start a plugin marked so.
+; r0 = script entry -> r0 = 1 when the settings keep it off
+menu_is_off:
+    ldr r1, [r0, #SCRIPT_ENTRY_BLOB]
+    ldr r1, [r1, #HDR_CHECKSUM]
+    mvn r1, r1
+    ldr r2, =MENU_STATE
+    ldr r3, [r2, #M_ON]
+    cmp r3, #1
+    movne r0, #0
+    bxne lr
+    ldr r3, [r2, #M_TRUST_N]
+    add r2, r2, #M_TRUST
+menu_off_loop:
+    cmp r3, #0
+    moveq r0, #0
+    bxeq lr
+    ldr r12, [r2], #4
+    cmp r12, r1
+    moveq r0, #1
+    bxeq lr
+    sub r3, r3, #1
+    b menu_off_loop
+
+; Before a save: for every loaded plugin the marker goes, and comes back when the plugin is off (loaded, allowed and not
+; armed), as long as the list has room. Markers of plugins no longer on the card stay, like their allowed checksums. Blechy
+; is always armed, so he never gets one.
+menu_off_sync:
+    push {r4-r7, lr}
+    ldr r4, =MENU_STATE
+    ldr r5, =HOOK_RUNTIME
+    ldr r5, [r5, #RT_HEAD]
+    cmn r5, #1
+    moveq r5, #0
+menu_off_entry:
+    cmp r5, #0
+    beq menu_off_done
+    ldr r6, [r5, #SCRIPT_ENTRY_BLOB]
+    ldr r7, [r6, #HDR_CHECKSUM]
+    mvn r7, r7
+    ldr r1, [r4, #M_TRUST_N]
+    add r2, r4, #M_TRUST
+    mov r3, #0
+menu_off_find:
+    cmp r3, r1
+    bhs menu_off_keep
+    ldr r12, [r2, r3, lsl #2]
+    cmp r12, r7
+    addne r3, r3, #1
+    bne menu_off_find
+    sub r1, r1, #1
+    str r1, [r4, #M_TRUST_N]
+menu_off_shift:
+    cmp r3, r1
+    bhs menu_off_keep
+    add r12, r3, #1
+    ldr r12, [r2, r12, lsl #2]
+    str r12, [r2, r3, lsl #2]
+    add r3, r3, #1
+    b menu_off_shift
+menu_off_keep:
+    ldr r0, [r5, #SCRIPT_ENTRY_STATE]
+    cmp r0, #SCRIPT_STATE_LOADED
+    bne menu_off_next
+    mov r0, r5
+    bl menu_needs_confirm
+    cmp r0, #0
+    bne menu_off_next
+    ldr r1, [r4, #M_TRUST_N]
+    cmp r1, #MENU_MAX_TRUST
+    bhs menu_off_next
+    add r2, r4, #M_TRUST
+    str r7, [r2, r1, lsl #2]
+    add r1, r1, #1
+    str r1, [r4, #M_TRUST_N]
+menu_off_next:
+    ldr r5, [r5, #SCRIPT_ENTRY_NEXT]
+    b menu_off_entry
+menu_off_done:
+    pop {r4-r7, pc}
+.pool
+
 ; r0 = script entry waiting for its confirmation: remember its checksum, run its start body, save the settings
 menu_confirm:
     push {r4, r5, lr}
@@ -1659,7 +1744,7 @@ menu_confirm_add:
 ; Data Util ("press [ Enter ]"); ENTER opens level 1, the list of the groups FEATURES, CUSTOMIZATION and PLUGINS, and behind them the
 ; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it. Each is again
 ; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
-; 4 FEATURES). FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
+; 4 FEATURES, 5 COLORS). COLORS is a row of CUSTOMIZATION that opens the six colour pages; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
 ; main dial changes them, WRITE keeps them). EXIT goes one level up. M_PAGE counts within the level, the counter shows only that
 ; level. Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, after Event, on which Blechy, the app built into
 ; BLECH, shows himself (the frame hook opens and closes him by this level).
@@ -1711,18 +1796,17 @@ menu_kind_group:
     beq menu_kind_plugins
     cmp r3, #4
     beq menu_kind_features
+    cmp r3, #5
+    addeq r0, r5, #8            ; COLORS: LED red, green, blue, backlight red, green, blue (8 to 13)
+    moveq r1, #0
+    beq menu_kind_done
     cmp r3, #3
     bne menu_kind_apps
-    add r0, r5, #7
-    cmp r5, #8
-    moveq r0, #24
-    cmp r5, #9
-    moveq r0, #25
-    cmp r5, #10
-    moveq r0, #22
-    cmp r5, #11
-    moveq r0, #23
-    mov r1, #0
+    ldr r1, =custom_kinds
+    ldrb r0, [r1, r5]
+    cmp r0, #16
+    moveq r1, #5
+    movne r1, #0
     b menu_kind_done
 menu_kind_features:
     mov r0, #21
@@ -1798,7 +1882,7 @@ menu_count_group:
     beq menu_count_plugins
     cmp r1, #3
     bne menu_count_features
-    mov r0, #8
+    mov r0, #3
     ldr r1, =PC_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -1810,6 +1894,9 @@ menu_count_group:
     addne r0, r0, #2            ; SPLASH IMPORT and SPLASH DRAW, where the build has the splash editor
     b menu_count_out
 menu_count_features:
+    cmp r1, #5
+    moveq r0, #6
+    beq menu_count_out
     cmp r1, #3
     movhi r0, #4
     bhi menu_count_out
@@ -1885,10 +1972,13 @@ menu_go_in:
     str r3, [r2, #M_LEVEL]
     b menu_go_common
 menu_go_group:
+    cmp r3, #2                  ; COLORS inside CUSTOMIZATION: only the group changes, M_TOP keeps the list's page
+    beq menu_go_sub
     ldr r3, [r2, #M_PAGE]
     str r3, [r2, #M_TOP]
     mov r3, #2
     str r3, [r2, #M_LEVEL]
+menu_go_sub:
     str r0, [r2, #M_GROUP]
 menu_go_common:
     mov r3, #0
@@ -2052,6 +2142,7 @@ menu_export_done:
     cmp r0, #0
     bne menu_export_fail
     str r8, [r4, #M_NSCRIPTS]
+    bl menu_settings_save           ; and the settings, so the plugins switched off stay off (the page shows the export)
     mov r0, #2
     b menu_export_status
 menu_export_close:
@@ -2558,8 +2649,7 @@ menu_value_script:
     ldr r3, [r0, #SCRIPT_ENTRY_STATE]
     cmp r3, #SCRIPT_STATE_LOADED
     cmpeq r12, #1
-    moveq r1, #SCRIPT_STATE_ARMED
-    streq r1, [r0, #SCRIPT_ENTRY_STATE]
+    beq menu_value_script_on
     cmp r3, #SCRIPT_STATE_ARMED
     cmpeq r12, #0
     moveq r1, #SCRIPT_STATE_LOADED
@@ -2568,6 +2658,20 @@ menu_value_done:
     mov r0, r4
     bl menu_show
     pop {r4, r5, r6, pc}
+; on: a plugin the settings kept off at start never ran its start body (no cost recorded for it), so it runs now and arms it
+menu_value_script_on:
+    ldr r1, [r0, #SCRIPT_ENTRY_MAX_COST+4*EV_START]
+    cmp r1, #0
+    movne r1, #SCRIPT_STATE_ARMED
+    strne r1, [r0, #SCRIPT_ENTRY_STATE]
+    bne menu_value_done
+    mov r1, r0
+    ldr r0, =HOOK_RUNTIME
+    mov r2, #EV_START
+    ldr r3, =HOOK_INPUT
+    ldr r12, =VM_SCRIPT_RUN_EVENT
+    blx r12
+    b menu_value_done
 menu_value_item:
     ldr r0, =MENU_ITEMS
     add r0, r0, r1, lsl #5
@@ -2731,6 +2835,9 @@ menu_slot_exit:
     mov r4, r0
     cmp r3, #2
     bne menu_exit_up
+    ldr r12, [r2, #M_GROUP]
+    cmp r12, #5
+    beq menu_exit_colors
     ldr r12, [r2, #M_LISTED]
     cmp r12, #0
     beq menu_exit_up
@@ -2752,6 +2859,13 @@ menu_exit_show:
     mov r0, r4
     bl menu_show
     pop {r1, r2, r4, pc}
+menu_exit_colors:                ; out of COLORS: back to its row in CUSTOMIZATION
+    mov r12, #3
+    str r12, [r2, #M_GROUP]
+    mov r12, #1
+    str r12, [r2, #M_PAGE]
+    str r12, [r2, #M_ENTER]
+    b menu_exit_show
 menu_exit_stock_pop:
     pop {r1, r2, r4, lr}
 menu_exit_stock:
@@ -2786,12 +2900,12 @@ str_tab_custom:
     .asciz "Custom"
 str_tab_features:
     .asciz "Feature"
+str_tab_colors:
+    .asciz "Colors"
+str_colors:
+    .asciz "COLORS"
 str_press:
     .asciz "press  [ Enter ]"
-str_arrow:
-    .asciz " > "
-str_arrow_end:
-    .asciz " >"
 str_runtime:
     .asciz "RUNTIME"
 str_enter:
@@ -2802,10 +2916,6 @@ str_no_files:
     .asciz "no files"
 str_import:
     .asciz "IMPORT PLUGIN"
-str_import_hint:
-    .asciz "WRITE to import"
-str_no_blech:
-    .asciz "no .blech files"
 str_imported:
     .asciz "imported"
 str_runtime_off:
@@ -2818,8 +2928,6 @@ str_duplicate:
     .asciz "already loaded"
 str_pool_full:
     .asciz "memory full"
-str_ask:
-    .asciz "ASK"
 str_allow:
     .asciz "WRITE=ALLOW"
 str_fault:
@@ -2840,10 +2948,6 @@ str_nofolder:
     .asciz "folder missing"
 str_export:
     .asciz "EXPORT ALL"
-str_write:
-    .asciz "WRITE"
-str_exportfile:
-    .asciz "to e2sPlugin.all"
 str_exported:
     .asciz " exported"
 str_nothing:
@@ -2862,10 +2966,6 @@ str_custom:
     .asciz "CUSTOMIZATION"
 str_features:
     .asciz "FEATURES"
-str_custom_value:
-    .asciz "LEDS, LIGHT"
-str_custom_hint:
-    .asciz "WRITE to save"
 str_led_red:
     .asciz "LED RED"
 str_led_green:
@@ -2898,9 +2998,12 @@ str_na:
     .asciz "NOTE ASSIST"
 .align 4
 tab_names:
-    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features
+    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_colors
 group_names:
-    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features
+    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features, str_colors
+custom_kinds:                   ; the kinds of the pages of CUSTOMIZATION: BOTTOM LEDS, COLORS (a group), DISPLAY INVERT, PAD COLOR,
+    .byte 7, 16, 14, 24, 25, 22, 23 ; SELECT COLOR, SPLASH IMPORT, SPLASH DRAW
+.align 4
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
 str_once:

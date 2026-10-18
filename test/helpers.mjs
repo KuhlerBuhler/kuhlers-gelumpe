@@ -162,9 +162,9 @@ function putAsciiAt(bytes, at, text) { [...text].forEach((c, i) => { bytes[at + 
  * device's Web MIDI ports, with a log of every frame sent to it. `execute`
  * stands in for running code; `tamper(reply, message)` may change a reply.
  */
-export async function simPort({ bytes, channel = 9, name = "electribe2 sampler", emulator = false, execute = null, tamper = null, version, hacktribe = true, blech = false } = {}) {
+export async function simPort({ bytes, channel = 9, name = "electribe2 sampler", emulator = false, execute = null, tamper = null, version, hacktribe = true, blech = false, card = null } = {}) {
   const { SimDevice } = await import("../src/device.mjs");
-  const sim = new SimDevice({ image: new VsbImage(Uint8Array.from(bytes)), channel, version, hacktribe, blech, execute: execute ? addr => execute(addr, sim, port) : null });
+  const sim = new SimDevice({ image: new VsbImage(Uint8Array.from(bytes)), channel, version, hacktribe, blech, card, execute: execute ? addr => execute(addr, sim, port) : null });
   const sent = [];
   const port = {
     name, running: true, generation: 0,

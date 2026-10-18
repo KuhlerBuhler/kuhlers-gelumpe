@@ -1,10 +1,11 @@
 """Builds the loading bar patch (docs/ideen/41-startbild-ausbauen.md) for firmware 2.02 with Hacktribe.
 
 While the start loads the samples (e2sSample.all), the firmware shows a window "Loading nnn%". With this patch
-the start image stays instead and the underline under BLECH becomes the progress bar, while the eyes look around and
-small faces fade in and out at the left and right edge, one at a time, a corner after the other (the BLECH image only).
-A start image that is not the BLECH one (a drawn one, see the start image editor) stays unchanged except for a one
-pixel line along the bottom edge that grows with the load.
+the BLECH image is shown instead and the underline under BLECH becomes the progress bar, while the eyes look around and
+small faces fade in and out at the left and right edge, one at a time, a corner after the other. The image is the patch's own
+copy of assets/blechy/splash.bin, not the start image of the file: a start image drawn with the start image editor is seen
+from power-on until the load begins, the BLECH image with its eyes while the samples load (device 18.10.: with one pixel of
+the start image changed the eyes stood still, because the image was recognised by its CRC).
 
     python3 tools/patch/load_bar.py --vsb SYSTEM.VSB [--out data/patches/load-bar.json]
 
@@ -31,7 +32,6 @@ import hashlib
 import json
 import struct
 import sys
-import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -45,7 +45,7 @@ ART = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2]) 
 
 CODE_AT = 0xC0181000            # free (FF) in the image, behind the pattern switch
 CODE_END = 0xC0181A00
-BASE = 0xC0181A00               # the start image in the order of the frame buffer, 1024 bytes
+BASE = 0xC0181A00               # the BLECH image in the order of the frame buffer, 1024 bytes, written by the patch
 BASE_END = 0xC0181E00
 STATE = 0xC0181F00              # run time state, in RAM only
 STATE_END = 0xC0181F40
@@ -63,7 +63,10 @@ FLUSH = 0xC008370C              # b 0xC0015DD0, the frame function's tail call
 FLUSH_FUNC = 0xC0015DD0
 
 # The pupils are 3 by 3 pixels, top rows 15, left columns 50 and 77 (assets/blechy/splash.bin); the bar is rows 61 and 62, x 20 to 107.
-EYE_TABLE = [5, 6, 7, 8, 9, 10, 10, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 1, 2, 3, 4]    # the pupil's step to the side, plus 5
+# The pupil's step to the side, plus 5: fast at the start of a sweep and braking towards its end (ease-out, 10 * (1 - (1 - k/6)^2)),
+# then a rest, the same way back, a rest (device 18.10.: the even steps looked too linear).
+EYE_SWEEP = [3, 6, 8, 9, 10]
+EYE_TABLE = EYE_SWEEP + [10] * 7 + [10 - v for v in EYE_SWEEP] + [0] * 7
 EYE_EVERY = 4                   # frames between two steps of the pupils (a power of two)
 
 # The faces: 8 by 9 pixels, drawn dark on the light edge of the image (x 0 to 13 and 114 to 127 are plain light in the BLECH image).
@@ -88,17 +91,17 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def art_crc():
+def art_frame():
+    """assets/blechy/splash.bin in the order of the frame buffer: the bits of every byte reversed (bit 0 is the top row of a page)."""
     data = ART.read_bytes()
     if len(data) != 1024:
         raise SystemExit(f"{ART} is not a 1024 byte start image")
-    return zlib.crc32(data) & 0xFFFFFFFF
+    return bytes(int(f"{b:08b}"[::-1], 2) for b in data)
 
 
 SOURCE = """
 .equ PANEL, 0xC033E6F8          ; pointer to the panel object, +0x18 the keys held at power-on
 .equ MGR, 0xC03404C0            ; pointer to the screen manager, +0x2C the screen number, +0x5C asks for a full redraw
-.equ DESC13, 0xC00C5A54         ; data pointer of image 13, the start image
 .equ VRAM, 0xC031B310           ; the firmware's frame buffer, 8 pages of 128 bytes, bit 0 of a byte is the top row of its page
 .equ MARK, 0xC001531C           ; (x, y, x2, y2): marks a region of the frame buffer as changed
 .equ STAT, @STAT_FUNC@
@@ -108,7 +111,6 @@ SOURCE = """
 .equ KILL, @KILL@
 .equ BASE, @BASE@
 .equ STATE, @STATE@
-.equ BLECH_CRC, @CRC@
 .equ FRAME_CAP, @CAP@
 .equ EYE_SHIFT, @EYE_SHIFT@
 .equ S_EXPECT, 0               ; 1 while a load is expected and the overlay draws, 2 when it is over, FFFFFFFF never started
@@ -116,7 +118,7 @@ SOURCE = """
 .equ S_MAX, 8                  ; the largest offset in the file
 .equ S_DONE, 12                ; 1 when the loader has returned
 .equ S_FRAME, 16               ; frames drawn
-.equ S_MODE, 20                ; 0 not decided, 1 the BLECH image, 2 any other
+.equ S_MODE, 20                ; 1: the BLECH image (kept for the readers of the state; there is no other any more)
 .equ S_DRAWN, 24               ; 1 once the whole frame buffer has been marked as changed
 .equ S_FILL, 28                ; pixels of the bar marked so far
 .equ S_DX, 32                  ; step of the pupils marked so far
@@ -149,13 +151,13 @@ lb_stat:
     str r2, [r1, #S_MAX]
     str r2, [r1, #S_DONE]
     str r2, [r1, #S_FRAME]
-    str r2, [r1, #S_MODE]
     str r2, [r1, #S_DRAWN]
     str r2, [r1, #S_FILL]
     str r2, [r1, #S_DX]
     str r2, [r1, #S_FACE]
     str r2, [r1, #S_FACE_NOW]
     mov r2, #1
+    str r2, [r1, #S_MODE]
     str r2, [r1, #S_EXPECT]
 ls_out:
     mov r0, r4
@@ -223,81 +225,15 @@ ov_go:
     ldr r1, =FRAME_CAP
     cmp r5, r1
     bhi ov_end
-    ldr r0, [r4, #S_MODE]
-    cmp r0, #0
-    bne ov_have
-    bl first_frame
-ov_have:
     bl compose
 ov_out:
     pop {r4, r5, r6, r7, r8, r9, r10, pc}
-
-; The BLECH image is recognised by its CRC-32: it gets the underline as the bar and the eyes. Any other image gets a line along the
-; bottom. The image, turned into the order of the frame buffer, is kept in BASE.
-first_frame:
-    push {r4, lr}
-    ldr r0, =DESC13
-    ldr r0, [r0]
-    mov r1, #1024
-    bl crc32
-    ldr r1, =BLECH_CRC
-    cmp r0, r1
-    moveq r0, #1
-    movne r0, #2
-    ldr r4, =STATE
-    str r0, [r4, #S_MODE]
-    ldr r0, =DESC13
-    ldr r0, [r0]
-    ldr r1, =BASE
-    mov r2, #1024
-ff_byte:
-    ldrb r3, [r0], #1
-    and r12, r3, #0xF0
-    mov r12, r12, lsr #4
-    and r3, r3, #0x0F
-    orr r3, r12, r3, lsl #4
-    and r12, r3, #0xCC
-    mov r12, r12, lsr #2
-    and r3, r3, #0x33
-    orr r3, r12, r3, lsl #2
-    and r12, r3, #0xAA
-    mov r12, r12, lsr #1
-    and r3, r3, #0x55
-    orr r3, r12, r3, lsl #1
-    strb r3, [r1], #1
-    subs r2, r2, #1
-    bne ff_byte
-    pop {r4, pc}
-
-; r0 = data, r1 = length, returns the CRC-32 (zlib's, bit by bit)
-crc32:
-    ldr r12, =0xEDB88320
-    mvn r2, #0
-crc_byte:
-    cmp r1, #0
-    beq crc_done
-    ldrb r3, [r0], #1
-    eor r2, r2, r3
-    mov r3, #8
-crc_bit:
-    movs r2, r2, lsr #1
-    eorcs r2, r2, r12
-    subs r3, r3, #1
-    bne crc_bit
-    sub r1, r1, #1
-    b crc_byte
-crc_done:
-    mvn r0, r2
-    bx lr
 
 ; r0 = the pixels of the bar that are filled: all of them when the loader is done, else the loader's share of the file.
 fill_px:
     push {r4, lr}
     ldr r4, =STATE
-    ldr r1, [r4, #S_MODE]
-    cmp r1, #1
-    moveq r2, #88
-    movne r2, #128
+    mov r2, #88
     ldr r1, [r4, #S_DONE]
     cmp r1, #1
     moveq r0, r2
@@ -362,7 +298,7 @@ b3_col:
     blo b3_row
     pop {r4, r5, r6, r7, r8, pc}
 
-; The image with the bar and, for the BLECH image, the eyes, into the frame buffer. Only what changed since the last frame is marked
+; The image with the bar and the eyes into the frame buffer. Only what changed since the last frame is marked
 ; as changed (the first time everything): the display is sent page by page, and sending pages costs more than drawing them.
 compose:
     push {r4, r5, r6, r7, r8, r9, r10, lr}
@@ -378,10 +314,6 @@ cp_loop:
     bne cp_loop
     bl fill_px
     mov r9, r0
-    mov r8, #0
-    ldr r0, [r4, #S_MODE]
-    cmp r0, #1
-    bne cp_generic
     mov r6, #0
 cp_blech:
     cmp r6, #88
@@ -431,19 +363,6 @@ cp_mod:
     mov r3, #0
     bl block3
     bl face
-    b cp_mark
-cp_generic:
-    mov r6, #0
-cp_line:
-    cmp r6, r9
-    bhs cp_mark
-    mov r0, r7
-    mov r1, r6
-    mov r2, #63
-    mov r3, #0
-    bl set_px
-    add r6, r6, #1
-    b cp_line
 cp_mark:
     ldr r0, [r4, #S_DRAWN]
     cmp r0, #0
@@ -464,14 +383,9 @@ cp_delta:
     ldr r5, [r4, #S_FILL]
     cmp r5, r9
     beq cp_pupils
-    ldr r0, [r4, #S_MODE]
-    cmp r0, #1
-    moveq r6, #20                ; the bar: x from 20, rows 61 and 62
-    moveq r1, #61
-    moveq r3, #63
-    movne r6, #0                 ; any other image: the bottom row
-    movne r1, #63
-    movne r3, #64
+    mov r6, #20                  ; the bar: x from 20, rows 61 and 62
+    mov r1, #61
+    mov r3, #63
     add r0, r6, r5
     add r2, r6, r9
     bl MARK
@@ -583,7 +497,7 @@ def source():
     text = SOURCE
     for key, value in {
         "STAT_FUNC": f"{STAT_FUNC:#x}", "LOAD_FUNC": f"{LOAD_FUNC:#x}", "PROGRESS_FUNC": f"{PROGRESS_FUNC:#x}", "FLUSH_FUNC": f"{FLUSH_FUNC:#x}",
-        "KILL": f"{KILL_SWITCH:#x}", "BASE": f"{BASE:#x}", "STATE": f"{STATE:#x}", "CRC": f"{art_crc():#x}", "CAP": str(FRAME_CAP),
+        "KILL": f"{KILL_SWITCH:#x}", "BASE": f"{BASE:#x}", "STATE": f"{STATE:#x}", "CAP": str(FRAME_CAP),
         "CODE_AT": f"{CODE_AT:#x}", "EYES": ", ".join(str(v) for v in EYE_TABLE), "EYE_SHIFT": str(EYE_EVERY.bit_length() - 1),
         "FACE_SHIFT": str(FACE_EVERY.bit_length() - 1), "LEVELS": ", ".join(str(v) for v in FACE_LEVELS),
         "PLACES": ", ".join(str(v) for xy in FACE_PLACES for v in xy), "BAYER": ", ".join(str(v) for v in BAYER),
@@ -637,7 +551,6 @@ def build_patch(vsb):
     for addr, want, why in expected:
         if word(addr) != want:
             raise SystemExit(f"{why} in this VSB")
-    free(BASE, BASE_END - BASE)
     free(STATE, STATE_END - STATE)
 
     def hook(addr, name, link, note):
@@ -651,7 +564,9 @@ def build_patch(vsb):
         "name": "Ladebalken im Startbild",
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
-             "note": "loading bar: the start image stays while e2sSample.all loads, the underline is the bar, the eyes look around"},
+             "note": "loading bar: the BLECH image while e2sSample.all loads, the underline is the bar, the eyes look around"},
+            {"file": file_offset(BASE), "bytes": art_frame().hex(), "expect": free(BASE, BASE_END - BASE),
+             "note": "the BLECH image (assets/blechy/splash.bin) in the order of the frame buffer"},
             hook(STAT_CALL, "lb_stat", True, "the question whether e2sSample.all exists goes through the hook"),
             hook(PROGRESS_CALL, "lb_progress", True, "the loader's text update goes through the hook"),
             hook(LOAD_CALL, "lb_load", True, "the call of the loader goes through the hook"),
@@ -671,7 +586,6 @@ def build_patch(vsb):
             {"file": file_offset(CODE_AT), "length": len(code), "why": "the hooks and what they call: they note a load only when the file exists and EXIT was not held, and draw only then"},
         ],
         "ram": [
-            ramdecl.area(BASE, BASE_END - BASE, "the start image in the order of the frame buffer, 1024 bytes", "tools/patch/load_bar.py:BASE"),
             ramdecl.area(STATE, STATE_END - STATE, "run time state of the overlay", "tools/patch/load_bar.py:STATE"),
         ],
     }

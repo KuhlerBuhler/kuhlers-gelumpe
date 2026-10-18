@@ -14,7 +14,7 @@ The part is the selected one, whatever it is: there is no drum mode. Only the st
 the first note slot; the other three note slots are cleared); nothing else of the pattern, nothing in flash, nothing on the card. The
 pattern stays unsaved until WRITE, like after any edit. Without SHIFT, PART ERASE is the firmware's own key.
 
-The patch is on only when EXIT was not held at power-on, a card is available and the setting word DC_SETTING is not 0 (a menu
+The patch is on only when EXIT was not held at power-on, a card was seen since power-on and the setting word DC_SETTING is not 0 (a menu
 page would write it, like TM_SETTING of TAP MOTION; never written means on). It works on the main screen only.
 
     python3 tools/patch/dice.py --vsb SYSTEM.VSB [--out data/patches/dice.json]
@@ -121,7 +121,8 @@ dh_orig:
     b KEY_BODY
 
 ; ===================================================== is the patch on
-; r0 = 1 when EXIT was not held at power-on, a card is available and the setting is not off. Clobbers r0 and r12. Reads memory only.
+; r0 = 1 when EXIT was not held at power-on, a card was seen since power-on and the setting is not off. Clobbers r0 and r12.
+; Writes only the card latch (tools/patch/card_gate.py), the first time a card is there.
 dc_active:
     ldr r12, =PANEL
     ldr r12, [r12]
@@ -470,7 +471,7 @@ SYNTH_MODEL = [
 
 
 def source():
-    text = SOURCE.replace("@CARD_CHECK@", card_gate.source("synth" if BUILD == "synth" else "hacktribe", "da_no"))
+    text = SOURCE.replace("@CARD_CHECK@", card_gate.source("synth" if BUILD == "synth" else "hacktribe", "da_no", STATE + card_gate.LATCH_OFFSET))
     if BUILD == "synth":
         for old, new in SYNTH_MODEL:
             if text.count(old) != 1:

@@ -61,10 +61,10 @@ def card_image():
 class Box:
     """A booted device (3 s) with a mounted card, or without one."""
 
-    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0):
+    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0, adapter=False):
         self.payload = bytes(payload)
         for_build(self.payload)
-        self.dev = Dev(self.payload, flash, held)
+        self.dev = Dev(self.payload, flash, held, adapter=adapter)
         self.m = self.dev.m
         if card:
             self.m.insert_card(SDCard(MemoryMedium(card_image())))
@@ -106,6 +106,11 @@ class Box:
     def view(self):
         """What the pattern selection shows: (running, chosen, pending)."""
         return self.running(), self.chosen(), self.pending()
+
+    def dirty(self):
+        """Whether the pattern in RAM differs from its place in the bank (unsaved changes)."""
+        live = bytes(self.m.uc.mem_read(self.u32(0xC033E6A4) + 4, 0x4000))
+        return live != bytes(self.m.uc.mem_read(self.slots + self.running() * 0x4000, 0x4000))
 
     # ---- bedienen
     def key(self, name, wait=0.3):
@@ -468,7 +473,82 @@ def case_mfx(payload, flash):
     return out
 
 
-GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx)
+def case_unsaved(payload, flash):
+    """Stopped with unsaved changes (the pattern in RAM differs from its place in the bank), the wheel browses as while playing: the
+    lower line says VIEW:, nothing is loaded, EXIT stays on the edited pattern, MENU loads the browsed one. Without changes the wheel is
+    the firmware's. PLAY during such a browse plays the edited pattern (device wish 18.10.)."""
+    out = []
+    import unicorn
+
+    def edited(b):
+        knob = 1 if b.dev.synth else 0    # a knob of the selected part: one byte of the pattern in RAM changes (the synth's knob 0 is not stored, measured)
+        b.m.send([2, knob, 0, 200, 0])
+        b.run(0.5)
+        return b.dirty()
+
+    def views(b):
+        """How often the lower line reads the patch's "VIEW:" from now on (a list that grows)."""
+        at = IMAGE + bytes(b.payload).find(b"VIEW:\x00", spec.CODE_AT - IMAGE, spec.CODE_END - IMAGE)
+        seen = []
+        b.m.uc.hook_add(unicorn.UC_HOOK_MEM_READ, lambda *a: seen.append(1), begin=at, end=at)
+        return seen
+
+    box = Box(payload, flash)
+    dirty = edited(box)
+    seen = views(box)
+    box.mark()
+    box.turn(1)
+    box.turn(2)
+    out.append(entry("unsaved_wheel_browses", dirty and box.view() == (0, 3, 1) and box.flags()[0] == 1 and box.dirty() and box.midi() == [] and seen and not box.m.asserts,
+                     f"edited {dirty}; two clicks: running/chosen/pending {box.view()}, browse {box.flags()[0]}, the edit still there {box.dirty()}, MIDI {box.midi()}, "
+                     f"VIEW: read {len(seen)} times"))
+    box.key("exit")
+    out.append(entry("unsaved_exit_stays", box.view() == (0, 0, 0) and box.flags()[0] == 0 and box.dirty() and not box.m.asserts,
+                     f"EXIT: {box.view()}, browse {box.flags()[0]}, the edit still there {box.dirty()}"))
+    box.turn(2)
+    box.key("menu", 0.6)
+    out.append(entry("unsaved_menu_loads", box.view() == (2, 2, 0) and box.flags()[0] == 0 and not box.dirty() and box.program_changes() == [2] and not box.m.asserts,
+                     f"two clicks and MENU: {box.view()}, the browsed pattern loaded (unsaved {box.dirty()}), program changes {box.program_changes()}"))
+    clean = Box(payload, flash)
+    clean.turn(1)
+    out.append(entry("saved_wheel_is_stock", clean.view() == (1, 1, 0) and clean.flags()[0] in (0, 0xFFFFFFFF),
+                     f"without changes a click loads at once as always: {clean.view()}"))
+    played = Box(payload, flash)
+    edited(played)
+    played.turn(3)
+    play(played)
+    played.run(1.0)
+    out.append(entry("unsaved_browse_then_play_plays_the_edit", played.running() == 0 and played.transport() == 1 and played.dirty() and not played.m.asserts,
+                     f"browse +3, PLAY: running {played.running()}, transport {played.transport()}, the edit still there {played.dirty()}, view {played.view()}"))
+    # WRITE during such a browse: the firmware ignores WRITE while a number is pending (measured: the Write screen does not open), so
+    # nothing lands in the browsed place; after EXIT, WRITE works as always and saves the edit into its own place
+    wr = Box(payload, flash)
+    edited(wr)
+    slot = lambda n: bytes(wr.m.uc.mem_read(wr.slots + n * 0x4000, 0x4000))
+    three = slot(3)
+    wr.turn(3)
+    screens = []
+    for _ in range(3):
+        wr.dev.press(0x0E, 1.0)
+        screens.append(wr.dev.screen()["number"])
+    ignored = screens == [1, 1, 1] and wr.dirty() and slot(3) == three
+    wr.key("exit")
+    for _ in range(3):
+        wr.dev.press(0x0E, 1.0)
+        if not wr.dirty():
+            break
+    out.append(entry("unsaved_browse_write_waits_for_exit", ignored and not wr.dirty() and slot(3) == three and not wr.m.asserts,
+                     f"browse +3, WRITE three times: screens {screens}, the edit kept and place 3 unchanged ({ignored}); after EXIT the edit is saved "
+                     f"into its own place ({not wr.dirty()})"))
+    off = Box(payload, flash)
+    off.set_setting(0)
+    edited(off)
+    off.turn(1)
+    out.append(entry("unsaved_setting_off_is_stock", off.view() == (1, 1, 0), f"PATTERN CONFIRM off: a click loads at once {off.view()}"))
+    return out
+
+
+GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved)
 
 
 def group_entries(payload, flash, i):

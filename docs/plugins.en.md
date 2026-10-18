@@ -523,7 +523,7 @@ customization, then the plugins, last the groups that plugins register themselve
 | Entry | What is behind it |
 |---|---|
 | FEATURES | four pages with the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (table below) |
-| CUSTOMIZATION | eight pages, see below |
+| CUSTOMIZATION | BOTTOM LEDS, COLORS, DISPLAY INVERT, then PAD COLOR, SELECT COLOR and the splash pages where the set has them; see below |
 | PLUGINS | a group, see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
 | TOOLS | like GAMES |
@@ -544,19 +544,20 @@ The pages of the groups:
 | Group, page | Value | Effect |
 |---|---|---|
 | PLUGINS, RUNTIME | ON, OFF | the plugins of the card on or off, applies from the next start ("OFF, RESTART" shows that it does not apply yet); Blechy is no plugin of the card and stays |
-| PLUGINS, one plugin per page | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume; on an error its name stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
+| PLUGINS, one plugin per page | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume, WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error its name stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
 | PLUGINS, one page per `korg.menu.add` | the number | the main dial changes it, the plugin gets `menu` |
-| PLUGINS, EXPORT ALL | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them |
+| PLUGINS, EXPORT ALL | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them, then saves the settings too (plugins switched off stay off) |
 | PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then a file name | ENTER shows the first `*.blech` in `KORG/blechtribe/Plugin/` (shown up to 14 characters), the main dial or EDIT pages through the files, ENTER or WRITE loads and starts the one shown at once, EXIT goes back to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards) and hidden or system files are not listed |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the firmware's level meter, COLOR a fixed colour, OFF dark; applies at once |
-| CUSTOMIZATION, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs, for METER and COLOR; 0 0 0 means the firmware's colours ("0 stock"); with METER the level sets the brightness of this colour; applies at once |
-| CUSTOMIZATION, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 0 0 0 means the firmware's white; applies at once |
+| CUSTOMIZATION, COLORS | ENTER | opens the six colour pages below it; EXIT goes back to COLORS |
+| COLORS, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs, for METER and COLOR; 0 0 0 means the firmware's colours ("0 stock"); with METER the level sets the brightness of this colour; applies at once |
+| COLORS, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 0 0 0 means the firmware's white; applies at once |
 | CUSTOMIZATION, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; OFF is the default |
 | CUSTOMIZATION, PAD COLOR | RED, BLUE, PINK | the colour the pads use for what the firmware shows in red (a part plays, a pad is held, a step); applies at once, WRITE keeps it; RED is the default. Only where the set has the patch pad-colors |
 | CUSTOMIZATION, SELECT COLOR | RED, BLUE, PINK | the colour of the selected part, never the one of PAD COLOR; when both light, the pad shows the third colour; BLUE is the default |
 | CUSTOMIZATION, SPLASH IMPORT | ENTER | reads `KORG/blechtribe/splash.bmp` (128 x 64 pixels, 1 bit per pixel, not compressed; the darker colour is drawn) and stores it as the start image like WRITE in the splash editor; shown from the next start. Says "loaded", "no splash.bmp" or "not 128x64 1 bit" (then nothing changes). Only where the set has the splash editor, so not on the blue one |
-| CUSTOMIZATION, SPLASH DRAW | ENTER | opens the splash editor (Global, page SPLASH SCREEN): the dial moves the cursor, MENU flips the pixel, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
+| CUSTOMIZATION, SPLASH DRAW | ENTER | opens the splash editor (Global, page SPLASH SCREEN): the dial moves the cursor left and right, with SHIFT held up and down, MENU flips the pixel and, held, paints its new colour wherever the cursor goes, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
 | FEATURES, PATTERN CONFIRM | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a pad note and go out after 1.5 s; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
@@ -570,7 +571,7 @@ the title holds about 18. IMPORT PLUGIN and EXPORT ALL are in the PLUGINS group,
 
 On the page RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
-number (24 to 88 bytes, tag `GSET`; at most 16 approved blocks are remembered, then the oldest drops out).
+number (24 to 88 bytes, tag `GSET`; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at
 the firmware's values). The page reports "saved", "no card", "card protected", "folder missing" or "write
 error". Nothing is written to the flash.
@@ -651,9 +652,9 @@ units. Every app stays below it, the tests check that. On the device the time pe
 | Snake | GAMES | Part left and right turn | 1180 bytes | 2215 units (opening), frame 537 |
 | Tetris | GAMES | Part left and right move, Edit right turns, Edit left held drops faster, any key restarts after game over | 3772 bytes | 2305 units, 0.44 ms |
 | Game of Life | GAMES | the touchpad sets cells, key 1 starts and pauses (LED), key 2 one step, key 3 clears, key 4 fills at random | 2184 bytes | 2484 units, 0.47 ms |
-| Pong | GAMES | paddle by touchpad (height of the finger), Part left up, Part right down, encoder; first to 9 wins | 2068 bytes | 1190 units, 0.23 ms |
+| Pong | GAMES | paddle by touchpad (height of the finger), Part left up, Part right down, encoder; first to 9 wins; ball and bot move on every second frame only, otherwise the slow display hardly shows the ball | 2120 bytes | 1221 units, 0.23 ms |
 | Simon | GAMES | the four middle pads (3, 4, 11, 12, counted from 0) light a sequence, you play it back, one more step each round; a wrong pad ends the game, TAP or a pad restarts | 2344 bytes | 2114 units (opening), frame 693 |
-| Mandelbrot | TOOLS | a finger on the touchpad pans, Part right and the encoder zoom in, Part left out, keys 1 and 2 set the iterations (8 to 64), TAP resets | 2436 bytes | 2135 units, 0.41 ms |
+| Mandelbrot | GAMES | a finger on the touchpad pans, Part right and the encoder zoom in, Part left out, keys 1 and 2 set the iterations (8 to 64), TAP resets | 2436 bytes | 2135 units, 0.41 ms |
 
 **Set-Timer** is meant for use in a set. Its clock is `korg.millis()`, which the runtime keeps current every frame,
 also while the app is closed. It subscribes only to `play`, the keys, `open` and `close`: closed it costs a few
@@ -673,8 +674,8 @@ the coarse pass. Zoom goes up to 7, deeper than that the 14 bits do not reach.
 
 ## The Plugins page in the editor
 
-The Plugins tab has example plugins on the left (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong and
-Simon under GAMES, Set-Timer and Mandelbrot under TOOLS, plus Lauflicht and Pulsieren; source
+The Plugins tab has example plugins on the left (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong,
+Simon and Mandelbrot under GAMES, Set-Timer under TOOLS, plus Lauflicht and Pulsieren; source
 `data/script/presets.mjs`, all using names such as `korg.key.TAP`; the same examples are the cards of the catalog)
 and your own plugins. On the right it has the editor with line numbers, the
 result of compiling (errors with line and column, a click puts the cursor there), the list "Namen der

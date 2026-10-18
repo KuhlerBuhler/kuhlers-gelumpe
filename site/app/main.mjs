@@ -545,7 +545,7 @@ function boot() {
   const card = options.add("emu", { id: "cee-emu-card", title: "SD-Karte" });
   const sd = sdcardPanel(card.body, emulator, { heading: false });
   sidebar = contextSidebar(emulator.aside, { device, emulator, probe });
-  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id) });
+  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null });
   rescuePage($("#cee-rescue"));
   splashPage($("#cee-splash"));
   let storage = null;
