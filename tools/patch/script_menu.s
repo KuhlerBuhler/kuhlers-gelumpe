@@ -235,6 +235,15 @@ menu_load_apply:
     mov r2, r1, lsr #12
     and r2, r2, #15
     strb r2, [r4, #MX_SAVE]
+    mov r2, r1, lsr #16         ; bits 16 to 27: the four colours of the meter, 3 bits each
+    sub r12, r4, #-MX_METER
+    mov r1, #4
+menu_load_meter:
+    and r3, r2, #7
+    strb r3, [r12], #1
+    mov r2, r2, lsr #3
+    subs r1, r1, #1
+    bne menu_load_meter
     ldrb r1, [r0, #6]
     str r1, [r4, #M_TRUST_N]
     add r2, r4, #M_TRUST
@@ -397,6 +406,14 @@ menu_settings_save:
     orr r0, r0, r1, lsl #8
     ldrb r1, [r4, #MX_SAVE]
     orr r0, r0, r1, lsl #12
+    ldrb r2, [r4, #MX_METER+3]  ; the meter's colours, colour n at bits 16 + 3n
+    ldrb r1, [r4, #MX_METER+2]
+    orr r2, r1, r2, lsl #3
+    ldrb r1, [r4, #MX_METER+1]
+    orr r2, r1, r2, lsl #3
+    ldrb r1, [r4, #MX_METER]
+    orr r2, r1, r2, lsl #3
+    orr r0, r0, r2, lsl #16
     str r0, [r7, #12]
     ldr r0, [r4, #M_LED_MODE]
     ldr r1, [r4, #M_LED_R]
@@ -512,6 +529,12 @@ look_led_custom:
     moveq r12, #1
     movne r12, #2
 look_led_store:
+    cmp r5, #0                  ; METER with a colour of the meter set: the meter in four colours (3)
+    bne look_led_kind
+    ldr r3, [r4, #MX_METER]
+    cmp r3, #0
+    movne r12, #3
+look_led_kind:
     strb r0, [r4, #M_LED_V]
     strb r1, [r4, #M_LED_V+1]
     strb r2, [r4, #M_LED_V+2]
@@ -736,8 +759,8 @@ led_meter_hook:
     mov r4, r0
     mov r9, #256
     mov r10, #256
-    cmp r3, #1
-    bne led_meter_loop_start
+    cmp r3, #2
+    beq led_meter_loop_start
     ldr r6, =0xC033E4F4
     ldr r6, [r6]
     mov r0, #0
@@ -758,6 +781,10 @@ led_meter_levels:
     bl 0xC0088220
     ldr r0, [sp]
     ldr r1, [sp, #4]
+    ldr r3, =MENU_STATE
+    ldr r3, [r3, #M_LED_EFF]
+    cmp r3, #3
+    beq led_meter_four
     mov r3, #191
     mul r2, r0, r0
     mov r2, r2, lsr #8
@@ -795,6 +822,58 @@ led_meter_loop:
     blo led_meter_loop
     add sp, sp, #8
     pop {r4-r10, pc}
+; The meter in four colours (device 18.10.): per side the zone of its level as the firmware divides it (0 STILL, up to 70 LOW, up to
+; 187 MID, above LOUD) gives the colour, the user's from the palette or, for a zone left at STOCK, the firmware's (white, blue,
+; green, red). r0, r1 = the levels of the two sides (LEDs 6 to 11, 0 to 5).
+led_meter_four:
+    bl meter_colour
+    mov r10, r2
+    mov r0, r1
+    bl meter_colour
+    mov r9, r2
+    mov r5, #0
+led_meter_four_loop:
+    cmp r5, #6
+    movlo r8, r9
+    movhs r8, r10
+    mov r0, r5
+led_meter_mod3:
+    cmp r0, #3
+    subhs r0, r0, #3
+    bhs led_meter_mod3
+    ldrb r3, [r8, r0]
+    add r0, r4, r5, lsl #3
+    strb r3, [r0, #0x2ae]
+    mov r0, r4
+    add r1, r5, #0x4c
+    mov r2, #0
+    bl 0xC00875F4
+    add r5, r5, #1
+    cmp r5, #12
+    blo led_meter_four_loop
+    add sp, sp, #8
+    pop {r4-r10, pc}
+; r0 = level 0 to 255 -> r2 = the three bytes (red, green, blue) of its colour. Keeps r1.
+meter_colour:
+    cmp r0, #0
+    moveq r3, #0
+    beq meter_zone
+    cmp r0, #70
+    movle r3, #1
+    ble meter_zone
+    cmp r0, #187
+    movle r3, #2
+    movgt r3, #3
+meter_zone:
+    ldr r2, =MENU_STATE
+    sub r2, r2, #-MX_METER
+    ldrb r2, [r2, r3]
+    cmp r2, #0
+    addeq r2, r3, #8            ; STOCK: the firmware's colour of the zone, behind the palette
+    ldr r0, =meter_palette
+    add r2, r2, r2, lsl #1
+    add r2, r0, r2
+    bx lr
 led_meter_pass:
     ldrb r3, [r0, #0xb98]
     ldr pc, =0xC0088288
@@ -1136,6 +1215,9 @@ menu_texts_clear:
     beq menu_text_intens
     cmp r0, #27
     beq menu_text_save
+    sub r1, r0, #28
+    cmp r1, #3
+    bls menu_text_meter
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1314,6 +1396,20 @@ menu_text_save:
     ldreq r1, =str_stock_word
     bleq menu_copy
     blne menu_dec
+    b menu_text_look_line3
+; METER STILL, LOW, MID, LOUD (28 to 31): the zone's colour from the palette, STOCK the firmware's. r1 = the zone.
+menu_text_meter:
+    mov r6, r1
+    add r0, r5, #M_TITLE
+    ldr r1, =meter_titles
+    ldr r1, [r1, r6, lsl #2]
+    bl menu_copy
+    sub r1, r5, #-MX_METER
+    ldrb r1, [r1, r6]
+    ldr r2, =colour_names
+    ldr r1, [r2, r1, lsl #2]
+    add r0, r5, #M_VALUE
+    bl menu_copy
     b menu_text_look_line3
 menu_text_invert:
     ldr r1, =str_invert
@@ -2598,12 +2694,18 @@ menu_slot_value:
     beq menu_value_colour
     cmp r0, #25
     beq menu_value_colour
+    mov r2, #15
     cmp r0, #26
     moveq r3, #MX_INTENS
     beq menu_value_byte
     cmp r0, #27
     moveq r3, #MX_SAVE
     beq menu_value_byte
+    mov r2, #7
+    sub r3, r0, #28
+    cmp r3, #3
+    subls r3, r3, #-MX_METER
+    bls menu_value_byte
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
@@ -2620,13 +2722,13 @@ menu_slot_value:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
-; INTENSITY and SAVE LIGHT: r3 = the byte's offset from MENU_STATE, 0 to 15, acting at once like the other look pages
+; INTENSITY, SAVE LIGHT and the meter's colours: r3 = the byte's offset from MENU_STATE, 0 to r2, acting at once like the other look pages
 menu_value_byte:
     ldrb r1, [r6, r3]
     adds r1, r1, r5
     movmi r1, #0
-    cmp r1, #15
-    movgt r1, #15
+    cmp r1, r2
+    movgt r1, r2
     strb r1, [r6, r3]
     b menu_value_look_done
 ; PAD COLOR and SELECT COLOR: the dial steps the colour in the patch, which skips the other page's and sends the pads; WRITE keeps it.
@@ -3022,6 +3124,28 @@ str_tab_custom:
     .asciz "Custom"
 str_tab_features:
     .asciz "Feature"
+str_meter_still:
+    .asciz "METER STILL"
+str_meter_low:
+    .asciz "METER LOW"
+str_meter_mid:
+    .asciz "METER MID"
+str_meter_loud:
+    .asciz "METER LOUD"
+str_c_white:
+    .asciz "WHITE"
+str_c_red:
+    .asciz "RED"
+str_c_green:
+    .asciz "GREEN"
+str_c_blue:
+    .asciz "BLUE"
+str_c_yellow:
+    .asciz "YELLOW"
+str_c_cyan:
+    .asciz "CYAN"
+str_c_pink:
+    .asciz "PINK"
 str_intens:
     .asciz "INTENSITY"
 str_save:
@@ -3140,11 +3264,18 @@ custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD C
 .align 4
 sub_kinds:                      ; the kinds of the pages of DISPLAY, LED and PAD COLOR, 8 a group (device 18.10.)
     .byte 11, 12, 13, 26, 27, 14, 0, 0  ; DISPLAY: backlight red, green, blue, INTENSITY, SAVE LIGHT, display invert
-    .byte 7, 8, 9, 10, 0, 0, 0, 0       ; LED: bottom LEDs, LED red, green, blue
+    .byte 7, 8, 9, 10, 28, 29, 30, 31   ; LED: bottom LEDs, LED red, green, blue, the meter's four colours
     .byte 24, 25, 0, 0, 0, 0, 0, 0      ; PAD COLOR: pad colour, select colour
 sub_counts:
-    .byte 6, 4, 2, 0
+    .byte 6, 8, 2, 0
+meter_palette:                  ; red, green, blue of the colours 1 to 7, then the firmware's colours of the four zones
+    .byte 0, 0, 0,  160, 160, 160,  255, 0, 0,  0, 255, 0,  0, 0, 255,  255, 160, 0,  0, 200, 255,  255, 0, 160
+    .byte 120, 120, 120,  0, 0, 255,  0, 255, 0,  255, 0, 0
 .align 4
+meter_titles:
+    .word str_meter_still, str_meter_low, str_meter_mid, str_meter_loud
+colour_names:
+    .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
 str_once:

@@ -435,7 +435,7 @@ def cases(payload, flash=None, settings=True):
 
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(3)]
-    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(6)] + [(GROUP_LED, page) for page in range(4)]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(6)] + [(GROUP_LED, page) for page in range(8)]
     pages += [(GROUP_FEATURES, page) for page in range(len(FEATURE_PAGES))]
     crowded = []
     for group, page in pages:
@@ -819,7 +819,7 @@ def look_cases(payload, flash=None):
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
     add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
-        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 6), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 4)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 6), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 8)]
         and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
         f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
@@ -850,6 +850,30 @@ def look_cases(payload, flash=None):
     add("led_stock_meter_keeps_its_colours", stock_loud[:3] == stock_loud[3:6] and stock_loud[0] > 200 and stock_loud[1] == 0, f"{stock_loud}")
     add("led_color_without_a_colour_is_the_stock_white", stock_color == [120] * 12, f"{stock_color}")
     set_look(dev, mode=0)
+
+    # the meter in four colours (device 18.10.): STILL red, LOUD pink from the palette, the zones left at STOCK keep the firmware's
+    goto_group(dev, GROUP_LED, 4)
+    still_page = texts_of(dev)
+    dev.turn(2, wait=0.3)
+    goto_group(dev, GROUP_LED, 7)
+    dev.turn(7, wait=0.3)
+    loud_page = texts_of(dev)
+    meter_level(dev, 0)
+    dev.run(1.0)
+    m_still = leds(dev)
+    meter_level(dev, 254)
+    dev.run(1.0)
+    m_loud = leds(dev)
+    goto_group(dev, GROUP_LED, 4)
+    dev.turn(-2, wait=0.3)
+    goto_group(dev, GROUP_LED, 7)
+    dev.turn(-7, wait=0.3)
+    meter_level(dev, 254)
+    dev.run(1.0)
+    m_stock = leds(dev)
+    add("led_meter_four_colours", still_page == ("METER STILL", "STOCK", "") and loud_page == ("METER LOUD", "PINK", "")
+        and m_still == [255, 0, 0] * 4 and m_loud == [255, 0, 160] * 4 and m_stock[:3] == m_stock[3:6] and m_stock[0] > 200 and m_stock[1] == 0
+        and state(dev, S_LED_EFF) == 0 and not dev.m.asserts, f"pages {still_page} {loud_page}, still {m_still}, loud {m_loud}, back to STOCK {m_stock}")
 
     # the firmware's own switches stay: nothing changes while a plugin holds the lock, nothing lights with Global power save
     lock = boot(payload, flash, adapter=True)
