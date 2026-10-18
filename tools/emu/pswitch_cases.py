@@ -109,8 +109,8 @@ class Box:
 
     def dirty(self):
         """Whether the pattern in RAM differs from its place in the bank (unsaved changes)."""
-        live = self.dev.read(self.u32(0xC033E6A4) + 4, 0x4000)
-        return live != self.dev.read(SLOTS + self.running() * 0x4000, 0x4000)
+        live = bytes(self.m.uc.mem_read(self.u32(0xC033E6A4) + 4, 0x4000))
+        return live != bytes(self.m.uc.mem_read(self.slots + self.running() * 0x4000, 0x4000))
 
     # ---- bedienen
     def key(self, name, wait=0.3):
@@ -481,7 +481,8 @@ def case_unsaved(payload, flash):
     import unicorn
 
     def edited(b):
-        b.m.send([2, 0, 0, 200, 0])       # knob 0 of the selected part: one byte of the pattern in RAM changes
+        knob = 1 if b.dev.synth else 0    # a knob of the selected part: one byte of the pattern in RAM changes (the synth's knob 0 is not stored, measured)
+        b.m.send([2, knob, 0, 200, 0])
         b.run(0.5)
         return b.dirty()
 
@@ -523,7 +524,7 @@ def case_unsaved(payload, flash):
     # nothing lands in the browsed place; after EXIT, WRITE works as always and saves the edit into its own place
     wr = Box(payload, flash)
     edited(wr)
-    slot = lambda n: wr.dev.read(SLOTS + n * 0x4000, 0x4000)
+    slot = lambda n: bytes(wr.m.uc.mem_read(wr.slots + n * 0x4000, 0x4000))
     three = slot(3)
     wr.turn(3)
     screens = []

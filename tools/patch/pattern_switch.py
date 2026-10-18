@@ -10,7 +10,7 @@ for every other way to choose a pattern (pad, MIDI program change, chain), the f
 
     python3 tools/patch/pattern_switch.py --vsb SYSTEM.VSB [--out data/patches/pattern-switch.json]
 
-Eight hooks, none of them before the main screen:
+Nine hooks; only the stopped sync runs before the main screen, and there it only reads its own state word:
   wheel        the tail call of the main screen's VALUE handler into the selector, 0xC006513C
   pad          first instruction of the pad selection, 0xC006EDE4, clears browse and confirmation
   MIDI         first instruction of the program change handler, 0xC006EE00, ditto
@@ -19,6 +19,7 @@ Eight hooks, none of them before the main screen:
   sequence end the call that asks for the number to start, 0xC005F1C4 (runs in the engine task, only reads)
   STOP         first instruction of the pending-pattern applier, 0xC0081B5C
   label        the load of "NEXT:" in the lower line builder, 0xC0086DC4, shows VIEW: while browsing
+  stopped sync first instruction of the observer that loads a chosen number while stopped, 0xC0081E18, idle during a stopped browse
 
 The patch is on only when EXIT was not held at power-on, a card was seen since power-on and the setting word PS_SETTING
 is not 0 (the BLECH menu writes it; never written means on). Off, every hook goes straight to the original.
@@ -557,17 +558,13 @@ lb_next:
 ; ===================================================== the stopped sync
 ; First instruction of the function that, stopped, loads a chosen number that does not run (0xC0081E18, called on and on).
 ; During a stopped browse it does nothing: the browsed number stays chosen and pending, the edited pattern stays loaded.
+; The function is an observer called through a member pointer, often and from other tasks: the hook only reads its own word
+; (S_STOPPED is 1 only after the wheel found the patch on) and touches nothing but r12, which a callee may use.
 sync_hook:
-    push {r0, r1, r2, r3, lr}
-    bl pc_active
-    cmp r0, #0
-    beq sy_stock
-    ldr r3, =STATE
-    ldr r0, [r3, #S_STOPPED]
-    cmp r0, #1
-    popeq {r0, r1, r2, r3, pc}
-sy_stock:
-    pop {r0, r1, r2, r3, lr}
+    ldr r12, =STATE
+    ldr r12, [r12, #S_STOPPED]
+    cmp r12, #1
+    bxeq lr
     push {r4, r5, r6, lr}       ; the replaced first instruction
     b @SYNC_BODY@
 
@@ -700,7 +697,10 @@ def build_patch(vsb, build="hacktribe"):
             declare(LABEL_HOOK, "instruction", "pattern-label", "replace", False, "VIEW: instead of NEXT: while browsing"),
             declare(SYNC_HOOK, "instruction", "stopped-sync", "before", False, "stopped, an unsaved pattern browsed away from: the chosen number is not loaded"),
         ],
-        "startPhase": [],
+        "startPhase": [
+            {"file": file_offset(SYNC_HOOK), "length": 4, "why": "the stopped sync is an observer the firmware calls from the start on; the hook reads its own state word (FF at start, not 1) and runs the original"},
+            {"file": file_offset(symbols["sync_hook"]), "length": symbols["view_text"] - symbols["sync_hook"], "why": "sync_hook: one load, a compare, then the replaced instruction and the way back"},
+        ],
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14", "tools/patch/pattern_switch.py:STATE"),
         ],

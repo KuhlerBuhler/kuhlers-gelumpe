@@ -14,7 +14,12 @@ wechselt, EXIT bleibt.
 - **Der Abgleich im Stand:** `0xC0081E18` (Synth `0xC0072810`, Befehl für Befehl gleich gebaut) lädt im Stand laufend die
   gewählte Nummer, wenn sie nicht die laufende ist. Gemessen: ohne Haken war das Pattern 50 ms nach dem Drehen geladen
   (Schreiber der laufenden Nummer `0xC0079ACC`, gerufen von `0xC0081E54`). Ein neuer Haken (Kette `stopped-sync`) lässt
-  die Funktion während des Blätterns nichts tun.
+  die Funktion während des Blätterns nichts tun. Die Funktion ist ein Beobachter, die Firmware ruft sie über einen
+  Methodenzeiger (Literal `0xC00821F0`) oft und schon beim Start. Eine erste Fassung des Hakens rief bei jedem Aufruf die
+  Ein-Prüfung des Patches: dann blieb im Emulator die Antwort auf ein BLECH-READ nach einem großen WRITE aus
+  (`sysex:write_random`, Blöcke 6 und 42, gemessen, mit dem Originalbefehl an der Stelle wieder da). Der Haken liest jetzt
+  nur sein eigenes Wort und berührt nur `r12`; damit antworten beide Lesevorgänge (1550 ms und 10450 ms). Was genau an der
+  ersten Fassung die Antwort verschluckt hat, ist nicht bis ins Letzte verfolgt.
 - MENU lädt die gewählte Nummer mit `SET_NUMBER` (mit MIDI). EXIT stellt die Nummer im RAM wieder als gewählt ein.
   STOP und PLAY beenden das Blättern ohne zu laden (der Neulade-Zweig von `SET_NUMBER` würde die Änderung verwerfen).
   Pad-Auswahl und MIDI Program Change wechseln weiter direkt.

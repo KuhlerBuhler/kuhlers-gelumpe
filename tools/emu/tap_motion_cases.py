@@ -37,7 +37,7 @@ PAD_STATE = 0xC068D074          # the Master FX pad state the effect was last gi
 HW_PART, HW_PATTERN = 0xC06B2428, 0xC06B2420
 FATFS = 0xC06A010C              # FatFs volume table: the card's volume, its byte 0 the mounted type (0 unmounted)
 LED = 0x14
-KEYS = {"rec": 0x00, "stop": 0x01, "play": 0x02, "tap": 0x03, "touch_scale": 0x05, "master_fx": 0x06, "write": 0x0E, "part_right": 0x0F, "part_left": 0x0B, "shift": 0x0A}
+KEYS = {"rec": 0x00, "stop": 0x01, "play": 0x02, "tap": 0x03, "touch_scale": 0x05, "master_fx": 0x06, "write": 0x0E, "part_right": 0x0F, "part_left": 0x0B, "shift": 0x0A, "menu": 0x09}
 KILL = spec.KILL_SWITCH
 MODE, COPY, STRIDE, COPY_STRIDE = 0x807, 0x382E, 0x330, 0x24
 MFX_MODE = 0x44                 # the switch of the Master FX lanes, in the pattern object
@@ -402,8 +402,11 @@ def case_rec_and_pattern(payload, flash):
     u = TBox(payload, flash)
     u.tap()
     u.turn(1, 0.5)
+    browsed = u.running()             # what plays/is loaded, not the number shown
+    u.key("menu", 0.5)                 # the TAP made the pattern unsaved: stopped, the wheel only browses (pattern-switch), MENU loads
     u.turn(-1, 0.5)
-    out.append(entry("unwritten_state_goes_with_the_pattern_change", u.mode() == (1, 1) and u.leds() == 255, f"TAP off, no WRITE, away and back: mode {u.mode()}, LED {u.leds()} (the pattern is loaded as it was written)"))
+    out.append(entry("unwritten_state_goes_with_the_pattern_change", browsed == 0 and u.mode() == (1, 1) and u.leds() == 255,
+                     f"TAP off, no WRITE, away (the wheel browses, still on {browsed}; MENU loads) and back: mode {u.mode()}, LED {u.leds()} (the pattern is loaded as it was written)"))
 
     # the Master FX byte is part of the pattern as well: WRITE keeps it, loading the pattern brings it back
     f = TBox(payload, flash)
