@@ -180,3 +180,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Windows: der Emulator stirbt beim ersten Firmware-Befehl, Control Flow Guard im gepackten Dienst](2026-10-17-windows-cfg.md)
 - [Doom: der Lader startet nach dem Einhängen der Karte](2026-10-17-doom-nach-dem-einhaengen.md)
 - [Pad-Farben: Part und Auswahl in Rot, Blau oder Pink](2026-10-17-pad-farben.md)
+- [Karte gezogen: Funktionen bleiben an; TAP blinkt bei laufender Master-FX-Bewegung](2026-10-18-karte-gezogen-tap-blinkt.md)
+- [Plugin bleibt aus über einen Neustart](2026-10-18-plugin-bleibt-aus.md)
+- [Startbild-Editor: malen mit gehaltenem MENU, SHIFT hoch und runter](2026-10-18-startbild-malen.md)
