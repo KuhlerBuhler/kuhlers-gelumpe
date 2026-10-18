@@ -206,6 +206,40 @@ export class Sender {
     return P.ackFor(this.channel);
   }
 
+  /** The size of the update file on the card (KORG/<folder>/System/SYSTEM.VSB) and its first bytes; size 0 when there is none. */
+  async fileSize(model) {
+    return this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, 0, 0, model), "blech-file-read"), this.channel, 0, model)).then(r => r.size);
+  }
+
+  /** The whole update file, in blocks of the device's largest size, each checked against its CRC. `onProgress(done, total)`. */
+  async fileRead(size, model, onProgress) {
+    const out = new Uint8Array(size);
+    const max = this.blech.maxBlock;
+    for (let at = 0; at < size; at += max) {
+      const n = Math.min(max, size - at);
+      const r = await this.blechAttempts("read", async () =>
+        P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, at, n, model), "blech-file-read", n), this.channel, n, model));
+      if (r.offset !== at || r.bytes.length !== n) throw new SendError("reply", `Datei lesen: ${r.bytes.length} Byte bei ${r.offset} statt ${n} bei ${at}.`);
+      out.set(r.bytes, at);
+      onProgress?.(at + n, size);
+    }
+    return out;
+  }
+
+  /** The bytes as the new update file: the first block makes the file anew, the others follow; the device reads every block back. */
+  async fileWrite(bytes, model, onProgress) {
+    const max = this.blech.maxBlock;
+    for (let at = 0; at < bytes.length; at += max) {
+      const part = bytes.subarray(at, Math.min(at + max, bytes.length));
+      const crc = P.crc32(part);
+      await this.blechAttempts("write", async () => {
+        P.parseBlechFileBegin(await this.blechExchange(P.blechFileBegin(this.channel, at, part.length, crc, model), "blech-file-begin"), this.channel, model);
+        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, model), "blech-data", part.length), this.channel, crc, model);
+      });
+      onProgress?.(at + part.length, bytes.length);
+    }
+  }
+
   /**
    * Run the steps. Stops at the first failure and says where. `check(step, value, i)` may return a
    * reason to stop after a step that answered.

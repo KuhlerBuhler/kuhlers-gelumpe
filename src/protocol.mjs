@@ -50,12 +50,16 @@ export const GLOBAL_SIZE = 256;
  * bytes, and work on Korg's original with BLECH too.
  */
 export const BLECH = {
-  INFO: 0x60, READ: 0x61, BEGIN: 0x62, DATA: 0x63, FLASH: 0x64,
-  R_INFO: 0x68, R_READ: 0x69, R_BEGIN: 0x6a, R_DATA: 0x6b, R_FLASH: 0x6c,
-  STATUS: { OK: 0, BAD_CRC: 1, REFUSED: 2, RANGE: 3, FLASH: 4, VERIFY: 5 },
+  INFO: 0x60, READ: 0x61, BEGIN: 0x62, DATA: 0x63, FLASH: 0x64, FILE_READ: 0x65, FILE_BEGIN: 0x66,
+  R_INFO: 0x68, R_READ: 0x69, R_BEGIN: 0x6a, R_DATA: 0x6b, R_FLASH: 0x6c, R_FILE_READ: 0x6d, R_FILE_BEGIN: 0x6e,
+  STATUS: { OK: 0, BAD_CRC: 1, REFUSED: 2, RANGE: 3, FLASH: 4, VERIFY: 5, FILE: 6 },
+  /** INFO flag: the update file on the card (KORG/<folder>/System/SYSTEM.VSB) can be read and written, nothing else of the card */
+  FLAG_FILE: 0x10,
+  /** the largest offset + length of the update file: the size of a VSB */
+  FILE_LIMIT: 0x200100,
   VERSION: 1,
 };
-const STATUS_TEXT = { 1: "Die Prüfsumme stimmt nicht", 2: "Das Gerät verweigert den Zugriff (geschützter Bereich)", 3: "Adresse oder Länge liegt außerhalb des erlaubten Bereichs", 4: "Die Flash-Funktion der Firmware meldet keinen Erfolg", 5: "Das Zurücklesen nach dem Schreiben weicht ab" };
+const STATUS_TEXT = { 1: "Die Prüfsumme stimmt nicht", 2: "Das Gerät verweigert den Zugriff (geschützter Bereich)", 3: "Adresse oder Länge liegt außerhalb des erlaubten Bereichs", 4: "Die Flash-Funktion der Firmware meldet keinen Erfolg", 5: "Das Zurücklesen nach dem Schreiben weicht ab", 6: "Die Karte meldet einen Fehler (keine Karte, keine Datei oder voll)" };
 
 export const head = (channel, model = DEVICE_ID) => {
   if (!Number.isInteger(channel) || channel < 0 || channel > 15) throw new RangeError(`channel ${channel}`);
@@ -109,11 +113,13 @@ export function classify(msg, channel) {
   const d = Array.from(msg);
   if (d[0] !== 0xf0 || d[d.length - 1] !== 0xf7) return "other";
   if (d[1] === 0x42 && d[2] === 0x50 && d[3] === 0x01) return "search";
-  const h = channel == null ? null : head(channel);
-  const ours = h && h.every((b, i) => d[1 + i] === b);
+  // the Sampler's model byte, or the blue Electribe 2's for BLECH's own replies (its update file goes the same way)
+  const ours = channel != null && [DEVICE_ID, 0x23].some(model => head(channel, model).every((b, i) => d[1 + i] === b));
   if (!ours) return "other";
+  if (d[5] !== DEVICE_ID && ![BLECH.R_INFO, BLECH.R_DATA, BLECH.R_FILE_READ, BLECH.R_FILE_BEGIN].includes(d[6])) return "other";
   return { [READ_REPLY]: "read", [FUNC.PATTERN_DUMP]: "pattern", [FUNC.GLOBAL_DUMP]: "global", [WRITE_ACK]: "ack", [PATTERN_ACK]: "ack",
-    [BLECH.R_INFO]: "blech-info", [BLECH.R_READ]: "blech-read", [BLECH.R_BEGIN]: "blech-begin", [BLECH.R_DATA]: "blech-data" }[d[6]] ?? "other";
+    [BLECH.R_INFO]: "blech-info", [BLECH.R_READ]: "blech-read", [BLECH.R_BEGIN]: "blech-begin", [BLECH.R_DATA]: "blech-data",
+    [BLECH.R_FILE_READ]: "blech-file-read", [BLECH.R_FILE_BEGIN]: "blech-file-begin" }[d[6]] ?? "other";
 }
 
 function checkHead(d, channel, func, model = DEVICE_ID) {
@@ -204,7 +210,10 @@ const blechFrame = (channel, func, payload = [], model = DEVICE_ID) => frame([..
 export const blechInfo = channel => blechFrame(channel, BLECH.INFO);
 export const blechRead = (channel, addr, length, model = DEVICE_ID) => blechFrame(channel, BLECH.READ, words(addr, length), model);
 export const blechBegin = (channel, addr, length, crc) => blechFrame(channel, BLECH.BEGIN, words(addr, length, crc));
-export const blechData = (channel, bytes) => blechFrame(channel, BLECH.DATA, bytes);
+export const blechData = (channel, bytes, model = DEVICE_ID) => blechFrame(channel, BLECH.DATA, bytes, model);
+/** The update file on the card: `length` bytes from `offset`; and the announcement of a write to it (DATA follows as for RAM). */
+export const blechFileRead = (channel, offset, length, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_READ, words(offset, length), model);
+export const blechFileBegin = (channel, offset, length, crc, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_BEGIN, words(offset, length, crc), model);
 
 function blechWords(msg, channel, func, count, what, model = DEVICE_ID) {
   const d = checkFrame(msg);
@@ -231,6 +240,23 @@ export function parseBlechRead(msg, channel, length, model = DEVICE_ID) {
   return bytes;
 }
 
+/** A FILE READ answer: the bytes, checked against the length and the CRC, and the size of the whole file. */
+export function parseBlechFileRead(msg, channel, length, model = DEVICE_ID) {
+  const { payload, word } = blechWords(msg, channel, BLECH.R_FILE_READ, 5, "Datei lesen", model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei lesen");
+  const bytes = Uint8Array.from(payload.slice(20));
+  if (bytes.length !== word(2) || word(2) > length) throw new ReplyError(`Datei lesen hat ${bytes.length} Byte statt ${word(2)}.`);
+  if (crc32(bytes) !== word(3)) throw new BlechError(BLECH.STATUS.BAD_CRC, "Datei lesen");
+  return { offset: word(1), bytes, size: word(4) };
+}
+
+/** The answer to FILE BEGIN: ok, or why the write was refused before any byte was sent. */
+export function parseBlechFileBegin(msg, channel, model = DEVICE_ID) {
+  const { word } = blechWords(msg, channel, BLECH.R_FILE_BEGIN, 3, "Datei schreiben", model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei schreiben");
+  return { offset: word(1), length: word(2) };
+}
+
 /** The answer to BEGIN: ok, or the reason the write was refused before any byte was sent. */
 export function parseBlechBegin(msg, channel) {
   const { word } = blechWords(msg, channel, BLECH.R_BEGIN, 3, "BLECH Schreiben, Adresse");
@@ -239,8 +265,8 @@ export function parseBlechBegin(msg, channel) {
 }
 
 /** The answer to DATA: ok with the CRC the device read back, which has to be the one that was sent. */
-export function parseBlechData(msg, channel, crc) {
-  const { word } = blechWords(msg, channel, BLECH.R_DATA, 4, "BLECH Schreiben, Daten");
+export function parseBlechData(msg, channel, crc, model = DEVICE_ID) {
+  const { word } = blechWords(msg, channel, BLECH.R_DATA, 4, "BLECH Schreiben, Daten", model);
   if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "BLECH Schreiben, Daten");
   if (word(3) !== crc) throw new BlechError(BLECH.STATUS.VERIFY, "BLECH Schreiben, Daten");
   return { addr: word(1), length: word(2), crc: word(3) };
@@ -276,6 +302,7 @@ export function describeMessage(msg) {
   if (func === BLECH.INFO) return { kind: "blech-info", channel: d[2] - 0x30, length: 0 };
   if (func === BLECH.READ || func === BLECH.BEGIN) return { kind: func === BLECH.READ ? "read-ram" : "write-address", channel: d[2] - 0x30, addr: readU32le(payload, 0), length: readU32le(payload, 4) };
   if (func === BLECH.DATA) return { kind: "write-data", channel: d[2] - 0x30, length: payload.length };
+  if (func === BLECH.FILE_READ || func === BLECH.FILE_BEGIN) return { kind: func === BLECH.FILE_READ ? "file-read" : "file-write", channel: d[2] - 0x30, offset: readU32le(payload, 0), length: readU32le(payload, 4) };
   if (func === FUNC.EXECUTE) return { kind: "execute", channel: d[2] - 0x30, addr: readU32le(payload, 0), length: 0 };
   if (func === FUNC.READ_RAM || func === FUNC.WRITE_ADDR || func === FUNC.READ_FLASH) {
     const kind = { [FUNC.READ_RAM]: "read-ram", [FUNC.WRITE_ADDR]: "write-address", [FUNC.READ_FLASH]: "read-flash" }[func];
