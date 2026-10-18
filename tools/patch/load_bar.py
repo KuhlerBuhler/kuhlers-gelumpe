@@ -23,7 +23,9 @@ pixels that change (the bar, the pupils) are drawn, which costs next to nothing.
 image takes 2.5 million instructions, which is why the first version, one per frame, made the start 59 percent longer.
 
 With EXIT held at power-on, without a card or without e2sSample.all nothing is ever expected and every hook goes
-straight to the original. The overlay ends when the main screen comes (or after a cap of frames).
+straight to the original. A card that is in the slot but not mounted after the start's question is asked again, up to
+RETRIES times, RETRY_MS apart (device 18.10.: a card that answered late left the start without samples or hanging). When the
+loader ends with a code (a card error), the overlay ends at once, so the firmware's window is seen. The overlay ends when the main screen comes (or after a cap of frames).
 Nothing of the firmware is copied and nothing is written to flash or to the card.
 """
 
@@ -51,6 +53,8 @@ STATE = 0xC0181F00              # run time state, in RAM only
 STATE_END = 0xC0181F40
 
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13, measured on the device 10.10.)
+RETRIES = 3                     # a card that is not mounted after the start's question is asked again up to 3 times,
+RETRY_MS = 500                  # 500 ms apart
 FRAME_CAP = 8000                # about 6 minutes of frames; the main screen ends it much earlier
 
 STAT_CALL = 0xC002AE60          # bl 0xC0035440, the start asks whether e2sSample.all exists
@@ -105,6 +109,12 @@ SOURCE = """
 .equ VRAM, 0xC031B310           ; the firmware's frame buffer, 8 pages of 128 bytes, bit 0 of a byte is the top row of its page
 .equ MARK, 0xC001531C           ; (x, y, x2, y2): marks a region of the frame buffer as changed
 .equ STAT, @STAT_FUNC@
+.equ FATFS, 0xC06A010C          ; FatFs volume table: first entry is the volume of the card, its byte 0 the mounted type (0 not mounted)
+.equ WAIT, 0xC0000B78           ; (ms): the operating system's sleep
+.equ SD_INPUT, 0x01E26070       ; GPIO IN_DATA45; bit 1 (GPIO 4.1) is low while a card is in the slot
+.equ SD_DETECT, 2
+.equ RETRIES, @RETRIES@
+.equ RETRY_MS, @RETRY_MS@
 .equ LOADER, @LOAD_FUNC@
 .equ SETTEXT, @PROGRESS_FUNC@
 .equ FLUSH, @FLUSH_FUNC@
@@ -133,9 +143,40 @@ SOURCE = """
 ; Reached only on the normal start, after the panel update and the start modes. A load is expected when the file is there
 ; and EXIT was not held at power-on.
 lb_stat:
-    push {r4, lr}
+    push {r4, r5, r6, lr}
+    mov r6, r0
     bl STAT
     mov r4, r0
+    mov r5, #RETRIES
+; The card's volume is not mounted after the question (a card that did not answer in time, device 18.10.): wait and ask again,
+; RETRIES times; then the start goes on as the firmware does without a card. Not with EXIT held at power-on.
+ls_try:
+    ldr r0, =FATFS
+    ldr r0, [r0]
+    cmp r0, #0
+    ldrbne r0, [r0]
+    cmpne r0, #0
+    bne ls_have
+    subs r5, r5, #1
+    bmi ls_have
+    ldr r1, =SD_INPUT           ; no card in the slot (GPIO 4.1 high): nothing to ask again
+    ldr r1, [r1]
+    tst r1, #SD_DETECT
+    bne ls_have
+    ldr r1, =PANEL
+    ldr r1, [r1]
+    cmp r1, #0
+    beq ls_have
+    ldr r1, [r1, #0x18]
+    tst r1, #KILL
+    bne ls_have
+    ldr r0, =RETRY_MS
+    bl WAIT
+    mov r0, r6
+    bl STAT
+    mov r4, r0
+    b ls_try
+ls_have:
     cmp r4, #0
     beq ls_out
     ldr r1, =PANEL
@@ -161,7 +202,7 @@ lb_stat:
     str r2, [r1, #S_EXPECT]
 ls_out:
     mov r0, r4
-    pop {r4, pc}
+    pop {r4, r5, r6, pc}
 
 ; ===================================================== loader
 ; Replaces the loader's call of the text update (r0, r1 are its arguments): the loader's file offset is in r4, the largest in r7.
@@ -177,13 +218,27 @@ lb_progress:
     ldr r12, =SETTEXT
     bx r12
 
-; Replaces the call of the loader: remembers that it is over.
+; Replaces the call of the loader: remembers that it is over. When the loader ends with a code (a card error, a sample it
+; could not load), the overlay ends at once, so the firmware's window says what happened (device 18.10.: "Card error" stayed
+; behind the image).
 lb_load:
     push {r4, lr}
     bl LOADER
     ldr r1, =STATE
     mov r2, #1
     str r2, [r1, #S_DONE]
+    cmp r0, #0
+    beq ll_out
+    ldr r2, [r1, #S_EXPECT]
+    cmp r2, #1
+    moveq r2, #2
+    streq r2, [r1, #S_EXPECT]
+    ldr r2, =MGR
+    ldr r2, [r2]
+    cmp r2, #0
+    movne r3, #1
+    strbne r3, [r2, #0x5C]      ; the screen manager draws everything anew
+ll_out:
     pop {r4, pc}
 
 ; ===================================================== frame
@@ -497,7 +552,7 @@ def source():
     text = SOURCE
     for key, value in {
         "STAT_FUNC": f"{STAT_FUNC:#x}", "LOAD_FUNC": f"{LOAD_FUNC:#x}", "PROGRESS_FUNC": f"{PROGRESS_FUNC:#x}", "FLUSH_FUNC": f"{FLUSH_FUNC:#x}",
-        "KILL": f"{KILL_SWITCH:#x}", "BASE": f"{BASE:#x}", "STATE": f"{STATE:#x}", "CAP": str(FRAME_CAP),
+        "KILL": f"{KILL_SWITCH:#x}", "BASE": f"{BASE:#x}", "STATE": f"{STATE:#x}", "CAP": str(FRAME_CAP), "RETRIES": str(RETRIES), "RETRY_MS": str(RETRY_MS),
         "CODE_AT": f"{CODE_AT:#x}", "EYES": ", ".join(str(v) for v in EYE_TABLE), "EYE_SHIFT": str(EYE_EVERY.bit_length() - 1),
         "FACE_SHIFT": str(FACE_EVERY.bit_length() - 1), "LEVELS": ", ".join(str(v) for v in FACE_LEVELS),
         "PLACES": ", ".join(str(v) for xy in FACE_PLACES for v in xy), "BAYER": ", ".join(str(v) for v in BAYER),

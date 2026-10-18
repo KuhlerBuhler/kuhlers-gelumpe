@@ -316,7 +316,78 @@ def st_mode(frames):
     return frames[-1][2][5] if frames else None
 
 
-GROUPS = (case_bar, case_off, case_rescue, case_custom_image)
+class FailingCard:
+    """A card whose reads stop answering from a moment on (no answer to the read command, as a card that gave up)."""
+
+    def __init__(self, card, dev):
+        self.card, self.dev, self.after = card, dev, None
+        original = card.command
+
+        def command(idx, arg):
+            if idx in (17, 18) and self.after is not None and dev.m.time_ns / 1e9 >= self.after:
+                return ("timeout",)
+            return original(idx, arg)
+        card.command = command
+
+
+def case_card_error(payload, flash):
+    """A card that stops answering while the samples load: the loader ends with the card error and the overlay goes at once, so
+    the firmware's window is seen (device 18.10.: the image stayed over it). The power key while the start still runs switches off
+    at once (it waited for the end of the start, batteries out was the way)."""
+    import menu_cases
+    from power_off_cases import POWER_KEY
+    out = []
+    dev = WatchedDev(bytes(payload), flash, 0)
+    card = card_with(cardstore.card_folder(payload), 20, 4)
+    fail = FailingCard(card, dev)
+    dev.m.insert_card(card)
+    ended = []
+    import unicorn
+    from unicorn import arm_const as A
+    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, a, s, d: ended.append((dev.m.time_ns / 1e9, u.reg_read(A.UC_ARM_REG_R0))),
+                      begin=spec.LOAD_CALL + 4, end=spec.LOAD_CALL + 4)
+    dev.run(0.5)
+    fail.after = 0.5
+    while not ended and dev.m.time_ns / 1e9 < 12:
+        dev.run(0.05)
+    dev.run(0.1)
+    expect = dev.u32(spec.STATE)
+    out.append(entry("card_error_ends_the_overlay", ended and ended[0][1] == 4 and expect == 2 and not dev.m.asserts,
+                     f"the loader returned {ended[0][1] if ended else None} at {round(ended[0][0], 2) if ended else None} s, the overlay state is then {expect:#x} (2: over)"))
+    if menu_cases.has_menu(payload) and not synthaddr_is_synth(payload):
+        start = WatchedDev(bytes(payload), flash, 0)
+        card = card_with(cardstore.card_folder(payload), 20, 4)
+        hold = FailingCard(card, start)
+        start.m.insert_card(card)
+        start.run(0.5)
+        hold.after = 0.5
+        start.run(1.0)
+        screen = start.screen()["number"]
+        start.m.send(POWER_KEY)
+        t = 0.0
+        while start.m.powered and t < 2.0:
+            start.run(0.05)
+            t += 0.05
+        held = WatchedDev(bytes(payload), flash, KILL)
+        card = card_with(cardstore.card_folder(payload), 20, 4)
+        stuck = FailingCard(card, held)
+        held.m.insert_card(card)
+        held.run(0.5)
+        stuck.after = 0.5
+        held.run(1.0)
+        held.m.send(POWER_KEY)
+        held.run(1.0)
+        out.append(entry("power_key_during_the_start", screen == 0 and not start.m.powered and t <= 0.3 and held.m.powered,
+                         f"screen {screen} while the start waits on the card, off {round(t, 2)} s after the power key; with EXIT held at power-on still on after 1 s (the firmware's way)"))
+    return out
+
+
+def synthaddr_is_synth(payload):
+    import synthaddr
+    return synthaddr.is_synth(payload)
+
+
+GROUPS = (case_bar, case_off, case_rescue, case_custom_image, case_card_error)
 
 
 def group_entries(payload, flash, i):

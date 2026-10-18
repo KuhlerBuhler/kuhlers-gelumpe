@@ -80,7 +80,8 @@ def runtime_profile(build):
     if build != 'synth':
         return RuntimeProfile(build, SITES, WORDS, LITERALS, MENU_TABLE_SOURCE, MENU_VTABLE_SOURCE,
                               45, 29, 29, dict(HW_PANEL_KEY=0xC0042BB8, HW_PART_SELECT=0xC0081BB4,
-                                              HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760))
+                                              HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760,
+                                              POWER_HOLD_MASK=0x08000000))
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
@@ -98,7 +99,8 @@ def runtime_profile(build):
         tuple((synthaddr.tr(address), synthaddr.tr(value)) for address, value in LITERALS),
         (0xC00DFA68,148,'a65f40522347f45bab9a10802914b4a69900ab66e455c279c57c8aa4f48368fd'),
         (0xC00C9BD8,72,'9890f118100188fed55d3f35b6cc98c22191484ac62c8e1b55fb0794c0089277'),
-        37, 28, 28, dict(HW_PANEL_KEY=0xC003D158, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8))
+        37, 28, 28, dict(HW_PANEL_KEY=0xC003D158, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8,
+        POWER_HOLD_MASK=0))   # the power hold of the synth is not measured: no switch-off during the start there
 
 
 def blechy_block():
