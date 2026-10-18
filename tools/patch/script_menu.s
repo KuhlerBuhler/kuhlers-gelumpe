@@ -563,45 +563,16 @@ settings_path_b:
 menu_settings_end:
 
 ; ---- hooks into the firmware: each returns to the word behind the one it replaced
-; 0xC0064D84, Global's EDIT right: `mov r0, #14`
-menu_nb_right:
-    ldr r2, =MENU_STATE
-    ldr r3, [r2, #M_ON]
-    cmp r3, #1
-    movne r0, #14
-    bne menu_nb_right_go
-    mov r3, #0
-    str r3, [r2, #M_ENTER]
-    str r3, [r2, #M_LEVEL]
-    mov r0, #MENU_SCREEN
-menu_nb_right_go:
-    ldr pc, =0xC0064D88
-.pool
-; 0xC0061880, Data Util's EDIT left: `mov r0, #8`; enters on the last page
-menu_nb_left:
-    ldr r2, =MENU_STATE
-    ldr r3, [r2, #M_ON]
-    cmp r3, #1
-    movne r0, #8
-    bne menu_nb_left_go
-    mvn r3, #0
-    str r3, [r2, #M_ENTER]
-    mov r3, #0
-    str r3, [r2, #M_LEVEL]
-    mov r0, #MENU_SCREEN
-menu_nb_left_go:
-    ldr pc, =0xC0061884
-.pool
 ; 0xC0064430, the Event menu's EDIT right: `push {r3, r4, r5, lr}` (it prepares the Pattern menu and switches to it). With the menu armed
-; the ring goes on to the page of Blechy first: level 3 of our screen.
+; the ring goes on to the page BLECH first, level 0 of our screen, then Blechy (level 3), then the Pattern menu: BLECH is the last
+; menu of the ring, behind Event (device 18.10.: it sat between Global and Data Util).
 menu_event_right:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
     bne menu_event_right_go
-    mov r3, #M_LEVEL_BLECHY
-    str r3, [r2, #M_LEVEL]
     mov r3, #0
+    str r3, [r2, #M_LEVEL]
     str r3, [r2, #M_ENTER]
     mov r0, #MENU_SCREEN
     mov r1, #0
@@ -637,8 +608,8 @@ menu_write:
     push {r3, r4, r5, lr}
     ldr pc, =0xC006F098
 .pool
-; 0xC008A83C and 0xC008A8A8, the page counter "n/29": keeps the ring gap-free while the menu is armed (the page BLECH
-; sits before Data Util, the page of Blechy after Event: Data Util is 29/31, Event 30/31, Blechy 31/31).
+; 0xC008A83C and 0xC008A8A8, the page counter "n/29": the total grows by the page BLECH and the page of Blechy while the menu is
+; armed (both sit behind Event, the last of the firmware's: BLECH is 30/31, Blechy 31/31).
 menu_counter_new:
     ldr r3, =MENU_STATE
     ldr r3, [r3, #M_RAW]
@@ -1970,7 +1941,8 @@ menu_go_in:
     bne menu_go_group
     mov r3, #1
     str r3, [r2, #M_LEVEL]
-    b menu_go_common
+    ldr r0, [r2, #M_TOP]        ; the list opens on the group it was last left from (device 18.10.)
+    b menu_go_page
 menu_go_group:
     cmp r3, #2                  ; COLORS inside CUSTOMIZATION: only the group changes, M_TOP keeps the list's page
     beq menu_go_sub
@@ -1980,10 +1952,11 @@ menu_go_group:
     str r3, [r2, #M_LEVEL]
 menu_go_sub:
     str r0, [r2, #M_GROUP]
-menu_go_common:
+    mov r0, #0
+menu_go_page:
+    str r0, [r2, #M_PAGE]
+    str r0, [r2, #M_ENTER]
     mov r3, #0
-    str r3, [r2, #M_PAGE]
-    str r3, [r2, #M_ENTER]
     str r3, [r2, #M_STATUS]
     str r3, [r2, #M_LISTED]
     mov r0, r4
@@ -2446,15 +2419,18 @@ menu_prev_step:
     bl menu_show
     pop {r4, pc}
 menu_leave_left:
-    mov r0, #8
+    mov r0, #10                 ; the page BLECH, EDIT left: back to Event
     mov r1, #0
     ldr pc, =SWITCH_SCREEN
-; the page of Blechy, EDIT left: back to Event, the page before it in the ring
+; the page of Blechy, EDIT left: back to the page BLECH (level 0 of the same screen)
 menu_prev_blechy:
-    pop {r4, lr}
-    mov r0, #10
-    mov r1, #0
-    ldr pc, =SWITCH_SCREEN
+    mov r3, #0
+    str r3, [r2, #M_LEVEL]
+    str r3, [r2, #M_PAGE]
+    str r3, [r2, #M_ENTER]
+    mov r0, r4
+    bl menu_show
+    pop {r4, pc}
 .pool
 
 menu_slot_next:
@@ -2481,12 +2457,15 @@ menu_next_step:
     mov r0, r4
     bl menu_show
     pop {r4, pc}
-menu_next_leave:
-    pop {r4, lr}
-menu_leave_right:
-    mov r0, #14
-    mov r1, #0
-    ldr pc, =SWITCH_SCREEN
+menu_next_leave:               ; the page BLECH, EDIT right: the page of Blechy (level 3 of the same screen)
+    mov r3, #M_LEVEL_BLECHY
+    str r3, [r2, #M_LEVEL]
+    mov r3, #0
+    str r3, [r2, #M_PAGE]
+    str r3, [r2, #M_ENTER]
+    mov r0, r4
+    bl menu_show
+    pop {r4, pc}
 ; the page of Blechy, EDIT right: on to the Pattern menu, the way the firmware's Event menu does it (its slot 0xC0064430 is
 ; hooked, so the displaced first instruction runs here and the rest of it from the second word)
 menu_next_pattern:
@@ -2867,6 +2846,10 @@ menu_exit_up:
     mov r12, #0
     str r12, [r2, #M_STATUS]
     str r12, [r2, #M_LISTED]
+    cmp r3, #1                  ; out of the list: it opens on this row the next time
+    ldreq r12, [r2, #M_PAGE]
+    streq r12, [r2, #M_TOP]
+    moveq r12, #0
     sub r3, r3, #1
     str r3, [r2, #M_LEVEL]
     cmp r3, #1

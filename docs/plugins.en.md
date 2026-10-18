@@ -500,15 +500,16 @@ page is reloaded.
 
 ## The BLECH menu on the device
 
-With the BLECH patch the Electribe has a screen of its own, "BLECH", in the EDIT ring between Global and
-Data Util (screen 0x2D). It has three levels and looks like Data Util: same font, same places, the same
+With the BLECH patch the Electribe has a screen of its own, "BLECH", at the end of the EDIT ring
+after Event (screen 0x2D). It has three levels and looks like Data Util: same font, same places, the same
 line `press  [ Enter ]`.
 
-- **In the ring** BLECH is a single page ("BLECH 28/31") between Global and Data Util. EDIT left and right
-  page through the ring. With EXIT held at power-on the screen is not there and the ring is the
-  firmware's own. At the end of the ring, after Event and before the Pattern menu, the patch has a second
-  page: [Blechy](#blechy-the-last-page-of-the-ring) (31/31). That is why the ring now counts to 31 instead
-  of 29.
+- **In the ring** BLECH is a single page ("BLECH 30/31") after Event, followed by a second page of the
+  patch: [Blechy](#blechy-the-last-page-of-the-ring) (31/31), then the Pattern menu. That is why the ring
+  counts to 31 instead of 29. EDIT left and right page through the ring. With EXIT held at power-on the
+  screen is not there and the ring is the firmware's own.
+- **ENTER on the page BLECH** opens the list on the group last left, also after a trip through the other
+  menus.
 - **ENTER**, the MENU key, opens the list of groups. The tag at the top left says BLECH, the counter counts
   only the groups ("BLECH 2/3", up to 5 with apps), and EDIT pages through them in a circle.
 - **ENTER on a group** shows its pages. The tag names the group ("Plugins 3/5"), the counter counts only its

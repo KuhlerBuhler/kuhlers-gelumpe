@@ -631,15 +631,16 @@ Werte bis zum Neuladen der Seite.
 
 ## Das Menü BLECH am Gerät
 
-Mit dem BLECH Patch hat die Electribe einen eigenen Bildschirm "BLECH", im EDIT Ring
-zwischen Global und Data Util (Bildschirm 0x2D). Er hat drei Ebenen und sieht aus wie
+Mit dem BLECH Patch hat die Electribe einen eigenen Bildschirm "BLECH", am Ende des EDIT Rings
+hinter Event (Bildschirm 0x2D). Er hat drei Ebenen und sieht aus wie
 Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
 
-- **Im Ring** ist BLECH eine einzige Seite ("BLECH 28/31") zwischen Global und Data Util.
-  EDIT links und rechts blättern durch den Ring. Mit EXIT beim Einschalten ist der
-  Bildschirm nicht da und der Ring ist der der Firmware. Am Ende des Rings, hinter Event und
-  vor dem Pattern Menü, steht eine zweite Seite des Patches: [Blechy](#blechy-die-letzte-seite-des-rings)
-  (31/31). Deshalb zählt der Ring bis 31 statt bis 29.
+- **Im Ring** ist BLECH eine einzige Seite ("BLECH 30/31") hinter Event, danach kommt eine zweite
+  Seite des Patches: [Blechy](#blechy-die-letzte-seite-des-rings) (31/31), dann das Pattern Menü.
+  Deshalb zählt der Ring bis 31 statt bis 29. EDIT links und rechts blättern durch den Ring. Mit EXIT
+  beim Einschalten ist der Bildschirm nicht da und der Ring ist der der Firmware.
+- **ENTER auf der Seite BLECH** öffnet die Liste auf der Gruppe, aus der man zuletzt herauskam, auch nach
+  einem Umweg durch die anderen Menüs.
 - **ENTER**, die Taste MENU, öffnet die Liste der Gruppen. Das Schild oben links nennt
   BLECH, der Zähler zählt nur die Gruppen ("BLECH 2/3", mit Apps bis 5), EDIT blättert darin im Kreis.
 - **ENTER auf einer Gruppe** zeigt ihre Seiten. Das Schild nennt die Gruppe ("Plugins 3/5"),

@@ -34,8 +34,6 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC00836FC,0xE59F000C,'script_frame_hook'),
          (0xC0038D68,0xE28D0004,'script_card_hook'),
          (0xC004C1B4,0xE92D4070,'script_save_hook'),
-         (0xC0064D84,0xE3A0000E,'menu_nb_right'),
-         (0xC0061880,0xE3A00008,'menu_nb_left'),
          (0xC006E8D8,0xE351000A,'menu_toplevel'),
          (0xC006F094,0xE92D4038,'menu_write'),
          (0xC008A83C,0xE3A03000,'menu_counter_new'),
@@ -81,7 +79,7 @@ def runtime_profile(build):
         raise ValueError(f'unknown runtime build: {build}')
     if build != 'synth':
         return RuntimeProfile(build, SITES, WORDS, LITERALS, MENU_TABLE_SOURCE, MENU_VTABLE_SOURCE,
-                              45, 27, 29, dict(HW_PANEL_KEY=0xC0042BB8, HW_PART_SELECT=0xC0081BB4,
+                              45, 29, 29, dict(HW_PANEL_KEY=0xC0042BB8, HW_PART_SELECT=0xC0081BB4,
                                               HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760))
     from . import synthaddr
     sites = []
@@ -100,7 +98,7 @@ def runtime_profile(build):
         tuple((synthaddr.tr(address), synthaddr.tr(value)) for address, value in LITERALS),
         (0xC00DFA68,148,'a65f40522347f45bab9a10802914b4a69900ab66e455c279c57c8aa4f48368fd'),
         (0xC00C9BD8,72,'9890f118100188fed55d3f35b6cc98c22191484ac62c8e1b55fb0794c0089277'),
-        37, 26, 28, dict(HW_PANEL_KEY=0xC003D158, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8))
+        37, 28, 28, dict(HW_PANEL_KEY=0xC003D158, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8))
 
 
 def blechy_block():
@@ -161,12 +159,12 @@ class BuiltHooks:
             ('menu_needs_confirm','menu_confirm','Der Kartenlader fragt für jedes geladene Plugin, ob es erst auf eine Zustimmung wartet; ohne Plugins läuft das nicht.'),
             ('menu_recount','menu_recount_end','Nach dem Laden zählt das Menü die Plugins und stellt die Seitenzahl ein.'),
             ('led_meter_hook','look_hooks_end','Die Haken der Anpassung (untere LEDs, Hintergrundlicht, Software-PWM, Display umkehren) geben die Firmware sofort zurück, wenn das Menü nicht scharf ist oder die Firmware das Licht für Power Save dimmt.'),
-            ('menu_nb_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
+            ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
         ]:
             if start in self.symbols and end in self.symbols:
                 spans.append((self.symbols[start],self.symbols[end],why))
         menu_hooks=[dict(site=f'{address:#010X}'.replace('0X','0x'),kind='instruction',chain=chain,position='before',swallow=swallow)
-            for address,chain,swallow in [(0xC0064D84,'menu-ring',False),(0xC0061880,'menu-ring',False),
+            for address,chain,swallow in [
             (0xC006E8D8,'menu-top-level',False),(0xC006F094,'menu-write',True),(0xC008A83C,'menu-counter',False),(0xC008A8A8,'menu-counter',False),
             (0xC0064430,'menu-ring',False),(0xC0067754,'menu-ring',False)]]
         menu_hooks+=[dict(site='0xC0088284',kind='instruction',chain='led-meter',position='before',swallow=True)]

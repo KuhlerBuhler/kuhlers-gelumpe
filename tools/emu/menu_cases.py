@@ -269,9 +269,10 @@ def blechy_ring_cases(dev):
     here = lambda: (dev.screen()["number"], state(dev, S_LEVEL), counter(dev), open_app_entry(dev) != 0)
     go(dev, 10)
     press(dev, "edit_next", wait=0.8)
+    press(dev, "edit_next", wait=0.8)
     landed = here()
     picture = dev.fb()
-    add("blechy_follows_event", landed == (MENU, LEVEL_BLECHY, (RING - 1, RING), True) and any(picture) and not dev.m.asserts, f"{landed}")
+    add("blechy_follows_blech", landed == (MENU, LEVEL_BLECHY, (RING - 1, RING), True) and any(picture) and not dev.m.asserts, f"{landed}")
     add("blechy_page_shows_him_alone", len(lit(picture, range(64))) > 300 and not lit(picture, range(64)) & {(x, y) for y in range(64) for x in range(70, 128)}, f"{len(lit(picture, range(64)))} pixels")
     press(dev, "edit_next", wait=0.8)
     pattern = (dev.screen()["number"], counter(dev), open_app_entry(dev))
@@ -280,8 +281,8 @@ def blechy_ring_cases(dev):
     back = here()
     add("blechy_pattern_left_comes_back", back == landed, f"{back}")
     press(dev, "edit_prev", wait=0.8)
-    event = (dev.screen()["number"], counter(dev), open_app_entry(dev))
-    add("blechy_left_goes_to_event", event == (10, (RING - 2, RING), 0), f"{event}")
+    blech = (dev.screen()["number"], state(dev, S_LEVEL), counter(dev), open_app_entry(dev))
+    add("blechy_left_goes_to_blech", blech == (MENU, 0, (RING - 2, RING), 0), f"{blech}")
     goto_blechy(dev)
     dev.run(0.5)
     before = bytes(dev.m.mmc.card.medium.data) if dev.m.mmc.card else b""
@@ -321,28 +322,50 @@ def cases(payload, flash=None, settings=True):
     dev = boot(payload, flash)
     add("armed", state(dev, S_ON) == 1 and state(dev, S_COUNT) == 1 and state(dev, S_LEVEL) == 0, f"on={state(dev, S_ON)}, ring pages={state(dev, S_COUNT)}")
 
-    # the ring: BLECH is one page of it, between Global and Data Util, in the look of Data Util's page
+    # the ring: BLECH is one page of it, the last menu behind Event, then the page of Blechy (device 18.10.), in the look of Data Util's page
     here = lambda: (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), texts_of(dev), tab(dev))
-    go(dev, 8)
+    go(dev, 10)
     press(dev, "edit_next")
     page = here()
     press(dev, "edit_next")
-    after = dev.screen()["number"]
+    after = (dev.screen()["number"], state(dev, S_LEVEL))
     press(dev, "edit_prev")
     again = here()
     press(dev, "edit_prev")
-    add("ring_forward", page == (MENU, 0, 0, (RING - 4, RING), ("BLECH", "", PRESS), "BLECH") and after == 14, f"{page}, then screen {after}")
-    add("ring_backward", again == page and dev.screen()["number"] == 8, f"{again}, then screen {dev.screen()['number']}")
+    add("ring_forward", page == (MENU, 0, 0, (RING - 2, RING), ("BLECH", "", PRESS), "BLECH") and after == (MENU, LEVEL_BLECHY), f"{page}, then {after}")
+    add("ring_backward", again == page and dev.screen()["number"] == 10, f"{again}, then screen {dev.screen()['number']}")
+    go(dev, 8)
+    press(dev, "edit_next")
+    right = dev.screen()["number"]
+    press(dev, "edit_prev")
+    add("global_and_data_util_are_neighbours", right == 14 and dev.screen()["number"] == 8, f"Global right {right}, then left {dev.screen()['number']}")
 
     go(dev, 14)
-    add("neighbour_counters", counter(dev) == (RING - 3, RING), f"Data Util {counter(dev)}")
+    add("neighbour_counters", counter(dev) == (RING - 4, RING), f"Data Util {counter(dev)}")
     go(dev, 8)
     add("global_counter", counter(dev) == (RING - 5, RING), f"Global {counter(dev)}")
     go(dev, 10)
-    add("event_counter", counter(dev) == (RING - 2, RING), f"Event {counter(dev)}")
+    add("event_counter", counter(dev) == (RING - 3, RING), f"Event {counter(dev)}")
+
+    # the list opens on the group it was last left from, also after a trip through the other menus (device 18.10.)
+    goto_ring(dev)
+    press(dev, "menu", wait=0.4)
+    for _ in range(LIST_PLUGINS):
+        press(dev, "edit_next", wait=0.3)
+    press(dev, "menu", wait=0.4)
+    inside = (state(dev, S_LEVEL), state(dev, S_GROUP))
+    press(dev, "exit", wait=0.4)
+    press(dev, "exit", wait=0.4)
+    go(dev, 8)
+    go(dev, 10)
+    press(dev, "edit_next", wait=0.4)
+    press(dev, "menu", wait=0.4)
+    back = (state(dev, S_LEVEL), state(dev, S_PAGE), texts_of(dev)[0])
+    add("list_remembers_the_group", inside == (2, GROUP_PLUGINS) and back == (1, LIST_PLUGINS, LIST_PAGES[LIST_PLUGINS]), f"in {inside}, back {back}")
     out.extend(blechy_ring_cases(dev))
 
     # ENTER opens the list of the groups, ENTER on a group its pages, EXIT goes up one level each time and leaves at the ring
+    dev.m.uc.mem_write(STATE + S_TOP, struct.pack("<I", 0))     # the list as after power-on, on its first group
     goto_ring(dev)
     press(dev, "menu")
     steps = []
@@ -698,8 +721,6 @@ def set_look(dev, mode=None, led=None, backlight=None):
                 step = max(-8, min(8, value - shown))              # the dial reports at most a few steps at once
                 dev.turn(step, wait=0.25)
                 shown += step
-            if not any(state(dev, at + 4 * k) for k in range(3)):
-                break                  # 15 15 15 is the stock state (stored as 0 0 0), the pages show 15 each from there on
 
 
 def meter_level(dev, level):
@@ -1409,7 +1430,7 @@ def default_level_cases(payload, flash=None):
     add("file_with_values_reads_as_before", levels(mixed) == [("LED RED", "0"), ("LED GREEN", "0"), ("LED BLUE", "5"), ("BACKLIGHT RED", "0"), ("BACKLIGHT GREEN", "7"), ("BACKLIGHT BLUE", "0")]
         and state(mixed, S_LED_EFF) == 1, f"{levels(mixed)}, LED kind {state(mixed, S_LED_EFF)}")
 
-    # the dial: up from the state changes nothing, down starts at 15 each, the last channel to 0 is the state again
+    # the dial: up from the state changes nothing, down starts at 15 each, back up to 15 15 15 is the state again
     goto_page(fresh, PAGE_LED_R)
     fresh.turn(3, wait=0.3)
     up = [state(fresh, S_LED_R + 4 * k) for k in range(3)]
