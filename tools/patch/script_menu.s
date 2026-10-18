@@ -2137,6 +2137,7 @@ menu_export_done:
     cmp r0, #0
     bne menu_export_fail
     str r8, [r4, #M_NSCRIPTS]
+    bl menu_settings_save           ; and the settings, so the plugins switched off stay off (the page shows the export)
     mov r0, #2
     b menu_export_status
 menu_export_close:
@@ -2777,7 +2778,6 @@ menu_keys_app:
     mov r1, #0
     ldr pc, =SWITCH_SCREEN
 menu_keys_export:
-    bl menu_settings_save
     bl menu_export
     b menu_keys_done
 menu_keys_import:

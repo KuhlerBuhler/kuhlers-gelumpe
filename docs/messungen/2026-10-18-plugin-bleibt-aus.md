@@ -13,7 +13,8 @@ beim Einschalten jedes erlaubte Plugin.
   seine Blockprüfsumme invertiert (`mvn`). Das Format bleibt Version 2; ein älteres BLECH liest die Einträge als
   erlaubte Prüfsummen, die nie passen. Die Liste teilt sich die 16 Plätze.
 - Vor jedem Speichern gleicht `menu_off_sync` die Marken mit den geladenen Plugins ab. EXPORT ALL speichert die
-  Einstellungen jetzt vor dem Schreiben der Datei, WRITE auf der Seite eines Plugins wie bisher.
+  Einstellungen nach einem gelungenen Export mit (ohne Plugins schreibt es weiter nichts, `menu:export_without_scripts`),
+  WRITE auf der Seite eines Plugins wie bisher.
 - Der Lader startet ein Plugin mit Marke nicht (`menu_is_off`). Wird es eingeschaltet und hat seinen Start nie gerufen
   (für `EV_START` keine Kosten notiert), läuft der Start dann nach.
 - Platz: der Menücode war 228 Byte zu groß. Die Kopien der Bildschirmtabelle und der Klassentabelle liegen jetzt am
