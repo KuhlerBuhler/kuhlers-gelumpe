@@ -61,6 +61,12 @@
    "to": "0xC056B5D8",
    "kind": "ram",
    "why": "the byte of the last Global page: the pool word of the getter and setter 0xC007B074 and 0xC007B084, whose synth twins are 0xC006D9F8 and 0xC006DA08 (instruction for instruction the same)"
+  },
+  {
+   "from": "0xC006F17C",
+   "to": "0xC00623F4",
+   "kind": "code",
+   "why": "the second instruction of the screen manager's tick (0xC00623F0 already mapped): both builds hold ldrb r3, [r0, #0x4c] then push {r4-r11, lr} (0xE5D0304C, 0xE92D4FF0), the splash editor's tick hook returns there"
   }
  ]
 }
