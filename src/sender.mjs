@@ -150,8 +150,8 @@ export class Sender {
   }
 
   /** What the device says about its BLECH commands, or null when it does not answer them (a timeout is the answer of a device without them). */
-  async blechInfo() {
-    try { return P.parseBlechInfo(await this.blechExchange(P.blechInfo(this.channel), "blech-info"), this.channel); }
+  async blechInfo(model) {
+    try { return P.parseBlechInfo(await this.blechExchange(P.blechInfo(this.channel, model), "blech-info"), this.channel, model); }
     catch (e) {
       // A late INFO reply cannot be taken for another step's answer (kinds differ), so no quiet wait is needed.
       if (e instanceof SendError && e.kind === "timeout") { this.unsynced = false; return null; }
@@ -206,19 +206,25 @@ export class Sender {
     return P.ackFor(this.channel);
   }
 
-  /** The size of the update file on the card (KORG/<folder>/System/SYSTEM.VSB) and its first bytes; size 0 when there is none. */
-  async fileSize(model) {
-    return this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, 0, 0, model), "blech-file-read"), this.channel, 0, model)).then(r => r.size);
+  /** The size of a file of the update folder on the card (`other`: ORIGINAL.BIN, else SYSTEM.VSB); 0 when there is none. */
+  async fileSize(model, other = false) {
+    const at = other ? P.BLECH.FILE_OTHER : 0;
+    try {
+      return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, at, 0, model), "blech-file-read"), this.channel, 0, model))).size;
+    } catch (e) {
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      throw e;
+    }
   }
 
-  /** The whole update file, in blocks of the device's largest size, each checked against its CRC. `onProgress(done, total)`. */
-  async fileRead(size, model, onProgress) {
+  /** The whole file, in blocks of the device's largest size, each checked against its CRC. `onProgress(done, total)`. */
+  async fileRead(size, model, onProgress, other = false) {
     const out = new Uint8Array(size);
     const max = this.blech.maxBlock;
     for (let at = 0; at < size; at += max) {
       const n = Math.min(max, size - at);
       const r = await this.blechAttempts("read", async () =>
-        P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, at, n, model), "blech-file-read", n), this.channel, n, model));
+        P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, (other ? P.BLECH.FILE_OTHER : 0) | at, n, model), "blech-file-read", n), this.channel, n, model));
       if (r.offset !== at || r.bytes.length !== n) throw new SendError("reply", `Datei lesen: ${r.bytes.length} Byte bei ${r.offset} statt ${n} bei ${at}.`);
       out.set(r.bytes, at);
       onProgress?.(at + n, size);
@@ -226,14 +232,14 @@ export class Sender {
     return out;
   }
 
-  /** The bytes as the new update file: the first block makes the file anew, the others follow; the device reads every block back. */
-  async fileWrite(bytes, model, onProgress) {
+  /** The bytes as the new file: the first block makes it anew, the others follow; the device reads every block back from the card. */
+  async fileWrite(bytes, model, onProgress, other = false) {
     const max = this.blech.maxBlock;
     for (let at = 0; at < bytes.length; at += max) {
       const part = bytes.subarray(at, Math.min(at + max, bytes.length));
       const crc = P.crc32(part);
       await this.blechAttempts("write", async () => {
-        P.parseBlechFileBegin(await this.blechExchange(P.blechFileBegin(this.channel, at, part.length, crc, model), "blech-file-begin"), this.channel, model);
+        P.parseBlechFileBegin(await this.blechExchange(P.blechFileBegin(this.channel, (other ? P.BLECH.FILE_OTHER : 0) | at, part.length, crc, model), "blech-file-begin"), this.channel, model);
         P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, model), "blech-data", part.length), this.channel, crc, model);
       });
       onProgress?.(at + part.length, bytes.length);

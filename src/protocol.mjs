@@ -57,6 +57,8 @@ export const BLECH = {
   FLAG_FILE: 0x10,
   /** the largest offset + length of the update file: the size of a VSB */
   FILE_LIMIT: 0x200100,
+  /** bit 31 of a FILE offset: ORIGINAL.BIN beside SYSTEM.VSB, the unpatched file the next update starts from */
+  FILE_OTHER: 0x80000000,
   VERSION: 1,
 };
 const STATUS_TEXT = { 1: "Die Prüfsumme stimmt nicht", 2: "Das Gerät verweigert den Zugriff (geschützter Bereich)", 3: "Adresse oder Länge liegt außerhalb des erlaubten Bereichs", 4: "Die Flash-Funktion der Firmware meldet keinen Erfolg", 5: "Das Zurücklesen nach dem Schreiben weicht ab", 6: "Die Karte meldet einen Fehler (keine Karte, keine Datei oder voll)" };
@@ -207,7 +209,7 @@ export const execute = (channel, addr) =>
 const words = (...values) => values.flatMap(u32le);
 const blechFrame = (channel, func, payload = [], model = DEVICE_ID) => frame([...head(channel, model), func, ...syxEnc(payload)]);
 
-export const blechInfo = channel => blechFrame(channel, BLECH.INFO);
+export const blechInfo = (channel, model = DEVICE_ID) => blechFrame(channel, BLECH.INFO, [], model);
 export const blechRead = (channel, addr, length, model = DEVICE_ID) => blechFrame(channel, BLECH.READ, words(addr, length), model);
 export const blechBegin = (channel, addr, length, crc) => blechFrame(channel, BLECH.BEGIN, words(addr, length, crc));
 export const blechData = (channel, bytes, model = DEVICE_ID) => blechFrame(channel, BLECH.DATA, bytes, model);
@@ -224,8 +226,8 @@ function blechWords(msg, channel, func, count, what, model = DEVICE_ID) {
 }
 
 /** What the device says about itself: protocol version, flags (1 read, 2 write, 4 CRC-32, 8 FLASH READ), the largest block and the CRC of its protection table. */
-export function parseBlechInfo(msg, channel) {
-  const { word } = blechWords(msg, channel, BLECH.R_INFO, 5, "BLECH INFO");
+export function parseBlechInfo(msg, channel, model = DEVICE_ID) {
+  const { word } = blechWords(msg, channel, BLECH.R_INFO, 5, "BLECH INFO", model);
   if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "BLECH INFO");
   return { version: word(1), flags: word(2), maxBlock: word(3), tableCrc: word(4) };
 }
