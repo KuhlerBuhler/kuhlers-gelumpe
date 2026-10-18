@@ -657,6 +657,16 @@ def pins(dev):
     return dev.m.gpio.get(3, 0) & GPIO_PINS
 
 
+def custom_extra(dev):
+    """The pages of CUSTOMIZATION behind DISPLAY INVERT: PAD COLOR and SELECT COLOR where the set has the pad colours, SPLASH IMPORT
+    and SPLASH DRAW where it also has the splash editor (the blue Electribe has the pad colours only)."""
+    import pad_colors
+    import splash_editor
+    if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
+        return 0
+    return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 4
+
+
 def goto_page(dev, number):
     """Open a look page: BOTTOM LEDS and DISPLAY INVERT in CUSTOMIZATION, the six levels in its group COLORS."""
     if PAGE_LED_R <= number <= PAGE_BL_B:
@@ -911,7 +921,7 @@ def splash_menu_cases(payload, flash=None):
     dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic)})
     if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF:
         goto_group(dev, GROUP_CUSTOM, 0)
-        add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 3, f"counter {counter(dev)}")
+        add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 3 + custom_extra(dev), f"counter {counter(dev)}")
         return out
     goto_group(dev, GROUP_CUSTOM, CUSTOM_PAD + 2)
     before = texts_of(dev)
@@ -1060,7 +1070,7 @@ def invert_cases(payload, flash=None):
     dev.run(0.5)
     main_on = dev.screen()["number"], status(dev), flipped(dev)
     import splash_editor
-    custom = 3 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 7      # PAD COLOR, SELECT COLOR, SPLASH IMPORT and SPLASH DRAW follow where the set has them
+    custom = 3 + custom_extra(dev)                                                 # PAD COLOR, SELECT COLOR, SPLASH IMPORT and SPLASH DRAW follow where the set has them
     add("page", page == (("DISPLAY INVERT", "OFF", ""), (2, custom), "Custom"), f"{page}")
     add("on_swaps_the_display", on == (("DISPLAY INVERT", "ON", ""), (1, True, 1), True) and menu_screen and still == (1, True, 1),
         f"{on}, dial again {still}")
