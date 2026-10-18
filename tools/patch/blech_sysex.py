@@ -14,7 +14,9 @@ F0 42 3n 00 01 24 <function> <7-bit packed words> F7, with n the global channel.
     0x65      FILE READ: offset, length (0 for the size only)    0x6D  status, offset, length, CRC-32, file size, the bytes
     0x66      FILE BEGIN: offset, length, CRC-32 of the bytes    0x6E  status, offset, length; WRITE DATA follows
 
-The two FILE commands reach exactly one file of the card: the update file KORG/<folder>/System/SYSTEM.VSB, its path built
+The two FILE commands reach exactly two files of the card, chosen by bit 31 of the offset: the update file
+KORG/<folder>/System/SYSTEM.VSB (bit clear) and beside it ORIGINAL.BIN (bit set), where the editor keeps the unpatched file the
+next update starts from (a patched file cannot be patched again; not .VSB, so no updater takes it). The path is built
 with the firmware's own function the update uses (0xC0035720, "KORG/blechtribe/" on the Sampler with BLECH, "KORG/electribe/"
 on the synth), so the file lands where Korg's update looks for it. A FILE BEGIN at offset 0 makes the file anew, every other
 writes into the existing one; every block is read back from the card and its CRC sent. Offset plus length never passes
@@ -73,11 +75,12 @@ BUF_END = 0xC019F000            # 0xC019F000 to 0xC01A0000 the file object and t
 FILE_AREA = 0xC019F000          # FatFs file object (0x224 bytes, measured), the count of bytes read or written, the path
 FILE_AREA_END = 0xC01A0000
 FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
+FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
 MAX_BLOCK = 0x8000              # bytes in one READ or WRITE DATA
 
 # STATE: +0 pending (the magic below when a BEGIN waits for its DATA), +4 address, +8 length, +12 CRC,
 # +0x10 a request as decoded, +0x20 the words of a short reply, +0x40 where a short reply is packed
-S_PENDING, S_ADDR, S_LEN, S_CRC, S_REQ, S_MODE, S_RAW, S_OUT = 0, 4, 8, 12, 0x10, 0x1C, 0x20, 0x40   # S_MODE 1: the declared write goes to the file
+S_PENDING, S_ADDR, S_LEN, S_CRC, S_REQ, S_MODE, S_RAW, S_OUT = 0, 4, 8, 12, 0x10, 0x1C, 0x20, 0x40   # S_MODE 1: the declared write goes to SYSTEM.VSB, 2 to ORIGINAL.BIN
 PENDING_MAGIC = 0x444E4550      # "PEND": the image is FF where it has not been written, so 0 and FF both mean nothing waits
 
 FUNC_INFO, FUNC_READ, FUNC_BEGIN, FUNC_DATA, FUNC_FLASH, FUNC_FREAD, FUNC_FBEGIN = 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66
@@ -479,6 +482,7 @@ do_data:
     bne data_reply
     ldr r0, [r6, #S_MODE]
     cmp r0, #1
+    cmpne r0, #2
     beq data_file
     mov r0, r8
     mov r1, r9
@@ -501,8 +505,11 @@ do_data:
     b data_reply
 ; the declared write goes to the update file: written, closed, then read back from the card for the CRC
 data_file:
+    ldr r5, [r6, #S_MODE]
+    sub r5, r5, #1              ; which file
     mov r0, #0
     str r0, [r6, #S_MODE]
+    mov r0, r5
     bl file_path
     ldr r0, =FILE_FIL
     ldr r1, =FILE_PATH
@@ -534,6 +541,7 @@ data_file:
     bne data_file_error
     mov r0, r8
     mov r1, r9
+    mov r2, r5
     bl file_read_back
     cmp r0, #0
     bne data_file_error
@@ -577,6 +585,8 @@ do_fbegin:
     ldr r10, [r6, #S_REQ + 8]
     mov r3, #0
     str r3, [r6]
+    mov r5, r8, lsr #31         ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN (r5, the function byte, is not needed any more)
+    bic r8, r8, #0x80000000
     mov r0, #{STATUS_RANGE}
     cmp r9, #0
     beq fbegin_reply
@@ -591,7 +601,7 @@ do_fbegin:
     str r8, [r6, #S_ADDR]
     str r9, [r6, #S_LEN]
     str r10, [r6, #S_CRC]
-    mov r3, #1
+    add r3, r5, #1
     str r3, [r6, #S_MODE]
     ldr r3, =MAGIC
     str r3, [r6]
@@ -612,6 +622,8 @@ fbegin_reply:
 do_fread:
     ldr r8, [r6, #S_REQ]
     ldr r9, [r6, #S_REQ + 4]
+    mov r11, r8, lsr #31        ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN
+    bic r8, r8, #0x80000000
     mov r4, #{STATUS_RANGE}
     mov r5, #0
     ldr r3, =MAX_BLOCK
@@ -624,6 +636,7 @@ do_fread:
     bhi fread_failed
     mov r0, r8
     mov r1, r9
+    mov r2, r11
     bl file_read_back
     mov r4, r0
     ldr r5, =FILE_FIL
@@ -667,12 +680,13 @@ fread_failed:
     b reply_tail
 .pool
 
-; r0 = offset, r1 = length: the update file's bytes from there into the end of BUF (rounded down to a word, as READ does), the count
-; in FILE_BR and the size in the file object; returns r0 = 0, or STATUS_FILE when the card says no. Keeps r4 to r11.
+; r0 = offset, r1 = length, r2 = which file: its bytes from there into the end of BUF (rounded down to a word, as READ does), the
+; count in FILE_BR and the size in the file object; returns r0 = 0, or STATUS_FILE when the card says no. Keeps r4 to r11.
 file_read_back:
     push {{r4, r5, r6, lr}}
     mov r4, r0
     mov r5, r1
+    mov r0, r2
     bl file_path
     ldr r0, =FILE_BR
     mov r1, #0
@@ -713,9 +727,11 @@ frb_error:
     mov r0, #{STATUS_FILE}
     pop {{r4, r5, r6, pc}}
 
-; FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB". Keeps r4 to r11.
+; r0 = which: FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB", or
+; "System/ORIGINAL.BIN" for 1. Keeps r4 to r11.
 file_path:
     push {{r4, r5, lr}}
+    mov r4, r0
     sub sp, sp, #0x10
     mov r0, sp
     ldr r1, =FOLDER_ID
@@ -732,6 +748,8 @@ fp_folder:
     bne fp_folder
 fp_tail:
     ldr r1, =update_name
+    cmp r4, #0
+    ldrne r1, =original_name
 fp_name:
     ldrb r3, [r1], #1
     strb r3, [r0], #1
@@ -743,6 +761,8 @@ fp_name:
     pop {{r4, r5, pc}}
 update_name:
     .asciz "System/SYSTEM.VSB"
+original_name:
+    .asciz "System/ORIGINAL.BIN"
 .align 4
 .pool
 

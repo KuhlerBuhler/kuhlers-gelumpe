@@ -453,10 +453,10 @@ def file_cases(payload, flash):
         lk.find_channel()
         return dev, lk
 
-    def on_card(dev):
+    def on_card(dev, name=path):
         try:
             vol = fat32.Volume(dev.m.mmc.card.medium.data)
-            return vol.read(path)
+            return vol.read(name)
         except Exception:
             return None
 
@@ -479,6 +479,13 @@ def file_cases(payload, flash):
     short = bytes(range(256)) * 20
     lk.file_write(0, short)
     out.append(entry("file_offset_zero_makes_it_anew", on_card(dev) == short, f"a first block at offset 0 makes the file anew: {len(on_card(dev) or b'')} bytes on the card, written {len(short)}"))
+    other = f"KORG/{folder}/System/ORIGINAL.BIN"
+    keep = bytes(rng.getrandbits(8) for _ in range(9000))
+    ob, od = lk.file_write(spec.FILE_OTHER | 0, keep)
+    oread = lk.file_read(spec.FILE_OTHER | 0, len(keep))
+    out.append(entry("file_original_beside", ob and ob["status"] == OK and od and od["status"] == OK and on_card(dev, other) == keep and on_card(dev) == short
+                     and oread and oread["data"] == keep and oread["size"] == len(keep),
+                     f"bit 31 of the offset: ORIGINAL.BIN beside it written and read back ({on_card(dev, other) == keep}), SYSTEM.VSB untouched ({on_card(dev) == short})"))
     far, _ = lk.file_write(spec.FILE_LIMIT - 0x100, bytes(0x200))
     empty, _ = lk.file_write(0, b"")
     big = lk.file_read(0, spec.MAX_BLOCK + 1)
