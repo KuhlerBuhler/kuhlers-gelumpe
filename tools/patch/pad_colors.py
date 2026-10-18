@@ -5,7 +5,8 @@ pad is held, a step), blue the selected part; both together are pink. The patch 
 
     PART colour      what the firmware shows in red: red, blue or pink
     SELECT colour    what it shows in blue: red, blue or pink, never the PART colour
-    both at once     the colour that is left (pink pads and a blue cursor overlap in red)
+    both at once     the colour that is left (pink pads and a blue cursor overlap in red), or the OVERLAP colour chosen in the
+                     BLECH menu (device 18.10.)
 
 The firmware's own values stay as they are (the LED manager's first table and its copy); only what goes to the panel changes, at
 the one place every LED message passes (0xC00876A8, the end of 0xC00875F4, branch to the sender 0xC0087578). When one LED of a pad
@@ -105,6 +106,8 @@ SOURCE = """
     b pc_to_look                ; +4  -> those bits for the current colours
     b pc_step                   ; +8  (kind 24 PAD COLOR or 25 SELECT COLOR, steps of the dial): the next colour
     b pc_texts                  ; +12 (kind) -> r0 = title, r1 = the colour's name
+    b pc_over_set               ; +16 (OVERLAP 0 the colour left, 1 red, 2 blue, 3 pink): stored, the pads sent again later
+    b pc_over_get               ; +20 -> r0 = OVERLAP
 
 ; -> r0 = PART, r1 = SELECT; never written (or nonsense) is red and blue. Clobbers r12.
 pc_colours:
@@ -129,6 +132,11 @@ pcc_default:
 pc_set:
     orr r0, r0, r1, lsl #4
     ldr r12, =STATE
+    ldr r1, [r12, #S_SETTING]   ; OVERLAP (bits 8 to 9) stays; never written is none
+    cmn r1, #1
+    moveq r1, #0
+    and r1, r1, #0x300
+    orr r0, r0, r1
     str r0, [r12, #S_SETTING]
     mov r0, #1
     str r0, [r12, #S_PEND]
@@ -139,6 +147,11 @@ pc_store:
     push {r4, r5, lr}
     orr r0, r0, r1, lsl #4
     ldr r12, =STATE
+    ldr r1, [r12, #S_SETTING]
+    cmn r1, #1
+    moveq r1, #0
+    and r1, r1, #0x300
+    orr r0, r0, r1
     str r0, [r12, #S_SETTING]
     ldr r4, =LEDMGR_PTR
     ldr r4, [r4]
@@ -157,6 +170,30 @@ pcs_out:
     pop {r4, r5, pc}
 
 ; SELECT in the file is 0 blue, 1 red, 2 pink, so that a file without it (0) is the firmware's blue
+; r0 = OVERLAP 0 to 3: into bits 8 to 9 of the setting word, the colours as they are; the pads go out again with the next
+; LED message (S_PEND), as at start. Keeps r1 to r11.
+pc_over_set:
+    ldr r12, =STATE
+    ldr r2, [r12, #S_SETTING]
+    cmn r2, #1
+    moveq r2, #0x10             ; never written: red and blue
+    bic r2, r2, #0x300
+    and r0, r0, #3
+    orr r2, r2, r0, lsl #8
+    str r2, [r12, #S_SETTING]
+    mov r2, #1
+    str r2, [r12, #S_PEND]
+    bx lr
+
+pc_over_get:
+    ldr r12, =STATE
+    ldr r0, [r12, #S_SETTING]
+    cmn r0, #1
+    moveq r0, #0
+    mov r0, r0, lsr #8
+    and r0, r0, #3
+    bx lr
+
 pc_from_look:
     mov r1, r0, lsr #29
     and r1, r1, #3
@@ -254,10 +291,17 @@ pc_active:
     bhi pa_no
     cmp r1, r2
     beq pa_no
+    mov r12, r0, lsr #8         ; an OVERLAP other than the colour left or pink differs from the firmware even with red and blue
+    and r12, r12, #3
+    cmp r12, #1
+    cmpne r12, #2
+    beq pa_yes
     cmp r1, #0                  ; red and blue are what the firmware does
     cmpeq r2, #1
     beq pa_no
-    and r0, r0, #0xFF
+pa_yes:
+    mov r0, r0, lsl #22
+    mov r0, r0, lsr #22
     bx lr
 pa_no:
     mvn r0, #0
@@ -270,12 +314,18 @@ pc_map:
     ldrb r3, [r12, #LED_VALUE + 8]      ; and in blue
     and r0, r6, #15                     ; PART
     mov r1, r6, lsr #4                  ; SELECT
+    and r1, r1, #15
     cmp r2, #0
     beq pm_blue
     cmp r3, #0
     beq pm_part
-    rsb r0, r0, #3                      ; both: the colour that is left, 3 - PART - SELECT
+    mov r12, r6, lsr #8                 ; both: OVERLAP when chosen, else the colour that is left, 3 - PART - SELECT
+    ands r12, r12, #3
+    subne r0, r12, #1
+    bne pm_both
+    rsb r0, r0, #3
     sub r0, r0, r1
+pm_both:
     cmp r3, r2
     movhi r2, r3                        ; brightness: the brighter of the two
     b pm_colour

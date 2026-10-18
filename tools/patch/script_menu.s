@@ -244,6 +244,13 @@ menu_load_meter:
     mov r2, r2, lsr #3
     subs r1, r1, #1
     bne menu_load_meter
+    push {r0-r3}                ; bits 28 to 29: OVERLAP of the pad colours (the patch pad-colors keeps it)
+    ldr r0, [r0, #12]
+    mov r0, r0, lsr #28
+    and r0, r0, #3
+    mov r1, #16
+    bl menu_pc_call
+    pop {r0-r3}
     ldrb r1, [r0, #6]
     str r1, [r4, #M_TRUST_N]
     add r2, r4, #M_TRUST
@@ -414,6 +421,10 @@ menu_settings_save:
     ldrb r1, [r4, #MX_METER]
     orr r2, r1, r2, lsl #3
     orr r0, r0, r2, lsl #16
+    mov r10, r0
+    mov r1, #20
+    bl menu_pc_call
+    orr r0, r10, r0, lsl #28
     str r0, [r7, #12]
     ldr r0, [r4, #M_LED_MODE]
     ldr r1, [r4, #M_LED_R]
@@ -1218,6 +1229,8 @@ menu_texts_clear:
     sub r1, r0, #28
     cmp r1, #3
     bls menu_text_meter
+    cmp r0, #32
+    beq menu_text_over
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1408,6 +1421,18 @@ menu_text_meter:
     ldrb r1, [r1, r6]
     ldr r2, =colour_names
     ldr r1, [r2, r1, lsl #2]
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; OVERLAP (32): the colour of a pad that is both lit and selected, from the patch pad-colors
+menu_text_over:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_over
+    bl menu_copy
+    mov r1, #20
+    bl menu_pc_call
+    ldr r2, =over_names
+    ldr r1, [r2, r0, lsl #2]
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
@@ -2706,6 +2731,8 @@ menu_slot_value:
     cmp r3, #3
     subls r3, r3, #-MX_METER
     bls menu_value_byte
+    cmp r0, #32
+    beq menu_value_over
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
@@ -2730,6 +2757,17 @@ menu_value_byte:
     cmp r1, r2
     movgt r1, r2
     strb r1, [r6, r3]
+    b menu_value_look_done
+; OVERLAP: 0 the colour left, 1 red, 2 blue, 3 pink, in the patch pad-colors; WRITE keeps it
+menu_value_over:
+    mov r1, #20
+    bl menu_pc_call
+    adds r0, r0, r5
+    movmi r0, #0
+    cmp r0, #3
+    movgt r0, #3
+    mov r1, #16
+    bl menu_pc_call
     b menu_value_look_done
 ; PAD COLOR and SELECT COLOR: the dial steps the colour in the patch, which skips the other page's and sends the pads; WRITE keeps it.
 menu_value_colour:
@@ -3132,6 +3170,10 @@ str_meter_mid:
     .asciz "METER MID"
 str_meter_loud:
     .asciz "METER LOUD"
+str_over:
+    .asciz "OVERLAP"
+str_auto:
+    .asciz "AUTO"
 str_c_white:
     .asciz "WHITE"
 str_c_red:
@@ -3265,15 +3307,17 @@ custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD C
 sub_kinds:                      ; the kinds of the pages of DISPLAY, LED and PAD COLOR, 8 a group (device 18.10.)
     .byte 11, 12, 13, 26, 27, 14, 0, 0  ; DISPLAY: backlight red, green, blue, INTENSITY, SAVE LIGHT, display invert
     .byte 7, 8, 9, 10, 28, 29, 30, 31   ; LED: bottom LEDs, LED red, green, blue, the meter's four colours
-    .byte 24, 25, 0, 0, 0, 0, 0, 0      ; PAD COLOR: pad colour, select colour
+    .byte 24, 25, 32, 0, 0, 0, 0, 0     ; PAD COLOR: pad colour, select colour, overlap
 sub_counts:
-    .byte 6, 8, 2, 0
+    .byte 6, 8, 3, 0
 meter_palette:                  ; red, green, blue of the colours 1 to 7, then the firmware's colours of the four zones
     .byte 0, 0, 0,  160, 160, 160,  255, 0, 0,  0, 255, 0,  0, 0, 255,  255, 160, 0,  0, 200, 255,  255, 0, 160
     .byte 120, 120, 120,  0, 0, 255,  0, 255, 0,  255, 0, 0
 .align 4
 meter_titles:
     .word str_meter_still, str_meter_low, str_meter_mid, str_meter_loud
+over_names:
+    .word str_auto, str_c_red, str_c_blue, str_c_pink
 colour_names:
     .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink
 look_titles:
