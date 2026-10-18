@@ -183,3 +183,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Karte gezogen: Funktionen bleiben an; TAP blinkt bei laufender Master-FX-Bewegung](2026-10-18-karte-gezogen-tap-blinkt.md)
 - [Plugin bleibt aus über einen Neustart](2026-10-18-plugin-bleibt-aus.md)
 - [Startbild-Editor: malen mit gehaltenem MENU, SHIFT hoch und runter](2026-10-18-startbild-malen.md)
+- [CPU-Last und Laden der Samples im Emulator](2026-10-18-cpu-last-und-laden.md)
