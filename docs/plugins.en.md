@@ -544,9 +544,9 @@ The pages of the groups:
 | Group, page | Value | Effect |
 |---|---|---|
 | PLUGINS, RUNTIME | ON, OFF | the plugins of the card on or off, applies from the next start ("OFF, RESTART" shows that it does not apply yet); Blechy is no plugin of the card and stays |
-| PLUGINS, one plugin per page | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume; on an error its name stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
+| PLUGINS, one plugin per page | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume, WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error its name stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
 | PLUGINS, one page per `korg.menu.add` | the number | the main dial changes it, the plugin gets `menu` |
-| PLUGINS, EXPORT ALL | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them |
+| PLUGINS, EXPORT ALL | (empty, `press  [ Enter ]`) | ENTER or WRITE first saves the settings (plugins switched off stay off), then writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them |
 | PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then a file name | ENTER shows the first `*.blech` in `KORG/blechtribe/Plugin/` (shown up to 14 characters), the main dial or EDIT pages through the files, ENTER or WRITE loads and starts the one shown at once, EXIT goes back to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards) and hidden or system files are not listed |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the firmware's level meter, COLOR a fixed colour, OFF dark; applies at once |
@@ -570,7 +570,7 @@ the title holds about 18. IMPORT PLUGIN and EXPORT ALL are in the PLUGINS group,
 
 On the page RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
-number (24 to 88 bytes, tag `GSET`; at most 16 approved blocks are remembered, then the oldest drops out).
+number (24 to 88 bytes, tag `GSET`; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at
 the firmware's values). The page reports "saved", "no card", "card protected", "folder missing" or "write
 error". Nothing is written to the flash.

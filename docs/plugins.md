@@ -678,9 +678,9 @@ Die Seiten der Gruppen:
 | Gruppe, Seite | Wert | Wirkung |
 |---|---|---|
 | PLUGINS, RUNTIME | ON, OFF | die Plugins der Karte an oder aus, gilt ab dem nächsten Start ("OFF, RESTART" zeigt, dass es noch nicht gilt); Blechy ist kein Plugin der Karte und bleibt |
-| PLUGINS, ein Plugin je Seite | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen; bei einem Fehler steht sein Name mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal) |
+| PLUGINS, ein Plugin je Seite | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen, WRITE behält den Stand über einen Neustart (ein ausgeschaltetes Plugin startet dann nicht, beim Einschalten läuft sein Start nach); bei einem Fehler steht sein Name mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal) |
 | PLUGINS, je `korg.menu.add` eine Seite | die Zahl | Hauptrad ändert sie, das Plugin bekommt `menu` |
-| PLUGINS, EXPORT ALL | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt |
+| PLUGINS, EXPORT ALL | (leer, `press  [ Enter ]`) | ENTER oder WRITE speichert erst die Einstellungen (ausgeschaltete Plugins bleiben aus) und schreibt dann alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt |
 | PLUGINS, IMPORT PLUGIN | (leer, `press  [ Enter ]`), dann Dateiname | ENTER zeigt die erste `*.blech` aus `KORG/blechtribe/Plugin/` (höchstens 14 Zeichen lang gezeigt), das Hauptrad oder EDIT blättert Datei für Datei, ENTER oder WRITE lädt und startet die gezeigte sofort, EXIT geht zurück auf die Seite. Dateien, deren Name mit einem Punkt beginnt (die `._Name.blech` des Mac auf FAT Karten), und versteckte oder Systemdateien fehlen in der Liste |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, BOTTOM LEDS | METER, COLOR, OFF | die vier unteren RGB-LEDs: METER ist die Pegelanzeige der Firmware, COLOR eine feste Farbe, OFF dunkel; gilt sofort |
@@ -708,6 +708,8 @@ speichert WRITE die Einstellungen in `KORG/blechtribe/settings.a.bin` und `setti
 sich mit einer Generationsnummer abwechseln (24 bis 88 Byte: Kennung `GSET`, Version 2, Anzahl
 erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
 erlaubten fremden Blöcke, CRC-32; höchstens 16 erlaubte Blöcke, danach fliegt die älteste raus;
+in derselben Liste steht für jedes ausgeschaltete Plugin seine Prüfsumme invertiert, ein älteres BLECH liest sie als
+Prüfsumme, die nie passt, [Messung](messungen/2026-10-18-plugin-bleibt-aus.md);
 Dateien der Version 1 ohne das Wort werden weiter gelesen). Ohne Datei, Karte oder bei
 beschädigter Datei gelten die Voreinstellungen (alles an, die Anpassung auf den Werten der
 Firmware). Die Seite meldet "saved", "no card", "card protected", "folder missing" oder "write error".

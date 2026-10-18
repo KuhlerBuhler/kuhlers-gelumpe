@@ -335,6 +335,7 @@ menu_read_fail:
 ; Sets M_STATUS: 1 written, 0x20 + code of the failing FatFs call otherwise.
 menu_settings_save:
     push {r4-r10, lr}
+    bl menu_off_sync
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
@@ -1619,6 +1620,90 @@ menu_needs_loop:
     b menu_needs_loop
 .pool
 
+; Plugins switched off stay off over a restart: the checksum list of the settings file holds, beside the checksums of the
+; foreign plugins the user allowed, the inverted checksum (mvn) of every plugin that is off. The file format stays as it was
+; (an older BLECH reads them as allowed checksums that match nothing). The loader does not start a plugin marked so.
+; r0 = script entry -> r0 = 1 when the settings keep it off
+menu_is_off:
+    ldr r1, [r0, #SCRIPT_ENTRY_BLOB]
+    ldr r1, [r1, #HDR_CHECKSUM]
+    mvn r1, r1
+    ldr r2, =MENU_STATE
+    ldr r3, [r2, #M_ON]
+    cmp r3, #1
+    movne r0, #0
+    bxne lr
+    ldr r3, [r2, #M_TRUST_N]
+    add r2, r2, #M_TRUST
+menu_off_loop:
+    cmp r3, #0
+    moveq r0, #0
+    bxeq lr
+    ldr r12, [r2], #4
+    cmp r12, r1
+    moveq r0, #1
+    bxeq lr
+    sub r3, r3, #1
+    b menu_off_loop
+
+; Before a save: for every loaded plugin the marker goes, and comes back when the plugin is off (loaded, allowed and not
+; armed), as long as the list has room. Markers of plugins no longer on the card stay, like their allowed checksums. Blechy
+; is always armed, so he never gets one.
+menu_off_sync:
+    push {r4-r7, lr}
+    ldr r4, =MENU_STATE
+    ldr r5, =HOOK_RUNTIME
+    ldr r5, [r5, #RT_HEAD]
+    cmn r5, #1
+    moveq r5, #0
+menu_off_entry:
+    cmp r5, #0
+    beq menu_off_done
+    ldr r6, [r5, #SCRIPT_ENTRY_BLOB]
+    ldr r7, [r6, #HDR_CHECKSUM]
+    mvn r7, r7
+    ldr r1, [r4, #M_TRUST_N]
+    add r2, r4, #M_TRUST
+    mov r3, #0
+menu_off_find:
+    cmp r3, r1
+    bhs menu_off_keep
+    ldr r12, [r2, r3, lsl #2]
+    cmp r12, r7
+    addne r3, r3, #1
+    bne menu_off_find
+    sub r1, r1, #1
+    str r1, [r4, #M_TRUST_N]
+menu_off_shift:
+    cmp r3, r1
+    bhs menu_off_keep
+    add r12, r3, #1
+    ldr r12, [r2, r12, lsl #2]
+    str r12, [r2, r3, lsl #2]
+    add r3, r3, #1
+    b menu_off_shift
+menu_off_keep:
+    ldr r0, [r5, #SCRIPT_ENTRY_STATE]
+    cmp r0, #SCRIPT_STATE_LOADED
+    bne menu_off_next
+    mov r0, r5
+    bl menu_needs_confirm
+    cmp r0, #0
+    bne menu_off_next
+    ldr r1, [r4, #M_TRUST_N]
+    cmp r1, #MENU_MAX_TRUST
+    bhs menu_off_next
+    add r2, r4, #M_TRUST
+    str r7, [r2, r1, lsl #2]
+    add r1, r1, #1
+    str r1, [r4, #M_TRUST_N]
+menu_off_next:
+    ldr r5, [r5, #SCRIPT_ENTRY_NEXT]
+    b menu_off_entry
+menu_off_done:
+    pop {r4-r7, pc}
+.pool
+
 ; r0 = script entry waiting for its confirmation: remember its checksum, run its start body, save the settings
 menu_confirm:
     push {r4, r5, lr}
@@ -2558,8 +2643,7 @@ menu_value_script:
     ldr r3, [r0, #SCRIPT_ENTRY_STATE]
     cmp r3, #SCRIPT_STATE_LOADED
     cmpeq r12, #1
-    moveq r1, #SCRIPT_STATE_ARMED
-    streq r1, [r0, #SCRIPT_ENTRY_STATE]
+    beq menu_value_script_on
     cmp r3, #SCRIPT_STATE_ARMED
     cmpeq r12, #0
     moveq r1, #SCRIPT_STATE_LOADED
@@ -2568,6 +2652,20 @@ menu_value_done:
     mov r0, r4
     bl menu_show
     pop {r4, r5, r6, pc}
+; on: a plugin the settings kept off at start never ran its start body (no cost recorded for it), so it runs now and arms it
+menu_value_script_on:
+    ldr r1, [r0, #SCRIPT_ENTRY_MAX_COST+4*EV_START]
+    cmp r1, #0
+    movne r1, #SCRIPT_STATE_ARMED
+    strne r1, [r0, #SCRIPT_ENTRY_STATE]
+    bne menu_value_done
+    mov r1, r0
+    ldr r0, =HOOK_RUNTIME
+    mov r2, #EV_START
+    ldr r3, =HOOK_INPUT
+    ldr r12, =VM_SCRIPT_RUN_EVENT
+    blx r12
+    b menu_value_done
 menu_value_item:
     ldr r0, =MENU_ITEMS
     add r0, r0, r1, lsl #5
@@ -2679,6 +2777,7 @@ menu_keys_app:
     mov r1, #0
     ldr pc, =SWITCH_SCREEN
 menu_keys_export:
+    bl menu_settings_save
     bl menu_export
     b menu_keys_done
 menu_keys_import:
