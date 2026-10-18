@@ -2561,8 +2561,8 @@ menu_value_level:
     ldr r3, [r12, #8]
     orrs r1, r1, r3
     bne menu_value_level_set
-    ; all three zero is the stock state, which the page shows as 15 each: up changes nothing, down starts from 15 each (and the
-    ; last channel turned down to 0 is the stock state again, the page shows 15 each once more)
+    ; all three zero is the stock state, which the page shows as 15 each: up changes nothing, down starts from 15 each; all three
+    ; turned back up to 15 is the stock state again, and the last channel cannot go to 0 while the other two are (that would be stock)
     cmp r5, #0
     bge menu_value_look_done
     mov r1, #15
@@ -2578,6 +2578,24 @@ menu_value_level_set:
     cmp r1, #15
     movgt r1, #15
     str r1, [r3, r2, lsl #2]
+    ldr r1, [r12]
+    ldr r0, [r12, #4]
+    and r1, r1, r0
+    ldr r0, [r12, #8]
+    and r1, r1, r0
+    cmp r1, #15                 ; 15 15 15: the stock state
+    moveq r1, #0
+    streq r1, [r12]
+    streq r1, [r12, #4]
+    streq r1, [r12, #8]
+    beq menu_value_look_done
+    ldr r1, [r12]
+    ldr r0, [r12, #4]
+    orr r1, r1, r0
+    ldr r0, [r12, #8]
+    orrs r1, r1, r0             ; 0 0 0 would read as stock: the channel turned down stays at 1
+    moveq r1, #1
+    streq r1, [r3, r2, lsl #2]
     b menu_value_look_done
 menu_value_invert:
     mov r1, #1

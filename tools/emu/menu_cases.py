@@ -687,6 +687,8 @@ def set_look(dev, mode=None, led=None, backlight=None):
         goto_page(dev, PAGE_LED_MODE)
         dev.turn(mode - state(dev, S_LED_MODE), wait=0.25)
     for first, values, at in ((PAGE_LED_R, led, S_LED_R), (PAGE_BL_R, backlight, S_BL_R)):
+        if values is not None and not any(values):
+            values = (15, 15, 15)      # the stock state: 15 15 15 on the pages (0 0 0 cannot be dialled, it would read as stock)
         order = sorted(range(len(values or ())), key=lambda k: values[k] == 0)      # channels that stay lit first: going through all zero would be the stock state
         for i in order:
             value = values[i]
@@ -696,8 +698,8 @@ def set_look(dev, mode=None, led=None, backlight=None):
                 step = max(-8, min(8, value - shown))              # the dial reports at most a few steps at once
                 dev.turn(step, wait=0.25)
                 shown += step
-            if not any(state(dev, at + 4 * k) for k in range(3)) and not any(values):
-                break                  # all three at 0 is the stock state, the pages show 15 each from there on
+            if not any(state(dev, at + 4 * k) for k in range(3)):
+                break                  # 15 15 15 is the stock state (stored as 0 0 0), the pages show 15 each from there on
 
 
 def meter_level(dev, level):
@@ -769,6 +771,17 @@ def look_cases(payload, flash=None):
     add("pages", texts == [("BOTTOM LEDS", "METER", ""),
                            ("LED RED", "15 stock", ""), ("LED GREEN", "15 stock", ""), ("LED BLUE", "15 stock", ""),
                            ("BACKLIGHT RED", "15 stock", ""), ("BACKLIGHT GREEN", "15 stock", ""), ("BACKLIGHT BLUE", "15 stock", "")], str(texts))
+
+    # 15 15 15 is the stock state again; 0 0 0 cannot be dialled (it would read as stock), the last channel stays at 1
+    set_look(dev, backlight=(3, 8, 12))
+    set_look(dev, backlight=(15, 15, 15))
+    stock_again = [state(dev, S_BL_R + 4 * k) for k in range(3)]
+    set_look(dev, backlight=(0, 0, 5))
+    goto_page(dev, PAGE_BL_B)
+    dev.turn(-8, wait=0.25)
+    floor = [state(dev, S_BL_R + 4 * k) for k in range(3)]
+    add("stock_at_15", stock_again == [0, 0, 0] and floor == [0, 0, 1], f"15 15 15 stores {stock_again}; 0 0 5 turned down stores {floor}")
+    set_look(dev, backlight=(0, 0, 0))
 
     # the six levels sit behind the row COLORS of CUSTOMIZATION: ENTER opens them, EXIT goes back to that row
     goto_group(dev, GROUP_CUSTOM, CUSTOM_COLORS)
