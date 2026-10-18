@@ -393,7 +393,7 @@ sind kein RAM und stehen auch nicht hier.
 | `0xC0188F00` + 0x40 | tap-motion | Zustand, darin `TM_SETTING` bei +0, die Lampe, die Patternnummer, der gemerkte Modus je Part und für Master FX (der Code liegt bei `0xC0188000`, 0x2B0 Byte, als geänderte Bytes) | `tap_motion.py:STATE` |
 | `0xC0189F00` + 0x40 | note-assistant | Zustand, darin `NA_SETTING` bei +0, die Takte seit der letzten Note, Note und Pad (der Code liegt bei `0xC0189000`, 0x32C Byte, als geänderte Bytes) | `note_assist.py:STATE` |
 | `0xC018AF00` + 0x40 | dice | Zustand, darin `DC_SETTING` bei +0, der Zustand des Zufallszahlengebers, die Töne der Tonleiter (der Code liegt bei `0xC018A000`, 0x4A4 Byte, als geänderte Bytes) | `dice.py:STATE` |
-| `0xC018CF00` + 0x40 | ifx-idle | Zustand: je Part die stummen Takte und ob er Punch vom Patch hat (der Code liegt bei `0xC018C000`, 0x1C8 Byte, als geänderte Bytes) | `ifx_idle.py:STATE` |
+| `0xC018CF00` + 0x40 | ifx-idle | Zustand: je Part die stummen Takte und ob er Punch vom Patch hat (der Code liegt bei `0xC018C000`, 0x1E4 Byte, als geänderte Bytes) | `ifx_idle.py:STATE` |
 | `0xC0191000` + 0x100 | blech-sysex | Zustand: das erklärte Schreiben, die decodierte Anfrage, Antworten, die kurz sind | `blech_sysex.py:STATE` |
 | `0xC0191100` bis `0xC01A0000` | blech-sysex | Puffer für Nachrichten und Antworten, bis 32768 Byte Nutzdaten, die Antwort wird von hinten im selben Puffer gepackt | `blech_sysex.py:BUF` |
 | `0xC01A5C00` + 0x40, `0xC01A5D00` + 0x120 | mfx-switch | Zustand, Datensatz der Tabelle | `mfx_switch.py:STATE`, `RECBUF` |

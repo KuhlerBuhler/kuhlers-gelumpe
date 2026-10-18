@@ -64,13 +64,18 @@ class IBox(Box):
         return self.byte(self.dev.call(REMEMBERED, n))
 
     def give(self, n, index, on=1, mute=0):
-        """The part's effect, IFX switch and mute as an edit leaves them, and the firmware's reload, the way a pattern change runs it."""
+        """The part's effect as an edit leaves it and the firmware's reload, the way a pattern change runs it; then the IFX switch and
+        mute. The part is heard for a tick in between, so the silent time counts from here (a part of the flash's pattern may have
+        been silent since the start)."""
         obj = self.dev.call(PART_OBJ, n)
         self.byte(self.u32(obj + 8) + 0x1D, index)
         self.byte(self.part(n) + TYPE_AT, index)
+        self.byte(self.part(n) + ON_AT, 1)
+        self.byte(self.part(n) + MUTE_AT, 0)
+        self.dev.call(RELOAD, obj, self.dev.call(REMEMBERED, n))
+        self.run(0.1)
         self.byte(self.part(n) + ON_AT, on)
         self.byte(self.part(n) + MUTE_AT, mute)
-        self.dev.call(RELOAD, obj, self.dev.call(REMEMBERED, n))
 
     def mute(self, n, value):
         self.byte(self.part(n) + MUTE_AT, value)

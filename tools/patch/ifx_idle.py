@@ -7,7 +7,8 @@ index 0, one stage, unit 4), and the part's own effect back as soon as it can be
 
     silent  the part is muted, or its IFX is off; a part whose effect is Punch already, and the second part of a stereo pair
             (the first one owns the effect), are left alone
-    after   HOLD_TICKS ticks of the LED manager's 40 ms timer in a row; the switch to Punch happens on the main screen only
+    after   HOLD_TICKS ticks of the LED manager's 40 ms timer in a row, counted from the end of the start (screen 0, where the
+            samples load, is left alone); the switch to Punch happens on the main screen only
     back    the moment the part is unmuted or its IFX goes on, through the firmware's own part reload (0xC0097E70)
 
 The firmware remembers the last index it gave each part (its table behind 0xC0097D18) and reloads only when the part's index
@@ -95,6 +96,13 @@ ii_tick:
     ldr r0, [r0, #0x18]
     tst r0, #KILL
     bne ii_done
+    ldr r0, =SCREEN_PTR         ; nothing while the device starts (screen 0, the samples load): no part is silent for long there
+    ldr r0, [r0]
+    cmp r0, #0
+    beq ii_done
+    ldr r0, [r0, #0x2C]
+    cmp r0, #0
+    beq ii_done
     ldr r4, =STATE
     mov r5, #0
 ii_part:
@@ -266,7 +274,7 @@ def build_patch(vsb):
         ],
         "startPhase": [
             {"file": file_offset(TIMER_LITERAL), "length": 4, "why": "the LED manager registers its 40 ms timer while the device starts, now with the patch's tick"},
-            {"file": file_offset(CODE_AT), "length": len(code), "why": "ii_tick runs every 40 ms from the start: it runs the LED manager's tick and counts; it switches only on the main screen after 5 s"},
+            {"file": file_offset(CODE_AT), "length": len(code), "why": "ii_tick runs every 40 ms from the start: it runs the LED manager's tick and, while the start screen (0) is up, nothing else"},
         ],
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: per part the ticks silent and whether it has Punch from the patch", "tools/patch/ifx_idle.py:STATE"),
