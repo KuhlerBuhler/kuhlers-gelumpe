@@ -24,6 +24,7 @@ NAMES = {
     "tap_motion_cases": "TAP Motion",
     "note_assist_cases": "Notenassistent",
     "dice_cases": "Würfeln",
+    "ifx_idle_cases": "Ruhender IFX",
     "loadbar_cases": "Ladebalken",
     "sample_error_cases": "Sample-Fehler",
     "synth_filter_cases": "Synth-Filter",

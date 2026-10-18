@@ -188,3 +188,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Energiesparmodus: alle LEDs gedimmt](2026-10-18-energiesparen-leds.md)
 - [Patternwechsel im Stand mit ungespeicherten Änderungen](2026-10-18-ungespeichert-blaettern.md)
 - [Update über USB: die Firmware-Datei über BLECH lesen und schreiben](2026-10-18-update-ueber-usb.md)
+- [Ruhender Insert-Effekt: Punch für stumme Parts](2026-10-18-ifx-ruht.md)
