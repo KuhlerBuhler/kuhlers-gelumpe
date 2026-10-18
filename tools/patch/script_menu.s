@@ -36,6 +36,12 @@
 .equ M_BL_PWM, 0xC8
 .equ M_BL_N, 0xCC
 .equ M_BL_CLR, 0xD0
+.equ MX_INTENS, -0x20          ; the 32 bytes in front of MENU_STATE (behind the menu items): byte, INTENSITY of the backlight 0 to 15
+.equ MX_SAVE, -0x1F            ; byte, SAVE LIGHT: 0 the firmware's own dim in power save, 1 to 15 the backlight at that intensity
+.equ MX_OVER, -0x1E            ; byte, OVERLAP of the pad colours (0 the colour that is left)
+.equ MX_METER, -0x1C           ; 4 bytes, the colours of the meter (STILL, LOW, MID, LOUD), 0 the firmware's
+.equ MX_SAVE_ON, -0x18         ; byte, the backlight pins that light in power save
+.equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ M_PC, 0x158              ; the gap between the two settings buffers (M_FILE_A ends at 0x158, M_FILE_B starts at 0x160)
 .equ PS_SETTING, 0xC0180F10
 .equ M_TM, 0x15C              ; the other word of that gap: the page TAP MOTION, 1 on (the default), 0 off, 2 once
@@ -123,6 +129,15 @@ menu_arm_zero:
     str r0, [r4, #M_NA]
     mov r0, #0x38
     str r0, [r4, #M_BL_ON]
+    sub r0, r4, #0x20
+    mov r1, #0
+    mov r2, #8
+menu_arm_extra:
+    str r1, [r0], #4
+    subs r2, r2, #1
+    bne menu_arm_extra
+    mov r0, #15
+    strb r0, [r4, #MX_INTENS]
     mov r0, #1
     str r0, [r4, #M_ON]
 menu_arm_out:
@@ -213,6 +228,13 @@ menu_load_apply:
     str r2, [r4, #M_NA]
     ldr r12, =NA_SETTING
     str r2, [r12]
+    mov r2, r1, lsr #8          ; bits 8 to 11: 15 - INTENSITY, bits 12 to 15: SAVE LIGHT (0 in an older file: full light, the firmware's dim)
+    and r2, r2, #15
+    rsb r2, r2, #15
+    strb r2, [r4, #MX_INTENS]
+    mov r2, r1, lsr #12
+    and r2, r2, #15
+    strb r2, [r4, #MX_SAVE]
     ldrb r1, [r0, #6]
     str r1, [r4, #M_TRUST_N]
     add r2, r4, #M_TRUST
@@ -370,6 +392,11 @@ menu_settings_save:
     ldr r1, [r4, #M_NA]
     cmp r1, #0
     orreq r0, r0, #16
+    ldrb r1, [r4, #MX_INTENS]
+    rsb r1, r1, #15
+    orr r0, r0, r1, lsl #8
+    ldrb r1, [r4, #MX_SAVE]
+    orr r0, r0, r1, lsl #12
     str r0, [r7, #12]
     ldr r0, [r4, #M_LED_MODE]
     ldr r1, [r4, #M_LED_R]
@@ -497,28 +524,57 @@ look_led_store:
     moveq r0, #15
     moveq r7, #15
     moveq r8, #15
-    mov r3, #0
+    push {r0, r7, r8}           ; the levels of the colour, scaled by INTENSITY for the light and by SAVE LIGHT for power save
+    ldrb r1, [r4, #MX_INTENS]
     add r5, r4, #M_BL_CLR
+    bl look_triple
+    str r12, [r4, #M_BL_ON]
+    str r6, [r4, #M_BL_PWM]
+    ldrb r1, [r4, #MX_SAVE]
+    sub r5, r4, #-MX_SAVE_CLR
+    bl look_triple
+    strb r12, [r4, #MX_SAVE_ON]
+    add sp, sp, #12
+    mov r0, #0
+    str r0, [r4, #M_BL_N]
+    bl menu_backlight_now
+    pop {r4-r8, pc}
+
+; r1 = intensity 0 to 15, r5 = a table of 16 bytes, the three levels of the colour at sp (the caller's push): the levels scaled
+; by the intensity go into the table -> r12 = the pins that light, r6 = 1 when a level needs the PWM. Clobbers r0 to r3.
+look_triple:
+    push {r7, lr}
+    mov r7, r1
+    mov r3, #0
     str r3, [r5]
     str r3, [r5, #4]
     str r3, [r5, #8]
     str r3, [r5, #12]
     mov r12, #0
     mov r6, #0
+    ldr r0, [sp, #8]
+    bl look_scale
     mov r3, #0x08
     bl look_channel
-    mov r0, r7
+    ldr r0, [sp, #12]
+    bl look_scale
     mov r3, #0x10
     bl look_channel
-    mov r0, r8
+    ldr r0, [sp, #16]
+    bl look_scale
     mov r3, #0x20
     bl look_channel
-    str r12, [r4, #M_BL_ON]
-    str r6, [r4, #M_BL_PWM]
-    mov r0, #0
-    str r0, [r4, #M_BL_N]
-    bl menu_backlight_now
-    pop {r4-r8, pc}
+    pop {r7, pc}
+
+; r0 = level 0 to 15, r7 = intensity 0 to 15 -> r0 = level * intensity / 15, rounded. Clobbers r2.
+look_scale:
+    mul r2, r0, r7
+    add r2, r2, #7
+    mov r0, #0x1100
+    orr r0, r0, #0x12
+    mul r0, r2, r0
+    mov r0, r0, lsr #16
+    bx lr
 
 ; r0 = level 0 to 15, r3 = the pin of the channel, r12 = pins that may light, r6 = 1 when a level needs the PWM,
 ; r5 = the table of the pins the PWM clears at tick n
@@ -803,15 +859,27 @@ bl_pwm_hook:
     ldr r3, [r2, #M_ON]
     cmp r3, #1
     bne bl_pwm_pass
-    ldr r3, [r2, #M_BL_PWM]
-    cmp r3, #0
-    beq bl_pwm_pass
     ldr r3, =BL_DIM_FLAG
     ldrb r3, [r3]
     cmp r3, #0
-    bne bl_pwm_pass
-    push {r4, r5, r6, lr}
+    beq bl_pwm_normal
+    ldrb r3, [r2, #MX_SAVE]     ; power save dims: with SAVE LIGHT the light of the colour at that intensity, else the firmware's dim
+    cmp r3, #0
+    beq bl_pwm_pass
+    push {r4, r5, r6, r7, r8, lr}
     mov r5, r2
+    ldrb r6, [r5, #MX_SAVE_ON]
+    sub r7, r5, #-MX_SAVE_CLR
+    b bl_pwm_run
+bl_pwm_normal:
+    ldr r3, [r2, #M_BL_PWM]
+    cmp r3, #0
+    beq bl_pwm_pass
+    push {r4, r5, r6, r7, r8, lr}
+    mov r5, r2
+    ldr r6, [r5, #M_BL_ON]
+    add r7, r5, #M_BL_CLR
+bl_pwm_run:
     ldr r4, [r5, #M_BL_N]
     add r4, r4, #1
     and r4, r4, #15
@@ -819,13 +887,17 @@ bl_pwm_hook:
     cmp r4, #0
     bne bl_pwm_clear
     ldr r0, =GPIO_BASE
+    mov r1, #0
+    mov r2, #3
+    eor r3, r6, #0x38           ; the pins that stay dark (the firmware's dim may have left one on)
+    bl GPIO_WRITE
+    ldr r0, =GPIO_BASE
     mov r1, #1
     mov r2, #3
-    ldr r3, [r5, #M_BL_ON]
+    mov r3, r6
     bl GPIO_WRITE
 bl_pwm_clear:
-    add r3, r5, #M_BL_CLR
-    ldrb r3, [r3, r4]
+    ldrb r3, [r7, r4]
     cmp r3, #0
     beq bl_pwm_done
     ldr r0, =GPIO_BASE
@@ -833,7 +905,7 @@ bl_pwm_clear:
     mov r2, #3
     bl GPIO_WRITE
 bl_pwm_done:
-    pop {r4, r5, r6, lr}
+    pop {r4, r5, r6, r7, r8, pc}   ; the firmware's dim routine would only return (not dimming) or is replaced (SAVE LIGHT)
 bl_pwm_pass:
     push {r4, r5, r6, lr}
     ldr pc, =0xC00289F8
@@ -1060,6 +1132,10 @@ menu_texts_clear:
     beq menu_text_colour
     cmp r0, #25
     beq menu_text_colour
+    cmp r0, #26
+    beq menu_text_intens
+    cmp r0, #27
+    beq menu_text_save
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1218,6 +1294,26 @@ menu_text_look:
     cmp r7, #0
     ldrne r1, =str_stock
     blne menu_copy
+    b menu_text_look_line3
+; INTENSITY (26) and SAVE LIGHT (27, 0 is the firmware's dim: STOCK)
+menu_text_intens:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_intens
+    bl menu_copy
+    ldrb r1, [r5, #MX_INTENS]
+    add r0, r5, #M_VALUE
+    bl menu_dec
+    b menu_text_look_line3
+menu_text_save:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_save
+    bl menu_copy
+    ldrb r1, [r5, #MX_SAVE]
+    add r0, r5, #M_VALUE
+    cmp r1, #0
+    ldreq r1, =str_stock_word
+    bleq menu_copy
+    blne menu_dec
     b menu_text_look_line3
 menu_text_invert:
     ldr r1, =str_invert
@@ -2502,6 +2598,12 @@ menu_slot_value:
     beq menu_value_colour
     cmp r0, #25
     beq menu_value_colour
+    cmp r0, #26
+    moveq r3, #MX_INTENS
+    beq menu_value_byte
+    cmp r0, #27
+    moveq r3, #MX_SAVE
+    beq menu_value_byte
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
@@ -2518,6 +2620,15 @@ menu_slot_value:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
+; INTENSITY and SAVE LIGHT: r3 = the byte's offset from MENU_STATE, 0 to 15, acting at once like the other look pages
+menu_value_byte:
+    ldrb r1, [r6, r3]
+    adds r1, r1, r5
+    movmi r1, #0
+    cmp r1, #15
+    movgt r1, #15
+    strb r1, [r6, r3]
+    b menu_value_look_done
 ; PAD COLOR and SELECT COLOR: the dial steps the colour in the patch, which skips the other page's and sends the pads; WRITE keeps it.
 menu_value_colour:
     mov r2, r5
@@ -2911,6 +3022,12 @@ str_tab_custom:
     .asciz "Custom"
 str_tab_features:
     .asciz "Feature"
+str_intens:
+    .asciz "INTENSITY"
+str_save:
+    .asciz "SAVE LIGHT"
+str_stock_word:
+    .asciz "STOCK"
 str_tab_display:
     .asciz "Display"
 str_tab_led:
@@ -3022,11 +3139,11 @@ custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD C
     .byte 16, 16, 16, 22, 23
 .align 4
 sub_kinds:                      ; the kinds of the pages of DISPLAY, LED and PAD COLOR, 8 a group (device 18.10.)
-    .byte 11, 12, 13, 14, 0, 0, 0, 0    ; DISPLAY: backlight red, green, blue, display invert
+    .byte 11, 12, 13, 26, 27, 14, 0, 0  ; DISPLAY: backlight red, green, blue, INTENSITY, SAVE LIGHT, display invert
     .byte 7, 8, 9, 10, 0, 0, 0, 0       ; LED: bottom LEDs, LED red, green, blue
     .byte 24, 25, 0, 0, 0, 0, 0, 0      ; PAD COLOR: pad colour, select colour
 sub_counts:
-    .byte 4, 4, 2, 0
+    .byte 6, 4, 2, 0
 .align 4
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue

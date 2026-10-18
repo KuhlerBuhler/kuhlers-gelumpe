@@ -435,7 +435,7 @@ def cases(payload, flash=None, settings=True):
 
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(3)]
-    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(4)] + [(GROUP_LED, page) for page in range(4)]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(6)] + [(GROUP_LED, page) for page in range(4)]
     pages += [(GROUP_FEATURES, page) for page in range(len(FEATURE_PAGES))]
     crowded = []
     for group, page in pages:
@@ -698,7 +698,7 @@ def goto_page(dev, number):
     elif number <= PAGE_BL_B:
         goto_group(dev, GROUP_DISPLAY, number - PAGE_BL_R)
     else:
-        goto_group(dev, GROUP_DISPLAY, 3)
+        goto_group(dev, GROUP_DISPLAY, 5)
 
 
 def shown_levels(dev, at):
@@ -819,7 +819,7 @@ def look_cases(payload, flash=None):
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
     add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
-        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 4), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 4)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 6), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 4)]
         and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
         f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
@@ -893,6 +893,29 @@ def look_cases(payload, flash=None):
     add("backlight_power_save_stays", abs(dimmed[0]["R"] - 0.037) < 0.02 and abs(dimmed[0]["G"] - 0.037) < 0.02 and dimmed[0]["B"] == 0 and not mix.m.asserts, f"{dimmed}")
     add("backlight_back_from_power_save", near(resumed[0], {"R": 0, "G": 0, "B": 12 / 16}), f"{resumed}")
     add("backlight_zero_is_stock_white", stock[0] == {"R": 1.0, "G": 1.0, "B": 1.0} and stock[1] == 0 and state(mix, S_BL_PWM) == 0, f"{stock}")
+    # INTENSITY scales every level and keeps the mix; SAVE LIGHT gives power save the colour at its own intensity (device 18.10.)
+    set_look(mix, backlight=(0, 0, 12))
+    goto_group(mix, GROUP_DISPLAY, 3)
+    page = texts_of(mix)
+    mix.turn(-7, wait=0.3)
+    mix.run(0.3)
+    scaled = duty(mix, 1.0)[0], texts_of(mix)[1]
+    goto_group(mix, GROUP_DISPLAY, 4)
+    save_page = texts_of(mix)
+    mix.turn(4, wait=0.3)
+    mix.call(POWER_CONNECT, 1)
+    mix.run(0.3)
+    saved = duty(mix, 1.0)[0]
+    mix.call(POWER_CONNECT, 0)
+    mix.run(0.3)
+    after = duty(mix, 1.0)[0]
+    add("backlight_intensity", page == ("INTENSITY", "15", "") and scaled[1] == "8" and near(scaled[0], {"R": 0, "G": 0, "B": 6 / 16}), f"page {page}, at 8 {scaled}")
+    add("backlight_save_light", save_page == ("SAVE LIGHT", "STOCK", "") and near(saved, {"R": 0, "G": 0, "B": 3 / 16}) and near(after, {"R": 0, "G": 0, "B": 6 / 16})
+        and not mix.m.asserts, f"page {save_page}, power save at 4 {saved}, back {after}")
+    mix.turn(-4, wait=0.3)
+    goto_group(mix, GROUP_DISPLAY, 3)
+    mix.turn(7, wait=0.3)
+    set_look(mix, backlight=(0, 0, 0))
 
     # WRITE keeps everything in the file, the next start reads it
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
@@ -1109,7 +1132,7 @@ def invert_cases(payload, flash=None):
     dev.run(0.5)
     main_on = dev.screen()["number"], status(dev), flipped(dev)
     import splash_editor
-    add("page", page == (("DISPLAY INVERT", "OFF", ""), (3, 4), "Display"), f"{page}")
+    add("page", page == (("DISPLAY INVERT", "OFF", ""), (5, 6), "Display"), f"{page}")
     add("on_swaps_the_display", on == (("DISPLAY INVERT", "ON", ""), (1, True, 1), True) and menu_screen and still == (1, True, 1),
         f"{on}, dial again {still}")
     add("main_screen_inverted", main_on == (1, (1, True, 1), True) and not dev.m.asserts, f"{main_on}")
