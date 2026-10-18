@@ -1744,7 +1744,7 @@ menu_confirm_add:
 ; Data Util ("press [ Enter ]"); ENTER opens level 1, the list of the groups FEATURES, CUSTOMIZATION and PLUGINS, and behind them the
 ; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it. Each is again
 ; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
-; 4 FEATURES). FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
+; 4 FEATURES, 5 COLORS). COLORS is a row of CUSTOMIZATION that opens the six colour pages; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
 ; main dial changes them, WRITE keeps them). EXIT goes one level up. M_PAGE counts within the level, the counter shows only that
 ; level. Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, after Event, on which Blechy, the app built into
 ; BLECH, shows himself (the frame hook opens and closes him by this level).
@@ -1796,18 +1796,17 @@ menu_kind_group:
     beq menu_kind_plugins
     cmp r3, #4
     beq menu_kind_features
+    cmp r3, #5
+    addeq r0, r5, #8            ; COLORS: LED red, green, blue, backlight red, green, blue (8 to 13)
+    moveq r1, #0
+    beq menu_kind_done
     cmp r3, #3
     bne menu_kind_apps
-    add r0, r5, #7
-    cmp r5, #8
-    moveq r0, #24
-    cmp r5, #9
-    moveq r0, #25
-    cmp r5, #10
-    moveq r0, #22
-    cmp r5, #11
-    moveq r0, #23
-    mov r1, #0
+    ldr r1, =custom_kinds
+    ldrb r0, [r1, r5]
+    cmp r0, #16
+    moveq r1, #5
+    movne r1, #0
     b menu_kind_done
 menu_kind_features:
     mov r0, #21
@@ -1883,7 +1882,7 @@ menu_count_group:
     beq menu_count_plugins
     cmp r1, #3
     bne menu_count_features
-    mov r0, #8
+    mov r0, #3
     ldr r1, =PC_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -1895,6 +1894,9 @@ menu_count_group:
     addne r0, r0, #2            ; SPLASH IMPORT and SPLASH DRAW, where the build has the splash editor
     b menu_count_out
 menu_count_features:
+    cmp r1, #5
+    moveq r0, #6
+    beq menu_count_out
     cmp r1, #3
     movhi r0, #4
     bhi menu_count_out
@@ -1970,10 +1972,13 @@ menu_go_in:
     str r3, [r2, #M_LEVEL]
     b menu_go_common
 menu_go_group:
+    cmp r3, #2                  ; COLORS inside CUSTOMIZATION: only the group changes, M_TOP keeps the list's page
+    beq menu_go_sub
     ldr r3, [r2, #M_PAGE]
     str r3, [r2, #M_TOP]
     mov r3, #2
     str r3, [r2, #M_LEVEL]
+menu_go_sub:
     str r0, [r2, #M_GROUP]
 menu_go_common:
     mov r3, #0
@@ -2830,6 +2835,9 @@ menu_slot_exit:
     mov r4, r0
     cmp r3, #2
     bne menu_exit_up
+    ldr r12, [r2, #M_GROUP]
+    cmp r12, #5
+    beq menu_exit_colors
     ldr r12, [r2, #M_LISTED]
     cmp r12, #0
     beq menu_exit_up
@@ -2851,6 +2859,13 @@ menu_exit_show:
     mov r0, r4
     bl menu_show
     pop {r1, r2, r4, pc}
+menu_exit_colors:                ; out of COLORS: back to its row in CUSTOMIZATION
+    mov r12, #3
+    str r12, [r2, #M_GROUP]
+    mov r12, #1
+    str r12, [r2, #M_PAGE]
+    str r12, [r2, #M_ENTER]
+    b menu_exit_show
 menu_exit_stock_pop:
     pop {r1, r2, r4, lr}
 menu_exit_stock:
@@ -2885,12 +2900,12 @@ str_tab_custom:
     .asciz "Custom"
 str_tab_features:
     .asciz "Feature"
+str_tab_colors:
+    .asciz "Colors"
+str_colors:
+    .asciz "COLORS"
 str_press:
     .asciz "press  [ Enter ]"
-str_arrow:
-    .asciz " > "
-str_arrow_end:
-    .asciz " >"
 str_runtime:
     .asciz "RUNTIME"
 str_enter:
@@ -2901,10 +2916,6 @@ str_no_files:
     .asciz "no files"
 str_import:
     .asciz "IMPORT PLUGIN"
-str_import_hint:
-    .asciz "WRITE to import"
-str_no_blech:
-    .asciz "no .blech files"
 str_imported:
     .asciz "imported"
 str_runtime_off:
@@ -2917,8 +2928,6 @@ str_duplicate:
     .asciz "already loaded"
 str_pool_full:
     .asciz "memory full"
-str_ask:
-    .asciz "ASK"
 str_allow:
     .asciz "WRITE=ALLOW"
 str_fault:
@@ -2939,10 +2948,6 @@ str_nofolder:
     .asciz "folder missing"
 str_export:
     .asciz "EXPORT ALL"
-str_write:
-    .asciz "WRITE"
-str_exportfile:
-    .asciz "to e2sPlugin.all"
 str_exported:
     .asciz " exported"
 str_nothing:
@@ -2961,10 +2966,6 @@ str_custom:
     .asciz "CUSTOMIZATION"
 str_features:
     .asciz "FEATURES"
-str_custom_value:
-    .asciz "LEDS, LIGHT"
-str_custom_hint:
-    .asciz "WRITE to save"
 str_led_red:
     .asciz "LED RED"
 str_led_green:
@@ -2997,9 +2998,12 @@ str_na:
     .asciz "NOTE ASSIST"
 .align 4
 tab_names:
-    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features
+    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_colors
 group_names:
-    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features
+    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features, str_colors
+custom_kinds:                   ; the kinds of the pages of CUSTOMIZATION: BOTTOM LEDS, COLORS (a group), DISPLAY INVERT, PAD COLOR,
+    .byte 7, 16, 14, 24, 25, 22, 23 ; SELECT COLOR, SPLASH IMPORT, SPLASH DRAW
+.align 4
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
 str_once:

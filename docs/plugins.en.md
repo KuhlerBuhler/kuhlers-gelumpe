@@ -523,7 +523,7 @@ customization, then the plugins, last the groups that plugins register themselve
 | Entry | What is behind it |
 |---|---|
 | FEATURES | four pages with the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (table below) |
-| CUSTOMIZATION | eight pages, see below |
+| CUSTOMIZATION | BOTTOM LEDS, COLORS, DISPLAY INVERT, then PAD COLOR, SELECT COLOR and the splash pages where the set has them; see below |
 | PLUGINS | a group, see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
 | TOOLS | like GAMES |
@@ -550,8 +550,9 @@ The pages of the groups:
 | PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then a file name | ENTER shows the first `*.blech` in `KORG/blechtribe/Plugin/` (shown up to 14 characters), the main dial or EDIT pages through the files, ENTER or WRITE loads and starts the one shown at once, EXIT goes back to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards) and hidden or system files are not listed |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the firmware's level meter, COLOR a fixed colour, OFF dark; applies at once |
-| CUSTOMIZATION, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs, for METER and COLOR; 0 0 0 means the firmware's colours ("0 stock"); with METER the level sets the brightness of this colour; applies at once |
-| CUSTOMIZATION, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 0 0 0 means the firmware's white; applies at once |
+| CUSTOMIZATION, COLORS | ENTER | opens the six colour pages below it; EXIT goes back to COLORS |
+| COLORS, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs, for METER and COLOR; 0 0 0 means the firmware's colours ("0 stock"); with METER the level sets the brightness of this colour; applies at once |
+| COLORS, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 0 0 0 means the firmware's white; applies at once |
 | CUSTOMIZATION, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; OFF is the default |
 | CUSTOMIZATION, PAD COLOR | RED, BLUE, PINK | the colour the pads use for what the firmware shows in red (a part plays, a pad is held, a step); applies at once, WRITE keeps it; RED is the default. Only where the set has the patch pad-colors |
 | CUSTOMIZATION, SELECT COLOR | RED, BLUE, PINK | the colour of the selected part, never the one of PAD COLOR; when both light, the pad shows the third colour; BLUE is the default |
