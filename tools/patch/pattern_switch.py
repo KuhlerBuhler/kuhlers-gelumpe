@@ -561,7 +561,9 @@ lb_next:
 ; The function is an observer called through a member pointer, often and from other tasks: the hook only reads its own word
 ; (S_STOPPED is 1 only after the wheel found the patch on) and touches nothing but r12, which a callee may use.
 sync_hook:
-    ldr r12, =STATE
+    mov r12, #(STATE & 0xFF000000)  ; STATE built without a literal, so the start phase reads nothing outside this code
+    orr r12, r12, #(STATE & 0x00FF0000)
+    orr r12, r12, #(STATE & 0x0000FF00)
     ldr r12, [r12, #S_STOPPED]
     cmp r12, #1
     bxeq lr
