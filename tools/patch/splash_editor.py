@@ -1,7 +1,8 @@
 """Builds the splash editor patch (docs/ideen.md idea 35) for firmware 2.02 with Hacktribe.
 
-The patch adds a page SPLASH SCREEN to the Global menu: page 20, after
-XY CALIBRATION. MENU opens an editor for the 128 x 64 start image, the main
+The patch adds a page SPLASH SCREEN to the Global screen, index 20, behind
+XY CALIBRATION, which EDIT does not reach: only the BLECH menu's SPLASH DRAW opens
+it, with the editor (device 18.10.: the page was there twice). MENU opens an editor for the 128 x 64 start image, the main
 dial moves a blinking cursor (left and right, with SHIFT held up and down), MENU
 flips the pixel under it and, held, paints that colour wherever the cursor goes,
 WRITE stores the image in flash and EXIT leaves. At start the stored image is drawn, or the
@@ -64,9 +65,6 @@ ORIG_VTABLE = 0xC00E33F8        # class of Global screen 9
 VTABLE_LITERAL = 0xC0064D3C     # the one literal the constructor loads that vtable from
 START_CALL = 0xC002ADAC         # bl 0xC002A248, after the rescue paths
 SPLASH_CALL = 0xC002AC38        # bl 0xC003F650 drawing image 13, before them
-PAGE_SHOWN_1 = 0xC0064980       # mov r2, #0x14: the "/20" of the page display
-PAGE_SHOWN_2 = 0xC0064D04
-PAGES_SHOWN = (PAGE_SHOWN_1, PAGE_SHOWN_2)
 SLOTS = {"dtor": 0, "dtor_free": 1, "exit": 2, "keys": 3, "edit_prev": 4, "edit_next": 5, "menu": 6, "value": 10}
 
 FLASH_RECORD = 0x7F0000         # a 4 KiB sector no known writer touches
@@ -364,8 +362,6 @@ slot_edit_prev:
     cmp r3, #1
     bxeq lr
     ldr r3, [r0, #0x2C]
-    cmp r3, #0
-    beq show_page
     cmp r3, #{PAGE}
     bne orig4
     mov r3, #{PAGE - 1}
@@ -378,9 +374,6 @@ slot_edit_next:
     ldr r3, [r3, #S_MODE]
     cmp r3, #1
     bxeq lr
-    ldr r3, [r0, #0x2C]
-    cmp r3, #{PAGE - 1}
-    beq show_page
     b orig5
 
 slot_menu:
@@ -423,8 +416,8 @@ show_page:
     ldr r1, =0xC00A65D1
     bl 0xC0085888
     ldr r0, [r4, #0x28]
-    mov r1, #{PAGE}
-    mov r2, #{PAGE + 1}
+    mov r1, #{PAGE - 1}
+    mov r2, #{PAGE}
     bl 0xC008A8A8
     ldr r0, [r4, #0x24]
     ldr r1, =title
@@ -981,16 +974,15 @@ def source():
     return synthaddr.source(text, own=OWN_AREAS) if synth else text
 
 
-FIRMWARE_PLACES = ["ORIG_VTABLE", "VTABLE_LITERAL", "START_CALL", "SPLASH_CALL", "PAGE_SHOWN_1", "PAGE_SHOWN_2", "TICK_HOOK"]
+FIRMWARE_PLACES = ["ORIG_VTABLE", "VTABLE_LITERAL", "START_CALL", "SPLASH_CALL", "TICK_HOOK"]
 
 
 def use_build(build):
     """For the synth the firmware's places have their own addresses (data/synth-map/); our code, data and state stay where they are."""
-    global BUILD, PAGES_SHOWN
+    global BUILD
     target = "synth" if build == "synth" else "hacktribe"
     synthaddr.use(globals(), FIRMWARE_PLACES, target)
     BUILD = target
-    PAGES_SHOWN = (PAGE_SHOWN_1, PAGE_SHOWN_2)
 
 
 def build_code():
@@ -1073,11 +1065,8 @@ def build_patch(vsb, build="hacktribe"):
         {"file": file_offset(TICK_HOOK), "bytes": branch(TICK_HOOK, symbols["splash_tick"]).hex(), "expect": sha(was(TICK_HOOK, 4)),
          "note": "the screen manager's tick looks whether the BLECH menu asked for the editor"},
     ]
-    for at in PAGES_SHOWN:
-        changes.append({"file": file_offset(at), "bytes": struct.pack("<I", 0xE3A02015).hex(), "expect": sha(was(at, 4)),
-                        "note": "page display shows /21"})
     return {
-        "format": "gelumpe-patch", "version": 1, "id": "splash-editor", "name": "Startbild-Editor (Global, Seite 20)",
+        "format": "gelumpe-patch", "version": 1, "id": "splash-editor", "name": "Startbild-Editor (aus dem BLECH-Menü, SPLASH DRAW)",
         "builds": ["synth"] if build == "synth" else ["hacktribe", "stock"],
         "changes": changes,
         "hooks": [
@@ -1085,7 +1074,6 @@ def build_patch(vsb, build="hacktribe"):
             hook(SPLASH_CALL, "call", "start-image", "replace", True, "the early start image call is dropped"),
             hook(TICK_HOOK, "instruction", "frame", "before", False, "opens the editor on the Global screen the BLECH menu asked for"),
             hook(VTABLE_LITERAL, "literal", "global-screen", "replace", True, "the Global screen's class is the copy with our slots"),
-            *[hook(at, "instruction", "global-screen", "replace", False, "page display shows /21") for at in PAGES_SHOWN],
         ],
         "startPhase": [
             {"file": file_offset(START_CALL), "length": 4, "why": "the call after the rescue paths now runs splash_start"},

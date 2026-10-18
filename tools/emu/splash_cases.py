@@ -380,7 +380,7 @@ def editor_run(base, patched, flash=None, png_dir=None):
     for page in range(20):
         a, b = dev.fb(), stock.fb()
         pages.append(page)
-        # the header band (display rows 0 to 9, page counter n/20 against n/21) is the one thing that differs
+        # below the header band (display rows 0 to 9, the battery redraws itself there)
         if not (dev.screen()["page"] == stock.screen()["page"] == page and region_equal(a, b, range(16, 64))):
             same = False
             step(f"page index {page} equals stock", False, f"page {dev.screen()['page']} / {stock.screen()['page']}")
@@ -413,33 +413,28 @@ def editor_run(base, patched, flash=None, png_dir=None):
     page19 = dev.fb()
     evidence["page19"] = dev.ascii()
 
-    # page 20
+    # Global ends with XY CALIBRATION as in the stock firmware: EDIT never reaches index 20 (device 18.10.: the page was there twice)
     dev.press("edit_next", 0.4)
+    stock.press("edit_next", 0.4)
+    step("Edit right on XY CALIBRATION goes on as in the stock firmware, index 20 is not in the ring",
+         dev.screen()["page"] == stock.screen()["page"] != spec.PAGE and region_equal(dev.fb(), stock.fb(), range(0, 64)),
+         f"{dev.screen()} / {stock.screen()}")
+    dev.press("edit_prev", 0.4)
+    stock.press("edit_prev", 0.4)
+    step("Edit left back goes as in the stock firmware", dev.screen()["page"] == stock.screen()["page"] == 19)
+
+    # the BLECH menu's SPLASH DRAW: Global, index 20, the editor open
+    dev.call(spec.DRAW_ENTRY)
+    dev.run(0.8)
     s = dev.screen()
-    page20 = dev.fb()
-    evidence["page20"] = dev.ascii()
-    step("Edit right on XY CALIBRATION (index 19) opens index 20, shown 21/21", s["number"] == 9 and s["page"] == spec.PAGE and dev.u32(PAGE_BYTE) == 19, f"{s}, page byte {dev.u32(PAGE_BYTE)}")
-    title_rows = range(16, 30)
-    step("title differs from XY CALIBRATION, the enter prompt below is the same",
-         not region_equal(page19, page20, title_rows) and region_equal(page19, page20, range(33, 64)))
     widget = dev.read(dev.u32(dev.u32(dev.u32(SCREENS) + 0x20) + 0x24), 0x100)
-    step("the title widget holds SPLASH SCREEN and the enter prompt", b"SPLASH SCREEN\0" in widget and b"[ Enter ]" in widget)
-    dev.turn(1, 0.3)
-    step("VALUE on index 20 does nothing", dev.fb() == page20 and dev.u32(PAGE_BYTE) == 19)
-    dev.press("edit_prev", 0.4)
-    step("Edit left on index 20 goes back to index 19", dev.screen()["page"] == 19 and dev.fb()[512:] == page19[512:])
-    dev.press("edit_next", 0.4)
-    dev.press("edit_next", 0.4)
-    step("Edit right on index 20 wraps to index 0", dev.screen()["page"] == 0 and dev.u32(PAGE_BYTE) == 0)
-    dev.press("edit_prev", 0.4)
-    step("Edit left on index 0 goes to index 20", dev.screen()["page"] == spec.PAGE and dev.u32(PAGE_BYTE) == 19)
+    step("SPLASH DRAW opens Global on index 20 with the editor", s["number"] == 9 and s["page"] == spec.PAGE and dev.state()["mode"] == 1
+         and dev.u32(PAGE_BYTE) == 19 and b"SPLASH SCREEN\0" in widget, f"{s}, editor mode {dev.state()['mode']}, page byte {dev.u32(PAGE_BYTE)}")
 
     # the editor
-    st = dev.state()
-    dev.press("menu", 0.3)
     editor_start = dev.fb()
     st = dev.state()
-    step("MENU opens the editor", st["mode"] == 1 and st["cursor"] == 0, f"{st}")
+    step("the editor starts on pixel 0", st["mode"] == 1 and st["cursor"] == 0, f"{st}")
     differing = [i for i in range(1024) if editor_start[i] != display_of(vsb)[i]]
     step("the display shows the start image", differing in ([], [0]), f"bytes that differ: {differing}")
     seen = set()
@@ -544,24 +539,23 @@ def editor_run(base, patched, flash=None, png_dir=None):
     # leave
     dev.press("exit", 0.6)
     step("EXIT leaves the editor to index 20", dev.state()["mode"] == 0 and dev.screen()["page"] == spec.PAGE and dev.screen()["number"] == 9)
-    left = dev.fb()
-    step("index 20 is drawn again as before", all(left[i] == page20[i] for i in range(1024) if not (84 <= i % 128 < 98 and i < 128)))
     evidence["page20_after_exit"] = dev.ascii()
+    dev.turn(1, 0.3)
+    step("VALUE on index 20 does nothing", dev.screen()["page"] == spec.PAGE and dev.u32(PAGE_BYTE) == 19)
     dev.press("exit", 0.6)
     step("EXIT on index 20 leaves the Global screen", dev.screen()["number"] == 8 and not dev.m.asserts)
     dev.press("menu", 0.5)
     step("Global opens on index 19 again, the page byte never held 20", dev.screen()["number"] == 9 and dev.screen()["page"] == 19 and dev.u32(PAGE_BYTE) == 19)
-    dev.press("edit_next", 0.4)
-    dev.press("menu", 0.4)
+    dev.call(spec.DRAW_ENTRY)
+    dev.run(0.8)
     step("the editor opens again", dev.state()["mode"] == 1)
     dev.press("sequencer", 0.3)
     step("other buttons do nothing in the editor, as in the stock Global screen", dev.state()["mode"] == 1 and dev.screen()["number"] == 9)
     dev.call(SWITCH_SCREEN, 1, 0)           # what the firmware does when something takes the screen away
     dev.run(0.6)
     step("a screen change from inside the editor resets it", dev.screen()["number"] == 1 and dev.state()["mode"] == 0 and dev.state()["pushed"] == 0 and not dev.m.asserts, f"{dev.screen()} {dev.state()}")
-    go_to_global(dev)                       # opens on index 19, where the page byte stayed
-    dev.press("edit_next", 0.4)
-    dev.press("menu", 0.4)
+    dev.call(spec.DRAW_ENTRY)
+    dev.run(0.8)
     step("after that the editor still works", dev.state()["mode"] == 1 and dev.state()["cursor"] == 0 and not dev.m.asserts)
 
     # restart with the stored image
