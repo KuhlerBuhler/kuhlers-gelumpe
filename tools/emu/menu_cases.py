@@ -1055,7 +1055,9 @@ def pad_colour_cases(payload, flash=None):
     before, during, after = dimmed(plain)
     lit = {led: v for led, v in before.items() if v and not 0x4C <= led <= 0x57}   # the bottom RGB LEDs: power save switches them off itself
     quarter = {led: during.get(led, 0) for led in lit}
-    add("power_save_dims_every_led", lit and all(quarter[led] == (v + 3) >> 2 for led, v in lit.items()) and {led: after.get(led, 0) for led in lit} == lit
+    # the knob LEDs 0 to 4 go out, every other one is at a quarter (device 18.10.)
+    add("power_save_dims_every_led", lit and any(led <= 4 for led in lit) and all(quarter[led] == (0 if led <= 4 else (v + 3) >> 2) for led, v in lit.items())
+        and {led: after.get(led, 0) for led in lit} == lit
         and not plain.m.asserts, f"lit before {lit}, while dimmed {quarter}, after {({led: after.get(led, 0) for led in lit})}")
     before, during, after = dimmed(again)
     add("power_save_with_colours", pad(again, 0) == (255, 0) and (during.get(0x2C, 0), during.get(0x2D, 0)) == (64, 0) and not again.m.asserts,

@@ -75,6 +75,7 @@ def sha(data):
 
 
 SOURCE = """
+.equ KNOB_LAST, 4             ; LEDs 0 to 4: the five knob LEDs (docs/messungen/2026-10-13-led-inventur.md)
 .equ PANEL, 0xC033E6F8          ; pointer to the panel object, +0x18 the keys held at power-on
 .equ SENDER, @SENDER@
 .equ MSG_AT, 0xB4C              ; manager + 0xB4C: the message {LED, flag, brightness}; + 0xB54 the sender object
@@ -348,7 +349,10 @@ pt_dim_only:
     cmp r9, #0
     beq pt_stock
     ldrb r2, [r5, #2]
-    bl pc_quarter
+    ldrb r0, [r5]
+    cmp r0, #KNOB_LAST          ; the LEDs of the knobs (VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE, IFX TYPE) go out (device 18.10.)
+    movls r2, #0
+    blhi pc_quarter
     strb r2, [r5, #2]
     b pt_stock
 pt_colours:
