@@ -16,6 +16,8 @@ Messungen: [CPU-Last und Laden im Emulator](../messungen/2026-10-18-cpu-last-und
 | Daten kommen per Interrupt alle 64 Byte, jeder Interrupt weckt eine Task, kein DMA | gemessen ([virtuelle SD](../hintergrund/virtuelle-sd.md)) |
 | Wie lange das Gerät für eine volle `e2sSample.all` braucht und wo die Zeit am Gerät hängt | **offen**: der Emulator gibt der Karte ein festes Raster (ein Interrupt je 100 µs), seine Ladezeit sagt über das Gerät nichts |
 | Wie viel Strom Licht, LEDs, DSP und CPU am Gerät ziehen | **offen**: braucht ein Messgerät in der Stromzuleitung |
+| Beim Laden schickt die Firmware 176-mal ans Display (3,8 s Emulatorzeit, 1,9 MB) | gemessen im Emulator; ob das am Gerät bremst, zeigt erst der Vergleich 12,5 gegen 25 MHz |
+| Die Pad-LEDs kennen Helligkeitsstufen | am Gerät gesehen (Pulsieren, 18.10.) |
 | Power Save der Firmware: dimmt das Licht (2 von 18 Takten) und schaltet die untere LED-Leiste ab | gemessen ([Anpassung](../messungen/2026-10-14-blech-anpassung.md)) |
 
 ## Optionen
@@ -26,7 +28,7 @@ Messungen: [CPU-Last und Laden im Emulator](../messungen/2026-10-18-cpu-last-und
 | **Display beim Laden seltener zeichnen** | halbiert die ARM-Arbeit je Byte (gemessen), hilft nur, wenn die CPU der Engpass ist (offen) | mittel | klein |
 | **DMA statt Interrupt je 64 Byte** | weniger Task-Wechsel, CPU frei | groß: Treiber der Firmware umbauen | hoch |
 | **Pattern-Import: nur geänderte Flash-Sektoren schreiben** | schneller, wenn ein Satz größtenteils gleich ist; schont den Flash | mittel | mittel: Flash-Schreibweg der Firmware |
-| **Energiesparen: Pad- und Tasten-LEDs dimmen** (Helligkeit je LED gibt es im LED-Manager, `+0x4E + 8 * LED`) | offen, bis gemessen | klein bis mittel | klein |
+| **Energiesparen: Pad- und Tasten-LEDs dimmen** | offen, bis gemessen | gebaut für die rote Electribe: im Power Save ein Viertel ([Messung](../messungen/2026-10-18-energiesparen-leds.md)) | klein |
 | **Licht nach einer Zeit ohne Bedienung ganz aus** (wie ein Bildschirmschoner) | offen, bis gemessen | mittel: eine Zeit seit der letzten Taste führen | klein |
 | **CPU-Takt senken** | klein: der ARM schläft schon fast immer | groß | hoch: DSP und Audio hängen am selben PLL |
 

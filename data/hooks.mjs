@@ -75,6 +75,7 @@ export const CHAINS = {
   "menu-counter": [{ id: "page-counter", sites: [0xC008A83C, 0xC008A8A8] }],
   "led-meter": [{ id: "meter-update", sites: [0xC0088284] }],
   "backlight": [
+    { id: "power-save-switch", sites: [0xC0028AB4] },
     { id: "pin-setters", sites: [0xC0016C98, 0xC0016CE0, 0xC0016D28] },
     { id: "dim-irq", sites: [0xC00289F4] },
   ],

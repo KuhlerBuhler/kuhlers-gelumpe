@@ -74,12 +74,13 @@ def card_image():
 
 
 class DBox:
-    """A booted device (3 s) with a mounted card unless asked otherwise, and the helpers of these cases. The pattern is four bars long."""
+    """A booted device (3 s) with a mounted card unless asked otherwise, and the helpers of these cases. The pattern is four bars long.
+    On mains power: on battery power save dims every LED to a quarter (pad-colors, menu_cases checks it)."""
 
     def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0):
         self.payload = bytes(payload)
         for_build(self.payload)
-        self.dev = Dev(self.payload, flash, held)
+        self.dev = Dev(self.payload, flash, held, adapter=True)
         self.m = self.dev.m
         if card:
             self.m.insert_card(SDCard(MemoryMedium(card_image())))

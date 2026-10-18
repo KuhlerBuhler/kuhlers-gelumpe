@@ -91,9 +91,11 @@ def user_flash(machine):
 
 
 class Dev:
-    def __init__(self, payload, flash=None, held=0, machine=None):
+    def __init__(self, payload, flash=None, held=0, machine=None, adapter=False):
         self.m = machine or Machine(bytes(payload), flash)
         self.m.held = held
+        if adapter:
+            self.m.adapter = True      # on mains power; on battery the firmware's power save dims (and pad-colors every LED with it)
         self.synth = self.m.profile.build == "synth"
 
     def a(self, addr):

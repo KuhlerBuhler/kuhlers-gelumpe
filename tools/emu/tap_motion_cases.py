@@ -67,20 +67,21 @@ def entry(name, ok, detail):
 
 
 class TBox(Box):
-    """A booted device (card mounted unless asked otherwise) with the helpers of these cases."""
+    """A booted device (card mounted unless asked otherwise) with the helpers of these cases. On mains power: on battery power save
+    dims every LED to a quarter (pad-colors, menu_cases checks it), and these cases look at the TAP LED's own value."""
 
     def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0):
         if synthaddr.is_synth(payload):
             # Box looks at the Sampler's pattern bank and global block (RAM places the synth does not have): do what it does without them
             self.payload = bytes(payload)
-            self.dev = Dev(self.payload, flash, held)
+            self.dev = Dev(self.payload, flash, held, adapter=True)
             self.m = self.dev.m
             if card:
                 self.m.insert_card(SDCard(MemoryMedium(card_image())))
             self.dev.run(seconds)
             self.marks = {}
         else:
-            super().__init__(payload, flash, held, card, seconds)
+            super().__init__(payload, flash, held, card, seconds, adapter=True)
         # The cases record and read steps 16 to 31, which need a pattern of four bars. The flash dump has them; an empty flash holds
         # Init patterns of one bar, where the steps stop at 15. The length (block offset 37, the bars minus one) is read at PLAY.
         length = self.pat() + 4 + 37

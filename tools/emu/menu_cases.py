@@ -976,6 +976,30 @@ def pad_colour_cases(payload, flash=None):
     held.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
     held.run(2.0)
     add("exit_held_is_stock", pad(held, 0) == (0, 255) and not held.m.asserts, f"pad 1 {pad(held, 0)}")
+
+    # power save: while the firmware dims (its switch 0xC0028AB4 with 1), every LED goes out at a quarter, at once; back with 0
+    def dimmed(d):
+        before = dict(d.m.leds)
+        d.call(PC.DIM_SWITCH, 1)
+        d.run(0.3)
+        during = dict(d.m.leds)
+        d.call(PC.DIM_SWITCH, 0)
+        d.run(0.3)
+        return before, during, dict(d.m.leds)
+    plain = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    before, during, after = dimmed(plain)
+    lit = {led: v for led, v in before.items() if v and not 0x4C <= led <= 0x57}   # the bottom RGB LEDs: power save switches them off itself
+    quarter = {led: during.get(led, 0) for led in lit}
+    add("power_save_dims_every_led", lit and all(quarter[led] == (v + 3) >> 2 for led, v in lit.items()) and {led: after.get(led, 0) for led in lit} == lit
+        and not plain.m.asserts, f"lit before {lit}, while dimmed {quarter}, after {({led: after.get(led, 0) for led in lit})}")
+    before, during, after = dimmed(again)
+    add("power_save_with_colours", pad(again, 0) == (255, 0) and (during.get(0x2C, 0), during.get(0x2D, 0)) == (64, 0) and not again.m.asserts,
+        f"pad 1 in RED while dimmed {(during.get(0x2C, 0), during.get(0x2D, 0))}, after {pad(again, 0)}")
+    battery = boot(payload, flash, files=CARD_FOLDER)
+    add("power_save_on_battery_from_the_start", pad(battery, 0) == (0, 64) and battery.m.leds.get(0x14, 0) in (0, 64) and not battery.m.asserts,
+        f"on battery (power save Auto dims from power-on): pad 1 {pad(battery, 0)}, TAP LED {battery.m.leds.get(0x14, 0)}")
+    before, during, after = dimmed(held)
+    add("power_save_exit_held_is_stock", during.get(0x2D, 0) == 255 and not held.m.asserts, f"EXIT held: pad 1 blue while dimmed {during.get(0x2D, 0)}")
     return out
 
 

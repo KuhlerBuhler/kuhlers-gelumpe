@@ -61,10 +61,10 @@ def card_image():
 class Box:
     """A booted device (3 s) with a mounted card, or without one."""
 
-    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0):
+    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0, adapter=False):
         self.payload = bytes(payload)
         for_build(self.payload)
-        self.dev = Dev(self.payload, flash, held)
+        self.dev = Dev(self.payload, flash, held, adapter=adapter)
         self.m = self.dev.m
         if card:
             self.m.insert_card(SDCard(MemoryMedium(card_image())))

@@ -67,17 +67,18 @@ def entry(name, ok, detail):
 
 
 class NBox(Box):
-    """A booted device (card mounted unless asked otherwise) with the helpers of these cases."""
+    """A booted device (card mounted unless asked otherwise) with the helpers of these cases. On mains power: on battery power save
+    dims every LED to a quarter (pad-colors, menu_cases checks it), and these cases look at the pads' own values."""
 
     def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0):
         for_build(payload)
         if not synthaddr.is_synth(payload):
-            super().__init__(payload, flash, held, card, seconds)
+            super().__init__(payload, flash, held, card, seconds, adapter=True)
             return
         # the synth: no sample bank and no flash dump of its own (the dump is the Sampler's). Box's tweaks of the pattern length and chain mode
         # write Sampler RAM addresses, so they are left out; the cases here need a pattern only for part 5's step, which they write themselves.
         self.payload = bytes(payload)
-        self.dev = Dev(self.payload, None, held)
+        self.dev = Dev(self.payload, None, held, adapter=True)
         self.m = self.dev.m
         if card:
             self.m.insert_card(SDCard(MemoryMedium(bytearray(self.card_image()))))
