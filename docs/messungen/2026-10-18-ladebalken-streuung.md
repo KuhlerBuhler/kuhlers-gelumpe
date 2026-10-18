@@ -16,3 +16,19 @@ wo die Interrupts fallen (hergeleitet: die Zeit des Emulators zählt Befehle). D
 über drei Karten (18, 20 und 22 Samples) mit derselben Grenze; auf dem Branch sind das +0,33 %.
 
 Nicht am Gerät gemessen.
+
+## Nachtrag: sechs Karten, Hacktribe (18.10. abends)
+
+Mit dem ganzen Satz BLECH auf Hacktribe 2.02 stand die Summe über drei Karten bei +0,56 % und +0,65 %. Über sechs Karten
+(16, 17, 19, 21, 23, 24 Samples) gemessen, Ladezeit mit / ohne die vier Aufrufe, Summe:
+
+| Kopie | Summe | einzelne Karten |
+|---|---|---|
+| alter Ladebalken (Augen linear), ohne ruhenden IFX | +0,51 % | +0,33 % bis +0,84 % |
+| neuer Ladebalken (eigenes Bild, Augen mit Ease-out), ohne ruhenden IFX | +0,44 % | +0,20 % bis +0,74 % |
+| neuer Ladebalken, mit ruhendem IFX | +0,64 % | +0,38 % bis +0,90 % |
+
+Die Vorzeichen sind auf allen Karten gleich: der Ladebalken kostet im Emulator rund ein halbes Prozent der Ladezeit,
+etwa 6 ms von 1,1 s. Die Grenze von 0,5 % lag also schon mit dem alten Ladebalken auf der Kante. Sie steht jetzt bei 1 %.
+Der ruhende IFX tut während des Startbildschirms nichts außer zwei Lesezugriffen je 40 ms; seine 0,2 % sind die Streuung
+von oben (hergeleitet).
