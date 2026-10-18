@@ -484,6 +484,35 @@ def editor_run(base, patched, flash=None, png_dir=None):
     step("Edit left and right are ignored in the editor", dev.screen()["page"] == spec.PAGE and dev.state()["mode"] == 1)
     dev.press("menu", 0.3)
     step("MENU again flips it back", dev.read(spec.EDIT, 1024) == edit_before)
+    # SHIFT held: the dial moves the cursor up and down (device 18.10.)
+    dev.m.press(0x0A, True)
+    dev.run(0.1)
+    dev.turn(2, 0.3)
+    down = dev.state()["cursor"]
+    dev.turn(-3, 0.3)
+    up = dev.state()["cursor"]
+    dev.turn(1, 0.3)
+    dev.m.press(0x0A, False)
+    dev.run(0.1)
+    step("SHIFT held, VALUE moves the cursor by rows and wraps", down == 3 + 256 and up == 8192 - 128 + 3 and dev.state()["cursor"] == 3
+         and dev.read(spec.EDIT, 1024) == edit_before, f"two rows down {down}, three up {up}, one down {dev.state()['cursor']}")
+    # MENU held: the pixel flips on the press, then every pixel the cursor passes gets that colour, none skipped on a fast turn
+    dev.m.press(0x09, True)
+    dev.run(0.2)
+    dev.turn(4, 0.3)
+    dev.m.press(0x09, False)
+    dev.run(0.2)
+    dev.turn(1, 0.3)
+    painted = dev.read(spec.EDIT, 1024)
+    colour = (painted[3] >> 7) & 1
+    changed = [i for i in range(1024) if painted[i] != edit_before[i]]
+    step("MENU held paints the colour of its flip along the cursor's way", colour != (edit_before[3] >> 7) & 1 and all((painted[i] >> 7) & 1 == colour for i in range(3, 8))
+         and painted[8] == edit_before[8] and set(changed) <= set(range(3, 8)) and dev.state()["cursor"] == 8 and not dev.m.asserts,
+         f"colour {colour}, bytes changed {changed}, cursor {dev.state()['cursor']}")
+    shown = [i for i in range(1024) if i != 8 and dev.fb()[i] != display_of(painted)[i]]
+    step("the painted pixels are on the display", shown == [], f"bytes that differ besides the cursor: {shown}")
+    dev.m.uc.mem_write(spec.EDIT, bytes(edit_before))          # back to where the steps below start: the image as before, cursor on 3
+    dev.m.uc.mem_write(spec.STATE + 8, (3).to_bytes(4, "little"))
     dev.press("menu", 0.3)
     wanted = bytes(edit_after)
     dev.press("write", 0.1)

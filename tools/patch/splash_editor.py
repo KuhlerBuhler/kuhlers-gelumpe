@@ -2,8 +2,9 @@
 
 The patch adds a page SPLASH SCREEN to the Global menu: page 20, after
 XY CALIBRATION. MENU opens an editor for the 128 x 64 start image, the main
-dial moves a blinking cursor, MENU flips the pixel under it, WRITE stores the
-image in flash and EXIT leaves. At start the stored image is drawn, or the
+dial moves a blinking cursor (left and right, with SHIFT held up and down), MENU
+flips the pixel under it and, held, paints that colour wherever the cursor goes,
+WRITE stores the image in flash and EXIT leaves. At start the stored image is drawn, or the
 one in the VSB when nothing valid is stored.
 
 Everything here is our own code. Nothing of the firmware is copied into the
@@ -111,7 +112,11 @@ SOURCE = f"""
 .equ S_VEND, 0x24               ; so only our widget is drawn (the page's text widgets redrew themselves after VALUE and
 .equ S_ONE, 0x28                ; showed for a tick on the device); S_ONE is the one-entry vector that stands in for it
 .equ S_VCAP, 0x2C
+.equ S_PAINT, 0x30              ; the colour MENU last gave a pixel (0 or 1): held, MENU paints it under the moving cursor
 .equ S_WIDGET, 0x40
+.equ KEYS, 0xC06BCA70           ; the UI task's key states, 8 bytes per key, the word is not 0 while the key is held
+.equ KEY_MENU, 0x09
+.equ KEY_SHIFT, 0x0A
 .equ WINDOW_WAIT, 40            ; ticks to wait for the Working window before drawing without it
 
 ; ------------------------------------------------- code that runs at start
@@ -526,31 +531,67 @@ show_widgets:
     str r1, [r3, #S_VBEGIN]
     bx lr
 
-; r1 = steps
+; r1 = steps: pixels to the right, with SHIFT held rows down. With MENU held the cursor goes one step at a time and every pixel
+; it lands on gets S_PAINT, so a fast turn leaves no gap.
 move_cursor:
-    push {{r4, lr}}
+    push {{r4, r5, lr}}
     mov r4, r1
+    mov r5, #1
+    ldr r3, =KEYS
+    ldr r3, [r3, #8 * KEY_SHIFT]
+    cmp r3, #0
+    movne r5, #128
     ldr r3, =STATE
     mov r2, #0
     str r2, [r3, #S_PHASE]
     bl px_update
+    ldr r3, =KEYS
+    ldr r3, [r3, #8 * KEY_MENU]
+    cmp r3, #0
+    bne move_paint
+    mul r1, r4, r5
+    bl move_by
+    b move_shown
+move_paint:
+    cmp r4, #0
+    beq move_shown
+    movgt r1, r5
+    rsblt r1, r5, #0
+    subgt r4, r4, #1
+    addlt r4, r4, #1
+    bl move_by
+    bl pixel_at
+    ldr r12, =STATE
+    ldr r12, [r12, #S_PAINT]
+    cmp r12, #0
+    biceq r1, r1, r2
+    orrne r1, r1, r2
+    strb r1, [r3, r0]
+    bl px_update
+    b move_paint
+move_shown:
     ldr r3, =STATE
-    ldr r2, [r3, #S_CUR]
-    add r2, r2, r4
-    ldr r1, =0x1FFF
-    and r2, r2, r1
-    str r2, [r3, #S_CUR]
     mov r2, #1
     str r2, [r3, #S_PHASE]
     mov r2, #0
     str r2, [r3, #S_TICK]
     bl px_update
-    pop {{r4, pc}}
+    pop {{r4, r5, pc}}
 
-toggle_pixel:
-    push {{r4, lr}}
-    ldr r4, =STATE
-    ldr r0, [r4, #S_CUR]
+; r1 = signed amount: the cursor moves by it, wrapping over the 8192 pixels
+move_by:
+    ldr r3, =STATE
+    ldr r2, [r3, #S_CUR]
+    add r2, r2, r1
+    ldr r1, =0x1FFF
+    and r2, r2, r1
+    str r2, [r3, #S_CUR]
+    bx lr
+
+; the pixel under the cursor -> r3 = EDIT, r0 = its byte there, r1 = that byte, r2 = its bit. Clobbers r12.
+pixel_at:
+    ldr r12, =STATE
+    ldr r0, [r12, #S_CUR]
     mov r1, r0, lsr #7
     and r0, r0, #127
     mov r2, r1, lsr #3
@@ -562,8 +603,17 @@ toggle_pixel:
     mov r2, r2, lsl r1
     ldr r3, =EDIT
     ldrb r1, [r3, r0]
+    bx lr
+
+toggle_pixel:
+    push {{r4, lr}}
+    bl pixel_at
     eor r1, r1, r2
     strb r1, [r3, r0]
+    ands r1, r1, r2
+    movne r1, #1
+    ldr r4, =STATE
+    str r1, [r4, #S_PAINT]
     bl px_update
     pop {{r4, pc}}
 
