@@ -107,8 +107,8 @@ def press(dev, key, wait=0.25):
     dev.press(key, wait=wait)
 
 
-GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_COLORS = range(6)
-CUSTOM_COLORS, CUSTOM_PAD = 1, 3                                       # the row COLORS in CUSTOMIZATION, and PAD COLOR (SELECT COLOR, SPLASH IMPORT and DRAW follow)
+GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_DISPLAY, GROUP_LED, GROUP_PADS = range(8)
+CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_SPLASH = 0, 1, 2, 3     # the rows of CUSTOMIZATION: three groups, then SPLASH IMPORT and SPLASH DRAW
 S_LEVEL, S_GROUP, S_RAW, S_TOP, S_TABW = 0xE0, 0xE4, 0xE8, 0xEC, 0xF0
 TAB_TEXT_POINTER = 0x38                                               # the tab widget keeps a pointer to its text at this offset
 LIST_PAGES = ["FEATURES", "CUSTOMIZATION", "PLUGINS"]                 # the groups of level 1 of a menu without apps, in this order; GAMES and TOOLS follow when an app is declared in them
@@ -116,7 +116,7 @@ LIST_GROUPS = LIST_PAGES
 LIST_FEATURES, LIST_CUSTOM, LIST_PLUGINS = range(3)                   # their places in that list
 FEATURE_PAGES = ["MFX 2", "PATTERN CONFIRM", "TAP MOTION", "NOTE ASSIST"]   # the pages of the group FEATURES, each with an ON/OFF value
 FEAT_MFX, FEAT_PC, FEAT_TM, FEAT_NA = range(len(FEATURE_PAGES))
-TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Colors"]
+TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads"]
 RING = 31                                                             # the total of the page counter with the page BLECH and the page of Blechy in the ring
 BASE_RING = 29
 LEVEL_BLECHY = 3                                                      # level 3 of the screen: the page of Blechy at the end of the ring
@@ -269,9 +269,10 @@ def blechy_ring_cases(dev):
     here = lambda: (dev.screen()["number"], state(dev, S_LEVEL), counter(dev), open_app_entry(dev) != 0)
     go(dev, 10)
     press(dev, "edit_next", wait=0.8)
+    press(dev, "edit_next", wait=0.8)
     landed = here()
     picture = dev.fb()
-    add("blechy_follows_event", landed == (MENU, LEVEL_BLECHY, (RING - 1, RING), True) and any(picture) and not dev.m.asserts, f"{landed}")
+    add("blechy_follows_blech", landed == (MENU, LEVEL_BLECHY, (RING - 1, RING), True) and any(picture) and not dev.m.asserts, f"{landed}")
     add("blechy_page_shows_him_alone", len(lit(picture, range(64))) > 300 and not lit(picture, range(64)) & {(x, y) for y in range(64) for x in range(70, 128)}, f"{len(lit(picture, range(64)))} pixels")
     press(dev, "edit_next", wait=0.8)
     pattern = (dev.screen()["number"], counter(dev), open_app_entry(dev))
@@ -280,8 +281,8 @@ def blechy_ring_cases(dev):
     back = here()
     add("blechy_pattern_left_comes_back", back == landed, f"{back}")
     press(dev, "edit_prev", wait=0.8)
-    event = (dev.screen()["number"], counter(dev), open_app_entry(dev))
-    add("blechy_left_goes_to_event", event == (10, (RING - 2, RING), 0), f"{event}")
+    blech = (dev.screen()["number"], state(dev, S_LEVEL), counter(dev), open_app_entry(dev))
+    add("blechy_left_goes_to_blech", blech == (MENU, 0, (RING - 2, RING), 0), f"{blech}")
     goto_blechy(dev)
     dev.run(0.5)
     before = bytes(dev.m.mmc.card.medium.data) if dev.m.mmc.card else b""
@@ -321,28 +322,50 @@ def cases(payload, flash=None, settings=True):
     dev = boot(payload, flash)
     add("armed", state(dev, S_ON) == 1 and state(dev, S_COUNT) == 1 and state(dev, S_LEVEL) == 0, f"on={state(dev, S_ON)}, ring pages={state(dev, S_COUNT)}")
 
-    # the ring: BLECH is one page of it, between Global and Data Util, in the look of Data Util's page
+    # the ring: BLECH is one page of it, the last menu behind Event, then the page of Blechy (device 18.10.), in the look of Data Util's page
     here = lambda: (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), texts_of(dev), tab(dev))
-    go(dev, 8)
+    go(dev, 10)
     press(dev, "edit_next")
     page = here()
     press(dev, "edit_next")
-    after = dev.screen()["number"]
+    after = (dev.screen()["number"], state(dev, S_LEVEL))
     press(dev, "edit_prev")
     again = here()
     press(dev, "edit_prev")
-    add("ring_forward", page == (MENU, 0, 0, (RING - 4, RING), ("BLECH", "", PRESS), "BLECH") and after == 14, f"{page}, then screen {after}")
-    add("ring_backward", again == page and dev.screen()["number"] == 8, f"{again}, then screen {dev.screen()['number']}")
+    add("ring_forward", page == (MENU, 0, 0, (RING - 2, RING), ("BLECH", "", PRESS), "BLECH") and after == (MENU, LEVEL_BLECHY), f"{page}, then {after}")
+    add("ring_backward", again == page and dev.screen()["number"] == 10, f"{again}, then screen {dev.screen()['number']}")
+    go(dev, 8)
+    press(dev, "edit_next")
+    right = dev.screen()["number"]
+    press(dev, "edit_prev")
+    add("global_and_data_util_are_neighbours", right == 14 and dev.screen()["number"] == 8, f"Global right {right}, then left {dev.screen()['number']}")
 
     go(dev, 14)
-    add("neighbour_counters", counter(dev) == (RING - 3, RING), f"Data Util {counter(dev)}")
+    add("neighbour_counters", counter(dev) == (RING - 4, RING), f"Data Util {counter(dev)}")
     go(dev, 8)
     add("global_counter", counter(dev) == (RING - 5, RING), f"Global {counter(dev)}")
     go(dev, 10)
-    add("event_counter", counter(dev) == (RING - 2, RING), f"Event {counter(dev)}")
+    add("event_counter", counter(dev) == (RING - 3, RING), f"Event {counter(dev)}")
+
+    # the list opens on the group it was last left from, also after a trip through the other menus (device 18.10.)
+    goto_ring(dev)
+    press(dev, "menu", wait=0.4)
+    for _ in range(LIST_PLUGINS):
+        press(dev, "edit_next", wait=0.3)
+    press(dev, "menu", wait=0.4)
+    inside = (state(dev, S_LEVEL), state(dev, S_GROUP))
+    press(dev, "exit", wait=0.4)
+    press(dev, "exit", wait=0.4)
+    go(dev, 8)
+    go(dev, 10)
+    press(dev, "edit_next", wait=0.4)
+    press(dev, "menu", wait=0.4)
+    back = (state(dev, S_LEVEL), state(dev, S_PAGE), texts_of(dev)[0])
+    add("list_remembers_the_group", inside == (2, GROUP_PLUGINS) and back == (1, LIST_PLUGINS, LIST_PAGES[LIST_PLUGINS]), f"in {inside}, back {back}")
     out.extend(blechy_ring_cases(dev))
 
     # ENTER opens the list of the groups, ENTER on a group its pages, EXIT goes up one level each time and leaves at the ring
+    dev.m.uc.mem_write(STATE + S_TOP, struct.pack("<I", 0))     # the list as after power-on, on its first group
     goto_ring(dev)
     press(dev, "menu")
     steps = []
@@ -412,7 +435,8 @@ def cases(payload, flash=None, settings=True):
 
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(3)]
-    pages += [(GROUP_CUSTOM, page) for page in range(3)] + [(GROUP_COLORS, page) for page in range(6)] + [(GROUP_FEATURES, page) for page in range(len(FEATURE_PAGES))]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(6)] + [(GROUP_LED, page) for page in range(8)]
+    pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_FEATURES, page) for page in range(len(FEATURE_PAGES))]
     crowded = []
     for group, page in pages:
         if group == "ring":
@@ -658,21 +682,23 @@ def pins(dev):
 
 
 def custom_extra(dev):
-    """The pages of CUSTOMIZATION behind DISPLAY INVERT: PAD COLOR and SELECT COLOR where the set has the pad colours, SPLASH IMPORT
-    and SPLASH DRAW where it also has the splash editor (the blue Electribe has the pad colours only)."""
+    """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR where the set has the pad colours, SPLASH IMPORT and SPLASH DRAW
+    where it also has the splash editor (the blue Electribe has the pad colours only)."""
     import pad_colors
     import splash_editor
     if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
         return 0
-    return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 4
+    return 1 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 3
 
 
 def goto_page(dev, number):
-    """Open a look page: BOTTOM LEDS and DISPLAY INVERT in CUSTOMIZATION, the six levels in its group COLORS."""
-    if PAGE_LED_R <= number <= PAGE_BL_B:
-        goto_group(dev, GROUP_COLORS, number - PAGE_LED_R)
+    """Open a look page: the bottom LEDs and their levels in LED, the backlight levels and DISPLAY INVERT in DISPLAY."""
+    if number <= PAGE_LED_B:
+        goto_group(dev, GROUP_LED, number - PAGE_LED_MODE)
+    elif number <= PAGE_BL_B:
+        goto_group(dev, GROUP_DISPLAY, number - PAGE_BL_R)
     else:
-        goto_group(dev, GROUP_CUSTOM, 0 if number == PAGE_LED_MODE else 2)
+        goto_group(dev, GROUP_DISPLAY, 5)
 
 
 def shown_levels(dev, at):
@@ -687,6 +713,8 @@ def set_look(dev, mode=None, led=None, backlight=None):
         goto_page(dev, PAGE_LED_MODE)
         dev.turn(mode - state(dev, S_LED_MODE), wait=0.25)
     for first, values, at in ((PAGE_LED_R, led, S_LED_R), (PAGE_BL_R, backlight, S_BL_R)):
+        if values is not None and not any(values):
+            values = (15, 15, 15)      # the stock state: 15 15 15 on the pages (0 0 0 cannot be dialled, it would read as stock)
         order = sorted(range(len(values or ())), key=lambda k: values[k] == 0)      # channels that stay lit first: going through all zero would be the stock state
         for i in order:
             value = values[i]
@@ -696,8 +724,6 @@ def set_look(dev, mode=None, led=None, backlight=None):
                 step = max(-8, min(8, value - shown))              # the dial reports at most a few steps at once
                 dev.turn(step, wait=0.25)
                 shown += step
-            if not any(state(dev, at + 4 * k) for k in range(3)) and not any(values):
-                break                  # all three at 0 is the stock state, the pages show 15 each from there on
 
 
 def meter_level(dev, level):
@@ -770,21 +796,32 @@ def look_cases(payload, flash=None):
                            ("LED RED", "15 stock", ""), ("LED GREEN", "15 stock", ""), ("LED BLUE", "15 stock", ""),
                            ("BACKLIGHT RED", "15 stock", ""), ("BACKLIGHT GREEN", "15 stock", ""), ("BACKLIGHT BLUE", "15 stock", "")], str(texts))
 
-    # the six levels sit behind the row COLORS of CUSTOMIZATION: ENTER opens them, EXIT goes back to that row
-    goto_group(dev, GROUP_CUSTOM, CUSTOM_COLORS)
-    row = texts_of(dev), counter(dev)
-    press(dev, "menu", 0.4)
-    inside = (state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), tab(dev), text(dev, S_TITLE), counter(dev))
-    press(dev, "edit_next", 0.4)
-    second = text(dev, S_TITLE)
-    press(dev, "exit", 0.4)
-    back = (state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), texts_of(dev)[0], tab(dev))
+    # 15 15 15 is the stock state again; 0 0 0 cannot be dialled (it would read as stock), the last channel stays at 1
+    set_look(dev, backlight=(3, 8, 12))
+    set_look(dev, backlight=(15, 15, 15))
+    stock_again = [state(dev, S_BL_R + 4 * k) for k in range(3)]
+    set_look(dev, backlight=(0, 0, 5))
+    goto_page(dev, PAGE_BL_B)
+    dev.turn(-8, wait=0.25)
+    floor = [state(dev, S_BL_R + 4 * k) for k in range(3)]
+    add("stock_at_15", stock_again == [0, 0, 0] and floor == [0, 0, 1], f"15 15 15 stores {stock_again}; 0 0 5 turned down stores {floor}")
+    set_look(dev, backlight=(0, 0, 0))
+
+    # DISPLAY, LED and PAD COLOR are rows of CUSTOMIZATION: ENTER opens their pages, EXIT goes back to the row (device 18.10.)
+    rows, ins, backs = [], [], []
+    for row, group, title, tag in ((CUSTOM_DISPLAY, GROUP_DISPLAY, "BACKLIGHT RED", "Display"), (CUSTOM_LED, GROUP_LED, "BOTTOM LEDS", "LED")):
+        goto_group(dev, GROUP_CUSTOM, row)
+        rows.append(texts_of(dev))
+        press(dev, "menu", 0.4)
+        ins.append((state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), tab(dev), text(dev, S_TITLE), counter(dev)[1]))
+        press(dev, "exit", 0.4)
+        backs.append((state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), tab(dev)))
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
-    add("colors_submenu", row[0] == ("COLORS", "", PRESS) and row[1][0] == CUSTOM_COLORS
-        and inside == (2, GROUP_COLORS, 0, "Colors", "LED RED", (0, 6)) and second == "LED GREEN"
-        and back == (2, GROUP_CUSTOM, CUSTOM_COLORS, "COLORS", "Custom") and top[0] == 1 and not dev.m.asserts,
-        f"row {row}, ENTER {inside}, EDIT {second}, EXIT {back}, EXIT {top}")
+    add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 6), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 8)]
+        and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
+        f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
     # bottom LEDs: a fixed colour, the colour as meter, off, and back to the stock meter
     set_look(dev, mode=1, led=(15, 7, 0))
@@ -813,6 +850,30 @@ def look_cases(payload, flash=None):
     add("led_stock_meter_keeps_its_colours", stock_loud[:3] == stock_loud[3:6] and stock_loud[0] > 200 and stock_loud[1] == 0, f"{stock_loud}")
     add("led_color_without_a_colour_is_the_stock_white", stock_color == [120] * 12, f"{stock_color}")
     set_look(dev, mode=0)
+
+    # the meter in four colours (device 18.10.): STILL red, LOUD pink from the palette, the zones left at STOCK keep the firmware's
+    goto_group(dev, GROUP_LED, 4)
+    still_page = texts_of(dev)
+    dev.turn(2, wait=0.3)
+    goto_group(dev, GROUP_LED, 7)
+    dev.turn(7, wait=0.3)
+    loud_page = texts_of(dev)
+    meter_level(dev, 0)
+    dev.run(1.0)
+    m_still = leds(dev)
+    meter_level(dev, 254)
+    dev.run(1.0)
+    m_loud = leds(dev)
+    goto_group(dev, GROUP_LED, 4)
+    dev.turn(-2, wait=0.3)
+    goto_group(dev, GROUP_LED, 7)
+    dev.turn(-7, wait=0.3)
+    meter_level(dev, 254)
+    dev.run(1.0)
+    m_stock = leds(dev)
+    add("led_meter_four_colours", still_page == ("METER STILL", "STOCK", "") and loud_page == ("METER LOUD", "PINK", "")
+        and m_still == [255, 0, 0] * 4 and m_loud == [255, 0, 160] * 4 and m_stock[:3] == m_stock[3:6] and m_stock[0] > 200 and m_stock[1] == 0
+        and state(dev, S_LED_EFF) == 0 and not dev.m.asserts, f"pages {still_page} {loud_page}, still {m_still}, loud {m_loud}, back to STOCK {m_stock}")
 
     # the firmware's own switches stay: nothing changes while a plugin holds the lock, nothing lights with Global power save
     lock = boot(payload, flash, adapter=True)
@@ -856,6 +917,29 @@ def look_cases(payload, flash=None):
     add("backlight_power_save_stays", abs(dimmed[0]["R"] - 0.037) < 0.02 and abs(dimmed[0]["G"] - 0.037) < 0.02 and dimmed[0]["B"] == 0 and not mix.m.asserts, f"{dimmed}")
     add("backlight_back_from_power_save", near(resumed[0], {"R": 0, "G": 0, "B": 12 / 16}), f"{resumed}")
     add("backlight_zero_is_stock_white", stock[0] == {"R": 1.0, "G": 1.0, "B": 1.0} and stock[1] == 0 and state(mix, S_BL_PWM) == 0, f"{stock}")
+    # INTENSITY scales every level and keeps the mix; SAVE LIGHT gives power save the colour at its own intensity (device 18.10.)
+    set_look(mix, backlight=(0, 0, 12))
+    goto_group(mix, GROUP_DISPLAY, 3)
+    page = texts_of(mix)
+    mix.turn(-7, wait=0.3)
+    mix.run(0.3)
+    scaled = duty(mix, 1.0)[0], texts_of(mix)[1]
+    goto_group(mix, GROUP_DISPLAY, 4)
+    save_page = texts_of(mix)
+    mix.turn(4, wait=0.3)
+    mix.call(POWER_CONNECT, 1)
+    mix.run(0.3)
+    saved = duty(mix, 1.0)[0]
+    mix.call(POWER_CONNECT, 0)
+    mix.run(0.3)
+    after = duty(mix, 1.0)[0]
+    add("backlight_intensity", page == ("INTENSITY", "15", "") and scaled[1] == "8" and near(scaled[0], {"R": 0, "G": 0, "B": 6 / 16}), f"page {page}, at 8 {scaled}")
+    add("backlight_save_light", save_page == ("SAVE LIGHT", "STOCK", "") and near(saved, {"R": 0, "G": 0, "B": 3 / 16}) and near(after, {"R": 0, "G": 0, "B": 6 / 16})
+        and not mix.m.asserts, f"page {save_page}, power save at 4 {saved}, back {after}")
+    mix.turn(-4, wait=0.3)
+    goto_group(mix, GROUP_DISPLAY, 3)
+    mix.turn(7, wait=0.3)
+    set_look(mix, backlight=(0, 0, 0))
 
     # WRITE keeps everything in the file, the next start reads it
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
@@ -921,9 +1005,9 @@ def splash_menu_cases(payload, flash=None):
     dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic)})
     if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF:
         goto_group(dev, GROUP_CUSTOM, 0)
-        add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 3 + custom_extra(dev), f"counter {counter(dev)}")
+        add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 2 + custom_extra(dev), f"counter {counter(dev)}")
         return out
-    goto_group(dev, GROUP_CUSTOM, CUSTOM_PAD + 2)
+    goto_group(dev, GROUP_CUSTOM, CUSTOM_SPLASH)
     before = texts_of(dev)
     press(dev, "menu", 0.6)
     after = texts_of(dev)
@@ -940,7 +1024,7 @@ def splash_menu_cases(payload, flash=None):
     add("draw_opens_the_editor", page == ("SPLASH DRAW", "", PRESS) and dev.screen()["number"] == 9 and dev.screen()["page"] == splash_editor.PAGE and st == 1
         and len(differ) <= 1 and not dev.m.asserts, f"{page}, screen {dev.screen()}, editor mode {st}, display bytes not the image (battery aside): {differ}")
     bare = boot(payload, flash, files=CARD_FOLDER)
-    goto_group(bare, GROUP_CUSTOM, CUSTOM_PAD + 2)
+    goto_group(bare, GROUP_CUSTOM, CUSTOM_SPLASH)
     press(bare, "menu", 0.6)
     add("import_without_file", texts_of(bare)[1] == "no splash.bmp", str(texts_of(bare)))
     return out
@@ -966,7 +1050,7 @@ def pad_colour_cases(payload, flash=None):
     if dev.u32(PC.CODE_AT) == 0xFFFFFFFF:
         return out
     stock = pad(dev, 0)
-    goto_group(dev, GROUP_CUSTOM, CUSTOM_PAD)
+    goto_group(dev, GROUP_PADS, 0)
     p8 = texts_of(dev)
     press(dev, "edit_next", wait=0.4)
     p9 = texts_of(dev)
@@ -992,7 +1076,19 @@ def pad_colour_cases(payload, flash=None):
     dev.m.send([4, 3, 0, 0, 0])
     dev.run(0.3)
     add("overlap_is_the_colour_left", both == (0, 255), f"pad 4 held and selected (PINK and RED): {both}, the colour left is blue")
-    goto_group(dev, GROUP_CUSTOM, CUSTOM_PAD)
+    # OVERLAP chosen (device 18.10.): red instead of the colour left
+    goto_group(dev, GROUP_PADS, 2)
+    over_page = texts_of(dev)
+    dev.turn(1, wait=0.4)
+    over_red = texts_of(dev)[1]
+    go(dev, 1)
+    dev.m.send([4, 3, 0, 100, 1])
+    dev.run(0.15)
+    both_red = pad(dev, 3)
+    dev.m.send([4, 3, 0, 0, 0])
+    dev.run(0.3)
+    add("overlap_chosen", over_page == ("OVERLAP", "AUTO", "") and over_red == "RED" and both_red == (255, 0), f"page {over_page}, then {over_red}, pad 4 held and selected {both_red}")
+    goto_group(dev, GROUP_PADS, 0)
     press(dev, "write", wait=0.6)
     word = read_settings_look(dev.m.mmc.card.medium.data).get("b", (0, 0, 0, None))[3]
     add("file_holds_them", word is not None and (word >> 2) & 3 == PC.PINK and (word >> 29) & 3 == 1, f"look word {word:#x}" if word is not None else "no file")
@@ -1000,7 +1096,7 @@ def pad_colour_cases(payload, flash=None):
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
     again.run(wait + 0.8)
-    add("start_reads_them", again.u32(PC.PC_SETTING) == PC.PINK | PC.RED << 4 and pad(again, 0) == (255, 0) and not again.m.asserts,
+    add("start_reads_them", again.u32(PC.PC_SETTING) == PC.PINK | PC.RED << 4 | 1 << 8 and pad(again, 0) == (255, 0) and not again.m.asserts,
         f"setting {again.u32(PC.PC_SETTING):#x}, pad 1 {pad(again, 0)}")
     held = Dev(payload, flash, KILL)
     held.m.adapter = True
@@ -1021,7 +1117,9 @@ def pad_colour_cases(payload, flash=None):
     before, during, after = dimmed(plain)
     lit = {led: v for led, v in before.items() if v and not 0x4C <= led <= 0x57}   # the bottom RGB LEDs: power save switches them off itself
     quarter = {led: during.get(led, 0) for led in lit}
-    add("power_save_dims_every_led", lit and all(quarter[led] == (v + 3) >> 2 for led, v in lit.items()) and {led: after.get(led, 0) for led in lit} == lit
+    # the knob LEDs 0 to 4 go out, every other one is at a quarter (device 18.10.)
+    add("power_save_dims_every_led", lit and any(led <= 4 for led in lit) and all(quarter[led] == (0 if led <= 4 else (v + 3) >> 2) for led, v in lit.items())
+        and {led: after.get(led, 0) for led in lit} == lit
         and not plain.m.asserts, f"lit before {lit}, while dimmed {quarter}, after {({led: after.get(led, 0) for led in lit})}")
     before, during, after = dimmed(again)
     add("power_save_with_colours", pad(again, 0) == (255, 0) and (during.get(0x2C, 0), during.get(0x2D, 0)) == (64, 0) and not again.m.asserts,
@@ -1070,8 +1168,7 @@ def invert_cases(payload, flash=None):
     dev.run(0.5)
     main_on = dev.screen()["number"], status(dev), flipped(dev)
     import splash_editor
-    custom = 3 + custom_extra(dev)                                                 # PAD COLOR, SELECT COLOR, SPLASH IMPORT and SPLASH DRAW follow where the set has them
-    add("page", page == (("DISPLAY INVERT", "OFF", ""), (2, custom), "Custom"), f"{page}")
+    add("page", page == (("DISPLAY INVERT", "OFF", ""), (5, 6), "Display"), f"{page}")
     add("on_swaps_the_display", on == (("DISPLAY INVERT", "ON", ""), (1, True, 1), True) and menu_screen and still == (1, True, 1),
         f"{on}, dial again {still}")
     add("main_screen_inverted", main_on == (1, (1, True, 1), True) and not dev.m.asserts, f"{main_on}")
@@ -1396,7 +1493,7 @@ def default_level_cases(payload, flash=None):
     add("file_with_values_reads_as_before", levels(mixed) == [("LED RED", "0"), ("LED GREEN", "0"), ("LED BLUE", "5"), ("BACKLIGHT RED", "0"), ("BACKLIGHT GREEN", "7"), ("BACKLIGHT BLUE", "0")]
         and state(mixed, S_LED_EFF) == 1, f"{levels(mixed)}, LED kind {state(mixed, S_LED_EFF)}")
 
-    # the dial: up from the state changes nothing, down starts at 15 each, the last channel to 0 is the state again
+    # the dial: up from the state changes nothing, down starts at 15 each, back up to 15 15 15 is the state again
     goto_page(fresh, PAGE_LED_R)
     fresh.turn(3, wait=0.3)
     up = [state(fresh, S_LED_R + 4 * k) for k in range(3)]

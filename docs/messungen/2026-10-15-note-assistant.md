@@ -30,7 +30,7 @@ gilt für das alte Pad nur noch die Regel der übrigen Pads (die Firmware setzt 
 | Was passt | Abstand zur gespielten Note (modulo 12) von 0, 3, 4, 5, 7, 8 oder 9 Halbtönen: Prim und Oktave, kleine und große Terz, Quarte, Quinte, kleine und große Sexte. Nicht: Sekunden, Septimen, Tritonus |
 | Innerhalb der Tonart und Tonleiter des Patterns | immer, ohne eigene Prüfung: das Layout der Pads ist die Tonleiter des Patterns (siehe unten), also sind alle 16 Pads Töne der Tonart und Tonleiter; die Abstandsregel allein filtert |
 | Wann | ab dem nächsten Takt des LED-Managers (höchstens 40 ms) nach dem Drücken eines Pads; aus nach 38 Takten (je 40 ms, zusammen 1,52 s) ab dem Drücken, wenn keine neue Pad-Note kam |
-| Welche Note zählt | eine Note, die ein Pad im KEYBOARD-Modus spielt; eine Note des Sequencers (vom gewählten Part) nimmt die Hinweise nur für einen Takt weg (die Firmware leuchtet ihr Pad), danach sind sie wieder da, solange die 1,5 s laufen; sie startet die Zeit nicht neu und ist keine Bezugsnote |
+| Welche Note zählt | eine Note, die ein Pad im KEYBOARD-Modus spielt, und seit 19.10. auch eine Note des Sequencers vom gewählten Part, wenn ein Pad des Layouts sie hält: sie ist dann die Bezugsnote und startet die 1,5 s neu (gemessen: `sequencer_note_shows_hints`) |
 | Wie lange | 1,5 s ab der Pad-Note, oder bis der Modus wechselt, das Hauptbild verlassen wird oder sich Oktave, Tonart oder Tonleiter ändern; danach ist Ruhe bis zur nächsten Pad-Note |
 | Gehaltenes Pad | die Hinweise erscheinen auch bei gedrücktem Pad; das gedrückte Pad behält das Rot der Firmware, nach dem Loslassen bekommt es den Hinweis (Prim), solange die 1,5 s laufen; sie laufen ab dem Drücken, nicht ab dem Loslassen |
 | Aus | EXIT beim Einschalten, keine Karte, oder das Wort `NA_SETTING` auf 0. Ohne Datei oder Bit ist der Patch an |
@@ -133,6 +133,6 @@ kommt nie, und beim Ende der Note setzt die Firmware das Rot auf 0 und die Hinwe
 - **Offen, am Gerät:** ob 21 und 13 zu schwach, zu stark oder zu bläulich sind (Zwischenwerte zeigt der Weg über den LED-Manager, 16.10.); ob das Blau des Parts nach dem Ende der Hinweise sichtbar zurückkommt, auch bei Moduswechsel und Part-Wechsel mitten in den 1,5 s; ob die Hinweise unter Last flackern; ob 1,5 s Hinweiszeit sich richtig anfühlt.
 - Die Zeit läuft im 40-ms-Takt des LED-Managers; ist der Takt am Gerät langsamer oder unregelmäßig (er läuft in einem Task der Firmware), dauern die Hinweise entsprechend länger oder kürzer. Im Emulator gemessen: aus nach 1,5 s.
 - Spielt ein Part im KEYBOARD-Modus Noten, flackern die Pads dieser Noten wie immer (das Licht der Firmware gewinnt); die Hinweise für die letzte Pad-Note laufen daneben ihre 1,5 s und enden dann.
-- Der Hinweis hängt an einer Pad-Note, nicht am Touchpad; Noten des Touchpads (Touch Scale) und des Sequencers sind keine Bezugsnote.
+- Der Hinweis hängt an einer Pad-Note, nicht am Touchpad; Noten des Touchpads (Touch Scale) sind keine Bezugsnote; Noten des Sequencers sind es seit 19.10.
 - Der Hinweis auf das gespielte Pad selbst (Prim) erscheint nach dem Loslassen, solange die 1,5 s laufen; die Pads gleicher Note einer anderen Oktave gehören dazu.
 - Die Intervalle liegen als Maske `CONSONANT` in `tools/patch/note_assist.py`; eine andere Auswahl heißt ein Zahlenwechsel und ein neuer Build.

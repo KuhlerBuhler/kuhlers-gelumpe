@@ -16,6 +16,8 @@ CODE_AT = CODE_START
 INPUT = 0xC01F8000
 CARD = 0xC01F7000
 CODE_END = 0xC01AE000
+MORE_START = 0xC018D000          # a second code area for the runtime: display, store, hardware, events and apps go here, so the
+MORE_END = 0xC018FF00            # menu has room in the first; free (FF) in all three images, behind the idle insert effect
 RUNTIME = 0xC01AE000
 POOL = 0xC01D7000
 END = 0xC01FFFF0
@@ -32,8 +34,6 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC00836FC,0xE59F000C,'script_frame_hook'),
          (0xC0038D68,0xE28D0004,'script_card_hook'),
          (0xC004C1B4,0xE92D4070,'script_save_hook'),
-         (0xC0064D84,0xE3A0000E,'menu_nb_right'),
-         (0xC0061880,0xE3A00008,'menu_nb_left'),
          (0xC006E8D8,0xE351000A,'menu_toplevel'),
          (0xC006F094,0xE92D4038,'menu_write'),
          (0xC008A83C,0xE3A03000,'menu_counter_new'),
@@ -79,8 +79,9 @@ def runtime_profile(build):
         raise ValueError(f'unknown runtime build: {build}')
     if build != 'synth':
         return RuntimeProfile(build, SITES, WORDS, LITERALS, MENU_TABLE_SOURCE, MENU_VTABLE_SOURCE,
-                              45, 27, 29, dict(HW_PANEL_KEY=0xC0042BB8, HW_PART_SELECT=0xC0081BB4,
-                                              HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760))
+                              45, 29, 29, dict(HW_PANEL_KEY=0xC0042BB8, HW_PART_SELECT=0xC0081BB4,
+                                              HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760,
+                                              POWER_HOLD_MASK=0x08000000))
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
@@ -98,7 +99,8 @@ def runtime_profile(build):
         tuple((synthaddr.tr(address), synthaddr.tr(value)) for address, value in LITERALS),
         (0xC00DFA68,148,'a65f40522347f45bab9a10802914b4a69900ab66e455c279c57c8aa4f48368fd'),
         (0xC00C9BD8,72,'9890f118100188fed55d3f35b6cc98c22191484ac62c8e1b55fb0794c0089277'),
-        37, 26, 28, dict(HW_PANEL_KEY=0xC003D158, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8))
+        37, 28, 28, dict(HW_PANEL_KEY=0xC003D158, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8,
+        POWER_HOLD_MASK=0))   # the power hold of the synth is not measured: no switch-off during the start there
 
 
 def blechy_block():
@@ -159,12 +161,12 @@ class BuiltHooks:
             ('menu_needs_confirm','menu_confirm','Der Kartenlader fragt für jedes geladene Plugin, ob es erst auf eine Zustimmung wartet; ohne Plugins läuft das nicht.'),
             ('menu_recount','menu_recount_end','Nach dem Laden zählt das Menü die Plugins und stellt die Seitenzahl ein.'),
             ('led_meter_hook','look_hooks_end','Die Haken der Anpassung (untere LEDs, Hintergrundlicht, Software-PWM, Display umkehren) geben die Firmware sofort zurück, wenn das Menü nicht scharf ist oder die Firmware das Licht für Power Save dimmt.'),
-            ('menu_nb_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
+            ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
         ]:
             if start in self.symbols and end in self.symbols:
                 spans.append((self.symbols[start],self.symbols[end],why))
         menu_hooks=[dict(site=f'{address:#010X}'.replace('0X','0x'),kind='instruction',chain=chain,position='before',swallow=swallow)
-            for address,chain,swallow in [(0xC0064D84,'menu-ring',False),(0xC0061880,'menu-ring',False),
+            for address,chain,swallow in [
             (0xC006E8D8,'menu-top-level',False),(0xC006F094,'menu-write',True),(0xC008A83C,'menu-counter',False),(0xC008A8A8,'menu-counter',False),
             (0xC0064430,'menu-ring',False),(0xC0067754,'menu-ring',False)]]
         menu_hooks+=[dict(site='0xC0088284',kind='instruction',chain='led-meter',position='before',swallow=True)]
@@ -193,6 +195,7 @@ class BuiltHooks:
         layout=self.layout
         return [area(layout['runtime'],layout['runtimeSize'],'runtime: control block, stacks, ring, LED, display buffer, knobs, app table (RT_* layout)','tools/patch/script_hooks.py:RUNTIME'),
             area(MENU_ITEMS,MENU_ITEMS_END-MENU_ITEMS,'pages of the plugins in the BLECH menu, 12 entries of 40 bytes','tools/patch/script_hooks.py:MENU_ITEMS'),
+            area(MENU_ITEMS_END,MENU_STATE-MENU_ITEMS_END,'more state of the BLECH menu: intensity, save light, meter and overlap colours, the power save tables of the backlight','tools/patch/script_menu.s:MX_INTENS'),
             area(MENU_STATE,0x200,'state of the BLECH menu and its two settings file buffers','tools/patch/script_hooks.py:MENU_STATE'),
             area(layout['pool'],layout['poolEnd']-layout['pool'],'plugin pool, SCRIPT_POOL_BYTES','tools/patch/script_hooks.py:POOL'),
             area(layout['card'],layout['input']-layout['card'],'work area of the card loader: file object, state, plugin list of the import page','tools/patch/script_hooks.py:CARD'),
@@ -213,7 +216,7 @@ class BuiltHooks:
             offset=address-RAM_BASE+0x100
             if offset+4>len(output) or struct.unpack_from('<I',output,offset)[0]!=expected:
                 raise ValueError(f'original hook instruction differs at {address:#x}')
-        for start,end in [(CODE_START,CODE_END),(RUNTIME,self.layout['runtimeEnd']),(self.layout['runtimeEnd'],POOL),(POOL,self.layout['poolEnd']),(CARD,END),(BLECHY_BLOCK,BLECHY_BLOCK+len(self.sections[-1][1]))]:
+        for start,end in [(CODE_START,CODE_END),(MORE_START,self.layout['moreEnd']),(RUNTIME,self.layout['runtimeEnd']),(self.layout['runtimeEnd'],POOL),(POOL,self.layout['poolEnd']),(CARD,END),(BLECHY_BLOCK,BLECHY_BLOCK+len(self.sections[-1][1]))]:
             offset=start-RAM_BASE+0x100
             if offset<0 or offset+end-start>len(output) or any(value!=255 for value in output[offset:offset+end-start]):
                 raise ValueError(f'script area is not FF at {start:#x}')
@@ -253,9 +256,10 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
-    files = ['script_hooks.s','script_led.s','script_card.s','script_display.s','script_store.s',
-             'script_hw.s','script_events.s','script_app.s','script_builtin.s','script_menu.s']
-    source = constants+'\n'+'\n'.join(Path(__file__).with_name(name).read_text() for name in files)
+    files = ['script_hooks.s','script_led.s','script_card.s','script_builtin.s','script_menu.s']
+    more = ['script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s']
+    read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
+    source = constants+f'\n.equ MORE_START, {MORE_START}\n'+read(files)+'\n.org MORE_START\n'+read(more)
     if build == 'synth':
         from . import synthaddr
         source = '\n'.join(line for line in source.splitlines() if not line.lstrip().startswith(';'))
@@ -270,15 +274,18 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     vm=build_vm(include,origin=CODE_START,glue=linked_glue)
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
     pool_end=POOL+vm.symbols['SCRIPT_POOL_BYTES']
-    if origin+len(hooks.bytes)>MENU_TABLE or runtime_end>MENU_ITEMS or MENU_ITEMS_END>MENU_STATE or MENU_STATE+0x200>POOL or pool_end>CARD:
-        raise ValueError(f'script code, runtime or pool exceeds its reserved area: hooks end {origin+len(hooks.bytes):#x} (limit {MENU_TABLE:#x}), runtime end {runtime_end:#x} (limit {MENU_ITEMS:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
+    (first_at,first),(more_at,more_code)=hooks.sections
+    if first_at!=origin or more_at!=MORE_START or more_at+len(more_code)>MORE_END:
+        raise ValueError(f'the second code area runs over: {more_at:#x} + {len(more_code):#x} (limit {MORE_END:#x})')
+    if origin+len(first)>MENU_TABLE or runtime_end>MENU_ITEMS or MENU_ITEMS_END>MENU_STATE or MENU_STATE+0x200>POOL or pool_end>CARD:
+        raise ValueError(f'script code, runtime or pool exceeds its reserved area: hooks end {origin+len(first):#x} (limit {MENU_TABLE:#x}), runtime end {runtime_end:#x} (limit {MENU_ITEMS:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
     if s['STORE_IMAGE']+s['STORE_CAPACITY']>s['STORE_OTHER'] or s['STORE_OTHER']+s['STORE_CAPACITY']>END:
         raise ValueError('the store images run over the block buffer')
     if s['LIST_NAMES']+s['LIST_MAX']*s['LIST_NAME_SIZE']>INPUT-CARD:
         raise ValueError('the plugin list of the import page runs over the card work area')
     symbols={**vm.symbols,**hooks.symbols}
-    layout=dict(code=CODE_START,codeEnd=origin+len(hooks.bytes),runtime=RUNTIME,
+    layout=dict(code=CODE_START,codeEnd=origin+len(first),more=MORE_START,moreEnd=MORE_START+len(more_code),runtime=RUNTIME,
         runtimeEnd=runtime_end,runtimeSize=vm.symbols['SCRIPT_RUNTIME_SIZE'],pool=POOL,poolEnd=pool_end,card=CARD,input=INPUT)
     return BuiltHooks(vm,vm.sections+hooks.sections+[(BLECHY_BLOCK,block)],symbols,layout,profile)
 

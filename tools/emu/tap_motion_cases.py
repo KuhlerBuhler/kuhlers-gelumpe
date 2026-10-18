@@ -652,7 +652,38 @@ def case_mfx_blink(payload, flash):
                   f"with a gesture {rows}; MASTER FX held {held}; assertions {box.m.asserts}")]
 
 
-GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale, case_card_pulled, case_mfx_blink)
+def case_hold(payload, flash):
+    """TAP held 320 ms or longer works only while held: letting go switches back; a short TAP stays switched (device 18.10.)."""
+    t = TBox(payload, flash)
+    start = t.mode()
+    t.hold("tap", True)
+    t.run(0.5)
+    held = t.mode()
+    t.hold("tap", False)
+    t.run(0.2)
+    let_go = t.mode()
+    t.tap()
+    short = t.mode()
+    t.run(0.5)
+    later = t.mode()
+    t.tap()
+    t.ensure_master_fx()
+    t.hold("master_fx", True)
+    mfx_start = t.mfx_mode()
+    t.hold("tap", True)
+    t.run(0.5)
+    mfx_held = t.mfx_mode()
+    t.hold("tap", False)
+    t.run(0.2)
+    mfx_back = t.mfx_mode()
+    t.hold("master_fx", False)
+    return [entry("hold_works_while_held", start == (1, 1) and held == (0, 0) and let_go == (1, 1) and not t.m.asserts,
+                  f"before {start}, held 0.6 s {held}, let go {let_go}"),
+            entry("short_tap_stays", short == (0, 0) and later == (0, 0), f"after a short TAP {short}, 0.5 s later {later}"),
+            entry("hold_with_master_fx", mfx_held != mfx_start and mfx_back == mfx_start, f"Master FX motion before {mfx_start}, held {mfx_held}, let go {mfx_back}")]
+
+
+GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale, case_card_pulled, case_mfx_blink, case_hold)
 
 
 def group_entries(payload, flash, i):
