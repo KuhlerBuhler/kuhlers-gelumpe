@@ -25,7 +25,7 @@ Die blaue Electribe 2 mit Synth-Firmware 2.02 hat einen eigenen Satz
 Ausschaltbild, Patternwechsel mit Bestätigung, TAP Motion, Notenassistent, Würfeln, MFX 2,
 BLECH-Menü und Plugins mit Blechy. Startbild-Editor, Preset-Erweiterung und Doom gehören nicht dazu.
 Die Spielhilfen lassen sich im BLECH-Menü einstellen; EXIT beim Einschalten schaltet BLECH ab.
-Patternwechsel, TAP Motion, Notenassistent und Würfeln brauchen eine eingelegte Karte.
+Patternwechsel, TAP Motion, Notenassistent und Würfeln brauchen eine Karte, die seit dem Einschalten einmal da war; wer sie danach zieht, behält die Funktionen ([Messung](messungen/2026-10-18-karte-gezogen-tap-blinkt.md)).
 Warum die übrigen Ports abgelehnt wurden und welche Prüfungen bestehen, steht in der
 [Synth-Messung](messungen/2026-10-16-blech-synth.md).
 
@@ -310,7 +310,7 @@ ist das Schreiben über FatFs noch nicht geprüft (Schritte in
 
 ## Schalter, die das Menü ergänzen muss
 
-Der Patternwechsel ist beim Start an, und nur mit gemounteter Karte. Das Menü BLECH schaltet ihn ab, ohne dass der Patch
+Der Patternwechsel ist beim Start an, sobald seit dem Einschalten eine Karte gemountet war. Das Menü BLECH schaltet ihn ab, ohne dass der Patch
 dafür umgebaut wird: Seite PATTERN CONFIRM in der Gruppe FEATURES des Menüs BLECH (gebaut am 15.10. in der Gruppe CUSTOMIZATION, dann eine Seite der Liste selbst, seit der Neuordnung in FEATURES, `menu:confirm_*`). Der Vertrag
 und wie das Menü ihn erfüllt:
 
@@ -324,7 +324,7 @@ und wie das Menü ihn erfüllt:
   beiden Dateipuffern), `menu_arm` setzt 1, `menu_settings_load` und die Seite schreiben das Wort, `menu_settings_save` setzt
   Bit 2 der Flags, wenn der Zustand 0 ist. Die Bits 0 und 1 (Laufzeit, MFX 2) und das Look-Wort bei `+16` bleiben unberührt. Das Menü kennt für TAP Motion einen dritten Wert ONCE (Einstellungswort 2, Bit 5 der Flags, Bit 3 gewinnt); was der Patch damit tut, legt der Patch fest.
 
-Der Notenassistent ist beim Start an, ebenfalls nur mit gemounteter Karte, und das Menü BLECH bekommt dafür eine eigene Seite NOTE ASSISTANT
+Der Notenassistent ist beim Start an, ebenfalls sobald seit dem Einschalten eine Karte gemountet war, und das Menü BLECH bekommt dafür eine eigene Seite NOTE ASSISTANT
 in der Gruppe FEATURES des Menüs BLECH (gebaut, `menu:note_assist_*`). Der Vertrag, wie bei TAP MOTION:
 
 - Das Wort `NA_SETTING` bei `0xC0189F00` (RAM, im Zustand des Patches): `0xFFFFFFFF` (nie geschrieben) oder 1 heißt an, 0 heißt aus. Der Patch liest es bei jedem Haken.

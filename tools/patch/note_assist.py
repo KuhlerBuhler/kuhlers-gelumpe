@@ -18,7 +18,7 @@ In KEYBOARD mode, right after a note was played on a pad, the pads of the notes 
             end (timeout, other pad mode, other screen, octave, key or scale, the setting off, a note of the sequencer), because the
             firmware does not light it again by itself.
 
-The patch is on only when EXIT was not held at power-on, a card is available and the setting word NA_SETTING is not 0 (the BLECH
+The patch is on only when EXIT was not held at power-on, a card was seen since power-on and the setting word NA_SETTING is not 0 (the BLECH
 menu page NOTE ASSIST in the BLECH list writes it, as bit 4 of the flags of the settings file: a file without the bit, or no file,
 means ON; never written means on).
 
@@ -129,7 +129,8 @@ SOURCE = """
 .org @CODE_AT@
 
 ; ===================================================== is the patch on
-; r0 = 1 when EXIT was not held at power-on, a card is available and the setting is not off. Clobbers r0 and r12. Reads memory only.
+; r0 = 1 when EXIT was not held at power-on, a card was seen since power-on and the setting is not off. Clobbers r0 and r12.
+; Writes only the card latch (tools/patch/card_gate.py), the first time a card is there.
 na_active:
     ldr r12, =PANEL
     ldr r12, [r12]
@@ -444,7 +445,7 @@ lit_pool:
 
 
 def source():
-    text = SOURCE.replace("@CARD_CHECK@", card_gate.source(BUILD, "nx_no"))
+    text = SOURCE.replace("@CARD_CHECK@", card_gate.source(BUILD, "nx_no", STATE + card_gate.LATCH_OFFSET))
     pristine = globals().get("_SAMPLER_ADDRESSES", {})
     body = {name: pristine.get(name, globals()[name]) for name in ("PAD_BODY", "LIGHT_BODY")}
     for key, value in {

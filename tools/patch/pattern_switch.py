@@ -18,7 +18,7 @@ Eight hooks, none of them before the main screen:
   STOP         first instruction of the pending-pattern applier, 0xC0081B5C
   label        the load of "NEXT:" in the lower line builder, 0xC0086DC4, shows VIEW: while browsing
 
-The patch is on only when EXIT was not held at power-on, a card is available and the setting word PS_SETTING
+The patch is on only when EXIT was not held at power-on, a card was seen since power-on and the setting word PS_SETTING
 is not 0 (the BLECH menu writes it; never written means on). Off, every hook goes straight to the original.
 Nothing of the firmware is copied and nothing is written to flash or to the card.
 """
@@ -115,8 +115,8 @@ SOURCE = """
 .org @CODE_AT@
 
 ; ===================================================== is the patch on
-; r0 = 1 when EXIT was not held at power-on, a card is available and the setting is not off. Clobbers r0 and r12.
-; Reads memory only, so the engine task may call it.
+; r0 = 1 when EXIT was not held at power-on, a card was seen since power-on and the setting is not off. Clobbers r0 and r12.
+; Writes only the card latch (tools/patch/card_gate.py), always the same value, so the engine task may call it too.
 pc_active:
     ldr r12, =PANEL
     ldr r12, [r12]
@@ -419,9 +419,9 @@ wrap_local:                     ; (value, 0, 249) like the firmware's, the range
 
 
 def source():
-    text = SOURCE.replace("@CARD_CHECK@", card_gate.source("synth" if SYNTH else "hacktribe", "pa_no"))
+    text = SOURCE.replace("@CARD_CHECK@", card_gate.source("synth" if SYNTH else "hacktribe", "pa_no", STATE + card_gate.LATCH_OFFSET))
     if SYNTH:
-        text = synthaddr.source(text, keep={0xC0040D24}).replace("bl WRAP", "bl wrap_local").replace("\nview_text:", WRAP_LOCAL + "\nview_text:")
+        text = synthaddr.source(text, own=[(STATE, STATE_END)], keep={0xC0040D24}).replace("bl WRAP", "bl wrap_local").replace("\nview_text:", WRAP_LOCAL + "\nview_text:")
     for key, value in {
         "SELECT": f"{SELECT:#x}", "MENU_ORIG": f"{MENU_ORIG:#x}", "EXIT_ORIG": f"{EXIT_ORIG:#x}", "NEXT_TEXT": f"{NEXT_TEXT:#x}",
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "PAD_BODY": f"{PAD_BODY:#x}",

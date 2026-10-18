@@ -35,6 +35,7 @@ STEP = 0xC06904B0               # step counter of part 1
 MOTION_OUT = 0xC068DB1C         # what the motion engine plays for the first lane, FFFFFFFF while silent
 PAD_STATE = 0xC068D074          # the Master FX pad state the effect was last given
 HW_PART, HW_PATTERN = 0xC06B2428, 0xC06B2420
+FATFS = 0xC06A010C              # FatFs volume table: the card's volume, its byte 0 the mounted type (0 unmounted)
 LED = 0x14
 KEYS = {"rec": 0x00, "stop": 0x01, "play": 0x02, "tap": 0x03, "touch_scale": 0x05, "master_fx": 0x06, "write": 0x0E, "part_right": 0x0F, "part_left": 0x0B, "shift": 0x0A}
 KILL = spec.KILL_SWITCH
@@ -460,7 +461,6 @@ def case_mfx(payload, flash):
     plain = base.script({}, 1, sample=lambda x: (x.out(0), x.out(1)))
     box = TBox(payload, flash)
     box.record_gesture()
-    led_before = box.leds()
     seen = box.script({(0, 18): down, (0, 20): tap, (0, 23): up, (1, 22): down, (1, 24): tap, (1, 27): up}, 2,
                       sample=lambda x: (x.out(0), x.out(1), x.u32(PAD_STATE), x.mfx_mode(), x.mode(), x.leds()))
     # the outputs of these lanes keep their last value while the byte is 0 (a part's lane goes silent): what counts is that they stop moving
@@ -472,8 +472,9 @@ def case_mfx(payload, flash):
                      f"TAP again at step 24 of the next run: from step 25 the lanes play as recorded again ({[xy(1, s) for s in range(25, 32)]}), pad state by step {[seen[(1, s)][2] for s in range(22, 34)]}"))
     pad = {s: seen[(0, s)][2] for s in range(16, 34)}
     out.append(entry("mfx_pad_let_go", all(pad[s] == 1 for s in range(16, 20)) and all(pad[s] == 0 for s in range(20, 34)), f"pad state by step with the gesture switched off at 20: {pad}"))
-    out.append(entry("mfx_leaves_the_part_alone", all(v[4] == (1, 1) for v in seen.values()) and box.mfx_mode() == 1 and box.leds() == led_before,
-                     f"the part's byte stayed {set(v[4] for v in seen.values())}, the Master FX byte ends {box.mfx_mode()}, LED {led_before} then {box.leds()}"))
+    # the LED is not compared here: with the gesture recorded and its motion on it blinks (case_mfx_blink)
+    out.append(entry("mfx_leaves_the_part_alone", all(v[4] == (1, 1) for v in seen.values()) and box.mfx_mode() == 1,
+                     f"the part's byte stayed {set(v[4] for v in seen.values())}, the Master FX byte ends {box.mfx_mode()}"))
     states = {k: v[3] for k, v in seen.items() if k[1] in (10, 22, 30)}
     out.append(entry("mfx_byte_follows", states[(0, 10)] == 1 and states[(0, 22)] == 0 and states[(1, 10)] == 0 and states[(1, 30)] == 1, f"Master FX byte {states}"))
 
@@ -588,7 +589,66 @@ def case_touch_scale(payload, flash):
     return out
 
 
-GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale)
+def case_card_pulled(payload, flash):
+    """A card pulled while the device runs leaves the patch on: it was seen at power-on, the latch of tools/patch/card_gate.py
+    keeps it (device 18.10.: TAP MOTION went off with the card). The Sampler's volume is also marked unmounted, as FatFs
+    does at the next access; the synth's detect pin goes high with the eject."""
+    box = TBox(payload, flash)
+    box.tap()
+    before = box.mode()
+    box.m.eject_card()
+    box.run(1.0)
+    volume = None
+    if not box.dev.synth:
+        fs = box.u32(FATFS)
+        volume = box.dev.read(fs, 1)[0]
+        box.m.uc.mem_write(fs, b"\0")
+    box.tap()
+    after = box.mode()
+    box.tap()
+    again = box.mode()
+    return [entry("card_pulled_keeps_tap", before == (0, 0) and after == (1, 1) and again == (0, 0) and not box.m.asserts,
+                  f"TAP with the card: {before}; card pulled (volume type byte after a second {volume}, then 0), TAP: {after}, TAP: {again}; "
+                  f"assertions {box.m.asserts}")]
+
+
+def case_mfx_blink(payload, flash):
+    """With a Master FX gesture recorded and its motion on, the TAP LED blinks without MASTER FX held: half on with the part's
+    motion off, on with a short gap with it on; with the Master FX motion off, or with no gesture recorded (the byte is 1 in
+    every new pattern), it is steady as the part says."""
+    def watch(box, seconds=1.92):
+        box.run(0.1)                     # the LED follows within one 40 ms tick
+        seen, t = [], 0.0
+        while t < seconds:
+            box.run(0.02)
+            t += 0.02
+            seen.append(1 if box.leds() == 255 else 0)
+        changes = sum(1 for a, b in zip(seen, seen[1:]) if a != b)
+        return round(sum(seen) / len(seen), 2), changes
+
+    plain = TBox(payload, flash)
+    no_gesture = (plain.mfx_mode(), watch(plain))
+    box = TBox(payload, flash)
+    box.record_gesture()
+    rows = {}
+    for name, part, mfx in (("part on", 1, 1), ("part off", 0, 1), ("mfx off", 1, 0), ("both off", 0, 0)):
+        box.set_mode(part)
+        box.set_mfx_mode(mfx)
+        rows[name] = watch(box)
+    box.set_mode(1)
+    box.set_mfx_mode(1)
+    box.hold("master_fx", True)
+    held = watch(box, 0.4)
+    box.hold("master_fx", False)
+    ok = (no_gesture[0] == 1 and no_gesture[1] == (1.0, 0)
+          and 0.75 <= rows["part on"][0] <= 0.92 and rows["part on"][1] >= 6
+          and 0.4 <= rows["part off"][0] <= 0.6 and rows["part off"][1] >= 6
+          and rows["mfx off"] == (1.0, 0) and rows["both off"] == (0.0, 0) and held == (1.0, 0) and not box.m.asserts)
+    return [entry("mfx_motion_blinks", ok, f"(share of samples lit, changes) in 1.92 s: new pattern without a gesture, byte {no_gesture[0]}: {no_gesture[1]}; "
+                  f"with a gesture {rows}; MASTER FX held {held}; assertions {box.m.asserts}")]
+
+
+GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale, case_card_pulled, case_mfx_blink)
 
 
 def group_entries(payload, flash, i):
