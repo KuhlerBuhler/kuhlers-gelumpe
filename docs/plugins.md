@@ -796,9 +796,9 @@ Einheit anders sein.
 | Snake | GAMES | Part links und rechts drehen | 1180 Byte | 2215 Einheiten (das Öffnen), Rahmen 537 |
 | Tetris | GAMES | Part links und rechts bewegen, Edit rechts dreht, Edit links gehalten lässt schneller fallen, jede Taste startet nach Game Over neu | 3772 Byte | 2305 Einheiten, 0,44 ms |
 | Game of Life | GAMES | das Touchpad setzt Zellen, Taste 1 startet und pausiert (LED), Taste 2 ein Schritt, Taste 3 löscht, Taste 4 füllt zufällig | 2184 Byte | 2484 Einheiten, 0,47 ms |
-| Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt | 2068 Byte | 1190 Einheiten, 0,23 ms |
+| Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt; Ball und Bot ziehen nur jeden zweiten Rahmen, sonst sieht man den Ball auf dem trägen Display kaum | 2120 Byte | 1221 Einheiten, 0,23 ms |
 | Simon | GAMES | die vier mittleren Pads (3, 4, 11, 12, von 0 gezählt) leuchten eine Folge vor, man spielt sie nach, jede Runde einen Schritt mehr; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2344 Byte | 2114 Einheiten (das Öffnen), Rahmen 693 |
-| Mandelbrot | TOOLS | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 2436 Byte | 2135 Einheiten, 0,41 ms |
+| Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 2436 Byte | 2135 Einheiten, 0,41 ms |
 
 **Set-Timer** ist für den Einsatz im Set gedacht. Die Uhr ist `korg.millis()`, die die Laufzeit in jedem Rahmen
 nachführt, auch wenn die App geschlossen ist. Er abonniert nur `play`, die Tasten und `open` und `close`: geschlossen
@@ -821,7 +821,7 @@ tiefer reichen die 14 Bit nicht.
 ## Die Seite Plugins im Editor
 
 Der Reiter Plugins hat links Beispiel-Plugins (die Apps BLECH Clicker, Snake, Tetris, Game of Life,
-Pong, Simon unter GAMES, Set-Timer und Mandelbrot unter TOOLS, dazu Lauflicht und Pulsieren, Quelle
+Pong, Simon und Mandelbrot unter GAMES, Set-Timer unter TOOLS, dazu Lauflicht und Pulsieren, Quelle
 `data/script/presets.mjs`, alle mit Namen wie `korg.key.TAP`; dieselben Beispiele stehen im Katalog als Karten)
 und die eigenen Plugins, rechts den Editor mit Zeilenspalte, das
 Ergebnis des Übersetzens (Fehler mit Zeile und Spalte, ein Klick setzt den Cursor dorthin), die

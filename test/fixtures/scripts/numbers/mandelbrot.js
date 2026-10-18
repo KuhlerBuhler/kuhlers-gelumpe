@@ -1,9 +1,9 @@
-// Mandelbrot renderer, an app under TOOLS. Fixed point with 14 fractional bits (1.0 is 16384), the picture comes in
+// Mandelbrot renderer, an app under GAMES. Fixed point with 14 fractional bits (1.0 is 16384), the picture comes in
 // four passes of blocks 8, 4, 2 and 1 pixel wide and every frame draws only as many pixels as fit a small budget,
 // so the controls stay responsive. A finger dragging on the touchpad pans, Part right and the encoder zoom in,
 // Part left zooms out, keys 1 and 2 lower and raise the iteration limit, TAP resets the view. Each change starts the
 // picture again from the coarse pass.
-korg.app("Mandelbrot", "TOOLS");
+korg.app("Mandelbrot", "GAMES");
 const BUDGET = 26;
 let cx = -8192;
 let cy = 0;
