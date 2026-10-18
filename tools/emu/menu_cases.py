@@ -931,7 +931,8 @@ def pad_colour_cases(payload, flash=None):
         out.append({"id": f"menu:padcolor_{name}", "ok": bool(ok), "detail": detail})
 
     pad = lambda d, n: (d.m.leds.get(0x2C + 2 * n, 0), d.m.leds.get(0x2D + 2 * n, 0))
-    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    wait = 10.0 if synthaddr.is_synth(payload) else 1.2       # the synth reaches its main screen after about 8 s (docs/messungen/2026-10-16-blech-synth.md)
+    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True, seconds=wait)
     if dev.u32(PC.CODE_AT) == 0xFFFFFFFF:
         return out
     stock = pad(dev, 0)
@@ -968,13 +969,13 @@ def pad_colour_cases(payload, flash=None):
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
-    again.run(2.0)
+    again.run(wait + 0.8)
     add("start_reads_them", again.u32(PC.PC_SETTING) == PC.PINK | PC.RED << 4 and pad(again, 0) == (255, 0) and not again.m.asserts,
         f"setting {again.u32(PC.PC_SETTING):#x}, pad 1 {pad(again, 0)}")
     held = Dev(payload, flash, KILL)
     held.m.adapter = True
     held.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
-    held.run(2.0)
+    held.run(wait + 0.8)
     add("exit_held_is_stock", pad(held, 0) == (0, 255) and not held.m.asserts, f"pad 1 {pad(held, 0)}")
 
     # power save: while the firmware dims (its switch 0xC0028AB4 with 1), every LED goes out at a quarter, at once; back with 0
@@ -986,7 +987,7 @@ def pad_colour_cases(payload, flash=None):
         d.call(PC.DIM_SWITCH, 0)
         d.run(0.3)
         return before, during, dict(d.m.leds)
-    plain = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    plain = boot(payload, flash, files=CARD_FOLDER, adapter=True, seconds=wait)
     before, during, after = dimmed(plain)
     lit = {led: v for led, v in before.items() if v and not 0x4C <= led <= 0x57}   # the bottom RGB LEDs: power save switches them off itself
     quarter = {led: during.get(led, 0) for led in lit}
@@ -995,9 +996,11 @@ def pad_colour_cases(payload, flash=None):
     before, during, after = dimmed(again)
     add("power_save_with_colours", pad(again, 0) == (255, 0) and (during.get(0x2C, 0), during.get(0x2D, 0)) == (64, 0) and not again.m.asserts,
         f"pad 1 in RED while dimmed {(during.get(0x2C, 0), during.get(0x2D, 0))}, after {pad(again, 0)}")
-    battery = boot(payload, flash, files=CARD_FOLDER)
-    add("power_save_on_battery_from_the_start", pad(battery, 0) == (0, 64) and battery.m.leds.get(0x14, 0) in (0, 64) and not battery.m.asserts,
-        f"on battery (power save Auto dims from power-on): pad 1 {pad(battery, 0)}, TAP LED {battery.m.leds.get(0x14, 0)}")
+    battery = boot(payload, flash, files=CARD_FOLDER, seconds=wait)
+    dims = battery.read(PC.DIM_FLAG, 1)[0] != 0      # whether the firmware dims on battery depends on POWER SAVE in the flash (Auto in the dump)
+    want = (0, 64) if dims else (0, 255)
+    add("power_save_on_battery_from_the_start", pad(battery, 0) == want and not battery.m.asserts,
+        f"on battery the firmware {'dims' if dims else 'does not dim (POWER SAVE of this flash)'} from power-on: pad 1 {pad(battery, 0)}, TAP LED {battery.m.leds.get(0x14, 0)}")
     before, during, after = dimmed(held)
     add("power_save_exit_held_is_stock", during.get(0x2D, 0) == 255 and not held.m.asserts, f"EXIT held: pad 1 blue while dimmed {during.get(0x2D, 0)}")
     return out

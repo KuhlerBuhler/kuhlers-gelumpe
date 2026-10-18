@@ -20,5 +20,19 @@ Helligkeitsstufen (Pulsieren pulsiert am Gerät flüssig, [Korrektur](2026-10-16
 09.10.).** Schalter mit 1 gerufen: alle 14 leuchtenden LEDs von 255 auf 64, mit 0 wieder 255. Mit eigenen Farben (Pad
 rot) Pad 1 auf (64, 0). Mit EXIT beim Einschalten bleibt das Blau von Pad 1 bei 255.
 
-**Offen, am Gerät:** wie viel Strom das spart (Stromtest, Stufen 4 bis 6), ob ein Viertel gut sichtbar bleibt. Die
-blaue Electribe hat den Patch nicht.
+## Die blaue Electribe (18.10., Abend)
+
+Der Patch hat jetzt auch einen Build für Blau (`--build synth`, `data/patches/pad-colors-synth.json`, im blauen Satz). Die
+Stellen sind Befehl für Befehl die roten (`data/synth-map/pad-colors.json`): Sendefunktion `0xC00776B0` mit dem Sprung zum
+Sender `0xC0077634` an ihrem Ende `0xC0077764`, Power-Save-Schalter `0xC0025F28`, Flag `0xC00DF0CC`.
+
+**Gemessen:** Die erste Fassung ließ Blau mit Karte am Start hängen (Bildschirm 0, keine Ticks des Bildschirm-Managers,
+nur noch Interrupts; ohne Karte und ohne den Patch lief es). Ursache: alle LEDs wurden beim Start neu gesendet, einmal beim
+Einlesen der Einstellungen und einmal beim ersten Aufruf des Power-Save-Schalters; auf Blau kam ein Senden aus dem Start nie
+zurück. Jetzt wird beim Start nichts gesendet; der Patch merkt sich "neu senden fällig" (`S_PEND`) und schickt alle LEDs
+außer der Pegelanzeige beim nächsten Durchlauf durch den eigenen Sendeweg der Firmware neu, aber erst, wenn der
+Hauptbildschirm da ist (auch aus dem Sendeweg hing es während des Starts). Rot und Blau je 12 von 12 in
+`menu:padcolor_*`. Ob die blaue Firmware auf Batterie dimmt, hängt an POWER SAVE im Flash: im leeren blauen Flash dimmt sie
+nicht, der Fall prüft darum, dass die LEDs genau dann gedimmt sind, wenn die Firmware dimmt.
+
+**Offen, am Gerät:** wie viel Strom das spart (Stromtest, Stufen 4 bis 6), ob ein Viertel gut sichtbar bleibt, Blau ganz.

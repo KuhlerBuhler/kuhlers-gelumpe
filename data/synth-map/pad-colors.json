@@ -1,0 +1,28 @@
+{
+ "entries": [
+  {
+   "from": "0xC00876A8",
+   "to": "0xC0077764",
+   "kind": "code",
+   "why": "the end of the LED manager's send function, b to the sender: the send function 0xC00776B0 (already mapped) is the Sampler's 0xC00875F4 instruction for instruction (offsets 0xB98, 0x4E, 0xB4C, 0xB54 equal), its last instruction is b 0xC0077634 (word 0xEAFFFFB2 as in the Sampler)"
+  },
+  {
+   "from": "0xC0087578",
+   "to": "0xC0077634",
+   "kind": "code",
+   "why": "the sender that the send function ends in (the target of the branch above)"
+  },
+  {
+   "from": "0xC0028AB8",
+   "to": "0xC0025F2C",
+   "kind": "code",
+   "why": "the second instruction of the power save switch 0xC0025F28 (already mapped), which is the Sampler's 0xC0028AB4 instruction for instruction"
+  },
+  {
+   "from": "0xC00F9310",
+   "to": "0xC00DF0CC",
+   "kind": "data",
+   "why": "the power save flag: the literal the switch loads first (0xC0025F74 in the synth, 0xC0028B00 in the Sampler)"
+  }
+ ]
+}
