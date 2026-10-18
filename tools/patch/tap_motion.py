@@ -5,6 +5,8 @@ motion of the selected part on and off, at once and without waiting for the bar,
 
     TAP                 the Motion Sequence of the selected part: on (the mode it had, Smooth when it never had one)
                         or off (the part's mode byte 0)
+    TAP held            held 320 ms or longer (HOLD_TICKS), the switch lasts only while TAP is held: letting go switches back;
+                        a short TAP stays switched (device 18.10.), for the part as for the Master FX lanes
     MASTER FX + TAP     the Motion Sequence of the Master FX lanes (the pattern byte 0x44, found as their switch);
                         TOUCH SCALE + TAP the same, for MFX 2 on TOUCH SCALE (mfx-switch.json)
     TAP LED             lit while that motion is on, dark while it is off; the part that is selected counts, and
@@ -53,6 +55,8 @@ CODE_END = 0xC0188800
 STATE = 0xC0188F00              # run time state, in RAM only; FF there means "nothing"
 STATE_END = 0xC0188F40
 S_SETTING, S_LED, S_PATNUM, S_LAST, S_MFXLAST, S_ONCE, S_STEPS, S_BLINK = 0, 4, 8, 0x10, 0x20, 0x24, 0x28, 0x3A
+S_HOLD, S_HOLDT = 0x0C, 0x0D      # bytes: what the TAP held now switched (part, 16 Master FX, FF none) and the 40 ms ticks it is held
+HOLD_TICKS = 8                  # TAP held 8 ticks (320 ms) or longer works only while held: letting go switches back (device 18.10.)
 BLINK_TICKS, BLINK_HALF, BLINK_LONG = 12, 6, 10   # 480 ms: on for 6 ticks (part off) or 10 ticks (part on)
 TM_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off, 2 once
 
@@ -131,6 +135,10 @@ SOURCE = """
 .equ S_ONCE, @S_ONCE@           ; ONCE: bit n part n plays to its end and goes off, bit 16 the Master FX lanes (on part 1's counter)
 .equ S_STEPS, @S_STEPS@         ; 17 bytes: the step counter last seen for each of those
 .equ S_BLINK, @S_BLINK@         ; byte: the tick within the blink of the TAP LED while the Master FX motion is on
+.equ S_HOLD, @S_HOLD@           ; byte: what the TAP being held switched (part 0 to 15, 16 the Master FX lanes), FF nothing
+.equ S_HOLDT, @S_HOLDT@         ; byte: the LED ticks (40 ms) it has been held, up to 255
+.equ HOLD_TICKS, @HOLD_TICKS@
+.equ KEY_TAP, 3
 .equ BLINK_TICKS, @BLINK_TICKS@
 .equ BLINK_HALF, @BLINK_HALF@
 .equ BLINK_LONG, @BLINK_LONG@
@@ -230,20 +238,37 @@ tm_mark_store:
     str r0, [r12, #S_ONCE]
     bx lr
 
+; TAP went down: the motion of the selected part (MASTER FX held: of the Master FX lanes) switches, and what it switched is
+; remembered with the time held from now, for the letting go (tm_hold). Clobbers r0 to r3 and r12.
 tm_toggle:
+    push {r6, lr}
+    bl tm_mfx_held
+    cmp r0, #0
+    movne r6, #16
+    bne tt_target
+    ldr r6, =HW_PART
+    ldr r6, [r6]
+    cmp r6, #15
+    bhi tt_none                 ; no part selected: nothing to switch
+tt_target:
+    bl tm_switch
+    ldr r12, =STATE
+    strb r6, [r12, #S_HOLD]
+    mov r0, #0
+    strb r0, [r12, #S_HOLDT]
+tt_none:
+    pop {r6, pc}
+
+; r6 = part (16 the Master FX lanes): its motion on or off. Clobbers r0 to r3 and r12, keeps r6.
+tm_switch:
     push {r4, r5, r6, r7, lr}
     ldr r4, =PATPTR
     ldr r4, [r4]
     cmp r4, #0
     beq tt_out
     ldr r5, =STATE
-    bl tm_mfx_held
-    cmp r0, #0
-    bne tt_mfx
-    ldr r6, =HW_PART
-    ldr r6, [r6]
-    cmp r6, #15
-    bhi tt_out                  ; no part selected: nothing to switch
+    cmp r6, #16
+    beq tt_mfx
     mov r0, #0x330
     mul r1, r6, r0
     add r1, r4, r1
@@ -299,12 +324,33 @@ frame_hook:
     bl tm_active
     cmp r0, #0
     beq fh_out
+    bl tm_hold
     ldr r4, =PATPTR
     ldr r4, [r4]
     cmp r4, #0
     blne tm_once
 fh_out:
     pop {r0, r1, r2, r3, r4, r5, r12, pc}
+
+; TAP let go after being held HOLD_TICKS or longer: what it switched goes back, so a held TAP works only while held; a short TAP
+; stays switched. In the UI task, every frame. Clobbers r0 to r3 and r12.
+tm_hold:
+    push {r6, lr}
+    ldr r12, =STATE
+    ldrb r6, [r12, #S_HOLD]
+    cmp r6, #16
+    bhi tmh_out
+    ldr r0, =KEYS
+    ldr r0, [r0, #8 * KEY_TAP]
+    cmp r0, #0
+    bne tmh_out                 ; still held
+    mov r0, #0xFF
+    strb r0, [r12, #S_HOLD]
+    ldrb r0, [r12, #S_HOLDT]
+    cmp r0, #HOLD_TICKS
+    blhs tm_switch
+tmh_out:
+    pop {r6, pc}
 
 ; ONCE: a marked motion whose step counter went back (the pattern started over) goes off, as TAP would switch it.
 ; While the sequencer stands the counters are not compared, and the last ones seen are 0. r4 = pattern.
@@ -399,6 +445,14 @@ tick_hook:
     bl tm_active
     cmp r0, #0
     beq tk_release
+    ldrb r0, [r5, #S_HOLD]      ; the time TAP is held, for tm_hold
+    cmp r0, #16
+    bhi tk_held
+    ldrb r0, [r5, #S_HOLDT]
+    cmp r0, #255
+    addlo r0, r0, #1
+    strblo r0, [r5, #S_HOLDT]
+tk_held:
     ldr r0, =HW_PATTERN
     ldr r0, [r0]
     ldr r1, [r5, #S_PATNUM]
@@ -506,7 +560,7 @@ def source():
     for key, value in {
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}",
         "S_SETTING": S_SETTING, "S_LED": S_LED, "S_PATNUM": S_PATNUM, "S_LAST": S_LAST, "S_MFXLAST": S_MFXLAST, "S_ONCE": S_ONCE, "S_STEPS": S_STEPS,
-        "S_BLINK": S_BLINK, "BLINK_TICKS": BLINK_TICKS, "BLINK_HALF": BLINK_HALF, "BLINK_LONG": BLINK_LONG,
+        "S_BLINK": S_BLINK, "S_HOLD": S_HOLD, "S_HOLDT": S_HOLDT, "HOLD_TICKS": HOLD_TICKS, "BLINK_TICKS": BLINK_TICKS, "BLINK_HALF": BLINK_HALF, "BLINK_LONG": BLINK_LONG,
         "TAP_BODY": f"{place('TAP_BODY'):#x}", "TAP_EXIT": f"{place('TAP_EXIT'):#x}", "TAP_LITERAL": f"{place('TAP_LITERAL'):#x}",
         "BEAT_BODY": f"{place('BEAT_BODY'):#x}", "TICK_BODY": f"{place('TICK_BODY'):#x}", "FRAME_FUNC": f"{place('FRAME_FUNC'):#x}",
     }.items():
