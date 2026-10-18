@@ -7,7 +7,7 @@ Emulators) über die Gerätezeit, den Rest schläft die Firmware im Wait-for-Int
 
 ## Ergebnisse
 
-| Lauf | Pascals Hacktribe | dieselbe mit BLECH |
+| Lauf | eigene Hacktribe-Datei | dieselbe mit BLECH |
 |---|---|---|
 | Laden: Befehle je Byte der Datei | 71,3 | 71,2 |
 | Laden: beschäftigt | 18,3 % | 18,2 % |

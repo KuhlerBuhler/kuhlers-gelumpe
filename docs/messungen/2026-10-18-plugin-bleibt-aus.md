@@ -1,6 +1,6 @@
 # Plugin bleibt aus (18.10.)
 
-**Rückmeldung vom Gerät (Pascal, 18.10.).** Plugins ausgeschaltet, EXPORT ALL, Gerät neu gestartet: die Plugins waren
+**Rückmeldung vom Gerät (18.10.).** Plugins ausgeschaltet, EXPORT ALL, Gerät neu gestartet: die Plugins waren
 wieder an.
 
 **Ursache (Code gelesen).** Der Aus-Zustand stand nur im RAM (`SCRIPT_ENTRY_STATE` LOADED statt ARMED). Weder die
@@ -21,7 +21,7 @@ beim Einschalten jedes erlaubte Plugin.
   Ende des Codebereichs (`0xC01ADF00` und `0xC01ADFB8` statt `0xC01ADE00` und `0xC01ADF00`), die Lücke dahinter war
   ungenutzt.
 
-**Gemessen (Emulator, `test/script-runtime.test.mjs` mit Pascals Hacktribe-Datei und dem Flash-Abbild vom 09.10.).**
+**Gemessen (Emulator, `test/script-runtime.test.mjs` mit einer eigenen Hacktribe-Datei und dem Flash-Abbild vom 09.10.).**
 `menu-plugin-bleibt-aus-nach-neustart`: Plugin aus, EXPORT ALL ("2 exported"), Neustart mit derselben Karte: Zustand 1
 (aus), eine Taste zählt nicht, für den Start keine Kosten, die Seite zeigt OFF; eingeschaltet Zustand 2 und die Taste
 zählt. `menu-plugin-an-mit-write-gespeichert`: danach WRITE auf der Seite, Neustart: an, die Taste zählt. Alle übrigen

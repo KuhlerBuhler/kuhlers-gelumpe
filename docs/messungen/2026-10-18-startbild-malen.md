@@ -1,6 +1,6 @@
 # Startbild-Editor: malen und SHIFT (18.10.)
 
-Wunsch vom Gerät (Pascal, 18.10.): ENTER/MENU gehalten soll dauerhaft zeichnen, SHIFT soll den Cursor hoch und runter
+Wunsch vom Gerät (18.10.): ENTER/MENU gehalten soll dauerhaft zeichnen, SHIFT soll den Cursor hoch und runter
 bewegen.
 
 **Neu (`tools/patch/splash_editor.py`).**
@@ -11,7 +11,7 @@ bewegen.
   (Taste `0x09`), geht der Cursor Schritt für Schritt und jedes Pixel, auf dem er landet, bekommt diese Farbe; ein
   schneller Dreh mit mehreren Schritten auf einmal lässt also keine Lücke.
 
-**Gemessen (Emulator, `tools/emu/splash_cases.py run`, BLECH auf Pascals Hacktribe-Datei mit dem Flash-Abbild vom
+**Gemessen (Emulator, `tools/emu/splash_cases.py run`, BLECH auf einer eigenen Hacktribe-Datei mit dem Flash-Abbild vom
 09.10.).** SHIFT gehalten: zwei Schritte von Pixel 3 nach 259, drei zurück nach 8067 (Umlauf), einer vor nach 3, das
 Bild unverändert. MENU gehalten, dann vier Schritte in einer Nachricht: die Bytes 3 bis 7 tragen die Farbe des Kippens
 (0), Byte 8 bleibt, der Cursor steht nach einem weiteren Schritt ohne MENU auf 8, auf dem Display stehen die gemalten

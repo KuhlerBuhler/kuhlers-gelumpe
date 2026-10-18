@@ -7,7 +7,7 @@ sofort passieren. Das Gerät fragt "Ungespeicherte Änderungen verwerfen?": MENU
 
 | Aussage | Status |
 |---|---|
-| "Ungespeichert" lässt sich erkennen: das Pattern im Arbeitsspeicher (Zeiger `0xC033E6A4`, ab `+4`, 0x4000 Byte) gleicht nach dem Start seinem Platz in der Pattern-Bank im RAM (`0xC08B2940 + Nummer * 0x4000`); ein Reglerdreh ändert ein Byte (`+2072`), nach einem vollständigen WRITE sind beide wieder gleich | gemessen im Emulator (Pascals Hacktribe, Flash-Abbild 09.10.) |
+| "Ungespeichert" lässt sich erkennen: das Pattern im Arbeitsspeicher (Zeiger `0xC033E6A4`, ab `+4`, 0x4000 Byte) gleicht nach dem Start seinem Platz in der Pattern-Bank im RAM (`0xC08B2940 + Nummer * 0x4000`); ein Reglerdreh ändert ein Byte (`+2072`), nach einem vollständigen WRITE sind beide wieder gleich | gemessen im Emulator (eigene Hacktribe-Datei, Flash-Abbild 09.10.) |
 | Der Patch Patternwechsel hängt schon an Rad, Pad-Auswahl, MIDI Program Change, MENU, EXIT und der unteren Zeile des Hauptbildschirms | gebaut (`tools/patch/pattern_switch.py`) |
 | Die Firmware hat eigene Bestätigungstexte und -seiten: "Are You Sure ?", "Stop Sequencer. OK?", " Cancel Rec? Press [Enter]", "Canceled" (gesetzt über `0xC008CB10` in Bildschirm-Widgets, z. B. `0xC0062504`) | gelesen |
 

@@ -16,7 +16,7 @@ Helligkeitsstufen (Pulsieren pulsiert am Gerät flüssig, [Korrektur](2026-10-16
 - EXIT beim Einschalten: nichts davon. Die Werte im LED-Manager bleiben die der Firmware, nur was ans Bedienfeld geht,
   ändert sich.
 
-**Gemessen (Emulator, `menu:padcolor_power_save_*`, BLECH auf Pascals Hacktribe-Datei mit dem Flash-Abbild vom
+**Gemessen (Emulator, `menu:padcolor_power_save_*`, BLECH auf einer eigenen Hacktribe-Datei mit dem Flash-Abbild vom
 09.10.).** Schalter mit 1 gerufen: alle 14 leuchtenden LEDs von 255 auf 64, mit 0 wieder 255. Mit eigenen Farben (Pad
 rot) Pad 1 auf (64, 0). Mit EXIT beim Einschalten bleibt das Blau von Pad 1 bei 255.
 

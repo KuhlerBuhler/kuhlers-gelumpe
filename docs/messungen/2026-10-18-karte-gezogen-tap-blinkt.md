@@ -1,6 +1,6 @@
 # Karte gezogen, TAP blinkt (18.10.)
 
-Zwei Rückmeldungen vom Gerät (Pascal, 18.10.):
+Zwei Rückmeldungen vom Gerät (18.10.):
 
 1. TAP Motion war an, die Karte wurde gezogen, danach war TAP Motion aus.
 2. Läuft die Master-FX-Bewegung, sieht man das nicht, ohne MASTER FX zu halten.
@@ -17,7 +17,7 @@ des Patches (`STATE + 0x3C`, im RAM, beim Einschalten FF), danach lässt dieses 
 Einschalten bleibt alles wie die Firmware. Die Einstellungen liest das Menü ohnehin nur beim Start; sie stehen danach im
 RAM und gehen mit der Karte nicht verloren.
 
-**Gemessen (Emulator, `tapmotion:card_pulled_keeps_tap`, BLECH auf Pascals Hacktribe-Datei mit dem Flash-Abbild vom
+**Gemessen (Emulator, `tapmotion:card_pulled_keeps_tap`, BLECH auf einer eigenen Hacktribe-Datei mit dem Flash-Abbild vom
 09.10.).** TAP mit Karte schaltet aus `(0, 0)`. Karte ausgeworfen (`eject_card`, Kontakt hoch), eine Sekunde gewartet:
 das Typ-Byte stand im Emulator noch auf 24, es wurde von Hand auf 0 gesetzt, wie FatFs es beim nächsten Zugriff tut.
 TAP danach: an `(1, 1)`, TAP noch einmal: aus `(0, 0)`, keine Assertion. Die Prüfung selbst ist in

@@ -24,7 +24,7 @@ wechselt, EXIT bleibt.
   STOP und PLAY beenden das Blättern ohne zu laden (der Neulade-Zweig von `SET_NUMBER` würde die Änderung verwerfen).
   Pad-Auswahl und MIDI Program Change wechseln weiter direkt.
 
-**Gemessen (Emulator, `pswitch:unsaved_*`, Pascals Hacktribe mit BLECH, Flash-Abbild vom 09.10.).**
+**Gemessen (Emulator, `pswitch:unsaved_*`, eine eigene Hacktribe-Datei mit BLECH, Flash-Abbild vom 09.10.).**
 
 | Schritt | Ergebnis |
 |---|---|
