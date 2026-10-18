@@ -107,8 +107,8 @@ def press(dev, key, wait=0.25):
     dev.press(key, wait=wait)
 
 
-GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_COLORS = range(6)
-CUSTOM_COLORS, CUSTOM_PAD = 1, 3                                       # the row COLORS in CUSTOMIZATION, and PAD COLOR (SELECT COLOR, SPLASH IMPORT and DRAW follow)
+GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_DISPLAY, GROUP_LED, GROUP_PADS = range(8)
+CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_SPLASH = 0, 1, 2, 3     # the rows of CUSTOMIZATION: three groups, then SPLASH IMPORT and SPLASH DRAW
 S_LEVEL, S_GROUP, S_RAW, S_TOP, S_TABW = 0xE0, 0xE4, 0xE8, 0xEC, 0xF0
 TAB_TEXT_POINTER = 0x38                                               # the tab widget keeps a pointer to its text at this offset
 LIST_PAGES = ["FEATURES", "CUSTOMIZATION", "PLUGINS"]                 # the groups of level 1 of a menu without apps, in this order; GAMES and TOOLS follow when an app is declared in them
@@ -116,7 +116,7 @@ LIST_GROUPS = LIST_PAGES
 LIST_FEATURES, LIST_CUSTOM, LIST_PLUGINS = range(3)                   # their places in that list
 FEATURE_PAGES = ["MFX 2", "PATTERN CONFIRM", "TAP MOTION", "NOTE ASSIST"]   # the pages of the group FEATURES, each with an ON/OFF value
 FEAT_MFX, FEAT_PC, FEAT_TM, FEAT_NA = range(len(FEATURE_PAGES))
-TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Colors"]
+TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads"]
 RING = 31                                                             # the total of the page counter with the page BLECH and the page of Blechy in the ring
 BASE_RING = 29
 LEVEL_BLECHY = 3                                                      # level 3 of the screen: the page of Blechy at the end of the ring
@@ -435,7 +435,8 @@ def cases(payload, flash=None, settings=True):
 
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(3)]
-    pages += [(GROUP_CUSTOM, page) for page in range(3)] + [(GROUP_COLORS, page) for page in range(6)] + [(GROUP_FEATURES, page) for page in range(len(FEATURE_PAGES))]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(4)] + [(GROUP_LED, page) for page in range(4)]
+    pages += [(GROUP_FEATURES, page) for page in range(len(FEATURE_PAGES))]
     crowded = []
     for group, page in pages:
         if group == "ring":
@@ -681,21 +682,23 @@ def pins(dev):
 
 
 def custom_extra(dev):
-    """The pages of CUSTOMIZATION behind DISPLAY INVERT: PAD COLOR and SELECT COLOR where the set has the pad colours, SPLASH IMPORT
-    and SPLASH DRAW where it also has the splash editor (the blue Electribe has the pad colours only)."""
+    """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR where the set has the pad colours, SPLASH IMPORT and SPLASH DRAW
+    where it also has the splash editor (the blue Electribe has the pad colours only)."""
     import pad_colors
     import splash_editor
     if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
         return 0
-    return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 4
+    return 1 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 3
 
 
 def goto_page(dev, number):
-    """Open a look page: BOTTOM LEDS and DISPLAY INVERT in CUSTOMIZATION, the six levels in its group COLORS."""
-    if PAGE_LED_R <= number <= PAGE_BL_B:
-        goto_group(dev, GROUP_COLORS, number - PAGE_LED_R)
+    """Open a look page: the bottom LEDs and their levels in LED, the backlight levels and DISPLAY INVERT in DISPLAY."""
+    if number <= PAGE_LED_B:
+        goto_group(dev, GROUP_LED, number - PAGE_LED_MODE)
+    elif number <= PAGE_BL_B:
+        goto_group(dev, GROUP_DISPLAY, number - PAGE_BL_R)
     else:
-        goto_group(dev, GROUP_CUSTOM, 0 if number == PAGE_LED_MODE else 2)
+        goto_group(dev, GROUP_DISPLAY, 3)
 
 
 def shown_levels(dev, at):
@@ -804,21 +807,21 @@ def look_cases(payload, flash=None):
     add("stock_at_15", stock_again == [0, 0, 0] and floor == [0, 0, 1], f"15 15 15 stores {stock_again}; 0 0 5 turned down stores {floor}")
     set_look(dev, backlight=(0, 0, 0))
 
-    # the six levels sit behind the row COLORS of CUSTOMIZATION: ENTER opens them, EXIT goes back to that row
-    goto_group(dev, GROUP_CUSTOM, CUSTOM_COLORS)
-    row = texts_of(dev), counter(dev)
-    press(dev, "menu", 0.4)
-    inside = (state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), tab(dev), text(dev, S_TITLE), counter(dev))
-    press(dev, "edit_next", 0.4)
-    second = text(dev, S_TITLE)
-    press(dev, "exit", 0.4)
-    back = (state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), texts_of(dev)[0], tab(dev))
+    # DISPLAY, LED and PAD COLOR are rows of CUSTOMIZATION: ENTER opens their pages, EXIT goes back to the row (device 18.10.)
+    rows, ins, backs = [], [], []
+    for row, group, title, tag in ((CUSTOM_DISPLAY, GROUP_DISPLAY, "BACKLIGHT RED", "Display"), (CUSTOM_LED, GROUP_LED, "BOTTOM LEDS", "LED")):
+        goto_group(dev, GROUP_CUSTOM, row)
+        rows.append(texts_of(dev))
+        press(dev, "menu", 0.4)
+        ins.append((state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), tab(dev), text(dev, S_TITLE), counter(dev)[1]))
+        press(dev, "exit", 0.4)
+        backs.append((state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), tab(dev)))
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
-    add("colors_submenu", row[0] == ("COLORS", "", PRESS) and row[1][0] == CUSTOM_COLORS
-        and inside == (2, GROUP_COLORS, 0, "Colors", "LED RED", (0, 6)) and second == "LED GREEN"
-        and back == (2, GROUP_CUSTOM, CUSTOM_COLORS, "COLORS", "Custom") and top[0] == 1 and not dev.m.asserts,
-        f"row {row}, ENTER {inside}, EDIT {second}, EXIT {back}, EXIT {top}")
+    add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 4), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 4)]
+        and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
+        f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
     # bottom LEDs: a fixed colour, the colour as meter, off, and back to the stock meter
     set_look(dev, mode=1, led=(15, 7, 0))
@@ -955,9 +958,9 @@ def splash_menu_cases(payload, flash=None):
     dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic)})
     if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF:
         goto_group(dev, GROUP_CUSTOM, 0)
-        add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 3 + custom_extra(dev), f"counter {counter(dev)}")
+        add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 2 + custom_extra(dev), f"counter {counter(dev)}")
         return out
-    goto_group(dev, GROUP_CUSTOM, CUSTOM_PAD + 2)
+    goto_group(dev, GROUP_CUSTOM, CUSTOM_SPLASH)
     before = texts_of(dev)
     press(dev, "menu", 0.6)
     after = texts_of(dev)
@@ -974,7 +977,7 @@ def splash_menu_cases(payload, flash=None):
     add("draw_opens_the_editor", page == ("SPLASH DRAW", "", PRESS) and dev.screen()["number"] == 9 and dev.screen()["page"] == splash_editor.PAGE and st == 1
         and len(differ) <= 1 and not dev.m.asserts, f"{page}, screen {dev.screen()}, editor mode {st}, display bytes not the image (battery aside): {differ}")
     bare = boot(payload, flash, files=CARD_FOLDER)
-    goto_group(bare, GROUP_CUSTOM, CUSTOM_PAD + 2)
+    goto_group(bare, GROUP_CUSTOM, CUSTOM_SPLASH)
     press(bare, "menu", 0.6)
     add("import_without_file", texts_of(bare)[1] == "no splash.bmp", str(texts_of(bare)))
     return out
@@ -1000,7 +1003,7 @@ def pad_colour_cases(payload, flash=None):
     if dev.u32(PC.CODE_AT) == 0xFFFFFFFF:
         return out
     stock = pad(dev, 0)
-    goto_group(dev, GROUP_CUSTOM, CUSTOM_PAD)
+    goto_group(dev, GROUP_PADS, 0)
     p8 = texts_of(dev)
     press(dev, "edit_next", wait=0.4)
     p9 = texts_of(dev)
@@ -1026,7 +1029,7 @@ def pad_colour_cases(payload, flash=None):
     dev.m.send([4, 3, 0, 0, 0])
     dev.run(0.3)
     add("overlap_is_the_colour_left", both == (0, 255), f"pad 4 held and selected (PINK and RED): {both}, the colour left is blue")
-    goto_group(dev, GROUP_CUSTOM, CUSTOM_PAD)
+    goto_group(dev, GROUP_PADS, 0)
     press(dev, "write", wait=0.6)
     word = read_settings_look(dev.m.mmc.card.medium.data).get("b", (0, 0, 0, None))[3]
     add("file_holds_them", word is not None and (word >> 2) & 3 == PC.PINK and (word >> 29) & 3 == 1, f"look word {word:#x}" if word is not None else "no file")
@@ -1106,8 +1109,7 @@ def invert_cases(payload, flash=None):
     dev.run(0.5)
     main_on = dev.screen()["number"], status(dev), flipped(dev)
     import splash_editor
-    custom = 3 + custom_extra(dev)                                                 # PAD COLOR, SELECT COLOR, SPLASH IMPORT and SPLASH DRAW follow where the set has them
-    add("page", page == (("DISPLAY INVERT", "OFF", ""), (2, custom), "Custom"), f"{page}")
+    add("page", page == (("DISPLAY INVERT", "OFF", ""), (3, 4), "Display"), f"{page}")
     add("on_swaps_the_display", on == (("DISPLAY INVERT", "ON", ""), (1, True, 1), True) and menu_screen and still == (1, True, 1),
         f"{on}, dial again {still}")
     add("main_screen_inverted", main_on == (1, (1, True, 1), True) and not dev.m.asserts, f"{main_on}")

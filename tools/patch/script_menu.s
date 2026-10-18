@@ -1715,7 +1715,8 @@ menu_confirm_add:
 ; Data Util ("press [ Enter ]"); ENTER opens level 1, the list of the groups FEATURES, CUSTOMIZATION and PLUGINS, and behind them the
 ; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it. Each is again
 ; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
-; 4 FEATURES, 5 COLORS). COLORS is a row of CUSTOMIZATION that opens the six colour pages; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
+; 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR). DISPLAY, LED and PAD COLOR are rows of CUSTOMIZATION that open their pages;
+; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
 ; main dial changes them, WRITE keeps them). EXIT goes one level up. M_PAGE counts within the level, the counter shows only that
 ; level. Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, after Event, on which Blechy, the app built into
 ; BLECH, shows himself (the frame hook opens and closes him by this level).
@@ -1767,17 +1768,22 @@ menu_kind_group:
     beq menu_kind_plugins
     cmp r3, #4
     beq menu_kind_features
-    cmp r3, #5
-    addeq r0, r5, #8            ; COLORS: LED red, green, blue, backlight red, green, blue (8 to 13)
-    moveq r1, #0
-    beq menu_kind_done
+    cmp r3, #5                  ; DISPLAY, LED, PAD COLOR (5 to 7) and CUSTOMIZATION (3): the kinds of their pages from tables
+    bhs menu_kind_sub
     cmp r3, #3
     bne menu_kind_apps
     ldr r1, =custom_kinds
     ldrb r0, [r1, r5]
     cmp r0, #16
-    moveq r1, #5
+    addeq r1, r5, #5            ; rows 0 to 2 open the groups 5 to 7
     movne r1, #0
+    b menu_kind_done
+menu_kind_sub:
+    ldr r1, =sub_kinds
+    sub r3, r3, #5
+    add r1, r1, r3, lsl #3
+    ldrb r0, [r1, r5]
+    mov r1, #0
     b menu_kind_done
 menu_kind_features:
     mov r0, #21
@@ -1853,12 +1859,12 @@ menu_count_group:
     beq menu_count_plugins
     cmp r1, #3
     bne menu_count_features
-    mov r0, #3
+    mov r0, #2                  ; DISPLAY and LED
     ldr r1, =PC_CODE
     ldr r1, [r1]
     cmn r1, #1
-    beq menu_count_out          ; without the pad colours there are no pages behind DISPLAY INVERT (the splash editor comes with them)
-    add r0, r0, #2              ; PAD COLOR and SELECT COLOR
+    beq menu_count_out          ; without the pad colours there is no PAD COLOR and no splash page (the splash editor comes with them)
+    add r0, r0, #1              ; PAD COLOR
     ldr r1, =SPLASH_IMPORT
     ldr r1, [r1]
     cmn r1, #1
@@ -1866,8 +1872,12 @@ menu_count_group:
     b menu_count_out
 menu_count_features:
     cmp r1, #5
-    moveq r0, #6
-    beq menu_count_out
+    blo menu_count_list
+    ldr r0, =sub_counts
+    sub r1, r1, #5
+    ldrb r0, [r0, r1]
+    b menu_count_out
+menu_count_list:
     cmp r1, #3
     movhi r0, #4
     bhi menu_count_out
@@ -2834,7 +2844,7 @@ menu_slot_exit:
     bne menu_exit_up
     ldr r12, [r2, #M_GROUP]
     cmp r12, #5
-    beq menu_exit_colors
+    bhs menu_exit_sub
     ldr r12, [r2, #M_LISTED]
     cmp r12, #0
     beq menu_exit_up
@@ -2860,12 +2870,12 @@ menu_exit_show:
     mov r0, r4
     bl menu_show
     pop {r1, r2, r4, pc}
-menu_exit_colors:                ; out of COLORS: back to its row in CUSTOMIZATION
-    mov r12, #3
-    str r12, [r2, #M_GROUP]
-    mov r12, #1
+menu_exit_sub:                   ; out of DISPLAY, LED or PAD COLOR: back to its row in CUSTOMIZATION
+    sub r12, r12, #5
     str r12, [r2, #M_PAGE]
     str r12, [r2, #M_ENTER]
+    mov r12, #3
+    str r12, [r2, #M_GROUP]
     b menu_exit_show
 menu_exit_stock_pop:
     pop {r1, r2, r4, lr}
@@ -2901,10 +2911,16 @@ str_tab_custom:
     .asciz "Custom"
 str_tab_features:
     .asciz "Feature"
-str_tab_colors:
-    .asciz "Colors"
-str_colors:
-    .asciz "COLORS"
+str_tab_display:
+    .asciz "Display"
+str_tab_led:
+    .asciz "LED"
+str_tab_pads:
+    .asciz "Pads"
+str_display:
+    .asciz "DISPLAY"
+str_pads:
+    .asciz "PAD COLOR"
 str_press:
     .asciz "press  [ Enter ]"
 str_runtime:
@@ -2999,11 +3015,18 @@ str_na:
     .asciz "NOTE ASSIST"
 .align 4
 tab_names:
-    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_colors
+    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads
 group_names:
-    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features, str_colors
-custom_kinds:                   ; the kinds of the pages of CUSTOMIZATION: BOTTOM LEDS, COLORS (a group), DISPLAY INVERT, PAD COLOR,
-    .byte 7, 16, 14, 24, 25, 22, 23 ; SELECT COLOR, SPLASH IMPORT, SPLASH DRAW
+    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features, str_display, str_tab_led, str_pads
+custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD COLOR (groups 5 to 7), SPLASH IMPORT, SPLASH DRAW
+    .byte 16, 16, 16, 22, 23
+.align 4
+sub_kinds:                      ; the kinds of the pages of DISPLAY, LED and PAD COLOR, 8 a group (device 18.10.)
+    .byte 11, 12, 13, 14, 0, 0, 0, 0    ; DISPLAY: backlight red, green, blue, display invert
+    .byte 7, 8, 9, 10, 0, 0, 0, 0       ; LED: bottom LEDs, LED red, green, blue
+    .byte 24, 25, 0, 0, 0, 0, 0, 0      ; PAD COLOR: pad colour, select colour
+sub_counts:
+    .byte 4, 4, 2, 0
 .align 4
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
