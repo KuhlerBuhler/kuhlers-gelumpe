@@ -124,7 +124,7 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [BLECH Menü: eigener Bildschirm 0x2D im Edit Ring](2026-10-14-blech-menue.md)
 - [BLECH Anpassung: untere LEDs und Display-Licht, Software-PWM](2026-10-14-blech-anpassung.md)
 - [Aussehen früh im Start: Zeitlinie und der früheste Punkt](2026-10-16-blech-look-frueh.md)
-- [Pad-LEDs: nur an oder aus, am Gerät gemessen](2026-10-16-pad-led-stufen.md)
+- [Pad-LEDs: nur an oder aus, am Gerät gemessen](2026-10-16-pad-led-stufen.md) (am 18.10. widerlegt: Pulsieren pulsiert flüssig)
 - [Display: Schriften und Symbole der Firmware](2026-10-14-display-schriften.md)
 
 

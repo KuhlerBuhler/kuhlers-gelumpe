@@ -1,4 +1,10 @@
-# Pad-LEDs: nur an oder aus
+# Pad-LEDs: nur an oder aus (am 18.10. widerlegt)
+
+**Korrektur 18.10.:** Am Gerät pulsiert das Plugin Pulsieren flüssig (Beobachtung des Besitzers). Es schickt jeden
+Rahmen (25 Hz) dieselbe Panel-Nachricht `00 index helligkeit` mit 0 bis 255 an die roten Pad-LEDs
+(`script_led_try_send` in `tools/patch/script_led.s`). Die Pad-LEDs kennen also Zwischenstufen. Warum der Lauf vom
+16.10. alle Werte gleich hell zeigte, ist **offen** (Vermutung, nicht geprüft: der LED-Manager der Firmware schickte
+danach seine eigenen Werte). Der Rest dieser Seite ist der Stand vom 16.10.
 
 Stand 2026-10-16. Gemessen am Gerät (Firmware 2.02 mit Hacktribe, BLECH v21), Werkzeug
 `tools/device/led_show.py` (Stub im RAM über Hacktribes Execute `0x57`, danach zurückgesetzt, kein
