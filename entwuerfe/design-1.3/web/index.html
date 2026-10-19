@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GELUMPE 1.3 Entwürfe</title>
+  <link rel="stylesheet" href="../../../site/design/colors.min.css" />
+  <link rel="stylesheet" href="../../../site/design/root.min.css" />
+  <link rel="stylesheet" href="entwurf.css" />
+  <script src="../../../site/design/bg.js" defer></script>
+</head>
+<body>
+<canvas id="bg-canvas" class="cee-bg" aria-hidden="true" style="position:fixed;inset:0;width:100%;height:100%;z-index:0"></canvas>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></symbol>
+  <symbol id="i-usb" viewBox="0 0 24 24"><path d="M12 2v14"/><path d="m8 6 4-4 4 4"/><circle cx="12" cy="19" r="3"/><path d="M12 11 7 9v-2M12 13l5-2V9"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0 5 5L22 14l-8 8-2.3-2.3a4 4 0 0 0-5-5L4 12l8-8 2.7 2.3Z"/></symbol>
+  <symbol id="i-screen" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="12" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M6 9h2M6 13h6"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M2 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0 2 3 2 3"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></symbol>
+  <symbol id="i-sample" viewBox="0 0 24 24"><path d="M2 12h2M6 8v8M10 4v16M14 7v10M18 10v4M22 12h-2"/></symbol>
+  <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M9 3h6v3a2 2 0 1 0 4 0V3h2v6h-3a2 2 0 1 0 0 4h3v8h-6v-3a2 2 0 1 0-4 0v3H3v-8h3a2 2 0 1 0 0-4H3V3h6Z"/></symbol>
+  <symbol id="i-buoy" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="m5.6 5.6 3.6 3.6M14.8 14.8l3.6 3.6M18.4 5.6l-3.6 3.6M9.2 14.8l-3.6 3.6"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.2.9-4.5 4.4 1 6.2L12 17.4l-5.5 2.9 1-6.2L3 9.7l6.2-.9Z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6v18h12V7Z"/><path d="M14 3v4h4"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V4h12"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-8-4.5-8-10a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.5-8 10-8 10Z"/></symbol>
+</svg>
+
+<!-- The sidebar and status bar are the same on every draft; written once per screen so each screen reads on its own. -->
+
+<!-- ======================================================================================== 1 START -->
+<section class="mk-screen" id="start" data-default>
+<div class="cee-shell">
+  <aside class="cee-side">
+    <div class="cee-brand"><img class="cee-sprite" src="../../../assets/blechy/sprites/blechy-calm.png" alt="" />Kuhler's GELUMPE</div>
+    <nav class="cee-navgroup" aria-label="Allgemein">
+      <a class="cee-navlink" href="#start" aria-current="page"><svg class="cee-icon"><use href="#i-home"/></svg>Start</a>
+    </nav>
+    <nav class="cee-navgroup" aria-label="Gerät">
+      <span class="cee-navgroup-title">Gerät</span>
+      <a class="cee-navlink" href="#emu"><svg class="cee-icon"><use href="#i-cpu"/></svg>Emulator</a>
+      <a class="cee-navlink" href="#emu"><svg class="cee-icon"><use href="#i-usb"/></svg>Echtes Gerät<span class="cee-badge">USB</span></a>
+    </nav>
+    <nav class="cee-navgroup" aria-label="Firmware">
+      <span class="cee-navgroup-title">Firmware</span>
+      <a class="cee-navlink" href="#patcher"><svg class="cee-icon"><use href="#i-wrench"/></svg>Patcher</a>
+      <a class="cee-navlink" href="#screens"><svg class="cee-icon"><use href="#i-screen"/></svg>Bildschirme</a>
+      <a class="cee-navlink" href="#plugins"><svg class="cee-icon"><use href="#i-puzzle"/></svg>Plugins</a>
+    </nav>
+    <nav class="cee-navgroup" aria-label="Sound">
+      <span class="cee-navgroup-title">Sound</span>
+      <a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-sliders"/></svg>Presets<span class="cee-badge" data-tone="lock">VSB</span></a>
+      <a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-wave"/></svg>Modulationen<span class="cee-badge" data-tone="lock">VSB</span></a>
+      <a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-grid"/></svg>Pattern-Werkzeuge<span class="cee-badge">Labs</span></a>
+      <a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-sample"/></svg>Samples<span class="cee-badge">Labs</span></a>
+    </nav>
+    <div class="cee-side-foot">
+      <a class="cee-navlink" data-tone="rescue" href="#start"><svg class="cee-icon"><use href="#i-buoy"/></svg>Rettung</a>
+      <a class="cee-navlink" href="#settings"><svg class="cee-icon"><use href="#i-gear"/></svg>Einstellungen</a>
+      <a class="cee-navlink" href="#start"><svg class="cee-icon"><use href="#i-heart"/></svg>Spenden</a>
+    </div>
+  </aside>
+  <div>
+    <header class="cee-top">
+      <h1>Start</h1>
+      <div class="cee-status" aria-label="Werkbank">
+        <a class="cee-status-chip" data-tone="ok" href="#emu"><span>Firmware</span><b>Hacktribe 2.02</b></a>
+        <a class="cee-status-chip" data-tone="ok" href="#emu"><span>Karte</span><b>412 Samples</b></a>
+        <a class="cee-status-chip" data-tone="ok" href="#emu"><span>Emulator</span><b>läuft</b></a>
+        <a class="cee-status-chip" data-tone="off" href="#emu"><span>Gerät</span><b>nicht verbunden</b></a>
+      </div>
+    </header>
+    <main class="cee-page">
+      <p class="mk-note"><b>Entwurf Start.</b> Statt einer Textwand: Held mit dem echten Display, drei Schritte, die den Stand der Werkbank zeigen, Bereiche als Kacheln (anheftbar), der Text über das Projekt rutscht nach unten. Die Werkbank oben gibt es auf jeder Seite.</p>
+
+      <div class="cee-hero">
+        <div>
+          <h2>Atze, wat wird'n ditte hier?</h2>
+          <p>Editor, Emulator und Patcher für die Electribe 2. Alles läuft auf deinem Rechner, deine Dateien bleiben bei dir.</p>
+          <div class="cee-hero-actions">
+            <a class="btn primary" href="#patcher"><svg class="cee-icon"><use href="#i-wrench"/></svg>BLECH patchen</a>
+            <a class="btn" href="#emu"><svg class="cee-icon"><use href="#i-cpu"/></svg>Zum Emulator</a>
+          </div>
+        </div>
+        <div>
+          <span class="cee-lcd"><img src="../geraet/vorschau/laden-050.png" alt="Display der Electribe: Blechy zieht die Line weg, 50 Prozent" /></span>
+          <div class="cee-lcd-cap"><span>Emulator, live</span><b>Samples laden 50%</b></div>
+        </div>
+      </div>
+
+      <div class="cee-checklist">
+        <div class="cee-check" data-done><h3>Firmware gewählt</h3><p>SYSTEM.VSB, Hacktribe 2.02, geprüft.</p></div>
+        <div class="cee-check" data-done><h3>Emulator läuft</h3><p>Karte mit 412 Samples und 250 Patterns.</p></div>
+        <div class="cee-check" data-next><h3>BLECH bauen</h3><p>Patches wählen, im Emulator booten, Datei holen.</p><a class="btn sm primary" href="#patcher">Weiter</a></div>
+      </div>
+
+      <div class="cee-sec-head"><h2>Bereiche</h2><a href="#settings">Startseite anpassen</a></div>
+      <div class="cee-areas">
+        <a class="cee-area" href="#patcher" data-pinned><svg class="cee-icon"><use href="#i-wrench"/></svg><h3>Patcher</h3><p>Deine Firmware laden, Patches wählen, eine neue Datei für die SD-Karte. Der Emulator bootet sie vorher.</p><span class="cee-badge">23 Patches</span><button class="cee-pin" aria-pressed="true" aria-label="Von Start lösen"><svg class="cee-icon"><use href="#i-star"/></svg></button></a>
+        <a class="cee-area" href="#presets"><svg class="cee-icon"><use href="#i-sliders"/></svg><h3>Presets</h3><p>MFX und IFX mit Namen und echten Einheiten.</p><button class="cee-pin" aria-pressed="false" aria-label="An Start heften"><svg class="cee-icon"><use href="#i-star"/></svg></button></a>
+        <a class="cee-area" href="#screens"><svg class="cee-icon"><use href="#i-screen"/></svg><h3>Bildschirme</h3><p>Start, Laden, Aus: aussuchen oder selbst zeichnen.</p><span class="cee-badge">neu</span><button class="cee-pin" aria-pressed="false" aria-label="An Start heften"><svg class="cee-icon"><use href="#i-star"/></svg></button></a>
+        <a class="cee-area" href="#plugins"><svg class="cee-icon"><use href="#i-puzzle"/></svg><h3>Plugins</h3><p>Spiele, Timer, Werkzeuge direkt am Gerät.</p><span class="cee-badge">12</span><button class="cee-pin" aria-pressed="false" aria-label="An Start heften"><svg class="cee-icon"><use href="#i-star"/></svg></button></a>
+        <a class="cee-area" href="#presets"><svg class="cee-icon"><use href="#i-wave"/></svg><h3>Modulationen</h3><p>Was jede Modulationsart wirklich bewegt.</p><button class="cee-pin" aria-pressed="false" aria-label="An Start heften"><svg class="cee-icon"><use href="#i-star"/></svg></button></a>
+        <a class="cee-area" href="#emu"><svg class="cee-icon"><use href="#i-usb"/></svg><h3>Live am Gerät</h3><p>Presets in den RAM, Plugins drauf testen.</p><span class="cee-badge">Chrome, Edge</span><button class="cee-pin" aria-pressed="false" aria-label="An Start heften"><svg class="cee-icon"><use href="#i-star"/></svg></button></a>
+        <a class="cee-area" href="#presets"><svg class="cee-icon"><use href="#i-grid"/></svg><h3>Pattern-Werkzeuge</h3><p>Würfeln, Übergänge, Pegel.</p><span class="cee-badge">Labs</span><button class="cee-pin" aria-pressed="false" aria-label="An Start heften"><svg class="cee-icon"><use href="#i-star"/></svg></button></a>
+      </div>
+
+      <div class="cee-rescue-strip"><b>Gerät kaputt?</b> Zeigt deine Electribe nur „00“ oder startet nicht mehr? Es gibt einen dokumentierten Weg zurück.<a class="btn sm danger" href="#start">Zur Rettung</a></div>
+
+      <div class="cee-about">
+        <article>
+          <h3>Wer ich bin</h3>
+          <p>Ich bin Kuhler Buhler, Softwareentwickler und Live Act. Mit Hacktribe fiel mir auf, dass man die Presets selbst bearbeiten kann. Dann war ich ein paar Monate in einer Entwicklungspsychose, und das hier kam raus.</p>
+          <h3>Wieso</h3>
+          <p>Da ist so viel mehr drin, als Korg jemals rausgeholt hat. Mit BLECH hab ich mir die Electribe 3 gebaut, die es nie gab.</p>
+        </article>
+        <aside class="cee-aside-card">
+          <h3>Was du brauchst</h3>
+          <ul>
+            <li>Electribe 2 Sampler, Firmware 2.02 (Korg oder Hacktribe)</li>
+            <li>deine eigene SYSTEM.VSB</li>
+            <li>optional Samples und Patterns</li>
+            <li>für das echte Gerät: Chrome oder Edge mit USB-MIDI</li>
+          </ul>
+          <a class="btn sm" href="#start"><svg class="cee-icon"><use href="#i-heart"/></svg>Spenden per PayPal</a>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</section>
+
+<!-- ======================================================================================== 2 PRESETS EMPTY -->
+<section class="mk-screen" id="presets">
+<div class="cee-shell">
+  <aside class="cee-side">
+    <div class="cee-brand"><img class="cee-sprite" src="../../../assets/blechy/sprites/blechy-calm.png" alt="" />Kuhler's GELUMPE</div>
+    <nav class="cee-navgroup"><a class="cee-navlink" href="#start"><svg class="cee-icon"><use href="#i-home"/></svg>Start</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Gerät</span><a class="cee-navlink" href="#emu"><svg class="cee-icon"><use href="#i-cpu"/></svg>Emulator</a><a class="cee-navlink" href="#emu"><svg class="cee-icon"><use href="#i-usb"/></svg>Echtes Gerät<span class="cee-badge">USB</span></a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Firmware</span><a class="cee-navlink" href="#patcher"><svg class="cee-icon"><use href="#i-wrench"/></svg>Patcher</a><a class="cee-navlink" href="#screens"><svg class="cee-icon"><use href="#i-screen"/></svg>Bildschirme</a><a class="cee-navlink" href="#plugins"><svg class="cee-icon"><use href="#i-puzzle"/></svg>Plugins</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Sound</span><a class="cee-navlink" href="#presets" aria-current="page"><svg class="cee-icon"><use href="#i-sliders"/></svg>Presets<span class="cee-badge" data-tone="lock">VSB</span></a><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-wave"/></svg>Modulationen<span class="cee-badge" data-tone="lock">VSB</span></a><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-grid"/></svg>Pattern-Werkzeuge<span class="cee-badge">Labs</span></a><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-sample"/></svg>Samples<span class="cee-badge">Labs</span></a></nav>
+    <div class="cee-side-foot"><a class="cee-navlink" data-tone="rescue" href="#start"><svg class="cee-icon"><use href="#i-buoy"/></svg>Rettung</a><a class="cee-navlink" href="#settings"><svg class="cee-icon"><use href="#i-gear"/></svg>Einstellungen</a></div>
+  </aside>
+  <div>
+    <header class="cee-top">
+      <h1>Presets</h1>
+      <div class="cee-status">
+        <a class="cee-status-chip" data-tone="off" href="#presets"><span>Firmware</span><b>keine</b></a>
+        <a class="cee-status-chip" data-tone="off" href="#emu"><span>Karte</span><b>leer</b></a>
+        <a class="cee-status-chip" data-tone="off" href="#emu"><span>Emulator</span><b>aus</b></a>
+        <a class="cee-status-chip" data-tone="off" href="#emu"><span>Gerät</span><b>nicht verbunden</b></a>
+      </div>
+    </header>
+    <main class="cee-page">
+      <p class="mk-note"><b>Entwurf Leerzustand.</b> Heute ist die Seite ohne Firmware komplett schwarz, bei Modulationen steht ein Satz. Jede Seite, die eine VSB braucht, bekommt diesen Leerzustand: Blechy, ein Satz, die Aktion direkt hier (Datei wählen öffnet sofort den Dialog), und als Schatten das, was nach dem Laden kommt. Die gewählte VSB gilt dann für alle Bereiche.</p>
+      <div class="cee-page-head"><div><h2>Presets</h2><p>Master- und Insert-Effekte mit Namen und echten Einheiten, aus dem laufenden Emulator oder dem verbundenen Gerät.</p></div></div>
+      <div class="cee-empty">
+        <span class="cee-lcd"><img src="../geraet/vorschau/extra-keine-karte.png" alt="Blechy fragt: Keine Karte, atze?" /></span>
+        <div>
+          <h3>Erst mal eine Firmware, atze.</h3>
+          <p>Die Presets stehen in deiner SYSTEM.VSB. Wähl sie einmal, dann kennen Presets, Modulationen, Patcher und Emulator sie alle.</p>
+          <div class="cee-requires"><span class="ui-pill" data-tone="neutral">braucht: SYSTEM.VSB</span><span class="ui-pill" data-tone="neutral">oder: Gerät per USB</span></div>
+          <div class="cee-empty-actions">
+            <button class="btn primary"><svg class="cee-icon"><use href="#i-file"/></svg>SYSTEM.VSB wählen</button>
+            <button class="btn"><svg class="cee-icon"><use href="#i-usb"/></svg>Vom Gerät holen</button>
+            <a class="btn" href="#start">Was ist eine VSB?</a>
+          </div>
+        </div>
+      </div>
+      <div class="cee-ghost" aria-hidden="true">
+        <div class="cee-ghost-col"><div class="cee-ghost-row"></div><div class="cee-ghost-row"></div><div class="cee-ghost-row"></div><div class="cee-ghost-row"></div><div class="cee-ghost-row"></div><div class="cee-ghost-row"></div></div>
+        <div class="cee-ghost-panel"></div>
+      </div>
+    </main>
+  </div>
+</div>
+</section>
+
+<!-- ======================================================================================== 3 PATCHER -->
+<section class="mk-screen" id="patcher">
+<div class="cee-shell">
+  <aside class="cee-side">
+    <div class="cee-brand"><img class="cee-sprite" src="../../../assets/blechy/sprites/blechy-calm.png" alt="" />Kuhler's GELUMPE</div>
+    <nav class="cee-navgroup"><a class="cee-navlink" href="#start"><svg class="cee-icon"><use href="#i-home"/></svg>Start</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Gerät</span><a class="cee-navlink" href="#emu"><svg class="cee-icon"><use href="#i-cpu"/></svg>Emulator</a><a class="cee-navlink" href="#emu"><svg class="cee-icon"><use href="#i-usb"/></svg>Echtes Gerät<span class="cee-badge">USB</span></a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Firmware</span><a class="cee-navlink" href="#patcher" aria-current="page"><svg class="cee-icon"><use href="#i-wrench"/></svg>Patcher</a><a class="cee-navlink" href="#screens"><svg class="cee-icon"><use href="#i-screen"/></svg>Bildschirme</a><a class="cee-navlink" href="#plugins"><svg class="cee-icon"><use href="#i-puzzle"/></svg>Plugins</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Sound</span><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-sliders"/></svg>Presets</a><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-wave"/></svg>Modulationen</a><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-grid"/></svg>Pattern-Werkzeuge<span class="cee-badge">Labs</span></a><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-sample"/></svg>Samples<span class="cee-badge">Labs</span></a></nav>
+    <div class="cee-side-foot"><a class="cee-navlink" data-tone="rescue" href="#start"><svg class="cee-icon"><use href="#i-buoy"/></svg>Rettung</a><a class="cee-navlink" href="#settings"><svg class="cee-icon"><use href="#i-gear"/></svg>Einstellungen</a></div>
+  </aside>
+  <div>
+    <header class="cee-top">
+      <h1>Patcher</h1>
+      <div class="cee-status">
+        <a class="cee-status-chip" data-tone="ok" href="#emu"><span>Firmware</span><b>Hacktribe 2.02</b></a>
+        <a class="cee-status-chip" data-tone="ok" href="#emu"><span>Karte</span><b>412 Samples</b></a>
+        <a class="cee-status-chip" data-tone="ok" href="#emu"><span>Emulator</span><b>läuft</b></a>
+        <a class="cee-status-chip" data-tone="off" href="#emu"><span>Gerät</span><b>nicht verbunden</b></a>
+      </div>
+    </header>
+    <main class="cee-page">
+      <p class="mk-note"><b>Entwurf Patcher.</b> Heute: ein Dropzone-Feld in viel Schwarz. Neu: vier Schritte als Leiste, Patches als Karten in Gruppen mit Schalter und Beleg (Emulator, Gerät), rechts eine feste Zusammenfassung mit Display-Vorschau des gewählten Satzes und der einen Hauptaktion.</p>
+      <ol class="cee-steps">
+        <li data-done><b>1</b> Firmware</li>
+        <li aria-current="step"><b>2</b> Patches wählen</li>
+        <li><b>3</b> Im Emulator booten</li>
+        <li><b>4</b> Datei holen oder aufs Gerät</li>
+      </ol>
+      <div class="cee-patcher">
+        <div>
+          <div class="ui-filterbar" style="margin-bottom:var(--space-6)">
+            <div class="ui-chipgroup" role="group" aria-label="Satz" data-ui-single>
+              <button type="button" class="ui-chip" aria-pressed="true">BLECH <span class="ui-chip-count">14</span></button>
+              <button type="button" class="ui-chip" aria-pressed="false">Alles <span class="ui-chip-count">23</span></button>
+              <button type="button" class="ui-chip" aria-pressed="false">Nur geprüft am Gerät</button>
+              <button type="button" class="ui-chip" aria-pressed="false">Eigene Auswahl</button>
+            </div>
+          </div>
+          <div class="cee-patch-group">
+            <h3>Bildschirme</h3>
+            <div class="cee-patch-list">
+              <div class="cee-patch" data-on><h4>Startbild</h4><label class="ui-switch"><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span></label><p>BLECH mit Blechys Augen, bis die Samples laden.</p><div class="cee-proof"><span class="ui-pill" data-tone="ok">Emulator</span><span class="ui-pill" data-tone="ok">Gerät</span></div></div>
+              <div class="cee-patch" data-on><h4>Ladebalken</h4><label class="ui-switch"><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span></label><p>Balken, Prozent und Augen, die mitlaufen, statt „Loading nnn%“.</p><div class="cee-proof"><span class="ui-pill" data-tone="ok">Emulator</span><span class="ui-pill" data-tone="warn">Gerät offen</span></div></div>
+              <div class="cee-patch" data-on><h4>Ausschaltbild</h4><label class="ui-switch"><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span></label><p>Blechy winkt, dann geht das Licht aus wie bei einer Röhre.</p><div class="cee-proof"><span class="ui-pill" data-tone="ok">Emulator</span><span class="ui-pill" data-tone="warn">Gerät offen</span></div></div>
+              <div class="cee-patch"><h4>Startbild-Editor</h4><label class="ui-switch"><input type="checkbox" role="switch"><span class="ui-switch-track" aria-hidden="true"></span></label><p>Global, Seite 20: am Gerät Pixel setzen, auf der Karte speichern.</p><div class="cee-proof"><span class="ui-pill" data-tone="ok">Emulator</span><span class="ui-pill" data-tone="warn">Gerät offen</span></div></div>
+            </div>
+          </div>
+          <div class="cee-patch-group">
+            <h3>Spielen</h3>
+            <div class="cee-patch-list">
+              <div class="cee-patch" data-on><h4>MFX 2</h4><label class="ui-switch"><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span></label><p>Zweiter Master-Effekt per Umschalter.</p><div class="cee-proof"><span class="ui-pill" data-tone="ok">Emulator</span><span class="ui-pill" data-tone="ok">Gerät</span></div></div>
+              <div class="cee-patch" data-on><h4>Würfeln</h4><label class="ui-switch"><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span></label><p>Pattern zufällig verändern, direkt am Gerät.</p><div class="cee-proof"><span class="ui-pill" data-tone="ok">Emulator</span></div></div>
+            </div>
+          </div>
+        </div>
+        <aside class="cee-summary">
+          <h3>Dein Satz</h3>
+          <span class="cee-lcd"><img src="../geraet/vorschau/start-blech.png" alt="Vorschau Startbild: BLECH mit Augen" /></span>
+          <div class="cee-lcd-tabs ui-segmented" role="group" aria-label="Vorschau">
+            <button type="button" aria-pressed="true">Start</button><button type="button" aria-pressed="false">Laden</button><button type="button" aria-pressed="false">Aus</button>
+          </div>
+          <dl>
+            <dt>Patches</dt><dd>14</dd>
+            <dt>Am Gerät gesehen</dt><dd>6</dd>
+            <dt>Freier Platz</dt><dd>312 KiB</dd>
+            <dt>Startzeit</dt><dd>+0 ms</dd>
+          </dl>
+          <button class="btn primary lg"><svg class="cee-icon"><use href="#i-cpu"/></svg>Im Emulator booten</button>
+          <button class="btn" disabled><svg class="cee-icon"><use href="#i-down"/></svg>SYSTEM.VSB holen</button>
+          <p class="muted" style="margin:0;font-size:var(--text-xs)">Holen geht erst, wenn der Emulator die Kopie gebootet hat.</p>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</section>
+
+<!-- ======================================================================================== 4 SCREENS -->
+<section class="mk-screen" id="screens">
+<div class="cee-shell">
+  <aside class="cee-side">
+    <div class="cee-brand"><img class="cee-sprite" src="../../../assets/blechy/sprites/blechy-calm.png" alt="" />Kuhler's GELUMPE</div>
+    <nav class="cee-navgroup"><a class="cee-navlink" href="#start"><svg class="cee-icon"><use href="#i-home"/></svg>Start</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Gerät</span><a class="cee-navlink" href="#emu"><svg class="cee-icon"><use href="#i-cpu"/></svg>Emulator</a><a class="cee-navlink" href="#emu"><svg class="cee-icon"><use href="#i-usb"/></svg>Echtes Gerät<span class="cee-badge">USB</span></a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Firmware</span><a class="cee-navlink" href="#patcher"><svg class="cee-icon"><use href="#i-wrench"/></svg>Patcher</a><a class="cee-navlink" href="#screens" aria-current="page"><svg class="cee-icon"><use href="#i-screen"/></svg>Bildschirme</a><a class="cee-navlink" href="#plugins"><svg class="cee-icon"><use href="#i-puzzle"/></svg>Plugins</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Sound</span><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-sliders"/></svg>Presets</a><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-wave"/></svg>Modulationen</a><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-grid"/></svg>Pattern-Werkzeuge<span class="cee-badge">Labs</span></a><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-sample"/></svg>Samples<span class="cee-badge">Labs</span></a></nav>
+    <div class="cee-side-foot"><a class="cee-navlink" data-tone="rescue" href="#start"><svg class="cee-icon"><use href="#i-buoy"/></svg>Rettung</a><a class="cee-navlink" href="#settings"><svg class="cee-icon"><use href="#i-gear"/></svg>Einstellungen</a></div>
+  </aside>
+  <div>
+    <header class="cee-top">
+      <h1>Bildschirme</h1>
+      <div class="cee-status">
+        <a class="cee-status-chip" data-tone="ok" href="#emu"><span>Firmware</span><b>Hacktribe 2.02</b></a>
+        <a class="cee-status-chip" data-tone="ok" href="#emu"><span>Emulator</span><b>läuft</b></a>
+      </div>
+    </header>
+    <main class="cee-page">
+      <p class="mk-note"><b>Entwurf Bildschirme</b> (heute „Startbild“). Drei Momente: Start (BLECH mit Augen), Laden (BLECH wird zu Blechys Nase, die Line ist der Balken), Aus (winkt, Röhre geht aus). Pro Moment Varianten zum Anklicken, eigenes Bild hochladen bleibt. Die Auswahl geht in den Patch-Satz.</p>
+      <div class="cee-page-head"><div><h2>Bildschirme</h2><p>Was die Electribe beim Einschalten, beim Laden der Samples und beim Ausschalten zeigt. 128 mal 64 Pixel, schwarz und weiß.</p></div>
+        <div class="cee-head-actions"><button class="btn"><svg class="cee-icon"><use href="#i-file"/></svg>Eigenes Bild</button><button class="btn primary"><svg class="cee-icon"><use href="#i-cpu"/></svg>Im Emulator ansehen</button></div></div>
+      <div class="cee-screens">
+        <article class="cee-screen-card">
+          <header><h3>Start</h3><span class="cee-badge">vor dem Laden</span></header>
+          <span class="cee-lcd"><img src="../geraet/vorschau/start-blech.png" alt="Augen über dem Schriftzug BLECH" /></span>
+          <div class="cee-variants">
+            <button class="cee-variant" aria-pressed="true"><img src="../geraet/vorschau/start-blech.png" alt="BLECH" /></button>
+            <button class="cee-variant" aria-pressed="false"><img src="../geraet/vorschau/uebergang-1.png" alt="Übergang" /></button>
+            <button class="cee-variant" aria-pressed="false"><img src="../geraet/vorschau/start-aktuell.png" alt="Bisher" /></button>
+          </div>
+          <p>Die Augen sind Blechys Augen. Wenn die Samples kommen, löst sich BLECH in seine Nase auf, Augen und Strich bleiben stehen.</p>
+        </article>
+        <article class="cee-screen-card">
+          <header><h3>Laden</h3><span class="cee-badge">e2sSample.all</span></header>
+          <span class="cee-lcd"><img src="../geraet/vorschau/laden-080.png" alt="Blechy zieht, noch ein kurzes Stück Line übrig, 80 Prozent" /></span>
+          <label class="ui-switch" data-end><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Prozent zeigen<span class="ui-switch-hint">oben rechts</span></span></label>
+          <label class="ui-switch" data-end><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Wort über der Zahl<span class="ui-switch-hint">Tanken, Laden oder eigenes, 6 Zeichen</span></span></label>
+          <p>Die Line ist der Balken und wird von beiden Enden weggezogen. Er guckt runter, die Pupillen zittern. Bei 100 % starrt er dich an.</p>
+        </article>
+        <article class="cee-screen-card">
+          <header><h3>Aus</h3><span class="cee-badge">1 Sekunde</span></header>
+          <span class="cee-lcd"><img src="../geraet/vorschau/aus-1-winken.png" alt="Blechy winkt: Haus'te rin mein Akh" /></span>
+          <div class="cee-variants">
+            <button class="cee-variant" aria-pressed="true"><img src="../geraet/vorschau/aus-2-winken.png" alt="Winkt" /></button>
+            <button class="cee-variant" aria-pressed="false"><img src="../geraet/vorschau/aus-traurig-aktuell.png" alt="Traurig (bisher)" /></button>
+            <button class="cee-variant" aria-pressed="false"><img src="../geraet/vorschau/aus-8-dunkel.png" alt="Aus (Korgs Kasten)" /></button>
+          </div>
+          <p>Winken, Blende, Röhre. Der Text ist frei, 3 Zeilen zu 10 Zeichen.</p>
+        </article>
+      </div>
+
+      <div class="cee-sec-head"><h2>Ablauf Laden</h2></div>
+      <div class="cee-film cee-film-5" style="margin-bottom:var(--space-10)">
+        <figure><img src="../geraet/vorschau/laden-000.png" alt="" /><figcaption>0 %</figcaption></figure>
+        <figure><img src="../geraet/vorschau/laden-020.png" alt="" /><figcaption>20 %</figcaption></figure>
+        <figure><img src="../geraet/vorschau/laden-050.png" alt="" /><figcaption>50 %</figcaption></figure>
+        <figure><img src="../geraet/vorschau/laden-080.png" alt="" /><figcaption>80 %</figcaption></figure>
+                <figure><img src="../geraet/vorschau/laden-100.png" alt="" /><figcaption>100 %</figcaption></figure>
+      </div>
+      <div class="cee-sec-head"><h2>Ablauf Aus</h2></div>
+      <div class="cee-film" style="margin-bottom:var(--space-16)">
+        <figure><img src="../geraet/vorschau/aus-1-winken.png" alt="" /><figcaption>0 ms</figcaption></figure>
+        <figure><img src="../geraet/vorschau/aus-2-winken.png" alt="" /><figcaption>150</figcaption></figure>
+        <figure><img src="../geraet/vorschau/aus-3-blende.png" alt="" /><figcaption>650</figcaption></figure>
+        <figure><img src="../geraet/vorschau/aus-4-blende.png" alt="" /><figcaption>750</figcaption></figure>
+        <figure><img src="../geraet/vorschau/aus-5-roehre.png" alt="" /><figcaption>850</figcaption></figure>
+        <figure><img src="../geraet/vorschau/aus-6-strich.png" alt="" /><figcaption>900</figcaption></figure>
+        <figure><img src="../geraet/vorschau/aus-7-punkt.png" alt="" /><figcaption>950</figcaption></figure>
+        <figure><img src="../geraet/vorschau/aus-8-dunkel.png" alt="" /><figcaption>1000</figcaption></figure>
+      </div>
+    </main>
+  </div>
+</div>
+</section>
+
+<!-- ======================================================================================== 5 EMULATOR OFF -->
+<section class="mk-screen" id="emu">
+<div class="cee-shell">
+  <aside class="cee-side">
+    <div class="cee-brand"><img class="cee-sprite" src="../../../assets/blechy/sprites/blechy-calm.png" alt="" />Kuhler's GELUMPE</div>
+    <nav class="cee-navgroup"><a class="cee-navlink" href="#start"><svg class="cee-icon"><use href="#i-home"/></svg>Start</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Gerät</span><a class="cee-navlink" href="#emu" aria-current="page"><svg class="cee-icon"><use href="#i-cpu"/></svg>Emulator</a><a class="cee-navlink" href="#emu"><svg class="cee-icon"><use href="#i-usb"/></svg>Echtes Gerät<span class="cee-badge">USB</span></a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Firmware</span><a class="cee-navlink" href="#patcher"><svg class="cee-icon"><use href="#i-wrench"/></svg>Patcher</a><a class="cee-navlink" href="#screens"><svg class="cee-icon"><use href="#i-screen"/></svg>Bildschirme</a><a class="cee-navlink" href="#plugins"><svg class="cee-icon"><use href="#i-puzzle"/></svg>Plugins</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Sound</span><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-sliders"/></svg>Presets</a><a class="cee-navlink" href="#presets"><svg class="cee-icon"><use href="#i-wave"/></svg>Modulationen</a></nav>
+    <div class="cee-side-foot"><a class="cee-navlink" data-tone="rescue" href="#start"><svg class="cee-icon"><use href="#i-buoy"/></svg>Rettung</a><a class="cee-navlink" href="#settings"><svg class="cee-icon"><use href="#i-gear"/></svg>Einstellungen</a></div>
+  </aside>
+  <div>
+    <header class="cee-top">
+      <h1>Emulator</h1>
+      <div class="cee-status">
+        <a class="cee-status-chip" data-tone="off" href="#emu"><span>Firmware</span><b>keine</b></a>
+        <a class="cee-status-chip" data-tone="off" href="#emu"><span>Emulator</span><b>nicht verbunden</b></a>
+      </div>
+    </header>
+    <main class="cee-page">
+      <p class="mk-note"><b>Entwurf Emulator aus.</b> Heute: ein schwarzes Display und eine Zeile oben links. Neu: das Display zeigt das Startbild, rechts eine Karte mit genau dem, was zu tun ist, Befehl zum Kopieren, und die zwei Dateien, die er braucht. Firmware und Karte wandern aus der Seitenleiste in diese Karte und in die Werkbank.</p>
+      <div class="cee-emu-off">
+        <div class="cee-device" aria-label="Electribe, aus">
+          <div class="cee-device-face">
+            <div><span class="cee-lcd"><img src="../geraet/vorschau/start-blech.png" alt="Display: BLECH mit Augen" /></span></div>
+            <div class="cee-knobs"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          </div>
+          <div class="cee-pads"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="cee-start-card">
+          <h3>Emulator starten</h3>
+          <p>Er läuft neben der Seite auf deinem Rechner. Einmal im Projektordner starten, dann verbindet sich die Seite von selbst.</p>
+          <div class="cee-cmd"><code>npm run emu</code><button class="btn icon" aria-label="Befehl kopieren"><svg class="cee-icon"><use href="#i-copy"/></svg></button></div>
+          <ul class="ui-list ui-list-plain">
+            <li class="ui-row"><span class="ui-row-icon"><svg class="cee-icon"><use href="#i-file"/></svg></span><span class="ui-row-text"><span class="ui-row-title">SYSTEM.VSB</span><span class="ui-row-meta">fehlt</span></span><span class="ui-row-end"><button class="btn sm">Wählen</button></span></li>
+            <li class="ui-row"><span class="ui-row-icon"><svg class="cee-icon"><use href="#i-sample"/></svg></span><span class="ui-row-text"><span class="ui-row-title">SD-Karte</span><span class="ui-row-meta">optional, Samples und Patterns</span></span><span class="ui-row-end"><button class="btn sm">Ordner</button></span></li>
+          </ul>
+          <a class="btn primary" href="#emu">Mit Emulator verbinden</a>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</section>
+
+<!-- ======================================================================================== 6 SETTINGS -->
+<section class="mk-screen" id="settings">
+<div class="cee-shell">
+  <aside class="cee-side">
+    <div class="cee-brand"><img class="cee-sprite" src="../../../assets/blechy/sprites/blechy-calm.png" alt="" />Kuhler's GELUMPE</div>
+    <nav class="cee-navgroup"><a class="cee-navlink" href="#start"><svg class="cee-icon"><use href="#i-home"/></svg>Start</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Gerät</span><a class="cee-navlink" href="#emu"><svg class="cee-icon"><use href="#i-cpu"/></svg>Emulator</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Firmware</span><a class="cee-navlink" href="#patcher"><svg class="cee-icon"><use href="#i-wrench"/></svg>Patcher</a><a class="cee-navlink" href="#screens"><svg class="cee-icon"><use href="#i-screen"/></svg>Bildschirme</a></nav>
+    <div class="cee-side-foot">
+      <div class="cee-mascot"><img class="cee-sprite" src="../../../assets/blechy/sprites/blechy-idle.png" alt="" />Blechy guckt zu. Abschaltbar.</div>
+      <a class="cee-navlink" href="#settings" aria-current="page"><svg class="cee-icon"><use href="#i-gear"/></svg>Einstellungen</a>
+    </div>
+  </aside>
+  <div>
+    <header class="cee-top"><h1>Einstellungen</h1></header>
+    <main class="cee-page">
+      <p class="mk-note"><b>Entwurf Einstellungen.</b> Heute ein Dialog mit zwei Schaltern. Neu als eigene Seite mit Gruppen. Ein Farbschema bleibt (DESIGN.md), angepasst wird, was nicht das Schema bricht: Displayfarbe der Vorschauen, Dichte, was auf Start steht, Blechy, Sicherheitsfragen. Alles lokal im Browser.</p>
+      <div class="cee-settings-layout">
+        <nav class="cee-settings-nav" aria-label="Gruppen">
+          <a class="cee-navlink" aria-current="page" href="#settings">Darstellung</a>
+          <a class="cee-navlink" href="#settings">Startseite</a>
+          <a class="cee-navlink" href="#settings">Blechy</a>
+          <a class="cee-navlink" href="#settings">Gerät und Sicherheit</a>
+          <a class="cee-navlink" href="#settings">Daten</a>
+        </nav>
+        <div>
+          <section class="cee-settings-group">
+            <h3>Darstellung</h3><p>Gilt nur auf diesem Rechner.</p>
+            <div class="cee-settings-box">
+              <div class="cee-set-row"><span>Displayfarbe<small>für alle Display-Vorschauen und den Emulator</small></span>
+                <div class="cee-swatches" role="group" aria-label="Displayfarbe">
+                  <button class="cee-swatch" aria-pressed="true" aria-label="Wie das Gerät"><i style="background:var(--color-print-paper)"></i></button>
+                  <button class="cee-swatch" aria-pressed="false" aria-label="Eis"><i style="background:var(--color-accent-primary)"></i></button>
+                  <button class="cee-swatch" aria-pressed="false" aria-label="Rot wie das Licht"><i style="background:var(--color-status-error)"></i></button>
+                  <button class="cee-swatch" aria-pressed="false" aria-label="Weiß"><i style="background:var(--color-text-primary)"></i></button>
+                </div></div>
+              <div class="cee-set-row"><span>Dichte<small>kompakt zeigt mehr Zeilen pro Bildschirm</small></span>
+                <div class="ui-segmented" role="group" aria-label="Dichte"><button type="button" aria-pressed="false">Kompakt</button><button type="button" aria-pressed="true">Normal</button></div></div>
+              <label class="ui-switch" data-end><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Hintergrund mit Partikeln<span class="ui-switch-hint">das 1-Bit-Muster hinter der Seite</span></span></label>
+              <label class="ui-switch" data-end><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Augen im Hintergrund<span class="ui-switch-hint">blinzeln selten aus dem Dither</span></span></label>
+              <div class="cee-set-row"><span>Bewegung</span><select class="select"><option>Wie das System</option><option>Reduziert</option><option>Normal</option></select></div>
+              <div class="cee-set-row"><span>Seitenleiste</span><select class="select"><option>Mit Gruppen und Symbolen</option><option>Nur Symbole</option></select></div>
+            </div>
+          </section>
+          <section class="cee-settings-group">
+            <h3>Startseite</h3><p>Was du beim Öffnen siehst.</p>
+            <div class="cee-settings-box">
+              <div class="cee-set-row"><span>Beim Öffnen</span><select class="select"><option>Start</option><option>Zuletzt offener Bereich</option><option>Emulator</option></select></div>
+              <ol class="cee-order ui-list-plain">
+                <li><span class="grip">⋮⋮</span>Patcher<span class="cee-badge">angeheftet</span></li>
+                <li><span class="grip">⋮⋮</span>Presets</li>
+                <li><span class="grip">⋮⋮</span>Bildschirme</li>
+                <li><span class="grip">⋮⋮</span>Plugins</li>
+              </ol>
+              <label class="ui-switch" data-end><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Text über das Projekt zeigen</span></label>
+            </div>
+          </section>
+          <section class="cee-settings-group">
+            <h3>Blechy</h3><p>Das Maskottchen auf der Seite. Am Gerät stellt man ihn im Menü BLECH ein.</p>
+            <div class="cee-settings-box">
+              <label class="ui-switch" data-end><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Blechy in der Seitenleiste<span class="ui-switch-hint">zuckt ab und zu, reagiert auf Klick</span></span></label>
+              <label class="ui-switch" data-end><input type="checkbox" role="switch"><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Töne<span class="ui-switch-hint">schnieft beim Streicheln, meckert beim Antippen</span></span></label>
+              <label class="ui-switch" data-end><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Sprüche in Leerzuständen</span></label>
+            </div>
+          </section>
+          <section class="cee-settings-group">
+            <h3>Gerät und Sicherheit</h3><p>Bevor etwas an die echte Electribe geht.</p>
+            <div class="cee-settings-box">
+              <label class="ui-switch" data-end><input type="checkbox" role="switch" checked disabled><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Erst im Emulator<span class="ui-switch-hint">immer an, lässt sich nicht abschalten</span></span></label>
+              <label class="ui-switch" data-end><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Vor jedem Senden fragen</span></label>
+              <label class="ui-switch" data-end><input type="checkbox" role="switch" checked><span class="ui-switch-track" aria-hidden="true"></span><span class="ui-switch-text">Labs-Bereiche zeigen</span></label>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</section>
+
+<!-- ======================================================================================== 7 PLUGINS -->
+<section class="mk-screen" id="plugins">
+<div class="cee-shell">
+  <aside class="cee-side">
+    <div class="cee-brand"><img class="cee-sprite" src="../../../assets/blechy/sprites/blechy-calm.png" alt="" />Kuhler's GELUMPE</div>
+    <nav class="cee-navgroup"><a class="cee-navlink" href="#start"><svg class="cee-icon"><use href="#i-home"/></svg>Start</a></nav>
+    <nav class="cee-navgroup"><span class="cee-navgroup-title">Firmware</span><a class="cee-navlink" href="#patcher"><svg class="cee-icon"><use href="#i-wrench"/></svg>Patcher</a><a class="cee-navlink" href="#screens"><svg class="cee-icon"><use href="#i-screen"/></svg>Bildschirme</a><a class="cee-navlink" href="#plugins" aria-current="page"><svg class="cee-icon"><use href="#i-puzzle"/></svg>Plugins</a></nav>
+    <div class="cee-side-foot"><a class="cee-navlink" href="#settings"><svg class="cee-icon"><use href="#i-gear"/></svg>Einstellungen</a></div>
+  </aside>
+  <div>
+    <header class="cee-top"><h1>Plugins</h1><div class="cee-status"><a class="cee-status-chip" data-tone="ok" href="#emu"><span>Emulator</span><b>läuft</b></a></div></header>
+    <main class="cee-page">
+      <p class="mk-note"><b>Plugins</b> sind heute schon die vollste Seite und brauchen wenig: Filterleiste (Spiele, Werkzeuge, Eigene) über dem Katalog, „Im Emulator starten“ als Hauptknopf je Karte statt zwei gleich starker Knöpfe, Code ansehen als Link. Die Display-Kacheln bleiben, sie sind das Beste an der Seite.</p>
+      <div class="ui-filterbar" style="margin-bottom:var(--space-6)">
+        <div class="ui-chipgroup" role="group" data-ui-single aria-label="Art">
+          <button type="button" class="ui-chip" aria-pressed="true">Alle <span class="ui-chip-count">12</span></button>
+          <button type="button" class="ui-chip" aria-pressed="false">Spiele</button>
+          <button type="button" class="ui-chip" aria-pressed="false">Werkzeuge</button>
+          <button type="button" class="ui-chip" aria-pressed="false">Meine</button>
+        </div>
+      </div>
+      <div class="cee-screens">
+        <article class="cee-screen-card"><span class="cee-lcd"><img src="../geraet/vorschau/laden-100.png" alt="" /></span><header><h3>BLECH Clicker</h3><span class="cee-badge">Spiel</span></header><p>Jeder Pad-Druck zählt einen Punkt.</p><div class="cee-empty-actions"><button class="btn sm primary">Im Emulator starten</button><a class="btn sm" href="#plugins">.blech</a></div></article>
+        <article class="cee-screen-card"><span class="cee-lcd"><img src="../geraet/vorschau/extra-keine-karte.png" alt="" /></span><header><h3>Set-Timer</h3><span class="cee-badge">Werkzeug</span></header><p>Große Uhr für die Länge des Sets.</p><div class="cee-empty-actions"><button class="btn sm primary">Im Emulator starten</button><a class="btn sm" href="#plugins">.blech</a></div></article>
+        <article class="cee-screen-card"><span class="cee-lcd"><img src="../geraet/vorschau/laden-000.png" alt="" /></span><header><h3>Eigenes Plugin</h3><span class="cee-badge">neu</span></header><p>Mit Vorlage anfangen, im Editor schreiben, im Emulator testen.</p><div class="cee-empty-actions"><button class="btn sm primary">Neues Plugin</button></div></article>
+      </div>
+    </main>
+  </div>
+</div>
+</section>
+
+<div class="mk-switch"><nav aria-label="Entwürfe">
+  <a href="#start">Start</a><a href="#presets">Leerzustand</a><a href="#patcher">Patcher</a><a href="#screens">Bildschirme</a><a href="#emu">Emulator aus</a><a href="#plugins">Plugins</a><a href="#settings">Einstellungen</a>
+</nav></div>
+<script>
+  const mark = () => {
+    const id = (location.hash || "#start").slice(1);
+    document.querySelectorAll(".mk-switch a").forEach(a => a.toggleAttribute("aria-current", a.hash === "#" + id));
+    document.querySelectorAll(".mk-screen").forEach(el => el.hidden = el.id !== id);
+    document.querySelectorAll(".mk-switch a[aria-current]").forEach(a => a.setAttribute("aria-current", "page"));
+    window.scrollTo(0, 0);
+  };
+  addEventListener("hashchange", mark); mark();
+</script>
+</body>
+</html>
