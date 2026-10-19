@@ -162,17 +162,17 @@ function showStatus() {
   const s = wantStatus();
   if (s == status) return;
   status = s;
-  korg.display.clearRect(90, 0, 38, 8);
-  korg.display.clearRect(0, 52, 128, 8);
+  korg.display.clearRect(84, 0, 44, 10);
+  korg.display.clearRect(0, 53, 128, 11);
   if (s == 0) {
-    korg.display.text("WAIT", 98, 0);
-    korg.display.text("PLAY OR KEY 1 STARTS", 0, 56);
+    korg.display.text("WAIT", 101, 2);
+    korg.display.text("PLAY OR KEY 1 STARTS", 4, 55);
   } else if (s == 1) {
-    korg.display.text("RUN", 104, 0);
-    korg.display.text("KEY 4 = RESET", 0, 56);
+    korg.display.text("RUN", 107, 2);
+    korg.display.text("KEY 4 = RESET", 4, 55);
   } else {
-    korg.display.text("RESET?", 92, 0);
-    korg.display.text("KEY 4 AGAIN = RESET", 0, 56);
+    korg.display.text("RESET?", 89, 2);
+    korg.display.text("KEY 4 AGAIN = RESET", 4, 55);
   }
 }
 
@@ -186,7 +186,7 @@ korg.onEvent("open", () => {
   isOpen = 1;
   if (confirmUntil > 0 && korg.millis() > confirmUntil) confirmUntil = 0;
   korg.display.clear();
-  korg.display.text("SET TIMER", 0, 0);
+  korg.display.text("SET TIMER", 4, 2);
   status = -1;
   layout();
 });
@@ -434,19 +434,19 @@ function paint(on) {
 
 function drawNext() {
   const m = SHAPES[nextKind * 4];
-  korg.display.clearRect(100, 10, 16, 12);
+  korg.display.clearRect(100, 12, 16, 12);
   for (let i = 0; i < 16; i++) {
-    if ((m >> i) & 1) korg.display.rect(100 + (i & 3) * 4, 10 + (i >> 2) * 4, 3, 3);
+    if ((m >> i) & 1) korg.display.rect(100 + (i & 3) * 4, 12 + (i >> 2) * 4, 3, 3);
   }
 }
 
 function drawHud() {
-  korg.display.clearRect(54, 9, 42, 7);
-  korg.display.number(score, 54, 9);
-  korg.display.clearRect(54, 29, 42, 7);
-  korg.display.number(lines, 54, 29);
-  korg.display.clearRect(54, 49, 42, 7);
-  korg.display.number(level, 54, 49);
+  korg.display.clearRect(54, 10, 42, 7);
+  korg.display.number(score, 54, 10);
+  korg.display.clearRect(54, 28, 42, 7);
+  korg.display.number(lines, 54, 28);
+  korg.display.clearRect(54, 46, 42, 7);
+  korg.display.number(level, 54, 46);
 }
 
 function drawRow(y) {
@@ -479,10 +479,10 @@ function setupStep() {
     korg.display.clear();
     korg.display.rect(4, 0, 1, 64);
     korg.display.rect(47, 0, 1, 64);
-    korg.display.text("SCORE", 54, 0);
+    korg.display.text("SCORE", 54, 2);
     korg.display.text("LINES", 54, 20);
-    korg.display.text("LEVEL", 54, 40);
-    korg.display.text("NEXT", 100, 0);
+    korg.display.text("LEVEL", 54, 38);
+    korg.display.text("NEXT", 100, 2);
   } else {
     hud = 1;
     state = 5;
@@ -499,8 +499,8 @@ function spawn() {
   drawNext();
   if (!fits(kind, rot, px, py)) {
     state = 2;
-    korg.display.clearRect(54, 56, 70, 8);
-    korg.display.text("GAME OVER", 54, 56);
+    korg.display.clearRect(54, 54, 70, 10);
+    korg.display.text("GAME OVER", 54, 55);
     return;
   }
   paint(1);
@@ -1093,15 +1093,12 @@ korg.onEvent("frame", () => {
   Object.freeze({
     id: "simon",
     title: "Simon",
-    description: "App in GAMES: vier Pads in der Mitte leuchten eine Folge vor, du spielst sie nach, jede Runde wird sie länger. [TAP] startet neu.",
-    source: `// Simon, an app under GAMES, on the four middle pads (3, 4, 11 and 12 counted from 0). The pads light up in a
-// sequence, repeat it on the pads, and the sequence grows by one step every round. A wrong pad ends the game and
-// shows the number of rounds you got through. While the app is open it holds the panel LEDs (korg.ledHold) so the
-// firmware does not paint over the pads; the four squares on the display follow the pads. TAP or any pad starts anew.
+    description: "App in GAMES: die 16 Pads leuchten eine Folge vor, du spielst sie nach, jede Runde wird sie länger. [TAP] startet neu.",
+    source: `// Simon, an app under GAMES, on all 16 pads. The pads light up in a sequence, repeat it on the pads, and the sequence
+// grows by one step every round. A wrong pad ends the game and shows the number of rounds you got through. While the app is
+// open it holds the panel LEDs (korg.ledHold) so the firmware does not paint over the pads; the display shows the round, the
+// step and what to do. TAP or any pad starts anew.
 korg.app("Simon", "GAMES");
-const PADI = [3, 4, 11, 12];
-const SX = [38, 66, 38, 66];
-const SY = [10, 10, 33, 33];
 const seq = new Array(60);
 let len = 0;
 let pos = 0;
@@ -1118,14 +1115,8 @@ function rnd() {
   return (seed >> 16) & 0x7fff;
 }
 
-function square(i, on) {
-  korg.display.rect(SX[i], SY[i], 24, 20);
-  if (!on) korg.display.clearRect(SX[i] + 2, SY[i] + 2, 20, 16);
-}
-
 function setPad(i, on) {
-  korg.led(korg.led.PAD_1_RED + PADI[i] * 2, on ? 255 : 0);
-  square(i, on);
+  korg.led(korg.led.PAD_1_RED + i * 2, on ? 255 : 0);
 }
 
 function light(i) {
@@ -1135,21 +1126,31 @@ function light(i) {
 }
 
 function setAll(on) {
-  for (let i = 0; i < 4; i++) setPad(i, on);
+  for (let i = 0; i < 16; i++) setPad(i, on);
 }
 
 function status(which) {
-  korg.display.clearRect(0, 56, 128, 8);
-  if (which == 0) korg.display.text("GET READY", 0, 57);
-  else if (which == 1) korg.display.text("WATCH", 0, 57);
-  else if (which == 2) korg.display.text("YOUR TURN", 0, 57);
-  else if (which == 3) korg.display.text("WELL DONE", 0, 57);
-  else korg.display.text("GAME OVER, TAP OR PAD", 0, 57);
+  korg.display.clearRect(0, 22, 128, 20);
+  if (which == 0) korg.display.text("GET READY", 37, 28);
+  else if (which == 1) korg.display.text("WATCH", 49, 28);
+  else if (which == 2) korg.display.text("YOUR TURN", 37, 28);
+  else if (which == 3) korg.display.text("WELL DONE", 37, 28);
+  else korg.display.text("GAME OVER", 37, 28);
 }
 
-function header() {
-  korg.display.clearRect(60, 0, 68, 8);
-  korg.display.textNumber("ROUND ", len, 70, 0);
+// the round (0) or the score (1), right-aligned 4 pixels from the edge
+function header(which, n) {
+  const x = n >= 10 ? 77 : 83;
+  korg.display.clearRect(60, 0, 68, 10);
+  if (which == 0) korg.display.textNumber("ROUND ", n, x, 2);
+  else korg.display.textNumber("SCORE ", n, x, 2);
+}
+
+// the bottom line: nothing (0), the step to play (1, n), how to start anew (2)
+function hint(which, n) {
+  korg.display.clearRect(0, 53, 128, 11);
+  if (which == 1) korg.display.textNumber("STEP ", n, 4, 55);
+  else if (which == 2) korg.display.text("TAP OR PAD: NEW GAME", 4, 55);
 }
 
 function newGame() {
@@ -1160,26 +1161,20 @@ function newGame() {
   state = 0;
   timer = 25;
   korg.display.clear();
-  korg.display.text("SIMON", 0, 0);
-  for (let i = 0; i < 4; i++) square(i, 0);
+  korg.display.text("SIMON", 4, 2);
   status(0);
+  hint(0, 0);
 }
 
 function addStep() {
-  seq[len] = rnd() & 3;
+  seq[len] = rnd() & 15;
   len += 1;
   pos = 0;
-  timer = 10;
+  timer = 12;
   state = 1;
-  header();
+  header(0, len);
   status(1);
-}
-
-function padIndex(index) {
-  for (let i = 0; i < 4; i++) {
-    if (PADI[i] == index) return i;
-  }
-  return -1;
+  hint(0, 0);
 }
 
 korg.onEvent("open", () => {
@@ -1197,20 +1192,18 @@ korg.onEvent("close", () => {
 });
 
 korg.onEvent("pad", (index, down) => {
-  if (!isOpen) return;
+  if (!isOpen || index > 15) return;
   if (state == 5) {
     if (down) newGame();
     return;
   }
-  const i = padIndex(index);
-  if (i < 0) return;
   if (!down) {
-    if (lit == i && (state == 2 || state == 4)) light(-1);
+    if (lit == index && (state == 2 || state == 4)) light(-1);
     return;
   }
   if (state != 2) return;
-  light(i);
-  if (seq[pos] != i) {
+  light(index);
+  if (seq[pos] != index) {
     state = 3;
     flash = 0;
     timer = 8;
@@ -1222,6 +1215,8 @@ korg.onEvent("pad", (index, down) => {
     state = 4;
     timer = 20;
     status(3);
+  } else {
+    hint(1, pos + 1);
   }
 });
 
@@ -1229,6 +1224,7 @@ korg.onEvent("buttonPress", (key) => {
   if (isOpen && state == 5 && key == korg.key.TAP) newGame();
 });
 
+// A step of the sequence lights for 18 frames (0.72 s), a little shorter every fourth round, never below 10 (0.4 s).
 korg.onEvent("frame", () => {
   if (state == 0) {
     timer -= 1;
@@ -1243,12 +1239,13 @@ korg.onEvent("frame", () => {
         pos = 0;
         state = 2;
         status(2);
+        hint(1, 1);
       }
-      timer = 5;
+      timer = 6;
     } else {
       light(seq[pos]);
-      timer = 12 - len / 4;
-      if (timer < 5) timer = 5;
+      timer = 18 - len / 4;
+      if (timer < 10) timer = 10;
     }
   } else if (state == 4) {
     timer -= 1;
@@ -1268,8 +1265,8 @@ korg.onEvent("frame", () => {
       setAll(0);
       state = 5;
       status(4);
-      korg.display.clearRect(60, 0, 68, 8);
-      korg.display.textNumber("SCORE ", score, 70, 0);
+      header(1, score);
+      hint(2, 0);
     }
   }
 });
@@ -1384,9 +1381,9 @@ function restart() {
 }
 
 function hud() {
-  korg.display.clearRect(78, 56, 50, 8);
-  korg.display.textNumber("Z", zoom, 80, 57);
-  korg.display.textNumber("I", maxIter, 104, 57);
+  korg.display.clearRect(76, 53, 52, 11);
+  korg.display.textNumber("Z", zoom, 80, 55);
+  korg.display.textNumber("I", maxIter, 104, 55);
 }
 
 function changed() {
