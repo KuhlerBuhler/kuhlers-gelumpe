@@ -491,6 +491,7 @@ def case_unsaved(payload, flash):
         at = IMAGE + bytes(b.payload).find(b"VIEW:\x00", spec.CODE_AT - IMAGE, spec.CODE_END - IMAGE)
         seen = []
         b.m.uc.hook_add(unicorn.UC_HOOK_MEM_READ, lambda *a: seen.append(1), begin=at, end=at)
+        b.m.uc.ctl_flush_tb()           # a memory hook only reaches code translated after it
         return seen
 
     box = Box(payload, flash)
