@@ -794,7 +794,7 @@ kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Sei
 Alle acht Apps stehen im Katalog der Seite Plugins und in `data/script/presets.mjs`. Sie laufen im Emulator
 der Plugin-Laufzeit (Browser-VM), am Gerät ist von ihnen nichts geprüft. `test/script-plugins.test.mjs` spielt jede
 mit Eingaben durch. Die Kosten sind der teuerste Handler in Kosteneinheiten, gezählt in einem Lauf mit Eingaben
-(Tetris 3000 Rahmen, Mandelbrot 3000, Set-Timer 90 Sekunden). Die Zeit daneben ist **hergeleitet**: der Snake-Rahmen
+(Tetris 3000 Rahmen, Mandelbrot mit vollständigen Bildern und Randansichten, Set-Timer 90 Sekunden). Die Zeit daneben ist **hergeleitet**: der Snake-Rahmen
 mit 542 Einheiten brauchte im Emulator 0,103 ms ([Messung](messungen/2026-10-14-skript-snake.md)), die Warnschwelle von
 0,5 ms liegt also bei rund 2630 Einheiten. Jede App bleibt darunter, die Tests prüfen es. Am Gerät kann die Zeit je
 Einheit anders sein.
@@ -808,7 +808,7 @@ Einheit anders sein.
 | Game of Life | GAMES | das Touchpad setzt Zellen, Taste 1 startet und pausiert (LED), Taste 2 ein Schritt, Taste 3 löscht, Taste 4 füllt zufällig | 2184 Byte | 2484 Einheiten, 0,47 ms |
 | Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt; Ball und Bot ziehen nur jeden zweiten Rahmen, sonst sieht man den Ball auf dem trägen Display kaum | 2120 Byte | 1221 Einheiten, 0,23 ms |
 | Simon | GAMES | die vier mittleren Pads (3, 4, 11, 12, von 0 gezählt) leuchten eine Folge vor, man spielt sie nach, jede Runde einen Schritt mehr; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2344 Byte | 2114 Einheiten (das Öffnen), Rahmen 693 |
-| Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 2436 Byte | 2135 Einheiten, 0,41 ms |
+| Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 3552 Byte | 2443 Einheiten, 0,46 ms |
 
 **Set-Timer** ist für den Einsatz im Set gedacht. Die Uhr ist `korg.millis()`, die die Laufzeit in jedem Rahmen
 nachführt, auch wenn die App geschlossen ist. Er abonniert nur `play`, die Tasten und `open` und `close`: geschlossen
@@ -824,8 +824,10 @@ Zellen einer Zeile gleichzeitig mit Bitoperationen. Das Bild wird nur zellenweis
 beginnt erst, wenn es eingeholt hat, so bleibt jeder Rahmen klein. **Mandelbrot** rechnet mit 14 Nachkommabits (1,0 ist
 16384), die Ganzzahl-Arithmetik der VM reicht dafür, Kommazahlen braucht es nicht; das Bild kommt in vier Durchgängen mit
 Blöcken von 8, 4, 2 und 1 Pixel, und ein Pixel, das mehr als den Rest des Rahmens braucht, wird im nächsten Rahmen
-weitergerechnet. Die ersten Bilder stehen nach etwa einer bis drei Sekunden da, das volle Bild braucht rund 3400 Rahmen
-(gut zwei Minuten, im Emulator gezählt); jede Eingabe beginnt wieder beim groben Durchgang. Die Zoomstufe geht bis 7,
+weitergerechnet. Nachweislich innenliegende Rechtecke werden gemeinsam gefüllt und bei der Verfeinerung übersprungen.
+Die Gesamtansicht braucht 3065 statt 3606 Rahmen, eine vollständig innenliegende Zoomansicht 44 statt 2048
+([Messung](messungen/2026-10-19-mandelbrot-schneller.md), JavaScript-Referenz, keine Gerätezeit). Jede Eingabe beginnt
+wieder beim groben Durchgang. Die Zoomstufe geht bis 7,
 tiefer reichen die 14 Bit nicht.
 
 ## Die Seite Plugins im Editor

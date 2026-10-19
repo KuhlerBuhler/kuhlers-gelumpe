@@ -149,6 +149,16 @@ export function armCases() {
   for (const id of ["blechclicker", "settimer", "tetris", "life", "pong", "simon", "mandelbrot"]) {
     add(`plugin ${id}`, program(PRESETS.find(p => p.id === id).source, id), { events: played });
   }
+  const mandelbrot = PRESETS.find(p => p.id === "mandelbrot");
+  add("Mandelbrot certified interior and reset", program(mandelbrot.source, "mandelbrot"), {
+    events: [
+      { name: "open", args: [] },
+      ...Array.from({ length: 7 }, () => ({ name: "encoder", args: [0, 1] })),
+      ...frames(80),
+      { name: "buttonPress", args: [3] },
+      ...frames(80),
+    ],
+  });
   add("fuel exhaustion", blob(["loop:", { op: "JMP", args: ["loop"], line: 18 }]), { fuel: 100 });
   for (const fuel of [1, 2]) add(`exact HALT fuel ${fuel}`, blob([["HALT"]]), { fuel });
   add("empty fuel", blob([["HALT"]]), { fuel: 0 });

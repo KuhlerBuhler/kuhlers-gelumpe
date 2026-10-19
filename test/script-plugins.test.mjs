@@ -547,7 +547,7 @@ test("Mandelbrot renders progressively: a coarse picture within a second, the fu
   assert.equal(pixel(p.device, 64, 32), 1, "the middle of the main cardioid is in the set");
   assert.equal(pixel(p.device, 2, 2), 0, "a corner is outside");
   const frames = renderTo(p, 4);
-  assert.ok(frames < 8000, `the full picture takes ${frames} frames`);
+  assert.ok(coarse + frames < 3200, `the full picture takes ${coarse + frames} frames`);
   const picked = [];
   for (let y = 0; y < 64; y += 3) for (let x = 0; x < 128; x += 3) if (y < 56 || x < 78) picked.push([x, y]);
   const mismatches = picked.filter(([x, y]) => pixel(p.device, x, y) !== ink(reference(p.v("cx"), p.v("cy"), p.v("ds"), p.v("maxIter"), x, y), p.v("maxIter")));
@@ -559,6 +559,54 @@ test("Mandelbrot renders progressively: a coarse picture within a second, the fu
   const on = p.device.display.bytes.reduce((n, b) => n + b.toString(2).replace(/0/g, "").length, 0);
   assert.ok(on > 800 && on < 5000, `${on} pixels lit`);
   withinWarn(p, "mandelbrot");
+});
+
+test("Mandelbrot fills a certified interior view without refining its individual pixels", () => {
+  for (const [cx, zoom] of [[-8192, 7], [-16384, 4]]) {
+    const p = plugin("mandelbrot");
+    noFault(p.device.run(1));
+    p.set("cx", cx);
+    p.set("zoom", zoom + 1);
+    p.set("maxIter", 64);
+    p.device.post("encoder", 0, -1);
+    noFault(p.device.run(1));
+    const frames = renderTo(p, 4);
+    assert.ok(frames < 100, `interior ${cx} at zoom ${zoom}: ${frames} frames`);
+    for (let y = 0; y < 56; y++) for (let x = 0; x < 128; x++) {
+      assert.equal(pixel(p.device, x, y), 1, `${cx}: ${x},${y}`);
+    }
+    withinWarn(p, "mandelbrot interior");
+  }
+});
+
+test("Mandelbrot block fills preserve every reference pixel across boundaries, zooms and iteration limits", () => {
+  const views = [
+    [-8192, 0, 7, 64], [-8192, 0, 0, 8], [-8192, 0, 0, 64],
+    [-12288, 0, 3, 40], [-20480, 0, 4, 64],
+    [4096, 0, 4, 64], [6000, 0, 5, 64],
+    [-8192, 10800, 3, 64], [-8192, -10800, 3, 64],
+    [-12800, 1700, 7, 64], [-12800, -1700, 6, 8],
+    [-40960, -40960, 0, 24], [40960, 40960, 0, 24],
+  ];
+  const p = plugin("mandelbrot");
+  noFault(p.device.run(1));
+  for (const [cx, cy, zoom, limit] of views) {
+    p.set("cx", cx);
+    p.set("cy", cy);
+    p.set("zoom", zoom + 1);
+    p.set("maxIter", limit);
+    p.device.post("encoder", 0, -1);
+    noFault(p.device.run(1));
+    renderTo(p, 4);
+    assert.equal(p.v("done"), 1, `finished ${cx},${cy},${zoom},${limit}`);
+    let wrong = 0;
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 128; x++) {
+      if (y >= 56 && x >= 78) continue;
+      if (pixel(p.device, x, y) !== ink(reference(cx, cy, 384 >> zoom, limit, x, y), limit)) wrong += 1;
+    }
+    assert.equal(wrong, 0, `reference ${cx},${cy},${zoom},${limit}`);
+    withinWarn(p, `mandelbrot ${cx},${cy},${zoom},${limit}`);
+  }
 });
 
 test("Mandelbrot: a drag pans, the Part keys and the encoder zoom, the keys change the iteration limit, TAP resets, each change redraws", () => {
