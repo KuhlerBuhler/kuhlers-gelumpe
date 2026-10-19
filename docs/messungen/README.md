@@ -205,3 +205,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 
 - [Plugin-Prüfung: weniger Speicherarbeit beim Laden](2026-10-21-plugin-pruefung.md)
 - [Display-Kalibrierung mit drei Geschwindigkeiten](2026-10-21-display-kalibrierung.md)
+- [Doom: Stack am Lader-Einstieg und sichtbarer Start](2026-10-19-doom-start-stack.md)
