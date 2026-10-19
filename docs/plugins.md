@@ -109,6 +109,10 @@ korg.onEvent("buttonRelease", (key) => {
 });
 ```
 
+**Rand.** Text und Bedienhinweise halten Abstand zum Displayrand, wie die Menüs der Firmware: links und rechts 4 Pixel,
+oben und unten 2 Pixel (eine Zeile Text oben bei `y = 2`, unten bei `y = 55`, rechtsbündig endet sie bei `x = 123`).
+Ein Spielfeld oder Bild darf bis an den Rand gehen. Die Plugins im Katalog halten sich daran.
+
 Nimm Weg 2 nur, wenn ein Menüeintrag nicht passt: das Display ist dann belegt, bis
 jemand EXIT drückt, und die Tasten gehören dem Plugin, solange es das Display hat.
 Ein Plugin, das nur LEDs oder Tasten braucht, nimmt das Display nie.
@@ -694,8 +698,10 @@ Die Seiten der Gruppen:
 | CUSTOMIZATION, DISPLAY | ENTER | öffnet die Seiten des Display-Lichts; EXIT führt zurück auf DISPLAY |
 | DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 bis 15 | Farbe des Display-Lichts, frei gemischt; 15 15 15 heißt das Weiß der Firmware ("15 stock"); gilt sofort |
 | DISPLAY, INTENSITY | 0 bis 15 | Helligkeit des Display-Lichts über alle drei Farben, die Mischung bleibt; 0 ist kein Licht, 15 die volle Farbe; gilt sofort |
-| DISPLAY, SAVE LIGHT | STOCK, 1 bis 15 | das Display-Licht im Energiesparmodus: STOCK ist das Dimmen der Firmware, 1 bis 15 die eigene Farbe in dieser Helligkeit |
 | DISPLAY, DISPLAY INVERT | OFF, ON | kehrt das Display um: helle Punkte dunkel und dunkle hell (Befehl `0xA7` an den Display-Baustein, `0xA6` stellt zurück); gilt sofort; OFF ist die Vorgabe |
+| CUSTOMIZATION, POWER SAVE | ENTER | öffnet die Seiten für den Energiesparmodus (nur auf Batterie); EXIT führt zurück auf POWER SAVE |
+| POWER SAVE, DISPLAY LIGHT | STOCK, 1 bis 15 | das Display-Licht im Energiesparmodus: STOCK ist das Dimmen der Firmware, 1 bis 15 die eigene Farbe, 1 leuchtet mit 3 von 15, 15 voll |
+| POWER SAVE, LED DIMMING | 0 bis 100 % | wie stark der Energiesparmodus Pads, Tasten und Regler-LEDs dimmt: 0 % gar nicht, 100 % aus, 75 % (die Vorgabe) ein Viertel der Helligkeit; die Regler-LEDs gehen aus, außer bei 0 %; gilt sofort, WRITE behält es |
 | CUSTOMIZATION, LED | ENTER | öffnet die Seiten der unteren LEDs; EXIT führt zurück auf LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | die vier unteren RGB-LEDs: METER ist die Pegelanzeige, COLOR eine feste Farbe, OFF dunkel; gilt sofort |
 | LED, LED RED, GREEN, BLUE | 0 bis 15 | Farbe der unteren LEDs für COLOR; bei METER bestimmt der Pegel die Helligkeit dieser Farbe, solange keine Meter-Farbe gesetzt ist; 15 15 15 heißt die Farben der Firmware ("15 stock"); gilt sofort |
@@ -815,7 +821,7 @@ Einheit anders sein.
 | Tetris | GAMES | Part links und rechts bewegen, Edit rechts dreht, Edit links gehalten lässt schneller fallen, jede Taste startet nach Game Over neu | 3772 Byte | 2305 Einheiten, 0,44 ms |
 | Game of Life | GAMES | das Touchpad setzt Zellen, Taste 1 startet und pausiert (LED), Taste 2 ein Schritt, Taste 3 löscht, Taste 4 füllt zufällig | 2944 Byte | 2457 Einheiten, 0,47 ms |
 | Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt; Ball und Bot ziehen jeden zweiten Rahmen, ein kurzer Schweif hält die letzten zwei Ballpositionen sichtbar | 2304 Byte | 1224 Einheiten, 0,23 ms |
-| Simon | GAMES | die vier mittleren Pads (3, 4, 11, 12, von 0 gezählt) leuchten eine Folge vor, man spielt sie nach, jede Runde einen Schritt mehr; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2344 Byte | 2114 Einheiten (das Öffnen), Rahmen 693 |
+| Simon | GAMES | die 16 Pads leuchten eine Folge vor (ein Schritt 0,72 s, alle vier Runden etwas kürzer, nie unter 0,4 s), man spielt sie nach, jede Runde einen Schritt mehr; das Display zeigt Runde, Schritt und was zu tun ist; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2268 Byte | Rahmen höchstens 1673 Einheiten (Spielende), das Öffnen 1644 |
 | Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 3452 Byte | 2441 Einheiten, 0,46 ms |
 
 **Set-Timer** ist für den Einsatz im Set gedacht. Die Uhr ist `korg.millis()`, die die Laufzeit in jedem Rahmen

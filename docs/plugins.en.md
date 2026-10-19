@@ -101,6 +101,10 @@ korg.onEvent("buttonRelease", (key) => {
 });
 ```
 
+**Margin.** Text and hints keep away from the edge of the display, as the firmware's menus do: 4 pixels left and right,
+2 pixels top and bottom (a line of text at the top at `y = 2`, at the bottom at `y = 55`, right-aligned it ends at `x = 123`).
+A playing field or a picture may go up to the edge. The plugins in the catalog keep to this.
+
 Use way 2 only when a menu entry does not fit: the display is then taken until someone presses EXIT, and
 the keys belong to the plugin as long as it owns the display. A plugin that only needs LEDs or keys never
 takes the display.
@@ -557,8 +561,10 @@ The pages of the groups:
 | CUSTOMIZATION, DISPLAY | ENTER | opens the pages of the display light; EXIT goes back to DISPLAY |
 | DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 15 15 15 means the firmware's white ("15 stock"); applies at once |
 | DISPLAY, INTENSITY | 0 to 15 | brightness of the display light over all three colours, the mix stays; 0 is no light, 15 the full colour; applies at once |
-| DISPLAY, SAVE LIGHT | STOCK, 1 to 15 | the display light in power save: STOCK is the firmware's dimming, 1 to 15 the own colour at that brightness |
 | DISPLAY, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; OFF is the default |
+| CUSTOMIZATION, POWER SAVE | ENTER | opens the pages for power save (on battery only); EXIT goes back to POWER SAVE |
+| POWER SAVE, DISPLAY LIGHT | STOCK, 1 to 15 | the display light in power save: STOCK is the firmware's dimming, 1 to 15 the own colour, 1 lights at 3 of 15, 15 full |
+| POWER SAVE, LED DIMMING | 0 to 100 % | how much power save dims the pad, key and knob LEDs: 0 % not at all, 100 % off, 75 % (the default) a quarter of the brightness; the knob LEDs go out except at 0 %; applies at once, WRITE keeps it |
 | CUSTOMIZATION, LED | ENTER | opens the pages of the lower LEDs; EXIT goes back to LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the level meter, COLOR a fixed colour, OFF dark; applies at once |
 | LED, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs for COLOR; with METER the level sets the brightness of this colour while no meter colour is set; 15 15 15 means the firmware's colours ("15 stock"); applies at once |
@@ -665,7 +671,7 @@ units. Every app stays below it, the tests check that. On the device the time pe
 | Tetris | GAMES | Part left and right move, Edit right turns, Edit left held drops faster, any key restarts after game over | 3772 bytes | 2305 units, 0.44 ms |
 | Game of Life | GAMES | the touchpad sets cells, key 1 starts and pauses (LED), key 2 one step, key 3 clears, key 4 fills at random | 2184 bytes | 2484 units, 0.47 ms |
 | Pong | GAMES | paddle by touchpad (height of the finger), Part left up, Part right down, encoder; first to 9 wins; ball and bot move on every second frame only, otherwise the slow display hardly shows the ball | 2120 bytes | 1221 units, 0.23 ms |
-| Simon | GAMES | the four middle pads (3, 4, 11, 12, counted from 0) light a sequence, you play it back, one more step each round; a wrong pad ends the game, TAP or a pad restarts | 2344 bytes | 2114 units (opening), frame 693 |
+| Simon | GAMES | the 16 pads light a sequence (a step 0.72 s, a little shorter every fourth round, never below 0.4 s), you play it back, one more step each round; the display shows the round, the step and what to do; a wrong pad ends the game, TAP or a pad restarts | 2268 bytes | frame at most 1673 units (game over), opening 1644 |
 | Mandelbrot | GAMES | a finger on the touchpad pans, Part right and the encoder zoom in, Part left out, keys 1 and 2 set the iterations (8 to 64), TAP resets | 2436 bytes | 2135 units, 0.41 ms |
 
 **Set-Timer** is meant for use in a set. Its clock is `korg.millis()`, which the runtime keeps current every frame,

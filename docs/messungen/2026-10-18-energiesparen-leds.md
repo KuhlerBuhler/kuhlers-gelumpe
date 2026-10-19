@@ -36,3 +36,20 @@ Hauptbildschirm da ist (auch aus dem Sendeweg hing es während des Starts). Rot 
 nicht, der Fall prüft darum, dass die LEDs genau dann gedimmt sind, wenn die Firmware dimmt.
 
 **Offen, am Gerät:** wie viel Strom das spart (Stromtest, Stufen 4 bis 6), ob ein Viertel gut sichtbar bleibt, Blau ganz.
+
+## Einstellbar (19.10.)
+
+Wunsch vom 19.10.: wie stark gedimmt wird, sucht man selbst aus. Die Seite BLECH, CUSTOMIZATION, POWER SAVE, LED DIMMING
+geht von 0 % (gar nicht) bis 100 % (aus) in Zehnerschritten, dazu 75 %, die Vorgabe und das Viertel von oben. Gerechnet wird
+`(Wert * behalten + 99) / 100`, aufgerundet, damit eine leuchtende LED an bleibt (bei 75 % genau `(Wert + 3) / 4`). Die
+Regler-LEDs gehen weiter aus, außer bei 0 %; dann zeigen sie, was die Firmware im Power Save schickt (im Emulator für den
+VALUE-Regler 75 statt 155). Gespeichert wird die Stufe in den vier freien Bits der Einstellungsdatei (Flags-Bits 6, 7 und 31,
+Bit 31 des Look-Worts), im Patch steht sie in den Bits 12 bis 15 seines Einstellungsworts. Daneben liegt DISPLAY LIGHT, das
+frühere SAVE LIGHT unter DISPLAY: 1 bis 15 leuchten jetzt mit 3 bis 15 von 15, weil 1 von 16 am Gerät auf Batterie dunkel war
+(Rückmeldung 19.10.; im Emulator haben INTENSITY 1 und SAVE LIGHT 1 dasselbe Tastverhältnis von 1/16, der Unterschied am Gerät
+ist nicht gemessen, vermutlich die niedrigere Spannung auf Batterie).
+
+**Gemessen (Emulator, `menu:padcolor_power_save_led_dimming`, `_kept`, `menu:look_backlight_save_light`):** Vorgabe 75 %;
+bei 0 % bleiben alle LEDs außer den Reglern, wie sie waren; bei 100 % sind alle aus; bei 70 % zeigt jede LED
+`(Wert * 30 + 99) / 100`; nach WRITE und Neustart steht die Seite wieder auf 70 %. DISPLAY LIGHT 4 mit Blau 12: 4 von 16.
+
