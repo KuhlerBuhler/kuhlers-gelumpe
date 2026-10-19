@@ -52,6 +52,10 @@ input_power_held:
 input_power_wait:
     b input_power_wait
 input_power_no:
+    bl migrate_input
+    cmp r0, #0
+    ldr r0, [sp, #8]
+    bne input_drop
     ldr r4, =HOOK_RUNTIME
     ldr r1, [r4, #RT_ARMED]
     cmp r1, #1
@@ -340,6 +344,7 @@ script_frame_run:
     push {r4-r11, lr}
     sub sp, sp, #4
     mov r4, r0
+    bl migrate_frame
     mov r7, #0
     mov r8, #ERR_OK
     ldr r1, [r4, #RT_ARMED]
