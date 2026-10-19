@@ -805,8 +805,8 @@ Einheit anders sein.
 | Set-Timer | TOOLS | große Uhr mm:ss, ab einer Stunde h:mm:ss; Taste 1 startet, Taste 4 setzt zurück (zweimal drücken) | 1996 Byte | 2434 Einheiten, 0,46 ms (Bildaufbau); ohne Änderung 201, geschlossen nichts je Rahmen |
 | Snake | GAMES | Part links und rechts drehen | 1180 Byte | 2215 Einheiten (das Öffnen), Rahmen 537 |
 | Tetris | GAMES | Part links und rechts bewegen, Edit rechts dreht, Edit links gehalten lässt schneller fallen, jede Taste startet nach Game Over neu | 3772 Byte | 2305 Einheiten, 0,44 ms |
-| Game of Life | GAMES | das Touchpad setzt Zellen, Taste 1 startet und pausiert (LED), Taste 2 ein Schritt, Taste 3 löscht, Taste 4 füllt zufällig | 2184 Byte | 2484 Einheiten, 0,47 ms |
-| Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt; Ball und Bot ziehen nur jeden zweiten Rahmen, sonst sieht man den Ball auf dem trägen Display kaum | 2120 Byte | 1221 Einheiten, 0,23 ms |
+| Game of Life | GAMES | das Touchpad setzt Zellen, Taste 1 startet und pausiert (LED), Taste 2 ein Schritt, Taste 3 löscht, Taste 4 füllt zufällig | 2944 Byte | 2457 Einheiten, 0,47 ms |
+| Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt; Ball und Bot ziehen jeden zweiten Rahmen, ein kurzer Schweif hält die letzten zwei Ballpositionen sichtbar | 2304 Byte | 1224 Einheiten, 0,23 ms |
 | Simon | GAMES | die vier mittleren Pads (3, 4, 11, 12, von 0 gezählt) leuchten eine Folge vor, man spielt sie nach, jede Runde einen Schritt mehr; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2344 Byte | 2114 Einheiten (das Öffnen), Rahmen 693 |
 | Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 3552 Byte | 2443 Einheiten, 0,46 ms |
 
@@ -820,8 +820,9 @@ wieder auf ein PLAY, das ein STOP davor braucht (das Ereignis kommt beim Überga
 Ausschalten und im Menü auf OFF gestellt zählt er nicht, ein Neustart beginnt bei 0.
 
 **Game of Life** rechnet eine Zeile des Felds (32 Zellen) als eine 32-Bit-Zahl und die nächste Generation für alle 32
-Zellen einer Zeile gleichzeitig mit Bitoperationen. Das Bild wird nur zellenweise nachgezogen, die nächste Generation
-beginnt erst, wenn es eingeholt hat, so bleibt jeder Rahmen klein. **Mandelbrot** rechnet mit 14 Nachkommabits (1,0 ist
+Zellen einer Zeile gleichzeitig mit Bitoperationen. Wenige Änderungen werden als einzelne Zellen gezeichnet, dichte
+Doppelzeilen als Bitmap. Berechnen und Zeichnen teilen sich das Rahmenbudget; die nächste Generation wird erst
+nach dem vollständigen Bild übernommen ([Messung](messungen/2026-10-19-pong-life.md)). **Mandelbrot** rechnet mit 14 Nachkommabits (1,0 ist
 16384), die Ganzzahl-Arithmetik der VM reicht dafür, Kommazahlen braucht es nicht; das Bild kommt in vier Durchgängen mit
 Blöcken von 8, 4, 2 und 1 Pixel, und ein Pixel, das mehr als den Rest des Rahmens braucht, wird im nächsten Rahmen
 weitergerechnet. Nachweislich innenliegende Rechtecke werden gemeinsam gefüllt und bei der Verfeinerung übersprungen.

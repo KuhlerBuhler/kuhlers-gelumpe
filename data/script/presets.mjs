@@ -653,13 +653,14 @@ korg.onEvent("frame", () => {
     source: `// Conway's Game of Life on a 32 x 16 torus of 4 x 4 pixel cells, an app under GAMES. The touchpad draws: a touch
 // sets the cell under the finger. Key 1 starts and pauses (its LED is lit while it runs), key 2 steps once, key 3
 // clears, key 4 fills the grid with random cells. A row of the grid is one 32-bit number, a generation is computed
-// for all 32 cells of a row at once with bit operations. The screen is painted a few cells per frame, the next
-// generation only starts when the picture has caught up.
+// for all 32 cells of a row at once with bit operations. Sparse changes are drawn as cells, dense pairs of rows
+// as bitmaps. The next generation is computed alongside painting and swaps in after the picture has caught up.
 korg.app("Life", "GAMES");
 const H = 16;
 const cur = new Array(H);
 const nxt = new Array(H);
 const shown = new Array(H);
+const band = new Array(128);
 let running = 1;
 let stepReq = 0;
 let computing = 0;
@@ -717,36 +718,72 @@ function nextRow(y) {
   return ~n2 & n1 & (n0 | c);
 }
 
-// Paints rows whose picture differs from the grid until about \`limit\` units of work are spent. Returns the work.
+function firstBit(bits) {
+  let x = 0;
+  if ((bits & 65535) == 0) { bits >>= 16; x += 16; }
+  if ((bits & 255) == 0) { bits >>= 8; x += 8; }
+  if ((bits & 15) == 0) { bits >>= 4; x += 4; }
+  if ((bits & 3) == 0) { bits >>= 2; x += 2; }
+  if ((bits & 1) == 0) x += 1;
+  return x;
+}
+
+function paintBand(y) {
+  let u = cur[y];
+  let d = cur[y + 1];
+  let at = 0;
+  for (let x = 0; x < 32; x++) {
+    const bits = ((u & 1) * 7) | ((d & 1) * 112);
+    band[at] = bits;
+    band[at + 1] = bits;
+    band[at + 2] = bits;
+    u >>= 1;
+    d >>= 1;
+    at += 4;
+  }
+  korg.display.clearRect(0, y * 4, 128, 8);
+  korg.display.bitmap(band, 0, y * 4, 128);
+  shown[y] = cur[y];
+  shown[y + 1] = cur[y + 1];
+}
+
 function paint(limit) {
   let work = 0;
   let n = 0;
   idle = 1;
   while (n < H) {
-    const y = (paintAt + n) % H;
-    const diff = cur[y] ^ shown[y];
-    work += 15;
-    if (diff != 0) {
-      for (let x = 0; x < 32 && work < limit; x++) {
-        if ((diff >> x) & 1) {
-          cell(x, y, (cur[y] >> x) & 1);
-          shown[y] ^= 1 << x;
-          work += 60;
+    const y = (paintAt + n) & 15;
+    let diff = (cur[y] ^ shown[y]) | (cur[y + 1] ^ shown[y + 1]);
+    let count = 0;
+    while (diff != 0 && count < 8) {
+      diff &= diff - 1;
+      count += 1;
+    }
+    if (count >= 8) {
+      if (work > 0) { idle = 0; break; }
+      paintBand(y);
+      work = 2300;
+    } else {
+      work += 100 + count * 25;
+      for (let row = y; row < y + 2; row++) {
+        diff = cur[row] ^ shown[row];
+        while (diff != 0 && work < limit) {
+          const x = firstBit(diff);
+          cell(x, row, (cur[row] >> x) & 1);
+          shown[row] ^= 1 << x;
+          diff &= diff - 1;
+          work += 180;
         }
-        work += 14;
       }
-      if (cur[y] != shown[y]) {
+      if (cur[y] != shown[y] || cur[y + 1] != shown[y + 1]) {
         idle = 0;
         break;
       }
     }
-    n += 1;
-    if (work >= limit) {
-      idle = 0;
-      break;
-    }
+    n += 2;
+    if (work >= limit) { idle = 0; break; }
   }
-  paintAt = (paintAt + n) % H;
+  paintAt = (paintAt + n) & 15;
   return work;
 }
 
@@ -758,6 +795,8 @@ function wipe() {
   }
   korg.display.clear();
   computing = 0;
+  paintAt = 0;
+  idle = 1;
   soupAt = 16;
 }
 
@@ -768,6 +807,7 @@ function touchCell(x, y) {
   const row = 15 - ((y * 16) >> 10);
   cur[row] |= 1 << col;
   nxt[row] |= 1 << col;
+  idle = 0;
 }
 
 korg.onEvent("open", () => {
@@ -782,6 +822,7 @@ korg.onEvent("open", () => {
   cur[8] = (1 << 17) | (1 << 18);
   cur[9] = (1 << 16) | (1 << 17);
   cur[10] = 1 << 17;
+  idle = 0;
   korg.led(korg.led.BAR_1, 255);
 });
 
@@ -814,24 +855,25 @@ korg.onEvent("frame", () => {
     const b = (rnd() << 17) ^ (rnd() << 2) ^ rnd();
     cur[soupAt] = a & b;
     soupAt += 1;
+    idle = 0;
     return;
   }
-  const work = paint(1200);
-  if (computing == 0 && idle && (running || stepReq)) {
+  let work = 0;
+  if (!idle) work = paint(1200);
+  if (computing == 0 && (running || stepReq)) {
     computing = 1;
     genRow = 0;
-    return;
   }
-  if (computing && work < 700) {
-    for (let i = 0; i < 4; i++) {
-      nxt[genRow] = nextRow(genRow);
-      genRow += 1;
-    }
-    if (genRow >= H) {
-      for (let y = 0; y < H; y++) cur[y] = nxt[y];
-      computing = 0;
-      stepReq = 0;
-    }
+  while (computing && genRow < H && work < 1700) {
+    nxt[genRow] = nextRow(genRow);
+    genRow += 1;
+    work += 300;
+  }
+  if (computing && genRow >= H && idle) {
+    for (let y = 0; y < H; y++) cur[y] = nxt[y];
+    computing = 0;
+    stepReq = 0;
+    idle = 0;
   }
 });
 `,
@@ -845,9 +887,12 @@ korg.onEvent("frame", () => {
 // with an encoder. The bot is slow on purpose: it only reacts to a ball that comes towards it, it misjudges the height
 // a little after every return, and a steep return is faster than it can follow. The ball speeds up with every hit.
 // Positions of the ball are in quarter pixels. Ball and bot move on every second frame (12.5 a second): the display is
-// slow, a ball that moves 25 times a second is hardly seen.
+// slow. Two previous ball positions stay lit as a short trail until the ball moves on.
 korg.app("Pong", "GAMES");
 const NET = [0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33];
+const trailX = new Array(2);
+const trailY = new Array(2);
+let trailCount = 0;
 const PH = 14;
 const PX = 4;
 const BOTX = 121;
@@ -875,6 +920,7 @@ function rnd() {
 }
 
 function serve() {
+  trailCount = 0;
   bx = 62 * 4;
   by = 30 * 4;
   vx = 12 * serveDir;
@@ -884,6 +930,7 @@ function serve() {
 }
 
 function newGame() {
+  trailCount = 0;
   myScore = 0;
   botScore = 0;
   serveDir = 1;
@@ -898,6 +945,7 @@ function clampPaddle(y) {
 }
 
 function point(mine) {
+  trailCount = 0;
   if (mine) {
     myScore += 1;
     serveDir = 1;
@@ -923,6 +971,11 @@ function moveBot() {
 }
 
 function moveBall() {
+  trailX[1] = trailX[0];
+  trailY[1] = trailY[0];
+  trailX[0] = bx;
+  trailY[0] = by;
+  if (trailCount < 2) trailCount += 1;
   bx += vx;
   by += vy;
   if (by < 0) {
@@ -960,7 +1013,10 @@ function draw() {
   korg.display.rect(BOTX, boty, 3, PH);
   korg.display.number(myScore, 52, 2);
   korg.display.number(botScore, 70, 2);
-  if (state == 1) korg.display.rect(bx >> 2, by >> 2, 3, 3);
+  if (state == 1) {
+    for (let i = 0; i < trailCount; i++) korg.display.rect(trailX[i] >> 2, trailY[i] >> 2, 3, 3);
+    korg.display.rect(bx >> 2, by >> 2, 3, 3);
+  }
   if (state == 2) {
     if (myScore > botScore) korg.display.text("YOU WIN", 44, 30);
     else korg.display.text("BOT WINS", 40, 30);

@@ -3,9 +3,12 @@
 // with an encoder. The bot is slow on purpose: it only reacts to a ball that comes towards it, it misjudges the height
 // a little after every return, and a steep return is faster than it can follow. The ball speeds up with every hit.
 // Positions of the ball are in quarter pixels. Ball and bot move on every second frame (12.5 a second): the display is
-// slow, a ball that moves 25 times a second is hardly seen.
+// slow. Two previous ball positions stay lit as a short trail until the ball moves on.
 korg.app("Pong", "GAMES");
 const NET = [0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33];
+const trailX = new Array(2);
+const trailY = new Array(2);
+let trailCount = 0;
 const PH = 14;
 const PX = 4;
 const BOTX = 121;
@@ -33,6 +36,7 @@ function rnd() {
 }
 
 function serve() {
+  trailCount = 0;
   bx = 62 * 4;
   by = 30 * 4;
   vx = 12 * serveDir;
@@ -42,6 +46,7 @@ function serve() {
 }
 
 function newGame() {
+  trailCount = 0;
   myScore = 0;
   botScore = 0;
   serveDir = 1;
@@ -56,6 +61,7 @@ function clampPaddle(y) {
 }
 
 function point(mine) {
+  trailCount = 0;
   if (mine) {
     myScore += 1;
     serveDir = 1;
@@ -81,6 +87,11 @@ function moveBot() {
 }
 
 function moveBall() {
+  trailX[1] = trailX[0];
+  trailY[1] = trailY[0];
+  trailX[0] = bx;
+  trailY[0] = by;
+  if (trailCount < 2) trailCount += 1;
   bx += vx;
   by += vy;
   if (by < 0) {
@@ -118,7 +129,10 @@ function draw() {
   korg.display.rect(BOTX, boty, 3, PH);
   korg.display.number(myScore, 52, 2);
   korg.display.number(botScore, 70, 2);
-  if (state == 1) korg.display.rect(bx >> 2, by >> 2, 3, 3);
+  if (state == 1) {
+    for (let i = 0; i < trailCount; i++) korg.display.rect(trailX[i] >> 2, trailY[i] >> 2, 3, 3);
+    korg.display.rect(bx >> 2, by >> 2, 3, 3);
+  }
   if (state == 2) {
     if (myScore > botScore) korg.display.text("YOU WIN", 44, 30);
     else korg.display.text("BOT WINS", 40, 30);

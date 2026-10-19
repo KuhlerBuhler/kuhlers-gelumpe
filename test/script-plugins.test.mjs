@@ -340,6 +340,80 @@ test("Life: key 4 fills the grid with random cells, and the picture follows the 
   withinWarn(p, "life");
 });
 
+function nextLife(rows) {
+  return rows.map((row, y) => {
+    let next = 0;
+    for (let x = 0; x < 32; x++) {
+      let neighbours = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (dx || dy) neighbours += (rows[(y + dy + 16) % 16] >>> ((x + dx + 32) % 32)) & 1;
+      }
+      if (neighbours === 3 || neighbours === 2 && ((row >>> x) & 1)) next |= 1 << x;
+    }
+    return next;
+  });
+}
+
+function seedLife(rows) {
+  const p = plugin("life");
+  noFault(p.device.run(1));
+  p.set("running", 0);
+  press(p, "BAR_3", 1);
+  for (let y = 0; y < 16; y++) p.put("cur", y, rows[y]);
+  p.set("idle", 0);
+  p.resetCost();
+  return p;
+}
+
+function lifePicture(p) {
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 128; x++) {
+    const on = x % 4 < 3 && y % 4 < 3 ? cellAt(p, x >> 2, y >> 2) : 0;
+    assert.equal(pixel(p.device, x, y), on, `Life pixel ${x},${y}`);
+  }
+}
+
+test("Life paints a dense grid and its extinction in bounded frames without residual pixels", () => {
+  const p = seedLife(Array(16).fill(-1));
+  noFault(p.device.run(10));
+  assert.deepEqual(Array.from({ length: 16 }, (_, y) => p.at("shown", y)), Array(16).fill(-1));
+  lifePicture(p);
+  press(p, "BAR_2", 15);
+  assert.deepEqual(Array.from({ length: 16 }, (_, y) => p.at("cur", y)), Array(16).fill(0));
+  assert.deepEqual(Array.from({ length: 16 }, (_, y) => p.at("shown", y)), Array(16).fill(0));
+  lifePicture(p);
+  withinWarn(p, "Life dense paint and extinction");
+});
+
+test("Life advances sparse and dense worlds faster and preserves every reference generation", () => {
+  let seed = 17;
+  const rand = () => { seed = (Math.imul(seed, 1103515245) + 12345) | 0; return seed; };
+  for (const [name, initial, limit] of [
+    ["glider", Array.from({ length: 16 }, (_, y) => [2, 4, 7][y] || 0), 100],
+    ["soup", Array.from({ length: 16 }, () => rand() & rand()), 250],
+  ]) {
+    const p = seedLife(initial);
+    p.set("running", 1);
+    let current = initial;
+    let generations = 0;
+    let frames = 0;
+    while (generations < 20 && frames < limit) {
+      noFault(p.device.run(1));
+      frames += 1;
+      const rows = Array.from({ length: 16 }, (_, y) => p.at("cur", y));
+      if (rows.some((row, y) => row !== current[y])) {
+        assert.deepEqual(rows, nextLife(current), `${name} generation ${generations + 1}`);
+        current = rows;
+        generations += 1;
+      }
+    }
+    assert.equal(generations, 20, `${name}: only ${generations} generations within ${limit} frames`);
+    p.set("running", 0);
+    noFault(p.device.run(40));
+    lifePicture(p);
+    withinWarn(p, `Life ${name}`);
+  }
+});
+
 // ---- Pong ----
 
 test("Pong: the ball bounces off the walls and off a paddle, and a miss is a point for the other side; the ball moves on every second frame", () => {
@@ -376,6 +450,36 @@ test("Pong: the ball bounces off the walls and off a paddle, and a miss is a poi
   assert.equal(p.v("state"), 0);
   p.device.run(40);
   assert.equal(p.v("state"), 1, "and the next ball is served");
+});
+
+test("Pong keeps two previous ball positions across fast moves and clears the trail on a point and restart", () => {
+  const p = plugin("pong");
+  noFault(p.device.run(1));
+  p.set("state", 1);
+  p.set("tick", 1);
+  p.set("bx", 40 * 4);
+  p.set("by", 40 * 4);
+  p.set("vx", 22);
+  p.set("vy", 0);
+  noFault(p.device.run(1));
+  noFault(p.device.run(4));
+  assert.equal(pixel(p.device, 41, 41), 1, "the first position stays lit for three movement steps");
+  assert.equal(pixel(p.device, 46, 41), 1, "the intermediate position is visible too");
+  assert.equal(pixel(p.device, 52, 41), 1, "the current ball is still drawn");
+  noFault(p.device.run(2));
+  assert.equal(pixel(p.device, 41, 41), 0, "the oldest position expires");
+  assert.equal(pixel(p.device, 46, 41), 1, "the trail follows the ball");
+  p.set("bx", 126 * 4);
+  noFault(p.device.run(2));
+  assert.equal(p.v("state"), 0);
+  for (let y = 40; y < 43; y++) for (let x = 40; x < 60; x++) assert.equal(pixel(p.device, x, y), 0, "a point removes the complete trail");
+  noFault(p.device.run(30));
+  for (let y = 40; y < 43; y++) for (let x = 40; x < 60; x++) assert.equal(pixel(p.device, x, y), 0, "a serve never reuses the previous trail");
+  p.set("state", 2);
+  press(p, "TAP", 1);
+  assert.equal(p.v("state"), 0);
+  for (let y = 40; y < 43; y++) for (let x = 40; x < 60; x++) assert.equal(pixel(p.device, x, y), 0, "a restart clears the trail");
+  withinWarn(p, "Pong trail");
 });
 
 test("Pong: touchpad, Part keys and encoder move the paddle, the paddle stays on the screen", () => {
