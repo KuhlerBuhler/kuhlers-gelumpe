@@ -391,7 +391,7 @@ pc_notify:
     add sp, sp, #8
     pop {r4, pc}
 
-; -> r0 = 1 when the pattern in RAM differs from its place in the bank (unsaved changes). Clobbers r0 to r3 and r12.
+; -> r0 = 1 when the pattern in RAM differs from its place in the bank (unsaved changes), byte 0x3C left out. Clobbers r0 to r3 and r12.
 pc_dirty:
     push {r4, lr}
     bl PLAYER
@@ -405,10 +405,14 @@ pc_dirty:
     cmp r0, #0
     beq pd_clean
     add r0, r0, #4
+    add r4, r0, #0x40           ; behind the word of byte 0x3C, MFX pad touched: each load sets it anew, not an edit
     ldr r3, =PAT_WORDS
 pd_word:
     ldr r1, [r0], #4
     ldr r12, [r2], #4
+    cmp r0, r4
+    biceq r1, r1, #0xFF
+    biceq r12, r12, #0xFF
     cmp r1, r12
     bne pd_dirty
     subs r3, r3, #1

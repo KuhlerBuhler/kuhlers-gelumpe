@@ -36,6 +36,13 @@ oder 255) bleibt stehen, ebenso alles, solange ein Plugin die LED-Sperre hält. 
 (`shortcut:write_led_breathes_while_unsaved`, am Netzteil): gespeichert 0; Regler gedreht, 2 s: 1, 5, ... 61; nach EXIT + WRITE 0.
 Auf Batterie mit Power Save kommt sie wie jede LED mit einem Viertel an.
 
+**Byte `0x3C` zählt nicht (Gerätemeldung 19.10.).** Von Pattern 7 auf 8 gewechselt, nichts angefasst, und die LED atmete. Im
+Emulator mit dem Flash vom 09.10. nachgestellt: danach weicht genau ein Byte ab, `0x3C` (Bank 1, RAM 0). Es ist der Zustand "MFX-Pad
+berührt": das Laden (`0xC004AB84`) setzt ihn nach dem Kopieren neu, 1 nur mit HOLD (Byte `0x41`), sonst 0 (`0xC004AD84`, dazu
+Pad aus an die Klangerzeugung). Pattern 8 war mit berührtem Pad gespeichert. Der Vergleich lässt dieses Byte jetzt aus, ebenso der
+des Patternwechsels im Stand (`pc_dirty`, `tools/patch/pattern_switch.py`), der sonst nach so einem Pattern nur noch geblättert
+hätte. Geprüft: `shortcut:pad_state_is_not_an_edit` und `pswitch:pad_state_saved_wheel_loads`, Hacktribe und rot.
+
 ## Emulator (`tools/emu/shortcut_cases.py`, 8 von 8, Hacktribe mit BLECH, Flash vom 09.10.)
 
 | Fall | Ergebnis |

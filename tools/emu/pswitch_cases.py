@@ -513,6 +513,16 @@ def case_unsaved(payload, flash):
     clean.turn(1)
     out.append(entry("saved_wheel_is_stock", clean.view() == (1, 1, 0) and clean.flags()[0] in (0, 0xFFFFFFFF),
                      f"without changes a click loads at once as always: {clean.view()}"))
+    if not clean.dev.synth:
+        # saved with the MFX pad touched (byte 0x3C = 1, HOLD off): the load writes 0 there; that is no edit (device report 19.10.)
+        pad = Box(payload, flash)
+        pad.pattern_bytes(1, 0x3C, [1])
+        pad.pattern_bytes(1, 0x41, [0])
+        pad.turn(1, 1.0)
+        first = pad.view()
+        pad.turn(1, 1.0)
+        out.append(entry("pad_state_saved_wheel_loads", first == (1, 1, 0) and pad.view() == (2, 2, 0) and not pad.m.asserts,
+                         f"pattern saved with the pad touched: a click {first}, the next click {pad.view()}"))
     played = Box(payload, flash)
     edited(played)
     played.turn(3)

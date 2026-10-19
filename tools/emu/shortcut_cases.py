@@ -197,7 +197,26 @@ def case_unsaved(payload, flash):
                   f"saved: WRITE LED {clean}; a knob turned, 2 s: values {lit}; after EXIT + WRITE {saved}")]
 
 
-GROUPS = (case_save, case_reset, case_kill, case_unsaved)
+def case_pad_state(payload, flash):
+    """A pattern saved with the MFX pad touched (byte 0x3C = 1, HOLD off) loads with 0 there, the firmware's doing: the WRITE LED
+    stays dark, nothing was edited (device report 19.10.)."""
+    box = SBox(payload, flash, adapter=True)
+    led = lambda: box.m.leds.get(WRITE_LED, 0)
+    box.m.uc.mem_write(box.slots + 0x4000 + 0x3C, bytes([1]))
+    box.m.uc.mem_write(box.slots + 0x4000 + 0x41, bytes([0]))
+    box.turn(1, 1.0)
+    seen = set()
+    for _ in range(40):
+        box.run(0.05)
+        seen.add(led())
+    live, saved = box.live(), box.saved()
+    rewritten = box.running() == 1 and live[0x3C] == 0 and saved[0x3C] == 1
+    rest = [i for i in range(0x4000) if i != 0x3C and live[i] != saved[i]]
+    return [entry("pad_state_is_not_an_edit", rewritten and not rest and seen == {0} and not box.m.asserts,
+                  f"pattern {box.running()}, byte 0x3C live {live[0x3C]} saved {saved[0x3C]}, other differences {rest[:8]}, WRITE LED {sorted(seen)}")]
+
+
+GROUPS = (case_save, case_reset, case_kill, case_unsaved, case_pad_state)
 
 
 def group_entries(payload, flash, i):

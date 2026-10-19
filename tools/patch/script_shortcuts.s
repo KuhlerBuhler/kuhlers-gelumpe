@@ -183,7 +183,7 @@ sc_tick_done:
     pop {r4-r6, pc}
 
 ; The WRITE LED breathes while the pattern in RAM differs from its place in the bank (unsaved, device wish 19.10.): every 8 frames
-; the two are compared word by word, the LED goes from 1 to 61 and back in 32 frames (1.3 s), odd values only. The firmware writes
+; the two are compared word by word (byte 0x3C left out, the firmware rewrites it on every load), the LED goes from 1 to 61 and back in 32 frames (1.3 s), odd values only. The firmware writes
 ; the LED with even values or 255; a value of the firmware is left alone, and so is everything while a plugin holds the LED lock.
 ; Main screen only: elsewhere a value of ours goes dark. Clobbers r0 to r3 and r12.
 .equ SC_WRITE_LED, 0x0B
@@ -237,6 +237,9 @@ sc_un_cmp:
     bmi sc_un_cmp_done
     ldr r12, [r1, r3]
     ldr r0, [r2, r3]
+    cmp r3, #0x3C               ; byte 0x3C, MFX pad touched: each pattern load sets it anew (0 without HOLD), not an edit
+    biceq r12, r12, #0xFF
+    biceq r0, r0, #0xFF
     cmp r0, r12
     beq sc_un_cmp
     mov r0, #1
