@@ -12,6 +12,7 @@ script_early_hook:
     .word 0xE10FC000 ; mrs r12, cpsr
     push {r12, lr}
     bl menu_arm_load
+    bl migrate_start
     pop {r12, lr}
     .word 0xE12FF00C ; msr cpsr_cxsf, r12
     pop {r0-r12, lr}

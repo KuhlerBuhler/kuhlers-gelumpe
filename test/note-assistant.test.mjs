@@ -81,7 +81,7 @@ test("the BLECH menu writes the word the note assistant reads, as bit 4 of the s
   const builder = readFileSync(new URL("../tools/patch/note_assist.py", import.meta.url), "utf8");
   const menu = readFileSync(new URL("../tools/patch/script_menu.s", import.meta.url), "utf8");
   assert.match(builder, /^NA_SETTING = STATE \+ S_SETTING/m);
-  assert.match(builder, /^S_SETTING, S_SINCE, S_NOTE, S_PAD, S_PARTPAD = 0, 4, 8, 0xC, 0x10/m);
+  assert.match(builder, /^S_SETTING, S_SINCE, S_NOTE, S_PAD, S_PARTPAD, S_FADE, S_LEVEL = 0, 4, 8, 0xC, 0x10, 0x14, 0x20/m);
   assert.match(builder, /^FLAG_OFF_BIT = 4 /m);
   const word = menu.match(/^\.equ NA_SETTING, (0x[0-9A-Fa-f]+)/m);
   assert.ok(word, "script_menu.s names NA_SETTING");

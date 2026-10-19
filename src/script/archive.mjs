@@ -1,10 +1,11 @@
 /**
  * Script files for the card: the collection `e2sPlugin.all` (many blocks) and
- * the single `.blech` file (one block plus an optional source trailer). The
- * layouts are data/script/contract.mjs (ARCHIVE, SOURCE_TRAILER). The device
- * reads the blocks only; the source trailer is for the editor.
+ * the single `.blech` file (one block plus an optional description and source
+ * trailer). The layouts are data/script/contract.mjs (ARCHIVE, DESC_TRAILER,
+ * SOURCE_TRAILER). The device loads the blocks and shows the description; the
+ * source trailer is for the editor.
  */
-import { ARCHIVE, SOURCE_TRAILER, MAGIC, ERROR } from "../../data/script/contract.mjs";
+import { ARCHIVE, SOURCE_TRAILER, DESC_TRAILER, MAGIC, ERROR } from "../../data/script/contract.mjs";
 import { crc32, decodeBlob, fail } from "./blob.mjs";
 
 // Returns the decoded parts, or the error when the block cannot be loaded from a file.
@@ -85,31 +86,86 @@ export function parseAll(bytes) {
   return { ok: true, blocks };
 }
 
+const UMLAUTS = { ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss" };
+
 /**
- * Build a `.blech` file: one block, then optionally the source.
+ * The description the device shows for a plugin: the `//` lines at the top of its source (an empty `//` line starts a new
+ * paragraph), in ASCII, wrapped to DESC_TRAILER.width. Empty when the source does not start with a comment.
+ * @param {string} source
+ */
+export function describeSource(source) {
+  const lines = source.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const paragraphs = [[]];
+  for (const line of lines) {
+    const m = /^\s*\/\/ ?(.*)$/.exec(line);
+    if (!m) break;
+    const text = m[1].replace(/[äöüÄÖÜß]/g, c => UMLAUTS[c]).replace(/[^ -~]/g, "").trim();
+    if (text) paragraphs[paragraphs.length - 1].push(text);
+    else if (paragraphs[paragraphs.length - 1].length) paragraphs.push([]);
+  }
+  const out = [];
+  for (const words of paragraphs.filter(p => p.length).map(p => p.join(" ").split(/\s+/))) {
+    if (out.length) out.push("");
+    let row = "";
+    for (let word of words) {
+      while (word.length > DESC_TRAILER.width) {
+        if (row) out.push(row);
+        out.push(word.slice(0, DESC_TRAILER.width));
+        word = word.slice(DESC_TRAILER.width);
+        row = "";
+      }
+      if (!word) continue;
+      if (row && row.length + 1 + word.length > DESC_TRAILER.width) {
+        out.push(row);
+        row = word;
+      } else row = row ? `${row} ${word}` : word;
+    }
+    if (row) out.push(row);
+  }
+  let text = "";
+  for (const row of out) {
+    if (text.length + row.length + 1 > DESC_TRAILER.maxBytes) break;
+    text += `${row}\n`;
+  }
+  return text;
+}
+
+function trailer(magic, bytes) {
+  const out = new Uint8Array(SOURCE_TRAILER.headerSize + bytes.length);
+  const dv = new DataView(out.buffer);
+  dv.setUint32(0, magic, true);
+  dv.setUint32(4, bytes.length, true);
+  out.set(bytes, SOURCE_TRAILER.headerSize);
+  return out;
+}
+
+/**
+ * Build a `.blech` file: one block, then, with a source, the description taken from it (when it has one) and the source.
  * @param {Uint8Array} block
  * @param {string} [source]
  */
 export function packBlech(block, source) {
   const checked = checkBlock(block, "Plugin");
   if (!checked.ok) return checked;
-  const text = source === undefined ? new Uint8Array(0) : new TextEncoder().encode(source);
-  const trailer = source === undefined ? 0 : SOURCE_TRAILER.headerSize + text.length;
-  const out = new Uint8Array(block.length + trailer);
-  out.set(block);
+  const parts = [block];
   if (source !== undefined) {
-    const dv = new DataView(out.buffer);
-    dv.setUint32(block.length, SOURCE_TRAILER.magic, true);
-    dv.setUint32(block.length + 4, text.length, true);
-    out.set(text, block.length + SOURCE_TRAILER.headerSize);
+    const description = describeSource(source);
+    if (description) parts.push(trailer(DESC_TRAILER.magic, new TextEncoder().encode(description)));
+    parts.push(trailer(SOURCE_TRAILER.magic, new TextEncoder().encode(source)));
+  }
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.length;
   }
   return { ok: true, bytes: out };
 }
 
 /**
- * Read a `.blech` file. The device ignores everything after the block, so a
- * missing or damaged trailer only means there is no source to show.
- * @returns {{ ok: true, block: Uint8Array, source: string | null, parts: object } | { ok: false, error: object }}
+ * Read a `.blech` file. The device loads the block and reads the description; a missing or damaged trailer only means there is
+ * no description or source to show.
+ * @returns {{ ok: true, block: Uint8Array, source: string | null, description: string | null, parts: object } | { ok: false, error: object }}
  */
 export function parseBlech(bytes) {
   if (bytes.length < 12) return { ok: false, error: fail(ERROR.TRUNCATED, `${bytes.length} Bytes`) };
@@ -121,16 +177,22 @@ export function parseBlech(bytes) {
   const checked = checkBlock(block, "Plugin");
   if (!checked.ok) return checked;
   let source = null;
-  const at = size;
-  if (bytes.length >= at + SOURCE_TRAILER.headerSize && dv.getUint32(at, true) === SOURCE_TRAILER.magic) {
+  let description = null;
+  let at = size;
+  while (bytes.length >= at + SOURCE_TRAILER.headerSize) {
+    const magic = dv.getUint32(at, true);
     const length = dv.getUint32(at + 4, true);
-    if (at + SOURCE_TRAILER.headerSize + length <= bytes.length) {
-      try {
-        source = new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(at + SOURCE_TRAILER.headerSize, at + SOURCE_TRAILER.headerSize + length));
-      } catch {
-        source = null;
-      }
+    const end = at + SOURCE_TRAILER.headerSize + length;
+    if ((magic !== SOURCE_TRAILER.magic && magic !== DESC_TRAILER.magic) || end > bytes.length) break;
+    let text = null;
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(at + SOURCE_TRAILER.headerSize, end));
+    } catch {
+      text = null;
     }
+    if (magic === SOURCE_TRAILER.magic) source = text;
+    else description = text;
+    at = end;
   }
-  return { ok: true, block, source, parts: checked.parts };
+  return { ok: true, block, source, description, parts: checked.parts };
 }

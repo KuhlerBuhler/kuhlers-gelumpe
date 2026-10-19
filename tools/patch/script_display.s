@@ -376,10 +376,6 @@ script_display_blit:
     ldr r1, [r0, #SCRIPT_CONTROL_DISPLAY_ACTIVE]
     cmp r1, #1
     bxne lr
-    ldr r1, =APP_STATE
-    ldr r1, [r1]
-    cmp r1, #0
-    bxeq lr
     ldr r1, =SCREEN_MANAGER
     ldr r1, [r1]
     cmp r1, #0
@@ -387,14 +383,25 @@ script_display_blit:
     cmn r1, #1
     bxeq lr
     ldr r1, [r1, #0x2c]
+    ldr r2, =MENU_STATE
+    cmp r1, #MENU_SCREEN
+    bne blit_app
+    ldrb r3, [r2, #M_DESC_ON]   ; IMPORT PLUGIN with a plugin open draws its description into the picture (menu_desc_frame)
+    cmp r3, #1
+    beq blit_menu
+blit_app:
+    ldr r3, =APP_STATE
+    ldr r3, [r3]
+    cmp r3, #0
+    bxeq lr
     cmp r1, #1
     beq blit_go
     cmp r1, #MENU_SCREEN
     bxne lr
-    ldr r1, =MENU_STATE
-    ldr r2, [r1, #M_LEVEL]
+    ldr r2, [r2, #M_LEVEL]
     cmp r2, #M_LEVEL_BLECHY
     bxne lr
+blit_menu:
     ldr r1, =SCREEN_MANAGER
     ldr r1, [r1]
     ldr r1, [r1, #0x24]

@@ -49,6 +49,7 @@ export const CHAINS = {
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
   "stopped-sync": [{ id: "load-chosen", sites: [0xC0081E18] }],
+  "pattern-load-copy": [{ id: "copy-into-ram", sites: [0xC004AC44] }],
   "frame": [
     { id: "frame-call", sites: [0xC00836F0] },
     { id: "screen-tick", sites: [0xC00836F8] },

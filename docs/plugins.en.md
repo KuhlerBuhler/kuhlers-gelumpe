@@ -458,9 +458,12 @@ Plugins reach the device only through the SD card, never inside the VSB. The fol
   from byte 16 (u32). Then the blocks in format 2, unchanged, one after the other (each has its own size and
   CRC; a block size is divisible by 4, there is no padding). One block may have at most 32752 bytes (the
   loader's buffer).
-- `<name>.blech` is one block with the source text attached: after the block the tag `GSRC`, the length
-  (u32) and the text in UTF-8. The device reads only the block, the editor reads the attachment to open the
-  plugin again.
+- `<name>.blech` is one block with a description and the source text attached: after the block the tag
+  `GDSC`, the length (u32) and the description in ASCII, lines of at most 20 characters ending in `\n` (at most
+  2047 bytes); then the tag `GSRC`, the length (u32) and the text in UTF-8. The description is the `//` lines at
+  the very top of the plugin code (an empty `//` line starts a new paragraph, umlauts become ae, oe, ue, ss);
+  without such lines there is no `GDSC`. The device loads the block and shows the description in IMPORT PLUGIN,
+  the editor reads the source to open the plugin again.
 
 The loader runs once at start, right after the device has loaded `e2sSample.all`. With EXIT held at
 power-on, without a card or without the file it does nothing, and the Electribe starts as it would without
@@ -537,6 +540,7 @@ The pages of FEATURES (the tag names the group "Feature"), each with the value O
 | PATTERN CONFIRM | ON, OFF (see below) |
 | TAP MOTION | OFF, ON, ONCE (see below) |
 | NOTE ASSIST | ON, OFF (see below) |
+| SYNC GROUP | OFF, 1 to 999 |
 
 There is no ABOUT group any more: it only showed the number of loaded plugins and confused people.
 
@@ -548,7 +552,7 @@ The pages of the groups:
 | PLUGINS, one plugin per page | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume, WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error its name stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
 | PLUGINS, one page per `korg.menu.add` | the number | the main dial changes it, the plugin gets `menu` |
 | PLUGINS, EXPORT ALL | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them, then saves the settings too (plugins switched off stay off) |
-| PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then a file name | ENTER shows the first `*.blech` in `KORG/blechtribe/Plugin/` (shown up to 14 characters), the main dial or EDIT pages through the files, ENTER or WRITE loads and starts the one shown at once, EXIT goes back to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards) and hidden or system files are not listed |
+| PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then name and state | ENTER lists the plugins of the `*.blech` files in `KORG/blechtribe/Plugin/` (up to 16): on top the plugin's name (from its header, not the file name), below it its state (ON, OFF, FAULT, ENTER=ALLOW); the main dial pages through them. ENTER opens the selected plugin: its name on top, its description below (the main dial scrolls it line by line, `^` and `v` show there is more), its state at the bottom. ENTER then switches it: one not loaded yet is loaded and started, a running one goes off, one switched off on again, a foreign one is allowed; WRITE keeps the state over a restart as on its page. EXIT goes back to the list and from there to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards), hidden or system files and files without a plugin header are not listed |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | opens the pages of the display light; EXIT goes back to DISPLAY |
 | DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 15 15 15 means the firmware's white ("15 stock"); applies at once |
@@ -558,16 +562,17 @@ The pages of the groups:
 | CUSTOMIZATION, LED | ENTER | opens the pages of the lower LEDs; EXIT goes back to LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the level meter, COLOR a fixed colour, OFF dark; applies at once |
 | LED, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs for COLOR; with METER the level sets the brightness of this colour while no meter colour is set; 15 15 15 means the firmware's colours ("15 stock"); applies at once |
-| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK | the colour of the level meter per zone, split as in the firmware: STILL without level, LOW, MID, LOUD; STOCK is the firmware's colour (white, blue, green, red) |
+| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL: RAINBOW) | the colour of the level meter per zone, split as in the firmware: STILL without level, LOW, MID, LOUD; STOCK is the firmware's colour (white, blue, green, red); STILL also has RAINBOW, the colour turns smoothly through red, green and blue in about 10 s |
 | CUSTOMIZATION, PAD COLOR | ENTER | opens the pages of the pad colours; only where the set has the patch pad-colors |
-| PAD COLOR, PAD COLOR | RED, BLUE, PINK | the colour the pads use for what the firmware shows in red (a part plays, a pad is held, a step); applies at once, WRITE keeps it; RED is the default. Only where the set has the patch pad-colors |
+| PAD COLOR, PAD COLOR | RED, BLUE, PINK | the colour the pads use for what the firmware shows in red (a part plays, a pad is held, a step); applies at once, WRITE keeps it; RED is the default. Only where the set has the patch pad-colors In SEQUENCER mode a step that holds on the note of the step before it through TIE shows a tail in pink that fades out over the length of the note; where tied notes overlap their brightness adds up. |
 | PAD COLOR, SELECT COLOR | RED, BLUE, PINK | the colour of the selected part, never the one of PAD COLOR; when both light, the pad shows the third colour; BLUE is the default |
 | PAD COLOR, OVERLAP | AUTO, RED, BLUE, PINK | the colour of a pad that is lit and selected at once; AUTO is the third colour, neither PAD COLOR nor SELECT COLOR |
 | CUSTOMIZATION, SPLASH IMPORT | ENTER | reads `KORG/blechtribe/splash.bmp` (128 x 64 pixels, 1 bit per pixel, not compressed; the darker colour is drawn) and stores it as the start image like WRITE in the splash editor; shown from the next start. Says "loaded", "no splash.bmp" or "not 128x64 1 bit" (then nothing changes). Only where the set has the splash editor, so not on the blue one |
 | CUSTOMIZATION, SPLASH DRAW | ENTER | opens the splash editor (a page of the Global screen that only this page reaches): the dial moves the cursor left and right, with SHIFT held up and down, MENU flips the pixel and, held, paints its new colour wherever the cursor goes, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
 | FEATURES, PATTERN CONFIRM | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file |
+| FEATURES, SYNC GROUP | OFF, 1 to 999 | the sync group of the pattern in RAM, Hacktribe and the red one only; the main dial changes it, it is saved with the pattern (WRITE or EXIT + WRITE). While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; switching between two patterns of one group carries everything that differs live from the saved state: part mutes and part sound (sample, filter, modulation, pitch, amp, IFX and the other part values), tempo, swing, level, MFX with pad and HOLD, so nothing jumps (in RAM only). Steps, motion, length, beat, key, scale and chord set stay the new pattern's. OFF (0) is no group, nothing carried |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off, TAP held longer than 0.3 s switches only while held and back on letting go; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
-| FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a pad note and go out after 1.5 s; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
+| FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 
 Feedback ("saved", "no card", "imported", "2 exported" and so on) replaces the value of the page until you
 turn the main dial or change the page. The firmware's third line (the unit behind a value) starts in

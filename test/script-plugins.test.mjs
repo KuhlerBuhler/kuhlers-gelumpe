@@ -838,13 +838,13 @@ test("Snake: a tap above, below, left or right of the touchpad centre steers, ne
   };
   tap(512, 1000); p.device.run(1);
   assert.equal(p.v("dir"), 3, "above the centre is up");
-  p.device.run(3);
+  p.device.run(6);
   tap(100, 512); p.device.run(1);
   assert.equal(p.v("dir"), 2, "left");
-  p.device.run(3);
+  p.device.run(6);
   tap(1000, 512); p.device.run(1);
   assert.equal(p.v("dir"), 2, "straight back is ignored");
-  p.device.run(3);
+  p.device.run(6);
   p.device.post("buttonPress", key("TOUCHPAD"));
   p.device.post("touch", 512, 20, 1);
   p.device.run(1);
@@ -853,4 +853,17 @@ test("Snake: a tap above, below, left or right of the touchpad centre steers, ne
   p.device.run(1);
   assert.equal(p.v("dir"), 1, "the finger moving on, without lifting, does not steer");
   p.device.post("buttonRelease", key("TOUCHPAD"));
+});
+
+test("Snake: PART left and right turn it a quarter from the direction of its last step", () => {
+  const p = plugin("snake");
+  p.device.run(1);
+  assert.equal(p.v("dir"), 0, "heads right");
+  p.device.post("buttonPress", key("PART_LEFT"));
+  p.device.run(1);
+  assert.equal(p.v("dir"), 3, "PART left: up");
+  p.device.run(6);
+  p.device.post("buttonPress", key("PART_RIGHT"));
+  p.device.run(1);
+  assert.equal(p.v("dir"), 0, "PART right: right again");
 });

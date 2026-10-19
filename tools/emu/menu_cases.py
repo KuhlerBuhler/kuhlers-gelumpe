@@ -46,8 +46,9 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING
+    global MENU, RING, BASE_RING, SYNC_GROUP
     synth = synthaddr.is_synth(payload)
+    SYNC_GROUP = not synth
     MENU = 37 if synth else 45
     BASE_RING = 28 if synth else 29
     RING = BASE_RING + 2
@@ -116,6 +117,14 @@ LIST_GROUPS = LIST_PAGES
 LIST_FEATURES, LIST_CUSTOM, LIST_PLUGINS = range(3)                   # their places in that list
 FEATURE_PAGES = ["MFX 2", "PATTERN CONFIRM", "TAP MOTION", "NOTE ASSIST"]   # the pages of the group FEATURES, each with an ON/OFF value
 FEAT_MFX, FEAT_PC, FEAT_TM, FEAT_NA = range(len(FEATURE_PAGES))
+FEAT_MG = len(FEATURE_PAGES)                                          # SYNC GROUP behind them, on the sampler builds (pattern_switch.py)
+SYNC_GROUP = True
+SYNC_GROUP_AT = 0x3B80                                                # the group in a pattern block, u16 little endian
+
+
+def feature_count():
+    """The pages of FEATURES: the switches, and SYNC GROUP where the build has sync groups."""
+    return len(FEATURE_PAGES) + (1 if SYNC_GROUP else 0)
 TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads"]
 RING = 31                                                             # the total of the page counter with the page BLECH and the page of Blechy in the ring
 BASE_RING = 29
@@ -382,11 +391,21 @@ def cases(payload, flash=None, settings=True):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    for _ in FEATURE_PAGES:
+    want = [(title, "ON") for title in FEATURE_PAGES] + ([("SYNC GROUP", "OFF")] if SYNC_GROUP else [])
+    for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
-    add("features_group_lists_the_switches", features[:4] == (2, GROUP_FEATURES, (0, len(FEATURE_PAGES)), "Feature")
-        and features[4] == [(title, "ON") for title in FEATURE_PAGES] and state(dev, S_PAGE) == 0, str(features))
+    add("features_group_lists_the_switches", features[:4] == (2, GROUP_FEATURES, (0, len(want)), "Feature")
+        and features[4] == want and state(dev, S_PAGE) == 0, str(features))
+    if SYNC_GROUP:
+        goto_group(dev, GROUP_FEATURES, FEAT_MG)
+        group = lambda: dev.read(dev.u32(0xC033E6A4) + 4 + SYNC_GROUP_AT, 2)
+        dev.turn(3, wait=0.3)
+        three = (texts_of(dev)[:2], bytes(group()))
+        dev.turn(-10, wait=0.3)
+        off = (texts_of(dev)[:2], bytes(group()))
+        add("sync_group_page_sets_the_pattern", three == (("SYNC GROUP", "3"), b"\x03\x00") and off == (("SYNC GROUP", "OFF"), b"\x00\x00")
+            and not dev.m.asserts, f"turned +3: {three}, then -10: {off}")
     goto_top(dev, LIST_PLUGINS)
     press(dev, "menu")
     press(dev, "edit_prev")
@@ -436,7 +455,7 @@ def cases(payload, flash=None, settings=True):
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(3)]
     pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(6)] + [(GROUP_LED, page) for page in range(8)]
-    pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_FEATURES, page) for page in range(len(FEATURE_PAGES))]
+    pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
     for group, page in pages:
         if group == "ring":
@@ -875,6 +894,30 @@ def look_cases(payload, flash=None):
         and m_still == [255, 0, 0] * 4 and m_loud == [255, 0, 160] * 4 and m_stock[:3] == m_stock[3:6] and m_stock[0] > 200 and m_stock[1] == 0
         and state(dev, S_LED_EFF) == 0 and not dev.m.asserts, f"pages {still_page} {loud_page}, still {m_still}, loud {m_loud}, back to STOCK {m_stock}")
 
+    # METER STILL RAINBOW (device wish 19.10.): the still meter turns round the colour wheel; WRITE keeps it as bit 30 of the flags
+    goto_group(dev, GROUP_LED, 4)
+    dev.turn(8, wait=0.3)
+    rainbow_page = texts_of(dev)
+    meter_level(dev, 0)
+    dev.run(0.5)
+    first = leds(dev)
+    dev.run(1.0)
+    second = leds(dev)
+    wheel = lambda l: l[:3] * 4 == l and sorted(l[:3])[0] == 0 and sum(l[:3]) == 255
+    press(dev, "write", wait=0.6)
+    files = read_settings(dev.m.mmc.card.medium.data)
+    flags = max(files.values())[1] if files else 0
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
+    again.run(1.5)
+    kept = again.read(STATE - 0x1C, 1)[0]
+    add("led_meter_still_rainbow", rainbow_page == ("METER STILL", "RAINBOW", "") and wheel(first) and wheel(second) and first != second
+        and flags >> 30 & 1 == 1 and flags >> 16 & 7 == 0 and kept == 8 and not dev.m.asserts and not again.m.asserts,
+        f"page {rainbow_page}, still {first[:3]} then {second[:3]} 1 s later, flags {flags:#x}, after a restart STILL {kept}")
+    goto_group(dev, GROUP_LED, 4)
+    dev.turn(-8, wait=0.3)
+
     # the firmware's own switches stay: nothing changes while a plugin holds the lock, nothing lights with Global power save
     lock = boot(payload, flash, adapter=True)
     set_look(lock, mode=1, led=(15, 7, 0))
@@ -1131,7 +1174,74 @@ def pad_colour_cases(payload, flash=None):
         f"on battery the firmware {'dims' if dims else 'does not dim (POWER SAVE of this flash)'} from power-on: pad 1 {pad(battery, 0)}, TAP LED {battery.m.leds.get(0x14, 0)}")
     before, during, after = dimmed(held)
     add("power_save_exit_held_is_stock", during.get(0x2D, 0) == 255 and not held.m.asserts, f"EXIT held: pad 1 blue while dimmed {during.get(0x2D, 0)}")
+    if not synthaddr.is_synth(payload):
+        out += chord_cases(payload, flash, add, pad, wait)
     return out
+
+
+def chord_cases(payload, flash, add, pad, wait):
+    """SEQUENCER mode, part 1 Poly 1: the steps that hold 2 or more notes show pink, the others red (device wish 18.10.); the same
+    steps of a Mono part and with EXIT held at power-on stay red. Part 1 gets chords on steps 5, 9 and 13, one note on 3, 7, 11 and 15."""
+    def chords(held, voice):
+        dev = boot(payload, flash, held=held, files=CARD_FOLDER, adapter=True, seconds=wait)
+        live = dev.u32(0xC033E6A4) + 4 + 0x800
+        dev.m.uc.mem_write(live + 2, bytes([voice]))
+        for step in range(16):
+            notes = [61, 65] if step in (4, 8, 12) else [63] if step % 4 == 2 else []
+            dev.m.uc.mem_write(live + 0x30 + 12 * step, bytes([1 if notes else 0, 60, 100, 1, *notes, *[0] * (4 - len(notes))]))
+        press(dev, 0x15, wait=0.5)
+        return dev, [pad(dev, n) for n in range(16)]
+    poly, lit = chords(0, 2)
+    pink = [n for n in range(16) if lit[n] == (255, 255)]
+    red = [n for n in range(16) if lit[n] == (255, 0)]
+    add("chord_pink", pink == [4, 8, 12] and red == [2, 6, 10, 14] and not poly.m.asserts, f"Poly 1: pink {pink}, red {red}, all {lit}")
+    mono, lit = chords(0, 0)
+    add("chord_mono_red", [n for n in range(16) if lit[n] == (255, 0)] == [2, 4, 6, 8, 10, 12, 14] and not mono.m.asserts, f"Mono 1: {lit}")
+    held, lit = chords(KILL, 2)
+    add("chord_exit_held_is_stock", [n for n in range(16) if lit[n] == (255, 0)] == [2, 4, 6, 8, 10, 12, 14] and not held.m.asserts,
+        f"EXIT held at power-on, Poly 1: {lit}")
+    tie_cases(payload, flash, add, pad, wait)
+    return []
+
+
+def tie_cases(payload, flash, add, pad, wait):
+    """SEQUENCER mode: a note tied over several steps (TIE, gate 127, the note on both steps) shows its trigger as the firmware does
+    and the steps it is held through as a tail in pink that fades over the note's length, tails of notes that overlap add up (device
+    wishes 17.10. and 19.10.). Part 1, Mono 1: steps 1 to 5 one tied note, step 7 tied into step 8 on another note (two triggers),
+    step 10 tied into nothing. Setting a tie on step 12 shows the tail on step 13 once the firmware sends pad 12 again (a press on it
+    twice). Poly 1: one note held over steps 1 to 4, a second from step 3 to 6."""
+    def steps(held, voice=0, plan=None):
+        dev = boot(payload, flash, held=held, files=CARD_FOLDER, adapter=True, seconds=wait)
+        live = dev.u32(0xC033E6A4) + 4 + 0x800
+        dev.m.uc.mem_write(live + 2, bytes([voice]))
+        plan = plan or {0: (127, [61]), 1: (127, [61]), 2: (127, [61]), 3: (127, [61]), 4: (60, [61]), 6: (127, [61]), 7: (60, [65]),
+                        9: (127, [61]), 11: (60, [61]), 12: (60, [61])}
+        for step in range(16):
+            gate, notes = plan.get(step, (0, []))
+            dev.m.uc.mem_write(live + 0x30 + 12 * step, bytes([1 if notes else 0, gate, 100, 1, *notes, *[0] * (4 - len(notes))]))
+        press(dev, 0x15, wait=0.5)
+        return dev, live, [pad(dev, n) for n in range(16)]
+    dev, live, lit = steps(0)
+    want = {0: (255, 255), 1: (203, 203), 2: (152, 152), 3: (101, 101), 4: (50, 50), 6: (255, 0), 7: (255, 0), 9: (255, 0), 11: (255, 0), 12: (255, 0)}
+    # pad 1 is blue as well: the firmware's cursor on the first step while it stands
+    got = {n: lit[n] for n in want}
+    add("tie_tail_gets_darker", got == want and all(lit[n] == (0, 0) for n in range(16) if n not in want) and not dev.m.asserts,
+        f"Mono 1, tied 1 to 5, 7 into 8 on another note, 10 into nothing: {lit}")
+    dev.m.uc.mem_write(live + 0x30 + 12 * 11 + 1, bytes([127]))
+    for _ in range(2):
+        dev.m.send([4, 11, 0, 100, 1])
+        dev.run(0.1)
+        dev.m.send([4, 11, 0, 0, 0])
+        dev.run(0.3)
+    add("tie_tail_follows_an_edit", pad(dev, 12) == (127, 127) and pad(dev, 11) == (255, 0) and not dev.m.asserts,
+        f"step 12 tied, pad 12 sent again: pad 12 {pad(dev, 11)}, pad 13 {pad(dev, 12)}")
+    poly, _, lit = steps(0, 2, {0: (127, [61]), 1: (127, [61]), 2: (127, [61, 65]), 3: (127, [61, 65]), 4: (127, [65]), 5: (60, [65])})
+    added = [(255, 255), (191, 191), (255, 255), (255, 255), (127, 127), (63, 63)]
+    add("tie_tails_add_up", lit[:6] == added and not poly.m.asserts,
+        f"Poly 1, one note over steps 1 to 4, one over 3 to 6: {lit[:6]}, want {added} (step 3 a trigger, step 4 a quarter and three quarters)")
+    held, _, lit = steps(KILL)
+    add("tie_exit_held_is_stock", [n for n in range(16) if lit[n] == (255, 0)] == sorted(want)[1:] and lit[0] == (255, 255) and not held.m.asserts,
+        f"EXIT held at power-on: {lit}")
 
 
 def invert_cases(payload, flash=None):
@@ -1236,7 +1346,7 @@ def confirm_cases(payload, flash=None):
     still = status(dev)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), status(dev)
-    add("page", page == (("PATTERN CONFIRM", "ON", ""), (FEAT_PC, len(FEATURE_PAGES)), "Feature"), f"{page}")
+    add("page", page == (("PATTERN CONFIRM", "ON", ""), (FEAT_PC, feature_count()), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("PATTERN CONFIRM", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("PATTERN CONFIRM", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
     # WRITE keeps OFF in the flags and leaves the look word and the other flags alone
@@ -1299,7 +1409,7 @@ def tap_motion_cases(payload, flash=None):
     still = status(dev)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), status(dev)
-    add("page", page == (("TAP MOTION", "ON", ""), (FEAT_TM, len(FEATURE_PAGES)), "Feature"), f"{page}")
+    add("page", page == (("TAP MOTION", "ON", ""), (FEAT_TM, feature_count()), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("TAP MOTION", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("TAP MOTION", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
     # ONCE: one step up from ON, the word is 2, the page says ONCE; WRITE keeps it as bit 5, a start reads it back, bit 3 wins
@@ -1326,7 +1436,7 @@ def tap_motion_cases(payload, flash=None):
     press(dev, "edit_next", wait=0.4)
     nxt = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    add("page_before_note_assist", nxt == ("NOTE ASSIST", (FEAT_NA, len(FEATURE_PAGES))) and texts_of(dev)[0] == "TAP MOTION", f"after EDIT next {nxt}, after EDIT previous {texts_of(dev)}")
+    add("page_before_note_assist", nxt == ("NOTE ASSIST", (FEAT_NA, feature_count())) and texts_of(dev)[0] == "TAP MOTION", f"after EDIT next {nxt}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
@@ -1387,14 +1497,15 @@ def note_assist_menu_cases(payload, flash=None):
     still = status(dev)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), status(dev)
-    add("page", page == (("NOTE ASSIST", "ON", ""), (FEAT_NA, len(FEATURE_PAGES)), "Feature"), f"{page}")
+    add("page", page == (("NOTE ASSIST", "ON", ""), (FEAT_NA, feature_count()), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("NOTE ASSIST", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("NOTE ASSIST", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
     # the page is the last of the group FEATURES: EDIT next wraps to the first, EDIT previous from there comes back
     press(dev, "edit_next", wait=0.4)
     wrapped = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    add("page_is_last", wrapped == ("MFX 2", (0, len(FEATURE_PAGES))) and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
+    after = ("SYNC GROUP", (FEAT_MG, feature_count())) if SYNC_GROUP else ("MFX 2", (0, feature_count()))
+    add("page_is_last", wrapped == after and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)

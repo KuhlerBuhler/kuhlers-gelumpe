@@ -41,6 +41,9 @@
 .equ MX_OVER, -0x1E            ; byte, OVERLAP of the pad colours (0 the colour that is left)
 .equ MX_METER, -0x1C           ; 4 bytes, the colours of the meter (STILL, LOW, MID, LOUD), 0 the firmware's
 .equ MX_SAVE_ON, -0x18         ; byte, the backlight pins that light in power save
+.equ MX_PHASE, -0x1D           ; byte, the hue of METER STILL RAINBOW, one step every 40 ms
+.equ MX_RGB, -0x17             ; 3 bytes, red, green, blue of that hue
+.equ METER_RAINBOW, 8          ; METER STILL only: the colours turn round the wheel (bit 30 of the settings flags)
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ M_PC, 0x158              ; the gap between the two settings buffers (M_FILE_A ends at 0x158, M_FILE_B starts at 0x160)
 .equ PS_SETTING, 0xC0180F10
@@ -50,6 +53,10 @@
 .equ NA_SETTING, 0xC0189F00   ; the setting word of the patch note-assistant: never written (FFFFFFFF) or 1 is on, 0 is off
 .equ GPIO_BASE, 0x01E26000
 .equ GPIO_WRITE, 0xC0016BB4
+.equ GPIO_IN67, 0x01E26098    ; GPIO IN_DATA67; bit 31 (GPIO 7.15) is low while the power key is held
+.equ OS_WAIT, 0xC0000B78      ; (ms): the operating system's sleep
+.equ POWER_HOLD_STEP_MS, 50   ; the power key during the start: read every 50 ms,
+.equ POWER_HOLD_STEPS, 100    ; held for 100 reads (5 s) switches off
 .equ BL_DIM_FLAG, 0xC00F9310
 .equ M_TRUST, 0x1C0
 .equ M_INV, 0x1B8
@@ -78,7 +85,10 @@
 .equ M_RAW, 0xE8
 .equ M_TOP, 0xEC
 .equ M_TABW, 0xF0
-; 0xF4 to 0xFB: free (was the 8 bytes of the tab text, which the tab widget now reads straight from tab_names)
+.equ M_DESC_TOP, 0xF4           ; IMPORT PLUGIN with a plugin open (M_LISTED 2): the first line of its description on the screen
+.equ M_DESC_N, 0xF8             ; byte: the lines of that description
+.equ M_DESC_ON, 0xF9            ; byte: 1 while the picture of the description is on the display (script_display_blit copies it)
+.equ DESC_ROWS, 5
 .equ FS_OPENDIR, 0xC009E660
 .equ FS_READDIR, 0xC009E740
 .equ FS_CLOSEDIR, 0xC009E728
@@ -87,8 +97,10 @@
 .equ LIST_LFN, 0x380
 .equ LIST_PATH, 0x3C0
 .equ LIST_NAMES, 0x400
-.equ LIST_MAX, 8
+.equ LIST_MAX, 16
 .equ LIST_NAME_SIZE, 32
+.equ LIST_TITLES, 0x600         ; the plugin name in the header of each listed file, 16 bytes each
+.equ LIST_DESC, 0x700           ; the description of the plugin open in the list (DESC_MAX_BYTES and a zero); the list reads headers here
 .equ MENU_MAX_SCRIPTS, 40
 .equ BLOCK_PROBED, 1
 .equ M_LEVEL_BLECHY, 3        ; level 3 of the screen is not a menu: it is the page of Blechy at the end of the ring
@@ -235,7 +247,7 @@ menu_load_apply:
     mov r2, r1, lsr #12
     and r2, r2, #15
     strb r2, [r4, #MX_SAVE]
-    mov r2, r1, lsr #16         ; bits 16 to 27: the four colours of the meter, 3 bits each
+    mov r2, r1, lsr #16         ; bits 16 to 27: the four colours of the meter, 3 bits each, bit 30 STILL is RAINBOW
     sub r12, r4, #-MX_METER
     mov r1, #4
 menu_load_meter:
@@ -244,6 +256,9 @@ menu_load_meter:
     mov r2, r2, lsr #3
     subs r1, r1, #1
     bne menu_load_meter
+    tst r2, #4                  ; bit 30, shifted down with the colours
+    movne r3, #METER_RAINBOW
+    strbne r3, [r4, #MX_METER]
     push {r0-r3}                ; bits 28 to 29: OVERLAP of the pad colours (the patch pad-colors keeps it)
     ldr r0, [r0, #12]
     mov r0, r0, lsr #28
@@ -419,8 +434,11 @@ menu_settings_save:
     ldrb r1, [r4, #MX_METER+1]
     orr r2, r1, r2, lsl #3
     ldrb r1, [r4, #MX_METER]
+    cmp r1, #METER_RAINBOW
+    moveq r1, #0                ; RAINBOW: the three bits of STILL stay 0, bit 30 says it
     orr r2, r1, r2, lsl #3
     orr r0, r0, r2, lsl #16
+    orreq r0, r0, #0x40000000
     mov r10, r0
     mov r1, #20
     bl menu_pc_call
@@ -837,6 +855,7 @@ led_meter_loop:
 ; 187 MID, above LOUD) gives the colour, the user's from the palette or, for a zone left at STOCK, the firmware's (white, blue,
 ; green, red). r0, r1 = the levels of the two sides (LEDs 6 to 11, 0 to 5).
 led_meter_four:
+    bl meter_rainbow
     bl meter_colour
     mov r10, r2
     mov r0, r1
@@ -879,11 +898,51 @@ meter_zone:
     ldr r2, =MENU_STATE
     sub r2, r2, #-MX_METER
     ldrb r2, [r2, r3]
+    cmp r2, #METER_RAINBOW
+    ldreq r2, =MENU_STATE + MX_RGB
+    bxeq lr
     cmp r2, #0
     addeq r2, r3, #8            ; STOCK: the firmware's colour of the zone, behind the palette
     ldr r0, =meter_palette
     add r2, r2, r2, lsl #1
     add r2, r0, r2
+    bx lr
+; METER STILL RAINBOW: one step of the hue a tick (40 ms), round the wheel (red, green, blue) in 256 ticks, about 10 s. Writes the
+; colour to MX_RGB for meter_colour. Keeps r0 and r1.
+meter_rainbow:
+    ldr r2, =MENU_STATE
+    ldrb r3, [r2, #MX_METER]
+    cmp r3, #METER_RAINBOW
+    bxne lr
+    push {r0, r1}
+    ldrb r3, [r2, #MX_PHASE]
+    add r3, r3, #1
+    and r3, r3, #255
+    strb r3, [r2, #MX_PHASE]
+    add r3, r3, r3, lsl #1      ; 0 to 765: three segments of 256
+    and r1, r3, #255            ; rising
+    rsb r0, r1, #255            ; falling
+    mov r3, r3, lsr #8
+    sub r2, r2, #-MX_RGB
+    mov r12, #0
+    cmp r3, #1
+    beq meter_rainbow_gb
+    bhi meter_rainbow_br
+    strb r0, [r2]               ; red to green
+    strb r1, [r2, #1]
+    strb r12, [r2, #2]
+    b meter_rainbow_out
+meter_rainbow_gb:               ; green to blue
+    strb r12, [r2]
+    strb r0, [r2, #1]
+    strb r1, [r2, #2]
+    b meter_rainbow_out
+meter_rainbow_br:               ; blue to red
+    strb r1, [r2]
+    strb r12, [r2, #1]
+    strb r0, [r2, #2]
+meter_rainbow_out:
+    pop {r0, r1}
     bx lr
 led_meter_pass:
     ldrb r3, [r0, #0xb98]
@@ -1123,6 +1182,7 @@ menu_show:
     ldr r0, [r5, #M_PAGE]
     bl menu_texts
     bl menu_tab_text
+    bl menu_desc_frame
     ldr r0, [r4, #0x24]
     add r1, r5, #M_TITLE
     bl 0xC00857E4
@@ -1231,6 +1291,8 @@ menu_texts_clear:
     bls menu_text_meter
     cmp r0, #32
     beq menu_text_over
+    cmp r0, #33
+    beq menu_text_mg
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1270,28 +1332,36 @@ menu_text_item:
     add r0, r5, #M_VALUE
     bl menu_dec
     pop {r4, r5, r6, r7, pc}
+; IMPORT PLUGIN: "press [ Enter ]"; in the list (and with a plugin open) the plugin's name and its state or what was done
 menu_text_import:
+    ldr r0, [r5, #M_LISTED]
+    ldr r2, [r5, #M_IMP_N]
+    cmp r0, #0
+    cmpne r2, #0
+    bne menu_text_import_name
     add r0, r5, #M_TITLE
     ldr r1, =str_import
     bl menu_copy
+    ldr r1, [r5, #M_LISTED]
+    cmp r1, #0
+    ldrne r1, =str_no_files
+    bne menu_text_app_value
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
     bne menu_text_status_value
-    ldr r0, [r5, #M_LISTED]
-    cmp r0, #0
-    beq menu_text_press
-    add r0, r5, #M_VALUE
-    ldr r1, =str_no_files
-    ldr r2, [r5, #M_IMP_N]
-    cmp r2, #0
-    beq menu_text_import_value
+    b menu_text_press
+menu_text_import_name:
     ldr r1, [r5, #M_IMP_SEL]
     ldr r3, =HOOK_CARD
-    add r3, r3, #LIST_NAMES
-    add r1, r3, r1, lsl #5
-menu_text_import_value:
-    bl menu_copy14
-    pop {r4, r5, r6, r7, pc}
+    add r3, r3, #LIST_TITLES
+    add r1, r3, r1, lsl #4
+    add r0, r5, #M_TITLE
+    bl menu_copy16
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status_value
+    bl menu_listed_state
+    b menu_text_app_value
 menu_text_app:
     ldr r1, =APP_STATE
     add r6, r1, #SCRIPT_APPS_TABLE
@@ -1525,6 +1595,19 @@ menu_text_na:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
+; SYNC GROUP: the group of the pattern in RAM (the patch pattern-switch), OFF for 0; saved with the pattern
+menu_text_mg:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_mg
+    bl menu_copy
+    bl menu_mg_at
+    add r0, r5, #M_VALUE
+    movs r1, r3
+    ldreq r1, =str_off
+    beq menu_text_app_value
+    bl menu_dec
+    b menu_text_look_line3
 menu_text_ledmode:
     ldr r1, =str_ledmode
     bl menu_copy
@@ -1594,9 +1677,6 @@ menu_text_status_value:
 menu_text_status_more:
     cmp r1, #0x30
     ldreq r1, =str_nothing
-    beq menu_text_status_go
-    cmp r1, #3
-    ldreq r1, =str_imported
     beq menu_text_status_go
     cmp r1, #0x31
     ldreq r1, =str_no_files
@@ -1933,13 +2013,13 @@ menu_confirm_add:
 ; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it. Each is again
 ; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
 ; 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR). DISPLAY, LED and PAD COLOR are rows of CUSTOMIZATION that open their pages;
-; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
+; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and SYNC GROUP (the
 ; main dial changes them, WRITE keeps them). EXIT goes one level up. M_PAGE counts within the level, the counter shows only that
 ; level. Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, after Event, on which Blechy, the app built into
 ; BLECH, shows himself (the frame hook opens and closes him by this level).
 ; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 2 a plugin, 3 export, 4 import, 5 unused, 6 a page a
 ; plugin added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
-; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST), r1 = its index (the plugin, the page, the app's table index,
+; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP), r1 = its index (the plugin, the page, the app's table index,
 ; the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
@@ -2005,6 +2085,8 @@ menu_kind_sub:
 menu_kind_features:
     mov r0, #21
     mov r1, #0
+    cmp r5, #4
+    moveq r0, #33
     cmp r5, #2
     moveq r0, #20
     cmp r5, #1
@@ -2096,8 +2178,13 @@ menu_count_features:
     b menu_count_out
 menu_count_list:
     cmp r1, #3
-    movhi r0, #4
-    bhi menu_count_out
+    bls menu_count_apps
+    ldr r0, =SYNC_GROUP_AT      ; FEATURES: SYNC GROUP behind the four switches where the build has sync groups
+    cmp r0, #0
+    movne r0, #5
+    moveq r0, #4
+    b menu_count_out
+menu_count_apps:
     sub r0, r1, #1
     bl app_count
 menu_count_out:
@@ -2362,7 +2449,8 @@ export_path:
 .pool
 menu_export_end:
 
-; Lists the *.blech files of KORG/blechtribe/Plugin into the name table (up to LIST_MAX names of at most 31 characters).
+; Lists the *.blech files of KORG/blechtribe/Plugin that start with a plugin header into the name table (up to LIST_MAX names of
+; at most 31 characters) and their plugin names into LIST_TITLES.
 menu_list:
     push {r4-r10, lr}
     ldr r4, =MENU_STATE
@@ -2438,6 +2526,9 @@ menu_list_suffix:
     add r0, r1, r0, lsl #5
     mov r1, r9
     bl menu_copy
+    bl menu_list_title
+    cmp r0, #0
+    beq menu_list_next
     ldr r0, [r4, #M_IMP_N]
     add r0, r0, #1
     str r0, [r4, #M_IMP_N]
@@ -2457,8 +2548,9 @@ import_prefix:
 .align 4
 .pool
 
-; Reads the selected .blech file, loads its block, and starts it unless it waits for the user's yes.
-; Sets M_STATUS: 3 imported, 0x31 nothing to import, 0x32 scripts are off, 0x33 not a script file, 0x34 rejected,
+; Reads the selected .blech file, loads its block, and starts it unless it waits for the user's yes. The file goes through the
+; buffer of the store image, which is read back from the card afterwards (and gives the new plugin its saved values).
+; Sets M_STATUS: 0 loaded, 0x31 nothing to import, 0x32 scripts are off, 0x33 not a script file, 0x34 rejected,
 ; 0x35 name already loaded, 0x36 memory full, 0x20 + code of the failing FatFs call.
 menu_import:
     push {r4-r11, lr}
@@ -2466,6 +2558,7 @@ menu_import:
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
     ldr r7, =HOOK_RUNTIME
+    mov r11, #0
     ldr r0, [r4, #M_IMP_N]
     cmp r0, #0
     moveq r0, #0x31
@@ -2474,21 +2567,13 @@ menu_import:
     cmp r0, #0
     moveq r0, #0x32
     beq menu_import_status
-    add r8, r5, #LIST_PATH
-    mov r0, r8
-    ldr r1, =import_prefix
-    bl menu_copy
     ldr r1, [r4, #M_IMP_SEL]
     add r2, r5, #LIST_NAMES
     add r1, r2, r1, lsl #5
-    bl menu_copy
-    mov r0, r6
-    mov r1, r8
-    mov r2, #1
-    ldr r12, =FS_OPEN
-    blx r12
+    bl menu_open_listed
     cmp r0, #0
     bne menu_import_fail
+    mov r11, #1                 ; from here the store image is gone: read it back before returning
     ldr r9, =HOOK_INPUT
     mov r0, r6
     mov r1, r9
@@ -2563,8 +2648,12 @@ menu_import_full:
     mov r0, #0x36
     b menu_import_status
 menu_import_loaded:
-    ldr r0, [r7, #RT_TAIL]
-    mov r9, r0
+    ldr r9, [r7, #RT_TAIL]
+    mov r0, r7
+    mov r1, r9
+    bl script_store_load
+    mov r11, #0
+    mov r0, r9
     bl menu_needs_confirm
     cmp r0, #0
     bne menu_import_armed
@@ -2582,17 +2671,392 @@ menu_import_armed:
     ldr r1, [r4, #M_ITEMS_N]
     add r0, r0, r1
     add r0, r0, #2
-    str r0, [r4, #M_PAGE]
+    str r0, [r4, #M_PAGE]           ; the page IMPORT PLUGIN again, behind the page the plugin got
     str r0, [r4, #M_ENTER]
     mov r0, #0
-    str r0, [r4, #M_LISTED]
-    mov r0, #3
     b menu_import_status
 menu_import_fail:
     add r0, r0, #0x20
 menu_import_status:
-    str r0, [r4, #M_STATUS]
+    mov r8, r0
+    cmp r11, #0
+    movne r0, r7
+    movne r1, r11               ; 1: no plugin is handed values
+    blne script_store_load
+    str r8, [r4, #M_STATUS]
     pop {r4-r11, pc}
+.pool
+
+; r1 = the name of a file in KORG/blechtribe/Plugin -> r0 = the FatFs result of opening it for reading, at CARD_FIL.
+; Clobbers r0 to r3 and r12.
+menu_open_listed:
+    push {r4, lr}
+    mov r4, r1
+    ldr r0, =HOOK_CARD
+    add r0, r0, #LIST_PATH
+    ldr r1, =import_prefix
+    bl menu_copy
+    mov r1, r4
+    bl menu_copy
+    ldr r0, =HOOK_CARD
+    add r1, r0, #LIST_PATH
+    add r0, r0, #CARD_FIL
+    mov r2, #1
+    ldr r12, =FS_OPEN
+    blx r12
+    pop {r4, pc}
+
+; r0 = destination, r1 = bytes -> r0 = 0 when exactly that many came from the file at CARD_FIL. Clobbers r0 to r3 and r12.
+menu_read_listed:
+    push {r4, lr}
+    mov r4, r1
+    mov r2, r1
+    mov r1, r0
+    ldr r0, =HOOK_CARD
+    add r3, r0, #CARD_BR
+    add r0, r0, #CARD_FIL
+    ldr r12, =FS_READ
+    blx r12
+    cmp r0, #0
+    popne {r4, pc}
+    ldr r0, =HOOK_CARD
+    ldr r0, [r0, #CARD_BR]
+    subs r0, r0, r4
+    pop {r4, pc}
+
+menu_close_listed:
+    ldr r0, =HOOK_CARD
+    add r0, r0, #CARD_FIL
+    ldr r12, =FS_CLOSE
+    bx r12
+
+; The file just put at LIST_NAMES + M_IMP_N -> r0 = 1 when it starts with a plugin header, whose name then goes to LIST_TITLES.
+; Clobbers r0 to r3 and r12.
+menu_list_title:
+    push {r4-r6, lr}
+    ldr r5, =HOOK_CARD
+    ldr r6, =MENU_STATE
+    ldr r6, [r6, #M_IMP_N]
+    add r1, r5, #LIST_NAMES
+    add r1, r1, r6, lsl #5
+    bl menu_open_listed
+    cmp r0, #0
+    bne menu_list_title_no
+    add r0, r5, #LIST_DESC
+    mov r1, #HDR_SIZE
+    bl menu_read_listed
+    mov r4, r0
+    bl menu_close_listed
+    cmp r4, #0
+    bne menu_list_title_no
+    ldr r0, [r5, #LIST_DESC]
+    ldr r1, =SCRIPT_MAGIC
+    cmp r0, r1
+    bne menu_list_title_no
+    add r0, r5, #LIST_TITLES
+    add r0, r0, r6, lsl #4
+    add r1, r5, #LIST_DESC
+    add r1, r1, #HDR_NAME
+    mov r2, #15
+menu_list_title_copy:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    subs r2, r2, #1
+    bne menu_list_title_copy
+    strb r2, [r0]
+    mov r0, #1
+    pop {r4-r6, pc}
+menu_list_title_no:
+    mov r0, #0
+    pop {r4-r6, pc}
+
+; -> r0 = the loaded plugin (not Blechy) with the name of the one selected in the list, 0 when none. Clobbers r0 to r3 and r12.
+menu_listed_entry:
+    push {r4, lr}
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_IMP_SEL]
+    ldr r4, =HOOK_CARD
+    add r4, r4, #LIST_TITLES
+    add r4, r4, r0, lsl #4
+    ldr r0, =HOOK_RUNTIME
+    ldr r0, [r0, #RT_HEAD]
+    cmn r0, #1
+    moveq r0, #0
+menu_listed_loop:
+    cmp r0, #0
+    popeq {r4, pc}
+    ldr r1, [r0, #SCRIPT_ENTRY_BLOB]
+    ldr r2, =HOOK_POOL
+    cmp r1, r2
+    blo menu_listed_next
+    add r1, r1, #HDR_NAME
+    mov r2, #0
+menu_listed_cmp:
+    ldr r3, [r1, r2]
+    ldr r12, [r4, r2]
+    cmp r3, r12
+    bne menu_listed_next
+    add r2, r2, #4
+    cmp r2, #16
+    blo menu_listed_cmp
+    pop {r4, pc}
+menu_listed_next:
+    ldr r0, [r0, #SCRIPT_ENTRY_NEXT]
+    b menu_listed_loop
+
+; -> r1 = the state of the plugin selected in the list: ON, OFF (also when it is not loaded), FAULT or ENTER=ALLOW.
+; Clobbers r0 to r3 and r12.
+menu_listed_state:
+    push {r4, lr}
+    bl menu_listed_entry
+    movs r4, r0
+    ldreq r1, =str_off
+    popeq {r4, pc}
+    ldr r2, [r4, #SCRIPT_ENTRY_STATE]
+    ldr r1, =str_on
+    cmp r2, #SCRIPT_STATE_ARMED
+    popeq {r4, pc}
+    ldr r1, =str_fault
+    cmp r2, #SCRIPT_STATE_DISABLED
+    popeq {r4, pc}
+    bl menu_needs_confirm
+    cmp r0, #0
+    ldrne r1, =str_enter_allow
+    ldreq r1, =str_off
+    pop {r4, pc}
+.pool
+
+; ENTER on a file of the list: reads the description behind its block (DESC_TRAILER) into LIST_DESC and opens the plugin
+; (M_LISTED 2). M_STATUS 0x20 + the FatFs code when the file does not open. Clobbers r0 to r3 and r12.
+menu_desc_open:
+    push {r4-r7, lr}
+    ldr r4, =MENU_STATE
+    ldr r5, =HOOK_CARD
+    add r6, r5, #LIST_DESC
+    mov r0, #0
+    strb r0, [r6]
+    ldr r1, [r4, #M_IMP_SEL]
+    add r1, r5, r1, lsl #5
+    add r1, r1, #LIST_NAMES
+    bl menu_open_listed
+    cmp r0, #0
+    addne r0, r0, #0x20
+    bne menu_desc_status
+    mov r0, r6
+    mov r1, #HDR_SIZE
+    bl menu_read_listed
+    cmp r0, #0
+    bne menu_desc_none
+    ldr r7, [r6, #HDR_TOTAL_SIZE]
+    sub r7, r7, #HDR_SIZE
+menu_desc_skip:
+    cmp r7, #0
+    ble menu_desc_trailer
+    mov r1, r7
+    cmp r1, #0x400
+    movhi r1, #0x400
+    sub r7, r7, r1
+    mov r0, r6
+    bl menu_read_listed
+    cmp r0, #0
+    beq menu_desc_skip
+    b menu_desc_none
+menu_desc_trailer:
+    mov r0, r6
+    mov r1, #8
+    bl menu_read_listed
+    cmp r0, #0
+    bne menu_desc_none
+    ldr r0, [r6]
+    ldr r1, =DESC_MAGIC
+    cmp r0, r1
+    bne menu_desc_none
+    ldr r7, [r6, #4]
+    ldr r1, =DESC_MAX_BYTES
+    cmp r7, r1
+    movhi r7, r1
+    mov r0, r6
+    mov r1, r7
+    bl menu_read_listed
+    cmp r0, #0
+    strbeq r0, [r6, r7]
+    beq menu_desc_close
+menu_desc_none:
+    mov r0, #0
+    strb r0, [r6]
+menu_desc_close:
+    bl menu_close_listed
+    mov r0, #0
+menu_desc_count:
+    ldrb r1, [r6], #1
+    cmp r1, #10
+    addeq r0, r0, #1
+    cmp r1, #0
+    bne menu_desc_count
+    cmp r0, #255
+    movhi r0, #255
+    strb r0, [r4, #M_DESC_N]
+    mov r0, #0
+    str r0, [r4, #M_DESC_TOP]
+    mov r0, #2
+    str r0, [r4, #M_LISTED]
+    mov r0, #0
+menu_desc_status:
+    str r0, [r4, #M_STATUS]
+    pop {r4-r7, pc}
+.pool
+
+; ENTER with a plugin open: one not loaded is imported and started, a running one switched off, one switched off on again, a
+; foreign one allowed. Clobbers r0 to r3 and r12.
+menu_desc_toggle:
+    push {r4, lr}
+    ldr r0, =MENU_STATE
+    mov r1, #0
+    str r1, [r0, #M_STATUS]
+    bl menu_listed_entry
+    movs r4, r0
+    bne menu_toggle_loaded
+    bl menu_import
+    pop {r4, pc}
+menu_toggle_loaded:
+    ldr r1, [r4, #SCRIPT_ENTRY_STATE]
+    cmp r1, #SCRIPT_STATE_ARMED
+    moveq r1, #SCRIPT_STATE_LOADED
+    streq r1, [r4, #SCRIPT_ENTRY_STATE]
+    popeq {r4, pc}
+    cmp r1, #SCRIPT_STATE_LOADED
+    popne {r4, pc}
+    bl menu_needs_confirm
+    cmp r0, #0
+    mov r0, r4
+    bne menu_toggle_allow
+    bl menu_script_on
+    pop {r4, pc}
+menu_toggle_allow:
+    bl menu_confirm
+    pop {r4, pc}
+.pool
+
+; r5 = MENU_STATE. With a plugin open in IMPORT PLUGIN: its name, its description from M_DESC_TOP and the value line (its state
+; or what was done) go into the runtime's picture, which script_display_blit puts on the display, and the three text lines of
+; the firmware stay empty. When that picture was up and is no more, the firmware draws its whole screen again. Clobbers r0 to
+; r3 and r12.
+menu_desc_frame:
+    push {r4-r8, lr}
+    mov r8, r5
+    ldr r0, [r8, #M_LISTED]
+    cmp r0, #2
+    bne menu_desc_frame_off
+    ldr r0, [r8, #M_PAGE]
+    bl menu_kind
+    cmp r0, #4
+    bne menu_desc_frame_off
+    bl display_clear
+    ldr r4, =HOOK_CARD
+    ldr r0, [r8, #M_IMP_SEL]
+    add r4, r4, #LIST_TITLES
+    add r4, r4, r0, lsl #4
+    mov r5, #1
+    mov r6, #0
+    bl display_draw_text
+    mov r0, #0
+    mov r1, #9
+    mov r2, #128
+    mov r3, #1
+    mov r12, #1
+    bl display_fill
+    mov r0, #0
+    mov r1, #53
+    mov r2, #128
+    mov r3, #1
+    mov r12, #1
+    bl display_fill
+    ldr r7, =HOOK_CARD
+    add r7, r7, #LIST_DESC
+    ldrb r0, [r8, #M_DESC_N]
+    cmp r0, #0
+    ldreq r4, =str_no_desc
+    moveq r5, #1
+    moveq r6, #11
+    bleq display_draw_text
+    ldr r0, [r8, #M_DESC_TOP]
+menu_desc_frame_skip:
+    cmp r0, #0
+    beq menu_desc_frame_rows
+    ldrb r1, [r7]
+    cmp r1, #0
+    beq menu_desc_frame_rows
+    add r7, r7, #1
+    cmp r1, #10
+    subeq r0, r0, #1
+    b menu_desc_frame_skip
+menu_desc_frame_rows:
+    sub sp, sp, #24
+    mov r6, #11
+menu_desc_frame_row:
+    mov r0, #0
+menu_desc_frame_char:
+    ldrb r1, [r7]
+    cmp r1, #0
+    beq menu_desc_frame_line
+    add r7, r7, #1
+    cmp r1, #10
+    beq menu_desc_frame_line
+    cmp r0, #DESC_WIDTH
+    strblo r1, [sp, r0]
+    addlo r0, r0, #1
+    b menu_desc_frame_char
+menu_desc_frame_line:
+    mov r1, #0
+    strb r1, [sp, r0]
+    mov r4, sp
+    mov r5, #1
+    bl display_draw_text
+    add r6, r6, #8
+    cmp r6, #11+8*DESC_ROWS
+    blo menu_desc_frame_row
+    add sp, sp, #24
+    ldr r0, [r8, #M_DESC_TOP]
+    cmp r0, #0
+    ldrne r4, =str_up
+    movne r5, #123
+    movne r6, #11
+    blne display_draw_text
+    ldr r0, [r8, #M_DESC_TOP]
+    ldrb r1, [r8, #M_DESC_N]
+    add r0, r0, #DESC_ROWS
+    cmp r0, r1
+    ldrlo r4, =str_down
+    movlo r5, #123
+    movlo r6, #11+8*(DESC_ROWS-1)
+    bllo display_draw_text
+    add r4, r8, #M_VALUE
+    mov r5, #1
+    mov r6, #56
+    bl display_draw_text
+    ldr r0, [r8, #M_STATUS]
+    cmp r0, #0
+    ldreq r4, =str_enter_key
+    moveq r5, #128-7*6
+    moveq r6, #56
+    bleq display_draw_text
+    mov r0, #0
+    strb r0, [r8, #M_TITLE]
+    strb r0, [r8, #M_VALUE]
+    strb r0, [r8, #M_LINE3]
+    mov r0, #1
+    strb r0, [r8, #M_DESC_ON]
+    pop {r4-r8, pc}
+menu_desc_frame_off:
+    ldrb r0, [r8, #M_DESC_ON]
+    cmp r0, #0
+    popeq {r4-r8, pc}
+    mov r0, #0
+    strb r0, [r8, #M_DESC_ON]
+    ldr r1, =UI_REDRAW
+    mov r0, #1
+    strb r0, [r1]
+    pop {r4-r8, pc}
 .pool
 
 ; r0 = destination, r1 = zero-terminated source; at most 31 characters
@@ -2727,12 +3191,16 @@ menu_slot_value:
     moveq r3, #MX_SAVE
     beq menu_value_byte
     mov r2, #7
+    cmp r0, #28
+    moveq r2, #METER_RAINBOW    ; STILL has RAINBOW behind the palette
     sub r3, r0, #28
     cmp r3, #3
     subls r3, r3, #-MX_METER
     bls menu_value_byte
     cmp r0, #32
     beq menu_value_over
+    cmp r0, #33
+    beq menu_value_mg
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
@@ -2758,6 +3226,41 @@ menu_value_byte:
     movgt r1, r2
     strb r1, [r6, r3]
     b menu_value_look_done
+; SYNC GROUP: 0 (OFF) to 999 into the pattern in RAM, at once; the pattern keeps it when it is saved
+menu_value_mg:
+    bl menu_mg_at
+    cmp r2, #0
+    beq menu_value_done
+    adds r3, r3, r5
+    movmi r3, #0
+    ldr r1, =999
+    cmp r3, r1
+    movgt r3, r1
+    strb r3, [r2]
+    mov r3, r3, lsr #8
+    strb r3, [r2, #1]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; -> r2 = the sync group's place in the pattern in RAM (0 when there is none), r3 = the group there. Clobbers r1.
+menu_mg_at:
+    ldr r2, =SYNC_GROUP_AT
+    cmp r2, #0
+    moveq r3, #0
+    bxeq lr
+    ldr r1, =SC_PATPTR
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    moveq r2, #0
+    moveq r3, #0
+    bxeq lr
+    add r2, r2, r1
+    add r2, r2, #4
+    ldrb r3, [r2, #1]
+    ldrb r1, [r2]
+    orr r3, r1, r3, lsl #8
+    bx lr
 ; OVERLAP: 0 the colour left, 1 red, 2 blue, 3 pink, in the patch pad-colors; WRITE keeps it
 menu_value_over:
     mov r1, #20
@@ -2916,20 +3419,23 @@ menu_value_done:
     mov r0, r4
     bl menu_show
     pop {r4, r5, r6, pc}
-; on: a plugin the settings kept off at start never ran its start body (no cost recorded for it), so it runs now and arms it
 menu_value_script_on:
+    bl menu_script_on
+    b menu_value_done
+; r0 = a plugin switched off: on again. One the settings kept off at start never ran its start body (no cost recorded for it), so
+; it runs now and arms it. Clobbers r0 to r3 and r12.
+menu_script_on:
     ldr r1, [r0, #SCRIPT_ENTRY_MAX_COST+4*EV_START]
     cmp r1, #0
     movne r1, #SCRIPT_STATE_ARMED
     strne r1, [r0, #SCRIPT_ENTRY_STATE]
-    bne menu_value_done
+    bxne lr
     mov r1, r0
     ldr r0, =HOOK_RUNTIME
     mov r2, #EV_START
     ldr r3, =HOOK_INPUT
     ldr r12, =VM_SCRIPT_RUN_EVENT
-    blx r12
-    b menu_value_done
+    bx r12
 menu_value_item:
     ldr r0, =MENU_ITEMS
     add r0, r0, r1, lsl #5
@@ -2960,6 +3466,8 @@ menu_value_item:
     b menu_value_done
 menu_value_import:
     ldr r2, [r6, #M_LISTED]
+    cmp r2, #2
+    beq menu_value_desc
     cmp r2, #0
     beq menu_value_done
     ldr r2, [r6, #M_IMP_N]
@@ -2976,6 +3484,19 @@ menu_value_import:
     str r3, [r6, #M_IMP_SEL]
     mov r3, #0
     str r3, [r6, #M_STATUS]
+    b menu_value_done
+; a plugin open: the dial scrolls its description line by line
+menu_value_desc:
+    ldr r3, [r6, #M_DESC_TOP]
+    add r3, r3, r5
+    ldrb r2, [r6, #M_DESC_N]
+    subs r2, r2, #DESC_ROWS
+    movmi r2, #0
+    cmp r3, r2
+    movgt r3, r2
+    cmp r3, #0
+    movlt r3, #0
+    str r3, [r6, #M_DESC_TOP]
     b menu_value_done
 .pool
 
@@ -3043,17 +3564,26 @@ menu_keys_app:
 menu_keys_export:
     bl menu_export
     b menu_keys_done
+; IMPORT PLUGIN: ENTER lists the files, opens the one in the list, then switches it on or off; WRITE there keeps the state
 menu_keys_import:
     ldr r0, =MENU_STATE
     ldr r1, [r0, #M_LISTED]
-    cmp r1, #0
-    bne menu_keys_import_now
+    cmp r1, #1
+    beq menu_keys_import_open
+    bhi menu_keys_import_toggle
     mov r1, #0
     str r1, [r0, #M_STATUS]
     bl menu_list
     b menu_keys_done
-menu_keys_import_now:
-    bl menu_import
+menu_keys_import_open:
+    ldr r1, [r0, #M_IMP_N]
+    cmp r1, #0
+    blne menu_desc_open
+    b menu_keys_done
+menu_keys_import_toggle:
+    cmp r6, #0x0E
+    beq menu_keys_save
+    bl menu_desc_toggle
     b menu_keys_done
 menu_keys_splash_import:
     cmp r6, #0x09
@@ -3078,7 +3608,7 @@ menu_keys_done:
 .pool
 
 ; Slot 2 of the class, the firmware's handler for the keys no other slot takes (this, key, pressed): EXIT calls
-; SWITCH_SCREEN(1, 0) there. Below level 0 EXIT goes one level up (out of the file list of IMPORT first); every other key,
+; SWITCH_SCREEN(1, 0) there. Below level 0 EXIT goes one level up (out of the open plugin and the list of IMPORT first); every other key,
 ; and EXIT on level 0, is the firmware's own.
 menu_slot_exit:
     cmp r1, #13
@@ -3099,8 +3629,9 @@ menu_slot_exit:
     ldr r12, [r2, #M_LISTED]
     cmp r12, #0
     beq menu_exit_up
+    sub r12, r12, #1            ; out of the plugin back to the list, out of the list back to the page
+    str r12, [r2, #M_LISTED]
     mov r3, #0
-    str r3, [r2, #M_LISTED]
     str r3, [r2, #M_STATUS]
     b menu_exit_show
 menu_exit_up:
@@ -3186,6 +3717,8 @@ str_c_yellow:
     .asciz "YELLOW"
 str_c_cyan:
     .asciz "CYAN"
+str_c_rainbow:
+    .asciz "RAINBOW"
 str_c_pink:
     .asciz "PINK"
 str_intens:
@@ -3216,8 +3749,16 @@ str_no_files:
     .asciz "no files"
 str_import:
     .asciz "IMPORT PLUGIN"
-str_imported:
-    .asciz "imported"
+str_enter_allow:
+    .asciz "ENTER=ALLOW"
+str_no_desc:
+    .asciz "no description"
+str_enter_key:
+    .asciz "[ENTER]"
+str_up:
+    .asciz "^"
+str_down:
+    .asciz "v"
 str_runtime_off:
     .asciz "plugins off"
 str_not_script:
@@ -3296,6 +3837,8 @@ str_tm:
     .asciz "TAP MOTION"
 str_na:
     .asciz "NOTE ASSIST"
+str_mg:
+    .asciz "SYNC GROUP"
 .align 4
 tab_names:
     .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads
@@ -3319,7 +3862,7 @@ meter_titles:
 over_names:
     .word str_auto, str_c_red, str_c_blue, str_c_pink
 colour_names:
-    .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink
+    .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink, str_c_rainbow
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
 str_once:

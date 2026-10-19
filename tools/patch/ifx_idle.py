@@ -22,6 +22,11 @@ The patch is on unless EXIT was held at power-on. No setting, nothing written to
 
 One hook: the LED manager registers its 40 ms tick (0xC0087740) through the literal at 0xC0089D90; the patch puts its own tick
 there, which calls the LED manager's tick first and then looks at the parts.
+
+The blue Electribe 2 (the synth, --build synth) has the same reload with its own addresses (read side by side, SYNTH below): no
+stereo pairs (every part owns its effect, never a pair), the part's number at +0x30 of its object instead of +0x31, the table of
+remembered indices passed to the reload as a whole (it indexes it with the part's number), and Punch is entry 0 of its preset
+table (0xC009898C) as on the Sampler.
 """
 
 import argparse
@@ -52,28 +57,44 @@ PUNCH = 0                       # index of insert preset 1, Punch (the getter 0x
 TIMER_LITERAL = 0xC0089D90      # the LED manager's tick as its timer registers it
 LED_TICK = 0xC0087740
 
+# The firmware places of each build. Sampler: the functions; synth: the same functions and variables in the blue one's image, found
+# by fwmap (same code) where it could and else read side by side (its reload 0xC00854A4 against the Sampler's 0xC0097E70).
+PLACES = {
+    "sampler": dict(PANEL=0xC033E6F8, SCREEN_PTR=0xC03404C0, PATPTR=0xC033E6A4, LED_TICK=0xC0087740, PART_OBJ=0xC009AF20,
+                    OWNS_IFX=0xC009B138, PAIRED=0xC009B124, REMEMBERED=0xC0097D18, RELOAD=0xC0097E70, SET_IFX=0xC003EDEC,
+                    TEMPO_OBJ=0xC03403B8, TEMPO_GET=0xC002BF70, SEQ_OBJ=0xC004A7D8, PARTNO_AT=0x31, TIMER_LITERAL=0xC0089D90),
+    "synth": dict(PANEL=0xC033E8F8, SCREEN_PTR=0xC03406B0, PATPTR=0xC033E6A4, LED_TICK=0xC00777FC, PART_OBJ=0xC0087B60,
+                  REMEMBERED_TABLE=0xC056C390, RELOAD=0xC00854A4, SET_IFX=0xC00399DC, TEMPO_OBJ=0xC03405A8, TEMPO_GET=0xC00290D4,
+                  SEQ_OBJ=0xC00448B8, PARTNO_AT=0x30, TIMER_LITERAL=0xC0079960),
+}
+BUILD = "sampler"
+
+
+def use_build(build):
+    global BUILD, TIMER_LITERAL, LED_TICK
+    BUILD = "synth" if build == "synth" else "sampler"
+    TIMER_LITERAL, LED_TICK = PLACES[BUILD]["TIMER_LITERAL"], PLACES[BUILD]["LED_TICK"]
+
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
 SOURCE = """
-.equ PANEL, 0xC033E6F8          ; pointer to the panel object, +0x18 the keys held at power-on
-.equ SCREEN_PTR, 0xC03404C0     ; pointer to the screen manager, +0x2C the screen number
-.equ PATPTR, 0xC033E6A4         ; the pattern object: part n at +0x804 + 0x330 * n
+.equ PANEL, @PANEL@          ; pointer to the panel object, +0x18 the keys held at power-on
+.equ SCREEN_PTR, @SCREEN_PTR@     ; pointer to the screen manager, +0x2C the screen number
+.equ PATPTR, @PATPTR@         ; the pattern object: part n at +0x804 + 0x330 * n
 .equ MUTE_AT, 0x805             ; part byte 1: not 0 while muted
 .equ IFXON_AT, 0x824            ; part byte 32: IFX on
 .equ STRIDE, 0x330
 .equ LED_TICK, @LED_TICK@
-.equ PART_OBJ, 0xC009AF20       ; (part) -> the part's sound object; +8 its parameter copy (type at +0x1D), +0x31 its number
-.equ OWNS_IFX, 0xC009B138       ; (object) -> 0 for the second part of a stereo pair
-.equ PAIRED, 0xC009B124         ; (object) -> 1 for the first part of a stereo pair
-.equ REMEMBERED, 0xC0097D18     ; (part) -> address of the index the firmware gave the part last
-.equ RELOAD, 0xC0097E70         ; (object, remembered) the firmware's part reload: loads the part's effect when it differs
-.equ SET_IFX, 0xC003EDEC        ; (index | 0x80 for a pair, part, tempo * 10) gives a part an insert effect
-.equ TEMPO_OBJ, 0xC03403B8
-.equ TEMPO_GET, 0xC002BF70      ; the tempo the reload passes, the way 0xC0097E94 gets it
-.equ SEQ_OBJ, 0xC004A7D8
+.equ PART_OBJ, @PART_OBJ@       ; (part) -> the part's sound object; +8 its parameter copy (type at +0x1D), +PARTNO_AT its number
+.equ PARTNO_AT, @PARTNO_AT@
+.equ SET_IFX, @SET_IFX@        ; (index | 0x80 for a pair, part, tempo * 10) gives a part an insert effect
+.equ TEMPO_OBJ, @TEMPO_OBJ@
+.equ TEMPO_GET, @TEMPO_GET@      ; the tempo the reload passes, the way the reload gets it
+.equ SEQ_OBJ, @SEQ_OBJ@
+@FIRMWARE_CALLS@
 .equ MAIN_SCREEN, 1
 .equ KILL, @KILL@
 .equ STATE, @STATE@
@@ -199,9 +220,9 @@ ii_tempo:
     lsl r2, r0, #16
     lsr r2, r2, #16
     mov r0, r9
-    ldrb r1, [r6, #0x31]
+    ldrb r1, [r6, #PARTNO_AT]
     bl SET_IFX
-    ldrb r0, [r6, #0x31]
+    ldrb r0, [r6, #PARTNO_AT]
     bl REMEMBERED
     strb r9, [r0]
     tst r9, #0x80
@@ -215,17 +236,47 @@ ii_next:
     blt ii_part
 ii_done:
     pop {r3, r4, r5, r6, r7, r8, r9, r10, r11, pc}
-
+@SYNTH_CALLS@
 .align 4
 .pool
 """
 
 
+SAMPLER_CALLS = """.equ OWNS_IFX, 0xC009B138       ; (object) -> 0 for the second part of a stereo pair
+.equ PAIRED, 0xC009B124         ; (object) -> 1 for the first part of a stereo pair
+.equ REMEMBERED, 0xC0097D18     ; (part) -> address of the index the firmware gave the part last
+.equ RELOAD, 0xC0097E70         ; (object, remembered) the firmware's part reload: loads the part's effect when it differs"""
+SYNTH_CALLS = """
+; The synth's own: no stereo pairs, and its reload (0xC00854A4) takes the whole table of remembered indices.
+OWNS_IFX:
+    mov r0, #1
+    bx lr
+PAIRED:
+    mov r0, #0
+    bx lr
+REMEMBERED:                     ; (part) -> address of the index the firmware gave the part last
+    ldr r1, =REMEMBERED_TABLE
+    add r0, r1, r0
+    bx lr
+RELOAD:                         ; (object, remembered): the reload with the table
+    ldr r1, =REMEMBERED_TABLE
+    b SYNTH_RELOAD
+"""
+
+
 def source():
+    places = PLACES[BUILD]
     text = SOURCE
+    if BUILD == "synth":
+        calls = f".equ REMEMBERED_TABLE, {places['REMEMBERED_TABLE']:#x}\n.equ SYNTH_RELOAD, {places['RELOAD']:#x}"
+        text = text.replace("@FIRMWARE_CALLS@", calls).replace("@SYNTH_CALLS@", SYNTH_CALLS)
+    else:
+        text = text.replace("@FIRMWARE_CALLS@", SAMPLER_CALLS).replace("@SYNTH_CALLS@", "")
     for key, value in {
-        "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "LED_TICK": f"{LED_TICK:#x}",
+        "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "LED_TICK": f"{places['LED_TICK']:#x}",
         "S_COUNT": S_COUNT, "S_SWAP": S_SWAP, "HOLD": HOLD_TICKS, "PUNCH": PUNCH,
+        **{name: (f"{value:#x}" if value > 9 else value) for name, value in places.items() if name in
+           ("PANEL", "SCREEN_PTR", "PATPTR", "PART_OBJ", "SET_IFX", "TEMPO_OBJ", "TEMPO_GET", "SEQ_OBJ", "PARTNO_AT")},
     }.items():
         text = text.replace(f"@{key}@", str(value))
     return text
@@ -241,8 +292,9 @@ def file_offset(addr):
     return addr - RAM + HEADER
 
 
-def build_patch(vsb):
+def build_patch(vsb, build="hacktribe"):
     """The patch as a dict; `vsb` is the user's file, read for the hashes of the replaced bytes."""
+    use_build(build)
     at, code, symbols = build_code()
     if at != CODE_AT or at + len(code) > CODE_END:
         raise SystemExit(f"code is {len(code):#x} bytes, room for {CODE_END - CODE_AT:#x}")
@@ -256,11 +308,11 @@ def build_patch(vsb):
         return sha(was(addr, n))
 
     if struct.unpack("<I", was(TIMER_LITERAL, 4))[0] != LED_TICK:
-        raise SystemExit("the LED manager does not register its tick through the literal at 0xC0089D90 in this VSB")
+        raise SystemExit(f"the LED manager does not register its tick through the literal at {TIMER_LITERAL:#x} in this VSB")
     free(STATE, STATE_END - STATE)
 
     return {
-        "format": "gelumpe-patch", "version": 1, "id": "ifx-idle", "builds": ["hacktribe", "stock"],
+        "format": "gelumpe-patch", "version": 1, "id": "ifx-idle", "builds": ["synth"] if BUILD == "synth" else ["hacktribe", "stock"],
         "name": "Ruhender Insert-Effekt: ein Part, der 5 s stumm ist oder dessen IFX aus ist, bekommt Punch, bis er wieder zu hören ist",
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
@@ -285,13 +337,14 @@ def build_patch(vsb):
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)
+    p.add_argument("--build", choices=["hacktribe", "synth"], default="hacktribe", help="synth: the blue Electribe 2's file")
     p.add_argument("--out", type=Path)
     p.add_argument("--listing", action="store_true")
     a = p.parse_args()
     raw = a.vsb.read_bytes()
     if len(raw) != 0x200100:
         raise SystemExit("a VSB has 0x200100 bytes")
-    patch = build_patch(raw)
+    patch = build_patch(raw, a.build)
     if a.listing:
         at, code, symbols = build_code()
         print(f"section {at:#x} + {len(code):#x} bytes, state {STATE:#x}")

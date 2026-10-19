@@ -576,9 +576,15 @@ Plugins kommen nur über die SD-Karte aufs Gerät, nie in die VSB. Der Ordner is
   Blöcke im Format 2 unverändert hintereinander (jeder hat seine eigene Größe
   und CRC; eine Blockgröße ist durch 4 teilbar, es gibt kein Auffüllen).
   Ein Block darf höchstens 32752 Byte haben (Puffer des Laders).
-- `<name>.blech` ist ein Block mit angehängtem Quelltext: nach dem Block die
-  Kennung `GSRC`, die Länge (u32) und der Text in UTF-8. Das Gerät liest nur
-  den Block, der Editor liest den Anhang, um das Plugin wieder zu öffnen.
+- `<name>.blech` ist ein Block mit angehängter Beschreibung und angehängtem
+  Quelltext: nach dem Block die Kennung `GDSC`, die Länge (u32) und die
+  Beschreibung in ASCII, Zeilen von höchstens 20 Zeichen mit `\n` am Ende
+  (höchstens 2047 Byte); dann die Kennung `GSRC`, die Länge (u32) und der Text
+  in UTF-8. Die Beschreibung sind die `//`-Zeilen ganz oben im Plugin-Code
+  (eine leere `//`-Zeile beginnt einen neuen Absatz, Umlaute werden zu ae, oe,
+  ue, ss); ohne solche Zeilen fehlt der Anhang `GDSC`. Das Gerät lädt den
+  Block und zeigt die Beschreibung in IMPORT PLUGIN, der Editor liest den
+  Quelltext, um das Plugin wieder zu öffnen.
 
 Der Lader läuft einmal beim Start direkt nach dem Laden der `e2sSample.all`
 (Einhängestelle `0xC0038D68`, Kette `start`). Mit EXIT beim Einschalten, ohne
@@ -671,6 +677,7 @@ Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem We
 | PATTERN CONFIRM | ON, OFF (siehe unten) |
 | TAP MOTION | OFF, ON, ONCE (siehe unten) |
 | NOTE ASSIST | ON, OFF (siehe unten) |
+| SYNC GROUP | OFF, 1 bis 999 |
 
 Eine Gruppe ABOUT gibt es nicht mehr: sie zeigte nur die Zahl der geladenen Plugins und verwirrte.
 
@@ -682,7 +689,7 @@ Die Seiten der Gruppen:
 | PLUGINS, ein Plugin je Seite | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen, WRITE behält den Stand über einen Neustart (ein ausgeschaltetes Plugin startet dann nicht, beim Einschalten läuft sein Start nach); bei einem Fehler steht sein Name mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal) |
 | PLUGINS, je `korg.menu.add` eine Seite | die Zahl | Hauptrad ändert sie, das Plugin bekommt `menu` |
 | PLUGINS, EXPORT ALL | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
-| PLUGINS, IMPORT PLUGIN | (leer, `press  [ Enter ]`), dann Dateiname | ENTER zeigt die erste `*.blech` aus `KORG/blechtribe/Plugin/` (höchstens 14 Zeichen lang gezeigt), das Hauptrad oder EDIT blättert Datei für Datei, ENTER oder WRITE lädt und startet die gezeigte sofort, EXIT geht zurück auf die Seite. Dateien, deren Name mit einem Punkt beginnt (die `._Name.blech` des Mac auf FAT Karten), und versteckte oder Systemdateien fehlen in der Liste |
+| PLUGINS, IMPORT PLUGIN | (leer, `press  [ Enter ]`), dann Name und Stand | ENTER zeigt die Plugins der `*.blech` aus `KORG/blechtribe/Plugin/` als Liste (bis 16): oben der Name des Plugins (aus seinem Kopf, nicht der Dateiname), darunter sein Stand (ON, OFF, FAULT, ENTER=ALLOW); das Hauptrad blättert. ENTER öffnet das gewählte Plugin: oben der Name, darunter seine Beschreibung (das Hauptrad scrollt sie zeilenweise, `^` und `v` zeigen, dass es weitergeht), unten der Stand. ENTER schaltet es dann um: ein noch nicht geladenes wird geladen und gestartet, ein laufendes aus, ein ausgeschaltetes wieder an, ein fremdes wird erlaubt; WRITE behält den Stand über einen Neustart wie auf seiner Seite. EXIT geht zurück in die Liste und von dort auf die Seite. Dateien, deren Name mit einem Punkt beginnt (die `._Name.blech` des Mac auf FAT Karten), versteckte oder Systemdateien und Dateien ohne Plugin-Kopf fehlen in der Liste ([Messung](messungen/2026-10-19-plugin-import-liste.md)) |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | öffnet die Seiten des Display-Lichts; EXIT führt zurück auf DISPLAY |
 | DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 bis 15 | Farbe des Display-Lichts, frei gemischt; 15 15 15 heißt das Weiß der Firmware ("15 stock"); gilt sofort |
@@ -692,16 +699,17 @@ Die Seiten der Gruppen:
 | CUSTOMIZATION, LED | ENTER | öffnet die Seiten der unteren LEDs; EXIT führt zurück auf LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | die vier unteren RGB-LEDs: METER ist die Pegelanzeige, COLOR eine feste Farbe, OFF dunkel; gilt sofort |
 | LED, LED RED, GREEN, BLUE | 0 bis 15 | Farbe der unteren LEDs für COLOR; bei METER bestimmt der Pegel die Helligkeit dieser Farbe, solange keine Meter-Farbe gesetzt ist; 15 15 15 heißt die Farben der Firmware ("15 stock"); gilt sofort |
-| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK | die Farbe der Pegelanzeige je Zone, aufgeteilt wie in der Firmware: STILL ohne Pegel, LOW, MID, LOUD; STOCK ist die Farbe der Firmware (weiß, blau, grün, rot) |
+| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL: RAINBOW) | die Farbe der Pegelanzeige je Zone, aufgeteilt wie in der Firmware: STILL ohne Pegel, LOW, MID, LOUD; STOCK ist die Farbe der Firmware (weiß, blau, grün, rot); STILL hat dahinter noch RAINBOW, die Farbe läuft in rund 10 s einmal flüssig durch Rot, Grün und Blau |
 | CUSTOMIZATION, PAD COLOR | ENTER | öffnet die Seiten der Pad-Farben; nur wo der Satz den Patch pad-colors hat ([Messung](messungen/2026-10-17-pad-farben.md)) |
-| PAD COLOR, PAD COLOR | RED, BLUE, PINK | die Farbe, in der die Pads zeigen, was die Firmware rot zeigt (Part spielt, Pad gedrückt, Schritt); gilt sofort, WRITE behält sie; RED ist die Vorgabe. |
+| PAD COLOR, PAD COLOR | RED, BLUE, PINK | die Farbe, in der die Pads zeigen, was die Firmware rot zeigt (Part spielt, Pad gedrückt, Schritt); gilt sofort, WRITE behält sie; RED ist die Vorgabe. Im SEQUENCER-Modus zeigt ein Step, der die Note des vorigen per TIE weiterspielt, einen Schweif in Pink, der über die Länge der Note ausläuft; überlappen sich gebundene Noten, addiert sich ihre Helligkeit ([Messung](messungen/2026-10-19-gate-schweif.md)). |
 | PAD COLOR, SELECT COLOR | RED, BLUE, PINK | die Farbe des gewählten Parts, nie die von PAD COLOR; leuchten beide, zeigt das Pad die Farbe von OVERLAP; BLUE ist die Vorgabe |
 | PAD COLOR, OVERLAP | AUTO, RED, BLUE, PINK | die Farbe eines Pads, das zugleich leuchtet und gewählt ist; AUTO ist die dritte Farbe, die weder PAD COLOR noch SELECT COLOR ist |
 | CUSTOMIZATION, SPLASH IMPORT | ENTER | liest `KORG/blechtribe/splash.bmp` (128 x 64 Pixel, 1 Bit je Pixel, unkomprimiert; gezeichnet wird die dunklere Farbe) und speichert es als Startbild wie WRITE im Startbild-Editor; ab dem nächsten Start zu sehen. Meldet "loaded", "no splash.bmp" oder "not 128x64 1 bit" (dann bleibt alles, wie es war). Nur wo der Satz den Startbild-Editor hat, also nicht auf der blauen |
 | CUSTOMIZATION, SPLASH DRAW | ENTER | öffnet den Startbild-Editor (eine Seite des Global-Bildschirms, die nur von hier aus erreichbar ist): Rad bewegt den Cursor nach links und rechts, mit gehaltenem SHIFT hoch und runter, MENU kippt das Pixel, gehalten malt es dessen neue Farbe überall hin, wo der Cursor langläuft, WRITE speichert, EXIT verlässt den Editor. Nur wo der Satz den Startbild-Editor hat |
 | FEATURES, PATTERN CONFIRM | ON, OFF | ON: ein anderes Pattern, das am Rad gewählt wird, wartet beim Spielen auf MENU (ENTER) und startet am Sequenzende; OFF: die Firmware wie ohne den Patch Patternwechsel; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 2 der Flags in der Einstellungsdatei |
+| FEATURES, SYNC GROUP | OFF, 1 bis 999 | die Sync Group des Patterns im RAM, nur auf Hacktribe und der roten; das Hauptrad ändert sie, gespeichert wird sie mit dem Pattern (WRITE oder EXIT + WRITE). Läuft ein Pattern, startet ein anderes Pattern derselben Gruppe am Rad ohne MENU am Sequenzende (unten NEXT:), eines außerhalb der Gruppe wartet wie immer auf MENU; beim Wechsel zwischen zwei Patterns einer Gruppe geht alles mit, was live vom gespeicherten Stand abweicht: Part-Mutes und Klang der Parts (Sample, Filter, Modulation, Pitch, Amp, IFX und die übrigen Part-Werte), Tempo, Swing, Lautstärke, MFX mit Pad und HOLD, so springt nichts (nur im RAM). Steps, Motion, Länge, Beat, Tonart, Tonleiter und Chord Set bleiben die des neuen Patterns. OFF (0) heißt keine Gruppe, kein Abgleich ([Messung](messungen/2026-10-19-sync-groups.md)) |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus (Idee 39), TAP länger als 0,3 s gehalten schaltet nur, solange es gehalten ist, beim Loslassen zurück; OFF: TAP ist wieder das Tap-Tempo der Firmware; ONCE (Wert 2 des Einstellungsworts): eine mit TAP eingeschaltete Bewegung spielt bis zum Ende des Patterns und geht dann aus; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3, ONCE als Bit 5 der Flags in der Einstellungsdatei (Bit 3 gewinnt) |
-| FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Pad-Note die Pads der passenden Noten rosa und gehen nach 1,5 s aus ([Messung](messungen/2026-10-15-note-assistant.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
+| FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Note die Pads der passenden Noten rosa, je besser sie passen, desto heller (Prim und Quinte, dann Terzen, Quarte und ein Tonleiterschritt, dann Sexten); gestoppt oder pausiert bleiben sie stehen, beim Spielen blenden sie aus, die schwachen zuerst; im CHORD-Modus (Skalen mit sieben Tönen) zeigen die Pads ebenso, welche Akkorde gut folgen ([Messung](messungen/2026-10-15-note-assistant.md), [Helligkeit und Ausblenden](messungen/2026-10-19-notenassistent-helligkeit.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
 
 Rückmeldungen ("saved", "no card", "imported", "2 exported" und so weiter) ersetzen den
 Wert der Seite, bis man das Hauptrad dreht oder die Seite wechselt. Die dritte Zeile der

@@ -26,6 +26,9 @@ class HookTests(unittest.TestCase):
         machine.uc.mem_map(BLECHY_BLOCK,BLECHY_BLOCK_END-BLECHY_BLOCK)    # where the image holds the block of Blechy
         from tools.patch.script_hooks import MORE_START,MORE_END
         machine.uc.mem_map(MORE_START,(MORE_END-MORE_START+0xFFF)&~0xFFF)  # the second code area (display, store, hardware, events, apps)
+        from tools.patch.script_hooks import runtime_profile
+        work = runtime_profile('hacktribe').actions['MG_WORK']
+        machine.uc.mem_map(work&~0xFFF,((work+0xF00+0xFFF)&~0xFFF)-(work&~0xFFF))  # the folder copy's work area, read by every input
         for address,data in built.sections[len(built.vm.sections):]:
             machine.uc.mem_write(address,data)
         machine.symbols.update(built.symbols)
@@ -37,6 +40,7 @@ class HookTests(unittest.TestCase):
         machine.write(0xC0083710,0xC031BB2C)
         machine.uc.mem_map(0xC033E000,4096)
         machine.uc.mem_map(0xC0340000,4096)
+        machine.uc.mem_map(0xC0345000,4096)    # the LED manager's pointer (0xC0345A1C), 0: the unsaved WRITE LED stays out
         machine.uc.mem_map(0xC0310000,0x10000)
         for at,size in [(0xC0690000,0x2000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)
         machine.write(0xC033E6F8,machine.input+0x1000)
@@ -516,11 +520,12 @@ class HookTests(unittest.TestCase):
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
         card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
-        self.assertEqual(len(patch['startPhase']),42)
+        self.assertEqual(len(patch['startPhase']),45)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]
-        pairs+=[('blechy_boot','blechy_boot_end'),('menu_arm','menu_arm_end'),('menu_arm_load','menu_arm_load_end'),('menu_settings_load','menu_settings_end'),('menu_needs_confirm','menu_confirm'),('menu_recount','menu_recount_end'),('menu_event_right','menu_hooks_end'),('led_meter_hook','look_hooks_end')]
+        pairs+=[('blechy_boot','blechy_boot_end'),('menu_arm','menu_arm_end'),('menu_arm_load','menu_arm_load_end'),('menu_settings_load','menu_settings_end'),('menu_needs_confirm','menu_confirm'),('menu_recount','menu_recount_end'),('menu_event_right','menu_hooks_end'),('led_meter_hook','look_hooks_end'),
+            ('shortcut_input','shortcut_tick'),('shortcut_pool','shortcut_end'),('migrate_start','migrate_end')]
         spans=sum(built.symbols[end]-built.symbols[start] for start,end in pairs)
         self.assertEqual(sum(span['length'] for span in patch['startPhase']),spans+len(SITES)*4+len(WORDS)*4+184+card+len(built.sections[-1][1])+len(built.sections[0][1]))
         size=lambda change: len(change['bytes'])//2 if 'bytes' in change else change['copy']['length']

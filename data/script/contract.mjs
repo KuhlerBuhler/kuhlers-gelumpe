@@ -422,6 +422,9 @@ export const ARCHIVE = Object.freeze({
  */
 export const SOURCE_TRAILER = Object.freeze({ magic: 0x43525347, headerSize: 8, extension: ".blech" });
 
+/** "GDSC", u32 length, ASCII lines of `width` characters at most, each ending in "\n"; behind the block, in front of the source. */
+export const DESC_TRAILER = Object.freeze({ magic: 0x43534447, headerSize: 8, width: 20, maxBytes: 2047 });
+
 /** What the boot loader leaves in the control block as `cardStatus`; the words stay 0xFFFFFFFF until it has run. */
 export const CARD_STATUS = Object.freeze({
   LOADED: 1, NO_FILE: 2, BAD_HEADER: 3, BAD_CHECKSUM: 4, READ_ERROR: 5, BLOCK_SIZE: 6, KILL_SWITCH: 7, NO_PANEL: 8, SETTINGS_OFF: 9,

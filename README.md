@@ -123,7 +123,9 @@ Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches 
 
 Was BLECH auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
 LEDs, Patternwechsel erst nach Bestätigung, TAP Motion, den Notenassistenten im KEYBOARD-Modus, einen
-Melodie-Generator (SHIFT + PART ERASE), Blechy als kleines Haustier, ein Startbild mit Ladebalken,
+Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
+zurück, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
+hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
 verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten,
 zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).
 
