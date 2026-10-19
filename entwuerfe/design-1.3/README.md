@@ -102,14 +102,14 @@ zweiter Knopf, Code ansehen als Link.
 
 ## Gerät
 
-### Aktuell: Werkbank mit höchstens 5 FPS
+### Aktuell: Werkbank mit höchstens 20 FPS
 
 Ein Durchgang von 0 bis 100 %: Blechy zieht mit geschlossenen Augen die Line von links nach rechts weg und reißt
 bei 100 % die Augen auf. Oben mittig BLECHTRIBE, unten der Status ("LADE SAMPLES...") und die Prozentzahl,
-dahinter Sterne wie in der App. **Höchstens fünf
-Bilder pro Sekunde**, jedes Bild mindestens 200 ms.
+dahinter Sterne wie in der App. **Höchstens 20
+Bilder pro Sekunde**, jedes Bild mindestens 50 ms.
 
-![Werkbank mit höchstens 5 FPS](geraet/vorschau/neu/werkbank-5fps.gif)
+![Werkbank](geraet/vorschau/neu/werkbank.gif)
 
 [Bewegung einzeln ansehen](geraet/vorschau/neu/werkbank-loop-5fps.gif),
 [Vergleich öffnen](geraet/vergleich.html), [Ablauf und Export](geraet/README.md).

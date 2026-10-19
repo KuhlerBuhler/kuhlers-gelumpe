@@ -150,7 +150,7 @@ class FramePackingTests(unittest.TestCase):
 
 
 class MotionExportTests(unittest.TestCase):
-    def test_real_gifs_preserve_pixels_and_never_exceed_five_fps(self):
+    def test_real_gifs_preserve_pixels_and_never_exceed_the_fps_cap(self):
         sequences = []
         for direction in anim.DIRECTIONS:
             timeline = anim.demo_timeline() if direction == "werkbank" else anim.layout_timeline()
@@ -197,14 +197,14 @@ class MotionExportTests(unittest.TestCase):
                             decoded.append(rgb.tobytes())
                             actual_durations.append(gif.info["duration"])
                             self.assertEqual(gif.info["duration"], duration)
-                            self.assertGreaterEqual(gif.info["duration"], 200,
-                                                    f"Frame {index} must hold at least 200 ms, including the last before looping")
+                            self.assertGreaterEqual(gif.info["duration"], anim.MIN_FRAME_MS,
+                                                    f"Frame {index} must hold at least {anim.MIN_FRAME_MS} ms, including the last before looping")
                         self.assertEqual(report["gif_frames"], gif.n_frames)
                         self.assertEqual(report["unique_frames"], len(set(decoded)))
                         self.assertEqual(report["duration_ms"], sum(actual_durations))
                 self.assertEqual(report["full_frame_table_bytes"], len({f.tobytes() for f in frames})*1024)
-                self.assertLessEqual(report["maximum_update_fps"], 5)
-                self.assertGreaterEqual(report["minimum_frame_duration_ms"], 200)
+                self.assertLessEqual(report["maximum_update_fps"], anim.MAX_FPS)
+                self.assertGreaterEqual(report["minimum_frame_duration_ms"], anim.MIN_FRAME_MS)
                 for index, frame in enumerate(frames):
                     with Image.open(raw_dir/name/f"{index:03d}.png") as raw:
                         self.assertEqual((raw.mode, raw.size), ("1", (128, 64)))
@@ -217,7 +217,7 @@ class MotionExportTests(unittest.TestCase):
         with TemporaryDirectory(prefix="anim-test-", dir=anim.ROOT.parent) as temporary:
             root = Path(temporary)
             with self.assertRaises(ValueError):
-                anim.export_sequence("too-fast", [first, second], [199, 1801], root, root)
+                anim.export_sequence("too-fast", [first, second], [anim.MIN_FRAME_MS - 1, 1801], root, root)
             with self.assertRaises(ValueError):
                 anim.export_sequence("missing-duration", [first, second], [200], root, root)
 
@@ -288,7 +288,7 @@ class MotionTests(unittest.TestCase):
         self.assertEqual(shifts, sorted(shifts), "Blechy only moves right")
         self.assertEqual((shifts[0], shifts[-1]), (0, anim.SWEEP))
         self.assertTrue(timeline[-1].state.done)
-        self.assertTrue(all(cue.duration_ms >= 200 for cue in timeline))
+        self.assertTrue(all(cue.duration_ms >= anim.MIN_FRAME_MS for cue in timeline))
         for progress in (0, 0.3, 0.6, 0.99):
             self.assertEqual(anim.pass_state(progress).shift % anim.SWEEP_STEP, 0)
 

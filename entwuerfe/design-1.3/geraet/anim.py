@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Blechy loading gesture at up to 5 FPS, 128 x 64, one bit. No firmware is patched.
+"""Blechy loading gesture at up to 20 FPS, 128 x 64, one bit. No firmware is patched.
 
     python3 entwuerfe/design-1.3/geraet/anim.py
     python3 entwuerfe/design-1.3/geraet/anim.py --direction werkbank
@@ -32,7 +32,7 @@ DIRECTIONS = ("werkbank", "typenschild", "praegung")
 NAMES = {"werkbank": "Werkbank", "typenschild": "Typenschild", "praegung": "Prägung"}
 TABLE_Y, DASH_Y = 55, 54          # the line lies on the table, bumps reach row 53
 DASH_START = 49                 # tube tip in the draw pose at the left end
-SWEEP, SWEEP_STEP = 48, 4       # the line is the bar: one pass from 0 to 100 percent
+SWEEP, SWEEP_STEP = 48, 1       # the line is the bar: one pass from 0 to 100 percent
 DASH_LENGTH = SWEEP + 1
 BODY_X, BODY_Y = 8, 18
 NOSE = (29, 23)                 # lower edge of the original face, no new bulb
@@ -40,7 +40,7 @@ SHOULDER = (40, 25)             # exactly the attachment in make_blechy.py
 TUBE_VECTOR = (12, 12)
 WORK_TUBE_VECTOR = (12, 9)       # 15px; reaches the line only in the lowered pose
 GRIP_FRACTION = 0.63
-MAX_FPS = 5
+MAX_FPS = 20                     # a pixel needs about 50 ms on the device LCD to go dark
 MIN_FRAME_MS = 1000 // MAX_FPS
 
 # Dark pupils inside the original light eyes. No jitter, no inverted face.
@@ -125,7 +125,7 @@ MOTION_POSES = {
 def pass_state(progress, done=False):
     """The loader's value picks the frame: Blechy stands where his tip has eaten the line.
 
-    The display caller must rate-limit updates to 200ms; the position snaps to
+    The display caller must rate-limit updates to MIN_FRAME_MS; the position snaps to
     SWEEP_STEP, so most loader ticks change nothing on the screen.
     """
     if not math.isfinite(progress):
@@ -475,16 +475,16 @@ def render_frame(direction, progress, *, pose="draw", started=True, done=False, 
 
 
 def demo_timeline():
-    """0 to 100 percent in one pass at <=5 FPS: set the tube, draw the line, done.
+    """0 to 100 percent in one pass at <=20 FPS: set the tube, draw the line, done.
 
     Example pacing only. The real loader decides the time, pass_state() the frame.
     """
     cues = [Cue(State(0, "ready", started=False), 800),
-            Cue(State(0, "reach"), MIN_FRAME_MS)]
+            Cue(State(0, "reach"), 100)]
     steps = SWEEP // SWEEP_STEP
     for i in range(steps + 1):
         cues.append(Cue(pass_state(i / steps), MIN_FRAME_MS))
-    cues += [Cue(State(0.99, "lift", shift=SWEEP, eaten=SWEEP + 1), MIN_FRAME_MS),
+    cues += [Cue(State(0.99, "lift", shift=SWEEP, eaten=SWEEP + 1), 100),
              Cue(pass_state(1, done=True), 1200)]
     return cues
 
@@ -492,9 +492,9 @@ def demo_timeline():
 def percent_timeline():
     """Every percent from 0 to 99 as its own 200ms frame, then done: what each loader value shows."""
     cues = [Cue(State(0, "ready", started=False), 800),
-            Cue(State(0, "reach"), MIN_FRAME_MS)]
-    cues += [Cue(pass_state(p / 100), MIN_FRAME_MS) for p in range(100)]
-    cues += [Cue(State(0.99, "lift", shift=SWEEP, eaten=SWEEP + 1), MIN_FRAME_MS),
+            Cue(State(0, "reach"), 200)]
+    cues += [Cue(pass_state(p / 100), 200) for p in range(100)]
+    cues += [Cue(State(0.99, "lift", shift=SWEEP, eaten=SWEEP + 1), 200),
              Cue(pass_state(1, done=True), 1200)]
     return cues
 
@@ -538,13 +538,13 @@ def goodbye_frame(pose):
 
 
 def shutdown_timeline():
-    """1000 ms at <=5 FPS. GIF loop pause is added only by export."""
+    """1000 ms, five pictures of 200 ms. GIF loop pause is added only by export."""
     waves = [goodbye_frame(0), goodbye_frame(1)]
     squeezed = blank()
     squeezed.paste(waves[1].resize((W, 16), Image.Resampling.NEAREST), (0, 24))
     line = blank()
     ImageDraw.Draw(line).line((52, 32, 75, 32), fill=LIGHT)
-    return [*waves, squeezed, line, blank()], [MIN_FRAME_MS]*5
+    return [*waves, squeezed, line, blank()], [200]*5
 
 
 def pack_frame(frame, *, bit_order="lsb", controller_inverted=False):
@@ -699,7 +699,7 @@ def main():
         frames = sequence_frames(direction, timeline)
         durations = [cue.duration_ms for cue in timeline]
         result = export_sequence(direction, frames, durations, preview_dir, raw_dir, palette=args.palette)
-        result["kind"] = ("loading example at up to 5 FPS"
+        result["kind"] = ("loading example at up to 20 FPS"
                           if direction == "werkbank" else "earlier layout study")
         result["timeline"] = timeline_metadata(timeline)
         if direction == "werkbank":

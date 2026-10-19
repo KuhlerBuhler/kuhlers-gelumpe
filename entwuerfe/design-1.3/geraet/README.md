@@ -1,4 +1,4 @@
-# Blechy: ein Durchgang von 0 bis 100 Prozent, höchstens 5 FPS
+# Blechy: ein Durchgang von 0 bis 100 Prozent, höchstens 20 FPS
 
 Stand 19.10.2026. Die [Übergabe](uebergabe-2026-10-19.yaml) und die anschließende Rückmeldung sind die Grundlage.
 Die Gestaltung der Werkbank mit hellem Originalgesicht, festem BLECH und Fußzeile bleibt. Die Bewegung ist
@@ -10,8 +10,8 @@ BLECHTRIBE als ein Wort (Impact 22, `blechtribe-titel.png`). Unten im Startbild 
 auf dem Tisch und hat Buckel (1 bis 2 Pixel). Dahinter fallen ein paar Sterne wie im Hintergrund der App
 (`site/design/bg.js`): drei Tiefen, langsam, ab und zu kurz aus; im festen Startbild stehen sie.
 
-**Die Vorgabe lautet höchstens fünf Bilder pro Sekunde, nicht fünf Bilder insgesamt.** Jeder Bildzustand bleibt
-mindestens 200 ms sichtbar. Das gilt auch für kurze Zwischenbilder, Prozentänderungen und den letzten Zustand
+**Die Vorgabe lautet höchstens 20 Bilder pro Sekunde** (Rückmeldung 20.10.: ein Pixel braucht am Gerät grob
+50 ms, bis er weg ist). Jeder Bildzustand bleibt mindestens 50 ms sichtbar. Das gilt auch für kurze Zwischenbilder, Prozentänderungen und den letzten Zustand
 vor der Wiederholung. Eine bloß niedrige Durchschnittsrate reicht nicht. Der Export weist kürzere Zeiten zurück.
 
 Noch kein Firmware-Patch. Die [Vergleichsseite](vergleich.html) zeigt die aktuelle Bewegung und die beiden
@@ -19,11 +19,11 @@ früheren Layoutstudien in den Farben und Schriften der App, auch in nativen 128
 
 ## Ansehen
 
-### Ganzer Ladevorgang, höchstens 5 FPS
+### Ganzer Ladevorgang, höchstens 20 FPS
 
-![Werkbank mit höchstens 5 FPS](vorschau/neu/werkbank-5fps.gif)
+![Werkbank](vorschau/neu/werkbank.gif)
 
-Die Demo zeigt den einen Durchgang mit 17 Bildern über 5 Sekunden. Die Beispieldauer verlängert keinen
+Die Demo zeigt den einen Durchgang mit 53 Bildern über 4,7 Sekunden. Die Beispieldauer verlängert keinen
 Gerätestart: Der echte Lader darf jederzeit zum aktuellen Fortschritt oder zum fertigen Hauptbild springen.
 
 ### Ablauf
@@ -31,13 +31,13 @@ Gerätestart: Der echte Lader darf jederzeit zum aktuellen Fortschritt oder zum 
 | Schritt | Haltung | Haltezeit |
 |---|---|---:|
 | Startbild | volle Line, Röhrchen abgesetzt, guckt dich an | 800 ms |
-| Ansetzen | Kopf zwei Pixel tiefer, Augen zu | 200 ms |
-| Ziehen | Rohr auf der Line, je 4 Pixel Fortschritt rückt Blechy 4 Pixel nach rechts, bis 48 | 13 × 200 ms |
-| Fertig | Line weg, Augen auf mit großen Pupillen, "FERTIG", 100 % | 200 + 1200 ms |
+| Ansetzen | Kopf zwei Pixel tiefer, Augen zu | 100 ms |
+| Ziehen | Rohr auf der Line, Blechy rückt pixelweise nach rechts, bis 48 | 49 × 50 ms |
+| Fertig | Line weg, Augen auf mit großen Pupillen, "FERTIG", 100 % | 100 + 1200 ms |
 
 `werkbank-loop*.gif` zeigt denselben Durchgang, damit die Vergleichsseite ihre Plätze behält.
 `werkbank-prozent.gif` zeigt jeden Prozentwert von 0 bis 99 als eigenes Bild (je 200 ms), so wie `pass_state()`
-ihn am Gerät zeichnen würde. Blechy rückt dabei alle 8 bis 9 % um 4 Pixel weiter.
+ihn am Gerät zeichnen würde. Blechy rückt dabei alle 2 bis 3 % um einen Pixel weiter.
 
 ### Abschied im selben Zeitlimit
 
@@ -81,8 +81,8 @@ python3 -B entwuerfe/design-1.3/geraet/test_anim.py -v
 
 | Ausgabe | Inhalt |
 |---|---|
-| `vorschau/neu/werkbank-5fps.gif` | Ganzer Beispiel-Ladevorgang, 4×, höchstens 5 FPS |
-| `vorschau/neu/werkbank-loop-5fps.gif` | Wiederholte Bewegung bei festen 42 Prozent, 4×, höchstens 5 FPS |
+| `vorschau/neu/werkbank.gif` | Ganzer Beispiel-Ladevorgang, 4×, höchstens 20 FPS |
+| `vorschau/neu/werkbank-prozent.gif` | Jeder Prozentwert ein Bild, 200 ms je Bild |
 | `vorschau/neu/werkbank.gif`, `werkbank-loop.gif` | Identische Dateien unter den allgemeinen Vorschau-Namen |
 | `vorschau/neu/<name>-1x.gif` | Dieselbe Folge in nativen 128×64 Pixeln |
 | `vorschau/neu/<name>-strip.png` | Fünf ausgewählte Schlüsselbilder zum Vergleichen, keine Begrenzung der Animation |
@@ -106,7 +106,7 @@ Geräte-Vorgabe für reduzierte Bewegung ist die begrenzte Bildrate; sie bedeute
 Pillow-Bild ohne Uhr, Zufall oder Dateiausgabe. `pass_state(progress, done)` liefert den Zustand zum Ladestand.
 Verpasste Zeitpunkte werden übersprungen; es gibt keine nachzuholende Bilderschlange.
 
-Der spätere Display-Aufrufer muss **alle** Bildänderungen gemeinsam auf mindestens 200 ms Abstand begrenzen,
+Der spätere Display-Aufrufer muss **alle** Bildänderungen gemeinsam auf mindestens 50 ms Abstand begrenzen,
 auch neue Prozentzahlen oder Pupillen. Die reine Renderfunktion enthält absichtlich keine Wartezeit. Ein
 möglicher Aufruf sieht so aus; `now_ms`, `last_draw_ms` und die Laderdaten gehören dem Aufrufer:
 
@@ -150,7 +150,7 @@ umgestellt.
 
 | Folge | GIF-Bilder | Unterschiedliche Raster | Kürzeste Haltezeit | Bildwechsel höchstens |
 |---|---:|---:|---:|---:|
-| Werkbank, Ladedemo | 17 | 17 | 200 ms | 5 pro Sekunde |
+| Werkbank, Ladedemo | 53 | 53 | 50 ms | 20 pro Sekunde |
 | Ausschalten, ohne GIF-Wiederholungspause | 5 | 5 | 200 ms | 5 pro Sekunde |
 
 Ein Bildwechsel schaltet höchstens 567 Pixel auf höchstens sechs LCD-Seiten. Messen am Gerät steht aus.
