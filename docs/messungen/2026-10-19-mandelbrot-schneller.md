@@ -29,11 +29,11 @@ die Zeilenmasken gelöscht. Die Arbeitszählung gewichtet Iterationen, neue Punk
 Flächenprüfungen und Zeichnen getrennt, damit kurze Außenpunkte mehr Platz im
 Rahmen bekommen, ohne lange Randiterationen unbeschränkt laufen zu lassen.
 
-## Zeichenzeit
+## Zeit bis zum Ende der Berechnung
 
-Rahmen bis zum vollständigen Bild, einschließlich Grobbild und Anzeige von Zoom
-und Iterationszahl. Die Ansichten werden nach dem Öffnen mit denselben Werten
-über das Encoder-Ereignis neu gestartet.
+Rahmen bis zum Ende aller Verfeinerungen und der abschließenden Anzeige von Zoom
+und Iterationszahl. Das ist nicht die Zeit bis zum ersten erkennbaren Bild. Die Ansichten werden nach
+dem Öffnen mit denselben Werten über das Encoder-Ereignis neu gestartet.
 
 | Ansicht | Vorher, Rahmen | Jetzt, Rahmen | Weniger Rahmen |
 |---|---:|---:|---:|
@@ -45,8 +45,15 @@ und Iterationszahl. Die Ansichten werden nach dem Öffnen mit denselben Werten
 | Spitze, Zoom 4, 64 Iterationen | 4867 | 3665 | 24.7 % |
 | Außenbereich, Zoom 0 | 2386 | 1864 | 21.9 % |
 
-Bei den beiden vollständig innenliegenden Ansichten sind das 46,5-mal weniger
-Rahmen. Mit 25 Rahmen pro Sekunde entsprechen 2048 Rahmen rechnerisch 81,92 s
+Bei den beiden vollständig innenliegenden Ansichten endet die Berechnung nach
+46,5-mal weniger Rahmen. Die weiße Fläche ist jedoch bereits nach dem groben
+Durchgang sichtbar: vorher nach 32 Rahmen, jetzt nach 43. Dieser große Faktor
+beschreibt also überwiegend das Wegfallen unsichtbarer Nacharbeit. Er ist keine
+entsprechende Beschleunigung des sichtbaren Bildaufbaus. Das Grobbild der
+Gesamtansicht ist vorher nach 60, jetzt nach 59 Rahmen da. Die Rückmeldung vom
+Gerät, dass die Gesamtansicht kaum schneller erscheint, passt dazu.
+
+Mit 25 Rahmen pro Sekunde entsprechen 2048 Rahmen rechnerisch 81,92 s
 und 44 Rahmen 1,76 s. Das sind aus den Rahmenzahlen abgeleitete Zeiten, keine
 Stoppuhrmessung am Gerät. Die Gesamtansicht bleibt aufwendig; ihre Randdetails
 werden weiterhin einzeln berechnet.

@@ -826,8 +826,9 @@ nach dem vollständigen Bild übernommen ([Messung](messungen/2026-10-19-pong-li
 16384), die Ganzzahl-Arithmetik der VM reicht dafür, Kommazahlen braucht es nicht; das Bild kommt in vier Durchgängen mit
 Blöcken von 8, 4, 2 und 1 Pixel, und ein Pixel, das mehr als den Rest des Rahmens braucht, wird im nächsten Rahmen
 weitergerechnet. Nachweislich innenliegende Rechtecke werden gemeinsam gefüllt und bei der Verfeinerung übersprungen.
-Die Gesamtansicht braucht 3065 statt 3606 Rahmen, eine vollständig innenliegende Zoomansicht 44 statt 2048
-([Messung](messungen/2026-10-19-mandelbrot-schneller.md), JavaScript-Referenz, keine Gerätezeit). Jede Eingabe beginnt
+Bis zum Ende der Berechnung braucht die Gesamtansicht 3065 statt 3606 Rahmen, eine vollständig innenliegende
+Zoomansicht 44 statt 2048. Das sichtbare Grobbild erscheint dadurch kaum früher; die weißen Flächen sind schon
+im ersten Durchgang da ([Messung](messungen/2026-10-19-mandelbrot-schneller.md), JavaScript-Referenz, keine Gerätezeit). Jede Eingabe beginnt
 wieder beim groben Durchgang. Die Zoomstufe geht bis 7,
 tiefer reichen die 14 Bit nicht.
 
