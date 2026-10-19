@@ -113,6 +113,17 @@ class NBox(Box):
         """{pad: the red of its hint}."""
         return {n: v[0] for n, v in self.leds().items() if is_hint(v)}
 
+    def stable_levels(self):
+        """levels() once two looks 10 ms apart agree: a pad's red and blue go out as two messages, a look between them sees neither."""
+        now = self.levels()
+        for _ in range(5):
+            self.run(0.01)
+            again = self.levels()
+            if again == now:
+                return now
+            now = again
+        return now
+
     def others(self):
         """The pads that hold something but not the patch's values."""
         return {n: v for n, v in self.leds().items() if not is_hint(v)}
@@ -254,6 +265,9 @@ def case_timing(payload, flash):
     layout = layout_of(payload, flash, 0, 2)
     want = want_levels(layout, 3)
     box = NBox(payload, flash)
+    live = box.u32(0xC033E6A4) + 4
+    for part in range(16):                     # no steps: notes the pattern plays would light keyboard pads of their own
+        box.m.uc.mem_write(live + 0x800 + 0x330 * part + 0x30, bytes(12 * 64))
     box.key("keyboard", 0.4)
     t0 = box.m.time_ns
     box.pad_down(3, wait=0.0)
@@ -267,15 +281,16 @@ def case_timing(payload, flash):
     gone, paused = {}, None
     while (box.m.time_ns - t1) / 1e9 < 6.0 and len(gone) < len(want):
         box.run(0.04)
-        now = box.levels()
+        now = box.stable_levels()
         for p in want:
             if p not in now and p not in gone:
                 gone[p] = round((box.m.time_ns - t1) / 1e9, 2)
         if paused is None and (box.m.time_ns - t1) / 1e9 >= 0.6:
             box.key("play", 0.0)               # pause
-            before = box.levels()
+            box.run(0.05)
+            before = box.stable_levels()
             box.run(1.0)
-            paused = (before, box.levels())
+            paused = (before, box.stable_levels())
             box.key("play", 0.0)
     part = box.leds().get(0)
     order = [min(t for p, t in gone.items() if want[p] == lv) if any(want[p] == lv for p in gone) else None
