@@ -14,9 +14,12 @@ zusammen mit den Akkorden in Pink ([Poly-Pads](2026-10-19-poly-pads-pink.md)).
 
 ## Was die Pads zeigen (`tools/patch/pad_colors.py`)
 
-- SEQUENCER-Modus, der gewählte Part: ein Step, dessen Vorgänger eingeschaltet ist, TIE hat und dieselbe erste Note, ist Schweif.
-  Er leuchtet in Pink (der Farbe, die neben PAD COLOR und SELECT COLOR übrig ist, wie die Akkorde) mit der halben Helligkeit, der
-  zweite mit einem Viertel, ab dem dritten mit einem Achtel. Der Trigger bleibt, wie die Firmware ihn zeigt.
+- SEQUENCER-Modus, der gewählte Part: eine Note auf einem Step ist gebunden, wenn der Step davor eingeschaltet ist, TIE hat und
+  dieselbe Note hält. Ein Step, auf dem keine Note neu anfängt, aber gebundene Noten weiterklingen, ist Schweif. Er leuchtet in
+  Pink (der Farbe, die neben PAD COLOR und SELECT COLOR übrig ist, wie die Akkorde). Feste Stufen gibt es nicht (Wunsch vom
+  19.10.): eine Note über L Steps gibt ihrem k-ten Step hinter dem Trigger (L - k) / L der Helligkeit, der Schweif läuft also über
+  die Länge der Note aus. Klingen auf einem Step mehrere gebundene Noten (Poly), addieren sich ihre Anteile, höchstens bis zur
+  vollen Helligkeit. Der Trigger bleibt, wie die Firmware ihn zeigt. Gezählt werden höchstens 16 Steps vor und hinter dem Step.
 - Läuft der Cursor über einen Schweif-Step, zeigt das Pad die Überlagerung wie sonst auch.
 - Die Firmware schickt beim Ändern eines Steps nur dessen Pad. Deshalb gehen bei jedem Pad, das sie schickt, die Pads dahinter
   noch einmal raus, wenn sich ihr Schweif geändert hat.
@@ -24,6 +27,8 @@ zusammen mit den Akkorden in Pink ([Poly-Pads](2026-10-19-poly-pads-pink.md)).
 
 ## Geprüft (`tools/emu/menu_cases.py`, `tie_cases`)
 
-Steps 1 bis 5 eine gebundene Note: Trigger wie die Firmware, dann 127, 63, 31, 31 in Pink. Step 7 mit TIE auf eine andere Note:
-zwei Trigger. Step 10 mit TIE auf einen leeren Step: kein Schweif. TIE nachträglich auf Step 12 gesetzt und das Pad zweimal
-gedrückt: Step 13 zeigt den Schweif. EXIT beim Einschalten: alles rot wie in der Firmware.
+Steps 1 bis 5 eine gebundene Note: Trigger wie die Firmware, dann 203, 152, 101, 50 in Pink. Step 7 mit TIE auf eine andere
+Note: zwei Trigger. Step 10 mit TIE auf einen leeren Step: kein Schweif. TIE nachträglich auf Step 12 gesetzt und das Pad zweimal
+gedrückt: Step 13 zeigt den Schweif. Poly, eine Note über Steps 1 bis 4, eine zweite über 3 bis 6: Step 2 bei drei Vierteln,
+Step 3 ist Trigger, Step 4 voll (ein Viertel plus drei Viertel), Steps 5 und 6 bei der Hälfte und einem Viertel. EXIT beim
+Einschalten: alles rot wie in der Firmware.

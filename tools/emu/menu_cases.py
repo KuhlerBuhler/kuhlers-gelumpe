@@ -1205,23 +1205,24 @@ def chord_cases(payload, flash, add, pad, wait):
 
 
 def tie_cases(payload, flash, add, pad, wait):
-    """SEQUENCER mode: a note tied over several steps (TIE, gate 127, on the same note) shows its trigger as the firmware does and
-    the steps it is held through as a tail in pink that gets darker (device wish 17.10.). Part 1, Mono 1: steps 1 to 5 one tied note,
-    step 7 tied into step 8 on another note (two triggers), step 10 tied into nothing. Setting a tie on step 12 shows the tail on
-    step 13 once the firmware sends pad 12 again (a press on it twice)."""
-    def steps(held):
+    """SEQUENCER mode: a note tied over several steps (TIE, gate 127, the note on both steps) shows its trigger as the firmware does
+    and the steps it is held through as a tail in pink that fades over the note's length, tails of notes that overlap add up (device
+    wishes 17.10. and 19.10.). Part 1, Mono 1: steps 1 to 5 one tied note, step 7 tied into step 8 on another note (two triggers),
+    step 10 tied into nothing. Setting a tie on step 12 shows the tail on step 13 once the firmware sends pad 12 again (a press on it
+    twice). Poly 1: one note held over steps 1 to 4, a second from step 3 to 6."""
+    def steps(held, voice=0, plan=None):
         dev = boot(payload, flash, held=held, files=CARD_FOLDER, adapter=True, seconds=wait)
         live = dev.u32(0xC033E6A4) + 4 + 0x800
-        dev.m.uc.mem_write(live + 2, bytes([0]))
-        plan = {0: (127, 61), 1: (127, 61), 2: (127, 61), 3: (127, 61), 4: (60, 61), 6: (127, 61), 7: (60, 65), 9: (127, 61),
-                11: (60, 61), 12: (60, 61)}
+        dev.m.uc.mem_write(live + 2, bytes([voice]))
+        plan = plan or {0: (127, [61]), 1: (127, [61]), 2: (127, [61]), 3: (127, [61]), 4: (60, [61]), 6: (127, [61]), 7: (60, [65]),
+                        9: (127, [61]), 11: (60, [61]), 12: (60, [61])}
         for step in range(16):
-            gate, note = plan.get(step, (0, 0))
-            dev.m.uc.mem_write(live + 0x30 + 12 * step, bytes([1 if note else 0, gate, 100, 1, note, 0, 0, 0]))
+            gate, notes = plan.get(step, (0, []))
+            dev.m.uc.mem_write(live + 0x30 + 12 * step, bytes([1 if notes else 0, gate, 100, 1, *notes, *[0] * (4 - len(notes))]))
         press(dev, 0x15, wait=0.5)
         return dev, live, [pad(dev, n) for n in range(16)]
     dev, live, lit = steps(0)
-    want = {0: (255, 255), 1: (127, 127), 2: (63, 63), 3: (31, 31), 4: (31, 31), 6: (255, 0), 7: (255, 0), 9: (255, 0), 11: (255, 0), 12: (255, 0)}
+    want = {0: (255, 255), 1: (203, 203), 2: (152, 152), 3: (101, 101), 4: (50, 50), 6: (255, 0), 7: (255, 0), 9: (255, 0), 11: (255, 0), 12: (255, 0)}
     # pad 1 is blue as well: the firmware's cursor on the first step while it stands
     got = {n: lit[n] for n in want}
     add("tie_tail_gets_darker", got == want and all(lit[n] == (0, 0) for n in range(16) if n not in want) and not dev.m.asserts,
@@ -1234,6 +1235,10 @@ def tie_cases(payload, flash, add, pad, wait):
         dev.run(0.3)
     add("tie_tail_follows_an_edit", pad(dev, 12) == (127, 127) and pad(dev, 11) == (255, 0) and not dev.m.asserts,
         f"step 12 tied, pad 12 sent again: pad 12 {pad(dev, 11)}, pad 13 {pad(dev, 12)}")
+    poly, _, lit = steps(0, 2, {0: (127, [61]), 1: (127, [61]), 2: (127, [61, 65]), 3: (127, [61, 65]), 4: (127, [65]), 5: (60, [65])})
+    added = [(255, 255), (191, 191), (255, 255), (255, 255), (127, 127), (63, 63)]
+    add("tie_tails_add_up", lit[:6] == added and not poly.m.asserts,
+        f"Poly 1, one note over steps 1 to 4, one over 3 to 6: {lit[:6]}, want {added} (step 3 a trigger, step 4 a quarter and three quarters)")
     held, _, lit = steps(KILL)
     add("tie_exit_held_is_stock", [n for n in range(16) if lit[n] == (255, 0)] == sorted(want)[1:] and lit[0] == (255, 255) and not held.m.asserts,
         f"EXIT held at power-on: {lit}")

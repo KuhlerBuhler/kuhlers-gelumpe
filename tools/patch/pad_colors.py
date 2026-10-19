@@ -326,7 +326,7 @@ pa_no:
 pc_map:
     push {r6, r7, lr}
     bl pc_chord
-    sub r7, r0, #1                      ; 1 to 3: a tail step, that far behind its trigger
+    mov r7, r0                          ; 3 to 258: a tail step
     cmp r0, #0
     bne pm_chord
     mov r12, r6, lsl #22                ; the firmware's red and blue without OVERLAP: its own values, as they are
@@ -379,10 +379,13 @@ pm_blue:
     mov r0, r1
     mov r2, r3
 pm_colour:                              ; r0 = colour, r2 = brightness
-    cmp r7, #1                          ; a tail step without the cursor on it: a half, a quarter, an eighth of the brightness
-    blt pm_lit
+    cmp r7, #3                          ; a tail step without the cursor on it: its share of the brightness
+    blo pm_lit
     cmp r3, #0
-    moveq r2, r2, lsr r7
+    bne pm_lit
+    sub r12, r7, #2
+    mul r2, r12, r2
+    mov r2, r2, lsr #8
 pm_lit:
     mov r1, #0
     cmp r0, #1                          ; blue or pink: the blue LED
@@ -393,15 +396,17 @@ pm_lit:
     pop {r6, r7, pc}
 
 ; r4 = manager, r8 = the red LED of a pad -> in SEQUENCER mode, for the pad's step of the selected part (in the bar section the
-; pads show): r0 = 2 to 4 when the step continues the note of the step before it (both on, that one's gate is TIE (127), the same
-; first note): the tail of a tied note, 2 for its first step, 4 from the third on (device wish 17.10.: the trigger bright, behind
-; it a tail in another colour that gets darker); else r0 = 1 when the part is Poly 1 or 2 and the step holds 2 or more notes;
-; else 0. Clobbers r0 to r3 and r12. Reads memory only.
+; pads show): r0 = 1 when a note starts on the step and the part is Poly 1 or 2 with 2 or more notes there; r0 = 3 to 258 when no
+; note starts there but notes tied over from the steps before still sound (device wish 17.10. and 19.10.): the brightness is
+; (r0 - 2) / 256 of the firmware's, the sum over those notes of how much of each one is still to come (a note held over L steps
+; gives its k-th step behind the trigger (L - k) / L), so a tail fades out over its length and two notes that overlap add up;
+; else 0. A note is tied from the step before when both steps are on, that one's gate is TIE (127) and both hold the note.
+; Clobbers r0 to r3 and r12. Reads memory only.
 pc_chord:
     mov r0, #CHORD
     cmp r0, #0
     bxeq lr
-    push {r5, r6, r7, lr}
+    push {r4-r11, lr}
     ldr r0, [r4, #MODE_AT]
     cmp r0, #4
     bne pch_no
@@ -430,35 +435,74 @@ pc_chord:
     add r1, r1, r0, lsl #4              ; the step of the pad
     mov r3, #12
     mul r0, r1, r3
-    add r2, r5, r0
-    mov r6, #0                          ; how far back the tie reaches, at most 3
-pch_back:
-    cmp r1, #0
-    beq pch_tied
+    add r2, r5, r0                      ; r2 = the step, r1 = its number
     ldrb r0, [r2]
     cmp r0, #0
-    beq pch_tied
-    sub r3, r2, #12
-    ldrb r0, [r3]
-    cmp r0, #0
-    beq pch_tied
-    ldrb r0, [r3, #1]
-    cmp r0, #127
-    bne pch_tied
-    ldrb r0, [r3, #4]
-    ldrb r12, [r2, #4]
-    cmp r0, r12
-    bne pch_tied
-    add r6, r6, #1
-    cmp r6, #3
-    beq pch_tied
-    mov r2, r3
-    sub r1, r1, #1
+    beq pch_no
+    mov r9, #0                          ; the tails, 256 = the firmware's brightness
+    mov r10, #0                         ; 1 when a note starts here
+    mov r6, #4
+pch_note:
+    ldrb r8, [r2, r6]
+    cmp r8, #0
+    beq pch_note_next
+    mov r0, r2
+    mov r11, r1
+    mov r3, #0                          ; how many steps back the note was triggered (at most 16 looked at)
+pch_back:
+    cmp r3, #16
+    bhs pch_back_done
+    bl pch_tied
+    cmp r12, #0
+    beq pch_back_done
+    add r3, r3, #1
+    sub r0, r0, #12
+    sub r11, r11, #1
     b pch_back
-pch_tied:
-    cmp r6, #0
-    addne r0, r6, #1
-    bne pch_out
+pch_back_done:
+    cmp r3, #0
+    moveq r10, #1
+    beq pch_note_next
+    add r0, r2, #12
+    add r11, r1, #1
+    mov r5, #0                          ; how many steps it is held beyond this one
+pch_fwd:
+    cmp r11, #64
+    bhs pch_fwd_done
+    cmp r5, #16
+    bhs pch_fwd_done
+    bl pch_tied
+    cmp r12, #0
+    beq pch_fwd_done
+    add r5, r5, #1
+    add r0, r0, #12
+    add r11, r11, #1
+    b pch_fwd
+pch_fwd_done:
+    add r12, r3, r5
+    add r12, r12, #1                    ; L, the steps the note is held over
+    add r0, r5, #1
+    mov r0, r0, lsl #8                  ; 256 * (L - k) / L
+    mov r4, #0
+pch_div:
+    cmp r0, r12
+    subhs r0, r0, r12
+    addhs r4, r4, #1
+    bhs pch_div
+    add r9, r9, r4
+pch_note_next:
+    add r6, r6, #1
+    cmp r6, #8
+    blo pch_note
+    cmp r10, #0
+    bne pch_starts
+    cmp r9, #0
+    beq pch_no
+    cmp r9, #256
+    movhi r9, #256
+    add r0, r9, #2
+    b pch_out
+pch_starts:
     cmp r7, #2
     blo pch_no
     mov r0, #0
@@ -480,7 +524,41 @@ pch_tied:
 pch_no:
     mov r0, #0
 pch_out:
-    pop {r5, r6, r7, pc}
+    pop {r4-r11, pc}
+
+; r0 = a step, r11 = its number, r8 = a note -> r12 = 1 when the step holds the note tied over from the step before. Clobbers r4.
+pch_tied:
+    mov r12, #0
+    cmp r11, #0
+    bxeq lr
+    ldrb r4, [r0]
+    cmp r4, #0
+    bxeq lr
+    ldrb r4, [r0, #-12]
+    cmp r4, #0
+    bxeq lr
+    ldrb r4, [r0, #-11]
+    cmp r4, #127
+    bxne lr
+    ldrb r4, [r0, #-8]
+    cmp r4, r8
+    ldrbne r4, [r0, #-7]
+    cmpne r4, r8
+    ldrbne r4, [r0, #-6]
+    cmpne r4, r8
+    ldrbne r4, [r0, #-5]
+    cmpne r4, r8
+    bxne lr
+    ldrb r4, [r0, #4]
+    cmp r4, r8
+    ldrbne r4, [r0, #5]
+    cmpne r4, r8
+    ldrbne r4, [r0, #6]
+    cmpne r4, r8
+    ldrbne r4, [r0, #7]
+    cmpne r4, r8
+    moveq r12, #1
+    bx lr
 
 ; r4 = manager, r8 = the red LED of a pad that the firmware just sent, r6 = setting or -1, r9 = dimming. In SEQUENCER mode the
 ; pads behind it go out again where they changed: a tie set or taken away on a step changes the tail behind it, and the firmware
