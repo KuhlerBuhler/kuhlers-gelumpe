@@ -31,7 +31,9 @@ LCD_DARK, LCD_LIGHT = r.LCD_DARK, r.LCD_LIGHT
 DIRECTIONS = ("werkbank", "typenschild", "praegung")
 NAMES = {"werkbank": "Werkbank", "typenschild": "Typenschild", "praegung": "Prägung"}
 TABLE_Y, DASH_Y = 55, 53
-DASH_START, DASH_LENGTH = 49, 20
+DASH_START = 49                 # tube tip in the draw pose at the left end
+SWEEP, SWEEP_STEP = 48, 6       # one line per loop, drawn left to right
+DASH_LENGTH = SWEEP + 1
 BODY_X, BODY_Y = 8, 18
 NOSE = (29, 23)                 # lower edge of the original face, no new bulb
 SHOULDER = (40, 25)             # exactly the attachment in make_blechy.py
@@ -58,6 +60,8 @@ class State:
     pose: str = "draw"
     started: bool = True
     done: bool = False
+    shift: int = 0               # body travel along the line, 0 to SWEEP
+    eaten: int = 0               # pixels of the current line already drawn up
 
     @property
     def value(self):
@@ -108,27 +112,27 @@ MOTION_POSES = {
     "rise": MotionPose(1, (2, -2), 200),
     "settle": MotionPose(0, (2, -2), 400),
 }
-MOTION_CYCLE_MS = sum(p.duration_ms for p in MOTION_POSES.values())
 
 
-def motion_pose(elapsed_ms):
-    """Select the current pose directly, even after missed timer ticks.
+def loop_state(elapsed_ms, progress):
+    """Select the current loop frame directly, even after missed timer ticks.
 
     The display caller must also rate-limit progress/text updates to 200ms.
     This pure lookup never queues old frames for a catch-up burst.
     """
     if not math.isfinite(elapsed_ms):
         raise ValueError("Elapsed time must be finite")
-    phase = max(0, elapsed_ms) % MOTION_CYCLE_MS
-    for name, pose in MOTION_POSES.items():
-        if phase < pose.duration_ms:
-            return name
-        phase -= pose.duration_ms
-    return "settle"
+    cues = sweep_loop(progress)
+    phase = max(0, elapsed_ms) % sum(c.duration_ms for c in cues)
+    for cue in cues:
+        if phase < cue.duration_ms:
+            return cue.state
+        phase -= cue.duration_ms
+    return cues[-1].state
 
 
-def werkbank_origin(pose):
-    return BODY_X, BODY_Y + MOTION_POSES[pose].drop
+def werkbank_origin(pose, shift=0):
+    return BODY_X + shift, BODY_Y + MOTION_POSES[pose].drop
 
 
 def point(p):
@@ -258,9 +262,9 @@ def tube_geometry(origin, away=0.0, *, vector=TUBE_VECTOR, offset=None):
     return Tube(nose, start, tip, grip, shoulder, elbow)
 
 
-@lru_cache(maxsize=len(MOTION_POSES))
-def werkbank_tube(pose):
-    return tube_geometry(werkbank_origin(pose), vector=WORK_TUBE_VECTOR,
+@lru_cache(maxsize=256)
+def werkbank_tube(pose, shift=0):
+    return tube_geometry(werkbank_origin(pose, shift), vector=WORK_TUBE_VECTOR,
                          offset=MOTION_POSES[pose].tube_offset)
 
 
@@ -294,41 +298,42 @@ def percent(image, state, y=58, right=123, *, small=True):
 
 
 def draw_dashes(image, state):
-    """One continuous supply stays at the tip and shortens with real progress.
+    """One line per loop. Blechy draws it up from the left, the tip eats it.
 
-    No queue translates under Blechy. A stalled loader cannot consume or refill
-    material just because another gesture plays. Only done removes the last bit.
+    The line is a gesture, not the progress bar: percent and pupils carry the
+    loader's value. Done shows no line.
     """
+    if state.done:
+        return
     d = ImageDraw.Draw(image)
-    remaining = math.ceil(DASH_LENGTH * (1 - state.value) - 1e-8)
-    if remaining:
-        d.line((DASH_START, DASH_Y, DASH_START + remaining - 1, DASH_Y), fill=LIGHT)
+    left = DASH_START + state.eaten
+    if left <= DASH_START + SWEEP:
+        d.line((left, DASH_Y, DASH_START + SWEEP, DASH_Y), fill=LIGHT)
 
 
 def werkbank(state):
     image = blank()
     title(image, (4, 2, 72, 17))
     status(image, state, 86, 1)
-    text(image, "FEINSTES", 86, 13, small=True)
-    text(image, "GELUMPE", 86, 19, small=True)
+    text(image, "FEINSTES", 86, 11, small=True)
+    text(image, "GELUMPE", 86, 17, small=True)
     d = ImageDraw.Draw(image)
     d.line((4, TABLE_Y, 123, TABLE_Y), fill=LIGHT)
     # Chamfered tray and material stay at the same screen location.
-    d.line((45, TABLE_Y, 45, TABLE_Y-3, 46, TABLE_Y-4), fill=LIGHT)
-    d.line((76, TABLE_Y, 76, TABLE_Y-3, 75, TABLE_Y-4), fill=LIGHT)
     draw_dashes(image, state)
     pose = "settle" if state.done else state.pose if state.started else "ready"
-    origin = werkbank_origin(pose)
+    shift = state.shift
+    origin = werkbank_origin(pose, shift)
     # The figure dips behind the fixed table. Clip the complete arm/figure
     # layer, not just the body, so no pose can alter the edge or footer.
     gesture = blank()
     actor(gesture, origin, state.pupil, crop=TABLE_Y-origin[1])
     arm = ImageDraw.Draw(gesture)
-    hx = BODY_X + 8
+    hx = BODY_X + 8 + shift
     for finger in (0, 2, 4):
         arm.line((hx+finger, TABLE_Y-2, hx+finger, TABLE_Y-1), fill=LIGHT)
     arm.line((origin[0]+16, origin[1]+25, hx+3, TABLE_Y-2), fill=LIGHT)
-    draw_tube(gesture, werkbank_tube(pose))
+    draw_tube(gesture, werkbank_tube(pose, shift))
     # Opaque body coverage keeps the tray from showing through the dark body.
     coverage = blank()
     coverage.paste(body_mask().filter(ImageFilter.MaxFilter(3)), point(origin))
@@ -385,7 +390,7 @@ def praegung(state):
     return image
 
 
-def render_frame(direction, progress, *, pose="draw", started=True, done=False):
+def render_frame(direction, progress, *, pose="draw", started=True, done=False, shift=0, eaten=0):
     """Return a fresh 128x64 mode-1 image. Time never increases progress here.
 
     pose: one of MOTION_POSES. There is no continuous travel parameter and
@@ -397,34 +402,45 @@ def render_frame(direction, progress, *, pose="draw", started=True, done=False):
         raise ValueError(f"Unknown pose: {pose}")
     if not math.isfinite(progress):
         raise ValueError("Progress must be finite")
-    state = State(progress, pose, started, done)
+    state = State(progress, pose, started, done, shift, eaten)
     return {"werkbank": werkbank, "typenschild": typenschild, "praegung": praegung}[direction](state)
 
 
-def demo_timeline():
-    """Three pulls at <=5 FPS; example progress changes during contact only.
+def sweep_loop(start=0.42, end=None):
+    """One GIF-like loop: set the tube, draw one line left to right, stop.
 
-    More images are intentional. The cap is updates per second, not the
-    duration of the loading process or the total number of distinct images.
+    The loop ends with Blechy standing at the right and the line gone. The next
+    loop starts again at the left with a new line, as a cut, no walk back.
+    Progress comes from the loader; the demo only lets it grow while drawing.
     """
+    end = start if end is None else end
+    steps = SWEEP // SWEEP_STEP
+    cues = [Cue(State(start, "ready"), 400),
+            Cue(State(start, "lower"), MIN_FRAME_MS),
+            Cue(State(start, "reach"), MIN_FRAME_MS)]
+    for i in range(steps + 1):
+        shift = i * SWEEP_STEP
+        value = start + (end - start) * i / steps
+        cues.append(Cue(State(value, "draw", shift=shift, eaten=shift), MIN_FRAME_MS))
+    gone = SWEEP + 1
+    cues += [Cue(State(end, "lift", shift=SWEEP, eaten=gone), MIN_FRAME_MS),
+             Cue(State(end, "rise", shift=SWEEP, eaten=gone), MIN_FRAME_MS),
+             Cue(State(end, "settle", shift=SWEEP, eaten=gone), 800)]
+    return cues
+
+
+def demo_timeline():
+    """Three loops at <=5 FPS, then done. Only an example, never a boot length."""
     cues = [Cue(State(0, "ready", started=False), 600)]
-    progress = 0.0
     for pull in range(3):
-        for name, pose in MOTION_POSES.items():
-            if name == "draw":
-                for part in (0.5, 1.0):
-                    progress = min(0.99, (pull+part)/3)
-                    cues.append(Cue(State(progress, name), MIN_FRAME_MS))
-            else:
-                cues.append(Cue(State(progress, name), pose.duration_ms))
-    cues.append(Cue(State(1, "settle", done=True), 1000))
+        cues += sweep_loop(pull / 3, min(0.99, (pull + 1) / 3))
+    cues.append(Cue(State(1, "settle", done=True, shift=SWEEP, eaten=SWEEP + 1), 1000))
     return cues
 
 
 def motion_timeline(progress=0.42):
-    """One gesture at <=5 FPS, with no progress animation hidden in the loop."""
-    return [Cue(State(progress, name), pose.duration_ms)
-            for name, pose in MOTION_POSES.items()]
+    """One loop with fixed loader data, to judge the movement alone."""
+    return sweep_loop(progress)
 
 
 def layout_timeline():
@@ -582,13 +598,15 @@ def export_sequence(name, frames, durations, preview_dir, raw_dir, *, palette="l
 
 def sequence_frames(direction, timeline):
     return [render_frame(direction, cue.state.progress, pose=cue.state.pose,
-                         started=cue.state.started, done=cue.state.done) for cue in timeline]
+                         started=cue.state.started, done=cue.state.done,
+                         shift=cue.state.shift, eaten=cue.state.eaten) for cue in timeline]
 
 
 def timeline_metadata(timeline):
     return [{"frame": f"{i:03d}.png", "duration_ms": cue.duration_ms,
              "progress": cue.state.value, "pose": cue.state.pose,
-             "done": cue.state.done, "started": cue.state.started}
+             "done": cue.state.done, "started": cue.state.started,
+             "shift": cue.state.shift, "eaten": cue.state.eaten}
             for i, cue in enumerate(timeline)]
 
 
@@ -623,7 +641,7 @@ def main():
             loop_result = export_sequence("werkbank-loop", motion_frames,
                                           [cue.duration_ms for cue in motion], preview_dir, raw_dir,
                                           palette=args.palette, include_loop=True)
-            loop_result["kind"] = "recurring gesture at up to 5 FPS, fixed 42 percent"
+            loop_result["kind"] = "one line drawn left to right at up to 5 FPS, fixed 42 percent"
             loop_result["timeline"] = timeline_metadata(motion)
             result["motion_loop"] = loop_result
             # Stable, explicit links for reviewing the corrected frame rate.

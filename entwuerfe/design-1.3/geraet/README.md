@@ -1,8 +1,10 @@
-# Blechy: eine klare Bewegung bei höchstens 5 FPS
+# Blechy: eine Line je Schleife, höchstens 5 FPS
 
 Stand 19.10.2026. Die [Übergabe](uebergabe-2026-10-19.yaml) und die anschließende Rückmeldung sind die Grundlage.
 Die Gestaltung der Werkbank mit hellem Originalgesicht, festem BLECH und Fußzeile bleibt. Die Bewegung ist
-überarbeitet: Blechy setzt das Röhrchen an, beugt sich kurz zum Ziehen und setzt wieder ab.
+überarbeitet (Rückmeldung 19.10. abends): eine Schleife wie ein GIF. Blechy setzt das Röhrchen an, zieht die Line
+von links nach rechts weg und bleibt rechts stehen. Dann fängt die Schleife links mit einer neuen Line wieder an,
+als harter Schnitt, ohne Rückweg.
 
 **Die Vorgabe lautet höchstens fünf Bilder pro Sekunde, nicht fünf Bilder insgesamt.** Jeder Bildzustand bleibt
 mindestens 200 ms sichtbar. Das gilt auch für kurze Zwischenbilder, Prozentänderungen und den letzten Zustand
@@ -17,31 +19,25 @@ früheren Layoutstudien in den Farben und Schriften der App, auch in nativen 128
 
 ![Werkbank mit höchstens 5 FPS](vorschau/neu/werkbank-5fps.gif)
 
-Die Demo zeigt drei Züge, eine kürzer werdende Line, stufenweise größere Pupillen und den Wechsel von TRIBE zu
-LADEN und LAEUFT. Sie dauert sieben Sekunden und enthält 25 gespeicherte GIF-Bilder. Das erste identische
-Bildpaar wird vom GIF-Encoder zu einer längeren Haltezeit zusammengefasst. Die Beispieldauer verlängert keinen
+Die Demo zeigt drei Schleifen, stufenweise größere Pupillen, die Prozentzahl und den Wechsel von TRIBE zu
+LADEN und LAEUFT. Die Line ist hier Geste, nicht Balken: den Fortschritt tragen Prozentzahl und Pupillen. Die Beispieldauer verlängert keinen
 Gerätestart: Der echte Lader darf jederzeit zum aktuellen Fortschritt oder zum fertigen Hauptbild springen.
 
 ### Nur die Bewegung, höchstens 5 FPS
 
 ![Bewegung bei festem Fortschritt](vorschau/neu/werkbank-loop-5fps.gif)
 
-Hier bleiben die 42 Prozent, die Pupillengröße und die Materialmenge bewusst gleich. So lässt sich die Bewegung
-für sich ansehen. Ein Durchlauf hat sieben Bildschritte über 1,6 Sekunden. Für den Rückweg werden Posen des
-Hinwegs wiederverwendet; deshalb sind nur fünf verschiedene vollständige Raster nötig.
+Hier bleiben die 42 Prozent und die Pupillengröße gleich. Ein Durchlauf hat 15 Bilder über 3,8 Sekunden.
 
 | Schritt | Haltung | Haltezeit |
 |---|---|---:|
-| Bereit | Röhrchen vom Gesicht abgesetzt | 200 ms |
-| Senken | Kopf einen Pixel tiefer, Hand führt das Rohr | 200 ms |
-| Ansetzen | Noch einen Pixel tiefer, Rohr kurz vor dem Kontakt | 200 ms |
-| Ziehen | Drei Pixel unter der Ausgangshöhe, Rohr an Nase und Line | 200 ms |
-| Lösen | Rohr hebt zuerst von Nase und Line ab | 200 ms |
-| Aufrichten | Kopf und Arm gehen zurück | 200 ms |
-| Pause | Ruhige Haltung nahe dem Ausgangsbild | 400 ms |
+| Bereit | links, volle Line, Röhrchen abgesetzt | 400 ms |
+| Senken, Ansetzen | Kopf zwei Pixel tiefer, Rohr kurz vor der Line | 2 × 200 ms |
+| Ziehen | Rohr auf der Line, Blechy rückt in 6-Pixel-Schritten 48 Pixel nach rechts, die Spitze frisst die Line | 9 × 200 ms |
+| Lösen, Aufrichten | rechts, Line weg | 2 × 200 ms |
+| Stehen | rechts, ruhige Haltung | 800 ms |
 
-In der Ladedemo dauert der Kontakt 400 ms: Zwei Bilder von je 200 ms zeigen dort den tatsächlichen
-Beispielfortschritt. Die übrigen Posen verbrauchen kein Material.
+Danach Schnitt zurück auf "Bereit". Tisch, BLECH, Textspalte und Fußzeile bleiben in jedem Bild gleich.
 
 ### Abschied im selben Zeitlimit
 
@@ -57,17 +53,15 @@ auch dieser Ablauf unter der FPS-Grenze und passt weiterhin in das vorhandene 10
 **Blechy beugt sich an einem festen Ort.** Der Körper bleibt bei derselben X-Position. Der Kopf geht in einzelnen
 Pixelschritten höchstens drei Pixel nach unten und wieder zurück. Die linke Hand hält ihre festen Pixel auf dem
 Tisch. Die gesamte Figuren- und Armzeichnung endet oberhalb der Tischkante; Fußzeile und BLECH bleiben frei.
-Fortschritt verschiebt den Körper nicht mehr seitlich. Es gibt keinen `travel`-Parameter mehr.
+Fortschritt verschiebt den Körper nicht seitlich; nur die Schleife tut das (`shift`, 0 bis 48).
 
 **Die Hand hält ein starres Röhrchen.** In der Werkbank beträgt sein Vektor 12 × 9 Pixel, also 15 Pixel Länge.
 In der tiefsten Pose liegen Nase bei `(37, 44)` und Rohrspitze bei `(49, 53)` exakt auf der Materialhöhe. Der
 Griff bleibt bei 63 Prozent der Achse; beide Armstücke bleiben neun Pixel lang. Absetzen verschiebt das ganze
 Rohr mit der Hand. Es gibt weder eine wachsende Nase noch ein länger werdendes Rohr.
 
-**Eine zusammenhängende Line liegt direkt an der Kontaktstelle.** Der Vorrat beginnt immer an der festen
-Rohrspitze und wird mit echtem Fortschritt zum Rohr hin kürzer. Es werden keine entfernten Striche abgesaugt
-und keine Reihe unter dem stillstehenden Körper vorbeigeschoben. Bei einem hängenden Lader bleiben Länge und
-Prozent unverändert; die kleine Körperbewegung darf weiterlaufen. Es erscheint kein neues Material pro Runde.
+**Eine Line je Schleife.** Sie liegt bei y 53 von x 49 bis 97. Beim Ziehen fehlt alles links der Rohrspitze
+(`eaten`). Bei einem hängenden Lader läuft die Schleife weiter, Prozent und Pupillen bleiben stehen.
 
 **Das Originalgesicht bleibt erhalten.** Gesicht, Augenabstand, Augenringe und Braue stammen aus den vorhandenen
 56×56-Sprites. Gesicht hell, Pupillen dunkel, eine Lichtkante von einem Pixel um den dunklen Körper. Die
@@ -108,8 +102,9 @@ Geräte-Vorgabe für reduzierte Bewegung ist die begrenzte Bildrate; sie bedeute
 
 ## Echten Fortschritt anschließen
 
-`render_frame(direction, progress, pose=..., started=..., done=...)` erzeugt ein neues Pillow-Bild ohne Uhr,
-Zufall oder Dateiausgabe. `motion_pose(elapsed_ms)` liefert die aktuelle Haltung aus der Bewegungsschleife.
+`render_frame(direction, progress, pose=..., started=..., done=..., shift=..., eaten=...)` erzeugt ein neues
+Pillow-Bild ohne Uhr, Zufall oder Dateiausgabe. `loop_state(elapsed_ms, progress)` liefert den aktuellen Zustand
+aus der Schleife.
 Verpasste Zeitpunkte werden übersprungen; es gibt keine nachzuholende Bilderschlange.
 
 Der spätere Display-Aufrufer muss **alle** Bildänderungen gemeinsam auf mindestens 200 ms Abstand begrenzen,
@@ -118,8 +113,9 @@ möglicher Aufruf sieht so aus; `now_ms`, `last_draw_ms` und die Laderdaten geh�
 
 ```python
 if now_ms - last_draw_ms >= MIN_FRAME_MS:
-    frame = render_frame("werkbank", progress,
-                         pose=motion_pose(now_ms), done=loader_done)
+    st = loop_state(now_ms, progress)
+    frame = render_frame("werkbank", progress, pose=st.pose, shift=st.shift,
+                         eaten=st.eaten, done=loader_done)
     last_draw_ms = now_ms
     # frame an den Display-Aufrufer geben
 ```
@@ -155,15 +151,15 @@ umgestellt.
 
 | Folge | GIF-Bilder | Unterschiedliche Raster | Kürzeste Haltezeit | Bildwechsel höchstens |
 |---|---:|---:|---:|---:|
-| Werkbank, Ladedemo | 25 | 21 | 200 ms | 5 pro Sekunde |
-| Werkbank, Bewegung bei 42 Prozent | 7 | 5 | 200 ms | 5 pro Sekunde |
+| Werkbank, Ladedemo | 46 | 46 | 200 ms | 5 pro Sekunde |
+| Werkbank, Schleife bei 42 Prozent | 15 | 15 | 200 ms | 5 pro Sekunde |
 | Ausschalten, ohne GIF-Wiederholungspause | 5 | 5 | 200 ms | 5 pro Sekunde |
 
-Die Bewegungsschleife schaltet höchstens 269 Pixel und fünf LCD-Seiten pro Wechsel um, einschließlich des
-Rücksprungs zum Anfang. Die Ladedemo erreicht 286 Pixel und sechs Seiten; ihr Neustart im GIF ist kein weiterer
-Ladeschritt. Wenige Posen und begrenzte Bildrate ersetzen keine Messung des tatsächlichen LCD-Nachziehens.
+Ein Schritt beim Ziehen schaltet einige hundert Pixel, der Schnitt zurück an den Anfang am meisten: 803 Pixel auf
+höchstens fünf LCD-Seiten (Schleife) bzw. sieben (Demo). Das ist der Preis für die Bewegung über den Schirm; auf
+dunklem Grund zieht das LCD helle Spuren, die sieht man weniger als dunkle. Messen am Gerät steht aus.
 
-Die 16 gezielten Python-Prüfungen sichern unter anderem tatsächliche GIF-Haltezeiten, pixelgenaue Ausgabe in
+Die 17 gezielten Python-Prüfungen sichern unter anderem tatsächliche GIF-Haltezeiten, pixelgenaue Ausgabe in
 1×/4×, feste Bildbereiche, fehlenden Körperversatz durch Fortschritt, Rohr- und Griffgeometrie, beide Bitordnungen,
 Controllerinvertierung und das 1000-ms-Ausschaltfenster. Der zuvor zu schnelle 100-/120-ms-Ablauf fällt durch
 diese Prüfungen. Auch ein einzelnes Bild von 199 ms wird unabhängig von der Durchschnittsrate zurückgewiesen.

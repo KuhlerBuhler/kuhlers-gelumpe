@@ -14,7 +14,8 @@ import anim
 
 def render_state(direction, state):
     return anim.render_frame(direction, state.progress, pose=state.pose,
-                             started=state.started, done=state.done)
+                             started=state.started, done=state.done,
+                             shift=state.shift, eaten=state.eaten)
 
 
 def material(state):
@@ -67,10 +68,9 @@ class FrameContractTests(unittest.TestCase):
                     self.assertEqual(render_state(direction, cue.state).crop(box).tobytes(),
                                      title.tobytes(), "Motion must not alter BLECH or its spacing")
 
-    def test_planted_hand_table_and_footer_do_not_move_with_the_gesture(self):
+    def test_title_table_and_footer_do_not_move_with_the_gesture(self):
         boxes = {
             "title": (4, 2, 76, 19),
-            "planted hand": (16, 53, 21, 55),
             "table edge": (4, 55, 124, 56),
             "footer including percent": (0, 56, 128, 64),
         }
@@ -80,9 +80,20 @@ class FrameContractTests(unittest.TestCase):
             expected = reference.crop(box)
             self.assertIsNotNone(expected.getbbox(), f"The protected {name} must be visible")
             for cue in timeline[1:]:
-                with self.subTest(region=name, pose=cue.state.pose):
+                with self.subTest(region=name, pose=cue.state.pose, shift=cue.state.shift):
                     self.assertEqual(render_state("werkbank", cue.state).crop(box).tobytes(),
                                      expected.tobytes())
+
+    def test_the_figure_never_touches_the_text_column(self):
+        for cue in anim.demo_timeline():
+            with self.subTest(pose=cue.state.pose, shift=cue.state.shift):
+                with_text = render_state("werkbank", cue.state)
+                column = with_text.crop((84, 0, 128, 24))
+                text_only = anim.blank()
+                anim.status(text_only, cue.state, 86, 1)
+                anim.text(text_only, "FEINSTES", 86, 11, small=True)
+                anim.text(text_only, "GELUMPE", 86, 17, small=True)
+                self.assertEqual(column.tobytes(), text_only.crop((84, 0, 128, 24)).tobytes())
 
     def test_progress_does_not_accumulate_horizontal_or_vertical_body_travel(self):
         def gesture_without_progress_pixels(progress, pose):
@@ -232,25 +243,24 @@ class ProgressTests(unittest.TestCase):
         for progress in (0, 0.14, 1/3, 0.54, 2/3, 0.999):
             expected = material(anim.State(progress))
             for elapsed in (0, 123, 438, 999, 1000, 1287, 50_003, 8_642_101):
-                pose = anim.motion_pose(elapsed)
-                state = anim.State(progress, pose)
-                with self.subTest(progress=progress, elapsed=elapsed, pose=pose):
-                    self.assertEqual(material(state), expected)
+                state = anim.loop_state(elapsed, progress)
+                with self.subTest(progress=progress, elapsed=elapsed, pose=state.pose):
                     self.assertEqual(state.percent, anim.State(progress).percent)
                     self.assertEqual(state.pupil, anim.State(progress).pupil)
 
-    def test_progress_jumps_remove_only_consumed_material_without_a_backlog(self):
-        previous = material(anim.State(0))
-        self.assertEqual(previous, frozenset((x, 53) for x in range(49, 69)))
-        for progress in (0.08, 0.72, 0.72, 0.91, 0.999):
-            current = material(anim.State(progress))
-            self.assertTrue(current <= previous, "Remaining lines must not translate or reappear")
-            self.assertEqual(min(x for x, _ in current), 49, "Supply stays anchored at the straw tip")
-            self.assertEqual(current, material(anim.State(progress, "settle")),
-                             "The current progress must work without replaying earlier poses")
+    def test_the_tip_eats_the_line_from_left_to_right(self):
+        full = material(anim.State(0.4))
+        self.assertEqual(full, frozenset((x, 53) for x in range(49, 49 + anim.SWEEP + 1)))
+        previous = full
+        for cue in anim.motion_timeline():
+            current = material(cue.state)
+            self.assertTrue(current <= previous, "Drawn line must not come back within one loop")
+            if current and cue.state.pose == "draw":
+                tip = anim.werkbank_tube(cue.state.pose, cue.state.shift).tip
+                self.assertGreaterEqual(min(x for x, _ in current), round(tip[0]),
+                                        "No line left behind the tube tip")
             previous = current
-        self.assertLess(len(previous), len(material(anim.State(0))))
-        self.assertFalse(material(anim.State(1, done=True)))
+        self.assertFalse(previous, "A loop ends with the line gone")
 
     def test_completion_immediately_interrupts_every_motion_pose(self):
         expected = anim.render_frame("werkbank", 1, pose="settle", done=True).tobytes()
@@ -261,21 +271,21 @@ class ProgressTests(unittest.TestCase):
 
 
 class MotionTests(unittest.TestCase):
-    def test_the_cycle_uses_discrete_poses_with_fixed_loader_data(self):
+    def test_the_loop_draws_left_to_right_with_fixed_loader_data(self):
         timeline = anim.motion_timeline(progress=0.42)
-        self.assertEqual([cue.state.pose for cue in timeline], list(anim.MOTION_POSES))
         self.assertEqual({cue.state.progress for cue in timeline}, {0.42})
         self.assertTrue(all(cue.state.started and not cue.state.done for cue in timeline))
-        self.assertGreater(len({render_state("werkbank", cue.state).tobytes() for cue in timeline}), 1,
-                           "The gesture must visibly move")
+        shifts = [cue.state.shift for cue in timeline]
+        self.assertEqual(shifts, sorted(shifts), "Within a loop Blechy only moves right")
+        self.assertEqual((shifts[0], shifts[-1]), (0, anim.SWEEP))
         boundary = 0
         cycle = sum(cue.duration_ms for cue in timeline)
         for cue in timeline:
-            self.assertGreaterEqual(cue.duration_ms, 200, "The live pose timer must also respect the 5 FPS limit")
+            self.assertGreaterEqual(cue.duration_ms, 200, "The live loop timer must also respect the 5 FPS limit")
             for elapsed in (boundary, boundary+cue.duration_ms-1,
                             boundary+37*cycle, boundary+100_000*cycle):
-                self.assertEqual(anim.motion_pose(elapsed), cue.state.pose,
-                                 "Missed timer ticks must select the current pose without a backlog")
+                self.assertEqual(anim.loop_state(elapsed, 0.42), cue.state,
+                                 "Missed timer ticks must select the current frame without a backlog")
             boundary += cue.duration_ms
 
     def test_tube_grip_and_arm_bones_stay_rigid_in_the_actual_poses(self):

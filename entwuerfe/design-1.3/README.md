@@ -104,10 +104,9 @@ zweiter Knopf, Code ansehen als Link.
 
 ### Aktuell: Werkbank mit höchstens 5 FPS
 
-Die Werkbank behält ihre Gestaltung, bekommt aber eine neue Bewegung: Blechy setzt das Röhrchen an, beugt sich
-an einem festen Ort und setzt wieder ab. Die linke Hand und der Tisch bleiben stehen. **Höchstens fünf Bilder
-pro Sekunde** bedeutet mindestens 200 ms pro Bild, keine Begrenzung auf fünf Bilder insgesamt. Die Ladedemo
-enthält 25 GIF-Bilder über sieben Sekunden; eine eigene Schleife zeigt nur die Bewegung bei festen 42 Prozent.
+Die Werkbank behält ihre Gestaltung. Neue Bewegung als Schleife: Blechy zieht die Line von links nach rechts weg,
+bleibt rechts stehen, dann Schnitt und links liegt eine neue Line. **Höchstens fünf Bilder pro Sekunde**, jedes
+Bild mindestens 200 ms. Eine eigene Schleife zeigt nur die Bewegung bei festen 42 Prozent.
 
 ![Werkbank mit höchstens 5 FPS](geraet/vorschau/neu/werkbank-5fps.gif)
 

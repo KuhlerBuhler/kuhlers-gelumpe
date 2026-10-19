@@ -10,21 +10,21 @@
   "motion_steps": 7,
   "directions": {
     "werkbank": {
-      "logical_frames": 26,
-      "gif_frames": 25,
-      "unique_frames": 21,
-      "duration_ms": 7000,
+      "logical_frames": 47,
+      "gif_frames": 46,
+      "unique_frames": 46,
+      "duration_ms": 13000,
       "includes_loop_transition": false,
       "minimum_frame_duration_ms": 200,
       "maximum_update_fps": 5.0,
-      "changed_pixels_max": 286,
-      "changed_pixels_mean": 211.62,
-      "changed_bytes_max": 120,
-      "changed_pages_max": 6,
+      "changed_pixels_max": 803,
+      "changed_pixels_mean": 387.02,
+      "changed_bytes_max": 266,
+      "changed_pages_max": 7,
       "full_frame_bytes": 1024,
-      "full_frame_table_bytes": 21504,
-      "dynamic_byte_positions": 175,
-      "base_plus_indexed_states_estimate_bytes": 5049,
+      "full_frame_table_bytes": 47104,
+      "dynamic_byte_positions": 420,
+      "base_plus_indexed_states_estimate_bytes": 21184,
       "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
       "kind": "loading example at up to 5 FPS",
       "timeline": [
@@ -34,15 +34,19 @@
           "progress": 0.0,
           "pose": "ready",
           "done": false,
-          "started": false
+          "started": false,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "001.png",
-          "duration_ms": 200,
+          "duration_ms": 400,
           "progress": 0.0,
           "pose": "ready",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "002.png",
@@ -50,7 +54,9 @@
           "progress": 0.0,
           "pose": "lower",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "003.png",
@@ -58,211 +64,469 @@
           "progress": 0.0,
           "pose": "reach",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "004.png",
           "duration_ms": 200,
-          "progress": 0.16666666666666666,
+          "progress": 0.0,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "005.png",
           "duration_ms": 200,
-          "progress": 0.3333333333333333,
+          "progress": 0.041666666666666664,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 6,
+          "eaten": 6
         },
         {
           "frame": "006.png",
           "duration_ms": 200,
-          "progress": 0.3333333333333333,
-          "pose": "lift",
+          "progress": 0.08333333333333333,
+          "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 12,
+          "eaten": 12
         },
         {
           "frame": "007.png",
           "duration_ms": 200,
-          "progress": 0.3333333333333333,
-          "pose": "rise",
+          "progress": 0.125,
+          "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 18,
+          "eaten": 18
         },
         {
           "frame": "008.png",
-          "duration_ms": 400,
-          "progress": 0.3333333333333333,
-          "pose": "settle",
+          "duration_ms": 200,
+          "progress": 0.16666666666666666,
+          "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 24,
+          "eaten": 24
         },
         {
           "frame": "009.png",
           "duration_ms": 200,
-          "progress": 0.3333333333333333,
-          "pose": "ready",
+          "progress": 0.20833333333333331,
+          "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 30,
+          "eaten": 30
         },
         {
           "frame": "010.png",
           "duration_ms": 200,
-          "progress": 0.3333333333333333,
-          "pose": "lower",
+          "progress": 0.25,
+          "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 36,
+          "eaten": 36
         },
         {
           "frame": "011.png",
           "duration_ms": 200,
-          "progress": 0.3333333333333333,
-          "pose": "reach",
+          "progress": 0.29166666666666663,
+          "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 42,
+          "eaten": 42
         },
         {
           "frame": "012.png",
           "duration_ms": 200,
-          "progress": 0.5,
+          "progress": 0.3333333333333333,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 48,
+          "eaten": 48
         },
         {
           "frame": "013.png",
           "duration_ms": 200,
-          "progress": 0.6666666666666666,
-          "pose": "draw",
+          "progress": 0.3333333333333333,
+          "pose": "lift",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 48,
+          "eaten": 49
         },
         {
           "frame": "014.png",
           "duration_ms": 200,
-          "progress": 0.6666666666666666,
-          "pose": "lift",
+          "progress": 0.3333333333333333,
+          "pose": "rise",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 48,
+          "eaten": 49
         },
         {
           "frame": "015.png",
-          "duration_ms": 200,
-          "progress": 0.6666666666666666,
-          "pose": "rise",
+          "duration_ms": 800,
+          "progress": 0.3333333333333333,
+          "pose": "settle",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 48,
+          "eaten": 49
         },
         {
           "frame": "016.png",
           "duration_ms": 400,
-          "progress": 0.6666666666666666,
-          "pose": "settle",
+          "progress": 0.3333333333333333,
+          "pose": "ready",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "017.png",
           "duration_ms": 200,
-          "progress": 0.6666666666666666,
-          "pose": "ready",
+          "progress": 0.3333333333333333,
+          "pose": "lower",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "018.png",
           "duration_ms": 200,
-          "progress": 0.6666666666666666,
-          "pose": "lower",
+          "progress": 0.3333333333333333,
+          "pose": "reach",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "019.png",
           "duration_ms": 200,
-          "progress": 0.6666666666666666,
-          "pose": "reach",
+          "progress": 0.3333333333333333,
+          "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "020.png",
           "duration_ms": 200,
-          "progress": 0.8333333333333334,
+          "progress": 0.375,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 6,
+          "eaten": 6
         },
         {
           "frame": "021.png",
           "duration_ms": 200,
-          "progress": 0.99,
+          "progress": 0.41666666666666663,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 12,
+          "eaten": 12
         },
         {
           "frame": "022.png",
           "duration_ms": 200,
-          "progress": 0.99,
-          "pose": "lift",
+          "progress": 0.4583333333333333,
+          "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 18,
+          "eaten": 18
         },
         {
           "frame": "023.png",
           "duration_ms": 200,
-          "progress": 0.99,
-          "pose": "rise",
+          "progress": 0.5,
+          "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 24,
+          "eaten": 24
         },
         {
           "frame": "024.png",
-          "duration_ms": 400,
-          "progress": 0.99,
-          "pose": "settle",
+          "duration_ms": 200,
+          "progress": 0.5416666666666666,
+          "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 30,
+          "eaten": 30
         },
         {
           "frame": "025.png",
+          "duration_ms": 200,
+          "progress": 0.5833333333333333,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 36,
+          "eaten": 36
+        },
+        {
+          "frame": "026.png",
+          "duration_ms": 200,
+          "progress": 0.625,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 42,
+          "eaten": 42
+        },
+        {
+          "frame": "027.png",
+          "duration_ms": 200,
+          "progress": 0.6666666666666666,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 48,
+          "eaten": 48
+        },
+        {
+          "frame": "028.png",
+          "duration_ms": 200,
+          "progress": 0.6666666666666666,
+          "pose": "lift",
+          "done": false,
+          "started": true,
+          "shift": 48,
+          "eaten": 49
+        },
+        {
+          "frame": "029.png",
+          "duration_ms": 200,
+          "progress": 0.6666666666666666,
+          "pose": "rise",
+          "done": false,
+          "started": true,
+          "shift": 48,
+          "eaten": 49
+        },
+        {
+          "frame": "030.png",
+          "duration_ms": 800,
+          "progress": 0.6666666666666666,
+          "pose": "settle",
+          "done": false,
+          "started": true,
+          "shift": 48,
+          "eaten": 49
+        },
+        {
+          "frame": "031.png",
+          "duration_ms": 400,
+          "progress": 0.6666666666666666,
+          "pose": "ready",
+          "done": false,
+          "started": true,
+          "shift": 0,
+          "eaten": 0
+        },
+        {
+          "frame": "032.png",
+          "duration_ms": 200,
+          "progress": 0.6666666666666666,
+          "pose": "lower",
+          "done": false,
+          "started": true,
+          "shift": 0,
+          "eaten": 0
+        },
+        {
+          "frame": "033.png",
+          "duration_ms": 200,
+          "progress": 0.6666666666666666,
+          "pose": "reach",
+          "done": false,
+          "started": true,
+          "shift": 0,
+          "eaten": 0
+        },
+        {
+          "frame": "034.png",
+          "duration_ms": 200,
+          "progress": 0.6666666666666666,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 0,
+          "eaten": 0
+        },
+        {
+          "frame": "035.png",
+          "duration_ms": 200,
+          "progress": 0.7070833333333333,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 6,
+          "eaten": 6
+        },
+        {
+          "frame": "036.png",
+          "duration_ms": 200,
+          "progress": 0.7474999999999999,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 12,
+          "eaten": 12
+        },
+        {
+          "frame": "037.png",
+          "duration_ms": 200,
+          "progress": 0.7879166666666666,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 18,
+          "eaten": 18
+        },
+        {
+          "frame": "038.png",
+          "duration_ms": 200,
+          "progress": 0.8283333333333334,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 24,
+          "eaten": 24
+        },
+        {
+          "frame": "039.png",
+          "duration_ms": 200,
+          "progress": 0.8687499999999999,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 30,
+          "eaten": 30
+        },
+        {
+          "frame": "040.png",
+          "duration_ms": 200,
+          "progress": 0.9091666666666667,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 36,
+          "eaten": 36
+        },
+        {
+          "frame": "041.png",
+          "duration_ms": 200,
+          "progress": 0.9495833333333333,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 42,
+          "eaten": 42
+        },
+        {
+          "frame": "042.png",
+          "duration_ms": 200,
+          "progress": 0.99,
+          "pose": "draw",
+          "done": false,
+          "started": true,
+          "shift": 48,
+          "eaten": 48
+        },
+        {
+          "frame": "043.png",
+          "duration_ms": 200,
+          "progress": 0.99,
+          "pose": "lift",
+          "done": false,
+          "started": true,
+          "shift": 48,
+          "eaten": 49
+        },
+        {
+          "frame": "044.png",
+          "duration_ms": 200,
+          "progress": 0.99,
+          "pose": "rise",
+          "done": false,
+          "started": true,
+          "shift": 48,
+          "eaten": 49
+        },
+        {
+          "frame": "045.png",
+          "duration_ms": 800,
+          "progress": 0.99,
+          "pose": "settle",
+          "done": false,
+          "started": true,
+          "shift": 48,
+          "eaten": 49
+        },
+        {
+          "frame": "046.png",
           "duration_ms": 1000,
           "progress": 1.0,
           "pose": "settle",
           "done": true,
-          "started": true
+          "started": true,
+          "shift": 48,
+          "eaten": 49
         }
       ],
       "motion_loop": {
-        "logical_frames": 7,
-        "gif_frames": 7,
-        "unique_frames": 5,
-        "duration_ms": 1600,
+        "logical_frames": 15,
+        "gif_frames": 15,
+        "unique_frames": 15,
+        "duration_ms": 3800,
         "includes_loop_transition": true,
         "minimum_frame_duration_ms": 200,
         "maximum_update_fps": 5.0,
-        "changed_pixels_max": 269,
-        "changed_pixels_mean": 231.71,
-        "changed_bytes_max": 114,
+        "changed_pixels_max": 803,
+        "changed_pixels_mean": 397.6,
+        "changed_bytes_max": 266,
         "changed_pages_max": 5,
         "full_frame_bytes": 1024,
-        "full_frame_table_bytes": 5120,
-        "dynamic_byte_positions": 124,
-        "base_plus_indexed_states_estimate_bytes": 1892,
+        "full_frame_table_bytes": 15360,
+        "dynamic_byte_positions": 382,
+        "base_plus_indexed_states_estimate_bytes": 7518,
         "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
-        "kind": "recurring gesture at up to 5 FPS, fixed 42 percent",
+        "kind": "one line drawn left to right at up to 5 FPS, fixed 42 percent",
         "timeline": [
           {
             "frame": "000.png",
-            "duration_ms": 200,
+            "duration_ms": 400,
             "progress": 0.42,
             "pose": "ready",
             "done": false,
-            "started": true
+            "started": true,
+            "shift": 0,
+            "eaten": 0
           },
           {
             "frame": "001.png",
@@ -270,7 +534,9 @@
             "progress": 0.42,
             "pose": "lower",
             "done": false,
-            "started": true
+            "started": true,
+            "shift": 0,
+            "eaten": 0
           },
           {
             "frame": "002.png",
@@ -278,7 +544,9 @@
             "progress": 0.42,
             "pose": "reach",
             "done": false,
-            "started": true
+            "started": true,
+            "shift": 0,
+            "eaten": 0
           },
           {
             "frame": "003.png",
@@ -286,31 +554,119 @@
             "progress": 0.42,
             "pose": "draw",
             "done": false,
-            "started": true
+            "started": true,
+            "shift": 0,
+            "eaten": 0
           },
           {
             "frame": "004.png",
             "duration_ms": 200,
             "progress": 0.42,
-            "pose": "lift",
+            "pose": "draw",
             "done": false,
-            "started": true
+            "started": true,
+            "shift": 6,
+            "eaten": 6
           },
           {
             "frame": "005.png",
             "duration_ms": 200,
             "progress": 0.42,
-            "pose": "rise",
+            "pose": "draw",
             "done": false,
-            "started": true
+            "started": true,
+            "shift": 12,
+            "eaten": 12
           },
           {
             "frame": "006.png",
-            "duration_ms": 400,
+            "duration_ms": 200,
+            "progress": 0.42,
+            "pose": "draw",
+            "done": false,
+            "started": true,
+            "shift": 18,
+            "eaten": 18
+          },
+          {
+            "frame": "007.png",
+            "duration_ms": 200,
+            "progress": 0.42,
+            "pose": "draw",
+            "done": false,
+            "started": true,
+            "shift": 24,
+            "eaten": 24
+          },
+          {
+            "frame": "008.png",
+            "duration_ms": 200,
+            "progress": 0.42,
+            "pose": "draw",
+            "done": false,
+            "started": true,
+            "shift": 30,
+            "eaten": 30
+          },
+          {
+            "frame": "009.png",
+            "duration_ms": 200,
+            "progress": 0.42,
+            "pose": "draw",
+            "done": false,
+            "started": true,
+            "shift": 36,
+            "eaten": 36
+          },
+          {
+            "frame": "010.png",
+            "duration_ms": 200,
+            "progress": 0.42,
+            "pose": "draw",
+            "done": false,
+            "started": true,
+            "shift": 42,
+            "eaten": 42
+          },
+          {
+            "frame": "011.png",
+            "duration_ms": 200,
+            "progress": 0.42,
+            "pose": "draw",
+            "done": false,
+            "started": true,
+            "shift": 48,
+            "eaten": 48
+          },
+          {
+            "frame": "012.png",
+            "duration_ms": 200,
+            "progress": 0.42,
+            "pose": "lift",
+            "done": false,
+            "started": true,
+            "shift": 48,
+            "eaten": 49
+          },
+          {
+            "frame": "013.png",
+            "duration_ms": 200,
+            "progress": 0.42,
+            "pose": "rise",
+            "done": false,
+            "started": true,
+            "shift": 48,
+            "eaten": 49
+          },
+          {
+            "frame": "014.png",
+            "duration_ms": 800,
             "progress": 0.42,
             "pose": "settle",
             "done": false,
-            "started": true
+            "started": true,
+            "shift": 48,
+            "eaten": 49
           }
         ]
       }
@@ -340,7 +696,9 @@
           "progress": 0.0,
           "pose": "ready",
           "done": false,
-          "started": false
+          "started": false,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "001.png",
@@ -348,7 +706,9 @@
           "progress": 0.0,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "002.png",
@@ -356,7 +716,9 @@
           "progress": 0.06666666666666667,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "003.png",
@@ -364,7 +726,9 @@
           "progress": 0.13333333333333333,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "004.png",
@@ -372,7 +736,9 @@
           "progress": 0.19999999999999998,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "005.png",
@@ -380,7 +746,9 @@
           "progress": 0.26666666666666666,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "006.png",
@@ -388,7 +756,9 @@
           "progress": 0.3333333333333333,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "007.png",
@@ -396,7 +766,9 @@
           "progress": 0.3333333333333333,
           "pose": "lift",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "008.png",
@@ -404,7 +776,9 @@
           "progress": 0.3333333333333333,
           "pose": "lower",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "009.png",
@@ -412,7 +786,9 @@
           "progress": 0.3333334333333333,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "010.png",
@@ -420,7 +796,9 @@
           "progress": 0.39999999999999997,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "011.png",
@@ -428,7 +806,9 @@
           "progress": 0.4666666666666666,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "012.png",
@@ -436,7 +816,9 @@
           "progress": 0.5333333333333333,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "013.png",
@@ -444,7 +826,9 @@
           "progress": 0.6,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "014.png",
@@ -452,7 +836,9 @@
           "progress": 0.6666666666666666,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "015.png",
@@ -460,7 +846,9 @@
           "progress": 0.6666666666666666,
           "pose": "lift",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "016.png",
@@ -468,7 +856,9 @@
           "progress": 0.6666666666666666,
           "pose": "lower",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "017.png",
@@ -476,7 +866,9 @@
           "progress": 0.6666667666666666,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "018.png",
@@ -484,7 +876,9 @@
           "progress": 0.7333333333333334,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "019.png",
@@ -492,7 +886,9 @@
           "progress": 0.7999999999999999,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "020.png",
@@ -500,7 +896,9 @@
           "progress": 0.8666666666666667,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "021.png",
@@ -508,7 +906,9 @@
           "progress": 0.9333333333333332,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "022.png",
@@ -516,7 +916,9 @@
           "progress": 0.99,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "023.png",
@@ -524,7 +926,9 @@
           "progress": 1.0,
           "pose": "settle",
           "done": true,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         }
       ]
     },
@@ -553,7 +957,9 @@
           "progress": 0.0,
           "pose": "ready",
           "done": false,
-          "started": false
+          "started": false,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "001.png",
@@ -561,7 +967,9 @@
           "progress": 0.0,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "002.png",
@@ -569,7 +977,9 @@
           "progress": 0.06666666666666667,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "003.png",
@@ -577,7 +987,9 @@
           "progress": 0.13333333333333333,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "004.png",
@@ -585,7 +997,9 @@
           "progress": 0.19999999999999998,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "005.png",
@@ -593,7 +1007,9 @@
           "progress": 0.26666666666666666,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "006.png",
@@ -601,7 +1017,9 @@
           "progress": 0.3333333333333333,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "007.png",
@@ -609,7 +1027,9 @@
           "progress": 0.3333333333333333,
           "pose": "lift",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "008.png",
@@ -617,7 +1037,9 @@
           "progress": 0.3333333333333333,
           "pose": "lower",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "009.png",
@@ -625,7 +1047,9 @@
           "progress": 0.3333334333333333,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "010.png",
@@ -633,7 +1057,9 @@
           "progress": 0.39999999999999997,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "011.png",
@@ -641,7 +1067,9 @@
           "progress": 0.4666666666666666,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "012.png",
@@ -649,7 +1077,9 @@
           "progress": 0.5333333333333333,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "013.png",
@@ -657,7 +1087,9 @@
           "progress": 0.6,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "014.png",
@@ -665,7 +1097,9 @@
           "progress": 0.6666666666666666,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "015.png",
@@ -673,7 +1107,9 @@
           "progress": 0.6666666666666666,
           "pose": "lift",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "016.png",
@@ -681,7 +1117,9 @@
           "progress": 0.6666666666666666,
           "pose": "lower",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "017.png",
@@ -689,7 +1127,9 @@
           "progress": 0.6666667666666666,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "018.png",
@@ -697,7 +1137,9 @@
           "progress": 0.7333333333333334,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "019.png",
@@ -705,7 +1147,9 @@
           "progress": 0.7999999999999999,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "020.png",
@@ -713,7 +1157,9 @@
           "progress": 0.8666666666666667,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "021.png",
@@ -721,7 +1167,9 @@
           "progress": 0.9333333333333332,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "022.png",
@@ -729,7 +1177,9 @@
           "progress": 0.99,
           "pose": "draw",
           "done": false,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         },
         {
           "frame": "023.png",
@@ -737,7 +1187,9 @@
           "progress": 1.0,
           "pose": "settle",
           "done": true,
-          "started": true
+          "started": true,
+          "shift": 0,
+          "eaten": 0
         }
       ]
     }
