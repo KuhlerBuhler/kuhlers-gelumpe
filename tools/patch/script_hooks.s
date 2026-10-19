@@ -4,7 +4,9 @@ script_input_hook:
     push {r12, lr}
     ; The power key while the device still starts (no screen yet, or screen 0): the firmware takes it only after the start, which
     ; may wait a long time on a card that does not answer (device 18.10.: batteries out was the only way). The power hold
-    ; (GPIO 7.11) is let go at once, as Doom's error screen does. Not with EXIT held at power-on, not where it is not measured.
+    ; (GPIO 7.11) is let go once the key has been held for 5 s, as Doom's error screen does. Let go earlier, the message is dropped:
+    ; the firmware would switch off at the end of the start (device 19.10.: only a 5 s hold switches off). The key is read on its
+    ; pin, as the firmware's power manager does (0xC00172D0). Not with EXIT held at power-on, not where it is not measured.
     ldrb r1, [r0, #0x0c]
     cmp r1, #6
     bne input_power_no
@@ -32,6 +34,16 @@ input_power_screen:
     cmp r1, #0
     bne input_power_no
 input_power_off:
+    ldr r6, =POWER_HOLD_STEPS
+input_power_held:
+    ldr r1, =GPIO_IN67
+    ldr r1, [r1]
+    tst r1, #0x80000000
+    bne input_drop
+    mov r0, #POWER_HOLD_STEP_MS
+    bl OS_WAIT
+    subs r6, r6, #1
+    bne input_power_held
     ldr r0, =0x01E26000
     mov r1, #0
     mov r2, #3

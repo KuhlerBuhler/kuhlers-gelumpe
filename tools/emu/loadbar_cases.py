@@ -333,9 +333,12 @@ class FailingCard:
 def case_card_error(payload, flash):
     """A card that stops answering while the samples load: the loader ends with the card error and the overlay goes at once, so
     the firmware's window is seen (device 18.10.: the image stayed over it). The power key while the start still runs switches off
-    at once (it waited for the end of the start, batteries out was the way)."""
+    once held for 5 s (it waited for the end of the start, batteries out was the way); a short press does nothing, where
+    the firmware switches off at the end of the start."""
     import menu_cases
     from power_off_cases import POWER_KEY
+    from machine import pin
+    import power_off
     out = []
     dev = WatchedDev(bytes(payload), flash, 0)
     card = card_with(cardstore.card_folder(payload), 20, 4)
@@ -355,30 +358,45 @@ def case_card_error(payload, flash):
     out.append(entry("card_error_ends_the_overlay", ended and ended[0][1] == 4 and expect == 2 and not dev.m.asserts,
                      f"the loader returned {ended[0][1] if ended else None} at {round(ended[0][0], 2) if ended else None} s, the overlay state is then {expect:#x} (2: over)"))
     if menu_cases.has_menu(payload) and not synthaddr_is_synth(payload):
-        start = WatchedDev(bytes(payload), flash, 0)
-        card = card_with(cardstore.card_folder(payload), 20, 4)
-        hold = FailingCard(card, start)
-        start.m.insert_card(card)
-        start.run(0.5)
-        hold.after = 0.5
-        start.run(1.0)
+        def stuck_start(kill):
+            dev = WatchedDev(bytes(payload), flash, kill)
+            card = card_with(cardstore.card_folder(payload), 20, 4)
+            hold = FailingCard(card, dev)
+            dev.m.insert_card(card)
+            dev.window = []         # the firmware's power-off handler reached its one-second wait behind the "Power Off" box
+            dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, a, s, d, dev=dev: dev.window.append(dev.m.time_ns / 1e9),
+                              begin=power_off.WAIT_CALL, end=power_off.WAIT_CALL)
+            dev.run(0.5)
+            hold.after = 0.5
+            dev.run(1.0)
+            return dev
+
+        def press(dev, release_after, limit=7.0):
+            """The key goes down (pin GPIO 7.15 low, the panel sends 06 01) and comes up after release_after seconds, or never.
+            Returns the seconds until the power went (or limit)."""
+            dev.m.inputs[pin(7, 15)] = 0
+            dev.m.send(POWER_KEY)
+            t = 0.0
+            while dev.m.powered and t < limit:
+                if release_after is not None and t >= release_after:
+                    dev.m.inputs[pin(7, 15)] = 1
+                dev.run(0.05)
+                t += 0.05
+            return t
+
+        start = stuck_start(0)
         screen = start.screen()["number"]
-        start.m.send(POWER_KEY)
-        t = 0.0
-        while start.m.powered and t < 2.0:
-            start.run(0.05)
-            t += 0.05
-        held = WatchedDev(bytes(payload), flash, KILL)
-        card = card_with(cardstore.card_folder(payload), 20, 4)
-        stuck = FailingCard(card, held)
-        held.m.insert_card(card)
-        held.run(0.5)
-        stuck.after = 0.5
-        held.run(1.0)
-        held.m.send(POWER_KEY)
-        held.run(1.0)
-        out.append(entry("power_key_during_the_start", screen == 0 and not start.m.powered and t <= 0.3 and held.m.powered,
-                         f"screen {screen} while the start waits on the card, off {round(t, 2)} s after the power key; with EXIT held at power-on still on after 1 s (the firmware's way)"))
+        t = press(start, None)
+        short = stuck_start(0)
+        press(short, 1.0, 10.0)
+        held = stuck_start(KILL)
+        t_held = press(held, None)
+        out.append(entry("power_key_during_the_start", screen == 0 and not start.m.powered and 4.9 <= t <= 5.5 and not start.window
+                         and short.m.powered and not short.window and not held.m.powered and held.window,
+                         f"screen {screen} while the start waits on the card, off {round(t, 2)} s after the power key went down and stayed; "
+                         f"let go after 1 s still on after 10 s, past the end of the start: {short.m.powered}; "
+                         f"with EXIT held at power-on the firmware's way: its Power Off box at {[round(w, 2) for w in held.window]} s, "
+                         f"at the end of the start, off {round(t_held, 2)} s after the key"))
     return out
 
 
