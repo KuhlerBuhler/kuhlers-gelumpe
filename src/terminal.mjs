@@ -56,7 +56,7 @@ export class Terminal {
   /** Run a script in the emulator session that is connected; nothing involves the device. `print` gets a script's progress lines while it runs. */
   async runDirect(code, { print = null } = {}) {
     const s = this.device.session;
-    const release = s.reserve?.() ?? (() => {});
+    const release = s.reserve?.({ wait: true }) ?? (() => {});
     try {
       await s.idle?.();
       return await compile(code)(makeKorg({ session: () => s, emulator: this.emulator }, { print }));
