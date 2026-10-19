@@ -1,0 +1,7 @@
+# The renderer regenerates every timeline frame and optional packed snapshots.
+# Keep the native start/middle/end PNGs in Git for direct visual review.
+werkbank/
+typenschild/
+praegung/
+ausschalten/
+*.bin

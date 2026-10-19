@@ -102,6 +102,23 @@ zweiter Knopf, Code ansehen als Link.
 
 ## Gerät
 
+### Neue Richtungen: Werkbank, Typenschild, Prägung
+
+Der aktuelle Vergleich liegt in [geraet/vergleich.html](geraet/vergleich.html). Drei GIFs zeigen verschiedene
+Aufteilungen mit demselben Blechy, dunklem Grund und stufenweise wachsenden Pupillen. Die Werkbank behält die
+Strich-Handlung; beim Typenschild steht die vollständige Figur neben der Marke; bei Prägung füllt sich BLECH.
+Röhrchen, Griff und Arm haben jetzt eine gemeinsame Geometrie. Das helle Originalgesicht bleibt erhalten.
+
+[Ansehen, neu rendern und technische Grenzen](geraet/README.md). Erzeugt mit `python3 entwuerfe/design-1.3/geraet/anim.py`.
+Die alten Entwürfe darunter bleiben als Vergleich erhalten. Eine Richtung ist noch nicht ausgewählt; nichts davon
+ist in die Firmware eingebaut.
+
+![Werkbank](geraet/vorschau/neu/werkbank.gif)
+![Typenschild](geraet/vorschau/neu/typenschild.gif)
+![Prägung](geraet/vorschau/neu/praegung.gif)
+
+### Vorige Stände
+
 ![Start und Übergang](geraet/vorschau/uebergang-strip.png)
 ![Laden](geraet/vorschau/laden-strip.png)
 ![Aus](geraet/vorschau/aus-strip.png)
@@ -109,11 +126,11 @@ zweiter Knopf, Code ansehen als Link.
 Abgestimmt am 19.10. Was nicht mehr gilt (schlafender Start, Markenbild, Balken mit mitlaufenden Augen), liegt in
 `geraet/verworfen/`.
 
-### Rotzen (Stand 19.10., aktueller Vorschlag, Animation)
+### Rotzen (Stand 19.10., voriger Vorschlag, Animation)
 
 ![Rotzen](geraet/vorschau/rotzen.gif)
 
-Erzeugt von `geraet/anim.py` (nutzt die Helfer aus `render.py`).
+Erzeugt vom vorigen `geraet/anim.py`; der neue Renderer schreibt die drei Richtungen nach `vorschau/neu/`.
 
 - **Dunkelmodus als Standard:** der ganze Schirm ist gesetzt (dunkel), gemalt werden nur helle Pixel. Am Gerät
   beobachtet: ein Pixel kurz aus und wieder an schmiert weniger als an und wieder aus, Bewegung wirkt so schärfer.

@@ -1,0 +1,738 @@
+{
+  "width": 128,
+  "height": 64,
+  "bit_depth": 1,
+  "raw_png_black": "visibly dark",
+  "preview_palette": "lcd",
+  "device_timing_measured": false,
+  "demo_timing_only": true,
+  "directions": {
+    "werkbank": {
+      "logical_frames": 24,
+      "gif_frames": 24,
+      "unique_frames": 24,
+      "duration_ms": 8600,
+      "changed_pixels_max": 415,
+      "changed_pixels_mean": 263.48,
+      "changed_bytes_max": 140,
+      "changed_pages_max": 7,
+      "full_frame_bytes": 1024,
+      "full_frame_table_bytes": 24576,
+      "dynamic_byte_positions": 292,
+      "base_plus_indexed_states_estimate_bytes": 8616,
+      "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
+      "timeline": [
+        {
+          "frame": "000.png",
+          "duration_ms": 800,
+          "progress": 0.0,
+          "pose": "rest",
+          "travel": 0.0,
+          "done": false,
+          "started": false
+        },
+        {
+          "frame": "001.png",
+          "duration_ms": 320,
+          "progress": 0.0,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "002.png",
+          "duration_ms": 280,
+          "progress": 0.06666666666666667,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "003.png",
+          "duration_ms": 280,
+          "progress": 0.13333333333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "004.png",
+          "duration_ms": 280,
+          "progress": 0.19999999999999998,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "005.png",
+          "duration_ms": 280,
+          "progress": 0.26666666666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "006.png",
+          "duration_ms": 280,
+          "progress": 0.3333333333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "007.png",
+          "duration_ms": 280,
+          "progress": 0.3333333333333333,
+          "pose": "lift",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "008.png",
+          "duration_ms": 280,
+          "progress": 0.3333333333333333,
+          "pose": "move",
+          "travel": 1.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "009.png",
+          "duration_ms": 280,
+          "progress": 0.3333334333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "010.png",
+          "duration_ms": 280,
+          "progress": 0.39999999999999997,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "011.png",
+          "duration_ms": 280,
+          "progress": 0.4666666666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "012.png",
+          "duration_ms": 280,
+          "progress": 0.5333333333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "013.png",
+          "duration_ms": 280,
+          "progress": 0.6,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "014.png",
+          "duration_ms": 280,
+          "progress": 0.6666666666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "015.png",
+          "duration_ms": 280,
+          "progress": 0.6666666666666666,
+          "pose": "lift",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "016.png",
+          "duration_ms": 280,
+          "progress": 0.6666666666666666,
+          "pose": "move",
+          "travel": 1.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "017.png",
+          "duration_ms": 280,
+          "progress": 0.6666667666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "018.png",
+          "duration_ms": 280,
+          "progress": 0.7333333333333334,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "019.png",
+          "duration_ms": 280,
+          "progress": 0.7999999999999999,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "020.png",
+          "duration_ms": 280,
+          "progress": 0.8666666666666667,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "021.png",
+          "duration_ms": 280,
+          "progress": 0.9333333333333332,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "022.png",
+          "duration_ms": 280,
+          "progress": 0.99,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "023.png",
+          "duration_ms": 1600,
+          "progress": 1.0,
+          "pose": "rest",
+          "travel": 0.0,
+          "done": true,
+          "started": true
+        }
+      ]
+    },
+    "typenschild": {
+      "logical_frames": 24,
+      "gif_frames": 17,
+      "unique_frames": 17,
+      "duration_ms": 8600,
+      "changed_pixels_max": 103,
+      "changed_pixels_mean": 39.94,
+      "changed_bytes_max": 48,
+      "changed_pages_max": 5,
+      "full_frame_bytes": 1024,
+      "full_frame_table_bytes": 17408,
+      "dynamic_byte_positions": 147,
+      "base_plus_indexed_states_estimate_bytes": 3817,
+      "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
+      "timeline": [
+        {
+          "frame": "000.png",
+          "duration_ms": 800,
+          "progress": 0.0,
+          "pose": "rest",
+          "travel": 0.0,
+          "done": false,
+          "started": false
+        },
+        {
+          "frame": "001.png",
+          "duration_ms": 320,
+          "progress": 0.0,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "002.png",
+          "duration_ms": 280,
+          "progress": 0.06666666666666667,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "003.png",
+          "duration_ms": 280,
+          "progress": 0.13333333333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "004.png",
+          "duration_ms": 280,
+          "progress": 0.19999999999999998,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "005.png",
+          "duration_ms": 280,
+          "progress": 0.26666666666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "006.png",
+          "duration_ms": 280,
+          "progress": 0.3333333333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "007.png",
+          "duration_ms": 280,
+          "progress": 0.3333333333333333,
+          "pose": "lift",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "008.png",
+          "duration_ms": 280,
+          "progress": 0.3333333333333333,
+          "pose": "move",
+          "travel": 1.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "009.png",
+          "duration_ms": 280,
+          "progress": 0.3333334333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "010.png",
+          "duration_ms": 280,
+          "progress": 0.39999999999999997,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "011.png",
+          "duration_ms": 280,
+          "progress": 0.4666666666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "012.png",
+          "duration_ms": 280,
+          "progress": 0.5333333333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "013.png",
+          "duration_ms": 280,
+          "progress": 0.6,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "014.png",
+          "duration_ms": 280,
+          "progress": 0.6666666666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "015.png",
+          "duration_ms": 280,
+          "progress": 0.6666666666666666,
+          "pose": "lift",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "016.png",
+          "duration_ms": 280,
+          "progress": 0.6666666666666666,
+          "pose": "move",
+          "travel": 1.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "017.png",
+          "duration_ms": 280,
+          "progress": 0.6666667666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "018.png",
+          "duration_ms": 280,
+          "progress": 0.7333333333333334,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "019.png",
+          "duration_ms": 280,
+          "progress": 0.7999999999999999,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "020.png",
+          "duration_ms": 280,
+          "progress": 0.8666666666666667,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "021.png",
+          "duration_ms": 280,
+          "progress": 0.9333333333333332,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "022.png",
+          "duration_ms": 280,
+          "progress": 0.99,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "023.png",
+          "duration_ms": 1600,
+          "progress": 1.0,
+          "pose": "rest",
+          "travel": 0.0,
+          "done": true,
+          "started": true
+        }
+      ]
+    },
+    "praegung": {
+      "logical_frames": 24,
+      "gif_frames": 17,
+      "unique_frames": 17,
+      "duration_ms": 8600,
+      "changed_pixels_max": 257,
+      "changed_pixels_mean": 101.06,
+      "changed_bytes_max": 77,
+      "changed_pages_max": 7,
+      "full_frame_bytes": 1024,
+      "full_frame_table_bytes": 17408,
+      "dynamic_byte_positions": 326,
+      "base_plus_indexed_states_estimate_bytes": 7218,
+      "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
+      "timeline": [
+        {
+          "frame": "000.png",
+          "duration_ms": 800,
+          "progress": 0.0,
+          "pose": "rest",
+          "travel": 0.0,
+          "done": false,
+          "started": false
+        },
+        {
+          "frame": "001.png",
+          "duration_ms": 320,
+          "progress": 0.0,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "002.png",
+          "duration_ms": 280,
+          "progress": 0.06666666666666667,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "003.png",
+          "duration_ms": 280,
+          "progress": 0.13333333333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "004.png",
+          "duration_ms": 280,
+          "progress": 0.19999999999999998,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "005.png",
+          "duration_ms": 280,
+          "progress": 0.26666666666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "006.png",
+          "duration_ms": 280,
+          "progress": 0.3333333333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "007.png",
+          "duration_ms": 280,
+          "progress": 0.3333333333333333,
+          "pose": "lift",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "008.png",
+          "duration_ms": 280,
+          "progress": 0.3333333333333333,
+          "pose": "move",
+          "travel": 1.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "009.png",
+          "duration_ms": 280,
+          "progress": 0.3333334333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "010.png",
+          "duration_ms": 280,
+          "progress": 0.39999999999999997,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "011.png",
+          "duration_ms": 280,
+          "progress": 0.4666666666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "012.png",
+          "duration_ms": 280,
+          "progress": 0.5333333333333333,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "013.png",
+          "duration_ms": 280,
+          "progress": 0.6,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "014.png",
+          "duration_ms": 280,
+          "progress": 0.6666666666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "015.png",
+          "duration_ms": 280,
+          "progress": 0.6666666666666666,
+          "pose": "lift",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "016.png",
+          "duration_ms": 280,
+          "progress": 0.6666666666666666,
+          "pose": "move",
+          "travel": 1.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "017.png",
+          "duration_ms": 280,
+          "progress": 0.6666667666666666,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "018.png",
+          "duration_ms": 280,
+          "progress": 0.7333333333333334,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "019.png",
+          "duration_ms": 280,
+          "progress": 0.7999999999999999,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "020.png",
+          "duration_ms": 280,
+          "progress": 0.8666666666666667,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "021.png",
+          "duration_ms": 280,
+          "progress": 0.9333333333333332,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "022.png",
+          "duration_ms": 280,
+          "progress": 0.99,
+          "pose": "contact",
+          "travel": 0.0,
+          "done": false,
+          "started": true
+        },
+        {
+          "frame": "023.png",
+          "duration_ms": 1600,
+          "progress": 1.0,
+          "pose": "rest",
+          "travel": 0.0,
+          "done": true,
+          "started": true
+        }
+      ]
+    }
+  },
+  "shutdown": {
+    "logical_frames": 10,
+    "gif_frames": 10,
+    "unique_frames": 8,
+    "duration_ms": 1000,
+    "changed_pixels_max": 782,
+    "changed_pixels_mean": 173.44,
+    "changed_bytes_max": 298,
+    "changed_pages_max": 8,
+    "full_frame_bytes": 1024,
+    "full_frame_table_bytes": 8192,
+    "dynamic_byte_positions": 347,
+    "base_plus_indexed_states_estimate_bytes": 4494,
+    "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
+    "gif_only_loop_pause_ms": 1400,
+    "timeline_ms": [
+      150,
+      150,
+      150,
+      150,
+      80,
+      70,
+      80,
+      60,
+      50,
+      60
+    ]
+  }
+}

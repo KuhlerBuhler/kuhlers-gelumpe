@@ -1,197 +1,547 @@
 #!/usr/bin/env python3
-"""Loader draft 4 (dark mode): the whole display is set (dark) and only light pixels are drawn, because the LCD
-smears far less when a pixel goes off and on again than when it goes on and off. Blechy is the sprite inverted.
+"""Three 128 x 64, one-bit Blechy screen studies. No firmware is patched.
 
     python3 entwuerfe/design-1.3/geraet/anim.py
+    python3 entwuerfe/design-1.3/geraet/anim.py --direction werkbank
 
-- BLECH stays where it is. TRIBE and FEINSTES GELUMPE slide to the left behind BLECH, then LADEN comes in from the
-  right and stays.
-- The load is a row of short lines on the table. Blechy holds a straw in his right hand and takes one line after the
-  other: the tip of the straw runs along the line and the line is gone behind it. Then the straw comes off, he pulls
-  his nose up and slides on to the next line; only the lines move, he stays in place.
-- His pupils grow with the load, a little with every line, until he stares at the end.
-
-Writes vorschau/rotzen.gif (4x), vorschau/rotzen-strip.png (one line, frame by frame) and png/rotzen-*.png.
+render_frame() is pure: progress comes from the loader, pose from its caller.
+The demo timeline is only an example, never a minimum boot duration. PNG black
+means visibly dark. pack_frame() handles controller inversion and the two
+different vertical bit orders explicitly. Only Pillow is required.
 """
-from PIL import Image
+from __future__ import annotations
+
+import argparse
+import json
+import math
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 import render as r
 
-W, H = r.W, r.H
-TABLE = 56                           # the table top, one light row; the lines lie just above it at nose height
-DASH_Y, DASH_LEN, DASH_GAP = 53, 6, 12
-DASHES = 10
-HEAD_X = 6                           # screen x of sprite column 0; Blechy stays here
-NOSE = (HEAD_X + 26, TABLE - 2)      # where the straw leaves the left nostril
-FIRST_DASH = HEAD_X + 48             # screen x of the line he is working on, just right of his body
-TEXT_X = 83
+W, H = 128, 64
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
+LIGHT, DARK = 255, 0
+LCD_DARK, LCD_LIGHT = r.LCD_DARK, r.LCD_LIGHT
+DIRECTIONS = ("werkbank", "typenschild", "praegung")
+NAMES = {"werkbank": "Werkbank", "typenschild": "Typenschild", "praegung": "Prägung"}
+TABLE_Y, DASH_Y = 55, 53
+DASH_START, DASH_LENGTH, DASH_PITCH, DASH_COUNT = 49, 5, 8, 3
+NOSE = (29, 23)                 # lower edge of the original face, no new bulb
+SHOULDER = (40, 25)             # exactly the attachment in make_blechy.py
+TUBE_VECTOR = (12, 12)
+GRIP_FRACTION = 0.63
+
+# Dark pupils inside the original light eyes. No jitter, no inverted face.
+PUPILS = (
+    ((0, 0),),
+    ((0, 0), (1, 0), (0, 1), (1, 1)),
+    ((0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)),
+    tuple((x, y) for y in range(-1, 2) for x in range(-1, 2)),
+    tuple((x, y) for y in range(-2, 3) for x in range(-2, 3) if x*x + y*y <= 4),
+    tuple((x, y) for y in range(-2, 3) for x in range(-2, 3) if x*x + y*y <= 6),
+)
 
 
-# ---- Blechy, inverted -------------------------------------------------------------------------------
-PUPILS = [
-    [(0, 0)],                                                                  # one pixel
-    [(0, 0), (1, 0), (0, 1), (1, 1)],                                          # 2 x 2
-    [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)],                                # cross
-    [(x, y) for x in (-1, 0, 1) for y in (-1, 0, 1)],                          # 3 x 3
-    [(x, y) for x in range(-2, 3) for y in range(-2, 3) if x * x + y * y <= 4],  # disc
-    [(x, y) for x in range(-2, 3) for y in range(-2, 3) if x * x + y * y <= 6],  # fills the eye
-]
+@dataclass(frozen=True)
+class State:
+    progress: float
+    pose: str = "contact"
+    travel: float = 0.0
+    started: bool = True
+    done: bool = False
+
+    @property
+    def value(self):
+        # 100 is a completion signal, not a rounded-up 99.5% estimate.
+        return 1.0 if self.done else min(0.99, max(0.0, self.progress))
+
+    @property
+    def percent(self):
+        return 100 if self.done else min(99, int(self.value * 100 + 1e-8))
+
+    @property
+    def pupil(self):
+        return min(5, int(self.value * 6))
 
 
-def pupil_shape(p):
-    return PUPILS[min(len(PUPILS) - 1, int(p * len(PUPILS)))]
+@dataclass(frozen=True)
+class Tube:
+    nose: tuple[float, float]
+    start: tuple[float, float]
+    tip: tuple[float, float]
+    grip: tuple[float, float]
+    shoulder: tuple[float, float]
+    elbow: tuple[float, float]
 
 
-def head(f, rise, p, look_down):
-    """The sprite with the stub nose, inverted inside his outline: light body, dark face, light pupils.
-    The pupils grow with p in steps: one pixel, 2 x 2, cross, 3 x 3, disc, the whole eye."""
-    g = r.small_blechy(nose=False)
-    r.stub_nose(g, 24)
-    for ex, ey in [(21, 14), (33, 16)]:
-        for y in range(ey - 3, ey + 4):
-            for x in range(ex - 3, ex + 4):
-                if (x - ex) ** 2 + (y - ey) ** 2 <= 6:
-                    g[y][x] = 0
-        dy = 1 if look_down and p < 0.9 else 0
-        for x, y in pupil_shape(p):
-            g[ey + y + dy][ex + x] = 1
-        if p >= 0.8:
-            g[ey - 1][ex - 1] = 0                            # a dark glint once the pupil is big
-    out = set()
-    todo = [(0, 0)]
-    while todo:
-        x, y = todo.pop()
-        if (x, y) in out or not (0 <= x < 56 and 0 <= y < 56) or g[y][x]:
-            continue
-        out.add((x, y))
-        todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
-    oy = TABLE - 1 - rise
-    for y in range(3, rise + 1):
-        for x in range(56):
-            if (x, y) not in out:
-                r.put(f, x + HEAD_X, y + oy, 0 if g[y][x] else 1)   # inverted: body light, face dark
-    for k in (0, 2, 4):                                      # left hand flat on the table
-        r.rect(f, HEAD_X + 6 + k, TABLE - 2, HEAD_X + 6 + k, TABLE - 1, 0)
-    return oy
+@dataclass(frozen=True)
+class Cue:
+    state: State
+    duration_ms: int
 
 
-def straw_and_hand(f, oy, away):
-    """The straw has one length and never leaves his hand. At the nose it runs from the nostril to the line; away, hand
-    and straw sit 4 px further right and 2 px higher, off the nose and off the table."""
-    dx, dy = (4, -2) if away else (0, 0)
-    x0, y0 = NOSE[0] + dx, NOSE[1] + dy
-    x1, y1 = FIRST_DASH + dx, DASH_Y + dy
-    n = max(abs(x1 - x0), abs(y1 - y0))
-    pts = [(round(x0 + (x1 - x0) * i / n), round(y0 + (y1 - y0) * i / n)) for i in range(n + 1)]
-    for x, y in pts:
-        for yy in (y, y - 1):                                # 2 px thick, inverted: dark across his light body
-            if 0 <= x < W and 0 <= yy < H:
-                f[yy][x] ^= 1
-    hx, hy = HEAD_X + 47 + dx, DASH_Y - 3 + dy
-    sx, sy = HEAD_X + 43, oy + 17                            # the arm out of his right side, down to the straw
-    m = max(abs(hx - sx), abs(hy - sy), 1)
-    for i in range(m + 1):
-        r.put(f, round(sx + (hx - sx) * i / m), round(sy + (hy - sy) * i / m), 0)
-    r.rect(f, hx - 1, hy, hx + 1, hy + 1, 0)                 # the fist on the straw
+def point(p):
+    return tuple(round(v) for v in p)
 
 
-# ---- the top: BLECH fixed, the words beside it change ---------------------------------------------
-def blech(f):
-    r.BLECH = r.BLECH or r.blech_mask()
-    for x, y in r.BLECH:
-        r.put(f, x, y, 0)
+def blank():
+    return Image.new("1", (W, H), DARK)
 
 
-def words(f, dx, kind):
-    """kind 'tribe': TRIBE / FEINSTES GELUMPE, kind 'laden': LADEN and the percent. Anything left of the gap after BLECH
-    is hidden, so the old words slide in behind it."""
-    t = r.blank(1)
-    if kind == "tribe":
-        r.tall(t, "TRIBE", TEXT_X + dx, 2)
-        r.text3(t, "FEINSTES", TEXT_X + dx, 18)
-        r.text3(t, "GELUMPE", TEXT_X + dx, 24)
+def text(image, value, x, y, *, small=False, tall=False):
+    """Use the repository's two pixel fonts, never host fonts or antialiasing."""
+    bits = r.blank(1)
+    if tall:
+        r.tall(bits, value, x, y)
+    elif small:
+        r.text3(bits, value, x, y)
     else:
-        r.tall(t, "LADEN", TEXT_X + dx, 2)
-        r.text3(t, kind, TEXT_X + dx, 21)
-    edge = max(x for x, _ in r.BLECH) + 3
-    for y in range(30):
-        for x in range(edge, W):
-            if not t[y][x]:
-                f[y][x] = 0
+        r.text(bits, value, x, y, 0)
+    px = image.load()
+    for yy in range(H):
+        for xx in range(W):
+            if bits[yy][xx] == 0:
+                px[xx, yy] = LIGHT
 
 
-# ---- frames ----------------------------------------------------------------------------------------
-def frame(top, shift, rise, p, away):
-    """shift: how far the world has moved left; the lines left of the straw tip are gone."""
-    f = r.blank(1)
-    blech(f)
-    words(f, *top)
-    r.rect(f, 0, TABLE, W - 1, TABLE, 0)
-    for i in range(DASHES):
-        x0 = FIRST_DASH + i * DASH_GAP - shift
-        for x in range(max(x0, FIRST_DASH), x0 + DASH_LEN):  # what reached the tip is gone
-            r.put(f, x, DASH_Y, 0)
-            r.put(f, x, DASH_Y + 1, 0)
-    oy = head(f, rise, p, look_down=not away)
-    straw_and_hand(f, oy, away)
-    return f
+@lru_cache(maxsize=8)
+def title_mask(width, height):
+    """Always read the checked-in title, including on macOS. Never rewrite it."""
+    with Image.open(HERE / "blech-titel.png") as source:
+        mask = ImageChops.invert(source.convert("L")).point(lambda v: 255 if v >= 128 else 0, "1")
+    return mask.crop(mask.getbbox()).resize((width, height), Image.Resampling.NEAREST)
 
 
-TOPS = [(-10, "tribe"), (-22, "tribe"), (-40, "tribe"), (40, None), (20, None), (8, None)]
+def title(image, box, fill=1.0):
+    x, y, width, height = box
+    mask = title_mask(width, height)
+    if fill < 1.0:
+        padded = Image.new("1", (width + 2, height + 2), DARK)
+        padded.paste(mask, (1, 1))
+        inner = padded.filter(ImageFilter.MinFilter(3)).crop((1, 1, width + 1, height + 1))
+        outline = ImageChops.subtract(mask.convert("L"), inner.convert("L")).convert("1")
+        boundary = math.floor(width * fill)
+        if boundary:
+            outline.paste(mask.crop((0, 0, boundary, height)), (0, 0))
+        mask = outline
+    image.paste(LIGHT, (x, y), mask)
+
+
+@lru_cache(maxsize=1)
+def body_mask():
+    silhouette = Image.new("1", (56, 56), DARK)
+    d = ImageDraw.Draw(silhouette)
+    for box in ((15, 14, 41, 44), (13, 14, 43, 38), (13, 3, 29, 25), (15, 8, 37, 24)):
+        d.ellipse(box, fill=LIGHT)
+    return silhouette
+
+
+@lru_cache(maxsize=16)
+def character(pupil, pose="idle"):
+    """Original 56px sprite, original face polarity, one-pixel body rim.
+
+    The body ellipses and open face patch follow tools/art/make_blechy.py. The
+    face, brow and bags come directly from the checked-in sprite. Flood fill
+    alone would lose its open face patch, which joins the outside.
+    """
+    with Image.open(r.SPRITES / f"blechy-{pose}.png") as source:
+        original = source.convert("1")
+    silhouette = body_mask()
+    rim = ImageChops.subtract(
+        silhouette.filter(ImageFilter.MaxFilter(3)).convert("L"), silhouette.convert("L")
+    ).convert("1")
+    face = ImageChops.logical_and(original, silhouette)
+    result = ImageChops.logical_or(rim, face)
+    d = ImageDraw.Draw(result)
+    # The detached eyebrow is outside the original face silhouette.
+    for y in range(5, 10):
+        for x in range(29, 39):
+            if original.getpixel((x, y)) == DARK:
+                d.point((x, y), fill=LIGHT)
+    for ex, ey in ((21, 14), (33, 16 if pose == "idle" else 14)):
+        d.ellipse((ex - 3, ey - 3, ex + 3, ey + 3), fill=LIGHT)
+        for dx, dy in PUPILS[pupil]:
+            d.point((ex + dx, ey + dy), fill=DARK)
+        if pupil == 5:
+            d.point((ex - 1, ey - 1), fill=LIGHT)
+    return result
+
+
+def actor(image, origin, pupil, *, crop=56, legs=False, sprite_pose="idle"):
+    x, y = point(origin)
+    body = character(pupil, sprite_pose).crop((0, 0, 56, crop))
+    coverage = ImageChops.logical_or(body_mask().filter(ImageFilter.MaxFilter(3)),
+                                    character(pupil, sprite_pose)).crop((0, 0, 56, crop))
+    image.paste(body, (x, y), coverage)
+    if legs:
+        d = ImageDraw.Draw(image)
+        for a, b in (((23, 40), (21, 52)), ((33, 40), (35, 52))):
+            d.line((x+a[0], y+a[1], x+b[0], y+b[1]), fill=LIGHT)
+        d.line((x+18, y+53, x+22, y+53), fill=LIGHT)
+        d.line((x+33, y+53, x+37, y+53), fill=LIGHT)
+
+
+def tube_geometry(origin, away=0.0):
+    """A rigid tube and its gripping hand share the same floating point axis.
+
+    Two 9px arm segments connect the original shoulder to the hand. The outer
+    elbow solution keeps the forearm clear of the face. Round only for drawing.
+    """
+    ox, oy = origin
+    nose = (ox + NOSE[0], oy + NOSE[1])
+    start = (nose[0] + 13 * away, nose[1] - 7 * away)
+    tip = (start[0] + TUBE_VECTOR[0], start[1] + TUBE_VECTOR[1])
+    grip = (start[0] + TUBE_VECTOR[0] * GRIP_FRACTION,
+            start[1] + TUBE_VECTOR[1] * GRIP_FRACTION)
+    shoulder = (ox + SHOULDER[0], oy + SHOULDER[1])
+    dx, dy = grip[0] - shoulder[0], grip[1] - shoulder[1]
+    distance = math.hypot(dx, dy)
+    if not 0 < distance <= 18:
+        raise ValueError("Unreachable hand pose")
+    middle = ((grip[0]+shoulder[0])/2, (grip[1]+shoulder[1])/2)
+    offset = math.sqrt(9**2 - (distance/2)**2)
+    elbows = [(middle[0]+sign*dy/distance*offset,
+               middle[1]-sign*dx/distance*offset) for sign in (-1, 1)]
+    elbow = max(elbows, key=lambda p: p[0])
+    return Tube(nose, start, tip, grip, shoulder, elbow)
+
+
+def draw_tube(image, geometry):
+    d = ImageDraw.Draw(image)
+    shoulder, elbow, grip = map(point, (geometry.shoulder, geometry.elbow, geometry.grip))
+    d.line((shoulder, elbow, grip), fill=DARK, width=3)
+    d.line((shoulder, elbow, grip), fill=LIGHT, width=1)
+    # Explicit dark clearance, never XOR: the straw remains a single object.
+    d.line((point(geometry.start), point(geometry.tip)), fill=DARK, width=4)
+    d.line((point(geometry.start), point(geometry.tip)), fill=LIGHT, width=2)
+    if geometry.start == geometry.nose:
+        d.point(point(geometry.nose), fill=DARK)  # small nostril, no projecting nose
+    gx, gy = grip
+    d.rectangle((gx-2, gy-2, gx+2, gy+2), fill=DARK)
+    d.rectangle((gx-1, gy-1, gx+1, gy+1), fill=LIGHT)
+    d.point((gx-2, gy-2), fill=LIGHT)
+    d.point((gx+2, gy+2), fill=LIGHT)
+    d.point((gx-1, gy), fill=DARK)        # finger notch, not a detached fist
+
+
+def status(image, state, x, y, *, small=False, tall=False):
+    word = "LAEUFT" if state.done else "LADEN" if state.started and state.value >= 0.18 else "TRIBE"
+    text(image, word, x, y, small=small, tall=tall)
+
+
+def percent(image, state, y=58, right=123, *, small=True):
+    value = f"{state.percent}%"
+    width = r.width3(value) if small else r.text_width(value)
+    text(image, value, right-width+1, y, small=small)
+
+
+def dash_cursor(progress):
+    """Cursor follows fixed material. At a boundary it stays at the last line."""
+    units = min(1.0, max(0.0, progress)) * DASH_COUNT
+    index = min(DASH_COUNT - 1, max(0, math.ceil(units - 1e-9) - 1))
+    fraction = min(1.0, max(0.0, units - index))
+    consumed = min(DASH_LENGTH, math.floor(fraction * DASH_LENGTH + 1e-8))
+    return index, consumed, DASH_START + index * DASH_PITCH + consumed
+
+
+def draw_dashes(image, state):
+    d = ImageDraw.Draw(image)
+    for index in range(DASH_COUNT):
+        fraction = min(1.0, max(0.0, state.value * DASH_COUNT - index))
+        consumed = min(DASH_LENGTH, math.floor(fraction * DASH_LENGTH + 1e-8))
+        start = DASH_START + index * DASH_PITCH
+        if consumed < DASH_LENGTH:
+            d.line((start + consumed, DASH_Y, start + DASH_LENGTH - 1, DASH_Y), fill=LIGHT)
+
+
+def werkbank(state):
+    image = blank()
+    title(image, (4, 2, 72, 17))
+    status(image, state, 86, 1)
+    text(image, "FEINSTES", 86, 13, small=True)
+    text(image, "GELUMPE", 86, 19, small=True)
+    d = ImageDraw.Draw(image)
+    d.line((4, TABLE_Y, 123, TABLE_Y), fill=LIGHT)
+    # Chamfered tray and unconsumed dashes stay on the table.
+    d.line((45, TABLE_Y, 45, TABLE_Y-3, 46, TABLE_Y-4), fill=LIGHT)
+    d.line((76, TABLE_Y, 76, TABLE_Y-3, 75, TABLE_Y-4), fill=LIGHT)
+    draw_dashes(image, state)
+    _, consumed, cursor = dash_cursor(state.value)
+    shift = cursor - DASH_START
+    if consumed == DASH_LENGTH and not state.done:
+        shift += round((DASH_PITCH - DASH_LENGTH) * state.travel)
+    raised = state.pose in ("lift", "move", "rest")
+    origin = (8 + shift, 18)
+    actor(image, origin, state.pupil, crop=37)
+    hx = origin[0] + 8
+    for finger in (0, 2, 4):
+        d.line((hx+finger, TABLE_Y-2, hx+finger, TABLE_Y), fill=LIGHT)
+    d.line((origin[0]+16, origin[1]+25, hx+3, TABLE_Y-2), fill=LIGHT)
+    draw_tube(image, tube_geometry(origin, away=0.5 if raised else 0.0))
+    text(image, "KUHLER_BUHLER", 4, 58, small=True)
+    percent(image, state)
+    return image
+
+
+def progress_ticks(image, progress, x, y, count=8, pitch=7):
+    d = ImageDraw.Draw(image)
+    filled = min(count, math.floor(progress * count + 1e-8))
+    for i in range(count):
+        left = x + i * pitch
+        if i < filled:
+            d.rectangle((left, y, left+4, y+3), fill=LIGHT)
+        else:
+            d.line((left, y+3, left+4, y+3), fill=LIGHT)
+
+
+def typenschild(state):
+    image = blank()
+    origin = (0, 3)
+    actor(image, origin, state.pupil, legs=True)
+    d = ImageDraw.Draw(image)
+    d.line((16, 28, 9, 37), fill=LIGHT)
+    # Still, clearly held straw. No pretend consumption unrelated to the bar.
+    draw_tube(image, tube_geometry(origin, away=1.0))
+    title(image, (60, 7, 64, 23))
+    status(image, state, 62, 35)
+    progress_ticks(image, state.value, 62, 47, count=9, pitch=7)
+    text(image, "BLECH 1.3", 4, 58, small=True)
+    percent(image, state, y=57, small=False)
+    return image
+
+
+def praegung(state):
+    image = blank()
+    origin = (7, -1)
+    actor(image, origin, state.pupil, crop=34)
+    d = ImageDraw.Draw(image)
+    d.line((23, 24, 17, 32), fill=LIGHT)
+    for finger in (0, 2, 4):
+        d.line((15+finger, 31, 15+finger, 33), fill=LIGHT)
+    draw_tube(image, tube_geometry(origin, away=1.0))
+    status(image, state, 82, 3, tall=True)
+    text(image, "FEINSTES", 82, 22, small=True)
+    text(image, "GELUMPE", 82, 28, small=True)
+    d.line((4, 34, 123, 34), fill=LIGHT)
+    title(image, (4, 38, 89, 23), fill=state.value)
+    percent(image, state, y=49, small=False)
+    return image
+
+
+def render_frame(direction, progress, *, pose="contact", travel=0.0, started=True, done=False):
+    """Return a fresh 128x64 mode-1 image. Time never increases progress here.
+
+    pose: contact, lift, move or rest; travel: 0..1 across the empty gap after
+    a finished line (Werkbank only). A caller may skip to current progress.
+    Completion/handoff may interrupt the scene immediately.
+    """
+    if direction not in DIRECTIONS:
+        raise ValueError(f"Unknown direction: {direction}")
+    if pose not in ("contact", "lift", "move", "rest"):
+        raise ValueError(f"Unknown pose: {pose}")
+    if not math.isfinite(progress) or not math.isfinite(travel):
+        raise ValueError("Progress and travel must be finite")
+    state = State(progress, pose, min(1.0, max(0.0, travel)), started, done)
+    return {"werkbank": werkbank, "typenschild": typenschild, "praegung": praegung}[direction](state)
+
+
+def demo_timeline():
+    cues = [Cue(State(0, "rest", started=False), 800), Cue(State(0), 320)]
+    for index in range(DASH_COUNT):
+        for step in range(1, DASH_LENGTH+1):
+            progress = (index + step/DASH_LENGTH)/DASH_COUNT
+            cues.append(Cue(State(min(progress, 0.99)), 280))
+        if index < DASH_COUNT-1:
+            boundary = (index+1)/DASH_COUNT
+            cues.append(Cue(State(boundary, "lift"), 280))
+            cues.append(Cue(State(boundary, "move", travel=1.0), 280))
+            cues.append(Cue(State(boundary+1e-7), 280))
+    cues.append(Cue(State(1, "rest", done=True), 1600))
+    return cues
+
+
+def goodbye_frame(pose):
+    image = blank()
+    origin = (3, 4)
+    actor(image, origin, 1, legs=True, sprite_pose="calm")
+    d = ImageDraw.Draw(image)
+    d.line((19, 29, 11, 36), fill=LIGHT)
+    wrist = (origin[0] + (45 if pose == 0 else 49), origin[1] + 13)
+    d.line((origin[0]+40, origin[1]+25, *wrist), fill=LIGHT)
+    wx, wy = wrist
+    d.rectangle((wx-1, wy-3, wx+1, wy-1), fill=LIGHT)
+    tilt = -1 if pose == 0 else 1
+    for k in (-1, 0, 1):
+        d.line((wx+k, wy-4, wx+k+tilt*(k+2)//2, wy-8), fill=LIGHT)
+    for i, line in enumerate(("Haus'te", "rin mein", "Akh")):
+        text(image, line, 65, 16+i*11)
+    return image
+
+
+def shutdown_timeline():
+    """Exactly 1000 ms for the device. GIF loop pause is added only by export."""
+    waves = [goodbye_frame(0), goodbye_frame(1)]
+    frames = [waves[0], waves[1], waves[0], waves[1]]
+    durations = [150]*4
+    for rows, duration in ((24, 80), (8, 70)):
+        frame = blank()
+        squeezed = waves[1].resize((W, rows), Image.Resampling.NEAREST)
+        frame.paste(squeezed, (0, (H-rows)//2))
+        frames.append(frame)
+        durations.append(duration)
+    for width, duration in ((88, 80), (24, 60), (2, 50)):
+        frame = blank()
+        ImageDraw.Draw(frame).line(((W-width)//2, 32, (W+width)//2-1, 32), fill=LIGHT)
+        frames.append(frame)
+        durations.append(duration)
+    frames.append(blank())
+    durations.append(60)
+    return frames, durations
+
+
+def pack_frame(frame, *, bit_order="lsb", controller_inverted=False):
+    """1024 bytes, page major. 'msb' = splash.bin, 'lsb' = display RAM.
+
+    The visible image is canonical. An A7-inverted controller needs its
+    complement once, not an inverted picture inverted a second time.
+    """
+    if frame.mode != "1" or frame.size != (W, H):
+        raise ValueError("Expected a 128x64 mode-1 image")
+    if bit_order not in ("lsb", "msb"):
+        raise ValueError("bit_order must be lsb or msb")
+    result = bytearray(1024)
+    px = frame.load()
+    for y in range(H):
+        bit = 1 << ((y & 7) if bit_order == "lsb" else 7-(y & 7))
+        for x in range(W):
+            if (px[x, y] == DARK) ^ controller_inverted:
+                result[(y//8)*W+x] |= bit
+    return bytes(result)
+
+
+def unpack_frame(data, *, bit_order="lsb", controller_inverted=False):
+    if len(data) != 1024 or bit_order not in ("lsb", "msb"):
+        raise ValueError("Expected 1024 bytes and a valid bit order")
+    image = blank()
+    px = image.load()
+    for y in range(H):
+        bit = 1 << ((y & 7) if bit_order == "lsb" else 7-(y & 7))
+        for x in range(W):
+            dark = bool(data[(y//8)*W+x] & bit) ^ controller_inverted
+            px[x, y] = DARK if dark else LIGHT
+    return image
+
+
+def preview(frame, scale=4, palette="lcd"):
+    colors = ((0, 0, 0), (255, 255, 255)) if palette == "mono" else (LCD_DARK, LCD_LIGHT)
+    image = Image.new("P", (W, H))
+    image.putpalette(list(colors[0])+list(colors[1])+[0, 0, 0]*254)
+    image.putdata([int(value != 0) for value in frame.convert("L").tobytes()])
+    return image.resize((W*scale, H*scale), Image.Resampling.NEAREST)
+
+
+def metrics(frames, durations):
+    """Compare distinct consecutive images, matching GIF frame coalescing."""
+    unique_steps = []
+    for frame in frames:
+        if not unique_steps or frame.tobytes() != unique_steps[-1].tobytes():
+            unique_steps.append(frame)
+    changes, byte_changes, pages = [], [], []
+    for previous, current in zip(unique_steps, unique_steps[1:]):
+        changes.append(sum(a != b for a, b in zip(previous.convert("L").tobytes(),
+                                                 current.convert("L").tobytes())))
+        a, b = pack_frame(previous), pack_frame(current)
+        touched = [i for i, (aa, bb) in enumerate(zip(a, b)) if aa != bb]
+        byte_changes.append(len(touched))
+        pages.append(len({i//128 for i in touched}))
+    packed = [pack_frame(f) for f in frames]
+    dynamic = [i for i in range(1024) if any(p[i] != packed[0][i] for p in packed[1:])]
+    overlay_states = {bytes(p[i] for i in dynamic) for p in packed}
+    unique_count = len({f.tobytes() for f in frames})
+    return {
+        "logical_frames": len(frames), "gif_frames": len(unique_steps),
+        "unique_frames": unique_count, "duration_ms": sum(durations),
+        "changed_pixels_max": max(changes, default=0),
+        "changed_pixels_mean": round(sum(changes)/len(changes), 2) if changes else 0,
+        "changed_bytes_max": max(byte_changes, default=0),
+        "changed_pages_max": max(pages, default=0),
+        "full_frame_bytes": 1024, "full_frame_table_bytes": unique_count*1024,
+        "dynamic_byte_positions": len(dynamic),
+        "base_plus_indexed_states_estimate_bytes": 1024+2*len(dynamic)+len(dynamic)*len(overlay_states),
+        "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
+    }
+
+
+def export_sequence(name, frames, durations, preview_dir, raw_dir, *, palette="lcd", loop_pause=0):
+    frame_dir = raw_dir / name
+    frame_dir.mkdir(parents=True, exist_ok=True)
+    for i, frame in enumerate(frames):
+        frame.save(frame_dir / f"{i:03d}.png")
+    gif_durations = durations.copy()
+    gif_durations[-1] += loop_pause
+    for scale, suffix in ((1, "-1x"), (4, "")):
+        images = [preview(f, scale, palette) for f in frames]
+        images[0].save(preview_dir / f"{name}{suffix}.gif", save_all=True,
+                       append_images=images[1:], duration=gif_durations,
+                       loop=0, optimize=False, disposal=1)
+    indices = sorted({0, len(frames)//4, len(frames)//2, 3*len(frames)//4, len(frames)-1})
+    strip = Image.new("RGB", (len(indices)*(W*4+12)-12, H*4), LCD_DARK)
+    for column, index in enumerate(indices):
+        strip.paste(preview(frames[index], 4, palette).convert("RGB"), (column*(W*4+12), 0))
+    strip.save(preview_dir / f"{name}-strip.png")
+    for label, index in (("start", 0), ("mitte", len(frames)//2), ("ende", len(frames)-1)):
+        frames[index].save(raw_dir / f"{name}-{label}.png")
+        preview(frames[index], 4, palette).save(preview_dir / f"{name}-{label}.png")
+    return metrics(frames, durations)
 
 
 def main():
-    frames = []
-    state = {"top": 0, "wait": 2}                            # TRIBE stays for the first 2 lines, then LADEN comes
-
-    def top(p):
-        kind = f"{round(p * 100)}%"
-        if state["wait"] > 0 or state["top"] >= len(TOPS):
-            return (0, "tribe") if state["top"] == 0 else (0, kind)
-        dx, k = TOPS[state["top"]]
-        state["top"] += 1
-        return (dx, k or kind)
-
-    def add(shift, rise, away, p):
-        frames.append(frame(top(p), shift, rise, p, away))
-
-    for rise in (18, 20, 23, 25):                            # from the start image: he comes up, straw in hand
-        add(0, rise, True, 0.0)
-    add(0, 25, True, 0.0)
-    for i in range(DASHES):
-        base = i * DASH_GAP
-        add(base, 25, False, i / DASHES)                     # straw to the nose
-        for k, step in enumerate((2, 4, 6)):                 # he runs along the line, fast
-            add(base + step, 25, False, (i + step / DASH_LEN) / DASHES)
-        p1 = (i + 1) / DASHES
-        add(base + 6, 26, True, p1)                          # straw off, nose up, a short pause
-        add(base + 6, 26, True, p1)
-        if i == 1:
-            state["wait"] = 0
-        if i < DASHES - 1:
-            add(base + 9, 25, True, p1)                      # quickly over to the next line
-            add(base + 12, 25, True, p1)
-            add(base + 12, 25, True, p1)                     # pause
-    end = frame((0, "100%"), DASHES * DASH_GAP - 6, 25, 1.0, True)
-    frames += [end] * 10
-
-    def big(f):
-        img = Image.new("RGB", (W, H), r.LCD_LIGHT)
-        px = img.load()
-        for y in range(H):
-            for x in range(W):
-                if f[y][x]:
-                    px[x, y] = r.LCD_DARK
-        return img.resize((W * 4, H * 4), Image.NEAREST)
-
-    imgs = [big(f) for f in frames]
-    durations = [400] + [90] * (len(frames) - 11) + [200] * 10
-    imgs[0].save(r.HERE / "vorschau" / "rotzen.gif", save_all=True, append_images=imgs[1:], duration=durations, loop=0)
-    one = frames[5 + 9 * 4:5 + 9 * 5]
-    r.strip("rotzen", [(f"rotzen-{k}", f) for k, f in enumerate(one)])
-    r.save("rotzen-start", frames[0])
-    r.save("rotzen-ende", end)
-    print(len(frames), "frames")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--direction", choices=(*DIRECTIONS, "all"), default="all")
+    parser.add_argument("--output", type=Path, default=HERE,
+                        help="output root containing png/neu and vorschau/neu")
+    parser.add_argument("--palette", choices=("lcd", "mono"), default="lcd")
+    parser.add_argument("--pack", action="store_true", help="also write preview framebuffer snapshots, not patches")
+    parser.add_argument("--controller-inverted", action="store_true", help="complement packed bits for display A7")
+    args = parser.parse_args()
+    preview_dir, raw_dir = args.output / "vorschau/neu", args.output / "png/neu"
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    timeline = demo_timeline()
+    manifest = {"width": W, "height": H, "bit_depth": 1, "raw_png_black": "visibly dark",
+                "preview_palette": args.palette, "device_timing_measured": False,
+                "demo_timing_only": True, "directions": {}}
+    directions = DIRECTIONS if args.direction == "all" else (args.direction,)
+    for direction in directions:
+        frames = [render_frame(direction, cue.state.progress, pose=cue.state.pose, travel=cue.state.travel,
+                               started=cue.state.started, done=cue.state.done) for cue in timeline]
+        durations = [cue.duration_ms for cue in timeline]
+        result = export_sequence(direction, frames, durations, preview_dir, raw_dir, palette=args.palette)
+        result["timeline"] = [{"frame": f"{i:03d}.png", "duration_ms": cue.duration_ms,
+                               "progress": cue.state.value, "pose": cue.state.pose,
+                               "travel": cue.state.travel, "done": cue.state.done,
+                               "started": cue.state.started} for i, cue in enumerate(timeline)]
+        if args.pack:
+            for label, index in (("start", 0), ("mitte", len(frames)//2), ("ende", len(frames)-1)):
+                for order in ("msb", "lsb"):
+                    data = pack_frame(frames[index], bit_order=order, controller_inverted=args.controller_inverted)
+                    (raw_dir / f"{direction}-{label}-{order}.bin").write_bytes(data)
+            result["packed_controller_inverted"] = args.controller_inverted
+        manifest["directions"][direction] = result
+        print(f"{NAMES[direction]}: {result['unique_frames']} unique frames; "
+              f"max {result['changed_pixels_max']} changed pixels, {result['changed_pages_max']} LCD pages")
+    off_frames, off_durations = shutdown_timeline()
+    manifest["shutdown"] = export_sequence("ausschalten", off_frames, off_durations, preview_dir, raw_dir,
+                                           palette=args.palette, loop_pause=1400)
+    manifest["shutdown"]["gif_only_loop_pause_ms"] = 1400
+    manifest["shutdown"]["timeline_ms"] = off_durations
+    (preview_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False)+"\n", encoding="utf-8")
+    print(f"Previews: {preview_dir.relative_to(args.output)}; shutdown core: {sum(off_durations)} ms")
 
 
 if __name__ == "__main__":
