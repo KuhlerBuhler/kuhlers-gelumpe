@@ -30,7 +30,7 @@ LIGHT, DARK = 255, 0
 LCD_DARK, LCD_LIGHT = r.LCD_DARK, r.LCD_LIGHT
 DIRECTIONS = ("werkbank", "typenschild", "praegung")
 NAMES = {"werkbank": "Werkbank", "typenschild": "Typenschild", "praegung": "Prägung"}
-TABLE_Y, DASH_Y = 55, 53
+TABLE_Y, DASH_Y = 55, 54          # the line lies on the table, bumps reach row 53
 DASH_START = 49                 # tube tip in the draw pose at the left end
 SWEEP, SWEEP_STEP = 48, 4       # the line is the bar: one pass from 0 to 100 percent
 DASH_LENGTH = SWEEP + 1
@@ -44,6 +44,7 @@ MAX_FPS = 5
 MIN_FRAME_MS = 1000 // MAX_FPS
 
 # Dark pupils inside the original light eyes. No jitter, no inverted face.
+EYES_CLOSED, EYES_LOOK, EYES_WIDE = -1, 1, 5
 PUPILS = (
     ((0, 0),),
     ((0, 0), (1, 0), (0, 1), (1, 1)),
@@ -75,6 +76,13 @@ class State:
     @property
     def pupil(self):
         return min(5, int(self.value * 6))
+
+    @property
+    def eyes(self):
+        """Looks at you on the still splash, shut while drawing, wide open when done."""
+        if self.done:
+            return EYES_WIDE
+        return EYES_LOOK if not self.started else EYES_CLOSED
 
 
 @dataclass(frozen=True)
@@ -212,7 +220,19 @@ def character(pupil, pose="idle"):
             if original.getpixel((x, y)) == DARK:
                 d.point((x, y), fill=LIGHT)
     for ex, ey in ((21, 14), (33, 16 if pose == "idle" else 14)):
+        if pupil == EYES_WIDE:
+            # Torn open: the eye a pixel larger all round, a big dark pupil, one glint.
+            d.ellipse((ex - 4, ey - 4, ex + 4, ey + 4), fill=LIGHT)
+            d.ellipse((ex - 3, ey - 3, ex + 3, ey + 3), fill=DARK)
+            d.point((ex - 1, ey - 1), fill=LIGHT)
+            continue
         d.ellipse((ex - 3, ey - 3, ex + 3, ey + 3), fill=LIGHT)
+        if pupil == EYES_CLOSED:
+            # A shut lid: one dark row, the corners a pixel higher.
+            d.line((ex - 2, ey + 1, ex + 2, ey + 1), fill=DARK)
+            d.point((ex - 3, ey), fill=DARK)
+            d.point((ex + 3, ey), fill=DARK)
+            continue
         for dx, dy in PUPILS[pupil]:
             d.point((ex + dx, ey + dy), fill=DARK)
         if pupil == 5:
@@ -291,7 +311,10 @@ def status(image, state, x, y, *, small=False, tall=False):
 
 def status_line(state):
     """Footer text; the firmware fills in what it is doing."""
-    return "FERTIG" if state.done else "LADE SAMPLES..." if state.started else "STARTE..."
+    return "FERTIG" if state.done else "LADE SAMPLES..."
+
+
+WORDMARK_SHIFT = 8                # the PNG starts at x 4 and is 104 wide: centred at 12
 
 
 @lru_cache(maxsize=1)
@@ -315,15 +338,53 @@ def draw_dashes(image, state):
     """
     if state.done:
         return
-    d = ImageDraw.Draw(image)
-    left = DASH_START + state.eaten
-    if left <= DASH_START + SWEEP:
-        d.line((left, DASH_Y, DASH_START + SWEEP, DASH_Y), fill=LIGHT)
+    px = image.load()
+    for x in range(DASH_START + state.eaten, DASH_START + SWEEP + 1):
+        for k in range(LUMPS[x - DASH_START] + 1):
+            px[x, DASH_Y - k] = LIGHT
 
 
-def werkbank(state):
+# Height above the base row per column (from DASH_START): uneven lumps, a few two pixels high, no ruler.
+LUMPS = tuple(int(c) for c in "0111001100012210001110011221000110001221100011100")
+
+STAR_TOP, STAR_BOTTOM = 20, 52    # between the wordmark and the line
+
+
+@lru_cache(maxsize=1)
+def stars():
+    """A dozen stars like the app background (site/design/bg.js): three depths, slow fall, a short blink."""
+    seed = 23
+    out = []
+    for _ in range(14):
+        values = []
+        for _ in range(5):
+            seed = (seed * 1664525 + 1013904223) % 2**32
+            values.append(seed / 2**32)
+        z, x, y, period, phase = values
+        layer = 0 if z < 0.45 else 1 if z < 0.85 else 2
+        out.append((int(x * 124) + 2, y, layer, 4 + period * 6, phase))
+    return tuple(out)
+
+
+def draw_stars(image, t_ms):
+    """Background first: Blechy, the line and the text draw over it. t_ms 0 is the still splash."""
+    px = image.load()
+    t = t_ms / 1000
+    span = STAR_BOTTOM - STAR_TOP
+    for x, y, layer, period, phase in stars():
+        if t and (t / period + phase) % 1 > 0.9:
+            continue
+        speed = (0.5, 1.2, 2.2)[layer]
+        yy = STAR_TOP + int(y * span + speed * t) % span
+        px[x, yy] = LIGHT
+        if layer == 2:
+            px[x + 1, yy] = LIGHT
+
+
+def werkbank(state, t_ms=0):
     image = blank()
-    image.paste(LIGHT, (0, 0), wordmark())
+    draw_stars(image, t_ms)
+    image.paste(LIGHT, (WORDMARK_SHIFT, 0), wordmark())
     d = ImageDraw.Draw(image)
     d.line((4, TABLE_Y, 123, TABLE_Y), fill=LIGHT)
     # Chamfered tray and material stay at the same screen location.
@@ -334,7 +395,7 @@ def werkbank(state):
     # The figure dips behind the fixed table. Clip the complete arm/figure
     # layer, not just the body, so no pose can alter the edge or footer.
     gesture = blank()
-    actor(gesture, origin, state.pupil, crop=TABLE_Y-origin[1])
+    actor(gesture, origin, state.eyes, crop=TABLE_Y-origin[1])
     arm = ImageDraw.Draw(gesture)
     hx = BODY_X + 8 + shift
     for finger in (0, 2, 4):
@@ -347,6 +408,10 @@ def werkbank(state):
     coverage = ImageChops.logical_or(coverage, gesture)
     box = (0, 20, W, TABLE_Y)
     image.paste(gesture.crop(box), (0, 20), coverage.crop(box))
+    if not state.started:
+        text(image, "FEINSTES GELUMPE", 4, 58, small=True)
+        text(image, "KUHLER_BUHLER", 124 - r.width3("KUHLER_BUHLER"), 58, small=True)
+        return image
     text(image, status_line(state), 4, 58, small=True)
     percent(image, state)
     return image
@@ -397,7 +462,7 @@ def praegung(state):
     return image
 
 
-def render_frame(direction, progress, *, pose="draw", started=True, done=False, shift=0, eaten=0):
+def render_frame(direction, progress, *, pose="draw", started=True, done=False, shift=0, eaten=0, t_ms=0):
     """Return a fresh 128x64 mode-1 image. Time never increases progress here.
 
     pose: one of MOTION_POSES. There is no continuous travel parameter and
@@ -410,7 +475,9 @@ def render_frame(direction, progress, *, pose="draw", started=True, done=False, 
     if not math.isfinite(progress):
         raise ValueError("Progress must be finite")
     state = State(progress, pose, started, done, shift, eaten)
-    return {"werkbank": werkbank, "typenschild": typenschild, "praegung": praegung}[direction](state)
+    if direction == "werkbank":
+        return werkbank(state, t_ms)
+    return {"typenschild": typenschild, "praegung": praegung}[direction](state)
 
 
 def demo_timeline():
@@ -418,9 +485,7 @@ def demo_timeline():
 
     Example pacing only. The real loader decides the time, pass_state() the frame.
     """
-    cues = [Cue(State(0, "ready", started=False), 600),
-            Cue(State(0, "ready"), 400),
-            Cue(State(0, "lower"), MIN_FRAME_MS),
+    cues = [Cue(State(0, "ready", started=False), 800),
             Cue(State(0, "reach"), MIN_FRAME_MS)]
     steps = SWEEP // SWEEP_STEP
     for i in range(steps + 1):
@@ -589,9 +654,15 @@ def export_sequence(name, frames, durations, preview_dir, raw_dir, *, palette="l
 
 
 def sequence_frames(direction, timeline):
-    return [render_frame(direction, cue.state.progress, pose=cue.state.pose,
-                         started=cue.state.started, done=cue.state.done,
-                         shift=cue.state.shift, eaten=cue.state.eaten) for cue in timeline]
+    frames, clock = [], 0
+    for cue in timeline:
+        # The still splash is the firmware's fixed picture: no star time before loading starts.
+        t = clock if cue.state.started else 0
+        frames.append(render_frame(direction, cue.state.progress, pose=cue.state.pose,
+                                   started=cue.state.started, done=cue.state.done,
+                                   shift=cue.state.shift, eaten=cue.state.eaten, t_ms=t))
+        clock += cue.duration_ms
+    return frames
 
 
 def timeline_metadata(timeline):

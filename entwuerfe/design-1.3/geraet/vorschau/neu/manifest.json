@@ -10,27 +10,27 @@
   "motion_steps": 7,
   "directions": {
     "werkbank": {
-      "logical_frames": 19,
-      "gif_frames": 19,
-      "unique_frames": 19,
-      "duration_ms": 5400,
+      "logical_frames": 17,
+      "gif_frames": 17,
+      "unique_frames": 17,
+      "duration_ms": 5000,
       "includes_loop_transition": false,
       "minimum_frame_duration_ms": 200,
       "maximum_update_fps": 5.0,
-      "changed_pixels_max": 430,
-      "changed_pixels_mean": 353.67,
-      "changed_bytes_max": 159,
+      "changed_pixels_max": 567,
+      "changed_pixels_mean": 403.88,
+      "changed_bytes_max": 203,
       "changed_pages_max": 6,
       "full_frame_bytes": 1024,
-      "full_frame_table_bytes": 19456,
-      "dynamic_byte_positions": 429,
-      "base_plus_indexed_states_estimate_bytes": 10033,
+      "full_frame_table_bytes": 17408,
+      "dynamic_byte_positions": 472,
+      "base_plus_indexed_states_estimate_bytes": 9992,
       "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
       "kind": "loading example at up to 5 FPS",
       "timeline": [
         {
           "frame": "000.png",
-          "duration_ms": 600,
+          "duration_ms": 800,
           "progress": 0.0,
           "pose": "ready",
           "done": false,
@@ -40,26 +40,6 @@
         },
         {
           "frame": "001.png",
-          "duration_ms": 400,
-          "progress": 0.0,
-          "pose": "ready",
-          "done": false,
-          "started": true,
-          "shift": 0,
-          "eaten": 0
-        },
-        {
-          "frame": "002.png",
-          "duration_ms": 200,
-          "progress": 0.0,
-          "pose": "lower",
-          "done": false,
-          "started": true,
-          "shift": 0,
-          "eaten": 0
-        },
-        {
-          "frame": "003.png",
           "duration_ms": 200,
           "progress": 0.0,
           "pose": "reach",
@@ -69,7 +49,7 @@
           "eaten": 0
         },
         {
-          "frame": "004.png",
+          "frame": "002.png",
           "duration_ms": 200,
           "progress": 0.0,
           "pose": "draw",
@@ -79,7 +59,7 @@
           "eaten": 0
         },
         {
-          "frame": "005.png",
+          "frame": "003.png",
           "duration_ms": 200,
           "progress": 0.08333333333333333,
           "pose": "draw",
@@ -89,7 +69,7 @@
           "eaten": 4
         },
         {
-          "frame": "006.png",
+          "frame": "004.png",
           "duration_ms": 200,
           "progress": 0.16666666666666666,
           "pose": "draw",
@@ -99,7 +79,7 @@
           "eaten": 8
         },
         {
-          "frame": "007.png",
+          "frame": "005.png",
           "duration_ms": 200,
           "progress": 0.25,
           "pose": "draw",
@@ -109,7 +89,7 @@
           "eaten": 12
         },
         {
-          "frame": "008.png",
+          "frame": "006.png",
           "duration_ms": 200,
           "progress": 0.3333333333333333,
           "pose": "draw",
@@ -119,7 +99,7 @@
           "eaten": 16
         },
         {
-          "frame": "009.png",
+          "frame": "007.png",
           "duration_ms": 200,
           "progress": 0.4166666666666667,
           "pose": "draw",
@@ -129,7 +109,7 @@
           "eaten": 20
         },
         {
-          "frame": "010.png",
+          "frame": "008.png",
           "duration_ms": 200,
           "progress": 0.5,
           "pose": "draw",
@@ -139,7 +119,7 @@
           "eaten": 24
         },
         {
-          "frame": "011.png",
+          "frame": "009.png",
           "duration_ms": 200,
           "progress": 0.5833333333333334,
           "pose": "draw",
@@ -149,7 +129,7 @@
           "eaten": 28
         },
         {
-          "frame": "012.png",
+          "frame": "010.png",
           "duration_ms": 200,
           "progress": 0.6666666666666666,
           "pose": "draw",
@@ -159,7 +139,7 @@
           "eaten": 32
         },
         {
-          "frame": "013.png",
+          "frame": "011.png",
           "duration_ms": 200,
           "progress": 0.75,
           "pose": "draw",
@@ -169,7 +149,7 @@
           "eaten": 36
         },
         {
-          "frame": "014.png",
+          "frame": "012.png",
           "duration_ms": 200,
           "progress": 0.8333333333333334,
           "pose": "draw",
@@ -179,7 +159,7 @@
           "eaten": 40
         },
         {
-          "frame": "015.png",
+          "frame": "013.png",
           "duration_ms": 200,
           "progress": 0.9166666666666666,
           "pose": "draw",
@@ -189,7 +169,7 @@
           "eaten": 44
         },
         {
-          "frame": "016.png",
+          "frame": "014.png",
           "duration_ms": 200,
           "progress": 0.99,
           "pose": "draw",
@@ -199,7 +179,7 @@
           "eaten": 48
         },
         {
-          "frame": "017.png",
+          "frame": "015.png",
           "duration_ms": 200,
           "progress": 0.99,
           "pose": "lift",
@@ -209,7 +189,7 @@
           "eaten": 49
         },
         {
-          "frame": "018.png",
+          "frame": "016.png",
           "duration_ms": 1200,
           "progress": 1.0,
           "pose": "settle",
@@ -220,27 +200,27 @@
         }
       ],
       "motion_loop": {
-        "logical_frames": 19,
-        "gif_frames": 19,
-        "unique_frames": 19,
-        "duration_ms": 5400,
+        "logical_frames": 17,
+        "gif_frames": 17,
+        "unique_frames": 17,
+        "duration_ms": 5000,
         "includes_loop_transition": true,
         "minimum_frame_duration_ms": 200,
         "maximum_update_fps": 5.0,
-        "changed_pixels_max": 834,
-        "changed_pixels_mean": 378.95,
-        "changed_bytes_max": 289,
+        "changed_pixels_max": 1068,
+        "changed_pixels_mean": 442.94,
+        "changed_bytes_max": 350,
         "changed_pages_max": 6,
         "full_frame_bytes": 1024,
-        "full_frame_table_bytes": 19456,
-        "dynamic_byte_positions": 429,
-        "base_plus_indexed_states_estimate_bytes": 10033,
+        "full_frame_table_bytes": 17408,
+        "dynamic_byte_positions": 472,
+        "base_plus_indexed_states_estimate_bytes": 9992,
         "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
         "kind": "same single pass as werkbank",
         "timeline": [
           {
             "frame": "000.png",
-            "duration_ms": 600,
+            "duration_ms": 800,
             "progress": 0.0,
             "pose": "ready",
             "done": false,
@@ -250,26 +230,6 @@
           },
           {
             "frame": "001.png",
-            "duration_ms": 400,
-            "progress": 0.0,
-            "pose": "ready",
-            "done": false,
-            "started": true,
-            "shift": 0,
-            "eaten": 0
-          },
-          {
-            "frame": "002.png",
-            "duration_ms": 200,
-            "progress": 0.0,
-            "pose": "lower",
-            "done": false,
-            "started": true,
-            "shift": 0,
-            "eaten": 0
-          },
-          {
-            "frame": "003.png",
             "duration_ms": 200,
             "progress": 0.0,
             "pose": "reach",
@@ -279,7 +239,7 @@
             "eaten": 0
           },
           {
-            "frame": "004.png",
+            "frame": "002.png",
             "duration_ms": 200,
             "progress": 0.0,
             "pose": "draw",
@@ -289,7 +249,7 @@
             "eaten": 0
           },
           {
-            "frame": "005.png",
+            "frame": "003.png",
             "duration_ms": 200,
             "progress": 0.08333333333333333,
             "pose": "draw",
@@ -299,7 +259,7 @@
             "eaten": 4
           },
           {
-            "frame": "006.png",
+            "frame": "004.png",
             "duration_ms": 200,
             "progress": 0.16666666666666666,
             "pose": "draw",
@@ -309,7 +269,7 @@
             "eaten": 8
           },
           {
-            "frame": "007.png",
+            "frame": "005.png",
             "duration_ms": 200,
             "progress": 0.25,
             "pose": "draw",
@@ -319,7 +279,7 @@
             "eaten": 12
           },
           {
-            "frame": "008.png",
+            "frame": "006.png",
             "duration_ms": 200,
             "progress": 0.3333333333333333,
             "pose": "draw",
@@ -329,7 +289,7 @@
             "eaten": 16
           },
           {
-            "frame": "009.png",
+            "frame": "007.png",
             "duration_ms": 200,
             "progress": 0.4166666666666667,
             "pose": "draw",
@@ -339,7 +299,7 @@
             "eaten": 20
           },
           {
-            "frame": "010.png",
+            "frame": "008.png",
             "duration_ms": 200,
             "progress": 0.5,
             "pose": "draw",
@@ -349,7 +309,7 @@
             "eaten": 24
           },
           {
-            "frame": "011.png",
+            "frame": "009.png",
             "duration_ms": 200,
             "progress": 0.5833333333333334,
             "pose": "draw",
@@ -359,7 +319,7 @@
             "eaten": 28
           },
           {
-            "frame": "012.png",
+            "frame": "010.png",
             "duration_ms": 200,
             "progress": 0.6666666666666666,
             "pose": "draw",
@@ -369,7 +329,7 @@
             "eaten": 32
           },
           {
-            "frame": "013.png",
+            "frame": "011.png",
             "duration_ms": 200,
             "progress": 0.75,
             "pose": "draw",
@@ -379,7 +339,7 @@
             "eaten": 36
           },
           {
-            "frame": "014.png",
+            "frame": "012.png",
             "duration_ms": 200,
             "progress": 0.8333333333333334,
             "pose": "draw",
@@ -389,7 +349,7 @@
             "eaten": 40
           },
           {
-            "frame": "015.png",
+            "frame": "013.png",
             "duration_ms": 200,
             "progress": 0.9166666666666666,
             "pose": "draw",
@@ -399,7 +359,7 @@
             "eaten": 44
           },
           {
-            "frame": "016.png",
+            "frame": "014.png",
             "duration_ms": 200,
             "progress": 0.99,
             "pose": "draw",
@@ -409,7 +369,7 @@
             "eaten": 48
           },
           {
-            "frame": "017.png",
+            "frame": "015.png",
             "duration_ms": 200,
             "progress": 0.99,
             "pose": "lift",
@@ -419,7 +379,7 @@
             "eaten": 49
           },
           {
-            "frame": "018.png",
+            "frame": "016.png",
             "duration_ms": 1200,
             "progress": 1.0,
             "pose": "settle",
@@ -439,14 +399,14 @@
       "includes_loop_transition": false,
       "minimum_frame_duration_ms": 280,
       "maximum_update_fps": 3.571,
-      "changed_pixels_max": 103,
-      "changed_pixels_mean": 39.94,
+      "changed_pixels_max": 108,
+      "changed_pixels_mean": 44.94,
       "changed_bytes_max": 48,
       "changed_pages_max": 5,
       "full_frame_bytes": 1024,
       "full_frame_table_bytes": 17408,
-      "dynamic_byte_positions": 147,
-      "base_plus_indexed_states_estimate_bytes": 3817,
+      "dynamic_byte_positions": 162,
+      "base_plus_indexed_states_estimate_bytes": 4102,
       "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
       "kind": "earlier layout study",
       "timeline": [
@@ -701,13 +661,13 @@
       "minimum_frame_duration_ms": 280,
       "maximum_update_fps": 3.571,
       "changed_pixels_max": 257,
-      "changed_pixels_mean": 101.06,
+      "changed_pixels_mean": 106.06,
       "changed_bytes_max": 77,
       "changed_pages_max": 7,
       "full_frame_bytes": 1024,
       "full_frame_table_bytes": 17408,
-      "dynamic_byte_positions": 326,
-      "base_plus_indexed_states_estimate_bytes": 7218,
+      "dynamic_byte_positions": 345,
+      "base_plus_indexed_states_estimate_bytes": 7579,
       "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
       "kind": "earlier layout study",
       "timeline": [

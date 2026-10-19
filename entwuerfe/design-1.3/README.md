@@ -104,8 +104,9 @@ zweiter Knopf, Code ansehen als Link.
 
 ### Aktuell: Werkbank mit höchstens 5 FPS
 
-Ein Durchgang von 0 bis 100 %: Blechy zieht die Line von links nach rechts weg, die Pupillen wachsen. Oben
-BLECHTRIBE als ein Wort, unten links der Status ("LADE SAMPLES..."), rechts die Prozentzahl. **Höchstens fünf
+Ein Durchgang von 0 bis 100 %: Blechy zieht mit geschlossenen Augen die Line von links nach rechts weg und reißt
+bei 100 % die Augen auf. Oben mittig BLECHTRIBE, unten der Status ("LADE SAMPLES...") und die Prozentzahl,
+dahinter Sterne wie in der App. **Höchstens fünf
 Bilder pro Sekunde**, jedes Bild mindestens 200 ms.
 
 ![Werkbank mit höchstens 5 FPS](geraet/vorschau/neu/werkbank-5fps.gif)

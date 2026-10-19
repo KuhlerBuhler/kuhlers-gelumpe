@@ -82,14 +82,27 @@ class FrameContractTests(unittest.TestCase):
 
     def test_the_figure_never_touches_the_wordmark(self):
         mark = anim.blank()
-        mark.paste(255, (0, 0), anim.wordmark())
+        mark.paste(255, (anim.WORDMARK_SHIFT, 0), anim.wordmark())
         for cue in anim.demo_timeline():
             with self.subTest(pose=cue.state.pose, shift=cue.state.shift):
                 self.assertEqual(render_state("werkbank", cue.state).crop((0, 0, 128, 20)).tobytes(),
                                  mark.crop((0, 0, 128, 20)).tobytes())
 
+    def test_eyes_look_then_shut_then_tear_open(self):
+        timeline = anim.demo_timeline()
+        self.assertEqual(timeline[0].state.eyes, anim.EYES_LOOK)
+        self.assertTrue(all(cue.state.eyes == anim.EYES_CLOSED for cue in timeline[1:-1]))
+        self.assertEqual(timeline[-1].state.eyes, anim.EYES_WIDE)
+        for progress in (0.01, 0.37, 0.5, 0.88, 0.99):
+            self.assertEqual(anim.pass_state(progress).eyes, anim.EYES_CLOSED)
+
     def test_footer_shows_the_status_text(self):
-        self.assertEqual(anim.status_line(anim.State(0, "ready", started=False)), "STARTE...")
+        still = anim.render_frame("werkbank", 0, pose="ready", started=False).crop((0, 56, 128, 64))
+        tagline = anim.blank()
+        anim.text(tagline, "FEINSTES GELUMPE", 4, 58, small=True)
+        anim.text(tagline, "KUHLER_BUHLER", 124 - anim.r.width3("KUHLER_BUHLER"), 58, small=True)
+        self.assertEqual(still.tobytes(), tagline.crop((0, 56, 128, 64)).tobytes(),
+                         "The still splash has no status yet, only the tagline")
         self.assertEqual(anim.status_line(anim.pass_state(0.5)), "LADE SAMPLES...")
         self.assertEqual(anim.status_line(anim.pass_state(1, done=True)), "FERTIG")
 
@@ -248,7 +261,7 @@ class ProgressTests(unittest.TestCase):
 
     def test_the_tip_eats_the_line_from_left_to_right(self):
         full = material(anim.State(0.4))
-        self.assertEqual(full, frozenset((x, 53) for x in range(49, 49 + anim.SWEEP + 1)))
+        self.assertEqual(full, frozenset((49 + i, 54 - k) for i, h in enumerate(anim.LUMPS) for k in range(h + 1)))
         previous = full
         for cue in anim.demo_timeline():
             current = material(cue.state)
@@ -269,14 +282,11 @@ class ProgressTests(unittest.TestCase):
 
 
 class MotionTests(unittest.TestCase):
-    def test_one_pass_goes_from_0_to_100_and_the_pupils_grow(self):
+    def test_one_pass_goes_from_0_to_100(self):
         timeline = anim.demo_timeline()
         shifts = [cue.state.shift for cue in timeline]
         self.assertEqual(shifts, sorted(shifts), "Blechy only moves right")
         self.assertEqual((shifts[0], shifts[-1]), (0, anim.SWEEP))
-        pupils = [cue.state.pupil for cue in timeline]
-        self.assertEqual(pupils, sorted(pupils))
-        self.assertEqual((pupils[0], pupils[-1]), (0, 5))
         self.assertTrue(timeline[-1].state.done)
         self.assertTrue(all(cue.duration_ms >= 200 for cue in timeline))
         for progress in (0, 0.3, 0.6, 0.99):

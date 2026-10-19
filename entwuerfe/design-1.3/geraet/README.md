@@ -3,9 +3,12 @@
 Stand 19.10.2026. Die [Übergabe](uebergabe-2026-10-19.yaml) und die anschließende Rückmeldung sind die Grundlage.
 Die Gestaltung der Werkbank mit hellem Originalgesicht, festem BLECH und Fußzeile bleibt. Die Bewegung ist
 überarbeitet (Rückmeldung 19.10. abends): ein einziger Durchgang. Blechy setzt das Röhrchen an und zieht die Line von
-links nach rechts weg, während die Pupillen wachsen. Die Line ist der Balken: wo die Rohrspitze steht, steht der
-Ladestand. Oben steht BLECHTRIBE als ein Wort (Impact 22, `blechtribe-titel.png`), unten links der Status
-("STARTE...", "LADE SAMPLES...", "FERTIG"), rechts die Prozentzahl.
+links nach rechts weg. Die Line ist der Balken: wo die Rohrspitze steht, steht der Ladestand. Im festen Startbild
+guckt er dich an, beim Ziehen hat er die Augen zu, bei 100 % reißt er sie auf (große Pupillen). Oben mittig
+BLECHTRIBE als ein Wort (Impact 22, `blechtribe-titel.png`). Unten im Startbild "FEINSTES GELUMPE" und
+"KUHLER_BUHLER", beim Laden links der Status ("LADE SAMPLES...", "FERTIG") und rechts die Prozentzahl. Die Line liegt
+auf dem Tisch und hat Buckel (1 bis 2 Pixel). Dahinter fallen ein paar Sterne wie im Hintergrund der App
+(`site/design/bg.js`): drei Tiefen, langsam, ab und zu kurz aus; im festen Startbild stehen sie.
 
 **Die Vorgabe lautet höchstens fünf Bilder pro Sekunde, nicht fünf Bilder insgesamt.** Jeder Bildzustand bleibt
 mindestens 200 ms sichtbar. Das gilt auch für kurze Zwischenbilder, Prozentänderungen und den letzten Zustand
@@ -20,17 +23,17 @@ früheren Layoutstudien in den Farben und Schriften der App, auch in nativen 128
 
 ![Werkbank mit höchstens 5 FPS](vorschau/neu/werkbank-5fps.gif)
 
-Die Demo zeigt den einen Durchgang mit 19 Bildern über 5,4 Sekunden. Die Beispieldauer verlängert keinen
+Die Demo zeigt den einen Durchgang mit 17 Bildern über 5 Sekunden. Die Beispieldauer verlängert keinen
 Gerätestart: Der echte Lader darf jederzeit zum aktuellen Fortschritt oder zum fertigen Hauptbild springen.
 
 ### Ablauf
 
 | Schritt | Haltung | Haltezeit |
 |---|---|---:|
-| Start | volle Line, Röhrchen abgesetzt, "STARTE..." | 600 ms |
-| Bereit, Senken, Ansetzen | Kopf zwei Pixel tiefer, Rohr kurz vor der Line | 400 + 2 × 200 ms |
+| Startbild | volle Line, Röhrchen abgesetzt, guckt dich an | 800 ms |
+| Ansetzen | Kopf zwei Pixel tiefer, Augen zu | 200 ms |
 | Ziehen | Rohr auf der Line, je 4 Pixel Fortschritt rückt Blechy 4 Pixel nach rechts, bis 48 | 13 × 200 ms |
-| Fertig | Line weg, große Pupillen, "FERTIG", 100 % | 200 + 1200 ms |
+| Fertig | Line weg, Augen auf mit großen Pupillen, "FERTIG", 100 % | 200 + 1200 ms |
 
 `werkbank-loop*.gif` zeigt denselben Durchgang, damit die Vergleichsseite ihre Plätze behält.
 
@@ -145,12 +148,12 @@ umgestellt.
 
 | Folge | GIF-Bilder | Unterschiedliche Raster | Kürzeste Haltezeit | Bildwechsel höchstens |
 |---|---:|---:|---:|---:|
-| Werkbank, Ladedemo | 19 | 19 | 200 ms | 5 pro Sekunde |
+| Werkbank, Ladedemo | 17 | 17 | 200 ms | 5 pro Sekunde |
 | Ausschalten, ohne GIF-Wiederholungspause | 5 | 5 | 200 ms | 5 pro Sekunde |
 
-Ein Bildwechsel schaltet höchstens 430 Pixel auf höchstens sechs LCD-Seiten. Messen am Gerät steht aus.
+Ein Bildwechsel schaltet höchstens 567 Pixel auf höchstens sechs LCD-Seiten. Messen am Gerät steht aus.
 
-Die 18 gezielten Python-Prüfungen sichern unter anderem tatsächliche GIF-Haltezeiten, pixelgenaue Ausgabe in
+Die 19 gezielten Python-Prüfungen sichern unter anderem tatsächliche GIF-Haltezeiten, pixelgenaue Ausgabe in
 1×/4×, feste Bildbereiche, fehlenden Körperversatz durch Fortschritt, Rohr- und Griffgeometrie, beide Bitordnungen,
 Controllerinvertierung und das 1000-ms-Ausschaltfenster. Der zuvor zu schnelle 100-/120-ms-Ablauf fällt durch
 diese Prüfungen. Auch ein einzelnes Bild von 199 ms wird unabhängig von der Durchschnittsrate zurückgewiesen.
