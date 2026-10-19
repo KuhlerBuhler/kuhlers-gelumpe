@@ -108,8 +108,8 @@ def press(dev, key, wait=0.25):
     dev.press(key, wait=wait)
 
 
-GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_DISPLAY, GROUP_LED, GROUP_PADS = range(8)
-CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_SPLASH = 0, 1, 2, 3     # the rows of CUSTOMIZATION: three groups, then SPLASH IMPORT and SPLASH DRAW
+GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_DISPLAY, GROUP_LED, GROUP_PADS, GROUP_PSAVE = range(9)
+CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_PSAVE, CUSTOM_SPLASH = 0, 1, 2, 3, 4   # the rows of CUSTOMIZATION: four groups, then SPLASH IMPORT and SPLASH DRAW
 S_LEVEL, S_GROUP, S_RAW, S_TOP, S_TABW = 0xE0, 0xE4, 0xE8, 0xEC, 0xF0
 TAB_TEXT_POINTER = 0x38                                               # the tab widget keeps a pointer to its text at this offset
 LIST_PAGES = ["FEATURES", "CUSTOMIZATION", "PLUGINS"]                 # the groups of level 1 of a menu without apps, in this order; GAMES and TOOLS follow when an app is declared in them
@@ -454,8 +454,8 @@ def cases(payload, flash=None, settings=True):
 
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(3)]
-    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(6)] + [(GROUP_LED, page) for page in range(8)]
-    pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8)]
+    pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_PSAVE, page) for page in range(2)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
     for group, page in pages:
         if group == "ring":
@@ -701,13 +701,13 @@ def pins(dev):
 
 
 def custom_extra(dev):
-    """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR where the set has the pad colours, SPLASH IMPORT and SPLASH DRAW
-    where it also has the splash editor (the blue Electribe has the pad colours only)."""
+    """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR and POWER SAVE where the set has the pad colours, SPLASH IMPORT
+    and SPLASH DRAW where it also has the splash editor (the blue Electribe has the pad colours only)."""
     import pad_colors
     import splash_editor
     if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
         return 0
-    return 1 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 3
+    return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 4
 
 
 def goto_page(dev, number):
@@ -717,7 +717,7 @@ def goto_page(dev, number):
     elif number <= PAGE_BL_B:
         goto_group(dev, GROUP_DISPLAY, number - PAGE_BL_R)
     else:
-        goto_group(dev, GROUP_DISPLAY, 5)
+        goto_group(dev, GROUP_DISPLAY, 4)
 
 
 def shown_levels(dev, at):
@@ -838,7 +838,7 @@ def look_cases(payload, flash=None):
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
     add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
-        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 6), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 8)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 5), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 8)]
         and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
         f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
@@ -960,14 +960,15 @@ def look_cases(payload, flash=None):
     add("backlight_power_save_stays", abs(dimmed[0]["R"] - 0.037) < 0.02 and abs(dimmed[0]["G"] - 0.037) < 0.02 and dimmed[0]["B"] == 0 and not mix.m.asserts, f"{dimmed}")
     add("backlight_back_from_power_save", near(resumed[0], {"R": 0, "G": 0, "B": 12 / 16}), f"{resumed}")
     add("backlight_zero_is_stock_white", stock[0] == {"R": 1.0, "G": 1.0, "B": 1.0} and stock[1] == 0 and state(mix, S_BL_PWM) == 0, f"{stock}")
-    # INTENSITY scales every level and keeps the mix; SAVE LIGHT gives power save the colour at its own intensity (device 18.10.)
+    # INTENSITY scales every level and keeps the mix; POWER SAVE, DISPLAY LIGHT gives power save the colour at its own intensity
+    # (device 18.10.), 1 to 15 lighting at 3 to 15 (device 19.10.: 1 was dark on battery)
     set_look(mix, backlight=(0, 0, 12))
     goto_group(mix, GROUP_DISPLAY, 3)
     page = texts_of(mix)
     mix.turn(-7, wait=0.3)
     mix.run(0.3)
     scaled = duty(mix, 1.0)[0], texts_of(mix)[1]
-    goto_group(mix, GROUP_DISPLAY, 4)
+    goto_group(mix, GROUP_PSAVE, 0)
     save_page = texts_of(mix)
     mix.turn(4, wait=0.3)
     mix.call(POWER_CONNECT, 1)
@@ -977,7 +978,7 @@ def look_cases(payload, flash=None):
     mix.run(0.3)
     after = duty(mix, 1.0)[0]
     add("backlight_intensity", page == ("INTENSITY", "15", "") and scaled[1] == "8" and near(scaled[0], {"R": 0, "G": 0, "B": 6 / 16}), f"page {page}, at 8 {scaled}")
-    add("backlight_save_light", save_page == ("SAVE LIGHT", "STOCK", "") and near(saved, {"R": 0, "G": 0, "B": 3 / 16}) and near(after, {"R": 0, "G": 0, "B": 6 / 16})
+    add("backlight_save_light", save_page == ("DISPLAY LIGHT", "STOCK", "") and near(saved, {"R": 0, "G": 0, "B": 4 / 16}) and near(after, {"R": 0, "G": 0, "B": 6 / 16})
         and not mix.m.asserts, f"page {save_page}, power save at 4 {saved}, back {after}")
     mix.turn(-4, wait=0.3)
     goto_group(mix, GROUP_DISPLAY, 3)
@@ -1174,6 +1175,29 @@ def pad_colour_cases(payload, flash=None):
         f"on battery the firmware {'dims' if dims else 'does not dim (POWER SAVE of this flash)'} from power-on: pad 1 {pad(battery, 0)}, TAP LED {battery.m.leds.get(0x14, 0)}")
     before, during, after = dimmed(held)
     add("power_save_exit_held_is_stock", during.get(0x2D, 0) == 255 and not held.m.asserts, f"EXIT held: pad 1 blue while dimmed {during.get(0x2D, 0)}")
+    # POWER SAVE, LED DIMMING: 75 percent when never set; 0 percent leaves every LED (the knobs too), 100 percent puts all out (device wish 19.10.)
+    goto_group(plain, GROUP_PSAVE, 1)
+    first = texts_of(plain)
+    def at(turn):
+        plain.turn(turn, wait=0.4)
+        b, d, _ = dimmed(plain)
+        shown = {led: v for led, v in b.items() if v and not 0x4C <= led <= 0x57}
+        return texts_of(plain)[1], shown, {led: d.get(led, 0) for led in shown}
+    none, full, part = at(-8), at(11), at(-4)
+    # at 0 percent BLECH leaves every LED as the firmware sends it; the knob LEDs then show the firmware's own power save value
+    knobless = lambda d: {led: v for led, v in d.items() if led > 4}
+    add("power_save_led_dimming", first == ("LED DIMMING", "75%", "") and none[0] == "0%" and knobless(none[1]) and knobless(none[2]) == knobless(none[1])
+        and full[0] == "100%" and set(full[2].values()) == {0}
+        and part[0] == "70%" and all(part[2][led] == (0 if led <= 4 else (v * 30 + 99) // 100) for led, v in part[1].items()) and not plain.m.asserts,
+        f"page {first}; at {none[0]} {none[1]} -> {none[2]}; at {full[0]} -> {full[2]}; at {part[0]} {part[1]} -> {part[2]}")
+    press(plain, "write", wait=0.6)
+    look = read_settings_look(plain.m.mmc.card.medium.data).get("b", (0, 0, 0, None))
+    keep = Dev(payload, flash, 0)
+    keep.m.adapter = True
+    keep.m.insert_card(SDCard(MemoryMedium(bytearray(plain.m.mmc.card.medium.data))))
+    keep.run(wait + 0.8)
+    goto_group(keep, GROUP_PSAVE, 1)
+    add("power_save_led_dimming_kept", texts_of(keep)[1] == "70%" and not keep.m.asserts, f"after WRITE and a new start: {texts_of(keep)}, file {look}")
     if not synthaddr.is_synth(payload):
         out += chord_cases(payload, flash, add, pad, wait)
     return out
@@ -1278,7 +1302,7 @@ def invert_cases(payload, flash=None):
     dev.run(0.5)
     main_on = dev.screen()["number"], status(dev), flipped(dev)
     import splash_editor
-    add("page", page == (("DISPLAY INVERT", "OFF", ""), (5, 6), "Display"), f"{page}")
+    add("page", page == (("DISPLAY INVERT", "OFF", ""), (4, 5), "Display"), f"{page}")
     add("on_swaps_the_display", on == (("DISPLAY INVERT", "ON", ""), (1, True, 1), True) and menu_screen and still == (1, True, 1),
         f"{on}, dial again {still}")
     add("main_screen_inverted", main_on == (1, (1, True, 1), True) and not dev.m.asserts, f"{main_on}")

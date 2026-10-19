@@ -23,8 +23,9 @@ the one place every LED message passes (0xC00876A8, the end of 0xC00875F4, branc
 changes, the other may have to change too (it takes the overlap colour or gives it back), so the hook sends that one as well.
 With the default colours (red, blue) or no setting written only the chords change; with EXIT held at power-on nothing does. Nothing goes to flash.
 
-Power save: while the firmware dims the backlight (its flag 0xC00F9310, set by 0xC0028AB4), every LED goes out at a quarter
-of its brightness (the panel takes levels: the plugin Pulsieren pulses smoothly on the device, 18.10.). The hook at the start
+Power save: while the firmware dims the backlight (its flag 0xC00F9310, set by 0xC0028AB4), every LED goes out dimmed by the
+BLECH page POWER SAVE, LED DIMMING (0 to 100 percent, a quarter of its brightness when never set; the panel takes levels: the
+plugin Pulsieren pulses smoothly on the device, 18.10.); the knob LEDs go out unless the page says 0 percent. The hook at the start
 of 0xC0028AB4 runs the firmware's function and sends every LED again when the state changed, so the pads dim and come back
 at once. With EXIT held at power-on nothing of this happens.
 
@@ -123,6 +124,8 @@ SOURCE = """
     b pc_texts                  ; +12 (kind) -> r0 = title, r1 = the colour's name
     b pc_over_set               ; +16 (OVERLAP 0 the colour left, 1 red, 2 blue, 3 pink): stored, the pads sent again later
     b pc_over_get               ; +20 -> r0 = OVERLAP
+    b pc_keep_set               ; +24 (LED DIMMING step 0 to 11, 0 the 75 percent of before): stored, the LEDs sent again later
+    b pc_keep_get               ; +28 -> r0 = the LED DIMMING step
 
 ; -> r0 = PART, r1 = SELECT; never written (or nonsense) is red and blue. Clobbers r12.
 pc_colours:
@@ -150,7 +153,7 @@ pc_set:
     ldr r1, [r12, #S_SETTING]   ; OVERLAP (bits 8 to 9) stays; never written is none
     cmn r1, #1
     moveq r1, #0
-    and r1, r1, #0x300
+    and r1, r1, #0xF300         ; and the LED DIMMING step (bits 12 to 15)
     orr r0, r0, r1
     str r0, [r12, #S_SETTING]
     mov r0, #1
@@ -165,7 +168,7 @@ pc_store:
     ldr r1, [r12, #S_SETTING]
     cmn r1, #1
     moveq r1, #0
-    and r1, r1, #0x300
+    and r1, r1, #0xF300
     orr r0, r0, r1
     str r0, [r12, #S_SETTING]
     ldr r4, =LEDMGR_PTR
@@ -207,6 +210,33 @@ pc_over_get:
     moveq r0, #0
     mov r0, r0, lsr #8
     and r0, r0, #3
+    bx lr
+
+; r0 = the LED DIMMING step 0 to 11 (pc_dim): into bits 12 to 15 of the setting word; the LEDs go out again with the next LED
+; message (S_PEND). Keeps r1 to r11.
+pc_keep_set:
+    ldr r12, =STATE
+    ldr r2, [r12, #S_SETTING]
+    cmn r2, #1
+    moveq r2, #0x10
+    bic r2, r2, #0xF000
+    cmp r0, #11
+    movhi r0, #0
+    orr r2, r2, r0, lsl #12
+    str r2, [r12, #S_SETTING]
+    mov r2, #1
+    str r2, [r12, #S_PEND]
+    bx lr
+
+pc_keep_get:
+    ldr r12, =STATE
+    ldr r0, [r12, #S_SETTING]
+    cmn r0, #1
+    moveq r0, #0
+    mov r0, r0, lsr #12
+    and r0, r0, #15
+    cmp r0, #11
+    movhi r0, #0
     bx lr
 
 pc_from_look:
@@ -633,11 +663,23 @@ pd_no:
     mov r0, #0
     bx lr
 
-; r2 = brightness -> r2 = a quarter of it, never 0 for a lit LED
+; r2 = brightness -> r2 = the part LED DIMMING keeps of it (rounded up, so a lit LED stays lit unless the step is 100 percent).
+; The step (bits 12 to 15 of the setting word, device wish 19.10.) picks the percent kept from pc_keep; step 0, also a setting
+; never written, keeps 25 percent, the quarter of before. Keeps every other register.
 pc_quarter:
-    add r2, r2, #3
-    mov r2, r2, lsr #2
-    bx lr
+    push {r0, r1, r12, lr}
+    bl pc_keep_get
+    ldr r1, =pc_keep
+    ldrb r1, [r1, r0]
+    mul r0, r2, r1
+    add r0, r0, #99
+    ldr r1, =5243               ; / 100: * 5243 >> 19, exact up to 255 * 100 + 99
+    mul r2, r0, r1
+    mov r2, r2, lsr #19
+    pop {r0, r1, r12, pc}
+pc_keep:                        ; percent kept for the steps 0 to 11: dimmed by 75, 80, 90, 100, then 0 to 70 percent
+    .byte 25, 20, 10, 0, 100, 90, 80, 70, 60, 50, 40, 30
+.align 2
 
 ; Entered by the branch at the end of the send function: r0 = sender object, r1 = message (manager + 0xB4C), lr = its caller.
 pc_tail:
@@ -704,9 +746,15 @@ pt_dim_only:
     cmp r9, #0
     beq pt_record
     ldrb r0, [r5]
-    cmp r0, #KNOB_LAST          ; the LEDs of the knobs (VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE, IFX TYPE) go out (device 18.10.)
-    movls r2, #0
-    blhi pc_quarter
+    cmp r0, #KNOB_LAST          ; the LEDs of the knobs (VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE, IFX TYPE) go out (device 18.10.),
+    bhi pt_dim_led              ; unless LED DIMMING is 0 percent
+    bl pc_keep_get
+    cmp r0, #4
+    movne r2, #0
+    b pt_dim_store
+pt_dim_led:
+    bl pc_quarter
+pt_dim_store:
     strb r2, [r5, #2]
 pt_record:
     ldrb r0, [r5]               ; a pad LED that goes out as it is: noted, so pt_colours knows what the panel shows

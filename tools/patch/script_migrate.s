@@ -373,10 +373,10 @@ mg_free:
     str r0, [r4, #MG_BUF]
     pop {pc}
 
-; r0 = a name: the first 21 characters go to MG_NAME for the display. Clobbers r0 to r3.
+; r0 = a name: the first 20 characters go to MG_NAME for the display (120 pixels from x 4). Clobbers r0 to r3.
 mg_show_name:
     add r1, r4, #MG_NAME
-    mov r2, #21
+    mov r2, #20
 mg_show_loop:
     ldrb r3, [r0], #1
     cmp r3, #0
@@ -526,39 +526,39 @@ migrate_frame:
     cmp r7, #0
     bne mg_frame_copy
     ldr r4, =mg_t_title
-    mov r5, #1
-    mov r6, #0
+    mov r5, #4                  ; 4 pixels from the sides, 2 from top and bottom, as the firmware's menus
+    mov r6, #2
     bl display_draw_text
     ldr r4, =mg_t_copy
-    mov r5, #1
-    mov r6, #12
+    mov r5, #4
+    mov r6, #13
     bl display_draw_text
     ldr r0, [r8, #MG_CHOICE]
     cmp r0, #0
     ldreq r4, =mg_t_hack
     ldrne r4, =mg_t_sampler
-    mov r5, #13
-    mov r6, #26
+    mov r5, #14
+    mov r6, #27
     bl display_draw_text
     ldr r0, [r8, #MG_HAVE]
     cmp r0, #3                  ; both folders: arrows say the wheel chooses
     bne mg_frame_keys
     ldr r4, =mg_t_left
-    mov r5, #1
-    mov r6, #26
+    mov r5, #4
+    mov r6, #27
     bl display_draw_text
     ldr r4, =mg_t_right
-    mov r5, #121
-    mov r6, #26
+    mov r5, #119
+    mov r6, #27
     bl display_draw_text
 mg_frame_keys:
     ldr r4, =mg_t_menu
-    mov r5, #1
-    mov r6, #44
+    mov r5, #4
+    mov r6, #45
     bl display_draw_text
     ldr r4, =mg_t_exit
-    mov r5, #1
-    mov r6, #54
+    mov r5, #4
+    mov r6, #55
     bl display_draw_text
     b mg_frame_show
 mg_frame_copy:
@@ -568,20 +568,20 @@ mg_frame_copy:
     cmp r7, #3
     ldreq r4, =mg_t_failed
     ldrhi r4, =mg_t_full
-    mov r5, #1
+    mov r5, #4
     mov r6, #8
     bl display_draw_text
     add r4, r8, #MG_NAME
-    mov r5, #1
-    mov r6, #26
+    mov r5, #4
+    mov r6, #27
     bl display_draw_text
     ldr r0, [r8, #MG_BYTES]
     mov r0, r0, lsr #20
-    mov r5, #1
-    mov r6, #44
+    mov r5, #4
+    mov r6, #45
     bl display_draw_number
     ldr r4, =mg_t_mb
-    mov r6, #44
+    mov r6, #45
     bl display_draw_text
 mg_frame_show:
     ldr r0, =DISPLAY_FB
