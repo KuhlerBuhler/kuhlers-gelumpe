@@ -159,6 +159,23 @@ export function armCases() {
       ...frames(80),
     ],
   });
+  add("Mandelbrot worklist wraps and discards pending rectangles", program(mandelbrot.source + `
+korg.onEvent("ready", () => {
+  cx = 32768;
+  cy = 32768;
+  zoom = 0;
+  changed();
+});`, "mandelbrot"), {
+    events: [
+      { name: "open", args: [] },
+      { name: "ready", args: [] },
+      ...frames(220),
+      { name: "buttonPress", args: [3] },
+      ...frames(30),
+      ...Array.from({ length: 7 }, () => ({ name: "encoder", args: [0, 1] })),
+      ...frames(2),
+    ],
+  });
   const life = PRESETS.find(p => p.id === "life");
   add("Life dense painting, one generation and interrupted edits", program(life.source, "life"), {
     events: [

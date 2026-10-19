@@ -1,18 +1,22 @@
-// Mandelbrot renderer, an app under GAMES. Fixed point with 14 fractional bits (1.0 is 16384), the picture comes in
-// four passes of blocks 8, 4, 2 and 1 pixel wide. Proven interior blocks are filled once and skipped in finer passes;
-// smaller white spans are filled across a row. Every frame stays inside a small weighted work budget,
-// so the controls stay responsive. A finger dragging on the touchpad pans, Part right and the encoder zoom in,
-// Part left zooms out, keys 1 and 2 lower and raise the iteration limit, TAP resets the view. Each change starts the
-// picture again from the coarse pass.
+// Mandelbrot in Q14 fixed point. A bounded worklist holds unresolved rectangles. Proven interior rectangles are
+// filled once; other rectangles split until their pixels can be iterated individually. Each frame has a small work
+// budget. Touchpad pans, Part keys and encoder zoom, keys 1 and 2 change iterations, TAP resets the view.
 korg.app("Mandelbrot", "GAMES");
-const BUDGET = 72;
-const solid = new Array(8);
+const BUDGET = 1850;
+// At most 2048 unresolved 2-by-2 leaves fit in the breadth-first frontier.
+const todo = new Array(2048);
+let head = 0;
+let tail = 0;
+let pending = 0;
+let tile = 0;
+let at = 0;
+let px = 0;
+let py = 0;
 let cx = -8192;
 let cy = 0;
 let zoom = 0;
 let ds = 384;
 let maxIter = 24;
-let lvl = 0;
 let sx = 0;
 let sy = 0;
 let used = 0;
@@ -70,47 +74,32 @@ function insideBlock(x, y, w, h) {
     if (y <= 0 && b >= 0) ny = 0;
     const hi = ((ax * ax) >> 14) + ((ay * ay) >> 14);
     const lo = ((nx * nx) >> 14) + ((ny * ny) >> 14);
-    const factor = hi + rq;
+    let edge = ((lq * lq) >> 14) + lq;
+    const right = ((rq * rq) >> 14) + rq;
+    if (right > edge) edge = right;
+    const factor = edge + ((ay * ay) >> 14);
     const product = factor < 0 ? lo * factor : hi * factor;
     if ((product >> 14) < ((ny * ny) >> 16)) return 1;
   }
   return 0;
 }
 
-function startX(y) {
-  const s = 8 >> lvl;
-  if (lvl > 0 && (y & (2 * s - 1)) == 0) return s;
-  return 0;
+function push(x, y, level) {
+  todo[tail] = x | (y << 7) | (level << 13);
+  tail = (tail + 1) & 2047;
+  pending += 1;
 }
 
 function restart() {
-  for (let row = 0; row < 8; row++) solid[row] = 0;
-  lvl = 0;
-  sx = 0;
-  sy = 0;
-  done = 0;
+  korg.display.clear();
+  head = 0;
+  tail = 0;
+  pending = 0;
+  tile = 0;
   active = 0;
-}
-
-function plot(x, y, s, on) {
-  if (s == 1) korg.display.pixel(x, y, on);
-  else if (on) korg.display.rect(x, y, s, s);
-  else korg.display.clearRect(x, y, s, s);
-}
-
-function advance(skip) {
-  const s = 8 >> lvl;
-  if (skip) sx = ((sx + skip) & -skip) + startX(sy);
-  else if (lvl > 0 && (sy & (2 * s - 1)) == 0) sx += 2 * s;
-  else sx += s;
-  if (sx >= 128) {
-    sy += s;
-    if (sy >= 64) {
-      lvl += 1;
-      sy = 0;
-    }
-    if (lvl < 4) sx = startX(sy);
-  }
+  done = 0;
+  push(0, 0, 6);
+  push(64, 0, 6);
 }
 
 function hud() {
@@ -140,7 +129,6 @@ korg.onEvent("open", () => {
   zoom = 0;
   maxIter = 24;
   ds = 384;
-  korg.display.clear();
   restart();
 });
 
@@ -186,72 +174,73 @@ korg.onEvent("buttonPress", (key) => {
   if (key == 15 || key == 11 || key == 28 || key == 29 || key == 3) changed();
 });
 
-// A pixel is iterated across frames when it needs more than the frame's budget: zx, zy and n stay between frames.
+// An unfinished orbit remains in zx, zy and n until the following frame.
 korg.onEvent("frame", () => {
   used = 0;
-  while (used < BUDGET && lvl < 4) {
-    if (!active && lvl > 0 && (solid[sy >> 3] & (1 << (sx >> 3))) != 0) {
-      if (solid[sy >> 3] == 65535) {
-        sy = (sy + 8) & -8;
-        if (sy >= 64) {
-          lvl += 1;
-          sy = 0;
+  while (used < BUDGET && !done) {
+    if (active) {
+      let esc = 0;
+      while (n < maxIter && used < BUDGET && !esc) {
+        if (zx > 32768 || zx < -32768 || zy > 32768 || zy < -32768) esc = 1;
+        else {
+          const zx2 = (zx * zx) >> 14;
+          const zy2 = (zy * zy) >> 14;
+          if (zx2 + zy2 > 65536) esc = 1;
+          else {
+            zy = ((zx * zy) >> 13) + ci;
+            zx = zx2 - zy2 + cr;
+            n += 1;
+            used += 75;
+          }
         }
-        if (lvl < 4) sx = startX(sy);
-      } else advance(8);
-      used += 4;
+      }
+      if (esc || n >= maxIter) {
+        let ink = 0;
+        if (n == maxIter || (n > 2 && (n & 3) == 0)) ink = 1;
+        korg.display.pixel(px, py, ink);
+        active = 0;
+        at += 1;
+        if (at == 4) tile = 0;
+        used += 60;
+      }
+    } else if (tile) {
+      px = sx + (at & 1);
+      py = sy + (at >> 1);
+      cr = cx + (px - 64) * ds;
+      ci = cy + (py - 32) * ds;
+      zx = 0;
+      zy = 0;
+      n = 0;
+      if (inside(cr, ci)) n = maxIter;
+      active = 1;
+      used += 140;
+    } else if (pending > 0) {
+      const task = todo[head];
+      head = (head + 1) & 2047;
+      pending -= 1;
+      sx = task & 127;
+      sy = (task >> 7) & 63;
+      const level = task >> 13;
+      const size = 1 << level;
+      used += 350;
+      if (insideBlock(cx + (sx - 64) * ds, cy + (sy - 32) * ds, size, size)) {
+        korg.display.rect(sx, sy, size, size);
+        used += 80;
+      } else if (size > 2) {
+        const h = size >> 1;
+        push(sx, sy, level - 1);
+        push(sx + h, sy, level - 1);
+        push(sx, sy + h, level - 1);
+        push(sx + h, sy + h, level - 1);
+        used += 100;
+      } else {
+        tile = 1;
+        at = 0;
+      }
     } else {
-      if (!active) {
-        cr = cx + (sx - 64) * ds;
-        ci = cy + (sy - 32) * ds;
-        zx = 0;
-        zy = 0;
-        n = 0;
-        active = 1;
-        used += 8;
-        if (inside(cr, ci)) {
-          n = maxIter;
-          used += 16;
-          if (insideBlock(cr, ci, 8 - (sx & 7), 8 >> lvl)) {
-            if (lvl == 0) solid[sy >> 3] |= 1 << (sx >> 3);
-            korg.display.rect(sx, sy, 8 - (sx & 7), 8 >> lvl);
-            active = 0;
-            advance(8);
-          }
-        }
-      }
-      if (active) {
-        let esc = 0;
-        while (n < maxIter && used < BUDGET && !esc) {
-          if (zx > 32768 || zx < -32768 || zy > 32768 || zy < -32768) {
-            esc = 1;
-          } else {
-            const zx2 = (zx * zx) >> 14;
-            const zy2 = (zy * zy) >> 14;
-            if (zx2 + zy2 > 65536) {
-              esc = 1;
-            } else {
-              zy = ((zx * zy) >> 13) + ci;
-              zx = zx2 - zy2 + cr;
-              n += 1;
-              used += 3;
-            }
-          }
-        }
-        if (esc || n >= maxIter) {
-          let ink = 0;
-          if (n == maxIter) ink = 1;
-          else if (n > 2 && (n & 3) == 0) ink = 1;
-          plot(sx, sy, 8 >> lvl, ink);
-          active = 0;
-          used += 6;
-          advance(0);
-        }
-      }
+      if (used > 1000) break;
+      done = 1;
+      hud();
     }
-  }
-  if (lvl >= 4 && !done) {
-    done = 1;
-    hud();
   }
 });

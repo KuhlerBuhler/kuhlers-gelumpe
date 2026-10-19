@@ -192,3 +192,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Kartenfehler beim Start: Ladebalken weg, Power-Taste, Mounten wiederholen](2026-10-19-kartenfehler-beim-start.md)
 - [Mandelbrot: nachgewiesene Innenflächen überspringen](2026-10-19-mandelbrot-schneller.md)
 - [Pong: kurzer Ballschweif, Life: Zeichnen und Berechnen verzahnen](2026-10-19-pong-life.md)
+- [Mandelbrot: offene Rechtecke in einer Arbeitsliste](2026-10-19-mandelbrot-arbeitsliste.md)
