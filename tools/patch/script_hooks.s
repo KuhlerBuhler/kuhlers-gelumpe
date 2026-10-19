@@ -57,6 +57,10 @@ input_power_no:
     cmp r1, #1
     bne input_pass
 script_input_guard_end:
+    bl shortcut_input
+    cmp r0, #0
+    ldr r0, [sp, #8]
+    bne input_drop
     mov r8, #0
     ldr r1, =SCREEN_MANAGER
     ldr r1, [r1]
@@ -369,6 +373,7 @@ script_frame_guard_end:
     str r1, [r4, #RT_READY]
 frame_gate_open:
     bl blechy_follow
+    bl shortcut_tick
     ldr r1, =APP_STATE
     ldr r1, [r1]
     cmp r1, #0

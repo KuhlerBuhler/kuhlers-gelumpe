@@ -81,7 +81,9 @@ def runtime_profile(build):
         return RuntimeProfile(build, SITES, WORDS, LITERALS, MENU_TABLE_SOURCE, MENU_VTABLE_SOURCE,
                               45, 29, 29, dict(HW_PANEL_KEY=0xC0042BB8, HW_PART_SELECT=0xC0081BB4,
                                               HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760,
-                                              POWER_HOLD_MASK=0x08000000))
+                                              POWER_HOLD_MASK=0x08000000, SHORTCUTS=1,
+                                              SC_LEDMGR=0xC0345A1C, SC_PLAYER=0xC002FAFC, SC_PATPTR=0xC033E6A4,
+                                              SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84))
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
@@ -100,7 +102,8 @@ def runtime_profile(build):
         (0xC00DFA68,148,'a65f40522347f45bab9a10802914b4a69900ab66e455c279c57c8aa4f48368fd'),
         (0xC00C9BD8,72,'9890f118100188fed55d3f35b6cc98c22191484ac62c8e1b55fb0794c0089277'),
         37, 28, 28, dict(HW_PANEL_KEY=0xC003D158, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8,
-        POWER_HOLD_MASK=0))   # the power hold of the synth is not measured: no switch-off during the start there
+        POWER_HOLD_MASK=0, SHORTCUTS=0,
+        SC_LEDMGR=0, SC_PLAYER=0, SC_PATPTR=0, SC_BANK=0, SC_LOAD=0))   # power hold and the EXIT shortcuts are not measured on the synth
 
 
 def blechy_block():
@@ -195,7 +198,7 @@ class BuiltHooks:
         layout=self.layout
         return [area(layout['runtime'],layout['runtimeSize'],'runtime: control block, stacks, ring, LED, display buffer, knobs, app table (RT_* layout)','tools/patch/script_hooks.py:RUNTIME'),
             area(MENU_ITEMS,MENU_ITEMS_END-MENU_ITEMS,'pages of the plugins in the BLECH menu, 12 entries of 40 bytes','tools/patch/script_hooks.py:MENU_ITEMS'),
-            area(MENU_ITEMS_END,MENU_STATE-MENU_ITEMS_END,'more state of the BLECH menu: intensity, save light, meter and overlap colours, the power save tables of the backlight','tools/patch/script_menu.s:MX_INTENS'),
+            area(MENU_ITEMS_END,MENU_STATE-MENU_ITEMS_END,'more state of the BLECH menu: intensity, save light, meter and overlap colours, the power save tables of the backlight; the last bytes are the EXIT shortcuts (EXIT held, save and reset asked for)','tools/patch/script_menu.s:MX_INTENS'),
             area(MENU_STATE,0x200,'state of the BLECH menu and its two settings file buffers','tools/patch/script_hooks.py:MENU_STATE'),
             area(layout['pool'],layout['poolEnd']-layout['pool'],'plugin pool, SCRIPT_POOL_BYTES','tools/patch/script_hooks.py:POOL'),
             area(layout['card'],layout['input']-layout['card'],'work area of the card loader: file object, state, plugin list of the import page','tools/patch/script_hooks.py:CARD'),
@@ -257,7 +260,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
     files = ['script_hooks.s','script_led.s','script_card.s','script_builtin.s','script_menu.s']
-    more = ['script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s']
+    more = ['script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
     source = constants+f'\n.equ MORE_START, {MORE_START}\n'+read(files)+'\n.org MORE_START\n'+read(more)
     if build == 'synth':
