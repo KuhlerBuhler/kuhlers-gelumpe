@@ -8,10 +8,14 @@ pad is held, a step), blue the selected part; both together are pink. The patch 
     both at once     the colour that is left (pink pads and a blue cursor overlap in red), or the OVERLAP colour chosen in the
                      BLECH menu (device 18.10.)
 
+Chords (device 18.10.): in SEQUENCER mode a step of a Poly part that holds 2 or more notes takes pink as its PART colour (the
+colour that is left when PART or SELECT is pink), so the pads show where chords play. For that the pads go through the colours
+also with the firmware's red and blue; every other pad then gets exactly the firmware's values. Sampler only.
+
 The firmware's own values stay as they are (the LED manager's first table and its copy); only what goes to the panel changes, at
 the one place every LED message passes (0xC00876A8, the end of 0xC00875F4, branch to the sender 0xC0087578). When one LED of a pad
 changes, the other may have to change too (it takes the overlap colour or gives it back), so the hook sends that one as well.
-With the default colours (red, blue), EXIT held at power-on or no setting written, nothing is changed. Nothing goes to flash.
+With the default colours (red, blue) or no setting written only the chords change; with EXIT held at power-on nothing does. Nothing goes to flash.
 
 Power save: while the firmware dims the backlight (its flag 0xC00F9310, set by 0xC0028AB4), every LED goes out at a quarter
 of its brightness (the panel takes levels: the plugin Pulsieren pulses smoothly on the device, 18.10.). The hook at the start
@@ -98,6 +102,11 @@ SOURCE = """
 .equ LED_COUNT, 0x58            ; LEDs 0 to 87
 
 .equ LEDMGR_PTR, 0xC0345A1C
+.equ CHORD, @CHORD@             ; 1: the steps of a poly part that hold 2 or more notes show pink in SEQUENCER mode (device 18.10.)
+.equ CHORD_PATTERN, @CHORD_PATTERN@ ; pointer to the pattern in RAM, its file at + 4
+.equ CHORD_MODEL, @CHORD_MODEL@ ; pointer to the sequencer model, + 0x344 the bar section the pads show (0 to 3)
+.equ MODE_AT, 0xB58             ; manager + 0xB58: the pad mode (4 SEQUENCER), + 0xB60 the selected part
+.equ PART_AT, 0xB60
 .equ LED_SEND, 0xC00875F4       ; (manager, led, force)
 
 .org @CODE_AT@
@@ -309,6 +318,31 @@ pa_no:
 
 ; r4 = manager, r8 = the red LED of a pad, r6 = setting -> r0 = red to send, r1 = blue to send. Clobbers r2, r3, r12.
 pc_map:
+    push {r6, lr}
+    bl pc_chord
+    cmp r0, #0
+    bne pm_chord
+    mov r12, r6, lsl #22                ; the firmware's red and blue without OVERLAP: its own values, as they are
+    mov r12, r12, lsr #22
+    cmp r12, #0x10
+    bne pm_go
+    add r12, r4, r8, lsl #3
+    ldrb r0, [r12, #LED_VALUE]
+    ldrb r1, [r12, #LED_VALUE + 8]
+    pop {r6, pc}
+pm_chord:                               ; a chord: pink as the PART colour, or the colour left when PART or SELECT is pink
+    and r0, r6, #15
+    mov r1, r6, lsr #4
+    and r1, r1, #15
+    cmp r0, #2
+    cmpne r1, #2
+    moveq r2, #3
+    subeq r2, r2, r0
+    subeq r2, r2, r1
+    movne r2, #2
+    bic r6, r6, #15
+    orr r6, r6, r2
+pm_go:
     add r12, r4, r8, lsl #3
     ldrb r2, [r12, #LED_VALUE]          ; what the firmware wants in red
     ldrb r3, [r12, #LED_VALUE + 8]      ; and in blue
@@ -344,6 +378,63 @@ pm_colour:                              ; r0 = colour, r2 = brightness
     cmp r0, #1                          ; red or pink: the red LED
     moveq r0, #0
     movne r0, r2
+    pop {r6, pc}
+
+; r4 = manager, r8 = the red LED of a pad -> r0 = 1 when the pads are in SEQUENCER mode, the selected part is Poly 1 or 2 and the
+; pad's step (in the bar section the pads show) holds 2 or more notes. Clobbers r0 to r3 and r12. Reads memory only.
+pc_chord:
+    mov r0, #CHORD
+    cmp r0, #0
+    bxeq lr
+    ldr r0, [r4, #MODE_AT]
+    cmp r0, #4
+    bne pch_no
+    ldr r1, [r4, #PART_AT]
+    cmp r1, #16
+    bhs pch_no
+    ldr r2, =CHORD_PATTERN
+    ldr r2, [r2]
+    cmp r2, #0
+    beq pch_no
+    mov r3, #0x330
+    mul r0, r1, r3
+    add r2, r2, r0
+    add r2, r2, #0x800
+    add r2, r2, #4                      ; the part in the pattern file
+    ldrb r0, [r2, #2]                   ; voice assign: 0 Mono 1, 1 Mono 2, 2 Poly 1, 3 Poly 2
+    cmp r0, #2
+    blo pch_no
+    ldr r0, =CHORD_MODEL
+    ldr r0, [r0]
+    cmp r0, #0
+    beq pch_no
+    ldr r0, [r0, #0x344]
+    and r0, r0, #3
+    sub r1, r8, #LED_PAD_FIRST
+    mov r1, r1, lsr #1
+    add r1, r1, r0, lsl #4              ; the step of the pad
+    mov r3, #12
+    mul r0, r1, r3
+    add r2, r2, r0
+    add r2, r2, #0x30                   ; the step: on, gate, velocity, trigger, 4 notes (0 empty)
+    mov r0, #0
+    ldrb r1, [r2, #4]
+    cmp r1, #0
+    addne r0, r0, #1
+    ldrb r1, [r2, #5]
+    cmp r1, #0
+    addne r0, r0, #1
+    ldrb r1, [r2, #6]
+    cmp r1, #0
+    addne r0, r0, #1
+    ldrb r1, [r2, #7]
+    cmp r1, #0
+    addne r0, r0, #1
+    cmp r0, #2
+    movhs r0, #1
+    bxhs lr
+pch_no:
+    mov r0, #0
     bx lr
 
 ; -> r0 = 1 while the firmware dims for power save and EXIT was not held at power-on. Clobbers r12.
@@ -395,15 +486,33 @@ pc_tail:
 pt_message:
     cmn r6, #1
     bne pt_colours
+    mov r0, #CHORD                      ; the firmware's own colours: the pads still go through the colours, as red and blue, so a
+    cmp r0, #0                          ; step with a chord can show pink (pc_map gives every other pad the firmware's values)
+    beq pt_dim_only
+    ldr r0, =PANEL
+    ldr r0, [r0]
+    cmp r0, #0
+    beq pt_dim_only
+    ldr r0, [r0, #0x18]
+    tst r0, #KILL
+    bne pt_dim_only
+    mov r6, #0x10
+    b pt_colours
 pt_dim_only:
-    cmp r9, #0
-    beq pt_stock
     ldrb r2, [r5, #2]
+    cmp r9, #0
+    beq pt_record
     ldrb r0, [r5]
     cmp r0, #KNOB_LAST          ; the LEDs of the knobs (VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE, IFX TYPE) go out (device 18.10.)
     movls r2, #0
     blhi pc_quarter
     strb r2, [r5, #2]
+pt_record:
+    ldrb r0, [r5]               ; a pad LED that goes out as it is: noted, so pt_colours knows what the panel shows
+    sub r0, r0, #LED_PAD_FIRST
+    cmp r0, #31
+    ldrls r12, =STATE + S_SENT
+    strbls r2, [r12, r0]
     b pt_stock
 pt_colours:
     sub r4, r5, #0xB40
@@ -541,6 +650,10 @@ def source():
         text = text.replace(f"@{key}@", str(value))
     if BUILD == "synth":
         text = synthaddr.source(text, own=[(CODE_AT, CODE_END), (STATE, STATE_END)])
+    # the chord colour reads the pattern and the sequencer model, measured on the Sampler only (docs/messungen/2026-10-19-poly-pads-pink.md)
+    chord = {"CHORD": 0, "CHORD_PATTERN": 0, "CHORD_MODEL": 0} if BUILD == "synth" else {"CHORD": 1, "CHORD_PATTERN": "0xC033E6A4", "CHORD_MODEL": "0xC0348884"}
+    for key, value in chord.items():
+        text = text.replace(f"@{key}@", str(value))
     return text
 
 

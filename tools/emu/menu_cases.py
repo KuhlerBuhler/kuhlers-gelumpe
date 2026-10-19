@@ -1131,7 +1131,33 @@ def pad_colour_cases(payload, flash=None):
         f"on battery the firmware {'dims' if dims else 'does not dim (POWER SAVE of this flash)'} from power-on: pad 1 {pad(battery, 0)}, TAP LED {battery.m.leds.get(0x14, 0)}")
     before, during, after = dimmed(held)
     add("power_save_exit_held_is_stock", during.get(0x2D, 0) == 255 and not held.m.asserts, f"EXIT held: pad 1 blue while dimmed {during.get(0x2D, 0)}")
+    if not synthaddr.is_synth(payload):
+        out += chord_cases(payload, flash, add, pad, wait)
     return out
+
+
+def chord_cases(payload, flash, add, pad, wait):
+    """SEQUENCER mode, part 1 Poly 1: the steps that hold 2 or more notes show pink, the others red (device wish 18.10.); the same
+    steps of a Mono part and with EXIT held at power-on stay red. Part 1 gets chords on steps 5, 9 and 13, one note on 3, 7, 11 and 15."""
+    def chords(held, voice):
+        dev = boot(payload, flash, held=held, files=CARD_FOLDER, adapter=True, seconds=wait)
+        live = dev.u32(0xC033E6A4) + 4 + 0x800
+        dev.m.uc.mem_write(live + 2, bytes([voice]))
+        for step in range(16):
+            notes = [61, 65] if step in (4, 8, 12) else [63] if step % 4 == 2 else []
+            dev.m.uc.mem_write(live + 0x30 + 12 * step, bytes([1 if notes else 0, 60, 100, 1, *notes, *[0] * (4 - len(notes))]))
+        press(dev, 0x15, wait=0.5)
+        return dev, [pad(dev, n) for n in range(16)]
+    poly, lit = chords(0, 2)
+    pink = [n for n in range(16) if lit[n] == (255, 255)]
+    red = [n for n in range(16) if lit[n] == (255, 0)]
+    add("chord_pink", pink == [4, 8, 12] and red == [2, 6, 10, 14] and not poly.m.asserts, f"Poly 1: pink {pink}, red {red}, all {lit}")
+    mono, lit = chords(0, 0)
+    add("chord_mono_red", [n for n in range(16) if lit[n] == (255, 0)] == [2, 4, 6, 8, 10, 12, 14] and not mono.m.asserts, f"Mono 1: {lit}")
+    held, lit = chords(KILL, 2)
+    add("chord_exit_held_is_stock", [n for n in range(16) if lit[n] == (255, 0)] == [2, 4, 6, 8, 10, 12, 14] and not held.m.asserts,
+        f"EXIT held at power-on, Poly 1: {lit}")
+    return []
 
 
 def invert_cases(payload, flash=None):
