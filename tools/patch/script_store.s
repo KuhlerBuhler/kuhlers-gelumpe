@@ -121,9 +121,10 @@ store_read_fail:
     pop {r4, r7, pc}
 .pool
 
-; r0 runtime. Reads the newer valid store file into the image and hands each loaded script its saved values.
+; r0 runtime, r1 0 or a script entry. Reads the newer valid store file into the image and hands each loaded script (with r1 only
+; that one, 1 none) its saved values. The image shares its buffer with the import of a .blech, which reads it back this way.
 script_store_load:
-    push {r4-r11, lr}
+    push {r1, r4-r11, lr}
     mov r4, r0
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
@@ -178,6 +179,10 @@ store_chosen:
 store_entry:
     cmp r10, #0
     beq store_load_done
+    ldr r0, [sp]
+    cmp r0, #0
+    cmpne r0, r10
+    bne store_next_entry
     ldr r11, [r10, #SCRIPT_ENTRY_BLOB]
     mov r3, #0
     add r2, r7, #STORE_HEADER_SIZE
@@ -216,7 +221,7 @@ store_next_entry:
     ldr r10, [r10, #SCRIPT_ENTRY_NEXT]
     b store_entry
 store_load_done:
-    pop {r4-r11, pc}
+    pop {r1, r4-r11, pc}
 .pool
 
 ; r0 runtime. Writes the image when a script asked to save, the main screen is open and the pause since the last write is over.

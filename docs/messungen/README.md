@@ -190,3 +190,8 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Update über USB: die Firmware-Datei über BLECH lesen und schreiben](2026-10-18-update-ueber-usb.md)
 - [Ruhender Insert-Effekt: Punch für stumme Parts](2026-10-18-ifx-ruht.md)
 - [Kartenfehler beim Start: Ladebalken weg, Power-Taste, Mounten wiederholen](2026-10-19-kartenfehler-beim-start.md)
+- [EXIT-Shortcuts: speichern und Part zurücksetzen](2026-10-19-exit-shortcuts.md)
+- [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
+- [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
+- [Notenassistent: Helligkeit nach Passung, stehen lassen und ausblenden](2026-10-19-notenassistent-helligkeit.md)
+- [IMPORT PLUGIN als Liste mit Namen und Beschreibung](2026-10-19-plugin-import-liste.md)

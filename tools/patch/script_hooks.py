@@ -293,7 +293,8 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     s=hooks.symbols
     if s['STORE_IMAGE']+s['STORE_CAPACITY']>s['STORE_OTHER'] or s['STORE_OTHER']+s['STORE_CAPACITY']>END:
         raise ValueError('the store images run over the block buffer')
-    if s['LIST_NAMES']+s['LIST_MAX']*s['LIST_NAME_SIZE']>INPUT-CARD:
+    if (s['LIST_NAMES']+s['LIST_MAX']*s['LIST_NAME_SIZE']>s['LIST_TITLES'] or s['LIST_TITLES']+s['LIST_MAX']*16>s['LIST_DESC']
+            or s['LIST_DESC']+s['DESC_MAX_BYTES']+1>INPUT-CARD):
         raise ValueError('the plugin list of the import page runs over the card work area')
     symbols={**vm.symbols,**hooks.symbols}
     layout=dict(code=CODE_START,codeEnd=origin+len(first),more=MORE_START,moreEnd=MORE_START+len(more_code),runtime=RUNTIME,

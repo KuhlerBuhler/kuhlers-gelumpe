@@ -141,6 +141,7 @@ card_blocks_done:
     bne card_bad_checksum
     bl card_close
     mov r0, r4
+    mov r1, #0
     bl script_store_load
     ldr r10, [r4, #RT_HEAD]
 card_start:

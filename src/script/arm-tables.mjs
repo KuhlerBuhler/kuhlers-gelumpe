@@ -16,7 +16,7 @@
  */
 import {
   FORMAT_VERSION, API_VERSION, MAGIC, LIMITS, HEADER, SECTION, OPCODES, OPCODE_COUNT, EVENTS, API, ERRORS, BUDGET, SCRIPT_ENTRY, SCRIPT_STATE, TIMER3,
-  BLOCK_FLAGS, SCRIPT_CONTROL, SCRIPT_PHASE, SCRIPT_EVENT_RECORD, SCRIPT_LED, SCRIPT_LED_VALID, SCRIPT_DISPLAY, SCRIPT_KNOBS, SCRIPT_APPS, STORE, ARCHIVE, CARD_STATUS,
+  BLOCK_FLAGS, SCRIPT_CONTROL, SCRIPT_PHASE, SCRIPT_EVENT_RECORD, SCRIPT_LED, SCRIPT_LED_VALID, SCRIPT_DISPLAY, SCRIPT_KNOBS, SCRIPT_APPS, STORE, ARCHIVE, DESC_TRAILER, CARD_STATUS,
 } from "../../data/script/contract.mjs";
 import { FONT } from "../../data/script/font.mjs";
 
@@ -126,6 +126,7 @@ export function asmInclude() {
   for (const [name, value] of Object.entries(STORE)) if (typeof value === "number") eq(`STORE_${sym(name)}`, value);
   for (const [name, value] of Object.entries(ARCHIVE)) if (typeof value === "number") eq(`ARCHIVE_${sym(name)}`, value);
   for (const f of ARCHIVE.fields) eq(`ARCHIVE_AT_${sym(f.name)}`, f.offset);
+  for (const [name, value] of Object.entries(DESC_TRAILER)) eq(`DESC_${sym(name)}`, value);
   for (const [name, value] of Object.entries(CARD_STATUS)) eq(`CARD_${name}`, value);
   for (const [k, v] of Object.entries(LIMITS)) eq(`LIM_${sym(k)}`, v);
   eq("BLOCK_KNOWN_FLAGS", BLOCK_FLAGS.KNOWN);

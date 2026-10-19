@@ -576,9 +576,15 @@ Plugins kommen nur über die SD-Karte aufs Gerät, nie in die VSB. Der Ordner is
   Blöcke im Format 2 unverändert hintereinander (jeder hat seine eigene Größe
   und CRC; eine Blockgröße ist durch 4 teilbar, es gibt kein Auffüllen).
   Ein Block darf höchstens 32752 Byte haben (Puffer des Laders).
-- `<name>.blech` ist ein Block mit angehängtem Quelltext: nach dem Block die
-  Kennung `GSRC`, die Länge (u32) und der Text in UTF-8. Das Gerät liest nur
-  den Block, der Editor liest den Anhang, um das Plugin wieder zu öffnen.
+- `<name>.blech` ist ein Block mit angehängter Beschreibung und angehängtem
+  Quelltext: nach dem Block die Kennung `GDSC`, die Länge (u32) und die
+  Beschreibung in ASCII, Zeilen von höchstens 20 Zeichen mit `\n` am Ende
+  (höchstens 2047 Byte); dann die Kennung `GSRC`, die Länge (u32) und der Text
+  in UTF-8. Die Beschreibung sind die `//`-Zeilen ganz oben im Plugin-Code
+  (eine leere `//`-Zeile beginnt einen neuen Absatz, Umlaute werden zu ae, oe,
+  ue, ss); ohne solche Zeilen fehlt der Anhang `GDSC`. Das Gerät lädt den
+  Block und zeigt die Beschreibung in IMPORT PLUGIN, der Editor liest den
+  Quelltext, um das Plugin wieder zu öffnen.
 
 Der Lader läuft einmal beim Start direkt nach dem Laden der `e2sSample.all`
 (Einhängestelle `0xC0038D68`, Kette `start`). Mit EXIT beim Einschalten, ohne
@@ -682,7 +688,7 @@ Die Seiten der Gruppen:
 | PLUGINS, ein Plugin je Seite | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen, WRITE behält den Stand über einen Neustart (ein ausgeschaltetes Plugin startet dann nicht, beim Einschalten läuft sein Start nach); bei einem Fehler steht sein Name mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal) |
 | PLUGINS, je `korg.menu.add` eine Seite | die Zahl | Hauptrad ändert sie, das Plugin bekommt `menu` |
 | PLUGINS, EXPORT ALL | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
-| PLUGINS, IMPORT PLUGIN | (leer, `press  [ Enter ]`), dann Dateiname | ENTER zeigt die erste `*.blech` aus `KORG/blechtribe/Plugin/` (höchstens 14 Zeichen lang gezeigt), das Hauptrad oder EDIT blättert Datei für Datei, ENTER oder WRITE lädt und startet die gezeigte sofort, EXIT geht zurück auf die Seite. Dateien, deren Name mit einem Punkt beginnt (die `._Name.blech` des Mac auf FAT Karten), und versteckte oder Systemdateien fehlen in der Liste |
+| PLUGINS, IMPORT PLUGIN | (leer, `press  [ Enter ]`), dann Name und Stand | ENTER zeigt die Plugins der `*.blech` aus `KORG/blechtribe/Plugin/` als Liste (bis 16): oben der Name des Plugins (aus seinem Kopf, nicht der Dateiname), darunter sein Stand (ON, OFF, FAULT, ENTER=ALLOW); das Hauptrad blättert. ENTER öffnet das gewählte Plugin: oben der Name, darunter seine Beschreibung (das Hauptrad scrollt sie zeilenweise, `^` und `v` zeigen, dass es weitergeht), unten der Stand. ENTER schaltet es dann um: ein noch nicht geladenes wird geladen und gestartet, ein laufendes aus, ein ausgeschaltetes wieder an, ein fremdes wird erlaubt; WRITE behält den Stand über einen Neustart wie auf seiner Seite. EXIT geht zurück in die Liste und von dort auf die Seite. Dateien, deren Name mit einem Punkt beginnt (die `._Name.blech` des Mac auf FAT Karten), versteckte oder Systemdateien und Dateien ohne Plugin-Kopf fehlen in der Liste ([Messung](messungen/2026-10-19-plugin-import-liste.md)) |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | öffnet die Seiten des Display-Lichts; EXIT führt zurück auf DISPLAY |
 | DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 bis 15 | Farbe des Display-Lichts, frei gemischt; 15 15 15 heißt das Weiß der Firmware ("15 stock"); gilt sofort |

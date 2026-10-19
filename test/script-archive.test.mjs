@@ -4,10 +4,10 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ARCHIVE, ERROR } from "../data/script/contract.mjs";
+import { ARCHIVE, DESC_TRAILER, ERROR } from "../data/script/contract.mjs";
 import { compile } from "../src/script/compiler.mjs";
 import { encodeBlob, crc32, markProbed, isProbed, decodeBlob } from "../src/script/blob.mjs";
-import { packAll, parseAll, packBlech, parseBlech } from "../src/script/archive.mjs";
+import { packAll, parseAll, packBlech, parseBlech, describeSource } from "../src/script/archive.mjs";
 
 const fixture = name => readFileSync(new URL(`./fixtures/scripts/${name}`, import.meta.url), "utf8");
 const block = (name, source) => {
@@ -106,6 +106,21 @@ test("a .blech file is the block with the source behind it and the block alone s
   assert.equal(parseBlech(bare.bytes).source, null);
   const umlaut = packBlech(klicker(), "// äöü ✓\n");
   assert.equal(parseBlech(umlaut.bytes).source, "// äöü ✓\n");
+});
+
+test("a .blech carries the description from the comment on top of the source, in front of the source", () => {
+  const source = "// Blinks the pads, über alles.\n//\n// A second paragraph that runs over twenty characters.\nlet a = 1;\n";
+  const description = describeSource(source);
+  assert.equal(description, "Blinks the pads,\nueber alles.\n\nA second paragraph\nthat runs over\ntwenty characters.\n");
+  assert.ok(description.split("\n").every(line => line.length <= DESC_TRAILER.width));
+  const packed = packBlech(klicker(), source);
+  const dv = new DataView(packed.bytes.buffer);
+  assert.equal(dv.getUint32(klicker().length, true), DESC_TRAILER.magic);
+  const parsed = parseBlech(packed.bytes);
+  assert.equal(parsed.description, description);
+  assert.equal(parsed.source, source);
+  assert.equal(describeSource("let a = 1; // not on top\n"), "");
+  assert.equal(parseBlech(packBlech(klicker(), "let a = 1;\n").bytes).description, null);
 });
 
 test("a damaged trailer only loses the source, a damaged block is an error", () => {

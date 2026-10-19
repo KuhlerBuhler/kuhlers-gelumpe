@@ -458,9 +458,12 @@ Plugins reach the device only through the SD card, never inside the VSB. The fol
   from byte 16 (u32). Then the blocks in format 2, unchanged, one after the other (each has its own size and
   CRC; a block size is divisible by 4, there is no padding). One block may have at most 32752 bytes (the
   loader's buffer).
-- `<name>.blech` is one block with the source text attached: after the block the tag `GSRC`, the length
-  (u32) and the text in UTF-8. The device reads only the block, the editor reads the attachment to open the
-  plugin again.
+- `<name>.blech` is one block with a description and the source text attached: after the block the tag
+  `GDSC`, the length (u32) and the description in ASCII, lines of at most 20 characters ending in `\n` (at most
+  2047 bytes); then the tag `GSRC`, the length (u32) and the text in UTF-8. The description is the `//` lines at
+  the very top of the plugin code (an empty `//` line starts a new paragraph, umlauts become ae, oe, ue, ss);
+  without such lines there is no `GDSC`. The device loads the block and shows the description in IMPORT PLUGIN,
+  the editor reads the source to open the plugin again.
 
 The loader runs once at start, right after the device has loaded `e2sSample.all`. With EXIT held at
 power-on, without a card or without the file it does nothing, and the Electribe starts as it would without
@@ -548,7 +551,7 @@ The pages of the groups:
 | PLUGINS, one plugin per page | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume, WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error its name stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
 | PLUGINS, one page per `korg.menu.add` | the number | the main dial changes it, the plugin gets `menu` |
 | PLUGINS, EXPORT ALL | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them, then saves the settings too (plugins switched off stay off) |
-| PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then a file name | ENTER shows the first `*.blech` in `KORG/blechtribe/Plugin/` (shown up to 14 characters), the main dial or EDIT pages through the files, ENTER or WRITE loads and starts the one shown at once, EXIT goes back to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards) and hidden or system files are not listed |
+| PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then name and state | ENTER lists the plugins of the `*.blech` files in `KORG/blechtribe/Plugin/` (up to 16): on top the plugin's name (from its header, not the file name), below it its state (ON, OFF, FAULT, ENTER=ALLOW); the main dial pages through them. ENTER opens the selected plugin: its name on top, its description below (the main dial scrolls it line by line, `^` and `v` show there is more), its state at the bottom. ENTER then switches it: one not loaded yet is loaded and started, a running one goes off, one switched off on again, a foreign one is allowed; WRITE keeps the state over a restart as on its page. EXIT goes back to the list and from there to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards), hidden or system files and files without a plugin header are not listed |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | opens the pages of the display light; EXIT goes back to DISPLAY |
 | DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 15 15 15 means the firmware's white ("15 stock"); applies at once |
