@@ -14,6 +14,7 @@
   "data/patches/dice-synth.json",
   "data/patches/mfx-switch-synth.json",
   "data/patches/pad-colors-synth.json",
+  "data/patches/ifx-idle-synth.json",
   "data/patches/script-runtime-synth.json"
  ]
 }

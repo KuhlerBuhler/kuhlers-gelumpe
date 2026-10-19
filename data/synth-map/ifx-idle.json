@@ -1,0 +1,11 @@
+{
+ "entries": [
+  { "from": "0xC0089D90", "to": "0xC0079960", "kind": "data", "why": "the literal the LED manager registers its 40 ms tick with: the only word of the synth image that holds its tick 0xC00777FC (the Sampler's 0xC0087740)" },
+  { "from": "0xC0097E70", "to": "0xC00854A4", "kind": "code", "why": "the part reload, read side by side: type at [obj+8]+0x1D, the tempo from 0xC00290D4 or the sequencer, loads through 0xC00399DC when the remembered index differs, then stores it; no stereo pair, the part number at +0x30, the table passed whole" },
+  { "from": "0xC0692268", "to": "0xC056C390", "kind": "ram", "why": "the table of remembered insert effect indices, one byte per part: fwmap's vote, and the literal of the synth's reload and of its reset loop (16 bytes to FF)" },
+  { "from": "0xC003EDEC", "to": "0xC00399DC", "kind": "code", "why": "fwmap, same code: gives a part an insert effect (index, part, tempo * 10)" },
+  { "from": "0xC002BF70", "to": "0xC00290D4", "kind": "code", "why": "fwmap, same code: the tempo the reload passes" },
+  { "from": "0xC004A7D8", "to": "0xC00448B8", "kind": "code", "why": "fwmap, same code: the sequencer object the reload reads the tempo from when the other is negative" },
+  { "from": "0xC03403B8", "to": "0xC03405A8", "kind": "ram", "why": "fwmap's vote, and the literal of the synth's reload" }
+ ]
+}
