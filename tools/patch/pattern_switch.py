@@ -327,7 +327,10 @@ copy_hook:
     bne ch_copy
     cmp r4, r5
     beq ch_copy
-    ldr r12, =PANEL
+    mov r12, #(PANEL & 0xFF000000)  ; PANEL built without a literal: the firmware loads a pattern during the start, so this runs then
+    orr r12, r12, #(PANEL & 0x00FF0000)
+    orr r12, r12, #(PANEL & 0x0000FF00)
+    orr r12, r12, #(PANEL & 0x000000FF)
     ldr r12, [r12]
     cmp r12, #0
     beq ch_copy
@@ -838,7 +841,10 @@ def build_patch(vsb, build="hacktribe"):
         "startPhase": [
             {"file": file_offset(SYNC_HOOK), "length": 4, "why": "the stopped sync is an observer the firmware calls from the start on; the hook reads its own state word (FF at start, not 1) and runs the original"},
             {"file": file_offset(symbols["sync_hook"]), "length": symbols["view_text"] - symbols["sync_hook"], "why": "sync_hook: one load, a compare, then the replaced instruction and the way back"},
-        ],
+        ] + ([] if SYNTH else [
+            {"file": file_offset(COPY_CALL), "length": 4, "why": "the pattern load copies the first pattern into RAM during the start, through the copy hook"},
+            {"file": file_offset(symbols["pc_group"]), "length": symbols["pc_notify"] - symbols["pc_group"], "why": "copy_hook and pc_group: the panel's keys and the two mute groups read, the memcpy, no literal"},
+        ]),
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14", "tools/patch/pattern_switch.py:STATE"),
         ],

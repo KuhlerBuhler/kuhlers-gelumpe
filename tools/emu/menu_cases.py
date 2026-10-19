@@ -120,6 +120,11 @@ FEAT_MFX, FEAT_PC, FEAT_TM, FEAT_NA = range(len(FEATURE_PAGES))
 FEAT_MG = len(FEATURE_PAGES)                                          # MUTE GROUP behind them, on the sampler builds (pattern_switch.py)
 MUTE_GROUP = True
 MUTE_GROUP_AT = 0x3B80                                                # the group in a pattern block, u16 little endian
+
+
+def feature_count():
+    """The pages of FEATURES: the switches, and MUTE GROUP where the build has mute groups."""
+    return len(FEATURE_PAGES) + (1 if MUTE_GROUP else 0)
 TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads"]
 RING = 31                                                             # the total of the page counter with the page BLECH and the page of Blechy in the ring
 BASE_RING = 29
@@ -450,7 +455,7 @@ def cases(payload, flash=None, settings=True):
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(3)]
     pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(6)] + [(GROUP_LED, page) for page in range(8)]
-    pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_FEATURES, page) for page in range(len(FEATURE_PAGES))]
+    pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
     for group, page in pages:
         if group == "ring":
@@ -1336,7 +1341,7 @@ def confirm_cases(payload, flash=None):
     still = status(dev)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), status(dev)
-    add("page", page == (("PATTERN CONFIRM", "ON", ""), (FEAT_PC, len(FEATURE_PAGES)), "Feature"), f"{page}")
+    add("page", page == (("PATTERN CONFIRM", "ON", ""), (FEAT_PC, feature_count()), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("PATTERN CONFIRM", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("PATTERN CONFIRM", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
     # WRITE keeps OFF in the flags and leaves the look word and the other flags alone
@@ -1399,7 +1404,7 @@ def tap_motion_cases(payload, flash=None):
     still = status(dev)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), status(dev)
-    add("page", page == (("TAP MOTION", "ON", ""), (FEAT_TM, len(FEATURE_PAGES)), "Feature"), f"{page}")
+    add("page", page == (("TAP MOTION", "ON", ""), (FEAT_TM, feature_count()), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("TAP MOTION", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("TAP MOTION", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
     # ONCE: one step up from ON, the word is 2, the page says ONCE; WRITE keeps it as bit 5, a start reads it back, bit 3 wins
@@ -1426,7 +1431,7 @@ def tap_motion_cases(payload, flash=None):
     press(dev, "edit_next", wait=0.4)
     nxt = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    add("page_before_note_assist", nxt == ("NOTE ASSIST", (FEAT_NA, len(FEATURE_PAGES))) and texts_of(dev)[0] == "TAP MOTION", f"after EDIT next {nxt}, after EDIT previous {texts_of(dev)}")
+    add("page_before_note_assist", nxt == ("NOTE ASSIST", (FEAT_NA, feature_count())) and texts_of(dev)[0] == "TAP MOTION", f"after EDIT next {nxt}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
@@ -1487,14 +1492,15 @@ def note_assist_menu_cases(payload, flash=None):
     still = status(dev)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), status(dev)
-    add("page", page == (("NOTE ASSIST", "ON", ""), (FEAT_NA, len(FEATURE_PAGES)), "Feature"), f"{page}")
+    add("page", page == (("NOTE ASSIST", "ON", ""), (FEAT_NA, feature_count()), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("NOTE ASSIST", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("NOTE ASSIST", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
     # the page is the last of the group FEATURES: EDIT next wraps to the first, EDIT previous from there comes back
     press(dev, "edit_next", wait=0.4)
     wrapped = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    add("page_is_last", wrapped == ("MFX 2", (0, len(FEATURE_PAGES))) and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
+    after = ("MUTE GROUP", (FEAT_MG, feature_count())) if MUTE_GROUP else ("MFX 2", (0, feature_count()))
+    add("page_is_last", wrapped == after and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
