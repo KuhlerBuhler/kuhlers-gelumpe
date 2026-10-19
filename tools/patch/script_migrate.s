@@ -1,8 +1,9 @@
-; First start of BLECH on a card that has a hacktribe or electribe sampler folder but no blechtribe folder (device wish 19.10.):
-; before the samples load, the display asks whether the old folder is to be copied to KORG/blechtribe, so the samples stay. The
+; First start of BLECH on a card whose KORG/blechtribe has no Sample/e2sSample.all (or is not there at all) while an old hacktribe
+; or electribe sampler folder has one (device wish 19.10.; the folder alone is no sign of samples, plugins, Doom and the settings
+; land there too): before the samples load, the display asks whether the old folder is to be copied to KORG/blechtribe. The
 ; wheel, EDIT or PART < > choose between the two folders when both are there, MENU copies, EXIT starts as before (nothing is
-; written). The copy takes every file and folder (up to MG_DEPTH levels; names that start with a dot are left out), then the
-; firmware loads the samples from the new folder.
+; written). The copy takes every file and folder (up to MG_DEPTH levels; names that start with a dot are left out) and leaves
+; every file that is already in KORG/blechtribe as it is, then the firmware loads the samples from the new folder.
 ;
 ; migrate_start runs in the early hook in front of the sample loader and waits there: the input hook gives it the keys
 ; (migrate_input), the frame hook draws the question and the progress (migrate_frame). Not with EXIT held at power-on, not on the
@@ -35,6 +36,7 @@
 .equ MG_SHIFT, 0xC0C            ; log2 of the card's cluster size in bytes
 .equ MG_FREE_CL, 0xC10          ; free clusters on the card (f_getfree)
 .equ MG_FS, 0xC20               ; the volume f_getfree names
+.equ MG_FR_EXIST, 8            ; FatFs: the name is taken (f_mkdir, f_open with create new)
 
 ; Called from the early hook. Keeps r4 to r11.
 migrate_start:
@@ -52,16 +54,16 @@ migrate_start:
     bne mg_out
     mov r0, #0
     str r0, [r4, #MG_ACTIVE]
-    ldr r1, =mg_new_folder
+    ldr r1, =mg_new_samples
     bl mg_exists
     cmp r0, #0
     bne mg_out
     mov r5, #0
-    ldr r1, =mg_hack_folder
+    ldr r1, =mg_hack_samples
     bl mg_exists
     cmp r0, #0
     orrne r5, r5, #1
-    ldr r1, =mg_sampler_folder
+    ldr r1, =mg_sampler_samples
     bl mg_exists
     cmp r0, #0
     orrne r5, r5, #2
@@ -121,17 +123,18 @@ mg_done:
 mg_out:
     pop {r4-r11, pc}
 
-; r1 = path, r4 = the work area -> r0 = 1 when the folder can be opened. Clobbers r0 to r3 and r12.
+; r1 = path, r4 = the work area -> r0 = 1 when the file can be opened for reading. Clobbers r0 to r3 and r12.
 mg_exists:
     push {lr}
-    add r0, r4, #MG_DIRS
-    ldr r12, =FS_OPENDIR
+    add r0, r4, #MG_SRCF
+    mov r2, #1
+    ldr r12, =FS_OPEN
     blx r12
     cmp r0, #0
     movne r0, #0
     popne {pc}
-    add r0, r4, #MG_DIRS
-    ldr r12, =FS_CLOSEDIR
+    add r0, r4, #MG_SRCF
+    ldr r12, =FS_CLOSE
     blx r12
     mov r0, #1
     pop {pc}
@@ -190,6 +193,7 @@ mg_copy_paths:
     ldr r12, =MG_MKDIR
     blx r12
     cmp r0, #0
+    cmpne r0, #MG_FR_EXIST      ; the folder is there already: copy into it
     bne mg_copy_fail
 mg_copy_root:
     mov r5, #0                  ; the level
@@ -284,6 +288,7 @@ mg_copy_folder:
     ldr r12, =MG_MKDIR
     blx r12
     cmp r0, #0
+    cmpne r0, #MG_FR_EXIST
     bne mg_copy_fail_open
 mg_copy_down:
     add r5, r5, #1
@@ -384,7 +389,8 @@ mg_show_end:
     strb r3, [r1]
     bx lr
 
-; Copies the file MG_SRC to MG_DST (made anew). r4 = the work area -> r0 = 0 when it went across. Clobbers r0 to r3 and r12.
+; Copies the file MG_SRC to MG_DST (made anew; a file already there is left as it is). r4 = the work area -> r0 = 0 when it went
+; across or was there. Clobbers r0 to r3 and r12.
 mg_copy_file:
     push {r5, r6, lr}
     add r0, r4, #MG_SRCF
@@ -396,9 +402,12 @@ mg_copy_file:
     bne mg_file_out
     add r0, r4, #MG_DSTF
     add r1, r4, #MG_DST
-    mov r2, #0x0A               ; create always, write
+    mov r2, #0x06               ; create new, write: never over a file of the user
     ldr r12, =FS_OPEN
     blx r12
+    cmp r0, #MG_FR_EXIST        ; already there: left as it is, nothing open on the destination
+    moveq r0, #0
+    beq mg_file_close_src
     cmp r0, #0
     bne mg_file_close_src
 mg_file_loop:
@@ -594,6 +603,12 @@ mg_frame_copy_fb:
 .pool
 mg_new_folder:
     .asciz "SD:KORG/blechtribe"
+mg_new_samples:
+    .asciz "SD:KORG/blechtribe/Sample/e2sSample.all"
+mg_hack_samples:
+    .asciz "SD:KORG/hacktribe/Sample/e2sSample.all"
+mg_sampler_samples:
+    .asciz "SD:KORG/electribe sampler/Sample/e2sSample.all"
 mg_hack_folder:
     .asciz "SD:KORG/hacktribe"
 mg_sampler_folder:
