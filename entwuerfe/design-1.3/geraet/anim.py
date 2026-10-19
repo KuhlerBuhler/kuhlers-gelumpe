@@ -220,12 +220,6 @@ def character(pupil, pose="idle"):
             if original.getpixel((x, y)) == DARK:
                 d.point((x, y), fill=LIGHT)
     for ex, ey in ((21, 14), (33, 16 if pose == "idle" else 14)):
-        if pupil == EYES_WIDE:
-            # Torn open: the eye a pixel larger all round, a big dark pupil, one glint.
-            d.ellipse((ex - 4, ey - 4, ex + 4, ey + 4), fill=LIGHT)
-            d.ellipse((ex - 3, ey - 3, ex + 3, ey + 3), fill=DARK)
-            d.point((ex - 1, ey - 1), fill=LIGHT)
-            continue
         d.ellipse((ex - 3, ey - 3, ex + 3, ey + 3), fill=LIGHT)
         if pupil == EYES_CLOSED:
             # A shut lid: one dark row, the corners a pixel higher.
@@ -495,6 +489,16 @@ def demo_timeline():
     return cues
 
 
+def percent_timeline():
+    """Every percent from 0 to 99 as its own 200ms frame, then done: what each loader value shows."""
+    cues = [Cue(State(0, "ready", started=False), 800),
+            Cue(State(0, "reach"), MIN_FRAME_MS)]
+    cues += [Cue(pass_state(p / 100), MIN_FRAME_MS) for p in range(100)]
+    cues += [Cue(State(0.99, "lift", shift=SWEEP, eaten=SWEEP + 1), MIN_FRAME_MS),
+             Cue(pass_state(1, done=True), 1200)]
+    return cues
+
+
 def motion_timeline():
     """The same single pass; kept so the review page keeps its second slot."""
     return demo_timeline()
@@ -707,6 +711,12 @@ def main():
             loop_result["kind"] = "same single pass as werkbank"
             loop_result["timeline"] = timeline_metadata(motion)
             result["motion_loop"] = loop_result
+            every = percent_timeline()
+            every_result = export_sequence("werkbank-prozent", sequence_frames(direction, every),
+                                           [cue.duration_ms for cue in every], preview_dir, raw_dir,
+                                           palette=args.palette)
+            every_result["kind"] = "one frame per percent, 200ms each"
+            result["every_percent"] = every_result
             # Stable, explicit links for reviewing the corrected frame rate.
             for stem in ("werkbank", "werkbank-loop"):
                 (preview_dir / f"{stem}-5fps.gif").write_bytes((preview_dir / f"{stem}.gif").read_bytes())

@@ -36,6 +36,8 @@ Gerätestart: Der echte Lader darf jederzeit zum aktuellen Fortschritt oder zum 
 | Fertig | Line weg, Augen auf mit großen Pupillen, "FERTIG", 100 % | 200 + 1200 ms |
 
 `werkbank-loop*.gif` zeigt denselben Durchgang, damit die Vergleichsseite ihre Plätze behält.
+`werkbank-prozent.gif` zeigt jeden Prozentwert von 0 bis 99 als eigenes Bild (je 200 ms), so wie `pass_state()`
+ihn am Gerät zeichnen würde. Blechy rückt dabei alle 8 bis 9 % um 4 Pixel weiter.
 
 ### Abschied im selben Zeitlimit
 
