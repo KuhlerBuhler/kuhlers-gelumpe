@@ -83,7 +83,7 @@ def runtime_profile(build):
                                               HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760,
                                               POWER_HOLD_MASK=0x08000000, SHORTCUTS=1,
                                               SC_LEDMGR=0xC0345A1C, SC_PLAYER=0xC002FAFC, SC_PATPTR=0xC033E6A4,
-                                              SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84,
+                                              SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84, SC_LEDSEND=0xC00875F4,
                                               MG_WORK=0xC0190100, MG_MKDIR=0xC009EB00, MG_ALLOC=0xC0028DCC, MG_FREE=0xC0028DD4,
                                               MG_VRAM=0xC031B310, MG_MARK=0xC001531C))
     from . import synthaddr
@@ -105,7 +105,7 @@ def runtime_profile(build):
         (0xC00C9BD8,72,'9890f118100188fed55d3f35b6cc98c22191484ac62c8e1b55fb0794c0089277'),
         37, 28, 28, dict(HW_PANEL_KEY=0xC003D158, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8,
         POWER_HOLD_MASK=0, SHORTCUTS=0,
-        SC_LEDMGR=0, SC_PLAYER=0, SC_PATPTR=0, SC_BANK=0, SC_LOAD=0,
+        SC_LEDMGR=0, SC_PLAYER=0, SC_PATPTR=0, SC_BANK=0, SC_LOAD=0, SC_LEDSEND=0,
         MG_WORK=0, MG_MKDIR=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0))   # power hold and the EXIT shortcuts are not measured on the synth
 
 

@@ -26,6 +26,7 @@ from pswitch_cases import Box, play  # noqa: E402
 PATPTR = 0xC033E6A4
 LEDMGR = 0xC0345A1C
 EXIT, WRITE, TRIGGER, SEQUENCER = 0x0D, 0x0E, 0x13, 0x15
+WRITE_LED = 0x0B
 WINDOW = 18                     # the firmware's Write window
 PART, STRIDE, SOUND = 0x800, 0x330, range(2, 0x30)
 STEPS = 0x30                    # the steps of a part start here, 12 bytes each
@@ -174,7 +175,29 @@ def case_kill(payload, flash):
                   f"EXIT + pad resets nothing {all(live[a] != saved[a] for a in at)}")]
 
 
-GROUPS = (case_save, case_reset, case_kill)
+def case_unsaved(payload, flash):
+    """The WRITE LED breathes (odd values, changing) while the pattern is unsaved, and goes dark once it is saved."""
+    box = SBox(payload, flash, adapter=True)     # on battery power save sends every LED at a quarter
+    led = lambda: box.m.leds.get(WRITE_LED, 0)
+    box.run(1.0)
+    clean = led()
+    box.m.send([2, 0, 0, 200, 0])
+    seen = set()
+    for _ in range(40):
+        box.run(0.05)
+        seen.add(led())
+    box.exit_held(True)
+    box.dev.press(WRITE, 1.0)
+    box.exit_held(False)
+    box.run(1.0)
+    saved = led()
+    lit = sorted(v for v in seen if v)
+    return [entry("write_led_breathes_while_unsaved", clean == 0 and len(lit) >= 5 and all(v % 2 == 1 and v < 128 for v in lit) and saved == 0
+                  and box.live() == box.saved() and not box.m.asserts,
+                  f"saved: WRITE LED {clean}; a knob turned, 2 s: values {lit}; after EXIT + WRITE {saved}")]
+
+
+GROUPS = (case_save, case_reset, case_kill, case_unsaved)
 
 
 def group_entries(payload, flash, i):

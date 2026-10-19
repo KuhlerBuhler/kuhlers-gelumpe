@@ -28,7 +28,15 @@ das ein Pad auf seine ursprünglichen Werte zurücksetzt. EXIT hat auf dem Haupt
   Pads; die anderen Modi: der gewählte Part.
 - Nicht mit EXIT beim Einschalten, nicht auf der blauen (dort nicht gemessen, `SHORTCUTS 0`). Drei Bytes vor `MENU_STATE`.
 
-## Emulator (`tools/emu/shortcut_cases.py`, 7 von 7, Hacktribe mit BLECH, Flash vom 09.10.)
+## Ungespeichert anzeigen (19.10., Vorschlag 1)
+
+Die WRITE-LED (`0x0B`) atmet, solange das Pattern im RAM von seinem Platz in der Bank abweicht: alle 8 Frames vergleicht BLECH
+beide Wort für Wort, die LED läuft in 32 Frames (1,3 s) von 1 bis 61 und zurück, nur ungerade Werte. Ein Wert der Firmware (gerade
+oder 255) bleibt stehen, ebenso alles, solange ein Plugin die LED-Sperre hält. Nur auf dem Hauptbildschirm. Gemessen
+(`shortcut:write_led_breathes_while_unsaved`, am Netzteil): gespeichert 0; Regler gedreht, 2 s: 1, 5, ... 61; nach EXIT + WRITE 0.
+Auf Batterie mit Power Save kommt sie wie jede LED mit einem Viertel an.
+
+## Emulator (`tools/emu/shortcut_cases.py`, 8 von 8, Hacktribe mit BLECH, Flash vom 09.10.)
 
 | Fall | Ergebnis |
 |---|---|

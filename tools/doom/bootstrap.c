@@ -27,13 +27,21 @@ void doom_load(void)
     ((void (*)(int))0xC00005A0u)(8);
     ((void (*)(int))0xC0025A14u)(1);
     ((void (*)(void))0xC003FD20u)();
-    /* The firmware has just mounted the card (its own FatFs volume, as the plugins read it). Mounting it again this early
-       failed on the device with FR_DISK_ERR (0x101). Its volume entry is 0 or its type byte 0 when there is no card. */
+    /* The firmware has just registered the card (its own FatFs volume, as the plugins read it). Mounting it again this early
+       failed on the device with FR_DISK_ERR (0x101). This FatFs mounts on the first access: the type byte of the volume stays 0
+       until then (the device showed 0x100 with a card in, 18.10.), so f_open is asked, and asked again for a slow card, 500 ms
+       apart. 0x100 plus the error: the volume never mounted; 0x200 plus the error: mounted, but doom.bin did not open. */
     const unsigned char *volume = *(const unsigned char *const *)0xC06A010Cu;
-    if (!volume || !volume[0]) failed(0x100u);
+    if (!volume) failed(0x100u);
+    int result=1;
+    for (unsigned int attempt=0; attempt<6; ++attempt) {
+        result=((int (*)(void *,const char *,int))0xC009DB60u)(fil,DOOM_PROGRAM_PATH,1);
+        if (!result) break;
+        doom_power_poll_initializing();
+        ((void (*)(unsigned int))0xC0000B78u)(500);
+    }
+    if (result) failed((volume[0] ? 0x200u : 0x100u)+(unsigned int)result);
     state->stage=DOOM_STAGE_MOUNTED;
-    int result=((int (*)(void *,const char *,int))0xC009DB60u)(fil,DOOM_PROGRAM_PATH,1);
-    if (result) failed(0x200u+(unsigned int)result);
     if (fil[3] != EXPECTED_PROGRAM_BYTES) {
         ((int (*)(void *))0xC009E3DCu)(fil);
         failed(0x300);
