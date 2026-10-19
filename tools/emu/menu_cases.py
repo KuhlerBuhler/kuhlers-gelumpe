@@ -46,9 +46,9 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING, MUTE_GROUP
+    global MENU, RING, BASE_RING, SYNC_GROUP
     synth = synthaddr.is_synth(payload)
-    MUTE_GROUP = not synth
+    SYNC_GROUP = not synth
     MENU = 37 if synth else 45
     BASE_RING = 28 if synth else 29
     RING = BASE_RING + 2
@@ -117,14 +117,14 @@ LIST_GROUPS = LIST_PAGES
 LIST_FEATURES, LIST_CUSTOM, LIST_PLUGINS = range(3)                   # their places in that list
 FEATURE_PAGES = ["MFX 2", "PATTERN CONFIRM", "TAP MOTION", "NOTE ASSIST"]   # the pages of the group FEATURES, each with an ON/OFF value
 FEAT_MFX, FEAT_PC, FEAT_TM, FEAT_NA = range(len(FEATURE_PAGES))
-FEAT_MG = len(FEATURE_PAGES)                                          # MUTE GROUP behind them, on the sampler builds (pattern_switch.py)
-MUTE_GROUP = True
-MUTE_GROUP_AT = 0x3B80                                                # the group in a pattern block, u16 little endian
+FEAT_MG = len(FEATURE_PAGES)                                          # SYNC GROUP behind them, on the sampler builds (pattern_switch.py)
+SYNC_GROUP = True
+SYNC_GROUP_AT = 0x3B80                                                # the group in a pattern block, u16 little endian
 
 
 def feature_count():
-    """The pages of FEATURES: the switches, and MUTE GROUP where the build has mute groups."""
-    return len(FEATURE_PAGES) + (1 if MUTE_GROUP else 0)
+    """The pages of FEATURES: the switches, and SYNC GROUP where the build has sync groups."""
+    return len(FEATURE_PAGES) + (1 if SYNC_GROUP else 0)
 TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads"]
 RING = 31                                                             # the total of the page counter with the page BLECH and the page of Blechy in the ring
 BASE_RING = 29
@@ -391,20 +391,20 @@ def cases(payload, flash=None, settings=True):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, "ON") for title in FEATURE_PAGES] + ([("MUTE GROUP", "OFF")] if MUTE_GROUP else [])
+    want = [(title, "ON") for title in FEATURE_PAGES] + ([("SYNC GROUP", "OFF")] if SYNC_GROUP else [])
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
     add("features_group_lists_the_switches", features[:4] == (2, GROUP_FEATURES, (0, len(want)), "Feature")
         and features[4] == want and state(dev, S_PAGE) == 0, str(features))
-    if MUTE_GROUP:
+    if SYNC_GROUP:
         goto_group(dev, GROUP_FEATURES, FEAT_MG)
-        group = lambda: dev.read(dev.u32(0xC033E6A4) + 4 + MUTE_GROUP_AT, 2)
+        group = lambda: dev.read(dev.u32(0xC033E6A4) + 4 + SYNC_GROUP_AT, 2)
         dev.turn(3, wait=0.3)
         three = (texts_of(dev)[:2], bytes(group()))
         dev.turn(-10, wait=0.3)
         off = (texts_of(dev)[:2], bytes(group()))
-        add("mute_group_page_sets_the_pattern", three == (("MUTE GROUP", "3"), b"\x03\x00") and off == (("MUTE GROUP", "OFF"), b"\x00\x00")
+        add("sync_group_page_sets_the_pattern", three == (("SYNC GROUP", "3"), b"\x03\x00") and off == (("SYNC GROUP", "OFF"), b"\x00\x00")
             and not dev.m.asserts, f"turned +3: {three}, then -10: {off}")
     goto_top(dev, LIST_PLUGINS)
     press(dev, "menu")
@@ -1504,7 +1504,7 @@ def note_assist_menu_cases(payload, flash=None):
     press(dev, "edit_next", wait=0.4)
     wrapped = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    after = ("MUTE GROUP", (FEAT_MG, feature_count())) if MUTE_GROUP else ("MFX 2", (0, feature_count()))
+    after = ("SYNC GROUP", (FEAT_MG, feature_count())) if SYNC_GROUP else ("MFX 2", (0, feature_count()))
     add("page_is_last", wrapped == after and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word

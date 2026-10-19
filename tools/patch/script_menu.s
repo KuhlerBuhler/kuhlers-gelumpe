@@ -1595,7 +1595,7 @@ menu_text_na:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
-; MUTE GROUP: the group of the pattern in RAM (the patch pattern-switch), OFF for 0; saved with the pattern
+; SYNC GROUP: the group of the pattern in RAM (the patch pattern-switch), OFF for 0; saved with the pattern
 menu_text_mg:
     mov r0, #3
     bl menu_title_prefix
@@ -2013,13 +2013,13 @@ menu_confirm_add:
 ; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it. Each is again
 ; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
 ; 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR). DISPLAY, LED and PAD COLOR are rows of CUSTOMIZATION that open their pages;
-; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and MUTE GROUP (the
+; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and SYNC GROUP (the
 ; main dial changes them, WRITE keeps them). EXIT goes one level up. M_PAGE counts within the level, the counter shows only that
 ; level. Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, after Event, on which Blechy, the app built into
 ; BLECH, shows himself (the frame hook opens and closes him by this level).
 ; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 2 a plugin, 3 export, 4 import, 5 unused, 6 a page a
 ; plugin added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
-; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 MUTE GROUP), r1 = its index (the plugin, the page, the app's table index,
+; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP), r1 = its index (the plugin, the page, the app's table index,
 ; the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
@@ -2179,7 +2179,7 @@ menu_count_features:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    ldr r0, =MUTE_GROUP_AT      ; FEATURES: MUTE GROUP behind the four switches where the build has mute groups
+    ldr r0, =SYNC_GROUP_AT      ; FEATURES: SYNC GROUP behind the four switches where the build has sync groups
     cmp r0, #0
     movne r0, #5
     moveq r0, #4
@@ -3226,7 +3226,7 @@ menu_value_byte:
     movgt r1, r2
     strb r1, [r6, r3]
     b menu_value_look_done
-; MUTE GROUP: 0 (OFF) to 999 into the pattern in RAM, at once; the pattern keeps it when it is saved
+; SYNC GROUP: 0 (OFF) to 999 into the pattern in RAM, at once; the pattern keeps it when it is saved
 menu_value_mg:
     bl menu_mg_at
     cmp r2, #0
@@ -3242,9 +3242,9 @@ menu_value_mg:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
-; -> r2 = the mute group's place in the pattern in RAM (0 when there is none), r3 = the group there. Clobbers r1.
+; -> r2 = the sync group's place in the pattern in RAM (0 when there is none), r3 = the group there. Clobbers r1.
 menu_mg_at:
-    ldr r2, =MUTE_GROUP_AT
+    ldr r2, =SYNC_GROUP_AT
     cmp r2, #0
     moveq r3, #0
     bxeq lr
@@ -3838,7 +3838,7 @@ str_tm:
 str_na:
     .asciz "NOTE ASSIST"
 str_mg:
-    .asciz "MUTE GROUP"
+    .asciz "SYNC GROUP"
 .align 4
 tab_names:
     .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads

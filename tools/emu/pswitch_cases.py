@@ -558,35 +558,70 @@ def case_unsaved(payload, flash):
     return out
 
 
-def case_mute_group(payload, flash):
-    """Mute groups (sampler builds): the wheel on another pattern of the running pattern's group confirms it at once, a pattern of
-    another group only browses; between two patterns of one group the live part mutes carry over, into any other pattern they do not."""
+def case_sync_group(payload, flash):
+    """Sync groups (sampler builds): the wheel on another pattern of the running pattern's group confirms it at once, a pattern of
+    another group only browses; between two patterns of one group every value changed live (part mutes and sound, tempo) carries
+    over, values not touched and the steps stay the new pattern's; into any other pattern nothing carries."""
     if synthaddr.is_synth(payload):
         return []
     out = []
     live = lambda b: b.u32(0xC033E6A4) + 4
-    mutes = lambda b: [b.dev.read(live(b) + 0x800 + 0x330 * k + 1, 1)[0] for k in range(16)]
+    rd = lambda b, at, n=1: bytes(b.dev.read(live(b) + at, n))
+    mutes = lambda b: [rd(b, 0x800 + 0x330 * k + 1)[0] for k in range(16)]
+    P1, P2 = 0x800, 0x800 + 0x330
+    PITCH, MOD, CUTOFF, SAMPLE, TEMPO, STEP = P1 + 36, P1 + 18, P2 + 13, P1 + 8, 34, P1 + 0x30 + 2
+
     def setup(b):
         for n, g in ((0, 7), (1, 7), (2, 0), (3, 7)):
             b.pattern_bytes(n, spec.GROUP_AT, struct.pack("<H", g))
+        b.pattern_bytes(0, SAMPLE, struct.pack("<H", 0x0105))
+        b.pattern_bytes(1, SAMPLE, struct.pack("<H", 0x0200))
+        b.pattern_bytes(1, CUTOFF, [33])          # an untouched value pattern 2 has of its own
         b.m.uc.mem_write(live(b) + spec.GROUP_AT, struct.pack("<H", 7))
-        for k in (3, 5):            # parts 4 and 6 switched live
+        b.m.uc.mem_write(live(b) + SAMPLE, struct.pack("<H", 0x0105))
+
+    def edit(b):
+        for k in (3, 5):                          # parts 4 and 6 switched live
             at = live(b) + 0x800 + 0x330 * k + 1
             b.m.uc.mem_write(at, bytes([b.dev.read(at, 1)[0] ^ 1]))
+        b.m.uc.mem_write(live(b) + PITCH, bytes([(rd(b, PITCH)[0] + 5) & 0xFF]))
+        b.m.uc.mem_write(live(b) + MOD, bytes([rd(b, MOD)[0] ^ 0x20]))
+        b.m.uc.mem_write(live(b) + SAMPLE, struct.pack("<H", 0x0106))    # only the low byte differs from the bank
+        b.m.uc.mem_write(live(b) + TEMPO, struct.pack("<H", struct.unpack("<H", rd(b, TEMPO, 2))[0] + 50))
+        b.m.uc.mem_write(live(b) + STEP, bytes([rd(b, STEP)[0] ^ 0x10]))   # a step: never carried
+
     box = Box(payload, flash)
     setup(box)
-    saved = [box.dev.read(box.slots + 0x4000 + 0x800 + 0x330 * k + 1, 1)[0] for k in range(16)]
-    before = mutes(box)
+    # the bank block the pattern in RAM came from is the start's load, remembered by the copy hook
+    loaded = box.u32(spec.STATE + spec.S_LOADED)
+    out.append(entry("sync_remembers_the_start_load", loaded == box.slots + box.running() * 0x4000,
+                     f"loaded bank block {loaded:#x}, pattern {box.running()} at {box.slots + box.running() * 0x4000:#x}"))
     play(box)
+    box.run(0.3)
+    edit(box)
+    a_saved = bytes(box.m.uc.mem_read(box.slots, 0x4000))
+    b_saved = bytes(box.m.uc.mem_read(box.slots + 0x4000, 0x4000))
+    a_live = bytes(box.m.uc.mem_read(live(box), 0x4000))
     box.mark()
     box.turn(1)
     armed = (box.view(), box.flags(), box.u32(spec.STATE + spec.S_AUTO), box.program_changes())
     out.append(entry("group_confirms_at_once", armed == ((0, 1, 1), (0, 1, 1), 1, [1]) and not box.m.asserts,
                      f"group 7 to group 7: running/chosen/pending, flags (browse, confirmed, number), auto, program changes {armed}"))
     box.until_change()
-    carried = mutes(box)
-    out.append(entry("group_carries_the_mutes", box.running() == 1 and carried == before and before != saved and not box.m.asserts,
-                     f"running {box.running()}, mutes {carried}, the live ones were {before}, pattern 2 has {saved} saved"))
+    got = bytes(box.m.uc.mem_read(live(box), 0x4000))
+    want_mutes = [a_live[0x800 + 0x330 * k + 1] if a_live[0x800 + 0x330 * k + 1] != a_saved[0x800 + 0x330 * k + 1] else b_saved[0x800 + 0x330 * k + 1]
+                  for k in range(16)]
+    checks = {
+        "mutes": mutes(box) == want_mutes,
+        "pitch": got[PITCH] == a_live[PITCH],
+        "mod depth": got[MOD] == a_live[MOD],
+        "sample as one value": got[SAMPLE:SAMPLE + 2] == struct.pack("<H", 0x0106),
+        "tempo": got[TEMPO:TEMPO + 2] == a_live[TEMPO:TEMPO + 2],
+        "untouched cutoff stays": got[CUTOFF] == 33,
+        "step stays": got[STEP] == b_saved[STEP],
+    }
+    out.append(entry("group_carries_live_changes", box.running() == 1 and all(checks.values()) and not box.m.asserts,
+                     f"running {box.running()}: {checks}; mutes {mutes(box)}, wanted {want_mutes}"))
     box.turn(1)
     browse = (box.view(), box.flags()[:2], box.u32(spec.STATE + spec.S_AUTO))
     out.append(entry("other_group_only_browses", browse == ((1, 2, 1), (1, 0), 0), f"group 7 to group 0: {browse}"))
@@ -598,22 +633,28 @@ def case_mute_group(payload, flash):
     out.append(entry("turning_away_takes_the_group_back", left == ((1, 2, 1), (1, 0), 0), f"back to pattern 3 (group 0): {left}"))
     box.key("menu")
     box.until_change()
-    other = mutes(box)
-    stored = [box.dev.read(box.slots + 2 * 0x4000 + 0x800 + 0x330 * k + 1, 1)[0] for k in range(16)]
-    out.append(entry("no_carry_out_of_the_group", box.running() == 2 and other == stored and not box.m.asserts,
-                     f"confirmed into pattern 3 (group 0): mutes {other}, saved there {stored}"))
+    other = bytes(box.m.uc.mem_read(live(box), 0x4000))
+    stored = bytes(box.m.uc.mem_read(box.slots + 2 * 0x4000, 0x4000))
+    differ = [i for i in range(0x4000) if other[i] != stored[i] and i != 0x3C]
+    out.append(entry("no_carry_out_of_the_group", box.running() == 2 and not differ and not box.m.asserts,
+                     f"confirmed into pattern 3 (group 0): differs from its bank block at {differ[:8]}"))
     ref = Box(payload, flash, KILL)
     setup(ref)
     play(ref)
+    ref.run(0.3)
+    edit(ref)
     ref.turn(1)
     ref.until_change()
-    out.append(entry("group_off_with_exit_held", ref.running() == 1 and mutes(ref) == saved and not ref.m.asserts,
-                     f"EXIT held at power-on: the firmware's own switch, mutes {mutes(ref)} as saved"))
+    got = bytes(ref.m.uc.mem_read(live(ref), 0x4000))
+    saved = bytes(ref.m.uc.mem_read(ref.slots + 0x4000, 0x4000))
+    differ = [i for i in range(0x4000) if got[i] != saved[i] and i != 0x3C]
+    out.append(entry("group_off_with_exit_held", ref.running() == 1 and not differ and not ref.m.asserts,
+                     f"EXIT held at power-on: the firmware's own switch, differs from the bank block at {differ[:8]}"))
     return out
 
 
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
-          case_mute_group)
+          case_sync_group)
 
 
 def group_entries(payload, flash, i):
