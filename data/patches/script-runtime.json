@@ -379,6 +379,16 @@
    "why": "Die Haken der Anpassung (untere LEDs, Hintergrundlicht, Software-PWM, Display umkehren) geben die Firmware sofort zurück, wenn das Menü nicht scharf ist oder die Firmware das Licht für Power Save dimmt."
   },
   {
+   "file": 1632120,
+   "length": 304,
+   "why": "Die EXIT-Shortcuts im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und lassen jede Meldung durch, solange EXIT nicht auf dem Hauptbildschirm gehalten wird."
+  },
+  {
+   "file": 1632680,
+   "length": 36,
+   "why": "Literale der EXIT-Shortcuts."
+  },
+  {
    "file": 1746824,
    "length": 324,
    "why": "Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert."
@@ -400,7 +410,7 @@
   {
    "at": "0xC01D6DE0",
    "length": 32,
-   "what": "more state of the BLECH menu: intensity, save light, meter and overlap colours, the power save tables of the backlight",
+   "what": "more state of the BLECH menu: intensity, save light, meter and overlap colours, the power save tables of the backlight; the last bytes are the EXIT shortcuts (EXIT held, save and reset asked for)",
    "source": "tools/patch/script_menu.s:MX_INTENS"
   },
   {

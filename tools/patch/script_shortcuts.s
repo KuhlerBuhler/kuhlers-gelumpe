@@ -180,4 +180,6 @@ sc_tick_copy:
 sc_tick_done:
     pop {r4-r6, pc}
 .align 4
+shortcut_pool:
 .pool
+shortcut_end:

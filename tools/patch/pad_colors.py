@@ -486,9 +486,9 @@ pc_tail:
 pt_message:
     cmn r6, #1
     bne pt_colours
-    mov r0, #CHORD                      ; the firmware's own colours: the pads still go through the colours, as red and blue, so a
-    cmp r0, #0                          ; step with a chord can show pink (pc_map gives every other pad the firmware's values)
-    beq pt_dim_only
+    mov r0, #CHORD                      ; the firmware's own colours: a pad goes through the colours (as red and blue) only when it
+    cmp r0, #0                          ; is a step with a chord, or when its other LED shows what the firmware does not want (a
+    beq pt_dim_only                     ; chord that was pink); every other message goes out as it is, nothing more is sent
     ldr r0, =PANEL
     ldr r0, [r0]
     cmp r0, #0
@@ -496,6 +496,29 @@ pt_message:
     ldr r0, [r0, #0x18]
     tst r0, #KILL
     bne pt_dim_only
+    ldrb r7, [r5]
+    sub r8, r7, #LED_PAD_FIRST
+    cmp r8, #31
+    bhi pt_dim_only
+    sub r4, r5, #0xB40
+    sub r4, r4, #0xC                    ; manager = message - 0xB4C
+    bic r8, r8, #1
+    add r8, r8, #LED_PAD_FIRST          ; the pad's red LED
+    bl pc_chord
+    cmp r0, #0
+    bne pt_chord
+    eor r0, r7, #1                      ; the other LED: what the firmware wants there (dimmed) against what went out last
+    add r12, r4, r0, lsl #3
+    ldrb r2, [r12, #LED_VALUE]
+    cmp r9, #0
+    blne pc_quarter
+    sub r0, r0, #LED_PAD_FIRST
+    ldr r12, =STATE + S_SENT
+    ldrb r1, [r12, r0]
+    cmp r1, #0xFF                       ; FF: nothing noted yet
+    cmpne r1, r2
+    beq pt_dim_only
+pt_chord:
     mov r6, #0x10
     b pt_colours
 pt_dim_only:
