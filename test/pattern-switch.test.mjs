@@ -18,7 +18,8 @@ const CODE = 0x180100;              // file offset of 0xC0180000
 const CODE_END = 0x180d00;          // 0xC0180C00
 // the replaced words: wheel branch, pad and MIDI first instruction, MENU and EXIT slots (pointers), sequence end call, STOP first instruction, label load
 const WORDS = [[0x6523c, 0xea, 0xc006513c], [0x6eee4, 0xea, 0xc006ede4], [0x6ef00, 0xea, 0xc006ee00], [0xe35b0, null, 0xc00e34b0],
-  [0xe35a0, null, 0xc00e34a0], [0x5f2c4, 0xeb, 0xc005f1c4], [0x81c5c, 0xea, 0xc0081b5c], [0x86ec4, 0xeb, 0xc0086dc4], [0x81f18, 0xea, 0xc0081e18]];
+  [0xe35a0, null, 0xc00e34a0], [0x5f2c4, 0xeb, 0xc005f1c4], [0x81c5c, 0xea, 0xc0081b5c], [0x86ec4, 0xeb, 0xc0086dc4], [0x81f18, 0xea, 0xc0081e18],
+  [0x4ad44, 0xeb, 0xc004ac44]];
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
 const vsb = process.env.E2_VSB;
@@ -30,7 +31,7 @@ const skip = !vsb ? "E2_VSB not set" : false;
 const skipEmu = skip || (!local ? "emulation only runs in test:local or test:emu" : false);
 const flashArgs = flash.length ? ["--flash", ...flash] : [];
 
-test("the pattern switch has the v1 format, says what it replaces and runs only its stopped sync hook at start", () => {
+test("the pattern switch has the v1 format, says what it replaces and runs only its stopped sync hook and the load's copy at start", () => {
   assert.equal(PATCH.format, PATCH_FORMAT);
   assert.equal(PATCH.version, 1);
   assert.equal(PATCH.id, "pattern-switch");
@@ -39,12 +40,15 @@ test("the pattern switch has the v1 format, says what it replaces and runs only 
     assert.ok(change.note);
     assert.equal(change.copy, undefined, "nothing of the firmware is copied");
   }
-  // the stopped sync observer (0xC0081E18) runs from the start on; every other hook sits behind the start and the rescue paths
-  assert.deepEqual(PATCH.startPhase.map(s => s.file), [0x81f18, 0x1806a0]);
+  // the stopped sync observer (0xC0081E18) runs from the start on, and so does the pattern load's copy (0xC004AC44, sync groups);
+  // every other hook sits behind the start and the rescue paths
+  const symbol = name => PATCH.startPhase.find(s => s.why.startsWith(name));
+  assert.deepEqual(PATCH.startPhase.map(s => s.file).filter(f => f < 0x180100), [0x81f18, 0x4ad44]);
+  assert.ok(symbol("sync_hook") && symbol("copy_hook"), "the two code spans are declared");
   assert.ok(PATCH.startPhase.every(s => s.why.length > 20));
 });
 
-test("it is our code plus nine replaced words, each leading into the code, and every hook is declared", () => {
+test("it is our code plus ten replaced words, each leading into the code, and every hook is declared", () => {
   assert.equal(PATCH.changes.length, 1 + WORDS.length);
   const [code, ...words] = PATCH.changes;
   const n = fromHex(code.bytes).length;
