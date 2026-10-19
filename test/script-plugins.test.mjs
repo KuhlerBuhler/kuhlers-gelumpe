@@ -340,6 +340,80 @@ test("Life: key 4 fills the grid with random cells, and the picture follows the 
   withinWarn(p, "life");
 });
 
+function nextLife(rows) {
+  return rows.map((row, y) => {
+    let next = 0;
+    for (let x = 0; x < 32; x++) {
+      let neighbours = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (dx || dy) neighbours += (rows[(y + dy + 16) % 16] >>> ((x + dx + 32) % 32)) & 1;
+      }
+      if (neighbours === 3 || neighbours === 2 && ((row >>> x) & 1)) next |= 1 << x;
+    }
+    return next;
+  });
+}
+
+function seedLife(rows) {
+  const p = plugin("life");
+  noFault(p.device.run(1));
+  p.set("running", 0);
+  press(p, "BAR_3", 1);
+  for (let y = 0; y < 16; y++) p.put("cur", y, rows[y]);
+  p.set("idle", 0);
+  p.resetCost();
+  return p;
+}
+
+function lifePicture(p) {
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 128; x++) {
+    const on = x % 4 < 3 && y % 4 < 3 ? cellAt(p, x >> 2, y >> 2) : 0;
+    assert.equal(pixel(p.device, x, y), on, `Life pixel ${x},${y}`);
+  }
+}
+
+test("Life paints a dense grid and its extinction in bounded frames without residual pixels", () => {
+  const p = seedLife(Array(16).fill(-1));
+  noFault(p.device.run(10));
+  assert.deepEqual(Array.from({ length: 16 }, (_, y) => p.at("shown", y)), Array(16).fill(-1));
+  lifePicture(p);
+  press(p, "BAR_2", 15);
+  assert.deepEqual(Array.from({ length: 16 }, (_, y) => p.at("cur", y)), Array(16).fill(0));
+  assert.deepEqual(Array.from({ length: 16 }, (_, y) => p.at("shown", y)), Array(16).fill(0));
+  lifePicture(p);
+  withinWarn(p, "Life dense paint and extinction");
+});
+
+test("Life advances sparse and dense worlds faster and preserves every reference generation", () => {
+  let seed = 17;
+  const rand = () => { seed = (Math.imul(seed, 1103515245) + 12345) | 0; return seed; };
+  for (const [name, initial, limit] of [
+    ["glider", Array.from({ length: 16 }, (_, y) => [2, 4, 7][y] || 0), 100],
+    ["soup", Array.from({ length: 16 }, () => rand() & rand()), 250],
+  ]) {
+    const p = seedLife(initial);
+    p.set("running", 1);
+    let current = initial;
+    let generations = 0;
+    let frames = 0;
+    while (generations < 20 && frames < limit) {
+      noFault(p.device.run(1));
+      frames += 1;
+      const rows = Array.from({ length: 16 }, (_, y) => p.at("cur", y));
+      if (rows.some((row, y) => row !== current[y])) {
+        assert.deepEqual(rows, nextLife(current), `${name} generation ${generations + 1}`);
+        current = rows;
+        generations += 1;
+      }
+    }
+    assert.equal(generations, 20, `${name}: only ${generations} generations within ${limit} frames`);
+    p.set("running", 0);
+    noFault(p.device.run(40));
+    lifePicture(p);
+    withinWarn(p, `Life ${name}`);
+  }
+});
+
 // ---- Pong ----
 
 test("Pong: the ball bounces off the walls and off a paddle, and a miss is a point for the other side; the ball moves on every second frame", () => {
@@ -376,6 +450,36 @@ test("Pong: the ball bounces off the walls and off a paddle, and a miss is a poi
   assert.equal(p.v("state"), 0);
   p.device.run(40);
   assert.equal(p.v("state"), 1, "and the next ball is served");
+});
+
+test("Pong keeps two previous ball positions across fast moves and clears the trail on a point and restart", () => {
+  const p = plugin("pong");
+  noFault(p.device.run(1));
+  p.set("state", 1);
+  p.set("tick", 1);
+  p.set("bx", 40 * 4);
+  p.set("by", 40 * 4);
+  p.set("vx", 22);
+  p.set("vy", 0);
+  noFault(p.device.run(1));
+  noFault(p.device.run(4));
+  assert.equal(pixel(p.device, 41, 41), 1, "the first position stays lit for three movement steps");
+  assert.equal(pixel(p.device, 46, 41), 1, "the intermediate position is visible too");
+  assert.equal(pixel(p.device, 52, 41), 1, "the current ball is still drawn");
+  noFault(p.device.run(2));
+  assert.equal(pixel(p.device, 41, 41), 0, "the oldest position expires");
+  assert.equal(pixel(p.device, 46, 41), 1, "the trail follows the ball");
+  p.set("bx", 126 * 4);
+  noFault(p.device.run(2));
+  assert.equal(p.v("state"), 0);
+  for (let y = 40; y < 43; y++) for (let x = 40; x < 60; x++) assert.equal(pixel(p.device, x, y), 0, "a point removes the complete trail");
+  noFault(p.device.run(30));
+  for (let y = 40; y < 43; y++) for (let x = 40; x < 60; x++) assert.equal(pixel(p.device, x, y), 0, "a serve never reuses the previous trail");
+  p.set("state", 2);
+  press(p, "TAP", 1);
+  assert.equal(p.v("state"), 0);
+  for (let y = 40; y < 43; y++) for (let x = 40; x < 60; x++) assert.equal(pixel(p.device, x, y), 0, "a restart clears the trail");
+  withinWarn(p, "Pong trail");
 });
 
 test("Pong: touchpad, Part keys and encoder move the paddle, the paddle stays on the screen", () => {
@@ -536,18 +640,18 @@ function reference(cx, cy, ds, maxIter, px, py) {
   return n;
 }
 const ink = (n, maxIter) => (n == maxIter || (n > 2 && (n & 3) == 0) ? 1 : 0);
-const renderTo = (p, level) => { let f = 0; while (p.v("lvl") < level && f < 12000) { noFault(p.device.run(1)); f += 1; } return f; };
+const finishRender = p => { let f = 0; while (!p.v("done") && f < 12000) { noFault(p.device.run(1)); f += 1; } assert.equal(p.v("done"), 1, `render finished at ${p.v("cx")},${p.v("cy")},${p.v("zoom")},${p.v("maxIter")}`); return f; };
 const picture = p => Buffer.from(p.device.display.bytes).toString("hex");
 
-test("Mandelbrot renders progressively: a coarse picture within a second, the full one pixel for pixel like the fixed-point reference", () => {
+test("Mandelbrot shows final interior pixels early and finishes pixel for pixel like the fixed-point reference", () => {
   const p = plugin("mandelbrot");
-  const coarse = renderTo(p, 1);
-  assert.ok(coarse < 100, `the 8 pixel pass takes ${coarse} frames`);
+  const first = 16;
+  noFault(p.device.run(first));
   assert.ok(p.device.display.bytes.some(b => b), "non-blank");
   assert.equal(pixel(p.device, 64, 32), 1, "the middle of the main cardioid is in the set");
   assert.equal(pixel(p.device, 2, 2), 0, "a corner is outside");
-  const frames = renderTo(p, 4);
-  assert.ok(frames < 8000, `the full picture takes ${frames} frames`);
+  const frames = finishRender(p);
+  assert.ok(first + frames < 3000, `the full picture takes ${first + frames} frames`);
   const picked = [];
   for (let y = 0; y < 64; y += 3) for (let x = 0; x < 128; x += 3) if (y < 56 || x < 78) picked.push([x, y]);
   const mismatches = picked.filter(([x, y]) => pixel(p.device, x, y) !== ink(reference(p.v("cx"), p.v("cy"), p.v("ds"), p.v("maxIter"), x, y), p.v("maxIter")));
@@ -561,27 +665,121 @@ test("Mandelbrot renders progressively: a coarse picture within a second, the fu
   withinWarn(p, "mandelbrot");
 });
 
+test("Mandelbrot resolves each image pixel once, without guessed coarse colours", () => {
+  const p = plugin("mandelbrot");
+  const writes = new Uint16Array(128 * 64);
+  const paint = p.device.display.pixel.bind(p.device.display);
+  p.device.display.pixel = (x, y, on) => {
+    if (x >= 0 && x < 128 && y >= 0 && y < 64 && (y < 56 || x < 78)) {
+      writes[y * 128 + x] += 1;
+      assert.ok(writes[y * 128 + x] <= 1, `pixel ${x},${y} is already resolved`);
+      assert.equal(on, ink(reference(-8192, 0, 384, 24, x, y), 24), `final colour ${x},${y}`);
+    }
+    paint(x, y, on);
+  };
+  finishRender(p);
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 128; x++) {
+    if (y < 56 || x < 78) assert.equal(writes[y * 128 + x], 1, `resolved ${x},${y}`);
+  }
+  withinWarn(p, "Mandelbrot worklist");
+});
+
+test("Mandelbrot fills a certified interior view without refining its individual pixels", () => {
+  for (const [cx, zoom] of [[-8192, 7], [-16384, 4]]) {
+    const p = plugin("mandelbrot");
+    noFault(p.device.run(1));
+    p.set("cx", cx);
+    p.set("zoom", zoom + 1);
+    p.set("maxIter", 64);
+    p.device.post("encoder", 0, -1);
+    noFault(p.device.run(1));
+    const frames = finishRender(p);
+    assert.ok(frames < 100, `interior ${cx} at zoom ${zoom}: ${frames} frames`);
+    for (let y = 0; y < 56; y++) for (let x = 0; x < 128; x++) {
+      assert.equal(pixel(p.device, x, y), 1, `${cx}: ${x},${y}`);
+    }
+    withinWarn(p, "mandelbrot interior");
+  }
+});
+
+test("Mandelbrot block fills preserve every reference pixel across boundaries, zooms and iteration limits", () => {
+  const views = [
+    [-8192, 0, 7, 64], [-8192, 0, 0, 8], [-8192, 0, 0, 64],
+    [-12288, 0, 3, 40], [-20480, 0, 4, 64],
+    [4096, 0, 4, 64], [6000, 0, 5, 64],
+    [-8192, 10800, 3, 64], [-8192, -10800, 3, 64],
+    [-12800, 1700, 7, 64], [-12800, -1700, 6, 8],
+    [-40960, -40960, 0, 24], [40960, 40960, 0, 24],
+  ];
+  const p = plugin("mandelbrot");
+  noFault(p.device.run(1));
+  for (const [cx, cy, zoom, limit] of views) {
+    p.set("cx", cx);
+    p.set("cy", cy);
+    p.set("zoom", zoom + 1);
+    p.set("maxIter", limit);
+    p.device.post("encoder", 0, -1);
+    noFault(p.device.run(1));
+    finishRender(p);
+    assert.equal(p.v("done"), 1, `finished ${cx},${cy},${zoom},${limit}`);
+    let wrong = 0;
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 128; x++) {
+      if (y >= 56 && x >= 78) continue;
+      if (pixel(p.device, x, y) !== ink(reference(cx, cy, 384 >> zoom, limit, x, y), limit)) wrong += 1;
+    }
+    assert.equal(wrong, 0, `reference ${cx},${cy},${zoom},${limit}`);
+    withinWarn(p, `mandelbrot ${cx},${cy},${zoom},${limit}`);
+  }
+});
+
+test("Mandelbrot discards unfinished work when the view changes", () => {
+  const p = plugin("mandelbrot");
+  noFault(p.device.run(100));
+  assert.equal(p.v("done"), 0);
+  p.set("cx", -8192);
+  p.set("cy", 0);
+  p.set("zoom", 8);
+  p.device.post("encoder", 0, -1);
+  noFault(p.device.run(1));
+  assert.equal(p.v("done"), 1, "the fully interior view completes in one frame");
+  for (let y = 0; y < 56; y++) for (let x = 0; x < 128; x++) assert.equal(pixel(p.device, x, y), 1);
+  p.set("cx", 32768);
+  p.set("cy", 32768);
+  p.set("zoom", 1);
+  p.device.post("encoder", 0, -1);
+  noFault(p.device.run(1));
+  assert.equal(p.v("done"), 0);
+  for (let y = 0; y < 56; y++) for (let x = 0; x < 128; x++) assert.equal(pixel(p.device, x, y), 0, "old white tiles disappear immediately");
+  noFault(p.device.run(30));
+  press(p, "TAP", 1);
+  finishRender(p);
+  for (let y = 0; y < 56; y++) for (let x = 0; x < 128; x++) {
+    assert.equal(pixel(p.device, x, y), ink(reference(-8192, 0, 384, 24, x, y), 24), `reset ${x},${y}`);
+  }
+  withinWarn(p, "Mandelbrot restarted worklist");
+});
+
 test("Mandelbrot: a drag pans, the Part keys and the encoder zoom, the keys change the iteration limit, TAP resets, each change redraws", () => {
   const p = plugin("mandelbrot");
-  renderTo(p, 2);
+  finishRender(p);
   const start = picture(p);
   p.device.post("touch", 400, 500, 1);
   p.device.post("touch", 480, 500, 0);
   p.device.run(1);
   assert.equal(p.v("cx"), -8192 - 10 * 384, "a finger moving right by 80 touch units drags the picture 10 pixels to the right");
-  assert.equal(p.v("lvl"), 0, "the picture starts again from the coarse pass");
-  renderTo(p, 2);
+  assert.equal(p.v("done"), 0, "the changed view starts a new render");
+  finishRender(p);
   assert.notEqual(picture(p), start, "and it is another picture");
   p.device.post("touch", 480, 560, 0);
   p.device.run(1);
   assert.equal(p.v("cy"), 3 * 384, "up on the pad (touch y grows) moves the view up");
   press(p, "TAP", 1);
   assert.deepEqual([p.v("cx"), p.v("cy"), p.v("zoom")], [-8192, 0, 0]);
-  renderTo(p, 2);
+  finishRender(p);
   assert.equal(picture(p), start, "reset: the first picture again");
   press(p, "PART_RIGHT", 1);
   assert.deepEqual([p.v("zoom"), p.v("ds")], [1, 192]);
-  renderTo(p, 2);
+  finishRender(p);
   assert.notEqual(picture(p), start, "zoomed");
   p.device.post("encoder", 0, 3);
   p.device.run(1);
@@ -617,7 +815,7 @@ test("Mandelbrot: a deep zoom still matches the reference and no frame of the wh
   press(p, "BAR_2", 1);
   p.set("cx", -12800);
   p.set("cy", 1700);
-  renderTo(p, 4);
+  finishRender(p);
   let wrong = 0;
   for (let y = 0; y < 56; y += 5) for (let x = 0; x < 128; x += 5) if (pixel(p.device, x, y) !== ink(reference(p.v("cx"), p.v("cy"), p.v("ds"), p.v("maxIter"), x, y), p.v("maxIter"))) wrong += 1;
   assert.equal(wrong, 0);

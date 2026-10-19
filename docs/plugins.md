@@ -794,7 +794,7 @@ kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Sei
 Alle acht Apps stehen im Katalog der Seite Plugins und in `data/script/presets.mjs`. Sie laufen im Emulator
 der Plugin-Laufzeit (Browser-VM), am Gerät ist von ihnen nichts geprüft. `test/script-plugins.test.mjs` spielt jede
 mit Eingaben durch. Die Kosten sind der teuerste Handler in Kosteneinheiten, gezählt in einem Lauf mit Eingaben
-(Tetris 3000 Rahmen, Mandelbrot 3000, Set-Timer 90 Sekunden). Die Zeit daneben ist **hergeleitet**: der Snake-Rahmen
+(Tetris 3000 Rahmen, Mandelbrot mit vollständigen Bildern und Randansichten, Set-Timer 90 Sekunden). Die Zeit daneben ist **hergeleitet**: der Snake-Rahmen
 mit 542 Einheiten brauchte im Emulator 0,103 ms ([Messung](messungen/2026-10-14-skript-snake.md)), die Warnschwelle von
 0,5 ms liegt also bei rund 2630 Einheiten. Jede App bleibt darunter, die Tests prüfen es. Am Gerät kann die Zeit je
 Einheit anders sein.
@@ -805,10 +805,10 @@ Einheit anders sein.
 | Set-Timer | TOOLS | große Uhr mm:ss, ab einer Stunde h:mm:ss; Taste 1 startet, Taste 4 setzt zurück (zweimal drücken) | 1996 Byte | 2434 Einheiten, 0,46 ms (Bildaufbau); ohne Änderung 201, geschlossen nichts je Rahmen |
 | Snake | GAMES | Part links und rechts drehen | 1180 Byte | 2215 Einheiten (das Öffnen), Rahmen 537 |
 | Tetris | GAMES | Part links und rechts bewegen, Edit rechts dreht, Edit links gehalten lässt schneller fallen, jede Taste startet nach Game Over neu | 3772 Byte | 2305 Einheiten, 0,44 ms |
-| Game of Life | GAMES | das Touchpad setzt Zellen, Taste 1 startet und pausiert (LED), Taste 2 ein Schritt, Taste 3 löscht, Taste 4 füllt zufällig | 2184 Byte | 2484 Einheiten, 0,47 ms |
-| Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt; Ball und Bot ziehen nur jeden zweiten Rahmen, sonst sieht man den Ball auf dem trägen Display kaum | 2120 Byte | 1221 Einheiten, 0,23 ms |
+| Game of Life | GAMES | das Touchpad setzt Zellen, Taste 1 startet und pausiert (LED), Taste 2 ein Schritt, Taste 3 löscht, Taste 4 füllt zufällig | 2944 Byte | 2457 Einheiten, 0,47 ms |
+| Pong | GAMES | Paddel mit dem Touchpad (Höhe des Fingers), Part links hoch, Part rechts runter, Encoder; wer zuerst 9 hat, gewinnt; Ball und Bot ziehen jeden zweiten Rahmen, ein kurzer Schweif hält die letzten zwei Ballpositionen sichtbar | 2304 Byte | 1224 Einheiten, 0,23 ms |
 | Simon | GAMES | die vier mittleren Pads (3, 4, 11, 12, von 0 gezählt) leuchten eine Folge vor, man spielt sie nach, jede Runde einen Schritt mehr; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2344 Byte | 2114 Einheiten (das Öffnen), Rahmen 693 |
-| Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 2436 Byte | 2135 Einheiten, 0,41 ms |
+| Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 3452 Byte | 2441 Einheiten, 0,46 ms |
 
 **Set-Timer** ist für den Einsatz im Set gedacht. Die Uhr ist `korg.millis()`, die die Laufzeit in jedem Rahmen
 nachführt, auch wenn die App geschlossen ist. Er abonniert nur `play`, die Tasten und `open` und `close`: geschlossen
@@ -820,12 +820,18 @@ wieder auf ein PLAY, das ein STOP davor braucht (das Ereignis kommt beim Überga
 Ausschalten und im Menü auf OFF gestellt zählt er nicht, ein Neustart beginnt bei 0.
 
 **Game of Life** rechnet eine Zeile des Felds (32 Zellen) als eine 32-Bit-Zahl und die nächste Generation für alle 32
-Zellen einer Zeile gleichzeitig mit Bitoperationen. Das Bild wird nur zellenweise nachgezogen, die nächste Generation
-beginnt erst, wenn es eingeholt hat, so bleibt jeder Rahmen klein. **Mandelbrot** rechnet mit 14 Nachkommabits (1,0 ist
-16384), die Ganzzahl-Arithmetik der VM reicht dafür, Kommazahlen braucht es nicht; das Bild kommt in vier Durchgängen mit
-Blöcken von 8, 4, 2 und 1 Pixel, und ein Pixel, das mehr als den Rest des Rahmens braucht, wird im nächsten Rahmen
-weitergerechnet. Die ersten Bilder stehen nach etwa einer bis drei Sekunden da, das volle Bild braucht rund 3400 Rahmen
-(gut zwei Minuten, im Emulator gezählt); jede Eingabe beginnt wieder beim groben Durchgang. Die Zoomstufe geht bis 7,
+Zellen einer Zeile gleichzeitig mit Bitoperationen. Wenige Änderungen werden als einzelne Zellen gezeichnet, dichte
+Doppelzeilen als Bitmap. Berechnen und Zeichnen teilen sich das Rahmenbudget; die nächste Generation wird erst
+nach dem vollständigen Bild übernommen ([Messung](messungen/2026-10-19-pong-life.md)). **Mandelbrot** rechnet mit 14 Nachkommabits (1,0 ist 16384). Eine Arbeitsliste enthält offene Rechtecke.
+Nachweislich innenliegende Rechtecke werden einmal gefüllt; unklare Rechtecke werden geteilt, bis ihre Pixel
+berechnet werden. Die Ausgabe hat von Anfang an die Zielauflösung 128 mal 64. Es gibt keine geschätzten
+Großpixel und keine vier Verfeinerungsdurchgänge. Ein angefangener Pixel läuft im nächsten Rahmen weiter.
+Die Liste wird bei jeder Ansichtsänderung neu aufgebaut; Ergebnisse anderer Ansichten werden nicht gespeichert.
+
+In der gemessenen Gesamtansicht erscheint der weiße Mittelpunkt nach sieben statt 35 Rahmen. Das Fertigrechnen
+braucht 2594 statt 3065 Rahmen. Eine vollständig innenliegende Zoomansicht wird in einem Rahmen gefüllt.
+Das sind Messungen der JavaScript-Referenz, keine Gerätezeiten. Die Arbeitsreihenfolge kann einzelne Randdetails
+später sichtbar machen ([Messung](messungen/2026-10-19-mandelbrot-arbeitsliste.md)). Die Zoomstufe geht bis 7,
 tiefer reichen die 14 Bit nicht.
 
 ## Die Seite Plugins im Editor
