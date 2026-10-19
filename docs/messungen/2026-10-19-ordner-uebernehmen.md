@@ -31,7 +31,7 @@ werden soll, damit die Samples weiter da sind. Wählen zwischen beiden Ordnern, 
 
 Vor dem Kopieren zählt ein Probelauf über denselben Baum die nötigen Cluster (jede Datei auf ganze Cluster aufgerundet, ein
 Cluster je Ordner) und vergleicht mit den freien Clustern von `f_getfree` (`0xC009E85C`, offline: zählt die freien Einträge der
-FAT, nimmt den Wert aus FSInfo, wenn er gültig ist; Clustergröße aus Byte 2 des Volumes). Reicht der Platz nicht, steht 2,5 s
+FAT, nimmt den Wert aus FSInfo, wenn er gültig ist; Clustergröße aus Byte 2 des Volumes). Reicht der Platz nicht, steht 1,5 s
 CARD FULL, NOT COPIED da, es wird nichts geschrieben und der Start geht weiter. Beim nächsten Start kommt die Frage wieder.
 
 ## Emulator (`tools/emu/migrate_cases.py`, 8 von 8, Hacktribe mit BLECH)
