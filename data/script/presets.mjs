@@ -220,10 +220,12 @@ korg.onEvent("frame", () => {
   Object.freeze({
     id: "snake",
     title: "Snake",
-    description: "App in GAMES: das Spiel auf dem Display. Tippe aufs Touchpad oben, unten, links oder rechts, dorthin läuft die Schlange.",
+    description: "App in GAMES: das Spiel auf dem Display. Tippe aufs Touchpad oben, unten, links oder rechts, dorthin läuft die Schlange; PART < und > drehen sie nach links und rechts. Sie wird mit jedem vierten Futter schneller.",
     source: `// Snake on a 16 x 8 grid of 8 x 8 pixel cells, an app under GAMES: it opens from the BLECH menu, starts anew
 // on every open and leaves with EXIT. The body is a ring buffer, \`cell\` marks occupied cells. A tap on the
-// touchpad steers: above, below, left or right of its centre is the new direction, never straight back.
+// touchpad steers: above, below, left or right of its centre is the new direction, never straight back. PART left
+// and right turn it left and right. It starts at one cell every 6 frames (about 4 a second) and gets a frame
+// faster with every fourth food, down to every 3 frames.
 korg.app("Snake", "GAMES");
 const W = 16;
 const H = 8;
@@ -241,6 +243,7 @@ let fy = 2;
 let score = 0;
 let seed = 12345;
 let frames = 0;
+let speed = 6;
 
 function rnd() {
   seed = seed * 1103515245 + 12345;
@@ -261,6 +264,7 @@ function reset() {
   dir = 0;
   moved = 0;
   score = 0;
+  speed = 6;
   head = MAXLEN - 1;
   put(5, 4);
   put(6, 4);
@@ -297,6 +301,7 @@ function step() {
   if (eat) {
     len += 1;
     score += 1;
+    if (score % 4 == 0 && speed > 3) speed -= 1;
     newFood();
   }
 }
@@ -335,9 +340,15 @@ korg.onEvent("touch", (x, y, first) => {
   if ((want + 2) % 4 != moved) dir = want;
 });
 
+// PART left and right: a quarter turn from the direction of the last step
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.PART_LEFT) dir = (moved + 3) % 4;
+  if (key == korg.key.PART_RIGHT) dir = (moved + 1) % 4;
+});
+
 korg.onEvent("frame", () => {
   frames += 1;
-  if (frames >= 3) {
+  if (frames >= speed) {
     frames = 0;
     step();
   }
