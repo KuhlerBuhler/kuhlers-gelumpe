@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Blechy: drei Richtungen | GELUMPE 1.3</title>
+  <title>Blechy: maximal 5 FPS | GELUMPE 1.3</title>
   <link rel="stylesheet" href="../../../site/design/colors.min.css" />
   <link rel="stylesheet" href="../../../site/design/root.min.css" />
   <link rel="stylesheet" href="vergleich.css" />
@@ -13,16 +13,18 @@
   <main class="cee-compare-page">
     <header class="cee-compare-head">
       <a class="cee-back" href="../web/index.html#screens">GELUMPE 1.3 / Bildschirme</a>
-      <p class="cee-eyebrow">Blechy auf dem Gerät</p>
-      <h1>Drei Richtungen. Ein Blechy.</h1>
-      <p class="cee-lead">Ein fester Schriftzug, ein klares Gesicht und Bewegungen, die zusammenpassen.
-        Schau dir die drei Entwürfe nebeneinander an, auch in den echten 128 × 64 Pixeln.</p>
+      <p class="cee-eyebrow">Werkbank: die neue Bewegung</p>
+      <h1>Blechy mit höchstens 5 FPS.</h1>
+      <p class="cee-lead">Ansetzen, kurz ziehen und wieder absetzen. Blechy bewegt sich an seinem festen Platz,
+        während Schrift und Tisch stehen bleiben. Die neue Werkbank-Schleife zeigt höchstens fünf Bilder pro Sekunde;
+        jedes Bild bleibt mindestens 200 ms stehen. Zwischenposen führen Kopf und Hand durch die Bewegung.
+        Der Fortschritt bleibt bewusst bei 42 %, damit du die Bewegung für sich beurteilen kannst.</p>
       <div class="cee-specs" aria-label="Format und Stand">
-        <span>128 × 64</span><span>1 Bit</span><span>Dunkelmodus</span><span>Design-Demos</span>
+        <span>128 × 64</span><span>1 Bit</span><span>Werkbank: maximal 5 FPS</span><span>Design-Demos</span>
       </div>
     </header>
 
-    <section class="cee-comparison" aria-label="Start und Laden vergleichen">
+    <section class="cee-comparison" aria-label="Neue Bewegung und frühere Layoutstudien ansehen">
       <div class="cee-tools" id="cee-tools" hidden>
         <div class="cee-tool-group">
           <button class="btn cee-control" type="button" id="cee-motion" aria-pressed="false">
@@ -34,40 +36,41 @@
             <span>Originalmaßstab <span class="cee-mono">128 × 64</span></span>
           </label>
         </div>
-        <p class="cee-playback-status" id="cee-playback-status" role="status">Standbilder zum Vergleichen.</p>
+        <p class="cee-playback-status" id="cee-playback-status" role="status">Design-Demos laufen in Schleife.</p>
       </div>
-      <noscript><p class="cee-note">Hier siehst du Standbilder. Über „GIF öffnen“ läuft jeder Entwurf auch ohne JavaScript.</p></noscript>
+      <noscript><p class="cee-note">Die Werkbank-Schleife läuft auch ohne JavaScript. Die weiteren Animationen kannst du über ihre GIF-Links öffnen.</p></noscript>
 
       <div class="cee-directions">
         <article class="cee-direction" aria-labelledby="cee-werkbank-title">
           <header class="cee-direction-head">
             <span class="cee-number">01</span>
-            <div><p class="cee-direction-role">Die Szene</p><h2 id="cee-werkbank-title">Werkbank</h2></div>
+            <div><p class="cee-direction-role">Neu: maximal 5 FPS</p><h2 id="cee-werkbank-title">Werkbank</h2></div>
           </header>
           <figure class="cee-preview">
             <div class="cee-display"><div class="cee-display-area">
-              <img class="cee-screen" src="vorschau/neu/werkbank-mitte.png" width="128" height="64"
-                data-gif="vorschau/neu/werkbank.gif" data-native="vorschau/neu/werkbank-1x.gif"
-                data-still="vorschau/neu/werkbank-mitte.png"
-                alt="Werkbank: Blechy am Tisch, mit festem BLECH-Schriftzug und Ladefortschritt." />
+              <img class="cee-screen" src="vorschau/neu/werkbank-loop.gif" width="128" height="64"
+                data-gif="vorschau/neu/werkbank-loop.gif" data-native="vorschau/neu/werkbank-loop-1x.gif"
+                data-still="vorschau/neu/werkbank-loop-mitte.png"
+                alt="Werkbank: Blechy setzt das Röhrchen an, beugt sich zum Ziehen und setzt wieder ab. Höchstens fünf Bilder pro Sekunde bei unveränderten 42 Prozent." />
             </div></div>
-            <figcaption>Start und Laden <span class="cee-preview-state">Standbild · 1 Bit</span></figcaption>
+            <figcaption>Bewegung bei festen 42 % <span class="cee-preview-state">GIF · Design-Demo</span></figcaption>
           </figure>
           <div class="cee-direction-copy">
-            <p>Blechy am Tisch. Die Handlung steht im Mittelpunkt, BLECH hält das Bild zusammen.</p>
-            <p class="cee-tradeoff"><strong>Der Schwerpunkt:</strong> Figur, Hand und Röhrchen erzählen gemeinsam den Ladevorgang.</p>
+            <p>Ein kurzer Zug, danach eine Pause. Kopf und Arm führen die Bewegung aus; die linke Hand bleibt auf dem Tisch.</p>
+            <p class="cee-tradeoff"><strong>Hier prüfen:</strong> Ansetzen, Griff und Rhythmus.
+              Die 42 % und die Line bleiben in dieser Schleife unverändert. Der separate Fortschrittsvergleich zeigt 0 bis 100 %.</p>
           </div>
           <nav class="cee-assets" aria-label="Werkbank ansehen">
-            <a href="vorschau/neu/werkbank.gif">GIF öffnen</a>
-            <a href="vorschau/neu/werkbank-strip.png">Ablauf</a>
-            <div><a href="vorschau/neu/werkbank-start.png">Start</a><a href="vorschau/neu/werkbank-mitte.png">Mitte</a><a href="vorschau/neu/werkbank-ende.png">Ende</a></div>
+            <a href="vorschau/neu/werkbank-loop.gif">Schleife öffnen</a>
+            <a href="vorschau/neu/werkbank.gif">Fortschritt 0 bis 100 %</a>
+            <div><a href="vorschau/neu/werkbank-loop-strip.png">Bewegungsablauf</a></div>
           </nav>
         </article>
 
         <article class="cee-direction" aria-labelledby="cee-typenschild-title">
           <header class="cee-direction-head">
             <span class="cee-number">02</span>
-            <div><p class="cee-direction-role">Die Aufteilung</p><h2 id="cee-typenschild-title">Typenschild</h2></div>
+            <div><p class="cee-direction-role">Frühere Layoutstudie</p><h2 id="cee-typenschild-title">Typenschild</h2></div>
           </header>
           <figure class="cee-preview">
             <div class="cee-display"><div class="cee-display-area">
@@ -79,7 +82,7 @@
             <figcaption>Start und Laden <span class="cee-preview-state">Standbild · 1 Bit</span></figcaption>
           </figure>
           <div class="cee-direction-copy">
-            <p>Figur und Schrift bekommen ihren eigenen Platz. Das Bild bleibt klar gegliedert.</p>
+            <p>Frühere Aufteilung zum Vergleich: Figur und Schrift bekommen ihren eigenen Platz.</p>
             <p class="cee-tradeoff"><strong>Der Schwerpunkt:</strong> Blechy ist gut erkennbar, die Marke bleibt daneben präsent.</p>
           </div>
           <nav class="cee-assets" aria-label="Typenschild ansehen">
@@ -92,7 +95,7 @@
         <article class="cee-direction" aria-labelledby="cee-praegung-title">
           <header class="cee-direction-head">
             <span class="cee-number">03</span>
-            <div><p class="cee-direction-role">Die Marke</p><h2 id="cee-praegung-title">Prägung</h2></div>
+            <div><p class="cee-direction-role">Frühere Layoutstudie</p><h2 id="cee-praegung-title">Prägung</h2></div>
           </header>
           <figure class="cee-preview">
             <div class="cee-display"><div class="cee-display-area">
@@ -104,7 +107,7 @@
             <figcaption>Start und Laden <span class="cee-preview-state">Standbild · 1 Bit</span></figcaption>
           </figure>
           <div class="cee-direction-copy">
-            <p>Blechy schaut über die Kante. Darunter füllt sich BLECH, der Schriftzug wird selbst zur Ladeanzeige.</p>
+            <p>Frühere Aufteilung zum Vergleich: Blechy schaut über die Kante, darunter füllt sich BLECH als Ladeanzeige.</p>
             <p class="cee-tradeoff"><strong>Der Schwerpunkt:</strong> Ruhige Haltepose und wachsende Pupillen. Die Striche als eigene Handlung entfallen.</p>
           </div>
           <nav class="cee-assets" aria-label="Prägung ansehen">
@@ -114,7 +117,7 @@
           </nav>
         </article>
       </div>
-      <p class="cee-note">Animation aus zeigt jeweils ein festes PNG aus der Mitte des Ladevorgangs.
+      <p class="cee-note">Animation aus zeigt ein festes PNG. Bei Werkbank ist es die Zugpose bei 42 %.
         Originalmaßstab bedeutet 128 × 64 CSS-Pixel; die physische Größe hängt von deinem Bildschirm ab.</p>
     </section>
 
@@ -138,7 +141,7 @@
 
     <footer class="cee-compare-foot">
       <p>Entwürfe für Start, Laden und Ausschalten. Die GIFs zeigen den gestalteten Ablauf;
-        Bildrate, Nachziehen und Rechenzeit auf dem Gerät sind noch offen.</p>
+        Lesbarkeit, Nachziehen und Rechenzeit auf dem Gerät sind noch offen.</p>
       <a href="../README.md">Zum Designstand 1.3</a>
     </footer>
   </main>
@@ -150,9 +153,7 @@
       const motionLabel = document.querySelector('#cee-motion-label');
       const native = document.querySelector('#cee-native');
       const status = document.querySelector('#cee-playback-status');
-      const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
-      let playing = !preference.matches;
-      let manuallyChanged = false;
+      let playing = true;
 
       function sizeScreens() {
         for (const screen of screens) {
@@ -177,17 +178,10 @@
       }
 
       motion.addEventListener('click', () => {
-        manuallyChanged = true;
         playing = !playing;
         update();
       });
       native.addEventListener('change', update);
-      preference.addEventListener('change', event => {
-        if (!manuallyChanged) {
-          playing = !event.matches;
-          update();
-        }
-      });
       const resize = new ResizeObserver(sizeScreens);
       for (const screen of screens) resize.observe(screen.parentElement);
       document.querySelector('#cee-tools').hidden = false;

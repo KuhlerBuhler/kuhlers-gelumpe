@@ -3,16 +3,18 @@
     python3 -B entwuerfe/design-1.3/geraet/test_anim.py
 """
 import math
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 import anim
 
 
 def render_state(direction, state):
     return anim.render_frame(direction, state.progress, pose=state.pose,
-                             travel=state.travel, started=state.started, done=state.done)
+                             started=state.started, done=state.done)
 
 
 def material(state):
@@ -25,7 +27,7 @@ def material(state):
 class FrameContractTests(unittest.TestCase):
     def test_every_demo_and_shutdown_frame_is_native_one_bit(self):
         for direction in anim.DIRECTIONS:
-            for cue in anim.demo_timeline():
+            for cue in anim.demo_timeline() + anim.motion_timeline():
                 with self.subTest(direction=direction, state=cue.state):
                     frame = render_state(direction, cue.state)
                     self.assertEqual(frame.mode, "1")
@@ -41,8 +43,8 @@ class FrameContractTests(unittest.TestCase):
         before = sources()
         anim.title_mask.cache_clear()
         anim.character.cache_clear()
-        states = [anim.State(0, started=False), anim.State(1/3, "lift"),
-                  anim.State(0.72, "move", travel=1), anim.State(1, "rest", done=True)]
+        states = [anim.State(0, "ready", started=False), anim.State(1/3, "lift"),
+                  anim.State(0.72, "draw"), anim.State(1, "settle", done=True)]
         first = {(direction, state): render_state(direction, state).tobytes()
                  for direction in anim.DIRECTIONS for state in states}
         for direction, state in reversed(list(first)):
@@ -56,7 +58,7 @@ class FrameContractTests(unittest.TestCase):
     def test_blech_stays_fixed_through_the_whole_demo(self):
         # Full title rectangles include the negative space between the letters.
         boxes = {"werkbank": (4, 2, 76, 19), "typenschild": (60, 7, 124, 30)}
-        timeline = anim.demo_timeline()
+        timeline = anim.demo_timeline() + anim.motion_timeline()
         for direction, box in boxes.items():
             title = render_state(direction, timeline[0].state).crop(box)
             self.assertIsNotNone(title.getbbox(), "The protected title must be visible")
@@ -64,6 +66,41 @@ class FrameContractTests(unittest.TestCase):
                 with self.subTest(direction=direction, state=cue.state):
                     self.assertEqual(render_state(direction, cue.state).crop(box).tobytes(),
                                      title.tobytes(), "Motion must not alter BLECH or its spacing")
+
+    def test_planted_hand_table_and_footer_do_not_move_with_the_gesture(self):
+        boxes = {
+            "title": (4, 2, 76, 19),
+            "planted hand": (16, 53, 21, 55),
+            "table edge": (4, 55, 124, 56),
+            "footer including percent": (0, 56, 128, 64),
+        }
+        timeline = anim.motion_timeline()
+        reference = render_state("werkbank", timeline[0].state)
+        for name, box in boxes.items():
+            expected = reference.crop(box)
+            self.assertIsNotNone(expected.getbbox(), f"The protected {name} must be visible")
+            for cue in timeline[1:]:
+                with self.subTest(region=name, pose=cue.state.pose):
+                    self.assertEqual(render_state("werkbank", cue.state).crop(box).tobytes(),
+                                     expected.tobytes())
+
+    def test_progress_does_not_accumulate_horizontal_or_vertical_body_travel(self):
+        def gesture_without_progress_pixels(progress, pose):
+            image = anim.render_frame("werkbank", progress, pose=pose)
+            draw = ImageDraw.Draw(image)
+            ox, oy = anim.werkbank_origin(pose)
+            # Only the two 7px eyes and the single material row may change.
+            for cx, cy in ((ox + 21, oy + 14), (ox + 33, oy + 16)):
+                draw.rectangle((cx-3, cy-3, cx+3, cy+3), fill=0)
+            draw.rectangle((49, 53, 68, 53), fill=0)
+            return image.crop((0, 20, 80, 55)).tobytes()
+
+        for pose in anim.MOTION_POSES:
+            expected = gesture_without_progress_pixels(0, pose)
+            for progress in (0.08, 0.17, 0.5, 0.87, 0.999, 0.08):
+                with self.subTest(pose=pose, progress=progress):
+                    self.assertEqual(gesture_without_progress_pixels(progress, pose), expected,
+                                     "Real progress may change pupils and material, never relocate the figure")
 
 
 class FramePackingTests(unittest.TestCase):
@@ -90,6 +127,96 @@ class FramePackingTests(unittest.TestCase):
                                                    controller_inverted=True).tobytes(), frame.tobytes())
 
 
+class MotionExportTests(unittest.TestCase):
+    def test_real_gifs_preserve_pixels_and_never_exceed_five_fps(self):
+        sequences = []
+        for direction in anim.DIRECTIONS:
+            timeline = anim.demo_timeline() if direction == "werkbank" else anim.layout_timeline()
+            sequences.append((direction + "-loading", [render_state(direction, cue.state) for cue in timeline],
+                              [cue.duration_ms for cue in timeline], False))
+        motion = anim.motion_timeline()
+        sequences.append(("werkbank-loop", [render_state("werkbank", cue.state) for cue in motion],
+                          [cue.duration_ms for cue in motion], True))
+        off_frames, off_durations = anim.shutdown_timeline()
+        sequences.append(("shutdown", off_frames, off_durations, False))
+        with TemporaryDirectory(prefix="anim-test-", dir=anim.ROOT.parent) as temporary:
+            preview_dir, raw_dir = Path(temporary)/"preview", Path(temporary)/"raw"
+            preview_dir.mkdir()
+            raw_dir.mkdir()
+            for name, frames, durations, include_loop in sequences:
+                report = anim.export_sequence(name, frames, durations, preview_dir, raw_dir,
+                                              include_loop=include_loop)
+                self.assertEqual(len(list((raw_dir/name).glob("*.png"))), len(frames))
+                # GIF encoders may combine equal consecutive frames into a longer hold.
+                expected_steps = []
+                for frame, duration in zip(frames, durations):
+                    if expected_steps and frame.tobytes() == expected_steps[-1][0].tobytes():
+                        expected_steps[-1][1] += duration
+                    else:
+                        expected_steps.append([frame, duration])
+                for scale, suffix in ((1, "-1x"), (4, "")):
+                    with self.subTest(sequence=name, scale=scale), Image.open(preview_dir/f"{name}{suffix}.gif") as gif:
+                        self.assertEqual(gif.size, (128*scale, 64*scale))
+                        self.assertEqual(gif.n_frames, len(expected_steps))
+                        self.assertEqual(gif.info.get("loop"), 0)
+                        decoded, actual_durations = [], []
+                        for index, (frame, duration) in enumerate(expected_steps):
+                            gif.seek(index)
+                            rgb = gif.convert("RGB")
+                            colors = rgb.getcolors(maxcolors=3)
+                            self.assertIsNotNone(colors)
+                            self.assertTrue({color for _, color in colors} <= {anim.LCD_DARK, anim.LCD_LIGHT})
+                            expected = Image.new("RGB", (128, 64))
+                            expected.putdata([anim.LCD_LIGHT if value else anim.LCD_DARK
+                                              for value in frame.convert("L").tobytes()])
+                            expected = expected.resize(rgb.size, Image.Resampling.NEAREST)
+                            self.assertEqual(rgb.tobytes(), expected.tobytes(),
+                                             "GIF compositing and scaling must preserve every intended pixel")
+                            decoded.append(rgb.tobytes())
+                            actual_durations.append(gif.info["duration"])
+                            self.assertEqual(gif.info["duration"], duration)
+                            self.assertGreaterEqual(gif.info["duration"], 200,
+                                                    f"Frame {index} must hold at least 200 ms, including the last before looping")
+                        self.assertEqual(report["gif_frames"], gif.n_frames)
+                        self.assertEqual(report["unique_frames"], len(set(decoded)))
+                        self.assertEqual(report["duration_ms"], sum(actual_durations))
+                self.assertEqual(report["full_frame_table_bytes"], len({f.tobytes() for f in frames})*1024)
+                self.assertLessEqual(report["maximum_update_fps"], 5)
+                self.assertGreaterEqual(report["minimum_frame_duration_ms"], 200)
+                for index, frame in enumerate(frames):
+                    with Image.open(raw_dir/name/f"{index:03d}.png") as raw:
+                        self.assertEqual((raw.mode, raw.size), ("1", (128, 64)))
+                        self.assertEqual(raw.tobytes(), frame.tobytes())
+
+    def test_export_rejects_a_single_fast_hold_even_when_the_average_is_slow(self):
+        first = anim.blank()
+        second = first.copy()
+        second.putpixel((10, 10), 255)
+        with TemporaryDirectory(prefix="anim-test-", dir=anim.ROOT.parent) as temporary:
+            root = Path(temporary)
+            with self.assertRaises(ValueError):
+                anim.export_sequence("too-fast", [first, second], [199, 1801], root, root)
+            with self.assertRaises(ValueError):
+                anim.export_sequence("missing-duration", [first, second], [200], root, root)
+
+    def test_loop_metrics_include_the_wrap_back_to_the_first_frame(self):
+        first = anim.blank()
+        second = first.copy()
+        second.putpixel((0, 0), 255)
+        third = second.copy()
+        third.putpixel((127, 63), 255)
+        frames = [first, second, third]
+        once = anim.metrics(frames, [200]*3)
+        loop = anim.metrics(frames, [200]*3, include_loop=True)
+        self.assertEqual(once["changed_pixels_max"], 1)
+        self.assertEqual(once["changed_pages_max"], 1)
+        self.assertEqual(loop["changed_pixels_max"], 2,
+                         "The largest change in this sequence is the return to frame one")
+        self.assertEqual(loop["changed_bytes_max"], 2)
+        self.assertEqual(loop["changed_pages_max"], 2)
+        self.assertEqual(loop["changed_pixels_mean"], 1.33)
+
+
 class ProgressTests(unittest.TestCase):
     def test_only_a_completed_loader_can_show_100_percent(self):
         for progress in (0.99, 0.999, 0.999999, 1.0, 1.5):
@@ -104,51 +231,81 @@ class ProgressTests(unittest.TestCase):
     def test_stalled_progress_cannot_consume_or_move_material(self):
         for progress in (0, 0.14, 1/3, 0.54, 2/3, 0.999):
             expected = material(anim.State(progress))
-            for _ in range(3):
-                for pose in ("contact", "lift", "move", "rest"):
-                    for travel in (0, 0.5, 1):
-                        with self.subTest(progress=progress, pose=pose, travel=travel):
-                            self.assertEqual(material(anim.State(progress, pose, travel)), expected)
+            for elapsed in (0, 123, 438, 999, 1000, 1287, 50_003, 8_642_101):
+                pose = anim.motion_pose(elapsed)
+                state = anim.State(progress, pose)
+                with self.subTest(progress=progress, elapsed=elapsed, pose=pose):
+                    self.assertEqual(material(state), expected)
+                    self.assertEqual(state.percent, anim.State(progress).percent)
+                    self.assertEqual(state.pupil, anim.State(progress).pupil)
 
     def test_progress_jumps_remove_only_consumed_material_without_a_backlog(self):
         previous = material(anim.State(0))
+        self.assertEqual(previous, frozenset((x, 53) for x in range(49, 69)))
         for progress in (0.08, 0.72, 0.72, 0.91, 0.999):
             current = material(anim.State(progress))
             self.assertTrue(current <= previous, "Remaining lines must not translate or reappear")
-            self.assertEqual(current, material(anim.State(progress, "rest", travel=1)),
+            self.assertEqual(min(x for x, _ in current), 49, "Supply stays anchored at the straw tip")
+            self.assertEqual(current, material(anim.State(progress, "settle")),
                              "The current progress must work without replaying earlier poses")
             previous = current
         self.assertLess(len(previous), len(material(anim.State(0))))
         self.assertFalse(material(anim.State(1, done=True)))
 
+    def test_completion_immediately_interrupts_every_motion_pose(self):
+        expected = anim.render_frame("werkbank", 1, pose="settle", done=True).tobytes()
+        for pose in anim.MOTION_POSES:
+            with self.subTest(pose=pose):
+                self.assertEqual(anim.render_frame("werkbank", 0.4, pose=pose, done=True).tobytes(),
+                                 expected, "Completion must not wait for the gesture to finish")
+
 
 class MotionTests(unittest.TestCase):
-    def test_tube_and_grip_stay_rigid_through_contact_and_lifted_poses(self):
-        reference = anim.tube_geometry((8, 17))
-        length = math.dist(reference.start, reference.tip)
-        arm_lengths = (math.dist(reference.shoulder, reference.elbow),
-                       math.dist(reference.elbow, reference.grip))
-        # Include the raised head and the origins of all three compositions.
-        for origin in ((8, 17), (8, 16), (20, 16), (29, 16), (0, 3), (7, -1)):
-            for away in (0, 0.5, 1):
-                with self.subTest(origin=origin, away=away):
-                    tube = anim.tube_geometry(origin, away)
-                    self.assertAlmostEqual(math.dist(tube.start, tube.tip), length)
-                    axis = (tube.tip[0]-tube.start[0], tube.tip[1]-tube.start[1])
-                    grip = (tube.grip[0]-tube.start[0], tube.grip[1]-tube.start[1])
-                    self.assertAlmostEqual(axis[0]*grip[1]-axis[1]*grip[0], 0)
-                    along = axis[0]*grip[0]+axis[1]*grip[1]
-                    self.assertGreater(along, 0)
-                    self.assertLess(along, length*length, "The hand grips between the ends")
-                    self.assertAlmostEqual(math.dist(tube.shoulder, tube.elbow), arm_lengths[0])
-                    self.assertAlmostEqual(math.dist(tube.elbow, tube.grip), arm_lengths[1])
-                    self.assertEqual(tube.nose,
-                                     (reference.nose[0]+origin[0]-8, reference.nose[1]+origin[1]-17))
-                    if away == 0:
-                        self.assertEqual(tube.start, tube.nose, "Contact must follow the head")
-                    else:
-                        self.assertGreater(math.dist(tube.start, tube.nose), 0,
-                                           "Lifting the tube must really release the nose")
+    def test_the_cycle_uses_discrete_poses_with_fixed_loader_data(self):
+        timeline = anim.motion_timeline(progress=0.42)
+        self.assertEqual([cue.state.pose for cue in timeline], list(anim.MOTION_POSES))
+        self.assertEqual({cue.state.progress for cue in timeline}, {0.42})
+        self.assertTrue(all(cue.state.started and not cue.state.done for cue in timeline))
+        self.assertGreater(len({render_state("werkbank", cue.state).tobytes() for cue in timeline}), 1,
+                           "The gesture must visibly move")
+        boundary = 0
+        cycle = sum(cue.duration_ms for cue in timeline)
+        for cue in timeline:
+            self.assertGreaterEqual(cue.duration_ms, 200, "The live pose timer must also respect the 5 FPS limit")
+            for elapsed in (boundary, boundary+cue.duration_ms-1,
+                            boundary+37*cycle, boundary+100_000*cycle):
+                self.assertEqual(anim.motion_pose(elapsed), cue.state.pose,
+                                 "Missed timer ticks must select the current pose without a backlog")
+            boundary += cue.duration_ms
+
+    def test_tube_grip_and_arm_bones_stay_rigid_in_the_actual_poses(self):
+        origins = [anim.werkbank_origin(pose) for pose in anim.MOTION_POSES]
+        self.assertEqual({x for x, _ in origins}, {8})
+        self.assertEqual((min(y for _, y in origins), max(y for _, y in origins)), (18, 21))
+        for current, following in zip(origins, origins[1:] + origins[:1]):
+            self.assertLessEqual(abs(following[1]-current[1]), 1,
+                                 "At the limited frame rate the head advances at most one pixel, including loop wrap")
+        for pose in anim.MOTION_POSES:
+            with self.subTest(pose=pose):
+                tube = anim.werkbank_tube(pose)
+                length = math.dist(tube.start, tube.tip)
+                self.assertAlmostEqual(length, 15)
+                axis = (tube.tip[0]-tube.start[0], tube.tip[1]-tube.start[1])
+                grip = (tube.grip[0]-tube.start[0], tube.grip[1]-tube.start[1])
+                self.assertAlmostEqual(axis[0]*grip[1]-axis[1]*grip[0], 0)
+                along = axis[0]*grip[0]+axis[1]*grip[1]
+                self.assertAlmostEqual(along/(length*length), 0.63,
+                                       msg="The hand must not slide along the straw")
+                self.assertAlmostEqual(math.dist(tube.shoulder, tube.elbow), 9)
+                self.assertAlmostEqual(math.dist(tube.elbow, tube.grip), 9)
+                ox, oy = anim.werkbank_origin(pose)
+                self.assertEqual(tube.nose, (ox+29, oy+23))
+                if pose == "draw":
+                    self.assertEqual(tube.start, tube.nose)
+                    self.assertEqual(tube.tip, (49, 53), "The contact pose must reach the fixed supply")
+                elif pose in ("ready", "settle"):
+                    self.assertGreater(math.dist(tube.start, tube.nose), 0)
+                    self.assertLess(tube.tip[1], 53, "The released straw must clear the material")
 
     def test_shutdown_fits_the_existing_one_second_wait(self):
         frames, durations = anim.shutdown_timeline()

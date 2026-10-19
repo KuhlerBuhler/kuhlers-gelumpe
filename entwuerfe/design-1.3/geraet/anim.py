@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Three 128 x 64, one-bit Blechy screen studies. No firmware is patched.
+"""Blechy loading gesture at up to 5 FPS, 128 x 64, one bit. No firmware is patched.
 
     python3 entwuerfe/design-1.3/geraet/anim.py
     python3 entwuerfe/design-1.3/geraet/anim.py --direction werkbank
 
 render_frame() is pure: progress comes from the loader, pose from its caller.
-The demo timeline is only an example, never a minimum boot duration. PNG black
+motion_timeline() holds progress constant while showing the recurring gesture. The
+separate loading demo is only an example, never a minimum boot duration. PNG black
 means visibly dark. pack_frame() handles controller inversion and the two
 different vertical bit orders explicitly. Only Pillow is required.
 """
@@ -30,11 +31,15 @@ LCD_DARK, LCD_LIGHT = r.LCD_DARK, r.LCD_LIGHT
 DIRECTIONS = ("werkbank", "typenschild", "praegung")
 NAMES = {"werkbank": "Werkbank", "typenschild": "Typenschild", "praegung": "Prägung"}
 TABLE_Y, DASH_Y = 55, 53
-DASH_START, DASH_LENGTH, DASH_PITCH, DASH_COUNT = 49, 5, 8, 3
+DASH_START, DASH_LENGTH = 49, 20
+BODY_X, BODY_Y = 8, 18
 NOSE = (29, 23)                 # lower edge of the original face, no new bulb
 SHOULDER = (40, 25)             # exactly the attachment in make_blechy.py
 TUBE_VECTOR = (12, 12)
+WORK_TUBE_VECTOR = (12, 9)       # 15px; reaches the line only in the lowered pose
 GRIP_FRACTION = 0.63
+MAX_FPS = 5
+MIN_FRAME_MS = 1000 // MAX_FPS
 
 # Dark pupils inside the original light eyes. No jitter, no inverted face.
 PUPILS = (
@@ -50,8 +55,7 @@ PUPILS = (
 @dataclass(frozen=True)
 class State:
     progress: float
-    pose: str = "contact"
-    travel: float = 0.0
+    pose: str = "draw"
     started: bool = True
     done: bool = False
 
@@ -83,6 +87,48 @@ class Tube:
 class Cue:
     state: State
     duration_ms: int
+
+
+@dataclass(frozen=True)
+class MotionPose:
+    drop: int
+    tube_offset: tuple[int, int]
+    duration_ms: int
+
+
+# At most five updates per second, not five images in total. One-pixel head
+# steps support the hand's action; the planted hand and body X never travel.
+# The return reuses the approach drawings. Every visible hold is at least 200ms.
+MOTION_POSES = {
+    "ready": MotionPose(0, (3, -3), 200),
+    "lower": MotionPose(1, (2, -2), 200),
+    "reach": MotionPose(2, (1, -1), 200),
+    "draw": MotionPose(3, (0, 0), 200),
+    "lift": MotionPose(2, (1, -1), 200),
+    "rise": MotionPose(1, (2, -2), 200),
+    "settle": MotionPose(0, (2, -2), 400),
+}
+MOTION_CYCLE_MS = sum(p.duration_ms for p in MOTION_POSES.values())
+
+
+def motion_pose(elapsed_ms):
+    """Select the current pose directly, even after missed timer ticks.
+
+    The display caller must also rate-limit progress/text updates to 200ms.
+    This pure lookup never queues old frames for a catch-up burst.
+    """
+    if not math.isfinite(elapsed_ms):
+        raise ValueError("Elapsed time must be finite")
+    phase = max(0, elapsed_ms) % MOTION_CYCLE_MS
+    for name, pose in MOTION_POSES.items():
+        if phase < pose.duration_ms:
+            return name
+        phase -= pose.duration_ms
+    return "settle"
+
+
+def werkbank_origin(pose):
+    return BODY_X, BODY_Y + MOTION_POSES[pose].drop
 
 
 def point(p):
@@ -186,7 +232,7 @@ def actor(image, origin, pupil, *, crop=56, legs=False, sprite_pose="idle"):
         d.line((x+33, y+53, x+37, y+53), fill=LIGHT)
 
 
-def tube_geometry(origin, away=0.0):
+def tube_geometry(origin, away=0.0, *, vector=TUBE_VECTOR, offset=None):
     """A rigid tube and its gripping hand share the same floating point axis.
 
     Two 9px arm segments connect the original shoulder to the hand. The outer
@@ -194,10 +240,11 @@ def tube_geometry(origin, away=0.0):
     """
     ox, oy = origin
     nose = (ox + NOSE[0], oy + NOSE[1])
-    start = (nose[0] + 13 * away, nose[1] - 7 * away)
-    tip = (start[0] + TUBE_VECTOR[0], start[1] + TUBE_VECTOR[1])
-    grip = (start[0] + TUBE_VECTOR[0] * GRIP_FRACTION,
-            start[1] + TUBE_VECTOR[1] * GRIP_FRACTION)
+    dx, dy = offset if offset is not None else (13 * away, -7 * away)
+    start = (nose[0] + dx, nose[1] + dy)
+    tip = (start[0] + vector[0], start[1] + vector[1])
+    grip = (start[0] + vector[0] * GRIP_FRACTION,
+            start[1] + vector[1] * GRIP_FRACTION)
     shoulder = (ox + SHOULDER[0], oy + SHOULDER[1])
     dx, dy = grip[0] - shoulder[0], grip[1] - shoulder[1]
     distance = math.hypot(dx, dy)
@@ -209,6 +256,12 @@ def tube_geometry(origin, away=0.0):
                middle[1]-sign*dx/distance*offset) for sign in (-1, 1)]
     elbow = max(elbows, key=lambda p: p[0])
     return Tube(nose, start, tip, grip, shoulder, elbow)
+
+
+@lru_cache(maxsize=len(MOTION_POSES))
+def werkbank_tube(pose):
+    return tube_geometry(werkbank_origin(pose), vector=WORK_TUBE_VECTOR,
+                         offset=MOTION_POSES[pose].tube_offset)
 
 
 def draw_tube(image, geometry):
@@ -240,23 +293,16 @@ def percent(image, state, y=58, right=123, *, small=True):
     text(image, value, right-width+1, y, small=small)
 
 
-def dash_cursor(progress):
-    """Cursor follows fixed material. At a boundary it stays at the last line."""
-    units = min(1.0, max(0.0, progress)) * DASH_COUNT
-    index = min(DASH_COUNT - 1, max(0, math.ceil(units - 1e-9) - 1))
-    fraction = min(1.0, max(0.0, units - index))
-    consumed = min(DASH_LENGTH, math.floor(fraction * DASH_LENGTH + 1e-8))
-    return index, consumed, DASH_START + index * DASH_PITCH + consumed
-
-
 def draw_dashes(image, state):
+    """One continuous supply stays at the tip and shortens with real progress.
+
+    No queue translates under Blechy. A stalled loader cannot consume or refill
+    material just because another gesture plays. Only done removes the last bit.
+    """
     d = ImageDraw.Draw(image)
-    for index in range(DASH_COUNT):
-        fraction = min(1.0, max(0.0, state.value * DASH_COUNT - index))
-        consumed = min(DASH_LENGTH, math.floor(fraction * DASH_LENGTH + 1e-8))
-        start = DASH_START + index * DASH_PITCH
-        if consumed < DASH_LENGTH:
-            d.line((start + consumed, DASH_Y, start + DASH_LENGTH - 1, DASH_Y), fill=LIGHT)
+    remaining = math.ceil(DASH_LENGTH * (1 - state.value) - 1e-8)
+    if remaining:
+        d.line((DASH_START, DASH_Y, DASH_START + remaining - 1, DASH_Y), fill=LIGHT)
 
 
 def werkbank(state):
@@ -267,22 +313,28 @@ def werkbank(state):
     text(image, "GELUMPE", 86, 19, small=True)
     d = ImageDraw.Draw(image)
     d.line((4, TABLE_Y, 123, TABLE_Y), fill=LIGHT)
-    # Chamfered tray and unconsumed dashes stay on the table.
+    # Chamfered tray and material stay at the same screen location.
     d.line((45, TABLE_Y, 45, TABLE_Y-3, 46, TABLE_Y-4), fill=LIGHT)
     d.line((76, TABLE_Y, 76, TABLE_Y-3, 75, TABLE_Y-4), fill=LIGHT)
     draw_dashes(image, state)
-    _, consumed, cursor = dash_cursor(state.value)
-    shift = cursor - DASH_START
-    if consumed == DASH_LENGTH and not state.done:
-        shift += round((DASH_PITCH - DASH_LENGTH) * state.travel)
-    raised = state.pose in ("lift", "move", "rest")
-    origin = (8 + shift, 18)
-    actor(image, origin, state.pupil, crop=37)
-    hx = origin[0] + 8
+    pose = "settle" if state.done else state.pose if state.started else "ready"
+    origin = werkbank_origin(pose)
+    # The figure dips behind the fixed table. Clip the complete arm/figure
+    # layer, not just the body, so no pose can alter the edge or footer.
+    gesture = blank()
+    actor(gesture, origin, state.pupil, crop=TABLE_Y-origin[1])
+    arm = ImageDraw.Draw(gesture)
+    hx = BODY_X + 8
     for finger in (0, 2, 4):
-        d.line((hx+finger, TABLE_Y-2, hx+finger, TABLE_Y), fill=LIGHT)
-    d.line((origin[0]+16, origin[1]+25, hx+3, TABLE_Y-2), fill=LIGHT)
-    draw_tube(image, tube_geometry(origin, away=0.5 if raised else 0.0))
+        arm.line((hx+finger, TABLE_Y-2, hx+finger, TABLE_Y-1), fill=LIGHT)
+    arm.line((origin[0]+16, origin[1]+25, hx+3, TABLE_Y-2), fill=LIGHT)
+    draw_tube(gesture, werkbank_tube(pose))
+    # Opaque body coverage keeps the tray from showing through the dark body.
+    coverage = blank()
+    coverage.paste(body_mask().filter(ImageFilter.MaxFilter(3)), point(origin))
+    coverage = ImageChops.logical_or(coverage, gesture)
+    box = (0, 20, W, TABLE_Y)
+    image.paste(gesture.crop(box), (0, 20), coverage.crop(box))
     text(image, "KUHLER_BUHLER", 4, 58, small=True)
     percent(image, state)
     return image
@@ -333,35 +385,60 @@ def praegung(state):
     return image
 
 
-def render_frame(direction, progress, *, pose="contact", travel=0.0, started=True, done=False):
+def render_frame(direction, progress, *, pose="draw", started=True, done=False):
     """Return a fresh 128x64 mode-1 image. Time never increases progress here.
 
-    pose: contact, lift, move or rest; travel: 0..1 across the empty gap after
-    a finished line (Werkbank only). A caller may skip to current progress.
-    Completion/handoff may interrupt the scene immediately.
+    pose: one of MOTION_POSES. There is no continuous travel parameter and
+    progress never relocates the figure. Completion may interrupt any pose.
     """
     if direction not in DIRECTIONS:
         raise ValueError(f"Unknown direction: {direction}")
-    if pose not in ("contact", "lift", "move", "rest"):
+    if pose not in MOTION_POSES:
         raise ValueError(f"Unknown pose: {pose}")
-    if not math.isfinite(progress) or not math.isfinite(travel):
-        raise ValueError("Progress and travel must be finite")
-    state = State(progress, pose, min(1.0, max(0.0, travel)), started, done)
+    if not math.isfinite(progress):
+        raise ValueError("Progress must be finite")
+    state = State(progress, pose, started, done)
     return {"werkbank": werkbank, "typenschild": typenschild, "praegung": praegung}[direction](state)
 
 
 def demo_timeline():
-    cues = [Cue(State(0, "rest", started=False), 800), Cue(State(0), 320)]
-    for index in range(DASH_COUNT):
-        for step in range(1, DASH_LENGTH+1):
-            progress = (index + step/DASH_LENGTH)/DASH_COUNT
-            cues.append(Cue(State(min(progress, 0.99)), 280))
-        if index < DASH_COUNT-1:
-            boundary = (index+1)/DASH_COUNT
-            cues.append(Cue(State(boundary, "lift"), 280))
-            cues.append(Cue(State(boundary, "move", travel=1.0), 280))
-            cues.append(Cue(State(boundary+1e-7), 280))
-    cues.append(Cue(State(1, "rest", done=True), 1600))
+    """Three pulls at <=5 FPS; example progress changes during contact only.
+
+    More images are intentional. The cap is updates per second, not the
+    duration of the loading process or the total number of distinct images.
+    """
+    cues = [Cue(State(0, "ready", started=False), 600)]
+    progress = 0.0
+    for pull in range(3):
+        for name, pose in MOTION_POSES.items():
+            if name == "draw":
+                for part in (0.5, 1.0):
+                    progress = min(0.99, (pull+part)/3)
+                    cues.append(Cue(State(progress, name), MIN_FRAME_MS))
+            else:
+                cues.append(Cue(State(progress, name), pose.duration_ms))
+    cues.append(Cue(State(1, "settle", done=True), 1000))
+    return cues
+
+
+def motion_timeline(progress=0.42):
+    """One gesture at <=5 FPS, with no progress animation hidden in the loop."""
+    return [Cue(State(progress, name), pose.duration_ms)
+            for name, pose in MOTION_POSES.items()]
+
+
+def layout_timeline():
+    """Keep the two earlier layout studies reproducible as review references."""
+    cues = [Cue(State(0, "ready", started=False), 800), Cue(State(0), 320)]
+    for index in range(3):
+        for step in range(1, 6):
+            cues.append(Cue(State(min((index + step/5)/3, 0.99)), 280))
+        if index < 2:
+            boundary = (index+1)/3
+            cues.extend((Cue(State(boundary, "lift"), 280),
+                         Cue(State(boundary, "lower"), 280),
+                         Cue(State(boundary+1e-7), 280)))
+    cues.append(Cue(State(1, "settle", done=True), 1600))
     return cues
 
 
@@ -384,24 +461,13 @@ def goodbye_frame(pose):
 
 
 def shutdown_timeline():
-    """Exactly 1000 ms for the device. GIF loop pause is added only by export."""
+    """1000 ms at <=5 FPS. GIF loop pause is added only by export."""
     waves = [goodbye_frame(0), goodbye_frame(1)]
-    frames = [waves[0], waves[1], waves[0], waves[1]]
-    durations = [150]*4
-    for rows, duration in ((24, 80), (8, 70)):
-        frame = blank()
-        squeezed = waves[1].resize((W, rows), Image.Resampling.NEAREST)
-        frame.paste(squeezed, (0, (H-rows)//2))
-        frames.append(frame)
-        durations.append(duration)
-    for width, duration in ((88, 80), (24, 60), (2, 50)):
-        frame = blank()
-        ImageDraw.Draw(frame).line(((W-width)//2, 32, (W+width)//2-1, 32), fill=LIGHT)
-        frames.append(frame)
-        durations.append(duration)
-    frames.append(blank())
-    durations.append(60)
-    return frames, durations
+    squeezed = blank()
+    squeezed.paste(waves[1].resize((W, 16), Image.Resampling.NEAREST), (0, 24))
+    line = blank()
+    ImageDraw.Draw(line).line((52, 32, 75, 32), fill=LIGHT)
+    return [*waves, squeezed, line, blank()], [MIN_FRAME_MS]*5
 
 
 def pack_frame(frame, *, bit_order="lsb", controller_inverted=False):
@@ -445,14 +511,17 @@ def preview(frame, scale=4, palette="lcd"):
     return image.resize((W*scale, H*scale), Image.Resampling.NEAREST)
 
 
-def metrics(frames, durations):
-    """Compare distinct consecutive images, matching GIF frame coalescing."""
+def metrics(frames, durations, *, include_loop=False):
+    """Compare distinct images; recurring motion also counts last-to-first."""
     unique_steps = []
     for frame in frames:
         if not unique_steps or frame.tobytes() != unique_steps[-1].tobytes():
             unique_steps.append(frame)
     changes, byte_changes, pages = [], [], []
-    for previous, current in zip(unique_steps, unique_steps[1:]):
+    pairs = list(zip(unique_steps, unique_steps[1:]))
+    if include_loop and len(unique_steps) > 1:
+        pairs.append((unique_steps[-1], unique_steps[0]))
+    for previous, current in pairs:
         changes.append(sum(a != b for a, b in zip(previous.convert("L").tobytes(),
                                                  current.convert("L").tobytes())))
         a, b = pack_frame(previous), pack_frame(current)
@@ -466,6 +535,9 @@ def metrics(frames, durations):
     return {
         "logical_frames": len(frames), "gif_frames": len(unique_steps),
         "unique_frames": unique_count, "duration_ms": sum(durations),
+        "includes_loop_transition": include_loop,
+        "minimum_frame_duration_ms": min(durations),
+        "maximum_update_fps": round(1000/min(durations), 3),
         "changed_pixels_max": max(changes, default=0),
         "changed_pixels_mean": round(sum(changes)/len(changes), 2) if changes else 0,
         "changed_bytes_max": max(byte_changes, default=0),
@@ -477,9 +549,17 @@ def metrics(frames, durations):
     }
 
 
-def export_sequence(name, frames, durations, preview_dir, raw_dir, *, palette="lcd", loop_pause=0):
+def export_sequence(name, frames, durations, preview_dir, raw_dir, *, palette="lcd", loop_pause=0,
+                    include_loop=False):
+    if not frames or len(frames) != len(durations):
+        raise ValueError("Every frame must have one duration")
+    if any(duration < MIN_FRAME_MS for duration in durations):
+        raise ValueError(f"LCD limit: every frame must last at least {MIN_FRAME_MS}ms ({MAX_FPS} FPS)")
     frame_dir = raw_dir / name
     frame_dir.mkdir(parents=True, exist_ok=True)
+    # Remove only this renderer's numbered frames left over from a longer take.
+    for previous in frame_dir.glob("[0-9][0-9][0-9].png"):
+        previous.unlink()
     for i, frame in enumerate(frames):
         frame.save(frame_dir / f"{i:03d}.png")
     gif_durations = durations.copy()
@@ -497,7 +577,19 @@ def export_sequence(name, frames, durations, preview_dir, raw_dir, *, palette="l
     for label, index in (("start", 0), ("mitte", len(frames)//2), ("ende", len(frames)-1)):
         frames[index].save(raw_dir / f"{name}-{label}.png")
         preview(frames[index], 4, palette).save(preview_dir / f"{name}-{label}.png")
-    return metrics(frames, durations)
+    return metrics(frames, durations, include_loop=include_loop)
+
+
+def sequence_frames(direction, timeline):
+    return [render_frame(direction, cue.state.progress, pose=cue.state.pose,
+                         started=cue.state.started, done=cue.state.done) for cue in timeline]
+
+
+def timeline_metadata(timeline):
+    return [{"frame": f"{i:03d}.png", "duration_ms": cue.duration_ms,
+             "progress": cue.state.value, "pose": cue.state.pose,
+             "done": cue.state.done, "started": cue.state.started}
+            for i, cue in enumerate(timeline)]
 
 
 def main():
@@ -512,20 +604,37 @@ def main():
     preview_dir, raw_dir = args.output / "vorschau/neu", args.output / "png/neu"
     preview_dir.mkdir(parents=True, exist_ok=True)
     raw_dir.mkdir(parents=True, exist_ok=True)
-    timeline = demo_timeline()
     manifest = {"width": W, "height": H, "bit_depth": 1, "raw_png_black": "visibly dark",
                 "preview_palette": args.palette, "device_timing_measured": False,
-                "demo_timing_only": True, "directions": {}}
+                "demo_timing_only": True, "maximum_fps": MAX_FPS,
+                "motion_steps": len(MOTION_POSES), "directions": {}}
     directions = DIRECTIONS if args.direction == "all" else (args.direction,)
     for direction in directions:
-        frames = [render_frame(direction, cue.state.progress, pose=cue.state.pose, travel=cue.state.travel,
-                               started=cue.state.started, done=cue.state.done) for cue in timeline]
+        timeline = demo_timeline() if direction == "werkbank" else layout_timeline()
+        frames = sequence_frames(direction, timeline)
         durations = [cue.duration_ms for cue in timeline]
         result = export_sequence(direction, frames, durations, preview_dir, raw_dir, palette=args.palette)
-        result["timeline"] = [{"frame": f"{i:03d}.png", "duration_ms": cue.duration_ms,
-                               "progress": cue.state.value, "pose": cue.state.pose,
-                               "travel": cue.state.travel, "done": cue.state.done,
-                               "started": cue.state.started} for i, cue in enumerate(timeline)]
+        result["kind"] = ("loading example at up to 5 FPS"
+                          if direction == "werkbank" else "earlier layout study")
+        result["timeline"] = timeline_metadata(timeline)
+        if direction == "werkbank":
+            motion = motion_timeline()
+            motion_frames = sequence_frames(direction, motion)
+            loop_result = export_sequence("werkbank-loop", motion_frames,
+                                          [cue.duration_ms for cue in motion], preview_dir, raw_dir,
+                                          palette=args.palette, include_loop=True)
+            loop_result["kind"] = "recurring gesture at up to 5 FPS, fixed 42 percent"
+            loop_result["timeline"] = timeline_metadata(motion)
+            result["motion_loop"] = loop_result
+            # Stable, explicit links for reviewing the corrected frame rate.
+            for stem in ("werkbank", "werkbank-loop"):
+                (preview_dir / f"{stem}-5fps.gif").write_bytes((preview_dir / f"{stem}.gif").read_bytes())
+            if args.pack:
+                for order in ("msb", "lsb"):
+                    data = b"".join(pack_frame(frame, bit_order=order,
+                                               controller_inverted=args.controller_inverted)
+                                    for frame in motion_frames)
+                    (raw_dir / f"werkbank-loop-{order}.bin").write_bytes(data)
         if args.pack:
             for label, index in (("start", 0), ("mitte", len(frames)//2), ("ende", len(frames)-1)):
                 for order in ("msb", "lsb"):

@@ -102,11 +102,23 @@ zweiter Knopf, Code ansehen als Link.
 
 ## Gerät
 
-### Neue Richtungen: Werkbank, Typenschild, Prägung
+### Aktuell: Werkbank mit höchstens 5 FPS
+
+Die Werkbank behält ihre Gestaltung, bekommt aber eine neue Bewegung: Blechy setzt das Röhrchen an, beugt sich
+an einem festen Ort und setzt wieder ab. Die linke Hand und der Tisch bleiben stehen. **Höchstens fünf Bilder
+pro Sekunde** bedeutet mindestens 200 ms pro Bild, keine Begrenzung auf fünf Bilder insgesamt. Die Ladedemo
+enthält 25 GIF-Bilder über sieben Sekunden; eine eigene Schleife zeigt nur die Bewegung bei festen 42 Prozent.
+
+![Werkbank mit höchstens 5 FPS](geraet/vorschau/neu/werkbank-5fps.gif)
+
+[Bewegung einzeln ansehen](geraet/vorschau/neu/werkbank-loop-5fps.gif),
+[Vergleich öffnen](geraet/vergleich.html), [Ablauf und Export](geraet/README.md).
+
+### Layoutstudien: Werkbank, Typenschild, Prägung
 
 Der aktuelle Vergleich liegt in [geraet/vergleich.html](geraet/vergleich.html). Drei GIFs zeigen verschiedene
-Aufteilungen mit demselben Blechy, dunklem Grund und stufenweise wachsenden Pupillen. Die Werkbank behält die
-Strich-Handlung; beim Typenschild steht die vollständige Figur neben der Marke; bei Prägung füllt sich BLECH.
+Aufteilungen mit demselben Blechy, dunklem Grund und stufenweise wachsenden Pupillen. Die aktuelle Werkbank behält
+die Handlung an einer festen Line; beim Typenschild steht die vollständige Figur neben der Marke; bei Prägung füllt sich BLECH.
 Röhrchen, Griff und Arm haben jetzt eine gemeinsame Geometrie. Das helle Originalgesicht bleibt erhalten.
 
 [Ansehen, neu rendern und technische Grenzen](geraet/README.md). Erzeugt mit `python3 entwuerfe/design-1.3/geraet/anim.py`.

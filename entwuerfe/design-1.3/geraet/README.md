@@ -1,65 +1,82 @@
-# Blechy: drei Richtungen für Start und Laden
+# Blechy: eine klare Bewegung bei höchstens 5 FPS
 
-Stand 19.10.2026. Die [Übergabe](uebergabe-2026-10-19.yaml) ist die Grundlage. Noch keine Auswahl und kein
-Firmware-Patch. Die [Vergleichsseite](vergleich.html) zeigt alle Richtungen, feste Standbilder und die echte
-Auflösung von 128 × 64 Pixeln. Sie nutzt dieselben Farben, Schriften und Bedienelemente wie die App.
+Stand 19.10.2026. Die [Übergabe](uebergabe-2026-10-19.yaml) und die anschließende Rückmeldung sind die Grundlage.
+Die Gestaltung der Werkbank mit hellem Originalgesicht, festem BLECH und Fußzeile bleibt. Die Bewegung ist
+überarbeitet: Blechy setzt das Röhrchen an, beugt sich kurz zum Ziehen und setzt wieder ab.
+
+**Die Vorgabe lautet höchstens fünf Bilder pro Sekunde, nicht fünf Bilder insgesamt.** Jeder Bildzustand bleibt
+mindestens 200 ms sichtbar. Das gilt auch für kurze Zwischenbilder, Prozentänderungen und den letzten Zustand
+vor der Wiederholung. Eine bloß niedrige Durchschnittsrate reicht nicht. Der Export weist kürzere Zeiten zurück.
+
+Noch kein Firmware-Patch. Die [Vergleichsseite](vergleich.html) zeigt die aktuelle Bewegung und die beiden
+früheren Layoutstudien in den Farben und Schriften der App, auch in nativen 128 × 64 Pixeln.
 
 ## Ansehen
 
-| Richtung | Gestaltung | Abwägung |
-|---|---|---|
-| [Werkbank](vorschau/neu/werkbank.gif) | BLECH oben, Blechy an der Tischkante. Drei kurze Striche bleiben auf der Unterlage; er folgt ihnen selbst, hebt das Rohr dazwischen ab und setzt wieder an. | Die Handlung ist am deutlichsten, der bewegte Kopf schaltet aber mehr Pixel um. |
-| [Typenschild](vorschau/neu/typenschild.gif) | Ganze Originalfigur links, große Marke rechts, feste Fortschrittssegmente und Prozent. Das Rohr bleibt sichtbar in der Hand, abseits des Gesichts. | Die ruhigste Variante. Das Ziehen der Striche entfällt; Augen und Anzeige tragen den Fortschritt. |
-| [Prägung](vorschau/neu/praegung.gif) | Blechy über einer festen Kante, große Wortmarke darunter. Der Umriss von BLECH füllt sich ohne Dither. | Der Titel ist selbst die Anzeige. Die Figur steht ruhig; dafür ändern sich größere Teile der Buchstaben. |
+### Ganzer Ladevorgang, höchstens 5 FPS
 
-### Werkbank
+![Werkbank mit höchstens 5 FPS](vorschau/neu/werkbank-5fps.gif)
 
-![Werkbank](vorschau/neu/werkbank.gif)
+Die Demo zeigt drei Züge, eine kürzer werdende Line, stufenweise größere Pupillen und den Wechsel von TRIBE zu
+LADEN und LAEUFT. Sie dauert sieben Sekunden und enthält 25 gespeicherte GIF-Bilder. Das erste identische
+Bildpaar wird vom GIF-Encoder zu einer längeren Haltezeit zusammengefasst. Die Beispieldauer verlängert keinen
+Gerätestart: Der echte Lader darf jederzeit zum aktuellen Fortschritt oder zum fertigen Hauptbild springen.
 
-### Typenschild
+### Nur die Bewegung, höchstens 5 FPS
 
-![Typenschild](vorschau/neu/typenschild.gif)
+![Bewegung bei festem Fortschritt](vorschau/neu/werkbank-loop-5fps.gif)
 
-### Prägung
+Hier bleiben die 42 Prozent, die Pupillengröße und die Materialmenge bewusst gleich. So lässt sich die Bewegung
+für sich ansehen. Ein Durchlauf hat sieben Bildschritte über 1,6 Sekunden. Für den Rückweg werden Posen des
+Hinwegs wiederverwendet; deshalb sind nur fünf verschiedene vollständige Raster nötig.
 
-![Prägung](vorschau/neu/praegung.gif)
+| Schritt | Haltung | Haltezeit |
+|---|---|---:|
+| Bereit | Röhrchen vom Gesicht abgesetzt | 200 ms |
+| Senken | Kopf einen Pixel tiefer, Hand führt das Rohr | 200 ms |
+| Ansetzen | Noch einen Pixel tiefer, Rohr kurz vor dem Kontakt | 200 ms |
+| Ziehen | Drei Pixel unter der Ausgangshöhe, Rohr an Nase und Line | 200 ms |
+| Lösen | Rohr hebt zuerst von Nase und Line ab | 200 ms |
+| Aufrichten | Kopf und Arm gehen zurück | 200 ms |
+| Pause | Ruhige Haltung nahe dem Ausgangsbild | 400 ms |
 
-### Gemeinsamer Abschied
+In der Ladedemo dauert der Kontakt 400 ms: Zwei Bilder von je 200 ms zeigen dort den tatsächlichen
+Beispielfortschritt. Die übrigen Posen verbrauchen kein Material.
+
+### Abschied im selben Zeitlimit
 
 ![Ausschalten](vorschau/neu/ausschalten.gif)
 
-Blechy winkt, „Haus'te / rin mein / Akh“, das Bild zieht sich zur Röhre zusammen und geht aus. Dieselbe helle
-Gesichtsfläche auf dunklem Grund wie beim Start. Die eigentliche Folge dauert 1000 ms. Die zusätzlichen 1400 ms
-Schwarz am Ende sind nur eine Pause für das wiederholte GIF, keine zusätzliche Wartezeit am Gerät.
+Blechy winkt, „Haus'te / rin mein / Akh“, dann zieht sich das Bild zur Röhre zusammen und geht aus. Zwei
+Winkhaltungen, gestauchtes Bild, kurzer Lichtstrich und Schwarz ergeben fünf Zustände zu je 200 ms. Damit bleibt
+auch dieser Ablauf unter der FPS-Grenze und passt weiterhin in das vorhandene 1000-ms-Fenster. Die zusätzlichen
+1400 ms Schwarz im GIF sind nur eine Pause zum wiederholten Anschauen.
 
-## Was sich an der Zeichnung geändert hat
+## Warum die Bewegung jetzt anders wirkt
 
-**Blechy bleibt Blechy.** Gesicht, Augenabstand, Augenringe und Braue stammen aus den vorhandenen 56×56-Sprites.
-Das Gesicht bleibt hell und die Pupillen dunkel. Eine Lichtkante von einem Pixel trennt den dunklen Körper vom
-dunklen Hintergrund. Die Figur wird nicht gestreckt. Die Originaldateien in `assets/blechy/sprites/` werden nicht
-verändert. Der Rohrkontakt sitzt am unteren Rand des bestehenden Gesichtsfelds; eine neue vorstehende Nase gibt
-es nicht. Das ist ein Vorschlag für diese Bildschirme, keine endgültige Entscheidung für alle Blechy-Sprites.
+**Blechy beugt sich an einem festen Ort.** Der Körper bleibt bei derselben X-Position. Der Kopf geht in einzelnen
+Pixelschritten höchstens drei Pixel nach unten und wieder zurück. Die linke Hand hält ihre festen Pixel auf dem
+Tisch. Die gesamte Figuren- und Armzeichnung endet oberhalb der Tischkante; Fußzeile und BLECH bleiben frei.
+Fortschritt verschiebt den Körper nicht mehr seitlich. Es gibt keinen `travel`-Parameter mehr.
 
-**Die Hand umschließt das Rohr.** Nasenanker, Rohrspitze und Griffpunkt gehören zu derselben Pose. Der Griff sitzt
-bei 63 Prozent der Achse, beide Armstücke sind neun Pixel lang und schließen an der ursprünglichen Schulter an.
-Das Rohr hat in jeder Pose denselben Vektor von 12×12 Pixeln, also rund 17 Pixel Länge. Eine dunkle Aussparung
-hinter dem hellen Rohr trennt es vom Gesicht. Es gibt kein XOR und damit keine zufälligen Farbwechsel beim
-Überlagern. Eine kleine Fingerkerbe macht den Griff sichtbar.
+**Die Hand hält ein starres Röhrchen.** In der Werkbank beträgt sein Vektor 12 × 9 Pixel, also 15 Pixel Länge.
+In der tiefsten Pose liegen Nase bei `(37, 44)` und Rohrspitze bei `(49, 53)` exakt auf der Materialhöhe. Der
+Griff bleibt bei 63 Prozent der Achse; beide Armstücke bleiben neun Pixel lang. Absetzen verschiebt das ganze
+Rohr mit der Hand. Es gibt weder eine wachsende Nase noch ein länger werdendes Rohr.
 
-**Die Werkbank bewegt die Figur.** Tisch, Unterlage und alle übrigen Striche stehen still. Verbrauch verschwindet
-direkt an der Rohrspitze. Zwischen zwei Strichen hebt nur der Arm das Rohr vom Gesicht und von der Unterlage;
-die Figur rückt über die kurze leere Lücke weiter. Der Kopf wandert insgesamt 21 Pixel, ohne die Titelzeilen zu
-berühren. Drei Striche geben ihm mehr Platz als die vorige lange Reihe. Die Prozentzahl bleibt rechts unten.
+**Eine zusammenhängende Line liegt direkt an der Kontaktstelle.** Der Vorrat beginnt immer an der festen
+Rohrspitze und wird mit echtem Fortschritt zum Rohr hin kürzer. Es werden keine entfernten Striche abgesaugt
+und keine Reihe unter dem stillstehenden Körper vorbeigeschoben. Bei einem hängenden Lader bleiben Länge und
+Prozent unverändert; die kleine Körperbewegung darf weiterlaufen. Es erscheint kein neues Material pro Runde.
 
-**Start und Laden gehören zusammen.** Anfangs steht TRIBE neben BLECH. LADEN erscheint einmalig nach dem
-ersten Stück Fortschritt, ohne schiebende Buchstaben. Bei bestätigtem Abschluss steht LAEUFT. In Werkbank und
-Typenschild bleibt die ganze BLECH-Fläche unverändert; bei Prägung bleiben Position und Außenform fest, während
-die Innenflächen absichtlich gefüllt werden. Sechs Pupillenstufen bleiben, ohne Zittern.
+**Das Originalgesicht bleibt erhalten.** Gesicht, Augenabstand, Augenringe und Braue stammen aus den vorhandenen
+56×56-Sprites. Gesicht hell, Pupillen dunkel, eine Lichtkante von einem Pixel um den dunklen Körper. Die
+Originaldateien werden nur gelesen. Die sechs Pupillenstufen folgen dem Fortschritt, ohne Zittern.
 
 ## Neu erzeugen
 
-Python 3.10 oder neuer und Pillow genügen. Keine macOS-Schrift erforderlich: `blech-titel.png` wird auf allen
-Systemen nur gelesen. Die kleinen Schriften kommen weiter aus `render.py` und `data/script/font.mjs`.
+Python 3.10 oder neuer und Pillow genügen. Keine macOS-Schrift erforderlich: `blech-titel.png` wird nur gelesen.
+Die kleinen Schriften kommen weiter aus `render.py` und `data/script/font.mjs`.
 
 ```bash
 python3 entwuerfe/design-1.3/geraet/anim.py
@@ -70,37 +87,53 @@ python3 -B entwuerfe/design-1.3/geraet/test_anim.py -v
 
 | Ausgabe | Inhalt |
 |---|---|
-| `vorschau/neu/<name>.gif` | 4×-Vorschau, genau zwei LCD-Farben, ohne Kantenglättung |
+| `vorschau/neu/werkbank-5fps.gif` | Ganzer Beispiel-Ladevorgang, 4×, höchstens 5 FPS |
+| `vorschau/neu/werkbank-loop-5fps.gif` | Wiederholte Bewegung bei festen 42 Prozent, 4×, höchstens 5 FPS |
+| `vorschau/neu/werkbank.gif`, `werkbank-loop.gif` | Identische Dateien unter den allgemeinen Vorschau-Namen |
 | `vorschau/neu/<name>-1x.gif` | Dieselbe Folge in nativen 128×64 Pixeln |
-| `vorschau/neu/<name>-strip.png` | Fünf Schlüsselbilder nebeneinander |
-| `vorschau/neu/<name>-start.png`, `-mitte.png`, `-ende.png` | LCD-Standbilder für den Vergleich |
+| `vorschau/neu/<name>-strip.png` | Fünf ausgewählte Schlüsselbilder zum Vergleichen, keine Begrenzung der Animation |
+| `vorschau/neu/<name>-start.png`, `-mitte.png`, `-ende.png` | LCD-Standbilder |
 | `png/neu/<name>/000.png` und folgende | Alle nativen 1-Bit-Einzelbilder; Schwarz bedeutet sichtbar dunkel |
 | `png/neu/<name>-start.png`, `-mitte.png`, `-ende.png` | Native 1-Bit-Schlüsselbilder |
-| [manifest.json](vorschau/neu/manifest.json) | Beispielzeiten, Zustände, Bildanzahl und Änderungsumfang |
+| [manifest.json](vorschau/neu/manifest.json) | Zeiten, Zustände, minimale Haltezeit, maximale Aktualisierungsrate und Pixeländerungen |
 
-Die einzelnen Folgeframes und die optionalen BIN-Dateien werden beim Rendern neu erzeugt und nicht versioniert.
+Die nummerierten Einzelbilder und optionalen BIN-Dateien werden neu erzeugt und nicht versioniert. Der Export
+entfernt dabei nur seine eigenen nummerierten Bilder der jeweiligen Folge, damit keine alten Restframes bleiben.
 GIFs, Ablaufstreifen und Schlüsselbilder liegen direkt im Repo.
 
 Die Vergleichsseite lässt sich direkt als Datei öffnen. Alternativ im Repo `python3 -m http.server 8742`
-starten und `http://127.0.0.1:8742/entwuerfe/design-1.3/geraet/vergleich.html` aufrufen. Animation aus zeigt
-jeweils ein festes Standbild, keine pausierte GIF-Zeitposition. Bei reduzierter Bewegung startet sie mit Standbildern.
+starten und `http://127.0.0.1:8742/entwuerfe/design-1.3/geraet/vergleich.html` aufrufen. Die neue Bewegung startet
+automatisch. „Animation aus“ zeigt ausdrücklich ein festes PNG, keine pausierte GIF-Zeitposition. Die
+Geräte-Vorgabe für reduzierte Bewegung ist die begrenzte Bildrate; sie bedeutet hier kein automatisches Standbild.
 
 ## Echten Fortschritt anschließen
 
-`render_frame(direction, progress, pose=..., travel=..., started=..., done=...)` erzeugt ein neues Pillow-Bild
-ohne Uhr, Zufall oder Dateiausgabe. Fortschritt, verbleibendes Material und Pupillen hängen am vom Aufrufer
-übergebenen Fortschritt zwischen 0 und 1. `pose` wählt Kontakt, Abheben, Umsetzen oder Ruhe. `travel` bewegt
-nur über eine schon leere Lücke zwischen zwei Strichen. Stillstand verbraucht keine weiteren Striche.
+`render_frame(direction, progress, pose=..., started=..., done=...)` erzeugt ein neues Pillow-Bild ohne Uhr,
+Zufall oder Dateiausgabe. `motion_pose(elapsed_ms)` liefert die aktuelle Haltung aus der Bewegungsschleife.
+Verpasste Zeitpunkte werden übersprungen; es gibt keine nachzuholende Bilderschlange.
 
-Ohne `done=True` erscheint höchstens 99 Prozent und es bleibt Material übrig. Ein Fortschrittssprung braucht
-keine nachgeholten Bewegungen. Das Hauptbild darf sofort übernehmen. Die 8,6 Sekunden in `demo_timeline()` sind
-ein Beispiel zum Anschauen, kein Ablauf, den die Firmware abwarten müsste. Beim Einbauen muss der Aufrufer bei
-Fehler oder Abschluss die Überlagerung freigeben.
+Der spätere Display-Aufrufer muss **alle** Bildänderungen gemeinsam auf mindestens 200 ms Abstand begrenzen,
+auch neue Prozentzahlen oder Pupillen. Die reine Renderfunktion enthält absichtlich keine Wartezeit. Ein
+möglicher Aufruf sieht so aus; `now_ms`, `last_draw_ms` und die Laderdaten gehören dem Aufrufer:
+
+```python
+if now_ms - last_draw_ms >= MIN_FRAME_MS:
+    frame = render_frame("werkbank", progress,
+                         pose=motion_pose(now_ms), done=loader_done)
+    last_draw_ms = now_ms
+    # frame an den Display-Aufrufer geben
+```
+
+Ohne `done=True` erscheinen höchstens 99 Prozent und es bleibt Material übrig. Mit `done=True` ist sofort die
+fertige Pose ausgewählt, unabhängig von der gerade laufenden Bewegung. Beim Einbauen muss der Aufrufer bei
+Fehler oder Abschluss die Überlagerung freigeben. Die sieben Sekunden in `demo_timeline()` sind ausschließlich
+ein Beispiel zum Anschauen.
 
 ### Zwei Bitreihenfolgen und Display-Invert
 
-Mit `--pack` werden zusätzlich drei Schlüsselbilder je Richtung in beiden vertikalen Bitreihenfolgen geschrieben.
-Das sind Bilddaten zum Prüfen, keine Firmwaredateien und keine fertigen Patches.
+Mit `--pack` werden drei Schlüsselbilder je Richtung in beiden vertikalen Bitreihenfolgen geschrieben. Zusätzlich
+enthalten `werkbank-loop-msb.bin` und `werkbank-loop-lsb.bin` die sieben Bewegungsschritte in Reihenfolge,
+jeweils 7 × 1024 Byte einschließlich der wiederverwendeten Bilder. Das sind Prüfdaten, keine Firmware-Patches.
 
 ```bash
 python3 entwuerfe/design-1.3/geraet/anim.py --pack --controller-inverted
@@ -111,38 +144,42 @@ python3 entwuerfe/design-1.3/geraet/anim.py --pack --controller-inverted
 | `*-msb.bin`, wie `assets/blechy/splash.bin` | `(y // 8) * 128 + x` | `0x80 >> (y & 7)` |
 | `*-lsb.bin`, wie der Anzeigepuffer | `(y // 8) * 128 + x` | `1 << (y & 7)` |
 
-Jedes Bild hat genau 1024 Byte. Der Renderer denkt in sichtbaren Pixeln, der Export rechnet
+Ein Bild hat genau 1024 Byte. Der Renderer denkt in sichtbaren Pixeln, der Export rechnet
 `RAM-Bit = sichtbar-dunkel XOR controller_inverted`. Bei `DISPLAY INVERT` mit Controllerkommando A7 werden die
-Bits deshalb genau einmal komplementiert. Sonst würde der bereits dunkel entworfene Hintergrund wieder hell.
-Der Default der vorhandenen Firmware wird durch das Rendern nicht umgestellt.
+Bits deshalb genau einmal komplementiert. Der Default der vorhandenen Firmware wird durch das Rendern nicht
+umgestellt.
 
 ## Geprüft und noch offen
 
-**Abgeleitet aus den erzeugten Pixeln**, jeweils zwischen unterschiedlichen aufeinanderfolgenden Bildern:
+**Aus den erzeugten Bildern abgeleitet:**
 
-| Entwurf | Einzigartige Bilder | Geänderte Pixel maximal | Geänderte Pixel im Mittel | LCD-Seiten maximal |
+| Folge | GIF-Bilder | Unterschiedliche Raster | Kürzeste Haltezeit | Bildwechsel höchstens |
 |---|---:|---:|---:|---:|
-| Voriges `rotzen.gif` | 71 | 600 | 132,04 | 7 |
-| Werkbank | 24 | 415 | 263,48 | 7 |
-| Typenschild | 17 | 103 | 39,94 | 5 |
-| Prägung | 17 | 257 | 101,06 | 7 |
+| Werkbank, Ladedemo | 25 | 21 | 200 ms | 5 pro Sekunde |
+| Werkbank, Bewegung bei 42 Prozent | 7 | 5 | 200 ms | 5 pro Sekunde |
+| Ausschalten, ohne GIF-Wiederholungspause | 5 | 5 | 200 ms | 5 pro Sekunde |
 
-Werkbank hat weniger Posen und längere Standzeiten, bewegt pro Wechsel aber mehr Fläche als der vorige Entwurf.
-Typenschild ist nach diesen Zahlen die günstigste Richtung für ein träges LCD. Die normale Demo aktualisiert
-frühestens nach 280 ms; diese Taktung ist eine Designannahme. Sie ist keine gemessene Grenze des Geräts.
+Die Bewegungsschleife schaltet höchstens 269 Pixel und fünf LCD-Seiten pro Wechsel um, einschließlich des
+Rücksprungs zum Anfang. Die Ladedemo erreicht 286 Pixel und sechs Seiten; ihr Neustart im GIF ist kein weiterer
+Ladeschritt. Wenige Posen und begrenzte Bildrate ersetzen keine Messung des tatsächlichen LCD-Nachziehens.
 
-Die neun Python-Prüfungen sichern native 1-Bit-Frames, feste Titel, wiederholbare Ausgabe, starre Rohr-/Armgeometrie,
-Griff auf der Rohr-Achse, Stillstand und Sprünge, beide Bitreihenfolgen samt simulierter Controllerinvertierung
-und das 1000-ms-Ausschaltfenster. Die gespeicherten GIF-Bilder wurden außerdem pixelgenau mit dem Renderer
-verglichen. Die Vergleichsseite wurde bei 1440 und 390 Pixel Breite, mit Tastatur, Originalmaßstab und reduzierter
-Bewegung im Browser angesehen.
+Die 16 gezielten Python-Prüfungen sichern unter anderem tatsächliche GIF-Haltezeiten, pixelgenaue Ausgabe in
+1×/4×, feste Bildbereiche, fehlenden Körperversatz durch Fortschritt, Rohr- und Griffgeometrie, beide Bitordnungen,
+Controllerinvertierung und das 1000-ms-Ausschaltfenster. Der zuvor zu schnelle 100-/120-ms-Ablauf fällt durch
+diese Prüfungen. Auch ein einzelnes Bild von 199 ms wird unabhängig von der Durchschnittsrate zurückgewiesen.
 
-**Offen:** welche Richtung gefällt, die endgültige Nasenform, Nachziehen des echten LCDs, ARM-Befehle pro Bild,
-Startzeit und Speicherplatz. Die frühere Zahl von ungefähr 6300 ARM-Befehlen pro Bild ist eine
-[Messung des vorigen Lade-Patches](../../../docs/messungen/2026-10-15-ladebalken.md), keine Zusage für diese Entwürfe.
-Auch die kompakten Bildtabellen im Manifest sind nur Größenabschätzungen ohne Rendercode. Eine vollständige
-Bildtabelle von 17 oder 24 KiB passt nicht in das bisherige einzelne 1024-Byte-Bildfeld. Die spätere Firmwarefassung
-sollte Grundbild, Pupillen und wenige Arm-/Kopfposen gezielt zusammensetzen und im Emulator gemessen werden.
+**Offen:** die gestalterische Freigabe, Nachziehen des echten LCDs, ARM-Befehle pro Bild, Startzeit und Speicherplatz.
+Die frühere Zahl von ungefähr 6300 ARM-Befehlen pro Bild ist eine
+[Messung des vorigen Lade-Patches](../../../docs/messungen/2026-10-15-ladebalken.md), keine Messung dieses Renderers.
+Fünf vollständige unterschiedliche Loop-Bilder benötigen ohne Kompression 5120 Byte; die gesamte Ladedemo ist
+keine sinnvolle Firmware-Bildtabelle. Später sollten Grundbild, Augen, Material und wenige wiederverwendete Posen
+zusammengesetzt und im Emulator gemessen werden. Die Größenabschätzungen im Manifest enthalten keinen ARM-Code.
 
-Für die Designarbeit fehlt aus der Übergabe nichts. Eigene Firmware und Hardwaremessungen sind erst für diesen
-nächsten Integrationsschritt erforderlich.
+## Frühere Layoutstudien
+
+[Typenschild](vorschau/neu/typenschild.gif) und [Prägung](vorschau/neu/praegung.gif) bleiben als Vergleich der
+Aufteilung erhalten. Sie sind keine neuen Bewegungsvorschläge. Auch diese Folgen halten länger als 200 ms pro
+Bild. Die unveränderte alte [Rotzen-Referenz](vorschau/rotzen.gif) liegt außerhalb der neuen Exporte.
+
+Für die Designarbeit fehlt aus der Übergabe nichts. Eigene Firmware und Hardwaremessungen sind erst für den
+späteren Integrationsschritt erforderlich.
