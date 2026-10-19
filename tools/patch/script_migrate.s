@@ -7,12 +7,12 @@
 ; migrate_start runs in the early hook in front of the sample loader and waits there: the input hook gives it the keys
 ; (migrate_input), the frame hook draws the question and the progress (migrate_frame). Not with EXIT held at power-on, not on the
 ; synth (MG_WORK 0). Firmware addresses that come with the build (script_hooks.py): MG_WORK (the work area, RAM only), MG_MKDIR
-; (f_mkdir), MG_ALLOC and MG_FREE (the firmware's operator new and delete).
+; (f_mkdir), MG_GETFREE (f_getfree), MG_ALLOC and MG_FREE (the firmware's operator new and delete).
 .equ MG_ACTIVE, 0               ; 1 while the question or the copy is up (the input and frame hooks act only then)
 .equ MG_CHOICE, 4               ; 0 hacktribe, 1 electribe sampler
 .equ MG_HAVE, 8                 ; bit 0: KORG/hacktribe is there, bit 1: KORG/electribe sampler
 .equ MG_KEY, 12                 ; set by the input hook: 1 EXIT, 2 MENU, 3 the other folder
-.equ MG_PHASE, 16               ; 0 the question, 1 copying, 2 done, 3 failed
+.equ MG_PHASE, 16               ; 0 the question, 1 copying, 2 done, 3 failed, 4 not room enough on the card
 .equ MG_BYTES, 20               ; bytes copied
 .equ MG_BUF, 24                 ; the copy buffer from the firmware's heap
 .equ MG_DEPTHNOW, 28
@@ -30,6 +30,11 @@
 .equ MG_DEPTH, 5
 .equ MG_BUFSIZE, 0x8000
 .equ MG_COUNT, 0xC00            ; the bytes written by the last f_read and f_write
+.equ MG_DRY, 0xC04              ; 1: the walk only counts the clusters the copy needs (MG_NEED), nothing is written
+.equ MG_NEED, 0xC08             ; clusters the copy needs: every file rounded up to whole clusters, one for every folder
+.equ MG_SHIFT, 0xC0C            ; log2 of the card's cluster size in bytes
+.equ MG_FREE_CL, 0xC10          ; free clusters on the card (f_getfree)
+.equ MG_FS, 0xC20               ; the volume f_getfree names
 
 ; Called from the early hook. Keeps r4 to r11.
 migrate_start:
@@ -95,10 +100,17 @@ mg_ask_menu:
     bne mg_ask
     mov r0, #1
     str r0, [r4, #MG_PHASE]
+    bl mg_room                  ; room on the card for all of it? (device wish 19.10.: no half copied folder)
+    cmp r0, #0
+    movne r0, #4
+    bne mg_phase
+    mov r0, #0
+    str r0, [r4, #MG_DRY]
     bl mg_copy
     cmp r0, #0
     moveq r0, #2
     movne r0, #3
+mg_phase:
     str r0, [r4, #MG_PHASE]
     ldr r0, =1500
     ldr r12, =OS_WAIT
@@ -146,12 +158,18 @@ mg_append_end:
 ; Copies the chosen folder into KORG/blechtribe. r4 = the work area -> r0 = 0 when everything went across.
 mg_copy:
     push {r5-r11, lr}
+    mov r0, #0
+    str r0, [r4, #MG_BUF]
+    ldr r0, [r4, #MG_DRY]
+    cmp r0, #0
+    bne mg_copy_paths
     mov r0, #MG_BUFSIZE
     ldr r12, =MG_ALLOC
     blx r12
     str r0, [r4, #MG_BUF]
     cmp r0, #0
     beq mg_copy_fail_nobuf
+mg_copy_paths:
     add r0, r4, #MG_SRC
     mov r1, #0
     ldr r2, [r4, #MG_CHOICE]
@@ -165,11 +183,15 @@ mg_copy:
     ldr r2, =mg_new_folder
     bl mg_append
     str r0, [r4, #MG_DLEN]
+    ldr r0, [r4, #MG_DRY]
+    cmp r0, #0
+    bne mg_copy_root
     add r0, r4, #MG_DST
     ldr r12, =MG_MKDIR
     blx r12
     cmp r0, #0
     bne mg_copy_fail
+mg_copy_root:
     mov r5, #0                  ; the level
     add r0, r4, #MG_DIRS
     add r1, r4, #MG_SRC
@@ -226,21 +248,44 @@ mg_copy_next:
     ldrb r0, [r7, #8]
     tst r0, #0x10
     bne mg_copy_folder
+    ldr r0, [r4, #MG_DRY]
+    cmp r0, #0
+    bne mg_copy_count
     mov r0, r9
     bl mg_show_name
     bl mg_copy_file
     cmp r0, #0
     bne mg_copy_fail_open
     b mg_copy_next
+mg_copy_count:                  ; the file in whole clusters
+    ldr r0, [r7]                ; FILINFO: the size
+    ldr r1, [r4, #MG_SHIFT]
+    mov r2, r0, lsr r1
+    mov r3, #1
+    mov r3, r3, lsl r1
+    sub r3, r3, #1
+    tst r0, r3
+    addne r2, r2, #1
+    ldr r0, [r4, #MG_NEED]
+    add r0, r0, r2
+    str r0, [r4, #MG_NEED]
+    b mg_copy_next
 mg_copy_folder:
     add r0, r5, #1
     cmp r0, #MG_DEPTH
     bhs mg_copy_next            ; too deep: left out
+    ldr r0, [r4, #MG_DRY]
+    cmp r0, #0
+    ldrne r0, [r4, #MG_NEED]
+    addne r0, r0, #1
+    strne r0, [r4, #MG_NEED]
+    bne mg_copy_down
     add r0, r4, #MG_DST
     ldr r12, =MG_MKDIR
     blx r12
     cmp r0, #0
     bne mg_copy_fail_open
+mg_copy_down:
     add r5, r5, #1
     add r0, r4, #MG_SLEN
     str r11, [r0, r5, lsl #2]
@@ -279,6 +324,39 @@ mg_copy_fail:
 mg_copy_fail_nobuf:
     mov r0, #1
     pop {r5-r11, pc}
+
+; r4 = the work area -> r0 = 0 when the card has room for the copy, 1 when not (or the free space could not be read).
+mg_room:
+    push {lr}
+    ldr r0, =mg_drive
+    add r1, r4, #MG_FREE_CL
+    add r2, r4, #MG_FS
+    ldr r12, =MG_GETFREE
+    blx r12
+    cmp r0, #0
+    bne mg_room_no
+    ldr r0, [r4, #MG_FS]
+    ldrb r0, [r0, #2]           ; sectors a cluster
+    mov r1, #9                  ; 512 bytes a sector
+mg_room_shift:
+    movs r0, r0, lsr #1
+    addne r1, r1, #1
+    bne mg_room_shift
+    str r1, [r4, #MG_SHIFT]
+    mov r0, #1
+    str r0, [r4, #MG_DRY]
+    str r0, [r4, #MG_NEED]      ; the new folder itself
+    bl mg_copy
+    cmp r0, #0
+    bne mg_room_no
+    ldr r0, [r4, #MG_NEED]
+    ldr r1, [r4, #MG_FREE_CL]
+    cmp r0, r1
+    movls r0, #0
+    popls {pc}
+mg_room_no:
+    mov r0, #1
+    pop {pc}
 
 mg_free:
     push {lr}
@@ -478,7 +556,9 @@ mg_frame_copy:
     cmp r7, #2
     ldrlo r4, =mg_t_copying
     ldreq r4, =mg_t_done
-    ldrhi r4, =mg_t_failed
+    cmp r7, #3
+    ldreq r4, =mg_t_failed
+    ldrhi r4, =mg_t_full
     mov r5, #1
     mov r6, #8
     bl display_draw_text
@@ -542,6 +622,10 @@ mg_t_done:
     .asciz "DONE"
 mg_t_failed:
     .asciz "COPY FAILED"
+mg_t_full:
+    .asciz "CARD FULL, NOT COPIED"
+mg_drive:
+    .asciz "SD:"
 mg_t_mb:
     .asciz " MB"
 .align 4

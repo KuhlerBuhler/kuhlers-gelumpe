@@ -27,7 +27,14 @@ werden soll, damit die Samples weiter da sind. Wählen zwischen beiden Ordnern, 
 - Nicht mit EXIT beim Einschalten, nicht auf der blauen (`MG_WORK 0`). Arbeitsbereich 0xF00 Byte bei `0xC0190100` (hinter der Tabelle der Synth-Filter, FF in allen drei
   Abbildern).
 
-## Emulator (`tools/emu/migrate_cases.py`, 6 von 6, Hacktribe mit BLECH)
+## Platz prüfen (19.10., Vorschlag 2)
+
+Vor dem Kopieren zählt ein Probelauf über denselben Baum die nötigen Cluster (jede Datei auf ganze Cluster aufgerundet, ein
+Cluster je Ordner) und vergleicht mit den freien Clustern von `f_getfree` (`0xC009E85C`, offline: zählt die freien Einträge der
+FAT, nimmt den Wert aus FSInfo, wenn er gültig ist; Clustergröße aus Byte 2 des Volumes). Reicht der Platz nicht, steht 2,5 s
+CARD FULL, NOT COPIED da, es wird nichts geschrieben und der Start geht weiter. Beim nächsten Start kommt die Frage wieder.
+
+## Emulator (`tools/emu/migrate_cases.py`, 8 von 8, Hacktribe mit BLECH)
 
 | Fall | Ergebnis |
 |---|---|
@@ -37,10 +44,12 @@ werden soll, damit die Samples weiter da sind. Wählen zwischen beiden Ordnern, 
 | `KORG/blechtribe` schon da | keine Frage |
 | EXIT beim Einschalten | keine Frage, nichts geschrieben |
 | leere Karte | keine Frage |
+| 64 KiB frei für 180 KB | CARD FULL, nichts geschrieben, Hauptbildschirm |
+| 1 MiB frei | kopiert |
 
 ## Offen
 
 - Am Gerät nicht geprüft, auch nicht die Dauer: eine volle `e2sSample.all` hat einige hundert MB, das Kopieren dauert am Gerät
   Minuten (geschätzt, nicht gemessen). Das Display zählt die MB mit.
-- Bricht das Kopieren ab (Karte voll, Fehler), bleibt ein halber `KORG/blechtribe` stehen und beim nächsten Start kommt keine
-  Frage mehr. Dann den Ordner am Rechner löschen oder fertig kopieren.
+- Bricht das Kopieren trotzdem ab (Lesefehler, Karte gezogen), bleibt ein halber `KORG/blechtribe` stehen und beim nächsten Start
+  kommt keine Frage mehr. Dann den Ordner am Rechner löschen oder fertig kopieren.

@@ -42,11 +42,14 @@ def entry(name, ok, detail):
     return {"id": f"migrate:{name}", "ok": bool(ok), "detail": str(detail)}
 
 
-def card(files):
+def card(files, leave=None):
+    """A card with these files; with `leave`, a filler file takes all but that many bytes of the free space."""
     image = fat32.format_image(64 * 1024 * 1024)
     volume = fat32.Volume(image)
     for path, data in files.items():
         volume.write(path, data)
+    if leave is not None:
+        volume.write("FILLER.BIN", bytes(volume.free_bytes() - leave))
     volume.close()
     return SDCard(MemoryMedium(bytearray(image)))
 
@@ -56,9 +59,9 @@ def old(folder):
             f"KORG/{folder}/Import/deep/x.bin": b"hello", f"KORG/{folder}/._junk": b"mac"}
 
 
-def boot(payload, files, held=0):
+def boot(payload, files, held=0, leave=None):
     dev = Dev(payload, None, held)
-    dev.card = card(files)
+    dev.card = card(files, leave)
     dev.m.insert_card(dev.card)
     dev.run(1.0)
     return dev
@@ -139,7 +142,24 @@ def case_none(payload, flash):
     return out
 
 
-GROUPS = (case_copy, case_choose, case_none)
+def case_full(payload, flash):
+    """Not room enough for the old folder: CARD FULL, nothing written, the start goes on; with just enough room it copies."""
+    out = []
+    full = boot(payload, old("hacktribe"), leave=64 * 1024)
+    full.press(MENU, 0.5)
+    wait(full)
+    out.append(entry("card_full_copies_nothing", state(full)[4] == 4 and files_of(full, "blechtribe") == {} and full.screen()["number"] == 1
+                     and not full.m.asserts, f"64 KiB free for {len(SAMPLE) + len(KICK)} bytes: phase {state(full)[4]} (4 card full), "
+                     f"blechtribe {sorted(files_of(full, 'blechtribe'))}, screen {full.screen()['number']}"))
+    room = boot(payload, old("hacktribe"), leave=1024 * 1024)
+    room.press(MENU, 0.5)
+    wait(room)
+    out.append(entry("enough_room_copies", state(room)[4] == 2 and len(files_of(room, "blechtribe")) == 3 and not room.m.asserts,
+                     f"1 MiB free: phase {state(room)[4]}, copied {sorted(files_of(room, 'blechtribe'))}"))
+    return out
+
+
+GROUPS = (case_copy, case_choose, case_none, case_full)
 
 
 def group_entries(payload, flash, i):
