@@ -26,6 +26,9 @@ class HookTests(unittest.TestCase):
         machine.uc.mem_map(BLECHY_BLOCK,BLECHY_BLOCK_END-BLECHY_BLOCK)    # where the image holds the block of Blechy
         from tools.patch.script_hooks import MORE_START,MORE_END
         machine.uc.mem_map(MORE_START,(MORE_END-MORE_START+0xFFF)&~0xFFF)  # the second code area (display, store, hardware, events, apps)
+        from tools.patch.script_hooks import runtime_profile
+        work = runtime_profile('hacktribe').actions['MG_WORK']
+        machine.uc.mem_map(work&~0xFFF,((work+0xF00+0xFFF)&~0xFFF)-(work&~0xFFF))  # the folder copy's work area, read by every input
         for address,data in built.sections[len(built.vm.sections):]:
             machine.uc.mem_write(address,data)
         machine.symbols.update(built.symbols)
@@ -37,6 +40,7 @@ class HookTests(unittest.TestCase):
         machine.write(0xC0083710,0xC031BB2C)
         machine.uc.mem_map(0xC033E000,4096)
         machine.uc.mem_map(0xC0340000,4096)
+        machine.uc.mem_map(0xC0345000,4096)    # the LED manager's pointer (0xC0345A1C), 0: the unsaved WRITE LED stays out
         machine.uc.mem_map(0xC0310000,0x10000)
         for at,size in [(0xC0690000,0x2000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)
         machine.write(0xC033E6F8,machine.input+0x1000)

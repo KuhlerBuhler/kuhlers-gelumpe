@@ -155,7 +155,7 @@ class NativeHardwareTests(unittest.TestCase):
 
     def test_led_hold_sets_the_firmware_flag_and_gives_every_led_back_when_released(self):
         m,_ = self.machine()
-        m.uc.mem_map(0xC0016000,0x1000); m.uc.mem_map(0xC0087000,0x1000); m.uc.mem_map(0xC0345000,0x1000); m.uc.mem_map(0xC0700000,0x2000)
+        m.uc.mem_map(0xC0016000,0x1000); m.uc.mem_map(0xC0087000,0x1000); m.uc.mem_map(0xC0700000,0x2000)
         calls = self.hardware_stubs_pages(m)
         manager = 0xC0700000
         m.write(0xC0345A1C,manager)
@@ -171,7 +171,7 @@ class NativeHardwareTests(unittest.TestCase):
 
     def test_led_hold_does_nothing_without_a_led_manager_and_the_guard_releases_when_no_script_is_armed(self):
         m,_ = self.machine()
-        m.uc.mem_map(0xC0016000,0x1000); m.uc.mem_map(0xC0087000,0x1000); m.uc.mem_map(0xC0345000,0x1000); m.uc.mem_map(0xC0700000,0x2000)
+        m.uc.mem_map(0xC0016000,0x1000); m.uc.mem_map(0xC0087000,0x1000); m.uc.mem_map(0xC0700000,0x2000)
         calls = self.hardware_stubs_pages(m)
         for bad in (0,0xffffffff):
             m.write(0xC0345A1C,bad)
@@ -197,7 +197,7 @@ class NativeHardwareTests(unittest.TestCase):
 
     def test_the_built_in_app_alone_does_not_keep_the_led_hold(self):
         m,built = self.machine()
-        m.uc.mem_map(0xC0016000,0x1000); m.uc.mem_map(0xC0087000,0x1000); m.uc.mem_map(0xC0345000,0x1000); m.uc.mem_map(0xC0700000,0x2000)
+        m.uc.mem_map(0xC0016000,0x1000); m.uc.mem_map(0xC0087000,0x1000); m.uc.mem_map(0xC0700000,0x2000)
         self.hardware_stubs_pages(m)
         m.write(0xC0345A1C,0xC0700000)
         from tools.patch.script_hooks import BLECHY_BLOCK
