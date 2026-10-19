@@ -41,6 +41,9 @@
 .equ MX_OVER, -0x1E            ; byte, OVERLAP of the pad colours (0 the colour that is left)
 .equ MX_METER, -0x1C           ; 4 bytes, the colours of the meter (STILL, LOW, MID, LOUD), 0 the firmware's
 .equ MX_SAVE_ON, -0x18         ; byte, the backlight pins that light in power save
+.equ MX_PHASE, -0x1D           ; byte, the hue of METER STILL RAINBOW, one step every 40 ms
+.equ MX_RGB, -0x17             ; 3 bytes, red, green, blue of that hue
+.equ METER_RAINBOW, 8          ; METER STILL only: the colours turn round the wheel (bit 30 of the settings flags)
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ M_PC, 0x158              ; the gap between the two settings buffers (M_FILE_A ends at 0x158, M_FILE_B starts at 0x160)
 .equ PS_SETTING, 0xC0180F10
@@ -239,7 +242,7 @@ menu_load_apply:
     mov r2, r1, lsr #12
     and r2, r2, #15
     strb r2, [r4, #MX_SAVE]
-    mov r2, r1, lsr #16         ; bits 16 to 27: the four colours of the meter, 3 bits each
+    mov r2, r1, lsr #16         ; bits 16 to 27: the four colours of the meter, 3 bits each, bit 30 STILL is RAINBOW
     sub r12, r4, #-MX_METER
     mov r1, #4
 menu_load_meter:
@@ -248,6 +251,9 @@ menu_load_meter:
     mov r2, r2, lsr #3
     subs r1, r1, #1
     bne menu_load_meter
+    tst r2, #4                  ; bit 30, shifted down with the colours
+    movne r3, #METER_RAINBOW
+    strbne r3, [r4, #MX_METER]
     push {r0-r3}                ; bits 28 to 29: OVERLAP of the pad colours (the patch pad-colors keeps it)
     ldr r0, [r0, #12]
     mov r0, r0, lsr #28
@@ -423,8 +429,11 @@ menu_settings_save:
     ldrb r1, [r4, #MX_METER+1]
     orr r2, r1, r2, lsl #3
     ldrb r1, [r4, #MX_METER]
+    cmp r1, #METER_RAINBOW
+    moveq r1, #0                ; RAINBOW: the three bits of STILL stay 0, bit 30 says it
     orr r2, r1, r2, lsl #3
     orr r0, r0, r2, lsl #16
+    orreq r0, r0, #0x40000000
     mov r10, r0
     mov r1, #20
     bl menu_pc_call
@@ -841,6 +850,7 @@ led_meter_loop:
 ; 187 MID, above LOUD) gives the colour, the user's from the palette or, for a zone left at STOCK, the firmware's (white, blue,
 ; green, red). r0, r1 = the levels of the two sides (LEDs 6 to 11, 0 to 5).
 led_meter_four:
+    bl meter_rainbow
     bl meter_colour
     mov r10, r2
     mov r0, r1
@@ -883,11 +893,51 @@ meter_zone:
     ldr r2, =MENU_STATE
     sub r2, r2, #-MX_METER
     ldrb r2, [r2, r3]
+    cmp r2, #METER_RAINBOW
+    ldreq r2, =MENU_STATE + MX_RGB
+    bxeq lr
     cmp r2, #0
     addeq r2, r3, #8            ; STOCK: the firmware's colour of the zone, behind the palette
     ldr r0, =meter_palette
     add r2, r2, r2, lsl #1
     add r2, r0, r2
+    bx lr
+; METER STILL RAINBOW: one step of the hue a tick (40 ms), round the wheel (red, green, blue) in 256 ticks, about 10 s. Writes the
+; colour to MX_RGB for meter_colour. Keeps r0 and r1.
+meter_rainbow:
+    ldr r2, =MENU_STATE
+    ldrb r3, [r2, #MX_METER]
+    cmp r3, #METER_RAINBOW
+    bxne lr
+    push {r0, r1}
+    ldrb r3, [r2, #MX_PHASE]
+    add r3, r3, #1
+    and r3, r3, #255
+    strb r3, [r2, #MX_PHASE]
+    add r3, r3, r3, lsl #1      ; 0 to 765: three segments of 256
+    and r1, r3, #255            ; rising
+    rsb r0, r1, #255            ; falling
+    mov r3, r3, lsr #8
+    sub r2, r2, #-MX_RGB
+    mov r12, #0
+    cmp r3, #1
+    beq meter_rainbow_gb
+    bhi meter_rainbow_br
+    strb r0, [r2]               ; red to green
+    strb r1, [r2, #1]
+    strb r12, [r2, #2]
+    b meter_rainbow_out
+meter_rainbow_gb:               ; green to blue
+    strb r12, [r2]
+    strb r0, [r2, #1]
+    strb r1, [r2, #2]
+    b meter_rainbow_out
+meter_rainbow_br:               ; blue to red
+    strb r1, [r2]
+    strb r12, [r2, #1]
+    strb r0, [r2, #2]
+meter_rainbow_out:
+    pop {r0, r1}
     bx lr
 led_meter_pass:
     ldrb r3, [r0, #0xb98]
@@ -2731,6 +2781,8 @@ menu_slot_value:
     moveq r3, #MX_SAVE
     beq menu_value_byte
     mov r2, #7
+    cmp r0, #28
+    moveq r2, #METER_RAINBOW    ; STILL has RAINBOW behind the palette
     sub r3, r0, #28
     cmp r3, #3
     subls r3, r3, #-MX_METER
@@ -3190,6 +3242,8 @@ str_c_yellow:
     .asciz "YELLOW"
 str_c_cyan:
     .asciz "CYAN"
+str_c_rainbow:
+    .asciz "RAINBOW"
 str_c_pink:
     .asciz "PINK"
 str_intens:
@@ -3323,7 +3377,7 @@ meter_titles:
 over_names:
     .word str_auto, str_c_red, str_c_blue, str_c_pink
 colour_names:
-    .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink
+    .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink, str_c_rainbow
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
 str_once:

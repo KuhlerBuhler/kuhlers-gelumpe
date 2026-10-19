@@ -875,6 +875,30 @@ def look_cases(payload, flash=None):
         and m_still == [255, 0, 0] * 4 and m_loud == [255, 0, 160] * 4 and m_stock[:3] == m_stock[3:6] and m_stock[0] > 200 and m_stock[1] == 0
         and state(dev, S_LED_EFF) == 0 and not dev.m.asserts, f"pages {still_page} {loud_page}, still {m_still}, loud {m_loud}, back to STOCK {m_stock}")
 
+    # METER STILL RAINBOW (device wish 19.10.): the still meter turns round the colour wheel; WRITE keeps it as bit 30 of the flags
+    goto_group(dev, GROUP_LED, 4)
+    dev.turn(8, wait=0.3)
+    rainbow_page = texts_of(dev)
+    meter_level(dev, 0)
+    dev.run(0.5)
+    first = leds(dev)
+    dev.run(1.0)
+    second = leds(dev)
+    wheel = lambda l: l[:3] * 4 == l and sorted(l[:3])[0] == 0 and sum(l[:3]) == 255
+    press(dev, "write", wait=0.6)
+    files = read_settings(dev.m.mmc.card.medium.data)
+    flags = max(files.values())[1] if files else 0
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
+    again.run(1.5)
+    kept = again.read(STATE - 0x1C, 1)[0]
+    add("led_meter_still_rainbow", rainbow_page == ("METER STILL", "RAINBOW", "") and wheel(first) and wheel(second) and first != second
+        and flags >> 30 & 1 == 1 and flags >> 16 & 7 == 0 and kept == 8 and not dev.m.asserts and not again.m.asserts,
+        f"page {rainbow_page}, still {first[:3]} then {second[:3]} 1 s later, flags {flags:#x}, after a restart STILL {kept}")
+    goto_group(dev, GROUP_LED, 4)
+    dev.turn(-8, wait=0.3)
+
     # the firmware's own switches stay: nothing changes while a plugin holds the lock, nothing lights with Global power save
     lock = boot(payload, flash, adapter=True)
     set_look(lock, mode=1, led=(15, 7, 0))
