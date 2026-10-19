@@ -24,7 +24,7 @@ werden soll, damit die Samples weiter da sind. Wählen zwischen beiden Ordnern, 
 - MENU: 32 KiB Puffer vom Heap, `KORG/blechtribe` anlegen, dann jede Datei und jeden Ordner kopieren (bis 5 Ebenen, Namen mit
   Punkt am Anfang nicht, das sind `.`, `..` und die `._`-Dateien anderer Rechner). Das Display zeigt COPYING, den Dateinamen und
   die kopierten MB, am Ende 1,5 s DONE oder COPY FAILED. Danach lädt die Firmware die Samples aus dem neuen Ordner.
-- Nicht mit EXIT beim Einschalten, nicht auf der blauen (`MG_WORK 0`). Arbeitsbereich 4 KiB bei `0xC0190000` (FF in allen drei
+- Nicht mit EXIT beim Einschalten, nicht auf der blauen (`MG_WORK 0`). Arbeitsbereich 0xF00 Byte bei `0xC0190100` (hinter der Tabelle der Synth-Filter, FF in allen drei
   Abbildern).
 
 ## Emulator (`tools/emu/migrate_cases.py`, 6 von 6, Hacktribe mit BLECH)

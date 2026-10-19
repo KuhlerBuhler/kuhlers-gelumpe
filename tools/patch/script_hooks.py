@@ -84,7 +84,7 @@ def runtime_profile(build):
                                               POWER_HOLD_MASK=0x08000000, SHORTCUTS=1,
                                               SC_LEDMGR=0xC0345A1C, SC_PLAYER=0xC002FAFC, SC_PATPTR=0xC033E6A4,
                                               SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84,
-                                              MG_WORK=0xC0190000, MG_MKDIR=0xC009EB00, MG_ALLOC=0xC0028DCC, MG_FREE=0xC0028DD4,
+                                              MG_WORK=0xC0190100, MG_MKDIR=0xC009EB00, MG_ALLOC=0xC0028DCC, MG_FREE=0xC0028DD4,
                                               MG_VRAM=0xC031B310, MG_MARK=0xC001531C))
     from . import synthaddr
     sites = []
@@ -209,7 +209,7 @@ class BuiltHooks:
             area(layout['pool'],layout['poolEnd']-layout['pool'],'plugin pool, SCRIPT_POOL_BYTES','tools/patch/script_hooks.py:POOL'),
             area(layout['card'],layout['input']-layout['card'],'work area of the card loader: file object, state, plugin list of the import page','tools/patch/script_hooks.py:CARD'),
             area(layout['input'],END-layout['input'],'block buffer for file reads, the two store images lie in it','tools/patch/script_hooks.py:INPUT')]+(
-            [area(self.profile.actions['MG_WORK'],0x1000,'work area of the folder copy at the first start: state, file and folder objects, paths','tools/patch/script_migrate.s:MG_ACTIVE')]
+            [area(self.profile.actions['MG_WORK'],0xF00,'work area of the folder copy at the first start: state, file and folder objects, paths','tools/patch/script_migrate.s:MG_ACTIVE')]
             if self.profile.actions.get('MG_WORK') else [])
 
     def menu_copy_changes(self):

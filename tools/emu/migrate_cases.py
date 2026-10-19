@@ -26,7 +26,7 @@ import synthaddr  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
 
-WORK = 0xC0190000               # MG_WORK of the sampler builds
+WORK = 0xC0190100               # MG_WORK of the sampler builds
 MENU, EXIT = 0x09, 0x0D
 KILL = menu_cases.KILL
 SAMPLE = sampleset.build(sampleset.sized(3, 48000))
