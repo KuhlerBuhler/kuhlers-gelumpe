@@ -60,6 +60,7 @@ CODE_END = 0xC0189800
 STATE = 0xC0189F00              # run time state, in RAM only; FF there means "nothing"
 STATE_END = 0xC0189F40
 S_SETTING, S_SINCE, S_NOTE, S_PAD, S_PARTPAD, S_FADE, S_LEVEL = 0, 4, 8, 0xC, 0x10, 0x14, 0x20
+S_DOWN = 0x18
 NA_SETTING = STATE + S_SETTING  # the setting word the BLECH menu will write: never written (FFFFFFFF) or 1 is on, 0 is off
 FLAG_OFF_BIT = 4                # bit of the settings file's flags that means "OFF" (bits 0 to 3 are taken, docs/plugins.md)
 
@@ -69,6 +70,9 @@ LEVEL_HIGH, LEVEL_MID, LEVEL_LOW = 63, 41, 21   # the red LED of a hint, of 255 
 # the level by the interval to the note, 0 to 11 semitones: unison and fifth bright, the thirds and the fourth middle, the sixths dim, the
 # rest dark (the notes a step of the scale away get the middle level from their place in the layout)
 LEVELS = (LEVEL_HIGH, 0, 0, LEVEL_MID, LEVEL_MID, LEVEL_MID, 0, LEVEL_HIGH, LEVEL_LOW, LEVEL_LOW, 0, 0)
+# CHORD: by the interval of the roots: fourth and fifth (IV, V) bright, second, minor third and major sixth (ii, vi and back) middle,
+# the same chord, major third, minor sixth and minor seventh dim
+CHORD_LEVELS = (LEVEL_LOW, 0, LEVEL_MID, LEVEL_MID, LEVEL_LOW, LEVEL_HIGH, 0, LEVEL_HIGH, LEVEL_LOW, LEVEL_MID, LEVEL_LOW, 0)
 FADE_TICKS = 3                  # while the pattern plays a level loses 2 every 3 ticks (120 ms): bright 3.7 s, middle 2.5 s, dim 1.3 s
 
 PAD_HOOK = 0xC0044B3C           # push {r4, r5, r6, r7, r8, lr}
@@ -107,6 +111,8 @@ SOURCE = """
 .equ PART_AT, 0xB60
 .equ LOCK_AT, 0xB98
 .equ MODE_KEYBOARD, 5
+.equ MODE_CHORD, 6
+.equ PAD_HELD, 192              ; the firmware's red on a pad that is held
 .equ MAIN_SCREEN, 1
 .equ LED_PAD_FIRST, 0x2C        ; pad n: red LED 0x2C + 2n, blue LED 0x2D + 2n
 .equ LED_VALUE, 0x4E            ; manager + 0x4E + 8 * led: the brightness the firmware wants (the entry of the first table)
@@ -122,6 +128,7 @@ SOURCE = """
 .equ WINDOW, 0x10000            ; bit 16 of the pad mask: the hint window is open (pads that do not fit are wanted dark, the part's pad included)
 .equ S_FADE, @S_FADE@           ; ticks since the last fade step
 .equ S_LEVEL, @S_LEVEL@         ; 16 bytes: the level of each pad's hint, the red LED's brightness (0 none)
+.equ S_DOWN, @S_DOWN@           ; CHORD: the pad last seen held (FFFFFFFF none)
 .equ LEVEL_MID, @LEVEL_MID@
 .equ FADE, @FADE@
 .equ TRANSPORT, 0xC06BC318      ; the transport state: 0 stopped, 1 playing, 2 paused, 3 record ready, 4 recording
@@ -152,7 +159,9 @@ nx_no:
     mov r0, #0
     bx lr
 
-; r0 = 1 when the pads are in KEYBOARD mode and the main screen is up. Clobbers r0 and r12. Reads memory only.
+; On the main screen: r0 = 1 when the pads are in KEYBOARD mode, 2 in CHORD mode with a scale of seven notes (the keyboard's table
+; holds the octave twice, places 7 and 8; the firmware builds the chords of other scales from scales of its own), else 0.
+; Clobbers r0, r1 and r12. Reads memory only.
 na_kbd:
     ldr r12, =LEDMGR_PTR
     ldr r12, [r12]
@@ -160,17 +169,60 @@ na_kbd:
     beq nk_no
     ldr r0, [r12, #MODE_AT]
     cmp r0, #MODE_KEYBOARD
+    moveq r1, #1
+    beq nk_screen
+    cmp r0, #MODE_CHORD
     bne nk_no
+    ldr r12, =KBOBJ_PTR
+    ldr r12, [r12]
+    cmp r12, #0
+    beq nk_no
+    ldrb r0, [r12, #0x47]
+    ldrb r1, [r12, #0x48]
+    cmp r0, r1
+    bne nk_no
+    mov r1, #2
+nk_screen:
     ldr r12, =SCREEN_PTR
     ldr r12, [r12]
     cmp r12, #0
     beq nk_no
     ldr r0, [r12, #0x2C]
     cmp r0, #MAIN_SCREEN
-    moveq r0, #1
+    moveq r0, r1
     bxeq lr
 nk_no:
     mov r0, #0
+    bx lr
+
+; r1 = a pad, r9 = the keyboard object, r11 = the kind (1 KEYBOARD, 2 CHORD) -> r0 = the pad's note (KEYBOARD) or the root of its
+; chord (CHORD: the lower row the places 0 to 7 of the table, the upper row goes on one step of the scale further than the
+; keyboard's, measured over Dorian and Aeolian, docs/messungen/2026-10-19-notenassistent-helligkeit.md). Clobbers r0 to r3.
+na_note:
+    cmp r11, #2
+    beq nn_chord
+    cmp r1, #7
+    addls r1, r1, #8
+    subhi r1, r1, #8
+    add r1, r9, r1
+    ldrb r0, [r1, #0x40]
+    bx lr
+nn_chord:
+    cmp r1, #8
+    subhs r1, r1, #8
+    addhs r1, r9, r1
+    ldrbhs r0, [r1, #0x40]
+    bxhs lr
+    add r1, r1, #9
+    cmp r1, #15
+    addls r1, r9, r1
+    ldrbls r0, [r1, #0x40]
+    bxls lr
+    ldrb r0, [r9, #0x4F]        ; past the table: one step on from its last note, the step of the octave's first two notes
+    ldrb r2, [r9, #0x49]
+    ldrb r3, [r9, #0x48]
+    add r0, r0, r2
+    sub r0, r0, r3
     bx lr
 
 ; ===================================================== one LED
@@ -350,9 +402,11 @@ pad_hook:
     bl na_active
     cmp r0, #0
     beq ph_out
+    push {r1}
     bl na_kbd
-    cmp r0, #0
-    beq ph_out
+    pop {r1}
+    cmp r0, #1
+    bne ph_out
     cmp r1, #15
     bhi ph_out
     cmp r1, #7
@@ -388,9 +442,11 @@ light_hook:
     bl na_active
     cmp r0, #0
     beq lh_out
+    push {r1}
     bl na_kbd
-    cmp r0, #0
-    beq lh_sync
+    pop {r1}
+    cmp r0, #1
+    bne lh_sync
     cmp r2, #0x7F
     bhi lh_sync
     ldr r0, =KBOBJ_PTR
@@ -442,23 +498,47 @@ tick_hook:
     cmp r0, #0
     beq th_off
     bl na_kbd
-    cmp r0, #0
+    movs r11, r0                ; the kind: 1 KEYBOARD, 2 CHORD
     beq th_forget
-    ldr r8, [r5, #S_NOTE]
-    cmp r8, #0x7F
-    bhi th_none
     ldr r0, =KBOBJ_PTR
     ldr r9, [r0]
     cmp r9, #0
     beq th_none
-    ldr r1, [r5, #S_PAD]
-    cmp r1, #15
+    cmp r11, #2
+    bne th_note
+    ; CHORD: the chord that is played is the pad the firmware holds in its red 192; a new one gives the levels
+    mov r6, #0
+th_held:
+    add r0, r4, r6, lsl #4
+    ldrb r0, [r0, #LED_VALUE + 8 * LED_PAD_FIRST]
+    cmp r0, #PAD_HELD
+    beq th_held_pad
+    add r6, r6, #1
+    cmp r6, #16
+    bne th_held
+    mvn r6, #0
+th_held_pad:
+    ldr r0, [r5, #S_DOWN]
+    cmp r0, r6
+    beq th_note
+    str r6, [r5, #S_DOWN]
+    cmp r6, #15
+    bhi th_note
+    mov r1, r6
+    bl na_note
+    str r0, [r5, #S_NOTE]
+    str r6, [r5, #S_PAD]
+    mov r0, #0
+    str r0, [r5, #S_SINCE]
+th_note:
+    ldr r8, [r5, #S_NOTE]
+    cmp r8, #0x7F
     bhi th_none
-    cmp r1, #7
-    addls r10, r1, #8
-    subhi r10, r1, #8           ; the note's place in the table
-    add r1, r9, r10
-    ldrb r0, [r1, #0x40]
+    ldr r10, [r5, #S_PAD]
+    cmp r10, #15
+    bhi th_none
+    mov r1, r10
+    bl na_note
     cmp r0, r8
     bne th_forget
     ldr r0, [r5, #S_SINCE]
@@ -466,11 +546,8 @@ tick_hook:
     bne th_fade
     mov r6, #0
 th_level:
-    cmp r6, #7
-    addls r1, r6, #8
-    subhi r1, r6, #8
-    add r1, r9, r1
-    ldrb r0, [r1, #0x40]
+    mov r1, r6
+    bl na_note
     mov r2, #0
     cmp r0, #0x7F
     bhi th_level_put
@@ -480,7 +557,9 @@ th_mod:
     cmp r0, #12
     subcs r0, r0, #12
     bcs th_mod
-    ldr r1, =na_levels
+    cmp r11, #2
+    ldrne r1, =na_levels
+    ldreq r1, =na_chord_levels
     ldrb r2, [r1, r0]
 th_level_put:
     add r1, r5, #S_LEVEL
@@ -488,10 +567,16 @@ th_level_put:
     add r6, r6, #1
     cmp r6, #16
     bne th_level
+    cmp r11, #1                 ; KEYBOARD: a step of the scale up and down at least the middle level
+    bne th_level_done
+    cmp r10, #7
+    addls r10, r10, #8
+    subhi r10, r10, #8          ; the note's place in the table
     sub r0, r10, #1
     bl th_neighbour
     add r0, r10, #1
     bl th_neighbour
+th_level_done:
     mov r0, #1
     str r0, [r5, #S_SINCE]
     mov r0, #0
@@ -529,6 +614,7 @@ th_off:
 th_forget:
     mvn r0, #0
     str r0, [r5, #S_NOTE]
+    str r0, [r5, #S_DOWN]
 th_none:
     mov r0, #0
     str r0, [r5, #S_LEVEL]
@@ -557,6 +643,8 @@ th_neighbour:
 
 na_levels:                              ; the level of a pad by its interval to the note, 0 to 11 semitones
     .byte @LEVELS@
+na_chord_levels:                        ; CHORD: the level of a chord by the interval of its root to the root played
+    .byte @CHORD_LEVELS@
 .align 4
 lit_pool:
 .pool
@@ -571,7 +659,7 @@ def source():
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}",
         "S_SETTING": S_SETTING, "S_SINCE": S_SINCE, "S_NOTE": S_NOTE, "S_PAD": S_PAD, "S_PARTPAD": S_PARTPAD,
         "S_FADE": f"{S_FADE:#x}", "S_LEVEL": f"{S_LEVEL:#x}", "LEVEL_MID": LEVEL_MID, "FADE": FADE_TICKS,
-        "LEVELS": ", ".join(str(v) for v in LEVELS),
+        "LEVELS": ", ".join(str(v) for v in LEVELS), "CHORD_LEVELS": ", ".join(str(v) for v in CHORD_LEVELS), "S_DOWN": f"{S_DOWN:#x}",
         "PAD_BODY": f"{body['PAD_BODY']:#x}", "LIGHT_BODY": f"{body['LIGHT_BODY']:#x}",
     }.items():
         text = text.replace(f"@{key}@", str(value))

@@ -582,7 +582,51 @@ def case_lock(payload, flash):
                   f"lock held while the note plays: hints {held}, LED messages with the patch's values {len(written)}; lock let go: {len(box.hinted())} hints")]
 
 
-GROUPS = (case_layout_and_hints, case_timing, case_new_note, case_firmware_wins, case_modes, case_stock, case_values, case_lock)
+def chord_roots(payload, flash, key, scale):
+    """The lowest note of each pad's chord in CHORD mode, from the MIDI out of the firmware (patch off)."""
+    box = NBox(payload, flash, KILL)
+    box.key("keyboard", 0.4)
+    box.set_scale(key, scale)
+    box.key("chord", 0.4)
+    roots = []
+    for n in range(16):
+        box.mark("c")
+        box.pad_down(n, wait=0.1)
+        on = sorted(d[0] for st, d in box.midi("c") if st & 0xF0 == 0x90)
+        box.pad_up(n, wait=0.1)
+        roots.append(on[0] if on else None)
+    return roots
+
+
+def case_chord(payload, flash):
+    """CHORD mode with a scale of seven notes: after a chord the pads of the chords that follow well light up, brighter for the
+    better (spec.CHORD_LEVELS by the interval of the roots); with a pentatonic scale nothing (the firmware's chords of it are not
+    the keyboard's scale)."""
+    out = []
+    for key, scale, pad in ((0, 2, 9), (9, 6, 12)):
+        roots = chord_roots(payload, flash, key, scale)
+        want = {p: spec.CHORD_LEVELS[(r - roots[pad]) % 12] for p, r in enumerate(roots) if r is not None}
+        want = {p: v for p, v in want.items() if v}
+        box = NBox(payload, flash)
+        box.key("keyboard", 0.4)
+        box.set_scale(key, scale)
+        box.key("chord", 0.4)
+        box.pad_down(pad, wait=0.2)
+        held = box.levels()
+        box.pad_up(pad, wait=0.2)
+        after = box.levels()
+        out.append(entry(f"chord_hints_{NAMES[scale].lower()}", held == {p: v for p, v in want.items() if p != pad} and after == want and not box.m.asserts,
+                         f"{NAMES[scale]} on {key}, pad {pad + 1} (root {roots[pad]}): while held {held}, after {after}, want {want}"))
+    penta = NBox(payload, flash)
+    penta.key("keyboard", 0.4)
+    penta.set_scale(0, 14)
+    penta.key("chord", 0.4)
+    penta.tap_pad(9, hold=0.2, wait=0.2)
+    out.append(entry("chord_pentatonic_none", penta.hinted() == [] and not penta.m.asserts, f"Major Penta: hints {penta.hinted()}"))
+    return out
+
+
+GROUPS = (case_chord, case_layout_and_hints, case_timing, case_new_note, case_firmware_wins, case_modes, case_stock, case_values, case_lock)
 
 
 def group_entries(payload, flash, i):
