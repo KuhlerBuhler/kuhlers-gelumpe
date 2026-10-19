@@ -46,8 +46,9 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING
+    global MENU, RING, BASE_RING, MUTE_GROUP
     synth = synthaddr.is_synth(payload)
+    MUTE_GROUP = not synth
     MENU = 37 if synth else 45
     BASE_RING = 28 if synth else 29
     RING = BASE_RING + 2
@@ -116,6 +117,9 @@ LIST_GROUPS = LIST_PAGES
 LIST_FEATURES, LIST_CUSTOM, LIST_PLUGINS = range(3)                   # their places in that list
 FEATURE_PAGES = ["MFX 2", "PATTERN CONFIRM", "TAP MOTION", "NOTE ASSIST"]   # the pages of the group FEATURES, each with an ON/OFF value
 FEAT_MFX, FEAT_PC, FEAT_TM, FEAT_NA = range(len(FEATURE_PAGES))
+FEAT_MG = len(FEATURE_PAGES)                                          # MUTE GROUP behind them, on the sampler builds (pattern_switch.py)
+MUTE_GROUP = True
+MUTE_GROUP_AT = 0x3B80                                                # the group in a pattern block, u16 little endian
 TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads"]
 RING = 31                                                             # the total of the page counter with the page BLECH and the page of Blechy in the ring
 BASE_RING = 29
@@ -382,11 +386,21 @@ def cases(payload, flash=None, settings=True):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    for _ in FEATURE_PAGES:
+    want = [(title, "ON") for title in FEATURE_PAGES] + ([("MUTE GROUP", "OFF")] if MUTE_GROUP else [])
+    for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
-    add("features_group_lists_the_switches", features[:4] == (2, GROUP_FEATURES, (0, len(FEATURE_PAGES)), "Feature")
-        and features[4] == [(title, "ON") for title in FEATURE_PAGES] and state(dev, S_PAGE) == 0, str(features))
+    add("features_group_lists_the_switches", features[:4] == (2, GROUP_FEATURES, (0, len(want)), "Feature")
+        and features[4] == want and state(dev, S_PAGE) == 0, str(features))
+    if MUTE_GROUP:
+        goto_group(dev, GROUP_FEATURES, FEAT_MG)
+        group = lambda: dev.read(dev.u32(0xC033E6A4) + 4 + MUTE_GROUP_AT, 2)
+        dev.turn(3, wait=0.3)
+        three = (texts_of(dev)[:2], bytes(group()))
+        dev.turn(-10, wait=0.3)
+        off = (texts_of(dev)[:2], bytes(group()))
+        add("mute_group_page_sets_the_pattern", three == (("MUTE GROUP", "3"), b"\x03\x00") and off == (("MUTE GROUP", "OFF"), b"\x00\x00")
+            and not dev.m.asserts, f"turned +3: {three}, then -10: {off}")
     goto_top(dev, LIST_PLUGINS)
     press(dev, "menu")
     press(dev, "edit_prev")

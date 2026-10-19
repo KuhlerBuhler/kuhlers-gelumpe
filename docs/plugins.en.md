@@ -540,6 +540,7 @@ The pages of FEATURES (the tag names the group "Feature"), each with the value O
 | PATTERN CONFIRM | ON, OFF (see below) |
 | TAP MOTION | OFF, ON, ONCE (see below) |
 | NOTE ASSIST | ON, OFF (see below) |
+| MUTE GROUP | OFF, 1 to 999 |
 
 There is no ABOUT group any more: it only showed the number of loaded plugins and confused people.
 
@@ -569,6 +570,7 @@ The pages of the groups:
 | CUSTOMIZATION, SPLASH IMPORT | ENTER | reads `KORG/blechtribe/splash.bmp` (128 x 64 pixels, 1 bit per pixel, not compressed; the darker colour is drawn) and stores it as the start image like WRITE in the splash editor; shown from the next start. Says "loaded", "no splash.bmp" or "not 128x64 1 bit" (then nothing changes). Only where the set has the splash editor, so not on the blue one |
 | CUSTOMIZATION, SPLASH DRAW | ENTER | opens the splash editor (a page of the Global screen that only this page reaches): the dial moves the cursor left and right, with SHIFT held up and down, MENU flips the pixel and, held, paints its new colour wherever the cursor goes, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
 | FEATURES, PATTERN CONFIRM | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file |
+| FEATURES, MUTE GROUP | OFF, 1 to 999 | the mute group of the pattern in RAM, Hacktribe and the red one only; the main dial changes it, it is saved with the pattern (WRITE or EXIT + WRITE). While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; switching between two patterns of one group keeps the part mutes as they were set live (in RAM only). OFF (0) is no group |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off, TAP held longer than 0.3 s switches only while held and back on letting go; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 

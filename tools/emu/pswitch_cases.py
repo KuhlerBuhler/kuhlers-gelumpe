@@ -548,7 +548,62 @@ def case_unsaved(payload, flash):
     return out
 
 
-GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved)
+def case_mute_group(payload, flash):
+    """Mute groups (sampler builds): the wheel on another pattern of the running pattern's group confirms it at once, a pattern of
+    another group only browses; between two patterns of one group the live part mutes carry over, into any other pattern they do not."""
+    if synthaddr.is_synth(payload):
+        return []
+    out = []
+    live = lambda b: b.u32(0xC033E6A4) + 4
+    mutes = lambda b: [b.dev.read(live(b) + 0x800 + 0x330 * k + 1, 1)[0] for k in range(16)]
+    def setup(b):
+        for n, g in ((0, 7), (1, 7), (2, 0), (3, 7)):
+            b.pattern_bytes(n, spec.GROUP_AT, struct.pack("<H", g))
+        b.m.uc.mem_write(live(b) + spec.GROUP_AT, struct.pack("<H", 7))
+        for k in (3, 5):            # parts 4 and 6 switched live
+            at = live(b) + 0x800 + 0x330 * k + 1
+            b.m.uc.mem_write(at, bytes([b.dev.read(at, 1)[0] ^ 1]))
+    box = Box(payload, flash)
+    setup(box)
+    saved = [box.dev.read(box.slots + 0x4000 + 0x800 + 0x330 * k + 1, 1)[0] for k in range(16)]
+    before = mutes(box)
+    play(box)
+    box.mark()
+    box.turn(1)
+    armed = (box.view(), box.flags(), box.u32(spec.STATE + spec.S_AUTO), box.program_changes())
+    out.append(entry("group_confirms_at_once", armed == ((0, 1, 1), (0, 1, 1), 1, [1]) and not box.m.asserts,
+                     f"group 7 to group 7: running/chosen/pending, flags (browse, confirmed, number), auto, program changes {armed}"))
+    box.until_change()
+    carried = mutes(box)
+    out.append(entry("group_carries_the_mutes", box.running() == 1 and carried == before and before != saved and not box.m.asserts,
+                     f"running {box.running()}, mutes {carried}, the live ones were {before}, pattern 2 has {saved} saved"))
+    box.turn(1)
+    browse = (box.view(), box.flags()[:2], box.u32(spec.STATE + spec.S_AUTO))
+    out.append(entry("other_group_only_browses", browse == ((1, 2, 1), (1, 0), 0), f"group 7 to group 0: {browse}"))
+    box.turn(1)
+    again = (box.view(), box.flags())
+    out.append(entry("turning_on_rearms_in_the_group", again == ((1, 3, 1), (0, 1, 3)), f"on to pattern 4 (group 7): {again}"))
+    box.turn(-1)
+    left = (box.view(), box.flags()[:2], box.u32(spec.STATE + spec.S_AUTO))
+    out.append(entry("turning_away_takes_the_group_back", left == ((1, 2, 1), (1, 0), 0), f"back to pattern 3 (group 0): {left}"))
+    box.key("menu")
+    box.until_change()
+    other = mutes(box)
+    stored = [box.dev.read(box.slots + 2 * 0x4000 + 0x800 + 0x330 * k + 1, 1)[0] for k in range(16)]
+    out.append(entry("no_carry_out_of_the_group", box.running() == 2 and other == stored and not box.m.asserts,
+                     f"confirmed into pattern 3 (group 0): mutes {other}, saved there {stored}"))
+    ref = Box(payload, flash, KILL)
+    setup(ref)
+    play(ref)
+    ref.turn(1)
+    ref.until_change()
+    out.append(entry("group_off_with_exit_held", ref.running() == 1 and mutes(ref) == saved and not ref.m.asserts,
+                     f"EXIT held at power-on: the firmware's own switch, mutes {mutes(ref)} as saved"))
+    return out
+
+
+GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
+          case_mute_group)
 
 
 def group_entries(payload, flash, i):

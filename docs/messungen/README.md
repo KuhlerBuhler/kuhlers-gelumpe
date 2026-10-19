@@ -195,3 +195,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
 - [Notenassistent: Helligkeit nach Passung, stehen lassen und ausblenden](2026-10-19-notenassistent-helligkeit.md)
 - [IMPORT PLUGIN als Liste mit Namen und Beschreibung](2026-10-19-plugin-import-liste.md)
+- [Mute Groups: Patterns verketten, Part-Mutes behalten](2026-10-19-mute-groups.md)

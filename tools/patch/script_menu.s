@@ -1291,6 +1291,8 @@ menu_texts_clear:
     bls menu_text_meter
     cmp r0, #32
     beq menu_text_over
+    cmp r0, #33
+    beq menu_text_mg
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1592,6 +1594,19 @@ menu_text_na:
     ldrne r1, =str_on
     add r0, r5, #M_VALUE
     bl menu_copy
+    b menu_text_look_line3
+; MUTE GROUP: the group of the pattern in RAM (the patch pattern-switch), OFF for 0; saved with the pattern
+menu_text_mg:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_mg
+    bl menu_copy
+    bl menu_mg_at
+    add r0, r5, #M_VALUE
+    movs r1, r3
+    ldreq r1, =str_off
+    beq menu_text_app_value
+    bl menu_dec
     b menu_text_look_line3
 menu_text_ledmode:
     ldr r1, =str_ledmode
@@ -1998,13 +2013,13 @@ menu_confirm_add:
 ; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it. Each is again
 ; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
 ; 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR). DISPLAY, LED and PAD COLOR are rows of CUSTOMIZATION that open their pages;
-; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
+; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and MUTE GROUP (the
 ; main dial changes them, WRITE keeps them). EXIT goes one level up. M_PAGE counts within the level, the counter shows only that
 ; level. Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, after Event, on which Blechy, the app built into
 ; BLECH, shows himself (the frame hook opens and closes him by this level).
 ; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 2 a plugin, 3 export, 4 import, 5 unused, 6 a page a
 ; plugin added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
-; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST), r1 = its index (the plugin, the page, the app's table index,
+; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 MUTE GROUP), r1 = its index (the plugin, the page, the app's table index,
 ; the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
@@ -2070,6 +2085,8 @@ menu_kind_sub:
 menu_kind_features:
     mov r0, #21
     mov r1, #0
+    cmp r5, #4
+    moveq r0, #33
     cmp r5, #2
     moveq r0, #20
     cmp r5, #1
@@ -2161,8 +2178,13 @@ menu_count_features:
     b menu_count_out
 menu_count_list:
     cmp r1, #3
-    movhi r0, #4
-    bhi menu_count_out
+    bls menu_count_apps
+    ldr r0, =MUTE_GROUP_AT      ; FEATURES: MUTE GROUP behind the four switches where the build has mute groups
+    cmp r0, #0
+    movne r0, #5
+    moveq r0, #4
+    b menu_count_out
+menu_count_apps:
     sub r0, r1, #1
     bl app_count
 menu_count_out:
@@ -3177,6 +3199,8 @@ menu_slot_value:
     bls menu_value_byte
     cmp r0, #32
     beq menu_value_over
+    cmp r0, #33
+    beq menu_value_mg
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
@@ -3202,6 +3226,41 @@ menu_value_byte:
     movgt r1, r2
     strb r1, [r6, r3]
     b menu_value_look_done
+; MUTE GROUP: 0 (OFF) to 999 into the pattern in RAM, at once; the pattern keeps it when it is saved
+menu_value_mg:
+    bl menu_mg_at
+    cmp r2, #0
+    beq menu_value_done
+    adds r3, r3, r5
+    movmi r3, #0
+    ldr r1, =999
+    cmp r3, r1
+    movgt r3, r1
+    strb r3, [r2]
+    mov r3, r3, lsr #8
+    strb r3, [r2, #1]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; -> r2 = the mute group's place in the pattern in RAM (0 when there is none), r3 = the group there. Clobbers r1.
+menu_mg_at:
+    ldr r2, =MUTE_GROUP_AT
+    cmp r2, #0
+    moveq r3, #0
+    bxeq lr
+    ldr r1, =SC_PATPTR
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    moveq r2, #0
+    moveq r3, #0
+    bxeq lr
+    add r2, r2, r1
+    add r2, r2, #4
+    ldrb r3, [r2, #1]
+    ldrb r1, [r2]
+    orr r3, r1, r3, lsl #8
+    bx lr
 ; OVERLAP: 0 the colour left, 1 red, 2 blue, 3 pink, in the patch pad-colors; WRITE keeps it
 menu_value_over:
     mov r1, #20
@@ -3778,6 +3837,8 @@ str_tm:
     .asciz "TAP MOTION"
 str_na:
     .asciz "NOTE ASSIST"
+str_mg:
+    .asciz "MUTE GROUP"
 .align 4
 tab_names:
     .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads
