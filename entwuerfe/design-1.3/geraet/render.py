@@ -406,8 +406,15 @@ def tall(f, s, x, y, v=0, gap=3):
     return x
 
 
+TITLE_PNG = HERE / "blech-titel.png"           # the title as rendered on macOS, for machines without Impact
+
+
 def blech_mask(box=(1, 1, 78, 29)):
-    """BLECH in Impact, as large as fits the box. Returns a set of (x, y)."""
+    """BLECH in Impact, as large as fits the box. Returns a set of (x, y). Without Impact (not macOS) the title comes
+    from blech-titel.png, which this function writes whenever Impact is there."""
+    if not Path(IMPACT).exists():
+        px = Image.open(TITLE_PNG).convert("L").load()
+        return {(x, y) for y in range(H) for x in range(W) if px[x, y] < 128}
     x0, y0, x1, y1 = box
     for size in range(60, 10, -1):
         font = ImageFont.truetype(IMPACT, size)
@@ -417,7 +424,12 @@ def blech_mask(box=(1, 1, 78, 29)):
     img = Image.new("L", (W, H), 0)
     ImageDraw.Draw(img).text((x0 - l, y0 - t), "BLECH", font=font, fill=255)
     px = img.load()
-    return {(x, y) for y in range(H) for x in range(W) if px[x, y] >= 128}
+    mask = {(x, y) for y in range(H) for x in range(W) if px[x, y] >= 128}
+    out = Image.new("1", (W, H), 1)
+    for x, y in mask:
+        out.putpixel((x, y), 0)
+    out.save(TITLE_PNG)
+    return mask
 
 
 BLECH = None

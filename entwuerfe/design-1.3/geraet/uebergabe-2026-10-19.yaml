@@ -14,16 +14,17 @@ now: >
   Aktueller Entwurf ist "Rotzen" im Dunkelmodus (geraet/anim.py, vorschau/rotzen.gif): oben BLECH fest links, rechts
   daneben TRIBE / FEINSTES GELUMPE, die nach zwei Strichen hinter BLECH wegrutschen und LADEN + Prozent Platz machen;
   unten Blechy (Sprite invertiert) hinter einer Tischkante, mit Röhrchen in der Hand, zieht kurze Striche nacheinander,
-  Pupillen wachsen in Stufen. Alles nur gerendert (PNG/GIF), nichts in Firmware, nichts im Emulator, nichts committet.
+  Pupillen wachsen in Stufen. Alles nur gerendert (PNG/GIF), nichts in Firmware, nichts im Emulator.
+  Neu rendern: python3 entwuerfe/design-1.3/geraet/render.py und anim.py (Python 3 mit Pillow); ohne die
+  macOS-Schrift Impact kommt der Titel BLECH aus geraet/blech-titel.png.
 plan:
   path: null
   tracker: null
 state:
   branch: feat/1.3-batch4
-  sha: 3131d25
+  sha: 05d46ed
   unpushed_commits: []
-  uncommitted_changes:
-    - "entwuerfe/design-1.3/ (ganzer Ordner untracked, nie committet)"
+  uncommitted_changes: []
   key_file_checksums: []
 
 constraints:
