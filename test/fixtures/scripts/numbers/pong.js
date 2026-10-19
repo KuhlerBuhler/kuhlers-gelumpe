@@ -2,9 +2,13 @@
 // touchpad (the height of the finger is the height of the paddle), with Part left (up) and Part right (down), or
 // with an encoder. The bot is slow on purpose: it only reacts to a ball that comes towards it, it misjudges the height
 // a little after every return, and a steep return is faster than it can follow. The ball speeds up with every hit.
-// Positions of the ball are in quarter pixels.
+// Positions of the ball are in quarter pixels. Ball and bot move on every second frame (12.5 a second): the display is
+// slow. Two previous ball positions stay lit as a short trail until the ball moves on.
 korg.app("Pong", "GAMES");
 const NET = [0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33];
+const trailX = new Array(2);
+const trailY = new Array(2);
+let trailCount = 0;
 const PH = 14;
 const PX = 4;
 const BOTX = 121;
@@ -24,6 +28,7 @@ let up = 0;
 let down = 0;
 let seed = 1;
 let isOpen = 0;
+let tick = 0;
 
 function rnd() {
   seed = seed * 1103515245 + 12345;
@@ -31,20 +36,22 @@ function rnd() {
 }
 
 function serve() {
+  trailCount = 0;
   bx = 62 * 4;
   by = 30 * 4;
-  vx = 10 * serveDir;
+  vx = 12 * serveDir;
   vy = (rnd() % 9 - 4) * 2;
   botErr = rnd() % 11 - 5;
   state = 1;
 }
 
 function newGame() {
+  trailCount = 0;
   myScore = 0;
   botScore = 0;
   serveDir = 1;
   state = 0;
-  wait = 25;
+  wait = 13;
 }
 
 function clampPaddle(y) {
@@ -54,6 +61,7 @@ function clampPaddle(y) {
 }
 
 function point(mine) {
+  trailCount = 0;
   if (mine) {
     myScore += 1;
     serveDir = 1;
@@ -65,7 +73,7 @@ function point(mine) {
     state = 2;
   } else {
     state = 0;
-    wait = 25;
+    wait = 13;
   }
 }
 
@@ -79,6 +87,11 @@ function moveBot() {
 }
 
 function moveBall() {
+  trailX[1] = trailX[0];
+  trailY[1] = trailY[0];
+  trailX[0] = bx;
+  trailY[0] = by;
+  if (trailCount < 2) trailCount += 1;
   bx += vx;
   by += vy;
   if (by < 0) {
@@ -94,13 +107,13 @@ function moveBall() {
   if (vx < 0 && x <= PX + 3 && x >= PX - 2 && y + 3 >= py && y <= py + PH) {
     bx = (PX + 4) * 4;
     vx = 0 - vx + 1;
-    if (vx > 20) vx = 20;
+    if (vx > 22) vx = 22;
     vy = (y + 1 - (py + 7)) * 2;
     botErr = rnd() % 11 - 5;
   } else if (vx > 0 && x + 3 >= BOTX && x <= BOTX + 3 && y + 3 >= boty && y <= boty + PH) {
     bx = (BOTX - 4) * 4;
     vx = 0 - vx - 1;
-    if (vx < -20) vx = -20;
+    if (vx < -22) vx = -22;
     vy = (y + 1 - (boty + 7)) * 2;
   } else if (x < 0) {
     point(0);
@@ -116,7 +129,10 @@ function draw() {
   korg.display.rect(BOTX, boty, 3, PH);
   korg.display.number(myScore, 52, 2);
   korg.display.number(botScore, 70, 2);
-  if (state == 1) korg.display.rect(bx >> 2, by >> 2, 3, 3);
+  if (state == 1) {
+    for (let i = 0; i < trailCount; i++) korg.display.rect(trailX[i] >> 2, trailY[i] >> 2, 3, 3);
+    korg.display.rect(bx >> 2, by >> 2, 3, 3);
+  }
   if (state == 2) {
     if (myScore > botScore) korg.display.text("YOU WIN", 44, 30);
     else korg.display.text("BOT WINS", 40, 30);
@@ -163,6 +179,11 @@ korg.onEvent("buttonRelease", (key) => {
 korg.onEvent("frame", () => {
   if (up) py = clampPaddle(py - 3);
   if (down) py = clampPaddle(py + 3);
+  tick = 1 - tick;
+  if (tick == 0) {
+    draw();
+    return;
+  }
   if (state == 0) {
     wait -= 1;
     if (wait <= 0) serve();

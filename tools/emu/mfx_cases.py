@@ -29,7 +29,7 @@ import bootcache  # noqa: E402
 import mfx_switch as spec  # noqa: E402
 import synthaddr  # noqa: E402
 from firmware import USER_MARKS  # noqa: E402
-from machine import DSP_CTRL, DSP_DATA, DSP_SYNC, UART1, blank_flash, load_flash  # noqa: E402
+from machine import DSP_CTRL, DSP_DATA, DSP_SYNC, UART1, Machine, blank_flash, load_flash  # noqa: E402
 from splash_cases import Dev  # noqa: E402
 
 IMAGE = 0xC0000000
@@ -121,16 +121,25 @@ def same_dsp(a, b):
     return len(shift) <= 1
 
 
+class MainsMachine(Machine):
+    """A machine on mains power from power-on: on battery the firmware's power save dims, and with pad-colors every LED goes out at
+    a quarter (menu_cases checks that); these checks compare the LEDs' own values with the firmware's copy."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.adapter = True
+
+
 class Box:
-    """A booted device with what these checks look at."""
+    """A booted device (on mains power) with what these checks look at."""
 
     def __init__(self, payload, flash=None, held=0, seconds=5.0, card=None):
         if card is None:
-            self.m, self.dsp = bootcache.booted(bytes(payload), flash, held, seconds, observer=DspLog)
+            self.m, self.dsp = bootcache.booted(bytes(payload), flash, held, seconds, cls=MainsMachine, observer=DspLog)
             self.dev = Dev(payload, flash, held, machine=self.m)
             return
         # a boot with a card in the slot is not kept as a snapshot (bootcache.py), so it is made here
-        self.dev = Dev(bytes(payload), flash, held)
+        self.dev = Dev(bytes(payload), flash, held, adapter=True)
         self.m = self.dev.m
         self.m.insert_card(card)
         self.dsp = DspLog(self.m)

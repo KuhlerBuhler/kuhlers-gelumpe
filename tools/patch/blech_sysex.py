@@ -10,6 +10,18 @@ F0 42 3n 00 01 24 <function> <7-bit packed words> F7, with n the global channel.
     0x61      READ: address, length                              0x69  status, address, length, CRC-32, the bytes
     0x62      WRITE BEGIN: address, length, CRC-32 of the bytes  0x6A  status, address, length
     0x63      WRITE DATA: the bytes, as many as BEGIN said       0x6B  status, address, length, CRC-32 read back
+    0x64      FLASH READ: address, length                        0x6C  status, address, length, CRC-32, the bytes
+    0x65      FILE READ: offset, length (0 for the size only)    0x6D  status, offset, length, CRC-32, file size, the bytes
+    0x66      FILE BEGIN: offset, length, CRC-32 of the bytes    0x6E  status, offset, length; WRITE DATA follows
+
+The two FILE commands reach exactly two files of the card, chosen by bit 31 of the offset: the update file
+KORG/<folder>/System/SYSTEM.VSB (bit clear) and beside it ORIGINAL.BIN (bit set), where the editor keeps the unpatched file the
+next update starts from (a patched file cannot be patched again; not .VSB, so no updater takes it). The path is built
+with the firmware's own function the update uses (0xC0035720, "KORG/blechtribe/" on the Sampler with BLECH, "KORG/electribe/"
+on the synth), so the file lands where Korg's update looks for it. A FILE BEGIN at offset 0 makes the file anew, every other
+writes into the existing one; every block is read back from the card and its CRC sent. Offset plus length never passes
+0x200100, the size of a VSB. Status 6 is a card error (no card, no file, card full). The firmware's update writes the flash
+from that file when the user starts it; nothing here writes the flash.
 
 Every field is a 32-bit little endian word (the status too), the words are packed as every Electribe SysEx payload is
 (src/bytes.mjs). The status is 0 for ok, 1 for a CRC that does not match, 2 for refused, 3 for out of range, 5 when the bytes
@@ -59,19 +71,23 @@ TABLE_END = 0xC0174000
 STATE = 0xC0191000              # run time state, in RAM only (behind the synth filters' 0xC0190000 to 0xC0190100)
 STATE_END = 0xC0191100
 BUF = 0xC0191100                # the buffer a message is decoded into and a reply is packed in
-BUF_END = 0xC01A0000            # where Hacktribe's code starts; 0xC0174000 to 0xC017CC00 belong to the preset tables
+BUF_END = 0xC019F000            # 0xC019F000 to 0xC01A0000 the file object and the path of the FILE commands; Hacktribe's code starts at 0xC01A0000
+FILE_AREA = 0xC019F000          # FatFs file object (0x224 bytes, measured), the count of bytes read or written, the path
+FILE_AREA_END = 0xC01A0000
+FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
+FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
 MAX_BLOCK = 0x8000              # bytes in one READ or WRITE DATA
 
 # STATE: +0 pending (the magic below when a BEGIN waits for its DATA), +4 address, +8 length, +12 CRC,
 # +0x10 a request as decoded, +0x20 the words of a short reply, +0x40 where a short reply is packed
-S_PENDING, S_ADDR, S_LEN, S_CRC, S_REQ, S_RAW, S_OUT = 0, 4, 8, 12, 0x10, 0x20, 0x40
+S_PENDING, S_ADDR, S_LEN, S_CRC, S_REQ, S_MODE, S_RAW, S_OUT = 0, 4, 8, 12, 0x10, 0x1C, 0x20, 0x40   # S_MODE 1: the declared write goes to SYSTEM.VSB, 2 to ORIGINAL.BIN
 PENDING_MAGIC = 0x444E4550      # "PEND": the image is FF where it has not been written, so 0 and FF both mean nothing waits
 
-FUNC_INFO, FUNC_READ, FUNC_BEGIN, FUNC_DATA, FUNC_FLASH = 0x60, 0x61, 0x62, 0x63, 0x64
-REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH = 0x68, 0x69, 0x6A, 0x6B, 0x6C
-STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY = 0, 1, 2, 3, 4, 5
+FUNC_INFO, FUNC_READ, FUNC_BEGIN, FUNC_DATA, FUNC_FLASH, FUNC_FREAD, FUNC_FBEGIN = 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66
+REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY_FBEGIN = 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E
+STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE = 0, 1, 2, 3, 4, 5, 6
 PROTOCOL_VERSION = 1
-FLAGS = 0xF                     # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists)
+FLAGS = 0x1F                    # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file
 FLASH_MAX = 0x1000              # bytes in one FLASH READ: the sector size, the largest piece the firmware's own flash code takes at once
 FLASH_LIMIT = 0x1000000         # the end of the 16 MiB flash; a request from 0x1000000 on hung the device (docs/speicherbereiche.md), so none reaches it
 
@@ -94,6 +110,11 @@ TX_END = 0xC0027D6C
 MODEL = 0x24                    # the model byte of the frame: 0x24 on the Sampler, 0x23 on the blue Electribe 2 (the device search of its firmware answers it)
 FLASH_OBJ = 0xC0029A40          # returns the flash object (the one the MFX 2 patch reads its table with)
 FLASH_READ = 0xC0029A74         # (object, destination, flash address, length): takes the firmware's lock, calls the driver, 1 on success
+FS_OPEN, FS_READ, FS_WRITE, FS_CLOSE, FS_LSEEK = 0xC009DB60, 0xC009DD74, 0xC009DFB8, 0xC009E3DC, 0xC009E404   # FatFs (docs/hintergrund/virtuelle-sd.md)
+FOLDER = 0xC0035720             # (string object, id): the card folder the update reads from, "KORG/blechtribe/" with BLECH (measured)
+FOLDER_ID = 0x124               # the id the update passes (0x123 in the synth)
+STRING_FREE = 0xC00A21D4        # frees such a string object, as the update does after reading it
+FIL_SIZE = 0x0C                 # the file size in a FatFs file object (measured on both builds)
 WINDOW = (0xC0000000, 0xC8000000)
 MIRROR = 0x4000000
 
@@ -129,6 +150,20 @@ def source():
 .equ MODEL, {MODEL:#x}
 .equ FLASH_OBJ, {FLASH_OBJ:#x}
 .equ FLASH_READ, {FLASH_READ:#x}
+.equ FS_OPEN, {FS_OPEN:#x}
+.equ FS_READ, {FS_READ:#x}
+.equ FS_WRITE, {FS_WRITE:#x}
+.equ FS_CLOSE, {FS_CLOSE:#x}
+.equ FS_LSEEK, {FS_LSEEK:#x}
+.equ FOLDER, {FOLDER:#x}
+.equ FOLDER_ID, {FOLDER_ID:#x}
+.equ STRING_FREE, {STRING_FREE:#x}
+.equ FIL_SIZE, {FIL_SIZE:#x}
+.equ FILE_FIL, {FILE_AREA:#x}
+.equ FILE_BR, {FILE_AREA + 0x240:#x}
+.equ FILE_PATH, {FILE_AREA + 0x280:#x}
+.equ FILE_LIMIT, {FILE_LIMIT:#x}
+.equ S_MODE, {S_MODE}
 .equ FLASH_MAX, {FLASH_MAX:#x}
 .equ FLASH_LIMIT, {FLASH_LIMIT:#x}
 .equ CLASSIFY_BACK, {CLASSIFY_BACK:#x}
@@ -159,7 +194,7 @@ def source():
 ; It returns the state the parser goes on in. For anything but our four bytes it is the original instruction and the original function.
 classify_hook:
     sub r2, r1, #0x60
-    cmp r2, #5
+    cmp r2, #7
     blo classify_ours
     cmp r1, #0x1c
     b CLASSIFY_BACK
@@ -180,6 +215,7 @@ classify_ours:
     beq classify_data
     add r0, r12, #S_REQ
     cmp r1, #0x62
+    cmpne r1, #0x66
     moveq r2, #12
     movne r2, #8
     b classify_receive
@@ -232,7 +268,7 @@ killed:
 process_hook:
     ldrb r12, [r0]
     sub r12, r12, #0x60
-    cmp r12, #5
+    cmp r12, #7
     blo process_ours
     push {{r0, r1, r2, r3, r4, r5, r6, lr}}
     b PROCESS_BACK
@@ -256,6 +292,10 @@ process_ours:
     beq do_begin
     cmp r5, #0x64
     beq do_flash
+    cmp r5, #0x65
+    beq do_fread
+    cmp r5, #0x66
+    beq do_fbegin
     b do_data
 process_done:
     pop {{r3, r4, r5, r6, r7, r8, r9, r10, r11, pc}}
@@ -398,6 +438,7 @@ do_begin:
     ldr r10, [r6, #S_REQ + 8]
     mov r3, #0
     str r3, [r6]
+    str r3, [r6, #S_MODE]
     mov r0, r8
     mov r1, r9
     mov r2, #1
@@ -439,6 +480,10 @@ do_data:
     cmp r11, r10
     movne r4, #{STATUS_BAD_CRC}
     bne data_reply
+    ldr r0, [r6, #S_MODE]
+    cmp r0, #1
+    cmpne r0, #2
+    beq data_file
     mov r0, r8
     mov r1, r9
     mov r2, #1
@@ -457,6 +502,65 @@ do_data:
     cmp r11, r10
     moveq r4, #{STATUS_OK}
     movne r4, #{STATUS_VERIFY}
+    b data_reply
+; the declared write goes to the update file: written, closed, then read back from the card for the CRC
+data_file:
+    ldr r5, [r6, #S_MODE]
+    sub r5, r5, #1              ; which file
+    mov r0, #0
+    str r0, [r6, #S_MODE]
+    mov r0, r5
+    bl file_path
+    ldr r0, =FILE_FIL
+    ldr r1, =FILE_PATH
+    cmp r8, #0
+    moveq r2, #0x0A             ; FA_CREATE_ALWAYS | FA_WRITE: the first block makes the file anew
+    movne r2, #0x03             ; FA_OPEN_EXISTING | FA_READ | FA_WRITE
+    bl FS_OPEN
+    cmp r0, #0
+    bne data_file_error
+    ldr r0, =FILE_FIL
+    mov r1, r8
+    bl FS_LSEEK
+    cmp r0, #0
+    bne data_file_close
+    ldr r0, =FILE_FIL
+    ldr r1, =BUF
+    mov r2, r9
+    ldr r3, =FILE_BR
+    bl FS_WRITE
+    cmp r0, #0
+    bne data_file_close
+    ldr r0, =FILE_BR
+    ldr r0, [r0]
+    cmp r0, r9
+    bne data_file_close
+    ldr r0, =FILE_FIL
+    bl FS_CLOSE
+    cmp r0, #0
+    bne data_file_error
+    mov r0, r8
+    mov r1, r9
+    mov r2, r5
+    bl file_read_back
+    cmp r0, #0
+    bne data_file_error
+    ldr r0, =BUF_END
+    sub r0, r0, r9
+    bic r0, r0, #3
+    mov r1, r9
+    bl crc32
+    mov r11, r0
+    cmp r11, r10
+    moveq r4, #{STATUS_OK}
+    movne r4, #{STATUS_VERIFY}
+    b data_reply
+data_file_close:
+    ldr r0, =FILE_FIL
+    bl FS_CLOSE
+data_file_error:
+    mov r4, #{STATUS_FILE}
+    mov r11, #0
 data_reply:
     add r0, r6, #S_RAW
     str r4, [r0]
@@ -470,6 +574,196 @@ data_reply:
 reply_tail:
     bl send_reply
     b process_done
+.pool
+
+.pool
+
+; FILE BEGIN: offset, length, CRC: the range is checked now and the write declared for the file; the DATA that follows carries the bytes
+do_fbegin:
+    ldr r8, [r6, #S_REQ]
+    ldr r9, [r6, #S_REQ + 4]
+    ldr r10, [r6, #S_REQ + 8]
+    mov r3, #0
+    str r3, [r6]
+    mov r5, r8, lsr #31         ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN (r5, the function byte, is not needed any more)
+    bic r8, r8, #0x80000000
+    mov r0, #{STATUS_RANGE}
+    cmp r9, #0
+    beq fbegin_reply
+    ldr r3, =MAX_BLOCK
+    cmp r9, r3
+    bhi fbegin_reply
+    adds r3, r8, r9
+    bcs fbegin_reply
+    ldr r2, =FILE_LIMIT
+    cmp r3, r2
+    bhi fbegin_reply
+    str r8, [r6, #S_ADDR]
+    str r9, [r6, #S_LEN]
+    str r10, [r6, #S_CRC]
+    add r3, r5, #1
+    str r3, [r6, #S_MODE]
+    ldr r3, =MAGIC
+    str r3, [r6]
+    mov r0, #{STATUS_OK}
+fbegin_reply:
+    add r11, r6, #S_RAW
+    str r0, [r11]
+    str r8, [r11, #4]
+    str r9, [r11, #8]
+    mov r0, #{REPLY_FBEGIN}
+    mov r1, r11
+    mov r2, #12
+    add r3, r6, #S_OUT
+    b reply_tail
+
+; FILE READ: offset, length (0 asks for the size only). The bytes go into the end of BUF behind five words, like READ;
+; at the end of the file fewer come back, the length word says how many.
+do_fread:
+    ldr r8, [r6, #S_REQ]
+    ldr r9, [r6, #S_REQ + 4]
+    mov r11, r8, lsr #31        ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN
+    bic r8, r8, #0x80000000
+    mov r4, #{STATUS_RANGE}
+    mov r5, #0
+    ldr r3, =MAX_BLOCK
+    cmp r9, r3
+    bhi fread_failed
+    adds r3, r8, r9
+    bcs fread_failed
+    ldr r2, =FILE_LIMIT
+    cmp r3, r2
+    bhi fread_failed
+    mov r0, r8
+    mov r1, r9
+    mov r2, r11
+    bl file_read_back
+    mov r4, r0
+    ldr r5, =FILE_FIL
+    ldr r5, [r5, #FIL_SIZE]
+    cmp r4, #0
+    movne r5, #0
+    bne fread_failed
+    ldr r9, =FILE_BR
+    ldr r9, [r9]
+    ldr r10, =BUF_END
+    ldr r3, [r6, #S_REQ + 4]
+    sub r10, r10, r3
+    bic r10, r10, #3
+    mov r0, r10
+    mov r1, r9
+    bl crc32
+    sub r11, r10, #20
+    str r0, [r11, #12]
+    mov r3, #0
+    str r3, [r11]
+    str r8, [r11, #4]
+    str r9, [r11, #8]
+    str r5, [r11, #16]
+    mov r0, #{REPLY_FREAD}
+    mov r1, r11
+    add r2, r9, #20
+    ldr r3, =BUF
+    b reply_tail
+fread_failed:
+    add r11, r6, #S_RAW
+    str r4, [r11]
+    str r8, [r11, #4]
+    mov r3, #0
+    str r3, [r11, #8]
+    str r3, [r11, #12]
+    str r5, [r11, #16]
+    mov r0, #{REPLY_FREAD}
+    mov r1, r11
+    mov r2, #20
+    add r3, r6, #S_OUT
+    b reply_tail
+.pool
+
+; r0 = offset, r1 = length, r2 = which file: its bytes from there into the end of BUF (rounded down to a word, as READ does), the
+; count in FILE_BR and the size in the file object; returns r0 = 0, or STATUS_FILE when the card says no. Keeps r4 to r11.
+file_read_back:
+    push {{r4, r5, r6, lr}}
+    mov r4, r0
+    mov r5, r1
+    mov r0, r2
+    bl file_path
+    ldr r0, =FILE_BR
+    mov r1, #0
+    str r1, [r0]
+    ldr r0, =FILE_FIL
+    ldr r1, =FILE_PATH
+    mov r2, #1                  ; FA_READ
+    bl FS_OPEN
+    cmp r0, #0
+    bne frb_error
+    ldr r0, =FILE_FIL
+    mov r1, r4
+    bl FS_LSEEK
+    cmp r0, #0
+    bne frb_close
+    cmp r5, #0
+    beq frb_done
+    ldr r1, =BUF_END
+    sub r1, r1, r5
+    bic r1, r1, #3
+    ldr r0, =FILE_FIL
+    mov r2, r5
+    ldr r3, =FILE_BR
+    bl FS_READ
+    cmp r0, #0
+    bne frb_close
+frb_done:
+    ldr r0, =FILE_FIL
+    bl FS_CLOSE
+    cmp r0, #0
+    bne frb_error
+    mov r0, #0
+    pop {{r4, r5, r6, pc}}
+frb_close:
+    ldr r0, =FILE_FIL
+    bl FS_CLOSE
+frb_error:
+    mov r0, #{STATUS_FILE}
+    pop {{r4, r5, r6, pc}}
+
+; r0 = which: FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB", or
+; "System/ORIGINAL.BIN" for 1. Keeps r4 to r11.
+file_path:
+    push {{r4, r5, lr}}
+    mov r4, r0
+    sub sp, sp, #0x10
+    mov r0, sp
+    ldr r1, =FOLDER_ID
+    bl FOLDER
+    ldr r1, [sp]
+    ldr r0, =FILE_PATH
+    mov r2, #0x3F               ; at most 63 characters of the folder
+fp_folder:
+    ldrb r3, [r1], #1
+    cmp r3, #0
+    beq fp_tail
+    strb r3, [r0], #1
+    subs r2, r2, #1
+    bne fp_folder
+fp_tail:
+    ldr r1, =update_name
+    cmp r4, #0
+    ldrne r1, =original_name
+fp_name:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne fp_name
+    mov r0, sp
+    bl STRING_FREE
+    add sp, sp, #0x10
+    pop {{r4, r5, pc}}
+update_name:
+    .asciz "System/SYSTEM.VSB"
+original_name:
+    .asciz "System/ORIGINAL.BIN"
+.align 4
 .pool
 
 ; ---- the reply -------------------------------------------------------------------------------------------------------
@@ -710,7 +1004,8 @@ window_no:
 
 
 FIRMWARE_PLACES = ["CLASSIFY_HOOK", "CLASSIFY_BACK", "PROCESS_HOOK", "PROCESS_BACK", "PANEL", "DESC", "FLAG", "CHANNEL", "PORT_OF",
-                   "TX_BEGIN", "TX_SEND", "TX_END", "FLASH_OBJ", "FLASH_READ"]
+                   "TX_BEGIN", "TX_SEND", "TX_END", "FLASH_OBJ", "FLASH_READ", "FS_OPEN", "FS_READ", "FS_WRITE", "FS_CLOSE", "FS_LSEEK",
+                   "FOLDER", "STRING_FREE"]
 CODE_PLACES = ["CLASSIFY_HOOK", "PROCESS_HOOK", "TX_BEGIN", "TX_SEND", "TX_END", "FLASH_READ"]   # their 16 words must equal the Sampler's
 
 
@@ -724,6 +1019,7 @@ def use_build(build, ref=None, vsb=None):
         raise SystemExit("the synth build needs --ref, the Sampler's SYSTEM.VSB, to find the places")
     import fwmap
     globals()["MODEL"] = 0x23
+    globals()["FOLDER_ID"] = 0x123           # the id the synth's update passes to its folder function (0xC0035304 loads it)
     mapped = fwmap.FirmwareMap(fwmap.load(ref), vsb[HEADER:])
     found = {}
     for name in FIRMWARE_PLACES:
@@ -783,7 +1079,7 @@ def build_patch(vsb, table, build):
         "builds": [build],
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
-             "note": "BLECH SysEx: the two hooks, the CRC-32, the packing, the range check and the four commands"},
+             "note": "BLECH SysEx: the two hooks, the CRC-32, the packing, the range check and the commands"},
             {"file": file_offset(TABLE_AT), "bytes": bytes(table).hex(), "expect": free(TABLE_AT, len(table)),
              "note": "the protection table, cut from data/protected.mjs by src/sysex-table.mjs"},
             {"file": file_offset(CLASSIFY_HOOK), "bytes": classify.hex(), "expect": sha(was(CLASSIFY_HOOK, 4)),
@@ -794,14 +1090,15 @@ def build_patch(vsb, table, build):
         "hooks": [
             {"site": f"0x{CLASSIFY_HOOK:08X}", "kind": "instruction", "chain": "sysex-request",
              "position": "before", "swallow": True,
-             "note": "the function bytes 0x60 to 0x63 are taken here, every other byte goes on to the original; with EXIT held at power-on all of them do"},
+             "note": "the function bytes 0x60 to 0x66 are taken here, every other byte goes on to the original; with EXIT held at power-on all of them do"},
             {"site": f"0x{PROCESS_HOOK:08X}", "kind": "instruction", "chain": "sysex-request",
              "position": "before", "swallow": True,
-             "note": "a received message with function 0x60 to 0x63 is run here, every other goes on to the original; with EXIT held at power-on all of them do"},
+             "note": "a received message with function 0x60 to 0x66 is run here, every other goes on to the original; with EXIT held at power-on all of them do"},
         ],
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: the declared write, the request as decoded, the words and the packed bytes of a short reply", "tools/patch/blech_sysex.py:STATE"),
             ramdecl.area(BUF, BUF_END - BUF, "the buffer a message is decoded into and a reply is packed in, up to MAX_BLOCK bytes of data", "tools/patch/blech_sysex.py:BUF"),
+            ramdecl.area(FILE_AREA, FILE_AREA_END - FILE_AREA, "the FatFs file object, the byte count and the path of the FILE commands", "tools/patch/blech_sysex.py:FILE_AREA"),
         ],
     }
 

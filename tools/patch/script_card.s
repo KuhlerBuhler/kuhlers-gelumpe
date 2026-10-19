@@ -150,6 +150,10 @@ card_start:
     bl menu_needs_confirm
     cmp r0, #0
     bne card_start_next
+    mov r0, r10
+    bl menu_is_off
+    cmp r0, #0
+    bne card_start_next
     mov r0, r4
     mov r1, r10
     mov r2, #EV_START

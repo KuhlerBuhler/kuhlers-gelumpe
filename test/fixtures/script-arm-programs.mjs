@@ -149,6 +149,64 @@ export function armCases() {
   for (const id of ["blechclicker", "settimer", "tetris", "life", "pong", "simon", "mandelbrot"]) {
     add(`plugin ${id}`, program(PRESETS.find(p => p.id === id).source, id), { events: played });
   }
+  const mandelbrot = PRESETS.find(p => p.id === "mandelbrot");
+  add("Mandelbrot certified interior and reset", program(mandelbrot.source, "mandelbrot"), {
+    events: [
+      { name: "open", args: [] },
+      ...Array.from({ length: 7 }, () => ({ name: "encoder", args: [0, 1] })),
+      ...frames(80),
+      { name: "buttonPress", args: [3] },
+      ...frames(80),
+    ],
+  });
+  add("Mandelbrot worklist wraps and discards pending rectangles", program(mandelbrot.source + `
+korg.onEvent("ready", () => {
+  cx = 32768;
+  cy = 32768;
+  zoom = 0;
+  changed();
+});`, "mandelbrot"), {
+    events: [
+      { name: "open", args: [] },
+      { name: "ready", args: [] },
+      ...frames(220),
+      { name: "buttonPress", args: [3] },
+      ...frames(30),
+      ...Array.from({ length: 7 }, () => ({ name: "encoder", args: [0, 1] })),
+      ...frames(2),
+    ],
+  });
+  const life = PRESETS.find(p => p.id === "life");
+  add("Life dense painting, one generation and interrupted edits", program(life.source, "life"), {
+    events: [
+      { name: "open", args: [] },
+      { name: "buttonPress", args: [28] },
+      { name: "buttonPress", args: [31] },
+      ...frames(40),
+      { name: "buttonPress", args: [29] },
+      ...frames(30),
+      { name: "touch", args: [1023, 1023, 1] },
+      ...frames(3),
+      { name: "buttonPress", args: [30] },
+      { name: "buttonPress", args: [31] },
+      ...frames(5),
+      { name: "buttonPress", args: [30] },
+      ...frames(5),
+      { name: "buttonPress", args: [28] },
+      ...frames(30),
+    ],
+  });
+  const pong = PRESETS.find(p => p.id === "pong");
+  add("Pong fast trail, wall reflection and point", program(pong.source + `
+korg.onEvent("ready", () => {
+  state = 1;
+  bx = 100 * 4;
+  by = 58 * 4;
+  vx = 22;
+  vy = 14;
+});`, "pong"), {
+    events: [{ name: "open", args: [] }, { name: "ready", args: [] }, ...frames(70)],
+  });
   add("fuel exhaustion", blob(["loop:", { op: "JMP", args: ["loop"], line: 18 }]), { fuel: 100 });
   for (const fuel of [1, 2]) add(`exact HALT fuel ${fuel}`, blob([["HALT"]]), { fuel });
   add("empty fuel", blob([["HALT"]]), { fuel: 0 });

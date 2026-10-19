@@ -2,6 +2,44 @@ script_input_hook:
     push {r0-r12, lr}
     .word 0xE10FC000 ; mrs r12, cpsr
     push {r12, lr}
+    ; The power key while the device still starts (no screen yet, or screen 0): the firmware takes it only after the start, which
+    ; may wait a long time on a card that does not answer (device 18.10.: batteries out was the only way). The power hold
+    ; (GPIO 7.11) is let go at once, as Doom's error screen does. Not with EXIT held at power-on, not where it is not measured.
+    ldrb r1, [r0, #0x0c]
+    cmp r1, #6
+    bne input_power_no
+    ldrb r1, [r0, #0x0d]
+    cmp r1, #1
+    bne input_power_no
+    ldr r1, =POWER_HOLD_MASK
+    cmp r1, #0
+    beq input_power_no
+    ldr r1, =PANEL
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    beq input_power_screen
+    ldr r1, [r1, #0x18]
+    tst r1, #0x2000
+    bne input_power_no
+input_power_screen:
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    beq input_power_off
+    ldr r1, [r1, #0x2c]
+    cmp r1, #0
+    bne input_power_no
+input_power_off:
+    ldr r0, =0x01E26000
+    mov r1, #0
+    mov r2, #3
+    ldr r3, =POWER_HOLD_MASK
+    bl GPIO_WRITE
+input_power_wait:
+    b input_power_wait
+input_power_no:
     ldr r4, =HOOK_RUNTIME
     ldr r1, [r4, #RT_ARMED]
     cmp r1, #1

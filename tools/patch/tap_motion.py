@@ -5,13 +5,17 @@ motion of the selected part on and off, at once and without waiting for the bar,
 
     TAP                 the Motion Sequence of the selected part: on (the mode it had, Smooth when it never had one)
                         or off (the part's mode byte 0)
+    TAP held            held 320 ms or longer (HOLD_TICKS), the switch lasts only while TAP is held: letting go switches back;
+                        a short TAP stays switched (device 18.10.), for the part as for the Master FX lanes
     MASTER FX + TAP     the Motion Sequence of the Master FX lanes (the pattern byte 0x44, found as their switch);
                         TOUCH SCALE + TAP the same, for MFX 2 on TOUCH SCALE (mfx-switch.json)
     TAP LED             lit while that motion is on, dark while it is off; the part that is selected counts, and
-                        while MASTER FX is held the LED shows the Master FX motion instead
+                        while MASTER FX is held the LED shows the Master FX motion instead. While the Master FX motion
+                        is on and a lane holds a Master FX gesture (MASTER FX not held) the LED blinks: half on, half off with the part's motion off,
+                        on with a short dark gap with it on (period BLINK_TICKS of the 40 ms tick)
 
 The firmware's tap tempo is gone while the patch is on. SHIFT + TAP stays the firmware's (the Pattern menu on the page
-BPM). The patch is on only when EXIT was not held at power-on, a card is available and the setting word TM_SETTING is not
+BPM). The patch is on only when EXIT was not held at power-on, a card was seen since power-on and the setting word TM_SETTING is not
 0 (the BLECH menu page TAP MOTION writes it; never written means on). With TM_SETTING 2 (ONCE) a motion TAP switched on
 goes off by itself when its part's step counter comes back to the start: it plays to the end of the pattern once.
 
@@ -50,7 +54,10 @@ CODE_AT = 0xC0188000            # free (FF) in the image, behind the block of Bl
 CODE_END = 0xC0188800
 STATE = 0xC0188F00              # run time state, in RAM only; FF there means "nothing"
 STATE_END = 0xC0188F40
-S_SETTING, S_LED, S_PATNUM, S_LAST, S_MFXLAST, S_ONCE, S_STEPS = 0, 4, 8, 0x10, 0x20, 0x24, 0x28
+S_SETTING, S_LED, S_PATNUM, S_LAST, S_MFXLAST, S_ONCE, S_STEPS, S_BLINK = 0, 4, 8, 0x10, 0x20, 0x24, 0x28, 0x3A
+S_HOLD, S_HOLDT = 0x0C, 0x0D      # bytes: what the TAP held now switched (part, 16 Master FX, FF none) and the 40 ms ticks it is held
+HOLD_TICKS = 8                  # TAP held 8 ticks (320 ms) or longer works only while held: letting go switches back (device 18.10.)
+BLINK_TICKS, BLINK_HALF, BLINK_LONG = 12, 6, 10   # 480 ms: on for 6 ticks (part off) or 10 ticks (part on)
 TM_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off, 2 once
 
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13, measured on the device 10.10.)
@@ -115,6 +122,9 @@ SOURCE = """
 .equ MODE_BYTE, 0x807           ; part n: pattern + 0x807 + 0x330 * n
 .equ MFX_BYTE, 0x44             ; the Master FX lanes' mode, same values as the part's
 .equ MFX_TOUCH, 0x40            ; 1 while a finger is on the pad
+.equ LANE_PART, 0x104           ; the part of each of the 24 motion lanes (0 none, 1 to 16 the part, 17 Master FX)
+.equ LANES, 24
+.equ LANE_MFX, 17
 .equ KILL, @KILL@
 .equ STATE, @STATE@
 .equ S_SETTING, @S_SETTING@     ; TM_SETTING: FFFFFFFF or 1 is on, 0 is off
@@ -124,6 +134,14 @@ SOURCE = """
 .equ S_MFXLAST, @S_MFXLAST@     ; the same for the Master FX lanes
 .equ S_ONCE, @S_ONCE@           ; ONCE: bit n part n plays to its end and goes off, bit 16 the Master FX lanes (on part 1's counter)
 .equ S_STEPS, @S_STEPS@         ; 17 bytes: the step counter last seen for each of those
+.equ S_BLINK, @S_BLINK@         ; byte: the tick within the blink of the TAP LED while the Master FX motion is on
+.equ S_HOLD, @S_HOLD@           ; byte: what the TAP being held switched (part 0 to 15, 16 the Master FX lanes), FF nothing
+.equ S_HOLDT, @S_HOLDT@         ; byte: the LED ticks (40 ms) it has been held, up to 255
+.equ HOLD_TICKS, @HOLD_TICKS@
+.equ KEY_TAP, 3
+.equ BLINK_TICKS, @BLINK_TICKS@
+.equ BLINK_HALF, @BLINK_HALF@
+.equ BLINK_LONG, @BLINK_LONG@
 .equ TAP_BODY, @TAP_BODY@
 .equ TAP_EXIT, @TAP_EXIT@
 .equ TAP_LITERAL, @TAP_LITERAL@
@@ -134,8 +152,8 @@ SOURCE = """
 .org @CODE_AT@
 
 ; ===================================================== is the patch on
-; r0 = 1 when EXIT was not held at power-on, a card is available and the setting is not off. Clobbers r0 and r12.
-; Reads memory only.
+; r0 = 1 when EXIT was not held at power-on, a card was seen since power-on and the setting is not off. Clobbers r0 and r12.
+; Writes only the card latch (tools/patch/card_gate.py), the first time a card is there.
 tm_active:
     ldr r12, =PANEL
     ldr r12, [r12]
@@ -220,20 +238,37 @@ tm_mark_store:
     str r0, [r12, #S_ONCE]
     bx lr
 
+; TAP went down: the motion of the selected part (MASTER FX held: of the Master FX lanes) switches, and what it switched is
+; remembered with the time held from now, for the letting go (tm_hold). Clobbers r0 to r3 and r12.
 tm_toggle:
+    push {r6, lr}
+    bl tm_mfx_held
+    cmp r0, #0
+    movne r6, #16
+    bne tt_target
+    ldr r6, =HW_PART
+    ldr r6, [r6]
+    cmp r6, #15
+    bhi tt_none                 ; no part selected: nothing to switch
+tt_target:
+    bl tm_switch
+    ldr r12, =STATE
+    strb r6, [r12, #S_HOLD]
+    mov r0, #0
+    strb r0, [r12, #S_HOLDT]
+tt_none:
+    pop {r6, pc}
+
+; r6 = part (16 the Master FX lanes): its motion on or off. Clobbers r0 to r3 and r12, keeps r6.
+tm_switch:
     push {r4, r5, r6, r7, lr}
     ldr r4, =PATPTR
     ldr r4, [r4]
     cmp r4, #0
     beq tt_out
     ldr r5, =STATE
-    bl tm_mfx_held
-    cmp r0, #0
-    bne tt_mfx
-    ldr r6, =HW_PART
-    ldr r6, [r6]
-    cmp r6, #15
-    bhi tt_out                  ; no part selected: nothing to switch
+    cmp r6, #16
+    beq tt_mfx
     mov r0, #0x330
     mul r1, r6, r0
     add r1, r4, r1
@@ -289,12 +324,33 @@ frame_hook:
     bl tm_active
     cmp r0, #0
     beq fh_out
+    bl tm_hold
     ldr r4, =PATPTR
     ldr r4, [r4]
     cmp r4, #0
     blne tm_once
 fh_out:
     pop {r0, r1, r2, r3, r4, r5, r12, pc}
+
+; TAP let go after being held HOLD_TICKS or longer: what it switched goes back, so a held TAP works only while held; a short TAP
+; stays switched. In the UI task, every frame. Clobbers r0 to r3 and r12.
+tm_hold:
+    push {r6, lr}
+    ldr r12, =STATE
+    ldrb r6, [r12, #S_HOLD]
+    cmp r6, #16
+    bhi tmh_out
+    ldr r0, =KEYS
+    ldr r0, [r0, #8 * KEY_TAP]
+    cmp r0, #0
+    bne tmh_out                 ; still held
+    mov r0, #0xFF
+    strb r0, [r12, #S_HOLD]
+    ldrb r0, [r12, #S_HOLDT]
+    cmp r0, #HOLD_TICKS
+    blhs tm_switch
+tmh_out:
+    pop {r6, pc}
 
 ; ONCE: a marked motion whose step counter went back (the pattern started over) goes off, as TAP would switch it.
 ; While the sequencer stands the counters are not compared, and the last ones seen are 0. r4 = pattern.
@@ -377,6 +433,9 @@ bh_mine:
 ; ===================================================== the LED, every 40 ms
 ; First instruction of the manager's tick (r0 = the manager). Before the tick runs, the TAP LED is brought to what
 ; the selected part's motion (or Master FX's, while MASTER FX is held) says: mode 1, steady on, or mode 0, off.
+; While the Master FX motion is on, a lane holds a Master FX gesture (byte 1 alone is the default of every new pattern) and
+; MASTER FX is not held, it blinks, so it shows without a key held: BLINK_HALF of BLINK_TICKS on with the part's motion off,
+; BLINK_LONG of them with it on.
 ; The manager's entry is compared first, so nothing is sent while it is right. When the patch goes off, the LED is let go.
 ; A change of the pattern forgets the modes remembered for the parts.
 tick_hook:
@@ -386,6 +445,14 @@ tick_hook:
     bl tm_active
     cmp r0, #0
     beq tk_release
+    ldrb r0, [r5, #S_HOLD]      ; the time TAP is held, for tm_hold
+    cmp r0, #16
+    bhi tk_held
+    ldrb r0, [r5, #S_HOLDT]
+    cmp r0, #255
+    addlo r0, r0, #1
+    strblo r0, [r5, #S_HOLDT]
+tk_held:
     ldr r0, =HW_PATTERN
     ldr r0, [r0]
     ldr r1, [r5, #S_PATNUM]
@@ -414,11 +481,36 @@ tk_part:
     ldr r0, =HW_PART
     ldr r0, [r0]
     cmp r0, #15
-    bhi tk_set
+    bhi tk_blink
     mov r1, #0x330
     mul r2, r0, r1
     add r2, r4, r2
     ldrb r6, [r2, #MODE_BYTE]
+tk_blink:
+    ldrb r0, [r4, #MFX_BYTE]
+    cmp r0, #0
+    beq tk_set
+    add r1, r4, #LANE_PART
+    mov r2, #LANES
+tk_lane:
+    ldrb r3, [r1], #1
+    cmp r3, #LANE_MFX
+    beq tk_blink_on
+    subs r2, r2, #1
+    bne tk_lane
+    b tk_set
+tk_blink_on:
+    ldrb r1, [r5, #S_BLINK]
+    add r1, r1, #1
+    cmp r1, #BLINK_TICKS
+    movhs r1, #0
+    strb r1, [r5, #S_BLINK]
+    cmp r6, #0
+    movne r2, #BLINK_LONG
+    moveq r2, #BLINK_HALF
+    cmp r1, r2
+    movlo r6, #1
+    movhs r6, #0
 tk_set:
     cmp r6, #0
     movne r6, #1
@@ -464,10 +556,11 @@ def source():
     """The assembler text. For the synth the firmware's places are written as the Sampler's and translated as a whole (synthaddr.source)."""
     sampler = globals().get("_SAMPLER_ADDRESSES", {})
     place = lambda name: sampler.get(name, globals()[name])
-    text = SOURCE.replace("@CARD_CHECK@", card_gate.source(BUILD, "ta_no"))
+    text = SOURCE.replace("@CARD_CHECK@", card_gate.source(BUILD, "ta_no", STATE + card_gate.LATCH_OFFSET))
     for key, value in {
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}",
         "S_SETTING": S_SETTING, "S_LED": S_LED, "S_PATNUM": S_PATNUM, "S_LAST": S_LAST, "S_MFXLAST": S_MFXLAST, "S_ONCE": S_ONCE, "S_STEPS": S_STEPS,
+        "S_BLINK": S_BLINK, "S_HOLD": S_HOLD, "S_HOLDT": S_HOLDT, "HOLD_TICKS": HOLD_TICKS, "BLINK_TICKS": BLINK_TICKS, "BLINK_HALF": BLINK_HALF, "BLINK_LONG": BLINK_LONG,
         "TAP_BODY": f"{place('TAP_BODY'):#x}", "TAP_EXIT": f"{place('TAP_EXIT'):#x}", "TAP_LITERAL": f"{place('TAP_LITERAL'):#x}",
         "BEAT_BODY": f"{place('BEAT_BODY'):#x}", "TICK_BODY": f"{place('TICK_BODY'):#x}", "FRAME_FUNC": f"{place('FRAME_FUNC'):#x}",
     }.items():

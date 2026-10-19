@@ -48,6 +48,7 @@ export const CHAINS = {
   "sequence-end": [{ id: "pattern-number", sites: [0xC005F1C4] }],
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
+  "stopped-sync": [{ id: "load-chosen", sites: [0xC0081E18] }],
   "frame": [
     { id: "frame-call", sites: [0xC00836F0] },
     { id: "screen-tick", sites: [0xC00836F8] },
@@ -75,6 +76,7 @@ export const CHAINS = {
   "menu-counter": [{ id: "page-counter", sites: [0xC008A83C, 0xC008A8A8] }],
   "led-meter": [{ id: "meter-update", sites: [0xC0088284] }],
   "backlight": [
+    { id: "power-save-switch", sites: [0xC0028AB4] },
     { id: "pin-setters", sites: [0xC0016C98, 0xC0016CE0, 0xC0016D28] },
     { id: "dim-irq", sites: [0xC00289F4] },
   ],
@@ -95,6 +97,7 @@ export const CHAINS = {
   "led-tick-end": [{ id: "tick-end", sites: [0xC00877D4] }],
   "led-send": [{ id: "sender", sites: [0xC00876A8] }],
   "mode-key": [{ id: "mode-keys", sites: [0xC006FEDC] }],
+  "led-timer": [{ id: "callback", sites: [0xC0089D90] }],
 };
 
 /** Patch id pairs that cannot be applied together, with the reason shown to the user. */

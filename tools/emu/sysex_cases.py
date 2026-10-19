@@ -161,6 +161,31 @@ class Link:
         data = w[16:]
         return {"status": s, "addr": a, "length": length, "crc": crc, "data": data, "crc_ok": zlib.crc32(data) == crc, "ms": ms, "size": len(r["raw"])}
 
+    def file_read(self, offset, n, wait=120.0):
+        """FILE READ of the update file: status, offset, length, CRC, the file's size and the bytes."""
+        r, ms = self.ask(spec.FUNC_FREAD, struct.pack("<II", offset, n), wait=wait)
+        if not r:
+            return None
+        s, a, length, crc, size = struct.unpack_from("<5I", r["words"])
+        data = r["words"][20:20 + length]
+        return {"status": s, "offset": a, "length": length, "crc": crc, "size": size, "data": data, "crc_ok": zlib.crc32(data) == crc, "ms": ms}
+
+    def file_write(self, offset, data, crc=None, wait=120.0):
+        """FILE BEGIN, and when it says ok, DATA. Returns (begin reply, data reply or None)."""
+        crc = zlib.crc32(data) if crc is None else crc
+        r, _ = self.ask(spec.FUNC_FBEGIN, struct.pack("<III", offset, len(data), crc))
+        if not r:
+            return None, None
+        s, a, length = struct.unpack_from("<3I", r["words"])
+        begin = {"status": s, "offset": a, "length": length}
+        if s != OK:
+            return begin, None
+        r, _ = self.ask(spec.FUNC_DATA, data, wait=wait)
+        if not r:
+            return begin, None
+        s, a, length, crc2 = struct.unpack_from("<4I", r["words"])
+        return begin, {"status": s, "offset": a, "length": length, "crc": crc2}
+
     def write(self, addr, data, crc=None, send_data=True, wait=120.0):
         """BEGIN, and when it says ok, DATA. Returns (begin reply, data reply or None)."""
         crc = zlib.crc32(data) if crc is None else crc
@@ -403,13 +428,89 @@ def flash_cases(dev, lk):
     return out
 
 
+def file_cases(payload, flash):
+    """FILE READ and FILE BEGIN: exactly the update file KORG/<folder>/System/SYSTEM.VSB, written in blocks that are read back from
+    the card, a first block that makes the file anew, the size limit of a VSB, a card error without card or folder, silence with EXIT
+    held at power-on. The file on the card image is compared byte for byte."""
+    import cardstore
+    import fat32
+    from sdcard import MemoryMedium, SDCard
+    folder = cardstore.card_folder(bytes(payload))
+    path = f"KORG/{folder}/System/SYSTEM.VSB"
+    out = []
+
+    def device(files=None, card=True, held=0):
+        dev = Dev(payload, flash, held)
+        if card:
+            img = fat32.format_image(64 * 1024 * 1024)
+            vol = fat32.Volume(img)
+            for name, data in (files or {}).items():
+                vol.write(name, data)
+            vol.close()
+            dev.m.insert_card(SDCard(MemoryMedium(bytearray(img))))
+        dev.run(1.0)
+        lk = Link(dev)
+        lk.find_channel()
+        return dev, lk
+
+    def on_card(dev, name=path):
+        try:
+            vol = fat32.Volume(dev.m.mmc.card.medium.data)
+            return vol.read(name)
+        except Exception:
+            return None
+
+    rng = random.Random(20261018)
+    data = bytes(rng.getrandbits(8) for _ in range(70000))
+    dev, lk = device({f"KORG/{folder}/System/keep.txt": b"x"})
+    none = lk.file_read(0, 0)
+    out.append(entry("file_missing", none and none["status"] == spec.STATUS_FILE and none["size"] == 0, f"no update file yet: status {none and none['status']}"))
+    results = []
+    for at in range(0, len(data), spec.MAX_BLOCK):
+        results.append(lk.file_write(at, data[at:at + spec.MAX_BLOCK]))
+    ok = all(b and b["status"] == OK and d and d["status"] == OK and d["crc"] == zlib.crc32(data[i * spec.MAX_BLOCK:(i + 1) * spec.MAX_BLOCK]) for i, (b, d) in enumerate(results))
+    out.append(entry("file_write_blocks", ok and on_card(dev) == data and not dev.m.asserts,
+                     f"{len(data)} bytes in {len(results)} blocks, each read back from the card with its CRC: {ok}; the file {path} equals them: {on_card(dev) == data}"))
+    size = lk.file_read(0, 0)
+    back = b"".join(lk.file_read(at, min(spec.MAX_BLOCK, len(data) - at))["data"] for at in range(0, len(data), spec.MAX_BLOCK))
+    tail = lk.file_read(len(data) - 100, 4096)
+    out.append(entry("file_read_back", size and size["status"] == OK and size["size"] == len(data) and back == data and tail and tail["length"] == 100 and tail["crc_ok"],
+                     f"size {size and size['size']}, read back equal {back == data}, a read past the end gives the {tail and tail['length']} bytes there are"))
+    short = bytes(range(256)) * 20
+    lk.file_write(0, short)
+    out.append(entry("file_offset_zero_makes_it_anew", on_card(dev) == short, f"a first block at offset 0 makes the file anew: {len(on_card(dev) or b'')} bytes on the card, written {len(short)}"))
+    other = f"KORG/{folder}/System/ORIGINAL.BIN"
+    keep = bytes(rng.getrandbits(8) for _ in range(9000))
+    ob, od = lk.file_write(spec.FILE_OTHER | 0, keep)
+    oread = lk.file_read(spec.FILE_OTHER | 0, len(keep))
+    out.append(entry("file_original_beside", ob and ob["status"] == OK and od and od["status"] == OK and on_card(dev, other) == keep and on_card(dev) == short
+                     and oread and oread["data"] == keep and oread["size"] == len(keep),
+                     f"bit 31 of the offset: ORIGINAL.BIN beside it written and read back ({on_card(dev, other) == keep}), SYSTEM.VSB untouched ({on_card(dev) == short})"))
+    far, _ = lk.file_write(spec.FILE_LIMIT - 0x100, bytes(0x200))
+    empty, _ = lk.file_write(0, b"")
+    big = lk.file_read(0, spec.MAX_BLOCK + 1)
+    out.append(entry("file_limits", far and far["status"] == RANGE and empty and empty["status"] == RANGE and big and big["status"] == RANGE and on_card(dev) == short,
+                     f"past the size of a VSB {far and far['status']}, no bytes {empty and empty['status']}, a read over the largest block {big and big['status']}; the file unchanged"))
+    nocard, lk2 = device(card=False)
+    r = lk2.file_read(0, 0)
+    out.append(entry("file_no_card", r and r["status"] == spec.STATUS_FILE and not nocard.m.asserts, f"without a card: status {r and r['status']}"))
+    held, lk3 = device(held=KILL)
+    r = lk3.file_read(0, 0)
+    out.append(entry("file_kill_switch_silent", r is None, "with EXIT held at power-on FILE READ gets no answer"))
+    return out
+
+
+def case_files(payload, flash):
+    return file_cases(payload, flash)
+
+
 def case_flash(payload, flash):
     """FLASH READ, on the flash the check was given (blank, or the user's own dump)."""
     dev, lk = boot(payload, flash)
     return flash_cases(dev, lk)
 
 
-GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash)
+GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, case_files)
 
 
 def synth_cases(payload, flash):
@@ -441,6 +542,7 @@ def synth_cases(payload, flash):
         out.extend(flash_cases(dev, lk))
         out.extend(case_kill_switch(payload, flash))
         out.extend(case_other_sysex(payload, flash))
+        out.extend(file_cases(payload, flash))
         return out
     finally:
         MODEL = 0x24

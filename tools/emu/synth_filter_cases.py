@@ -70,10 +70,11 @@ def lit(t):
 
 
 class FBox(Box):
-    """A booted device with the helpers of these cases; records which name the display looks up and the parameter messages."""
+    """A booted device with the helpers of these cases; records which name the display looks up and the parameter messages.
+    On mains power: on battery power save dims every LED to a quarter (pad-colors, menu_cases checks it)."""
 
     def __init__(self, payload, flash=None, held=0):
-        super().__init__(payload, flash, held)
+        super().__init__(payload, flash, held, adapter=True)
         import unicorn
         self.names_read, self.notices = [], []
         uc = self.m.uc

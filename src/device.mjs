@@ -86,8 +86,10 @@ export class SimDevice {
    *   Without it an execute is a fault, as in the twin the gate dry-runs on.
    * @param {boolean} [opts.hacktribe] answers Hacktribe's commands 0x52 to 0x57; off, the device is Korg's original
    * @param {boolean|number} [opts.blech] answers BLECH's own commands (docs/messungen/2026-10-15-blech-sysex.md); a number is the largest block
+   * @param {Map<string, Uint8Array>} [opts.card] the update folder of the card ("SYSTEM.VSB", "ORIGINAL.BIN"): BLECH's FILE commands work on it
    */
-  constructor({ image = null, channel = 9, flash = null, pattern = null, global = null, version = [2, 2], execute = null, hacktribe = true, blech = false } = {}) {
+  constructor({ image = null, channel = 9, flash = null, pattern = null, global = null, version = [2, 2], execute = null, hacktribe = true, blech = false, card = null } = {}) {
+    this.card = card;
     this.execute = execute;
     this.hacktribe = hacktribe;
     this.blech = blech ? { maxBlock: blech === true ? 0x8000 : blech, build: hacktribe ? "hacktribe" : "stock" } : null;
@@ -153,7 +155,7 @@ export class SimDevice {
     const cmd = body[5];
     const payload = syxDec(body.slice(6));
 
-    if (cmd >= BLECH.INFO && cmd <= BLECH.DATA) return this.blech ? this.blechCommand(cmd, body.slice(6)) : null;
+    if ((cmd >= BLECH.INFO && cmd <= BLECH.DATA) || (this.card && (cmd === BLECH.FILE_READ || cmd === BLECH.FILE_BEGIN))) return this.blech ? this.blechCommand(cmd, body.slice(6)) : null;
     if (!this.hacktribe && cmd >= CMD.READ_RAM && cmd <= 0x58) return this.unknown(cmd);
 
     if ([CMD.READ_RAM, CMD.WRITE_ADDR, CMD.WRITE_DATA].includes(cmd) && !this.image) {
@@ -208,7 +210,8 @@ export class SimDevice {
   blechCommand(cmd, encoded) {
     const payload = syxDec(encoded);
     const word = i => readU32le(payload, i * 4);
-    if (cmd === BLECH.INFO) return this.blechReply(BLECH.R_INFO, 0, BLECH.VERSION, 7, this.blech.maxBlock, protectTable({ build: this.blech.build }).crc, 0);
+    if (cmd === BLECH.INFO) return this.blechReply(BLECH.R_INFO, 0, BLECH.VERSION, this.card ? 7 | BLECH.FLAG_FILE : 7, this.blech.maxBlock, protectTable({ build: this.blech.build }).crc, 0);
+    if (cmd === BLECH.FILE_READ || cmd === BLECH.FILE_BEGIN || (cmd === BLECH.DATA && this.blechPending?.file)) return this.fileCommand(cmd, payload);
     if (!this.image) {
       this.fault("no-image", "the simulation was started without a firmware image, so BLECH's commands have no RAM to work on.");
       return null;
@@ -251,6 +254,42 @@ export class SimDevice {
     if (!at.ok) return this.blechReply(BLECH.R_DATA, BLECH.STATUS.RANGE, addr, length, 0);
     at.buf.set(bytes, at.offset);
     return this.blechReply(BLECH.R_DATA, BLECH.STATUS.OK, addr, length, crc32(at.buf.subarray(at.offset, at.offset + length)));
+  }
+
+  /**
+   * BLECH's FILE commands on the card's update folder, as the firmware does them (tools/patch/blech_sysex.py): bit 31 of the offset
+   * chooses ORIGINAL.BIN, a first block at offset 0 makes the file anew, a read past the end gives what is there.
+   */
+  fileCommand(cmd, payload) {
+    const word = i => readU32le(payload, i * 4);
+    const name = offset => (offset & BLECH.FILE_OTHER ? "ORIGINAL.BIN" : "SYSTEM.VSB");
+    if (cmd === BLECH.FILE_READ) {
+      const offset = word(0) & ~BLECH.FILE_OTHER;
+      const length = word(1);
+      const file = this.card.get(name(word(0)));
+      if (length > this.blech.maxBlock || offset + length > BLECH.FILE_LIMIT) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.RANGE, offset, 0, 0, 0);
+      if (!file) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.FILE, offset, 0, 0, 0);
+      const bytes = file.slice(Math.min(offset, file.length), Math.min(offset + length, file.length));
+      return [0xf0, ...this.head, BLECH.R_FILE_READ, ...syxEnc([...[0, offset, bytes.length, crc32(bytes), file.length].flatMap(u32le), ...bytes]), 0xf7];
+    }
+    if (cmd === BLECH.FILE_BEGIN) {
+      this.blechPending = null;
+      const offset = word(0) & ~BLECH.FILE_OTHER;
+      const [length, crc] = [word(1), word(2)];
+      const ok = length >= 1 && length <= this.blech.maxBlock && offset + length <= BLECH.FILE_LIMIT;
+      if (ok) this.blechPending = { file: name(word(0)), addr: offset, length, crc };
+      return this.blechReply(BLECH.R_FILE_BEGIN, ok ? BLECH.STATUS.OK : BLECH.STATUS.RANGE, offset, length);
+    }
+    const { file, addr, length, crc } = this.blechPending;
+    this.blechPending = null;
+    const bytes = Uint8Array.from(payload.slice(0, length));
+    if (crc32(bytes) !== crc) return this.blechReply(BLECH.R_DATA, BLECH.STATUS.BAD_CRC, addr, length, crc32(bytes));
+    const old = addr === 0 ? new Uint8Array(0) : this.card.get(file) ?? new Uint8Array(0);
+    const next = new Uint8Array(Math.max(old.length, addr + length));
+    next.set(old);
+    next.set(bytes, addr);
+    this.card.set(file, next);
+    return this.blechReply(BLECH.R_DATA, BLECH.STATUS.OK, addr, length, crc32(next.subarray(addr, addr + length)));
   }
 
   /**

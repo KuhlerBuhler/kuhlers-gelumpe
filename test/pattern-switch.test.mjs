@@ -18,7 +18,7 @@ const CODE = 0x180100;              // file offset of 0xC0180000
 const CODE_END = 0x180d00;          // 0xC0180C00
 // the replaced words: wheel branch, pad and MIDI first instruction, MENU and EXIT slots (pointers), sequence end call, STOP first instruction, label load
 const WORDS = [[0x6523c, 0xea, 0xc006513c], [0x6eee4, 0xea, 0xc006ede4], [0x6ef00, 0xea, 0xc006ee00], [0xe35b0, null, 0xc00e34b0],
-  [0xe35a0, null, 0xc00e34a0], [0x5f2c4, 0xeb, 0xc005f1c4], [0x81c5c, 0xea, 0xc0081b5c], [0x86ec4, 0xeb, 0xc0086dc4]];
+  [0xe35a0, null, 0xc00e34a0], [0x5f2c4, 0xeb, 0xc005f1c4], [0x81c5c, 0xea, 0xc0081b5c], [0x86ec4, 0xeb, 0xc0086dc4], [0x81f18, 0xea, 0xc0081e18]];
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
 const vsb = process.env.E2_VSB;
@@ -30,7 +30,7 @@ const skip = !vsb ? "E2_VSB not set" : false;
 const skipEmu = skip || (!local ? "emulation only runs in test:local or test:emu" : false);
 const flashArgs = flash.length ? ["--flash", ...flash] : [];
 
-test("the pattern switch has the v1 format, says what it replaces and runs nothing at start", () => {
+test("the pattern switch has the v1 format, says what it replaces and runs only its stopped sync hook at start", () => {
   assert.equal(PATCH.format, PATCH_FORMAT);
   assert.equal(PATCH.version, 1);
   assert.equal(PATCH.id, "pattern-switch");
@@ -39,10 +39,12 @@ test("the pattern switch has the v1 format, says what it replaces and runs nothi
     assert.ok(change.note);
     assert.equal(change.copy, undefined, "nothing of the firmware is copied");
   }
-  assert.deepEqual(PATCH.startPhase, [], "every hook sits behind the start and the rescue paths");
+  // the stopped sync observer (0xC0081E18) runs from the start on; every other hook sits behind the start and the rescue paths
+  assert.deepEqual(PATCH.startPhase.map(s => s.file), [0x81f18, 0x1806a0]);
+  assert.ok(PATCH.startPhase.every(s => s.why.length > 20));
 });
 
-test("it is our code plus eight replaced words, each leading into the code, and every hook is declared", () => {
+test("it is our code plus nine replaced words, each leading into the code, and every hook is declared", () => {
   assert.equal(PATCH.changes.length, 1 + WORDS.length);
   const [code, ...words] = PATCH.changes;
   const n = fromHex(code.bytes).length;
@@ -141,7 +143,7 @@ test("the BLECH menu writes the word the pattern switch reads, and keeps OFF as 
   assert.ok(word, "script_menu.s names PS_SETTING");
   const state = builder.match(/^STATE = (0x[0-9A-Fa-f]+)/m)[1];
   assert.equal(parseInt(word[1], 16), parseInt(state, 16) + 0x10, "STATE + S_SETTING of tools/patch/pattern_switch.py");
-  assert.match(menu, /orreq r0, r0, #4\n(?:[^\n]*\n){0,12}?\s+str r0, \[r7, #12\]/, "OFF is bit 2 of the flags");
+  assert.match(menu, /orreq r0, r0, #4\n(?:[^\n]*\n){0,40}?\s+str r0, \[r7, #12\]/, "OFF is bit 2 of the flags");
 });
 
 function patchedCopy(patches) {

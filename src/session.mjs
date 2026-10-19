@@ -101,8 +101,13 @@ export class DeviceSession {
   get pending() { return this.carry.pending; }
   get busy() { return !!this.running; }
 
-  /** One operation at a time: a double click or an undo during a send is refused, not interleaved. */
+  /**
+   * One operation at a time: a double click or an undo during a send is refused, not interleaved. While an action holds a
+   * reservation that waits (the terminal), its operations wait for one that already runs (a read of the sidebar or of the
+   * connection) instead of being refused.
+   */
   async exclusive(fn) {
+    while (this.running && (this.waiters ?? 0) > 0) await this.idle();
     if (this.running) throw new SendError("busy", "Es läuft schon eine Sendung. Erst wenn sie fertig ist, geht die nächste.");
     this.running = fn();
     try { return await this.running; } finally { this.running = null; }
@@ -118,10 +123,11 @@ export class DeviceSession {
    * it is reserved, background reads (the sidebar) keep away; call the
    * returned function when the action is over.
    */
-  reserve() {
+  reserve({ wait = false } = {}) {
     this.reservations = (this.reservations ?? 0) + 1;
+    if (wait) this.waiters = (this.waiters ?? 0) + 1;
     let done = false;
-    return () => { if (!done) { done = true; this.reservations--; } };
+    return () => { if (!done) { done = true; this.reservations--; if (wait) this.waiters--; } };
   }
 
   get reserved() { return (this.reservations ?? 0) > 0; }

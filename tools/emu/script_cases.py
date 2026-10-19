@@ -416,6 +416,48 @@ def menu_script_cases(programs, built, patched, flash, check):
     again.run(2)
     check("menu-export-wird-wieder-geladen", [again.u32(runtime + built.symbols["SCRIPT_CONTROL_" + name]) for name in ["CARD_STATUS", "CARD_LOADED"]] == [1, 2] and not again.m.asserts)
 
+    # a plugin switched off stays off over a restart (device 18.10.: off, EXPORT ALL, restart, on again): EXPORT ALL and WRITE on
+    # its page keep the inverted checksum of its block in the settings; switched on it runs its start body then
+    def restart(old):
+        new = Dev(patched[0x100:], flash, 0)
+        new.m.insert_card(SDCard(MemoryMedium(bytearray(old.m.mmc.card.medium.data))))
+        new.run(2)
+        return new
+
+    def taps(box, entry):
+        before = variables(box, entry, programs["healthy"])["count"]
+        box.m.send([0, 24, 1, 0, 0])
+        box.run(0.15)
+        box.m.send([0, 24, 0, 0, 0])
+        box.run(0.1)
+        return variables(box, entry, programs["healthy"])["count"] - before
+
+    menu_cases.goto_group(dev, menu_cases.GROUP_PLUGINS, 1)
+    dev.turn(-1, wait=0.2)
+    menu_cases.goto_group(dev, menu_cases.GROUP_PLUGINS, 3)
+    menu_cases.press(dev, "write", wait=0.8)
+    exported = texts(dev)
+    leave_menu(dev)
+    kept = restart(dev)
+    entry = plugin_entry(kept, runtime)
+    off_state, off_taps, off_cost = kept.u32(entry + 12), taps(kept, entry), kept.u32(entry + built.symbols["SCRIPT_ENTRY_MAX_COST"])
+    menu_cases.goto_group(kept, menu_cases.GROUP_PLUGINS, 1)
+    off_page = texts(kept)
+    kept.turn(1, wait=0.2)
+    leave_menu(kept)
+    on_state, on_taps = kept.u32(entry + 12), taps(kept, entry)
+    check("menu-plugin-bleibt-aus-nach-neustart", exported[1] == "2 exported" and off_state == 1 and off_taps == 0 and off_cost == 0 and off_page[:2] == ("healthy", "OFF")
+          and on_state == 2 and on_taps == 1 and not kept.m.asserts,
+          dict(exported=exported, off=(off_state, off_taps, off_cost, off_page), on=(on_state, on_taps), asserts=kept.m.asserts))
+    menu_cases.goto_group(kept, menu_cases.GROUP_PLUGINS, 1)
+    menu_cases.press(kept, "write", wait=0.8)
+    saved = texts(kept)
+    leave_menu(kept)
+    back = restart(kept)
+    entry = plugin_entry(back, runtime)
+    check("menu-plugin-an-mit-write-gespeichert", back.u32(entry + 12) == 2 and taps(back, entry) == 1 and not back.m.asserts,
+          dict(saved=saved, state=back.u32(entry + 12)))
+
     foreign_cases(programs, built, patched, flash, check)
     import_cases(programs, built, patched, flash, check)
     menu_add_cases(programs, built, patched, flash, check)

@@ -36,6 +36,12 @@
 .equ M_BL_PWM, 0xC8
 .equ M_BL_N, 0xCC
 .equ M_BL_CLR, 0xD0
+.equ MX_INTENS, -0x20          ; the 32 bytes in front of MENU_STATE (behind the menu items): byte, INTENSITY of the backlight 0 to 15
+.equ MX_SAVE, -0x1F            ; byte, SAVE LIGHT: 0 the firmware's own dim in power save, 1 to 15 the backlight at that intensity
+.equ MX_OVER, -0x1E            ; byte, OVERLAP of the pad colours (0 the colour that is left)
+.equ MX_METER, -0x1C           ; 4 bytes, the colours of the meter (STILL, LOW, MID, LOUD), 0 the firmware's
+.equ MX_SAVE_ON, -0x18         ; byte, the backlight pins that light in power save
+.equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ M_PC, 0x158              ; the gap between the two settings buffers (M_FILE_A ends at 0x158, M_FILE_B starts at 0x160)
 .equ PS_SETTING, 0xC0180F10
 .equ M_TM, 0x15C              ; the other word of that gap: the page TAP MOTION, 1 on (the default), 0 off, 2 once
@@ -123,6 +129,15 @@ menu_arm_zero:
     str r0, [r4, #M_NA]
     mov r0, #0x38
     str r0, [r4, #M_BL_ON]
+    sub r0, r4, #0x20
+    mov r1, #0
+    mov r2, #8
+menu_arm_extra:
+    str r1, [r0], #4
+    subs r2, r2, #1
+    bne menu_arm_extra
+    mov r0, #15
+    strb r0, [r4, #MX_INTENS]
     mov r0, #1
     str r0, [r4, #M_ON]
 menu_arm_out:
@@ -213,6 +228,29 @@ menu_load_apply:
     str r2, [r4, #M_NA]
     ldr r12, =NA_SETTING
     str r2, [r12]
+    mov r2, r1, lsr #8          ; bits 8 to 11: 15 - INTENSITY, bits 12 to 15: SAVE LIGHT (0 in an older file: full light, the firmware's dim)
+    and r2, r2, #15
+    rsb r2, r2, #15
+    strb r2, [r4, #MX_INTENS]
+    mov r2, r1, lsr #12
+    and r2, r2, #15
+    strb r2, [r4, #MX_SAVE]
+    mov r2, r1, lsr #16         ; bits 16 to 27: the four colours of the meter, 3 bits each
+    sub r12, r4, #-MX_METER
+    mov r1, #4
+menu_load_meter:
+    and r3, r2, #7
+    strb r3, [r12], #1
+    mov r2, r2, lsr #3
+    subs r1, r1, #1
+    bne menu_load_meter
+    push {r0-r3}                ; bits 28 to 29: OVERLAP of the pad colours (the patch pad-colors keeps it)
+    ldr r0, [r0, #12]
+    mov r0, r0, lsr #28
+    and r0, r0, #3
+    mov r1, #16
+    bl menu_pc_call
+    pop {r0-r3}
     ldrb r1, [r0, #6]
     str r1, [r4, #M_TRUST_N]
     add r2, r4, #M_TRUST
@@ -335,6 +373,7 @@ menu_read_fail:
 ; Sets M_STATUS: 1 written, 0x20 + code of the failing FatFs call otherwise.
 menu_settings_save:
     push {r4-r10, lr}
+    bl menu_off_sync
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
@@ -369,6 +408,23 @@ menu_settings_save:
     ldr r1, [r4, #M_NA]
     cmp r1, #0
     orreq r0, r0, #16
+    ldrb r1, [r4, #MX_INTENS]
+    rsb r1, r1, #15
+    orr r0, r0, r1, lsl #8
+    ldrb r1, [r4, #MX_SAVE]
+    orr r0, r0, r1, lsl #12
+    ldrb r2, [r4, #MX_METER+3]  ; the meter's colours, colour n at bits 16 + 3n
+    ldrb r1, [r4, #MX_METER+2]
+    orr r2, r1, r2, lsl #3
+    ldrb r1, [r4, #MX_METER+1]
+    orr r2, r1, r2, lsl #3
+    ldrb r1, [r4, #MX_METER]
+    orr r2, r1, r2, lsl #3
+    orr r0, r0, r2, lsl #16
+    mov r10, r0
+    mov r1, #20
+    bl menu_pc_call
+    orr r0, r10, r0, lsl #28
     str r0, [r7, #12]
     ldr r0, [r4, #M_LED_MODE]
     ldr r1, [r4, #M_LED_R]
@@ -484,6 +540,12 @@ look_led_custom:
     moveq r12, #1
     movne r12, #2
 look_led_store:
+    cmp r5, #0                  ; METER with a colour of the meter set: the meter in four colours (3)
+    bne look_led_kind
+    ldr r3, [r4, #MX_METER]
+    cmp r3, #0
+    movne r12, #3
+look_led_kind:
     strb r0, [r4, #M_LED_V]
     strb r1, [r4, #M_LED_V+1]
     strb r2, [r4, #M_LED_V+2]
@@ -496,28 +558,57 @@ look_led_store:
     moveq r0, #15
     moveq r7, #15
     moveq r8, #15
-    mov r3, #0
+    push {r0, r7, r8}           ; the levels of the colour, scaled by INTENSITY for the light and by SAVE LIGHT for power save
+    ldrb r1, [r4, #MX_INTENS]
     add r5, r4, #M_BL_CLR
+    bl look_triple
+    str r12, [r4, #M_BL_ON]
+    str r6, [r4, #M_BL_PWM]
+    ldrb r1, [r4, #MX_SAVE]
+    sub r5, r4, #-MX_SAVE_CLR
+    bl look_triple
+    strb r12, [r4, #MX_SAVE_ON]
+    add sp, sp, #12
+    mov r0, #0
+    str r0, [r4, #M_BL_N]
+    bl menu_backlight_now
+    pop {r4-r8, pc}
+
+; r1 = intensity 0 to 15, r5 = a table of 16 bytes, the three levels of the colour at sp (the caller's push): the levels scaled
+; by the intensity go into the table -> r12 = the pins that light, r6 = 1 when a level needs the PWM. Clobbers r0 to r3.
+look_triple:
+    push {r7, lr}
+    mov r7, r1
+    mov r3, #0
     str r3, [r5]
     str r3, [r5, #4]
     str r3, [r5, #8]
     str r3, [r5, #12]
     mov r12, #0
     mov r6, #0
+    ldr r0, [sp, #8]
+    bl look_scale
     mov r3, #0x08
     bl look_channel
-    mov r0, r7
+    ldr r0, [sp, #12]
+    bl look_scale
     mov r3, #0x10
     bl look_channel
-    mov r0, r8
+    ldr r0, [sp, #16]
+    bl look_scale
     mov r3, #0x20
     bl look_channel
-    str r12, [r4, #M_BL_ON]
-    str r6, [r4, #M_BL_PWM]
-    mov r0, #0
-    str r0, [r4, #M_BL_N]
-    bl menu_backlight_now
-    pop {r4-r8, pc}
+    pop {r7, pc}
+
+; r0 = level 0 to 15, r7 = intensity 0 to 15 -> r0 = level * intensity / 15, rounded. Clobbers r2.
+look_scale:
+    mul r2, r0, r7
+    add r2, r2, #7
+    mov r0, #0x1100
+    orr r0, r0, #0x12
+    mul r0, r2, r0
+    mov r0, r0, lsr #16
+    bx lr
 
 ; r0 = level 0 to 15, r3 = the pin of the channel, r12 = pins that may light, r6 = 1 when a level needs the PWM,
 ; r5 = the table of the pins the PWM clears at tick n
@@ -562,45 +653,16 @@ settings_path_b:
 menu_settings_end:
 
 ; ---- hooks into the firmware: each returns to the word behind the one it replaced
-; 0xC0064D84, Global's EDIT right: `mov r0, #14`
-menu_nb_right:
-    ldr r2, =MENU_STATE
-    ldr r3, [r2, #M_ON]
-    cmp r3, #1
-    movne r0, #14
-    bne menu_nb_right_go
-    mov r3, #0
-    str r3, [r2, #M_ENTER]
-    str r3, [r2, #M_LEVEL]
-    mov r0, #MENU_SCREEN
-menu_nb_right_go:
-    ldr pc, =0xC0064D88
-.pool
-; 0xC0061880, Data Util's EDIT left: `mov r0, #8`; enters on the last page
-menu_nb_left:
-    ldr r2, =MENU_STATE
-    ldr r3, [r2, #M_ON]
-    cmp r3, #1
-    movne r0, #8
-    bne menu_nb_left_go
-    mvn r3, #0
-    str r3, [r2, #M_ENTER]
-    mov r3, #0
-    str r3, [r2, #M_LEVEL]
-    mov r0, #MENU_SCREEN
-menu_nb_left_go:
-    ldr pc, =0xC0061884
-.pool
 ; 0xC0064430, the Event menu's EDIT right: `push {r3, r4, r5, lr}` (it prepares the Pattern menu and switches to it). With the menu armed
-; the ring goes on to the page of Blechy first: level 3 of our screen.
+; the ring goes on to the page BLECH first, level 0 of our screen, then Blechy (level 3), then the Pattern menu: BLECH is the last
+; menu of the ring, behind Event (device 18.10.: it sat between Global and Data Util).
 menu_event_right:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
     bne menu_event_right_go
-    mov r3, #M_LEVEL_BLECHY
-    str r3, [r2, #M_LEVEL]
     mov r3, #0
+    str r3, [r2, #M_LEVEL]
     str r3, [r2, #M_ENTER]
     mov r0, #MENU_SCREEN
     mov r1, #0
@@ -636,8 +698,8 @@ menu_write:
     push {r3, r4, r5, lr}
     ldr pc, =0xC006F098
 .pool
-; 0xC008A83C and 0xC008A8A8, the page counter "n/29": keeps the ring gap-free while the menu is armed (the page BLECH
-; sits before Data Util, the page of Blechy after Event: Data Util is 29/31, Event 30/31, Blechy 31/31).
+; 0xC008A83C and 0xC008A8A8, the page counter "n/29": the total grows by the page BLECH and the page of Blechy while the menu is
+; armed (both sit behind Event, the last of the firmware's: BLECH is 30/31, Blechy 31/31).
 menu_counter_new:
     ldr r3, =MENU_STATE
     ldr r3, [r3, #M_RAW]
@@ -708,8 +770,8 @@ led_meter_hook:
     mov r4, r0
     mov r9, #256
     mov r10, #256
-    cmp r3, #1
-    bne led_meter_loop_start
+    cmp r3, #2
+    beq led_meter_loop_start
     ldr r6, =0xC033E4F4
     ldr r6, [r6]
     mov r0, #0
@@ -730,6 +792,10 @@ led_meter_levels:
     bl 0xC0088220
     ldr r0, [sp]
     ldr r1, [sp, #4]
+    ldr r3, =MENU_STATE
+    ldr r3, [r3, #M_LED_EFF]
+    cmp r3, #3
+    beq led_meter_four
     mov r3, #191
     mul r2, r0, r0
     mov r2, r2, lsr #8
@@ -767,6 +833,58 @@ led_meter_loop:
     blo led_meter_loop
     add sp, sp, #8
     pop {r4-r10, pc}
+; The meter in four colours (device 18.10.): per side the zone of its level as the firmware divides it (0 STILL, up to 70 LOW, up to
+; 187 MID, above LOUD) gives the colour, the user's from the palette or, for a zone left at STOCK, the firmware's (white, blue,
+; green, red). r0, r1 = the levels of the two sides (LEDs 6 to 11, 0 to 5).
+led_meter_four:
+    bl meter_colour
+    mov r10, r2
+    mov r0, r1
+    bl meter_colour
+    mov r9, r2
+    mov r5, #0
+led_meter_four_loop:
+    cmp r5, #6
+    movlo r8, r9
+    movhs r8, r10
+    mov r0, r5
+led_meter_mod3:
+    cmp r0, #3
+    subhs r0, r0, #3
+    bhs led_meter_mod3
+    ldrb r3, [r8, r0]
+    add r0, r4, r5, lsl #3
+    strb r3, [r0, #0x2ae]
+    mov r0, r4
+    add r1, r5, #0x4c
+    mov r2, #0
+    bl 0xC00875F4
+    add r5, r5, #1
+    cmp r5, #12
+    blo led_meter_four_loop
+    add sp, sp, #8
+    pop {r4-r10, pc}
+; r0 = level 0 to 255 -> r2 = the three bytes (red, green, blue) of its colour. Keeps r1.
+meter_colour:
+    cmp r0, #0
+    moveq r3, #0
+    beq meter_zone
+    cmp r0, #70
+    movle r3, #1
+    ble meter_zone
+    cmp r0, #187
+    movle r3, #2
+    movgt r3, #3
+meter_zone:
+    ldr r2, =MENU_STATE
+    sub r2, r2, #-MX_METER
+    ldrb r2, [r2, r3]
+    cmp r2, #0
+    addeq r2, r3, #8            ; STOCK: the firmware's colour of the zone, behind the palette
+    ldr r0, =meter_palette
+    add r2, r2, r2, lsl #1
+    add r2, r0, r2
+    bx lr
 led_meter_pass:
     ldrb r3, [r0, #0xb98]
     ldr pc, =0xC0088288
@@ -831,15 +949,27 @@ bl_pwm_hook:
     ldr r3, [r2, #M_ON]
     cmp r3, #1
     bne bl_pwm_pass
-    ldr r3, [r2, #M_BL_PWM]
-    cmp r3, #0
-    beq bl_pwm_pass
     ldr r3, =BL_DIM_FLAG
     ldrb r3, [r3]
     cmp r3, #0
-    bne bl_pwm_pass
-    push {r4, r5, r6, lr}
+    beq bl_pwm_normal
+    ldrb r3, [r2, #MX_SAVE]     ; power save dims: with SAVE LIGHT the light of the colour at that intensity, else the firmware's dim
+    cmp r3, #0
+    beq bl_pwm_pass
+    push {r4, r5, r6, r7, r8, lr}
     mov r5, r2
+    ldrb r6, [r5, #MX_SAVE_ON]
+    sub r7, r5, #-MX_SAVE_CLR
+    b bl_pwm_run
+bl_pwm_normal:
+    ldr r3, [r2, #M_BL_PWM]
+    cmp r3, #0
+    beq bl_pwm_pass
+    push {r4, r5, r6, r7, r8, lr}
+    mov r5, r2
+    ldr r6, [r5, #M_BL_ON]
+    add r7, r5, #M_BL_CLR
+bl_pwm_run:
     ldr r4, [r5, #M_BL_N]
     add r4, r4, #1
     and r4, r4, #15
@@ -847,13 +977,17 @@ bl_pwm_hook:
     cmp r4, #0
     bne bl_pwm_clear
     ldr r0, =GPIO_BASE
+    mov r1, #0
+    mov r2, #3
+    eor r3, r6, #0x38           ; the pins that stay dark (the firmware's dim may have left one on)
+    bl GPIO_WRITE
+    ldr r0, =GPIO_BASE
     mov r1, #1
     mov r2, #3
-    ldr r3, [r5, #M_BL_ON]
+    mov r3, r6
     bl GPIO_WRITE
 bl_pwm_clear:
-    add r3, r5, #M_BL_CLR
-    ldrb r3, [r3, r4]
+    ldrb r3, [r7, r4]
     cmp r3, #0
     beq bl_pwm_done
     ldr r0, =GPIO_BASE
@@ -861,7 +995,7 @@ bl_pwm_clear:
     mov r2, #3
     bl GPIO_WRITE
 bl_pwm_done:
-    pop {r4, r5, r6, lr}
+    pop {r4, r5, r6, r7, r8, pc}   ; the firmware's dim routine would only return (not dimming) or is replaced (SAVE LIGHT)
 bl_pwm_pass:
     push {r4, r5, r6, lr}
     ldr pc, =0xC00289F8
@@ -1088,6 +1222,15 @@ menu_texts_clear:
     beq menu_text_colour
     cmp r0, #25
     beq menu_text_colour
+    cmp r0, #26
+    beq menu_text_intens
+    cmp r0, #27
+    beq menu_text_save
+    sub r1, r0, #28
+    cmp r1, #3
+    bls menu_text_meter
+    cmp r0, #32
+    beq menu_text_over
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1246,6 +1389,52 @@ menu_text_look:
     cmp r7, #0
     ldrne r1, =str_stock
     blne menu_copy
+    b menu_text_look_line3
+; INTENSITY (26) and SAVE LIGHT (27, 0 is the firmware's dim: STOCK)
+menu_text_intens:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_intens
+    bl menu_copy
+    ldrb r1, [r5, #MX_INTENS]
+    add r0, r5, #M_VALUE
+    bl menu_dec
+    b menu_text_look_line3
+menu_text_save:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_save
+    bl menu_copy
+    ldrb r1, [r5, #MX_SAVE]
+    add r0, r5, #M_VALUE
+    cmp r1, #0
+    ldreq r1, =str_stock_word
+    bleq menu_copy
+    blne menu_dec
+    b menu_text_look_line3
+; METER STILL, LOW, MID, LOUD (28 to 31): the zone's colour from the palette, STOCK the firmware's. r1 = the zone.
+menu_text_meter:
+    mov r6, r1
+    add r0, r5, #M_TITLE
+    ldr r1, =meter_titles
+    ldr r1, [r1, r6, lsl #2]
+    bl menu_copy
+    sub r1, r5, #-MX_METER
+    ldrb r1, [r1, r6]
+    ldr r2, =colour_names
+    ldr r1, [r2, r1, lsl #2]
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; OVERLAP (32): the colour of a pad that is both lit and selected, from the patch pad-colors
+menu_text_over:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_over
+    bl menu_copy
+    mov r1, #20
+    bl menu_pc_call
+    ldr r2, =over_names
+    ldr r1, [r2, r0, lsl #2]
+    add r0, r5, #M_VALUE
+    bl menu_copy
     b menu_text_look_line3
 menu_text_invert:
     ldr r1, =str_invert
@@ -1619,6 +1808,90 @@ menu_needs_loop:
     b menu_needs_loop
 .pool
 
+; Plugins switched off stay off over a restart: the checksum list of the settings file holds, beside the checksums of the
+; foreign plugins the user allowed, the inverted checksum (mvn) of every plugin that is off. The file format stays as it was
+; (an older BLECH reads them as allowed checksums that match nothing). The loader does not start a plugin marked so.
+; r0 = script entry -> r0 = 1 when the settings keep it off
+menu_is_off:
+    ldr r1, [r0, #SCRIPT_ENTRY_BLOB]
+    ldr r1, [r1, #HDR_CHECKSUM]
+    mvn r1, r1
+    ldr r2, =MENU_STATE
+    ldr r3, [r2, #M_ON]
+    cmp r3, #1
+    movne r0, #0
+    bxne lr
+    ldr r3, [r2, #M_TRUST_N]
+    add r2, r2, #M_TRUST
+menu_off_loop:
+    cmp r3, #0
+    moveq r0, #0
+    bxeq lr
+    ldr r12, [r2], #4
+    cmp r12, r1
+    moveq r0, #1
+    bxeq lr
+    sub r3, r3, #1
+    b menu_off_loop
+
+; Before a save: for every loaded plugin the marker goes, and comes back when the plugin is off (loaded, allowed and not
+; armed), as long as the list has room. Markers of plugins no longer on the card stay, like their allowed checksums. Blechy
+; is always armed, so he never gets one.
+menu_off_sync:
+    push {r4-r7, lr}
+    ldr r4, =MENU_STATE
+    ldr r5, =HOOK_RUNTIME
+    ldr r5, [r5, #RT_HEAD]
+    cmn r5, #1
+    moveq r5, #0
+menu_off_entry:
+    cmp r5, #0
+    beq menu_off_done
+    ldr r6, [r5, #SCRIPT_ENTRY_BLOB]
+    ldr r7, [r6, #HDR_CHECKSUM]
+    mvn r7, r7
+    ldr r1, [r4, #M_TRUST_N]
+    add r2, r4, #M_TRUST
+    mov r3, #0
+menu_off_find:
+    cmp r3, r1
+    bhs menu_off_keep
+    ldr r12, [r2, r3, lsl #2]
+    cmp r12, r7
+    addne r3, r3, #1
+    bne menu_off_find
+    sub r1, r1, #1
+    str r1, [r4, #M_TRUST_N]
+menu_off_shift:
+    cmp r3, r1
+    bhs menu_off_keep
+    add r12, r3, #1
+    ldr r12, [r2, r12, lsl #2]
+    str r12, [r2, r3, lsl #2]
+    add r3, r3, #1
+    b menu_off_shift
+menu_off_keep:
+    ldr r0, [r5, #SCRIPT_ENTRY_STATE]
+    cmp r0, #SCRIPT_STATE_LOADED
+    bne menu_off_next
+    mov r0, r5
+    bl menu_needs_confirm
+    cmp r0, #0
+    bne menu_off_next
+    ldr r1, [r4, #M_TRUST_N]
+    cmp r1, #MENU_MAX_TRUST
+    bhs menu_off_next
+    add r2, r4, #M_TRUST
+    str r7, [r2, r1, lsl #2]
+    add r1, r1, #1
+    str r1, [r4, #M_TRUST_N]
+menu_off_next:
+    ldr r5, [r5, #SCRIPT_ENTRY_NEXT]
+    b menu_off_entry
+menu_off_done:
+    pop {r4-r7, pc}
+.pool
+
 ; r0 = script entry waiting for its confirmation: remember its checksum, run its start body, save the settings
 menu_confirm:
     push {r4, r5, lr}
@@ -1659,7 +1932,8 @@ menu_confirm_add:
 ; Data Util ("press [ Enter ]"); ENTER opens level 1, the list of the groups FEATURES, CUSTOMIZATION and PLUGINS, and behind them the
 ; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it. Each is again
 ; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
-; 4 FEATURES). FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
+; 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR). DISPLAY, LED and PAD COLOR are rows of CUSTOMIZATION that open their pages;
+; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
 ; main dial changes them, WRITE keeps them). EXIT goes one level up. M_PAGE counts within the level, the counter shows only that
 ; level. Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, after Event, on which Blechy, the app built into
 ; BLECH, shows himself (the frame hook opens and closes him by this level).
@@ -1711,17 +1985,21 @@ menu_kind_group:
     beq menu_kind_plugins
     cmp r3, #4
     beq menu_kind_features
+    cmp r3, #5                  ; DISPLAY, LED, PAD COLOR (5 to 7) and CUSTOMIZATION (3): the kinds of their pages from tables
+    bhs menu_kind_sub
     cmp r3, #3
     bne menu_kind_apps
-    add r0, r5, #7
-    cmp r5, #8
-    moveq r0, #24
-    cmp r5, #9
-    moveq r0, #25
-    cmp r5, #10
-    moveq r0, #22
-    cmp r5, #11
-    moveq r0, #23
+    ldr r1, =custom_kinds
+    ldrb r0, [r1, r5]
+    cmp r0, #16
+    addeq r1, r5, #5            ; rows 0 to 2 open the groups 5 to 7
+    movne r1, #0
+    b menu_kind_done
+menu_kind_sub:
+    ldr r1, =sub_kinds
+    sub r3, r3, #5
+    add r1, r1, r3, lsl #3
+    ldrb r0, [r1, r5]
     mov r1, #0
     b menu_kind_done
 menu_kind_features:
@@ -1798,18 +2076,25 @@ menu_count_group:
     beq menu_count_plugins
     cmp r1, #3
     bne menu_count_features
-    mov r0, #8
+    mov r0, #2                  ; DISPLAY and LED
     ldr r1, =PC_CODE
     ldr r1, [r1]
     cmn r1, #1
-    beq menu_count_out          ; without the pad colours there are no pages behind DISPLAY INVERT (the splash editor comes with them)
-    add r0, r0, #2              ; PAD COLOR and SELECT COLOR
+    beq menu_count_out          ; without the pad colours there is no PAD COLOR and no splash page (the splash editor comes with them)
+    add r0, r0, #1              ; PAD COLOR
     ldr r1, =SPLASH_IMPORT
     ldr r1, [r1]
     cmn r1, #1
     addne r0, r0, #2            ; SPLASH IMPORT and SPLASH DRAW, where the build has the splash editor
     b menu_count_out
 menu_count_features:
+    cmp r1, #5
+    blo menu_count_list
+    ldr r0, =sub_counts
+    sub r1, r1, #5
+    ldrb r0, [r0, r1]
+    b menu_count_out
+menu_count_list:
     cmp r1, #3
     movhi r0, #4
     bhi menu_count_out
@@ -1883,17 +2168,22 @@ menu_go_in:
     bne menu_go_group
     mov r3, #1
     str r3, [r2, #M_LEVEL]
-    b menu_go_common
+    ldr r0, [r2, #M_TOP]        ; the list opens on the group it was last left from (device 18.10.)
+    b menu_go_page
 menu_go_group:
+    cmp r3, #2                  ; COLORS inside CUSTOMIZATION: only the group changes, M_TOP keeps the list's page
+    beq menu_go_sub
     ldr r3, [r2, #M_PAGE]
     str r3, [r2, #M_TOP]
     mov r3, #2
     str r3, [r2, #M_LEVEL]
+menu_go_sub:
     str r0, [r2, #M_GROUP]
-menu_go_common:
+    mov r0, #0
+menu_go_page:
+    str r0, [r2, #M_PAGE]
+    str r0, [r2, #M_ENTER]
     mov r3, #0
-    str r3, [r2, #M_PAGE]
-    str r3, [r2, #M_ENTER]
     str r3, [r2, #M_STATUS]
     str r3, [r2, #M_LISTED]
     mov r0, r4
@@ -2052,6 +2342,7 @@ menu_export_done:
     cmp r0, #0
     bne menu_export_fail
     str r8, [r4, #M_NSCRIPTS]
+    bl menu_settings_save           ; and the settings, so the plugins switched off stay off (the page shows the export)
     mov r0, #2
     b menu_export_status
 menu_export_close:
@@ -2355,15 +2646,18 @@ menu_prev_step:
     bl menu_show
     pop {r4, pc}
 menu_leave_left:
-    mov r0, #8
+    mov r0, #10                 ; the page BLECH, EDIT left: back to Event
     mov r1, #0
     ldr pc, =SWITCH_SCREEN
-; the page of Blechy, EDIT left: back to Event, the page before it in the ring
+; the page of Blechy, EDIT left: back to the page BLECH (level 0 of the same screen)
 menu_prev_blechy:
-    pop {r4, lr}
-    mov r0, #10
-    mov r1, #0
-    ldr pc, =SWITCH_SCREEN
+    mov r3, #0
+    str r3, [r2, #M_LEVEL]
+    str r3, [r2, #M_PAGE]
+    str r3, [r2, #M_ENTER]
+    mov r0, r4
+    bl menu_show
+    pop {r4, pc}
 .pool
 
 menu_slot_next:
@@ -2390,12 +2684,15 @@ menu_next_step:
     mov r0, r4
     bl menu_show
     pop {r4, pc}
-menu_next_leave:
-    pop {r4, lr}
-menu_leave_right:
-    mov r0, #14
-    mov r1, #0
-    ldr pc, =SWITCH_SCREEN
+menu_next_leave:               ; the page BLECH, EDIT right: the page of Blechy (level 3 of the same screen)
+    mov r3, #M_LEVEL_BLECHY
+    str r3, [r2, #M_LEVEL]
+    mov r3, #0
+    str r3, [r2, #M_PAGE]
+    str r3, [r2, #M_ENTER]
+    mov r0, r4
+    bl menu_show
+    pop {r4, pc}
 ; the page of Blechy, EDIT right: on to the Pattern menu, the way the firmware's Event menu does it (its slot 0xC0064430 is
 ; hooked, so the displaced first instruction runs here and the rest of it from the second word)
 menu_next_pattern:
@@ -2422,6 +2719,20 @@ menu_slot_value:
     beq menu_value_colour
     cmp r0, #25
     beq menu_value_colour
+    mov r2, #15
+    cmp r0, #26
+    moveq r3, #MX_INTENS
+    beq menu_value_byte
+    cmp r0, #27
+    moveq r3, #MX_SAVE
+    beq menu_value_byte
+    mov r2, #7
+    sub r3, r0, #28
+    cmp r3, #3
+    subls r3, r3, #-MX_METER
+    bls menu_value_byte
+    cmp r0, #32
+    beq menu_value_over
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
@@ -2438,6 +2749,26 @@ menu_slot_value:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
+; INTENSITY, SAVE LIGHT and the meter's colours: r3 = the byte's offset from MENU_STATE, 0 to r2, acting at once like the other look pages
+menu_value_byte:
+    ldrb r1, [r6, r3]
+    adds r1, r1, r5
+    movmi r1, #0
+    cmp r1, r2
+    movgt r1, r2
+    strb r1, [r6, r3]
+    b menu_value_look_done
+; OVERLAP: 0 the colour left, 1 red, 2 blue, 3 pink, in the patch pad-colors; WRITE keeps it
+menu_value_over:
+    mov r1, #20
+    bl menu_pc_call
+    adds r0, r0, r5
+    movmi r0, #0
+    cmp r0, #3
+    movgt r0, #3
+    mov r1, #16
+    bl menu_pc_call
+    b menu_value_look_done
 ; PAD COLOR and SELECT COLOR: the dial steps the colour in the patch, which skips the other page's and sends the pads; WRITE keeps it.
 menu_value_colour:
     mov r2, r5
@@ -2470,8 +2801,8 @@ menu_value_level:
     ldr r3, [r12, #8]
     orrs r1, r1, r3
     bne menu_value_level_set
-    ; all three zero is the stock state, which the page shows as 15 each: up changes nothing, down starts from 15 each (and the
-    ; last channel turned down to 0 is the stock state again, the page shows 15 each once more)
+    ; all three zero is the stock state, which the page shows as 15 each: up changes nothing, down starts from 15 each; all three
+    ; turned back up to 15 is the stock state again, and the last channel cannot go to 0 while the other two are (that would be stock)
     cmp r5, #0
     bge menu_value_look_done
     mov r1, #15
@@ -2487,6 +2818,24 @@ menu_value_level_set:
     cmp r1, #15
     movgt r1, #15
     str r1, [r3, r2, lsl #2]
+    ldr r1, [r12]
+    ldr r0, [r12, #4]
+    and r1, r1, r0
+    ldr r0, [r12, #8]
+    and r1, r1, r0
+    cmp r1, #15                 ; 15 15 15: the stock state
+    moveq r1, #0
+    streq r1, [r12]
+    streq r1, [r12, #4]
+    streq r1, [r12, #8]
+    beq menu_value_look_done
+    ldr r1, [r12]
+    ldr r0, [r12, #4]
+    orr r1, r1, r0
+    ldr r0, [r12, #8]
+    orrs r1, r1, r0             ; 0 0 0 would read as stock: the channel turned down stays at 1
+    moveq r1, #1
+    streq r1, [r3, r2, lsl #2]
     b menu_value_look_done
 menu_value_invert:
     mov r1, #1
@@ -2558,8 +2907,7 @@ menu_value_script:
     ldr r3, [r0, #SCRIPT_ENTRY_STATE]
     cmp r3, #SCRIPT_STATE_LOADED
     cmpeq r12, #1
-    moveq r1, #SCRIPT_STATE_ARMED
-    streq r1, [r0, #SCRIPT_ENTRY_STATE]
+    beq menu_value_script_on
     cmp r3, #SCRIPT_STATE_ARMED
     cmpeq r12, #0
     moveq r1, #SCRIPT_STATE_LOADED
@@ -2568,6 +2916,20 @@ menu_value_done:
     mov r0, r4
     bl menu_show
     pop {r4, r5, r6, pc}
+; on: a plugin the settings kept off at start never ran its start body (no cost recorded for it), so it runs now and arms it
+menu_value_script_on:
+    ldr r1, [r0, #SCRIPT_ENTRY_MAX_COST+4*EV_START]
+    cmp r1, #0
+    movne r1, #SCRIPT_STATE_ARMED
+    strne r1, [r0, #SCRIPT_ENTRY_STATE]
+    bne menu_value_done
+    mov r1, r0
+    ldr r0, =HOOK_RUNTIME
+    mov r2, #EV_START
+    ldr r3, =HOOK_INPUT
+    ldr r12, =VM_SCRIPT_RUN_EVENT
+    blx r12
+    b menu_value_done
 menu_value_item:
     ldr r0, =MENU_ITEMS
     add r0, r0, r1, lsl #5
@@ -2731,6 +3093,9 @@ menu_slot_exit:
     mov r4, r0
     cmp r3, #2
     bne menu_exit_up
+    ldr r12, [r2, #M_GROUP]
+    cmp r12, #5
+    bhs menu_exit_sub
     ldr r12, [r2, #M_LISTED]
     cmp r12, #0
     beq menu_exit_up
@@ -2742,6 +3107,10 @@ menu_exit_up:
     mov r12, #0
     str r12, [r2, #M_STATUS]
     str r12, [r2, #M_LISTED]
+    cmp r3, #1                  ; out of the list: it opens on this row the next time
+    ldreq r12, [r2, #M_PAGE]
+    streq r12, [r2, #M_TOP]
+    moveq r12, #0
     sub r3, r3, #1
     str r3, [r2, #M_LEVEL]
     cmp r3, #1
@@ -2752,6 +3121,13 @@ menu_exit_show:
     mov r0, r4
     bl menu_show
     pop {r1, r2, r4, pc}
+menu_exit_sub:                   ; out of DISPLAY, LED or PAD COLOR: back to its row in CUSTOMIZATION
+    sub r12, r12, #5
+    str r12, [r2, #M_PAGE]
+    str r12, [r2, #M_ENTER]
+    mov r12, #3
+    str r12, [r2, #M_GROUP]
+    b menu_exit_show
 menu_exit_stock_pop:
     pop {r1, r2, r4, lr}
 menu_exit_stock:
@@ -2786,12 +3162,50 @@ str_tab_custom:
     .asciz "Custom"
 str_tab_features:
     .asciz "Feature"
+str_meter_still:
+    .asciz "METER STILL"
+str_meter_low:
+    .asciz "METER LOW"
+str_meter_mid:
+    .asciz "METER MID"
+str_meter_loud:
+    .asciz "METER LOUD"
+str_over:
+    .asciz "OVERLAP"
+str_auto:
+    .asciz "AUTO"
+str_c_white:
+    .asciz "WHITE"
+str_c_red:
+    .asciz "RED"
+str_c_green:
+    .asciz "GREEN"
+str_c_blue:
+    .asciz "BLUE"
+str_c_yellow:
+    .asciz "YELLOW"
+str_c_cyan:
+    .asciz "CYAN"
+str_c_pink:
+    .asciz "PINK"
+str_intens:
+    .asciz "INTENSITY"
+str_save:
+    .asciz "SAVE LIGHT"
+str_stock_word:
+    .asciz "STOCK"
+str_tab_display:
+    .asciz "Display"
+str_tab_led:
+    .asciz "LED"
+str_tab_pads:
+    .asciz "Pads"
+str_display:
+    .asciz "DISPLAY"
+str_pads:
+    .asciz "PAD COLOR"
 str_press:
     .asciz "press  [ Enter ]"
-str_arrow:
-    .asciz " > "
-str_arrow_end:
-    .asciz " >"
 str_runtime:
     .asciz "RUNTIME"
 str_enter:
@@ -2802,10 +3216,6 @@ str_no_files:
     .asciz "no files"
 str_import:
     .asciz "IMPORT PLUGIN"
-str_import_hint:
-    .asciz "WRITE to import"
-str_no_blech:
-    .asciz "no .blech files"
 str_imported:
     .asciz "imported"
 str_runtime_off:
@@ -2818,8 +3228,6 @@ str_duplicate:
     .asciz "already loaded"
 str_pool_full:
     .asciz "memory full"
-str_ask:
-    .asciz "ASK"
 str_allow:
     .asciz "WRITE=ALLOW"
 str_fault:
@@ -2840,10 +3248,6 @@ str_nofolder:
     .asciz "folder missing"
 str_export:
     .asciz "EXPORT ALL"
-str_write:
-    .asciz "WRITE"
-str_exportfile:
-    .asciz "to e2sPlugin.all"
 str_exported:
     .asciz " exported"
 str_nothing:
@@ -2862,10 +3266,6 @@ str_custom:
     .asciz "CUSTOMIZATION"
 str_features:
     .asciz "FEATURES"
-str_custom_value:
-    .asciz "LEDS, LIGHT"
-str_custom_hint:
-    .asciz "WRITE to save"
 str_led_red:
     .asciz "LED RED"
 str_led_green:
@@ -2898,9 +3298,28 @@ str_na:
     .asciz "NOTE ASSIST"
 .align 4
 tab_names:
-    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features
+    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads
 group_names:
-    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features
+    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features, str_display, str_tab_led, str_pads
+custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD COLOR (groups 5 to 7), SPLASH IMPORT, SPLASH DRAW
+    .byte 16, 16, 16, 22, 23
+.align 4
+sub_kinds:                      ; the kinds of the pages of DISPLAY, LED and PAD COLOR, 8 a group (device 18.10.)
+    .byte 11, 12, 13, 26, 27, 14, 0, 0  ; DISPLAY: backlight red, green, blue, INTENSITY, SAVE LIGHT, display invert
+    .byte 7, 8, 9, 10, 28, 29, 30, 31   ; LED: bottom LEDs, LED red, green, blue, the meter's four colours
+    .byte 24, 25, 32, 0, 0, 0, 0, 0     ; PAD COLOR: pad colour, select colour, overlap
+sub_counts:
+    .byte 6, 8, 3, 0
+meter_palette:                  ; red, green, blue of the colours 1 to 7, then the firmware's colours of the four zones
+    .byte 0, 0, 0,  160, 160, 160,  255, 0, 0,  0, 255, 0,  0, 0, 255,  255, 160, 0,  0, 200, 255,  255, 0, 160
+    .byte 120, 120, 120,  0, 0, 255,  0, 255, 0,  255, 0, 0
+.align 4
+meter_titles:
+    .word str_meter_still, str_meter_low, str_meter_mid, str_meter_loud
+over_names:
+    .word str_auto, str_c_red, str_c_blue, str_c_pink
+colour_names:
+    .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
 str_once:
