@@ -104,9 +104,9 @@ zweiter Knopf, Code ansehen als Link.
 
 ### Aktuell: Werkbank mit höchstens 5 FPS
 
-Die Werkbank behält ihre Gestaltung. Neue Bewegung als Schleife: Blechy zieht die Line von links nach rechts weg,
-bleibt rechts stehen, dann Schnitt und links liegt eine neue Line. **Höchstens fünf Bilder pro Sekunde**, jedes
-Bild mindestens 200 ms. Eine eigene Schleife zeigt nur die Bewegung bei festen 42 Prozent.
+Ein Durchgang von 0 bis 100 %: Blechy zieht die Line von links nach rechts weg, die Pupillen wachsen. Oben
+BLECHTRIBE als ein Wort, unten links der Status ("LADE SAMPLES..."), rechts die Prozentzahl. **Höchstens fünf
+Bilder pro Sekunde**, jedes Bild mindestens 200 ms.
 
 ![Werkbank mit höchstens 5 FPS](geraet/vorschau/neu/werkbank-5fps.gif)
 

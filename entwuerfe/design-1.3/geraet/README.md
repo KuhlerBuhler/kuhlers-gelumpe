@@ -1,10 +1,11 @@
-# Blechy: eine Line je Schleife, höchstens 5 FPS
+# Blechy: ein Durchgang von 0 bis 100 Prozent, höchstens 5 FPS
 
 Stand 19.10.2026. Die [Übergabe](uebergabe-2026-10-19.yaml) und die anschließende Rückmeldung sind die Grundlage.
 Die Gestaltung der Werkbank mit hellem Originalgesicht, festem BLECH und Fußzeile bleibt. Die Bewegung ist
-überarbeitet (Rückmeldung 19.10. abends): eine Schleife wie ein GIF. Blechy setzt das Röhrchen an, zieht die Line
-von links nach rechts weg und bleibt rechts stehen. Dann fängt die Schleife links mit einer neuen Line wieder an,
-als harter Schnitt, ohne Rückweg.
+überarbeitet (Rückmeldung 19.10. abends): ein einziger Durchgang. Blechy setzt das Röhrchen an und zieht die Line von
+links nach rechts weg, während die Pupillen wachsen. Die Line ist der Balken: wo die Rohrspitze steht, steht der
+Ladestand. Oben steht BLECHTRIBE als ein Wort (Impact 22, `blechtribe-titel.png`), unten links der Status
+("STARTE...", "LADE SAMPLES...", "FERTIG"), rechts die Prozentzahl.
 
 **Die Vorgabe lautet höchstens fünf Bilder pro Sekunde, nicht fünf Bilder insgesamt.** Jeder Bildzustand bleibt
 mindestens 200 ms sichtbar. Das gilt auch für kurze Zwischenbilder, Prozentänderungen und den letzten Zustand
@@ -19,25 +20,19 @@ früheren Layoutstudien in den Farben und Schriften der App, auch in nativen 128
 
 ![Werkbank mit höchstens 5 FPS](vorschau/neu/werkbank-5fps.gif)
 
-Die Demo zeigt drei Schleifen, stufenweise größere Pupillen, die Prozentzahl und den Wechsel von TRIBE zu
-LADEN und LAEUFT. Die Line ist hier Geste, nicht Balken: den Fortschritt tragen Prozentzahl und Pupillen. Die Beispieldauer verlängert keinen
+Die Demo zeigt den einen Durchgang mit 19 Bildern über 5,4 Sekunden. Die Beispieldauer verlängert keinen
 Gerätestart: Der echte Lader darf jederzeit zum aktuellen Fortschritt oder zum fertigen Hauptbild springen.
 
-### Nur die Bewegung, höchstens 5 FPS
-
-![Bewegung bei festem Fortschritt](vorschau/neu/werkbank-loop-5fps.gif)
-
-Hier bleiben die 42 Prozent und die Pupillengröße gleich. Ein Durchlauf hat 15 Bilder über 3,8 Sekunden.
+### Ablauf
 
 | Schritt | Haltung | Haltezeit |
 |---|---|---:|
-| Bereit | links, volle Line, Röhrchen abgesetzt | 400 ms |
-| Senken, Ansetzen | Kopf zwei Pixel tiefer, Rohr kurz vor der Line | 2 × 200 ms |
-| Ziehen | Rohr auf der Line, Blechy rückt in 6-Pixel-Schritten 48 Pixel nach rechts, die Spitze frisst die Line | 9 × 200 ms |
-| Lösen, Aufrichten | rechts, Line weg | 2 × 200 ms |
-| Stehen | rechts, ruhige Haltung | 800 ms |
+| Start | volle Line, Röhrchen abgesetzt, "STARTE..." | 600 ms |
+| Bereit, Senken, Ansetzen | Kopf zwei Pixel tiefer, Rohr kurz vor der Line | 400 + 2 × 200 ms |
+| Ziehen | Rohr auf der Line, je 4 Pixel Fortschritt rückt Blechy 4 Pixel nach rechts, bis 48 | 13 × 200 ms |
+| Fertig | Line weg, große Pupillen, "FERTIG", 100 % | 200 + 1200 ms |
 
-Danach Schnitt zurück auf "Bereit". Tisch, BLECH, Textspalte und Fußzeile bleiben in jedem Bild gleich.
+`werkbank-loop*.gif` zeigt denselben Durchgang, damit die Vergleichsseite ihre Plätze behält.
 
 ### Abschied im selben Zeitlimit
 
@@ -53,15 +48,15 @@ auch dieser Ablauf unter der FPS-Grenze und passt weiterhin in das vorhandene 10
 **Blechy beugt sich an einem festen Ort.** Der Körper bleibt bei derselben X-Position. Der Kopf geht in einzelnen
 Pixelschritten höchstens drei Pixel nach unten und wieder zurück. Die linke Hand hält ihre festen Pixel auf dem
 Tisch. Die gesamte Figuren- und Armzeichnung endet oberhalb der Tischkante; Fußzeile und BLECH bleiben frei.
-Fortschritt verschiebt den Körper nicht seitlich; nur die Schleife tut das (`shift`, 0 bis 48).
+Der Fortschritt verschiebt den Körper (`shift`, 0 bis 48 in 4-Pixel-Schritten), sonst nichts.
 
 **Die Hand hält ein starres Röhrchen.** In der Werkbank beträgt sein Vektor 12 × 9 Pixel, also 15 Pixel Länge.
 In der tiefsten Pose liegen Nase bei `(37, 44)` und Rohrspitze bei `(49, 53)` exakt auf der Materialhöhe. Der
 Griff bleibt bei 63 Prozent der Achse; beide Armstücke bleiben neun Pixel lang. Absetzen verschiebt das ganze
 Rohr mit der Hand. Es gibt weder eine wachsende Nase noch ein länger werdendes Rohr.
 
-**Eine Line je Schleife.** Sie liegt bei y 53 von x 49 bis 97. Beim Ziehen fehlt alles links der Rohrspitze
-(`eaten`). Bei einem hängenden Lader läuft die Schleife weiter, Prozent und Pupillen bleiben stehen.
+**Die Line ist der Balken.** Sie liegt bei y 53 von x 49 bis 97. Beim Ziehen fehlt alles links der Rohrspitze
+(`eaten`). Bei einem hängenden Lader bleibt das Bild stehen.
 
 **Das Originalgesicht bleibt erhalten.** Gesicht, Augenabstand, Augenringe und Braue stammen aus den vorhandenen
 56×56-Sprites. Gesicht hell, Pupillen dunkel, eine Lichtkante von einem Pixel um den dunklen Körper. Die
@@ -103,8 +98,7 @@ Geräte-Vorgabe für reduzierte Bewegung ist die begrenzte Bildrate; sie bedeute
 ## Echten Fortschritt anschließen
 
 `render_frame(direction, progress, pose=..., started=..., done=..., shift=..., eaten=...)` erzeugt ein neues
-Pillow-Bild ohne Uhr, Zufall oder Dateiausgabe. `loop_state(elapsed_ms, progress)` liefert den aktuellen Zustand
-aus der Schleife.
+Pillow-Bild ohne Uhr, Zufall oder Dateiausgabe. `pass_state(progress, done)` liefert den Zustand zum Ladestand.
 Verpasste Zeitpunkte werden übersprungen; es gibt keine nachzuholende Bilderschlange.
 
 Der spätere Display-Aufrufer muss **alle** Bildänderungen gemeinsam auf mindestens 200 ms Abstand begrenzen,
@@ -113,7 +107,7 @@ möglicher Aufruf sieht so aus; `now_ms`, `last_draw_ms` und die Laderdaten geh�
 
 ```python
 if now_ms - last_draw_ms >= MIN_FRAME_MS:
-    st = loop_state(now_ms, progress)
+    st = pass_state(progress, loader_done)
     frame = render_frame("werkbank", progress, pose=st.pose, shift=st.shift,
                          eaten=st.eaten, done=loader_done)
     last_draw_ms = now_ms
@@ -151,15 +145,12 @@ umgestellt.
 
 | Folge | GIF-Bilder | Unterschiedliche Raster | Kürzeste Haltezeit | Bildwechsel höchstens |
 |---|---:|---:|---:|---:|
-| Werkbank, Ladedemo | 46 | 46 | 200 ms | 5 pro Sekunde |
-| Werkbank, Schleife bei 42 Prozent | 15 | 15 | 200 ms | 5 pro Sekunde |
+| Werkbank, Ladedemo | 19 | 19 | 200 ms | 5 pro Sekunde |
 | Ausschalten, ohne GIF-Wiederholungspause | 5 | 5 | 200 ms | 5 pro Sekunde |
 
-Ein Schritt beim Ziehen schaltet einige hundert Pixel, der Schnitt zurück an den Anfang am meisten: 803 Pixel auf
-höchstens fünf LCD-Seiten (Schleife) bzw. sieben (Demo). Das ist der Preis für die Bewegung über den Schirm; auf
-dunklem Grund zieht das LCD helle Spuren, die sieht man weniger als dunkle. Messen am Gerät steht aus.
+Ein Bildwechsel schaltet höchstens 430 Pixel auf höchstens sechs LCD-Seiten. Messen am Gerät steht aus.
 
-Die 17 gezielten Python-Prüfungen sichern unter anderem tatsächliche GIF-Haltezeiten, pixelgenaue Ausgabe in
+Die 18 gezielten Python-Prüfungen sichern unter anderem tatsächliche GIF-Haltezeiten, pixelgenaue Ausgabe in
 1×/4×, feste Bildbereiche, fehlenden Körperversatz durch Fortschritt, Rohr- und Griffgeometrie, beide Bitordnungen,
 Controllerinvertierung und das 1000-ms-Ausschaltfenster. Der zuvor zu schnelle 100-/120-ms-Ablauf fällt durch
 diese Prüfungen. Auch ein einzelnes Bild von 199 ms wird unabhängig von der Durchschnittsrate zurückgewiesen.

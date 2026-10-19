@@ -32,7 +32,7 @@ DIRECTIONS = ("werkbank", "typenschild", "praegung")
 NAMES = {"werkbank": "Werkbank", "typenschild": "Typenschild", "praegung": "Prägung"}
 TABLE_Y, DASH_Y = 55, 53
 DASH_START = 49                 # tube tip in the draw pose at the left end
-SWEEP, SWEEP_STEP = 48, 6       # one line per loop, drawn left to right
+SWEEP, SWEEP_STEP = 48, 4       # the line is the bar: one pass from 0 to 100 percent
 DASH_LENGTH = SWEEP + 1
 BODY_X, BODY_Y = 8, 18
 NOSE = (29, 23)                 # lower edge of the original face, no new bulb
@@ -114,21 +114,19 @@ MOTION_POSES = {
 }
 
 
-def loop_state(elapsed_ms, progress):
-    """Select the current loop frame directly, even after missed timer ticks.
+def pass_state(progress, done=False):
+    """The loader's value picks the frame: Blechy stands where his tip has eaten the line.
 
-    The display caller must also rate-limit progress/text updates to 200ms.
-    This pure lookup never queues old frames for a catch-up burst.
+    The display caller must rate-limit updates to 200ms; the position snaps to
+    SWEEP_STEP, so most loader ticks change nothing on the screen.
     """
-    if not math.isfinite(elapsed_ms):
-        raise ValueError("Elapsed time must be finite")
-    cues = sweep_loop(progress)
-    phase = max(0, elapsed_ms) % sum(c.duration_ms for c in cues)
-    for cue in cues:
-        if phase < cue.duration_ms:
-            return cue.state
-        phase -= cue.duration_ms
-    return cues[-1].state
+    if not math.isfinite(progress):
+        raise ValueError("Progress must be finite")
+    if done:
+        return State(1, "settle", done=True, shift=SWEEP, eaten=SWEEP + 1)
+    value = min(0.99, max(0.0, progress))
+    shift = SWEEP_STEP * round(value * SWEEP / SWEEP_STEP)
+    return State(value, "draw", shift=shift, eaten=shift)
 
 
 def werkbank_origin(pose, shift=0):
@@ -291,6 +289,18 @@ def status(image, state, x, y, *, small=False, tall=False):
     text(image, word, x, y, small=small, tall=tall)
 
 
+def status_line(state):
+    """Footer text; the firmware fills in what it is doing."""
+    return "FERTIG" if state.done else "LADE SAMPLES..." if state.started else "STARTE..."
+
+
+@lru_cache(maxsize=1)
+def wordmark():
+    """BLECHTRIBE as one word, Impact 22 at (4, 2), read from the checked-in PNG (black = lit)."""
+    with Image.open(HERE / "blechtribe-titel.png") as source:
+        return ImageChops.invert(source.convert("L")).point(lambda v: 255 if v >= 128 else 0, "1")
+
+
 def percent(image, state, y=58, right=123, *, small=True):
     value = f"{state.percent}%"
     width = r.width3(value) if small else r.text_width(value)
@@ -313,10 +323,7 @@ def draw_dashes(image, state):
 
 def werkbank(state):
     image = blank()
-    title(image, (4, 2, 72, 17))
-    status(image, state, 86, 1)
-    text(image, "FEINSTES", 86, 11, small=True)
-    text(image, "GELUMPE", 86, 17, small=True)
+    image.paste(LIGHT, (0, 0), wordmark())
     d = ImageDraw.Draw(image)
     d.line((4, TABLE_Y, 123, TABLE_Y), fill=LIGHT)
     # Chamfered tray and material stay at the same screen location.
@@ -340,7 +347,7 @@ def werkbank(state):
     coverage = ImageChops.logical_or(coverage, gesture)
     box = (0, 20, W, TABLE_Y)
     image.paste(gesture.crop(box), (0, 20), coverage.crop(box))
-    text(image, "KUHLER_BUHLER", 4, 58, small=True)
+    text(image, status_line(state), 4, 58, small=True)
     percent(image, state)
     return image
 
@@ -406,41 +413,26 @@ def render_frame(direction, progress, *, pose="draw", started=True, done=False, 
     return {"werkbank": werkbank, "typenschild": typenschild, "praegung": praegung}[direction](state)
 
 
-def sweep_loop(start=0.42, end=None):
-    """One GIF-like loop: set the tube, draw one line left to right, stop.
-
-    The loop ends with Blechy standing at the right and the line gone. The next
-    loop starts again at the left with a new line, as a cut, no walk back.
-    Progress comes from the loader; the demo only lets it grow while drawing.
-    """
-    end = start if end is None else end
-    steps = SWEEP // SWEEP_STEP
-    cues = [Cue(State(start, "ready"), 400),
-            Cue(State(start, "lower"), MIN_FRAME_MS),
-            Cue(State(start, "reach"), MIN_FRAME_MS)]
-    for i in range(steps + 1):
-        shift = i * SWEEP_STEP
-        value = start + (end - start) * i / steps
-        cues.append(Cue(State(value, "draw", shift=shift, eaten=shift), MIN_FRAME_MS))
-    gone = SWEEP + 1
-    cues += [Cue(State(end, "lift", shift=SWEEP, eaten=gone), MIN_FRAME_MS),
-             Cue(State(end, "rise", shift=SWEEP, eaten=gone), MIN_FRAME_MS),
-             Cue(State(end, "settle", shift=SWEEP, eaten=gone), 800)]
-    return cues
-
-
 def demo_timeline():
-    """Three loops at <=5 FPS, then done. Only an example, never a boot length."""
-    cues = [Cue(State(0, "ready", started=False), 600)]
-    for pull in range(3):
-        cues += sweep_loop(pull / 3, min(0.99, (pull + 1) / 3))
-    cues.append(Cue(State(1, "settle", done=True, shift=SWEEP, eaten=SWEEP + 1), 1000))
+    """0 to 100 percent in one pass at <=5 FPS: set the tube, draw the line, done.
+
+    Example pacing only. The real loader decides the time, pass_state() the frame.
+    """
+    cues = [Cue(State(0, "ready", started=False), 600),
+            Cue(State(0, "ready"), 400),
+            Cue(State(0, "lower"), MIN_FRAME_MS),
+            Cue(State(0, "reach"), MIN_FRAME_MS)]
+    steps = SWEEP // SWEEP_STEP
+    for i in range(steps + 1):
+        cues.append(Cue(pass_state(i / steps), MIN_FRAME_MS))
+    cues += [Cue(State(0.99, "lift", shift=SWEEP, eaten=SWEEP + 1), MIN_FRAME_MS),
+             Cue(pass_state(1, done=True), 1200)]
     return cues
 
 
-def motion_timeline(progress=0.42):
-    """One loop with fixed loader data, to judge the movement alone."""
-    return sweep_loop(progress)
+def motion_timeline():
+    """The same single pass; kept so the review page keeps its second slot."""
+    return demo_timeline()
 
 
 def layout_timeline():
@@ -641,7 +633,7 @@ def main():
             loop_result = export_sequence("werkbank-loop", motion_frames,
                                           [cue.duration_ms for cue in motion], preview_dir, raw_dir,
                                           palette=args.palette, include_loop=True)
-            loop_result["kind"] = "one line drawn left to right at up to 5 FPS, fixed 42 percent"
+            loop_result["kind"] = "same single pass as werkbank"
             loop_result["timeline"] = timeline_metadata(motion)
             result["motion_loop"] = loop_result
             # Stable, explicit links for reviewing the corrected frame rate.
