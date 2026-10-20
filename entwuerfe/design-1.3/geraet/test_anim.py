@@ -89,12 +89,21 @@ class FrameContractTests(unittest.TestCase):
                                  mark.crop((0, 0, 128, 20)).tobytes())
 
     def test_eyes_look_then_shut_then_tear_open(self):
-        timeline = anim.demo_timeline()
-        self.assertEqual(timeline[0].state.eyes, anim.EYES_LOOK)
-        self.assertTrue(all(cue.state.eyes == anim.EYES_CLOSED for cue in timeline[1:-1]))
-        self.assertEqual(timeline[-1].state.eyes, anim.EYES_WIDE)
+        clock = 0
+        for cue in anim.demo_timeline():
+            look = anim.unhinged_look(cue.state, clock)
+            with self.subTest(pose=cue.state.pose, done=cue.state.done, t=clock):
+                if not cue.state.started:
+                    self.assertEqual(look, anim.EYES_LOOK, "The still splash looks at you")
+                elif not cue.state.done:
+                    self.assertEqual(look[:2], (anim.EYES_CLOSED, anim.EYES_CLOSED), "Eyes shut while drawing")
+                else:
+                    self.assertNotEqual(look[0], look[1], "Torn open with unequal pupils")
+                    self.assertTrue(look[5], "The small eye is bloodshot")
+            clock += cue.duration_ms
         for progress in (0.01, 0.37, 0.5, 0.88, 0.99):
-            self.assertEqual(anim.pass_state(progress).eyes, anim.EYES_CLOSED)
+            self.assertEqual(anim.unhinged_look(anim.pass_state(progress), 1234)[:2],
+                             (anim.EYES_CLOSED, anim.EYES_CLOSED))
 
     def test_footer_shows_the_status_text(self):
         still = anim.render_frame("werkbank", 0, pose="ready", started=False).crop((0, 56, 128, 64))

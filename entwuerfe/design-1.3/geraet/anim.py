@@ -197,8 +197,15 @@ def body_mask():
     return silhouette
 
 
-@lru_cache(maxsize=16)
 def character(pupil, pose="idle"):
+    """pupil: one PUPILS index or EYES_CLOSED for both eyes, or a look tuple
+    (left, right, jitter_x, jitter_y, brow_up, veins) for the unhinged face."""
+    look = pupil if isinstance(pupil, tuple) else (pupil, pupil, 0, 0, 0, False)
+    return _character(look, pose)
+
+
+@lru_cache(maxsize=64)
+def _character(look, pose):
     """Original 56px sprite, original face polarity, one-pixel body rim.
 
     The body ellipses and open face patch follow tools/art/make_blechy.py. The
@@ -214,12 +221,13 @@ def character(pupil, pose="idle"):
     face = ImageChops.logical_and(original, silhouette)
     result = ImageChops.logical_or(rim, face)
     d = ImageDraw.Draw(result)
-    # The detached eyebrow is outside the original face silhouette.
+    left, right, jx, jy, brow, veins = look
+    # The detached eyebrow is outside the original face silhouette; brow lifts it for a twitch.
     for y in range(5, 10):
         for x in range(29, 39):
             if original.getpixel((x, y)) == DARK:
-                d.point((x, y), fill=LIGHT)
-    for ex, ey in ((21, 14), (33, 16 if pose == "idle" else 14)):
+                d.point((x, y - brow), fill=LIGHT)
+    for (ex, ey), pupil in zip(((21, 14), (33, 16 if pose == "idle" else 14)), (left, right)):
         d.ellipse((ex - 3, ey - 3, ex + 3, ey + 3), fill=LIGHT)
         if pupil == EYES_CLOSED:
             # A shut lid: one dark row, the corners a pixel higher.
@@ -228,10 +236,54 @@ def character(pupil, pose="idle"):
             d.point((ex + 3, ey), fill=DARK)
             continue
         for dx, dy in PUPILS[pupil]:
-            d.point((ex + dx, ey + dy), fill=DARK)
+            dx, dy = dx + jx, dy + jy
+            if dx * dx + dy * dy <= 9:          # a shaking pupil stays inside the eye
+                d.point((ex + dx, ey + dy), fill=DARK)
         if pupil == 5:
-            d.point((ex - 1, ey - 1), fill=LIGHT)
+            d.point((ex - 1 + jx, ey - 1 + jy), fill=LIGHT)
+        elif veins:
+            # Bloodshot: dark threads from the rim into the white.
+            for vx, vy in ((-3, 1), (-2, 2), (3, -1), (2, -2), (1, 3)):
+                d.point((ex + vx, ey + vy), fill=DARK)
     return result
+
+
+character.cache_clear = _character.cache_clear
+
+
+JITTER = ((0, 0), (1, 0), (0, 1), (-1, 0), (1, -1), (0, 0), (-1, 1), (0, -1))
+
+
+def unhinged_look(state, t_ms):
+    """Shut eyes with a twitching brow while drawing; at 100 one huge and one tiny
+    pupil that shake, the small eye bloodshot. Deterministic in t_ms."""
+    if not state.started:
+        return EYES_LOOK
+    tick = t_ms // MIN_FRAME_MS
+    if not state.done:
+        return (EYES_CLOSED, EYES_CLOSED, 0, 0, 1 if tick % 14 in (0, 1) else 0, False)
+    jx, jy = JITTER[tick % len(JITTER)]
+    return (4, 0, jx, jy, 1 if tick % 6 < 3 else 0, True)
+
+
+def sweat(image, origin, t_ms):
+    """A drop runs down the left side of the head, a pixel per frame, then a new one."""
+    x, y = origin[0] + 9, origin[1] + 8 + (t_ms // MIN_FRAME_MS) % 14
+    px = image.load()
+    for dx, dy in ((0, 0), (0, 1), (-1, 1), (0, 2), (-1, 2), (0, 3), (-1, 3)):
+        if 0 <= y + dy < TABLE_Y:
+            px[x + dx, y + dy] = LIGHT
+
+
+def shake_lines(image, origin, t_ms):
+    """Terror-sprite tremor marks beside the head, on every other frame."""
+    if (t_ms // MIN_FRAME_MS) % 2:
+        return
+    d = ImageDraw.Draw(image)
+    x, y = origin
+    for a, b in (((x + 6, y + 6), (x + 4, y + 9)), ((x + 5, y + 13), (x + 3, y + 16)),
+                 ((x + 46, y + 4), (x + 48, y + 7)), ((x + 47, y + 11), (x + 49, y + 14))):
+        d.line((a, b), fill=LIGHT)
 
 
 def actor(image, origin, pupil, *, crop=56, legs=False, sprite_pose="idle"):
@@ -346,7 +398,7 @@ STAR_TOP, STAR_BOTTOM = 20, 52    # between the wordmark and the line
 
 @lru_cache(maxsize=1)
 def stars():
-    """A dozen stars like the app background (site/design/bg.js): three depths, slow fall, a short blink."""
+    """A dozen stars like the app background (site/design/bg.js): three depths, each blinks off now and then."""
     seed = 23
     out = []
     for _ in range(14):
@@ -366,10 +418,9 @@ def draw_stars(image, t_ms):
     t = t_ms / 1000
     span = STAR_BOTTOM - STAR_TOP
     for x, y, layer, period, phase in stars():
-        if t and (t / period + phase) % 1 > 0.9:
+        if t and (t / period * 4 + phase) % 1 > 0.85:
             continue
-        speed = (0.5, 1.2, 2.2)[layer]
-        yy = STAR_TOP + int(y * span + speed * t) % span
+        yy = STAR_TOP + int(y * span)       # stars stay put: falling ones read as snow
         px[x, yy] = LIGHT
         if layer == 2:
             px[x + 1, yy] = LIGHT
@@ -389,7 +440,11 @@ def werkbank(state, t_ms=0):
     # The figure dips behind the fixed table. Clip the complete arm/figure
     # layer, not just the body, so no pose can alter the edge or footer.
     gesture = blank()
-    actor(gesture, origin, state.eyes, crop=TABLE_Y-origin[1])
+    actor(gesture, origin, unhinged_look(state, t_ms), crop=TABLE_Y-origin[1])
+    if state.started and not state.done:
+        sweat(gesture, origin, t_ms)
+    if state.done:
+        shake_lines(gesture, origin, t_ms)
     arm = ImageDraw.Draw(gesture)
     hx = BODY_X + 8 + shift
     for finger in (0, 2, 4):
@@ -484,8 +539,8 @@ def demo_timeline():
     steps = SWEEP // SWEEP_STEP
     for i in range(steps + 1):
         cues.append(Cue(pass_state(i / steps), MIN_FRAME_MS))
-    cues += [Cue(State(0.99, "lift", shift=SWEEP, eaten=SWEEP + 1), 100),
-             Cue(pass_state(1, done=True), 1200)]
+    cues += [Cue(State(0.99, "lift", shift=SWEEP, eaten=SWEEP + 1), 100)]
+    cues += [Cue(pass_state(1, done=True), MIN_FRAME_MS)] * 24
     return cues
 
 
