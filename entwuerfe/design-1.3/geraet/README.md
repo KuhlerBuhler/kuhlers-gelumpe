@@ -47,9 +47,10 @@ die Prozente.
 ### Festes Startbild
 
 `vorschau/neu/startbild.png` (nativ `png/neu/startbild.png`, mit `--pack` auch als BIN): das Bild vor der
-Animation, ein reiner Datenpatch wie `splash.bin`. Blechy an der Startposition hält eine übergroße Kapsel (eine
-Hälfte hohl und offen, eine voll) und streut den Rest der Line vor sich hin, der hintere Teil liegt schon. Er
-schielt dabei auf den Haufen. Unten "MEINE ELECTRIBE ROOCHT BLECH!".
+Animation, ein reiner Datenpatch wie `splash.bin`. Blechy an der Startposition kippt ein übergroßes Reaktionsgefäß
+(Eppendorf-Röhrchen: Spitze zu ihm, Öffnung mit dickem Rand nach rechts unten, Deckel hängt offen am Band) über
+den Tisch. Der Rest rieselt vor ihm auf einen Haufen, der hintere Teil der Line liegt schon. Er schielt dabei
+auf das Röhrchen. Unten "MEINE ELECTRIBE ROOCHT BLECH!".
 
 ![Startbild](vorschau/neu/startbild.png)
 

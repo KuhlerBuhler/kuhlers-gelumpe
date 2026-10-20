@@ -275,33 +275,30 @@ def unhinged_look(state, t_ms):
 
 
 def still_splash():
-    """The fixed splash before loading: Blechy where the pass starts, an oversized
-    capsule in his hand, pouring the last of the line out in front of himself."""
+    """The fixed splash before loading: Blechy where the pass starts, tipping an oversized
+    snap-cap tube (Eppendorf style) over the table, the rest trickling out in front of him."""
     image = backdrop()
     d = ImageDraw.Draw(image)
     d.line((4, TABLE_Y, 123, TABLE_Y), fill=LIGHT)
-    # The line is laid from the far end; the near part still trickles out of the capsule.
-    laid = State(0, "draw", eaten=STILL_LAID_FROM)
-    draw_dashes(image, laid)
+    # The far part of the line is already down; the rest still runs out of the tube.
+    draw_dashes(image, State(0, "draw", eaten=STILL_LAID_FROM))
     px = image.load()
     for x, y in STILL_HEAP:
         px[x, y] = LIGHT
     origin = werkbank_origin("ready")
     gesture = blank()
-    # Looking down at the capsule, a bit off: one pupil low, one wandering.
+    # Looking down at the tube, a bit off.
     actor(gesture, origin, (1, 1, 1, 1, 0, False), crop=TABLE_Y - origin[1])
+    draw_vial(gesture)
     g = ImageDraw.Draw(gesture)
     shoulder = (origin[0] + SHOULDER[0], origin[1] + SHOULDER[1])
-    grip = STILL_GRIP
-    elbow = (shoulder[0] + 8, shoulder[1] - 6)
-    g.line((shoulder, elbow, grip), fill=DARK, width=3)
-    g.line((shoulder, elbow, grip), fill=LIGHT, width=1)
-    cap = capsule()
-    gesture.paste(cap, (grip[0] - cap.width // 2, grip[1] - cap.height // 2), capsule_mask())
-    gx, gy = grip
-    g.rectangle((gx - 2, gy - 2, gx + 2, gy + 2), fill=DARK)
-    g.rectangle((gx - 1, gy - 1, gx + 1, gy + 1), fill=LIGHT)
-    g.point((gx - 1, gy), fill=DARK)
+    g.line((shoulder, STILL_ELBOW, STILL_GRIP), fill=DARK, width=3)
+    g.line((shoulder, STILL_ELBOW, STILL_GRIP), fill=LIGHT, width=1)
+    gx, gy = STILL_GRIP
+    g.rectangle((gx - 3, gy - 3, gx + 3, gy + 3), fill=DARK)
+    g.rounded_rectangle((gx - 2, gy - 2, gx + 2, gy + 2), radius=1, fill=LIGHT)
+    g.line((gx - 1, gy - 1, gx - 1, gy + 1), fill=DARK)          # fingers round the tube
+    g.line((gx + 1, gy - 1, gx + 1, gy + 1), fill=DARK)
     gp = gesture.load()
     for x, y in STILL_STREAM:
         gp[x, y] = LIGHT
@@ -314,31 +311,48 @@ def still_splash():
     return image
 
 
-STILL_GRIP = (66, 37)
-STILL_LAID_FROM = 18                  # line pixels from DASH_START + 18 on are already down
-STILL_STREAM = ((56, 44), (57, 45), (56, 46), (55, 47), (56, 48), (57, 49), (55, 50), (56, 51), (58, 47), (54, 49))
-STILL_HEAP = ((54, 53), (55, 53), (56, 52), (57, 52), (58, 53), (59, 53),
-              (51, 54), (52, 54), (53, 54), (54, 54), (55, 54), (56, 54), (57, 54), (58, 54), (59, 54),
-              (60, 54), (61, 54), (62, 54), (63, 54), (64, 54), (65, 54), (66, 54))
+# The tube runs from its closed conical tip (up-left, near Blechy) to the open mouth (down-right).
+VIAL_TIP, VIAL_MOUTH = (53, 24), (77, 38)
+STILL_ELBOW = (54, 44)
+STILL_GRIP = (64, 31)
+STILL_LAID_FROM = 34                  # line pixels from DASH_START + 32 on are already down
+STILL_STREAM = ((79, 42), (78, 44), (80, 45), (79, 47), (78, 49), (80, 50), (79, 51))
+STILL_HEAP = ((77, 53), (78, 53), (79, 52), (80, 52), (81, 53), (82, 53),
+              (74, 54), (75, 54), (76, 54), (77, 54), (78, 54), (79, 54), (80, 54), (81, 54), (82, 54))
 
 
-@lru_cache(maxsize=1)
-def capsule():
-    """An oversized two-tone capsule, tilted so its open end points down-left: the lower
-    half hollow (an outline, open at the end), the upper half solid, a dark seam between."""
-    img = Image.new("1", (24, 17), DARK)
-    d = ImageDraw.Draw(img)
-    end, mid, top = (4, 13), (12, 8), (19, 4)
-    d.line((end, top), fill=LIGHT, width=10)
-    d.ellipse((top[0] - 5, top[1] - 5, top[0] + 5, top[1] + 5), fill=LIGHT)
-    d.line(((end[0] - 3, end[1] + 2), mid), fill=DARK, width=5)     # hollow inside, open past the end
-    d.line(((mid[0] - 2, mid[1] - 4), (mid[0] + 2, mid[1] + 3)), fill=DARK)   # seam
-    return img.crop(img.getbbox())
-
-
-@lru_cache(maxsize=1)
-def capsule_mask():
-    return capsule().filter(ImageFilter.MaxFilter(3))
+def draw_vial(image):
+    """Clear plastic tube: a 1 px outline narrowing to a round tip, a thick rim at the open
+    mouth, a little powder left inside, the snap cap hanging open on its strap."""
+    d = ImageDraw.Draw(image)
+    (tx, ty), (mx, my) = VIAL_TIP, VIAL_MOUTH
+    length = math.hypot(mx - tx, my - ty)
+    ux, uy = (mx - tx) / length, (my - ty) / length
+    nx, ny = -uy, ux
+    def at(t, side):                   # t 0 tip .. 1 mouth, side in pixels from the axis
+        return (tx + ux * length * t + nx * side, ty + uy * length * t + ny * side)
+    half = lambda t: 1.2 + 3.6 * min(1, t / 0.45)     # cone, then the straight body
+    steps = [i / 20 for i in range(21)]
+    outline = [at(t, half(t)) for t in steps] + [at(t, -half(t)) for t in reversed(steps)]
+    d.polygon([point(p) for p in outline], fill=DARK)
+    grown = [at(t, half(t) + 1.3) for t in steps] + [at(t, -half(t) - 1.3) for t in reversed(steps)]
+    d.polygon([point(p) for p in grown], fill=DARK)                 # clearance
+    d.polygon([point(p) for p in outline], fill=DARK, outline=LIGHT)
+    d.ellipse((tx - 2, ty - 2, tx + 1, ty + 1), outline=LIGHT)
+    # Powder still in the tube, lying along the lower wall near the mouth.
+    for t in (0.62, 0.7, 0.78, 0.86, 0.94):
+        for side in (2.2, 3.2):
+            x, y = point(at(t, side))
+            if (x + y) % 2 == 0:
+                d.point((x, y), fill=LIGHT)
+    # Thick rim at the mouth.
+    d.line((point(at(1, 5.2)), point(at(1, -5.2))), fill=LIGHT, width=2)
+    # The strap from the upper rim to the open cap, which hangs off to the right.
+    hinge = point(at(1, -5.2))
+    cap = (hinge[0] + 6, hinge[1] - 3)
+    d.line((hinge, cap), fill=LIGHT)
+    d.ellipse((cap[0] - 1, cap[1] - 3, cap[0] + 4, cap[1] + 3), outline=LIGHT)
+    d.line((cap[0] + 1, cap[1] - 1, cap[0] + 1, cap[1] + 1), fill=LIGHT)
 
 
 def shake_lines(image, origin, t_ms):
