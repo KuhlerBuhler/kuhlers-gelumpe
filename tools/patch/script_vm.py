@@ -61,8 +61,7 @@ def arithmetic_source():
         elif name in ['eq','ne','lt','le','gt','ge']:
             out += ['    cmp r0, r1','    mov r0, #0',f'    mov{name} r0, #1']
         elif name == 'mul':
-            out += ['    mov r3, #0', 'mul_loop:', '    tst r1, #1', '    addne r3, r3, r0',
-                    '    mov r0, r0, lsl #1','    movs r1, r1, lsr #1','    bne mul_loop','    mov r0, r3']
+            out += ['    mul r0, r1, r0']
         else:
             out += ['    cmp r1, #0','    beq e_div_zero','    bl signed_divide']
             if name == 'mod': out += ['    mov r0, r1']
