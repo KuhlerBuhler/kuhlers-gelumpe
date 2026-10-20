@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""Emulator checks for the loading animation (tools/patch/load_bar.py, entwuerfe/design-1.3/geraet).
+"""Emulator checks for the loading animation and the look (tools/patch/load_bar.py, entwuerfe/design-1.3/geraet).
 
 check.py runs `cases` on every patched copy that carries the patch's hooks. With a card and an
 e2sSample.all Blechy draws the line while the samples load, whatever the start image: every frame is the
@@ -370,12 +370,67 @@ def case_card_error(payload, flash):
     return out
 
 
+def without_look(payload):
+    """The same copy with the display send's page compare put back to the firmware's own function."""
+    out = bytearray(payload)
+    struct.pack_into("<I", out, spec.PAGE_CALL - IMAGE, 0xEB000000 | (((spec.PAGE_FUNC - (spec.PAGE_CALL + 8)) >> 2) & 0xFFFFFF))
+    return bytes(out)
+
+
+def case_look(payload, flash):
+    """The look (tools/patch/load_bar.py, restyle_reference): with the BLECH menu armed and DISPLAY INVERT ON every frame the
+    display gets is the firmware's frame with the look, exactly as the reference draws it, while the firmware's frame buffer
+    stays its own; an open app, DISPLAY INVERT OFF and EXIT held at power-on get the frame as it is."""
+    import menu_cases
+    out = []
+    ram = lambda dev: bytes(b for row in dev.m.fb for b in row)
+    vram = lambda dev: dev.read(spec.VRAM_ADDR, 1024)
+    looked = lambda dev: ram(dev) == spec.restyle_reference(vram(dev)) and ram(dev) != vram(dev)
+    plain = lambda dev: ram(dev) == vram(dev)
+    if not menu_cases.has_menu(payload):
+        run = Run(payload, flash)
+        return [entry("look_needs_the_menu", plain(run.dev) and run.main_at is not None and not run.m.asserts,
+                      "without the plugin runtime the BLECH menu is never armed: the display shows the frame buffer as it is")]
+    dev = menu_cases.boot(payload, flash, adapter=True)
+    dev.run(0.3)
+    bare = menu_cases.boot(without_look(payload), flash, adapter=True)
+    bare.run(0.3)
+    out.append(entry("look_main_screen", looked(dev) and vram(dev) == vram(bare) and plain(bare) and not dev.m.asserts,
+                     "the main screen on the display is restyle_reference of the frame buffer, and the frame buffer is the one of the same copy "
+                     "without the page hook (whose display shows it as it is)"))
+    dev.m.send([2, 1, 0, 100, 0])
+    dev.run(0.05)
+    dev.m.send([2, 1, 0, 40, 0])
+    dev.run(0.3)
+    window = dev.screen()["window"]
+    out.append(entry("look_value_window", window and looked(dev), f"turning a knob opens the value window ({window:#x}), it gets the look too"))
+    dev.run(1.5)
+    menu_cases.go(dev, 3)
+    dev.run(0.4)
+    out.append(entry("look_menu_page", dev.screen()["number"] == 3 and looked(dev), f"the Pattern menu with its page tab (screen {dev.screen()['number']})"))
+    menu_cases.goto_blechy(dev)
+    dev.run(0.5)
+    out.append(entry("look_app_untouched", menu_cases.open_app_entry(dev) != 0 and plain(dev) and any(ram(dev)),
+                     "with the built-in app open on its page the display is the app's picture as it drew it"))
+    menu_cases.press(dev, "exit", wait=0.6)
+    menu_cases.goto_page(dev, menu_cases.PAGE_INVERT)
+    dev.turn(-1, wait=0.4)
+    menu_cases.go(dev, 1)
+    dev.run(0.5)
+    out.append(entry("look_off_with_invert_off", menu_cases.state(dev, menu_cases.S_INVERT) == 0 and plain(dev) and not dev.m.asserts,
+                     "DISPLAY INVERT OFF: the main screen goes out as the firmware drew it"))
+    held = menu_cases.boot(payload, flash, held=KILL, adapter=True)
+    held.run(0.3)
+    out.append(entry("look_off_with_exit_held", plain(held) and any(ram(held)) and not held.m.asserts, "EXIT held at power-on: the frame as it is"))
+    return out
+
+
 def synthaddr_is_synth(payload):
     import synthaddr
     return synthaddr.is_synth(payload)
 
 
-GROUPS = (case_bar, case_off, case_rescue, case_custom_image, case_card_error)
+GROUPS = (case_bar, case_off, case_rescue, case_custom_image, case_card_error, case_look)
 
 
 def group_entries(payload, flash, i):

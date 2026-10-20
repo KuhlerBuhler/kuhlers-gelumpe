@@ -113,7 +113,8 @@ test("a start editor at its old address overlaps the power-off patch, and the ch
   assert.ok(reasons.length >= 3, reasons.join("\n"));
   assert.ok(reasons.some(r => /splash-editor: (EDIT|FIL|RECBUF) .* overlaps power-off: .*power-off picture/.test(r)), reasons.join("\n"));
   assert.ok(reasons.some(r => /splash-editor: FIL .* overlaps (mfx-switch|power-off): /.test(r)), reasons.join("\n"));
-  for (const r of reasons) assert.match(r, /overlaps/);
+  // the load bar reads the editor's open flag: with the editor moved, that word lies outside its areas
+  for (const r of reasons) assert.match(r, /overlaps|load-bar: .* lies in no area that splash-editor declares/);
   assert.deepEqual(checkRam(chosen("hacktribe")), [], "the set as it is passes");
 });
 

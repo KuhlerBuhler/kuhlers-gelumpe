@@ -183,8 +183,13 @@ def dark(fb, rows, left=0, right=128):
     return {(x, y) for y in rows for x in range(left, right) if not (fb[(y // 8) * 128 + x] >> (y % 8)) & 1}
 
 
+def frame(dev):
+    """The frame as the firmware drew it: the frame buffer, not the display (the load bar's look changes only what is sent)."""
+    return dev.read(0xC031B310, 1024)
+
+
 def draw_texts(dev, value, line3):
-    """Draw only the given value and third line (zero-terminated texts) on the BLECH screen and return the display: the firmware's own text widget, nothing of ours."""
+    """Draw only the given value and third line (zero-terminated texts) on the BLECH screen and return the frame: the firmware's own text widget, nothing of ours."""
     widget = dev.u32(screen_object(dev) + MENU_WIDGET)
     scratch = script_hooks.CARD + 0xF00
     dev.m.uc.mem_write(scratch, value.encode() + b"\0")
@@ -192,11 +197,11 @@ def draw_texts(dev, value, line3):
     dev.call(SET_VALUE, widget, scratch)
     dev.call(SET_LINE3, widget, scratch + 64)
     dev.run(0.25)
-    return dev.fb()
+    return frame(dev)
 
 
 def draw_tab(dev, label, index=None, total=None):
-    """Show `label` on the tab (optionally with another counter) and return the display."""
+    """Show `label` on the tab (optionally with another counter) and return the frame."""
     scratch = script_hooks.CARD + 0xE00
     dev.m.uc.mem_write(scratch, label.encode() + b"\0")
     dev.m.uc.mem_write(state(dev, S_TABW) + TAB_TEXT_POINTER, struct.pack("<I", scratch))
@@ -207,7 +212,7 @@ def draw_tab(dev, label, index=None, total=None):
         dev.call(SET_COUNTER, counter_widget, index, total)
         dev.m.uc.mem_write(STATE + S_RAW, struct.pack("<I", 0))
     dev.run(0.25)
-    return dev.fb()
+    return frame(dev)
 
 
 def label_problem(dev, label, index=None, total=None):
@@ -235,7 +240,7 @@ def page_overlap(dev):
     value runs into it), the value alone and the line alone share no pixel, neither the title, the value nor the line reach the
     edge of the display (a text that is too wide is cut off), and the tab's label is whole beside its counter."""
     title, value, line3 = texts_of(dev)
-    shown = dev.fb()
+    shown = frame(dev)
     wrong = []
     if line3 and (line3 != PRESS or value):
         wrong.append(f"third line {line3!r} beside value {value!r}")

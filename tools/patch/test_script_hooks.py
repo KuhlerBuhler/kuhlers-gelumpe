@@ -14,6 +14,15 @@ try:
 except ModuleNotFoundError:
     pass
 
+class SharedWordTests(unittest.TestCase):
+    def test_load_bar_reads_the_app_picture_where_it_is(self):
+        """tools/patch/load_bar.py leaves a frame equal to the open app's picture without the look; it names the address itself."""
+        from tools.patch.script_hooks import build, RUNTIME
+        from tools.patch import load_bar
+        for name in ('hacktribe','stock'):
+            built=build(contract_data()['include'],build=name)
+            self.assertEqual(load_bar.APP_PICTURE,RUNTIME+built.symbols['RT_DISPLAY'],name)
+
 @unittest.skipUnless(UNICORN_AVAILABLE,'Unicorn is required for native hook tests')
 class HookTests(unittest.TestCase):
     def machine(self):
