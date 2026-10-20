@@ -512,7 +512,7 @@ def case_mfx(payload, flash):
 
 
 def runtime_size():
-    """Bytes of the script runtime's state area, from its patch (the app table is the last 0x78 of them: SCRIPT_APPS_STATE_SIZE)."""
+    """Bytes of the script runtime's state area, from its patch (the app table is the last 0xA8 of them: SCRIPT_APPS_STATE_SIZE)."""
     patch = json.loads((ROOT / "data" / "patches" / "script-runtime.json").read_text())
     return next(int(a["length"]) for a in patch["ram"] if int(a["at"], 16) == RUNTIME)
 
@@ -536,7 +536,7 @@ def case_app(payload, flash):
             box.m.uc.mem_write(POOL, bytes(0x124))
             box.m.uc.mem_write(POOL + 4, struct.pack("<I", POOL))                  # SCRIPT_ENTRY_BLOB
             app_open = POOL
-        box.m.uc.mem_write(RUNTIME + size - 0x78, struct.pack("<I", app_open))     # SCRIPT_APPS_OPEN: the entry of the open app
+        box.m.uc.mem_write(RUNTIME + size - 0xA8, struct.pack("<I", app_open))     # SCRIPT_APPS_OPEN: the entry of the open app
         box.run(0.1)
         tempo_before = box.tempo()
         for _ in range(3):

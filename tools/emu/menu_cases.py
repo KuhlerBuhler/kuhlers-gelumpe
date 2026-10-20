@@ -259,7 +259,7 @@ def page_overlap(dev):
     return wrong or None
 
 
-APPS_STATE_SIZE = 120                                                 # SCRIPT_APPS.stateSize in data/script/contract.mjs: the table of apps ends the runtime
+APPS_STATE_SIZE = 168                                                 # SCRIPT_APPS.stateSize in data/script/contract.mjs: the table of apps ends the runtime
 
 
 def apps_open_address():

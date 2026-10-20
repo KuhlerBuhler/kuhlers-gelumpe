@@ -457,7 +457,7 @@ class HookTests(unittest.TestCase):
         machine.write(machine.runtime+88,entry)
         return machine.call('script_app_glue',machine.input+0x6000,machine.input+0x6040)
 
-    def test_korg_app_registers_each_script_once_in_a_group_and_refuses_a_ninth(self):
+    def test_korg_app_registers_each_script_once_in_a_group_and_refuses_a_thirteenth(self):
         machine,built=self.machine()
         base=self.apps_base(machine,built)
         self.assertEqual(self.call_glue(machine,built,'Snake','GAMES',0x1000),(0,0))
@@ -469,9 +469,12 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.call_glue(machine,built,'X','MUSIC',0x3000),(0,error))
         self.assertEqual(self.call_glue(machine,built,'','GAMES',0x3000),(0,error))
         self.assertEqual(self.call_glue(machine,built,'X','GAMESX',0x3000),(0,error),'the group is compared whole')
-        for i in range(6): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],2+i)
+        for i in range(10): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],2+i)
+        from tools.patch.script_hooks import MENU_STATE
+        machine.write(MENU_STATE+36,0)
         self.assertEqual(self.call_glue(machine,built,'Late','GAMES',0x5000),(0xffffffff,0))
-        self.assertEqual(machine.read(base+4),8)
+        self.assertEqual(machine.read(base+4),12)
+        self.assertEqual(machine.read(MENU_STATE+36),0x37,'the import page says that no app place is left')
 
     def test_take_and_release(self):
         machine,built=self.machine()
@@ -636,13 +639,13 @@ class HookTests(unittest.TestCase):
         self.assertEqual((machine.read(again),machine.read(again+12),machine.read(machine.runtime+4)),(0,2,again),'one entry, started again, armed')
         self.assertEqual(machine.read(machine.runtime+96),1)
 
-    def test_the_app_limit_for_plugins_stays_eight_with_him_in_the_table(self):
+    def test_the_app_limit_for_plugins_stays_twelve_with_him_in_the_table(self):
         machine,built=self.machine()
         self.booted(machine,built)
         base=self.apps_base(machine,built)
-        for i in range(8): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],1+i)
+        for i in range(12): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],1+i)
         self.assertEqual(self.call_glue(machine,built,'Late','GAMES',0x5000),(0xffffffff,0))
-        self.assertEqual(machine.read(base+4),9)
+        self.assertEqual(machine.read(base+4),13)
         self.assertEqual(self.call_glue(machine,built,'Blechy','GAMES',machine.read(base+8)),(0,0),'his own call only names him')
         self.assertEqual(machine.read(base+8+8),built.symbols['SCRIPT_APPS_BUILTIN_GROUP'],'and his group stays hidden')
 
