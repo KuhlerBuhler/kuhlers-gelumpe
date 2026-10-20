@@ -7,11 +7,14 @@ links nach rechts weg. Die Line ist der Balken: wo die Rohrspitze steht, steht d
 guckt er dich an. Beim Ziehen hat er die Augen zu, sonst bewegt sich nur das Ziehen. Bei 100 %
 reißt er sie auf: ein Auge mit riesiger, eins mit winziger Pupille, beide zittern, das kleine ist blutunterlaufen,
 die Braue zuckt, neben dem Kopf Zitterstriche wie bei den Terror-Sprites. Der Arm auf dem Tisch ist weg, nur die
-Hand mit dem Röhrchen bleibt. Oben mittig
-BLECHTRIBE als ein Wort (Impact 22, `blechtribe-titel.png`). Unten im Startbild "FEINSTES GELUMPE" und
-"KUHLER_BUHLER", beim Laden links der Status ("LADE SAMPLES...", "FERTIG") und rechts die Prozentzahl. Die Line liegt
+Hand mit dem Röhrchen bleibt. Oben
+BLECHTRIBE als ein Wort, Impact auf 118 x 15 Pixel gestreckt, mit gerastertem Schatten 2 Pixel nach rechts unten
+(`blechtribe-titel.png`, neu erzeugen mit `anim.py --wordmark`, braucht Impact). Unten im Startbild
+"MEINE ELECTRIBE ROOCHT BLECH!", beim Laden links der Status ("LADE SAMPLES...", "FERTIG") und rechts die Prozentzahl. Die Line liegt
 auf dem Tisch und hat Buckel (1 bis 2 Pixel). Hintergrund: feste Dither-Bänder an beiden Rändern wie
-in der App (`bandDensity` in `site/design/bg.js`), Punkte im 2-Pixel-Raster, zum Rand hin dichter, 14 Pixel breit.
+in der App (`bandDensity` in `site/design/bg.js`), Punkte im 2-Pixel-Raster, zum Rand hin dichter, 14 Pixel breit,
+unter dem Schriftzug ab Zeile 20. Die Varianten des Schriftzugs liegen in `vorschau/schriftzug-varianten.png`
+(gewählt: B und E zusammen).
 Keine Sterne mehr (fallende sahen mit dem Hut nach Weihnachtsmann im Schnee aus).
 
 **Die Vorgabe lautet höchstens 20 Bilder pro Sekunde** (Rückmeldung 20.10.: ein Pixel braucht am Gerät grob

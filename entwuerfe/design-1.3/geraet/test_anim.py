@@ -109,8 +109,7 @@ class FrameContractTests(unittest.TestCase):
     def test_footer_shows_the_status_text(self):
         still = anim.render_frame("werkbank", 0, pose="ready", started=False).crop((0, 56, 128, 64))
         tagline = anim.blank()
-        anim.text(tagline, "FEINSTES GELUMPE", 4, 58, small=True)
-        anim.text(tagline, "KUHLER_BUHLER", 124 - anim.r.width3("KUHLER_BUHLER"), 58, small=True)
+        anim.text(tagline, "MEINE ELECTRIBE ROOCHT BLECH!", 4, 58, small=True)
         self.assertEqual(still.tobytes(), tagline.crop((0, 56, 128, 64)).tobytes(),
                          "The still splash has no status yet, only the tagline")
         self.assertEqual(anim.status_line(anim.pass_state(0.5)), "LADE SAMPLES...")

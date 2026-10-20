@@ -346,17 +346,47 @@ def status(image, state, x, y, *, small=False, tall=False):
     text(image, word, x, y, small=small, tall=tall)
 
 
+TAGLINE = "MEINE ELECTRIBE ROOCHT BLECH!"
+
+
 def status_line(state):
     """Footer text; the firmware fills in what it is doing."""
     return "FERTIG" if state.done else "LADE SAMPLES..."
 
 
-WORDMARK_SHIFT = 8                # the PNG starts at x 4 and is 104 wide: centred at 12
+WORDMARK_SHIFT = 0                # make_wordmark() already centres it
+IMPACT = Path("/System/Library/Fonts/Supplemental/Impact.ttf")
+
+
+def make_wordmark():
+    """Write blechtribe-titel.png: Impact stretched to 118 x 15 at (4, 2), with a
+    dithered shadow 2 px right and down, kept clear of the letters by one pixel.
+    Needs Impact (macOS); everyone else reads the checked-in PNG."""
+    from PIL import ImageFont
+    for size in range(40, 8, -1):
+        font = ImageFont.truetype(str(IMPACT), size)
+        l, t, rr, b = font.getbbox("BLECHTRIBE")
+        if b - t <= 15:
+            break
+    glyphs = Image.new("L", (rr - l, b - t), 0)
+    ImageDraw.Draw(glyphs).text((-l, -t), "BLECHTRIBE", font=font, fill=255)
+    glyphs = glyphs.resize((118, b - t), Image.Resampling.NEAREST).point(lambda v: 255 if v >= 128 else 0, "1")
+    letters = blank()
+    letters.paste(glyphs, (4, 2))
+    halo = letters.filter(ImageFilter.MaxFilter(3))
+    shadow = ImageChops.offset(letters, 2, 2)
+    out = letters.copy()
+    po, ps, ph = out.load(), shadow.load(), halo.load()
+    for y in range(H):
+        for x in range(W):
+            if ps[x, y] and not ph[x, y] and (x + y) % 2 == 0:
+                po[x, y] = LIGHT
+    ImageChops.invert(out.convert("L")).convert("1").save(HERE / "blechtribe-titel.png")
 
 
 @lru_cache(maxsize=1)
 def wordmark():
-    """BLECHTRIBE as one word, Impact 22 at (4, 2), read from the checked-in PNG (black = lit)."""
+    """BLECHTRIBE with its dithered shadow, read from the checked-in PNG (black = lit)."""
     with Image.open(HERE / "blechtribe-titel.png") as source:
         return ImageChops.invert(source.convert("L")).point(lambda v: 255 if v >= 128 else 0, "1")
 
@@ -385,14 +415,14 @@ def draw_dashes(image, state):
 LUMPS = tuple(int(c) for c in "0111001100012210001110011221000110001221100011100")
 
 BAYER4 = (0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5)
-BAND_WIDTH, BAND_BOTTOM = 14, 53
+BAND_WIDTH, BAND_TOP, BAND_BOTTOM = 14, 20, 53     # below the full-width wordmark
 
 
 def draw_bands(image):
     """Static dither bands at both sides, as in the app background (bandDensity in site/design/bg.js):
     dots on a 2 pixel pitch, denser towards the edge. Drawn first, everything else covers it."""
     px = image.load()
-    for y in range(0, BAND_BOTTOM, 2):
+    for y in range(BAND_TOP, BAND_BOTTOM, 2):
         for x in range(0, W, 2):
             edge = min(x, W - 1 - x)
             if edge >= BAND_WIDTH:
@@ -427,8 +457,7 @@ def werkbank(state, t_ms=0):
     box = (0, 20, W, TABLE_Y)
     image.paste(gesture.crop(box), (0, 20), coverage.crop(box))
     if not state.started:
-        text(image, "FEINSTES GELUMPE", 4, 58, small=True)
-        text(image, "KUHLER_BUHLER", 124 - r.width3("KUHLER_BUHLER"), 58, small=True)
+        text(image, TAGLINE, 4, 58, small=True)
         return image
     text(image, status_line(state), 4, 58, small=True)
     percent(image, state)
@@ -708,8 +737,12 @@ def main():
                         help="output root containing png/neu and vorschau/neu")
     parser.add_argument("--palette", choices=("lcd", "mono"), default="lcd")
     parser.add_argument("--pack", action="store_true", help="also write preview framebuffer snapshots, not patches")
+    parser.add_argument("--wordmark", action="store_true", help="rewrite blechtribe-titel.png from Impact first")
     parser.add_argument("--controller-inverted", action="store_true", help="complement packed bits for display A7")
     args = parser.parse_args()
+    if args.wordmark:
+        make_wordmark()
+        wordmark.cache_clear()
     preview_dir, raw_dir = args.output / "vorschau/neu", args.output / "png/neu"
     preview_dir.mkdir(parents=True, exist_ok=True)
     raw_dir.mkdir(parents=True, exist_ok=True)
