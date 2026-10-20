@@ -80,11 +80,16 @@ export const HEADER = Object.freeze({
   ]),
 });
 
-/** Bits of the header's `flags`. PROBED: the editor probed this block and let it out; any other bit is refused. */
-export const BLOCK_FLAGS = Object.freeze({ PROBED: 1, KNOWN: 1 });
+/**
+ * Bits of the header's `flags`. PROBED: the editor probed this block and let it out. DATA: a data section follows the
+ * lines, up to totalSize: records of { base u16, count u16, count bytes, zeros up to a multiple of 4 }, each a run of
+ * array slots the loader sets to those bytes (0 to 255) after it cleared the variables; count is at least 1 and the run
+ * lies inside the variables. Any other bit is refused.
+ */
+export const BLOCK_FLAGS = Object.freeze({ PROBED: 1, DATA: 2, KNOWN: 3 });
 
 /** Section entry sizes in bytes. A handler entry is { event u8, argc u8, entry u16 }; a line entry { offset u16, line u16 }. */
-export const SECTION = Object.freeze({ handler: 4, constant: 4, string: 32, line: 4 });
+export const SECTION = Object.freeze({ handler: 4, constant: 4, string: 32, line: 4, dataRecord: 4 });
 
 const byte = (name, as = "byte") => ({ name, size: 1, as });
 const half = (name, as) => ({ name, size: 2, as });

@@ -132,6 +132,7 @@ export function asmInclude() {
   for (const [name, value] of Object.entries(CARD_STATUS)) eq(`CARD_${name}`, value);
   for (const [k, v] of Object.entries(LIMITS)) eq(`LIM_${sym(k)}`, v);
   eq("BLOCK_KNOWN_FLAGS", BLOCK_FLAGS.KNOWN);
+  eq("BLOCK_FLAG_DATA", BLOCK_FLAGS.DATA);
   eq("HDR_SIZE", HEADER.size);
   for (const f of HEADER.fields) eq(`HDR_${sym(f.name)}`, f.offset);
   for (const [k, v] of Object.entries(SECTION)) eq(`SEC_${sym(k)}`, v);

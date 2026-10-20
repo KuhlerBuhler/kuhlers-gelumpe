@@ -62,13 +62,16 @@ export function encodeBlob(p) {
   const consts = p.consts ?? [];
   const strings = p.strings ?? [];
   const lines = p.lines ?? [];
+  const data = p.data ?? [];
   const h = { handlerCount: handlers.length, constCount: consts.length, stringCount: strings.length, codeSize: code.length, lineCount: lines.length };
   const at = sectionOffsets(h);
-  const out = new Uint8Array(at.total);
+  const dataSize = data.reduce((n, r) => n + SECTION.dataRecord + pad4(r.bytes.length), 0);
+  const total = at.total + dataSize;
+  const out = new Uint8Array(total);
   const dv = new DataView(out.buffer);
   const values = {
-    magic: MAGIC, formatVersion: p.formatVersion ?? FORMAT_VERSION, apiVersion: p.apiVersion ?? 1, totalSize: at.total,
-    varCount: p.varCount ?? 0, entry: p.entry ?? 0, stackMax: p.stackMax ?? 0, flags: p.flags ?? 0, ...h,
+    magic: MAGIC, formatVersion: p.formatVersion ?? FORMAT_VERSION, apiVersion: p.apiVersion ?? 1, totalSize: total,
+    varCount: p.varCount ?? 0, entry: p.entry ?? 0, stackMax: p.stackMax ?? 0, flags: (p.flags ?? 0) | (data.length ? BLOCK_FLAGS.DATA : 0), ...h,
   };
   for (const f of HEADER.fields) {
     if (f.type === "u32") dv.setUint32(f.offset, values[f.name] ?? 0, true);
@@ -92,7 +95,14 @@ export function encodeBlob(p) {
     dv.setUint16(at.lines + i * SECTION.line, l.offset, true);
     dv.setUint16(at.lines + i * SECTION.line + 2, l.line, true);
   });
-  dv.setUint32(HEADER.fields.find(f => f.name === "checksum").offset, crc32(out, HEADER.checksumFrom, at.total), true);
+  let o = at.total;
+  for (const r of data) {
+    dv.setUint16(o, r.base, true);
+    dv.setUint16(o + 2, r.bytes.length, true);
+    out.set(r.bytes, o + SECTION.dataRecord);
+    o += SECTION.dataRecord + pad4(r.bytes.length);
+  }
+  dv.setUint32(HEADER.fields.find(f => f.name === "checksum").offset, crc32(out, HEADER.checksumFrom, total), true);
   return out;
 }
 
@@ -125,9 +135,19 @@ export function decodeBlob(bytes) {
   if (over) return bad(ERROR.LIMITS, `${over[0]}: ${over[1]} von höchstens ${over[2]}`);
   const at = sectionOffsets(h);
   if (h.flags & ~BLOCK_FLAGS.KNOWN) return bad(ERROR.BAD_SIZE, "unbekannte Bits im Feld flags");
-  if (h.totalSize !== at.total) return bad(ERROR.BAD_SIZE, `Kopf nennt ${h.totalSize} Bytes, die Abschnitte brauchen ${at.total}`);
+  if (h.flags & BLOCK_FLAGS.DATA ? h.totalSize <= at.total : h.totalSize !== at.total) return bad(ERROR.BAD_SIZE, `Kopf nennt ${h.totalSize} Bytes, die Abschnitte brauchen ${at.total}`);
   if (bytes.length < h.totalSize) return bad(ERROR.TRUNCATED, `${bytes.length} von ${h.totalSize} Bytes`);
   if (crc32(bytes, HEADER.checksumFrom, h.totalSize) !== h.checksum) return bad(ERROR.CHECKSUM);
+  const data = [];
+  for (let o = at.total; o < h.totalSize;) {
+    if (o + SECTION.dataRecord > h.totalSize) return bad(ERROR.BAD_SIZE, "Datenabschnitt endet mitten in einem Eintrag");
+    const base = dv.getUint16(o, true), count = dv.getUint16(o + 2, true);
+    if (count === 0 || base + count > h.varCount) return bad(ERROR.BAD_VAR, `Daten für Feld ${base}+${count} von ${h.varCount} Variablen`);
+    const next = o + SECTION.dataRecord + pad4(count);
+    if (next > h.totalSize) return bad(ERROR.BAD_SIZE, "Datenabschnitt endet mitten in einem Eintrag");
+    data.push({ base, bytes: bytes.slice(o + SECTION.dataRecord, o + SECTION.dataRecord + count) });
+    o = next;
+  }
 
   const handlers = Array.from({ length: h.handlerCount }, (_, i) => {
     const o = at.handlers + i * SECTION.handler;
@@ -150,7 +170,7 @@ export function decodeBlob(bytes) {
     const o = at.lines + i * SECTION.line;
     return { offset: dv.getUint16(o, true), line: dv.getUint16(o + 2, true) };
   });
-  return { ok: true, header: h, handlers, consts, strings, code, lines };
+  return { ok: true, header: h, handlers, consts, strings, code, lines, data };
 }
 
 /** The source line of the instruction at `offset`: the last line table entry at or before it, or 0. */
