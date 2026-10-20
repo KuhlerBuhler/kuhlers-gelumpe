@@ -80,6 +80,7 @@
                                 ; +12 (kind) -> title, r1 = value text; each sends the pads again where the colours change
 .equ SPLASH_IMPORT, 0xC01A2500  ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
+.equ SPLASH_RESET, 0xC01A2508
 .equ M_LEVEL, 0xE0
 .equ M_GROUP, 0xE4
 .equ M_RAW, 0xE8
@@ -1327,6 +1328,8 @@ menu_texts_clear:
     beq menu_text_mg
     cmp r0, #34
     beq menu_text_ledsave
+    cmp r0, #35
+    beq menu_text_splash
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1595,14 +1598,18 @@ menu_pc_call:
     mov r1, r2
     bx r12
 
-; SPLASH IMPORT (22): ENTER reads KORG/blechtribe/splash.bmp into the start image; SPLASH DRAW (23): ENTER opens the editor
+; SPLASH IMPORT (22): ENTER reads KORG/blechtribe/splash.bmp into the start image; SPLASH DRAW (23): ENTER opens the editor;
+; SPLASH RESET (35): ENTER drops the stored image, the start image of the firmware comes back
 menu_text_splash:
     mov r6, r0
     mov r0, #3
     bl menu_title_prefix
     cmp r6, #22
     ldreq r1, =str_splash_import
-    ldrne r1, =str_splash_draw
+    cmp r6, #23
+    ldreq r1, =str_splash_draw
+    cmp r6, #35
+    ldreq r1, =str_splash_reset
     bl menu_copy
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
@@ -1774,6 +1781,9 @@ menu_text_status_more:
     beq menu_text_status_go
     cmp r1, #0x42
     ldreq r1, =str_splash_format
+    beq menu_text_status_go
+    cmp r1, #0x44
+    ldreq r1, =str_splash_reset_done
     beq menu_text_status_go
     cmp r1, #0x25
     ldreq r1, =str_nofolder
@@ -2222,7 +2232,7 @@ menu_count_group:
     ldr r1, =SPLASH_IMPORT
     ldr r1, [r1]
     cmn r1, #1
-    addne r0, r0, #2            ; SPLASH IMPORT and SPLASH DRAW, where the build has the splash editor
+    addne r0, r0, #3            ; SPLASH IMPORT, SPLASH DRAW and SPLASH RESET, where the build has the splash editor
     b menu_count_out
 menu_count_features:
     cmp r1, #5
@@ -3601,6 +3611,8 @@ menu_slot_keys:
     beq menu_keys_splash_import
     cmp r0, #23
     beq menu_keys_splash_draw
+    cmp r0, #35
+    beq menu_keys_splash_reset
     cmp r6, #0x09
     beq menu_keys_done
     cmp r0, #2
@@ -3663,6 +3675,17 @@ menu_keys_splash_import:
     ldr r12, =SPLASH_IMPORT
     blx r12
     add r0, r0, #0x40           ; 0x40 stored, 0x41 no file, 0x42 not such a BMP, 0x43 the flash write failed
+    ldr r1, =MENU_STATE
+    str r0, [r1, #M_STATUS]
+    b menu_keys_done
+menu_keys_splash_reset:
+    cmp r6, #0x09
+    bne menu_keys_done
+    ldr r12, =SPLASH_RESET
+    blx r12
+    cmp r0, #0
+    moveq r0, #0x44             ; 0x44 the firmware's image is back
+    movne r0, #0x43             ; else the flash write failed (or the editor is off), said as the write error
     ldr r1, =MENU_STATE
     str r0, [r1, #M_STATUS]
     b menu_keys_done
@@ -3905,6 +3928,10 @@ str_splash_import:
     .asciz "SPLASH IMPORT"
 str_splash_draw:
     .asciz "SPLASH DRAW"
+str_splash_reset:
+    .asciz "SPLASH RESET"
+str_splash_reset_done:
+    .asciz "original back"
 str_splash_saved:
     .asciz "loaded"
 str_splash_nofile:
@@ -3924,8 +3951,8 @@ tab_names:
     .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads, str_tab_psave
 group_names:
     .word str_scripts, str_group_games, str_group_tools, str_custom, str_features, str_display, str_tab_led, str_pads, str_psave
-custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD COLOR, POWER SAVE (groups 5 to 8), SPLASH IMPORT, SPLASH DRAW
-    .byte 16, 16, 16, 16, 22, 23
+custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD COLOR, POWER SAVE (groups 5 to 8), SPLASH IMPORT, SPLASH DRAW, SPLASH RESET
+    .byte 16, 16, 16, 16, 22, 23, 35
 .align 4
 sub_kinds:                      ; the kinds of the pages of DISPLAY, LED, PAD COLOR and POWER SAVE, 8 a group (device 18.10.)
     .byte 11, 12, 13, 26, 14, 0, 0, 0   ; DISPLAY: backlight red, green, blue, INTENSITY, display invert

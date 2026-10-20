@@ -109,7 +109,7 @@ def press(dev, key, wait=0.25):
 
 
 GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_DISPLAY, GROUP_LED, GROUP_PADS, GROUP_PSAVE = range(9)
-CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_PSAVE, CUSTOM_SPLASH = 0, 1, 2, 3, 4   # the rows of CUSTOMIZATION: four groups, then SPLASH IMPORT and SPLASH DRAW
+CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_PSAVE, CUSTOM_SPLASH = 0, 1, 2, 3, 4   # the rows of CUSTOMIZATION: four groups, then SPLASH IMPORT, SPLASH DRAW and SPLASH RESET
 S_LEVEL, S_GROUP, S_RAW, S_TOP, S_TABW = 0xE0, 0xE4, 0xE8, 0xEC, 0xF0
 TAB_TEXT_POINTER = 0x38                                               # the tab widget keeps a pointer to its text at this offset
 LIST_PAGES = ["FEATURES", "CUSTOMIZATION", "PLUGINS"]                 # the groups of level 1 of a menu without apps, in this order; GAMES and TOOLS follow when an app is declared in them
@@ -707,12 +707,12 @@ def pins(dev):
 
 def custom_extra(dev):
     """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR and POWER SAVE where the set has the pad colours, SPLASH IMPORT
-    and SPLASH DRAW where it also has the splash editor (the blue Electribe has the pad colours only)."""
+    SPLASH DRAW and SPLASH RESET where it also has the splash editor (the blue Electribe has the pad colours only)."""
     import pad_colors
     import splash_editor
     if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
         return 0
-    return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 4
+    return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 5
 
 
 def goto_page(dev, number):
@@ -1042,7 +1042,8 @@ def cases_task():
 
 def splash_menu_cases(payload, flash=None):
     """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT reads KORG/blechtribe/splash.bmp into the start image,
-    SPLASH DRAW opens the editor (Global, page SPLASH SCREEN). Without the editor (the synth) the group keeps its 8 pages."""
+    SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back.
+    Without the editor (the synth) the group keeps its 8 pages."""
     from splash_cases import bmp, image_of
     import splash_editor
     out = []
@@ -1076,6 +1077,27 @@ def splash_menu_cases(payload, flash=None):
     goto_group(bare, GROUP_CUSTOM, CUSTOM_SPLASH)
     press(bare, "menu", 0.6)
     add("import_without_file", texts_of(bare)[1] == "no splash.bmp", str(texts_of(bare)))
+    from splash_cases import DESC13
+    desc = lambda d: d.u32(DESC13)
+    record_id = lambda d: struct.unpack_from("<I", d.m.flash.mem, splash_editor.FLASH_RECORD)[0]
+    dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic)})
+    goto_group(dev, GROUP_CUSTOM, CUSTOM_SPLASH)
+    press(dev, "menu", 0.6)
+    imported = (desc(dev), record_id(dev))
+    press(dev, "edit_next", 0.4)
+    press(dev, "edit_next", 0.4)
+    reset_page = texts_of(dev)
+    press(dev, "menu", 0.8)
+    reset_after = texts_of(dev)
+    orig = dev.u32(splash_editor.STATE + 0x34)
+    add("reset", imported == (splash_editor.RECBUF + 8, splash_editor.RECORD_ID) and reset_page == ("SPLASH RESET", "", PRESS)
+        and reset_after[:2] == ("SPLASH RESET", "original back") and desc(dev) == orig != splash_editor.RECBUF + 8 and record_id(dev) == 0 and not dev.m.asserts,
+        f"after import image {imported[0]:#x}, record id {imported[1]:#x}; {reset_page} -> {reset_after}, image {desc(dev):#x} (VSB's {orig:#x}), record id {record_id(dev):#x}")
+    again = Dev(payload, flash, 0)
+    again.m.flash.mem[:] = dev.m.flash.mem
+    again.m.insert_card(SDCard(MemoryMedium(card_image(CARD_FOLDER))))
+    again.run(1.2)
+    add("reset_kept_after_restart", desc(again) == orig and not again.m.asserts, f"next start draws {desc(again):#x}, the VSB's image is {orig:#x}")
     return out
 
 
