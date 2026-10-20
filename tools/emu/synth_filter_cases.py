@@ -180,19 +180,24 @@ def hacktribe_entry(key, payload, ref, flash):
 
 
 def case_stock_frames(payload, flash):
-    """The frames of OFF and the electribe filters are Korg's: the same with the patch on and with EXIT held at power-on."""
+    """Filter frames before the popup expires, with DISPLAY INVERT off on both paths."""
     on, off = FBox(payload, flash), FBox(payload, flash, KILL)
+    import menu_cases
+    if menu_cases.has_menu(payload):
+        on.m.uc.mem_write(menu_cases.STATE + menu_cases.S_INVERT, struct.pack("<I", 0))
+    on.run(0.3)
+    off.run(0.3)
     frames = {}
     for _ in range(7):
-        t, _, frame, _, _ = on.press("lpf")
+        t, _, frame, _, _ = on.press("lpf", wait=0.2)
         frames.setdefault(t, frame)
     for key in ("hpf", "bpf"):
         on.set_ftype(0)
-        t, _, frame, _, _ = on.press(key)
+        t, _, frame, _, _ = on.press(key, wait=0.2)
         frames.setdefault(t, frame)
     stock = {}
     for key in ("lpf", "lpf", "hpf", "bpf"):
-        t, _, frame, _, _ = off.press(key)
+        t, _, frame, _, _ = off.press(key, wait=0.2)
         stock.setdefault(t, frame)
     same = {t: frames.get(t) == stock.get(t) for t in (0, 1, 7, 12)}
     return [entry("electribe_frames_are_korgs", all(same.values()) and set(stock) == {0, 1, 7, 12},
