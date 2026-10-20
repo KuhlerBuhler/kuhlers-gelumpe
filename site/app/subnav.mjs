@@ -15,9 +15,10 @@ export function subnav() {
     const node = el("div", { className: "cee-nav-sub", id: `cee-sub-${tab}`, role: "group", hidden: true });
     node.setAttribute("aria-label", `Optionen ${entry.textContent}`);
     // A tablist holds tabs only: the options sit beside it and take their place under the entry by order.
-    const tabs = [...entry.parentElement.querySelectorAll("[role=tab]")];
-    tabs.forEach((t, i) => { t.style.order = String(2 * i); });
-    node.style.order = String(2 * tabs.indexOf(entry) + 1);
+    // (the group headings of the list are ordered with the tabs, so they stay above their group)
+    const items = [...entry.parentElement.querySelectorAll("[role=tab], .cee-nav-group")];
+    items.forEach((t, i) => { t.style.order = String(2 * i); });
+    node.style.order = String(2 * items.indexOf(entry) + 1);
     entry.closest(".cee-nav").append(node);
     hosts.set(tab, node);
     return node;
