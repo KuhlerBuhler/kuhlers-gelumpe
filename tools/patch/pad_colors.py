@@ -114,6 +114,7 @@ SOURCE = """
 .equ CHORD_MODEL, @CHORD_MODEL@ ; pointer to the sequencer model, + 0x344 the bar section the pads show (0 to 3)
 .equ MODE_AT, 0xB58             ; manager + 0xB58: the pad mode (4 SEQUENCER), + 0xB60 the selected part
 .equ PART_AT, 0xB60
+.equ PCH_UNIFORM, 0            ; local word in pc_chord's stack frame
 .equ LED_SEND, 0xC00875F4       ; (manager, led, force)
 
 .org @CODE_AT@
@@ -437,6 +438,7 @@ pc_chord:
     cmp r0, #0
     bxeq lr
     push {r4-r11, lr}
+@CHORD_STACK@
     ldr r0, [r4, #MODE_AT]
     cmp r0, #4
     bne pch_no
@@ -471,6 +473,7 @@ pc_chord:
     beq pch_no
     mov r9, #0                          ; the tails, 256 = the firmware's brightness
     mov r10, #0                         ; 1 when a note starts here
+@CHORD_LOCAL@
     mov r6, #4
 pch_note:
     ldrb r8, [r2, r6]
@@ -491,8 +494,7 @@ pch_back:
     b pch_back
 pch_back_done:
     cmp r3, #0
-    moveq r10, #1
-    beq pch_note_next
+@CHORD_START@
     add r0, r2, #12
     add r11, r1, #1
     mov r5, #0                          ; how many steps it is held beyond this one
@@ -509,16 +511,8 @@ pch_fwd:
     add r11, r11, #1
     b pch_fwd
 pch_fwd_done:
-    add r12, r3, r5
-    add r12, r12, #1                    ; L, the steps the note is held over
-    add r0, r5, #1
-    mov r0, r0, lsl #8                  ; 256 * (L - k) / L
-    mov r4, #0
-pch_div:
-    cmp r0, r12
-    subhs r0, r0, r12
-    addhs r4, r4, #1
-    bhs pch_div
+@CHORD_FRACTION@
+@CHORD_SHARE@
     add r9, r9, r4
 pch_note_next:
     add r6, r6, #1
@@ -526,6 +520,7 @@ pch_note_next:
     blo pch_note
     cmp r10, #0
     bne pch_starts
+pch_tails:
     cmp r9, #0
     beq pch_no
     cmp r9, #256
@@ -554,9 +549,12 @@ pch_starts:
 pch_no:
     mov r0, #0
 pch_out:
+@CHORD_UNSTACK@
     pop {r4-r11, pc}
 
 ; r0 = a step, r11 = its number, r8 = a note -> r12 = 1 when the step holds the note tied over from the step before. Clobbers r4.
+; The note is present in the current step going backward, or in the preceding step going forward.
+; On the sampler, unequal note words clear the caller-owned [sp, #PCH_UNIFORM].
 pch_tied:
     mov r12, #0
     cmp r11, #0
@@ -570,6 +568,7 @@ pch_tied:
     ldrb r4, [r0, #-11]
     cmp r4, #127
     bxne lr
+@CHORD_EQUAL@
     ldrb r4, [r0, #-8]
     cmp r4, r8
     ldrbne r4, [r0, #-7]
@@ -589,6 +588,7 @@ pch_tied:
     cmpne r4, r8
     moveq r12, #1
     bx lr
+@CHORD_RATIOS@
 
 ; r4 = manager, r8 = the red LED of a pad that the firmware just sent, r6 = setting or -1, r9 = dimming. In SEQUENCER mode the
 ; pads behind it go out again where they changed: a tie set or taken away on a step changes the tail behind it, and the firmware
@@ -907,6 +907,8 @@ def source():
     sampler = globals().get("_SAMPLER_ADDRESSES", {})
     place = lambda name: sampler.get(name, globals()[name])
     text = SOURCE
+    for key, value in chord_source(BUILD != "synth").items():
+        text = text.replace(f"@{key}@", value)
     for key, value in {"KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "S_SETTING": S_SETTING,
                        "S_SENT": S_SENT, "SENDER": f"{place('SENDER'):#x}", "S_DIM": f"{S_DIM:#x}", "DIM_BODY": f"{place('DIM_BODY'):#x}",
                        "S_PEND": f"{S_PEND:#x}"}.items():
@@ -918,6 +920,69 @@ def source():
     for key, value in chord.items():
         text = text.replace(f"@{key}@", str(value))
     return text
+
+
+def chord_source(local):
+    """One bounded calculation; no result survives a sender call."""
+    parts = dict.fromkeys(("CHORD_STACK", "CHORD_LOCAL", "CHORD_SHARE", "CHORD_UNSTACK",
+                           "CHORD_EQUAL", "CHORD_RATIOS"), "")
+    parts["CHORD_START"] = "    moveq r10, #1\n    beq pch_note_next"
+    parts["CHORD_FRACTION"] = """    add r12, r3, r5
+    add r12, r12, #1
+    add r0, r5, #1
+    mov r0, r0, lsl #8
+    mov r4, #0
+pch_div:
+    cmp r0, r12
+    subhs r0, r0, r12
+    addhs r4, r4, #1
+    bhs pch_div"""
+    if not local:
+        return parts
+    parts.update(CHORD_STACK="    sub sp, sp, #4",
+                 CHORD_UNSTACK="    add sp, sp, #4",
+                 CHORD_LOCAL="    mov r0, #1\n    str r0, [sp, #PCH_UNIFORM]")
+    parts["CHORD_START"] = """    bne pch_has_tail
+    mov r10, #1
+    ldr r0, [sp, #PCH_UNIFORM]
+    cmp r0, #0
+    bne pch_starts
+    b pch_note_next
+pch_has_tail:"""
+    parts["CHORD_FRACTION"] = """    sub r12, r3, #1
+    add r12, r12, r12, lsl #4
+    add r12, r12, r5
+    ldr r0, =pc_ratios
+    ldrb r4, [r0, r12]"""
+    parts["CHORD_SHARE"] = """    ldr r0, [sp, #PCH_UNIFORM]
+    cmp r0, #0
+    beq pch_separate
+    mov r0, #0
+    ldrb r12, [r2, #4]
+    cmp r12, #0
+    addne r0, r0, #1
+    ldrb r12, [r2, #5]
+    cmp r12, #0
+    addne r0, r0, #1
+    ldrb r12, [r2, #6]
+    cmp r12, #0
+    addne r0, r0, #1
+    ldrb r12, [r2, #7]
+    cmp r12, #0
+    addne r0, r0, #1
+    mul r9, r0, r4
+    b pch_tails
+pch_separate:"""
+    parts["CHORD_EQUAL"] = """    ldr r4, [r0, #4]
+    ldr r12, [r0, #-8]
+    cmp r4, r12
+    moveq r12, #1
+    bxeq lr
+    mov r12, #0
+    str r12, [sp, #PCH_UNIFORM]"""
+    ratios = [256*(forward+1)//(back+forward+1) for back in range(1,17) for forward in range(17)]
+    parts["CHORD_RATIOS"] = "\npc_ratios:\n    .byte " + ", ".join(map(str, ratios)) + "\n.align 2"
+    return parts
 
 
 def build_code():

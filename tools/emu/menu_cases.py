@@ -1267,7 +1267,7 @@ def tie_cases(payload, flash, add, pad, wait):
         dev.m.uc.mem_write(live + 2, bytes([voice]))
         plan = plan or {0: (127, [61]), 1: (127, [61]), 2: (127, [61]), 3: (127, [61]), 4: (60, [61]), 6: (127, [61]), 7: (60, [65]),
                         9: (127, [61]), 11: (60, [61]), 12: (60, [61])}
-        for step in range(16):
+        for step in range(64):
             gate, notes = plan.get(step, (0, []))
             dev.m.uc.mem_write(live + 0x30 + 12 * step, bytes([1 if notes else 0, gate, 100, 1, *notes, *[0] * (4 - len(notes))]))
         press(dev, 0x15, wait=0.5)
@@ -1293,6 +1293,65 @@ def tie_cases(payload, flash, add, pad, wait):
     held, _, lit = steps(KILL)
     add("tie_exit_held_is_stock", [n for n in range(16) if lit[n] == (255, 0)] == sorted(want)[1:] and lit[0] == (255, 255) and not held.m.asserts,
         f"EXIT held at power-on: {lit}")
+    from unicorn import UC_HOOK_CODE
+    from machine import UART0
+    from tools.patch import arm
+    changing, live, _ = steps(0, 0, {i: (127, [61]) for i in range(64)})
+    manager = changing.u32(0xC0345A1C)
+    sent, full = [], []
+    producer = arm.assemble(""".org 0x10000
+    push {r4-r8, lr}
+    mov r4, r0
+    mov r5, r1
+    mov r6, #4096
+    ldr r7, =0xC0087578
+    ldr r8, =0x10FF0
+produce:
+    mov r0, r4
+    mov r1, r5
+    mov lr, pc
+    bx r7
+    ldr r0, [r8]
+    cmp r0, #0
+    bne produced
+    subs r6, r6, #1
+    bne produce
+produced:
+    pop {r4-r8, pc}
+    .pool
+""").sections[0][1]
+    changing.m.uc.mem_map(0x10000, 0x1000)
+    changing.m.uc.mem_write(0x10000, producer)
+
+    def sending(uc, address, size, data):
+        if not sent:
+            uart = changing.m.uart[UART0]
+            uart["thre"], uart["busy"] = False, changing.m.time_ns + 2_000_000
+            sent.append("stalled")
+        message = changing.read(uc.reg_read(arm_const.UC_ARM_REG_R1), 3)
+        if message[0] == 0x2C and "edited" not in sent:
+            uc.mem_write(live + 0x30 + 16*12 + 1, bytes([126]))
+            sent.append("edited")
+
+    sender_hook = changing.m.uc.hook_add(UC_HOOK_CODE, sending, begin=0xC0087578, end=0xC0087578)
+    def queue_full(*args):
+        full.append(1)
+        changing.m.uc.mem_write(0x10FF0, struct.pack("<I", 1))
+
+    full_hook = changing.m.uc.hook_add(UC_HOOK_CODE, queue_full,
+                                      begin=changing.m.profile.tx_full, end=changing.m.profile.tx_full)
+    try:
+        changing.call(0x10000, changing.u32(manager+0xB54), 0x10FF4)
+        changing.m.uc.mem_write(0xC018BF3C, struct.pack("<I", 1))
+        changing.call(0xC00875F4, manager, 0x2C, 1)
+        changing.run(0.3)
+    finally:
+        changing.m.uc.hook_del(sender_hook)
+        changing.m.uc.hook_del(full_hook)
+        changing.m.uc.ctl_flush_tb()
+    add("tie_unseen_edit_during_full_queue", sent == ["stalled", "edited"] and bool(full)
+        and pad(changing, 15) == (29, 29) and not changing.m.asserts,
+        f"edit outside the visible bar while sending: {sent}, full queue {len(full)}, pad 16 {pad(changing,15)}")
 
 
 def invert_cases(payload, flash=None):
