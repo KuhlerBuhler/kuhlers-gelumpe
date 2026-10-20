@@ -12,7 +12,7 @@ import { toast } from "./toast.mjs";
 import { createScriptEditor } from "./script-editor.mjs";
 import { compile, formatError } from "../../src/script/compiler.mjs";
 import { decodeBlob, markProbed } from "../../src/script/blob.mjs";
-import { LIMITS, BUDGET, ARCHIVE } from "../../data/script/contract.mjs";
+import { LIMITS, BUDGET, ARCHIVE, SCRIPT_APPS } from "../../data/script/contract.mjs";
 import { PRESETS } from "../../data/script/presets.mjs";
 import { TEMPLATES, templateSource } from "../../data/script/templates.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
@@ -486,12 +486,15 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     const items = workspace.list();
     const blocks = [];
     const gates = [];
+    let apps = 0;
     for (const s of items) {
       const result = compile(s.source, { name: s.name });
       if (!result.ok) { say(`„${s.name}“ lässt sich nicht übersetzen.`, "error"); return; }
+      if (result.info.app) apps += 1;
       blocks.push(markProbed(result.blob));
       gates.push({ name: s.name, gate: exportGate(s) });
     }
+    if (apps > SCRIPT_APPS.max) { say(`Das sind ${apps} Apps. Die Electribe zeigt höchstens ${SCRIPT_APPS.max}. Lösch ein paar Apps aus der Liste und speichere nochmal.`, "error"); return; }
     if (!(await allowExport("Alle", gates))) return;
     const packed = packAll(blocks);
     if (!packed.ok) { say(packed.error.message, "error"); return; }

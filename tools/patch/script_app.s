@@ -56,8 +56,7 @@ app_glue_group_ok:
     cmp r1, #SCRIPT_APPS_BUILTIN_GROUP
     addeq r3, r3, #SCRIPT_APPS_BUILTIN
     cmp r2, r3
-    mvnhs r0, #0
-    bhs app_glue_done
+    bhs app_glue_full
     add r0, r6, #SCRIPT_APPS_TABLE
     add r0, r0, r2, lsl #3
     add r0, r0, r2, lsl #2
@@ -70,6 +69,13 @@ app_glue_group_ok:
     push {r3}
     bl menu_recount
     pop {r0}
+    b app_glue_done
+; all places are taken: the import page says so (M_STATUS 0x37, menu_import keeps it)
+app_glue_full:
+    ldr r1, =MENU_STATE
+    mov r0, #0x37
+    str r0, [r1, #M_STATUS]
+    mvn r0, #0
 app_glue_done:
     mov r1, #ERR_OK
     pop {r4-r8, pc}
