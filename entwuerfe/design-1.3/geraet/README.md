@@ -4,14 +4,15 @@ Stand 19.10.2026. Die [Übergabe](uebergabe-2026-10-19.yaml) und die anschließe
 Die Gestaltung der Werkbank mit hellem Originalgesicht, festem BLECH und Fußzeile bleibt. Die Bewegung ist
 überarbeitet (Rückmeldung 19.10. abends): ein einziger Durchgang. Blechy setzt das Röhrchen an und zieht die Line von
 links nach rechts weg. Die Line ist der Balken: wo die Rohrspitze steht, steht der Ladestand. Im festen Startbild
-guckt er dich an. Beim Ziehen hat er die Augen zu, die Braue zuckt, Schweiß läuft ihm an der Seite runter. Bei 100 %
+guckt er dich an. Beim Ziehen hat er die Augen zu, sonst bewegt sich nur das Ziehen. Bei 100 %
 reißt er sie auf: ein Auge mit riesiger, eins mit winziger Pupille, beide zittern, das kleine ist blutunterlaufen,
-neben dem Kopf Zitterstriche wie bei den Terror-Sprites. Oben mittig
+die Braue zuckt, neben dem Kopf Zitterstriche wie bei den Terror-Sprites. Der Arm auf dem Tisch ist weg, nur die
+Hand mit dem Röhrchen bleibt. Oben mittig
 BLECHTRIBE als ein Wort (Impact 22, `blechtribe-titel.png`). Unten im Startbild "FEINSTES GELUMPE" und
 "KUHLER_BUHLER", beim Laden links der Status ("LADE SAMPLES...", "FERTIG") und rechts die Prozentzahl. Die Line liegt
-auf dem Tisch und hat Buckel (1 bis 2 Pixel). Dahinter ein paar Sterne wie im Hintergrund der App
-(`site/design/bg.js`). Sie fallen nicht (sah mit dem Hut nach Weihnachtsmann im Schnee aus), sie gehen nur ab und
-zu kurz aus; im festen Startbild stehen sie.
+auf dem Tisch und hat Buckel (1 bis 2 Pixel). Hintergrund: feste Dither-Bänder an beiden Rändern wie
+in der App (`bandDensity` in `site/design/bg.js`), Punkte im 2-Pixel-Raster, zum Rand hin dichter, 14 Pixel breit.
+Keine Sterne mehr (fallende sahen mit dem Hut nach Weihnachtsmann im Schnee aus).
 
 **Die Vorgabe lautet höchstens 20 Bilder pro Sekunde** (Rückmeldung 20.10.: ein Pixel braucht am Gerät grob
 50 ms, bis er weg ist). Jeder Bildzustand bleibt mindestens 50 ms sichtbar. Das gilt auch für kurze Zwischenbilder, Prozentänderungen und den letzten Zustand
@@ -153,10 +154,10 @@ umgestellt.
 
 | Folge | GIF-Bilder | Unterschiedliche Raster | Kürzeste Haltezeit | Bildwechsel höchstens |
 |---|---:|---:|---:|---:|
-| Werkbank, Ladedemo | 76 | 76 | 50 ms | 20 pro Sekunde |
+| Werkbank, Ladedemo | 76 | 68 | 50 ms | 20 pro Sekunde |
 | Ausschalten, ohne GIF-Wiederholungspause | 5 | 5 | 200 ms | 5 pro Sekunde |
 
-Ein Bildwechsel schaltet höchstens 560 Pixel auf höchstens sechs LCD-Seiten. Messen am Gerät steht aus.
+Ein Bildwechsel schaltet höchstens 544 Pixel auf höchstens sechs LCD-Seiten. Messen am Gerät steht aus.
 
 Die 19 gezielten Python-Prüfungen sichern unter anderem tatsächliche GIF-Haltezeiten, pixelgenaue Ausgabe in
 1×/4×, feste Bildbereiche, fehlenden Körperversatz durch Fortschritt, Rohr- und Griffgeometrie, beide Bitordnungen,

@@ -255,24 +255,15 @@ JITTER = ((0, 0), (1, 0), (0, 1), (-1, 0), (1, -1), (0, 0), (-1, 1), (0, -1))
 
 
 def unhinged_look(state, t_ms):
-    """Shut eyes with a twitching brow while drawing; at 100 one huge and one tiny
+    """Shut eyes while drawing; at 100 one huge and one tiny
     pupil that shake, the small eye bloodshot. Deterministic in t_ms."""
     if not state.started:
         return EYES_LOOK
     tick = t_ms // MIN_FRAME_MS
     if not state.done:
-        return (EYES_CLOSED, EYES_CLOSED, 0, 0, 1 if tick % 14 in (0, 1) else 0, False)
+        return EYES_CLOSED
     jx, jy = JITTER[tick % len(JITTER)]
     return (4, 0, jx, jy, 1 if tick % 6 < 3 else 0, True)
-
-
-def sweat(image, origin, t_ms):
-    """A drop runs down the left side of the head, a pixel per frame, then a new one."""
-    x, y = origin[0] + 9, origin[1] + 8 + (t_ms // MIN_FRAME_MS) % 14
-    px = image.load()
-    for dx, dy in ((0, 0), (0, 1), (-1, 1), (0, 2), (-1, 2), (0, 3), (-1, 3)):
-        if 0 <= y + dy < TABLE_Y:
-            px[x + dx, y + dy] = LIGHT
 
 
 def shake_lines(image, origin, t_ms):
@@ -393,42 +384,27 @@ def draw_dashes(image, state):
 # Height above the base row per column (from DASH_START): uneven lumps, a few two pixels high, no ruler.
 LUMPS = tuple(int(c) for c in "0111001100012210001110011221000110001221100011100")
 
-STAR_TOP, STAR_BOTTOM = 20, 52    # between the wordmark and the line
+BAYER4 = (0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5)
+BAND_WIDTH, BAND_BOTTOM = 14, 53
 
 
-@lru_cache(maxsize=1)
-def stars():
-    """A dozen stars like the app background (site/design/bg.js): three depths, each blinks off now and then."""
-    seed = 23
-    out = []
-    for _ in range(14):
-        values = []
-        for _ in range(5):
-            seed = (seed * 1664525 + 1013904223) % 2**32
-            values.append(seed / 2**32)
-        z, x, y, period, phase = values
-        layer = 0 if z < 0.45 else 1 if z < 0.85 else 2
-        out.append((int(x * 124) + 2, y, layer, 4 + period * 6, phase))
-    return tuple(out)
-
-
-def draw_stars(image, t_ms):
-    """Background first: Blechy, the line and the text draw over it. t_ms 0 is the still splash."""
+def draw_bands(image):
+    """Static dither bands at both sides, as in the app background (bandDensity in site/design/bg.js):
+    dots on a 2 pixel pitch, denser towards the edge. Drawn first, everything else covers it."""
     px = image.load()
-    t = t_ms / 1000
-    span = STAR_BOTTOM - STAR_TOP
-    for x, y, layer, period, phase in stars():
-        if t and (t / period * 4 + phase) % 1 > 0.85:
-            continue
-        yy = STAR_TOP + int(y * span)       # stars stay put: falling ones read as snow
-        px[x, yy] = LIGHT
-        if layer == 2:
-            px[x + 1, yy] = LIGHT
+    for y in range(0, BAND_BOTTOM, 2):
+        for x in range(0, W, 2):
+            edge = min(x, W - 1 - x)
+            if edge >= BAND_WIDTH:
+                continue
+            density = (1 - edge / BAND_WIDTH) ** 1.4 * 0.9
+            if density > (BAYER4[((y >> 1) & 3) * 4 + ((x >> 1) & 3)] + 0.5) / 16:
+                px[x, y] = LIGHT
 
 
 def werkbank(state, t_ms=0):
     image = blank()
-    draw_stars(image, t_ms)
+    draw_bands(image)
     image.paste(LIGHT, (WORDMARK_SHIFT, 0), wordmark())
     d = ImageDraw.Draw(image)
     d.line((4, TABLE_Y, 123, TABLE_Y), fill=LIGHT)
@@ -441,15 +417,8 @@ def werkbank(state, t_ms=0):
     # layer, not just the body, so no pose can alter the edge or footer.
     gesture = blank()
     actor(gesture, origin, unhinged_look(state, t_ms), crop=TABLE_Y-origin[1])
-    if state.started and not state.done:
-        sweat(gesture, origin, t_ms)
     if state.done:
         shake_lines(gesture, origin, t_ms)
-    arm = ImageDraw.Draw(gesture)
-    hx = BODY_X + 8 + shift
-    for finger in (0, 2, 4):
-        arm.line((hx+finger, TABLE_Y-2, hx+finger, TABLE_Y-1), fill=LIGHT)
-    arm.line((origin[0]+16, origin[1]+25, hx+3, TABLE_Y-2), fill=LIGHT)
     draw_tube(gesture, werkbank_tube(pose, shift))
     # Opaque body coverage keeps the tray from showing through the dark body.
     coverage = blank()

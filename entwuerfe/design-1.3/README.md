@@ -106,7 +106,7 @@ zweiter Knopf, Code ansehen als Link.
 
 Ein Durchgang von 0 bis 100 %: Blechy zieht mit geschlossenen Augen die Line von links nach rechts weg und reißt
 bei 100 % die Augen auf. Oben mittig BLECHTRIBE, unten der Status ("LADE SAMPLES...") und die Prozentzahl,
-dahinter Sterne wie in der App. **Höchstens 20
+an den Rändern die Dither-Bänder aus der App. **Höchstens 20
 Bilder pro Sekunde**, jedes Bild mindestens 50 ms.
 
 ![Werkbank](geraet/vorschau/neu/werkbank.gif)

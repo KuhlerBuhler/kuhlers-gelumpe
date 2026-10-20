@@ -82,6 +82,7 @@ class FrameContractTests(unittest.TestCase):
 
     def test_the_figure_never_touches_the_wordmark(self):
         mark = anim.blank()
+        anim.draw_bands(mark)
         mark.paste(255, (anim.WORDMARK_SHIFT, 0), anim.wordmark())
         for cue in anim.demo_timeline():
             with self.subTest(pose=cue.state.pose, shift=cue.state.shift):
@@ -96,14 +97,14 @@ class FrameContractTests(unittest.TestCase):
                 if not cue.state.started:
                     self.assertEqual(look, anim.EYES_LOOK, "The still splash looks at you")
                 elif not cue.state.done:
-                    self.assertEqual(look[:2], (anim.EYES_CLOSED, anim.EYES_CLOSED), "Eyes shut while drawing")
+                    self.assertEqual(look, anim.EYES_CLOSED, "Eyes shut while drawing, no twitch")
                 else:
                     self.assertNotEqual(look[0], look[1], "Torn open with unequal pupils")
                     self.assertTrue(look[5], "The small eye is bloodshot")
             clock += cue.duration_ms
         for progress in (0.01, 0.37, 0.5, 0.88, 0.99):
-            self.assertEqual(anim.unhinged_look(anim.pass_state(progress), 1234)[:2],
-                             (anim.EYES_CLOSED, anim.EYES_CLOSED))
+            self.assertEqual(anim.unhinged_look(anim.pass_state(progress), 1234),
+                             anim.EYES_CLOSED)
 
     def test_footer_shows_the_status_text(self):
         still = anim.render_frame("werkbank", 0, pose="ready", started=False).crop((0, 56, 128, 64))
