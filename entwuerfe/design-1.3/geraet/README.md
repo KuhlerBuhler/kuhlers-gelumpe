@@ -30,7 +30,7 @@ früheren Layoutstudien in den Farben und Schriften der App, auch in nativen 128
 
 ![Werkbank](vorschau/neu/werkbank.gif)
 
-Die Demo zeigt den einen Durchgang mit 76 Bildern über 4,7 Sekunden. Die Beispieldauer verlängert keinen
+Die Demo zeigt den einen Durchgang mit 74 Bildern über 3,7 Sekunden. Die Beispieldauer verlängert keinen
 Gerätestart: Der echte Lader darf jederzeit zum aktuellen Fortschritt oder zum fertigen Hauptbild springen.
 
 ### Ablauf
