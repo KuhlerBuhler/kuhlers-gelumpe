@@ -1548,7 +1548,8 @@
         "base_plus_indexed_states_estimate_bytes": 45211,
         "estimate_excludes": "renderer code, timing, metadata, controller I/O; not ARM or hardware measurements",
         "kind": "one frame per percent, 200ms each"
-      }
+      },
+      "packed_controller_inverted": false
     },
     "typenschild": {
       "logical_frames": 24,
@@ -1809,7 +1810,8 @@
           "shift": 0,
           "eaten": 0
         }
-      ]
+      ],
+      "packed_controller_inverted": false
     },
     "praegung": {
       "logical_frames": 24,
@@ -2070,7 +2072,8 @@
           "shift": 0,
           "eaten": 0
         }
-      ]
+      ],
+      "packed_controller_inverted": false
     }
   },
   "shutdown": {

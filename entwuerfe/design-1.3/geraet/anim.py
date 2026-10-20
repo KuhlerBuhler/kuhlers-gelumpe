@@ -294,11 +294,6 @@ def still_splash():
     shoulder = (origin[0] + SHOULDER[0], origin[1] + SHOULDER[1])
     g.line((shoulder, STILL_ELBOW, STILL_GRIP), fill=DARK, width=3)
     g.line((shoulder, STILL_ELBOW, STILL_GRIP), fill=LIGHT, width=1)
-    gx, gy = STILL_GRIP
-    g.rectangle((gx - 3, gy - 3, gx + 3, gy + 3), fill=DARK)
-    g.rounded_rectangle((gx - 2, gy - 2, gx + 2, gy + 2), radius=1, fill=LIGHT)
-    g.line((gx - 1, gy - 1, gx - 1, gy + 1), fill=DARK)          # fingers round the tube
-    g.line((gx + 1, gy - 1, gx + 1, gy + 1), fill=DARK)
     gp = gesture.load()
     for x, y in STILL_STREAM:
         gp[x, y] = LIGHT
@@ -349,10 +344,10 @@ def draw_vial(image):
     d.line((point(at(1, 5.2)), point(at(1, -5.2))), fill=LIGHT, width=2)
     # The strap from the upper rim to the open cap, which hangs off to the right.
     hinge = point(at(1, -5.2))
-    cap = (hinge[0] + 6, hinge[1] - 3)
+    cap = (hinge[0] + 5, hinge[1] - 4)
     d.line((hinge, cap), fill=LIGHT)
-    d.ellipse((cap[0] - 1, cap[1] - 3, cap[0] + 4, cap[1] + 3), outline=LIGHT)
-    d.line((cap[0] + 1, cap[1] - 1, cap[0] + 1, cap[1] + 1), fill=LIGHT)
+    d.ellipse((cap[0] - 1, cap[1] - 6, cap[0] + 7, cap[1] + 4), fill=DARK, outline=LIGHT)
+    d.ellipse((cap[0] + 1, cap[1] - 3, cap[0] + 5, cap[1] + 1), outline=LIGHT)    # the plug inside the cap
 
 
 def shake_lines(image, origin, t_ms):
