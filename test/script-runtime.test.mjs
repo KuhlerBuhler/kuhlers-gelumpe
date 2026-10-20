@@ -118,6 +118,18 @@ test("native store glue, store file read and write match the browser's file buil
   assert.doesNotMatch(result.stderr, /skipped=/);
 });
 
+test("native korg.file.frame reads a frame of a picture file exactly as the browser does", {
+  skip: !available && !nativeRequired ? "Unicorn not installed" : false,
+}, () => {
+  assert.ok(available, probe.error?.message ?? probe.stderr);
+  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_file.py"], {
+    cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 4 * 1024 * 1024,
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.doesNotMatch(result.stderr, /skipped=/);
+});
+
 test("native clock and read-only hardware views match the firmware's state words and the timer's period", {
   skip: !available && !nativeRequired ? "Unicorn not installed" : false,
 }, () => {

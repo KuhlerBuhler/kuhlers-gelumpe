@@ -369,6 +369,17 @@ pc_map:
     ldrb r1, [r12, #LED_VALUE + 8]
     pop {r6, r7, pc}
 pm_chord:                               ; a chord: pink as the PART colour, or the colour left when PART or SELECT is pink
+    add r12, r4, r8, lsl #3             ; the cursor on a chord shows in the SELECT colour: the overlap of the chord's PART
+    ldrb r3, [r12, #LED_VALUE + 8]      ; colour is the usual PART colour, the cursor vanished there (device 20.10.)
+    cmp r3, #0
+    beq pm_chord_part
+    ldrb r2, [r12, #LED_VALUE]
+    cmp r3, r2
+    movhi r2, r3
+    mov r0, r6, lsr #4
+    and r0, r0, #15
+    b pm_colour
+pm_chord_part:
     and r0, r6, #15
     mov r1, r6, lsr #4
     and r1, r1, #15
@@ -393,7 +404,9 @@ pm_go:
     beq pm_part
     mov r12, r6, lsr #8                 ; both: OVERLAP when chosen, else the colour that is left, 3 - PART - SELECT
     ands r12, r12, #3
-    subne r0, r12, #1
+    subne r12, r12, #1
+    cmpne r12, r0                       ; an OVERLAP equal to PART would hide the cursor: the colour left instead
+    movne r0, r12
     bne pm_both
     rsb r0, r0, #3
     sub r0, r0, r1
