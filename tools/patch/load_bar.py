@@ -80,7 +80,8 @@ SPRITE_PAGE, SPRITE_PAGES = 2, 5        # Blechy lives in pages 2 to 6 (rows 16 
 FINALE_AT = 95                          # from 95 percent the finale plays while the count runs on
 TICKS = 0xC06A292C              # the operating system's tick count, one per millisecond (tools/patch/power_off.py)
 MENU_STATE = 0xC01D6E00         # tools/patch/script_hooks.py:MENU_STATE
-TICK_MS = 64                    # the finale's pictures change every 64 ms (a power of two: no division)
+TICK_MS = 96                    # the finale's pictures change every 96 ms; 64 ms was too fast for the LCD, the eyes only flickered
+TICK_MUL = -(-0x10000 // TICK_MS)  # ms * TICK_MUL >> 16 is ms // TICK_MS without a division (exact enough for the first hour of uptime)
 TICKS_N, FRAME_MS = 8, 50               # the finale's 8 pictures; at most one new picture every 50 ms (20 per second)
 PCT_RIGHT, PCT_Y = 123, 58              # the percent, right-aligned, in the 3 x 5 font
 GLYPHS = "0123456789%"
@@ -191,7 +192,7 @@ PAGE_CALL = 0xC0016084          # bl 0xC0015AB4 in the display send: compares a 
 PAGE_FUNC = 0xC0015AB4
 SHADOW = 0xC031B710             # the firmware's copy of what the display shows (the literal of 0xC0015A60)
 APP_PICTURE = 0xC01D6704        # the open app's picture (script runtime RT_DISPLAY): a frame equal to it is the app's own
-OFF_PICTURE = 0xC01A4C00        # the picture of Blechy at power off (tools/patch/power_off.py:FRAME_AT)
+OFF_ACTIVE = 0xC01A5BF0         # 1 while Blechy says goodbye at power off (tools/patch/power_off.py:OFF_ACTIVE)
 ERR_CODE = 0xC00F9CC8          # the code of the firmware's error box (0xC0063068 sets it, its destructor puts 0x26 back)
 ERR_CODE_LIT = 0xC00631D4       # the literal of the error box that holds ERR_CODE
 CARD_CODES = (2, 4)             # "No Card." and "Card Error" (the box's text table 0xC00E3280, code - 1)
@@ -378,7 +379,7 @@ SOURCE = """
 .equ SWEEP, @SWEEP@
 .equ FINALE_AT, @FINALE_AT@
 .equ TICKS_MASK, @TICKS_MASK@
-.equ TICK_SHIFT, @TICK_SHIFT@
+.equ TICK_MUL, @TICK_MUL@
 .equ FRAME_MS, @FRAME_MS@
 .equ PCT_X0, @PCT_X0@
 .equ PCT_Y, @PCT_Y@
@@ -390,7 +391,7 @@ SOURCE = """
 .equ LOOK_BOX, @LOOK_BOX@
 .equ LOOK_NBOX, @LOOK_NBOX@
 .equ APP_PICTURE, @APP_PICTURE@
-.equ OFF_PICTURE, @OFF_PICTURE@
+.equ OFF_ACTIVE, @OFF_ACTIVE@
 .equ EDITOR_MODE, @EDITOR_MODE@
 .equ ERR_CODE, @ERR_CODE@
 .equ CARD_ART, @CARD_ART@        ; the card picture of code 2, run-length coded: (count, byte) pairs up to 1024 bytes
@@ -580,7 +581,7 @@ lp_loop:
 
 ; r0 = 1 when the look goes over this frame: the loading overlay does not draw, EXIT was not held at power-on, the BLECH
 ; menu is armed with DISPLAY INVERT ON, the start image editor is not open, and the frame is neither the open app's picture
-; nor Blechy at power off (pages 0 and 7 of his picture: the firmware paints its box into the middle of it).
+; nor Blechy at power off (the power-off patch sets OFF_ACTIVE to 1 when his sequence starts).
 look_wanted:
     ldr r1, =STATE
     ldr r1, [r1, #S_EXPECT]
@@ -611,19 +612,10 @@ look_wanted:
     bl same
     cmp r0, #0
     bne lw_no_pop
-    ldr r0, =OFF_PICTURE
-    mov r1, #0
-    mov r2, #128
-    bl same
-    cmp r0, #0
-    beq lw_yes_pop
-    ldr r0, =OFF_PICTURE
-    mov r1, #896
-    mov r2, #128
-    bl same
-    cmp r0, #0
-    bne lw_no_pop
-lw_yes_pop:
+    ldr r0, =OFF_ACTIVE
+    ldr r0, [r0]
+    cmp r0, #1
+    beq lw_no_pop
     mov r0, #1
     pop {r4, pc}
 lw_no_pop:
@@ -746,7 +738,9 @@ compose:
     cmp r6, #1
     cmpne r5, #FINALE_AT
     blo cp_key
-    mov r0, r8, lsr #TICK_SHIFT  ; a new finale picture every 64 ms
+    ldr r0, =TICK_MUL            ; a new finale picture every TICK_MS
+    mul r0, r8, r0
+    mov r0, r0, lsr #16
     and r9, r0, #TICKS_MASK
 cp_key:
     orr r10, r5, r6, lsl #8
@@ -1885,10 +1879,10 @@ def source():
         "ART_TICKS": f"{LOAD_AT + a['table_at']:#x}", "FIG_X": str(a["fig_x"]), "FIG_W": str(a["fig_w"]), "FIG_W2": str(2 * a["fig_w"]),
         "FIN_X": str(a["fin_x"]), "FIN_W": str(a["fin_w"]), "SPRITE_OFF": str(SPRITE_PAGE * 128), "SPRITE_PAGES": str(SPRITE_PAGES),
         "LINE_X": str(LINE_X), "LINE_END": str(LINE_X + SWEEP), "LINE_Y": str(LINE_Y), "SWEEP": str(SWEEP),
-        "FINALE_AT": str(FINALE_AT), "TICKS_MASK": str(TICKS_N - 1), "TICK_SHIFT": str(TICK_MS.bit_length() - 1), "FRAME_MS": str(FRAME_MS),
+        "FINALE_AT": str(FINALE_AT), "TICKS_MASK": str(TICKS_N - 1), "TICK_MUL": str(TICK_MUL), "FRAME_MS": str(FRAME_MS),
         "PCT_X0": str(PCT_RIGHT + 2), "PCT_Y": str(PCT_Y),
         "LOOK_CODE": f"{LOOK_CODE:#x}", "LOOK_BACK": f"{LOOK_BACK:#x}", "LOOK_OUT": f"{LOOK_OUT:#x}", "SHADOW": f"{SHADOW:#x}", "LOOK_VARS": f"{LOOK_VARS:#x}", "LOOK_BOXES": f"{LOOK_BOXES:#x}", "LOOK_BOX": str(LOOK_BOX),
-        "LOOK_NBOX": str(LOOK_NBOX), "APP_PICTURE": f"{APP_PICTURE:#x}", "OFF_PICTURE": f"{OFF_PICTURE:#x}",
+        "LOOK_NBOX": str(LOOK_NBOX), "APP_PICTURE": f"{APP_PICTURE:#x}", "OFF_ACTIVE": f"{OFF_ACTIVE:#x}",
         "EDITOR_MODE": f"{EDITOR_MODE:#x}", "ERR_CODE": f"{ERR_CODE:#x}", "CARD_ART": f"{card_at():#x}", "CARD_ART4": f"{card_at() + len(rle(card_frame(2))):#x}", "DITHER_WORD": f"{int.from_bytes(bytes(DITHER), 'little'):#x}",
     }.items():
         text = text.replace(f"@{key}@", value)
@@ -2002,6 +1996,7 @@ def build_patch(vsb):
             ramdecl.share(MENU_STATE, 4, "script-runtime", "read only: is the BLECH menu armed (M_ON)", "tools/patch/load_bar.py:MENU_STATE"),
             ramdecl.share(MENU_STATE + 0x1B8, 4, "script-runtime", "read only: DISPLAY INVERT (M_INV)", "tools/patch/load_bar.py:MENU_STATE"),
             ramdecl.share(APP_PICTURE, 1024, "script-runtime", "read only: the open app's picture, a frame equal to it gets no look", "tools/patch/load_bar.py:APP_PICTURE"),
+            ramdecl.share(OFF_ACTIVE, 4, "power-off", "read only: 1 while Blechy says goodbye at power off, then no look", "tools/patch/load_bar.py:OFF_ACTIVE"),
             ramdecl.share(EDITOR_MODE, 4, "splash-editor", "read only: 1 while the start image editor is open, then no look", "tools/patch/load_bar.py:EDITOR_MODE"),
         ],
     }

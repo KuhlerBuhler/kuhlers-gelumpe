@@ -78,3 +78,23 @@ Bilder aus dem Display-RAM, rund 0,5 s nach der Taste:
   Reihenfolge der Aufrufe an.
 - **Andere Wege zum Ausschalten:** Auto Power Off geht durch denselben Handler, ist aber nicht ausgelöst worden
   (4 Stunden Gerätezeit); die zwei weiteren Absender der Meldung `0x18` auch nicht.
+
+## Nachtrag 2026-10-20: Winken und Röhren-Aus
+
+Statt des traurigen Blechy läuft jetzt in derselben Sekunde eine kurze Folge (`sequence()` in `tools/patch/power_off.py`):
+Blechy winkt neben "Haus'te" / "rin mein" / "Akh" (0 bis 700 ms, der Arm wechselt alle 125 ms), dann blendet das Bild über
+das 4 x 4 Bayer-Raster ab (700 und 760 ms), wird wie eine alte Röhre auf acht Zeilen gedrückt (820 ms), schrumpft zu einem
+Strich (880 ms) und einem Punkt (930 ms) und ist ab 970 ms dunkel.
+
+- **Platz:** gespeichert ist nur das erste Bild (weiter bei `0xC01A4C00`); der Arm der zweiten Pose sind 19 Byte, Blende, Röhre,
+  Strich und Punkt rechnet der Code. Der Code (rund 0x330 Byte) liegt jetzt bei `0xC01A5800` bis `0xC01A5BF0`, in Rot, Blau und
+  Hacktribe `FF`; `0xC01A4A00` bis `0xC01A4C00` ist wieder frei.
+- **Dunkel in beiden Modi:** die Bilder sind hell auf dunkel gezeichnet. Mit DISPLAY INVERT ON (BLECH-Menü scharf) gehen sie so
+  hinaus, sonst komplementiert der Code den Puffer, wie es die Ladeanimation tut.
+- **Der Look lässt die Folge in Ruhe:** der Look des Ladebalkens erkannte das Bild bisher an seinen Seiten 0 und 7; das hält
+  nur für ein festes Bild. Jetzt setzt der Haken beim Start der Folge das Wort `0xC01A5BF0` (`OFF_ACTIVE`) auf 1, der Look liest
+  es (`shares` in `data/patches/load-bar.json`). Ohne das Wort malte der Look ab der Blende seinen Rand über die Folge (gesehen im
+  Emulator: fünf fremde Bilder ab 725 ms).
+- **Geprüft:** der ARM-Code gibt für jeden Zeitpunkt in 5-ms-Schritten und beide INVERT-Stellungen genau das Bild von
+  `sequence()` (Unicorn, nur die Zeichenfunktion); `tools/emu/power_off_cases.py` erkennt jetzt jedes Bild der Folge.
+  Am Gerät ungeprüft.

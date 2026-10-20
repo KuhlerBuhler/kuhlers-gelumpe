@@ -10,11 +10,12 @@ import { applyPatches, selectFor, PATCH_FORMAT, fromHex } from "../src/patch.mjs
 import { CHAINS } from "../data/hooks.mjs";
 import { identify } from "../src/firmware.mjs";
 
-// Blechy at switch-off (docs/messungen/2026-10-15-blechy-power-off.md): the sad Blechy and a line instead of the firmware's box.
+// Blechy at switch-off (docs/messungen/2026-10-15-blechy-power-off.md): Blechy waves, then the picture goes out like a tube, instead of the firmware's box.
 const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
 const PATCH = read("data/patches/power-off.json");
 const SET = read("data/patches/blech.json");
-const CODE = 0x1a4b00;               // file offset of 0xC01A4A00
+const CODE = 0x1a5900;               // file offset of 0xC01A5800
+const CODE_END = 0x1a5cf0;           // 0xC01A5BF0, the word that says the sequence runs
 const FRAME = 0x1a4d00;              // 0xC01A4C00, the picture
 const FRAME_END = 0x1a5100;          // 0xC01A5000, where MFX 2 starts
 const WAIT_CALL = 0x38b74;           // file offset of 0xC0038A74, the call of the wait function in the power-off handler
@@ -48,7 +49,7 @@ test("it is our code, our picture and one hooked word: a branch with link into t
   const [code, frame, hook] = PATCH.changes;
   const n = fromHex(code.bytes).length;
   assert.equal(code.file, CODE);
-  assert.ok(code.file + n <= FRAME, `${n} bytes of code`);
+  assert.ok(code.file + n <= CODE_END, `${n} bytes of code`);
   assert.equal(frame.file, FRAME);
   assert.equal(fromHex(frame.bytes).length, 1024, "a whole display");
   assert.ok(frame.file + 1024 <= FRAME_END);
@@ -57,7 +58,7 @@ test("it is our code, our picture and one hooked word: a branch with link into t
   const word = Buffer.from(fromHex(hook.bytes)).readUInt32LE(0);
   assert.equal(word >>> 24, 0xeb, "branch with link");
   const target = 0xc0038a74 + 8 + (((word & 0xffffff) << 8) >> 8) * 4;
-  assert.ok(target >= 0xc01a4a00 && target < 0xc01a4a00 + n, "the call goes into our code");
+  assert.ok(target >= 0xc01a5800 && target < 0xc01a5800 + n, "the call goes into our code");
   for (const build of ["hacktribe", "stock"]) {
     const selected = selectFor(SET.patches.map(read), build);
     assert.deepEqual(selected.reasons, [], build);
@@ -124,7 +125,7 @@ describe("the power-off picture in the emulator", { concurrency: slots }, () => 
     const patched = await patchedCopy(stock);
     try {
       const report = await cases(patched.path);
-      assert.equal(report.checks.length, 8);
+      assert.equal(report.checks.length, 9);
     } finally {
       patched.remove();
     }
