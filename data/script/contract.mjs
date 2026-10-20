@@ -367,17 +367,17 @@ export const SCRIPT_KNOBS = 20;
  * BUILTIN, which no menu lists. `max` is what plugins can declare, `slots` what the table holds.
  */
 export const SCRIPT_APPS = Object.freeze({
-  max: 8,
+  max: 12,
   builtin: 1,
-  slots: 8 + 1,
+  slots: 12 + 1,
   groups: Object.freeze(["GAMES", "TOOLS"]),
   builtinGroup: 2,
   nameLength: 15,
   recordSize: 12,
   /** Frames after an open in which the firmware may still be on its way to the main screen (its screen switch is a queued message). */
   openGrace: 3,
-  stateSize: 8 + 9 * 12 + 4,
-  fields: Object.freeze([["open", 0], ["count", 4], ["table", 8], ["grace", 8 + 9 * 12]].map(([name, offset]) => Object.freeze({ name, offset }))),
+  stateSize: 8 + 13 * 12 + 4,
+  fields: Object.freeze([["open", 0], ["count", 4], ["table", 8], ["grace", 8 + 13 * 12]].map(([name, offset]) => Object.freeze({ name, offset }))),
   recordFields: Object.freeze([["entry", 0], ["name", 4], ["group", 8]].map(([name, offset]) => Object.freeze({ name, offset }))),
 });
 

@@ -141,14 +141,14 @@ test("open and close go to their own app only, and drawing stays with the open o
   assert.equal(device.apps.filter(a => a.open).length, 1, "one app is open at a time");
 });
 
-test("the menu lists GAMES before TOOLS, each in the order the apps were declared, and at most eight apps", () => {
+test("the menu lists GAMES before TOOLS, each in the order the apps were declared, and at most twelve apps", () => {
   const rt = new ScriptRuntime({ frameMs: Infinity });
   const groups = ["TOOLS", "GAMES", "TOOLS", "GAMES"];
   groups.forEach((g, i) => assert.ok(rt.add(build(`korg.app("App${i}", "${g}");`, `app${i}`)).ok));
   assert.deepEqual(rt.appList.map(a => [a.name, a.group]), [["App1", "GAMES"], ["App3", "GAMES"], ["App0", "TOOLS"], ["App2", "TOOLS"]]);
-  for (let i = 4; i < 12; i++) rt.add(build(`korg.app("App${i}", "GAMES");`, `app${i}`));
-  assert.equal(rt.apps.length, SCRIPT_APPS.max, "the ninth app is not listed");
-  assert.equal(rt.apps.length, 8);
+  for (let i = 4; i < 16; i++) rt.add(build(`korg.app("App${i}", "GAMES");`, `app${i}`));
+  assert.equal(rt.apps.length, SCRIPT_APPS.max, "the thirteenth app is not listed");
+  assert.equal(rt.apps.length, 12);
 });
 
 test("a fault of the open app shows on its screen, a fault of another script does not disturb it", () => {
