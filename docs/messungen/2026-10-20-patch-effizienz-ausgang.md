@@ -165,14 +165,19 @@ Die größten Teile der 441 KiB auf einem Sampler sind:
 | Zweck | Reservierung | Nutzung |
 |---|---:|---|
 | Plugin-Prüfarbeitsbereiche | 160 KiB | Arbeitslisten beim Prüfen neuer Plugins; bleiben für spätere Imports verfügbar |
-| Plugin-Pool | 128 KiB | Geladener Bytecode, Variablen, Stapel und Verwaltung von Blechy und Plugins |
+| Gemeinsamer Speicher für Blechy und Plugins | 128 KiB | Plugin-Bytecode sowie Variablen und Verwaltung; Blechys Bytecode bleibt im Firmware-Abbild |
 | SysEx samt Dateiarbeitsbereich | 60 KiB | Kommunikations- und Dateipuffer |
 | Datei- und Speicherabbildpuffer | knapp 32 KiB | Plugin-Dateien lesen und Speicherstände bearbeiten |
 
-**Zusätzlich gemessen am nativen Lader mit eigenen Eingaben:** Blechy und alle zehn
-Preset-Plugins zusammen belegen beim Laden 67440 Byte, rund **65,9 KiB des 128-KiB-Pools**.
-Rund 62,1 KiB Poolkapazität bleiben in diesem Beispiel für weitere Plugins. Das ist kein
-Nachweis des maximalen Gesamtverbrauchs aller Laufzeit- und Dateipfade. Die reservierten
+**Zusätzlich gemessen am nativen Lader mit eigenen Eingaben:** Blechy wird über den
+internen Ladeweg `script_load_block_ex` ohne Bytecode-Kopie eingerichtet. Nur sein
+Verwaltungseintrag und seine Variablen belegen den gemeinsamen Pool: 15904 Byte,
+rund **15,5 KiB**. Mit allen zehn Preset-Plugins zusammen sind es 51964 Byte, rund
+**50,7 KiB des 128-KiB-Pools**. Rund 77,3 KiB Poolkapazität bleiben in diesem Beispiel
+für weitere Plugins. Die vorherige Angabe von 65,9 KiB stammte aus einem Zusatztest,
+der Blechy über den normalen Plugin-Ladeweg kopierte. Dieser Weg entspricht nicht
+seiner Einbettung in der Firmware. Das ist kein Nachweis des maximalen Gesamtverbrauchs
+aller Laufzeit- und Dateipfade. Die reservierten
 160 KiB Prüfarbeitsbereiche werden nicht dauerhaft mit nützlichen Daten gefüllt, müssen
 aber bei jedem weiteren Import bereitstehen. Einfaches Überschreiben mit anderem Code
 würde diese Lebenszeiten verletzen.
@@ -183,6 +188,12 @@ Aufbau oder eine abgesicherte gemeinsame Nutzung. Eine konkrete Einsparung ist d
 nicht bewiesen. Ein kleinerer Plugin-Pool würde die Kapazität für weitere Plugins senken.
 
 ### Wo liegen Blechys Bilder?
+
+Blechy ist eine fest eingebaute BLECH-Funktion. Er wird nicht von der Karte importiert,
+nicht in der Plugin-Liste gezählt und nicht exportiert. Intern verwendet er dieselbe
+Skript-Laufzeit für Ereignisse und Anzeige. Der gemeinsame Pool ist deshalb kein
+ausschließlich für Nutzerplugins bestimmter Bereich. Ein eigener Bereich für Blechys
+Zustand würde den Gesamtbedarf allein durch die andere Zuordnung nicht verkleinern.
 
 Blechy ist einschließlich seiner Bilddaten **in der Firmware eingebaut**. Die PNG-Dateien
 werden beim Bauen in kleine Bitmaps umgewandelt. Gleiche Bilder werden wiederverwendet;
