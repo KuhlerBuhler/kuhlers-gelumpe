@@ -16,12 +16,12 @@ liegen im Repo.
 
 ## Aussehen
 
-Blech, roh, einbittig. Ecken sind abgeschnitten wie bei gestanztem Blech, nicht gerundet. Das große O ist ein Auge mit
-Schlitzpupille, die Null trägt die Pupille, jede Zahl hat also ein Auge. Das A ist spitz, das Q tropft. Die
+Blech, roh, einbittig. Ecken sind abgeschnitten wie bei gestanztem Blech, nicht gerundet. Das große O ist ein glatter Ring,
+nur die Null trägt die Schlitzpupille, jede Zahl hat also ein Auge. Das A ist spitz, das Q tropft. Die
 Schildchen (`EDIT`, `CLIP`, `ORIG` und so weiter) sind Platten mit abgeschnittenen Ecken und ausgestanzter
 Schrift, die Batterie ist ein Blechkasten. Die Schrift 1 ist kräftig (Striche zwei Pixel breit), die Schrift 3 ist
-dünn, die Schrift 2 hat Festbreite. In der Festbreitenschrift ist das O ein glatter Ring und nur die Null trägt
-die Pupille, damit ein Name beide auseinanderhält. Alles bleibt auf 128 x 64 lesbar: keine Verzierung im
+dünn, die Schrift 2 hat Festbreite. So hält ein Name O und Null in jeder Schrift
+auseinander. Alles bleibt auf 128 x 64 lesbar: keine Verzierung im
 Zeichenkörper selbst, die Auffälligkeit sitzt in wenigen Formen.
 
 Vorschau: [theme-preview.png](../../assets/blechy/theme-preview.png), die wichtigsten Bildschirme und alle

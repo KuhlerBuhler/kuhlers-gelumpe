@@ -2,10 +2,11 @@
 """Emulator checks for the folder copy at the first start (tools/patch/script_migrate.s,
 docs/messungen/2026-10-19-ordner-uebernehmen.md).
 
-check.py runs `cases` on every patched sampler copy that carries the BLECH menu. A card with a hacktribe folder and no
-blechtribe folder gets the question before the samples load; MENU copies every file and folder (dot files left out) to
-KORG/blechtribe and the start goes on with the copied samples; EXIT writes nothing; with both old folders the wheel chooses;
-a card that already has KORG/blechtribe, and EXIT held at power-on, never see the question.
+check.py runs `cases` on every patched sampler copy that carries the BLECH menu. A card with samples in a hacktribe folder and
+none in KORG/blechtribe gets the question before the samples load; MENU copies every file and folder (dot files left out) to
+KORG/blechtribe, leaves files already there as they are, and the start goes on with the copied samples; EXIT writes nothing;
+with both old folders the wheel chooses; a card that already has samples in KORG/blechtribe, and EXIT held at power-on, never
+see the question.
 
     tools/emu/.venv/bin/python tools/emu/migrate_cases.py cases --patched NEW.VSB [--only N]
 """
@@ -159,7 +160,34 @@ def case_full(payload, flash):
     return out
 
 
-GROUPS = (case_copy, case_choose, case_none, case_full)
+def case_existing(payload, flash):
+    """KORG/blechtribe already there with a plugin and a file of the same name, but without samples: the question comes, the copy
+    goes into the folder and leaves both files as they were. An old folder without samples asks nothing."""
+    out = []
+    mine = b"my own kick"
+    there = {**old("hacktribe"), "KORG/blechtribe/Plugin/e2sPlugin.all": b"plugins", "KORG/blechtribe/Import/Kick One.wav": mine}
+    dev = boot(payload, there)
+    asked = state(dev)[:3]
+    dev.press(MENU, 0.5)
+    wait(dev)
+    copied = files_of(dev, "blechtribe")
+    volume = fat32.Volume(bytes(dev.card.medium.data))
+    plugin = volume.read("KORG/blechtribe/Plugin/e2sPlugin.all")
+    volume.close()
+    out.append(entry("folder_without_samples_asks_and_keeps_files", asked == (1, 0, 1) and state(dev)[4] == 2
+                     and copied.get("Sample/e2sSample.all") == SAMPLE and copied.get("Import/Kick One.wav") == mine
+                     and copied.get("Import/deep/x.bin") == b"hello" and plugin == b"plugins" and dev.screen()["number"] == 1
+                     and not dev.m.asserts,
+                     f"blechtribe with a plugin, no samples: asked {asked}; after MENU phase {state(dev)[4]}, samples copied "
+                     f"{copied.get('Sample/e2sSample.all') == SAMPLE}, own Kick One.wav kept {copied.get('Import/Kick One.wav') == mine}, "
+                     f"plugin kept {plugin == b'plugins'}"))
+    bare = {k: v for k, v in old("hacktribe").items() if not k.endswith("e2sSample.all")}
+    none = boot(payload, bare)
+    out.append(entry("old_folder_without_samples_no_question", state(none)[0] != 1 and not none.m.asserts, f"state {state(none)}"))
+    return out
+
+
+GROUPS = (case_copy, case_choose, case_none, case_full, case_existing)
 
 
 def group_entries(payload, flash, i):

@@ -101,6 +101,10 @@ korg.onEvent("buttonRelease", (key) => {
 });
 ```
 
+**Margin.** Text and hints keep away from the edge of the display, as the firmware's menus do: 4 pixels left and right,
+2 pixels top and bottom (a line of text at the top at `y = 2`, at the bottom at `y = 55`, right-aligned it ends at `x = 123`).
+A playing field or a picture may go up to the edge. The plugins in the catalog keep to this.
+
 Use way 2 only when a menu entry does not fit: the display is then taken until someone presses EXIT, and
 the keys belong to the plugin as long as it owns the display. A plugin that only needs LEDs or keys never
 takes the display.
@@ -557,8 +561,10 @@ The pages of the groups:
 | CUSTOMIZATION, DISPLAY | ENTER | opens the pages of the display light; EXIT goes back to DISPLAY |
 | DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 15 15 15 means the firmware's white ("15 stock"); applies at once |
 | DISPLAY, INTENSITY | 0 to 15 | brightness of the display light over all three colours, the mix stays; 0 is no light, 15 the full colour; applies at once |
-| DISPLAY, SAVE LIGHT | STOCK, 1 to 15 | the display light in power save: STOCK is the firmware's dimming, 1 to 15 the own colour at that brightness |
-| DISPLAY, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; OFF is the default |
+| DISPLAY, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; ON is the default (a light trail on a dark screen smears less than a dark one), a settings file from 1.2 without it keeps OFF |
+| CUSTOMIZATION, POWER SAVE | ENTER | opens the pages for power save (on battery only); EXIT goes back to POWER SAVE |
+| POWER SAVE, DISPLAY LIGHT | STOCK, 1 to 15 | the display light in power save: STOCK is the firmware's dimming, 1 to 15 the own colour, 1 lights at 3 of 15, 15 full |
+| POWER SAVE, LED DIMMING | 0 to 100 % | how much power save dims the pad, key and knob LEDs: 0 % not at all, 100 % off, 75 % (the default) a quarter of the brightness; the knob LEDs go out except at 0 %; applies at once, WRITE keeps it |
 | CUSTOMIZATION, LED | ENTER | opens the pages of the lower LEDs; EXIT goes back to LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the level meter, COLOR a fixed colour, OFF dark; applies at once |
 | LED, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs for COLOR; with METER the level sets the brightness of this colour while no meter colour is set; 15 15 15 means the firmware's colours ("15 stock"); applies at once |
@@ -569,6 +575,7 @@ The pages of the groups:
 | PAD COLOR, OVERLAP | AUTO, RED, BLUE, PINK | the colour of a pad that is lit and selected at once; AUTO is the third colour, neither PAD COLOR nor SELECT COLOR |
 | CUSTOMIZATION, SPLASH IMPORT | ENTER | reads `KORG/blechtribe/splash.bmp` (128 x 64 pixels, 1 bit per pixel, not compressed; the darker colour is drawn) and stores it as the start image like WRITE in the splash editor; shown from the next start. Says "loaded", "no splash.bmp" or "not 128x64 1 bit" (then nothing changes). Only where the set has the splash editor, so not on the blue one |
 | CUSTOMIZATION, SPLASH DRAW | ENTER | opens the splash editor (a page of the Global screen that only this page reaches): the dial moves the cursor left and right, with SHIFT held up and down, MENU flips the pixel and, held, paints its new colour wherever the cursor goes, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
+| CUSTOMIZATION, SPLASH RESET | ENTER | drops the stored start image (import or editor); from now on and at every later start the firmware's own start image comes back, the page says "original back". Only where the set has the splash editor |
 | FEATURES, PATTERN CONFIRM | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file |
 | FEATURES, SYNC GROUP | OFF, 1 to 999 | the sync group of the pattern in RAM, Hacktribe and the red one only; the main dial changes it, it is saved with the pattern (WRITE or EXIT + WRITE). While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; switching between two patterns of one group carries everything that differs live from the saved state: part mutes and part sound (sample, filter, modulation, pitch, amp, IFX and the other part values), tempo, swing, level, MFX with pad and HOLD, so nothing jumps (in RAM only). Steps, motion, length, beat, key, scale and chord set stay the new pattern's. OFF (0) is no group, nothing carried |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off, TAP held longer than 0.3 s switches only while held and back on letting go; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
@@ -665,7 +672,7 @@ units. Every app stays below it, the tests check that. On the device the time pe
 | Tetris | GAMES | Part left and right move, Edit right turns, Edit left held drops faster, any key restarts after game over | 3772 bytes | 2305 units, 0.44 ms |
 | Game of Life | GAMES | the touchpad sets cells, key 1 starts and pauses (LED), key 2 one step, key 3 clears, key 4 fills at random | 2184 bytes | 2484 units, 0.47 ms |
 | Pong | GAMES | paddle by touchpad (height of the finger), Part left up, Part right down, encoder; first to 9 wins; ball and bot move on every second frame only, otherwise the slow display hardly shows the ball | 2120 bytes | 1221 units, 0.23 ms |
-| Simon | GAMES | the four middle pads (3, 4, 11, 12, counted from 0) light a sequence, you play it back, one more step each round; a wrong pad ends the game, TAP or a pad restarts | 2344 bytes | 2114 units (opening), frame 693 |
+| Simon | GAMES | the 16 pads light a sequence (a step 0.72 s, a little shorter every fourth round, never below 0.4 s), you play it back, one more step each round; the display shows the round, the step and what to do; a wrong pad ends the game, TAP or a pad restarts | 2268 bytes | frame at most 1673 units (game over), opening 1644 |
 | Mandelbrot | GAMES | a finger on the touchpad pans, Part right and the encoder zoom in, Part left out, keys 1 and 2 set the iterations (8 to 64), TAP resets | 2436 bytes | 2135 units, 0.41 ms |
 
 **Set-Timer** is meant for use in a set. Its clock is `korg.millis()`, which the runtime keeps current every frame,

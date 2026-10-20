@@ -80,6 +80,7 @@
                                 ; +12 (kind) -> title, r1 = value text; each sends the pads again where the colours change
 .equ SPLASH_IMPORT, 0xC01A2500  ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
+.equ SPLASH_RESET, 0xC01A2508
 .equ M_LEVEL, 0xE0
 .equ M_GROUP, 0xE4
 .equ M_RAW, 0xE8
@@ -139,6 +140,7 @@ menu_arm_zero:
     str r0, [r4, #M_PC]
     str r0, [r4, #M_TM]
     str r0, [r4, #M_NA]
+    str r0, [r4, #M_INV]        ; DISPLAY INVERT is ON without a settings file: a light trail on dark smears less
     mov r0, #0x38
     str r0, [r4, #M_BL_ON]
     sub r0, r4, #0x20
@@ -174,7 +176,7 @@ menu_arm_load_end:
 ; magic, version u16 (1 or 2), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
 ; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON), version 2 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
-; means the stock white, bit 28 the display inverted, bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
+; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes. Always written as version 2, version 1 is still read.
 ; Called from the card hook wrapper after menu_arm, before the script loader reads M_EFF_RUN.
 menu_settings_load:
@@ -264,6 +266,20 @@ menu_load_meter:
     mov r0, r0, lsr #28
     and r0, r0, #3
     mov r1, #16
+    bl menu_pc_call
+    ldr r0, [sp]                ; LED DIMMING (POWER SAVE): bits 6 and 7 and 31 of these flags, bit 31 of the look word (version 2)
+    ldr r1, [r0, #12]
+    ldrb r3, [r0, #4]
+    cmp r3, #2
+    ldreq r2, [r0, #16]
+    movne r2, #0
+    mov r0, r1, lsr #6
+    and r0, r0, #3
+    tst r1, #0x80000000
+    orrne r0, r0, #4
+    tst r2, #0x80000000
+    orrne r0, r0, #8
+    mov r1, #24
     bl menu_pc_call
     pop {r0-r3}
     ldrb r1, [r0, #6]
@@ -442,8 +458,14 @@ menu_settings_save:
     mov r10, r0
     mov r1, #20
     bl menu_pc_call
-    orr r0, r10, r0, lsl #28
-    str r0, [r7, #12]
+    orr r10, r10, r0, lsl #28
+    mov r1, #28                 ; LED DIMMING: bits 0 to 1 at 6 to 7, bit 2 at 31; bit 3 goes to bit 31 of the look word
+    bl menu_pc_call
+    and r1, r0, #3
+    orr r10, r10, r1, lsl #6
+    tst r0, #4
+    orrne r10, r10, #0x80000000
+    str r10, [r7, #12]
     ldr r0, [r4, #M_LED_MODE]
     ldr r1, [r4, #M_LED_R]
     orr r0, r0, r1, lsl #4
@@ -462,8 +484,12 @@ menu_settings_save:
     mov r10, r0
     mov r1, #4
     bl menu_pc_call
-    orr r0, r10, r0
-    str r0, [r7, #16]
+    orr r10, r10, r0
+    mov r1, #28
+    bl menu_pc_call
+    tst r0, #8
+    orrne r10, r10, #0x80000000
+    str r10, [r7, #16]
     add r0, r7, #20
     add r1, r4, #M_TRUST
     mov r2, r9
@@ -582,7 +608,14 @@ look_led_kind:
     bl look_triple
     str r12, [r4, #M_BL_ON]
     str r6, [r4, #M_BL_PWM]
-    ldrb r1, [r4, #MX_SAVE]
+    ldrb r1, [r4, #MX_SAVE]     ; DISPLAY LIGHT 1 to 15 lights at 3 to 15 of 15: 1 of 15 was dark on battery (device 19.10.)
+    cmp r1, #0
+    movne r0, #12
+    mulne r2, r1, r0
+    addne r2, r2, #30
+    ldrne r0, =4682             ; / 14: * 4682 >> 16
+    mulne r1, r2, r0
+    movne r1, r1, lsr #16
     sub r5, r4, #-MX_SAVE_CLR
     bl look_triple
     strb r12, [r4, #MX_SAVE_ON]
@@ -1062,8 +1095,8 @@ bl_pwm_pass:
 ; 0xC00161A4, the display's page write: after the commands that select the page and the column (0xB0 + page, 0x40, 0x10, 0x00,
 ; the data line is still low) the stock code runs `ldr r3, [fp, #-0x10]` (the display object). When the settings want the other
 ; polarity than the one sent last, the controller gets 0xA7 (display reversed: dark and clear swap) or 0xA6 (normal) here, once.
-; Nothing else is ever sent: with the menu not armed (EXIT at power-on) or the default OFF without a settings file the
-; hook only compares two words. The firmware never sends either command itself.
+; Nothing else is ever sent: with the menu not armed (EXIT at power-on) the hook does nothing, otherwise it only compares
+; two words once the polarity is sent (the default is ON, so the first page write after the arm sends 0xA7). The firmware never sends either command itself.
 lcd_invert_hook:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
@@ -1293,6 +1326,10 @@ menu_texts_clear:
     beq menu_text_over
     cmp r0, #33
     beq menu_text_mg
+    cmp r0, #34
+    beq menu_text_ledsave
+    cmp r0, #35
+    beq menu_text_splash
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1480,6 +1517,27 @@ menu_text_save:
     bleq menu_copy
     blne menu_dec
     b menu_text_look_line3
+; LED DIMMING (34): how much power save dims the LEDs, 0 (not at all) to 100 percent (off), from the patch pad-colors
+menu_text_ledsave:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_led_dim
+    bl menu_copy
+    mov r1, #28
+    bl menu_pc_call
+    bl led_dim_index
+    ldr r1, =led_dim_percent
+    ldrb r1, [r1, r0]
+    add r0, r5, #M_VALUE
+    bl menu_dec
+    ldr r1, =str_percent
+    bl menu_copy
+    b menu_text_look_line3
+; r0 = the step pad_colors.py keeps (0 is 75 percent) -> r0 = its place in led_dim_percent. Clobbers nothing else.
+led_dim_index:
+    add r0, r0, #8
+    cmp r0, #12
+    subhs r0, r0, #12
+    bx lr
 ; METER STILL, LOW, MID, LOUD (28 to 31): the zone's colour from the palette, STOCK the firmware's. r1 = the zone.
 menu_text_meter:
     mov r6, r1
@@ -1540,14 +1598,18 @@ menu_pc_call:
     mov r1, r2
     bx r12
 
-; SPLASH IMPORT (22): ENTER reads KORG/blechtribe/splash.bmp into the start image; SPLASH DRAW (23): ENTER opens the editor
+; SPLASH IMPORT (22): ENTER reads KORG/blechtribe/splash.bmp into the start image; SPLASH DRAW (23): ENTER opens the editor;
+; SPLASH RESET (35): ENTER drops the stored image, the start image of the firmware comes back
 menu_text_splash:
     mov r6, r0
     mov r0, #3
     bl menu_title_prefix
     cmp r6, #22
     ldreq r1, =str_splash_import
-    ldrne r1, =str_splash_draw
+    cmp r6, #23
+    ldreq r1, =str_splash_draw
+    cmp r6, #35
+    ldreq r1, =str_splash_reset
     bl menu_copy
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
@@ -1719,6 +1781,9 @@ menu_text_status_more:
     beq menu_text_status_go
     cmp r1, #0x42
     ldreq r1, =str_splash_format
+    beq menu_text_status_go
+    cmp r1, #0x44
+    ldreq r1, =str_splash_reset_done
     beq menu_text_status_go
     cmp r1, #0x25
     ldreq r1, =str_nofolder
@@ -2065,14 +2130,14 @@ menu_kind_group:
     beq menu_kind_plugins
     cmp r3, #4
     beq menu_kind_features
-    cmp r3, #5                  ; DISPLAY, LED, PAD COLOR (5 to 7) and CUSTOMIZATION (3): the kinds of their pages from tables
+    cmp r3, #5                  ; DISPLAY, LED, PAD COLOR, POWER SAVE (5 to 8) and CUSTOMIZATION (3): the kinds of their pages from tables
     bhs menu_kind_sub
     cmp r3, #3
     bne menu_kind_apps
     ldr r1, =custom_kinds
     ldrb r0, [r1, r5]
     cmp r0, #16
-    addeq r1, r5, #5            ; rows 0 to 2 open the groups 5 to 7
+    addeq r1, r5, #5            ; rows 0 to 3 open the groups 5 to 8
     movne r1, #0
     b menu_kind_done
 menu_kind_sub:
@@ -2163,11 +2228,11 @@ menu_count_group:
     ldr r1, [r1]
     cmn r1, #1
     beq menu_count_out          ; without the pad colours there is no PAD COLOR and no splash page (the splash editor comes with them)
-    add r0, r0, #1              ; PAD COLOR
+    add r0, r0, #2              ; PAD COLOR and POWER SAVE (its LED DIMMING is in the pad colours patch)
     ldr r1, =SPLASH_IMPORT
     ldr r1, [r1]
     cmn r1, #1
-    addne r0, r0, #2            ; SPLASH IMPORT and SPLASH DRAW, where the build has the splash editor
+    addne r0, r0, #3            ; SPLASH IMPORT, SPLASH DRAW and SPLASH RESET, where the build has the splash editor
     b menu_count_out
 menu_count_features:
     cmp r1, #5
@@ -2956,11 +3021,11 @@ menu_desc_frame:
     ldr r0, [r8, #M_IMP_SEL]
     add r4, r4, #LIST_TITLES
     add r4, r4, r0, lsl #4
-    mov r5, #1
-    mov r6, #0
+    mov r5, #4                  ; 4 pixels from the sides, 2 from top and bottom, as the firmware's menus (device 19.10.)
+    mov r6, #2
     bl display_draw_text
     mov r0, #0
-    mov r1, #9
+    mov r1, #11
     mov r2, #128
     mov r3, #1
     mov r12, #1
@@ -2976,8 +3041,8 @@ menu_desc_frame:
     ldrb r0, [r8, #M_DESC_N]
     cmp r0, #0
     ldreq r4, =str_no_desc
-    moveq r5, #1
-    moveq r6, #11
+    moveq r5, #4
+    moveq r6, #13
     bleq display_draw_text
     ldr r0, [r8, #M_DESC_TOP]
 menu_desc_frame_skip:
@@ -2992,7 +3057,7 @@ menu_desc_frame_skip:
     b menu_desc_frame_skip
 menu_desc_frame_rows:
     sub sp, sp, #24
-    mov r6, #11
+    mov r6, #13
 menu_desc_frame_row:
     mov r0, #0
 menu_desc_frame_char:
@@ -3010,35 +3075,35 @@ menu_desc_frame_line:
     mov r1, #0
     strb r1, [sp, r0]
     mov r4, sp
-    mov r5, #1
+    mov r5, #4
     bl display_draw_text
     add r6, r6, #8
-    cmp r6, #11+8*DESC_ROWS
+    cmp r6, #13+8*DESC_ROWS
     blo menu_desc_frame_row
     add sp, sp, #24
-    ldr r0, [r8, #M_DESC_TOP]
+    ldr r0, [r8, #M_DESC_TOP]   ; the scroll marks in the title row: ^ more above, v more below
     cmp r0, #0
     ldrne r4, =str_up
-    movne r5, #123
-    movne r6, #11
+    movne r5, #112
+    movne r6, #2
     blne display_draw_text
     ldr r0, [r8, #M_DESC_TOP]
     ldrb r1, [r8, #M_DESC_N]
     add r0, r0, #DESC_ROWS
     cmp r0, r1
     ldrlo r4, =str_down
-    movlo r5, #123
-    movlo r6, #11+8*(DESC_ROWS-1)
+    movlo r5, #119
+    movlo r6, #2
     bllo display_draw_text
     add r4, r8, #M_VALUE
-    mov r5, #1
-    mov r6, #56
+    mov r5, #4
+    mov r6, #55
     bl display_draw_text
     ldr r0, [r8, #M_STATUS]
     cmp r0, #0
     ldreq r4, =str_enter_key
-    moveq r5, #128-7*6
-    moveq r6, #56
+    moveq r5, #124-7*6+1
+    moveq r6, #55
     bleq display_draw_text
     mov r0, #0
     strb r0, [r8, #M_TITLE]
@@ -3201,6 +3266,8 @@ menu_slot_value:
     beq menu_value_over
     cmp r0, #33
     beq menu_value_mg
+    cmp r0, #34
+    beq menu_value_ledsave
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
@@ -3270,6 +3337,21 @@ menu_value_over:
     cmp r0, #3
     movgt r0, #3
     mov r1, #16
+    bl menu_pc_call
+    b menu_value_look_done
+; LED DIMMING: the dial goes through led_dim_percent, the patch pad-colors keeps the step and sends the LEDs; WRITE keeps it
+menu_value_ledsave:
+    mov r1, #28
+    bl menu_pc_call
+    bl led_dim_index
+    adds r0, r0, r5
+    movmi r0, #0
+    cmp r0, #11
+    movgt r0, #11
+    add r0, r0, #4              ; back to the patch's step
+    cmp r0, #12
+    subhs r0, r0, #12
+    mov r1, #24
     bl menu_pc_call
     b menu_value_look_done
 ; PAD COLOR and SELECT COLOR: the dial steps the colour in the patch, which skips the other page's and sends the pads; WRITE keeps it.
@@ -3529,6 +3611,8 @@ menu_slot_keys:
     beq menu_keys_splash_import
     cmp r0, #23
     beq menu_keys_splash_draw
+    cmp r0, #35
+    beq menu_keys_splash_reset
     cmp r6, #0x09
     beq menu_keys_done
     cmp r0, #2
@@ -3594,6 +3678,17 @@ menu_keys_splash_import:
     ldr r1, =MENU_STATE
     str r0, [r1, #M_STATUS]
     b menu_keys_done
+menu_keys_splash_reset:
+    cmp r6, #0x09
+    bne menu_keys_done
+    ldr r12, =SPLASH_RESET
+    blx r12
+    cmp r0, #0
+    moveq r0, #0x44             ; 0x44 the firmware's image is back
+    movne r0, #0x43             ; else the flash write failed (or the editor is off), said as the write error
+    ldr r1, =MENU_STATE
+    str r0, [r1, #M_STATUS]
+    b menu_keys_done
 menu_keys_splash_draw:
     cmp r6, #0x09
     bne menu_keys_done
@@ -3652,7 +3747,7 @@ menu_exit_show:
     mov r0, r4
     bl menu_show
     pop {r1, r2, r4, pc}
-menu_exit_sub:                   ; out of DISPLAY, LED or PAD COLOR: back to its row in CUSTOMIZATION
+menu_exit_sub:                   ; out of DISPLAY, LED, PAD COLOR or POWER SAVE: back to its row in CUSTOMIZATION
     sub r12, r12, #5
     str r12, [r2, #M_PAGE]
     str r12, [r2, #M_ENTER]
@@ -3724,7 +3819,15 @@ str_c_pink:
 str_intens:
     .asciz "INTENSITY"
 str_save:
-    .asciz "SAVE LIGHT"
+    .asciz "DISPLAY LIGHT"
+str_led_dim:
+    .asciz "LED DIMMING"
+str_percent:
+    .asciz "%"
+str_psave:
+    .asciz "POWER SAVE"
+str_tab_psave:
+    .asciz "Power"
 str_stock_word:
     .asciz "STOCK"
 str_tab_display:
@@ -3825,6 +3928,10 @@ str_splash_import:
     .asciz "SPLASH IMPORT"
 str_splash_draw:
     .asciz "SPLASH DRAW"
+str_splash_reset:
+    .asciz "SPLASH RESET"
+str_splash_reset_done:
+    .asciz "original back"
 str_splash_saved:
     .asciz "loaded"
 str_splash_nofile:
@@ -3841,18 +3948,21 @@ str_mg:
     .asciz "SYNC GROUP"
 .align 4
 tab_names:
-    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads
+    .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads, str_tab_psave
 group_names:
-    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features, str_display, str_tab_led, str_pads
-custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD COLOR (groups 5 to 7), SPLASH IMPORT, SPLASH DRAW
-    .byte 16, 16, 16, 22, 23
+    .word str_scripts, str_group_games, str_group_tools, str_custom, str_features, str_display, str_tab_led, str_pads, str_psave
+custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD COLOR, POWER SAVE (groups 5 to 8), SPLASH IMPORT, SPLASH DRAW, SPLASH RESET
+    .byte 16, 16, 16, 16, 22, 23, 35
 .align 4
-sub_kinds:                      ; the kinds of the pages of DISPLAY, LED and PAD COLOR, 8 a group (device 18.10.)
-    .byte 11, 12, 13, 26, 27, 14, 0, 0  ; DISPLAY: backlight red, green, blue, INTENSITY, SAVE LIGHT, display invert
+sub_kinds:                      ; the kinds of the pages of DISPLAY, LED, PAD COLOR and POWER SAVE, 8 a group (device 18.10.)
+    .byte 11, 12, 13, 26, 14, 0, 0, 0   ; DISPLAY: backlight red, green, blue, INTENSITY, display invert
     .byte 7, 8, 9, 10, 28, 29, 30, 31   ; LED: bottom LEDs, LED red, green, blue, the meter's four colours
     .byte 24, 25, 32, 0, 0, 0, 0, 0     ; PAD COLOR: pad colour, select colour, overlap
+    .byte 27, 34, 0, 0, 0, 0, 0, 0      ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little)
 sub_counts:
-    .byte 6, 8, 3, 0
+    .byte 5, 8, 3, 2
+led_dim_percent:                ; LED DIMMING, the steps of the dial: percent dimmed (pad_colors.py keeps the step 8 places on, 75 is 0)
+    .byte 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100
 meter_palette:                  ; red, green, blue of the colours 1 to 7, then the firmware's colours of the four zones
     .byte 0, 0, 0,  160, 160, 160,  255, 0, 0,  0, 255, 0,  0, 0, 255,  255, 160, 0,  0, 200, 255,  255, 0, 160
     .byte 120, 120, 120,  0, 0, 255,  0, 255, 0,  255, 0, 0

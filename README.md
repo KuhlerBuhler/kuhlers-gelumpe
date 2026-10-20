@@ -36,7 +36,7 @@ GELUMPE läuft als App oder im Browser und funktioniert mit dem Electribe 2 Samp
 - **Plugins** schreiben, die direkt auf der Electribe laufen, zum Beispiel ein Lauflicht, ein Spiel
   auf dem Display oder eine eigene Menüseite, oder fertige aus dem Katalog nehmen,
 - Effekte und Patterns in Klartext mit echten Einheiten bearbeiten statt in Bytes und sie per Web MIDI
-  ans Gerät schicken.
+  ans Gerät schicken, und einzelne Presets als `.e2fx`-Datei weitergeben und laden.
 
 Bevor irgendwas ans Gerät geht, schauen ein Linter mit Regeln, die ich am echten Gerät abgeglichen hab,
 und der Emulator drüber, ob die Electribe das voraussichtlich schluckt. Emulator, Patcher und Plugins

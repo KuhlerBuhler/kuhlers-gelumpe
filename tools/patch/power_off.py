@@ -120,7 +120,7 @@ def read_font():
     return font
 
 
-def frame_pixels(sprite=None, text=None):
+def frame_pixels(sprite=None, text=None, text_y=TEXT_Y):
     """The whole display as rows of 0 and 1 (1 is a dark pixel): the sprite left, the text right."""
     grid = [[0] * 128 for _ in range(64)]
     sprite = read_png(SPRITE) if sprite is None else sprite
@@ -134,7 +134,7 @@ def frame_pixels(sprite=None, text=None):
             for col, bits in enumerate(font[ch]):
                 for row in range(7):
                     if bits >> row & 1:
-                        grid[TEXT_Y + line * TEXT_STEP + row][TEXT_X + i * 6 + col] = 1
+                        grid[text_y + line * TEXT_STEP + row][TEXT_X + i * 6 + col] = 1
     return grid
 
 

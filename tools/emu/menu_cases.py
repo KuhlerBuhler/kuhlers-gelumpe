@@ -108,8 +108,8 @@ def press(dev, key, wait=0.25):
     dev.press(key, wait=wait)
 
 
-GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_DISPLAY, GROUP_LED, GROUP_PADS = range(8)
-CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_SPLASH = 0, 1, 2, 3     # the rows of CUSTOMIZATION: three groups, then SPLASH IMPORT and SPLASH DRAW
+GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_DISPLAY, GROUP_LED, GROUP_PADS, GROUP_PSAVE = range(9)
+CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_PSAVE, CUSTOM_SPLASH = 0, 1, 2, 3, 4   # the rows of CUSTOMIZATION: four groups, then SPLASH IMPORT, SPLASH DRAW and SPLASH RESET
 S_LEVEL, S_GROUP, S_RAW, S_TOP, S_TABW = 0xE0, 0xE4, 0xE8, 0xEC, 0xF0
 TAB_TEXT_POINTER = 0x38                                               # the tab widget keeps a pointer to its text at this offset
 LIST_PAGES = ["FEATURES", "CUSTOMIZATION", "PLUGINS"]                 # the groups of level 1 of a menu without apps, in this order; GAMES and TOOLS follow when an app is declared in them
@@ -183,8 +183,13 @@ def dark(fb, rows, left=0, right=128):
     return {(x, y) for y in rows for x in range(left, right) if not (fb[(y // 8) * 128 + x] >> (y % 8)) & 1}
 
 
+def frame(dev):
+    """The frame as the firmware drew it: the frame buffer, not the display (the load bar's look changes only what is sent)."""
+    return dev.read(0xC031B310, 1024)
+
+
 def draw_texts(dev, value, line3):
-    """Draw only the given value and third line (zero-terminated texts) on the BLECH screen and return the display: the firmware's own text widget, nothing of ours."""
+    """Draw only the given value and third line (zero-terminated texts) on the BLECH screen and return the frame: the firmware's own text widget, nothing of ours."""
     widget = dev.u32(screen_object(dev) + MENU_WIDGET)
     scratch = script_hooks.CARD + 0xF00
     dev.m.uc.mem_write(scratch, value.encode() + b"\0")
@@ -192,11 +197,11 @@ def draw_texts(dev, value, line3):
     dev.call(SET_VALUE, widget, scratch)
     dev.call(SET_LINE3, widget, scratch + 64)
     dev.run(0.25)
-    return dev.fb()
+    return frame(dev)
 
 
 def draw_tab(dev, label, index=None, total=None):
-    """Show `label` on the tab (optionally with another counter) and return the display."""
+    """Show `label` on the tab (optionally with another counter) and return the frame."""
     scratch = script_hooks.CARD + 0xE00
     dev.m.uc.mem_write(scratch, label.encode() + b"\0")
     dev.m.uc.mem_write(state(dev, S_TABW) + TAB_TEXT_POINTER, struct.pack("<I", scratch))
@@ -207,7 +212,7 @@ def draw_tab(dev, label, index=None, total=None):
         dev.call(SET_COUNTER, counter_widget, index, total)
         dev.m.uc.mem_write(STATE + S_RAW, struct.pack("<I", 0))
     dev.run(0.25)
-    return dev.fb()
+    return frame(dev)
 
 
 def label_problem(dev, label, index=None, total=None):
@@ -235,7 +240,7 @@ def page_overlap(dev):
     value runs into it), the value alone and the line alone share no pixel, neither the title, the value nor the line reach the
     edge of the display (a text that is too wide is cut off), and the tab's label is whole beside its counter."""
     title, value, line3 = texts_of(dev)
-    shown = dev.fb()
+    shown = frame(dev)
     wrong = []
     if line3 and (line3 != PRESS or value):
         wrong.append(f"third line {line3!r} beside value {value!r}")
@@ -454,8 +459,8 @@ def cases(payload, flash=None, settings=True):
 
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(3)]
-    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(6)] + [(GROUP_LED, page) for page in range(8)]
-    pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8)]
+    pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_PSAVE, page) for page in range(2)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
     for group, page in pages:
         if group == "ring":
@@ -701,13 +706,13 @@ def pins(dev):
 
 
 def custom_extra(dev):
-    """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR where the set has the pad colours, SPLASH IMPORT and SPLASH DRAW
-    where it also has the splash editor (the blue Electribe has the pad colours only)."""
+    """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR and POWER SAVE where the set has the pad colours, SPLASH IMPORT
+    SPLASH DRAW and SPLASH RESET where it also has the splash editor (the blue Electribe has the pad colours only)."""
     import pad_colors
     import splash_editor
     if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
         return 0
-    return 1 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 3
+    return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 5
 
 
 def goto_page(dev, number):
@@ -717,7 +722,7 @@ def goto_page(dev, number):
     elif number <= PAGE_BL_B:
         goto_group(dev, GROUP_DISPLAY, number - PAGE_BL_R)
     else:
-        goto_group(dev, GROUP_DISPLAY, 5)
+        goto_group(dev, GROUP_DISPLAY, 4)
 
 
 def shown_levels(dev, at):
@@ -838,7 +843,7 @@ def look_cases(payload, flash=None):
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
     add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
-        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 6), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 8)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 5), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 8)]
         and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
         f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
@@ -960,14 +965,15 @@ def look_cases(payload, flash=None):
     add("backlight_power_save_stays", abs(dimmed[0]["R"] - 0.037) < 0.02 and abs(dimmed[0]["G"] - 0.037) < 0.02 and dimmed[0]["B"] == 0 and not mix.m.asserts, f"{dimmed}")
     add("backlight_back_from_power_save", near(resumed[0], {"R": 0, "G": 0, "B": 12 / 16}), f"{resumed}")
     add("backlight_zero_is_stock_white", stock[0] == {"R": 1.0, "G": 1.0, "B": 1.0} and stock[1] == 0 and state(mix, S_BL_PWM) == 0, f"{stock}")
-    # INTENSITY scales every level and keeps the mix; SAVE LIGHT gives power save the colour at its own intensity (device 18.10.)
+    # INTENSITY scales every level and keeps the mix; POWER SAVE, DISPLAY LIGHT gives power save the colour at its own intensity
+    # (device 18.10.), 1 to 15 lighting at 3 to 15 (device 19.10.: 1 was dark on battery)
     set_look(mix, backlight=(0, 0, 12))
     goto_group(mix, GROUP_DISPLAY, 3)
     page = texts_of(mix)
     mix.turn(-7, wait=0.3)
     mix.run(0.3)
     scaled = duty(mix, 1.0)[0], texts_of(mix)[1]
-    goto_group(mix, GROUP_DISPLAY, 4)
+    goto_group(mix, GROUP_PSAVE, 0)
     save_page = texts_of(mix)
     mix.turn(4, wait=0.3)
     mix.call(POWER_CONNECT, 1)
@@ -977,7 +983,7 @@ def look_cases(payload, flash=None):
     mix.run(0.3)
     after = duty(mix, 1.0)[0]
     add("backlight_intensity", page == ("INTENSITY", "15", "") and scaled[1] == "8" and near(scaled[0], {"R": 0, "G": 0, "B": 6 / 16}), f"page {page}, at 8 {scaled}")
-    add("backlight_save_light", save_page == ("SAVE LIGHT", "STOCK", "") and near(saved, {"R": 0, "G": 0, "B": 3 / 16}) and near(after, {"R": 0, "G": 0, "B": 6 / 16})
+    add("backlight_save_light", save_page == ("DISPLAY LIGHT", "STOCK", "") and near(saved, {"R": 0, "G": 0, "B": 4 / 16}) and near(after, {"R": 0, "G": 0, "B": 6 / 16})
         and not mix.m.asserts, f"page {save_page}, power save at 4 {saved}, back {after}")
     mix.turn(-4, wait=0.3)
     goto_group(mix, GROUP_DISPLAY, 3)
@@ -990,7 +996,7 @@ def look_cases(payload, flash=None):
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
     size = len(fat32.Volume(bytes(keep.m.mmc.card.medium.data)).read(SETTINGS_PATHS[1]))
-    add("file_holds_the_look", files.get("b", (0, 0, 0, None))[3] == look_word(0, (15, 7, 0), (0, 15, 6)) and files["b"][:2] == (1, 3) and size == 24, f"{files}, {size} bytes")
+    add("file_holds_the_look", files.get("b", (0, 0, 0, None))[3] == look_word(0, (15, 7, 0), (0, 15, 6), 1) and files["b"][:2] == (1, 3) and size == 24, f"{files}, {size} bytes")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
@@ -1036,7 +1042,8 @@ def cases_task():
 
 def splash_menu_cases(payload, flash=None):
     """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT reads KORG/blechtribe/splash.bmp into the start image,
-    SPLASH DRAW opens the editor (Global, page SPLASH SCREEN). Without the editor (the synth) the group keeps its 8 pages."""
+    SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back.
+    Without the editor (the synth) the group keeps its 8 pages."""
     from splash_cases import bmp, image_of
     import splash_editor
     out = []
@@ -1070,6 +1077,27 @@ def splash_menu_cases(payload, flash=None):
     goto_group(bare, GROUP_CUSTOM, CUSTOM_SPLASH)
     press(bare, "menu", 0.6)
     add("import_without_file", texts_of(bare)[1] == "no splash.bmp", str(texts_of(bare)))
+    from splash_cases import DESC13
+    desc = lambda d: d.u32(DESC13)
+    record_id = lambda d: struct.unpack_from("<I", d.m.flash.mem, splash_editor.FLASH_RECORD)[0]
+    dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic)})
+    goto_group(dev, GROUP_CUSTOM, CUSTOM_SPLASH)
+    press(dev, "menu", 0.6)
+    imported = (desc(dev), record_id(dev))
+    press(dev, "edit_next", 0.4)
+    press(dev, "edit_next", 0.4)
+    reset_page = texts_of(dev)
+    press(dev, "menu", 0.8)
+    reset_after = texts_of(dev)
+    orig = dev.u32(splash_editor.STATE + 0x34)
+    add("reset", imported == (splash_editor.RECBUF + 8, splash_editor.RECORD_ID) and reset_page == ("SPLASH RESET", "", PRESS)
+        and reset_after[:2] == ("SPLASH RESET", "original back") and desc(dev) == orig != splash_editor.RECBUF + 8 and record_id(dev) == 0 and not dev.m.asserts,
+        f"after import image {imported[0]:#x}, record id {imported[1]:#x}; {reset_page} -> {reset_after}, image {desc(dev):#x} (VSB's {orig:#x}), record id {record_id(dev):#x}")
+    again = Dev(payload, flash, 0)
+    again.m.flash.mem[:] = dev.m.flash.mem
+    again.m.insert_card(SDCard(MemoryMedium(card_image(CARD_FOLDER))))
+    again.run(1.2)
+    add("reset_kept_after_restart", desc(again) == orig and not again.m.asserts, f"next start draws {desc(again):#x}, the VSB's image is {orig:#x}")
     return out
 
 
@@ -1174,6 +1202,29 @@ def pad_colour_cases(payload, flash=None):
         f"on battery the firmware {'dims' if dims else 'does not dim (POWER SAVE of this flash)'} from power-on: pad 1 {pad(battery, 0)}, TAP LED {battery.m.leds.get(0x14, 0)}")
     before, during, after = dimmed(held)
     add("power_save_exit_held_is_stock", during.get(0x2D, 0) == 255 and not held.m.asserts, f"EXIT held: pad 1 blue while dimmed {during.get(0x2D, 0)}")
+    # POWER SAVE, LED DIMMING: 75 percent when never set; 0 percent leaves every LED (the knobs too), 100 percent puts all out (device wish 19.10.)
+    goto_group(plain, GROUP_PSAVE, 1)
+    first = texts_of(plain)
+    def at(turn):
+        plain.turn(turn, wait=0.4)
+        b, d, _ = dimmed(plain)
+        shown = {led: v for led, v in b.items() if v and not 0x4C <= led <= 0x57}
+        return texts_of(plain)[1], shown, {led: d.get(led, 0) for led in shown}
+    none, full, part = at(-8), at(11), at(-4)
+    # at 0 percent BLECH leaves every LED as the firmware sends it; the knob LEDs then show the firmware's own power save value
+    knobless = lambda d: {led: v for led, v in d.items() if led > 4}
+    add("power_save_led_dimming", first == ("LED DIMMING", "75%", "") and none[0] == "0%" and knobless(none[1]) and knobless(none[2]) == knobless(none[1])
+        and full[0] == "100%" and set(full[2].values()) == {0}
+        and part[0] == "70%" and all(part[2][led] == (0 if led <= 4 else (v * 30 + 99) // 100) for led, v in part[1].items()) and not plain.m.asserts,
+        f"page {first}; at {none[0]} {none[1]} -> {none[2]}; at {full[0]} -> {full[2]}; at {part[0]} {part[1]} -> {part[2]}")
+    press(plain, "write", wait=0.6)
+    look = read_settings_look(plain.m.mmc.card.medium.data).get("b", (0, 0, 0, None))
+    keep = Dev(payload, flash, 0)
+    keep.m.adapter = True
+    keep.m.insert_card(SDCard(MemoryMedium(bytearray(plain.m.mmc.card.medium.data))))
+    keep.run(wait + 0.8)
+    goto_group(keep, GROUP_PSAVE, 1)
+    add("power_save_led_dimming_kept", texts_of(keep)[1] == "70%" and not keep.m.asserts, f"after WRITE and a new start: {texts_of(keep)}, file {look}")
     if not synthaddr.is_synth(payload):
         out += chord_cases(payload, flash, add, pad, wait)
     return out
@@ -1245,9 +1296,10 @@ def tie_cases(payload, flash, add, pad, wait):
 
 
 def invert_cases(payload, flash=None):
-    """The page DISPLAY INVERT of the group CUSTOMIZATION: the controller is told 0xA7 (reverse display) or 0xA6 (normal) once per
-    change, never when the setting stays OFF, the file keeps it (bit 28 of the look word), and EXIT at power-on leaves the controller
-    alone. The emulator's controller (machine.py) swaps dark and clear on 0xA7: shown() is the complement of the RAM."""
+    """The page DISPLAY INVERT of the group CUSTOMIZATION: ON is the default (a card without a file, no card, a version 1 file, a
+    damaged file), the controller is told 0xA7 (reverse display) or 0xA6 (normal) once per change, the file keeps it (bit 28 of
+    the look word, a version 2 file without the bit is OFF), and EXIT at power-on leaves the controller alone. The emulator's
+    controller (machine.py) swaps dark and clear on 0xA7: shown() is the complement of the RAM."""
     out = []
 
     def add(name, ok, detail):
@@ -1258,60 +1310,58 @@ def invert_cases(payload, flash=None):
     plain = lambda dev: dev.m.shown() == ram(dev)
     status = lambda dev: (state(dev, S_INVERT), dev.m.lcd_reverse, dev.m.lcd_reverse_sent)
 
-    # OFF is the default, with a card without a file and without a card: the controller is never told anything
+    # ON is the default, with a card without a file and without a card: the controller is told 0xA7 once
     dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     bare = boot(payload, flash, adapter=True, card=False)
-    add("default_off", status(dev) == (0, False, 0) and status(bare) == (0, False, 0) and plain(dev) and plain(bare) and state(bare, S_ON) == 1,
+    add("default_on", status(dev) == (1, True, 1) and status(bare) == (1, True, 1) and flipped(dev) and flipped(bare) and state(bare, S_ON) == 1,
         f"with card {status(dev)}, without {status(bare)}")
 
-    # the page, on and off through the main dial: one command per change, the whole display swaps, the main screen too
+    # the page, off and on through the main dial: one command per change, the whole display swaps, the main screen too
     goto_page(dev, PAGE_INVERT)
     page = texts_of(dev), counter(dev), tab(dev)
-    dev.turn(1, wait=0.4)
+    dev.turn(-1, wait=0.4)
     dev.run(0.3)
-    on = texts_of(dev), status(dev), flipped(dev)
-    menu_screen = flipped(dev)
-    dev.turn(1, wait=0.3)
+    off = texts_of(dev), status(dev), plain(dev)
+    dev.turn(-1, wait=0.3)
     dev.run(0.3)
     still = status(dev)
     go(dev, 1)
     dev.run(0.5)
-    main_on = dev.screen()["number"], status(dev), flipped(dev)
-    import splash_editor
-    add("page", page == (("DISPLAY INVERT", "OFF", ""), (5, 6), "Display"), f"{page}")
-    add("on_swaps_the_display", on == (("DISPLAY INVERT", "ON", ""), (1, True, 1), True) and menu_screen and still == (1, True, 1),
-        f"{on}, dial again {still}")
-    add("main_screen_inverted", main_on == (1, (1, True, 1), True) and not dev.m.asserts, f"{main_on}")
+    main_off = dev.screen()["number"], status(dev), plain(dev)
+    add("page", page == (("DISPLAY INVERT", "ON", ""), (4, 5), "Display"), f"{page}")
+    add("off_swaps_the_display", off == (("DISPLAY INVERT", "OFF", ""), (0, False, 2), True) and still == (0, False, 2),
+        f"{off}, dial again {still}")
+    add("main_screen_plain", main_off == (1, (0, False, 2), True) and not dev.m.asserts, f"{main_off}")
     goto_page(dev, PAGE_INVERT)
-    dev.turn(-1, wait=0.4)
+    dev.turn(1, wait=0.4)
     dev.run(0.3)
-    off = texts_of(dev), status(dev), plain(dev)
-    add("off_swaps_back", off == (("DISPLAY INVERT", "OFF", ""), (0, False, 2), True), f"{off}")
+    on = texts_of(dev), status(dev), flipped(dev)
+    add("on_swaps_back", on == (("DISPLAY INVERT", "ON", ""), (1, True, 3), True), f"{on}")
 
     # WRITE keeps it in the same file as the other CUSTOMIZATION values (bit 28), the next start reads it and shows it
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     set_look(keep, led=(15, 7, 0))
     goto_page(keep, PAGE_INVERT)
-    keep.turn(1, wait=0.4)
+    keep.turn(-1, wait=0.4)
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
     word = files.get("b", (0, 0, 0, None))[3]
-    add("file_holds_it", word is not None and word & INVERT_BIT and word == look_word(0, (15, 7, 0), (0, 0, 0), 1), f"{files}")
+    add("file_holds_off", word is not None and word == look_word(0, (15, 7, 0), (0, 0, 0), 0), f"{files}")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
     again.run(2.0)
-    add("start_reads_and_shows_it", status(again) == (1, True, 1) and flipped(again) and not again.m.asserts, f"{status(again)}, screen {again.screen()['number']}")
+    add("start_reads_off", status(again) == (0, False, 0) and plain(again) and not again.m.asserts, f"{status(again)}, screen {again.screen()['number']}")
 
-    # files that say nothing about it (version 1, a look word without the bit) stay OFF; a damaged file is ignored
+    # a version 1 file says nothing about it and a damaged file is ignored: ON; a version 2 file without the bit is OFF
     quiet = []
-    for name, files in (("v1", {SETTINGS_PATHS[0]: settings_file(3, 3)}), ("no_bit", {SETTINGS_PATHS[0]: settings_file_v2(3, 3, look_word(1, (15, 0, 0)))}),
-                        ("bad_crc", {SETTINGS_PATHS[0]: settings_file_v2(3, 3, look_word(invert=1), bad_crc=True)})):
+    for name, files in (("v1", {SETTINGS_PATHS[0]: settings_file(3, 3)}),
+                        ("bad_crc", {SETTINGS_PATHS[0]: settings_file_v2(3, 3, look_word(1, (15, 0, 0)), bad_crc=True)})):
         probe = boot(payload, flash, files={**CARD_FOLDER, **files}, adapter=True)
         quiet.append((name, status(probe)))
-    add("files_without_it_stay_off", all(got == (0, False, 0) for _, got in quiet), f"{quiet}")
-    wanted = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(3, 3, look_word(invert=1))}, adapter=True)
-    add("file_with_the_bit_is_on", status(wanted) == (1, True, 1) and flipped(wanted), f"{status(wanted)}")
+    add("files_without_it_stay_on", all(got == (1, True, 1) for _, got in quiet), f"{quiet}")
+    plain_file = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(3, 3, look_word(1, (15, 0, 0)))}, adapter=True)
+    add("file_without_the_bit_is_off", status(plain_file) == (0, False, 0) and plain(plain_file), f"{status(plain_file)}")
 
     # EXIT at power-on: stock, the controller is never told anything, whatever the file says
     held = boot(payload, flash, held=KILL, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(4, 3, look_word(invert=1))}, adapter=True)
@@ -1357,7 +1407,7 @@ def confirm_cases(payload, flash=None):
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
     got = files.get("b", (0, 0, 0, None))
-    add("file_holds_off", got[:2] == (1, 3 | PC_OFF_BIT) and got[3] == look_word(0, (15, 7, 0)), f"{files}")
+    add("file_holds_off", got[:2] == (1, 3 | PC_OFF_BIT) and got[3] == look_word(0, (15, 7, 0), invert=1), f"{files}")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
@@ -1448,7 +1498,7 @@ def tap_motion_cases(payload, flash=None):
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
     got = files.get("b", (0, 0, 0, None))
-    add("file_holds_off", got[:2] == (1, 3 | PC_OFF_BIT | TM_OFF_BIT) and got[3] == look_word(0, (15, 7, 0)), f"{files}")
+    add("file_holds_off", got[:2] == (1, 3 | PC_OFF_BIT | TM_OFF_BIT) and got[3] == look_word(0, (15, 7, 0), invert=1), f"{files}")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
@@ -1517,7 +1567,7 @@ def note_assist_menu_cases(payload, flash=None):
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
     got = files.get("b", (0, 0, 0, None))
-    add("file_holds_off", got[:2] == (1, 3 | TM_OFF_BIT | NA_OFF_BIT) and got[3] == look_word(0, (15, 7, 0)), f"{files}")
+    add("file_holds_off", got[:2] == (1, 3 | TM_OFF_BIT | NA_OFF_BIT) and got[3] == look_word(0, (15, 7, 0), invert=1), f"{files}")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))

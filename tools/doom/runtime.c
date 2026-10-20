@@ -76,6 +76,11 @@ int _read(int fd, void *buffer, size_t count)
     if (shared->stage == DOOM_STAGE_ENGINE) doom_power_poll_initializing();
     ++shared->file_reads;
     shared->bytes_read += done;
+    if (shared->stage == DOOM_STAGE_ENGINE && !shared->frames) {      /* the engine reads for a minute and more before its first frame */
+        static uint32_t shown;
+        uint32_t now = native_ticks();
+        if (!shown || now - shown >= 200) { shown = now ? now : 1; doom_status_loading(shared->bytes_read, f->fil[3]); }
+    }
     if (result) { errno = EIO; return -1; }
     return (int)done;
 }

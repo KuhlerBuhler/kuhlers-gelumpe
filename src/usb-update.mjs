@@ -51,3 +51,27 @@ export function storeUpdateFile(session, patched, original, onProgress) {
     await session.sender.fileWrite(patched, model, done => onProgress?.(base + done, total));
   });
 }
+
+/** The name a plugin file gets on the card: its own id when that is a valid name, else the id with every other character as "-", cut to 16. */
+export function pluginFileName(id) {
+  const name = String(id ?? "").replace(/[^A-Za-z0-9_-]/g, "-").slice(0, BLECH.NAME_MAX);
+  return name || "plugin";
+}
+
+/** A .blech onto the card of the connected device, as KORG/blechtribe/Plugin/<name>.blech; IMPORT PLUGIN in the BLECH menu lists it. */
+export function storePlugin(session, id, bytes, onProgress) {
+  return session.exclusive(async () => {
+    const model = await prepare(session);
+    const info = await session.sender.blechInfo(model);
+    if (!(info.flags & BLECH.FLAG_PLUGIN)) throw new Error("Das BLECH auf dem Gerät kann Plugins noch nicht über USB annehmen. Einmal die Firmware aktualisieren, danach geht es.");
+    const name = pluginFileName(id);
+    try {
+      await session.sender.pluginWrite(bytes, name, model, onProgress);
+    } catch (e) {
+      // the firmware does not make the folder itself (docs/plugins.md); a card error at the first block is most likely that
+      if (e.status === BLECH.STATUS.FILE) throw new Error("Die Karte nimmt die Datei nicht. Gibt es dort den Ordner KORG/blechtribe/Plugin/? Den legt die Firmware nicht selbst an.");
+      throw e;
+    }
+    return name;
+  });
+}

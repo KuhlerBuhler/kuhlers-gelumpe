@@ -31,7 +31,7 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   const page = await h.page();
   await page.goto(h.url);
   await go(page, "splash");
-  assert.equal(await page.locator("#cee-nav-title").textContent(), "Startbild");
+  assert.equal(await page.locator("#cee-nav-title").textContent(), "Startbildschirm");
   assert.equal(await page.locator("#cee-splash-download").isDisabled(), true, "nothing to download before a picture");
   await dropPicture(page);
   const download = page.waitForEvent("download");

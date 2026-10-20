@@ -13,6 +13,12 @@ F0 42 3n 00 01 24 <function> <7-bit packed words> F7, with n the global channel.
     0x64      FLASH READ: address, length                        0x6C  status, address, length, CRC-32, the bytes
     0x65      FILE READ: offset, length (0 for the size only)    0x6D  status, offset, length, CRC-32, file size, the bytes
     0x66      FILE BEGIN: offset, length, CRC-32 of the bytes    0x6E  status, offset, length; WRITE DATA follows
+    0x67      PLUGIN BEGIN: offset, length, CRC-32, 16 bytes name 0x6E  status, offset, length; WRITE DATA follows
+
+PLUGIN BEGIN writes a plugin file, SD:KORG/blechtribe/Plugin/<name>.blech, where IMPORT PLUGIN of the BLECH menu lists it
+(tools/patch/script_menu.s). The name is 1 to 16 letters, digits, "_" or "-", zero bytes after it; anything else is refused
+with status 3, so no path can be built from it. Otherwise it works like FILE BEGIN (offset 0 makes the file anew, the block is
+read back from the card for the CRC).
 
 The two FILE commands reach exactly two files of the card, chosen by bit 31 of the offset: the update file
 KORG/<folder>/System/SYSTEM.VSB (bit clear) and beside it ORIGINAL.BIN (bit set), where the editor keeps the unpatched file the
@@ -76,6 +82,7 @@ FILE_AREA = 0xC019F000          # FatFs file object (0x224 bytes, measured), the
 FILE_AREA_END = 0xC01A0000
 FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
 FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
+NAME_MAX = 16                   # characters of a plugin file's name (PLUGIN BEGIN)
 MAX_BLOCK = 0x8000              # bytes in one READ or WRITE DATA
 
 # STATE: +0 pending (the magic below when a BEGIN waits for its DATA), +4 address, +8 length, +12 CRC,
@@ -83,11 +90,11 @@ MAX_BLOCK = 0x8000              # bytes in one READ or WRITE DATA
 S_PENDING, S_ADDR, S_LEN, S_CRC, S_REQ, S_MODE, S_RAW, S_OUT = 0, 4, 8, 12, 0x10, 0x1C, 0x20, 0x40   # S_MODE 1: the declared write goes to SYSTEM.VSB, 2 to ORIGINAL.BIN
 PENDING_MAGIC = 0x444E4550      # "PEND": the image is FF where it has not been written, so 0 and FF both mean nothing waits
 
-FUNC_INFO, FUNC_READ, FUNC_BEGIN, FUNC_DATA, FUNC_FLASH, FUNC_FREAD, FUNC_FBEGIN = 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66
+FUNC_INFO, FUNC_READ, FUNC_BEGIN, FUNC_DATA, FUNC_FLASH, FUNC_FREAD, FUNC_FBEGIN, FUNC_PBEGIN = 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67
 REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY_FBEGIN = 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E
 STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE = 0, 1, 2, 3, 4, 5, 6
 PROTOCOL_VERSION = 1
-FLAGS = 0x1F                    # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file
+FLAGS = 0x3F                    # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files
 FLASH_MAX = 0x1000              # bytes in one FLASH READ: the sector size, the largest piece the firmware's own flash code takes at once
 FLASH_LIMIT = 0x1000000         # the end of the 16 MiB flash; a request from 0x1000000 on hung the device (docs/speicherbereiche.md), so none reaches it
 
@@ -162,6 +169,8 @@ def source():
 .equ FILE_FIL, {FILE_AREA:#x}
 .equ FILE_BR, {FILE_AREA + 0x240:#x}
 .equ FILE_PATH, {FILE_AREA + 0x280:#x}
+.equ FILE_NAME, {FILE_AREA + 0x300:#x}
+.equ NAME_MAX, {NAME_MAX}
 .equ FILE_LIMIT, {FILE_LIMIT:#x}
 .equ S_MODE, {S_MODE}
 .equ FLASH_MAX, {FLASH_MAX:#x}
@@ -194,7 +203,7 @@ def source():
 ; It returns the state the parser goes on in. For anything but our four bytes it is the original instruction and the original function.
 classify_hook:
     sub r2, r1, #0x60
-    cmp r2, #7
+    cmp r2, #8
     blo classify_ours
     cmp r1, #0x1c
     b CLASSIFY_BACK
@@ -218,6 +227,8 @@ classify_ours:
     cmpne r1, #0x66
     moveq r2, #12
     movne r2, #8
+    cmp r1, #0x67
+    moveq r2, #12+NAME_MAX
     b classify_receive
 classify_data:
     ldr r2, [r12]
@@ -268,7 +279,7 @@ killed:
 process_hook:
     ldrb r12, [r0]
     sub r12, r12, #0x60
-    cmp r12, #7
+    cmp r12, #8
     blo process_ours
     push {{r0, r1, r2, r3, r4, r5, r6, lr}}
     b PROCESS_BACK
@@ -296,6 +307,8 @@ process_ours:
     beq do_fread
     cmp r5, #0x66
     beq do_fbegin
+    cmp r5, #0x67
+    beq do_pbegin
     b do_data
 process_done:
     pop {{r3, r4, r5, r6, r7, r8, r9, r10, r11, pc}}
@@ -481,9 +494,9 @@ do_data:
     movne r4, #{STATUS_BAD_CRC}
     bne data_reply
     ldr r0, [r6, #S_MODE]
-    cmp r0, #1
-    cmpne r0, #2
-    beq data_file
+    sub r0, r0, #1
+    cmp r0, #3                  ; 1 SYSTEM.VSB, 2 ORIGINAL.BIN, 3 a plugin file
+    blo data_file
     mov r0, r8
     mov r1, r9
     mov r2, #1
@@ -587,6 +600,8 @@ do_fbegin:
     str r3, [r6]
     mov r5, r8, lsr #31         ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN (r5, the function byte, is not needed any more)
     bic r8, r8, #0x80000000
+fbegin_checked:
+    ldr r10, [r6, #S_REQ + 8]
     mov r0, #{STATUS_RANGE}
     cmp r9, #0
     beq fbegin_reply
@@ -616,6 +631,54 @@ fbegin_reply:
     mov r2, #12
     add r3, r6, #S_OUT
     b reply_tail
+
+; PLUGIN BEGIN: offset, length, CRC, the name. The name is checked and kept for the path, then it is a FILE BEGIN of file 2.
+do_pbegin:
+    ldr r8, [r6, #S_REQ]
+    ldr r9, [r6, #S_REQ + 4]
+    mov r3, #0
+    str r3, [r6]
+    add r1, r6, #S_REQ + 12      ; the name as received (it reaches over S_MODE and S_RAW, both written only after it is copied)
+    ldr r2, =FILE_NAME
+    mov r3, #0                   ; characters
+    mov r0, #{STATUS_RANGE}
+pb_char:
+    ldrb r12, [r1, r3]
+    cmp r12, #0
+    beq pb_end
+    cmp r12, #0x2D               ; "-"
+    cmpne r12, #0x5F             ; "_"
+    beq pb_ok
+    sub r10, r12, #0x30
+    cmp r10, #10
+    blo pb_ok
+    orr r10, r12, #0x20
+    sub r10, r10, #0x61
+    cmp r10, #26
+    bhs fbegin_reply
+pb_ok:
+    strb r12, [r2, r3]
+    add r3, r3, #1
+    cmp r3, #NAME_MAX
+    blo pb_char
+pb_end:
+    cmp r3, #0
+    beq fbegin_reply
+    mov r12, #0
+    strb r12, [r2, r3]
+pb_rest:                         ; zero bytes only behind the name
+    cmp r3, #NAME_MAX
+    bhs pb_named
+    ldrb r12, [r1, r3]
+    cmp r12, #0
+    bne fbegin_reply
+    add r3, r3, #1
+    b pb_rest
+pb_named:
+    bic r8, r8, #0x80000000
+    str r8, [r6, #S_REQ]
+    mov r5, #2
+    b fbegin_checked
 
 ; FILE READ: offset, length (0 asks for the size only). The bytes go into the end of BUF behind five words, like READ;
 ; at the end of the file fewer come back, the length word says how many.
@@ -728,8 +791,10 @@ frb_error:
     pop {{r4, r5, r6, pc}}
 
 ; r0 = which: FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB", or
-; "System/ORIGINAL.BIN" for 1. Keeps r4 to r11.
+; "System/ORIGINAL.BIN" for 1; for 2 the plugin file SD:KORG/blechtribe/Plugin/<FILE_NAME>.blech. Keeps r4 to r11.
 file_path:
+    cmp r0, #2
+    beq plugin_path
     push {{r4, r5, lr}}
     mov r4, r0
     sub sp, sp, #0x10
@@ -759,6 +824,32 @@ fp_name:
     bl STRING_FREE
     add sp, sp, #0x10
     pop {{r4, r5, pc}}
+plugin_path:
+    ldr r0, =FILE_PATH
+    ldr r1, =plugin_prefix
+pp_prefix:
+    ldrb r3, [r1], #1
+    cmp r3, #0
+    strbne r3, [r0], #1
+    bne pp_prefix
+    ldr r1, =FILE_NAME
+pp_name:
+    ldrb r3, [r1], #1
+    cmp r3, #0
+    strbne r3, [r0], #1
+    bne pp_name
+    ldr r1, =plugin_suffix
+pp_suffix:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne pp_suffix
+    bx lr
+plugin_prefix:
+    .asciz "SD:KORG/blechtribe/Plugin/"
+plugin_suffix:
+    .asciz ".blech"
+.align 4
 update_name:
     .asciz "System/SYSTEM.VSB"
 original_name:

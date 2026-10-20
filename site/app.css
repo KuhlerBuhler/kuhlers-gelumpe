@@ -832,8 +832,32 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   display: none;
 }
 
-.cee-nav-item[data-gap] {
-  margin-top: var(--space-3);
+.cee-nav-group {
+  margin: var(--space-4) 0 var(--space-1);
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.cee-nav-item .cee-icon {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-right: var(--space-2);
+}
+
+/* Rettung stands apart at the end, in the danger colour: it is the way back, not a normal area. */
+.cee-nav-item[data-danger] {
+  margin-top: var(--space-6);
+  color: var(--color-text-danger);
+}
+
+.cee-nav-item[data-danger][aria-selected="true"] {
+  border-color: var(--color-border-danger);
+  color: var(--color-text-danger);
 }
 
 .cee-nav-item {
@@ -2138,4 +2162,54 @@ html[data-motion="reduce"] *::after {
    it sits on the emulator page. */
 #cee-device:not(:has(> :is(p, div):not([hidden]):not(:empty):not(.actions), > .actions > :not([hidden]))) {
   display: none;
+}
+
+/* The start page's way in, above the text about the project. */
+.cee-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.cee-entry-lead {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.5;
+}
+
+.cee-entry-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-entry-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  height: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-panel-alt);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  line-height: 1.5;
+}
+
+.cee-entry-step strong {
+  color: var(--color-text-primary);
+}
+
+.cee-entry-step:hover {
+  border-color: var(--color-border-accent-strong);
+}
+
+.cee-entry-step:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }

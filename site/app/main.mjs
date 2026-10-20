@@ -461,11 +461,12 @@ function boot() {
   let plainStock = false;
   let plainWhy = "Nicht mit Korgs Original-Firmware";
   const restrict = () => {
-    const shut = plainStock && !device.session;
+    const none = !emulator?.firmware;
+    const shut = (plainStock || none) && !device.session;
     for (const id of NEEDS_TABLES) {
       const tab = $(`#cee-tab-${id}`);
       tab.setAttribute("aria-disabled", String(shut));
-      if (shut) tab.title = plainWhy;
+      if (shut) tab.title = none ? "Erst im Emulator eine Firmware (VSB) wählen oder ein Gerät verbinden" : plainWhy;
       else tab.removeAttribute("title");
     }
     if (shut && NEEDS_TABLES.includes(areas?.current)) areas.select("emu", { focus: false });
@@ -522,6 +523,7 @@ function boot() {
   let modFirmware = null;
   let plainFor = null;
   let fxRunning = false;
+  let noFirmware = null;
   setInterval(() => {
     const running = !!emulator.port.running;
     if (running !== fxRunning) { fxRunning = running; if (running) setTimeout(() => fx.refresh(), 3000); }
@@ -541,7 +543,11 @@ function boot() {
       });
     }
     if (emulator.firmware && emulator.firmware !== modFirmware) { modFirmware = emulator.firmware; modulations.loadBytes(modFirmware).catch(() => {}); }
+    if (!emulator.firmware !== noFirmware) { noFirmware = !emulator.firmware; restrict(); }
   }, 1000);
+  // Shut from the first frame, not a second later: before that a click still opened a page without its tables.
+  noFirmware = !emulator.firmware;
+  restrict();
   const card = options.add("emu", { id: "cee-emu-card", title: "SD-Karte" });
   const sd = sdcardPanel(card.body, emulator, { heading: false });
   sidebar = contextSidebar(emulator.aside, { device, emulator, probe });
@@ -550,7 +556,7 @@ function boot() {
   splashPage($("#cee-splash"));
   let storage = null;
   try { storage = window.localStorage; } catch { /* blocked: the scripts stay in memory */ }
-  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options });
+  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null });
   terminal = terminalPanel($("#cee-terminal"), { terminal: new Terminal({ device, emulator, probe }), device, scripts, lack: () => emulator.lack("sysex") });
   if (emu.fresh) areas?.select("emu");
   else findLink(emu).then(found => {

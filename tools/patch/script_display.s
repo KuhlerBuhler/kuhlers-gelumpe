@@ -447,24 +447,24 @@ fault_name:
     strb r1, [sp, r0]
 fault_name_done:
     mov r4, sp
-    mov r5, #0
-    mov r6, #0
+    mov r5, #4                  ; 4 pixels from the side, 2 from the top, as the firmware's menus
+    mov r6, #2
     bl display_draw_text
     ldr r4, =fault_label
-    mov r5, #0
-    mov r6, #10
+    mov r5, #4
+    mov r6, #12
     bl display_draw_text
     ldr r0, [r7, #SCRIPT_ENTRY_LINE]
-    mov r5, #36
-    mov r6, #10
+    mov r5, #40
+    mov r6, #12
     bl display_draw_number
     ldr r0, [r7, #SCRIPT_ENTRY_FAULT]
     cmp r0, #SCRIPT_ERROR_COUNT
     movhs r0, #0
     ldr r4, =SCRIPT_ERROR_NAMES
     add r4, r4, r0, lsl #4
-    mov r5, #0
-    mov r6, #20
+    mov r5, #4
+    mov r6, #22
     bl display_draw_text
     ldr r2, =HOOK_RUNTIME
     mov r3, #1

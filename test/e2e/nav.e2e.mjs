@@ -18,14 +18,14 @@ test("the sidebar lists only the entries, the navbar names the open page, up and
   const page = await h.page();
   await page.goto(h.url);
   assert.equal(await selectedTab(page), "start");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Patcher", "Presets", "Modulationen", "Plugins", "Startbild", "Rettung"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Patcher", "Startbildschirm", "Plugins", "Presets", "Modulationen", "Rettung"]);
   assert.equal(await page.locator("#cee-sidebar .cee-nav-label").count(), 0, "no headings between the entries");
   await page.click("#cee-tab-patcher");
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Patcher");
   assert.equal(await page.locator("#cee-area-patcher").getAttribute("hidden"), null);
   await page.keyboard.press("ArrowDown");
-  assert.equal(await selectedTab(page), "fx");
-  assert.equal(await page.locator("#cee-nav-title").textContent(), "Presets");
+  assert.equal(await selectedTab(page), "splash");
+  assert.equal(await page.locator("#cee-nav-title").textContent(), "Startbildschirm");
   await page.keyboard.press("ArrowUp");
   await page.keyboard.press("ArrowUp");
   assert.equal(await selectedTab(page), "emu");
@@ -46,7 +46,7 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.equal(await selectedTab(page), "start", "a remembered hidden page is ignored");
   await page.goto(`${h.url}?labs#ptools`);
   assert.equal(await selectedTab(page), "ptools", "with ?labs the pages stay reachable for tests");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Patcher", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples", "Plugins", "Startbild", "Rettung"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Patcher", "Startbildschirm", "Plugins", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples", "Rettung"]);
 });
 
 test("the navbar title of the emulator page is a menu: emulator or real device", async () => {
@@ -85,7 +85,7 @@ test("the options of the emulator page are sub-items under its entry; other page
   await page.locator("#cee-emu-setup > summary").focus();
   await page.keyboard.press("ArrowDown");
   assert.equal(await selectedTab(page), "emu", "arrow keys on an option do not walk the entries");
-  for (const tab of ["patcher", "fx", "start"]) {
+  for (const tab of ["patcher", "start"]) {
     await page.click(`#cee-tab-${tab}`);
     assert.equal(await page.locator(".cee-nav-sub:visible").count(), 0, `${tab} shows no options`);
   }

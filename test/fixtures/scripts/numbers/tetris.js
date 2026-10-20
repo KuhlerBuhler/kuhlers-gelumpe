@@ -72,19 +72,19 @@ function paint(on) {
 
 function drawNext() {
   const m = SHAPES[nextKind * 4];
-  korg.display.clearRect(100, 10, 16, 12);
+  korg.display.clearRect(100, 12, 16, 12);
   for (let i = 0; i < 16; i++) {
-    if ((m >> i) & 1) korg.display.rect(100 + (i & 3) * 4, 10 + (i >> 2) * 4, 3, 3);
+    if ((m >> i) & 1) korg.display.rect(100 + (i & 3) * 4, 12 + (i >> 2) * 4, 3, 3);
   }
 }
 
 function drawHud() {
-  korg.display.clearRect(54, 9, 42, 7);
-  korg.display.number(score, 54, 9);
-  korg.display.clearRect(54, 29, 42, 7);
-  korg.display.number(lines, 54, 29);
-  korg.display.clearRect(54, 49, 42, 7);
-  korg.display.number(level, 54, 49);
+  korg.display.clearRect(54, 10, 42, 7);
+  korg.display.number(score, 54, 10);
+  korg.display.clearRect(54, 28, 42, 7);
+  korg.display.number(lines, 54, 28);
+  korg.display.clearRect(54, 46, 42, 7);
+  korg.display.number(level, 54, 46);
 }
 
 function drawRow(y) {
@@ -117,10 +117,10 @@ function setupStep() {
     korg.display.clear();
     korg.display.rect(4, 0, 1, 64);
     korg.display.rect(47, 0, 1, 64);
-    korg.display.text("SCORE", 54, 0);
+    korg.display.text("SCORE", 54, 2);
     korg.display.text("LINES", 54, 20);
-    korg.display.text("LEVEL", 54, 40);
-    korg.display.text("NEXT", 100, 0);
+    korg.display.text("LEVEL", 54, 38);
+    korg.display.text("NEXT", 100, 2);
   } else {
     hud = 1;
     state = 5;
@@ -137,8 +137,8 @@ function spawn() {
   drawNext();
   if (!fits(kind, rot, px, py)) {
     state = 2;
-    korg.display.clearRect(54, 56, 70, 8);
-    korg.display.text("GAME OVER", 54, 56);
+    korg.display.clearRect(54, 54, 70, 10);
+    korg.display.text("GAME OVER", 54, 55);
     return;
   }
   paint(1);
