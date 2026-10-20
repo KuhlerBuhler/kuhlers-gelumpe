@@ -1,0 +1,361 @@
+# SPDX-License-Identifier: GPL-2.0-only
+"""Capture repeatable ARM work and compare private full-set check directories.
+
+--capture DIR --out DIR/profile.json collects originals and patched copies.
+--baseline DIR --candidate DIR --out REPORT.json --phase baseline compares captures.
+Firmware and generated files stay outside the checkout. A missing required result fails.
+"""
+import argparse
+import collections
+import concurrent.futures
+import hashlib
+import inspect
+import json
+import math
+from pathlib import Path
+import statistics
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[2]
+BUILDS = ('hacktribe', 'stock', 'synth')
+CORE = ('idle', 'playing', 'playing-keyboard', 'sequencer-four-note-long-ties')
+APPS = ('mandelbrot', 'life', 'pong')
+REPEATS = 3
+SECONDS = 2
+
+
+class BlockCounter:
+    def __init__(self, uc):
+        import unicorn
+        self.active = False
+        self.instructions = 0
+        self.hook = uc.hook_add(unicorn.UC_HOOK_BLOCK, self.block)
+        uc.ctl_flush_tb()
+
+    def block(self, _uc, _at, size, _data):
+        if self.active:
+            self.instructions += size // 4
+
+    def measure(self, action):
+        self.instructions = 0
+        self.active = True
+        try:
+            result = action()
+        finally:
+            self.active = False
+        return result, self.instructions
+
+
+def require(ok, message):
+    if not ok:
+        raise ValueError(message)
+
+
+def validate_capture(data):
+    require(data.get('format') == 'blech-performance' and data.get('version') == 1, 'invalid capture format')
+    require(data.get('repeats') == REPEATS and data.get('seconds') == SECONDS, 'different workload duration or repeats')
+    require(set(data.get('builds', {})) == set(BUILDS), 'all three builds required')
+    require(bool(data.get('method')) and bool(data.get('programsSha256')), 'measurement identity missing')
+    for build, item in data['builds'].items():
+        require(bool(item.get('inputSha256')) and bool(item.get('outputSha256')), f'{build}: firmware hashes missing')
+        loader = item.get('loader', {})
+        repeats = loader.get('repeats', [])
+        require(len(repeats) == REPEATS, 'loader needs three repetitions')
+        for result in repeats:
+            plugins = result.get('plugins', [])
+            require(len(plugins) == 10 and len({p.get('plugin') for p in plugins}) == 10, 'ten loader inputs required')
+            require(all(isinstance(p.get('instructions'), int) and p['instructions'] > 0 for p in plugins), 'invalid loader count')
+            require(result.get('totalInstructions') == sum(p['instructions'] for p in plugins), 'inconsistent loader total')
+        require(all(r == repeats[0] for r in repeats), 'non-reproducible loader counts')
+        require(loader.get('totalInstructions') == repeats[0]['totalInstructions'] and loader.get('maxInstructions') == max(r['totalInstructions'] for r in repeats), 'loader summary differs')
+        for variant in ('original', 'patched'):
+            runs = item.get(variant, [])
+            require(len(runs) == REPEATS, f'{build}/{variant}: three repetitions required')
+            expected = None
+            for run in runs:
+                rows = run.get('scenarios', [])
+                names = [r.get('scenario') for r in rows]
+                required = list(CORE) + (['blech-menu', 'closed-apps', *('app-' + p for p in APPS), 'background-plugins'] if variant == 'patched' else [])
+                require(names == required, 'scenes missing, duplicated or out of order')
+                require(expected is None or names == expected, 'repetitions use different scenes')
+                expected = names
+                for row in rows:
+                    name = row['scenario']
+                    require(isinstance(row.get('instructions'), int) and row['instructions'] > 0, 'invalid instruction count')
+                    elapsed = row.get('deviceNs', 0)
+                    require(isinstance(elapsed, (int, float)) and math.isfinite(elapsed) and elapsed > 0, 'invalid device time')
+                    require(row.get('asserts') == [], 'firmware assertion')
+                    require(row.get('transport') == (1 if name in CORE[1:] else 0), f'{name}: unexpected transport')
+                    if name in CORE:
+                        require(abs(elapsed - SECONDS * 1e9) <= 1e6, 'scene duration differs')
+                    if name.startswith('app-'):
+                        require(row.get('semantic', {}).get('frames') == 50 and row['semantic'].get('fault') == 0, 'incomplete app window or plugin fault')
+            for name in expected:
+                rows = [next(r for r in run['scenarios'] if r['scenario'] == name) for run in runs]
+                require(len({r['instructions'] for r in rows}) == 1, f'{build}/{variant}/{name}: non-reproducible count')
+                require(all(r.get('byPatch') == rows[0].get('byPatch') for r in rows), 'non-reproducible patch counters')
+                require(all(r.get('semantic') == rows[0].get('semantic') for r in rows), 'non-reproducible app state')
+
+
+def med(item, variant, scene, key='instructions'):
+    values = [next(row for row in run['scenarios'] if row['scenario'] == scene)[key] for run in item[variant]]
+    return statistics.median(values)
+
+
+def compare(baseline, candidate, phase):
+    require(phase in ('baseline', 'pad', 'loader', 'decoder', 'mul', 'sysex', 'combined'), 'unknown phase')
+    require(baseline['method'] == candidate['method'] and baseline['programsSha256'] == candidate['programsSha256'], 'different measurement or plugin input')
+    results = {}
+    for build in BUILDS:
+        old, new = baseline['builds'][build], candidate['builds'][build]
+        require(old['inputSha256'] == new['inputSha256'], 'different original firmware')
+        for scene in CORE:
+            require(med(old, 'original', scene) == med(new, 'original', scene), 'original workload differs')
+        old_names = [r['scenario'] for r in old['patched'][0]['scenarios']]
+        new_names = [r['scenario'] for r in new['patched'][0]['scenarios']]
+        require(old_names == new_names, 'different measured scenes')
+        rows = {}
+        for name in new_names:
+            before, after = med(old, 'patched', name), med(new, 'patched', name)
+            rows[name] = {'baselineInstructions': before, 'candidateInstructions': after, 'ratio': after / before,
+                          'maxInstructions': max(next(r for r in run['scenarios'] if r['scenario'] == name)['instructions'] for run in new['patched'])}
+            old_row = next(r for r in old['patched'][0]['scenarios'] if r['scenario'] == name)
+            new_row = next(r for r in new['patched'][0]['scenarios'] if r['scenario'] == name)
+            if name.startswith('app-'):
+                require(old_row.get('semantic') == new_row.get('semantic'), f'{build}/{name}: app state or framebuffer differs')
+            if name != CORE[3] and not name.startswith('app-'):
+                require(after <= before * 1.01, f'{build}/{name}: ordinary regression exceeds 1 percent')
+        if phase in ('pad', 'combined'):
+            require(med(new, 'patched', CORE[3]) <= med(new, 'original', CORE[3]) * 1.05, f'{build}: long ties exceed original by 5 percent')
+            require(new['footprint']['ramBytes'] <= old['footprint']['ramBytes'] + (0 if build == 'synth' else 1024), 'pad RAM budget exceeded')
+            require(new['footprint']['codeDataBytes'] <= old['footprint']['codeDataBytes'] + (0 if build == 'synth' else 768), 'pad code budget exceeded')
+        if phase in ('loader', 'decoder', 'mul'):
+            require(new['footprint']['codeDataBytes'] <= old['footprint']['codeDataBytes'], 'VM code grew')
+        if phase in ('loader', 'combined'):
+            require('loader' in old and 'loader' in new, 'loader evidence missing')
+            require(new['loader']['totalInstructions'] <= old['loader']['totalInstructions'] * .30, 'loader target not reached')
+        if phase in ('decoder', 'combined'):
+            for plugin in ('mandelbrot', 'life'):
+                name = 'app-' + plugin
+                require(name in new_names, 'app evidence missing')
+                old_runtime = statistics.median(next(r for r in run['scenarios'] if r['scenario'] == name)['byPatch'].get('script-runtime', 0) for run in old['patched'])
+                new_runtime = statistics.median(next(r for r in run['scenarios'] if r['scenario'] == name)['byPatch'].get('script-runtime', 0) for run in new['patched'])
+                require(old_runtime > 0 and 0 < new_runtime <= old_runtime * .97, 'decoder target not reached')
+        if phase in ('mul', 'combined'):
+            require('mul' in old and 'mul' in new, 'MUL microbenchmark evidence missing')
+            require(new['mul']['meanInstructions'] <= old['mul']['meanInstructions'] * .80, 'MUL target not reached')
+            require(all(rows.get('app-' + p, {}).get('ratio', math.inf) <= 1.01 for p in APPS), 'app regression exceeds 1 percent')
+        if phase in ('sysex', 'combined'):
+            require('sysex' in old and 'sysex' in new, 'full transfer evidence missing')
+            require(new['sysex']['maxBlock'] == old['sysex']['maxBlock'] == 32768, 'maximum block changed')
+            require(new['sysex']['bufferEnd'] <= old['sysex']['bufferEnd'] - 19456, 'contiguous buffer saving missing')
+            require(new['sysex']['instructions'] <= old['sysex']['instructions'] * 1.01, 'transfer regression exceeds 1 percent')
+        if phase == 'combined' and build != 'synth':
+            require(new['footprint']['occupiedBytes'] < old['footprint']['occupiedBytes'], 'no net sampler space gain')
+        results[build] = rows
+    return {'ok': True, 'phase': phase, 'builds': results}
+
+
+def capture_worker(folder, build, variant):
+    sys.path[:0] = [str(ROOT), str(ROOT / 'tools/emu'), str(ROOT / 'tools/patch')]
+    import struct
+    import unicorn
+    from tools.patch import script_hooks, dice
+    from menu_cases import boot, SWITCH_SCREEN
+    from script_cases import install
+    info = json.loads((folder / 'sets.json').read_text())['builds'][build]
+    raw = (folder / info[variant if variant == 'original' else 'patched']).read_bytes()
+    require(hashlib.sha256(raw).hexdigest() == info['inputSha256' if variant == 'original' else 'outputSha256'], 'firmware hash differs from checked set')
+    payload = raw[256:]
+    built = script_hooks.build((folder / 'contract.inc').read_text(), build=build)
+    symbols = built.symbols
+    if variant == 'patched':
+        require(all(payload[at - 0xc0000000:at - 0xc0000000 + len(data)] == data for at, data in built.sections), 'generated runtime differs from checked firmware')
+    dice.use_build(build)
+    _, _, dice_symbols = dice.build_code()
+    dev = boot(payload, adapter=True, seconds=3)
+    machine, uc = dev.m, dev.m.uc
+    counts = collections.Counter()
+    active = False
+    def block(_uc, at, size, _data):
+        if active:
+            counts[(at, size)] += 1
+    uc.hook_add(unicorn.UC_HOOK_BLOCK, block)
+    intervals = [(0xbfffff00 + s['file'], 0xbfffff00 + s['file'] + s['length'], s['patch']) for s in info['spans']
+                 if any(run['start'] <= 0xbfffff00 + s['file'] and 0xbfffff00 + s['file'] + s['length'] <= run['end'] for run in info['freeRuns'])]
+    results = []
+    def measure(scene, frames=None, entry=None, program=None):
+        nonlocal active
+        counts.clear()
+        frame_at = built.layout['runtime'] + symbols['SCRIPT_CONTROL_FRAMES']
+        before = machine.u32(frame_at) if frames else 0
+        t0 = machine.time_ns
+        uc.ctl_flush_tb()
+        active = True
+        if frames:
+            while machine.u32(frame_at) - before < frames and machine.time_ns - t0 < 5e9 and not machine.asserts:
+                dev.run(.001)
+        else:
+            dev.run(SECONDS)
+        active = False
+        by_patch = collections.Counter()
+        for (at, size), n in counts.items():
+            for start, end, label in intervals:
+                if start <= at and at + size <= end:
+                    by_patch[label] += size // 4 * n
+                    break
+        row = {'scenario': scene, 'instructions': sum(size // 4 * n for (_, size), n in counts.items()),
+               'deviceNs': machine.time_ns - t0, 'transport': machine.u32(symbols['HW_TRANSPORT']), 'asserts': list(machine.asserts), 'byPatch': dict(by_patch)}
+        if frames:
+            variables = machine.u32(entry + symbols['SCRIPT_ENTRY_VARS'])
+            keep = {'head', 'tail', 'pending', 'done', 'at', 'tile', 'n', 'genRow', 'computing', 'paintAt', 'soupAt'}
+            row['semantic'] = {'frames': machine.u32(frame_at) - before, 'fault': machine.u32(entry + symbols['SCRIPT_ENTRY_FAULT']),
+                'framebufferSha256': hashlib.sha256(dev.fb()).hexdigest(),
+                'progress': {name: machine.u32(variables + spec['slot'] * 4) for name, spec in program['info']['symbols'].items() if name in keep}}
+        require(not machine.asserts, f'{build}/{variant}/{scene}: firmware assertion')
+        results.append(row)
+    measure('idle')
+    pattern = machine.u32(dice_symbols['PATPTR']) + 4
+    require(pattern > 4, 'pattern pointer unavailable')
+    uc.mem_write(pattern + 37, bytes([3]))
+    for part in range(16):
+        for step in range(64):
+            uc.mem_write(pattern + 0x830 + part * 0x330 + step * 12,
+                         bytes([1, 96, 96, int(part == 0 and step % 4 == 0), 61 if part == 0 else 0, 0, 0, 0, 0, 0, 0, 0]))
+    dev.press(2, .4)
+    measure('playing')
+    dev.press(0x17, .3)
+    measure('playing-keyboard')
+    dev.press(1, .3)
+    uc.mem_write(pattern + 0x802, bytes([2]))
+    for step in range(64):
+        uc.mem_write(pattern + 0x830 + step * 12, bytes([1, 127, 96, int(step == 0), 61, 65, 68, 73, 0, 0, 0, 0]))
+    dev.press(0x15, .3)
+    dev.press(2, .4)
+    measure('sequencer-four-note-long-ties')
+    dev.press(1, .3)
+    dev.press(0x17, .3)
+    if variant == 'patched':
+        dev.call(SWITCH_SCREEN, built.profile.screen, 0)
+        measure('blech-menu')
+        dev.press('exit', .3)
+        programs = json.loads((folder / 'programs.json').read_text())
+        install(dev, built, programs, [name for name in programs if name not in ('lauflicht', 'pulsieren')])
+        dev.run(1)
+        measure('closed-apps')
+        for plugin in APPS:
+            apps = built.layout['runtime'] + symbols['RT_APPS']
+            count = machine.u32(apps + symbols['SCRIPT_APPS_COUNT'])
+            index = next((i for i in range(count) if plugin in bytes(uc.mem_read(machine.u32(apps + symbols['SCRIPT_APPS_TABLE'] + i * 12 + 4), 32)).split(b'\0')[0].decode('ascii', 'replace').lower().replace(' ', '')), None)
+            require(index is not None, f'app missing: {plugin}')
+            require(dev.call(symbols['script_app_open'], index) == 1, 'app did not open')
+            dev.run(.3)
+            entry = machine.u32(apps + symbols['SCRIPT_APPS_TABLE'] + index * 12)
+            measure('app-' + plugin, frames=50, entry=entry, program=programs[plugin])
+            dev.press('exit', .3)
+        install(dev, built, programs, list(programs))
+        dev.run(1)
+        measure('background-plugins')
+    return {'scenarios': results}
+
+
+def loader_profile(folder, build):
+    sys.path[:0] = [str(ROOT), str(ROOT / 'tools/emu'), str(ROOT / 'tools/patch')]
+    from tools.patch import script_vm
+    from tools.patch.test_script_vm import BareMachine
+    code = script_vm.build((folder / 'contract.inc').read_text())
+    programs = json.loads((folder / 'programs.json').read_text())
+    repeats = []
+    for _ in range(REPEATS):
+        machine = BareMachine(code)
+        counter = BlockCounter(machine.uc)
+        rows = []
+        for name, program in programs.items():
+            (error, _), count = counter.measure(lambda: machine.load(bytes.fromhex(program['blob'])))
+            require(error == 0, f'{name}: native load failed')
+            rows.append({'plugin': name, 'instructions': count})
+        repeats.append({'totalInstructions': sum(r['instructions'] for r in rows), 'plugins': rows})
+    require(all(result == repeats[0] for result in repeats), 'loader counts differ between repeats')
+    return {**repeats[0], 'maxInstructions': max(r['totalInstructions'] for r in repeats), 'repeats': repeats}
+
+
+def capture(folder):
+    manifest = json.loads((folder / 'sets.json').read_text())
+    require(manifest.get('ok') is True and manifest.get('sourcesUnchanged') is True, 'full set checks not passed')
+    require(set(manifest.get('builds', {})) == set(BUILDS), 'three checked builds required')
+    data = {'format': 'blech-performance', 'version': 1, 'method': hashlib.sha256((inspect.getsource(BlockCounter) + inspect.getsource(capture_worker) + inspect.getsource(loader_profile)).encode()).hexdigest(),
+            'repeats': REPEATS, 'seconds': SECONDS, 'programsSha256': hashlib.sha256((folder / 'programs.json').read_bytes()).hexdigest(), 'builds': {}}
+    for build in BUILDS:
+        meta = manifest['builds'][build]
+        require(meta.get('ok') is True, f'{build}: full set checks missing')
+        item = {key: meta[key] for key in ('inputSha256', 'outputSha256', 'footprint')}
+        data['builds'][build] = item
+        for variant in ('original', 'patched'):
+            item[variant] = []
+            command = [sys.executable, str(Path(__file__).resolve()), '--worker', str(folder), build, variant]
+            print(f'{build}/{variant}: {REPEATS} independent profiles started', file=sys.stderr, flush=True)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=REPEATS) as pool:
+                jobs = [pool.submit(subprocess.run, command, capture_output=True, text=True, check=True) for _ in range(REPEATS)]
+                for repeat, job in enumerate(jobs):
+                    try:
+                        result = job.result()
+                    except subprocess.CalledProcessError as error:
+                        log = folder / f'{build}-{variant}-{repeat + 1}-error.log'
+                        log.write_text(error.stderr or str(error))
+                        raise ValueError(f'{build}/{variant}: profile failed; see {log.name}') from error
+                    item[variant].append(json.loads(result.stdout))
+                    (folder / 'profile-progress.json').write_text(json.dumps(data, indent=2) + '\n')
+                    print(f'{build}/{variant}: profile {repeat + 1}/{REPEATS} complete', file=sys.stderr, flush=True)
+        item['loader'] = loader_profile(folder, build)
+    validate_capture(data)
+    return data
+
+
+def load_capture(folder):
+    data = json.loads((folder / 'profile.json').read_text())
+    sets = json.loads((folder / 'sets.json').read_text())
+    require(sets.get('ok') is True and sets.get('sourcesUnchanged') is True, 'checked set metadata missing')
+    for build in BUILDS:
+        meta, item = sets['builds'][build], data['builds'][build]
+        require(meta.get('ok') is True, 'full check missing')
+        for field, key in (('original', 'inputSha256'), ('patched', 'outputSha256')):
+            actual = hashlib.sha256((folder / meta[field]).read_bytes()).hexdigest()
+            require(actual == meta[key] == item[key], 'capture firmware has changed')
+    require(hashlib.sha256((folder / 'programs.json').read_bytes()).hexdigest() == data['programsSha256'], 'plugin corpus has changed')
+    return data
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--baseline', type=Path)
+    parser.add_argument('--candidate', type=Path)
+    parser.add_argument('--out', type=Path)
+    parser.add_argument('--phase', choices=('baseline', 'pad', 'loader', 'decoder', 'mul', 'sysex', 'combined'))
+    parser.add_argument('--capture', type=Path)
+    parser.add_argument('--worker', nargs=3, metavar=('DIRECTORY', 'BUILD', 'VARIANT'))
+    args = parser.parse_args()
+    if args.worker:
+        folder, build, variant = args.worker
+        require(build in BUILDS and variant in ('original', 'patched'), 'invalid worker selection')
+        print(json.dumps(capture_worker(Path(folder), build, variant)))
+        return
+    require(args.out is not None, '--out required')
+    if args.capture:
+        data = capture(args.capture)
+    else:
+        require(args.baseline and args.candidate and args.phase, 'baseline, candidate and phase required')
+        old = load_capture(args.baseline)
+        new = load_capture(args.candidate)
+        validate_capture(old)
+        validate_capture(new)
+        data = compare(old, new, args.phase)
+    args.out.write_text(json.dumps(data, indent=2) + '\n')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (ValueError, OSError, KeyError, subprocess.SubprocessError) as error:
+        print(str(error), file=sys.stderr)
+        sys.exit(1)
