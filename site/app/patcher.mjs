@@ -5,7 +5,7 @@ import { toast } from "./toast.mjs";
 import { applyPatches } from "../../src/patch.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf } from "../../src/firmware.mjs";
-import { classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
+import { wayOf, classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -71,6 +71,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usbNote,
   ]);
   const usbPut = el("button", { type: "button", className: "btn primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
+  const way = el("ol", { className: "cee-patch-way", id: "cee-patch-way" });
+  way.setAttribute("aria-label", "Weg zur neuen Firmware");
   const verdictBox = el("div", { className: "cee-patch-verdict", id: "cee-patch-verdict", role: "status" });
   const synthSet = el("p", { className: "muted", id: "cee-patch-synth-set", hidden: true });
   const routeInputs = [["direct", "BLECH direkt (kein Hacktribe-Patch nötig)"], ["hacktribe", "BLECH mit Hacktribe (hacktribe-2.patch selbst mitbringen)"]].map(([value, text]) => {
@@ -112,7 +114,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("h1", { className: "cee-patch-title", textContent: "Firmware patchen" }),
     el("p", { className: "cee-patch-lead", textContent: "Zieh deine eigene SYSTEM.VSB hierher. Es wird nichts hochgeladen, gepatcht wird in deinem Browser. Eine fertige Firmware gibt es hier nie, nur deine eigene mit BLECH drauf." }),
     el("p", { className: "cee-patch-lead" }, ["Falls danach etwas nicht startet: ", el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: "Rettung" }), " zeigt den dokumentierten Weg zurück."]),
-    usbBox, drop, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
+    way, usbBox, drop, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
   ]));
 
   async function loadPatches(build = input ? buildOf(input) : "hacktribe") {
@@ -191,6 +193,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   function render() {
     const can = allowed(flow);
+    way.replaceChildren(...wayOf(flow).map((s, i) => {
+      const li = el("li", { className: "cee-patch-way-step" }, [el("span", { className: "cee-patch-way-n", textContent: s.state === "done" ? "✓" : String(i + 1) }), el("span", { textContent: s.label })]);
+      li.dataset.state = s.state;
+      if (s.state === "current") li.setAttribute("aria-current", "step");
+      return li;
+    }));
     const v = verdict(flow, blech?.items ?? []);
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;

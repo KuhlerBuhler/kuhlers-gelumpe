@@ -4,6 +4,7 @@
  * service on this computer.
  */
 import { el } from "./fields.mjs";
+import { toast } from "./toast.mjs";
 import { identify, buildOf, lackOf, hasBlechSysex } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
 
@@ -231,12 +232,26 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
   };
 
   let said = "";
-  const say = (tone, word, text, quiet = false) => {
-    const key = [tone, word, text, quiet].join("\0");
+  const say = (tone, word, text, quiet = false, extra = null) => {
+    const key = [tone, word, text, quiet, !!extra].join("\0");
     if (key === said) return;
     said = key;
-    status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }));
+    status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }), ...(extra ? [" ", extra] : []));
     status.classList.toggle("ui-sr-only", quiet);
+  };
+  // In the desktop app the app starts the emulator itself (src-tauri); only in the browser is there a command to run.
+  const inApp = !!window.__GELUMPE_APP;
+  const START_HINT = inApp
+    ? "Der Emulator der App läuft nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log."
+    : "Starte npm run emu im Projektordner und öffne den Link, den es ausgibt.";
+  const copyCommand = () => {
+    if (inApp) return null;
+    const button = el("button", { type: "button", className: "btn", id: "cee-emu-copy", textContent: "npm run emu kopieren" });
+    button.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText("npm run emu"); toast("Befehl kopiert.", "ok"); }
+      catch { toast("Kopieren ging nicht. Der Befehl lautet: npm run emu", "error"); }
+    });
+    return button;
   };
 
   const vsbInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-emu-vsb", accept: ".VSB,.vsb" });
@@ -265,14 +280,14 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
   ]);
 
   const api = async (path, body, type = "application/octet-stream") => {
-    if (!link) throw new Error("Nicht verbunden. Starte npm run emu und öffne den Link, den es ausgibt.");
+    if (!link) throw new Error(`Nicht verbunden. ${START_HINT}`);
     let res;
     try {
       res = await fetch(`http://127.0.0.1:${link.port}${path}`, {
         method: "POST", body, headers: { "Content-Type": type, "X-Emu-Token": link.token },
       });
     } catch {
-      throw new Error(`Der Emulator auf Port ${link.port} antwortet nicht. Läuft npm run emu?`);
+      throw new Error(inApp ? `Der Emulator der App antwortet nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log.` : `Der Emulator auf Port ${link.port} antwortet nicht. Läuft npm run emu?`);
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Emulator antwortet mit ${res.status}.`);
@@ -300,7 +315,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
   function listen() {
     events?.close();
     if (!link) {
-      say("muted", "nicht verbunden", "Starte npm run emu im Projektordner und öffne den Link, den es ausgibt.");
+      say("muted", "nicht verbunden", START_HINT, false, copyCommand());
       return;
     }
     events = new EventSource(`http://127.0.0.1:${link.port}/events?token=${encodeURIComponent(link.token)}`);
@@ -325,7 +340,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     });
     events.addEventListener("error", () => {
       if (events.readyState === EventSource.CLOSED || events.readyState === EventSource.CONNECTING) {
-        say("warn", "getrennt", `Keine Verbindung zum Emulator auf Port ${link.port}. Läuft npm run emu, und ist der Link aktuell?`);
+        say("warn", "getrennt", inApp ? "Keine Verbindung zum Emulator der App. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log." : `Keine Verbindung zum Emulator auf Port ${link.port}. Läuft npm run emu, und ist der Link aktuell?`);
       }
     });
   }

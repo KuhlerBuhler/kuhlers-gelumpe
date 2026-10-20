@@ -179,6 +179,14 @@ export function clock(ms) {
  * folder. route: for Korg's original, "direct" (BLECH straight onto it) or "hacktribe" (hacktribe-2.patch first).
  * steps: the pass list, status todo|ok|error.
  */
+/** The four steps of the way the page shows above everything (firmware, patches, emulator, device), each todo, current, done or error. */
+export const WAY = ["Firmware wählen", "Patches anwenden", "Im Emulator prüfen", "Aufs Gerät"];
+export function wayOf(flow) {
+  const at = { empty: 0, rejected: 0, "needs-patch": 1, ready: 1, patching: 1, checking: 2, failed: 2, passed: 3, downloaded: 4 }[flow.phase] ?? 0;
+  const bad = flow.phase === "rejected" ? 0 : flow.phase === "failed" ? (flow.report ? 2 : 1) : -1;
+  return WAY.map((label, i) => ({ label, state: i === bad ? "error" : i < at ? "done" : i === at ? "current" : "todo" }));
+}
+
 export const newFlow = () => ({ phase: "empty", input: null, origin: null, route: null, steps: [], report: null, error: null });
 
 const STOCK_READ = { id: "read", label: "Datei erkannt: originale Korg 2.02", status: "ok", detail: "" };

@@ -407,3 +407,16 @@ test("a copy that passed the quick check can be checked thoroughly, and only the
   assert.equal(step({ ...newFlow(), phase: "ready" }, { type: "recheck" }).phase, "ready");
   assert.equal(checkName("quick"), "Kurzprüfung");
 });
+
+test("the way the page shows follows the flow: the step it is at is current, the ones before done, a failed check is the error", async () => {
+  const { wayOf, newFlow, WAY } = await import("../src/patcher.mjs");
+  const states = phase => wayOf({ ...newFlow(), phase, report: phase === "failed" ? { ok: false, checks: [] } : null }).map(s => s.state);
+  assert.equal(WAY.length, 4);
+  assert.deepEqual(states("empty"), ["current", "todo", "todo", "todo"]);
+  assert.deepEqual(states("ready"), ["done", "current", "todo", "todo"]);
+  assert.deepEqual(states("checking"), ["done", "done", "current", "todo"]);
+  assert.deepEqual(states("failed"), ["done", "done", "error", "todo"]);
+  assert.deepEqual(states("passed"), ["done", "done", "done", "current"]);
+  assert.deepEqual(states("downloaded"), ["done", "done", "done", "done"]);
+  assert.deepEqual(states("rejected"), ["error", "todo", "todo", "todo"]);
+});
