@@ -1,11 +1,11 @@
-"""Builds the loading bar patch (docs/ideen/41-startbild-ausbauen.md) for firmware 2.02 with Hacktribe.
+"""Builds the loading animation patch (docs/ideen/41-startbild-ausbauen.md, entwuerfe/design-1.3/geraet) for firmware 2.02
+with Hacktribe.
 
-While the start loads the samples (e2sSample.all), the firmware shows a window "Loading nnn%". With this patch
-the BLECH image is shown instead and the underline under BLECH becomes the progress bar, while the eyes look around and
-small faces fade in and out at the left and right edge, one at a time, a corner after the other. The image is the patch's own
-copy of assets/blechy/splash.bin, not the start image of the file: a start image drawn with the start image editor is seen
-from power-on until the load begins, the BLECH image with its eyes while the samples load (device 18.10.: with one pixel of
-the start image changed the eyes stood still, because the image was recognised by its CRC).
+While the start loads the samples (e2sSample.all), the firmware shows a window "Loading nnn%". With this patch Blechy
+draws a line instead: the line is the bar, he stands where the tip of his tube has eaten it, the percent counts up at the
+bottom right, and from 95 percent the finale plays (eyes torn open, shaking). The pictures are assets/blechy/loading.bin,
+made by the same renderer as the previews; the overlay puts them together (compose_reference is the same in Python).
+At most one new picture every 50 ms. The start image (assets/blechy/splash.json) is seen from power-on until the load begins.
 
     python3 tools/patch/load_bar.py --vsb SYSTEM.VSB [--out data/patches/load-bar.json]
 
@@ -18,9 +18,9 @@ Four hooks:
   frame     the tail call that sends the frame to the display, 0xC008370C: while a load is expected it puts the
             image over the frame before it goes out, so the window never reaches the display
 
-The image is drawn whole when the overlay starts and again whenever a window comes or goes; in between only the
-pixels that change (the bar, the pupils) are drawn, which costs next to nothing. The firmware's own draw of the whole
-image takes 2.5 million instructions, which is why the first version, one per frame, made the start 59 percent longer.
+The picture is drawn into the frame buffer every frame (the firmware's window would show otherwise), but only a new
+picture is marked as changed, so the display gets pages only then. The firmware's own draw of a whole image takes 2.5
+million instructions, which is why the overlay draws its own.
 
 With EXIT held at power-on, without a card or without e2sSample.all nothing is ever expected and every hook goes
 straight to the original. A card that is in the slot but not mounted after the start's question is asked again, up to
@@ -46,9 +46,9 @@ RAM = 0xC0000000
 ART = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2]) / "assets" / "blechy" / "splash.bin"   # frozen: unpacked next to the code
 
 CODE_AT = 0xC0181000            # free (FF) in the image, behind the pattern switch
-CODE_END = 0xC0181A00
-BASE = 0xC0181A00               # the BLECH image in the order of the frame buffer, 1024 bytes, written by the patch
-BASE_END = 0xC0181E00
+CODE_END = 0xC0181F00
+LOAD_AT = 0xC01A3D00            # assets/blechy/loading.bin, written by the patch (free behind the start image editor's vtable)
+LOAD_END = 0xC01A4A00
 STATE = 0xC0181F00              # run time state, in RAM only
 STATE_END = 0xC0181F40
 
@@ -66,41 +66,109 @@ LOAD_FUNC = 0xC00364F0
 FLUSH = 0xC008370C              # b 0xC0015DD0, the frame function's tail call
 FLUSH_FUNC = 0xC0015DD0
 
-# The pupils are 3 by 3 pixels, top rows 15, left columns 50 and 77 (assets/blechy/splash.bin); the bar is rows 61 and 62, x 20 to 107.
-# The pupil's step to the side, plus 5: fast at the start of a sweep and braking towards its end (ease-out, 10 * (1 - (1 - k/6)^2)),
-# then a rest, the same way back, a rest (device 18.10.: the even steps looked too linear).
-EYE_SWEEP = [3, 6, 8, 9, 10]
-EYE_TABLE = EYE_SWEEP + [10] * 7 + [10 - v for v in EYE_SWEEP] + [0] * 7
-EYE_EVERY = 4                   # frames between two steps of the pupils (a power of two)
 
-# The faces: 8 by 9 pixels, drawn dark on the light edge of the image (x 0 to 13 and 114 to 127 are plain light in the BLECH image).
-# They fade in by a 4 by 4 ordered dither: at level n of 16 the pixels whose threshold is below n are drawn.
-# One cycle is 16 steps of FACE_EVERY frames; in each cycle the face sits in the next of four places.
-FACE = [".XXXXXX.",
-        "XXXXXXXX",
-        "X..XX..X",
-        "X.XXXX.X",
-        "X..XX..X",
-        "XXXXXXXX",
-        "X.X..X.X",
-        "XXXXXXXX",
-        ".XXXXXX."]
-FACE_LEVELS = [0, 0, 0, 4, 8, 12, 16, 16, 16, 16, 12, 8, 4, 0, 0, 0]
-FACE_PLACES = [(2, 10), (118, 38), (118, 10), (2, 38)]      # left, right, right, left: x, y of the top left pixel
-FACE_EVERY = 4                  # frames per step (a power of two)
-BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
+
+# ---- the loading animation (entwuerfe/design-1.3/geraet: Blechy draws the line from left to right) ----
+# assets/blechy/loading.bin holds its pictures, written by entwuerfe/design-1.3/geraet/firmware_assets.py from the same
+# renderer as the previews. Everything is in the order of the frame buffer (bit 0 the top row of a page) with a set bit lit
+# on the reversed display (DISPLAY INVERT ON); the overlay complements its picture when the display is not reversed.
+LOAD_ART = ART.parent / "loading.bin"
+LINE_X, LINE_Y, SWEEP = 49, 54, 48      # the line: x 49 to 97 on row 54, lumps above it
+SPRITE_PAGE, SPRITE_PAGES = 2, 5        # Blechy lives in pages 2 to 6 (rows 16 to 55)
+FINALE_AT = 95                          # from 95 percent the finale plays while the count runs on
+TICKS = 0xC06A292C              # the operating system's tick count, one per millisecond (tools/patch/power_off.py)
+MENU_STATE = 0xC01D6E00         # tools/patch/script_hooks.py:MENU_STATE
+TICK_MS = 64                    # the finale's pictures change every 64 ms (a power of two: no division)
+TICKS_N, FRAME_MS = 8, 50               # the finale's 8 pictures; at most one new picture every 50 ms (20 per second)
+PCT_RIGHT, PCT_Y = 123, 58              # the percent, right-aligned, in the 3 x 5 font
+GLYPHS = "0123456789%"
+
+
+def pack_loading(base, foot_done, lumps, digits, fig, fin, ticks):
+    """loading.bin from its parts: base 1024, foot_done 128 (page 7), lumps 49 heights, digits 11 glyphs of 3 column bytes,
+    fig (x0, width, bits, mask), fin (x0, width, bytes), ticks 8 lists of (offset in the frame buffer, byte)."""
+    out = bytearray(base) + bytes(foot_done)
+    out += bytes(lumps) + bytes(52 - len(lumps))
+    out += bytes(b for g in digits for b in g) + bytes(36 - 3 * len(digits))
+    (fx, fw, fbits, fmask), (nx, nw, nbytes) = fig, fin
+    out += bytes((fx, fw, nx, nw))
+    for p in range(SPRITE_PAGES):
+        out += fbits[p * fw:(p + 1) * fw] + fmask[p * fw:(p + 1) * fw]
+    out += nbytes
+    out += bytes(-len(out) % 4)
+    table_at = len(out)
+    out += bytes(2 * TICKS_N)
+    for i, entries in enumerate(ticks):
+        struct.pack_into("<H", out, table_at + 2 * i, len(out) - table_at)
+        out += struct.pack("<H", len(entries)) + bytes(2)
+        for at, value in entries:
+            out += struct.pack("<HBB", at, value, 0)
+    return bytes(out)
+
+
+def parse_loading(blob):
+    fx, fw, nx, nw = blob[1240:1244]
+    fig_at = 1244
+    fin_at = fig_at + SPRITE_PAGES * fw * 2
+    table_at = fin_at + SPRITE_PAGES * nw
+    table_at += -table_at % 4
+    ticks = []
+    for i in range(TICKS_N):
+        at = table_at + struct.unpack_from("<H", blob, table_at + 2 * i)[0]
+        n = struct.unpack_from("<H", blob, at)[0]
+        ticks.append([struct.unpack_from("<HB", blob, at + 4 + 4 * k) for k in range(n)])
+    return {"base": blob[:1024], "foot_done": blob[1024:1152], "lumps": blob[1152:1152 + SWEEP + 1],
+            "digits": [blob[1204 + 3 * g:1207 + 3 * g] for g in range(len(GLYPHS))],
+            "fig_x": fx, "fig_w": fw, "fig_at": fig_at, "fin_x": nx, "fin_w": nw, "fin_at": fin_at,
+            "table_at": table_at, "ticks": ticks, "blob": blob}
+
+
+def loading_key(pct, done, tick):
+    """What the overlay draws: the percent, done, and the finale's picture (0 before the finale)."""
+    finale = done or pct >= FINALE_AT
+    return (100 if done else pct) | (1 << 8 if done else 0) | ((tick % TICKS_N if finale else 0) << 16)
+
+
+def compose_reference(art, key):
+    """The frame buffer the overlay draws for `key`, as the firmware composes it (before the complement)."""
+    pct, done, tick = key & 0xFF, key >> 8 & 1, key >> 16 & 0xFF
+    fb = bytearray(art["base"])
+    if done:
+        fb[896:1024] = art["foot_done"]
+
+    def put(x, y):
+        fb[(y >> 3) * 128 + x] |= 1 << (y & 7)
+    if not (done or pct >= FINALE_AT):
+        shift = (pct * SWEEP + 50) // 100
+        for x in range(LINE_X + shift, LINE_X + SWEEP + 1):
+            for k in range(art["lumps"][x - LINE_X] + 1):
+                put(x, LINE_Y - k)
+        blob, fw = art["blob"], art["fig_w"]
+        for p in range(SPRITE_PAGES):
+            row = art["fig_at"] + p * fw * 2
+            for c in range(fw):
+                i = (SPRITE_PAGE + p) * 128 + art["fig_x"] + shift + c
+                fb[i] = (fb[i] & ~blob[row + fw + c] & 0xFF) | blob[row + c]
+    else:
+        blob, nw = art["blob"], art["fin_w"]
+        for p in range(SPRITE_PAGES):
+            i = (SPRITE_PAGE + p) * 128 + art["fin_x"]
+            fb[i:i + nw] = blob[art["fin_at"] + p * nw:art["fin_at"] + (p + 1) * nw]
+        for at, value in art["ticks"][tick]:
+            fb[at] = value
+    text = f"{pct}%"
+    x = PCT_RIGHT - (4 * len(text) - 1) + 1
+    for ch in text:
+        for c, col in enumerate(art["digits"][GLYPHS.index(ch)]):
+            for r in range(5):
+                if col >> r & 1:
+                    put(x + c, PCT_Y + r)
+        x += 4
+    return bytes(fb)
 
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
-
-
-def art_frame():
-    """assets/blechy/splash.bin in the order of the frame buffer: the bits of every byte reversed (bit 0 is the top row of a page)."""
-    data = ART.read_bytes()
-    if len(data) != 1024:
-        raise SystemExit(f"{ART} is not a 1024 byte start image")
-    return bytes(int(f"{b:08b}"[::-1], 2) for b in data)
 
 
 SOURCE = """
@@ -119,10 +187,8 @@ SOURCE = """
 .equ SETTEXT, @PROGRESS_FUNC@
 .equ FLUSH, @FLUSH_FUNC@
 .equ KILL, @KILL@
-.equ BASE, @BASE@
 .equ STATE, @STATE@
 .equ FRAME_CAP, @CAP@
-.equ EYE_SHIFT, @EYE_SHIFT@
 .equ S_EXPECT, 0               ; 1 while a load is expected and the overlay draws, 2 when it is over, FFFFFFFF never started
 .equ S_CUR, 4                  ; the loader's file offset
 .equ S_MAX, 8                  ; the largest offset in the file
@@ -130,11 +196,36 @@ SOURCE = """
 .equ S_FRAME, 16               ; frames drawn
 .equ S_MODE, 20                ; 1: the BLECH image (kept for the readers of the state; there is no other any more)
 .equ S_DRAWN, 24               ; 1 once the whole frame buffer has been marked as changed
-.equ S_FILL, 28                ; pixels of the bar marked so far
-.equ S_DX, 32                  ; step of the pupils marked so far
-.equ S_FACE, 36                ; the face marked so far: place * 256 + level
-.equ S_FACE_NOW, 40            ; the face of this frame
-.equ FACE_SHIFT, @FACE_SHIFT@
+.equ S_KEY, 28                 ; the picture drawn: percent | done << 8 | the finale's picture << 16
+.equ S_LAST, 32                ; TICKS when that key was taken
+.equ TICKS, @TICKS@             ; the operating system's tick count, one per millisecond
+.equ MENU_STATE, @MENU_STATE@   ; the BLECH menu (script runtime): M_ON 1 when armed, M_INV 1 with DISPLAY INVERT ON
+.equ M_ON, 0
+.equ M_INV, 0x1B8
+.equ ART, @ART@
+.equ ART_FOOT, @ART_FOOT@
+.equ ART_LUMPS, @ART_LUMPS@
+.equ ART_DIGITS, @ART_DIGITS@
+.equ ART_FIG, @ART_FIG@
+.equ ART_FIN, @ART_FIN@
+.equ ART_TICKS, @ART_TICKS@
+.equ FIG_X, @FIG_X@
+.equ FIG_W, @FIG_W@
+.equ FIG_W2, @FIG_W2@
+.equ FIN_X, @FIN_X@
+.equ FIN_W, @FIN_W@
+.equ SPRITE_OFF, @SPRITE_OFF@
+.equ SPRITE_PAGES, @SPRITE_PAGES@
+.equ LINE_X, @LINE_X@
+.equ LINE_END, @LINE_END@
+.equ LINE_Y, @LINE_Y@
+.equ SWEEP, @SWEEP@
+.equ FINALE_AT, @FINALE_AT@
+.equ TICKS_MASK, @TICKS_MASK@
+.equ TICK_SHIFT, @TICK_SHIFT@
+.equ FRAME_MS, @FRAME_MS@
+.equ PCT_X0, @PCT_X0@
+.equ PCT_Y, @PCT_Y@
 
 .org @CODE_AT@
 
@@ -193,10 +284,8 @@ ls_have:
     str r2, [r1, #S_DONE]
     str r2, [r1, #S_FRAME]
     str r2, [r1, #S_DRAWN]
-    str r2, [r1, #S_FILL]
-    str r2, [r1, #S_DX]
-    str r2, [r1, #S_FACE]
-    str r2, [r1, #S_FACE_NOW]
+    str r2, [r1, #S_KEY]
+    str r2, [r1, #S_LAST]
     mov r2, #1
     str r2, [r1, #S_MODE]
     str r2, [r1, #S_EXPECT]
@@ -284,11 +373,11 @@ ov_go:
 ov_out:
     pop {r4, r5, r6, r7, r8, r9, r10, pc}
 
-; r0 = the pixels of the bar that are filled: all of them when the loader is done, else the loader's share of the file.
-fill_px:
+; r0 = the percent: 100 when the loader is done, else the loader's share of the file, at most 99.
+pct_now:
     push {r4, lr}
     ldr r4, =STATE
-    mov r2, #88
+    mov r2, #100
     ldr r1, [r4, #S_DONE]
     cmp r1, #1
     moveq r0, r2
@@ -310,7 +399,7 @@ fp_scaled:
 fp_loop:
     cmp r3, r1
     blo fp_out
-    cmp r0, r2
+    cmp r0, #99
     bhs fp_out
     sub r3, r3, r1
     add r0, r0, #1
@@ -333,230 +422,289 @@ set_px:
     strb r2, [r0, r12]
     bx lr
 
-; r0 = buffer, r1 = x of the left column, r2 = y of the top row, r3 = 1 or 0: a square of 3 by 3 pixels
-block3:
-    push {r4, r5, r6, r7, r8, lr}
-    mov r4, r1
-    mov r5, r2
-    mov r6, #0
-b3_row:
-    mov r7, #0
-b3_col:
-    add r1, r4, r7
-    add r2, r5, r6
-    bl set_px
-    add r7, r7, #1
-    cmp r7, #3
-    blo b3_col
-    add r6, r6, #1
-    cmp r6, #3
-    blo b3_row
-    pop {r4, r5, r6, r7, r8, pc}
-
-; The image with the bar and the eyes into the frame buffer. Only what changed since the last frame is marked
-; as changed (the first time everything): the display is sent page by page, and sending pages costs more than drawing them.
+; Picks the picture and draws it. The key (percent, done, the finale's picture) changes at most every FRAME_MS; until then
+; the last one is drawn again, every frame, over whatever the firmware put into the buffer. Only a new key is marked as changed.
 compose:
     push {r4, r5, r6, r7, r8, r9, r10, lr}
     ldr r4, =STATE
     ldr r7, =VRAM
-    ldr r1, =BASE
-    mov r0, r7
-    mov r2, #1024
-cp_loop:
-    ldr r3, [r1], #4
-    str r3, [r0], #4
-    subs r2, r2, #4
-    bne cp_loop
-    bl fill_px
-    mov r9, r0
-    mov r6, #0
-cp_blech:
-    cmp r6, #88
-    bhs cp_eyes
-    cmp r6, r9
-    movlo r3, #0
-    movhs r3, r6
-    andhs r3, r3, #1
-    mov r0, r7
-    add r1, r6, #20
-    mov r2, #61
-    bl set_px
-    mov r0, r7
-    add r1, r6, #20
-    mov r2, #62
-    bl set_px
-    add r6, r6, #1
-    b cp_blech
-cp_eyes:
-    ldr r5, [r4, #S_FRAME]
-    mov r5, r5, lsr #EYE_SHIFT
-cp_mod:
-    cmp r5, #24
-    subhs r5, r5, #24
-    bhs cp_mod
-    ldr r1, =eye_table
-    ldrb r8, [r1, r5]
-    sub r8, r8, #5
-    mov r0, r7
-    mov r1, #50
-    mov r2, #15
-    mov r3, #1
-    bl block3
-    mov r0, r7
-    mov r1, #77
-    mov r2, #15
-    mov r3, #1
-    bl block3
-    mov r0, r7
-    add r1, r8, #50
-    mov r2, #15
-    mov r3, #0
-    bl block3
-    mov r0, r7
-    add r1, r8, #77
-    mov r2, #15
-    mov r3, #0
-    bl block3
-    bl face
-cp_mark:
+    bl pct_now
+    mov r5, r0                   ; percent
+    ldr r6, [r4, #S_DONE]
+    cmp r6, #1
+    movne r6, #0
+    ldr r0, =TICKS
+    ldr r8, [r0]                 ; now, ms
+    mov r9, #0                   ; the finale's picture
+    cmp r6, #1
+    cmpne r5, #FINALE_AT
+    blo cp_key
+    mov r0, r8, lsr #TICK_SHIFT  ; a new finale picture every 64 ms
+    and r9, r0, #TICKS_MASK
+cp_key:
+    orr r10, r5, r6, lsl #8
+    orr r10, r10, r9, lsl #16
     ldr r0, [r4, #S_DRAWN]
     cmp r0, #0
-    bne cp_delta
+    beq cp_take
+    ldr r0, [r4, #S_KEY]
+    cmp r0, r10
+    beq cp_same
+    ldr r1, [r4, #S_LAST]
+    sub r1, r8, r1
+    cmp r1, #FRAME_MS
+    bhs cp_take
+cp_same:
+    ldr r10, [r4, #S_KEY]
+    mov r0, r10
+    bl draw_key
+    b cp_done
+cp_take:
+    str r10, [r4, #S_KEY]
+    str r8, [r4, #S_LAST]
+    mov r0, r10
+    bl draw_key
+    ldr r0, [r4, #S_DRAWN]
+    cmp r0, #0
     mov r0, #1
     str r0, [r4, #S_DRAWN]
-    str r9, [r4, #S_FILL]
-    str r8, [r4, #S_DX]
-    ldr r0, [r4, #S_FACE_NOW]
-    str r0, [r4, #S_FACE]
     mov r0, #0
-    mov r1, #0
+    moveq r1, #0                 ; the first picture: all of it
+    movne r1, #16                ; then rows 16 to 63, the wordmark never changes
     mov r2, #128
     mov r3, #64
     bl MARK
-    b cp_done
-cp_delta:
-    ldr r5, [r4, #S_FILL]
-    cmp r5, r9
-    beq cp_pupils
-    mov r6, #20                  ; the bar: x from 20, rows 61 and 62
-    mov r1, #61
-    mov r3, #63
-    add r0, r6, r5
-    add r2, r6, r9
-    bl MARK
-    str r9, [r4, #S_FILL]
-cp_pupils:
-    ldr r5, [r4, #S_DX]
-    cmp r5, r8
-    beq cp_face
-    mov r0, #44
-    mov r1, #15
-    mov r2, #88
-    mov r3, #18
-    bl MARK
-    str r8, [r4, #S_DX]
-cp_face:
-    ldr r5, [r4, #S_FACE_NOW]
-    ldr r6, [r4, #S_FACE]
-    cmp r5, r6
-    beq cp_done
-    str r5, [r4, #S_FACE]
-    mov r0, r6
-    bl mark_face
-    mov r0, r5
-    bl mark_face
 cp_done:
     pop {r4, r5, r6, r7, r8, r9, r10, pc}
 
-; r0 = place * 256 + level: marks the place of that face as changed
-mark_face:
-    push {lr}
-    mov r1, r0, lsr #8
-    and r1, r1, #3
-    ldr r2, =face_places
-    add r2, r2, r1, lsl #1
-    ldrb r0, [r2]
-    ldrb r1, [r2, #1]
-    add r2, r0, #8
-    add r3, r1, #9
-    bl MARK
-    pop {pc}
-
-; The small face of this frame into the frame buffer r7 (r4 = STATE): the level and the place come from the frame count, the key
-; goes to S_FACE_NOW for the marking. Keeps every register.
-face:
+; r0 = key: the picture into the frame buffer (VRAM), complemented when the display is not reversed.
+draw_key:
     push {r4, r5, r6, r7, r8, r9, r10, r11, lr}
-    ldr r5, [r4, #S_FRAME]
-    mov r6, r5, lsr #FACE_SHIFT
-    and r0, r6, #15
-    ldr r1, =face_levels
-    ldrb r10, [r1, r0]
-    mov r6, r6, lsr #4
-    and r6, r6, #3
-    orr r0, r10, r6, lsl #8
-    str r0, [r4, #S_FACE_NOW]
-    cmp r10, #0
-    beq fc_out
-    ldr r1, =face_places
-    add r1, r1, r6, lsl #1
-    ldrb r5, [r1]
-    ldrb r6, [r1, #1]
-    mov r11, #0
-fc_row:
-    ldr r1, =face_art
-    ldrb r8, [r1, r11]
-    mov r9, #0
-fc_col:
-    mov r0, #1
-    tst r8, r0, lsl r9
-    beq fc_next
-    add r1, r5, r9
-    add r2, r6, r11
-    and r3, r2, #3
-    and r12, r1, #3
-    add r3, r12, r3, lsl #2
-    ldr r12, =bayer
-    ldrb r3, [r12, r3]
-    cmp r3, r10
-    bhs fc_next
+    and r4, r0, #0xFF            ; percent
+    mov r5, r0, lsr #8
+    and r5, r5, #1               ; done
+    mov r6, r0, lsr #16          ; the finale's picture
+    ldr r7, =VRAM
+    ldr r1, =ART
     mov r0, r7
-    mov r3, #0
+    mov r2, #1024
+dk_base:
+    ldr r3, [r1], #4
+    str r3, [r0], #4
+    subs r2, r2, #4
+    bne dk_base
+    cmp r5, #0
+    beq dk_foot
+    ldr r1, =ART_FOOT
+    add r0, r7, #896
+    mov r2, #128
+dk_done:
+    ldr r3, [r1], #4
+    str r3, [r0], #4
+    subs r2, r2, #4
+    bne dk_done
+dk_foot:
+    cmp r5, #0
+    cmpeq r4, #FINALE_AT
+    bhs dk_finale
+; the line from the tip of the tube to its end, then Blechy over it
+    mov r0, #SWEEP
+    mul r1, r4, r0
+    add r1, r1, #50
+    ldr r0, =1311                ; / 100: exact for these values (at most 94 * 48 + 50)
+    mul r2, r1, r0
+    mov r8, r2, lsr #17          ; shift
+    add r9, r8, #LINE_X          ; x
+dk_line:
+    cmp r9, #LINE_END
+    bhi dk_fig
+    ldr r0, =ART_LUMPS
+    sub r1, r9, #LINE_X
+    ldrb r10, [r0, r1]
+    mov r11, #LINE_Y
+dk_lump:
+    mov r0, r7
+    mov r1, r9
+    mov r2, r11
+    mov r3, #1
     bl set_px
-fc_next:
+    sub r11, r11, #1
+    subs r10, r10, #1
+    bpl dk_lump
     add r9, r9, #1
-    cmp r9, #8
-    blo fc_col
-    add r11, r11, #1
-    cmp r11, #9
-    blo fc_row
-fc_out:
+    b dk_line
+dk_fig:
+    ldr r10, =ART_FIG
+    add r11, r7, #SPRITE_OFF
+    add r11, r11, #FIG_X
+    add r11, r11, r8
+    mov r9, #SPRITE_PAGES
+dk_fig_page:
+    mov r8, #0
+dk_fig_col:
+    ldrb r0, [r11, r8]
+    add r1, r10, #FIG_W
+    ldrb r1, [r1, r8]
+    bic r0, r0, r1
+    ldrb r1, [r10, r8]
+    orr r0, r0, r1
+    strb r0, [r11, r8]
+    add r8, r8, #1
+    cmp r8, #FIG_W
+    blo dk_fig_col
+    add r10, r10, #FIG_W2
+    add r11, r11, #128
+    subs r9, r9, #1
+    bne dk_fig_page
+    b dk_pct
+; the finale: its first picture, then the bytes that differ in this one
+dk_finale:
+    ldr r10, =ART_FIN
+    add r11, r7, #SPRITE_OFF
+    add r11, r11, #FIN_X
+    mov r9, #SPRITE_PAGES
+dk_fin_page:
+    mov r8, #0
+dk_fin_col:
+    ldrb r0, [r10, r8]
+    strb r0, [r11, r8]
+    add r8, r8, #1
+    cmp r8, #FIN_W
+    blo dk_fin_col
+    add r10, r10, #FIN_W
+    add r11, r11, #128
+    subs r9, r9, #1
+    bne dk_fin_page
+    ldr r10, =ART_TICKS          ; halfwords as two bytes: the assembler has no ldrh
+    add r1, r10, r6, lsl #1
+    ldrb r0, [r1]
+    ldrb r2, [r1, #1]
+    orr r0, r0, r2, lsl #8
+    add r10, r10, r0
+    ldrb r9, [r10]
+    ldrb r2, [r10, #1]
+    orr r9, r9, r2, lsl #8
+    add r10, r10, #4
+dk_tick:
+    subs r9, r9, #1
+    bmi dk_pct
+    ldrb r0, [r10]
+    ldrb r2, [r10, #1]
+    orr r0, r0, r2, lsl #8
+    ldrb r1, [r10, #2]
+    strb r1, [r7, r0]
+    add r10, r10, #4
+    b dk_tick
+; the percent, right-aligned at PCT_RIGHT: one to three digits and %
+dk_pct:
+    mov r8, #1
+    cmp r4, #10
+    movhs r8, #2
+    cmp r4, #100
+    movhs r8, #3                 ; r8 = digits
+    add r0, r8, #1
+    mov r0, r0, lsl #2
+    rsb r9, r0, #PCT_X0          ; x of the first: PCT_RIGHT + 1 - (4 * (digits + 1) - 1)
+    mov r10, #100
+    cmp r8, #3
+    movlo r10, #10
+    cmp r8, #2
+    movlo r10, #1                ; r10 = place value of the first digit
+dk_digit:
+    mov r0, #0
+dk_div:
+    cmp r4, r10
+    blo dk_got
+    sub r4, r4, r10
+    add r0, r0, #1
+    b dk_div
+dk_got:
+    bl glyph
+    add r9, r9, #4
+    cmp r10, #1
+    beq dk_percent
+    cmp r10, #100
+    moveq r10, #10
+    movne r10, #1
+    b dk_digit
+dk_percent:
+    mov r0, #10
+    bl glyph
+; complemented unless the BLECH menu is armed with DISPLAY INVERT ON (then the controller shows set bits light)
+    ldr r0, =MENU_STATE
+    ldr r1, [r0, #M_ON]
+    cmp r1, #1
+    bne dk_flip
+    ldr r1, [r0, #M_INV]
+    cmp r1, #0
+    bne dk_out
+dk_flip:
+    mov r0, r7
+    mov r2, #1024
+dk_flip_loop:
+    ldr r3, [r0]
+    mvn r3, r3
+    str r3, [r0], #4
+    subs r2, r2, #4
+    bne dk_flip_loop
+dk_out:
     pop {r4, r5, r6, r7, r8, r9, r10, r11, pc}
 
-eye_table:
-    .byte @EYES@
-face_levels:
-    .byte @LEVELS@
-face_places:
-    .byte @PLACES@
-bayer:
-    .byte @BAYER@
-face_art:
-    .byte @FACE@
+; r0 = glyph (0 to 9, 10 is %), r9 = x, r7 = VRAM: three columns of five rows at PCT_Y. Keeps r4 to r11.
+glyph:
+    push {r4, r5, r6, r8, lr}
+    ldr r1, =ART_DIGITS
+    add r0, r0, r0, lsl #1
+    add r4, r1, r0
+    mov r5, #0
+gl_col:
+    ldrb r6, [r4, r5]
+    mov r8, #0
+gl_row:
+    tst r6, #1
+    beq gl_next
+    mov r0, r7
+    add r1, r9, r5
+    add r2, r8, #PCT_Y
+    mov r3, #1
+    bl set_px
+gl_next:
+    mov r6, r6, lsr #1
+    add r8, r8, #1
+    cmp r8, #5
+    blo gl_row
+    add r5, r5, #1
+    cmp r5, #3
+    blo gl_col
+    pop {r4, r5, r6, r8, pc}
+
 .align 4
 lit_pool:
 .pool
 """
 
 
+def art():
+    data = LOAD_ART.read_bytes()
+    if len(data) > LOAD_END - LOAD_AT:
+        raise SystemExit(f"{LOAD_ART} has {len(data)} bytes, room for {LOAD_END - LOAD_AT}")
+    return data
+
+
 def source():
+    a = parse_loading(art())
     text = SOURCE
     for key, value in {
         "STAT_FUNC": f"{STAT_FUNC:#x}", "LOAD_FUNC": f"{LOAD_FUNC:#x}", "PROGRESS_FUNC": f"{PROGRESS_FUNC:#x}", "FLUSH_FUNC": f"{FLUSH_FUNC:#x}",
-        "KILL": f"{KILL_SWITCH:#x}", "BASE": f"{BASE:#x}", "STATE": f"{STATE:#x}", "CAP": str(FRAME_CAP), "RETRIES": str(RETRIES), "RETRY_MS": str(RETRY_MS),
-        "CODE_AT": f"{CODE_AT:#x}", "EYES": ", ".join(str(v) for v in EYE_TABLE), "EYE_SHIFT": str(EYE_EVERY.bit_length() - 1),
-        "FACE_SHIFT": str(FACE_EVERY.bit_length() - 1), "LEVELS": ", ".join(str(v) for v in FACE_LEVELS),
-        "PLACES": ", ".join(str(v) for xy in FACE_PLACES for v in xy), "BAYER": ", ".join(str(v) for v in BAYER),
-        "FACE": ", ".join(str(sum(1 << k for k, c in enumerate(row) if c == "X")) for row in FACE),
+        "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CAP": str(FRAME_CAP), "RETRIES": str(RETRIES), "RETRY_MS": str(RETRY_MS),
+        "CODE_AT": f"{CODE_AT:#x}", "TICKS": f"{TICKS:#x}", "MENU_STATE": f"{MENU_STATE:#x}",
+        "ART": f"{LOAD_AT:#x}", "ART_FOOT": f"{LOAD_AT + 1024:#x}", "ART_LUMPS": f"{LOAD_AT + 1152:#x}",
+        "ART_DIGITS": f"{LOAD_AT + 1204:#x}", "ART_FIG": f"{LOAD_AT + a['fig_at']:#x}", "ART_FIN": f"{LOAD_AT + a['fin_at']:#x}",
+        "ART_TICKS": f"{LOAD_AT + a['table_at']:#x}", "FIG_X": str(a["fig_x"]), "FIG_W": str(a["fig_w"]), "FIG_W2": str(2 * a["fig_w"]),
+        "FIN_X": str(a["fin_x"]), "FIN_W": str(a["fin_w"]), "SPRITE_OFF": str(SPRITE_PAGE * 128), "SPRITE_PAGES": str(SPRITE_PAGES),
+        "LINE_X": str(LINE_X), "LINE_END": str(LINE_X + SWEEP), "LINE_Y": str(LINE_Y), "SWEEP": str(SWEEP),
+        "FINALE_AT": str(FINALE_AT), "TICKS_MASK": str(TICKS_N - 1), "TICK_SHIFT": str(TICK_MS.bit_length() - 1), "FRAME_MS": str(FRAME_MS),
+        "PCT_X0": str(PCT_RIGHT + 2), "PCT_Y": str(PCT_Y),
     }.items():
         text = text.replace(f"@{key}@", value)
     return text
@@ -620,8 +768,8 @@ def build_patch(vsb):
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
              "note": "loading bar: the BLECH image while e2sSample.all loads, the underline is the bar, the eyes look around"},
-            {"file": file_offset(BASE), "bytes": art_frame().hex(), "expect": free(BASE, BASE_END - BASE),
-             "note": "the BLECH image (assets/blechy/splash.bin) in the order of the frame buffer"},
+            {"file": file_offset(LOAD_AT), "bytes": art().hex(), "expect": free(LOAD_AT, len(art())),
+             "note": "the pictures of the loading animation (assets/blechy/loading.bin)"},
             hook(STAT_CALL, "lb_stat", True, "the question whether e2sSample.all exists goes through the hook"),
             hook(PROGRESS_CALL, "lb_progress", True, "the loader's text update goes through the hook"),
             hook(LOAD_CALL, "lb_load", True, "the call of the loader goes through the hook"),
@@ -643,6 +791,10 @@ def build_patch(vsb):
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state of the overlay", "tools/patch/load_bar.py:STATE"),
         ],
+        "shares": [
+            ramdecl.share(MENU_STATE, 4, "script-runtime", "read only: is the BLECH menu armed (M_ON)", "tools/patch/load_bar.py:MENU_STATE"),
+            ramdecl.share(MENU_STATE + 0x1B8, 4, "script-runtime", "read only: DISPLAY INVERT (M_INV)", "tools/patch/load_bar.py:MENU_STATE"),
+        ],
     }
 
 
@@ -658,7 +810,7 @@ def main():
     patch = build_patch(raw)
     if a.listing:
         at, code, symbols = build_code()
-        print(f"section {at:#x} + {len(code):#x} bytes, base {BASE:#x}, state {STATE:#x}")
+        print(f"section {at:#x} + {len(code):#x} bytes, pictures {LOAD_AT:#x}, state {STATE:#x}")
         for name, addr in sorted(symbols.items(), key=lambda kv: kv[1]):
             print(f"  {addr:#010x} {name}")
     text = json.dumps(patch, indent=1) + "\n"

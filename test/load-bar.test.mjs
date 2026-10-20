@@ -10,13 +10,15 @@ import { applyPatches, PATCH_FORMAT, fromHex } from "../src/patch.mjs";
 import { checkHooks } from "../src/hooks.mjs";
 import { identify } from "../src/firmware.mjs";
 
-// The loading bar (docs/ideen/41-startbild-ausbauen.md).
+// The loading animation (docs/ideen/41-startbild-ausbauen.md, entwuerfe/design-1.3/geraet).
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const PATCH = read("../data/patches/load-bar.json");
 const SPLASH_DATA = read("../assets/blechy/splash.json");
 const OTHERS = ["splash-editor", "mfx-switch", "pattern-switch", "script-runtime", "blechtribe", "blech-theme"].map(id => read(`../data/patches/${id}.json`));
 const CODE = 0x181100;               // file offset of 0xC0181000
-const CODE_END = 0x181b00;           // 0xC0181A00, where the BLECH image begins
+const CODE_END = 0x182000;           // 0xC0181F00, where the run time state begins
+const ART = 0x1a3e00;                // file offset of 0xC01A3D00: assets/blechy/loading.bin
+const ART_BYTES = readFileSync(new URL("../assets/blechy/loading.bin", import.meta.url));
 // the replaced words: the stat call, the loader's text update, the loader call, the frame function's flush
 const WORDS = [[0x2af60, 0xeb, 0xc002ae60], [0x367d4, 0xeb, 0xc00366d4], [0x38e60, 0xeb, 0xc0038d60], [0x8380c, 0xea, 0xc008370c]];
 
@@ -46,13 +48,13 @@ test("the loading bar has the v1 format, says what it replaces and names what ru
   }
 });
 
-test("it is our code, the BLECH image and four replaced words, each a branch into the code, and every hook is declared", () => {
+test("it is our code, the animation's pictures and four replaced words, each a branch into the code, and every hook is declared", () => {
   assert.equal(PATCH.changes.length, 2 + WORDS.length);
   const [code, art, ...words] = PATCH.changes;
   const n = fromHex(code.bytes).length;
   assert.ok(code.file === CODE && code.file + n <= CODE_END, `${n} bytes`);
-  assert.equal(art.file, CODE_END);
-  assert.equal(fromHex(art.bytes).length, 1024, "the BLECH image in the order of the frame buffer");
+  assert.equal(art.file, ART);
+  assert.deepEqual(Buffer.from(fromHex(art.bytes)), ART_BYTES, "assets/blechy/loading.bin as it is");
   for (const [i, [file, opcode, address]] of WORDS.entries()) {
     assert.equal(words[i].file, file);
     const word = Buffer.from(fromHex(words[i].bytes)).readUInt32LE(0);
@@ -94,15 +96,16 @@ test("applied to the own firmware it changes only what it names, alone and with 
 });
 
 describe("the loading bar in the emulator", { concurrency: slots }, () => {
-  test("emulate:2026-10-15/ladebalken, the overlay, the bar, the eyes, the stock cases and the rescue paths", { skip: skipEmu }, async () => {
+  test("emulate:2026-10-15/ladebalken, the animation, the percent, the finale, the stock cases and the rescue paths", { skip: skipEmu }, async () => {
     const patched = await patchedCopy([PATCH, SPLASH_DATA]);
     try {
       const run = await exec(python(), [join(dir, "emu/loadbar_cases.py"), "cases", "--patched", patched.path, ...flashArgs], { timeout: 1_800_000, maxBuffer: 4 * 1024 * 1024 });
       assert.ifError(run.error);
       const report = JSON.parse(run.stdout);
       assert.deepEqual(report.filter(c => !c.ok), []);
-      for (const id of ["overlay_frames_are_the_image", "bar_grows_to_the_end", "eyes_wander", "loader_is_no_slower", "main_screen_is_clean", "no_card_is_stock",
-        "exit_held_is_stock", "no_sample_file_is_stock", "panel_update_untouched", "start_mode_1_untouched", "other_image_then_blech_with_eyes"]) {
+      for (const id of ["overlay_frames_are_the_animation", "percent_counts_up", "finale_from_95", "at_most_20_pictures_a_second", "display_stays_dark",
+        "loader_is_no_slower", "main_screen_is_clean", "no_card_is_stock", "exit_held_is_stock", "no_sample_file_is_stock", "panel_update_untouched",
+        "start_mode_1_untouched", "own_image_then_the_animation"]) {
         assert.ok(report.some(c => c.id === `loadbar:${id}`), id);
       }
       assert.equal(run.status, 0);
@@ -119,7 +122,7 @@ describe("the loading bar in the emulator", { concurrency: slots }, () => {
       assert.ifError(run.error);
       const report = JSON.parse(run.stdout);
       assert.deepEqual(report.checks.filter(c => !c.ok), []);
-      assert.ok(report.checks.some(c => c.id === "loadbar:overlay_frames_are_the_image"), "the patch's own cases ran");
+      assert.ok(report.checks.some(c => c.id === "loadbar:overlay_frames_are_the_animation"), "the patch's own cases ran");
       assert.equal(run.status, 0);
       const bare = await exec(python(), [join(dir, "emu/check.py"), "--base", vsb, "--patched", patched.path, ...flashArgs, "--allow", "0xf9954:1024"], { timeout: 1_800_000, maxBuffer: 8 * 1024 * 1024 });
       assert.equal(bare.status, 1, "without the spans the hooks are changes in the start code");

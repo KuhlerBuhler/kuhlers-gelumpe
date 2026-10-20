@@ -53,6 +53,7 @@ run(...command(python, [
   "--add-data", `${path("../../data/synth-map")}${sep}data/synth-map`,
   "--add-data", `${path("../../data/script/blechy-block.hex")}${sep}data/script`,
   "--add-data", `${path("../../assets/blechy/splash.bin")}${sep}assets/blechy`,
+  "--add-data", `${path("../../assets/blechy/loading.bin")}${sep}assets/blechy`,
   path("server.py"),
 ]));
 

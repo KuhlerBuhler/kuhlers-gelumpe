@@ -271,7 +271,7 @@ def unhinged_look(state, t_ms):
     if not state.finale:
         return EYES_CLOSED
     jx, jy = JITTER[tick % len(JITTER)]
-    return (4, 0, jx, jy, 1 if tick % 6 < 3 else 0, True)
+    return (4, 0, jx, jy, 1 if tick % 4 < 2 else 0, True)      # period 8 frames, the firmware keeps 8 pictures
 
 
 def still_splash():

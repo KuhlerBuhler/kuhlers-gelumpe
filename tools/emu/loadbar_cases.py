@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""Emulator checks for the loading bar patch (tools/patch/load_bar.py,
-docs/ideen/41-startbild-ausbauen.md).
+"""Emulator checks for the loading animation (tools/patch/load_bar.py, entwuerfe/design-1.3/geraet).
 
 check.py runs `cases` on every patched copy that carries the patch's hooks. With a card and an
-e2sSample.all the BLECH image is shown while the samples load, whatever the start image: the underline
-is the bar, the eyes look around, no frame shows the window "Loading nnn%". Without a card, with EXIT held at
-power-on and on every rescue path nothing of it runs. The reference for "as it was" is the same
-copy with EXIT held at power-on, where no hook of the patch does anything.
+e2sSample.all Blechy draws the line while the samples load, whatever the start image: every frame is the
+picture load_bar.compose_reference makes for the key in the state, the percent counts up, from 95 percent the
+finale plays, no frame shows the window "Loading nnn%" and the display stays dark through the switch to
+DISPLAY INVERT. Without a card, with EXIT held at power-on and on every rescue path nothing of it runs. The
+reference for "as it was" is the same copy with EXIT held at power-on, where no hook of the patch does anything.
 
     tools/emu/.venv/bin/python tools/emu/loadbar_cases.py cases --patched NEW.VSB [--flash dump.bin]
     tools/emu/.venv/bin/python tools/emu/loadbar_cases.py shots --patched NEW.VSB --png-dir DIR [--flash dump.bin]
@@ -32,7 +32,7 @@ from splash_cases import DESC13, SPLASH, Dev, display_of  # noqa: E402
 
 IMAGE = 0xC0000000
 KILL = spec.KILL_SWITCH
-S_EXPECT, S_CUR, S_MAX, S_DONE, S_FRAME, S_MODE, S_DRAWN, S_FILL, S_DX, S_FACE, S_FACE_NOW = (4 * i for i in range(11))
+S_EXPECT, S_CUR, S_MAX, S_DONE, S_FRAME, S_MODE, S_DRAWN, S_KEY, S_LAST = (4 * i for i in range(9))
 SAMPLE = 0.01                   # seconds of device time between two looks at the display
 LOADER = spec.LOAD_FUNC
 _card = {}
@@ -101,7 +101,7 @@ class Run:
             self.dev.run(SAMPLE)
             t += SAMPLE
             screen = self.dev.screen()["number"]
-            self.frames.append((self.m.time_ns / 1e6, self.dev.fb(), self.state(), screen))
+            self.frames.append((self.m.time_ns / 1e6, self.dev.fb(), self.state(), screen, self.m.shown()))
             if screen == 1 and self.main_at is None:
                 self.main_at = self.m.time_ns / 1e6
             if self.main_at is not None and self.m.time_ns / 1e6 > self.main_at + 300:
@@ -129,7 +129,7 @@ class Run:
         uc.ctl_flush_tb()
 
     def state(self):
-        return tuple(self.dev.u32(spec.STATE + o) for o in (S_EXPECT, S_CUR, S_MAX, S_DONE, S_FRAME, S_MODE, S_DRAWN, S_FILL, S_DX, S_FACE, S_FACE_NOW))
+        return tuple(self.dev.u32(spec.STATE + o) for o in (S_EXPECT, S_CUR, S_MAX, S_DONE, S_FRAME, S_MODE, S_DRAWN, S_KEY, S_LAST))
 
     def loader_ms(self):
         return None if not self.loader or self.loader[0][1] is None else self.loader[0][1] - self.loader[0][0]
@@ -139,47 +139,19 @@ def vsb_image(payload):
     return bytes(payload[SPLASH - IMAGE:SPLASH - IMAGE + 1024])
 
 
-def pixel(buf, x, y, v):
-    """Set pixel (x, y) of a frame in the display's order (bit 0 is the top row of a page)."""
-    i = (y >> 3) * 128 + x
-    buf[i] = (buf[i] | (1 << (y & 7))) if v else (buf[i] & ~(1 << (y & 7)) & 0xFF)
+ART = None
 
 
-def draw_face(frame, key):
-    """The small face of `key` (place * 256 + level): dark pixels of the face whose dither threshold is below the level."""
-    level, place = key & 0xFF, key >> 8 & 3
-    x0, y0 = spec.FACE_PLACES[place]
-    for dy, row in enumerate(spec.FACE):
-        for dx, c in enumerate(row):
-            if c == "X" and spec.BAYER[((y0 + dy) & 3) * 4 + ((x0 + dx) & 3)] < level:
-                pixel(frame, x0 + dx, y0 + dy, 0)
+def art():
+    global ART
+    ART = ART or spec.parse_loading(spec.LOAD_ART.read_bytes())
+    return ART
 
 
-def expected(image, fill, dx, blech, face=0):
-    """The frame the patch draws for an image, a bar of `fill` pixels, the pupils `dx` to the side and the face `face`."""
-    frame = bytearray(display_of(image))
-    if blech:
-        for x in range(88):
-            lit = 0 if x < fill else x & 1
-            pixel(frame, 20 + x, 61, lit)
-            pixel(frame, 20 + x, 62, lit)
-        for eye in (50, 77):
-            for y in range(15, 18):
-                for k in range(3):
-                    pixel(frame, eye + k, y, 1)
-        for eye in (50, 77):
-            for y in range(15, 18):
-                for k in range(3):
-                    pixel(frame, eye + dx + k, y, 0)
-        draw_face(frame, face)
-    else:
-        for x in range(fill):
-            pixel(frame, x, 63, 0)
-    return bytes(frame)
-
-
-def signed(word):
-    return word - (1 << 32) if word >= 0x80000000 else word
+def pictures(key):
+    """The picture for a key and its complement (drawn while the BLECH menu is not yet armed with DISPLAY INVERT ON)."""
+    ref = spec.compose_reference(art(), key)
+    return ref, bytes(b ^ 0xFF for b in ref)
 
 
 def entry(name, ok, detail):
@@ -187,47 +159,60 @@ def entry(name, ok, detail):
 
 
 def overlay_frames(run):
-    """The frames in which the overlay was on and had drawn (the state says what was marked: fill and the pupils' step)."""
+    """The frames in which the overlay was on and had drawn."""
     return [f for f in run.frames if f[2][0] == 1 and f[2][6] == 1 and f[3] != 1]
 
 
-def mismatches(run, image, blech):
-    """(frames looked at, first frame that showed the overlay in ms, ms of the frames that are not the image with bar and pupils).
+def mismatches(run):
+    """(frames looked at, first frame that showed the animation in ms, ms of the frames that are not one of its pictures).
 
-    The display follows the state by up to a frame (the pages are sent with the next flush), so a frame may show one of the
-    last three states, page by page (the controller gets the pages one after the other, so a look in the middle of a transfer
-    shows some pages new and some old); before the first frame that equals one, the display shows the start image the firmware drew early; and
-    the one frame in which the firmware closes its window (just before the main screen) is its own."""
+    The display follows the state by a few frames (the pages of a new picture go out one after the other), so a frame may show
+    any of the last three keys, page by page; before the first frame that equals one, the display shows the start image the
+    firmware drew early; and the one frame in which the firmware closes its window (just before the main screen) is its own."""
     frames, recent, bad, first = overlay_frames(run), [], [], None
-    for t, fb, st, _ in frames:
-        key = (st[7], signed(st[8]) if blech else 0, st[10] if blech else 0)
-        if not recent or recent[-1][0] != key:
-            recent = (recent + [(key, expected(image, key[0], key[1], blech, key[2]))])[-3:]
-        if any(fb == exp for _, exp in recent) or all(any(fb[o:o + 128] == exp[o:o + 128] for _, exp in recent) for o in range(0, 1024, 128)):
+    for t, fb, st, _, _ in frames:
+        if not recent or recent[-1][0] != st[7]:
+            recent = (recent + [(st[7], pictures(st[7]))])[-3:]
+        candidates = [p for _, pair in recent for p in pair]
+        if fb in candidates or all(any(fb[o:o + 128] == c[o:o + 128] for c in candidates) for o in range(0, 1024, 128)):
             first = first if first is not None else t
         elif first is not None and not (run.main_at and t >= run.main_at - 60):
             bad.append(round(t, 1))
     return frames, first, bad
 
 
+def dark_share(shown):
+    return sum(bin(b).count("1") for b in shown) / 8192
+
+
 def case_bar(payload, flash):
-    """The image stays, the bar grows to the end, the eyes move, no frame shows the window; the loader is no slower than without the patch."""
+    """Blechy draws the line, the percent counts up, the finale from 95, at most 20 pictures a second, the display stays dark,
+    no frame shows the window; the loader is no slower than without the patch."""
     out = []
     run = Run(payload, flash)
     ref = Run(payload, flash, KILL)
     off = Run(without_overlay(payload), flash)
-    image = spec.ART.read_bytes()
-    blech = True
-    frames, first, bad = mismatches(run, image, blech)
-    out.append(entry("overlay_frames_are_the_image", len(frames) >= 30 and first is not None and first < 300 and not bad and not run.m.asserts and run.main_at is not None,
-                     (f"{len(frames)} looks at the display (every 10 ms) from {frames[0][0]:.0f} ms to {frames[-1][0]:.0f} ms: from {first and round(first)} ms on each is exactly the start image with the bar and the pupils "
-                      f"as the state says, so none shows the window" + (f"; frames that differ at {bad[:5]} ms" if bad else "")) if frames else "no frame of the overlay"))
-    fills = [st[7] for _, _, st, _ in frames]
-    steps = {signed(st[8]) for _, _, st, _ in frames}
-    out.append(entry("bar_grows_to_the_end", fills == sorted(fills) and fills and fills[-1] == (88 if blech else 128) and fills[0] < fills[-1] // 2,
-                     f"the bar went from {fills[0]} to {fills[-1]} of {88 if blech else 128} pixels, never back"))
-    out.append(entry("eyes_wander", len(steps) >= 5 and all(-5 <= s <= 5 for s in steps) if blech else True,
-                     f"the pupils took {len(steps)} positions between {min(steps)} and {max(steps)} pixels" if blech else "not the BLECH image: no eyes"))
+    frames, first, bad = mismatches(run)
+    out.append(entry("overlay_frames_are_the_animation", len(frames) >= 30 and first is not None and first < 300 and not bad and not run.m.asserts and run.main_at is not None,
+                     (f"{len(frames)} looks at the display (every 10 ms) from {frames[0][0]:.0f} ms to {frames[-1][0]:.0f} ms: from {first and round(first)} ms on each is exactly "
+                      f"the picture of the key in the state (or its complement before DISPLAY INVERT), so none shows the window" + (f"; frames that differ at {bad[:5]} ms" if bad else "")) if frames else "no frame of the overlay"))
+    keys = [st[7] for _, _, st, _, _ in frames]
+    pcts = [k & 0xFF for k in keys]
+    out.append(entry("percent_counts_up", pcts == sorted(pcts) and pcts and pcts[0] <= 5 and pcts[-1] >= spec.FINALE_AT,
+                     f"the percent went from {pcts[0] if pcts else '?'} to {pcts[-1] if pcts else '?'}, never back"))
+    early = [k for k in keys if (k & 0xFF) < spec.FINALE_AT and k >> 16]
+    late = [k for k in keys if (k & 0xFF) >= spec.FINALE_AT]
+    out.append(entry("finale_from_95", late and not early,
+                     f"{len(late)} looks at the finale (percent {sorted({k & 0xFF for k in late})}, pictures {sorted({k >> 16 for k in late})}), "
+                     f"none of its pictures before {spec.FINALE_AT} percent"))
+    changes = [t for (t, _, st, _, _), prev in zip(frames[1:], frames) if st[7] != prev[2][7]]
+    gaps = [round(b - a) for a, b in zip(changes, changes[1:])]
+    out.append(entry("at_most_20_pictures_a_second", all(g >= spec.FRAME_MS - 10 for g in gaps) and len(changes) >= 5,
+                     f"{len(changes)} new pictures, the shortest gap {min(gaps) if gaps else None} ms (looks every 10 ms, so one look of slack)"))
+    shares = [dark_share(f[4]) for f in run.frames if f[3] != 1 and f[0] >= (first or 0) and f[2][0] == 1]
+    out.append(entry("display_stays_dark", shares and min(shares) >= 0.6 and run.m.lcd_reverse,
+                     f"from the first picture to the main screen at least {min(shares) if shares else 0:.0%} of the pixels are dark on the panel, "
+                     f"also while the controller is switched to DISPLAY INVERT (reversed at the end: {run.m.lcd_reverse})"))
     # One card alone is noise: the same copy measured -0.12 % to +0.63 % with 18, 20 and 22 samples (unrelated changes elsewhere move
     # where the interrupts fall, docs/messungen/2026-10-18-ladebalken-streuung.md), so the sum over three cards is compared; the overlay
     # itself costs about half a percent there (six cards, every one of them slower), so the limit is 1 %
@@ -241,21 +226,12 @@ def case_bar(payload, flash):
     out.append(entry("main_screen_is_no_later", run.main_at is not None and off.main_at is not None and run.main_at <= off.main_at + 20,
                      f"the main screen came at {run.main_at and round(run.main_at, 1)} ms with the overlay and at {off.main_at and round(off.main_at, 1)} ms in the same copy without it; "
                      f"with EXIT held, every patch of the set off, at {ref.main_at and round(ref.main_at, 1)} ms: the rest of the set starts later, the overlay does not"))
-    keys = [st[10] for _, _, st, _ in frames]
-    levels = sorted({k & 0xFF for k in keys})
-    # the one frame in which the firmware closes its window, just before the main screen, is its own (as in mismatches)
-    shown = [fb for t, fb, st, _ in frames if st[10] & 0xFF and not (run.main_at and t >= run.main_at - 60)]
-    faces = [fb for fb in shown if fb != expected(image, 0, 0, blech) and any(fb)]
-    margin = all(fb[(y >> 3) * 128 + x] == display_of(image)[(y >> 3) * 128 + x] for fb in shown for y in range(64) for x in list(range(0, 2)) + list(range(126, 128)))
-    out.append(entry("faces_fade_in_at_the_edge", (not blech) or (len(levels) >= 3 and levels[0] == 0 and len(shown) >= 6 and len(faces) >= 6 and margin),
-                     (f"the faces took the levels {levels} of 16, {len(shown)} looks at the display with a face, the two outer columns are the image's own in all of them; the exact pixels are part of overlay_frames_are_the_image")
-                     if blech else "not the BLECH image: no faces"))
     after = [f for f in run.frames if f[3] == 1][-1][1]
-    out.append(entry("main_screen_is_clean", after == [f for f in ref.frames if f[3] == 1][-1][1] and run.state()[0] == 2,
-                     "300 ms after the main screen the display equals the one of the run with EXIT held, the overlay is over (state 2)"))
+    out.append(entry("main_screen_is_clean", after == [f for f in off.frames if f[3] == 1][-1][1] and run.state()[0] == 2,
+                     "300 ms after the main screen the display equals the one of the same copy without the overlay's calls, the overlay is over (state 2)"))
     stock_window = [f for f in ref.frames if f[3] == 0 and f[0] > 400]
-    shown = any(fb != display_of(image) and any(fb) for _, fb, _, _ in stock_window)
-    out.append(entry("reference_shows_the_window", shown, "with EXIT held the firmware's own window is on the display while the samples load, so the overlay is what covers it"))
+    shown = any(fb != stock_window[0][1] for _, fb, _, _, _ in stock_window) if stock_window else False
+    out.append(entry("reference_shows_the_window", shown, "with EXIT held the firmware's own window changes on the display while the samples load, so the overlay is what covers it"))
     return out
 
 
@@ -296,24 +272,18 @@ def case_rescue(payload, flash):
 
 
 def case_custom_image(payload, flash):
-    """A start image that is not the BLECH one is seen until the load begins; while the samples load the BLECH image with bar and eyes is."""
+    """A start image of the user's own is seen until the load begins; while the samples load the animation is."""
     image = vsb_image(payload)
     other = bytes(b ^ 0x5A for b in image)
     changed = bytearray(payload)
     changed[SPLASH - IMAGE:SPLASH - IMAGE + 1024] = other
     run = Run(bytes(changed), flash)
-    frames, first, bad = mismatches(run, spec.ART.read_bytes(), True)
-    fills = [st[7] for _, _, st, _ in frames]
-    steps = {signed(st[8]) for _, _, st, _ in frames}
-    before = any(fb == display_of(other) for _, fb, st, _ in run.frames if st[6] != 1)
-    return [entry("other_image_then_blech_with_eyes", before and len(frames) >= 30 and first is not None and not bad and st_mode(frames) == 1
-                  and fills == sorted(fills) and fills[-1] == 88 and len(steps) >= 5,
-                  f"the changed image on the display before the load: {before}; then {len(frames)} looks at the BLECH image with a bar of {fills[0] if fills else '?'} to "
-                  f"{fills[-1] if fills else '?'} of 88 pixels and the pupils in {len(steps)} places" + (f"; frames that differ at {bad[:5]} ms" if bad else ""))]
-
-
-def st_mode(frames):
-    return frames[-1][2][5] if frames else None
+    frames, first, bad = mismatches(run)
+    pcts = [st[7] & 0xFF for _, _, st, _, _ in frames]
+    before = any(fb == display_of(other) for _, fb, st, _, _ in run.frames if st[6] != 1)
+    return [entry("own_image_then_the_animation", before and len(frames) >= 30 and first is not None and not bad and pcts == sorted(pcts) and pcts[-1] >= spec.FINALE_AT,
+                  f"the changed image on the display before the load: {before}; then {len(frames)} looks at the animation from {pcts[0] if pcts else '?'} to "
+                  f"{pcts[-1] if pcts else '?'} percent" + (f"; frames that differ at {bad[:5]} ms" if bad else ""))]
 
 
 class FailingCard:
@@ -424,19 +394,19 @@ def cases(payload, flash=None):
 
 
 def shots(payload, flash, png_dir):
-    """The display while the samples load, in the first frame where a face is at full strength (docs/images/blech-ladebalken-gesicht.png)."""
+    """The display while the samples load, at 40 percent or more (docs/images/blech-laden.png)."""
     png_dir.mkdir(parents=True, exist_ok=True)
     run = Run(payload, flash, limit=0.0)
     for _ in range(400):
         run.dev.run(SAMPLE)
         st = run.state()
-        if st[0] == 1 and st[10] & 0xFF == 16 and st[7] > 20:
+        if st[0] == 1 and st[6] == 1 and (st[7] & 0xFF) >= 40:
             break
     else:
-        raise SystemExit("no face at full strength while loading")
-    run.dev.run(0.06)            # the display follows the state by a frame
-    run.m.png(png_dir / "blech-ladebalken-gesicht.png", scale=5)
-    return {"face": hex(run.state()[10]), "fill": run.state()[7], "ms": round(run.m.time_ns / 1e6)}
+        raise SystemExit("the load never got to 40 percent")
+    run.dev.run(0.06)            # the display follows the state by a few frames
+    run.m.png(png_dir / "blech-laden.png", scale=5)
+    return {"percent": run.state()[7] & 0xFF, "ms": round(run.m.time_ns / 1e6)}
 
 
 def main():
