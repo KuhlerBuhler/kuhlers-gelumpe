@@ -147,7 +147,7 @@ test("the BLECH menu writes the word the pattern switch reads, and keeps OFF as 
   assert.ok(word, "script_menu.s names PS_SETTING");
   const state = builder.match(/^STATE = (0x[0-9A-Fa-f]+)/m)[1];
   assert.equal(parseInt(word[1], 16), parseInt(state, 16) + 0x10, "STATE + S_SETTING of tools/patch/pattern_switch.py");
-  assert.match(menu, /orreq r0, r0, #4\n(?:[^\n]*\n){0,40}?\s+str r0, \[r7, #12\]/, "OFF is bit 2 of the flags");
+  assert.match(menu, /orreq r0, r0, #4\n(?:[^\n]*\n){0,40}?\s+mov r10, r0\n(?:[^\n]*\n){0,20}?\s+str r10, \[r7, #12\]/, "OFF is bit 2 of the flags");
 });
 
 function patchedCopy(patches) {
