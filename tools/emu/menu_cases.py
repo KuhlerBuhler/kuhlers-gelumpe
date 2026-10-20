@@ -991,7 +991,7 @@ def look_cases(payload, flash=None):
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
     size = len(fat32.Volume(bytes(keep.m.mmc.card.medium.data)).read(SETTINGS_PATHS[1]))
-    add("file_holds_the_look", files.get("b", (0, 0, 0, None))[3] == look_word(0, (15, 7, 0), (0, 15, 6)) and files["b"][:2] == (1, 3) and size == 24, f"{files}, {size} bytes")
+    add("file_holds_the_look", files.get("b", (0, 0, 0, None))[3] == look_word(0, (15, 7, 0), (0, 15, 6), 1) and files["b"][:2] == (1, 3) and size == 24, f"{files}, {size} bytes")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
@@ -1269,9 +1269,10 @@ def tie_cases(payload, flash, add, pad, wait):
 
 
 def invert_cases(payload, flash=None):
-    """The page DISPLAY INVERT of the group CUSTOMIZATION: the controller is told 0xA7 (reverse display) or 0xA6 (normal) once per
-    change, never when the setting stays OFF, the file keeps it (bit 28 of the look word), and EXIT at power-on leaves the controller
-    alone. The emulator's controller (machine.py) swaps dark and clear on 0xA7: shown() is the complement of the RAM."""
+    """The page DISPLAY INVERT of the group CUSTOMIZATION: ON is the default (a card without a file, no card, a version 1 file, a
+    damaged file), the controller is told 0xA7 (reverse display) or 0xA6 (normal) once per change, the file keeps it (bit 28 of
+    the look word, a version 2 file without the bit is OFF), and EXIT at power-on leaves the controller alone. The emulator's
+    controller (machine.py) swaps dark and clear on 0xA7: shown() is the complement of the RAM."""
     out = []
 
     def add(name, ok, detail):
@@ -1282,60 +1283,58 @@ def invert_cases(payload, flash=None):
     plain = lambda dev: dev.m.shown() == ram(dev)
     status = lambda dev: (state(dev, S_INVERT), dev.m.lcd_reverse, dev.m.lcd_reverse_sent)
 
-    # OFF is the default, with a card without a file and without a card: the controller is never told anything
+    # ON is the default, with a card without a file and without a card: the controller is told 0xA7 once
     dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     bare = boot(payload, flash, adapter=True, card=False)
-    add("default_off", status(dev) == (0, False, 0) and status(bare) == (0, False, 0) and plain(dev) and plain(bare) and state(bare, S_ON) == 1,
+    add("default_on", status(dev) == (1, True, 1) and status(bare) == (1, True, 1) and flipped(dev) and flipped(bare) and state(bare, S_ON) == 1,
         f"with card {status(dev)}, without {status(bare)}")
 
-    # the page, on and off through the main dial: one command per change, the whole display swaps, the main screen too
+    # the page, off and on through the main dial: one command per change, the whole display swaps, the main screen too
     goto_page(dev, PAGE_INVERT)
     page = texts_of(dev), counter(dev), tab(dev)
-    dev.turn(1, wait=0.4)
+    dev.turn(-1, wait=0.4)
     dev.run(0.3)
-    on = texts_of(dev), status(dev), flipped(dev)
-    menu_screen = flipped(dev)
-    dev.turn(1, wait=0.3)
+    off = texts_of(dev), status(dev), plain(dev)
+    dev.turn(-1, wait=0.3)
     dev.run(0.3)
     still = status(dev)
     go(dev, 1)
     dev.run(0.5)
-    main_on = dev.screen()["number"], status(dev), flipped(dev)
-    import splash_editor
-    add("page", page == (("DISPLAY INVERT", "OFF", ""), (4, 5), "Display"), f"{page}")
-    add("on_swaps_the_display", on == (("DISPLAY INVERT", "ON", ""), (1, True, 1), True) and menu_screen and still == (1, True, 1),
-        f"{on}, dial again {still}")
-    add("main_screen_inverted", main_on == (1, (1, True, 1), True) and not dev.m.asserts, f"{main_on}")
+    main_off = dev.screen()["number"], status(dev), plain(dev)
+    add("page", page == (("DISPLAY INVERT", "ON", ""), (4, 5), "Display"), f"{page}")
+    add("off_swaps_the_display", off == (("DISPLAY INVERT", "OFF", ""), (0, False, 2), True) and still == (0, False, 2),
+        f"{off}, dial again {still}")
+    add("main_screen_plain", main_off == (1, (0, False, 2), True) and not dev.m.asserts, f"{main_off}")
     goto_page(dev, PAGE_INVERT)
-    dev.turn(-1, wait=0.4)
+    dev.turn(1, wait=0.4)
     dev.run(0.3)
-    off = texts_of(dev), status(dev), plain(dev)
-    add("off_swaps_back", off == (("DISPLAY INVERT", "OFF", ""), (0, False, 2), True), f"{off}")
+    on = texts_of(dev), status(dev), flipped(dev)
+    add("on_swaps_back", on == (("DISPLAY INVERT", "ON", ""), (1, True, 3), True), f"{on}")
 
     # WRITE keeps it in the same file as the other CUSTOMIZATION values (bit 28), the next start reads it and shows it
     keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     set_look(keep, led=(15, 7, 0))
     goto_page(keep, PAGE_INVERT)
-    keep.turn(1, wait=0.4)
+    keep.turn(-1, wait=0.4)
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
     word = files.get("b", (0, 0, 0, None))[3]
-    add("file_holds_it", word is not None and word & INVERT_BIT and word == look_word(0, (15, 7, 0), (0, 0, 0), 1), f"{files}")
+    add("file_holds_off", word is not None and word == look_word(0, (15, 7, 0), (0, 0, 0), 0), f"{files}")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
     again.run(2.0)
-    add("start_reads_and_shows_it", status(again) == (1, True, 1) and flipped(again) and not again.m.asserts, f"{status(again)}, screen {again.screen()['number']}")
+    add("start_reads_off", status(again) == (0, False, 0) and plain(again) and not again.m.asserts, f"{status(again)}, screen {again.screen()['number']}")
 
-    # files that say nothing about it (version 1, a look word without the bit) stay OFF; a damaged file is ignored
+    # a version 1 file says nothing about it and a damaged file is ignored: ON; a version 2 file without the bit is OFF
     quiet = []
-    for name, files in (("v1", {SETTINGS_PATHS[0]: settings_file(3, 3)}), ("no_bit", {SETTINGS_PATHS[0]: settings_file_v2(3, 3, look_word(1, (15, 0, 0)))}),
-                        ("bad_crc", {SETTINGS_PATHS[0]: settings_file_v2(3, 3, look_word(invert=1), bad_crc=True)})):
+    for name, files in (("v1", {SETTINGS_PATHS[0]: settings_file(3, 3)}),
+                        ("bad_crc", {SETTINGS_PATHS[0]: settings_file_v2(3, 3, look_word(1, (15, 0, 0)), bad_crc=True)})):
         probe = boot(payload, flash, files={**CARD_FOLDER, **files}, adapter=True)
         quiet.append((name, status(probe)))
-    add("files_without_it_stay_off", all(got == (0, False, 0) for _, got in quiet), f"{quiet}")
-    wanted = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(3, 3, look_word(invert=1))}, adapter=True)
-    add("file_with_the_bit_is_on", status(wanted) == (1, True, 1) and flipped(wanted), f"{status(wanted)}")
+    add("files_without_it_stay_on", all(got == (1, True, 1) for _, got in quiet), f"{quiet}")
+    plain_file = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(3, 3, look_word(1, (15, 0, 0)))}, adapter=True)
+    add("file_without_the_bit_is_off", status(plain_file) == (0, False, 0) and plain(plain_file), f"{status(plain_file)}")
 
     # EXIT at power-on: stock, the controller is never told anything, whatever the file says
     held = boot(payload, flash, held=KILL, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(4, 3, look_word(invert=1))}, adapter=True)
@@ -1381,7 +1380,7 @@ def confirm_cases(payload, flash=None):
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
     got = files.get("b", (0, 0, 0, None))
-    add("file_holds_off", got[:2] == (1, 3 | PC_OFF_BIT) and got[3] == look_word(0, (15, 7, 0)), f"{files}")
+    add("file_holds_off", got[:2] == (1, 3 | PC_OFF_BIT) and got[3] == look_word(0, (15, 7, 0), invert=1), f"{files}")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
@@ -1472,7 +1471,7 @@ def tap_motion_cases(payload, flash=None):
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
     got = files.get("b", (0, 0, 0, None))
-    add("file_holds_off", got[:2] == (1, 3 | PC_OFF_BIT | TM_OFF_BIT) and got[3] == look_word(0, (15, 7, 0)), f"{files}")
+    add("file_holds_off", got[:2] == (1, 3 | PC_OFF_BIT | TM_OFF_BIT) and got[3] == look_word(0, (15, 7, 0), invert=1), f"{files}")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
@@ -1541,7 +1540,7 @@ def note_assist_menu_cases(payload, flash=None):
     press(keep, "write", wait=0.6)
     files = read_settings_look(keep.m.mmc.card.medium.data)
     got = files.get("b", (0, 0, 0, None))
-    add("file_holds_off", got[:2] == (1, 3 | TM_OFF_BIT | NA_OFF_BIT) and got[3] == look_word(0, (15, 7, 0)), f"{files}")
+    add("file_holds_off", got[:2] == (1, 3 | TM_OFF_BIT | NA_OFF_BIT) and got[3] == look_word(0, (15, 7, 0), invert=1), f"{files}")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
