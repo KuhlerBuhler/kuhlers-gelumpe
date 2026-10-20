@@ -40,7 +40,7 @@ const onRun = page => page.click("#cee-scripts-page-run");
 const ownNames = page => page.locator("#cee-script-own .cee-pattern-item span:first-child").allTextContents();
 
 const KLICKER = readFileSync(new URL("../fixtures/scripts/klicker.js", import.meta.url), "utf8");
-const TITLES = ["BLECH Clicker", "Set-Timer", "Snake", "Tetris", "Game of Life", "Pong", "Simon", "Mandelbrot", "Lauflicht", "Pulsieren"];
+const TITLES = ["BLECH Clicker", "Set-Timer", "Snake", "Tetris", "Game of Life", "Pong", "Simon", "Mandelbrot", "GIF Player", "Lauflicht", "Pulsieren"];
 
 async function makeOwn(page, from = "snake") {
   await onEditor(page);
