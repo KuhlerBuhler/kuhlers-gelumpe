@@ -120,17 +120,107 @@ der unveränderte Ausgangsstand, kein bereits optimiertes Ergebnis.
 
 ## Platzbilanz
 
-Gemessen an den bestätigten FF-Bereichen des jeweiligen Originals. Werte in Byte.
+Gemessen an den bestätigten FF-Bereichen des jeweiligen Originals. Werte in **KiB**,
+auf eine Nachkommastelle gerundet. Ein KiB sind 1024 Byte; 1024 KiB sind ein MiB.
+Die exakten Bytezahlen bleiben in der Messdatei.
 
-| Build | Code/Daten | Reserviertes RAM | Belegt, vereinigt | Frei | Größte Lücke |
+| Build | Code/Daten | Reserviertes RAM | Zusammen belegt | Frei | Größte Lücke |
 |---|---:|---:|---:|---:|---:|
-| Hacktribe | 86984 | 451587 | 538571 | 34421 | 3328 |
-| Korg rot | 87195 | 451587 | 538782 | 34210 | 3124 |
-| Synth | 71192 | 397984 | 469176 | 442180 | 329996 |
+| Hacktribe | 84,9 | 441,0 | 525,9 | 33,6 | 3,3 |
+| Korg rot | 85,2 | 441,0 | 526,2 | 33,4 | 3,1 |
+| Synth | 69,5 | 388,7 | 458,2 | 431,8 | 322,3 |
 
 Alle Einzelwerte, Original- und Ausgabehashes, Setauswahl und Hashes der zehn Plugins stehen
 in der [Messdatei](2026-10-20-patch-effizienz-ausgang-zahlen.json). Die freien Gesamtbytes sind
 keine zusammenhängende Reserve.
+
+## Was diese Größen bedeuten
+
+Die Tabelle beschreibt unseren bestätigten Platz innerhalb des **2-MiB-Firmware-Abbilds**.
+Sie ist keine Messung des insgesamt freien Gerätespeichers. Das Abbild wird beim Start in
+RAM geladen. Seine bisher unbenutzten Bereiche können deshalb sowohl eigenen Programmcode
+als auch Laufzeitdaten aufnehmen. Ein als RAM reservierter Bereich darf in der VSB weiter
+FF enthalten; die laufende Firmware benutzt ihn später als Arbeitsspeicher. Reservierung
+ist weder eine zusätzliche Vergrößerung der VSB noch ein Beleg für ständig belegte Daten.
+
+### Wie viel RAM ist belegt?
+
+**Belegt durch die Bootloader-Auswertung:** Der ARM sieht einen 64-MiB-RAM-Bereich, dazu
+eine zweite Ansicht desselben Speichers ohne Cache. Die 128 MiB des Emulatorfensters sind
+keine 128 MiB unterschiedlicher Speicherzellen. Die bestückte physische Gesamtkapazität
+aller Speicherchips einschließlich des getrennten DSP-Speichers ist damit nicht vollständig
+bestimmt. Beleg: [MMU und RAM-Alias](2026-10-12-vm-tempo.md#gerätelauf-2026-10-13-execute-ohne-antwort)
+und [RAM-Messung](2026-10-07-cpu-ram-fenster.md).
+
+Die 441 KiB unserer Sampler-Reservierungen sind rund **0,43 MiB**, etwa **0,67 %** des
+64-MiB-ARM-Bereichs. Trotzdem belegen sie einen großen Teil der hier bestätigten freien
+Firmwarefläche: auf den Samplern insgesamt rund 560 KiB. Andere RAM-Bereiche gehören
+teilweise Korgs Verwaltung oder sind nicht hinreichend untersucht. Ihre Freigabe folgt
+nicht allein daraus, dass eine Messung dort gerade nichts findet.
+
+### Muss alles reserviert bleiben?
+
+Die größten Teile der 441 KiB auf einem Sampler sind:
+
+| Zweck | Reservierung | Nutzung |
+|---|---:|---|
+| Plugin-Prüfarbeitsbereiche | 160 KiB | Arbeitslisten beim Prüfen neuer Plugins; bleiben für spätere Imports verfügbar |
+| Plugin-Pool | 128 KiB | Geladener Bytecode, Variablen, Stapel und Verwaltung von Blechy und Plugins |
+| SysEx samt Dateiarbeitsbereich | 60 KiB | Kommunikations- und Dateipuffer |
+| Datei- und Speicherabbildpuffer | knapp 32 KiB | Plugin-Dateien lesen und Speicherstände bearbeiten |
+
+**Zusätzlich gemessen am nativen Lader mit eigenen Eingaben:** Blechy und alle zehn
+Preset-Plugins zusammen belegen beim Laden 67440 Byte, rund **65,9 KiB des 128-KiB-Pools**.
+Rund 62,1 KiB Poolkapazität bleiben in diesem Beispiel für weitere Plugins. Das ist kein
+Nachweis des maximalen Gesamtverbrauchs aller Laufzeit- und Dateipfade. Die reservierten
+160 KiB Prüfarbeitsbereiche werden nicht dauerhaft mit nützlichen Daten gefüllt, müssen
+aber bei jedem weiteren Import bereitstehen. Einfaches Überschreiben mit anderem Code
+würde diese Lebenszeiten verletzen.
+
+Ein kleinerer SysEx-Puffer kann nach den vollständigen Protokolltests **19 KiB am Stück**
+freigeben. Die 160 KiB Prüfarbeitsspeicher sind ein größerer Kandidat für einen anderen
+Aufbau oder eine abgesicherte gemeinsame Nutzung. Eine konkrete Einsparung ist dort noch
+nicht bewiesen. Ein kleinerer Plugin-Pool würde die Kapazität für weitere Plugins senken.
+
+### Wo liegen Blechys Bilder?
+
+Blechy ist einschließlich seiner Bilddaten **in der Firmware eingebaut**. Die PNG-Dateien
+werden beim Bauen in kleine Bitmaps umgewandelt. Gleiche Bilder werden wiederverwendet;
+verwandte Zustände teilen die gemeinsamen Bildteile. Die PNG-Dateien selbst landen nicht
+als einzelne Dateien in der Firmware. Der vollständige kompilierte Blechy-Block, Bilder
+und Verhalten zusammen, umfasst **15476 Byte, rund 15,1 KiB**.
+
+Belege: [Bildgenerator](../../tools/blechy-build.mjs),
+[Laufzeit-Einbettung](../../tools/patch/script_hooks.py) und
+[Bildbeschreibung](../../data/script/blechy-art.mjs).
+
+Das Auslagern des ganzen Blocks auf SD würde höchstens diese rund 15 KiB im Firmwarebereich
+freigeben, vor Abzug eines nötigen Ladewegs. Die Bilder brauchen zur Anzeige weiterhin
+RAM. Blechy wäre dann von Karte, Datei und erfolgreichem Laden abhängig. Andere Plugins
+werden bereits von SD geladen. Das eigene Startbild ist ebenfalls als Datei möglich;
+Blechy ist bislang bewusst auch ohne Karte vorhanden.
+
+### Kann die VSB größer werden?
+
+Der unterstützte Aufbau umfasst **2 MiB Nutzabbild plus 256 Byte Dateikopf**. Das beschreibt
+auch die [Hacktribe-Dokumentation](https://github.com/bangcorrupt/hacktribe/wiki/Debrick).
+Im gemessenen Flash liegen direkt nach dem Firmwarebereich bereits Nutzerdaten. Eine größere
+Datei allein schafft weder einen größeren Ladebereich noch eine neue Flash-Aufteilung.
+Updater, Bootloader, Prüfsummen, Grenzen und das Layout müssten zusammen geändert und
+untersucht werden. Das ist ein eigener Umbau; einen geprüften Erweiterungsweg für die VSB
+gibt es bisher nicht. Weitere Daten von SD nachzuladen ist ein anderer Weg und wird bei
+Plugins bereits verwendet. [Flash-Karte](../speicherbereiche.md#flash-bekannte-karte-und-dauerhafte-wirkung).
+
+### Kann man die freien Lücken zusammenziehen?
+
+Ja, durch Umordnen **unserer eigenen** Code- und RAM-Blöcke. Dabei müssen Generatoren,
+Zeiger, Sprünge, Tabellen, Startreihenfolge und alle Manifeste gemeinsam angepasst werden.
+Reines Verschieben vergrößert den gesamten freien Platz nicht: Es macht zum Beispiel einen
+zusammenhängenden Block aus mehreren kleinen nutzbar. Die beiden getrennten bestätigten
+Sampler-Fenster und der dazwischenliegende Original-/Hacktribe-Code bleiben Grenzen.
+Es ist daher noch kein bestimmter größerer Block zugesagt. Reservierungen zu verkleinern
+oder anderweitig unterzubringen würde zusätzlich den Gesamtplatz erhöhen. Beides braucht
+eine eigene Belegungsplanung und danach die vollständigen drei Firmwareprüfungen.
 
 ## Prüfstand
 
