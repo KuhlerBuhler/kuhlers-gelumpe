@@ -80,7 +80,8 @@ SPRITE_PAGE, SPRITE_PAGES = 2, 5        # Blechy lives in pages 2 to 6 (rows 16 
 FINALE_AT = 95                          # from 95 percent the finale plays while the count runs on
 TICKS = 0xC06A292C              # the operating system's tick count, one per millisecond (tools/patch/power_off.py)
 MENU_STATE = 0xC01D6E00         # tools/patch/script_hooks.py:MENU_STATE
-TICK_MS = 64                    # the finale's pictures change every 64 ms (a power of two: no division)
+TICK_MS = 96                    # the finale's pictures change every 96 ms; 64 ms was too fast for the LCD, the eyes only flickered
+TICK_MUL = -(-0x10000 // TICK_MS)  # ms * TICK_MUL >> 16 is ms // TICK_MS without a division (exact enough for the first hour of uptime)
 TICKS_N, FRAME_MS = 8, 50               # the finale's 8 pictures; at most one new picture every 50 ms (20 per second)
 PCT_RIGHT, PCT_Y = 123, 58              # the percent, right-aligned, in the 3 x 5 font
 GLYPHS = "0123456789%"
@@ -378,7 +379,7 @@ SOURCE = """
 .equ SWEEP, @SWEEP@
 .equ FINALE_AT, @FINALE_AT@
 .equ TICKS_MASK, @TICKS_MASK@
-.equ TICK_SHIFT, @TICK_SHIFT@
+.equ TICK_MUL, @TICK_MUL@
 .equ FRAME_MS, @FRAME_MS@
 .equ PCT_X0, @PCT_X0@
 .equ PCT_Y, @PCT_Y@
@@ -737,7 +738,9 @@ compose:
     cmp r6, #1
     cmpne r5, #FINALE_AT
     blo cp_key
-    mov r0, r8, lsr #TICK_SHIFT  ; a new finale picture every 64 ms
+    ldr r0, =TICK_MUL            ; a new finale picture every TICK_MS
+    mul r0, r8, r0
+    mov r0, r0, lsr #16
     and r9, r0, #TICKS_MASK
 cp_key:
     orr r10, r5, r6, lsl #8
@@ -1876,7 +1879,7 @@ def source():
         "ART_TICKS": f"{LOAD_AT + a['table_at']:#x}", "FIG_X": str(a["fig_x"]), "FIG_W": str(a["fig_w"]), "FIG_W2": str(2 * a["fig_w"]),
         "FIN_X": str(a["fin_x"]), "FIN_W": str(a["fin_w"]), "SPRITE_OFF": str(SPRITE_PAGE * 128), "SPRITE_PAGES": str(SPRITE_PAGES),
         "LINE_X": str(LINE_X), "LINE_END": str(LINE_X + SWEEP), "LINE_Y": str(LINE_Y), "SWEEP": str(SWEEP),
-        "FINALE_AT": str(FINALE_AT), "TICKS_MASK": str(TICKS_N - 1), "TICK_SHIFT": str(TICK_MS.bit_length() - 1), "FRAME_MS": str(FRAME_MS),
+        "FINALE_AT": str(FINALE_AT), "TICKS_MASK": str(TICKS_N - 1), "TICK_MUL": str(TICK_MUL), "FRAME_MS": str(FRAME_MS),
         "PCT_X0": str(PCT_RIGHT + 2), "PCT_Y": str(PCT_Y),
         "LOOK_CODE": f"{LOOK_CODE:#x}", "LOOK_BACK": f"{LOOK_BACK:#x}", "LOOK_OUT": f"{LOOK_OUT:#x}", "SHADOW": f"{SHADOW:#x}", "LOOK_VARS": f"{LOOK_VARS:#x}", "LOOK_BOXES": f"{LOOK_BOXES:#x}", "LOOK_BOX": str(LOOK_BOX),
         "LOOK_NBOX": str(LOOK_NBOX), "APP_PICTURE": f"{APP_PICTURE:#x}", "OFF_ACTIVE": f"{OFF_ACTIVE:#x}",
