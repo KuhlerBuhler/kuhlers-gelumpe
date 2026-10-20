@@ -113,6 +113,8 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 
 ## Patches
 
+- [20.10.2026: Native Multiplikation, Originalscan und gemeinsame Helfer](2026-10-20-arm-optimierungen.md)
+
 Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung, Ladebalken, das BLECH-Menü und seine Anpassung.
 
 - [Gebundene Noten auf den Pads: lokale Geometrie und genaue Bruchtabelle](2026-10-20-pad-geometrie.md)

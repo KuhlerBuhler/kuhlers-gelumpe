@@ -66,6 +66,13 @@ in ihren jeweiligen Optimierungsschritten ergänzt und können vorher nicht als 
 
 ## Wiederholen
 
+Nachtrag: Der spätere [MUL-Vergleich](2026-10-20-arm-optimierungen.md) hat eine Grenze
+der ersten App-Messung aufgedeckt: Der Framezähler steigt bereits am Anfang und die
+Uhr beeinflusst den Zufallsstart. Messformat 2 verwendet vollständige Frames und
+feste Eingaben. Ausgang und Kandidat wurden damit neu erfasst. Die erste
+Aufzeichnung bleibt historisch erhalten; das aktuelle Werkzeug lehnt ihr Format
+für einen neuen Vergleich ab. Firmware-Prüfungen und Platzbilanz sind davon unberührt.
+
 `BLECH_INPUTS` benennt eine private JSON-Datei mit genau `hacktribe`, `stock` und `synth`.
 Jeder Eintrag hat `path` und `sha256`; relative Pfade beziehen sich auf diese Eingangsdatei.
 `BLECH_BASELINE_DIR` muss ein neues, leeres Verzeichnis außerhalb des Repositorys sein.

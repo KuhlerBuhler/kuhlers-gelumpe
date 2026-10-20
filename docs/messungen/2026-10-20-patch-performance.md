@@ -147,7 +147,7 @@ bereits `mul`, das an anderen Stellen der Laufzeit verwendet wird.
 Der Prototyp ersetzt diese Schleife durch `mul r3, r0, r1` und `mov r0, r3`.
 2225 Vergleichspaare je Fassung, einschließlich negativer Werte und 32-Bit-Überläufe,
 liefern dasselbe Ergebnis. Der kleine vollständige Testhandler braucht durchschnittlich
-707,44 statt 559 ARM-Befehle; der VM-Block wird 20 Byte kleiner. Die 16 nativen
+559 statt 707,44 ARM-Befehle; der VM-Block wird 20 Byte kleiner. Die 16 nativen
 VM-Prüfungen bestehen ebenfalls.
 
 Im vollständigen Mandelbrot-Ausschnitt spart dieser einzelne Eingriff jedoch nur **1,09
