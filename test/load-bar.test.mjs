@@ -10,7 +10,7 @@ import { applyPatches, PATCH_FORMAT, fromHex } from "../src/patch.mjs";
 import { checkHooks } from "../src/hooks.mjs";
 import { identify } from "../src/firmware.mjs";
 
-// The loading animation (docs/ideen/41-startbild-ausbauen.md, entwuerfe/design-1.3/geraet).
+// The loading animation (docs/ideen/41-startbild-ausbauen.md, tools/art/loading).
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const PATCH = read("../data/patches/load-bar.json");
 const SPLASH_DATA = read("../assets/blechy/splash.json");

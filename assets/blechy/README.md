@@ -32,10 +32,10 @@ bevor die Datei aufs Gerät kommt.
 ## Startbild und Ladeanimation
 
 `splash.bin` (Blechy kippt das Röhrchen) und `loading.bin` (die Bilder der Ladeanimation für
-`data/patches/load-bar.json`) kommen aus dem Renderer in `entwuerfe/design-1.3/geraet/anim.py`:
+`data/patches/load-bar.json`) kommen aus dem Renderer in `tools/art/loading/anim.py`:
 
 ```bash
-python3 entwuerfe/design-1.3/geraet/firmware_assets.py
+python3 tools/art/loading/firmware_assets.py
 ```
 
 Danach `tools/patch/load_bar.py --vsb SYSTEM.VSB --out data/patches/load-bar.json` und die Patch-Sätze neu bauen.
