@@ -40,6 +40,7 @@ SHOULDER = (40, 25)             # exactly the attachment in make_blechy.py
 TUBE_VECTOR = (12, 12)
 WORK_TUBE_VECTOR = (12, 9)       # 15px; reaches the line only in the lowered pose
 GRIP_FRACTION = 0.63
+FINALE_AT = 0.95
 MAX_FPS = 20                     # a pixel needs about 50 ms on the device LCD to go dark
 MIN_FRAME_MS = 1000 // MAX_FPS
 
@@ -76,6 +77,11 @@ class State:
     @property
     def pupil(self):
         return min(5, int(self.value * 6))
+
+    @property
+    def finale(self):
+        """From FINALE_AT on the end plays (eyes torn open, line gone) while the percent runs on."""
+        return self.done or (self.started and self.value >= FINALE_AT)
 
     @property
     def eyes(self):
@@ -133,6 +139,8 @@ def pass_state(progress, done=False):
     if done:
         return State(1, "settle", done=True, shift=SWEEP, eaten=SWEEP + 1)
     value = min(0.99, max(0.0, progress))
+    if value >= FINALE_AT:
+        return State(value, "settle", shift=SWEEP, eaten=SWEEP + 1)
     shift = SWEEP_STEP * round(value * SWEEP / SWEEP_STEP)
     return State(value, "draw", shift=shift, eaten=shift)
 
@@ -260,10 +268,77 @@ def unhinged_look(state, t_ms):
     if not state.started:
         return EYES_LOOK
     tick = t_ms // MIN_FRAME_MS
-    if not state.done:
+    if not state.finale:
         return EYES_CLOSED
     jx, jy = JITTER[tick % len(JITTER)]
     return (4, 0, jx, jy, 1 if tick % 6 < 3 else 0, True)
+
+
+def still_splash():
+    """The fixed splash before loading: Blechy where the pass starts, an oversized
+    capsule in his hand, pouring the last of the line out in front of himself."""
+    image = backdrop()
+    d = ImageDraw.Draw(image)
+    d.line((4, TABLE_Y, 123, TABLE_Y), fill=LIGHT)
+    # The line is laid from the far end; the near part still trickles out of the capsule.
+    laid = State(0, "draw", eaten=STILL_LAID_FROM)
+    draw_dashes(image, laid)
+    px = image.load()
+    for x, y in STILL_HEAP:
+        px[x, y] = LIGHT
+    origin = werkbank_origin("ready")
+    gesture = blank()
+    # Looking down at the capsule, a bit off: one pupil low, one wandering.
+    actor(gesture, origin, (1, 1, 1, 1, 0, False), crop=TABLE_Y - origin[1])
+    g = ImageDraw.Draw(gesture)
+    shoulder = (origin[0] + SHOULDER[0], origin[1] + SHOULDER[1])
+    grip = STILL_GRIP
+    elbow = (shoulder[0] + 8, shoulder[1] - 6)
+    g.line((shoulder, elbow, grip), fill=DARK, width=3)
+    g.line((shoulder, elbow, grip), fill=LIGHT, width=1)
+    cap = capsule()
+    gesture.paste(cap, (grip[0] - cap.width // 2, grip[1] - cap.height // 2), capsule_mask())
+    gx, gy = grip
+    g.rectangle((gx - 2, gy - 2, gx + 2, gy + 2), fill=DARK)
+    g.rectangle((gx - 1, gy - 1, gx + 1, gy + 1), fill=LIGHT)
+    g.point((gx - 1, gy), fill=DARK)
+    gp = gesture.load()
+    for x, y in STILL_STREAM:
+        gp[x, y] = LIGHT
+    coverage = blank()
+    coverage.paste(body_mask().filter(ImageFilter.MaxFilter(3)), point(origin))
+    coverage = ImageChops.logical_or(coverage, gesture.filter(ImageFilter.MaxFilter(3)))
+    box = (0, 18, W, TABLE_Y)
+    image.paste(gesture.crop(box), (0, 18), coverage.crop(box))
+    text(image, TAGLINE, 4, 58, small=True)
+    return image
+
+
+STILL_GRIP = (66, 37)
+STILL_LAID_FROM = 18                  # line pixels from DASH_START + 18 on are already down
+STILL_STREAM = ((56, 44), (57, 45), (56, 46), (55, 47), (56, 48), (57, 49), (55, 50), (56, 51), (58, 47), (54, 49))
+STILL_HEAP = ((54, 53), (55, 53), (56, 52), (57, 52), (58, 53), (59, 53),
+              (51, 54), (52, 54), (53, 54), (54, 54), (55, 54), (56, 54), (57, 54), (58, 54), (59, 54),
+              (60, 54), (61, 54), (62, 54), (63, 54), (64, 54), (65, 54), (66, 54))
+
+
+@lru_cache(maxsize=1)
+def capsule():
+    """An oversized two-tone capsule, tilted so its open end points down-left: the lower
+    half hollow (an outline, open at the end), the upper half solid, a dark seam between."""
+    img = Image.new("1", (24, 17), DARK)
+    d = ImageDraw.Draw(img)
+    end, mid, top = (4, 13), (12, 8), (19, 4)
+    d.line((end, top), fill=LIGHT, width=10)
+    d.ellipse((top[0] - 5, top[1] - 5, top[0] + 5, top[1] + 5), fill=LIGHT)
+    d.line(((end[0] - 3, end[1] + 2), mid), fill=DARK, width=5)     # hollow inside, open past the end
+    d.line(((mid[0] - 2, mid[1] - 4), (mid[0] + 2, mid[1] + 3)), fill=DARK)   # seam
+    return img.crop(img.getbbox())
+
+
+@lru_cache(maxsize=1)
+def capsule_mask():
+    return capsule().filter(ImageFilter.MaxFilter(3))
 
 
 def shake_lines(image, origin, t_ms):
@@ -403,7 +478,7 @@ def draw_dashes(image, state):
     The line is a gesture, not the progress bar: percent and pupils carry the
     loader's value. Done shows no line.
     """
-    if state.done:
+    if state.finale:
         return
     px = image.load()
     for x in range(DASH_START + state.eaten, DASH_START + SWEEP + 1):
@@ -415,7 +490,7 @@ def draw_dashes(image, state):
 LUMPS = tuple(int(c) for c in "0111001100012210001110011221000110001221100011100")
 
 BAYER4 = (0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5)
-BAND_WIDTH, BAND_TOP, BAND_BOTTOM = 14, 20, 53     # below the full-width wordmark
+BAND_WIDTH, BAND_TOP, BAND_BOTTOM = 14, 0, 53
 
 
 def draw_bands(image):
@@ -432,22 +507,33 @@ def draw_bands(image):
                 px[x, y] = LIGHT
 
 
-def werkbank(state, t_ms=0):
+def backdrop():
+    """Bands to the very top, kept a pixel clear of the wordmark and its shadow."""
     image = blank()
     draw_bands(image)
+    clear = blank()
+    clear.paste(LIGHT, (WORDMARK_SHIFT, 0), wordmark())
+    image = ImageChops.subtract(image.convert("L"), clear.filter(ImageFilter.MaxFilter(3)).convert("L")).convert("1")
     image.paste(LIGHT, (WORDMARK_SHIFT, 0), wordmark())
+    return image
+
+
+def werkbank(state, t_ms=0):
+    if not state.started:
+        return still_splash()
+    image = backdrop()
     d = ImageDraw.Draw(image)
     d.line((4, TABLE_Y, 123, TABLE_Y), fill=LIGHT)
     # Chamfered tray and material stay at the same screen location.
     draw_dashes(image, state)
-    pose = "settle" if state.done else state.pose if state.started else "ready"
-    shift = state.shift
+    pose = "settle" if state.finale else state.pose
+    shift = SWEEP if state.finale else state.shift
     origin = werkbank_origin(pose, shift)
     # The figure dips behind the fixed table. Clip the complete arm/figure
     # layer, not just the body, so no pose can alter the edge or footer.
     gesture = blank()
     actor(gesture, origin, unhinged_look(state, t_ms), crop=TABLE_Y-origin[1])
-    if state.done:
+    if state.finale:
         shake_lines(gesture, origin, t_ms)
     draw_tube(gesture, werkbank_tube(pose, shift))
     # Opaque body coverage keeps the tray from showing through the dark body.
@@ -456,9 +542,6 @@ def werkbank(state, t_ms=0):
     coverage = ImageChops.logical_or(coverage, gesture)
     box = (0, 20, W, TABLE_Y)
     image.paste(gesture.crop(box), (0, 20), coverage.crop(box))
-    if not state.started:
-        text(image, TAGLINE, 4, 58, small=True)
-        return image
     text(image, status_line(state), 4, 58, small=True)
     percent(image, state)
     return image
@@ -532,22 +615,16 @@ def demo_timeline():
 
     Example pacing only. The real loader decides the time, pass_state() the frame.
     """
-    cues = [Cue(State(0, "ready", started=False), 800),
-            Cue(State(0, "reach"), 100)]
-    steps = SWEEP // SWEEP_STEP
-    for i in range(steps + 1):
-        cues.append(Cue(pass_state(i / steps), MIN_FRAME_MS))
-    cues += [Cue(State(0.99, "lift", shift=SWEEP, eaten=SWEEP + 1), 100)]
-    cues += [Cue(pass_state(1, done=True), MIN_FRAME_MS)] * 24
+    cues = [Cue(pass_state(i / 100), MIN_FRAME_MS) for i in range(0, 100, 2)]
+    cues += [Cue(pass_state(0.99), MIN_FRAME_MS)] * 8
+    cues += [Cue(pass_state(1, done=True), MIN_FRAME_MS)] * 16
     return cues
 
 
 def percent_timeline():
     """Every percent from 0 to 99 as its own 200ms frame, then done: what each loader value shows."""
-    cues = [Cue(State(0, "ready", started=False), 800),
-            Cue(State(0, "reach"), 200)]
-    cues += [Cue(pass_state(p / 100), 200) for p in range(100)]
-    cues += [Cue(State(0.99, "lift", shift=SWEEP, eaten=SWEEP + 1), 200),
+    cues = [Cue(pass_state(p / 100), 200) for p in range(100)]
+    cues += [
              Cue(pass_state(1, done=True), 1200)]
     return cues
 
@@ -792,6 +869,13 @@ def main():
         manifest["directions"][direction] = result
         print(f"{NAMES[direction]}: {result['unique_frames']} unique frames; "
               f"max {result['changed_pixels_max']} changed pixels, {result['changed_pages_max']} LCD pages")
+    still = still_splash()
+    still.save(raw_dir / "startbild.png")
+    preview(still, 4, args.palette).save(preview_dir / "startbild.png")
+    if args.pack:
+        for order in ("msb", "lsb"):
+            (raw_dir / f"startbild-{order}.bin").write_bytes(
+                pack_frame(still, bit_order=order, controller_inverted=args.controller_inverted))
     off_frames, off_durations = shutdown_timeline()
     manifest["shutdown"] = export_sequence("ausschalten", off_frames, off_durations, preview_dir, raw_dir,
                                            palette=args.palette, loop_pause=1400)

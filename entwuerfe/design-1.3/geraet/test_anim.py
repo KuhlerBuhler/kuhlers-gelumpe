@@ -81,9 +81,7 @@ class FrameContractTests(unittest.TestCase):
                                      expected.tobytes())
 
     def test_the_figure_never_touches_the_wordmark(self):
-        mark = anim.blank()
-        anim.draw_bands(mark)
-        mark.paste(255, (anim.WORDMARK_SHIFT, 0), anim.wordmark())
+        mark = anim.backdrop()
         for cue in anim.demo_timeline():
             with self.subTest(pose=cue.state.pose, shift=cue.state.shift):
                 self.assertEqual(render_state("werkbank", cue.state).crop((0, 0, 128, 20)).tobytes(),
@@ -96,15 +94,30 @@ class FrameContractTests(unittest.TestCase):
             with self.subTest(pose=cue.state.pose, done=cue.state.done, t=clock):
                 if not cue.state.started:
                     self.assertEqual(look, anim.EYES_LOOK, "The still splash looks at you")
-                elif not cue.state.done:
+                elif not cue.state.finale:
                     self.assertEqual(look, anim.EYES_CLOSED, "Eyes shut while drawing, no twitch")
                 else:
                     self.assertNotEqual(look[0], look[1], "Torn open with unequal pupils")
                     self.assertTrue(look[5], "The small eye is bloodshot")
             clock += cue.duration_ms
-        for progress in (0.01, 0.37, 0.5, 0.88, 0.99):
+        for progress in (0.01, 0.37, 0.5, 0.88, 0.94):
             self.assertEqual(anim.unhinged_look(anim.pass_state(progress), 1234),
                              anim.EYES_CLOSED)
+
+    def test_the_finale_starts_at_95_percent_while_the_count_runs_on(self):
+        self.assertFalse(anim.pass_state(0.94).finale)
+        for p in (0.95, 0.97, 0.99):
+            state = anim.pass_state(p)
+            self.assertTrue(state.finale)
+            self.assertEqual(state.percent, round(p * 100))
+            self.assertEqual(anim.status_line(state), "LADE SAMPLES...")
+            self.assertFalse(material(state), "The line is gone once the finale plays")
+        self.assertEqual(anim.status_line(anim.pass_state(1, done=True)), "FERTIG")
+
+    def test_the_animation_never_starts_with_the_still_splash(self):
+        self.assertTrue(all(cue.state.started for cue in anim.demo_timeline()))
+        self.assertTrue(all(cue.state.started for cue in anim.percent_timeline()))
+        self.assertEqual(anim.demo_timeline()[0].state.pose, "draw")
 
     def test_footer_shows_the_status_text(self):
         still = anim.render_frame("werkbank", 0, pose="ready", started=False).crop((0, 56, 128, 64))
@@ -128,7 +141,7 @@ class FrameContractTests(unittest.TestCase):
 
         for pose in anim.MOTION_POSES:
             expected = gesture_without_progress_pixels(0, pose)
-            for progress in (0.08, 0.17, 0.5, 0.87, 0.999, 0.08):
+            for progress in (0.08, 0.17, 0.5, 0.87, 0.08):
                 with self.subTest(pose=pose, progress=progress):
                     self.assertEqual(gesture_without_progress_pixels(progress, pose), expected,
                                      "Real progress may change pupils and material, never relocate the figure")
@@ -255,7 +268,7 @@ class ProgressTests(unittest.TestCase):
                 state = anim.State(progress)
                 self.assertEqual(state.percent, 99)
                 self.assertLess(state.value, 1)
-                self.assertTrue(material(state), "Unfinished loading must retain some material")
+                self.assertTrue(state.finale, "From FINALE_AT the end plays before the loader is done")
         self.assertEqual(anim.State(0.4, done=True).percent, 100)
         self.assertFalse(material(anim.State(0.4, done=True)))
 

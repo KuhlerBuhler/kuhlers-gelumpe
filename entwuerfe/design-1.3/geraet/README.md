@@ -13,7 +13,7 @@ BLECHTRIBE als ein Wort, Impact auf 118 x 15 Pixel gestreckt, mit gerastertem Sc
 "MEINE ELECTRIBE ROOCHT BLECH!", beim Laden links der Status ("LADE SAMPLES...", "FERTIG") und rechts die Prozentzahl. Die Line liegt
 auf dem Tisch und hat Buckel (1 bis 2 Pixel). Hintergrund: feste Dither-Bänder an beiden Rändern wie
 in der App (`bandDensity` in `site/design/bg.js`), Punkte im 2-Pixel-Raster, zum Rand hin dichter, 14 Pixel breit,
-unter dem Schriftzug ab Zeile 20. Die Varianten des Schriftzugs liegen in `vorschau/schriftzug-varianten.png`
+bis ganz oben, mit einem Pixel Abstand zum Schriftzug. Die Varianten des Schriftzugs liegen in `vorschau/schriftzug-varianten.png`
 (gewählt: B und E zusammen).
 Keine Sterne mehr (fallende sahen mit dem Hut nach Weihnachtsmann im Schnee aus).
 
@@ -35,12 +35,23 @@ Gerätestart: Der echte Lader darf jederzeit zum aktuellen Fortschritt oder zum 
 
 ### Ablauf
 
-| Schritt | Haltung | Haltezeit |
-|---|---|---:|
-| Startbild | volle Line, Röhrchen abgesetzt, guckt dich an | 800 ms |
-| Ansetzen | Kopf zwei Pixel tiefer, Augen zu | 100 ms |
-| Ziehen | Rohr auf der Line, Blechy rückt pixelweise nach rechts, bis 48 | 49 × 50 ms |
-| Fertig | Line weg, Augen auf, ungleiche zitternde Pupillen, "FERTIG", 100 % | 100 + 24 × 50 ms |
+Die Animation beginnt direkt mit dem Ziehen, ohne Startbild und ohne Hinunterbeugen: sobald geladen wird, laufen
+die Prozente.
+
+| Ladestand | Bild |
+|---|---|
+| 0 bis 94 % | Augen zu, Rohr auf der Line, Blechy steht pixelgenau dort, wo die Spitze die Line gefressen hat |
+| 95 bis 99 % | Finale: Line weg, Augen aufgerissen (eine riesige, eine winzige Pupille, zitternd), Zitterstriche, die Zahl läuft weiter |
+| 100 % | wie das Finale, unten "FERTIG" |
+
+### Festes Startbild
+
+`vorschau/neu/startbild.png` (nativ `png/neu/startbild.png`, mit `--pack` auch als BIN): das Bild vor der
+Animation, ein reiner Datenpatch wie `splash.bin`. Blechy an der Startposition hält eine übergroße Kapsel (eine
+Hälfte hohl und offen, eine voll) und streut den Rest der Line vor sich hin, der hintere Teil liegt schon. Er
+schielt dabei auf den Haufen. Unten "MEINE ELECTRIBE ROOCHT BLECH!".
+
+![Startbild](vorschau/neu/startbild.png)
 
 `werkbank-loop*.gif` zeigt denselben Durchgang, damit die Vergleichsseite ihre Plätze behält.
 `werkbank-prozent.gif` zeigt jeden Prozentwert von 0 bis 99 als eigenes Bild (je 200 ms), so wie `pass_state()`
