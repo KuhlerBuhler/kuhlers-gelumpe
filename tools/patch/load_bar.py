@@ -1,4 +1,4 @@
-"""Builds the loading animation patch (docs/ideen/41-startbild-ausbauen.md, entwuerfe/design-1.3/geraet) for firmware 2.02
+"""Builds the loading animation patch (docs/ideen/41-startbild-ausbauen.md, tools/art/loading) for firmware 2.02
 with Hacktribe.
 
 While the start loads the samples (e2sSample.all), the firmware shows a window "Loading nnn%". With this patch Blechy
@@ -70,8 +70,8 @@ FLUSH_FUNC = 0xC0015DD0
 
 
 
-# ---- the loading animation (entwuerfe/design-1.3/geraet: Blechy draws the line from left to right) ----
-# assets/blechy/loading.bin holds its pictures, written by entwuerfe/design-1.3/geraet/firmware_assets.py from the same
+# ---- the loading animation (tools/art/loading: Blechy draws the line from left to right) ----
+# assets/blechy/loading.bin holds its pictures, written by tools/art/loading/firmware_assets.py from the same
 # renderer as the previews. Everything is in the order of the frame buffer (bit 0 the top row of a page) with a set bit lit
 # on the reversed display (DISPLAY INVERT ON); the overlay complements its picture when the display is not reversed.
 LOAD_ART = ART.parent / "loading.bin"
@@ -169,7 +169,7 @@ def compose_reference(art, key):
     return bytes(fb)
 
 
-# ---- the look (entwuerfe/design-1.3/geraet/ui_look.py): the firmware's screens restyled like the start image ----
+# ---- the look (restyle_reference below): the firmware's screens restyled like the start image ----
 # Every frame of the user interface goes out through the flush hook. With DISPLAY INVERT ON the hook copies the frame,
 # draws the look over it, lets the firmware send it (the firmware compares each page with its own copy of what the
 # display shows and sends only the changed ones, from that copy) and puts the frame back, so the firmware keeps drawing

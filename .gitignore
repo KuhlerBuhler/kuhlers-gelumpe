@@ -30,3 +30,6 @@ build/
 # Built apps collected for tools/release.mjs.
 dist-release/
 ak-init.json
+
+# local design drafts, never committed
+entwuerfe/

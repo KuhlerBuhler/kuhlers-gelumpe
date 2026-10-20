@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""Emulator checks for the loading animation and the look (tools/patch/load_bar.py, entwuerfe/design-1.3/geraet).
+"""Emulator checks for the loading animation and the look (tools/patch/load_bar.py, tools/art/loading).
 
 check.py runs `cases` on every patched copy that carries the patch's hooks. With a card and an
 e2sSample.all Blechy draws the line while the samples load, whatever the start image: every frame is the
