@@ -18,6 +18,7 @@ import { parseUnits, setUnits, unitFor, hex } from "../../src/units.mjs";
 import { tableEntry } from "../../src/map/address.mjs";
 import { addPreset, locatePresets, pointersMatch, presetRoom, recordOf, RECORD } from "../../src/presets.mjs";
 import { exportPresets } from "../../src/export.mjs";
+import { presetFile, presetFileName, readPresetFile, PRESET_EXT } from "../../src/preset-file.mjs";
 import { checkName, checkDetail } from "../../src/patcher.mjs";
 import { GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import { suggestionsFor, applySuggestion } from "../../src/suggestions.mjs";
@@ -85,12 +86,15 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   const addButton = el("button", { type: "button", className: "btn", id: `${prefix}-add`, textContent: "Preset hinzufügen (Kopie des gewählten)" });
   const exportButton = el("button", { type: "button", className: "btn primary", id: `${prefix}-export`, textContent: "Firmware-Kopie prüfen" });
   const downloadButton = el("button", { type: "button", className: "btn", id: `${prefix}-download`, textContent: "Firmware-Kopie laden", hidden: true });
+  const saveButton = el("button", { type: "button", className: "btn", id: `${prefix}-preset-save`, textContent: "Preset als Datei speichern" });
+  const presetInput = el("input", { type: "file", className: "cee-visually-hidden", id: `${prefix}-preset-open`, accept: PRESET_EXT });
+  const loadLabel = el("label", { className: "btn", htmlFor: `${prefix}-preset-open` }, ["Preset-Datei laden"]);
   const exportNote = el("p", { className: "cee-hint", id: `${prefix}-export-note`, hidden: true, role: "status" });
   const exportChecks = el("ul", { className: "ui-list", id: `${prefix}-export-checks`, hidden: true });
   const fileGroup = el("div", { className: "cee-group", id: `${prefix}-file-group`, hidden: true }, [
     el("h3", { textContent: "In die Firmware-Datei" }),
     room,
-    el("div", { className: "actions" }, [addButton, exportButton, downloadButton]),
+    el("div", { className: "actions" }, [addButton, saveButton, loadLabel, presetInput, exportButton, downloadButton]),
     exportNote, exportChecks,
   ]);
 
@@ -535,6 +539,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const more = info.patched ? "" : ` Die Firmware kennt nur ${info.capacity}; mit dem BLECH-Patch preset-tables sind es 128.`;
     room.textContent = `${kindWord(state.kind)}: ${info.count} von ${info.capacity} Plätzen im Menü.${more}`;
     addButton.disabled = info.count >= info.capacity || !state.rec;
+    saveButton.disabled = !state.rec;
     exportButton.disabled = !state.fileDirty && !state.dirty;
   }
 
@@ -565,6 +570,40 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     exportNote.textContent = `${kindWord(state.kind)} ${added.slot} ist eine Kopie von ${state.slot}. Ändere sie hier und prüfe die Kopie der Firmware.`;
     state.dirty = false;
     state.slot = added.slot;
+    renderPicker();
+  }
+
+  /** The preset in the form as a .e2fx file, to pass it on. */
+  function savePreset() {
+    if (!state.rec) return;
+    commit();
+    const rec = state.image.read(state.kind, state.slot);
+    const a = el("a", { href: URL.createObjectURL(new Blob([presetFile(state.kind, rec.bytes)], { type: "application/json" })), download: presetFileName(state.kind, rec.name) });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+  }
+
+  /** A .e2fx file as a new slot of its kind: a copy of slot 1 is made, then the file's record goes in, name and all. */
+  async function loadPreset(file) {
+    const got = readPresetFile(await file.text());
+    exportNote.hidden = false;
+    if (!got.ok) { exportNote.textContent = got.reason; return; }
+    if (!state.image) { exportNote.textContent = "Erst eine Firmware laden, dann kommt das Preset hinein."; return; }
+    commit();
+    const added = addPreset(state.image.bytes, got.kind, 1);
+    if (!added.ok) { exportNote.textContent = added.reasons.join(" "); return; }
+    state.image.bytes.set(added.bytes);
+    state.image.write(got.kind, added.slot, new FxRecord(got.record, got.kind));
+    state.added.add(`${got.kind}:${added.slot}`);
+    state.fileDirty = true;
+    state.passed = null;
+    downloadButton.hidden = true;
+    state.kind = got.kind;
+    state.slot = added.slot;
+    state.dirty = false;
+    exportNote.textContent = `${kindWord(got.kind)} ${added.slot}: „${got.name}“ aus der Datei. Prüf die Kopie der Firmware, dann kommt es aufs Gerät.`;
     renderPicker();
   }
 
@@ -609,6 +648,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   }
 
   addButton.addEventListener("click", addCopy);
+  saveButton.addEventListener("click", savePreset);
+  presetInput.addEventListener("change", () => { const f = presetInput.files?.[0]; presetInput.value = ""; if (f) loadPreset(f); });
   exportButton.addEventListener("click", runExport);
   downloadButton.addEventListener("click", downloadCopy);
   fileInput.addEventListener("change", async () => { const f = fileInput.files?.[0]; if (f) loadBytes(new Uint8Array(await f.arrayBuffer())); });
