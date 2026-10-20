@@ -176,7 +176,7 @@ export function patternToolsPage(root, { device }) {
 
   async function fetchFromDevice() {
     const s = device.session;
-    if (!s) { say("Verbinde erst im Bereich Gerät, mit der Electribe oder mit dem Emulator."); return null; }
+    if (!s) { say("Nichts verbunden. Starte links den Emulator oder steck die Electribe per USB an und klick links auf Gerät."); return null; }
     const release = s.reserve();
     try {
       await s.idle();
@@ -189,7 +189,7 @@ export function patternToolsPage(root, { device }) {
       say(`Geholt: "${name}" aus dem Pattern-Puffer des Geräts.`);
       return copy;
     } catch (e) {
-      say(`Holen fehlgeschlagen: ${e.message}`);
+      say(`Das Pattern ließ sich nicht holen. Ist die Electribe noch verbunden? (${e.message})`);
       return null;
     } finally {
       release();
@@ -205,7 +205,7 @@ export function patternToolsPage(root, { device }) {
       await s.idle();
       let active = "unbekannt";
       try { active = new Pattern(await s.fetchPattern()).name || "ohne Namen"; } catch (e) {
-        say(`Der Puffer am Gerät ließ sich nicht lesen (${e.message}); ohne Sicherung wird nichts gesendet.`);
+        say(`Die App konnte das aktuelle Pattern am Gerät nicht sichern, deshalb sendet sie nichts. Verbinde die Electribe neu und versuch es nochmal. (${e.message})`);
         return;
       }
       const edit = { kind: "patternSend", block: Uint8Array.from(pattern.bytes) };
@@ -221,9 +221,9 @@ export function patternToolsPage(root, { device }) {
       say("Sende …");
       const res = await s.apply(edit, { confirmed: checked.token });
       if (res.ok) say(`Gesendet und zurückgelesen: "${label}". Vorher im Puffer: "${active}", mit "Senden zurücknehmen" zurückzuholen.`);
-      else if (res.needsConfirmation) say("Der Befund hat sich geändert, bitte noch einmal senden.");
+      else if (res.needsConfirmation) say("Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden.");
       else if (res.gate?.verdict === "blocked") say(`Gesperrt: ${res.gate.reasons.map(r => r.message).join(" ")}`);
-      else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheiden im Bereich Gerät." : ""}`);
+      else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide links unter Gerät, wie es weitergeht." : ""}`);
       device.log?.(res.ok ? "Pattern gesendet." : `Pattern: ${res.error?.message ?? "gesperrt"}`, res.ok ? "ok" : "error");
       if (s.blocked) device.showDecision?.();
     } catch (e) {
@@ -241,9 +241,9 @@ export function patternToolsPage(root, { device }) {
     try {
       await s.idle();
       const res = await s.undo();
-      say(res.ok ? "Der vorherige Puffer ist wieder am Gerät." : `Zurücknehmen fehlgeschlagen: ${res.error.message}`);
+      say(res.ok ? "Der vorherige Puffer ist wieder am Gerät." : `Zurücknehmen hat nicht geklappt: ${res.error.message}`);
     } catch (e) {
-      say(`Zurücknehmen fehlgeschlagen: ${e.message}`);
+      say(`Zurücknehmen hat nicht geklappt: ${e.message}`);
     } finally {
       release();
       sessionChanged();

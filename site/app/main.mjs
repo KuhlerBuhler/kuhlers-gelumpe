@@ -289,7 +289,7 @@ function patternDevice(device) {
       updateActions();
       say(`Geholt: "${doc.pattern.name || "ohne Namen"}".`, "ok");
     } catch (e) {
-      say(`Holen fehlgeschlagen: ${e.message}`, "error");
+      say(`Das Pattern ließ sich nicht holen. Ist die Electribe noch verbunden? (${e.message})`, "error");
     }
     update();
   });
@@ -315,7 +315,7 @@ function patternDevice(device) {
   async function sendPattern(s) {
     let active = "unbekannt";
     try { active = new Pattern(await s.fetchPattern()).name || "ohne Namen"; } catch (e) {
-      say(`Der Puffer am Gerät ließ sich nicht lesen (${e.message}); ohne Sicherung wird nichts gesendet.`, "error");
+      say(`Die App konnte das aktuelle Pattern am Gerät nicht sichern, deshalb sendet sie nichts. Verbinde die Electribe neu und versuch es nochmal. (${e.message})`, "error");
       return;
     }
     const edit = { kind: "patternSend", block: Uint8Array.from(doc.pattern.bytes) };
@@ -331,9 +331,9 @@ function patternDevice(device) {
     say("Sende …");
     const res = await s.apply(edit, { confirmed: checked.token });
     if (res.ok) say(`Gesendet und zurückgelesen. Vorher im Puffer: "${active}", mit "Senden zurücknehmen" zurückzuholen.`, "ok");
-    else if (res.needsConfirmation) say("Der Befund hat sich geändert, bitte noch einmal senden.", "error");
+    else if (res.needsConfirmation) say("Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden.", "error");
     else if (res.gate?.verdict === "blocked") say(`Gesperrt: ${res.gate.reasons.map(r => r.message).join(" ")}`, "error");
-    else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheiden im Bereich Gerät." : ""}`, "error");
+    else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide links unter Gerät, wie es weitergeht." : ""}`, "error");
     device.log?.(res.ok ? "Pattern gesendet." : `Pattern: ${res.error?.message ?? "gesperrt"}`, res.ok ? "ok" : "error");
     if (s.blocked) device.showDecision?.();
   }
@@ -345,9 +345,9 @@ function patternDevice(device) {
     try {
       await s.idle();
       const res = await s.undo();
-      say(res.ok ? "Der vorherige Puffer ist wieder am Gerät." : `Zurücknehmen fehlgeschlagen: ${res.error.message}`, res.ok ? "ok" : "error");
+      say(res.ok ? "Der vorherige Puffer ist wieder am Gerät." : `Zurücknehmen hat nicht geklappt: ${res.error.message}`, res.ok ? "ok" : "error");
     } catch (e) {
-      say(`Zurücknehmen fehlgeschlagen: ${e.message}`, "error");
+      say(`Zurücknehmen hat nicht geklappt: ${e.message}`, "error");
     } finally {
       release();
       update();

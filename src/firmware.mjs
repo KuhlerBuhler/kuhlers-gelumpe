@@ -167,6 +167,14 @@ export async function identify(bytes) {
   return { known: true, build, reasons, release: best.release, original, changedSlots: best.changed, menus };
 }
 
+/** What to tell a beginner when `identify` does not know the file: what it is and what to take instead; the reasons follow. */
+export function firmwareAdvice(id, reasons = id.reasons) {
+  if (!id.build) return "Das ist keine Firmware-Datei. Nimm die SYSTEM.VSB aus dem Ordner KORG › dein Ordner › System auf der SD-Karte.";
+  if (id.build === "synth") return "Das ist die Firmware der blauen Electribe. Das hier geht nur mit der roten Electribe (Sampler) mit Hacktribe 2.02.";
+  if (id.build === "stock") return "Das ist Korgs Original-Firmware. Das hier geht nur mit Hacktribe 2.02.";
+  return `Diese Hacktribe-Version kennt die App nicht. Nimm Hacktribe 2.02. Grund: ${reasons.join(" ")}`;
+}
+
 /** Whether one factory slot is byte for byte the release, for the baseline rule. */
 export async function isOriginalSlot(record, kind, slot) {
   for (const release of ORIGINALS) {

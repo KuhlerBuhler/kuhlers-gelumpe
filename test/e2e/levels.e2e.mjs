@@ -88,7 +88,7 @@ test("levels: nothing is shown before the pattern is fetched, and without a devi
   assert.equal(await page.locator("#cee-lv-body").isHidden(), true);
   assert.match(await page.locator("#cee-levels h2").textContent(), /Pegel/);
   await page.click("#cee-lv-fetch");
-  await page.locator("#app-toasts .cee-toast", { hasText: "Weder Emulator noch Gerät verbunden" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "Nichts verbunden" }).waitFor();
   assert.equal(await page.locator("#cee-lv-body").isHidden(), true);
   assert.deepEqual(page.errors, []);
 });

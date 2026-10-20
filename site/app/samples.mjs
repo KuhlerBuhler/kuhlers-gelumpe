@@ -65,14 +65,14 @@ export function samplesPage(root, { device, emulator, probe }) {
 
   async function withSession(fn) {
     const s = await pick();
-    if (!s) { say("Weder Emulator noch Gerät verbunden. Starte den Emulator im Bereich Emulator oder verbinde das Gerät.", "error"); return null; }
+    if (!s) { say("Nichts verbunden. Starte links den Emulator oder steck die Electribe per USB an und klick links auf Gerät.", "error"); return null; }
     const release = s.reserve();
     busy(true);
     try {
       await s.idle();
       return await fn(s);
     } catch (e) {
-      say(`Nicht gelesen: ${e.message}`, "error");
+      say(`Lesen hat nicht geklappt. Ist die Electribe noch verbunden? (${e.message})`, "error");
       return null;
     } finally {
       release();
@@ -106,7 +106,7 @@ export function samplesPage(root, { device, emulator, probe }) {
     if (!names) return;
     state.names = names;
     const n = drawList();
-    say(n ? `${n} Samples mit Namen, gelesen aus dem ${state.source}.` : `Keine Namen gefunden, die Tabelle im ${state.source} ist leer (zum Beispiel im Emulator ohne Samples auf der Karte). Mit der Sample-Nummer geht ein Platz trotzdem zu lesen.`);
+    say(n ? `${n} Samples mit Namen, gelesen aus dem ${state.source}.` : `Keine Sample-Namen gefunden. Im Emulator ist das normal, wenn keine Samples auf der Karte sind. Über die Sample-Nummer kannst du trotzdem einen Platz öffnen.`);
   }
 
   async function openSample(index) {
@@ -241,12 +241,12 @@ export function samplesPage(root, { device, emulator, probe }) {
     try {
       state.entry = await s.readSample(state.index);
       Object.assign(state, { name: state.entry.name, tune: state.entry.tune, nameError: null, tuneError: false });
-    } catch (e) { say(`Nicht neu gelesen: ${e.message}`, "error"); }
+    } catch (e) { say(`Neu lesen hat nicht geklappt. Ist die Electribe noch verbunden? (${e.message})`, "error"); }
   }
 
   async function send() {
     const s = await pick();
-    if (!s) { say("Weder Emulator noch Gerät verbunden.", "error"); return; }
+    if (!s) { say("Nichts verbunden. Starte links den Emulator oder steck die Electribe per USB an und klick links auf Gerät.", "error"); return; }
     sendButton.disabled = undoButton.disabled = true;
     const release = s.reserve();
     let p = null;
@@ -320,5 +320,5 @@ export function samplesPage(root, { device, emulator, probe }) {
   });
   sendButton.addEventListener("click", send);
   undoButton.addEventListener("click", undo);
-  say("Noch nichts gelesen. Verbinde den Emulator oder das Gerät und lies die Namen.");
+  say("Noch nichts gelesen. Starte links den Emulator oder verbinde die Electribe, dann die Namen lesen.");
 }
