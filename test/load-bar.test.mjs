@@ -50,14 +50,19 @@ test("the loading bar has the v1 format, says what it replaces and names what ru
   }
 });
 
-test("it is our code in two places, the animation's pictures and five replaced words, each a branch into the code, and every hook is declared", () => {
-  assert.equal(PATCH.changes.length, 3 + WORDS.length);
-  const [code, art, look, ...words] = PATCH.changes;
+test("it is our code in two places, the animation's pictures, the card picture and five replaced words, each a branch into the code, and every hook is declared", () => {
+  assert.equal(PATCH.changes.length, 4 + WORDS.length);
+  const [code, art, card, look, ...words] = PATCH.changes;
   const n = fromHex(code.bytes).length;
   assert.ok(code.file === CODE && code.file + n <= CODE_END, `${n} bytes`);
   assert.ok(look.file === LOOK && look.file + fromHex(look.bytes).length <= LOOK_END, "the look's code");
   assert.equal(art.file, ART);
   assert.deepEqual(Buffer.from(fromHex(art.bytes)), ART_BYTES, "assets/blechy/loading.bin as it is");
+  assert.equal(card.file, (ART + ART_BYTES.length + 3) & ~3, "the card picture right behind the animation's pictures");
+  const runs = fromHex(card.bytes);
+  let size = 0;
+  for (let i = 0; i < runs.length; i += 2) size += runs[i];
+  assert.equal(size, 2048, "the two card pictures' runs fill a frame each");
   for (const [i, [file, opcode, address]] of WORDS.entries()) {
     assert.equal(words[i].file, file);
     const word = Buffer.from(fromHex(words[i].bytes)).readUInt32LE(0);

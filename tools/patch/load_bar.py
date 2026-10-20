@@ -25,7 +25,9 @@ million instructions, which is why the overlay draws its own.
 With EXIT held at power-on, without a card or without e2sSample.all nothing is ever expected and every hook goes
 straight to the original. A card that is in the slot but not mounted after the start's question is asked again, up to
 RETRIES times, RETRY_MS apart (device 18.10.: a card that answered late left the start without samples or hanging). When the
-loader ends with a code (a card error), the overlay ends at once, so the firmware's window is seen. The overlay ends when the main screen comes (or after a cap of frames).
+loader ends with a code (a card error), the image stays with the percent where it stopped. The overlay ends when the main screen comes (or after a cap of frames).
+While the firmware's error box says "No Card." or "Card Error" (its code at ERR_CODE), the display send shows Blechy's card
+picture for that code instead of the box, until the box goes (EXIT).
 Nothing of the firmware is copied and nothing is written to flash or to the card.
 """
 
@@ -190,6 +192,11 @@ PAGE_FUNC = 0xC0015AB4
 SHADOW = 0xC031B710             # the firmware's copy of what the display shows (the literal of 0xC0015A60)
 APP_PICTURE = 0xC01D6704        # the open app's picture (script runtime RT_DISPLAY): a frame equal to it is the app's own
 OFF_PICTURE = 0xC01A4C00        # the picture of Blechy at power off (tools/patch/power_off.py:FRAME_AT)
+ERR_CODE = 0xC00F9CC8          # the code of the firmware's error box (0xC0063068 sets it, its destructor puts 0x26 back)
+ERR_CODE_LIT = 0xC00631D4       # the literal of the error box that holds ERR_CODE
+CARD_CODES = (2, 4)             # "No Card." and "Card Error" (the box's text table 0xC00E3280, code - 1)
+CARD_SPRITE = Path(__file__).resolve().parents[2] / "assets" / "blechy" / "sprites" / "blechy-terror-1.png"
+CARD_TEXTS = {2: (["Keine", "karte", "drin", "Diggi."], 10), 4: (["Karte", "kaputt", ":("], 16)}   # (lines, top row) per code
 EDITOR_MODE = 0xC0182004        # the start image editor's S_MODE, 1 while it is open (tools/patch/splash_editor.py)
 DITHER = (0, 2, 3, 1)           # 2 x 2 ordered dither: a pixel is lit when its level is above the threshold of its place
 W, H = 128, 64
@@ -341,7 +348,7 @@ SOURCE = """
 .equ S_EXPECT, 0               ; 1 while a load is expected and the overlay draws, 2 when it is over, FFFFFFFF never started
 .equ S_CUR, 4                  ; the loader's file offset
 .equ S_MAX, 8                  ; the largest offset in the file
-.equ S_DONE, 12                ; 1 when the loader has returned
+.equ S_DONE, 12                ; 1 when the loader has returned without an error
 .equ S_FRAME, 16               ; frames drawn
 .equ S_MODE, 20                ; 1: the BLECH image (kept for the readers of the state; there is no other any more)
 .equ S_DRAWN, 24               ; 1 once the whole frame buffer has been marked as changed
@@ -385,6 +392,9 @@ SOURCE = """
 .equ APP_PICTURE, @APP_PICTURE@
 .equ OFF_PICTURE, @OFF_PICTURE@
 .equ EDITOR_MODE, @EDITOR_MODE@
+.equ ERR_CODE, @ERR_CODE@
+.equ CARD_ART, @CARD_ART@        ; the card picture of code 2, run-length coded: (count, byte) pairs up to 1024 bytes
+.equ CARD_ART4, @CARD_ART4@      ; the one of code 4, right behind it
 .equ DITHER_WORD, @DITHER_WORD@  ; the thresholds of DITHER, one per byte
 .equ V_TAB, 0                  ; 1 when the page tab was found
 .equ V_BOT, 4                  ; its last row
@@ -483,27 +493,17 @@ lb_progress:
     ldr r12, =SETTEXT
     bx r12
 
-; Replaces the call of the loader: remembers that it is over. When the loader ends with a code (a card error, a sample it
-; could not load), the overlay ends at once, so the firmware's window says what happened (device 18.10.: "Card error" stayed
-; behind the image).
+; Replaces the call of the loader: remembers that it is done. When the loader ends with a code (a card error, a sample it
+; could not load), the image stays with its percent until the main screen comes; the firmware's box then says what happened
+; (device 18.10.: "Card error" stayed behind the image, which drew on past the main screen), for no card or a broken card
+; as Blechy's card picture.
 lb_load:
     push {r4, lr}
     bl LOADER
-    ldr r1, =STATE
-    mov r2, #1
-    str r2, [r1, #S_DONE]
     cmp r0, #0
-    beq ll_out
-    ldr r2, [r1, #S_EXPECT]
-    cmp r2, #1
-    moveq r2, #2
-    streq r2, [r1, #S_EXPECT]
-    ldr r2, =MGR
-    ldr r2, [r2]
-    cmp r2, #0
-    movne r3, #1
-    strbne r3, [r2, #0x5C]      ; the screen manager draws everything anew
-ll_out:
+    ldreq r1, =STATE
+    moveq r2, #1
+    streq r2, [r1, #S_DONE]
     pop {r4, pc}
 
 ; ===================================================== frame
@@ -532,6 +532,9 @@ lb_page:
     ldr r6, =LOOK_VARS
     cmp r4, #0
     bne lp_have
+    bl card_wanted
+    cmp r0, #0
+    bne lp_src
     bl look_wanted
     cmp r0, #0
     moveq r0, #0
@@ -1787,6 +1790,47 @@ dst_put:
     strb r0, [r12]
     bx lr
 
+; r0 = LOOK_OUT with the card picture in it while the firmware's error box says "No Card." or "Card Error", else 0.
+; Not with EXIT held at power-on. The look's copy of the frame is spoiled, so the look draws anew once the box is gone.
+card_wanted:
+    ldr r1, =PANEL
+    ldr r1, [r1]
+    cmp r1, #0
+    beq cw_no
+    ldr r1, [r1, #0x18]
+    tst r1, #KILL
+    bne cw_no
+    ldr r1, =ERR_CODE
+    ldr r1, [r1]
+    cmp r1, #2
+    ldreq r0, =CARD_ART
+    beq cw_have
+    cmp r1, #4
+    bne cw_no
+    ldr r0, =CARD_ART4
+cw_have:
+    ldr r1, =LOOK_OUT
+    add r3, r1, #1024
+cw_run:
+    ldrb r2, [r0], #1
+    ldrb r12, [r0], #1
+cw_put:
+    strb r12, [r1], #1
+    subs r2, r2, #1
+    bne cw_put
+    cmp r1, r3
+    blo cw_run
+    ldr r1, =VRAM
+    ldr r1, [r1]
+    mvn r1, r1
+    ldr r2, =LOOK_BACK
+    str r1, [r2]
+    ldr r0, =LOOK_OUT
+    bx lr
+cw_no:
+    mov r0, #0
+    bx lr
+
 .align 4
 lit_pool:
 .pool
@@ -1798,6 +1842,35 @@ def art():
     if len(data) > LOAD_END - LOAD_AT:
         raise SystemExit(f"{LOAD_ART} has {len(data)} bytes, room for {LOAD_END - LOAD_AT}")
     return data
+
+
+def card_frame(code):
+    """The picture while the error box shows `code`: Blechy in terror and his line, as the power-off picture is made
+    (tools/patch/power_off.py)."""
+    import power_off
+    lines, top = CARD_TEXTS[code]
+    return power_off.frame_bytes(power_off.frame_pixels(power_off.read_png(CARD_SPRITE), lines, top))
+
+
+def rle(frame):
+    """Run-length coded as (count, byte) pairs."""
+    out, i = bytearray(), 0
+    while i < len(frame):
+        j = i
+        while j < len(frame) and frame[j] == frame[i] and j - i < 255:
+            j += 1
+        out += bytes((j - i, frame[i]))
+        i = j
+    return bytes(out)
+
+
+def card_picture():
+    """Both card pictures, code 2 then code 4."""
+    return rle(card_frame(2)) + rle(card_frame(4))
+
+
+def card_at():
+    return (LOAD_AT + len(art()) + 3) & ~3
 
 
 def source():
@@ -1816,7 +1889,7 @@ def source():
         "PCT_X0": str(PCT_RIGHT + 2), "PCT_Y": str(PCT_Y),
         "LOOK_CODE": f"{LOOK_CODE:#x}", "LOOK_BACK": f"{LOOK_BACK:#x}", "LOOK_OUT": f"{LOOK_OUT:#x}", "SHADOW": f"{SHADOW:#x}", "LOOK_VARS": f"{LOOK_VARS:#x}", "LOOK_BOXES": f"{LOOK_BOXES:#x}", "LOOK_BOX": str(LOOK_BOX),
         "LOOK_NBOX": str(LOOK_NBOX), "APP_PICTURE": f"{APP_PICTURE:#x}", "OFF_PICTURE": f"{OFF_PICTURE:#x}",
-        "EDITOR_MODE": f"{EDITOR_MODE:#x}", "DITHER_WORD": f"{int.from_bytes(bytes(DITHER), 'little'):#x}",
+        "EDITOR_MODE": f"{EDITOR_MODE:#x}", "ERR_CODE": f"{ERR_CODE:#x}", "CARD_ART": f"{card_at():#x}", "CARD_ART4": f"{card_at() + len(rle(card_frame(2))):#x}", "DITHER_WORD": f"{int.from_bytes(bytes(DITHER), 'little'):#x}",
     }.items():
         text = text.replace(f"@{key}@", value)
     return text
@@ -1868,10 +1941,14 @@ def build_patch(vsb):
         (PAGE_CALL, word_of(PAGE_CALL, PAGE_FUNC, True), "the display send does not compare its pages where the patch expects it"),
         (0xC0015A94, SHADOW, "the display's copy is not where the patch expects it"),
         (0xC0015B4C, 0xC031B310, "the page compare does not read the frame buffer the patch expects"),
+        (ERR_CODE_LIT, ERR_CODE, "the error box does not keep its code where the patch expects it"),
     )
     for addr, want, why in expected:
         if word(addr) != want:
             raise SystemExit(f"{why} in this VSB")
+    card = card_picture()
+    if card_at() + len(card) > LOAD_END:
+        raise SystemExit(f"the card picture has {len(card)} bytes, room for {LOAD_END - card_at()}")
     free(STATE, STATE_END - STATE)
     free(LOOK_BACK, LOOK_END - LOOK_BACK)
 
@@ -1889,6 +1966,8 @@ def build_patch(vsb):
              "note": "loading bar: the BLECH image while e2sSample.all loads, the underline is the bar, the eyes look around"},
             {"file": file_offset(LOAD_AT), "bytes": art().hex(), "expect": free(LOAD_AT, len(art())),
              "note": "the pictures of the loading animation (assets/blechy/loading.bin)"},
+            {"file": file_offset(card_at()), "bytes": card.hex(), "expect": free(card_at(), len(card)),
+             "note": "the pictures while the firmware's error box says 'No Card.' or 'Card Error' (Blechy in terror, run-length coded)"},
             {"file": file_offset(LOOK_CODE), "bytes": look.hex(), "expect": free(LOOK_CODE, len(look)),
              "note": "the look: tab corner, box corners and shadows, the dithered rim, drawn over every frame with DISPLAY INVERT ON"},
             hook(STAT_CALL, "lb_stat", True, "the question whether e2sSample.all exists goes through the hook"),

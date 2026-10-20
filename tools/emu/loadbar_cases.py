@@ -325,8 +325,22 @@ def case_card_error(payload, flash):
         dev.run(0.05)
     dev.run(0.1)
     expect = dev.u32(spec.STATE)
-    out.append(entry("card_error_ends_the_overlay", ended and ended[0][1] == 4 and expect == 2 and not dev.m.asserts,
-                     f"the loader returned {ended[0][1] if ended else None} at {round(ended[0][0], 2) if ended else None} s, the overlay state is then {expect:#x} (2: over)"))
+    done = dev.u32(spec.STATE + S_DONE)
+    out.append(entry("card_error_keeps_the_overlay", ended and ended[0][1] == 4 and expect == 1 and done != 1 and not dev.m.asserts,
+                     f"the loader returned {ended[0][1] if ended else None} at {round(ended[0][0], 2) if ended else None} s, the overlay state is then {expect:#x} (1: still drawn), done {done:#x}"))
+    # the firmware's box "Card Error" comes with the main screen a few seconds later; the overlay is over by then and the
+    # display shows Blechy's card picture instead of the box, until EXIT
+    picture = spec.card_frame(4)
+    while dev.u32(spec.ERR_CODE) != 4 and dev.m.time_ns / 1e9 < 20:
+        dev.run(0.1)
+    dev.run(0.2)
+    boxed_over = dev.u32(spec.STATE) == 2
+    ram = lambda: bytes(b for row in dev.m.fb for b in row)
+    boxed = boxed_over and dev.u32(spec.ERR_CODE) == 4 and ram() == picture
+    dev.press("exit")
+    dev.run(0.5)
+    out.append(entry("card_error_picture", boxed and dev.u32(spec.ERR_CODE) == 0x26 and ram() != picture and not dev.m.asserts,
+                     f"with the box up the display is the card picture: {boxed}; after EXIT the code is {dev.u32(spec.ERR_CODE):#x} and the picture is gone"))
     if menu_cases.has_menu(payload) and not synthaddr_is_synth(payload):
         def stuck_start(kill):
             dev = WatchedDev(bytes(payload), flash, kill)
