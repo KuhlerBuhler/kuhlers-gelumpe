@@ -186,6 +186,22 @@ class Link:
         s, a, length, crc2 = struct.unpack_from("<4I", r["words"])
         return begin, {"status": s, "offset": a, "length": length, "crc": crc2}
 
+    def plugin_write(self, name, data, offset=0, wait=120.0):
+        """PLUGIN BEGIN (the name as raw bytes, padded to 16), and when it says ok, DATA."""
+        raw = name if isinstance(name, bytes) else name.encode("latin1")
+        r, _ = self.ask(spec.FUNC_PBEGIN, struct.pack("<III", offset, len(data), zlib.crc32(data)) + raw.ljust(spec.NAME_MAX, b"\0")[:spec.NAME_MAX], reply=spec.REPLY_FBEGIN)
+        if not r:
+            return None, None
+        s, a, length = struct.unpack_from("<3I", r["words"])
+        begin = {"status": s, "offset": a, "length": length}
+        if s != OK:
+            return begin, None
+        r, _ = self.ask(spec.FUNC_DATA, data, wait=wait)
+        if not r:
+            return begin, None
+        s, a, length, crc2 = struct.unpack_from("<4I", r["words"])
+        return begin, {"status": s, "offset": a, "length": length, "crc": crc2}
+
     def write(self, addr, data, crc=None, send_data=True, wait=120.0):
         """BEGIN, and when it says ok, DATA. Returns (begin reply, data reply or None)."""
         crc = zlib.crc32(data) if crc is None else crc
@@ -462,7 +478,7 @@ def file_cases(payload, flash):
 
     rng = random.Random(20261018)
     data = bytes(rng.getrandbits(8) for _ in range(70000))
-    dev, lk = device({f"KORG/{folder}/System/keep.txt": b"x"})
+    dev, lk = device({f"KORG/{folder}/System/keep.txt": b"x", "KORG/blechtribe/Plugin/keep.txt": b"x"})
     none = lk.file_read(0, 0)
     out.append(entry("file_missing", none and none["status"] == spec.STATUS_FILE and none["size"] == 0, f"no update file yet: status {none and none['status']}"))
     results = []
@@ -491,6 +507,14 @@ def file_cases(payload, flash):
     big = lk.file_read(0, spec.MAX_BLOCK + 1)
     out.append(entry("file_limits", far and far["status"] == RANGE and empty and empty["status"] == RANGE and big and big["status"] == RANGE and on_card(dev) == short,
                      f"past the size of a VSB {far and far['status']}, no bytes {empty and empty['status']}, a read over the largest block {big and big['status']}; the file unchanged"))
+    blob = bytes(rng.getrandbits(8) for _ in range(5000))
+    pb, pd = lk.plugin_write("Short-Delay_2", blob)
+    plugin = "KORG/blechtribe/Plugin/Short-Delay_2.blech"
+    bad = [lk.plugin_write(n, b"x")[0] for n in (b"../../x", b"a/b", b"", b"a\0b", b"a.b", "ä".encode("latin1"))]
+    out.append(entry("file_plugin", pb and pb["status"] == OK and pd and pd["status"] == OK and pd["crc"] == zlib.crc32(blob) and on_card(dev, plugin) == blob
+                     and all(r and r["status"] == RANGE for r in bad) and on_card(dev) == short and not dev.m.asserts,
+                     f"PLUGIN BEGIN writes {plugin} ({on_card(dev, plugin) == blob}), read back with its CRC; a name with a slash, dots, nothing, a zero inside, "
+                     f"a dot or a letter beyond ASCII is refused: {[r and r['status'] for r in bad]}"))
     nocard, lk2 = device(card=False)
     r = lk2.file_read(0, 0)
     out.append(entry("file_no_card", r and r["status"] == spec.STATUS_FILE and not nocard.m.asserts, f"without a card: status {r and r['status']}"))

@@ -572,7 +572,9 @@ Die Fehlercodes stehen in `data/script/contract.mjs`.
 ### Dateien für die Karte
 
 Plugins kommen nur über die SD-Karte aufs Gerät, nie in die VSB. Der Ordner ist
-`KORG/blechtribe/Plugin/`, den die Firmware nicht selbst anlegt.
+`KORG/blechtribe/Plugin/`, den die Firmware nicht selbst anlegt. Mit verbundenem Gerät legt die Seite Plugins
+sie auch über USB dorthin ("Per USB aufs Gerät", BLECH-SysEx-Befehl `0x67` PLUGIN BEGIN, Name aus Buchstaben,
+Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, IMPORT PLUGIN.
 
 - `e2sPlugin.all` ist die Sammeldatei, die das Gerät beim Start liest. Kopf, 16
   Byte, little endian: Kennung `GSAL`, Dateiversion 1 (u16), Anzahl Blöcke

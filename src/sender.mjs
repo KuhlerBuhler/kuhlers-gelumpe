@@ -246,6 +246,20 @@ export class Sender {
     }
   }
 
+  /** The bytes as the plugin file `name` on the card (KORG/blechtribe/Plugin/<name>.blech), in blocks, each read back from the card. */
+  async pluginWrite(bytes, name, model, onProgress) {
+    const max = this.blech.maxBlock;
+    for (let at = 0; at < bytes.length; at += max) {
+      const part = bytes.subarray(at, Math.min(at + max, bytes.length));
+      const crc = P.crc32(part);
+      await this.blechAttempts("write", async () => {
+        P.parseBlechFileBegin(await this.blechExchange(P.blechPluginBegin(this.channel, at, part.length, crc, name, model), "blech-file-begin"), this.channel, model);
+        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, model), "blech-data", part.length), this.channel, crc, model);
+      });
+      onProgress?.(at + part.length, bytes.length);
+    }
+  }
+
   /**
    * Run the steps. Stops at the first failure and says where. `check(step, value, i)` may return a
    * reason to stop after a step that answered.
