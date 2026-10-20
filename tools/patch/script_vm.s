@@ -179,10 +179,19 @@ script_load_block_ex:
     ldr r0, [r4, #RT_LINES]
     ldr r1, [r4, #RT_LINECOUNT]
     add r0, r0, r1, lsl #2
-    sub r0, r0, r6
+    sub r10, r0, r6
     ldr r9, [r6, #HDR_TOTAL_SIZE]
-    cmp r0, r9
+    add r0, r6, #HDR_FLAGS
+    bl read_half
+    tst r0, #BLOCK_FLAG_DATA
+    beq size_plain
+    cmp r10, r9                 ; a data section follows the lines up to totalSize
+    bhs l_bad_size
+    b size_known
+size_plain:
+    cmp r10, r9
     bne l_bad_size
+size_known:
     cmp r7, r9
     blo l_truncated
     add r0, r6, #HDR_CHECKSUM+4
@@ -206,6 +215,15 @@ crc_done:
     ldr r0, [r6, #HDR_CHECKSUM]
     cmp r0, r2
     bne l_checksum
+    mov r0, r6
+    mov r1, #0
+    mov r2, r10
+    mov r3, r9
+    bl data_walk
+    cmp r0, #1
+    beq l_bad_size
+    cmp r0, #2
+    beq l_bad_var
     ldr r5, [r4, #RT_STRINGS]
     ldr r7, [r4, #RT_CODE]
 text_slot:
@@ -280,6 +298,14 @@ copy_done:
     mov r2, r2, lsl #2
     mov r1, #0
     bl mem_fill
+    ldr r0, [r4, #RT_LINES]
+    ldr r1, [r4, #RT_LINECOUNT]
+    add r2, r0, r1, lsl #2
+    sub r2, r2, r6
+    mov r0, r11
+    ldr r1, [r5, #SCRIPT_ENTRY_VARS]
+    ldr r3, [r6, #HDR_TOTAL_SIZE]
+    bl data_walk
     mov r0, #SCRIPT_STATE_LOADED
     str r0, [r5, #SCRIPT_ENTRY_STATE]
     ldr r0, [r4, #RT_TAIL]
@@ -298,6 +324,57 @@ load_return:
     add sp, sp, #4
     pop {r4-r11, pc}
 .pool
+
+; The data section (BLOCK_FLAG_DATA): r0 = the block, r1 = its variables (0: only check), r2 = where the section starts in
+; the block, r3 = totalSize -> r0 = 0 fine, 1 a record runs past totalSize, 2 a record is empty or leaves the variables.
+; With variables, every byte of a record goes into one slot, from slot `base` on. Clobbers r1 to r3 and r12.
+data_walk:
+    push {r4-r8, lr}
+    ldr r8, [r0, #HDR_VAR_COUNT]
+    add r4, r0, r2
+    add r5, r0, r3
+dw_next:
+    cmp r4, r5
+    movhs r0, #0
+    bhs dw_done
+    add r6, r4, #4
+    cmp r6, r5
+    bhi dw_size
+    ldrb r6, [r4]
+    ldrb r7, [r4, #1]
+    orr r6, r6, r7, lsl #8
+    ldrb r7, [r4, #2]
+    ldrb r12, [r4, #3]
+    orr r7, r7, r12, lsl #8
+    cmp r7, #0
+    beq dw_var
+    add r12, r6, r7
+    cmp r12, r8
+    bhi dw_var
+    add r4, r4, #4
+    add r12, r7, #3
+    bic r12, r12, #3
+    add r12, r4, r12
+    cmp r12, r5
+    bhi dw_size
+    cmp r1, #0
+    beq dw_skip
+    add r2, r1, r6, lsl #2
+dw_copy:
+    ldrb r3, [r4], #1
+    str r3, [r2], #4
+    subs r7, r7, #1
+    bne dw_copy
+dw_skip:
+    mov r4, r12
+    b dw_next
+dw_size:
+    mov r0, #1
+    b dw_done
+dw_var:
+    mov r0, #2
+dw_done:
+    pop {r4-r8, pc}
 
 verify_code:
     push {r5, r7, r9-r11, lr}

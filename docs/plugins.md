@@ -134,6 +134,9 @@ Ein Plugin, das nur LEDs oder Tasten braucht, nimmt das Display nie.
 - **Felder:** `const a = new Array(16);` oder `const a = [1, 2, 3];`, nur ganz
   oben, fest 1 bis 65535 Plätze, Zahlen. `a[i]`, `a[i] = x`, `a[i] += x`,
   `a.length`. Ein Index außerhalb des Felds beendet das Plugin mit einem Fehler.
+  Hat ein Feld-Literal nur Werte von 0 bis 255 (etwa ein Bild für
+  `korg.display.bitmap`), stehen sie als Bytes im Block und kosten keinen Code,
+  sonst schreibt der Code jeden Wert außer 0 einzeln ins Feld.
 - **Rechnen:** `+ - * / %`, `& | ^ << >> ~`, Vergleiche `== != === !== < <= > >=`,
   `&& || !`, `? :`. Alles rechnet mit 32 Bit und läuft über. `/` teilt ganzzahlig
   und schneidet gegen null ab (anders als in JavaScript), `%` hat das Vorzeichen
