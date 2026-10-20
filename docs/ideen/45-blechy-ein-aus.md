@@ -10,8 +10,9 @@ Offen: ob die Sound-Engine beim Aus- oder Anschalten noch oder schon läuft (fü
 
 ## Das Bild beim Ausschalten (gebaut)
 
-Statt des Kastens "Power Off" zeigt die Firmware beim Ausschalten den traurigen Blechy (`assets/blechy/sprites/blechy-sad.png`, die
-Idle-Pose mit geändertem Gesicht, kein Mund) und drei Zeilen: "Na dann," / "tschüss" / "atze...". Der Patch `power-off` gehört zum
+Statt des Kastens "Power Off" zeigt die Firmware beim Ausschalten Blechy, der winkt (`assets/blechy/sprites/blechy-wave-1.png` und
+`-2.png`), und drei Zeilen: "Haus'te" / "rin mein" / "Akh". Nach 700 ms blendet das Bild ab und geht wie eine alte Röhre aus
+(Strich, Punkt, dunkel), alles in der einen Sekunde, die die Firmware ohnehin wartet. Der Patch `power-off` gehört zum
 Satz BLECH, hängt sich in den Aufruf der Wartefunktion im Ausschalt-Handler (`0xC0038A74`) und lässt das Speichern der Firmware
 unberührt. Der Ort des Power-Off-Screens, die Messungen, die Prüfungen und was am Gerät offen ist:
 [Blechy beim Ausschalten](../messungen/2026-10-15-blechy-power-off.md). Ein Menüpunkt zum Abschalten des Bildes fehlt; EXIT beim
