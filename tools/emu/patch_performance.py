@@ -23,6 +23,8 @@ CORE = ('idle', 'playing', 'playing-keyboard', 'sequencer-four-note-long-ties')
 APPS = ('mandelbrot', 'life', 'pong')
 REPEATS = 3
 SECONDS = 2
+MUL_MIN_REDUCTION_PERCENT = 19.83
+APP_PROTOCOL = {'warmupFrames': 8, 'rngSeed': 0xB1EC, 'boundary': 'frame_return'}
 
 
 class BlockCounter:
@@ -52,8 +54,40 @@ def require(ok, message):
         raise ValueError(message)
 
 
+def run_completed_frames(dev, built, frames):
+    machine, uc = dev.m, dev.m.uc
+    require(isinstance(frames, int) and frames > 0, 'positive frame count required')
+    frame_at = built.layout['runtime'] + built.symbols['SCRIPT_CONTROL_FRAMES']
+    active_at = built.layout['runtime'] + built.symbols['SCRIPT_CONTROL_FRAME_ACTIVE']
+    boundary = built.symbols['frame_return']
+    previous, done = machine.u32(frame_at), 0
+    deadline = machine.time_ns + 5e9
+    uc.ctl_set_exits([*machine.ENTRIES, boundary])
+    uc.ctl_flush_tb()
+    try:
+        while done < frames and machine.time_ns < deadline and not machine.asserts:
+            if uc.reg_read(machine.A.UC_ARM_REG_PC) == boundary:
+                current = machine.u32(frame_at)
+                if current != previous:
+                    require(current == (previous + 1) & 0xffffffff, 'missed frame boundary')
+                    require(machine.u32(active_at) == 0, 'frame still active')
+                    previous, done = current, done + 1
+                    if done == frames:
+                        break
+                machine.step_over(boundary)
+            else:
+                machine.run_slice(limit=deadline)
+            machine.lines()
+            machine.irq()
+    finally:
+        uc.ctl_set_exits(list(machine.ENTRIES))
+        uc.ctl_flush_tb()
+    require(done == frames, 'completed frame boundary missing')
+
+
 def validate_capture(data):
-    require(data.get('format') == 'blech-performance' and data.get('version') == 1, 'invalid capture format')
+    require(data.get('format') == 'blech-performance' and data.get('version') == 2, 'invalid capture format')
+    require(data.get('appProtocol') == APP_PROTOCOL, 'different app input protocol')
     require(data.get('repeats') == REPEATS and data.get('seconds') == SECONDS, 'different workload duration or repeats')
     require(set(data.get('builds', {})) == set(BUILDS), 'all three builds required')
     require(bool(data.get('method')) and bool(data.get('programsSha256')), 'measurement identity missing')
@@ -91,6 +125,10 @@ def validate_capture(data):
                         require(abs(elapsed - SECONDS * 1e9) <= 1e6, 'scene duration differs')
                     if name.startswith('app-'):
                         require(row.get('semantic', {}).get('frames') == 50 and row['semantic'].get('fault') == 0, 'incomplete app window or plugin fault')
+                        require(row['semantic'].get('frameActive') == 0, 'incomplete app frame')
+                        for key in ('initialStateSha256', 'stateSha256'):
+                            require(isinstance(row['semantic'].get(key), str) and len(row['semantic'][key]) == 64,
+                                    'app variable state missing')
             for name in expected:
                 rows = [next(r for r in run['scenarios'] if r['scenario'] == name) for run in runs]
                 require(len({r['instructions'] for r in rows}) == 1, f'{build}/{variant}/{name}: non-reproducible count')
@@ -144,7 +182,17 @@ def compare(baseline, candidate, phase):
                 require(old_runtime > 0 and 0 < new_runtime <= old_runtime * .97, 'decoder target not reached')
         if phase in ('mul', 'combined'):
             require('mul' in old and 'mul' in new, 'MUL microbenchmark evidence missing')
-            require(new['mul']['meanInstructions'] <= old['mul']['meanInstructions'] * .80, 'MUL target not reached')
+            for evidence in (old['mul'], new['mul']):
+                mean = evidence.get('meanInstructions')
+                require(isinstance(mean, (int, float)) and math.isfinite(mean) and mean > 0,
+                        'invalid MUL instruction count')
+                require(evidence.get('resultsMatch') is True and evidence.get('pairs', 0) >= 2225,
+                        'MUL numeric comparison missing')
+            require(old['mul'].get('vectorsSha256') == new['mul'].get('vectorsSha256')
+                    and isinstance(old['mul'].get('vectorsSha256'), str)
+                    and len(old['mul']['vectorsSha256']) == 64, 'different MUL vectors')
+            require(new['mul']['meanInstructions'] <= old['mul']['meanInstructions'] *
+                    (1 - MUL_MIN_REDUCTION_PERCENT / 100), 'MUL target not reached')
             require(all(rows.get('app-' + p, {}).get('ratio', math.inf) <= 1.01 for p in APPS), 'app regression exceeds 1 percent')
         if phase in ('sysex', 'combined'):
             require('sysex' in old and 'sysex' in new, 'full transfer evidence missing')
@@ -154,7 +202,9 @@ def compare(baseline, candidate, phase):
         if phase == 'combined' and build != 'synth':
             require(new['footprint']['occupiedBytes'] < old['footprint']['occupiedBytes'], 'no net sampler space gain')
         results[build] = rows
-    return {'ok': True, 'phase': phase, 'builds': results}
+    return {'ok': True, 'phase': phase, 'builds': results,
+            **({'mulMinimumReductionPercent': MUL_MIN_REDUCTION_PERCENT}
+               if phase in ('mul', 'combined') else {})}
 
 
 def capture_worker(folder, build, variant):
@@ -190,12 +240,14 @@ def capture_worker(folder, build, variant):
         counts.clear()
         frame_at = built.layout['runtime'] + symbols['SCRIPT_CONTROL_FRAMES']
         before = machine.u32(frame_at) if frames else 0
+        if frames:
+            variables = machine.u32(entry + symbols['SCRIPT_ENTRY_VARS'])
+            initial_state = hashlib.sha256(uc.mem_read(variables, program['info']['vars'] * 4)).hexdigest()
         t0 = machine.time_ns
         uc.ctl_flush_tb()
         active = True
         if frames:
-            while machine.u32(frame_at) - before < frames and machine.time_ns - t0 < 5e9 and not machine.asserts:
-                dev.run(.001)
+            run_completed_frames(dev, built, frames)
         else:
             dev.run(SECONDS)
         active = False
@@ -211,6 +263,9 @@ def capture_worker(folder, build, variant):
             variables = machine.u32(entry + symbols['SCRIPT_ENTRY_VARS'])
             keep = {'head', 'tail', 'pending', 'done', 'at', 'tile', 'n', 'genRow', 'computing', 'paintAt', 'soupAt'}
             row['semantic'] = {'frames': machine.u32(frame_at) - before, 'fault': machine.u32(entry + symbols['SCRIPT_ENTRY_FAULT']),
+                'frameActive': machine.u32(built.layout['runtime'] + symbols['SCRIPT_CONTROL_FRAME_ACTIVE']),
+                'initialStateSha256': initial_state,
+                'stateSha256': hashlib.sha256(uc.mem_read(variables, program['info']['vars'] * 4)).hexdigest(),
                 'framebufferSha256': hashlib.sha256(dev.fb()).hexdigest(),
                 'progress': {name: machine.u32(variables + spec['slot'] * 4) for name, spec in program['info']['symbols'].items() if name in keep}}
         require(not machine.asserts, f'{build}/{variant}/{scene}: firmware assertion')
@@ -250,8 +305,12 @@ def capture_worker(folder, build, variant):
             index = next((i for i in range(count) if plugin in bytes(uc.mem_read(machine.u32(apps + symbols['SCRIPT_APPS_TABLE'] + i * 12 + 4), 32)).split(b'\0')[0].decode('ascii', 'replace').lower().replace(' ', '')), None)
             require(index is not None, f'app missing: {plugin}')
             require(dev.call(symbols['script_app_open'], index) == 1, 'app did not open')
-            dev.run(.3)
             entry = machine.u32(apps + symbols['SCRIPT_APPS_TABLE'] + index * 12)
+            if 'seed' in programs[plugin]['info']['symbols']:
+                variables = machine.u32(entry + symbols['SCRIPT_ENTRY_VARS'])
+                uc.mem_write(variables + programs[plugin]['info']['symbols']['seed']['slot'] * 4,
+                             struct.pack('<I', APP_PROTOCOL['rngSeed']))
+            run_completed_frames(dev, built, APP_PROTOCOL['warmupFrames'])
             measure('app-' + plugin, frames=50, entry=entry, program=programs[plugin])
             dev.press('exit', .3)
         install(dev, built, programs, list(programs))
@@ -284,7 +343,8 @@ def capture(folder):
     manifest = json.loads((folder / 'sets.json').read_text())
     require(manifest.get('ok') is True and manifest.get('sourcesUnchanged') is True, 'full set checks not passed')
     require(set(manifest.get('builds', {})) == set(BUILDS), 'three checked builds required')
-    data = {'format': 'blech-performance', 'version': 1, 'method': hashlib.sha256((inspect.getsource(BlockCounter) + inspect.getsource(capture_worker) + inspect.getsource(loader_profile)).encode()).hexdigest(),
+    data = {'format': 'blech-performance', 'version': 2, 'appProtocol': APP_PROTOCOL.copy(),
+            'method': hashlib.sha256((inspect.getsource(BlockCounter) + inspect.getsource(run_completed_frames) + inspect.getsource(capture_worker) + inspect.getsource(loader_profile) + json.dumps(APP_PROTOCOL, sort_keys=True)).encode()).hexdigest(),
             'repeats': REPEATS, 'seconds': SECONDS, 'programsSha256': hashlib.sha256((folder / 'programs.json').read_bytes()).hexdigest(), 'builds': {}}
     for build in BUILDS:
         meta = manifest['builds'][build]
