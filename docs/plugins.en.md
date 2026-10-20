@@ -195,6 +195,7 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.led(index, level)` | queue an LED job, `index` 0 to 87 (best a name such as `korg.led.TAP`), `level` 0 to 255 | all events except the body and `save` |
 | `korg.millis()` | milliseconds since the first call, from Timer3 (150 MHz), which wraps every 150 million ticks | everywhere |
 | `korg.app(name, group)` | registers the plugin as an app: `name` 1 to 15 characters, `group` `"GAMES"` or `"TOOLS"`. Returns the number of the app, -1 if all 8 places are taken. As a statement of its own at the top, once per plugin (the compiler checks this) | body only |
+| `korg.file.frame(array, file, index)` | reads frame `index` (0 to 65535) of the file `GIFnn.E2G` (`file` 0 to 99 is nn) in `KORG/blechtribe/Gif/` into the array, one byte to a slot, which is exactly what `korg.display.bitmap(array, 0, 0, 128)` draws. The array needs at least 1024 slots. Returns the frame's delay in ms (at least 1), 0 past the last frame, -1 without a file, for a wrong or cut file and outside the main screen; after -1 the device may have changed the last quarter of the array. From API version 7 | like `korg.led` |
 | `korg.display.take()` | take the display (way 2, see above); 1 on success, 0 if not (an app, another owner, not the main screen) | like `korg.led` |
 | `korg.display.release()` | give the display back | like `korg.led` |
 | `korg.display.clear()` | clear the display; the drawing calls only work for the owner of the display (the open app, or whoever took it) | like `korg.led` |
@@ -486,6 +487,14 @@ recomputed). All other bits are forbidden, and browser and device reject the blo
 without the bit is foreign: the device loads it but starts it only after someone has agreed on the device
 once (see "The BLECH menu on the device"). The bit is a hint, not protection, anyone can set it.
 
+**Picture files** (`korg.file.frame`): `KORG/blechtribe/Gif/GIF00.E2G` to `GIF99.E2G`, little endian: tag `GGIF`,
+version 1 (u16), number of frames (u16), then per frame its delay in ms (u16), two zero bytes and 1024 bytes of display
+memory (byte `(y / 8) * 128 + x`, bit `y % 8`). `tools/gif/gif2e2g.py` makes one from a GIF (Pillow), `src/script/gif.mjs`
+reads it in the browser. A call opens the file, seeks to the frame, reads it and closes the file again, through the
+firmware's FatFs functions (also `f_lseek`, `0xC009E404`, on blue `0xC008AF5C`) with the card loader's file object. It
+reads only while the main screen is open, like the save of `korg.store`. How long 1 KiB takes on the device is not
+measured; the 5 ms of a frame stay the limit.
+
 ### Persistent values
 
 Each plugin has 16 whole numbers as persistent slots, kept apart by plugin name. `korg.store.get` reads a
@@ -658,7 +667,7 @@ the whole display is his (the page number is not visible).
 
 ## The example plugins
 
-All eight apps are in the catalog of the Plugins page and in `data/script/presets.mjs`. They have run in the emulator of
+All nine apps are in the catalog of the Plugins page and in `data/script/presets.mjs`. They have run in the emulator of
 the plugin runtime (browser VM), nothing of them is checked on the device. `test/script-plugins.test.mjs` plays each one
 with input. The cost is the most expensive handler in cost units, counted in a run with input; the time next to it is
 **derived**: the Snake frame with 542 units took 0.103 ms in the emulator, so the 0.5 ms warning line is about 2630
@@ -674,6 +683,7 @@ units. Every app stays below it, the tests check that. On the device the time pe
 | Pong | GAMES | paddle by touchpad (height of the finger), Part left up, Part right down, encoder; first to 9 wins; ball and bot move on every second frame only, otherwise the slow display hardly shows the ball | 2120 bytes | 1221 units, 0.23 ms |
 | Simon | GAMES | the 16 pads light a sequence (a step 0.72 s, a little shorter every fourth round, never below 0.4 s), you play it back, one more step each round; the display shows the round, the step and what to do; a wrong pad ends the game, TAP or a pad restarts | 2268 bytes | frame at most 1673 units (game over), opening 1644 |
 | Mandelbrot | GAMES | a finger on the touchpad pans, Part right and the encoder zoom in, Part left out, keys 1 and 2 set the iterations (8 to 64), TAP resets | 2436 bytes | 2135 units, 0.41 ms |
+| GIF Player | TOOLS | plays `GIF00.E2G` to `GIF99.E2G` from the card: the encoder picks the file, Part left and right halve and double the speed (25 to 400 %), TAP pauses; a missing file is said. For trying animations on the display, a frame stays at least one runtime frame (40 ms) | 972 bytes | frame 3762 units, about 0.72 ms (the picture alone 3086), above the warning line of 0.5 ms |
 
 **Set-Timer** is meant for use in a set. Its clock is `korg.millis()`, which the runtime keeps current every frame,
 also while the app is closed. It subscribes only to `play`, the keys, `open` and `close`: closed it costs a few

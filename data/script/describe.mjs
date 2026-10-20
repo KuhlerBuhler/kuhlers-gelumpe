@@ -37,6 +37,7 @@ export const API_DOCS = Object.freeze({
   "korg.ledHold": "1 hält die Firmware davon ab, die Panel-LEDs neu zu schreiben, 0 gibt sie zurück.",
   "korg.menu.add": "Legt eine Seite im Menü BLECH an und gibt ihre Nummer zurück, -1 wenn alle Plätze belegt sind. Dreht der Nutzer daran, kommt das Ereignis menu.",
   "korg.app": "Meldet das Plugin als App im Menü BLECH an und gibt ihre Nummer zurück. Steht einmal ganz oben im Code, name hat höchstens 15 Zeichen.",
+  "korg.file.frame": "Liest Bild index der Datei GIFnn.E2G (nn = file) von der Karte ins Feld, ein Byte je Platz. Gibt die Dauer in ms zurück, 0 hinter dem letzten Bild, -1 ohne Datei.",
 });
 
 /** korg.onEvent is no API entry, the compiler reads it as a statement. */

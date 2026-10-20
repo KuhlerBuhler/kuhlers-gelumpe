@@ -23,7 +23,7 @@
  */
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 6;
+export const API_VERSION = 7;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -303,6 +303,7 @@ const API_LIST = [
   [57, "korg.ledHold", [int("on", 0, 1)], "void", UI, 100, 3],
   [58, "korg.menu.add", [str("label"), int("min", -1000000, 1000000), int("max", -1000000, 1000000), int("value", -1000000, 1000000)], "int", MENU_ADD, 60, 4],
   [59, "korg.app", [str("name"), str("group")], "int", APP_ONLY, 60, 5],
+  [60, "korg.file.frame", [arr("array"), int("file", 0, 99), int("index", 0, 65535)], "int", UI, 250, 7],
 ];
 
 /**
@@ -381,6 +382,14 @@ export const SCRIPT_APPS = Object.freeze({
 });
 
 export const SCRIPT_DISPLAY = Object.freeze({ width: 128, height: 64, bytes: 1024, ram: 0xC031B310 });
+
+/**
+ * A picture file for korg.file.frame on the card, `SD:KORG/blechtribe/Gif/GIFnn.E2G` (nn the file number, two digits), little
+ * endian: "GGIF", version (u16), frame count (u16), then each frame as its delay in milliseconds (u16), two zero bytes and the
+ * 1024 bytes of a whole display in the layout of its memory (src/script/gif.mjs packs and reads it).
+ */
+export const SCRIPT_GIF = Object.freeze({ magic: 0x46494747, version: 1, header: 8, frameHeader: 4, frameBytes: 1024, maxFile: 99,
+  folder: "KORG/blechtribe/Gif/" });
 
 /*
  * korg.display.bitmap(array, x, y, width): the picture is laid out like the display's own memory. One slot holds the 8

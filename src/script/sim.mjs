@@ -3,20 +3,23 @@
  * model, the LED ledger and a clock, one frame per call. It shows what a block
  * does, not what the firmware's drawing or timing do.
  */
-import { QUEUED_EVENTS, EVENT_BY_NAME, SCRIPT_LED } from "../../data/script/contract.mjs";
+import { QUEUED_EVENTS, EVENT_BY_NAME, SCRIPT_LED, SCRIPT_GIF, ERROR } from "../../data/script/contract.mjs";
 import { ScriptRuntime } from "./runtime.mjs";
 import { ScriptLeds } from "./led.mjs";
 import { Display, drawFault } from "./display.mjs";
 import { Coverage } from "./coverage.mjs";
 import { SimHardware } from "./hardware.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
+import { ScriptFault } from "./vm.mjs";
+import { gifPath, readGifFrame } from "./gif.mjs";
 
 export const FRAME_MS = 40;
 const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
 
 export class SimDevice {
-  /** @param {{ now?: () => number, storage?: object }} [o] a clock in milliseconds (the default advances one frame per frame()), and persistent values as ScriptRuntime takes them */
-  constructor({ now, storage = null } = {}) {
+  /** @param {{ now?: () => number, storage?: object, card?: Map<string, Uint8Array> }} [o] a clock in milliseconds (the default advances one frame per frame()), persistent values as ScriptRuntime takes them, and files on the card by path (gifPath) */
+  constructor({ now, storage = null, card = new Map() } = {}) {
+    this.card = card;
     this.clock = 0;
     this.now = now ?? (() => this.clock);
     this.display = new Display();
@@ -45,6 +48,10 @@ export class SimDevice {
         "korg.display.clearRect": (x, y, w, h) => this.display.clearRect(x, y, w, h),
         "korg.display.bitmap": (slots, x, y, width) => this.display.bitmap(slots, x, y, width),
         "korg.display.textNumber": (text, value, x, y) => this.display.textNumber(text, value, x, y),
+        "korg.file.frame": (slots, file, index) => {
+          if (slots.length < SCRIPT_GIF.frameBytes) throw new ScriptFault(ERROR.API_ARG, `korg.file.frame: das Feld hat ${slots.length} Plätze, ein Bild braucht ${SCRIPT_GIF.frameBytes}`);
+          return readGifFrame(this.card.get(gifPath(file)), index, slots);
+        },
         ...this.hardware.api(),
       },
     });
