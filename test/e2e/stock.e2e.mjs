@@ -97,6 +97,8 @@ test("Korg's build with BLECH keeps Presets and Modulationen open, Hacktribe's b
 test("while Korg's plain build is open the open Presets page gives way to the emulator page", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.setInputFiles("#cee-emu-vsb", h.file("hacktribe.vsb", await makeFirmware()));
+  await page.waitForFunction(() => document.querySelector("#cee-tab-fx").getAttribute("aria-disabled") === "false");
   await page.click("#cee-tab-fx");
   assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "fx");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", asStock(await makeFirmware())));

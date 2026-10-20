@@ -85,7 +85,7 @@ test("the options of the emulator page are sub-items under its entry; other page
   await page.locator("#cee-emu-setup > summary").focus();
   await page.keyboard.press("ArrowDown");
   assert.equal(await selectedTab(page), "emu", "arrow keys on an option do not walk the entries");
-  for (const tab of ["patcher", "fx", "start"]) {
+  for (const tab of ["patcher", "start"]) {
     await page.click(`#cee-tab-${tab}`);
     assert.equal(await page.locator(".cee-nav-sub:visible").count(), 0, `${tab} shows no options`);
   }

@@ -545,6 +545,9 @@ function boot() {
     if (emulator.firmware && emulator.firmware !== modFirmware) { modFirmware = emulator.firmware; modulations.loadBytes(modFirmware).catch(() => {}); }
     if (!emulator.firmware !== noFirmware) { noFirmware = !emulator.firmware; restrict(); }
   }, 1000);
+  // Shut from the first frame, not a second later: before that a click still opened a page without its tables.
+  noFirmware = !emulator.firmware;
+  restrict();
   const card = options.add("emu", { id: "cee-emu-card", title: "SD-Karte" });
   const sd = sdcardPanel(card.body, emulator, { heading: false });
   sidebar = contextSidebar(emulator.aside, { device, emulator, probe });

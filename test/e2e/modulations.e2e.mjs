@@ -44,10 +44,15 @@ async function modulations(vsb) {
 const form = page => page.locator("#cee-mod-form");
 const depth = page => form(page).getByLabel("Vorgabe-Tiefe");
 
-test("modulations: before a firmware is loaded the page says where to get one and shows no list", async () => {
-  const page = await modulations(null);
-  assert.equal(await page.locator("#cee-nav-title").textContent(), "Modulationen");
-  assert.match(await page.locator("#cee-mod-idle").textContent(), /Wähle im Bereich Emulator die Firmware/);
+test("modulations: before a firmware is loaded the entry is shut and says where to get one", async () => {
+  const page = await h.page();
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-emu");
+  const tab = page.locator("#cee-tab-mod");
+  assert.equal(await tab.getAttribute("aria-disabled"), "true");
+  assert.match(await tab.getAttribute("title"), /Erst im Emulator eine Firmware \(VSB\) wählen/);
+  await tab.click({ force: true });
+  assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "emu");
   assert.equal(await page.locator("#cee-mod-split").isVisible(), false);
   assert.deepEqual(page.errors, []);
 });
