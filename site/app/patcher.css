@@ -45,6 +45,7 @@
   color: var(--color-text-danger);
 }
 
+.cee-patch-usb,
 .cee-patch-done {
   display: flex;
   flex-direction: column;
@@ -53,6 +54,20 @@
   border: 1px solid var(--color-border-accent-strong);
   border-radius: var(--radius-lg);
   background: var(--color-surface-panel-alt);
+}
+
+.cee-patch-usb {
+  border-color: var(--color-border-muted);
+}
+
+.cee-patch-usb-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.cee-patch-usb .actions {
+  margin: 0;
 }
 
 .cee-patch-guide {

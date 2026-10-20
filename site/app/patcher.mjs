@@ -62,9 +62,14 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("span", { className: "ui-dropzone-files" }),
   ]);
 
-  const usbGet = el("button", { type: "button", className: "btn", id: "cee-patch-usb-get", textContent: "Vom Gerät über USB holen" });
+  const usbGet = el("button", { type: "button", className: "btn primary", id: "cee-patch-usb-get", textContent: "Update auf Gerät" });
   const usbNote = el("p", { className: "muted", id: "cee-patch-usb-note", role: "status", hidden: true });
-  const usbBox = el("div", { className: "actions cee-patch-usb", id: "cee-patch-usb" }, [usbGet]);
+  const usbBox = el("section", { className: "cee-patch-usb", id: "cee-patch-usb" }, [
+    el("h2", { className: "cee-patch-usb-title", textContent: "Update direkt über USB" }),
+    el("p", { className: "cee-patch-lead", textContent: "Ist BLECH schon auf deiner Electribe, schließ sie nur per USB an und verbinde sie auf der Seite Gerät. Der Knopf holt die Firmware-Datei von der Karte, setzt das neueste BLECH drauf, prüft sie im Emulator und legt sie zurück. Am Gerät drückst du danach nur noch DATA UTILITY > SOFTWARE UPDATE." }),
+    el("div", { className: "actions" }, [usbGet]),
+    usbNote,
+  ]);
   const usbPut = el("button", { type: "button", className: "btn primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
   const verdictBox = el("div", { className: "cee-patch-verdict", id: "cee-patch-verdict", role: "status" });
   const synthSet = el("p", { className: "muted", id: "cee-patch-synth-set", hidden: true });
@@ -107,7 +112,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("h1", { className: "cee-patch-title", textContent: "Firmware patchen" }),
     el("p", { className: "cee-patch-lead", textContent: "Zieh deine eigene SYSTEM.VSB hierher. Es wird nichts hochgeladen, gepatcht wird in deinem Browser. Eine fertige Firmware gibt es hier nie, nur deine eigene mit BLECH drauf." }),
     el("p", { className: "cee-patch-lead" }, ["Falls danach etwas nicht startet: ", el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: "Rettung" }), " zeigt den dokumentierten Weg zurück."]),
-    drop, usbBox, usbNote, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
+    usbBox, drop, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
   ]));
 
   async function loadPatches(build = input ? buildOf(input) : "hacktribe") {
@@ -267,7 +272,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     if (file) pick(file);
   });
 
-  run.addEventListener("click", async () => {
+  run.addEventListener("click", () => patchAndCheck());
+
+  /** Applies the set to the input and checks the copy in the emulator; afterwards `passed` holds it when it passed. */
+  async function patchAndCheck() {
     if (!allowed(flow).patch) return;
     const build = buildOf(input);
     dispatch({ type: "patching", patches: blech ? itemsFor(blech, build) : [] });
@@ -299,7 +307,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     } catch (e) {
       dispatch({ type: "error", message: e.message });
     }
-  });
+  }
 
   thorough.addEventListener("click", async () => {
     if (!passed || !applied) return;
@@ -349,17 +357,38 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   const percent = (done, total) => Math.round(done * 100 / total);
 
+  /** The update file from the card into the page. False when it cannot go on by itself (no ORIGINAL.BIN beside a patched file). */
+  async function fetchFromDevice(s) {
+    const got = await fetchUpdateFile(s, (done, total) => { usbNote.textContent = `Vom Gerät lesen, ${percent(done, total)} %`; });
+    usb = { fromOriginal: got.fromOriginal };
+    await take(got.bytes);
+    if (flow.input?.kind === "blech") {
+      usbNote.textContent = "Auf der Karte liegt schon eine gepatchte SYSTEM.VSB und keine ORIGINAL.BIN daneben. Zieh deine unveränderte SYSTEM.VSB oben hinein und schreib sie nach der Prüfung über USB aufs Gerät; sie kommt dann als ORIGINAL.BIN mit auf die Karte, jedes weitere Update startet von ihr.";
+      return false;
+    }
+    return true;
+  }
+
+  /** The checked copy onto the card; the first time the unpatched file goes beside it as ORIGINAL.BIN. */
+  async function storeToDevice(s) {
+    await storeUpdateFile(s, passed, usb?.fromOriginal ? null : original, (done, total) => { usbNote.textContent = `Aufs Gerät schreiben, ${percent(done, total)} %`; });
+    usbNote.textContent = "Fertig. Auf der Karte liegt die neue SYSTEM.VSB. Am Gerät DATA UTILITY > SOFTWARE UPDATE, ENTER, danach neu starten. Während des Updates nicht ausschalten.";
+    usb = { fromOriginal: true };
+    toast("Über USB geschrieben.", "ok");
+  }
+
   usbGet.addEventListener("click", async () => {
     const s = session();
     if (!s) { toast("Erst auf der Seite Gerät die Electribe verbinden.", "error"); return; }
     usbGet.disabled = true;
     usbNote.hidden = false;
     try {
-      const got = await fetchUpdateFile(s, (done, total) => { usbNote.textContent = `Vom Gerät lesen, ${percent(done, total)} %`; });
-      usbNote.textContent = got.fromOriginal ? "Vom Gerät gelesen: ORIGINAL.BIN, die unveränderte Datei vom ersten Update über USB." : "Vom Gerät gelesen: SYSTEM.VSB.";
-      usb = { fromOriginal: got.fromOriginal };
-      await take(got.bytes);
-      if (flow.input?.kind === "blech") usbNote.textContent = "Auf der Karte liegt schon eine gepatchte SYSTEM.VSB und keine ORIGINAL.BIN daneben. Zieh deine unveränderte SYSTEM.VSB hier hinein; beim Schreiben über USB kommt sie als ORIGINAL.BIN auf die Karte, jedes weitere Update startet dann von ihr.";
+      if (!await fetchFromDevice(s)) return;
+      if (flow.phase !== "ready") { usbNote.textContent = "Die Datei vom Gerät braucht noch eine Entscheidung, siehe unten."; return; }
+      usbNote.textContent = "Patchen und im Emulator prüfen, das dauert ein paar Minuten.";
+      await patchAndCheck();
+      if (!passed) { usbNote.textContent = "Die Prüfung im Emulator ist nicht bestanden, auf das Gerät kam nichts. Details unten."; return; }
+      await storeToDevice(s);
     } catch (e) {
       usbNote.hidden = true;
       toast(e.message, "error");
@@ -375,11 +404,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usbPut.disabled = true;
     usbNote.hidden = false;
     try {
-      // the first time the unpatched file goes beside it, so the next update can start from it again
-      await storeUpdateFile(s, passed, usb?.fromOriginal ? null : original, (done, total) => { usbNote.textContent = `Aufs Gerät schreiben, ${percent(done, total)} %`; });
-      usbNote.textContent = "Auf der Karte: die neue SYSTEM.VSB. Am Gerät DATA UTILITY > SOFTWARE UPDATE, ENTER, danach neu starten. Während des Updates nicht ausschalten.";
-      usb = { fromOriginal: true };
-      toast("Über USB geschrieben.", "ok");
+      await storeToDevice(s);
     } catch (e) {
       usbNote.hidden = true;
       toast(e.message, "error");
