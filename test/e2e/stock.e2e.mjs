@@ -76,7 +76,7 @@ test("Korg's plain build: no section about the device state, Presets and Modulat
   assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "emu", "a click on a disabled entry opens nothing");
   await page.click("#cee-tab-scripts");
   await page.keyboard.press("ArrowDown");
-  assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "rescue", "the arrow keys skip the disabled entries");
+  assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "changelog", "the arrow keys skip the disabled entries");
   assert.deepEqual(page.errors, []);
 });
 

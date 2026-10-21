@@ -18,7 +18,7 @@ test("the sidebar lists only the entries, the navbar names the open page, up and
   const page = await h.page();
   await page.goto(h.url);
   assert.equal(await selectedTab(page), "start");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Patcher", "Startbildschirm", "Plugins", "Presets", "Modulationen", "Rettung"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Rettung", "Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen"]);
   assert.equal(await page.locator("#cee-sidebar .cee-nav-label").count(), 0, "no headings between the entries");
   await page.click("#cee-tab-patcher");
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Patcher");
@@ -28,7 +28,7 @@ test("the sidebar lists only the entries, the navbar names the open page, up and
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Startbildschirm");
   await page.keyboard.press("ArrowUp");
   await page.keyboard.press("ArrowUp");
-  assert.equal(await selectedTab(page), "emu");
+  assert.equal(await selectedTab(page), "rescue");
   await page.click("#cee-brand");
   await page.waitForFunction(() => document.querySelector("#cee-areas [aria-selected='true']")?.dataset.tab === "start");
 });
@@ -46,7 +46,7 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.equal(await selectedTab(page), "start", "a remembered hidden page is ignored");
   await page.goto(`${h.url}?labs#ptools`);
   assert.equal(await selectedTab(page), "ptools", "with ?labs the pages stay reachable for tests");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Patcher", "Startbildschirm", "Plugins", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples", "Rettung"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Rettung", "Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples"]);
 });
 
 test("the navbar title of the emulator page is a menu: emulator or real device", async () => {
@@ -186,4 +186,23 @@ test("the start page has its sections in heading order and the donate link opens
   await app.addInitScript(() => { window.__GELUMPE_APP = { version: "0.0.0" }; });
   await app.goto(h.url);
   assert.equal(await app.getAttribute("#cee-donate", "target"), "_self", "in the app the navigation is caught and opened in the browser");
+});
+
+test("changelogs: a new release puts a ! on the entry, opening it shows the release like GitHub and the ! goes", async () => {
+  const page = await h.page();
+  const releases = [{ tag_name: "v1.3.0", name: "v1.3.0", html_url: "https://github.com/KuhlerBuhler/kuhlers-gelumpe/releases/tag/v1.3.0", published_at: "2026-11-01T12:00:00Z", prerelease: false, draft: false, body: "## Neu\n- **Changelogs** im Menü\n\nMehr auf [GitHub](https://github.com/KuhlerBuhler/kuhlers-gelumpe).", assets: [] }];
+  await page.route("https://api.github.com/**", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(releases) }));
+  await page.goto(h.url);
+  await page.locator("#cee-tab-changelog .cee-nav-badge").waitFor();
+  await page.click("#cee-tab-changelog");
+  const release = page.locator("#cee-changelog .cee-release");
+  assert.equal(await release.count(), 1);
+  assert.match(await release.locator("h2").textContent(), /v1\.3\.0/);
+  assert.equal(await release.locator("li strong").textContent(), "Changelogs");
+  assert.equal(await release.locator("a[href='https://github.com/KuhlerBuhler/kuhlers-gelumpe']").count(), 1);
+  assert.equal(await page.locator("#cee-tab-changelog .cee-nav-badge").count(), 0);
+  await page.reload();
+  await page.locator("#cee-changelog .cee-release").first().waitFor({ state: "attached" });
+  assert.equal(await page.locator("#cee-tab-changelog .cee-nav-badge").count(), 0, "seen stays seen");
+  assert.deepEqual(page.errors, []);
 });
