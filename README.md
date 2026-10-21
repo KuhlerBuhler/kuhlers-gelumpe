@@ -1,19 +1,30 @@
+[English version](README.en.md)
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/banner-dark.svg">
   <img alt="Kuhler's GELUMPE: Grafischer Electribe-Leser und -Modifizierer plus Emulator" src="assets/readme/banner-light.svg" width="100%">
 </picture>
 
-[English version](README.en.md)
-
-<p align="center"><img alt="Blechy tanzt" src="docs/images/readme/blechy-tanzt.gif" width="240"></p>
-
 <h3 align="center">BLECHTRIBE: neue Firmware für deine Electribe 2. Kostenlos.</h3>
 
 <p align="center">
-  <a href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/releases/latest"><img alt="App herunterladen" src="https://img.shields.io/badge/%E2%AC%87%20App%20herunterladen-Mac%20%7C%20Windows%20%7C%20Linux-e4007c?style=for-the-badge" height="56"></a>
+  <a href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/releases/latest"><img alt="App herunterladen" src="https://img.shields.io/badge/%E2%AC%87%20App%20herunterladen-Mac%20%7C%20Windows%20%7C%20Linux-2d6579?style=for-the-badge" height="56"></a>
 </p>
 
 <p align="center">Du musst hier nichts suchen und keinen Code anfassen. Klick auf den Knopf, lade die App für deinen Rechner, fertig.</p>
+
+## Inhalt
+
+- [So kommt BLECHTRIBE auf deine Electribe](#so-kommt-blechtribe-auf-deine-electribe)
+- [Häufige Fragen](#häufige-fragen)
+- [Was kann was?](#was-kann-was)
+- [Vorher und nachher](#vorher-und-nachher)
+- [Die Firmware patchen](#die-firmware-patchen)
+- [Die App laden](#die-app-laden)
+- [Plugins](#plugins)
+- [Der Emulator](#der-emulator)
+- [Sicherheit](#sicherheit-bevor-du-etwas-aufs-gerät-spielst)
+- [Mitmachen](#mitmachen)
 
 ## So kommt BLECHTRIBE auf deine Electribe
 
@@ -39,29 +50,29 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 - **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen bleiben, wo sie sind. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
 - **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
 - **Hab ich mit BLECHTRIBE noch Hacktribe?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf.
-- **Ich hab auf GitHub `.json`-Dateien gefunden, was mach ich damit?** Nichts. Die braucht nur die App. Du brauchst nur den Download-Knopf oben.
+- **Wie kann ich eigene Effekte machen?** In der App unter **Presets**. Da bearbeitest du die MFX- und IFX-Presets in Klartext und schickst sie per USB an die Electribe. Das geht auf der roten Electribe mit Hacktribe oder BLECHTRIBE.
+- **Ich hab eine Idee für die App oder die Firmware.** Immer her damit: [Idee aufschreiben](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). Dafür brauchst du ein GitHub-Konto.
 
 ## Was kann was?
 
-| | Sampler (rot) Original | Sampler mit Hacktribe | **BLECHTRIBE** rot | **BLECHTRIBE** mit Hacktribe | Synth (blau) Original | **BLECHTRIBE** blau |
+| | Sampler (rot) Original | Synth (blau) Original | Sampler mit Hacktribe | **BLECHTRIBE** rot | **BLECHTRIBE** blau | **BLECHTRIBE** mit Hacktribe |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
-| Blechy-Startbild und eigene Schrift | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Blechy-Ladeanimation | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
-| Blechy beim Ausschalten | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Startbild selbst malen | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| Anpassbare Oberfläche (Startbild, Schrift, Ausschaltbild) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Ladeanimation mit Fortschritt | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Startbild selbst malen | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Synth-Filter (MS20, Acid, ...) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Effekte frei bearbeiten (App) | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| 128 Plätze für eigene Effekte | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
-| Zweiter Master-Effekt (MFX 2) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Plugins und Spiele (Snake, Tetris, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Pad-Farben und LED-Farben | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Patternwechsel erst nach Bestätigung | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| TAP Motion | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Notenassistent | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Würfeln (Zufallsmelodie) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Klare Meldung bei kaputten Samples | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
-| Doom | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
-| Update über USB aus der App | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| Effekte frei bearbeiten (App) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| 128 Plätze für eigene Effekte | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Zweiter Master-Effekt (MFX 2) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Plugins und Spiele (Snake, Tetris, ...) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Pad-Farben und LED-Farben | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Patternwechsel erst nach Bestätigung | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Notenassistent | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Würfeln (Zufallsmelodie) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Klare Meldung bei kaputten Samples | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Update über USB aus der App | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 
 ## Vorher und nachher
 
@@ -69,15 +80,35 @@ Links die normale Electribe, rechts mit BLECHTRIBE (aus dem Emulator).
 
 | Normal | BLECHTRIBE |
 |:-:|:-:|
-| ![Normales Startbild](docs/images/readme/start-hacktribe.png) | ![BLECHTRIBE Startbild](docs/images/readme/start-blechtribe.png) |
+| ![Normales Startbild](docs/images/readme/start-hacktribe.png) | ![BLECHTRIBE beim Starten](docs/images/readme/blechtribe-start.gif) |
 | ![Normaler Hauptbildschirm](docs/images/readme/haupt-hacktribe.png) | ![BLECHTRIBE Hauptbildschirm](docs/images/readme/haupt-blechtribe.png) |
 | ![Normales Menü](docs/images/readme/menu-hacktribe.png) | ![BLECHTRIBE Menü](docs/images/readme/menu-blechtribe.png) |
-
-So startet BLECHTRIBE:
-
-<img alt="BLECHTRIBE beim Starten" src="docs/images/readme/blechtribe-start.gif" width="384">
+| **Ausschalten** | ![BLECHTRIBE beim Ausschalten](docs/images/readme/blechtribe-aus.gif) |
 
 ---
+
+## Die Firmware patchen
+
+Auf der Seite "Patcher" ziehst du deine eigene `SYSTEM.VSB` rein (Korgs Original 2.02 für Sampler oder
+Synth, oder Hacktribe 2.02), wählst die Patches aus und bekommst eine neue Datei. Bevor du die
+runterladen kannst, bootet der Emulator sie und prüft, ob alles läuft: Hauptbildschirm, Update-Abfrage,
+Startmodi, Notschalter. Das dauert ein paar Minuten, du siehst dabei, welche Gruppe gerade dran ist.
+Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches und ihre Grenzen stehen in
+[docs/patcher.md](docs/patcher.md). Wer ohne App patchen will, nimmt `BLECH.patch` oder die passende
+`.bsdiff`-Datei aus dem Release, das steht da auch.
+
+Was BLECH auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
+LEDs, Patternwechsel erst nach Bestätigung, TAP Motion, den Notenassistenten im KEYBOARD-Modus, einen
+Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
+zurück, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
+hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
+verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten,
+zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).
+
+So sieht die Electribe mit dem BLECH-Theme aus (im Emulator):
+
+<img alt="Die wichtigsten Bildschirme mit dem BLECH-Theme und alle Zeichen der vier eigenen Schriften" src="assets/blechy/theme-preview.png" width="480">
+
 
 ## Für Bastler
 
@@ -121,14 +152,14 @@ Nichts davon landet auf irgendeinem Server.
 
 ## Vorschau
 
-Der Dunkelmodus der App. Der Emulator ist hier ohne Firmware zu sehen, das Display bleibt schwarz.
+Die App im Dunkelmodus. Der Emulator ist hier ohne Firmware zu sehen, das Display bleibt schwarz.
 
 | | |
 |---|---|
 | ![Startseite](docs/images/preview/start.png) | ![Patcher mit laufender Prüfung](docs/images/preview/patcher.png) |
-| Start | Patcher, die Prüfung im Emulator läuft |
-| ![Preset-Editor](docs/images/preview/presets.png) | ![Plugin-Katalog](docs/images/preview/plugin-catalog.png) |
-| Preset-Editor | Plugin-Katalog |
+| Start | Patcher |
+| ![Startbildschirm](docs/images/preview/splash.png) | ![Plugin-Katalog](docs/images/preview/plugin-catalog.png) |
+| Startbildschirm selbst malen | Plugin-Katalog |
 | ![Plugin-Editor](docs/images/preview/plugin-editor.png) | ![Emulator](docs/images/preview/emulator.png) |
 | Plugin-Editor | Emulator |
 
@@ -182,28 +213,6 @@ Der Build baut die Seite, friert den Emulator-Dienst per PyInstaller zu einem Si
 `src-tauri/target/release/bundle/`: `dmg/*.dmg` (macOS), `nsis/*-setup.exe` (Windows),
 `appimage/*.AppImage` und `deb/*.deb` (Linux). Gebaut wird auf dem jeweiligen System, quer geht
 nicht. Mehr dazu (Intel-Mac, Windows auf ARM): [Entwicklung](docs/development.md).
-
-## Die Firmware patchen
-
-Auf der Seite "Patcher" ziehst du deine eigene `SYSTEM.VSB` rein (Korgs Original 2.02 für Sampler oder
-Synth, oder Hacktribe 2.02), wählst die Patches aus und bekommst eine neue Datei. Bevor du die
-runterladen kannst, bootet der Emulator sie und prüft, ob alles läuft: Hauptbildschirm, Update-Abfrage,
-Startmodi, Notschalter. Das dauert ein paar Minuten, du siehst dabei, welche Gruppe gerade dran ist.
-Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches und ihre Grenzen stehen in
-[docs/patcher.md](docs/patcher.md). Wer ohne App patchen will, nimmt `BLECH.patch` oder die passende
-`.bsdiff`-Datei aus dem Release, das steht da auch.
-
-Was BLECH auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
-LEDs, Patternwechsel erst nach Bestätigung, TAP Motion, den Notenassistenten im KEYBOARD-Modus, einen
-Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
-zurück, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
-hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
-verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten,
-zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).
-
-So sieht die Electribe mit dem BLECH-Theme aus (im Emulator):
-
-<img alt="Die wichtigsten Bildschirme mit dem BLECH-Theme und alle Zeichen der vier eigenen Schriften" src="assets/blechy/theme-preview.png" width="480">
 
 ## Plugins
 

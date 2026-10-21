@@ -1,5 +1,6 @@
 name: Idea
 description: A feature or a plugin idea
+labels: ["Idee"]
 body:
   - type: textarea
     attributes: { label: The idea, description: What should it do and why }
