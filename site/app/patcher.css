@@ -186,3 +186,30 @@
   font-weight: 600;
   color: var(--color-text-secondary);
 }
+
+/* One step of the way at a time; Zurück sits bottom left, Weiter bottom right. */
+.cee-patch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  outline: none;
+}
+
+.cee-patch-panel[hidden] { display: none; }
+
+.cee-patch-nav {
+  display: flex;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-muted);
+}
+
+.cee-patch-nav > :not(#cee-patch-back) { margin-left: auto; }
+
+.cee-patch-nav > [hidden] { display: none; }
+
+.cee-patch-plan {
+  margin: var(--space-3) 0 0;
+  padding-left: var(--space-5);
+  line-height: 1.6;
+}

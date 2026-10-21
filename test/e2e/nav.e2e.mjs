@@ -177,7 +177,7 @@ test("the drawing sits at the same height on the emulator page and on the real d
 test("the start page has its sections in heading order and the donate link opens outside the app", async () => {
   const page = await h.page();
   await page.goto(h.url);
-  assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Wie installiere ich BLECHTRIBE?", "Was kann BLECHTRIBE?", "Wer kam auf so ne dumme Idee?", "Spenden", "Erkunden"]);
+  assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Wie installiere ich BLECHTRIBE?", "Was kann BLECHTRIBE?", "Erkunden", "Spenden"]);
   for (const id of ["#cee-donate", "#cee-donate-start"]) {
     assert.equal(await page.getAttribute(id, "href"), "https://www.paypal.me/kuhlerbuhler");
     assert.equal(await page.getAttribute(id, "target"), "_blank");
@@ -186,7 +186,7 @@ test("the start page has its sections in heading order and the donate link opens
   await app.addInitScript(() => { window.__GELUMPE_APP = { version: "0.0.0" }; });
   await app.goto(h.url);
   assert.equal(await app.getAttribute("#cee-donate", "target"), "_self", "in the app the navigation is caught and opened in the browser");
-  assert.equal(await app.getAttribute("#cee-start-korg-red", "target"), "_self");
+  assert.equal(await app.getAttribute("#cee-patch-korg-red", "target"), "_self");
 });
 
 test("the app opens on the start page although its address carries the emulator link; the browser goes to the emulator", async () => {
@@ -212,17 +212,11 @@ test("the settings page names the app's version in the app, and has no such line
   assert.equal(await app.locator("#cee-version").textContent(), "App-Version 1.2.0");
 });
 
-test("the start page links to Korg's firmware downloads in its install steps, and to Plugins and Presets under Erkunden", async () => {
+test("the start page sends to the patcher for Korg's firmware, and to Plugins and Presets under Erkunden", async () => {
   const page = await h.page();
   await page.goto(h.url);
-  const cards = page.locator("#cee-start-firmware a.cee-device-card");
-  assert.deepEqual(await cards.evaluateAll(list => list.map(a => [a.dataset.device, a.href, a.target])), [
-    ["red", "https://www.korg.com/us/support/download/product/0/368/#software", "_blank"],
-    ["blue", "https://www.korg.com/us/support/download/product/0/367/#software", "_blank"],
-  ]);
-  assert.equal(await page.locator("#cee-start-entry #cee-start-firmware").count(), 1, "the first step of the install");
-  const tone = await cards.evaluateAll(list => list.map(a => getComputedStyle(a).borderTopColor));
-  assert.notEqual(tone[0], tone[1], "each card has the border of its device's colour");
+  assert.equal(await page.getAttribute("#cee-start-step-firmware", "href"), "#patcher");
+  assert.equal(await page.locator("#cee-start-page .cee-device-card").count(), 0, "Korg's cards live on the patcher");
   const explore = page.locator("#cee-start-explore a");
   assert.deepEqual(await explore.evaluateAll(list => list.map(a => a.getAttribute("href"))), ["#scripts", "#fx"]);
 });
