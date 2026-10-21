@@ -1,6 +1,8 @@
 # After every push to main (a release commit, a merged PR), develop gets main's commits, so the two never drift apart.
-# develop is protected: a direct push needs SYNC_TOKEN (a token of an admin, branch protection does not bind admins).
-# Without it, or when the merge has conflicts, a pull request main -> develop is opened instead.
+# The workflow opens a pull request main -> develop. When main brings nothing but the version bump of a release (only
+# "version" lines in the four version files) and the required checks pass, it merges the pull request itself. Anything
+# else stays open for a person. develop needs one approving review; the merge uses SYNC_TOKEN (a token of an admin,
+# branch protection does not bind admins). Without it the pull request stays open.
 name: Sync develop
 
 on:
@@ -9,8 +11,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
+  checks: read
 
 concurrency:
   group: sync-develop
@@ -19,32 +22,56 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
           ref: develop
           fetch-depth: 0
-          token: ${{ secrets.SYNC_TOKEN || github.token }}
-      - name: Merge main into develop
-        id: merge
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          if git merge-base --is-ancestor origin/main HEAD; then
-            echo "develop already has main"; echo "done=1" >> "$GITHUB_OUTPUT"; exit 0
-          fi
-          if git merge --no-edit origin/main && git push origin HEAD:develop; then
-            echo "done=1" >> "$GITHUB_OUTPUT"
-          else
-            git merge --abort 2>/dev/null || true
-            echo "done=0" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Otherwise a pull request
-        if: steps.merge.outputs.done != '1'
+      - name: Pull request main -> develop
+        id: pr
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -z "$(gh pr list --base develop --head main --state open --json number --jq '.[].number')" ]; then
-            gh pr create --base develop --head main --title "Sync develop with main" --body "main has commits develop does not have (for example a release commit). Opened by the workflow Sync develop."
+          git fetch origin main
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "develop already has main"; exit 0
           fi
+          n=$(gh pr list --base develop --head main --state open --json number --jq '.[0].number')
+          if [ -z "$n" ]; then
+            gh pr create --base develop --head main --title "Sync develop with main" --body "main has commits develop does not have (for example a release commit). Opened by the workflow Sync develop; it merges a pure version bump itself once the checks pass."
+            n=$(gh pr list --base develop --head main --state open --json number --jq '.[0].number')
+          fi
+          echo "number=$n" >> "$GITHUB_OUTPUT"
+      - name: Only the version bump?
+        id: bump
+        if: steps.pr.outputs.number != ''
+        run: |
+          allowed='^(package\.json|src-tauri/Cargo\.lock|src-tauri/Cargo\.toml|src-tauri/tauri\.conf\.json)$'
+          files=$(git diff --name-only HEAD...origin/main)
+          echo "$files"
+          if echo "$files" | grep -Evq "$allowed"; then
+            echo "main changes more than the version files: the pull request waits for a person"; exit 0
+          fi
+          other=$(git diff -U0 HEAD...origin/main | grep -E '^[+-]' | grep -Ev '^(\+\+\+|---) ' | grep -Ev '^[+-][[:space:]]*"?version"?[[:space:]]*[:=]' || true)
+          if [ -n "$other" ]; then
+            echo "lines besides the version:"; echo "$other"; exit 0
+          fi
+          echo "only=1" >> "$GITHUB_OUTPUT"
+      - name: Merge once the checks pass
+        if: steps.bump.outputs.only == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          N: ${{ steps.pr.outputs.number }}
+        run: |
+          if [ -z "$SYNC_TOKEN" ]; then
+            echo "no SYNC_TOKEN: pull request #$N stays open"; exit 0
+          fi
+          # The checks of main's push run count for the pull request (same commit); give them a moment to show up.
+          for i in $(seq 1 20); do
+            [ "$(gh pr checks "$N" --required 2>/dev/null | grep -cE '^(unit|browser|guard)[[:space:]]')" -ge 3 ] && break
+            sleep 15
+          done
+          gh pr checks "$N" --required --watch --interval 30
+          GH_TOKEN="$SYNC_TOKEN" gh pr merge "$N" --merge --admin
