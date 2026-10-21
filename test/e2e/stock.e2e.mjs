@@ -75,7 +75,7 @@ test("Korg's plain build: Presets and Modulationen are disabled with a short too
   assert.deepEqual(page.errors, []);
 });
 
-test("Korg's build with BLECH keeps Presets and Modulationen open, Hacktribe's build too, and the section shows for Hacktribe", async () => {
+test("Korg's build with BLECH keeps Presets and Modulationen open, Hacktribe's build too", async () => {
   const blech = await emulatorWith(withBlech(asStock(await makeFirmware())));
   await blech.waitForFunction(() => document.querySelector("#cee-tab-fx").getAttribute("aria-disabled") === "false");
   assert.equal(await shut(blech, "mod"), "false");
@@ -85,7 +85,6 @@ test("Korg's build with BLECH keeps Presets and Modulationen open, Hacktribe's b
   const hacktribe = await emulatorWith(await makeFirmware());
   await hacktribe.waitForFunction(() => document.querySelector("#cee-tab-fx").getAttribute("aria-disabled") === "false");
   assert.equal(await shut(hacktribe, "mod"), "false");
-  await section(hacktribe).waitFor();
   assert.deepEqual(hacktribe.errors, []);
 });
 

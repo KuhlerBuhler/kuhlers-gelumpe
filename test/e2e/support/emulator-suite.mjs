@@ -239,6 +239,7 @@ export function emulatorSuite(index, parts) {
   }
   const sidebarFirmware = () => makeFirmware([
     { kind: "ifx", slot: 50, record: makeRecord("ifx", { name: "Gate Filter", devices: { ifx1: 0x0a }, params: { ifx1: [0, 64, 64, 64] } }) },
+    { kind: "ifx", slot: 7, record: makeRecord("ifx", { name: "Other Filter", devices: { ifx1: 0x0a }, params: { ifx1: [0, 64, 64, 64] } }) },
     { kind: "mfx", slot: 2, record: masterPreset() },
   ]);
 
@@ -311,7 +312,7 @@ export function emulatorSuite(index, parts) {
     baseScreen();
     const page = await followPage();
     await page.locator("#cee-emu-where", { hasText: "Hauptbildschirm · Part 1" }).waitFor({ state: "attached", timeout: 5000 });
-    const other = await page.locator("#cee-fx-slot option:not([value='50'])").first().getAttribute("value");
+    const other = "7";
     await page.selectOption("#cee-fx-slot", other);
     await page.waitForTimeout(1500);
     assert.equal(await page.inputValue("#cee-fx-slot"), other, "the main screen shows no effect and leaves the choice alone");
