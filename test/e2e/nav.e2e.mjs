@@ -252,14 +252,19 @@ test("the emulator opens in a window of its own; the page shows a note, and Hier
 
 test("changelogs: a new release puts a ! on the entry, opening it shows the release like GitHub and the ! goes", async () => {
   const page = await h.page();
-  const releases = [{ tag_name: "v1.3.0", name: "v1.3.0", html_url: "https://github.com/KuhlerBuhler/kuhlers-gelumpe/releases/tag/v1.3.0", published_at: "2026-11-01T12:00:00Z", prerelease: false, draft: false, body: "## Neu\n- **Changelogs** im Menü\n\nMehr auf [GitHub](https://github.com/KuhlerBuhler/kuhlers-gelumpe).", assets: [] }];
+  const releases = [{ tag_name: "v1.3.0", name: "v1.3.0", html_url: "https://github.com/KuhlerBuhler/kuhlers-gelumpe/releases/tag/v1.3.0", published_at: "2026-11-01T12:00:00Z", prerelease: false, draft: false, body: "## Neu\n- **Changelogs** im Menü\n\nMehr auf [GitHub](https://github.com/KuhlerBuhler/kuhlers-gelumpe).", assets: ["GELUMPE_1.3.0_aarch64.dmg", "GELUMPE_1.3.0_x64-setup.exe", "gelumpe_1.3.0_amd64.AppImage", "gelumpe_1.3.0_amd64.deb", "BLECH.patch", "BLECH-for-0a1b2c3d.bsdiff", "SHA256SUMS"].map(name => ({ name, browser_download_url: `https://example.invalid/${name}` })) }];
   await page.route("https://api.github.com/**", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(releases) }));
   await page.goto(h.url);
   await page.locator("#cee-tab-changelog .cee-nav-badge").waitFor();
   await page.click("#cee-tab-changelog");
   const release = page.locator("#cee-changelog .cee-release");
   assert.equal(await release.count(), 1);
-  assert.match(await release.locator("h2").textContent(), /v1\.3\.0/);
+  assert.equal(await release.locator("h2 a").textContent(), "v1.3.0", "the version is the heading and the link to GitHub");
+  assert.equal(await release.locator(".cee-status").count(), 0, "no Aktuell: the newest stands on top anyway");
+  const buttons = await release.locator(".cee-release-get a").allTextContents();
+  assert.equal(buttons.length, 2, "one app for this system and the patch, not every file");
+  assert.equal(buttons[1], "Patch herunterladen");
+  assert.match(buttons[0], /^App für (macOS|Windows|Linux)$/);
   assert.equal(await release.locator("li strong").textContent(), "Changelogs");
   assert.equal(await release.locator("a[href='https://github.com/KuhlerBuhler/kuhlers-gelumpe']").count(), 1);
   assert.equal(await page.locator("#cee-tab-changelog .cee-nav-badge").count(), 0);
