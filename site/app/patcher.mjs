@@ -73,7 +73,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     return el("li", {}, [a]);
   };
   const korg = el("div", { className: "cee-patch-korg", id: "cee-patch-korg" }, [
-    el("p", { className: "cee-patch-lead" }, ["Deine ", el("code", { textContent: "SYSTEM.VSB" }), " liegt auf der SD-Karte der Electribe, im Ordner ", el("code", { textContent: "KORG/…/System/" }), ". Hast du keine, lad Korgs System Updater 2.02, darin steckt sie:"]),
+    el("p", { className: "cee-patch-lead" }, ["Deine ", el("code", { textContent: "SYSTEM.VSB" }), " liegt auf der SD-Karte der Electribe, im Ordner ", el("code", { textContent: "KORG/…/System/" }), ". Hast du keine, lad Korgs System Updater 2.02, darin steckt sie."]),
     el("ul", { className: "cee-entry-steps", id: "cee-patch-firmware" }, [
       korgCard("red", "Electribe 2 Sampler (rot)", "https://www.korg.com/us/support/download/product/0/368/#software"),
       korgCard("blue", "Electribe 2 (blau)", "https://www.korg.com/us/support/download/product/0/367/#software"),
@@ -133,7 +133,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   // One panel per step of the way; Zurück and Weiter move between them, the flow decides how far Weiter may go.
   const panels = [
-    [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), korg, drop, verdictBox, routeBox, patchBox],
+    [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, verdictBox, routeBox, patchBox, korg],
     [plan, synthSet],
     [bar, note, groupList, checksBox, el("div", { className: "actions" }, [thorough])],
     [result, done],
@@ -145,10 +145,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   root.replaceChildren(el("div", { className: "cee-patch" }, [
     el("h1", { className: "cee-patch-title ui-sr-only", textContent: "Firmware Patcher" }),
     way,
-    el("p", { className: "cee-patch-lead" }, ["Falls danach etwas nicht startet: ", el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: "Rettung" }), " zeigt den dokumentierten Weg zurück."]),
     usbNote,
     ...panels,
     el("div", { className: "cee-patch-nav", id: "cee-patch-nav" }, [back, next, run]),
+    el("p", { className: "muted" }, ["Falls danach etwas nicht startet: ", el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: "Rettung" }), " zeigt den dokumentierten Weg zurück."]),
   ]));
 
   /** The furthest step the flow allows: a file taken opens step 2, a run step 3, a passed copy step 4. */
