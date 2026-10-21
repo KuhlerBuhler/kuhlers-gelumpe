@@ -30,9 +30,10 @@ werden. Vorher den [dokumentierten Rückweg](../messungen/2026-10-10-rueckweg-ge
 | 8 | Bei der Kalibrierung den bisherigen Wert notieren und das VALUE-Rad drehen | Kontrast 1 bis 25, Bewegung läuft weiter; keine andere Global-Einstellung ändert sich | offen |
 | 9 | Einen gut lesbaren Wert wählen, WRITE, EXIT und erneut öffnen | Original-Speicherweg, gewählter Kontrast bleibt; Rückweg funktioniert | offen |
 | 10 | Mit EXIT gehalten neu starten und dieselbe Kontrastseite öffnen | Originaldarstellung ohne Kalibrierungsanimation, Kontrast weiter einstellbar | offen |
+| 11 | Nur am Sampler mit bereits vorhandenem Doom-Paket: SHIFT + TAP beim Einschalten halten | Doom startet nach dem Laden; bei einer Fehlermeldung Code und Ablauf festhalten | offen |
 
 Die blaue Electribe lädt keine Samples und hat keinen Startbild-Editor am Gerät. Dort
-entfallen Schritt 2 und 6; ihre Original-Synth-Filter werden bei Schritt 5 als Gegenprobe
+entfallen Schritt 2, 6 und 11; ihre Original-Synth-Filter werden bei Schritt 5 als Gegenprobe
 benutzt. Die Kalibrierung wird auch auf der blauen geprüft.
 
 ## Ergebnis festhalten

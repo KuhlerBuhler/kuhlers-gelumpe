@@ -32,7 +32,7 @@
 - **Ist das sicher?** Die App prüft die neue Firmware zuerst im Emulator. Das fängt viele Fehler ab, garantiert aber nicht das Verhalten jedes echten Geräts. Sichere vorher deine Original-Firmware und deine Daten.
   Der Notschalter: **EXIT beim Einschalten halten**, dann startet die Electribe ohne BLECHTRIBE, und du spielst dein Original wieder auf.
 - **Brauch ich einen PC?** Ja, einmal zum Umbauen der Datei. Danach nicht mehr.
-- **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen bleiben, wo sie sind. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
+- **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen Samples bleiben erhalten. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
 - **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
 - **Hab ich mit BLECHTRIBE noch Hacktribe?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf. Auf Korgs Original schaltet es die Hacktribe-Funktionen nicht frei.
 - **Wie kann ich eigene Effekte machen?** In der App unter **Presets**. Da bearbeitest du die MFX- und IFX-Presets in Klartext und schickst sie per USB an die Electribe. Das geht auf der roten Electribe mit Hacktribe oder BLECHTRIBE.
