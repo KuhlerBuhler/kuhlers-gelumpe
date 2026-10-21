@@ -164,8 +164,8 @@ GELUMPE läuft als App oder im Browser und funktioniert mit dem Electribe 2 Samp
 
 Bevor irgendwas ans Gerät geht, schauen ein Linter mit Regeln, die ich am echten Gerät abgeglichen hab,
 und der Emulator drüber, ob die Electribe das voraussichtlich schluckt. Emulator, Patcher und Plugins
-laufen mit Korgs Original 2.02 und mit Hacktribe 2.02. Nur der Effekt-Editor und das Schreiben ins RAM
-über MIDI brauchen Hacktribe. Bei anderen Firmware-Ständen liegen die Adressen woanders, deshalb wird
+laufen mit Korgs Original 2.02 und mit Hacktribe 2.02. Der Effekt-Editor und das Schreiben ins RAM über MIDI brauchen auf dem roten Sampler
+Hacktribe oder BLECHTRIBE mit seinen eigenen USB-Befehlen. Bei anderen Firmware-Ständen liegen die Adressen woanders, deshalb wird
 ein unbekanntes Gerät oder eine unbekannte Datei nur gelesen und nie beschrieben.
 
 **Firmware ist nicht dabei.** Du lädst deine eigene `SYSTEM.VSB`, und die bleibt auf deinem Rechner.

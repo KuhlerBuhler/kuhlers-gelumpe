@@ -34,8 +34,8 @@ you can
 
 Before anything is sent, a linter whose rules were cross-checked against the physical device and a
 simulated device check whether the Electribe would accept it. The emulator, the patcher and plugins
-work with Korg's original 2.02 and with Hacktribe 2.02. The effect editor and writing to RAM over MIDI
-need Hacktribe. A different build moves the addresses, so a device or firmware file it does not
+work with Korg's original 2.02 and with Hacktribe 2.02. On the red sampler, the effect editor and RAM writes over MIDI
+use Hacktribe or BLECH with its own USB commands. A different build moves the addresses, so a device or firmware file it does not
 recognise is only read from.
 
 **No firmware ships with this.** You load your own `SYSTEM.VSB`. The file never leaves your
