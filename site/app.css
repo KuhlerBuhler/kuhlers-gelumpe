@@ -1209,7 +1209,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-home {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-14);
 }
 
 .cee-note {
@@ -1222,7 +1222,17 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-sec {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-5);
+}
+
+/* DESIGN.md rule 1: the parent spaces its children with gap, so nothing in a page, section or step adds a margin. */
+.cee-main :is(.ui-section, .cee-sec, .cee-patch-panel, .cee-home, .ui-field) > * {
+  margin-block: 0;
+}
+
+@media (max-width: 720px) {
+  .cee-home { gap: var(--space-8); }
+  .cee-sec { gap: var(--space-3); }
 }
 
 .cee-sec p {
@@ -1233,7 +1243,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
-  gap: var(--space-4);
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1778,20 +1788,7 @@ select,
 
 /* Pattern-Werkzeuge (pattern-tools.mjs) */
 .cee-pt-intro {
-  margin-bottom: var(--space-6);
   line-height: 1.6;
-}
-
-#cee-ptools > .ui-section + .ui-section {
-  margin-top: var(--space-8);
-}
-
-#cee-ptools .ui-section > .cee-grid {
-  margin-top: var(--space-4);
-}
-
-.cee-pt-device-row {
-  margin-top: var(--space-3);
 }
 
 .cee-pt-results {
@@ -2008,7 +2005,7 @@ select,
 #cee-scripts {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-5);
   height: calc(100dvh - 7.75rem);
   min-height: 34rem;
   padding: 0;
@@ -2104,7 +2101,7 @@ select,
 .cee-ws-console .cee-term-prompt { align-items: flex-start; }
 
 @media (max-width: 720px) {
-  #cee-scripts { height: auto; min-height: 0; }
+  #cee-scripts { height: auto; min-height: 0; gap: var(--space-3); }
   #cee-scripts > .cee-workspace,
   #cee-scripts > .cee-plug-page { flex: none; }
   .cee-workspace { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); height: auto; min-height: 0; }
