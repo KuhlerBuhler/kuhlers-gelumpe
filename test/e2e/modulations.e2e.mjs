@@ -95,7 +95,7 @@ test("modulations: an edit is counted and marked, the check gets only the change
   assert.equal(await page.locator("#cee-mod-download").isVisible(), false, "nothing to download before the check");
   await page.click("#cee-mod-run");
   await page.locator("#cee-mod-download").waitFor();
-  await page.locator("#app-toasts .cee-toast", { hasText: /2 von 2 bestanden/ }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: /alles in Ordnung/ }).waitFor();
   const at = READ + 12 * 0x58 + 26;
   assert.equal(fake.seen.check.allow, `0x${at.toString(16)}:1`, "the check is told which byte may change");
   assert.deepEqual(new Uint8Array(fake.seen.check.pair.subarray(0, 0x200100)), vsb, "the original goes to the check unchanged");
@@ -154,7 +154,7 @@ test("modulations: a failed emulator check offers no download", async () => {
   try {
     await depth(page).fill("50");
     await page.click("#cee-mod-run");
-    await page.locator("#app-toasts .cee-toast", { hasText: "Nicht bestanden: 1 von 2" }).waitFor();
+    await page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat 1 Fehler gefunden" }).waitFor();
     assert.equal(await page.locator("#cee-mod-download").isVisible(), false);
     await page.locator("#cee-mod-details > summary").click();
     assert.match(await page.locator("#cee-mod-checks").textContent(), /nicht bestanden Notschalter/);

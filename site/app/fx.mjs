@@ -176,7 +176,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   /** Korg's records are found through the pointer arrays, so live access needs BLECH on Korg's build, running the file's arrays. */
   async function stockReady(s) {
     if (s.device?.build !== "stock" || s.device.ram !== "blech") {
-      state.why = "Das verbundene Gerät läuft nicht auf Korgs Original mit BLECH; Korgs Records lassen sich nur mit BLECHs Befehlen lesen und schreiben.";
+      state.why = "Das verbundene Gerät läuft nicht auf Korgs Original mit BLECHTRIBE; Korgs Records lassen sich nur mit BLECHTRIBEs Befehlen lesen und schreiben.";
       return false;
     }
     if (state.matched?.session !== s || state.matched.bytes !== state.base) {
@@ -327,7 +327,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       const used = state.rec.map;
       const free = Array.from({ length: field("fx.map.source").repeat[0].count }, (_, i) => i).find(i => b[base + i * size] === 0);
       if (free === undefined || !used.length) {
-        toast("Kein freier Platz, oder keine Steuerung, deren unbekannte Bytes sich übernehmen lassen.", "error");
+        toast("Das geht hier nicht: Es ist kein Platz mehr frei, oder dieser Effekt lässt sich nicht kopieren.", "error");
         return;
       }
       const donor = used[used.length - 1].index;
@@ -536,7 +536,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const info = state.image ? presetRoom(state.image.bytes, state.kind) : null;
     fileGroup.hidden = !info;
     if (!info) return;
-    const more = info.patched ? "" : ` Die Firmware kennt nur ${info.capacity}; mit dem BLECH-Patch preset-tables sind es 128.`;
+    const more = info.patched ? "" : ` Die Firmware kennt nur ${info.capacity}; mit dem BLECHTRIBE-Patch preset-tables sind es 128.`;
     room.textContent = `${kindWord(state.kind)}: ${info.count} von ${info.capacity} Plätzen im Menü.${more}`;
     addButton.disabled = info.count >= info.capacity || !state.rec;
     saveButton.disabled = !state.rec;
@@ -627,8 +627,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       exportChecks.hidden = false;
       const good = report.checks.filter(c => c.ok).length;
       exportNote.textContent = report.ok
-        ? `Geprüft: ${good} von ${report.checks.length} bestanden. Die Kopie ändert nur Presets und Menülängen.`
-        : `Nicht bestanden: ${report.checks.length - good} von ${report.checks.length}. Die Kopie wird nicht angeboten.`;
+        ? "Geprüft, alles in Ordnung. Du kannst die Datei jetzt speichern."
+        : `Die Prüfung hat ${report.checks.length - good} Fehler gefunden. Diese Änderung lässt sich so nicht speichern. Schick uns bitte einen Screenshot.`;
       if (report.ok) { state.passed = res.bytes; downloadButton.hidden = false; }
     } catch (e) {
       exportNote.textContent = e.message;

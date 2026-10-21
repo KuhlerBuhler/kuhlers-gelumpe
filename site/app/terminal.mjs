@@ -194,8 +194,8 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
         device.log?.(`Terminal: ${text}`, "ok");
         showRehearsal(record, true);
       } else if (res.refused) {
-        line("error", `Nicht gesendet: ${res.error.message}`);
-        toast(`Nicht gesendet: ${res.error.message}`, "error");
+        line("error", `Nicht gesendet. Ist die Electribe noch verbunden? (${res.error.message})`);
+        toast(`Nicht gesendet. Ist die Electribe noch verbunden? (${res.error.message})`, "error");
       } else {
         const text = `Am Gerät gestoppt bei Einheit ${res.unit + 1}, Nachricht ${res.step}: ${res.error.message} Danach ging nichts mehr raus.`;
         line("error", text);

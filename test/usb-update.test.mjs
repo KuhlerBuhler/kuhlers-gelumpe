@@ -48,7 +48,7 @@ test("a later update starts from ORIGINAL.BIN and leaves it as it is", async () 
 
 test("without SYSTEM.VSB on the card, or without the FILE commands on the device, the page is told why", async () => {
   const { session } = await device(new Map());
-  await assert.rejects(fetchUpdateFile(session), /keine SYSTEM\.VSB/);
+  await assert.rejects(fetchUpdateFile(session), /fehlt die Datei SYSTEM\.VSB/);
   const old = await device(null);
-  await assert.rejects(fetchUpdateFile(old.session), /noch nicht über USB/);
+  await assert.rejects(fetchUpdateFile(old.session), /zu alt für Updates über USB/);
 });

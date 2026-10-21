@@ -79,10 +79,10 @@ export function locateModTable(bytes) {
   const hits = [...found].filter(([, readers]) => readers);
   const hex = n => `0x${n.toString(16)}`;
   if (!hits.length) {
-    return { ok: false, reasons: ["Die Modulationstabelle wird von keiner Stelle im Code gelesen: kein Zeiger auf 72 gültige Einträge."] };
+    return { ok: false, reasons: ["Die Tabelle mit den Modulationen ist in dieser Datei nicht zu finden."] };
   }
   if (hits.length > 1) {
-    return { ok: false, reasons: [`Mehrere Kopien der Modulationstabelle werden gelesen (${hits.map(([f]) => hex(f)).join(", ")}). Welche gilt, ist nicht klar.`] };
+    return { ok: false, reasons: [`Die Tabelle mit den Modulationen ist mehrfach drin (${hits.map(([f]) => hex(f)).join(", ")}), unklar welche gilt.`] };
   }
   const [[file, readers]] = hits;
   const place = [TABLE.id, ...TABLE.locate.others].find(id => TABLES.get(id).file === file) ?? "other";
