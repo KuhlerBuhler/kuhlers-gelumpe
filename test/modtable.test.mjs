@@ -129,6 +129,8 @@ test("identify finds the table through the pointer and gives its reasons when th
   const bad = await identify(none);
   assert.equal(bad.known, false);
   assert.match(bad.reasons.join(" "), /Tabelle mit den Modulationen/);
+  assert.match(bad.reasons.join(" "), /BLECHTRIBE/);
+  assert.match(bad.reasons.join(" "), /unveränderte.*SYSTEM\.VSB/);
 });
 
 const EMPTY = { source: 0, target: 0, lo: 0, hi: 0, follow: 0 };

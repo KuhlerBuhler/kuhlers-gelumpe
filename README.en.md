@@ -5,57 +5,122 @@
   <img alt="Kuhler's GELUMPE: graphical Electribe reader and modifier plus emulator" src="assets/readme/banner-light.svg" width="100%">
 </picture>
 
+<h3 align="center">BLECHTRIBE: new firmware for your Electribe 2. Free.</h3>
 
-A graphical Electribe 2 reader and modifier, plus an emulator and a patcher for the BLECH firmware,
-the "Blechtribe". BLECH runs either on top of Hacktribe or directly on Korg's original firmware of the
-red sampler. The blue Electribe 2 with firmware 2.02 has a separate Synth set tested in the
-emulator, including the theme, start image, playing aids, BLECH menu and plugins. Its scope and
-remaining limits are recorded in the [Synth measurement](docs/messungen/2026-10-16-blech-synth.md).
+<p align="center">
+  <a href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/releases/latest"><img alt="Download the app" src="https://img.shields.io/badge/%E2%AC%87%20Download%20the%20app-Mac%20%7C%20Windows%20%7C%20Linux-2d6579?style=for-the-badge" height="56"></a>
+</p>
 
-**Who I am:** Kuhler Buhler aka Pascal, software developer and live act. After installing Hacktribe I
-noticed you can edit the MFX and IFX presets. Then I spent a few months in a "Entwicklungspsychose"
-(a development frenzy), and this is what came out of it. Korg's treatment of the Electribe 2 annoys me
-(they abandoned it), and with BLECH I practically built the Electribe 3.
+<p align="center">No code to edit. Click the button, download the app for your computer and get started.</p>
 
-If this is useful to you: [donate via PayPal](https://www.paypal.me/kuhlerbuhler).
+## Contents
 
-An editor and emulator for the Korg Electribe 2 Sampler with firmware 2.02, Korg's original or
-[Hacktribe](https://github.com/bangcorrupt/hacktribe). It runs as an app or in the browser. With it
-you can
+- [Frequently asked questions](#frequently-asked-questions)
+- [Install BLECHTRIBE on your Electribe](#install-blechtribe-on-your-electribe)
+- [Which firmware does what?](#which-firmware-does-what)
+- [Before and after](#before-and-after)
+- [Patch the firmware](#patch-the-firmware)
+- [Get the app](#get-the-app)
+- [Plugins](#plugins)
+- [The emulator](#the-emulator)
+- [Safety](#safety-before-you-put-anything-on-the-device)
+- [Contributing](#contributing)
 
-- start and operate your Electribe's firmware in an **emulator**, with display, keys, knobs and LEDs,
-  without anything touching your device,
-- **patch** your `SYSTEM.VSB` and export a new firmware file for the SD card (the BLECH patch set,
-  a start image editor, a second master effect and more),
-- write **plugins** that run on the Electribe: a running light, a game on the display, a menu page of
-  your own,
-- edit effects and patterns in plain words and real units instead of bytes, and send them to the
-  device over Web MIDI.
+## Frequently asked questions
 
-Before anything is sent, a linter whose rules were cross-checked against the physical device and a
-simulated device check whether the Electribe would accept it. The emulator, the patcher and plugins
-work with Korg's original 2.02 and with Hacktribe 2.02. On the red sampler, the effect editor and RAM writes over MIDI
-use Hacktribe or BLECH with its own USB commands. A different build moves the addresses, so a device or firmware file it does not
-recognise is only read from.
+- **Does it cost anything?** No. If you like it, a [donation](https://www.paypal.me/kuhlerbuhler) is welcome.
+- **Is it safe?** The app checks the new firmware in the emulator before making it available. That catches many errors, but it cannot guarantee the result on every real device. Back up your original firmware and your data first. Hold **EXIT while powering on** to start without BLECHTRIBE and reinstall your original firmware.
+- **Do I need a computer?** Yes, once to patch the file. You can use the Electribe without the computer afterwards.
+- **Are samples included?** No. BLECHTRIBE contains no samples. Your own samples stay on your card. On the first start, the Electribe offers to take over your existing sample folder.
+- **Does it work on the blue Electribe?** Yes, with fewer features. See the table below.
+- **Do I keep Hacktribe?** Yes, when you start with a Hacktribe firmware file. BLECHTRIBE adds its features on top. Patching Korg's original firmware does not add Hacktribe's features.
+- **How do I make my own effects?** Open **Presets** in the app. Edit MFX and IFX presets in plain text and send them over USB. This works on the red sampler with Hacktribe or BLECHTRIBE.
+- **I have an idea for the app or firmware.** [Write it down here](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). You need a GitHub account.
 
-**No firmware ships with this.** You load your own `SYSTEM.VSB`. The file never leaves your
-computer, nothing is uploaded to a server.
+## Install BLECHTRIBE on your Electribe
 
-## Hacktribe or the original firmware?
+You need a computer (Mac, Windows or Linux) and an SD card reader, once for a few minutes.
 
-BLECH adds its own features to either base. Hacktribe additionally provides its extended oscillator
-bank, MFX/IFX, grooves and scales, FX/groove import and export, a custom INIT pattern and MIDI
-extensions. Those features require Hacktribe; applying BLECH to a Korg original does not add them.
+1. **Download the app** with the button above. On the release page, find "Assets": `.dmg` for Mac, `.exe` for Windows, `.AppImage` or `.deb` for Linux. macOS blocks the downloaded app at first because it is not signed by Apple. See [Get the app](#get-the-app) for how to allow it.
+2. **Put the Electribe's SD card in your computer.**
+3. **Open the app**, choose **Patcher** and drop your `SYSTEM.VSB` from the card onto the page. It is in `KORG/electribe sampler/System/` (original sampler), `KORG/hacktribe/System/` (Hacktribe) or `KORG/electribe/System/` (blue Electribe).
+4. **Wait for the checks to finish**, then save the new file. The app tells you where to put it on the card.
+5. **Put the card back in the Electribe**, turn it on and start the firmware update. The app shows you which buttons to press.
 
-The trade-off: the factory sample bank gives way to oscillators. User samples occupy slots 501 to
-999, and factory samples need conversion for that bank. Existing patterns can sound different when
-oscillator or effect assignments change, so check them after switching. Staying on Korg's original
-with BLECH avoids that extra firmware conversion. The blue Synth set keeps Korg's synth firmware;
-Hacktribe itself supports both hardware types.
+If something goes wrong, the app tells you what happened. If you are still stuck, include a photo of the message when asking for help.
 
-See the [Hacktribe project](https://github.com/bangcorrupt/hacktribe),
-[oscillators](https://github.com/bangcorrupt/hacktribe/wiki/Features#oscillators) and
-[factory samples](https://github.com/bangcorrupt/hacktribe/wiki/How-To#factory-samples).
+## Which firmware does what?
+
+| | Red sampler original | Blue synth original | Sampler with Hacktribe | **BLECHTRIBE** red | **BLECHTRIBE** blue | **BLECHTRIBE** with Hacktribe |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| Record and load your own samples | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Extended Hacktribe oscillator bank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Extra Hacktribe MFX, IFX, grooves and scales | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Import/export effects and grooves through Hacktribe menus | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Custom INIT pattern through Hacktribe | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Hacktribe MIDI extensions | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Use the red sampler's unchanged factory sample bank | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Custom start image, fonts and shutdown image | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Loading animation with progress | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Draw your own start image on the device | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Synth filters (MS20, Acid, ...) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Edit effects freely in the app | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| 128 slots for custom effects | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Second master effect (MFX 2) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Plugins and games (Snake, Tetris, ...) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Pad and LED colours | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Confirm before changing patterns | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Note assistant | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Dice (random melodies) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Clear messages for broken samples | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Update over USB from the app | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+
+Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIBE to a Korg original does not add Hacktribe's features. The blue BLECHTRIBE column describes the Synth set on Korg 2.02. Hacktribe itself supports both hardware types.
+
+**Hacktribe trade-offs:**
+
+| Drawback | What it means for you |
+|---|---|
+| Oscillators replace the factory sample bank | Your own samples use slots 501 to 999. Factory samples need conversion before loading into the user bank. |
+| Existing patterns may sound different | Oscillator and effect assignments change. Listen to your patterns after switching and reassign sounds where needed. |
+| An extra firmware change | Starting from Korg's original requires a suitable Hacktribe file first. BLECHTRIBE also works directly on Korg's original. |
+
+Features and migration: [Hacktribe](https://github.com/bangcorrupt/hacktribe), [oscillators](https://github.com/bangcorrupt/hacktribe/wiki/Features#oscillators), [factory samples](https://github.com/bangcorrupt/hacktribe/wiki/How-To#factory-samples) and [FAQ](https://github.com/bangcorrupt/hacktribe/wiki/FAQ).
+
+## Before and after
+
+The normal Electribe is on the left, BLECHTRIBE on the right. The animations use our own firmware graphics; the loading finale is held longer in this preview. Normal shutdown is a schematic illustration using our own font.
+
+| Normal | BLECHTRIBE |
+|:-:|:-:|
+| ![Normal start image](docs/images/readme/start-hacktribe.png) | ![BLECHTRIBE starting](docs/images/readme/blechtribe-start.gif) |
+| ![Normal main screen](docs/images/readme/haupt-hacktribe.png) | ![BLECHTRIBE main screen](docs/images/readme/haupt-blechtribe.png) |
+| ![Normal menu](docs/images/readme/menu-hacktribe.png) | ![BLECHTRIBE menu](docs/images/readme/menu-blechtribe.png) |
+| ![Normal shutdown, schematic](docs/images/readme/ausschalten-normal.svg) | ![BLECHTRIBE shutting down](docs/images/readme/blechtribe-aus.gif) |
+
+## Patch the firmware
+
+Open **Patcher**, drop your own `SYSTEM.VSB` (Korg's original 2.02 for sampler or synth, or Hacktribe 2.02) onto the page and choose the patches. Before downloading, the emulator boots the result and checks the main screen, update prompt, start modes and emergency switch. This takes a few minutes; the page shows which group is running. It then explains how to install the file on the device. All patches and their limits are in [docs/patcher.en.md](docs/patcher.en.md). To patch without the app, use `BLECH.patch` or the matching `.bsdiff` from the release as described there.
+
+On the sampler, BLECHTRIBE includes the BLECH menu, plugins, display and LED colours, pattern confirmation, TAP Motion, a note assistant in KEYBOARD mode, random melodies (SHIFT + PART ERASE), EXIT + WRITE to save, EXIT + Pad to reset a part's sound, pink chord steps, migration of your existing sample folder, Blechy, loading progress, clearer sample errors and Doom (SHIFT + TAP at power-on; [licence](docs/doom-lizenz.md), German).
+
+## For tinkerers
+
+GELUMPE is the app behind BLECHTRIBE: an editor, emulator and firmware patcher for the Electribe 2. The blue Electribe has a separate Synth set; its tested scope and remaining limits are in the [Synth measurement](docs/messungen/2026-10-16-blech-synth.md).
+
+## Who I am
+
+I am Kuhler Buhler, aka Pascal, a software developer and live act. After installing Hacktribe I noticed you could edit the MFX and IFX presets. Then I spent a few months in a development frenzy, and this is what came out of it. Korg left so much of the Electribe 2's potential unused that, with BLECHTRIBE, I practically built the Electribe 3 that never happened.
+
+If this is useful to you, a [donation via PayPal](https://www.paypal.me/kuhlerbuhler) is welcome.
+
+## What you can do
+
+GELUMPE runs as an app or in the browser. It reads and patches your own firmware, runs it in an emulator and lets you write plugins, edit effects and patterns, and send changes over USB MIDI. The red sampler's effect editor and RAM writes require Hacktribe or BLECHTRIBE's USB commands. An unrecognised firmware or device is read only.
+
+**No firmware or samples ship with this.** Load your own `SYSTEM.VSB`. It stays on your computer and is not uploaded to a server.
 
 ## Preview
 
@@ -117,22 +182,6 @@ The build compiles the page, freezes the emulator service into a sidecar with Py
 `src-tauri/target/release/bundle/`: `dmg/*.dmg` (macOS), `nsis/*-setup.exe` (Windows),
 `appimage/*.AppImage` and `deb/*.deb` (Linux). Each system builds its own, cross-building does not
 work. More (Intel Mac, Windows on ARM): [development](docs/development.md) (German).
-
-## Patch the firmware
-
-On the "Patcher" page you load your own `SYSTEM.VSB` (Korg's original 2.02 or Hacktribe 2.02), choose the patches and
-get a new file. The emulator boots it first and checks it (main screen, update prompt, start modes,
-emergency switch). The page only releases the file once the check has passed, which takes a few
-minutes. It then shows the steps for putting it on the card. The patches, their format and their
-limits are described in [docs/patcher.en.md](docs/patcher.en.md). If you want to patch without the app,
-take `BLECH.patch` or the matching `.bsdiff` file from the release, described there as well.
-
-Among other things the BLECH set brings: its own BLECH menu with plugins, colours for display and LEDs,
-pattern changes with confirmation, TAP Motion, the note assistant in KEYBOARD mode, a melody generator
-(SHIFT + PART ERASE), Blechy the pet, a splash screen with a loading bar, clear messages instead of
-"Unknown Error" when loading samples, and Doom (SHIFT + TAP at power-on, licence in
-[docs/doom-lizenz.md](docs/doom-lizenz.md), German).
-
 
 ## Plugins
 
