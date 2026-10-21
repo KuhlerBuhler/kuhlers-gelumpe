@@ -27,9 +27,10 @@ function mount() {
 /**
  * @param {string} message
  * @param {"ok"|"info"|"error"} [kind]
+ * @param {{stay?: boolean}} [options] stay: an info or ok toast that waits to be closed, like an error
  * @returns {() => void} closes the toast
  */
-export function toast(message, kind = "info") {
+export function toast(message, kind = "info", { stay = false } = {}) {
   if (!message) return () => {};
   mount();
   const host = kind === "error" ? assertive : polite;
@@ -48,7 +49,7 @@ export function toast(message, kind = "info") {
   const open = [...polite.children];
   for (const old of open.slice(0, Math.max(0, open.length - MAX))) old.remove();
   requestAnimationFrame(() => node.classList.add("visible"));
-  if (kind !== "error") {
+  if (kind !== "error" && !stay) {
     const arm = () => { timer = setTimeout(remove, AUTO_MS); };
     arm();
     node.addEventListener("mouseenter", () => clearTimeout(timer));

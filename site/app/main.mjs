@@ -28,7 +28,7 @@ import { patchesPresent, selectFor } from "../../src/patch.mjs";
 import { sharedProbe } from "./probe.mjs";
 import { dropdown } from "./dropdown.mjs";
 import { icon } from "./icons.mjs";
-import { watchForUpdate } from "./update.mjs";
+import { watchForUpdate, showNews } from "./update.mjs";
 import { apply as applySettings, settingsButton, settingsPage } from "./settings.mjs";
 import { toast } from "./toast.mjs";
 
@@ -599,6 +599,7 @@ if (document.readyState === "loading") document.addEventListener("DOMContentLoad
 else boot();
 
 watchForUpdate($("#cee-update"));
+showNews(toast);
 
 // In the desktop app a new window goes nowhere: the donate links navigate in place and the app opens them in the browser (src-tauri).
 if (window.__GELUMPE_APP) for (const link of document.querySelectorAll("a[href^='https://www.paypal.me/']")) link.target = "_self";
