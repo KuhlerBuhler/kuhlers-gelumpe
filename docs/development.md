@@ -48,6 +48,18 @@ damit unberührte Bytes auffallen, dazu Backup-Datei und Pattern-Puffer.
 Alles außer den letzten drei Zeilen läuft in CI (`.github/workflows/test.yml`, zwei Jobs
 `unit` und `browser` nebeneinander).
 
+Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt starten:
+
+```bash
+GELUMPE_JOBS=2 node --test --test-concurrency=1 "test/*.test.mjs"
+node --test --test-concurrency=1 --test-timeout=180000 "test/e2e/*.e2e.mjs"
+```
+
+Die Befehle nacheinander ausführen. `GELUMPE_JOBS` setzt sowohl die Python-Läufe je
+Testdatei als auch die Worker eines Emulator-Pools. Mit `1` laufen sie jeweils einzeln;
+ohne gültige positive ganze Zahl nutzt der Node-Teststarter die Hälfte der CPU-Kerne,
+mindestens zwei.
+
 Eigene Dateien:
 
 ```bash

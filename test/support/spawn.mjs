@@ -8,8 +8,9 @@ import { spawn } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { parentEnv, track } from "./lifetime.mjs";
 
-/** How many Python runs a file starts at once: half the cores (each run may use a pool of its own). */
-export const slots = Math.max(2, Math.floor(availableParallelism() / 2));
+/** Python runs per file; each run may also start its own worker pool. */
+const jobs = Number(process.env.GELUMPE_JOBS);
+export const slots = Number.isSafeInteger(jobs) && jobs > 0 ? jobs : Math.max(2, Math.floor(availableParallelism() / 2));
 
 export function run(command, args, { timeout = 0, cwd, env, maxBuffer = 4 * 1024 * 1024 } = {}) {
   return new Promise(resolve => {
