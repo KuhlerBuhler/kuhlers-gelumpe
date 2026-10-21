@@ -42,38 +42,29 @@ read_half:
 
 ; r0 instruction address, r1 opcode -> r0 first operand, r1 second operand.
 decode_operands:
-    push {r4-r6, lr}
-    mov r4, r0
+    mov r12, r0
     ldr r2, =script_op_operands
     add r2, r2, r1, lsl #1
     ldrb r3, [r2]
-    ldrb r6, [r2, #1]
-    mov r5, #0
+    ldrb r2, [r2, #1]
+    mov r0, #0
     cmp r3, #ARG_NONE
     beq dec_second
-    ldrb r5, [r4, #1]
-    add r4, r4, #1
-    cmp r3, #ARG_VAR
-    blo dec_second
-    cmp r3, #ARG_TARGET
-    bhi dec_second
-    ldrb r3, [r4, #1]
-    orr r5, r5, r3, lsl #8
-    add r4, r4, #1
+    ldrb r0, [r12, #1]!
+    sub r3, r3, #ARG_VAR
+    cmp r3, #ARG_TARGET-ARG_VAR
+    ldrbls r3, [r12, #1]!
+    orrls r0, r0, r3, lsl #8
 dec_second:
     mov r1, #0
-    cmp r6, #ARG_NONE
-    beq dec_done
-    ldrb r1, [r4, #1]
-    cmp r6, #ARG_VAR
-    blo dec_done
-    cmp r6, #ARG_TARGET
-    bhi dec_done
-    ldrb r3, [r4, #2]
-    orr r1, r1, r3, lsl #8
-dec_done:
-    mov r0, r5
-    pop {r4-r6, pc}
+    cmp r2, #ARG_NONE
+    bxeq lr
+    ldrb r1, [r12, #1]
+    sub r2, r2, #ARG_VAR
+    cmp r2, #ARG_TARGET-ARG_VAR
+    ldrbls r3, [r12, #2]
+    orrls r1, r1, r3, lsl #8
+    bx lr
 .pool
 
 ; r4 runtime, r6 GSCR block. Only section pointers are changed.
