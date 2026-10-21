@@ -3,8 +3,10 @@ import { readPng } from "./blechy-png.mjs";
 
 export const HEAD = readPng(readFileSync(new URL("../assets/blechy/head.png", import.meta.url)));
 
-export function resizedHead(height) {
-  const width = Math.round(HEAD[0].length * height / HEAD.length);
+export function resizedHead(maxWidth, maxHeight) {
+  const scale = Math.min(maxWidth / HEAD[0].length, maxHeight / HEAD.length);
+  const width = Math.round(HEAD[0].length * scale);
+  const height = Math.round(HEAD.length * scale);
   return Array.from({ length: height }, (_, y) => Array.from({ length: width }, (_, x) =>
     HEAD[Math.floor(y * HEAD.length / height)][Math.floor(x * HEAD[0].length / width)]).join(""));
 }

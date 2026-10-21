@@ -46,10 +46,11 @@ Danach `tools/patch/load_bar.py --vsb SYSTEM.VSB --out data/patches/load-bar.jso
 `data/patches/blech-theme.json`, eigene Schriften und Symbole). Erzeugt mit `tools/patch/blech_theme_preview.mjs`
 aus dem Emulator, nur die Seite mit Theme. Aufbau und Regeln: [BLECH Theme](../../docs/hintergrund/blech-theme.md).
 
-## Kopf für Banner und App
+## Gesicht für Banner und App
 
-`head.png` enthält Blechys Kopf ohne Arme und Beine. Banner und App-Icon verwenden
-dasselbe Bild aus dem bestehenden Zeichencode. Die App-Icons werden als PNG, ICO und ICNS erzeugt.
+`head.png` enthält nur Blechys Gesicht mit Brauen und Augenringen, ohne Oberkörper.
+Banner und App-Icon verwenden dasselbe Bild aus dem bestehenden Zeichencode.
+Die App-Icons werden als PNG, ICO und ICNS erzeugt.
 
 ```bash
 python3 tools/art/make_blechy.py --head assets/blechy/head.png
