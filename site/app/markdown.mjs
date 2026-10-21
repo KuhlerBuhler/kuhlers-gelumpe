@@ -61,7 +61,7 @@ export function parseMarkdown(source, { onJump = () => {} } = {}) {
       const body = [];
       for (i++; i < lines.length && !lines[i].startsWith("```"); i++) body.push(lines[i]);
       i++;
-      add(el("pre", { className: "cee-doc-code" }, [el("code", { textContent: body.join("\n") })]));
+      add(el("pre", { className: "cee-doc-code", tabIndex: 0 }, [el("code", { textContent: body.join("\n") })]));
       continue;
     }
     const heading = /^(#{1,4})\s+(.*)$/.exec(line);

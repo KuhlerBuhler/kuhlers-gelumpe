@@ -123,7 +123,7 @@ test("the documentation page shows docs/plugins.md, is searchable and carries th
 test("the console greets with one line, help lists the commands and Tab completes korg and KORG names", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#scripts`);
-  await page.click("#cee-scripts-page-console");
+  await page.click("#cee-tab-console");
   assert.equal(await page.locator("#cee-term-help").count(), 0, "no Hilfe disclosure");
   assert.equal(await page.locator("#cee-term-log .cee-term-line").first().textContent(), "Tippe help für die Befehlsliste.");
   await page.fill("#cee-term-input", "help");
