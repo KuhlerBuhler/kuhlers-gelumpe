@@ -54,7 +54,7 @@ test("the page replaces Terminal and FUN: templates, an editor, the run area and
   await page.goto(`${h.url}#scripts`);
   assert.equal(await page.locator("#cee-tab-terminal").count(), 0);
   assert.equal(await page.locator("#cee-tab-fun").count(), 0);
-  assert.equal(await page.locator("#cee-nav-title").textContent(), "Plugins");
+  assert.equal(await page.locator("#cee-nav-title").textContent(), "PluginsKatalog", "Plugins, then the sub-page as a breadcrumb");
   assert.deepEqual(await page.locator("#cee-scripts-pages button").allTextContents(), ["Katalog", "Editor", "Lauf", "Dokumentation"], "the pages are sub-items of the Plugins entry");
   assert.equal(await page.locator("#cee-scripts-page-catalog").getAttribute("aria-current"), "", "the catalog is the page that opens first");
   assert.equal(await page.locator("#cee-catalog").isVisible(), true);

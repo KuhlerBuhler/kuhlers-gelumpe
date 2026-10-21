@@ -77,7 +77,7 @@ function askKind() {
 }
 const confirmed = async options => (window.ui?.confirm ? window.ui.confirm(options) : false);
 
-export function scriptsPanel(root, { storage = null, sub = null, session = () => null, onRun = () => {} } = {}) {
+export function scriptsPanel(root, { storage = null, sub = null, session = () => null, onRun = () => {}, trail = () => {} } = {}) {
   /** A packed .blech onto the connected device's card; IMPORT PLUGIN in the BLECH menu then lists it. */
   async function toDevice(bytes, id, button) {
     const s = session();
@@ -547,10 +547,30 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   // The documentation: docs/plugins.md read as a page, with the live table of names as one of its sections.
   const docsSearch = el("input", { className: "input", id: "cee-docs-search", type: "search", placeholder: "Dokumentation durchsuchen", spellcheck: false, autocomplete: "off" });
   docsSearch.setAttribute("aria-label", "Dokumentation durchsuchen");
-  const docsToc = el("details", { className: "ui-details", id: "cee-docs-toc" }, [el("summary", { textContent: "Inhalt" }), el("div", { className: "ui-details-body" })]);
+  // The contents stand beside the text and scroll along; on a narrow window they fold above it.
+  const docsToc = el("details", { className: "ui-details cee-docs-toc", id: "cee-docs-toc" }, [el("summary", { textContent: "Inhalt" }), el("div", { className: "ui-details-body" })]);
+  const wide = window.matchMedia?.("(min-width: 60rem)");
+  const unfold = () => { docsToc.open = !!wide?.matches; };
+  wide?.addEventListener?.("change", unfold);
+  unfold();
   const docsArticle = el("article", { className: "cee-docs-article", id: "cee-docs-article" }, [el("p", { className: "muted", textContent: "Wird geladen …" })]);
   const docsEmpty = el("p", { className: "muted", id: "cee-docs-empty", hidden: true, textContent: "Nichts gefunden." });
-  const docsPage = el("div", { className: "cee-plug-page cee-docs" }, [el("div", { className: "cee-docs-head" }, [docsSearch]), docsToc, docsArticle, docsEmpty]);
+  const docsPage = el("div", { className: "cee-plug-page cee-docs" }, [
+    el("div", { className: "cee-docs-head" }, [docsSearch]),
+    el("div", { className: "cee-docs-body" }, [docsToc, el("div", { className: "cee-docs-text" }, [docsArticle, docsEmpty])]),
+  ]);
+  /** The heading the reader is at: the last one above the top of the page, for the breadcrumb. */
+  let reading = null;
+  docsPage.addEventListener("scroll", () => {
+    const top = docsPage.getBoundingClientRect().top + 8;
+    let at = null;
+    for (const h of docsArticle.querySelectorAll(".cee-doc-heading")) {
+      if (h.closest("[hidden]")) continue;
+      if (h.getBoundingClientRect().top <= top) at = h; else break;
+    }
+    const text = at?.textContent ?? null;
+    if (text !== reading) { reading = text; trail(["Dokumentation", ...(text ? [text] : [])]); }
+  }, { passive: true });
   let docSections = [];
   let docsLoaded = false;
   const jumpTo = id => {
@@ -631,6 +651,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     shown = id;
     for (const p of PAGES) p.node.hidden = p.id !== id;
     subPages?.select(id);
+    reading = null;
+    trail([PAGES.find(p => p.id === id).title]);
     if (id === "catalog") drawThumbs();
     if (id === "docs") loadDocs();
     if (id === "run") panel();

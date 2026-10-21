@@ -2285,12 +2285,30 @@ html[data-motion="reduce"] *::after {
 /* The documentation page (scripts.mjs, markdown.mjs). */
 .cee-docs-head { display: flex; gap: var(--space-3); margin-bottom: var(--space-3); }
 .cee-docs-head .input { width: 24rem; max-width: 100%; }
-.cee-docs { line-height: 1.6; }
-.cee-docs-article { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-4); }
+.cee-docs { line-height: 1.6; color: var(--color-text-secondary); }
+.cee-docs-body { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: var(--space-8); align-items: start; }
+.cee-docs-toc { position: sticky; top: 0; max-height: calc(100dvh - 12rem); overflow-y: auto; }
+.cee-docs-toc > summary { display: none; }
+.cee-docs-text { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.cee-docs-article { display: flex; flex-direction: column; gap: var(--space-8); }
 .cee-doc-section { display: flex; flex-direction: column; gap: var(--space-3); }
 .cee-doc-section[hidden] { display: none; }
-.cee-doc-heading { margin: var(--space-4) 0 0; }
+.cee-doc-heading { margin: 0; color: var(--color-text-primary); }
+h2.cee-doc-heading { font-family: var(--font-display); font-size: var(--text-2xl); }
+h3.cee-doc-heading { font-family: var(--font-display); font-size: var(--text-xl); }
+h4.cee-doc-heading { font-size: var(--text-md); }
+h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondary); }
 .cee-docs p, .cee-docs li { margin: 0; }
+.cee-docs strong { color: var(--color-text-primary); }
+.cee-docs :not(pre) > code { padding: 0 var(--space-1); border-radius: var(--radius-xs); background: var(--color-surface-item-muted); color: var(--color-accent-primary); }
+.cee-key { padding: 0 var(--space-1); border: 1px solid var(--color-border-strong); border-bottom-width: 2px; border-radius: var(--radius-xs); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-primary); white-space: nowrap; }
+.cee-crumb::before { content: "›"; margin-inline: var(--space-2); color: var(--color-text-muted); }
+.cee-crumb { font-weight: 400; color: var(--color-text-secondary); }
+@media (max-width: 60rem) {
+  .cee-docs-body { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+  .cee-docs-toc { position: static; max-height: none; }
+  .cee-docs-toc > summary { display: revert; }
+}
 .cee-doc-list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding-inline-start: var(--space-6); }
 .cee-doc-code { margin: 0; padding: var(--space-3); overflow-x: auto; border: 1px solid var(--color-border-muted); border-radius: var(--radius-sm); background: var(--color-surface-faint); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.5; }
 .cee-docs code { font-family: var(--font-mono); font-size: var(--text-sm); }

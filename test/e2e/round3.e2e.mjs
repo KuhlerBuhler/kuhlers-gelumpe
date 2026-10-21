@@ -117,6 +117,11 @@ test("the documentation page shows docs/plugins.md, is searchable and carries th
   await page.fill("#cee-docs-search", "gibtesnirgends");
   await page.locator("#cee-docs-empty").waitFor();
   await page.fill("#cee-docs-search", "");
+  assert.ok(await page.locator("#cee-docs-article kbd.cee-key", { hasText: "EXIT" }).count() > 0, "keys of the device stand out in the text");
+  assert.equal(await page.locator("#cee-docs-toc").evaluate(n => n.open && getComputedStyle(n).position), "sticky", "on a wide window the contents stay open beside the text");
+  assert.deepEqual(await page.locator("#cee-nav-title .cee-crumb").allTextContents(), ["Dokumentation"]);
+  await page.locator("#cee-plugin-docs").evaluate(n => { n.scrollTop = n.scrollHeight / 2; n.dispatchEvent(new Event("scroll")); });
+  await page.waitForFunction(() => document.querySelectorAll("#cee-nav-title .cee-crumb").length === 2);
   assert.deepEqual(await severeViolations(page), [], "documentation");
 });
 

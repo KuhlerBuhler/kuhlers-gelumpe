@@ -370,6 +370,7 @@ function navbar({ onMode }) {
   let device = false;
   let emuAction = null;
   let cardButton = null;
+  const trails = {};
   $("#cee-mode-button").append(icon("chevronDown"));
   const menu = dropdown($("#cee-mode-button"), $("#cee-mode-menu"), { onPick: onMode });
   function render() {
@@ -380,7 +381,8 @@ function navbar({ onMode }) {
       $("#cee-mode-label").textContent = MODES[page];
       for (const item of $("#cee-mode-menu").querySelectorAll("[role=menuitemradio]")) item.setAttribute("aria-checked", String(item.dataset.value === page));
     } else {
-      $("#cee-nav-title").textContent = $(`#cee-tab-${page}`)?.textContent ?? "";
+      // A page with sub-pages shows where you are as a breadcrumb: Plugins › Dokumentation › the section you read.
+      $("#cee-nav-title").replaceChildren($(`#cee-tab-${page}`)?.textContent ?? "", ...(trails[page] ?? []).map(t => el("span", { className: "cee-crumb", textContent: t })));
     }
     // On the device page the navbar carries the connect button while no device is attached (it moves there from
     // the page, so its handlers stay), and the words "Gerät verbunden" once one is.
@@ -395,6 +397,8 @@ function navbar({ onMode }) {
     emu(node) { emuAction = node; render(); },
     /** The button that opens the emulator's SD card. */
     card(node) { cardButton = node; render(); },
+    /** The breadcrumb after the title of `id`: the sub-page and, in the docs, the section. */
+    trail(id, parts) { trails[id] = parts; if (id === page) render(); },
   };
 }
 
@@ -593,7 +597,7 @@ function boot() {
   featuresPage($("#cee-features"));
   splashPage($("#cee-splash"));
   // A run from the console opens the Plugins page, where the run area shows it.
-  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null, onRun: () => areas?.select("scripts", { focus: false }) });
+  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null, onRun: () => areas?.select("scripts", { focus: false }), trail: parts => nav.trail("scripts", parts) });
   terminal = terminalPanel($("#cee-terminal"), { terminal: new Terminal({ device, emulator, probe }), device, scripts, lack: () => emulator.lack("sysex") });
   // The app always starts with the link in its address and opens on the start page; a link opened in the browser goes to the emulator.
   if (emu.fresh) areas?.select(window.__GELUMPE_APP ? "start" : "emu");
