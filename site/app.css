@@ -855,9 +855,8 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   margin-right: var(--space-2);
 }
 
-/* Rettung stands apart at the end, in the danger colour: it is the way back, not a normal area. */
+/* Rettung is in the danger colour: it is the way back, not a normal area. */
 .cee-nav-item[data-danger] {
-  margin-top: var(--space-6);
   color: var(--color-text-danger);
 }
 
