@@ -125,9 +125,9 @@ export function planRelease({ tag, sha, assets, older, repo, bump = false }) {
     });
   }
   steps.push({
-    what: `Release ${tag} anlegen (Tag auf ${bump ? "den Bump-Commit" : sha.slice(0, 7)}), ${assets.length} Dateien hochladen, als neuestes markieren`,
+    what: `Release ${tag} anlegen (Tag auf ${bump ? "den Bump-Commit" : sha.slice(0, 7)}), ${assets.length} Dateien hochladen, als neuestes markieren, unter Announcements als Discussion ankündigen`,
     cmd: "gh",
-    args: ["release", "create", tag, ...assets, "--repo", repo, "--target", bump ? RELEASE_COMMIT : sha, "--title", tag, "--generate-notes", "--latest"],
+    args: ["release", "create", tag, ...assets, "--repo", repo, "--target", bump ? RELEASE_COMMIT : sha, "--title", tag, "--generate-notes", "--latest", "--discussion-category", "Announcements"],
   });
   for (const old of older.filter(t => t !== tag)) {
     steps.push({
