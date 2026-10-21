@@ -125,7 +125,7 @@ export function drawShade(canvas, levels) {
 
 function parseColor(value) {
   const probe = document.createElement("canvas").getContext("2d");
-  probe.fillStyle = value.trim() || "#000";
+  probe.fillStyle = value.trim() || "#000"; // raw-ok: an unset LCD colour falls back to an unlit pixel
   probe.fillRect(0, 0, 1, 1);
   return Array.from(probe.getImageData(0, 0, 1, 1).data.slice(0, 3));
 }

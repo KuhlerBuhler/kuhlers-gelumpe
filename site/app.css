@@ -2,6 +2,8 @@
    design/root.min.css werden hier nicht umdefiniert. */
 :root {
   --cee-navbar-h: var(--space-16);
+  /* Room the folded sidebar's title and toggle take in the navbar row. */
+  --cee-folded-title: 22rem;
 }
 
 html {
@@ -680,6 +682,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   transform: translate(-50%, -50%);
   pointer-events: none;
   opacity: var(--cee-e2-glow, 0);
+  /* raw-ok: the glow of a lit pad on the drawing of the device. */
   background: radial-gradient(circle,
     color-mix(in srgb, var(--cee-e2-lit, transparent) 55%, white) 0,
     var(--cee-e2-lit, transparent) 14%,
@@ -838,7 +841,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 }
 
 .cee-app[data-collapsed] .cee-navbar {
-  padding-inline-start: 22rem;
+  padding-inline-start: var(--cee-folded-title);
 }
 
 .cee-app[data-collapsed] .cee-side-body {
@@ -2278,7 +2281,7 @@ html[data-motion="reduce"] *::after {
 .cee-docs p, .cee-docs li { margin: 0; }
 .cee-doc-list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding-inline-start: var(--space-6); }
 .cee-doc-code { margin: 0; padding: var(--space-3); overflow-x: auto; border: 1px solid var(--color-border-muted); border-radius: var(--radius-sm); background: var(--color-surface-faint); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.5; }
-.cee-docs code { font-family: var(--font-mono); font-size: 0.92em; }
+.cee-docs code { font-family: var(--font-mono); font-size: var(--text-sm); }
 .cee-doc-table { overflow-x: auto; }
 .cee-doc-quote { margin: 0; padding-inline-start: var(--space-4); border-inline-start: 2px solid var(--color-border-strong); color: var(--color-text-secondary); }
 .cee-doc-jump { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }

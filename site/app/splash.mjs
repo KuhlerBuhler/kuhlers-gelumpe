@@ -108,7 +108,7 @@ export function splashPage(root) {
     work.width = SPLASH_W;
     work.height = SPLASH_H;
     const g = work.getContext("2d");
-    g.fillStyle = "#fff";
+    g.fillStyle = "#fff"; // raw-ok: the paper behind the picture before it is cut to one bit
     g.fillRect(0, 0, SPLASH_W, SPLASH_H);
     const cover = fits.find(f => f.input.checked)?.input.value === "cover";
     const scale = (cover ? Math.max : Math.min)(SPLASH_W / picture.width, SPLASH_H / picture.height);
