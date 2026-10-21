@@ -59,7 +59,7 @@ function askKind() {
       el("div", { className: "ui-dialog-body" }, [group, hint]),
       el("footer", { className: "ui-dialog-foot" }, [
         el("button", { type: "submit", className: "btn", value: "cancel", textContent: "Abbrechen", formNoValidate: true }),
-        el("button", { type: "submit", className: "btn primary", value: "ok", textContent: "Anlegen" }),
+        el("button", { type: "submit", className: "btn cee-primary", value: "ok", textContent: "Anlegen" }),
       ]),
     ]));
     for (const r of radios) {
@@ -120,7 +120,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   note.dataset.tone = "neutral";
 
   const button = (id, label, onclick, extra = "") => el("button", { type: "button", className: `btn ${extra}`.trim(), id, textContent: label, onclick });
-  const copy = button("cee-script-copy", "Als eigenes Plugin öffnen", () => copyPreset(), "sm primary");
+  const copy = button("cee-script-copy", "Als eigenes Plugin öffnen", () => copyPreset(), "sm cee-primary");
   const newButton = button("cee-script-new", "Neues Plugin", () => newScript(), "sm");
   const duplicate = button("cee-script-duplicate", "Duplizieren", () => duplicateScript(), "sm");
   const remove = button("cee-script-remove", "Löschen", () => removeScript(), "sm");
@@ -676,7 +676,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     const note = el("p", { className: "cee-error", hidden: true });
     // Icon buttons: the label says only what the button does, for the screen reader and as the tooltip.
     const iconButton = (name, label, onclick, primary = false) => {
-      const b = el("button", { type: "button", className: `btn icon${primary ? " primary" : ""}`, title: label, onclick }, [icon(name)]);
+      const b = el("button", { type: "button", className: `btn icon${primary ? " cee-primary" : ""}`, title: label, onclick }, [icon(name)]);
       b.setAttribute("aria-label", label);
       return b;
     };

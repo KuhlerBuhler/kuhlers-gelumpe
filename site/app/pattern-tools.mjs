@@ -395,7 +395,7 @@ export function patternToolsPage(root, { device }) {
           el("div", { className: "actions" }, [save, send]),
         ]);
       });
-      const intoFile = el("button", { type: "button", className: "btn primary", id: "cee-pt-t-backup", textContent: "In Sicherung einsetzen und speichern", disabled: blocked || !pool.file || items.some(it => !it.slot) });
+      const intoFile = el("button", { type: "button", className: "btn cee-primary", id: "cee-pt-t-backup", textContent: "In Sicherung einsetzen und speichern", disabled: blocked || !pool.file || items.some(it => !it.slot) });
       intoFile.addEventListener("click", () => {
         let chainA = null;
         if (T.chainA && a.number) {
@@ -454,7 +454,7 @@ export function patternToolsPage(root, { device }) {
     const slot = numberField("cee-pt-d-slot", "Platz in der Sicherung", { min: 1, max: SLOTS, value: "", onChange: () => syncButtons() });
     const save = el("button", { type: "button", className: "btn", id: "cee-pt-d-save", textContent: ".e2spat speichern" });
     const send = el("button", { type: "button", className: "btn", id: "cee-pt-d-send", textContent: "An Gerät senden", disabled: true });
-    const intoFile = el("button", { type: "button", className: "btn primary", id: "cee-pt-d-backup", textContent: "In Sicherung einsetzen und speichern" });
+    const intoFile = el("button", { type: "button", className: "btn cee-primary", id: "cee-pt-d-backup", textContent: "In Sicherung einsetzen und speichern" });
     const hint = el("span", { className: "muted", id: "cee-pt-d-hint" });
 
     const seed = numberField("cee-pt-seed", "Seed", { min: 0, max: 4294967295, value: D.seed, onChange: v => { D.seed = Number(v); roll(); } });

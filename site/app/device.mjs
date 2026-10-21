@@ -20,7 +20,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   const decide = el("div", { className: "cee-decide", id: "cee-decide", role: "alert", hidden: true });
   const facts = el("dl", { className: "cee-facts" });
   const choose = el("div", { className: "ui-field", hidden: true });
-  const button = el("button", { type: "button", className: "btn primary", id: "cee-connect", textContent: "Mit Electribe verbinden" });
+  const button = el("button", { type: "button", className: "btn cee-primary", id: "cee-connect", textContent: "Mit Electribe verbinden" });
   const emuButton = el("button", { type: "button", className: "btn", id: "cee-connect-emu", textContent: "Mit Emulator verbinden", hidden: true });
   const rehearseState = el("p", { className: "muted", id: "cee-rehearse-state", "aria-live": "polite" });
   const ledNote = el("p", { className: "muted", id: "cee-led-note", "aria-live": "polite" });
@@ -58,7 +58,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   function showDecision() {
     const p = session?.pending;
     if (!session?.blocked) { decide.hidden = true; decide.replaceChildren(); return; }
-    const restore = el("button", { type: "button", className: "btn primary", id: "cee-decide-restore", textContent: "Sicherung zurückspielen", disabled: !p });
+    const restore = el("button", { type: "button", className: "btn cee-primary", id: "cee-decide-restore", textContent: "Sicherung zurückspielen", disabled: !p });
     const keep = el("button", { type: "button", className: "btn", id: "cee-decide-keep", textContent: "So lassen" });
     const act = async choice => {
       restore.disabled = keep.disabled = true;

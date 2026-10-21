@@ -60,9 +60,9 @@ export function modulationsPage(root, { emulator }) {
 
   const count = el("span", { className: "muted", id: "cee-mod-count", role: "status" });
   const warnings = el("span", { className: "muted", id: "cee-mod-warnings" });
-  const run = el("button", { type: "button", className: "btn primary", id: "cee-mod-run", textContent: "Im Emulator prüfen", disabled: true });
+  const run = el("button", { type: "button", className: "btn cee-primary", id: "cee-mod-run", textContent: "Im Emulator prüfen", disabled: true });
   const reset = el("button", { type: "button", className: "btn", id: "cee-mod-reset-all", textContent: "Alles zurücksetzen", disabled: true });
-  const download = el("button", { type: "button", className: "btn primary", id: "cee-mod-download", textContent: "SYSTEM.VSB herunterladen", hidden: true });
+  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-mod-download", textContent: "SYSTEM.VSB herunterladen", hidden: true });
   const bar = el("div", { className: "ui-progress", id: "cee-mod-bar", hidden: true });
   const note = el("p", { className: "muted", id: "cee-mod-note", role: "status", hidden: true });
   const checkList = el("ul", { className: "ui-list", id: "cee-mod-checks" });

@@ -95,6 +95,18 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   outline-offset: 2px;
 }
 
+/* The main action of a step. Ice blue, the one accent of the app, instead of the green .btn.primary of the design
+   system, which stays for the Interface. */
+.btn.cee-primary {
+  border-color: var(--color-accent-primary-ring-ultra);
+  color: var(--color-text-primary);
+}
+
+.btn.cee-primary:hover {
+  background: var(--color-accent-primary-ring-soft);
+  border-color: var(--color-accent-primary);
+}
+
 .cee-reload {
   position: relative;
   flex-shrink: 0;
@@ -910,16 +922,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   width: 1.125rem;
   height: 1.125rem;
   margin-right: var(--space-2);
-}
-
-/* Rettung is in the danger colour: it is the way back, not a normal area. */
-.cee-nav-item[data-danger] {
-  color: var(--color-text-danger);
-}
-
-.cee-nav-item[data-danger][aria-selected="true"] {
-  border-color: var(--color-border-danger);
-  color: var(--color-text-danger);
 }
 
 .cee-nav-item {

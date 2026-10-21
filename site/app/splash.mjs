@@ -49,7 +49,7 @@ export function splashPage(root) {
   dither.input.addEventListener("change", render);
   invert.input.addEventListener("change", render);
 
-  const download = el("button", { type: "button", className: "btn btn-primary", id: "cee-splash-download", textContent: `${SPLASH_FILE} herunterladen`, disabled: true });
+  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-splash-download", textContent: `${SPLASH_FILE} herunterladen`, disabled: true });
   download.addEventListener("click", () => {
     if (!pixels) return;
     const url = URL.createObjectURL(new Blob([encodeBmp(pixels)], { type: "image/bmp" }));

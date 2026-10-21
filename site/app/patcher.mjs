@@ -79,14 +79,14 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       korgCard("blue", "Electribe 2 (blau)", "https://www.korg.com/us/support/download/product/0/367/#software"),
     ]),
   ]);
-  const usbGet = el("button", { type: "button", className: "btn primary", id: "cee-patch-usb-get", textContent: "Update auf Gerät" });
+  const usbGet = el("button", { type: "button", className: "btn lg", id: "cee-patch-usb-get", textContent: "Update auf Gerät" });
   const usbNote = el("p", { className: "muted", id: "cee-patch-usb-note", role: "status", hidden: true });
   const usbBox = el("section", { className: "cee-patch-usb", id: "cee-patch-usb" }, [
     el("h2", { className: "cee-patch-usb-title", textContent: "Update direkt über USB" }),
     el("p", { className: "cee-patch-lead", textContent: "Ist BLECHTRIBE schon auf deiner Electribe, schließ sie nur per USB an und verbinde sie auf der Seite Gerät. Der Knopf holt die Firmware-Datei von der Karte, setzt das neueste BLECHTRIBE drauf, prüft sie im Emulator und legt sie zurück. Am Gerät drückst du danach nur noch DATA UTILITY > SOFTWARE UPDATE." }),
     el("div", { className: "actions" }, [usbGet]),
   ]);
-  const usbPut = el("button", { type: "button", className: "btn primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
+  const usbPut = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
   const way = el("ol", { className: "cee-patch-way", id: "cee-patch-way" });
   way.setAttribute("aria-label", "Weg zur neuen Firmware");
   const verdictBox = el("div", { className: "cee-patch-verdict", id: "cee-patch-verdict", role: "status" });
@@ -114,7 +114,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       ". Wir können sie nicht mitliefern, ihre Lizenz erlaubt keine Weitergabe. Lade sie bei Hacktribe herunter und zieh sie hierher; sie wird nur in deinem Browser angewendet."]),
     patchDrop,
   ]);
-  const run = el("button", { type: "button", className: "btn primary", id: "cee-patch-run", textContent: "Patchen und im Emulator prüfen", hidden: true });
+  const run = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-run", textContent: "Patchen und im Emulator prüfen", hidden: true });
   const planList = el("ul", { className: "cee-patch-plan", id: "cee-patch-plan" });
   const plan = el("div", { className: "cee-patch-plan-box" }, [
     el("p", { className: "cee-patch-lead", textContent: "Diese Patches kommen auf deine Firmware. Danach bootet der Emulator die neue Datei und prüft, ob alles läuft. Das dauert ein paar Minuten." }),
@@ -125,7 +125,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const checkList = el("ul", { className: "ui-list", id: "cee-patch-checks" });
   const checksBox = el("details", { className: "ui-details", id: "cee-patch-details", hidden: true }, [el("summary", { id: "cee-patch-details-title" }), el("div", { className: "ui-details-body" }, [checkList])]);
   const note = el("p", { className: "muted", id: "cee-patch-note", role: "status", hidden: true });
-  const download = el("button", { type: "button", className: "btn primary", id: "cee-patch-download", textContent: "SYSTEM.VSB herunterladen", disabled: true });
+  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-download", textContent: "SYSTEM.VSB herunterladen", disabled: true });
   const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: "Ich hab angst dass mein Gerät kaputt geht", disabled: true });
   const thorough = el("button", { type: "button", className: "btn", id: "cee-patch-thorough", textContent: "Gründlich prüfen", hidden: true });
   const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [usbPut, download, afraid]);
@@ -139,7 +139,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     [result, done],
   ].map((children, i) => el("div", { className: "cee-patch-panel", id: `cee-patch-step-${i + 1}`, tabIndex: -1, hidden: i > 0 }, children));
   const back = el("button", { type: "button", className: "btn", id: "cee-patch-back", textContent: "Zurück", hidden: true });
-  const next = el("button", { type: "button", className: "btn primary", id: "cee-patch-next", textContent: "Weiter", disabled: true });
+  const next = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-next", textContent: "Weiter", disabled: true });
   let view = 0;
 
   root.replaceChildren(el("div", { className: "cee-patch" }, [

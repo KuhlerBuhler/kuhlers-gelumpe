@@ -69,7 +69,7 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
   const log = el("div", { className: "cee-term-log", id: "cee-term-log", role: "log", "aria-live": "polite" });
   const input = el("textarea", { className: "cee-term-input", id: "cee-term-input", rows: 1, spellcheck: false, autocomplete: "off" });
   input.setAttribute("aria-label", "Befehl");
-  const run = el("button", { type: "button", className: "btn sm primary", id: "cee-term-run", textContent: "Ausführen" });
+  const run = el("button", { type: "button", className: "btn sm cee-primary", id: "cee-term-run", textContent: "Ausführen" });
   const send = el("button", { type: "button", className: "btn sm", id: "cee-term-send", textContent: "An das Gerät senden", disabled: true, hidden: true });
   const connect = el("button", { type: "button", className: "btn sm", id: "cee-term-connect", textContent: "Mit Emulator verbinden" });
   const target = el("p", { className: "cee-term-target", id: "cee-term-target", role: "status" });
