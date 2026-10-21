@@ -1,9 +1,10 @@
+[Deutsche Version](README.md)
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/banner-dark.svg">
   <img alt="Kuhler's GELUMPE: graphical Electribe reader and modifier plus emulator" src="assets/readme/banner-light.svg" width="100%">
 </picture>
 
-[Deutsche Version](README.md)
 
 A graphical Electribe 2 reader and modifier, plus an emulator and a patcher for the BLECH firmware,
 the "Blechtribe". BLECH runs either on top of Hacktribe or directly on Korg's original firmware of the
@@ -46,10 +47,10 @@ The app in dark mode. The emulator is shown without firmware, so its display sta
 
 | | |
 |---|---|
-| ![Start page](docs/images/preview/start.png) | ![Patcher with the check running](docs/images/preview/patcher.png) |
-| Start | Patcher, the emulator check is running |
-| ![Preset editor](docs/images/preview/presets.png) | ![Plugin catalog](docs/images/preview/plugin-catalog.png) |
-| Preset editor | Plugin catalog |
+| ![Start page](docs/images/preview/start.png) | ![Patcher](docs/images/preview/patcher.png) |
+| Start | Patcher |
+| ![Start screen](docs/images/preview/splash.png) | ![Plugin catalog](docs/images/preview/plugin-catalog.png) |
+| Draw your own start screen | Plugin catalog |
 | ![Plugin editor](docs/images/preview/plugin-editor.png) | ![Emulator](docs/images/preview/emulator.png) |
 | Plugin editor | Emulator |
 
