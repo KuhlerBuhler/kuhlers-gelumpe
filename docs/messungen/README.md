@@ -121,6 +121,7 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [20.10.2026: Reproduzierbarer Ausgangsstand für die Optimierungen](2026-10-20-patch-effizienz-ausgang.md)
 - [21.10.2026: Neue Vergleichsbasis auf develop, im Emulator gemessen](2026-10-21-patch-effizienz-basis.md)
 - [21.10.2026: Operanddecoder mit gleicher Ausgabe und weniger ARM-Arbeit](2026-10-21-patch-effizienz-decoder.md)
+- [21.10.2026: SysEx-Puffer mit 19 KiB mehr Platz, im Emulator und nativ geprüft](2026-10-21-patch-effizienz-sysex.md)
 - [20.10.2026: Laufzeit und Platz der BLECH-Patches](2026-10-20-patch-performance.md)
 
 - [Startbild-Editor im Menü Global (Idee 35): gebaut und im Emulator geprüft](2026-10-10-startbild-editor.md)
