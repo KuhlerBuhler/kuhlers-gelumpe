@@ -15,8 +15,8 @@
 
 ## Inhalt
 
-- [So kommt BLECHTRIBE auf deine Electribe](#so-kommt-blechtribe-auf-deine-electribe)
 - [Häufige Fragen](#häufige-fragen)
+- [So kommt BLECHTRIBE auf deine Electribe](#so-kommt-blechtribe-auf-deine-electribe)
 - [Was kann was?](#was-kann-was)
 - [Vorher und nachher](#vorher-und-nachher)
 - [Die Firmware patchen](#die-firmware-patchen)
@@ -25,6 +25,18 @@
 - [Der Emulator](#der-emulator)
 - [Sicherheit](#sicherheit-bevor-du-etwas-aufs-gerät-spielst)
 - [Mitmachen](#mitmachen)
+
+## Häufige Fragen
+
+- **Kostet das was?** Nein. Wenn du magst, freu ich mich über eine [Spende](https://www.paypal.me/kuhlerbuhler).
+- **Ist das sicher?** Die App startet die neue Firmware vorher in einer Electribe im Rechner und gibt sie nur frei, wenn alles läuft.
+  Und es gibt einen Notschalter: **EXIT beim Einschalten halten**, dann startet die Electribe ohne BLECHTRIBE, und du spielst dein Original wieder auf.
+- **Brauch ich einen PC?** Ja, einmal zum Umbauen der Datei. Danach nicht mehr.
+- **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen bleiben, wo sie sind. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
+- **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
+- **Hab ich mit BLECHTRIBE noch Hacktribe?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf.
+- **Wie kann ich eigene Effekte machen?** In der App unter **Presets**. Da bearbeitest du die MFX- und IFX-Presets in Klartext und schickst sie per USB an die Electribe. Das geht auf der roten Electribe mit Hacktribe oder BLECHTRIBE.
+- **Ich hab eine Idee für die App oder die Firmware.** Immer her damit: [Idee aufschreiben](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). Dafür brauchst du ein GitHub-Konto.
 
 ## So kommt BLECHTRIBE auf deine Electribe
 
@@ -41,22 +53,17 @@ Du brauchst einen Rechner (Mac, Windows oder Linux) und einen SD-Kartenleser. Ei
 
 Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiterkommst, schreib mir, mit einem Foto der Meldung.
 
-## Häufige Fragen
-
-- **Kostet das was?** Nein. Wenn du magst, freu ich mich über eine [Spende](https://www.paypal.me/kuhlerbuhler).
-- **Ist das sicher?** Die App startet die neue Firmware vorher in einer Electribe im Rechner und gibt sie nur frei, wenn alles läuft.
-  Und es gibt einen Notschalter: **EXIT beim Einschalten halten**, dann startet die Electribe ohne BLECHTRIBE, und du spielst dein Original wieder auf.
-- **Brauch ich einen PC?** Ja, einmal zum Umbauen der Datei. Danach nicht mehr.
-- **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen bleiben, wo sie sind. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
-- **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
-- **Hab ich mit BLECHTRIBE noch Hacktribe?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf.
-- **Wie kann ich eigene Effekte machen?** In der App unter **Presets**. Da bearbeitest du die MFX- und IFX-Presets in Klartext und schickst sie per USB an die Electribe. Das geht auf der roten Electribe mit Hacktribe oder BLECHTRIBE.
-- **Ich hab eine Idee für die App oder die Firmware.** Immer her damit: [Idee aufschreiben](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). Dafür brauchst du ein GitHub-Konto.
-
 ## Was kann was?
 
 | | Sampler (rot) Original | Synth (blau) Original | Sampler mit Hacktribe | **BLECHTRIBE** rot | **BLECHTRIBE** blau | **BLECHTRIBE** mit Hacktribe |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
+| Eigene Samples aufnehmen und laden | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Erweiterte Hacktribe-Oszillatorbank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Zusätzliche Hacktribe-MFX, IFX, Grooves und Skalen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| FX und Grooves über die Hacktribe-Menüs importieren/exportieren | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Eigenes INIT-Pattern über Hacktribe | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Hacktribe-MIDI-Erweiterungen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Unveränderte Werks-Samplebank der roten Electribe nutzen | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
 | Anpassbare Oberfläche (Startbild, Schrift, Ausschaltbild) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Ladeanimation mit Fortschritt | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Startbild selbst malen | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
@@ -74,16 +81,35 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Update über USB aus der App | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 
+Hacktribe ist eine eigene Firmwarebasis. BLECHTRIBE ergänzt sie; es schaltet diese
+Hacktribe-Funktionen auf einem Korg-Original nicht automatisch frei. Die blaue BLECHTRIBE-Spalte
+meint den Synth-Satz auf Korg 2.02. Hacktribe selbst unterstützt laut Projekt beide Hardwaretypen.
+
+**Was du bei Hacktribe abwägen musst:**
+
+| Nachteil | Was das für dich heißt |
+|---|---|
+| Die Werks-Samplebank wird durch Oszillatoren ersetzt | Die eigenen Samples liegen auf 501 bis 999. Werks-Samples müssen für Hacktribe umgewandelt und in die eigene Bank geladen werden. |
+| Alte Patterns können anders klingen | Oszillator- und Effektzuordnungen ändern sich. Nach dem Umstieg die eigenen Patterns durchhören und bei Bedarf neu zuordnen. |
+| Zusätzlicher Firmwarewechsel | Wer Korgs Original nutzt, braucht zuerst eine passende Hacktribe-Datei. BLECHTRIBE kann auch direkt auf dem Original bleiben. |
+
+Funktionen und Umstieg: [Hacktribe](https://github.com/bangcorrupt/hacktribe),
+[Oszillatorbank](https://github.com/bangcorrupt/hacktribe/wiki/Features#oscillators),
+[Werks-Samples](https://github.com/bangcorrupt/hacktribe/wiki/How-To#factory-samples) und
+[FAQ](https://github.com/bangcorrupt/hacktribe/wiki/FAQ).
+
 ## Vorher und nachher
 
-Links die normale Electribe, rechts mit BLECHTRIBE (aus dem Emulator).
+Links die normale Electribe, rechts mit BLECHTRIBE. Die Animationen verwenden die eigenen
+Firmwaregrafiken; der Ladeabschluss bleibt hier länger sichtbar. Das normale Ausschalten ist
+schematisch mit unserer eigenen Schrift dargestellt.
 
 | Normal | BLECHTRIBE |
 |:-:|:-:|
 | ![Normales Startbild](docs/images/readme/start-hacktribe.png) | ![BLECHTRIBE beim Starten](docs/images/readme/blechtribe-start.gif) |
 | ![Normaler Hauptbildschirm](docs/images/readme/haupt-hacktribe.png) | ![BLECHTRIBE Hauptbildschirm](docs/images/readme/haupt-blechtribe.png) |
 | ![Normales Menü](docs/images/readme/menu-hacktribe.png) | ![BLECHTRIBE Menü](docs/images/readme/menu-blechtribe.png) |
-| **Ausschalten** | ![BLECHTRIBE beim Ausschalten](docs/images/readme/blechtribe-aus.gif) |
+| ![Normales Ausschalten, schematisch](docs/images/readme/ausschalten-normal.svg) | ![BLECHTRIBE beim Ausschalten](docs/images/readme/blechtribe-aus.gif) |
 
 ---
 
@@ -104,11 +130,6 @@ zurück, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme d
 hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
 verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten,
 zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).
-
-So sieht die Electribe mit dem BLECH-Theme aus (im Emulator):
-
-<img alt="Die wichtigsten Bildschirme mit dem BLECH-Theme und alle Zeichen der vier eigenen Schriften" src="assets/blechy/theme-preview.png" width="480">
-
 
 ## Für Bastler
 
@@ -143,8 +164,8 @@ GELUMPE läuft als App oder im Browser und funktioniert mit dem Electribe 2 Samp
 
 Bevor irgendwas ans Gerät geht, schauen ein Linter mit Regeln, die ich am echten Gerät abgeglichen hab,
 und der Emulator drüber, ob die Electribe das voraussichtlich schluckt. Emulator, Patcher und Plugins
-laufen mit Korgs Original 2.02 und mit Hacktribe 2.02. Nur der Effekt-Editor und das Schreiben ins RAM
-über MIDI brauchen Hacktribe. Bei anderen Firmware-Ständen liegen die Adressen woanders, deshalb wird
+laufen mit Korgs Original 2.02 und mit Hacktribe 2.02. Der Effekt-Editor und das Schreiben ins RAM über MIDI brauchen auf dem roten Sampler
+Hacktribe oder BLECHTRIBE mit seinen eigenen USB-Befehlen. Bei anderen Firmware-Ständen liegen die Adressen woanders, deshalb wird
 ein unbekanntes Gerät oder eine unbekannte Datei nur gelesen und nie beschrieben.
 
 **Firmware ist nicht dabei.** Du lädst deine eigene `SYSTEM.VSB`, und die bleibt auf deinem Rechner.

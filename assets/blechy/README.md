@@ -45,3 +45,18 @@ Danach `tools/patch/load_bar.py --vsb SYSTEM.VSB --out data/patches/load-bar.jso
 `theme-preview.png` zeigt die wichtigsten Bildschirme und alle druckbaren Zeichen mit dem BLECH Theme (Patch
 `data/patches/blech-theme.json`, eigene Schriften und Symbole). Erzeugt mit `tools/patch/blech_theme_preview.mjs`
 aus dem Emulator, nur die Seite mit Theme. Aufbau und Regeln: [BLECH Theme](../../docs/hintergrund/blech-theme.md).
+
+## Kopf für Banner und App
+
+`head.png` enthält Blechys Kopf ohne Arme und Beine. Banner und App-Icon verwenden
+dasselbe Bild aus dem bestehenden Zeichencode. Die App-Icons werden als PNG, ICO und ICNS erzeugt.
+
+```bash
+python3 tools/art/make_blechy.py --head assets/blechy/head.png
+node tools/readme-banner.mjs --png
+node tools/app-icon.mjs --png
+python3 tools/art/loading/readme.py
+```
+
+Die README-Animationen stammen aus den vollständigen eigenen Firmwaregrafiken. Der Ladeabschluss
+wird für die Vorschau länger gehalten; die Laufzeit der Firmware bleibt davon unberührt.
