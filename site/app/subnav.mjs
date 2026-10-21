@@ -4,6 +4,7 @@
  * options adds nothing and its entry stays a single line.
  */
 import { el } from "./fields.mjs";
+import { icon } from "./icons.mjs";
 
 export function subnav() {
   let current = null;
@@ -50,7 +51,7 @@ export function subnav() {
       const list = el("div", { className: "cee-nav-pages", id, role: "group" });
       list.setAttribute("aria-label", label);
       const buttons = items.map(item => {
-        const button = el("button", { type: "button", className: "cee-nav-subitem", id: `cee-${tab}-page-${item.id}`, textContent: item.title });
+        const button = el("button", { type: "button", className: "cee-nav-subitem", id: `cee-${tab}-page-${item.id}` }, [item.icon ? icon(item.icon) : null, el("span", { textContent: item.title })]);
         button.dataset.page = item.id;
         button.addEventListener("click", () => pick(item.id));
         return button;

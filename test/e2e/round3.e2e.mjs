@@ -9,7 +9,7 @@ after(async () => { await h.tearDown(); });
 
 const toastNow = (page, message, kind) => page.evaluate(([m, k]) => import("/app/toast.mjs").then(t => { t.toast(m, k); }), [message, kind]);
 
-test("a status label has a gap before its text and sits on the baseline of the line", async () => {
+test("a status label has a gap before its text, shares the line, and its dot is centered", async () => {
   const page = await h.page();
   await page.goto(h.url);
   const r = await page.evaluate(() => {
@@ -25,10 +25,13 @@ test("a status label has a gap before its text and sits on the baseline of the l
     range.setEnd(p.lastChild, 5);
     const text = range.getBoundingClientRect();
     const box = label.getBoundingClientRect();
-    return { display: s.display, gap: parseFloat(s.marginInlineEnd), dot: getComputedStyle(label, "::before").display, apart: text.left - box.right, sameLine: Math.abs((box.top + box.bottom) / 2 - (text.top + text.bottom) / 2) < 4 };
+    const dot = getComputedStyle(label, "::before");
+    const pad = parseFloat(s.paddingTop) - parseFloat(s.paddingBottom);
+    const centered = Math.abs(parseFloat(dot.marginTop) || 0) < 1 && s.alignItems === "center" && Math.abs(pad) < 1;
+    return { display: s.display, centered, apart: text.left - box.right, sameLine: Math.abs((box.top + box.bottom) / 2 - (text.top + text.bottom) / 2) < 4 };
   });
-  assert.equal(r.display, "inline", "one inline line with the text that follows");
-  assert.equal(r.dot, "inline-block");
+  assert.equal(r.display, "inline-flex", "one inline box with the text that follows");
+  assert.equal(r.centered, true, "the dot sits in the middle of the label");
   assert.ok(r.apart >= 4, `a gap between the label and the text, got ${r.apart}`);
   assert.equal(r.sameLine, true, "label and text share the line");
 });
@@ -53,22 +56,21 @@ test("the device drawing: LEVEL and PAN are as big as ATTACK and DECAY, and the 
   await page.mouse.up();
 });
 
-test("settings: the gear opens them, particles go off and stay off, motion follows the system by default", async () => {
+test("settings: the button opens their page, particles go off and stay off, motion follows the system by default", async () => {
   const page = await h.page();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(h.url);
   assert.equal(await page.evaluate(() => document.documentElement.dataset.motion), "reduce", "the system preference is the default");
   await page.click("#cee-settings-button");
-  const dialog = page.locator("#cee-settings[open]");
+  const dialog = page.locator("#cee-area-settings:not([hidden])");
   await dialog.waitFor();
   assert.equal(await dialog.locator("#cee-set-motion").inputValue(), "system");
   assert.equal(await dialog.locator("#cee-set-particles").isChecked(), true);
-  assert.deepEqual(await severeViolations(page), [], "settings dialog");
+  assert.deepEqual(await severeViolations(page), [], "settings page");
   await dialog.locator("#cee-set-motion").selectOption("full");
   assert.equal(await page.evaluate(() => document.documentElement.dataset.motion), "full");
   await dialog.locator("label.ui-switch").click();
   assert.equal(await page.locator("#bg-canvas").isHidden(), true);
-  await page.keyboard.press("Escape");
   await page.reload();
   assert.equal(await page.locator("#bg-canvas").isHidden(), true, "kept in this browser");
   assert.equal(await page.evaluate(() => document.documentElement.dataset.motion), "full");

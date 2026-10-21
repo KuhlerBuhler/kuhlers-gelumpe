@@ -114,7 +114,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("h1", { className: "cee-patch-title", textContent: "Firmware patchen" }),
     el("p", { className: "cee-patch-lead", textContent: "Zieh deine eigene SYSTEM.VSB hierher. Es wird nichts hochgeladen, gepatcht wird in deinem Browser. Eine fertige Firmware gibt es hier nie, nur deine eigene mit BLECHTRIBE drauf." }),
     el("p", { className: "cee-patch-lead" }, ["Falls danach etwas nicht startet: ", el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: "Rettung" }), " zeigt den dokumentierten Weg zurück."]),
-    way, usbBox, drop, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
+    way, usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
   ]));
 
   async function loadPatches(build = input ? buildOf(input) : "hacktribe") {

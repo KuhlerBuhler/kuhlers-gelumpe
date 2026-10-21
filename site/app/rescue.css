@@ -58,25 +58,25 @@
   gap: var(--space-2) var(--space-3);
 }
 
-.cee-rescue-source {
-  color: var(--color-text-muted);
-  overflow-wrap: anywhere;
-}
-
-.cee-rescue-folders {
-  display: flex;
-  flex-direction: column;
+/* Two cards a row, each with its Electribe drawn above the name (e2-art.mjs); one a row on a phone. */
+.cee-rescue-sec .cee-rescue-folders {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+@media (max-width: 560px) {
+  .cee-rescue-sec .cee-rescue-folders { grid-template-columns: minmax(0, 1fr); }
+}
+
 .cee-rescue-folders li {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-4);
   border: 1px solid var(--color-border-muted);
   border-radius: var(--radius-lg);
   background: var(--color-surface-panel-alt);
@@ -84,7 +84,20 @@
 
 .cee-rescue-path {
   overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
+
+.cee-e2-art {
+  width: 100%;
+  height: auto;
+  margin-bottom: var(--space-2);
+}
+
+.cee-e2-art-lcd { fill: var(--color-surface-panel-alt); }
+.cee-e2-art-knob { fill: var(--color-surface-item-muted); stroke: var(--color-border-muted); }
+.cee-e2-art-pad { fill: var(--color-surface-item-muted); }
+.cee-e2-art-touch { fill: var(--color-surface-panel-alt); stroke: var(--color-border-muted); }
 
 .cee-rescue-cases {
   display: flex;
