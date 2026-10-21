@@ -21,10 +21,14 @@ ROOT = Path(__file__).resolve().parents[2]
 BUILDS = ('hacktribe', 'stock', 'synth')
 CORE = ('idle', 'playing', 'playing-keyboard', 'sequencer-four-note-long-ties')
 APPS = ('mandelbrot', 'life', 'pong')
+INSTALLED_APPS = ('blechclicker', 'settimer', 'snake', 'tetris', 'life', 'pong', 'simon', 'mandelbrot')
+BACKGROUND_PLUGINS = ('lauflicht', 'pulsieren')
 REPEATS = 3
 SECONDS = 2
 MUL_MIN_REDUCTION_PERCENT = 19.83
-APP_PROTOCOL = {'warmupFrames': 8, 'rngSeed': 0xB1EC, 'boundary': 'frame_return'}
+APP_PROTOCOL = {'warmupFrames': 8, 'openClockMs': 0xB1EC, 'boundary': 'frame_return',
+                'clockInput': 'native-clock-state-at-millis-entry',
+                'installedApps': list(INSTALLED_APPS), 'backgroundPlugins': list(BACKGROUND_PLUGINS)}
 
 
 class BlockCounter:
@@ -52,6 +56,15 @@ class BlockCounter:
 def require(ok, message):
     if not ok:
         raise ValueError(message)
+
+
+def app_workload(programs, capacity):
+    expected = set(INSTALLED_APPS) | set(BACKGROUND_PLUGINS) | {'gifplayer'}
+    require(set(programs) == expected, 'all eleven named plugin inputs required')
+    require(len(INSTALLED_APPS) <= capacity, 'app workload exceeds native capacity')
+    require(all(programs[name]['info'].get('app') is not None for name in INSTALLED_APPS), 'app metadata missing')
+    require(all(programs[name]['info'].get('app') is None for name in BACKGROUND_PLUGINS), 'background plugin became an app')
+    return INSTALLED_APPS
 
 
 def run_completed_frames(dev, built, frames):
@@ -86,7 +99,7 @@ def run_completed_frames(dev, built, frames):
 
 
 def validate_capture(data):
-    require(data.get('format') == 'blech-performance' and data.get('version') == 2, 'invalid capture format')
+    require(data.get('format') == 'blech-performance' and data.get('version') == 4, 'invalid capture format')
     require(data.get('appProtocol') == APP_PROTOCOL, 'different app input protocol')
     require(data.get('repeats') == REPEATS and data.get('seconds') == SECONDS, 'different workload duration or repeats')
     require(set(data.get('builds', {})) == set(BUILDS), 'all three builds required')
@@ -98,7 +111,8 @@ def validate_capture(data):
         require(len(repeats) == REPEATS, 'loader needs three repetitions')
         for result in repeats:
             plugins = result.get('plugins', [])
-            require(len(plugins) == 10 and len({p.get('plugin') for p in plugins}) == 10, 'ten loader inputs required')
+            expected_plugins = set(INSTALLED_APPS) | set(BACKGROUND_PLUGINS) | {'gifplayer'}
+            require(len(plugins) == len(expected_plugins) and {p.get('plugin') for p in plugins} == expected_plugins, 'all eleven named loader inputs required')
             require(all(isinstance(p.get('instructions'), int) and p['instructions'] > 0 for p in plugins), 'invalid loader count')
             require(result.get('totalInstructions') == sum(p['instructions'] for p in plugins), 'inconsistent loader total')
         require(all(r == repeats[0] for r in repeats), 'non-reproducible loader counts')
@@ -296,8 +310,14 @@ def capture_worker(folder, build, variant):
         measure('blech-menu')
         dev.press('exit', .3)
         programs = json.loads((folder / 'programs.json').read_text())
-        install(dev, built, programs, [name for name in programs if name not in ('lauflicht', 'pulsieren')])
+        app_names = app_workload(programs, symbols['SCRIPT_APPS_MAX'])
+        installed_entries = install(dev, built, programs, app_names)
         dev.run(1)
+        apps = built.layout['runtime'] + symbols['RT_APPS']
+        app_count = machine.u32(apps + symbols['SCRIPT_APPS_COUNT'])
+        require(app_count in (len(app_names), len(app_names) + symbols['SCRIPT_APPS_BUILTIN']), 'app registration incomplete')
+        registered = {machine.u32(apps + symbols['SCRIPT_APPS_TABLE'] + i * 12) for i in range(app_count)}
+        require(set(installed_entries.values()) <= registered and len(registered) == app_count, 'installed app missing from native table')
         measure('closed-apps')
         for plugin in APPS:
             apps = built.layout['runtime'] + symbols['RT_APPS']
@@ -306,14 +326,24 @@ def capture_worker(folder, build, variant):
             require(index is not None, f'app missing: {plugin}')
             require(dev.call(symbols['script_app_open'], index) == 1, 'app did not open')
             entry = machine.u32(apps + symbols['SCRIPT_APPS_TABLE'] + index * 12)
-            if 'seed' in programs[plugin]['info']['symbols']:
-                variables = machine.u32(entry + symbols['SCRIPT_ENTRY_VARS'])
-                uc.mem_write(variables + programs[plugin]['info']['symbols']['seed']['slot'] * 4,
-                             struct.pack('<I', APP_PROTOCOL['rngSeed']))
-            run_completed_frames(dev, built, APP_PROTOCOL['warmupFrames'])
+            clock_reads = []
+            def app_clock_input(_uc, _at, _size, _data):
+                runtime = built.layout['runtime']
+                for key, value in (('INIT', 1), ('LAST', machine.u32(symbols['SCRIPT_TIMER_ADDRESS'])),
+                                   ('REM', 0), ('MS', APP_PROTOCOL['openClockMs'])):
+                    uc.mem_write(runtime + symbols['SCRIPT_CONTROL_CLOCK_' + key], struct.pack('<I', value))
+                clock_reads.append(APP_PROTOCOL['openClockMs'])
+            clock_hook = uc.hook_add(unicorn.UC_HOOK_CODE, app_clock_input,
+                                     begin=symbols['script_clock_millis_glue'], end=symbols['script_clock_millis_glue'])
+            try:
+                run_completed_frames(dev, built, APP_PROTOCOL['warmupFrames'])
+            finally:
+                uc.hook_del(clock_hook)
+                uc.ctl_flush_tb()
+            require(len(clock_reads) == (0 if plugin == 'mandelbrot' else 1), f'unexpected app clock reads: {plugin}: {len(clock_reads)}')
             measure('app-' + plugin, frames=50, entry=entry, program=programs[plugin])
             dev.press('exit', .3)
-        install(dev, built, programs, list(programs))
+        install(dev, built, programs, (*app_names, *BACKGROUND_PLUGINS))
         dev.run(1)
         measure('background-plugins')
     return {'scenarios': results}
@@ -343,8 +373,8 @@ def capture(folder):
     manifest = json.loads((folder / 'sets.json').read_text())
     require(manifest.get('ok') is True and manifest.get('sourcesUnchanged') is True, 'full set checks not passed')
     require(set(manifest.get('builds', {})) == set(BUILDS), 'three checked builds required')
-    data = {'format': 'blech-performance', 'version': 2, 'appProtocol': APP_PROTOCOL.copy(),
-            'method': hashlib.sha256((inspect.getsource(BlockCounter) + inspect.getsource(run_completed_frames) + inspect.getsource(capture_worker) + inspect.getsource(loader_profile) + json.dumps(APP_PROTOCOL, sort_keys=True)).encode()).hexdigest(),
+    data = {'format': 'blech-performance', 'version': 4, 'appProtocol': APP_PROTOCOL.copy(),
+            'method': hashlib.sha256((inspect.getsource(BlockCounter) + inspect.getsource(app_workload) + inspect.getsource(run_completed_frames) + inspect.getsource(capture_worker) + inspect.getsource(loader_profile) + json.dumps(APP_PROTOCOL, sort_keys=True)).encode()).hexdigest(),
             'repeats': REPEATS, 'seconds': SECONDS, 'programsSha256': hashlib.sha256((folder / 'programs.json').read_bytes()).hexdigest(), 'builds': {}}
     for build in BUILDS:
         meta = manifest['builds'][build]

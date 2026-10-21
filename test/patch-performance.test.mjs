@@ -5,19 +5,52 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { emuPython } from "./support/emu.mjs";
+import { PRESETS } from "../data/script/presets.mjs";
 
 const python = emuPython();
 const snippet = `import sys,json;sys.path.insert(0,'tools/emu');from patch_performance import validate_capture,compare; x=json.load(sys.stdin);validate_capture(x['baseline']);validate_capture(x['candidate']);print(json.dumps(compare(x['baseline'],x['candidate'],x.get('phase','baseline'))))`;
-const loaderRun = () => ({ totalInstructions: 1000, plugins: Array.from({ length: 10 }, (_, i) => ({ plugin: `plugin${i}`, instructions: 100 })) });
-const sample = () => ({ format: "blech-performance", version: 2, method: "fixture", repeats: 3, seconds: 2,
-  appProtocol: { warmupFrames: 8, rngSeed: 0xB1EC, boundary: "frame_return" },
+const loaderRun = () => ({ totalInstructions: PRESETS.length * 100, plugins: PRESETS.map(p => ({ plugin: p.id, instructions: 100 })) });
+const sample = () => ({ format: "blech-performance", version: 4, method: "fixture", repeats: 3, seconds: 2,
+  appProtocol: { warmupFrames: 8, openClockMs: 0xB1EC, boundary: "frame_return", clockInput: "native-clock-state-at-millis-entry", installedApps: ["blechclicker", "settimer", "snake", "tetris", "life", "pong", "simon", "mandelbrot"], backgroundPlugins: ["lauflicht", "pulsieren"] },
   programsSha256: "a".repeat(64), builds: Object.fromEntries(["hacktribe", "stock", "synth"].map(build => [build, {
-    loader: { ...loaderRun(), maxInstructions: 1000, repeats: Array.from({ length: 3 }, loaderRun) },
+    loader: { ...loaderRun(), maxInstructions: PRESETS.length * 100, repeats: Array.from({ length: 3 }, loaderRun) },
     inputSha256: "b".repeat(64), outputSha256: "c".repeat(64), footprint: { codeDataBytes: 10, ramBytes: 20, occupiedBytes: 30 },
     original: Array.from({ length: 3 }, () => ({ scenarios: ["idle", "playing", "playing-keyboard", "sequencer-four-note-long-ties"].map(scenario => ({ scenario, instructions: 1000, deviceNs: 2e9, transport: scenario === "idle" ? 0 : 1, asserts: [], byPatch: {} })) })),
     patched: Array.from({ length: 3 }, () => ({ scenarios: ["idle", "playing", "playing-keyboard", "sequencer-four-note-long-ties", "blech-menu", "closed-apps", "app-mandelbrot", "app-life", "app-pong", "background-plugins"].map((scenario, i) => ({ scenario, instructions: 1000, deviceNs: 2e9, transport: i > 0 && i < 4 ? 1 : 0, asserts: [], byPatch: {}, ...(scenario.startsWith("app-") ? { semantic: { frames: 50, fault: 0, frameActive: 0, initialStateSha256: "1".repeat(64), stateSha256: "2".repeat(64), framebufferSha256: "d".repeat(64), progress: {} } } : {}) })) })),
   }])) });
 const run = (baseline, candidate, phase) => spawnSync(python, ["-c", snippet], { input: JSON.stringify({ baseline, candidate, phase }), encoding: "utf8" });
+
+test("loader profiles cover every current preset by name and reject missing or renamed inputs", () => {
+  const good = sample();
+  const result = run(good, good, "baseline");
+  assert.equal(result.status, 0, result.stderr);
+  for (const change of [r => { r.plugins.pop(); r.totalInstructions -= 100; }, r => r.plugins[0].plugin = "unknown", r => r.plugins[0].plugin = r.plugins[1].plugin]) {
+    const bad = sample();
+    for (const row of bad.builds.stock.loader.repeats) change(row);
+    Object.assign(bad.builds.stock.loader, { totalInstructions: bad.builds.stock.loader.repeats[0].totalInstructions, maxInstructions: bad.builds.stock.loader.repeats[0].totalInstructions });
+    assert.notEqual(run(bad, bad, "baseline").status, 0);
+  }
+});
+
+test("the app workload fits eight slots while preserving all loader and background inputs", () => {
+  const programs = Object.fromEntries(PRESETS.map(p => [p.id, { info: { app: ["lauflicht", "pulsieren"].includes(p.id) ? null : { name: p.id } } }]));
+  const code = `import sys,json;sys.path.insert(0,'tools/emu');from patch_performance import app_workload
+p=json.load(sys.stdin)
+apps=app_workload(p,8)
+assert len(apps)==8 and 'gifplayer' not in apps
+for capacity in (0,7):
+ try: app_workload(p,capacity)
+ except ValueError: pass
+ else: raise AssertionError('capacity accepted')
+del p['gifplayer']
+try: app_workload(p,8)
+except ValueError: pass
+else: raise AssertionError('missing loader input accepted')
+print(json.dumps(apps))`;
+  const result = spawnSync(python, ["-c", code], { input: JSON.stringify(programs), encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), ["blechclicker", "settimer", "snake", "tetris", "life", "pong", "simon", "mandelbrot"]);
+});
 
 test("profile validation requires three builds, three repeat runs and the intended transport", () => {
   const a = sample(); assert.equal(run(a, a).status, 0);
