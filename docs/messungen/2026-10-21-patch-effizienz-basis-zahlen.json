@@ -1,0 +1,741 @@
+{
+  "format": "blech-performance-baseline-summary",
+  "version": 1,
+  "date": "2026-10-21",
+  "firmwareSourceCommit": "21cf0ceaada9ff6410c48b85022ad98c8bc8b939",
+  "developCommit": "23461a04c9a26ef4366e6d5355d579dfb9e195ca",
+  "measurementToolingCommit": "25ab506187bec43a83ac0a97102725956910356f",
+  "profileVersion": 4,
+  "method": "383408b1b31205626b10726a82001d2e974f549cc9e51a297e39d5f490bec7f9",
+  "programsSha256": "0ab23063f12ba129e23ad4d116e3986e52fec32bcd5224ac07f5295abccdd474",
+  "profileSha256": "8265445f7ba2235a629176dc8b5d0f3aa3bbd8be30efdab05f0df5c2e43c2574",
+  "repeats": 3,
+  "secondsPerNormalScene": 2,
+  "appProtocol": {
+    "warmupFrames": 8,
+    "openClockMs": 45548,
+    "boundary": "frame_return",
+    "clockInput": "native-clock-state-at-millis-entry",
+    "installedApps": [
+      "blechclicker",
+      "settimer",
+      "snake",
+      "tetris",
+      "life",
+      "pong",
+      "simon",
+      "mandelbrot"
+    ],
+    "backgroundPlugins": [
+      "lauflicht",
+      "pulsieren"
+    ]
+  },
+  "counts": {
+    "independentStarts": 18,
+    "sceneWindows": 126,
+    "measuredAppFrames": 1350,
+    "warmupAppFrames": 216
+  },
+  "selfComparisonPassed": true,
+  "builds": {
+    "hacktribe": {
+      "inputSha256": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+      "outputSha256": "3437ca6a8e275950a4b4c032094233223a31671290a9fe2a305b0c420f7e2a7e",
+      "checksPassed": 443,
+      "patchCount": 17,
+      "footprintBytes": {
+        "freeBytes": 572992,
+        "codeDataBytes": 84284,
+        "ramBytes": 451447,
+        "occupiedBytes": 535731,
+        "unallocatedBytes": 37261,
+        "largestGap": 7228
+      },
+      "scenarios": {
+        "original": [
+          {
+            "scenario": "idle",
+            "instructions": 16074687,
+            "byPatch": {}
+          },
+          {
+            "scenario": "playing",
+            "instructions": 42809598,
+            "byPatch": {}
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 42718397,
+            "byPatch": {}
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 71367109,
+            "byPatch": {}
+          }
+        ],
+        "patched": [
+          {
+            "scenario": "idle",
+            "instructions": 16522466,
+            "byPatch": {
+              "script-runtime": 396481,
+              "load-bar": 195450,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 37800
+            }
+          },
+          {
+            "scenario": "playing",
+            "instructions": 43179638,
+            "byPatch": {
+              "script-runtime": 258272,
+              "load-bar": 195450,
+              "tap-motion": 11688,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 44566,
+              "pattern-switch": 200,
+              "blech-sysex": 192
+            }
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 44051699,
+            "byPatch": {
+              "script-runtime": 255344,
+              "load-bar": 195450,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 72855,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 130748,
+              "blech-sysex": 192
+            }
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 73721424,
+            "byPatch": {
+              "script-runtime": 255172,
+              "load-bar": 195456,
+              "tap-motion": 11688,
+              "note-assistant": 32676,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 2397612,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "blech-menu",
+            "instructions": 19281222,
+            "byPatch": {
+              "splash-editor": 750,
+              "script-runtime": 175449,
+              "pad-colors": 37998,
+              "mfx-switch": 1648,
+              "load-bar": 385617,
+              "tap-motion": 11456,
+              "note-assistant": 29008,
+              "pattern-switch": 192
+            }
+          },
+          {
+            "scenario": "closed-apps",
+            "instructions": 17043190,
+            "byPatch": {
+              "script-runtime": 228220,
+              "load-bar": 195450,
+              "tap-motion": 11688,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "app-mandelbrot",
+            "instructions": 23301779,
+            "byPatch": {
+              "script-runtime": 6402470,
+              "load-bar": 190100,
+              "tap-motion": 11688,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "app-life",
+            "instructions": 23464675,
+            "byPatch": {
+              "script-runtime": 6256913,
+              "load-bar": 190100,
+              "tap-motion": 11688,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "app-pong",
+            "instructions": 18291650,
+            "byPatch": {
+              "script-runtime": 1079793,
+              "load-bar": 190100,
+              "tap-motion": 11688,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "background-plugins",
+            "instructions": 19215057,
+            "byPatch": {
+              "script-runtime": 1776457,
+              "tap-motion": 11688,
+              "load-bar": 195450,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "pattern-switch": 200
+            }
+          }
+        ]
+      },
+      "loader": {
+        "totalInstructions": 3498105,
+        "plugins": [
+          {
+            "plugin": "blechclicker",
+            "instructions": 79655
+          },
+          {
+            "plugin": "settimer",
+            "instructions": 302333
+          },
+          {
+            "plugin": "snake",
+            "instructions": 234062
+          },
+          {
+            "plugin": "tetris",
+            "instructions": 725920
+          },
+          {
+            "plugin": "life",
+            "instructions": 548215
+          },
+          {
+            "plugin": "pong",
+            "instructions": 405328
+          },
+          {
+            "plugin": "simon",
+            "instructions": 376930
+          },
+          {
+            "plugin": "mandelbrot",
+            "instructions": 644545
+          },
+          {
+            "plugin": "gifplayer",
+            "instructions": 144089
+          },
+          {
+            "plugin": "lauflicht",
+            "instructions": 19627
+          },
+          {
+            "plugin": "pulsieren",
+            "instructions": 17401
+          }
+        ],
+        "repeatTotals": [
+          3498105,
+          3498105,
+          3498105
+        ]
+      }
+    },
+    "stock": {
+      "inputSha256": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+      "outputSha256": "202c9b689cc6f9b4146083ef5ea287dd1d24b57dcc1264c85012ddf338e88ed3",
+      "checksPassed": 468,
+      "patchCount": 18,
+      "footprintBytes": {
+        "freeBytes": 572992,
+        "codeDataBytes": 84495,
+        "ramBytes": 451447,
+        "occupiedBytes": 535942,
+        "unallocatedBytes": 37050,
+        "largestGap": 7228
+      },
+      "scenarios": {
+        "original": [
+          {
+            "scenario": "idle",
+            "instructions": 16070453,
+            "byPatch": {}
+          },
+          {
+            "scenario": "playing",
+            "instructions": 42813727,
+            "byPatch": {}
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 42719802,
+            "byPatch": {}
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 71357324,
+            "byPatch": {}
+          }
+        ],
+        "patched": [
+          {
+            "scenario": "idle",
+            "instructions": 16518338,
+            "byPatch": {
+              "script-runtime": 396501,
+              "load-bar": 195450,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 37800
+            }
+          },
+          {
+            "scenario": "playing",
+            "instructions": 43184545,
+            "byPatch": {
+              "script-runtime": 255151,
+              "tap-motion": 11688,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 44629,
+              "load-bar": 195450,
+              "pattern-switch": 200,
+              "blech-sysex": 192
+            }
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 44053634,
+            "byPatch": {
+              "script-runtime": 255216,
+              "load-bar": 195453,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 72845,
+              "mfx-switch": 1651,
+              "splash-editor": 750,
+              "pad-colors": 130781,
+              "blech-sysex": 192
+            }
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 73722020,
+            "byPatch": {
+              "script-runtime": 255173,
+              "load-bar": 195464,
+              "tap-motion": 11688,
+              "note-assistant": 32676,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 2397646,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "blech-menu",
+            "instructions": 19277022,
+            "byPatch": {
+              "splash-editor": 750,
+              "script-runtime": 175449,
+              "pad-colors": 37972,
+              "mfx-switch": 1648,
+              "load-bar": 385626,
+              "tap-motion": 11456,
+              "note-assistant": 29008,
+              "pattern-switch": 192
+            }
+          },
+          {
+            "scenario": "closed-apps",
+            "instructions": 17038986,
+            "byPatch": {
+              "script-runtime": 228241,
+              "load-bar": 195450,
+              "tap-motion": 11688,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "app-mandelbrot",
+            "instructions": 23297626,
+            "byPatch": {
+              "script-runtime": 6402608,
+              "load-bar": 190100,
+              "tap-motion": 11688,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "app-life",
+            "instructions": 23460434,
+            "byPatch": {
+              "script-runtime": 6256860,
+              "load-bar": 190100,
+              "tap-motion": 11688,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "app-pong",
+            "instructions": 18287762,
+            "byPatch": {
+              "script-runtime": 1079864,
+              "load-bar": 190100,
+              "tap-motion": 11688,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "background-plugins",
+            "instructions": 19210352,
+            "byPatch": {
+              "script-runtime": 1776591,
+              "tap-motion": 11688,
+              "load-bar": 195450,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "pattern-switch": 200
+            }
+          }
+        ]
+      },
+      "loader": {
+        "totalInstructions": 3498105,
+        "plugins": [
+          {
+            "plugin": "blechclicker",
+            "instructions": 79655
+          },
+          {
+            "plugin": "settimer",
+            "instructions": 302333
+          },
+          {
+            "plugin": "snake",
+            "instructions": 234062
+          },
+          {
+            "plugin": "tetris",
+            "instructions": 725920
+          },
+          {
+            "plugin": "life",
+            "instructions": 548215
+          },
+          {
+            "plugin": "pong",
+            "instructions": 405328
+          },
+          {
+            "plugin": "simon",
+            "instructions": 376930
+          },
+          {
+            "plugin": "mandelbrot",
+            "instructions": 644545
+          },
+          {
+            "plugin": "gifplayer",
+            "instructions": 144089
+          },
+          {
+            "plugin": "lauflicht",
+            "instructions": 19627
+          },
+          {
+            "plugin": "pulsieren",
+            "instructions": 17401
+          }
+        ],
+        "repeatTotals": [
+          3498105,
+          3498105,
+          3498105
+        ]
+      }
+    },
+    "synth": {
+      "inputSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "outputSha256": "cac754283e6c6c53312698c295ec2de6574d5461f64a5410572bb391d83ab96c",
+      "checksPassed": 347,
+      "patchCount": 12,
+      "footprintBytes": {
+        "freeBytes": 911356,
+        "codeDataBytes": 66924,
+        "ramBytes": 398036,
+        "occupiedBytes": 464960,
+        "unallocatedBytes": 446396,
+        "largestGap": 329996
+      },
+      "scenarios": {
+        "original": [
+          {
+            "scenario": "idle",
+            "instructions": 19986543,
+            "byPatch": {}
+          },
+          {
+            "scenario": "playing",
+            "instructions": 44057401,
+            "byPatch": {}
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 43986276,
+            "byPatch": {}
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 72215639,
+            "byPatch": {}
+          }
+        ],
+        "patched": [
+          {
+            "scenario": "idle",
+            "instructions": 20256200,
+            "byPatch": {
+              "script-runtime": 173050,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "ifx-idle": 18550,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "pad-colors": 31200
+            }
+          },
+          {
+            "scenario": "playing",
+            "instructions": 44484176,
+            "byPatch": {
+              "script-runtime": 234614,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "pad-colors": 33648,
+              "pattern-switch": 200,
+              "blech-sysex": 192
+            }
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 45306010,
+            "byPatch": {
+              "script-runtime": 234694,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "ifx-idle": 18550,
+              "note-assistant": 72847,
+              "mfx-switch": 1650,
+              "pad-colors": 87012,
+              "blech-sysex": 192
+            }
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 72438447,
+            "byPatch": {
+              "script-runtime": 234758,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 32676,
+              "mfx-switch": 1650,
+              "pad-colors": 51571,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "blech-menu",
+            "instructions": 19155718,
+            "byPatch": {
+              "script-runtime": 176167,
+              "pad-colors": 31824,
+              "mfx-switch": 1681,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29600,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "closed-apps",
+            "instructions": 20922335,
+            "byPatch": {
+              "script-runtime": 207700,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "pad-colors": 31200,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "app-mandelbrot",
+            "instructions": 27095303,
+            "byPatch": {
+              "script-runtime": 6381851,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29802,
+              "mfx-switch": 1650,
+              "pad-colors": 31200,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "app-life",
+            "instructions": 27265859,
+            "byPatch": {
+              "script-runtime": 6233397,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "pad-colors": 31200,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "app-pong",
+            "instructions": 22164687,
+            "byPatch": {
+              "script-runtime": 1059169,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "pad-colors": 31200,
+              "pattern-switch": 200
+            }
+          },
+          {
+            "scenario": "background-plugins",
+            "instructions": 23086464,
+            "byPatch": {
+              "script-runtime": 1755741,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "pad-colors": 31200,
+              "pattern-switch": 200
+            }
+          }
+        ]
+      },
+      "loader": {
+        "totalInstructions": 3498105,
+        "plugins": [
+          {
+            "plugin": "blechclicker",
+            "instructions": 79655
+          },
+          {
+            "plugin": "settimer",
+            "instructions": 302333
+          },
+          {
+            "plugin": "snake",
+            "instructions": 234062
+          },
+          {
+            "plugin": "tetris",
+            "instructions": 725920
+          },
+          {
+            "plugin": "life",
+            "instructions": 548215
+          },
+          {
+            "plugin": "pong",
+            "instructions": 405328
+          },
+          {
+            "plugin": "simon",
+            "instructions": 376930
+          },
+          {
+            "plugin": "mandelbrot",
+            "instructions": 644545
+          },
+          {
+            "plugin": "gifplayer",
+            "instructions": 144089
+          },
+          {
+            "plugin": "lauflicht",
+            "instructions": 19627
+          },
+          {
+            "plugin": "pulsieren",
+            "instructions": 17401
+          }
+        ],
+        "repeatTotals": [
+          3498105,
+          3498105,
+          3498105
+        ]
+      }
+    }
+  }
+}
