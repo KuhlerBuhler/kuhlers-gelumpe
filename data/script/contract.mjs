@@ -80,11 +80,16 @@ export const HEADER = Object.freeze({
   ]),
 });
 
-/** Bits of the header's `flags`. PROBED: the editor probed this block and let it out; any other bit is refused. */
-export const BLOCK_FLAGS = Object.freeze({ PROBED: 1, KNOWN: 1 });
+/**
+ * Bits of the header's `flags`. PROBED: the editor probed this block and let it out. DATA: a data section follows the
+ * lines, up to totalSize: records of { base u16, count u16, count bytes, zeros up to a multiple of 4 }, each a run of
+ * array slots the loader sets to those bytes (0 to 255) after it cleared the variables; count is at least 1 and the run
+ * lies inside the variables. Any other bit is refused.
+ */
+export const BLOCK_FLAGS = Object.freeze({ PROBED: 1, DATA: 2, KNOWN: 3 });
 
 /** Section entry sizes in bytes. A handler entry is { event u8, argc u8, entry u16 }; a line entry { offset u16, line u16 }. */
-export const SECTION = Object.freeze({ handler: 4, constant: 4, string: 32, line: 4 });
+export const SECTION = Object.freeze({ handler: 4, constant: 4, string: 32, line: 4, dataRecord: 4 });
 
 const byte = (name, as = "byte") => ({ name, size: 1, as });
 const half = (name, as) => ({ name, size: 2, as });
@@ -367,17 +372,17 @@ export const SCRIPT_KNOBS = 20;
  * BUILTIN, which no menu lists. `max` is what plugins can declare, `slots` what the table holds.
  */
 export const SCRIPT_APPS = Object.freeze({
-  max: 8,
+  max: 12,
   builtin: 1,
-  slots: 8 + 1,
+  slots: 12 + 1,
   groups: Object.freeze(["GAMES", "TOOLS"]),
   builtinGroup: 2,
   nameLength: 15,
   recordSize: 12,
   /** Frames after an open in which the firmware may still be on its way to the main screen (its screen switch is a queued message). */
   openGrace: 3,
-  stateSize: 8 + 9 * 12 + 4,
-  fields: Object.freeze([["open", 0], ["count", 4], ["table", 8], ["grace", 8 + 9 * 12]].map(([name, offset]) => Object.freeze({ name, offset }))),
+  stateSize: 8 + 13 * 12 + 4,
+  fields: Object.freeze([["open", 0], ["count", 4], ["table", 8], ["grace", 8 + 13 * 12]].map(([name, offset]) => Object.freeze({ name, offset }))),
   recordFields: Object.freeze([["entry", 0], ["name", 4], ["group", 8]].map(([name, offset]) => Object.freeze({ name, offset }))),
 });
 

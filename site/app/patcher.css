@@ -182,3 +182,9 @@
   border-color: var(--color-border-danger);
   color: var(--color-text-danger);
 }
+
+/* Between the update over USB and the drop zone: the second way, for a device without BLECHTRIBE yet. */
+.cee-patch-or {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}

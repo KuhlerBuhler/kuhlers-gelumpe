@@ -1758,6 +1758,9 @@ menu_text_status_more:
     cmp r1, #0x36
     ldreq r1, =str_pool_full
     beq menu_text_status_go
+    cmp r1, #0x37
+    ldreq r1, =str_apps_full
+    beq menu_text_status_go
     cmp r1, #0x23
     ldreq r1, =str_nocard
     beq menu_text_status_go
@@ -2616,7 +2619,7 @@ import_prefix:
 ; Reads the selected .blech file, loads its block, and starts it unless it waits for the user's yes. The file goes through the
 ; buffer of the store image, which is read back from the card afterwards (and gives the new plugin its saved values).
 ; Sets M_STATUS: 0 loaded, 0x31 nothing to import, 0x32 scripts are off, 0x33 not a script file, 0x34 rejected,
-; 0x35 name already loaded, 0x36 memory full, 0x20 + code of the failing FatFs call.
+; 0x35 name already loaded, 0x36 memory full, 0x37 loaded but no app place left (korg.app sets it), 0x20 + code of the failing FatFs call.
 menu_import:
     push {r4-r11, lr}
     ldr r4, =MENU_STATE
@@ -2713,6 +2716,8 @@ menu_import_full:
     mov r0, #0x36
     b menu_import_status
 menu_import_loaded:
+    mov r0, #0
+    str r0, [r4, #M_STATUS]         ; korg.app sets 0x37 here when all places are taken
     ldr r9, [r7, #RT_TAIL]
     mov r0, r7
     mov r1, r9
@@ -2738,7 +2743,9 @@ menu_import_armed:
     add r0, r0, #2
     str r0, [r4, #M_PAGE]           ; the page IMPORT PLUGIN again, behind the page the plugin got
     str r0, [r4, #M_ENTER]
-    mov r0, #0
+    ldr r0, [r4, #M_STATUS]
+    cmp r0, #0x37
+    movne r0, #0
     b menu_import_status
 menu_import_fail:
     add r0, r0, #0x20
@@ -3872,6 +3879,8 @@ str_duplicate:
     .asciz "already loaded"
 str_pool_full:
     .asciz "memory full"
+str_apps_full:
+    .asciz "max 12 apps"
 str_allow:
     .asciz "WRITE=ALLOW"
 str_fault:

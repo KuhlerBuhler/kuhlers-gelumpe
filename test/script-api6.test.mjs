@@ -164,12 +164,26 @@ test("a touch carries first: 1 for the first position of a touch, 0 for the ones
 
 test("zeros in an array literal need no code, because the runtime clears every variable slot", () => {
   const program = items => build(`const a = [${items}]; let x = 0; let y = 0; let z = 0; korg.onEvent("ready", () => { x = a[1]; y = a[4]; z = a[0] + a[5]; });`);
-  const sparse = program("0, 5, 0, 0, 7, 0");
-  const dense = program("1, 5, 1, 1, 7, 1");
+  // values above 255 keep the array in code; 0 to 255 would go to the data section
+  const sparse = program("0, 500, 0, 0, 700, 0");
+  const dense = program("1, 500, 1, 1, 700, 1");
   assert.ok(decodeBlob(sparse).code.length <= decodeBlob(dense).code.length - 4 * 9, "four zeros save four stores of 9 bytes");
   const loaded = loadScript(sparse);
   const env = {};
   assert.ok(loaded.script.start(env).ok);
   assert.ok(loaded.script.dispatch("ready", [], env).ok);
-  assert.deepEqual(Array.from(loaded.script.vars.slice(0, 9)), [0, 5, 0, 0, 7, 0, 5, 7, 0]);
+  assert.deepEqual(Array.from(loaded.script.vars.slice(0, 9)), [0, 500, 0, 0, 700, 0, 500, 700, 0]);
+});
+
+test("an array of bytes goes into the data section without code, trimmed of zeros at both ends", () => {
+  const program = items => build(`const a = [${items}]; let x = 0; korg.onEvent("ready", () => { x = a[1] + a[4]; });`);
+  const bytes = decodeBlob(program("0, 5, 0, 0, 255, 0"));
+  assert.deepEqual(bytes.data.map(r => [r.base, Array.from(r.bytes)]), [[1, [5, 0, 0, 255]]]);
+  assert.equal(bytes.code.length, decodeBlob(program("0, 5, 0, 0, 256, 0")).code.length - 2 * 9, "no stores for the bytes");
+  assert.equal(decodeBlob(program("0, 0")).data.length, 0, "only zeros need nothing");
+  const loaded = loadScript(program("0, 5, 0, 0, 255, 0"));
+  const env = {};
+  assert.ok(loaded.script.start(env).ok);
+  assert.ok(loaded.script.dispatch("ready", [], env).ok);
+  assert.deepEqual(Array.from(loaded.script.vars.slice(0, 7)), [0, 5, 0, 0, 255, 0, 260]);
 });

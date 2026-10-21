@@ -4,6 +4,7 @@
  * exactly this text (src/script/gate.mjs).
  */
 import { el } from "./fields.mjs";
+import { icon } from "./icons.mjs";
 import { simPanel } from "./sim-panel.mjs";
 import { drawDisplay } from "./emulator.mjs";
 import { PADS } from "../../data/panel.mjs";
@@ -12,7 +13,7 @@ import { toast } from "./toast.mjs";
 import { createScriptEditor } from "./script-editor.mjs";
 import { compile, formatError } from "../../src/script/compiler.mjs";
 import { decodeBlob, markProbed } from "../../src/script/blob.mjs";
-import { LIMITS, BUDGET, ARCHIVE } from "../../data/script/contract.mjs";
+import { LIMITS, BUDGET, ARCHIVE, SCRIPT_APPS } from "../../data/script/contract.mjs";
 import { PRESETS } from "../../data/script/presets.mjs";
 import { TEMPLATES, templateSource } from "../../data/script/templates.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
@@ -486,12 +487,15 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     const items = workspace.list();
     const blocks = [];
     const gates = [];
+    let apps = 0;
     for (const s of items) {
       const result = compile(s.source, { name: s.name });
       if (!result.ok) { say(`„${s.name}“ lässt sich nicht übersetzen.`, "error"); return; }
+      if (result.info.app) apps += 1;
       blocks.push(markProbed(result.blob));
       gates.push({ name: s.name, gate: exportGate(s) });
     }
+    if (apps > SCRIPT_APPS.max) { say(`Das sind ${apps} Apps. Die Electribe zeigt höchstens ${SCRIPT_APPS.max}. Lösch ein paar Apps aus der Liste und speichere nochmal.`, "error"); return; }
     if (!(await allowExport("Alle", gates))) return;
     const packed = packAll(blocks);
     if (!packed.ok) { say(packed.error.message, "error"); return; }
@@ -620,7 +624,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   root.replaceChildren(...PAGES.map(p => p.node));
 
   let shown = null;
-  const subPages = sub?.pages("scripts", { id: "cee-scripts-pages", label: "Bereiche der Plugins", items: PAGES.map(({ id, title }) => ({ id, title })), pick: id => page(id) });
+  const PAGE_ICONS = { catalog: "grid", editor: "code", run: "play", console: "terminal", docs: "book" };
+  const subPages = sub?.pages("scripts", { id: "cee-scripts-pages", label: "Bereiche der Plugins", items: PAGES.map(({ id, title }) => ({ id, title, icon: PAGE_ICONS[id] })), pick: id => page(id) });
   /** Opens one of the pages of Plugins: the editor, the run area, the console, the names, the catalog. */
   function page(id) {
     if (!PAGES.some(p => p.id === id)) id = "editor";
@@ -669,7 +674,13 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     canvas.setAttribute("aria-label", `Display von ${preset.title}`);
     thumbs.set(canvas, preset);
     const note = el("p", { className: "cee-error", hidden: true });
-    const view = el("button", { type: "button", className: "btn sm", textContent: "Code ansehen", onclick: () => { select("preset", preset.id); page("editor"); } });
+    // Icon buttons: the label says only what the button does, for the screen reader and as the tooltip.
+    const iconButton = (name, label, onclick, primary = false) => {
+      const b = el("button", { type: "button", className: `btn icon${primary ? " primary" : ""}`, title: label, onclick }, [icon(name)]);
+      b.setAttribute("aria-label", label);
+      return b;
+    };
+    const view = iconButton("eye", "Code ansehen", () => { select("preset", preset.id); page("editor"); });
     const pack = () => {
       const result = compile(preset.source, { name: validName(preset.id) ? preset.id : "plugin" });
       const probed = result.ok ? runProbe(result.blob) : null;
@@ -678,14 +689,14 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       if (!packed?.ok) { note.textContent = packed?.error?.message ?? "Dieses Beispiel lässt sich nicht speichern."; return null; }
       return packed.bytes;
     };
-    const get = el("button", { type: "button", className: "btn sm", textContent: "Download .blech", onclick: () => {
+    const get = iconButton("download", "Herunterladen", () => {
       const bytes = pack();
       if (bytes) download(bytes, `${preset.id}.blech`);
-    } });
-    const usb = el("button", { type: "button", className: "btn sm primary", textContent: "Per USB aufs Gerät", onclick: () => {
+    });
+    const usb = iconButton("usb", "Per USB auf die Electribe schicken", () => {
       const bytes = pack();
       if (bytes) toDevice(bytes, preset.id, usb);
-    } });
+    }, true);
     return el("li", { className: "cee-catalog-card", id: `cee-catalog-${preset.id}` }, [
       canvas,
       el("h3", { textContent: preset.title }),

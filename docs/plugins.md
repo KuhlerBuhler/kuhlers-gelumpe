@@ -134,6 +134,9 @@ Ein Plugin, das nur LEDs oder Tasten braucht, nimmt das Display nie.
 - **Felder:** `const a = new Array(16);` oder `const a = [1, 2, 3];`, nur ganz
   oben, fest 1 bis 65535 Plätze, Zahlen. `a[i]`, `a[i] = x`, `a[i] += x`,
   `a.length`. Ein Index außerhalb des Felds beendet das Plugin mit einem Fehler.
+  Hat ein Feld-Literal nur Werte von 0 bis 255 (etwa ein Bild für
+  `korg.display.bitmap`), stehen sie als Bytes im Block und kosten keinen Code,
+  sonst schreibt der Code jeden Wert außer 0 einzeln ins Feld.
 - **Rechnen:** `+ - * / %`, `& | ^ << >> ~`, Vergleiche `== != === !== < <= > >=`,
   `&& || !`, `? :`. Alles rechnet mit 32 Bit und läuft über. `/` teilt ganzzahlig
   und schneidet gegen null ab (anders als in JavaScript), `%` hat das Vorzeichen
@@ -229,7 +232,7 @@ Plugin mit einem Fehler.
 |---|---|---|
 | `korg.led(index, level)` | LED Auftrag vormerken, `index` 0 bis 87 (am besten ein Name wie `korg.led.TAP`), `level` 0 bis 255 | allen Ereignissen außer dem Rumpf und `save` |
 | `korg.millis()` | Millisekunden seit dem ersten Aufruf, aus Timer3 (150 MHz), das alle 150 Millionen Ticks überläuft | überall |
-| `korg.app(name, gruppe)` | meldet das Plugin als App an: `name` 1 bis 15 Zeichen, `gruppe` `"GAMES"` oder `"TOOLS"`. Gibt die Nummer der App zurück, -1 wenn alle 8 Plätze belegt sind. Als eigene Anweisung ganz oben, einmal je Plugin (der Übersetzer prüft das) | nur im Rumpf |
+| `korg.app(name, gruppe)` | meldet das Plugin als App an: `name` 1 bis 15 Zeichen, `gruppe` `"GAMES"` oder `"TOOLS"`. Gibt die Nummer der App zurück, -1 wenn alle 12 Plätze belegt sind (das Gerät meldet dann beim Import "max 12 apps"). Als eigene Anweisung ganz oben, einmal je Plugin (der Übersetzer prüft das) | nur im Rumpf |
 | `korg.file.frame(feld, datei, bild)` | liest Bild `bild` (0 bis 65535) der Datei `GIFnn.E2G` (`datei` 0 bis 99 ist nn) aus `KORG/blechtribe/Gif/` ins Feld, ein Byte je Platz, also genau, was `korg.display.bitmap(feld, 0, 0, 128)` zeichnet. Das Feld braucht mindestens 1024 Plätze. Gibt die Dauer des Bildes in ms zurück (mindestens 1), 0 hinter dem letzten Bild, -1 ohne Datei, bei falscher oder abgeschnittener Datei und außerhalb des Hauptbildschirms; nach -1 kann am Gerät das letzte Viertel des Felds verändert sein. Ab API Version 7 | wie `korg.led` |
 | `korg.display.take()` | das Display nehmen (Weg 2, siehe oben); 1 wenn es klappt, 0 wenn nicht (eine App, ein anderer Besitzer, nicht der Hauptbildschirm) | wie `korg.led` |
 | `korg.display.release()` | das Display zurückgeben | wie `korg.led` |
