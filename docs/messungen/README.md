@@ -114,6 +114,8 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 
 Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung, Ladebalken, das BLECH-Menü und seine Anpassung.
 
+- [Gebundene Noten auf den Pads: lokale Geometrie und genaue Bruchtabelle](2026-10-20-pad-geometrie.md)
+
 - [Startbild-Editor im Menü Global (Idee 35): gebaut und im Emulator geprüft](2026-10-10-startbild-editor.md)
 - [MFX 2 auf TOUCH SCALE (Idee 44): gebaut und im Emulator geprüft](2026-10-10-mfx-umschalter.md)
 - [MFX 2 am Gerät: erster Code-Patch auf der echten Electribe](2026-10-13-mfx-umschalter-geraet.md)

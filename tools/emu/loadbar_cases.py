@@ -29,6 +29,7 @@ import sampleset  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import DESC13, SPLASH, Dev, display_of  # noqa: E402
+from frame_match import matches_pages  # noqa: E402
 
 IMAGE = 0xC0000000
 KILL = spec.KILL_SWITCH
@@ -95,12 +96,14 @@ class Run:
         self.loader = []            # (start, end) of the loader in ms of device time
         self.hook_loader()
         self.frames = []            # (ms, display bytes, state words, screen number)
+        self.lcd_positions = {}
         self.main_at = None
         t = 0.0
         while t < limit and not self.m.asserts:
             self.dev.run(SAMPLE)
             t += SAMPLE
             screen = self.dev.screen()["number"]
+            self.lcd_positions[self.m.time_ns / 1e6] = (self.m.lcd_page, self.m.lcd_col)
             self.frames.append((self.m.time_ns / 1e6, self.dev.fb(), self.state(), screen, self.m.shown()))
             if screen == 1 and self.main_at is None:
                 self.main_at = self.m.time_ns / 1e6
@@ -167,14 +170,15 @@ def mismatches(run):
     """(frames looked at, first frame that showed the animation in ms, ms of the frames that are not one of its pictures).
 
     The display follows the state by a few frames (the pages of a new picture go out one after the other), so a frame may show
-    any of the last three keys, page by page; before the first frame that equals one, the display shows the start image the
+    any of the last three keys, page by page. The page currently being sent can have its prefix and suffix from different
+    keys at the recorded LCD column. Before the first frame that equals one, the display shows the start image the
     firmware drew early; and the one frame in which the firmware closes its window (just before the main screen) is its own."""
     frames, recent, bad, first = overlay_frames(run), [], [], None
     for t, fb, st, _, _ in frames:
         if not recent or recent[-1][0] != st[7]:
             recent = (recent + [(st[7], pictures(st[7]))])[-3:]
         candidates = [p for _, pair in recent for p in pair]
-        if fb in candidates or all(any(fb[o:o + 128] == c[o:o + 128] for c in candidates) for o in range(0, 1024, 128)):
+        if matches_pages(fb, candidates, run.lcd_positions[t]):
             first = first if first is not None else t
         elif first is not None and not (run.main_at and t >= run.main_at - 60):
             bad.append(round(t, 1))

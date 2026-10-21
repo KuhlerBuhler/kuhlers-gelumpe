@@ -74,7 +74,7 @@ test("native input and frame hooks preserve guards, queues, budget and continuat
 }, () => {
   assert.ok(available, probe.error?.message ?? probe.stderr);
   // Every test that boots Blechy runs about 5.4 million ARM instructions: this file takes about a minute alone, several on a busy machine.
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_hooks.py"], {
+  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_hooks.py", "tools/patch/test_script_vm_optimizations.py"], {
     cwd: root, encoding: "utf8", timeout: 900_000, maxBuffer: 4 * 1024 * 1024,
   });
   assert.ifError(result.error);
