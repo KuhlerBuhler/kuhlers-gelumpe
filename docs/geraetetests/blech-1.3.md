@@ -28,7 +28,7 @@ werden. Vorher den [dokumentierten Rückweg](../messungen/2026-10-10-rueckweg-ge
 | 6 | Am Sampler unter BLECH, CUSTOMIZATION, SPLASH DRAW ein Testbild malen und mit WRITE sichern | Working endet, Bild bleibt nach Neustart; danach Sicherung wiederherstellen | offen |
 | 7 | Global, LCD CONTRAST öffnen | CALIBRATE DISPLAY und drei unterschiedlich schnelle Bälle | offen |
 | 8 | Bei der Kalibrierung den bisherigen Wert notieren und das VALUE-Rad drehen | Kontrast 1 bis 25, Bewegung läuft weiter; keine andere Global-Einstellung ändert sich | offen |
-| 9 | Einen gut lesbaren Wert wählen, WRITE, EXIT und erneut öffnen | Original-Speicherweg, gewählter Kontrast bleibt; Rückweg funktioniert | offen |
+| 9 | Einen gut lesbaren Wert wählen, WRITE drücken, eine angezeigte Speicherabfrage bestätigen, EXIT drücken und erneut öffnen | Original-Speicherweg, gewählter Kontrast bleibt; Rückweg funktioniert | offen |
 | 10 | Mit EXIT gehalten neu starten und dieselbe Kontrastseite öffnen | Originaldarstellung ohne Kalibrierungsanimation, Kontrast weiter einstellbar | offen |
 | 11 | Nur am Sampler mit bereits vorhandenem Doom-Paket: SHIFT + TAP beim Einschalten halten | Doom startet nach dem Laden; bei einer Fehlermeldung Code und Ablauf festhalten | offen |
 

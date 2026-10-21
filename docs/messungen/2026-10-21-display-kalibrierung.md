@@ -23,6 +23,8 @@ Die Bälle laufen auf getrennten Zeilen mit dem Geschwindigkeitsverhältnis 1:2:
 Position stammt aus dem vorhandenen Rahmenzähler. Es werden keine weiteren dauerhaften
 RAM-Bereiche reserviert. Die eigene Schrift der Laufzeit wird wiederverwendet. Einschließlich
 des zusätzlichen Aufrufs beansprucht die Darstellung 516 Byte Code und Daten, rund 0,5 KiB.
+Zusammen mit den 12 eingesparten Byte der [Plugin-Prüfung](2026-10-21-plugin-pruefung.md)
+wächst der Code gegenüber dem bisherigen Stand um 504 Byte.
 
 ## Adressnachweis
 
@@ -43,6 +45,11 @@ Seiten und offene Fenster lassen das Display unverändert.
 Die zusätzlichen Firmwarefälle in `tools/emu/calibrate_cases.py` prüfen den normalen
 Bedienweg, die Animation, den unveränderten Global-Block beim Zeichnen, die ursprünglichen
 Wertebereiche, WRITE, EXIT und den Notschalter. Sie gehören zum vollständigen Emulatorcheck.
+
+Der vollständige Patch-Satz besteht am 21.10.2026 auf Synth 347 von 347, auf Hacktribe
+443 von 443 und auf Korg rot 468 von 468 Prüfungen. Darin sind jeweils neun Fälle zur
+Kalibrierung enthalten. Die genau geprüften Ein- und Ausgaben stehen als Prüfsummen in
+`data/patches/verified.json`; Firmwaredateien werden nicht mitgeliefert.
 
 **Am Gerät offen:** Welche Kontrasteinstellung die drei Bewegungen am lesbarsten zeigt.
 Der Emulator kann das individuelle Nachleuchten eines echten LCDs nicht bestätigen.

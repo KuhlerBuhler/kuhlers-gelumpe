@@ -52,5 +52,7 @@ wird zusätzlich mit der nativen Laufzeit verglichen. Die Prüfungen sind in den
 Laufzeittest eingebunden.
 
 [Messzahlen, Block-Prüfsummen und Wiederholungen](2026-10-21-plugin-pruefung-zahlen.json).
-Die vollständigen Firmware- und Geräteprüfungen werden beim jeweiligen Teststand angegeben;
-diese lokale Lademessung ersetzt sie nicht.
+Der vollständige Patch-Satz besteht am 21.10.2026 auf Synth 347 von 347, auf Hacktribe
+443 von 443 und auf Korg rot 468 von 468 Emulatorprüfungen. Die genau geprüften Ein- und
+Ausgaben stehen als Prüfsummen in `data/patches/verified.json`. Der Gerätetest bleibt offen;
+die lokale Lademessung ersetzt ihn nicht.
