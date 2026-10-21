@@ -109,10 +109,10 @@ test("the status line does not rebuild itself when the service repeats the same 
   assert.ok(await page.evaluate(() => window.__statusMutations) > 0, "a real change still goes through");
 });
 
-test("the display has a text for what it shows: the screen line of the sidebar", async () => {
+test("the display has a text for what it shows: a screen line only screen readers hear", async () => {
   const page = await open();
-  assert.equal(await page.getAttribute("#cee-emu-lcd", "aria-describedby"), "cee-side-where");
-  assert.equal(await page.locator("#cee-side-where").count(), 1);
+  assert.equal(await page.getAttribute("#cee-emu-lcd", "aria-describedby"), "cee-emu-where");
+  assert.equal(await page.locator("#cee-emu-where.ui-sr-only").count(), 1);
 });
 
 test("the plugin run area touchpad works from the keyboard", async () => {
@@ -154,7 +154,7 @@ test("the Patcher title is German like the page, no language override", async ()
   const page = await open();
   await page.click("#cee-tab-patcher");
   assert.equal(await page.getAttribute("#cee-area-patcher h1", "lang"), null);
-  assert.equal(await page.locator("#cee-area-patcher h1").textContent(), "Firmware patchen");
+  assert.equal(await page.locator("#cee-area-patcher h1").textContent(), "Firmware Patcher");
 });
 
 test("lit keys keep 4.5:1 for their label, the lit blue PLAY key 3:1 for its symbol", async () => {

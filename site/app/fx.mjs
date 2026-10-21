@@ -52,15 +52,16 @@ const spans = f => (f.repeat ? Array.from({ length: f.repeat[0].count }, (_, i) 
 
 /**
  * @param {object} opts
- * @param {string} [opts.prefix] id prefix, so a second panel (the emulator sidebar) can sit on the same page
+ * @param {string} [opts.prefix] id prefix, so a second panel can sit on the same page
  * @param {boolean} [opts.embedded] no file picker; the firmware comes through loadBytes()
  * @param {(sent: {kind: string, slot: number}) => void} [opts.onSent] after a send that was read back intact
  * @param {() => object} [opts.onlyPort] the only port this panel may send to and hand its firmware to
  * @param {() => Promise<object | null>} [opts.live] the session to read presets from and send to when no device area session is attached: the running emulator's
  * @param {string} [opts.idle] what to say while no firmware is loaded in an embedded panel
  * @param {() => object | null} [opts.emulator] the emulator panel, whose `check` tests a firmware copy before it is offered
+ * @param {Node} [opts.pickerExtra] shown after the preset choice, such as the switch that follows the device
  */
-export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent = null, onlyPort = null, live = null, idle = "", emulator = null }) {
+export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent = null, onlyPort = null, live = null, idle = "", emulator = null, pickerExtra = null }) {
   const state = { units: null, image: null, bytes: null, identity: null, profile: null, kind: "ifx", slot: null, rec: null, original: null, expert: false, dirty: false, base: null, passed: null, stock: false, added: new Set(), fileDirty: false };
 
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: `${prefix}-vsb`, accept: ".VSB,.vsb" });
@@ -157,7 +158,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const list = state.image.list(state.kind);
     for (const { slot, name } of list) select.append(el("option", { value: String(slot), textContent: `${slot} ${name}` }));
     select.addEventListener("change", () => openSlot(Number(select.value)));
-    picker.replaceChildren(kinds, el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: `${prefix}-fx-slot`, textContent: "Preset" }), select]));
+    picker.replaceChildren(kinds, el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: `${prefix}-fx-slot`, textContent: "Preset" }), select]), ...(pickerExtra ? [pickerExtra] : []));
     picker.hidden = false;
     if (list.length) openSlot(state.slot ?? list[0].slot);
     if (state.slot) select.value = String(state.slot);
@@ -664,6 +665,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     /** Refresh an untouched preset from the running session. */
     refresh() { if (state.image && state.slot && !state.dirty) return openSlot(state.slot, { refresh: true }); },
     get loaded() { return !!state.image; },
+    /** An edit of the open preset that was not sent or written yet. */
+    get dirty() { return state.dirty; },
     /** The presets of the loaded firmware and what their parameters are called, for the level overview; null before a firmware is loaded. */
     presets() {
       return state.image ? {

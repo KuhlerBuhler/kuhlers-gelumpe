@@ -41,7 +41,7 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
   const attached = async () => {
     try {
       const s = await session();
-      if (!s) say("Nichts verbunden. Starte links den Emulator oder steck die Electribe per USB an und klick links auf Gerät.");
+      if (!s) say("Nichts verbunden. Schalte im Bereich Emulator die Electribe ein, oder steck dein Gerät per USB an und wähl dort oben „Echtes Gerät“.");
       return s;
     } catch (e) { say(e.message); return null; }
   };

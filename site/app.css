@@ -404,6 +404,60 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   margin: var(--space-6) 0;
 }
 
+.cee-emu-pop[hidden],
+.cee-emu-away[hidden] {
+  display: none;
+}
+
+/* The device is in its own window: where it was, a note and the way back. */
+.cee-emu-away {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  margin: var(--space-6) 0;
+  padding: var(--space-6);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.cee-emu-away p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+/* The window is only the device: as large as the window allows, by width or by height. */
+.cee-emu-window {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-3);
+}
+
+.cee-emu-window .ui-section {
+  gap: 0;
+}
+
+/* The status line takes room only while it says something (it is screen reader text while the device runs). */
+.cee-emu-window .cee-emu-bar {
+  margin: 0;
+}
+
+.cee-emu-window .cee-emu-bar:has(.cee-emu-status:not(.ui-sr-only)) {
+  margin-bottom: var(--space-3);
+}
+
+.cee-emu-window .cee-emu-device {
+  margin: 0;
+}
+
+/* No navbar here: the device keeps only the window's own padding free. */
+.cee-emu-window .cee-e2-body {
+  --cee-e2-chrome: calc(2 * var(--space-3));
+}
+
 /* Bedienbare Electribe im Emulator: eigene Zeichnung aus Tokenfarben, kein
    Foto, keine Marke. Positionen im 1200 x 700 Raum des Prototyps; das
    Gehäuse ist darin der Ausschnitt 88..1109 x 68..636. Die Zeichnung skaliert
@@ -899,6 +953,22 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   color: var(--color-text-accent);
 }
 
+/* A newer release: above every area, in the accent colour, a link and not a tab. */
+.cee-nav-update {
+  order: -1;
+  box-sizing: border-box;
+  margin-bottom: var(--space-2);
+  background: var(--color-accent-primary-ring-soft);
+  color: var(--color-text-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cee-nav-update:hover {
+  background: var(--color-accent-primary-ring);
+  color: var(--color-text-primary);
+}
+
 /* Options of the open page, folded under its entry. */
 .cee-nav-sub {
   display: flex;
@@ -1117,14 +1187,18 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 }
 
 .cee-main.ui-page {
+  max-width: none;
   padding-top: var(--space-6);
 }
 
-.cee-home-title {
+/* The page title and every section title share one size, in a white that does not glare. */
+.cee-home-title,
+.cee-home .cee-sec h2 {
+  margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-3xl);
   line-height: 1.15;
-  max-width: 42rem;
+  color: color-mix(in oklch, var(--color-text-primary) 70%, var(--color-text-secondary));
 }
 
 .cee-home {
@@ -1134,7 +1208,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 }
 
 .cee-note {
-  max-width: 46rem;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border-accent-strong);
   border-radius: var(--radius-md);
@@ -1145,7 +1218,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  max-width: 46rem;
 }
 
 .cee-sec p {
@@ -1160,6 +1232,19 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* Six cards on the start page: three across, never five and one left over. */
+.cee-home .cee-cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 64rem) {
+  .cee-home .cee-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 40rem) {
+  .cee-home .cee-cards { grid-template-columns: minmax(0, 1fr); }
 }
 
 .cee-card {
@@ -1218,15 +1303,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   .cee-navbar {
     padding-inline: var(--space-4);
   }
-}
-
-.cee-emu-live {
-  margin-top: var(--space-6);
-}
-
-.cee-side-where:empty,
-.cee-emu-live p:empty {
-  display: none;
 }
 
 .cee-term-log {
@@ -1602,7 +1678,6 @@ select,
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-width: 46rem;
   margin-bottom: var(--space-3);
   line-height: 1.6;
 }
@@ -1698,7 +1773,6 @@ select,
 
 /* Pattern-Werkzeuge (pattern-tools.mjs) */
 .cee-pt-intro {
-  max-width: 46rem;
   margin-bottom: var(--space-6);
   line-height: 1.6;
 }
@@ -1833,7 +1907,6 @@ select,
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-width: 46rem;
   margin-bottom: var(--space-4);
   line-height: 1.6;
 }
@@ -2197,7 +2270,7 @@ html[data-motion="reduce"] *::after {
 /* The documentation page (scripts.mjs, markdown.mjs). */
 .cee-docs-head { display: flex; gap: var(--space-3); margin-bottom: var(--space-3); }
 .cee-docs-head .input { width: 24rem; max-width: 100%; }
-.cee-docs { max-width: 60rem; line-height: 1.6; }
+.cee-docs { line-height: 1.6; }
 .cee-docs-article { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-4); }
 .cee-doc-section { display: flex; flex-direction: column; gap: var(--space-3); }
 .cee-doc-section[hidden] { display: none; }
@@ -2263,6 +2336,61 @@ html[data-motion="reduce"] *::after {
 
 .cee-entry-step:hover {
   border-color: var(--color-border-accent-strong);
+}
+
+/* The device's colour, as on its case, in the border. */
+.cee-device-card[data-device="red"] { --cee-device-tone: var(--color-status-error); }
+.cee-device-card[data-device="blue"] { --cee-device-tone: var(--color-chart-blue); }
+
+.cee-device-card,
+.cee-device-card:hover {
+  border-color: var(--cee-device-tone);
+}
+
+.cee-device-card {
+  position: relative;
+  padding-right: var(--space-12);
+  transition: background var(--speed);
+}
+
+/* Opens Korg's page outside the app. */
+.cee-device-card-out {
+  position: absolute;
+  top: 50%;
+  right: var(--space-4);
+  translate: 0 -50%;
+  color: var(--color-text-secondary);
+}
+
+.cee-device-card:hover .cee-device-card-out {
+  color: var(--cee-device-tone);
+}
+
+.cee-device-card:hover {
+  background: color-mix(in oklch, var(--cee-device-tone) 14%, var(--color-surface-panel-alt));
+}
+
+/* The install steps: numbered by their headings, one block each. */
+.cee-install {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-install h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.cee-install p {
+  margin: 0 0 var(--space-3);
+}
+
+/* In a step the cards take their own height: the 100% of the entry grid reached past the step. */
+.cee-install .cee-entry-step {
+  height: auto;
 }
 
 .cee-entry-step:focus-visible {

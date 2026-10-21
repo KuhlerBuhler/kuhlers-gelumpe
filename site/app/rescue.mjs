@@ -50,7 +50,7 @@ export function rescuePage(root) {
   const legend = el("ul", { className: "cee-rescue-legend" }, Object.keys(STATUS).map(k => el("li", {}, [pill(k), el("span", { textContent: ` ${STATUS[k].meaning}` })])));
 
   root.replaceChildren(el("div", { className: "cee-rescue" }, [
-    el("h1", { className: "cee-rescue-title", textContent: "Rettung" }),
+    el("h1", { className: "cee-rescue-title ui-sr-only", textContent: "Rettung" }),
     el("p", { className: "cee-rescue-lead", textContent: "Das Gerät startet nach einem Update oder Patch nicht mehr richtig? Hier steht der Weg zurück. Jeder Schritt sagt dazu, wie sicher er ist. Lies erst alles, bevor du etwas tust." }),
     stop,
     el("section", { className: "cee-rescue-sec" }, [

@@ -18,10 +18,10 @@ test("the sidebar lists only the entries, the navbar names the open page, up and
   const page = await h.page();
   await page.goto(h.url);
   assert.equal(await selectedTab(page), "start");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Rettung", "Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen"]);
   assert.equal(await page.locator("#cee-sidebar .cee-nav-label").count(), 0, "no headings between the entries");
   await page.click("#cee-tab-patcher");
-  assert.equal(await page.locator("#cee-nav-title").textContent(), "Patcher");
+  assert.equal(await page.locator("#cee-nav-title").textContent(), "Firmware Patcher");
   assert.equal(await page.locator("#cee-area-patcher").getAttribute("hidden"), null);
   await page.keyboard.press("ArrowDown");
   assert.equal(await selectedTab(page), "splash");
@@ -46,7 +46,7 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.equal(await selectedTab(page), "start", "a remembered hidden page is ignored");
   await page.goto(`${h.url}?labs#ptools`);
   assert.equal(await selectedTab(page), "ptools", "with ?labs the pages stay reachable for tests");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Rettung", "Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples"]);
 });
 
 test("the navbar title of the emulator page is a menu: emulator or real device", async () => {
@@ -54,7 +54,7 @@ test("the navbar title of the emulator page is a menu: emulator or real device",
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-nav-title").isVisible(), false);
   assert.equal(await page.locator("#cee-mode-label").textContent(), "Emulator");
-  assert.equal(await page.locator("#cee-nav-state").textContent(), "", "the emulator page has no device state");
+  assert.equal(await page.locator("#cee-nav-state").textContent(), "Eigenes Fenster", "the emulator page has no device state, only the button for its own window");
   assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "false");
   await page.click("#cee-mode-button");
   assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "true");
@@ -177,7 +177,7 @@ test("the drawing sits at the same height on the emulator page and on the real d
 test("the start page has its sections in heading order and the donate link opens outside the app", async () => {
   const page = await h.page();
   await page.goto(h.url);
-  assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Was ist das?", "Was man damit machen kann", "Wer ich bin", "Wieso", "Spenden", "Was du brauchst", "Woher es kommt"]);
+  assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Wie installiere ich BLECHTRIBE?", "Was kann BLECHTRIBE?", "Wer kam auf so ne dumme Idee?", "Spenden", "Erkunden"]);
   for (const id of ["#cee-donate", "#cee-donate-start"]) {
     assert.equal(await page.getAttribute(id, "href"), "https://www.paypal.me/kuhlerbuhler");
     assert.equal(await page.getAttribute(id, "target"), "_blank");
@@ -186,6 +186,73 @@ test("the start page has its sections in heading order and the donate link opens
   await app.addInitScript(() => { window.__GELUMPE_APP = { version: "0.0.0" }; });
   await app.goto(h.url);
   assert.equal(await app.getAttribute("#cee-donate", "target"), "_self", "in the app the navigation is caught and opened in the browser");
+  assert.equal(await app.getAttribute("#cee-start-korg-red", "target"), "_self");
+});
+
+test("the app opens on the start page although its address carries the emulator link; the browser goes to the emulator", async () => {
+  const app = await h.page();
+  await app.addInitScript(() => { window.__GELUMPE_APP = { version: "1.2.0" }; });
+  await app.goto(`${h.url}#emu=1:x`);
+  await app.waitForFunction(() => document.documentElement.dataset.ceeReady === "1");
+  assert.equal(await app.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "start");
+  const page = await h.page();
+  await page.goto(`${h.url}#emu=1:x`);
+  await page.waitForFunction(() => document.documentElement.dataset.ceeReady === "1");
+  assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "emu");
+});
+
+test("the settings page names the app's version in the app, and has no such line in the browser", async () => {
+  const page = await h.page();
+  await page.goto(`${h.url}#settings`);
+  await page.locator("#cee-settings-title").waitFor({ state: "attached" });
+  assert.equal(await page.locator("#cee-version").count(), 0);
+  const app = await h.page();
+  await app.addInitScript(() => { window.__GELUMPE_APP = { version: "1.2.0" }; });
+  await app.goto(`${h.url}#settings`);
+  assert.equal(await app.locator("#cee-version").textContent(), "App-Version 1.2.0");
+});
+
+test("the start page links to Korg's firmware downloads in its install steps, and to Plugins and Presets under Erkunden", async () => {
+  const page = await h.page();
+  await page.goto(h.url);
+  const cards = page.locator("#cee-start-firmware a.cee-device-card");
+  assert.deepEqual(await cards.evaluateAll(list => list.map(a => [a.dataset.device, a.href, a.target])), [
+    ["red", "https://www.korg.com/us/support/download/product/0/368/#software", "_blank"],
+    ["blue", "https://www.korg.com/us/support/download/product/0/367/#software", "_blank"],
+  ]);
+  assert.equal(await page.locator("#cee-start-entry #cee-start-firmware").count(), 1, "the first step of the install");
+  const tone = await cards.evaluateAll(list => list.map(a => getComputedStyle(a).borderTopColor));
+  assert.notEqual(tone[0], tone[1], "each card has the border of its device's colour");
+  const explore = page.locator("#cee-start-explore a");
+  assert.deepEqual(await explore.evaluateAll(list => list.map(a => a.getAttribute("href"))), ["#scripts", "#fx"]);
+});
+
+test("the emulator opens in a window of its own; the page shows a note, and Hier anzeigen or closing the window brings it back", async () => {
+  const page = await h.page();
+  await page.goto(`${h.url}#emu`);
+  await page.locator("#cee-emu-pop").waitFor();
+  // what is seen, not the attribute: a display rule can show an element that is hidden
+  const shown = async () => ({ device: await page.locator("#cee-emu-device").isVisible(), note: await page.locator("#cee-emu-away").isVisible() });
+  assert.deepEqual(await shown(), { device: true, note: false }, "before the window opens, only the device");
+  assert.equal(await page.locator(".cee-navbar #cee-emu-pop").isVisible(), true, "the button sits in the navbar");
+  const [win] = await Promise.all([page.context().waitForEvent("page"), page.click("#cee-emu-pop")]);
+  await win.locator("#cee-emu-device").waitFor();
+  assert.deepEqual(await shown(), { device: false, note: true });
+  assert.equal(await page.locator("#cee-emu-away p").textContent(), "Der Emulator ist in einem eigenen Fenster geöffnet.");
+
+  await page.click("#cee-emu-back");
+  await page.locator("#cee-emu-device").waitFor({ state: "visible" });
+  assert.deepEqual(await shown(), { device: true, note: false });
+  await win.waitForEvent("close", { timeout: 3000 }).catch(() => {});
+  assert.equal(win.isClosed(), true, "Hier anzeigen closes the window");
+
+  const [again] = await Promise.all([page.context().waitForEvent("page"), page.click("#cee-emu-pop")]);
+  await again.locator("#cee-emu-device").waitFor();
+  await page.locator("#cee-emu-away").waitFor();
+  await again.close();
+  await page.locator("#cee-emu-device").waitFor({ state: "visible", timeout: 6000 });
+  assert.deepEqual(await shown(), { device: true, note: false });
+  assert.deepEqual(page.errors, []);
 });
 
 test("changelogs: a new release puts a ! on the entry, opening it shows the release like GitHub and the ! goes", async () => {

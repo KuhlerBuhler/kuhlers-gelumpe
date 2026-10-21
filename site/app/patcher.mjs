@@ -111,7 +111,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
 
   root.replaceChildren(el("div", { className: "cee-patch" }, [
-    el("h1", { className: "cee-patch-title", textContent: "Firmware patchen" }),
+    el("h1", { className: "cee-patch-title ui-sr-only", textContent: "Firmware Patcher" }),
     el("p", { className: "cee-patch-lead", textContent: "Zieh deine eigene SYSTEM.VSB hierher. Es wird nichts hochgeladen, gepatcht wird in deinem Browser. Eine fertige Firmware gibt es hier nie, nur deine eigene mit BLECHTRIBE drauf." }),
     el("p", { className: "cee-patch-lead" }, ["Falls danach etwas nicht startet: ", el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: "Rettung" }), " zeigt den dokumentierten Weg zurück."]),
     way, usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
@@ -387,7 +387,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   usbGet.addEventListener("click", async () => {
     const s = session();
-    if (!s) { toast("Die Electribe ist nicht verbunden. Steck sie per USB an, schalte sie ein und klick links auf Gerät und dann auf „Mit Electribe verbinden“.", "error"); return; }
+    if (!s) { toast("Die Electribe ist nicht verbunden. Steck sie per USB an und schalte sie ein. Dann im Bereich Emulator oben „Echtes Gerät“ wählen und auf „Mit Electribe verbinden“ klicken.", "error"); return; }
     usbGet.disabled = true;
     usbNote.hidden = false;
     try {
@@ -408,7 +408,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   usbPut.addEventListener("click", async () => {
     const s = session();
     if (!passed || !allowed(flow).download) return;
-    if (!s) { toast("Die Electribe ist nicht verbunden. Steck sie per USB an, schalte sie ein und klick links auf Gerät und dann auf „Mit Electribe verbinden“.", "error"); return; }
+    if (!s) { toast("Die Electribe ist nicht verbunden. Steck sie per USB an und schalte sie ein. Dann im Bereich Emulator oben „Echtes Gerät“ wählen und auf „Mit Electribe verbinden“ klicken.", "error"); return; }
     usbPut.disabled = true;
     usbNote.hidden = false;
     try {

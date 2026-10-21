@@ -85,7 +85,7 @@ function release(r, latest) {
  */
 export function changelogPage(root, tab, fetchImpl = globalThis.fetch) {
   const list = el("div", { className: "cee-releases", "aria-live": "polite" }, [el("p", { className: "muted", textContent: "Lade Releases..." })]);
-  root.append(el("h1", { textContent: "Changelogs" }), list);
+  root.append(el("h1", { className: "ui-sr-only", textContent: "Changelogs" }), list);
   let latest = null;
   const badge = el("span", { className: "cee-nav-badge", textContent: "!", title: "Neues Release" });
   badge.setAttribute("aria-label", "Neues Release");

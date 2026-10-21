@@ -12,7 +12,8 @@ import { levelsPanel } from "./levels.mjs";
 import { modulationsPage } from "./modulations.mjs";
 import { samplesPage } from "./samples.mjs";
 import { emulatorPanel, takeLink, findLink } from "./emulator.mjs";
-import { contextSidebar } from "./sidebar.mjs";
+import { followDevice } from "./follow.mjs";
+import { emulatorWindow } from "./emu-window.mjs";
 import { subnav } from "./subnav.mjs";
 import { sdcardPanel } from "./sdcard.mjs";
 import { patcherPage } from "./patcher.mjs";
@@ -366,6 +367,7 @@ function navbar({ onMode }) {
   let page = "start";
   let connectButton = null;
   let device = false;
+  let emuAction = null;
   $("#cee-mode-button").append(icon("chevronDown"));
   const menu = dropdown($("#cee-mode-button"), $("#cee-mode-menu"), { onPick: onMode });
   function render() {
@@ -381,12 +383,14 @@ function navbar({ onMode }) {
     // On the device page the navbar carries the connect button while no device is attached (it moves there from
     // the page, so its handlers stay), and the words "Gerät verbunden" once one is.
     connectButton ??= $("#cee-connect");
-    const state = page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
+    const state = page === "emu" ? (emuAction ? [emuAction] : []) : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
     page(id) { menu.close(); page = id; render(); },
     device(on) { device = on; render(); },
+    /** A control the emulator page puts into the navbar (the button for its own window). */
+    emu(node) { emuAction = node; render(); },
   };
 }
 
@@ -439,13 +443,14 @@ function boot() {
   let patterns = null;
   let ptools = null;
   let emulator = null;
-  let sidebar = null;
+  let follow = null;
+  let popout = null;
   let terminal = null;
   // One session on the emulator's port, shared by the effect editor's probe and the terminal's rehearsal.
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
   const device = devicePanel($("#cee-device"), {
-    onSession: () => { restrictNow(); fx?.sessionChanged(); sidebar?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session); terminal?.update(); },
+    onSession: () => { restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session); terminal?.update(); },
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,
@@ -484,6 +489,7 @@ function boot() {
       $("#cee-tab-emu").toggleAttribute("data-active", id === "device");
       $("#cee-device").hidden = id !== "device";
       if (id === "device") { $("#cee-area-emu").hidden = false; $("#cee-area-device").hidden = true; }
+      popout?.realDevice(id === "device");
       if (id === "scripts") terminal?.update();
       if (id === "changelog") changelog.opened();
     },
@@ -509,8 +515,13 @@ function boot() {
   }, true);
   restrictNow = restrict;
   window.addEventListener("cee:pattern-loaded", () => patterns.update());
+  let storage = null;
+  try { storage = window.localStorage; } catch { /* blocked: the scripts and the follow switch stay in memory */ }
+  follow = followDevice({ device, emulator: () => emulator, probe, fx: () => fx, storage });
   fx = fxPanel($("#cee-fx"), {
     device, embedded: true,
+    onSent: sent => follow?.redraw(sent),
+    pickerExtra: follow.node,
     idle: "Wähle im Bereich Emulator die Firmware (VSB). Die Presets liest dieser Bereich aus dem laufenden Emulator, bei verbundenem Gerät aus dem Gerät.",
     live: async () => (emulator?.port.running ? probe() : null),
     emulator: () => emulator,
@@ -555,15 +566,15 @@ function boot() {
   restrict();
   const card = options.add("emu", { id: "cee-emu-card", title: "SD-Karte" });
   const sd = sdcardPanel(card.body, emulator, { heading: false });
-  sidebar = contextSidebar(emulator.aside, { device, emulator, probe });
+  popout = emulatorWindow(emulator, { place: node => nav.emu(node) });
+  popout.realDevice(areas?.current === "device");
   patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null });
   rescuePage($("#cee-rescue"));
   splashPage($("#cee-splash"));
-  let storage = null;
-  try { storage = window.localStorage; } catch { /* blocked: the scripts stay in memory */ }
   const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null });
   terminal = terminalPanel($("#cee-terminal"), { terminal: new Terminal({ device, emulator, probe }), device, scripts, lack: () => emulator.lack("sysex") });
-  if (emu.fresh) areas?.select("emu");
+  // The app always starts with the link in its address and opens on the start page; a link opened in the browser goes to the emulator.
+  if (emu.fresh) areas?.select(window.__GELUMPE_APP ? "start" : "emu");
   else findLink(emu).then(found => {
     if (!found.fresh) return;
     emulator.connect(found.link);
@@ -601,5 +612,5 @@ else boot();
 watchForUpdate($("#cee-update"));
 showNews(toast);
 
-// In the desktop app a new window goes nowhere: the donate links navigate in place and the app opens them in the browser (src-tauri).
-if (window.__GELUMPE_APP) for (const link of document.querySelectorAll("a[href^='https://www.paypal.me/']")) link.target = "_self";
+// In the desktop app a new window goes nowhere: the donate and Korg links navigate in place and the app opens them in the browser (src-tauri).
+if (window.__GELUMPE_APP) for (const link of document.querySelectorAll("a[href^='https://www.paypal.me/'], a[href^='https://www.korg.com/']")) link.target = "_self";

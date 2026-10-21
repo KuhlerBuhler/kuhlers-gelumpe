@@ -61,7 +61,7 @@ export function splashPage(root) {
   });
 
   root.replaceChildren(el("div", { className: "cee-splash" }, [
-    el("h1", { className: "cee-splash-title", textContent: "Startbildschirm" }),
+    el("h1", { className: "cee-splash-title ui-sr-only", textContent: "Startbildschirm" }),
     el("p", { className: "cee-splash-lead", textContent: "Macht aus einem Bild das Startbild für die Electribe: 128 mal 64 Pixel, schwarz und weiß. Schwarz leuchtet am Gerät dunkel." }),
     drop,
     el("div", { className: "cee-splash-work", hidden: true, id: "cee-splash-work" }, [

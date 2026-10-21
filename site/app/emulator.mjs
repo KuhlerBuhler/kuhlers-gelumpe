@@ -173,7 +173,9 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
   const canvas = el("canvas", { className: "cee-lcd", id: "cee-emu-lcd", width: 128, height: 64 });
   canvas.setAttribute("role", "img");
   canvas.setAttribute("aria-label", "Display der emulierten Electribe");
-  canvas.setAttribute("aria-describedby", "cee-side-where");
+  // What the device shows, as text: only a screen reader hears it (follow.mjs fills it in).
+  const where = el("p", { className: "ui-sr-only", id: "cee-emu-where" });
+  canvas.setAttribute("aria-describedby", "cee-emu-where");
 
   // Inputs go out one after another, so a release never overtakes its press.
   // Knob and touch moves only send their latest value.
@@ -395,16 +397,11 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     }
   }
 
-  // Under the device front: what it shows right now, read from its RAM.
-  const aside = el("section", { className: "ui-section cee-emu-live", id: "cee-emu-side" });
   // The firmware is an option of the page: a sub-item of its sidebar entry.
   const firmware = sub.add("emu", { id: "cee-emu-setup", title: "Firmware (VSB)" });
   firmware.body.append(drop(vsbInput, "SYSTEM.VSB", "Deine eigene Firmware-Datei.", vsbInfo));
-  root.replaceChildren(
-    el("div", { className: "cee-emu-bar" }, [status]),
-    deviceBox,
-    aside,
-  );
+  const bar = el("div", { className: "cee-emu-bar" }, [status]);
+  root.replaceChildren(bar, deviceBox, where);
   deviceBox.append(device.build(el("div", { className: "cee-lcd-frame" }, [canvas])));
   showStatus({ state: "empty" });
   listen();
@@ -418,7 +415,9 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     if (lastState === "empty") showStatus({ state: "loaded" });
   });
   return {
-    port, aside,
+    port, where, bar,
+    /** The device front, display and controls. */
+    front: deviceBox,
     get link() { return link; },
     get firmware() { return vsb; },
     /** "hacktribe" or "stock" for the loaded VSB, null while there is none. */

@@ -65,7 +65,7 @@ export function samplesPage(root, { device, emulator, probe }) {
 
   async function withSession(fn) {
     const s = await pick();
-    if (!s) { say("Nichts verbunden. Starte links den Emulator oder steck die Electribe per USB an und klick links auf Gerät.", "error"); return null; }
+    if (!s) { say("Nichts verbunden. Schalte im Bereich Emulator die Electribe ein, oder steck dein Gerät per USB an und wähl dort oben „Echtes Gerät“.", "error"); return null; }
     const release = s.reserve();
     busy(true);
     try {
@@ -246,7 +246,7 @@ export function samplesPage(root, { device, emulator, probe }) {
 
   async function send() {
     const s = await pick();
-    if (!s) { say("Nichts verbunden. Starte links den Emulator oder steck die Electribe per USB an und klick links auf Gerät.", "error"); return; }
+    if (!s) { say("Nichts verbunden. Schalte im Bereich Emulator die Electribe ein, oder steck dein Gerät per USB an und wähl dort oben „Echtes Gerät“.", "error"); return; }
     sendButton.disabled = undoButton.disabled = true;
     const release = s.reserve();
     let p = null;
@@ -320,5 +320,5 @@ export function samplesPage(root, { device, emulator, probe }) {
   });
   sendButton.addEventListener("click", send);
   undoButton.addEventListener("click", undo);
-  say("Noch nichts gelesen. Starte links den Emulator oder verbinde die Electribe, dann die Namen lesen.");
+  say("Noch nichts gelesen. Schalte im Bereich Emulator die Electribe ein oder verbinde dein Gerät, dann die Namen lesen.");
 }

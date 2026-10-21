@@ -25,7 +25,11 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   const rehearseState = el("p", { className: "muted", id: "cee-rehearse-state", "aria-live": "polite" });
   const ledNote = el("p", { className: "muted", id: "cee-led-note", "aria-live": "polite" });
   const log = el("ul", { className: "ui-list cee-log" });
-  const say = (tone, word, text) => { status.hidden = false; status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` })); };
+  const say = (tone, word, text) => {
+    status.hidden = false;
+    status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }));
+    if (tone === "error") toast(text, "error");
+  };
   const clear = () => { status.hidden = true; status.replaceChildren(); };
 
   function fact(term, value) {
@@ -39,13 +43,13 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     fact("Stand", d.versionKnown ? pill("ok", "bekannt") : pill("warn", "unbekannt, nur lesen"));
     fact("RAM über MIDI", d.ram === "blech" ? pill("ok", `BLECHTRIBE, Blöcke bis ${d.blech.maxBlock} Byte`) : d.ram === "hacktribe" ? pill("ok", "Hacktribe") : pill("error", "antwortet nicht"));
     if (d.sampler && !d.ram) {
-      say("warn", "eingeschränkt", "Auf der Electribe ist weder BLECHTRIBE noch Hacktribe. Patterns und Einstellungen gehen. Für alles andere brauchst du BLECHTRIBE: links auf Patcher.");
+      say("warn", "eingeschränkt", "Auf der Electribe ist weder BLECHTRIBE noch Hacktribe. Patterns und Einstellungen gehen. Für alles andere brauchst du BLECHTRIBE: links auf Firmware Patcher.");
     } else if (!d.versionKnown) {
       say("warn", "nur lesen", "Diese Firmware-Version kennt die App noch nicht genau. Deshalb ändert sie nichts am Gerät, du kannst nur lesen.");
     } else if (d.build === "stock") {
       say("ok", "verbunden", "Korgs Original mit BLECHTRIBE. Alles geht, nur die Effekt-Presets nicht.");
     } else if (!d.ram) {
-      say("warn", "eingeschränkt", "Ohne BLECHTRIBE gehen nur Patterns und Einstellungen. Für alles andere: links auf Patcher.");
+      say("warn", "eingeschränkt", "Ohne BLECHTRIBE gehen nur Patterns und Einstellungen. Für alles andere: links auf Firmware Patcher.");
     } else {
       say("ok", "verbunden", "Bereit.");
     }
@@ -125,7 +129,10 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
 
   async function connect() {
     if (!navigator.requestMIDIAccess) {
-      say("error", "nicht möglich", "Dieser Browser kann nicht mit der Electribe reden. Nimm die App oder Chrome oder Edge am Rechner. Safari geht nicht.");
+      // The Mac app runs in Apple's WebKit, which has no Web MIDI either.
+      say("error", "nicht möglich", window.__GELUMPE_APP
+        ? "Die App auf dem Mac kann noch nicht mit der echten Electribe reden, ihr fehlt Web MIDI. Nimm dafür Chrome oder Edge am Rechner."
+        : "Dieser Browser kann nicht mit der Electribe reden. Nimm die App oder Chrome oder Edge am Rechner. Safari geht nicht.");
       return;
     }
     let access;

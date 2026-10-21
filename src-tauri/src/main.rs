@@ -13,7 +13,8 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri::webview::NewWindowResponse;
+use tauri::{AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 struct Service(Mutex<Option<Child>>);
@@ -142,6 +143,107 @@ fn open_in_browser(url: &str) {
     };
 }
 
+/// Pages that open in the browser instead of a window of this app: releases, donations, Korg's firmware downloads.
+fn outside(url: &Url) -> bool {
+    url.scheme() == "https" && matches!(url.host_str(), Some("github.com") | Some("www.paypal.me") | Some("www.korg.com"))
+}
+
+/// The page closes the emulator window by navigating here (site/app/emu-window.mjs); WebKit has no window.close() for it.
+const CLOSE_HOST: &str = "close.gelumpe.invalid";
+const EMULATOR: &str = "emulator";
+
+/// window.open from the page: its own emulator window opens once, the outside pages go to the browser, nothing else opens.
+fn new_window(app: &AppHandle, url: Url, features: tauri::webview::NewWindowFeatures) -> NewWindowResponse<tauri::Wry> {
+    if outside(&url) {
+        open_in_browser(url.as_str());
+        return NewWindowResponse::Deny;
+    }
+    if !url.path().ends_with("/emulator.html") {
+        return NewWindowResponse::Deny;
+    }
+    if let Some(window) = app.get_webview_window(EMULATOR) {
+        let _ = window.set_focus();
+        return NewWindowResponse::Deny;
+    }
+    let handle = app.clone();
+    let built = WebviewWindowBuilder::new(app, EMULATOR, WebviewUrl::External("about:blank".parse().unwrap()))
+        .window_features(features)
+        .on_navigation(move |url| {
+            if url.host_str() == Some(CLOSE_HOST) {
+                if let Some(window) = handle.get_webview_window(EMULATOR) {
+                    let _ = window.close();
+                }
+                return false;
+            }
+            true
+        })
+        .title("Emulator · Kuhler's GELUMPE")
+        .min_inner_size(600.0, 360.0)
+        .build();
+    match built {
+        Ok(window) => NewWindowResponse::Create { window },
+        Err(_) => NewWindowResponse::Deny,
+    }
+}
+
+/// Where the main window stood and how large it was, in logical pixels, kept between starts in the app's config folder.
+/// Without a saved one (the first start) the window opens maximized.
+#[derive(Clone, Copy)]
+struct Placement {
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    maximized: bool,
+}
+
+/// The placement of this run, followed while the window moves and written when it closes or the app quits.
+struct Placed(Mutex<Option<Placement>>);
+
+fn placement_file(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_config_dir().ok().map(|dir| dir.join("window.json"))
+}
+
+fn load_placement(app: &AppHandle) -> Option<Placement> {
+    let v: serde_json::Value = serde_json::from_slice(&std::fs::read(placement_file(app)?).ok()?).ok()?;
+    let n = |k: &str| v.get(k).and_then(|x| x.as_f64());
+    Some(Placement { x: n("x")?, y: n("y")?, w: n("w")?, h: n("h")?, maximized: v.get("maximized")?.as_bool()? })
+}
+
+fn save_placement(app: &AppHandle) {
+    let Some(p) = app.try_state::<Placed>().and_then(|placed| *placed.0.lock().ok()?) else { return };
+    let Some(file) = placement_file(app) else { return };
+    let _ = std::fs::create_dir_all(file.parent().unwrap_or(&file));
+    let json = serde_json::json!({ "x": p.x, "y": p.y, "w": p.w, "h": p.h, "maximized": p.maximized });
+    let _ = std::fs::write(file, json.to_string());
+}
+
+/// The window's place now. While it is maximized the size it had before stays, so un-maximizing after a restart finds it.
+fn follow_placement(window: &WebviewWindow) {
+    let Some(placed) = window.try_state::<Placed>() else { return };
+    let Ok(mut slot) = placed.0.lock() else { return };
+    let maximized = window.is_maximized().unwrap_or(false);
+    if maximized {
+        if let Some(p) = slot.as_mut() {
+            p.maximized = true;
+            return;
+        }
+    }
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let (Ok(at), Ok(size)) = (window.outer_position(), window.inner_size()) else { return };
+    let (at, size) = (at.to_logical::<f64>(scale), size.to_logical::<f64>(scale));
+    *slot = Some(Placement { x: at.x, y: at.y, w: size.width, h: size.height, maximized });
+}
+
+/// True when the top left corner of a saved place lies on a screen that is still there.
+fn on_a_screen(app: &AppHandle, p: &Placement) -> bool {
+    app.available_monitors().unwrap_or_default().iter().any(|m| {
+        let scale = m.scale_factor();
+        let (at, size) = (m.position().to_logical::<f64>(scale), m.size().to_logical::<f64>(scale));
+        p.x + 40.0 >= at.x && p.x + 40.0 < at.x + size.width && p.y + 20.0 >= at.y && p.y + 20.0 < at.y + size.height
+    })
+}
+
 /// Start (or find) the service and open the window. Any failure comes back
 /// as text for a dialog; nothing in here panics.
 fn open_app(app: &tauri::App) -> Result<(), String> {
@@ -161,22 +263,52 @@ fn open_app(app: &tauri::App) -> Result<(), String> {
         }
     };
     let version = app.package_info().version.to_string();
-    WebviewWindowBuilder::new(app, "main", WebviewUrl::App(format!("index.html#emu={port}:{token}").into()))
+    let saved = load_placement(app.handle());
+    app.manage(Placed(Mutex::new(saved)));
+    let handle = app.handle().clone();
+    let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App(format!("index.html#emu={port}:{token}").into()))
         // The page shows "Neue Version verfügbar" only when it knows its version.
         .initialization_script(format!("window.__GELUMPE_APP = {{ version: \"{version}\" }};"))
         // A link to the release page or the donate page opens in the browser, not in this window.
         .on_navigation(|url| {
-            if url.scheme() == "https" && matches!(url.host_str(), Some("github.com") | Some("www.paypal.me")) {
+            if outside(url) {
                 open_in_browser(url.as_str());
                 return false;
             }
             true
         })
+        .on_new_window(move |url, features| new_window(&handle, url, features))
         .title("Kuhler's GELUMPE")
         .inner_size(1280.0, 860.0)
-        .min_inner_size(900.0, 600.0)
+        .min_inner_size(900.0, 600.0);
+    match saved {
+        Some(p) => {
+            builder = builder.inner_size(p.w.max(900.0), p.h.max(600.0)).maximized(p.maximized);
+            if on_a_screen(app.handle(), &p) {
+                builder = builder.position(p.x, p.y);
+            }
+        }
+        None => builder = builder.maximized(true),
+    }
+    let window = builder
         .build()
         .map_err(|e| format!("Das Fenster ließ sich nicht öffnen: {e}"))?;
+    // The emulator window belongs to the main one and goes with it.
+    let handle = app.handle().clone();
+    let followed = window.clone();
+    window.on_window_event(move |event| {
+        if let WindowEvent::Moved(_) | WindowEvent::Resized(_) = event {
+            follow_placement(&followed);
+        }
+        if let WindowEvent::CloseRequested { .. } = event {
+            save_placement(&handle);
+        }
+        if let WindowEvent::Destroyed = event {
+            if let Some(emulator) = handle.get_webview_window(EMULATOR) {
+                let _ = emulator.close();
+            }
+        }
+    });
     Ok(())
 }
 
@@ -212,6 +344,8 @@ fn main() {
 
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
+            // Quitting with Cmd+Q closes no window by request: the placement is written here as well.
+            save_placement(handle);
             // Only a service this app started itself is stopped.
             if let Some(service) = handle.try_state::<Service>() {
                 let child = service.0.lock().ok().and_then(|mut slot| slot.take());

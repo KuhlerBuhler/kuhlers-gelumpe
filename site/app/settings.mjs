@@ -55,7 +55,8 @@ export function settingsButton(button, open) {
 }
 
 /** The settings page in the main content. */
-export function settingsPage(root) {
+/** The installed app's version, from the desktop app (src-tauri); a browser has none, and the line stays away. */
+export function settingsPage(root, app = window.__GELUMPE_APP) {
   const rows = FIELDS.map(field => {
     if (field.type === "switch") {
       const input = el("input", { type: "checkbox", id: `cee-set-${field.id}`, checked: !!get(field.id) });
@@ -72,7 +73,8 @@ export function settingsPage(root) {
     return el("div", { className: "cee-settings-row" }, [el("label", { htmlFor: select.id, textContent: field.label }), select]);
   });
   root.replaceChildren(
-    el("div", { className: "ui-section-head" }, [el("h1", { className: "ui-section-title", id: "cee-settings-title", textContent: "Einstellungen" })]),
+    el("h1", { className: "ui-sr-only", id: "cee-settings-title", textContent: "Einstellungen" }),
     el("div", { className: "cee-settings" }, rows),
+    ...(app?.version ? [el("p", { className: "muted cee-version", id: "cee-version", textContent: `App-Version ${app.version}` })] : []),
   );
 }

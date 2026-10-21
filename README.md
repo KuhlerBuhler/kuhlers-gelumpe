@@ -138,7 +138,7 @@ GELUMPE ist das Programm dahinter: deine Electribe 2 auslesen und umbauen, mit e
 
 ## Wer ich bin
 
-Ich bin Kuhler Buhler, also Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab,
+Ich bin Kuhler Buhler, aka Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab,
 ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich
 ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.
 
