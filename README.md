@@ -29,12 +29,12 @@
 ## Häufige Fragen
 
 - **Kostet das was?** Nein. Wenn du magst, freu ich mich über eine [Spende](https://www.paypal.me/kuhlerbuhler).
-- **Ist das sicher?** Die App startet die neue Firmware vorher in einer Electribe im Rechner und gibt sie nur frei, wenn alles läuft.
-  Und es gibt einen Notschalter: **EXIT beim Einschalten halten**, dann startet die Electribe ohne BLECHTRIBE, und du spielst dein Original wieder auf.
+- **Ist das sicher?** Die App prüft die neue Firmware zuerst im Emulator. Das fängt viele Fehler ab, garantiert aber nicht das Verhalten jedes echten Geräts. Sichere vorher deine Original-Firmware und deine Daten.
+  Der Notschalter: **EXIT beim Einschalten halten**, dann startet die Electribe ohne BLECHTRIBE, und du spielst dein Original wieder auf.
 - **Brauch ich einen PC?** Ja, einmal zum Umbauen der Datei. Danach nicht mehr.
-- **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen bleiben, wo sie sind. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
+- **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen Samples bleiben erhalten. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
 - **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
-- **Hab ich mit BLECHTRIBE noch Hacktribe?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf.
+- **Hab ich mit BLECHTRIBE noch Hacktribe?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf. Auf Korgs Original schaltet es die Hacktribe-Funktionen nicht frei.
 - **Wie kann ich eigene Effekte machen?** In der App unter **Presets**. Da bearbeitest du die MFX- und IFX-Presets in Klartext und schickst sie per USB an die Electribe. Das geht auf der roten Electribe mit Hacktribe oder BLECHTRIBE.
 - **Ich hab eine Idee für die App oder die Firmware.** Immer her damit: [Idee aufschreiben](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). Dafür brauchst du ein GitHub-Konto.
 

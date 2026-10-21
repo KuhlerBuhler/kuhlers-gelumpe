@@ -575,6 +575,7 @@ frame_finish:
     bl script_led_hold_guard
     mov r0, r4
     bl script_display_blit
+    bl display_calibrate
     mov r0, r4
     bl script_store_flush
     ldr r1, [r4, #RT_PAUSED]

@@ -160,6 +160,38 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   assert.deepEqual(page.errors, []);
 });
 
+test("patcher: a progress response parsed after completion cannot reset the finished bar", async () => {
+  const page = await patcherPage();
+  await page.evaluate(() => {
+    const fetch = window.fetch;
+    window.fetch = (input, ...args) => {
+      if (String(input).includes("/check/progress?")) return Promise.resolve({
+        ok: true,
+        json: () => new Promise(resolve => {
+          window.__releaseCheckProgress = () => resolve({ state: "idle" });
+        }),
+      });
+      return fetch(input, ...args);
+    };
+  });
+  fake.hooks.checkDelayMs = 2000;
+  try {
+    await drop(page, await makeFirmware());
+    await page.locator("#cee-patch-run").waitFor();
+    await page.click("#cee-patch-run");
+    await page.waitForFunction(() => typeof window.__releaseCheckProgress === "function");
+    await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
+    const bar = page.locator("#cee-patch-bar");
+    assert.equal(await bar.getAttribute("aria-valuenow"), "100");
+    await page.evaluate(() => window.__releaseCheckProgress());
+    assert.equal(await bar.getAttribute("aria-valuenow"), "100");
+    assert.equal(await page.locator("#cee-patch-groups").isVisible(), false);
+    assert.deepEqual(page.errors, []);
+  } finally {
+    fake.hooks.checkDelayMs = 0;
+  }
+});
+
 test("patcher: Korg's original asks for the user's own hacktribe-2.patch, converts it in the browser and goes on to the stock card folder", async () => {
   const { original, hacktribe } = await fakeFirmware();
   assert.equal(sha(original), expected.fake.original, "the stand-in original; run test/fixtures/bsdiff/make.py again if makeFirmware changed");

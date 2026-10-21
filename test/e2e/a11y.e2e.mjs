@@ -24,6 +24,8 @@ after(async () => {
 });
 
 async function open(viewport, labs = false) {
+  // The shared MIDI service broadcasts replies to every open context.
+  for (const context of h.browser.contexts()) await context.close();
   const page = await h.page();
   if (viewport) await page.setViewportSize(viewport);
   await page.goto(`${h.url}${labs ? "?labs" : ""}#emu=${fake.port}:${TOKEN}`);

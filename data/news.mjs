@@ -15,6 +15,8 @@ export const NEWS = Object.freeze([
       "POWER SAVE im Menü: LEDs dimmen und Displaylicht einstellbar.",
       "Effekt-Presets als Datei (.e2fx) weitergeben.",
       "Fehlermeldungen in einfachen Worten, jede sagt, was zu tun ist.",
+      "CALIBRATE DISPLAY: drei unterschiedlich schnelle Bälle auf der Kontrastseite helfen beim Einstellen des Displays.",
+      "Plugins werden beim Laden mit weniger Rechenarbeit geprüft. Die Größenlimits bleiben gleich.",
     ]),
   }),
 ]);

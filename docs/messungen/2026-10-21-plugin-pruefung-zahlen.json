@@ -1,0 +1,452 @@
+{
+  "before": {
+    "total_instructions": 16068540,
+    "bare_code_bytes": 11632,
+    "runtime_builds": {
+      "hacktribe": {
+        "section_bytes": 50308,
+        "runtime_reserved_bytes": 166912
+      },
+      "stock": {
+        "section_bytes": 50308,
+        "runtime_reserved_bytes": 166912
+      },
+      "synth": {
+        "section_bytes": 50340,
+        "runtime_reserved_bytes": 166912
+      }
+    },
+    "repeats": [
+      [
+        {
+          "plugin": "blechclicker",
+          "code_bytes": 273,
+          "instructions": 901316,
+          "blob_sha256": "c2bef55d2d3dec4a5572ec0727682bb1c67ca66d58e835e6396f387862b54233"
+        },
+        {
+          "plugin": "settimer",
+          "code_bytes": 1138,
+          "instructions": 1720211,
+          "blob_sha256": "3e5f9d9d0fb39694325ee4c697f465beefb6bfad4f446645f608a8bc1327820c"
+        },
+        {
+          "plugin": "snake",
+          "code_bytes": 961,
+          "instructions": 1390787,
+          "blob_sha256": "62ccd338e3a00f23bb8dac120545f279cdbbc84cd1690473dd2a81e871ac81af"
+        },
+        {
+          "plugin": "tetris",
+          "code_bytes": 2547,
+          "instructions": 2427871,
+          "blob_sha256": "d03c640f1afd8980a78c54aaa86b761fac7c4d8ea7e4e1e52d9f23ef24e1a4f8"
+        },
+        {
+          "plugin": "life",
+          "code_bytes": 2060,
+          "instructions": 2052235,
+          "blob_sha256": "971e485b17f699d717613ae5d5ed5f62d88485e83ec1b040759d3da85001e272"
+        },
+        {
+          "plugin": "pong",
+          "code_bytes": 1436,
+          "instructions": 1974868,
+          "blob_sha256": "3bdd97d2c7af0c656321d71d1d4dfa8e0c8da5f23edc36829d4b9d9305abbc06"
+        },
+        {
+          "plugin": "simon",
+          "code_bytes": 1283,
+          "instructions": 1871929,
+          "blob_sha256": "b697201acd9ae9f59f85bc559165800b3a9804e090466ec36f8c770e5e4a61ff"
+        },
+        {
+          "plugin": "mandelbrot",
+          "code_bytes": 2403,
+          "instructions": 1860892,
+          "blob_sha256": "ca2f1218919cfb90a3612f0094b4da3b4900ff0d7d586dc9830be7126115c626"
+        },
+        {
+          "plugin": "gifplayer",
+          "code_bytes": 507,
+          "instructions": 1049078,
+          "blob_sha256": "abbecc5a3421ff88807f337f881d97e21ffd06832c36cea586913716927e9baf"
+        },
+        {
+          "plugin": "lauflicht",
+          "code_bytes": 86,
+          "instructions": 459673,
+          "blob_sha256": "a8b5ddba6854340ca884203a2cf8c7c2c2b2d22feb2882a731237f59f36832e7"
+        },
+        {
+          "plugin": "pulsieren",
+          "code_bytes": 85,
+          "instructions": 359680,
+          "blob_sha256": "2cafaff78b0df1a4f538549148f86c6a6fc38aa971a7d29f23cc5bb2e4e37d16"
+        }
+      ],
+      [
+        {
+          "plugin": "blechclicker",
+          "code_bytes": 273,
+          "instructions": 901316,
+          "blob_sha256": "c2bef55d2d3dec4a5572ec0727682bb1c67ca66d58e835e6396f387862b54233"
+        },
+        {
+          "plugin": "settimer",
+          "code_bytes": 1138,
+          "instructions": 1720211,
+          "blob_sha256": "3e5f9d9d0fb39694325ee4c697f465beefb6bfad4f446645f608a8bc1327820c"
+        },
+        {
+          "plugin": "snake",
+          "code_bytes": 961,
+          "instructions": 1390787,
+          "blob_sha256": "62ccd338e3a00f23bb8dac120545f279cdbbc84cd1690473dd2a81e871ac81af"
+        },
+        {
+          "plugin": "tetris",
+          "code_bytes": 2547,
+          "instructions": 2427871,
+          "blob_sha256": "d03c640f1afd8980a78c54aaa86b761fac7c4d8ea7e4e1e52d9f23ef24e1a4f8"
+        },
+        {
+          "plugin": "life",
+          "code_bytes": 2060,
+          "instructions": 2052235,
+          "blob_sha256": "971e485b17f699d717613ae5d5ed5f62d88485e83ec1b040759d3da85001e272"
+        },
+        {
+          "plugin": "pong",
+          "code_bytes": 1436,
+          "instructions": 1974868,
+          "blob_sha256": "3bdd97d2c7af0c656321d71d1d4dfa8e0c8da5f23edc36829d4b9d9305abbc06"
+        },
+        {
+          "plugin": "simon",
+          "code_bytes": 1283,
+          "instructions": 1871929,
+          "blob_sha256": "b697201acd9ae9f59f85bc559165800b3a9804e090466ec36f8c770e5e4a61ff"
+        },
+        {
+          "plugin": "mandelbrot",
+          "code_bytes": 2403,
+          "instructions": 1860892,
+          "blob_sha256": "ca2f1218919cfb90a3612f0094b4da3b4900ff0d7d586dc9830be7126115c626"
+        },
+        {
+          "plugin": "gifplayer",
+          "code_bytes": 507,
+          "instructions": 1049078,
+          "blob_sha256": "abbecc5a3421ff88807f337f881d97e21ffd06832c36cea586913716927e9baf"
+        },
+        {
+          "plugin": "lauflicht",
+          "code_bytes": 86,
+          "instructions": 459673,
+          "blob_sha256": "a8b5ddba6854340ca884203a2cf8c7c2c2b2d22feb2882a731237f59f36832e7"
+        },
+        {
+          "plugin": "pulsieren",
+          "code_bytes": 85,
+          "instructions": 359680,
+          "blob_sha256": "2cafaff78b0df1a4f538549148f86c6a6fc38aa971a7d29f23cc5bb2e4e37d16"
+        }
+      ],
+      [
+        {
+          "plugin": "blechclicker",
+          "code_bytes": 273,
+          "instructions": 901316,
+          "blob_sha256": "c2bef55d2d3dec4a5572ec0727682bb1c67ca66d58e835e6396f387862b54233"
+        },
+        {
+          "plugin": "settimer",
+          "code_bytes": 1138,
+          "instructions": 1720211,
+          "blob_sha256": "3e5f9d9d0fb39694325ee4c697f465beefb6bfad4f446645f608a8bc1327820c"
+        },
+        {
+          "plugin": "snake",
+          "code_bytes": 961,
+          "instructions": 1390787,
+          "blob_sha256": "62ccd338e3a00f23bb8dac120545f279cdbbc84cd1690473dd2a81e871ac81af"
+        },
+        {
+          "plugin": "tetris",
+          "code_bytes": 2547,
+          "instructions": 2427871,
+          "blob_sha256": "d03c640f1afd8980a78c54aaa86b761fac7c4d8ea7e4e1e52d9f23ef24e1a4f8"
+        },
+        {
+          "plugin": "life",
+          "code_bytes": 2060,
+          "instructions": 2052235,
+          "blob_sha256": "971e485b17f699d717613ae5d5ed5f62d88485e83ec1b040759d3da85001e272"
+        },
+        {
+          "plugin": "pong",
+          "code_bytes": 1436,
+          "instructions": 1974868,
+          "blob_sha256": "3bdd97d2c7af0c656321d71d1d4dfa8e0c8da5f23edc36829d4b9d9305abbc06"
+        },
+        {
+          "plugin": "simon",
+          "code_bytes": 1283,
+          "instructions": 1871929,
+          "blob_sha256": "b697201acd9ae9f59f85bc559165800b3a9804e090466ec36f8c770e5e4a61ff"
+        },
+        {
+          "plugin": "mandelbrot",
+          "code_bytes": 2403,
+          "instructions": 1860892,
+          "blob_sha256": "ca2f1218919cfb90a3612f0094b4da3b4900ff0d7d586dc9830be7126115c626"
+        },
+        {
+          "plugin": "gifplayer",
+          "code_bytes": 507,
+          "instructions": 1049078,
+          "blob_sha256": "abbecc5a3421ff88807f337f881d97e21ffd06832c36cea586913716927e9baf"
+        },
+        {
+          "plugin": "lauflicht",
+          "code_bytes": 86,
+          "instructions": 459673,
+          "blob_sha256": "a8b5ddba6854340ca884203a2cf8c7c2c2b2d22feb2882a731237f59f36832e7"
+        },
+        {
+          "plugin": "pulsieren",
+          "code_bytes": 85,
+          "instructions": 359680,
+          "blob_sha256": "2cafaff78b0df1a4f538549148f86c6a6fc38aa971a7d29f23cc5bb2e4e37d16"
+        }
+      ]
+    ]
+  },
+  "after": {
+    "total_instructions": 3498105,
+    "bare_code_bytes": 11620,
+    "runtime_builds": {
+      "hacktribe": {
+        "section_bytes": 50296,
+        "runtime_reserved_bytes": 166912
+      },
+      "stock": {
+        "section_bytes": 50296,
+        "runtime_reserved_bytes": 166912
+      },
+      "synth": {
+        "section_bytes": 50328,
+        "runtime_reserved_bytes": 166912
+      }
+    },
+    "repeats": [
+      [
+        {
+          "plugin": "blechclicker",
+          "code_bytes": 273,
+          "instructions": 79655,
+          "blob_sha256": "c2bef55d2d3dec4a5572ec0727682bb1c67ca66d58e835e6396f387862b54233"
+        },
+        {
+          "plugin": "settimer",
+          "code_bytes": 1138,
+          "instructions": 302333,
+          "blob_sha256": "3e5f9d9d0fb39694325ee4c697f465beefb6bfad4f446645f608a8bc1327820c"
+        },
+        {
+          "plugin": "snake",
+          "code_bytes": 961,
+          "instructions": 234062,
+          "blob_sha256": "62ccd338e3a00f23bb8dac120545f279cdbbc84cd1690473dd2a81e871ac81af"
+        },
+        {
+          "plugin": "tetris",
+          "code_bytes": 2547,
+          "instructions": 725920,
+          "blob_sha256": "d03c640f1afd8980a78c54aaa86b761fac7c4d8ea7e4e1e52d9f23ef24e1a4f8"
+        },
+        {
+          "plugin": "life",
+          "code_bytes": 2060,
+          "instructions": 548215,
+          "blob_sha256": "971e485b17f699d717613ae5d5ed5f62d88485e83ec1b040759d3da85001e272"
+        },
+        {
+          "plugin": "pong",
+          "code_bytes": 1436,
+          "instructions": 405328,
+          "blob_sha256": "3bdd97d2c7af0c656321d71d1d4dfa8e0c8da5f23edc36829d4b9d9305abbc06"
+        },
+        {
+          "plugin": "simon",
+          "code_bytes": 1283,
+          "instructions": 376930,
+          "blob_sha256": "b697201acd9ae9f59f85bc559165800b3a9804e090466ec36f8c770e5e4a61ff"
+        },
+        {
+          "plugin": "mandelbrot",
+          "code_bytes": 2403,
+          "instructions": 644545,
+          "blob_sha256": "ca2f1218919cfb90a3612f0094b4da3b4900ff0d7d586dc9830be7126115c626"
+        },
+        {
+          "plugin": "gifplayer",
+          "code_bytes": 507,
+          "instructions": 144089,
+          "blob_sha256": "abbecc5a3421ff88807f337f881d97e21ffd06832c36cea586913716927e9baf"
+        },
+        {
+          "plugin": "lauflicht",
+          "code_bytes": 86,
+          "instructions": 19627,
+          "blob_sha256": "a8b5ddba6854340ca884203a2cf8c7c2c2b2d22feb2882a731237f59f36832e7"
+        },
+        {
+          "plugin": "pulsieren",
+          "code_bytes": 85,
+          "instructions": 17401,
+          "blob_sha256": "2cafaff78b0df1a4f538549148f86c6a6fc38aa971a7d29f23cc5bb2e4e37d16"
+        }
+      ],
+      [
+        {
+          "plugin": "blechclicker",
+          "code_bytes": 273,
+          "instructions": 79655,
+          "blob_sha256": "c2bef55d2d3dec4a5572ec0727682bb1c67ca66d58e835e6396f387862b54233"
+        },
+        {
+          "plugin": "settimer",
+          "code_bytes": 1138,
+          "instructions": 302333,
+          "blob_sha256": "3e5f9d9d0fb39694325ee4c697f465beefb6bfad4f446645f608a8bc1327820c"
+        },
+        {
+          "plugin": "snake",
+          "code_bytes": 961,
+          "instructions": 234062,
+          "blob_sha256": "62ccd338e3a00f23bb8dac120545f279cdbbc84cd1690473dd2a81e871ac81af"
+        },
+        {
+          "plugin": "tetris",
+          "code_bytes": 2547,
+          "instructions": 725920,
+          "blob_sha256": "d03c640f1afd8980a78c54aaa86b761fac7c4d8ea7e4e1e52d9f23ef24e1a4f8"
+        },
+        {
+          "plugin": "life",
+          "code_bytes": 2060,
+          "instructions": 548215,
+          "blob_sha256": "971e485b17f699d717613ae5d5ed5f62d88485e83ec1b040759d3da85001e272"
+        },
+        {
+          "plugin": "pong",
+          "code_bytes": 1436,
+          "instructions": 405328,
+          "blob_sha256": "3bdd97d2c7af0c656321d71d1d4dfa8e0c8da5f23edc36829d4b9d9305abbc06"
+        },
+        {
+          "plugin": "simon",
+          "code_bytes": 1283,
+          "instructions": 376930,
+          "blob_sha256": "b697201acd9ae9f59f85bc559165800b3a9804e090466ec36f8c770e5e4a61ff"
+        },
+        {
+          "plugin": "mandelbrot",
+          "code_bytes": 2403,
+          "instructions": 644545,
+          "blob_sha256": "ca2f1218919cfb90a3612f0094b4da3b4900ff0d7d586dc9830be7126115c626"
+        },
+        {
+          "plugin": "gifplayer",
+          "code_bytes": 507,
+          "instructions": 144089,
+          "blob_sha256": "abbecc5a3421ff88807f337f881d97e21ffd06832c36cea586913716927e9baf"
+        },
+        {
+          "plugin": "lauflicht",
+          "code_bytes": 86,
+          "instructions": 19627,
+          "blob_sha256": "a8b5ddba6854340ca884203a2cf8c7c2c2b2d22feb2882a731237f59f36832e7"
+        },
+        {
+          "plugin": "pulsieren",
+          "code_bytes": 85,
+          "instructions": 17401,
+          "blob_sha256": "2cafaff78b0df1a4f538549148f86c6a6fc38aa971a7d29f23cc5bb2e4e37d16"
+        }
+      ],
+      [
+        {
+          "plugin": "blechclicker",
+          "code_bytes": 273,
+          "instructions": 79655,
+          "blob_sha256": "c2bef55d2d3dec4a5572ec0727682bb1c67ca66d58e835e6396f387862b54233"
+        },
+        {
+          "plugin": "settimer",
+          "code_bytes": 1138,
+          "instructions": 302333,
+          "blob_sha256": "3e5f9d9d0fb39694325ee4c697f465beefb6bfad4f446645f608a8bc1327820c"
+        },
+        {
+          "plugin": "snake",
+          "code_bytes": 961,
+          "instructions": 234062,
+          "blob_sha256": "62ccd338e3a00f23bb8dac120545f279cdbbc84cd1690473dd2a81e871ac81af"
+        },
+        {
+          "plugin": "tetris",
+          "code_bytes": 2547,
+          "instructions": 725920,
+          "blob_sha256": "d03c640f1afd8980a78c54aaa86b761fac7c4d8ea7e4e1e52d9f23ef24e1a4f8"
+        },
+        {
+          "plugin": "life",
+          "code_bytes": 2060,
+          "instructions": 548215,
+          "blob_sha256": "971e485b17f699d717613ae5d5ed5f62d88485e83ec1b040759d3da85001e272"
+        },
+        {
+          "plugin": "pong",
+          "code_bytes": 1436,
+          "instructions": 405328,
+          "blob_sha256": "3bdd97d2c7af0c656321d71d1d4dfa8e0c8da5f23edc36829d4b9d9305abbc06"
+        },
+        {
+          "plugin": "simon",
+          "code_bytes": 1283,
+          "instructions": 376930,
+          "blob_sha256": "b697201acd9ae9f59f85bc559165800b3a9804e090466ec36f8c770e5e4a61ff"
+        },
+        {
+          "plugin": "mandelbrot",
+          "code_bytes": 2403,
+          "instructions": 644545,
+          "blob_sha256": "ca2f1218919cfb90a3612f0094b4da3b4900ff0d7d586dc9830be7126115c626"
+        },
+        {
+          "plugin": "gifplayer",
+          "code_bytes": 507,
+          "instructions": 144089,
+          "blob_sha256": "abbecc5a3421ff88807f337f881d97e21ffd06832c36cea586913716927e9baf"
+        },
+        {
+          "plugin": "lauflicht",
+          "code_bytes": 86,
+          "instructions": 19627,
+          "blob_sha256": "a8b5ddba6854340ca884203a2cf8c7c2c2b2d22feb2882a731237f59f36832e7"
+        },
+        {
+          "plugin": "pulsieren",
+          "code_bytes": 85,
+          "instructions": 17401,
+          "blob_sha256": "2cafaff78b0df1a4f538549148f86c6a6fc38aa971a7d29f23cc5bb2e4e37d16"
+        }
+      ]
+    ]
+  },
+  "measuredAt": "2026-10-21T03:27:11.973371+00:00",
+  "scope": "Only five scratch clear lengths differ. Both section totals include the same display calibration code."
+}

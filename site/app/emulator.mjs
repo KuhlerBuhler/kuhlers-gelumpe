@@ -443,7 +443,10 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
           if (over) break;
           try {
             const res = await fetch(`http://127.0.0.1:${link.port}/check/progress?token=${encodeURIComponent(link.token)}`);
-            if (res.ok && !over) onProgress(await res.json());
+            if (res.ok) {
+              const snapshot = await res.json();
+              if (!over) onProgress(snapshot);
+            }
           } catch { /* the next poll tries again; the check request itself reports a lost service */ }
         }
       })();

@@ -77,12 +77,11 @@ export function locateModTable(bytes) {
     readers?.push(at);
   }
   const hits = [...found].filter(([, readers]) => readers);
-  const hex = n => `0x${n.toString(16)}`;
   if (!hits.length) {
-    return { ok: false, reasons: ["Die Tabelle mit den Modulationen ist in dieser Datei nicht zu finden."] };
+    return { ok: false, reasons: ["Die Tabelle mit den Modulationen ist für BLECHTRIBE in dieser Datei nicht zu finden. Öffne eine unveränderte SYSTEM.VSB deiner unterstützten Firmware. Diese Datei wurde nicht verändert."] };
   }
   if (hits.length > 1) {
-    return { ok: false, reasons: [`Die Tabelle mit den Modulationen ist mehrfach drin (${hits.map(([f]) => hex(f)).join(", ")}), unklar welche gilt.`] };
+    return { ok: false, reasons: ["Die Tabelle mit den Modulationen ist mehrfach drin. BLECHTRIBE kann nicht sicher erkennen, welche dein Gerät benutzt. Öffne eine unveränderte SYSTEM.VSB deiner unterstützten Firmware. Diese Datei wurde nicht verändert."] };
   }
   const [[file, readers]] = hits;
   const place = [TABLE.id, ...TABLE.locate.others].find(id => TABLES.get(id).file === file) ?? "other";

@@ -381,7 +381,7 @@ verify_code:
     ldr r0, =RT_BOUNDARIES
     add r0, r4, r0
     mov r1, #0
-    ldr r2, =LIM_CODE
+    ldr r2, [r4, #RT_CODESIZE]
     bl mem_fill
     ldr r7, [r4, #RT_CODE]
     ldr r9, [r4, #RT_CODESIZE]
@@ -501,12 +501,12 @@ vc_next:
     ldr r0, =RT_ARGC
     add r0, r4, r0
     mov r1, #255
-    ldr r2, =LIM_CODE
+    ldr r2, [r4, #RT_CODESIZE]
     bl mem_fill
     ldr r0, =RT_FNSTATE
     add r0, r4, r0
     mov r1, #0
-    ldr r2, =LIM_CODE
+    ldr r2, [r4, #RT_CODESIZE]
     bl mem_fill
     add r0, r6, #HDR_ENTRY
     bl read_half
@@ -660,7 +660,7 @@ vf_restart:
     ldr r0, =RT_DEPTH
     add r0, r4, r0
     mov r1, #255
-    ldr r2, =LIM_CODE
+    ldr r2, [r4, #RT_CODESIZE]
     bl mem_fill
     ldr r0, =RT_ARGC
     add r0, r4, r0
@@ -816,7 +816,7 @@ verify_event:
     ldr r0, =RT_DEPTH
     add r0, r4, r0
     mov r1, #0
-    ldr r2, =LIM_CODE
+    ldr r2, [r4, #RT_CODESIZE]
     bl mem_fill
     mov r10, #0
 ve_ins:
