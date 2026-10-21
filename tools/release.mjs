@@ -12,7 +12,8 @@
  *       Check the folder (default dist-release/) and publish. Without --yes
  *       nothing is changed, the steps are only printed. With --yes: commit the
  *       version files as "Release vX.Y.Z", push that commit, create the tag on
- *       it and the release on GitHub (gh), then delete every older release.
+ *       it and the release on GitHub (gh) with a discussion under Announcements,
+ *       then delete every older release.
  *       Tags stay.
  *
  * BLECH.patch and BLECH-for-<sha8>.bsdiff in the folder (npm run build:blech-patch) go up
