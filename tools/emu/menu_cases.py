@@ -1791,8 +1791,10 @@ def synth_start_cases(payload, flash=None):
 def look_cases_task():
     """The look cases in a worker (parallel.py)."""
     import parallel
+    from calibrate_cases import cases as calibration_cases
     return (look_cases(parallel.shared["payload"], parallel.shared["flash"]) + splash_menu_cases(parallel.shared["payload"], parallel.shared["flash"])
-            + pad_colour_cases(parallel.shared["payload"], parallel.shared["flash"]))
+            + pad_colour_cases(parallel.shared["payload"], parallel.shared["flash"])
+            + calibration_cases(parallel.shared["payload"], parallel.shared["flash"]))
 
 
 def settings_cases_task():

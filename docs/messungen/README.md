@@ -202,3 +202,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [IMPORT PLUGIN als Liste mit Namen und Beschreibung](2026-10-19-plugin-import-liste.md)
 - [Sync Groups: Patterns verketten, Live-Änderungen mitnehmen](2026-10-19-sync-groups.md)
 - [Gate-Schweif: gehaltene Noten auf den Step-Pads](2026-10-19-gate-schweif.md)
+
+- [Plugin-Prüfung: weniger Speicherarbeit beim Laden](2026-10-21-plugin-pruefung.md)
+- [Display-Kalibrierung mit drei Geschwindigkeiten](2026-10-21-display-kalibrierung.md)
