@@ -48,7 +48,6 @@ test("axe: start page, emulator (off, with options open, running), no serious or
   assert.deepEqual(await severeViolations(page), [], "start");
   await page.click("#cee-tab-emu");
   assert.deepEqual(await severeViolations(page), [], "emulator off");
-  await page.click("#cee-sub-emu #cee-emu-card > summary");
   await powerOn(page);
   assert.deepEqual(await severeViolations(page), [], "emulator running, a lit key and a blue pad");
   assert.deepEqual(page.errors, []);
@@ -77,7 +76,10 @@ test("axe: device mode, patcher, presets, plugins with a running plugin, and the
   await page.click("#cee-script-run");
   await page.locator("#cee-sim-state", { hasText: "Lauf:" }).waitFor();
   assert.deepEqual(await severeViolations(page), [], "plugins, running");
-  for (const id of ["console", "docs", "catalog"]) {
+  await page.click("#cee-tab-console");
+  assert.deepEqual(await severeViolations(page), [], "console");
+  await page.click("#cee-tab-scripts");
+  for (const id of ["docs", "catalog"]) {
     await page.click(`#cee-scripts-page-${id}`);
     assert.deepEqual(await severeViolations(page), [], `plugins, ${id}`);
   }

@@ -70,11 +70,11 @@ export function emulatorSuite(index, parts) {
     assert.deepEqual(page.errors, []);
   });
 
-  test("emulator: the SD card block in the sidebar talks to the service the page is linked to", async () => {
+  test("emulator: the SD card dialog behind the navbar talks to the service the page is linked to", async () => {
     const page = await h.page();
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
-    assert.equal(await page.locator("#cee-emu-card").evaluate(n => n.open), false, "the sidebar block starts closed");
-    await openSub(page, "cee-emu-card");
+    assert.equal(await page.locator("#cee-emu-card").evaluate(n => n.open), false, "the dialog starts closed");
+    await page.click("#cee-nav-state #cee-emu-card-open");
     await page.locator("#cee-sd-status", { hasText: "Nicht eingelegt" }).waitFor();
     assert.ok(fake.seen.sd > 0, "the card state came from the linked service");
     const card = page.locator("#cee-sd-inserted");
@@ -87,8 +87,8 @@ export function emulatorSuite(index, parts) {
     await page.locator("label.ui-switch", { hasText: "Karte einlegen" }).click();
     await page.waitForFunction(() => !document.querySelector("#cee-sd-inserted").checked && !document.querySelector("#cee-sd-inserted").disabled);
     assert.deepEqual(fake.seen.sdCalls.slice(-3), ["/sd/insert", "/sd/open", "/sd/eject"], "insert, open and eject went to the linked service");
-    assert.equal(await page.locator("#cee-emu-card").evaluate(n => n.closest("#cee-sidebar") !== null), true, "the card block lives in the sidebar");
-    assert.equal(await page.locator("#cee-emu-card > summary").textContent(), "SD-Karte");
+    assert.equal(await page.locator("#cee-emu-card").evaluate(n => n.tagName === "DIALOG" && n.closest("#cee-sidebar") === null), true, "the card is a dialog, not a sidebar block");
+    assert.equal(await page.locator("#cee-emu-card-title").textContent(), "SD-Karte");
     assert.equal(await page.locator("#cee-area-emu #cee-emu-card").count(), 0, "nothing of it stays in the page");
     assert.deepEqual(page.errors, []);
   });
@@ -184,7 +184,7 @@ export function emulatorSuite(index, parts) {
     await page.locator("#cee-emu-status", { hasText: "bereit" }).waitFor();
     fake.seen.midi.length = 0;
     await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
+    await page.click("#cee-tab-console");
     await page.click("#cee-term-connect");
     await page.locator(".cee-device-status", { hasText: "Emulator läuft nicht" }).waitFor({ state: "attached" });
     assert.deepEqual(fake.seen.midi, [], "nothing sent to a stopped emulator");
@@ -193,7 +193,7 @@ export function emulatorSuite(index, parts) {
     await powerOn(page, new Uint8Array(0x200100));
     await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
     await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
+    await page.click("#cee-tab-console");
     await page.click("#cee-term-connect");
     await go(page, "device");
     await page.locator(".cee-facts", { hasText: "Globaler Kanal10" }).waitFor({ state: "attached", timeout: 10_000 });
@@ -213,7 +213,7 @@ export function emulatorSuite(index, parts) {
     await powerOn(page, new Uint8Array(0x200100));
     await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
     await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
+    await page.click("#cee-tab-console");
     await page.click("#cee-term-connect");
     await go(page, "device");
     await page.locator(".cee-device-status", { hasText: "Emulator läuft nicht" }).waitFor({ state: "attached" });
@@ -221,7 +221,7 @@ export function emulatorSuite(index, parts) {
     assert.deepEqual(fake.seen.midi, [], "nothing goes to a firmware that has not reached its main screen");
     fake.broadcast("status", { state: "running", booted: true, device_ms: 1500, speed: 1 });
     await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
+    await page.click("#cee-tab-console");
     await page.click("#cee-term-connect");
     await go(page, "device");
     await page.locator(".cee-facts", { hasText: "Globaler Kanal10" }).waitFor({ state: "attached", timeout: 10_000 });
@@ -271,7 +271,7 @@ export function emulatorSuite(index, parts) {
     baseScreen();
     const page = await sidebarPage();
     await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
+    await page.click("#cee-tab-console");
     await page.click("#cee-term-connect");
     await page.locator(".cee-facts", { hasText: "Globaler Kanal10" }).waitFor({ state: "attached", timeout: 15_000 });
     fake.hooks.midiDelayMs = 200;
@@ -661,7 +661,7 @@ export function emulatorSuite(index, parts) {
     await page.click("#cee-connect");
     await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
     await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
+    await page.click("#cee-tab-console");
     return page;
   }
 

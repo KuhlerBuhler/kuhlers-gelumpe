@@ -77,7 +77,7 @@ function askKind() {
 }
 const confirmed = async options => (window.ui?.confirm ? window.ui.confirm(options) : false);
 
-export function scriptsPanel(root, { storage = null, sub = null, session = () => null } = {}) {
+export function scriptsPanel(root, { storage = null, sub = null, session = () => null, onRun = () => {} } = {}) {
   /** A packed .blech onto the connected device's card; IMPORT PLUGIN in the BLECH menu then lists it. */
   async function toDevice(bytes, id, button) {
     const s = session();
@@ -531,7 +531,6 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const toolbar = el("div", { className: "cee-ws-toolbar" }, [nameField, note, el("div", { className: "cee-ws-toolbar-actions" }, [copy, duplicate, remove, exportButton, usbButton])]);
   const strip = el("div", { className: "cee-ws-strip" }, [status, probeInfo, hint]);
 
-  const consoleHost = el("div", { className: "cee-ws-console", id: "cee-terminal" });
   const runTarget = el("p", { className: "muted", id: "cee-run-target" });
 
   const main = el("div", { className: "ui-split-main cee-ws-main" }, [toolbar, editorHost, problems, strip]);
@@ -617,16 +616,15 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       simRoot,
       log,
     ]) },
-    { id: "console", title: "Konsole", node: el("div", { className: "cee-plug-page" }, [consoleHost]) },
     { id: "docs", title: "Dokumentation", node: docsPage },
   ];
   for (const p of PAGES) { p.node.id ||= `cee-plugin-${p.id}`; p.node.hidden = true; p.node.dataset.page = p.id; }
   root.replaceChildren(...PAGES.map(p => p.node));
 
   let shown = null;
-  const PAGE_ICONS = { catalog: "grid", editor: "code", run: "play", console: "terminal", docs: "book" };
+  const PAGE_ICONS = { catalog: "grid", editor: "code", run: "play", docs: "book" };
   const subPages = sub?.pages("scripts", { id: "cee-scripts-pages", label: "Bereiche der Plugins", items: PAGES.map(({ id, title }) => ({ id, title, icon: PAGE_ICONS[id] })), pick: id => page(id) });
-  /** Opens one of the pages of Plugins: the editor, the run area, the console, the names, the catalog. */
+  /** Opens one of the pages of Plugins: the editor, the run area, the names, the catalog. */
   function page(id) {
     if (!PAGES.some(p => p.id === id)) id = "editor";
     if (id === shown) return;
@@ -728,6 +726,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       const result = compile(source, { name: validName(label) ? label : "plugin" });
       if (!result.ok) throw new Error(result.errors.map(formatError).join("\n"));
       start(result.blob, label);
+      onRun();
       return `„${label}“ läuft im Bereich Lauf, Display und LEDs stehen dort.`;
     },
     /** Run lines of script language once, at the first frame, in the run area. */
@@ -735,6 +734,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       const result = compile(`korg.app("einzeiler", "TOOLS");\nkorg.onEvent("ready", () => {\n${code.trim().replace(/;?$/, ";")}\n});`, { name: "einzeiler" });
       if (!result.ok) throw new Error(result.errors.map(e => `${formatError({ ...e, line: Math.max(1, e.line - 2) })}`).join("\n"));
       start(result.blob, "einzeiler");
+      onRun();
       return "Läuft im Bereich Lauf, als App geöffnet.";
     },
     stop,

@@ -1996,7 +1996,7 @@ select,
   outline-offset: 2px;
 }
 
-/* Plugins-Seite: Editor, Lauf, Konsole, Namen und Katalog sind eigene Seiten unter dem Eintrag Plugins. Jede füllt die Fensterhöhe, die Seite
+/* Plugins-Seite: Editor, Lauf, Namen und Katalog sind eigene Seiten unter dem Eintrag Plugins. Jede füllt die Fensterhöhe, die Seite
    selbst scrollt nicht. Im Editor sitzt links die Liste, rechts Werkzeugleiste und Editor; nur der Editor und die Liste scrollen bei Bedarf. */
 .cee-main:has(#cee-area-scripts:not([hidden])) {
   padding-block: var(--space-4);
@@ -2398,4 +2398,66 @@ html[data-motion="reduce"] *::after {
 .cee-entry-step:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
+}
+
+/* Konsole: an entry of its own under Gerät. The terminal fills the window like the plugin pages. */
+.cee-main:has(#cee-area-console:not([hidden])) {
+  padding-block: var(--space-4);
+}
+
+#cee-console {
+  height: calc(100dvh - 7.75rem);
+  min-height: 28rem;
+}
+
+#cee-console > .cee-ws-console {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  #cee-console { height: auto; }
+}
+
+/* Features (features.mjs): one list per group, an entry is its name, what it does and what to press. */
+.cee-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-feature {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-feature > * {
+  margin: 0;
+}
+
+.cee-feature h3 {
+  font-size: var(--text-md);
+}
+
+.cee-feature p {
+  color: var(--color-text-secondary);
+}
+
+.cee-feature-how strong {
+  color: var(--color-text-primary);
+}
+
+.cee-feature-where {
+  align-self: flex-start;
+  margin-top: auto;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }

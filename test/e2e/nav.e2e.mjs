@@ -18,7 +18,7 @@ test("the sidebar lists only the entries, the navbar names the open page, up and
   const page = await h.page();
   await page.goto(h.url);
   assert.equal(await selectedTab(page), "start");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Konsole", "Features", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen"]);
   assert.equal(await page.locator("#cee-sidebar .cee-nav-label").count(), 0, "no headings between the entries");
   await page.click("#cee-tab-patcher");
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Firmware Patcher");
@@ -46,7 +46,7 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.equal(await selectedTab(page), "start", "a remembered hidden page is ignored");
   await page.goto(`${h.url}?labs#ptools`);
   assert.equal(await selectedTab(page), "ptools", "with ?labs the pages stay reachable for tests");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Konsole", "Features", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples"]);
 });
 
 test("the navbar title of the emulator page is a menu: emulator or real device", async () => {
@@ -54,7 +54,7 @@ test("the navbar title of the emulator page is a menu: emulator or real device",
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-nav-title").isVisible(), false);
   assert.equal(await page.locator("#cee-mode-label").textContent(), "Emulator");
-  assert.equal(await page.locator("#cee-nav-state").textContent(), "Eigenes Fenster", "the emulator page has no device state, only the button for its own window");
+  assert.equal(await page.locator("#cee-nav-state").textContent(), "SD-Karte öffnenEigenes Fenster", "the emulator page has no device state, only the SD card and the button for its own window");
   assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "false");
   await page.click("#cee-mode-button");
   assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "true");
@@ -74,10 +74,11 @@ test("the navbar title of the emulator page is a menu: emulator or real device",
 test("the options of the emulator page are sub-items under its entry; other pages show none", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
-  assert.deepEqual(await page.locator("#cee-sub-emu > .ui-details > summary").allTextContents(), ["Firmware (VSB)", "SD-Karte"]);
+  assert.deepEqual(await page.locator("#cee-sub-emu > .ui-details > summary").allTextContents(), ["Firmware (VSB)"]);
+  assert.equal(await page.locator("#cee-nav-state #cee-emu-card-open").textContent(), "SD-Karte öffnen", "the SD card opens from the navbar");
   assert.equal(await page.evaluate(() => Number(document.getElementById("cee-sub-emu").style.order) - Number(document.getElementById("cee-tab-emu").style.order)), 1, "the options sit right after the entry in the visual order");
   assert.equal(await page.getAttribute("#cee-sub-emu", "aria-label"), "Optionen Emulator");
-  for (const id of ["cee-emu-setup", "cee-emu-card"]) {
+  for (const id of ["cee-emu-setup"]) {
     assert.equal(await page.locator(`#${id}`).evaluate(n => n.closest("#cee-sidebar") !== null), true, `${id} is in the sidebar`);
   }
   assert.equal(await page.locator(".cee-main #cee-e2-power").isVisible(), true, "the power key stays in the page");
@@ -90,7 +91,7 @@ test("the options of the emulator page are sub-items under its entry; other page
     assert.equal(await page.locator(".cee-nav-sub:visible").count(), 0, `${tab} shows no options`);
   }
   await page.click("#cee-tab-scripts");
-  assert.deepEqual(await page.locator("#cee-sub-scripts button").allTextContents(), ["Katalog", "Editor", "Lauf", "Konsole", "Dokumentation"], "Plugins shows its pages as sub-items");
+  assert.deepEqual(await page.locator("#cee-sub-scripts button").allTextContents(), ["Katalog", "Editor", "Lauf", "Dokumentation"], "Plugins shows its pages as sub-items");
   assert.equal(await page.getAttribute("#cee-sub-scripts", "aria-label"), "Optionen Plugins");
   assert.equal(await page.locator("#cee-sub-emu").isVisible(), false);
   await page.click("#cee-tab-emu");

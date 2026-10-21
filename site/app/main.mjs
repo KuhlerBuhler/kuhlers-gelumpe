@@ -22,6 +22,7 @@ import { rescuePage } from "./rescue.mjs";
 import { changelogPage } from "./changelog.mjs";
 import { splashPage } from "./splash.mjs";
 import { terminalPanel } from "./terminal.mjs";
+import { featuresPage } from "./features.mjs";
 import { scriptsPanel } from "./scripts.mjs";
 import { Terminal } from "../../src/terminal.mjs";
 import { loadBlechSet } from "../../src/patcher.mjs";
@@ -368,6 +369,7 @@ function navbar({ onMode }) {
   let connectButton = null;
   let device = false;
   let emuAction = null;
+  let cardButton = null;
   $("#cee-mode-button").append(icon("chevronDown"));
   const menu = dropdown($("#cee-mode-button"), $("#cee-mode-menu"), { onPick: onMode });
   function render() {
@@ -383,7 +385,7 @@ function navbar({ onMode }) {
     // On the device page the navbar carries the connect button while no device is attached (it moves there from
     // the page, so its handlers stay), and the words "Gerät verbunden" once one is.
     connectButton ??= $("#cee-connect");
-    const state = page === "emu" ? (emuAction ? [emuAction] : []) : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
+    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
@@ -391,7 +393,26 @@ function navbar({ onMode }) {
     device(on) { device = on; render(); },
     /** A control the emulator page puts into the navbar (the button for its own window). */
     emu(node) { emuAction = node; render(); },
+    /** The button that opens the emulator's SD card. */
+    card(node) { cardButton = node; render(); },
   };
+}
+
+/** The emulator's SD card in a dialog behind "SD-Karte öffnen" in the navbar; returns the dialog's body for the panel. */
+function cardDialog(nav) {
+  const body = el("div", { className: "ui-dialog-body" });
+  const dialog = el("dialog", { className: "ui-dialog ui-dialog-narrow", id: "cee-emu-card" });
+  dialog.setAttribute("aria-labelledby", "cee-emu-card-title");
+  dialog.append(el("form", { method: "dialog", className: "ui-dialog-box" }, [
+    el("header", { className: "ui-dialog-head" }, el("h2", { className: "ui-dialog-title", id: "cee-emu-card-title", textContent: "SD-Karte" })),
+    body,
+    el("footer", { className: "ui-dialog-foot" }, el("button", { type: "submit", className: "btn", textContent: "Schließen" })),
+  ]));
+  document.body.append(dialog);
+  const button = el("button", { type: "button", className: "btn sm", id: "cee-emu-card-open", textContent: "SD-Karte öffnen" });
+  button.addEventListener("click", () => (window.ui?.openDialog ? window.ui.openDialog(dialog) : dialog.showModal()));
+  nav.card(button);
+  return body;
 }
 
 /** Below 60rem the sidebar is a drawer behind the menu button. */
@@ -490,7 +511,7 @@ function boot() {
       $("#cee-device").hidden = id !== "device";
       if (id === "device") { $("#cee-area-emu").hidden = false; $("#cee-area-device").hidden = true; }
       popout?.realDevice(id === "device");
-      if (id === "scripts") terminal?.update();
+      if (id === "console") terminal?.update();
       if (id === "changelog") changelog.opened();
     },
   }) : null;
@@ -564,14 +585,15 @@ function boot() {
   // Shut from the first frame, not a second later: before that a click still opened a page without its tables.
   noFirmware = !emulator.firmware;
   restrict();
-  const card = options.add("emu", { id: "cee-emu-card", title: "SD-Karte" });
-  const sd = sdcardPanel(card.body, emulator, { heading: false });
+  const sd = sdcardPanel(cardDialog(nav), emulator, { heading: false });
   popout = emulatorWindow(emulator, { place: node => nav.emu(node) });
   popout.realDevice(areas?.current === "device");
   patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null });
   rescuePage($("#cee-rescue"));
+  featuresPage($("#cee-features"));
   splashPage($("#cee-splash"));
-  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null });
+  // A run from the console opens the Plugins page, where the run area shows it.
+  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null, onRun: () => areas?.select("scripts", { focus: false }) });
   terminal = terminalPanel($("#cee-terminal"), { terminal: new Terminal({ device, emulator, probe }), device, scripts, lack: () => emulator.lack("sysex") });
   // The app always starts with the link in its address and opens on the start page; a link opened in the browser goes to the emulator.
   if (emu.fresh) areas?.select(window.__GELUMPE_APP ? "start" : "emu");

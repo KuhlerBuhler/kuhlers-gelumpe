@@ -55,7 +55,7 @@ test("the page replaces Terminal and FUN: templates, an editor, the run area and
   assert.equal(await page.locator("#cee-tab-terminal").count(), 0);
   assert.equal(await page.locator("#cee-tab-fun").count(), 0);
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Plugins");
-  assert.deepEqual(await page.locator("#cee-scripts-pages button").allTextContents(), ["Katalog", "Editor", "Lauf", "Konsole", "Dokumentation"], "the pages are sub-items of the Plugins entry");
+  assert.deepEqual(await page.locator("#cee-scripts-pages button").allTextContents(), ["Katalog", "Editor", "Lauf", "Dokumentation"], "the pages are sub-items of the Plugins entry");
   assert.equal(await page.locator("#cee-scripts-page-catalog").getAttribute("aria-current"), "", "the catalog is the page that opens first");
   assert.equal(await page.locator("#cee-catalog").isVisible(), true);
   assert.equal(await page.locator("#cee-script-text").isVisible(), false);
@@ -64,9 +64,10 @@ test("the page replaces Terminal and FUN: templates, an editor, the run area and
   assert.equal(await page.locator("#cee-script-text").isVisible(), true, "the editor, once its page is open");
   assert.equal(await page.locator("#cee-term-input").isVisible(), false, "the console is a page of its own");
   assert.equal(await page.locator("#cee-script-run").isVisible(), false, "so is the run area");
-  await page.click("#cee-scripts-page-console");
+  await page.click("#cee-tab-console");
   assert.equal(await page.locator("#cee-term-input").isVisible(), true);
   assert.equal(await page.locator("#cee-script-text").isVisible(), false, "the editor gives way to the page that is open");
+  await page.click("#cee-tab-scripts");
   await onRun(page);
   assert.equal(await page.locator("#cee-script-run").isVisible(), true);
   await onEditor(page);
@@ -278,12 +279,12 @@ test("all own scripts leave as one e2sPlugin.all that the loader's format check 
 
 test("the console runs a saved script by name and a line of script language on the simulated device", async () => {
   const page = await open();
-  await page.click("#cee-scripts-page-console");
+  await page.click("#cee-tab-console");
   await page.fill("#cee-term-input", 'run("snake")');
   await page.press("#cee-term-input", "Enter");
   await page.locator("#cee-sim-state", { hasText: "Lauf: snake" }).waitFor();
   assert.equal(await page.locator("#cee-plugin-run").isVisible(), true, "a run from the console shows the run area");
-  await page.click("#cee-scripts-page-console");
+  await page.click("#cee-tab-console");
   await page.locator(".cee-term-line", { hasText: "„snake“ läuft" }).waitFor();
   await page.fill("#cee-term-input", 'run("gibtsnicht")');
   await page.press("#cee-term-input", "Enter");

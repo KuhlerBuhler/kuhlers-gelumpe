@@ -30,6 +30,8 @@
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-start" data-tab="start" aria-controls="cee-area-start" aria-selected="true"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Start</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-emu" data-tab="emu" aria-controls="cee-area-emu" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4h18v12H3Z"/><path d="M8 20h8"/><path d="M12 16v4"/></svg><span>Emulator</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-device" hidden data-tab="device" aria-controls="cee-area-device" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4h18v12H3Z"/><path d="M8 20h8"/><path d="M12 16v4"/></svg><span>Gerät</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-console" data-tab="console" aria-controls="cee-area-console" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg><span>Konsole</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-features" data-tab="features" aria-controls="cee-area-features" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg><span>Features</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-rescue" data-tab="rescue" aria-controls="cee-area-rescue" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0"/><path d="M8 12a4 4 0 1 0 8 0 4 4 0 1 0-8 0"/><path d="m5.6 5.6 3.6 3.6"/><path d="m14.8 14.8 3.6 3.6"/><path d="m18.4 5.6-3.6 3.6"/><path d="m9.2 14.8-3.6 3.6"/></svg><span>Rettung</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-patcher" data-tab="patcher" aria-controls="cee-area-patcher" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5h14v14H5Z"/><path d="M9 9h6v6H9Z"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/></svg><span>Firmware Patcher</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-splash" data-tab="splash" aria-controls="cee-area-splash" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5h18v14H3Z"/><path d="m3 16 5-5 4 4 3-3 6 6"/><path d="M15 9h.01"/></svg><span>Startbildschirm</span></button>
@@ -134,6 +136,16 @@
 
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-emu" aria-labelledby="cee-tab-emu" tabindex="0" hidden>
         <section class="ui-section" id="cee-emu" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-console" aria-labelledby="cee-tab-console" tabindex="0" hidden>
+        <section class="ui-section" id="cee-console" data-no-reveal>
+          <div class="cee-ws-console" id="cee-terminal"></div>
+        </section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-features" aria-labelledby="cee-tab-features" tabindex="0" hidden>
+        <section class="ui-section" id="cee-features" data-no-reveal></section>
       </div>
 
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-device" aria-labelledby="cee-tab-device" tabindex="0" hidden>
