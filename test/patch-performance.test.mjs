@@ -20,6 +20,32 @@ const sample = () => ({ format: "blech-performance", version: 4, method: "fixtur
   }])) });
 const run = (baseline, candidate, phase) => spawnSync(python, ["-c", snippet], { input: JSON.stringify({ baseline, candidate, phase }), encoding: "utf8" });
 
+const withSysex = (end = 0xc019f000) => {
+  const profile = sample();
+  for (const item of Object.values(profile.builds)) {
+    const row = { instructions: 10000, cases: 400, vectorsSha256: "1".repeat(64), resultsSha256: "2".repeat(64), ioSha256: "3".repeat(64) };
+    item.sysex = { ...row, method: "4".repeat(64), codeSha256: "5".repeat(64), firmwareSha256: item.outputSha256,
+      maxBlock: 32768, bufferStart: 0xc0191100, bufferEnd: end, fileArea: [0xc019f000, 0xc01a0000],
+      protocol: { ports: [1, 2], sizes: [0, 1, 2, 6, 7, 8, 63, 64, 127, 255, 256, 4096, 8192, 32762, 32763, 32764, 32765, 32766, 32767, 32768, 32769], functions: [96, 97, 98, 99, 100, 101, 102, 103], scope: "native-command-ABI" },
+      repeats: Array.from({ length: 3 }, () => structuredClone(row)) };
+  }
+  return profile;
+};
+
+test("SysEx acceptance needs repeatable full-command evidence for both ports and identical results", () => {
+  const old = withSysex(), next = withSysex(0xc019a400);
+  assert.equal(run(old, next, "sysex").status, 0);
+  for (const change of [s => delete s.repeats, s => s.repeats.pop(), s => s.repeats[2].instructions++,
+    s => s.resultsSha256 = "a".repeat(64), s => s.ioSha256 = "b".repeat(64),
+    s => s.protocol.ports.pop(), s => s.protocol.functions.pop(), s => s.protocol.sizes.pop(),
+    s => s.method = "a".repeat(64), s => s.maxBlock = 16384, s => s.bufferEnd++,
+    s => s.fileArea[0]++, s => s.firmwareSha256 = "a".repeat(64), s => s.cases = 1,
+    s => { s.instructions = 10101; s.repeats.forEach(r => r.instructions = 10101); }]) {
+    const bad = withSysex(0xc019a400); change(bad.builds.stock.sysex);
+    assert.notEqual(run(old, bad, "sysex").status, 0, String(change));
+  }
+});
+
 test("loader profiles cover every current preset by name and reject missing or renamed inputs", () => {
   const good = sample();
   const result = run(good, good, "baseline");

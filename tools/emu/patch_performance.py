@@ -117,6 +117,8 @@ def validate_capture(data):
             require(result.get('totalInstructions') == sum(p['instructions'] for p in plugins), 'inconsistent loader total')
         require(all(r == repeats[0] for r in repeats), 'non-reproducible loader counts')
         require(loader.get('totalInstructions') == repeats[0]['totalInstructions'] and loader.get('maxInstructions') == max(r['totalInstructions'] for r in repeats), 'loader summary differs')
+        if 'sysex' in item:
+            validate_sysex(item)
         for variant in ('original', 'patched'):
             runs = item.get(variant, [])
             require(len(runs) == REPEATS, f'{build}/{variant}: three repetitions required')
@@ -153,6 +155,26 @@ def validate_capture(data):
 def med(item, variant, scene, key='instructions'):
     values = [next(row for row in run['scenarios'] if row['scenario'] == scene)[key] for run in item[variant]]
     return statistics.median(values)
+
+
+def validate_sysex(item):
+    from sysex_bench import PROTOCOL
+    value = item['sysex']
+    require(value.get('protocol') == PROTOCOL, 'incomplete native transfer protocol')
+    require(value.get('firmwareSha256') == item['outputSha256'], 'transfer firmware differs from checked build')
+    for key in ('method', 'codeSha256', 'vectorsSha256', 'resultsSha256', 'ioSha256'):
+        require(isinstance(value.get(key), str) and len(value[key]) == 64
+                and all(c in '0123456789abcdef' for c in value[key]), f'invalid transfer {key}')
+    require(value.get('maxBlock') == 32768 and value.get('bufferStart') == 0xc0191100
+            and value.get('fileArea') == [0xc019f000, 0xc01a0000], 'transfer layout or maximum block changed')
+    require(isinstance(value.get('bufferEnd'), int) and 0xc0191100 < value['bufferEnd'] <= 0xc019f000, 'invalid transfer buffer end')
+    require(isinstance(value.get('instructions'), int) and value['instructions'] > 0
+            and isinstance(value.get('cases'), int) and value['cases'] >= 250, 'transfer work missing')
+    rows = value.get('repeats', [])
+    require(len(rows) == REPEATS, 'three native transfer repetitions required')
+    for row in rows:
+        require(row == {key: value[key] for key in ('instructions', 'cases', 'vectorsSha256', 'resultsSha256', 'ioSha256')},
+                'native transfer repetitions differ')
 
 
 def compare(baseline, candidate, phase):
@@ -210,9 +232,14 @@ def compare(baseline, candidate, phase):
             require(all(rows.get('app-' + p, {}).get('ratio', math.inf) <= 1.01 for p in APPS), 'app regression exceeds 1 percent')
         if phase in ('sysex', 'combined'):
             require('sysex' in old and 'sysex' in new, 'full transfer evidence missing')
+            validate_sysex(old)
+            validate_sysex(new)
+            for key in ('method', 'protocol', 'cases', 'vectorsSha256', 'resultsSha256', 'ioSha256'):
+                require(old['sysex'][key] == new['sysex'][key], f'different transfer {key}')
             require(new['sysex']['maxBlock'] == old['sysex']['maxBlock'] == 32768, 'maximum block changed')
             require(new['sysex']['bufferEnd'] <= old['sysex']['bufferEnd'] - 19456, 'contiguous buffer saving missing')
             require(new['sysex']['instructions'] <= old['sysex']['instructions'] * 1.01, 'transfer regression exceeds 1 percent')
+            require(all(row['ratio'] <= 1.01 for row in rows.values()), 'ordinary or app regression exceeds 1 percent')
         if phase == 'combined' and build != 'synth':
             require(new['footprint']['occupiedBytes'] < old['footprint']['occupiedBytes'], 'no net sampler space gain')
         results[build] = rows
@@ -385,7 +412,8 @@ def capture(folder):
             item[variant] = []
             command = [sys.executable, str(Path(__file__).resolve()), '--worker', str(folder), build, variant]
             print(f'{build}/{variant}: {REPEATS} independent profiles started', file=sys.stderr, flush=True)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=REPEATS) as pool:
+            import parallel
+            with concurrent.futures.ThreadPoolExecutor(max_workers=parallel.workers(REPEATS)) as pool:
                 jobs = [pool.submit(subprocess.run, command, capture_output=True, text=True, check=True) for _ in range(REPEATS)]
                 for repeat, job in enumerate(jobs):
                     try:
@@ -398,6 +426,8 @@ def capture(folder):
                     (folder / 'profile-progress.json').write_text(json.dumps(data, indent=2) + '\n')
                     print(f'{build}/{variant}: profile {repeat + 1}/{REPEATS} complete', file=sys.stderr, flush=True)
         item['loader'] = loader_profile(folder, build)
+        from sysex_bench import profile as sysex_profile
+        item['sysex'] = sysex_profile(folder, build)
     validate_capture(data)
     return data
 
