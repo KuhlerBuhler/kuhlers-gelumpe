@@ -49,7 +49,6 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let input = null;             // the bytes the patches go on: the dropped file, or Korg's original turned into Hacktribe's
   let stockFile = null;         // Korg's original as dropped, and what classify made of it, to go back to on the other route
   let passed = null;            // the patched copy that passed the check
-  let applied = null;           // what applyPatches gave for it: the spans the check needs again for the thorough run
   let blech = null;             // the BLECH set (data/patches/blech.json) with its patches parsed, once loaded
   let hint = null;
   let usb = null;               // the file came over USB: { fromOriginal }; null for a dropped file (then the unpatched one goes to the card too)
@@ -114,7 +113,28 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       ". Wir können sie nicht mitliefern, ihre Lizenz erlaubt keine Weitergabe. Lade sie bei Hacktribe herunter und zieh sie hierher; sie wird nur in deinem Browser angewendet."]),
     patchDrop,
   ]);
-  const run = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-run", textContent: "Patchen und im Emulator prüfen", hidden: true });
+  const run = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-run", textContent: "Patchen und testen", hidden: true });
+  // How much of the emulator test runs: none (with consent), the quick one of today, or the full run that once took 90 minutes.
+  const TESTS = [
+    ["none", "Kein Test", "Die Datei wird nur gepatcht. Ob sie startet, siehst du erst am Gerät."],
+    ["quick", "Schneller Test", "Der Emulator startet die neue Datei und prüft Start, Update-Abfrage, Startmodi und Notschalter. Ein paar Minuten."],
+    ["full", "Voller Test", "Dazu alle Prüfungen des Emulators an jedem Patch. Kann auf langsamen Rechnern über eine Stunde dauern."],
+  ];
+  let testChoice = "quick";
+  const testInputs = TESTS.map(([value, text]) => {
+    const radio = el("input", { type: "radio", name: "cee-patch-test", value, checked: value === testChoice });
+    radio.addEventListener("change", () => { if (radio.checked) { testChoice = value; render(); } });
+    return { value, radio, label: el("label", { className: "ui-segmented-option" }, [radio, el("span", { textContent: text })]) };
+  });
+  const testGroup = el("div", { className: "ui-segmented", id: "cee-patch-test" }, testInputs.map(t => t.label));
+  testGroup.setAttribute("role", "radiogroup");
+  testGroup.setAttribute("aria-label", "Test im Emulator");
+  const testNote = el("p", { className: "muted", id: "cee-patch-test-note" });
+  const consent = el("input", { type: "checkbox", id: "cee-patch-consent" });
+  consent.addEventListener("change", () => render());
+  const consentBox = el("label", { className: "cee-patch-consent", id: "cee-patch-consent-box", hidden: true }, [consent,
+    el("span", { textContent: "Ich kenne die Folgen: Startet die Datei nicht, weil beim Patchen etwas schiefging oder BLECHTRIBE einen Fehler hat, bin ich selbst verantwortlich. Keine Haftung." })]);
+  const testBox = el("div", { className: "cee-patch-test-box" }, [el("h2", { className: "cee-patch-usb-title", textContent: "Test" }), testGroup, testNote, consentBox]);
   const planList = el("ul", { className: "cee-patch-plan", id: "cee-patch-plan" });
   const plan = el("div", { className: "cee-patch-plan-box" }, [
     el("p", { className: "cee-patch-lead", textContent: "Diese Patches kommen auf deine Firmware. Danach bootet der Emulator die neue Datei und prüft, ob alles läuft. Das dauert ein paar Minuten." }),
@@ -125,18 +145,25 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const checkList = el("ul", { className: "ui-list", id: "cee-patch-checks" });
   const checksBox = el("details", { className: "ui-details", id: "cee-patch-details", hidden: true }, [el("summary", { id: "cee-patch-details-title" }), el("div", { className: "ui-details-body" }, [checkList])]);
   const note = el("p", { className: "muted", id: "cee-patch-note", role: "status", hidden: true });
-  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-download", textContent: "SYSTEM.VSB herunterladen", disabled: true });
+  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-download", textContent: "Speichern", disabled: true });
+  // Step 4 names where the file goes before anything is saved: big, so it can be read off while copying.
+  const targetPath = el("p", { className: "cee-patch-path", id: "cee-patch-path" });
+  const untested = el("p", { className: "cee-note", id: "cee-patch-untested", hidden: true, textContent: "Diese Datei ist nicht getestet. Halt beim ersten Start EXIT bereit: damit startet die Electribe ohne die Patches." });
+  const target = el("div", { className: "cee-patch-target", id: "cee-patch-target" }, [
+    el("p", { className: "cee-patch-lead", textContent: "Die neue Datei gehört auf die SD-Karte der Electribe, hierhin:" }),
+    targetPath,
+    untested,
+  ]);
   const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: "Ich hab angst dass mein Gerät kaputt geht", disabled: true });
-  const thorough = el("button", { type: "button", className: "btn", id: "cee-patch-thorough", textContent: "Gründlich prüfen", hidden: true });
   const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [usbPut, download, afraid]);
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
 
   // One panel per step of the way; Zurück and Weiter move between them, the flow decides how far Weiter may go.
   const panels = [
     [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, verdictBox, routeBox, patchBox, korg],
-    [plan, synthSet],
-    [bar, note, groupList, checksBox, el("div", { className: "actions" }, [thorough])],
-    [result, done],
+    [plan, synthSet, testBox],
+    [bar, note, groupList, checksBox],
+    [target, result, done],
   ].map((children, i) => el("div", { className: "cee-patch-panel", id: `cee-patch-step-${i + 1}`, tabIndex: -1, hidden: i > 0 }, children));
   const back = el("button", { type: "button", className: "btn", id: "cee-patch-back", textContent: "Zurück", hidden: true });
   const next = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-next", textContent: "Weiter", disabled: true });
@@ -274,8 +301,13 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     patchBox.hidden = flow.phase !== "needs-patch";
     patchInput.disabled = can.busy;
     run.hidden = view !== 1;
-    run.disabled = !can.patch;
-    run.textContent = flow.phase === "failed" ? "Noch einmal patchen und prüfen" : "Patchen und im Emulator prüfen";
+    run.disabled = !can.patch || (testChoice === "none" && !consent.checked);
+    run.textContent = flow.phase === "failed" ? "Noch einmal patchen und prüfen" : testChoice === "none" ? "Patchen" : "Patchen und testen";
+    for (const t of testInputs) { t.radio.checked = t.value === testChoice; t.radio.disabled = can.busy; }
+    testNote.textContent = TESTS.find(([v]) => v === testChoice)[2];
+    consentBox.hidden = testChoice !== "none";
+    targetPath.textContent = `${cardFolder(flow.origin)}SYSTEM.VSB`;
+    untested.hidden = !flow.untested;
     fileInput.disabled = can.busy;
 
     renderProgress(can);
@@ -291,7 +323,6 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usbPut.hidden = !session();
     usbPut.disabled = !can.download;
     usbGet.disabled = can.busy;
-    thorough.hidden = !(flow.report?.checks ?? []).some(c => c.id === "quick");
     download.disabled = !can.download;
     afraid.disabled = !can.test;
     done.hidden = flow.phase !== "downloaded";
@@ -369,32 +400,23 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         const n = res.spans.filter(s => s.patch === p.id).length;
         dispatch({ type: "patch", id: p.id, ok: true, detail: `${n} Stelle${n === 1 ? "" : "n"} geschrieben` });
       }
+      if (testChoice === "none") {
+        passed = res.bytes;
+        dispatch({ type: "untested" });
+        go(3);
+        return;
+      }
       dispatch({ type: "checking" });
       await tick();
-      // a copy nobody checked before gets the quick check (start and rescue paths); the thorough one is a button after it
-      const report = await verifiedReport(input, res.bytes, await loadVerified())
-        ?? await emulator.check(input, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: true });
-      applied = res;
+      // a copy checked before needs no run; otherwise the quick check (start and rescue paths) or the full one
+      const report = (testChoice === "quick" ? await verifiedReport(input, res.bytes, await loadVerified()) : null)
+        ?? await emulator.check(input, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: testChoice === "quick" });
       if (report.ok) passed = res.bytes;
       dispatch({ type: "checked", report });
     } catch (e) {
       dispatch({ type: "error", message: e.message });
     }
   }
-
-  thorough.addEventListener("click", async () => {
-    if (!passed || !applied) return;
-    const copy = passed;
-    dispatch({ type: "recheck" });
-    try {
-      const report = await emulator.check(input, copy, applied.allow, applied.allowCode, snapshot => { latest = snapshot; showProgress(); });
-      if (!report.ok) passed = null;
-      dispatch({ type: "checked", report });
-    } catch (e) {
-      passed = null;
-      dispatch({ type: "error", message: e.message });
-    }
-  });
 
   function buildDone() {
     const folder = cardFolder(flow.origin);

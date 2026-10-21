@@ -266,6 +266,7 @@ test("patcher: Korg's original asks for the user's own hacktribe-2.patch, conver
   await page.click("#cee-patch-next");
   assert.equal(await needs.isVisible(), false);
   assert.equal(await page.locator("#app-toasts .cee-toast[data-kind=error]").count(), 2, "the two wrong files told their error, the conversion adds none");
+  for (const close of await page.locator("#app-toasts .cee-toast-close").all()) await close.click();
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
   assert.deepEqual(new Uint8Array(fake.seen.check.pair.subarray(0, 0x200100)), hacktribe, "the check gets the converted Hacktribe file as the original");
@@ -449,5 +450,35 @@ test("patcher: the blue original gets its synth set and trials the copy in elect
   } finally {
     fake.hooks.korg = null;
   }
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher: the test is a choice; no test needs the consent and goes straight to step 4, full runs the whole check", async () => {
+  const page = await patcherPage();
+  await drop(page, await makeFirmware());
+  await page.click("#cee-patch-next");
+  assert.equal(await page.locator("#cee-patch-test input:checked").getAttribute("value"), "quick", "the quick test of today is the default");
+  assert.equal(await page.locator("#cee-patch-run").textContent(), "Patchen und testen");
+  await page.locator("#cee-patch-test label", { hasText: "Kein Test" }).click();
+  assert.equal(await page.isVisible("#cee-patch-consent-box"), true);
+  assert.equal(await page.isDisabled("#cee-patch-run"), true, "no run without the consent");
+  await page.check("#cee-patch-consent");
+  assert.equal(await page.locator("#cee-patch-run").textContent(), "Patchen");
+  const checks = fake.seen.check;
+  await page.click("#cee-patch-run");
+  await page.locator("#cee-patch-step-4").waitFor();
+  assert.equal(fake.seen.check, checks, "nothing ran in the emulator");
+  assert.match(await page.locator("#cee-patch-path").textContent(), /^KORG\/.+\/System\/SYSTEM\.VSB$/, "the place on the card, before anything is saved");
+  assert.equal(await page.isVisible("#cee-patch-untested"), true, "the copy says it is untested");
+  assert.equal(await page.locator("#cee-patch-download").textContent(), "Speichern");
+  assert.equal(await page.isDisabled("#cee-patch-download"), false);
+  await page.click("#cee-patch-back");
+  await page.click("#cee-patch-back");
+  await page.locator("#cee-patch-test label", { hasText: "Voller Test" }).click();
+  await page.click("#cee-patch-run");
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
+  assert.equal(fake.seen.check.quick, null, "the full test asks the emulator for every check");
+  await page.click("#cee-patch-next");
+  assert.equal(await page.isVisible("#cee-patch-untested"), false, "a tested copy says nothing of that");
   assert.deepEqual(page.errors, []);
 });
