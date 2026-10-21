@@ -57,3 +57,42 @@
   gap: var(--space-2);
   padding-left: var(--space-6);
 }
+
+.cee-splash-head {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+}
+
+/* The gallery: one card per picture, drawn in the colours of the display. */
+.cee-splash-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-splash-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-splash-item > * {
+  margin: 0;
+}
+
+.cee-splash-thumb {
+  --cee-splash-ink: var(--color-print-ink);
+  --cee-splash-paper: var(--color-print-paper);
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  image-rendering: pixelated;
+  border-radius: var(--radius-xs);
+}
