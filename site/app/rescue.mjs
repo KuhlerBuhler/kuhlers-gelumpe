@@ -1,6 +1,9 @@
 /** The Rettung page: a guide through the documented way back, with a stop sign. Content: data/rescue.mjs. */
 import { el } from "./fields.mjs";
 import RESCUE, { STATUS, LINKS } from "../../data/rescue.mjs";
+import { e2Art } from "./e2-art.mjs";
+
+const BODY = { red: "var(--color-card-suit-red)", blue: "var(--color-chart-blue)", grey: "var(--color-text-muted)" };
 
 const pill = status => {
   const p = el("span", { className: "cee-status", textContent: STATUS[status].text });
@@ -8,14 +11,15 @@ const pill = status => {
   return p;
 };
 
-const source = path => el("span", { className: "cee-rescue-source" }, ["Beleg: ", el("code", { textContent: path })]);
-
 const link = (href, text) => el("a", { className: "cee-text-link", href, target: "_blank", rel: "noopener noreferrer", textContent: text });
+
+/** A line of text: a string, or parts where { link, text } is a link to LINKS[link]. */
+const words = line => (Array.isArray(line) ? line.map(part => (typeof part === "string" ? part : link(LINKS[part.link], part.text))) : [line]);
 
 function stepItem(step) {
   return el("li", { className: "cee-rescue-step" }, [
     el("p", { textContent: step.text }),
-    el("p", { className: "cee-rescue-meta" }, [pill(step.status), source(step.source)]),
+    el("p", { className: "cee-rescue-meta" }, [pill(step.status)]),
     step.note ? el("p", { className: "muted", textContent: step.note }) : null,
   ]);
 }
@@ -23,7 +27,7 @@ function stepItem(step) {
 function caseBlock(c) {
   const body = el("div", { className: "ui-details-body" }, [
     el("ol", { className: "cee-rescue-steps" }, c.steps.map(stepItem)),
-    el("p", { className: "cee-rescue-limit" }, [el("strong", { textContent: "Grenze: " }), c.limit, " ", source(c.limitSource)]),
+    el("p", { className: "cee-rescue-limit" }, [el("strong", { textContent: "Grenze: " }), c.limit]),
   ]);
   const summary = el("summary", {}, [el("span", { textContent: c.label }), el("span", { className: "muted cee-rescue-hint", textContent: c.hint })]);
   return el("details", { className: "ui-details cee-rescue-case", id: `cee-rescue-case-${c.id}` }, [summary, body]);
@@ -32,24 +36,22 @@ function caseBlock(c) {
 export function rescuePage(root) {
   const stop = el("section", { className: "cee-rescue-stop", id: "cee-rescue-stop" }, [
     el("h2", { id: "cee-rescue-stop-title", textContent: RESCUE.stop.title }),
-    ...RESCUE.stop.lines.map(text => el("p", { textContent: text })),
-    el("p", { className: "cee-rescue-meta" }, [source(RESCUE.stop.source)]),
+    ...RESCUE.stop.lines.map(line => el("p", {}, words(line))),
   ]);
   stop.setAttribute("role", "note");
   stop.setAttribute("aria-labelledby", "cee-rescue-stop-title");
 
   const folders = el("ul", { className: "cee-rescue-folders", id: "cee-rescue-folders" }, RESCUE.folders.map(f => el("li", {}, [
-    el("strong", { textContent: `Läuft ${f.running}` }),
+    e2Art(BODY[f.body], f.title),
+    el("strong", { textContent: f.title }),
     el("code", { className: "cee-rescue-path", textContent: f.path }),
-    el("p", { className: "cee-rescue-meta" }, [pill(f.status), source(f.source)]),
-    el("p", { className: "muted", textContent: f.note }),
   ])));
 
   const legend = el("ul", { className: "cee-rescue-legend" }, Object.keys(STATUS).map(k => el("li", {}, [pill(k), el("span", { textContent: ` ${STATUS[k].meaning}` })])));
 
   root.replaceChildren(el("div", { className: "cee-rescue" }, [
     el("h1", { className: "cee-rescue-title", textContent: "Rettung" }),
-    el("p", { className: "cee-rescue-lead", textContent: "Das Gerät startet nach einem Update oder Patch nicht mehr richtig? Hier steht der Weg zurück, soweit die Dokumentation ihn belegt. Jeder Schritt sagt dazu, wie sicher er ist. Lies erst alles, bevor du etwas tust." }),
+    el("p", { className: "cee-rescue-lead", textContent: "Das Gerät startet nach einem Update oder Patch nicht mehr richtig? Hier steht der Weg zurück. Jeder Schritt sagt dazu, wie sicher er ist. Lies erst alles, bevor du etwas tust." }),
     stop,
     el("section", { className: "cee-rescue-sec" }, [
       el("h2", { textContent: "Vorher" }),
@@ -57,7 +59,7 @@ export function rescuePage(root) {
     ]),
     el("section", { className: "cee-rescue-sec" }, [
       el("h2", { textContent: "Welche Datei in welchen Ordner" }),
-      el("p", { className: "muted", textContent: "Die Datei heißt immer SYSTEM.VSB. Der Ordner hängt von der Firmware ab, die gerade läuft." }),
+      el("p", { className: "muted", textContent: "Die Datei heißt immer SYSTEM.VSB. Der Ordner hängt davon ab, welche Electribe du hast und was gerade drauf läuft." }),
       folders,
     ]),
     el("section", { className: "cee-rescue-sec" }, [

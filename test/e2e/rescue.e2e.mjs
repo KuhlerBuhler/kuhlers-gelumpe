@@ -46,24 +46,17 @@ test("the stop sign says the bootloader is never touched and that beyond that on
   assert.ok(first <= 2, "the sign stands above the steps");
 });
 
-test("the folder for each running firmware is the documented one, and what no measurement backs is marked open", async () => {
+test("the folders are four device cards with a drawing, a title and the path", async () => {
   const page = await open();
   const rows = await page.locator("#cee-rescue-folders > li").evaluateAll(list => list.map(li => ({
-    running: li.querySelector("strong").textContent,
+    title: li.querySelector("strong").textContent,
     path: li.querySelector("code.cee-rescue-path").textContent,
-    pill: li.querySelector(".cee-status").textContent,
+    art: !!li.querySelector("svg.cee-e2-art"),
   })));
-  assert.deepEqual(rows, [
-    { running: "Läuft Hacktribe", path: "KORG/hacktribe/System/SYSTEM.VSB", pill: STATUS.gemessen.text },
-    { running: "Läuft BLECH", path: "KORG/blechtribe/System/SYSTEM.VSB", pill: STATUS.gemessen.text },
-    { running: "Läuft Korgs Original", path: "KORG/electribe sampler/System/SYSTEM.VSB", pill: STATUS.offen.text },
-  ]);
-  const blech = await page.locator("#cee-rescue-folders > li:nth-child(2)").textContent();
-  assert.match(blech, /am Gerät gesehen/);
-  assert.doesNotMatch(blech, /auch nach KORG\/hacktribe\/System/);
+  assert.deepEqual(rows, RESCUE.folders.map(f => ({ title: f.title, path: f.path, art: true })));
 });
 
-test("four cases open from the keyboard, and every step says how sure it is and where it comes from", async () => {
+test("four cases open from the keyboard, and every step says how sure it is", async () => {
   const page = await open();
   assert.deepEqual(await page.locator("#cee-rescue .cee-rescue-case").evaluateAll(l => l.map(d => d.id)), RESCUE.cases.map(c => `cee-rescue-case-${c.id}`));
   const summary = page.locator("#cee-rescue-case-zero > summary");
@@ -75,9 +68,8 @@ test("four cases open from the keyboard, and every step says how sure it is and 
   const steps = page.locator("#cee-rescue .cee-rescue-step");
   assert.equal(await steps.count(), RESCUE.cases.reduce((n, c) => n + c.steps.length, 0));
   const words = new Set(Object.values(STATUS).map(s => s.text));
-  for (const step of await steps.evaluateAll(l => l.map(li => ({ pill: li.querySelector(".cee-status")?.textContent, source: li.querySelector(".cee-rescue-source code")?.textContent })))) {
-    assert.ok(words.has(step.pill), `a step without a status: ${step.pill}`);
-    assert.match(step.source, /^docs\/.+\.md$/, "a step without a source");
+  for (const pill of await steps.evaluateAll(l => l.map(li => li.querySelector(".cee-status")?.textContent))) {
+    assert.ok(words.has(pill), `a step without a status: ${pill}`);
   }
 });
 

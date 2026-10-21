@@ -18,6 +18,7 @@ import { sdcardPanel } from "./sdcard.mjs";
 import { patcherPage } from "./patcher.mjs";
 import { patternToolsPage } from "./pattern-tools.mjs";
 import { rescuePage } from "./rescue.mjs";
+import { changelogPage } from "./changelog.mjs";
 import { splashPage } from "./splash.mjs";
 import { terminalPanel } from "./terminal.mjs";
 import { scriptsPanel } from "./scripts.mjs";
@@ -28,7 +29,7 @@ import { sharedProbe } from "./probe.mjs";
 import { dropdown } from "./dropdown.mjs";
 import { icon } from "./icons.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
-import { apply as applySettings, settingsButton } from "./settings.mjs";
+import { apply as applySettings, settingsButton, settingsPage } from "./settings.mjs";
 import { toast } from "./toast.mjs";
 
 const $ = sel => document.querySelector(sel);
@@ -425,7 +426,9 @@ function sidebarFold() {
 
 function boot() {
   applySettings();
-  settingsButton($("#cee-settings-button"));
+  settingsPage($("#cee-settings"));
+  const changelog = changelogPage($("#cee-changelog"), $("#cee-tab-changelog"));
+  settingsButton($("#cee-settings-button"), () => { areas?.select("settings"); drawer.close(); });
   const emu = takeLink();
   let areas = null;
   const nav = navbar({ onMode: id => areas?.select(id, { focus: false }) });
@@ -477,10 +480,12 @@ function boot() {
     onChange: id => {
       nav.page(id);
       options.page(id);
+      $("#cee-settings-button").toggleAttribute("aria-current", id === "settings");
       $("#cee-tab-emu").toggleAttribute("data-active", id === "device");
       $("#cee-device").hidden = id !== "device";
       if (id === "device") { $("#cee-area-emu").hidden = false; $("#cee-area-device").hidden = true; }
       if (id === "scripts") terminal?.update();
+      if (id === "changelog") changelog.opened();
     },
   }) : null;
   $("#cee-areas").addEventListener("click", e => { if (e.target.closest("[role=tab]")) drawer.close(); });
