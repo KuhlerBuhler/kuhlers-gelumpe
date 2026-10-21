@@ -1,11 +1,12 @@
-"""Where Doom stands on the own Electribe, read over USB-MIDI with BLECH's READ while the device hangs on the start image.
+"""Read the stored Doom state over BLECH USB-MIDI when its USB and command tasks are running.
 
 The loader and the engine keep their progress at 0xC017F000 (tools/doom/runtime_abi.h, struct doom_shared): stage 1 the keys
 said Doom and the loader runs the firmware's start calls, 2 the card is mounted, 3 doom.bin is read and its SHA-256 checked,
 4 the engine runs, 5 a level plays, 6 stopped, 0x80000000 an error (with its code). Read only: one READ of 0x844 bytes; nothing
-is written, nothing executed. Whether the device answers at all while the loader holds the start task is part of the answer.
+is written, nothing executed. The standalone Doom boot starts only tasks 1 and 8, without USB or CommandTask. This reader cannot reach a device
+that is hanging in that mode; connecting its USB cable does not enable the missing tasks.
 
-    python3 doom_probe.py               # device on USB, hanging after SHIFT + TAP at power-on
+    python3 doom_probe.py               # device with active BLECH USB-MIDI
     python3 doom_probe.py --watch 10    # ten reads, one a second, to see whether the numbers move
 """
 import argparse
