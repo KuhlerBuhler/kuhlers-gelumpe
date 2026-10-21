@@ -124,6 +124,8 @@ takes the display.
 - **Arrays:** `const a = new Array(16);` or `const a = [1, 2, 3];`, only at the top, a fixed 1 to 65535
   slots, numbers. `a[i]`, `a[i] = x`, `a[i] += x`, `a.length`. An index outside the array ends the plugin
   with an error.
+  An array literal with only values from 0 to 255 (a picture for `korg.display.bitmap`, say) is stored as
+  bytes in the block and costs no code; otherwise the code stores every value except 0 one by one.
 - **Arithmetic:** `+ - * / %`, `& | ^ << >> ~`, comparisons `== != === !== < <= > >=`, `&& || !`, `? :`.
   Everything computes in 32 bits and wraps around. `/` divides whole numbers and truncates toward zero
   (unlike JavaScript), `%` takes the sign of the dividend, a shift count uses its lower 5 bits, `>>` keeps
