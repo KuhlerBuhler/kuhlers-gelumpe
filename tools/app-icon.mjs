@@ -8,25 +8,27 @@ import { resizedHead, pixelPath } from "./blechy-head.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const out = join(root, "assets/app-icon");
 const icons = join(root, "src-tauri/icons");
-const head = resizedHead(50);
+const head = resizedHead(52, 50);
 const x = Math.floor((64 - head[0].length) / 2);
+const y = Math.floor((64 - head.length) / 2);
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512" role="img" aria-label="Blechy, Kuhler's GELUMPE">
 <title>Blechy, Kuhler's GELUMPE</title>
 <rect width="64" height="64" rx="14" fill="#0a0a0b"/>
-<path transform="translate(${x} 7)" fill="#fafafa" shape-rendering="crispEdges" d="${pixelPath(head)}"/>
+<path transform="translate(${x} ${y})" fill="#fafafa" shape-rendering="crispEdges" d="${pixelPath(head)}"/>
 </svg>\n`;
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, "blechy.svg"), svg);
 if (process.argv.includes("--png")) {
   const { chromium } = await import("playwright");
   const browser = await chromium.launch({ channel: "chrome" });
-  const page = await browser.newPage();
   const images = new Map();
   try {
     for (const size of [16, 24, 32, 48, 64, 128, 256, 512, 1024]) {
-      await page.setViewportSize({ width: size, height: size });
-      await page.setContent(`<style>html,body{margin:0;background:transparent}svg{display:block;width:100vw;height:100vh}</style>${svg}`);
-      images.set(size, await page.screenshot({ omitBackground: true }));
+      const page = await browser.newPage({ viewport: { width: size, height: size } });
+      try {
+        await page.setContent(`<style>html,body{margin:0;background:transparent}svg{display:block;width:100vw;height:100vh}</style>${svg}`);
+        images.set(size, await page.screenshot({ omitBackground: true }));
+      } finally { await page.close(); }
     }
   } finally { await browser.close(); }
   for (const [name, size] of [["32x32.png",32],["128x128.png",128],["128x128@2x.png",256],["icon.png",512]]) {

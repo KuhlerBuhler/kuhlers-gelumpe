@@ -188,10 +188,12 @@ function banner() {
   const g = grid();
   dither(g, 0, 0, 36, H, "F");
   dither(g, 304, 0, W, H, "F");
-  const head = resizedHead(68);
-  fillRect(g, 25, 6, head[0].length, head.length, " ");
+  const head = resizedHead(76, 68);
+  const headX = Math.floor((100 - head[0].length) / 2);
+  const headY = Math.floor((H - head.length) / 2);
+  fillRect(g, headX, headY, head[0].length, head.length, " ");
   head.forEach((row, y) => [...row].forEach((pixel, x) => {
-    if (pixel === "#") put(g, 25 + x, 6 + y, "W");
+    if (pixel === "#") put(g, headX + x, headY + y, "W");
   }));
   const x0 = 104;
   text(g, "Kuhler's", x0, 3, 2, "W");

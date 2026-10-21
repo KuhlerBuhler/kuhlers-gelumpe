@@ -16,10 +16,11 @@ def hand(d, x, y, tilt):
     for k in (-1, 0, 1):
         d.line([x+k, y-4, x+k+tilt*(k+2)//2, y-8], fill=0)
 
-def blechy(d, cx, cy, aL, aR, lp, twitch, sweat, face=None, wave=None, limbs=True):
+def blechy(d, cx, cy, aL, aR, lp, twitch, sweat, face=None, wave=None, face_only=False):
     # body + nose (black silhouette)
-    E(d, cx, cy+7, 13, 15, 0)
-    E(d, cx, cy+4, 15, 12, 0)
+    if not face_only:
+        E(d, cx, cy+7, 13, 15, 0)
+        E(d, cx, cy+4, 15, 12, 0)
     E(d, cx-7, cy-8, 8, 11, 0)          # bridge (rotation dropped)
     E(d, cx-2, cy-6, 11, 8, 255)        # white face patch
     ey = cy-8
@@ -52,6 +53,8 @@ def blechy(d, cx, cy, aL, aR, lp, twitch, sweat, face=None, wave=None, limbs=Tru
         d.line([cx+2, ey-6, cx+8, ey-6], fill=0)
     else:
         d.line([cx+1, ey-5-tw, cx+9, ey-6-2*tw], fill=0)    # brow
+    if face_only:
+        return
     # nostrils + drip
     E(d, cx-4, cy+11, 2, 3, 0)
     E(d, cx+5, cy+11, 2, 3, 0)
@@ -59,8 +62,6 @@ def blechy(d, cx, cy, aL, aR, lp, twitch, sweat, face=None, wave=None, limbs=Tru
     E(d, cx+5, cy+20, 2, 2, 0)
     for sx, sy in ((-9, 8), (0, 12), (9, 7), (-4, 13)):     # stubble
         d.point((cx+sx, cy+sy), fill=0)
-    if not limbs:
-        return
     # limbs
     d.line([cx-12, cy+3, cx+aL[0], cy+aL[1]], fill=0)
     d.line([cx+12, cy+3, cx+aR[0], cy+aR[1]], fill=0)
@@ -101,7 +102,7 @@ def render(p):
 
 if sys.argv[1] == "--head":
     image = Image.new("L", (CW, CH), 255)
-    blechy(ImageDraw.Draw(image), CX, CY, (-20, 10), (20, 9), 0, 0, 0, limbs=False)
+    blechy(ImageDraw.Draw(image), CX, CY, (-20, 10), (20, 9), 0, 0, 0, face_only=True)
     image = image.crop(ImageChops.invert(image).getbbox()).convert("1")
     image.save(sys.argv[2])
     sys.exit(0)
