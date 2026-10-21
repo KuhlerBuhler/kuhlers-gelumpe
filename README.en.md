@@ -41,6 +41,22 @@ recognise is only read from.
 **No firmware ships with this.** You load your own `SYSTEM.VSB`. The file never leaves your
 computer, nothing is uploaded to a server.
 
+## Hacktribe or the original firmware?
+
+BLECH adds its own features to either base. Hacktribe additionally provides its extended oscillator
+bank, MFX/IFX, grooves and scales, FX/groove import and export, a custom INIT pattern and MIDI
+extensions. Those features require Hacktribe; applying BLECH to a Korg original does not add them.
+
+The trade-off: the factory sample bank gives way to oscillators. User samples occupy slots 501 to
+999, and factory samples need conversion for that bank. Existing patterns can sound different when
+oscillator or effect assignments change, so check them after switching. Staying on Korg's original
+with BLECH avoids that extra firmware conversion. The blue Synth set keeps Korg's synth firmware;
+Hacktribe itself supports both hardware types.
+
+See the [Hacktribe project](https://github.com/bangcorrupt/hacktribe),
+[oscillators](https://github.com/bangcorrupt/hacktribe/wiki/Features#oscillators) and
+[factory samples](https://github.com/bangcorrupt/hacktribe/wiki/How-To#factory-samples).
+
 ## Preview
 
 The app in dark mode. The emulator is shown without firmware, so its display stays black.
@@ -117,9 +133,6 @@ pattern changes with confirmation, TAP Motion, the note assistant in KEYBOARD mo
 "Unknown Error" when loading samples, and Doom (SHIFT + TAP at power-on, licence in
 [docs/doom-lizenz.md](docs/doom-lizenz.md), German).
 
-This is the Electribe with the BLECH theme (in the emulator):
-
-<img alt="The main screens with the BLECH theme and every character of the four own fonts" src="assets/blechy/theme-preview.png" width="480">
 
 ## Plugins
 
