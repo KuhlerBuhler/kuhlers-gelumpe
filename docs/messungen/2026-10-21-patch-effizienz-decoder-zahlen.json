@@ -1,0 +1,318 @@
+{
+  "format": "blech-operanddecoder-measurement",
+  "version": 1,
+  "date": "2026-10-21",
+  "baselineFirmwareCommit": "21cf0ceaada9ff6410c48b85022ad98c8bc8b939",
+  "candidateFirmwareCommit": "83d5036e34d5573da578c409d322a5560a908a86",
+  "profileVersion": 4,
+  "method": "383408b1b31205626b10726a82001d2e974f549cc9e51a297e39d5f490bec7f9",
+  "programsSha256": "0ab23063f12ba129e23ad4d116e3986e52fec32bcd5224ac07f5295abccdd474",
+  "baselineProfileSha256": "8265445f7ba2235a629176dc8b5d0f3aa3bbd8be30efdab05f0df5c2e43c2574",
+  "candidateProfileSha256": "7d7b070c4444977e4ff573900c3ef1a982dd6b57afa713547bd674957fa19dc1",
+  "nativeBefore": {
+    "opcodes": 34,
+    "vectors": 2376,
+    "vectorsSha256": "5238ba17c0fce6962b55c38e0055ab34961adab8cb71884e95a525aa460b7dfa",
+    "resultsSha256": "54987817da1edf759d61485c9845d7ef9017ce89be720e6d57cd256e209b5fe1",
+    "meanInstructions": 22.636363636363637,
+    "maxInstructions": 30,
+    "memoryWrites": 9504,
+    "vmCodeBytes": 11620,
+    "decoderCodeBytes": 124,
+    "resultsMatch": true
+  },
+  "nativeAfter": {
+    "opcodes": 34,
+    "vectors": 2376,
+    "vectorsSha256": "5238ba17c0fce6962b55c38e0055ab34961adab8cb71884e95a525aa460b7dfa",
+    "resultsSha256": "54987817da1edf759d61485c9845d7ef9017ce89be720e6d57cd256e209b5fe1",
+    "meanInstructions": 17.606060606060606,
+    "maxInstructions": 22,
+    "memoryWrites": 0,
+    "vmCodeBytes": 11588,
+    "decoderCodeBytes": 92,
+    "resultsMatch": true
+  },
+  "builds": {
+    "hacktribe": {
+      "checksPassed": 443,
+      "inputSha256": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+      "outputSha256": "59ce7495475f6e5a0084013a157b82869d2522a59108b958c7cbd2cc8f9ae39f",
+      "footprintBytes": {
+        "codeDataBytes": 84252,
+        "ramBytes": 451447,
+        "occupiedBytes": 535699,
+        "unallocatedBytes": 37293,
+        "largestGap": 7228
+      },
+      "footprintDeltaBytes": {
+        "codeDataBytes": -32,
+        "ramBytes": 0,
+        "occupiedBytes": -32,
+        "unallocatedBytes": 32,
+        "largestGap": 0
+      },
+      "scenarios": {
+        "idle": {
+          "beforeInstructions": 16522466,
+          "afterInstructions": 16522466,
+          "reductionPercent": 0.0
+        },
+        "playing": {
+          "beforeInstructions": 43179638,
+          "afterInstructions": 43178323,
+          "reductionPercent": 0.0030454169161808764
+        },
+        "playing-keyboard": {
+          "beforeInstructions": 44051699,
+          "afterInstructions": 44050368,
+          "reductionPercent": 0.0030214498650815713
+        },
+        "sequencer-four-note-long-ties": {
+          "beforeInstructions": 73721424,
+          "afterInstructions": 73719958,
+          "reductionPercent": 0.0019885671226349544
+        },
+        "blech-menu": {
+          "beforeInstructions": 19281222,
+          "afterInstructions": 19281222,
+          "reductionPercent": 0.0
+        },
+        "closed-apps": {
+          "beforeInstructions": 17043190,
+          "afterInstructions": 17043184,
+          "reductionPercent": 3.5204677062417034e-05
+        },
+        "app-mandelbrot": {
+          "beforeInstructions": 23301779,
+          "afterInstructions": 22930106,
+          "reductionPercent": 1.5950413056445178,
+          "runtimeBeforeInstructions": 6402470,
+          "runtimeAfterInstructions": 6030646,
+          "runtimeReductionPercent": 5.80750866462475,
+          "semanticEqual": true
+        },
+        "app-life": {
+          "beforeInstructions": 23464675,
+          "afterInstructions": 23097889,
+          "reductionPercent": 1.5631411898950232,
+          "runtimeBeforeInstructions": 6256913,
+          "runtimeAfterInstructions": 5889682,
+          "runtimeReductionPercent": 5.86920419062883,
+          "semanticEqual": true
+        },
+        "app-pong": {
+          "beforeInstructions": 18291650,
+          "afterInstructions": 18259506,
+          "reductionPercent": 0.1757304562464257,
+          "runtimeBeforeInstructions": 1079793,
+          "runtimeAfterInstructions": 1047651,
+          "runtimeReductionPercent": 2.9766816417591158,
+          "semanticEqual": true
+        },
+        "background-plugins": {
+          "beforeInstructions": 19215057,
+          "afterInstructions": 19145600,
+          "reductionPercent": 0.36147173542082633
+        }
+      },
+      "loaderBeforeInstructions": 3498105,
+      "loaderAfterInstructions": 3404110
+    },
+    "stock": {
+      "checksPassed": 468,
+      "inputSha256": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+      "outputSha256": "c6a8014108fb2bfdfd711c0cfc0c06a604f458d1ab0b290a671bfc33dbbc0be7",
+      "footprintBytes": {
+        "codeDataBytes": 84463,
+        "ramBytes": 451447,
+        "occupiedBytes": 535910,
+        "unallocatedBytes": 37082,
+        "largestGap": 7228
+      },
+      "footprintDeltaBytes": {
+        "codeDataBytes": -32,
+        "ramBytes": 0,
+        "occupiedBytes": -32,
+        "unallocatedBytes": 32,
+        "largestGap": 0
+      },
+      "scenarios": {
+        "idle": {
+          "beforeInstructions": 16518338,
+          "afterInstructions": 16518338,
+          "reductionPercent": 0.0
+        },
+        "playing": {
+          "beforeInstructions": 43184545,
+          "afterInstructions": 43183150,
+          "reductionPercent": 0.003230322329439428
+        },
+        "playing-keyboard": {
+          "beforeInstructions": 44053634,
+          "afterInstructions": 44052252,
+          "reductionPercent": 0.003137085126736494
+        },
+        "sequencer-four-note-long-ties": {
+          "beforeInstructions": 73722020,
+          "afterInstructions": 73720647,
+          "reductionPercent": 0.0018624014914370157
+        },
+        "blech-menu": {
+          "beforeInstructions": 19277022,
+          "afterInstructions": 19277022,
+          "reductionPercent": 0.0
+        },
+        "closed-apps": {
+          "beforeInstructions": 17038986,
+          "afterInstructions": 17038986,
+          "reductionPercent": 0.0
+        },
+        "app-mandelbrot": {
+          "beforeInstructions": 23297626,
+          "afterInstructions": 22925790,
+          "reductionPercent": 1.5960252774252615,
+          "runtimeBeforeInstructions": 6402608,
+          "runtimeAfterInstructions": 6030622,
+          "runtimeReductionPercent": 5.809913710163106,
+          "semanticEqual": true
+        },
+        "app-life": {
+          "beforeInstructions": 23460434,
+          "afterInstructions": 23093878,
+          "reductionPercent": 1.5624433887284406,
+          "runtimeBeforeInstructions": 6256860,
+          "runtimeAfterInstructions": 5889840,
+          "runtimeReductionPercent": 5.86588160834668,
+          "semanticEqual": true
+        },
+        "app-pong": {
+          "beforeInstructions": 18287762,
+          "afterInstructions": 18255602,
+          "reductionPercent": 0.17585530695336526,
+          "runtimeBeforeInstructions": 1079864,
+          "runtimeAfterInstructions": 1047701,
+          "runtimeReductionPercent": 2.978430617188832,
+          "semanticEqual": true
+        },
+        "background-plugins": {
+          "beforeInstructions": 19210352,
+          "afterInstructions": 19142508,
+          "reductionPercent": 0.35316375254341725
+        }
+      },
+      "loaderBeforeInstructions": 3498105,
+      "loaderAfterInstructions": 3404110
+    },
+    "synth": {
+      "checksPassed": 347,
+      "inputSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "outputSha256": "5e4f22526b0e764b430b3b672cec761d21c4c42476bc6837e1082f8634aeda03",
+      "footprintBytes": {
+        "codeDataBytes": 66892,
+        "ramBytes": 398036,
+        "occupiedBytes": 464928,
+        "unallocatedBytes": 446428,
+        "largestGap": 329996
+      },
+      "footprintDeltaBytes": {
+        "codeDataBytes": -32,
+        "ramBytes": 0,
+        "occupiedBytes": -32,
+        "unallocatedBytes": 32,
+        "largestGap": 0
+      },
+      "scenarios": {
+        "idle": {
+          "beforeInstructions": 20256200,
+          "afterInstructions": 20256700,
+          "reductionPercent": -0.002468380051534602
+        },
+        "playing": {
+          "beforeInstructions": 44484176,
+          "afterInstructions": 44467543,
+          "reductionPercent": 0.03739082409889294
+        },
+        "playing-keyboard": {
+          "beforeInstructions": 45306010,
+          "afterInstructions": 45309109,
+          "reductionPercent": -0.006840152112275177
+        },
+        "sequencer-four-note-long-ties": {
+          "beforeInstructions": 72438447,
+          "afterInstructions": 72425024,
+          "reductionPercent": 0.018530215038981
+        },
+        "blech-menu": {
+          "beforeInstructions": 19155718,
+          "afterInstructions": 19157187,
+          "reductionPercent": -0.007668728470533459
+        },
+        "closed-apps": {
+          "beforeInstructions": 20922335,
+          "afterInstructions": 20922654,
+          "reductionPercent": -0.0015246864176532426
+        },
+        "app-mandelbrot": {
+          "beforeInstructions": 27095303,
+          "afterInstructions": 26723408,
+          "reductionPercent": 1.372544163835332,
+          "runtimeBeforeInstructions": 6381851,
+          "runtimeAfterInstructions": 6009851,
+          "runtimeReductionPercent": 5.8290298535644265,
+          "semanticEqual": true
+        },
+        "app-life": {
+          "beforeInstructions": 27265859,
+          "afterInstructions": 26901525,
+          "reductionPercent": 1.3362278444996045,
+          "runtimeBeforeInstructions": 6233397,
+          "runtimeAfterInstructions": 5866205,
+          "runtimeReductionPercent": 5.890720581410102,
+          "semanticEqual": true
+        },
+        "app-pong": {
+          "beforeInstructions": 22164687,
+          "afterInstructions": 22130602,
+          "reductionPercent": 0.15378065117724882,
+          "runtimeBeforeInstructions": 1059169,
+          "runtimeAfterInstructions": 1026904,
+          "runtimeReductionPercent": 3.0462560743375278,
+          "semanticEqual": true
+        },
+        "background-plugins": {
+          "beforeInstructions": 23086464,
+          "afterInstructions": 23016376,
+          "reductionPercent": 0.3035891507681687
+        }
+      },
+      "loaderBeforeInstructions": 3498105,
+      "loaderAfterInstructions": 3404110
+    }
+  },
+  "repeats": 3,
+  "independentStarts": 18,
+  "sceneWindows": 126,
+  "measuredAppFrames": 1350,
+  "warmupAppFrames": 216,
+  "regressionTests": {
+    "unit": {
+      "tests": 1102,
+      "pass": 959,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 143,
+      "todo": 0,
+      "durationMs": 183654.22975
+    },
+    "browser": {
+      "tests": 165,
+      "pass": 164,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 1,
+      "todo": 0,
+      "durationMs": 186540.67725
+    }
+  }
+}
