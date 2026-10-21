@@ -242,7 +242,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
   // In the desktop app the app starts the emulator itself (src-tauri); only in the browser is there a command to run.
   const inApp = !!window.__GELUMPE_APP;
   const START_HINT = inApp
-    ? "Der Emulator der App läuft nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log."
+    ? "Der Emulator läuft nicht. Schließ die App und öffne sie neu."
     : "Starte npm run emu im Projektordner und öffne den Link, den es ausgibt.";
   const copyCommand = () => {
     if (inApp) return null;
@@ -340,7 +340,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     });
     events.addEventListener("error", () => {
       if (events.readyState === EventSource.CLOSED || events.readyState === EventSource.CONNECTING) {
-        say("warn", "getrennt", inApp ? "Keine Verbindung zum Emulator der App. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log." : `Keine Verbindung zum Emulator auf Port ${link.port}. Läuft npm run emu, und ist der Link aktuell?`);
+        say("warn", "getrennt", inApp ? "Der Emulator antwortet nicht mehr. Schließ die App und öffne sie neu." : `Keine Verbindung zum Emulator auf Port ${link.port}. Läuft npm run emu, und ist der Link aktuell?`);
       }
     });
   }

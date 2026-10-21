@@ -185,7 +185,7 @@ test("samples: without an emulator or a device the page says so and reads nothin
   await page.goto(`${h.url}?labs`);
   await page.click("#cee-tab-samples");
   await page.click("#cee-sample-list");
-  assert.match(await page.locator("#cee-sample-status").textContent(), /Weder Emulator noch Gerät verbunden/);
+  assert.match(await page.locator("#cee-sample-status").textContent(), /Nichts verbunden/);
   assert.equal(await page.locator("#cee-sample-split").isVisible(), false);
 });
 
