@@ -32,14 +32,13 @@ export async function newerRelease(current, fetchImpl = fetch) {
   }
 }
 
-/** @param {HTMLAnchorElement} link the hidden link in the navbar */
+/** @param {HTMLAnchorElement} link the hidden entry at the top of the sidebar */
 export function watchForUpdate(link, app = window.__GELUMPE_APP) {
   if (!app?.version) return;
   const check = async () => {
     const release = await newerRelease(app.version);
     if (!release) return;
     link.href = release.html_url;
-    link.textContent = "Neue Version verfügbar";
     link.hidden = false;
   };
   check();

@@ -57,18 +57,13 @@ async function emulatorWith(vsb) {
 }
 
 const shut = (page, tab) => page.locator(`#cee-tab-${tab}`).getAttribute("aria-disabled");
-const section = page => page.getByRole("heading", { name: "Was das Gerät gerade zeigt" });
-
-test("Korg's plain build: no section about the device state, Presets and Modulationen are disabled with a short tooltip", async () => {
+test("Korg's plain build: Presets and Modulationen are disabled with a short tooltip", async () => {
   const page = await emulatorWith(asStock(await makeFirmware()));
   // without a firmware every build has them shut; Korg's build is known a moment later and says why
   await page.waitForFunction(() => document.querySelector("#cee-tab-fx").getAttribute("title") === "Nicht mit Korgs Original-Firmware");
   assert.equal(await shut(page, "mod"), "true");
   for (const tab of ["fx", "mod"]) assert.equal(await page.locator(`#cee-tab-${tab}`).getAttribute("title"), "Nicht mit Korgs Original-Firmware");
   assert.equal(await shut(page, "patcher"), null, "no other entry is touched");
-  await page.waitForTimeout(1300);   // the section follows the build on the next tick of the sidebar
-  assert.equal(await section(page).isVisible(), false, "the whole section is gone");
-  assert.equal(await page.locator("#cee-side-hint").isVisible(), false, "and its warning with it");
   assert.equal(await page.locator("body").evaluate(n => /Es fehlt:|Hacktribe-SysEx|0x52 bis 0x57/.test(n.textContent)), false, "no text about what Korg's build lacks");
 
   assert.deepEqual(await severeViolations(page), [], "the disabled entries are accessible");
@@ -80,7 +75,7 @@ test("Korg's plain build: no section about the device state, Presets and Modulat
   assert.deepEqual(page.errors, []);
 });
 
-test("Korg's build with BLECH keeps Presets and Modulationen open, Hacktribe's build too, and the section shows for Hacktribe", async () => {
+test("Korg's build with BLECH keeps Presets and Modulationen open, Hacktribe's build too", async () => {
   const blech = await emulatorWith(withBlech(asStock(await makeFirmware())));
   await blech.waitForFunction(() => document.querySelector("#cee-tab-fx").getAttribute("aria-disabled") === "false");
   assert.equal(await shut(blech, "mod"), "false");
@@ -90,7 +85,6 @@ test("Korg's build with BLECH keeps Presets and Modulationen open, Hacktribe's b
   const hacktribe = await emulatorWith(await makeFirmware());
   await hacktribe.waitForFunction(() => document.querySelector("#cee-tab-fx").getAttribute("aria-disabled") === "false");
   assert.equal(await shut(hacktribe, "mod"), "false");
-  await section(hacktribe).waitFor();
   assert.deepEqual(hacktribe.errors, []);
 });
 

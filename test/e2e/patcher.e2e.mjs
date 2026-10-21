@@ -85,7 +85,7 @@ async function patched(page, vsb) {
 
 test("patcher: the page holds the title, no big image, a drop zone and nothing of the old export", async () => {
   const page = await patcherPage();
-  assert.equal(await page.locator(".cee-patch-title").textContent(), "Firmware patchen");
+  assert.equal(await page.locator(".cee-patch-title").textContent(), "Firmware Patcher");
   assert.equal(await page.locator("#cee-patch-hero-view, #cee-patcher canvas").count(), 0, "no picture on the page");
   assert.equal(await page.locator("#cee-patch-file").count(), 1);
   assert.equal(await page.locator("#cee-export-check, #cee-export-download, #cee-export-splash").count(), 0);

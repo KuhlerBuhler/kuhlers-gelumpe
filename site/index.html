@@ -25,12 +25,13 @@
       </div>
       <div class="cee-side-body" id="cee-side-body">
       <nav class="cee-nav" aria-label="Bereiche">
+        <a class="cee-nav-item cee-nav-update" id="cee-update" href="#" hidden target="_self" rel="noopener"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>Neue Version verfügbar</span></a>
         <div role="tablist" aria-label="Bereiche" aria-orientation="vertical" id="cee-areas">
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-start" data-tab="start" aria-controls="cee-area-start" aria-selected="true"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Start</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-emu" data-tab="emu" aria-controls="cee-area-emu" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4h18v12H3Z"/><path d="M8 20h8"/><path d="M12 16v4"/></svg><span>Emulator</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-device" hidden data-tab="device" aria-controls="cee-area-device" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4h18v12H3Z"/><path d="M8 20h8"/><path d="M12 16v4"/></svg><span>Gerät</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-rescue" data-danger data-tab="rescue" aria-controls="cee-area-rescue" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0"/><path d="M8 12a4 4 0 1 0 8 0 4 4 0 1 0-8 0"/><path d="m5.6 5.6 3.6 3.6"/><path d="m14.8 14.8 3.6 3.6"/><path d="m18.4 5.6-3.6 3.6"/><path d="m9.2 14.8-3.6 3.6"/></svg><span>Rettung</span></button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-patcher" data-tab="patcher" aria-controls="cee-area-patcher" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5h14v14H5Z"/><path d="M9 9h6v6H9Z"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/></svg><span>Patcher</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-patcher" data-tab="patcher" aria-controls="cee-area-patcher" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5h14v14H5Z"/><path d="M9 9h6v6H9Z"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/></svg><span>Firmware Patcher</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-splash" data-tab="splash" aria-controls="cee-area-splash" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5h18v14H3Z"/><path d="m3 16 5-5 4 4 3-3 6 6"/><path d="M15 9h.01"/></svg><span>Startbildschirm</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-scripts" data-tab="scripts" aria-controls="cee-area-scripts" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 7l9-4 9 4-9 4Z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg><span>Plugins</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-changelog" data-tab="changelog" aria-controls="cee-area-changelog" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h9l4 4v14H6Z"/><path d="M14 3v5h5"/><path d="M9 12h7"/><path d="M9 16h7"/></svg><span>Changelogs</span></button>
@@ -62,74 +63,78 @@
             <button type="button" class="cee-mode-item" role="menuitemradio" aria-checked="false" data-value="device" tabindex="-1">Echtes Gerät</button>
           </div>
         </div>
-        <a class="btn" id="cee-update" href="#" hidden target="_self" rel="noopener"></a>
         <div class="cee-nav-state" id="cee-nav-state" aria-live="polite"></div>
       </header>
 
       <main class="ui-page cee-main">
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-start" aria-labelledby="cee-tab-start" tabindex="0" hidden>
         <section class="ui-section cee-home" id="cee-start-page" data-no-reveal>
-          <h1 class="cee-home-title">Atze, wat wird'n ditte hier? Korg verkuhlen or wa?</h1>
-          <div class="cee-entry" id="cee-start-entry">
-            <p class="cee-entry-lead">BLECHTRIBE auf deine Electribe bringen, eigene Presets bauen, Plugins holen. So fängst du an:</p>
-            <ol class="cee-entry-steps">
-              <li><a class="cee-entry-step" href="#emu" id="cee-start-step-emu"><strong>1. Firmware laden</strong><span>Deine SYSTEM.VSB im Emulator wählen. Alles Weitere liest daraus.</span></a></li>
-              <li><a class="cee-entry-step" href="#patcher" id="cee-start-step-patcher"><strong>2. BLECHTRIBE patchen</strong><span>Patchen, im Emulator prüfen, aufs Gerät. Ist BLECHTRIBE schon drauf, geht das Update direkt über USB.</span></a></li>
-              <li><a class="cee-entry-step" href="#scripts" id="cee-start-step-scripts"><strong>3. Loslegen</strong><span>Plugins holen, Presets bauen, dein eigenes Startbild malen.</span></a></li>
+          <div class="cee-sec">
+            <h1 class="cee-home-title">Wat wird'n ditte hier? Korg verkuhlen or wa?</h1>
+            <p>BLECHTRIBE ist eine neue Firmware für deine Electribe 2, für den roten Sampler und die blaue Synth. Sie kommt als Patch auf deine eigene Firmware, Korgs Original 2.02 oder Hacktribe 2.02, und holt raus, was Korg drin gelassen hat.</p>
+            <p>Kuhler's GELUMPE ist die App dazu: Sie patcht deine Firmware, hat eine Electribe als Emulator im Rechner, einen Editor für eigene Effekte und einen Katalog mit Plugins. Alles läuft auf deinem Rechner, deine Dateien verlassen ihn nicht, und Korg-Firmware ist nicht dabei. Gebaut auf Hacktribe (offene Mods für die Electribe, AGPL) und Wissen aus dem Freetribe-Projekt.</p>
+          </div>
+
+          <div class="cee-sec" id="cee-start-entry">
+            <h2>Wie installiere ich BLECHTRIBE?</h2>
+            <p>Du brauchst einen Rechner, einen SD-Kartenleser und ein paar Minuten.</p>
+            <ol class="cee-install">
+              <li>
+                <h3>1. Firmware holen</h3>
+                <p>Deine <code>SYSTEM.VSB</code> liegt auf der SD-Karte der Electribe, im Ordner <code>KORG/…/System/</code>. Hast du keine, lad Korgs System Updater 2.02, darin steckt sie:</p>
+                <ul class="cee-entry-steps" id="cee-start-firmware">
+                  <li><a class="cee-entry-step cee-device-card" data-device="red" id="cee-start-korg-red" href="https://www.korg.com/us/support/download/product/0/368/#software" target="_blank" rel="noopener noreferrer"><strong>Electribe 2 Sampler (rot)</strong><span>System Updater bei Korg laden</span><svg class="cee-icon cee-device-card-out" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a></li>
+                  <li><a class="cee-entry-step cee-device-card" data-device="blue" id="cee-start-korg-blue" href="https://www.korg.com/us/support/download/product/0/367/#software" target="_blank" rel="noopener noreferrer"><strong>Electribe 2 (blau)</strong><span>System Updater bei Korg laden</span><svg class="cee-icon cee-device-card-out" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a></li>
+                </ul>
+              </li>
+              <li>
+                <h3>2. Im Firmware Patcher patchen</h3>
+                <p>Öffne den <a class="cee-text-link" href="#patcher" id="cee-start-step-patch">Firmware Patcher</a> und zieh deine <code>SYSTEM.VSB</code> rein. Wähl die Patches, die du willst. Dann bootet der Emulator die neue Datei und prüft, ob alles läuft. Das dauert ein paar Minuten, danach speicherst du sie.</p>
+              </li>
+              <li>
+                <h3>3. Aufs Gerät</h3>
+                <p>Die neue Datei kommt auf die SD-Karte, der Patcher sagt dir wohin und welche Tasten am Gerät das Update starten. Ist BLECHTRIBE auf der roten schon drauf, geht jedes weitere Update direkt über USB.</p>
+              </li>
+              <li>
+                <h3>4. Loslegen</h3>
+                <p>Unter <a class="cee-text-link" href="#scripts">Plugins</a> holst du dir Erweiterungen und Spiele aufs Gerät, unter <a class="cee-text-link" href="#fx">Presets</a> baust du eigene MFX- und IFX-Effekte. Und läuft BLECHTRIBE erstmal, kannst du dieselbe Firmware auch in den <a class="cee-text-link" href="#emu" id="cee-start-emu">Emulator</a> laden: neue Presets machen, Plugins bauen und testen, ganz ohne Gerät.</p>
+              </li>
             </ol>
             <div class="actions">
-              <a class="btn primary" href="#patcher" id="cee-start-patch">Firmware patchen</a>
-              <a class="btn" href="#emu" id="cee-start-emu">Emulator öffnen</a>
+              <a class="btn primary" href="#patcher" id="cee-start-patch">Zum Firmware Patcher</a>
             </div>
-          </div>
-          <p class="cee-note"><strong>Gerät kaputt?</strong> Zeigt deine Electribe nur „00“ oder startet nicht mehr? Die <a class="cee-text-link" href="#rescue" id="cee-start-rescue">Rettung</a> führt durch den dokumentierten Weg zurück.</p>
-
-          <div class="cee-sec">
-            <h2>Was ist das?</h2>
-            <p>Ein grafischer Leser und Modifizierer für die Electribe 2 Sampler, dazu ein Emulator und ein Patcher für die Firmware BLECHTRIBE. BLECHTRIBE läuft entweder auf Hacktribe oder direkt auf Korgs Original-Firmware des roten Samplers. Für die blaue Electribe 2 mit Firmware 2.02 gibt es einen eigenen, im Emulator geprüften Synth-Satz mit Theme, Startbild, Spielhilfen, BLECH-Menü und Plugins.</p>
+            <p class="cee-note"><strong>Notschalter:</strong> Halt beim Einschalten EXIT, dann startet die Electribe ohne BLECHTRIBE. Zeigt sie nur noch „00“ oder startet gar nicht mehr? Die <a class="cee-text-link" href="#rescue" id="cee-start-rescue">Rettung</a> führt durch den dokumentierten Weg zurück.</p>
           </div>
 
           <div class="cee-sec">
-            <h2>Was man damit machen kann</h2>
+            <h2>Was kann BLECHTRIBE?</h2>
             <ul class="cee-cards">
-              <li class="cee-card"><h3>BLECHTRIBE patchen</h3><p>Du lädst deine eigene Firmware, wählst die Patches und bekommst eine neue Datei für die SD-Karte. Der Emulator bootet sie vorher.</p></li>
-              <li class="cee-card"><h3>Presets bauen und reparieren</h3><p>Eigene MFX- und IFX-Presets anlegen oder welche glattziehen, die dir nicht gefallen. Mit Namen und echten Einheiten statt Bytes.</p></li>
-              <li class="cee-card"><h3>Plugins</h3><p>Komplette Firmware-Erweiterungen selbst bauen oder fertige aus dem Katalog holen.</p></li>
-              <li class="cee-card"><h3>Emulator</h3><p>Plugins ausprobieren, ohne dass ein Gerät dranhängt.</p></li>
-              <li class="cee-card"><h3>Live am Gerät</h3><p>Mit BLECHTRIBE auf einer echten Electribe: live mit dem Gerät reden, neue Presets in den RAM schreiben und probieren, Plugins direkt drauf testen.</p></li>
-              <li class="cee-card"><h3>Vorher prüfen</h3><p>Der Emulator prüft Änderungen, bevor sie aufs Gerät kommen. Den Bootloader fasst BLECHTRIBE nicht an. Sichere deine Dateien trotzdem vorher: Der Emulator ersetzt keinen Test am echten Gerät.</p></li>
+              <li class="cee-card"><h3>BLECH-Menü und Plugins</h3><p>Ein eigenes Menü am Gerät mit Plugins: Lauflichter, eigene Menüseiten, Spiele wie Snake und Tetris.</p></li>
+              <li class="cee-card"><h3>Dein Look</h3><p>Eigenes Startbild, selbst gemalt, Ladeanimation, Farben für Display, Pads und LEDs.</p></li>
+              <li class="cee-card"><h3>Zweiter Master-Effekt</h3><p>TOUCH SCALE wird zu MFX 2: ein zweiter Master-Effekt pro Pattern, auf Knopfdruck.</p></li>
+              <li class="cee-card"><h3>Spielhilfen</h3><p>Notenassistent im KEYBOARD-Modus, Zufallsmelodie mit SHIFT + PART ERASE, TAP Motion, Patternwechsel erst nach Bestätigung.</p></li>
+              <li class="cee-card"><h3>Eigene Effekte</h3><p>128 Plätze für eigene MFX- und IFX-Presets, gebaut in der App mit Namen und echten Einheiten. Auf der roten.</p></li>
+              <li class="cee-card"><h3>Und Doom</h3><p>SHIFT + TAP beim Einschalten. Auf der roten.</p></li>
             </ul>
           </div>
 
           <div class="cee-sec">
-            <h2>Wer ich bin</h2>
-            <p>Ich bin Kuhler Buhler, also Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab, ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.</p>
-          </div>
-
-          <div class="cee-sec">
-            <h2>Wieso</h2>
-            <p>Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr drin, als Korg jemals rausgeholt hat. Mit BLECHTRIBE hab ich mir praktisch die Electribe 3 gebaut, die es nie gab.</p>
+            <h2>Wer kam auf so ne dumme Idee?</h2>
+            <p>Ich bin Kuhler Buhler, aka Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab, ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.</p>
+            <p>Warum? Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr drin, als Korg jemals rausgeholt hat. Mit BLECHTRIBE hab ich mir praktisch die Electribe 3 gebaut, die es nie gab.</p>
           </div>
 
           <div class="cee-sec">
             <h2>Spenden</h2>
-            <p>Wenn dir das was bringt: <a class="cee-text-link" id="cee-donate-start" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Spende per PayPal</a>.</p>
+            <p>Kostet nix. Wenn dir das was bringt: <a class="cee-text-link" id="cee-donate-start" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Spende per PayPal</a>.</p>
           </div>
 
           <div class="cee-sec">
-            <h2>Was du brauchst</h2>
-            <p>Alles läuft auf deinem Rechner: die App oder die Seite im Browser und ein kleiner Emulator daneben. Deine Dateien verlassen ihn nicht, Korg-Firmware ist nicht dabei. Du brauchst:</p>
-            <ul>
-              <li>deine eigene Korg Electribe 2 Sampler mit Firmware 2.02, Korgs Original oder Hacktribe,</li>
-              <li>deine eigene Firmware-Datei (SYSTEM.VSB),</li>
-              <li>optional deine Samples (<code>e2sSample.all</code>) und Patterns (<code>.e2sallpat</code>) im Kartenordner des Emulators,</li>
-              <li>zum Verbinden mit dem echten Gerät USB-MIDI in Chrome oder Edge.</li>
+            <h2>Erkunden</h2>
+            <ul class="cee-entry-steps" id="cee-start-explore">
+              <li><a class="cee-entry-step" href="#scripts" id="cee-start-plugins"><strong>Plugins ansehen</strong><span>Erweiterungen und Spiele aus dem Katalog, oder bau dein eigenes.</span></a></li>
+              <li><a class="cee-entry-step" href="#fx" id="cee-start-presets"><strong>Presets ansehen</strong><span>MFX- und IFX-Effekte in Klartext bearbeiten und eigene bauen.</span></a></li>
             </ul>
-          </div>
-
-          <div class="cee-sec">
-            <h2>Woher es kommt</h2>
-            <p>Baut auf Hacktribe auf (offene Mods für die Electribe, AGPL) und auf Wissen aus dem Freetribe-Projekt. Alles wird aus deinen eigenen Dateien gelesen.</p>
           </div>
           <p class="cee-home-foot">Viel Spaß beim Verkuhlen.</p>
         </section>

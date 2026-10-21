@@ -239,6 +239,7 @@ export function emulatorSuite(index, parts) {
   }
   const sidebarFirmware = () => makeFirmware([
     { kind: "ifx", slot: 50, record: makeRecord("ifx", { name: "Gate Filter", devices: { ifx1: 0x0a }, params: { ifx1: [0, 64, 64, 64] } }) },
+    { kind: "ifx", slot: 7, record: makeRecord("ifx", { name: "Other Filter", devices: { ifx1: 0x0a }, params: { ifx1: [0, 64, 64, 64] } }) },
     { kind: "mfx", slot: 2, record: masterPreset() },
   ]);
 
@@ -298,42 +299,52 @@ export function emulatorSuite(index, parts) {
     assert.deepEqual(page.errors, []);
   });
 
-  test("emulator: the sidebar opens the effect the device shows", async () => {
-    baseScreen();
+  /** The Presets page with its switch "Folgt dem Gerät" on. */
+  async function followPage() {
     const page = await sidebarPage();
-    await page.locator("#cee-side-where", { hasText: "Hauptbildschirm · Part 1" }).waitFor({ timeout: 5000 });
-    assert.equal(await page.locator("#cee-side-fx").isHidden(), true, "no effect on the main screen");
+    await page.click("#cee-tab-fx");
+    await page.locator("#cee-fx-slot").waitFor();
+    await page.locator("label:has(#cee-fx-follow)").click();
+    return page;
+  }
+
+  test("emulator: with the switch on, the Presets page opens the effect the device shows", async () => {
+    baseScreen();
+    const page = await followPage();
+    await page.locator("#cee-emu-where", { hasText: "Hauptbildschirm · Part 1" }).waitFor({ state: "attached", timeout: 5000 });
+    const other = "7";
+    await page.selectOption("#cee-fx-slot", other);
+    await page.waitForTimeout(1500);
+    assert.equal(await page.inputValue("#cee-fx-slot"), other, "the main screen shows no effect and leaves the choice alone");
 
     fake.word(MANAGER + 0x24, 0xc06cb2e0);           // the IFX TYPE window
     fake.word(MANAGER + 0x30, 23);
-    await page.locator("#cee-side-where", { hasText: "Fenster IFX TYPE" }).waitFor({ timeout: 5000 });
-    await page.locator("#cee-side-fx").waitFor({ state: "visible" });
-    assert.equal(await page.inputValue("#cee-side-fx-slot"), "50");
-    assert.equal(await page.locator("input[name=cee-side-fx-kind]:checked").getAttribute("value"), "ifx");
+    await page.locator("#cee-emu-where", { hasText: "Fenster IFX TYPE" }).waitFor({ state: "attached", timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector("#cee-fx-slot")?.value === "50", null, { timeout: 5000 });
+    assert.equal(await page.locator("input[name=cee-fx-kind]:checked").getAttribute("value"), "ifx");
 
     fake.word(MANAGER + 0x24, 0);                    // the window closes; the editor stays
-    await page.locator("#cee-side-hint", { hasText: "Zuletzt gezeigt: Insert 50" }).waitFor({ timeout: 5000 });
-    assert.equal(await page.locator("#cee-side-fx").isHidden(), false);
+    await page.locator("#cee-emu-where", { hasText: "Hauptbildschirm" }).waitFor({ state: "attached", timeout: 5000 });
+    assert.equal(await page.inputValue("#cee-fx-slot"), "50");
     assert.deepEqual(page.errors, []);
   });
 
-  test("emulator: a change sent from the sidebar on MFX TYPE lands in RAM and the page is reopened", async () => {
+  test("emulator: a change sent from the Presets page on MFX TYPE lands in RAM and the page is reopened", async () => {
     baseScreen();
     fake.word(MANAGER + 0x2c, 3);                    // pattern menu
     fake.word(SCREEN + 0x2c, 5);                     // MFX TYPE
     const master = tableEntry("table.mfx", 1);       // RAM holds what the firmware file holds
     fake.poke(master.ram, Array.from((await sidebarFirmware()).subarray(master.file, master.file + master.size)));
-    const page = await sidebarPage();
-    await page.locator("#cee-side-where", { hasText: "MFX TYPE" }).waitFor({ timeout: 5000 });
-    await page.locator("#cee-side-fx").waitFor({ state: "visible" });
-    assert.equal(await page.inputValue("#cee-side-fx-slot"), "2");
-    const name = page.locator("#cee-side-fx-editor input[type=text]").first();
+    const page = await followPage();
+    await page.locator("#cee-emu-where", { hasText: "MFX TYPE" }).waitFor({ state: "attached", timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector("#cee-fx-slot")?.value === "2", null, { timeout: 5000 });
+    const name = page.locator("#cee-fx-editor input[type=text]").first();
     await name.fill("Long Delay");
     await name.press("Enter");
     fake.seen.inputs.length = 0;
-    await page.click("#cee-side-send");
+    await page.click("#cee-send");
     const ok = page.locator("dialog button[value=ok]");
-    const job = page.locator("#cee-side-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
+    const job = page.locator("#cee-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
     await Promise.race([ok.waitFor().then(() => ok.click(), () => {}), job.waitFor()]);   // a gate warning asks first
     await job.waitFor({ timeout: 15_000 });
     assert.equal(await job.textContent(), "Fertig");
