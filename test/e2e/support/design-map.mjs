@@ -66,7 +66,7 @@ export const STRUCTURES = [
   {
     id: "card-grid",
     root: ".cee-cards",
-    tree: { tag: "ul", classes: ["cee-cards"], children: [{ tag: "li", classes: ["cee-card"], repeatable: true, children: [{ tag: "h3", classes: [] }, { tag: "p", classes: [] }] }] },
+    tree: { tag: "ul", classes: ["cee-cards"], children: [{ tag: "li", classes: ["cee-card"], repeatable: true, children: [{ tag: "img", classes: [] }, { tag: "h3", classes: [] }, { tag: "p", classes: [] }] }] },
   },
   {
     id: "entry-steps",

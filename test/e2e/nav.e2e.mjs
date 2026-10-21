@@ -178,7 +178,11 @@ test("the drawing sits at the same height on the emulator page and on the real d
 test("the start page has its sections in heading order and the donate link opens outside the app", async () => {
   const page = await h.page();
   await page.goto(h.url);
-  assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Wie installiere ich BLECHTRIBE?", "Was kann BLECHTRIBE?", "Erkunden", "Spenden"]);
+  assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Wie installiere ich BLECHTRIBE?", "Geht was schief?", "Was kann BLECHTRIBE?", "Erkunden", "Spenden"]);
+  const cards = page.locator("#cee-start-features > li");
+  assert.ok(await cards.count() > 6 && await cards.count() <= 12, "the functions one card each, at most twelve");
+  assert.equal(await cards.locator("img").count(), await cards.count(), "every card has its picture");
+  assert.equal(await page.getAttribute("#cee-start-more", "href"), "#features", "Vieles mehr leads to the page of all functions");
   for (const id of ["#cee-donate", "#cee-donate-start"]) {
     assert.equal(await page.getAttribute(id, "href"), "https://www.paypal.me/kuhlerbuhler");
     assert.equal(await page.getAttribute(id, "target"), "_blank");

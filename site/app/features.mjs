@@ -51,7 +51,7 @@ export const FEATURES = [
     text: "Im SEQUENCER-Modus zeigt ein Poly-Part Steps mit mehreren Noten in Pink.",
     how: "SEQUENCER-Modus, Poly-Part." },
 
-  { group: "Plugins und Effekte", id: "plugins", home: true, title: "BLECH-Menü und Plugins", where: BOTH, image: "img/features/menu.png",
+  { group: "Plugins und Effekte", id: "plugins", home: true, title: "BLECH-Menü und Plugins", where: BOTH, image: "img/features/menu.svg",
     text: "Ein eigenes Menü am Gerät mit Plugins: Lauflichter, eigene Menüseiten, Spiele wie Snake und Tetris. Am Ende des Menüs wohnt Blechy.",
     how: "Menü BLECH am Gerät. Plugins holst du dir in der App unter Plugins." },
   { group: "Plugins und Effekte", id: "presets", home: true, title: "Eigene Effekte", where: RED, image: "img/features/presets.svg",
@@ -74,6 +74,15 @@ export const FEATURES = [
     text: "Ist BLECHTRIBE einmal drauf, kommt jedes weitere Update aus der App direkt über USB.",
     how: "Firmware Patcher, Schritt Aufs Gerät." },
 ];
+
+/** The cards of the start page: up to twelve entries, each with its picture. */
+export function featureCards(list) {
+  list.replaceChildren(...FEATURES.filter(f => f.home).slice(0, 12).map(f => el("li", { className: "cee-card cee-feature-card" }, [
+    el("img", { src: f.image, alt: "", width: 256, height: 128, loading: "lazy", decoding: "async" }),
+    el("h3", { textContent: f.title }),
+    el("p", { textContent: f.text }),
+  ])));
+}
 
 export function featuresPage(root) {
   const groups = [...new Set(FEATURES.map(f => f.group))];
