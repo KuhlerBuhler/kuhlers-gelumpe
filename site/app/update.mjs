@@ -4,7 +4,10 @@
  * nothing. The latest release comes from the public GitHub API. While the
  * repository is private that answers 404, which is quietly no news.
  */
+import { NEWS } from "../../data/news.mjs";
+
 const REPO = "KuhlerBuhler/kuhlers-gelumpe";
+const SEEN = "gelumpe.newsSeen";
 const EVERY_MS = 4 * 60 * 60 * 1000;
 
 /** True when version `a` is newer than `b`; both "1.2.3", with or without a leading v. */
@@ -41,4 +44,21 @@ export function watchForUpdate(link, app = window.__GELUMPE_APP) {
   };
   check();
   setInterval(check, EVERY_MS);
+}
+
+/** The news of every version after `seen` up to `current`, oldest first; with nothing seen, the news of `current` alone. */
+export function unseenNews(current, seen, news = NEWS) {
+  return news.filter(n => !isNewer(n.version, current) && (seen ? isNewer(n.version, seen) : !isNewer(current, n.version)));
+}
+
+/** Once after an update, a toast that stays with what is new; then the version counts as seen. Never throws. */
+export function showNews(toast, app = globalThis.window?.__GELUMPE_APP, storage = globalThis.localStorage) {
+  if (!app?.version) return;
+  try {
+    const fresh = unseenNews(app.version, storage.getItem(SEEN));
+    storage.setItem(SEEN, app.version);
+    if (!fresh.length) return;
+    const lines = fresh.flatMap(n => n.items.map(item => `• ${item}`));
+    toast(`Neu in ${fresh.at(-1).version.replace(/\.0$/, "")}:\n${lines.join("\n")}`, "info", { stay: true });
+  } catch { /* no storage: no news, the app works as before */ }
 }

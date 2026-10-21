@@ -2172,7 +2172,7 @@ select,
   gap: var(--space-3);
 }
 
-.cee-toast-text { flex: 1; min-width: 0; }
+.cee-toast-text { flex: 1; min-width: 0; white-space: pre-line; }
 .cee-toast-close { flex: none; margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1) calc(var(--space-1) * -1) 0; }
 
 /* Settings (settings.mjs). */
