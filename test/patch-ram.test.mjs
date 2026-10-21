@@ -70,7 +70,7 @@ test("every patch of the BLECH set declares its RAM, and every entry names where
     for (const share of shares) assert.ok(patches.some(p => p.id === share.with), `${patch.id}: shares with ${share.with}, not in the set`);
     assert.equal(own.length, patch.ram.length);
   }
-  assert.deepEqual(patches.filter(p => p.ram.length).map(p => p.id).sort(), ["blech-sysex", "blech-sysex", "dice", "doom-loader", "ifx-idle", "load-bar", "mfx-switch", "note-assistant", "pad-colors", "pattern-switch", "preset-tables", "preset-tables", "sample-errors", "script-runtime", "script-runtime", "splash-editor", "tap-motion"]);
+  assert.deepEqual(patches.filter(p => p.ram.length).map(p => p.id).sort(), ["blech-sysex", "blech-sysex", "dice", "doom-loader", "load-bar", "mfx-switch", "note-assistant", "pad-colors", "pattern-switch", "power-off", "preset-tables", "preset-tables", "sample-errors", "script-runtime", "script-runtime", "splash-editor", "tap-motion"]);
 });
 
 for (const build of BUILDS) {
@@ -113,7 +113,8 @@ test("a start editor at its old address overlaps the power-off patch, and the ch
   assert.ok(reasons.length >= 3, reasons.join("\n"));
   assert.ok(reasons.some(r => /splash-editor: (EDIT|FIL|RECBUF) .* overlaps power-off: .*power-off picture/.test(r)), reasons.join("\n"));
   assert.ok(reasons.some(r => /splash-editor: FIL .* overlaps (mfx-switch|power-off): /.test(r)), reasons.join("\n"));
-  for (const r of reasons) assert.match(r, /overlaps/);
+  // the load bar reads the editor's open flag: with the editor moved, that word lies outside its areas
+  for (const r of reasons) assert.match(r, /overlaps|load-bar: .* lies in no area that splash-editor declares/);
   assert.deepEqual(checkRam(chosen("hacktribe")), [], "the set as it is passes");
 });
 

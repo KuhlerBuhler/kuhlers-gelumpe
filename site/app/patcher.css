@@ -45,6 +45,7 @@
   color: var(--color-text-danger);
 }
 
+.cee-patch-usb,
 .cee-patch-done {
   display: flex;
   flex-direction: column;
@@ -53,6 +54,20 @@
   border: 1px solid var(--color-border-accent-strong);
   border-radius: var(--radius-lg);
   background: var(--color-surface-panel-alt);
+}
+
+.cee-patch-usb {
+  border-color: var(--color-border-muted);
+}
+
+.cee-patch-usb-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.cee-patch-usb .actions {
+  margin: 0;
 }
 
 .cee-patch-guide {
@@ -119,4 +134,57 @@
 
 .cee-patch-group-state {
   font-variant-numeric: tabular-nums;
+}
+
+/* The way to the new firmware, the step the page is at marked. */
+.cee-patch-way {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-patch-way-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.cee-patch-way-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-weight: 600;
+  flex: none;
+}
+
+.cee-patch-way-step[data-state="current"] {
+  border-color: var(--color-border-accent-strong);
+  color: var(--color-text-accent);
+}
+
+.cee-patch-way-step[data-state="done"] {
+  color: var(--color-text-secondary);
+}
+
+.cee-patch-way-step[data-state="error"] {
+  border-color: var(--color-border-danger);
+  color: var(--color-text-danger);
+}
+
+/* Between the update over USB and the drop zone: the second way, for a device without BLECHTRIBE yet. */
+.cee-patch-or {
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }

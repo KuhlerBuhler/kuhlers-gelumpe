@@ -106,7 +106,7 @@ test("itemsFor: the items of a set that apply to a build, one per id", () => {
   const set = { items: [{ id: "a" }, { id: "f" }, { id: "f" }], patches: [{ id: "a", builds: ["hacktribe", "stock"] }, { id: "f", builds: ["hacktribe"] }, { id: "f", builds: ["stock"] }] };
   assert.deepEqual(itemsFor(set, "hacktribe"), [set.items[0], set.items[1]]);
   assert.deepEqual(itemsFor(set, "stock"), [set.items[0], set.items[2]]);
-  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "ifx-idle", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "synth-filters", "power-off", "doom-loader", "blech-sysex"]);
+  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "synth-filters", "power-off", "doom-loader", "blech-sysex"]);
   assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 1, "the synth filters are for Korg's build only");
 });
 
@@ -115,7 +115,7 @@ test("BLECH is the set data/patches/blech.json: every patch it lists, in its ord
   const listed = readFile(BLECH_SET_URL).patches;
   assert.deepEqual(BLECH.map(p => p.url), listed);
   assert.ok(BLECH.length > 3, "the whole set, not three of its patches");
-  for (const id of ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "ifx-idle", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "synth-filters", "power-off", "blech-sysex"]) assert.ok(BLECH.some(p => p.id === id), id);
+  for (const id of ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "synth-filters", "power-off", "blech-sysex"]) assert.ok(BLECH.some(p => p.id === id), id);
   BLECH.forEach((p, i) => {
     const file = readFile(p.url);
     assert.deepEqual([p.id, p.label], [file.id, file.name]);
@@ -406,4 +406,17 @@ test("a copy that passed the quick check can be checked thoroughly, and only the
   assert.equal(allowed(f).download, false, "a thorough check that fails takes the download away");
   assert.equal(step({ ...newFlow(), phase: "ready" }, { type: "recheck" }).phase, "ready");
   assert.equal(checkName("quick"), "Kurzprüfung");
+});
+
+test("the way the page shows follows the flow: the step it is at is current, the ones before done, a failed check is the error", async () => {
+  const { wayOf, newFlow, WAY } = await import("../src/patcher.mjs");
+  const states = phase => wayOf({ ...newFlow(), phase, report: phase === "failed" ? { ok: false, checks: [] } : null }).map(s => s.state);
+  assert.equal(WAY.length, 4);
+  assert.deepEqual(states("empty"), ["current", "todo", "todo", "todo"]);
+  assert.deepEqual(states("ready"), ["done", "current", "todo", "todo"]);
+  assert.deepEqual(states("checking"), ["done", "done", "current", "todo"]);
+  assert.deepEqual(states("failed"), ["done", "done", "error", "todo"]);
+  assert.deepEqual(states("passed"), ["done", "done", "done", "current"]);
+  assert.deepEqual(states("downloaded"), ["done", "done", "done", "done"]);
+  assert.deepEqual(states("rejected"), ["error", "todo", "todo", "todo"]);
 });

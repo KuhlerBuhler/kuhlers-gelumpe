@@ -166,8 +166,11 @@ class Box:
         return changed
 
     def look(self):
-        return self.dev.screen()["number"], bytes(self.dev.fb())
+        """The screen and the frame as the firmware drew it (the frame buffer: the load bar's look changes only what is sent)."""
+        return self.dev.screen()["number"], self.dev.read(VRAM, 1024)
 
+
+VRAM = 0xC031B310               # the firmware's frame buffer
 
 def near(a, b, tolerance=0.03):
     """Two times of the same device timeline, looked at in steps of 10 ms."""
@@ -210,8 +213,8 @@ def case_browse(payload, flash):
     # line differs is the answer.
     differ = None
     for _ in range(10):
-        fb = bytes(box.dev.fb())
-        now = {i // 128 for i in range(1024) if fb[i] != ref2.dev.fb()[i]}
+        fb, theirs = box.dev.read(VRAM, 1024), ref2.dev.read(VRAM, 1024)
+        now = {i // 128 for i in range(1024) if fb[i] != theirs[i]}
         if now and now <= {6, 7}:
             differ = now
             break

@@ -103,9 +103,9 @@ function restart() {
 }
 
 function hud() {
-  korg.display.clearRect(78, 56, 50, 8);
-  korg.display.textNumber("Z", zoom, 80, 57);
-  korg.display.textNumber("I", maxIter, 104, 57);
+  korg.display.clearRect(76, 53, 52, 11);
+  korg.display.textNumber("Z", zoom, 80, 55);
+  korg.display.textNumber("I", maxIter, 104, 55);
 }
 
 function changed() {

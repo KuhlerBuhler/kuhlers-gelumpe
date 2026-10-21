@@ -61,7 +61,8 @@ const section = page => page.getByRole("heading", { name: "Was das Gerät gerade
 
 test("Korg's plain build: no section about the device state, Presets and Modulationen are disabled with a short tooltip", async () => {
   const page = await emulatorWith(asStock(await makeFirmware()));
-  await page.waitForFunction(() => document.querySelector("#cee-tab-fx").getAttribute("aria-disabled") === "true");
+  // without a firmware every build has them shut; Korg's build is known a moment later and says why
+  await page.waitForFunction(() => document.querySelector("#cee-tab-fx").getAttribute("title") === "Nicht mit Korgs Original-Firmware");
   assert.equal(await shut(page, "mod"), "true");
   for (const tab of ["fx", "mod"]) assert.equal(await page.locator(`#cee-tab-${tab}`).getAttribute("title"), "Nicht mit Korgs Original-Firmware");
   assert.equal(await shut(page, "patcher"), null, "no other entry is touched");
@@ -73,9 +74,9 @@ test("Korg's plain build: no section about the device state, Presets and Modulat
   assert.deepEqual(await severeViolations(page), [], "the disabled entries are accessible");
   await page.click("#cee-tab-fx", { force: true });
   assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "emu", "a click on a disabled entry opens nothing");
-  await page.click("#cee-tab-patcher");
+  await page.click("#cee-tab-scripts");
   await page.keyboard.press("ArrowDown");
-  assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "scripts", "the arrow keys skip the disabled entries");
+  assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "changelog", "the arrow keys skip the disabled entries");
   assert.deepEqual(page.errors, []);
 });
 
@@ -96,6 +97,8 @@ test("Korg's build with BLECH keeps Presets and Modulationen open, Hacktribe's b
 test("while Korg's plain build is open the open Presets page gives way to the emulator page", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.setInputFiles("#cee-emu-vsb", h.file("hacktribe.vsb", await makeFirmware()));
+  await page.waitForFunction(() => document.querySelector("#cee-tab-fx").getAttribute("aria-disabled") === "false");
   await page.click("#cee-tab-fx");
   assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "fx");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", asStock(await makeFirmware())));

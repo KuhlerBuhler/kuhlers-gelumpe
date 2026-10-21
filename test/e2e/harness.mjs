@@ -43,6 +43,8 @@ export async function setUp(routes = () => [], { realDevices = false } = {}) {
     async page({ device = false } = {}) {
       const context = await browser.newContext({ acceptDownloads: true });
       context.setDefaultTimeout(20_000);
+      // The changelog page asks GitHub for the releases; tests never reach the network and see none.
+      await context.route("https://api.github.com/**", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
       const page = await context.newPage();
       if (device) await page.addInitScript(() => { window.__ceeStubReady = import("/test-support/install.mjs"); });
       const errors = [];

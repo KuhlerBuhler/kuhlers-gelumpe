@@ -5,11 +5,83 @@
 
 [English version](README.en.md)
 
-Moin! GELUMPE ist ein Programm, mit dem du deine Electribe 2 auslesen und umbauen kannst. Mit drin
-ist ein Emulator, also eine Electribe im Rechner, und ein Patcher für meine Firmware BLECH (ich nenn
-sie auch gern "Blechtribe"). BLECH läuft auf dem roten Sampler, entweder über Hacktribe oder direkt
-auf Korgs Original-Firmware. Für die blaue Electribe 2 gibt es inzwischen auch einen eigenen Satz, der
-kann noch nicht alles, was die rote kann. Was genau geht und was nicht, steht in der
+<p align="center"><img alt="Blechy tanzt" src="docs/images/readme/blechy-tanzt.gif" width="240"></p>
+
+<h3 align="center">BLECHTRIBE: neue Firmware für deine Electribe 2. Kostenlos.</h3>
+
+<p align="center">
+  <a href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/releases/latest"><img alt="App herunterladen" src="https://img.shields.io/badge/%E2%AC%87%20App%20herunterladen-Mac%20%7C%20Windows%20%7C%20Linux-e4007c?style=for-the-badge" height="56"></a>
+</p>
+
+<p align="center">Du musst hier nichts suchen und keinen Code anfassen. Klick auf den Knopf, lade die App für deinen Rechner, fertig.</p>
+
+## So kommt BLECHTRIBE auf deine Electribe
+
+Du brauchst einen Rechner (Mac, Windows oder Linux) und einen SD-Kartenleser. Einmal, für ein paar Minuten.
+
+1. **App laden** über den Knopf oben. Auf der Seite ganz unten bei "Assets": `.dmg` für Mac, `.exe` für Windows.
+   Auf dem Mac blockiert das System die App beim ersten Öffnen, weil sie nicht von Apple signiert ist. Wie du sie freigibst, steht unter [Die App laden](#die-app-laden).
+2. **SD-Karte** aus der Electribe in den Rechner stecken.
+3. **App öffnen**, links auf **Patcher**, dann die Datei `SYSTEM.VSB` von deiner Karte reinziehen.
+   Du findest sie im Ordner `KORG/electribe sampler/System/` (Original) oder `KORG/hacktribe/System/` (Hacktribe) oder `KORG/electribe/System/` (blaue Electribe).
+4. **Warten**, bis die App fertig geprüft hat (ein paar Minuten), dann die neue Datei speichern.
+   Die App sagt dir, wohin sie auf der Karte muss.
+5. **Karte zurück in die Electribe**, einschalten und am Gerät das Update starten. Die App zeigt dir die Tasten dazu.
+
+Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiterkommst, schreib mir, mit einem Foto der Meldung.
+
+## Häufige Fragen
+
+- **Kostet das was?** Nein. Wenn du magst, freu ich mich über eine [Spende](https://www.paypal.me/kuhlerbuhler).
+- **Ist das sicher?** Die App startet die neue Firmware vorher in einer Electribe im Rechner und gibt sie nur frei, wenn alles läuft.
+  Und es gibt einen Notschalter: **EXIT beim Einschalten halten**, dann startet die Electribe ohne BLECHTRIBE, und du spielst dein Original wieder auf.
+- **Brauch ich einen PC?** Ja, einmal zum Umbauen der Datei. Danach nicht mehr.
+- **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen bleiben, wo sie sind. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
+- **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
+- **Hab ich mit BLECHTRIBE noch Hacktribe?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf.
+- **Ich hab auf GitHub `.json`-Dateien gefunden, was mach ich damit?** Nichts. Die braucht nur die App. Du brauchst nur den Download-Knopf oben.
+
+## Was kann was?
+
+| | Sampler (rot) Original | Sampler mit Hacktribe | **BLECHTRIBE** rot | **BLECHTRIBE** mit Hacktribe | Synth (blau) Original | **BLECHTRIBE** blau |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| Blechy-Startbild und eigene Schrift | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Blechy-Ladeanimation | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| Blechy beim Ausschalten | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Startbild selbst malen | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| Synth-Filter (MS20, Acid, ...) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Effekte frei bearbeiten (App) | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| 128 Plätze für eigene Effekte | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| Zweiter Master-Effekt (MFX 2) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Plugins und Spiele (Snake, Tetris, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Pad-Farben und LED-Farben | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Patternwechsel erst nach Bestätigung | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| TAP Motion | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Notenassistent | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Würfeln (Zufallsmelodie) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Klare Meldung bei kaputten Samples | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| Doom | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| Update über USB aus der App | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+
+## Vorher und nachher
+
+Links die normale Electribe, rechts mit BLECHTRIBE (aus dem Emulator).
+
+| Normal | BLECHTRIBE |
+|:-:|:-:|
+| ![Normales Startbild](docs/images/readme/start-hacktribe.png) | ![BLECHTRIBE Startbild](docs/images/readme/start-blechtribe.png) |
+| ![Normaler Hauptbildschirm](docs/images/readme/haupt-hacktribe.png) | ![BLECHTRIBE Hauptbildschirm](docs/images/readme/haupt-blechtribe.png) |
+| ![Normales Menü](docs/images/readme/menu-hacktribe.png) | ![BLECHTRIBE Menü](docs/images/readme/menu-blechtribe.png) |
+
+So startet BLECHTRIBE:
+
+<img alt="BLECHTRIBE beim Starten" src="docs/images/readme/blechtribe-start.gif" width="384">
+
+---
+
+## Für Bastler
+
+GELUMPE ist das Programm dahinter: deine Electribe 2 auslesen und umbauen, mit einem Emulator (eine Electribe im Rechner) und dem Patcher für BLECHTRIBE. Was auf der blauen Electribe genau geht, steht in der
 [Synth-Messung](docs/messungen/2026-10-16-blech-synth.md).
 
 ## Wer ich bin
@@ -36,7 +108,7 @@ GELUMPE läuft als App oder im Browser und funktioniert mit dem Electribe 2 Samp
 - **Plugins** schreiben, die direkt auf der Electribe laufen, zum Beispiel ein Lauflicht, ein Spiel
   auf dem Display oder eine eigene Menüseite, oder fertige aus dem Katalog nehmen,
 - Effekte und Patterns in Klartext mit echten Einheiten bearbeiten statt in Bytes und sie per Web MIDI
-  ans Gerät schicken.
+  ans Gerät schicken, und einzelne Presets als `.e2fx`-Datei weitergeben und laden.
 
 Bevor irgendwas ans Gerät geht, schauen ein Linter mit Regeln, die ich am echten Gerät abgeglichen hab,
 und der Emulator drüber, ob die Electribe das voraussichtlich schluckt. Emulator, Patcher und Plugins

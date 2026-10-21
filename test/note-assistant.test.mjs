@@ -88,7 +88,7 @@ test("the BLECH menu writes the word the note assistant reads, as bit 4 of the s
   const state = builder.match(/^STATE = (0x[0-9A-Fa-f]+)/m)[1];
   assert.equal(parseInt(word[1], 16), parseInt(state, 16), "STATE + S_SETTING (0) of tools/patch/note_assist.py");
   assert.match(menu, /bit 4 NOTE ASSIST is OFF/);
-  assert.match(menu, /orreq r0, r0, #16\n(?:[^\n]*\n){0,30}?\s+str r0, \[r7, #12\]/, "OFF is bit 4 of the flags");
+  assert.match(menu, /orreq r0, r0, #16\n(?:[^\n]*\n){0,40}?\s+mov r10, r0\n(?:[^\n]*\n){0,20}?\s+str r10, \[r7, #12\]/, "OFF is bit 4 of the flags");
 });
 
 test("the assembler and the patch builder agree with the committed patch", { skip }, () => {

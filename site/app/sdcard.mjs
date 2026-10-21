@@ -49,14 +49,14 @@ export function sdcardPanel(root, emulator = null, { heading = true } = {}) {
 
   const api = async (method, path) => {
     const l = link();
-    if (!l) throw new Error("Nicht verbunden. Starte npm run emu und öffne den Link, den es ausgibt.");
+    if (!l) throw new Error(window.__GELUMPE_APP ? "Der Emulator der App läuft nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log." : "Nicht verbunden. Starte npm run emu und öffne den Link, den es ausgibt.");
     let res;
     try {
       res = await fetch(`http://127.0.0.1:${l.port}${path}`, {
         method, body: method === "POST" ? "{}" : undefined, headers: { "X-Emu-Token": l.token, ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
       });
     } catch {
-      throw new Error(`Der Emulator auf Port ${l.port} antwortet nicht. Läuft npm run emu?`);
+      throw new Error(window.__GELUMPE_APP ? "Der Emulator der App antwortet nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log." : `Der Emulator auf Port ${l.port} antwortet nicht. Läuft npm run emu?`);
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(data.error || `Emulator antwortet mit ${res.status}.`), { status: res.status });

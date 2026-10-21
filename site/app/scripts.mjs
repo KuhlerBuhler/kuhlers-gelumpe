@@ -4,6 +4,7 @@
  * exactly this text (src/script/gate.mjs).
  */
 import { el } from "./fields.mjs";
+import { icon } from "./icons.mjs";
 import { simPanel } from "./sim-panel.mjs";
 import { drawDisplay } from "./emulator.mjs";
 import { PADS } from "../../data/panel.mjs";
@@ -12,7 +13,7 @@ import { toast } from "./toast.mjs";
 import { createScriptEditor } from "./script-editor.mjs";
 import { compile, formatError } from "../../src/script/compiler.mjs";
 import { decodeBlob, markProbed } from "../../src/script/blob.mjs";
-import { LIMITS, BUDGET, ARCHIVE } from "../../data/script/contract.mjs";
+import { LIMITS, BUDGET, ARCHIVE, SCRIPT_APPS } from "../../data/script/contract.mjs";
 import { PRESETS } from "../../data/script/presets.mjs";
 import { TEMPLATES, templateSource } from "../../data/script/templates.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
@@ -21,6 +22,7 @@ import { Workspace, sourceKey, validName } from "../../src/script/workspace.mjs"
 import { SimDevice, probe as runProbe, FRAME_MS } from "../../src/script/sim.mjs";
 import { exportGate } from "../../src/script/gate.mjs";
 import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
+import { storePlugin } from "../../src/usb-update.mjs";
 
 const EXIT_KEY = KEY_NAMES.find(n => n.name === "EXIT").value;
 
@@ -75,7 +77,22 @@ function askKind() {
 }
 const confirmed = async options => (window.ui?.confirm ? window.ui.confirm(options) : false);
 
-export function scriptsPanel(root, { storage = null, sub = null } = {}) {
+export function scriptsPanel(root, { storage = null, sub = null, session = () => null } = {}) {
+  /** A packed .blech onto the connected device's card; IMPORT PLUGIN in the BLECH menu then lists it. */
+  async function toDevice(bytes, id, button) {
+    const s = session();
+    if (!s) { toast("Erst auf der Seite Gerät die Electribe verbinden.", "error"); return; }
+    button.disabled = true;
+    try {
+      const name = await storePlugin(s, id, bytes);
+      toast(`${name}.blech liegt auf der Karte. Am Gerät BLECH, IMPORT PLUGIN, ENTER, dann einschalten.`, "ok");
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   const workspace = new Workspace(storage);
   const saved = new Map();
   const values = { load: name => saved.get(name) ?? null, save: records => records.forEach(r => saved.set(r.name, r)) };
@@ -113,6 +130,7 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
   const recordButton = button("cee-script-record", "Eingaben aufnehmen", () => toggleRecording(), "sm");
   const clearInputs = button("cee-script-clear-inputs", "Aufnahme löschen", () => dropInputs(), "sm");
   const exportButton = button("cee-script-export", "Als .blech speichern", () => exportOne(), "sm");
+  const usbButton = button("cee-script-usb", "Per USB aufs Gerät", () => exportOne(usbButton), "sm");
   const exportAll = button("cee-script-export-all", "Alle speichern", () => exportCollection(), "sm");
   exportAll.title = `Alle Plugins als ${ARCHIVE.file} speichern`;
   const open = el("input", { type: "file", className: "cee-visually-hidden", id: "cee-script-open", accept: ".blech" });
@@ -209,12 +227,14 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     recordButton.textContent = recording ? "Aufnahme beenden" : "Eingaben aufnehmen";
     clearInputs.hidden = !isOwn || !mine?.inputs?.length;
     exportButton.hidden = !isOwn;
+    usbButton.hidden = !isOwn;
     exportAll.disabled = workspace.list().length === 0;
     const n = mine?.inputs?.length ?? 0;
     inputsInfo.textContent = isOwn ? (n ? `Eingabefolge: ${n} Eingaben, bis Rahmen ${mine.inputs.at(-1).frame}.` : "Keine Eingabefolge. Die Probe läuft ohne Eingaben, nur ready und frame.") : "";
     const gate = isOwn ? exportGate({ source: mine.source, probe: mine.probe }) : null;
     probeInfo.replaceChildren(...(gate ? [gate.ok ? pill(gate.confirm ? "warn" : "ok", gate.confirm ? "Zeilen offen" : "Probe bestanden") : pill("neutral", "nicht geprobt"), ` ${gate.reason ?? "Alle Zeilen mit Code sind gelaufen."}`] : []));
     exportButton.disabled = !ok || !gate?.ok;
+    usbButton.disabled = exportButton.disabled;
   }
 
   function select(kind, id) {
@@ -447,7 +467,7 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     return confirmed({ title: "Zeilen ohne Lauf exportieren?", text: `Die Probe hat diese Zeilen nie ausgeführt:\n${list}\n\nSie laufen am Gerät zum ersten Mal.`, confirmLabel: `${subject} trotzdem speichern` });
   }
 
-  async function exportOne() {
+  async function exportOne(toUsb = null) {
     const mine = own();
     if (!mine) return;
     flush();
@@ -457,6 +477,7 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     if (!(await allowExport("Plugin", [{ name: fresh.name, gate: exportGate(fresh) }]))) return;
     const packed = packBlech(markProbed(result.blob), fresh.source);
     if (!packed.ok) { say(packed.error.message, "error"); return; }
+    if (toUsb) { await toDevice(packed.bytes, fresh.name, toUsb); return; }
     download(packed.bytes, `${fresh.name}.blech`);
     say(`${fresh.name}.blech gespeichert. Auf die Karte nach ${ARCHIVE.folder}/ kopieren.`, "ok");
   }
@@ -466,12 +487,15 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     const items = workspace.list();
     const blocks = [];
     const gates = [];
+    let apps = 0;
     for (const s of items) {
       const result = compile(s.source, { name: s.name });
       if (!result.ok) { say(`„${s.name}“ lässt sich nicht übersetzen.`, "error"); return; }
+      if (result.info.app) apps += 1;
       blocks.push(markProbed(result.blob));
       gates.push({ name: s.name, gate: exportGate(s) });
     }
+    if (apps > SCRIPT_APPS.max) { say(`Das sind ${apps} Apps. Die Electribe zeigt höchstens ${SCRIPT_APPS.max}. Lösch ein paar Apps aus der Liste und speichere nochmal.`, "error"); return; }
     if (!(await allowExport("Alle", gates))) return;
     const packed = packAll(blocks);
     if (!packed.ok) { say(packed.error.message, "error"); return; }
@@ -504,7 +528,7 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
   ]);
 
   const nameField = el("div", { className: "cee-ws-name" }, [el("label", { className: "muted", htmlFor: "cee-script-name", textContent: "Name" }), name]);
-  const toolbar = el("div", { className: "cee-ws-toolbar" }, [nameField, note, el("div", { className: "cee-ws-toolbar-actions" }, [copy, duplicate, remove, exportButton])]);
+  const toolbar = el("div", { className: "cee-ws-toolbar" }, [nameField, note, el("div", { className: "cee-ws-toolbar-actions" }, [copy, duplicate, remove, exportButton, usbButton])]);
   const strip = el("div", { className: "cee-ws-strip" }, [status, probeInfo, hint]);
 
   const consoleHost = el("div", { className: "cee-ws-console", id: "cee-terminal" });
@@ -600,7 +624,8 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
   root.replaceChildren(...PAGES.map(p => p.node));
 
   let shown = null;
-  const subPages = sub?.pages("scripts", { id: "cee-scripts-pages", label: "Bereiche der Plugins", items: PAGES.map(({ id, title }) => ({ id, title })), pick: id => page(id) });
+  const PAGE_ICONS = { catalog: "grid", editor: "code", run: "play", console: "terminal", docs: "book" };
+  const subPages = sub?.pages("scripts", { id: "cee-scripts-pages", label: "Bereiche der Plugins", items: PAGES.map(({ id, title }) => ({ id, title, icon: PAGE_ICONS[id] })), pick: id => page(id) });
   /** Opens one of the pages of Plugins: the editor, the run area, the console, the names, the catalog. */
   function page(id) {
     if (!PAGES.some(p => p.id === id)) id = "editor";
@@ -649,20 +674,34 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     canvas.setAttribute("aria-label", `Display von ${preset.title}`);
     thumbs.set(canvas, preset);
     const note = el("p", { className: "cee-error", hidden: true });
-    const view = el("button", { type: "button", className: "btn sm", textContent: "Code ansehen", onclick: () => { select("preset", preset.id); page("editor"); } });
-    const get = el("button", { type: "button", className: "btn sm primary", textContent: "Download .blech", onclick: () => {
+    // Icon buttons: the label says only what the button does, for the screen reader and as the tooltip.
+    const iconButton = (name, label, onclick, primary = false) => {
+      const b = el("button", { type: "button", className: `btn icon${primary ? " primary" : ""}`, title: label, onclick }, [icon(name)]);
+      b.setAttribute("aria-label", label);
+      return b;
+    };
+    const view = iconButton("eye", "Code ansehen", () => { select("preset", preset.id); page("editor"); });
+    const pack = () => {
       const result = compile(preset.source, { name: validName(preset.id) ? preset.id : "plugin" });
       const probed = result.ok ? runProbe(result.blob) : null;
       const packed = probed?.ok ? packBlech(markProbed(result.blob), preset.source) : null;
       note.hidden = !!packed?.ok;
-      if (!packed?.ok) { note.textContent = packed?.error?.message ?? "Dieses Beispiel lässt sich nicht speichern."; return; }
-      download(packed.bytes, `${preset.id}.blech`);
-    } });
+      if (!packed?.ok) { note.textContent = packed?.error?.message ?? "Dieses Beispiel lässt sich nicht speichern."; return null; }
+      return packed.bytes;
+    };
+    const get = iconButton("download", "Herunterladen", () => {
+      const bytes = pack();
+      if (bytes) download(bytes, `${preset.id}.blech`);
+    });
+    const usb = iconButton("usb", "Per USB auf die Electribe schicken", () => {
+      const bytes = pack();
+      if (bytes) toDevice(bytes, preset.id, usb);
+    }, true);
     return el("li", { className: "cee-catalog-card", id: `cee-catalog-${preset.id}` }, [
       canvas,
       el("h3", { textContent: preset.title }),
       el("p", { className: "muted", textContent: preset.description }),
-      el("div", { className: "cee-catalog-actions" }, [view, get]),
+      el("div", { className: "cee-catalog-actions" }, [view, get, usb]),
       note,
     ]);
   }

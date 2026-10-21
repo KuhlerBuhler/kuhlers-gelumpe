@@ -22,7 +22,8 @@ Die Datei heißt immer `SYSTEM.VSB`.
 |---|---|---|
 | Hacktribe | `KORG/hacktribe/System/SYSTEM.VSB` | gemessen, am 10.10. hin und zurück geübt ([Rückweg geübt](messungen/2026-10-10-rueckweg-geuebt.md)) |
 | BLECH | `KORG/blechtribe/System/SYSTEM.VSB` | gemessen: am 15.10. nahm eine laufende BLECH am Gerät ihr Update aus dieser Datei ([Gerätetest](geraetetests/blech-datei.md)) |
-| Korgs Original | `KORG/electribe sampler/System/SYSTEM.VSB` | Pfad laut Hacktribe-Doku, am Gerät nicht geübt |
+| Korgs Original (Sampler) | `KORG/electribe sampler/System/SYSTEM.VSB` | Pfad laut Hacktribe-Doku, am Gerät nicht geübt |
+| Korgs Original (Electribe 2) | `KORG/electribe/System/SYSTEM.VSB` | Pfad laut Hacktribe-Doku, am Gerät nicht geübt |
 
 ## Doom
 

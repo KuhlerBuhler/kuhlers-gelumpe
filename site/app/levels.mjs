@@ -36,12 +36,12 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
   const undoButton = el("button", { type: "button", className: "btn", id: "cee-lv-undo", textContent: "Senden zurücknehmen", disabled: true });
   const body = el("div", { className: "cee-levels", id: "cee-lv-body", hidden: true });
   const say = text => {
-    toast(text, /fehlgeschlagen|Gesperrt|Abgebrochen|nicht lesen|Weder|Befund|Entscheiden/.test(text) ? "error" : /^(Geholt|Gesendet|Der vorherige)/.test(text) ? "ok" : "info");
+    toast(text, /nicht geklappt|nicht holen|nicht sichern|Gesperrt|Abgebrochen|Nichts verbunden|inzwischen etwas geändert|Entscheide/.test(text) ? "error" : /^(Geholt|Gesendet|Der vorherige)/.test(text) ? "ok" : "info");
   };
   const attached = async () => {
     try {
       const s = await session();
-      if (!s) say("Weder Emulator noch Gerät verbunden. Schalte den Emulator ein oder verbinde das Gerät.");
+      if (!s) say("Nichts verbunden. Starte links den Emulator oder steck die Electribe per USB an und klick links auf Gerät.");
       return s;
     } catch (e) { say(e.message); return null; }
   };
@@ -210,7 +210,7 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
       drawFx(await readFx(s));
       undoButton.disabled = !s.history.some(h => h.pattern);
     } catch (e) {
-      say(`Holen fehlgeschlagen: ${e.message}`);
+      say(`Das Pattern ließ sich nicht holen. Ist die Electribe noch verbunden? (${e.message})`);
     } finally {
       fetchButton.disabled = false;
     }
@@ -231,7 +231,7 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
       await s.idle();
       let active;
       try { active = new Pattern(await s.fetchPattern()).name || "ohne Namen"; } catch (e) {
-        say(`Der Puffer am Gerät ließ sich nicht lesen (${e.message}); ohne Sicherung wird nichts gesendet.`);
+        say(`Die App konnte das aktuelle Pattern am Gerät nicht sichern, deshalb sendet sie nichts. Verbinde die Electribe neu und versuch es nochmal. (${e.message})`);
         return;
       }
       const checked = await s.check(edit);
@@ -251,9 +251,9 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
         resetControls();
         say(`Gesendet und zurückgelesen. Vorher im Puffer: "${active}", mit "Senden zurücknehmen" zurückzuholen.`);
         device.log?.("Pegel skaliert und gesendet.", "ok");
-      } else if (res.needsConfirmation) say("Der Befund hat sich geändert, bitte noch einmal senden.");
+      } else if (res.needsConfirmation) say("Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden.");
       else if (res.gate?.verdict === "blocked") say(`Gesperrt: ${res.gate.reasons.map(r => r.message).join(" ")}`);
-      else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheiden im Bereich Gerät." : ""}`);
+      else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide links unter Gerät, wie es weitergeht." : ""}`);
       if (s.blocked) device.showDecision?.();
     } catch (e) {
       say(`Abgebrochen: ${e.message}`);
@@ -272,9 +272,9 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
     try {
       await s.idle();
       const res = await s.undo();
-      say(res.ok ? "Der vorherige Puffer ist wieder am Gerät. Zum Anzeigen noch einmal holen." : `Zurücknehmen fehlgeschlagen: ${res.error.message}`);
+      say(res.ok ? "Der vorherige Puffer ist wieder am Gerät. Zum Anzeigen noch einmal holen." : `Zurücknehmen hat nicht geklappt: ${res.error.message}`);
     } catch (e) {
-      say(`Zurücknehmen fehlgeschlagen: ${e.message}`);
+      say(`Zurücknehmen hat nicht geklappt: ${e.message}`);
     } finally {
       release();
       undoButton.disabled = !s.history.some(h => h.pattern);

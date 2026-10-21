@@ -56,6 +56,7 @@ BR = 0xC0182F60                 # bytes the last read gave
 FREE_END = 0xC0183000
 IMPORT_ENTRY = 0xC01A2500       # EDITOR_AT: b splash_import, for the BLECH menu; r0 = 0 stored, 1 no file, 2 no 128 x 64 BMP with 1 bit, 3 flash
 DRAW_ENTRY = 0xC01A2504         # b splash_draw: Global, page SPLASH SCREEN, the editor open; the menu jumps here instead of returning
+RESET_ENTRY = 0xC01A2508        # b splash_reset, for the BLECH menu; r0 = 0 reset, 3 flash, 4 not set up
 TICK_HOOK = 0xC006F178          # first instruction of the screen manager's tick, ldrb r3, [r0, #0x4c]
 TICK_WORD = 0xE5D0304C
 IMPORT_PATH = "SD:KORG/blechtribe/splash.bmp"
@@ -111,6 +112,7 @@ SOURCE = f"""
 .equ S_ONE, 0x28                ; showed for a tick on the device); S_ONE is the one-entry vector that stands in for it
 .equ S_VCAP, 0x2C
 .equ S_PAINT, 0x30              ; the colour MENU last gave a pixel (0 or 1): held, MENU paints it under the moving cursor
+.equ S_ORIG, 0x34               ; the start image of the VSB (image 13's data pointer as the firmware had it), for SPLASH RESET
 .equ S_WIDGET, 0x40
 .equ KEYS, 0xC06BCA70           ; the UI task's key states, 8 bytes per key, the word is not 0 while the key is held
 .equ KEY_MENU, 0x09
@@ -141,6 +143,8 @@ splash_start:
     movne r8, #0
     cmp r8, #0
     beq start_draw
+    ldr r7, =DESC13
+    ldr r7, [r7]
     bl 0xC0029A40
     ldr r1, =RECBUF
     ldr r2, =FLASH_RECORD
@@ -166,6 +170,7 @@ start_zero:
     ldr r0, =STATE
     ldr r1, =MAGIC
     str r1, [r0, #S_MAGIC]
+    str r7, [r0, #S_ORIG]
 start_draw:
     mov r0, #0
     bl draw_image
@@ -304,6 +309,7 @@ tick_out:
 .org {EDITOR_AT:#x}
     b splash_import             ; IMPORT_ENTRY, called by the BLECH menu
     b splash_draw               ; DRAW_ENTRY, jumped to by the BLECH menu
+    b splash_reset              ; RESET_ENTRY, called by the BLECH menu
 
 ; Checks the replaced slots start with: the state was set up at start and EXIT was
 ; not held. Otherwise the original slot runs, with every argument as it came.
@@ -725,6 +731,35 @@ save_image:
     mov r2, #0
     str r2, [r3, #S_TICK]
 save_done:
+    pop {{r4, pc}}
+
+; ---- SPLASH RESET: the stored record is made invalid (its id cleared, written like WRITE), the VSB's own start image is
+; drawn from then on. r0 = 0 done, 3 the flash write failed, 4 the editor was not set up at start (EXIT held).
+splash_reset:
+    push {{r4, lr}}
+    ldr r12, =STATE
+    ldr r0, [r12, #S_MAGIC]
+    ldr r1, =MAGIC
+    cmp r0, r1
+    movne r0, #4
+    bne reset_out
+    ldr r4, =RECBUF
+    mov r0, #0
+    str r0, [r4]
+    bl 0xC0029A40
+    ldr r1, =FLASH_RECORD
+    ldr r2, =REC_LEN
+    mov r3, r4
+    bl 0xC0029AB8
+    cmp r0, #0
+    moveq r0, #3
+    beq reset_out
+    ldr r12, =STATE
+    ldr r2, [r12, #S_ORIG]
+    ldr r1, =DESC13
+    str r2, [r1]
+    mov r0, #0
+reset_out:
     pop {{r4, pc}}
 
 ; ---- the start image from the card: KORG/blechtribe/splash.bmp, 128 x 64 pixels, 1 bit per pixel, not compressed.

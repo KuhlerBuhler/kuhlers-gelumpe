@@ -5,7 +5,7 @@ import { toast } from "./toast.mjs";
 import { applyPatches } from "../../src/patch.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf } from "../../src/firmware.mjs";
-import { classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
+import { wayOf, classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -30,10 +30,10 @@ function verdict(flow, items) {
     case "hacktribe":
     case "synth":
     case "stock": return null;
-    case "blech": return { tone: "ok", word: "Schon BLECH", text: "In dieser Datei steckt BLECH bereits, hier ist nichts mehr zu patchen." };
-    case "partial": return { tone: "warn", word: "Teils gepatcht", text: `Die Datei trägt schon einen Teil von BLECH (${input.present.map(id => items.find(p => p.id === id)?.label ?? id).join(", ")}). Nimm die unveränderte Datei, damit alles zusammenpasst.` };
-    case "wrong-size": return { tone: "error", word: "Keine SYSTEM.VSB", text: `Die Datei ist ${size} Byte groß, eine SYSTEM.VSB für 2.02 hat ${VSB_SIZE.toLocaleString("de-DE")}.` };
-    default: return { tone: "error", word: "Nicht erkannt", text: `${input.reasons[0] ?? ""} Dieser Patcher ist für Hacktribe auf Korgs Sampler 2.02 gebaut.` };
+    case "blech": return { tone: "ok", word: "Schon BLECHTRIBE", text: "Auf dieser Datei ist BLECHTRIBE schon drauf. Nimm deine unveränderte SYSTEM.VSB, zum Beispiel die Sicherung vom Schreibtisch." };
+    case "partial": return { tone: "warn", word: "Teils gepatcht", text: `Diese Datei wurde schon teilweise verändert (${input.present.map(id => items.find(p => p.id === id)?.label ?? id).join(", ")}). Nimm deine unveränderte SYSTEM.VSB, zum Beispiel die Sicherung vom Schreibtisch.` };
+    case "wrong-size": return { tone: "error", word: "Keine Firmware", text: `Das ist keine Firmware-Datei (${size} statt ${VSB_SIZE.toLocaleString("de-DE")} Byte). Nimm die SYSTEM.VSB aus dem Ordner KORG › dein Ordner › System auf der SD-Karte.` };
+    default: return { tone: "error", word: "Nicht erkannt", text: `Diese Firmware kennt der Patcher nicht. Er braucht Hacktribe 2.02 oder Korgs Original 2.02. Grund: ${input.reasons[0] ?? "unbekannt"}` };
   }
 }
 
@@ -62,20 +62,27 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("span", { className: "ui-dropzone-files" }),
   ]);
 
-  const usbGet = el("button", { type: "button", className: "btn", id: "cee-patch-usb-get", textContent: "Vom Gerät über USB holen" });
+  const usbGet = el("button", { type: "button", className: "btn primary", id: "cee-patch-usb-get", textContent: "Update auf Gerät" });
   const usbNote = el("p", { className: "muted", id: "cee-patch-usb-note", role: "status", hidden: true });
-  const usbBox = el("div", { className: "actions cee-patch-usb", id: "cee-patch-usb" }, [usbGet]);
+  const usbBox = el("section", { className: "cee-patch-usb", id: "cee-patch-usb" }, [
+    el("h2", { className: "cee-patch-usb-title", textContent: "Update direkt über USB" }),
+    el("p", { className: "cee-patch-lead", textContent: "Ist BLECHTRIBE schon auf deiner Electribe, schließ sie nur per USB an und verbinde sie auf der Seite Gerät. Der Knopf holt die Firmware-Datei von der Karte, setzt das neueste BLECHTRIBE drauf, prüft sie im Emulator und legt sie zurück. Am Gerät drückst du danach nur noch DATA UTILITY > SOFTWARE UPDATE." }),
+    el("div", { className: "actions" }, [usbGet]),
+    usbNote,
+  ]);
   const usbPut = el("button", { type: "button", className: "btn primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
+  const way = el("ol", { className: "cee-patch-way", id: "cee-patch-way" });
+  way.setAttribute("aria-label", "Weg zur neuen Firmware");
   const verdictBox = el("div", { className: "cee-patch-verdict", id: "cee-patch-verdict", role: "status" });
   const synthSet = el("p", { className: "muted", id: "cee-patch-synth-set", hidden: true });
-  const routeInputs = [["direct", "BLECH direkt (kein Hacktribe-Patch nötig)"], ["hacktribe", "BLECH mit Hacktribe (hacktribe-2.patch selbst mitbringen)"]].map(([value, text]) => {
+  const routeInputs = [["direct", "BLECHTRIBE direkt (kein Hacktribe-Patch nötig)"], ["hacktribe", "BLECHTRIBE mit Hacktribe (hacktribe-2.patch selbst mitbringen)"]].map(([value, text]) => {
     const radio = el("input", { type: "radio", name: "cee-patch-route", value });
     radio.addEventListener("change", () => radio.checked && chooseRoute(value));
     return { value, radio, label: el("label", { className: "ui-segmented-option" }, [radio, el("span", { textContent: text })]) };
   });
   const routeGroup = el("div", { className: "ui-segmented", id: "cee-patch-route-group" }, routeInputs.map(r => r.label));
   routeGroup.setAttribute("role", "radiogroup");
-  routeGroup.setAttribute("aria-label", "Weg zu BLECH");
+  routeGroup.setAttribute("aria-label", "Weg zu BLECHTRIBE");
   const routeBox = el("div", { className: "cee-patch-route", id: "cee-patch-route", hidden: true }, [
     routeGroup,
     el("p", { className: "muted", id: "cee-patch-route-note", textContent: "Hacktribe ergänzt Filter für den Synth, zusätzliche Effekte und SysEx zum Lesen und Schreiben im RAM, das der Live-Modus des Editors braucht." }),
@@ -105,9 +112,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   root.replaceChildren(el("div", { className: "cee-patch" }, [
     el("h1", { className: "cee-patch-title", textContent: "Firmware patchen" }),
-    el("p", { className: "cee-patch-lead", textContent: "Zieh deine eigene SYSTEM.VSB hierher. Es wird nichts hochgeladen, gepatcht wird in deinem Browser. Eine fertige Firmware gibt es hier nie, nur deine eigene mit BLECH drauf." }),
+    el("p", { className: "cee-patch-lead", textContent: "Zieh deine eigene SYSTEM.VSB hierher. Es wird nichts hochgeladen, gepatcht wird in deinem Browser. Eine fertige Firmware gibt es hier nie, nur deine eigene mit BLECHTRIBE drauf." }),
     el("p", { className: "cee-patch-lead" }, ["Falls danach etwas nicht startet: ", el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: "Rettung" }), " zeigt den dokumentierten Weg zurück."]),
-    drop, usbBox, usbNote, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
+    way, usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
   ]));
 
   async function loadPatches(build = input ? buildOf(input) : "hacktribe") {
@@ -180,12 +187,18 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   /** One short line for a check that ran and did not pass; the list of all checks sits behind the disclosure. */
   function failureLine(report) {
     const bad = report.checks.filter(c => !c.ok);
-    if (!bad.length) return "Nicht bestanden.";
-    return `Nicht bestanden: ${checkName(bad[0].id)}${bad.length > 1 ? ` und ${bad.length - 1} weitere` : ""}.`;
+    if (!bad.length) return "Die Prüfung ist nicht bestanden. Auf dein Gerät kommt nichts. Schick uns bitte einen Screenshot.";
+    return `Die Prüfung hat einen Fehler gefunden (${checkName(bad[0].id)}${bad.length > 1 ? ` und ${bad.length - 1} weitere` : ""}). Auf dein Gerät kommt nichts. Schick uns bitte einen Screenshot.`;
   }
 
   function render() {
     const can = allowed(flow);
+    way.replaceChildren(...wayOf(flow).map((s, i) => {
+      const li = el("li", { className: "cee-patch-way-step" }, [el("span", { className: "cee-patch-way-n", textContent: s.state === "done" ? "✓" : String(i + 1) }), el("span", { textContent: s.label })]);
+      li.dataset.state = s.state;
+      if (s.state === "current") li.setAttribute("aria-current", "step");
+      return li;
+    }));
     const v = verdict(flow, blech?.items ?? []);
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
@@ -267,7 +280,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     if (file) pick(file);
   });
 
-  run.addEventListener("click", async () => {
+  run.addEventListener("click", () => patchAndCheck());
+
+  /** Applies the set to the input and checks the copy in the emulator; afterwards `passed` holds it when it passed. */
+  async function patchAndCheck() {
     if (!allowed(flow).patch) return;
     const build = buildOf(input);
     dispatch({ type: "patching", patches: blech ? itemsFor(blech, build) : [] });
@@ -282,7 +298,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
           const own = res.reasons.filter(r => r.startsWith(`${p.id}:`)).map(r => r.slice(p.id.length + 2));
           dispatch({ type: "patch", id: p.id, ok: false, detail: own.length ? own.join(" ") : "wartet auf die anderen" });
         }
-        throw new Error(`Die Patches ließen sich nicht anwenden: ${res.reasons.join(" ")}`);
+        throw new Error(`Das Patchen hat nicht geklappt. Nimm deine unveränderte SYSTEM.VSB und versuch es nochmal. Grund: ${res.reasons.join(" ")}`);
       }
       for (const p of items) {
         const n = res.spans.filter(s => s.patch === p.id).length;
@@ -299,7 +315,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     } catch (e) {
       dispatch({ type: "error", message: e.message });
     }
-  });
+  }
 
   thorough.addEventListener("click", async () => {
     if (!passed || !applied) return;
@@ -325,7 +341,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         el("li", { textContent: "Sichere die SD-Karte, am besten komplett auf den Rechner kopieren." }),
         moves ? el("li", { id: "cee-patch-guide-copy" }, [
           "Kopiere auf der Karte den Ordner ", el("code", { textContent: old }), " nach ", el("code", { textContent: `KORG/${BLECH_FOLDER}/` }),
-          ". Kopieren, nicht umbenennen: Nach dem Update liest BLECH seine Dateien aus ", el("code", { textContent: `KORG/${BLECH_FOLDER}/` }),
+          ". Kopieren, nicht umbenennen: Nach dem Update liest BLECHTRIBE seine Dateien aus ", el("code", { textContent: `KORG/${BLECH_FOLDER}/` }),
           ", deine Samples und Patterns findet es nur dort. Der alte Ordner bleibt, wie er ist.",
         ]) : null,
         blech && hasDoom(blech) ? el("li", { id: "cee-patch-guide-doom" }, [
@@ -343,23 +359,44 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         el("li", { textContent: "Gehe unter DATA UTILITY auf SOFTWARE UPDATE und drücke ENTER. Starte das Gerät neu, wenn es dich auffordert." }),
         el("li", { textContent: "Schalte das Gerät während des Updates nicht aus." }),
       ].filter(Boolean)),
-      el("p", { className: "cee-patch-exit" }, [el("strong", { textContent: "Notausgang: " }), "Halte EXIT beim Einschalten gedrückt, dann startet das Gerät ohne die BLECH-Funktionen. Wenn das nicht reicht: ", el("a", { href: "#rescue", textContent: "Rettung" }), "."]),
+      el("p", { className: "cee-patch-exit" }, [el("strong", { textContent: "Notausgang: " }), "Halte EXIT beim Einschalten gedrückt, dann startet das Gerät ohne die BLECHTRIBE-Funktionen. Wenn das nicht reicht: ", el("a", { href: "#rescue", textContent: "Rettung" }), "."]),
     );
   }
 
   const percent = (done, total) => Math.round(done * 100 / total);
 
+  /** The update file from the card into the page. False when it cannot go on by itself (no ORIGINAL.BIN beside a patched file). */
+  async function fetchFromDevice(s) {
+    const got = await fetchUpdateFile(s, (done, total) => { usbNote.textContent = `Vom Gerät lesen, ${percent(done, total)} %`; });
+    usb = { fromOriginal: got.fromOriginal };
+    await take(got.bytes);
+    if (flow.input?.kind === "blech") {
+      usbNote.textContent = "Auf der Karte ist schon eine veränderte SYSTEM.VSB, aber keine Sicherung davon. Zieh deine unveränderte SYSTEM.VSB (die Sicherung vom Schreibtisch) oben in das Feld. Nach der Prüfung geht es hier über USB weiter.";
+      return false;
+    }
+    return true;
+  }
+
+  /** The checked copy onto the card; the first time the unpatched file goes beside it as ORIGINAL.BIN. */
+  async function storeToDevice(s) {
+    await storeUpdateFile(s, passed, usb?.fromOriginal ? null : original, (done, total) => { usbNote.textContent = `Aufs Gerät schreiben, ${percent(done, total)} %`; });
+    usbNote.textContent = "Fertig, die neue Firmware liegt auf der Karte. Jetzt am Gerät: MENU, mit EDIT ◀ zu DATA UTILITY, MENU, mit EDIT ▶ zu SOFTWARE UPDATE, dann MENU drücken, bis „OK. Please Reboot.“ kommt. Dazwischen nicht ausschalten. Danach aus- und wieder einschalten.";
+    usb = { fromOriginal: true };
+    toast("Die neue Firmware ist auf der Karte. Jetzt das Update am Gerät starten.", "ok");
+  }
+
   usbGet.addEventListener("click", async () => {
     const s = session();
-    if (!s) { toast("Erst auf der Seite Gerät die Electribe verbinden.", "error"); return; }
+    if (!s) { toast("Die Electribe ist nicht verbunden. Steck sie per USB an, schalte sie ein und klick links auf Gerät und dann auf „Mit Electribe verbinden“.", "error"); return; }
     usbGet.disabled = true;
     usbNote.hidden = false;
     try {
-      const got = await fetchUpdateFile(s, (done, total) => { usbNote.textContent = `Vom Gerät lesen, ${percent(done, total)} %`; });
-      usbNote.textContent = got.fromOriginal ? "Vom Gerät gelesen: ORIGINAL.BIN, die unveränderte Datei vom ersten Update über USB." : "Vom Gerät gelesen: SYSTEM.VSB.";
-      usb = { fromOriginal: got.fromOriginal };
-      await take(got.bytes);
-      if (flow.input?.kind === "blech") usbNote.textContent = "Auf der Karte liegt schon eine gepatchte SYSTEM.VSB und keine ORIGINAL.BIN daneben. Zieh deine unveränderte SYSTEM.VSB hier hinein; beim Schreiben über USB kommt sie als ORIGINAL.BIN auf die Karte, jedes weitere Update startet dann von ihr.";
+      if (!await fetchFromDevice(s)) return;
+      if (flow.phase !== "ready") { usbNote.textContent = "Die Datei vom Gerät braucht noch eine Entscheidung, siehe unten."; return; }
+      usbNote.textContent = "Patchen und im Emulator prüfen, das dauert ein paar Minuten.";
+      await patchAndCheck();
+      if (!passed) { usbNote.textContent = "Die Prüfung im Emulator ist nicht bestanden, auf das Gerät kam nichts. Details unten."; return; }
+      await storeToDevice(s);
     } catch (e) {
       usbNote.hidden = true;
       toast(e.message, "error");
@@ -371,15 +408,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   usbPut.addEventListener("click", async () => {
     const s = session();
     if (!passed || !allowed(flow).download) return;
-    if (!s) { toast("Erst auf der Seite Gerät die Electribe verbinden.", "error"); return; }
+    if (!s) { toast("Die Electribe ist nicht verbunden. Steck sie per USB an, schalte sie ein und klick links auf Gerät und dann auf „Mit Electribe verbinden“.", "error"); return; }
     usbPut.disabled = true;
     usbNote.hidden = false;
     try {
-      // the first time the unpatched file goes beside it, so the next update can start from it again
-      await storeUpdateFile(s, passed, usb?.fromOriginal ? null : original, (done, total) => { usbNote.textContent = `Aufs Gerät schreiben, ${percent(done, total)} %`; });
-      usbNote.textContent = "Auf der Karte: die neue SYSTEM.VSB. Am Gerät DATA UTILITY > SOFTWARE UPDATE, ENTER, danach neu starten. Während des Updates nicht ausschalten.";
-      usb = { fromOriginal: true };
-      toast("Über USB geschrieben.", "ok");
+      await storeToDevice(s);
     } catch (e) {
       usbNote.hidden = true;
       toast(e.message, "error");

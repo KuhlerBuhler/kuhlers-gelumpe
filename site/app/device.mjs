@@ -37,15 +37,15 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     fact("Globaler Kanal", String(d.channel + 1));
     fact("Gerätesuche, Byte 10 und 11", `${d.version[0]}.${d.version[1]}`);
     fact("Stand", d.versionKnown ? pill("ok", "bekannt") : pill("warn", "unbekannt, nur lesen"));
-    fact("RAM über MIDI", d.ram === "blech" ? pill("ok", `BLECH, Blöcke bis ${d.blech.maxBlock} Byte`) : d.ram === "hacktribe" ? pill("ok", "Hacktribe") : pill("error", "antwortet nicht"));
+    fact("RAM über MIDI", d.ram === "blech" ? pill("ok", `BLECHTRIBE, Blöcke bis ${d.blech.maxBlock} Byte`) : d.ram === "hacktribe" ? pill("ok", "Hacktribe") : pill("error", "antwortet nicht"));
     if (d.sampler && !d.ram) {
-      say("warn", "eingeschränkt", "Weder BLECHs noch Hacktribes Befehle (0x60 bis 0x63, 0x52 bis 0x57) werden beantwortet, vermutlich Korgs Original-Firmware ohne BLECH. Patterns und Globals gehen, nichts live ins RAM.");
+      say("warn", "eingeschränkt", "Auf der Electribe ist weder BLECHTRIBE noch Hacktribe. Patterns und Einstellungen gehen. Für alles andere brauchst du BLECHTRIBE: links auf Patcher.");
     } else if (!d.versionKnown) {
-      say("warn", "nur lesen", "Für diesen Gerätestand ist nicht gemessen, ob die Adressen der Gerätekarte stimmen. Bis dahin schreibt der Editor nichts.");
+      say("warn", "nur lesen", "Diese Firmware-Version kennt die App noch nicht genau. Deshalb ändert sie nichts am Gerät, du kannst nur lesen.");
     } else if (d.build === "stock") {
-      say("ok", "verbunden", "Korgs Original mit BLECH: RAM live über BLECHs Befehle. Effekt-Presets der Karte gibt es hier nicht.");
+      say("ok", "verbunden", "Korgs Original mit BLECHTRIBE. Alles geht, nur die Effekt-Presets nicht.");
     } else if (!d.ram) {
-      say("warn", "eingeschränkt", "Ohne BLECH und Hacktribe gehen Patterns und Globals, aber nichts live ins RAM.");
+      say("warn", "eingeschränkt", "Ohne BLECHTRIBE gehen nur Patterns und Einstellungen. Für alles andere: links auf Patcher.");
     } else {
       say("ok", "verbunden", "Bereit.");
     }
@@ -60,7 +60,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       restore.disabled = keep.disabled = true;
       try {
         const res = await session.resolve(choice);
-        toast(res.ok ? (choice === "restore" ? "Sicherung zurückgespielt." : "Entschieden: so gelassen.") : `Fehlgeschlagen: ${res.error.message}`, res.ok ? "ok" : "error");
+        toast(res.ok ? (choice === "restore" ? "Sicherung zurückgespielt." : "Entschieden: so gelassen.") : `Das hat nicht geklappt: ${res.error.message}`, res.ok ? "ok" : "error");
       } catch (e) { toast(e.message, "error"); }
       restore.disabled = keep.disabled = false;
       if (!session.blocked) setTimeout(showDecision, 0);
@@ -117,7 +117,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       onSession(session);
     } catch (e) {
       view()?.external(false);
-      say("error", "keine Antwort", `${e.message} Ist das Gerät an und der richtige Port gewählt?`);
+      say("error", "keine Antwort", `Die Electribe antwortet nicht. Ist sie eingeschaltet und per USB angesteckt? Dann nochmal verbinden. (${e.message})`);
       session = null;
       onSession(null);
     }
@@ -125,7 +125,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
 
   async function connect() {
     if (!navigator.requestMIDIAccess) {
-      say("error", "nicht möglich", "Dieser Browser kann kein Web MIDI. Chrome oder Edge auf dem Desktop können es, Safari nicht.");
+      say("error", "nicht möglich", "Dieser Browser kann nicht mit der Electribe reden. Nimm die App oder Chrome oder Edge am Rechner. Safari geht nicht.");
       return;
     }
     let access;
@@ -133,7 +133,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       window.ui?.busy(button, true);
       access = await navigator.requestMIDIAccess({ sysex: true });
     } catch {
-      say("error", "verweigert", "Der Zugriff auf MIDI mit SysEx wurde verweigert. Ohne ihn erreicht der Editor das Gerät nicht.");
+      say("error", "verweigert", "Der Zugriff auf MIDI wurde abgelehnt. Ohne ihn erreicht die App die Electribe nicht. Lade die Seite neu und klick bei der Frage auf Erlauben.");
       return;
     } finally {
       window.ui?.busy(button, false);
@@ -142,12 +142,12 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       if (session && e.port.state === "disconnected" && (e.port === session.port.out || e.port === session.port.in)) {
         session.lost();
         view()?.external(false);
-        say("error", "getrennt", "Das Gerät wurde abgezogen. Was gerade gesendet wurde, ist unvollständig; nach dem Verbinden zeigt das Zurücklesen, was angekommen ist.");
+        say("error", "getrennt", "Die Electribe wurde abgesteckt. Steck sie wieder an und verbinde neu. Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen.");
       }
     };
     const ports = electribePorts(access);
     if (!ports.length) {
-      say("warn", "nicht gefunden", "Kein Electribe-Port. Ist das Gerät per USB verbunden und eingeschaltet?");
+      say("warn", "nicht gefunden", "Keine Electribe gefunden. Steck sie per USB an und schalte sie ein.");
       return;
     }
     if (ports.length > 1) {
@@ -198,7 +198,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       const found = electribePorts(await navigator.requestMIDIAccess({ sysex: true })).length > 0;
       if (found === seen || session) return;
       seen = found;
-      if (found) say("neutral", "erkannt", "Eine Electribe ist angeschlossen. Mit Electribe verbinden.");
+      if (found) say("neutral", "erkannt", "Eine Electribe ist angesteckt. Klick auf „Mit Electribe verbinden“.");
       else clear();
     } catch {}
   }
@@ -208,13 +208,13 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   emuButton.addEventListener("click", () => {
     const port = emulator();
     if (!port?.running) {
-      say("warn", "Emulator läuft nicht", "Starte die Firmware im Bereich Emulator, dann hier verbinden.");
+      say("warn", "Emulator läuft nicht", "Starte zuerst links den Emulator, dann hier verbinden.");
       return;
     }
     port.ondisconnect = () => {
       if (session?.port !== port) return;
       session.lost();
-      say("error", "getrennt", "Der Emulator läuft nicht mehr. Was gerade gesendet wurde, ist unvollständig; nach dem Verbinden zeigt das Zurücklesen, was angekommen ist.");
+      say("error", "getrennt", "Der Emulator läuft nicht mehr. Starte ihn neu und verbinde nochmal. Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen.");
     };
     connectPort(port);
   });

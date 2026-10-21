@@ -18,6 +18,7 @@ import { parseUnits, setUnits, unitFor, hex } from "../../src/units.mjs";
 import { tableEntry } from "../../src/map/address.mjs";
 import { addPreset, locatePresets, pointersMatch, presetRoom, recordOf, RECORD } from "../../src/presets.mjs";
 import { exportPresets } from "../../src/export.mjs";
+import { presetFile, presetFileName, readPresetFile, PRESET_EXT } from "../../src/preset-file.mjs";
 import { checkName, checkDetail } from "../../src/patcher.mjs";
 import { GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import { suggestionsFor, applySuggestion } from "../../src/suggestions.mjs";
@@ -85,12 +86,15 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   const addButton = el("button", { type: "button", className: "btn", id: `${prefix}-add`, textContent: "Preset hinzufügen (Kopie des gewählten)" });
   const exportButton = el("button", { type: "button", className: "btn primary", id: `${prefix}-export`, textContent: "Firmware-Kopie prüfen" });
   const downloadButton = el("button", { type: "button", className: "btn", id: `${prefix}-download`, textContent: "Firmware-Kopie laden", hidden: true });
+  const saveButton = el("button", { type: "button", className: "btn", id: `${prefix}-preset-save`, textContent: "Preset als Datei speichern" });
+  const presetInput = el("input", { type: "file", className: "cee-visually-hidden", id: `${prefix}-preset-open`, accept: PRESET_EXT });
+  const loadLabel = el("label", { className: "btn", htmlFor: `${prefix}-preset-open` }, ["Preset-Datei laden"]);
   const exportNote = el("p", { className: "cee-hint", id: `${prefix}-export-note`, hidden: true, role: "status" });
   const exportChecks = el("ul", { className: "ui-list", id: `${prefix}-export-checks`, hidden: true });
   const fileGroup = el("div", { className: "cee-group", id: `${prefix}-file-group`, hidden: true }, [
     el("h3", { textContent: "In die Firmware-Datei" }),
     room,
-    el("div", { className: "actions" }, [addButton, exportButton, downloadButton]),
+    el("div", { className: "actions" }, [addButton, saveButton, loadLabel, presetInput, exportButton, downloadButton]),
     exportNote, exportChecks,
   ]);
 
@@ -172,7 +176,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   /** Korg's records are found through the pointer arrays, so live access needs BLECH on Korg's build, running the file's arrays. */
   async function stockReady(s) {
     if (s.device?.build !== "stock" || s.device.ram !== "blech") {
-      state.why = "Das verbundene Gerät läuft nicht auf Korgs Original mit BLECH; Korgs Records lassen sich nur mit BLECHs Befehlen lesen und schreiben.";
+      state.why = "Das verbundene Gerät läuft nicht auf Korgs Original mit BLECHTRIBE; Korgs Records lassen sich nur mit BLECHTRIBEs Befehlen lesen und schreiben.";
       return false;
     }
     if (state.matched?.session !== s || state.matched.bytes !== state.base) {
@@ -323,7 +327,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       const used = state.rec.map;
       const free = Array.from({ length: field("fx.map.source").repeat[0].count }, (_, i) => i).find(i => b[base + i * size] === 0);
       if (free === undefined || !used.length) {
-        toast("Kein freier Platz, oder keine Steuerung, deren unbekannte Bytes sich übernehmen lassen.", "error");
+        toast("Das geht hier nicht: Es ist kein Platz mehr frei, oder dieser Effekt lässt sich nicht kopieren.", "error");
         return;
       }
       const donor = used[used.length - 1].index;
@@ -532,9 +536,10 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const info = state.image ? presetRoom(state.image.bytes, state.kind) : null;
     fileGroup.hidden = !info;
     if (!info) return;
-    const more = info.patched ? "" : ` Die Firmware kennt nur ${info.capacity}; mit dem BLECH-Patch preset-tables sind es 128.`;
+    const more = info.patched ? "" : ` Die Firmware kennt nur ${info.capacity}; mit dem BLECHTRIBE-Patch preset-tables sind es 128.`;
     room.textContent = `${kindWord(state.kind)}: ${info.count} von ${info.capacity} Plätzen im Menü.${more}`;
     addButton.disabled = info.count >= info.capacity || !state.rec;
+    saveButton.disabled = !state.rec;
     exportButton.disabled = !state.fileDirty && !state.dirty;
   }
 
@@ -568,6 +573,40 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     renderPicker();
   }
 
+  /** The preset in the form as a .e2fx file, to pass it on. */
+  function savePreset() {
+    if (!state.rec) return;
+    commit();
+    const rec = state.image.read(state.kind, state.slot);
+    const a = el("a", { href: URL.createObjectURL(new Blob([presetFile(state.kind, rec.bytes)], { type: "application/json" })), download: presetFileName(state.kind, rec.name) });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+  }
+
+  /** A .e2fx file as a new slot of its kind: a copy of slot 1 is made, then the file's record goes in, name and all. */
+  async function loadPreset(file) {
+    const got = readPresetFile(await file.text());
+    exportNote.hidden = false;
+    if (!got.ok) { exportNote.textContent = got.reason; return; }
+    if (!state.image) { exportNote.textContent = "Erst eine Firmware laden, dann kommt das Preset hinein."; return; }
+    commit();
+    const added = addPreset(state.image.bytes, got.kind, 1);
+    if (!added.ok) { exportNote.textContent = added.reasons.join(" "); return; }
+    state.image.bytes.set(added.bytes);
+    state.image.write(got.kind, added.slot, new FxRecord(got.record, got.kind));
+    state.added.add(`${got.kind}:${added.slot}`);
+    state.fileDirty = true;
+    state.passed = null;
+    downloadButton.hidden = true;
+    state.kind = got.kind;
+    state.slot = added.slot;
+    state.dirty = false;
+    exportNote.textContent = `${kindWord(got.kind)} ${added.slot}: „${got.name}“ aus der Datei. Prüf die Kopie der Firmware, dann kommt es aufs Gerät.`;
+    renderPicker();
+  }
+
   async function runExport() {
     commit();
     exportButton.disabled = addButton.disabled = true;
@@ -588,8 +627,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       exportChecks.hidden = false;
       const good = report.checks.filter(c => c.ok).length;
       exportNote.textContent = report.ok
-        ? `Geprüft: ${good} von ${report.checks.length} bestanden. Die Kopie ändert nur Presets und Menülängen.`
-        : `Nicht bestanden: ${report.checks.length - good} von ${report.checks.length}. Die Kopie wird nicht angeboten.`;
+        ? "Geprüft, alles in Ordnung. Du kannst die Datei jetzt speichern."
+        : `Die Prüfung hat ${report.checks.length - good} Fehler gefunden. Diese Änderung lässt sich so nicht speichern. Schick uns bitte einen Screenshot.`;
       if (report.ok) { state.passed = res.bytes; downloadButton.hidden = false; }
     } catch (e) {
       exportNote.textContent = e.message;
@@ -609,6 +648,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   }
 
   addButton.addEventListener("click", addCopy);
+  saveButton.addEventListener("click", savePreset);
+  presetInput.addEventListener("change", () => { const f = presetInput.files?.[0]; presetInput.value = ""; if (f) loadPreset(f); });
   exportButton.addEventListener("click", runExport);
   downloadButton.addEventListener("click", downloadCopy);
   fileInput.addEventListener("change", async () => { const f = fileInput.files?.[0]; if (f) loadBytes(new Uint8Array(await f.arrayBuffer())); });

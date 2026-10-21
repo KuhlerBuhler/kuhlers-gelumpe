@@ -26,22 +26,26 @@
       <div class="cee-side-body" id="cee-side-body">
       <nav class="cee-nav" aria-label="Bereiche">
         <div role="tablist" aria-label="Bereiche" aria-orientation="vertical" id="cee-areas">
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-start" data-tab="start" aria-controls="cee-area-start" aria-selected="true">Start</button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-emu" data-gap data-tab="emu" aria-controls="cee-area-emu" aria-selected="false" tabindex="-1">Emulator</button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-device" hidden data-tab="device" aria-controls="cee-area-device" aria-selected="false" tabindex="-1">Gerät</button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-patcher" data-gap data-tab="patcher" aria-controls="cee-area-patcher" aria-selected="false" tabindex="-1">Patcher</button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-fx" data-gap data-tab="fx" aria-controls="cee-area-fx" aria-selected="false" tabindex="-1">Presets</button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-mod" data-gap data-tab="mod" aria-controls="cee-area-mod" aria-selected="false" tabindex="-1">Modulationen</button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-ptools" data-gap data-labs data-tab="ptools" aria-controls="cee-area-ptools" aria-selected="false" tabindex="-1">Pattern-Werkzeuge</button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-samples" data-gap data-labs data-tab="samples" aria-controls="cee-area-samples" aria-selected="false" tabindex="-1">Samples</button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-scripts" data-gap data-tab="scripts" aria-controls="cee-area-scripts" aria-selected="false" tabindex="-1">Plugins</button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-splash" data-gap data-tab="splash" aria-controls="cee-area-splash" aria-selected="false" tabindex="-1">Startbild</button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-rescue" data-gap data-tab="rescue" aria-controls="cee-area-rescue" aria-selected="false" tabindex="-1">Rettung</button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-start" data-tab="start" aria-controls="cee-area-start" aria-selected="true"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Start</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-emu" data-tab="emu" aria-controls="cee-area-emu" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4h18v12H3Z"/><path d="M8 20h8"/><path d="M12 16v4"/></svg><span>Emulator</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-device" hidden data-tab="device" aria-controls="cee-area-device" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4h18v12H3Z"/><path d="M8 20h8"/><path d="M12 16v4"/></svg><span>Gerät</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-rescue" data-danger data-tab="rescue" aria-controls="cee-area-rescue" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0"/><path d="M8 12a4 4 0 1 0 8 0 4 4 0 1 0-8 0"/><path d="m5.6 5.6 3.6 3.6"/><path d="m14.8 14.8 3.6 3.6"/><path d="m18.4 5.6-3.6 3.6"/><path d="m9.2 14.8-3.6 3.6"/></svg><span>Rettung</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-patcher" data-tab="patcher" aria-controls="cee-area-patcher" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5h14v14H5Z"/><path d="M9 9h6v6H9Z"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/></svg><span>Patcher</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-splash" data-tab="splash" aria-controls="cee-area-splash" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5h18v14H3Z"/><path d="m3 16 5-5 4 4 3-3 6 6"/><path d="M15 9h.01"/></svg><span>Startbildschirm</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-scripts" data-tab="scripts" aria-controls="cee-area-scripts" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 7l9-4 9 4-9 4Z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg><span>Plugins</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-changelog" data-tab="changelog" aria-controls="cee-area-changelog" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h9l4 4v14H6Z"/><path d="M14 3v5h5"/><path d="M9 12h7"/><path d="M9 16h7"/></svg><span>Changelogs</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-fx" data-tab="fx" aria-controls="cee-area-fx" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg><span>Presets</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-mod" data-tab="mod" aria-controls="cee-area-mod" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12c2-5 4-5 6 0s4 5 6 0 4-5 6 0"/></svg><span>Modulationen</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-ptools" data-labs data-tab="ptools" aria-controls="cee-area-ptools" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3h7v7H3Z"/><path d="M14 3h7v7h-7Z"/><path d="M3 14h7v7H3Z"/><path d="M14 14h7v7h-7Z"/></svg><span>Pattern-Werkzeuge</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-samples" data-labs data-tab="samples" aria-controls="cee-area-samples" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 18V5l12-2v13"/><path d="M3 18a3 3 0 1 0 6 0 3 3 0 1 0-6 0"/><path d="M15 16a3 3 0 1 0 6 0 3 3 0 1 0-6 0"/></svg><span>Samples</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-settings" hidden data-tab="settings" aria-controls="cee-area-settings" aria-selected="false" tabindex="-1"><span>Einstellungen</span></button>
         </div>
+        <span class="cee-nav-group" aria-hidden="true" data-before="emu">Gerät</span>
+        <span class="cee-nav-group" aria-hidden="true" data-before="patcher">Firmware</span>
+        <span class="cee-nav-group" aria-hidden="true" data-before="fx">Sound</span>
       </nav>
-      <p class="cee-sidebar-lead">Für die Electribe 2 Sampler mit Firmware 2.02 und Hacktribe. Deine Dateien verlassen deinen Rechner nicht.</p>
-      <button type="button" class="btn cee-settings-button" id="cee-settings-button">Einstellungen</button>
-      <a class="cee-text-link cee-donate" id="cee-donate" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Spenden per PayPal</a>
+      <button type="button" class="btn cee-settings-button" id="cee-settings-button" aria-controls="cee-area-settings">Einstellungen</button>
+      <a class="btn cee-donate" id="cee-donate" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Unterstütze das Projekt :D</a>
       </div>
     </aside>
 
@@ -66,21 +70,33 @@
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-start" aria-labelledby="cee-tab-start" tabindex="0" hidden>
         <section class="ui-section cee-home" id="cee-start-page" data-no-reveal>
           <h1 class="cee-home-title">Atze, wat wird'n ditte hier? Korg verkuhlen or wa?</h1>
+          <div class="cee-entry" id="cee-start-entry">
+            <p class="cee-entry-lead">BLECHTRIBE auf deine Electribe bringen, eigene Presets bauen, Plugins holen. So fängst du an:</p>
+            <ol class="cee-entry-steps">
+              <li><a class="cee-entry-step" href="#emu" id="cee-start-step-emu"><strong>1. Firmware laden</strong><span>Deine SYSTEM.VSB im Emulator wählen. Alles Weitere liest daraus.</span></a></li>
+              <li><a class="cee-entry-step" href="#patcher" id="cee-start-step-patcher"><strong>2. BLECHTRIBE patchen</strong><span>Patchen, im Emulator prüfen, aufs Gerät. Ist BLECHTRIBE schon drauf, geht das Update direkt über USB.</span></a></li>
+              <li><a class="cee-entry-step" href="#scripts" id="cee-start-step-scripts"><strong>3. Loslegen</strong><span>Plugins holen, Presets bauen, dein eigenes Startbild malen.</span></a></li>
+            </ol>
+            <div class="actions">
+              <a class="btn primary" href="#patcher" id="cee-start-patch">Firmware patchen</a>
+              <a class="btn" href="#emu" id="cee-start-emu">Emulator öffnen</a>
+            </div>
+          </div>
           <p class="cee-note"><strong>Gerät kaputt?</strong> Zeigt deine Electribe nur „00“ oder startet nicht mehr? Die <a class="cee-text-link" href="#rescue" id="cee-start-rescue">Rettung</a> führt durch den dokumentierten Weg zurück.</p>
 
           <div class="cee-sec">
             <h2>Was ist das?</h2>
-            <p>Ein grafischer Leser und Modifizierer für die Electribe 2 Sampler, dazu ein Emulator und ein Patcher für die BLECH-Firmware, die "Blechtribe". BLECH läuft entweder auf Hacktribe oder direkt auf Korgs Original-Firmware des roten Samplers. Für die blaue Electribe 2 mit Firmware 2.02 gibt es einen eigenen, im Emulator geprüften Synth-Satz mit Theme, Startbild, Spielhilfen, BLECH-Menü und Plugins.</p>
+            <p>Ein grafischer Leser und Modifizierer für die Electribe 2 Sampler, dazu ein Emulator und ein Patcher für die Firmware BLECHTRIBE. BLECHTRIBE läuft entweder auf Hacktribe oder direkt auf Korgs Original-Firmware des roten Samplers. Für die blaue Electribe 2 mit Firmware 2.02 gibt es einen eigenen, im Emulator geprüften Synth-Satz mit Theme, Startbild, Spielhilfen, BLECH-Menü und Plugins.</p>
           </div>
 
           <div class="cee-sec">
             <h2>Was man damit machen kann</h2>
             <ul class="cee-cards">
-              <li class="cee-card"><h3>BLECH patchen</h3><p>Du lädst deine eigene Firmware, wählst die Patches und bekommst eine neue Datei für die SD-Karte. Der Emulator bootet sie vorher.</p></li>
+              <li class="cee-card"><h3>BLECHTRIBE patchen</h3><p>Du lädst deine eigene Firmware, wählst die Patches und bekommst eine neue Datei für die SD-Karte. Der Emulator bootet sie vorher.</p></li>
               <li class="cee-card"><h3>Presets bauen und reparieren</h3><p>Eigene MFX- und IFX-Presets anlegen oder welche glattziehen, die dir nicht gefallen. Mit Namen und echten Einheiten statt Bytes.</p></li>
               <li class="cee-card"><h3>Plugins</h3><p>Komplette Firmware-Erweiterungen selbst bauen oder fertige aus dem Katalog holen.</p></li>
               <li class="cee-card"><h3>Emulator</h3><p>Plugins ausprobieren, ohne dass ein Gerät dranhängt.</p></li>
-              <li class="cee-card"><h3>Live am Gerät</h3><p>Mit BLECH auf einer echten Electribe: live mit dem Gerät reden, neue Presets in den RAM schreiben und probieren, Plugins direkt drauf testen.</p></li>
+              <li class="cee-card"><h3>Live am Gerät</h3><p>Mit BLECHTRIBE auf einer echten Electribe: live mit dem Gerät reden, neue Presets in den RAM schreiben und probieren, Plugins direkt drauf testen.</p></li>
               <li class="cee-card"><h3>Nichts geht kaputt</h3><p>Der Emulator hängt immer davor. Jeder Schreibzugriff wird da zuerst geprüft, und den Bootloader fasst nichts davon an. Was gefährlich ist, kommt gar nicht erst durch.</p></li>
             </ul>
           </div>
@@ -92,7 +108,7 @@
 
           <div class="cee-sec">
             <h2>Wieso</h2>
-            <p>Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr drin, als Korg jemals rausgeholt hat. Mit BLECH hab ich mir praktisch die Electribe 3 gebaut, die es nie gab.</p>
+            <p>Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr drin, als Korg jemals rausgeholt hat. Mit BLECHTRIBE hab ich mir praktisch die Electribe 3 gebaut, die es nie gab.</p>
           </div>
 
           <div class="cee-sec">
@@ -191,12 +207,20 @@
         <section class="ui-section" id="cee-scripts" data-no-reveal></section>
       </div>
 
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-changelog" aria-labelledby="cee-tab-changelog" tabindex="0" hidden>
+        <section class="ui-section" id="cee-changelog" data-no-reveal></section>
+      </div>
+
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-splash" aria-labelledby="cee-tab-splash" tabindex="0" hidden>
         <section class="ui-section" id="cee-splash" data-no-reveal></section>
       </div>
 
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-rescue" aria-labelledby="cee-tab-rescue" tabindex="0" hidden>
         <section class="ui-section" id="cee-rescue" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-settings" aria-labelledby="cee-tab-settings" tabindex="0" hidden>
+        <section class="ui-section" id="cee-settings" data-no-reveal></section>
       </div>
 
       </main>

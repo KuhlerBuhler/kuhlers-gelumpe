@@ -88,6 +88,7 @@ class Compiler {
     this.apiSites = [];
     this.topIndex = 0;
     this.app = null;
+    this.data = [];
   }
 
   newLabel(prefix) { return `${prefix}${this.labelCount++}`; }
@@ -545,9 +546,22 @@ class Compiler {
     if (g.kind === "const") return;
     if (g.kind === "array") {
       if (g.init.type === "ArrayLit") {
-        g.init.items.forEach((item, i) => {
+        const values = g.init.items.map(item => {
           const c = this.fold(item, fn);
           if (!c || c.type !== "int") throw err(item, "Die Werte eines Felds müssen feste Zahlen sein.");
+          return c;
+        });
+        // values of 0 to 255 (pictures) go into the block's data section as bytes, the loader writes them; no code
+        if (values.every(c => c.value >= 0 && c.value <= 255)) {
+          const first = values.findIndex(c => c.value !== 0);
+          if (first < 0) return;
+          let last = values.length - 1;
+          while (values[last].value === 0) last--;
+          this.data.push({ base: g.base + first, bytes: Uint8Array.from(values.slice(first, last + 1), c => c.value) });
+          return;
+        }
+        g.init.items.forEach((item, i) => {
+          const c = values[i];
           if (c.value === 0) return; // the runtime clears every variable slot when it loads the block, so a 0 needs no code
           this.pushConst(fn, { value: i, type: "int" }, item);
           this.pushConst(fn, c, item);
@@ -755,6 +769,7 @@ class Compiler {
       consts: this.consts,
       strings: this.strings,
       lines: asm.lines,
+      data: this.data,
     };
     const draft = decodeBlob(encodeBlob(parts));
     const verdict = verifyParts(draft);

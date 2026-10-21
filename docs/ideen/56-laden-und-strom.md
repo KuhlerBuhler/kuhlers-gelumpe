@@ -28,7 +28,7 @@ Messungen: [CPU-Last und Laden im Emulator](../messungen/2026-10-18-cpu-last-und
 | **Display beim Laden seltener zeichnen** | halbiert die ARM-Arbeit je Byte (gemessen), hilft nur, wenn die CPU der Engpass ist (offen) | mittel | klein |
 | **DMA statt Interrupt je 64 Byte** | weniger Task-Wechsel, CPU frei | groß: Treiber der Firmware umbauen | hoch |
 | **Pattern-Import: nur geänderte Flash-Sektoren schreiben** | schneller, wenn ein Satz größtenteils gleich ist; schont den Flash | mittel | mittel: Flash-Schreibweg der Firmware |
-| **Energiesparen: Pad- und Tasten-LEDs dimmen** | offen, bis gemessen | gebaut für die rote Electribe: im Power Save ein Viertel ([Messung](../messungen/2026-10-18-energiesparen-leds.md)) | klein |
+| **Energiesparen: Pad- und Tasten-LEDs dimmen** | offen, bis gemessen | gebaut: im Power Save einstellbar 0 bis 100 % (POWER SAVE, LED DIMMING, Vorgabe 75 %) ([Messung](../messungen/2026-10-18-energiesparen-leds.md)) | klein |
 | **Licht nach einer Zeit ohne Bedienung ganz aus** (wie ein Bildschirmschoner) | offen, bis gemessen | mittel: eine Zeit seit der letzten Taste führen | klein |
 | **CPU-Takt senken** | klein: der ARM schläft schon fast immer | groß | hoch: DSP und Audio hängen am selben PLL |
 

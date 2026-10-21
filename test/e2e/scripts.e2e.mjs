@@ -40,7 +40,7 @@ const onRun = page => page.click("#cee-scripts-page-run");
 const ownNames = page => page.locator("#cee-script-own .cee-pattern-item span:first-child").allTextContents();
 
 const KLICKER = readFileSync(new URL("../fixtures/scripts/klicker.js", import.meta.url), "utf8");
-const TITLES = ["BLECH Clicker", "Set-Timer", "Snake", "Tetris", "Game of Life", "Pong", "Simon", "Mandelbrot", "Lauflicht", "Pulsieren"];
+const TITLES = ["BLECH Clicker", "Set-Timer", "Snake", "Tetris", "Game of Life", "Pong", "Simon", "Mandelbrot", "GIF Player", "Lauflicht", "Pulsieren"];
 
 async function makeOwn(page, from = "snake") {
   await onEditor(page);
@@ -559,7 +559,7 @@ test("the catalog shows each bundled plugin as a card with a picture of its disp
     return n;
   }));
   assert.ok(inked.every(n => n > 0), `every thumbnail has something drawn: ${inked}`);
-  const bytes = await h.download(page, () => cards.nth(2).getByRole("button", { name: "Download .blech" }).click());
+  const bytes = await h.download(page, () => cards.nth(2).getByRole("button", { name: "Herunterladen" }).click());
   const parsed = parseBlech(bytes);
   assert.ok(parsed.ok);
   assert.equal(parsed.parts.header.name, "snake");

@@ -96,7 +96,7 @@ test("patcher: the page holds the title, no big image, a drop zone and nothing o
 test("patcher: a file that is no VSB, or not the measured firmware, is named and cannot be patched", async () => {
   const page = await patcherPage();
   await drop(page, new Uint8Array(100));
-  await page.locator("#cee-patch-verdict", { hasText: "Keine SYSTEM.VSB" }).waitFor();
+  await page.locator("#cee-patch-verdict", { hasText: "Keine Firmware" }).waitFor();
   assert.equal(await page.locator("#cee-patch-run").isVisible(), false);
   await drop(page, new Uint8Array(0x200100));
   await page.locator("#cee-patch-verdict", { hasText: "Nicht erkannt" }).waitFor();
@@ -109,7 +109,7 @@ test("patcher: a file that already carries the patches reads as BLECH and is not
   const done = await applyPatches(await makeFirmware(), patches);
   assert.equal(done.ok, true, done.reasons.join(" "));
   await drop(page, done.bytes);
-  await page.locator("#cee-patch-verdict", { hasText: "Schon BLECH" }).waitFor();
+  await page.locator("#cee-patch-verdict", { hasText: "Schon BLECHTRIBE" }).waitFor();
   assert.equal(await page.locator("#cee-patch-run").isVisible(), false);
   assert.equal(await page.locator("#cee-patch-download").isVisible(), false);
 });
@@ -236,8 +236,8 @@ test("patcher: Korg's original takes BLECH directly, with no hacktribe-2.patch, 
   const route = page.locator("#cee-patch-route");
   assert.equal(await route.isVisible(), true);
   assert.equal(await page.locator("#cee-patch-route-group input[value=direct]").isChecked(), true, "BLECH direkt is the default");
-  assert.match(await route.textContent(), /BLECH direkt \(kein Hacktribe-Patch nötig\)/);
-  assert.match(await route.textContent(), /BLECH mit Hacktribe \(hacktribe-2\.patch selbst mitbringen\)/);
+  assert.match(await route.textContent(), /BLECHTRIBE direkt \(kein Hacktribe-Patch nötig\)/);
+  assert.match(await route.textContent(), /BLECHTRIBE mit Hacktribe \(hacktribe-2\.patch selbst mitbringen\)/);
   assert.match(await route.textContent(), /Hacktribe ergänzt Filter für den Synth, zusätzliche Effekte und SysEx zum Lesen und Schreiben im RAM, das der Live-Modus des Editors braucht\./);
   assert.equal(await page.locator("#cee-patch-bar").isVisible(), false, "no progress before the run");
 
@@ -262,7 +262,7 @@ test("patcher: a failed emulator check leaves no download", async () => {
     await drop(page, await makeFirmware());
     await page.locator("#cee-patch-run").waitFor();
     await page.click("#cee-patch-run");
-    await page.locator("#app-toasts .cee-toast", { hasText: "Nicht bestanden: Notschalter" }).waitFor();
+    await page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat einen Fehler gefunden (Notschalter" }).waitFor();
     assert.equal(await page.locator("#cee-patch-bar").isVisible(), false, "no bar that looks done after a failure");
     assert.equal(await page.locator("#cee-patch-result").isVisible(), false);
     assert.equal(await page.locator("#cee-patch-done").isVisible(), false);

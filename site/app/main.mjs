@@ -18,6 +18,7 @@ import { sdcardPanel } from "./sdcard.mjs";
 import { patcherPage } from "./patcher.mjs";
 import { patternToolsPage } from "./pattern-tools.mjs";
 import { rescuePage } from "./rescue.mjs";
+import { changelogPage } from "./changelog.mjs";
 import { splashPage } from "./splash.mjs";
 import { terminalPanel } from "./terminal.mjs";
 import { scriptsPanel } from "./scripts.mjs";
@@ -28,7 +29,7 @@ import { sharedProbe } from "./probe.mjs";
 import { dropdown } from "./dropdown.mjs";
 import { icon } from "./icons.mjs";
 import { watchForUpdate } from "./update.mjs";
-import { apply as applySettings, settingsButton } from "./settings.mjs";
+import { apply as applySettings, settingsButton, settingsPage } from "./settings.mjs";
 import { toast } from "./toast.mjs";
 
 const $ = sel => document.querySelector(sel);
@@ -289,7 +290,7 @@ function patternDevice(device) {
       updateActions();
       say(`Geholt: "${doc.pattern.name || "ohne Namen"}".`, "ok");
     } catch (e) {
-      say(`Holen fehlgeschlagen: ${e.message}`, "error");
+      say(`Das Pattern ließ sich nicht holen. Ist die Electribe noch verbunden? (${e.message})`, "error");
     }
     update();
   });
@@ -315,7 +316,7 @@ function patternDevice(device) {
   async function sendPattern(s) {
     let active = "unbekannt";
     try { active = new Pattern(await s.fetchPattern()).name || "ohne Namen"; } catch (e) {
-      say(`Der Puffer am Gerät ließ sich nicht lesen (${e.message}); ohne Sicherung wird nichts gesendet.`, "error");
+      say(`Die App konnte das aktuelle Pattern am Gerät nicht sichern, deshalb sendet sie nichts. Verbinde die Electribe neu und versuch es nochmal. (${e.message})`, "error");
       return;
     }
     const edit = { kind: "patternSend", block: Uint8Array.from(doc.pattern.bytes) };
@@ -331,9 +332,9 @@ function patternDevice(device) {
     say("Sende …");
     const res = await s.apply(edit, { confirmed: checked.token });
     if (res.ok) say(`Gesendet und zurückgelesen. Vorher im Puffer: "${active}", mit "Senden zurücknehmen" zurückzuholen.`, "ok");
-    else if (res.needsConfirmation) say("Der Befund hat sich geändert, bitte noch einmal senden.", "error");
+    else if (res.needsConfirmation) say("Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden.", "error");
     else if (res.gate?.verdict === "blocked") say(`Gesperrt: ${res.gate.reasons.map(r => r.message).join(" ")}`, "error");
-    else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheiden im Bereich Gerät." : ""}`, "error");
+    else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide links unter Gerät, wie es weitergeht." : ""}`, "error");
     device.log?.(res.ok ? "Pattern gesendet." : `Pattern: ${res.error?.message ?? "gesperrt"}`, res.ok ? "ok" : "error");
     if (s.blocked) device.showDecision?.();
   }
@@ -345,9 +346,9 @@ function patternDevice(device) {
     try {
       await s.idle();
       const res = await s.undo();
-      say(res.ok ? "Der vorherige Puffer ist wieder am Gerät." : `Zurücknehmen fehlgeschlagen: ${res.error.message}`, res.ok ? "ok" : "error");
+      say(res.ok ? "Der vorherige Puffer ist wieder am Gerät." : `Zurücknehmen hat nicht geklappt: ${res.error.message}`, res.ok ? "ok" : "error");
     } catch (e) {
-      say(`Zurücknehmen fehlgeschlagen: ${e.message}`, "error");
+      say(`Zurücknehmen hat nicht geklappt: ${e.message}`, "error");
     } finally {
       release();
       update();
@@ -425,7 +426,9 @@ function sidebarFold() {
 
 function boot() {
   applySettings();
-  settingsButton($("#cee-settings-button"));
+  settingsPage($("#cee-settings"));
+  const changelog = changelogPage($("#cee-changelog"), $("#cee-tab-changelog"));
+  settingsButton($("#cee-settings-button"), () => { areas?.select("settings"); drawer.close(); });
   const emu = takeLink();
   let areas = null;
   const nav = navbar({ onMode: id => areas?.select(id, { focus: false }) });
@@ -461,11 +464,12 @@ function boot() {
   let plainStock = false;
   let plainWhy = "Nicht mit Korgs Original-Firmware";
   const restrict = () => {
-    const shut = plainStock && !device.session;
+    const none = !emulator?.firmware;
+    const shut = (plainStock || none) && !device.session;
     for (const id of NEEDS_TABLES) {
       const tab = $(`#cee-tab-${id}`);
       tab.setAttribute("aria-disabled", String(shut));
-      if (shut) tab.title = plainWhy;
+      if (shut) tab.title = none ? "Erst im Emulator eine Firmware (VSB) wählen oder ein Gerät verbinden" : plainWhy;
       else tab.removeAttribute("title");
     }
     if (shut && NEEDS_TABLES.includes(areas?.current)) areas.select("emu", { focus: false });
@@ -476,10 +480,12 @@ function boot() {
     onChange: id => {
       nav.page(id);
       options.page(id);
+      $("#cee-settings-button").toggleAttribute("aria-current", id === "settings");
       $("#cee-tab-emu").toggleAttribute("data-active", id === "device");
       $("#cee-device").hidden = id !== "device";
       if (id === "device") { $("#cee-area-emu").hidden = false; $("#cee-area-device").hidden = true; }
       if (id === "scripts") terminal?.update();
+      if (id === "changelog") changelog.opened();
     },
   }) : null;
   $("#cee-areas").addEventListener("click", e => { if (e.target.closest("[role=tab]")) drawer.close(); });
@@ -522,6 +528,7 @@ function boot() {
   let modFirmware = null;
   let plainFor = null;
   let fxRunning = false;
+  let noFirmware = null;
   setInterval(() => {
     const running = !!emulator.port.running;
     if (running !== fxRunning) { fxRunning = running; if (running) setTimeout(() => fx.refresh(), 3000); }
@@ -541,7 +548,11 @@ function boot() {
       });
     }
     if (emulator.firmware && emulator.firmware !== modFirmware) { modFirmware = emulator.firmware; modulations.loadBytes(modFirmware).catch(() => {}); }
+    if (!emulator.firmware !== noFirmware) { noFirmware = !emulator.firmware; restrict(); }
   }, 1000);
+  // Shut from the first frame, not a second later: before that a click still opened a page without its tables.
+  noFirmware = !emulator.firmware;
+  restrict();
   const card = options.add("emu", { id: "cee-emu-card", title: "SD-Karte" });
   const sd = sdcardPanel(card.body, emulator, { heading: false });
   sidebar = contextSidebar(emulator.aside, { device, emulator, probe });
@@ -550,7 +561,7 @@ function boot() {
   splashPage($("#cee-splash"));
   let storage = null;
   try { storage = window.localStorage; } catch { /* blocked: the scripts stay in memory */ }
-  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options });
+  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null });
   terminal = terminalPanel($("#cee-terminal"), { terminal: new Terminal({ device, emulator, probe }), device, scripts, lack: () => emulator.lack("sysex") });
   if (emu.fresh) areas?.select("emu");
   else findLink(emu).then(found => {

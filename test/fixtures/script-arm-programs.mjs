@@ -234,6 +234,13 @@ korg.onEvent("ready", () => {
   add("wrong total size", mutate(minimal, (_, d) => d.setUint32(8, minimal.length + 4, true), false));
   add("nonzero reserved", mutate(minimal, (_, d) => d.setUint16(34, 1, true)));
   add("too many variables", mutate(minimal, (_, d) => d.setUint32(16, LIMITS.vars + 1, true)));
+  const data = [{ base: 1, bytes: Uint8Array.of(5, 0, 255) }, { base: 6, bytes: Uint8Array.of(9, 1) }];
+  const withData = blob([["LOAD", 3], ["LOAD", 6], ["ADD"], ["STORE", 0], ["HALT"]], { data });
+  add("the data section fills the arrays", withData);
+  add("data past the variables", blob([["HALT"]], { data: [{ base: 7, bytes: Uint8Array.of(1, 2) }] }));
+  add("an empty data record", blob([["HALT"]], { data: [{ base: 0, bytes: new Uint8Array(0) }] }));
+  add("a data record past totalSize", mutate(withData.slice(0, withData.length - 4), (_, d) => d.setUint32(8, withData.length - 4, true)));
+  add("the data flag without data", mutate(minimal, (_, d) => d.setUint16(34, 2, true)));
   add("invalid opcode", encodeBlob({ code: [255], stackMax: 0 }));
   add("truncated operand", encodeBlob({ code: [OP.LOAD, 0], varCount: 1, stackMax: 1 }));
   add("jump into operand", blob([["JMP", 2], ["HALT"]]));
