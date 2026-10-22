@@ -46,6 +46,8 @@ test("Baukasten is open without firmware; a ready effect opens with its blocks a
   assert.equal(await page.inputValue("#cee-bk-p-0-dry_wet"), "40", "a typed value moves the slider");
   await page.click("#cee-bk-fx-save");
   await page.locator("#cee-bk-mine li", { hasText: "Mein Delay" }).waitFor();
+  assert.match(await page.locator("#cee-bk-fx-saved").textContent(), /Gespeichert: „Mein Delay“ auf Platz 100/, "the page says it was saved, not only a toast");
+  assert.ok(await page.locator("#cee-bk-blocks details.cee-bk-more .cee-bk-slider").count() > 0, "rarely needed sliders are folded away");
   assert.match(await page.locator("#cee-bk-mine li").first().textContent(), /Master-Effekt, Platz 100/);
   const download = page.waitForEvent("download");
   await page.locator("#cee-bk-mine li").first().getByRole("button", { name: "Herunterladen" }).click();

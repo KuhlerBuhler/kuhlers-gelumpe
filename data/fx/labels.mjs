@@ -45,6 +45,11 @@ export const PARAMS = {
   trim2: "Eingangspegel 2", pd_thru: "Vorverzögerung umgehen", rev_level: "Hall-Pegel", er_level: "Erstreflexionen",
 };
 
+/** The parameters that shape the sound most; the Baukasten shows these first and folds the rest away. */
+export const MAIN = new Set(["dry_wet", "time", "feedback", "fb_depth", "gain", "drive", "resonance", "frequency", "lfo_speed", "mod_int", "modint",
+  "wet_level", "dry_level", "off_delay_time", "off_l_delay_time", "off_r_delay_time", "sample_freq", "bit_depth", "threshold", "ratio",
+  "mod_depth", "mod_freq", "hi_damp", "high_damp", "pre_delay", "spread", "wet_spread", "time1", "time2", "saturation", "manual", "amp_level"]);
+
 /** "off_l_delay_time" to "Off l delay time", for a parameter without a name here. */
 export const paramLabel = name => PARAMS[name] ?? name.replace(/_/g, " ").replace(/^./, c => c.toUpperCase());
 

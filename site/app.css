@@ -2905,3 +2905,11 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   width: 5rem;
   flex: none;
 }
+
+.cee-bk-saved:empty {
+  display: none;
+}
+
+.cee-bk-saved {
+  color: var(--color-text-success);
+}

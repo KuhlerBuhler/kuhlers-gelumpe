@@ -11,7 +11,7 @@ import { fxText, readFx, fxFileName } from "../../src/fx-v2.mjs";
 import { buildCollection, collectionEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
 import { buildOf } from "../../src/firmware.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
-import { GROUPS, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
+import { GROUPS, MAIN, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
 
 const OWN = "cee.baukasten";
 const STAGES = { mfx: ["mfx"], ifx: ["ifx1", "ifx2"] };
@@ -119,6 +119,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
   fxSlot.addEventListener("input", () => { slotFx = Number(fxSlot.value); });
   const fxSave = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-fx-save", textContent: "Speichern" });
   const fxDownload = el("button", { type: "button", className: "btn", id: "cee-bk-fx-download", textContent: "Als Datei herunterladen" });
+  const fxSaved = el("p", { className: "cee-bk-saved", id: "cee-bk-fx-saved", role: "status" });
   const fxSteps = el("div", { className: "cee-bk-steps", id: "cee-bk-fx-steps", hidden: true }, [
     el("h3", { textContent: "2. Bausteine" }),
     el("p", { className: "muted", textContent: "Ein Baustein ist ein einzelner Effekt wie Hall, Echo oder Filter. Ein Effekt auf eine Spur kann zwei hintereinander haben, der zweite darf leer bleiben. Stell den Baustein mit den Reglern ein; anhören kannst du ihn erst an der Electribe." }),
@@ -128,6 +129,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
     el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-bk-fx-slot", textContent: "Platz auf deiner Electribe (1 bis 100)" }), fxSlot,
       el("span", { className: "ui-field-help", textContent: "Die Electribe hat 100 Plätze für Effekte, du wählst sie am Gerät mit dem Regler für den Effekt. Dein Effekt kommt auf diesen Platz und ersetzt dort das Preset, solange die Datei auf der Karte liegt. Nimm einen Platz, den du selten brauchst, zum Beispiel 100." })]),
     el("div", { className: "actions" }, [fxSave, fxDownload]),
+    fxSaved,
   ]);
   const builderFx = el("div", { className: "cee-bk-builder", id: "cee-bk-fx-builder" }, [
     el("h3", { textContent: "1. Wo soll der Effekt wirken?" }),
@@ -186,10 +188,20 @@ export function baukastenPage(root, { emulator = null } = {}) {
             s.unit && fx.stages.length > 1 ? el("button", { type: "button", className: "btn sm", textContent: "Entfernen", onclick: () => { Object.assign(s, { unit: 0, unitName: "nofx_thru", params: {} }); renderFx(); } }) : null,
           ]),
         ]),
-        params.length ? el("div", { className: "cee-bk-params" }, params.map(p => {
-          const value = s.params[p.name] ?? 0;
-          return slider(`cee-bk-p-${i}-${p.name}`, paramLabel(p.name), p.name, 0, value > 127 ? 255 : 127, value, v => { s.params[p.name] = v; });
-        })) : null,
+        ...(() => {
+          // The parameters that shape the sound most come first; the rest are for people who know the unit, folded away.
+          const one = p => {
+            const value = s.params[p.name] ?? 0;
+            return slider(`cee-bk-p-${i}-${p.name}`, paramLabel(p.name), p.name, 0, value > 127 ? 255 : 127, value, v => { s.params[p.name] = v; });
+          };
+          const shown = params.some(p => MAIN.has(p.name)) ? p => MAIN.has(p.name) : () => true;
+          const main = params.filter(shown);
+          const more = params.filter(p => !shown(p));
+          return [
+            main.length ? el("div", { className: "cee-bk-params" }, main.map(one)) : null,
+            more.length ? el("details", { className: "ui-details cee-bk-more" }, [el("summary", { textContent: `Weitere Regler (${more.length}, für Profis)` }), el("div", { className: "ui-details-body cee-bk-params" }, more.map(one))]) : null,
+          ];
+        })(),
       ]);
     }));
   }
@@ -229,6 +241,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
   const modBody = el("div", { className: "cee-bk-mod-body", id: "cee-bk-mod-body" });
   const modSave = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-mod-save", textContent: "Speichern" });
   const modDownload = el("button", { type: "button", className: "btn", id: "cee-bk-mod-download", textContent: "Als Datei herunterladen" });
+  const modSaved = el("p", { className: "cee-bk-saved", id: "cee-bk-mod-saved", role: "status" });
   const builderMod = el("div", { className: "cee-bk-builder", id: "cee-bk-mod-builder" }, [
     el("div", { className: "actions" }, [el("button", { type: "button", className: "btn", id: "cee-bk-mod-new", textContent: "Leere Modulation", onclick: () => openMod({ name: "", depth: 64, speed: 64, curve: 6, slots: Array.from({ length: 5 }, () => ({ source: 2, target: 0, lo: 0, hi: 0, follow: 0 })) }) })]),
     modBody,
@@ -254,6 +267,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
           slider(`cee-bk-hi-${k}`, "Stärke am Ende", null, -128, 127, s.hi, v => { s.hi = v; }),
         ]),
         el("label", { className: "cee-bk-check" }, [follow, " Stärke folgt dem Regler MOD. DEPTH"]),
+        el("p", { className: "ui-field-help", textContent: "Ein: mit dem Regler MOD. DEPTH am Gerät machst du diesen Slot stärker oder schwächer. Aus: er wirkt immer gleich stark." }),
       ]);
     });
     modBody.replaceChildren(
@@ -267,6 +281,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
       ...slots,
       el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-bk-mod-slot", textContent: `Platz auf deiner Electribe (1 bis ${MOD_COUNT})` }), modSlot]),
       el("div", { className: "actions" }, [modSave, modDownload]),
+      modSaved,
     );
   }
   function openMod(preset) {
@@ -295,7 +310,9 @@ export function baukastenPage(root, { emulator = null } = {}) {
     list.push({ kind: ready.preset.kind, slot, text: fxText(ready.preset) });
     if (!writeOwn(list)) { toast("Dieser Browser lässt die Seite nichts speichern. Lad den Effekt als Datei herunter.", "error"); return; }
     renderMine();
-    toast(`„${ready.preset.name}“ gespeichert, Platz ${slot}. Wie er auf die Electribe kommt, steht unten unter „Auf die Electribe“.`, "ok");
+    const line = `Gespeichert: „${ready.preset.name}“ auf Platz ${slot}, steht unten unter Meine Sachen. Wie es auf die Electribe kommt, steht ganz unten unter „Auf die Electribe“.`;
+    (ready.preset.kind === "mod" ? modSaved : fxSaved).textContent = line;
+    toast(line, "ok");
   }
   function renderMine() {
     const list = readOwn();
