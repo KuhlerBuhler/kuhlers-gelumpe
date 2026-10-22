@@ -186,3 +186,74 @@
   font-weight: 600;
   color: var(--color-text-secondary);
 }
+
+/* One step of the way at a time; Zurück sits bottom left, Weiter bottom right. */
+.cee-patch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  outline: none;
+}
+
+@media (max-width: 720px) {
+  .cee-patch-panel { gap: var(--space-3); }
+}
+
+.cee-patch-panel[hidden] { display: none; }
+
+.cee-patch-nav {
+  display: flex;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-muted);
+}
+
+.cee-patch-nav > :not(#cee-patch-back) { margin-left: auto; }
+
+.cee-patch-nav > [hidden] { display: none; }
+
+.cee-patch-plan {
+  margin: var(--space-3) 0 0;
+  padding-left: var(--space-5);
+  line-height: 1.6;
+}
+
+/* Test choice (step 2): no test needs the consent box ticked. */
+.cee-patch-test-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-patch-test-box > * {
+  margin: 0;
+}
+
+.cee-patch-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+}
+
+.cee-patch-consent[hidden] {
+  display: none;
+}
+
+/* Step 4: where the file goes, large enough to read off while copying. */
+.cee-patch-target {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-patch-target > * {
+  margin: 0;
+}
+
+.cee-patch-path {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}

@@ -180,7 +180,7 @@ export function clock(ms) {
  * steps: the pass list, status todo|ok|error.
  */
 /** The four steps of the way the page shows above everything (firmware, patches, emulator, device), each todo, current, done or error. */
-export const WAY = ["Firmware wählen", "Patches anwenden", "Im Emulator prüfen", "Aufs Gerät"];
+export const WAY = ["Firmware wählen", "Patches anwenden", "Test", "Aufs Gerät"];
 export function wayOf(flow) {
   const at = { empty: 0, rejected: 0, "needs-patch": 1, ready: 1, patching: 1, checking: 2, failed: 2, passed: 3, downloaded: 4 }[flow.phase] ?? 0;
   const bad = flow.phase === "rejected" ? 0 : flow.phase === "failed" ? (flow.report ? 2 : 1) : -1;
@@ -225,10 +225,10 @@ export function step(flow, event) {
     case "convert-failed":
       return flow.phase === "needs-patch" ? { ...flow, error: event.message } : flow;
     case "patching": {
-      if (flow.phase !== "ready" && flow.phase !== "failed") return flow;
+      if (!allowed(flow).patch) return flow;
       const base = flow.steps.filter(s => s.id === "read" || s.id === "convert");
       return {
-        ...flow, phase: "patching", report: null, error: null,
+        ...flow, phase: "patching", report: null, error: null, untested: false,
         steps: [...base, ...event.patches.map(p => ({ id: `patch:${p.id}`, label: p.label, status: "todo", detail: "" })), { id: "check", label: "Prüfung im Emulator", status: "todo", detail: "" }],
       };
     }
@@ -238,6 +238,10 @@ export function step(flow, event) {
     case "checking":
       if (flow.phase !== "patching" || flow.steps.some(s => s.id.startsWith("patch:") && s.status !== "ok")) return flow;
       return { ...flow, phase: "checking" };
+    case "untested":
+      // the user chose no test and took on what follows: the copy goes on without a report
+      if (flow.phase !== "patching" || flow.steps.some(s => s.id.startsWith("patch:") && s.status !== "ok")) return flow;
+      return { ...flow, phase: "passed", untested: true, steps: mark(flow.steps, "check", "skip", "Kein Test, auf eigene Verantwortung") };
     case "recheck":
       // the thorough check of a copy that passed the quick one
       if (flow.phase !== "passed" && flow.phase !== "downloaded") return flow;
@@ -263,5 +267,6 @@ export function step(flow, event) {
 /** What the buttons may do now. The download and the emulator test only exist for a copy that passed the check. */
 export function allowed(flow) {
   const done = flow.phase === "passed" || flow.phase === "downloaded";
-  return { patch: flow.phase === "ready" || flow.phase === "failed", download: done, test: done, busy: RUNNING.has(flow.phase) };
+  // an untested copy may still be patched again, with a test this time
+  return { patch: flow.phase === "ready" || flow.phase === "failed" || (done && !!flow.untested), download: done, test: done, busy: RUNNING.has(flow.phase) };
 }

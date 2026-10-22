@@ -56,24 +56,43 @@ export function notes(md) {
 
 const date = iso => new Date(iso).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
 
-function release(r, latest) {
-  const head = el("header", { className: "cee-release-head" }, [
-    el("h2", {}, [el("a", { className: "cee-text-link", href: r.html_url, target: "_blank", rel: "noopener noreferrer", textContent: r.name || r.tag_name })]),
-    latest ? el("span", { className: "cee-status", textContent: "Aktuell" }) : null,
+/** The system the page runs on, as GitHub's release files name it: "mac", "windows" or "linux"; null when it is none of them. */
+export function systemOf(nav = globalThis.navigator) {
+  const name = `${nav?.userAgentData?.platform ?? ""} ${nav?.platform ?? ""} ${nav?.userAgent ?? ""}`;
+  if (/mac/i.test(name)) return "mac";
+  if (/win/i.test(name)) return "windows";
+  if (/linux|x11/i.test(name) && !/android/i.test(name)) return "linux";
+  return null;
+}
+
+const APP_FILE = { mac: /\.dmg$/i, windows: /(setup\.exe|\.msi)$/i, linux: /\.AppImage$/i };
+const SYSTEM = { mac: "macOS", windows: "Windows", linux: "Linux" };
+
+/** The two downloads of a release: the app for this system and BLECH.patch; the rest stays on GitHub. */
+export function downloads(assets = [], system = systemOf()) {
+  const app = system ? assets.find(a => APP_FILE[system].test(a.name)) : null;
+  const patch = assets.find(a => a.name === "BLECH.patch");
+  return [
+    app ? { href: app.browser_download_url, label: `App für ${SYSTEM[system]}` } : null,
+    patch ? { href: patch.browser_download_url, label: "Patch herunterladen" } : null,
+  ].filter(Boolean);
+}
+
+function release(r) {
+  // The version is the heading and the way to the release on GitHub; the date stands beside it.
+  const side = el("header", { className: "cee-release-side" }, [
+    el("h2", {}, [el("a", { className: "cee-text-link", href: r.html_url, target: "_blank", rel: "noopener noreferrer", textContent: r.tag_name })]),
+    el("time", { dateTime: r.published_at, textContent: date(r.published_at) }),
     r.prerelease ? el("span", { className: "cee-status", textContent: "Vorabversion" }) : null,
   ]);
-  head.querySelectorAll(".cee-status").forEach(s => { s.dataset.tone = s.textContent === "Aktuell" ? "ok" : "warn"; });
-  const side = el("div", { className: "cee-release-side" }, [
-    el("time", { dateTime: r.published_at, textContent: date(r.published_at) }),
-    r.name && r.name !== r.tag_name ? el("code", { textContent: r.tag_name }) : null,
-  ]);
-  const assets = (r.assets ?? []).map(a => el("li", {}, [el("a", { className: "cee-text-link", href: a.browser_download_url, textContent: a.name })]));
+  side.querySelector(".cee-status")?.setAttribute("data-tone", "warn");
+  const get = downloads(r.assets);
   return el("article", { className: "cee-release" }, [
     side,
     el("div", { className: "cee-release-body" }, [
-      head,
+      r.name && r.name !== r.tag_name ? el("h3", { textContent: r.name }) : null,
       ...notes(r.body),
-      assets.length ? el("details", { className: "ui-details" }, [el("summary", { textContent: `Dateien (${assets.length})` }), el("ul", { className: "ui-details-body" }, assets)]) : null,
+      get.length ? el("div", { className: "actions cee-release-get" }, get.map(d => el("a", { className: "btn", href: d.href, textContent: d.label }))) : null,
     ]),
   ]);
 }
@@ -105,7 +124,7 @@ export function changelogPage(root, tab, fetchImpl = globalThis.fetch) {
     }
     const top = releases.find(r => !r.prerelease) ?? releases[0];
     latest = top.tag_name;
-    list.replaceChildren(...releases.map(r => release(r, r === top)));
+    list.replaceChildren(...releases.map(r => release(r)));
     if (!root.closest("[hidden]")) keep(latest);
     mark();
   })();

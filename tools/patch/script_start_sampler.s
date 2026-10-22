@@ -30,6 +30,7 @@ script_card_hook:
     bl blechy_boot
     ldr r0, =HOOK_RUNTIME
     bl script_card_load
+    bl fx_card_load
     bl menu_recount
     pop {r12, lr}
     .word 0xE12FF00C ; msr cpsr_cxsf, r12

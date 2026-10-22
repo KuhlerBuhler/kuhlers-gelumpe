@@ -866,13 +866,23 @@ tiefer reichen die 14 Bit nicht.
 
 ## Die Seite Plugins im Editor
 
-Der Reiter Plugins hat links Beispiel-Plugins (die Apps BLECH Clicker, Snake, Tetris, Game of Life,
-Pong, Simon und Mandelbrot unter GAMES, Set-Timer unter TOOLS, dazu Lauflicht und Pulsieren, Quelle
-`data/script/presets.mjs`, alle mit Namen wie `korg.key.TAP`; dieselben Beispiele stehen im Katalog als Karten)
-und die eigenen Plugins, rechts den Editor mit Zeilenspalte, das
-Ergebnis des Übersetzens (Fehler mit Zeile und Spalte, ein Klick setzt den Cursor dorthin), die
-Liste „Namen der Tasten und LEDs“ und den Bereich Lauf.
-Darunter steht die Konsole. Eigene Plugins liegen im Browser (`localStorage`)
+Der Eintrag Plugins hat drei Seiten: Katalog, Editor und Dokumentation.
+
+**Katalog:** zwei Knöpfe, die zusammengehören. „Katalog“ zeigt die Plugins der App als Karten (die Apps
+BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon und Mandelbrot unter GAMES, Set-Timer und GIF Player
+unter TOOLS, dazu Lauflicht und Pulsieren, Quelle `data/script/presets.mjs`). Jede Karte trägt Kategorie und
+Ersteller, auf der Karte stehen nur Herunterladen und Aufs Gerät. Der Titel führt auf die Seite des Plugins:
+Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
+Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
+laufenden Plugin auf der Zeichnung der Electribe und seinem Quelltext. Ein neues Plugin kommt per Pull Request auf
+GitHub in den Katalog, mit seinem Eintrag in `data/script/presets.mjs`. „Eigene Plugins“ zeigt die Plugins dieses
+Browsers mit Bearbeiten, Herunterladen, Aufs Gerät und Löschen, dazu Neues Plugin, Öffnen und Alle speichern.
+
+**Editor:** der Editor über die ganze Seite, mit Zeilenspalte und dem Ergebnis des Übersetzens (Fehler mit
+Zeile und Spalte, ein Klick setzt den Cursor dorthin). Öffnen und Speichern stehen oben rechts in der Leiste,
+unter dem Editor Vorschau, Herunterladen und Aufs Gerät. Die Vorschau legt sich über den abgedunkelten Editor;
+ein Klick daneben oder das X schließt sie.
+Die Konsole ist ein eigener Eintrag unter Gerät. Eigene Plugins liegen im Browser (`localStorage`)
 und verlassen ihn nicht. Ein Plugin-Name ist der Blockname: ASCII, ein Buchstabe
 am Anfang, höchstens 15 Zeichen.
 
@@ -926,16 +936,16 @@ Vervollständigung, Hinweis und Hover als reine Funktionen von Text und Cursor
 eine Funktion oder ein Ereignis des Vertrags keine Beschreibung hat: wer einen Eintrag
 in den Vertrag aufnimmt, schreibt den Satz dazu.
 
-**Lauf** (`src/script/sim.mjs`): ein simuliertes Gerät auf der Referenz-VM mit
+**Vorschau** (`src/script/sim.mjs`): ein simuliertes Gerät auf der Referenz-VM mit
 Display (128 mal 64, Vorschau-Schrift, nicht die der Firmware), LED-Buch und
 Millisekundentakt, ein Rahmen alle 40 ms. Tasten, Pads, Regler, Encoder und
 Touchpad schicken ihre Ereignisse an die Laufzeit. Das Display zeigt, was das Gerät
 zeigen würde: das Bild der offenen App oder des Plugins, das das Display nahm, sonst
 nichts (am Gerät steht dort der Hauptbildschirm der Firmware). Hat das Plugin eine App,
-öffnet der Lauf sie wie ENTER im Menü; unter dem Display stehen die Apps wie im Menü
+öffnet die Vorschau sie wie ENTER im Menü; unter dem Display stehen die Apps wie im Menü
 BLECH ("GAMES > Snake: öffnen") und eine Taste EXIT, die wie am Gerät die App schließt,
 bevor das Plugin die Taste sieht. Das ist nicht die Firmware: ihr Zeitverhalten zeigt
-der Lauf nicht (im Browser gilt nur das Rechenbudget, kein Zeitlimit). Die Laufzeit in
+die Vorschau nicht (im Browser gilt nur das Rechenbudget, kein Zeitlimit). Die Laufzeit in
 der Firmware läuft im Emulator, siehe Stand.
 
 **Eingaben und Probe:** Aufnehmen speichert die Eingaben mit ihrem Rahmen beim
@@ -949,11 +959,13 @@ Plugins) gibt es erst nach einer Probe genau dieses Textes (`src/script/gate.mjs
 Jede Änderung am Text wirft die Probe weg. Bleiben Zeilen ohne Lauf, fragt die
 Seite einmal nach und nennt sie. Ein Fehler in der Probe sperrt den Export.
 
-**Konsole:** `run("name")` startet ein eigenes Plugin oder ein Beispiel-Plugin im Bereich
-Lauf; eine Zeile, die mit `korg.` beginnt (zum Beispiel
+**Konsole:** `run("name")` startet ein eigenes Plugin oder eines aus dem Katalog in der
+Vorschau; eine Zeile, die mit `korg.` beginnt (zum Beispiel
 `korg.display.text("Hi", 0, 0)`), läuft dort als Plugin-Code sofort einmal, als App
-„einzeiler“ in TOOLS, die der Lauf öffnet.
-Alles andere ist wie bisher JavaScript mit `KORG` für den Emulator.
+„einzeiler“ in TOOLS, die die Vorschau öffnet.
+Alles andere ist wie bisher JavaScript mit `KORG` für den Emulator. Die Konsole spricht immer mit dem
+Emulator, `start` schaltet ihn ein. Der Schalter „An echtes Gerät weiterleiten“ oben rechts lässt ein
+Skript nach bestandener Probe im Emulator an die verbundene Electribe gehen.
 
 ## Stand
 

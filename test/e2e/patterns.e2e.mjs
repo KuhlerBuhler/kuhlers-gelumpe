@@ -36,7 +36,7 @@ test("pattern backups stay in the card folder; the page inserts the card and ope
   writeFileSync(file, original);
   const page = await h.page();
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
-  await page.click("#cee-emu-card > summary");
+  await page.click("#cee-emu-card-open");
   await page.locator("#cee-sd-status", { hasText: "Nicht eingelegt" }).waitFor();
   assert.equal(await page.locator("#cee-emu-card input[type=file]").count(), 0);
   await page.click("#cee-sd-open");
@@ -53,12 +53,12 @@ test("pattern backups stay in the card folder; the page inserts the card and ope
 test("the card panel shows one status line and nothing about folders or the firmware", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
-  await page.click("#cee-emu-card > summary");
+  await page.click("#cee-emu-card-open");
   await page.locator("#cee-sd-status", { hasText: "Nicht eingelegt" }).waitFor();
   await page.locator("label.ui-switch", { hasText: "Karte einlegen" }).click();
   await page.locator("#cee-sd-status", { hasText: "Eingelegt" }).waitFor();
   const text = await page.locator("#cee-emu-card").innerText();
   assert.doesNotMatch(text, /KORG\/|e2sSample|BLECH übernehmen|CARD FORMAT|IMPORT SAMPLE/);
-  assert.equal(await page.locator("#cee-emu-card button:visible").count(), 1, "only the Öffnen button, nothing to copy a folder");
+  assert.equal(await page.locator("#cee-emu-card .ui-dialog-body button:visible").count(), 1, "only the Öffnen button, nothing to copy a folder");
   assert.deepEqual(page.errors, []);
 });

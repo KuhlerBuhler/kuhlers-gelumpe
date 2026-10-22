@@ -59,7 +59,6 @@ async function open({ connected = true, running = true } = {}) {
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.evaluate(() => window.__ceeStubReady);
   await page.evaluate(bytes => { window.__ceeSim.device.pattern = Uint8Array.from(bytes); }, [...start]);
-  await page.click("#cee-sub-emu #cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   const since = Date.now();

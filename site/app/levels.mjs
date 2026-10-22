@@ -32,7 +32,7 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
   const state = { block: null, name: "", mode: "factor", value: "1", master: false, sendable: false };
 
   const fetchButton = el("button", { type: "button", className: "btn", id: "cee-lv-fetch", textContent: "Pattern aus dem Puffer holen" });
-  const sendButton = el("button", { type: "button", className: "btn primary", id: "cee-lv-send", textContent: "Skalierung senden", disabled: true });
+  const sendButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-lv-send", textContent: "Skalierung senden", disabled: true });
   const undoButton = el("button", { type: "button", className: "btn", id: "cee-lv-undo", textContent: "Senden zurücknehmen", disabled: true });
   const body = el("div", { className: "cee-levels", id: "cee-lv-body", hidden: true });
   const say = text => {

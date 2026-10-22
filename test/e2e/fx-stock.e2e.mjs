@@ -32,7 +32,6 @@ test("effect editor on Korg's original with BLECH: a name is written into the ru
   const page = await h.page();
   await page.goto(`${h.url}#emu=${service.port}:${service.token}`);
   await page.click("#cee-tab-emu");
-  if (!(await page.locator("#cee-emu-setup").evaluate(n => n.open))) await page.click("#cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", patched.bytes));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "Korgs Original-Firmware 2.02, erkannt" }).waitFor();
   await page.click("#cee-e2-power");

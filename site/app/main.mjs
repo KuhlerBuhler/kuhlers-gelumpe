@@ -22,6 +22,8 @@ import { rescuePage } from "./rescue.mjs";
 import { changelogPage } from "./changelog.mjs";
 import { splashPage } from "./splash.mjs";
 import { terminalPanel } from "./terminal.mjs";
+import { featuresPage, featureCards } from "./features.mjs";
+import { baukastenPage } from "./baukasten.mjs";
 import { scriptsPanel } from "./scripts.mjs";
 import { Terminal } from "../../src/terminal.mjs";
 import { loadBlechSet } from "../../src/patcher.mjs";
@@ -368,6 +370,10 @@ function navbar({ onMode }) {
   let connectButton = null;
   let device = false;
   let emuAction = null;
+  let cardButton = null;
+  let consoleAction = null;
+  let pluginActions = [];
+  const trails = {};
   $("#cee-mode-button").append(icon("chevronDown"));
   const menu = dropdown($("#cee-mode-button"), $("#cee-mode-menu"), { onPick: onMode });
   function render() {
@@ -378,12 +384,13 @@ function navbar({ onMode }) {
       $("#cee-mode-label").textContent = MODES[page];
       for (const item of $("#cee-mode-menu").querySelectorAll("[role=menuitemradio]")) item.setAttribute("aria-checked", String(item.dataset.value === page));
     } else {
-      $("#cee-nav-title").textContent = $(`#cee-tab-${page}`)?.textContent ?? "";
+      // A page with sub-pages shows where you are as a breadcrumb: Plugins › Dokumentation › the section you read.
+      $("#cee-nav-title").replaceChildren($(`#cee-tab-${page}`)?.textContent ?? "", ...(trails[page] ?? []).map(t => el("span", { className: "cee-crumb", textContent: t })));
     }
     // On the device page the navbar carries the connect button while no device is attached (it moves there from
     // the page, so its handlers stay), and the words "Gerät verbunden" once one is.
     connectButton ??= $("#cee-connect");
-    const state = page === "emu" ? (emuAction ? [emuAction] : []) : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
+    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
@@ -391,7 +398,32 @@ function navbar({ onMode }) {
     device(on) { device = on; render(); },
     /** A control the emulator page puts into the navbar (the button for its own window). */
     emu(node) { emuAction = node; render(); },
+    /** The button that opens the emulator's SD card. */
+    card(node) { cardButton = node; render(); },
+    /** The console's switch that lets scripts go on to the real device. */
+    console(node) { consoleAction = node; render(); },
+    /** Öffnen and Speichern of the plugin editor while it is open. */
+    plugins(nodes) { pluginActions = nodes; render(); },
+    /** The breadcrumb after the title of `id`: the sub-page and, in the docs, the section. */
+    trail(id, parts) { trails[id] = parts; if (id === page) render(); },
   };
+}
+
+/** The emulator's SD card in a dialog behind "SD-Karte öffnen" in the navbar; returns the dialog's body for the panel. */
+function cardDialog(nav) {
+  const body = el("div", { className: "ui-dialog-body" });
+  const dialog = el("dialog", { className: "ui-dialog ui-dialog-narrow", id: "cee-emu-card" });
+  dialog.setAttribute("aria-labelledby", "cee-emu-card-title");
+  dialog.append(el("form", { method: "dialog", className: "ui-dialog-box" }, [
+    el("header", { className: "ui-dialog-head" }, el("h2", { className: "ui-dialog-title", id: "cee-emu-card-title", textContent: "SD-Karte" })),
+    body,
+    el("footer", { className: "ui-dialog-foot" }, el("button", { type: "submit", className: "btn", textContent: "Schließen" })),
+  ]));
+  document.body.append(dialog);
+  const button = el("button", { type: "button", className: "btn sm", id: "cee-emu-card-open", textContent: "SD-Karte öffnen" });
+  button.addEventListener("click", () => (window.ui?.openDialog ? window.ui.openDialog(dialog) : dialog.showModal()));
+  nav.card(button);
+  return body;
 }
 
 /** Below 60rem the sidebar is a drawer behind the menu button. */
@@ -435,7 +467,8 @@ function boot() {
   settingsButton($("#cee-settings-button"), () => { areas?.select("settings"); drawer.close(); });
   const emu = takeLink();
   let areas = null;
-  const nav = navbar({ onMode: id => areas?.select(id, { focus: false }) });
+  // Picking the mode that is open already changes nothing; ui.tabs would show the empty device panel instead of the drawing.
+  const nav = navbar({ onMode: id => { if (id !== areas?.current) areas?.select(id, { focus: false }); } });
   const drawer = sidebarDrawer();
   sidebarFold();
   const options = subnav();
@@ -446,6 +479,7 @@ function boot() {
   let follow = null;
   let popout = null;
   let terminal = null;
+  let sd = null;
   // One session on the emulator's port, shared by the effect editor's probe and the terminal's rehearsal.
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
@@ -490,7 +524,7 @@ function boot() {
       $("#cee-device").hidden = id !== "device";
       if (id === "device") { $("#cee-area-emu").hidden = false; $("#cee-area-device").hidden = true; }
       popout?.realDevice(id === "device");
-      if (id === "scripts") terminal?.update();
+      if (id === "console") terminal?.update();
       if (id === "changelog") changelog.opened();
     },
   }) : null;
@@ -532,8 +566,9 @@ function boot() {
     openPreset: slot => { if (fx.open("ifx", slot)) $("#cee-fx").scrollIntoView?.({ block: "start" }); },
     device,
   });
-  emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, sub: options });
+  emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, onConnect: next => sd?.connect(next) });
   const modulations = modulationsPage($("#cee-mod"), { emulator });
+  const baukasten = baukastenPage($("#cee-baukasten"), { emulator });
   samplesPage($("#cee-samples"), { device, emulator, probe });
   let fxFirmware = null;
   let modFirmware = null;
@@ -559,20 +594,31 @@ function boot() {
       });
     }
     if (emulator.firmware && emulator.firmware !== modFirmware) { modFirmware = emulator.firmware; modulations.loadBytes(modFirmware).catch(() => {}); }
+    baukasten.update();
     if (!emulator.firmware !== noFirmware) { noFirmware = !emulator.firmware; restrict(); }
   }, 1000);
   // Shut from the first frame, not a second later: before that a click still opened a page without its tables.
   noFirmware = !emulator.firmware;
   restrict();
-  const card = options.add("emu", { id: "cee-emu-card", title: "SD-Karte" });
-  const sd = sdcardPanel(card.body, emulator, { heading: false });
+  sd = sdcardPanel(cardDialog(nav), emulator, { heading: false });
   popout = emulatorWindow(emulator, { place: node => nav.emu(node) });
   popout.realDevice(areas?.current === "device");
   patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null });
   rescuePage($("#cee-rescue"));
+  featuresPage($("#cee-features"));
+  featureCards($("#cee-start-features"));
   splashPage($("#cee-splash"));
-  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null });
-  terminal = terminalPanel($("#cee-terminal"), { terminal: new Terminal({ device, emulator, probe }), device, scripts, lack: () => emulator.lack("sysex") });
+  // A run from the console opens the Plugins page, where the run area shows it.
+  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null, onRun: () => areas?.select("scripts", { focus: false }), trail: parts => nav.trail("scripts", parts), navbar: nodes => nav.plugins(nodes) });
+  // The console always talks to the emulator; this switch in the navbar lets a script go on to a connected Electribe.
+  const forward = el("input", { type: "checkbox", role: "switch", id: "cee-term-forward" });
+  nav.console(el("label", { className: "ui-switch cee-term-forward" }, [forward, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "An echtes Gerät weiterleiten"]));
+  terminal = terminalPanel($("#cee-terminal"), {
+    terminal: new Terminal({ device, emulator, probe, forward: () => forward.checked }),
+    device, scripts, forward,
+    lack: () => emulator.lack("sysex"),
+    power: () => emulator.powerOn(),
+  });
   // The app always starts with the link in its address and opens on the start page; a link opened in the browser goes to the emulator.
   if (emu.fresh) areas?.select(window.__GELUMPE_APP ? "start" : "emu");
   else findLink(emu).then(found => {

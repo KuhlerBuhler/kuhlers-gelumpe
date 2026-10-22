@@ -34,7 +34,6 @@ async function open(viewport, labs = false) {
 }
 
 async function powerOn(page) {
-  await page.click("#cee-sub-emu #cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-e2-power");
@@ -48,7 +47,6 @@ test("axe: start page, emulator (off, with options open, running), no serious or
   assert.deepEqual(await severeViolations(page), [], "start");
   await page.click("#cee-tab-emu");
   assert.deepEqual(await severeViolations(page), [], "emulator off");
-  await page.click("#cee-sub-emu #cee-emu-card > summary");
   await powerOn(page);
   assert.deepEqual(await severeViolations(page), [], "emulator running, a lit key and a blue pad");
   assert.deepEqual(page.errors, []);
@@ -73,11 +71,20 @@ test("axe: device mode, patcher, presets, plugins with a running plugin, and the
   assert.deepEqual(await severeViolations(page), [], "plugins, catalog");
   await page.click("#cee-scripts-page-editor");
   assert.deepEqual(await severeViolations(page), [], "plugins, editor");
-  await page.click("#cee-scripts-page-run");
-  await page.click("#cee-script-run");
+  await page.click("#cee-script-preview");
   await page.locator("#cee-sim-state", { hasText: "Lauf:" }).waitFor();
-  assert.deepEqual(await severeViolations(page), [], "plugins, running");
-  for (const id of ["console", "docs", "catalog"]) {
+  assert.deepEqual(await severeViolations(page), [], "plugins, running in the preview");
+  await page.click("#cee-plugin-run-close");
+  await page.click("#cee-scripts-page-catalog");
+  await page.click("#cee-catalog-snake .cee-catalog-open");
+  await page.locator("#cee-sim-state", { hasText: "Lauf: snake" }).waitFor();
+  assert.deepEqual(await severeViolations(page), [], "plugins, the page of a plugin");
+  await page.click("#cee-detail-view-code");
+  assert.deepEqual(await severeViolations(page), [], "plugins, the code of a plugin");
+  await page.click("#cee-tab-console");
+  assert.deepEqual(await severeViolations(page), [], "console");
+  await page.click("#cee-tab-scripts");
+  for (const id of ["docs", "catalog"]) {
     await page.click(`#cee-scripts-page-${id}`);
     assert.deepEqual(await severeViolations(page), [], `plugins, ${id}`);
   }
@@ -87,11 +94,12 @@ test("axe: device mode, patcher, presets, plugins with a running plugin, and the
 test("the sidebar tablist holds tabs only, and the options still sit under their entry", async () => {
   const page = await open();
   assert.equal(await page.locator("#cee-areas > :not([role=tab])").count(), 0);
+  await page.click("#cee-tab-scripts");
   const order = await page.evaluate(() => {
     const y = id => document.getElementById(id).getBoundingClientRect().top;
-    return [y("cee-tab-emu"), y("cee-sub-emu"), y("cee-tab-patcher")];
+    return [y("cee-tab-scripts"), y("cee-sub-scripts"), y("cee-tab-changelog")];
   });
-  assert.ok(order[0] < order[1] && order[1] < order[2], `the options are between Emulator and Patcher: ${order}`);
+  assert.ok(order[0] < order[1] && order[1] < order[2], `the options are between Plugins and Changelogs: ${order}`);
 });
 
 test("the status line does not rebuild itself when the service repeats the same state", async () => {
@@ -118,8 +126,8 @@ test("the display has a text for what it shows: a screen line only screen reader
 test("the plugin run area touchpad works from the keyboard", async () => {
   const page = await open();
   await page.click("#cee-tab-scripts");
-  await page.click("#cee-scripts-page-run");
-  await page.click("#cee-script-run");
+  await page.click("#cee-scripts-page-editor");
+  await page.click("#cee-script-preview");
   await page.locator("#cee-sim-state", { hasText: "Lauf:" }).waitFor();
   await page.locator("#cee-sim-touchpad").focus();
   await page.keyboard.down("Space");
@@ -141,7 +149,8 @@ test("below 60rem the menu button moves the focus into the drawer, and Escape gi
 test("a file button whose input is hidden shows the keyboard focus on the button", async () => {
   const page = await open();
   await page.click("#cee-tab-scripts");
-  await page.click("#cee-scripts-page-editor");
+  await page.click("#cee-scripts-page-catalog");
+  await page.click("#cee-shelf-own");
   await page.locator("#cee-script-open").focus();
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Tab");
@@ -227,7 +236,6 @@ test("axe: the plugin editor with a completion list, its description, a paramete
 test("axe: modulations with the slots, and with a hint showing", async () => {
   const page = await open();
   await page.click("#cee-tab-emu");
-  await page.click("#cee-sub-emu #cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-tab-mod");

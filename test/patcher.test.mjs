@@ -420,3 +420,27 @@ test("the way the page shows follows the flow: the step it is at is current, the
   assert.deepEqual(states("downloaded"), ["done", "done", "done", "done"]);
   assert.deepEqual(states("rejected"), ["error", "todo", "todo", "todo"]);
 });
+
+test("no test: the patched copy goes on without a report and says so; a new run clears that", async () => {
+  const { step, newFlow } = await import("../src/patcher.mjs");
+  let flow = step(newFlow(), { type: "input", input: { kind: "hacktribe", size: 1, reasons: [], present: [] } });
+  flow = step(flow, { type: "patching", patches: [{ id: "a", label: "A" }] });
+  assert.equal(step(flow, { type: "untested" }).phase, "patching", "not before every patch went on");
+  flow = step(flow, { type: "patch", id: "a", ok: true });
+  flow = step(flow, { type: "untested" });
+  assert.equal(flow.phase, "passed");
+  assert.equal(flow.untested, true);
+  assert.equal(flow.steps.find(s => s.id === "check").status, "skip");
+  assert.equal(step(flow, { type: "downloaded" }).phase, "downloaded");
+});
+
+test("an untested copy can be patched again, with a test; a tested one cannot", async () => {
+  const { step, newFlow, allowed } = await import("../src/patcher.mjs");
+  let flow = step(newFlow(), { type: "input", input: { kind: "hacktribe", size: 1, reasons: [], present: [] } });
+  flow = step(step(flow, { type: "patching", patches: [{ id: "a", label: "A" }] }), { type: "patch", id: "a", ok: true });
+  const untested = step(flow, { type: "untested" });
+  assert.equal(allowed(untested).patch, true);
+  assert.equal(step(untested, { type: "patching", patches: [] }).untested, false);
+  const tested = step(step(flow, { type: "checking" }), { type: "checked", report: { ok: true, checks: [{ id: "x", ok: true }] } });
+  assert.equal(allowed(tested).patch, false);
+});

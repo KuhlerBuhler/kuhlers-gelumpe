@@ -49,7 +49,6 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let input = null;             // the bytes the patches go on: the dropped file, or Korg's original turned into Hacktribe's
   let stockFile = null;         // Korg's original as dropped, and what classify made of it, to go back to on the other route
   let passed = null;            // the patched copy that passed the check
-  let applied = null;           // what applyPatches gave for it: the spans the check needs again for the thorough run
   let blech = null;             // the BLECH set (data/patches/blech.json) with its patches parsed, once loaded
   let hint = null;
   let usb = null;               // the file came over USB: { fromOriginal }; null for a dropped file (then the unpatched one goes to the card too)
@@ -62,15 +61,31 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("span", { className: "ui-dropzone-files" }),
   ]);
 
-  const usbGet = el("button", { type: "button", className: "btn primary", id: "cee-patch-usb-get", textContent: "Update auf Gerät" });
+  // Korg's System Updater holds the SYSTEM.VSB; in the app the link opens in the browser (src-tauri/src/main.rs).
+  const korgCard = (device, name, url) => {
+    const out = icon("popout");
+    out.classList.add("cee-device-card-out");
+    const a = el("a", { className: "cee-entry-step cee-device-card", id: `cee-patch-korg-${device}`, href: url, target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer" }, [
+      el("strong", { textContent: name }), el("span", { textContent: "System Updater bei Korg laden" }), out,
+    ]);
+    a.dataset.device = device;
+    return el("li", {}, [a]);
+  };
+  const korg = el("div", { className: "cee-patch-korg", id: "cee-patch-korg" }, [
+    el("p", { className: "cee-patch-lead" }, ["Deine ", el("code", { textContent: "SYSTEM.VSB" }), " liegt auf der SD-Karte der Electribe, im Ordner ", el("code", { textContent: "KORG/…/System/" }), ". Hast du keine, lad Korgs System Updater 2.02, darin steckt sie."]),
+    el("ul", { className: "cee-entry-steps", id: "cee-patch-firmware" }, [
+      korgCard("red", "Electribe 2 Sampler (rot)", "https://www.korg.com/us/support/download/product/0/368/#software"),
+      korgCard("blue", "Electribe 2 (blau)", "https://www.korg.com/us/support/download/product/0/367/#software"),
+    ]),
+  ]);
+  const usbGet = el("button", { type: "button", className: "btn lg", id: "cee-patch-usb-get", textContent: "Update auf Gerät" });
   const usbNote = el("p", { className: "muted", id: "cee-patch-usb-note", role: "status", hidden: true });
   const usbBox = el("section", { className: "cee-patch-usb", id: "cee-patch-usb" }, [
     el("h2", { className: "cee-patch-usb-title", textContent: "Update direkt über USB" }),
     el("p", { className: "cee-patch-lead", textContent: "Ist BLECHTRIBE schon auf deiner Electribe, schließ sie nur per USB an und verbinde sie auf der Seite Gerät. Der Knopf holt die Firmware-Datei von der Karte, setzt das neueste BLECHTRIBE drauf, prüft sie im Emulator und legt sie zurück. Am Gerät drückst du danach nur noch DATA UTILITY > SOFTWARE UPDATE." }),
     el("div", { className: "actions" }, [usbGet]),
-    usbNote,
   ]);
-  const usbPut = el("button", { type: "button", className: "btn primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
+  const usbPut = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
   const way = el("ol", { className: "cee-patch-way", id: "cee-patch-way" });
   way.setAttribute("aria-label", "Weg zur neuen Firmware");
   const verdictBox = el("div", { className: "cee-patch-verdict", id: "cee-patch-verdict", role: "status" });
@@ -98,24 +113,88 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       ". Wir können sie nicht mitliefern, ihre Lizenz erlaubt keine Weitergabe. Lade sie bei Hacktribe herunter und zieh sie hierher; sie wird nur in deinem Browser angewendet."]),
     patchDrop,
   ]);
-  const run = el("button", { type: "button", className: "btn primary", id: "cee-patch-run", textContent: "Patchen und im Emulator prüfen", hidden: true });
+  const run = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-run", textContent: "Patchen und testen", hidden: true });
+  // How much of the emulator test runs: none (with consent), the quick one of today, or the full run that once took 90 minutes.
+  const TESTS = [
+    ["none", "Kein Test", "Die Datei wird nur gepatcht. Ob sie startet, siehst du erst am Gerät."],
+    ["quick", "Schneller Test", "Der Emulator startet die neue Datei und prüft Start, Update-Abfrage, Startmodi und Notschalter. Ein paar Minuten."],
+    ["full", "Voller Test", "Dazu alle Prüfungen des Emulators an jedem Patch. Kann auf langsamen Rechnern über eine Stunde dauern."],
+  ];
+  let testChoice = "quick";
+  const testInputs = TESTS.map(([value, text]) => {
+    const radio = el("input", { type: "radio", name: "cee-patch-test", value, checked: value === testChoice });
+    radio.addEventListener("change", () => { if (radio.checked) { testChoice = value; render(); } });
+    return { value, radio, label: el("label", { className: "ui-segmented-option" }, [radio, el("span", { textContent: text })]) };
+  });
+  const testGroup = el("div", { className: "ui-segmented", id: "cee-patch-test" }, testInputs.map(t => t.label));
+  testGroup.setAttribute("role", "radiogroup");
+  testGroup.setAttribute("aria-label", "Test im Emulator");
+  const testNote = el("p", { className: "muted", id: "cee-patch-test-note" });
+  const consent = el("input", { type: "checkbox", id: "cee-patch-consent" });
+  consent.addEventListener("change", () => render());
+  const consentBox = el("label", { className: "cee-patch-consent", id: "cee-patch-consent-box", hidden: true }, [consent,
+    el("span", { textContent: "Ich kenne die Folgen: Startet die Datei nicht, weil beim Patchen etwas schiefging oder BLECHTRIBE einen Fehler hat, bin ich selbst verantwortlich. Keine Haftung." })]);
+  const testBox = el("div", { className: "cee-patch-test-box" }, [el("h2", { className: "cee-patch-usb-title", textContent: "Test" }), testGroup, testNote, consentBox]);
+  const planList = el("ul", { className: "cee-patch-plan", id: "cee-patch-plan" });
+  const plan = el("div", { className: "cee-patch-plan-box" }, [
+    el("p", { className: "cee-patch-lead", textContent: "Diese Patches kommen auf deine Firmware. Danach bootet der Emulator die neue Datei und prüft, ob alles läuft. Das dauert ein paar Minuten." }),
+    planList,
+  ]);
   const bar = el("div", { className: "ui-progress cee-patch-bar", id: "cee-patch-bar", hidden: true });
   const groupList = el("ul", { className: "cee-patch-groups", id: "cee-patch-groups", hidden: true });
   const checkList = el("ul", { className: "ui-list", id: "cee-patch-checks" });
   const checksBox = el("details", { className: "ui-details", id: "cee-patch-details", hidden: true }, [el("summary", { id: "cee-patch-details-title" }), el("div", { className: "ui-details-body" }, [checkList])]);
   const note = el("p", { className: "muted", id: "cee-patch-note", role: "status", hidden: true });
-  const download = el("button", { type: "button", className: "btn primary", id: "cee-patch-download", textContent: "SYSTEM.VSB herunterladen", disabled: true });
+  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-download", textContent: "Speichern", disabled: true });
+  // Step 4 names where the file goes before anything is saved: big, so it can be read off while copying.
+  const targetPath = el("p", { className: "cee-patch-path", id: "cee-patch-path" });
+  const untested = el("p", { className: "cee-note", id: "cee-patch-untested", hidden: true, textContent: "Diese Datei ist nicht getestet. Halt beim ersten Start EXIT bereit: damit startet die Electribe ohne die Patches." });
+  const target = el("div", { className: "cee-patch-target", id: "cee-patch-target" }, [
+    el("p", { className: "cee-patch-lead", textContent: "Die neue Datei gehört auf die SD-Karte der Electribe, hierhin:" }),
+    targetPath,
+    untested,
+  ]);
   const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: "Ich hab angst dass mein Gerät kaputt geht", disabled: true });
-  const thorough = el("button", { type: "button", className: "btn", id: "cee-patch-thorough", textContent: "Gründlich prüfen", hidden: true });
-  const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [usbPut, download, afraid, thorough]);
+  const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [usbPut, download, afraid]);
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
+
+  // One panel per step of the way; Zurück and Weiter move between them, the flow decides how far Weiter may go.
+  const panels = [
+    [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, verdictBox, routeBox, patchBox, korg],
+    [plan, synthSet, testBox],
+    [bar, note, groupList, checksBox],
+    [target, result, done],
+  ].map((children, i) => el("div", { className: "cee-patch-panel", id: `cee-patch-step-${i + 1}`, tabIndex: -1, hidden: i > 0 }, children));
+  const back = el("button", { type: "button", className: "btn", id: "cee-patch-back", textContent: "Zurück", hidden: true });
+  const next = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-next", textContent: "Weiter", disabled: true });
+  let view = 0;
 
   root.replaceChildren(el("div", { className: "cee-patch" }, [
     el("h1", { className: "cee-patch-title ui-sr-only", textContent: "Firmware Patcher" }),
-    el("p", { className: "cee-patch-lead", textContent: "Zieh deine eigene SYSTEM.VSB hierher. Es wird nichts hochgeladen, gepatcht wird in deinem Browser. Eine fertige Firmware gibt es hier nie, nur deine eigene mit BLECHTRIBE drauf." }),
-    el("p", { className: "cee-patch-lead" }, ["Falls danach etwas nicht startet: ", el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: "Rettung" }), " zeigt den dokumentierten Weg zurück."]),
-    way, usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, verdictBox, synthSet, routeBox, patchBox, run, bar, note, groupList, checksBox, result, done,
+    way,
+    usbNote,
+    ...panels,
+    el("div", { className: "cee-patch-nav", id: "cee-patch-nav" }, [back, next, run]),
+    el("p", { className: "muted" }, ["Falls danach etwas nicht startet: ", el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: "Rettung" }), " zeigt den dokumentierten Weg zurück."]),
   ]));
+
+  /** The furthest step the flow allows: a file taken opens step 2, a run step 3, a passed copy step 4. */
+  function reach() {
+    const p = flow.phase;
+    if (p === "passed" || p === "downloaded") return 3;
+    if (p === "patching" || p === "checking" || (p === "failed" && flow.report)) return 2;
+    if (p === "ready" || p === "failed") return 1;
+    return 0;
+  }
+
+  function go(to) {
+    view = to;
+    render();
+    panels[view].focus({ preventScroll: true });
+    panels[view].scrollIntoView?.({ block: "nearest" });
+  }
+  back.addEventListener("click", () => { if (view > 0 && !allowed(flow).busy) go(view - 1); });
+  next.addEventListener("click", () => { if (view < reach() && !allowed(flow).busy) go(view + 1); });
 
   async function loadPatches(build = input ? buildOf(input) : "hacktribe") {
     const setUrl = build === "synth" ? BLECH_SYNTH_SET_URL : BLECH_SET_URL;
@@ -138,7 +217,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     }
   }
 
-  const dispatch = event => { flow = step(flow, event); render(); };
+  const dispatch = event => {
+    flow = step(flow, event);
+    // A run shows its check; a new file or a failed patch goes back as far as the flow still allows.
+    if (allowed(flow).busy) view = 2;
+    render();
+  };
 
   // The emulator service reports how far the check is (tools/emu/progress.py); the page polls it while the check request runs.
   // Until the first report is in, or with a service that has none, the bar just runs without a value.
@@ -193,12 +277,20 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   function render() {
     const can = allowed(flow);
+    view = Math.min(view, reach());
     way.replaceChildren(...wayOf(flow).map((s, i) => {
-      const li = el("li", { className: "cee-patch-way-step" }, [el("span", { className: "cee-patch-way-n", textContent: s.state === "done" ? "✓" : String(i + 1) }), el("span", { textContent: s.label })]);
-      li.dataset.state = s.state;
-      if (s.state === "current") li.setAttribute("aria-current", "step");
+      const state = s.state === "error" ? "error" : i === view ? "current" : i < reach() || s.state === "done" ? "done" : "todo";
+      const li = el("li", { className: "cee-patch-way-step" }, [el("span", { className: "cee-patch-way-n", textContent: state === "done" ? "✓" : String(i + 1) }), el("span", { textContent: s.label })]);
+      li.dataset.state = state;
+      if (state === "current") li.setAttribute("aria-current", "step");
       return li;
     }));
+    panels.forEach((p, i) => { p.hidden = i !== view; });
+    back.hidden = view === 0;
+    back.disabled = can.busy;
+    next.hidden = view === 1 || view === 3;
+    next.disabled = can.busy || view >= reach();
+    planList.replaceChildren(...(blech && input ? itemsFor(blech, buildOf(input)) : []).map(p => el("li", { textContent: p.label })));
     const v = verdict(flow, blech?.items ?? []);
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
@@ -208,9 +300,14 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     for (const r of routeInputs) { r.radio.checked = r.value === flow.route; r.radio.disabled = can.busy; }
     patchBox.hidden = flow.phase !== "needs-patch";
     patchInput.disabled = can.busy;
-    run.hidden = !(flow.phase === "ready" || flow.phase === "failed" || can.busy);
-    run.disabled = !can.patch;
-    run.textContent = flow.phase === "failed" ? "Noch einmal patchen und prüfen" : "Patchen und im Emulator prüfen";
+    run.hidden = view !== 1;
+    run.disabled = !can.patch || (testChoice === "none" && !consent.checked);
+    run.textContent = flow.phase === "failed" ? "Noch einmal patchen und prüfen" : testChoice === "none" ? "Patchen" : "Patchen und testen";
+    for (const t of testInputs) { t.radio.checked = t.value === testChoice; t.radio.disabled = can.busy; }
+    testNote.textContent = TESTS.find(([v]) => v === testChoice)[2];
+    consentBox.hidden = testChoice !== "none";
+    targetPath.textContent = `${cardFolder(flow.origin)}SYSTEM.VSB`;
+    untested.hidden = !flow.untested;
     fileInput.disabled = can.busy;
 
     renderProgress(can);
@@ -226,7 +323,6 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usbPut.hidden = !session();
     usbPut.disabled = !can.download;
     usbGet.disabled = can.busy;
-    thorough.hidden = !(flow.report?.checks ?? []).some(c => c.id === "quick");
     download.disabled = !can.download;
     afraid.disabled = !can.test;
     done.hidden = flow.phase !== "downloaded";
@@ -304,32 +400,23 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         const n = res.spans.filter(s => s.patch === p.id).length;
         dispatch({ type: "patch", id: p.id, ok: true, detail: `${n} Stelle${n === 1 ? "" : "n"} geschrieben` });
       }
+      if (testChoice === "none") {
+        passed = res.bytes;
+        dispatch({ type: "untested" });
+        go(3);
+        return;
+      }
       dispatch({ type: "checking" });
       await tick();
-      // a copy nobody checked before gets the quick check (start and rescue paths); the thorough one is a button after it
-      const report = await verifiedReport(input, res.bytes, await loadVerified())
-        ?? await emulator.check(input, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: true });
-      applied = res;
+      // a copy checked before needs no run; otherwise the quick check (start and rescue paths) or the full one
+      const report = (testChoice === "quick" ? await verifiedReport(input, res.bytes, await loadVerified()) : null)
+        ?? await emulator.check(input, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: testChoice === "quick" });
       if (report.ok) passed = res.bytes;
       dispatch({ type: "checked", report });
     } catch (e) {
       dispatch({ type: "error", message: e.message });
     }
   }
-
-  thorough.addEventListener("click", async () => {
-    if (!passed || !applied) return;
-    const copy = passed;
-    dispatch({ type: "recheck" });
-    try {
-      const report = await emulator.check(input, copy, applied.allow, applied.allowCode, snapshot => { latest = snapshot; showProgress(); });
-      if (!report.ok) passed = null;
-      dispatch({ type: "checked", report });
-    } catch (e) {
-      passed = null;
-      dispatch({ type: "error", message: e.message });
-    }
-  });
 
   function buildDone() {
     const folder = cardFolder(flow.origin);
@@ -397,6 +484,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       await patchAndCheck();
       if (!passed) { usbNote.textContent = "Die Prüfung im Emulator ist nicht bestanden, auf das Gerät kam nichts. Details unten."; return; }
       await storeToDevice(s);
+      go(3);
     } catch (e) {
       usbNote.hidden = true;
       toast(e.message, "error");

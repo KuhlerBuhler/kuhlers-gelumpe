@@ -2,6 +2,8 @@
    design/root.min.css werden hier nicht umdefiniert. */
 :root {
   --cee-navbar-h: var(--space-16);
+  /* Room the folded sidebar's title and toggle take in the navbar row. */
+  --cee-folded-title: 22rem;
 }
 
 html {
@@ -91,6 +93,18 @@ html {
 label.btn:has(+ .cee-visually-hidden:focus-visible) {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
+}
+
+/* The main action of a step. Ice blue, the one accent of the app, instead of the green .btn.primary of the design
+   system, which stays for the Interface. */
+.btn.cee-primary {
+  border-color: var(--color-accent-primary-ring-ultra);
+  color: var(--color-text-primary);
+}
+
+.btn.cee-primary:hover {
+  background: var(--color-accent-primary-ring-soft);
+  border-color: var(--color-accent-primary);
 }
 
 .cee-reload {
@@ -680,6 +694,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   transform: translate(-50%, -50%);
   pointer-events: none;
   opacity: var(--cee-e2-glow, 0);
+  /* raw-ok: the glow of a lit pad on the drawing of the device. */
   background: radial-gradient(circle,
     color-mix(in srgb, var(--cee-e2-lit, transparent) 55%, white) 0,
     var(--cee-e2-lit, transparent) 14%,
@@ -838,7 +853,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 }
 
 .cee-app[data-collapsed] .cee-navbar {
-  padding-inline-start: 22rem;
+  padding-inline-start: var(--cee-folded-title);
 }
 
 .cee-app[data-collapsed] .cee-side-body {
@@ -907,16 +922,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   width: 1.125rem;
   height: 1.125rem;
   margin-right: var(--space-2);
-}
-
-/* Rettung is in the danger colour: it is the way back, not a normal area. */
-.cee-nav-item[data-danger] {
-  color: var(--color-text-danger);
-}
-
-.cee-nav-item[data-danger][aria-selected="true"] {
-  border-color: var(--color-border-danger);
-  color: var(--color-text-danger);
 }
 
 .cee-nav-item {
@@ -1013,27 +1018,40 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 }
 
 .cee-release-side {
-  display: grid;
-  align-content: start;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
   font-size: var(--text-sm);
 }
 
-.cee-release-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
+.cee-release-side h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
 }
 
-.cee-release-head h2 {
+.cee-release-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-release-body > * {
   margin: 0;
 }
 
 @media (max-width: 640px) {
   .cee-release {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cee-release-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-3);
   }
 }
 
@@ -1204,7 +1222,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-home {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-14);
 }
 
 .cee-note {
@@ -1217,7 +1235,17 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-sec {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-5);
+}
+
+/* DESIGN.md rule 1: the parent spaces its children with gap, so nothing in a page, section or step adds a margin. */
+.cee-main :is(.ui-section, .cee-sec, .cee-patch-panel, .cee-home, .ui-field) > * {
+  margin-block: 0;
+}
+
+@media (max-width: 720px) {
+  .cee-home { gap: var(--space-8); }
+  .cee-sec { gap: var(--space-3); }
 }
 
 .cee-sec p {
@@ -1228,7 +1256,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
-  gap: var(--space-4);
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1257,6 +1285,28 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-card h3 {
   margin-bottom: var(--space-1);
   font-size: var(--text-md);
+}
+
+/* A card of the start page carries a picture of the display; the pixels stay sharp. */
+.cee-feature-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cee-feature-card > * {
+  margin: 0;
+}
+
+.cee-feature-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  margin-bottom: var(--space-1);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-xs);
+  image-rendering: pixelated;
 }
 
 .cee-home-foot {
@@ -1332,23 +1382,47 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-term-in { color: var(--color-text-accent); }
 .cee-term-error { color: var(--color-text-danger); }
 
-.cee-term-prompt {
+/* The line you type stands at the end of the output, as in a terminal; the box shows the focus instead of the field. */
+.cee-term-lines {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cee-term-entry {
+  display: flex;
+  align-items: flex-start;
   gap: var(--space-2);
-  align-items: stretch;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.cee-term-caret {
+  color: var(--color-accent-primary);
 }
 
 .cee-term-input {
   flex: 1;
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-item-muted);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  resize: vertical;
+  font: inherit;
+  line-height: inherit;
+  resize: none;
+  outline: none;
+}
+
+.cee-term-log:focus-within {
+  border-color: var(--color-focus-ring);
+  box-shadow: 0 0 0 1px var(--color-focus-ring);
+}
+
+.cee-term-send[hidden],
+.cee-term-send:has(> [hidden]:only-child) {
+  display: none;
 }
 
 .cee-term-target { margin: 0; }
@@ -1773,20 +1847,7 @@ select,
 
 /* Pattern-Werkzeuge (pattern-tools.mjs) */
 .cee-pt-intro {
-  margin-bottom: var(--space-6);
   line-height: 1.6;
-}
-
-#cee-ptools > .ui-section + .ui-section {
-  margin-top: var(--space-8);
-}
-
-#cee-ptools .ui-section > .cee-grid {
-  margin-top: var(--space-4);
-}
-
-.cee-pt-device-row {
-  margin-top: var(--space-3);
 }
 
 .cee-pt-results {
@@ -1994,7 +2055,7 @@ select,
   outline-offset: 2px;
 }
 
-/* Plugins-Seite: Editor, Lauf, Konsole, Namen und Katalog sind eigene Seiten unter dem Eintrag Plugins. Jede füllt die Fensterhöhe, die Seite
+/* Plugins-Seite: Editor, Lauf, Namen und Katalog sind eigene Seiten unter dem Eintrag Plugins. Jede füllt die Fensterhöhe, die Seite
    selbst scrollt nicht. Im Editor sitzt links die Liste, rechts Werkzeugleiste und Editor; nur der Editor und die Liste scrollen bei Bedarf. */
 .cee-main:has(#cee-area-scripts:not([hidden])) {
   padding-block: var(--space-4);
@@ -2003,7 +2064,7 @@ select,
 #cee-scripts {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-5);
   height: calc(100dvh - 7.75rem);
   min-height: 34rem;
   padding: 0;
@@ -2016,39 +2077,24 @@ select,
   min-height: 0;
 }
 
+/* The editor is the whole page (scripts.mjs). */
 .cee-workspace {
-  grid-template-columns: clamp(11rem, 17vw, 15rem) minmax(0, 1fr);
-  align-items: stretch;
-  gap: var(--space-4);
+  display: flex;
+  flex-direction: column;
   height: calc(100dvh - 7.75rem);
   min-height: 34rem;
 }
 
-.cee-ws-side {
-  position: static;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: var(--space-2);
-}
-
-.cee-ws-side-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
-}
-
-.cee-ws-side-actions .btn { justify-content: center; padding-inline: var(--space-2); }
-.cee-ws-side-actions #cee-script-export-all { grid-column: 1 / -1; }
-.cee-ws-side .cee-pattern-list { max-height: none; overflow: visible; }
-.cee-ws-side-note { margin: var(--space-4) 0 0; font-size: var(--text-xs); }
-
 .cee-ws-main {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
   gap: var(--space-2);
   min-height: 0;
+}
+
+.cee-ws-actions {
+  margin: 0;
 }
 
 .cee-ws-toolbar {
@@ -2096,15 +2142,12 @@ select,
 .cee-term-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); font-size: var(--text-xs); }
 .cee-term-head p { margin: 0; }
 .cee-ws-console .cee-term-log { flex: 1 1 4rem; min-height: 4rem; max-height: none; margin: 0; }
-.cee-ws-console .cee-term-prompt { align-items: flex-start; }
 
 @media (max-width: 720px) {
-  #cee-scripts { height: auto; min-height: 0; }
+  #cee-scripts { height: auto; min-height: 0; gap: var(--space-3); }
   #cee-scripts > .cee-workspace,
   #cee-scripts > .cee-plug-page { flex: none; }
-  .cee-workspace { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); height: auto; min-height: 0; }
-  .cee-ws-side { display: none; overflow: visible; padding-right: 0; }
-  .cee-workspace[data-open] > .cee-ws-side { display: flex; }
+  .cee-workspace { height: auto; min-height: 0; }
   .cee-script-editor { flex: none; height: 24rem; }
   .cee-ws-name .input { width: 100%; }
   .cee-ws-name { flex: 1 1 100%; }
@@ -2190,7 +2233,6 @@ select,
   display: none;
 }
 
-.cee-ws-side [hidden] { display: none; }
 .cee-ws-empty { margin: 0; padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
 
 /* The catalog: the bundled plugins as cards. */
@@ -2270,15 +2312,33 @@ html[data-motion="reduce"] *::after {
 /* The documentation page (scripts.mjs, markdown.mjs). */
 .cee-docs-head { display: flex; gap: var(--space-3); margin-bottom: var(--space-3); }
 .cee-docs-head .input { width: 24rem; max-width: 100%; }
-.cee-docs { line-height: 1.6; }
-.cee-docs-article { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-4); }
+.cee-docs { line-height: 1.6; color: var(--color-text-secondary); }
+.cee-docs-body { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: var(--space-8); align-items: start; }
+.cee-docs-toc { position: sticky; top: 0; max-height: calc(100dvh - 12rem); overflow-y: auto; }
+.cee-docs-toc > summary { display: none; }
+.cee-docs-text { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.cee-docs-article { display: flex; flex-direction: column; gap: var(--space-8); }
 .cee-doc-section { display: flex; flex-direction: column; gap: var(--space-3); }
 .cee-doc-section[hidden] { display: none; }
-.cee-doc-heading { margin: var(--space-4) 0 0; }
+.cee-doc-heading { margin: 0; color: var(--color-text-primary); }
+h2.cee-doc-heading { font-family: var(--font-display); font-size: var(--text-2xl); }
+h3.cee-doc-heading { font-family: var(--font-display); font-size: var(--text-xl); }
+h4.cee-doc-heading { font-size: var(--text-md); }
+h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondary); }
 .cee-docs p, .cee-docs li { margin: 0; }
+.cee-docs strong { color: var(--color-text-primary); }
+.cee-docs :not(pre) > code { padding: 0 var(--space-1); border-radius: var(--radius-xs); background: var(--color-surface-item-muted); color: var(--color-accent-primary); }
+.cee-key { padding: 0 var(--space-1); border: 1px solid var(--color-border-strong); border-bottom-width: 2px; border-radius: var(--radius-xs); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-primary); white-space: nowrap; }
+.cee-crumb::before { content: "›"; margin-inline: var(--space-2); color: var(--color-text-muted); }
+.cee-crumb { font-weight: 400; color: var(--color-text-secondary); }
+@media (max-width: 60rem) {
+  .cee-docs-body { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+  .cee-docs-toc { position: static; max-height: none; }
+  .cee-docs-toc > summary { display: revert; }
+}
 .cee-doc-list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding-inline-start: var(--space-6); }
 .cee-doc-code { margin: 0; padding: var(--space-3); overflow-x: auto; border: 1px solid var(--color-border-muted); border-radius: var(--radius-sm); background: var(--color-surface-faint); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.5; }
-.cee-docs code { font-family: var(--font-mono); font-size: 0.92em; }
+.cee-docs code { font-family: var(--font-mono); font-size: var(--text-sm); }
 .cee-doc-table { overflow-x: auto; }
 .cee-doc-quote { margin: 0; padding-inline-start: var(--space-4); border-inline-start: 2px solid var(--color-border-strong); color: var(--color-text-secondary); }
 .cee-doc-jump { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
@@ -2396,4 +2456,460 @@ html[data-motion="reduce"] *::after {
 .cee-entry-step:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
+}
+
+/* Konsole: an entry of its own under Gerät. The terminal fills the window like the plugin pages. */
+.cee-main:has(#cee-area-console:not([hidden])) {
+  padding-block: var(--space-4);
+}
+
+#cee-console {
+  height: calc(100dvh - 7.75rem);
+  min-height: 28rem;
+}
+
+#cee-console > .cee-ws-console {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  #cee-console { height: auto; }
+}
+
+/* Features (features.mjs): one list per group, an entry is its name, what it does and what to press. */
+.cee-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-feature {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-feature > * {
+  margin: 0;
+}
+
+.cee-feature h3 {
+  font-size: var(--text-md);
+}
+
+.cee-feature p {
+  color: var(--color-text-secondary);
+}
+
+.cee-feature-how strong {
+  color: var(--color-text-primary);
+}
+
+.cee-feature-where {
+  align-self: flex-start;
+  margin-top: auto;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* The firmware goes onto the display of a switched-off Electribe (emulator.mjs): the display is the drop target. */
+.cee-e2-screen .cee-lcd-frame {
+  position: relative;
+}
+
+.cee-emu-offer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: center;
+  cursor: pointer;
+}
+
+.cee-emu-offer strong {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.cee-emu-offer:hover,
+.cee-lcd-frame[data-drag] .cee-emu-offer {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-primary-ring-soft);
+}
+
+.cee-emu-offer[hidden] {
+  display: none;
+}
+
+.cee-emu-file .ui-dropzone-files {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Katalog and Eigene Plugins (scripts.mjs): two buttons that belong together above the cards. */
+.cee-plug-page:not([hidden]):has(> .cee-shelf-tabs) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cee-shelf-tabs {
+  align-self: flex-start;
+}
+
+.cee-shelf-tab[aria-pressed="true"],
+.cee-detail-views [aria-pressed="true"] {
+  background: var(--color-surface-item-strong);
+  color: var(--color-text-primary);
+}
+
+.cee-catalog[hidden],
+.cee-own-shelf[hidden] {
+  display: none;
+}
+
+.cee-own-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-own-shelf > * {
+  margin: 0;
+}
+
+.cee-catalog-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.cee-catalog-category {
+  color: var(--color-accent-primary);
+}
+
+.cee-catalog-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cee-catalog-open:hover {
+  text-decoration: underline;
+}
+
+.cee-catalog-card canvas {
+  cursor: pointer;
+}
+
+/* A plugin's page: the picture top left, beside it title, description and details. */
+.cee-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.cee-detail > * {
+  margin: 0;
+}
+
+.cee-detail-back {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cee-detail-head {
+  display: grid;
+  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.cee-detail-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+}
+
+.cee-detail-text > * {
+  margin: 0;
+}
+
+.cee-detail-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  color: var(--color-text-primary);
+}
+
+.cee-detail-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.cee-detail-facts dt {
+  color: var(--color-text-muted);
+}
+
+.cee-detail-facts dd {
+  margin: 0;
+}
+
+.cee-detail-controls {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+}
+
+.cee-detail-views {
+  align-self: flex-start;
+}
+
+.cee-detail-run[hidden],
+.cee-detail-code[hidden] {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .cee-detail-head { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The preview over the editor: wide enough for the drawing of the Electribe. */
+.cee-preview {
+  width: min(64rem, calc(100vw - var(--space-8)));
+  max-width: none;
+}
+
+/* The Baukasten (baukasten.mjs): ready ones as cards, then the builder step by step. */
+.cee-bk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.cee-bk > *,
+.cee-bk-shelf > *,
+.cee-bk-builder > *,
+.cee-bk-steps > *,
+.cee-bk-mod-body > *,
+.cee-bk-block > *,
+.cee-bk-card > * {
+  margin: 0;
+}
+
+.cee-bk-lead {
+  color: var(--color-text-secondary);
+}
+
+.cee-bk-shelf,
+.cee-bk-builder,
+.cee-bk-steps,
+.cee-bk-mod-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cee-bk-shelf[hidden],
+.cee-bk-steps[hidden] {
+  display: none;
+}
+
+.cee-bk-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+}
+
+.cee-bk-catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.cee-bk-card,
+.cee-bk-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-bk-card h3 {
+  font-size: var(--text-md);
+}
+
+.cee-bk-card p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.cee-bk-card .btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.cee-bk-kind {
+  color: var(--color-accent-primary);
+}
+
+.cee-bk-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cee-bk-choice[aria-checked="true"] {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-primary-ring-soft);
+  color: var(--color-text-primary);
+}
+
+.cee-bk-wave path {
+  fill: none;
+}
+
+.cee-bk-block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.cee-bk-block-head h4 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.cee-bk-block-head .actions {
+  margin-left: auto;
+}
+
+.cee-bk-group-name {
+  font-size: var(--text-xs);
+  color: var(--color-accent-primary);
+}
+
+.cee-bk-params {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-3) var(--space-5);
+}
+
+.cee-bk-slider .ui-field-help {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.cee-bk-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+}
+
+.cee-bk-palette .ui-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cee-bk-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cee-bk-group h3 {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.cee-bk-units {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-2);
+}
+
+.cee-bk-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  white-space: normal;
+}
+
+.cee-bk-unit .muted {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.cee-bk-explain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--color-text-secondary);
+}
+
+.cee-bk-slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cee-bk-slider-row .ui-range {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cee-bk-number {
+  width: 5rem;
+  flex: none;
+}
+
+.cee-bk-saved:empty {
+  display: none;
+}
+
+.cee-bk-saved {
+  color: var(--color-text-success);
 }

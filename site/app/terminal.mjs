@@ -50,11 +50,7 @@ export function completionsFor(text, pos) {
 
 const commonPrefix = list => list.reduce((a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return a.slice(0, i); });
 
-const TARGETS = {
-  none: ["neutral", "nicht verbunden", "Mit dem Emulator oder der Electribe verbinden."],
-  emulator: ["ok", "Emulator", "Befehle gehen an den Emulator, durch denselben Türsteher wie im Editor."],
-  device: ["warn", "Gerät über Emulator", "Jedes Skript läuft erst im Emulator. Nur ein bestandenes kann ans Gerät, und dann genau die Nachrichten der Probe. Eine Änderung am Text verwirft die Probe."],
-};
+const DEVICE_NOTE = "Weiterleitung ans Gerät: jedes Skript läuft erst im Emulator. Nur ein bestandenes kann ans Gerät, und dann genau die Nachrichten der Probe. Eine Änderung am Text verwirft die Probe.";
 
 /** `run("name")` starts a saved script; a line that begins with `korg.` is script language and runs in the run area, not as JavaScript with KORG. */
 function scriptInput(code) {
@@ -64,15 +60,21 @@ function scriptInput(code) {
   return null;
 }
 
-/** `lack()` gives the reason when the firmware in the emulator cannot take commands (Hacktribe's SysEx), else null. */
-export function terminalPanel(root, { terminal, device, scripts = null, lack = () => null }) {
-  const log = el("div", { className: "cee-term-log", id: "cee-term-log", role: "log", "aria-live": "polite" });
+/**
+ * `lack()` gives the reason when the firmware in the emulator cannot take commands (Hacktribe's SysEx), else null.
+ * `power()` switches the emulator on (the command start), `forward` is the switch in the navbar that lets scripts
+ * go on to a connected Electribe.
+ */
+export function terminalPanel(root, { terminal, device, scripts = null, lack = () => null, power = async () => {}, forward = null }) {
+  // A terminal: the output scrolls and the line you type stands at its end, not in a bar below.
+  const lines = el("div", { className: "cee-term-lines", role: "log", "aria-live": "polite" });
   const input = el("textarea", { className: "cee-term-input", id: "cee-term-input", rows: 1, spellcheck: false, autocomplete: "off" });
   input.setAttribute("aria-label", "Befehl");
-  const run = el("button", { type: "button", className: "btn sm primary", id: "cee-term-run", textContent: "Ausführen" });
-  const send = el("button", { type: "button", className: "btn sm", id: "cee-term-send", textContent: "An das Gerät senden", disabled: true, hidden: true });
-  const connect = el("button", { type: "button", className: "btn sm", id: "cee-term-connect", textContent: "Mit Emulator verbinden" });
-  const target = el("p", { className: "cee-term-target", id: "cee-term-target", role: "status" });
+  const log = el("div", { className: "cee-term-log", id: "cee-term-log" }, [lines, el("div", { className: "cee-term-entry" }, [el("span", { className: "cee-term-caret", ariaHidden: "true", textContent: ">" }), input])]);
+  log.addEventListener("click", e => { if (!e.target.closest("a, button, textarea") && !getSelection()?.toString()) input.focus(); });
+  const run = { disabled: false };            // a script is running; Enter waits for it
+  const send = el("button", { type: "button", className: "btn sm cee-primary", id: "cee-term-send", textContent: "An das Gerät senden", disabled: true, hidden: true });
+  const target = el("p", { className: "cee-term-target", id: "cee-term-target", role: "status", hidden: true });
   const limit = el("p", { className: "muted", id: "cee-term-limit", hidden: true, textContent: NOTE_LIMIT });
   const rehearsal = el("div", { className: "cee-term-rehearsal", id: "cee-term-rehearsal", "aria-live": "polite", hidden: true });
   const sendNote = el("p", { className: "muted", id: "cee-term-send-note", "aria-live": "polite" });
@@ -82,17 +84,18 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
   let invalidated = false;
 
   const line = (kind, text) => {
-    log.append(el("pre", { className: `cee-term-line cee-term-${kind}`, textContent: text }));
+    lines.append(el("pre", { className: `cee-term-line cee-term-${kind}`, textContent: text }));
     log.scrollTop = log.scrollHeight;
   };
-  line("out", "Tippe help für die Befehlsliste.");
+  line("out", "Tippe „help“ für die Befehlsliste, „start“ schaltet den Emulator ein.");
+  const grow = () => { input.rows = Math.min(12, input.value.split("\n").length); };
 
   function update() {
     const mode = terminal.mode;
-    const [tone, word, text] = TARGETS[mode];
-    const missing = mode === "none" ? null : lack();
-    target.replaceChildren(el("span", {}, ["Ziel: "]), pill(missing ? "error" : tone, missing ? "nimmt keine Befehle an" : word), el("span", { textContent: missing ? "" : ` ${text}` }));
-    run.textContent = mode === "device" ? "Im Emulator proben" : "Ausführen";
+    const missing = lack();
+    target.hidden = mode !== "device" && !missing;
+    target.replaceChildren(...(missing ? [pill("error", "nimmt keine Befehle an"), " Die Firmware im Emulator nimmt keine Befehle an."] : [pill("warn", "Gerät über Emulator"), ` ${DEVICE_NOTE}`]));
+    input.placeholder = mode === "device" ? "Enter probt im Emulator" : "";
     send.hidden = mode !== "device";
     limit.hidden = mode !== "device";
     if (mode !== "device") { current = null; rehearsal.hidden = true; }
@@ -139,7 +142,14 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
     back = 0;
     const mode = terminal.mode;
     line("in", `> ${code}`);
-    if (code === "help") { input.value = ""; line("out", HELP.join("\n")); return; }
+    input.value = "";
+    grow();
+    if (code === "help") { line("out", ["start  schaltet den Emulator ein", ...HELP].join("\n")); return; }
+    if (code === "start") {
+      try { line("out", await power()); } catch (e) { line("error", e.message); }
+      return;
+    }
+    if (mode === "device") input.value = code;      // the rehearsal belongs to the text that stays in the box
     run.disabled = true;
     send.disabled = true;
     sendNote.textContent = "";
@@ -150,11 +160,9 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
         line("out", script.run !== undefined ? scripts.runNamed(script.run) : scripts.runSnippet(script.snippet));
         return;
       }
-      if (mode === "none") throw new Error("Erst im Bereich Gerät verbinden: mit dem Emulator, oder mit der Electribe, dann geht alles erst durch den Emulator.");
       const missing = lack();
       if (missing) throw new Error("Die Firmware im Emulator nimmt keine Befehle an.");
       if (mode === "emulator") {
-        input.value = "";
         const out = show(await terminal.runDirect(code, { print: text => line("out", text) }));
         if (out) line("out", out);
       } else {
@@ -225,7 +233,7 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
 
   input.addEventListener("keydown", e => {
     if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && input.selectionStart === input.selectionEnd && complete()) { e.preventDefault(); return; }
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); execute(); return; }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!run.disabled) execute(); return; }
     if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !input.value.includes("\n")) {
       const next = Math.max(0, Math.min(history.length, back + (e.key === "ArrowUp" ? 1 : -1)));
       if (next === back) return;
@@ -235,16 +243,21 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
       updateSend();
     }
   });
-  input.addEventListener("input", updateSend);
-  run.addEventListener("click", execute);
+  input.addEventListener("input", () => { grow(); updateSend(); });
   send.addEventListener("click", sendToDevice);
-  connect.addEventListener("click", () => device.connectEmulator());
+  forward?.addEventListener("change", () => {
+    if (forward.checked && !device.session) {
+      forward.checked = false;
+      toast("Erst im Bereich Emulator oben „Echtes Gerät“ wählen und die Electribe verbinden.", "error");
+    }
+    update();
+  });
 
   root.replaceChildren(
-    el("div", { className: "cee-term-head" }, [target, connect]),
+    target,
     limit,
     log,
-    el("div", { className: "cee-term-prompt" }, [input, run, send]),
+    el("div", { className: "actions cee-term-send", hidden: false }, [send]),
     sendNote,
     rehearsal,
   );

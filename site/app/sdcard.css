@@ -1,4 +1,4 @@
-/* The SD card panel (sdcard.mjs), a block in the sidebar. Own classes carry the
+/* The SD card panel (sdcard.mjs), a dialog behind the navbar. Own classes carry the
    prefix cee-; the design system's classes are used as they are and not redefined here. */
 .cee-sd-actions {
   align-items: center;

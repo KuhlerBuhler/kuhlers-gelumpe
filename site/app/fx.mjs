@@ -77,7 +77,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   const verdict = el("div", { className: "cee-verdict", id: `${prefix}-verdict`, ariaLive: "polite" });
   const job = el("div", { className: "ui-job cee-job", hidden: true, role: "status" });
   const actions = el("div", { className: "actions", hidden: true });
-  const sendButton = el("button", { type: "button", className: "btn primary", id: `${prefix}-send`, textContent: "Live ins RAM" });
+  const sendButton = el("button", { type: "button", className: "btn cee-primary", id: `${prefix}-send`, textContent: "Live ins RAM" });
   const undoButton = el("button", { type: "button", className: "btn", id: `${prefix}-live-undo`, textContent: "Live zurücknehmen", disabled: true });
   actions.append(sendButton, undoButton);
   const limits = el("p", { className: "muted", textContent: "Der Türsteher prüft Form, nicht Klang. Ob ein Preset gut klingt, oder auf echter Hardware überhaupt, sagt nur das Ohr." });
@@ -85,7 +85,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   // Into a copy of the firmware file: presets added as copies of existing ones, edits written in, the copy tested in the emulator.
   const room = el("p", { className: "muted cee-small", id: `${prefix}-fx-room` });
   const addButton = el("button", { type: "button", className: "btn", id: `${prefix}-add`, textContent: "Preset hinzufügen (Kopie des gewählten)" });
-  const exportButton = el("button", { type: "button", className: "btn primary", id: `${prefix}-export`, textContent: "Firmware-Kopie prüfen" });
+  const exportButton = el("button", { type: "button", className: "btn cee-primary", id: `${prefix}-export`, textContent: "Firmware-Kopie prüfen" });
   const downloadButton = el("button", { type: "button", className: "btn", id: `${prefix}-download`, textContent: "Firmware-Kopie laden", hidden: true });
   const saveButton = el("button", { type: "button", className: "btn", id: `${prefix}-preset-save`, textContent: "Preset als Datei speichern" });
   const presetInput = el("input", { type: "file", className: "cee-visually-hidden", id: `${prefix}-preset-open`, accept: PRESET_EXT });

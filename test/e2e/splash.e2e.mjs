@@ -47,3 +47,31 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   assert.match(await page.locator("#cee-splash-steps").textContent(), /SPLASH IMPORT/);
   assert.deepEqual(page.errors, []);
 });
+
+test("Startbild: the gallery has the four pictures of the app, the standard one comes as splash.bmp, an own picture stays in this browser", async () => {
+  const page = await h.page();
+  await page.goto(h.url);
+  await go(page, "splash");
+  const items = page.locator("#cee-splash-gallery > li");
+  assert.equal(await items.count(), 4);
+  assert.match(await items.first().textContent(), /BLECHTRIBE\s*Standard/, "the standard picture first, to get it back after SPLASH RESET");
+  const download = page.waitForEvent("download");
+  await items.first().getByRole("button", { name: /herunterladen/ }).click();
+  const file = await download;
+  assert.equal(file.suggestedFilename(), "splash.bmp");
+  const bytes = await (await file.createReadStream()).toArray().then(parts => Buffer.concat(parts));
+  assert.equal(bytes.length, 1086);
+  assert.ok(bytes.subarray(62).some(b => b !== 0) && bytes.subarray(62).some(b => b !== 0xff), "a picture, not an empty card");
+  await items.nth(1).getByRole("button", { name: "Bearbeiten" }).click();
+  await page.locator("#cee-splash-work:not([hidden])").waitFor();
+  await dropPicture(page);
+  await page.click("#cee-splash-keep");
+  assert.equal(await items.count(), 5);
+  assert.match(await items.last().textContent(), /half\s*Eigenes/);
+  await page.reload();
+  await go(page, "splash");
+  assert.equal(await items.count(), 5, "kept across a reload");
+  await items.last().getByRole("button", { name: "Entfernen" }).click();
+  assert.equal(await items.count(), 4);
+  assert.deepEqual(page.errors, []);
+});

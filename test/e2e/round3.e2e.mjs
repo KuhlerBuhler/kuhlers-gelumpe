@@ -117,15 +117,20 @@ test("the documentation page shows docs/plugins.md, is searchable and carries th
   await page.fill("#cee-docs-search", "gibtesnirgends");
   await page.locator("#cee-docs-empty").waitFor();
   await page.fill("#cee-docs-search", "");
+  assert.ok(await page.locator("#cee-docs-article kbd.cee-key", { hasText: "EXIT" }).count() > 0, "keys of the device stand out in the text");
+  assert.equal(await page.locator("#cee-docs-toc").evaluate(n => n.open && getComputedStyle(n).position), "sticky", "on a wide window the contents stay open beside the text");
+  assert.deepEqual(await page.locator("#cee-nav-title .cee-crumb").allTextContents(), ["Dokumentation"]);
+  await page.locator("#cee-plugin-docs").evaluate(n => { n.scrollTop = n.scrollHeight / 2; n.dispatchEvent(new Event("scroll")); });
+  await page.waitForFunction(() => document.querySelectorAll("#cee-nav-title .cee-crumb").length === 2);
   assert.deepEqual(await severeViolations(page), [], "documentation");
 });
 
 test("the console greets with one line, help lists the commands and Tab completes korg and KORG names", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#scripts`);
-  await page.click("#cee-scripts-page-console");
+  await page.click("#cee-tab-console");
   assert.equal(await page.locator("#cee-term-help").count(), 0, "no Hilfe disclosure");
-  assert.equal(await page.locator("#cee-term-log .cee-term-line").first().textContent(), "Tippe help für die Befehlsliste.");
+  assert.equal(await page.locator("#cee-term-log .cee-term-line").first().textContent(), "Tippe „help“ für die Befehlsliste, „start“ schaltet den Emulator ein.");
   await page.fill("#cee-term-input", "help");
   await page.press("#cee-term-input", "Enter");
   await page.locator(".cee-term-line", { hasText: "KORG.screen.set" }).waitFor();
@@ -144,7 +149,6 @@ test("the run page shows the device drawing and sends keys, pads, knobs and the 
   const page = await h.page();
   await page.goto(`${h.url}#scripts`);
   await page.click("#cee-scripts-page-editor");
-  await page.click("#cee-script-presets [data-id=snake]");
   await page.click("#cee-script-copy");
   await page.locator("#cee-script-name:not([disabled])").waitFor();
   await page.evaluate(() => {
@@ -158,7 +162,7 @@ test("the run page shows the device drawing and sends keys, pads, knobs and the 
     ].join("\n") } });
   });
   await page.locator("#cee-script-problems .cee-script-problem").waitFor({ state: "detached" });
-  await page.click("#cee-scripts-page-run");
+  await page.click("#cee-script-preview");
   assert.equal(await page.locator("#cee-sim .cee-e2-viewport").count(), 1, "the same drawing as the emulator page");
   assert.equal(await page.locator("#cee-sim-level").count(), 1);
   assert.equal(await page.locator("#cee-e2-level").count(), 1, "the emulator drawing keeps its own ids");
@@ -188,5 +192,21 @@ test("the run page shows the device drawing and sends keys, pads, knobs and the 
   assert.notEqual(afterTouch, afterKnob, "the touchpad reached the plugin");
   assert.deepEqual(await severeViolations(page), [], "run page");
   await page.click("#cee-script-stop");
+  assert.deepEqual(page.errors, []);
+});
+
+test("the console is a terminal: the line you type stands in the output, help is quoted, no connect button, the forward switch sits in the navbar", async () => {
+  const page = await h.page();
+  await page.goto(`${h.url}#console`);
+  assert.equal(await page.locator("#cee-term-log #cee-term-input").count(), 1, "the input is part of the output box");
+  assert.equal(await page.locator("#cee-term-connect, #cee-term-run").count(), 0);
+  assert.equal(await page.locator("#cee-term-target").isVisible(), false, "no target line while nothing goes to a device");
+  assert.equal(await page.locator("#cee-nav-state label.cee-term-forward").textContent(), "An echtes Gerät weiterleiten");
+  await page.click("label.cee-term-forward");
+  assert.equal(await page.isChecked("#cee-term-forward"), false, "no device connected: the switch stays off");
+  await page.locator("#app-toasts .cee-toast", { hasText: "Echtes Gerät" }).waitFor();
+  await page.fill("#cee-term-input", "1 + 1");
+  await page.press("#cee-term-input", "Enter");
+  await page.locator(".cee-term-error", { hasText: "Tippe „start“" }).waitFor();
   assert.deepEqual(page.errors, []);
 });

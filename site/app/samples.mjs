@@ -32,7 +32,7 @@ export function samplesPage(root, { device, emulator, probe }) {
     "Gemessen ist: Name und Tune wirkten am Gerät sofort (das Display zeigte den neuen Namen, die Tonhöhe änderte sich hörbar), und die SD-Datei mit den Samples blieb dabei unverändert. Nicht gemessen ist, ob eine Änderung einen Neustart überlebt oder ob DATA UTILITY, 11 EXPORT ALL SAMPLE sie auf die Karte schreibt. Rechne damit, dass sie weg ist, wenn du das Gerät ausschaltest.",
   ]);
   const status = el("p", { className: "muted", id: "cee-sample-status", role: "status" });
-  const listButton = el("button", { type: "button", className: "btn primary", id: "cee-sample-list", textContent: "Namen lesen" });
+  const listButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-sample-list", textContent: "Namen lesen" });
   const numberId = "cee-sample-number";
   const number = el("input", { type: "number", className: "input cee-num", id: numberId, min: 1, max: SAMPLE_COUNT, step: 1, value: "501" });
   const openButton = el("button", { type: "button", className: "btn", id: "cee-sample-open", textContent: "Sample lesen" });
@@ -131,7 +131,7 @@ export function samplesPage(root, { device, emulator, probe }) {
   });
 
   const verdict = el("div", { className: "cee-verdict", id: "cee-sample-verdict", ariaLive: "polite" });
-  const sendButton = el("button", { type: "button", className: "btn primary", id: "cee-sample-send", textContent: "Live ins RAM", disabled: true });
+  const sendButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-sample-send", textContent: "Live ins RAM", disabled: true });
   const undoButton = el("button", { type: "button", className: "btn", id: "cee-sample-undo", textContent: "Zurücknehmen", disabled: true });
   const job = el("div", { className: "ui-job cee-job", id: "cee-sample-job", hidden: true, role: "status" });
 
