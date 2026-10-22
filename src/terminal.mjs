@@ -12,9 +12,9 @@
  * run in the emulator only, and what they return is the emulator's. The send
  * does not repeat them on the device; what the device checks itself are the
  * reads that belong to a write (the backup, the read-back of what was
- * written, the check of firmware code before code runs). Keys pressed in a
- * script have no counterpart on the device, so a script that presses keys
- * can be tried in the emulator but not sent.
+ * written, the check of firmware code before code runs). Keys go through
+ * KORG.exec on a firmware with the BLECH runtime and are sent like any exec;
+ * without it they are the emulator's panel and the script cannot be sent.
  */
 import { makeKorg, ensureFirmware } from "./korg.mjs";
 import { rehearse, isPassed } from "./rehearsal.mjs";
