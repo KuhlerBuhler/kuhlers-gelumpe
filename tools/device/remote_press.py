@@ -1,12 +1,12 @@
-"""Press keys and turn the main dial of an Electribe with the BLECH runtime, from the laptop, and read back where it is.
+"""Press keys and turn the main dial of an Electribe with the BLECH runtime from a computer over USB, and read back where it is.
 
 RAM only: a 76-byte stub (src/remote.mjs) goes to 0xC1000000, runs once per step through Hacktribe's execute command
 0x57 and leaves a command word for the runtime's frame hook (tools/patch/script_remote.s); the original bytes are put
 back at the end. Stops before anything is written when the runtime's signature or the cache routine is not found.
 
     python3 remote_press.py --emu VSB menu edit_next +1 exit     # against the local emulator
-    python3 remote_press.py --dry-run menu                       # on the laptop: checks only, writes nothing
-    python3 remote_press.py menu edit_next +1 +1 exit            # on the laptop: the steps, then where it is
+    python3 remote_press.py --dry-run menu                       # device on USB: checks only, writes nothing
+    python3 remote_press.py menu edit_next +1 +1 exit            # device on USB: the steps, then where it is
     python3 remote_press.py --screen                             # where it is and the display, nothing written
 
 A step is a key name (data/panel.mjs, with "_" for camel case: edit_next is editRight) or a signed number of dial clicks.
@@ -86,7 +86,7 @@ def main():
             raise SystemExit("the cache routine differs from the measured build; nothing written")
         mailbox = mailbox_of(dev)
         if mailbox is None:
-            raise SystemExit("no BLECH runtime with the keys from the laptop on this device; nothing written")
+            raise SystemExit("no BLECH runtime with the keys from the computer on this device; nothing written")
         done = lambda: struct.unpack("<I", dev.read(mailbox + 8, 4))[0]
         original = dev.read(STUB_AT, len(stub(0, 0)))
         print(f"Befehlswort bei {mailbox:#x}, {len(steps)} Schritt(e)")

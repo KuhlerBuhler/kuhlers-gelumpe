@@ -1,11 +1,11 @@
 /**
- * Keys from the laptop: KORG.press and KORG.turn on a firmware with the BLECH runtime.
+ * Keys from the computer: KORG.press and KORG.turn on a firmware with the BLECH runtime.
  *
  * The runtime (tools/patch/script_remote.s) takes a command word from the work area of its card loader in the frame
  * hook, in the UI task, and goes through the firmware's key and encoder handlers, as korg.play does. The console only
  * leaves the word there, through a stub run by KORG.exec; the stub then waits until the runtime counted the command
  * done, so a second press never overwrites a first one. The emulator and the device get the same stub.
- * (measure:2026-10-22/tasten-vom-laptop)
+ * (measure:2026-10-22/tasten-vom-rechner)
  */
 import { ramToFile } from "./map/address.mjs";
 

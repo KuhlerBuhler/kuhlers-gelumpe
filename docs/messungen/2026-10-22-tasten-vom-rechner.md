@@ -1,4 +1,4 @@
-# Tasten vom Laptop (KORG.press und KORG.turn)
+# Tasten vom Rechner (KORG.press und KORG.turn)
 
 Stand 22. Oktober 2026. Gemessen im Emulator (`tools/emu/remote_cases.py`, `tools/device/remote_press.py --emu`) mit der
 eigenen Hacktribe-2.02-Datei und Korgs Original 2.02 (rot), jeweils mit dem BLECH-Satz. **Am Gerät nicht geprüft.**

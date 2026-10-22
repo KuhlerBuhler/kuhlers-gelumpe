@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""Emulator checks for the keys from the laptop (tools/patch/script_remote.s, KORG.press against the device).
+"""Emulator checks for the keys from the computer (tools/patch/script_remote.s, KORG.press against the device).
 
 check.py runs `cases` on every patched sampler copy that carries the BLECH menu. A command word in the card work area, as
 KORG.exec leaves it, goes through the frame hook to the firmware's key and encoder handlers: MENU, the main dial and EXIT

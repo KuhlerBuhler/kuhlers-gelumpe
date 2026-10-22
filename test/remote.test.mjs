@@ -35,7 +35,7 @@ test("the console finds the command word only in a firmware with the runtime's k
   assert.equal(remoteMailbox(new Uint8Array(0x1000)), null);
 });
 
-test("the stub is what the assembler makes of it, and the laptop tool sends the same words", () => {
+test("the stub is what the assembler makes of it, and the command line tool sends the same words", () => {
   const words = stub(MAILBOX, 0xa5000901);
   const source = `
     push {r4, r5, r6, lr}

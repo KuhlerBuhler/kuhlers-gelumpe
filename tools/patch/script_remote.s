@@ -1,4 +1,4 @@
-; Keys from the laptop, for tests on the device (KORG.press in the console). KORG.exec runs in the CommandTask and only leaves a
+; Keys from the computer, for tests on the device (KORG.press in the console). KORG.exec runs in the CommandTask and only leaves a
 ; command word here; the frame hook (UI task) takes it and goes through the firmware's key and encoder handlers, the way
 ; korg.play does. A key is pressed in one frame and released in the next. The work area of the card loader is FF at power-on,
 ; so only a word with RM_MARK in its top byte counts. Not on the synth (REMOTE 0, its encoder handler is not measured).

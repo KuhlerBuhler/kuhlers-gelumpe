@@ -217,7 +217,7 @@ Entscheidungen dabei:
   Das gilt auch für `ram.snapshot`, `ram.diff` und `ram.search` (Idee 11): ein Skript, das nur liest, ist
   probierbar und nicht sendbar.
 - **Tastendrücke** (`KORG.press`, `KORG.turn`) gehen mit dem BLECH-Satz über `KORG.exec` und damit auch ans
-  Gerät ([Messung](messungen/2026-10-22-tasten-vom-laptop.md)); ohne ihn drückt `KORG.press` nur im Emulator.
+  Gerät ([Messung](messungen/2026-10-22-tasten-vom-rechner.md)); ohne ihn drückt `KORG.press` nur im Emulator.
 - **Zurückschreiben** nach Code nimmt die Bytes, die das Gerät vorher hatte, nicht
   die des Emulators.
 - **Firmware.** Das Gerät muss bestätigt sein, dieselbe Version melden wie der
