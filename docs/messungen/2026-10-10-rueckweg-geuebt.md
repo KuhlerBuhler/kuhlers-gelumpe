@@ -2,7 +2,7 @@
 
 Stand 2026-10-10 abends. Eigenes Gerät, Firmware über die SD-Karte und
 DATA UTILITY → SOFTWARE UPDATE, am Netzteil. Am Gerät bedient und
-beobachtet; Karte am Rechner kopiert und geprüft, Gerät per Laptop nur
+beobachtet; Karte am Rechner kopiert und geprüft, Gerät per USB nur
 gelesen. Das ist der zweite Schritt des Rückweg-Versuchs: den
 Rückweg einmal durchspielen.
 

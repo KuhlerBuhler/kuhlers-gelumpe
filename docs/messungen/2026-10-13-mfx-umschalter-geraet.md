@@ -3,7 +3,7 @@
 Stand 2026-10-13. Eigenes Gerät, Firmware: MFX-2-Variante der Testfirmware
 (sha256 `5de4b584…`, MFX 2 auf TOUCH SCALE plus Blech-Startbild als Datenpatch), über
 die SD-Karte und DATA UTILITY → SOFTWARE UPDATE eingespielt. Bedient und beobachtet wurde
-am Gerät; vom Laptop aus wurde das Gerät nur gelesen.
+am Gerät; vom Rechner aus wurde das Gerät nur gelesen.
 Markierungen: **gemessen**, **hergeleitet**, **offen**.
 
 ## Ergebnis

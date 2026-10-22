@@ -353,7 +353,7 @@ probieren, Ausgabe und Display notieren.
     Melden: ok, sonst was die Seite zeigt, wie lange das Winken dauert und ob der Block im RAM abweicht.
 
 21. **BLECH SysEx: RAM lesen und schreiben in Blöcken, Durchsatz messen.** Der Patch `blech-sysex` gibt dem Gerät eigene Befehle
-    `0x60` bis `0x63` ([Messung](../messungen/2026-10-15-blech-sysex.md)). Am Laptop, Gerät per USB, ohne dass der Editor im Browser
+    `0x60` bis `0x63` ([Messung](../messungen/2026-10-15-blech-sysex.md)). Am Rechner, Gerät per USB, ohne dass der Editor im Browser
     dieselbe Schnittstelle offen hat:
 
     ```bash

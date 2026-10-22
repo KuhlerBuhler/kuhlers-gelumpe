@@ -1,7 +1,7 @@
 # Ganzer Flash in einem Stand
 
 Stand 2026-10-09. Eigenes Gerät, Sampler 2.02 mit Hacktribe, USB am
-Linux-Laptop, Python mido. Skript: `tools/device/flash_dump.py`, vorher
+Linux-Rechner, Python mido. Skript: `tools/device/flash_dump.py`, vorher
 gegen den Emulator geprüft (zwei Blöcke ab `0x220000`, Ergebnis gleich dem
 emulierten Flash; Bereichsschutz lehnt `0xFFC000 + 0x8000` vor dem Senden
 ab). Nur Lesebefehle: Gerätesuche und `0x55`. Die Datei liegt außerhalb des

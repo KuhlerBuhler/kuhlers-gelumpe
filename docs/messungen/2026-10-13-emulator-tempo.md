@@ -1,6 +1,6 @@
 # Emulator-Tempo: Zeit je Gerätesekunde
 
-Stand 2026-10-13. Alles im Emulator (`tools/emu/machine.py`, Unicorn 2.1.4, Python 3.14, MacBook mit 10 Kernen),
+Stand 2026-10-13. Alles im Emulator (`tools/emu/machine.py`, Unicorn 2.1.4, Python 3.14, macOS, 10 Kerne),
 Firmware `SYSTEM.VSB`, Flash: eigener Dump vom 9.10. Kein Gerätezugriff. Markierungen: **gemessen**, **hergeleitet**, **offen**.
 Die Karte für den Import ist ein FAT32-Abbild im Speicher mit einer eigenen `e2sSample.all` (22,5 MB, Kopie der Datei aus
 dem Kartenordner, nur gelesen, nicht im Repository).

@@ -16,8 +16,8 @@ cost of the timer reads drops out. The emulator side also counts the stub's inst
 which gives exact instructions per round; the device cannot. The original bytes at the stub address are put
 back at the end, as in led_show.py. Nothing but the stub area is written, flash and bootloader are not touched.
 
-    python3 timing_probe.py --dry-run                  # on the laptop: checks only, writes nothing
-    python3 timing_probe.py --json device.json         # on the laptop: the real run
+    python3 timing_probe.py --dry-run                  # device on USB: checks only, writes nothing
+    python3 timing_probe.py --json device.json         # device on USB: the real run
     tools/emu/.venv/bin/python tools/device/timing_probe.py --emu SYSTEM.VSB --json emu.json
     python3 timing_probe.py --report device.json emu.json   # ratios, no device or emulator needed
 
