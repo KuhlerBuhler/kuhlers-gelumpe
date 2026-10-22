@@ -40,6 +40,8 @@ test("Baukasten is open without firmware; a ready effect opens with its blocks a
   assert.equal(await page.locator("#cee-bk-blocks .cee-bk-slider").count(), 23, "every parameter of Mod Delay has a slider");
   assert.equal(await page.locator("#cee-bk-blocks label", { hasText: "Mischung" }).count(), 1, "parameters have plain names");
   await page.fill("#cee-bk-fx-name", "Mein Delay");
+  // a slider set without dragging (a change event only) counts as well: a user test lost such a value
+  await page.locator("#cee-bk-p-0-fb_depth").evaluate(n => { n.value = "70"; n.dispatchEvent(new Event("change")); });
   await page.click("#cee-bk-fx-save");
   await page.locator("#cee-bk-mine li", { hasText: "Mein Delay" }).waitFor();
   assert.match(await page.locator("#cee-bk-mine li").first().textContent(), /Master-Effekt, Platz 100/);
@@ -51,6 +53,7 @@ test("Baukasten is open without firmware; a ready effect opens with its blocks a
   const read = readFx(text, units);
   assert.equal(read.ok, true, read.reason);
   assert.equal(read.preset.name, "Mein Delay");
+  assert.equal(read.preset.stages[0].params.fb_depth, 70);
   assert.deepEqual(page.errors, []);
 });
 

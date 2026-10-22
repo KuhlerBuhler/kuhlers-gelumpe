@@ -62,7 +62,9 @@ function choices(id, label, options, pick) {
 function slider(id, label, hint, min, max, value, change) {
   const input = el("input", { type: "range", className: "ui-range", id, min, max, value });
   const out = el("output", { className: "ui-range-value", htmlFor: id, textContent: String(value) });
-  input.addEventListener("input", () => { out.textContent = input.value; change(Number(input.value)); });
+  const set = () => { out.textContent = input.value; change(Number(input.value)); };
+  input.addEventListener("input", set);
+  input.addEventListener("change", set);
   return el("div", { className: "ui-field cee-bk-slider" }, [
     el("label", { className: "ui-field-label", htmlFor: id }, [label, " ", out]),
     input,
@@ -110,16 +112,20 @@ export function baukastenPage(root, { emulator = null } = {}) {
   const fxDownload = el("button", { type: "button", className: "btn", id: "cee-bk-fx-download", textContent: "Als Datei herunterladen" });
   const fxSteps = el("div", { className: "cee-bk-steps", id: "cee-bk-fx-steps", hidden: true }, [
     el("h3", { textContent: "2. Bausteine" }),
-    el("p", { className: "muted", textContent: "Ein Baustein ist ein Effekt wie Hall, Echo oder Filter. Wähl einen aus und stell ihn mit den Reglern ein." }),
+    el("p", { className: "muted", textContent: "Ein Baustein ist ein einzelner Effekt wie Hall, Echo oder Filter. Ein Effekt auf eine Spur kann zwei hintereinander haben, der zweite darf leer bleiben. Stell den Baustein mit den Reglern ein; anhören kannst du ihn erst an der Electribe." }),
     blocks,
     el("h3", { textContent: "3. Name und Speichern" }),
     el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-bk-fx-name", textContent: "Name (bis 15 Zeichen, so zeigt ihn das Display)" }), fxName]),
     el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-bk-fx-slot", textContent: "Platz auf deiner Electribe (1 bis 100)" }), fxSlot,
-      el("span", { className: "ui-field-help", textContent: "Auf der Karte ersetzt der Effekt das Preset auf diesem Platz. Die Firmware selbst bleibt, wie sie ist." })]),
+      el("span", { className: "ui-field-help", textContent: "Die Electribe hat 100 Plätze für Effekte, du wählst sie am Gerät mit dem Regler für den Effekt. Dein Effekt kommt auf diesen Platz und ersetzt dort das Preset, solange die Datei auf der Karte liegt. Nimm einen Platz, den du selten brauchst, zum Beispiel 100." })]),
     el("div", { className: "actions" }, [fxSave, fxDownload]),
   ]);
   const builderFx = el("div", { className: "cee-bk-builder", id: "cee-bk-fx-builder" }, [
     el("h3", { textContent: "1. Wo soll der Effekt wirken?" }),
+    el("ul", { className: "cee-bk-explain" }, [
+      el("li", {}, [el("strong", { textContent: "Auf alles: " }), "das ganze Pattern klingt durch den Effekt, zum Beispiel ein Hall über alles. Am Gerät heißt das Master-Effekt (MFX)."]),
+      el("li", {}, [el("strong", { textContent: "Auf eine Spur: " }), "nur der Part, dem du den Effekt gibst, zum Beispiel ein Echo nur auf der Snare. Am Gerät heißt das Insert-Effekt (IFX)."]),
+    ]),
     where.node,
     fxSteps,
   ]);
@@ -280,7 +286,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
     list.push({ kind: ready.preset.kind, slot, text: fxText(ready.preset) });
     if (!writeOwn(list)) { toast("Dieser Browser lässt die Seite nichts speichern. Lad den Effekt als Datei herunter.", "error"); return; }
     renderMine();
-    toast(`„${ready.preset.name}“ gespeichert, Platz ${slot}.`, "ok");
+    toast(`„${ready.preset.name}“ gespeichert, Platz ${slot}. Wie er auf die Electribe kommt, steht unten unter „Auf die Electribe“.`, "ok");
   }
   function renderMine() {
     const list = readOwn();
@@ -361,7 +367,14 @@ export function baukastenPage(root, { emulator = null } = {}) {
     mineEmpty, mine,
     el("div", { className: "actions" }, [el("label", { className: "btn", htmlFor: "cee-bk-open", textContent: ".e2fx-Datei öffnen" }), importInput]),
     el("h2", { className: "cee-bk-title", textContent: "Auf die Electribe" }),
-    el("p", { textContent: `Alles unter Meine Sachen kommt in eine Datei, ${COLLECTION_FILE}. Auf der Karte unter ${COLLECTION_FOLDER}/ lädt BLECHTRIBE sie bei jedem Einschalten. Sie ändert nichts an der Firmware: nimmst du die Datei weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
+    el("ol", { className: "cee-bk-explain", id: "cee-bk-howto" }, [
+      el("li", { textContent: "Auf deiner Electribe muss BLECHTRIBE laufen (siehe Firmware Patcher)." }),
+      el("li", { textContent: "Im Bereich Emulator deine SYSTEM.VSB aufs Display ziehen. Die Seite braucht sie, um die Datei für genau deine Firmware zu bauen. Sie bleibt auf deinem Rechner." }),
+      el("li", { textContent: `Hier unten „${COLLECTION_FILE} für die Karte bauen“ drücken. Alles unter Meine Sachen kommt in diese eine Datei.` }),
+      el("li", { textContent: `Die Datei auf die SD-Karte der Electribe in den Ordner ${COLLECTION_FOLDER}/ kopieren, Karte rein, einschalten.` }),
+      el("li", { textContent: "Am Gerät den Effekt auf dem Platz wählen, den du angegeben hast." }),
+    ]),
+    el("p", { className: "muted", textContent: "Die Datei ändert nichts an der Firmware: nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da." }),
     cardNote,
     el("div", { className: "actions" }, [cardButton]),
   ]));

@@ -35,6 +35,14 @@ export const PARAMS = {
   off_delay_time: "Zeit", off_l_delay_time: "Zeit links", off_r_delay_time: "Zeit rechts", on_syncnote: "Notenwert",
   on_l_syncnote: "Notenwert links", on_r_syncnote: "Notenwert rechts", mod_depth: "Modulationstiefe", mod_freq: "Modulationstempo",
   time1: "Zeit 1", time2: "Zeit 2", tap1_level: "Pegel Kopf 1", tap2_level: "Pegel Kopf 2",
+  off_time_ratio: "Zeit (frei, fein)", on_time_ratio: "Zeit (im Takt, fein)", time_ratio: "Zeit (fein)", sync_on: "Im Takt",
+  lfo_sync_note: "LFO-Notenwert", lfo_syncnote: "LFO-Notenwert", s_note1: "Notenwert 1", s_note2: "Notenwert 2", lfo_depth: "LFO-Tiefe",
+  pre_leq_gain: "Tiefen vorher", pre_leq_frequency: "Tiefen-Frequenz vorher", pre_heq_gain: "Höhen vorher", pre_heq_frequency: "Höhen-Frequenz vorher",
+  mod_wave: "Modulations-Welle", mod_rch_degree: "Versatz rechts", fb_type: "Art der Rückkopplung", lfo_phase: "LFO-Phase",
+  lfo_reset: "LFO neu starten", lfo_reset_phase: "LFO-Startpunkt", lfo_resetphase: "LFO-Startpunkt", l_delay: "Verzögerung links",
+  r_delay: "Verzögerung rechts", mod_src: "Modulationsquelle", envelope_select: "Hüllkurve", sensitivity: "Empfindlichkeit",
+  knee: "Knie", hold_time: "Haltezeit", tube_sat: "Röhren-Sättigung", tubesat: "Röhren-Sättigung", lo_eq: "Tiefen", hi_eq: "Höhen",
+  trim2: "Eingangspegel 2", pd_thru: "Vorverzögerung umgehen", rev_level: "Hall-Pegel", er_level: "Erstreflexionen",
 };
 
 /** "off_l_delay_time" to "Off l delay time", for a parameter without a name here. */
