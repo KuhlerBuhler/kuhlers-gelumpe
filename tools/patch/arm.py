@@ -273,7 +273,15 @@ class _Assembler:
             base, cond, _ = sm
             regs = self.reglist(ops[0])
             return cond << 28 | (0x092D0000 if base == "push" else 0x08BD0000) | regs
-        # multiply: mul rd, rm, rs (rd must differ from rm)
+        # ARMv5 multiply destinations must differ from the first source.
+        sm = self.split_mnemonic(head, ["mla"])
+        if sm:
+            if len(ops) != 4:
+                raise AsmError("mla: four registers required")
+            rd, rm, rs, rn = (self.reg(op) for op in ops)
+            if 15 in (rd, rm, rs, rn) or rd == rm:
+                raise AsmError("mla: no PC; destination must differ from the first source")
+            return sm[1] << 28 | 0x00200090 | sm[2] << 20 | rd << 16 | rn << 12 | rs << 8 | rm
         sm = self.split_mnemonic(head, ["mul"])
         if sm:
             rd, rm, rs = (self.reg(op) for op in ops[:3])
