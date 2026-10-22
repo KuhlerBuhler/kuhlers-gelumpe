@@ -28,7 +28,6 @@ const PAGES = [
   ["samples", page => page.click("#cee-tab-samples")],
   ["scripts catalog", async page => { await page.click("#cee-tab-scripts"); await page.click("#cee-scripts-page-catalog"); }],
   ["scripts editor", page => page.click("#cee-scripts-page-editor")],
-  ["scripts run", page => page.click("#cee-scripts-page-run")],
   ["scripts docs", page => page.click("#cee-scripts-page-docs")],
   ["changelog", page => page.click("#cee-tab-changelog")],
   ["settings", page => page.click("#cee-settings-button")],

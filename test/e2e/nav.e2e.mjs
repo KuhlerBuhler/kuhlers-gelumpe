@@ -87,7 +87,7 @@ test("the emulator page has no options in the sidebar: the firmware goes on its 
     assert.equal(await page.locator(".cee-nav-sub:visible").count(), 0, `${tab} shows no options`);
   }
   await page.click("#cee-tab-scripts");
-  assert.deepEqual(await page.locator("#cee-sub-scripts button").allTextContents(), ["Katalog", "Editor", "Lauf", "Dokumentation"], "Plugins shows its pages as sub-items");
+  assert.deepEqual(await page.locator("#cee-sub-scripts button").allTextContents(), ["Katalog", "Editor", "Dokumentation"], "Plugins shows its pages as sub-items");
   assert.equal(await page.getAttribute("#cee-sub-scripts", "aria-label"), "Optionen Plugins");
   await page.click("#cee-tab-emu");
   assert.equal(await page.locator("#cee-sub-scripts").isVisible(), false, "the options of Plugins go with its page");

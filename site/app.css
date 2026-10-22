@@ -2077,39 +2077,24 @@ select,
   min-height: 0;
 }
 
+/* The editor is the whole page (scripts.mjs). */
 .cee-workspace {
-  grid-template-columns: clamp(11rem, 17vw, 15rem) minmax(0, 1fr);
-  align-items: stretch;
-  gap: var(--space-4);
+  display: flex;
+  flex-direction: column;
   height: calc(100dvh - 7.75rem);
   min-height: 34rem;
 }
 
-.cee-ws-side {
-  position: static;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: var(--space-2);
-}
-
-.cee-ws-side-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
-}
-
-.cee-ws-side-actions .btn { justify-content: center; padding-inline: var(--space-2); }
-.cee-ws-side-actions #cee-script-export-all { grid-column: 1 / -1; }
-.cee-ws-side .cee-pattern-list { max-height: none; overflow: visible; }
-.cee-ws-side-note { margin: var(--space-4) 0 0; font-size: var(--text-xs); }
-
 .cee-ws-main {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
   gap: var(--space-2);
   min-height: 0;
+}
+
+.cee-ws-actions {
+  margin: 0;
 }
 
 .cee-ws-toolbar {
@@ -2162,9 +2147,7 @@ select,
   #cee-scripts { height: auto; min-height: 0; gap: var(--space-3); }
   #cee-scripts > .cee-workspace,
   #cee-scripts > .cee-plug-page { flex: none; }
-  .cee-workspace { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); height: auto; min-height: 0; }
-  .cee-ws-side { display: none; overflow: visible; padding-right: 0; }
-  .cee-workspace[data-open] > .cee-ws-side { display: flex; }
+  .cee-workspace { height: auto; min-height: 0; }
   .cee-script-editor { flex: none; height: 24rem; }
   .cee-ws-name .input { width: 100%; }
   .cee-ws-name { flex: 1 1 100%; }
@@ -2250,7 +2233,6 @@ select,
   display: none;
 }
 
-.cee-ws-side [hidden] { display: none; }
 .cee-ws-empty { margin: 0; padding: var(--space-1) var(--space-2); font-size: var(--text-sm); }
 
 /* The catalog: the bundled plugins as cards. */
@@ -2581,6 +2563,74 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
+
+/* Katalog and Eigene Plugins (scripts.mjs): two buttons that belong together above the cards. */
+.cee-plug-page:not([hidden]):has(> .cee-shelf-tabs) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cee-shelf-tabs {
+  align-self: flex-start;
+}
+
+.cee-shelf-tab[aria-pressed="true"] {
+  background: var(--color-surface-item-strong);
+  color: var(--color-text-primary);
+}
+
+.cee-catalog[hidden],
+.cee-own-shelf[hidden] {
+  display: none;
+}
+
+.cee-own-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-own-shelf > * {
+  margin: 0;
+}
+
+.cee-catalog-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.cee-catalog-category {
+  color: var(--color-accent-primary);
+}
+
+.cee-catalog-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cee-catalog-open:hover {
+  text-decoration: underline;
+}
+
+.cee-catalog-card canvas {
+  cursor: pointer;
+}
+
+/* The preview over the editor: wide enough for the drawing of the Electribe. */
+.cee-preview {
+  width: min(64rem, calc(100vw - var(--space-8)));
+  max-width: none;
+}
+
 /* The Baukasten (baukasten.mjs): ready ones as cards, then the builder step by step. */
 .cee-bk {
   display: flex;
