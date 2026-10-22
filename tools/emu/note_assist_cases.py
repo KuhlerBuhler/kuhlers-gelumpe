@@ -405,17 +405,23 @@ def case_firmware_wins(payload, flash):
         leds = box.leds()
         if leds.get(2) == (192, 0):
             seen_flash, flashed = True, dict(leds)
-    back = None
+    held = None
     for _ in range(60):
         box.run(0.01)
-        if is_hint(box.leds().get(2, (0, 0))):
-            back = box.leds().get(2)
+        if box.leds().get(2) == (spec.PLAY_RED, 0):
+            held = box.leds().get(2)
             break
+    kept = []                      # the rest of the step and the gap behind it: the pad stays lit (only step 1 holds a note)
+    for _ in range(40):
+        box.run(0.01)
+        kept.append(box.leds().get(2))
     box.key("stop", 0.5)
+    back = box.leds().get(2)
     after_seq = box.hinted()
-    out.append(entry("sequencer_light_wins", before == fitting(layout, 0) and 2 in before and seen_flash and flashed.get(2) == (192, 0) and back is not None,
+    out.append(entry("sequencer_light_wins", before == fitting(layout, 0) and 2 in before and seen_flash and flashed.get(2) == (192, 0)
+                     and held is not None and all(v == (spec.PLAY_RED, 0) for v in kept) and back is not None and is_hint(back),
                      f"part 5 selected, hints for pad 0 {before} (pad 2, the note 63, is one of them); then the sequencer plays that note: pad 2 {flashed.get(2) if flashed else None} (the firmware's light, not the hint), "
-                     f"and after the note the hint is back ({back})"))
+                     f"after the note it keeps the patch's red {held} for the next 0.4 s ({sorted(set(kept), key=str)}), and stopped the hint is back ({back})"))
     # 4. the note of the sequencer gives the hints itself (device 18.10.): no pad pressed, PLAY, the hints are those of pad 2 (the note 63)
     seq = NBox(payload, flash)
     if not seq.dev.read(first_step, 1)[0]:
@@ -427,9 +433,32 @@ def case_firmware_wins(payload, flash):
     seq.key("play", 0.0)
     seq.run(0.6)
     shown = seq.hinted()
+    played = seq.leds().get(2)
     seq.key("stop", 0.5)
-    out.append(entry("sequencer_note_shows_hints", not quiet and shown == fitting(layout, 2) and after_seq and set(after_seq) <= set(fitting(layout, 2)) and not seq.m.asserts,
-                     f"before PLAY {quiet}, 0.6 s after PLAY {shown} (want those of pad 2, the note 63: {fitting(layout, 2)}); after the pad note and the sequencer's note {after_seq}"))
+    out.append(entry("sequencer_note_shows_hints", not quiet and shown == fitting(layout, 2, skip=(2,)) and played == (spec.PLAY_RED, 0)
+                     and after_seq and set(after_seq) <= set(fitting(layout, 2)) and not seq.m.asserts,
+                     f"before PLAY {quiet}, 0.6 s after PLAY {shown} (want those of pad 2, the note 63: {fitting(layout, 2)}, pad 2 itself the note that "
+                     f"played: {played}); after the pad note and the sequencer's note {after_seq}"))
+    # 5. a second note takes the red over (device wish 22.10.): step 1 the note 63 (pad 2), step 5 another note of the layout
+    two = NBox(payload, flash)
+    other = next(p for p in range(16) if p != 2 and layout[p] is not None and layout[p] != layout[2])
+    if not two.dev.read(first_step, 1)[0]:
+        two.m.uc.mem_write(first_step, bytes([1, 0xFF, 0x60, 1, 0x40]))
+    two.m.uc.mem_write(first_step + 4 * 12, bytes([1, 0x30, 0x60, 1, layout[other] + 1, 0, 0, 0]))   # a step holds the note + 1 (0 is empty)
+    two.key("keyboard", 0.4)
+    for _ in range(4):
+        two.key("part_right", 0.3)
+    two.key("play", 0.0)
+    two.run(0.4)
+    first = (two.leds().get(2), two.leds().get(other))
+    two.run(0.4)
+    second = (two.leds().get(2), two.leds().get(other))
+    two.key("stop", 0.5)
+    stopped = (two.leds().get(2), two.leds().get(other))
+    red = (spec.PLAY_RED, 0)
+    out.append(entry("next_note_takes_the_red", first[0] == red and first[1] != red and second[1] == red and second[0] != red
+                     and red not in stopped and not two.m.asserts,
+                     f"0.4 s after PLAY pad 2 (the note 63) and pad {other} (the note {layout[other]} of step 5): {first}; 0.8 s: {second}; stopped: {stopped}"))
     return out
 
 
