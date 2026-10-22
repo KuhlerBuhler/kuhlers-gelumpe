@@ -17,6 +17,10 @@ In KEYBOARD mode, right after a note was played on a pad, the pads of the notes 
             not be told apart). The patch remembers that pad (S_PARTPAD) and gives it the firmware's blue 255 back when the hints
             end (timeout, other pad mode, other screen, octave, key or scale, the setting off, a note of the sequencer), because the
             firmware does not light it again by itself.
+    playing while the pattern plays, the pads of the note the selected part played last keep a red (PLAY_RED, the blue dark) from the
+            end of that note to the next one, in place of their hint, so the note that plays can be told from the hints even with a short
+            gate (device wish 22.10.: the firmware lights a sequencer note only as long as its gate, then the pad took the unison's hint).
+            Stopped, paused, outside KEYBOARD mode or when the hints end, the pads are as before.
 
 The patch is on only when EXIT was not held at power-on, a card was seen since power-on and the setting word NA_SETTING is not 0 (the BLECH
 menu page NOTE ASSIST in the BLECH list writes it, as bit 4 of the flags of the settings file: a file without the bit, or no file,
@@ -61,6 +65,8 @@ STATE = 0xC0189F00              # run time state, in RAM only; FF there means "n
 STATE_END = 0xC0189F40
 S_SETTING, S_SINCE, S_NOTE, S_PAD, S_PARTPAD, S_FADE, S_LEVEL = 0, 4, 8, 0xC, 0x10, 0x14, 0x20
 S_DOWN = 0x18
+S_PLAY = 0x1C                   # the pads of the note the selected part played last while the pattern plays (bit n pad n), 0 none
+PLAY_RED = 191                  # their red after the note ends, odd like the patch's other values; the firmware lights a playing note with 192
 NA_SETTING = STATE + S_SETTING  # the setting word the BLECH menu will write: never written (FFFFFFFF) or 1 is on, 0 is off
 FLAG_OFF_BIT = 4                # bit of the settings file's flags that means "OFF" (bits 0 to 3 are taken, docs/plugins.md)
 
@@ -129,6 +135,9 @@ SOURCE = """
 .equ S_FADE, @S_FADE@           ; ticks since the last fade step
 .equ S_LEVEL, @S_LEVEL@         ; 16 bytes: the level of each pad's hint, the red LED's brightness (0 none)
 .equ S_DOWN, @S_DOWN@           ; CHORD: the pad last seen held (FFFFFFFF none)
+.equ S_PLAY, @S_PLAY@           ; the pads of the note played last while the pattern plays, bit n pad n (0 none; FF at power-on means none too)
+.equ PLAY_RED, @PLAY_RED@       ; their red between that note and the next one, the blue dark
+.equ PADPLAY, 0x20000           ; bit 17 of r7 in na_sync: this pad shows the note played last
 .equ LEVEL_MID, @LEVEL_MID@
 .equ FADE, @FADE@
 .equ TRANSPORT, 0xC06BC318      ; the transport state: 0 stopped, 1 playing, 2 paused, 3 record ready, 4 recording
@@ -239,8 +248,8 @@ na_put:
     b LED_SEND
 
 ; ===================================================== the pads
-; r0 = a pad LED's value -> r0 = 1 when it is dark or one of the patch's values (odd and below 128; the firmware writes 0, 192, 255 or twice
-; a velocity), else 0. na_ours: the same without dark. Leaves.
+; r0 = a pad LED's value -> r0 = 1 when it is dark or one of the patch's values (odd and below 128, or PLAY_RED; the firmware writes 0, 192,
+; 255 or twice a velocity), else 0. na_ours: the same without dark. Leaves.
 na_free:
     cmp r0, #0
     moveq r0, #1
@@ -248,6 +257,9 @@ na_free:
 na_ours:
     tst r0, #1
     moveq r0, #0
+    bxeq lr
+    cmp r0, #PLAY_RED
+    moveq r0, #1
     bxeq lr
     cmp r0, #128
     movlo r0, #1
@@ -260,6 +272,8 @@ na_ours:
 ; dark again (a value that is not the patch's belongs to the firmware, the pad is not touched).
 ; The pad of the selected part (r8) is the exception: while the window is open it takes its hint or is dark, the blue 255 of the
 ; firmware replaced, and the pad is noted in S_PARTPAD; when the window is closed the noted pad gets the firmware's blue 255 back.
+; With r7 1 the pads in S_PLAY take PLAY_RED and a dark blue instead of their level, wherever a level could go (the part's pad only while
+; the window is open), so the note that plays last stays lit between its end and the next note (device wish 22.10.).
 ; Nothing is written while a plugin holds the LED lock. Clobbers r0 to r3, r5, r6, r8 to r11 and r12.
 na_sync:
     ldrb r0, [r4, #LOCK_AT]
@@ -294,6 +308,17 @@ ns_loop:
     mov r11, #0
     tst r7, #WINDOW
     ldrbne r11, [r5, r6]        ; the level this pad wants
+    bic r7, r7, #PADPLAY
+    tst r7, #1
+    beq ns_pick
+    ldr r0, [r5, #S_PLAY - S_LEVEL]
+    cmp r0, #0x10000
+    bhs ns_pick
+    mov r1, #1
+    tst r0, r1, lsl r6
+    movne r11, #PLAY_RED
+    orrne r7, r7, #PADPLAY
+ns_pick:
     cmp r6, r8
     beq ns_part
     cmp r11, #0
@@ -315,6 +340,8 @@ ns_show:
     add r0, r11, r11, lsl #2
     mov r0, r0, lsr #3
     orr r0, r0, #1
+    tst r7, #PADPLAY
+    movne r0, #0
     ldrb r3, [r10, #LED_VALUE + 8]
     cmp r3, r0
     addne r1, r9, #1
@@ -431,6 +458,7 @@ ph_out:
 ; velocity, 0 for a note off). A note on of the selected part takes every hint away, before the firmware writes its own LEDs (it
 ; writes a pad only if the pad is dark); the next tick brings back what still fits and is dark. In KEYBOARD mode the note becomes the
 ; one the hints are for, when a pad of the layout holds it: so a note of the sequencer shows its hints as a pad note does (device 18.10.).
+; The pads that hold the note go to S_PLAY (the tick clears it unless the pattern plays).
 light_hook:
     push {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, lr}
     cmp r3, #0
@@ -454,6 +482,8 @@ light_hook:
     cmp r5, #0
     beq lh_sync
     mov r6, #0
+    mov r8, #0                  ; the pads that hold the note
+    mvn r9, #0                  ; the first of them
 lh_find:
     cmp r6, #7
     addls r1, r6, #8
@@ -461,15 +491,21 @@ lh_find:
     add r1, r5, r1
     ldrb r0, [r1, #0x40]
     cmp r0, r2
-    beq lh_found
+    bne lh_next
+    mov r0, #1
+    orr r8, r8, r0, lsl r6
+    cmn r9, #1
+    moveq r9, r6
+lh_next:
     add r6, r6, #1
     cmp r6, #16
     bne lh_find
-    b lh_sync
-lh_found:
+    cmp r8, #0
+    beq lh_sync
     ldr r12, =STATE
     str r2, [r12, #S_NOTE]
-    str r6, [r12, #S_PAD]
+    str r9, [r12, #S_PAD]
+    str r8, [r12, #S_PLAY]
     mov r0, #0
     str r0, [r12, #S_SINCE]
 lh_sync:
@@ -500,6 +536,13 @@ tick_hook:
     bl na_kbd
     movs r11, r0                ; the kind: 1 KEYBOARD, 2 CHORD
     beq th_forget
+    ldr r0, =TRANSPORT          ; the note played last stays lit only while the pattern plays, in KEYBOARD mode
+    ldr r0, [r0]
+    cmp r0, #1
+    cmpne r0, #4
+    cmpeq r11, #1
+    movne r0, #0
+    strne r0, [r5, #S_PLAY]
     ldr r0, =KBOBJ_PTR
     ldr r9, [r0]
     cmp r9, #0
@@ -617,6 +660,7 @@ th_forget:
     str r0, [r5, #S_DOWN]
 th_none:
     mov r0, #0
+    str r0, [r5, #S_PLAY]
     str r0, [r5, #S_LEVEL]
     str r0, [r5, #S_LEVEL + 4]
     str r0, [r5, #S_LEVEL + 8]
@@ -659,7 +703,7 @@ def source():
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}",
         "S_SETTING": S_SETTING, "S_SINCE": S_SINCE, "S_NOTE": S_NOTE, "S_PAD": S_PAD, "S_PARTPAD": S_PARTPAD,
         "S_FADE": f"{S_FADE:#x}", "S_LEVEL": f"{S_LEVEL:#x}", "LEVEL_MID": LEVEL_MID, "FADE": FADE_TICKS,
-        "LEVELS": ", ".join(str(v) for v in LEVELS), "CHORD_LEVELS": ", ".join(str(v) for v in CHORD_LEVELS), "S_DOWN": f"{S_DOWN:#x}",
+        "LEVELS": ", ".join(str(v) for v in LEVELS), "CHORD_LEVELS": ", ".join(str(v) for v in CHORD_LEVELS), "S_DOWN": f"{S_DOWN:#x}", "S_PLAY": f"{S_PLAY:#x}", "PLAY_RED": PLAY_RED,
         "PAD_BODY": f"{body['PAD_BODY']:#x}", "LIGHT_BODY": f"{body['LIGHT_BODY']:#x}",
     }.items():
         text = text.replace(f"@{key}@", str(value))
