@@ -370,6 +370,7 @@ function navbar({ onMode }) {
   let device = false;
   let emuAction = null;
   let cardButton = null;
+  let consoleAction = null;
   const trails = {};
   $("#cee-mode-button").append(icon("chevronDown"));
   const menu = dropdown($("#cee-mode-button"), $("#cee-mode-menu"), { onPick: onMode });
@@ -387,7 +388,7 @@ function navbar({ onMode }) {
     // On the device page the navbar carries the connect button while no device is attached (it moves there from
     // the page, so its handlers stay), and the words "Gerät verbunden" once one is.
     connectButton ??= $("#cee-connect");
-    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
+    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
@@ -397,6 +398,8 @@ function navbar({ onMode }) {
     emu(node) { emuAction = node; render(); },
     /** The button that opens the emulator's SD card. */
     card(node) { cardButton = node; render(); },
+    /** The console's switch that lets scripts go on to the real device. */
+    console(node) { consoleAction = node; render(); },
     /** The breadcrumb after the title of `id`: the sub-page and, in the docs, the section. */
     trail(id, parts) { trails[id] = parts; if (id === page) render(); },
   };
@@ -460,7 +463,8 @@ function boot() {
   settingsButton($("#cee-settings-button"), () => { areas?.select("settings"); drawer.close(); });
   const emu = takeLink();
   let areas = null;
-  const nav = navbar({ onMode: id => areas?.select(id, { focus: false }) });
+  // Picking the mode that is open already changes nothing; ui.tabs would show the empty device panel instead of the drawing.
+  const nav = navbar({ onMode: id => { if (id !== areas?.current) areas?.select(id, { focus: false }); } });
   const drawer = sidebarDrawer();
   sidebarFold();
   const options = subnav();
@@ -600,7 +604,15 @@ function boot() {
   splashPage($("#cee-splash"));
   // A run from the console opens the Plugins page, where the run area shows it.
   const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null, onRun: () => areas?.select("scripts", { focus: false }), trail: parts => nav.trail("scripts", parts) });
-  terminal = terminalPanel($("#cee-terminal"), { terminal: new Terminal({ device, emulator, probe }), device, scripts, lack: () => emulator.lack("sysex") });
+  // The console always talks to the emulator; this switch in the navbar lets a script go on to a connected Electribe.
+  const forward = el("input", { type: "checkbox", role: "switch", id: "cee-term-forward" });
+  nav.console(el("label", { className: "ui-switch cee-term-forward" }, [forward, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "An echtes Gerät weiterleiten"]));
+  terminal = terminalPanel($("#cee-terminal"), {
+    terminal: new Terminal({ device, emulator, probe, forward: () => forward.checked }),
+    device, scripts, forward,
+    lack: () => emulator.lack("sysex"),
+    power: () => emulator.powerOn(),
+  });
   // The app always starts with the link in its address and opens on the start page; a link opened in the browser goes to the emulator.
   if (emu.fresh) areas?.select(window.__GELUMPE_APP ? "start" : "emu");
   else findLink(emu).then(found => {

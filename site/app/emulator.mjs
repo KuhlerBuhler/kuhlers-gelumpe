@@ -526,6 +526,14 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       await wait(400);
     },
     connect(next) { link = next; listen(); },
+    /** Switch the Electribe on, as the power key does; says in words what happened (the console's start). */
+    async powerOn() {
+      if (lastState === "running" || lastState === "hung") return "Der Emulator läuft schon.";
+      if (!vsb) throw new Error("Erst eine Firmware laden: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen.");
+      await boot();
+      if (lastState !== "running") throw new Error("Der Emulator ist nicht angegangen, siehe die Meldung unten rechts.");
+      return "Der Emulator läuft.";
+    },
     /** Let the drawing show a real device (its display bytes through drawBytes) or give it back to the emulator. */
     external(on) {
       const was = external;

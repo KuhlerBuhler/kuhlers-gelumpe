@@ -172,18 +172,14 @@ export function emulatorSuite(index, parts) {
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
     await page.locator("#cee-emu-status", { hasText: "bereit" }).waitFor();
     fake.seen.midi.length = 0;
-    await page.click("#cee-tab-scripts");
-    await page.click("#cee-tab-console");
-    await page.click("#cee-term-connect");
+    await page.locator("#cee-connect-emu").evaluate(b => b.click());
     await page.locator(".cee-device-status", { hasText: "Emulator läuft nicht" }).waitFor({ state: "attached" });
     assert.deepEqual(fake.seen.midi, [], "nothing sent to a stopped emulator");
 
     await go(page, "emu");
     await powerOn(page, new Uint8Array(0x200100));
     await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
-    await page.click("#cee-tab-scripts");
-    await page.click("#cee-tab-console");
-    await page.click("#cee-term-connect");
+    await page.locator("#cee-connect-emu").evaluate(b => b.click());
     await go(page, "device");
     await page.locator(".cee-facts", { hasText: "Globaler Kanal10" }).waitFor({ state: "attached", timeout: 10_000 });
     assert.equal(fake.seen.midi[0], "f042500000f7", "the device search went to the emulator");
@@ -201,17 +197,13 @@ export function emulatorSuite(index, parts) {
     await go(page, "emu");
     await powerOn(page, new Uint8Array(0x200100));
     await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
-    await page.click("#cee-tab-scripts");
-    await page.click("#cee-tab-console");
-    await page.click("#cee-term-connect");
+    await page.locator("#cee-connect-emu").evaluate(b => b.click());
     await go(page, "device");
     await page.locator(".cee-device-status", { hasText: "Emulator läuft nicht" }).waitFor({ state: "attached" });
     await page.waitForTimeout(500);
     assert.deepEqual(fake.seen.midi, [], "nothing goes to a firmware that has not reached its main screen");
     fake.broadcast("status", { state: "running", booted: true, device_ms: 1500, speed: 1 });
-    await page.click("#cee-tab-scripts");
-    await page.click("#cee-tab-console");
-    await page.click("#cee-term-connect");
+    await page.locator("#cee-connect-emu").evaluate(b => b.click());
     await go(page, "device");
     await page.locator(".cee-facts", { hasText: "Globaler Kanal10" }).waitFor({ state: "attached", timeout: 10_000 });
     assert.equal(fake.seen.midi[0], "f042500000f7", "the device search goes out once the service said booted");
@@ -259,10 +251,7 @@ export function emulatorSuite(index, parts) {
   test("terminal: KORG puts a picture into the emulator's display RAM and reads the screen state", async t => {
     baseScreen();
     const page = await sidebarPage();
-    await page.click("#cee-tab-scripts");
     await page.click("#cee-tab-console");
-    await page.click("#cee-term-connect");
-    await page.locator(".cee-facts", { hasText: "Globaler Kanal10" }).waitFor({ state: "attached", timeout: 15_000 });
     fake.hooks.midiDelayMs = 200;
     t.after(() => { fake.hooks.midiDelayMs = 0; });
     const run = async code => {
@@ -280,7 +269,6 @@ export function emulatorSuite(index, parts) {
     assert.ok(display.slice(0, 128).every(b => b === 0x01) && display.slice(128).every(b => b === 0), "only the top row is lit");
     await run("KORG.screen.state()");
     await page.locator(".cee-term-line", { hasText: "Hauptbildschirm" }).waitFor();
-    await page.click("#cee-term-connect");
     await run("KORG.screen.set((x, y) => y === 0)");
     await page.waitForFunction(() => [...document.querySelectorAll(".cee-term-out")].filter(n => n.textContent.includes("Bild steht im Display")).length === 2);
     await run("KORG.nope()");
@@ -649,8 +637,8 @@ export function emulatorSuite(index, parts) {
     await go(page, "device");
     await page.click("#cee-connect");
     await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
-    await page.click("#cee-tab-scripts");
     await page.click("#cee-tab-console");
+    await page.click("label.cee-term-forward");
     return page;
   }
 
@@ -659,7 +647,7 @@ export function emulatorSuite(index, parts) {
   test("terminal: with the real device a script is rehearsed in the emulator, shown step by step, and only a passed one can be sent", async () => {
     const page = await deviceThroughEmulator();
     assert.match(await page.locator("#cee-term-target").textContent(), /Gerät über Emulator/);
-    assert.equal(await page.locator("#cee-term-run").textContent(), "Im Emulator proben");
+    assert.equal(await page.getAttribute("#cee-term-input", "placeholder"), "Enter probt im Emulator");
     assert.equal(await page.locator("#cee-term-send").isDisabled(), true, "nothing to send before a rehearsal");
 
     const code = "KORG.screen.set((x, y) => y === 0)";

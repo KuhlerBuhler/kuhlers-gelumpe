@@ -46,12 +46,25 @@ async function rig({ deviceKnown, deviceVersion, deviceFirmware, emuExecute, dev
 
 const frames = (sent, from) => sent.slice(from).filter(f => !isSearch(f));
 
-test("the terminal knows its target: nothing connected, the emulator itself, or a device through the emulator", async () => {
+test("the terminal knows its target: the emulator, always, or a device through the emulator while forwarding is on", async () => {
   const r = await rig();
   assert.equal(r.terminal.mode, "device");
   const emulatorOnly = new Terminal({ device: { session: r.emuSession }, emulator: r.emulator, probe: async () => r.emuSession });
   assert.equal(emulatorOnly.mode, "emulator");
-  assert.equal(new Terminal({ device: { session: null }, emulator: r.emulator, probe: async () => r.emuSession }).mode, "none");
+  assert.equal(new Terminal({ device: { session: null }, emulator: r.emulator, probe: async () => r.emuSession }).mode, "emulator", "nothing to connect: the emulator is the target");
+  let on = false;
+  const switched = new Terminal({ device: { session: r.devSession }, emulator: r.emulator, probe: async () => r.emuSession, forward: () => on });
+  assert.equal(switched.mode, "emulator", "a connected device gets nothing while the switch is off");
+  on = true;
+  assert.equal(switched.mode, "device");
+});
+
+test("without a session of its own the terminal runs a script in the emulator through the shared probe", async () => {
+  const r = await rig();
+  const t = new Terminal({ device: { session: null }, emulator: r.emulator, probe: async () => r.emuSession });
+  assert.equal(await t.runDirect("1 + 1"), 2);
+  const off = new Terminal({ device: { session: null }, emulator: { ...r.emulator, port: { running: false } }, probe: async () => r.emuSession });
+  await assert.rejects(off.runDirect("1"), /Tippe „start“/);
 });
 
 test("a rehearsal records the frames the emulator received, in order, and seals the record", async () => {

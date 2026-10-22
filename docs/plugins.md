@@ -872,7 +872,7 @@ Pong, Simon und Mandelbrot unter GAMES, Set-Timer unter TOOLS, dazu Lauflicht un
 und die eigenen Plugins, rechts den Editor mit Zeilenspalte, das
 Ergebnis des Übersetzens (Fehler mit Zeile und Spalte, ein Klick setzt den Cursor dorthin), die
 Liste „Namen der Tasten und LEDs“ und den Bereich Lauf.
-Darunter steht die Konsole. Eigene Plugins liegen im Browser (`localStorage`)
+Die Konsole ist ein eigener Eintrag unter Gerät. Eigene Plugins liegen im Browser (`localStorage`)
 und verlassen ihn nicht. Ein Plugin-Name ist der Blockname: ASCII, ein Buchstabe
 am Anfang, höchstens 15 Zeichen.
 
@@ -953,7 +953,9 @@ Seite einmal nach und nennt sie. Ein Fehler in der Probe sperrt den Export.
 Lauf; eine Zeile, die mit `korg.` beginnt (zum Beispiel
 `korg.display.text("Hi", 0, 0)`), läuft dort als Plugin-Code sofort einmal, als App
 „einzeiler“ in TOOLS, die der Lauf öffnet.
-Alles andere ist wie bisher JavaScript mit `KORG` für den Emulator.
+Alles andere ist wie bisher JavaScript mit `KORG` für den Emulator. Die Konsole spricht immer mit dem
+Emulator, `start` schaltet ihn ein. Der Schalter „An echtes Gerät weiterleiten“ oben rechts lässt ein
+Skript nach bestandener Probe im Emulator an die verbundene Electribe gehen.
 
 ## Stand
 

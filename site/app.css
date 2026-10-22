@@ -1382,23 +1382,47 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-term-in { color: var(--color-text-accent); }
 .cee-term-error { color: var(--color-text-danger); }
 
-.cee-term-prompt {
+/* The line you type stands at the end of the output, as in a terminal; the box shows the focus instead of the field. */
+.cee-term-lines {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cee-term-entry {
+  display: flex;
+  align-items: flex-start;
   gap: var(--space-2);
-  align-items: stretch;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.cee-term-caret {
+  color: var(--color-accent-primary);
 }
 
 .cee-term-input {
   flex: 1;
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-item-muted);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  resize: vertical;
+  font: inherit;
+  line-height: inherit;
+  resize: none;
+  outline: none;
+}
+
+.cee-term-log:focus-within {
+  border-color: var(--color-focus-ring);
+  box-shadow: 0 0 0 1px var(--color-focus-ring);
+}
+
+.cee-term-send[hidden],
+.cee-term-send:has(> [hidden]:only-child) {
+  display: none;
 }
 
 .cee-term-target { margin: 0; }
@@ -2133,7 +2157,6 @@ select,
 .cee-term-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); font-size: var(--text-xs); }
 .cee-term-head p { margin: 0; }
 .cee-ws-console .cee-term-log { flex: 1 1 4rem; min-height: 4rem; max-height: none; margin: 0; }
-.cee-ws-console .cee-term-prompt { align-items: flex-start; }
 
 @media (max-width: 720px) {
   #cee-scripts { height: auto; min-height: 0; gap: var(--space-3); }
