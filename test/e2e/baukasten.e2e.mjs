@@ -42,6 +42,8 @@ test("Baukasten is open without firmware; a ready effect opens with its blocks a
   await page.fill("#cee-bk-fx-name", "Mein Delay");
   // a slider set without dragging (a change event only) counts as well: a user test lost such a value
   await page.locator("#cee-bk-p-0-fb_depth").evaluate(n => { n.value = "70"; n.dispatchEvent(new Event("change")); });
+  await page.fill("#cee-bk-p-0-dry_wet-value", "40");
+  assert.equal(await page.inputValue("#cee-bk-p-0-dry_wet"), "40", "a typed value moves the slider");
   await page.click("#cee-bk-fx-save");
   await page.locator("#cee-bk-mine li", { hasText: "Mein Delay" }).waitFor();
   assert.match(await page.locator("#cee-bk-mine li").first().textContent(), /Master-Effekt, Platz 100/);
@@ -54,13 +56,14 @@ test("Baukasten is open without firmware; a ready effect opens with its blocks a
   assert.equal(read.ok, true, read.reason);
   assert.equal(read.preset.name, "Mein Delay");
   assert.equal(read.preset.stages[0].params.fb_depth, 70);
+  assert.equal(read.preset.stages[0].params.dry_wet, 40, "a typed value is saved");
   assert.deepEqual(page.errors, []);
 });
 
 test("an effect from nothing: where it works, a block from the palette, a name; without a block or a name it says what is missing", async () => {
   const page = await h.page();
   await open(page);
-  await page.locator("#cee-bk-where button", { hasText: "Auf eine Spur" }).click();
+  await page.locator("#cee-bk-where button", { hasText: "Nur auf eine Spur" }).click();
   assert.equal(await page.locator("#cee-bk-blocks .cee-bk-block").count(), 2, "an insert effect has two blocks");
   await page.click("#cee-bk-fx-save");
   await page.locator("#app-toasts .cee-toast", { hasText: "mindestens einen Baustein" }).waitFor();

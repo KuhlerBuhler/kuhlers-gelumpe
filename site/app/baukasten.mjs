@@ -58,16 +58,25 @@ function choices(id, label, options, pick) {
   return { node: group, set(value) { for (const b of buttons) b.setAttribute("aria-checked", String(b.dataset.value === String(value))); } };
 }
 
-/** A slider with its label and the value beside it. */
+/** A slider with its label and a number box beside it: drag it or type the value. */
 function slider(id, label, hint, min, max, value, change) {
   const input = el("input", { type: "range", className: "ui-range", id, min, max, value });
-  const out = el("output", { className: "ui-range-value", htmlFor: id, textContent: String(value) });
-  const set = () => { out.textContent = input.value; change(Number(input.value)); };
-  input.addEventListener("input", set);
-  input.addEventListener("change", set);
+  const box = el("input", { type: "number", className: "input cee-bk-number", id: `${id}-value`, min, max, value });
+  box.setAttribute("aria-label", `${label}, Wert`);
+  const fromRange = () => { box.value = input.value; change(Number(input.value)); };
+  const fromBox = () => {
+    const v = Math.max(min, Math.min(max, Math.round(Number(box.value))));
+    if (!Number.isFinite(v)) return;
+    input.value = String(v);
+    change(v);
+  };
+  input.addEventListener("input", fromRange);
+  input.addEventListener("change", fromRange);
+  box.addEventListener("input", fromBox);
+  box.addEventListener("change", () => { fromBox(); box.value = input.value; });
   return el("div", { className: "ui-field cee-bk-slider" }, [
-    el("label", { className: "ui-field-label", htmlFor: id }, [label, " ", out]),
-    input,
+    el("label", { className: "ui-field-label", htmlFor: id, textContent: label }),
+    el("div", { className: "cee-bk-slider-row" }, [input, box]),
     hint ? el("span", { className: "ui-field-help", textContent: hint }) : null,
   ]);
 }
@@ -99,7 +108,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
     el("button", { type: "button", className: "btn cee-primary", textContent: "Öffnen und anpassen", onclick: () => { openFx(structuredClone(item)); builderFx.scrollIntoView?.({ block: "start" }); } }),
   ])));
 
-  const where = choices("cee-bk-where", "Wo soll der Effekt wirken?", [["mfx", "Auf alles (Master-Effekt)"], ["ifx", "Auf eine Spur (Insert-Effekt)"]], kind => {
+  const where = choices("cee-bk-where", "Wo soll der Effekt wirken?", [["mfx", "Auf das ganze Pattern (Master-Effekt)"], ["ifx", "Nur auf eine Spur (Insert-Effekt)"]], kind => {
     if (fx?.kind === kind) return;
     openFx({ kind, name: fx?.name ?? "", stages: STAGES[kind].map(stage => ({ stage, unit: 0, unitName: "nofx_thru", params: {} })), map: [] });
   });
@@ -361,7 +370,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
   }
   root.replaceChildren(el("div", { className: "cee-bk" }, [
     el("h1", { className: "ui-sr-only", textContent: "Baukasten" }),
-    el("p", { className: "cee-bk-lead", textContent: "Bau dir eigene Effekte und Modulationen aus Bausteinen. Nimm einen fertigen und dreh an den Reglern, oder fang leer an. Am Ende bekommst du eine Datei, die du teilen oder auf die Karte deiner Electribe legen kannst." }),
+    el("p", { className: "cee-bk-lead", textContent: "Bau dir eigene Effekte und Modulationen aus Bausteinen. Nimm einen fertigen und dreh an den Reglern, oder fang leer an. Am Ende bekommst du eine Datei, die du teilen oder auf die Karte deiner Electribe legen kannst. Fürs Bauen brauchst du nichts; für die Electribe brauchst du BLECHTRIBE auf dem Gerät, die SD-Karte und deine SYSTEM.VSB." }),
     tabRow, fxShelf, modShelf,
     el("h2", { className: "cee-bk-title", textContent: "Meine Sachen" }),
     mineEmpty, mine,
@@ -369,7 +378,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
     el("h2", { className: "cee-bk-title", textContent: "Auf die Electribe" }),
     el("ol", { className: "cee-bk-explain", id: "cee-bk-howto" }, [
       el("li", { textContent: "Auf deiner Electribe muss BLECHTRIBE laufen (siehe Firmware Patcher)." }),
-      el("li", { textContent: "Im Bereich Emulator deine SYSTEM.VSB aufs Display ziehen. Die Seite braucht sie, um die Datei für genau deine Firmware zu bauen. Sie bleibt auf deinem Rechner." }),
+      el("li", { textContent: "Im Bereich Emulator deine SYSTEM.VSB aufs Display ziehen. Das ist die Firmware-Datei deiner Electribe, sie liegt auf der SD-Karte im Ordner KORG/blechtribe/System/ (oder KORG/hacktribe/System/). Die Seite braucht sie, um die Datei für genau deine Firmware zu bauen. Sie bleibt auf deinem Rechner." }),
       el("li", { textContent: `Hier unten „${COLLECTION_FILE} für die Karte bauen“ drücken. Alles unter Meine Sachen kommt in diese eine Datei.` }),
       el("li", { textContent: `Die Datei auf die SD-Karte der Electribe in den Ordner ${COLLECTION_FOLDER}/ kopieren, Karte rein, einschalten.` }),
       el("li", { textContent: "Am Gerät den Effekt auf dem Platz wählen, den du angegeben hast." }),

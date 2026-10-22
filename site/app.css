@@ -2889,3 +2889,19 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   padding-left: var(--space-5);
   color: var(--color-text-secondary);
 }
+
+.cee-bk-slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cee-bk-slider-row .ui-range {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cee-bk-number {
+  width: 5rem;
+  flex: none;
+}
