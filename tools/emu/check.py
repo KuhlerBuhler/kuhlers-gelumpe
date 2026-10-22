@@ -44,6 +44,7 @@ from dice_cases import GROUPS as DICE_GROUPS, has_hooks as has_dice
 from ifx_idle_cases import GROUPS as IFXIDLE_GROUPS, has_hooks as has_ifxidle
 from shortcut_cases import GROUPS as SHORTCUT_GROUPS, has_hooks as has_shortcuts
 from migrate_cases import GROUPS as MIGRATE_GROUPS, has_hooks as has_migrate
+from fx_card_cases import GROUPS as FXCARD_GROUPS, has_hooks as has_fxcard
 
 HEADER = 0x100
 PAYLOAD = 0x200000
@@ -140,6 +141,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("shortcut_cases", "cases_task", (i,)) for i in range(len(SHORTCUT_GROUPS))]
     if want(has_migrate):
         tasks += [("migrate_cases", "cases_task", (i,)) for i in range(len(MIGRATE_GROUPS))]
+    if want(has_fxcard):
+        tasks += [("fx_card_cases", "cases_task", (i,)) for i in range(len(FXCARD_GROUPS))]
     if want(has_loadbar):
         tasks += [("loadbar_cases", "cases_task", (i,)) for i in range(len(LOADBAR_GROUPS))]
     if want(has_sampleerr):
@@ -166,6 +169,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     ifxidle = [c for _ in range(len(IFXIDLE_GROUPS) if want(has_ifxidle) else 0) for c in done.pop(0)]
     shortcuts = [c for _ in range(len(SHORTCUT_GROUPS) if want(has_shortcuts) else 0) for c in done.pop(0)]
     migrate = [c for _ in range(len(MIGRATE_GROUPS) if want(has_migrate) else 0) for c in done.pop(0)]
+    fxcard = [c for _ in range(len(FXCARD_GROUPS) if want(has_fxcard) else 0) for c in done.pop(0)]
     loadbar = [c for _ in range(len(LOADBAR_GROUPS) if want(has_loadbar) else 0) for c in done.pop(0)]
     sampleerr = [c for _ in range(len(SAMPLEERR_GROUPS) if want(has_sampleerr) else 0) for c in done.pop(0)]
     synth = [c for _ in range(len(SYNTH_GROUPS) if want(has_synth) else 0) for c in done.pop(0)]
@@ -218,6 +222,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(ifxidle)
     checks.extend(shortcuts)
     checks.extend(migrate)
+    checks.extend(fxcard)
     checks.extend(loadbar)
     checks.extend(sampleerr)
     checks.extend(synth)
