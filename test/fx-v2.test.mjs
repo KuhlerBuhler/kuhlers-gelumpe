@@ -113,3 +113,12 @@ test("an entry for the user's firmware: the preset over its slot, the modulation
   assert.equal(readModType(mod.entry.data, 0, 0).depth, 77);
   assert.equal(collectionEntry(shortDelay(), vsb, 200, units).ok, false);
 });
+
+test("a modulation type reads back with negative strengths, and out of range values are refused", () => {
+  const type = { kind: "mod", name: "Wobble", depth: 64, speed: 40, curve: 6, slots: [{ source: 1, target: 3, lo: -20, hi: 30, follow: 1 }, ...Array.from({ length: 4 }, () => ({ source: 2, target: 0, lo: 0, hi: 0, follow: 0 }))] };
+  const read = readFx(fxText(type), units);
+  assert.equal(read.ok, true, read.reason);
+  assert.equal(read.preset.slots[0].lo, -20);
+  const bad = readFx(fxText({ ...type, slots: [{ ...type.slots[0], lo: -200 }] }), units);
+  assert.equal(bad.ok, false);
+});

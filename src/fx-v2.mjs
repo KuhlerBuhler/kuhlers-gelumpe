@@ -62,6 +62,7 @@ export function fxFromRecord(record, kind, units) {
 export const modFromType = type => ({ kind: "mod", name: type.name, depth: type.depth, speed: type.speed, curve: type.curve, slots: type.slots.map(s => ({ ...s })) });
 
 const byte = v => Number.isInteger(v) && v >= 0 && v <= 255;
+const signed = v => Number.isInteger(v) && v >= -128 && v <= 127;      // a slot's strength (lo, hi) is s8 in the table
 
 /**
  * The preset in a file, or why it is not one. A version 1 file (the raw record, src/preset-file.mjs) is turned into v2
@@ -81,7 +82,7 @@ export function readFx(text, units) {
   if (typeof data.name !== "string") return { ok: false, reason: "Der Effekt hat keinen Namen." };
   if (data.kind === "mod") {
     if (!byte(data.depth) || !byte(data.speed) || !byte(data.curve) || !Array.isArray(data.slots) || data.slots.length > SLOT_COUNT
-        || data.slots.some(s => !["source", "target", "lo", "hi", "follow"].every(k => byte(s?.[k])))) {
+        || data.slots.some(s => !["source", "target", "follow"].every(k => byte(s?.[k])) || !signed(s.lo) || !signed(s.hi))) {
       return { ok: false, reason: "Die Werte der Modulation sind unvollständig." };
     }
   } else {
