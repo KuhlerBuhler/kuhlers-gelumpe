@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import struct
 import unittest
-from unicorn import Uc, UC_ARCH_ARM, UC_MODE_ARM, UC_HOOK_CODE
+from unicorn import Uc, UC_ARCH_ARM, UC_MODE_ARM, UC_HOOK_CODE, UC_HOOK_MEM_READ
 from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
 
 BUILD = None
@@ -234,6 +234,58 @@ class NativeAdapterTest(unittest.TestCase):
         self.assertEqual(a.word(SHARED + 12), 0xFFFFFFFF)
         self.assertEqual(a.calls[-1][0], 0xC001734C)
         self.assertEqual(a.calls[-1][1][:2], [0x01E26000, 1])
+
+    def test_dark_scene_contours_use_the_display_contrast(self):
+        a = self.arm
+        pixels = a.symbols["__heap_start"]
+        image = b"".join(struct.pack("<I", 0x181818 if x < 160 else 0x484848)
+                         for y in range(200) for x in range(320))
+        a.uc.mem_write(pixels, image)
+        a.word(a.symbols["DG_ScreenBuffer"], pixels)
+        a.call("DG_DrawFrame", count=3000000)
+        expected = (bytes([255]) * 64 + bytes(64)) * 8
+        self.assertEqual(bytes(a.uc.mem_read(0xC031B310, 1024)), expected)
+
+    def test_source_pixels_between_old_sample_points_affect_the_display(self):
+        a = self.arm
+        pixels = a.symbols["__heap_start"]
+        image = bytearray(struct.pack("<I", 0x787878) * (320 * 200))
+        a.uc.mem_write(pixels, bytes(image))
+        a.word(a.symbols["DG_ScreenBuffer"], pixels)
+        a.call("DG_DrawFrame", count=3000000)
+        before = bytes(a.uc.mem_read(0xC031B310, 1024))
+        for y in range(200):
+            struct.pack_into("<I", image, (y * 320 + 1) * 4, 0xFFFFFF)
+        a.uc.mem_write(pixels, bytes(image))
+        a.call("DG_DrawFrame", count=3000000)
+        after = bytes(a.uc.mem_read(0xC031B310, 1024))
+        self.assertNotEqual(before, after)
+        a.call("DG_DrawFrame", count=3000000)
+        self.assertEqual(bytes(a.uc.mem_read(0xC031B310, 1024)), after)
+        image = bytearray(struct.pack("<I", 0x787878) * (320 * 200))
+        image[320 * 4:640 * 4] = struct.pack("<I", 0xFFFFFF) * 320
+        a.uc.mem_write(pixels, bytes(image))
+        a.call("DG_DrawFrame", count=3000000)
+        self.assertNotEqual(bytes(a.uc.mem_read(0xC031B310, 1024)), before)
+
+    def test_display_conversion_preserves_source_and_stack_guards(self):
+        a = self.arm
+        pixels = a.symbols["__heap_start"]
+        image = bytes(range(256)) * 1000
+        a.uc.mem_write(pixels, image)
+        a.uc.mem_write(pixels - 32, b"\xa6" * 32)
+        a.uc.mem_write(pixels + len(image), b"\x5a" * 32)
+        a.uc.mem_write(0xC1800000 - 16384, b"\x93" * 32)
+        a.word(a.symbols["DG_ScreenBuffer"], pixels)
+        reads = []
+        a.uc.hook_add(UC_HOOK_MEM_READ, lambda uc, kind, at, size, value, data: reads.append((at, size)),
+                      begin=pixels, end=pixels + len(image) - 1)
+        a.call("DG_DrawFrame", count=3000000)
+        self.assertEqual(sorted(reads), [(pixels + i * 4, 4) for i in range(320 * 200)])
+        self.assertEqual(bytes(a.uc.mem_read(pixels, len(image))), image)
+        self.assertEqual(bytes(a.uc.mem_read(pixels - 32, 32)), b"\xa6" * 32)
+        self.assertEqual(bytes(a.uc.mem_read(pixels + len(image), 32)), b"\x5a" * 32)
+        self.assertEqual(bytes(a.uc.mem_read(0xC1800000 - 16384, 32)), b"\x93" * 32)
 
     def test_display_conversion_calls_both_native_spi_halves(self):
         a = self.arm

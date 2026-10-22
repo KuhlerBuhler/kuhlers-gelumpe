@@ -232,18 +232,71 @@ int DG_GetKey(int *pressed, unsigned char *key)
     return 0;
 }
 void DG_SetWindowTitle(const char *title) { (void)title; }
-void DG_DrawFrame(void)
+static inline unsigned int pixel_luma(uint32_t pixel)
 {
-    static const unsigned char bayer[16] = {0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5};
-    memset(display, 0, sizeof(display));
+    return ((pixel >> 16) & 255) * 77 + ((pixel >> 8) & 255) * 150 + (pixel & 255) * 29;
+}
+static void render_display(const uint32_t *pixels)
+{
+    unsigned char gray[128 * 64], levels[256];
+    uint16_t histogram[256] = {0};
+    int16_t errors[3][132] = {{0}};
+    uint32_t horizontal[4][128];
+    unsigned int next_row = 0;
     for (unsigned int y = 0; y < 64; ++y) {
+        unsigned int sy = y * 25 / 8;
+        while (next_row < sy + 4) {
+            const uint32_t *source = pixels + next_row * 320;
+            uint32_t *row = horizontal[next_row & 3];
+            for (unsigned int x = 0; x < 64; ++x) {
+                unsigned int a = pixel_luma(source[0]), b = pixel_luma(source[1]);
+                unsigned int c = pixel_luma(source[2]), d = pixel_luma(source[3]), e = pixel_luma(source[4]);
+                row[2 * x] = 2 * a + 2 * b + c;
+                row[2 * x + 1] = c + 2 * d + 2 * e;
+                source += 5;
+            }
+            ++next_row;
+        }
+        const uint32_t *a = horizontal[sy & 3], *b = horizontal[(sy + 1) & 3];
+        const uint32_t *c = horizontal[(sy + 2) & 3], *d = horizontal[(sy + 3) & 3];
+        unsigned int first = 8 - (y & 7), last = 1 + (y & 7);
         for (unsigned int x = 0; x < 128; ++x) {
-            uint32_t pixel = DG_ScreenBuffer[(y * 200 / 64) * 320 + x * 320 / 128];
-            uint32_t luma = (((pixel >> 16) & 255) * 77 + ((pixel >> 8) & 255) * 150 + (pixel & 255) * 29) >> 8;
-            if (luma <= (uint32_t)bayer[(y & 3) * 4 + (x & 3)] * 16 + 8)
-                display[(y >> 3) * 128 + x] |= 1u << (y & 7);
+            unsigned int sum = a[x] * first + (b[x] + c[x]) * 8 + d[x] * last;
+            unsigned int value = (sum + 16000) / 32000;
+            gray[y * 128 + x] = value;
+            ++histogram[value];
         }
     }
+    unsigned int low = 0, high = 255, count = 0;
+    while (low < 255 && (count += histogram[low]) <= sizeof(gray) / 50) ++low;
+    count = 0;
+    while (high > 0 && (count += histogram[high]) <= sizeof(gray) / 50) --high;
+    for (unsigned int i = 0; i < 256; ++i) {
+        levels[i] = high - low < 16 ? i : i <= low ? 0 : i >= high ? 255
+                  : ((i - low) * 255 + (high - low) / 2) / (high - low);
+    }
+    memset(display, 0, sizeof(display));
+    for (unsigned int y = 0; y < 64; ++y) {
+        int16_t *row = errors[y % 3], *next = errors[(y + 1) % 3], *last = errors[(y + 2) % 3];
+        for (unsigned int x = 0; x < 128; ++x) {
+            unsigned int at = x + 1;
+            int value = levels[gray[y * 128 + x]] + row[at];
+            int white = value >= 128;
+            if (!white) display[(y >> 3) * 128 + x] |= 1u << (y & 7);
+            int error = (value - (white ? 255 : 0)) / 8;
+            row[at + 1] += error;
+            row[at + 2] += error;
+            next[at - 1] += error;
+            next[at] += error;
+            next[at + 1] += error;
+            last[at] += error;
+        }
+        memset(row, 0, sizeof(errors[0]));
+    }
+}
+void DG_DrawFrame(void)
+{
+    render_display(DG_ScreenBuffer);
     memcpy((void *)0xC031B310u, display, sizeof(display));
     ((void (*)(void *, int, int))0xC0015DD0u)((void *)0xC031BB2Cu, 2, 0);
     ((void (*)(void *, int, int))0xC0015DD0u)((void *)0xC031BB2Cu, 3, 0);

@@ -93,7 +93,11 @@ werden die entsprechenden Tests ausdrücklich übersprungen.
 | Ein/Aus halten | native Selbsthaltung ausschalten |
 
 Doom rendert intern 320 mal 200 Pixel. Der Port verkleinert und dithert auf
-128 mal 64 Pixel und sendet beide Displayhälften. Gegner sind aktiv;
+128 mal 64 Pixel: gewichtete Flächenmittelung, Spreizung zwischen dem zweiten
+und 98. Helligkeitsperzentil und Atkinson-Fehlerverteilung. Bei weniger als
+16 Helligkeitsstufen Unterschied bleibt der Kontrast unverändert. Jede
+Quellzeile wird nur einmal in einen Ring aus vier Zeilen eingelesen. Der
+Port sendet beide Displayhälften. Gegner sind aktiv;
 Ton und Speichern sind abgeschaltet. SD-Dateien werden nur gelesen.
 Quit zeigt `DOOM STOP`, Fehler zeigen `DOOM ERROR` mit Code. Ein/Aus bleibt
 in diesen Zuständen bedienbar. Nach erneutem Einschalten ohne SHIFT + TAP

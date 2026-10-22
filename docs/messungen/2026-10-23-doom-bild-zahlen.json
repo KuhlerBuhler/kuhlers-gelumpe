@@ -1,0 +1,79 @@
+{
+  "format": "blech-doom-display-measurement",
+  "version": 1,
+  "date": "2026-10-23",
+  "hardwareVerified": false,
+  "engineRevision": "e257a09527062bfb986b6e5e0780839b6cbd5b71",
+  "programSha256": "c88cf4c5220e83816bd71d3f39d34ab591c0daee2a31df0e85c104aa3874cb68",
+  "programLength": 452396,
+  "programGrowthBytes": 824,
+  "persistentBssGrowthBytes": 0,
+  "sourceRebuildIdentical": true,
+  "linkedLibraryObjectsUnchanged": 150,
+  "nativeAdapterTestsPassed": 15,
+  "displayInstructionLimit": 3000000,
+  "sourcePixelsReadExactlyOnce": 64000,
+  "nativeFrame": [
+    {
+      "build": "baseline-runtime",
+      "instructions": 241941,
+      "sha256": "1999c323147f6e5de672282474600d848eb739da137e3d04d615b1d6afb8e6e0",
+      "blackPixels": 6970
+    },
+    {
+      "build": "runtime",
+      "instructions": 1756606,
+      "sha256": "e9ba78ec0c5f6288683687dcbcaf4b78117c09e7c1d2202d889f9e714f8613f8",
+      "blackPixels": 5984
+    }
+  ],
+  "firmware": {
+    "hacktribe": {
+      "inputSha256": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+      "outputSha256": "75e3cf3c86a0d441f2fc56f79e52a5e20b0e004caa2d468580b9665a732b6007",
+      "referenceSha256": "08ba8feb49b19a113a03655de15277473665d20697e3b33675381157d84cf2e1",
+      "validation": "game-and-start-regression"
+    },
+    "stock": {
+      "inputSha256": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+      "outputSha256": "171ea1792ce0a8388b2fc02204337d92583d4c44395e52d4976c0f8260e0d237",
+      "referenceSha256": "584323fdcb4cc1d3fc81bcd1d9ec2e01b07cbdeb2047dbad2aef9bddabd0a46c",
+      "validation": "patch-generation-only"
+    }
+  },
+  "fullEmulator": {
+    "ok": true,
+    "controlsPassed": 17,
+    "frames": 216,
+    "gametic": 158,
+    "stackHighWaterBytes": 12484,
+    "guardsOk": true,
+    "sdWriteCalls": 0,
+    "sdWriteCommands": 0,
+    "sdUnchanged": true,
+    "gameFramePixels": 6628,
+    "build": "hacktribe"
+  },
+  "startRegression": {
+    "ok": true,
+    "passed": 34,
+    "total": 34,
+    "failed": []
+  },
+  "projectTests": {
+    "unitPassed": 968,
+    "unitSkipped": 145,
+    "browserPassed": 175,
+    "browserSkipped": 1,
+    "docsPassed": 9,
+    "failed": 0
+  },
+  "renderMeasurement": {
+    "input": "same RGB888 frame, 320x200, Freedoom E1M1",
+    "inputSha256": "a7b4e7fb123532d5ad7a56bd7338207b9c03c45efbcaf07114423f581484a624",
+    "counter": "native ARM instruction hook in runtime_tests.Adapter",
+    "baselineProgramSha256": "d3c35e8984699808ef6f083baac622d3d3e9803d522ef0d9ece0a0aa9b2141c5",
+    "candidateProgramSha256": "c88cf4c5220e83816bd71d3f39d34ab591c0daee2a31df0e85c104aa3874cb68",
+    "nativeSpiFunctions": "ABI call boundaries, no modeled bus latency"
+  }
+}

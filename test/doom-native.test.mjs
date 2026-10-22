@@ -27,7 +27,7 @@ test("Native Doom adapter obeys read-only files, heap, input, real clock reads a
   });
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.match(result.stderr, /Ran 12 tests/);
+  assert.match(result.stderr, /Ran 15 tests/);
   assert.match(result.stderr, /\bOK\b/);
 });
 

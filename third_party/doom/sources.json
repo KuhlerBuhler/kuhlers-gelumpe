@@ -2,7 +2,7 @@
   "engine_revision": "e257a09527062bfb986b6e5e0780839b6cbd5b71",
   "files": {
     "REBUILD.md": "cea8adec3034895145a61dc0d3bbea4de2d26a081a62a37bbbd04ed15d997e98",
-    "build.json": "b478e6a27d70eea4a31228e056669807b250e2e666cc2943a9c68ec44745ec86",
+    "build.json": "266b2b9e871224cf13fbf37cdd8a76e1ad4369c0e86a4f50fe49fb4a34260435",
     "doomgeneric/.gitignore": "20ce02a86baeae521139e1c91bbb4e4cdde8a93ec4bfd9b44068426e7a63bd37",
     "doomgeneric/LICENSE": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
     "doomgeneric/README.TXT": "48e841db2b6f44faf87754e8629535ec2d3a25c6aa1cab05774f5cf05269efad",
@@ -220,7 +220,7 @@
     "gelumpe/tools/doom/build_runtime.py": "9fb9e88a16eaa1a4b7aba07362e3674e1312c695b67933d8569526355154c551",
     "gelumpe/tools/doom/native_power.h": "ffd760fe51cedea31b552be526af596f05f555fce047e5b0e5aec137232e4a4b",
     "gelumpe/tools/doom/rebuild_runtime.py": "40f549e379a41fa7d80d41325d321e10994d8064dabddae541b76e6ddd559d9c",
-    "gelumpe/tools/doom/runtime.c": "24bc250f0c51ed634284a1230c706b1ce66019ab0fe2921ec0dbd26afb229038",
+    "gelumpe/tools/doom/runtime.c": "e923c1b4e41db5d2108faa3bb2423c6b517af66cf12c354720afb9eda6a3be22",
     "gelumpe/tools/doom/runtime.ld": "d25a1a4610bcda6363f156ba07a2915083002b57ff1c4174d3a7be6a7ac7209a",
     "gelumpe/tools/doom/runtime_abi.h": "5a91b4074419869f2ff2fdbd9aac7c47450d6508127cd25ffd605f12e9ef9b73",
     "gelumpe/tools/doom/runtime_layout.c": "3dc716de4beffff1c2ef22b524e17692c574760e8a8d4824939d5bd6552a35eb",
@@ -232,7 +232,7 @@
     "toolchain/notices/gdb-Copying.html": "7da0b9992f83693cbbb09e3e5639ef06c707eb9b45da9c825fba03753a436031",
     "toolchain/notices/gfortran-Copying.html": "e39330d7670768333c1f3ca017075b412ff4a095e5d8da849bc3283ce3079dba"
   },
-  "binary_sha256": "d3c35e8984699808ef6f083baac622d3d3e9803d522ef0d9ece0a0aa9b2141c5",
+  "binary_sha256": "c88cf4c5220e83816bd71d3f39d34ab591c0daee2a31df0e85c104aa3874cb68",
   "redistribution_ready": false,
   "missing": [
     "applicable runtime license notices and source obligations",
