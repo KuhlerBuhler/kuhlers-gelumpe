@@ -1,7 +1,7 @@
 # Geräteprotokoll: Suche, RAM lesen und Pattern-Abfrage
 
 **Gemessen am Gerät, 8. Oktober 2026:** Electribe 2 Sampler 2.02 mit
-Hacktribe, USB am Linux-Laptop, ALSA/RtMidi via Python mido. Kanal aus der
+Hacktribe, USB an einem Linux-Rechner, ALSA/RtMidi via Python mido. Kanal aus der
 Suchantwort, keine Annahme im Messskript. Neue Nachrichten und Decoder
 zuerst gegen tatsächliches SimDevice, Kanal 9, mit dem vorhandenen
 Simulationsabbild geprüft; auch sofortiger Abbruch bei Timeout getestet.
@@ -201,7 +201,7 @@ Host-/USB-Sendeweg liegen. Eine reine Gerätegrenze ist damit nicht bewiesen.
 
 ## Gegenprobe ausschließlich zwischen virtuellen ALSA-Ports
 
-**Gemessen am Host, ohne Gerätezugriff:** Auf demselben Laptop wurden
+**Gemessen am Host, ohne Gerätezugriff:** Auf demselben Rechner wurden
 synthetische SysEx-Nachrichten zwischen zwei neu erstellten, eindeutig
 benannten virtuellen ALSA-Ports übertragen. Kein Hardware-Port wurde
 geöffnet. Installiert: python-rtmidi 1.5.8, RtMidi 5.0.0, mido 1.3.3.

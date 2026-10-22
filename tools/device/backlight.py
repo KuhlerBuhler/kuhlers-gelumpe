@@ -10,8 +10,8 @@ original bytes are put back. Stops before writing if the code it calls is
 not the measured build. Nothing is stored; a restart brings back white.
 
     python3 backlight.py --emu VSB --rgb 1,0,0     # against the local emulator
-    python3 backlight.py --dry-run                 # on the laptop: checks only
-    python3 backlight.py --rgb 0,0,1               # on the laptop: blue
+    python3 backlight.py --dry-run                 # device on USB: checks only
+    python3 backlight.py --rgb 0,0,1               # device on USB: blue
     python3 backlight.py --cycle                   # all seven colours, then white again
     python3 backlight.py --party --seconds 30      # rainbow in a loop, 0.35 s per colour, then white
 

@@ -6,9 +6,9 @@ back afterwards. Stops before anything is written if the firmware code it
 calls does not match the measured build.
 
     python3 led_show.py --emu VSB          # against the local emulator
-    python3 led_show.py --dry-run          # on the laptop: checks only, writes nothing
-    python3 led_show.py                     # on the laptop: the pads pattern, held
-    python3 led_show.py --animate comet     # on the laptop: a running light over the pads
+    python3 led_show.py --dry-run          # device on USB: checks only, writes nothing
+    python3 led_show.py                     # device on USB: the pads pattern, held
+    python3 led_show.py --animate comet     # device on USB: a running light over the pads
 """
 import argparse
 import hashlib

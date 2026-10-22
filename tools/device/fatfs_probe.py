@@ -8,9 +8,9 @@ read (you put it there), FSTEST.OUT is created by the write test.
 
     python3 fatfs_probe.py --make-input DIR       # writes DIR/FSTEST.IN, the bytes the read test expects
     python3 fatfs_probe.py --emu VSB              # against the local emulator with a virtual card
-    python3 fatfs_probe.py --dry-run              # on the laptop: checks only, writes nothing
-    python3 fatfs_probe.py --read                 # on the laptop: read test
-    python3 fatfs_probe.py --write                # on the laptop: read test, then create FSTEST.OUT
+    python3 fatfs_probe.py --dry-run              # device on USB: checks only, writes nothing
+    python3 fatfs_probe.py --read                 # device on USB: read test
+    python3 fatfs_probe.py --write                # device on USB: read test, then create FSTEST.OUT
     python3 fatfs_probe.py --check-out FILE       # compare FSTEST.OUT taken from the card with what was sent
 """
 import argparse

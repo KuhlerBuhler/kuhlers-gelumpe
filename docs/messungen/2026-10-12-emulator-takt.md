@@ -66,7 +66,7 @@ braucht mit richtigem Takt 91,6 s gegen 82,5 s im alten Stand (+11 %), ob `SLICE
 das nicht (88,8 s gegen 91,6 s).
 
 **Grenze:** beide `check.py`-Läufe zusammen höchstens 180 s CPU-Zeit auf einem ruhigen Rechner
-(gemessen 133 s; MacBook, Unicorn 2.1.4) und in jedem Fall unter 600 s. Wer `check.py` im
+(gemessen 133 s; macOS, Unicorn 2.1.4) und in jedem Fall unter 600 s. Wer `check.py` im
 Browser-Ablauf (`POST /check`) aufruft, muss mit rund 2 bis 3 Minuten rechnen. Die Wanduhrzeit
 schwankt mit der Last stark.
 

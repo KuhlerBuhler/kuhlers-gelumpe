@@ -7,7 +7,7 @@ twice; the file is written only when both passes agree, so it is one state of
 the device and not a mix of two. The first missing answer stops the run, there
 is no retry. The dump holds Korg data and stays outside the repository.
 
-    python3 flash_dump.py --out ~/electribe-flash-2026-10-09.bin          # on the laptop
+    python3 flash_dump.py --out ~/electribe-flash.bin          # device on USB
     python3 flash_dump.py --emu VSB --start 0x220000 --length 0x8000 --out x.bin
 """
 import argparse

@@ -22,11 +22,11 @@ difference to LOAD and STORE is the cost of format 2's 16-bit operand.
 
     python3 vm_bench.py --emu VSB                    # against the local emulator
     python3 vm_bench.py --emu VSB --json emu.json    # keep the emulator numbers
-    python3 vm_bench.py --dry-run                    # on the laptop: checks only, writes nothing
-    python3 vm_bench.py --json device.json           # on the laptop: the real run
+    python3 vm_bench.py --dry-run                    # device on USB: checks only, writes nothing
+    python3 vm_bench.py --json device.json           # device on USB: the real run
     python3 vm_bench.py --compare emu.json           # ... and the factor to the emulator
     python3 vm_bench.py --bare                       # no firmware: the stub alone in Unicorn
-    python3 vm_bench.py --stages-only                # on the laptop: four small executes, then stop
+    python3 vm_bench.py --stages-only                # device on USB: four small executes, then stop
 
 Before the benchmark four stages run, each as its own execute: a stub that
 only returns, a mark stub at the entry offset, one that reads the timer, and

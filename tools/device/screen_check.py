@@ -2,7 +2,7 @@
 emulator has them (docs/messungen/2026-10-09-menuezustand.md). Read only:
 device search and RAM reads (0x52), nothing is written.
 
-    python3 screen_check.py                 # on the laptop, device on USB
+    python3 screen_check.py                 # device on USB
     python3 screen_check.py --emu VSB       # the same reads against the emulator
     python3 screen_check.py --watch 180     # print every change for three minutes
     python3 screen_check.py --held          # buttons held at the last power-on (2026-10-10-startphase.md)
