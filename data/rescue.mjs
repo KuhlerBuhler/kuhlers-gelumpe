@@ -12,6 +12,25 @@ export const LINKS = {
   howTo: "https://github.com/bangcorrupt/hacktribe/wiki/How-To",
 };
 
+/** What Blechy says between the steps of the question flow; the steps themselves are the cases below. */
+export const TALK = {
+  hello: "Moin, ich bin Blechy. Keine Panik, wir kriegen das hin. Was zeigt deine Electribe, wenn du sie einschaltest?",
+  helped: "Hat geholfen",
+  notHelped: "Hilft nicht",
+  fixed: "Jut. Mit gehaltenem EXIT startet sie nur dieses Mal ohne BLECHTRIBE. Spinnt sie beim nächsten normalen Start wieder, komm zurück, dann gehen wir auf die alte Firmware.",
+  before: "Dann gehen wir zurück auf deine alte Firmware. Vorher zwei Sachen:",
+  ready: "Hab ich bereit",
+  notReady: "Hab ich nicht",
+  noBackup: "Ohne die gesicherte Original-SYSTEM.VSB gibt es diesen Weg zurück nicht. Such die Sicherung, zum Beispiel auf dem Schreibtisch oder in deinem Download-Ordner, und fang dann von vorn an.",
+  which: "Welche Firmware läuft gerade auf deiner Electribe?",
+  folder: "Leg deine gesicherte Original-SYSTEM.VSB auf der Karte hierhin:",
+  next: "Weiter",
+  done: "Erledigt",
+  end: "Mehr ist dazu nicht geprüft. Probier nichts auf Verdacht.",
+  again: "Von vorn",
+  back: "Zurück",
+};
+
 export default {
   stop: {
     title: "Stopp: der Bootloader wird nie angefasst",

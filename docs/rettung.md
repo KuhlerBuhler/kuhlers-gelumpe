@@ -1,7 +1,9 @@
 # Rettung
 
-Stand: 15. Oktober 2026. Die Seite "Rettung" im Editor führt durch den Weg zurück, wenn das
-Gerät nach einem Update oder Patch nicht mehr richtig startet. Sie sagt nur, was die Messungen und
+Stand: 22. Oktober 2026. Die Seite "Rettung" im Editor führt durch den Weg zurück, wenn das
+Gerät nach einem Update oder Patch nicht mehr richtig startet. Blechy fragt in Sprechblasen, was das
+Gerät zeigt, die Antworten sind Knöpfe; jeder Fall läuft Schritt für Schritt, das Stoppschild steht
+bei dem Fall, der es braucht. Sie sagt nur, was die Messungen und
 die Dokumentation belegen. Jeder Schritt trägt einen Marker: **gemessen** (am Gerät gesehen),
 **offline** (Code oder Emulator gelesen), **hergeleitet**, **offen** (nicht geprüft). Der Inhalt steht
 in `data/rescue.mjs`, die Seite in `site/app/rescue.mjs`, der Test in `test/e2e/rescue.e2e.mjs`.
