@@ -14,7 +14,7 @@ replaces on purpose, with its reason in the patch (`startPhase`). Every
 exception is listed in the result. While it runs, check.py writes one JSON line {"progress": ...} per finished task to stderr (progress.py); stdout is only the result. A copy that carries the splash editor's start
 hook also has to pass its storage and kill switch cases (splash_cases.py); one with the MFX 2
 switch's key hook has to pass its switch, DSP and kill switch cases (mfx_cases.py); one with the BLECH menu has to pass the menu, settings and look
-cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a sampler copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py).
+cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a sampler copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py) and the cases of the keys from the laptop (remote_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py).
 """
 
 import argparse
@@ -45,6 +45,7 @@ from ifx_idle_cases import GROUPS as IFXIDLE_GROUPS, has_hooks as has_ifxidle
 from shortcut_cases import GROUPS as SHORTCUT_GROUPS, has_hooks as has_shortcuts
 from migrate_cases import GROUPS as MIGRATE_GROUPS, has_hooks as has_migrate
 from fx_card_cases import GROUPS as FXCARD_GROUPS, has_hooks as has_fxcard
+from remote_cases import GROUPS as REMOTE_GROUPS, has_hooks as has_remote
 
 HEADER = 0x100
 PAYLOAD = 0x200000
@@ -143,6 +144,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("migrate_cases", "cases_task", (i,)) for i in range(len(MIGRATE_GROUPS))]
     if want(has_fxcard):
         tasks += [("fx_card_cases", "cases_task", (i,)) for i in range(len(FXCARD_GROUPS))]
+    if want(has_remote):
+        tasks += [("remote_cases", "cases_task", (i,)) for i in range(len(REMOTE_GROUPS))]
     if want(has_loadbar):
         tasks += [("loadbar_cases", "cases_task", (i,)) for i in range(len(LOADBAR_GROUPS))]
     if want(has_sampleerr):
@@ -170,6 +173,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     shortcuts = [c for _ in range(len(SHORTCUT_GROUPS) if want(has_shortcuts) else 0) for c in done.pop(0)]
     migrate = [c for _ in range(len(MIGRATE_GROUPS) if want(has_migrate) else 0) for c in done.pop(0)]
     fxcard = [c for _ in range(len(FXCARD_GROUPS) if want(has_fxcard) else 0) for c in done.pop(0)]
+    remote = [c for _ in range(len(REMOTE_GROUPS) if want(has_remote) else 0) for c in done.pop(0)]
     loadbar = [c for _ in range(len(LOADBAR_GROUPS) if want(has_loadbar) else 0) for c in done.pop(0)]
     sampleerr = [c for _ in range(len(SAMPLEERR_GROUPS) if want(has_sampleerr) else 0) for c in done.pop(0)]
     synth = [c for _ in range(len(SYNTH_GROUPS) if want(has_synth) else 0) for c in done.pop(0)]
@@ -223,6 +227,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(shortcuts)
     checks.extend(migrate)
     checks.extend(fxcard)
+    checks.extend(remote)
     checks.extend(loadbar)
     checks.extend(sampleerr)
     checks.extend(synth)

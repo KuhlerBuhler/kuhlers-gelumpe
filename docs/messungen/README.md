@@ -207,3 +207,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Display-Kalibrierung mit drei Geschwindigkeiten](2026-10-21-display-kalibrierung.md)
 - [Doom: Stack am Lader-Einstieg und sichtbarer Start](2026-10-19-doom-start-stack.md)
 - [Presets und Modulationen von der Karte ins RAM (e2sFx.all)](2026-10-22-sammeldatei-karte.md)
+- [Tasten vom Laptop: KORG.press und KORG.turn über die Laufzeit](2026-10-22-tasten-vom-laptop.md)

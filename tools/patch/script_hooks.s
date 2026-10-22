@@ -379,6 +379,7 @@ script_frame_guard_end:
 frame_gate_open:
     bl blechy_follow
     bl shortcut_tick
+    bl remote_tick
     ldr r1, =APP_STATE
     ldr r1, [r1]
     cmp r1, #0
