@@ -50,6 +50,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [FX-Tabellen: Parameterspannen und Wahlnamen aus dem DSP-Strom](2026-10-14-fx-tabellen.md)
 - [Alte offene Fragen, mit Emulator und DSP-Tabellen nachgeprüft](2026-10-14-offene-fragen.md)
 - [Modulationsarten, Stufe 2: was die übrigen Bytes eines Eintrags tun, im Emulator gemessen](2026-10-15-modulation-stufe2.md)
+- [FX-Katalog neu: Notenwerte der Delays, unbenutzte Bausteine, laute Distortion](2026-10-22-fx-katalog-neu.md)
 
 
 ## SysEx und Transport

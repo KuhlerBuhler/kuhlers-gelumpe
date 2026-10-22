@@ -38,6 +38,8 @@ export default [
   { id: "stage1Solo.09", kind: "stage1NeedsSolo", unit: 0x09, note: "decimator crashed with 0x0a behind it; alone it runs", source: "measured", evidence: CHAINS },
   { id: "stage1Solo.16", kind: "stage1NeedsSolo", unit: 0x16, note: "ring mod with any second stage behind it plays nothing", verdict: "silent", source: "measured", evidence: RING },
 
+  { id: "stageBlockShared", kind: "stageBlock", note: "every factory stage block of one position is the same apart from the device byte, the byte after it and the parameter values; a building block no preset carries goes into that block with only the device byte changed (src/fx-v2.mjs)", source: "measured", evidence: "factory-check:stage-block-shared" },
+
   { id: "factoryChains", kind: "factoryChains", chains: [[0x10, 0x06], [0x0a, 0x0a], [0x0a, 0x10]], source: "measured", evidence: "factory-check:stage2-factory-chains" },
   { id: "mfxMute", kind: "mfxMute", unit: 0x27, note: "the mute unit an insert record carries in its unused master field", source: "measured", evidence: "factory-check:insert-master-field" },
   { id: "mfxDeviceRange", kind: "mfxDeviceRange", range: [0x27, 0x40], note: "master units; one inside an insert chain hangs the device", source: "derived", evidence: "derived:hacktribe-editor/src/hacktribe_editor/utils/ht_fx_ram_format.py" },

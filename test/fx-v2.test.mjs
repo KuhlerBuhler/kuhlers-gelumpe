@@ -8,6 +8,7 @@ import { buildCollection, parseCollection, collectionEntry, HEADER_SIZE, MOD_REC
 import { locateModTable, readModType } from "../src/modtable.mjs";
 import { recordOf, RECORD } from "../src/presets.mjs";
 import { makeRecord, makeFirmwareWithArrays } from "./helpers.mjs";
+import { REC } from "../src/layout.mjs";
 
 const units = readUnits();
 const MOD_DELAY = 0x3b;
@@ -50,9 +51,10 @@ test("a building block the slot does not have comes from a donor record of the s
   const preset = shortDelay();
   const base = makeRecord("mfx", { name: "Echo", devices: { mfx: TAPE_ECHO } });
   const donor = makeRecord("mfx", { name: "Delay", devices: { mfx: MOD_DELAY } });
-  const refused = fxToRecord(preset, base.bytes, [base.bytes], units);
+  const empty = makeRecord("mfx", { name: "Empty" });
+  const refused = fxToRecord(preset, base.bytes, [empty.bytes], units);
   assert.equal(refused.ok, false);
-  assert.match(refused.reason, /M_mod_delay steht in dieser Firmware in keinem Preset/);
+  assert.match(refused.reason, /in keinem Preset ein Baustein\. Ohne ein solches Preset lässt sich M_mod_delay nicht einsetzen/);
   const made = fxToRecord(preset, base.bytes, [base.bytes, donor.bytes], units);
   assert.equal(made.ok, true, made.reason);
   const rec = new FxRecord(made.record, "mfx");
@@ -60,6 +62,20 @@ test("a building block the slot does not have comes from a donor record of the s
   assert.equal(rec.name, "Short Delay");
   const wrongName = fxToRecord({ ...preset, stages: [{ ...preset.stages[0], params: { nope: 1 } }] }, donor.bytes, [], units);
   assert.match(wrongName.reason, /keinen Parameter nope/);
+});
+
+test("a building block no record carries takes the stage block most records share, only the device byte changes", () => {
+  const preset = shortDelay();
+  const { device: at, params } = REC.stage.mfx;
+  const block = (rec, b) => { rec.bytes.fill(b, at + 1, params); return rec.bytes; };
+  const base = makeRecord("mfx", { name: "Echo", devices: { mfx: TAPE_ECHO } });
+  block(base, 0x11);
+  const records = [base.bytes, ...[0x36, 0x37, 0x38].map(mfx => block(makeRecord("mfx", { name: "Reverb", devices: { mfx } }), 0x40))];
+  const made = fxToRecord(preset, base.bytes, records, units);
+  assert.equal(made.ok, true, made.reason);
+  assert.equal(made.record[at], MOD_DELAY);
+  assert.deepEqual([...made.record.subarray(at + 1, params)], new Array(params - at - 1).fill(0x40));
+  assert.equal(new FxRecord(made.record, "mfx").params(units, "mfx").find(p => p.name === "dry_wet").value, 122);
 });
 
 test("a version 1 file reads as v2", () => {
