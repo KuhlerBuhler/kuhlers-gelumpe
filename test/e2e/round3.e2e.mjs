@@ -149,6 +149,7 @@ test("the run page shows the device drawing and sends keys, pads, knobs and the 
   const page = await h.page();
   await page.goto(`${h.url}#scripts`);
   await page.click("#cee-scripts-page-editor");
+  await page.click("#cee-script-presets [data-id=snake]");
   await page.click("#cee-script-copy");
   await page.locator("#cee-script-name:not([disabled])").waitFor();
   await page.evaluate(() => {
@@ -162,7 +163,7 @@ test("the run page shows the device drawing and sends keys, pads, knobs and the 
     ].join("\n") } });
   });
   await page.locator("#cee-script-problems .cee-script-problem").waitFor({ state: "detached" });
-  await page.click("#cee-script-preview");
+  await page.click("#cee-scripts-page-run");
   assert.equal(await page.locator("#cee-sim .cee-e2-viewport").count(), 1, "the same drawing as the emulator page");
   assert.equal(await page.locator("#cee-sim-level").count(), 1);
   assert.equal(await page.locator("#cee-e2-level").count(), 1, "the emulator drawing keeps its own ids");

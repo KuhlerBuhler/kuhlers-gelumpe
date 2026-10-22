@@ -1,17 +1,12 @@
 /**
- * The catalog of plugins, also the starting points of the plugins page. Each entry carries its category, who made it,
- * when it came in and what its keys do; a new plugin comes in by pull request on GitHub with its entry here. Snake is
- * the reference script the tests run (test/fixtures/scripts); a test keeps the source here equal to that file.
+ * Starting points for the scripts page and the cards of its catalog. Snake is the reference script the tests run
+ * (test/fixtures/scripts); a test keeps the source here equal to that file.
  */
 export const PRESETS = Object.freeze([
   Object.freeze({
     id: "blechclicker",
     title: "BLECH Clicker",
     description: "App in GAMES: ein Kristall in der Mitte, jeder Pad-Druck zählt eins hoch, der Stand bleibt über das Ausschalten.",
-    category: "Spiele",
-    creator: "Kuhler Buhler",
-    added: "2026-10-16",
-    controls: ["Pad: zählt eins hoch"],
     source: `// BLECH Clicker, an app under GAMES: a crystal in the middle, the number of pad presses below it. Every pad press
 // while the app is open adds one and shakes the crystal, korg.store keeps the count over power off. The crystal is one
 // bitmap of 40 x 40 pixels (5 bands of 40 columns), the screen is only drawn again when something changed.
@@ -74,10 +69,6 @@ korg.onEvent("frame", () => {
     id: "settimer",
     title: "Set-Timer",
     description: "App in TOOLS: große Uhr für die Länge des Sets. Startet mit dem ersten PLAY oder [1], zählt auch bei geschlossener App weiter, [4] zweimal setzt zurück.",
-    category: "Werkzeuge",
-    creator: "Kuhler Buhler",
-    added: "2026-10-16",
-    controls: ["PLAY oder [1]: startet die Uhr", "[4] zweimal: setzt zurück"],
     source: `// Set timer, an app under TOOLS: big mm:ss (h:mm:ss from one hour on) for how long the set has run.
 // The first PLAY or key 1 starts it, then it only counts: PLAY and STOP change nothing, key 4 resets after a second press.
 // The clock is korg.millis(), so it keeps counting with the app closed; closed, the app only reacts to \`play\` and keys.
@@ -230,10 +221,6 @@ korg.onEvent("frame", () => {
     id: "snake",
     title: "Snake",
     description: "App in GAMES: das Spiel auf dem Display. Tippe aufs Touchpad oben, unten, links oder rechts, dorthin läuft die Schlange; PART < und > drehen sie nach links und rechts. Sie wird mit jedem vierten Futter schneller.",
-    category: "Spiele",
-    creator: "Kuhler Buhler",
-    added: "2026-10-16",
-    controls: ["Touchpad oben, unten, links, rechts: dorthin läuft die Schlange", "◄ PART und PART ►: dreht nach links und rechts"],
     source: `// Snake on a 16 x 8 grid of 8 x 8 pixel cells, an app under GAMES: it opens from the BLECH menu, starts anew
 // on every open and leaves with EXIT. The body is a ring buffer, \`cell\` marks occupied cells. A tap on the
 // touchpad steers: above, below, left or right of its centre is the new direction, never straight back. PART left
@@ -373,10 +360,6 @@ korg.onEvent("frame", () => {
     id: "tetris",
     title: "Tetris",
     description: "App in GAMES: fallende Blöcke auf einem Feld von 10 mal 16. [◄ PART] und [PART ►] bewegen, [EDIT ►] dreht, [◄ EDIT] gehalten lässt schneller fallen.",
-    category: "Spiele",
-    creator: "Kuhler Buhler",
-    added: "2026-10-16",
-    controls: ["◄ PART und PART ►: bewegen", "EDIT ►: drehen", "◄ EDIT gehalten: schneller fallen lassen"],
     source: `// Tetris on a 10 x 16 board of 4 x 4 pixel cells, an app under GAMES: it opens from the BLECH menu, starts anew on
 // every open and leaves with EXIT. Part left and right move the piece, Edit right turns it, Edit left drops it faster
 // while it is held. A piece is a 4 x 4 mask (bit y * 4 + x), SHAPES holds the 4 rotations of 7 pieces. Only what
@@ -678,10 +661,6 @@ korg.onEvent("frame", () => {
     id: "life",
     title: "Game of Life",
     description: "App in GAMES: das Touchpad zeichnet Zellen. [1] Start und Pause, [2] ein Schritt, [3] löschen, [4] zufällig füllen.",
-    category: "Spiele",
-    creator: "Kuhler Buhler",
-    added: "2026-10-16",
-    controls: ["Touchpad: Zellen zeichnen", "[1]: Start und Pause", "[2]: ein Schritt", "[3]: löschen", "[4]: zufällig füllen"],
     source: `// Conway's Game of Life on a 32 x 16 torus of 4 x 4 pixel cells, an app under GAMES. The touchpad draws: a touch
 // sets the cell under the finger. Key 1 starts and pauses (its LED is lit while it runs), key 2 steps once, key 3
 // clears, key 4 fills the grid with random cells. A row of the grid is one 32-bit number, a generation is computed
@@ -914,10 +893,6 @@ korg.onEvent("frame", () => {
     id: "pong",
     title: "Pong",
     description: "App in GAMES: Pong gegen den Bot bis 9. Das Paddel folgt dem Finger auf dem Touchpad, oder [◄ PART] hoch und [PART ►] runter.",
-    category: "Spiele",
-    creator: "Kuhler Buhler",
-    added: "2026-10-16",
-    controls: ["Touchpad: das Paddel folgt dem Finger", "◄ PART hoch, PART ► runter"],
     source: `// Pong against a bot, an app under GAMES: first to 9 wins. Your paddle is on the left. Move it with a finger on the
 // touchpad (the height of the finger is the height of the paddle), with Part left (up) and Part right (down), or
 // with an encoder. The bot is slow on purpose: it only reacts to a ball that comes towards it, it misjudges the height
@@ -1119,10 +1094,6 @@ korg.onEvent("frame", () => {
     id: "simon",
     title: "Simon",
     description: "App in GAMES: die 16 Pads leuchten eine Folge vor, du spielst sie nach, jede Runde wird sie länger. [TAP] startet neu.",
-    category: "Spiele",
-    creator: "Kuhler Buhler",
-    added: "2026-10-16",
-    controls: ["Pads: die Folge nachspielen", "TAP: neu starten"],
     source: `// Simon, an app under GAMES, on all 16 pads. The pads light up in a sequence, repeat it on the pads, and the sequence
 // grows by one step every round. A wrong pad ends the game and shows the number of rounds you got through. While the app is
 // open it holds the panel LEDs (korg.ledHold) so the firmware does not paint over the pads; the display shows the round, the
@@ -1305,10 +1276,6 @@ korg.onEvent("frame", () => {
     id: "mandelbrot",
     title: "Mandelbrot",
     description: "App in GAMES: rechnet die Mandelbrot-Menge Stück für Stück. Touchpad verschiebt, [PART ►] zoomt hinein, [◄ PART] hinaus, [1] und [2] stellen die Iterationen, [TAP] setzt zurück.",
-    category: "Spiele",
-    creator: "Kuhler Buhler",
-    added: "2026-10-16",
-    controls: ["Touchpad: verschieben", "PART ►: hinein zoomen, ◄ PART: hinaus", "[1] und [2]: Iterationen", "TAP: zurücksetzen"],
     source: `// Mandelbrot in Q14 fixed point. A bounded worklist holds unresolved rectangles. Proven interior rectangles are
 // filled once; other rectangles split until their pixels can be iterated individually. Each frame has a small work
 // budget. Touchpad pans, Part keys and encoder zoom, keys 1 and 2 change iterations, TAP resets the view.
@@ -1561,10 +1528,6 @@ korg.onEvent("frame", () => {
     id: "gifplayer",
     title: "GIF Player",
     description: "App in TOOLS: spielt Bilddateien GIF00.E2G bis GIF99.E2G von der Karte ab, der Encoder wählt die Datei, Part links und rechts das Tempo, TAP hält an.",
-    category: "Werkzeuge",
-    creator: "Kuhler Buhler",
-    added: "2026-10-20",
-    controls: ["Encoder: Datei wählen", "◄ PART und PART ►: Tempo", "TAP: anhalten"],
     source: `// GIF Player, an app under TOOLS: plays the picture files GIF00.E2G to GIF99.E2G from KORG/blechtribe/Gif/ on the card
 // (tools/gif/gif2e2g.py makes one from a GIF). The encoder picks the file, Part left and right halve and double the speed
 // (25 to 400 percent), TAP pauses. The runtime draws once per frame of 40 ms, so a picture stays at least that long.
@@ -1641,10 +1604,6 @@ korg.onEvent("buttonPress", (key) => {
     id: "lauflicht",
     title: "Lauflicht",
     description: "Ein Licht läuft über die Pads.",
-    category: "Licht",
-    creator: "Kuhler Buhler",
-    added: "2026-10-16",
-    controls: [],
     source: `// Lauflicht: ein rotes Pad-Licht wandert über die 16 Pads.
 const FIRST_RED_PAD = korg.led.PAD_1_RED;
 let pos = 0;
@@ -1667,10 +1626,6 @@ korg.onEvent("frame", () => {
     id: "pulsieren",
     title: "Pulsieren",
     description: "Alle roten Pad-LEDs werden heller und dunkler.",
-    category: "Licht",
-    creator: "Kuhler Buhler",
-    added: "2026-10-16",
-    controls: [],
     source: `// Pulsieren: alle roten Pad-LEDs werden im Dreieck heller und dunkler.
 const FIRST_RED_PAD = korg.led.PAD_1_RED;
 let phase = 0;
