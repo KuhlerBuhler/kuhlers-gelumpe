@@ -37,6 +37,7 @@
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-splash" data-tab="splash" aria-controls="cee-area-splash" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5h18v14H3Z"/><path d="m3 16 5-5 4 4 3-3 6 6"/><path d="M15 9h.01"/></svg><span>Startbildschirm</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-scripts" data-tab="scripts" aria-controls="cee-area-scripts" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 7l9-4 9 4-9 4Z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg><span>Plugins</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-changelog" data-tab="changelog" aria-controls="cee-area-changelog" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h9l4 4v14H6Z"/><path d="M14 3v5h5"/><path d="M9 12h7"/><path d="M9 16h7"/></svg><span>Changelogs</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-baukasten" data-tab="baukasten" aria-controls="cee-area-baukasten" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 13h8v8H3Z"/><path d="M13 13h8v8h-8Z"/><path d="M8 3h8v8H8Z"/></svg><span>Baukasten</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-fx" data-tab="fx" aria-controls="cee-area-fx" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg><span>Presets</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-mod" data-tab="mod" aria-controls="cee-area-mod" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12c2-5 4-5 6 0s4 5 6 0 4-5 6 0"/></svg><span>Modulationen</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-ptools" data-labs data-tab="ptools" aria-controls="cee-area-ptools" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3h7v7H3Z"/><path d="M14 3h7v7h-7Z"/><path d="M3 14h7v7H3Z"/><path d="M14 14h7v7h-7Z"/></svg><span>Pattern-Werkzeuge</span></button>
@@ -45,7 +46,7 @@
         </div>
         <span class="cee-nav-group" aria-hidden="true" data-before="emu">Gerät</span>
         <span class="cee-nav-group" aria-hidden="true" data-before="patcher">Firmware</span>
-        <span class="cee-nav-group" aria-hidden="true" data-before="fx">Sound</span>
+        <span class="cee-nav-group" aria-hidden="true" data-before="baukasten">Sound</span>
       </nav>
       <button type="button" class="btn cee-settings-button" id="cee-settings-button" aria-controls="cee-area-settings">Einstellungen</button>
       <a class="btn cee-donate" id="cee-donate" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Unterstütze das Projekt :D</a>
@@ -143,6 +144,10 @@
         <section class="ui-section" id="cee-console" data-no-reveal>
           <div class="cee-ws-console" id="cee-terminal"></div>
         </section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-baukasten" aria-labelledby="cee-tab-baukasten" tabindex="0" hidden>
+        <section class="ui-section" id="cee-baukasten" data-no-reveal></section>
       </div>
 
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-features" aria-labelledby="cee-tab-features" tabindex="0" hidden>

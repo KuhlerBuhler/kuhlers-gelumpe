@@ -21,6 +21,7 @@ const PAGES = [
   ["rescue", page => page.click("#cee-tab-rescue")],
   ["patcher", page => page.click("#cee-tab-patcher")],
   ["splash", page => page.click("#cee-tab-splash")],
+  ["baukasten", async page => { await page.click("#cee-tab-baukasten"); await page.locator("#cee-bk-fx-catalog .btn").first().click(); await page.locator("#cee-bk-blocks .cee-bk-slider").first().waitFor(); }],
   ["fx", async page => { await page.click("#cee-tab-fx"); await page.locator("#cee-fx-slot").waitFor({ timeout: 15_000 }); }],
   ["mod", page => page.click("#cee-tab-mod")],
   ["ptools", page => page.click("#cee-tab-ptools")],

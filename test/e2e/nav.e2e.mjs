@@ -18,7 +18,7 @@ test("the sidebar lists only the entries, the navbar names the open page, up and
   const page = await h.page();
   await page.goto(h.url);
   assert.equal(await selectedTab(page), "start");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Konsole", "Features", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Konsole", "Features", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Baukasten", "Presets", "Modulationen"]);
   assert.equal(await page.locator("#cee-sidebar .cee-nav-label").count(), 0, "no headings between the entries");
   await page.click("#cee-tab-patcher");
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Firmware Patcher");
@@ -46,7 +46,7 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.equal(await selectedTab(page), "start", "a remembered hidden page is ignored");
   await page.goto(`${h.url}?labs#ptools`);
   assert.equal(await selectedTab(page), "ptools", "with ?labs the pages stay reachable for tests");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Konsole", "Features", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Konsole", "Features", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Baukasten", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples"]);
 });
 
 test("the navbar title of the emulator page is a menu: emulator or real device", async () => {

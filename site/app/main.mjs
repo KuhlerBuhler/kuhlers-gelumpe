@@ -23,6 +23,7 @@ import { changelogPage } from "./changelog.mjs";
 import { splashPage } from "./splash.mjs";
 import { terminalPanel } from "./terminal.mjs";
 import { featuresPage, featureCards } from "./features.mjs";
+import { baukastenPage } from "./baukasten.mjs";
 import { scriptsPanel } from "./scripts.mjs";
 import { Terminal } from "../../src/terminal.mjs";
 import { loadBlechSet } from "../../src/patcher.mjs";
@@ -567,6 +568,7 @@ function boot() {
   });
   emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, onConnect: next => sd?.connect(next) });
   const modulations = modulationsPage($("#cee-mod"), { emulator });
+  const baukasten = baukastenPage($("#cee-baukasten"), { emulator });
   samplesPage($("#cee-samples"), { device, emulator, probe });
   let fxFirmware = null;
   let modFirmware = null;
@@ -592,6 +594,7 @@ function boot() {
       });
     }
     if (emulator.firmware && emulator.firmware !== modFirmware) { modFirmware = emulator.firmware; modulations.loadBytes(modFirmware).catch(() => {}); }
+    baukasten.update();
     if (!emulator.firmware !== noFirmware) { noFirmware = !emulator.firmware; restrict(); }
   }, 1000);
   // Shut from the first frame, not a second later: before that a click still opened a page without its tables.

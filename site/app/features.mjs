@@ -56,7 +56,7 @@ export const FEATURES = [
     how: "Menü BLECH am Gerät. Plugins holst du dir in der App unter Plugins." },
   { group: "Plugins und Effekte", id: "presets", home: true, title: "Eigene Effekte", where: RED, image: "img/features/presets.svg",
     text: "128 Plätze für eigene MFX- und IFX-Presets, gebaut in der App mit Namen und echten Einheiten.",
-    how: "In der App unter Sound, Presets." },
+    how: "In der App unter Sound, Baukasten: einen fertigen Effekt nehmen oder selbst bauen." },
   { group: "Plugins und Effekte", id: "doom", home: true, title: "Doom", where: RED, image: "img/features/doom.svg",
     text: "Ja, wirklich.",
     how: "SHIFT + TAP beim Einschalten." },
