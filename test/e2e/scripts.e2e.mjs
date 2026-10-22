@@ -616,6 +616,7 @@ test("Eigene Plugins is the second button of the catalog: empty it says so as a 
   const area = await page.locator("#cee-area-scripts").boundingBox();
   assert.ok(Math.abs(box.width - area.width) < 2, `nothing beside the editor: ${box.width} of ${area.width}`);
   assert.deepEqual(await page.locator("#cee-nav-state").getByRole("button").allTextContents(), ["Öffnen", "Speichern"], "the file actions of the editor sit in the navbar");
+  assert.equal(await page.isDisabled("#cee-script-save"), true, "a plugin of the catalog is read only, Speichern says so instead of doing nothing");
   await page.click("#cee-scripts-page-catalog");
   await page.click("#cee-shelf-own");
   assert.equal(await page.locator("#cee-catalog").isVisible(), false);

@@ -238,6 +238,9 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     probeInfo.replaceChildren(...(gate ? [gate.ok ? pill(gate.confirm ? "warn" : "ok", gate.confirm ? "Zeilen offen" : "Probe bestanden") : pill("neutral", "nicht geprobt"), ` ${gate.reason ?? "Alle Zeilen mit Code sind gelaufen."}`] : []));
     exportButton.disabled = !ok || !gate?.ok;
     usbButton.disabled = exportButton.disabled;
+    // Speichern in the navbar is the same export: a plugin of the catalog is read only, an own one needs its probe first
+    saveNav.disabled = !isOwn || exportButton.disabled;
+    saveNav.title = !isOwn ? "Ein Plugin aus dem Katalog ist schreibgeschützt. Erst „Als eigenes Plugin öffnen“." : exportButton.disabled ? "Erst mit Vorschau und Proben die Probe bestehen." : "";
   }
 
   function select(kind, id) {
