@@ -1,14 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { emuPython } from "./support/emu.mjs";
 import { PRESETS } from "../data/script/presets.mjs";
 
 const python = emuPython();
-const snippet = `import sys,json;sys.path.insert(0,'tools/emu');from patch_performance import validate_capture,compare; x=json.load(sys.stdin);validate_capture(x['baseline']);validate_capture(x['candidate']);print(json.dumps(compare(x['baseline'],x['candidate'],x.get('phase','baseline'))))`;
+const snippet = `import sys,json;sys.path.insert(0,'tools/emu');from patch_performance import validate_capture,compare; x=json.load(sys.stdin);validate_capture(x['baseline']);validate_capture(x['candidate']);print(json.dumps(compare(x['baseline'],x['candidate'],x.get('phase','baseline'),**({'inherited':x['inherited']} if x.get('inherited') else {}))))`;
 const loaderRun = () => ({ totalInstructions: PRESETS.length * 100, plugins: PRESETS.map(p => ({ plugin: p.id, instructions: 100 })) });
 const sample = () => ({ format: "blech-performance", version: 4, method: "fixture", repeats: 3, seconds: 2,
   appProtocol: { warmupFrames: 8, openClockMs: 0xB1EC, boundary: "frame_return", clockInput: "native-clock-state-at-millis-entry", installedApps: ["blechclicker", "settimer", "snake", "tetris", "life", "pong", "simon", "mandelbrot"], backgroundPlugins: ["lauflicht", "pulsieren"] },
@@ -18,7 +19,7 @@ const sample = () => ({ format: "blech-performance", version: 4, method: "fixtur
     original: Array.from({ length: 3 }, () => ({ scenarios: ["idle", "playing", "playing-keyboard", "sequencer-four-note-long-ties"].map(scenario => ({ scenario, instructions: 1000, deviceNs: 2e9, transport: scenario === "idle" ? 0 : 1, asserts: [], byPatch: {} })) })),
     patched: Array.from({ length: 3 }, () => ({ scenarios: ["idle", "playing", "playing-keyboard", "sequencer-four-note-long-ties", "blech-menu", "closed-apps", "app-mandelbrot", "app-life", "app-pong", "background-plugins"].map((scenario, i) => ({ scenario, instructions: 1000, deviceNs: 2e9, transport: i > 0 && i < 4 ? 1 : 0, asserts: [], byPatch: {}, ...(scenario.startsWith("app-") ? { semantic: { frames: 50, fault: 0, frameActive: 0, initialStateSha256: "1".repeat(64), stateSha256: "2".repeat(64), framebufferSha256: "d".repeat(64), progress: {} } } : {}) })) })),
   }])) });
-const run = (baseline, candidate, phase) => spawnSync(python, ["-c", snippet], { input: JSON.stringify({ baseline, candidate, phase }), encoding: "utf8" });
+const run = (baseline, candidate, phase, inherited) => spawnSync(python, ["-c", snippet], { input: JSON.stringify({ baseline, candidate, phase, inherited }), encoding: "utf8" });
 
 const withSysex = (end = 0xc019f000) => {
   const profile = sample();
@@ -240,4 +241,47 @@ print(json.dumps(True))`;
   const result = spawnSync(python, ["-c", code], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(JSON.parse(result.stdout), true);
+});
+
+const canonical = value => JSON.stringify(value, function (_key, v) {
+  return v && !Array.isArray(v) && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v;
+});
+const inheritance = baseline => {
+  const profile = structuredClone(baseline);
+  for (const item of Object.values(profile.builds)) delete item.sysex;
+  return { ...JSON.parse(readFileSync("docs/messungen/2026-10-22-gesamtpruefung-basis.json")),
+    baselineDigest: createHash("sha256").update(canonical(profile)).digest("hex") };
+};
+
+test("integrated combined acceptance preserves earlier gains without demanding them twice", () => {
+  const old = withSysex(), next = withSysex(0xc019a400);
+  for (const build of Object.keys(old.builds)) {
+    old.builds[build].footprint = { codeDataBytes: 1000, ramBytes: 30000, occupiedBytes: 31000, largestGap: 1000 };
+    next.builds[build].footprint = { codeDataBytes: 1112, ramBytes: 10544, occupiedBytes: 11656, largestGap: 19456 };
+    for (const run of old.builds[build].patched) for (const row of run.scenarios) row.byPatch["script-runtime"] = 100;
+    for (const run of next.builds[build].patched) for (const row of run.scenarios) row.byPatch["script-runtime"] = 97;
+  }
+  const accepted = inheritance(old);
+  const result = run(old, next, "combined", accepted);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout).inheritedPhases, ["pad", "loader", "mul"]);
+  for (const change of [x => x.builds.synth.footprint.codeDataBytes++,
+    x => x.builds.stock.footprint.ramBytes++, x => x.builds.stock.footprint.largestGap--,
+    x => x.builds.stock.patched.forEach(r => r.scenarios[6].instructions = 1011),
+    x => x.builds.stock.patched.forEach(r => r.scenarios[6].semantic.framebufferSha256 = "bad"),
+    x => x.builds.stock.patched.forEach(r => r.scenarios[6].byPatch["script-runtime"] = 98),
+    x => x.builds.stock.sysex.ioSha256 = "f".repeat(64),
+    x => delete x.builds.stock.sysex]) {
+    const bad = structuredClone(next); change(bad);
+    assert.notEqual(run(old, bad, "combined", accepted).status, 0, String(change));
+  }
+  const different = structuredClone(old); different.builds.synth.loader.totalInstructions++;
+  assert.notEqual(run(different, next, "combined", accepted).status, 0);
+  for (const change of [x => x.codeBudgetBytes++, x => x.inheritedPhases.pop(),
+    x => x.evidence[0].sha256 = "0".repeat(64), x => x.baselineDigest = "0".repeat(64)]) {
+    const bad = structuredClone(accepted); change(bad);
+    assert.notEqual(run(old, next, "combined", bad).status, 0, String(change));
+  }
+  assert.notEqual(run(old, next, "combined").status, 0);
+  assert.notEqual(run(old, next, "decoder", accepted).status, 0);
 });

@@ -177,9 +177,34 @@ def validate_sysex(item):
                 'native transfer repetitions differ')
 
 
-def compare(baseline, candidate, phase):
+def validate_inherited(baseline, inherited):
+    require(inherited.get('format') == 'blech-integrated-acceptance' and inherited.get('version') == 1,
+            'invalid inherited acceptance')
+    require(inherited.get('inheritedPhases') == ['pad', 'loader', 'mul']
+            and inherited.get('codeBudgetBytes') == 112, 'unapproved inherited phases or code budget')
+    profile = {**baseline, 'builds': {build: {k: v for k, v in item.items() if k != 'sysex'}
+                                   for build, item in baseline['builds'].items()}}
+    digest = hashlib.sha256(json.dumps(profile, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    require(digest == inherited.get('baselineDigest'), 'inherited acceptance belongs to another baseline')
+    expected = {'2026-10-20-pad-geometrie-zahlen.json', '2026-10-20-arm-optimierungen-zahlen.json',
+                '2026-10-21-patch-effizienz-basis-zahlen.json'}
+    evidence = inherited.get('evidence', [])
+    require(len(evidence) == len(expected) and {r['file'] for r in evidence} == expected,
+            'historical acceptance evidence missing')
+    for row in evidence:
+        path = ROOT / 'docs/messungen' / row['file']
+        require(hashlib.sha256(path.read_bytes()).hexdigest() == row['sha256'], 'historical acceptance changed')
+    registered = json.loads((ROOT / 'docs/messungen/2026-10-21-patch-effizienz-basis-zahlen.json').read_text())
+    require(inherited.get('firmwareSourceCommit') == registered['firmwareSourceCommit'],
+            'different integrated firmware source')
+
+
+def compare(baseline, candidate, phase, inherited=None):
     require(phase in ('baseline', 'pad', 'loader', 'decoder', 'mul', 'sysex', 'combined'), 'unknown phase')
     require(baseline['method'] == candidate['method'] and baseline['programsSha256'] == candidate['programsSha256'], 'different measurement or plugin input')
+    if inherited is not None:
+        require(phase == 'combined', 'inherited acceptance requires combined comparison')
+        validate_inherited(baseline, inherited)
     results = {}
     for build in BUILDS:
         old, new = baseline['builds'][build], candidate['builds'][build]
@@ -202,13 +227,17 @@ def compare(baseline, candidate, phase):
                 require(after <= before * 1.01, f'{build}/{name}: ordinary regression exceeds 1 percent')
         if phase in ('pad', 'combined'):
             require(med(new, 'patched', CORE[3]) <= med(new, 'original', CORE[3]) * 1.05, f'{build}: long ties exceed original by 5 percent')
-            require(new['footprint']['ramBytes'] <= old['footprint']['ramBytes'] + (0 if build == 'synth' else 1024), 'pad RAM budget exceeded')
-            require(new['footprint']['codeDataBytes'] <= old['footprint']['codeDataBytes'] + (0 if build == 'synth' else 768), 'pad code budget exceeded')
+            ram_budget = -19456 if inherited else (0 if build == 'synth' else 1024)
+            code_budget = inherited['codeBudgetBytes'] if inherited else (0 if build == 'synth' else 768)
+            require(new['footprint']['ramBytes'] <= old['footprint']['ramBytes'] + ram_budget, 'pad RAM budget exceeded')
+            require(new['footprint']['codeDataBytes'] <= old['footprint']['codeDataBytes'] + code_budget, 'pad code budget exceeded')
+            if inherited:
+                require(new['footprint']['largestGap'] >= max(19456, old['footprint']['largestGap']), 'contiguous free space shrank')
         if phase in ('loader', 'decoder', 'mul'):
             require(new['footprint']['codeDataBytes'] <= old['footprint']['codeDataBytes'], 'VM code grew')
         if phase in ('loader', 'combined'):
             require('loader' in old and 'loader' in new, 'loader evidence missing')
-            require(new['loader']['totalInstructions'] <= old['loader']['totalInstructions'] * .30, 'loader target not reached')
+            require(new['loader']['totalInstructions'] <= old['loader']['totalInstructions'] * (1 if inherited else .30), 'loader target not reached')
         if phase in ('decoder', 'combined'):
             for plugin in ('mandelbrot', 'life'):
                 name = 'app-' + plugin
@@ -216,7 +245,7 @@ def compare(baseline, candidate, phase):
                 old_runtime = statistics.median(next(r for r in run['scenarios'] if r['scenario'] == name)['byPatch'].get('script-runtime', 0) for run in old['patched'])
                 new_runtime = statistics.median(next(r for r in run['scenarios'] if r['scenario'] == name)['byPatch'].get('script-runtime', 0) for run in new['patched'])
                 require(old_runtime > 0 and 0 < new_runtime <= old_runtime * .97, 'decoder target not reached')
-        if phase in ('mul', 'combined'):
+        if phase in ('mul', 'combined') and inherited is None:
             require('mul' in old and 'mul' in new, 'MUL microbenchmark evidence missing')
             for evidence in (old['mul'], new['mul']):
                 mean = evidence.get('meanInstructions')
@@ -244,6 +273,7 @@ def compare(baseline, candidate, phase):
             require(new['footprint']['occupiedBytes'] < old['footprint']['occupiedBytes'], 'no net sampler space gain')
         results[build] = rows
     return {'ok': True, 'phase': phase, 'builds': results,
+            **({'inheritedPhases': inherited['inheritedPhases']} if inherited else {}),
             **({'mulMinimumReductionPercent': MUL_MIN_REDUCTION_PERCENT}
                if phase in ('mul', 'combined') else {})}
 
@@ -453,6 +483,9 @@ def main():
     parser.add_argument('--out', type=Path)
     parser.add_argument('--phase', choices=('baseline', 'pad', 'loader', 'decoder', 'mul', 'sysex', 'combined'))
     parser.add_argument('--capture', type=Path)
+    parser.add_argument('--integrated-baseline', action='store_true',
+                        help='use the registered baseline containing accepted pad, loader and MUL changes')
+    parser.add_argument('--baseline-transfers', type=Path, help='native SysEx evidence for the exact baseline firmware')
     parser.add_argument('--worker', nargs=3, metavar=('DIRECTORY', 'BUILD', 'VARIANT'))
     args = parser.parse_args()
     if args.worker:
@@ -467,9 +500,20 @@ def main():
         require(args.baseline and args.candidate and args.phase, 'baseline, candidate and phase required')
         old = load_capture(args.baseline)
         new = load_capture(args.candidate)
+        inherited = None
+        if args.integrated_baseline:
+            inherited = json.loads((ROOT / 'docs/messungen/2026-10-22-gesamtpruefung-basis.json').read_text())
+            sets = json.loads((args.baseline / 'sets.json').read_text())
+            require(sets['commit'] == inherited['firmwareSourceCommit'], 'different integrated source commit')
+        if args.baseline_transfers:
+            transfers = json.loads(args.baseline_transfers.read_text())
+            require(set(transfers) == set(BUILDS), 'three baseline transfer builds required')
+            for build in BUILDS:
+                require('sysex' not in old['builds'][build], 'baseline transfer evidence already present')
+                old['builds'][build]['sysex'] = transfers[build]
         validate_capture(old)
         validate_capture(new)
-        data = compare(old, new, args.phase)
+        data = compare(old, new, args.phase, inherited)
     args.out.write_text(json.dumps(data, indent=2) + '\n')
 
 
