@@ -75,6 +75,12 @@ test("axe: device mode, patcher, presets, plugins with a running plugin, and the
   await page.locator("#cee-sim-state", { hasText: "Lauf:" }).waitFor();
   assert.deepEqual(await severeViolations(page), [], "plugins, running in the preview");
   await page.click("#cee-plugin-run-close");
+  await page.click("#cee-scripts-page-catalog");
+  await page.click("#cee-catalog-snake .cee-catalog-open");
+  await page.locator("#cee-sim-state", { hasText: "Lauf: snake" }).waitFor();
+  assert.deepEqual(await severeViolations(page), [], "plugins, the page of a plugin");
+  await page.click("#cee-detail-view-code");
+  assert.deepEqual(await severeViolations(page), [], "plugins, the code of a plugin");
   await page.click("#cee-tab-console");
   assert.deepEqual(await severeViolations(page), [], "console");
   await page.click("#cee-tab-scripts");

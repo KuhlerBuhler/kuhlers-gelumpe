@@ -123,7 +123,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const newButton = button("cee-script-new", "Neues Plugin", () => newScript(), "sm");
   const duplicate = button("cee-script-duplicate", "Duplizieren", () => duplicateScript(), "sm");
   const remove = button("cee-script-remove", "Löschen", () => removeScript(), "sm");
-  const runButton = button("cee-script-run", "Neu starten", () => start(), "sm");
+  const runButton = button("cee-script-run", "Neu starten", () => (shown === "detail" ? detailView("preview") : start()), "sm");
   const stopButton = button("cee-script-stop", "Anhalten", () => stop(), "sm");
   const previewButton = button("cee-script-preview", "Vorschau", () => preview(), "cee-primary");
   const probeButton = button("cee-script-probe", "Proben", () => probeScript(), "sm");
@@ -560,6 +560,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   /** Where a run shows: in the preview of a plugin's page while that is open, else in the preview over the editor. */
   function showRun() {
     panel();
+    if (shown === "detail" && detailRun.contains(runBox)) return;
     if (runBox.parentNode !== previewBody) previewBody.append(runBox);
     if (!previewDialog.open) (window.ui?.openDialog ? window.ui.openDialog(previewDialog) : previewDialog.showModal?.());
   }
@@ -676,10 +677,72 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     trail([id === "own" ? "Eigene Plugins" : "Katalog"]);
   }
 
+  // A plugin's own page: picture, title, description and details on top; Vorschau and Code below, switched by two buttons.
+  const detailRun = el("div", { className: "cee-detail-run", id: "cee-detail-run" });
+  const detailCode = el("pre", { className: "cee-doc-code cee-detail-code", id: "cee-detail-code", tabIndex: 0, hidden: true });
+  const detailHead = el("div", { className: "cee-detail-head", id: "cee-detail-head" });
+  const views = [["preview", "Vorschau"], ["code", "Code"]].map(([id, text]) => {
+    const b = el("button", { type: "button", className: "ui-segmented-option", id: `cee-detail-view-${id}`, textContent: text, onclick: () => detailView(id) });
+    b.dataset.view = id;
+    return b;
+  });
+  const viewTabs = el("div", { className: "ui-segmented cee-detail-views", role: "group" }, views);
+  viewTabs.setAttribute("aria-label", "Vorschau oder Code");
+  const detailPage = el("div", { className: "cee-plug-page cee-detail" }, [
+    el("button", { type: "button", className: "cee-text-link cee-detail-back", id: "cee-detail-back", textContent: "← Zurück zum Katalog", onclick: () => page("catalog") }),
+    detailHead,
+    viewTabs,
+    detailRun,
+    detailCode,
+  ]);
+  let detailOf = null;
+  function detailView(id) {
+    for (const b of views) b.setAttribute("aria-pressed", String(b.dataset.view === id));
+    detailRun.hidden = id !== "preview";
+    detailCode.hidden = id !== "code";
+    if (id === "preview") {
+      detailRun.append(runBox);
+      const result = compile(detailOf.source, { name: validName(detailOf.id) ? detailOf.id : "plugin" });
+      if (result.ok) start(result.blob, detailOf.id);
+      runTarget.textContent = `Plugin: ${detailOf.title}`;
+      probeButton.hidden = true;
+    } else stop();
+  }
+  /** Opens the page of one plugin of the catalog. */
+  function openDetail(preset) {
+    detailOf = preset;
+    const canvas = el("canvas", { className: "cee-lcd cee-catalog-thumb", width: 128, height: 64 });
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", `Display von ${preset.title}`);
+    const { get, usb } = packButtons(preset, true);
+    const copyOwn = el("button", { type: "button", className: "btn", id: "cee-detail-copy", textContent: "Als eigenes Plugin öffnen", onclick: () => { select("preset", preset.id); copyPreset(); page("editor"); } });
+    const added = new Date(`${preset.added}T12:00:00`).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+    detailHead.replaceChildren(
+      canvas,
+      el("div", { className: "cee-detail-text" }, [
+        el("h2", { className: "cee-detail-title", id: "cee-detail-title", textContent: preset.title }),
+        el("p", { textContent: preset.description }),
+        el("dl", { className: "cee-detail-facts" }, [
+          el("dt", { textContent: "Kategorie" }), el("dd", { textContent: preset.category }),
+          el("dt", { textContent: "Von" }), el("dd", { textContent: preset.creator }),
+          el("dt", { textContent: "Hinzugefügt" }), el("dd", {}, el("time", { dateTime: preset.added, textContent: added })),
+          el("dt", { textContent: "Steuerung" }), el("dd", {}, preset.controls.length ? el("ul", { className: "cee-detail-controls" }, preset.controls.map(c => el("li", { textContent: c }))) : "Keine, es läuft von selbst."),
+        ]),
+        el("div", { className: "actions" }, [get, usb, copyOwn]),
+      ]),
+    );
+    renderThumb(canvas, preset);
+    detailCode.textContent = preset.source;
+    page("detail");
+    trail(["Katalog", preset.title]);
+    detailView("preview");
+  }
+
   const PAGES = [
     { id: "catalog", title: "Katalog", node: el("div", { className: "cee-plug-page" }, [shelfTabs, catalog, ownShelf]) },
     { id: "editor", title: "Editor", node: split },
     { id: "docs", title: "Dokumentation", node: docsPage },
+    { id: "detail", title: "Plugin", node: detailPage, hidden: true },
   ];
   for (const p of PAGES) { p.node.id ||= `cee-plugin-${p.id}`; p.node.hidden = true; p.node.dataset.page = p.id; }
   root.replaceChildren(...PAGES.map(p => p.node));
@@ -687,13 +750,14 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   let shown = null;
   const PAGE_ICONS = { catalog: "grid", editor: "code", docs: "book" };
   const subPages = sub?.pages("scripts", { id: "cee-scripts-pages", label: "Bereiche der Plugins", items: PAGES.filter(p => !p.hidden).map(({ id, title }) => ({ id, title, icon: PAGE_ICONS[id] })), pick: id => page(id) });
-  /** Opens one of the pages of Plugins: the catalog, the editor, the documentation. */
+  /** Opens one of the pages of Plugins: the catalog, a plugin's page, the editor, the documentation. */
   function page(id) {
     if (!PAGES.some(p => p.id === id)) id = "editor";
     if (id === shown) return;
+    if (shown === "detail") { stop(); probeButton.hidden = false; runTarget.textContent = current ? `Plugin: ${current.id}` : ""; }
     shown = id;
     for (const p of PAGES) p.node.hidden = p.id !== id;
-    subPages?.select(id);
+    subPages?.select(id === "detail" ? "catalog" : id);
     reading = null;
     trail(id === "editor" ? ["Editor", ...(current ? [current.id] : [])] : id === "catalog" ? [ownShelf.hidden ? "Katalog" : "Eigene Plugins"] : [PAGES.find(p => p.id === id).title]);
     navbar(id === "editor" ? [openNav, saveNav] : []);
@@ -764,10 +828,9 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     canvas.setAttribute("aria-label", `Display von ${preset.title}`);
     thumbs.set(canvas, preset);
     const { get, usb, note } = packButtons(preset);
-    // The title opens the plugin's code in the editor, read only; the picture does too.
-    const look = () => { select("preset", preset.id); page("editor"); };
-    const title = el("button", { type: "button", className: "cee-catalog-open", textContent: preset.title, onclick: look });
-    canvas.addEventListener("click", look);
+    // The title is the way to the plugin's page; the picture leads there too.
+    const title = el("button", { type: "button", className: "cee-catalog-open", textContent: preset.title, onclick: () => openDetail(preset) });
+    canvas.addEventListener("click", () => openDetail(preset));
     return el("li", { className: "cee-catalog-card", id: `cee-catalog-${preset.id}` }, [
       canvas,
       el("p", { className: "cee-catalog-meta" }, [el("span", { className: "cee-catalog-category", textContent: preset.category }), el("span", { className: "muted", textContent: `von ${preset.creator}` })]),

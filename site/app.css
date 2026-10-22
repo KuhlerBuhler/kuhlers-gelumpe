@@ -2575,7 +2575,8 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   align-self: flex-start;
 }
 
-.cee-shelf-tab[aria-pressed="true"] {
+.cee-shelf-tab[aria-pressed="true"],
+.cee-detail-views [aria-pressed="true"] {
   background: var(--color-surface-item-strong);
   color: var(--color-text-primary);
 }
@@ -2623,6 +2624,83 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 
 .cee-catalog-card canvas {
   cursor: pointer;
+}
+
+/* A plugin's page: the picture top left, beside it title, description and details. */
+.cee-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.cee-detail > * {
+  margin: 0;
+}
+
+.cee-detail-back {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cee-detail-head {
+  display: grid;
+  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.cee-detail-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+}
+
+.cee-detail-text > * {
+  margin: 0;
+}
+
+.cee-detail-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  color: var(--color-text-primary);
+}
+
+.cee-detail-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.cee-detail-facts dt {
+  color: var(--color-text-muted);
+}
+
+.cee-detail-facts dd {
+  margin: 0;
+}
+
+.cee-detail-controls {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+}
+
+.cee-detail-views {
+  align-self: flex-start;
+}
+
+.cee-detail-run[hidden],
+.cee-detail-code[hidden] {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .cee-detail-head { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* The preview over the editor: wide enough for the drawing of the Electribe. */

@@ -60,13 +60,13 @@ const ownNames = async page => {
 const KLICKER = readFileSync(new URL("../fixtures/scripts/klicker.js", import.meta.url), "utf8");
 const TITLES = ["BLECH Clicker", "Set-Timer", "Snake", "Tetris", "Game of Life", "Pong", "Simon", "Mandelbrot", "GIF Player", "Lauflicht", "Pulsieren"];
 
-/** A plugin of the catalog taken as an own one, the way a person does it: its code in the editor, then Als eigenes Plugin öffnen. */
+/** A plugin of the catalog taken as an own one, the way a person does it: its page, then Als eigenes Plugin öffnen. */
 async function makeOwn(page, from = "snake") {
   if (await page.locator("#cee-plugin-run").isVisible()) await closeRun(page);
   await page.click("#cee-scripts-page-catalog");
   await page.click("#cee-shelf-catalog");
   await page.click(`#cee-catalog-${from} .cee-catalog-open`);
-  await page.click("#cee-script-copy");
+  await page.click("#cee-detail-copy");
   await page.locator("#cee-script-name:not([disabled])").waitFor();
 }
 
@@ -175,7 +175,6 @@ test("an app is listed like the device's menu lists it, EXIT leaves it and a but
   const page = await open();
   await page.click("#cee-scripts-page-catalog");
   await page.click("#cee-catalog-snake .cee-catalog-open");
-  await onRun(page);
   await page.click("#cee-script-run");
   await page.locator("#cee-sim-state", { hasText: "Lauf: snake" }).waitFor();
   await page.locator("#cee-sim-apps-box").waitFor({ state: "visible" });
@@ -574,7 +573,7 @@ test("Neues Plugin: cancelling the kind dialog creates nothing", async () => {
   assert.deepEqual(await ownNames(page), []);
 });
 
-test("the catalog shows each plugin as a card with its category and maker, a picture of its display and a .blech to download; its title opens the code", async () => {
+test("the catalog shows each plugin as a card with its category and maker, a picture of its display and a .blech to download; its page shows details, a preview and the code", async () => {
   const page = await open();
   await page.click("#cee-scripts-page-catalog");
   const cards = page.locator("#cee-catalog .cee-catalog-card");
@@ -596,9 +595,16 @@ test("the catalog shows each plugin as a card with its category and maker, a pic
   assert.equal(await cards.getByRole("button", { name: "Code ansehen" }).count(), 0, "no view button: the title leads to the plugin's page");
   assert.match(await cards.nth(2).locator(".cee-catalog-meta").textContent(), /Spiele.*von Kuhler Buhler/);
   await cards.nth(2).locator(".cee-catalog-open").click();
-  assert.equal(await page.locator("#cee-script-text").isVisible(), true, "the title opens the code in the editor");
-  assert.match(await sourceOf(page), /korg\.app\("Snake"/);
-  assert.equal(await page.locator("#cee-script-text").getAttribute("aria-readonly"), "true", "read only");
+  assert.equal(await page.locator("#cee-detail-title").textContent(), "Snake");
+  assert.deepEqual(await page.locator("#cee-nav-title .cee-crumb").allTextContents(), ["Katalog", "Snake"]);
+  assert.match(await page.locator(".cee-detail-facts").textContent(), /KategorieSpiele.*VonKuhler Buhler.*Hinzugefügt.*Steuerung.*Touchpad/);
+  assert.equal(await page.locator("#cee-detail-head").getByRole("button", { name: "Herunterladen" }).textContent(), "Herunterladen", "on its page the buttons have words");
+  await page.locator("#cee-sim-state", { hasText: "Lauf: snake" }).waitFor();
+  assert.equal(await page.locator("#cee-detail-run > #cee-run").isVisible(), true, "the preview runs on the page");
+  await page.click("#cee-detail-view-code");
+  assert.match(await page.locator("#cee-detail-code").textContent(), /korg\.app\("Snake"/);
+  assert.equal(await page.locator("#cee-detail-run").isVisible(), false);
+  assert.equal(await page.locator("#cee-scripts-page-catalog").getAttribute("aria-current"), "", "a plugin's page belongs to the catalog");
   assert.deepEqual(page.errors, []);
 });
 
