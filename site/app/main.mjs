@@ -471,6 +471,7 @@ function boot() {
   let follow = null;
   let popout = null;
   let terminal = null;
+  let sd = null;
   // One session on the emulator's port, shared by the effect editor's probe and the terminal's rehearsal.
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
@@ -557,7 +558,7 @@ function boot() {
     openPreset: slot => { if (fx.open("ifx", slot)) $("#cee-fx").scrollIntoView?.({ block: "start" }); },
     device,
   });
-  emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, sub: options });
+  emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, onConnect: next => sd?.connect(next) });
   const modulations = modulationsPage($("#cee-mod"), { emulator });
   samplesPage($("#cee-samples"), { device, emulator, probe });
   let fxFirmware = null;
@@ -589,7 +590,7 @@ function boot() {
   // Shut from the first frame, not a second later: before that a click still opened a page without its tables.
   noFirmware = !emulator.firmware;
   restrict();
-  const sd = sdcardPanel(cardDialog(nav), emulator, { heading: false });
+  sd = sdcardPanel(cardDialog(nav), emulator, { heading: false });
   popout = emulatorWindow(emulator, { place: node => nav.emu(node) });
   popout.realDevice(areas?.current === "device");
   patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null });

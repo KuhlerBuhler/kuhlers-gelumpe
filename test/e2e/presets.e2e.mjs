@@ -35,7 +35,6 @@ async function effects(vsb) {
   const page = await h.page();
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.click("#cee-tab-emu");
-  if (!(await page.locator("#cee-emu-setup").evaluate(n => n.open))) await page.click("#cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", vsb));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await go(page, "fx");
@@ -107,7 +106,6 @@ test("presets: Korg's own build without BLECH closes the Presets tab, no text ab
   const page = await h.page();
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.click("#cee-tab-emu");
-  if (!(await page.locator("#cee-emu-setup").evaluate(n => n.open))) await page.click("#cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", stock));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.locator("#cee-tab-fx[title='Nicht mit Korgs Original-Firmware']").waitFor();

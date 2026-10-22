@@ -45,7 +45,6 @@ export function liveSuite(index, parts) {
     if (route) await page.route("**/data/devices.mjs", r => r.fulfill({ contentType: "text/javascript", body: route }));
     await page.goto(`${h.url}${query}#emu=${fake.port}:${TOKEN}`);
     await page.evaluate(() => window.__ceeStubReady);
-    await page.click("#cee-sub-emu #cee-emu-setup > summary");
     await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
     await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
     await page.click("#cee-e2-power");

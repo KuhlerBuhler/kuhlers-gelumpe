@@ -33,7 +33,6 @@ async function modulations(vsb) {
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.click("#cee-tab-emu");
   if (vsb) {
-    if (!(await page.locator("#cee-emu-setup").evaluate(n => n.open))) await page.click("#cee-emu-setup > summary");
     await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", vsb));
     await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   }
@@ -167,7 +166,6 @@ test("modulations: with no emulator service the check cannot run and the reason 
   const page = await h.page();
   await page.goto(`${h.url}#emu=1:${TOKEN}`);
   await page.click("#cee-tab-emu");
-  await page.click("#cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", await makeFirmware()));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-tab-mod");

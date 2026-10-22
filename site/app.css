@@ -2514,3 +2514,47 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
+
+/* The firmware goes onto the display of a switched-off Electribe (emulator.mjs): the display is the drop target. */
+.cee-e2-screen .cee-lcd-frame {
+  position: relative;
+}
+
+.cee-emu-offer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: center;
+  cursor: pointer;
+}
+
+.cee-emu-offer strong {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.cee-emu-offer:hover,
+.cee-lcd-frame[data-drag] .cee-emu-offer {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-primary-ring-soft);
+}
+
+.cee-emu-offer[hidden] {
+  display: none;
+}
+
+.cee-emu-file .ui-dropzone-files {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}

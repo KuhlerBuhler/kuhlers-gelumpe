@@ -34,7 +34,6 @@ async function open(viewport, labs = false) {
 }
 
 async function powerOn(page) {
-  await page.click("#cee-sub-emu #cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-e2-power");
@@ -89,11 +88,12 @@ test("axe: device mode, patcher, presets, plugins with a running plugin, and the
 test("the sidebar tablist holds tabs only, and the options still sit under their entry", async () => {
   const page = await open();
   assert.equal(await page.locator("#cee-areas > :not([role=tab])").count(), 0);
+  await page.click("#cee-tab-scripts");
   const order = await page.evaluate(() => {
     const y = id => document.getElementById(id).getBoundingClientRect().top;
-    return [y("cee-tab-emu"), y("cee-sub-emu"), y("cee-tab-patcher")];
+    return [y("cee-tab-scripts"), y("cee-sub-scripts"), y("cee-tab-changelog")];
   });
-  assert.ok(order[0] < order[1] && order[1] < order[2], `the options are between Emulator and Patcher: ${order}`);
+  assert.ok(order[0] < order[1] && order[1] < order[2], `the options are between Plugins and Changelogs: ${order}`);
 });
 
 test("the status line does not rebuild itself when the service repeats the same state", async () => {
@@ -229,7 +229,6 @@ test("axe: the plugin editor with a completion list, its description, a paramete
 test("axe: modulations with the slots, and with a hint showing", async () => {
   const page = await open();
   await page.click("#cee-tab-emu");
-  await page.click("#cee-sub-emu #cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-tab-mod");

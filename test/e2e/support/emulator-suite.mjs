@@ -29,14 +29,8 @@ export function emulatorSuite(index, parts) {
     await h.tearDown();
   });
 
-  /** The sidebar blocks start closed (and remember it); open one the way a person does. */
-  async function openSub(page, id) {
-    if (!(await page.locator(`#${id}`).evaluate(n => n.open))) await page.click(`#${id} > summary`);
-  }
-
-  /** Load a firmware in the sidebar, then boot with the drawn power key. */
+  /** Load a firmware onto the display, then boot with the drawn power key. */
   async function powerOn(page, file) {
-    await openSub(page, "cee-emu-setup");
     await page.setInputFiles("#cee-emu-vsb", typeof file === "string" ? file : h.file("system.vsb", file));
     await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
     await page.click("#cee-e2-power");
@@ -52,10 +46,8 @@ export function emulatorSuite(index, parts) {
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
     await page.locator("#cee-area-emu").waitFor({ state: "visible" });
     assert.equal(new URL(page.url()).hash.includes(TOKEN), false, "the key leaves the address bar");
-    assert.equal(await page.locator("#cee-emu-setup").evaluate(n => n.open), false, "the sidebar block starts closed");
-    assert.equal(await page.locator("#cee-emu-vsb ~ .ui-dropzone-title").isVisible(), false, "the dropzone is hidden until the block is opened");
-    await openSub(page, "cee-emu-setup");
-    assert.equal(await page.locator("#cee-emu-vsb ~ .ui-dropzone-title").isVisible(), true);
+    assert.equal(await page.locator("#cee-emu-offer").isVisible(), true, "the switched-off display offers the firmware");
+    assert.equal(await page.locator("#cee-emu-start").isVisible(), false, "a linked page needs no start button");
     assert.equal(await page.locator("#cee-emu-flash").count(), 0, "there is no flash import any more");
     await powerOn(page, new Uint8Array(0x200100));
     await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
@@ -97,14 +89,12 @@ export function emulatorSuite(index, parts) {
     const page = await h.page();
     await page.goto(`${h.url}#emu=1:${TOKEN}`);
     await page.locator("#cee-emu-status", { hasText: "getrennt" }).waitFor();
-    await openSub(page, "cee-emu-setup");
     await page.setInputFiles("#cee-emu-vsb", h.file("short.vsb", new Uint8Array(100)));
     await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "100 Byte" }).waitFor();
 
     // Against a live service: the power key finds no firmware and sends nothing.
     const linked = await h.page();
     await linked.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
-    await openSub(linked, "cee-emu-setup");
     await linked.setInputFiles("#cee-emu-vsb", h.file("short.vsb", new Uint8Array(100)));
     await linked.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "100 Byte" }).waitFor();
     fake.seen.firmware = 0;
@@ -118,7 +108,6 @@ export function emulatorSuite(index, parts) {
   test("emulator: Korg's original firmware is named as such, without a box of what it lacks", async () => {
     const page = await h.page();
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
-    await openSub(page, "cee-emu-setup");
     const files = page.locator("#cee-emu-vsb ~ .ui-dropzone-files");
     // The stand-in image with the run Hacktribe's code sits in erased is what Korg's build looks like.
     const stock = await makeFirmware();
@@ -406,7 +395,7 @@ export function emulatorSuite(index, parts) {
     const page = await h.page({ device: true });
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
     await page.evaluate(() => window.__ceeStubReady);
-    assert.deepEqual(await page.locator("#cee-sub-emu > .ui-details > summary").allTextContents(), ["Firmware (VSB)", "SD-Karte"], "no Flash block in the sidebar");
+    assert.equal(await page.locator("#cee-sub-emu, #cee-emu-flash").count(), 0, "no Flash block, and the emulator has no sidebar block at all");
     fake.seen.flash = 0;
     fake.seen.firmware = 0;
     await powerOn(page, await makeFirmware());
@@ -481,7 +470,7 @@ export function emulatorSuite(index, parts) {
     const page = await h.page();
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
     await page.locator("#cee-e2-power").waitFor();
-    assert.equal(await page.locator("#cee-emu-start, #cee-emu-stop").count(), 0, "no Start or Stop button; the power key does it");
+    assert.equal(await page.locator("#cee-emu-start:visible, #cee-emu-stop").count(), 0, "no Start or Stop button once linked; the power key does it");
     assert.equal(await page.locator("#cee-e2").getAttribute("data-power"), "off");
     assert.equal(await page.locator("#cee-emu-lcd").evaluate(n => getComputedStyle(n).visibility), "hidden", "no display while off");
     assert.equal(await page.locator("#cee-emu-intro, #cee-emu-facts, #cee-e2-adapter").count(), 0, "no intro text, no device time, no adapter switch");
@@ -495,7 +484,7 @@ export function emulatorSuite(index, parts) {
     assert.equal(await page.locator("#cee-emu-lcd").evaluate(n => getComputedStyle(n).visibility), "visible");
     assert.match(await page.locator("#cee-emu-status").getAttribute("class"), /ui-sr-only/, "a running device needs no status pill");
     assert.match(await page.locator("#cee-emu-status").textContent(), /läuft/, "a screen reader still hears it");
-    assert.equal(await page.locator("#cee-emu-setup").evaluate(n => n.open), false, "the firmware block folds away once it runs");
+    assert.equal(await page.locator("#cee-emu-offer").isVisible(), false, "a running display offers nothing");
 
     fake.broadcast("status", { state: "off" });
     await page.waitForFunction(() => document.querySelector("#cee-e2").dataset.power === "off");

@@ -44,7 +44,6 @@ async function samples() {
   const page = await h.page();
   await page.goto(`${h.url}?labs#emu=${fake.port}:${TOKEN}`);
   await page.click("#cee-tab-emu");
-  if (!(await page.locator("#cee-emu-setup").evaluate(n => n.open))) await page.click("#cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-e2-power");
@@ -202,7 +201,6 @@ async function device() {
     await page.evaluate(parts => { for (const p of parts) window.__ceeSim.device.poke(p.addr, Uint8Array.from(p.bytes)); },
       sampleRam(e).map(p => ({ addr: p.addr, bytes: Array.from(p.bytes) })));
   }
-  await page.click("#cee-sub-emu #cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-e2-power");

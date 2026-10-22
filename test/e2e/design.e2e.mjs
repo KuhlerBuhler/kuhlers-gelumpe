@@ -57,7 +57,6 @@ async function open() {
   await page.setViewportSize(VIEWPORTS[0]);
   await page.goto(`${h.url}?labs#emu=${fake.port}:${TOKEN}`);
   await page.locator("#cee-e2-power").waitFor();
-  await page.click("#cee-sub-emu #cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-e2-power");

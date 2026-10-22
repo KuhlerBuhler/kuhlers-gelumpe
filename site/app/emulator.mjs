@@ -162,7 +162,7 @@ export function textScreen(lines, scale = 2) {
 /** States the device itself shows well enough: the status line says nothing, only a screen reader hears it. */
 const QUIET = new Set(["empty", "loaded", "running", "stopped", "off"]);
 
-export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
+export function emulatorPanel(root, link = null, { deviceArea = null, onConnect = () => {} } = {}) {
   let events = null;
   let vsb = null;
   let base = null;
@@ -241,23 +241,35 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }), ...(extra ? [" ", extra] : []));
     status.classList.toggle("ui-sr-only", quiet);
   };
-  // In the desktop app the app starts the emulator itself (src-tauri); only in the browser is there a command to run.
+  // In the desktop app the app starts the emulator itself (src-tauri); the page started by `npm start` finds it through
+  // /emu.json. Nobody is asked to run a command: the start button looks for it, and what fails is said in a toast.
   const inApp = !!window.__GELUMPE_APP;
   const START_HINT = inApp
-    ? "Der Emulator läuft nicht. Schließ die App und öffne sie neu."
-    : "Starte npm run emu im Projektordner und öffne den Link, den es ausgibt.";
-  const copyCommand = () => {
-    if (inApp) return null;
-    const button = el("button", { type: "button", className: "btn", id: "cee-emu-copy", textContent: "npm run emu kopieren" });
-    button.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText("npm run emu"); toast("Befehl kopiert.", "ok"); }
-      catch { toast("Kopieren ging nicht. Der Befehl lautet: npm run emu", "error"); }
-    });
-    return button;
-  };
+    ? "Der Emulator der App startet nicht. Schließ die App und öffne sie neu; was er meldet, steht in ~/.gelumpe/emu.log."
+    : "Der Emulator läuft nicht. In der App GELUMPE startet er von selbst; wer die Seite aus dem Quelltext startet, nimmt npm start.";
+  const startButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-emu-start", textContent: "Emulator starten", hidden: true });
+  /** Looks for the emulator service; false and a toast when there is none. */
+  async function start() {
+    startButton.disabled = true;
+    try {
+      const found = await findLink({ link: null, fresh: false });
+      if (!found.link) throw new Error(START_HINT);
+      link = found.link;
+      listen();
+      onConnect(link);
+      return true;
+    } catch (e) {
+      toast(e.message, "error");
+      return false;
+    } finally {
+      startButton.disabled = false;
+    }
+  }
+  startButton.addEventListener("click", () => start());
 
-  const vsbInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-emu-vsb", accept: ".VSB,.vsb" });
-  const vsbInfo = el("span", { className: "ui-dropzone-files" });
+  const vsbInput = el("input", { type: "file", className: "ui-sr-only", id: "cee-emu-vsb", accept: ".VSB,.vsb", tabIndex: -1 });
+  vsbInput.setAttribute("aria-hidden", "true");
+  const vsbInfo = el("span", { className: "ui-dropzone-files", id: "cee-emu-vsb-info" });
 
   // Which build the loaded VSB is (src/firmware.mjs); the places that need Hacktribe's functions ask `lack()`.
   let build = null;
@@ -274,15 +286,21 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     return id.known ? `${name}: erkannt${when}.` : `${name}: nicht erkannt${when}.${saved ? "" : ` ${id.reasons.join(" ")} Der Emulator ist für die vermessene Firmware gebaut.`}`;
   };
 
-  const drop = (input, title, hint, info) => el("label", { className: "ui-dropzone" }, [
-    input,
-    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: `${title} hierher ziehen oder ` }), "auswählen"]),
-    el("span", { className: "ui-dropzone-hint", textContent: hint }),
-    info,
-  ]);
+  // A switched-off Electribe takes its firmware on the display: drop the file there or tap it.
+  const offerTitle = el("strong", { textContent: "SYSTEM.VSB" });
+  const offerText = el("span");
+  const offer = el("button", { type: "button", className: "cee-emu-offer", id: "cee-emu-offer" }, [offerTitle, offerText]);
+  offer.addEventListener("click", () => vsbInput.click());
+  function renderOffer() {
+    const off = lastState !== "running" && lastState !== "hung" && !fake && !external;
+    offer.hidden = !off;
+    offerTitle.textContent = vsb ? "Firmware geladen" : "SYSTEM.VSB";
+    offerText.textContent = vsb ? "Mit POWER einschalten. Antippen für eine andere Datei." : "Deine Firmware hierher ziehen oder antippen.";
+    offer.setAttribute("aria-label", vsb ? "Andere Firmware-Datei wählen" : "Firmware-Datei (SYSTEM.VSB) wählen");
+  }
 
   const api = async (path, body, type = "application/octet-stream") => {
-    if (!link) throw new Error(`Nicht verbunden. ${START_HINT}`);
+    if (!link) throw new Error(START_HINT);
     let res;
     try {
       res = await fetch(`http://127.0.0.1:${link.port}${path}`, {
@@ -312,12 +330,14 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     if (s.state !== "running") device.showLeds({}, true);
     if (!fake) device.setPower(live(s.state));
     deviceBox.dataset.state = s.state;
+    renderOffer();
   }
 
   function listen() {
     events?.close();
+    startButton.hidden = !!link;
     if (!link) {
-      say("muted", "nicht verbunden", START_HINT, false, copyCommand());
+      say("muted", "aus", "Der Emulator ist noch nicht gestartet.", true);
       return;
     }
     events = new EventSource(`http://127.0.0.1:${link.port}/events?token=${encodeURIComponent(link.token)}`);
@@ -342,7 +362,8 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     });
     events.addEventListener("error", () => {
       if (events.readyState === EventSource.CLOSED || events.readyState === EventSource.CONNECTING) {
-        say("warn", "getrennt", inApp ? "Der Emulator antwortet nicht mehr. Schließ die App und öffne sie neu." : `Keine Verbindung zum Emulator auf Port ${link.port}. Läuft npm run emu, und ist der Link aktuell?`);
+        const text = inApp ? "Der Emulator antwortet nicht mehr. Schließ die App und öffne sie neu." : "Der Emulator antwortet nicht mehr. Läuft npm start noch?";
+        say("warn", "getrennt", text);
       }
     });
   }
@@ -350,6 +371,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
   vsbInput.addEventListener("change", async () => {
     const file = vsbInput.files?.[0];
     if (!file) return;
+    vsbInput.value = "";
     const bytes = new Uint8Array(await file.arrayBuffer());
     vsb = null;
     base = null;
@@ -357,6 +379,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     keep.delete("vsb");
     if (bytes.length !== VSB_SIZE) {
       vsbInfo.textContent = `${file.name}: ${bytes.length} Byte, eine VSB hat ${VSB_SIZE}.`;
+      toast(`${file.name} ist keine Firmware-Datei: ${bytes.length} Byte, eine SYSTEM.VSB hat ${VSB_SIZE}.`, "error");
       showStatus({ state: "empty" });
       return;
     }
@@ -366,6 +389,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     setBuild(bytes);
     keep.put("vsb", { name: file.name, bytes });
     if (lastState !== "running" && lastState !== "hung") showStatus({ state: "loaded" });
+    renderOffer();
   });
 
   let booting = false;
@@ -375,11 +399,13 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     drawDisplay(canvas, textScreen(["NO", "FIRMWARE"]));
     device.setPower(true);
     fake = setTimeout(endFake, FAKE_BOOT_MS);
+    renderOffer();
   }
   function endFake() {
     clearTimeout(fake);
     fake = null;
     device.setPower(false);
+    renderOffer();
   }
   /** The power key of a switched-off device: the firmware goes to the service, then it starts. */
   async function boot() {
@@ -387,22 +413,30 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     if (!vsb) { startFake(); return; }
     booting = true;
     try {
+      if (!link && !await start()) return;
       if (pushed !== vsb) { await api("/firmware", vsb); pushed = vsb; }   // sent again, a restart after SOFTWARE UPDATE would start the old file
       showStatus(await api("/start", "{}", "application/json"));
-      firmware.details.open = false;
     } catch (e) {
       say("error", "Fehler", e.message);
+      toast(e.message, "error");
     } finally {
       booting = false;
     }
   }
 
-  // The firmware is an option of the page: a sub-item of its sidebar entry.
-  const firmware = sub.add("emu", { id: "cee-emu-setup", title: "Firmware (VSB)" });
-  firmware.body.append(drop(vsbInput, "SYSTEM.VSB", "Deine eigene Firmware-Datei.", vsbInfo));
-  const bar = el("div", { className: "cee-emu-bar" }, [status]);
+  const bar = el("div", { className: "cee-emu-bar" }, [status, startButton, el("div", { className: "cee-emu-file" }, [vsbInput, vsbInfo])]);
   root.replaceChildren(bar, deviceBox, where);
-  deviceBox.append(device.build(el("div", { className: "cee-lcd-frame" }, [canvas])));
+  const frame = el("div", { className: "cee-lcd-frame" }, [canvas, offer]);
+  frame.addEventListener("dragover", e => { if (!offer.hidden) { e.preventDefault(); frame.dataset.drag = ""; } });
+  frame.addEventListener("dragleave", () => delete frame.dataset.drag);
+  frame.addEventListener("drop", e => {
+    delete frame.dataset.drag;
+    if (offer.hidden || !e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    vsbInput.files = e.dataTransfer.files;
+    vsbInput.dispatchEvent(new Event("change"));
+  });
+  deviceBox.append(device.build(frame));
   showStatus({ state: "empty" });
   listen();
   // After a reload: the VSB chosen before comes back from this browser. The service reports by itself
@@ -413,6 +447,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     setBuild(vsb);
     vsbInfo.textContent = describe(saved.name, await identify(vsb), true);
     if (lastState === "empty") showStatus({ state: "loaded" });
+    renderOffer();
   });
   return {
     port, where, bar,
@@ -466,7 +501,6 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
       keep.put("vsb", { name: "SYSTEM.VSB", bytes: running });
       vsbInfo.textContent = "SYSTEM.VSB für den Update-Test geladen.";
       showStatus(await api("/start", "{}", "application/json"));
-      firmware.details.open = false;
       return sd.korg;
     },
     /** Boot the emulator with other firmware bytes, such as an export. */
@@ -496,6 +530,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     external(on) {
       const was = external;
       external = on;
+      renderOffer();
       if (on || was) device.showLeds({}, true);
       if (!on && lastShade) drawShade(canvas, lastShade);
     },

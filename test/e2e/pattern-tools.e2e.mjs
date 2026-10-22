@@ -203,7 +203,6 @@ test("dice: an empty part without sample says so, a bad file is refused with its
 test("device: fetch A and B from the buffer, send a rolled pattern through the gate and a confirmation", async () => {
   const page = await h.page();
   await page.goto(`${h.url}?labs#emu=${fake.port}:${TOKEN}`);
-  await page.click("#cee-sub-emu #cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", `${h.dir}/system.vsb`);
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-e2-power");

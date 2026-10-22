@@ -71,21 +71,17 @@ test("the navbar title of the emulator page is a menu: emulator or real device",
   assert.equal(await page.locator("#cee-nav-state #cee-connect").isVisible(), true, "on the device page the navbar carries the connect button instead of a not-connected text");
 });
 
-test("the options of the emulator page are sub-items under its entry; other pages show none", async () => {
+test("the emulator page has no options in the sidebar: the firmware goes on its display, the SD card opens from the navbar", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
-  assert.deepEqual(await page.locator("#cee-sub-emu > .ui-details > summary").allTextContents(), ["Firmware (VSB)"]);
+  assert.equal(await page.locator("#cee-sub-emu").count(), 0, "nothing folds out under the entry");
   assert.equal(await page.locator("#cee-nav-state #cee-emu-card-open").textContent(), "SD-Karte öffnen", "the SD card opens from the navbar");
-  assert.equal(await page.evaluate(() => Number(document.getElementById("cee-sub-emu").style.order) - Number(document.getElementById("cee-tab-emu").style.order)), 1, "the options sit right after the entry in the visual order");
-  assert.equal(await page.getAttribute("#cee-sub-emu", "aria-label"), "Optionen Emulator");
-  for (const id of ["cee-emu-setup"]) {
-    assert.equal(await page.locator(`#${id}`).evaluate(n => n.closest("#cee-sidebar") !== null), true, `${id} is in the sidebar`);
-  }
   assert.equal(await page.locator(".cee-main #cee-e2-power").isVisible(), true, "the power key stays in the page");
-  assert.equal(await page.locator("#cee-emu-setup").evaluate(n => n.open), false, "the blocks start closed");
-  await page.locator("#cee-emu-setup > summary").focus();
-  await page.keyboard.press("ArrowDown");
-  assert.equal(await selectedTab(page), "emu", "arrow keys on an option do not walk the entries");
+  assert.equal(await page.locator(".cee-main #cee-emu-offer").isVisible(), true, "a switched-off device offers the firmware on its display");
+  assert.match(await page.locator("#cee-emu-offer").textContent(), /SYSTEM\.VSB/);
+  assert.equal(await page.locator("#cee-emu-status").textContent().then(t => /npm run emu/.test(t)), false, "nobody is asked to run a command");
+  await page.click("#cee-emu-start");
+  await page.locator("#app-toasts .cee-toast[data-kind=error]", { hasText: "Der Emulator läuft nicht" }).waitFor();
   for (const tab of ["patcher", "start"]) {
     await page.click(`#cee-tab-${tab}`);
     assert.equal(await page.locator(".cee-nav-sub:visible").count(), 0, `${tab} shows no options`);
@@ -93,9 +89,8 @@ test("the options of the emulator page are sub-items under its entry; other page
   await page.click("#cee-tab-scripts");
   assert.deepEqual(await page.locator("#cee-sub-scripts button").allTextContents(), ["Katalog", "Editor", "Lauf", "Dokumentation"], "Plugins shows its pages as sub-items");
   assert.equal(await page.getAttribute("#cee-sub-scripts", "aria-label"), "Optionen Plugins");
-  assert.equal(await page.locator("#cee-sub-emu").isVisible(), false);
   await page.click("#cee-tab-emu");
-  assert.equal(await page.locator("#cee-sub-emu").isVisible(), true);
+  assert.equal(await page.locator("#cee-sub-scripts").isVisible(), false, "the options of Plugins go with its page");
 });
 
 test("the sidebar stays put while the page scrolls", async () => {
@@ -122,10 +117,7 @@ test("on a phone the sidebar is a drawer behind the menu button and the page doe
   await page.keyboard.press("Escape");
   assert.equal(await page.getAttribute("#cee-menu", "aria-expanded"), "false");
   await page.click("#cee-menu");
-  assert.equal(await page.locator("#cee-sub-emu").isVisible(), true, "the options are in the drawer");
-  await page.click("#cee-emu-setup > summary");
-  assert.equal(await page.locator("#cee-emu-setup").evaluate(n => n.open), true);
-  assert.equal(await page.getAttribute("#cee-menu", "aria-expanded"), "true", "using an option keeps the drawer open");
+  assert.equal(await page.locator("#cee-tab-console").isVisible(), true, "the entries are in the drawer");
   assert.ok((await page.locator("#cee-sidebar").boundingBox()).width <= 375 * 0.85 + 1);
   await page.mouse.click(370, 400);
   assert.equal(await page.getAttribute("#cee-menu", "aria-expanded"), "false", "a tap beside the drawer closes it");

@@ -50,7 +50,6 @@ async function emulatorWith(vsb) {
   const page = await h.page();
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.click("#cee-tab-emu");
-  if (!(await page.locator("#cee-emu-setup").evaluate(n => n.open))) await page.click("#cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", vsb));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: /erkannt/ }).waitFor();
   return page;
