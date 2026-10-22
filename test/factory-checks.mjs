@@ -15,7 +15,7 @@ import { tableEntry, patternInBackup, PATTERN_FILE } from "../src/map/address.mj
 import { locateModTable } from "../src/modtable.mjs";
 import FINDINGS from "../data/findings.mjs";
 import FX_RANGES from "../data/map/fx-ranges.mjs";
-import { GAIN_STAGING } from "../src/layout.mjs";
+import { GAIN_STAGING, REC, STAGE_BLOCK_SIZE } from "../src/layout.mjs";
 
 // Addresses come from the map, so a wrong map entry fails the check that is its evidence.
 const at = (tableId, index, fieldId, indices = []) => tableEntry(tableId, index).file + offsetOf(field(fieldId), indices);
@@ -106,6 +106,30 @@ export const VSB_CHECKS = {
     }
     assert([...seen.keys()].every(v => v === 0 || v === 0x27), `insert presets carry ${[...seen.keys()]} in the master field`);
     return `master field in insert presets: ${[...seen].map(([k, n]) => `0x${k.toString(16)} x${n}`).join(", ")}`;
+  },
+
+  "stage-block-shared"({ image }) {
+    const seen = [];
+    for (const kind of ["mfx", "ifx"]) {
+      const records = factory(image, kind).map(e => e.record);
+      for (const stage of records[0].stageNames) {
+        const { device: at, params } = REC.stage[stage];
+        const blocks = new Set();
+        let filled = 0;
+        for (const record of records) {
+          if (!record.device(stage)) continue;
+          filled++;
+          const rest = record.bytes.slice(at, at + STAGE_BLOCK_SIZE);
+          rest[0] = rest[1] = 0;
+          for (let i = params - at; i < rest.length; i += 2) rest[i] = 0;
+          blocks.add(rest.join(","));
+        }
+        assert(filled > 0, `no factory ${kind} preset fills ${stage}`);
+        assert(blocks.size === 1, `the ${stage} blocks of the factory ${kind} presets differ beyond the device, the byte after it and the parameters: ${blocks.size} kinds`);
+        seen.push(`${stage} ${filled}`);
+      }
+    }
+    return `one stage block per position apart from device, the byte after it and the parameters: ${seen.join(", ")}`;
   },
 
   "stage2-factory-chains"({ image }) {

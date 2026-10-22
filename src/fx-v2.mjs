@@ -5,9 +5,11 @@
  *
  * Turning it into the bytes a firmware uses goes through a record of that firmware (docs/patcher.md, "Records are
  * edited, never built"): the record already at the slot, and for a stage whose building block differs, a record of
- * the same firmware that has that block in the same stage. A block the firmware has nowhere is named, not guessed.
+ * the same firmware that has that block in the same stage. A block no record of the firmware carries takes the stage
+ * block most records of that stage share, with only the device byte changed (factory-check:stage-block-shared).
  */
 import { FxRecord } from "./record.mjs";
+import { REC, STAGE_BLOCK_SIZE } from "./layout.mjs";
 import { unitFor } from "./units.mjs";
 import { crc32 } from "./script/blob.mjs";
 import { readPresetFile, PRESET_EXT } from "./preset-file.mjs";
@@ -99,6 +101,27 @@ export function readFx(text, units) {
 }
 
 /**
+ * The record carrying the stage block most records share at `stage`, leaving out the device byte and the parameter
+ * values: the donor for a building block that sits in no record of the firmware. Null when no record uses the stage.
+ */
+function sharedBlock(records, kind, stage) {
+  const { device: at, params } = REC.stage[stage];
+  const groups = new Map();
+  for (const bytes of records) {
+    if (!bytes[at]) continue;
+    const rest = bytes.slice(at, at + STAGE_BLOCK_SIZE);
+    rest[0] = 0;
+    for (let i = params - at; i < rest.length; i += 2) rest[i] = 0;
+    const key = rest.join(",");
+    const group = groups.get(key) ?? { count: 0, bytes };
+    group.count++;
+    groups.set(key, group);
+  }
+  const best = [...groups.values()].sort((a, b) => b.count - a.count)[0];
+  return best ? new FxRecord(best.bytes, kind) : null;
+}
+
+/**
  * The record for slot `base` (the bytes the firmware has there now) with the preset written into it. `records` are
  * all records of the same kind in that firmware, the donors for a stage whose building block differs.
  * @returns {{ok: true, record: Uint8Array} | {ok: false, reason: string}}
@@ -109,9 +132,10 @@ export function fxToRecord(preset, base, records, units) {
     const unit = unitFor(units, unitKind(s.stage), s.unit);
     if (!unit) return { ok: false, reason: `Den Baustein ${s.unitName ?? s.unit} kennt diese Seite nicht.` };
     if (rec.device(s.stage) !== s.unit) {
-      const donor = records.map(r => new FxRecord(r, preset.kind)).find(r => r.device(s.stage) === s.unit);
-      if (!donor) return { ok: false, reason: `Der Baustein ${unit.unit} steht in dieser Firmware in keinem Preset an dieser Stelle. Ohne ein solches Preset lässt er sich nicht einsetzen.` };
+      const donor = records.map(r => new FxRecord(r, preset.kind)).find(r => r.device(s.stage) === s.unit) ?? sharedBlock(records, preset.kind, s.stage);
+      if (!donor) return { ok: false, reason: `In dieser Firmware steht an dieser Stelle in keinem Preset ein Baustein. Ohne ein solches Preset lässt sich ${unit.unit} nicht einsetzen.` };
       rec.adoptStage(s.stage, donor);
+      rec.setDevice(s.stage, s.unit);
     }
     const missing = Object.keys(s.params).find(name => !unit.params.some(p => p.name === name));
     if (missing) return { ok: false, reason: `Der Baustein ${unit.unit} hat keinen Parameter ${missing}.` };
