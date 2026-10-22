@@ -52,8 +52,7 @@ clean:
     blo clean
     mov r1, #0
     mcr p15, 0, r1, c7, c10, 4
-    mcr p15, 0, r1, c7, c5, 0
-    mcr p15, 0, r1, c7, c5, 4
+    mcr p15, 0, r1, c7, c5, 0       @ no c7, c5, 4 here: the ARM926 has no such operation, on the device it hangs (22.10.)
     ldr r1, =0xC1000000
     msr cpsr_c, r3
     bx r1

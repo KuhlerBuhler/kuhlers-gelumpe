@@ -23,6 +23,30 @@ static uint32_t clock_start;
 static unsigned char display[1024];
 struct native_file { uint32_t fil[0x240 / 4]; uint32_t used; };
 static struct native_file files[4];
+static char console_lines[2][21];               /* the last two lines the engine printed, as the display can show them */
+static unsigned int console_column;
+
+/* Until the first frame the display shows where the engine is: DOOM, then its last two printed lines. */
+static void console_show(void)
+{
+    unsigned char frame[1024];
+    memset(frame, 0, sizeof(frame));
+    doom_status_line(frame, 1, "DOOM");
+    doom_status_line(frame, 3, console_lines[0]);
+    doom_status_line(frame, 5, console_lines[1]);
+    doom_status_send(frame);
+}
+static void console_put(char c)
+{
+    if (c == '\n') {
+        memcpy(console_lines[0], console_lines[1], sizeof(console_lines[0]));
+        memset(console_lines[1], 0, sizeof(console_lines[1]));
+        console_column = 0;
+        return;
+    }
+    if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+    if (console_column < sizeof(console_lines[1]) - 1) console_lines[1][console_column++] = c;
+}
 
 static uint32_t native_ticks(void) { return *(volatile uint32_t *)0xC06A2930u; }
 static int fs_open(void *fil, const char *path) { return ((int (*)(void *, const char *, int))0xC009DB60u)(fil, path, 1); }
@@ -46,10 +70,16 @@ int _open(const char *path, int flags, int mode)
     (void)mode;
     if ((flags & O_ACCMODE) != O_RDONLY || (flags & (O_CREAT | O_TRUNC | O_APPEND))) { errno = EROFS; return -1; }
     if (strcmp(path, DOOM_WAD_PATH)) { errno = ENOENT; return -1; }
+    if (shared->stage == DOOM_STAGE_ENGINE && !shared->frames) doom_status_display("DOOM", "OPEN WAD", 0, 0);
     for (unsigned int i = 0; i < 4; ++i) {
         if (!files[i].used) {
             memset(files[i].fil, 0, sizeof(files[i].fil));
-            if (fs_open(files[i].fil, DOOM_WAD_PATH)) { errno = EIO; return -1; }
+            int result = fs_open(files[i].fil, DOOM_WAD_PATH);
+            if (result) {
+                if (shared->stage == DOOM_STAGE_ENGINE && !shared->frames) doom_status_display("DOOM", "WAD FEHLT", 0x800u + (uint32_t)result, 1);
+                errno = EIO;
+                return -1;
+            }
             files[i].used = 1;
             return (int)i + 3;
         }
@@ -93,7 +123,9 @@ int _write(int fd, const void *buffer, size_t count)
         uint32_t at = shared->console_head;
         shared->console[at % sizeof(shared->console)] = text[i];
         shared->console_head = at + 1;
+        console_put((char)text[i]);
     }
+    if (shared->stage == DOOM_STAGE_ENGINE && !shared->frames) console_show();
     return (int)count;
 }
 int _lseek(int fd, int offset, int whence)
@@ -224,12 +256,17 @@ void DG_DrawFrame(void)
 __attribute__((section(".text.entry"), noreturn))
 void doom_runtime_start(struct doom_shared *state)
 {
+    doom_status_display("DOOM", "ENGINE", 0, 0);
     memset(__bss_start, 0, (size_t)(__bss_end - __bss_start));
     shared = state;
-    if ((uintptr_t)state != DOOM_SHARED_ADDRESS || state->magic != DOOM_BOOT_MAGIC || state->version != DOOM_BOOT_VERSION) for (;;) __asm__ volatile ("nop");
+    if ((uintptr_t)state != DOOM_SHARED_ADDRESS || state->magic != DOOM_BOOT_MAGIC || state->version != DOOM_BOOT_VERSION) {
+        doom_status_display("DOOM ERROR", "ABI", 0x700u, 1);
+        for (;;) __asm__ volatile ("nop");
+    }
     heap_end = __heap_start;
     clock_start = native_ticks();
     shared->stage = DOOM_STAGE_ENGINE;
+    doom_status_display("DOOM", "ENGINE INIT", native_ticks(), 1);
     static char *argv[] = {"doom", "-iwad", DOOM_WAD_PATH, "-warp", "1", "1", "-nosound", "-nogui", "-mb", "6", NULL};
     doomgeneric_Create(sizeof(argv) / sizeof(argv[0]) - 1, argv);
     key_menu_confirm = KEY_ENTER;

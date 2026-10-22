@@ -1,8 +1,8 @@
 # doom.bin neu bauen
 
 `doom.bin` entsteht bytegleich aus `doom-sources.tar.gz`. Ohne Netz, ohne Git. Gemessen am
-20.10.2026 (mit der Ladeanzeige): Neubau aus dem entpackten Archiv in einem neuen Verzeichnis ergibt
-`7bfb6282d3e3d4f859313a5d32861270a55193b2e4ae194da11d169408bbcd5c`, 450972 Byte.
+22.10.2026 (mit den Zwischenanzeigen der Engine): Neubau aus dem entpackten Archiv in einem neuen Verzeichnis ergibt
+`d3c35e8984699808ef6f083baac622d3d3e9803d522ef0d9ece0a0aa9b2141c5`, 451572 Byte.
 
 ## Was dazugehört
 
