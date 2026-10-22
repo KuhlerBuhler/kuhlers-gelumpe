@@ -17,6 +17,7 @@ import { LIMITS, BUDGET, ARCHIVE, SCRIPT_APPS } from "../../data/script/contract
 import { PRESETS } from "../../data/script/presets.mjs";
 import { TEMPLATES, templateSource } from "../../data/script/templates.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
+import { KNOB_NAMES } from "../../data/script/properties.mjs";
 import { hintAt } from "../../src/script/names.mjs";
 import { Workspace, sourceKey, validName } from "../../src/script/workspace.mjs";
 import { SimDevice, probe as runProbe, FRAME_MS } from "../../src/script/sim.mjs";
@@ -293,7 +294,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     };
     namesBody.replaceChildren(...[
       group("key", "Tasten (korg.key, der Wert von buttonPress und buttonRelease)", KEY_NAMES),
-      group("led", "LEDs (korg.led, das erste Argument von korg.led(...))", LED_NAMES),
+      group("led", "LEDs (korg.led, setzen mit korg.led.TAP = 255)", LED_NAMES),
+      group("knobs", "Regler (korg.knobs, lesen wie korg.knobs.LEVEL)", KNOB_NAMES),
     ].filter(Boolean));
     if (!namesBody.children.length) namesBody.textContent = "Kein Name passt zum Filter.";
   }

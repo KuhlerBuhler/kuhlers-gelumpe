@@ -150,7 +150,8 @@ Ein Plugin, das nur LEDs oder Tasten braucht, nimmt das Display nie.
   die Variablen ganz oben und ihre eigenen, sonst nichts: es gibt keine
   Closures. Eine Funktion darf sich nicht selbst aufrufen, auch nicht über
   andere (Rekursion), weil alle Variablen feste Plätze haben.
-- **Nicht dabei:** Kommazahlen, Objekte, `var`, `switch`, `do`, Ausnahmen,
+- **Nicht dabei:** Kommazahlen, eigene Objekte (die Electribe selbst gibt es als
+  Objekte, siehe „Die Electribe als Objekte“), `var`, `switch`, `do`, Ausnahmen,
   Vorlagentexte, `null`, Zuweisung innerhalb eines Ausdrucks.
 
 Ein Fehler beim Übersetzen nennt Zeile und Spalte und sagt auf Deutsch, was
@@ -222,6 +223,52 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 `frame({ ready: false })` warten. Nach dem ersten freigegebenen Rahmen bleibt
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
+
+### Die Electribe als Objekte
+
+Was die Electribe gerade tut, liest und setzt ein Plugin wie eine Variable: `korg.tempo` ist das Tempo,
+`korg.tempo = 1280;` stellt es um, `korg.parts[3].muted = 1;` schaltet Part 4 stumm. Das sind keine
+Objekte der Sprache, die man in einer Variablen halten könnte. Der Übersetzer macht aus jedem Lesen und
+Setzen den Aufruf, der in der Tabelle unten daneben steht, und der Block ist derselbe. Darum läuft ein
+so geschriebenes Plugin auf jedem Gerät, auf dem diese Aufrufe laufen, auch mit BLECHTRIBE 1.2. Es gelten
+dieselben Grenzen und Ereignisse wie für den Aufruf: `korg.tempo = …` geht wie `korg.tempo(…)` nicht im
+Rumpf.
+
+| Eigenschaft | Lesen | Setzen | entspricht |
+|---|---|---|---|
+| `korg.tempo` | Tempo in Zehntel BPM, 1280 ist 128,0 | 100 bis 3000 | `korg.read.tempo()`, `korg.tempo(x)` |
+| `korg.transport` | 0 Stop, 1 Play, 2 Pause, 3 REC bereit, 4 Aufnahme | nein, dafür `korg.play()` und `korg.stop()` | `korg.read.transport()` |
+| `korg.selectedPattern` | gewähltes Pattern, 0 bis 249 | wählt ein anderes | `korg.read.pattern()`, `korg.pattern(x)` |
+| `korg.selectedPart` | gewählter Part, 0 bis 15, 16 für alle | 0 bis 15 | `korg.read.part()`, `korg.part(x)` |
+| `korg.millis` | Millisekunden seit dem ersten Aufruf | nein | `korg.millis()` |
+| `korg.parts[i].step` | Schrittzähler des Parts, 0 bis 63 | nein | `korg.read.step(i)` |
+| `korg.parts[i].muted` | 1, wenn der Part stumm ist | 1 stumm, 0 an | `korg.read.mute(i)`, `korg.mute(i, x)` |
+| `korg.knobs.LEVEL`, `korg.knobs[i]` | letzter Wert des Reglers, bis er bewegt wurde 0 | nein | `korg.read.knob(i)` |
+| `korg.store[i]` | gespeicherter Wert von Platz 0 bis 15, sonst 0 | ja, auf die Karte mit `korg.store.save()` | `korg.store.get(i, 0)`, `korg.store.set(i, x)` |
+| `korg.led.TAP`, `korg.leds[i]` | nein | Helligkeit 0 bis 255 | `korg.led(i, x)` |
+
+`+=`, `-=` und die anderen zusammengesetzten Zuweisungen gehen bei allem, was sich lesen und setzen lässt,
+dazu `++` und `--`: `korg.tempo += 10;` liest das Tempo und setzt es um 1,0 BPM höher. Der Index in den
+Klammern darf dabei keinen Funktionsaufruf enthalten. `korg.led.TAP` allein ist weiter die Nummer der
+LED, so wie in `korg.led(korg.led.TAP, 255)`; erst als linke Seite einer Zuweisung setzt es die LED.
+
+Die Regler haben die Namen aus der Tabelle des Panels: `LEVEL`, `PAN`, `PITCH`, `RESONANCE`, `EG_INT`,
+`MOD_DEPTH`, `ATTACK`, `IFX_EDIT`, `DECAY`, `OSC_EDIT` und `MOD_SPEED`, in dieser Reihenfolge die Nummern
+0 bis 10.
+
+```js
+// Ab dem 16. Schritt von Part 1 wird Part 4 stumm, bei jedem Takt neu.
+korg.onEvent("step", (step) => {
+  korg.parts[3].muted = korg.parts[0].step >= 15 ? 1 : 0;
+});
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.TAP) korg.tempo += 10;
+  korg.led.TAP = korg.transport == 1 ? 255 : 0;
+});
+```
+
+Die Aufrufe in der Tabelle unten bleiben gültig, ältere Plugins laufen unverändert weiter. Was eine
+Handlung ist, bleibt ein Aufruf: zeichnen, PLAY drücken, eine App anmelden, speichern.
 
 ### Funktionen der Electribe
 

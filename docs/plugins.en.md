@@ -136,7 +136,8 @@ takes the display.
   or the end gives 0). A function sees the variables at the top and its own, nothing else: there are no
   closures. A function must not call itself, not even through others (recursion), because every variable
   has a fixed slot.
-- **Not included:** fractions, objects, `var`, `switch`, `do`, exceptions, template strings, `null`,
+- **Not included:** fractions, objects of your own (the Electribe itself comes as objects, see
+  "The Electribe as objects"), `var`, `switch`, `do`, exceptions, template strings, `null`,
   assignment inside an expression.
 
 A compile error names line and column and says what to do. The wording is German for now.
@@ -186,6 +187,50 @@ have not started yet when the time runs out are postponed and stay on.
 One cycle delivers `ready` once per plugin first, then collects the waiting inputs, and delivers `frame`
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
+
+### The Electribe as objects
+
+A plugin reads and sets what the Electribe is doing like a variable: `korg.tempo` is the tempo,
+`korg.tempo = 1280;` changes it, `korg.parts[3].muted = 1;` mutes part 4. These are no objects of the
+language that a variable could hold. The compiler turns every read and every assignment into the call
+listed next to it in the table below, and the block is the same. A plugin written this way therefore runs
+on every device those calls run on, BLECHTRIBE 1.2 included. The limits and events of the call apply:
+like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
+
+| Property | Read | Set | Same as |
+|---|---|---|---|
+| `korg.tempo` | tempo in tenths of a BPM, 1280 is 128.0 | 100 to 3000 | `korg.read.tempo()`, `korg.tempo(x)` |
+| `korg.transport` | 0 stop, 1 play, 2 pause, 3 REC armed, 4 recording | no, use `korg.play()` and `korg.stop()` | `korg.read.transport()` |
+| `korg.selectedPattern` | selected pattern, 0 to 249 | selects another one | `korg.read.pattern()`, `korg.pattern(x)` |
+| `korg.selectedPart` | selected part, 0 to 15, 16 for all | 0 to 15 | `korg.read.part()`, `korg.part(x)` |
+| `korg.millis` | milliseconds since the first call | no | `korg.millis()` |
+| `korg.parts[i].step` | step counter of the part, 0 to 63 | no | `korg.read.step(i)` |
+| `korg.parts[i].muted` | 1 when the part is muted | 1 muted, 0 playing | `korg.read.mute(i)`, `korg.mute(i, x)` |
+| `korg.knobs.LEVEL`, `korg.knobs[i]` | last value of the knob, 0 until it moved | no | `korg.read.knob(i)` |
+| `korg.store[i]` | stored value of slot 0 to 15, otherwise 0 | yes, to the card with `korg.store.save()` | `korg.store.get(i, 0)`, `korg.store.set(i, x)` |
+| `korg.led.TAP`, `korg.leds[i]` | no | brightness 0 to 255 | `korg.led(i, x)` |
+
+`+=`, `-=` and the other compound assignments work on everything that can be read and set, and so do
+`++` and `--`: `korg.tempo += 10;` reads the tempo and sets it 1.0 BPM higher. The index in the brackets
+must not contain a function call there. `korg.led.TAP` on its own is still the number of the LED, as in
+`korg.led(korg.led.TAP, 255)`; only on the left of an assignment does it set the LED.
+
+The knobs carry the names of the panel table: `LEVEL`, `PAN`, `PITCH`, `RESONANCE`, `EG_INT`,
+`MOD_DEPTH`, `ATTACK`, `IFX_EDIT`, `DECAY`, `OSC_EDIT` and `MOD_SPEED`, numbers 0 to 10 in this order.
+
+```js
+// From step 16 of part 1 on, part 4 is muted, anew in every bar.
+korg.onEvent("step", (step) => {
+  korg.parts[3].muted = korg.parts[0].step >= 15 ? 1 : 0;
+});
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.TAP) korg.tempo += 10;
+  korg.led.TAP = korg.transport == 1 ? 255 : 0;
+});
+```
+
+The calls in the table below stay valid, older plugins keep running unchanged. What is an action stays
+a call: drawing, pressing PLAY, registering an app, saving.
 
 ### Functions of the Electribe
 

@@ -1,7 +1,7 @@
 /**
  * Highlighting and indentation for the plugin language, as a CodeMirror stream parser: JavaScript's
- * words, strings, numbers and comments, with `korg` and the names after `korg.key.` and `korg.led.`
- * set apart. It needs no CodeMirror import (the editor passes it to StreamLanguage.define), so the
+ * words, strings, numbers and comments, with `korg` and the names after `korg.key.`, `korg.led.` and
+ * `korg.knobs.` set apart. It needs no CodeMirror import (the editor passes it to StreamLanguage.define), so the
  * tests run it on a plain stream. Token names are the highlighting tags CodeMirror knows.
  */
 const KEYWORDS = new Set([
@@ -10,7 +10,7 @@ const KEYWORDS = new Set([
   "switch", "this", "throw", "try", "typeof", "var", "void", "while", "with", "yield",
 ]);
 const DEFINES = new Set(["function", "let", "const"]);
-const FAMILIES = new Set(["key", "led"]);
+const FAMILIES = new Set(["key", "led", "knobs"]);
 const OPEN = "([{";
 const CLOSE = ")]}";
 
