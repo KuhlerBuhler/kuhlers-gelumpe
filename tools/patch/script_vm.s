@@ -27,11 +27,69 @@ script_runtime_init:
 mem_fill:
     cmp r2, #0
     bxeq lr
+    cmp r2, #16
+    blo mf_loop
+    push {r3}
+    and r3, r1, #255
+    orr r3, r3, r3, lsl #8
+    orr r3, r3, r3, lsl #16
+mf_align:
+    tst r0, #3
+    beq mf_blocks
+    strb r1, [r0], #1
+    sub r2, r2, #1
+    b mf_align
+mf_blocks:
+    cmp r2, #16
+    blo mf_words
+    str r3, [r0]
+    str r3, [r0, #4]
+    str r3, [r0, #8]
+    str r3, [r0, #12]
+    add r0, r0, #16
+    sub r2, r2, #16
+    b mf_blocks
+mf_words:
+    cmp r2, #4
+    blo mf_tail
+    str r3, [r0], #4
+    sub r2, r2, #4
+    b mf_words
+mf_tail:
+    pop {r3}
+    cmp r2, #0
+    bxeq lr
 mf_loop:
     strb r1, [r0], #1
     subs r2, r2, #1
     bne mf_loop
     bx lr
+
+; r0 bytes, r1 length, r2 running CRC state; r0 and r1 return the end.
+crc_update:
+    ldr r12, =0xEDB88320
+    add r1, r0, r1
+crc_update_byte:
+    cmp r0, r1
+    bhs crc_update_done
+    ldrb r3, [r0], #1
+    eor r2, r2, r3
+    mov r3, #2
+crc_update_bits:
+    movs r2, r2, lsr #1
+    eorcs r2, r2, r12
+    movs r2, r2, lsr #1
+    eorcs r2, r2, r12
+    movs r2, r2, lsr #1
+    eorcs r2, r2, r12
+    movs r2, r2, lsr #1
+    eorcs r2, r2, r12
+    subs r3, r3, #1
+    bne crc_update_bits
+    b crc_update_byte
+crc_update_done:
+    bx lr
+.pool
 
 ; r0 address -> little endian halfword, no alignment requirement.
 read_half:
@@ -186,22 +244,9 @@ size_known:
     cmp r7, r9
     blo l_truncated
     add r0, r6, #HDR_CHECKSUM+4
-    add r1, r6, r9
+    sub r1, r9, #HDR_CHECKSUM+4
     mvn r2, #0
-    ldr r5, =0xEDB88320
-crc_byte:
-    cmp r0, r1
-    bhs crc_done
-    ldrb r3, [r0], #1
-    eor r2, r2, r3
-    mov r3, #8
-crc_bit:
-    movs r2, r2, lsr #1
-    eorcs r2, r2, r5
-    subs r3, r3, #1
-    bne crc_bit
-    b crc_byte
-crc_done:
+    bl crc_update
     mvn r2, r2
     ldr r0, [r6, #HDR_CHECKSUM]
     cmp r0, r2
