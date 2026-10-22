@@ -705,12 +705,22 @@ the coarse pass. Zoom goes up to 7, deeper than that the 14 bits do not reach.
 
 ## The Plugins page in the editor
 
-The Plugins tab has example plugins on the left (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong,
-Simon and Mandelbrot under GAMES, Set-Timer under TOOLS, plus Lauflicht and Pulsieren; source
-`data/script/presets.mjs`, all using names such as `korg.key.TAP`; the same examples are the cards of the catalog)
-and your own plugins. On the right it has the editor with line numbers, the
-result of compiling (errors with line and column, a click puts the cursor there), the list "Namen der
-Tasten und LEDs" (names of keys and LEDs) and the area "Lauf" (run). The console is below. Your own plugins
+The Plugins entry has three pages: Katalog (catalog), Editor and Dokumentation (documentation).
+
+**Catalog:** two buttons that belong together. "Katalog" shows the plugins of the app as cards (the apps
+BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon and Mandelbrot under GAMES, Set-Timer and GIF Player
+under TOOLS, plus Lauflicht and Pulsieren; source `data/script/presets.mjs`). Each card carries a category and
+its maker and only the buttons to download and to send it to the device. The title leads to the plugin's
+page: the picture top left, beside it title, description and details (category, maker, date, controls), with
+download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
+"Code" switch between the plugin running on the drawing of the Electribe and its source. A new plugin enters
+the catalog by pull request on GitHub, with its entry in `data/script/presets.mjs`. "Eigene Plugins" (own
+plugins) shows the plugins of this browser.
+
+**Editor:** the editor over the whole page, with line numbers and the result of compiling (errors with line
+and column, a click puts the cursor there). Öffnen (open) and Speichern (save) sit top right in the bar; below
+the editor are Vorschau, download and to the device. The preview lies over the darkened editor; a click beside
+it or the X closes it. The console is an entry of its own under Gerät. Your own plugins
 are kept in the browser (`localStorage`) and never leave it. A plugin name is the block name: ASCII, a
 letter first, at most 15 characters.
 
@@ -750,14 +760,14 @@ descriptions in `data/script/describe.mjs` (German), the names of keys and LEDs 
 `src/script/editor-model.mjs` turns them into completion, hint and hover. A test fails if a function or an
 event of the contract has no description.
 
-**Run** ("Lauf", `src/script/sim.mjs`): a simulated device on the reference VM with a display (128 by 64,
+**Preview** ("Vorschau", `src/script/sim.mjs`): a simulated device on the reference VM with a display (128 by 64,
 preview font, not the firmware's), an LED book and a millisecond clock, one frame every 40 ms. Keys, pads,
 knobs, encoders and the touchpad send their events to the runtime. The display shows what the device would
 show: the picture of the open app or of the plugin that took the display, otherwise nothing (on the device
-the firmware's main screen is there). If the plugin has an app, the run opens it as ENTER does in the menu;
+the firmware's main screen is there). If the plugin has an app, the preview opens it as ENTER does in the menu;
 below the display the apps are listed as in the BLECH menu ("GAMES > Snake: öffnen", that is "open"), with
 an EXIT key that closes the app as on the device, before the plugin sees the key. This is not the firmware:
-the run does not show its timing (in the browser only the compute budget applies, no time limit). The
+the preview does not show its timing (in the browser only the compute budget applies, no time limit). The
 runtime inside the firmware runs in the emulator, see "Status".
 
 **Inputs and probe:** "Eingaben aufnehmen" (record inputs) stores the inputs with their frame in the plugin.
@@ -770,9 +780,9 @@ plugins) are available only after a probe of exactly this text (`src/script/gate
 text discards the probe. If lines remain that never ran, the page asks once and names them. An error in the
 probe blocks the export.
 
-**Console:** `run("name")` starts one of your plugins or an example plugin in the Lauf area. A line that
+**Console:** `run("name")` starts one of your plugins or one of the catalog in the preview. A line that
 starts with `korg.` (for example `korg.display.text("Hi", 0, 0)`) runs there as plugin code at once, once,
-as an app "einzeiler" in TOOLS that the run opens. Anything else is plain JavaScript with `KORG` for the
+as an app "einzeiler" in TOOLS that the preview opens. Anything else is plain JavaScript with `KORG` for the
 emulator.
 
 ## Status
