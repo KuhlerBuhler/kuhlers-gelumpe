@@ -66,20 +66,25 @@ STATE_END = 0xC0189F40
 S_SETTING, S_SINCE, S_NOTE, S_PAD, S_PARTPAD, S_FADE, S_LEVEL = 0, 4, 8, 0xC, 0x10, 0x14, 0x20
 S_DOWN = 0x18
 S_PLAY = 0x1C                   # the pads of the note the selected part played last while the pattern plays (bit n pad n), 0 none
-PLAY_RED = 191                  # their red after the note ends, odd like the patch's other values; the firmware lights a playing note with 192
+PLAY_RED = 65                   # their red after the note ends, odd like the patch's other values and well below the firmware's 192 for a
+                                # sounding note, so the pad shows how long the note sounds (device 22.10.: with 191 both looked the same)
 NA_SETTING = STATE + S_SETTING  # the setting word the BLECH menu will write: never written (FFFFFFFF) or 1 is on, 0 is off
 FLAG_OFF_BIT = 4                # bit of the settings file's flags that means "OFF" (bits 0 to 3 are taken, docs/plugins.md)
 
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13, measured on the device 10.10.)
 
-LEVEL_HIGH, LEVEL_MID, LEVEL_LOW = 63, 41, 21   # the red LED of a hint, of 255 (the blue gets 5/8, odd): about 25, 16 and 8 percent
-# the level by the interval to the note, 0 to 11 semitones: unison and fifth bright, the thirds and the fourth middle, the sixths dim, the
-# rest dark (the notes a step of the scale away get the middle level from their place in the layout)
-LEVELS = (LEVEL_HIGH, 0, 0, LEVEL_MID, LEVEL_MID, LEVEL_MID, 0, LEVEL_HIGH, LEVEL_LOW, LEVEL_LOW, 0, 0)
-# CHORD: by the interval of the roots: fourth and fifth (IV, V) bright, second, minor third and major sixth (ii, vi and back) middle,
-# the same chord, major third, minor sixth and minor seventh dim
-CHORD_LEVELS = (LEVEL_LOW, 0, LEVEL_MID, LEVEL_MID, LEVEL_LOW, LEVEL_HIGH, 0, LEVEL_HIGH, LEVEL_LOW, LEVEL_MID, LEVEL_LOW, 0)
-FADE_TICKS = 3                  # while the pattern plays a level loses 2 every 3 ticks (120 ms): bright 3.7 s, middle 2.5 s, dim 1.3 s
+# The red LED of a hint, of 255 (the blue gets 5/8, odd), in six steps of about 0.7 each, from full to dim (device wish 22.10.: the notes
+# that fit best at full brightness, and more steps between; with 63, 41 and 21 only three could be told apart, the dimmest as good as dark)
+LEVEL_STEPS = (253, 181, 121, 81, 51, 33)
+L1, L2, L3, L4, L5, L6 = LEVEL_STEPS
+LEVEL_MID = L4                  # at least this for the notes a step of the scale away
+# the level by the interval to the note, 0 to 11 semitones: unison full, fifth, fourth and major third, minor third, major sixth, minor
+# sixth; the rest dark (the notes a step of the scale away get at least LEVEL_MID from their place in the layout)
+LEVELS = (L1, 0, 0, L4, L3, L3, 0, L2, L6, L5, 0, 0)
+# CHORD: by the interval of the roots: fifth (V) full, fourth (IV), second (ii), major sixth (vi), minor third, the same chord and the
+# major third, minor sixth and minor seventh
+CHORD_LEVELS = (L5, 0, L3, L4, L5, L2, 0, L1, L6, L3, L6, 0)
+FADE_TICKS = 3                  # while the pattern plays a level loses an eighth and 2 every 3 ticks (120 ms) and goes dark below 9: full 2.6 s, dim 1 s
 
 PAD_HOOK = 0xC0044B3C           # push {r4, r5, r6, r7, r8, lr}
 PAD_WORD = 0xE92D41F0
@@ -248,8 +253,8 @@ na_put:
     b LED_SEND
 
 ; ===================================================== the pads
-; r0 = a pad LED's value -> r0 = 1 when it is dark or one of the patch's values (odd and below 128, or PLAY_RED; the firmware writes 0, 192,
-; 255 or twice a velocity), else 0. na_ours: the same without dark. Leaves.
+; r0 = a pad LED's value -> r0 = 1 when it is dark or one of the patch's values (odd but not 255, PLAY_RED among them; the firmware writes
+; 0, 192, 255 or twice a velocity), else 0. na_ours: the same without dark. Leaves.
 na_free:
     cmp r0, #0
     moveq r0, #1
@@ -258,12 +263,9 @@ na_ours:
     tst r0, #1
     moveq r0, #0
     bxeq lr
-    cmp r0, #PLAY_RED
-    moveq r0, #1
-    bxeq lr
-    cmp r0, #128
-    movlo r0, #1
-    movhs r0, #0
+    cmp r0, #255
+    movne r0, #1
+    moveq r0, #0
     bx lr
 
 ; r4 = the LED manager, r7 = 0: every hint off, 1: the pads as S_LEVEL wants them (the red LED's brightness, 0 none; the blue gets
@@ -518,10 +520,10 @@ lh_out:
 
 ; ===================================================== the LED manager's tick, every 40 ms
 ; The last instruction of the tick (r6 = the LED manager) is where this runs. In KEYBOARD mode on the main screen a new note (S_SINCE 0)
-; gives every pad its level from the interval to the note (LEVELS: unison and fifth bright, thirds and fourth middle, sixths dim) and the
+; gives every pad its level from the interval to the note (LEVELS: unison full, then fifth, fourth and thirds, sixths dimmest) and the
 ; two neighbours of the note in the layout (a step of the scale up or down) at least the middle one (device wish 19.10.: the notes that fit
-; best brighter). Stopped or paused the levels stay; while the pattern plays (transport 1, or 4 recording) every level loses 2 each FADE
-; ticks and a pad that reaches 0 goes dark, so the notes that fit best stay longest. The note counts only while the table of the layout
+; best brighter). Stopped or paused the levels stay; while the pattern plays (transport 1, or 4 recording) every level loses an eighth and 2
+; each FADE ticks (kept odd) and a pad below 9 goes dark, so the notes that fit best stay longest. The note counts only while the table of the layout
 ; still holds it where the pad was (an octave shift, a new key or scale ends the hints). Outside KEYBOARD mode and the main screen the
 ; note is forgotten. Nothing is written while a plugin holds the LED lock (na_sync). With the patch off the patch's own values are
 ; taken away, and its state is touched only if a note had been noted.
@@ -641,8 +643,12 @@ th_fade:
     mov r6, #0
 th_fade_pad:
     ldrb r0, [r1, r6]
+    sub r0, r0, r0, lsr #3
     subs r0, r0, #2
+    orr r0, r0, #1
     movmi r0, #0
+    cmp r0, #9
+    movlo r0, #0
     strb r0, [r1, r6]
     add r6, r6, #1
     cmp r6, #16
