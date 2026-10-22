@@ -110,7 +110,7 @@ test("the documentation page shows docs/plugins.md, is searchable and carries th
   assert.ok(await page.locator("#cee-docs-article .cee-doc-section").count() > 10, "all the sections");
   assert.ok(await page.locator("#cee-docs-article .cee-doc-code").count() >= 3, "code blocks");
   assert.equal(await page.locator("#cee-docs-article a[href]:not([href^=http])").count(), 0, "no link out to files the page does not have");
-  assert.equal(await page.locator("#cee-names-body table").count(), 2, "the names table is one section, live");
+  assert.equal(await page.locator("#cee-names-body table").count(), 3, "the names table is one section, live: keys, LEDs, knobs");
   await page.fill("#cee-docs-search", "korg.display.take");
   const shown = await page.locator("#cee-docs-article .cee-doc-section:not([hidden])").count();
   assert.ok(shown >= 1 && shown < 10, `the search narrows the page, got ${shown}`);

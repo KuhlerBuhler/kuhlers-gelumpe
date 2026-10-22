@@ -326,7 +326,7 @@ class Parser {
   }
 
   checkTarget(e, message = "++ und -- gehen nur bei einer Variablen oder einem Feldelement.") {
-    if (e.type !== "Ident" && e.type !== "Index") throw new CompileError(message, e.line, e.col);
+    if (e.type !== "Ident" && e.type !== "Index" && e.type !== "Member") throw new CompileError(message, e.line, e.col);
   }
 
   expression() { return this.ternary(); }

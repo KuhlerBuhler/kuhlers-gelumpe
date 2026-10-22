@@ -19,6 +19,7 @@ import {
   LIMITS, BUDGET, EVENT_BY_NAME, EVENTS, API_BY_NAME, QUEUED_EVENTS, APP_EVENTS, SCRIPT_APPS, ARRAY_HANDLE, EVENT_ARG_SINCE,
 } from "../../data/script/contract.mjs";
 import { NAMES } from "../../data/script/names.mjs";
+import { PROPERTY_BY_PATH, KNOB_NAMES } from "../../data/script/properties.mjs";
 import { encodeBlob, decodeBlob, lineAt } from "./blob.mjs";
 import { assemble } from "./asm.mjs";
 import { verifyParts } from "./verifier.mjs";
@@ -45,6 +46,12 @@ function pathOf(node) {
     return base ? [...base, node.name] : null;
   }
   return null;
+}
+
+/** A call node for an API entry, as if the plugin had written it: `korg.read.step(i)`. */
+function callNode(name, args, at) {
+  const callee = name.split(".").reduce((object, part) => (object ? { type: "Member", object, name: part, line: at.line, col: at.col } : { type: "Ident", name: part, line: at.line, col: at.col }), null);
+  return { type: "Call", callee, args, line: at.line, col: at.col };
 }
 
 const isPure = n => {
@@ -305,13 +312,19 @@ class Compiler {
         return s.type;
       }
       case "Index": {
+        const prop = this.propertyOf(n);
+        if (prop) return this.readProperty(prop, n, fn);
         const a = this.arrayOf(n, fn);
         this.val(n.index, fn, "int");
         fn.line = n.line;
         this.emit(fn, "ALOAD", a.base, a.length);
         return "int";
       }
-      case "Member": throw err(n, this.panelNameError(n) ?? (n.name === "length" ? "„length“ gibt es nur bei einem Feld." : `„.${n.name}“ gibt es nicht.`));
+      case "Member": {
+        const prop = this.propertyOf(n);
+        if (prop) return this.readProperty(prop, n, fn);
+        throw err(n, this.panelNameError(n) ?? (n.name === "length" ? "„length“ gibt es nur bei einem Feld." : `„.${n.name}“ gibt es nicht.`));
+      }
       case "Call": return this.call(n, fn);
       case "Unary": {
         this.val(n.arg, fn, "int");
@@ -364,6 +377,77 @@ class Compiler {
       case "FuncExpr": throw err(n, "Eine Funktion als Wert gibt es nur in korg.onEvent(\"…\", () => { … }).");
       default: throw err(n, "Das lässt sich hier nicht übersetzen.");
     }
+  }
+
+  /**
+   * The property a `korg.…` node names (data/script/properties.mjs): { prop, index } with the node that goes in the
+   * brackets, or null. `asTarget` also takes `korg.led.TAP`, which reads as the LED's number but sets its brightness.
+   */
+  propertyOf(n, asTarget = false) {
+    const at = { line: n.line, col: n.col };
+    const num = value => ({ type: "Num", value, ...at });
+    if (n.type === "Index" && n.object.type === "Member") {
+      const path = pathOf(n.object)?.join(".");
+      const prop = path && PROPERTY_BY_PATH.get(`${path}[]`);
+      if (prop) return { prop, index: n.index };
+      const fields = path ? this.fieldsOf(path) : [];
+      if (fields.length) throw err(n, `„${path}[…]“ ist ein Objekt, schreibe eine Eigenschaft dahinter: ${fields.map(f => `${path}[i].${f}`).join(", ")}.`);
+      return null;
+    }
+    if (n.type !== "Member") return null;
+    if (n.object.type === "Index" && n.object.object.type === "Member") {
+      const path = pathOf(n.object.object)?.join(".");
+      if (!path?.startsWith("korg.")) return null;
+      const prop = PROPERTY_BY_PATH.get(`${path}[].${n.name}`);
+      if (prop) return { prop, index: n.object.index };
+      const fields = this.fieldsOf(path);
+      if (fields.length) throw err(n, `„${path}[…].${n.name}“ gibt es nicht. Es gibt: ${fields.map(f => "." + f).join(", ")}.`);
+      return null;
+    }
+    const path = pathOf(n);
+    if (!path || path[0] !== "korg") return null;
+    if (path.length === 2) {
+      const prop = PROPERTY_BY_PATH.get(path.join("."));
+      return prop ? { prop, index: null } : null;
+    }
+    if (path.length === 3 && path[1] === "knobs") {
+      const knob = KNOB_NAMES.find(k => k.name === path[2]);
+      if (!knob) throw err(n, `Es gibt keinen Regler „korg.knobs.${path[2]}“. Es gibt: ${KNOB_NAMES.map(k => k.name).join(", ")}.`);
+      return { prop: PROPERTY_BY_PATH.get("korg.knobs[]"), index: num(knob.value) };
+    }
+    if (asTarget && path.length === 3 && path[1] === "led") {
+      const led = this.panelName(n);
+      if (led) return { prop: PROPERTY_BY_PATH.get("korg.leds[]"), index: num(led.value) };
+    }
+    return null;
+  }
+
+  /** The fields of an indexed object such as korg.parts: ["step", "muted"]. */
+  fieldsOf(path) { return [...PROPERTY_BY_PATH.keys()].filter(k => k.startsWith(`${path}[].`)).map(k => k.slice(path.length + 3)); }
+
+  propertyName(prop) { return prop.path.replace("[]", "[…]"); }
+
+  /** The arguments of a property's read or write call: "index" is the bracket, "value" the assigned value. */
+  propertyArgs(spec, index, value, at) {
+    return spec.map(a => (a === "index" ? index : a === "value" ? value : { type: "Num", value: a, line: at.line, col: at.col }));
+  }
+
+  readProperty({ prop, index }, n, fn) {
+    if (!prop.read) throw err(n, `${this.propertyName(prop)} lässt sich nur setzen, nicht lesen.`);
+    return this.call(callNode(prop.read[0], this.propertyArgs(prop.read[1], index, null, n), n), fn);
+  }
+
+  writeProperty({ prop, index }, n, fn) {
+    if (!prop.write) throw err(n.target, `${this.propertyName(prop)} lässt sich nur lesen, nicht setzen.`);
+    let value = n.value;
+    if (n.op !== "=") {
+      if (index && !isPure(index)) throw err(index, "Bei += und ++ darf der Index keinen Funktionsaufruf enthalten, schreibe ihn zuerst in eine Variable.");
+      if (!prop.read) throw err(n.target, `${this.propertyName(prop)} lässt sich nicht lesen, also auch nicht mit ${n.op} ändern.`);
+      value = { type: "Binary", op: n.op.slice(0, -1), left: n.target, right: n.value, line: n.line, col: n.col };
+    }
+    this.call(callNode(prop.write[0], this.propertyArgs(prop.write[1], index, value, n), n), fn);
+    this.emit(fn, "DROP");
+    return undefined;
   }
 
   arrayOf(n, fn) {
@@ -579,6 +663,9 @@ class Compiler {
   assign(n, fn) {
     const compound = n.op === "=" ? null : COMPOUND[n.op];
     const t = n.target;
+    const prop = this.propertyOf(t, true);
+    if (prop) return this.writeProperty(prop, n, fn);
+    if (t.type === "Member") throw err(t, this.panelNameError(t) ?? `„${pathOf(t)?.join(".") ?? "." + t.name}“ lässt sich nicht setzen.`);
     if (t.type === "Ident") {
       const s = this.lookup(t.name, fn, t);
       if (!s) throw err(t, `„${t.name}“ ist nicht deklariert.`);

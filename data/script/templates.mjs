@@ -29,7 +29,7 @@ korg.onEvent("open", () => {
 korg.onEvent("buttonPress", (key) => {
   if (key == korg.key.TAP && x > 52 && x < 68) {
     score += 1;
-    korg.led(korg.led.TAP, 255);
+    korg.led.TAP = 255;
   }
 });
 
@@ -58,7 +58,7 @@ function show() {
 
 // open: die App wurde geöffnet, ab jetzt gehört ihr das Display.
 korg.onEvent("open", () => {
-  opened = korg.millis();
+  opened = korg.millis;
   seconds = 0;
   show();
 });
@@ -67,14 +67,14 @@ korg.onEvent("open", () => {
 korg.onEvent("buttonPress", (key) => {
   if (key == korg.key.TAP) {
     taps += 1;
-    korg.led(korg.led.TAP, taps & 1 ? 255 : 0);
+    korg.led.TAP = taps & 1 ? 255 : 0;
     show();
   }
 });
 
 // frame: 25 Mal je Sekunde, solange die App offen ist. Neu zeichnen nur, wenn eine Sekunde dazukam.
 korg.onEvent("frame", () => {
-  const now = (korg.millis() - opened) / 1000;
+  const now = (korg.millis - opened) / 1000;
   if (now != seconds) {
     seconds = now;
     show();
@@ -89,7 +89,7 @@ let phase = 0;
 
 // ready: kommt einmal, im ersten Rahmen nach dem Start.
 korg.onEvent("ready", () => {
-  korg.led(korg.led.TAP, 0);
+  korg.led.TAP = 0;
 });
 
 // buttonPress: key vergleicht man mit einem Namen aus korg.key, die Liste steht unter dem Editor.
@@ -100,7 +100,7 @@ korg.onEvent("buttonPress", (key) => {
 // frame: 25 Mal je Sekunde.
 korg.onEvent("frame", () => {
   phase = (phase + 1) % 25;
-  korg.led(korg.led.TAP, pressed && phase < 12 ? 255 : 0);
+  korg.led.TAP = pressed && phase < 12 ? 255 : 0;
 });
 `;
 

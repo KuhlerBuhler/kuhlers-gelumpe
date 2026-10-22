@@ -7,6 +7,7 @@
 import { API, API_BY_NAME, EVENTS, EVENT_BY_NAME, SCRIPT_APPS, LIMITS } from "../../data/script/contract.mjs";
 import { API_DOCS, ON_EVENT_DOC, EVENT_DOCS, GROUP_DOCS, NAME_FAMILY_DOCS } from "../../data/script/describe.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
+import { PROPERTIES, KNOB_NAMES } from "../../data/script/properties.mjs";
 import { hintAt } from "./names.mjs";
 
 const INT_MIN = -2147483648;
@@ -70,7 +71,30 @@ function eventInfo(event) {
   };
 }
 
-const infoFor = name => (name === ON_EVENT_DOC.name ? ON_EVENT_INFO : API_BY_NAME.has(name) ? apiInfo(API_BY_NAME.get(name)) : null);
+/** `korg.parts[i].step` as a plugin writes it, and the name the editor finds it by: `korg.parts`. */
+const shown = prop => prop.path.replace("[]", "[i]");
+const owner = prop => prop.path.split("[]")[0];
+
+/** The facts the editor shows about a property: what it is, and where it may be read and set. */
+function propertyInfo(prop) {
+  const read = prop.read && API_BY_NAME.get(prop.read[0]);
+  const write = prop.write && API_BY_NAME.get(prop.write[0]);
+  const where = [read && `lesen ${allowedIn(read)}`, write && `setzen ${allowedIn(write)}`].filter(Boolean).join("; ");
+  return { name: shown(prop), signature: shown(prop), text: prop.text, params: [], returns: read ? "eine ganze Zahl" : null, allowed: where };
+}
+
+/** The properties of one object, korg.parts: every field in one text. */
+function objectInfo(name) {
+  const props = PROPERTIES.filter(p => owner(p) === name);
+  if (!props.length) return null;
+  if (props.length === 1) return propertyInfo(props[0]);
+  return { name, signature: `${name}[i]`, text: props.map(p => `${shown(p)}: ${p.text}`).join(" "), params: [], returns: null, allowed: null };
+}
+
+/** An API entry by its name; `korg.tempo` without a bracket behind it is the property. */
+const infoFor = (name, called = true) => (name === ON_EVENT_DOC.name ? ON_EVENT_INFO
+  : called && API_BY_NAME.has(name) ? apiInfo(API_BY_NAME.get(name))
+    : objectInfo(name) ?? (API_BY_NAME.has(name) ? apiInfo(API_BY_NAME.get(name)) : null));
 
 /**
  * Walk the source up to `pos` and say where the caret is: in code, in a string or in a comment, and
@@ -121,8 +145,18 @@ function apiOption(entry) {
 const NAMESPACE_OPTION = Object.freeze({ label: "korg.key", type: "namespace", detail: "Namen der Tasten", info: { name: "korg.key", signature: "korg.key.NAME", text: NAME_FAMILY_DOCS.key, params: [], returns: null, allowed: null }, apply: "korg.key.", retrigger: true });
 const ON_EVENT_OPTION = Object.freeze({ label: ON_EVENT_DOC.name, type: "function", detail: "(ereignis, handler)", info: ON_EVENT_INFO, snippet: `korg.onEvent("\${1:ereignis}", (\${2}) => {\n  \${3}\n});` });
 
+function propertyOption(prop) {
+  const snippet = prop.path.replace("[]", "[${1:i}]");
+  return { label: shown(prop), type: "property", detail: prop.write ? "lesen und setzen" : prop.read ? "nur lesen" : "nur setzen", info: propertyInfo(prop), snippet };
+}
+
 /** The options for every name a plugin may write after `korg.`, with `korg` itself for the first letters. */
-const KORG_OPTIONS = Object.freeze([...API.map(apiOption), ON_EVENT_OPTION, NAMESPACE_OPTION]);
+const KORG_OPTIONS = Object.freeze([...PROPERTIES.map(propertyOption), ...API.map(apiOption), ON_EVENT_OPTION, NAMESPACE_OPTION]);
+
+const KNOB_OPTIONS = Object.freeze(KNOB_NAMES.map(k => ({
+  label: k.name, type: "constant", detail: String(k.value),
+  info: { name: `korg.knobs.${k.name}`, signature: `korg.knobs.${k.name}`, text: `Der letzte Wert des Reglers ${k.label}, bis er bewegt wurde 0.`, params: [], returns: "eine ganze Zahl", allowed: allowedIn(API_BY_NAME.get("korg.read.knob")) },
+})));
 
 function nameOptions(family) {
   return FAMILIES[family].map(n => ({
@@ -167,6 +201,7 @@ export function completionsAt(text, pos) {
   if (parts[0] === "korg" && parts.length === 3 && (parts[1] === "key" || parts[1] === "led")) {
     return { from: pos - parts[2].length, options: nameOptions(parts[1]) };
   }
+  if (parts[0] === "korg" && parts.length === 3 && parts[1] === "knobs") return { from: pos - parts[2].length, options: KNOB_OPTIONS };
   if (parts[0] === "korg" && parts.length > 1) return { from: pos - token.length, options: KORG_OPTIONS };
   if (parts.length === 1 && token.length >= 2 && "korg".startsWith(token)) {
     return { from: pos - token.length, options: [{ label: "korg", type: "keyword", detail: "die Funktionen der Electribe", info: { name: "korg", signature: "korg", text: "Alle Funktionen der Electribe beginnen mit korg., zum Beispiel korg.display.text oder korg.led.", params: [], returns: null, allowed: null }, apply: "korg.", retrigger: true }] };
@@ -224,9 +259,13 @@ export function hoverAt(text, pos) {
         const found = nameOptions(family).find(o => o.label === segments[2]);
         return found ? { from, to, info: found.info } : null;
       }
+      if (family === "knobs" && segments.length === 3) {
+        const found = KNOB_OPTIONS.find(o => o.label === segments[2]);
+        return found ? { from, to, info: found.info } : null;
+      }
       const upTo = Math.max(1, segments.findIndex((_, i) => from + segments.slice(0, i + 1).join(".").length >= pos) + 1);
       const path = segments.slice(0, upTo).join(".");
-      const whole = infoFor(word);
+      const whole = infoFor(word, line[to - lineStart] === "(");
       if (whole) return { from, to, info: whole };
       if (infoFor(path)) return { from, to: from + path.length, info: infoFor(path) };
       return family === "key" && segments.length === 2 ? { from, to, info: NAMESPACE_OPTION.info } : null;
