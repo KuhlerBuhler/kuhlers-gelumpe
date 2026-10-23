@@ -9,6 +9,7 @@ import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { icon } from "./icons.mjs";
 import { knob } from "./fx-knob.mjs";
+import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { clamp } from "./dials.mjs";
 import { parseUnits } from "../../src/units.mjs";
 import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
@@ -148,12 +149,12 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   const parse = o => { const read = units ? readFx(o.text, units) : null; return read?.ok ? read.preset : JSON.parse(o.text); };
 
   /** The plugin catalog's card (scripts.mjs catalogCard): the whole card opens it; `extra` sits on top of the card (the trash can). */
-  function card(preset, { creator, onOpen, extra = null, id = null }) {
+  function card(preset, { creator = preset.creator, onOpen, extra = null, id = null }) {
     return el("li", { className: "cee-catalog-card cee-bk-card", id }, [
       el("h3", {}, el("button", { type: "button", className: "cee-catalog-open", textContent: preset.name, onclick: onOpen })),
       el("p", { className: "cee-catalog-category", textContent: tagOf(preset) }),
       el("p", { className: "muted", textContent: preset.description ? `${KIND_WORD[preset.kind]}. ${preset.description}` : KIND_WORD[preset.kind] }),
-      creator ? el("p", { className: "cee-catalog-creator muted", textContent: `von ${creator}` }) : null,
+      creatorLine(creator, preset.creatorUrl),
       extra,
     ]);
   }
@@ -179,8 +180,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   const fxLoad = el("button", { type: "button", className: "btn", id: "cee-bk-fx-load", textContent: "Auf dem Gerät laden" });
   const fxRetarget = el("button", { type: "button", className: "btn", id: "cee-bk-fx-retarget", textContent: "Anderer Platz", hidden: true });
   let fxHelp = null;
+  const fxMeta = metaFields("cee-bk-fx", () => fx);
   const fxEditor = el("div", { className: "cee-bk-builder", id: "cee-bk-fx-builder", hidden: true }, [
     el("div", { className: "cee-bk-head" }, [nameField(fxName), fxKind]),
+    fxMeta.node,
     fxHelp = el("p", { className: "muted", id: "cee-bk-fx-help", textContent: "Ein Baustein ist ein einzelner Effekt wie Hall, Echo oder Filter. Ein Insert-Effekt kann zwei hintereinander haben, der zweite darf leer bleiben. Anhören kannst du ihn erst an der Electribe." }),
     blocks,
     el("div", { className: "actions" }, [fxSave, fxDownload, fxLoad, fxRetarget, el("button", { type: "button", className: "btn", id: "cee-bk-fx-cancel", textContent: "Abbrechen", onclick: () => leave("fx") })]),
@@ -250,6 +253,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (shown) switchRow();
     if (!fx) return;
     fxName.value = fx.name;
+    fxMeta.set(fx);
     fxKind.textContent = KIND_WORD[fx.kind];
     const knobs = new Map();
     blocks.replaceChildren(...blockCards(fx, { knobs }), mapSection(fx, { knobs }));
@@ -482,7 +486,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   }
 
   function openFx(preset, id) {
-    fx = { kind: preset.kind, name: preset.name, stages: preset.stages.map(s => ({ ...s, params: { ...s.params } })), map: (preset.map ?? []).map(m => ({ ...m })) };
+    fx = { kind: preset.kind, name: preset.name, description: preset.description ?? "", creator: preset.creator ?? "", creatorUrl: preset.creatorUrl ?? "", stages: preset.stages.map(s => ({ ...s, params: { ...s.params } })), map: (preset.map ?? []).map(m => ({ ...m })) };
     fxId = id;
     snap.fx = JSON.stringify(fx);
     fxTarget = null;
@@ -499,6 +503,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (!fx.stages.some(s => s.unit)) return { ok: false, reason: "Wähl mindestens einen Baustein." };
     if (!fx.name.trim()) return { ok: false, reason: "Gib dem Effekt oben einen Namen." };
     if (!/^[\x20-\x7e]+$/.test(fx.name)) return { ok: false, reason: "Der Name darf nur Buchstaben ohne Umlaute, Ziffern und einfache Zeichen haben, das Display kennt keine anderen." };
+    if (metaProblem(fx)) return { ok: false, reason: metaProblem(fx) };
     return { ok: true, preset: { ...fx, name: fx.name.trim() } };
   }
   fxSave.addEventListener("click", () => { const id = keep(readyFx(), fxId, fxSaved); if (id) { fxId = id; snap.fx = JSON.stringify(fx); } });
@@ -586,7 +591,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       el("dl", { className: "cee-detail-facts" }, [
         el("dt", { textContent: "Art" }), el("dd", { textContent: KIND_WORD[view.kind] }),
         el("dt", { textContent: "Kategorie" }), el("dd", { textContent: tagOf(view) }),
-        el("dt", { textContent: "Von" }), el("dd", { textContent: view.creator }),
+        el("dt", { textContent: "Von" }), el("dd", {}, creatorName(view.creator, view.creatorUrl) ?? "?"),
       ]),
       el("div", { className: "actions" }, [download, usb, own]),
       isMod ? el("p", { className: "muted", textContent: "Aufs Gerät geht für Modulationen noch nicht. Über den Export kommen sie auf die Karte." }) : null,
@@ -620,6 +625,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   }
 
   // ---- Editor: modulation -----------------------------------------------------------
+  const modMeta = metaFields("cee-bk-mod", () => mod);
   const modName = el("input", { className: "cee-bk-name", id: "cee-bk-mod-name", type: "text", maxLength: 16, spellcheck: false, autocomplete: "off", placeholder: "Name der Modulation" });
   modName.setAttribute("aria-label", "Name der Modulation, bis 16 Zeichen");
   modName.addEventListener("input", () => { if (mod) mod.name = modName.value; });
@@ -630,6 +636,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   const modSaved = el("p", { className: "cee-bk-saved", id: "cee-bk-mod-saved", role: "status" });
   const modEditor = el("div", { className: "cee-bk-builder", id: "cee-bk-mod-builder", hidden: true }, [
     el("div", { className: "cee-bk-head" }, [nameField(modName), el("p", { className: "cee-bk-kind muted", textContent: KIND_WORD.mod })]),
+    modMeta.node,
     modBody,
     el("div", { className: "actions" }, [modSave, modDownload, el("button", { type: "button", className: "btn", id: "cee-bk-mod-cancel", textContent: "Abbrechen", onclick: () => leave("mod") })]),
     modSaved,
@@ -649,6 +656,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     modStart.hidden = !!mod;
     if (!mod) return;
     modName.value = mod.name;
+    modMeta.set(mod);
     curve.set(mod.curve);
     const slots = mod.slots.map((s, k) => {
       const source = choices(`cee-bk-source-${k}`, `Quelle von Slot ${k + 1}`, SOURCES, v => { s.source = v; source.set(v); });
@@ -680,7 +688,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     );
   }
   function openMod(preset, id) {
-    mod = { kind: "mod", name: preset.name, depth: preset.depth, speed: preset.speed, curve: preset.curve, slots: preset.slots.map(s => ({ ...s })) };
+    mod = { kind: "mod", name: preset.name, description: preset.description ?? "", creator: preset.creator ?? "", creatorUrl: preset.creatorUrl ?? "", depth: preset.depth, speed: preset.speed, curve: preset.curve, slots: preset.slots.map(s => ({ ...s })) };
     modId = id;
     snap.mod = JSON.stringify(mod);
     modSaved.textContent = "";
@@ -691,6 +699,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   function readyMod() {
     if (!mod) return { ok: false, reason: "Leg zuerst eine Modulation an." };
     if (!mod.name.trim() || !/^[\x20-\x7e]+$/.test(mod.name)) return { ok: false, reason: "Gib der Modulation oben einen Namen, ohne Umlaute." };
+    if (metaProblem(mod)) return { ok: false, reason: metaProblem(mod) };
     return { ok: true, preset: { ...mod, name: mod.name.trim() } };
   }
   modSave.addEventListener("click", () => { const id = keep(readyMod(), modId, modSaved); if (id) { modId = id; snap.mod = JSON.stringify(mod); } });

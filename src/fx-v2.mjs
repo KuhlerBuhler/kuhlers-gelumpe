@@ -23,17 +23,32 @@ const KINDS = ["ifx", "mfx", "mod"];
 const unitKind = stage => (stage === "mfx" ? "mfx" : "ifx");
 const utf8 = text => new TextEncoder().encode(text);
 
+/** Optional words about a piece: what it does and who made it, with a link to their profile. */
+export const META_LIMITS = { description: 300, creator: 40, creatorUrl: 200 };
+
+/** The words a preset carries, only those set, so a file without them keeps its text and checksum. */
+function metaOf(preset) {
+  const out = {};
+  for (const key of Object.keys(META_LIMITS)) if (typeof preset[key] === "string" && preset[key].trim()) out[key] = preset[key].trim();
+  return out;
+}
+
+/** A profile link has to be a plain https address, nothing a click could run. */
+export const linkOk = url => {
+  try { return new URL(url).protocol === "https:"; } catch { return false; }
+};
+
 /** The values without the checksum, in a fixed order, so the same preset always gives the same text and CRC. */
 function canonical(preset) {
   if (preset.kind === "mod") {
     return {
-      format: FX_FORMAT, version: FX_VERSION, kind: "mod", name: preset.name,
+      format: FX_FORMAT, version: FX_VERSION, kind: "mod", name: preset.name, ...metaOf(preset),
       depth: preset.depth, speed: preset.speed, curve: preset.curve,
       slots: preset.slots.map(s => ({ source: s.source, target: s.target, lo: s.lo, hi: s.hi, follow: s.follow })),
     };
   }
   return {
-    format: FX_FORMAT, version: FX_VERSION, kind: preset.kind, name: preset.name,
+    format: FX_FORMAT, version: FX_VERSION, kind: preset.kind, name: preset.name, ...metaOf(preset),
     stages: preset.stages.map(s => ({ stage: s.stage, unit: s.unit, unitName: s.unitName ?? null, params: { ...s.params } })),
     map: (preset.map ?? []).map(m => ({ source: m.source, chain: m.chain, param: m.param, low: m.low, high: m.high })),
   };
@@ -82,6 +97,10 @@ export function readFx(text, units) {
   if (data.version !== FX_VERSION) return { ok: false, reason: `Effekt-Format Version ${data.version} kennt diese Seite nicht.` };
   if (!KINDS.includes(data.kind)) return { ok: false, reason: "Die Datei sagt nicht, ob sie ein Insert-, Master-Effekt oder eine Modulation ist." };
   if (typeof data.name !== "string") return { ok: false, reason: "Der Effekt hat keinen Namen." };
+  for (const [key, max] of Object.entries(META_LIMITS)) {
+    if (data[key] !== undefined && (typeof data[key] !== "string" || data[key].length > max)) return { ok: false, reason: "Beschreibung, Creator oder Link sind zu lang oder kein Text." };
+  }
+  if (data.creatorUrl !== undefined && !linkOk(data.creatorUrl)) return { ok: false, reason: "Der Link zum Creator ist keine https-Adresse." };
   if (data.kind === "mod") {
     if (!byte(data.depth) || !byte(data.speed) || !byte(data.curve) || !Array.isArray(data.slots) || data.slots.length > SLOT_COUNT
         || data.slots.some(s => !["source", "target", "follow"].every(k => byte(s?.[k])) || !signed(s.lo) || !signed(s.hi))) {

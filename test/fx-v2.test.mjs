@@ -177,3 +177,16 @@ test("the Türsteher stands before the card too: a block that crashes in stage 2
     assert.equal(entry.ok, true, `${item.name}: ${entry.reason}`);
   }
 });
+
+test("a preset can say what it does and who made it, with an https link; a file without these keeps its text", () => {
+  const plain = fxText(shortDelay());
+  assert.doesNotMatch(plain, /creator|description/, "nothing added when nothing is set");
+  const told = { ...shortDelay(), description: "Kurzes Echo.", creator: "Kuhler Buhler", creatorUrl: "https://www.instagram.com/kuhler_buhler/" };
+  const read = readFx(fxText(told), units);
+  assert.equal(read.ok, true, read.reason);
+  assert.equal(read.preset.creatorUrl, "https://www.instagram.com/kuhler_buhler/");
+  assert.equal(read.preset.description, "Kurzes Echo.");
+  const sneaky = JSON.parse(fxText({ ...told, creatorUrl: "https://x.example/" }));
+  sneaky.creatorUrl = "javascript:alert(1)";
+  assert.match(readFx(JSON.stringify(sneaky), units).reason, /https/, "a link that is not https is refused");
+});
