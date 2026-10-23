@@ -1,0 +1,10 @@
+{
+ "entries": [
+  {
+   "from": "0xC004AB84",
+   "to": "0xC0044C64",
+   "kind": "code",
+   "why": "the firmware's pattern load (pattern, source, 1) the EXIT + pad shortcut calls (tools/patch/script_shortcuts.s SC_LOAD): the same function, 16 words equal (fwmap, Hacktribe 2.02 against the synth's 2.02)"
+  }
+ ]
+}

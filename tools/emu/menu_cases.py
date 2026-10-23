@@ -1279,8 +1279,7 @@ def pad_colour_cases(payload, flash=None):
     keep.run(wait + 0.8)
     goto_group(keep, GROUP_PSAVE, 1)
     add("power_save_led_dimming_kept", texts_of(keep)[1] == "70%" and not keep.m.asserts, f"after WRITE and a new start: {texts_of(keep)}, file {look}")
-    if not synthaddr.is_synth(payload):
-        out += chord_cases(payload, flash, add, pad, wait)
+    out += chord_cases(payload, flash, add, pad, wait)
     return out
 
 
@@ -1347,18 +1346,20 @@ def tie_cases(payload, flash, add, pad, wait):
     held, _, lit = steps(KILL)
     add("tie_exit_held_is_stock", [n for n in range(16) if lit[n] == (255, 0)] == sorted(want)[1:] and lit[0] == (255, 255) and not held.m.asserts,
         f"EXIT held at power-on: {lit}")
+    if synthaddr.is_synth(payload):
+        return      # the race below drives the Sampler's UART queue directly; the colour code it checks is the same on the synth
     from unicorn import UC_HOOK_CODE
     from machine import UART0
     from tools.patch import arm
     changing, live, _ = steps(0, 0, {i: (127, [61]) for i in range(64)})
     manager = changing.u32(0xC0345A1C)
     sent, full = [], []
-    producer = arm.assemble(""".org 0x10000
-    push {r4-r8, lr}
+    producer = arm.assemble(f""".org 0x10000
+    push {{r4-r8, lr}}
     mov r4, r0
     mov r5, r1
     mov r6, #4096
-    ldr r7, =0xC0087578
+    ldr r7, ={changing.a(0xC0087578):#x}
     ldr r8, =0x10FF0
 produce:
     mov r0, r4
@@ -1371,7 +1372,7 @@ produce:
     subs r6, r6, #1
     bne produce
 produced:
-    pop {r4-r8, pc}
+    pop {{r4-r8, pc}}
     .pool
 """).sections[0][1]
     changing.m.uc.mem_map(0x10000, 0x1000)
@@ -1387,7 +1388,8 @@ produced:
             uc.mem_write(live + 0x30 + 16*12 + 1, bytes([126]))
             sent.append("edited")
 
-    sender_hook = changing.m.uc.hook_add(UC_HOOK_CODE, sending, begin=0xC0087578, end=0xC0087578)
+    sender = changing.a(0xC0087578)        # the LED sender, the synth's from data/synth-map/
+    sender_hook = changing.m.uc.hook_add(UC_HOOK_CODE, sending, begin=sender, end=sender)
     def queue_full(*args):
         full.append(1)
         changing.m.uc.mem_write(0x10FF0, struct.pack("<I", 1))
@@ -1397,7 +1399,7 @@ produced:
     try:
         changing.call(0x10000, changing.u32(manager+0xB54), 0x10FF4)
         changing.m.uc.mem_write(0xC018BF3C, struct.pack("<I", 1))
-        changing.call(0xC00875F4, manager, 0x2C, 1)
+        changing.call(changing.a(0xC00875F4), manager, 0x2C, 1)
         changing.run(0.3)
     finally:
         changing.m.uc.hook_del(sender_hook)

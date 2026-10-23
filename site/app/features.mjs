@@ -28,10 +28,10 @@ export const FEATURES = [
   { group: "Spielen", id: "mfx2", title: "Zweiter Master-Effekt", where: BOTH, image: "img/features/mfx2.svg",
     text: "TOUCH SCALE wird zu MFX 2: ein zweiter Master-Effekt pro Pattern.",
     how: "TOUCH SCALE drücken." },
-  { group: "Spielen", id: "exit-write", title: "Schnell speichern", where: RED, image: "img/features/exit-write.svg",
+  { group: "Spielen", id: "exit-write", title: "Schnell speichern", where: BOTH, image: "img/features/exit-write.svg",
     text: "Speichert das Pattern an seinen Platz, ohne Fenster. Solange etwas ungespeichert ist, atmet die WRITE-LED.",
     how: "EXIT halten + WRITE." },
-  { group: "Spielen", id: "exit-pad", title: "Part zurücksetzen", where: RED,
+  { group: "Spielen", id: "exit-pad", title: "Part zurücksetzen", where: BOTH,
     text: "Setzt den Klang eines Parts auf die gespeicherten Werte zurück.",
     how: "EXIT halten + Pad des Parts." },
 
@@ -50,7 +50,7 @@ export const FEATURES = [
   { group: "Aussehen", id: "power-off", title: "Blechy beim Ausschalten", where: BOTH,
     text: "Statt „Power Off“ winkt Blechy, dann geht das Bild aus wie eine alte Röhre.",
     how: "Ausschalten." },
-  { group: "Aussehen", id: "poly-pink", title: "Akkorde in Pink", where: RED,
+  { group: "Aussehen", id: "poly-pink", title: "Akkorde in Pink", where: BOTH,
     text: "Im SEQUENCER-Modus zeigt ein Poly-Part Steps mit mehreren Noten in Pink.",
     how: "SEQUENCER-Modus, Poly-Part." },
 
