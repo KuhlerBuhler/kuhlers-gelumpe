@@ -74,7 +74,7 @@ test("presets: a firmware with room for 100 says so, adds a copy of the open pre
 test("presets: with the BLECH patch the room is 128 and no hint to get it", async () => {
   const page = await effects(await makeFirmwareWithArrays(presets, { patched: true }));
   assert.match(await page.locator("#cee-fx-room").textContent(), /Insert: 52 von 128 Plätzen im Menü\.$/);
-  await page.click("#cee-fx-kind-master, label:has-text('Master')");
+  await page.click("label:has(input[name=cee-fx-kind][value=mfx])");
   assert.match(await page.locator("#cee-fx-room").textContent(), /Master: 33 von 128/);
   assert.deepEqual(page.errors, []);
 });
