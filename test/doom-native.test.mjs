@@ -27,7 +27,7 @@ test("Native Doom adapter obeys read-only files, heap, input, real clock reads a
   });
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.match(result.stderr, /Ran 15 tests/);
+  assert.match(result.stderr, /Ran 21 tests/);
   assert.match(result.stderr, /\bOK\b/);
 });
 
@@ -53,7 +53,7 @@ test("Original Doom plays through native drivers, changes level, quits and power
   assert.ok(report.state.frames > 0 && report.state.gametic > 0);
   assert.ok(report.state.key_events >= 2 && report.state.file_reads > 0 && report.state.bytes_read > 0);
   assert.ok(report.controls.checks.every(check => check.ok));
-  for (const id of ["turn", "forward", "fire", "use", "main-menu", "new-game-e2m1", "level2-spi-frame", "quit-dialog", "quit-stopped", "power-off"]) {
+  for (const id of ["turn", "forward", "fire", "use", "strafe", "move-turn-fire", "weapon", "pad-led-feedback", "main-menu", "new-game-e2m1", "level2-spi-frame", "quit-dialog", "quit-stopped", "power-off"]) {
     assert.ok(report.controls.checks.some(check => check.id === id && check.ok), id);
   }
   assert.ok(existsSync(join(output, "game-frame.png")));

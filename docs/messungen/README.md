@@ -214,3 +214,5 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Tasten vom Rechner: KORG.press und KORG.turn über die Laufzeit](2026-10-22-tasten-vom-rechner.md)
 
 - [Doom: lesbarere monochrome Ausgabe](2026-10-23-doom-bild.md)
+
+- [Doom: feste Helligkeit und beleuchtete Pad-Steuerung](2026-10-23-doom-pads.md)

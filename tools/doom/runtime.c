@@ -12,6 +12,7 @@
 #include "doomkeys.h"
 #include "doomstat.h"
 #include "m_controls.h"
+#include "r_main.h"
 #include "runtime_abi.h"
 #include "status_display.h"
 #include "native_power.h"
@@ -205,25 +206,68 @@ void DG_SleepMs(uint32_t ms)
     uint32_t start = native_ticks();
     while ((uint32_t)(native_ticks() - start) < ms) __asm__ volatile ("nop");
 }
+static const unsigned char pad_keys[16] = {
+    KEY_STRAFE_L, KEY_UPARROW, KEY_STRAFE_R, 0, 0, 0, ']', KEY_USE,
+    KEY_LEFTARROW, KEY_DOWNARROW, KEY_RIGHTARROW, 0, 0, 0, KEY_RSHIFT, KEY_FIRE
+};
+static const unsigned char panel_keys[16] = {
+    KEY_ENTER, 0, KEY_FIRE, KEY_USE, 0, 0, 0, 0,
+    KEY_LEFTARROW, KEY_ESCAPE, 0, KEY_UPARROW, KEY_RIGHTARROW, KEY_ESCAPE, 0, KEY_DOWNARROW
+};
+static uint16_t pads_down, panel_down;
+static unsigned char led_values[32], led_cursor;
+static uint32_t led_valid, led_tick;
+
+static int action_held(unsigned char key)
+{
+    for (unsigned int i = 0; i < 16; ++i) {
+        if (((pads_down >> i) & 1) && pad_keys[i] == key) return 1;
+        if (((panel_down >> i) & 1) && panel_keys[i] == key) return 1;
+    }
+    return 0;
+}
+void doom_update_leds(void)
+{
+    uint32_t now = native_ticks();
+    void *panel = *(void *volatile *)0xC033E6FCu;
+    if ((uintptr_t)panel < 0xC0000000u || (uintptr_t)panel >= 0xC4000000u
+        || ((volatile unsigned char *)panel)[4] || (uint32_t)(now - led_tick) < 10) return;
+    led_tick = now;
+    unsigned int sent = 0;
+    for (unsigned int i = 0; i < 32 && sent < 4; ++i) {
+        unsigned int index = led_cursor++ & 31, pad = index >> 1;
+        unsigned char key = pad_keys[pad], value = 0;
+        if (key) {
+            int movement = key == KEY_UPARROW || key == KEY_DOWNARROW || key == KEY_LEFTARROW
+                         || key == KEY_RIGHTARROW || key == KEY_STRAFE_L || key == KEY_STRAFE_R;
+            int lit = (index & 1) ? key != KEY_FIRE : !movement;
+            if (lit) value = ((pads_down >> pad) & 1) ? 255 : key == KEY_FIRE ? 96 : 64;
+        }
+        uint32_t bit = 1u << index;
+        if ((led_valid & bit) && led_values[index] == value) continue;
+        ((void (*)(void *, unsigned int, unsigned int))0xC0028600u)(panel, 0x2C + index, value);
+        led_values[index] = value;
+        led_valid |= bit;
+        ++sent;
+    }
+}
 int DG_GetKey(int *pressed, unsigned char *key)
 {
     unsigned char message[5];
     for (unsigned int i = 0; i < 32; ++i) {
         if (!((int (*)(void *, void *))0xC0024B6Cu)((void *)0xC033E57Cu, message)) return 0;
         if (doom_power_message(message)) continue;
-        if (message[0] != 0) continue;
-        switch (message[1]) {
-        case 11: *key = KEY_UPARROW; break;
-        case 15: *key = KEY_DOWNARROW; break;
-        case 8: *key = KEY_LEFTARROW; break;
-        case 12: *key = KEY_RIGHTARROW; break;
-        case 2: *key = KEY_FIRE; break;
-        case 3: *key = KEY_USE; break;
-        case 0: *key = KEY_ENTER; break;
-        case 9: case 13: *key = KEY_ESCAPE; break;
-        default: continue;
-        }
-        *pressed = message[2] != 0;
+        if ((message[0] != 0 && message[0] != 4) || message[1] >= 16) continue;
+        unsigned int index = message[1];
+        *key = message[0] == 4 ? pad_keys[index] : panel_keys[index];
+        if (!*key) continue;
+        int before = action_held(*key);
+        uint16_t *held = message[0] == 4 ? &pads_down : &panel_down;
+        uint16_t bit = 1u << index;
+        if (message[message[0] == 4 ? 4 : 2]) *held |= bit;
+        else *held &= ~bit;
+        *pressed = action_held(*key);
+        if (*pressed == before) continue;
         ++shared->key_events;
         shared->last_key = *key;
         shared->last_down = *pressed;
@@ -231,18 +275,62 @@ int DG_GetKey(int *pressed, unsigned char *key)
     }
     return 0;
 }
+extern lighttable_t *colormaps;
+extern fixed_t angleturn[3];
+void doom_configure_controls(void)
+{
+    key_nextweapon = ']';
+    key_menu_confirm = KEY_ENTER;
+    key_menu_abort = KEY_ESCAPE;
+    angleturn[0] = 320;
+    angleturn[1] = 480;
+    angleturn[2] = 240;
+}
+void __real_R_RenderPlayerView(player_t *player);
+void __wrap_R_RenderPlayerView(player_t *player)
+{
+    lighttable_t *darkest = colormaps + 16 * 256;
+    if (scalelight[0][0] > darkest) {
+        for (unsigned int i = 0; i < LIGHTLEVELS; ++i)
+            for (unsigned int j = 0; j < MAXLIGHTSCALE; ++j)
+                if (scalelight[i][j] > darkest) scalelight[i][j] = darkest;
+    }
+    if (zlight[0][MAXLIGHTZ - 1] > darkest) {
+        for (unsigned int i = 0; i < LIGHTLEVELS; ++i)
+            for (unsigned int j = 0; j < MAXLIGHTZ; ++j)
+                if (zlight[i][j] > darkest) zlight[i][j] = darkest;
+    }
+    __real_R_RenderPlayerView(player);
+}
 void DG_SetWindowTitle(const char *title) { (void)title; }
 static inline unsigned int pixel_luma(uint32_t pixel)
 {
     return ((pixel >> 16) & 255) * 77 + ((pixel >> 8) & 255) * 150 + (pixel & 255) * 29;
 }
+static const unsigned char display_levels[256] = {
+    0, 28, 37, 43, 48, 53, 57, 61, 64, 67, 70, 73, 75, 78, 80, 82,
+    84, 86, 88, 90, 92, 94, 96, 97, 99, 101, 102, 104, 105, 107, 108, 110,
+    111, 113, 114, 115, 117, 118, 119, 120, 122, 123, 124, 125, 126, 127, 129, 130,
+    131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146,
+    147, 148, 149, 149, 150, 151, 152, 153, 154, 155, 155, 156, 157, 158, 159, 160,
+    160, 161, 162, 163, 164, 164, 165, 166, 167, 167, 168, 169, 170, 170, 171, 172,
+    173, 173, 174, 175, 175, 176, 177, 177, 178, 179, 179, 180, 181, 182, 182, 183,
+    183, 184, 185, 185, 186, 187, 187, 188, 189, 189, 190, 190, 191, 192, 192, 193,
+    194, 194, 195, 195, 196, 197, 197, 198, 198, 199, 199, 200, 201, 201, 202, 202,
+    203, 203, 204, 205, 205, 206, 206, 207, 207, 208, 208, 209, 209, 210, 211, 211,
+    212, 212, 213, 213, 214, 214, 215, 215, 216, 216, 217, 217, 218, 218, 219, 219,
+    220, 220, 221, 221, 222, 222, 223, 223, 224, 224, 225, 225, 226, 226, 227, 227,
+    228, 228, 229, 229, 230, 230, 230, 231, 231, 232, 232, 233, 233, 234, 234, 235,
+    235, 235, 236, 236, 237, 237, 238, 238, 239, 239, 240, 240, 240, 241, 241, 242,
+    242, 243, 243, 243, 244, 244, 245, 245, 246, 246, 246, 247, 247, 248, 248, 248,
+    249, 249, 250, 250, 251, 251, 251, 252, 252, 253, 253, 253, 254, 254, 255, 255,
+};
 static void render_display(const uint32_t *pixels)
 {
-    unsigned char gray[128 * 64], levels[256];
-    uint16_t histogram[256] = {0};
     int16_t errors[3][132] = {{0}};
     uint32_t horizontal[4][128];
     unsigned int next_row = 0;
+    memset(display, 0, sizeof(display));
     for (unsigned int y = 0; y < 64; ++y) {
         unsigned int sy = y * 25 / 8;
         while (next_row < sy + 4) {
@@ -260,27 +348,11 @@ static void render_display(const uint32_t *pixels)
         const uint32_t *a = horizontal[sy & 3], *b = horizontal[(sy + 1) & 3];
         const uint32_t *c = horizontal[(sy + 2) & 3], *d = horizontal[(sy + 3) & 3];
         unsigned int first = 8 - (y & 7), last = 1 + (y & 7);
+        int16_t *row = errors[y % 3], *next = errors[(y + 1) % 3], *last_row = errors[(y + 2) % 3];
         for (unsigned int x = 0; x < 128; ++x) {
             unsigned int sum = a[x] * first + (b[x] + c[x]) * 8 + d[x] * last;
-            unsigned int value = (sum + 16000) / 32000;
-            gray[y * 128 + x] = value;
-            ++histogram[value];
-        }
-    }
-    unsigned int low = 0, high = 255, count = 0;
-    while (low < 255 && (count += histogram[low]) <= sizeof(gray) / 50) ++low;
-    count = 0;
-    while (high > 0 && (count += histogram[high]) <= sizeof(gray) / 50) --high;
-    for (unsigned int i = 0; i < 256; ++i) {
-        levels[i] = high - low < 16 ? i : i <= low ? 0 : i >= high ? 255
-                  : ((i - low) * 255 + (high - low) / 2) / (high - low);
-    }
-    memset(display, 0, sizeof(display));
-    for (unsigned int y = 0; y < 64; ++y) {
-        int16_t *row = errors[y % 3], *next = errors[(y + 1) % 3], *last = errors[(y + 2) % 3];
-        for (unsigned int x = 0; x < 128; ++x) {
             unsigned int at = x + 1;
-            int value = levels[gray[y * 128 + x]] + row[at];
+            int value = display_levels[(sum + 16000) / 32000] + row[at];
             int white = value >= 128;
             if (!white) display[(y >> 3) * 128 + x] |= 1u << (y & 7);
             int error = (value - (white ? 255 : 0)) / 8;
@@ -289,7 +361,7 @@ static void render_display(const uint32_t *pixels)
             next[at - 1] += error;
             next[at] += error;
             next[at + 1] += error;
-            last[at] += error;
+            last_row[at] += error;
         }
         memset(row, 0, sizeof(errors[0]));
     }
@@ -300,6 +372,7 @@ void DG_DrawFrame(void)
     memcpy((void *)0xC031B310u, display, sizeof(display));
     ((void (*)(void *, int, int))0xC0015DD0u)((void *)0xC031BB2Cu, 2, 0);
     ((void (*)(void *, int, int))0xC0015DD0u)((void *)0xC031BB2Cu, 3, 0);
+    doom_update_leds();
     shared->gametic = gametic;
     shared->gamestate = gamestate;
     if (players[consoleplayer].mo) shared->viewangle = players[consoleplayer].mo->angle;
@@ -322,7 +395,6 @@ void doom_runtime_start(struct doom_shared *state)
     doom_status_display("DOOM", "ENGINE INIT", native_ticks(), 1);
     static char *argv[] = {"doom", "-iwad", DOOM_WAD_PATH, "-warp", "1", "1", "-nosound", "-nogui", "-mb", "6", NULL};
     doomgeneric_Create(sizeof(argv) / sizeof(argv[0]) - 1, argv);
-    key_menu_confirm = KEY_ENTER;
-    key_menu_abort = KEY_ESCAPE;
+    doom_configure_controls();
     for (;;) doomgeneric_Tick();
 }
