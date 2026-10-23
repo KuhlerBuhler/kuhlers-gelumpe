@@ -26,7 +26,7 @@ function saveBmp(pixels, name = SPLASH_FILE) {
 }
 
 /** A picture drawn to 128 x 64 and cut to one bit, the way the page and the device see it. */
-function pixelsOf(picture, { cover = false, threshold = 128, dither = false, invert = false } = {}) {
+export function pixelsOf(picture, { cover = false, threshold = 128, dither = false, invert = false } = {}) {
   const work = document.createElement("canvas");
   work.width = SPLASH_W;
   work.height = SPLASH_H;

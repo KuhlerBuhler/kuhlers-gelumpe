@@ -39,6 +39,7 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   const first = page.locator("#cee-bk-fx-catalog li").first();
   assert.equal(await first.locator(".cee-catalog-category").textContent(), "Echo", "the tag under the title");
   assert.equal(await first.locator(".cee-catalog-creator").textContent(), "von Kuhler Buhler", "and the creator at the bottom, as on a plugin's card");
+  assert.equal(await first.locator(".cee-creator-link").getAttribute("href"), "https://www.instagram.com/kuhler_buhler/", "the creator's name links to their profile");
   assert.equal(await first.locator(".btn").count(), 0, "the whole card opens it, no button");
   await openCard(page, "#cee-bk-fx-catalog", "Short Delay");
   // A catalog effect has its own page like a plugin: what it is, three buttons, its values read only.
@@ -74,6 +75,13 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   await page.locator("#cee-bk-preview .ui-dialog-foot .btn").click();
   assert.equal(await page.inputValue("#cee-bk-p-0-off_l_delay_time"), before, "the preview keeps nothing");
   await page.fill("#cee-bk-fx-name", "Mein Delay");
+  // an own effect says what it does and who made it
+  await page.fill("#cee-bk-fx-description", "Mein kurzes Echo.");
+  await page.fill("#cee-bk-fx-creator", "Jemand");
+  await page.fill("#cee-bk-fx-creatorUrl", "http://nicht-sicher.example");
+  await page.click("#cee-bk-fx-save");
+  await page.locator("#app-toasts .cee-toast", { hasText: "https://" }).waitFor();
+  await page.fill("#cee-bk-fx-creatorUrl", "https://example.org/jemand");
   // a knob set without dragging (a change event only) counts as well: a user test lost such a value
   await page.locator("#cee-bk-p-0-fb_depth").evaluate(n => { n.value = "70"; n.dispatchEvent(new Event("change")); });
   await page.fill("#cee-bk-p-0-dry_wet-value", "40");
@@ -93,6 +101,10 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   assert.equal(read.ok, true, read.reason);
   assert.equal(read.preset.stages[0].params.fb_depth, 70);
   assert.equal(read.preset.stages[0].params.dry_wet, 40, "a typed value is saved");
+  assert.equal(read.preset.creatorUrl, "https://example.org/jemand", "the words go into the file");
+  assert.equal(read.preset.description, "Mein kurzes Echo.");
+  await page.click("#cee-baukasten-page-mine");
+  assert.equal(await page.locator("#cee-bk-mine .cee-creator-link").first().getAttribute("href"), "https://example.org/jemand");
   assert.deepEqual(page.errors, []);
 });
 

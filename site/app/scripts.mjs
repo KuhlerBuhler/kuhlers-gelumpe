@@ -26,6 +26,17 @@ import { SimDevice, probe as runProbe, FRAME_MS } from "../../src/script/sim.mjs
 import { exportGate } from "../../src/script/gate.mjs";
 import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
 import { storePlugin } from "../../src/usb-update.mjs";
+import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
+import { pixelsOf } from "./splash.mjs";
+
+/** 0/1 pixels row by row (splash.mjs) to the display's 1024 bytes: eight rows per byte, bit 0 on top. */
+function displayBytes(pixels) {
+  const out = new Uint8Array(1024);
+  for (let i = 0; i < pixels.length; i++) if (pixels[i]) { const x = i % 128, y = Math.floor(i / 128); out[(y >> 3) * 128 + x] |= 1 << (y & 7); }
+  return out;
+}
+const toBase64 = bytes => btoa(String.fromCharCode(...bytes));
+const fromBase64 = text => { try { const b = Uint8Array.from(atob(text), c => c.charCodeAt(0)); return b.length === 1024 ? b : null; } catch { return null; } };
 
 const EXIT_KEY = KEY_NAMES.find(n => n.name === "EXIT").value;
 
@@ -192,20 +203,26 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   function renderLists() {
     const mine = workspace.list();
     ownEmpty.hidden = mine.length > 0;
+    // Drawn once the cards are in the page: the display's colours come from the stylesheet.
+    const draws = [];
     ownList.replaceChildren(...mine.map(s => {
       const probed = s.probe?.key === sourceKey(s.source) && s.probe.ok;
       const canvas = el("canvas", { className: "cee-lcd cee-catalog-thumb", width: 128, height: 64 });
       canvas.setAttribute("role", "img");
       canvas.setAttribute("aria-label", `Display von ${s.name}`);
-      renderThumb(canvas, { id: s.name, source: s.source });
+      const picture = s.meta?.image ? fromBase64(s.meta.image) : null;
+      draws.push(() => { if (picture) drawDisplay(canvas, picture); else renderThumb(canvas, { id: s.name, source: s.source }); });
       const open = el("button", { type: "button", className: "cee-catalog-open cee-own-name", textContent: s.name, onclick: () => { select("own", s.name); page("editor"); } });
       return el("li", { className: "cee-catalog-card cee-own-card", id: `cee-own-${s.name}` }, [
         canvas,
         el("h3", {}, open),
         el("p", { className: "cee-catalog-category", textContent: "Eigenes Plugin" }),
+        s.meta?.description ? el("p", { className: "muted", textContent: s.meta.description }) : null,
         el("p", { className: "muted", textContent: probed ? "Geprobt." : "Noch nicht geprobt." }),
+        creatorLine(s.meta?.creator, s.meta?.creatorUrl),
       ]);
     }));
+    for (const draw of draws) draw();
   }
 
   function updateActions() {
@@ -213,6 +230,10 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     main.hidden = !current;
     const mine = own();
     const isOwn = !!mine;
+    wordsButton.hidden = !isOwn;
+    // The words are filled in only when another plugin opens, so typing is never overwritten.
+    if (isOwn && wordsFor !== mine.name) { wordsFor = mine.name; words = { ...mine.meta }; ownMeta.set(words); showPicture(); }
+    if (!isOwn) { wordsFor = null; words = null; }
     const isPreset = current?.kind === "preset";
     note.hidden = !isPreset;
     copy.hidden = !isPreset;
@@ -324,7 +345,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     const preset = PRESETS.find(p => p.id === current?.id);
     if (!preset) return;
     const chosen = workspace.freeName(preset.id);
-    workspace.save({ name: chosen, source: preset.source });
+    workspace.save({ name: chosen, source: preset.source, meta: { description: preset.description } });
     select("own", chosen);
     say(`Als „${chosen}“ unter Meine Plugins angelegt.`, "ok");
   }
@@ -334,7 +355,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     if (!mine) return;
     flush();
     const chosen = workspace.freeName(mine.name);
-    workspace.save({ name: chosen, source: sourceNow(), inputs: mine.inputs });
+    workspace.save({ name: chosen, source: sourceNow(), inputs: mine.inputs, meta: mine.meta });
     select("own", chosen);
   }
 
@@ -525,7 +546,69 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   });
 
   const nameField = el("div", { className: "cee-ws-name" }, [el("label", { className: "muted", htmlFor: "cee-script-name", textContent: "Name" }), name]);
-  const toolbar = el("div", { className: "cee-ws-toolbar" }, [nameField, note, el("div", { className: "cee-ws-toolbar-actions" }, [copy, duplicate, remove])]);
+  // Angaben: what an own plugin shows on its card. Kept in this browser with the plugin, not in the file for the device.
+  let words = null;                         // the meta of the open own plugin, written back on every edit
+  let wordsFor = null;
+  const keepWords = () => {
+    const mine = own();
+    if (!mine || !words || metaProblem(words)) return;
+    workspace.save({ name: mine.name, source: mine.source, meta: words });
+    renderLists();
+  };
+  const ownMeta = metaFields("cee-script", () => words, keepWords);
+  const pictureCanvas = el("canvas", { className: "cee-lcd cee-catalog-thumb cee-own-picture", id: "cee-script-picture", width: 128, height: 64 });
+  pictureCanvas.setAttribute("role", "img");
+  pictureCanvas.setAttribute("aria-label", "Bild auf der Karte des Plugins");
+  const pictureInput = el("input", { type: "file", className: "cee-visually-hidden", id: "cee-script-picture-file", accept: "image/*" });
+  const pictureInvert = el("input", { type: "checkbox", role: "switch", id: "cee-script-picture-invert" });
+  const pictureClear = button("cee-script-picture-clear", "Bild entfernen", () => { if (words) { delete words.image; keepWords(); showPicture(); } }, "sm");
+  let pictureSource = null;
+  const takePicture = async () => {
+    if (!pictureSource || !words) return;
+    words.image = toBase64(displayBytes(pixelsOf(pictureSource, { dither: true, invert: !pictureInvert.checked })));
+    keepWords();
+    showPicture();
+  };
+  pictureInput.addEventListener("change", async () => {
+    const file = pictureInput.files?.[0];
+    pictureInput.value = "";
+    if (!file) return;
+    try {
+      pictureSource = await createImageBitmap(file);
+      await takePicture();
+    } catch {
+      toast(`${file.name} ist kein Bild, das die Seite lesen kann.`, "error");
+    }
+  });
+  pictureInvert.addEventListener("change", takePicture);
+  function showPicture() {
+    const mine = own();
+    const bytes = words?.image ? fromBase64(words.image) : null;
+    if (bytes) drawDisplay(pictureCanvas, bytes); else if (mine) renderThumb(pictureCanvas, { id: mine.name, source: mine.source });
+    pictureClear.disabled = !bytes;
+  }
+  // In a dialog, so the editor keeps the whole height of the page.
+  const wordsSection = el("dialog", { className: "ui-dialog cee-own-words-dialog", id: "cee-script-words" });
+  wordsSection.setAttribute("aria-labelledby", "cee-script-words-title");
+  const wordsBody = el("div", { className: "ui-dialog-body cee-own-words" }, [
+    el("div", { className: "cee-own-picture-row" }, [
+      pictureCanvas,
+      el("div", { className: "cee-meta-fields" }, [
+        el("p", { className: "ui-field-help", textContent: "Das Bild auf der Karte, 128 x 64 Pixel wie das Display. Ohne eigenes zeigt sie, was das Plugin selbst zeichnet." }),
+        el("div", { className: "actions" }, [el("label", { className: "btn sm", htmlFor: "cee-script-picture-file", textContent: "Bild wählen" }), pictureInput, pictureClear]),
+        el("label", { className: "ui-switch" }, [pictureInvert, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Hell und dunkel tauschen"]),
+      ]),
+    ]),
+    ownMeta.node,
+  ]);
+  wordsSection.append(el("form", { method: "dialog", className: "ui-dialog-box" }, [
+    el("header", { className: "ui-dialog-head" }, el("h2", { className: "ui-dialog-title", id: "cee-script-words-title", textContent: "Angaben zum Plugin" })),
+    wordsBody,
+    el("footer", { className: "ui-dialog-foot" }, el("button", { type: "submit", className: "btn", value: "close", textContent: "Fertig" })),
+  ]));
+  document.body.append(wordsSection);
+  const wordsButton = button("cee-script-words-open", "Angaben", () => { if (window.ui?.openDialog) window.ui.openDialog(wordsSection); else wordsSection.showModal?.(); }, "sm");
+  const toolbar = el("div", { className: "cee-ws-toolbar" }, [nameField, note, el("div", { className: "cee-ws-toolbar-actions" }, [copy, wordsButton, duplicate, remove])]);
   const strip = el("div", { className: "cee-ws-strip" }, [status, probeInfo, hint]);
 
   const runTarget = el("p", { className: "muted", id: "cee-run-target" });
@@ -724,7 +807,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
         el("p", { textContent: preset.description }),
         el("dl", { className: "cee-detail-facts" }, [
           el("dt", { textContent: "Kategorie" }), el("dd", { textContent: preset.category }),
-          el("dt", { textContent: "Von" }), el("dd", { textContent: preset.creator }),
+          el("dt", { textContent: "Von" }), el("dd", {}, creatorName(preset.creator) ?? "?"),
           el("dt", { textContent: "Hinzugefügt" }), el("dd", {}, el("time", { dateTime: preset.added, textContent: added })),
           el("dt", { textContent: "Steuerung" }), el("dd", {}, preset.controls.length ? el("ul", { className: "cee-detail-controls" }, preset.controls.map(c => el("li", { textContent: c }))) : "Keine, es läuft von selbst."),
         ]),
@@ -839,7 +922,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       el("h3", {}, title),
       el("p", { className: "cee-catalog-category", textContent: preset.category }),
       el("p", { className: "muted", textContent: preset.description }),
-      el("p", { className: "cee-catalog-creator muted", textContent: `von ${preset.creator}` }),
+      creatorLine(preset.creator),
     ]);
   }
 
