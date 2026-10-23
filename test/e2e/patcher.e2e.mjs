@@ -401,7 +401,7 @@ test("patcher: the fear button puts the copy on the virtual card, runs the user'
   const hint = page.locator("#cee-patch-hint");
   await hint.waitFor();
   assert.doesNotMatch(await hint.textContent(), /kopiert/, "no folder is copied on the card");
-  assert.equal(await hint.textContent(), "Die gepatchte Datei liegt auf der Karte im Emulator unter KORG/hacktribe/System. DATA UTILITY > SOFTWARE UPDATE, ENTER, danach neu starten.");
+  assert.equal(await hint.textContent(), "Die gepatchte Datei liegt auf der Karte im Emulator unter KORG/hacktribe/System. Am Gerät Menü -> DATA UTILITY -> SOFTWARE UPDATE, ENTER, danach neu starten.");
   assert.equal(await page.locator("#cee-area-emu > :first-child").getAttribute("id"), "cee-patch-hint", "the hint stands above the emulator");
   assert.deepEqual(new Uint8Array(fake.seen.firmwareBody), vsb, "the emulator runs the user's own file");
   assert.deepEqual(new Uint8Array(fake.seen.system), new Uint8Array(fake.seen.check.pair.subarray(0x200100)), "the card holds the checked copy");

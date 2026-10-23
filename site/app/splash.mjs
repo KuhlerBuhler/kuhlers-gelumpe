@@ -177,7 +177,7 @@ export function splashPage(root) {
     ]),
     el("ol", { className: "cee-splash-steps", id: "cee-splash-steps" }, [
       el("li", {}, ["Lege ", el("code", { textContent: SPLASH_FILE }), " auf der Karte nach ", el("code", { textContent: SPLASH_FOLDER }), "."]),
-      el("li", { textContent: "Am Gerät im Menü BLECH: CUSTOMIZATION, SPLASH IMPORT, ENTER." }),
+      el("li", { textContent: "Am Gerät: Menü -> BLECH -> CUSTOMIZATION -> SPLASH IMPORT, dann ENTER." }),
       el("li", { textContent: "Ab dem nächsten Start ist es zu sehen. Ändern lässt es sich unter SPLASH DRAW." }),
     ]),
   ]));

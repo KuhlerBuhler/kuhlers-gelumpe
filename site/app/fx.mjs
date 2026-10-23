@@ -638,7 +638,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   function downloadCopy() {
     if (!state.passed) return;
     saveFile(state.passed, "SYSTEM.VSB");
-    exportNote.textContent = "Kopiere die Datei wie im Bereich Patcher beschrieben auf die SD-Karte und starte SOFTWARE UPDATE unter DATA UTILITY.";
+    exportNote.textContent = "Kopiere die Datei wie im Bereich Patcher beschrieben auf die SD-Karte und starte am Gerät Menü -> DATA UTILITY -> SOFTWARE UPDATE.";
   }
 
   addButton.addEventListener("click", addCopy);

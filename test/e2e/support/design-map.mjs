@@ -11,7 +11,6 @@ export const LEVELS = [
   { selector: ".cee-home", gap: "page", mobile: "page-mobile" },
   { selector: ".ui-section, .cee-sec, .cee-patch-panel", gap: "section", mobile: "section-mobile" },
   { selector: ".ui-field", gap: "block", mobile: "block" },
-  { selector: ".cee-cards", gap: "card-grid", mobile: "card-grid" },
   { selector: ".ui-page-actions, .cee-patch-nav", gap: "row", mobile: "row" },
 ];
 
@@ -63,11 +62,6 @@ export const ELEMENTS = [
 
 /** Nesting and order of the components, checked with support/structure.mjs on every page they appear on. */
 export const STRUCTURES = [
-  {
-    id: "card-grid",
-    root: ".cee-cards",
-    tree: { tag: "ul", classes: ["cee-cards"], children: [{ tag: "li", classes: ["cee-card"], repeatable: true, children: [{ tag: "canvas", classes: ["cee-lcd", "cee-catalog-thumb"] }, { tag: "h3", classes: [] }, { tag: "p", classes: [] }] }] },
-  },
   {
     id: "entry-steps",
     root: ".cee-entry-steps",

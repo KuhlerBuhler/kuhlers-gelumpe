@@ -65,7 +65,7 @@ export function simPanel(root, { post }) {
       const open_ = items.find(a => a.open) ?? null;
       screenNote.textContent = items.length === 0
         ? "Das Gerät zeigt hier sein eigenes Bild. Ein Plugin zeichnet nur in einer App (korg.app) oder nach korg.display.take()."
-        : open_ ? `Das Gerät zeigt die App „${open_.name}“. EXIT verlässt sie.` : "Das Gerät zeigt seinen Hauptbildschirm. Eine App öffnet im Menü BLECH unter GAMES oder TOOLS.";
+        : open_ ? `Das Gerät zeigt die App „${open_.name}“. EXIT verlässt sie.` : "Das Gerät zeigt seinen Hauptbildschirm. Eine App öffnest du unter Menü -> BLECH -> GAMES oder TOOLS.";
       const key = items.map(a => `${a.id}:${a.group}:${a.name}`).join("|");
       if (key !== appKey) {
         appKey = key;
