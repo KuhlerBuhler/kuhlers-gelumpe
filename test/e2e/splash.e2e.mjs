@@ -41,6 +41,7 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   const bytes = await (await file.createReadStream()).toArray().then(parts => Buffer.concat(parts));
   assert.equal(bytes.length, 1086);
   assert.equal(bytes.subarray(0, 2).toString(), "BM");
+  assert.match(await page.locator("#app-toasts .cee-toast").last().textContent(), /„splash\.bmp“ gespeichert/, "every download says that it happened");
   // top row, bottom-up file: the last row of pixel data; left 64 pixels drawn (bit 1), right 64 empty
   const top = bytes.subarray(62 + 63 * 16, 62 + 64 * 16);
   assert.deepEqual([...top], [...Array(8).fill(0xff), ...Array(8).fill(0)]);

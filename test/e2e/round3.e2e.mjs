@@ -148,8 +148,9 @@ test("the console greets with one line, help lists the commands and Tab complete
 test("the run page shows the device drawing and sends keys, pads, knobs and the touchpad to the browser VM", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#scripts`);
-  await page.click("#cee-scripts-page-editor");
-  await page.click("#cee-script-copy");
+  await page.click("#cee-scripts-page-catalog");
+  await page.click("#cee-catalog-blechclicker .cee-catalog-open");
+  await page.click("#cee-detail-copy");
   await page.locator("#cee-script-name:not([disabled])").waitFor();
   await page.evaluate(() => {
     const v = document.getElementById("cee-script-editor").view;

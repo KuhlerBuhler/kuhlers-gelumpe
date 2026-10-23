@@ -17,3 +17,18 @@ export function e2Art(body, label) {
     + pads;
   return svg;
 }
+
+/** The same Electribe as lines only, in the colour of the element (`currentColor`): the device cards of the patcher. */
+export function e2Outline(label) {
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 160 80");
+  svg.setAttribute("class", "cee-e2-outline");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", label);
+  const pads = Array.from({ length: 16 }, (_, i) => `<rect x="${10 + (i % 8) * 13}" y="${i < 8 ? 50 : 62}" width="10" height="10" rx="1.5"/>`).join("");
+  const knobs = [0, 1, 2, 3, 4].map(i => `<circle cx="${62 + i * 12}" cy="17" r="4"/>`).join("");
+  svg.innerHTML = `<g fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="1" width="158" height="78" rx="6"/>`
+    + `<rect x="10" y="9" width="40" height="18" rx="1.5"/>${knobs}`
+    + `<rect x="124" y="9" width="26" height="22" rx="2"/><rect x="124" y="50" width="26" height="22" rx="2"/>${pads}</g>`;
+  return svg;
+}

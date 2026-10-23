@@ -1,5 +1,6 @@
 /** The Startbild page: any picture to splash.bmp for the card (SPLASH IMPORT in the BLECH menu). Logic: src/splash-bmp.mjs. */
 import { el } from "./fields.mjs";
+import { saveFile } from "./save-file.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 
 const STYLE = new URL("./splash.css", import.meta.url).href;
@@ -21,12 +22,7 @@ const readOwn = () => { try { return JSON.parse(localStorage.getItem(OWN) ?? "[]
 const writeOwn = list => { try { localStorage.setItem(OWN, JSON.stringify(list)); return true; } catch { return false; } };
 
 function saveBmp(pixels, name = SPLASH_FILE) {
-  const url = URL.createObjectURL(new Blob([encodeBmp(pixels)], { type: "image/bmp" }));
-  const a = el("a", { href: url, download: name });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  saveFile(encodeBmp(pixels), name, { type: "image/bmp" });
 }
 
 /** A picture drawn to 128 x 64 and cut to one bit, the way the page and the device see it. */

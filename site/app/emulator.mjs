@@ -5,7 +5,7 @@
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
-import { identify, buildOf, lackOf, hasBlechSysex } from "../../src/firmware.mjs";
+import { identify, buildOf, lackOf, hasBlechSysex, firmwareName } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
 
 const VSB_SIZE = 0x200100;
@@ -280,6 +280,11 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     blech = !!bytes && hasBlechSysex(bytes);
   }
   /** The line for the file chooser; Korg's own build is a recognised file, it only is not the measured one. */
+  /** A recognised file is said by the display; the line stays for screen readers and shows only what went wrong. */
+  const showInfo = text => {
+    vsbInfo.textContent = text;
+    vsbInfo.classList.toggle("ui-sr-only", /erkannt/.test(text) && !/nicht erkannt/.test(text));
+  };
   const describe = (name, id, saved) => {
     const when = saved ? " (vom letzten Mal)" : "";
     if (id.build === "synth") return `${name}: Firmware der blauen Electribe 2 (Synth), erkannt${when}. Presets und Modulationen gibt es für sie nicht.`;
@@ -290,14 +295,15 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   // A switched-off Electribe takes its firmware on the display: drop the file there or tap it.
   const offerTitle = el("strong", { textContent: "SYSTEM.VSB" });
   const offerText = el("span");
-  const offer = el("button", { type: "button", className: "cee-emu-offer", id: "cee-emu-offer" }, [offerTitle, offerText]);
+  const offer = el("button", { type: "button", className: "cee-emu-offer", id: "cee-emu-offer" }, [offerTitle, " ", offerText]);
   offer.addEventListener("click", () => vsbInput.click());
   function renderOffer() {
     const off = lastState !== "running" && lastState !== "hung" && !fake && !external;
     offer.hidden = !off;
     offerTitle.textContent = vsb ? "Firmware geladen" : "SYSTEM.VSB";
-    offerText.textContent = vsb ? "Mit POWER einschalten. Antippen für eine andere Datei." : "Deine Firmware hierher ziehen oder antippen.";
-    offer.setAttribute("aria-label", vsb ? "Andere Firmware-Datei wählen" : "Firmware-Datei (SYSTEM.VSB) wählen");
+    offerText.textContent = vsb ? firmwareName(vsb) : "Deine Firmware hierher ziehen oder antippen.";
+    // Its name is what the display says; what a tap does is the title.
+    offer.title = vsb ? "Antippen für eine andere Datei" : "Firmware-Datei (SYSTEM.VSB) wählen";
   }
 
   const api = async (path, body, type = "application/octet-stream") => {
@@ -393,13 +399,13 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     setBuild(null);
     keep.delete("vsb");
     if (bytes.length !== VSB_SIZE) {
-      vsbInfo.textContent = `${file.name}: ${bytes.length} Byte, eine VSB hat ${VSB_SIZE}.`;
+      showInfo(`${file.name}: ${bytes.length} Byte, eine VSB hat ${VSB_SIZE}.`);
       toast(`${file.name} ist keine Firmware-Datei: ${bytes.length} Byte, eine SYSTEM.VSB hat ${VSB_SIZE}.`, "error");
       showStatus({ state: "empty" });
       return;
     }
     const id = await identify(bytes);
-    vsbInfo.textContent = describe(file.name, id, false);
+    showInfo(describe(file.name, id, false));
     vsb = bytes;
     setBuild(bytes);
     keep.put("vsb", { name: file.name, bytes });
@@ -460,7 +466,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     if (!saved?.bytes || vsb) return;
     vsb = saved.bytes;
     setBuild(vsb);
-    vsbInfo.textContent = describe(saved.name, await identify(vsb), true);
+    showInfo(describe(saved.name, await identify(vsb), true));
     if (lastState === "empty") showStatus({ state: "loaded" });
     renderOffer();
   });
@@ -514,7 +520,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       base = null;
       setBuild(running);
       keep.put("vsb", { name: "SYSTEM.VSB", bytes: running });
-      vsbInfo.textContent = "SYSTEM.VSB für den Update-Test geladen.";
+      showInfo("SYSTEM.VSB für den Update-Test geladen.");
       showStatus(await api("/start", "{}", "application/json"));
       return sd.korg;
     },
@@ -525,7 +531,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       base = base ?? vsb;
       vsb = bytes;
       setBuild(bytes);
-      vsbInfo.textContent = "Exportierte Kopie geladen.";
+      showInfo("Exportierte Kopie geladen.");
       showStatus(await api("/start", "{}", "application/json"));
     },
     /**

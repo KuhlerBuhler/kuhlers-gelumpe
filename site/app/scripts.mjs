@@ -10,7 +10,9 @@ import { drawDisplay } from "./emulator.mjs";
 import { PADS } from "../../data/panel.mjs";
 import { parseMarkdown } from "./markdown.mjs";
 import { toast } from "./toast.mjs";
+import { saveFile } from "./save-file.mjs";
 import { createScriptEditor } from "./script-editor.mjs";
+import { highlightLines } from "../../src/script/highlight.mjs";
 import { compile, formatError } from "../../src/script/compiler.mjs";
 import { decodeBlob, markProbed } from "../../src/script/blob.mjs";
 import { LIMITS, BUDGET, ARCHIVE, SCRIPT_APPS } from "../../data/script/contract.mjs";
@@ -32,14 +34,6 @@ const pill = (tone, word) => {
   p.dataset.tone = tone;
   return p;
 };
-
-function download(bytes, name) {
-  const blob = new Blob([bytes], { type: "application/octet-stream" });
-  const a = el("a", { href: URL.createObjectURL(blob), download: name });
-  document.body.append(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
-}
 
 const ask = async (options, fallback) => (window.ui?.prompt ? window.ui.prompt(options) : fallback);
 
@@ -193,26 +187,30 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     updateActions();
   }
 
-  /** The own plugins of this browser as cards: open in the editor, download, onto the device, delete. */
+  /** The own plugins of this browser as cards like the catalog's: the whole card opens the plugin in the editor, where
+   * Herunterladen, Aufs Gerät and Löschen are. */
   function renderLists() {
     const mine = workspace.list();
     ownEmpty.hidden = mine.length > 0;
     ownList.replaceChildren(...mine.map(s => {
       const probed = s.probe?.key === sourceKey(s.source) && s.probe.ok;
-      const edit = el("button", { type: "button", className: "btn sm cee-primary", textContent: "Bearbeiten", onclick: () => { select("own", s.name); page("editor"); } });
-      edit.dataset.id = s.name;
-      const get = el("button", { type: "button", className: "btn sm", textContent: "Herunterladen", onclick: () => { select("own", s.name); exportOne(); } });
-      const usb = el("button", { type: "button", className: "btn sm", textContent: "Aufs Gerät", onclick: () => { select("own", s.name); exportOne(usb); } });
-      const del = el("button", { type: "button", className: "btn sm", textContent: "Löschen", onclick: () => { select("own", s.name); removeScript(); } });
+      const canvas = el("canvas", { className: "cee-lcd cee-catalog-thumb", width: 128, height: 64 });
+      canvas.setAttribute("role", "img");
+      canvas.setAttribute("aria-label", `Display von ${s.name}`);
+      renderThumb(canvas, { id: s.name, source: s.source });
+      const open = el("button", { type: "button", className: "cee-catalog-open cee-own-name", textContent: s.name, onclick: () => { select("own", s.name); page("editor"); } });
       return el("li", { className: "cee-catalog-card cee-own-card", id: `cee-own-${s.name}` }, [
-        el("h3", { className: "cee-own-name", textContent: s.name }),
-        el("p", { className: "muted", textContent: probed ? "geprobt" : "noch nicht geprobt" }),
-        el("div", { className: "cee-catalog-actions" }, [edit, get, usb, del]),
+        canvas,
+        el("h3", {}, open),
+        el("p", { className: "cee-catalog-category", textContent: "Eigenes Plugin" }),
+        el("p", { className: "muted", textContent: probed ? "Geprobt." : "Noch nicht geprobt." }),
       ]);
     }));
   }
 
   function updateActions() {
+    emptyEditor.hidden = !!current;
+    main.hidden = !current;
     const mine = own();
     const isOwn = !!mine;
     const isPreset = current?.kind === "preset";
@@ -262,7 +260,6 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     recompile();
     caretHelp();
     if (shown === "editor") trail(["Editor", id]);
-    try { storage?.setItem("cee.scripts.last", `${kind}:${id}`); } catch { /* optional */ }
   }
 
   function flush() {
@@ -490,8 +487,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     const packed = packBlech(markProbed(result.blob), fresh.source);
     if (!packed.ok) { say(packed.error.message, "error"); return; }
     if (toUsb) { await toDevice(packed.bytes, fresh.name, toUsb); return; }
-    download(packed.bytes, `${fresh.name}.blech`);
-    say(`${fresh.name}.blech gespeichert. Auf die Karte nach ${ARCHIVE.folder}/ kopieren.`, "ok");
+    saveFile(packed.bytes, `${fresh.name}.blech`, { note: `Auf die Karte nach ${ARCHIVE.folder}/ kopieren.` });
   }
 
   async function exportCollection() {
@@ -511,8 +507,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     if (!(await allowExport("Alle", gates))) return;
     const packed = packAll(blocks);
     if (!packed.ok) { say(packed.error.message, "error"); return; }
-    download(packed.bytes, ARCHIVE.file);
-    say(`${ARCHIVE.file} mit ${blocks.length} Plugins gespeichert. Auf die Karte nach ${ARCHIVE.folder}/ kopieren.`, "ok");
+    saveFile(packed.bytes, ARCHIVE.file, { note: `${blocks.length} Plugins. Auf die Karte nach ${ARCHIVE.folder}/ kopieren.` });
   }
 
   open.addEventListener("change", async () => {
@@ -537,7 +532,16 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
 
   // The editor is the whole page: no list beside it. Vorschau, Herunterladen and Aufs Gerät stand under it.
   const main = el("div", { className: "cee-ws-main" }, [toolbar, editorHost, problems, strip, el("div", { className: "actions cee-ws-actions" }, [previewButton, exportButton, usbButton])]);
-  const split = el("div", { className: "cee-workspace", id: "cee-scripts-split" }, [main]);
+  // Nothing is open until a plugin is chosen: the editor says so and offers the ways to one.
+  const emptyEditor = el("div", { className: "cee-ws-empty", id: "cee-editor-empty" }, [
+    el("p", { className: "muted", textContent: "Kein Plugin offen. Leg ein neues an, öffne eine Datei oder nimm eins aus dem Katalog." }),
+    el("div", { className: "actions" }, [
+      button("cee-editor-empty-new", "Neues Plugin", () => newScript(), "cee-primary"),
+      button("cee-editor-empty-open", "Öffnen", () => open.click(), ""),
+      button("cee-editor-empty-catalog", "Zum Katalog", () => { page("catalog"); shelf("catalog"); }, ""),
+    ]),
+  ]);
+  const split = el("div", { className: "cee-workspace", id: "cee-scripts-split" }, [emptyEditor, main]);
 
   // The preview: the simulated Electribe over the darkened editor; a click beside it or the X closes it.
   const runBox = el("div", { className: "cee-run", id: "cee-run" }, [
@@ -599,7 +603,9 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       if (h.getBoundingClientRect().top <= top) at = h; else break;
     }
     const text = at?.textContent ?? null;
-    if (text !== reading) { reading = text; trail(["Dokumentation", ...(text ? [text] : [])]); }
+    // The section you read stands out in the table of contents.
+    for (const b of docsToc.querySelectorAll("button[data-target]")) b.toggleAttribute("aria-current", !!at && b.dataset.target === at.id);
+    if (text !== reading) { reading = text; trail([{ text: "Dokumentation", go: () => { docsPage.scrollTo({ top: 0 }); } }, ...(text ? [text] : [])]); }
   }, { passive: true });
   let docSections = [];
   let docsLoaded = false;
@@ -651,7 +657,12 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     const names = docSections.find(s => s.title === NAMES_TITLE);
     if (names) names.node.append(el("div", { className: "cee-names-head" }, [namesFilter, el("p", { className: "muted", textContent: "Klick kopiert den Namen. Beim Übersetzen wird er zur Nummer." })]), namesBody);
     docsArticle.replaceChildren(...docSections.map(s => s.node));
-    docsToc.querySelector(".ui-details-body").replaceChildren(el("ul", { className: "cee-doc-toc" }, links.map(h => el("li", { className: `cee-doc-toc-${h.level}` }, el("button", { type: "button", className: "cee-text-link", textContent: h.text, onclick: () => jumpTo(h.id) })))));
+    const tocLink = h => {
+      const b = el("button", { type: "button", className: "cee-text-link", textContent: h.text, onclick: () => jumpTo(h.id) });
+      b.dataset.target = h.id;
+      return b;
+    };
+    docsToc.querySelector(".ui-details-body").replaceChildren(el("ul", { className: "cee-doc-toc" }, links.map(h => el("li", { className: `cee-doc-toc-${h.level}` }, tocLink(h)))));
   }
 
   // The catalog: the plugins of the app as cards, each with a picture of its display after a few frames of the browser VM.
@@ -734,9 +745,13 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       ]),
     );
     renderThumb(canvas, preset);
-    detailCode.textContent = preset.source;
+    // Coloured like the editor: the same tokenizer, the same token classes.
+    detailCode.replaceChildren(...highlightLines(preset.source).flatMap((pieces, i) => [
+      ...(i ? ["\n"] : []),
+      ...pieces.map(([text, type]) => type ? el("span", { className: type.split(".").map(t => `tok-${t}`).join(" "), textContent: text }) : text),
+    ]));
     page("detail");
-    trail(["Katalog", preset.title]);
+    trail([{ text: "Katalog", go: () => { page("catalog"); shelf("catalog"); } }, preset.title]);
     detailView("preview");
   }
 
@@ -815,7 +830,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     };
     const get = make("download", "Herunterladen", () => {
       const bytes = pack();
-      if (bytes) download(bytes, `${preset.id}.blech`);
+      if (bytes) saveFile(bytes, `${preset.id}.blech`, { note: `Auf die Karte nach ${ARCHIVE.folder}/ kopieren.` });
     });
     const usb = make("usb", "Aufs Gerät", () => {
       const bytes = pack();
@@ -829,27 +844,20 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     canvas.setAttribute("role", "img");
     canvas.setAttribute("aria-label", `Display von ${preset.title}`);
     thumbs.set(canvas, preset);
-    const { get, usb, note } = packButtons(preset);
-    // The title is the way to the plugin's page; the picture leads there too.
+    // The whole card leads to the plugin's page (the title's button covers it); download and device are there.
     const title = el("button", { type: "button", className: "cee-catalog-open", textContent: preset.title, onclick: () => openDetail(preset) });
-    canvas.addEventListener("click", () => openDetail(preset));
     return el("li", { className: "cee-catalog-card", id: `cee-catalog-${preset.id}` }, [
       canvas,
-      el("p", { className: "cee-catalog-meta" }, [el("span", { className: "cee-catalog-category", textContent: preset.category }), el("span", { className: "muted", textContent: `von ${preset.creator}` })]),
       el("h3", {}, title),
+      el("p", { className: "cee-catalog-category", textContent: preset.category }),
       el("p", { className: "muted", textContent: preset.description }),
-      el("div", { className: "cee-catalog-actions" }, [get, usb]),
-      note,
+      el("p", { className: "cee-catalog-creator muted", textContent: `von ${preset.creator}` }),
     ]);
   }
 
   renderNames();
-  let last = null;
-  try { last = storage?.getItem("cee.scripts.last"); } catch { /* optional */ }
-  const [kind, id] = (last ?? "").split(/:(.*)/s);
-  if (kind === "own" && workspace.get(id)) select("own", id);
-  else select("preset", PRESETS.some(p => p.id === id) ? id : PRESETS[0].id);
   page("catalog");
+  updateActions();
   shelf("catalog");
   renderLists();
 

@@ -54,7 +54,8 @@ test("the navbar title of the emulator page is a menu: emulator or real device",
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-nav-title").isVisible(), false);
   assert.equal(await page.locator("#cee-mode-label").textContent(), "Emulator");
-  assert.equal(await page.locator("#cee-nav-state").textContent(), "SD-Karte öffnenEigenes Fenster", "the emulator page has no device state, only the SD card and the button for its own window");
+  assert.deepEqual(await page.locator("#cee-nav-state").getByRole("button").allTextContents(), ["SD-Karte öffnen", "Eigenes Fenster"], "the emulator page has no device state, only the SD card and the button for its own window");
+  assert.equal(await page.locator("#cee-nav-state #cee-sd-inserted").count(), 1, "the card's switch beside it");
   assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "false");
   await page.click("#cee-mode-button");
   assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "true");
@@ -75,7 +76,8 @@ test("the emulator page has no options in the sidebar: the firmware goes on its 
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-sub-emu").count(), 0, "nothing folds out under the entry");
-  assert.equal(await page.locator("#cee-nav-state #cee-emu-card-open").textContent(), "SD-Karte öffnen", "the SD card opens from the navbar");
+  assert.equal(await page.locator("#cee-nav-state #cee-sd-open").textContent(), "SD-Karte öffnen", "the SD card opens from the navbar");
+  assert.equal(await page.locator("#cee-nav-state #cee-sd-inserted").count(), 1, "and its switch sits next to it");
   assert.equal(await page.locator(".cee-main #cee-e2-power").isVisible(), true, "the power key stays in the page");
   assert.equal(await page.locator(".cee-main #cee-emu-offer").isVisible(), true, "a switched-off device offers the firmware on its display");
   assert.match(await page.locator("#cee-emu-offer").textContent(), /SYSTEM\.VSB/);
@@ -173,7 +175,11 @@ test("the start page has its sections in heading order and the donate link opens
   assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Wie installiere ich BLECHTRIBE?", "Geht was schief?", "Was kann BLECHTRIBE?", "Erkunden", "Spenden"]);
   const cards = page.locator("#cee-start-features > li");
   assert.ok(await cards.count() > 6 && await cards.count() <= 12, "the functions one card each, at most twelve");
-  assert.equal(await cards.locator("img").count(), await cards.count(), "every card has its picture");
+  assert.equal(await cards.locator("canvas.cee-catalog-thumb").count(), await cards.count(), "every card has its picture, drawn like the plugin pictures");
+  await page.waitForFunction(() => [...document.querySelectorAll("#cee-start-features canvas")].every(c => {
+    const d = c.getContext("2d").getImageData(0, 0, 128, 64).data;
+    return new Set(Array.from({ length: d.length / 4 }, (_, i) => d[i * 4])).size === 2;
+  }), null, { timeout: 5000 });
   assert.equal(await page.getAttribute("#cee-start-more", "href"), "#features", "Vieles mehr leads to the page of all functions");
   for (const id of ["#cee-donate", "#cee-donate-start"]) {
     assert.equal(await page.getAttribute(id, "href"), "https://www.paypal.me/kuhlerbuhler");

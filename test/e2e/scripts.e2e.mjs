@@ -9,11 +9,16 @@ let h;
 before(async () => { h = await setUp(); });
 after(async () => { await h.tearDown(); });
 
-async function open(viewport) {
+/** The editor starts empty; the tests open the first plugin of the catalog in it, as an own copy, the way a person does.
+ * With `plugin: false` the page stays as it opens, nothing copied. */
+async function open(viewport, { plugin = true } = {}) {
   const page = await h.page();
   if (viewport) await page.setViewportSize(viewport);
   await page.goto(`${h.url}#scripts`);
-  await page.locator("#cee-scripts-page-editor").evaluate(n => n.click());
+  if (!plugin) return page;
+  await page.locator("#cee-scripts-page-catalog").evaluate(n => n.click());
+  await page.click("#cee-catalog-blechclicker .cee-catalog-open");
+  await page.click("#cee-detail-copy");
   await page.locator("#cee-script-text").waitFor();
   return page;
 }
@@ -82,7 +87,10 @@ test("the page replaces Terminal and FUN: templates, an editor, the run area and
   assert.equal(await page.locator("#cee-script-text").isVisible(), false);
   await onEditor(page);
   assert.equal(await page.locator("#cee-script-presets, #cee-scripts-side").count(), 0, "no list of examples beside the editor: they are the catalog");
-  assert.equal(await page.locator("#cee-script-text").isVisible(), true, "the editor, once its page is open");
+  assert.equal(await page.locator("#cee-editor-empty").isVisible(), true, "the editor opens empty and offers the ways to a plugin");
+  assert.equal(await page.locator("#cee-script-text").isVisible(), false);
+  await makeOwn(page, "blechclicker");
+  assert.equal(await page.locator("#cee-script-text").isVisible(), true, "the editor, once a plugin is open");
   assert.equal(await page.locator("#cee-term-input").isVisible(), false, "the console is a page of its own");
   assert.equal(await page.locator("#cee-script-run").isVisible(), false, "so is the run area");
   await page.click("#cee-tab-console");
@@ -94,15 +102,12 @@ test("the page replaces Terminal and FUN: templates, an editor, the run area and
   await closeRun(page);
   assert.equal(await page.locator("#cee-plugin-run").isVisible(), false);
   await onEditor(page);
-  assert.equal(await page.locator("#cee-script-readonly").isVisible(), true, "a template is read only");
-  assert.equal(await page.locator("#cee-script-text").getAttribute("aria-readonly"), "true");
-  assert.equal(await page.evaluate(() => document.getElementById("cee-script-editor").view.state.readOnly), true);
   assert.match(await page.locator("#cee-script-status").textContent(), /Block \d+ Byte.*Variablen \d+ von 32768/);
   assert.deepEqual(page.errors, []);
 });
 
 test("a template opens as an own script, edits are kept across a reload, and a compile error names its line", async () => {
-  const page = await open();
+  const page = await open(undefined, { plugin: false });
   await makeOwn(page);
   assert.deepEqual(await ownNames(page), ["snake"]);
   await setSource(page, "let a = 1;\nlet = 2;\n");
@@ -125,9 +130,13 @@ test("a template opens as an own script, edits are kept across a reload, and a c
   await page.waitForTimeout(450);
   await page.reload();
   await onEditor(page);
+  assert.equal(await page.locator("#cee-editor-empty").isVisible(), true, "after a reload the editor starts empty");
+  await page.click("#cee-scripts-page-catalog");
+  await page.click("#cee-shelf-own");
+  assert.deepEqual(await page.locator("#cee-script-own .cee-own-name").allTextContents(), ["snake"]);
+  await page.click("#cee-own-snake .cee-catalog-open");
   await page.locator("#cee-script-text").waitFor();
-  assert.deepEqual(await ownNames(page), ["snake"]);
-  assert.match(await sourceOf(page), /a \+= 1/, "the last open script and its text are back");
+  assert.match(await sourceOf(page), /a \+= 1/, "the own script kept its text");
   await page.fill("#cee-script-name", "zaehler");
   await page.press("#cee-script-name", "Enter");
   assert.deepEqual(await ownNames(page), ["zaehler"]);
@@ -269,7 +278,7 @@ test("export needs a probe of this text; lines that never ran need a yes; a reco
 });
 
 test("all own scripts leave as one e2sPlugin.all that the loader's format check accepts, and a .blech opens again", async () => {
-  const page = await open();
+  const page = await open(undefined, { plugin: false });
   await makeOwn(page, "lauflicht");
   await onRun(page);
   await page.click("#cee-script-probe");
@@ -561,7 +570,7 @@ for (const [label, group, draws] of [["App in GAMES", "GAMES", true], ["App in T
 }
 
 test("Neues Plugin: cancelling the kind dialog creates nothing", async () => {
-  const page = await open();
+  const page = await open(undefined, { plugin: false });
   await newPlugin(page);
   const prompt = page.locator("dialog.ui-dialog[open]");
   await prompt.locator("input[name=value]").fill("abbruch");
@@ -574,11 +583,11 @@ test("Neues Plugin: cancelling the kind dialog creates nothing", async () => {
 });
 
 test("the catalog shows each plugin as a card with its category and maker, a picture of its display and a .blech to download; its page shows details, a preview and the code", async () => {
-  const page = await open();
+  const page = await open(undefined, { plugin: false });
   await page.click("#cee-scripts-page-catalog");
   const cards = page.locator("#cee-catalog .cee-catalog-card");
   assert.deepEqual(await cards.locator("h3").allTextContents(), TITLES);
-  assert.equal(await cards.locator("p.muted").count(), TITLES.length, "one short description each");
+  assert.equal(await cards.locator("p.muted:not(.cee-catalog-creator)").count(), TITLES.length, "one short description each");
   // The picture is the display after some frames of the browser VM; a plugin that only lights LEDs shows its pads.
   const inked = await page.locator(".cee-catalog-thumb").evaluateAll(list => list.map(c => {
     const data = c.getContext("2d").getImageData(0, 0, 128, 64).data;
@@ -587,18 +596,23 @@ test("the catalog shows each plugin as a card with its category and maker, a pic
     return n;
   }));
   assert.ok(inked.every(n => n > 0), `every thumbnail has something drawn: ${inked}`);
-  const bytes = await h.download(page, () => cards.nth(2).getByRole("button", { name: "Herunterladen" }).click());
-  const parsed = parseBlech(bytes);
-  assert.ok(parsed.ok);
-  assert.equal(parsed.parts.header.name, "snake");
-  assert.match(parsed.source, /korg\.app/);
-  assert.equal(await cards.getByRole("button", { name: "Code ansehen" }).count(), 0, "no view button: the title leads to the plugin's page");
-  assert.match(await cards.nth(2).locator(".cee-catalog-meta").textContent(), /Spiele.*von Kuhler Buhler/);
+  assert.equal(await cards.getByRole("button").count(), await cards.count(), "one button per card, its title: the whole card leads to the plugin's page");
+  assert.deepEqual(await cards.nth(2).locator("h3, p").allTextContents().then(t => t.map(x => x.replace(/:.*/s, ""))),
+    ["Snake", "Spiele", "App in GAMES", "von Kuhler Buhler"], "title, category, description, creator");
+  assert.equal(await cards.nth(2).evaluate(c => {
+    const r = c.getBoundingClientRect();
+    return document.elementFromPoint(r.right - 8, r.bottom - 8)?.textContent;
+  }), "Snake", "the corner of a card is its title's button: the whole card opens the plugin");
   await cards.nth(2).locator(".cee-catalog-open").click();
   assert.equal(await page.locator("#cee-detail-title").textContent(), "Snake");
   assert.deepEqual(await page.locator("#cee-nav-title .cee-crumb").allTextContents(), ["Katalog", "Snake"]);
   assert.match(await page.locator(".cee-detail-facts").textContent(), /KategorieSpiele.*VonKuhler Buhler.*Hinzugefügt.*Steuerung.*Touchpad/);
   assert.equal(await page.locator("#cee-detail-head").getByRole("button", { name: "Herunterladen" }).textContent(), "Herunterladen", "on its page the buttons have words");
+  const bytes = await h.download(page, () => page.locator("#cee-detail-head").getByRole("button", { name: "Herunterladen" }).click());
+  const parsed = parseBlech(bytes);
+  assert.ok(parsed.ok);
+  assert.equal(parsed.parts.header.name, "snake");
+  assert.match(parsed.source, /korg\.app/);
   await page.locator("#cee-sim-state", { hasText: "Lauf: snake" }).waitFor();
   assert.equal(await page.locator("#cee-detail-run > #cee-run").isVisible(), true, "the preview runs on the page");
   await page.click("#cee-detail-view-code");
@@ -609,14 +623,7 @@ test("the catalog shows each plugin as a card with its category and maker, a pic
 });
 
 test("Eigene Plugins is the second button of the catalog: empty it says so as a plain line; the editor takes the whole page", async () => {
-  const page = await open();
-  const box = await page.locator("#cee-script-editor").boundingBox();
-  const view = page.viewportSize();
-  assert.ok(box.y + box.height > view.height - 200, `the editor reaches down the page: bottom ${box.y + box.height} of ${view.height}`);
-  const area = await page.locator("#cee-area-scripts").boundingBox();
-  assert.ok(Math.abs(box.width - area.width) < 2, `nothing beside the editor: ${box.width} of ${area.width}`);
-  assert.deepEqual(await page.locator("#cee-nav-state").getByRole("button").allTextContents(), ["Öffnen", "Speichern"], "the file actions of the editor sit in the navbar");
-  assert.equal(await page.isDisabled("#cee-script-save"), true, "a plugin of the catalog is read only, Speichern says so instead of doing nothing");
+  const page = await open(undefined, { plugin: false });
   await page.click("#cee-scripts-page-catalog");
   await page.click("#cee-shelf-own");
   assert.equal(await page.locator("#cee-catalog").isVisible(), false);
@@ -626,7 +633,14 @@ test("Eigene Plugins is the second button of the catalog: empty it says so as a 
   await page.click("#cee-shelf-own");
   assert.equal(await page.locator("#cee-script-own-empty").isVisible(), false);
   assert.deepEqual(await page.locator("#cee-script-own .cee-own-name").allTextContents(), ["snake"]);
-  await page.locator("#cee-own-snake").getByRole("button", { name: "Bearbeiten" }).click();
+  assert.equal(await page.locator("#cee-own-snake .cee-catalog-thumb").count(), 1, "an own plugin's card looks like the catalog's");
+  await page.locator("#cee-own-snake .cee-catalog-open").click();
   assert.equal(await page.locator("#cee-script-text").isVisible(), true);
+  const box = await page.locator("#cee-script-editor").boundingBox();
+  const view = page.viewportSize();
+  assert.ok(box.y + box.height > view.height - 200, `the editor reaches down the page: bottom ${box.y + box.height} of ${view.height}`);
+  const area = await page.locator("#cee-area-scripts").boundingBox();
+  assert.ok(Math.abs(box.width - area.width) < 2, `nothing beside the editor: ${box.width} of ${area.width}`);
+  assert.deepEqual(await page.locator("#cee-nav-state").getByRole("button").allTextContents(), ["Öffnen", "Speichern"], "the file actions of the editor sit in the navbar");
   assert.deepEqual(page.errors, []);
 });

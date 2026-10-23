@@ -34,7 +34,7 @@ test("Baukasten is open without firmware; a ready effect opens with its blocks a
   await open(page);
   assert.equal(await page.getAttribute("#cee-tab-baukasten", "aria-disabled"), null, "no firmware needed");
   assert.deepEqual(await page.locator("#cee-bk-fx-catalog h3").allTextContents(), FX_CATALOG.map(c => c.name));
-  await page.locator("#cee-bk-fx-catalog li", { hasText: "Short Delay" }).getByRole("button", { name: "Öffnen und anpassen" }).click();
+  await page.locator("#cee-bk-fx-catalog li", { hasText: "Short Delay" }).getByRole("button", { name: "Bearbeiten" }).click();
   await page.locator("#cee-bk-blocks .cee-bk-slider").first().waitFor();
   assert.equal(await page.inputValue("#cee-bk-fx-name"), "Short Delay");
   assert.equal(await page.locator("#cee-bk-blocks .cee-bk-slider").count(), 23, "every parameter of Mod Delay has a slider");
@@ -89,14 +89,14 @@ test("a modulation: a wave, what moves what, saved; the card file asks for the f
   const page = await h.page();
   await open(page);
   await page.click("#cee-bk-tab-mod");
-  await page.locator("#cee-bk-mod-catalog li", { hasText: "Filter Wobble" }).getByRole("button", { name: "Öffnen und anpassen" }).click();
+  await page.locator("#cee-bk-mod-catalog li", { hasText: "Filter Wobble" }).getByRole("button", { name: "Bearbeiten" }).click();
   await page.locator("#cee-bk-curve button", { hasText: "Dreieck" }).click();
   assert.equal(await page.getAttribute("#cee-bk-curve button[data-value='2']", "aria-checked"), "true");
   await page.fill("#cee-bk-mod-slot", "5");
   await page.click("#cee-bk-mod-save");
   await page.locator("#cee-bk-mine li", { hasText: "Filter Wobble" }).waitFor();
   await page.click("#cee-bk-tab-fx");
-  await page.locator("#cee-bk-fx-catalog li", { hasText: "Short Delay" }).getByRole("button", { name: "Öffnen und anpassen" }).click();
+  await page.locator("#cee-bk-fx-catalog li", { hasText: "Short Delay" }).getByRole("button", { name: "Bearbeiten" }).click();
   await page.locator("#cee-bk-blocks .cee-bk-slider").first().waitFor();
   await page.click("#cee-bk-fx-save");
   await page.locator("#cee-bk-mine li", { hasText: "Short Delay" }).waitFor();

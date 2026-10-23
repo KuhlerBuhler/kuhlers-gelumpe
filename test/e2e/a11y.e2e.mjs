@@ -71,6 +71,9 @@ test("axe: device mode, patcher, presets, plugins with a running plugin, and the
   assert.deepEqual(await severeViolations(page), [], "plugins, catalog");
   await page.click("#cee-scripts-page-editor");
   assert.deepEqual(await severeViolations(page), [], "plugins, editor");
+  await page.click("#cee-scripts-page-catalog");
+  await page.click("#cee-catalog-blechclicker .cee-catalog-open");
+  await page.click("#cee-detail-copy");
   await page.click("#cee-script-preview");
   await page.locator("#cee-sim-state", { hasText: "Lauf:" }).waitFor();
   assert.deepEqual(await severeViolations(page), [], "plugins, running in the preview");
@@ -126,7 +129,9 @@ test("the display has a text for what it shows: a screen line only screen reader
 test("the plugin run area touchpad works from the keyboard", async () => {
   const page = await open();
   await page.click("#cee-tab-scripts");
-  await page.click("#cee-scripts-page-editor");
+  await page.click("#cee-scripts-page-catalog");
+  await page.click("#cee-catalog-blechclicker .cee-catalog-open");
+  await page.click("#cee-detail-copy");
   await page.click("#cee-script-preview");
   await page.locator("#cee-sim-state", { hasText: "Lauf:" }).waitFor();
   await page.locator("#cee-sim-touchpad").focus();
@@ -193,8 +198,9 @@ test("lit keys keep 4.5:1 for their label, the lit blue PLAY key 3:1 for its sym
 test("a focused element is never hidden behind the sticky navbar", async () => {
   const page = await open({ width: 1280, height: 500 });
   await page.click("#cee-tab-scripts");
-  await page.click("#cee-scripts-page-editor");
-  await page.click("#cee-script-copy");
+  await page.click("#cee-scripts-page-catalog");
+  await page.click("#cee-catalog-blechclicker .cee-catalog-open");
+  await page.click("#cee-detail-copy");
   await page.locator("#cee-script-name:not([disabled])").waitFor();
   await page.evaluate(() => document.activeElement?.blur());
   const hidden = [];
@@ -215,8 +221,9 @@ test("a focused element is never hidden behind the sticky navbar", async () => {
 test("axe: the plugin editor with a completion list, its description, a parameter hint and an error underline", async () => {
   const page = await open();
   await page.click("#cee-tab-scripts");
-  await page.click("#cee-scripts-page-editor");
-  await page.click("#cee-script-copy");
+  await page.click("#cee-scripts-page-catalog");
+  await page.click("#cee-catalog-blechclicker .cee-catalog-open");
+  await page.click("#cee-detail-copy");
   await page.locator("#cee-script-name:not([disabled])").waitFor();
   await page.evaluate(() => {
     const v = document.getElementById("cee-script-editor").view;

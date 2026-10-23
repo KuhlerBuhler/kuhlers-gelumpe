@@ -9,9 +9,10 @@
  * it. The card goes in and out also while the Electribe runs.
  *
  * Mounting: the panel reads the link from `emulator.link` and takes a new one through
- * connect(). `heading: false` leaves out the title when the host already names the block.
+ * connect(). `heading: false` leaves out the title when the host already names the block; `bar: true`
+ * lays it out for the navbar, the switch and "SD-Karte öffnen" in a row, the state for screen readers only.
  *
- *   const sd = sdcardPanel(node, emulator, { heading: false });
+ *   const sd = sdcardPanel(node, emulator, { bar: true });
  *   sd.connect(found.link);       // when the link changes later
  */
 import { el } from "./fields.mjs";
@@ -33,7 +34,7 @@ export function cardView(state) {
   };
 }
 
-export function sdcardPanel(root, emulator = null, { heading = true } = {}) {
+export function sdcardPanel(root, emulator = null, { heading = true, bar = false } = {}) {
   if (typeof document !== "undefined" && !document.querySelector("link[data-cee-sd]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-sd", "");
@@ -67,7 +68,7 @@ export function sdcardPanel(root, emulator = null, { heading = true } = {}) {
   const status = el("p", { className: "muted", id: "cee-sd-status", role: "status", ariaLive: "polite" });
   const inserted = el("input", { type: "checkbox", id: "cee-sd-inserted" });
   inserted.setAttribute("role", "switch");
-  const open = el("button", { type: "button", className: "btn", id: "cee-sd-open", textContent: "Öffnen" });
+  const open = el("button", { type: "button", className: bar ? "btn sm" : "btn", id: "cee-sd-open", textContent: bar ? "SD-Karte öffnen" : "Öffnen" });
   let problem = "";                          // the last error of an action; it takes the place of the line until the next action
 
   const say = (text) => { problem = text; render(); };
@@ -139,7 +140,14 @@ export function sdcardPanel(root, emulator = null, { heading = true } = {}) {
   open.addEventListener("click", () => run(() => api("POST", "/sd/open")));
 
   // ---- layout --------------------------------------------------------------------
-  root.replaceChildren(...[
+  if (bar) {
+    status.className = "ui-sr-only";
+    root.replaceChildren(
+      el("label", { className: "ui-switch cee-sd-switch" }, [inserted, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Karte eingelegt"]),
+      open,
+      status,
+    );
+  } else root.replaceChildren(...[
     heading ? el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: "SD-Karte" })]) : null,
     el("div", { className: "actions cee-sd-actions" }, [
       el("label", { className: "ui-switch" }, [inserted, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Karte einlegen"]),

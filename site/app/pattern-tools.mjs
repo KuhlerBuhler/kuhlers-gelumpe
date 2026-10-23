@@ -7,6 +7,7 @@
  * und du bestätigt hast.
  */
 import { el } from "./fields.mjs";
+import { saveFile } from "./save-file.mjs";
 import { stepEditor } from "./steps.mjs";
 import { PatternFile, Pattern, parseSinglePattern, toSinglePattern, FileError, cleanName, NAME_LENGTH } from "../../src/pattern.mjs";
 import { makeTransitions, checkTransition, pickSlots, describe } from "../../src/transition.mjs";
@@ -60,14 +61,6 @@ function rangeField(id, label, { min, max, value, show, onChange }) {
   input.addEventListener("input", () => { sync(); onChange(Number(input.value)); });
   sync();
   return { node: el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: id }, [label, " ", out]), input]), input, sync };
-}
-
-function download(name, bytes) {
-  const blob = new Blob([bytes], { type: "application/octet-stream" });
-  const a = el("a", { href: URL.createObjectURL(blob), download: name });
-  document.body.append(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
 }
 
 const fileStem = name => String(name || "patterns").replace(/\.[^.]*$/, "");
@@ -267,11 +260,11 @@ export function patternToolsPage(root, { device }) {
     for (const it of items) all.replace(it.slot, it.pattern);
     if (chainA) all.replace(chainA.number, chainA.pattern);
     const name = `${fileStem(pool.fileName)}-neu.e2sallpat`;
-    download(name, all.toBytes());
+    saveFile(all.toBytes(), name);
     say(`Gespeichert: ${name}, Plätze ${items.map(i => i.slot).join(", ")}${chainA ? `, Chain To von ${chainA.number} auf ${items[0].slot}` : ""}. Die Datei gehört auf die Karte (IMPORT ALL PATTERN) und ersetzt dort alle Patterns.`);
   }
 
-  const saveSingle = (pattern, name) => { download(name, toSinglePattern(pattern)); say(`Gespeichert: ${name}.`); };
+  const saveSingle = (pattern, name) => { saveFile(toSinglePattern(pattern), name); say(`Gespeichert: ${name}.`); };
 
   /** Findings as a list; true when one of them stops the output. */
   function findingsList(findings) {

@@ -8,6 +8,7 @@ import { lintModType, slotActive, TARGETS_KNOWN, TARGETS_UNCLEAR } from "../../s
 import { exportModTypes } from "../../src/export.mjs";
 import { checkName, checkDetail } from "../../src/patcher.mjs";
 import { toast } from "./toast.mjs";
+import { saveFile } from "./save-file.mjs";
 
 const TARGET = field("modType.target");
 
@@ -282,12 +283,7 @@ export function modulationsPage(root, { emulator }) {
 
   download.addEventListener("click", () => {
     if (!passed) return;
-    const a = el("a", { href: URL.createObjectURL(new Blob([passed], { type: "application/octet-stream" })), download: "SYSTEM.VSB" });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-    toast("Kopier die Datei auf die SD-Karte nach KORG › dein Ordner › System und starte am Gerät das Update: MENU, DATA UTILITY, SOFTWARE UPDATE.", "info");
+    saveFile(passed, "SYSTEM.VSB", { note: "Kopier die Datei auf die SD-Karte nach KORG › dein Ordner › System und starte am Gerät das Update: MENU, DATA UTILITY, SOFTWARE UPDATE." });
   });
 
   /** False when the firmware is not one this editor knows. */

@@ -6,6 +6,7 @@
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
+import { saveFile } from "./save-file.mjs";
 import { parseUnits } from "../../src/units.mjs";
 import { fxText, readFx, fxFileName } from "../../src/fx-v2.mjs";
 import { buildCollection, collectionEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
@@ -23,15 +24,6 @@ const NS = "http://www.w3.org/2000/svg";
 
 const readOwn = () => { try { return JSON.parse(localStorage.getItem(OWN) ?? "[]"); } catch { return []; } };
 const writeOwn = list => { try { localStorage.setItem(OWN, JSON.stringify(list)); return true; } catch { return false; } };
-
-function save(bytes, name, type = "application/octet-stream") {
-  const url = URL.createObjectURL(new Blob([bytes], { type }));
-  const a = el("a", { href: url, download: name });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 function wave(path) {
   const svg = document.createElementNS(NS, "svg");
@@ -68,12 +60,14 @@ function slider(id, label, hint, min, max, value, change) {
     const v = Math.max(min, Math.min(max, Math.round(Number(box.value))));
     if (!Number.isFinite(v)) return;
     input.value = String(v);
+    window.ui?.syncRange(input);
     change(v);
   };
   input.addEventListener("input", fromRange);
   input.addEventListener("change", fromRange);
   box.addEventListener("input", fromBox);
   box.addEventListener("change", () => { fromBox(); box.value = input.value; });
+  window.ui?.syncRange(input);
   return el("div", { className: "ui-field cee-bk-slider" }, [
     el("label", { className: "ui-field-label", htmlFor: id, textContent: label }),
     el("div", { className: "cee-bk-slider-row" }, [input, box]),
@@ -103,9 +97,9 @@ export function baukastenPage(root, { emulator = null } = {}) {
   // ---- effects --------------------------------------------------------------------
   const fxCatalog = el("ul", { className: "cee-bk-catalog", id: "cee-bk-fx-catalog" }, FX_CATALOG.map(item => el("li", { className: "cee-bk-card" }, [
     el("h3", { textContent: item.name }),
-    el("p", { className: "cee-bk-kind", textContent: item.kind === "mfx" ? "Master-Effekt, wirkt auf alles" : "Insert-Effekt, wirkt auf eine Spur" }),
+    el("p", { className: "cee-bk-kind", textContent: item.kind === "mfx" ? "Master-Effekt" : "Insert-Effekt" }),
     el("p", { textContent: item.description }),
-    el("button", { type: "button", className: "btn cee-primary", textContent: "Öffnen und anpassen", onclick: () => { openFx(structuredClone(item)); builderFx.scrollIntoView?.({ block: "start" }); } }),
+    el("button", { type: "button", className: "btn cee-primary", textContent: "Bearbeiten", onclick: () => { openFx(structuredClone(item)); builderFx.scrollIntoView?.({ block: "start" }); } }),
   ])));
 
   const where = choices("cee-bk-where", "Wo soll der Effekt wirken?", [["mfx", "Auf das ganze Pattern (Master-Effekt)"], ["ifx", "Nur auf eine Spur (Insert-Effekt)"]], kind => {
@@ -224,14 +218,14 @@ export function baukastenPage(root, { emulator = null } = {}) {
   fxDownload.addEventListener("click", () => {
     const r = readyFx();
     if (!r.ok) { toast(r.reason, "error"); return; }
-    save(fxText(r.preset), fxFileName(r.preset), "application/json");
+    saveFile(fxText(r.preset), fxFileName(r.preset), { type: "application/json" });
   });
 
   // ---- modulations --------------------------------------------------------------------
   const modCatalog = el("ul", { className: "cee-bk-catalog", id: "cee-bk-mod-catalog" }, MOD_CATALOG.map(item => el("li", { className: "cee-bk-card" }, [
     el("h3", { textContent: item.name }),
     el("p", { textContent: item.description }),
-    el("button", { type: "button", className: "btn cee-primary", textContent: "Öffnen und anpassen", onclick: () => { openMod(structuredClone(item)); builderMod.scrollIntoView?.({ block: "start" }); } }),
+    el("button", { type: "button", className: "btn cee-primary", textContent: "Bearbeiten", onclick: () => { openMod(structuredClone(item)); builderMod.scrollIntoView?.({ block: "start" }); } }),
   ])));
   const modName = el("input", { className: "input", id: "cee-bk-mod-name", type: "text", maxLength: 16, spellcheck: false, autocomplete: "off" });
   modName.addEventListener("input", () => { if (mod) mod.name = modName.value; });
@@ -298,7 +292,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
   modDownload.addEventListener("click", () => {
     const r = readyMod();
     if (!r.ok) { toast(r.reason, "error"); return; }
-    save(fxText(r.preset), fxFileName(r.preset), "application/json");
+    saveFile(fxText(r.preset), fxFileName(r.preset), { type: "application/json" });
   });
 
   // ---- what the user keeps --------------------------------------------------------------
@@ -325,7 +319,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
         el("p", { className: "cee-bk-kind", textContent: `${o.kind === "mod" ? "Modulation" : o.kind === "mfx" ? "Master-Effekt" : "Insert-Effekt"}, Platz ${o.slot}` }),
         el("div", { className: "actions" }, [
           el("button", { type: "button", className: "btn sm", textContent: "Bearbeiten", onclick: () => { if (o.kind === "mod") { slotMod = o.slot; modSlot.value = o.slot; shelf("mod"); openMod(p); } else { slotFx = o.slot; fxSlot.value = o.slot; shelf("fx"); openFx(p); } } }),
-          el("button", { type: "button", className: "btn sm", textContent: "Herunterladen", onclick: () => save(o.text, fxFileName(p), "application/json") }),
+          el("button", { type: "button", className: "btn sm", textContent: "Herunterladen", onclick: () => saveFile(o.text, fxFileName(p), { type: "application/json" }) }),
           el("button", { type: "button", className: "btn sm", textContent: "Löschen", onclick: () => { writeOwn(readOwn().filter((_, k) => k !== i)); renderMine(); } }),
         ]),
       ]);
@@ -360,8 +354,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
       if (!made.ok) { toast(`${read.preset?.name ?? "Ein Eintrag"}: ${made.reason}`, "error"); return; }
       entries.push(made.entry);
     }
-    save(buildCollection({ build, entries }), COLLECTION_FILE);
-    toast(`${COLLECTION_FILE} gespeichert. Leg die Datei auf der Karte nach ${COLLECTION_FOLDER}/, beim nächsten Einschalten lädt BLECHTRIBE sie.`, "ok");
+    saveFile(buildCollection({ build, entries }), COLLECTION_FILE, { note: `Leg die Datei auf der Karte nach ${COLLECTION_FOLDER}/, beim nächsten Einschalten lädt BLECHTRIBE sie.` });
   });
 
   // ---- page --------------------------------------------------------------------------
