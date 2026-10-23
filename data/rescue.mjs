@@ -75,7 +75,7 @@ export default {
         },
         {
           act: true,
-          text: "Karte in das ausgeschaltete Gerät, Netzteil anschließen, einschalten. DATA UTILITY, dann SOFTWARE UPDATE. Direkt davor steht FACTORY RESET in der Liste: das nicht bestätigen.",
+          text: "Karte in das ausgeschaltete Gerät, Netzteil anschließen, einschalten. Menü -> DATA UTILITY -> SOFTWARE UPDATE. Direkt davor steht FACTORY RESET in der Liste: das nicht bestätigen.",
           status: "gemessen",
           note: "Das Update über das Menü lief am 10.10. am Gerät durch. Dass FACTORY RESET direkt davor steht, steht in der Anleitung für den Gerätetest.",
         },

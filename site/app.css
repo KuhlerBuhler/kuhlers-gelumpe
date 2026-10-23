@@ -1258,55 +1258,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   color: var(--color-text-secondary);
 }
 
-.cee-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* Six cards on the start page: three across, never five and one left over. */
-.cee-home .cee-cards {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-@media (max-width: 64rem) {
-  .cee-home .cee-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 40rem) {
-  .cee-home .cee-cards { grid-template-columns: minmax(0, 1fr); }
-}
-
-.cee-card {
-  padding: var(--space-4);
-  border: 1px solid var(--color-border-muted);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-panel-alt);
-}
-
-.cee-card h3 {
-  margin-bottom: var(--space-1);
-  font-size: var(--text-md);
-}
-
-/* A card of the start page carries a picture of the display, drawn like the plugin pictures of the catalog. */
-.cee-feature-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.cee-feature-card > * {
-  margin: 0;
-}
-
-.cee-feature-card canvas {
-  margin-bottom: var(--space-1);
-}
-
 .cee-home-foot {
   color: var(--color-text-muted);
 }
@@ -2331,13 +2282,15 @@ html[data-motion="reduce"] *::after {
 /* The documentation page (scripts.mjs, markdown.mjs). */
 .cee-docs-head { display: flex; gap: var(--space-3); margin-bottom: var(--space-3); }
 .cee-docs-head .input { width: 24rem; max-width: 100%; }
-.cee-docs { line-height: 1.6; color: var(--color-text-secondary); }
+.cee-docs { line-height: 1.7; color: var(--color-text-secondary); }
 .cee-docs-body { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: var(--space-8); align-items: start; }
 .cee-docs-toc { position: sticky; top: 0; max-height: calc(100dvh - 12rem); overflow-y: auto; }
 .cee-docs-toc > summary { display: none; }
 .cee-docs-text { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .cee-docs-article { display: flex; flex-direction: column; gap: var(--space-8); }
-.cee-doc-section { display: flex; flex-direction: column; gap: var(--space-3); }
+.cee-doc-section { display: flex; flex-direction: column; gap: var(--space-4); }
+/* A line of running text stays short enough to read; tables and code may use the full width. */
+.cee-doc-section > :is(p, .cee-doc-list, .cee-doc-quote) { max-width: 68ch; }
 .cee-doc-section[hidden] { display: none; }
 .cee-doc-heading { margin: 0; color: var(--color-text-primary); }
 h2.cee-doc-heading { font-family: var(--font-display); font-size: var(--text-2xl); }
@@ -2346,7 +2299,7 @@ h4.cee-doc-heading { font-size: var(--text-md); }
 h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondary); }
 .cee-docs p, .cee-docs li { margin: 0; }
 .cee-docs strong { color: var(--color-text-primary); }
-.cee-docs :not(pre) > code { padding: 0 var(--space-1); border-radius: var(--radius-xs); background: var(--color-surface-item-muted); color: var(--color-accent-primary); }
+.cee-docs :not(pre) > code { padding: 0 var(--space-1); border-radius: var(--radius-xs); background: var(--color-surface-item-muted); color: var(--color-text-primary); font-size: var(--text-sm); }
 .cee-key { padding: 0 var(--space-1); border: 1px solid var(--color-border-strong); border-bottom-width: 2px; border-radius: var(--radius-xs); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-primary); white-space: nowrap; }
 .cee-crumb::before { content: "›"; margin-inline: var(--space-2); color: var(--color-text-muted); }
 .cee-crumb { font-weight: 400; color: var(--color-text-secondary); }
@@ -2360,14 +2313,18 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 }
 .cee-doc-list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding-inline-start: var(--space-6); }
 .cee-doc-code { margin: 0; padding: var(--space-3); overflow-x: auto; border: 1px solid var(--color-border-muted); border-radius: var(--radius-sm); background: var(--color-surface-faint); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.5; }
-.cee-docs code { font-family: var(--font-mono); font-size: var(--text-sm); }
+.cee-docs code { font-family: var(--font-mono); }
+.cee-doc-code code { font-size: var(--text-sm); }
 .cee-doc-table { overflow-x: auto; }
 .cee-doc-quote { margin: 0; padding-inline-start: var(--space-4); border-inline-start: 2px solid var(--color-border-strong); color: var(--color-text-secondary); }
 .cee-doc-jump { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
 .cee-doc-toc { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .cee-doc-toc-3 { padding-inline-start: var(--space-4); font-size: var(--text-sm); }
 .cee-doc-toc .cee-text-link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-align: left; }
-.cee-doc-toc .cee-text-link[aria-current] { color: var(--color-accent-primary); }
+/* Only the section in view is marked; the other entries are plain text until hovered. */
+.cee-doc-toc .cee-text-link { color: var(--color-text-secondary); text-decoration: none; }
+.cee-doc-toc .cee-text-link:hover { color: var(--color-text-primary); }
+.cee-doc-toc .cee-text-link[aria-current] { color: var(--color-accent-primary); text-decoration: underline; }
 
 /* The device area above the drawing: with the connect button in the navbar it is often empty (hidden fields,
    empty notes, an actions row whose buttons are all hidden). Then it takes no room, so the drawing sits where
@@ -2536,6 +2493,11 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   margin: 0;
 }
 
+/* The picture of the display at the size of a plugin's in the catalog, not the width of the card. */
+.cee-feature canvas {
+  max-width: 16rem;
+}
+
 .cee-feature h3 {
   font-size: var(--text-md);
 }
@@ -2558,6 +2520,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 /* The firmware goes onto the display of a switched-off Electribe (emulator.mjs): the display is the drop target. */
 .cee-e2-screen .cee-lcd-frame {
   position: relative;
+  container-type: inline-size;
 }
 
 .cee-emu-offer {
@@ -2568,13 +2531,16 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  padding: var(--space-2);
+  padding: var(--space-1);
+  overflow: hidden;
   border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-xs);
   background: transparent;
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: var(--text-sm);
+  /* raw-ok: the text follows the width of the drawn display, so it never runs out of the small screen. */
+  font-size: min(var(--text-sm), 8cqi);
+  line-height: 1.2;
   text-align: center;
   cursor: pointer;
 }

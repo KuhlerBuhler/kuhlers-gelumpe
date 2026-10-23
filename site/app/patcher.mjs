@@ -14,7 +14,7 @@ import { wayOf, classify, convertStock, cardFolder, sampleFolder, loadBlechSet, 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
 /** Where the update test put the file, in the words of the device. */
-const hintFor = folder => `Die gepatchte Datei liegt auf der Karte im Emulator unter KORG/${folder}/System. DATA UTILITY > SOFTWARE UPDATE, ENTER, danach neu starten.`;
+const hintFor = folder => `Die gepatchte Datei liegt auf der Karte im Emulator unter KORG/${folder}/System. Am Gerät Menü -> DATA UTILITY -> SOFTWARE UPDATE, ENTER, danach neu starten.`;
 
 const pill = (tone, word) => {
   const p = el("span", { className: "cee-status", textContent: word });
@@ -487,7 +487,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         ]),
         el("li", { textContent: "Lege die Karte bei ausgeschaltetem Gerät ein und schalte es ein. Nimm das Netzteil oder frische Batterien." }),
         flow.origin === "synth" ? el("li", { textContent: "Im Ordner KORG/electribe/System darf nur SYSTEM.VSB liegen. BOOT.VSB, USER.VSB und PCM.VSB gehören dort nicht hinein." }) : null,
-        el("li", { textContent: "Gehe unter DATA UTILITY auf SOFTWARE UPDATE und drücke ENTER. Starte das Gerät neu, wenn es dich auffordert." }),
+        el("li", { textContent: "Gehe zu Menü -> DATA UTILITY -> SOFTWARE UPDATE und drücke ENTER. Starte das Gerät neu, wenn es dich auffordert." }),
         el("li", { textContent: "Schalte das Gerät während des Updates nicht aus." }),
       ].filter(Boolean)),
       el("p", { className: "cee-patch-exit" }, [el("strong", { textContent: "Notausgang: " }), "Halte EXIT beim Einschalten gedrückt, dann startet das Gerät ohne die BLECHTRIBE-Funktionen. Wenn das nicht reicht: ", el("a", { href: "#rescue", textContent: "Rettung" }), "."]),
