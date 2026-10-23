@@ -8,6 +8,8 @@ import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { icon } from "./icons.mjs";
+import { knob } from "./fx-knob.mjs";
+import { clamp } from "./dials.mjs";
 import { parseUnits } from "../../src/units.mjs";
 import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
 import { buildCollection, parseCollection, collectionEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
@@ -59,30 +61,6 @@ function choices(id, label, options, pick) {
 function nameField(input) {
   input.style.setProperty("--cee-name-length", input.maxLength);
   return el("label", { className: "cee-bk-name-field" }, [icon("pencil"), input]);
-}
-
-/** A slider with its label and a number box beside it: drag it or type the value. */
-function slider(id, label, hint, min, max, value, change, { readOnly = false } = {}) {
-  const input = el("input", { type: "range", className: "ui-range", id, min, max, value, disabled: readOnly });
-  const box = el("input", { type: "number", className: "input cee-bk-number", id: `${id}-value`, min, max, value, readOnly });
-  box.setAttribute("aria-label", `${label}, Wert`);
-  const fromRange = () => { box.value = input.value; change(Number(input.value)); };
-  const fromBox = () => {
-    const v = Math.max(min, Math.min(max, Math.round(Number(box.value))));
-    if (!Number.isFinite(v)) return;
-    input.value = String(v);
-    window.ui?.syncRange(input);
-    change(v);
-  };
-  input.addEventListener("input", fromRange);
-  input.addEventListener("change", fromRange);
-  box.addEventListener("input", fromBox);
-  box.addEventListener("change", () => { fromBox(); box.value = input.value; });
-  window.ui?.syncRange(input);
-  return el("div", { className: "ui-field cee-bk-slider" }, [
-    el("label", { className: "ui-field-label", htmlFor: id }, [label, hint ? el("span", { className: "cee-bk-param-id", textContent: ` (${hint})` }) : null]),
-    el("div", { className: "cee-bk-slider-row" }, [input, box]),
-  ]);
 }
 
 /** The values a parameter takes on the device (data/map/fx-params.mjs); 0 to 127 where the map does not know. */
@@ -260,20 +238,26 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (!fx) return;
     fxName.value = fx.name;
     fxKind.textContent = KIND_WORD[fx.kind];
-    blocks.replaceChildren(...blockCards(fx), mapSection(fx));
+    const knobs = new Map();
+    blocks.replaceChildren(...blockCards(fx, { knobs }), mapSection(fx, { knobs }));
     // The explanation is for an effect built from scratch; one that already has its blocks needs none.
     fxHelp.hidden = fx.stages.some(s => s.unit);
   }
 
   /**
    * Steuerung: which control moves which parameter between two values, as on the device's own presets. A new row
-   * copies a used one when the record is written (src/fx-v2.mjs), so it never comes from zeros.
+   * copies a used one when the record is written (src/fx-v2.mjs), so it never comes from zeros. The knob a row moves
+   * shows the stretch as a ring.
    */
-  function mapSection(piece, { readOnly = false, pre = "cee-bk" } = {}) {
+  function mapSection(piece, { readOnly = false, pre = "cee-bk", knobs = new Map() } = {}) {
     const kind = piece.kind === "mfx" ? "mfx" : "ifx";
     const sources = MAP_META.sources.filter(x => x[kind]);
     const chains = MAP_META.chains.filter(c => !c.stage || (kind === "mfx" ? c.stage === "mfx" : c.stage !== "mfx"));
     const rows = el("div", { className: "cee-fxmap", id: `${pre}-map` });
+    const rings = () => {
+      for (const k of knobs.values()) k.span(null);
+      for (const row of piece.map) knobs.get(targetOf(row))?.span(row.low, row.high);
+    };
     const draw = () => {
       rows.replaceChildren(...piece.map.map((row, n) => {
         const select = (key, options, word) => {
@@ -282,24 +266,18 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
           for (const o of options) box.append(el("option", { value: String(o.raw), textContent: o.label }));
           if (!options.some(o => o.raw === row[key])) box.append(el("option", { value: String(row[key]), textContent: `unbekannt (${row[key]})` }));
           box.value = String(row[key]);
-          box.addEventListener("change", () => { row[key] = Number(box.value); if (key === "chain") { row.param = 0; draw(); } });
+          box.addEventListener("change", () => { row[key] = Number(box.value); if (key === "chain") { row.param = 0; draw(); } else rings(); });
           return box;
         };
         const chain = chains.find(c => c.raw === row.chain);
         const stage = chain?.stage ? piece.stages.find(x => x.stage === chain.stage) : null;
         const params = stage?.unit ? (units[unitKind(stage.stage)].get(stage.unit)?.params ?? []).map(x => ({ raw: x.index, label: paramLabel(x.name) })) : [];
-        const bar = el("span", { className: "cee-range", ariaHidden: "true" }, [el("span", { className: "cee-range-fill" })]);
-        const span = () => {
-          bar.firstChild.style.left = `${(Math.min(row.low, row.high) / 127) * 100}%`;
-          bar.firstChild.style.width = `${(Math.abs(row.high - row.low) / 127) * 100}%`;
-        };
         const number = (key, word) => {
           const box = el("input", { type: "number", className: "input cee-num", min: 0, max: 127, step: 1, value: String(row[key]), readOnly });
           box.setAttribute("aria-label", `${word}, Zeile ${n + 1}`);
-          box.addEventListener("change", () => { row[key] = Math.max(0, Math.min(127, Math.round(Number(box.value) || 0))); box.value = String(row[key]); span(); });
+          box.addEventListener("change", () => { row[key] = Math.max(0, Math.min(127, Math.round(Number(box.value) || 0))); box.value = String(row[key]); rings(); });
           return box;
         };
-        span();
         return el("div", { className: "cee-fxmap-row" }, [
           el("div", { className: "cee-sentence" }, [
             select("source", sources.map(x => ({ raw: x.raw, label: x.who?.[kind] ?? x.label })), "Quelle"),
@@ -310,7 +288,6 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
             el("span", { textContent: "bis" }), number("high", "Bis"),
             readOnly ? null : el("button", { type: "button", className: "btn sm", textContent: "Entfernen", onclick: () => { piece.map.splice(n, 1); draw(); } }),
           ]),
-          bar,
         ]);
       }));
       if (!piece.map.length) rows.append(el("p", { className: "muted", textContent: "Keine Steuerung: der Effekt klingt immer gleich." }));
@@ -320,13 +297,130 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
           draw();
         } })));
       }
+      rings();
     };
     draw();
-    return el("section", { className: "cee-bk-map" }, [el("h3", { className: "cee-bk-stage-title", textContent: "Steuerung" }), rows]);
+    const look = el("button", { type: "button", className: "btn sm", id: `${pre}-map-preview`, onclick: () => previewMap(piece, knobs) }, [icon("eye"), "Vorschau"]);
+    return el("section", { className: "cee-bk-map" }, [
+      el("div", { className: "cee-bk-map-head" }, [el("h3", { className: "cee-bk-stage-title", textContent: "Steuerung" }), look]),
+      rows,
+    ]);
+  }
+
+  /** The key of the knob a map row moves: its stage and parameter, or the level it drives. */
+  function targetOf(row) {
+    const chain = MAP_META.chains.find(c => c.raw === row.chain);
+    return chain?.stage ? `${chain.stage}:${row.param}` : `level:${row.chain}`;
+  }
+
+  // The preview of the controls: the device's controls on the right, the knobs they move on the left. Nothing is
+  // heard, it only shows what moves where.
+  const previewDialog = el("dialog", { className: "ui-dialog ui-dialog-wide cee-bk-preview", id: "cee-bk-preview" });
+  previewDialog.setAttribute("aria-labelledby", "cee-bk-preview-title");
+  const previewBody = el("div", { className: "ui-dialog-body" });
+  previewDialog.append(el("form", { method: "dialog", className: "ui-dialog-box" }, [
+    el("header", { className: "ui-dialog-head" }, el("h2", { className: "ui-dialog-title", id: "cee-bk-preview-title", textContent: "Vorschau der Steuerung" })),
+    previewBody,
+    el("footer", { className: "ui-dialog-foot" }, el("button", { type: "submit", className: "btn", value: "cancel", textContent: "Schließen" })),
+  ]));
+  document.body.append(previewDialog);
+
+  /**
+   * How far a source is turned, 0 to 127, from the state of the controls. The halves are a reading of Korg's names
+   * (data/map/fx.mjs), not measured: the upper half moves only above the middle, the lower only below it.
+   */
+  function sourceValue(raw, c) {
+    const upper = v => clamp((v - 64) * 127 / 63, 0, 127);
+    const lower = v => clamp(v * 127 / 63, 0, 127);
+    switch (raw) {
+      case 0x41: return c.on ? 127 : 0;
+      case 0x42: return c.x;
+      case 0x43: return c.y;
+      case 0x44: return upper(c.x);
+      case 0x45: return lower(c.x);
+      case 0x46: return upper(c.y);
+      case 0x47: return lower(c.y);
+      case 0x4a: return c.play ? 127 : 0;
+      default: return null;
+    }
+  }
+
+  function previewMap(piece, knobs) {
+    const kind = piece.kind === "mfx" ? "mfx" : "ifx";
+    // The touchpad only moves anything while it is touched; the insert effect's knob always sits somewhere.
+    const c = { x: kind === "ifx" ? 0 : null, y: null, on: true, play: false };
+    const shown = new Map();
+    for (const row of piece.map) {
+      const key = targetOf(row);
+      if (shown.has(key)) continue;
+      const mirror = knobs.get(key);
+      const chain = MAP_META.chains.find(x => x.raw === row.chain);
+      const stage = chain?.stage ? piece.stages.find(x => x.stage === chain.stage) : null;
+      const p = stage?.unit ? units[unitKind(stage.stage)].get(stage.unit)?.params.find(x => x.index === row.param) : null;
+      const [min, max] = p ? rangeOf(unitKind(stage.stage), stage.unit, p.name) : [0, 127];
+      const start = p ? (stage.params[p.name] ?? 0) : 127;
+      const k = knob(`cee-bk-preview-${key.replace(":", "-")}`, p ? paramLabel(p.name) : chain?.label ?? "?", p ? `Baustein ${piece.stages.indexOf(stage) + 1}` : null, min, max, start, () => {}, { readOnly: true });
+      k.span(row.low, row.high);
+      shown.set(key, { k, mirror, start });
+    }
+    const apply = () => {
+      const moved = new Map();
+      for (const row of piece.map) {
+        const s = sourceValue(row.source, c);
+        if (s === null || !shown.has(targetOf(row))) continue;
+        moved.set(targetOf(row), row.low + (row.high - row.low) * s / 127);
+      }
+      for (const [key, { k, mirror }] of shown) {
+        const v = moved.has(key) ? moved.get(key) : null;
+        k.show(v);
+        mirror?.show(v);
+      }
+    };
+
+    const controls = [];
+    if (kind === "mfx") {
+      const dot = el("span", { className: "cee-bk-pad-dot", hidden: true });
+      const pad = el("div", { className: "cee-bk-pad", id: "cee-bk-preview-pad", tabIndex: 0, role: "application" }, [dot]);
+      pad.setAttribute("aria-label", "Touchpad: drücken und ziehen");
+      const touch = e => {
+        const r = pad.getBoundingClientRect();
+        c.x = Math.round(clamp((e.clientX - r.left) / r.width, 0, 1) * 127);
+        c.y = Math.round(clamp(1 - (e.clientY - r.top) / r.height, 0, 1) * 127);
+        dot.hidden = false;
+        dot.style.left = `${(c.x / 127) * 100}%`;
+        dot.style.top = `${(1 - c.y / 127) * 100}%`;
+        apply();
+      };
+      const release = () => { c.x = null; c.y = null; dot.hidden = true; apply(); };
+      pad.addEventListener("pointerdown", e => { e.preventDefault(); try { pad.setPointerCapture(e.pointerId); } catch {} touch(e); });
+      pad.addEventListener("pointermove", e => { if (c.x !== null) touch(e); });
+      for (const ev of ["pointerup", "pointercancel"]) pad.addEventListener(ev, release);
+      controls.push(el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: "Touchpad" }), pad]));
+    } else {
+      controls.push(knob("cee-bk-preview-knob", "Regler", null, 0, 127, 0, v => { c.x = v; apply(); }).node);
+    }
+    const toggle = (id, label, key) => {
+      const box = el("input", { type: "checkbox", id, role: "switch", checked: c[key] });
+      box.addEventListener("change", () => { c[key] = box.checked; apply(); });
+      return el("label", { className: "ui-switch" }, [box, el("span", { className: "ui-switch-track", ariaHidden: "true" }), label]);
+    };
+    controls.push(toggle("cee-bk-preview-on", "Effekt an", "on"), toggle("cee-bk-preview-play", "Pattern läuft", "play"));
+
+    previewBody.replaceChildren(
+      el("p", { className: "muted", textContent: "Dreh am Regler oder drück aufs Touchpad: links siehst du, wie sich die Parameter bewegen. Zu hören ist dabei nichts. So liest die Seite die Steuerung, nachgemessen am Gerät ist das nicht." }),
+      shown.size ? el("div", { className: "cee-bk-preview-grid" }, [
+        el("div", { className: "cee-bk-params cee-bk-preview-knobs" }, [...shown.values()].map(x => x.k.node)),
+        el("div", { className: "cee-bk-preview-controls" }, controls),
+      ]) : el("p", { textContent: "Keine Steuerung angelegt: es bewegt sich nichts." }),
+    );
+    const close = () => { for (const { mirror } of shown.values()) mirror?.show(null); previewDialog.removeEventListener("close", close); };
+    previewDialog.addEventListener("close", close);
+    if (window.ui?.openDialog) window.ui.openDialog(previewDialog); else previewDialog.showModal?.();
+    apply();
   }
 
   /** The cards of a piece's blocks; read only on a catalog effect's page, where the empty block is left out. */
-  function blockCards(piece, { readOnly = false, pre = "cee-bk" } = {}) {
+  function blockCards(piece, { readOnly = false, pre = "cee-bk", knobs = null } = {}) {
     const stages = readOnly ? piece.stages.filter(s => s.unit) : piece.stages;
     return stages.map((s, i) => {
       const kind = unitKind(s.stage);
@@ -335,7 +429,9 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const one = p => {
         const value = s.params[p.name] ?? 0;
         const [min, max] = rangeOf(kind, s.unit, p.name);
-        return slider(`${pre}-p-${i}-${p.name}`, paramLabel(p.name), p.name, min, max, value, v => { s.params[p.name] = v; }, { readOnly });
+        const k = knob(`${pre}-p-${i}-${p.name}`, paramLabel(p.name), p.name, min, max, value, v => { s.params[p.name] = v; }, { readOnly });
+        knobs?.set(`${s.stage}:${p.index}`, k);
+        return k.node;
       };
       // The parameters that shape the sound most come first, the rest under their own heading.
       const shownFirst = params.some(p => MAIN.has(p.name)) ? p => MAIN.has(p.name) : () => true;
@@ -468,7 +564,11 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     );
     detailBlocks.replaceChildren();
     page("detail");
-    loadUnits().then(() => { if (view?.name === item.name) detailBlocks.replaceChildren(...blockCards(view, { readOnly: true, pre: "cee-bk-detail" }), mapSection(view, { readOnly: true, pre: "cee-bk-detail" })); });
+    loadUnits().then(() => {
+      if (view?.name !== item.name) return;
+      const knobs = new Map();
+      detailBlocks.replaceChildren(...blockCards(view, { readOnly: true, pre: "cee-bk-detail", knobs }), mapSection(view, { readOnly: true, pre: "cee-bk-detail", knobs }));
+    });
   }
 
   // ---- Editor: modulation -----------------------------------------------------------
@@ -514,8 +614,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
         el("p", { className: "ui-field-label", textContent: "Was bewegt?" }), source.node,
         el("p", { className: "ui-field-label", textContent: "Was wird bewegt?" }), target.node,
         el("div", { className: "cee-bk-params" }, [
-          slider(`cee-bk-lo-${k}`, "Stärke am Anfang", null, -128, 127, s.lo, v => { s.lo = v; }),
-          slider(`cee-bk-hi-${k}`, "Stärke am Ende", null, -128, 127, s.hi, v => { s.hi = v; }),
+          knob(`cee-bk-lo-${k}`, "Stärke am Anfang", null, -128, 127, s.lo, v => { s.lo = v; }).node,
+          knob(`cee-bk-hi-${k}`, "Stärke am Ende", null, -128, 127, s.hi, v => { s.hi = v; }).node,
         ]),
         el("label", { className: "cee-bk-check" }, [follow, " Stärke folgt dem Regler MOD. DEPTH"]),
         el("p", { className: "ui-field-help", textContent: "Ein: mit dem Regler MOD. DEPTH am Gerät machst du diesen Slot stärker oder schwächer. Aus: er wirkt immer gleich stark." }),
@@ -524,8 +624,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     modBody.replaceChildren(
       el("p", { className: "ui-field-label", textContent: "Welle des LFO" }), curve.node,
       el("div", { className: "cee-bk-params" }, [
-        slider("cee-bk-depth", "Tiefe", "So weit dreht die Firmware MOD. DEPTH, wenn du diese Modulation wählst.", 0, 127, mod.depth, v => { mod.depth = v; }),
-        slider("cee-bk-speed", "Tempo", "So weit dreht die Firmware MOD. SPEED, wenn du diese Modulation wählst.", 0, 127, mod.speed, v => { mod.speed = v; }),
+        knob("cee-bk-depth", "Tiefe", "So weit dreht die Firmware MOD. DEPTH, wenn du diese Modulation wählst.", 0, 127, mod.depth, v => { mod.depth = v; }).node,
+        knob("cee-bk-speed", "Tempo", "So weit dreht die Firmware MOD. SPEED, wenn du diese Modulation wählst.", 0, 127, mod.speed, v => { mod.speed = v; }).node,
       ]),
       el("p", { className: "muted", textContent: "Eine Modulation hat fünf Slots. Jeder nimmt eine Quelle (LFO oder Hüllkurve) und bewegt damit ein Ziel. Ein Slot mit der Quelle Aus tut nichts." }),
       ...slots,
@@ -649,10 +749,20 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     toast(`${file.name} geladen: ${read.entries.length} Einträge, ${added} neu unter Meine Sachen.`, "ok");
   });
   const exportLists = el("div", { className: "cee-bk-export", id: "cee-bk-export" });
-  function slotRow(kind, slot, own, slots) {
+  /** The names of the firmware's own presets by slot, so a place is not overwritten by mistake; empty without a firmware. */
+  let factoryShown = false;
+  function factoryNames(kind) {
+    try {
+      return new Map((presets?.presets()?.list(kind) ?? []).map(x => [x.slot, x.name]));
+    } catch {
+      return new Map();
+    }
+  }
+  function slotRow(kind, slot, own, slots, factory) {
     const assigned = slots[kind][slot] ?? "";
+    const stock = factory.get(slot);
     const select = el("select", { className: "select", id: `cee-bk-slot-${kind}-${slot}` }, [
-      el("option", { value: "", textContent: "Werks-Preset" }),
+      el("option", { value: "", textContent: stock ? `Werks-Preset: ${stock}` : "Werks-Preset" }),
       ...own.map(o => el("option", { value: o.id, textContent: parse(o).name, selected: o.id === assigned })),
     ]);
     select.setAttribute("aria-label", `${KIND_WORD[kind]} Platz ${slot}`);
@@ -670,8 +780,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     } }, [icon("trash")]);
     clear.setAttribute("aria-label", `${KIND_WORD[kind]} Platz ${slot} leeren`);
     const grip = el("span", { className: "cee-bk-grip", title: "Ziehen, um mit einem anderen Platz zu tauschen" }, [icon("grip")]);
+    const name = el("span", { className: "cee-bk-slot-factory", textContent: stock ?? "" });
+    if (stock && assigned) name.title = `Ersetzt das Werks-Preset ${stock}`;
     const row = el("li", { className: `cee-bk-slot${assigned ? " cee-bk-slot-set" : ""}` }, [
-      grip, el("span", { className: "cee-bk-slot-number", textContent: String(slot) }), select, clear,
+      grip, el("span", { className: "cee-bk-slot-number", textContent: String(slot) }), name, select, clear,
     ]);
     row.dataset.kind = kind;
     row.dataset.slot = String(slot);
@@ -719,9 +831,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     const kinds = shelfKind === "mod" ? [["mod", MOD_COUNT]] : [["ifx", SLOT_COUNT_FX], ["mfx", SLOT_COUNT_FX]];
     exportLists.replaceChildren(...kinds.map(([kind, count]) => {
       const own = list.filter(o => o.kind === kind);
+      const factory = factoryNames(kind);
       return el("section", { className: "cee-bk-export-kind" }, [
         el("h3", { textContent: kind === "mod" ? "Modulationen" : `${KIND_WORD[kind]}e` }),
-        el("ol", { className: "cee-bk-slots", id: `cee-bk-slots-${kind}` }, Array.from({ length: count }, (_, i) => slotRow(kind, i + 1, own, slots))),
+        el("ol", { className: "cee-bk-slots", id: `cee-bk-slots-${kind}` }, Array.from({ length: count }, (_, i) => slotRow(kind, i + 1, own, slots, factory))),
       ]);
     }));
   }
@@ -818,7 +931,12 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   loadUnits().then(() => { renderMine(); renderExport(); }).catch(() => renderMine());
   return {
     /** The note on the export page follows the firmware in the emulator. */
-    update() { cardNote.textContent = emulator?.firmware ? "Deine Firmware ist im Emulator geladen, die Datei kann gebaut werden." : "Für diese Datei braucht die Seite deine Firmware: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen. Sie bleibt auf deinem Rechner."; },
+    update() {
+      cardNote.textContent = emulator?.firmware ? "Deine Firmware ist im Emulator geladen, die Datei kann gebaut werden. Neben jedem Platz steht das Werks-Preset, das dort liegt." : "Für diese Datei braucht die Seite deine Firmware: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen. Sie bleibt auf deinem Rechner. Dann siehst du auch, welches Werks-Preset auf welchem Platz liegt.";
+      // Runs every second (main.mjs): the slots are drawn again only when the firmware's presets come or go.
+      const loaded = !!presets?.presets();
+      if (units && loaded !== factoryShown) { factoryShown = loaded; renderExport(); }
+    },
     page,
   };
 }

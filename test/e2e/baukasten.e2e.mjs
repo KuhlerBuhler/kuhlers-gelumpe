@@ -9,7 +9,7 @@ import { parseCollection } from "../../src/fx-collection.mjs";
 import { FX_CATALOG } from "../../data/fx/catalog.mjs";
 import { severeViolations } from "./support/axe.mjs";
 
-// The Baukasten needs no firmware to build an effect: a ready one or an empty one, sliders, a name, a file. Only the
+// The Baukasten needs no firmware to build an effect: a ready one or an empty one, knobs, a name, a file. Only the
 // collection for the card asks for the firmware, and then makes the records from it.
 let h;
 let fake;
@@ -42,26 +42,39 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   assert.equal(await first.locator(".btn").count(), 0, "the whole card opens it, no button");
   await openCard(page, "#cee-bk-fx-catalog", "Short Delay");
   // A catalog effect has its own page like a plugin: what it is, three buttons, its values read only.
-  await page.locator("#cee-bk-detail-blocks .cee-bk-slider").first().waitFor();
+  await page.locator("#cee-bk-detail-blocks .cee-knob").first().waitFor();
   assert.equal(await page.locator("#cee-bk-detail-title").textContent(), "Short Delay");
   assert.deepEqual(await page.locator("#cee-bk-detail-head .actions .btn").allTextContents(), ["Herunterladen", "Aufs Gerät", "Als eigenen Effekt bearbeiten"]);
   assert.equal(await page.locator("#cee-bk-detail-blocks input[type=range]:not(:disabled)").count(), 0, "the catalog's values are read only");
   assert.equal(await page.locator(".cee-shelf-tabs").isVisible(), false);
   await page.click("#cee-bk-detail-own");
-  await page.locator("#cee-bk-blocks .cee-bk-slider").first().waitFor();
+  await page.locator("#cee-bk-blocks .cee-knob").first().waitFor();
   assert.equal(await page.locator("#cee-bk-page-editor").isVisible(), true);
   assert.equal(await page.inputValue("#cee-bk-fx-name"), "Short Delay", "the title is the name");
   assert.equal(await page.locator("#cee-bk-where").isVisible(), false, "where it works is chosen only for a new one");
-  assert.equal(await page.locator("#cee-bk-blocks .cee-bk-slider").count(), 23, "every parameter of Mod Delay has a slider");
+  assert.equal(await page.locator("#cee-bk-blocks .cee-knob").count(), 23, "every parameter of Mod Delay has a knob");
   assert.equal(await page.locator("#cee-bk-blocks h5", { hasText: "Erweiterte Parameter" }).count(), 1, "the rest under a heading, not folded");
   assert.equal(await page.locator(".cee-shelf-tabs").isVisible(), false, "with an effect open there is no switch to Modulationen");
   assert.equal(await page.locator("#cee-bk-fx-help").isVisible(), false, "an effect with its blocks needs no explanation");
   assert.equal(await page.locator("#cee-bk-blocks details").count(), 0);
+  // A knob a control moves shows the stretch as a ring; the preview turns it without keeping the value.
+  assert.ok(await page.locator("#cee-bk-blocks .cee-knob-mapped").count() > 0, "the knobs the Steuerung moves carry a ring");
+  await page.click("#cee-bk-map-preview");
+  await page.locator("#cee-bk-preview[open] #cee-bk-preview-pad").waitFor();
+  const before = await page.inputValue("#cee-bk-p-0-off_l_delay_time-value");
+  const pad = await page.locator("#cee-bk-preview-pad").boundingBox();
+  await page.mouse.move(pad.x + pad.width * 0.95, pad.y + pad.height / 2);
+  await page.mouse.down();
+  assert.notEqual(await page.inputValue("#cee-bk-p-0-off_l_delay_time-value"), before, "touching the pad moves the knob in the editor too");
+  await page.mouse.up();
+  assert.equal(await page.inputValue("#cee-bk-p-0-off_l_delay_time-value"), before, "letting go puts it back");
+  await page.locator("#cee-bk-preview .ui-dialog-foot .btn").click();
+  assert.equal(await page.inputValue("#cee-bk-p-0-off_l_delay_time"), before, "the preview keeps nothing");
   await page.fill("#cee-bk-fx-name", "Mein Delay");
-  // a slider set without dragging (a change event only) counts as well: a user test lost such a value
+  // a knob set without dragging (a change event only) counts as well: a user test lost such a value
   await page.locator("#cee-bk-p-0-fb_depth").evaluate(n => { n.value = "70"; n.dispatchEvent(new Event("change")); });
   await page.fill("#cee-bk-p-0-dry_wet-value", "40");
-  assert.equal(await page.inputValue("#cee-bk-p-0-dry_wet"), "40", "a typed value moves the slider");
+  assert.equal(await page.inputValue("#cee-bk-p-0-dry_wet"), "40", "a typed value turns the knob");
   await page.click("#cee-bk-fx-save");
   assert.match(await page.locator("#cee-bk-fx-saved").textContent(), /Gespeichert: „Mein Delay“ steht unter Meine Effekte/, "the page says it was saved, not only a toast");
   await page.click("#cee-bk-fx-save");
@@ -136,7 +149,7 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.click("#cee-bk-tab-fx");
   await openCard(page, "#cee-bk-fx-catalog", "Short Delay");
   await page.click("#cee-bk-detail-own");
-  await page.locator("#cee-bk-blocks .cee-bk-slider").first().waitFor();
+  await page.locator("#cee-bk-blocks .cee-knob").first().waitFor();
 
   await page.click("#cee-baukasten-page-export");
   assert.equal(await page.locator("#cee-nav-state #cee-bk-collection").isVisible(), true, "Exportieren sits in the navbar");
