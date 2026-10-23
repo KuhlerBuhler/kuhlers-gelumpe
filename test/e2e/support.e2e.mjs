@@ -34,14 +34,14 @@ test("a profile picture with a name and wallpapers for a computer and a phone, s
   await page.goto(`${h.url}#support`);
   await page.fill("#cee-support-avatar-text", "Kuhler Buhler");
   await page.waitForFunction(() => document.getElementById("cee-support-avatar-canvas").getContext("2d").getImageData(0, 0, 1, 1).data[3] === 255);
-  await page.uncheck("#cee-support-avatar-bands");
-  await page.uncheck("#cee-support-avatar-stars");
+  await page.locator("label.ui-switch:has(#cee-support-avatar-bands)").click();
+  await page.locator("label.ui-switch:has(#cee-support-avatar-stars)").click();
   assert.equal(await colours(page, "cee-support-avatar-canvas"), 2, "on a plain background only its colour and the pixels of the display");
   const avatar = await h.download(page, () => page.click("#cee-support-avatar-save"));
   assert.deepEqual([...avatar.slice(0, 4)], PNG);
   assert.deepEqual(size(avatar), [1024, 1024]);
-  await page.check("#cee-support-avatar-bands");
-  await page.check("#cee-support-avatar-stars");
+  await page.locator("label.ui-switch:has(#cee-support-avatar-bands)").click();
+  await page.locator("label.ui-switch:has(#cee-support-avatar-stars)").click();
   assert.ok(await colours(page, "cee-support-avatar-canvas") > 2, "the profile picture can have the dither bands and the stars too, each on its own switch");
 
   assert.ok(await colours(page, "cee-support-wallpaper-canvas") > 2, "the wallpaper starts on the star field of the app background");
@@ -51,6 +51,8 @@ test("a profile picture with a name and wallpapers for a computer and a phone, s
   await page.locator("#cee-support-wallpaper-size").fill("30");
   await page.locator("#cee-support-wallpaper-look label", { hasText: "Eigene" }).click();
   await page.locator("#cee-support-wallpaper-ink").fill("#00ff00");
+  // the bright stars are drawn in the ink colour too
+  await page.locator("label.ui-switch:has(#cee-support-wallpaper-stars)").click();
   await page.waitForFunction(() => document.getElementById("cee-support-wallpaper-canvas").dataset.format === "phone");
   const rows = await page.evaluate(() => {
     const c = document.getElementById("cee-support-wallpaper-canvas");
