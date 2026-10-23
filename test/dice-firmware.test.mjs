@@ -67,7 +67,7 @@ test("no start phase: the key function runs on a key, never before the main scre
 test("it sits clear of every other patch of the set and is accepted with all of them", () => {
   const span = (c, id) => [c.file, c.file + (c.bytes ? c.bytes.length / 2 : c.copy.length), id];
   const mine = PATCH.changes.map(c => span(c, PATCH.id));
-  const others = SET.filter(p => p.id !== PATCH.id).flatMap(p => p.changes.filter(c => typeof c.file === "number").map(c => span(c, p.id)));
+  const others = SET.filter(p => p.id !== PATCH.id).flatMap(p => (p.changes ?? []).filter(c => typeof c.file === "number").map(c => span(c, p.id)));
   for (const [a, b] of mine) for (const [c, d, id] of others) assert.ok(b <= c || d <= a, `dice and ${id} overlap at 0x${Math.max(a, c).toString(16)}`);
   const res = checkHooks(SET);
   assert.equal(res.ok, true, res.reasons.join(" "));
