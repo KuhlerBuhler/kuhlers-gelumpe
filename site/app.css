@@ -2537,7 +2537,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 /* Features (features.mjs): one list per group, an entry is its name, what it does and what to press. */
 .cee-features {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
   gap: var(--space-3);
   margin: 0;
   padding: 0;
@@ -2558,9 +2558,9 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   margin: 0;
 }
 
-/* The picture of the display at the size of a plugin's in the catalog, not the width of the card. */
+/* The picture of the display across the whole card, like a plugin's in the catalog. */
 .cee-feature canvas {
-  max-width: 16rem;
+  width: 100%;
 }
 
 .cee-feature h3 {
@@ -2581,13 +2581,13 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   align-items: center;
   gap: var(--space-2);
   align-self: flex-start;
-  margin: auto 0 0;
+  margin: 0;
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
 .cee-feature-where .cee-e2-outline {
-  width: var(--space-16);
+  width: var(--space-10);
 }
 
 .cee-feature-where [data-device="red"] { --cee-device-tone: var(--color-status-error); }
