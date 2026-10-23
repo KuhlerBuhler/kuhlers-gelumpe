@@ -370,6 +370,7 @@ function navbar({ onMode }) {
   let cardButton = null;
   let consoleAction = null;
   let pluginActions = [];
+  let baukastenActions = [];
   const trails = {};
   $("#cee-mode-button").append(icon("chevronDown"));
   const menu = dropdown($("#cee-mode-button"), $("#cee-mode-menu"), { onPick: onMode });
@@ -396,7 +397,7 @@ function navbar({ onMode }) {
     // On the device page the navbar carries the connect button while no device is attached (it moves there from
     // the page, so its handlers stay), and the words "Gerät verbunden" once one is.
     connectButton ??= $("#cee-connect");
-    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
+    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page === "baukasten" ? baukastenActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
@@ -410,6 +411,8 @@ function navbar({ onMode }) {
     console(node) { consoleAction = node; render(); },
     /** Öffnen and Speichern of the plugin editor while it is open. */
     plugins(nodes) { pluginActions = nodes; render(); },
+    /** Exportieren of the Baukasten while its export page is open. */
+    baukasten(nodes) { baukastenActions = nodes; render(); },
     /** The breadcrumb after the title of `id`: the sub-page and, in the docs, the section. */
     trail(id, parts) { trails[id] = parts; if (id === page) render(); },
   };
@@ -564,7 +567,7 @@ function boot() {
   });
   emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, onConnect: next => sd?.connect(next) });
   const modulations = modulationsPage($("#cee-mod"), { emulator });
-  const baukasten = baukastenPage($("#cee-baukasten"), { emulator });
+  const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: parts => nav.trail("baukasten", parts), navbar: nodes => nav.baukasten(nodes) });
   samplesPage($("#cee-samples"), { device, emulator, probe });
   let fxFirmware = null;
   let modFirmware = null;
