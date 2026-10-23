@@ -4,6 +4,7 @@
  * come from README.md ("Was kann was?") and docs/patcher.md; a new patch gets its entry here.
  */
 import { el } from "./fields.mjs";
+import { drawDisplay } from "./emulator.mjs";
 
 const BOTH = "Rot und blau";
 const RED = "Nur rot";
@@ -75,13 +76,34 @@ export const FEATURES = [
     how: "Firmware Patcher, Schritt Aufs Gerät." },
 ];
 
+/** A picture cut to the one bit per pixel of the display and drawn like the plugin pictures of the catalog. */
+function drawFeature(canvas, src) {
+  const picture = new Image();
+  picture.onload = () => {
+    const work = document.createElement("canvas");
+    work.width = 128;
+    work.height = 64;
+    const ctx = work.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(picture, 0, 0, 128, 64);
+    const rgba = ctx.getImageData(0, 0, 128, 64).data;
+    const bytes = new Uint8Array(1024);
+    for (let i = 0; i < 128 * 64; i++) {
+      if (rgba[i * 4] + rgba[i * 4 + 1] + rgba[i * 4 + 2] > 3 * 127) bytes[(i >> 10) * 128 + (i & 127)] |= 1 << ((i >> 7) & 7);
+    }
+    drawDisplay(canvas, bytes);
+  };
+  picture.src = src;
+}
+
 /** The cards of the start page: up to twelve entries, each with its picture. */
 export function featureCards(list) {
-  list.replaceChildren(...FEATURES.filter(f => f.home).slice(0, 12).map(f => el("li", { className: "cee-card cee-feature-card" }, [
-    el("img", { src: f.image, alt: "", width: 256, height: 128, loading: "lazy", decoding: "async" }),
-    el("h3", { textContent: f.title }),
-    el("p", { textContent: f.text }),
-  ])));
+  const cards = FEATURES.filter(f => f.home).slice(0, 12).map(f => {
+    const canvas = el("canvas", { className: "cee-lcd cee-catalog-thumb", width: 128, height: 64 });
+    canvas.setAttribute("aria-hidden", "true");
+    return { f, canvas, card: el("li", { className: "cee-card cee-feature-card" }, [canvas, el("h3", { textContent: f.title }), el("p", { textContent: f.text })]) };
+  });
+  list.replaceChildren(...cards.map(c => c.card));
+  for (const { f, canvas } of cards) drawFeature(canvas, f.image);
 }
 
 export function featuresPage(root) {

@@ -1287,7 +1287,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   font-size: var(--text-md);
 }
 
-/* A card of the start page carries a picture of the display; the pixels stay sharp. */
+/* A card of the start page carries a picture of the display, drawn like the plugin pictures of the catalog. */
 .cee-feature-card {
   display: flex;
   flex-direction: column;
@@ -1298,15 +1298,8 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   margin: 0;
 }
 
-.cee-feature-card img {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 2 / 1;
+.cee-feature-card canvas {
   margin-bottom: var(--space-1);
-  border: 1px solid var(--color-border-muted);
-  border-radius: var(--radius-xs);
-  image-rendering: pixelated;
 }
 
 .cee-home-foot {
