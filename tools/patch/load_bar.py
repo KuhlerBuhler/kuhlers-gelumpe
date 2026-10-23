@@ -1177,16 +1177,14 @@ rc_i:
     cmp r5, r10
     bhs rc_done
     mov r0, #LOOK_BOX
-    mul r6, r5, r0
-    add r6, r6, r4
+    mla r6, r5, r0, r4
     mov r7, #0
 rc_j:
     cmp r7, r10
     bhs rc_next_i
     cmp r7, r5
     beq rc_next_j
-    mul r8, r7, r0
-    add r8, r8, r4
+    mla r8, r7, r0, r4
     ldr r1, [r8, #B_X0]
     ldr r2, [r6, #B_X0]
     cmp r1, r2
@@ -1219,8 +1217,7 @@ rp_i:
     cmp r5, r10
     bhs rs_header
     mov r0, #LOOK_BOX
-    mul r6, r5, r0
-    add r6, r6, r4
+    mla r6, r5, r0, r4
     ldr r0, [r6, #B_ALIVE]
     cmp r0, #0
     beq rp_next
@@ -1237,8 +1234,7 @@ rp_j:
     cmp r7, r5
     bhs rp_take
     mov r0, #LOOK_BOX
-    mul r8, r7, r0
-    add r8, r8, r4
+    mla r8, r7, r0, r4
     ldr r0, [r8, #B_DONE]
     cmp r0, #0
     beq rp_next_j

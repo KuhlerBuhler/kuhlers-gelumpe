@@ -1,0 +1,344 @@
+{
+  "format": "blech-sysex-buffer-measurement",
+  "version": 1,
+  "sourceCommit": "7fbd90e6c5287bbafe2126a7dbadd7e3b798ae2b",
+  "baselineSourceCommit": "83d5036e34d5573da578c409d322a5560a908a86",
+  "profileFormat": 4,
+  "profileMethod": "383408b1b31205626b10726a82001d2e974f549cc9e51a297e39d5f490bec7f9",
+  "programsSha256": "0ab23063f12ba129e23ad4d116e3986e52fec32bcd5224ac07f5295abccdd474",
+  "sourceHashesVerified": 273,
+  "nativeTests": 7,
+  "capacityPairs": 65538,
+  "additionalDinCasesPerBuild": 16,
+  "sysExReservedBytesBefore": 61440,
+  "sysExReservedBytesAfter": 41984,
+  "maxBlock": 32768,
+  "bufferStart": 3222868224,
+  "bufferEnd": 3222905856,
+  "contiguousBytesFreed": 19456,
+  "bufferRequiredBytes": 37483,
+  "bufferBytes": 37632,
+  "unit": {
+    "tests": 1105,
+    "pass": 962,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 143,
+    "todo": 0
+  },
+  "browser": {
+    "tests": 165,
+    "pass": 164,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 1,
+    "todo": 0
+  },
+  "targeted": {
+    "tests": 60,
+    "pass": 60,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "usbCoverage": "native Befehlsschnittstelle, Port 1; kein USB-Controllermodell",
+  "dinCoverage": "native Befehlsschnittstelle, Port 2; vollständiger Firmwareparser und emulierte UART",
+  "hardwareTested": false,
+  "sampleImportExportSpeedMeasured": false,
+  "builds": {
+    "hacktribe": {
+      "inputSha256": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+      "outputSha256": "7f7ff62e33950431a3c40d0df0ae3e64f1b83d803016595c765a215c4505422a",
+      "checksPassed": 459,
+      "checksFailed": 0,
+      "checksSkipped": 0,
+      "footprintBefore": {
+        "codeDataBytes": 84252,
+        "ramBytes": 451447,
+        "occupiedBytes": 535699,
+        "unallocatedBytes": 37293,
+        "largestGap": 7228
+      },
+      "footprintAfter": {
+        "codeDataBytes": 84252,
+        "ramBytes": 431991,
+        "occupiedBytes": 516243,
+        "unallocatedBytes": 56749,
+        "largestGap": 19456
+      },
+      "nativeTransfer": {
+        "casesPerRepeat": 490,
+        "repeats": 3,
+        "medianInstructionsBefore": 84718660,
+        "medianInstructionsAfter": 84718660,
+        "maxInstructionsBefore": 84718660,
+        "maxInstructionsAfter": 84718660,
+        "changePercent": 0.0,
+        "method": "55a7c64a24393d4f155a9e479f97ab2a8ebfbe9307d9d54937a2be97a019065c",
+        "vectorsSha256": "cc747822ced6ce22b3c67e11d6a771dc148bfaac35ea4817ceca3134161a3aa8",
+        "resultsSha256": "a1c22b3fad661d317e7da79e891a2c467f74fee47c69a2c04c0b278c6c4e004c",
+        "ioSha256": "f315671b4896023cd2dbef56dd6378e312a222110cb329ba5790719b7454f30c"
+      },
+      "scenarios": {
+        "idle": {
+          "baselineInstructions": 16522466,
+          "candidateInstructions": 16522466,
+          "ratio": 1.0,
+          "maxInstructions": 16522466
+        },
+        "playing": {
+          "baselineInstructions": 43178323,
+          "candidateInstructions": 43178323,
+          "ratio": 1.0,
+          "maxInstructions": 43178323
+        },
+        "playing-keyboard": {
+          "baselineInstructions": 44050368,
+          "candidateInstructions": 44050368,
+          "ratio": 1.0,
+          "maxInstructions": 44050368
+        },
+        "sequencer-four-note-long-ties": {
+          "baselineInstructions": 73719958,
+          "candidateInstructions": 73719958,
+          "ratio": 1.0,
+          "maxInstructions": 73719958
+        },
+        "blech-menu": {
+          "baselineInstructions": 19281222,
+          "candidateInstructions": 19281222,
+          "ratio": 1.0,
+          "maxInstructions": 19281222
+        },
+        "closed-apps": {
+          "baselineInstructions": 17043184,
+          "candidateInstructions": 17043184,
+          "ratio": 1.0,
+          "maxInstructions": 17043184
+        },
+        "app-mandelbrot": {
+          "baselineInstructions": 22930106,
+          "candidateInstructions": 22930106,
+          "ratio": 1.0,
+          "maxInstructions": 22930106
+        },
+        "app-life": {
+          "baselineInstructions": 23097889,
+          "candidateInstructions": 23097889,
+          "ratio": 1.0,
+          "maxInstructions": 23097889
+        },
+        "app-pong": {
+          "baselineInstructions": 18259506,
+          "candidateInstructions": 18259506,
+          "ratio": 1.0,
+          "maxInstructions": 18259506
+        },
+        "background-plugins": {
+          "baselineInstructions": 19145600,
+          "candidateInstructions": 19145600,
+          "ratio": 1.0,
+          "maxInstructions": 19145600
+        }
+      }
+    },
+    "stock": {
+      "inputSha256": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+      "outputSha256": "00eb3698ddc2d3f03867c0e740d2743c9edeb91efd969bd5fb696c81a3fe6f0d",
+      "checksPassed": 484,
+      "checksFailed": 0,
+      "checksSkipped": 0,
+      "footprintBefore": {
+        "codeDataBytes": 84463,
+        "ramBytes": 451447,
+        "occupiedBytes": 535910,
+        "unallocatedBytes": 37082,
+        "largestGap": 7228
+      },
+      "footprintAfter": {
+        "codeDataBytes": 84463,
+        "ramBytes": 431991,
+        "occupiedBytes": 516454,
+        "unallocatedBytes": 56538,
+        "largestGap": 19456
+      },
+      "nativeTransfer": {
+        "casesPerRepeat": 490,
+        "repeats": 3,
+        "medianInstructionsBefore": 84719140,
+        "medianInstructionsAfter": 84719140,
+        "maxInstructionsBefore": 84719140,
+        "maxInstructionsAfter": 84719140,
+        "changePercent": 0.0,
+        "method": "55a7c64a24393d4f155a9e479f97ab2a8ebfbe9307d9d54937a2be97a019065c",
+        "vectorsSha256": "cc747822ced6ce22b3c67e11d6a771dc148bfaac35ea4817ceca3134161a3aa8",
+        "resultsSha256": "fd20447b59a08de2616a1ed26bc694555d8c54823112cd285bbf298d74d9499d",
+        "ioSha256": "f315671b4896023cd2dbef56dd6378e312a222110cb329ba5790719b7454f30c"
+      },
+      "scenarios": {
+        "idle": {
+          "baselineInstructions": 16518338,
+          "candidateInstructions": 16518338,
+          "ratio": 1.0,
+          "maxInstructions": 16518338
+        },
+        "playing": {
+          "baselineInstructions": 43183150,
+          "candidateInstructions": 43183150,
+          "ratio": 1.0,
+          "maxInstructions": 43183150
+        },
+        "playing-keyboard": {
+          "baselineInstructions": 44052252,
+          "candidateInstructions": 44052252,
+          "ratio": 1.0,
+          "maxInstructions": 44052252
+        },
+        "sequencer-four-note-long-ties": {
+          "baselineInstructions": 73720647,
+          "candidateInstructions": 73720647,
+          "ratio": 1.0,
+          "maxInstructions": 73720647
+        },
+        "blech-menu": {
+          "baselineInstructions": 19277022,
+          "candidateInstructions": 19277022,
+          "ratio": 1.0,
+          "maxInstructions": 19277022
+        },
+        "closed-apps": {
+          "baselineInstructions": 17038986,
+          "candidateInstructions": 17038986,
+          "ratio": 1.0,
+          "maxInstructions": 17038986
+        },
+        "app-mandelbrot": {
+          "baselineInstructions": 22925790,
+          "candidateInstructions": 22925790,
+          "ratio": 1.0,
+          "maxInstructions": 22925790
+        },
+        "app-life": {
+          "baselineInstructions": 23093878,
+          "candidateInstructions": 23093878,
+          "ratio": 1.0,
+          "maxInstructions": 23093878
+        },
+        "app-pong": {
+          "baselineInstructions": 18255602,
+          "candidateInstructions": 18255602,
+          "ratio": 1.0,
+          "maxInstructions": 18255602
+        },
+        "background-plugins": {
+          "baselineInstructions": 19142508,
+          "candidateInstructions": 19142508,
+          "ratio": 1.0,
+          "maxInstructions": 19142508
+        }
+      }
+    },
+    "synth": {
+      "inputSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "outputSha256": "fcaacb8821941ab1a8eeb8022913d6c0209c1725ed61c4a8e4c85322402c59dc",
+      "checksPassed": 363,
+      "checksFailed": 0,
+      "checksSkipped": 0,
+      "footprintBefore": {
+        "codeDataBytes": 66892,
+        "ramBytes": 398036,
+        "occupiedBytes": 464928,
+        "unallocatedBytes": 446428,
+        "largestGap": 329996
+      },
+      "footprintAfter": {
+        "codeDataBytes": 66892,
+        "ramBytes": 378580,
+        "occupiedBytes": 445472,
+        "unallocatedBytes": 465884,
+        "largestGap": 329996
+      },
+      "nativeTransfer": {
+        "casesPerRepeat": 452,
+        "repeats": 3,
+        "medianInstructionsBefore": 71559896,
+        "medianInstructionsAfter": 71559896,
+        "maxInstructionsBefore": 71559896,
+        "maxInstructionsAfter": 71559896,
+        "changePercent": 0.0,
+        "method": "55a7c64a24393d4f155a9e479f97ab2a8ebfbe9307d9d54937a2be97a019065c",
+        "vectorsSha256": "8001486f566a97c5b33dafee6e198588cb149d574e77a12f9ea51f8f4cbf2861",
+        "resultsSha256": "0989c0a51dab516e611dd840e736eb9d1fafe0ed31dce0b44a557f2afef2fcf5",
+        "ioSha256": "d97d3861a8d04888fa131cdad929dcdff6fa6e2fb9a581dbe5d8363c8a48eb10"
+      },
+      "scenarios": {
+        "idle": {
+          "baselineInstructions": 20256700,
+          "candidateInstructions": 20256700,
+          "ratio": 1.0,
+          "maxInstructions": 20256700
+        },
+        "playing": {
+          "baselineInstructions": 44467543,
+          "candidateInstructions": 44467543,
+          "ratio": 1.0,
+          "maxInstructions": 44467543
+        },
+        "playing-keyboard": {
+          "baselineInstructions": 45309109,
+          "candidateInstructions": 45309109,
+          "ratio": 1.0,
+          "maxInstructions": 45309109
+        },
+        "sequencer-four-note-long-ties": {
+          "baselineInstructions": 72425024,
+          "candidateInstructions": 72425024,
+          "ratio": 1.0,
+          "maxInstructions": 72425024
+        },
+        "blech-menu": {
+          "baselineInstructions": 19157187,
+          "candidateInstructions": 19157187,
+          "ratio": 1.0,
+          "maxInstructions": 19157187
+        },
+        "closed-apps": {
+          "baselineInstructions": 20922654,
+          "candidateInstructions": 20922654,
+          "ratio": 1.0,
+          "maxInstructions": 20922654
+        },
+        "app-mandelbrot": {
+          "baselineInstructions": 26723408,
+          "candidateInstructions": 26723408,
+          "ratio": 1.0,
+          "maxInstructions": 26723408
+        },
+        "app-life": {
+          "baselineInstructions": 26901525,
+          "candidateInstructions": 26901525,
+          "ratio": 1.0,
+          "maxInstructions": 26901525
+        },
+        "app-pong": {
+          "baselineInstructions": 22130602,
+          "candidateInstructions": 22130602,
+          "ratio": 1.0,
+          "maxInstructions": 22130602
+        },
+        "background-plugins": {
+          "baselineInstructions": 23016376,
+          "candidateInstructions": 23016376,
+          "ratio": 1.0,
+          "maxInstructions": 23016376
+        }
+      }
+    }
+  },
+  "documentationChecks": {
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0
+  }
+}
