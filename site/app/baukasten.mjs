@@ -25,11 +25,14 @@ const OWN = "cee.baukasten";
 const SLOTS = "cee.baukasten.slots";
 const STAGES = { mfx: ["mfx"], ifx: ["ifx1", "ifx2"] };
 const SOURCES = [[1, "LFO"], [0, "Hüllkurve"], [2, "Aus"]];
-const TARGETS = [[3, "Filter"], [1, "Tonhöhe"], [2, "Oszillator"], [8, "Lautstärke"], [9, "Panorama"], [10, "Insert-Effekt"], [0, "Kein Ziel"]];
+const TARGETS = [[3, "Filter"], [1, "Tonhöhe"], [2, "Oszillator"], [8, "Lautstärke"], [9, "Panorama (R/L)"], [10, "Insert-Effekt"], [0, "Kein Ziel"]];
 const CURVES = [[6, "Sinus", "M2 12c3-8 7-8 10 0s7 8 10 0"], [2, "Dreieck", "M2 18 7 6l5 12 5-12 5 12"], [1, "Rechteck", "M2 18V6h5v12h5V6h5v12h5"],
   [0, "Sägezahn", "M2 6l10 12V6l10 12"], [3, "Sample and Hold", "M2 14h4V8h4v8h4v-6h4v4h4"], [4, "Zufall", "M2 12l3-5 3 9 3-7 3 6 3-8 3 5"]];
 const NS = "http://www.w3.org/2000/svg";
 
+const RISKY = "cee.baukasten.risky";
+const readRisky = () => { try { return localStorage.getItem(RISKY) === "1"; } catch { return false; } };
+const writeRisky = on => { try { if (on) localStorage.setItem(RISKY, "1"); else localStorage.removeItem(RISKY); } catch {} };
 const readOwn = () => { try { return JSON.parse(localStorage.getItem(OWN) ?? "[]"); } catch { return []; } };
 const writeOwn = list => { try { localStorage.setItem(OWN, JSON.stringify(list)); return true; } catch { return false; } };
 
@@ -157,7 +160,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
 
   // ---- Katalog ----------------------------------------------------------------------
   const fxCatalog = el("ul", { className: "cee-catalog cee-bk-catalog", id: "cee-bk-fx-catalog" }, FX_CATALOG.map(item => card(item, { creator: item.creator, onOpen: () => openDetail(item) })));
-  const modCatalog = el("ul", { className: "cee-catalog cee-bk-catalog", id: "cee-bk-mod-catalog", hidden: true }, MOD_CATALOG.map(item => card(item, { creator: item.creator, onOpen: () => { openMod(structuredClone(item), null); page("editor"); } })));
+  const modCatalog = el("ul", { className: "cee-catalog cee-bk-catalog", id: "cee-bk-mod-catalog", hidden: true }, MOD_CATALOG.map(item => card(item, { creator: item.creator, onOpen: () => openDetail(item) })));
   const catalogTitle = el("h2", { className: "cee-bk-title", textContent: "Effekte" });
   const catalogPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-catalog" }, [
     el("p", { className: "cee-bk-lead", textContent: "Bau dir eigene Effekte und Modulationen aus Bausteinen. Nimm einen fertigen und dreh an den Reglern, oder fang im Editor leer an. Unter Export kommt alles in eine Datei für die Karte deiner Electribe." }),
@@ -218,12 +221,19 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       if (stage === "ifx1" && other?.unit && SOLO.has(u.id)) return "Läuft nur allein, ohne Baustein 2";
       return null;
     };
-    paletteBody.replaceChildren(...GROUPS.map(group => {
+    // The user may lift the bar for a test on purpose; it stays on in this browser until switched off.
+    const risk = el("input", { type: "checkbox", id: "cee-bk-risky", role: "switch", checked: readRisky() });
+    risk.addEventListener("change", () => { writeRisky(risk.checked); choose(stage); });
+    const riskRow = stage === "ifx2" || (stage === "ifx1" && other?.unit) ? el("div", { className: "cee-bk-risky" }, [
+      el("label", { className: "ui-switch" }, [risk, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Gesperrte Bausteine freigeben (RISIKO)"]),
+      el("p", { className: "ui-field-help", textContent: "Gesperrt ist, was an dieser Stelle abgestürzt oder stumm geblieben ist. Freigegeben lässt es sich wählen und exportieren, live aufs Gerät lässt der Türsteher es trotzdem nicht. Hält das Gerät beim Start an, halte EXIT beim Einschalten: dann bleibt die Karte unbeachtet." }),
+    ]) : null;
+    paletteBody.replaceChildren(riskRow, ...GROUPS.map(group => {
       const here = all.filter(u => unitLabel(kind, u.id, u.unit)[1] === group);
       if (!here.length) return null;
       return el("section", { className: "cee-bk-group" }, [
         el("h3", { textContent: group }),
-        el("div", { className: "cee-bk-units" }, here.map(u => el("button", { type: "button", className: "btn cee-bk-unit", disabled: !!barred(u), title: barred(u) ?? "", onclick: () => {
+        el("div", { className: "cee-bk-units" }, here.map(u => el("button", { type: "button", className: `btn cee-bk-unit${barred(u) ? " cee-bk-unit-risky" : ""}`, disabled: !!barred(u) && !risk.checked, title: barred(u) ?? "", onclick: () => {
           const s = fx.stages.find(x => x.stage === stage);
           Object.assign(s, { unit: u.id, unitName: u.unit, params: defaultsOf(kind, u.id) });
           palette.close();
@@ -287,7 +297,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
           el("div", { className: "cee-sentence" }, [
             select("source", sources.map(x => ({ raw: x.raw, label: x.who?.[kind] ?? x.label })), "Quelle"),
             el("span", { textContent: "steuert" }),
-            select("chain", chains.map(c => ({ raw: c.raw, label: c.label })), "Ziel"),
+            select("chain", chains.map(c => ({ raw: c.raw, label: chainLabel(piece, c) })), "Ziel"),
             ...(params.length ? [el("span", { textContent: ">" }), select("param", params, "Parameter")] : []),
             el("span", { textContent: off }), number("low", off === "von" ? "Von" : `Wert ${off}`),
             el("span", { textContent: on }), number("high", on === "bis" ? "Bis" : `Wert ${on}`),
@@ -310,6 +320,14 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       el("div", { className: "cee-bk-map-head" }, [el("h3", { className: "cee-bk-stage-title", textContent: "Steuerung" }), look]),
       rows,
     ]);
+  }
+
+  /** What a row drives in the words of the editor: the block as its card names it, or the level around the effect. */
+  function chainLabel(piece, chain) {
+    if (!chain?.stage) return chain?.label ?? "?";
+    const stage = piece.stages.find(x => x.stage === chain.stage);
+    const name = stage?.unit ? unitLabel(unitKind(stage.stage), stage.unit, stage.unitName)[0] : "leer";
+    return piece.stages.length > 1 ? `Baustein ${piece.stages.indexOf(stage) + 1} (${name})` : `Baustein (${name})`;
   }
 
   /** The key of the knob a map row moves: its stage and parameter, or the level it drives. */
@@ -365,7 +383,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const p = stage?.unit ? units[unitKind(stage.stage)].get(stage.unit)?.params.find(x => x.index === row.param) : null;
       const [min, max] = p ? rangeOf(unitKind(stage.stage), stage.unit, p.name) : [0, 127];
       const start = p ? (stage.params[p.name] ?? 0) : 127;
-      const k = knob(`cee-bk-preview-${key.replace(":", "-")}`, p ? paramLabel(p.name) : chain?.label ?? "?", p ? `Baustein ${piece.stages.indexOf(stage) + 1}` : null, min, max, start, () => {}, { readOnly: true });
+      const k = knob(`cee-bk-preview-${key.replace(":", "-")}`, p ? paramLabel(p.name) : chainLabel(piece, chain), p ? chainLabel(piece, chain) : null, min, max, start, () => {}, { readOnly: true });
       k.span(row.low, row.high);
       shown.set(key, { k, mirror, start });
     }
@@ -404,18 +422,18 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       for (const ev of ["pointerup", "pointercancel"]) pad.addEventListener(ev, release);
       controls.push(el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: "Touchpad" }), pad]));
     } else {
-      controls.push(knob("cee-bk-preview-knob", "Regler", null, 0, 127, 0, v => { c.x = v; apply(); }).node);
+      controls.push(knob("cee-bk-preview-knob", "IFX-Regler", null, 0, 127, 0, v => { c.x = v; apply(); }).node);
     }
     const toggle = (id, label, key) => {
       const box = el("input", { type: "checkbox", id, role: "switch", checked: c[key] });
       box.addEventListener("change", () => { c[key] = box.checked; apply(); });
       return el("label", { className: "ui-switch" }, [box, el("span", { className: "ui-switch-track", ariaHidden: "true" }), label]);
     };
-    if (kind === "ifx") controls.push(toggle("cee-bk-preview-on", "Effekt an", "on"));
+    if (kind === "ifx") controls.push(toggle("cee-bk-preview-on", "IFX ON", "on"));
     controls.push(toggle("cee-bk-preview-play", "Pattern läuft", "play"));
 
     previewBody.replaceChildren(
-      el("p", { className: "muted", textContent: "Dreh am Regler oder drück aufs Touchpad: links siehst du, wie sich die Parameter bewegen. Zu hören ist dabei nichts. So liest die Seite die Steuerung, nachgemessen am Gerät ist das nicht." }),
+      el("p", { className: "muted", textContent: "Dreh am IFX-Regler oder drück aufs Touchpad: links siehst du, wie sich die Parameter bewegen. Zu hören ist dabei nichts. So liest die Seite die Steuerung, nachgemessen am Gerät ist das nicht." }),
       shown.size ? el("div", { className: "cee-bk-preview-grid" }, [
         el("div", { className: "cee-bk-params cee-bk-preview-knobs" }, [...shown.values()].map(x => x.k.node)),
         el("div", { className: "cee-bk-preview-controls" }, controls),
@@ -553,11 +571,13 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   function openDetail(item) {
     view = structuredClone(item);
     const download = el("button", { type: "button", className: "btn", id: "cee-bk-detail-download", onclick: () => saveFile(fxText(view), fxFileName(view), { type: "application/json" }) }, [icon("download"), "Herunterladen"]);
-    const usb = el("button", { type: "button", className: "btn", id: "cee-bk-detail-load", onclick: () => { if (presets) pickSlot(view); } }, [icon("usb"), "Aufs Gerät"]);
-    const own = el("button", { type: "button", className: "btn", id: "cee-bk-detail-own", textContent: "Als eigenen Effekt bearbeiten", onclick: () => {
-      const id = keep({ ok: true, preset: structuredClone(view) }, null, fxSaved);
+    const isMod = view.kind === "mod";
+    // A modulation cannot be loaded live yet: where it goes in the RAM of a running device is not measured.
+    const usb = el("button", { type: "button", className: "btn", id: "cee-bk-detail-load", disabled: isMod, title: isMod ? "Für Modulationen noch nicht gemessen" : "", onclick: () => { if (presets) pickSlot(view); } }, [icon("usb"), "Aufs Gerät"]);
+    const own = el("button", { type: "button", className: "btn", id: "cee-bk-detail-own", textContent: isMod ? "Als eigene Modulation bearbeiten" : "Als eigenen Effekt bearbeiten", onclick: () => {
+      const id = keep({ ok: true, preset: structuredClone(view) }, null, isMod ? modSaved : fxSaved);
       if (!id) return;
-      openFx(view, id);
+      if (isMod) openMod(view, id); else openFx(view, id);
       page("editor");
     } });
     detailHead.replaceChildren(
@@ -569,14 +589,34 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
         el("dt", { textContent: "Von" }), el("dd", { textContent: view.creator }),
       ]),
       el("div", { className: "actions" }, [download, usb, own]),
+      isMod ? el("p", { className: "muted", textContent: "Aufs Gerät geht für Modulationen noch nicht. Über den Export kommen sie auf die Karte." }) : null,
     );
     detailBlocks.replaceChildren();
     page("detail");
+    if (isMod) { detailBlocks.replaceChildren(modView(view)); return; }
     loadUnits().then(() => {
       if (view?.name !== item.name) return;
       const knobs = new Map();
       detailBlocks.replaceChildren(...blockCards(view, { readOnly: true, pre: "cee-bk-detail", knobs }), mapSection(view, { readOnly: true, pre: "cee-bk-detail", knobs }));
     });
+  }
+
+  /** A catalog modulation, read only: the wave, depth and tempo, and what each used slot moves. */
+  function modView(m) {
+    const word = (list, v) => list.find(([x]) => x === v)?.[1] ?? String(v);
+    const used = m.slots.map((s, k) => [s, k]).filter(([s]) => s.source !== 2 && s.target !== 0);
+    const curveOf = CURVES.find(([v]) => v === m.curve);
+    return el("div", { className: "cee-bk-block", id: "cee-bk-detail-mod" }, [
+      el("p", { className: "ui-field-label", textContent: "Welle des LFO" }),
+      el("p", { className: "cee-bk-wave-name" }, curveOf ? [wave(curveOf[2]), curveOf[1]] : [String(m.curve)]),
+      el("div", { className: "cee-bk-params" }, [
+        knob("cee-bk-detail-depth", "Tiefe", null, 0, 127, m.depth, () => {}, { readOnly: true }).node,
+        knob("cee-bk-detail-speed", "Tempo", null, 0, 127, m.speed, () => {}, { readOnly: true }).node,
+      ]),
+      el("h3", { className: "cee-bk-stage-title", textContent: "Slots" }),
+      used.length ? el("ul", { className: "cee-bk-explain" }, used.map(([s, k]) => el("li", { textContent:
+        `Slot ${k + 1}: ${word(SOURCES, s.source)} bewegt ${word(TARGETS, s.target)}, Stärke von ${s.lo} bis ${s.hi}${s.follow ? ", folgt MOD. DEPTH" : ""}` }))) : el("p", { className: "muted", textContent: "Kein Slot bewegt etwas." }),
+    ]);
   }
 
   // ---- Editor: modulation -----------------------------------------------------------
@@ -860,10 +900,18 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     writeSlots(slots);
     renderExport();
   }
+  // One file holds all three, so the export switches between them on its own page, not by Effekte/Modulationen.
+  let exportKind = "ifx";
+  const exportTabs = [["ifx", "Insert-Effekte"], ["mfx", "Master-Effekte"], ["mod", "Modulationen"]].map(([id, text]) => {
+    const input = el("input", { type: "radio", name: "cee-bk-export-kind", value: id, checked: id === exportKind, onchange: () => { exportKind = id; renderExport(); } });
+    return el("label", { className: "ui-segmented-option", id: `cee-bk-export-tab-${id}` }, [input, el("span", { textContent: text })]);
+  });
+  const exportSwitch = el("div", { className: "ui-segmented cee-bk-export-switch", role: "radiogroup" }, exportTabs);
+  exportSwitch.setAttribute("aria-label", "Welche Plätze");
   function renderExport() {
     const list = ownList();
     const slots = readSlots();
-    const kinds = shelfKind === "mod" ? [["mod", MOD_COUNT]] : [["ifx", SLOT_COUNT_FX], ["mfx", SLOT_COUNT_FX]];
+    const kinds = [[exportKind, exportKind === "mod" ? MOD_COUNT : SLOT_COUNT_FX]];
     exportLists.replaceChildren(...kinds.map(([kind, count]) => {
       const own = list.filter(o => o.kind === kind);
       const factory = factoryNames(kind);
@@ -887,7 +935,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const text = textOf(w.id);
       if (!text) continue;
       const read = readFx(text, units);
-      const made = read.ok ? collectionEntry(read.preset, vsb, w.slot - 1, units) : read;
+      const made = read.ok ? collectionEntry(read.preset, vsb, w.slot - 1, units, { risky: readRisky() }) : read;
       if (!made.ok) { toast(`${read.preset?.name ?? "Ein Eintrag"}: ${made.reason}`, "error"); return; }
       entries.push(made.entry);
     }
@@ -897,9 +945,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   exportButton.addEventListener("click", exportAll);
   const exportPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-export" }, [
     el("h2", { className: "cee-bk-title", textContent: `${COLLECTION_FILE} für die Karte` }),
-    el("p", { className: "muted", textContent: `Leg fest, welcher deiner Effekte auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
+    el("p", { className: "muted", textContent: `Eine Datei für alles: Insert-Effekte, Master-Effekte und Modulationen. Leg fest, was auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
     cardNote,
     allDrop,
+    exportSwitch,
     exportLists,
   ]);
 
@@ -934,7 +983,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   }
   /** Effekte or Modulationen is a choice for the catalog and a new piece; with one open it stays as it is. */
   function switchRow() {
-    tabRow.hidden = shown === "detail" || (shown === "editor" && !!(shelfKind === "fx" ? fx : mod));
+    tabRow.hidden = shown === "detail" || shown === "export" || (shown === "editor" && !!(shelfKind === "fx" ? fx : mod));
   }
 
   const PAGE_NODES = { catalog: catalogPage, editor: editorPage, mine: minePage, export: exportPage, detail: detailPage };

@@ -30,11 +30,11 @@ export default {
     // `who` is the name for a sentence per effect kind: the insert effect has a knob where the master has the touchpad (a reading of Korg's "X / knob", not measured).
     sources: [
       // In a master preset the switch is the touchpad being held: nothing sounds unless it is (rules.mjs, fx-on crossfade).
-      { raw: 0x41, name: "FX on/off", label: "FX-Schalter", ifx: true, mfx: true, who: { ifx: "FX-Schalter", mfx: "Touchpad gedrückt" }, states: { ifx: ["aus", "an"], mfx: ["losgelassen", "gedrückt"] } },
-      { raw: 0x42, name: "X / knob", label: "X / Regler", ifx: true, mfx: true, who: { ifx: "Regler", mfx: "Touchpad X" } },
+      { raw: 0x41, name: "FX on/off", label: "FX-Schalter", ifx: true, mfx: true, who: { ifx: "IFX ON-Taste", mfx: "Touchpad gedrückt" }, states: { ifx: ["aus", "an"], mfx: ["losgelassen", "gedrückt"] } },
+      { raw: 0x42, name: "X / knob", label: "X / Regler", ifx: true, mfx: true, who: { ifx: "IFX-Regler", mfx: "Touchpad X" } },
       { raw: 0x43, name: "Y", label: "Y", ifx: false, mfx: true, who: { mfx: "Touchpad Y" } },
-      { raw: 0x44, name: "knob upper half / X upper half", label: "obere Hälfte", ifx: true, mfx: true, who: { ifx: "Regler, obere Hälfte", mfx: "Touchpad X, obere Hälfte" } },
-      { raw: 0x45, name: "knob lower half / X lower half", label: "untere Hälfte", ifx: true, mfx: true, who: { ifx: "Regler, untere Hälfte", mfx: "Touchpad X, untere Hälfte" } },
+      { raw: 0x44, name: "knob upper half / X upper half", label: "obere Hälfte", ifx: true, mfx: true, who: { ifx: "IFX-Regler, rechte Hälfte", mfx: "Touchpad X, rechte Hälfte" } },
+      { raw: 0x45, name: "knob lower half / X lower half", label: "untere Hälfte", ifx: true, mfx: true, who: { ifx: "IFX-Regler, linke Hälfte", mfx: "Touchpad X, linke Hälfte" } },
       { raw: 0x46, name: "Y upper half", label: "Y obere Hälfte", ifx: false, mfx: true, who: { mfx: "Touchpad Y, obere Hälfte" } },
       { raw: 0x47, name: "Y lower half", label: "Y untere Hälfte", ifx: false, mfx: true, who: { mfx: "Touchpad Y, untere Hälfte" } },
       { raw: 0x4a, name: "play pressed", label: "Play", ifx: true, mfx: true, who: { ifx: "Play-Taste", mfx: "Play-Taste" }, states: { ifx: ["gestoppt", "läuft"], mfx: ["gestoppt", "läuft"] } },
@@ -44,8 +44,8 @@ export default {
       { raw: 0x00, name: "insert stage 1", label: "Insert Stufe 1", stage: "ifx1" },
       { raw: 0x01, name: "insert stage 2", label: "Insert Stufe 2", stage: "ifx2" },
       { raw: 0x02, name: "master", label: "Master", stage: "mfx" },
-      { raw: 0x07, name: "input level", label: "Eingangspegel", stage: null },
-      { raw: 0x0a, name: "output level", label: "Ausgangspegel", stage: null },
+      { raw: 0x07, name: "input level", label: "Pegel vor dem Effekt", stage: null },
+      { raw: 0x0a, name: "output level", label: "Pegel nach dem Effekt", stage: null },
     ],
   },
   fields: [
