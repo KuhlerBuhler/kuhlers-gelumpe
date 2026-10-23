@@ -115,8 +115,8 @@ def judge(base_payload, patched_payload, flash):
     for kind in ("ifx", "mfx"):
         if patch_mode:
             same = all(base.record(kind, i) == new.record(kind, i) for i in range(n0[kind]))
-            add(f"{kind}_factory_unchanged", n1[kind] == n0[kind] and same and not new.dev.m.asserts,
-                f"the {n0[kind]} presets of the {kind} menu come back from the getters with the same bytes as without the patch, menu length {n1[kind]}")
+            add(f"{kind}_factory_unchanged", n1[kind] >= n0[kind] and same and not new.dev.m.asserts,
+                f"the {n0[kind]} presets of the {kind} menu come back from the getters with the same bytes as without the patch, menu length {n1[kind]} (the catalog's effects behind them)")
         rows = [new.address(kind, i) for i in (spec.OLD_SLOTS, 110, spec.CAPACITY - 1, spec.CAPACITY, 255)]
         valid = all(IMAGE <= a < IMAGE + 0x200000 - spec.RECORD for a in rows) and rows[3] == rows[2] == rows[4]
         add(f"{kind}_getter_to_127", valid,
@@ -164,8 +164,6 @@ def judge(base_payload, patched_payload, flash):
         add(f"{kind}_added_records", len(set(addresses)) == n1[kind] and all(names) and not new.dev.m.asserts,
             f"{len(added)} slots added to the {kind} menu ({n0[kind]} to {n1[kind]}), every one with a record of its own and a name")
         source = source_of(base, new, kind, n0[kind], n1[kind] - 1)
-        if source is None:
-            continue
         if kind == "ifx":
             def dsp_for(target):
                 new.goto_ifx((target - 1) % n1["ifx"], n1["ifx"])
@@ -173,15 +171,23 @@ def judge(base_payload, patched_payload, flash):
                 new.step_ifx(1)
                 new.dev.run(1.0)
                 return new.dsp.changes()
-            a, b = dsp_for(source - 1), dsp_for(n1["ifx"] - 1)
-            add("added_ifx_dsp", len(a) > 0 and same_dsp(a, b),
-                f"selecting the last added insert slot sends the DSP {len(b)} transfers, the same as preset {source}, whose record it copies ({len(a)})")
         else:
             def mfx_dsp(index):
                 new.dsp.clear()
                 new.set_mfx(index)
                 new.dev.run(1.0)
                 return new.dsp.changes()
+        if source is None:
+            # edited records (the catalog, src/fx-append.mjs): no earlier preset to compare with, every slot has to reach the DSP
+            sent = {i + 1: len(dsp_for(i) if kind == "ifx" else mfx_dsp(i)) for i in added}
+            add(f"{kind}_added_select", all(sent.values()) and not new.dev.m.asserts,
+                f"selecting each added {kind} slot sends the DSP transfers, no assertion: {sent}")
+            continue
+        if kind == "ifx":
+            a, b = dsp_for(source - 1), dsp_for(n1["ifx"] - 1)
+            add("added_ifx_dsp", len(a) > 0 and same_dsp(a, b),
+                f"selecting the last added insert slot sends the DSP {len(b)} transfers, the same as preset {source}, whose record it copies ({len(a)})")
+        else:
             new.set_mfx(0)
             a, b = mfx_dsp(source - 1), mfx_dsp(n1["mfx"] - 1)
             add("added_mfx_dsp", len(a) > 0 and same_dsp(a, b) and new.mfx_type() == n1["mfx"] - 1,

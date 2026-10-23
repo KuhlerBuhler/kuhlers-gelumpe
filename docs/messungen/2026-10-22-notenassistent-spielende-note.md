@@ -41,5 +41,6 @@ weg, damit die Firmware ihr eigenes Licht schreiben kann (sie schreibt nur ein d
 
 ## Offen am Gerät
 
-- Ob Rot 191 am Gerät gleich hell wirkt wie die 192 der Firmware.
+- Ob Rot 191 am Gerät gleich hell wirkt wie die 192 der Firmware. Gemessen am 22.10.: ja, zu gleich; jetzt 65, siehe
+  [Stufen](2026-10-22-notenassistent-stufen.md).
 - Ob das Rot bei schnellen Noten und mehreren Pads derselben Note ruhig bleibt.

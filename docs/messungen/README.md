@@ -201,6 +201,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
 - [Notenassistent: Helligkeit nach Passung, stehen lassen und ausblenden](2026-10-19-notenassistent-helligkeit.md)
 - [Notenassistent: die gespielte Note bleibt rot, bis die nächste kommt](2026-10-22-notenassistent-spielende-note.md)
+- [Notenassistent: volle Helligkeit, sechs Stufen, die gespielte Note gedimmt](2026-10-22-notenassistent-stufen.md)
 - [IMPORT PLUGIN als Liste mit Namen und Beschreibung](2026-10-19-plugin-import-liste.md)
 - [Sync Groups: Patterns verketten, Live-Änderungen mitnehmen](2026-10-19-sync-groups.md)
 - [Gate-Schweif: gehaltene Noten auf den Step-Pads](2026-10-19-gate-schweif.md)
@@ -211,3 +212,5 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Presets und Modulationen von der Karte ins RAM (e2sFx.all)](2026-10-22-sammeldatei-karte.md)
 - [Tasten vom Rechner: KORG.press und KORG.turn über die Laufzeit](2026-10-22-tasten-vom-rechner.md)
 - [Sync Group mit ganzem Stand, MENU blinkt, SYNC GROUP im Ring, SPLASH-Gruppe, Plugin-Menü wie Sample Edit, Kalibrierung](2026-10-22-sync-und-menues.md)
+- [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
+- [Effekte aus dem Katalog fest in der Firmware](2026-10-23-fx-katalog-fest.md)

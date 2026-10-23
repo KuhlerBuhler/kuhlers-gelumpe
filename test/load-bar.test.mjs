@@ -76,7 +76,7 @@ test("it is our code in two places, the animation's pictures, the card picture a
 });
 
 test("it sits clear of every other patch of the set and is accepted with all of them", async () => {
-  const spans = [...OTHERS, PATCH].flatMap(p => p.changes.map(c => [c.file, c.file + (c.bytes ? c.bytes.length / 2 : c.copy.length), p.id])).sort((a, b) => a[0] - b[0]);
+  const spans = [...OTHERS, PATCH].flatMap(p => (p.changes ?? []).map(c => [c.file, c.file + (c.bytes ? c.bytes.length / 2 : c.copy.length), p.id])).sort((a, b) => a[0] - b[0]);
   for (let i = 1; i < spans.length; i++) assert.ok(spans[i][0] >= spans[i - 1][1], `${spans[i - 1][2]} and ${spans[i][2]} overlap`);
   const res = checkHooks([...OTHERS, PATCH]);
   assert.equal(res.ok, true, res.reasons.join(" "));

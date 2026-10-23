@@ -41,7 +41,7 @@
 .equ MX_OVER, -0x1E            ; byte, OVERLAP of the pad colours (0 the colour that is left)
 .equ MX_METER, -0x1C           ; 4 bytes, the colours of the meter (STILL, LOW, MID, LOUD), 0 the firmware's
 .equ MX_SAVE_ON, -0x18         ; byte, the backlight pins that light in power save
-.equ MX_PHASE, -0x1D           ; byte, the hue of METER STILL RAINBOW, one step every 40 ms
+.equ MX_PHASE, -0x1D           ; byte, the hue of METER STILL RAINBOW, three steps every 40 ms
 .equ MX_RGB, -0x17             ; 3 bytes, red, green, blue of that hue
 .equ METER_RAINBOW, 8          ; METER STILL only: the colours turn round the wheel (bit 30 of the settings flags)
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
@@ -881,6 +881,8 @@ led_meter_loop:
     ldrb r2, [r6, r7]
     mul r3, r2, r8
     mov r3, r3, lsr #8
+    cmp r3, #1                  ; never 1: see led_meter_four_loop
+    moveq r3, #2
     add r0, r4, r5, lsl #3
     strb r3, [r0, #0x2ae]
     mov r0, r4
@@ -900,9 +902,11 @@ led_meter_loop:
 ; green, red). r0, r1 = the levels of the two sides (LEDs 6 to 11, 0 to 5).
 led_meter_four:
     bl meter_rainbow
+    mov r12, sp
     bl meter_colour
     mov r10, r2
     mov r0, r1
+    add r12, sp, #4
     bl meter_colour
     mov r9, r2
     mov r5, #0
@@ -916,6 +920,8 @@ led_meter_mod3:
     subhs r0, r0, #3
     bhs led_meter_mod3
     ldrb r3, [r8, r0]
+    cmp r3, #1                  ; never 1: 0xC00875F4 compares what it sent last with the message's mode byte (1 for these LEDs),
+    moveq r3, #2                ; so after a 1 it sends nothing more and the channel sticks (emulator 22.10., the rainbow)
     add r0, r4, r5, lsl #3
     strb r3, [r0, #0x2ae]
     mov r0, r4
@@ -927,7 +933,8 @@ led_meter_mod3:
     blo led_meter_four_loop
     add sp, sp, #8
     pop {r4-r10, pc}
-; r0 = level 0 to 255 -> r2 = the three bytes (red, green, blue) of its colour. Keeps r1.
+; r0 = level 0 to 255, r12 = 3 free bytes -> r2 = the three bytes (red, green, blue) of its colour. Keeps r1.
+; A zone left at STOCK takes the colour of the LED pages when one is set, as bright as the level like the meter in our colour.
 meter_colour:
     cmp r0, #0
     moveq r3, #0
@@ -946,12 +953,38 @@ meter_zone:
     ldreq r2, =MENU_STATE + MX_RGB
     bxeq lr
     cmp r2, #0
-    addeq r2, r3, #8            ; STOCK: the firmware's colour of the zone, behind the palette
+    bne meter_zone_palette
+    ldr r2, =MENU_STATE
+    ldr r2, [r2, #M_LED_V]
+    bics r2, r2, #0xFF000000
+    addeq r2, r3, #8            ; STOCK without a colour on the LED pages: the firmware's colour of the zone, behind the palette
+    beq meter_zone_palette
+    push {r1, r4}
+    mul r3, r0, r0              ; 64 + level² * 191, as led_meter_hook does for the meter in our colour
+    mov r3, r3, lsr #8
+    mov r4, #191
+    mul r0, r3, r4
+    mov r0, r0, lsr #8
+    add r0, r0, #64
+    mov r1, #0
+meter_zone_led:
+    and r3, r2, #255
+    mul r4, r3, r0
+    mov r4, r4, lsr #8
+    strb r4, [r12, r1]
+    mov r2, r2, lsr #8
+    add r1, r1, #1
+    cmp r1, #3
+    blo meter_zone_led
+    mov r2, r12
+    pop {r1, r4}
+    bx lr
+meter_zone_palette:
     ldr r0, =meter_palette
     add r2, r2, r2, lsl #1
     add r2, r0, r2
     bx lr
-; METER STILL RAINBOW: one step of the hue a tick (40 ms), round the wheel (red, green, blue) in 256 ticks, about 10 s. Writes the
+; METER STILL RAINBOW: three steps of the hue a tick (40 ms), round the wheel (red, green, blue) in 86 ticks, about 3.4 s. Writes the
 ; colour to MX_RGB for meter_colour. Keeps r0 and r1.
 meter_rainbow:
     ldr r2, =MENU_STATE
@@ -960,7 +993,7 @@ meter_rainbow:
     bxne lr
     push {r0, r1}
     ldrb r3, [r2, #MX_PHASE]
-    add r3, r3, #1
+    add r3, r3, #3
     and r3, r3, #255
     strb r3, [r2, #MX_PHASE]
     add r3, r3, r3, lsl #1      ; 0 to 765: three segments of 256
@@ -2079,7 +2112,7 @@ menu_off_shift:
     add r12, r3, #1
     ldr r12, [r2, r12, lsl #2]
     str r12, [r2, r3, lsl #2]
-    add r3, r3, #1
+    add r3, r3, #3
     b menu_off_shift
 menu_off_keep:
     ldr r0, [r5, #SCRIPT_ENTRY_STATE]
