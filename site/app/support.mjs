@@ -109,28 +109,29 @@ const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v
 
 /**
  * The page background, standing still: a grid of cells, dither bands thickening towards both side edges and stars
- * at three depths, each of the two on its own. Same rules and strengths as site/design/bg.js, so the picture looks like the app behind it.
+ * at three depths, each of the two on its own. The rules of site/design/bg.js, but coarser and stronger: behind a
+ * page they only hint, on a picture of its own they have to show.
  */
 function starField(ctx, w, h, ink, { bands, stars }) {
-  const cell = Math.max(4, Math.round(Math.min(w, h) / 160));
+  const cell = Math.max(4, Math.round(Math.min(w, h) / 96));
   const cols = Math.ceil(w / cell);
   const rows = Math.ceil(h / cell);
   const width = Math.min(44, Math.max(14, Math.round(cols * 0.09)));
   ctx.fillStyle = ink;
-  ctx.globalAlpha = 0.14;
+  ctx.globalAlpha = 0.4;
   if (bands) for (let j = 0; j < rows; j += 2) for (let i = 0; i < cols; i += 2) {
     const edge = Math.min(i, cols - 1 - i);
     const density = edge >= width ? 0 : (1 - edge / width) ** 1.4 * 0.9;
     if (density > BAYER[((j >> 1) & 3) * 4 + ((i >> 1) & 3)]) ctx.fillRect(i * cell, j * cell, cell, cell);
   }
   const rand = rng(23);
-  if (stars) for (let n = Math.min(240, Math.floor((cols * rows) / 650)); n > 0; n--) {
+  if (stars) for (let n = Math.min(240, Math.floor((cols * rows) / 250)); n > 0; n--) {
     const z = rand();
     const layer = z < 0.45 ? 0 : z < 0.85 ? 1 : 2;
     const x = Math.floor(rand() * cols);
     const y = Math.floor(rand() * rows);
     const plus = layer === 2 && rand() < 0.12;
-    const star = (dx, dy, dim) => { ctx.globalAlpha = dim ? 0.28 : 0.55; ctx.fillRect((x + dx) * cell, (y + dy) * cell, cell, cell); };
+    const star = (dx, dy, dim) => { ctx.globalAlpha = dim ? 0.6 : 1; ctx.fillRect((x + dx) * cell, (y + dy) * cell, cell, cell); };
     star(0, 0, layer === 0);
     if (layer === 2) star(1, 0, false);
     if (plus) { star(0, -1, false); star(1, 1, false); star(0, 2, true); star(-1, 0, true); star(2, 0, true); }
