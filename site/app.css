@@ -2769,6 +2769,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 .cee-bk-shelf,
 .cee-bk-builder,
 .cee-bk-steps,
+.cee-bk-blocks,
 .cee-bk-mod-body {
   display: flex;
   flex-direction: column;
