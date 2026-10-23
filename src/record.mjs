@@ -103,6 +103,23 @@ export class FxRecord {
     return rows;
   }
 
+  /**
+   * Room for `count` map rows. A free row takes the whole entry of a used one, here or in `donor`, before its five
+   * known bytes are written: the other 23 are not understood, so a row is copied, never built from zeros.
+   * @returns {boolean} false when neither record has a row to copy
+   */
+  growMap(count, donor = null) {
+    const source = this.map.length ? this : donor?.map.length ? donor : null;
+    if (!source) return count === 0;
+    const from = REC.map + source.map.at(-1).index * REC.mapEntrySize;
+    const row = source.bytes.slice(from, from + REC.mapEntrySize);
+    for (let i = 0; i < Math.min(count, REC.mapEntries); i++) {
+      const at = REC.map + i * REC.mapEntrySize;
+      if (!this.bytes[at]) this.bytes.set(row, at);
+    }
+    return true;
+  }
+
   set map(rows) {
     if (rows.length > REC.mapEntries) {
       throw new Error(`${rows.length} map rows, the record holds ${REC.mapEntries}`);
