@@ -4,10 +4,13 @@
 
 class ControlsScenario:
     ACTIONS = [
-        ("turn", 12, 8, 5),
-        ("forward", 11, 8, 5),
-        ("fire", 2, 12, 5),
-        ("use", 3, 8, 5),
+        ("turn", (("pad", 10),), 8, 5),
+        ("forward", (("pad", 1),), 8, 5),
+        ("fire", (("pad", 15),), 12, 5),
+        ("use", (("pad", 7),), 8, 5),
+        ("strafe", (("pad", 2),), 8, 5),
+        ("move-turn-fire", (("pad", 1), ("pad", 10), ("pad", 15)), 12, 5),
+        ("weapon", (("pad", 6),), 3, 45),
         ("main-menu", 9, 3, 3),
         ("new-game-menu", 0, 3, 3),
         ("episode-down", 15, 3, 3),
@@ -25,11 +28,13 @@ class ControlsScenario:
         self.events = []
         self.states = []
         self.game_frame = None
+        self.initial_frame = None
         self._index = -1
         self._phase = "await-play"
         self._tic = 0
         self._before = None
         self._use_seen = False
+        self._fire_led_seen = False
         self._main_menu = None
         self._episode_menu = None
         self._skill_menu = None
@@ -38,17 +43,22 @@ class ControlsScenario:
         self._quit_dialog_before = None
 
     def _record(self, name, machine, current, engine):
+        if name == "initial-play":
+            self.initial_frame = bytes(value for row in machine.fb for value in row)
         result = dict(name=name, seconds=machine.time_ns / 1e9,
                       state={key: current.get(key) for key in ["stage", "error", "frames", "gametic", "viewangle"]},
-                      engine=dict(engine) if engine is not None else None)
+                      engine=dict(engine) if engine is not None else None,
+                      pad_leds={str(i + 1): [machine.leds.get(0x2C + 2 * i, 0), machine.leds.get(0x2D + 2 * i, 0)] for i in range(16)})
         self.states.append(result)
         return result
 
     def _send(self, machine, current, index, down, name):
-        message = [0, index, int(down), 0, 0]
-        machine.send(message)
-        self.events.append(dict(name=name, seconds=machine.time_ns / 1e9,
-                                gametic=current.get("gametic"), message=message))
+        messages = ([[4, pad, 0, 100 if down else 0, int(down)] for _, pad in index]
+                    if isinstance(index, tuple) else [[0, index, int(down), 0, 0]])
+        for message in messages:
+            machine.send(message)
+            self.events.append(dict(name=name, seconds=machine.time_ns / 1e9,
+                                    gametic=current.get("gametic"), message=message))
 
     def _check(self, name, ok, before, after, evidence="observed"):
         self.checks.append(dict(id=name, ok=bool(ok), before=before, after=after, evidence=evidence))
@@ -81,7 +91,20 @@ class ControlsScenario:
             ok = alive and before["state"]["viewangle"] != current["viewangle"]
         elif name == "forward":
             ok = alive and (old.get("x"), old.get("y")) != (engine.get("x"), engine.get("y"))
+        elif name == "strafe":
+            ok = alive and (old.get("x"), old.get("y")) != (engine.get("x"), engine.get("y"))
+        elif name == "move-turn-fire":
+            ok = (alive and before["state"]["viewangle"] != current["viewangle"]
+                  and (old.get("x"), old.get("y")) != (engine.get("x"), engine.get("y"))
+                  and engine["ammo_clip"] < old["ammo_clip"])
+        elif name == "weapon":
+            ok = alive and engine["weapon"] != old["weapon"]
         elif name == "fire":
+            leds = after["pad_leds"]
+            led_ok = (self._fire_led_seen and leds["16"] == [96, 0] and leds["2"] == [0, 64]
+                      and leds["8"] == [64, 64] and leds["4"] == [0, 0])
+            if not self._check("pad-led-feedback", led_ok, before, after):
+                return False
             ok = alive and engine["ammo_clip"] < old["ammo_clip"]
         elif name == "use":
             ok = alive and self._use_seen and not engine.get("usedown")
@@ -159,6 +182,8 @@ class ControlsScenario:
             self._start_next(machine, current, engine)
             return False
         name, index, hold, settle = self.ACTIONS[self._index]
+        if name == "fire" and machine.leds.get(0x4A) == 255:
+            self._fire_led_seen = True
         if name == "use" and engine.get("usedown") and not self._use_seen:
             self._use_seen = True
             self._record("use-held-observed", machine, current, engine)

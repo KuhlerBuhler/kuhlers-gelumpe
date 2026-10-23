@@ -181,6 +181,7 @@ def run(image, flash, program, wad, seconds=5.0, held=0x408, fault=None, output=
                   stack_high_water=END-lowest_stack[0],
                   engine=inspect_engine(machine,inspection) if inspection and current["stage"] in (5,6) else None,
                   powered=machine.powered,
+                  leds=dict(machine.leds),
                   first_playing=first_playing,
                   guards_ok=bytes(machine.uc.mem_read(ENGINE-len(guard_low),len(guard_low)))==guard_low and bytes(machine.uc.mem_read(END,len(guard_high)))==guard_high and bytes(machine.uc.mem_read(0xC17F0000,len(stack_guard)))==stack_guard,
                   lcd_sha256=hashlib.sha256(lcd).hexdigest(),
@@ -198,6 +199,9 @@ def run(image, flash, program, wad, seconds=5.0, held=0x408, fault=None, output=
         (output/"result.json").write_text(json.dumps(report,indent=2)+"\n")
         (output/"frame.bin").write_bytes(lcd)
         if controller and controller.game_frame: (output/"game-frame.bin").write_bytes(controller.game_frame)
+        if controller and controller.initial_frame:
+            (output/"initial-play.bin").write_bytes(controller.initial_frame)
+            write_frame(output/"initial-play.png", controller.initial_frame)
         write_frame(output/"frame.png",lcd)
         if controller and controller.game_frame: write_frame(output/"game-frame.png",controller.game_frame)
     return report

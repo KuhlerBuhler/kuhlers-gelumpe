@@ -41,7 +41,8 @@ verdeckter Ersatz.
 
 Vor der Übergabe werden der Task-1-Descriptor und SP auf den eigenen Stack
 gesetzt. Der Lader reinigt die DCache-Zeilen der Arena, leert den Schreibpuffer
-und invalidiert ICache und Prefetchpuffer. Die ARM926-Befehle sind aus dem
+und invalidiert ICache und Prefetchpuffer (Nachtrag 22.10.: den Prefetch-Befehl `c7, c5, 4` gibt es auf dem ARM926 nicht,
+am Gerät hängt er; er ist raus, siehe [Doom am Gerät](2026-10-22-doom-am-geraet.md)). Die ARM926-Befehle sind aus dem
 [ARM926EJ-S TRM](https://documentation-service.arm.com/static/5e8e3d1088295d1e18d3a9b2%3Ftoken%3D)
 abgeleitet. Unicorn prüft ihre Ausführung, modelliert jedoch keine echten
 Cacheinhalte. Hardwarewirkung bleibt ungeprüft.
