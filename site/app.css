@@ -1277,6 +1277,28 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   gap: var(--space-3);
 }
 
+/* Eleven pictures to pick from: the row wraps instead of running off a phone. */
+.cee-support-controls .ui-segmented {
+  flex-wrap: wrap;
+}
+
+.cee-support-own {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.cee-support-own[hidden] { display: none; }
+
+.cee-support-colour {
+  inline-size: var(--space-16);
+  block-size: var(--space-10);
+  padding: 0;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  background: none;
+}
+
 .cee-support-preview {
   width: 100%;
   max-width: 24rem;

@@ -29,19 +29,31 @@ test("the donate button opens the Unterstützen page: PayPal, an issue, a pull r
   assert.deepEqual(page.errors, []);
 });
 
-test("a profile picture with a name and wallpapers for a computer and a phone, two colours each, saved as PNG", async () => {
+test("a profile picture with a name and wallpapers for a computer and a phone, saved as PNG", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#support`);
-  await page.fill("#cee-support-name", "Kuhler Buhler");
+  await page.fill("#cee-support-avatar-text", "Kuhler Buhler");
   await page.waitForFunction(() => document.getElementById("cee-support-avatar-canvas").getContext("2d").getImageData(0, 0, 1, 1).data[3] === 255);
-  assert.equal(await colours(page, "cee-support-avatar-canvas"), 2, "only the background and the pixels of the display");
+  assert.equal(await colours(page, "cee-support-avatar-canvas"), 2, "on a plain background only its colour and the pixels of the display");
   const avatar = await h.download(page, () => page.click("#cee-support-avatar-save"));
   assert.deepEqual([...avatar.slice(0, 4)], PNG);
   assert.deepEqual(size(avatar), [1024, 1024]);
 
-  await page.locator("#cee-support-format label", { hasText: "Handy" }).click();
+  assert.ok(await colours(page, "cee-support-wallpaper-canvas") > 2, "the wallpaper starts on the star field of the app background");
+  await page.locator("#cee-support-wallpaper-format label", { hasText: "Handy" }).click();
+  await page.locator("#cee-support-wallpaper-figure label", { hasText: "Augen" }).click();
+  await page.locator("#cee-support-wallpaper-place label", { hasText: "Oben" }).click();
+  await page.locator("#cee-support-wallpaper-look label", { hasText: "Eigene" }).click();
+  await page.locator("#cee-support-wallpaper-ink").fill("#00ff00");
   await page.waitForFunction(() => document.getElementById("cee-support-wallpaper-canvas").dataset.format === "phone");
-  assert.equal(await colours(page, "cee-support-wallpaper-canvas"), 2);
+  const rows = await page.evaluate(() => {
+    const c = document.getElementById("cee-support-wallpaper-canvas");
+    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    const lit = [];
+    for (let y = 0; y < c.height; y += 4) for (let x = 0; x < c.width; x += 4) { const i = (y * c.width + x) * 4; if (d[i] === 0 && d[i + 1] === 255 && d[i + 2] === 0) { lit.push(y); break; } }
+    return { first: lit[0], last: lit.at(-1), height: c.height };
+  });
+  assert.ok(rows.last < rows.height / 2, "the eyes sit in the upper half, in the colour picked");
   const wallpaper = await h.download(page, () => page.click("#cee-support-wallpaper-save"));
   assert.deepEqual(size(wallpaper), [1170, 2532]);
   assert.deepEqual(page.errors, []);
