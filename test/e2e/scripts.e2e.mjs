@@ -50,13 +50,13 @@ const onRun = page => page.click("#cee-script-preview");
 const newPlugin = async page => {
   if (await page.locator("#cee-plugin-run").isVisible()) await closeRun(page);
   await page.click("#cee-scripts-page-catalog");
-  await page.click("#cee-shelf-own");
+  await page.click("#cee-scripts-page-mine");
   await page.click("#cee-script-new");
 };
 
 const ownNames = async page => {
   await page.click("#cee-scripts-page-catalog");
-  await page.click("#cee-shelf-own");
+  await page.click("#cee-scripts-page-mine");
   const names = await page.locator("#cee-script-own .cee-own-name").allTextContents();
   await onEditor(page);
   return names;
@@ -69,7 +69,7 @@ const TITLES = ["BLECH Clicker", "Set-Timer", "Snake", "Tetris", "Game of Life",
 async function makeOwn(page, from = "snake") {
   if (await page.locator("#cee-plugin-run").isVisible()) await closeRun(page);
   await page.click("#cee-scripts-page-catalog");
-  await page.click("#cee-shelf-catalog");
+  await page.click("#cee-scripts-page-catalog");
   await page.click(`#cee-catalog-${from} .cee-catalog-open`);
   await page.click("#cee-detail-copy");
   await page.locator("#cee-script-name:not([disabled])").waitFor();
@@ -81,7 +81,7 @@ test("the page replaces Terminal and FUN: templates, an editor, the run area and
   assert.equal(await page.locator("#cee-tab-terminal").count(), 0);
   assert.equal(await page.locator("#cee-tab-fun").count(), 0);
   assert.equal(await page.locator("#cee-nav-title").textContent(), "PluginsKatalog", "Plugins, then the sub-page as a breadcrumb");
-  assert.deepEqual(await page.locator("#cee-scripts-pages button").allTextContents(), ["Katalog", "Editor", "Dokumentation"], "the pages are sub-items of the Plugins entry");
+  assert.deepEqual(await page.locator("#cee-scripts-pages button").allTextContents(), ["Katalog", "Meine Plugins", "Editor", "Dokumentation"], "the pages are sub-items of the Plugins entry");
   assert.equal(await page.locator("#cee-scripts-page-catalog").getAttribute("aria-current"), "", "the catalog is the page that opens first");
   assert.equal(await page.locator("#cee-catalog").isVisible(), true);
   assert.equal(await page.locator("#cee-script-text").isVisible(), false);
@@ -132,7 +132,7 @@ test("a template opens as an own script, edits are kept across a reload, and a c
   await onEditor(page);
   assert.equal(await page.locator("#cee-editor-empty").isVisible(), true, "after a reload the editor starts empty");
   await page.click("#cee-scripts-page-catalog");
-  await page.click("#cee-shelf-own");
+  await page.click("#cee-scripts-page-mine");
   assert.deepEqual(await page.locator("#cee-script-own .cee-own-name").allTextContents(), ["snake"]);
   await page.click("#cee-own-snake .cee-catalog-open");
   await page.locator("#cee-script-text").waitFor();
@@ -289,7 +289,7 @@ test("all own scripts leave as one e2sPlugin.all that the loader's format check 
   await page.locator("#app-toasts .cee-toast", { hasText: "Probe über" }).last().waitFor();
   await closeRun(page);
   await page.click("#cee-scripts-page-catalog");
-  await page.click("#cee-shelf-own");
+  await page.click("#cee-scripts-page-mine");
   const bytes = await h.download(page, async () => {
     await page.click("#cee-script-export-all");
     const dialog = page.locator("dialog.ui-dialog[open]");
@@ -622,15 +622,15 @@ test("the catalog shows each plugin as a card with its category and maker, a pic
   assert.deepEqual(page.errors, []);
 });
 
-test("Eigene Plugins is the second button of the catalog: empty it says so as a plain line; the editor takes the whole page", async () => {
+test("Meine Plugins is a sub-page of its own: empty it says so as a plain line; the editor takes the whole page", async () => {
   const page = await open(undefined, { plugin: false });
   await page.click("#cee-scripts-page-catalog");
-  await page.click("#cee-shelf-own");
+  await page.click("#cee-scripts-page-mine");
   assert.equal(await page.locator("#cee-catalog").isVisible(), false);
   assert.match(await page.locator("#cee-script-own-empty").textContent(), /^Noch keine eigenen Plugins/);
   await makeOwn(page);
   await page.click("#cee-scripts-page-catalog");
-  await page.click("#cee-shelf-own");
+  await page.click("#cee-scripts-page-mine");
   assert.equal(await page.locator("#cee-script-own-empty").isVisible(), false);
   assert.deepEqual(await page.locator("#cee-script-own .cee-own-name").allTextContents(), ["snake"]);
   assert.equal(await page.locator("#cee-own-snake .cee-catalog-thumb").count(), 1, "an own plugin's card looks like the catalog's");

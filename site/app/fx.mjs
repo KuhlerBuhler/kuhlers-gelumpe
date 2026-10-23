@@ -638,7 +638,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   function downloadCopy() {
     if (!state.passed) return;
     saveFile(state.passed, "SYSTEM.VSB");
-    exportNote.textContent = "Kopiere die Datei wie im Bereich Patcher beschrieben auf die SD-Karte und starte SOFTWARE UPDATE unter DATA UTILITY.";
+    exportNote.textContent = "Kopiere die Datei wie im Bereich Patcher beschrieben auf die SD-Karte und starte am Gerät Menü -> DATA UTILITY -> SOFTWARE UPDATE.";
   }
 
   addButton.addEventListener("click", addCopy);
@@ -675,6 +675,48 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       state.slot = slot;
       renderPicker();
       return true;
+    },
+    /**
+     * Writes a record built elsewhere (the Baukasten) live into `slot`, through the same gate as Live ins RAM.
+     * `make(before, records)` builds it from what the slot holds now and the other records of its kind.
+     * @returns {Promise<{ok: true} | {ok: false, reason: string}>}
+     */
+    async writeRecord(kind, slot, make) {
+      if (!state.image) return { ok: false, reason: "Dafür braucht die Seite deine Firmware: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen." };
+      const session = await pick();
+      if (!session) {
+        const off = emulator?.()?.firmware && !emulator().port?.running;
+        return { ok: false, reason: state.why ?? (off ? "Die Firmware ist geladen, aber der Emulator ist aus. Halte im Bereich Emulator die Power-Taste 2 Sekunden, dann noch einmal laden." : "Weder Emulator noch Gerät verbunden. Schalte den Emulator ein oder verbinde die Electribe.") };
+      }
+      const before = Uint8Array.from(state.image.read(kind, slot).bytes);
+      const made = make(before, state.image.list(kind).map(x => Uint8Array.from(x.record.bytes)));
+      if (!made.ok) return made;
+      const edit = { kind: "fxRecord", table: kind, slot, bytes: made.record, before, unknownChanges: unknownChanges(before, made.record) };
+      if (state.stock) edit.ram = recordOf(state.base, kind, slot)?.ram;
+      const release = session.reserve();
+      try {
+        await session.idle();
+        const checked = await session.check(edit);
+        if (checked.verdict === "blocked") return { ok: false, reason: `Gesperrt: ${checked.reasons[0]?.message ?? ""}` };
+        if (checked.verdict === "confirm") {
+          const text = checked.reasons.map(r => `${SEVERITY[r.severity]?.[1] ?? r.severity}: ${r.message}`).join("\n");
+          if (!(await window.ui.confirm({ title: "Trotz Warnungen senden?", text, confirmLabel: "Senden", danger: false }))) return { ok: false, reason: "" };
+        }
+        const result = await whenIdle(session, () => session.apply(edit, { confirmed: checked.token }));
+        if (result.needsConfirmation) return { ok: false, reason: "Der Befund hat sich geändert, bitte noch einmal senden." };
+        if (result.gate?.verdict === "blocked") return { ok: false, reason: `Gesperrt: ${result.gate.reasons[0]?.message ?? ""}` };
+        if (!result.ok) return { ok: false, reason: result.error?.message ?? "abgebrochen" };
+        state.image.write(kind, slot, new FxRecord(made.record, kind));
+        device.log?.(`${kind === "ifx" ? "IFX" : "MFX"} ${slot} live geschrieben (Baukasten).`, "ok");
+        onSent?.({ kind, slot });
+        renderPicker();
+        if (state.kind === kind && state.slot === slot && !state.dirty) openSlot(slot, { refresh: true });
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, reason: e.message };
+      } finally {
+        release();
+      }
     },
     /** Show inserts or masters; before a file is loaded, the dropzone is where to go. */
     selectKind(kind) {

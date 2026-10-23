@@ -89,7 +89,7 @@ test("the emulator page has no options in the sidebar: the firmware goes on its 
     assert.equal(await page.locator(".cee-nav-sub:visible").count(), 0, `${tab} shows no options`);
   }
   await page.click("#cee-tab-scripts");
-  assert.deepEqual(await page.locator("#cee-sub-scripts button").allTextContents(), ["Katalog", "Editor", "Dokumentation"], "Plugins shows its pages as sub-items");
+  assert.deepEqual(await page.locator("#cee-sub-scripts button").allTextContents(), ["Katalog", "Meine Plugins", "Editor", "Dokumentation"], "Plugins shows its pages as sub-items");
   assert.equal(await page.getAttribute("#cee-sub-scripts", "aria-label"), "Optionen Plugins");
   await page.click("#cee-tab-emu");
   assert.equal(await page.locator("#cee-sub-scripts").isVisible(), false, "the options of Plugins go with its page");
@@ -173,14 +173,16 @@ test("the start page has its sections in heading order and the donate link opens
   const page = await h.page();
   await page.goto(h.url);
   assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Wie installiere ich BLECHTRIBE?", "Geht was schief?", "Was kann BLECHTRIBE?", "Erkunden", "Spenden"]);
-  const cards = page.locator("#cee-start-features > li");
-  assert.ok(await cards.count() > 6 && await cards.count() <= 12, "the functions one card each, at most twelve");
-  assert.equal(await cards.locator("canvas.cee-catalog-thumb").count(), await cards.count(), "every card has its picture, drawn like the plugin pictures");
-  await page.waitForFunction(() => [...document.querySelectorAll("#cee-start-features canvas")].every(c => {
-    const d = c.getContext("2d").getImageData(0, 0, 128, 64).data;
+  assert.match(await page.locator("#cee-start-features").textContent(), /volle Liste/, "the start page says there is a lot and points to Features");
+  assert.equal(await page.getAttribute("#cee-start-rescue-more", "href"), "#rescue", "Geht was schief? has its button to the rescue page");
+  assert.equal(await page.getAttribute("#cee-start-more", "href"), "#features", "the button leads to the page of all functions");
+  await page.click("#cee-start-more");
+  assert.equal(await page.locator("#cee-feature-dice canvas.cee-catalog-thumb").count(), 1, "a function on the Features page carries its picture");
+  await page.waitForFunction(() => {
+    const d = document.querySelector("#cee-feature-dice canvas").getContext("2d").getImageData(0, 0, 128, 64).data;
     return new Set(Array.from({ length: d.length / 4 }, (_, i) => d[i * 4])).size === 2;
-  }), null, { timeout: 5000 });
-  assert.equal(await page.getAttribute("#cee-start-more", "href"), "#features", "Vieles mehr leads to the page of all functions");
+  }, null, { timeout: 5000 });
+  await page.goto(h.url);
   for (const id of ["#cee-donate", "#cee-donate-start"]) assert.equal(await page.getAttribute(id, "href"), "#support", "donating leads to the Unterstützen page first");
   assert.equal(await page.getAttribute("#cee-support-paypal", "target"), "_blank");
   const app = await h.page();
