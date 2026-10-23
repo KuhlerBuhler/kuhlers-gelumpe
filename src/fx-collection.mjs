@@ -16,6 +16,8 @@ import { TABLES } from "./map/index.mjs";
 import { locateModTable, writeModType } from "./modtable.mjs";
 import { buildOf } from "./firmware.mjs";
 import { fxText, fxToRecord } from "./fx-v2.mjs";
+import { FxRecord } from "./record.mjs";
+import { lint } from "./rules.mjs";
 
 export const COLLECTION_FILE = "e2sFx.all";
 export const COLLECTION_FOLDER = "KORG/blechtribe/Presets";
@@ -131,5 +133,10 @@ export function collectionEntry(preset, vsb, index, units) {
   if (!where || !at) return { ok: false, reason: `Platz ${index + 1} gibt es in dieser Firmware nicht.` };
   const records = Array.from({ length: where.capacity }, (_, i) => recordOf(vsb, preset.kind, i + 1)).map(r => vsb.slice(r.file, r.file + RECORD));
   const made = fxToRecord(preset, vsb.slice(at.file, at.file + RECORD), records, units);
-  return made.ok ? { ok: true, entry: { kind: preset.kind, index, data: made.record, text: fxText(preset) } } : made;
+  if (!made.ok) return made;
+  // The Türsteher's rules (src/rules.mjs), as for a live write: what crashes the device, stays silent or is broken
+  // does not go on the card either, where it would load at every start.
+  const bad = lint(new FxRecord(made.record, preset.kind), { units }).find(f => ["fatal", "silent", "error"].includes(f.severity));
+  if (bad) return { ok: false, reason: `Vom Türsteher gesperrt: ${bad.message}` };
+  return { ok: true, entry: { kind: preset.kind, index, data: made.record, text: fxText(preset) } };
 }

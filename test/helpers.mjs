@@ -26,6 +26,8 @@ export function makeRecord(kind, { name = "Test", devices = {}, params = {} } = 
   for (const stage of record.stageNames) {
     if (!(stage in devices)) record.setDevice(stage, 0);
   }
+  // Korg leaves the insert fields of a master preset at zero (src/rules.mjs, master-extra-stage).
+  if (kind === "mfx") for (const stage of ["ifx1", "ifx2"]) if (!(stage in devices)) record.setDevice(stage, 0);
   for (const [stage, values] of Object.entries(params)) {
     values.forEach((v, i) => record.setParamAt(stage, i, v));
   }

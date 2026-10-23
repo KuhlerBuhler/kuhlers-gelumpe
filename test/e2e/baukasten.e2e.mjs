@@ -59,6 +59,9 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   assert.equal(await page.locator("#cee-bk-blocks details").count(), 0);
   // A knob a control moves shows the stretch as a ring; the preview turns it without keeping the value.
   assert.ok(await page.locator("#cee-bk-blocks .cee-knob-mapped").count() > 0, "the knobs the Steuerung moves carry a ring");
+  // On a master effect the switch is the touchpad being held: one value released, one held.
+  assert.match(await page.locator("#cee-bk-map .cee-sentence").first().textContent(), /steuert.*losgelassen.*gedrückt/);
+  assert.equal(await page.locator("#cee-bk-map select option:checked", { hasText: "Touchpad gedrückt" }).count(), 2);
   await page.click("#cee-bk-map-preview");
   await page.locator("#cee-bk-preview[open] #cee-bk-preview-pad").waitFor();
   const before = await page.inputValue("#cee-bk-p-0-off_l_delay_time-value");

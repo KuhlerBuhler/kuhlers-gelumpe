@@ -9,6 +9,7 @@ import { locateModTable, readModType } from "../src/modtable.mjs";
 import { recordOf, RECORD } from "../src/presets.mjs";
 import { makeRecord, makeFirmwareWithArrays } from "./helpers.mjs";
 import { REC } from "../src/layout.mjs";
+import { FX_CATALOG } from "../data/fx/catalog.mjs";
 
 const units = readUnits();
 const MOD_DELAY = 0x3b;
@@ -128,7 +129,9 @@ test("an entry for the user's firmware: the preset over its slot, the modulation
   const vsb = await makeFirmwareWithArrays([
     { kind: "mfx", slot: 1, record: makeRecord("mfx", { name: "Mod Delay", devices: { mfx: MOD_DELAY } }) },
   ]);
-  const made = collectionEntry(shortDelay(), vsb, 0, units);
+  // With the row every factory master preset has: the switch opens the input (rules: fx-on crossfade).
+  const preset = { ...shortDelay(), map: [...shortDelay().map, { source: 65, chain: 7, param: 0, low: 0, high: 88 }] };
+  const made = collectionEntry(preset, vsb, 0, units);
   assert.equal(made.ok, true, made.reason);
   const at = recordOf(vsb, "mfx", 1);
   const before = vsb.slice(at.file, at.file + RECORD);
@@ -152,4 +155,22 @@ test("a modulation type reads back with negative strengths, and out of range val
   assert.equal(read.preset.slots[0].lo, -20);
   const bad = readFx(fxText({ ...type, slots: [{ ...type.slots[0], lo: -200 }] }), units);
   assert.equal(bad.ok, false);
+});
+
+test("the Türsteher stands before the card too: a block that crashes in stage 2 is refused, every catalog effect passes", async () => {
+  const vsb = await makeFirmwareWithArrays([
+    { kind: "mfx", slot: 1, record: makeRecord("mfx", { name: "Mod Delay", devices: { mfx: MOD_DELAY } }) },
+    { kind: "ifx", slot: 1, record: makeRecord("ifx", { name: "Chorus", devices: { ifx1: 0x11, ifx2: 0x11 } }) },
+  ], { patched: true });
+  const crash = { kind: "ifx", name: "Absturz", map: [], stages: [
+    { stage: "ifx1", unit: 0x11, unitName: "I_chorus", params: {} },
+    { stage: "ifx2", unit: 0x02, unitName: "I_decimator", params: {} },
+  ] };
+  const made = collectionEntry(crash, vsb, 0, units);
+  assert.equal(made.ok, false, "a decimator in stage 2 crashes the device (data/findings.mjs)");
+  assert.match(made.reason, /Türsteher/);
+  for (const item of FX_CATALOG) {
+    const entry = collectionEntry(item, vsb, 0, units);
+    assert.equal(entry.ok, true, `${item.name}: ${entry.reason}`);
+  }
 });

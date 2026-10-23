@@ -269,7 +269,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
           for (const o of options) box.append(el("option", { value: String(o.raw), textContent: o.label }));
           if (!options.some(o => o.raw === row[key])) box.append(el("option", { value: String(row[key]), textContent: `unbekannt (${row[key]})` }));
           box.value = String(row[key]);
-          box.addEventListener("change", () => { row[key] = Number(box.value); if (key === "chain") { row.param = 0; draw(); } else rings(); });
+          box.addEventListener("change", () => { row[key] = Number(box.value); if (key === "chain") row.param = 0; if (key === "chain" || key === "source") draw(); else rings(); });
           return box;
         };
         const chain = chains.find(c => c.raw === row.chain);
@@ -281,14 +281,16 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
           box.addEventListener("change", () => { row[key] = Math.max(0, Math.min(127, Math.round(Number(box.value) || 0))); box.value = String(row[key]); rings(); });
           return box;
         };
+        // A control with two states (the touchpad held or not, the FX switch, play) sets one value per state.
+        const [off, on] = sources.find(x => x.raw === row.source)?.states?.[kind] ?? ["von", "bis"];
         return el("div", { className: "cee-fxmap-row" }, [
           el("div", { className: "cee-sentence" }, [
             select("source", sources.map(x => ({ raw: x.raw, label: x.who?.[kind] ?? x.label })), "Quelle"),
             el("span", { textContent: "steuert" }),
             select("chain", chains.map(c => ({ raw: c.raw, label: c.label })), "Ziel"),
             ...(params.length ? [el("span", { textContent: ">" }), select("param", params, "Parameter")] : []),
-            el("span", { textContent: "von" }), number("low", "Von"),
-            el("span", { textContent: "bis" }), number("high", "Bis"),
+            el("span", { textContent: off }), number("low", off === "von" ? "Von" : `Wert ${off}`),
+            el("span", { textContent: on }), number("high", on === "bis" ? "Bis" : `Wert ${on}`),
             readOnly ? null : el("button", { type: "button", className: "btn sm", textContent: "Entfernen", onclick: () => { piece.map.splice(n, 1); draw(); } }),
           ]),
         ]);
@@ -351,7 +353,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   function previewMap(piece, knobs) {
     const kind = piece.kind === "mfx" ? "mfx" : "ifx";
     // The touchpad only moves anything while it is touched; the insert effect's knob always sits somewhere.
-    const c = { x: kind === "ifx" ? 0 : null, y: null, on: true, play: false };
+    // On a master effect the switch is the touch itself, so it starts released.
+    const c = { x: kind === "ifx" ? 0 : null, y: null, on: kind === "ifx", play: false };
     const shown = new Map();
     for (const row of piece.map) {
       const key = targetOf(row);
@@ -389,12 +392,13 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
         const r = pad.getBoundingClientRect();
         c.x = Math.round(clamp((e.clientX - r.left) / r.width, 0, 1) * 127);
         c.y = Math.round(clamp(1 - (e.clientY - r.top) / r.height, 0, 1) * 127);
+        c.on = true;
         dot.hidden = false;
         dot.style.left = `${(c.x / 127) * 100}%`;
         dot.style.top = `${(1 - c.y / 127) * 100}%`;
         apply();
       };
-      const release = () => { c.x = null; c.y = null; dot.hidden = true; apply(); };
+      const release = () => { c.x = null; c.y = null; c.on = false; dot.hidden = true; apply(); };
       pad.addEventListener("pointerdown", e => { e.preventDefault(); try { pad.setPointerCapture(e.pointerId); } catch {} touch(e); });
       pad.addEventListener("pointermove", e => { if (c.x !== null) touch(e); });
       for (const ev of ["pointerup", "pointercancel"]) pad.addEventListener(ev, release);
@@ -407,7 +411,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       box.addEventListener("change", () => { c[key] = box.checked; apply(); });
       return el("label", { className: "ui-switch" }, [box, el("span", { className: "ui-switch-track", ariaHidden: "true" }), label]);
     };
-    controls.push(toggle("cee-bk-preview-on", "Effekt an", "on"), toggle("cee-bk-preview-play", "Pattern läuft", "play"));
+    if (kind === "ifx") controls.push(toggle("cee-bk-preview-on", "Effekt an", "on"));
+    controls.push(toggle("cee-bk-preview-play", "Pattern läuft", "play"));
 
     previewBody.replaceChildren(
       el("p", { className: "muted", textContent: "Dreh am Regler oder drück aufs Touchpad: links siehst du, wie sich die Parameter bewegen. Zu hören ist dabei nichts. So liest die Seite die Steuerung, nachgemessen am Gerät ist das nicht." }),
