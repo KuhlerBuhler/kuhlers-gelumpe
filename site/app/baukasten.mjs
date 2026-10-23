@@ -1,20 +1,22 @@
 /**
- * The Baukasten: effects and modulation types built from blocks, without knowing the firmware. A ready one from the
- * catalog or an empty one, a few choices, sliders, a name; out comes an .e2fx v2 file (src/fx-v2.mjs) and, with the
- * user's firmware in the emulator, the collection e2sFx.all for the card (src/fx-collection.mjs). Needs no firmware
- * until that last step.
+ * The Baukasten: effects and modulation types built from blocks, without knowing the firmware. Four sub-pages: the
+ * catalog, the editor, the user's own ones, and the export that puts them on places of the Electribe in the
+ * collection e2sFx.all for the card (src/fx-collection.mjs). Single ones go out as .e2fx v2 files (src/fx-v2.mjs).
+ * Needs no firmware until the export.
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
+import { icon } from "./icons.mjs";
 import { parseUnits } from "../../src/units.mjs";
-import { fxText, readFx, fxFileName } from "../../src/fx-v2.mjs";
-import { buildCollection, collectionEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
+import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
+import { buildCollection, parseCollection, collectionEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
 import { buildOf } from "../../src/firmware.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
 import { GROUPS, MAIN, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
 
 const OWN = "cee.baukasten";
+const SLOTS = "cee.baukasten.slots";
 const STAGES = { mfx: ["mfx"], ifx: ["ifx1", "ifx2"] };
 const SOURCES = [[1, "LFO"], [0, "Hüllkurve"], [2, "Aus"]];
 const TARGETS = [[3, "Filter"], [1, "Tonhöhe"], [2, "Oszillator"], [8, "Lautstärke"], [9, "Panorama"], [10, "Insert-Effekt"], [0, "Kein Ziel"]];
@@ -75,13 +77,56 @@ function slider(id, label, hint, min, max, value, change) {
   ]);
 }
 
-export function baukastenPage(root, { emulator = null } = {}) {
+const KIND_WORD = { mfx: "Master-Effekt", ifx: "Insert-Effekt", mod: "Modulation" };
+const SLOT_COUNT_FX = 100;
+const PAGES = [["catalog", "Katalog", "grid"], ["editor", "Editor", "sliders"], ["mine", "Meine Effekte", "folder"], ["export", "Export", "download"]];
+
+/** The word on a card under the title: the group of the first block, or what a modulation moves first. */
+function tagOf(preset) {
+  if (preset.kind === "mod") {
+    const slot = preset.slots.find(s => s.source !== 2 && s.target !== 0);
+    return slot ? TARGETS.find(([v]) => v === slot.target)?.[1] ?? "Bewegung" : "Bewegung";
+  }
+  const s = preset.stages.find(x => x.unit);
+  return s ? unitLabel(s.stage === "mfx" ? "mfx" : "ifx", s.unit, s.unitName)[1] : "";
+}
+
+/** Which slot holds which own effect in the export, per kind: {ifx: {"42": id}, mfx: {...}, mod: {...}}. */
+const readSlots = () => { try { return { ifx: {}, mfx: {}, mod: {}, ...JSON.parse(localStorage.getItem(SLOTS) ?? "{}") }; } catch { return { ifx: {}, mfx: {}, mod: {} }; } };
+const writeSlots = slots => { try { localStorage.setItem(SLOTS, JSON.stringify(slots)); return true; } catch { return false; } };
+const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+/** The own list as {id, kind, text}; an entry from before the sub-pages carried its slot, which moves to the export. */
+function ownList() {
+  const list = readOwn();
+  if (!list.some(o => !o.id)) return list;
+  const slots = readSlots();
+  for (const o of list) {
+    if (o.id) continue;
+    o.id = newId();
+    if (o.slot) slots[o.kind][o.slot] = o.id;
+    delete o.slot;
+  }
+  writeOwn(list);
+  writeSlots(slots);
+  return list;
+}
+
+/**
+ * @param {HTMLElement} root
+ * @param {{emulator?: object, presets?: object, sub?: object, trail?: (parts: string[]) => void, navbar?: (nodes: Node[]) => void}} [options]
+ *   presets: the panel of the Presets page (fx.mjs), which knows the slots and writes a record live
+ */
+export function baukastenPage(root, { emulator = null, presets = null, sub = null, trail = () => {}, navbar = () => {} } = {}) {
   let raw = null;            // data/units.json as it is, for the defaults of a block
   let units = null;
-  let fx = null;             // the effect being built, .e2fx v2 values
-  let mod = null;            // the modulation being built
-  let slotFx = 100;
-  let slotMod = 72;
+  let shelfKind = "fx";      // Effekte or Modulationen, for every sub-page
+  let shown = null;
+  let fx = null;             // the effect in the editor, .e2fx v2 values
+  let fxId = null;           // the own entry it came from, null for a new one or a copy of the catalog
+  let mod = null;
+  let modId = null;
+  let fxTarget = null;       // the slot this effect was loaded to on the device; the next load goes there without asking
 
   async function loadUnits() {
     if (units) return units;
@@ -93,47 +138,59 @@ export function baukastenPage(root, { emulator = null } = {}) {
   const defaultsOf = (kind, id) => Object.fromEntries((raw[kind === "mfx" ? "mfx_device" : "ifx_device"][`0x${id.toString(16).padStart(2, "0")}`]?.params ?? [])
     .map(p => [p.name, parseInt(p.default, 16)]));
   const unitKind = stage => (stage === "mfx" ? "mfx" : "ifx");
+  const parse = o => { const read = units ? readFx(o.text, units) : null; return read?.ok ? read.preset : JSON.parse(o.text); };
 
-  // ---- effects --------------------------------------------------------------------
-  const fxCatalog = el("ul", { className: "cee-bk-catalog", id: "cee-bk-fx-catalog" }, FX_CATALOG.map(item => el("li", { className: "cee-bk-card" }, [
-    el("h3", { textContent: item.name }),
-    el("p", { className: "cee-bk-kind", textContent: item.kind === "mfx" ? "Master-Effekt" : "Insert-Effekt" }),
-    el("p", { textContent: item.description }),
-    el("button", { type: "button", className: "btn cee-primary", textContent: "Bearbeiten", onclick: () => { openFx(structuredClone(item)); builderFx.scrollIntoView?.({ block: "start" }); } }),
-  ])));
+  /** A card like the plugin catalog's: the whole card opens it; `extra` sits on top of the card (the trash can). */
+  function card(preset, { creator, onOpen, extra = null, id = null }) {
+    return el("li", { className: "cee-catalog-card cee-bk-card", id }, [
+      el("h3", {}, el("button", { type: "button", className: "cee-catalog-open", textContent: preset.name, onclick: onOpen })),
+      el("p", { className: "cee-bk-meta" }, [el("span", { className: "cee-catalog-category", textContent: tagOf(preset) }), creator ? el("span", { className: "muted", textContent: `von ${creator}` }) : null]),
+      el("p", { className: "cee-bk-kind muted", textContent: KIND_WORD[preset.kind] }),
+      preset.description ? el("p", { textContent: preset.description }) : null,
+      extra,
+    ]);
+  }
 
-  const where = choices("cee-bk-where", "Wo soll der Effekt wirken?", [["mfx", "Auf das ganze Pattern (Master-Effekt)"], ["ifx", "Nur auf eine Spur (Insert-Effekt)"]], kind => {
-    if (fx?.kind === kind) return;
-    openFx({ kind, name: fx?.name ?? "", stages: STAGES[kind].map(stage => ({ stage, unit: 0, unitName: "nofx_thru", params: {} })), map: [] });
-  });
+  // ---- Katalog ----------------------------------------------------------------------
+  const fxCatalog = el("ul", { className: "cee-catalog cee-bk-catalog", id: "cee-bk-fx-catalog" }, FX_CATALOG.map(item => card(item, { creator: item.creator, onOpen: () => { openFx(structuredClone(item), null); page("editor"); } })));
+  const modCatalog = el("ul", { className: "cee-catalog cee-bk-catalog", id: "cee-bk-mod-catalog", hidden: true }, MOD_CATALOG.map(item => card(item, { creator: item.creator, onOpen: () => { openMod(structuredClone(item), null); page("editor"); } })));
+  const catalogTitle = el("h2", { className: "cee-bk-title", textContent: "Effekte" });
+  const catalogPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-catalog" }, [
+    el("p", { className: "cee-bk-lead", textContent: "Bau dir eigene Effekte und Modulationen aus Bausteinen. Nimm einen fertigen und dreh an den Reglern, oder fang im Editor leer an. Unter Export kommt alles in eine Datei für die Karte deiner Electribe." }),
+    catalogTitle, fxCatalog, modCatalog,
+  ]);
+
+  // ---- Editor: effect ---------------------------------------------------------------
   const blocks = el("div", { className: "cee-bk-blocks", id: "cee-bk-blocks" });
-  const fxName = el("input", { className: "input", id: "cee-bk-fx-name", type: "text", maxLength: 15, spellcheck: false, autocomplete: "off", placeholder: "zum Beispiel Mein Echo" });
+  const fxName = el("input", { className: "cee-bk-name", id: "cee-bk-fx-name", type: "text", maxLength: 15, spellcheck: false, autocomplete: "off", placeholder: "Name des Effekts" });
+  fxName.setAttribute("aria-label", "Name des Effekts, bis 15 Zeichen");
   fxName.addEventListener("input", () => { if (fx) fx.name = fxName.value; });
-  const fxSlot = el("input", { className: "input", id: "cee-bk-fx-slot", type: "number", min: 1, max: 100, value: slotFx });
-  fxSlot.addEventListener("input", () => { slotFx = Number(fxSlot.value); });
+  const fxKind = el("p", { className: "cee-bk-kind muted", id: "cee-bk-fx-kind" });
   const fxSave = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-fx-save", textContent: "Speichern" });
   const fxDownload = el("button", { type: "button", className: "btn", id: "cee-bk-fx-download", textContent: "Als Datei herunterladen" });
   const fxSaved = el("p", { className: "cee-bk-saved", id: "cee-bk-fx-saved", role: "status" });
-  const fxSteps = el("div", { className: "cee-bk-steps", id: "cee-bk-fx-steps", hidden: true }, [
-    el("h3", { textContent: "2. Bausteine" }),
-    el("p", { className: "muted", textContent: "Ein Baustein ist ein einzelner Effekt wie Hall, Echo oder Filter. Ein Effekt auf eine Spur kann zwei hintereinander haben, der zweite darf leer bleiben. Stell den Baustein mit den Reglern ein; anhören kannst du ihn erst an der Electribe." }),
+  const fxLoad = el("button", { type: "button", className: "btn", id: "cee-bk-fx-load", textContent: "Auf dem Gerät laden" });
+  const fxRetarget = el("button", { type: "button", className: "btn", id: "cee-bk-fx-retarget", textContent: "Anderer Platz", hidden: true });
+  const fxEditor = el("div", { className: "cee-bk-builder", id: "cee-bk-fx-builder", hidden: true }, [
+    el("div", { className: "cee-bk-head" }, [fxName, fxKind]),
+    el("p", { className: "muted", textContent: "Ein Baustein ist ein einzelner Effekt wie Hall, Echo oder Filter. Ein Insert-Effekt kann zwei hintereinander haben, der zweite darf leer bleiben. Anhören kannst du ihn erst an der Electribe." }),
     blocks,
-    el("h3", { textContent: "3. Name und Speichern" }),
-    el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-bk-fx-name", textContent: "Name (bis 15 Zeichen, so zeigt ihn das Display)" }), fxName]),
-    el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-bk-fx-slot", textContent: "Platz auf deiner Electribe (1 bis 100)" }), fxSlot,
-      el("span", { className: "ui-field-help", textContent: "Die Electribe hat 100 Plätze für Effekte, du wählst sie am Gerät mit dem Regler für den Effekt. Dein Effekt kommt auf diesen Platz und ersetzt dort das Preset, solange die Datei auf der Karte liegt. Nimm einen Platz, den du selten brauchst, zum Beispiel 100." })]),
-    el("div", { className: "actions" }, [fxSave, fxDownload]),
+    el("div", { className: "actions" }, [fxSave, fxDownload, fxLoad, fxRetarget]),
     fxSaved,
   ]);
-  const builderFx = el("div", { className: "cee-bk-builder", id: "cee-bk-fx-builder" }, [
-    el("h3", { textContent: "1. Wo soll der Effekt wirken?" }),
+  const fxStart = el("div", { className: "cee-bk-builder", id: "cee-bk-fx-start" }, [
+    el("h2", { className: "cee-bk-title", textContent: "Neuer Effekt" }),
     el("ul", { className: "cee-bk-explain" }, [
-      el("li", {}, [el("strong", { textContent: "Auf alles: " }), "das ganze Pattern klingt durch den Effekt, zum Beispiel ein Hall über alles. Am Gerät heißt das Master-Effekt (MFX)."]),
-      el("li", {}, [el("strong", { textContent: "Auf eine Spur: " }), "nur der Part, dem du den Effekt gibst, zum Beispiel ein Echo nur auf der Snare. Am Gerät heißt das Insert-Effekt (IFX)."]),
+      el("li", {}, [el("strong", { textContent: "Master-Effekt: " }), "das ganze Pattern klingt durch den Effekt, zum Beispiel ein Hall über alles."]),
+      el("li", {}, [el("strong", { textContent: "Insert-Effekt: " }), "nur der Part, dem du den Effekt gibst, zum Beispiel ein Echo nur auf der Snare."]),
     ]),
-    where.node,
-    fxSteps,
+    el("div", { className: "actions", id: "cee-bk-where" }, [
+      el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-new-mfx", textContent: "Neuer Master-Effekt", onclick: () => newFx("mfx") }),
+      el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-new-ifx", textContent: "Neuer Insert-Effekt", onclick: () => newFx("ifx") }),
+      el("button", { type: "button", className: "btn", textContent: "Aus dem Katalog nehmen", onclick: () => page("catalog") }),
+    ]),
   ]);
+  const newFx = kind => openFx({ kind, name: "", stages: STAGES[kind].map(stage => ({ stage, unit: 0, unitName: "nofx_thru", params: {} })), map: [] }, null);
 
   // The building blocks to choose from, by group; a dialog over the page.
   const palette = el("dialog", { className: "ui-dialog cee-bk-palette", id: "cee-bk-palette" });
@@ -165,84 +222,141 @@ export function baukastenPage(root, { emulator = null } = {}) {
   }
 
   function renderFx() {
-    where.set(fx?.kind);
-    fxSteps.hidden = !fx;
+    fxEditor.hidden = !fx;
+    fxStart.hidden = !!fx;
     if (!fx) return;
     fxName.value = fx.name;
+    fxKind.textContent = KIND_WORD[fx.kind];
     blocks.replaceChildren(...fx.stages.map((s, i) => {
       const kind = unitKind(s.stage);
       const [label, group] = s.unit ? unitLabel(kind, s.unit, s.unitName) : ["Noch leer", ""];
       const params = s.unit ? (units[kind].get(s.unit)?.params ?? []) : [];
+      const one = p => {
+        const value = s.params[p.name] ?? 0;
+        return slider(`cee-bk-p-${i}-${p.name}`, paramLabel(p.name), p.name, 0, value > 127 ? 255 : 127, value, v => { s.params[p.name] = v; });
+      };
+      // The parameters that shape the sound most come first, the rest under their own heading.
+      const shownFirst = params.some(p => MAIN.has(p.name)) ? p => MAIN.has(p.name) : () => true;
+      const main = params.filter(shownFirst);
+      const more = params.filter(p => !shownFirst(p));
       return el("div", { className: "cee-bk-block", id: `cee-bk-block-${i + 1}` }, [
         el("div", { className: "cee-bk-block-head" }, [
-          el("h4", { textContent: fx.stages.length > 1 ? `Baustein ${i + 1}: ${label}` : label }),
+          el("h3", { textContent: fx.stages.length > 1 ? `Baustein ${i + 1}: ${label}` : label }),
           group ? el("span", { className: "cee-bk-group-name", textContent: group }) : null,
           el("div", { className: "actions" }, [
             el("button", { type: "button", className: `btn sm${s.unit ? "" : " cee-primary"}`, textContent: s.unit ? "Anderen Baustein wählen" : "Baustein wählen", onclick: () => choose(s.stage) }),
             s.unit && fx.stages.length > 1 ? el("button", { type: "button", className: "btn sm", textContent: "Entfernen", onclick: () => { Object.assign(s, { unit: 0, unitName: "nofx_thru", params: {} }); renderFx(); } }) : null,
           ]),
         ]),
-        ...(() => {
-          // The parameters that shape the sound most come first; the rest are for people who know the unit, folded away.
-          const one = p => {
-            const value = s.params[p.name] ?? 0;
-            return slider(`cee-bk-p-${i}-${p.name}`, paramLabel(p.name), p.name, 0, value > 127 ? 255 : 127, value, v => { s.params[p.name] = v; });
-          };
-          const shown = params.some(p => MAIN.has(p.name)) ? p => MAIN.has(p.name) : () => true;
-          const main = params.filter(shown);
-          const more = params.filter(p => !shown(p));
-          return [
-            main.length ? el("div", { className: "cee-bk-params" }, main.map(one)) : null,
-            more.length ? el("details", { className: "ui-details cee-bk-more" }, [el("summary", { textContent: `Weitere Regler (${more.length}, für Profis)` }), el("div", { className: "ui-details-body cee-bk-params" }, more.map(one))]) : null,
-          ];
-        })(),
+        main.length ? el("div", { className: "cee-bk-params" }, main.map(one)) : null,
+        more.length ? el("h4", { className: "cee-bk-more", textContent: "Erweiterte Einstellungen" }) : null,
+        more.length ? el("div", { className: "cee-bk-params" }, more.map(one)) : null,
       ]);
     }));
   }
 
-  function openFx(preset) {
+  function openFx(preset, id) {
     fx = { kind: preset.kind, name: preset.name, stages: preset.stages.map(s => ({ ...s, params: { ...s.params } })), map: preset.map ?? [] };
-    loadUnits().then(renderFx);
+    fxId = id;
+    fxTarget = null;
+    showTarget();
+    fxSaved.textContent = "";
+    shelf("fx");
+    loadUnits().then(() => { renderFx(); updateTrail(); });
   }
 
   /** The effect as it stands, or why it is not ready. */
   function readyFx() {
-    if (!fx) return { ok: false, reason: "Wähl zuerst, wo der Effekt wirken soll." };
+    if (!fx) return { ok: false, reason: "Leg zuerst einen Effekt an." };
     if (!fx.stages.some(s => s.unit)) return { ok: false, reason: "Wähl mindestens einen Baustein." };
-    if (!fx.name.trim()) return { ok: false, reason: "Gib dem Effekt einen Namen." };
+    if (!fx.name.trim()) return { ok: false, reason: "Gib dem Effekt oben einen Namen." };
     if (!/^[\x20-\x7e]+$/.test(fx.name)) return { ok: false, reason: "Der Name darf nur Buchstaben ohne Umlaute, Ziffern und einfache Zeichen haben, das Display kennt keine anderen." };
-    if (!(slotFx >= 1 && slotFx <= 100)) return { ok: false, reason: "Der Platz muss zwischen 1 und 100 liegen." };
     return { ok: true, preset: { ...fx, name: fx.name.trim() } };
   }
-  fxSave.addEventListener("click", () => keep(readyFx(), slotFx));
+  fxSave.addEventListener("click", () => { const id = keep(readyFx(), fxId, fxSaved); if (id) fxId = id; });
   fxDownload.addEventListener("click", () => {
     const r = readyFx();
     if (!r.ok) { toast(r.reason, "error"); return; }
     saveFile(fxText(r.preset), fxFileName(r.preset), { type: "application/json" });
   });
 
-  // ---- modulations --------------------------------------------------------------------
-  const modCatalog = el("ul", { className: "cee-bk-catalog", id: "cee-bk-mod-catalog" }, MOD_CATALOG.map(item => el("li", { className: "cee-bk-card" }, [
-    el("h3", { textContent: item.name }),
-    el("p", { textContent: item.description }),
-    el("button", { type: "button", className: "btn cee-primary", textContent: "Bearbeiten", onclick: () => { openMod(structuredClone(item)); builderMod.scrollIntoView?.({ block: "start" }); } }),
-  ])));
-  const modName = el("input", { className: "input", id: "cee-bk-mod-name", type: "text", maxLength: 16, spellcheck: false, autocomplete: "off" });
+  // To try it on the device: the first load asks for a slot of the menu and overwrites that preset live in the RAM,
+  // every later load of the same effect goes to the same slot at once. Switching it off brings the preset back.
+  const slotDialog = el("dialog", { className: "ui-dialog cee-bk-palette", id: "cee-bk-slots-dialog" });
+  slotDialog.setAttribute("aria-labelledby", "cee-bk-slots-title");
+  const slotTitle = el("h2", { className: "ui-dialog-title", id: "cee-bk-slots-title" });
+  const slotBody = el("div", { className: "ui-dialog-body" });
+  slotDialog.append(el("form", { method: "dialog", className: "ui-dialog-box" }, [
+    el("header", { className: "ui-dialog-head" }, slotTitle),
+    slotBody,
+    el("footer", { className: "ui-dialog-foot" }, el("button", { type: "submit", className: "btn", value: "cancel", textContent: "Abbrechen" })),
+  ]));
+  document.body.append(slotDialog);
+  function showTarget() {
+    fxLoad.textContent = fxTarget ? `Auf dem Gerät laden (${KIND_WORD[fxTarget.kind]} ${fxTarget.slot})` : "Auf dem Gerät laden";
+    fxRetarget.hidden = !fxTarget;
+  }
+  function pickSlot() {
+    const list = presets?.presets()?.list(fx.kind);
+    if (!list?.length) { toast("Dafür braucht die Seite deine Firmware und den laufenden Emulator oder die verbundene Electribe: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen.", "error"); return; }
+    slotTitle.textContent = `Welchen ${KIND_WORD[fx.kind]} überschreiben?`;
+    slotBody.replaceChildren(
+      el("p", { className: "muted", textContent: "Der gewählte Platz bekommt deinen Effekt, live im Arbeitsspeicher. Nach dem Ausschalten ist das alte Preset wieder da." }),
+      el("div", { className: "cee-bk-units" }, list.map(({ slot, name }) => el("button", { type: "button", className: "btn cee-bk-unit", onclick: () => { slotDialog.close(); loadTo({ kind: fx.kind, slot }); } }, [
+        el("strong", { textContent: `${slot}` }), el("span", { className: "muted", textContent: name }),
+      ]))),
+    );
+    if (window.ui?.openDialog) window.ui.openDialog(slotDialog); else slotDialog.showModal?.();
+  }
+  async function loadTo(target) {
+    const r = readyFx();
+    if (!r.ok) { toast(r.reason, "error"); return; }
+    await loadUnits();
+    fxLoad.disabled = true;
+    try {
+      const res = await presets.writeRecord(target.kind, target.slot, (before, records) => fxToRecord(r.preset, before, records, units));
+      if (!res.ok) { if (res.reason) toast(res.reason, "error"); return; }
+      fxTarget = target;
+      showTarget();
+      toast(`„${r.preset.name}“ liegt jetzt auf ${KIND_WORD[target.kind]} ${target.slot}. Am Gerät auswählen und anhören.`, "ok");
+    } finally {
+      fxLoad.disabled = false;
+    }
+  }
+  fxLoad.addEventListener("click", () => {
+    if (!presets) return;
+    if (fxTarget?.kind === fx?.kind) loadTo(fxTarget); else pickSlot();
+  });
+  fxRetarget.addEventListener("click", () => { if (presets) pickSlot(); });
+
+  // ---- Editor: modulation -----------------------------------------------------------
+  const modName = el("input", { className: "cee-bk-name", id: "cee-bk-mod-name", type: "text", maxLength: 16, spellcheck: false, autocomplete: "off", placeholder: "Name der Modulation" });
+  modName.setAttribute("aria-label", "Name der Modulation, bis 16 Zeichen");
   modName.addEventListener("input", () => { if (mod) mod.name = modName.value; });
-  const modSlot = el("input", { className: "input", id: "cee-bk-mod-slot", type: "number", min: 1, max: MOD_COUNT, value: slotMod });
-  modSlot.addEventListener("input", () => { slotMod = Number(modSlot.value); });
   const curve = choices("cee-bk-curve", "Welle", CURVES.map(([v, label, path]) => [v, label, wave(path)]), v => { mod.curve = v; curve.set(v); });
   const modBody = el("div", { className: "cee-bk-mod-body", id: "cee-bk-mod-body" });
   const modSave = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-mod-save", textContent: "Speichern" });
   const modDownload = el("button", { type: "button", className: "btn", id: "cee-bk-mod-download", textContent: "Als Datei herunterladen" });
   const modSaved = el("p", { className: "cee-bk-saved", id: "cee-bk-mod-saved", role: "status" });
-  const builderMod = el("div", { className: "cee-bk-builder", id: "cee-bk-mod-builder" }, [
-    el("div", { className: "actions" }, [el("button", { type: "button", className: "btn", id: "cee-bk-mod-new", textContent: "Leere Modulation", onclick: () => openMod({ name: "", depth: 64, speed: 64, curve: 6, slots: Array.from({ length: 5 }, () => ({ source: 2, target: 0, lo: 0, hi: 0, follow: 0 })) }) })]),
+  const modEditor = el("div", { className: "cee-bk-builder", id: "cee-bk-mod-builder", hidden: true }, [
+    el("div", { className: "cee-bk-head" }, [modName, el("p", { className: "cee-bk-kind muted", textContent: KIND_WORD.mod })]),
     modBody,
+    el("div", { className: "actions" }, [modSave, modDownload]),
+    modSaved,
+  ]);
+  const modStart = el("div", { className: "cee-bk-builder", id: "cee-bk-mod-start" }, [
+    el("h2", { className: "cee-bk-title", textContent: "Neue Modulation" }),
+    el("p", { className: "muted", textContent: "Eine Modulation hat fünf Slots. Jeder nimmt eine Quelle (LFO oder Hüllkurve) und bewegt damit ein Ziel." }),
+    el("div", { className: "actions" }, [
+      el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-mod-new", textContent: "Neue Modulation", onclick: () => openMod({ name: "", depth: 64, speed: 64, curve: 6, slots: Array.from({ length: 5 }, () => ({ source: 2, target: 0, lo: 0, hi: 0, follow: 0 })) }, null) }),
+      el("button", { type: "button", className: "btn", textContent: "Aus dem Katalog nehmen", onclick: () => page("catalog") }),
+    ]),
   ]);
 
   function renderMod() {
-    if (!mod) { modBody.replaceChildren(); return; }
+    modEditor.hidden = !mod;
+    modStart.hidden = !!mod;
+    if (!mod) return;
     modName.value = mod.name;
     curve.set(mod.curve);
     const slots = mod.slots.map((s, k) => {
@@ -253,7 +367,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
       const follow = el("input", { type: "checkbox", id: `cee-bk-follow-${k}`, checked: !!s.follow });
       follow.addEventListener("change", () => { s.follow = follow.checked ? 1 : 0; });
       return el("div", { className: "cee-bk-block", id: `cee-bk-slot-${k + 1}` }, [
-        el("h4", { textContent: `Slot ${k + 1}` }),
+        el("h3", { textContent: `Slot ${k + 1}` }),
         el("p", { className: "ui-field-label", textContent: "Was bewegt?" }), source.node,
         el("p", { className: "ui-field-label", textContent: "Was wird bewegt?" }), target.node,
         el("div", { className: "cee-bk-params" }, [
@@ -265,7 +379,6 @@ export function baukastenPage(root, { emulator = null } = {}) {
       ]);
     });
     modBody.replaceChildren(
-      el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-bk-mod-name", textContent: "Name (bis 16 Zeichen)" }), modName]),
       el("p", { className: "ui-field-label", textContent: "Welle des LFO" }), curve.node,
       el("div", { className: "cee-bk-params" }, [
         slider("cee-bk-depth", "Tiefe", "So weit dreht die Firmware MOD. DEPTH, wenn du diese Modulation wählst.", 0, 127, mod.depth, v => { mod.depth = v; }),
@@ -273,57 +386,72 @@ export function baukastenPage(root, { emulator = null } = {}) {
       ]),
       el("p", { className: "muted", textContent: "Eine Modulation hat fünf Slots. Jeder nimmt eine Quelle (LFO oder Hüllkurve) und bewegt damit ein Ziel. Ein Slot mit der Quelle Aus tut nichts." }),
       ...slots,
-      el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-bk-mod-slot", textContent: `Platz auf deiner Electribe (1 bis ${MOD_COUNT})` }), modSlot]),
-      el("div", { className: "actions" }, [modSave, modDownload]),
-      modSaved,
     );
   }
-  function openMod(preset) {
+  function openMod(preset, id) {
     mod = { kind: "mod", name: preset.name, depth: preset.depth, speed: preset.speed, curve: preset.curve, slots: preset.slots.map(s => ({ ...s })) };
+    modId = id;
+    modSaved.textContent = "";
+    shelf("mod");
     renderMod();
+    updateTrail();
   }
   function readyMod() {
-    if (!mod) return { ok: false, reason: "Öffne eine Modulation aus der Liste oder fang leer an." };
-    if (!mod.name.trim() || !/^[\x20-\x7e]+$/.test(mod.name)) return { ok: false, reason: "Gib der Modulation einen Namen, ohne Umlaute." };
-    if (!(slotMod >= 1 && slotMod <= MOD_COUNT)) return { ok: false, reason: `Der Platz muss zwischen 1 und ${MOD_COUNT} liegen.` };
+    if (!mod) return { ok: false, reason: "Leg zuerst eine Modulation an." };
+    if (!mod.name.trim() || !/^[\x20-\x7e]+$/.test(mod.name)) return { ok: false, reason: "Gib der Modulation oben einen Namen, ohne Umlaute." };
     return { ok: true, preset: { ...mod, name: mod.name.trim() } };
   }
-  modSave.addEventListener("click", () => keep(readyMod(), slotMod));
+  modSave.addEventListener("click", () => { const id = keep(readyMod(), modId, modSaved); if (id) modId = id; });
   modDownload.addEventListener("click", () => {
     const r = readyMod();
     if (!r.ok) { toast(r.reason, "error"); return; }
     saveFile(fxText(r.preset), fxFileName(r.preset), { type: "application/json" });
   });
+  const editorPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-editor" }, [fxStart, fxEditor, modStart, modEditor]);
 
-  // ---- what the user keeps --------------------------------------------------------------
-  const mine = el("ul", { className: "cee-bk-catalog", id: "cee-bk-mine" });
-  const mineEmpty = el("p", { className: "muted", id: "cee-bk-mine-empty", textContent: "Noch nichts gespeichert. Öffne oben einen fertigen Effekt oder bau einen neuen." });
-  function keep(ready, slot) {
-    if (!ready.ok) { toast(ready.reason, "error"); return; }
-    const list = readOwn().filter(o => !(o.kind === ready.preset.kind && o.slot === slot));
-    list.push({ kind: ready.preset.kind, slot, text: fxText(ready.preset) });
-    if (!writeOwn(list)) { toast("Dieser Browser lässt die Seite nichts speichern. Lad den Effekt als Datei herunter.", "error"); return; }
+  /** Saves into this browser: over the own entry it came from, or as a new one. Returns its id. */
+  function keep(ready, id, status) {
+    if (!ready.ok) { toast(ready.reason, "error"); return null; }
+    const list = ownList();
+    const at = list.findIndex(o => o.id === id);
+    const entry = { id: at >= 0 ? id : newId(), kind: ready.preset.kind, text: fxText(ready.preset) };
+    if (at >= 0) list[at] = entry; else list.push(entry);
+    if (!writeOwn(list)) { toast("Dieser Browser lässt die Seite nichts speichern. Lad den Effekt als Datei herunter.", "error"); return null; }
     renderMine();
-    const line = `Gespeichert: „${ready.preset.name}“ auf Platz ${slot}, steht unten unter Meine Sachen. Wie es auf die Electribe kommt, steht ganz unten unter „Auf die Electribe“.`;
-    (ready.preset.kind === "mod" ? modSaved : fxSaved).textContent = line;
-    toast(line, "ok");
+    renderExport();
+    const where = ready.preset.kind === "mod" ? "Meine Modulationen" : "Meine Effekte";
+    status.textContent = `Gespeichert: „${ready.preset.name}“ steht unter ${where}. Unter Export legst du fest, auf welchen Platz er kommt.`;
+    toast(`„${ready.preset.name}“ gespeichert, steht unter ${where}.`, "ok");
+    return entry.id;
   }
+
+  // ---- Meine Effekte / Modulationen ---------------------------------------------------
+  const mine = el("ul", { className: "cee-catalog cee-bk-catalog", id: "cee-bk-mine" });
+  const mineTitle = el("h2", { className: "cee-bk-title", textContent: "Meine Effekte" });
+  const mineEmpty = el("p", { className: "muted", id: "cee-bk-mine-empty" });
   function renderMine() {
-    const list = readOwn();
+    const list = ownList().filter(o => (shelfKind === "mod") === (o.kind === "mod"));
     mineEmpty.hidden = list.length > 0;
-    mine.replaceChildren(...list.map((o, i) => {
-      const read = units ? readFx(o.text, units) : null;
-      const p = read?.ok ? read.preset : JSON.parse(o.text);
-      return el("li", { className: "cee-bk-card" }, [
-        el("h3", { textContent: p.name }),
-        el("p", { className: "cee-bk-kind", textContent: `${o.kind === "mod" ? "Modulation" : o.kind === "mfx" ? "Master-Effekt" : "Insert-Effekt"}, Platz ${o.slot}` }),
-        el("div", { className: "actions" }, [
-          el("button", { type: "button", className: "btn sm", textContent: "Bearbeiten", onclick: () => { if (o.kind === "mod") { slotMod = o.slot; modSlot.value = o.slot; shelf("mod"); openMod(p); } else { slotFx = o.slot; fxSlot.value = o.slot; shelf("fx"); openFx(p); } } }),
-          el("button", { type: "button", className: "btn sm", textContent: "Herunterladen", onclick: () => saveFile(o.text, fxFileName(p), { type: "application/json" }) }),
-          el("button", { type: "button", className: "btn sm", textContent: "Löschen", onclick: () => { writeOwn(readOwn().filter((_, k) => k !== i)); renderMine(); } }),
-        ]),
-      ]);
+    mineEmpty.textContent = shelfKind === "mod" ? "Noch keine Modulation gespeichert. Nimm eine aus dem Katalog oder bau eine im Editor." : "Noch kein Effekt gespeichert. Nimm einen aus dem Katalog oder bau einen im Editor.";
+    mine.replaceChildren(...list.map(o => {
+      const p = parse(o);
+      const trash = el("button", { type: "button", className: "btn icon sm cee-bk-trash", title: `${p.name} löschen`, onclick: () => remove(o.id, p.name) }, [icon("trash")]);
+      trash.setAttribute("aria-label", `${p.name} löschen`);
+      return card(p, { onOpen: () => { if (o.kind === "mod") openMod(p, o.id); else openFx(p, o.id); page("editor"); }, extra: trash, id: `cee-bk-own-${o.id}` });
     }));
+  }
+  async function remove(id, name) {
+    const yes = window.ui?.confirm ? await window.ui.confirm({ title: `„${name}“ löschen?`, text: "Er verschwindet aus diesem Browser und aus dem Export. Eine heruntergeladene Datei bleibt.", confirmLabel: "Löschen", danger: true }) : true;
+    if (!yes) return;
+    writeOwn(ownList().filter(o => o.id !== id));
+    const slots = readSlots();
+    for (const kind of Object.keys(slots)) for (const [slot, own] of Object.entries(slots[kind])) if (own === id) delete slots[kind][slot];
+    writeSlots(slots);
+    if (fxId === id) fxId = null;
+    if (modId === id) modId = null;
+    renderMine();
+    renderExport();
+    toast(`„${name}“ gelöscht.`, "ok");
   }
   const importInput = el("input", { type: "file", className: "cee-visually-hidden", id: "cee-bk-open", accept: ".e2fx,application/json" });
   importInput.addEventListener("change", async () => {
@@ -332,40 +460,160 @@ export function baukastenPage(root, { emulator = null } = {}) {
     if (!file) return;
     const read = readFx(await file.text(), await loadUnits());
     if (!read.ok) { toast(`${file.name}: ${read.reason}`, "error"); return; }
-    if (read.preset.kind === "mod") { shelf("mod"); openMod(read.preset); } else { shelf("fx"); openFx(read.preset); }
+    if (read.preset.kind === "mod") openMod(read.preset, null); else openFx(read.preset, null);
+    page("editor");
     toast(`${file.name} geöffnet. Speichern legt ihn unter Meine Sachen ab.`, "ok");
   });
+  const minePage = el("div", { className: "cee-bk-page", id: "cee-bk-page-mine" }, [
+    mineTitle, mineEmpty, mine,
+    el("div", { className: "actions" }, [el("label", { className: "btn", htmlFor: "cee-bk-open", textContent: ".e2fx-Datei öffnen" }), importInput]),
+  ]);
 
+  // ---- Export ------------------------------------------------------------------------
   // The collection for the card needs the firmware it is for: the records are made from that firmware's own.
   const cardNote = el("p", { className: "muted", id: "cee-bk-card-note" });
-  const cardButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-collection", textContent: `${COLLECTION_FILE} für die Karte bauen` });
-  cardButton.addEventListener("click", async () => {
+  const allInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-bk-all", accept: ".all" });
+  const allFiles = el("span", { className: "ui-dropzone-files" });
+  const allDrop = el("label", { className: "ui-dropzone" }, [
+    allInput,
+    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: `${COLLECTION_FILE} hierher ziehen oder ` }), "auswählen"]),
+    el("span", { className: "ui-dropzone-hint", textContent: `Die Datei von deiner Karte (${COLLECTION_FOLDER}/), um sie weiter zu bearbeiten. Ohne fängst du leer an.` }),
+    allFiles,
+  ]);
+  allInput.addEventListener("change", async () => {
+    const file = allInput.files?.[0];
+    allInput.value = "";
+    if (!file) return;
+    const read = parseCollection(new Uint8Array(await file.arrayBuffer()));
+    if (!read.ok) { toast(`${file.name}: ${read.reason}`, "error"); return; }
+    await loadUnits();
+    const list = ownList();
+    const slots = readSlots();
+    let added = 0;
+    for (const entry of read.entries) {
+      const fxRead = readFx(entry.text, units);
+      if (!fxRead.ok) continue;
+      const text = fxText(fxRead.preset);
+      let own = list.find(o => o.text === text);
+      if (!own) { own = { id: newId(), kind: entry.kind, text }; list.push(own); added++; }
+      slots[entry.kind][entry.index + 1] = own.id;
+    }
+    writeOwn(list);
+    writeSlots(slots);
+    allFiles.textContent = `${file.name}: ${read.entries.length} Einträge`;
+    renderMine();
+    renderExport();
+    toast(`${file.name} geladen: ${read.entries.length} Einträge, ${added} neu unter Meine Sachen.`, "ok");
+  });
+  const exportLists = el("div", { className: "cee-bk-export", id: "cee-bk-export" });
+  function slotRow(kind, slot, own, slots) {
+    const assigned = slots[kind][slot] ?? "";
+    const select = el("select", { className: "select", id: `cee-bk-slot-${kind}-${slot}` }, [
+      el("option", { value: "", textContent: "Werks-Preset" }),
+      ...own.map(o => el("option", { value: o.id, textContent: parse(o).name, selected: o.id === assigned })),
+    ]);
+    select.setAttribute("aria-label", `${KIND_WORD[kind]} Platz ${slot}`);
+    select.addEventListener("change", () => {
+      const next = readSlots();
+      if (select.value) next[kind][slot] = select.value; else delete next[kind][slot];
+      writeSlots(next);
+      renderExport();
+    });
+    const clear = el("button", { type: "button", className: "btn icon sm", title: `Platz ${slot} leeren`, disabled: !assigned, onclick: () => {
+      const next = readSlots();
+      delete next[kind][slot];
+      writeSlots(next);
+      renderExport();
+    } }, [icon("trash")]);
+    clear.setAttribute("aria-label", `${KIND_WORD[kind]} Platz ${slot} leeren`);
+    const grip = el("span", { className: "cee-bk-grip", title: "Ziehen, um mit einem anderen Platz zu tauschen" }, [icon("grip")]);
+    const row = el("li", { className: `cee-bk-slot${assigned ? " cee-bk-slot-set" : ""}` }, [
+      grip, el("span", { className: "cee-bk-slot-number", textContent: String(slot) }), select, clear,
+    ]);
+    row.dataset.kind = kind;
+    row.dataset.slot = String(slot);
+    // Dragged by the grip with pointer events (mouse, pen and touch alike); a drop swaps two places: A takes the
+    // place of B and B the place of A.
+    grip.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      grip.setPointerCapture?.(e.pointerId);
+      row.classList.add("cee-bk-dragging");
+      let over = null;
+      const under = ev => document.elementFromPoint(ev.clientX, ev.clientY)?.closest(`.cee-bk-slot[data-kind="${kind}"]`);
+      const move = ev => {
+        const next = under(ev);
+        if (next === over) return;
+        over?.classList.remove("cee-bk-drop");
+        over = next && next !== row ? next : null;
+        over?.classList.add("cee-bk-drop");
+      };
+      const up = ev => {
+        grip.removeEventListener("pointermove", move);
+        grip.removeEventListener("pointerup", up);
+        grip.removeEventListener("pointercancel", up);
+        row.classList.remove("cee-bk-dragging");
+        over?.classList.remove("cee-bk-drop");
+        const target = ev.type === "pointerup" ? under(ev) : null;
+        if (target && target !== row) swap(kind, slot, Number(target.dataset.slot));
+      };
+      grip.addEventListener("pointermove", move);
+      grip.addEventListener("pointerup", up);
+      grip.addEventListener("pointercancel", up);
+    });
+    return row;
+  }
+  function swap(kind, a, b) {
+    const slots = readSlots();
+    const [x, y] = [slots[kind][a], slots[kind][b]];
+    if (y) slots[kind][a] = y; else delete slots[kind][a];
+    if (x) slots[kind][b] = x; else delete slots[kind][b];
+    writeSlots(slots);
+    renderExport();
+  }
+  function renderExport() {
+    const list = ownList();
+    const slots = readSlots();
+    const kinds = shelfKind === "mod" ? [["mod", MOD_COUNT]] : [["ifx", SLOT_COUNT_FX], ["mfx", SLOT_COUNT_FX]];
+    exportLists.replaceChildren(...kinds.map(([kind, count]) => {
+      const own = list.filter(o => o.kind === kind);
+      return el("section", { className: "cee-bk-export-kind" }, [
+        el("h3", { textContent: kind === "mod" ? "Modulationen" : `${KIND_WORD[kind]}e` }),
+        el("ol", { className: "cee-bk-slots", id: `cee-bk-slots-${kind}` }, Array.from({ length: count }, (_, i) => slotRow(kind, i + 1, own, slots))),
+      ]);
+    }));
+  }
+  async function exportAll() {
     const vsb = emulator?.firmware;
-    const list = readOwn();
-    if (!list.length) { toast("Speichere zuerst mindestens einen Effekt oder eine Modulation.", "error"); return; }
+    const slots = readSlots();
+    const wanted = Object.entries(slots).flatMap(([kind, map]) => Object.entries(map).map(([slot, id]) => ({ kind, slot: Number(slot), id })));
+    if (!wanted.length) { toast("Leg zuerst unten mindestens einen Platz fest.", "error"); return; }
     if (!vsb) { toast("Dafür braucht die Seite deine Firmware: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen. Sie bleibt auf deinem Rechner.", "error"); return; }
     const build = buildOf(vsb);
     if (build === "synth") { toast("Die Sammeldatei gibt es bisher nur für den roten Sampler.", "error"); return; }
     await loadUnits();
+    const list = ownList();
     const entries = [];
-    for (const o of list) {
+    for (const w of wanted) {
+      const o = list.find(x => x.id === w.id);
+      if (!o) continue;
       const read = readFx(o.text, units);
-      const made = read.ok ? collectionEntry(read.preset, vsb, o.slot - 1, units) : read;
+      const made = read.ok ? collectionEntry(read.preset, vsb, w.slot - 1, units) : read;
       if (!made.ok) { toast(`${read.preset?.name ?? "Ein Eintrag"}: ${made.reason}`, "error"); return; }
       entries.push(made.entry);
     }
     saveFile(buildCollection({ build, entries }), COLLECTION_FILE, { note: `Leg die Datei auf der Karte nach ${COLLECTION_FOLDER}/, beim nächsten Einschalten lädt BLECHTRIBE sie.` });
-  });
+  }
+  const exportButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-collection" }, [icon("download"), "Exportieren"]);
+  exportButton.addEventListener("click", exportAll);
+  const exportPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-export" }, [
+    el("h2", { className: "cee-bk-title", textContent: `${COLLECTION_FILE} für die Karte` }),
+    el("p", { className: "muted", textContent: `Leg fest, welcher deiner Effekte auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
+    cardNote,
+    allDrop,
+    exportLists,
+  ]);
 
-  // ---- page --------------------------------------------------------------------------
-  const fxShelf = el("div", { className: "cee-bk-shelf", id: "cee-bk-fx" }, [
-    el("h2", { className: "cee-bk-title", textContent: "Fertige Effekte" }), fxCatalog,
-    el("h2", { className: "cee-bk-title", textContent: "Effekt bauen" }), builderFx,
-  ]);
-  const modShelf = el("div", { className: "cee-bk-shelf", id: "cee-bk-mod", hidden: true }, [
-    el("h2", { className: "cee-bk-title", textContent: "Fertige Modulationen" }), modCatalog,
-    el("h2", { className: "cee-bk-title", textContent: "Modulation bauen" }), builderMod,
-  ]);
+  // ---- pages ------------------------------------------------------------------------
   const tabs = [["fx", "Effekte"], ["mod", "Modulationen"]].map(([id, text]) => {
     const b = el("button", { type: "button", className: "ui-segmented-option cee-shelf-tab", id: `cee-bk-tab-${id}`, textContent: text, onclick: () => shelf(id) });
     b.dataset.shelf = id;
@@ -374,33 +622,54 @@ export function baukastenPage(root, { emulator = null } = {}) {
   const tabRow = el("div", { className: "ui-segmented cee-shelf-tabs", role: "group" }, tabs);
   tabRow.setAttribute("aria-label", "Effekte oder Modulationen");
   function shelf(id) {
+    shelfKind = id;
     for (const b of tabs) b.setAttribute("aria-pressed", String(b.dataset.shelf === id));
-    fxShelf.hidden = id !== "fx";
-    modShelf.hidden = id !== "mod";
+    fxCatalog.hidden = id !== "fx";
+    modCatalog.hidden = id !== "mod";
+    catalogTitle.textContent = id === "mod" ? "Modulationen" : "Effekte";
+    mineTitle.textContent = id === "mod" ? "Meine Modulationen" : "Meine Effekte";
+    const mineNav = document.querySelector("#cee-baukasten-page-mine span");
+    if (mineNav) mineNav.textContent = mineTitle.textContent;
+    renderEditor();
+    renderMine();
+    renderExport();
+    updateTrail();
   }
+  function renderEditor() {
+    const isFx = shelfKind === "fx";
+    fxStart.hidden = !isFx || !!fx;
+    fxEditor.hidden = !isFx || !fx;
+    modStart.hidden = isFx || !!mod;
+    modEditor.hidden = isFx || !mod;
+  }
+
+  const PAGE_NODES = { catalog: catalogPage, editor: editorPage, mine: minePage, export: exportPage };
+  const subPages = sub?.pages("baukasten", { id: "cee-baukasten-pages", label: "Bereiche des Baukastens", items: PAGES.map(([id, title, ic]) => ({ id, title, icon: ic })), pick: id => page(id) });
+  function updateTrail() {
+    if (!shown) return;
+    const name = shelfKind === "mod" ? mod?.name : fx?.name;
+    trail(shown === "editor" ? ["Editor", ...(name ? [name] : [])] : [shown === "mine" ? mineTitle.textContent : PAGES.find(p => p[0] === shown)[1]]);
+  }
+  function page(id) {
+    if (!PAGE_NODES[id]) id = "catalog";
+    shown = id;
+    for (const [key, node] of Object.entries(PAGE_NODES)) node.hidden = key !== id;
+    subPages?.select(id);
+    navbar(id === "export" ? [exportButton] : []);
+    updateTrail();
+    root.closest(".cee-main")?.scrollTo?.({ top: 0 });
+  }
+
   root.replaceChildren(el("div", { className: "cee-bk" }, [
     el("h1", { className: "ui-sr-only", textContent: "Baukasten" }),
-    el("p", { className: "cee-bk-lead", textContent: "Bau dir eigene Effekte und Modulationen aus Bausteinen. Nimm einen fertigen und dreh an den Reglern, oder fang leer an. Am Ende bekommst du eine Datei, die du teilen oder auf die Karte deiner Electribe legen kannst. Fürs Bauen brauchst du nichts; für die Electribe brauchst du BLECHTRIBE auf dem Gerät, die SD-Karte und deine SYSTEM.VSB." }),
-    tabRow, fxShelf, modShelf,
-    el("h2", { className: "cee-bk-title", textContent: "Meine Sachen" }),
-    mineEmpty, mine,
-    el("div", { className: "actions" }, [el("label", { className: "btn", htmlFor: "cee-bk-open", textContent: ".e2fx-Datei öffnen" }), importInput]),
-    el("h2", { className: "cee-bk-title", textContent: "Auf die Electribe" }),
-    el("ol", { className: "cee-bk-explain", id: "cee-bk-howto" }, [
-      el("li", { textContent: "Auf deiner Electribe muss BLECHTRIBE laufen (siehe Firmware Patcher)." }),
-      el("li", { textContent: "Im Bereich Emulator deine SYSTEM.VSB aufs Display ziehen. Das ist die Firmware-Datei deiner Electribe, sie liegt auf der SD-Karte im Ordner KORG/blechtribe/System/ (oder KORG/hacktribe/System/). Die Seite braucht sie, um die Datei für genau deine Firmware zu bauen. Sie bleibt auf deinem Rechner." }),
-      el("li", { textContent: `Hier unten „${COLLECTION_FILE} für die Karte bauen“ drücken. Alles unter Meine Sachen kommt in diese eine Datei.` }),
-      el("li", { textContent: `Die Datei auf die SD-Karte der Electribe in den Ordner ${COLLECTION_FOLDER}/ kopieren, Karte rein, einschalten.` }),
-      el("li", { textContent: "Am Gerät den Effekt auf dem Platz wählen, den du angegeben hast." }),
-    ]),
-    el("p", { className: "muted", textContent: "Die Datei ändert nichts an der Firmware: nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da." }),
-    cardNote,
-    el("div", { className: "actions" }, [cardButton]),
+    tabRow, catalogPage, editorPage, minePage, exportPage,
   ]));
   shelf("fx");
-  loadUnits().then(renderMine).catch(() => renderMine());
+  page("catalog");
+  loadUnits().then(() => { renderMine(); renderExport(); }).catch(() => renderMine());
   return {
-    /** The note under the card button follows the firmware in the emulator. */
-    update() { cardNote.textContent = emulator?.firmware ? "Deine Firmware ist im Emulator geladen, die Datei kann gebaut werden." : "Für diese Datei braucht die Seite deine Firmware: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen."; },
+    /** The note on the export page follows the firmware in the emulator. */
+    update() { cardNote.textContent = emulator?.firmware ? "Deine Firmware ist im Emulator geladen, die Datei kann gebaut werden." : "Für diese Datei braucht die Seite deine Firmware: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen. Sie bleibt auf deinem Rechner."; },
+    page,
   };
 }
