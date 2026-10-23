@@ -278,12 +278,14 @@ export function supportPage({ avatar, wallpaper }) {
   maker(avatar, {
     // The tube scene is wide and flat, a square leaves it a strip in the middle: only for the wallpapers.
     id: "cee-support-avatar", title: "Profilbild", formats: ["avatar"], figures: blechys.filter(f => f !== "tube"),
+    // raw-ok: a colour input takes only hex, these are the start values of the own colours
     state: { format: "avatar", figure: "wave", text: "", size: 100, textSize: 60, place: "middle", bands: true, stars: true, look: "black", bg: "#0a0a0b", ink: "#fafafa" },
     textLabel: "Dein Name", textMax: NAME_MAX, placeholder: "zum Beispiel dein Künstlername", saveText: "Profilbild speichern",
     name: s => `Blechy${s.text.trim() ? `-${fileName(s.text)}` : ""}`,
   });
   maker(wallpaper, {
     id: "cee-support-wallpaper", title: "Hintergrund", formats: ["desktop", "phone"], figures: ["blechtribe", "blech", ...blechys, "none"],
+    // raw-ok: a colour input takes only hex, these are the start values of the own colours
     state: { format: "desktop", figure: "blechtribe", text: "", size: 100, textSize: 40, place: "middle", bands: true, stars: true, look: "black", bg: "#0a0a0b", ink: "#fafafa" },
     textLabel: "Text", textMax: TEXT_MAX, placeholder: "zum Beispiel MEINE ELECTRIBE ROCKT", saveText: "Hintergrund speichern",
     name: s => `${fileName(FIGURES[s.figure][0]) || "BLECHTRIBE"}-${FORMATS[s.format][0]}`,

@@ -1,20 +1,18 @@
-// Blechy's canonical head as SVG and the icon formats bundled by Tauri.
+// The app icon: Blechy with GELUMPE (assets/app-icon/blechy-gelumpe.png, 1024 x 1024) on a rounded square, and
+// the icon formats bundled by Tauri.
 // node tools/app-icon.mjs --png
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { resizedHead, pixelPath } from "./blechy-head.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const out = join(root, "assets/app-icon");
 const icons = join(root, "src-tauri/icons");
-const head = resizedHead(52, 50);
-const x = Math.floor((64 - head[0].length) / 2);
-const y = Math.floor((64 - head.length) / 2);
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512" role="img" aria-label="Blechy, Kuhler's GELUMPE">
+const picture = readFileSync(join(out, "blechy-gelumpe.png")).toString("base64");
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 64 64" width="512" height="512" role="img" aria-label="Blechy, Kuhler's GELUMPE">
 <title>Blechy, Kuhler's GELUMPE</title>
-<rect width="64" height="64" rx="14" fill="#0a0a0b"/>
-<path transform="translate(${x} ${y})" fill="#fafafa" shape-rendering="crispEdges" d="${pixelPath(head)}"/>
+<clipPath id="corner"><rect width="64" height="64" rx="14"/></clipPath>
+<image width="64" height="64" clip-path="url(#corner)" href="data:image/png;base64,${picture}"/>
 </svg>\n`;
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, "blechy.svg"), svg);
