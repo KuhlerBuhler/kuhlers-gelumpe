@@ -14,6 +14,9 @@ import { buildCollection, parseCollection, collectionEntry, COLLECTION_FILE, COL
 import { buildOf } from "../../src/firmware.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
 import { GROUPS, MAIN, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
+import FINDINGS from "../../data/findings.mjs";
+import { BLOCKS, field } from "../../src/map/index.mjs";
+import { REC } from "../../src/layout.mjs";
 
 const OWN = "cee.baukasten";
 const SLOTS = "cee.baukasten.slots";
@@ -81,6 +84,21 @@ function slider(id, label, hint, min, max, value, change, { readOnly = false } =
     el("div", { className: "cee-bk-slider-row" }, [input, box]),
   ]);
 }
+
+/** The values a parameter takes on the device (data/map/fx-params.mjs); 0 to 127 where the map does not know. */
+function rangeOf(kind, unit, name) {
+  try {
+    return field(`fx.${kind}.0x${unit.toString(16).padStart(2, "0")}.${name}`).range ?? [0, 127];
+  } catch {
+    return [0, 127];
+  }
+}
+
+/** What a building block does behind another one in an insert effect, as measured (data/findings.mjs). */
+const STAGE2 = new Map(FINDINGS.filter(f => f.kind === "stage2").map(f => [f.unit, f]));
+const SOLO = new Map(FINDINGS.filter(f => f.kind === "stage1NeedsSolo").map(f => [f.unit, f]));
+const STAGE2_WORD = { fatal: "Stürzt an zweiter Stelle ab", silent: "Bleibt an zweiter Stelle stumm" };
+const MAP_META = BLOCKS.get("fxRecord").meta;
 
 const KIND_WORD = { mfx: "Master-Effekt", ifx: "Insert-Effekt", mod: "Modulation" };
 const SLOT_COUNT_FX = 100;
@@ -211,17 +229,25 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   function choose(stage) {
     const kind = unitKind(stage);
     const all = [...units[kind].values()].filter(u => u.id !== 0 && u.unit !== "nofx_mute" && u.params.length);
+    const other = fx.stages.find(x => x.stage === (stage === "ifx1" ? "ifx2" : "ifx1"));
+    /** Why this block cannot go here, or null. */
+    const barred = u => {
+      if (stage === "ifx2" && STAGE2_WORD[STAGE2.get(u.id)?.verdict]) return STAGE2_WORD[STAGE2.get(u.id).verdict];
+      if (stage === "ifx2" && SOLO.has(other?.unit)) return "Baustein 1 läuft nur allein";
+      if (stage === "ifx1" && other?.unit && SOLO.has(u.id)) return "Läuft nur allein, ohne Baustein 2";
+      return null;
+    };
     paletteBody.replaceChildren(...GROUPS.map(group => {
       const here = all.filter(u => unitLabel(kind, u.id, u.unit)[1] === group);
       if (!here.length) return null;
       return el("section", { className: "cee-bk-group" }, [
         el("h3", { textContent: group }),
-        el("div", { className: "cee-bk-units" }, here.map(u => el("button", { type: "button", className: "btn cee-bk-unit", onclick: () => {
+        el("div", { className: "cee-bk-units" }, here.map(u => el("button", { type: "button", className: "btn cee-bk-unit", disabled: !!barred(u), title: barred(u) ?? "", onclick: () => {
           const s = fx.stages.find(x => x.stage === stage);
           Object.assign(s, { unit: u.id, unitName: u.unit, params: defaultsOf(kind, u.id) });
           palette.close();
           renderFx();
-        } }, [el("strong", { textContent: unitLabel(kind, u.id, u.unit)[0] }), el("span", { className: "muted", textContent: u.unit })]))),
+        } }, [el("strong", { textContent: unitLabel(kind, u.id, u.unit)[0] }), el("span", { className: "muted", textContent: barred(u) ?? (stage === "ifx2" && STAGE2.get(u.id)?.verdict !== "ok" ? `${u.unit}, an zweiter Stelle nicht getestet` : u.unit) })]))),
       ]);
     }).filter(Boolean));
     if (window.ui?.openDialog) window.ui.openDialog(palette); else palette.showModal?.();
@@ -234,9 +260,69 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (!fx) return;
     fxName.value = fx.name;
     fxKind.textContent = KIND_WORD[fx.kind];
-    blocks.replaceChildren(...blockCards(fx));
+    blocks.replaceChildren(...blockCards(fx), mapSection(fx));
     // The explanation is for an effect built from scratch; one that already has its blocks needs none.
     fxHelp.hidden = fx.stages.some(s => s.unit);
+  }
+
+  /**
+   * Steuerung: which control moves which parameter between two values, as on the device's own presets. A new row
+   * copies a used one when the record is written (src/fx-v2.mjs), so it never comes from zeros.
+   */
+  function mapSection(piece, { readOnly = false, pre = "cee-bk" } = {}) {
+    const kind = piece.kind === "mfx" ? "mfx" : "ifx";
+    const sources = MAP_META.sources.filter(x => x[kind]);
+    const chains = MAP_META.chains.filter(c => !c.stage || (kind === "mfx" ? c.stage === "mfx" : c.stage !== "mfx"));
+    const rows = el("div", { className: "cee-fxmap", id: `${pre}-map` });
+    const draw = () => {
+      rows.replaceChildren(...piece.map.map((row, n) => {
+        const select = (key, options, word) => {
+          const box = el("select", { className: "select", disabled: readOnly });
+          box.setAttribute("aria-label", `${word}, Zeile ${n + 1}`);
+          for (const o of options) box.append(el("option", { value: String(o.raw), textContent: o.label }));
+          if (!options.some(o => o.raw === row[key])) box.append(el("option", { value: String(row[key]), textContent: `unbekannt (${row[key]})` }));
+          box.value = String(row[key]);
+          box.addEventListener("change", () => { row[key] = Number(box.value); if (key === "chain") { row.param = 0; draw(); } });
+          return box;
+        };
+        const chain = chains.find(c => c.raw === row.chain);
+        const stage = chain?.stage ? piece.stages.find(x => x.stage === chain.stage) : null;
+        const params = stage?.unit ? (units[unitKind(stage.stage)].get(stage.unit)?.params ?? []).map(x => ({ raw: x.index, label: paramLabel(x.name) })) : [];
+        const bar = el("span", { className: "cee-range", ariaHidden: "true" }, [el("span", { className: "cee-range-fill" })]);
+        const span = () => {
+          bar.firstChild.style.left = `${(Math.min(row.low, row.high) / 127) * 100}%`;
+          bar.firstChild.style.width = `${(Math.abs(row.high - row.low) / 127) * 100}%`;
+        };
+        const number = (key, word) => {
+          const box = el("input", { type: "number", className: "input cee-num", min: 0, max: 127, step: 1, value: String(row[key]), readOnly });
+          box.setAttribute("aria-label", `${word}, Zeile ${n + 1}`);
+          box.addEventListener("change", () => { row[key] = Math.max(0, Math.min(127, Math.round(Number(box.value) || 0))); box.value = String(row[key]); span(); });
+          return box;
+        };
+        span();
+        return el("div", { className: "cee-fxmap-row" }, [
+          el("div", { className: "cee-sentence" }, [
+            select("source", sources.map(x => ({ raw: x.raw, label: x.who?.[kind] ?? x.label })), "Quelle"),
+            el("span", { textContent: "steuert" }),
+            select("chain", chains.map(c => ({ raw: c.raw, label: c.label })), "Ziel"),
+            ...(params.length ? [el("span", { textContent: ">" }), select("param", params, "Parameter")] : []),
+            el("span", { textContent: "von" }), number("low", "Von"),
+            el("span", { textContent: "bis" }), number("high", "Bis"),
+            readOnly ? null : el("button", { type: "button", className: "btn sm", textContent: "Entfernen", onclick: () => { piece.map.splice(n, 1); draw(); } }),
+          ]),
+          bar,
+        ]);
+      }));
+      if (!piece.map.length) rows.append(el("p", { className: "muted", textContent: "Keine Steuerung: der Effekt klingt immer gleich." }));
+      if (!readOnly && piece.map.length < REC.mapEntries) {
+        rows.append(el("div", { className: "actions" }, el("button", { type: "button", className: "btn sm", id: `${pre}-map-add`, textContent: "Steuerung hinzufügen", onclick: () => {
+          piece.map.push({ source: sources[0].raw, chain: chains[0].raw, param: 0, low: 0, high: 127 });
+          draw();
+        } })));
+      }
+    };
+    draw();
+    return el("section", { className: "cee-bk-map" }, [el("h3", { className: "cee-bk-stage-title", textContent: "Steuerung" }), rows]);
   }
 
   /** The cards of a piece's blocks; read only on a catalog effect's page, where the empty block is left out. */
@@ -248,7 +334,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const params = s.unit ? (units[kind].get(s.unit)?.params ?? []) : [];
       const one = p => {
         const value = s.params[p.name] ?? 0;
-        return slider(`${pre}-p-${i}-${p.name}`, paramLabel(p.name), p.name, 0, value > 127 ? 255 : 127, value, v => { s.params[p.name] = v; }, { readOnly });
+        const [min, max] = rangeOf(kind, s.unit, p.name);
+        return slider(`${pre}-p-${i}-${p.name}`, paramLabel(p.name), p.name, min, max, value, v => { s.params[p.name] = v; }, { readOnly });
       };
       // The parameters that shape the sound most come first, the rest under their own heading.
       const shownFirst = params.some(p => MAIN.has(p.name)) ? p => MAIN.has(p.name) : () => true;
@@ -274,7 +361,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   }
 
   function openFx(preset, id) {
-    fx = { kind: preset.kind, name: preset.name, stages: preset.stages.map(s => ({ ...s, params: { ...s.params } })), map: preset.map ?? [] };
+    fx = { kind: preset.kind, name: preset.name, stages: preset.stages.map(s => ({ ...s, params: { ...s.params } })), map: (preset.map ?? []).map(m => ({ ...m })) };
     fxId = id;
     fxTarget = null;
     showTarget();
@@ -381,7 +468,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     );
     detailBlocks.replaceChildren();
     page("detail");
-    loadUnits().then(() => { if (view?.name === item.name) detailBlocks.replaceChildren(...blockCards(view, { readOnly: true, pre: "cee-bk-detail" })); });
+    loadUnits().then(() => { if (view?.name === item.name) detailBlocks.replaceChildren(...blockCards(view, { readOnly: true, pre: "cee-bk-detail" }), mapSection(view, { readOnly: true, pre: "cee-bk-detail" })); });
   }
 
   // ---- Editor: modulation -----------------------------------------------------------

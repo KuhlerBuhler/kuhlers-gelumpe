@@ -2243,10 +2243,10 @@ select,
   outline-offset: 2px;
 }
 
+/* The open sub page has the frame only; the filled background stays with the main entry above it. */
 .cee-nav-subitem[aria-current] {
   color: var(--color-text-accent);
   border-color: var(--color-border-accent-strong);
-  background: var(--color-surface-item-strong);
 }
 
 /* One page of Plugins other than the editor: as tall as the editor workspace, scrolls inside. */
@@ -2932,6 +2932,12 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 
 /* Baustein 1 and 2 above their cards; the card itself names the block. */
 .cee-bk-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cee-bk-map {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

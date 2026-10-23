@@ -93,6 +93,16 @@ test("a new insert effect: two blocks from the palette, a name; Meine Effekte op
   assert.ok(await page.locator("#cee-bk-palette .cee-bk-group h3").count() >= 4, "the blocks come by group");
   await page.locator("#cee-bk-palette .cee-bk-unit", { hasText: "Chorus" }).click();
   await page.locator("#cee-bk-block-1 h4", { hasText: "Chorus" }).waitFor();
+  // What crashes behind another block (measured, data/findings.mjs) cannot be picked for block 2.
+  await page.locator("#cee-bk-block-2").getByRole("button", { name: "Baustein wählen" }).click();
+  const decimator = page.locator("#cee-bk-palette .cee-bk-unit:disabled", { hasText: "Stürzt an zweiter Stelle ab" }).filter({ hasText: "Lo-Fi (Decimator)" });
+  assert.equal(await decimator.count(), 1, "the decimator crashes in block 2 and cannot be picked there");
+  await page.locator("#cee-bk-palette .ui-dialog-foot .btn").click();
+  // Parameters stop where the device stops (data/map/fx-params.mjs), and a control can be added.
+  assert.equal(await page.getAttribute("#cee-bk-p-0-dry_wet", "max"), "100");
+  const rows = await page.locator("#cee-bk-map .cee-fxmap-row").count();
+  await page.click("#cee-bk-map-add");
+  assert.equal(await page.locator("#cee-bk-map .cee-fxmap-row").count(), rows + 1, "Steuerung hinzufügen adds a row");
   await page.click("#cee-bk-fx-save");
   await page.locator("#app-toasts .cee-toast", { hasText: "Namen" }).waitFor();
   await page.fill("#cee-bk-fx-name", "Breit");
