@@ -876,7 +876,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  padding: 0 var(--space-4) var(--space-5);
+  padding: 0 var(--space-4);
   /* Mostly covers the page background: the dither shows through faintly, the labels keep 4.5:1. */
   --cee-sidebar-opacity: 0.8;
   background: color-mix(in srgb, color-mix(in srgb, var(--color-bg-page) 96%, white) calc(var(--cee-sidebar-opacity) * 100%), transparent);
@@ -1199,10 +1199,15 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 
 .cee-side-body {
   display: flex;
-  flex: 1;
+  flex: 1 0 auto;
   flex-direction: column;
   gap: var(--space-5);
-  min-height: 0;
+}
+
+/* The room under the last button, also when the sidebar scrolls: padding at the end of a scrolled box is lost there. */
+.cee-side-body::after {
+  content: "";
+  flex: none;
 }
 
 .cee-collapse {
@@ -2634,12 +2639,6 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 
 .cee-shelf-tabs {
   align-self: flex-start;
-}
-
-.cee-shelf-tab[aria-pressed="true"],
-.cee-detail-views [aria-pressed="true"] {
-  background: var(--color-surface-item-strong);
-  color: var(--color-text-primary);
 }
 
 .cee-catalog[hidden],

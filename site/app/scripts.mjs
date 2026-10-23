@@ -678,16 +678,15 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   /** The catalog or Meine Plugins, each its own sub-page. */
   const shelf = id => page(id === "own" ? "mine" : "catalog");
 
-  // A plugin's own page: picture, title, description and details on top; Vorschau and Code below, switched by two buttons.
+  // A plugin's own page: picture, title, description and details on top; Vorschau and Code below, switched by a segmented control.
   const detailRun = el("div", { className: "cee-detail-run", id: "cee-detail-run" });
   const detailCode = el("pre", { className: "cee-doc-code cee-detail-code", id: "cee-detail-code", tabIndex: 0, hidden: true });
   const detailHead = el("div", { className: "cee-detail-head", id: "cee-detail-head" });
   const views = [["preview", "Vorschau"], ["code", "Code"]].map(([id, text]) => {
-    const b = el("button", { type: "button", className: "ui-segmented-option", id: `cee-detail-view-${id}`, textContent: text, onclick: () => detailView(id) });
-    b.dataset.view = id;
-    return b;
+    const input = el("input", { type: "radio", name: "cee-detail-view", value: id, onchange: () => detailView(id) });
+    return el("label", { className: "ui-segmented-option", id: `cee-detail-view-${id}` }, [input, el("span", { textContent: text })]);
   });
-  const viewTabs = el("div", { className: "ui-segmented cee-detail-views", role: "group" }, views);
+  const viewTabs = el("div", { className: "ui-segmented cee-detail-views", role: "radiogroup" }, views);
   viewTabs.setAttribute("aria-label", "Vorschau oder Code");
   const detailPage = el("div", { className: "cee-plug-page cee-detail" }, [
     el("button", { type: "button", className: "cee-text-link cee-detail-back", id: "cee-detail-back", textContent: "← Zurück zum Katalog", onclick: () => page("catalog") }),
@@ -698,7 +697,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   ]);
   let detailOf = null;
   function detailView(id) {
-    for (const b of views) b.setAttribute("aria-pressed", String(b.dataset.view === id));
+    for (const v of views) { const input = v.querySelector("input"); input.checked = input.value === id; }
     detailRun.hidden = id !== "preview";
     detailCode.hidden = id !== "code";
     if (id === "preview") {

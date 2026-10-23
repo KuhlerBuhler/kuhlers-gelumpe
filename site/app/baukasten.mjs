@@ -615,15 +615,14 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
 
   // ---- pages ------------------------------------------------------------------------
   const tabs = [["fx", "Effekte"], ["mod", "Modulationen"]].map(([id, text]) => {
-    const b = el("button", { type: "button", className: "ui-segmented-option cee-shelf-tab", id: `cee-bk-tab-${id}`, textContent: text, onclick: () => shelf(id) });
-    b.dataset.shelf = id;
-    return b;
+    const input = el("input", { type: "radio", name: "cee-bk-shelf", value: id, onchange: () => shelf(id) });
+    return el("label", { className: "ui-segmented-option", id: `cee-bk-tab-${id}` }, [input, el("span", { textContent: text })]);
   });
-  const tabRow = el("div", { className: "ui-segmented cee-shelf-tabs", role: "group" }, tabs);
+  const tabRow = el("div", { className: "ui-segmented cee-shelf-tabs", role: "radiogroup" }, tabs);
   tabRow.setAttribute("aria-label", "Effekte oder Modulationen");
   function shelf(id) {
     shelfKind = id;
-    for (const b of tabs) b.setAttribute("aria-pressed", String(b.dataset.shelf === id));
+    for (const t of tabs) { const input = t.querySelector("input"); input.checked = input.value === id; }
     fxCatalog.hidden = id !== "fx";
     modCatalog.hidden = id !== "mod";
     catalogTitle.textContent = id === "mod" ? "Modulationen" : "Effekte";
