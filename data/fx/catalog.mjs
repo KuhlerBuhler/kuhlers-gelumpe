@@ -472,7 +472,7 @@ export const FX_CATALOG = Object.freeze([
  },
  {
   "kind": "mfx",
-  "name": "Triplet Ping Pong",
+  "name": "Tri Ping Pong",
   "description": "Links Vierteltriolen, rechts Achteltriolen. X mischt das Echo dazu, Y die Wiederholungen.",
   "stages": [
    {

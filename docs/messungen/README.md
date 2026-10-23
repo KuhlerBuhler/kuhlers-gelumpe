@@ -203,6 +203,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
 - [Notenassistent: Helligkeit nach Passung, stehen lassen und ausblenden](2026-10-19-notenassistent-helligkeit.md)
 - [Notenassistent: die gespielte Note bleibt rot, bis die nächste kommt](2026-10-22-notenassistent-spielende-note.md)
+- [Notenassistent: volle Helligkeit, sechs Stufen, die gespielte Note gedimmt](2026-10-22-notenassistent-stufen.md)
 - [IMPORT PLUGIN als Liste mit Namen und Beschreibung](2026-10-19-plugin-import-liste.md)
 - [Sync Groups: Patterns verketten, Live-Änderungen mitnehmen](2026-10-19-sync-groups.md)
 - [Gate-Schweif: gehaltene Noten auf den Step-Pads](2026-10-19-gate-schweif.md)
@@ -216,3 +217,5 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Doom: lesbarere monochrome Ausgabe](2026-10-23-doom-bild.md)
 
 - [Doom: feste Helligkeit und beleuchtete Pad-Steuerung](2026-10-23-doom-pads.md)
+- [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
+- [Effekte aus dem Katalog fest in der Firmware](2026-10-23-fx-katalog-fest.md)
