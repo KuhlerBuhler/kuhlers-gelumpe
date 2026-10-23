@@ -2,23 +2,23 @@
  * Plain German names for the building blocks (DSP units of data/units.json) and their parameters, for the Baukasten.
  * The unit's own name stays visible beside it for anyone who knows it. A unit missing here shows its own name.
  */
-export const GROUPS = ["Hall", "Echo", "Filter", "Bewegung", "Verzerrung", "Dynamik", "Klang", "Spezial"];
+export const GROUPS = ["Hall", "Echo", "Filter", "Bewegung", "Distortion", "Dynamik", "Klang", "Spezial"];
 
 export const UNITS = {
   ifx: {
     0x01: ["Kompressor (MKP2)", "Dynamik"], 0x02: ["Kompressor (SR1)", "Dynamik"], 0x03: ["Einfacher Kompressor", "Dynamik"],
     0x04: ["Punch", "Dynamik"], 0x05: ["Limiter", "Dynamik"], 0x06: ["EQ, 2 Bänder", "Klang"], 0x07: ["EQ, 4 Bänder", "Klang"],
-    0x08: ["Exciter", "Klang"], 0x09: ["Lo-Fi (Decimator)", "Verzerrung"], 0x0a: ["Filter", "Filter"], 0x0f: ["Verzerrung", "Verzerrung"],
-    0x10: ["Acid Drive", "Verzerrung"], 0x11: ["Chorus", "Bewegung"], 0x12: ["Flanger", "Bewegung"], 0x13: ["Phaser", "Bewegung"],
+    0x08: ["Exciter", "Klang"], 0x09: ["Lo-Fi (Decimator)", "Distortion"], 0x0a: ["Filter", "Filter"], 0x0f: ["Distortion", "Distortion"],
+    0x10: ["Acid Drive", "Distortion"], 0x11: ["Chorus", "Bewegung"], 0x12: ["Flanger", "Bewegung"], 0x13: ["Phaser", "Bewegung"],
     0x14: ["Tremolo", "Bewegung"], 0x15: ["Lautstärke-Modulation", "Bewegung"], 0x16: ["Ringmodulator", "Bewegung"], 0x18: ["Kurzes Echo", "Echo"],
   },
   mfx: {
     0x28: ["Kompressor (MKP2)", "Dynamik"], 0x29: ["Kompressor (SR1)", "Dynamik"], 0x2a: ["Limiter", "Dynamik"], 0x2b: ["EQ, 4 Bänder", "Klang"],
-    0x2c: ["Wah", "Filter"], 0x2d: ["Multimode-Filter", "Filter"], 0x2e: ["Verzerrung", "Verzerrung"], 0x2f: ["Röhren-Vorstufe", "Verzerrung"],
+    0x2c: ["Wah", "Filter"], 0x2d: ["Multimode-Filter", "Filter"], 0x2e: ["Distortion", "Distortion"], 0x2f: ["Röhren-Vorstufe", "Distortion"],
     0x31: ["Chorus", "Bewegung"], 0x32: ["Flanger", "Bewegung"], 0x33: ["Phaser", "Bewegung"], 0x34: ["Tremolo", "Bewegung"],
     0x35: ["Lautstärke-Modulation", "Bewegung"], 0x36: ["Hall", "Hall"], 0x37: ["Weicher Hall", "Hall"], 0x38: ["Plate, nass", "Hall"],
     0x39: ["Plate, trocken", "Hall"], 0x3a: ["Raumhall", "Hall"], 0x3b: ["Mod Delay", "Echo"], 0x3c: ["Bandecho", "Echo"],
-    0x3d: ["Grain Shifter", "Spezial"], 0x3e: ["Lo-Fi (Decimator)", "Verzerrung"], 0x3f: ["Looper", "Spezial"], 0x40: ["Vinyl Break", "Spezial"],
+    0x3d: ["Grain Shifter", "Spezial"], 0x3e: ["Lo-Fi (Decimator)", "Distortion"], 0x3f: ["Looper", "Spezial"], 0x40: ["Vinyl Break", "Spezial"],
   },
 };
 

@@ -46,7 +46,9 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   assert.equal(await page.inputValue("#cee-bk-fx-name"), "Short Delay", "the title is the name");
   assert.equal(await page.locator("#cee-bk-where").isVisible(), false, "where it works is chosen only for a new one");
   assert.equal(await page.locator("#cee-bk-blocks .cee-bk-slider").count(), 23, "every parameter of Mod Delay has a slider");
-  assert.equal(await page.locator("#cee-bk-blocks h4", { hasText: "Erweiterte Einstellungen" }).count(), 1, "the rest under a heading, not folded");
+  assert.equal(await page.locator("#cee-bk-blocks h5", { hasText: "Erweiterte Parameter" }).count(), 1, "the rest under a heading, not folded");
+  assert.equal(await page.locator(".cee-shelf-tabs").isVisible(), false, "with an effect open there is no switch to Modulationen");
+  assert.equal(await page.locator("#cee-bk-fx-help").isVisible(), false, "an effect with its blocks needs no explanation");
   assert.equal(await page.locator("#cee-bk-blocks details").count(), 0);
   await page.fill("#cee-bk-fx-name", "Mein Delay");
   // a slider set without dragging (a change event only) counts as well: a user test lost such a value
@@ -83,7 +85,7 @@ test("a new insert effect: two blocks from the palette, a name; Meine Effekte op
   await page.locator("#cee-bk-palette[open]").waitFor();
   assert.ok(await page.locator("#cee-bk-palette .cee-bk-group h3").count() >= 4, "the blocks come by group");
   await page.locator("#cee-bk-palette .cee-bk-unit", { hasText: "Chorus" }).click();
-  await page.locator("#cee-bk-block-1 h3", { hasText: "Chorus" }).waitFor();
+  await page.locator("#cee-bk-block-1 h4", { hasText: "Chorus" }).waitFor();
   await page.click("#cee-bk-fx-save");
   await page.locator("#app-toasts .cee-toast", { hasText: "Namen" }).waitFor();
   await page.fill("#cee-bk-fx-name", "Breit");
@@ -113,8 +115,8 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.locator("#cee-bk-curve button", { hasText: "Dreieck" }).click();
   assert.equal(await page.getAttribute("#cee-bk-curve button[data-value='2']", "aria-checked"), "true");
   await page.click("#cee-bk-mod-save");
-  await page.click("#cee-bk-tab-fx");
   await page.click("#cee-baukasten-page-catalog");
+  await page.click("#cee-bk-tab-fx");
   await openCard(page, "#cee-bk-fx-catalog", "Short Delay");
   await page.locator("#cee-bk-blocks .cee-bk-slider").first().waitFor();
   await page.click("#cee-bk-fx-save");
