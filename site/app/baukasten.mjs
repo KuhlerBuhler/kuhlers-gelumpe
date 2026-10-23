@@ -59,9 +59,9 @@ function nameField(input) {
 }
 
 /** A slider with its label and a number box beside it: drag it or type the value. */
-function slider(id, label, hint, min, max, value, change) {
-  const input = el("input", { type: "range", className: "ui-range", id, min, max, value });
-  const box = el("input", { type: "number", className: "input cee-bk-number", id: `${id}-value`, min, max, value });
+function slider(id, label, hint, min, max, value, change, { readOnly = false } = {}) {
+  const input = el("input", { type: "range", className: "ui-range", id, min, max, value, disabled: readOnly });
+  const box = el("input", { type: "number", className: "input cee-bk-number", id: `${id}-value`, min, max, value, readOnly });
   box.setAttribute("aria-label", `${label}, Wert`);
   const fromRange = () => { box.value = input.value; change(Number(input.value)); };
   const fromBox = () => {
@@ -157,7 +157,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   }
 
   // ---- Katalog ----------------------------------------------------------------------
-  const fxCatalog = el("ul", { className: "cee-catalog cee-bk-catalog", id: "cee-bk-fx-catalog" }, FX_CATALOG.map(item => card(item, { creator: item.creator, onOpen: () => { openFx(structuredClone(item), null); page("editor"); } })));
+  const fxCatalog = el("ul", { className: "cee-catalog cee-bk-catalog", id: "cee-bk-fx-catalog" }, FX_CATALOG.map(item => card(item, { creator: item.creator, onOpen: () => openDetail(item) })));
   const modCatalog = el("ul", { className: "cee-catalog cee-bk-catalog", id: "cee-bk-mod-catalog", hidden: true }, MOD_CATALOG.map(item => card(item, { creator: item.creator, onOpen: () => { openMod(structuredClone(item), null); page("editor"); } })));
   const catalogTitle = el("h2", { className: "cee-bk-title", textContent: "Effekte" });
   const catalogPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-catalog" }, [
@@ -234,24 +234,32 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (!fx) return;
     fxName.value = fx.name;
     fxKind.textContent = KIND_WORD[fx.kind];
-    blocks.replaceChildren(...fx.stages.map((s, i) => {
+    blocks.replaceChildren(...blockCards(fx));
+    // The explanation is for an effect built from scratch; one that already has its blocks needs none.
+    fxHelp.hidden = fx.stages.some(s => s.unit);
+  }
+
+  /** The cards of a piece's blocks; read only on a catalog effect's page, where the empty block is left out. */
+  function blockCards(piece, { readOnly = false, pre = "cee-bk" } = {}) {
+    const stages = readOnly ? piece.stages.filter(s => s.unit) : piece.stages;
+    return stages.map((s, i) => {
       const kind = unitKind(s.stage);
       const [label, group] = s.unit ? unitLabel(kind, s.unit, s.unitName) : ["Noch leer", ""];
       const params = s.unit ? (units[kind].get(s.unit)?.params ?? []) : [];
       const one = p => {
         const value = s.params[p.name] ?? 0;
-        return slider(`cee-bk-p-${i}-${p.name}`, paramLabel(p.name), p.name, 0, value > 127 ? 255 : 127, value, v => { s.params[p.name] = v; });
+        return slider(`${pre}-p-${i}-${p.name}`, paramLabel(p.name), p.name, 0, value > 127 ? 255 : 127, value, v => { s.params[p.name] = v; }, { readOnly });
       };
       // The parameters that shape the sound most come first, the rest under their own heading.
       const shownFirst = params.some(p => MAIN.has(p.name)) ? p => MAIN.has(p.name) : () => true;
       const main = params.filter(shownFirst);
       const more = params.filter(p => !shownFirst(p));
       const pick = el("button", { type: "button", className: `btn sm${s.unit ? "" : " cee-primary"}`, onclick: () => choose(s.stage) }, s.unit ? [icon("swap"), "Anderen Baustein wählen"] : ["Baustein wählen"]);
-      const card = el("div", { className: `cee-bk-block${s.unit ? "" : " cee-bk-block-empty"}`, id: `cee-bk-block-${i + 1}` }, s.unit ? [
+      const card = el("div", { className: `cee-bk-block${s.unit ? "" : " cee-bk-block-empty"}`, id: `${pre}-block-${i + 1}` }, s.unit ? [
         el("div", { className: "cee-bk-block-head" }, [
           el("h4", { textContent: label }),
           group ? el("span", { className: "cee-bk-group-name", textContent: group }) : null,
-          el("div", { className: "actions" }, [
+          readOnly ? null : el("div", { className: "actions" }, [
             pick,
             fx.stages.length > 1 ? el("button", { type: "button", className: "btn sm", textContent: "Entfernen", onclick: () => { Object.assign(s, { unit: 0, unitName: "nofx_thru", params: {} }); renderFx(); } }) : null,
           ]),
@@ -261,10 +269,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
         more.length ? el("h5", { className: "cee-bk-more cee-bk-more-extra", textContent: "Erweiterte Parameter" }) : null,
         more.length ? el("div", { className: "cee-bk-params" }, more.map(one)) : null,
       ] : [el("p", { className: "muted", textContent: "Noch leer" }), pick]);
-      return fx.stages.length > 1 ? el("section", { className: "cee-bk-stage" }, [el("h3", { className: "cee-bk-stage-title", textContent: `Baustein ${i + 1}` }), card]) : card;
-    }));
-    // The explanation is for an effect built from scratch; one that already has its blocks needs none.
-    fxHelp.hidden = fx.stages.some(s => s.unit);
+      return stages.length > 1 ? el("section", { className: "cee-bk-stage" }, [el("h3", { className: "cee-bk-stage-title", textContent: `Baustein ${i + 1}` }), card]) : card;
+    });
   }
 
   function openFx(preset, id) {
@@ -278,7 +284,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   }
 
   /** The effect as it stands, or why it is not ready. */
-  function readyFx() {
+  function readyFx(piece = fx) {
+    const fx = piece;
     if (!fx) return { ok: false, reason: "Leg zuerst einen Effekt an." };
     if (!fx.stages.some(s => s.unit)) return { ok: false, reason: "Wähl mindestens einen Baustein." };
     if (!fx.name.trim()) return { ok: false, reason: "Gib dem Effekt oben einen Namen." };
@@ -308,26 +315,27 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     fxLoad.textContent = fxTarget ? `Auf dem Gerät laden (${KIND_WORD[fxTarget.kind]} ${fxTarget.slot})` : "Auf dem Gerät laden";
     fxRetarget.hidden = !fxTarget;
   }
-  function pickSlot() {
-    const list = presets?.presets()?.list(fx.kind);
+  function pickSlot(piece = fx) {
+    const list = presets?.presets()?.list(piece.kind);
     if (!list?.length) { toast("Dafür braucht die Seite deine Firmware und den laufenden Emulator oder die verbundene Electribe: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen.", "error"); return; }
-    slotTitle.textContent = `Welchen ${KIND_WORD[fx.kind]} überschreiben?`;
+    slotTitle.textContent = `Welchen ${KIND_WORD[piece.kind]} überschreiben?`;
     slotBody.replaceChildren(
       el("p", { className: "muted", textContent: "Der gewählte Platz bekommt deinen Effekt, live im Arbeitsspeicher. Nach dem Ausschalten ist das alte Preset wieder da." }),
-      el("div", { className: "cee-bk-units" }, list.map(({ slot, name }) => el("button", { type: "button", className: "btn cee-bk-unit", onclick: () => { slotDialog.close(); loadTo({ kind: fx.kind, slot }); } }, [
+      el("div", { className: "cee-bk-units" }, list.map(({ slot, name }) => el("button", { type: "button", className: "btn cee-bk-unit", onclick: () => { slotDialog.close(); loadTo({ kind: piece.kind, slot }, piece); } }, [
         el("strong", { textContent: `${slot}` }), el("span", { className: "muted", textContent: name }),
       ]))),
     );
     if (window.ui?.openDialog) window.ui.openDialog(slotDialog); else slotDialog.showModal?.();
   }
-  async function loadTo(target) {
-    const r = readyFx();
+  async function loadTo(target, piece = fx) {
+    const r = readyFx(piece);
     if (!r.ok) { toast(r.reason, "error"); return; }
     await loadUnits();
     fxLoad.disabled = true;
     try {
       const res = await presets.writeRecord(target.kind, target.slot, (before, records) => fxToRecord(r.preset, before, records, units));
       if (!res.ok) { if (res.reason) toast(res.reason, "error"); return; }
+      if (piece !== fx) { toast(`„${r.preset.name}“ liegt jetzt auf ${KIND_WORD[target.kind]} ${target.slot}. Am Gerät auswählen und anhören.`, "ok"); return; }
       fxTarget = target;
       showTarget();
       toast(`„${r.preset.name}“ liegt jetzt auf ${KIND_WORD[target.kind]} ${target.slot}. Am Gerät auswählen und anhören.`, "ok");
@@ -340,6 +348,41 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (fxTarget?.kind === fx?.kind) loadTo(fxTarget); else pickSlot();
   });
   fxRetarget.addEventListener("click", () => { if (presets) pickSlot(); });
+
+  // ---- A catalog effect: its own page, like a plugin's ---------------------------------
+  // Its values are read only; to change them it becomes an own effect, which then may take its place.
+  let view = null;
+  const detailHead = el("div", { className: "cee-detail-text", id: "cee-bk-detail-head" });
+  const detailBlocks = el("div", { className: "cee-bk-blocks", id: "cee-bk-detail-blocks" });
+  const detailPage = el("div", { className: "cee-bk-page cee-detail", id: "cee-bk-page-detail" }, [
+    el("button", { type: "button", className: "cee-text-link cee-detail-back", id: "cee-bk-detail-back", textContent: "← Zurück zum Katalog", onclick: () => page("catalog") }),
+    detailHead,
+    detailBlocks,
+  ]);
+  function openDetail(item) {
+    view = structuredClone(item);
+    const download = el("button", { type: "button", className: "btn", id: "cee-bk-detail-download", onclick: () => saveFile(fxText(view), fxFileName(view), { type: "application/json" }) }, [icon("download"), "Herunterladen"]);
+    const usb = el("button", { type: "button", className: "btn", id: "cee-bk-detail-load", onclick: () => { if (presets) pickSlot(view); } }, [icon("usb"), "Aufs Gerät"]);
+    const own = el("button", { type: "button", className: "btn", id: "cee-bk-detail-own", textContent: "Als eigenen Effekt bearbeiten", onclick: () => {
+      const id = keep({ ok: true, preset: structuredClone(view) }, null, fxSaved);
+      if (!id) return;
+      openFx(view, id);
+      page("editor");
+    } });
+    detailHead.replaceChildren(
+      el("h2", { className: "cee-detail-title", id: "cee-bk-detail-title", textContent: view.name }),
+      view.description ? el("p", { textContent: view.description }) : null,
+      el("dl", { className: "cee-detail-facts" }, [
+        el("dt", { textContent: "Art" }), el("dd", { textContent: KIND_WORD[view.kind] }),
+        el("dt", { textContent: "Kategorie" }), el("dd", { textContent: tagOf(view) }),
+        el("dt", { textContent: "Von" }), el("dd", { textContent: view.creator }),
+      ]),
+      el("div", { className: "actions" }, [download, usb, own]),
+    );
+    detailBlocks.replaceChildren();
+    page("detail");
+    loadUnits().then(() => { if (view?.name === item.name) detailBlocks.replaceChildren(...blockCards(view, { readOnly: true, pre: "cee-bk-detail" })); });
+  }
 
   // ---- Editor: modulation -----------------------------------------------------------
   const modName = el("input", { className: "cee-bk-name", id: "cee-bk-mod-name", type: "text", maxLength: 16, spellcheck: false, autocomplete: "off", placeholder: "Name der Modulation" });
@@ -655,23 +698,24 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     modEditor.hidden = isFx || !mod;
     switchRow();
   }
-  /** Effekte or Modulationen is a choice for the catalog and a new piece; with one open in the editor it stays as it is. */
+  /** Effekte or Modulationen is a choice for the catalog and a new piece; with one open it stays as it is. */
   function switchRow() {
-    tabRow.hidden = shown === "editor" && !!(shelfKind === "fx" ? fx : mod);
+    tabRow.hidden = shown === "detail" || (shown === "editor" && !!(shelfKind === "fx" ? fx : mod));
   }
 
-  const PAGE_NODES = { catalog: catalogPage, editor: editorPage, mine: minePage, export: exportPage };
+  const PAGE_NODES = { catalog: catalogPage, editor: editorPage, mine: minePage, export: exportPage, detail: detailPage };
   const subPages = sub?.pages("baukasten", { id: "cee-baukasten-pages", label: "Bereiche des Baukastens", items: PAGES.map(([id, title, ic]) => ({ id, title, icon: ic })), pick: id => page(id) });
   function updateTrail() {
     if (!shown) return;
     const name = shelfKind === "mod" ? mod?.name : fx?.name;
+    if (shown === "detail") { trail([{ text: "Katalog", go: () => page("catalog") }, view.name]); return; }
     trail(shown === "editor" ? ["Editor", ...(name ? [name] : [])] : [shown === "mine" ? mineTitle.textContent : PAGES.find(p => p[0] === shown)[1]]);
   }
   function page(id) {
     if (!PAGE_NODES[id]) id = "catalog";
     shown = id;
     for (const [key, node] of Object.entries(PAGE_NODES)) node.hidden = key !== id;
-    subPages?.select(id);
+    subPages?.select(id === "detail" ? "catalog" : id);
     switchRow();
     navbar(id === "export" ? [exportButton] : []);
     updateTrail();
@@ -680,7 +724,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
 
   root.replaceChildren(el("div", { className: "cee-bk" }, [
     el("h1", { className: "ui-sr-only", textContent: "Baukasten" }),
-    tabRow, catalogPage, editorPage, minePage, exportPage,
+    tabRow, catalogPage, detailPage, editorPage, minePage, exportPage,
   ]));
   shelf("fx");
   page("catalog");

@@ -50,7 +50,7 @@ export function set(id, value) {
 
 /** The settings button in the sidebar footer: it opens the settings page like any other area. */
 export function settingsButton(button, open) {
-  button.prepend(icon("settings"));
+  button.prepend(icon("slidersHorizontal"));
   button.addEventListener("click", open);
 }
 

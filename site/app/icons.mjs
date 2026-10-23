@@ -7,7 +7,7 @@ const SOLID = new Set(["rec", "stop", "play"]);
 const PATHS = {
   chevronDown: ["m6 9 6 6 6-6"],
   x: ["M18 6 6 18", "m6 6 12 12"],
-  settings: ["M21 4h-7", "M10 4H3", "M21 12h-9", "M8 12H3", "M21 20h-5", "M12 20H3", "M14 2v4", "M8 10v4", "M16 18v4"],
+  slidersHorizontal: ["M21 4h-7", "M10 4H3", "M21 12h-9", "M8 12H3", "M21 20h-5", "M12 20H3", "M14 2v4", "M8 10v4", "M16 18v4"],
   grid: ["M3 3h7v7H3Z", "M14 3h7v7h-7Z", "M3 14h7v7H3Z", "M14 14h7v7h-7Z"],
   code: ["m16 18 6-6-6-6", "m8 6-6 6 6 6"],
   terminal: ["m4 17 6-6-6-6", "M12 19h8"],

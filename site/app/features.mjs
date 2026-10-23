@@ -5,9 +5,11 @@
  */
 import { el } from "./fields.mjs";
 import { drawDisplay } from "./emulator.mjs";
+import { e2Outline } from "./e2-art.mjs";
 
-const BOTH = "Rot und blau";
-const RED = "Nur rot";
+const BOTH = ["red", "blue"];
+const RED = ["red"];
+const DEVICE = { red: "Electribe 2 Sampler (rot)", blue: "Electribe 2 (blau)" };
 
 /** One entry per function. `how` is what you press, `where` which Electribe has it, `image` a picture of the display. */
 export const FEATURES = [
@@ -116,7 +118,11 @@ export function featuresPage(root) {
         el("h3", { textContent: f.title }),
         el("p", { textContent: f.text }),
         el("p", { className: "cee-feature-how" }, [el("strong", { textContent: "So geht's: " }), f.how]),
-        el("span", { className: "cee-feature-where", textContent: f.where }),
+        el("p", { className: "cee-feature-where" }, ["Unterstützt:", ...f.where.map(device => {
+          const art = e2Outline(DEVICE[device]);
+          art.dataset.device = device;
+          return art;
+        })]),
       ]))),
     ])),
   );

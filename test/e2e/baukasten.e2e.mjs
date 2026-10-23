@@ -41,6 +41,13 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   assert.match(await first.textContent(), /von Kuhler Buhler/, "and the creator beside it");
   assert.equal(await first.locator(".btn").count(), 0, "the whole card opens it, no button");
   await openCard(page, "#cee-bk-fx-catalog", "Short Delay");
+  // A catalog effect has its own page like a plugin: what it is, three buttons, its values read only.
+  await page.locator("#cee-bk-detail-blocks .cee-bk-slider").first().waitFor();
+  assert.equal(await page.locator("#cee-bk-detail-title").textContent(), "Short Delay");
+  assert.deepEqual(await page.locator("#cee-bk-detail-head .actions .btn").allTextContents(), ["Herunterladen", "Aufs Gerät", "Als eigenen Effekt bearbeiten"]);
+  assert.equal(await page.locator("#cee-bk-detail-blocks input[type=range]:not(:disabled)").count(), 0, "the catalog's values are read only");
+  assert.equal(await page.locator(".cee-shelf-tabs").isVisible(), false);
+  await page.click("#cee-bk-detail-own");
   await page.locator("#cee-bk-blocks .cee-bk-slider").first().waitFor();
   assert.equal(await page.locator("#cee-bk-page-editor").isVisible(), true);
   assert.equal(await page.inputValue("#cee-bk-fx-name"), "Short Delay", "the title is the name");
@@ -118,8 +125,8 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.click("#cee-baukasten-page-catalog");
   await page.click("#cee-bk-tab-fx");
   await openCard(page, "#cee-bk-fx-catalog", "Short Delay");
+  await page.click("#cee-bk-detail-own");
   await page.locator("#cee-bk-blocks .cee-bk-slider").first().waitFor();
-  await page.click("#cee-bk-fx-save");
 
   await page.click("#cee-baukasten-page-export");
   assert.equal(await page.locator("#cee-nav-state #cee-bk-collection").isVisible(), true, "Exportieren sits in the navbar");
