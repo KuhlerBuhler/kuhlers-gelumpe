@@ -6,6 +6,12 @@ export const NEWS = Object.freeze([
   Object.freeze({
     version: "1.3.0",
     items: Object.freeze([
+      "Sync Groups: Patterns derselben Gruppe wechseln ohne MENU am Sequenzende und spielen wie eine lange Sequenz. Einstellen auf der Seite SYNC GROUP.",
+      "16 neue Effekte hinten in INSERT FX und MASTER FX: Delays, lautere Verzerrer und fünf neue Master-Effekte. Die Werks-Presets bleiben auf ihren Plätzen.",
+      "Doom ist spielbar: SHIFT + TAP beim Einschalten, Laufen, Feuern und Waffenwahl liegen auf den Pads.",
+      "Der Emulator startet von selbst neu, wenn er abstürzt. Unter Windows ohne eigenes Konsolenfenster.",
+      "Rettung: eine Seite mit Schritten für jede Lage, auch wenn die Electribe nicht mehr startet.",
+      "Im Patcher wählst du selbst: neueste BLECHTRIBE-Version oder eigene BLECH.patch, Hacktribe dazu oder nicht.",
       "Firmware-Update über USB: ein Knopf im Patcher, keine SD-Karte mehr nötig, sobald BLECHTRIBE einmal drauf ist.",
       "Plugins per USB direkt auf die Electribe schicken.",
       "GIF Player: Bilder und kleine Animationen von der Karte auf dem Display abspielen (unter TOOLS).",
