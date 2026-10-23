@@ -1,6 +1,6 @@
 // BLECH-style page background: a calm star field on a fixed 1-bit cell grid, drawn like the
 // README banner (square pixels, no anti-aliasing, dither on a 2 cell pitch), and now and then a
-// pair of Blech eyes that blinks up out of the dither. Included on every page (canvas + this script).
+// pair of Blechy's eyes that blinks up out of the dither. Included on every page (canvas + this script).
 // Self-initialising; does nothing without a #bg-canvas.
 //
 // One canvas pixel is one cell, the canvas is scaled up with image-rendering: pixelated, so the
@@ -159,26 +159,26 @@
         }
     }
 
-    // ---------- eyes: the banner's terror eye, small, dithering in and out ----------
-    // Same construction as tools/readme-banner.mjs: ring, square pupil, three step lid tab.
-    function eyeBitmap(R, th, pupil) {
-        const cells = [];
-        for (let j = 0; j < 2 * R; j++)
-            for (let i = 0; i < 2 * R; i++) {
-                const d = Math.hypot(i + 0.5 - R, j + 0.5 - R);
-                if (d <= R + 1.5) cells.push({ i, j, kind: d >= R - th && d <= R ? 'ring' : d <= R ? 'inside' : 'halo' });
-            }
-        const lid = [];
-        const t = Math.max(2, Math.round(th * 0.6));
-        [0.62, 0.52, 0.52].map(k => Math.round(R * k)).forEach((half, n, all) => {
-            for (let b = 0; b < t; b++)
-                for (let i = R - half; i < R + half; i++) {
-                    const edge = i < R - half + t || i >= R + half - t || n === all.length - 1;
-                    if (edge) lid.push({ i, j: 2 * R - 1 + n * t + b });
-                }
-        });
-        return { cells, lid, size: 2 * R, pupil };
-    }
+    // ---------- eyes: Blechy's, small, dithering in and out ----------
+    // Cut from his calm sprite (assets/blechy/sprites/blechy-calm.png): brows, rings, the double bags under
+    // them; the pupils are drawn on their own so they can glance and blink.
+    const BLECHY_EYES = [
+        '............####.....',
+        '...###.........###...',
+        '.##...##.....##...##.',
+        '.#.....#.....#.....#.',
+        '#.......#...#.......#',
+        '#.......#...#.......#',
+        '#.......#...#.......#',
+        '.#.....#.....#.....#.',
+        '.##...##.....##...##.',
+        '...###.........###...',
+        '.#.....#.....#.....#.',
+        '..#...#.......#...#..',
+        '.#.###.#.....#.###.#.',
+    ];
+    const PUPILS = { at: [[3, 4], [15, 4]], size: 3 };
+    const EYE_SCALE = 2;   // two cells per pixel of the sprite, so his face reads at the size of the old eyes
 
     let eye = null;       // the running appearance, or null
     let eyeTimer = 0;     // seconds until the next one
@@ -192,15 +192,13 @@
 
     function startEye() {
         if (cols < 160 || rows < 40) return; // on a phone the pair would sit behind the text
-        const bitmap = eyeBitmap(7, 2, 3);
-        const gap = 2;
-        const pair = 2 * bitmap.size + gap;
+        const width = BLECHY_EYES[0].length * EYE_SCALE;
         const fromLeft = Math.random() < 0.5;
         const bandWidth = Math.min(44, Math.max(14, Math.round(cols * 0.09)));
-        const reach = Math.max(2, bandWidth - Math.round(pair / 2));
-        const cx = fromLeft ? Math.round(pair / 2) + 2 + Math.floor(Math.random() * reach) : cols - Math.round(pair / 2) - 2 - Math.floor(Math.random() * reach);
+        const reach = Math.max(2, bandWidth - Math.round(width / 2));
+        const cx = fromLeft ? Math.round(width / 2) + 2 + Math.floor(Math.random() * reach) : cols - Math.round(width / 2) - 2 - Math.floor(Math.random() * reach);
         const y = Math.floor(rows * (0.12 + Math.random() * 0.62));
-        eye = { bitmap, gap, x: cx - Math.round(pair / 2), y, look: fromLeft ? 1 : -1, age: 0 };
+        eye = { x: cx - Math.round(width / 2), y, look: fromLeft ? 1 : -1, age: 0 };
     }
 
     function drawEye(dt) {
@@ -212,17 +210,15 @@
         const t = eye.age - EYE.dither;
         const blink = t > EYE.blinkAt && t < EYE.blinkAt + EYE.blinkFor;
         const look = t > EYE.glanceAt ? eye.look : 0;
-        const { bitmap } = eye;
-        const set = (x, y, v) => { if (x >= 0 && y >= 0 && x < cols && y < rows && (p >= 1 || bayer(x, y) < p)) frame[y * cols + x] = v; };
-        for (let n = 0; n < 2; n++) {
-            const ox = eye.x + n * (bitmap.size + eye.gap), oy = eye.y;
-            for (const c of bitmap.cells) set(ox + c.i, oy + c.j, c.kind === 'ring' ? INK.eye : 0);
-            for (const c of bitmap.lid) set(ox + c.i, oy + c.j, INK.eye);
-            if (blink) continue;
-            const start = Math.round(bitmap.size / 2 - bitmap.pupil / 2) + look;
-            for (let j = 0; j < bitmap.pupil; j++)
-                for (let i = 0; i < bitmap.pupil; i++) set(ox + start + i, oy + Math.round(bitmap.size / 2 - bitmap.pupil / 2) + j, INK.eye);
-        }
+        const cell = (x, y, v) => { if (x >= 0 && y >= 0 && x < cols && y < rows && (p >= 1 || bayer(x, y) < p)) frame[y * cols + x] = v; };
+        const set = (i, j, v) => { for (let b = 0; b < EYE_SCALE; b++) for (let a = 0; a < EYE_SCALE; a++) cell(eye.x + i * EYE_SCALE + a, eye.y + j * EYE_SCALE + b, v); };
+        BLECHY_EYES.forEach((line, j) => {
+            for (let i = 0; i < line.length; i++) set(i, j, line[i] === '#' ? INK.eye : 0);
+        });
+        if (blink) return;
+        for (const [px, py] of PUPILS.at)
+            for (let j = 0; j < PUPILS.size; j++)
+                for (let i = 0; i < PUPILS.size; i++) set(px + look + i, py + j, INK.eye);
     }
 
     // ---------- loop ----------
