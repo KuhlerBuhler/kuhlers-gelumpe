@@ -58,6 +58,12 @@ const pads = (p, colourOf) => {
 };
 
 const ART = {
+  // the picture of every planned function on the page (group Geplant)
+  soon: p => {
+    p.frame(2, 2, 124, 60, 2);
+    p.text("KOMMT", 64, 12, { s: 2, align: "center" });
+    p.text("BALD", 64, 34, { s: 2, align: "center" });
+  },
   "pattern-switch": p => {
     p.text("PATTERN", 4, 3);
     p.frame(4, 15, 48, 28, 2);

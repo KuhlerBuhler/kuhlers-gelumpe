@@ -9,6 +9,8 @@ import { e2Outline } from "./e2-art.mjs";
 
 const BOTH = ["red", "blue"];
 const RED = ["red"];
+/** The last group: what is planned (docs/ideen.md), without a date. */
+const SOON = "Geplant";
 const DEVICE = { red: "Electribe 2 Sampler (rot)", blue: "Electribe 2 (blau)" };
 
 /** One entry per function. `how` is what you press, `where` which Electribe has it, `image` a picture of the display. */
@@ -76,6 +78,26 @@ export const FEATURES = [
   { group: "Sicher und bequem", id: "usb-update", title: "Update über USB", where: RED,
     text: "Ist BLECHTRIBE einmal drauf, kommt jedes weitere Update aus der App direkt über USB.",
     how: "In der App: Firmware Patcher -> Aufs Gerät." },
+  ...[
+    // from docs/ideen.md: what is planned or still being worked out, so people know what comes
+    ["usb-samples", "Samples übers Kabel", "Samples rein und raus und die Karte lesen, ohne sie aus der Electribe zu nehmen."],
+    ["preset-edit", "Effekte am Gerät bauen", "Ein Menüpunkt Preset Edit: eigene Effekte direkt an der Electribe zusammenstellen und auf der Karte speichern."],
+    ["fx-export", "Effekte vom Gerät sichern", "Die Effekte, wie sie gerade auf der Electribe sind, als Datei auf die Karte schreiben."],
+    ["mod-live", "Modulationen live ausprobieren", "Eigene Modulationen aus dem Baukasten direkt auf der Electribe anhören, ohne Umweg über die Karte."],
+    ["mac-midi", "MIDI in der Mac-App", "Die App spricht direkt über USB-MIDI mit der Electribe, so wie der Browser."],
+    ["more-samples", "Mehr Platz für Samples", "Samples von der Karte nachladen, statt alle auf einmal in den Speicher zu legen."],
+    ["factory-samples", "Werks-Samples ersetzen", "Die fest eingebauten Samples gegen eigene tauschen. Dafür muss erst ein sicherer Weg gefunden werden."],
+    ["host-samples", "Samples am Rechner bauen", "Kicks, Basslines und mehr in der App erzeugen und als Sample auf die Electribe holen."],
+    ["osc-drawer", "OSC Drawer", "Einen eigenen Oszillator auf dem Touchpad malen und als Sample speichern."],
+    ["filters", "Eigene Filtertypen", "Neue Filter aus den Bausteinen, die die Electribe schon hat."],
+    ["mfx-free", "Zweiter Master-Effekt ohne Touchpad", "Ein zweiter Master-Effekt, der unabhängig vom Touchpad läuft. Ob der Klangprozessor (DSP) das schafft, ist noch offen."],
+    ["clip-red", "Rotes Licht beim Übersteuern", "Das Display leuchtet rot, wenn das Signal digital clippt."],
+    ["gapless", "Patternwechsel ohne Lücke", "Die kurze Stille beim Wechsel des Patterns soll verschwinden."],
+    ["fast-load", "Schneller laden, weniger Strom", "Samples laden schneller, und mit Batterien hält die Electribe länger."],
+    ["tap-free", "TAP frei belegen", "TAP mit einer Funktion deiner Wahl belegen."],
+    ["blechy-voice", "Blechy mit Stimme", "Blechy begrüßt dich beim Einschalten mit einem Ton und lernt vielleicht sogar sprechen."],
+    ["bugfixes", "Korgs Fehler beheben", "Bekannte Fehler der Firmware ausbessern, die Korg nicht mehr behebt."],
+  ].map(([id, title, text]) => ({ group: SOON, id, title, text, where: [], image: "img/features/soon.svg", soon: true })),
 ];
 
 /** A picture cut to the one bit per pixel of the display and drawn like the plugin pictures of the catalog. */
@@ -113,16 +135,17 @@ export function featuresPage(root) {
     el("p", { className: "muted", textContent: "Alles, was BLECHTRIBE der Electribe 2 beibringt, und wie du drankommst. Die Spielhilfen lassen sich unter Menü -> BLECH einzeln abschalten, EXIT beim Einschalten schaltet alles ab." }),
     ...groups.map(group => el("section", { className: "ui-section cee-feature-group" }, [
       el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: group })]),
+      group === SOON ? el("p", { className: "muted", id: "cee-features-soon-lead", textContent: "Das kommt noch. Ohne Termin, und manches muss erst noch erforscht werden." }) : null,
       el("ul", { className: "cee-features" }, FEATURES.filter(f => f.group === group).map(f => el("li", { className: "cee-feature", id: `cee-feature-${f.id}` }, [
         f.image ? pictureOf(f) : null,
         el("h3", { textContent: f.title }),
-        el("p", { className: "cee-feature-where" }, ["Unterstützt:", ...f.where.map(device => {
+        f.where.length ? el("p", { className: "cee-feature-where" }, ["Unterstützt:", ...f.where.map(device => {
           const art = e2Outline(DEVICE[device]);
           art.dataset.device = device;
           return art;
-        })]),
+        })]) : null,
         el("p", { textContent: f.text }),
-        el("p", { className: "cee-feature-how" }, [el("strong", { textContent: "So geht's: " }), f.how]),
+        f.how ? el("p", { className: "cee-feature-how" }, [el("strong", { textContent: "So geht's: " }), f.how]) : null,
       ]))),
     ])),
   );
