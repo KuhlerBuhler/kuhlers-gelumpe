@@ -4,20 +4,27 @@
 // until it answers, and opens the page with the link in the address
 // (`#emu=port:token`), the same link the service prints in the browser setup.
 // On quit it sends SIGTERM so the service writes the card and the flash back.
+// While the app runs, a watchdog starts the service again on the same port and
+// token when it ends, so the page reconnects by itself.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
-struct Service(Mutex<Option<Child>>);
+/// The service this app started, if any. `quitting` keeps the watchdog from starting it again while the app ends.
+struct Service {
+    child: Arc<Mutex<Option<Child>>>,
+    quitting: Arc<AtomicBool>,
+}
 
 fn free_port() -> std::io::Result<u16> {
     Ok(TcpListener::bind("127.0.0.1:0")?.local_addr()?.port())
@@ -47,8 +54,16 @@ fn service_command() -> Result<Command, String> {
     Ok(cmd)
 }
 
-fn start_service(port: u16, token: &str) -> Result<Child, String> {
+fn start_service(port: u16, token: &str, again: bool) -> Result<Child, String> {
     let mut cmd = service_command()?;
+    // The frozen service is a console program: started from a window app, Windows opens a console window
+    // for it, and closing that window ends the emulator. It gets none; its output goes to the log anyway.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
     cmd.arg("--port").arg(port.to_string())
         .arg("--allow-origin").arg("tauri://localhost")
         .arg("--allow-origin").arg("http://tauri.localhost")
@@ -56,7 +71,7 @@ fn start_service(port: u16, token: &str) -> Result<Child, String> {
         .arg("--parent-pid").arg(std::process::id().to_string())
         .env("E2_EMU_TOKEN", token);
     // What the service prints goes to ~/.gelumpe/emu.log, so a failure on a user's machine can be read afterwards.
-    if let Some(log) = log_file() {
+    if let Some(log) = log_file(again) {
         if let (Ok(out), Ok(err)) = (log.try_clone(), log.try_clone()) {
             cmd.stdout(Stdio::from(out)).stderr(Stdio::from(err));
         }
@@ -69,7 +84,8 @@ fn wait_for(port: u16, child: &mut Child) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_secs(60);
     while Instant::now() < deadline {
         if let Ok(Some(status)) = child.try_wait() {
-            return Err(format!("Der Emulator-Dienst ist beendet ({status}). Läuft schon eine andere Instanz auf demselben Kartenordner?"));
+            let tail = log_tail().map(|t| format!("\n\nAus ~/.gelumpe/emu.log:\n{t}")).unwrap_or_default();
+            return Err(format!("Der Emulator-Dienst ist beendet ({status}). Läuft schon eine andere Instanz auf demselben Kartenordner?{tail}"));
         }
         if TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok() {
             return Ok(());
@@ -79,13 +95,25 @@ fn wait_for(port: u16, child: &mut Child) -> Result<(), String> {
     Err("Der Emulator-Dienst antwortet nicht.".into())
 }
 
-/// Where a running service announces itself: next to the card folder's lock.
-fn log_file() -> Option<std::fs::File> {
-    let dir = PathBuf::from(std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })?).join(".gelumpe");
-    std::fs::create_dir_all(&dir).ok()?;
-    std::fs::File::create(dir.join("emu.log")).ok()
+fn log_path() -> Option<PathBuf> {
+    Some(PathBuf::from(std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })?).join(".gelumpe").join("emu.log"))
 }
 
+/// The service's log, new at launch; a restart by the watchdog writes behind what the ended one said.
+fn log_file(again: bool) -> Option<std::fs::File> {
+    let path = log_path()?;
+    std::fs::create_dir_all(path.parent()?).ok()?;
+    std::fs::OpenOptions::new().create(true).write(true).append(again).truncate(!again).open(path).ok()
+}
+
+/// The last lines of the log, for the dialog when the service does not come up.
+fn log_tail() -> Option<String> {
+    let text = std::fs::read_to_string(log_path()?).ok()?;
+    let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+    (!lines.is_empty()).then(|| lines[lines.len().saturating_sub(6)..].join("\n"))
+}
+
+/// Where a running service announces itself: next to the card folder's lock.
 fn announce_file() -> Option<PathBuf> {
     let root = match std::env::var_os("GELUMPE_SD_DIR") {
         Some(dir) if !dir.is_empty() => PathBuf::from(dir),
@@ -104,13 +132,79 @@ fn running_service() -> Option<(u16, String)> {
     if !token.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
         return None;
     }
-    let mut stream = TcpStream::connect_timeout(&SocketAddr::from(([127, 0, 0, 1], port)), Duration::from_millis(500)).ok()?;
-    stream.set_read_timeout(Some(Duration::from_secs(2))).ok()?;
-    let request = format!("GET /status HTTP/1.0\r\nHost: 127.0.0.1:{port}\r\nX-Emu-Token: {token}\r\n\r\n");
-    stream.write_all(request.as_bytes()).ok()?;
-    let mut answer = String::new();
-    stream.read_to_string(&mut answer).ok()?;
-    (answer.starts_with("HTTP/1.0 200") || answer.starts_with("HTTP/1.1 200")).then_some((port, token))
+    answers(port, &token).then_some((port, token))
+}
+
+/// Whether a service on `port` answers /status for `token`.
+fn answers(port: u16, token: &str) -> bool {
+    let ask = || -> Option<bool> {
+        let mut stream = TcpStream::connect_timeout(&SocketAddr::from(([127, 0, 0, 1], port)), Duration::from_millis(500)).ok()?;
+        stream.set_read_timeout(Some(Duration::from_secs(2))).ok()?;
+        let request = format!("GET /status HTTP/1.0\r\nHost: 127.0.0.1:{port}\r\nX-Emu-Token: {token}\r\n\r\n");
+        stream.write_all(request.as_bytes()).ok()?;
+        let mut answer = String::new();
+        stream.read_to_string(&mut answer).ok()?;
+        Some(answer.starts_with("HTTP/1.0 200") || answer.starts_with("HTTP/1.1 200"))
+    };
+    ask().unwrap_or(false)
+}
+
+/// Keeps a service on `port` with `token` for as long as the app runs: when the one this app started ends,
+/// or the one somebody else started stops answering, it starts its own there again. Waits 1 s before the
+/// first try and doubles up to 30 s while starts keep failing; a service that ran for a minute resets that.
+fn watchdog(port: u16, token: String, child: Arc<Mutex<Option<Child>>>, quitting: Arc<AtomicBool>) {
+    std::thread::spawn(move || {
+        let mut pause = Duration::from_secs(1);
+        let mut since = Instant::now();
+        let mut silent = 0;
+        loop {
+            std::thread::sleep(Duration::from_secs(1));
+            if quitting.load(Ordering::SeqCst) {
+                return;
+            }
+            let gone = {
+                let Ok(mut slot) = child.lock() else { return };
+                match slot.as_mut() {
+                    Some(own) => match own.try_wait() {
+                        Ok(Some(status)) => {
+                            eprintln!("Emulator-Dienst beendet ({status}), starte neu.");
+                            *slot = None;
+                            true
+                        }
+                        _ => false,
+                    },
+                    // Somebody else's service: twice no answer and it is gone.
+                    None => {
+                        silent = if answers(port, &token) { 0 } else { silent + 1 };
+                        silent >= 2
+                    }
+                }
+            };
+            if !gone {
+                if since.elapsed() > Duration::from_secs(60) {
+                    pause = Duration::from_secs(1);
+                }
+                continue;
+            }
+            std::thread::sleep(pause);
+            if quitting.load(Ordering::SeqCst) {
+                return;
+            }
+            match start_service(port, &token, true) {
+                Ok(mut started) => {
+                    let up = wait_for(port, &mut started).is_ok();
+                    let Ok(mut slot) = child.lock() else { return };
+                    *slot = Some(started);
+                    if up {
+                        silent = 0;
+                    }
+                }
+                Err(e) => eprintln!("{e}"),
+            }
+            since = Instant::now();
+            pause = (pause * 2).min(Duration::from_secs(30));
+        }
+    });
 }
 
 /// Ask the service to stop (it saves the card and the flash on SIGTERM), kill
@@ -247,21 +341,23 @@ fn on_a_screen(app: &AppHandle, p: &Placement) -> bool {
 /// Start (or find) the service and open the window. Any failure comes back
 /// as text for a dialog; nothing in here panics.
 fn open_app(app: &tauri::App) -> Result<(), String> {
-    let (port, token) = match running_service() {
+    let (port, token, own) = match running_service() {
         // Somebody else's service: show it, and never stop it.
-        Some(found) => found,
+        Some((port, token)) => (port, token, None),
         None => {
             let port = free_port().map_err(|e| format!("Kein freier Port: {e}"))?;
             let token = token()?;
-            let mut child = start_service(port, &token)?;
+            let mut child = start_service(port, &token, false)?;
             if let Err(message) = wait_for(port, &mut child) {
                 stop_service(child);
                 return Err(message);
             }
-            app.manage(Service(Mutex::new(Some(child))));
-            (port, token)
+            (port, token, Some(child))
         }
     };
+    let service = Service { child: Arc::new(Mutex::new(own)), quitting: Arc::new(AtomicBool::new(false)) };
+    watchdog(port, token.clone(), service.child.clone(), service.quitting.clone());
+    app.manage(service);
     let version = app.package_info().version.to_string();
     let saved = load_placement(app.handle());
     app.manage(Placed(Mutex::new(saved)));
@@ -343,12 +439,17 @@ fn main() {
     };
 
     app.run(|handle, event| {
+        if let RunEvent::ExitRequested { .. } | RunEvent::Exit = event {
+            if let Some(service) = handle.try_state::<Service>() {
+                service.quitting.store(true, Ordering::SeqCst);
+            }
+        }
         if let RunEvent::Exit = event {
             // Quitting with Cmd+Q closes no window by request: the placement is written here as well.
             save_placement(handle);
             // Only a service this app started itself is stopped.
             if let Some(service) = handle.try_state::<Service>() {
-                let child = service.0.lock().ok().and_then(|mut slot| slot.take());
+                let child = service.child.lock().ok().and_then(|mut slot| slot.take());
                 if let Some(child) = child {
                     stop_service(child);
                 }

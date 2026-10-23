@@ -33,7 +33,8 @@ lange die Note klingt, war nicht zu erkennen. Die 21 der Hinweise liest sich am 
 ## Im Emulator (`tools/emu/note_assist_cases.py`, Hacktribe)
 
 32 von 33 Fällen. `next_note_takes_the_red` scheitert auch mit develop (`145fa90`) gleich: das Rot ist nach 0,4 s schon auf dem Pad
-der zweiten Note, der Fall erwartet es dort erst nach 0,8 s. Offen, ob der Fall oder der Zeitpunkt des Schritts stimmt.
+der zweiten Note, der Fall erwartet es dort erst nach 0,8 s. Der Fall lag falsch: wann die Schritte spielen, folgt dem Tempo des Patterns im
+Flash. Seit dem 23.10. liest er die Pads alle 20 ms und prüft nur die Reihenfolge (erst Pad 2 rot, dann das Pad der zweiten Note).
 
 ## Offen am Gerät
 
