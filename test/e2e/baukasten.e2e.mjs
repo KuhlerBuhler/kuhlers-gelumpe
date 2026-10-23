@@ -161,7 +161,10 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
 
   await page.click("#cee-baukasten-page-export");
   assert.equal(await page.locator("#cee-nav-state #cee-bk-collection").isVisible(), true, "Exportieren sits in the navbar");
-  assert.equal(await page.locator("#cee-bk-slots-ifx li").count(), 100);
+  assert.equal(await page.locator("#cee-bk-slots-ifx li").count(), 100, "the insert places first");
+  assert.equal(await page.locator("#cee-bk-tab-fx").isVisible(), false, "no Effekte/Modulationen switch: the file holds all three");
+  assert.equal(await page.locator("#cee-bk-slots-mfx").count(), 0, "one kind of place at a time");
+  await page.click("#cee-bk-export-tab-mfx");
   await page.selectOption("#cee-bk-slot-mfx-3", { label: "Short Delay" });
   await page.locator("#cee-bk-slots-mfx li[data-slot='3'] .cee-bk-grip").dragTo(page.locator("#cee-bk-slots-mfx li[data-slot='100']"));
   assert.equal(await page.locator("#cee-bk-slot-mfx-100 option:checked").textContent(), "Short Delay", "A takes the place of B");
@@ -170,10 +173,11 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.getByRole("button", { name: "Master-Effekt Platz 1 leeren" }).click();
   assert.equal(await page.locator("#cee-bk-slot-mfx-1 option:checked").textContent(), "Werks-Preset");
   // The catalog's effects go on a place too, without saving them as own ones first.
+  await page.click("#cee-bk-export-tab-ifx");
   assert.ok(await page.locator("#cee-bk-slot-ifx-2 optgroup[label=Katalog] option").count() > 0, "the catalog's insert effects are offered");
   const fromCatalog = await page.locator("#cee-bk-slot-ifx-2 optgroup[label=Katalog] option").first().textContent();
   await page.selectOption("#cee-bk-slot-ifx-2", { label: fromCatalog });
-  await page.click("#cee-bk-tab-mod");
+  await page.click("#cee-bk-export-tab-mod");
   assert.equal(await page.locator("#cee-bk-slots-ifx").count(), 0, "Modulationen show only their places");
   await page.selectOption("#cee-bk-slot-mod-5", { label: "Filter Wobble" });
   await page.click("#cee-bk-collection");
@@ -201,7 +205,9 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.click("#cee-baukasten-page-export");
   await page.setInputFiles("#cee-bk-all", h.file("e2sFx.all", bytes));
   await page.locator("#app-toasts .cee-toast", { hasText: "3 Einträge" }).waitFor();
+  await page.click("#cee-bk-export-tab-mfx");
   assert.equal(await page.locator("#cee-bk-slot-mfx-100 option:checked").textContent(), "Short Delay");
+  await page.click("#cee-bk-export-tab-ifx");
   assert.equal(await page.locator("#cee-bk-slot-ifx-2 option:checked").textContent(), fromCatalog, "the catalog effect comes back on its place");
   assert.equal(await page.locator("#cee-bk-slot-ifx-2 option:checked").evaluate(o => o.parentElement.label), "Katalog", "as the catalog's, not as an own copy");
   assert.deepEqual(page.errors, []);
