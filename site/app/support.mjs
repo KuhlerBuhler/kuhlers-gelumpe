@@ -225,7 +225,9 @@ function maker(root, { id, title, formats, figures, state, textLabel, textMax, p
   const slider = (key, label) => {
     const input = el("input", { type: "range", className: "ui-range", id: `${id}-${key}`, min: 10, max: 100, step: 5, value: state[key] });
     const out = el("output", { className: "ui-range-value", htmlFor: input.id, textContent: `${state[key]} %` });
+    out.dataset.unit = " %";
     input.addEventListener("input", () => { state[key] = Number(input.value); out.textContent = `${input.value} %`; render(); });
+    window.ui?.syncRange(input); // ui.js only fills sliders present at load and on input; this one starts off at its value
     return el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: input.id }, [`${label} `, out]), input]);
   };
   const save = el("button", { type: "button", className: "btn cee-primary", id: `${id}-save`, textContent: saveText });
