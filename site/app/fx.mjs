@@ -684,7 +684,10 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     async writeRecord(kind, slot, make) {
       if (!state.image) return { ok: false, reason: "Dafür braucht die Seite deine Firmware: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen." };
       const session = await pick();
-      if (!session) return { ok: false, reason: state.why ?? "Weder Emulator noch Gerät verbunden. Schalte den Emulator ein oder verbinde die Electribe." };
+      if (!session) {
+        const off = emulator?.()?.firmware && !emulator().port?.running;
+        return { ok: false, reason: state.why ?? (off ? "Die Firmware ist geladen, aber der Emulator ist aus. Halte im Bereich Emulator die Power-Taste 2 Sekunden, dann noch einmal laden." : "Weder Emulator noch Gerät verbunden. Schalte den Emulator ein oder verbinde die Electribe.") };
+      }
       const before = Uint8Array.from(state.image.read(kind, slot).bytes);
       const made = make(before, state.image.list(kind).map(x => Uint8Array.from(x.record.bytes)));
       if (!made.ok) return made;
