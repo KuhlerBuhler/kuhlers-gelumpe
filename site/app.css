@@ -837,7 +837,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 /* App shell: full-height sidebar on the left, navbar and page to its right. */
 .cee-app {
   display: grid;
-  grid-template-columns: 28.125rem minmax(0, 1fr);
+  grid-template-columns: calc(var(--space-16) * 5.25) minmax(0, 1fr);
   min-height: 100vh;
 }
 
