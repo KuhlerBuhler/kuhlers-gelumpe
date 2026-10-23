@@ -6,6 +6,7 @@
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
+import { saveFile } from "./save-file.mjs";
 import { parseUnits } from "../../src/units.mjs";
 import { fxText, readFx, fxFileName } from "../../src/fx-v2.mjs";
 import { buildCollection, collectionEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
@@ -23,15 +24,6 @@ const NS = "http://www.w3.org/2000/svg";
 
 const readOwn = () => { try { return JSON.parse(localStorage.getItem(OWN) ?? "[]"); } catch { return []; } };
 const writeOwn = list => { try { localStorage.setItem(OWN, JSON.stringify(list)); return true; } catch { return false; } };
-
-function save(bytes, name, type = "application/octet-stream") {
-  const url = URL.createObjectURL(new Blob([bytes], { type }));
-  const a = el("a", { href: url, download: name });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 function wave(path) {
   const svg = document.createElementNS(NS, "svg");
@@ -224,7 +216,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
   fxDownload.addEventListener("click", () => {
     const r = readyFx();
     if (!r.ok) { toast(r.reason, "error"); return; }
-    save(fxText(r.preset), fxFileName(r.preset), "application/json");
+    saveFile(fxText(r.preset), fxFileName(r.preset), { type: "application/json" });
   });
 
   // ---- modulations --------------------------------------------------------------------
@@ -298,7 +290,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
   modDownload.addEventListener("click", () => {
     const r = readyMod();
     if (!r.ok) { toast(r.reason, "error"); return; }
-    save(fxText(r.preset), fxFileName(r.preset), "application/json");
+    saveFile(fxText(r.preset), fxFileName(r.preset), { type: "application/json" });
   });
 
   // ---- what the user keeps --------------------------------------------------------------
@@ -325,7 +317,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
         el("p", { className: "cee-bk-kind", textContent: `${o.kind === "mod" ? "Modulation" : o.kind === "mfx" ? "Master-Effekt" : "Insert-Effekt"}, Platz ${o.slot}` }),
         el("div", { className: "actions" }, [
           el("button", { type: "button", className: "btn sm", textContent: "Bearbeiten", onclick: () => { if (o.kind === "mod") { slotMod = o.slot; modSlot.value = o.slot; shelf("mod"); openMod(p); } else { slotFx = o.slot; fxSlot.value = o.slot; shelf("fx"); openFx(p); } } }),
-          el("button", { type: "button", className: "btn sm", textContent: "Herunterladen", onclick: () => save(o.text, fxFileName(p), "application/json") }),
+          el("button", { type: "button", className: "btn sm", textContent: "Herunterladen", onclick: () => saveFile(o.text, fxFileName(p), { type: "application/json" }) }),
           el("button", { type: "button", className: "btn sm", textContent: "Löschen", onclick: () => { writeOwn(readOwn().filter((_, k) => k !== i)); renderMine(); } }),
         ]),
       ]);
@@ -360,8 +352,7 @@ export function baukastenPage(root, { emulator = null } = {}) {
       if (!made.ok) { toast(`${read.preset?.name ?? "Ein Eintrag"}: ${made.reason}`, "error"); return; }
       entries.push(made.entry);
     }
-    save(buildCollection({ build, entries }), COLLECTION_FILE);
-    toast(`${COLLECTION_FILE} gespeichert. Leg die Datei auf der Karte nach ${COLLECTION_FOLDER}/, beim nächsten Einschalten lädt BLECHTRIBE sie.`, "ok");
+    saveFile(buildCollection({ build, entries }), COLLECTION_FILE, { note: `Leg die Datei auf der Karte nach ${COLLECTION_FOLDER}/, beim nächsten Einschalten lädt BLECHTRIBE sie.` });
   });
 
   // ---- page --------------------------------------------------------------------------

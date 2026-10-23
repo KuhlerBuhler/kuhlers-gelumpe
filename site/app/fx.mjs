@@ -8,6 +8,7 @@
  */
 import { el, control } from "./fields.mjs";
 import { toast } from "./toast.mjs";
+import { saveFile } from "./save-file.mjs";
 import { field, fieldsOf, readRaw, writeRaw, typeOf, BLOCKS } from "../../src/map/index.mjs";
 import { VsbImage } from "../../src/image.mjs";
 import { FxRecord } from "../../src/record.mjs";
@@ -579,11 +580,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     if (!state.rec) return;
     commit();
     const rec = state.image.read(state.kind, state.slot);
-    const a = el("a", { href: URL.createObjectURL(new Blob([presetFile(state.kind, rec.bytes)], { type: "application/json" })), download: presetFileName(state.kind, rec.name) });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+    saveFile(presetFile(state.kind, rec.bytes), presetFileName(state.kind, rec.name), { type: "application/json" });
   }
 
   /** A .e2fx file as a new slot of its kind: a copy of slot 1 is made, then the file's record goes in, name and all. */
@@ -640,11 +637,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
 
   function downloadCopy() {
     if (!state.passed) return;
-    const a = el("a", { href: URL.createObjectURL(new Blob([state.passed], { type: "application/octet-stream" })), download: "SYSTEM.VSB" });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+    saveFile(state.passed, "SYSTEM.VSB");
     exportNote.textContent = "Kopiere die Datei wie im Bereich Patcher beschrieben auf die SD-Karte und starte SOFTWARE UPDATE unter DATA UTILITY.";
   }
 

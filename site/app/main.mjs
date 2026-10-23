@@ -34,6 +34,7 @@ import { icon } from "./icons.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
 import { apply as applySettings, settingsButton, settingsPage } from "./settings.mjs";
 import { toast } from "./toast.mjs";
+import { saveFile } from "./save-file.mjs";
 
 const $ = sel => document.querySelector(sel);
 
@@ -257,11 +258,7 @@ async function load(file) {
 }
 
 function save() {
-  const blob = new Blob([doc.bytes()], { type: "application/octet-stream" });
-  const a = el("a", { href: URL.createObjectURL(blob), download: doc.fileName || "patterns.e2sallpat" });
-  document.body.append(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  saveFile(doc.bytes(), doc.fileName || "patterns.e2sallpat");
 }
 
 /** Fetching from and sending to the device's pattern buffer. */

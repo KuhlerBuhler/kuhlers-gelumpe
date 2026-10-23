@@ -3,6 +3,7 @@ import { e2Outline } from "./e2-art.mjs";
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
 import { toast } from "./toast.mjs";
+import { saveFile } from "./save-file.mjs";
 import { applyPatches } from "../../src/patch.mjs";
 import { applyPatchFile, parsePatchFile } from "../../src/patchfile.mjs";
 import { NEWS } from "../../data/news.mjs";
@@ -554,11 +555,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   download.addEventListener("click", () => {
     if (!passed || !allowed(flow).download) return;
-    const a = el("a", { href: URL.createObjectURL(new Blob([passed], { type: "application/octet-stream" })), download: "SYSTEM.VSB" });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+    saveFile(passed, "SYSTEM.VSB");
     dispatch({ type: "downloaded" });
     buildDone();
   });

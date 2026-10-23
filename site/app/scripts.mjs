@@ -10,6 +10,7 @@ import { drawDisplay } from "./emulator.mjs";
 import { PADS } from "../../data/panel.mjs";
 import { parseMarkdown } from "./markdown.mjs";
 import { toast } from "./toast.mjs";
+import { saveFile } from "./save-file.mjs";
 import { createScriptEditor } from "./script-editor.mjs";
 import { highlightLines } from "../../src/script/highlight.mjs";
 import { compile, formatError } from "../../src/script/compiler.mjs";
@@ -33,14 +34,6 @@ const pill = (tone, word) => {
   p.dataset.tone = tone;
   return p;
 };
-
-function download(bytes, name) {
-  const blob = new Blob([bytes], { type: "application/octet-stream" });
-  const a = el("a", { href: URL.createObjectURL(blob), download: name });
-  document.body.append(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
-}
 
 const ask = async (options, fallback) => (window.ui?.prompt ? window.ui.prompt(options) : fallback);
 
@@ -494,8 +487,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     const packed = packBlech(markProbed(result.blob), fresh.source);
     if (!packed.ok) { say(packed.error.message, "error"); return; }
     if (toUsb) { await toDevice(packed.bytes, fresh.name, toUsb); return; }
-    download(packed.bytes, `${fresh.name}.blech`);
-    say(`${fresh.name}.blech gespeichert. Auf die Karte nach ${ARCHIVE.folder}/ kopieren.`, "ok");
+    saveFile(packed.bytes, `${fresh.name}.blech`, { note: `Auf die Karte nach ${ARCHIVE.folder}/ kopieren.` });
   }
 
   async function exportCollection() {
@@ -515,8 +507,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     if (!(await allowExport("Alle", gates))) return;
     const packed = packAll(blocks);
     if (!packed.ok) { say(packed.error.message, "error"); return; }
-    download(packed.bytes, ARCHIVE.file);
-    say(`${ARCHIVE.file} mit ${blocks.length} Plugins gespeichert. Auf die Karte nach ${ARCHIVE.folder}/ kopieren.`, "ok");
+    saveFile(packed.bytes, ARCHIVE.file, { note: `${blocks.length} Plugins. Auf die Karte nach ${ARCHIVE.folder}/ kopieren.` });
   }
 
   open.addEventListener("change", async () => {
@@ -839,7 +830,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     };
     const get = make("download", "Herunterladen", () => {
       const bytes = pack();
-      if (bytes) download(bytes, `${preset.id}.blech`);
+      if (bytes) saveFile(bytes, `${preset.id}.blech`, { note: `Auf die Karte nach ${ARCHIVE.folder}/ kopieren.` });
     });
     const usb = make("usb", "Aufs Gerät", () => {
       const bytes = pack();
