@@ -22,6 +22,9 @@ class DisplayCalibrationTests(unittest.TestCase):
 .equ SCRIPT_DISPLAY_RAM, 0xC0301000
 .equ HOOK_RUNTIME, 0xC0302000
 .equ RT_FRAMES, 0
+.equ MENU_STATE, 0xC0307000
+.equ M_CAL_ON, 0xFA
+.equ UI_REDRAW, 0xC0307100
 .equ SCRIPT_FONT, {cls.vm.symbols['script_font']}
 '''
         cls.code = assemble(constants + (ROOT/'tools/patch/script_calibrate.s').read_text(), origin=0xC018D000)
@@ -68,8 +71,10 @@ class DisplayCalibrationTests(unittest.TestCase):
         self.assertEqual(picture[:128],bytes([0xA5])*128)
         self.assertEqual(picture[-128:],bytes([0xA5])*128)
         self.assertTrue(all(0xC0301080<=at and at+size<=0xC0301380 or
-                            0xC03FEF00<=at and at+size<=0xC03FF000 for at,size in writes))
+                            0xC03FEF00<=at and at+size<=0xC03FF000 or
+                            (at,size)==(0xC03070FA,1) for at,size in writes))
         self.assertEqual(bytes(self.uc.mem_read(0xC0303022,1)),bytes([31]))
+        self.assertEqual(bytes(self.uc.mem_read(0xC03070FA,1)),bytes([1]))
 
     def test_every_ball_stays_inside_its_row_across_frame_wrap(self):
         for frame in [*range(256),0x7FFFFFFF,0xFFFFFFFF]:
