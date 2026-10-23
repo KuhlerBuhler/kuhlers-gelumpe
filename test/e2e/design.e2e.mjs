@@ -21,7 +21,7 @@ const PAGES = [
   ["rescue", page => page.click("#cee-tab-rescue")],
   ["patcher", page => page.click("#cee-tab-patcher")],
   ["splash", page => page.click("#cee-tab-splash")],
-  ["baukasten", async page => { await page.click("#cee-tab-baukasten"); await page.locator("#cee-bk-fx-catalog .cee-catalog-open").first().click(); await page.locator("#cee-bk-detail-blocks .cee-bk-slider").first().waitFor(); await page.click("#cee-bk-detail-own"); await page.locator("#cee-bk-blocks .cee-bk-slider").first().waitFor(); }],
+  ["baukasten", async page => { await page.click("#cee-tab-baukasten"); await page.locator("#cee-bk-fx-catalog .cee-catalog-open").first().click(); await page.locator("#cee-bk-detail-blocks .cee-knob").first().waitFor(); await page.click("#cee-bk-detail-own"); await page.locator("#cee-bk-blocks .cee-knob").first().waitFor(); }],
   ["fx", async page => { await page.evaluate(() => { location.hash = "fx"; }); await page.locator("#cee-fx-slot").waitFor({ timeout: 15_000 }); }],
   ["mod", page => page.evaluate(() => { location.hash = "mod"; })],
   ["doom", page => page.click("#cee-tab-doom")],

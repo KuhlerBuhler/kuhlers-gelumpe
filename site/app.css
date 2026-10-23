@@ -2960,10 +2960,6 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   margin: 0;
 }
 
-/* A label on two lines must not push its slider out of line with the one beside it. */
-.cee-bk-params .cee-bk-slider {
-  justify-content: space-between;
-}
 
 .cee-bk-param-id {
   font-family: var(--font-mono);
@@ -2995,7 +2991,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 
 .cee-bk-slot {
   display: grid;
-  grid-template-columns: auto 3rem minmax(0, 1fr) auto;
+  grid-template-columns: auto 3rem minmax(0, 1fr) minmax(0, 1.5fr) auto;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
@@ -3018,6 +3014,19 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 .cee-bk-slot-number {
   font-family: var(--font-mono);
   color: var(--color-text-secondary);
+}
+
+.cee-bk-slot-factory {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A place that gets an own effect: the factory preset it replaces is struck through. */
+.cee-bk-slot-set .cee-bk-slot-factory {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
 }
 
 .cee-bk-dragging {
@@ -3071,8 +3080,153 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 
 .cee-bk-params {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
-  gap: var(--space-3) var(--space-5);
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-16) * 1.75), 1fr));
+  gap: var(--space-4) var(--space-3);
+}
+
+/* A knob like on a plugin: label, dial, number box under each other; a label on two lines keeps the dials in line. */
+.cee-knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.cee-knob .ui-field-label {
+  font-size: var(--text-sm);
+}
+
+.cee-knob .cee-bk-number {
+  width: calc(var(--space-16) * 1.25);
+  text-align: center;
+}
+
+.cee-knob-dial {
+  position: relative;
+  width: var(--space-16);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.cee-knob-dial svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.cee-knob-fixed {
+  cursor: default;
+}
+
+.cee-knob-dial:focus-within {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Kept for the keyboard and screen readers, out of sight like .cee-visually-hidden. */
+.cee-knob-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  pointer-events: none;
+}
+
+.cee-knob-track,
+.cee-knob-fill,
+.cee-knob-span,
+.cee-knob-mark {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.cee-knob-track {
+  stroke: var(--color-border-strong);
+  stroke-width: 4;
+}
+
+.cee-knob-fill {
+  stroke: var(--color-accent-primary);
+  stroke-width: 4;
+}
+
+.cee-knob-mark {
+  stroke: var(--color-text-primary);
+  stroke-width: 2.5;
+}
+
+.cee-knob-span {
+  stroke: var(--color-accent-secondary);
+  stroke-width: 2;
+  stroke-dasharray: 2 2.5;
+}
+
+.cee-knob-fixed .cee-knob-fill {
+  stroke: var(--color-text-muted);
+}
+
+.cee-knob-mapped.cee-knob-fixed .cee-knob-fill,
+.cee-knob-moving .cee-knob-fill {
+  stroke: var(--color-accent-primary);
+}
+
+.cee-bk-map-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* The preview of the controls: the knobs they move on the left, the device's controls on the right. */
+.cee-bk-preview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.cee-bk-preview-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cee-bk-pad {
+  position: relative;
+  width: calc(var(--space-16) * 3);
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-item-muted);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.cee-bk-pad-dot {
+  position: absolute;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: 50%;
+  background: var(--color-accent-primary);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+@media (max-width: 40rem) {
+  .cee-bk-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cee-bk-pad {
+    width: 100%;
+  }
 }
 
 
@@ -3130,17 +3284,6 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   margin: 0;
   padding-left: var(--space-5);
   color: var(--color-text-secondary);
-}
-
-.cee-bk-slider-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.cee-bk-slider-row .ui-range {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .cee-bk-number {
