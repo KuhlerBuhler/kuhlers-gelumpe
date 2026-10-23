@@ -22,6 +22,9 @@ const arc = (r, from, to) => {
 };
 const path = cls => { const p = document.createElementNS(NS, "path"); p.setAttribute("class", cls); return p; };
 
+/** A Korg name may break after each underscore, not in the middle of a word. */
+const breakable = text => text.split("_").flatMap((part, n) => (n ? [el("wbr"), `_${part}`] : [part]));
+
 /**
  * @param {string} id the id of the hidden range input; the number box is `${id}-value`
  * @param {(v: number) => void} change runs on every new value
@@ -99,7 +102,7 @@ export function knob(id, label, hint, min, max, value, change, { readOnly = fals
 
   return {
     node: el("div", { className: "ui-field cee-knob" }, [
-      el("label", { className: "ui-field-label", htmlFor: id }, [label, hint ? el("span", { className: "cee-bk-param-id", textContent: ` (${hint})` }) : null]),
+      el("label", { className: "ui-field-label", htmlFor: id }, [label, hint ? el("span", { className: "cee-bk-param-id" }, breakable(`(${hint})`)) : null]),
       dial,
       box,
     ]),

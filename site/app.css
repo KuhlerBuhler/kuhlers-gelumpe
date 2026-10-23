@@ -2838,14 +2838,6 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   font-size: var(--text-xl);
 }
 
-.cee-bk-catalog {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
-  gap: var(--space-3);
-  padding: 0;
-  list-style: none;
-}
-
 .cee-bk-block {
   display: flex;
   flex-direction: column;
@@ -2854,18 +2846,6 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   border: 1px solid var(--color-border-muted);
   border-radius: var(--radius-lg);
   background: var(--color-surface-panel-alt);
-}
-
-.cee-bk-card p {
-  color: var(--color-text-secondary);
-}
-
-/* Tag and creator side by side under the title, as in the plugin catalog. */
-.cee-bk-meta {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
 }
 
 /* The trash can sits above the button that reaches over the whole card. */
@@ -2925,9 +2905,37 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   color: var(--color-text-muted);
 }
 
-/* The advanced parameters stand apart from the main ones. */
-.cee-bk-more-extra {
-  margin-top: var(--space-6);
+/* The knobs of a block in groups side by side, each in its own frame, like the sections of a plugin. */
+.cee-bk-knob-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.cee-bk-knob-group {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-faint);
+}
+
+.cee-bk-knob-group .cee-bk-more {
+  margin: 0;
+}
+
+.cee-bk-knob-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-3);
+}
+
+.cee-bk-knob-row .cee-knob {
+  width: calc(var(--space-16) * 1.75);
 }
 
 /* Baustein 1 and 2 above their cards; the card itself names the block. */
@@ -3094,9 +3102,16 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   text-align: center;
 }
 
+/* The label takes the spare height, so the dials of a row stand in line however long their labels are. */
 .cee-knob .ui-field-label {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-width: 100%;
   font-size: var(--text-sm);
 }
+
 
 .cee-knob .cee-bk-number {
   width: calc(var(--space-16) * 1.25);
