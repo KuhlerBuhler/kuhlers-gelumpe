@@ -54,11 +54,15 @@ class Adapter:
             uc.emu_stop()
             return
         render = getattr(self, "render_stub", False) and at == self.symbols.get("R_RenderPlayerView")
-        if not render and at not in (0xC0028600, 0xC009DB60, 0xC009DD74, 0xC009E404, 0xC009E3DC, 0xC0024B6C, 0xC0015DD0, 0xC001734C):
+        if not render and at not in (0xC0028600, 0xC009DB60, 0xC009DD74, 0xC009E404, 0xC009E3DC, 0xC0024B6C, 0xC0015DD0, 0xC001734C, 0xC0016BB4):
             return
         args = [uc.reg_read(r) for r in REGS]
         self.calls.append((at, args))
         result = 0
+        if at == 0xC0016BB4 and args[:4] == [0x01E26000, 0, 3, 0x08000000]:      # the power hold let go, as at the start
+            self.powered = False
+            uc.emu_stop()
+            return
         if at == 0xC001734C:
             self.powered = False
             uc.emu_stop()
@@ -332,8 +336,8 @@ class NativeAdapterTest(unittest.TestCase):
         a.uc.emu_start(a.symbols["DG_GetKey"], 0xFFFFFFFF, count=3000000)
         self.assertFalse(a.powered)
         self.assertGreaterEqual(a.word(TICK) - start, 5000, "only after the key stayed down 5 s more")
-        self.assertEqual(a.calls[-1][0], 0xC001734C)
-        self.assertEqual(a.calls[-1][1][:2], [0x01E26000, 1])
+        self.assertEqual(a.calls[-1][0], 0xC0016BB4)
+        self.assertEqual(a.calls[-1][1][:4], [0x01E26000, 0, 3, 0x08000000])
 
     def test_power_key_let_go_within_5_s_keeps_the_game(self):
         a = self.arm
@@ -354,8 +358,8 @@ class NativeAdapterTest(unittest.TestCase):
         self.assertFalse(a.powered)
         self.assertEqual(a.word(SHARED + 8), 0x80000000)
         self.assertEqual(a.word(SHARED + 12), 0xFFFFFFFF)
-        self.assertEqual(a.calls[-1][0], 0xC001734C)
-        self.assertEqual(a.calls[-1][1][:2], [0x01E26000, 1])
+        self.assertEqual(a.calls[-1][0], 0xC0016BB4)
+        self.assertEqual(a.calls[-1][1][:4], [0x01E26000, 0, 3, 0x08000000])
 
     def test_dark_scene_contours_use_the_display_contrast(self):
         a = self.arm

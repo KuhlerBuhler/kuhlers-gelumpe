@@ -15,14 +15,18 @@ static inline int doom_power_held(void)
     return 1;
 }
 
+/* The display says the key arrived, so a device that stays on shows which step failed. Switching off first lets go of the power
+   hold (GPIO 7.11) the way the start does, which switched the device off on 19.10., then makes the firmware's last call. */
 static inline int doom_power_message(const unsigned char message[5])
 {
     if (message[0] != 6) return 0;
-    if (message[1] == 1 && doom_power_held()) {
-        ((void (*)(void *, int))0xC001734Cu)((void *)0x01E26000u, 1);
-        for (;;) __asm__ volatile ("nop");
-    }
-    return 1;
+    if (message[1] != 1) return 1;
+    doom_status_display("POWER KEY", "HOLD 5 S", 0, 0);
+    if (!doom_power_held()) return 1;
+    doom_status_display("POWER OFF", "", 0, 0);
+    ((void (*)(void *, int, int, uint32_t))0xC0016BB4u)((void *)0x01E26000u, 0, 3, 0x08000000u);
+    ((void (*)(void *, int))0xC001734Cu)((void *)0x01E26000u, 1);
+    for (;;) __asm__ volatile ("nop");
 }
 static inline void doom_power_poll_initializing(void)
 {
