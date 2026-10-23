@@ -2683,6 +2683,17 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   outline: none;
 }
 
+/* The design scales a pressed button; on the title that would shrink the cover to the title and lose the click. The card gives way instead. */
+.cee-catalog-card .cee-catalog-open:active:not(:disabled) {
+  scale: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cee-catalog-card:has(.cee-catalog-open:active) {
+    scale: var(--press-scale-wide);
+  }
+}
+
 .cee-catalog-card:has(.cee-catalog-open:focus-visible) {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
