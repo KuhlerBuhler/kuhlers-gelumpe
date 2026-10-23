@@ -18,13 +18,19 @@ async function open(viewport) {
   return page;
 }
 
+/** Until Blechy has said everything that follows by itself. */
+const settle = page => page.locator("#cee-rescue-answers:not([data-waiting])").waitFor({ state: "attached" });
 /** Answer Blechy with the button of that text. */
 const answer = (page, text) => page.locator("#cee-rescue-answers button", { hasText: text }).first().click();
 /** Every answer button until the flow ends, always the first one: one whole walk through a case. */
 async function walk(page) {
-  for (let i = 0; i < 12 && await page.locator("#cee-rescue-answers button").count(); i++) await page.locator("#cee-rescue-answers button").first().click();
+  for (let i = 0; i < 12; i++) {
+    await settle(page);
+    if (!await page.locator("#cee-rescue-answers button").count()) return;
+    await page.locator("#cee-rescue-answers button").first().click();
+  }
 }
-const said = page => page.locator("#cee-rescue-chat .cee-rescue-say").last().textContent();
+const said = async page => { await settle(page); return page.locator("#cee-rescue-chat .cee-rescue-say").last().textContent(); };
 
 test("Rettung is an entry of the sidebar, and the navbar names the page", async () => {
   const page = await h.page();
@@ -137,7 +143,6 @@ test("no serious axe violation, wide and on a phone, at the start and deep in a 
     await answer(page, RESCUE.cases[0].label);
     await answer(page, TALK.notHelped);
     await answer(page, TALK.ready);
-    await page.locator("#cee-rescue-sure > summary").click();
     assert.deepEqual(await axe.severeViolations(page), [], `axe at ${viewport?.width ?? "desktop"}, the folders`);
     assert.deepEqual(page.errors, []);
   }
@@ -152,6 +157,22 @@ test("on a phone the page does not scroll sideways and nothing sticks out", asyn
   assert.ok(overflow <= 0, `the page scrolls sideways by ${overflow}px`);
   const wide = await page.evaluate(() => [...document.querySelectorAll("#cee-rescue *")].filter(n => n.getBoundingClientRect().right > innerWidth + 1).map(n => n.className || n.tagName));
   assert.deepEqual(wide, []);
+  assert.deepEqual(page.errors, []);
+});
+
+test("what is only to read follows by itself, a step to do waits for its answer, and back skips what came by itself", async () => {
+  const page = await open();
+  await answer(page, RESCUE.cases.find(c => c.id === "zero").label);
+  await settle(page);
+  const zero = RESCUE.cases.find(c => c.id === "zero");
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-say").count(), zero.steps.length + 2, "every step and the limit, no button in between");
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-you").count(), 1, "the person only answered once");
+  await page.click("#cee-rescue-back");
+  assert.equal(await page.locator("#cee-rescue-chat > li").count(), 1, "back lands on the first question");
+  await answer(page, RESCUE.cases.find(c => c.id === "prompt").label);
+  await page.locator("#cee-rescue-answers button", { hasText: TALK.done }).waitFor();
+  assert.match(await said(page), /Werksfirmware/, "the step to do waits");
+  assert.equal(await page.locator("#cee-rescue-sure").count(), 0, "no box explaining the markers, the marker says it");
   assert.deepEqual(page.errors, []);
 });
 

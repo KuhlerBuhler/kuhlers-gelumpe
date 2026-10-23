@@ -24,8 +24,7 @@ export const TALK = {
   noBackup: "Ohne die gesicherte Original-SYSTEM.VSB gibt es diesen Weg zurück nicht. Such die Sicherung, zum Beispiel auf dem Schreibtisch oder in deinem Download-Ordner, und fang dann von vorn an.",
   which: "Welche Firmware läuft gerade auf deiner Electribe?",
   folder: "Leg deine gesicherte Original-SYSTEM.VSB auf der Karte hierhin:",
-  next: "Weiter",
-  done: "Erledigt",
+  done: "Hab ich gemacht",
   end: "Mehr ist dazu nicht geprüft. Probier nichts auf Verdacht.",
   again: "Von vorn",
   back: "Zurück",
@@ -66,16 +65,19 @@ export default {
           note: "Am Gerät bestätigt ist der Notschalter nur für den MFX-2-Patch (13.10.), für den ganzen BLECHTRIBE-Satz nicht. Er hilft nicht gegen kaputte Startdaten, DSP-Patches, kaputte gespeicherte Daten und Patches, die den Panel-Austausch stören.",
         },
         {
+          act: true,
           text: "Die gesicherte Original-SYSTEM.VSB auf der Karte in den Ordner der Firmware legen, die jetzt läuft (Tabelle oben). Am Rechner die Prüfsumme der Datei auf der Karte nachlesen, sie muss der der gesicherten Datei gleichen.",
           status: "gemessen",
           note: "So am 10.10. geübt, mit Hacktribe. Der Ordner von BLECHTRIBE ist am 15.10. am Gerät gesehen.",
         },
         {
+          act: true,
           text: "Karte in das ausgeschaltete Gerät, Netzteil anschließen, einschalten. DATA UTILITY, dann SOFTWARE UPDATE. Direkt davor steht FACTORY RESET in der Liste: das nicht bestätigen.",
           status: "gemessen",
           note: "Das Update über das Menü lief am 10.10. am Gerät durch. Dass FACTORY RESET direkt davor steht, steht in der Anleitung für den Gerätetest.",
         },
         {
+          act: true,
           text: "Die Versionsanzeige ansehen, bestätigen, den Abschluss abwarten, dann ausschalten und neu einschalten. Das Gerät startet wieder mit der alten Firmware.",
           status: "gemessen",
           note: "Am Gerät zurück auf das alte Startbild beobachtet. Die Anzeige \"Now 2.02, Next 2.02\" und \"OK. Please Reboot.\" stammen aus dem Emulator.",
@@ -93,11 +95,13 @@ export default {
           status: "offline",
         },
         {
+          act: true,
           text: "Eine passende Werksfirmware auf der Karte kann die Wiederherstellung ermöglichen. Für einen ursprünglich als Sampler verkauften Electribe liegt sie unter KORG/electribe sampler/System/SYSTEM.VSB. Das ist ein anderer Pfad als der der laufenden Hacktribe.",
           status: "offen",
           note: "So beschreibt es die Hacktribe-Dokumentation. Am Gerät ist dieser Weg nicht geübt. Ob die Datei, die schon unter diesem Pfad lag, eine passende Werksfirmware ist, blieb im Test offen.",
         },
         {
+          act: true,
           text: "Karte ins ausgeschaltete Gerät, Netzteil, einschalten, bei der Abfrage ENTER drücken.",
           status: "offen",
         },
