@@ -44,8 +44,8 @@ const FIGURES = {
   tube: ["Röhrchen", "img/blechy/tube.png"],
   loaded: ["Geladen", "img/blechy/loaded.png"],
   eyes: ["Augen", EYES],
-  blechtribe: ["BLECHTRIBE", "img/splash/blechtribe.png"],
-  blech: ["BLECH", "img/splash/blech.png"],
+  blechtribe: ["BLECHTRIBE", "img/splash/blechtribe.png", "bands"],
+  blech: ["BLECH", "img/splash/blech.png", "bands"],
   none: ["Nichts", []],
 };
 
@@ -59,7 +59,7 @@ const TEXT_MAX = 120;
 const NAME_MAX = 40;
 
 /** A 1-bit picture as rows of booleans, cut to the pixels that are set. The more common colour is the background: the art is drawn both ways round, some with a frame. */
-async function maskOf(src) {
+async function maskOf(src, { bands = false } = {}) {
   // onload, not decode(): decode() was seen to stay pending for a picture that had loaded long ago.
   const picture = await new Promise((resolve, reject) => {
     const image = new Image();
@@ -75,7 +75,11 @@ async function maskOf(src) {
   let light = 0;
   for (let i = 0; i < d.length; i += 4) if (d[i] > 127) light++;
   const back = light * 2 > w * h;
-  const on = (x, y) => (d[(y * w + x) * 4] > 127) !== back;
+  const raw = (x, y) => x >= 0 && y >= 0 && x < w && y < h && (d[(y * w + x) * 4] > 127) !== back;
+  // The start pictures carry the dither bands of the display at both sides (rows above the line, 22 pixels in):
+  // single dots there go, the picture's own pixels touch a neighbour and stay. The wallpaper draws its own bands.
+  const band = (x, y) => bands && y < 54 && (x < 22 || x >= w - 22) && !raw(x + 1, y) && !raw(x - 1, y) && !raw(x, y + 1) && !raw(x, y - 1);
+  const on = (x, y) => raw(x, y) && !band(x, y);
   let [x0, y0, x1, y1] = [w, h, -1, -1];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (on(x, y)) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
   return Array.from({ length: y1 - y0 + 1 }, (_, y) => Array.from({ length: x1 - x0 + 1 }, (_, x) => on(x0 + x, y0 + y)));
@@ -85,7 +89,7 @@ const masks = {};
 const figureMask = async id => {
   const [, source, style] = FIGURES[id];
   if (!masks[id]) {
-    const mask = typeof source === "string" ? await maskOf(source) : source;
+    const mask = typeof source === "string" ? await maskOf(source, { bands: style === "bands" }) : source;
     masks[id] = style === "stroke" ? outlined(mask) : mask;
   }
   return masks[id];
@@ -173,15 +177,15 @@ function draw(canvas, state, figure) {
   ctx.fillStyle = ink;
   const lines = state.text.split("\n").map(line => line.trim()).filter(Boolean).map(textMask);
   const widest = lines.reduce((a, b) => (b[0].length > a[0].length ? b : a), lines[0] ?? []);
-  const room = state.format === "phone" ? [0.85, 0.45] : state.format === "desktop" ? [0.8, 0.65] : [0.75, 0.75];
-  const scale = figure.length ? Math.max(1, Math.floor(fit(figure, w * room[0], h * room[1]) * state.size / 100)) : 0;
+  const margin = Math.round(Math.min(w, h) * 0.06);
+  // At 100 % the figure reaches the margin; the text then has to make do with what is left.
+  const scale = figure.length ? Math.max(1, Math.floor(fit(figure, w - 2 * margin, h - 2 * margin) * state.size / 100)) : 0;
   const textScale = lines.length ? Math.max(1, Math.floor(fit(widest, w * 0.9, h * 0.12) * state.textSize / 100)) : 0;
   const lineGap = textScale * 3;
   const gap = lines.length && scale ? Math.round(Math.min(w, h) * 0.04) : 0;
   const items = [...(scale ? [[figure, scale, 0]] : []), ...lines.map((line, i) => [line, textScale, i ? lineGap : gap])];
   const blockW = Math.max(0, ...items.map(([mask, s]) => mask[0].length * s));
   const blockH = items.reduce((sum, [mask, s, before]) => sum + before + mask.length * s, 0);
-  const margin = Math.round(Math.min(w, h) * 0.06);
   const [v, side] = state.place.includes("-") ? state.place.split("-") : ["top", "bottom"].includes(state.place) ? [state.place, "centre"] : state.place === "middle" ? ["middle", "centre"] : ["middle", state.place];
   const left = Math.max(0, side === "left" ? margin : side === "right" ? w - margin - blockW : Math.round((w - blockW) / 2));
   let y = Math.max(0, v === "top" ? margin : v === "bottom" ? h - margin - blockH : Math.round((h - blockH) / 2));
