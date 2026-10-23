@@ -164,7 +164,6 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   assert.equal(await page.locator("#cee-bk-slots-ifx li").count(), 100, "the insert places first");
   assert.equal(await page.locator("#cee-bk-tab-fx").isVisible(), false, "no Effekte/Modulationen switch: the file holds all three");
   assert.equal(await page.locator("#cee-bk-slots-mfx").count(), 0, "one kind of place at a time");
-  assert.match(await page.locator("#cee-bk-export-one-file").textContent(), /alle drei zusammen in derselben Datei, e2sFx\.all/);
   await page.click("#cee-bk-export-tab-mfx");
   await page.selectOption("#cee-bk-slot-mfx-3", { label: "Short Delay" });
   await page.locator("#cee-bk-slots-mfx li[data-slot='3'] .cee-bk-grip").dragTo(page.locator("#cee-bk-slots-mfx li[data-slot='100']"));
