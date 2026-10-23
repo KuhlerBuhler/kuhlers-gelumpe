@@ -32,6 +32,7 @@ import { field, typeOf } from "./map/index.mjs";
 import { identifyBase, sha256 } from "./firmware.mjs";
 import { checkHooks } from "./hooks.mjs";
 import { checkRam } from "./ramspans.mjs";
+import { APPEND_FORMAT, appendPresent, appendPresets } from "./fx-append.mjs";
 
 export const PATCH_FORMAT = "gelumpe-patch";
 export const BUILD_NAMES = { hacktribe: "Hacktribe 2.02", stock: "Korgs Original 2.02", synth: "der blauen Electribe 2 (Synth) 2.02" };
@@ -116,10 +117,11 @@ export async function applyPatches(vsb, patchList) {
   if (!base.ok) return none(base.reasons);
   const picked = selectFor(patchList, base.build);
   if (picked.reasons.length) return none(picked.reasons);
-  const patches = picked.patches;
+  const appends = picked.patches.filter(p => p?.format === APPEND_FORMAT);
+  const patches = picked.patches.filter(p => p?.format !== APPEND_FORMAT);
   const { dependencies, ...hooks } = checkHooks(patches);
   if (!hooks.ok) return none(hooks.reasons, dependencies);
-  const bytes = Uint8Array.from(vsb);
+  let bytes = Uint8Array.from(vsb);
   for (const patch of patches) {
     if (patch?.format !== PATCH_FORMAT || patch.version !== 1 || !Array.isArray(patch.changes) || !patch.changes.length) {
       reasons.push(`${patch?.id ?? "?"}: kein Patch im Format ${PATCH_FORMAT} 1`);
@@ -148,16 +150,28 @@ export async function applyPatches(vsb, patchList) {
   }
   reasons.push(...checkRam(patches.filter(p => p?.format === PATCH_FORMAT && Array.isArray(p.changes)), { written: false }));
   if (reasons.length) return { ok: false, reasons, dependencies, spans, allow: [], allowCode: [] };
+  const allow = spans.filter(s => s.field).map(s => [s.file, s.length]);
+  const allowCode = patches.flatMap(p => (p.startPhase ?? []).map(s => [s.file, s.length]));
+  for (const patch of appends) {
+    const appended = appendPresets(bytes, patch);
+    if (!appended.ok) return none(appended.reasons, dependencies);
+    bytes = appended.bytes;
+    allow.push(...appended.allow);
+    allowCode.push(...appended.allowCode);
+  }
   const after = await identifyBase(bytes);
   if (!after.ok) return none(after.reasons, dependencies);
-  const allowCode = patches.flatMap(p => (p.startPhase ?? []).map(s => [s.file, s.length]));
-  return { ok: true, bytes, reasons, dependencies, spans, allow: spans.filter(s => s.field).map(s => [s.file, s.length]), allowCode };
+  return { ok: true, bytes, reasons, dependencies, spans, allow, allowCode };
 }
 
 /** Per patch: whether every change of it is already in the VSB byte for byte; an unreadable change counts as absent. */
 export async function patchesPresent(vsb, patches) {
   const out = [];
   for (const patch of patches) {
+    if (patch?.format === APPEND_FORMAT) {
+      out.push({ id: patch.id, present: appendPresent(vsb, patch) });
+      continue;
+    }
     let present = patch?.format === PATCH_FORMAT && Array.isArray(patch.changes) && patch.changes.length > 0;
     for (const change of present ? patch.changes : []) {
       try {

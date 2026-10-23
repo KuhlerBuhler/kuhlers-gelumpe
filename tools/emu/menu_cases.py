@@ -51,7 +51,7 @@ def for_build(payload):
     SYNC_GROUP = not synth
     MENU = 37 if synth else 45
     BASE_RING = 28 if synth else 29
-    RING = BASE_RING + 2
+    RING = BASE_RING + 2 + (1 if SYNC_GROUP else 0)
 
 
 def card_image(files=None):
@@ -108,8 +108,8 @@ def press(dev, key, wait=0.25):
     dev.press(key, wait=wait)
 
 
-GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_DISPLAY, GROUP_LED, GROUP_PADS, GROUP_PSAVE = range(9)
-CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_PSAVE, CUSTOM_SPLASH = 0, 1, 2, 3, 4   # the rows of CUSTOMIZATION: four groups, then SPLASH IMPORT, SPLASH DRAW and SPLASH RESET
+GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_DISPLAY, GROUP_LED, GROUP_PADS, GROUP_PSAVE, GROUP_SPLASH = range(10)
+CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_PSAVE, CUSTOM_SPLASH = 0, 1, 2, 3, 4   # the rows of CUSTOMIZATION, each a group; SPLASH holds IMPORT, DRAW and RESET
 S_LEVEL, S_GROUP, S_RAW, S_TOP, S_TABW = 0xE0, 0xE4, 0xE8, 0xEC, 0xF0
 TAB_TEXT_POINTER = 0x38                                               # the tab widget keeps a pointer to its text at this offset
 LIST_PAGES = ["FEATURES", "CUSTOMIZATION", "PLUGINS"]                 # the groups of level 1 of a menu without apps, in this order; GAMES and TOOLS follow when an app is declared in them
@@ -117,18 +117,22 @@ LIST_GROUPS = LIST_PAGES
 LIST_FEATURES, LIST_CUSTOM, LIST_PLUGINS = range(3)                   # their places in that list
 FEATURE_PAGES = ["MFX 2", "PATTERN CONFIRM", "TAP MOTION", "NOTE ASSIST"]   # the pages of the group FEATURES, each with an ON/OFF value
 FEAT_MFX, FEAT_PC, FEAT_TM, FEAT_NA = range(len(FEATURE_PAGES))
-FEAT_MG = len(FEATURE_PAGES)                                          # SYNC GROUP behind them, on the sampler builds (pattern_switch.py)
 SYNC_GROUP = True
 SYNC_GROUP_AT = 0x3B80                                                # the group in a pattern block, u16 little endian
 
 
 def feature_count():
-    """The pages of FEATURES: the switches, and SYNC GROUP where the build has sync groups."""
-    return len(FEATURE_PAGES) + (1 if SYNC_GROUP else 0)
-TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads"]
-RING = 31                                                             # the total of the page counter with the page BLECH and the page of Blechy in the ring
+    """The pages of FEATURES: the switches (SYNC GROUP is a page of the ring, LEVEL_SYNC)."""
+    return len(FEATURE_PAGES)
+TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads", "Power", "Splash", "Pattern"]
+RING = 32                                                             # the total of the page counter with the page BLECH, the page of Blechy and SYNC GROUP in the ring
 BASE_RING = 29
 LEVEL_BLECHY = 3                                                      # level 3 of the screen: the page of Blechy at the end of the ring
+LEVEL_SYNC = 4                                                        # level 4: the page SYNC GROUP behind him, right before the Pattern menu (sampler builds)
+LEVEL_PLUGIN = 5                                                      # level 5: the pages of one plugin, built like the firmware's Sample Edit
+S_PSEL = 0xFB                                                         # byte: the plugin SELECT PLUGIN chose
+PLUGIN_EDIT, PLUGIN_EXPORT, PLUGIN_IMPORT = 1, 2, 3                   # the pages of PLUGINS behind RUNTIME
+PLUGIN_SELECT, PLUGIN_STATE = 0, 1                                    # the first pages of one plugin; the pages it added follow, DELETE PLUGIN is the last
 PRESS = "press  [ Enter ]"                                            # the third line of every Data Util page
 VALUE_ROWS = range(30, 64)                                           # the pixel rows the value (and the firmware's third line) use
 TAB_ROWS = range(1, 9)                                               # the rows of the tab's text, inside the black bar
@@ -161,6 +165,14 @@ def goto_top(dev, page=0):
 def goto_group(dev, group, page=0):
     """The pages of `group` (level 2) at `page`, entered fresh (what ENTER on the group's row and some EDIT presses reach)."""
     _enter(dev, 2, group, page)
+
+
+def goto_plugin(dev, plugin=0, page=None):
+    """The pages of one plugin (level 5, what ENTER on PLUGIN EDIT opens) at `page` (STATE when not given), `plugin` counted as
+    SELECT PLUGIN counts, entered fresh."""
+    go(dev, 8)
+    dev.m.uc.mem_write(STATE + S_PSEL, bytes([plugin]))
+    _enter(dev, LEVEL_PLUGIN, 0, PLUGIN_STATE if page is None else page)
 
 
 def tab(dev):
@@ -286,17 +298,42 @@ def blechy_ring_cases(dev):
     press(dev, "edit_next", wait=0.8)
     landed = here()
     picture = dev.fb()
-    add("blechy_follows_blech", landed == (MENU, LEVEL_BLECHY, (RING - 1, RING), True) and any(picture) and not dev.m.asserts, f"{landed}")
+    add("blechy_follows_blech", landed == (MENU, LEVEL_BLECHY, (BASE_RING + 1, RING), True) and any(picture) and not dev.m.asserts, f"{landed}")
     add("blechy_page_shows_him_alone", len(lit(picture, range(64))) > 300 and not lit(picture, range(64)) & {(x, y) for y in range(64) for x in range(70, 128)}, f"{len(lit(picture, range(64)))} pixels")
     press(dev, "edit_next", wait=0.8)
+    if SYNC_GROUP:
+        group = lambda: bytes(dev.read(dev.u32(0xC033E6A4) + 4 + SYNC_GROUP_AT, 2))
+        sync = (dev.screen()["number"], state(dev, S_LEVEL), counter(dev), open_app_entry(dev), texts_of(dev)[:2], tab(dev))
+        add("sync_group_follows_blechy", sync == (MENU, LEVEL_SYNC, (BASE_RING + 2, RING), 0, ("SYNC GROUP", "OFF"), "Pattern") and not dev.m.asserts, f"{sync}")
+        dev.turn(3, wait=0.3)
+        three = (texts_of(dev)[:2], group())
+        dev.turn(-10, wait=0.3)
+        off = (texts_of(dev)[:2], group())
+        add("sync_group_page_sets_the_pattern", three == (("SYNC GROUP", "3"), b"\x03\x00") and off == (("SYNC GROUP", "OFF"), b"\x00\x00")
+            and not dev.m.asserts, f"turned +3: {three}, then -10: {off}")
+        press(dev, "edit_next", wait=0.8)
     pattern = (dev.screen()["number"], counter(dev), open_app_entry(dev))
     add("blechy_right_goes_to_pattern", pattern == (3, (0, RING), 0), f"{pattern}")
     press(dev, "edit_prev", wait=0.8)
+    if SYNC_GROUP:
+        add("pattern_left_comes_to_sync_group", (dev.screen()["number"], state(dev, S_LEVEL)) == (MENU, LEVEL_SYNC), f"{dev.screen()['number']}, level {state(dev, S_LEVEL)}")
+        dev.turn(2, wait=0.3)
+        press(dev, "write", wait=0.6)
+        window = dev.screen()["number"]
+        add("sync_group_write_saves_the_pattern", window == 18 and group() == b"\x02\x00" and not dev.m.asserts,
+            f"WRITE on SYNC GROUP opens the firmware's pattern write screen (18, as on the Pattern menu's pages): {window}, the group {group()}")
+        press(dev, "exit", wait=0.6)
+        press(dev, "exit", wait=0.8)
+        main = dev.screen()["number"]
+        add("sync_group_exit_goes_to_main", main == 1 and not dev.m.asserts, f"screen {main}")
+        go(dev, 3)
+        press(dev, "edit_prev", wait=0.8)
+        press(dev, "edit_prev", wait=0.8)
     back = here()
     add("blechy_pattern_left_comes_back", back == landed, f"{back}")
     press(dev, "edit_prev", wait=0.8)
     blech = (dev.screen()["number"], state(dev, S_LEVEL), counter(dev), open_app_entry(dev))
-    add("blechy_left_goes_to_blech", blech == (MENU, 0, (RING - 2, RING), 0), f"{blech}")
+    add("blechy_left_goes_to_blech", blech == (MENU, 0, (BASE_RING, RING), 0), f"{blech}")
     goto_blechy(dev)
     dev.run(0.5)
     before = bytes(dev.m.mmc.card.medium.data) if dev.m.mmc.card else b""
@@ -346,7 +383,7 @@ def cases(payload, flash=None, settings=True):
     press(dev, "edit_prev")
     again = here()
     press(dev, "edit_prev")
-    add("ring_forward", page == (MENU, 0, 0, (RING - 2, RING), ("BLECH", "", PRESS), "BLECH") and after == (MENU, LEVEL_BLECHY), f"{page}, then {after}")
+    add("ring_forward", page == (MENU, 0, 0, (BASE_RING, RING), ("BLECH", "", PRESS), "BLECH") and after == (MENU, LEVEL_BLECHY), f"{page}, then {after}")
     add("ring_backward", again == page and dev.screen()["number"] == 10, f"{again}, then screen {dev.screen()['number']}")
     go(dev, 8)
     press(dev, "edit_next")
@@ -355,11 +392,11 @@ def cases(payload, flash=None, settings=True):
     add("global_and_data_util_are_neighbours", right == 14 and dev.screen()["number"] == 8, f"Global right {right}, then left {dev.screen()['number']}")
 
     go(dev, 14)
-    add("neighbour_counters", counter(dev) == (RING - 4, RING), f"Data Util {counter(dev)}")
+    add("neighbour_counters", counter(dev) == (BASE_RING - 2, RING), f"Data Util {counter(dev)}")
     go(dev, 8)
-    add("global_counter", counter(dev) == (RING - 5, RING), f"Global {counter(dev)}")
+    add("global_counter", counter(dev) == (BASE_RING - 3, RING), f"Global {counter(dev)}")
     go(dev, 10)
-    add("event_counter", counter(dev) == (RING - 3, RING), f"Event {counter(dev)}")
+    add("event_counter", counter(dev) == (BASE_RING - 1, RING), f"Event {counter(dev)}")
 
     # the list opens on the group it was last left from, also after a trip through the other menus (device 18.10.)
     goto_ring(dev)
@@ -392,32 +429,23 @@ def cases(payload, flash=None, settings=True):
     goto_top(dev, LIST_PLUGINS)
     press(dev, "menu")
     inside = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), counter(dev), texts_of(dev))
-    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 3), ("RUNTIME", "ON", "")) and tab(dev) == "Plugins", str(inside))
+    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 4), ("RUNTIME", "ON", "")) and tab(dev) == "Plugins", str(inside))
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, "ON") for title in FEATURE_PAGES] + ([("SYNC GROUP", "OFF")] if SYNC_GROUP else [])
+    want = [(title, "ON") for title in FEATURE_PAGES]
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
     add("features_group_lists_the_switches", features[:4] == (2, GROUP_FEATURES, (0, len(want)), "Feature")
         and features[4] == want and state(dev, S_PAGE) == 0, str(features))
-    if SYNC_GROUP:
-        goto_group(dev, GROUP_FEATURES, FEAT_MG)
-        group = lambda: dev.read(dev.u32(0xC033E6A4) + 4 + SYNC_GROUP_AT, 2)
-        dev.turn(3, wait=0.3)
-        three = (texts_of(dev)[:2], bytes(group()))
-        dev.turn(-10, wait=0.3)
-        off = (texts_of(dev)[:2], bytes(group()))
-        add("sync_group_page_sets_the_pattern", three == (("SYNC GROUP", "3"), b"\x03\x00") and off == (("SYNC GROUP", "OFF"), b"\x00\x00")
-            and not dev.m.asserts, f"turned +3: {three}, then -10: {off}")
     goto_top(dev, LIST_PLUGINS)
     press(dev, "menu")
     press(dev, "edit_prev")
     wrapped = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
     press(dev, "edit_next")
     forward = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE), dev.screen()["number"])
-    add("group_pages_wrap_and_count_alone", wrapped == (2, (2, 3), "IMPORT PLUGIN") and forward == (0, (0, 3), "RUNTIME", MENU), f"{wrapped}, {forward}")
+    add("group_pages_wrap_and_count_alone", wrapped == (3, (3, 4), "IMPORT PLUGIN") and forward == (0, (0, 4), "RUNTIME", MENU), f"{wrapped}, {forward}")
     press(dev, "exit")
     up = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
     add("exit_goes_one_level_up", up == (MENU, 1, LIST_PLUGINS, (LIST_PLUGINS, len(LIST_PAGES)), "PLUGINS") and tab(dev) == "BLECH", str(up))
@@ -458,7 +486,7 @@ def cases(payload, flash=None, settings=True):
     add("all_keys_run", not dev.m.asserts, f"no assertion over 48 keys, screens {sorted(seen_keys)}" if not dev.m.asserts else f"asserts {dev.m.asserts}")
 
     # no page runs its texts together or into the edge, none shows a label that is cut off
-    pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(3)]
+    pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(4)]
     pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8)]
     pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_PSAVE, page) for page in range(2)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
@@ -650,11 +678,16 @@ def settings_cases(payload, flash=None):
     # export with nothing loaded says so and writes nothing
     empty = boot(payload, flash, files=CARD_FOLDER)
     before = bytes(empty.m.mmc.card.medium.data)
-    goto_group(empty, GROUP_PLUGINS, 1)
+    goto_group(empty, GROUP_PLUGINS, PLUGIN_EXPORT)
     page = text(empty, S_TITLE), text(empty, S_VALUE)
     press(empty, "write", wait=0.6)
     add("export_without_scripts", page == ("EXPORT ALL", "") and text(empty, S_VALUE) == "no plugins" and bytes(empty.m.mmc.card.medium.data) == before,
         f"{page}, then {text(empty, S_VALUE)!r}")
+    press(empty, "edit_prev", wait=0.4)
+    edit = texts_of(empty)
+    press(empty, "menu", wait=0.4)
+    add("plugin_edit_without_plugins", edit == ("PLUGIN EDIT", "No Plugin", "") and (state(empty, S_LEVEL), state(empty, S_PAGE)) == (2, PLUGIN_EDIT)
+        and not empty.m.asserts, f"{edit}, ENTER stays: level {state(empty, S_LEVEL)}, page {state(empty, S_PAGE)}")
 
     # one valid and one corrupt file: the valid one is used, a newer corrupt one is ignored
     for name, files, want in [
@@ -706,13 +739,13 @@ def pins(dev):
 
 
 def custom_extra(dev):
-    """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR and POWER SAVE where the set has the pad colours, SPLASH IMPORT
-    SPLASH DRAW and SPLASH RESET where it also has the splash editor (the blue Electribe has the pad colours only)."""
+    """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR and POWER SAVE where the set has the pad colours, SPLASH where it
+    also has the splash editor (the blue Electribe has the pad colours only)."""
     import pad_colors
     import splash_editor
     if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
         return 0
-    return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 5
+    return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 3
 
 
 def goto_page(dev, number):
@@ -908,7 +941,19 @@ def look_cases(payload, flash=None):
     first = leds(dev)
     dev.run(1.0)
     second = leds(dev)
-    wheel = lambda l: l[:3] * 4 == l and sorted(l[:3])[0] == 0 and sum(l[:3]) == 255
+    wheel = lambda l: l[:3] * 4 == l and sorted(l[:3])[0] == 0 and sum(l[:3]) in (255, 256)      # 256: a 1 goes out as 2
+    # RAINBOW with a colour on the LED pages (device 22.10.: the LED colour had no effect any more): the zones left at STOCK
+    # take that colour, as bright as the level, the still meter stays on the wheel
+    set_look(dev, mode=0, led=(15, 7, 0))
+    meter_level(dev, 254)
+    dev.run(1.0)
+    r_loud = leds(dev)
+    meter_level(dev, 0)
+    dev.run(0.5)
+    r_still = leds(dev)
+    set_look(dev, mode=0, led=(0, 0, 0))
+    add("led_meter_rainbow_keeps_the_led_colour", r_loud == loud and sorted(r_still[:3])[0] == 0 and sum(r_still[:3]) in (255, 256) and not dev.m.asserts,
+        f"loud {r_loud} (the meter in that colour {loud}), still {r_still[:3]}")
     press(dev, "write", wait=0.6)
     files = read_settings(dev.m.mmc.card.medium.data)
     flags = max(files.values())[1] if files else 0
@@ -1042,7 +1087,8 @@ def cases_task():
 
 def splash_menu_cases(payload, flash=None):
     """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT reads KORG/blechtribe/splash.bmp into the start image,
-    SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back.
+    SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back; the
+    three are a group of their own, the row SPLASH of CUSTOMIZATION opens it.
     Without the editor (the synth) the group keeps its 8 pages."""
     from splash_cases import bmp, image_of
     import splash_editor
@@ -1058,6 +1104,14 @@ def splash_menu_cases(payload, flash=None):
         add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 2 + custom_extra(dev), f"counter {counter(dev)}")
         return out
     goto_group(dev, GROUP_CUSTOM, CUSTOM_SPLASH)
+    row = texts_of(dev)
+    press(dev, "menu", 0.4)
+    inside = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev))
+    press(dev, "exit", 0.4)
+    out_again = (state(dev, S_GROUP), state(dev, S_PAGE), texts_of(dev)[0])
+    add("group_of_its_own", row == ("SPLASH", "", PRESS) and inside == (2, GROUP_SPLASH, (0, 3), "Splash") and out_again == (GROUP_CUSTOM, CUSTOM_SPLASH, "SPLASH")
+        and not dev.m.asserts, f"row {row}, ENTER {inside}, EXIT {out_again}")
+    goto_group(dev, GROUP_SPLASH, 0)
     before = texts_of(dev)
     press(dev, "menu", 0.6)
     after = texts_of(dev)
@@ -1074,14 +1128,14 @@ def splash_menu_cases(payload, flash=None):
     add("draw_opens_the_editor", page == ("SPLASH DRAW", "", PRESS) and dev.screen()["number"] == 9 and dev.screen()["page"] == splash_editor.PAGE and st == 1
         and len(differ) <= 1 and not dev.m.asserts, f"{page}, screen {dev.screen()}, editor mode {st}, display bytes not the image (battery aside): {differ}")
     bare = boot(payload, flash, files=CARD_FOLDER)
-    goto_group(bare, GROUP_CUSTOM, CUSTOM_SPLASH)
+    goto_group(bare, GROUP_SPLASH, 0)
     press(bare, "menu", 0.6)
     add("import_without_file", texts_of(bare)[1] == "no splash.bmp", str(texts_of(bare)))
     from splash_cases import DESC13
     desc = lambda d: d.u32(DESC13)
     record_id = lambda d: struct.unpack_from("<I", d.m.flash.mem, splash_editor.FLASH_RECORD)[0]
     dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic)})
-    goto_group(dev, GROUP_CUSTOM, CUSTOM_SPLASH)
+    goto_group(dev, GROUP_SPLASH, 0)
     press(dev, "menu", 0.6)
     imported = (desc(dev), record_id(dev))
     press(dev, "edit_next", 0.4)
@@ -1613,7 +1667,7 @@ def note_assist_menu_cases(payload, flash=None):
     press(dev, "edit_next", wait=0.4)
     wrapped = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    after = ("SYNC GROUP", (FEAT_MG, feature_count())) if SYNC_GROUP else ("MFX 2", (0, feature_count()))
+    after = ("MFX 2", (0, feature_count()))
     add("page_is_last", wrapped == after and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word

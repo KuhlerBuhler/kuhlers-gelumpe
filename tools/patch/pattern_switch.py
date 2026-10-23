@@ -3,7 +3,8 @@
 While a pattern plays, the wheel only browses: the firmware already shows the chosen pattern as
 NEXT:nnn and holds nothing but a number and a flag, so the patch keeps the choice from being applied.
 MENU (ENTER) on the main screen confirms the browsed pattern, and it starts at the next sequence end.
-EXIT takes the browse or the confirmation back. Stopped with unsaved changes (the pattern in RAM differs from its
+EXIT takes the browse or the confirmation back. MENU's LED shows where to press: it blinks while a pattern is only browsed
+(VIEW:) and is lit once one is confirmed (NEXT:), until the switch. Stopped with unsaved changes (the pattern in RAM differs from its
 place in the pattern bank) the wheel browses the same way, so the edit is not thrown away by a turn: VIEW:nnn
 shows, MENU loads the browsed pattern at once, EXIT stays on the edited one. Stopped without changes, in record and
 for every other way to choose a pattern (pad, MIDI program change, chain), the firmware behaves as it always did.
@@ -13,8 +14,8 @@ for every other way to choose a pattern (pad, MIDI program change, chain), the f
 Sync groups (sampler builds): a pattern carries a sync group, 0 (OFF) to 999, as a little endian half word at GROUP_AT of its
 block (a byte range the firmware never reads or writes; the BLECH menu sets it). While a pattern plays, the wheel on another
 pattern of the same group confirms it at once (NEXT:, no MENU needed), and a pattern load from one pattern of a group to another
-carries every value changed live (different from the bank block the pattern came from): part mutes and sound, tempo, swing,
-level, MFX. Steps, motion, length, beat, key, scale and chord set stay the new pattern's.
+carries the state of the pattern that played, changed or not: part mutes and sound, tempo, swing, level, MFX. Steps, motion,
+length, beat, key, scale and chord set stay the new pattern's.
 
 Ten hooks; only the stopped sync runs before the main screen, and there it only reads its own state word:
   wheel        the tail call of the main screen's VALUE handler into the selector, 0xC006513C
@@ -56,7 +57,8 @@ STATE = 0xC0180F00              # run time state, in RAM only; FF there means "n
 STATE_END = 0xC0180F40
 SG_BUF = 0xC0180C00             # the sync group's buffer, in RAM only, between the code and the state
 SG_SIZE = 11 + 16 * 47          # 10 values of the pattern (tempo two bytes), 47 bytes of each part
-S_BROWSE, S_ARMED, S_ARMNUM, S_SETTING, S_STOPPED, S_AUTO, S_LOADED = 0, 4, 8, 0x10, 0x14, 0x18, 0x1C
+S_BROWSE, S_ARMED, S_ARMNUM, S_SETTING, S_STOPPED, S_AUTO, S_LOADED, S_LED = 0, 4, 8, 0x10, 0x14, 0x18, 0x1C, 0x20
+LED_MGR, LED_MENU, S_LEDWAS = 0xC0345A1C, 7, 0x21
 PS_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off
 
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13, measured on the device 10.10.)
@@ -140,6 +142,14 @@ SOURCE = """
 .equ GROUP_AT, @GROUP_AT@
 .equ S_LOADED, 0x1C             ; the bank block the pattern in RAM was last loaded from, else not a bank block (FF at start)
 .equ SG_BUF, @SG_BUF@           ; what the sync group puts into the new pattern, SG_SIZE bytes
+.equ S_LED, 0x20                ; byte: the mode the patch last gave MENU's LED (0 none, 1 lit, 2 blinking), FF never
+.equ S_LEDWAS, 0x21             ; 3 bytes: the LED's entry as the firmware had it (mode, brightness, on), given back after
+.equ LED_UPDATE, 0xC00875F4     ; (manager, led, force): sends the LED's entry to the panel
+.equ LED_ENTRY, 0x4D + 8 * 7    ; manager + 0x4D + 8 * led: mode, brightness, on (LED_SET writes these three)
+.equ LED_MGR, 0xC0345A1C        ; pointer to the LED manager
+.equ LED_SET, 0xC0087710        ; (manager, led, mode, duration): the manager's own path to set an LED and send it; mode 2 blinks
+.equ LED_MENU, 7
+.equ BLINK, 7                   ; mode 2 toggles every BLINK ticks of the manager's 40 ms tick: 280 ms on, 280 ms off
 
 .org @CODE_AT@
 
@@ -241,6 +251,7 @@ wh_after:
     str r0, [r6, #S_ARMED]
     str r0, [r6, #S_AUTO]
 wh_out:
+    bl pc_led
     pop {r4, r5, r6, pc}
 wh_stock:
     mov r0, r4
@@ -278,6 +289,7 @@ wh_stopped_go:
     mov r0, r4
     mov r1, r5
     bl pc_notify
+    bl pc_led
     pop {r4, r5, r6, pc}
 
 ; r5 = a pattern number -> r0 = 1 when it is not the running pattern and has the running pattern's sync group (not 0). The
@@ -319,9 +331,10 @@ pc_group:
 
 ; @COPY_BEGIN@ ===================================================== the copy of the pattern load
 ; Replaces memcpy(pattern + 4, source, 0x4000) in the firmware's pattern load (CommandTask). Every full load into the pattern in RAM
-; from the bank is remembered (S_LOADED, the bank block). When the pattern in RAM and the source have the same sync group (not 0),
-; every value of the pattern in RAM that is no longer what its bank block holds goes into the new one before the firmware applies
-; it (sg_walk: the part sound and mute, tempo, swing, level, MFX), so nothing jumps. Not with EXIT held at power-on. All addresses
+; from the bank is remembered (S_LOADED, the bank block). When the pattern in RAM and the source have the same sync group (not 0)
+; and the source is not the block the pattern in RAM came from, every value sg_walk names goes from the pattern in RAM into the new
+; one before the firmware applies it (the part sound and mute, tempo, swing, level, MFX), changed or not: the patterns of a group
+; play as one, only their steps differ. Not with EXIT held at power-on. All addresses
 ; are built without a literal: the firmware loads a pattern during the start, so this runs then.
 copy_hook:
     push {r4-r10, lr}
@@ -367,10 +380,6 @@ copy_hook:
     ldr r8, [r12, #S_LOADED]
     cmp r8, r5
     beq ch_copy
-    mov r0, r8
-    bl sg_banked
-    cmp r0, #0
-    beq ch_copy
     mov r10, #0
     bl sg_walk
     mov r7, #1
@@ -414,8 +423,7 @@ sb_no:
     bx lr
 
 ; Walks the values a sync group carries: the pattern's bytes in sg_head, then bytes 1 to 0x2F of every part (mute and sound; the
-; sample number at 8 as one half word). r4 = the pattern in RAM, r5 = the source, r8 = the bank block the pattern in RAM came from,
-; r10 = 0: into SG_BUF goes the value of the pattern in RAM where it differs from r8, else the source's; r10 = 1: SG_BUF goes back
+; sample number at 8 as one half word). r4 = the pattern in RAM; r10 = 0: its values go into SG_BUF; r10 = 1: SG_BUF goes back
 ; into the pattern in RAM. Clobbers r0 to r3, r9 and r12.
 sg_walk:
     push {r6, r7, r11, lr}
@@ -462,23 +470,7 @@ sw_next:
 sg_unit:
     cmp r10, #0
     bne su_put
-    ldrb r2, [r4, r0]
-    ldrb r3, [r8, r0]
-    cmp r2, r3
-    bne su_live
-    cmp r1, #2
-    bne su_source
-    add r12, r0, #1
-    ldrb r2, [r4, r12]
-    ldrb r3, [r8, r12]
-    cmp r2, r3
-    bne su_live
-su_source:
-    add r2, r5, r0
-    b su_take
-su_live:
     add r2, r4, r0
-su_take:
     ldrb r3, [r2]
     strb r3, [r9], #1
     cmp r1, #2
@@ -500,6 +492,63 @@ sg_head:
     .byte 0xA2, 36, 42, 61, 62, 63, 64, 65, 68, 69, 0
 .align 4
 ; @COPY_END@
+
+; ===================================================== MENU's LED
+; Shows where to press: blinking while a pattern is only browsed (VIEW:, MENU confirms it, or loads it when stopped), lit while
+; one is confirmed (NEXT:). Otherwise the LED is the firmware's (dark on the main screen, mode 1 with brightness 0): its entry is
+; remembered when the patch takes the LED and given back after. Sent only when that changes. Clobbers r0 to r3 and r12.
+pc_led:
+    push {r4, lr}
+    ldr r3, =STATE
+    ldr r0, [r3, #S_BROWSE]
+    cmp r0, #1
+    moveq r4, #2
+    beq pl_want
+    ldr r0, [r3, #S_ARMED]
+    cmp r0, #1
+    moveq r4, #1
+    movne r4, #0
+pl_want:
+    ldrb r0, [r3, #S_LED]
+    cmp r0, #0xFF
+    moveq r0, #0
+    cmp r0, r4
+    popeq {r4, pc}
+    ldr r12, =LED_MGR
+    ldr r12, [r12]
+    cmp r12, #0
+    popeq {r4, pc}
+    add r1, r12, #LED_ENTRY
+    cmp r0, #0                  ; taken now: remember the firmware's entry
+    ldrbeq r2, [r1]
+    strbeq r2, [r3, #S_LEDWAS]
+    ldrbeq r2, [r1, #1]
+    strbeq r2, [r3, #S_LEDWAS + 1]
+    ldrbeq r2, [r1, #2]
+    strbeq r2, [r3, #S_LEDWAS + 2]
+    strb r4, [r3, #S_LED]
+    cmp r4, #0
+    bne pl_set
+    ldrb r2, [r3, #S_LEDWAS]    ; given back as it was, and sent
+    strb r2, [r1]
+    ldrb r2, [r3, #S_LEDWAS + 1]
+    strb r2, [r1, #1]
+    ldrb r2, [r3, #S_LEDWAS + 2]
+    strb r2, [r1, #2]
+    mov r0, r12
+    mov r1, #LED_MENU
+    mov r2, #1
+    bl LED_UPDATE
+    pop {r4, pc}
+pl_set:
+    mov r0, r12
+    mov r1, #LED_MENU
+    mov r2, r4
+    cmp r4, #2
+    moveq r3, #BLINK
+    movne r3, #0
+    bl LED_SET
+    pop {r4, pc}
 
 ; r0 = the selection object, r1 = number: the display is told as SET_NUMBER tells it. Clobbers r0 to r3 and r12.
 pc_notify:
@@ -566,6 +615,7 @@ pc_stopped_end:
     mov r0, r4
     mov r1, r5
     bl pc_notify
+    bl pc_led
     pop {r4, r5, pc}
 
 ; ===================================================== a pad or a program change chooses: that is a deliberate choice
@@ -577,6 +627,9 @@ pad_hook:
     str r0, [r12, #S_BROWSE]
     str r0, [r12, #S_STOPPED]
     pop {r0, r12}
+    push {r0, r1, r2, r3, r12, lr}
+    bl pc_led
+    pop {r0, r1, r2, r3, r12, lr}
     push {r4, lr}               ; the replaced first instruction
     b @PAD_BODY@
 
@@ -588,6 +641,9 @@ midi_hook:
     str r0, [r12, #S_BROWSE]
     str r0, [r12, #S_STOPPED]
     pop {r0, r12}
+    push {r0, r1, r2, r3, r12, lr}
+    bl pc_led
+    pop {r0, r1, r2, r3, r12, lr}
     push {r3, r4, r5, lr}       ; the replaced first instruction
     b @MIDI_BODY@
 
@@ -623,6 +679,7 @@ menu_hook:
     mov r0, r5
     mov r2, #1                  ; Bank Select and Program Change now, and the display is told
     bl SET_NUMBER
+    bl pc_led
     pop {r4, r5, r6, pc}
 mn_stock:
     mov r0, r4
@@ -640,6 +697,7 @@ mn_load:                        ; stopped: the browsed pattern is loaded now, th
     ldr r1, [r5, #0x318]
     mov r2, #1
     bl SET_NUMBER
+    bl pc_led
     pop {r4, r5, r6, pc}
 
 ; -> r0 = 1 while a stopped browse is open and the sequencer stands. Clobbers r0 to r3 and r12.
@@ -692,6 +750,7 @@ ex_playing:
     mov r0, r5
     mov r2, #1
     bl SET_NUMBER
+    bl pc_led
     pop {r4, r5, r6, pc}
 ex_browse:
     mov r0, #0
@@ -712,6 +771,7 @@ ex_to:
     mov r0, #0                  ; back on the running pattern, nothing is confirmed any more
     str r0, [r6, #S_ARMED]
 ex_out:
+    bl pc_led
     pop {r4, r5, r6, pc}
 ex_stock:
     mov r0, r4
@@ -735,10 +795,12 @@ seq_hook:
     ldr r0, [r3, #S_ARMED]
     cmp r0, #1
     bne sq_browse
-    ldr r0, [r3, #S_ARMNUM]
+    ldr r4, [r3, #S_ARMNUM]
     mov r1, #0
     str r1, [r3, #S_ARMED]
     str r1, [r3, #S_BROWSE]
+    bl pc_led                   ; the firmware sets LEDs from this task too (the beat flash of TAP)
+    mov r0, r4
     pop {r4, pc}
 sq_browse:
     ldr r0, [r3, #S_BROWSE]
@@ -791,6 +853,7 @@ st_flags:
     mov r0, #0
     str r0, [r3, #S_ARMED]
     str r0, [r3, #S_BROWSE]
+    bl pc_led
 st_out:
     mov r0, r4
     pop {r1, r2, r3, r4, r5, lr}
@@ -968,7 +1031,7 @@ def build_patch(vsb, build="hacktribe"):
             declare(STOP_HOOK, "instruction", "stop-pending", "before", False, "STOP drops a browse, or applies the confirmed pattern as the firmware does"),
             declare(LABEL_HOOK, "instruction", "pattern-label", "replace", False, "VIEW: instead of NEXT: while browsing"),
             declare(SYNC_HOOK, "instruction", "stopped-sync", "before", False, "stopped, an unsaved pattern browsed away from: the chosen number is not loaded"),
-        ] + ([] if SYNTH else [declare(COPY_CALL, "call", "pattern-load-copy", "replace", False, "the copy carries what was changed live (part sound and mutes, tempo, MFX) between two patterns of one sync group")]),
+        ] + ([] if SYNTH else [declare(COPY_CALL, "call", "pattern-load-copy", "replace", False, "the copy carries the state of the pattern that played (part sound and mutes, tempo, MFX) between two patterns of one sync group")]),
         "startPhase": [
             {"file": file_offset(SYNC_HOOK), "length": 4, "why": "the stopped sync is an observer the firmware calls from the start on; the hook reads its own state word (FF at start, not 1) and runs the original"},
             {"file": file_offset(symbols["sync_hook"]), "length": symbols["view_text"] - symbols["sync_hook"], "why": "sync_hook: one load, a compare, then the replaced instruction and the way back"},
@@ -977,7 +1040,7 @@ def build_patch(vsb, build="hacktribe"):
             {"file": file_offset(symbols["pc_group"]), "length": symbols["pc_notify"] - symbols["pc_group"], "why": "copy_hook, pc_group and the sync group walk: the panel's keys, the two sync groups and the loaded bank block read, the memcpy, the bank block remembered, no literal"},
         ]),
         "ram": [
-            ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C", "tools/patch/pattern_switch.py:STATE"),
+            ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C, MENU's LED at +0x20", "tools/patch/pattern_switch.py:STATE"),
         ] + ([] if SYNTH else [
             ramdecl.area(SG_BUF, SG_SIZE, "sync group: the values carried into the new pattern during one pattern load", "tools/patch/pattern_switch.py:SG_BUF"),
         ]),
