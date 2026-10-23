@@ -21,9 +21,10 @@ test("the folders are the four device cards, and docs/rettung.md carries the sam
   for (const f of RESCUE.folders) assert.ok(doc.includes(f.path), `${f.path} is missing in docs/rettung.md`);
 });
 
-test("nothing about 00 claims a measured way, and the stop sign names the bootloader and JTAG", () => {
+test("00 goes through the update prompt with Korg's sampler file, and the stop sign names the bootloader and JTAG", () => {
   const zero = RESCUE.cases.find(c => c.id === "zero");
-  assert.ok(zero.steps.every(s => s.status !== "gemessen"));
+  assert.ok(zero.steps.some(s => s.act && s.text.includes("KORG/electribe sampler/System/SYSTEM.VSB")));
+  assert.ok(zero.steps.some(s => s.act && /ENTER/.test(s.text)));
   const stop = RESCUE.stop.lines.flat().map(w => w.text ?? w).join(" ");
   assert.match(RESCUE.stop.title, /Bootloader.*nie/);
   assert.match(stop, /JTAG/);

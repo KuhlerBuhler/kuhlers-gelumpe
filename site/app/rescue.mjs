@@ -1,10 +1,14 @@
 /**
  * The Rettung page: Blechy asks what the device shows and walks through the documented way back, one question at a
- * time, with the answers as buttons. Every step says how sure it is. Content: data/rescue.mjs.
+ * time, with the answers as buttons. Every step says how sure it is. What is only to read follows by itself after a
+ * short pause; a step that asks for something waits for the answer. Content: data/rescue.mjs.
  */
 import { el } from "./fields.mjs";
 import RESCUE, { STATUS, LINKS, TALK } from "../../data/rescue.mjs";
 import { e2Art } from "./e2-art.mjs";
+
+/** The pause before Blechy's next message when the one before only had something to read. */
+const PAUSE_MS = 900;
 
 const BODY = { red: "var(--color-card-suit-red)", blue: "var(--color-chart-blue)", grey: "var(--color-text-muted)" };
 const MOODS = { idle: "img/blechy/idle.png", happy: "img/blechy/happy.png", angry: "img/blechy/angry.png", wave: "img/blechy/wave.png", sad: "img/blechy/sad.png" };
@@ -28,8 +32,8 @@ const stepSay = step => [
 ];
 
 /**
- * The flow: each node is what Blechy says (`say`, DOM parts), his mood, and the answers that lead on. A case is its
- * steps one after another, then its limit; "starts" asks before the file step which firmware runs, for the folder.
+ * The flow: each node is what Blechy says (`say`, DOM parts), his mood, and the answers that lead on, or `auto`, the
+ * node that follows by itself. A case is its steps one after another, then its limit; "starts" asks before the file step which firmware runs, for the folder.
  */
 function flow() {
   const nodes = {};
@@ -51,12 +55,13 @@ function flow() {
         ],
         choices: c.id === "starts" && i === 0
           ? [{ label: TALK.helped, to: "fixed" }, { label: TALK.notHelped, to: "before" }]
-          : [{ label: c.id === "starts" && i > 0 ? TALK.done : TALK.next, to: next }],
+          : step.act ? [{ label: TALK.done, to: next }] : [],
+        auto: c.id === "starts" || step.act ? null : next,
       };
     });
     nodes[`limit:${c.id}`] = {
       mood: c.id === "starts" ? "wave" : "sad",
-      say: () => [el("p", { className: "cee-rescue-limit" }, [el("strong", { textContent: "Grenze: " }), c.limit]), el("p", { textContent: TALK.end })],
+      say: () => [el("p", { className: "cee-rescue-limit" }, [el("strong", { textContent: "Grenze: " }), c.limit]), el("p", {}, words(TALK.end))],
       choices: [],
     };
   }
@@ -90,6 +95,7 @@ export function rescuePage(root) {
   const again = el("button", { type: "button", className: "btn sm", id: "cee-rescue-again", textContent: TALK.again });
   let path = ["start"];
   let picked = [];
+  let timer = null;
 
   const blechy = (mood, parts) => el("li", { className: "cee-rescue-say" }, [
     el("img", { className: "cee-rescue-blechy", src: MOODS[mood], alt: "", width: 45, height: 55 }),
@@ -112,6 +118,10 @@ export function rescuePage(root) {
     answers.hidden = !node.choices.length;
     back.disabled = path.length < 2;
     chat.lastElementChild?.scrollIntoView?.({ block: "nearest" });
+    clearTimeout(timer);
+    // While Blechy still has something to say, the answers wait and tests can tell (data-waiting).
+    answers.toggleAttribute("data-waiting", !!node.auto);
+    if (node.auto) timer = setTimeout(() => { path = [...path, node.auto]; render(); }, PAUSE_MS);
   }
   function choose(c) {
     picked[path.length - 1] = c.label;
@@ -121,22 +131,18 @@ export function rescuePage(root) {
   }
   back.addEventListener("click", () => {
     if (path.length < 2) return;
-    path = path.slice(0, -1);
+    // Back to the last question, past what Blechy said by himself.
+    do path = path.slice(0, -1); while (path.length > 1 && nodes[path.at(-1)].auto);
     picked = picked.slice(0, path.length - 1);
     render();
   });
   again.addEventListener("click", () => { path = ["start"]; picked = []; render(); });
 
-  const legend = el("ul", { className: "cee-rescue-legend" }, Object.keys(STATUS).map(k => el("li", {}, [pill(k), el("span", { textContent: ` ${STATUS[k].meaning}` })])));
   root.replaceChildren(el("div", { className: "cee-rescue" }, [
     el("h1", { className: "cee-rescue-title ui-sr-only", textContent: "Rettung" }),
     chat,
     answers,
     el("div", { className: "actions cee-rescue-nav" }, [back, again]),
-    el("details", { className: "ui-details", id: "cee-rescue-sure" }, [
-      el("summary", { textContent: "Wie sicher ist ein Schritt?" }),
-      el("div", { className: "ui-details-body" }, [legend, el("p", { className: "muted" }, ["Die Anleitungen von Hacktribe, auf die sich die Seite stützt: ", link(LINKS.howTo, "How-To"), ", ", link(LINKS.debrick, "Debrick"), "."])]),
-    ]),
   ]));
   render();
 }
