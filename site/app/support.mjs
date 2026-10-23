@@ -49,10 +49,14 @@ const FIGURES = {
 };
 
 const BACKS = [["stars", "Sterne"], ["flat", "Fläche"]];
-const PLACES = [["top", "Oben"], ["middle", "Mitte"], ["bottom", "Unten"]];
+const PLACES = [
+  ["top-left", "Oben links"], ["top", "Oben"], ["top-right", "Oben rechts"],
+  ["left", "Links"], ["middle", "Mitte"], ["right", "Rechts"],
+  ["bottom-left", "Unten links"], ["bottom", "Unten"], ["bottom-right", "Unten rechts"],
+];
 const FORMATS = { avatar: ["Profilbild", 1024, 1024], desktop: ["Rechner", 2560, 1440], phone: ["Handy", 1170, 2532] };
-const TEXT_MAX = 24;
-const NAME_MAX = 14;
+const TEXT_MAX = 120;
+const NAME_MAX = 40;
 
 /** A 1-bit picture as rows of booleans, cut to the pixels that are set. The more common colour is the background: the art is drawn both ways round, some with a frame. */
 async function maskOf(src) {
@@ -144,8 +148,9 @@ function colours(state) {
 }
 
 /**
- * One picture: the background, then the figure and the text below it as one block, its height at the chosen place.
- * `size` is how much of the room the figure may take; whole pixels only, so a smaller size may jump a step.
+ * One picture: the background, then the figure and the lines of text below it as one block at the chosen place,
+ * a margin away from the edges. Figure and text each have their own size, a share of the most that fits; whole
+ * pixels only, so a smaller size may jump a step.
  */
 function draw(canvas, state, figure) {
   const [, w, h] = FORMATS[state.format];
@@ -157,16 +162,26 @@ function draw(canvas, state, figure) {
   ctx.fillRect(0, 0, w, h);
   if (state.back === "stars") starField(ctx, w, h, ink);
   ctx.fillStyle = ink;
-  const label = state.text.trim() ? textMask(state.text.trim()) : null;
-  const room = state.format === "phone" ? [0.85, 0.4] : state.format === "desktop" ? [0.8, 0.6] : [0.7, label ? 0.58 : 0.7];
+  const lines = state.text.split("\n").map(line => line.trim()).filter(Boolean).map(textMask);
+  const widest = lines.reduce((a, b) => (b[0].length > a[0].length ? b : a), lines[0] ?? []);
+  const room = state.format === "phone" ? [0.85, 0.45] : state.format === "desktop" ? [0.8, 0.65] : [0.75, 0.75];
   const scale = figure.length ? Math.max(1, Math.floor(fit(figure, w * room[0], h * room[1]) * state.size / 100)) : 0;
-  const textScale = label ? Math.max(1, Math.min(fit(label, w * 0.8, h * 0.09), scale || Infinity)) : 0;
-  const gap = label && scale ? Math.round(Math.min(w, h) * 0.05) : 0;
-  const block = figure.length * scale + gap + (label ? label.length * textScale : 0);
-  const centre = { top: 0.27, middle: 0.5, bottom: 0.73 }[state.place] * h;
-  const top = Math.round(Math.min(Math.max(centre - block / 2, 0), h - block));
-  if (scale) plot(ctx, figure, Math.round((w - figure[0].length * scale) / 2), top, scale);
-  if (label) plot(ctx, label, Math.round((w - label[0].length * textScale) / 2), top + figure.length * scale + gap, textScale);
+  const textScale = lines.length ? Math.max(1, Math.floor(fit(widest, w * 0.9, h * 0.12) * state.textSize / 100)) : 0;
+  const lineGap = textScale * 3;
+  const gap = lines.length && scale ? Math.round(Math.min(w, h) * 0.04) : 0;
+  const items = [...(scale ? [[figure, scale, 0]] : []), ...lines.map((line, i) => [line, textScale, i ? lineGap : gap])];
+  const blockW = Math.max(0, ...items.map(([mask, s]) => mask[0].length * s));
+  const blockH = items.reduce((sum, [mask, s, before]) => sum + before + mask.length * s, 0);
+  const margin = Math.round(Math.min(w, h) * 0.06);
+  const [v, side] = state.place.includes("-") ? state.place.split("-") : ["top", "bottom"].includes(state.place) ? [state.place, "centre"] : state.place === "middle" ? ["middle", "centre"] : ["middle", state.place];
+  const left = Math.max(0, side === "left" ? margin : side === "right" ? w - margin - blockW : Math.round((w - blockW) / 2));
+  let y = Math.max(0, v === "top" ? margin : v === "bottom" ? h - margin - blockH : Math.round((h - blockH) / 2));
+  for (const [mask, s, before] of items) {
+    y += before;
+    const width = mask[0].length * s;
+    plot(ctx, mask, side === "left" ? left : side === "right" ? left + blockW - width : left + Math.round((blockW - width) / 2), y, s);
+    y += mask.length * s;
+  }
 }
 
 /** A row of choices as a segmented control; `onPick` gets the value. */
@@ -200,7 +215,7 @@ function maker(root, { id, title, formats, figures, state, textLabel, textMax, p
     draw(canvas, state, figure);
     canvas.dataset.format = state.format;
   };
-  const text = el("input", { className: "input", id: `${id}-text`, type: "text", maxLength: textMax, spellcheck: false, autocomplete: "off", placeholder });
+  const text = el("textarea", { className: "input", id: `${id}-text`, rows: 2, maxLength: textMax, spellcheck: false, autocomplete: "off", placeholder });
   text.addEventListener("input", () => { state.text = text.value; render(); });
   const colour = (key, label) => {
     const input = el("input", { type: "color", className: "cee-support-colour", id: `${id}-${key}`, value: state[key] });
@@ -208,9 +223,12 @@ function maker(root, { id, title, formats, figures, state, textLabel, textMax, p
     return el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: input.id, textContent: label }), input]);
   };
   const own = el("div", { className: "cee-support-own", id: `${id}-own`, hidden: state.look !== "own" }, [colour("bg", "Hintergrund"), colour("ink", "Pixel")]);
-  const size = el("input", { type: "range", className: "ui-range", id: `${id}-size`, min: 20, max: 100, step: 5, value: state.size });
-  const sizeOut = el("output", { className: "ui-range-value", htmlFor: size.id, textContent: `${state.size} %` });
-  size.addEventListener("input", () => { state.size = Number(size.value); sizeOut.textContent = `${size.value} %`; render(); });
+  const slider = (key, label) => {
+    const input = el("input", { type: "range", className: "ui-range", id: `${id}-${key}`, min: 10, max: 100, step: 5, value: state[key] });
+    const out = el("output", { className: "ui-range-value", htmlFor: input.id, textContent: `${state[key]} %` });
+    input.addEventListener("input", () => { state[key] = Number(input.value); out.textContent = `${input.value} %`; render(); });
+    return el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: input.id }, [`${label} `, out]), input]);
+  };
   const save = el("button", { type: "button", className: "btn cee-primary", id: `${id}-save`, textContent: saveText });
   save.addEventListener("click", () => download(canvas, `${name(state)}.png`));
   const set = key => value => { state[key] = value; render(); };
@@ -221,8 +239,9 @@ function maker(root, { id, title, formats, figures, state, textLabel, textMax, p
       el("div", { className: "cee-support-controls" }, [
         formats.length > 1 ? choices(`${id}-format`, "Für", formats.map(f => [f, FORMATS[f][0]]), state.format, set("format")) : null,
         choices(`${id}-figure`, "Bild", figures.map(f => [f, FIGURES[f][0]]), state.figure, set("figure")),
-        el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: text.id, textContent: `${textLabel} (bis ${textMax} Zeichen)` }), text]),
-        el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: size.id }, ["Größe ", sizeOut]), size]),
+        el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: text.id, textContent: `${textLabel} (bis ${textMax} Zeichen, Enter für eine neue Zeile)` }), text]),
+        slider("size", "Bildgröße"),
+        slider("textSize", "Textgröße"),
         choices(`${id}-place`, "Platz", PLACES, state.place, set("place")),
         choices(`${id}-back`, "Hintergrund", BACKS, state.back, set("back")),
         choices(`${id}-look`, "Farbe", LOOKS, state.look, value => { own.hidden = value !== "own"; set("look")(value); }),
@@ -238,14 +257,14 @@ export function supportPage({ avatar, wallpaper }) {
   const blechys = ["wave", "idle", "happy", "angry", "sad", "tube", "loaded", "eyes"];
   maker(avatar, {
     id: "cee-support-avatar", title: "Profilbild", formats: ["avatar"], figures: blechys,
-    state: { format: "avatar", figure: "wave", text: "", size: 100, place: "middle", back: "flat", look: "red", bg: "#cc0000", ink: "#0a0a0b" },
+    state: { format: "avatar", figure: "wave", text: "", size: 100, textSize: 60, place: "middle", back: "flat", look: "red", bg: "#cc0000", ink: "#0a0a0b" },
     textLabel: "Dein Name", textMax: NAME_MAX, placeholder: "zum Beispiel dein Künstlername", saveText: "Profilbild speichern",
     name: s => `Blechy${s.text.trim() ? `-${fileName(s.text)}` : ""}`,
   });
   maker(wallpaper, {
     id: "cee-support-wallpaper", title: "Hintergrund", formats: ["desktop", "phone"], figures: ["blechtribe", "blech", ...blechys, "none"],
-    state: { format: "desktop", figure: "blechtribe", text: "", size: 100, place: "middle", back: "stars", look: "black", bg: "#0a0a0b", ink: "#fafafa" },
-    textLabel: "Text darunter", textMax: TEXT_MAX, placeholder: "zum Beispiel MEINE ELECTRIBE ROCKT", saveText: "Hintergrund speichern",
+    state: { format: "desktop", figure: "blechtribe", text: "", size: 100, textSize: 40, place: "middle", back: "stars", look: "black", bg: "#0a0a0b", ink: "#fafafa" },
+    textLabel: "Text", textMax: TEXT_MAX, placeholder: "zum Beispiel MEINE ELECTRIBE ROCKT", saveText: "Hintergrund speichern",
     name: s => `${fileName(FIGURES[s.figure][0]) || "BLECHTRIBE"}-${FORMATS[s.format][0]}`,
   });
 }

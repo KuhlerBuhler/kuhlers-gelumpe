@@ -1282,6 +1282,12 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   flex-wrap: wrap;
 }
 
+/* The nine places as the picture has them: three rows of three. */
+.cee-support-controls .ui-segmented[id$="-place"] {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .cee-support-own {
   display: flex;
   flex-wrap: wrap;

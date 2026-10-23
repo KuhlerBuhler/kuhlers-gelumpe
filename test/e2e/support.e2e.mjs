@@ -42,7 +42,8 @@ test("a profile picture with a name and wallpapers for a computer and a phone, s
   assert.ok(await colours(page, "cee-support-wallpaper-canvas") > 2, "the wallpaper starts on the star field of the app background");
   await page.locator("#cee-support-wallpaper-format label", { hasText: "Handy" }).click();
   await page.locator("#cee-support-wallpaper-figure label", { hasText: "Augen" }).click();
-  await page.locator("#cee-support-wallpaper-place label", { hasText: "Oben" }).click();
+  await page.locator("#cee-support-wallpaper-place label:has(input[value=top-right])").click();
+  await page.locator("#cee-support-wallpaper-size").fill("30");
   await page.locator("#cee-support-wallpaper-look label", { hasText: "Eigene" }).click();
   await page.locator("#cee-support-wallpaper-ink").fill("#00ff00");
   await page.waitForFunction(() => document.getElementById("cee-support-wallpaper-canvas").dataset.format === "phone");
@@ -50,10 +51,12 @@ test("a profile picture with a name and wallpapers for a computer and a phone, s
     const c = document.getElementById("cee-support-wallpaper-canvas");
     const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
     const lit = [];
-    for (let y = 0; y < c.height; y += 4) for (let x = 0; x < c.width; x += 4) { const i = (y * c.width + x) * 4; if (d[i] === 0 && d[i + 1] === 255 && d[i + 2] === 0) { lit.push(y); break; } }
-    return { first: lit[0], last: lit.at(-1), height: c.height };
+    let left = c.width;
+    for (let y = 0; y < c.height; y += 4) for (let x = 0; x < c.width; x += 4) { const i = (y * c.width + x) * 4; if (d[i] === 0 && d[i + 1] === 255 && d[i + 2] === 0) { lit.push(y); left = Math.min(left, x); break; } }
+    return { first: lit[0], last: lit.at(-1), height: c.height, left, width: c.width };
   });
   assert.ok(rows.last < rows.height / 2, "the eyes sit in the upper half, in the colour picked");
+  assert.ok(rows.left > rows.width / 2, "and on the right");
   const wallpaper = await h.download(page, () => page.click("#cee-support-wallpaper-save"));
   assert.deepEqual(size(wallpaper), [1170, 2532]);
   assert.deepEqual(page.errors, []);
