@@ -54,7 +54,8 @@ test("the navbar title of the emulator page is a menu: emulator or real device",
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-nav-title").isVisible(), false);
   assert.equal(await page.locator("#cee-mode-label").textContent(), "Emulator");
-  assert.equal(await page.locator("#cee-nav-state").textContent(), "SD-Karte öffnenEigenes Fenster", "the emulator page has no device state, only the SD card and the button for its own window");
+  assert.deepEqual(await page.locator("#cee-nav-state").getByRole("button").allTextContents(), ["SD-Karte öffnen", "Eigenes Fenster"], "the emulator page has no device state, only the SD card and the button for its own window");
+  assert.equal(await page.locator("#cee-nav-state #cee-sd-inserted").count(), 1, "the card's switch beside it");
   assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "false");
   await page.click("#cee-mode-button");
   assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "true");
@@ -75,7 +76,8 @@ test("the emulator page has no options in the sidebar: the firmware goes on its 
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-sub-emu").count(), 0, "nothing folds out under the entry");
-  assert.equal(await page.locator("#cee-nav-state #cee-emu-card-open").textContent(), "SD-Karte öffnen", "the SD card opens from the navbar");
+  assert.equal(await page.locator("#cee-nav-state #cee-sd-open").textContent(), "SD-Karte öffnen", "the SD card opens from the navbar");
+  assert.equal(await page.locator("#cee-nav-state #cee-sd-inserted").count(), 1, "and its switch sits next to it");
   assert.equal(await page.locator(".cee-main #cee-e2-power").isVisible(), true, "the power key stays in the page");
   assert.equal(await page.locator(".cee-main #cee-emu-offer").isVisible(), true, "a switched-off device offers the firmware on its display");
   assert.match(await page.locator("#cee-emu-offer").textContent(), /SYSTEM\.VSB/);

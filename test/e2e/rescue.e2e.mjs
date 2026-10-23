@@ -130,10 +130,9 @@ test("the start page and the patcher link to the page, and the link works", asyn
   await page.locator("#cee-area-rescue:not([hidden])").waitFor();
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Rettung");
   await page.click("#cee-tab-patcher");
-  assert.equal(await page.getAttribute("#cee-patch-rescue", "href"), "#rescue");
-  await page.click("#cee-patch-rescue");
-  await page.locator("#cee-area-rescue:not([hidden])").waitFor();
-  assert.equal(await page.locator("#cee-rescue-answers").isVisible(), true);
+  assert.equal(await page.getAttribute("#cee-patch-step-4 #cee-patch-rescue", "href"), "#rescue", "the patcher names it where the copy goes onto the device");
+  assert.equal(await page.locator("#cee-patch-step-1 #cee-patch-rescue").count(), 0, "not where only a file is loaded");
+  assert.equal(await page.locator("#cee-rescue-answers").count(), 1);
 });
 
 test("no serious axe violation, wide and on a phone, at the start and deep in a case", { skip: axe ? false : "@axe-core/playwright is not installed" }, async () => {

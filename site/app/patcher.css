@@ -231,7 +231,7 @@
 
 .cee-patch-consent {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-2);
   color: var(--color-text-secondary);
 }
@@ -256,4 +256,36 @@
   font-size: var(--text-2xl);
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
+}
+
+/* Korg's System Updater: the sentence and the two device cards, one block. */
+.cee-patch-korg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Step 2: one choice each, a checkbox and what it switches on. */
+.cee-patch-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-patch-choice[hidden] {
+  display: none;
+}
+
+.cee-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* A drop zone the checkbox above has switched off. */
+.cee-patch-choice [data-disabled] {
+  opacity: 0.45;
+  pointer-events: none;
 }

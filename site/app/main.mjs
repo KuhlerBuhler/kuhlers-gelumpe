@@ -385,7 +385,16 @@ function navbar({ onMode }) {
       for (const item of $("#cee-mode-menu").querySelectorAll("[role=menuitemradio]")) item.setAttribute("aria-checked", String(item.dataset.value === page));
     } else {
       // A page with sub-pages shows where you are as a breadcrumb: Plugins › Dokumentation › the section you read.
-      $("#cee-nav-title").replaceChildren($(`#cee-tab-${page}`)?.textContent ?? "", ...(trails[page] ?? []).map(t => el("span", { className: "cee-crumb", textContent: t })));
+      // Every crumb but the last leads back: the title to the page's start, a step with `go` to that step.
+      const parts = trails[page] ?? [];
+      const tab = $(`#cee-tab-${page}`);
+      const title = parts.length && tab ? el("button", { type: "button", className: "cee-crumb-link", textContent: tab.textContent, onclick: () => tab.click() }) : tab?.textContent ?? "";
+      $("#cee-nav-title").replaceChildren(title, ...parts.map((t, i) => {
+        const text = typeof t === "string" ? t : t.text;
+        return t.go && i < parts.length - 1
+          ? el("span", { className: "cee-crumb" }, el("button", { type: "button", className: "cee-crumb-link", textContent: text, onclick: t.go }))
+          : el("span", { className: "cee-crumb", textContent: text });
+      }));
     }
     // On the device page the navbar carries the connect button while no device is attached (it moves there from
     // the page, so its handlers stay), and the words "Gerät verbunden" once one is.
@@ -398,7 +407,7 @@ function navbar({ onMode }) {
     device(on) { device = on; render(); },
     /** A control the emulator page puts into the navbar (the button for its own window). */
     emu(node) { emuAction = node; render(); },
-    /** The button that opens the emulator's SD card. */
+    /** The emulator's SD card: its switch and the button that opens its folder. */
     card(node) { cardButton = node; render(); },
     /** The console's switch that lets scripts go on to the real device. */
     console(node) { consoleAction = node; render(); },
@@ -409,21 +418,11 @@ function navbar({ onMode }) {
   };
 }
 
-/** The emulator's SD card in a dialog behind "SD-Karte öffnen" in the navbar; returns the dialog's body for the panel. */
-function cardDialog(nav) {
-  const body = el("div", { className: "ui-dialog-body" });
-  const dialog = el("dialog", { className: "ui-dialog ui-dialog-narrow", id: "cee-emu-card" });
-  dialog.setAttribute("aria-labelledby", "cee-emu-card-title");
-  dialog.append(el("form", { method: "dialog", className: "ui-dialog-box" }, [
-    el("header", { className: "ui-dialog-head" }, el("h2", { className: "ui-dialog-title", id: "cee-emu-card-title", textContent: "SD-Karte" })),
-    body,
-    el("footer", { className: "ui-dialog-foot" }, el("button", { type: "submit", className: "btn", textContent: "Schließen" })),
-  ]));
-  document.body.append(dialog);
-  const button = el("button", { type: "button", className: "btn sm", id: "cee-emu-card-open", textContent: "SD-Karte öffnen" });
-  button.addEventListener("click", () => (window.ui?.openDialog ? window.ui.openDialog(dialog) : dialog.showModal()));
-  nav.card(button);
-  return body;
+/** The emulator's SD card in the navbar: the switch that puts it in and the button that shows its folder. */
+function cardBar(nav) {
+  const bar = el("div", { className: "cee-sd-bar", id: "cee-emu-card" });
+  nav.card(bar);
+  return bar;
 }
 
 /** Below 60rem the sidebar is a drawer behind the menu button. */
@@ -600,7 +599,7 @@ function boot() {
   // Shut from the first frame, not a second later: before that a click still opened a page without its tables.
   noFirmware = !emulator.firmware;
   restrict();
-  sd = sdcardPanel(cardDialog(nav), emulator, { heading: false });
+  sd = sdcardPanel(cardBar(nav), emulator, { bar: true });
   popout = emulatorWindow(emulator, { place: node => nav.emu(node) });
   popout.realDevice(areas?.current === "device");
   patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null });

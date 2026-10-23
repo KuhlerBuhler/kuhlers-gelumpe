@@ -66,3 +66,35 @@ export const scriptStream = Object.freeze({
     commentTokens: { line: "//", block: { open: "/*", close: "*/" } },
   },
 });
+
+/** Just enough of CodeMirror's StringStream for scriptStream, to colour code outside the editor. */
+class LineStream {
+  constructor(line) { this.string = line; this.pos = 0; this.start = 0; }
+  eatSpace() { const m = /^\s+/.exec(this.string.slice(this.pos)); if (m) this.pos += m[0].length; return !!m; }
+  skipToEnd() { this.pos = this.string.length; }
+  peek() { return this.string[this.pos]; }
+  next() { return this.string[this.pos++]; }
+  match(pattern) {
+    if (typeof pattern === "string") { if (!this.string.startsWith(pattern, this.pos)) return false; this.pos += pattern.length; return true; }
+    const m = pattern.exec(this.string.slice(this.pos));
+    if (!m || m.index !== 0) return null;
+    this.pos += m[0].length;
+    return m;
+  }
+}
+
+/** A source as lines of [text, type] pieces, whitespace included (type null), with the editor's token types. */
+export function highlightLines(source) {
+  const state = scriptStream.startState();
+  return source.split("\n").map(line => {
+    const stream = new LineStream(line);
+    const pieces = [];
+    while (stream.pos < line.length) {
+      stream.start = stream.pos;
+      const type = scriptStream.token(stream, state);
+      if (stream.pos === stream.start) stream.pos += 1;
+      pieces.push([line.slice(stream.start, stream.pos), type]);
+    }
+    return pieces;
+  });
+}

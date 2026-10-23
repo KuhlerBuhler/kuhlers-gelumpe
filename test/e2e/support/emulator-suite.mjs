@@ -62,25 +62,22 @@ export function emulatorSuite(index, parts) {
     assert.deepEqual(page.errors, []);
   });
 
-  test("emulator: the SD card dialog behind the navbar talks to the service the page is linked to", async () => {
+  test("emulator: the SD card in the navbar talks to the service the page is linked to", async () => {
     const page = await h.page();
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
-    assert.equal(await page.locator("#cee-emu-card").evaluate(n => n.open), false, "the dialog starts closed");
-    await page.click("#cee-nav-state #cee-emu-card-open");
     await page.locator("#cee-sd-status", { hasText: "Nicht eingelegt" }).waitFor();
     assert.ok(fake.seen.sd > 0, "the card state came from the linked service");
     const card = page.locator("#cee-sd-inserted");
     assert.equal(await card.isChecked(), false);
-    await page.locator("label.ui-switch", { hasText: "Karte einlegen" }).click();
+    await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
     await page.waitForFunction(() => document.querySelector("#cee-sd-inserted").checked && !document.querySelector("#cee-sd-inserted").disabled);
     await page.locator("#cee-sd-status", { hasText: "Eingelegt" }).waitFor();
     await page.click("#cee-sd-open");
     await page.waitForFunction(() => !document.querySelector("#cee-sd-open").disabled);
-    await page.locator("label.ui-switch", { hasText: "Karte einlegen" }).click();
+    await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
     await page.waitForFunction(() => !document.querySelector("#cee-sd-inserted").checked && !document.querySelector("#cee-sd-inserted").disabled);
     assert.deepEqual(fake.seen.sdCalls.slice(-3), ["/sd/insert", "/sd/open", "/sd/eject"], "insert, open and eject went to the linked service");
-    assert.equal(await page.locator("#cee-emu-card").evaluate(n => n.tagName === "DIALOG" && n.closest("#cee-sidebar") === null), true, "the card is a dialog, not a sidebar block");
-    assert.equal(await page.locator("#cee-emu-card-title").textContent(), "SD-Karte");
+    assert.equal(await page.locator("#cee-nav-state #cee-emu-card").count(), 1, "the card sits in the navbar");
     assert.equal(await page.locator("#cee-area-emu #cee-emu-card").count(), 0, "nothing of it stays in the page");
     assert.deepEqual(page.errors, []);
   });

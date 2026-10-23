@@ -1405,7 +1405,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-term-input {
   flex: 1;
   min-width: 0;
-  padding: 0;
+  padding: 0 0 0 2px; /* raw-ok: room for the text caret, which the textarea clips at its left edge */
   border: 0;
   background: transparent;
   color: var(--color-text-primary);
@@ -1611,17 +1611,18 @@ select,
 .cee-script-line[data-state="error"] { color: var(--color-text-danger); font-weight: 700; }
 
 /* Farben der Wörter: nur Tokens, in beiden Themen mit Kontrast für Text. */
-.cee-script-editor .tok-keyword { color: var(--color-accent-primary); }
-.cee-script-editor .tok-string { color: var(--color-text-success); }
-.cee-script-editor .tok-number,
-.cee-script-editor .tok-bool,
-.cee-script-editor .tok-null { color: var(--color-text-warning); }
-.cee-script-editor .tok-comment { color: var(--color-text-muted); font-style: italic; }
-.cee-script-editor .tok-namespace { color: var(--color-text-accent-soft); }
-.cee-script-editor .tok-atom { color: var(--color-chart-blue); }
-.cee-script-editor .tok-definition { font-weight: 700; }
-.cee-script-editor .tok-operator,
-.cee-script-editor .tok-punctuation { color: var(--color-text-secondary); }
+/* Token colours of the editor, and of a plugin's code on its page (src/script/highlight.mjs). */
+:is(.cee-script-editor, .cee-detail-code) .tok-keyword { color: var(--color-accent-primary); }
+:is(.cee-script-editor, .cee-detail-code) .tok-string { color: var(--color-text-success); }
+:is(.cee-script-editor, .cee-detail-code) .tok-number,
+:is(.cee-script-editor, .cee-detail-code) .tok-bool,
+:is(.cee-script-editor, .cee-detail-code) .tok-null { color: var(--color-text-warning); }
+:is(.cee-script-editor, .cee-detail-code) .tok-comment { color: var(--color-text-muted); font-style: italic; }
+:is(.cee-script-editor, .cee-detail-code) .tok-namespace { color: var(--color-text-accent-soft); }
+:is(.cee-script-editor, .cee-detail-code) .tok-atom { color: var(--color-chart-blue); }
+:is(.cee-script-editor, .cee-detail-code) .tok-definition { font-weight: 700; }
+:is(.cee-script-editor, .cee-detail-code) .tok-operator,
+:is(.cee-script-editor, .cee-detail-code) .tok-punctuation { color: var(--color-text-secondary); }
 
 .cee-script-editor .cm-lintRange-error {
   background-image: none;
@@ -2085,6 +2086,20 @@ select,
   min-height: 34rem;
 }
 
+/* The editor without a plugin: one line and the ways to one. */
+.cee-ws-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.cee-ws-empty > * { margin: 0; }
+
+.cee-ws-empty[hidden],
+.cee-ws-main[hidden] {
+  display: none;
+}
+
 .cee-ws-main {
   display: flex;
   flex: 1 1 0;
@@ -2246,6 +2261,7 @@ select,
 }
 
 .cee-catalog-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -2254,6 +2270,19 @@ select,
   border: 1px solid var(--color-border-muted);
   border-radius: var(--radius-md);
   background: var(--color-surface-panel-alt);
+  transition: border-color var(--speed), background var(--speed);
+}
+
+.cee-catalog-card:hover,
+.cee-catalog-card:focus-within {
+  border-color: var(--color-border-accent-strong);
+  background: var(--color-surface-panel);
+}
+
+/* The creator stands last, at the bottom of the card. */
+.cee-catalog-creator {
+  margin-top: auto;
+  font-size: var(--text-xs);
 }
 
 .cee-catalog-card h3 { margin: 0; font-size: var(--text-base); }
@@ -2266,14 +2295,6 @@ select,
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-xs);
   image-rendering: pixelated;
-}
-
-.cee-catalog-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: auto;
-  padding-top: var(--space-2);
 }
 
 /* Toasts (toast.mjs): the design draws the bubble, these add the close button and keep the live regions out of the way. */
@@ -2331,6 +2352,9 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 .cee-key { padding: 0 var(--space-1); border: 1px solid var(--color-border-strong); border-bottom-width: 2px; border-radius: var(--radius-xs); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-primary); white-space: nowrap; }
 .cee-crumb::before { content: "›"; margin-inline: var(--space-2); color: var(--color-text-muted); }
 .cee-crumb { font-weight: 400; color: var(--color-text-secondary); }
+/* A crumb that leads back: the page's title and the steps before the last. */
+.cee-crumb-link { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+.cee-crumb-link:hover { color: var(--color-text-primary); text-decoration: underline; }
 @media (max-width: 60rem) {
   .cee-docs-body { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
   .cee-docs-toc { position: static; max-height: none; }
@@ -2345,6 +2369,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 .cee-doc-toc { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .cee-doc-toc-3 { padding-inline-start: var(--space-4); font-size: var(--text-sm); }
 .cee-doc-toc .cee-text-link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-align: left; }
+.cee-doc-toc .cee-text-link[aria-current] { color: var(--color-accent-primary); }
 
 /* The device area above the drawing: with the connect button in the navbar it is often empty (hidden fields,
    empty notes, an actions row whose buttons are all hidden). Then it takes no room, so the drawing sits where
@@ -2402,15 +2427,27 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 .cee-device-card[data-device="red"] { --cee-device-tone: var(--color-status-error); }
 .cee-device-card[data-device="blue"] { --cee-device-tone: var(--color-chart-blue); }
 
-.cee-device-card,
-.cee-device-card:hover {
-  border-color: var(--cee-device-tone);
-}
-
+/* The device drawn in lines in its colour, left and centred beside the text. */
 .cee-device-card {
   position: relative;
+  display: grid;
+  grid-template-columns: var(--space-16) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-4);
   padding-right: var(--space-12);
   transition: background var(--speed);
+}
+
+.cee-e2-outline {
+  width: 100%;
+  height: auto;
+  color: var(--cee-device-tone);
+}
+
+.cee-device-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 /* Opens Korg's page outside the app. */
@@ -2427,7 +2464,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 }
 
 .cee-device-card:hover {
-  background: color-mix(in oklch, var(--cee-device-tone) 14%, var(--color-surface-panel-alt));
+  background: var(--color-surface-panel);
 }
 
 /* The install steps: numbered by their headings, one block each. */
@@ -2596,14 +2633,6 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   margin: 0;
 }
 
-.cee-catalog-meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--space-2);
-  font-size: var(--text-xs);
-}
-
 .cee-catalog-category {
   color: var(--color-accent-primary);
 }
@@ -2618,12 +2647,21 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   cursor: pointer;
 }
 
-.cee-catalog-open:hover {
-  text-decoration: underline;
+/* The title's button reaches over the whole card, so every part of it opens the plugin. */
+.cee-catalog-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
 }
 
-.cee-catalog-card canvas {
-  cursor: pointer;
+.cee-catalog-open:focus-visible {
+  outline: none;
+}
+
+.cee-catalog-card:has(.cee-catalog-open:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 /* A plugin's page: the picture top left, beside it title, description and details. */
@@ -2912,4 +2950,44 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 
 .cee-bk-saved {
   color: var(--color-text-success);
+}
+
+/* Selects and checkboxes look the same in the app (WebKit) as in the browser: the native popup arrow and box
+   are replaced by the design's colours. */
+select.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--space-8);
+  /* raw-ok: the arrow of the select, drawn as two halves; a drawing, not a surface gradient. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--color-text-secondary) 50%), linear-gradient(135deg, var(--color-text-secondary) 50%, transparent 50%);
+  /* raw-ok: where the two halves of the arrow sit. */
+  background-position: calc(100% - 18px) 55%, calc(100% - 13px) 55%;
+  background-size: 5px 5px; /* raw-ok: size of one half of the arrow */
+  background-repeat: no-repeat;
+}
+
+input[type="checkbox"]:not([role="switch"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: var(--space-5);
+  height: var(--space-5);
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px; /* raw-ok: a checkbox stays square; the smallest radius token would make it a circle, like a radio */
+  background: var(--color-button-secondary-bg);
+  cursor: pointer;
+  transition: background var(--speed), border-color var(--speed);
+}
+
+input[type="checkbox"]:not([role="switch"]):checked {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-primary);
+  box-shadow: inset 0 0 0 3px var(--color-button-secondary-bg); /* raw-ok: the ring between frame and filling */
+}
+
+input[type="checkbox"]:not([role="switch"]):disabled {
+  opacity: 0.5;
+  cursor: default;
 }

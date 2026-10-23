@@ -51,17 +51,33 @@ export const FEATURES = {
 
 /** The two hooks of BLECH's SysEx commands (tools/patch/blech_sysex.py): a branch into the patch's code, which lies in 0xC0172100 to 0xC0173800. */
 const BLECH_SYSEX_HOOKS = [0xc0026a8c, 0xc0026418];
+/** The same hooks in the blue Electribe 2's firmware (data/patches/blech-sysex-synth.json). */
+const BLECH_SYSEX_HOOKS_SYNTH = [0xc002240c, 0xc0021d70];
 
 /** Whether a VSB carries BLECH's own SysEx commands: both hooks are branches into the patch's code. */
-export function hasBlechSysex(bytes) {
+export function hasBlechSysex(bytes, hooks = BLECH_SYSEX_HOOKS) {
   if (bytes.length < 0x200100) return false;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
-  return BLECH_SYSEX_HOOKS.every(site => {
+  return hooks.every(site => {
     const word = view.getUint32(site - 0xc0000000 + 0x100, true);
     if (word >>> 24 !== 0xea) return false;
     const target = site + 8 + (((word & 0xffffff) << 8) >> 8) * 4;
     return target >= 0xc0172100 && target < 0xc0173800;
   });
+}
+
+/**
+ * What a VSB is, in the words the emulator's display shows: Korg's firmware of the red or the blue Electribe, Hacktribe on
+ * either (Hacktribe's code on a blue one keeps the blue head), each with BLECH or without.
+ */
+export function firmwareName(bytes) {
+  const synthHead = isSynth(bytes);
+  const run = bytes.subarray(HACKTRIBE_CODE.file, HACKTRIBE_CODE.file + HACKTRIBE_CODE.length);
+  const hacktribe = run.length === HACKTRIBE_CODE.length && !run.every(b => b === 0xff);
+  const blech = hasBlechSysex(bytes) || (synthHead && !hacktribe && hasBlechSysex(bytes, BLECH_SYSEX_HOOKS_SYNTH));
+  const device = synthHead ? "Synth" : "Sampler";
+  if (hacktribe) return `${blech ? "Bleched Hacktribe" : "Hacktribe"} ${device}`;
+  return blech ? `Blechtribe ${device}` : device;
 }
 
 /** The one line for the blue Electribe 2: the emulator runs it, everything of the Sampler editor is not for it. */
