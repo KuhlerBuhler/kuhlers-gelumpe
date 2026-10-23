@@ -448,16 +448,20 @@ def case_firmware_wins(payload, flash):
     for _ in range(4):
         two.key("part_right", 0.3)
     two.key("play", 0.0)
-    two.run(0.4)
-    first = (two.leds().get(2), two.leds().get(other))
-    two.run(0.4)
-    second = (two.leds().get(2), two.leds().get(other))
+    # When the steps play follows the tempo of the pattern in the flash, so the pads are read every 20 ms for 1.6 s and only the order counts.
+    red = (spec.PLAY_RED, 0)
+    seen = []
+    for _ in range(80):
+        two.run(0.02)
+        now = (two.leds().get(2) == red, two.leds().get(other) == red)
+        if not seen or seen[-1] != now:
+            seen.append(now)
+    first = seen.index((True, False)) if (True, False) in seen else None
+    taken = first is not None and (False, True) in seen[first:]
     two.key("stop", 0.5)
     stopped = (two.leds().get(2), two.leds().get(other))
-    red = (spec.PLAY_RED, 0)
-    out.append(entry("next_note_takes_the_red", first[0] == red and first[1] != red and second[1] == red and second[0] != red
-                     and red not in stopped and not two.m.asserts,
-                     f"0.4 s after PLAY pad 2 (the note 63) and pad {other} (the note {layout[other]} of step 5): {first}; 0.8 s: {second}; stopped: {stopped}"))
+    out.append(entry("next_note_takes_the_red", taken and red not in stopped and not two.m.asserts,
+                     f"pad 2 (the note 63, step 1) and pad {other} (the note {layout[other]}, step 5) red, in the order seen: {seen}; stopped: {stopped}"))
     return out
 
 

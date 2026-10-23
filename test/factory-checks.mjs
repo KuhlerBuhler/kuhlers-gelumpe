@@ -153,17 +153,20 @@ export const VSB_CHECKS = {
   },
 
   "mfx-fade-shapes"({ image }) {
-    let switchFade = 0, inputFade = 0, mute = 0, none = 0;
-    for (const { record } of factory(image, "mfx")) {
+    let switchFade = 0, inputFade = 0, mute = 0, hacktribe = 0;
+    const none = [];
+    for (const { slot, record } of factory(image, "mfx")) {
       if (record.device("mfx") === 0x27) { mute++; continue; }
       const sw = record.map.some(r => r.source === 0x41 && r.chain === 0x0a);
       const inp = record.map.some(r => r.chain === 0x07 && r.low === 0);
+      // Hacktribe's file moves Big Hall's 0x41 row to chain 2, so it has no fade there; Korg's own 2.02 has one.
       if (sw) switchFade++;
       else if (inp) inputFade++;
-      else none++;
+      else if (slot === 10 && record.name.trim() === "Big Hall" && record.map.some(r => r.source === 0x41 && r.chain === 2)) hacktribe++;
+      else none.push(`${slot} ${record.name.trim()}`);
     }
-    assert(none === 0, `${none} factory master presets have no fade`);
-    return `switch fade ${switchFade}, input fade ${inputFade}, mute unit ${mute}`;
+    assert(none.length === 0, `factory master presets without a fade: ${none.join(", ")}`);
+    return `switch fade ${switchFade}, input fade ${inputFade}, mute unit ${mute}${hacktribe ? ", Hacktribe's Big Hall without one" : ""}`;
   },
 
   "level-mod-play-row"({ image, units }) {

@@ -24,5 +24,5 @@ const edit = (rel, fn) => {
 edit("../package.json", s => s.replace(/("version": ")[^"]+/, `$1${version}`));
 edit("../src-tauri/tauri.conf.json", s => s.replace(/("version": ")[^"]+/, `$1${version}`));
 edit("../src-tauri/Cargo.toml", s => s.replace(/^version = ".*"$/m, `version = "${version}"`));
-edit("../src-tauri/Cargo.lock", s => s.replace(/(name = "kuhlers-gelumpe"\nversion = ")[^"]+/, `$1${version}`));
+edit("../src-tauri/Cargo.lock", s => s.replace(/(name = "kuhlers-gelumpe"\r?\nversion = ")[^"]+/, `$1${version}`));
 console.log(`Version ${version}`);
