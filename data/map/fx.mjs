@@ -29,14 +29,15 @@ export default {
     // What drives a control map row; insert presets have no touchpad, so no Y.
     // `who` is the name for a sentence per effect kind: the insert effect has a knob where the master has the touchpad (a reading of Korg's "X / knob", not measured).
     sources: [
-      { raw: 0x41, name: "FX on/off", label: "FX-Schalter", ifx: true, mfx: true, who: { ifx: "FX-Schalter", mfx: "FX-Schalter" } },
+      // In a master preset the switch is the touchpad being held: nothing sounds unless it is (rules.mjs, fx-on crossfade).
+      { raw: 0x41, name: "FX on/off", label: "FX-Schalter", ifx: true, mfx: true, who: { ifx: "FX-Schalter", mfx: "Touchpad gedrückt" }, states: { ifx: ["aus", "an"], mfx: ["losgelassen", "gedrückt"] } },
       { raw: 0x42, name: "X / knob", label: "X / Regler", ifx: true, mfx: true, who: { ifx: "Regler", mfx: "Touchpad X" } },
       { raw: 0x43, name: "Y", label: "Y", ifx: false, mfx: true, who: { mfx: "Touchpad Y" } },
       { raw: 0x44, name: "knob upper half / X upper half", label: "obere Hälfte", ifx: true, mfx: true, who: { ifx: "Regler, obere Hälfte", mfx: "Touchpad X, obere Hälfte" } },
       { raw: 0x45, name: "knob lower half / X lower half", label: "untere Hälfte", ifx: true, mfx: true, who: { ifx: "Regler, untere Hälfte", mfx: "Touchpad X, untere Hälfte" } },
       { raw: 0x46, name: "Y upper half", label: "Y obere Hälfte", ifx: false, mfx: true, who: { mfx: "Touchpad Y, obere Hälfte" } },
       { raw: 0x47, name: "Y lower half", label: "Y untere Hälfte", ifx: false, mfx: true, who: { mfx: "Touchpad Y, untere Hälfte" } },
-      { raw: 0x4a, name: "play pressed", label: "Play", ifx: true, mfx: true, who: { ifx: "Play-Taste", mfx: "Play-Taste" } },
+      { raw: 0x4a, name: "play pressed", label: "Play", ifx: true, mfx: true, who: { ifx: "Play-Taste", mfx: "Play-Taste" }, states: { ifx: ["gestoppt", "läuft"], mfx: ["gestoppt", "läuft"] } },
     ],
     // What a row drives.
     chains: [
