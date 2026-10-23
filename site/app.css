@@ -770,8 +770,10 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   transform: rotate(calc(var(--cee-e2-angle, 0) * 1deg));
 }
 
+/* Only the swing to and from the resting angle at power on and off is animated. While a knob turns, a transition
+   restarted at every value lets the marker jump back (measured: up to 51 degrees in WebKit), it looks doubled. */
 @media (prefers-reduced-motion: no-preference) {
-  .cee-e2-mark {
+  .cee-e2[data-settling] .cee-e2-mark {
     transition: transform var(--dur-fast) var(--ease-out);
   }
 }
