@@ -460,8 +460,33 @@ function sidebarFold() {
   button.addEventListener("click", () => set(!app.hasAttribute("data-collapsed")));
 }
 
+/**
+ * A plain download link (the Doom files) does nothing in the app window and says nothing in the browser: it goes
+ * through saveFile like every other download, with its toast.
+ */
+function fileLinks() {
+  document.addEventListener("click", async e => {
+    const a = e.target.closest?.("a[download][href]");
+    if (!a || a.href.startsWith("blob:")) return;
+    e.preventDefault();
+    if (a.getAttribute("aria-busy") === "true") return;
+    a.setAttribute("aria-busy", "true");
+    toast(`„${a.download}“ wird geladen …`, "info");
+    try {
+      const res = await fetch(a.href);
+      if (!res.ok) throw new Error(`${res.status}`);
+      saveFile(new Uint8Array(await res.arrayBuffer()), a.download);
+    } catch (err) {
+      toast(`„${a.download}“ ließ sich nicht laden (${err.message}).`, "error");
+    } finally {
+      a.removeAttribute("aria-busy");
+    }
+  });
+}
+
 function boot() {
   applySettings();
+  fileLinks();
   settingsPage($("#cee-settings"));
   const changelog = changelogPage($("#cee-changelog"), $("#cee-tab-changelog"));
   settingsButton($("#cee-settings-button"), () => { areas?.select("settings"); drawer.close(); });
