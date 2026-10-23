@@ -276,7 +276,7 @@ export function emulatorSuite(index, parts) {
   /** The Presets page with its switch "Folgt dem Gerät" on. */
   async function followPage() {
     const page = await sidebarPage();
-    await page.click("#cee-tab-fx");
+    await page.evaluate(() => { location.hash = "fx"; });
     await page.locator("#cee-fx-slot").waitFor();
     await page.locator("label:has(#cee-fx-follow)").click();
     return page;
@@ -351,7 +351,7 @@ export function emulatorSuite(index, parts) {
     await go(page, "device");
     await page.click("#cee-connect");
     await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
-    await page.click("#cee-tab-fx");
+    await page.evaluate(() => { location.hash = "fx"; });
     await page.locator("#cee-fx-slot").waitFor({ timeout: 15_000 });   // the firmware comes from the emulator, there is no file picker here
     assert.equal(await page.locator("#cee-vsb").count(), 0);
     await pickPreset(page, 50);

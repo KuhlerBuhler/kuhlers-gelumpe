@@ -18,7 +18,7 @@ test("the sidebar lists only the entries, the navbar names the open page, up and
   const page = await h.page();
   await page.goto(h.url);
   assert.equal(await selectedTab(page), "start");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Startbildschirm", "Konsole", "Rettung", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Features", "Presets", "Modulationen"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Startbildschirm", "Konsole", "Rettung", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Doom", "Features"]);
   assert.equal(await page.locator("#cee-sidebar .cee-nav-label").count(), 0, "no headings between the entries");
   await page.click("#cee-tab-patcher");
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Firmware Patcher");
@@ -46,7 +46,7 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.equal(await selectedTab(page), "start", "a remembered hidden page is ignored");
   await page.goto(`${h.url}?labs#ptools`);
   assert.equal(await selectedTab(page), "ptools", "with ?labs the pages stay reachable for tests");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Startbildschirm", "Konsole", "Rettung", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Features", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Startbildschirm", "Konsole", "Rettung", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Doom", "Features", "Pattern-Werkzeuge", "Samples"]);
 });
 
 test("the navbar title of the emulator page is a menu: emulator or real device", async () => {
@@ -215,13 +215,13 @@ test("the settings page names the app's version in the app, and has no such line
   assert.equal(await app.locator("#cee-version").textContent(), "App-Version 1.2.0");
 });
 
-test("the start page sends to the patcher for Korg's firmware, and to Plugins and Presets under Erkunden", async () => {
+test("the start page sends to the patcher for Korg's firmware, and to Plugins and the Baukasten under Erkunden", async () => {
   const page = await h.page();
   await page.goto(h.url);
   assert.equal(await page.getAttribute("#cee-start-step-firmware", "href"), "#patcher");
   assert.equal(await page.locator("#cee-start-page .cee-device-card").count(), 0, "Korg's cards live on the patcher");
   const explore = page.locator("#cee-start-explore a");
-  assert.deepEqual(await explore.evaluateAll(list => list.map(a => a.getAttribute("href"))), ["#scripts", "#fx"]);
+  assert.deepEqual(await explore.evaluateAll(list => list.map(a => a.getAttribute("href"))), ["#scripts", "#baukasten"]);
 });
 
 test("the emulator opens in a window of its own; the page shows a note, and Hier anzeigen or closing the window brings it back", async () => {

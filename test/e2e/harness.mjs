@@ -82,7 +82,9 @@ export async function go(page, id) {
       await page.click("#cee-mode-menu [data-value=emu]");
       return;
     }
-    await page.click(`#cee-tab-${id}`);
+    // Presets and Modulationen have no sidebar entry any more, only their address
+    if (["fx", "mod"].includes(id)) await page.evaluate(tab => { location.hash = tab; }, id);
+    else await page.click(`#cee-tab-${id}`);
     return;
   }
   if (!(await page.locator("#cee-mode").isVisible())) await page.click("#cee-tab-emu");

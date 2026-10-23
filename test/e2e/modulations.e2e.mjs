@@ -36,7 +36,7 @@ async function modulations(vsb) {
     await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", vsb));
     await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   }
-  await page.click("#cee-tab-mod");
+  await page.evaluate(() => { location.hash = "mod"; });
   return page;
 }
 
@@ -50,8 +50,6 @@ test("modulations: before a firmware is loaded the entry is shut and says where 
   const tab = page.locator("#cee-tab-mod");
   assert.equal(await tab.getAttribute("aria-disabled"), "true");
   assert.match(await tab.getAttribute("title"), /Erst im Emulator eine Firmware \(VSB\) wählen/);
-  await tab.click({ force: true });
-  assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "emu");
   assert.equal(await page.locator("#cee-mod-split").isVisible(), false);
   assert.deepEqual(page.errors, []);
 });
@@ -168,7 +166,7 @@ test("modulations: with no emulator service the check cannot run and the reason 
   await page.click("#cee-tab-emu");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", await makeFirmware()));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
-  await page.click("#cee-tab-mod");
+  await page.evaluate(() => { location.hash = "mod"; });
   await page.locator("#cee-mod-split").waitFor();
   await depth(page).fill("50");
   await page.click("#cee-mod-run");

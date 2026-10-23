@@ -108,7 +108,7 @@ test("presets: Korg's own build without BLECH closes the Presets tab, no text ab
   await page.click("#cee-tab-emu");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", stock));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
-  await page.locator("#cee-tab-fx[title='Nicht mit Korgs Original-Firmware']").waitFor();
+  await page.locator("#cee-tab-fx[title='Nicht mit Korgs Original-Firmware']").waitFor({ state: "attached" });
   assert.doesNotMatch(await page.locator("body").textContent(), /live ins RAM geht mit BLECH|Es fehlt:/);
   assert.deepEqual(page.errors, []);
 });
