@@ -116,13 +116,13 @@ export function featuresPage(root) {
       el("ul", { className: "cee-features" }, FEATURES.filter(f => f.group === group).map(f => el("li", { className: "cee-feature", id: `cee-feature-${f.id}` }, [
         f.image ? pictureOf(f) : null,
         el("h3", { textContent: f.title }),
-        el("p", { textContent: f.text }),
-        el("p", { className: "cee-feature-how" }, [el("strong", { textContent: "So geht's: " }), f.how]),
         el("p", { className: "cee-feature-where" }, ["Unterstützt:", ...f.where.map(device => {
           const art = e2Outline(DEVICE[device]);
           art.dataset.device = device;
           return art;
         })]),
+        el("p", { textContent: f.text }),
+        el("p", { className: "cee-feature-how" }, [el("strong", { textContent: "So geht's: " }), f.how]),
       ]))),
     ])),
   );
