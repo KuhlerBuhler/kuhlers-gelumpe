@@ -60,7 +60,7 @@ for name, data in list(files.items()):
     if name.endswith(('.c', '.h')):
         for include in re.findall(r'^\s*#\s*include\s*"([^"\n]+)"', data.decode(), re.M):
             if str(Path(name).parent / include) not in files:
-                assert include in {'doomgeneric.h', 'doomkeys.h', 'doomstat.h', 'm_controls.h', 'd_player.h'}, include
+                assert include in {'doomgeneric.h', 'doomkeys.h', 'doomstat.h', 'm_controls.h', 'd_player.h', 'r_main.h'}, include
                 files['doomgeneric/doomgeneric/' + include] = b'/* synthetic engine header */'
 stream = io.BytesIO()
 with tarfile.open(fileobj=stream, mode='w') as archive:

@@ -1,23 +1,25 @@
 ; The original LCD CONTRAST page keeps its input and save handlers. Only its middle six display pages are replaced.
+; The picture goes straight into the frame buffer every frame; the firmware redraws only its own widgets, so when the page is left
+; (EDIT to the next page) the whole display is drawn anew once (device 22.10.: the balls stayed on the next page).
 display_calibrate:
     ldr r1, =SCREEN_MANAGER
     ldr r1, [r1]
     cmp r1, #0
     cmnne r1, #1
-    bxeq lr
+    beq calibrate_off
     ldr r2, [r1, #0x24]
     cmp r2, #0
-    bxne lr
+    bne calibrate_off
     ldr r2, [r1, #0x2c]
     cmp r2, #9
-    bxne lr
+    bne calibrate_off
     ldr r1, [r1, #0x20]
     cmp r1, #0
     cmnne r1, #1
-    bxeq lr
+    beq calibrate_off
     ldr r2, [r1, #0x2c]
     cmp r2, #12
-    bxne lr
+    bne calibrate_off
     push {r4-r8, lr}
     sub sp, sp, #8
     ldr r0, =0xC033E6A0
@@ -31,6 +33,9 @@ display_calibrate:
     cmp r5, #42
     bhi calibrate_done
     sub r5, r5, #17
+    ldr r8, =MENU_STATE
+    mov r0, #1
+    strb r0, [r8, #M_CAL_ON]
     ldr r8, =SCRIPT_DISPLAY_RAM
     add r1, r8, #128
     mov r2, #768
@@ -96,6 +101,20 @@ calibrate_ball_column:
 calibrate_done:
     add sp, sp, #8
     pop {r4-r8, pc}
+.pool
+
+; not on the page: once after the picture was drawn, the firmware draws the whole display anew. Clobbers r1 and r2.
+calibrate_off:
+    ldr r1, =MENU_STATE
+    ldrb r2, [r1, #M_CAL_ON]
+    cmp r2, #1
+    bxne lr
+    mov r2, #0
+    strb r2, [r1, #M_CAL_ON]
+    ldr r1, =UI_REDRAW
+    mov r2, #1
+    strb r2, [r1]
+    bx lr
 .pool
 
 ; ASCII string r0 to an aligned LCD page at r1, using the runtime's own five-column font.

@@ -46,7 +46,7 @@ def main():
         subprocess.run([str(gcc), *flags, "-c", str(path), "-o", str(obj)], check=True)
         objects.append(str(obj))
     elf = output / "doom-runtime.elf"
-    subprocess.run([str(gcc), *flags, "-nostartfiles", "-Wl,--gc-sections", "-Wl,--wrap=I_Quit",
+    subprocess.run([str(gcc), *flags, "-nostartfiles", "-Wl,--gc-sections", "-Wl,--wrap=I_Quit", "-Wl,--wrap=R_RenderPlayerView",
                     "-Wl,-T," + str(here / "runtime.ld"), "-Wl,-Map," + str(output / "doom-runtime.map"),
                     *objects, "-o", str(elf), "-lm", "-lc", "-lgcc"], check=True)
     binary = output / "doom-runtime.bin"

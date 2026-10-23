@@ -64,7 +64,7 @@ def main():
         subprocess.run([str(gcc), *flags, "-c", str(path), "-o", str(obj)], check=True)
         objects.append(str(obj))
     elf = args.output / "doom-runtime.elf"
-    subprocess.run([str(gcc), *flags, "-nostartfiles", "-Wl,--gc-sections", "-Wl,--wrap=I_Quit", "-Wl,-T," + str(here / "runtime.ld"), "-Wl,-Map," + str(args.output / "doom-runtime.map"), *objects, "-o", str(elf), "-lm", "-lc", "-lgcc"], check=True)
+    subprocess.run([str(gcc), *flags, "-nostartfiles", "-Wl,--gc-sections", "-Wl,--wrap=I_Quit", "-Wl,--wrap=R_RenderPlayerView", "-Wl,-T," + str(here / "runtime.ld"), "-Wl,-Map," + str(args.output / "doom-runtime.map"), *objects, "-o", str(elf), "-lm", "-lc", "-lgcc"], check=True)
     subprocess.run([str(args.toolchain / "bin/arm-none-eabi-objcopy"), "-O", "binary", str(elf), str(args.output / "doom-runtime.bin")], check=True)
     for tool, options, destination in [("size", [str(elf)], "size.txt"), ("readelf", ["-h", "-A", str(elf)], "architecture.txt"), ("nm", ["-n", str(elf)], "symbols.txt"), ("nm", ["-u", str(elf)], "undefined.txt")]:
         (args.output / destination).write_bytes(subprocess.check_output([str(args.toolchain / ("bin/arm-none-eabi-" + tool)), *options]))

@@ -1,0 +1,49 @@
+{
+  "status": "emulator-verified-device-open",
+  "nativeAdapterTestsPassed": 21,
+  "gamma": 0.4,
+  "distanceColormapMaximum": 16,
+  "render": {
+    "before": {
+      "build": "vorher",
+      "instructions": 1756606,
+      "whitePixels": 2208,
+      "stackHighWater": 11900
+    },
+    "after": {
+      "build": "heller",
+      "instructions": 1682668,
+      "whitePixels": 3528,
+      "stackHighWater": 2932
+    },
+    "instructionReductionPercent": 4.209139670478184
+  },
+  "program": {
+    "shared_address": 3222794240,
+    "revision": "e257a09527062bfb986b6e5e0780839b6cbd5b71",
+    "length": 453164,
+    "sha256": "5222c195cb7b8507f4b3391d8bb190f82ce27c86a122532d25b90497431695d8",
+    "entry": 3238002688,
+    "base": 3238002688,
+    "end": 3246391296,
+    "bss_start": 3238455856,
+    "bss_end": 3238699472,
+    "heap_start": 3238699472,
+    "heap_limit": 3246325760,
+    "stack_bottom": 3246325760,
+    "stack_top": 3246391296
+  },
+  "firmware": "9c47eba49ae5be46a60dd70e3b124b178b7b73bacedb4e79c7111803219d98e6",
+  "independentRebuildMatches": true,
+  "hardwareVerified": false,
+  "controlsTestsPassed": 21,
+  "browserTestsPassed": 175,
+  "browserTestsSkipped": 1,
+  "sdUnchanged": true,
+  "guardsOk": true,
+  "integratedStackHighWater": 3516,
+  "startAndFaultTestsPassed": 34,
+  "unitPassedCombined": 969,
+  "unitSkippedCombined": 144,
+  "docsTestsPassed": 9
+}

@@ -567,9 +567,10 @@ With the BLECH patch the Electribe has a screen of its own, "BLECH", at the end 
 after Event (screen 0x2D). It has three levels and looks like Data Util: same font, same places, the same
 line `press  [ Enter ]`.
 
-- **In the ring** BLECH is a single page ("BLECH 30/31") after Event, followed by a second page of the
-  patch: [Blechy](#blechy-the-last-page-of-the-ring) (31/31), then the Pattern menu. That is why the ring
-  counts to 31 instead of 29. EDIT left and right page through the ring. With EXIT held at power-on the
+- **In the ring** BLECH is a single page ("BLECH 30/32") after Event, followed by two pages of the
+  patch: [Blechy](#blechy-the-last-page-of-the-ring) (31/32) and SYNC GROUP (32/32, a setting of the pattern, see
+  below), then the Pattern menu. That is why the ring counts to 32 instead of 29; the blue one has no SYNC GROUP and
+  Blechy is its last page. EDIT left and right page through the ring. With EXIT held at power-on the
   screen is not there and the ring is the firmware's own.
 - **ENTER on the page BLECH** opens the list on the group last left, also after a trip through the other
   menus.
@@ -587,7 +588,7 @@ customization, then the plugins, last the groups that plugins register themselve
 | Entry | What is behind it |
 |---|---|
 | FEATURES | four pages with the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (table below) |
-| CUSTOMIZATION | DISPLAY, LED, then PAD COLOR and the splash pages where the set has them; see below |
+| CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | PLUGINS | a group, see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
 | TOOLS | like GAMES |
@@ -600,7 +601,6 @@ The pages of FEATURES (the tag names the group "Feature"), each with the value O
 | PATTERN CONFIRM | ON, OFF (see below) |
 | TAP MOTION | OFF, ON, ONCE (see below) |
 | NOTE ASSIST | ON, OFF (see below) |
-| SYNC GROUP | OFF, 1 to 999 |
 
 There is no ABOUT group any more: it only showed the number of loaded plugins and confused people.
 
@@ -609,8 +609,11 @@ The pages of the groups:
 | Group, page | Value | Effect |
 |---|---|---|
 | PLUGINS, RUNTIME | ON, OFF | the plugins of the card on or off, applies from the next start ("OFF, RESTART" shows that it does not apply yet); Blechy is no plugin of the card and stays |
-| PLUGINS, one plugin per page | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume, WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error its name stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
-| PLUGINS, one page per `korg.menu.add` | the number | the main dial changes it, the plugin gets `menu` |
+| PLUGINS, PLUGIN EDIT | `press  [ Enter ]`, "No Plugin" with none loaded | built like the firmware's SAMPLE EDIT: ENTER opens the pages of one plugin (the tag stays "Plugins", the counter counts them, EDIT pages round in a circle), EXIT goes back to PLUGIN EDIT |
+| Plugin, SELECT PLUGIN | its name | the main dial chooses the plugin the following pages are about (like SELECT SAMPLE) |
+| Plugin, STATE | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume, WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error the error stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
+| Plugin, one page per `korg.menu.add` | the number | the settings of this plugin: the main dial changes it, the plugin gets `menu` |
+| Plugin, DELETE PLUGIN | `press  [ Enter ]` | ENTER asks ("Enter = delete"), a second ENTER deletes: the plugin stops, `e2sPlugin.all` is written again without it (empty too, when it was the last one), PLUGIN EDIT says "deleted"; the `*.blech` in the folder stays, IMPORT PLUGIN can load it again |
 | PLUGINS, EXPORT ALL | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them, then saves the settings too (plugins switched off stay off) |
 | PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then name and state | ENTER lists the plugins of the `*.blech` files in `KORG/blechtribe/Plugin/` (up to 16): on top the plugin's name (from its header, not the file name), below it its state (ON, OFF, FAULT, ENTER=ALLOW); the main dial pages through them. ENTER opens the selected plugin: its name on top, its description below (the main dial scrolls it line by line, `^` and `v` show there is more), its state at the bottom. ENTER then switches it: one not loaded yet is loaded and started, a running one goes off, one switched off on again, a foreign one is allowed; WRITE keeps the state over a restart as on its page. EXIT goes back to the list and from there to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards), hidden or system files and files without a plugin header are not listed |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
@@ -629,11 +632,12 @@ The pages of the groups:
 | PAD COLOR, PAD COLOR | RED, BLUE, PINK | the colour the pads use for what the firmware shows in red (a part plays, a pad is held, a step); applies at once, WRITE keeps it; RED is the default. Only where the set has the patch pad-colors In SEQUENCER mode a step that holds on the note of the step before it through TIE shows a tail in pink that fades out over the length of the note; where tied notes overlap their brightness adds up. |
 | PAD COLOR, SELECT COLOR | RED, BLUE, PINK | the colour of the selected part, never the one of PAD COLOR; when both light, the pad shows the third colour; BLUE is the default |
 | PAD COLOR, OVERLAP | AUTO, RED, BLUE, PINK | the colour of a pad that is lit and selected at once; AUTO is the third colour, neither PAD COLOR nor SELECT COLOR |
-| CUSTOMIZATION, SPLASH IMPORT | ENTER | reads `KORG/blechtribe/splash.bmp` (128 x 64 pixels, 1 bit per pixel, not compressed; the darker colour is drawn) and stores it as the start image like WRITE in the splash editor; shown from the next start. Says "loaded", "no splash.bmp" or "not 128x64 1 bit" (then nothing changes). Only where the set has the splash editor, so not on the blue one |
-| CUSTOMIZATION, SPLASH DRAW | ENTER | opens the splash editor (a page of the Global screen that only this page reaches): the dial moves the cursor left and right, with SHIFT held up and down, MENU flips the pixel and, held, paints its new colour wherever the cursor goes, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
-| CUSTOMIZATION, SPLASH RESET | ENTER | drops the stored start image (import or editor); from now on and at every later start the firmware's own start image comes back, the page says "original back". Only where the set has the splash editor |
-| FEATURES, PATTERN CONFIRM | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file |
-| FEATURES, SYNC GROUP | OFF, 1 to 999 | the sync group of the pattern in RAM, Hacktribe and the red one only; the main dial changes it, it is saved with the pattern (WRITE or EXIT + WRITE). While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; switching between two patterns of one group carries everything that differs live from the saved state: part mutes and part sound (sample, filter, modulation, pitch, amp, IFX and the other part values), tempo, swing, level, MFX with pad and HOLD, so nothing jumps (in RAM only). Steps, motion, length, beat, key, scale and chord set stay the new pattern's. OFF (0) is no group, nothing carried |
+| CUSTOMIZATION, SPLASH | ENTER | opens the three pages of the start image; EXIT goes back to SPLASH. Only where the set has the splash editor |
+| SPLASH, SPLASH IMPORT | ENTER | reads `KORG/blechtribe/splash.bmp` (128 x 64 pixels, 1 bit per pixel, not compressed; the darker colour is drawn) and stores it as the start image like WRITE in the splash editor; shown from the next start. Says "loaded", "no splash.bmp" or "not 128x64 1 bit" (then nothing changes). Only where the set has the splash editor, so not on the blue one |
+| SPLASH, SPLASH DRAW | ENTER | opens the splash editor (a page of the Global screen that only this page reaches): the dial moves the cursor left and right, with SHIFT held up and down, MENU flips the pixel and, held, paints its new colour wherever the cursor goes, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
+| SPLASH, SPLASH RESET | ENTER | drops the stored start image (import or editor); from now on and at every later start the firmware's own start image comes back, the page says "original back". Only where the set has the splash editor |
+| FEATURES, PATTERN CONFIRM | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file The MENU key shows where to press: it blinks while a pattern is only viewed (VIEW:, also stopped with unsaved changes) and is lit once it is confirmed (NEXT:), up to the switch; then it is as the firmware had it. |
+| Ring, SYNC GROUP | OFF, 1 to 999 | a page of its own in the ring, right before the first page of the Pattern menu (EDIT left from there, EDIT right from Blechy; the tag says "Pattern"), Hacktribe and the red one only: the sync group of the pattern in RAM; the main dial changes it, WRITE opens the pattern write as on the Pattern menu's pages, it is saved with the pattern. While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; switching between two patterns of one group carries the state of the pattern that played, changed or not: part mutes and part sound (sample, filter, modulation, pitch, amp, IFX and the other part values), tempo, swing, level, MFX with pad and HOLD, also back; the patterns of a group play as one (in RAM only). Steps, motion, length, beat, key, scale and chord set stay the new pattern's. OFF (0) is no group, nothing carried |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off, TAP held longer than 0.3 s switches only while held and back on letting go; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 
@@ -664,11 +668,11 @@ is readable, so a setting from the card can no longer change it.
 ## Blechy, the last page of the ring
 
 Blechy, the run-down nose creature, is no plugin. He is built into BLECH and has the **last page of the
-firmware's EDIT ring**: after Event, before the Pattern menu ("31/31"). From the Pattern menu you reach him
-with EDIT left on its first page. On the page he stands there at once, live: no submenu, no `press  [ Enter ]`,
+firmware's EDIT ring** but one: after Event, before SYNC GROUP and the Pattern menu ("31/32"; on the blue one the
+last, "31/31"). From the Pattern menu you reach him with EDIT left on its first page and EDIT left once more. On the page he stands there at once, live: no submenu, no `press  [ Enter ]`,
 the whole display is his (the page number is not visible).
 
-- **Like any page of the ring:** EDIT left goes to Event, EDIT right to the Pattern menu, EXIT to the main
+- **Like any page of the ring:** EDIT left goes to BLECH, EDIT right to SYNC GROUP (on the blue one to the Pattern menu), EXIT to the main
   screen. The main dial, MENU and WRITE change nothing on his page (the main dial does not page through the
   firmware's own ring pages either). Measured in the emulator ([measurement](messungen/2026-10-15-blechy.md),
   German).
