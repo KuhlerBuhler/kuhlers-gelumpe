@@ -11,6 +11,7 @@ export const LINKS = {
   debrick: "https://github.com/bangcorrupt/hacktribe/wiki/Debrick",
   howTo: "https://github.com/bangcorrupt/hacktribe/wiki/How-To",
   issues: "https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues",
+  instagram: "https://www.instagram.com/kuhler_buhler/",
 };
 
 /** What Blechy says between the steps of the question flow; the steps themselves are the cases below. */
@@ -27,7 +28,7 @@ export const TALK = {
   folder: "Leg deine gesicherte Original-SYSTEM.VSB auf der Karte hierhin:",
   done: "Hab ich gemacht",
   // A line of parts like the stop sign's: { link } is a key of LINKS.
-  end: ["Kommst du nicht weiter, schick ein Foto vom Display und was du zuletzt gemacht hast, ", { link: "issues", text: "als GitHub Issue" }, " oder auf Instagram. Probier nichts auf Verdacht."],
+  end: ["Kommst du nicht weiter, schick ein Foto vom Display und was du zuletzt gemacht hast, ", { link: "issues", text: "als GitHub Issue" }, " oder auf Instagram an ", { link: "instagram", text: "@kuhler_buhler" }, ". Probier nichts auf Verdacht."],
   again: "Von vorn",
   back: "Zurück",
 };

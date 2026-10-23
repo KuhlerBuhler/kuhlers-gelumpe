@@ -237,9 +237,9 @@ fn open_in_browser(url: &str) {
     };
 }
 
-/// Pages that open in the browser instead of a window of this app: releases, donations, Korg's firmware downloads.
+/// Pages that open in the browser instead of a window of this app: releases, donations, Korg's firmware downloads, Instagram for help.
 fn outside(url: &Url) -> bool {
-    url.scheme() == "https" && matches!(url.host_str(), Some("github.com") | Some("www.paypal.me") | Some("www.korg.com"))
+    url.scheme() == "https" && matches!(url.host_str(), Some("github.com") | Some("www.paypal.me") | Some("www.korg.com") | Some("www.instagram.com"))
 }
 
 /// The page closes the emulator window by navigating here (site/app/emu-window.mjs); WebKit has no window.close() for it.
