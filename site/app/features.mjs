@@ -86,7 +86,7 @@ export const FEATURES = [
     ["mod-live", "Modulationen live ausprobieren", "Eigene Modulationen aus dem Baukasten direkt auf der Electribe anhören, ohne Umweg über die Karte."],
     ["mac-midi", "MIDI in der Mac-App", "Die App spricht direkt über USB-MIDI mit der Electribe, so wie der Browser."],
     ["more-samples", "Mehr Platz für Samples", "Samples von der Karte nachladen, statt alle auf einmal in den Speicher zu legen."],
-    ["factory-samples", "Werks-Samples ersetzen", "Die fest eingebauten Samples gegen eigene tauschen. Dafür muss erst ein sicherer Weg gefunden werden."],
+    ["factory-samples", "Werks-Samples ersetzen", "Eigene Samples direkt am Gerät auf die Plätze der Werks-Samples legen: SELECT DESTINATION beim Import erlaubt dann auch die Plätze unter 501."],
     ["host-samples", "Samples am Rechner bauen", "Kicks, Basslines und mehr in der App erzeugen und als Sample auf die Electribe holen."],
     ["osc-drawer", "OSC Drawer", "Einen eigenen Oszillator auf dem Touchpad malen und als Sample speichern."],
     ["filters", "Eigene Filtertypen", "Neue Filter aus den Bausteinen, die die Electribe schon hat."],
