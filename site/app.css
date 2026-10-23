@@ -1258,6 +1258,37 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   color: var(--color-text-secondary);
 }
 
+/* Unterstützen: each picture maker is its preview with its choices below. */
+.cee-support-part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-support-maker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-support-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-support-preview {
+  width: 100%;
+  max-width: 24rem;
+  height: auto;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+}
+
+.cee-support-preview[data-format="phone"] {
+  max-width: 12rem;
+}
+
 .cee-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));

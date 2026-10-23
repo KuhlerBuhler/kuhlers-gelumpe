@@ -181,14 +181,12 @@ test("the start page has its sections in heading order and the donate link opens
     return new Set(Array.from({ length: d.length / 4 }, (_, i) => d[i * 4])).size === 2;
   }), null, { timeout: 5000 });
   assert.equal(await page.getAttribute("#cee-start-more", "href"), "#features", "Vieles mehr leads to the page of all functions");
-  for (const id of ["#cee-donate", "#cee-donate-start"]) {
-    assert.equal(await page.getAttribute(id, "href"), "https://www.paypal.me/kuhlerbuhler");
-    assert.equal(await page.getAttribute(id, "target"), "_blank");
-  }
+  for (const id of ["#cee-donate", "#cee-donate-start"]) assert.equal(await page.getAttribute(id, "href"), "#support", "donating leads to the Unterstützen page first");
+  assert.equal(await page.getAttribute("#cee-support-paypal", "target"), "_blank");
   const app = await h.page();
   await app.addInitScript(() => { window.__GELUMPE_APP = { version: "0.0.0" }; });
   await app.goto(h.url);
-  assert.equal(await app.getAttribute("#cee-donate", "target"), "_self", "in the app the navigation is caught and opened in the browser");
+  for (const id of ["#cee-support-paypal", "#cee-support-issues", "#cee-support-instagram"]) assert.equal(await app.getAttribute(id, "target"), "_self", "in the app the navigation is caught and opened in the browser");
   assert.equal(await app.getAttribute("#cee-patch-korg-red", "target"), "_self");
 });
 

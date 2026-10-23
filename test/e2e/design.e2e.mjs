@@ -32,6 +32,7 @@ const PAGES = [
   ["scripts docs", page => page.click("#cee-scripts-page-docs")],
   ["changelog", page => page.click("#cee-tab-changelog")],
   ["settings", page => page.click("#cee-settings-button")],
+  ["support", page => page.click("#cee-donate")],
 ];
 
 let h;

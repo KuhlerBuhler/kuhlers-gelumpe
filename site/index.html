@@ -42,6 +42,7 @@
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-mod" data-tab="mod" aria-controls="cee-area-mod" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12c2-5 4-5 6 0s4 5 6 0 4-5 6 0"/></svg><span>Modulationen</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-ptools" data-labs data-tab="ptools" aria-controls="cee-area-ptools" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3h7v7H3Z"/><path d="M14 3h7v7h-7Z"/><path d="M3 14h7v7H3Z"/><path d="M14 14h7v7h-7Z"/></svg><span>Pattern-Werkzeuge</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-samples" data-labs data-tab="samples" aria-controls="cee-area-samples" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 18V5l12-2v13"/><path d="M3 18a3 3 0 1 0 6 0 3 3 0 1 0-6 0"/><path d="M15 16a3 3 0 1 0 6 0 3 3 0 1 0-6 0"/></svg><span>Samples</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-support" hidden data-tab="support" aria-controls="cee-area-support" aria-selected="false" tabindex="-1"><span>Unterstützen</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-settings" hidden data-tab="settings" aria-controls="cee-area-settings" aria-selected="false" tabindex="-1"><span>Einstellungen</span></button>
         </div>
         <span class="cee-nav-group" aria-hidden="true" data-before="emu">Gerät</span>
@@ -49,7 +50,7 @@
         <span class="cee-nav-group" aria-hidden="true" data-before="baukasten">Sound</span>
       </nav>
       <button type="button" class="btn cee-settings-button" id="cee-settings-button" aria-controls="cee-area-settings">Einstellungen</button>
-      <a class="btn cee-donate" id="cee-donate" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Unterstütze das Projekt :D</a>
+      <a class="btn cee-donate" id="cee-donate" href="#support">Unterstütze das Projekt :D</a>
       </div>
     </aside>
 
@@ -130,7 +131,7 @@
 
           <div class="cee-sec">
             <h2>Spenden</h2>
-            <p>Kostet nix. Wenn dir das was bringt: <a class="cee-text-link" id="cee-donate-start" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Spende per PayPal</a>.</p>
+            <p>Kostet nix. Wenn dir das was bringt: <a class="cee-text-link" id="cee-donate-start" href="#support">So kannst du das Projekt unterstützen</a>, mit einer Spende, einem Bug-Report, einem Plugin oder einem Profilbild mit Blechy.</p>
           </div>
           <p class="cee-home-foot">Viel Spaß beim Verkuhlen.</p>
         </section>
@@ -232,6 +233,46 @@
 
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-rescue" aria-labelledby="cee-tab-rescue" tabindex="0" hidden>
         <section class="ui-section" id="cee-rescue" data-no-reveal></section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-support" aria-labelledby="cee-tab-support" tabindex="0" hidden>
+        <section class="cee-home" id="cee-support-page" data-no-reveal>
+          <div class="cee-sec">
+            <h1 class="cee-home-title">Unterstütze das Projekt</h1>
+            <p>Kuhler's GELUMPE und BLECHTRIBE kosten nix und bleiben so. Wenn du trotzdem was zurückgeben willst, geht das auf ein paar Wegen.</p>
+          </div>
+
+          <div class="cee-sec" id="cee-support-donate">
+            <h2>Spenden</h2>
+            <p>Da stecken ein paar Monate Abende und Nächte drin. Wenn dir das was bringt, freu ich mich über eine Spende per PayPal.</p>
+            <div class="actions">
+              <a class="btn cee-primary" id="cee-support-paypal" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Per PayPal spenden</a>
+            </div>
+          </div>
+
+          <div class="cee-sec" id="cee-support-issue">
+            <h2>Bug gefunden oder eine Idee?</h2>
+            <p>Öffne ein Issue auf GitHub. Schreib rein, was du gemacht hast, was passiert ist und was du erwartet hättest, gern mit einem Foto vom Display.</p>
+            <div class="actions">
+              <a class="btn" id="cee-support-issues" href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new" target="_blank" rel="noopener noreferrer">Issue auf GitHub öffnen</a>
+            </div>
+          </div>
+
+          <div class="cee-sec" id="cee-support-plugin">
+            <h2>Dein Plugin für alle?</h2>
+            <p>Du willst eins deiner Plugins im Katalog für alle bereitstellen? Stell einen Pull Request auf GitHub gegen den Branch <code>develop</code>, mit deinem Plugin als Eintrag in <code>data/script/presets.mjs</code>. Wie so ein Eintrag aussieht, steht in der Doku unter <a class="cee-text-link" href="#scripts">Plugins</a>.</p>
+            <div class="actions">
+              <a class="btn" id="cee-support-pr" href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/compare/develop" target="_blank" rel="noopener noreferrer">Pull Request auf GitHub stellen</a>
+            </div>
+          </div>
+
+          <div class="cee-sec" id="cee-support-share">
+            <h2>Erzähl's weiter</h2>
+            <p>Zeig BLECHTRIBE rum. Hier baust du dir ein Profilbild mit Blechy und deinem Namen und Hintergründe für Rechner und Handy, alles aus den Pixeln vom Display. Wenn du was postest, markier <a class="cee-text-link" id="cee-support-instagram" href="https://www.instagram.com/kuhler_buhler/" target="_blank" rel="noopener noreferrer">@kuhler_buhler</a> auf Instagram.</p>
+            <div class="cee-support-part" id="cee-support-avatar"></div>
+            <div class="cee-support-part" id="cee-support-wallpaper"></div>
+          </div>
+        </section>
       </div>
 
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-settings" aria-labelledby="cee-tab-settings" tabindex="0" hidden>
