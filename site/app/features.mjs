@@ -60,7 +60,7 @@ export const FEATURES = [
     how: "In der App: Sound -> Baukasten. Einen fertigen Effekt nehmen oder selbst bauen." },
   { group: "Plugins und Effekte", id: "doom", title: "Doom", where: RED, image: "img/features/doom.svg",
     text: "Ja, wirklich.",
-    how: "SHIFT + TAP beim Einschalten." },
+    how: "Erst die Dateien unter BLECHTRIBE -> Doom auf die Karte legen, dann SHIFT + TAP beim Einschalten." },
 
   { group: "Sicher und bequem", id: "rescue-switch", title: "Notschalter", where: BOTH,
     text: "Startet die Electribe ohne BLECHTRIBE, fast wie das Original.",

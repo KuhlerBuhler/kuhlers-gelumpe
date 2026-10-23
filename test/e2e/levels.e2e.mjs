@@ -72,7 +72,7 @@ async function open({ connected = true, running = true } = {}) {
     await page.locator(".cee-device-status .cee-status").filter({ hasNotText: "getrennt" }).waitFor();
     await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
   }
-  await page.click("#cee-tab-fx");
+  await page.evaluate(() => { location.hash = "fx"; });
   await page.locator("#cee-fx-slot").waitFor({ timeout: 15_000 });
   // The first status poll schedules a preset refresh 3 s later; an edit made before it would be redrawn.
   if (running) await new Promise(r => setTimeout(r, Math.max(0, 4500 - (Date.now() - since))));

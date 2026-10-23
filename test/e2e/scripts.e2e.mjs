@@ -337,6 +337,15 @@ test("the console runs a saved script by name and a line of script language on t
   assert.deepEqual(page.errors, []);
 });
 
+test("a plain click anywhere on a catalog card opens the plugin, not only a long press", async () => {
+  const page = await open(null, { plugin: false });
+  await page.locator("#cee-scripts-page-catalog").evaluate(n => n.click());
+  // the design shrinks a pressed button; on the title it took the card's cover along and the release missed it
+  const box = await page.locator("#cee-catalog-snake p.muted").first().boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.locator("#cee-detail-copy").waitFor({ timeout: 3000 });
+});
+
 test("on a phone the editor, the catalog and a plugin's page do not scroll sideways", async () => {
   const page = await open({ width: 375, height: 812 });
   const sideways = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

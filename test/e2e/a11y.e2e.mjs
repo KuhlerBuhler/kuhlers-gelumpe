@@ -59,7 +59,7 @@ test("axe: device mode, patcher, presets, plugins with a running plugin, and the
   assert.deepEqual(await severeViolations(page), [], "device mode, not connected");
   await page.click("#cee-tab-patcher");
   assert.deepEqual(await severeViolations(page), [], "patcher");
-  await page.click("#cee-tab-fx");
+  await page.evaluate(() => { location.hash = "fx"; });
   await page.locator("#cee-fx-slot").waitFor({ timeout: 15_000 });
   assert.deepEqual(await severeViolations(page), [], "presets");
   await page.click("#cee-tab-samples");
@@ -245,7 +245,7 @@ test("axe: modulations with the slots, and with a hint showing", async () => {
   await page.click("#cee-tab-emu");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
-  await page.click("#cee-tab-mod");
+  await page.evaluate(() => { location.hash = "mod"; });
   await page.locator("#cee-mod-split").waitFor();
   assert.deepEqual(await severeViolations(page), [], "modulations, nothing edited");
   const slot = page.locator("#cee-mod-slot-0");

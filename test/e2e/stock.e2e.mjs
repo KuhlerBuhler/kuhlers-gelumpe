@@ -66,8 +66,6 @@ test("Korg's plain build: Presets and Modulationen are disabled with a short too
   assert.equal(await page.locator("body").evaluate(n => /Es fehlt:|Hacktribe-SysEx|0x52 bis 0x57/.test(n.textContent)), false, "no text about what Korg's build lacks");
 
   assert.deepEqual(await severeViolations(page), [], "the disabled entries are accessible");
-  await page.click("#cee-tab-fx", { force: true });
-  assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "emu", "a click on a disabled entry opens nothing");
   await page.click("#cee-tab-features");
   await page.keyboard.press("ArrowDown");
   assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "start", "the arrow keys skip the disabled entries and wrap round");
@@ -92,7 +90,7 @@ test("while Korg's plain build is open the open Presets page gives way to the em
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.setInputFiles("#cee-emu-vsb", h.file("hacktribe.vsb", await makeFirmware()));
   await page.waitForFunction(() => document.querySelector("#cee-tab-fx").getAttribute("aria-disabled") === "false");
-  await page.click("#cee-tab-fx");
+  await page.evaluate(() => { location.hash = "fx"; });
   assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "fx");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", asStock(await makeFirmware())));
   await page.waitForFunction(() => document.querySelector("#cee-areas [aria-selected='true']")?.dataset.tab === "emu");

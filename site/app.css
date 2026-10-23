@@ -2420,6 +2420,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   flex-direction: column;
   gap: var(--space-1);
   height: 100%;
+  box-sizing: border-box;
   padding: var(--space-4);
   border: 1px solid var(--color-border-muted);
   border-radius: var(--radius-lg);
@@ -2445,7 +2446,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 .cee-device-card {
   position: relative;
   display: grid;
-  grid-template-columns: var(--space-16) minmax(0, 1fr);
+  grid-template-columns: calc(var(--space-16) * 1.5) minmax(0, 1fr);
   align-items: center;
   column-gap: var(--space-4);
   padding-right: var(--space-12);
@@ -2680,6 +2681,17 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 
 .cee-catalog-open:focus-visible {
   outline: none;
+}
+
+/* The design scales a pressed button; on the title that would shrink the cover to the title and lose the click. The card gives way instead. */
+.cee-catalog-card .cee-catalog-open:active:not(:disabled) {
+  scale: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cee-catalog-card:has(.cee-catalog-open:active) {
+    scale: var(--press-scale-wide);
+  }
 }
 
 .cee-catalog-card:has(.cee-catalog-open:focus-visible) {
