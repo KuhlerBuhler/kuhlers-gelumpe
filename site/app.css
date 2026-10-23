@@ -876,7 +876,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  padding: 0 var(--space-4) var(--space-5);
+  padding: 0 var(--space-4);
   /* Mostly covers the page background: the dither shows through faintly, the labels keep 4.5:1. */
   --cee-sidebar-opacity: 0.8;
   background: color-mix(in srgb, color-mix(in srgb, var(--color-bg-page) 96%, white) calc(var(--cee-sidebar-opacity) * 100%), transparent);
@@ -1199,10 +1199,15 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 
 .cee-side-body {
   display: flex;
-  flex: 1;
+  flex: 1 0 auto;
   flex-direction: column;
   gap: var(--space-5);
-  min-height: 0;
+}
+
+/* The room under the last button, also when the sidebar scrolls: padding at the end of a scrolled box is lost there. */
+.cee-side-body::after {
+  content: "";
+  flex: none;
 }
 
 .cee-collapse {
@@ -2636,12 +2641,6 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   align-self: flex-start;
 }
 
-.cee-shelf-tab[aria-pressed="true"],
-.cee-detail-views [aria-pressed="true"] {
-  background: var(--color-surface-item-strong);
-  color: var(--color-text-primary);
-}
-
 .cee-catalog[hidden],
 .cee-own-shelf[hidden] {
   display: none;
@@ -2873,11 +2872,35 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   gap: var(--space-1);
 }
 
+/* The pencil and a frame say the name can be edited; the frame is as wide as the longest name the device takes. */
+.cee-bk-name-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: text;
+}
+
+.cee-bk-name-field:hover,
+.cee-bk-name-field:focus-within {
+  border-color: var(--color-border-strong);
+}
+
+.cee-bk-name-field .cee-icon {
+  flex: none;
+}
+
 .cee-bk-head .cee-bk-name {
-  width: 100%;
-  padding: var(--space-1) 0;
+  width: calc(var(--cee-name-length) * 1ch);
+  min-width: 0;
+  padding: 0;
   border: 0;
-  border-bottom: 1px solid transparent;
+  outline: none;
   background: none;
   color: var(--color-text-primary);
   font-family: var(--font-display);
@@ -2885,14 +2908,50 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   font-weight: 700;
 }
 
-.cee-bk-head .cee-bk-name:hover,
-.cee-bk-head .cee-bk-name:focus {
-  border-bottom-color: var(--color-border-strong);
+.cee-bk-more {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
-.cee-bk-more {
+/* The advanced parameters stand apart from the main ones. */
+.cee-bk-more-extra {
+  margin-top: var(--space-6);
+}
+
+/* Baustein 1 and 2 above their cards; the card itself names the block. */
+.cee-bk-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cee-bk-stage-title {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
+}
+
+/* An empty block: the note and the button in the middle of the card. */
+.cee-bk-block-empty {
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.cee-bk-block-empty p {
+  margin: 0;
+}
+
+/* A label on two lines must not push its slider out of line with the one beside it. */
+.cee-bk-params .cee-bk-slider {
+  justify-content: space-between;
+}
+
+.cee-bk-param-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--color-text-muted);
 }
 
@@ -2999,10 +3058,6 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   gap: var(--space-3) var(--space-5);
 }
 
-.cee-bk-slider .ui-field-help {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
 
 .cee-bk-check {
   display: flex;

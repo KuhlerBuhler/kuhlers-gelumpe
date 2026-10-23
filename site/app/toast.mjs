@@ -21,7 +21,18 @@ function mount() {
   assertive.setAttribute("aria-live", "assertive");
   layer.append(polite, assertive);
   document.body.append(layer);
-  try { layer.showPopover(); } catch { /* no popover support: the fixed box of the design still shows it */ }
+  raise();
+  // A dialog opened later lies above the layer and its backdrop blurs the toasts: put the layer back on top.
+  new MutationObserver(changes => { if (changes.some(c => c.target.localName === "dialog")) raise(); }).observe(document.body, { subtree: true, attributeFilter: ["open"] });
+}
+
+/** Shows the layer last in the top layer, above an open dialog. */
+function raise() {
+  const layer = document.getElementById("app-toasts");
+  try {
+    if (layer.matches(":popover-open")) layer.hidePopover();
+    layer.showPopover();
+  } catch { /* no popover support: the fixed box of the design still shows it */ }
 }
 
 /**
@@ -46,6 +57,7 @@ export function toast(message, kind = "info", { stay = false } = {}) {
   };
   close.addEventListener("click", remove);
   host.append(node);
+  raise();
   const open = [...polite.children];
   for (const old of open.slice(0, Math.max(0, open.length - MAX))) old.remove();
   requestAnimationFrame(() => node.classList.add("visible"));
