@@ -33,6 +33,14 @@ const TABLE = 0x173900;
 const words = (...v) => v.flatMap(u32le);
 const answer = (fn, ...v) => [0xf0, ...head(3), fn, ...syxEnc(words(...v)), 0xf7];
 
+test("native SysEx commands retain their bounds, CRCs and guards on both port identifiers", { timeout: 180000 }, t => {
+  const probe = spawnSync(python, ["-c", "import unicorn"], { encoding: "utf8" });
+  if (probe.status && process.env.E2_ARM_REQUIRED !== "1") return t.skip("Unicorn not installed");
+  assert.equal(probe.status, 0, probe.stderr);
+  const result = spawnSync(python, ["-m", "unittest", "tools.patch.test_blech_sysex_buffer"], { cwd: root, encoding: "utf8", timeout: 170000 });
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+});
+
 describe("the messages", () => {
   test("a request is Korg's frame with the global channel, a function byte of ours and packed little endian words", () => {
     assert.deepEqual(blechInfo(3), [0xf0, 0x42, 0x33, 0x00, 0x01, 0x24, 0x60, 0xf7]);
@@ -197,9 +205,9 @@ describe("the patch", () => {
     }
   });
 
-  test("the code stays in the free run in front of the other patches, its RAM ends where the pattern switch starts", () => {
+  test("the code and separate file workspace fit while the transfer buffer releases 19 KiB", () => {
     const ram = PATCH.ram.map(r => [Number(r.at), Number(r.at) + r.length]);
-    assert.deepEqual(ram, [[0xc0191000, 0xc0191100], [0xc0191100, 0xc019f000], [0xc019f000, 0xc01a0000]]);
+    assert.deepEqual(ram, [[0xc0191000, 0xc0191100], [0xc0191100, 0xc019a400], [0xc019f000, 0xc01a0000]]);
     const code = PATCH.changes.find(c => c.file === CODE);
     assert.ok(0xc0172100 + code.bytes.length / 2 <= 0xc0173800, "code");
     assert.ok(0xc0173800 + PATCH.changes.find(c => c.file === TABLE).bytes.length / 2 <= 0xc0174000, "table");

@@ -102,22 +102,45 @@ class Link:
         self.dev, self.m, self.step = dev, dev.m, step
         self.channel = 0
         self.log = []                # (what, device ms, wall seconds, bytes on the wire)
+        import unicorn
+        self.guard_start = spec.BUF_END
+        self.guard = b'\xd3' * (spec.FILE_AREA - self.guard_start)
+        self.m.uc.mem_write(self.guard_start, self.guard)
+        self.m.uc.hook_add(unicorn.UC_HOOK_MEM_READ | unicorn.UC_HOOK_MEM_WRITE, self.guard_access,
+                           begin=self.guard_start, end=spec.FILE_AREA - 1)
 
-    def exchange(self, msg, wait=60.0, quiet=0.2):
+    def guard_access(self, _uc, _access, address, size, _value, _data):
+        raise AssertionError(f'SysEx released RAM accessed at {address:#x}+{size}')
+
+    def exchange(self, msg, wait=60.0, quiet=0.2, fragments=None):
         """Send one message, collect what comes back until the line is quiet for `quiet` s after the first reply (or `wait` s pass)."""
         m, dev = self.m, self.dev
         t0, wall = m.time_ns, time.time()
-        m.midi(msg)
+        pending = []
+        if fragments:
+            at, i = 0, 0
+            while at < len(msg):
+                count = fragments[i % len(fragments)]
+                pending.append(msg[at:at + count])
+                at += count
+                i += 1
+        else:
+            pending.append(msg)
+        m.midi(pending.pop(0))
         replies, first = [], None
         end = m.time_ns / 1e9 + wait
         while m.time_ns / 1e9 < end:
             dev.run(self.step)
+            if pending:
+                m.midi(pending.pop(0))
             got = m.midi_out()
             replies += got
             if got and first is None:
                 first = m.time_ns
-            if first is not None and not got and (m.time_ns - first) / 1e9 >= quiet:
+            if first is not None and not pending and not got and (m.time_ns - first) / 1e9 >= quiet:
                 break
+        if bytes(m.uc.mem_read(self.guard_start, len(self.guard))) != self.guard:
+            raise AssertionError('SysEx changed released RAM')
         done = first if first is not None else m.time_ns
         self.log.append((msg[6] if len(msg) > 6 else 0,(done - t0) / 1e6, time.time() - wall, len(msg) + sum(map(len, replies))))
         return replies, (done - t0) / 1e6
@@ -534,7 +557,48 @@ def case_flash(payload, flash):
     return flash_cases(dev, lk)
 
 
-GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, case_files)
+def case_stream(payload, flash):
+    """DIN parser fragmentation, malformed requests and recovery with released RAM guarded."""
+    dev, lk = boot(payload, flash)
+    out = []
+    for length in (1, 6, 7, 8, 63, 64, 127, 32768):
+        msg = frame(lk.channel, spec.FUNC_READ, struct.pack('<II', SCRATCH, length))
+        replies, _ = lk.exchange(msg, fragments=(1, 6, 7, 8, 63, 64, 127), wait=120)
+        words = dec(replies[0][7:-1]) if replies else b''
+        expected = mem(dev, SCRATCH, length)
+        good = len(words) == length + 16 and struct.unpack_from('<4I', words) == (OK, SCRATCH, length, zlib.crc32(expected)) and words[16:] == expected
+        out.append(entry(f'fragmented_read_{length}', good, 'DIN request fragmented across header and packing groups; reply and CRC exact'))
+    for length in (1, 7, 256, 32768):
+        data = bytes((i * 73 ^ i >> 3 ^ 0xa5) & 255 for i in range(length))
+        before = mem(dev, SCRATCH, length)
+        begin, _ = lk.write(SCRATCH, data, send_data=False)
+        if MODEL == 0x23:
+            good = begin and begin['status'] == REFUSED and mem(dev, SCRATCH, length) == before
+        else:
+            replies, _ = lk.exchange(frame(lk.channel, spec.FUNC_DATA, data), fragments=(1, 6, 7, 8, 63, 64, 127, 4096), wait=120)
+            words = dec(replies[0][7:-1]) if replies else b''
+            good = begin and begin['status'] == OK and words == struct.pack('<4I', OK, SCRATCH, length, zlib.crc32(data)) and mem(dev, SCRATCH, length) == data
+        out.append(entry(f'fragmented_write_{length}', good, 'fragmented DATA writes exact bytes and CRC; synth refuses the declaration'))
+    for name, request in (
+        ('short', frame(lk.channel, spec.FUNC_READ, bytes(7))),
+        ('long', frame(lk.channel, spec.FUNC_READ, struct.pack('<II', SCRATCH, 7) + b'\x7f'))):
+        replies, _ = lk.exchange(request, wait=0.5)
+        again = lk.info()
+        out.append(entry(f'parser_{name}_recovery', replies == [frame(lk.channel, 0x26)] and again and again['status'] == OK and not dev.m.asserts,
+                         'malformed request gets the original format-error reply; next INFO succeeds'))
+    replies, _ = lk.exchange(frame(lk.channel, spec.FUNC_READ, bytes(8))[:-3], wait=0.5)
+    first, retry = lk.info(), lk.info()
+    out.append(entry('parser_interrupted_recovery', not replies and first is None and retry and retry['status'] == OK and not dev.m.asserts,
+                     'without F7 the original parser consumes the first retry through its terminator; second INFO succeeds'))
+    begin, _ = lk.write(SCRATCH, bytes(spec.MAX_BLOCK + 1), send_data=False)
+    replies, _ = lk.exchange(frame(lk.channel, spec.FUNC_DATA, b'\x01' * 8), wait=0.5)
+    again = lk.info()
+    out.append(entry('oversize_then_retry', begin and begin['status'] == RANGE and not replies and again and again['status'] == OK,
+                     '32769-byte BEGIN refused, undeclared DATA silent, next INFO succeeds'))
+    return out
+
+
+GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, case_files, case_stream)
 
 
 def synth_cases(payload, flash):
@@ -567,6 +631,7 @@ def synth_cases(payload, flash):
         out.extend(case_kill_switch(payload, flash))
         out.extend(case_other_sysex(payload, flash))
         out.extend(file_cases(payload, flash))
+        out.extend(case_stream(payload, flash))
         return out
     finally:
         MODEL = 0x24
