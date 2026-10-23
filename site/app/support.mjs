@@ -35,11 +35,11 @@ const EYES = [
 
 /** What can stand in the picture: a file of site/img, or a mask drawn here. */
 const FIGURES = {
-  idle: ["Ruhig", "img/blechy/idle.png"],
-  happy: ["Froh", "img/blechy/happy.png"],
-  wave: ["Winkt", "img/blechy/wave.png"],
-  angry: ["Sauer", "img/blechy/angry.png"],
-  sad: ["Traurig", "img/blechy/sad.png"],
+  idle: ["Ruhig", "img/blechy/idle.png", "stroke"],
+  happy: ["Froh", "img/blechy/happy.png", "stroke"],
+  wave: ["Winkt", "img/blechy/wave.png", "stroke"],
+  angry: ["Sauer", "img/blechy/angry.png", "stroke"],
+  sad: ["Traurig", "img/blechy/sad.png", "stroke"],
   tube: ["Röhrchen", "img/blechy/tube.png"],
   loaded: ["Geladen", "img/blechy/loaded.png"],
   eyes: ["Augen", EYES],
@@ -80,8 +80,45 @@ async function maskOf(src) {
   return Array.from({ length: y1 - y0 + 1 }, (_, y) => Array.from({ length: x1 - x0 + 1 }, (_, x) => on(x0 + x, y0 + y)));
 }
 
+/**
+ * A filled sprite drawn the way the display draws Blechy in the loading animation: the body only as its outline, the
+ * face light and what is drawn on it dark. Filled, a light body on a dark ground reads as a white blob.
+ */
+function stroked(mask) {
+  const P = 2;   // room around the sprite, so the grown ink never closes off a piece of the outside at the edge
+  const h = mask.length + 2 * P;
+  const w = mask[0].length + 2 * P;
+  const ink = (x, y) => mask[y - P]?.[x - P] ?? false;
+  const near = (x, y, test) => [-1, 0, 1].some(dy => [-1, 0, 1].some(dx => test(x + dx, y + dy)));
+  // The face is open to the outside by a pixel here and there: close those gaps (ink grown by one) before filling
+  // the outside, then shrink the silhouette back by one.
+  const outside = Array.from({ length: h }, () => new Array(w).fill(false));
+  const stack = [[0, 0]];
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || y < 0 || x >= w || y >= h || outside[y][x] || near(x, y, ink)) continue;
+    outside[y][x] = true;
+    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+  const out = (x, y) => x < 0 || y < 0 || x >= w || y >= h || outside[y][x];
+  const inside = (x, y) => !near(x, y, out);
+  const edge = (x, y) => !inside(x, y) && !ink(x, y);
+  return mask.map((row, y) => row.map((set, x) => {
+    const [px, py] = [x + P, y + P];
+    if (!set) return inside(px, py);
+    return edge(px + 1, py) || edge(px - 1, py) || edge(px, py + 1) || edge(px, py - 1);
+  }));
+}
+
 const masks = {};
-const figureMask = async id => (masks[id] ??= typeof FIGURES[id][1] === "string" ? await maskOf(FIGURES[id][1]) : FIGURES[id][1]);
+const figureMask = async id => {
+  const [, source, style] = FIGURES[id];
+  if (!masks[id]) {
+    const mask = typeof source === "string" ? await maskOf(source) : source;
+    masks[id] = style === "stroke" ? stroked(mask) : mask;
+  }
+  return masks[id];
+};
 
 /** A line of text in the 5 x 7 font of the display, as a mask like maskOf. */
 function textMask(text) {
