@@ -659,6 +659,9 @@ def case_sync_group(payload, flash):
     pad.key("part_mute")
     pad.turn(1)
     pad.until_change(settle=0.0)
+    # The carry into the new pattern runs right at the change: a press in its first 5 ms or less is lost (measured 23.10.). The change is
+    # seen on a 10 ms grid, so the press waits 20 ms, after the carry in every build.
+    pad.run(0.02)
     pad.m.send([4, 0, 0, 100, 1])
     pad.run(0.08)
     pad.m.send([4, 0, 0, 0, 0])
