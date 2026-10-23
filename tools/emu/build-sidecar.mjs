@@ -6,7 +6,7 @@
  *
  * Needs the venv from `npm run setup:emu` with PyInstaller in it
  * (tools/emu/requirements-build.txt; installed here if missing). The result
- * is src-tauri/binaries/gelumpe-emu-<target triple>, the name Tauri expects
+ * is src-tauri/binaries/Gelumpe Emulator-<target triple>, the name Tauri expects
  * for an external binary. No firmware goes in: the binary is only the code.
  */
 import { spawnSync } from "node:child_process";
@@ -59,7 +59,8 @@ run(...command(python, [
 
 const out = path("../../src-tauri/binaries");
 mkdirSync(out, { recursive: true });
-const target = `${out}/gelumpe-emu-${triple}${win ? ".exe" : ""}`;
+// The file's name is what Activity Monitor and the Task Manager show (measured: macOS takes it from the file, not from argv).
+const target = `${out}/Gelumpe Emulator-${triple}${win ? ".exe" : ""}`;
 copyFileSync(`${work}/dist/gelumpe-emu${win ? ".exe" : ""}`, target);
 if (win) clearCfgInFile(target);   // otherwise Windows 10 kills the emulator at the first firmware instruction (pe-flags.mjs)
 console.log(`Sidecar: ${target}`);

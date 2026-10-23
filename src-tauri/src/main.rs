@@ -1,5 +1,5 @@
 // The app is a window around site/ and a child process, the emulator service
-// (tools/emu/server.py, frozen with PyInstaller into the binary `gelumpe-emu`).
+// (tools/emu/server.py, frozen with PyInstaller into the binary `Gelumpe Emulator`).
 // On launch it picks a free port and a fresh token, starts the service, waits
 // until it answers, and opens the page with the link in the address
 // (`#emu=port:token`), the same link the service prints in the browser setup.
@@ -42,7 +42,7 @@ fn token() -> Result<String, String> {
 fn service_command() -> Result<Command, String> {
     let exe = std::env::current_exe().map_err(|e| format!("Der Pfad der App ist unbekannt: {e}"))?;
     let dir = exe.parent().ok_or("Der Ordner der App ist unbekannt.")?;
-    let name = if cfg!(windows) { "gelumpe-emu.exe" } else { "gelumpe-emu" };
+    let name = if cfg!(windows) { "Gelumpe Emulator.exe" } else { "Gelumpe Emulator" };
     let frozen = dir.join(name);
     if frozen.exists() {
         return Ok(Command::new(frozen));
