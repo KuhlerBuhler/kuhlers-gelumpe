@@ -174,6 +174,7 @@ test("the start page has its sections in heading order and the donate link opens
   await page.goto(h.url);
   assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Wie installiere ich BLECHTRIBE?", "Geht was schief?", "Was kann BLECHTRIBE?", "Erkunden", "Spenden"]);
   assert.match(await page.locator("#cee-start-features").textContent(), /volle Liste/, "the start page says there is a lot and points to Features");
+  assert.equal(await page.getAttribute("#cee-start-rescue-more", "href"), "#rescue", "Geht was schief? has its button to the rescue page");
   assert.equal(await page.getAttribute("#cee-start-more", "href"), "#features", "the button leads to the page of all functions");
   await page.click("#cee-start-more");
   assert.equal(await page.locator("#cee-feature-dice canvas.cee-catalog-thumb").count(), 1, "a function on the Features page carries its picture");
