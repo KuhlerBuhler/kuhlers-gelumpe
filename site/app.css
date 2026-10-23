@@ -2753,6 +2753,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 }
 
 .cee-bk > *,
+.cee-bk-page > *,
 .cee-bk-shelf > *,
 .cee-bk-builder > *,
 .cee-bk-steps > *,
@@ -2766,6 +2767,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   color: var(--color-text-secondary);
 }
 
+.cee-bk-page,
 .cee-bk-shelf,
 .cee-bk-builder,
 .cee-bk-steps,
@@ -2776,6 +2778,9 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   gap: var(--space-4);
 }
 
+.cee-bk-page[hidden],
+.cee-bk-builder[hidden],
+.cee-bk-catalog[hidden],
 .cee-bk-shelf[hidden],
 .cee-bk-steps[hidden] {
   display: none;
@@ -2794,7 +2799,6 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   list-style: none;
 }
 
-.cee-bk-card,
 .cee-bk-block {
   display: flex;
   flex-direction: column;
@@ -2805,22 +2809,112 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   background: var(--color-surface-panel-alt);
 }
 
-.cee-bk-card h3 {
-  font-size: var(--text-md);
-}
-
 .cee-bk-card p {
   color: var(--color-text-secondary);
-  font-size: var(--text-sm);
 }
 
-.cee-bk-card .btn {
-  align-self: flex-start;
+/* Tag and creator side by side under the title, as in the plugin catalog. */
+.cee-bk-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+/* The trash can sits above the button that reaches over the whole card. */
+.cee-bk-trash {
+  position: relative;
+  z-index: 1;
+  align-self: flex-end;
   margin-top: auto;
 }
 
+/* The editor's title is the name, edited in place. */
+.cee-bk-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cee-bk-head .cee-bk-name {
+  width: 100%;
+  padding: var(--space-1) 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.cee-bk-head .cee-bk-name:hover,
+.cee-bk-head .cee-bk-name:focus {
+  border-bottom-color: var(--color-border-strong);
+}
+
+.cee-bk-more {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* Export: one row per place of the Electribe; a row dragged onto another swaps the two. */
+.cee-bk-export,
+.cee-bk-export-kind {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-bk-export-kind > * {
+  margin: 0;
+}
+
+.cee-bk-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-bk-slot {
+  display: grid;
+  grid-template-columns: auto 3rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-panel-alt);
+  cursor: grab;
+}
+
+.cee-bk-slot > .cee-icon {
+  color: var(--color-text-muted);
+}
+
+.cee-bk-slot-set {
+  border-color: var(--color-border-accent-strong);
+}
+
+.cee-bk-slot-number {
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+}
+
+.cee-bk-dragging {
+  opacity: 0.5;
+}
+
+.cee-bk-drop {
+  outline: 2px solid var(--color-focus-ring);
+}
+
 .cee-bk-kind {
-  color: var(--color-accent-primary);
+  color: var(--color-text-muted);
 }
 
 .cee-bk-choices {
