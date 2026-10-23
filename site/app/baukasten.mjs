@@ -868,10 +868,18 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     writeSlots(slots);
     renderExport();
   }
+  // One file holds all three, so the export switches between them on its own page, not by Effekte/Modulationen.
+  let exportKind = "ifx";
+  const exportTabs = [["ifx", "Insert-Effekte"], ["mfx", "Master-Effekte"], ["mod", "Modulationen"]].map(([id, text]) => {
+    const input = el("input", { type: "radio", name: "cee-bk-export-kind", value: id, checked: id === exportKind, onchange: () => { exportKind = id; renderExport(); } });
+    return el("label", { className: "ui-segmented-option", id: `cee-bk-export-tab-${id}` }, [input, el("span", { textContent: text })]);
+  });
+  const exportSwitch = el("div", { className: "ui-segmented cee-bk-export-switch", role: "radiogroup" }, exportTabs);
+  exportSwitch.setAttribute("aria-label", "Welche Plätze");
   function renderExport() {
     const list = ownList();
     const slots = readSlots();
-    const kinds = shelfKind === "mod" ? [["mod", MOD_COUNT]] : [["ifx", SLOT_COUNT_FX], ["mfx", SLOT_COUNT_FX]];
+    const kinds = [[exportKind, exportKind === "mod" ? MOD_COUNT : SLOT_COUNT_FX]];
     exportLists.replaceChildren(...kinds.map(([kind, count]) => {
       const own = list.filter(o => o.kind === kind);
       const factory = factoryNames(kind);
@@ -905,9 +913,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   exportButton.addEventListener("click", exportAll);
   const exportPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-export" }, [
     el("h2", { className: "cee-bk-title", textContent: `${COLLECTION_FILE} für die Karte` }),
-    el("p", { className: "muted", textContent: `Leg fest, welcher deiner Effekte auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
+    el("p", { className: "muted", textContent: `Eine Datei für alles: Insert-Effekte, Master-Effekte und Modulationen. Leg fest, was auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
     cardNote,
     allDrop,
+    exportSwitch,
     exportLists,
   ]);
 
@@ -942,7 +951,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   }
   /** Effekte or Modulationen is a choice for the catalog and a new piece; with one open it stays as it is. */
   function switchRow() {
-    tabRow.hidden = shown === "detail" || (shown === "editor" && !!(shelfKind === "fx" ? fx : mod));
+    tabRow.hidden = shown === "detail" || shown === "export" || (shown === "editor" && !!(shelfKind === "fx" ? fx : mod));
   }
 
   const PAGE_NODES = { catalog: catalogPage, editor: editorPage, mine: minePage, export: exportPage, detail: detailPage };

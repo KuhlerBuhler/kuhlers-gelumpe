@@ -2648,7 +2648,8 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   gap: var(--space-4);
 }
 
-.cee-shelf-tabs {
+.cee-shelf-tabs,
+.cee-bk-export-switch {
   align-self: flex-start;
 }
 
