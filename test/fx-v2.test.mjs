@@ -169,6 +169,9 @@ test("the Türsteher stands before the card too: a block that crashes in stage 2
   const made = collectionEntry(crash, vsb, 0, units);
   assert.equal(made.ok, false, "a decimator in stage 2 crashes the device (data/findings.mjs)");
   assert.match(made.reason, /Türsteher/);
+  assert.match(made.reason, /freigeben/, "and it says how to let it through anyway");
+  const freed = collectionEntry(crash, vsb, 0, units, { risky: true });
+  assert.equal(freed.ok, true, `freed on purpose it goes into the file: ${freed.reason}`);
   for (const item of FX_CATALOG) {
     const entry = collectionEntry(item, vsb, 0, units);
     assert.equal(entry.ok, true, `${item.name}: ${entry.reason}`);

@@ -770,8 +770,10 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   transform: rotate(calc(var(--cee-e2-angle, 0) * 1deg));
 }
 
+/* Only the swing to and from the resting angle at power on and off is animated. While a knob turns, a transition
+   restarted at every value lets the marker jump back (measured: up to 51 degrees in WebKit), it looks doubled. */
 @media (prefers-reduced-motion: no-preference) {
-  .cee-e2-mark {
+  .cee-e2[data-settling] .cee-e2-mark {
     transition: transform var(--dur-fast) var(--ease-out);
   }
 }
@@ -2648,7 +2650,8 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   gap: var(--space-4);
 }
 
-.cee-shelf-tabs {
+.cee-shelf-tabs,
+.cee-bk-export-switch {
   align-self: flex-start;
 }
 
@@ -3190,6 +3193,23 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 .cee-knob-mapped.cee-knob-fixed .cee-knob-fill,
 .cee-knob-moving .cee-knob-fill {
   stroke: var(--color-accent-primary);
+}
+
+.cee-bk-risky {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* A block freed on purpose keeps its warning in the warning colour. */
+.cee-bk-unit-risky:not(:disabled) .muted {
+  color: var(--color-text-warning);
+}
+
+.cee-bk-wave-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .cee-bk-map-head {

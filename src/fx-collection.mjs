@@ -113,7 +113,11 @@ export function parseCollection(bytes, { counts = null } = {}) {
  * `index` (0-based), or the modulation type over the type at `index`.
  * @returns {{ok: true, entry: object} | {ok: false, reason: string}}
  */
-export function collectionEntry(preset, vsb, index, units) {
+/** What the user can free on purpose (Baukasten, "Gesperrte Bausteine freigeben"): the measured bad block combinations. */
+const RISKY_CODES = new Set(["stage2-fatal", "stage2-silent", "stage1-needs-solo"]);
+
+/** @param {{risky?: boolean}} [options] risky: let the measured bad block combinations through, the rest stays barred */
+export function collectionEntry(preset, vsb, index, units, { risky = false } = {}) {
   const build = buildOf(vsb);
   if (!(build in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für den roten Sampler, mit Korgs Firmware oder mit Hacktribe." };
   if (preset.kind === "mod") {
@@ -136,7 +140,7 @@ export function collectionEntry(preset, vsb, index, units) {
   if (!made.ok) return made;
   // The Türsteher's rules (src/rules.mjs), as for a live write: what crashes the device, stays silent or is broken
   // does not go on the card either, where it would load at every start.
-  const bad = lint(new FxRecord(made.record, preset.kind), { units }).find(f => ["fatal", "silent", "error"].includes(f.severity));
-  if (bad) return { ok: false, reason: `Vom Türsteher gesperrt: ${bad.message}` };
+  const bad = lint(new FxRecord(made.record, preset.kind), { units }).find(f => ["fatal", "silent", "error"].includes(f.severity) && !(risky && RISKY_CODES.has(f.code)));
+  if (bad) return { ok: false, reason: `Vom Türsteher gesperrt: ${bad.message}${RISKY_CODES.has(bad.code) ? " Mit „Gesperrte Bausteine freigeben (RISIKO)“ bei der Wahl des Bausteins geht es trotzdem." : ""}` };
   return { ok: true, entry: { kind: preset.kind, index, data: made.record, text: fxText(preset) } };
 }
