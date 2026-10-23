@@ -59,6 +59,15 @@ def cases(payload,flash=None):
         'Dial changes touch only the existing contrast byte, not another global setting')
     add('value',first[256:384]!=picture(dev)[256:384] and balls(picture(dev)) is not None,
         'The displayed value follows the original parameter while the balls continue')
+    dev.press(0x0C,wait=0.3)
+    left=picture(dev)
+    ref=boot(payload,flash,held=KILL)
+    contrast_page(ref)
+    ref.press(0x0C,wait=0.3)
+    leftover=[i for i,(a,b) in enumerate(zip(left[128:896],picture(ref)[128:896])) if a!=b]
+    add('next_page_clean',dev.screen()['page']==13 and ref.screen()['page']==13 and not leftover and not dev.m.asserts,
+        f'EDIT to the next page draws it whole, as the firmware alone does (bytes of pages 1 to 6 that differ: {leftover[:8]})')
+    contrast_page(dev)
     dev.press(0x0D,wait=0.2)
     exit_state=dev.screen()
     exit_clean=exit_state['number']!=9 and balls(picture(dev)) is None and not dev.m.asserts
