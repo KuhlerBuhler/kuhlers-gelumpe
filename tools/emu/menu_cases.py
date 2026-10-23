@@ -908,7 +908,19 @@ def look_cases(payload, flash=None):
     first = leds(dev)
     dev.run(1.0)
     second = leds(dev)
-    wheel = lambda l: l[:3] * 4 == l and sorted(l[:3])[0] == 0 and sum(l[:3]) == 255
+    wheel = lambda l: l[:3] * 4 == l and sorted(l[:3])[0] == 0 and sum(l[:3]) in (255, 256)      # 256: a 1 goes out as 2
+    # RAINBOW with a colour on the LED pages (device 22.10.: the LED colour had no effect any more): the zones left at STOCK
+    # take that colour, as bright as the level, the still meter stays on the wheel
+    set_look(dev, mode=0, led=(15, 7, 0))
+    meter_level(dev, 254)
+    dev.run(1.0)
+    r_loud = leds(dev)
+    meter_level(dev, 0)
+    dev.run(0.5)
+    r_still = leds(dev)
+    set_look(dev, mode=0, led=(0, 0, 0))
+    add("led_meter_rainbow_keeps_the_led_colour", r_loud == loud and sorted(r_still[:3])[0] == 0 and sum(r_still[:3]) in (255, 256) and not dev.m.asserts,
+        f"loud {r_loud} (the meter in that colour {loud}), still {r_still[:3]}")
     press(dev, "write", wait=0.6)
     files = read_settings(dev.m.mmc.card.medium.data)
     flags = max(files.values())[1] if files else 0
