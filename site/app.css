@@ -2889,11 +2889,13 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   border: 1px solid var(--color-border-muted);
   border-radius: var(--radius-md);
   background: var(--color-surface-panel-alt);
-  cursor: grab;
 }
 
-.cee-bk-slot > .cee-icon {
+.cee-bk-grip {
+  display: flex;
   color: var(--color-text-muted);
+  cursor: grab;
+  touch-action: none;
 }
 
 .cee-bk-slot-set {

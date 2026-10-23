@@ -567,7 +567,7 @@ function boot() {
   });
   emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, onConnect: next => sd?.connect(next) });
   const modulations = modulationsPage($("#cee-mod"), { emulator });
-  const baukasten = baukastenPage($("#cee-baukasten"), { emulator, sub: options, trail: parts => nav.trail("baukasten", parts), navbar: nodes => nav.baukasten(nodes) });
+  const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: parts => nav.trail("baukasten", parts), navbar: nodes => nav.baukasten(nodes) });
   samplesPage($("#cee-samples"), { device, emulator, probe });
   let fxFirmware = null;
   let modFirmware = null;

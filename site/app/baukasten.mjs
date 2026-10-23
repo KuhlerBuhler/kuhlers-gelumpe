@@ -9,7 +9,7 @@ import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { icon } from "./icons.mjs";
 import { parseUnits } from "../../src/units.mjs";
-import { fxText, readFx, fxFileName } from "../../src/fx-v2.mjs";
+import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
 import { buildCollection, parseCollection, collectionEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
 import { buildOf } from "../../src/firmware.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
@@ -114,9 +114,10 @@ function ownList() {
 
 /**
  * @param {HTMLElement} root
- * @param {{emulator?: object, sub?: object, trail?: (parts: string[]) => void, navbar?: (nodes: Node[]) => void}} [options]
+ * @param {{emulator?: object, presets?: object, sub?: object, trail?: (parts: string[]) => void, navbar?: (nodes: Node[]) => void}} [options]
+ *   presets: the panel of the Presets page (fx.mjs), which knows the slots and writes a record live
  */
-export function baukastenPage(root, { emulator = null, sub = null, trail = () => {}, navbar = () => {} } = {}) {
+export function baukastenPage(root, { emulator = null, presets = null, sub = null, trail = () => {}, navbar = () => {} } = {}) {
   let raw = null;            // data/units.json as it is, for the defaults of a block
   let units = null;
   let shelfKind = "fx";      // Effekte or Modulationen, for every sub-page
@@ -125,6 +126,7 @@ export function baukastenPage(root, { emulator = null, sub = null, trail = () =>
   let fxId = null;           // the own entry it came from, null for a new one or a copy of the catalog
   let mod = null;
   let modId = null;
+  let fxTarget = null;       // the slot this effect was loaded to on the device; the next load goes there without asking
 
   async function loadUnits() {
     if (units) return units;
@@ -167,11 +169,13 @@ export function baukastenPage(root, { emulator = null, sub = null, trail = () =>
   const fxSave = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-fx-save", textContent: "Speichern" });
   const fxDownload = el("button", { type: "button", className: "btn", id: "cee-bk-fx-download", textContent: "Als Datei herunterladen" });
   const fxSaved = el("p", { className: "cee-bk-saved", id: "cee-bk-fx-saved", role: "status" });
+  const fxLoad = el("button", { type: "button", className: "btn", id: "cee-bk-fx-load", textContent: "Auf dem Gerät laden" });
+  const fxRetarget = el("button", { type: "button", className: "btn", id: "cee-bk-fx-retarget", textContent: "Anderer Platz", hidden: true });
   const fxEditor = el("div", { className: "cee-bk-builder", id: "cee-bk-fx-builder", hidden: true }, [
     el("div", { className: "cee-bk-head" }, [fxName, fxKind]),
     el("p", { className: "muted", textContent: "Ein Baustein ist ein einzelner Effekt wie Hall, Echo oder Filter. Ein Insert-Effekt kann zwei hintereinander haben, der zweite darf leer bleiben. Anhören kannst du ihn erst an der Electribe." }),
     blocks,
-    el("div", { className: "actions" }, [fxSave, fxDownload]),
+    el("div", { className: "actions" }, [fxSave, fxDownload, fxLoad, fxRetarget]),
     fxSaved,
   ]);
   const fxStart = el("div", { className: "cee-bk-builder", id: "cee-bk-fx-start" }, [
@@ -254,6 +258,8 @@ export function baukastenPage(root, { emulator = null, sub = null, trail = () =>
   function openFx(preset, id) {
     fx = { kind: preset.kind, name: preset.name, stages: preset.stages.map(s => ({ ...s, params: { ...s.params } })), map: preset.map ?? [] };
     fxId = id;
+    fxTarget = null;
+    showTarget();
     fxSaved.textContent = "";
     shelf("fx");
     loadUnits().then(() => { renderFx(); updateTrail(); });
@@ -273,6 +279,55 @@ export function baukastenPage(root, { emulator = null, sub = null, trail = () =>
     if (!r.ok) { toast(r.reason, "error"); return; }
     saveFile(fxText(r.preset), fxFileName(r.preset), { type: "application/json" });
   });
+
+  // To try it on the device: the first load asks for a slot of the menu and overwrites that preset live in the RAM,
+  // every later load of the same effect goes to the same slot at once. Switching it off brings the preset back.
+  const slotDialog = el("dialog", { className: "ui-dialog cee-bk-palette", id: "cee-bk-slots-dialog" });
+  slotDialog.setAttribute("aria-labelledby", "cee-bk-slots-title");
+  const slotTitle = el("h2", { className: "ui-dialog-title", id: "cee-bk-slots-title" });
+  const slotBody = el("div", { className: "ui-dialog-body" });
+  slotDialog.append(el("form", { method: "dialog", className: "ui-dialog-box" }, [
+    el("header", { className: "ui-dialog-head" }, slotTitle),
+    slotBody,
+    el("footer", { className: "ui-dialog-foot" }, el("button", { type: "submit", className: "btn", value: "cancel", textContent: "Abbrechen" })),
+  ]));
+  document.body.append(slotDialog);
+  function showTarget() {
+    fxLoad.textContent = fxTarget ? `Auf dem Gerät laden (${KIND_WORD[fxTarget.kind]} ${fxTarget.slot})` : "Auf dem Gerät laden";
+    fxRetarget.hidden = !fxTarget;
+  }
+  function pickSlot() {
+    const list = presets?.presets()?.list(fx.kind);
+    if (!list?.length) { toast("Dafür braucht die Seite deine Firmware und den laufenden Emulator oder die verbundene Electribe: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen.", "error"); return; }
+    slotTitle.textContent = `Welchen ${KIND_WORD[fx.kind]} überschreiben?`;
+    slotBody.replaceChildren(
+      el("p", { className: "muted", textContent: "Der gewählte Platz bekommt deinen Effekt, live im Arbeitsspeicher. Nach dem Ausschalten ist das alte Preset wieder da." }),
+      el("div", { className: "cee-bk-units" }, list.map(({ slot, name }) => el("button", { type: "button", className: "btn cee-bk-unit", onclick: () => { slotDialog.close(); loadTo({ kind: fx.kind, slot }); } }, [
+        el("strong", { textContent: `${slot}` }), el("span", { className: "muted", textContent: name }),
+      ]))),
+    );
+    if (window.ui?.openDialog) window.ui.openDialog(slotDialog); else slotDialog.showModal?.();
+  }
+  async function loadTo(target) {
+    const r = readyFx();
+    if (!r.ok) { toast(r.reason, "error"); return; }
+    await loadUnits();
+    fxLoad.disabled = true;
+    try {
+      const res = await presets.writeRecord(target.kind, target.slot, (before, records) => fxToRecord(r.preset, before, records, units));
+      if (!res.ok) { if (res.reason) toast(res.reason, "error"); return; }
+      fxTarget = target;
+      showTarget();
+      toast(`„${r.preset.name}“ liegt jetzt auf ${KIND_WORD[target.kind]} ${target.slot}. Am Gerät auswählen und anhören.`, "ok");
+    } finally {
+      fxLoad.disabled = false;
+    }
+  }
+  fxLoad.addEventListener("click", () => {
+    if (!presets) return;
+    if (fxTarget?.kind === fx?.kind) loadTo(fxTarget); else pickSlot();
+  });
+  fxRetarget.addEventListener("click", () => { if (presets) pickSlot(); });
 
   // ---- Editor: modulation -----------------------------------------------------------
   const modName = el("input", { className: "cee-bk-name", id: "cee-bk-mod-name", type: "text", maxLength: 16, spellcheck: false, autocomplete: "off", placeholder: "Name der Modulation" });
@@ -451,7 +506,6 @@ export function baukastenPage(root, { emulator = null, sub = null, trail = () =>
     toast(`${file.name} geladen: ${read.entries.length} Einträge, ${added} neu unter Meine Sachen.`, "ok");
   });
   const exportLists = el("div", { className: "cee-bk-export", id: "cee-bk-export" });
-  let dragged = null;
   function slotRow(kind, slot, own, slots) {
     const assigned = slots[kind][slot] ?? "";
     const select = el("select", { className: "select", id: `cee-bk-slot-${kind}-${slot}` }, [
@@ -472,21 +526,39 @@ export function baukastenPage(root, { emulator = null, sub = null, trail = () =>
       renderExport();
     } }, [icon("trash")]);
     clear.setAttribute("aria-label", `${KIND_WORD[kind]} Platz ${slot} leeren`);
-    const row = el("li", { className: `cee-bk-slot${assigned ? " cee-bk-slot-set" : ""}`, draggable: true }, [
-      icon("grip"), el("span", { className: "cee-bk-slot-number", textContent: String(slot) }), select, clear,
+    const grip = el("span", { className: "cee-bk-grip", title: "Ziehen, um mit einem anderen Platz zu tauschen" }, [icon("grip")]);
+    const row = el("li", { className: `cee-bk-slot${assigned ? " cee-bk-slot-set" : ""}` }, [
+      grip, el("span", { className: "cee-bk-slot-number", textContent: String(slot) }), select, clear,
     ]);
     row.dataset.kind = kind;
     row.dataset.slot = String(slot);
-    // A drop swaps two places: A takes the place of B and B the place of A.
-    row.addEventListener("dragstart", e => { dragged = { kind, slot }; e.dataTransfer?.setData("text/plain", `${kind}:${slot}`); row.classList.add("cee-bk-dragging"); });
-    row.addEventListener("dragend", () => { dragged = null; row.classList.remove("cee-bk-dragging"); });
-    row.addEventListener("dragover", e => { if (dragged?.kind === kind) { e.preventDefault(); row.classList.add("cee-bk-drop"); } });
-    row.addEventListener("dragleave", () => row.classList.remove("cee-bk-drop"));
-    row.addEventListener("drop", e => {
+    // Dragged by the grip with pointer events (mouse, pen and touch alike); a drop swaps two places: A takes the
+    // place of B and B the place of A.
+    grip.addEventListener("pointerdown", e => {
       e.preventDefault();
-      row.classList.remove("cee-bk-drop");
-      if (!dragged || dragged.kind !== kind || dragged.slot === slot) return;
-      swap(kind, dragged.slot, slot);
+      grip.setPointerCapture?.(e.pointerId);
+      row.classList.add("cee-bk-dragging");
+      let over = null;
+      const under = ev => document.elementFromPoint(ev.clientX, ev.clientY)?.closest(`.cee-bk-slot[data-kind="${kind}"]`);
+      const move = ev => {
+        const next = under(ev);
+        if (next === over) return;
+        over?.classList.remove("cee-bk-drop");
+        over = next && next !== row ? next : null;
+        over?.classList.add("cee-bk-drop");
+      };
+      const up = ev => {
+        grip.removeEventListener("pointermove", move);
+        grip.removeEventListener("pointerup", up);
+        grip.removeEventListener("pointercancel", up);
+        row.classList.remove("cee-bk-dragging");
+        over?.classList.remove("cee-bk-drop");
+        const target = ev.type === "pointerup" ? under(ev) : null;
+        if (target && target !== row) swap(kind, slot, Number(target.dataset.slot));
+      };
+      grip.addEventListener("pointermove", move);
+      grip.addEventListener("pointerup", up);
+      grip.addEventListener("pointercancel", up);
     });
     return row;
   }

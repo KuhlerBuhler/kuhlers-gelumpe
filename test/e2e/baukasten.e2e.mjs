@@ -123,7 +123,7 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   assert.equal(await page.locator("#cee-nav-state #cee-bk-collection").isVisible(), true, "Exportieren sits in the navbar");
   assert.equal(await page.locator("#cee-bk-slots-ifx li").count(), 100);
   await page.selectOption("#cee-bk-slot-mfx-3", { label: "Short Delay" });
-  await page.locator("#cee-bk-slots-mfx li[data-slot='3']").dragTo(page.locator("#cee-bk-slots-mfx li[data-slot='100']"));
+  await page.locator("#cee-bk-slots-mfx li[data-slot='3'] .cee-bk-grip").dragTo(page.locator("#cee-bk-slots-mfx li[data-slot='100']"));
   assert.equal(await page.locator("#cee-bk-slot-mfx-100 option:checked").textContent(), "Short Delay", "A takes the place of B");
   assert.equal(await page.locator("#cee-bk-slot-mfx-3 option:checked").textContent(), "Werks-Preset", "and B the place of A");
   await page.selectOption("#cee-bk-slot-mfx-1", { label: "Short Delay" });
