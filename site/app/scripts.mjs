@@ -80,7 +80,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     button.disabled = true;
     try {
       const name = await storePlugin(s, id, bytes);
-      toast(`${name}.blech liegt auf der Karte. Am Gerät BLECH, IMPORT PLUGIN, ENTER, dann einschalten.`, "ok");
+      toast(`${name}.blech liegt auf der Karte. Am Gerät Menü -> BLECH -> IMPORT PLUGIN, ENTER, dann einschalten.`, "ok");
     } catch (e) {
       toast(e.message, "error");
     } finally {
@@ -669,26 +669,14 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   // Beside it, under its own button, the plugins of this browser.
   const catalog = el("ul", { className: "cee-catalog", id: "cee-catalog" }, PRESETS.map(catalogCard));
   const exportAllOwn = exportAll;
-  const ownShelf = el("div", { className: "cee-own-shelf", id: "cee-own-shelf", hidden: true }, [
+  const ownShelf = el("div", { className: "cee-plug-page cee-own-shelf", id: "cee-own-shelf" }, [
     el("div", { className: "actions" }, [newButton, openLabel, open, exportAllOwn]),
     ownEmpty,
     ownList,
-    el("p", { className: "muted", textContent: "Eigene Plugins bleiben auf diesem Rechner." }),
+    el("p", { className: "muted", textContent: "Deine Plugins bleiben auf diesem Rechner." }),
   ]);
-  const shelves = [["catalog", "Katalog"], ["own", "Eigene Plugins"]].map(([id, text]) => {
-    const b = el("button", { type: "button", className: "ui-segmented-option cee-shelf-tab", id: `cee-shelf-${id}`, textContent: text, onclick: () => shelf(id) });
-    b.dataset.shelf = id;
-    return b;
-  });
-  const shelfTabs = el("div", { className: "ui-segmented cee-shelf-tabs", id: "cee-shelf-tabs", role: "group" }, shelves);
-  shelfTabs.setAttribute("aria-label", "Katalog oder eigene Plugins");
-  /** Katalog or Eigene Plugins: two buttons that belong together, the pressed one is shown. */
-  function shelf(id) {
-    for (const b of shelves) b.setAttribute("aria-pressed", String(b.dataset.shelf === id));
-    catalog.hidden = id !== "catalog";
-    ownShelf.hidden = id !== "own";
-    trail([id === "own" ? "Eigene Plugins" : "Katalog"]);
-  }
+  /** The catalog or Meine Plugins, each its own sub-page. */
+  const shelf = id => page(id === "own" ? "mine" : "catalog");
 
   // A plugin's own page: picture, title, description and details on top; Vorschau and Code below, switched by two buttons.
   const detailRun = el("div", { className: "cee-detail-run", id: "cee-detail-run" });
@@ -756,7 +744,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   }
 
   const PAGES = [
-    { id: "catalog", title: "Katalog", node: el("div", { className: "cee-plug-page" }, [shelfTabs, catalog, ownShelf]) },
+    { id: "catalog", title: "Katalog", node: el("div", { className: "cee-plug-page" }, [catalog]) },
+    { id: "mine", title: "Meine Plugins", node: ownShelf },
     { id: "editor", title: "Editor", node: split },
     { id: "docs", title: "Dokumentation", node: docsPage },
     { id: "detail", title: "Plugin", node: detailPage, hidden: true },
@@ -765,7 +754,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   root.replaceChildren(...PAGES.map(p => p.node));
 
   let shown = null;
-  const PAGE_ICONS = { catalog: "grid", editor: "code", docs: "book" };
+  const PAGE_ICONS = { catalog: "grid", mine: "folder", editor: "code", docs: "book" };
   const subPages = sub?.pages("scripts", { id: "cee-scripts-pages", label: "Bereiche der Plugins", items: PAGES.filter(p => !p.hidden).map(({ id, title }) => ({ id, title, icon: PAGE_ICONS[id] })), pick: id => page(id) });
   /** Opens one of the pages of Plugins: the catalog, a plugin's page, the editor, the documentation. */
   function page(id) {
@@ -776,7 +765,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     for (const p of PAGES) p.node.hidden = p.id !== id;
     subPages?.select(id === "detail" ? "catalog" : id);
     reading = null;
-    trail(id === "editor" ? ["Editor", ...(current ? [current.id] : [])] : id === "catalog" ? [ownShelf.hidden ? "Katalog" : "Eigene Plugins"] : [PAGES.find(p => p.id === id).title]);
+    trail(id === "editor" ? ["Editor", ...(current ? [current.id] : [])] : [PAGES.find(p => p.id === id).title]);
     navbar(id === "editor" ? [openNav, saveNav] : []);
     if (id === "catalog") drawThumbs();
     if (id === "docs") loadDocs();
@@ -858,7 +847,6 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   renderNames();
   page("catalog");
   updateActions();
-  shelf("catalog");
   renderLists();
 
   return {

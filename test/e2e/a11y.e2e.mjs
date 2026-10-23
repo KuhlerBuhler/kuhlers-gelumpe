@@ -155,7 +155,7 @@ test("a file button whose input is hidden shows the keyboard focus on the button
   const page = await open();
   await page.click("#cee-tab-scripts");
   await page.click("#cee-scripts-page-catalog");
-  await page.click("#cee-shelf-own");
+  await page.click("#cee-scripts-page-mine");
   await page.locator("#cee-script-open").focus();
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Tab");

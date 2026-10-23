@@ -22,7 +22,7 @@ import { rescuePage } from "./rescue.mjs";
 import { changelogPage } from "./changelog.mjs";
 import { splashPage } from "./splash.mjs";
 import { terminalPanel } from "./terminal.mjs";
-import { featuresPage, featureCards } from "./features.mjs";
+import { featuresPage } from "./features.mjs";
 import { baukastenPage } from "./baukasten.mjs";
 import { scriptsPanel } from "./scripts.mjs";
 import { Terminal } from "../../src/terminal.mjs";
@@ -605,7 +605,6 @@ function boot() {
   patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null });
   rescuePage($("#cee-rescue"));
   featuresPage($("#cee-features"));
-  featureCards($("#cee-start-features"));
   splashPage($("#cee-splash"));
   // A run from the console opens the Plugins page, where the run area shows it.
   const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null, onRun: () => areas?.select("scripts", { focus: false }), trail: parts => nav.trail("scripts", parts), navbar: nodes => nav.plugins(nodes) });
