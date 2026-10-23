@@ -21,6 +21,7 @@
   "data/patches/blech-theme.json",
   "data/patches/preset-tables.json",
   "data/patches/preset-tables-stock.json",
+  "data/patches/fx-catalog.json",
   "data/patches/synth-filters.json",
   "data/patches/power-off.json",
   "data/patches/doom-loader.json",

@@ -1,0 +1,1587 @@
+{
+ "format": "gelumpe-fx-append",
+ "version": 1,
+ "id": "fx-catalog",
+ "name": "Effekte aus dem Katalog",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "notNeededOn": [
+  "synth"
+ ],
+ "ram": [],
+ "presets": [
+  {
+   "kind": "mfx",
+   "name": "Short Delay",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 59,
+     "unitName": "M_mod_delay",
+     "params": {
+      "dry_wet": 122,
+      "wet_spread": 100,
+      "input_trim": 95,
+      "pre_leq_gain": 36,
+      "pre_leq_frequency": 20,
+      "pre_heq_gain": 36,
+      "pre_heq_frequency": 44,
+      "delay_time_tempo_sync": 0,
+      "off_time_ratio": 65,
+      "off_l_delay_time": 19,
+      "off_r_delay_time": 21,
+      "on_time_ratio": 26,
+      "on_l_syncnote": 44,
+      "on_r_syncnote": 42,
+      "fb_type": 0,
+      "fb_depth": 0,
+      "high_damp": 12,
+      "low_damp": 5,
+      "mod_depth": 0,
+      "mod_wave": 0,
+      "mod_freq": 34,
+      "mod_rch_degree": 18,
+      "delay_lag": 30
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 2,
+     "param": 0,
+     "low": 45,
+     "high": 122
+    },
+    {
+     "source": 65,
+     "chain": 7,
+     "param": 5,
+     "low": 0,
+     "high": 88
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 9,
+     "low": 60,
+     "high": 4
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 10,
+     "low": 62,
+     "high": 5
+    },
+    {
+     "source": 67,
+     "chain": 2,
+     "param": 15,
+     "low": 0,
+     "high": 127
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "ifx",
+   "name": "1/6 Delay",
+   "stages": [
+    {
+     "stage": "ifx1",
+     "unit": 24,
+     "unitName": "I_short_delay",
+     "params": {
+      "dry_level": 127,
+      "wet_level": 100,
+      "input_trim": 127,
+      "tempo_sync": 1,
+      "off_time_ratio": 65,
+      "off_delay_time": 24,
+      "on_time_ratio": 35,
+      "on_syncnote": 6,
+      "fb_depth": 70,
+      "high_damp": 60,
+      "low_damp": 15,
+      "delay_lag": 15
+     }
+    },
+    {
+     "stage": "ifx2",
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
+    }
+   ],
+   "map": [
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 1,
+     "low": 100,
+     "high": 0
+    },
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 8,
+     "low": 70,
+     "high": 10
+    },
+    {
+     "source": 68,
+     "chain": 0,
+     "param": 8,
+     "low": 70,
+     "high": 88
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "ifx",
+   "name": "1/24 Delay",
+   "stages": [
+    {
+     "stage": "ifx1",
+     "unit": 24,
+     "unitName": "I_short_delay",
+     "params": {
+      "dry_level": 127,
+      "wet_level": 100,
+      "input_trim": 127,
+      "tempo_sync": 1,
+      "off_time_ratio": 65,
+      "off_delay_time": 24,
+      "on_time_ratio": 35,
+      "on_syncnote": 2,
+      "fb_depth": 60,
+      "high_damp": 40,
+      "low_damp": 15,
+      "delay_lag": 15
+     }
+    },
+    {
+     "stage": "ifx2",
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
+    }
+   ],
+   "map": [
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 1,
+     "low": 100,
+     "high": 0
+    },
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 8,
+     "low": 60,
+     "high": 10
+    },
+    {
+     "source": 68,
+     "chain": 0,
+     "param": 8,
+     "low": 60,
+     "high": 88
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "ifx",
+   "name": "5/32 Delay",
+   "stages": [
+    {
+     "stage": "ifx1",
+     "unit": 24,
+     "unitName": "I_short_delay",
+     "params": {
+      "dry_level": 127,
+      "wet_level": 100,
+      "input_trim": 127,
+      "tempo_sync": 1,
+      "off_time_ratio": 65,
+      "off_delay_time": 24,
+      "on_time_ratio": 8,
+      "on_syncnote": 5,
+      "fb_depth": 65,
+      "high_damp": 60,
+      "low_damp": 15,
+      "delay_lag": 15
+     }
+    },
+    {
+     "stage": "ifx2",
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
+    }
+   ],
+   "map": [
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 1,
+     "low": 100,
+     "high": 0
+    },
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 8,
+     "low": 65,
+     "high": 10
+    },
+    {
+     "source": 68,
+     "chain": 0,
+     "param": 8,
+     "low": 65,
+     "high": 88
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "ifx",
+   "name": "3/64 Delay",
+   "stages": [
+    {
+     "stage": "ifx1",
+     "unit": 24,
+     "unitName": "I_short_delay",
+     "params": {
+      "dry_level": 127,
+      "wet_level": 90,
+      "input_trim": 127,
+      "tempo_sync": 1,
+      "off_time_ratio": 65,
+      "off_delay_time": 24,
+      "on_time_ratio": 62,
+      "on_syncnote": 1,
+      "fb_depth": 80,
+      "high_damp": 60,
+      "low_damp": 15,
+      "delay_lag": 15
+     }
+    },
+    {
+     "stage": "ifx2",
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
+    }
+   ],
+   "map": [
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 1,
+     "low": 100,
+     "high": 0
+    },
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 8,
+     "low": 80,
+     "high": 10
+    },
+    {
+     "source": 68,
+     "chain": 0,
+     "param": 8,
+     "low": 80,
+     "high": 88
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "ifx",
+   "name": "Loud Distortion",
+   "stages": [
+    {
+     "stage": "ifx1",
+     "unit": 15,
+     "unitName": "I_distortion",
+     "params": {
+      "dry_wet": 0,
+      "gain": 64,
+      "pre_eq_frequency": 35,
+      "pre_eq_q": 15,
+      "pre_eq_gain": 48,
+      "post_eq1_frequency": 16,
+      "post_eq1_q": 5,
+      "post_eq1_gain": 36,
+      "post_eq2_frequency": 43,
+      "post_eq2_q": 5,
+      "post_eq2_gain": 42,
+      "post_eq3_frequency": 53,
+      "post_eq3_q": 5,
+      "post_eq3_gain": 25,
+      "output_level": 40
+     }
+    },
+    {
+     "stage": "ifx2",
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
+    }
+   ],
+   "map": [
+    {
+     "source": 66,
+     "chain": 0,
+     "param": 1,
+     "low": 32,
+     "high": 96
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "ifx",
+   "name": "Fuzz",
+   "stages": [
+    {
+     "stage": "ifx1",
+     "unit": 15,
+     "unitName": "I_distortion",
+     "params": {
+      "dry_wet": 0,
+      "gain": 80,
+      "pre_eq_frequency": 35,
+      "pre_eq_q": 15,
+      "pre_eq_gain": 60,
+      "post_eq1_frequency": 16,
+      "post_eq1_q": 5,
+      "post_eq1_gain": 30,
+      "post_eq2_frequency": 43,
+      "post_eq2_q": 5,
+      "post_eq2_gain": 42,
+      "post_eq3_frequency": 53,
+      "post_eq3_q": 5,
+      "post_eq3_gain": 20,
+      "output_level": 30
+     }
+    },
+    {
+     "stage": "ifx2",
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
+    }
+   ],
+   "map": [
+    {
+     "source": 66,
+     "chain": 0,
+     "param": 1,
+     "low": 60,
+     "high": 100
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "ifx",
+   "name": "Crunch",
+   "stages": [
+    {
+     "stage": "ifx1",
+     "unit": 15,
+     "unitName": "I_distortion",
+     "params": {
+      "dry_wet": 0,
+      "gain": 40,
+      "pre_eq_frequency": 35,
+      "pre_eq_q": 15,
+      "pre_eq_gain": 48,
+      "post_eq1_frequency": 16,
+      "post_eq1_q": 5,
+      "post_eq1_gain": 42,
+      "post_eq2_frequency": 43,
+      "post_eq2_q": 5,
+      "post_eq2_gain": 42,
+      "post_eq3_frequency": 53,
+      "post_eq3_q": 5,
+      "post_eq3_gain": 30,
+      "output_level": 35
+     }
+    },
+    {
+     "stage": "ifx2",
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
+    }
+   ],
+   "map": [
+    {
+     "source": 66,
+     "chain": 0,
+     "param": 1,
+     "low": 20,
+     "high": 60
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "ifx",
+   "name": "Hot Overdrive",
+   "stages": [
+    {
+     "stage": "ifx1",
+     "unit": 16,
+     "unitName": "I_acid_driver",
+     "params": {
+      "drive": 70,
+      "output_level": 40
+     }
+    },
+    {
+     "stage": "ifx2",
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
+    }
+   ],
+   "map": [
+    {
+     "source": 66,
+     "chain": 0,
+     "param": 0,
+     "low": 30,
+     "high": 100
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "mfx",
+   "name": "Tri Ping Pong",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 59,
+     "unitName": "M_mod_delay",
+     "params": {
+      "dry_wet": 100,
+      "wet_spread": 127,
+      "input_trim": 80,
+      "pre_leq_gain": 36,
+      "pre_leq_frequency": 20,
+      "pre_heq_gain": 36,
+      "pre_heq_frequency": 44,
+      "delay_time_tempo_sync": 1,
+      "off_time_ratio": 65,
+      "off_l_delay_time": 47,
+      "off_r_delay_time": 41,
+      "on_time_ratio": 35,
+      "on_l_syncnote": 6,
+      "on_r_syncnote": 4,
+      "fb_type": 0,
+      "fb_depth": 60,
+      "high_damp": 40,
+      "low_damp": 10,
+      "mod_depth": 10,
+      "mod_wave": 1,
+      "mod_freq": 26,
+      "mod_rch_degree": 9,
+      "delay_lag": 0
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 7,
+     "param": 5,
+     "low": 0,
+     "high": 127
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 0,
+     "low": 40,
+     "high": 100
+    },
+    {
+     "source": 67,
+     "chain": 2,
+     "param": 15,
+     "low": 30,
+     "high": 85
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "mfx",
+   "name": "Dub Echo",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 60,
+     "unitName": "M_tape_echo",
+     "params": {
+      "dry_wet": 100,
+      "time_ratio": 25,
+      "sync_on": 1,
+      "s_note1": 8,
+      "s_note2": 8,
+      "time1": 19,
+      "time2": 19,
+      "delay_lag": 1,
+      "output_level": 53,
+      "tap1_level": 88,
+      "tap2_level": 88,
+      "feedback": 85,
+      "hi_damp": 55,
+      "lo_damp": 60,
+      "trim": 80,
+      "saturation": 80,
+      "gain": 55,
+      "gainshift": 5,
+      "lfo_wave": 2,
+      "lfo_depth": 15,
+      "lfo_speed": 40,
+      "lfo_reset": 0,
+      "pre_lpf": 109,
+      "spread": 100
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 7,
+     "param": 5,
+     "low": 0,
+     "high": 127
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 0,
+     "low": 40,
+     "high": 100
+    },
+    {
+     "source": 67,
+     "chain": 2,
+     "param": 11,
+     "low": 50,
+     "high": 88
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "mfx",
+   "name": "Master Pumper",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 53,
+     "unitName": "M_level_mod",
+     "params": {
+      "amp_level": 127,
+      "output_gain_adjust": 30,
+      "level_mod_source": 4,
+      "level_mod_int": 126,
+      "level_mod_type": 0,
+      "saturation": 1,
+      "lfo_sync": 1,
+      "lfo_speed": 33,
+      "lfo_sync_note": 6,
+      "lfo_phase": 27,
+      "lfo_reset": 0,
+      "lfo_reset_phase": 36
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 10,
+     "param": 4,
+     "low": 127,
+     "high": 0
+    },
+    {
+     "source": 65,
+     "chain": 10,
+     "param": 0,
+     "low": 0,
+     "high": 127
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 3,
+     "low": 63,
+     "high": 126
+    },
+    {
+     "source": 74,
+     "chain": 2,
+     "param": 10,
+     "low": 0,
+     "high": 1
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "mfx",
+   "name": "Tremolo 1/8",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 52,
+     "unitName": "M_tremolo",
+     "params": {
+      "dry_wet": 100,
+      "mod_src": 0,
+      "mod_int": 100,
+      "lfo_wave": 2,
+      "lfo_squdur": 50,
+      "lfo_squlag": 0,
+      "lfo_sync": 1,
+      "lfo_speed": 66,
+      "lfo_sync_note": 7,
+      "lfo_shape": 25,
+      "lfo_phase": 36,
+      "lfo_reset": 0,
+      "lfo_reset_phase": 18
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 10,
+     "param": 4,
+     "low": 127,
+     "high": 0
+    },
+    {
+     "source": 65,
+     "chain": 10,
+     "param": 0,
+     "low": 0,
+     "high": 127
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 2,
+     "low": 0,
+     "high": 127
+    },
+    {
+     "source": 74,
+     "chain": 2,
+     "param": 11,
+     "low": 0,
+     "high": 1
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "mfx",
+   "name": "Wah 1/8",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 44,
+     "unitName": "M_wah",
+     "params": {
+      "dry_wet": 100,
+      "wah_type": 0,
+      "mod_src": 0,
+      "mod_int": 127,
+      "control": 1,
+      "env_select": 1,
+      "env_response": 1,
+      "env_sens": 127,
+      "lfo_step": 0,
+      "lfo_wave": 0,
+      "lfo_sync": 1,
+      "lfo_speed": 47,
+      "lfo_syncnote": 7,
+      "lfo_rch_degree": 19,
+      "lfo_reset": 0,
+      "lfo_resetphase": 0,
+      "manual": 56
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 10,
+     "param": 4,
+     "low": 127,
+     "high": 0
+    },
+    {
+     "source": 65,
+     "chain": 10,
+     "param": 0,
+     "low": 0,
+     "high": 127
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 16,
+     "low": 20,
+     "high": 110
+    },
+    {
+     "source": 67,
+     "chain": 2,
+     "param": 3,
+     "low": 0,
+     "high": 127
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "mfx",
+   "name": "Small Plate",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 57,
+     "unitName": "M_dry_plate_reverb",
+     "params": {
+      "dry_wet": 50,
+      "time": 45,
+      "hi_damp": 61,
+      "pre_delay": 51,
+      "trim": 39,
+      "trim2": 64,
+      "lo_eq": 30,
+      "hi_eq": 30,
+      "pd_thru": 26
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 7,
+     "param": 5,
+     "low": 0,
+     "high": 127
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 0,
+     "low": 20,
+     "high": 90
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "mfx",
+   "name": "Master Limiter",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 42,
+     "unitName": "M_limiter",
+     "params": {
+      "dry_wet": 100,
+      "envelope_select": 0,
+      "threshold": 48,
+      "attack": 0,
+      "release": 8,
+      "hold_time": 8,
+      "tube_sat": 50,
+      "output_gain": 54
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 10,
+     "param": 4,
+     "low": 127,
+     "high": 0
+    },
+    {
+     "source": 65,
+     "chain": 10,
+     "param": 0,
+     "low": 0,
+     "high": 127
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 2,
+     "low": 52,
+     "high": 30
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  }
+ ],
+ "units": {
+  "ifx_device": {
+   "0x18": {
+    "unit": "I_short_delay",
+    "params": [
+     {
+      "name": "dry_level",
+      "type": "Int8ul",
+      "default": "0x78"
+     },
+     {
+      "name": "wet_level",
+      "type": "Int8ul",
+      "default": "0x1E"
+     },
+     {
+      "name": "input_trim",
+      "type": "Int8ul",
+      "default": "0x7F"
+     },
+     {
+      "name": "tempo_sync",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "off_time_ratio",
+      "type": "Int8ul",
+      "default": "0x41"
+     },
+     {
+      "name": "off_delay_time",
+      "type": "Int8ul",
+      "default": "0x18"
+     },
+     {
+      "name": "on_time_ratio",
+      "type": "Int8ul",
+      "default": "0x23"
+     },
+     {
+      "name": "on_syncnote",
+      "type": "Int8ul",
+      "default": "0x11"
+     },
+     {
+      "name": "fb_depth",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "high_damp",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "low_damp",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "delay_lag",
+      "type": "Int8ul",
+      "default": "0xF"
+     }
+    ]
+   },
+   "0x00": {
+    "unit": "nofx_thru",
+    "params": []
+   },
+   "0x0f": {
+    "unit": "I_distortion",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x00"
+     },
+     {
+      "name": "gain",
+      "type": "Int8ul",
+      "default": "0x40"
+     },
+     {
+      "name": "pre_eq_frequency",
+      "type": "Int8ul",
+      "default": "0x23"
+     },
+     {
+      "name": "pre_eq_q",
+      "type": "Int8ul",
+      "default": "0xF"
+     },
+     {
+      "name": "pre_eq_gain",
+      "type": "Int8ul",
+      "default": "0x30"
+     },
+     {
+      "name": "post_eq1_frequency",
+      "type": "Int8ul",
+      "default": "0x10"
+     },
+     {
+      "name": "post_eq1_q",
+      "type": "Int8ul",
+      "default": "0x5"
+     },
+     {
+      "name": "post_eq1_gain",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "post_eq2_frequency",
+      "type": "Int8ul",
+      "default": "0x2B"
+     },
+     {
+      "name": "post_eq2_q",
+      "type": "Int8ul",
+      "default": "0x5"
+     },
+     {
+      "name": "post_eq2_gain",
+      "type": "Int8ul",
+      "default": "0x2A"
+     },
+     {
+      "name": "post_eq3_frequency",
+      "type": "Int8ul",
+      "default": "0x35"
+     },
+     {
+      "name": "post_eq3_q",
+      "type": "Int8ul",
+      "default": "0x5"
+     },
+     {
+      "name": "post_eq3_gain",
+      "type": "Int8ul",
+      "default": "0x19"
+     },
+     {
+      "name": "output_level",
+      "type": "Int8ul",
+      "default": "0x19"
+     }
+    ]
+   },
+   "0x10": {
+    "unit": "I_acid_driver",
+    "params": [
+     {
+      "name": "drive",
+      "type": "Int8ul",
+      "default": "0x1E"
+     },
+     {
+      "name": "output_level",
+      "type": "Int8ul",
+      "default": "0x28"
+     }
+    ]
+   }
+  },
+  "mfx_device": {
+   "0x3b": {
+    "unit": "M_mod_delay",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x64"
+     },
+     {
+      "name": "wet_spread",
+      "type": "Int8ul",
+      "default": "0x7F"
+     },
+     {
+      "name": "input_trim",
+      "type": "Int8ul",
+      "default": "0x32"
+     },
+     {
+      "name": "pre_leq_gain",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "pre_leq_frequency",
+      "type": "Int8ul",
+      "default": "0x14"
+     },
+     {
+      "name": "pre_heq_gain",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "pre_heq_frequency",
+      "type": "Int8ul",
+      "default": "0x2C"
+     },
+     {
+      "name": "delay_time_tempo_sync",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "off_time_ratio",
+      "type": "Int8ul",
+      "default": "0x41"
+     },
+     {
+      "name": "off_l_delay_time",
+      "type": "Int8ul",
+      "default": "0x2F"
+     },
+     {
+      "name": "off_r_delay_time",
+      "type": "Int8ul",
+      "default": "0x29"
+     },
+     {
+      "name": "on_time_ratio",
+      "type": "Int8ul",
+      "default": "0x23"
+     },
+     {
+      "name": "on_l_syncnote",
+      "type": "Int8ul",
+      "default": "0x11"
+     },
+     {
+      "name": "on_r_syncnote",
+      "type": "Int8ul",
+      "default": "0x2B"
+     },
+     {
+      "name": "fb_type",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "fb_depth",
+      "type": "Int8ul",
+      "default": "0x46"
+     },
+     {
+      "name": "high_damp",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "low_damp",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "mod_depth",
+      "type": "Int8ul",
+      "default": "0x23"
+     },
+     {
+      "name": "mod_wave",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "mod_freq",
+      "type": "Int8ul",
+      "default": "0x1A"
+     },
+     {
+      "name": "mod_rch_degree",
+      "type": "Int8ul",
+      "default": "0x9"
+     },
+     {
+      "name": "delay_lag",
+      "type": "Int8ul",
+      "default": "0x0"
+     }
+    ]
+   },
+   "0x3c": {
+    "unit": "M_tape_echo",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x64"
+     },
+     {
+      "name": "time_ratio",
+      "type": "Int8ul",
+      "default": "0x19"
+     },
+     {
+      "name": "sync_on",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "s_note1",
+      "type": "Int8ul",
+      "default": "0x8"
+     },
+     {
+      "name": "s_note2",
+      "type": "Int8ul",
+      "default": "0x8"
+     },
+     {
+      "name": "time1",
+      "type": "Int8ul",
+      "default": "0x13"
+     },
+     {
+      "name": "time2",
+      "type": "Int8ul",
+      "default": "0x13"
+     },
+     {
+      "name": "delay_lag",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "output_level",
+      "type": "Int8ul",
+      "default": "0x35"
+     },
+     {
+      "name": "tap1_level",
+      "type": "Int8ul",
+      "default": "0x58"
+     },
+     {
+      "name": "tap2_level",
+      "type": "Int8ul",
+      "default": "0x58"
+     },
+     {
+      "name": "feedback",
+      "type": "Int8ul",
+      "default": "0x46"
+     },
+     {
+      "name": "hi_damp",
+      "type": "Int8ul",
+      "default": "0x4D"
+     },
+     {
+      "name": "lo_damp",
+      "type": "Int8ul",
+      "default": "0x30"
+     },
+     {
+      "name": "trim",
+      "type": "Int8ul",
+      "default": "0x50"
+     },
+     {
+      "name": "saturation",
+      "type": "Int8ul",
+      "default": "0x35"
+     },
+     {
+      "name": "gain",
+      "type": "Int8ul",
+      "default": "0x37"
+     },
+     {
+      "name": "gainshift",
+      "type": "Int8ul",
+      "default": "0x5"
+     },
+     {
+      "name": "lfo_wave",
+      "type": "Int8ul",
+      "default": "0x2"
+     },
+     {
+      "name": "lfo_depth",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "lfo_speed",
+      "type": "Int8ul",
+      "default": "0x7F"
+     },
+     {
+      "name": "lfo_reset",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "pre_lpf",
+      "type": "Int8ul",
+      "default": "0x6D"
+     },
+     {
+      "name": "spread",
+      "type": "Int8ul",
+      "default": "0x64"
+     }
+    ]
+   },
+   "0x35": {
+    "unit": "M_level_mod",
+    "params": [
+     {
+      "name": "amp_level",
+      "type": "Int8ul",
+      "default": "0x7F"
+     },
+     {
+      "name": "output_gain_adjust",
+      "type": "Int8ul",
+      "default": "0x18"
+     },
+     {
+      "name": "level_mod_source",
+      "type": "Int8ul",
+      "default": "0x2"
+     },
+     {
+      "name": "level_mod_int",
+      "type": "Int8ul",
+      "default": "0x7E"
+     },
+     {
+      "name": "level_mod_type",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "saturation",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "lfo_sync",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "lfo_speed",
+      "type": "Int8ul",
+      "default": "0x21"
+     },
+     {
+      "name": "lfo_sync_note",
+      "type": "Int8ul",
+      "default": "0x6"
+     },
+     {
+      "name": "lfo_phase",
+      "type": "Int8ul",
+      "default": "0x1B"
+     },
+     {
+      "name": "lfo_reset",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "lfo_reset_phase",
+      "type": "Int8ul",
+      "default": "0x24"
+     }
+    ]
+   },
+   "0x34": {
+    "unit": "M_tremolo",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x64"
+     },
+     {
+      "name": "mod_src",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "mod_int",
+      "type": "Int8ul",
+      "default": "0x50"
+     },
+     {
+      "name": "lfo_wave",
+      "type": "Int8ul",
+      "default": "0x2"
+     },
+     {
+      "name": "lfo_squdur",
+      "type": "Int8ul",
+      "default": "0x32"
+     },
+     {
+      "name": "lfo_squlag",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "lfo_sync",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "lfo_speed",
+      "type": "Int8ul",
+      "default": "0x42"
+     },
+     {
+      "name": "lfo_sync_note",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "lfo_shape",
+      "type": "Int8ul",
+      "default": "0x19"
+     },
+     {
+      "name": "lfo_phase",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "lfo_reset",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "lfo_reset_phase",
+      "type": "Int8ul",
+      "default": "0x12"
+     }
+    ]
+   },
+   "0x2c": {
+    "unit": "M_wah",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x64"
+     },
+     {
+      "name": "wah_type",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "mod_src",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "mod_int",
+      "type": "Int8ul",
+      "default": "0x7F"
+     },
+     {
+      "name": "control",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "env_select",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "env_response",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "env_sens",
+      "type": "Int8ul",
+      "default": "0x7F"
+     },
+     {
+      "name": "lfo_step",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "lfo_wave",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "lfo_sync",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "lfo_speed",
+      "type": "Int8ul",
+      "default": "0x2F"
+     },
+     {
+      "name": "lfo_syncnote",
+      "type": "Int8ul",
+      "default": "0x6"
+     },
+     {
+      "name": "lfo_rch_degree",
+      "type": "Int8ul",
+      "default": "0x13"
+     },
+     {
+      "name": "lfo_reset",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "lfo_resetphase",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "manual",
+      "type": "Int8ul",
+      "default": "0x38"
+     }
+    ]
+   },
+   "0x39": {
+    "unit": "M_dry_plate_reverb",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x64"
+     },
+     {
+      "name": "time",
+      "type": "Int8ul",
+      "default": "0x1F"
+     },
+     {
+      "name": "hi_damp",
+      "type": "Int8ul",
+      "default": "0x3D"
+     },
+     {
+      "name": "pre_delay",
+      "type": "Int8ul",
+      "default": "0x33"
+     },
+     {
+      "name": "trim",
+      "type": "Int8ul",
+      "default": "0x27"
+     },
+     {
+      "name": "trim2",
+      "type": "Int8ul",
+      "default": "0x40"
+     },
+     {
+      "name": "lo_eq",
+      "type": "Int8ul",
+      "default": "0x1E"
+     },
+     {
+      "name": "hi_eq",
+      "type": "Int8ul",
+      "default": "0x1E"
+     },
+     {
+      "name": "pd_thru",
+      "type": "Int8ul",
+      "default": "0x1A"
+     }
+    ]
+   },
+   "0x2a": {
+    "unit": "M_limiter",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x64"
+     },
+     {
+      "name": "envelope_select",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "threshold",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "attack",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "release",
+      "type": "Int8ul",
+      "default": "0x8"
+     },
+     {
+      "name": "hold_time",
+      "type": "Int8ul",
+      "default": "0x8"
+     },
+     {
+      "name": "tube_sat",
+      "type": "Int8ul",
+      "default": "0x32"
+     },
+     {
+      "name": "output_gain",
+      "type": "Int8ul",
+      "default": "0x48"
+     }
+    ]
+   }
+  }
+ }
+}
