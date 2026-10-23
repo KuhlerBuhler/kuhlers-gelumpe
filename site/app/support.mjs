@@ -56,9 +56,13 @@ const NAME_MAX = 14;
 
 /** A 1-bit picture as rows of booleans, cut to the pixels that are set. The more common colour is the background: the art is drawn both ways round, some with a frame. */
 async function maskOf(src) {
-  const picture = new Image();
-  picture.src = src;
-  await picture.decode();
+  // onload, not decode(): decode() was seen to stay pending for a picture that had loaded long ago.
+  const picture = await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
   const { width: w, height: h } = picture;
   const work = el("canvas", { width: w, height: h });
   const ctx = work.getContext("2d", { willReadFrequently: true });
