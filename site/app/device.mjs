@@ -221,7 +221,13 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     port.ondisconnect = () => {
       if (session?.port !== port) return;
       session.lost();
-      say("error", "getrennt", "Der Emulator läuft nicht mehr. Starte ihn neu und verbinde nochmal. Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen.");
+      say("error", "getrennt", "Der Emulator läuft nicht mehr. Sobald er wieder läuft, verbindet sich das hier von selbst. Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen.");
+      // Once the emulator runs again, the same port connects again, unless another connection came in between.
+      const lost = session;
+      const back = setInterval(() => {
+        if (session !== lost) clearInterval(back);
+        else if (port.running) { clearInterval(back); connectPort(port); }
+      }, 1000);
     };
     connectPort(port);
   });

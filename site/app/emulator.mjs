@@ -167,6 +167,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   let vsb = null;
   let base = null;
   let pushed = null;          // the VSB the service holds. It boots from its own flash after an update, so what it runs may not be `vsb`
+  let resume = false;         // the service went away while the firmware ran: once it answers again, the page boots it again
 
   const deviceBox = el("div", { className: "cee-emu-device", id: "cee-emu-device" });
   const status = el("p", { className: "cee-emu-status ui-sr-only", id: "cee-emu-status", role: "status" });
@@ -245,7 +246,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   // /emu.json. Nobody is asked to run a command: the start button looks for it, and what fails is said in a toast.
   const inApp = !!window.__GELUMPE_APP;
   const START_HINT = inApp
-    ? "Der Emulator der App startet nicht. Schließ die App und öffne sie neu; was er meldet, steht in ~/.gelumpe/emu.log."
+    ? "Der Emulator der App startet gerade nicht. Die App versucht es weiter; hilft das nicht, schließ sie und öffne sie neu. Was er meldet, steht in ~/.gelumpe/emu.log."
     : "Der Emulator läuft nicht. In der App GELUMPE startet er von selbst; wer die Seite aus dem Quelltext startet, nimmt npm start.";
   const startButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-emu-start", textContent: "Emulator starten", hidden: true });
   /** Looks for the emulator service; false and a toast when there is none. */
@@ -307,7 +308,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
         method: "POST", body, headers: { "Content-Type": type, "X-Emu-Token": link.token },
       });
     } catch {
-      throw new Error(inApp ? `Der Emulator der App antwortet nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log.` : `Der Emulator auf Port ${link.port} antwortet nicht. Läuft npm run emu?`);
+      throw new Error(inApp ? `Der Emulator der App antwortet gerade nicht, die App startet ihn neu. Versuch es gleich nochmal; was er meldet, steht in ~/.gelumpe/emu.log.` : `Der Emulator auf Port ${link.port} antwortet nicht. Läuft npm start noch?`);
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Emulator antwortet mit ${res.status}.`);
@@ -326,6 +327,11 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     lastState = s.state;
     booted = s.state === "running" && s.booted !== false;
     if (stopped) port.ondisconnect?.();
+    if (resume) {
+      resume = false;
+      // A service started again holds no firmware and runs none: the power key the person pressed before counts again.
+      if (!live(s.state) && vsb) queueMicrotask(boot);
+    }
     say(tone, word, s.error || (s.state === "running" ? "Die Firmware läuft." : s.state === "off" ? "Die Electribe ist aus." : ""), QUIET.has(s.state) && !s.error);
     if (s.state !== "running") device.showLeds({}, true);
     if (!fake) device.setPower(live(s.state));
@@ -362,8 +368,17 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     });
     events.addEventListener("error", () => {
       if (events.readyState === EventSource.CLOSED || events.readyState === EventSource.CONNECTING) {
-        const text = inApp ? "Der Emulator antwortet nicht mehr. Schließ die App und öffne sie neu." : "Der Emulator antwortet nicht mehr. Läuft npm start noch?";
+        // The app starts its service again on the same port (src-tauri), `npm start` too: whatever answers next
+        // holds no firmware, and what ran is booted again once it is back.
+        pushed = null;
+        if (lastState === "running" || lastState === "hung") {
+          showStatus({ state: "stopped" });
+          resume = true;
+        }
+        const text = inApp ? "Der Emulator antwortet nicht mehr. Die App startet ihn neu, gleich geht es weiter." : "Der Emulator antwortet nicht mehr. Sobald er wieder läuft, geht es hier von selbst weiter. Läuft npm start noch?";
         say("warn", "getrennt", text);
+        // A browser that gives up instead of trying again is asked again.
+        if (events.readyState === EventSource.CLOSED) setTimeout(() => { if (events?.readyState === EventSource.CLOSED) listen(); }, 2000);
       }
     });
   }
