@@ -88,7 +88,7 @@ test("applied to the own firmware it changes only what it names, alone and with 
   for (let i = 0; i < original.length; i++) {
     if (original[i] !== res.bytes[i]) assert.ok(named.some(([at, n]) => i >= at && i < at + n), `0x${i.toString(16)} changed without being named`);
   }
-  assert.equal(res.allowCode.length, 0, "no start span");
+  assert.deepEqual(res.allowCode, PATCH.startPhase.map(s => [s.file, s.length]), "only the start spans the patch declares");
   const all = await applyPatches(original, [...OTHERS, PATCH]);
   assert.equal(all.ok, true, all.reasons.join(" "));
 });
