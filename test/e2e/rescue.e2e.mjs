@@ -98,8 +98,8 @@ test("every step says how sure it is, and what is open stays marked open", async
   await walk(page);
   const zero = await page.locator("#cee-rescue-chat").textContent();
   assert.match(zero, /Panel-Update/);
-  assert.match(zero, /nicht gemessen/, "no recovery for 00 is claimed");
-  assert.equal(await page.locator("#cee-rescue-chat .cee-status[data-tone=ok]").count(), 0, "nothing about 00 is measured on the device");
+  assert.match(zero, /KORG\/electribe sampler\/System\/SYSTEM\.VSB.*ENTER/s, "00 goes through the update prompt with Korg's sampler file");
+  assert.match(zero, /GitHub Issue/, "and says where to ask when it does not help");
 });
 
 test("a device that asks nothing gets the stop sign: the bootloader is never touched, beyond that only JTAG", async () => {
@@ -162,16 +162,16 @@ test("on a phone the page does not scroll sideways and nothing sticks out", asyn
 
 test("what is only to read follows by itself, a step to do waits for its answer, and back skips what came by itself", async () => {
   const page = await open();
-  await answer(page, RESCUE.cases.find(c => c.id === "zero").label);
+  await answer(page, RESCUE.cases.find(c => c.id === "silent").label);
   await settle(page);
-  const zero = RESCUE.cases.find(c => c.id === "zero");
-  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-say").count(), zero.steps.length + 2, "every step and the limit, no button in between");
+  const silent = RESCUE.cases.find(c => c.id === "silent");
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-say").count(), silent.steps.length + 2, "every step and the limit, no button in between");
   assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-you").count(), 1, "the person only answered once");
   await page.click("#cee-rescue-back");
   assert.equal(await page.locator("#cee-rescue-chat > li").count(), 1, "back lands on the first question");
   await answer(page, RESCUE.cases.find(c => c.id === "prompt").label);
   await page.locator("#cee-rescue-answers button", { hasText: TALK.done }).waitFor();
-  assert.match(await said(page), /Werksfirmware/, "the step to do waits");
+  assert.match(await said(page), /Original-Firmware/, "the step to do waits");
   assert.equal(await page.locator("#cee-rescue-sure").count(), 0, "no box explaining the markers, the marker says it");
   assert.deepEqual(page.errors, []);
 });

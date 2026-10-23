@@ -61,7 +61,7 @@ function flow() {
     });
     nodes[`limit:${c.id}`] = {
       mood: c.id === "starts" ? "wave" : "sad",
-      say: () => [el("p", { className: "cee-rescue-limit" }, [el("strong", { textContent: "Grenze: " }), c.limit]), el("p", { textContent: TALK.end })],
+      say: () => [el("p", { className: "cee-rescue-limit" }, [el("strong", { textContent: "Grenze: " }), c.limit]), el("p", {}, words(TALK.end))],
       choices: [],
     };
   }

@@ -47,13 +47,14 @@ und mit `doom.bin` unter `KORG/blechtribe/Doom/`). Der Rückweg ist kurz und lie
    an (Notschalter, am Gerät nur für den MFX-2-Patch bestätigt). Dann die gesicherte Original-Datei in
    den Ordner oben legen, Prüfsumme auf der Karte nachlesen, DATA UTILITY, SOFTWARE UPDATE (FACTORY
    RESET direkt davor nicht bestätigen), Abschluss abwarten. Das ist am 10.10. am Gerät geübt.
-2. **SOFTWARE UPDATE, press ENTER beim Einschalten.** Laut Hacktribe-Doku kann eine passende
-   Werksfirmware auf der Karte helfen. Am Gerät nicht geübt, im Emulator suchte die Abfrage die Datei
-   an der Kartenwurzel und meldete "Error, Invalid File" (Grund offen,
-   [Hintergrund](hintergrund/virtuelle-sd.md)).
+2. **SOFTWARE UPDATE, press ENTER beim Einschalten.** Korgs Original-Firmware für den Sampler unter
+   `KORG/electribe sampler/System/SYSTEM.VSB` auf die Karte, einschalten, ENTER, Update durchlaufen lassen,
+   aus und wieder an. Am Gerät bestätigt (23.10.). Im Emulator suchte die Abfrage die Datei an der
+   Kartenwurzel und meldete "Error, Invalid File" (Grund offen, [Hintergrund](hintergrund/virtuelle-sd.md)).
 3. **Anzeige 00.** Offline gelesen: so zeigt die Firmware das Panel-Update, wenn der Panel-Controller
-   nicht mit Version `0x96` antwortet ([Boot](messungen/2026-10-08-emulator-boot.md)). Welche Schritte
-   am Gerät dann helfen, ist nicht gemessen, darum nennt die Seite keine.
+   nicht mit Version `0x96` antwortet ([Boot](messungen/2026-10-08-emulator-boot.md)). Am Gerät bestätigt
+   (23.10.): mit Korgs Original-Firmware unter `KORG/electribe sampler/System/SYSTEM.VSB` fragt das Gerät
+   nach dem Update, und nach dem Update startet es wieder.
 4. **Nichts, keine Abfrage.** Stoppschild, nur JTAG.
 
 Alle Rettungswege liegen in der Firmware selbst. Eine Firmware, die vor ihnen hängt, ist ohne JTAG

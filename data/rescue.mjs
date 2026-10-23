@@ -10,6 +10,7 @@ export const STATUS = {
 export const LINKS = {
   debrick: "https://github.com/bangcorrupt/hacktribe/wiki/Debrick",
   howTo: "https://github.com/bangcorrupt/hacktribe/wiki/How-To",
+  issues: "https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues",
 };
 
 /** What Blechy says between the steps of the question flow; the steps themselves are the cases below. */
@@ -25,7 +26,8 @@ export const TALK = {
   which: "Welche Firmware läuft gerade auf deiner Electribe?",
   folder: "Leg deine gesicherte Original-SYSTEM.VSB auf der Karte hierhin:",
   done: "Hab ich gemacht",
-  end: "Mehr ist dazu nicht geprüft. Probier nichts auf Verdacht.",
+  // A line of parts like the stop sign's: { link } is a key of LINKS.
+  end: ["Kommst du nicht weiter, schick ein Foto vom Display und was du zuletzt gemacht hast, ", { link: "issues", text: "als GitHub Issue" }, " oder auf Instagram. Probier nichts auf Verdacht."],
   again: "Von vorn",
   back: "Zurück",
 };
@@ -96,21 +98,18 @@ export default {
         },
         {
           act: true,
-          text: "Eine passende Werksfirmware auf der Karte kann die Wiederherstellung ermöglichen. Für einen ursprünglich als Sampler verkauften Electribe liegt sie unter KORG/electribe sampler/System/SYSTEM.VSB. Das ist ein anderer Pfad als der der laufenden Hacktribe.",
-          status: "offen",
-          note: "So beschreibt es die Hacktribe-Dokumentation. Am Gerät ist dieser Weg nicht geübt. Ob die Datei, die schon unter diesem Pfad lag, eine passende Werksfirmware ist, blieb im Test offen.",
+          text: "Leg Korgs Original-Firmware für den Sampler auf die Karte: KORG/electribe sampler/System/SYSTEM.VSB. Das ist ein anderer Ordner als der von Hacktribe oder BLECHTRIBE.",
+          status: "gemessen",
+          note: "Am Gerät so bestätigt (23.10.). Die Hacktribe-Dokumentation beschreibt denselben Weg.",
         },
         {
           act: true,
-          text: "Karte ins ausgeschaltete Gerät, Netzteil, einschalten, bei der Abfrage ENTER drücken.",
-          status: "offen",
-        },
-        {
-          text: "Im Emulator suchte die Abfrage System/SYSTEM.VSB an der Kartenwurzel, ohne KORG davor, und meldete \"Error, Invalid File\". Warum, ist offen. Klappt es am Gerät nicht, nichts weiter ausprobieren.",
-          status: "offline",
+          text: "Karte ins ausgeschaltete Gerät, Netzteil anschließen, einschalten. Bei der Abfrage ENTER drücken, das Update durchlaufen lassen, dann aus- und wieder einschalten. Das Gerät startet wieder mit Korgs Firmware.",
+          status: "gemessen",
+          note: "Am Gerät bestätigt (23.10.). Im Emulator suchte die Abfrage die Datei an der Kartenwurzel und meldete \"Error, Invalid File\"; warum, ist offen.",
         },
       ],
-      limit: "Das ist der einzige dokumentierte Weg ohne JTAG, wenn die laufende Firmware nicht mehr startet, und er ist am Gerät ungeübt.",
+      limit: "Das ist der Weg ohne JTAG, wenn die laufende Firmware nicht mehr startet. Danach kannst du BLECHTRIBE wie beim ersten Mal wieder aufspielen.",
     },
     {
       id: "zero",
@@ -122,16 +121,19 @@ export default {
           status: "offline",
         },
         {
-          text: "Welche Schritte am Gerät bei 00 helfen, ist in diesem Projekt nicht gemessen. Einen geübten Rettungsweg dafür gibt es nicht. Nicht auf Verdacht Tasten halten oder Dateien tauschen.",
-          status: "offen",
+          act: true,
+          text: "Leg Korgs Original-Firmware für den Sampler auf die Karte: KORG/electribe sampler/System/SYSTEM.VSB.",
+          status: "gemessen",
+          note: "Bei 00 am Gerät so bestätigt (23.10.).",
         },
         {
-          text: "Kommt danach die Update-Abfrage, gilt der Fall davor. Hängt das Gerät ohne eine Update-Abfrage, gilt das Stopp-Schild: nach der Anleitung von Hacktribe nur JTAG.",
-          status: "offen",
-          note: "Aus der Debrick-Anleitung von Hacktribe, am Gerät nicht nachgestellt.",
+          act: true,
+          text: "Karte ins ausgeschaltete Gerät, Netzteil anschließen, einschalten. Das Gerät fragt nach dem Update: ENTER drücken, das Update durchlaufen lassen, dann aus- und wieder einschalten. Danach startet es wieder.",
+          status: "gemessen",
+          note: "Am Gerät bestätigt (23.10.).",
         },
       ],
-      limit: "Eine Firmware, die vor dem Panel-Austausch, den gehaltenen Tasten und der Update-Abfrage hängt, ist ohne JTAG nicht zu retten.",
+      limit: "Kommt keine Update-Abfrage und das Gerät hängt weiter, gilt das Stopp-Schild: nach der Anleitung von Hacktribe nur JTAG.",
     },
     {
       id: "silent",
