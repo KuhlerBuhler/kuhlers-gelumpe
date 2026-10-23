@@ -12,6 +12,7 @@ from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_AR
 BUILD = None
 SHARED = json.loads((Path(__file__).parent / "layout.json").read_text())["shared"]
 TICK, SCRATCH, TRAP = 0xC06A2930, 0xC0E00000, 0xC0F00000
+GPIO_IN67 = 0x01E26098          # bit 31 (GPIO 7.15) low while the power key is held
 WAD = b"SD:/KORG/blechtribe/Doom/doom.wad\0"
 REGS = [UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3]
 
@@ -20,6 +21,7 @@ class Adapter:
     def __init__(self):
         self.uc = Uc(UC_ARCH_ARM, UC_MODE_ARM)
         self.uc.mem_map(0xC0000000, 0x2000000)
+        self.uc.mem_map(0x01E26000, 0x1000)       # GPIO: the power key reads as held unless a test lets go
         self.uc.mem_write(0xC1000000, (BUILD / "doom-runtime.bin").read_bytes())
         self.symbols = {}
         for line in (BUILD / "symbols.txt").read_text().splitlines():
@@ -322,20 +324,33 @@ class NativeAdapterTest(unittest.TestCase):
         self.assertEqual(a.call("DG_GetKey", SCRATCH + 200, SCRATCH + 204), 1)
         self.assertTrue(a.powered)
         a.messages = [[6, 1, 0, 0, 0]]
+        a.clock_step = True
+        start = a.word(TICK)
         a.uc.reg_write(UC_ARM_REG_R0, SCRATCH + 200)
         a.uc.reg_write(UC_ARM_REG_R1, SCRATCH + 204)
         a.uc.reg_write(UC_ARM_REG_SP, 0xC1800000)
-        a.uc.emu_start(a.symbols["DG_GetKey"], 0xFFFFFFFF, count=100000)
+        a.uc.emu_start(a.symbols["DG_GetKey"], 0xFFFFFFFF, count=3000000)
         self.assertFalse(a.powered)
+        self.assertGreaterEqual(a.word(TICK) - start, 5000, "only after the key stayed down 5 s more")
         self.assertEqual(a.calls[-1][0], 0xC001734C)
         self.assertEqual(a.calls[-1][1][:2], [0x01E26000, 1])
+
+    def test_power_key_let_go_within_5_s_keeps_the_game(self):
+        a = self.arm
+        a.messages = [[6, 1, 0, 0, 0]]
+        a.clock_step = True
+        a.word(GPIO_IN67, 0x80000000)
+        self.assertEqual(a.call("DG_GetKey", SCRATCH + 200, SCRATCH + 204, count=3000000), 0)
+        self.assertTrue(a.powered)
+        self.assertNotIn(0xC001734C, [at for at, _ in a.calls])
 
     def test_error_idle_still_accepts_native_power_button(self):
         a = self.arm
         a.messages = [[6, 0, 0, 0, 0], [6, 1, 0, 0, 0]]
+        a.clock_step = True
         a.uc.reg_write(UC_ARM_REG_R0, 0xFFFFFFFF)
         a.uc.reg_write(UC_ARM_REG_SP, 0xC1800000)
-        a.uc.emu_start(a.symbols["_exit"], 0xFFFFFFFF, count=100000)
+        a.uc.emu_start(a.symbols["_exit"], 0xFFFFFFFF, count=3000000)
         self.assertFalse(a.powered)
         self.assertEqual(a.word(SHARED + 8), 0x80000000)
         self.assertEqual(a.word(SHARED + 12), 0xFFFFFFFF)

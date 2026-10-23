@@ -19,7 +19,7 @@ Korg-Material. Warum die Teile nebeneinander liegen dürfen und was noch offen i
 | `BUILD.md` | der Bauweg, mit dem `doom.bin` bytegleich neu entsteht | AGPL-3.0-or-later |
 | `distribution-review.json` | der Stand der Weitergabeprüfung, Punkt für Punkt | |
 
-SHA-256: `doom.bin` `5222c195cb7b8507f4b3391d8bb190f82ce27c86a122532d25b90497431695d8`,
+SHA-256: `doom.bin` `9c1a97bf28b44654be90b7de32a49122ce72a413a891c4fc59b7e7c787fe6f8b`,
 `doom.wad` `7323bcc168c5a45ff10749b339960e98314740a734c30d4b9f3337001f9e703d`,
 `doom-sources.tar.gz` `ca0ac8269392fbcabb39bfcdefcaa4cfe536830590e0e80557625ba85ef76c9a`.
 
