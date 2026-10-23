@@ -44,7 +44,7 @@ Ein Absturz oder Datenverlust ist akzeptabel. Schäden an Software, Hardware ode
 | 30. **Synthetische Samples am Rechner:** Kicks, Basslines und mehr im Host rendern und als Sample importieren (Importweg aus Idee 1); die Klangerzeugung auf dem Gerät bliebe DSP. | offen, baut auf Idee 1 | |
 | 31. **Gain-Staging-Helfer:** Pegel skalieren, vor unspielbaren Werten warnen. | Linter-Regeln und Pegel-Ansicht gebaut, am Gerät ungehört | [Idee 31](ideen/31-gain-staging.md) |
 | 32. **Web-UI: bedienbare Electribe wie das echte Gerät angeordnet,** in Design-System-Tokens, mit eigenen Beschriftungen, ohne Korg-Logo, Marke oder Foto. | gebaut | `site/app/panel.mjs` |
-| 33. **128 Steps statt 64.** | sehr tief, als Patch praktisch ausgeschlossen | [Idee 33](ideen/33-128-steps.md) |
+| 33. **128 Steps statt 64.** | direkt sehr tief, als Patch praktisch ausgeschlossen; gelöst über SYNC GROUP: zwei Patterns einer Gruppe spielen wie eines, mit dem ganzen Stand (nur rot) | [Idee 33](ideen/33-128-steps.md) |
 | 34. **TAP-Taste als frei belegbarer Shortcut.** | Idee; TAP hat mit dem Patch TAP Motion (Idee 39) eine feste Belegung, im Emulator geprüft; frei belegbar nicht, gehört zu 22 | [Idee 34](ideen/34-tap-shortcut.md), [Messung](messungen/2026-10-15-tap-motion.md) |
 | 35. **Startbild am Gerät zeichnen:** neuer Menüpunkt Global Settings, Splash Screen. | im Emulator gebaut (speichert auf der Karte), am Gerät offen | [Idee 35](ideen/35-startbild-am-geraet.md), [Startbild-Editor](messungen/2026-10-10-startbild-editor.md), [Startbild auf der Karte](messungen/2026-10-15-startbild-karte.md) |
 | 36. **Terminal-Reiter mit einer Electribe-Bibliothek.** | gebaut, am Gerät nicht erprobt | [Idee 36](ideen/36-terminal.md) |
