@@ -166,6 +166,10 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.selectOption("#cee-bk-slot-mfx-1", { label: "Short Delay" });
   await page.getByRole("button", { name: "Master-Effekt Platz 1 leeren" }).click();
   assert.equal(await page.locator("#cee-bk-slot-mfx-1 option:checked").textContent(), "Werks-Preset");
+  // The catalog's effects go on a place too, without saving them as own ones first.
+  assert.ok(await page.locator("#cee-bk-slot-ifx-2 optgroup[label=Katalog] option").count() > 0, "the catalog's insert effects are offered");
+  const fromCatalog = await page.locator("#cee-bk-slot-ifx-2 optgroup[label=Katalog] option").first().textContent();
+  await page.selectOption("#cee-bk-slot-ifx-2", { label: fromCatalog });
   await page.click("#cee-bk-tab-mod");
   assert.equal(await page.locator("#cee-bk-slots-ifx").count(), 0, "Modulationen show only their places");
   await page.selectOption("#cee-bk-slot-mod-5", { label: "Filter Wobble" });
@@ -185,7 +189,7 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   const bytes = await h.download(page, () => page.click("#cee-bk-collection"));
   const read = parseCollection(bytes);
   assert.equal(read.ok, true, read.reason);
-  assert.deepEqual(read.entries.map(e => [e.kind, e.index]).sort(), [["mfx", 99], ["mod", 4]], "every place at its index, 0-based");
+  assert.deepEqual(read.entries.map(e => [e.kind, e.index]).sort(), [["ifx", 1], ["mfx", 99], ["mod", 4]], "every place at its index, 0-based, a catalog effect as well");
 
   // the file read back: a fresh browser gets the effects and their places
   await page.evaluate(() => { localStorage.removeItem("cee.baukasten"); localStorage.removeItem("cee.baukasten.slots"); });
@@ -193,7 +197,9 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.click("#cee-tab-baukasten");
   await page.click("#cee-baukasten-page-export");
   await page.setInputFiles("#cee-bk-all", h.file("e2sFx.all", bytes));
-  await page.locator("#app-toasts .cee-toast", { hasText: "2 Einträge" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "3 Einträge" }).waitFor();
   assert.equal(await page.locator("#cee-bk-slot-mfx-100 option:checked").textContent(), "Short Delay");
+  assert.equal(await page.locator("#cee-bk-slot-ifx-2 option:checked").textContent(), fromCatalog, "the catalog effect comes back on its place");
+  assert.equal(await page.locator("#cee-bk-slot-ifx-2 option:checked").evaluate(o => o.parentElement.label), "Katalog", "as the catalog's, not as an own copy");
   assert.deepEqual(page.errors, []);
 });
