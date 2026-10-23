@@ -48,9 +48,9 @@ aus dem Emulator, nur die Seite mit Theme. Aufbau und Regeln: [BLECH Theme](../.
 
 ## Gesicht für Banner und App
 
-`head.png` enthält nur Blechys Gesicht mit Brauen und Augenringen, ohne Oberkörper.
-Banner und App-Icon verwenden dasselbe Bild aus dem bestehenden Zeichencode.
-Die App-Icons werden als PNG, ICO und ICNS erzeugt.
+`head.png` enthält nur Blechys Gesicht mit Brauen und Augenringen, ohne Oberkörper; das Banner
+verwendet es. Das App-Icon kommt aus `assets/app-icon/blechy-gelumpe.png` (Blechy mit GELUMPE,
+1024 x 1024) und wird als PNG, ICO und ICNS erzeugt.
 
 ```bash
 python3 tools/art/make_blechy.py --head assets/blechy/head.png
