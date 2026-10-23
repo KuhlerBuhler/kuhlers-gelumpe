@@ -210,3 +210,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Doom: Stack am Lader-Einstieg und sichtbarer Start](2026-10-19-doom-start-stack.md)
 - [Presets und Modulationen von der Karte ins RAM (e2sFx.all)](2026-10-22-sammeldatei-karte.md)
 - [Tasten vom Rechner: KORG.press und KORG.turn über die Laufzeit](2026-10-22-tasten-vom-rechner.md)
+- [Effekte aus dem Katalog fest in der Firmware](2026-10-23-fx-katalog-fest.md)

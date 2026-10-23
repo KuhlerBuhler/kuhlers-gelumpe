@@ -90,7 +90,7 @@ export function copyMatches(patches, spans) {
   const matches = [];
   let n = 0;
   for (const patch of patches) {
-    for (const change of patch.changes) {
+    for (const change of patch.changes ?? []) {
       const span = spans[n++];
       if (!change.copy) continue;
       const writes = (change.over ?? []).map(o => [o.at, o.at + o.bytes.length / 2]).sort((a, b) => a[0] - b[0]);
