@@ -488,6 +488,11 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   min-width: 0;
 }
 
+/* A click on plain text focuses the whole page or step (the design gives every panel a tabindex); no ring around it. */
+:is(.ui-tabpanel, .cee-patch-panel):focus-visible {
+  outline: none;
+}
+
 /* One rule for the space between the sections of a page, so a heading never sits on the block above it. */
 .cee-main > .ui-tabpanel:not([hidden]) {
   display: flex;
