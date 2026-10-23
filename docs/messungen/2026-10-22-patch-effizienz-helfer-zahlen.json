@@ -1,0 +1,2077 @@
+{
+  "format": "blech-native-helper-measurement",
+  "version": 1,
+  "date": "2026-10-22",
+  "status": "automatically-verified-human-review-pending",
+  "baselineFirmwareCommit": "7fbd90e6c5287bbafe2126a7dbadd7e3b798ae2b",
+  "candidateFirmwareCommit": "615a85d3a6c89e9a1d9fe9c55ebdf6482df5cade",
+  "capturedFromCommit": "040acdf73ae6e65ce7d50a2ad274bd5a7aee5ca5",
+  "captureIncludedUncommittedSourceChanges": true,
+  "committedSourceHashesVerified": 273,
+  "firmwareHashesVerified": 6,
+  "profileVersion": 4,
+  "method": "383408b1b31205626b10726a82001d2e974f549cc9e51a297e39d5f490bec7f9",
+  "programsSha256": "0ab23063f12ba129e23ad4d116e3986e52fec32bcd5224ac07f5295abccdd474",
+  "baselineProfileSha256": "8da0a9a02ff7611c6ed3378c367ca499b3e3936c24ddd1b1e3f294232e80fbc9",
+  "candidateProfileSha256": "1772de9263c3d03fd8f28a8276647998f9a93cc5972c6c44caad22c0efab1a57",
+  "profileRepeats": 3,
+  "profileIndependentStarts": 18,
+  "profileWindows": 126,
+  "finishedAppFrames": 1350,
+  "warmupAppFrames": 216,
+  "hardwareCyclesMeasured": false,
+  "realSdLatencyMeasured": false,
+  "phase6Executed": false,
+  "budget": {
+    "fillAdditionalCodeBytesApproved": 112,
+    "fillAdditionalReservedRamBytes": 0,
+    "fillTemporaryStackBytes": 4,
+    "cardCrcTemporaryStackBytes": 8
+  },
+  "crc": {
+    "bytes": 32768,
+    "instructionsBefore": 1245189,
+    "instructionsAfter": 851973,
+    "netCodeDeltaBytes": -8,
+    "vectors": 120,
+    "cardAdapterVectors": 144,
+    "seedsAndFinalXorOwnedByCaller": true
+  },
+  "fill": {
+    "bytes": 163840,
+    "instructionsBefore": 491523,
+    "instructionsAfter": 92177,
+    "netCodeDeltaBytes": 112,
+    "vectors": 752,
+    "shortNonemptyAdditionalInstructions": 2,
+    "emptyAdditionalInstructions": 0,
+    "retainsRegisterAndFlagContract": true
+  },
+  "mla": {
+    "sitesSampler": 7,
+    "sitesSynth": 3,
+    "codeDeltaSamplerBytes": -28,
+    "codeDeltaSynthBytes": -12,
+    "fixedFactorVectors": 2250,
+    "variableFactorVectors": 7002,
+    "instructionsSavedPerExecution": 1,
+    "fullRegisterAndFlagsEqual": true
+  },
+  "deferredStmPrototype": {
+    "productChange": false,
+    "instructionsLargeBuffer": 51220,
+    "additionalCodeBytes": 108,
+    "temporaryStackBytes": 16,
+    "fullFirmwareSetTested": false,
+    "reason": "A multiple store counts as one instruction but transfers four words. Hardware cycle benefit against four STR stores remains unmeasured."
+  },
+  "originalScan": {
+    "method": "Aligned ARM words in whole payload; candidates include data. Only the limited direct reset/FatFs graph establishes reachability. No original routine removed.",
+    "builds": {
+      "hacktribe": {
+        "sha256": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+        "payloadBytesScanned": 2097152,
+        "alignedWordsScanned": 524288,
+        "decodedWords": 312256,
+        "directRootGraphWords": 5667,
+        "unresolvedIndirectSites": 12,
+        "graphArithmeticCounts": {
+          "mul": 9,
+          "mla": 2,
+          "umull": 0,
+          "smull": 2,
+          "umlal": 0,
+          "smlal": 0,
+          "clz": 0,
+          "qadd": 0,
+          "qsub": 0
+        },
+        "loopCandidates": 810,
+        "exactBoundedFunctionGroups": 49,
+        "strictShiftAddCandidates": 0
+      },
+      "stock": {
+        "sha256": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+        "payloadBytesScanned": 2097152,
+        "alignedWordsScanned": 524288,
+        "decodedWords": 305917,
+        "directRootGraphWords": 5667,
+        "unresolvedIndirectSites": 12,
+        "graphArithmeticCounts": {
+          "mul": 9,
+          "mla": 2,
+          "umull": 0,
+          "smull": 2,
+          "umlal": 0,
+          "smlal": 0,
+          "clz": 0,
+          "qadd": 0,
+          "qsub": 0
+        },
+        "loopCandidates": 796,
+        "exactBoundedFunctionGroups": 46,
+        "strictShiftAddCandidates": 0
+      },
+      "synth": {
+        "sha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+        "payloadBytesScanned": 2097152,
+        "alignedWordsScanned": 524288,
+        "decodedWords": 279950,
+        "directRootGraphWords": 5667,
+        "unresolvedIndirectSites": 12,
+        "graphArithmeticCounts": {
+          "mul": 9,
+          "mla": 2,
+          "umull": 0,
+          "smull": 2,
+          "umlal": 0,
+          "smlal": 0,
+          "clz": 0,
+          "qadd": 0,
+          "qsub": 0
+        },
+        "loopCandidates": 697,
+        "exactBoundedFunctionGroups": 41,
+        "strictShiftAddCandidates": 0
+      }
+    }
+  },
+  "tests": {
+    "native": {
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0
+    },
+    "unit": {
+      "passed": 962,
+      "failed": 0,
+      "skipped": 143
+    },
+    "browser": {
+      "passed": 164,
+      "failed": 0,
+      "skipped": 1
+    },
+    "docs": {
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "builds": {
+    "hacktribe": {
+      "checksPassed": 459,
+      "inputSha256": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+      "outputSha256": "bb9863cba74f9fe644cfd09cafb31c65afc839b200d4bb8ca668994d820eead0",
+      "footprintBytes": {
+        "codeDataBytes": 84328,
+        "ramBytes": 431991,
+        "occupiedBytes": 516319,
+        "unallocatedBytes": 56673,
+        "largestGap": 19456
+      },
+      "footprintDeltaBytes": {
+        "codeDataBytes": 76,
+        "ramBytes": 0,
+        "occupiedBytes": 76,
+        "unallocatedBytes": -76,
+        "largestGap": 0
+      },
+      "pluginNativeLoadInstructionsBefore": 3404110,
+      "pluginNativeLoadInstructionsAfter": 2113220,
+      "pluginNativeLoadIncludesSdIo": false,
+      "maxScenarioRatio": 1.0000473503073135,
+      "allAppStatesAndImagesEqual": true,
+      "nativeSysexIdentical": true
+    },
+    "stock": {
+      "checksPassed": 484,
+      "inputSha256": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+      "outputSha256": "cc7cd0b62d3f014aef7276e985a81759a027a48d85fe7012499e6abaf31dc456",
+      "footprintBytes": {
+        "codeDataBytes": 84539,
+        "ramBytes": 431991,
+        "occupiedBytes": 516530,
+        "unallocatedBytes": 56462,
+        "largestGap": 19456
+      },
+      "footprintDeltaBytes": {
+        "codeDataBytes": 76,
+        "ramBytes": 0,
+        "occupiedBytes": 76,
+        "unallocatedBytes": -76,
+        "largestGap": 0
+      },
+      "pluginNativeLoadInstructionsBefore": 3404110,
+      "pluginNativeLoadInstructionsAfter": 2113220,
+      "pluginNativeLoadIncludesSdIo": false,
+      "maxScenarioRatio": 1.0020697180300981,
+      "allAppStatesAndImagesEqual": true,
+      "nativeSysexIdentical": true
+    },
+    "synth": {
+      "checksPassed": 363,
+      "inputSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "outputSha256": "1a5b53b90b4f008000b4db82de84ee5b5837a50152c4b2756ee07b95362b4265",
+      "footprintBytes": {
+        "codeDataBytes": 66984,
+        "ramBytes": 378580,
+        "occupiedBytes": 445564,
+        "unallocatedBytes": 465792,
+        "largestGap": 329996
+      },
+      "footprintDeltaBytes": {
+        "codeDataBytes": 92,
+        "ramBytes": 0,
+        "occupiedBytes": 92,
+        "unallocatedBytes": -92,
+        "largestGap": 0
+      },
+      "pluginNativeLoadInstructionsBefore": 3404110,
+      "pluginNativeLoadInstructionsAfter": 2113220,
+      "pluginNativeLoadIncludesSdIo": false,
+      "maxScenarioRatio": 1.0015630509145568,
+      "allAppStatesAndImagesEqual": true,
+      "nativeSysexIdentical": true
+    }
+  },
+  "sampleIo": {
+    "status": "passed",
+    "firmwareRuns": 24,
+    "pairedOperations": 12,
+    "syntheticPcmFrames": [
+      512,
+      32768
+    ],
+    "builds": [
+      "hacktribe",
+      "stock"
+    ],
+    "fullOriginalSdLatencyModeled": false,
+    "sampleDspAudioRetentionModeled": false,
+    "hardwareSpeedClaimed": false,
+    "profileWindows": "Boot: fixed ten-second model window. Import: menu open plus confirm/three seconds. Export: menu/confirm plus five seconds. Counts include UI, scheduling and background work.",
+    "filesystemSpanDefinition": "Inclusive ARM instructions while each call is in progress, including scheduling and drivers. This does not isolate real card waiting or CPU cycles.",
+    "result": "No VM fill calls during import/export; sample metadata, filesystem requests/results and SD commands equal. Identical exported files with known zero DSP stand-in audio do not prove audio fidelity. Boot savings include plugin runtime initialization, not a faster sample transfer.",
+    "rows": [
+      {
+        "build": "hacktribe",
+        "frames": 512,
+        "audioBytes": 1024,
+        "operation": "boot",
+        "stage": "boot",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 133756132,
+          "modelNs": 10000000000.0,
+          "filesystem": {
+            "open": {
+              "calls": 5,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 788611
+            },
+            "close": {
+              "calls": 2,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 507
+            },
+            "read": {
+              "calls": 11,
+              "requestedBytes": 6360,
+              "actualBytes": 6360,
+              "inclusiveInstructions": 595331
+            },
+            "seek": {
+              "calls": 9,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 245646
+            }
+          },
+          "sdCommands": {
+            "0": 1,
+            "8": 1,
+            "55": 3,
+            "41": 2,
+            "2": 1,
+            "3": 1,
+            "9": 1,
+            "10": 1,
+            "7": 1,
+            "16": 1,
+            "6": 1,
+            "18": 48,
+            "12": 48
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1611,
+              "requestedBytes": 130605,
+              "histogram": {
+                "352": 1,
+                "320": 25,
+                "10": 11,
+                "9": 7,
+                "7": 1,
+                "8": 3,
+                "5": 1,
+                "1024": 5,
+                "16964": 1,
+                "65280": 1,
+                "4": 96,
+                "16": 1450,
+                "3264": 1,
+                "2048": 1,
+                "1440": 2,
+                "864": 2,
+                "1172": 1,
+                "2": 2
+              }
+            },
+            "vm_fill": {
+              "calls": 86,
+              "requestedBytes": 481201,
+              "histogram": {
+                "166912": 1,
+                "3595": 83,
+                "292": 1,
+                "15612": 1
+              }
+            }
+          }
+        },
+        "after": {
+          "instructions": 132526534,
+          "modelNs": 10000000000.0,
+          "filesystem": {
+            "open": {
+              "calls": 5,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 792693
+            },
+            "close": {
+              "calls": 2,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 507
+            },
+            "read": {
+              "calls": 11,
+              "requestedBytes": 6360,
+              "actualBytes": 6360,
+              "inclusiveInstructions": 595331
+            },
+            "seek": {
+              "calls": 9,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 245646
+            }
+          },
+          "sdCommands": {
+            "0": 1,
+            "8": 1,
+            "55": 3,
+            "41": 2,
+            "2": 1,
+            "3": 1,
+            "9": 1,
+            "10": 1,
+            "7": 1,
+            "16": 1,
+            "6": 1,
+            "18": 48,
+            "12": 48
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1611,
+              "requestedBytes": 130605,
+              "histogram": {
+                "352": 1,
+                "320": 25,
+                "10": 11,
+                "9": 7,
+                "7": 1,
+                "8": 3,
+                "5": 1,
+                "1024": 5,
+                "16964": 1,
+                "65280": 1,
+                "4": 96,
+                "16": 1450,
+                "3264": 1,
+                "2048": 1,
+                "1440": 2,
+                "864": 2,
+                "1172": 1,
+                "2": 2
+              }
+            },
+            "vm_fill": {
+              "calls": 86,
+              "requestedBytes": 481201,
+              "histogram": {
+                "166912": 1,
+                "3595": 83,
+                "292": 1,
+                "15612": 1
+              }
+            }
+          }
+        }
+      },
+      {
+        "build": "hacktribe",
+        "frames": 512,
+        "audioBytes": 1024,
+        "operation": "import",
+        "stage": "import-open",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 7447220,
+          "modelNs": 500000000.0,
+          "filesystem": {},
+          "sdCommands": {},
+          "helpers": {
+            "memset": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 7447188,
+          "modelNs": 500000000.0,
+          "filesystem": {},
+          "sdCommands": {},
+          "helpers": {
+            "memset": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        }
+      },
+      {
+        "build": "hacktribe",
+        "frames": 512,
+        "audioBytes": 1024,
+        "operation": "import",
+        "stage": "import-confirm",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 31680742,
+          "modelNs": 3250000000.0,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 18192
+            },
+            "read": {
+              "calls": 10,
+              "requestedBytes": 2264,
+              "actualBytes": 2264,
+              "inclusiveInstructions": 221902
+            },
+            "seek": {
+              "calls": 8,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 289192
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 259
+            }
+          },
+          "sdCommands": {
+            "18": 12,
+            "12": 12
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 31680602,
+          "modelNs": 3250000000.0,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 18192
+            },
+            "read": {
+              "calls": 10,
+              "requestedBytes": 2264,
+              "actualBytes": 2264,
+              "inclusiveInstructions": 221902
+            },
+            "seek": {
+              "calls": 8,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 289192
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 259
+            }
+          },
+          "sdCommands": {
+            "18": 12,
+            "12": 12
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        }
+      },
+      {
+        "build": "hacktribe",
+        "frames": 512,
+        "audioBytes": 1024,
+        "operation": "export",
+        "stage": "export-menu",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 51668438,
+          "modelNs": 5300000000.0,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 358657
+            },
+            "write": {
+              "calls": 5,
+              "requestedBytes": 6352,
+              "actualBytes": 6352,
+              "inclusiveInstructions": 382889
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 182804
+            }
+          },
+          "sdCommands": {
+            "18": 13,
+            "12": 33,
+            "25": 20
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 51669307,
+          "modelNs": 5300000000.000002,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 357932
+            },
+            "write": {
+              "calls": 5,
+              "requestedBytes": 6352,
+              "actualBytes": 6352,
+              "inclusiveInstructions": 381331
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 183602
+            }
+          },
+          "sdCommands": {
+            "18": 13,
+            "12": 33,
+            "25": 20
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "exportedFileEqual": true,
+        "exportedSha256": "0364bfc6e09da965c968299d9085c2baf8dc566762792f67d147d4895b610389",
+        "exportedBytes": 6352,
+        "exportedPcmIsDspStandInZero": true
+      },
+      {
+        "build": "hacktribe",
+        "frames": 32768,
+        "audioBytes": 65536,
+        "operation": "boot",
+        "stage": "boot",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 141376877,
+          "modelNs": 10000000000.0,
+          "filesystem": {
+            "open": {
+              "calls": 5,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 791345
+            },
+            "close": {
+              "calls": 2,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 507
+            },
+            "read": {
+              "calls": 11,
+              "requestedBytes": 70872,
+              "actualBytes": 70872,
+              "inclusiveInstructions": 8406479
+            },
+            "seek": {
+              "calls": 9,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 433258
+            }
+          },
+          "sdCommands": {
+            "0": 1,
+            "8": 1,
+            "55": 3,
+            "41": 2,
+            "2": 1,
+            "3": 1,
+            "9": 1,
+            "10": 1,
+            "7": 1,
+            "16": 1,
+            "6": 1,
+            "18": 179,
+            "12": 179
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1611,
+              "requestedBytes": 130605,
+              "histogram": {
+                "352": 1,
+                "320": 25,
+                "10": 11,
+                "9": 7,
+                "7": 1,
+                "8": 3,
+                "5": 1,
+                "1024": 5,
+                "16964": 1,
+                "65280": 1,
+                "4": 96,
+                "16": 1450,
+                "3264": 1,
+                "2048": 1,
+                "1440": 2,
+                "864": 2,
+                "1172": 1,
+                "2": 2
+              }
+            },
+            "vm_fill": {
+              "calls": 86,
+              "requestedBytes": 481201,
+              "histogram": {
+                "166912": 1,
+                "3595": 83,
+                "292": 1,
+                "15612": 1
+              }
+            }
+          }
+        },
+        "after": {
+          "instructions": 140148660,
+          "modelNs": 10000000000.0,
+          "filesystem": {
+            "open": {
+              "calls": 5,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 796867
+            },
+            "close": {
+              "calls": 2,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 507
+            },
+            "read": {
+              "calls": 11,
+              "requestedBytes": 70872,
+              "actualBytes": 70872,
+              "inclusiveInstructions": 8406468
+            },
+            "seek": {
+              "calls": 9,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 433258
+            }
+          },
+          "sdCommands": {
+            "0": 1,
+            "8": 1,
+            "55": 3,
+            "41": 2,
+            "2": 1,
+            "3": 1,
+            "9": 1,
+            "10": 1,
+            "7": 1,
+            "16": 1,
+            "6": 1,
+            "18": 179,
+            "12": 179
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1611,
+              "requestedBytes": 130605,
+              "histogram": {
+                "352": 1,
+                "320": 25,
+                "10": 11,
+                "9": 7,
+                "7": 1,
+                "8": 3,
+                "5": 1,
+                "1024": 5,
+                "16964": 1,
+                "65280": 1,
+                "4": 96,
+                "16": 1450,
+                "3264": 1,
+                "2048": 1,
+                "1440": 2,
+                "864": 2,
+                "1172": 1,
+                "2": 2
+              }
+            },
+            "vm_fill": {
+              "calls": 86,
+              "requestedBytes": 481201,
+              "histogram": {
+                "166912": 1,
+                "3595": 83,
+                "292": 1,
+                "15612": 1
+              }
+            }
+          }
+        }
+      },
+      {
+        "build": "hacktribe",
+        "frames": 32768,
+        "audioBytes": 65536,
+        "operation": "import",
+        "stage": "import-open",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 7447220,
+          "modelNs": 500000000.0,
+          "filesystem": {},
+          "sdCommands": {},
+          "helpers": {
+            "memset": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 7447188,
+          "modelNs": 500000000.0,
+          "filesystem": {},
+          "sdCommands": {},
+          "helpers": {
+            "memset": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        }
+      },
+      {
+        "build": "hacktribe",
+        "frames": 32768,
+        "audioBytes": 65536,
+        "operation": "import",
+        "stage": "import-confirm",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 41001688,
+          "modelNs": 3250001279.9999886,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 18192
+            },
+            "read": {
+              "calls": 10,
+              "requestedBytes": 66776,
+              "actualBytes": 66776,
+              "inclusiveInstructions": 10016577
+            },
+            "seek": {
+              "calls": 8,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 436997
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 259
+            }
+          },
+          "sdCommands": {
+            "18": 143,
+            "12": 143
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 41001344,
+          "modelNs": 3250001279.9999886,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 18192
+            },
+            "read": {
+              "calls": 10,
+              "requestedBytes": 66776,
+              "actualBytes": 66776,
+              "inclusiveInstructions": 10016515
+            },
+            "seek": {
+              "calls": 8,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 436997
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 259
+            }
+          },
+          "sdCommands": {
+            "18": 143,
+            "12": 143
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        }
+      },
+      {
+        "build": "hacktribe",
+        "frames": 32768,
+        "audioBytes": 65536,
+        "operation": "export",
+        "stage": "export-menu",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 54590249,
+          "modelNs": 5300042799.999985,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 478299
+            },
+            "write": {
+              "calls": 5,
+              "requestedBytes": 70864,
+              "actualBytes": 70864,
+              "inclusiveInstructions": 4183054
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 180381
+            }
+          },
+          "sdCommands": {
+            "18": 17,
+            "12": 171,
+            "25": 154
+          },
+          "helpers": {
+            "memset": {
+              "calls": 2,
+              "requestedBytes": 1174,
+              "histogram": {
+                "1172": 1,
+                "2": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 54589725,
+          "modelNs": 5300042799.999985,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 478359
+            },
+            "write": {
+              "calls": 5,
+              "requestedBytes": 70864,
+              "actualBytes": 70864,
+              "inclusiveInstructions": 4183054
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 180381
+            }
+          },
+          "sdCommands": {
+            "18": 17,
+            "12": 171,
+            "25": 154
+          },
+          "helpers": {
+            "memset": {
+              "calls": 2,
+              "requestedBytes": 1174,
+              "histogram": {
+                "1172": 1,
+                "2": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "exportedFileEqual": true,
+        "exportedSha256": "09b8170edb8102c9d80a471193a4109ecc49f64c3cad773465e54e89cebbf85b",
+        "exportedBytes": 70864,
+        "exportedPcmIsDspStandInZero": true
+      },
+      {
+        "build": "stock",
+        "frames": 512,
+        "audioBytes": 1024,
+        "operation": "boot",
+        "stage": "boot",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 143434995,
+          "modelNs": 11420246640.0,
+          "filesystem": {
+            "open": {
+              "calls": 5,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 786959
+            },
+            "close": {
+              "calls": 2,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 507
+            },
+            "read": {
+              "calls": 11,
+              "requestedBytes": 6360,
+              "actualBytes": 6360,
+              "inclusiveInstructions": 569839
+            },
+            "seek": {
+              "calls": 9,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 242838
+            }
+          },
+          "sdCommands": {
+            "0": 1,
+            "8": 1,
+            "55": 3,
+            "41": 2,
+            "2": 1,
+            "3": 1,
+            "9": 1,
+            "10": 1,
+            "7": 1,
+            "16": 1,
+            "6": 1,
+            "18": 48,
+            "12": 48
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1317,
+              "requestedBytes": 125901,
+              "histogram": {
+                "352": 1,
+                "320": 25,
+                "10": 11,
+                "9": 7,
+                "7": 1,
+                "8": 3,
+                "5": 1,
+                "1024": 5,
+                "16964": 1,
+                "65280": 1,
+                "4": 96,
+                "16": 1156,
+                "3264": 1,
+                "2048": 1,
+                "1440": 2,
+                "864": 2,
+                "1172": 1,
+                "2": 2
+              }
+            },
+            "vm_fill": {
+              "calls": 86,
+              "requestedBytes": 481201,
+              "histogram": {
+                "166912": 1,
+                "3595": 83,
+                "292": 1,
+                "15612": 1
+              }
+            }
+          }
+        },
+        "after": {
+          "instructions": 141991104,
+          "modelNs": 11400183760.0,
+          "filesystem": {
+            "open": {
+              "calls": 5,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 794081
+            },
+            "close": {
+              "calls": 2,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 507
+            },
+            "read": {
+              "calls": 11,
+              "requestedBytes": 6360,
+              "actualBytes": 6360,
+              "inclusiveInstructions": 569839
+            },
+            "seek": {
+              "calls": 9,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 242838
+            }
+          },
+          "sdCommands": {
+            "0": 1,
+            "8": 1,
+            "55": 3,
+            "41": 2,
+            "2": 1,
+            "3": 1,
+            "9": 1,
+            "10": 1,
+            "7": 1,
+            "16": 1,
+            "6": 1,
+            "18": 48,
+            "12": 48
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1317,
+              "requestedBytes": 125901,
+              "histogram": {
+                "352": 1,
+                "320": 25,
+                "10": 11,
+                "9": 7,
+                "7": 1,
+                "8": 3,
+                "5": 1,
+                "1024": 5,
+                "16964": 1,
+                "65280": 1,
+                "4": 96,
+                "16": 1156,
+                "3264": 1,
+                "2048": 1,
+                "1440": 2,
+                "864": 2,
+                "1172": 1,
+                "2": 2
+              }
+            },
+            "vm_fill": {
+              "calls": 86,
+              "requestedBytes": 481201,
+              "histogram": {
+                "166912": 1,
+                "3595": 83,
+                "292": 1,
+                "15612": 1
+              }
+            }
+          }
+        }
+      },
+      {
+        "build": "stock",
+        "frames": 512,
+        "audioBytes": 1024,
+        "operation": "import",
+        "stage": "import-open",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 7446195,
+          "modelNs": 500000000.0,
+          "filesystem": {},
+          "sdCommands": {},
+          "helpers": {
+            "memset": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 7446175,
+          "modelNs": 500000000.0,
+          "filesystem": {},
+          "sdCommands": {},
+          "helpers": {
+            "memset": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        }
+      },
+      {
+        "build": "stock",
+        "frames": 512,
+        "audioBytes": 1024,
+        "operation": "import",
+        "stage": "import-confirm",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 31672856,
+          "modelNs": 3250000000.000002,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 18194
+            },
+            "read": {
+              "calls": 10,
+              "requestedBytes": 2264,
+              "actualBytes": 2264,
+              "inclusiveInstructions": 218365
+            },
+            "seek": {
+              "calls": 8,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 293351
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 259
+            }
+          },
+          "sdCommands": {
+            "18": 12,
+            "12": 12
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 31672860,
+          "modelNs": 3250000000.000002,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 18194
+            },
+            "read": {
+              "calls": 10,
+              "requestedBytes": 2264,
+              "actualBytes": 2264,
+              "inclusiveInstructions": 218365
+            },
+            "seek": {
+              "calls": 8,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 293351
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 259
+            }
+          },
+          "sdCommands": {
+            "18": 12,
+            "12": 12
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        }
+      },
+      {
+        "build": "stock",
+        "frames": 512,
+        "audioBytes": 1024,
+        "operation": "export",
+        "stage": "export-menu",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 51665017,
+          "modelNs": 5299999999.999998,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 354361
+            },
+            "write": {
+              "calls": 5,
+              "requestedBytes": 6352,
+              "actualBytes": 6352,
+              "inclusiveInstructions": 379760
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 186699
+            }
+          },
+          "sdCommands": {
+            "18": 13,
+            "12": 33,
+            "25": 20
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 51669801,
+          "modelNs": 5300000000.000002,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 358269
+            },
+            "write": {
+              "calls": 5,
+              "requestedBytes": 6352,
+              "actualBytes": 6352,
+              "inclusiveInstructions": 380329
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 182843
+            }
+          },
+          "sdCommands": {
+            "18": 13,
+            "12": 33,
+            "25": 20
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "exportedFileEqual": true,
+        "exportedSha256": "0364bfc6e09da965c968299d9085c2baf8dc566762792f67d147d4895b610389",
+        "exportedBytes": 6352,
+        "exportedPcmIsDspStandInZero": true
+      },
+      {
+        "build": "stock",
+        "frames": 32768,
+        "audioBytes": 65536,
+        "operation": "boot",
+        "stage": "boot",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 152064118,
+          "modelNs": 11540302560.0,
+          "filesystem": {
+            "open": {
+              "calls": 5,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 786702
+            },
+            "close": {
+              "calls": 2,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 507
+            },
+            "read": {
+              "calls": 11,
+              "requestedBytes": 70872,
+              "actualBytes": 70872,
+              "inclusiveInstructions": 9273611
+            },
+            "seek": {
+              "calls": 9,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 429509
+            }
+          },
+          "sdCommands": {
+            "0": 1,
+            "8": 1,
+            "55": 3,
+            "41": 2,
+            "2": 1,
+            "3": 1,
+            "9": 1,
+            "10": 1,
+            "7": 1,
+            "16": 1,
+            "6": 1,
+            "18": 179,
+            "12": 179
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1317,
+              "requestedBytes": 125901,
+              "histogram": {
+                "352": 1,
+                "320": 25,
+                "10": 11,
+                "9": 7,
+                "7": 1,
+                "8": 3,
+                "5": 1,
+                "1024": 5,
+                "16964": 1,
+                "65280": 1,
+                "4": 96,
+                "16": 1156,
+                "3264": 1,
+                "2048": 1,
+                "1440": 2,
+                "864": 2,
+                "1172": 1,
+                "2": 2
+              }
+            },
+            "vm_fill": {
+              "calls": 86,
+              "requestedBytes": 481201,
+              "histogram": {
+                "166912": 1,
+                "3595": 83,
+                "292": 1,
+                "15612": 1
+              }
+            }
+          }
+        },
+        "after": {
+          "instructions": 150706169,
+          "modelNs": 11540369320.0,
+          "filesystem": {
+            "open": {
+              "calls": 5,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 796856
+            },
+            "close": {
+              "calls": 2,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 507
+            },
+            "read": {
+              "calls": 11,
+              "requestedBytes": 70872,
+              "actualBytes": 70872,
+              "inclusiveInstructions": 9273649
+            },
+            "seek": {
+              "calls": 9,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 429509
+            }
+          },
+          "sdCommands": {
+            "0": 1,
+            "8": 1,
+            "55": 3,
+            "41": 2,
+            "2": 1,
+            "3": 1,
+            "9": 1,
+            "10": 1,
+            "7": 1,
+            "16": 1,
+            "6": 1,
+            "18": 179,
+            "12": 179
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1317,
+              "requestedBytes": 125901,
+              "histogram": {
+                "352": 1,
+                "320": 25,
+                "10": 11,
+                "9": 7,
+                "7": 1,
+                "8": 3,
+                "5": 1,
+                "1024": 5,
+                "16964": 1,
+                "65280": 1,
+                "4": 96,
+                "16": 1156,
+                "3264": 1,
+                "2048": 1,
+                "1440": 2,
+                "864": 2,
+                "1172": 1,
+                "2": 2
+              }
+            },
+            "vm_fill": {
+              "calls": 86,
+              "requestedBytes": 481201,
+              "histogram": {
+                "166912": 1,
+                "3595": 83,
+                "292": 1,
+                "15612": 1
+              }
+            }
+          }
+        }
+      },
+      {
+        "build": "stock",
+        "frames": 32768,
+        "audioBytes": 65536,
+        "operation": "import",
+        "stage": "import-open",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 7446195,
+          "modelNs": 500000000.0,
+          "filesystem": {},
+          "sdCommands": {},
+          "helpers": {
+            "memset": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 7446175,
+          "modelNs": 500000000.0,
+          "filesystem": {},
+          "sdCommands": {},
+          "helpers": {
+            "memset": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        }
+      },
+      {
+        "build": "stock",
+        "frames": 32768,
+        "audioBytes": 65536,
+        "operation": "import",
+        "stage": "import-confirm",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 40991073,
+          "modelNs": 3250000879.999996,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 18194
+            },
+            "read": {
+              "calls": 10,
+              "requestedBytes": 66776,
+              "actualBytes": 66776,
+              "inclusiveInstructions": 9997340
+            },
+            "seek": {
+              "calls": 8,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 435936
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 259
+            }
+          },
+          "sdCommands": {
+            "18": 143,
+            "12": 143
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 40990993,
+          "modelNs": 3250000879.999996,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 18194
+            },
+            "read": {
+              "calls": 10,
+              "requestedBytes": 66776,
+              "actualBytes": 66776,
+              "inclusiveInstructions": 9997327
+            },
+            "seek": {
+              "calls": 8,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 435936
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 259
+            }
+          },
+          "sdCommands": {
+            "18": 143,
+            "12": 143
+          },
+          "helpers": {
+            "memset": {
+              "calls": 1,
+              "requestedBytes": 1172,
+              "histogram": {
+                "1172": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        }
+      },
+      {
+        "build": "stock",
+        "frames": 32768,
+        "audioBytes": 65536,
+        "operation": "export",
+        "stage": "export-menu",
+        "metadataEqual": true,
+        "filesystemCallsAndResultsEqual": true,
+        "sdCommandsEqual": true,
+        "before": {
+          "instructions": 54597475,
+          "modelNs": 5300056799.999985,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 2032878
+            },
+            "write": {
+              "calls": 5,
+              "requestedBytes": 70864,
+              "actualBytes": 70864,
+              "inclusiveInstructions": 4175987
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 180910
+            }
+          },
+          "sdCommands": {
+            "18": 17,
+            "12": 171,
+            "25": 154
+          },
+          "helpers": {
+            "memset": {
+              "calls": 2,
+              "requestedBytes": 1174,
+              "histogram": {
+                "1172": 1,
+                "2": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "after": {
+          "instructions": 54602380,
+          "modelNs": 5300001279.999985,
+          "filesystem": {
+            "open": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 2020168
+            },
+            "write": {
+              "calls": 5,
+              "requestedBytes": 70864,
+              "actualBytes": 70864,
+              "inclusiveInstructions": 4178960
+            },
+            "close": {
+              "calls": 1,
+              "requestedBytes": 0,
+              "actualBytes": 0,
+              "inclusiveInstructions": 193240
+            }
+          },
+          "sdCommands": {
+            "18": 17,
+            "12": 171,
+            "25": 154
+          },
+          "helpers": {
+            "memset": {
+              "calls": 2,
+              "requestedBytes": 1174,
+              "histogram": {
+                "1172": 1,
+                "2": 1
+              }
+            },
+            "vm_fill": {
+              "calls": 0,
+              "requestedBytes": 0,
+              "histogram": {}
+            }
+          }
+        },
+        "exportedFileEqual": true,
+        "exportedSha256": "09b8170edb8102c9d80a471193a4109ecc49f64c3cad773465e54e89cebbf85b",
+        "exportedBytes": 70864,
+        "exportedPcmIsDspStandInZero": true
+      }
+    ]
+  },
+  "vmCopy": {
+    "scope": "Native VM load; no firmware, card or sample audio",
+    "copyRegisters": "r6 source, r10 destination, r0 index, r9 length; r1 byte scratch",
+    "rows": [
+      {
+        "plugin": "blechclicker",
+        "copiedBytes": 740,
+        "fills": {
+          "273": 17,
+          "292": 1,
+          "836": 1
+        },
+        "nativeLoadInstructions": 55274
+      },
+      {
+        "plugin": "settimer",
+        "copiedBytes": 1920,
+        "fills": {
+          "1138": 31,
+          "292": 1,
+          "176": 1
+        },
+        "nativeLoadInstructions": 185857
+      },
+      {
+        "plugin": "snake",
+        "copiedBytes": 1468,
+        "fills": {
+          "961": 25,
+          "292": 1,
+          "872": 1
+        },
+        "nativeLoadInstructions": 148797
+      },
+      {
+        "plugin": "tetris",
+        "copiedBytes": 3772,
+        "fills": {
+          "2547": 41,
+          "292": 1,
+          "1024": 1
+        },
+        "nativeLoadInstructions": 406706
+      },
+      {
+        "plugin": "life",
+        "copiedBytes": 2944,
+        "fills": {
+          "2060": 35,
+          "292": 1,
+          "964": 1
+        },
+        "nativeLoadInstructions": 319745
+      },
+      {
+        "plugin": "pong",
+        "copiedBytes": 2240,
+        "fills": {
+          "1436": 35,
+          "292": 1,
+          "168": 1
+        },
+        "nativeLoadInstructions": 244951
+      },
+      {
+        "plugin": "simon",
+        "copiedBytes": 2268,
+        "fills": {
+          "1283": 33,
+          "292": 1,
+          "340": 1
+        },
+        "nativeLoadInstructions": 236109
+      },
+      {
+        "plugin": "mandelbrot",
+        "copiedBytes": 3452,
+        "fills": {
+          "2403": 29,
+          "292": 1,
+          "8448": 1
+        },
+        "nativeLoadInstructions": 393125
+      },
+      {
+        "plugin": "gifplayer",
+        "copiedBytes": 972,
+        "fills": {
+          "507": 19,
+          "292": 1,
+          "4140": 1
+        },
+        "nativeLoadInstructions": 95031
+      },
+      {
+        "plugin": "lauflicht",
+        "copiedBytes": 192,
+        "fills": {
+          "86": 9,
+          "292": 1,
+          "8": 1
+        },
+        "nativeLoadInstructions": 14668
+      },
+      {
+        "plugin": "pulsieren",
+        "copiedBytes": 176,
+        "fills": {
+          "85": 7,
+          "292": 1,
+          "12": 1
+        },
+        "nativeLoadInstructions": 12957
+      }
+    ],
+    "copyHelperSelected": "Retain local byte copy. Source/destination alignment is not assumed; optional SysEx helper has another owner, while libc would add firmware dependency to standalone VM. No approved code-growth budget beyond the selected fill routine.",
+    "eventArgsCopy": "Up to four 32-bit arguments in existing word loop; not a byte-fill bottleneck."
+  }
+}

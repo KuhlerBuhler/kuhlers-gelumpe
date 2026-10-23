@@ -77,13 +77,16 @@ TABLE_END = 0xC0174000
 STATE = 0xC0191000              # run time state, in RAM only (behind the synth filters' 0xC0190000 to 0xC0190100)
 STATE_END = 0xC0191100
 BUF = 0xC0191100                # the buffer a message is decoded into and a reply is packed in
-BUF_END = 0xC019F000            # 0xC019F000 to 0xC01A0000 the file object and the path of the FILE commands; Hacktribe's code starts at 0xC01A0000
+MAX_BLOCK = 0x8000              # bytes in one READ or WRITE DATA
+MAX_REPLY_HEADER = 20
+# Packed frame, its group bytes, and up to three bytes lost aligning the raw source.
+BUFFER_REQUIRED = MAX_BLOCK + MAX_REPLY_HEADER + (MAX_BLOCK + MAX_REPLY_HEADER + 6) // 7 + 8 + 3
+BUF_END = BUF + ((BUFFER_REQUIRED + 255) & ~255)
 FILE_AREA = 0xC019F000          # FatFs file object (0x224 bytes, measured), the count of bytes read or written, the path
 FILE_AREA_END = 0xC01A0000
 FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
 FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
 NAME_MAX = 16                   # characters of a plugin file's name (PLUGIN BEGIN)
-MAX_BLOCK = 0x8000              # bytes in one READ or WRITE DATA
 
 # STATE: +0 pending (the magic below when a BEGIN waits for its DATA), +4 address, +8 length, +12 CRC,
 # +0x10 a request as decoded, +0x20 the words of a short reply, +0x40 where a short reply is packed
@@ -1145,8 +1148,7 @@ def build_patch(vsb, table, build):
         raise SystemExit(f"code is {len(code):#x} bytes, room for {CODE_END - CODE_AT:#x}")
     if len(table) % 4 or TABLE_AT + len(table) > TABLE_END:
         raise SystemExit(f"the table is {len(table)} bytes, room for {TABLE_END - TABLE_AT}")
-    groups = -(-(16 + MAX_BLOCK) // 7)
-    if BUF_END - BUF < groups * 8 + 8 + 64:
+    if BUF_END - BUF < BUFFER_REQUIRED:
         raise SystemExit("the buffer is too small for the largest block packed in place")
 
     def was(addr, n):
