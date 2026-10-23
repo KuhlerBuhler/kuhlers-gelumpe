@@ -142,6 +142,8 @@ export function fxToRecord(preset, base, records, units) {
     rec.setParams(units, s.stage, s.params);
   }
   rec.name = preset.name;
+  // A new control row copies a used one where there is any; the firmware's own presets nearly always have some.
+  if (preset.map.length > rec.map.length) rec.growMap(preset.map.length, records.map(r => new FxRecord(r, preset.kind)).find(r => r.map.length));
   rec.map = preset.map;
   return { ok: true, record: rec.bytes };
 }

@@ -47,6 +47,21 @@ test("a record becomes v2 by unit id and parameter names; written back over anot
   assert.deepEqual(fxFromRecord(new FxRecord(made.record, "mfx"), "mfx", units), preset);
 });
 
+test("a control row the slot does not have yet copies a used row of a donor, then gets its five known bytes", () => {
+  const preset = shortDelay();
+  const base = makeRecord("mfx", { name: "Echo", devices: { mfx: MOD_DELAY } });
+  const donor = makeRecord("mfx", { name: "Delay", devices: { mfx: MOD_DELAY } });
+  donor.map = [{ source: 66, chain: 2, param: 1, low: 0, high: 127 }];
+  const at = REC.map + REC.mapEntrySize - 1;
+  donor.bytes[at] = 0x5a;
+  const made = fxToRecord(preset, base.bytes, [donor.bytes], units);
+  assert.equal(made.ok, true, made.reason);
+  const rec = new FxRecord(made.record, "mfx");
+  assert.deepEqual(rec.map.map(({ index, ...r }) => r), preset.map);
+  assert.equal(made.record[at], 0x5a, "the bytes nobody understands come from the donor's row");
+  assert.equal(made.record[at + REC.mapEntrySize], 0x5a, "for every new row");
+});
+
 test("a building block the slot does not have comes from a donor record of the same firmware, never from zeros", () => {
   const preset = shortDelay();
   const base = makeRecord("mfx", { name: "Echo", devices: { mfx: TAPE_ECHO } });
