@@ -90,7 +90,7 @@ export const FEATURES = [
     ["mac-midi", "MIDI in der Mac-App", "Die App spricht direkt über USB-MIDI mit der Electribe, so wie der Browser."],
     ["more-samples", "Mehr Platz für Samples", "Samples von der Karte nachladen, statt alle auf einmal in den Speicher zu legen."],
     ["factory-samples", "Werks-Samples ersetzen", "Eigene Samples direkt am Gerät auf die Plätze der Werks-Samples legen: SELECT DESTINATION beim Import erlaubt dann auch die Plätze unter 501."],
-    ["host-samples", "Samples am Rechner bauen", "Kicks, Basslines und mehr in der App erzeugen und als Sample auf die Electribe holen."],
+    ["modular-rack", "Modular Rack", "Kicks und andere Klänge im Browser bauen: Oszillatoren mit Kabeln verbinden und modulieren, das Ergebnis direkt als Sample auf die Electribe holen."],
     ["osc-drawer", "OSC Drawer", "Einen eigenen Oszillator auf dem Touchpad malen und als Sample speichern."],
     ["filters", "Eigene Filtertypen", "Neue Filter aus den Bausteinen, die die Electribe schon hat."],
     ["mfx-free", "Zweiter Master-Effekt ohne Touchpad", "Ein zweiter Master-Effekt, der unabhängig vom Touchpad läuft. Ob der Klangprozessor (DSP) das schafft, ist noch offen."],
