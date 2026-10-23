@@ -48,7 +48,6 @@ const FIGURES = {
   none: ["Nichts", []],
 };
 
-const BACKS = [["stars", "Sterne"], ["flat", "Fläche"]];
 const PLACES = [
   ["top-left", "Oben links"], ["top", "Oben"], ["top-right", "Oben rechts"],
   ["left", "Links"], ["middle", "Mitte"], ["right", "Rechts"],
@@ -110,22 +109,22 @@ const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v
 
 /**
  * The page background, standing still: a grid of cells, dither bands thickening towards both side edges and stars
- * at three depths. Same rules and strengths as site/design/bg.js, so the picture looks like the app behind it.
+ * at three depths, each of the two on its own. Same rules and strengths as site/design/bg.js, so the picture looks like the app behind it.
  */
-function starField(ctx, w, h, ink) {
+function starField(ctx, w, h, ink, { bands, stars }) {
   const cell = Math.max(4, Math.round(Math.min(w, h) / 160));
   const cols = Math.ceil(w / cell);
   const rows = Math.ceil(h / cell);
   const width = Math.min(44, Math.max(14, Math.round(cols * 0.09)));
   ctx.fillStyle = ink;
   ctx.globalAlpha = 0.14;
-  for (let j = 0; j < rows; j += 2) for (let i = 0; i < cols; i += 2) {
+  if (bands) for (let j = 0; j < rows; j += 2) for (let i = 0; i < cols; i += 2) {
     const edge = Math.min(i, cols - 1 - i);
     const density = edge >= width ? 0 : (1 - edge / width) ** 1.4 * 0.9;
     if (density > BAYER[((j >> 1) & 3) * 4 + ((i >> 1) & 3)]) ctx.fillRect(i * cell, j * cell, cell, cell);
   }
   const rand = rng(23);
-  for (let n = Math.min(240, Math.floor((cols * rows) / 650)); n > 0; n--) {
+  if (stars) for (let n = Math.min(240, Math.floor((cols * rows) / 650)); n > 0; n--) {
     const z = rand();
     const layer = z < 0.45 ? 0 : z < 0.85 ? 1 : 2;
     const x = Math.floor(rand() * cols);
@@ -160,7 +159,7 @@ function draw(canvas, state, figure) {
   const { bg, ink } = colours(state);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
-  if (state.back === "stars") starField(ctx, w, h, ink);
+  if (state.bands || state.stars) starField(ctx, w, h, ink, state);
   ctx.fillStyle = ink;
   const lines = state.text.split("\n").map(line => line.trim()).filter(Boolean).map(textMask);
   const widest = lines.reduce((a, b) => (b[0].length > a[0].length ? b : a), lines[0] ?? []);
@@ -232,6 +231,11 @@ function maker(root, { id, title, formats, figures, state, textLabel, textMax, p
   const save = el("button", { type: "button", className: "btn cee-primary", id: `${id}-save`, textContent: saveText });
   save.addEventListener("click", () => download(canvas, `${name(state)}.png`));
   const set = key => value => { state[key] = value; render(); };
+  const toggle = (key, label) => {
+    const input = el("input", { type: "checkbox", role: "switch", id: `${id}-${key}`, checked: state[key] });
+    input.addEventListener("change", () => set(key)(input.checked));
+    return el("label", { className: "ui-switch" }, [input, el("span", { className: "ui-switch-track", ariaHidden: "true" }), label]);
+  };
   root.replaceChildren(
     el("h3", { textContent: title }),
     el("div", { className: "cee-support-maker" }, [
@@ -243,7 +247,7 @@ function maker(root, { id, title, formats, figures, state, textLabel, textMax, p
         slider("size", "Bildgröße"),
         slider("textSize", "Textgröße"),
         choices(`${id}-place`, "Platz", PLACES, state.place, set("place")),
-        choices(`${id}-back`, "Hintergrund", BACKS, state.back, set("back")),
+        el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: "Hintergrund" }), toggle("bands", "Punktmuster an den Rändern"), toggle("stars", "Sterne")]),
         choices(`${id}-look`, "Farbe", LOOKS, state.look, value => { own.hidden = value !== "own"; set("look")(value); }),
         own,
         el("div", { className: "actions" }, [save]),
@@ -257,13 +261,13 @@ export function supportPage({ avatar, wallpaper }) {
   const blechys = ["wave", "idle", "happy", "angry", "sad", "tube", "loaded", "eyes"];
   maker(avatar, {
     id: "cee-support-avatar", title: "Profilbild", formats: ["avatar"], figures: blechys,
-    state: { format: "avatar", figure: "wave", text: "", size: 100, textSize: 60, place: "middle", back: "flat", look: "red", bg: "#cc0000", ink: "#0a0a0b" },
+    state: { format: "avatar", figure: "wave", text: "", size: 100, textSize: 60, place: "middle", bands: false, stars: false, look: "red", bg: "#cc0000", ink: "#0a0a0b" },
     textLabel: "Dein Name", textMax: NAME_MAX, placeholder: "zum Beispiel dein Künstlername", saveText: "Profilbild speichern",
     name: s => `Blechy${s.text.trim() ? `-${fileName(s.text)}` : ""}`,
   });
   maker(wallpaper, {
     id: "cee-support-wallpaper", title: "Hintergrund", formats: ["desktop", "phone"], figures: ["blechtribe", "blech", ...blechys, "none"],
-    state: { format: "desktop", figure: "blechtribe", text: "", size: 100, textSize: 40, place: "middle", back: "stars", look: "black", bg: "#0a0a0b", ink: "#fafafa" },
+    state: { format: "desktop", figure: "blechtribe", text: "", size: 100, textSize: 40, place: "middle", bands: true, stars: true, look: "black", bg: "#0a0a0b", ink: "#fafafa" },
     textLabel: "Text", textMax: TEXT_MAX, placeholder: "zum Beispiel MEINE ELECTRIBE ROCKT", saveText: "Hintergrund speichern",
     name: s => `${fileName(FIGURES[s.figure][0]) || "BLECHTRIBE"}-${FORMATS[s.format][0]}`,
   });

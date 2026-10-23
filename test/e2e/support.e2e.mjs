@@ -38,6 +38,9 @@ test("a profile picture with a name and wallpapers for a computer and a phone, s
   const avatar = await h.download(page, () => page.click("#cee-support-avatar-save"));
   assert.deepEqual([...avatar.slice(0, 4)], PNG);
   assert.deepEqual(size(avatar), [1024, 1024]);
+  await page.check("#cee-support-avatar-bands");
+  await page.check("#cee-support-avatar-stars");
+  assert.ok(await colours(page, "cee-support-avatar-canvas") > 2, "the profile picture can have the dither bands and the stars too, each on its own switch");
 
   assert.ok(await colours(page, "cee-support-wallpaper-canvas") > 2, "the wallpaper starts on the star field of the app background");
   await page.locator("#cee-support-wallpaper-format label", { hasText: "Handy" }).click();
