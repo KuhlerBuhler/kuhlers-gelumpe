@@ -2,7 +2,7 @@
   "engine_revision": "e257a09527062bfb986b6e5e0780839b6cbd5b71",
   "files": {
     "REBUILD.md": "cea8adec3034895145a61dc0d3bbea4de2d26a081a62a37bbbd04ed15d997e98",
-    "build.json": "6b5b053d64d2c4d1d0e5de7c57145affdcb01666c3b97990ce26a28593846e3c",
+    "build.json": "c4e127e89db68f597dce69c2496567f18adbe6534781e0a3a3ba91a28d282080",
     "doomgeneric/.gitignore": "20ce02a86baeae521139e1c91bbb4e4cdde8a93ec4bfd9b44068426e7a63bd37",
     "doomgeneric/LICENSE": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
     "doomgeneric/README.TXT": "48e841db2b6f44faf87754e8629535ec2d3a25c6aa1cab05774f5cf05269efad",
@@ -218,7 +218,7 @@
     "gelumpe/LICENSE": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef",
     "gelumpe/tools/doom/artifacts.py": "f82d0ab40199b286f7895d6156866159e6e5b48d0c8c4b0cc86d13e7ff9c4e08",
     "gelumpe/tools/doom/build_runtime.py": "f80f61085c1f00ffddb8117f1f9aa74e3b59a8c410497ee66a8b547be565c2d0",
-    "gelumpe/tools/doom/native_power.h": "ffd760fe51cedea31b552be526af596f05f555fce047e5b0e5aec137232e4a4b",
+    "gelumpe/tools/doom/native_power.h": "e1d897af0b6b9b577ea3cf1fd85ffea72690a3eb5ca9bdccd81fec7d20c225f4",
     "gelumpe/tools/doom/rebuild_runtime.py": "e130e085a6ee3526fffd75590818264d937ff01a56d17af33ade7383ca83f1e2",
     "gelumpe/tools/doom/runtime.c": "cdfe7beba2ba0181b5fcb7e739887b6b19ae870c9fb5eb8c2175f453d2667237",
     "gelumpe/tools/doom/runtime.ld": "d25a1a4610bcda6363f156ba07a2915083002b57ff1c4174d3a7be6a7ac7209a",
@@ -232,7 +232,7 @@
     "toolchain/notices/gdb-Copying.html": "7da0b9992f83693cbbb09e3e5639ef06c707eb9b45da9c825fba03753a436031",
     "toolchain/notices/gfortran-Copying.html": "e39330d7670768333c1f3ca017075b412ff4a095e5d8da849bc3283ce3079dba"
   },
-  "binary_sha256": "5222c195cb7b8507f4b3391d8bb190f82ce27c86a122532d25b90497431695d8",
+  "binary_sha256": "c1edb9db59b9572de4b9b27ead9b4762629ab7805f7937c996e20924cc309630",
   "redistribution_ready": false,
   "missing": [
     "applicable runtime license notices and source obligations",

@@ -9,7 +9,7 @@ like an old tube. Only the first picture is stored; the arm of the second pose i
     python3 tools/patch/power_off.py --vsb SYSTEM.VSB [--out data/patches/power-off.json] [--png frame.png]
 
 One hook, none in the start phase: the call of the wait function (0xC0000B78, 1000 ms) in the handler goes through our
-code. It does what the original does, the same time in sleeps of 2 ms for the first 60 ms and then 10 ms (counted against the operating system's tick
+code. It does what the original does, the same time in sleeps of 2 ms (counted against the operating system's tick
 count, so the total stays 1000 ms, and against the sum of the slices, so it ends even if the count stood still), and
 between the sleeps it writes the picture of that moment into the display buffer (1024 bytes), which covers the box the
 firmware keeps painting. Nothing of the save is touched: the save call, the flash and card writes and the moment the
@@ -52,8 +52,8 @@ DISPLAY = 0xC031B310            # the display buffer, byte (y / 8) * 128 + x, bi
 PANEL = 0xC033E6F8              # pointer to the panel object, +0x18 held keys
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13)
 TICKS = 0xC06A292C              # the operating system's tick count, one per millisecond (measured); the wait function adds to it
-SLICE_MS = 10                   # the picture is redrawn every 10 ms: the firmware paints parts of its box again and again,
-                                # and the display frame (every 40 ms) has to find the picture in the buffer
+SLICE_MS = 2                    # the picture is redrawn every 2 ms for the whole second: the firmware paints parts of its box again
+                                # and again; with 10 ms after the first 60 the animation flickered on the device (22.10.)
 EARLY_MS = 60                   # the box is painted when the window opens, at a time the display frame does not wait for:
 SHORT_MS = 2                    # in the first 60 ms the picture goes over it every 2 ms
 
@@ -524,7 +524,7 @@ def build_patch(vsb, build="hacktribe"):
         "builds": ["synth"] if build == "synth" else ["hacktribe", "stock"],
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
-             "note": "power-off picture: the wait of the power-off handler draws the moment of the sequence every 2 to 10 ms"},
+             "note": "power-off picture: the wait of the power-off handler draws the moment of the sequence every 2 ms"},
             {"file": file_offset(FRAME_AT), "bytes": frame.hex(), "expect": free(FRAME_AT, len(frame)),
              "note": "the power-off picture, 1024 bytes of display buffer: Blechy waving and his line"},
             {"file": file_offset(WAIT_CALL), "bytes": hook.hex(), "expect": sha(was(WAIT_CALL, 4)),
