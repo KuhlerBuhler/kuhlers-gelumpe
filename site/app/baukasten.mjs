@@ -287,7 +287,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
           el("div", { className: "cee-sentence" }, [
             select("source", sources.map(x => ({ raw: x.raw, label: x.who?.[kind] ?? x.label })), "Quelle"),
             el("span", { textContent: "steuert" }),
-            select("chain", chains.map(c => ({ raw: c.raw, label: c.label })), "Ziel"),
+            select("chain", chains.map(c => ({ raw: c.raw, label: chainLabel(piece, c) })), "Ziel"),
             ...(params.length ? [el("span", { textContent: ">" }), select("param", params, "Parameter")] : []),
             el("span", { textContent: off }), number("low", off === "von" ? "Von" : `Wert ${off}`),
             el("span", { textContent: on }), number("high", on === "bis" ? "Bis" : `Wert ${on}`),
@@ -310,6 +310,14 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       el("div", { className: "cee-bk-map-head" }, [el("h3", { className: "cee-bk-stage-title", textContent: "Steuerung" }), look]),
       rows,
     ]);
+  }
+
+  /** What a row drives in the words of the editor: the block as its card names it, or the level around the effect. */
+  function chainLabel(piece, chain) {
+    if (!chain?.stage) return chain?.label ?? "?";
+    const stage = piece.stages.find(x => x.stage === chain.stage);
+    const name = stage?.unit ? unitLabel(unitKind(stage.stage), stage.unit, stage.unitName)[0] : "leer";
+    return piece.stages.length > 1 ? `Baustein ${piece.stages.indexOf(stage) + 1} (${name})` : `Baustein (${name})`;
   }
 
   /** The key of the knob a map row moves: its stage and parameter, or the level it drives. */
@@ -365,7 +373,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const p = stage?.unit ? units[unitKind(stage.stage)].get(stage.unit)?.params.find(x => x.index === row.param) : null;
       const [min, max] = p ? rangeOf(unitKind(stage.stage), stage.unit, p.name) : [0, 127];
       const start = p ? (stage.params[p.name] ?? 0) : 127;
-      const k = knob(`cee-bk-preview-${key.replace(":", "-")}`, p ? paramLabel(p.name) : chain?.label ?? "?", p ? `Baustein ${piece.stages.indexOf(stage) + 1}` : null, min, max, start, () => {}, { readOnly: true });
+      const k = knob(`cee-bk-preview-${key.replace(":", "-")}`, p ? paramLabel(p.name) : chainLabel(piece, chain), p ? chainLabel(piece, chain) : null, min, max, start, () => {}, { readOnly: true });
       k.span(row.low, row.high);
       shown.set(key, { k, mirror, start });
     }
@@ -404,18 +412,18 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       for (const ev of ["pointerup", "pointercancel"]) pad.addEventListener(ev, release);
       controls.push(el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: "Touchpad" }), pad]));
     } else {
-      controls.push(knob("cee-bk-preview-knob", "Regler", null, 0, 127, 0, v => { c.x = v; apply(); }).node);
+      controls.push(knob("cee-bk-preview-knob", "IFX-Regler", null, 0, 127, 0, v => { c.x = v; apply(); }).node);
     }
     const toggle = (id, label, key) => {
       const box = el("input", { type: "checkbox", id, role: "switch", checked: c[key] });
       box.addEventListener("change", () => { c[key] = box.checked; apply(); });
       return el("label", { className: "ui-switch" }, [box, el("span", { className: "ui-switch-track", ariaHidden: "true" }), label]);
     };
-    if (kind === "ifx") controls.push(toggle("cee-bk-preview-on", "Effekt an", "on"));
+    if (kind === "ifx") controls.push(toggle("cee-bk-preview-on", "IFX ON", "on"));
     controls.push(toggle("cee-bk-preview-play", "Pattern läuft", "play"));
 
     previewBody.replaceChildren(
-      el("p", { className: "muted", textContent: "Dreh am Regler oder drück aufs Touchpad: links siehst du, wie sich die Parameter bewegen. Zu hören ist dabei nichts. So liest die Seite die Steuerung, nachgemessen am Gerät ist das nicht." }),
+      el("p", { className: "muted", textContent: "Dreh am IFX-Regler oder drück aufs Touchpad: links siehst du, wie sich die Parameter bewegen. Zu hören ist dabei nichts. So liest die Seite die Steuerung, nachgemessen am Gerät ist das nicht." }),
       shown.size ? el("div", { className: "cee-bk-preview-grid" }, [
         el("div", { className: "cee-bk-params cee-bk-preview-knobs" }, [...shown.values()].map(x => x.k.node)),
         el("div", { className: "cee-bk-preview-controls" }, controls),
