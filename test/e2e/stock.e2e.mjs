@@ -68,9 +68,9 @@ test("Korg's plain build: Presets and Modulationen are disabled with a short too
   assert.deepEqual(await severeViolations(page), [], "the disabled entries are accessible");
   await page.click("#cee-tab-fx", { force: true });
   assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "emu", "a click on a disabled entry opens nothing");
-  await page.click("#cee-tab-scripts");
+  await page.click("#cee-tab-features");
   await page.keyboard.press("ArrowDown");
-  assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "changelog", "the arrow keys skip the disabled entries");
+  assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "start", "the arrow keys skip the disabled entries and wrap round");
   assert.deepEqual(page.errors, []);
 });
 
