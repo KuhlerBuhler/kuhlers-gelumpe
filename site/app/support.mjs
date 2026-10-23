@@ -263,7 +263,8 @@ function maker(root, { id, title, formats, figures, state, textLabel, textMax, p
 export function supportPage({ avatar, wallpaper }) {
   const blechys = ["wave", "idle", "happy", "angry", "sad", "tube", "loaded", "eyes"];
   maker(avatar, {
-    id: "cee-support-avatar", title: "Profilbild", formats: ["avatar"], figures: blechys,
+    // The tube scene is wide and flat, a square leaves it a strip in the middle: only for the wallpapers.
+    id: "cee-support-avatar", title: "Profilbild", formats: ["avatar"], figures: blechys.filter(f => f !== "tube"),
     state: { format: "avatar", figure: "wave", text: "", size: 100, textSize: 60, place: "middle", bands: false, stars: false, look: "red", bg: "#cc0000", ink: "#0a0a0b" },
     textLabel: "Dein Name", textMax: NAME_MAX, placeholder: "zum Beispiel dein Künstlername", saveText: "Profilbild speichern",
     name: s => `Blechy${s.text.trim() ? `-${fileName(s.text)}` : ""}`,
