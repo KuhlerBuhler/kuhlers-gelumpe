@@ -133,15 +133,6 @@
 .cee-e2-art-pad { fill: var(--color-surface-item-muted); }
 .cee-e2-art-touch { fill: var(--color-surface-panel-alt); stroke: var(--color-border-muted); }
 
-.cee-rescue-legend {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 @media (max-width: 720px) {
   .cee-rescue-say { grid-template-columns: var(--space-10) minmax(0, 1fr); }
   .cee-rescue-answers { padding-left: 0; }

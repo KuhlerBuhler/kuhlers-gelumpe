@@ -248,24 +248,11 @@ card_read_fail:
 
 ; r0 pointer, r1 length: CRC-32 (IEEE) running state in the scratch area.
 card_crc:
+    push {r4, lr}
     ldr r2, [r5, #CARD_CRC]
-    ldr r12, =0xEDB88320
-    add r1, r0, r1
-card_crc_byte:
-    cmp r0, r1
-    bhs card_crc_done
-    ldrb r3, [r0], #1
-    eor r2, r2, r3
-    mov r3, #8
-card_crc_bit:
-    movs r2, r2, lsr #1
-    eorcs r2, r2, r12
-    subs r3, r3, #1
-    bne card_crc_bit
-    b card_crc_byte
-card_crc_done:
+    bl VM_CRC_UPDATE
     str r2, [r5, #CARD_CRC]
-    bx lr
+    pop {r4, pc}
 
 card_close:
     push {lr}

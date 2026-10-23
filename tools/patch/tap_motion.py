@@ -270,8 +270,7 @@ tm_switch:
     cmp r6, #16
     beq tt_mfx
     mov r0, #0x330
-    mul r1, r6, r0
-    add r1, r4, r1
+    mla r1, r6, r0, r4
     ldrb r2, [r1, #MODE_BYTE]
     add r7, r5, #S_LAST
     add r7, r7, r6
@@ -385,8 +384,7 @@ to_part:
     cmp r6, #16
     beq to_mfx
     mov r0, #0x330
-    mul r1, r6, r0
-    add r1, r4, r1
+    mla r1, r6, r0, r4
     ldrb r2, [r1, #MODE_BYTE]
     add r7, r5, #S_LAST
     add r7, r7, r6
@@ -483,8 +481,7 @@ tk_part:
     cmp r0, #15
     bhi tk_blink
     mov r1, #0x330
-    mul r2, r0, r1
-    add r2, r4, r2
+    mla r2, r0, r1, r4
     ldrb r6, [r2, #MODE_BYTE]
 tk_blink:
     ldrb r0, [r4, #MFX_BYTE]

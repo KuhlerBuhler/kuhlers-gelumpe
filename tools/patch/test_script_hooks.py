@@ -726,4 +726,59 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.input(machine,[0,34,1,0,0]),0xC0028380)
         self.assertEqual(self.drain(machine),[],'the other pages of the menu show the plugins nothing, as before')
 
+
+@unittest.skipUnless(UNICORN_AVAILABLE, 'Unicorn is required for native settings tests')
+class MenuSettingsTests(unittest.TestCase):
+    def test_off_flags_survive_mixed_settings_and_pad_calls(self):
+        import itertools
+        import zlib
+        from tools.patch.script_hooks import build
+        from unicorn.arm_const import UC_ARM_REG_PC
+        for build_name in ('hacktribe', 'stock', 'synth'):
+            built = build(contract_data()['include'], build=build_name)
+            machine = BareMachine(built.vm)
+            for address, data in built.sections:
+                for page in range(address & ~4095, (address + len(data) + 4095) & ~4095, 4096):
+                    if not any(a <= page <= b for a, b, _ in machine.uc.mem_regions()):
+                        machine.uc.mem_map(page, 4096)
+                machine.uc.mem_write(address, data)
+            machine.symbols.update(built.symbols)
+            symbols = machine.symbols
+            state = symbols['MENU_STATE']
+            opened = []
+            def glue(uc, address, size, _):
+                if address == symbols['menu_pc_call']:
+                    offset = uc.reg_read(UC_ARM_REG_R1)
+                    uc.reg_write(UC_ARM_REG_R0, {20: 2, 28: 13, 4: 0x120}[offset])
+                    uc.reg_write(UC_ARM_REG_R1, 0xdeadbeef)
+                    uc.reg_write(UC_ARM_REG_R2, 0xa5a5a5a5)
+                    uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
+                elif address == symbols['FS_OPEN']:
+                    opened.append(bytes(uc.mem_read(state + symbols['M_FILE_A'], 24)))
+                    uc.reg_write(UC_ARM_REG_PC, machine.stop)
+            fs_page = symbols['FS_OPEN'] & ~4095
+            if not any(a <= fs_page <= b for a, b, _ in machine.uc.mem_regions()):
+                machine.uc.mem_map(fs_page, 4096)
+            machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['menu_pc_call'], end=symbols['menu_pc_call'])
+            machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['FS_OPEN'], end=symbols['FS_OPEN'])
+            machine.write(symbols['HOOK_RUNTIME'] + symbols['RT_HEAD'], 0)
+            for run, mfx, pc, na, tm in itertools.product(range(2), range(2), range(2), range(2), range(3)):
+                with self.subTest(build=build_name, run=run, mfx=mfx, pc=pc, na=na, tm=tm):
+                    machine.uc.mem_write(state - 32, bytes(544))
+                    for name, value in [('M_SET_RUN', run), ('M_SET_MFX', mfx), ('M_PC', pc), ('M_NA', na), ('M_TM', tm)]:
+                        machine.write(state + symbols[name], value)
+                    for name, value in [('MX_INTENS', 9), ('MX_SAVE', 5)]:
+                        machine.uc.mem_write((state + symbols[name]) & 0xffffffff, bytes([value]))
+                    machine.uc.mem_write((state + symbols['MX_METER']) & 0xffffffff, bytes([1, 2, 3, 4]))
+                    opened.clear()
+                    machine.call('menu_settings_save')
+                    self.assertEqual(len(opened), 1)
+                    data = opened[0]
+                    expected = run | (mfx << 1) | ((1-pc) << 2) | ((tm == 0) << 3) | ((1-na) << 4) | ((tm == 2) << 5)
+                    expected |= (6 << 8) | (5 << 12) | ((1 | (2 << 3) | (3 << 6) | (4 << 9)) << 16)
+                    expected |= (2 << 28) | (1 << 6) | (1 << 31)
+                    self.assertEqual(struct.unpack_from('<I', data, 12)[0], expected)
+                    self.assertEqual(struct.unpack_from('<I', data, 16)[0], 0x80000120)
+                    self.assertEqual(struct.unpack_from('<I', data, 20)[0], zlib.crc32(data[:20]))
+
 if __name__=='__main__': unittest.main()

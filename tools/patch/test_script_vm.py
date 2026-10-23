@@ -21,7 +21,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 
 @lru_cache(None)
 def contract_data():
-    source = "import * as c from './data/script/contract.mjs'; import {asmInclude} from './src/script/arm-tables.mjs'; console.log(JSON.stringify({include:asmInclude(),op:c.OP,error:c.ERROR,events:c.EVENTS,apis:c.API,header:c.HEADER,pool:c.SCRIPT_ENTRY}));"
+    source = "import * as c from './data/script/contract.mjs'; import {asmInclude} from './src/script/arm-tables.mjs'; console.log(JSON.stringify({include:asmInclude(),op:c.OP,opcodes:c.OPCODES,error:c.ERROR,events:c.EVENTS,apis:c.API,header:c.HEADER,pool:c.SCRIPT_ENTRY}));"
     return json.loads(subprocess.check_output(['node', '--input-type=module', '-e', source], cwd=ROOT))
 
 def blob(code, vars=0, stack=0, constants=(), handlers=(), strings=(), lines=(), flags=0):

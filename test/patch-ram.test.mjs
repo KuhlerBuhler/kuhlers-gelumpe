@@ -18,6 +18,16 @@ const hex = n => `0x${n.toString(16).toUpperCase()}`;
 const IMAGE = PROTECTED.regions.find(r => r.id === "firmware-image");
 const where = { free: FREE_RUNS, regions: PROTECTED.regions, window: PROTECTED.ram.window, image: IMAGE };
 
+test("all three builds can reuse the released SysEx space without taking the file workspace", () => {
+  for (const build of ["hacktribe", "stock", "synth"]) {
+    const set = build === "synth" ? read("data/patches/blech-synth.json").patches.map(read) : chosen(build);
+    const claim = (at, length) => ({ id: "new-area", changes: [], ram: [{ at: hex(at), length, what: "test", source: "test:capacity" }] });
+    assert.deepEqual(checkRam([...set, claim(0xc019a400, 19456)]), [], build);
+    assert.deepEqual(checkRamPlacement([...set, claim(0xc019a400, 19456)], { ...where, free: build === "synth" ? SYNTH_FREE_RUNS : FREE_RUNS }), [], build);
+    for (const at of [0xc019a3ff, 0xc019f000]) assert.match(checkRam([...set, claim(at, 1)]).join(), /blech-sysex.*overlaps|overlaps blech-sysex/, build);
+  }
+});
+
 test("the synth set keeps its code and declared state inside the measured free image run", () => {
   const synth = read("data/patches/blech-synth.json").patches.map(read);
   assert.deepEqual(selectFor(synth, "synth").reasons, []);

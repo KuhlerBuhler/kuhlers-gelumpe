@@ -1,0 +1,26 @@
+{
+  "format": "blech-integrated-acceptance",
+  "version": 1,
+  "baselineDigest": "63f29e7dedb2fa306c8c515efd1f4cc2b6d71d7123b6d532a80ad42337f58e8d",
+  "firmwareSourceCommit": "21cf0ceaada9ff6410c48b85022ad98c8bc8b939",
+  "inheritedPhases": [
+    "pad",
+    "loader",
+    "mul"
+  ],
+  "codeBudgetBytes": 112,
+  "evidence": [
+    {
+      "file": "2026-10-20-pad-geometrie-zahlen.json",
+      "sha256": "7e6dabdd88a83fc727a53b524470950ee2d300cc2c6ee2282a1846a1c5185e5b"
+    },
+    {
+      "file": "2026-10-20-arm-optimierungen-zahlen.json",
+      "sha256": "d9ec392a140f7eeda5ec344d16aaf3ab3e22896c79a819521381ced5242b6993"
+    },
+    {
+      "file": "2026-10-21-patch-effizienz-basis-zahlen.json",
+      "sha256": "aa1476b51652a00daa1a2c9c8890affb927297dba06d65d6353fbbf18f0b4792"
+    }
+  ]
+}

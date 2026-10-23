@@ -1,0 +1,1968 @@
+{
+  "format": "blech-effizienz-ausgang",
+  "version": 1,
+  "date": "2026-10-20",
+  "productCommit": "0b2aad8de3a91b8a9dab8c67a66f73b5d6ca6a3c",
+  "fullChecksOk": true,
+  "sourcesUnchanged": true,
+  "sourcesSha256": "1db1517a96b0f42e26c0154379bab9b2133cb721bfd119897a8ba6d2c90e3608",
+  "plugins": {
+    "blechclicker": "f4feab234825096062a6ae2688500f81fc4710e64a4c8fbf152a7f5d27423eba",
+    "settimer": "b8621d82f6b38eff32f012ec5e8a254de80f24a6950ce4dc19766e3df981aa20",
+    "snake": "62ccd338e3a00f23bb8dac120545f279cdbbc84cd1690473dd2a81e871ac81af",
+    "tetris": "d03c640f1afd8980a78c54aaa86b761fac7c4d8ea7e4e1e52d9f23ef24e1a4f8",
+    "life": "971e485b17f699d717613ae5d5ed5f62d88485e83ec1b040759d3da85001e272",
+    "pong": "dafb73ad9cd219a3de199f301bf30a46e17df87f1d788219cac3f15b3d102de7",
+    "simon": "b697201acd9ae9f59f85bc559165800b3a9804e090466ec36f8c770e5e4a61ff",
+    "mandelbrot": "ca2f1218919cfb90a3612f0094b4da3b4900ff0d7d586dc9830be7126115c626",
+    "lauflicht": "a8b5ddba6854340ca884203a2cf8c7c2c2b2d22feb2882a731237f59f36832e7",
+    "pulsieren": "2cafaff78b0df1a4f538549148f86c6a6fc38aa971a7d29f23cc5bb2e4e37d16"
+  },
+  "builds": {
+    "hacktribe": {
+      "inputSha256": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+      "outputSha256": "3f98adc7f4557014fb223ff89e130ee3c6fde457943afddb71988c2ccb19f72c",
+      "patches": [
+        "splash-editor",
+        "mfx-switch",
+        "pattern-switch",
+        "tap-motion",
+        "note-assistant",
+        "dice",
+        "pad-colors",
+        "load-bar",
+        "sample-errors",
+        "script-runtime",
+        "blechtribe",
+        "splash",
+        "blech-theme",
+        "preset-tables",
+        "power-off",
+        "doom-loader",
+        "blech-sysex"
+      ],
+      "checks": 432,
+      "ok": true,
+      "footprint": {
+        "freeBytes": 572992,
+        "codeDataBytes": 86984,
+        "ramBytes": 451587,
+        "occupiedBytes": 538571,
+        "unallocatedBytes": 34421,
+        "largestGap": 3328,
+        "patches": [
+          {
+            "id": "splash-editor",
+            "codeDataBytes": 3504,
+            "ramBytes": 4096
+          },
+          {
+            "id": "mfx-switch",
+            "codeDataBytes": 1928,
+            "ramBytes": 352
+          },
+          {
+            "id": "pattern-switch",
+            "codeDataBytes": 2324,
+            "ramBytes": 827
+          },
+          {
+            "id": "tap-motion",
+            "codeDataBytes": 1336,
+            "ramBytes": 64
+          },
+          {
+            "id": "note-assistant",
+            "codeDataBytes": 1752,
+            "ramBytes": 64
+          },
+          {
+            "id": "dice",
+            "codeDataBytes": 1216,
+            "ramBytes": 64
+          },
+          {
+            "id": "pad-colors",
+            "codeDataBytes": 2684,
+            "ramBytes": 64
+          },
+          {
+            "id": "load-bar",
+            "codeDataBytes": 7200,
+            "ramBytes": 2752
+          },
+          {
+            "id": "sample-errors",
+            "codeDataBytes": 852,
+            "ramBytes": 256
+          },
+          {
+            "id": "script-runtime",
+            "codeDataBytes": 55480,
+            "ramBytes": 339648
+          },
+          {
+            "id": "blechtribe",
+            "codeDataBytes": 0,
+            "ramBytes": 0
+          },
+          {
+            "id": "splash",
+            "codeDataBytes": 0,
+            "ramBytes": 0
+          },
+          {
+            "id": "blech-theme",
+            "codeDataBytes": 0,
+            "ramBytes": 0
+          },
+          {
+            "id": "preset-tables",
+            "codeDataBytes": 1024,
+            "ramBytes": 31392
+          },
+          {
+            "id": "power-off",
+            "codeDataBytes": 1244,
+            "ramBytes": 0
+          },
+          {
+            "id": "doom-loader",
+            "codeDataBytes": 2744,
+            "ramBytes": 10568
+          },
+          {
+            "id": "blech-sysex",
+            "codeDataBytes": 3696,
+            "ramBytes": 61440
+          }
+        ]
+      },
+      "completedTasks": 104,
+      "profiles": {
+        "original": [
+          {
+            "scenario": "idle",
+            "instructions": 16074687,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              16074687,
+              16074687,
+              16074687
+            ],
+            "medianInstructions": 16074687,
+            "maxInstructions": 16074687
+          },
+          {
+            "scenario": "playing",
+            "instructions": 42809598,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              42809598,
+              42809598,
+              42809598
+            ],
+            "medianInstructions": 42809598,
+            "maxInstructions": 42809598
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 42718397,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              42718397,
+              42718397,
+              42718397
+            ],
+            "medianInstructions": 42718397,
+            "maxInstructions": 42718397
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 71367109,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              71367109,
+              71367109,
+              71367109
+            ],
+            "medianInstructions": 71367109,
+            "maxInstructions": 71367109
+          }
+        ],
+        "patched": [
+          {
+            "scenario": "idle",
+            "instructions": 16523091,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 395904,
+              "load-bar": 197100,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 37800
+            },
+            "repeatInstructions": [
+              16523091,
+              16523091,
+              16523091
+            ],
+            "medianInstructions": 16523091,
+            "maxInstructions": 16523091
+          },
+          {
+            "scenario": "playing",
+            "instructions": 43186749,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 261368,
+              "load-bar": 197100,
+              "tap-motion": 11688,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 44502,
+              "pattern-switch": 200,
+              "blech-sysex": 192
+            },
+            "repeatInstructions": [
+              43186749,
+              43186749,
+              43186749
+            ],
+            "medianInstructions": 43186749,
+            "maxInstructions": 43186749
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 44056707,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 258472,
+              "load-bar": 197122,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 72845,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 129170,
+              "blech-sysex": 192
+            },
+            "repeatInstructions": [
+              44056707,
+              44056707,
+              44056707
+            ],
+            "medianInstructions": 44056707,
+            "maxInstructions": 44056707
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 88318974,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 258705,
+              "load-bar": 197100,
+              "tap-motion": 11688,
+              "note-assistant": 32668,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 19437873,
+              "pattern-switch": 200
+            },
+            "repeatInstructions": [
+              88318974,
+              88318974,
+              88318974
+            ],
+            "medianInstructions": 88318974,
+            "maxInstructions": 88318974
+          },
+          {
+            "scenario": "blech-menu",
+            "instructions": 19323854,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "splash-editor": 765,
+              "script-runtime": 177274,
+              "pad-colors": 38740,
+              "mfx-switch": 1681,
+              "load-bar": 385239,
+              "tap-motion": 11688,
+              "note-assistant": 29600,
+              "pattern-switch": 200
+            },
+            "repeatInstructions": [
+              19323854,
+              19323854,
+              19323854
+            ],
+            "medianInstructions": 19323854,
+            "maxInstructions": 19323854
+          },
+          {
+            "scenario": "closed-apps",
+            "instructions": 17043783,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 228041,
+              "load-bar": 197100,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761
+            },
+            "repeatInstructions": [
+              17043783,
+              17043783,
+              17043783
+            ],
+            "medianInstructions": 17043783,
+            "maxInstructions": 17043783
+          },
+          {
+            "scenario": "app-mandelbrot",
+            "instructions": 23259071,
+            "deviceNs": 1981685280.000328,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 6473414,
+              "load-bar": 189150,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761
+            },
+            "semantic": {
+              "frames": 50,
+              "fault": 0,
+              "framebufferSha256": "1ca9bc86b4a8318d5c6e4359e553a91a265b452eeb1cab47d57fb01bbc89896e",
+              "progress": {
+                "head": 290,
+                "tail": 1098,
+                "pending": 808,
+                "tile": 0,
+                "at": 0,
+                "done": 0,
+                "n": 0
+              }
+            },
+            "repeatInstructions": [
+              23259071,
+              23259071,
+              23259071
+            ],
+            "medianInstructions": 23259071,
+            "maxInstructions": 23259071
+          },
+          {
+            "scenario": "app-life",
+            "instructions": 23359876,
+            "deviceNs": 1981599760.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 6263610,
+              "load-bar": 189150,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761
+            },
+            "semantic": {
+              "frames": 50,
+              "fault": 0,
+              "framebufferSha256": "244ed5f4f24eda1e36ea6610ad384467e6f5ac432ed330dc3988cee587213339",
+              "progress": {
+                "computing": 1,
+                "genRow": 8,
+                "paintAt": 6,
+                "soupAt": 16
+              }
+            },
+            "repeatInstructions": [
+              23359876,
+              23359876,
+              23359876
+            ],
+            "medianInstructions": 23359876,
+            "maxInstructions": 23359876
+          },
+          {
+            "scenario": "app-pong",
+            "instructions": 18070435,
+            "deviceNs": 1980000000.0027199,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 1077922,
+              "load-bar": 189150,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761
+            },
+            "semantic": {
+              "frames": 50,
+              "fault": 0,
+              "framebufferSha256": "4f6cbf9a80e93701d02dd602a92f14ea680a78566a0d834cd2fd32d6d68754e7",
+              "progress": {}
+            },
+            "repeatInstructions": [
+              18070435,
+              18070435,
+              18070435
+            ],
+            "medianInstructions": 18070435,
+            "maxInstructions": 18070435
+          },
+          {
+            "scenario": "background-plugins",
+            "instructions": 19226248,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 1785219,
+              "load-bar": 197100,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761
+            },
+            "repeatInstructions": [
+              19226248,
+              19226248,
+              19226248
+            ],
+            "medianInstructions": 19226248,
+            "maxInstructions": 19226248
+          }
+        ]
+      },
+      "loader": {
+        "totalInstructions": 15148903,
+        "plugins": [
+          {
+            "plugin": "blechclicker",
+            "instructions": 1015116
+          },
+          {
+            "plugin": "settimer",
+            "instructions": 1728989
+          },
+          {
+            "plugin": "snake",
+            "instructions": 1390746
+          },
+          {
+            "plugin": "tetris",
+            "instructions": 2427830
+          },
+          {
+            "plugin": "life",
+            "instructions": 2052194
+          },
+          {
+            "plugin": "pong",
+            "instructions": 1982018
+          },
+          {
+            "plugin": "simon",
+            "instructions": 1871888
+          },
+          {
+            "plugin": "mandelbrot",
+            "instructions": 1860851
+          },
+          {
+            "plugin": "lauflicht",
+            "instructions": 459632
+          },
+          {
+            "plugin": "pulsieren",
+            "instructions": 359639
+          }
+        ],
+        "maxInstructions": 15148903,
+        "repeats": [
+          {
+            "totalInstructions": 15148903,
+            "plugins": [
+              {
+                "plugin": "blechclicker",
+                "instructions": 1015116
+              },
+              {
+                "plugin": "settimer",
+                "instructions": 1728989
+              },
+              {
+                "plugin": "snake",
+                "instructions": 1390746
+              },
+              {
+                "plugin": "tetris",
+                "instructions": 2427830
+              },
+              {
+                "plugin": "life",
+                "instructions": 2052194
+              },
+              {
+                "plugin": "pong",
+                "instructions": 1982018
+              },
+              {
+                "plugin": "simon",
+                "instructions": 1871888
+              },
+              {
+                "plugin": "mandelbrot",
+                "instructions": 1860851
+              },
+              {
+                "plugin": "lauflicht",
+                "instructions": 459632
+              },
+              {
+                "plugin": "pulsieren",
+                "instructions": 359639
+              }
+            ]
+          },
+          {
+            "totalInstructions": 15148903,
+            "plugins": [
+              {
+                "plugin": "blechclicker",
+                "instructions": 1015116
+              },
+              {
+                "plugin": "settimer",
+                "instructions": 1728989
+              },
+              {
+                "plugin": "snake",
+                "instructions": 1390746
+              },
+              {
+                "plugin": "tetris",
+                "instructions": 2427830
+              },
+              {
+                "plugin": "life",
+                "instructions": 2052194
+              },
+              {
+                "plugin": "pong",
+                "instructions": 1982018
+              },
+              {
+                "plugin": "simon",
+                "instructions": 1871888
+              },
+              {
+                "plugin": "mandelbrot",
+                "instructions": 1860851
+              },
+              {
+                "plugin": "lauflicht",
+                "instructions": 459632
+              },
+              {
+                "plugin": "pulsieren",
+                "instructions": 359639
+              }
+            ]
+          },
+          {
+            "totalInstructions": 15148903,
+            "plugins": [
+              {
+                "plugin": "blechclicker",
+                "instructions": 1015116
+              },
+              {
+                "plugin": "settimer",
+                "instructions": 1728989
+              },
+              {
+                "plugin": "snake",
+                "instructions": 1390746
+              },
+              {
+                "plugin": "tetris",
+                "instructions": 2427830
+              },
+              {
+                "plugin": "life",
+                "instructions": 2052194
+              },
+              {
+                "plugin": "pong",
+                "instructions": 1982018
+              },
+              {
+                "plugin": "simon",
+                "instructions": 1871888
+              },
+              {
+                "plugin": "mandelbrot",
+                "instructions": 1860851
+              },
+              {
+                "plugin": "lauflicht",
+                "instructions": 459632
+              },
+              {
+                "plugin": "pulsieren",
+                "instructions": 359639
+              }
+            ]
+          }
+        ]
+      },
+      "allRepeatsIdentical": true,
+      "longTiesRatio": 1.2375304988184403
+    },
+    "stock": {
+      "inputSha256": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+      "outputSha256": "43ba294c1f8a629b5aba54bb0107fa1a4ad32e579e708b98c9e2e4bfee9bfb3f",
+      "patches": [
+        "splash-editor",
+        "mfx-switch",
+        "pattern-switch",
+        "tap-motion",
+        "note-assistant",
+        "dice",
+        "pad-colors",
+        "load-bar",
+        "sample-errors",
+        "script-runtime",
+        "blechtribe",
+        "splash",
+        "blech-theme",
+        "preset-tables",
+        "synth-filters",
+        "power-off",
+        "doom-loader",
+        "blech-sysex"
+      ],
+      "checks": 457,
+      "ok": true,
+      "footprint": {
+        "freeBytes": 572992,
+        "codeDataBytes": 87195,
+        "ramBytes": 451587,
+        "occupiedBytes": 538782,
+        "unallocatedBytes": 34210,
+        "largestGap": 3124,
+        "patches": [
+          {
+            "id": "splash-editor",
+            "codeDataBytes": 3504,
+            "ramBytes": 4096
+          },
+          {
+            "id": "mfx-switch",
+            "codeDataBytes": 1928,
+            "ramBytes": 352
+          },
+          {
+            "id": "pattern-switch",
+            "codeDataBytes": 2324,
+            "ramBytes": 827
+          },
+          {
+            "id": "tap-motion",
+            "codeDataBytes": 1336,
+            "ramBytes": 64
+          },
+          {
+            "id": "note-assistant",
+            "codeDataBytes": 1752,
+            "ramBytes": 64
+          },
+          {
+            "id": "dice",
+            "codeDataBytes": 1216,
+            "ramBytes": 64
+          },
+          {
+            "id": "pad-colors",
+            "codeDataBytes": 2684,
+            "ramBytes": 64
+          },
+          {
+            "id": "load-bar",
+            "codeDataBytes": 7200,
+            "ramBytes": 2752
+          },
+          {
+            "id": "sample-errors",
+            "codeDataBytes": 852,
+            "ramBytes": 256
+          },
+          {
+            "id": "script-runtime",
+            "codeDataBytes": 55480,
+            "ramBytes": 339648
+          },
+          {
+            "id": "blechtribe",
+            "codeDataBytes": 0,
+            "ramBytes": 0
+          },
+          {
+            "id": "splash",
+            "codeDataBytes": 0,
+            "ramBytes": 0
+          },
+          {
+            "id": "blech-theme",
+            "codeDataBytes": 0,
+            "ramBytes": 0
+          },
+          {
+            "id": "preset-tables",
+            "codeDataBytes": 1024,
+            "ramBytes": 31392
+          },
+          {
+            "id": "synth-filters",
+            "codeDataBytes": 191,
+            "ramBytes": 0
+          },
+          {
+            "id": "power-off",
+            "codeDataBytes": 1244,
+            "ramBytes": 0
+          },
+          {
+            "id": "doom-loader",
+            "codeDataBytes": 2744,
+            "ramBytes": 10568
+          },
+          {
+            "id": "blech-sysex",
+            "codeDataBytes": 3716,
+            "ramBytes": 61440
+          }
+        ]
+      },
+      "completedTasks": 111,
+      "profiles": {
+        "original": [
+          {
+            "scenario": "idle",
+            "instructions": 16070453,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              16070453,
+              16070453,
+              16070453
+            ],
+            "medianInstructions": 16070453,
+            "maxInstructions": 16070453
+          },
+          {
+            "scenario": "playing",
+            "instructions": 42813727,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              42813727,
+              42813727,
+              42813727
+            ],
+            "medianInstructions": 42813727,
+            "maxInstructions": 42813727
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 42719802,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              42719802,
+              42719802,
+              42719802
+            ],
+            "medianInstructions": 42719802,
+            "maxInstructions": 42719802
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 71357324,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              71357324,
+              71357324,
+              71357324
+            ],
+            "medianInstructions": 71357324,
+            "maxInstructions": 71357324
+          }
+        ],
+        "patched": [
+          {
+            "scenario": "idle",
+            "instructions": 16519396,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 395909,
+              "load-bar": 197100,
+              "tap-motion": 11688,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 37800,
+              "pattern-switch": 200
+            },
+            "repeatInstructions": [
+              16519396,
+              16519396,
+              16519396
+            ],
+            "medianInstructions": 16519396,
+            "maxInstructions": 16519396
+          },
+          {
+            "scenario": "playing",
+            "instructions": 43189608,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 258460,
+              "load-bar": 197100,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 44565,
+              "blech-sysex": 192
+            },
+            "repeatInstructions": [
+              43189608,
+              43189608,
+              43189608
+            ],
+            "medianInstructions": 43189608,
+            "maxInstructions": 43189608
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 44057228,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 258552,
+              "load-bar": 197126,
+              "tap-motion": 11688,
+              "note-assistant": 72845,
+              "mfx-switch": 1655,
+              "splash-editor": 750,
+              "pad-colors": 129188,
+              "pattern-switch": 200,
+              "blech-sysex": 192
+            },
+            "repeatInstructions": [
+              44057228,
+              44057228,
+              44057228
+            ],
+            "medianInstructions": 44057228,
+            "maxInstructions": 44057228
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 88290780,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 258617,
+              "tap-motion": 11688,
+              "note-assistant": 32676,
+              "mfx-switch": 1660,
+              "splash-editor": 750,
+              "pad-colors": 19437896,
+              "load-bar": 197109,
+              "pattern-switch": 200
+            },
+            "repeatInstructions": [
+              88290780,
+              88290780,
+              88290780
+            ],
+            "medianInstructions": 88290780,
+            "maxInstructions": 88290780
+          },
+          {
+            "scenario": "blech-menu",
+            "instructions": 19280943,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "splash-editor": 750,
+              "script-runtime": 178073,
+              "pad-colors": 37867,
+              "mfx-switch": 1648,
+              "load-bar": 385228,
+              "tap-motion": 11456,
+              "pattern-switch": 200,
+              "note-assistant": 29008
+            },
+            "repeatInstructions": [
+              19280943,
+              19280943,
+              19280943
+            ],
+            "medianInstructions": 19280943,
+            "maxInstructions": 19280943
+          },
+          {
+            "scenario": "closed-apps",
+            "instructions": 17040852,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 227620,
+              "load-bar": 197100,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761
+            },
+            "repeatInstructions": [
+              17040852,
+              17040852,
+              17040852
+            ],
+            "medianInstructions": 17040852,
+            "maxInstructions": 17040852
+          },
+          {
+            "scenario": "app-mandelbrot",
+            "instructions": 23252972,
+            "deviceNs": 1980598360.000328,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 6476112,
+              "load-bar": 189150,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761
+            },
+            "semantic": {
+              "frames": 50,
+              "fault": 0,
+              "framebufferSha256": "1ca9bc86b4a8318d5c6e4359e553a91a265b452eeb1cab47d57fb01bbc89896e",
+              "progress": {
+                "head": 290,
+                "tail": 1098,
+                "pending": 808,
+                "tile": 0,
+                "at": 0,
+                "done": 0,
+                "n": 0
+              }
+            },
+            "repeatInstructions": [
+              23252972,
+              23252972,
+              23252972
+            ],
+            "medianInstructions": 23252972,
+            "maxInstructions": 23252972
+          },
+          {
+            "scenario": "app-life",
+            "instructions": 23347087,
+            "deviceNs": 1980610000.0003853,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 6260794,
+              "load-bar": 189150,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761
+            },
+            "semantic": {
+              "frames": 50,
+              "fault": 0,
+              "framebufferSha256": "244ed5f4f24eda1e36ea6610ad384467e6f5ac432ed330dc3988cee587213339",
+              "progress": {
+                "computing": 1,
+                "genRow": 8,
+                "paintAt": 6,
+                "soupAt": 16
+              }
+            },
+            "repeatInstructions": [
+              23347087,
+              23347087,
+              23347087
+            ],
+            "medianInstructions": 23347087,
+            "maxInstructions": 23347087
+          },
+          {
+            "scenario": "app-pong",
+            "instructions": 18152325,
+            "deviceNs": 1980000000.0027237,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 1076473,
+              "load-bar": 189150,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761
+            },
+            "semantic": {
+              "frames": 50,
+              "fault": 0,
+              "framebufferSha256": "5ce65880a342f555ab8b2bb1f4b31ee09c1270edce4e0fb4d3280ade027a5a47",
+              "progress": {}
+            },
+            "repeatInstructions": [
+              18152325,
+              18152325,
+              18152325
+            ],
+            "medianInstructions": 18152325,
+            "maxInstructions": 18152325
+          },
+          {
+            "scenario": "background-plugins",
+            "instructions": 19222058,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 1785380,
+              "tap-motion": 11688,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "splash-editor": 750,
+              "pad-colors": 40761,
+              "load-bar": 197100,
+              "pattern-switch": 200
+            },
+            "repeatInstructions": [
+              19222058,
+              19222058,
+              19222058
+            ],
+            "medianInstructions": 19222058,
+            "maxInstructions": 19222058
+          }
+        ]
+      },
+      "loader": {
+        "totalInstructions": 15148903,
+        "plugins": [
+          {
+            "plugin": "blechclicker",
+            "instructions": 1015116
+          },
+          {
+            "plugin": "settimer",
+            "instructions": 1728989
+          },
+          {
+            "plugin": "snake",
+            "instructions": 1390746
+          },
+          {
+            "plugin": "tetris",
+            "instructions": 2427830
+          },
+          {
+            "plugin": "life",
+            "instructions": 2052194
+          },
+          {
+            "plugin": "pong",
+            "instructions": 1982018
+          },
+          {
+            "plugin": "simon",
+            "instructions": 1871888
+          },
+          {
+            "plugin": "mandelbrot",
+            "instructions": 1860851
+          },
+          {
+            "plugin": "lauflicht",
+            "instructions": 459632
+          },
+          {
+            "plugin": "pulsieren",
+            "instructions": 359639
+          }
+        ],
+        "maxInstructions": 15148903,
+        "repeats": [
+          {
+            "totalInstructions": 15148903,
+            "plugins": [
+              {
+                "plugin": "blechclicker",
+                "instructions": 1015116
+              },
+              {
+                "plugin": "settimer",
+                "instructions": 1728989
+              },
+              {
+                "plugin": "snake",
+                "instructions": 1390746
+              },
+              {
+                "plugin": "tetris",
+                "instructions": 2427830
+              },
+              {
+                "plugin": "life",
+                "instructions": 2052194
+              },
+              {
+                "plugin": "pong",
+                "instructions": 1982018
+              },
+              {
+                "plugin": "simon",
+                "instructions": 1871888
+              },
+              {
+                "plugin": "mandelbrot",
+                "instructions": 1860851
+              },
+              {
+                "plugin": "lauflicht",
+                "instructions": 459632
+              },
+              {
+                "plugin": "pulsieren",
+                "instructions": 359639
+              }
+            ]
+          },
+          {
+            "totalInstructions": 15148903,
+            "plugins": [
+              {
+                "plugin": "blechclicker",
+                "instructions": 1015116
+              },
+              {
+                "plugin": "settimer",
+                "instructions": 1728989
+              },
+              {
+                "plugin": "snake",
+                "instructions": 1390746
+              },
+              {
+                "plugin": "tetris",
+                "instructions": 2427830
+              },
+              {
+                "plugin": "life",
+                "instructions": 2052194
+              },
+              {
+                "plugin": "pong",
+                "instructions": 1982018
+              },
+              {
+                "plugin": "simon",
+                "instructions": 1871888
+              },
+              {
+                "plugin": "mandelbrot",
+                "instructions": 1860851
+              },
+              {
+                "plugin": "lauflicht",
+                "instructions": 459632
+              },
+              {
+                "plugin": "pulsieren",
+                "instructions": 359639
+              }
+            ]
+          },
+          {
+            "totalInstructions": 15148903,
+            "plugins": [
+              {
+                "plugin": "blechclicker",
+                "instructions": 1015116
+              },
+              {
+                "plugin": "settimer",
+                "instructions": 1728989
+              },
+              {
+                "plugin": "snake",
+                "instructions": 1390746
+              },
+              {
+                "plugin": "tetris",
+                "instructions": 2427830
+              },
+              {
+                "plugin": "life",
+                "instructions": 2052194
+              },
+              {
+                "plugin": "pong",
+                "instructions": 1982018
+              },
+              {
+                "plugin": "simon",
+                "instructions": 1871888
+              },
+              {
+                "plugin": "mandelbrot",
+                "instructions": 1860851
+              },
+              {
+                "plugin": "lauflicht",
+                "instructions": 459632
+              },
+              {
+                "plugin": "pulsieren",
+                "instructions": 359639
+              }
+            ]
+          }
+        ]
+      },
+      "allRepeatsIdentical": true,
+      "longTiesRatio": 1.2373050872815803
+    },
+    "synth": {
+      "inputSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "outputSha256": "80c8c1afc2a27ceceaefea2aa5518ef82c47e64b01041cf82798707ea4cb3c24",
+      "patches": [
+        "blech-sysex",
+        "splash",
+        "blech-theme",
+        "power-off",
+        "pattern-switch",
+        "tap-motion",
+        "note-assistant",
+        "dice",
+        "mfx-switch",
+        "pad-colors",
+        "ifx-idle",
+        "script-runtime"
+      ],
+      "checks": 338,
+      "ok": true,
+      "footprint": {
+        "freeBytes": 911356,
+        "codeDataBytes": 71192,
+        "ramBytes": 397984,
+        "occupiedBytes": 469176,
+        "unallocatedBytes": 442180,
+        "largestGap": 329996,
+        "patches": [
+          {
+            "id": "blech-sysex",
+            "codeDataBytes": 3304,
+            "ramBytes": 61440
+          },
+          {
+            "id": "splash",
+            "codeDataBytes": 0,
+            "ramBytes": 0
+          },
+          {
+            "id": "blech-theme",
+            "codeDataBytes": 0,
+            "ramBytes": 0
+          },
+          {
+            "id": "power-off",
+            "codeDataBytes": 1244,
+            "ramBytes": 0
+          },
+          {
+            "id": "pattern-switch",
+            "codeDataBytes": 1740,
+            "ramBytes": 64
+          },
+          {
+            "id": "tap-motion",
+            "codeDataBytes": 1324,
+            "ramBytes": 64
+          },
+          {
+            "id": "note-assistant",
+            "codeDataBytes": 1740,
+            "ramBytes": 64
+          },
+          {
+            "id": "dice",
+            "codeDataBytes": 1212,
+            "ramBytes": 64
+          },
+          {
+            "id": "mfx-switch",
+            "codeDataBytes": 1940,
+            "ramBytes": 352
+          },
+          {
+            "id": "pad-colors",
+            "codeDataBytes": 2684,
+            "ramBytes": 64
+          },
+          {
+            "id": "ifx-idle",
+            "codeDataBytes": 524,
+            "ramBytes": 64
+          },
+          {
+            "id": "script-runtime",
+            "codeDataBytes": 55480,
+            "ramBytes": 335808
+          }
+        ]
+      },
+      "completedTasks": 76,
+      "profiles": {
+        "original": [
+          {
+            "scenario": "idle",
+            "instructions": 19986543,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              19986543,
+              19986543,
+              19986543
+            ],
+            "medianInstructions": 19986543,
+            "maxInstructions": 19986543
+          },
+          {
+            "scenario": "playing",
+            "instructions": 44057401,
+            "deviceNs": 2000000000.000001,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              44057401,
+              44057401,
+              44057401
+            ],
+            "medianInstructions": 44057401,
+            "maxInstructions": 44057401
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 43986276,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              43986276,
+              43986276,
+              43986276
+            ],
+            "medianInstructions": 43986276,
+            "maxInstructions": 43986276
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 72215639,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {},
+            "repeatInstructions": [
+              72215639,
+              72215639,
+              72215639
+            ],
+            "medianInstructions": 72215639,
+            "maxInstructions": 72215639
+          }
+        ],
+        "patched": [
+          {
+            "scenario": "idle",
+            "instructions": 20255956,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 172450,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "pad-colors": 31200,
+              "pattern-switch": 200
+            },
+            "repeatInstructions": [
+              20255956,
+              20255956,
+              20255956
+            ],
+            "medianInstructions": 20255956,
+            "maxInstructions": 20255956
+          },
+          {
+            "scenario": "playing",
+            "instructions": 44471052,
+            "deviceNs": 1999999999.999998,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 237928,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "ifx-idle": 18550,
+              "note-assistant": 29300,
+              "mfx-switch": 1650,
+              "pad-colors": 33648,
+              "blech-sysex": 192
+            },
+            "repeatInstructions": [
+              44471052,
+              44471052,
+              44471052
+            ],
+            "medianInstructions": 44471052,
+            "maxInstructions": 44471052
+          },
+          {
+            "scenario": "playing-keyboard",
+            "instructions": 45310940,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 237993,
+              "tap-motion": 11688,
+              "ifx-idle": 18553,
+              "note-assistant": 72848,
+              "mfx-switch": 1650,
+              "pad-colors": 87016,
+              "pattern-switch": 200,
+              "blech-sysex": 192
+            },
+            "repeatInstructions": [
+              45310940,
+              45310940,
+              45310940
+            ],
+            "medianInstructions": 45310940,
+            "maxInstructions": 45310940
+          },
+          {
+            "scenario": "sequencer-four-note-long-ties",
+            "instructions": 72691789,
+            "deviceNs": 2000000000.0,
+            "transport": 1,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 237931,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "ifx-idle": 18550,
+              "note-assistant": 32676,
+              "mfx-switch": 1650,
+              "pad-colors": 51572
+            },
+            "repeatInstructions": [
+              72691789,
+              72691789,
+              72691789
+            ],
+            "medianInstructions": 72691789,
+            "maxInstructions": 72691789
+          },
+          {
+            "scenario": "blech-menu",
+            "instructions": 19156212,
+            "deviceNs": 2000000000.000002,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 175662,
+              "pad-colors": 31824,
+              "mfx-switch": 1684,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "ifx-idle": 18550,
+              "note-assistant": 29600
+            },
+            "repeatInstructions": [
+              19156212,
+              19156212,
+              19156212
+            ],
+            "medianInstructions": 19156212,
+            "maxInstructions": 19156212
+          },
+          {
+            "scenario": "closed-apps",
+            "instructions": 20922092,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 207100,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "pad-colors": 31200,
+              "pattern-switch": 200
+            },
+            "repeatInstructions": [
+              20922092,
+              20922092,
+              20922092
+            ],
+            "medianInstructions": 20922092,
+            "maxInstructions": 20922092
+          },
+          {
+            "scenario": "app-mandelbrot",
+            "instructions": 27028535,
+            "deviceNs": 1978100000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 6452587,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "pad-colors": 31200,
+              "pattern-switch": 200
+            },
+            "semantic": {
+              "frames": 50,
+              "fault": 0,
+              "framebufferSha256": "1ca9bc86b4a8318d5c6e4359e553a91a265b452eeb1cab47d57fb01bbc89896e",
+              "progress": {
+                "head": 290,
+                "tail": 1098,
+                "pending": 808,
+                "tile": 0,
+                "at": 0,
+                "done": 0,
+                "n": 0
+              }
+            },
+            "repeatInstructions": [
+              27028535,
+              27028535,
+              27028535
+            ],
+            "medianInstructions": 27028535,
+            "maxInstructions": 27028535
+          },
+          {
+            "scenario": "app-life",
+            "instructions": 27103884,
+            "deviceNs": 1982734320.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 6180377,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "pad-colors": 31200,
+              "pattern-switch": 200
+            },
+            "semantic": {
+              "frames": 50,
+              "fault": 0,
+              "framebufferSha256": "244ed5f4f24eda1e36ea6610ad384467e6f5ac432ed330dc3988cee587213339",
+              "progress": {
+                "computing": 1,
+                "genRow": 6,
+                "paintAt": 6,
+                "soupAt": 16
+              }
+            },
+            "repeatInstructions": [
+              27103884,
+              27103884,
+              27103884
+            ],
+            "medianInstructions": 27103884,
+            "maxInstructions": 27103884
+          },
+          {
+            "scenario": "app-pong",
+            "instructions": 21959034,
+            "deviceNs": 1980574120.0004997,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 1057324,
+              "tap-motion": 11688,
+              "ifx-idle": 18550,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "pad-colors": 31200,
+              "pattern-switch": 200
+            },
+            "semantic": {
+              "frames": 50,
+              "fault": 0,
+              "framebufferSha256": "9afc152be06ed555ea2a3c78470aee64cad0cbec83013be7704ff8594a26c3a6",
+              "progress": {}
+            },
+            "repeatInstructions": [
+              21959034,
+              21959034,
+              21959034
+            ],
+            "medianInstructions": 21959034,
+            "maxInstructions": 21959034
+          },
+          {
+            "scenario": "background-plugins",
+            "instructions": 23094946,
+            "deviceNs": 2000000000.0,
+            "transport": 0,
+            "asserts": [],
+            "byPatch": {
+              "script-runtime": 1764503,
+              "tap-motion": 11688,
+              "pattern-switch": 200,
+              "ifx-idle": 18550,
+              "note-assistant": 29800,
+              "mfx-switch": 1650,
+              "pad-colors": 31200
+            },
+            "repeatInstructions": [
+              23094946,
+              23094946,
+              23094946
+            ],
+            "medianInstructions": 23094946,
+            "maxInstructions": 23094946
+          }
+        ]
+      },
+      "loader": {
+        "totalInstructions": 15148903,
+        "plugins": [
+          {
+            "plugin": "blechclicker",
+            "instructions": 1015116
+          },
+          {
+            "plugin": "settimer",
+            "instructions": 1728989
+          },
+          {
+            "plugin": "snake",
+            "instructions": 1390746
+          },
+          {
+            "plugin": "tetris",
+            "instructions": 2427830
+          },
+          {
+            "plugin": "life",
+            "instructions": 2052194
+          },
+          {
+            "plugin": "pong",
+            "instructions": 1982018
+          },
+          {
+            "plugin": "simon",
+            "instructions": 1871888
+          },
+          {
+            "plugin": "mandelbrot",
+            "instructions": 1860851
+          },
+          {
+            "plugin": "lauflicht",
+            "instructions": 459632
+          },
+          {
+            "plugin": "pulsieren",
+            "instructions": 359639
+          }
+        ],
+        "maxInstructions": 15148903,
+        "repeats": [
+          {
+            "totalInstructions": 15148903,
+            "plugins": [
+              {
+                "plugin": "blechclicker",
+                "instructions": 1015116
+              },
+              {
+                "plugin": "settimer",
+                "instructions": 1728989
+              },
+              {
+                "plugin": "snake",
+                "instructions": 1390746
+              },
+              {
+                "plugin": "tetris",
+                "instructions": 2427830
+              },
+              {
+                "plugin": "life",
+                "instructions": 2052194
+              },
+              {
+                "plugin": "pong",
+                "instructions": 1982018
+              },
+              {
+                "plugin": "simon",
+                "instructions": 1871888
+              },
+              {
+                "plugin": "mandelbrot",
+                "instructions": 1860851
+              },
+              {
+                "plugin": "lauflicht",
+                "instructions": 459632
+              },
+              {
+                "plugin": "pulsieren",
+                "instructions": 359639
+              }
+            ]
+          },
+          {
+            "totalInstructions": 15148903,
+            "plugins": [
+              {
+                "plugin": "blechclicker",
+                "instructions": 1015116
+              },
+              {
+                "plugin": "settimer",
+                "instructions": 1728989
+              },
+              {
+                "plugin": "snake",
+                "instructions": 1390746
+              },
+              {
+                "plugin": "tetris",
+                "instructions": 2427830
+              },
+              {
+                "plugin": "life",
+                "instructions": 2052194
+              },
+              {
+                "plugin": "pong",
+                "instructions": 1982018
+              },
+              {
+                "plugin": "simon",
+                "instructions": 1871888
+              },
+              {
+                "plugin": "mandelbrot",
+                "instructions": 1860851
+              },
+              {
+                "plugin": "lauflicht",
+                "instructions": 459632
+              },
+              {
+                "plugin": "pulsieren",
+                "instructions": 359639
+              }
+            ]
+          },
+          {
+            "totalInstructions": 15148903,
+            "plugins": [
+              {
+                "plugin": "blechclicker",
+                "instructions": 1015116
+              },
+              {
+                "plugin": "settimer",
+                "instructions": 1728989
+              },
+              {
+                "plugin": "snake",
+                "instructions": 1390746
+              },
+              {
+                "plugin": "tetris",
+                "instructions": 2427830
+              },
+              {
+                "plugin": "life",
+                "instructions": 2052194
+              },
+              {
+                "plugin": "pong",
+                "instructions": 1982018
+              },
+              {
+                "plugin": "simon",
+                "instructions": 1871888
+              },
+              {
+                "plugin": "mandelbrot",
+                "instructions": 1860851
+              },
+              {
+                "plugin": "lauflicht",
+                "instructions": 459632
+              },
+              {
+                "plugin": "pulsieren",
+                "instructions": 359639
+              }
+            ]
+          }
+        ]
+      },
+      "allRepeatsIdentical": true,
+      "longTiesRatio": 1.0065934471617706
+    }
+  },
+  "performance": {
+    "method": "5a83e6c4322247e739bb133acad29c68ac37a07e2245cc80c558ce0f7df3746d",
+    "repeats": 3,
+    "seconds": 2,
+    "programsSha256": "d74134946e2996154b0224a1df01ddc5452a1ba7318d0f6fb7d8d7fdf8fab9e6",
+    "selfComparisonOk": true,
+    "boots": 18,
+    "scenarioWindows": 126
+  },
+  "validation": {
+    "unit": {
+      "command": "node --test --test-concurrency=2 \"test/*.test.mjs\"",
+      "total": 1086,
+      "passed": 943,
+      "failed": 0,
+      "skipped": 143
+    },
+    "browser": {
+      "command": "npm run test:e2e",
+      "total": 163,
+      "passed": 162,
+      "failed": 0,
+      "skipped": 1
+    },
+    "measurementTools": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    "settingsFlagCombinations": 144,
+    "hardwareTested": false,
+    "documentation": {
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "runtime": {
+    "python": "3.14.8",
+    "unicorn": "2.1.4",
+    "node": "v22.23.2"
+  }
+}
