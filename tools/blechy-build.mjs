@@ -22,6 +22,7 @@ import { markProbed } from "../src/script/blob.mjs";
 import { probe } from "../src/script/sim.mjs";
 import { blechyInputs } from "../test/support/blechy-inputs.mjs";
 import { pixelPng, readPng, sheet } from "./blechy-png.mjs";
+import { outlined } from "../src/blechy-outline.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const WIDTH = 128;
@@ -34,7 +35,9 @@ const BITMAP = API_BY_NAME.get("korg.display.bitmap");
 /** The frames of the art table with their picture: { sprite, x, y, rows }. */
 export function loadFrames() {
   const sprites = {};
-  const rowsOf = name => (sprites[name] ??= readPng(readFileSync(root + SPRITE_DIR + `blechy-${name}.png`)));
+  // The sprites are filled; on the display he is drawn as the loading animation draws him, the body as its outline.
+  const rowsOf = name => (sprites[name] ??= outlined(readPng(readFileSync(root + SPRITE_DIR + `blechy-${name}.png`)).map(r => [...r].map(c => c === "#")))
+    .map(r => r.map(lit => (lit ? "#" : ".")).join("")));
   return Object.fromEntries(FRAME_ORDER.map(name => [name, { ...FRAMES[name], rows: rowsOf(FRAMES[name].sprite) }]));
 }
 
