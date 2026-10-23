@@ -118,6 +118,11 @@ test("a new insert effect: two blocks from the palette, a name; Meine Effekte op
   await page.locator("#cee-bk-block-2").getByRole("button", { name: "Baustein wählen" }).click();
   const decimator = page.locator("#cee-bk-palette .cee-bk-unit:disabled", { hasText: "Stürzt an zweiter Stelle ab" }).filter({ hasText: "Lo-Fi (Decimator)" });
   assert.equal(await decimator.count(), 1, "the decimator crashes in block 2 and cannot be picked there");
+  // Freed on purpose for a test, it can be picked; the switch says the risk.
+  await page.locator("label.ui-switch:has(#cee-bk-risky)").click();
+  assert.equal(await page.locator("#cee-bk-palette .cee-bk-unit:not(:disabled)", { hasText: "Lo-Fi (Decimator)" }).count(), 1, "freed, the decimator can be picked in block 2");
+  await page.locator("label.ui-switch:has(#cee-bk-risky)").click();
+  assert.equal(await decimator.count(), 1, "switched off, it is barred again");
   await page.locator("#cee-bk-palette .ui-dialog-foot .btn").click();
   // Parameters stop where the device stops (data/map/fx-params.mjs), and a control can be added.
   assert.equal(await page.getAttribute("#cee-bk-p-0-dry_wet", "max"), "100");
@@ -150,6 +155,12 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await open(page);
   await page.click("#cee-bk-tab-mod");
   await openCard(page, "#cee-bk-mod-catalog", "Filter Wobble");
+  // A catalog modulation has its own page too: read only, Aufs Gerät not yet, editing makes it an own one.
+  await page.locator("#cee-bk-detail-mod").waitFor();
+  assert.equal(await page.locator("#cee-bk-detail-title").textContent(), "Filter Wobble");
+  assert.equal(await page.locator("#cee-bk-detail-load").isDisabled(), true, "a modulation cannot go on the device live yet");
+  assert.ok(await page.locator("#cee-bk-detail-mod li").count() > 0, "the slots that move something are listed");
+  await page.click("#cee-bk-detail-own");
   await page.locator("#cee-bk-curve button", { hasText: "Dreieck" }).click();
   assert.equal(await page.getAttribute("#cee-bk-curve button[data-value='2']", "aria-checked"), "true");
   await page.click("#cee-bk-mod-save");

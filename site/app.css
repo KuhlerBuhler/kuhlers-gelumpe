@@ -3193,6 +3193,23 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   stroke: var(--color-accent-primary);
 }
 
+.cee-bk-risky {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* A block freed on purpose keeps its warning in the warning colour. */
+.cee-bk-unit-risky:not(:disabled) .muted {
+  color: var(--color-text-warning);
+}
+
+.cee-bk-wave-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .cee-bk-map-head {
   display: flex;
   align-items: center;
