@@ -91,7 +91,6 @@ export const FEATURES = [
     ["osc-drawer", "OSC Drawer", "Einen eigenen Oszillator auf dem Touchpad malen und als Sample speichern."],
     ["filters", "Eigene Filtertypen", "Neue Filter aus den Bausteinen, die die Electribe schon hat."],
     ["mfx-free", "Zweiter Master-Effekt ohne Touchpad", "Ein zweiter Master-Effekt, der unabhängig vom Touchpad läuft. Ob der Klangprozessor (DSP) das schafft, ist noch offen."],
-    ["clip-red", "Rotes Licht beim Übersteuern", "Das Display leuchtet rot, wenn das Signal digital clippt."],
     ["gapless", "Patternwechsel ohne Lücke", "Die kurze Stille beim Wechsel des Patterns soll verschwinden."],
     ["fast-load", "Schneller laden, weniger Strom", "Samples laden schneller, und mit Batterien hält die Electribe länger."],
     ["tap-free", "TAP frei belegen", "TAP mit einer Funktion deiner Wahl belegen."],
