@@ -100,9 +100,9 @@ test("the sidebar tablist holds tabs only, and the options still sit under their
   await page.click("#cee-tab-scripts");
   const order = await page.evaluate(() => {
     const y = id => document.getElementById(id).getBoundingClientRect().top;
-    return [y("cee-tab-scripts"), y("cee-sub-scripts"), y("cee-tab-changelog")];
+    return [y("cee-tab-scripts"), y("cee-sub-scripts"), y("cee-tab-baukasten")];
   });
-  assert.ok(order[0] < order[1] && order[1] < order[2], `the options are between Plugins and Changelogs: ${order}`);
+  assert.ok(order[0] < order[1] && order[1] < order[2], `the options are between Plugins and Baukasten: ${order}`);
 });
 
 test("the status line does not rebuild itself when the service repeats the same state", async () => {

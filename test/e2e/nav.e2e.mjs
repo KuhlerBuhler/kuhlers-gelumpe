@@ -18,14 +18,14 @@ test("the sidebar lists only the entries, the navbar names the open page, up and
   const page = await h.page();
   await page.goto(h.url);
   assert.equal(await selectedTab(page), "start");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Konsole", "Features", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Baukasten", "Presets", "Modulationen"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Startbildschirm", "Konsole", "Rettung", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Features", "Presets", "Modulationen"]);
   assert.equal(await page.locator("#cee-sidebar .cee-nav-label").count(), 0, "no headings between the entries");
   await page.click("#cee-tab-patcher");
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Firmware Patcher");
   assert.equal(await page.locator("#cee-area-patcher").getAttribute("hidden"), null);
   await page.keyboard.press("ArrowDown");
-  assert.equal(await selectedTab(page), "splash");
-  assert.equal(await page.locator("#cee-nav-title").textContent(), "Startbildschirm");
+  assert.equal(await selectedTab(page), "changelog");
+  assert.equal(await page.locator("#cee-nav-title").textContent(), "Changelogs");
   await page.keyboard.press("ArrowUp");
   await page.keyboard.press("ArrowUp");
   assert.equal(await selectedTab(page), "rescue");
@@ -46,7 +46,7 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.equal(await selectedTab(page), "start", "a remembered hidden page is ignored");
   await page.goto(`${h.url}?labs#ptools`);
   assert.equal(await selectedTab(page), "ptools", "with ?labs the pages stay reachable for tests");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Konsole", "Features", "Rettung", "Firmware Patcher", "Startbildschirm", "Plugins", "Changelogs", "Baukasten", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Startbildschirm", "Konsole", "Rettung", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Features", "Presets", "Modulationen", "Pattern-Werkzeuge", "Samples"]);
 });
 
 test("the navbar title of the emulator page is a menu: emulator or real device", async () => {
@@ -183,14 +183,12 @@ test("the start page has its sections in heading order and the donate link opens
     return new Set(Array.from({ length: d.length / 4 }, (_, i) => d[i * 4])).size === 2;
   }, null, { timeout: 5000 });
   await page.goto(h.url);
-  for (const id of ["#cee-donate", "#cee-donate-start"]) {
-    assert.equal(await page.getAttribute(id, "href"), "https://www.paypal.me/kuhlerbuhler");
-    assert.equal(await page.getAttribute(id, "target"), "_blank");
-  }
+  for (const id of ["#cee-donate", "#cee-donate-start"]) assert.equal(await page.getAttribute(id, "href"), "#support", "donating leads to the Unterstützen page first");
+  assert.equal(await page.getAttribute("#cee-support-paypal", "target"), "_blank");
   const app = await h.page();
   await app.addInitScript(() => { window.__GELUMPE_APP = { version: "0.0.0" }; });
   await app.goto(h.url);
-  assert.equal(await app.getAttribute("#cee-donate", "target"), "_self", "in the app the navigation is caught and opened in the browser");
+  for (const id of ["#cee-support-paypal", "#cee-support-issues", "#cee-support-instagram"]) assert.equal(await app.getAttribute(id, "target"), "_self", "in the app the navigation is caught and opened in the browser");
   assert.equal(await app.getAttribute("#cee-patch-korg-red", "target"), "_self");
 });
 

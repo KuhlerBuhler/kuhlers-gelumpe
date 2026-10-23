@@ -19,6 +19,7 @@ import { sdcardPanel } from "./sdcard.mjs";
 import { patcherPage } from "./patcher.mjs";
 import { patternToolsPage } from "./pattern-tools.mjs";
 import { rescuePage } from "./rescue.mjs";
+import { supportPage } from "./support.mjs";
 import { changelogPage } from "./changelog.mjs";
 import { splashPage } from "./splash.mjs";
 import { terminalPanel } from "./terminal.mjs";
@@ -464,6 +465,7 @@ function boot() {
   settingsPage($("#cee-settings"));
   const changelog = changelogPage($("#cee-changelog"), $("#cee-tab-changelog"));
   settingsButton($("#cee-settings-button"), () => { areas?.select("settings"); drawer.close(); });
+  $("#cee-donate").addEventListener("click", () => drawer.close());
   const emu = takeLink();
   let areas = null;
   // Picking the mode that is open already changes nothing; ui.tabs would show the empty device panel instead of the drawing.
@@ -519,6 +521,7 @@ function boot() {
       nav.page(id);
       options.page(id);
       $("#cee-settings-button").toggleAttribute("aria-current", id === "settings");
+      $("#cee-donate").toggleAttribute("aria-current", id === "support");
       $("#cee-tab-emu").toggleAttribute("data-active", id === "device");
       $("#cee-device").hidden = id !== "device";
       if (id === "device") { $("#cee-area-emu").hidden = false; $("#cee-area-device").hidden = true; }
@@ -604,6 +607,7 @@ function boot() {
   popout.realDevice(areas?.current === "device");
   patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null });
   rescuePage($("#cee-rescue"));
+  supportPage({ avatar: $("#cee-support-avatar"), wallpaper: $("#cee-support-wallpaper") });
   featuresPage($("#cee-features"));
   splashPage($("#cee-splash"));
   // A run from the console opens the Plugins page, where the run area shows it.
@@ -656,5 +660,5 @@ else boot();
 watchForUpdate($("#cee-update"));
 showNews(toast);
 
-// In the desktop app a new window goes nowhere: the donate and Korg links navigate in place and the app opens them in the browser (src-tauri).
-if (window.__GELUMPE_APP) for (const link of document.querySelectorAll("a[href^='https://www.paypal.me/'], a[href^='https://www.korg.com/']")) link.target = "_self";
+// In the desktop app a new window goes nowhere: the donate, GitHub, Instagram and Korg links navigate in place and the app opens them in the browser (src-tauri).
+if (window.__GELUMPE_APP) for (const link of document.querySelectorAll("a[href^='https://www.paypal.me/'], a[href^='https://www.korg.com/'], a[href^='https://github.com/'], a[href^='https://www.instagram.com/']")) link.target = "_self";

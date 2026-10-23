@@ -1258,6 +1258,65 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   color: var(--color-text-secondary);
 }
 
+/* Unterstützen: each picture maker is its preview with its choices below. */
+.cee-support-part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-support-maker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-support-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Eleven pictures to pick from: the row wraps instead of running off a phone. */
+.cee-support-controls .ui-segmented {
+  flex-wrap: wrap;
+}
+
+/* The nine places as the picture has them: three rows of three. */
+.cee-support-controls .ui-segmented[id$="-place"] {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cee-support-own {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.cee-support-own[hidden] { display: none; }
+
+.cee-support-colour {
+  inline-size: var(--space-16);
+  block-size: var(--space-10);
+  padding: 0;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  background: none;
+}
+
+.cee-support-preview {
+  width: 100%;
+  max-width: 24rem;
+  height: auto;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+}
+
+.cee-support-preview[data-format="phone"] {
+  max-width: 12rem;
+}
+
 .cee-home-foot {
   color: var(--color-text-muted);
 }
