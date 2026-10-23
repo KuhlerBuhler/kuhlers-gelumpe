@@ -2575,12 +2575,23 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   color: var(--color-text-primary);
 }
 
+/* Which Electribe has it: each drawn in the colour of its case. */
 .cee-feature-where {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   align-self: flex-start;
-  margin-top: auto;
+  margin: auto 0 0;
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
+
+.cee-feature-where .cee-e2-outline {
+  width: var(--space-16);
+}
+
+.cee-feature-where [data-device="red"] { --cee-device-tone: var(--color-status-error); }
+.cee-feature-where [data-device="blue"] { --cee-device-tone: var(--color-chart-blue); }
 
 /* The firmware goes onto the display of a switched-off Electribe (emulator.mjs): the display is the drop target. */
 .cee-e2-screen .cee-lcd-frame {
