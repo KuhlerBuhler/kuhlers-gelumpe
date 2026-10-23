@@ -13,6 +13,16 @@ export function sourceKey(source) {
   return `${source.length}:${h.toString(16)}`;
 }
 
+/**
+ * What the user tells about an own plugin: description, creator, a link to their profile, and a picture of 128 x 64
+ * pixels for its card (the display's 1024 bytes, base64). Only strings are kept.
+ */
+function metaOf(meta) {
+  const out = {};
+  for (const key of ["description", "creator", "creatorUrl", "image"]) if (typeof meta?.[key] === "string" && meta[key]) out[key] = meta[key];
+  return out;
+}
+
 export class Workspace {
   constructor(storage = null, key = STORAGE_KEY) {
     this.storage = storage;
@@ -24,7 +34,7 @@ export class Workspace {
     try {
       const raw = this.storage?.getItem(this.key);
       const data = raw ? JSON.parse(raw) : [];
-      return Array.isArray(data) ? data.filter(s => validName(s?.name) && typeof s.source === "string").map(s => ({ name: s.name, source: s.source, inputs: Array.isArray(s.inputs) ? s.inputs : [], probe: s.probe ?? null })) : [];
+      return Array.isArray(data) ? data.filter(s => validName(s?.name) && typeof s.source === "string").map(s => ({ name: s.name, source: s.source, inputs: Array.isArray(s.inputs) ? s.inputs : [], probe: s.probe ?? null, meta: metaOf(s.meta) })) : [];
     } catch { return []; }
   }
 
@@ -44,7 +54,7 @@ export class Workspace {
   }
 
   /** Create or replace the script `name`. A changed source drops the recorded probe, which belongs to the old text. */
-  save({ name, source, inputs, probe }) {
+  save({ name, source, inputs, probe, meta }) {
     if (!validName(name)) throw new RangeError(`Name: ASCII, Buchstabe am Anfang, höchstens ${LIMITS.nameLength} Zeichen`);
     const at = this.items.findIndex(s => s.name === name);
     const old = at >= 0 ? this.items[at] : null;
@@ -52,6 +62,7 @@ export class Workspace {
       name, source,
       inputs: inputs ?? old?.inputs ?? [],
       probe: probe !== undefined ? probe : old && old.source === source ? old.probe : null,
+      meta: metaOf(meta ?? old?.meta),
     };
     if (at >= 0) this.items[at] = next; else this.items.push(next);
     this.#store();
