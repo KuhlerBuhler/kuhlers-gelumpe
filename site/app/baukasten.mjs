@@ -130,6 +130,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   let mod = null;
   let modId = null;
   let fxTarget = null;       // the slot this effect was loaded to on the device; the next load goes there without asking
+  const snap = { fx: null, mod: null }; // the open piece as last opened or saved, so Abbrechen knows whether it loses anything
 
   async function loadUnits() {
     if (units) return units;
@@ -179,7 +180,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     el("div", { className: "cee-bk-head" }, [nameField(fxName), fxKind]),
     fxHelp = el("p", { className: "muted", id: "cee-bk-fx-help", textContent: "Ein Baustein ist ein einzelner Effekt wie Hall, Echo oder Filter. Ein Insert-Effekt kann zwei hintereinander haben, der zweite darf leer bleiben. Anhören kannst du ihn erst an der Electribe." }),
     blocks,
-    el("div", { className: "actions" }, [fxSave, fxDownload, fxLoad, fxRetarget]),
+    el("div", { className: "actions" }, [fxSave, fxDownload, fxLoad, fxRetarget, el("button", { type: "button", className: "btn", id: "cee-bk-fx-cancel", textContent: "Abbrechen", onclick: () => leave("fx") })]),
     fxSaved,
   ]);
   const fxStart = el("div", { className: "cee-bk-builder", id: "cee-bk-fx-start" }, [
@@ -460,6 +461,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   function openFx(preset, id) {
     fx = { kind: preset.kind, name: preset.name, stages: preset.stages.map(s => ({ ...s, params: { ...s.params } })), map: (preset.map ?? []).map(m => ({ ...m })) };
     fxId = id;
+    snap.fx = JSON.stringify(fx);
     fxTarget = null;
     showTarget();
     fxSaved.textContent = "";
@@ -476,7 +478,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (!/^[\x20-\x7e]+$/.test(fx.name)) return { ok: false, reason: "Der Name darf nur Buchstaben ohne Umlaute, Ziffern und einfache Zeichen haben, das Display kennt keine anderen." };
     return { ok: true, preset: { ...fx, name: fx.name.trim() } };
   }
-  fxSave.addEventListener("click", () => { const id = keep(readyFx(), fxId, fxSaved); if (id) fxId = id; });
+  fxSave.addEventListener("click", () => { const id = keep(readyFx(), fxId, fxSaved); if (id) { fxId = id; snap.fx = JSON.stringify(fx); } });
   fxDownload.addEventListener("click", () => {
     const r = readyFx();
     if (!r.ok) { toast(r.reason, "error"); return; }
@@ -584,7 +586,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   const modEditor = el("div", { className: "cee-bk-builder", id: "cee-bk-mod-builder", hidden: true }, [
     el("div", { className: "cee-bk-head" }, [nameField(modName), el("p", { className: "cee-bk-kind muted", textContent: KIND_WORD.mod })]),
     modBody,
-    el("div", { className: "actions" }, [modSave, modDownload]),
+    el("div", { className: "actions" }, [modSave, modDownload, el("button", { type: "button", className: "btn", id: "cee-bk-mod-cancel", textContent: "Abbrechen", onclick: () => leave("mod") })]),
     modSaved,
   ]);
   const modStart = el("div", { className: "cee-bk-builder", id: "cee-bk-mod-start" }, [
@@ -635,6 +637,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   function openMod(preset, id) {
     mod = { kind: "mod", name: preset.name, depth: preset.depth, speed: preset.speed, curve: preset.curve, slots: preset.slots.map(s => ({ ...s })) };
     modId = id;
+    snap.mod = JSON.stringify(mod);
     modSaved.textContent = "";
     shelf("mod");
     renderMod();
@@ -645,7 +648,19 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (!mod.name.trim() || !/^[\x20-\x7e]+$/.test(mod.name)) return { ok: false, reason: "Gib der Modulation oben einen Namen, ohne Umlaute." };
     return { ok: true, preset: { ...mod, name: mod.name.trim() } };
   }
-  modSave.addEventListener("click", () => { const id = keep(readyMod(), modId, modSaved); if (id) modId = id; });
+  modSave.addEventListener("click", () => { const id = keep(readyMod(), modId, modSaved); if (id) { modId = id; snap.mod = JSON.stringify(mod); } });
+
+  /** Abbrechen: closes the open effect or modulation and goes back to the start of the editor; unsaved changes ask first. */
+  async function leave(kind) {
+    const open = kind === "fx" ? fx : mod;
+    if (open && JSON.stringify(open) !== snap[kind]) {
+      const yes = window.ui?.confirm ? await window.ui.confirm({ title: "Änderungen verwerfen?", text: "Was du seit dem letzten Speichern geändert hast, geht verloren.", confirmLabel: "Verwerfen", danger: true }) : true;
+      if (!yes) return;
+    }
+    if (kind === "fx") { fx = null; fxId = null; fxTarget = null; fxSaved.textContent = ""; renderFx(); } else { mod = null; modId = null; modSaved.textContent = ""; renderMod(); }
+    renderEditor();
+    updateTrail();
+  }
   modDownload.addEventListener("click", () => {
     const r = readyMod();
     if (!r.ok) { toast(r.reason, "error"); return; }

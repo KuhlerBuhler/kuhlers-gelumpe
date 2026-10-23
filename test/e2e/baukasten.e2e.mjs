@@ -99,6 +99,11 @@ test("a new insert effect: two blocks from the palette, a name; Meine Effekte op
   await page.click("#cee-baukasten-page-editor");
   await page.click("#cee-bk-new-ifx");
   assert.equal(await page.locator("#cee-bk-blocks .cee-bk-block").count(), 2, "an insert effect has two blocks");
+  // Abbrechen goes back to the start; with nothing changed it does not ask.
+  await page.click("#cee-bk-fx-cancel");
+  await page.locator("#cee-bk-fx-start").waitFor();
+  assert.equal(await page.locator("#cee-bk-fx-builder").isVisible(), false, "Abbrechen closes the new effect");
+  await page.click("#cee-bk-new-ifx");
   await page.click("#cee-bk-fx-save");
   await page.locator("#app-toasts .cee-toast", { hasText: "mindestens einen Baustein" }).waitFor();
   await page.locator("#cee-bk-block-1").getByRole("button", { name: "Baustein wählen" }).click();
