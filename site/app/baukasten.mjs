@@ -753,6 +753,9 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const fxRead = readFx(entry.text, units);
       if (!fxRead.ok) continue;
       const text = fxText(fxRead.preset);
+      // A piece of the catalog stays the catalog's, it does not turn into an own one.
+      const item = catalogOf(entry.kind).find(x => readFx(fxText(x), units).ok && fxText(readFx(fxText(x), units).preset) === text);
+      if (item) { slots[entry.kind][entry.index + 1] = catalogId(item); continue; }
       let own = list.find(o => o.text === text);
       if (!own) { own = { id: newId(), kind: entry.kind, text }; list.push(own); added++; }
       slots[entry.kind][entry.index + 1] = own.id;
@@ -765,6 +768,16 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     toast(`${file.name} geladen: ${read.entries.length} Einträge, ${added} neu unter Meine Sachen.`, "ok");
   });
   const exportLists = el("div", { className: "cee-bk-export", id: "cee-bk-export" });
+  /** The catalog's pieces go on a place like own ones; the slot keeps "catalog:<name>" instead of an own id. */
+  const catalogId = item => `catalog:${item.name}`;
+  const catalogOf = kind => (kind === "mod" ? MOD_CATALOG : FX_CATALOG.filter(item => item.kind === kind));
+  /** The .e2fx text of what a place holds, an own piece or one from the catalog; null when it is gone. */
+  function textOf(id) {
+    const item = [...FX_CATALOG, ...MOD_CATALOG].find(x => catalogId(x) === id);
+    if (item) return fxText(item);
+    return ownList().find(x => x.id === id)?.text ?? null;
+  }
+
   /** The names of the firmware's own presets by slot, so a place is not overwritten by mistake; empty without a firmware. */
   let factoryShown = false;
   function factoryNames(kind) {
@@ -779,7 +792,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     const stock = factory.get(slot);
     const select = el("select", { className: "select", id: `cee-bk-slot-${kind}-${slot}` }, [
       el("option", { value: "", textContent: stock ? `Werks-Preset: ${stock}` : "Werks-Preset" }),
-      ...own.map(o => el("option", { value: o.id, textContent: parse(o).name, selected: o.id === assigned })),
+      own.length ? el("optgroup", { label: kind === "mod" ? "Meine Modulationen" : "Meine Effekte" }, own.map(o => el("option", { value: o.id, textContent: parse(o).name, selected: o.id === assigned }))) : null,
+      el("optgroup", { label: "Katalog" }, catalogOf(kind).map(item => el("option", { value: catalogId(item), textContent: item.name, selected: catalogId(item) === assigned }))),
     ]);
     select.setAttribute("aria-label", `${KIND_WORD[kind]} Platz ${slot}`);
     select.addEventListener("change", () => {
@@ -863,12 +877,11 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     const build = buildOf(vsb);
     if (build === "synth") { toast("Die Sammeldatei gibt es bisher nur für den roten Sampler.", "error"); return; }
     await loadUnits();
-    const list = ownList();
     const entries = [];
     for (const w of wanted) {
-      const o = list.find(x => x.id === w.id);
-      if (!o) continue;
-      const read = readFx(o.text, units);
+      const text = textOf(w.id);
+      if (!text) continue;
+      const read = readFx(text, units);
       const made = read.ok ? collectionEntry(read.preset, vsb, w.slot - 1, units) : read;
       if (!made.ok) { toast(`${read.preset?.name ?? "Ein Eintrag"}: ${made.reason}`, "error"); return; }
       entries.push(made.entry);
