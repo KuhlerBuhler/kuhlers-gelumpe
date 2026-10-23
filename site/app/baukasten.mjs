@@ -15,7 +15,8 @@ import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
 import { buildCollection, parseCollection, collectionEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
 import { buildOf } from "../../src/firmware.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
-import { GROUPS, MAIN, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
+import { GROUPS, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
+import { GROUPS as PARAM_GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import FINDINGS from "../../data/findings.mjs";
 import { BLOCKS, field } from "../../src/map/index.mjs";
 import { REC } from "../../src/layout.mjs";
@@ -78,6 +79,7 @@ const SOLO = new Map(FINDINGS.filter(f => f.kind === "stage1NeedsSolo").map(f =>
 const STAGE2_WORD = { fatal: "Stürzt an zweiter Stelle ab", silent: "Bleibt an zweiter Stelle stumm" };
 const MAP_META = BLOCKS.get("fxRecord").meta;
 
+const PARAM_ORDER = ["mix", "filter", "delay", "mod", "dyn", "room", "tone", "eq", "other"];
 const KIND_WORD = { mfx: "Master-Effekt", ifx: "Insert-Effekt", mod: "Modulation" };
 const SLOT_COUNT_FX = 100;
 const PAGES = [["catalog", "Katalog", "grid"], ["editor", "Editor", "sliders"], ["mine", "Meine Effekte", "folder"], ["export", "Export", "download"]];
@@ -141,13 +143,13 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   const unitKind = stage => (stage === "mfx" ? "mfx" : "ifx");
   const parse = o => { const read = units ? readFx(o.text, units) : null; return read?.ok ? read.preset : JSON.parse(o.text); };
 
-  /** A card like the plugin catalog's: the whole card opens it; `extra` sits on top of the card (the trash can). */
+  /** The plugin catalog's card (scripts.mjs catalogCard): the whole card opens it; `extra` sits on top of the card (the trash can). */
   function card(preset, { creator, onOpen, extra = null, id = null }) {
     return el("li", { className: "cee-catalog-card cee-bk-card", id }, [
       el("h3", {}, el("button", { type: "button", className: "cee-catalog-open", textContent: preset.name, onclick: onOpen })),
-      el("p", { className: "cee-bk-meta" }, [el("span", { className: "cee-catalog-category", textContent: tagOf(preset) }), creator ? el("span", { className: "muted", textContent: `von ${creator}` }) : null]),
-      el("p", { className: "cee-bk-kind muted", textContent: KIND_WORD[preset.kind] }),
-      preset.description ? el("p", { textContent: preset.description }) : null,
+      el("p", { className: "cee-catalog-category", textContent: tagOf(preset) }),
+      el("p", { className: "muted", textContent: preset.description ? `${KIND_WORD[preset.kind]}. ${preset.description}` : KIND_WORD[preset.kind] }),
+      creator ? el("p", { className: "cee-catalog-creator muted", textContent: `von ${creator}` }) : null,
       extra,
     ]);
   }
@@ -433,10 +435,9 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
         knobs?.set(`${s.stage}:${p.index}`, k);
         return k.node;
       };
-      // The parameters that shape the sound most come first, the rest under their own heading.
-      const shownFirst = params.some(p => MAIN.has(p.name)) ? p => MAIN.has(p.name) : () => true;
-      const main = params.filter(shownFirst);
-      const more = params.filter(p => !shownFirst(p));
+      // Knobs that belong together stand together, like the sections of a plugin: the group comes from the name
+      // (data/map/fx-labels.mjs), the order puts what shapes the sound before EQ and the rest.
+      const sections = PARAM_ORDER.map(id => [id, params.filter(p => labelFor(p.name).group === id)]).filter(([, list]) => list.length);
       const pick = el("button", { type: "button", className: `btn sm${s.unit ? "" : " cee-primary"}`, onclick: () => choose(s.stage) }, s.unit ? [icon("swap"), "Anderen Baustein wählen"] : ["Baustein wählen"]);
       const card = el("div", { className: `cee-bk-block${s.unit ? "" : " cee-bk-block-empty"}`, id: `${pre}-block-${i + 1}` }, s.unit ? [
         el("div", { className: "cee-bk-block-head" }, [
@@ -447,10 +448,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
             fx.stages.length > 1 ? el("button", { type: "button", className: "btn sm", textContent: "Entfernen", onclick: () => { Object.assign(s, { unit: 0, unitName: "nofx_thru", params: {} }); renderFx(); } }) : null,
           ]),
         ]),
-        main.length ? el("h5", { className: "cee-bk-more", textContent: "Parameter" }) : null,
-        main.length ? el("div", { className: "cee-bk-params" }, main.map(one)) : null,
-        more.length ? el("h5", { className: "cee-bk-more cee-bk-more-extra", textContent: "Erweiterte Parameter" }) : null,
-        more.length ? el("div", { className: "cee-bk-params" }, more.map(one)) : null,
+        el("div", { className: "cee-bk-knob-groups" }, sections.map(([id, list]) => el("section", { className: "cee-bk-knob-group" }, [
+          el("h5", { className: "cee-bk-more", textContent: PARAM_GROUPS.find(g => g.id === id).label }),
+          el("div", { className: "cee-bk-knob-row" }, list.map(one)),
+        ]))),
       ] : [el("p", { className: "muted", textContent: "Noch leer" }), pick]);
       return stages.length > 1 ? el("section", { className: "cee-bk-stage" }, [el("h3", { className: "cee-bk-stage-title", textContent: `Baustein ${i + 1}` }), card]) : card;
     });

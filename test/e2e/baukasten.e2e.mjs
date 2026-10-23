@@ -38,7 +38,7 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   assert.deepEqual(await page.locator("#cee-bk-fx-catalog h3").allTextContents(), FX_CATALOG.map(c => c.name));
   const first = page.locator("#cee-bk-fx-catalog li").first();
   assert.equal(await first.locator(".cee-catalog-category").textContent(), "Echo", "the tag under the title");
-  assert.match(await first.textContent(), /von Kuhler Buhler/, "and the creator beside it");
+  assert.equal(await first.locator(".cee-catalog-creator").textContent(), "von Kuhler Buhler", "and the creator at the bottom, as on a plugin's card");
   assert.equal(await first.locator(".btn").count(), 0, "the whole card opens it, no button");
   await openCard(page, "#cee-bk-fx-catalog", "Short Delay");
   // A catalog effect has its own page like a plugin: what it is, three buttons, its values read only.
@@ -53,7 +53,7 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   assert.equal(await page.inputValue("#cee-bk-fx-name"), "Short Delay", "the title is the name");
   assert.equal(await page.locator("#cee-bk-where").isVisible(), false, "where it works is chosen only for a new one");
   assert.equal(await page.locator("#cee-bk-blocks .cee-knob").count(), 23, "every parameter of Mod Delay has a knob");
-  assert.equal(await page.locator("#cee-bk-blocks h5", { hasText: "Erweiterte Parameter" }).count(), 1, "the rest under a heading, not folded");
+  assert.deepEqual(await page.locator("#cee-bk-blocks .cee-bk-knob-group h5").allTextContents(), ["Mix und Pegel", "Delay und Zeit", "Modulation", "Klang", "EQ"], "the knobs stand in groups that belong together, none folded");
   assert.equal(await page.locator(".cee-shelf-tabs").isVisible(), false, "with an effect open there is no switch to Modulationen");
   assert.equal(await page.locator("#cee-bk-fx-help").isVisible(), false, "an effect with its blocks needs no explanation");
   assert.equal(await page.locator("#cee-bk-blocks details").count(), 0);
