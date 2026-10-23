@@ -42,9 +42,9 @@ DELAY_S = 1.8                                       # a wait between two steps o
 
 
 def is_hint(pair):
-    """A pad holds the patch's values: an odd red below 128 (the firmware writes 0, 192, 255 or twice a velocity) and 5/8 of it in blue, odd."""
+    """A pad holds the patch's values: an odd red other than 255 (the firmware writes 0, 192, 255 or twice a velocity) and 5/8 of it in blue, odd."""
     red, blue = pair
-    return red % 2 == 1 and red < 128 and blue == ((red * 5) >> 3) | 1
+    return red % 2 == 1 and red != 255 and blue == ((red * 5) >> 3) | 1
 PART_BLUE = 255                                     # what the firmware lights on the pad of the selected part
 STEP_BASE = 0x800 + 0x30 + 4                        # part 0, step 0 in the pattern object; 12 bytes a step: on, gate, velocity, trigger, 4 notes
 # the notes of each scale over its root, music theory (the same as src/dice.mjs knows), to check that the pads are in the key and scale
@@ -254,7 +254,7 @@ def case_layout_and_hints(payload, flash):
                 bad_dark.append((key, scale, pad, "dark pads", sorted(dark)))
     out.append(entry("layout_is_the_key_and_scale", not bad_layout, f"the 16 pad notes of the firmware's layout are notes of the pattern's key and scale in every case tried ({len(seen)} runs), so the interval rule alone filters; wrong: {bad_layout}"))
     out.append(entry("fitting_pads_show_the_hint", not bad_hints, f"{len(seen)} runs over six keys and scales, 0.2 s after the note: the lit pads are the ones the played note's MIDI note and the layout the firmware sent give (0, 3, 4, 5, 7, 8, 9 semitones, and a step of the scale); wrong: {bad_hints}; (scale, key, pad, note, lit pads): {seen}"))
-    out.append(entry("levels_by_fit", not bad_levels, f"the brightness of each hint: unison and fifth {spec.LEVEL_HIGH}, thirds, fourth and a step of the scale {spec.LEVEL_MID}, sixths {spec.LEVEL_LOW}; wrong: {bad_levels}"))
+    out.append(entry("levels_by_fit", not bad_levels, f"the brightness of each hint by its interval ({spec.LEVELS}), a step of the scale at least {spec.LEVEL_MID}; wrong: {bad_levels}"))
     out.append(entry("other_pads_stay_dark", not bad_dark, f"every other pad is dark, the part's pad (pad 0) included, which shows the hint or is dark like the rest; wrong: {bad_dark}"))
     return out
 
@@ -293,14 +293,13 @@ def case_timing(payload, flash):
             paused = (before, box.stable_levels())
             box.key("play", 0.0)
     part = box.leds().get(0)
-    order = [min(t for p, t in gone.items() if want[p] == lv) if any(want[p] == lv for p in gone) else None
-             for lv in (spec.LEVEL_LOW, spec.LEVEL_MID, spec.LEVEL_HIGH)]
+    order = [min(t for p, t in gone.items() if want[p] == lv) for lv in sorted(set(want.values())) if any(want[p] == lv for p in gone)]
     return [entry("hints_come_with_the_next_tick", appeared is not None and appeared <= 0.1, f"the first hint {appeared} s after the pad went down (one tick of the LED manager is 0.04 s)"),
             entry("stopped_hints_stay", stopped == {p: v for p, v in want.items() if p != 3} | ({3: want[3]} if 3 in want else {}),
                   f"stopped, 4 s after the note: {stopped}, want {want}"),
             entry("paused_hints_stay", paused is not None and paused[0] == paused[1] and paused[0], f"paused 1 s: {paused}"),
-            entry("playing_hints_fade_dim_first", len(gone) == len(want) and order[0] is not None and order[0] < order[1] < order[2] <= 5.0,
-                  f"playing (with a pause of 1 s at 0.6 s): the first pad gone of the dim, middle and bright ones at {order} s; every pad {gone}"),
+            entry("playing_hints_fade_dim_first", len(gone) == len(want) and len(order) >= 3 and all(x < y for x, y in zip(order, order[1:])) and order[-1] <= 5.0,
+                  f"playing (with a pause of 1 s at 0.6 s): the first pad gone of each level, dimmest first, at {order} s; every pad {gone}"),
             entry("part_blue_comes_back_when_the_hints_end", part == (0, PART_BLUE) and not box.m.asserts,
                   f"the pad of the selected part (pad 0) holds {part} once the last hint is gone")]
 
@@ -605,9 +604,9 @@ def case_values(payload, flash):
         rows[label] = sorted(values)
     every = set(rows["pad velocity off"]) | set(rows["pad velocity on"])
     graded = sorted(v for v in rows["pad velocity on"] if v not in (0, 192, 255))
-    return [entry("firmware_pad_values", set(rows["pad velocity off"]) == {0, 192, 255} and len(graded) >= 3 and all(v % 2 == 0 or v >= 128 for v in every),
+    return [entry("firmware_pad_values", set(rows["pad velocity off"]) == {0, 192, 255} and len(graded) >= 3 and all(v % 2 == 0 or v == 255 for v in every),
                   f"values the firmware sent to the pad LEDs over all six pad modes, playing and not: {rows}; with Pad Velocity on the pad light follows the hit (graded values {graded}), "
-                  f"so the pad LEDs take intermediate values in the protocol; the patch's values are odd and below 128 ({spec.LEVELS}), never among them")]
+                  f"so the pad LEDs take intermediate values in the protocol; the patch's values are odd and not 255 ({spec.LEVELS}), never among them")]
 
 
 def case_lock(payload, flash):
@@ -618,7 +617,7 @@ def case_lock(payload, flash):
     box.m.panel_log.clear()
     box.tap_pad(3, hold=0.1, wait=0.1)
     held = box.hinted()
-    written = [m for m in box.m.panel_log if m[0] == 0 and 0x2C <= m[1] <= 0x4B and m[2] % 2 == 1 and m[2] < 128]
+    written = [m for m in box.m.panel_log if m[0] == 0 and 0x2C <= m[1] <= 0x4B and m[2] % 2 == 1 and m[2] != 255]
     box.m.uc.mem_write(box.manager() + 0xB98, bytes([0]))
     box.run(0.3)
     count = len(fitting(layout_of(payload, flash, 0, 2), 3))
