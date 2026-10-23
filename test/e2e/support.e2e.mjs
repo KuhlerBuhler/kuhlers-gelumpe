@@ -34,6 +34,8 @@ test("a profile picture with a name and wallpapers for a computer and a phone, s
   await page.goto(`${h.url}#support`);
   await page.fill("#cee-support-avatar-text", "Kuhler Buhler");
   await page.waitForFunction(() => document.getElementById("cee-support-avatar-canvas").getContext("2d").getImageData(0, 0, 1, 1).data[3] === 255);
+  await page.uncheck("#cee-support-avatar-bands");
+  await page.uncheck("#cee-support-avatar-stars");
   assert.equal(await colours(page, "cee-support-avatar-canvas"), 2, "on a plain background only its colour and the pixels of the display");
   const avatar = await h.download(page, () => page.click("#cee-support-avatar-save"));
   assert.deepEqual([...avatar.slice(0, 4)], PNG);

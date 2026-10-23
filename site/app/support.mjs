@@ -5,6 +5,7 @@
  */
 import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
+import { outlined } from "../../src/blechy-outline.mjs";
 import { FONT, FONT_FIRST, FONT_LAST, GLYPH_WIDTH, GLYPH_HEIGHT, ADVANCE } from "../../data/script/font.mjs";
 
 /** Background and pixel colour of each look, as tokens: the red sampler, the blue synth, black, and the display. */
@@ -80,42 +81,12 @@ async function maskOf(src) {
   return Array.from({ length: y1 - y0 + 1 }, (_, y) => Array.from({ length: x1 - x0 + 1 }, (_, x) => on(x0 + x, y0 + y)));
 }
 
-/**
- * A filled sprite drawn the way the display draws Blechy in the loading animation: the body only as its outline, the
- * face light and what is drawn on it dark. Filled, a light body on a dark ground reads as a white blob.
- */
-function stroked(mask) {
-  const P = 2;   // room around the sprite, so the grown ink never closes off a piece of the outside at the edge
-  const h = mask.length + 2 * P;
-  const w = mask[0].length + 2 * P;
-  const ink = (x, y) => mask[y - P]?.[x - P] ?? false;
-  const near = (x, y, test) => [-1, 0, 1].some(dy => [-1, 0, 1].some(dx => test(x + dx, y + dy)));
-  // The face is open to the outside by a pixel here and there: close those gaps (ink grown by one) before filling
-  // the outside, then shrink the silhouette back by one.
-  const outside = Array.from({ length: h }, () => new Array(w).fill(false));
-  const stack = [[0, 0]];
-  while (stack.length) {
-    const [x, y] = stack.pop();
-    if (x < 0 || y < 0 || x >= w || y >= h || outside[y][x] || near(x, y, ink)) continue;
-    outside[y][x] = true;
-    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
-  }
-  const out = (x, y) => x < 0 || y < 0 || x >= w || y >= h || outside[y][x];
-  const inside = (x, y) => !near(x, y, out);
-  const edge = (x, y) => !inside(x, y) && !ink(x, y);
-  return mask.map((row, y) => row.map((set, x) => {
-    const [px, py] = [x + P, y + P];
-    if (!set) return inside(px, py);
-    return edge(px + 1, py) || edge(px - 1, py) || edge(px, py + 1) || edge(px, py - 1);
-  }));
-}
-
 const masks = {};
 const figureMask = async id => {
   const [, source, style] = FIGURES[id];
   if (!masks[id]) {
     const mask = typeof source === "string" ? await maskOf(source) : source;
-    masks[id] = style === "stroke" ? stroked(mask) : mask;
+    masks[id] = style === "stroke" ? outlined(mask) : mask;
   }
   return masks[id];
 };
@@ -149,7 +120,7 @@ const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v
  * at three depths, each of the two on its own. The rules of site/design/bg.js, but coarser and stronger: behind a
  * page they only hint, on a picture of its own they have to show.
  */
-function starField(ctx, w, h, ink, { bands, stars }) {
+function starField(ctx, w, h, ink, { bands, stars, format }) {
   const cell = Math.max(4, Math.round(Math.min(w, h) / 96));
   const cols = Math.ceil(w / cell);
   const rows = Math.ceil(h / cell);
@@ -157,7 +128,8 @@ function starField(ctx, w, h, ink, { bands, stars }) {
   ctx.fillStyle = ink;
   ctx.globalAlpha = 0.4;
   if (bands) for (let j = 0; j < rows; j += 2) for (let i = 0; i < cols; i += 2) {
-    const edge = Math.min(i, cols - 1 - i);
+    // On the square profile picture the bands run along all four edges, on the wallpapers along the sides as in the app.
+    const edge = format === "avatar" ? Math.min(i, cols - 1 - i, j, rows - 1 - j) : Math.min(i, cols - 1 - i);
     const density = edge >= width ? 0 : (1 - edge / width) ** 1.4 * 0.9;
     if (density > BAYER[((j >> 1) & 3) * 4 + ((i >> 1) & 3)]) ctx.fillRect(i * cell, j * cell, cell, cell);
   }
@@ -302,7 +274,7 @@ export function supportPage({ avatar, wallpaper }) {
   maker(avatar, {
     // The tube scene is wide and flat, a square leaves it a strip in the middle: only for the wallpapers.
     id: "cee-support-avatar", title: "Profilbild", formats: ["avatar"], figures: blechys.filter(f => f !== "tube"),
-    state: { format: "avatar", figure: "wave", text: "", size: 100, textSize: 60, place: "middle", bands: false, stars: false, look: "red", bg: "#cc0000", ink: "#0a0a0b" },
+    state: { format: "avatar", figure: "wave", text: "", size: 100, textSize: 60, place: "middle", bands: true, stars: true, look: "black", bg: "#0a0a0b", ink: "#fafafa" },
     textLabel: "Dein Name", textMax: NAME_MAX, placeholder: "zum Beispiel dein Künstlername", saveText: "Profilbild speichern",
     name: s => `Blechy${s.text.trim() ? `-${fileName(s.text)}` : ""}`,
   });
