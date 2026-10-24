@@ -51,7 +51,7 @@ export function rescuePage(root) {
   /** A new issue that already says which way through the page the person took. */
   const issue = () => ({
     title: `Rettung: ${picked[0] ?? ""}`,
-    body: `Meine Antworten in der Rettung:\n${picked.filter(Boolean).map(p => `- ${p}`).join("\n")}\n\nWas das Display zeigt und was ich zuletzt gemacht habe:\n\n(Foto vom Display hier hineinziehen)\n`,
+    body: `Meine Antworten in der Rettung:\n${picked.filter(Boolean).map(p => `- ${p}`).join("\n")}\n\nWas die Electribe beim Einschalten macht und was ich zuletzt gemacht habe:\n\n(zeigt das Display etwas: Foto hier hineinziehen)\n`,
   });
 
   function render() {

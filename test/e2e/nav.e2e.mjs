@@ -105,6 +105,16 @@ test("the sidebar stays put while the page scrolls", async () => {
   assert.equal(await page.locator("#cee-tab-start").isVisible(), true);
 });
 
+test("another page starts at the top, not where the last one was scrolled to", async () => {
+  const page = await h.page();
+  await page.setViewportSize({ width: 1280, height: 500 });
+  await page.goto(`${h.url}#plugins`);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  assert.ok(await page.evaluate(() => window.scrollY) > 0, "the page scrolls");
+  await page.click("#cee-tab-features");
+  assert.equal(await page.evaluate(() => window.scrollY), 0);
+});
+
 test("on a phone the sidebar is a drawer behind the menu button and the page does not scroll sideways", async () => {
   const page = await h.page();
   await page.setViewportSize({ width: 375, height: 812 });
