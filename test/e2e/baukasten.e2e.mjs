@@ -74,7 +74,10 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   assert.equal(await page.inputValue("#cee-bk-p-0-off_l_delay_time-value"), before, "letting go puts it back");
   await page.locator("#cee-bk-preview .ui-dialog-foot .btn").click();
   assert.equal(await page.inputValue("#cee-bk-p-0-off_l_delay_time"), before, "the preview keeps nothing");
+  // The closing preview gives the focus back while it fades; typing into the name before that cut it to "Mein" in CI.
+  await page.locator("#cee-bk-preview").waitFor({ state: "hidden" });
   await page.fill("#cee-bk-fx-name", "Mein Delay");
+  assert.equal(await page.inputValue("#cee-bk-fx-name"), "Mein Delay");
   // an own effect says what it does and who made it
   await page.fill("#cee-bk-fx-description", "Mein kurzes Echo.");
   await page.fill("#cee-bk-fx-creator", "Jemand");
