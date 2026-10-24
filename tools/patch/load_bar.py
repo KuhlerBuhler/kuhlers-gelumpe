@@ -355,6 +355,12 @@ SOURCE = """
 .equ S_DRAWN, 24               ; 1 once the whole frame buffer has been marked as changed
 .equ S_KEY, 28                 ; the picture drawn: percent | done << 8 | the finale's picture << 16
 .equ S_LAST, 32                ; TICKS when that key was taken
+.equ S_PWR, 36                 ; TICKS when the power key was first seen held while the samples load (bit 0 set), 0 not held
+.equ GPIO_IN67, 0x01E26098      ; GPIO IN_DATA67; bit 31 (GPIO 7.15) is low while the power key is held
+.equ GPIO_BASE, 0x01E26000
+.equ GPIO_WRITE, 0xC0016BB4     ; (base, 0, 3, mask): clears the pins in mask; 0x08000000 is GPIO 7.11, the power hold
+.equ POWER_HOLD, 0x08000000
+.equ POWER_MS, 7000             ; as the firmware: 2 s until the panel reports the key, then 5 s more (script_hooks.s, Doom)
 .equ TICKS, @TICKS@             ; the operating system's tick count, one per millisecond
 .equ MENU_STATE, @MENU_STATE@   ; the BLECH menu (script runtime): M_ON 1 when armed, M_INV 1 with DISPLAY INVERT ON
 .equ M_ON, 0
@@ -473,6 +479,7 @@ ls_have:
     str r2, [r1, #S_DRAWN]
     str r2, [r1, #S_KEY]
     str r2, [r1, #S_LAST]
+    str r2, [r1, #S_PWR]
     mov r2, #1
     str r2, [r1, #S_MODE]
     str r2, [r1, #S_EXPECT]
@@ -662,6 +669,7 @@ ov_end:
     str r1, [r4, #S_EXPECT]
     b ov_out
 ov_go:
+    bl lb_power
     ldr r5, [r4, #S_FRAME]
     add r5, r5, #1
     str r5, [r4, #S_FRAME]
@@ -671,6 +679,38 @@ ov_go:
     bl compose
 ov_out:
     pop {r4, r5, r6, r7, r8, r9, r10, pc}
+
+; The power key while the samples load (device 25.10.: held 30 s, the device stayed on): the panel's report of the key, which
+; script_hooks.s waits for during the start, does not come in this phase. So the pin is read here, every frame of the overlay:
+; held POWER_MS without a break, the power hold (GPIO 7.11) is let go, as the start and Doom do. Let go earlier, nothing happens.
+; Clobbers r0 to r3 and r12.
+lb_power:
+    ldr r2, =STATE
+    ldr r0, =GPIO_IN67
+    ldr r0, [r0]
+    tst r0, #0x80000000
+    movne r0, #0
+    strne r0, [r2, #S_PWR]
+    bxne lr
+    ldr r1, =TICKS
+    ldr r1, [r1]
+    ldr r3, [r2, #S_PWR]
+    cmp r3, #0
+    orreq r1, r1, #1
+    streq r1, [r2, #S_PWR]
+    bxeq lr
+    sub r3, r1, r3
+    ldr r0, =POWER_MS
+    cmp r3, r0
+    bxlo lr
+    ldr r0, =GPIO_BASE
+    mov r1, #0
+    mov r2, #3
+    ldr r3, =POWER_HOLD
+    ldr r12, =GPIO_WRITE
+    blx r12
+lb_power_wait:
+    b lb_power_wait
 
 ; r0 = the percent: 100 when the loader is done, else the loader's share of the file, at most 99.
 pct_now:

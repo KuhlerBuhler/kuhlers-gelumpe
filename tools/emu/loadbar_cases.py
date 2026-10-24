@@ -448,7 +448,35 @@ def synthaddr_is_synth(payload):
     return synthaddr.is_synth(payload)
 
 
-GROUPS = (case_bar, case_off, case_rescue, case_custom_image, case_card_error, case_look)
+def case_power_while_loading(payload, flash):
+    """The power key while the samples load (device 25.10.: held 30 s, the device stayed on): the panel's report of the key does
+    not come in this phase, so only the pin goes down here. Held 7 s the overlay lets the power go; let go after 3 s the device
+    stays on and the load goes on."""
+    from machine import pin
+    out = []
+
+    def run(release):
+        dev = WatchedDev(bytes(payload), flash, 0)
+        dev.m.insert_card(card_with(cardstore.card_folder(payload), 400, 6))
+        dev.run(0.8)
+        t0 = dev.m.time_ns / 1e9
+        dev.m.inputs[pin(7, 15)] = 0
+        while dev.m.powered and dev.m.time_ns / 1e9 - t0 < 10:
+            if release is not None and dev.m.time_ns / 1e9 - t0 >= release:
+                dev.m.inputs[pin(7, 15)] = 1
+            dev.run(0.1)
+        return dev, round(dev.m.time_ns / 1e9 - t0, 1)
+
+    held, t = run(None)
+    short, _ = run(3.0)
+    out.append(entry("power_key_while_loading", not held.m.powered and 6.9 <= t <= 7.6 and short.m.powered
+                     and short.u32(spec.STATE) == 1 and not held.m.asserts and not short.m.asserts,
+                     f"held: off {t} s after the key went down (the overlay still drawing); let go after 3 s: on {short.m.powered}, "
+                     f"overlay state {short.u32(spec.STATE):#x}"))
+    return out
+
+
+GROUPS = (case_bar, case_off, case_rescue, case_custom_image, case_card_error, case_look, case_power_while_loading)
 
 
 def group_entries(payload, flash, i):
