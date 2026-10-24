@@ -387,7 +387,7 @@ test("patcher: with no emulator service the check cannot run and the reason is s
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
-  await page.locator("#app-toasts .cee-toast", { hasText: "antwortet nicht" }).waitFor();
+  await page.locator("#app-toasts .cee-toast.err", { hasText: "antwortet nicht" }).waitFor();
   assert.equal(await page.locator("#cee-patch-result").isVisible(), false);
 });
 

@@ -57,7 +57,7 @@ export function sdcardPanel(root, emulator = null, { heading = true, bar = false
         method, body: method === "POST" ? "{}" : undefined, headers: { "X-Emu-Token": l.token, ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
       });
     } catch {
-      throw new Error(window.__GELUMPE_APP ? "Der Emulator der App antwortet nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log." : `Der Emulator auf Port ${l.port} antwortet nicht. Läuft npm run emu?`);
+      throw new Error(window.__GELUMPE_APP ? "Der Emulator der App antwortet nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log." : `Der Emulator auf Port ${l.port} antwortet nicht. Läuft npm start noch?`);
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(data.error || `Emulator antwortet mit ${res.status}.`), { status: res.status });
