@@ -47,3 +47,12 @@ IN_DATA67 Bit 31, low = gedrückt).
   begrenzen.
 - Doom: der Lader prüft das Volume direkt nach der Frage. Mit dem Wiederholen davor sollte `00000100` bei einer langsamen
   Karte seltener kommen. Am Gerät prüfen.
+
+## Ein/Aus beim Sample-Laden (25.10.)
+
+Am Gerät: Ein/Aus während der Ladeanimation 30 s gehalten, die Electribe blieb an. Die Abschaltung beim Start
+(`script_hooks.s`) wartet auf die Meldung des Bedienfelds, die am Gerät in dieser Phase nicht kommt. Jetzt liest die
+Ladeanimation in jedem ihrer Bilder den Pin der Taste (GPIO 7.15) selbst: 7 s ohne Unterbrechung gehalten (wie die Firmware:
+2 s bis zur Meldung, dann 5 s), geht die Stromhaltung (GPIO 7.11) aus. Emulator, Hacktribe und Korgs Original:
+`loadbar_cases.case_power_while_loading`, nur der Pin geht runter, keine Meldung: aus nach 7,1 s; nach 3 s losgelassen bleibt
+sie an. Mit der alten Fassung bleibt sie im selben Fall an, wie am Gerät. Am Gerät noch nicht geprüft.
