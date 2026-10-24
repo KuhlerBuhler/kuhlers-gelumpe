@@ -577,11 +577,9 @@ def case_unsaved(payload, flash):
 
 
 def case_sync_group(payload, flash):
-    """Sync groups (sampler builds): the wheel on another pattern of the running pattern's group confirms it at once, a pattern of
+    """Sync groups (all builds; on the synth since 24.10.): the wheel on another pattern of the running pattern's group confirms it at once, a pattern of
     another group only browses; between two patterns of one group the state of the pattern that played (part mutes and sound,
     tempo) carries over, changed or not, and back again; the steps stay the new pattern's; into any other pattern nothing carries."""
-    if synthaddr.is_synth(payload):
-        return []
     out = []
     live = lambda b: b.u32(0xC033E6A4) + 4
     rd = lambda b, at, n=1: bytes(b.dev.read(live(b) + at, n))
@@ -693,7 +691,10 @@ def case_sync_group(payload, flash):
     ref.until_change()
     got = bytes(ref.m.uc.mem_read(live(ref), 0x4000))
     saved = bytes(ref.m.uc.mem_read(ref.slots + 0x4000, 0x4000))
-    differ = [i for i in range(0x4000) if got[i] != saved[i] and i != 0x3C]
+    # Korg's synth firmware itself leaves bytes 0x0B and 0x24 of part 1 different from the bank after this switch: measured the
+    # same on the unpatched synth 2.02 (docs/messungen/2026-10-24-blau-sync-group.md), so they are the firmware's, not a carry.
+    native = {0x80B, 0x824} if synthaddr.is_synth(payload) else set()
+    differ = [i for i in range(0x4000) if got[i] != saved[i] and i != 0x3C and i not in native]
     out.append(entry("group_off_with_exit_held", ref.running() == 1 and not differ and not ref.m.asserts,
                      f"EXIT held at power-on: the firmware's own switch, differs from the bank block at {differ[:8]}"))
     return out

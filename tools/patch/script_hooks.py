@@ -109,7 +109,7 @@ def runtime_profile(build):
         POWER_HOLD_MASK=0, SHORTCUTS=1, REMOTE=0, HW_ENCODER=0,
         SC_LEDMGR=synthaddr.tr(0xC0345A1C), SC_PLAYER=synthaddr.tr(0xC002FAFC), SC_PATPTR=synthaddr.tr(0xC033E6A4),
         SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_LEDSEND=synthaddr.tr(0xC00875F4),
-        MG_WORK=0, MG_MKDIR=0, MG_GETFREE=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0, SYNC_GROUP_AT=0))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        MG_WORK=0, MG_MKDIR=0, MG_GETFREE=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0, SYNC_GROUP_AT=0x3B80))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
