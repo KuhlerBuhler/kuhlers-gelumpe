@@ -107,14 +107,14 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     blechInfo,
   ]);
   const blechBox = el("section", { className: "cee-patch-choice", id: "cee-patch-blech" }, [
-    el("label", { className: "cee-check" }, [useLatest, el("span", { textContent: `Nutze die neuste Version von BLECHTRIBE (${release})` })]),
+    el("label", { className: "cee-check" }, [useLatest, el("span", { textContent: `Nutze die neueste Version von BLECHTRIBE (${release})` })]),
     blechDrop,
   ]);
   const withHacktribe = el("input", { type: "checkbox", id: "cee-patch-hacktribe-use" });
   withHacktribe.addEventListener("change", () => chooseRoute(withHacktribe.checked ? "hacktribe" : "direct"));
   const routeBox = el("section", { className: "cee-patch-choice", id: "cee-patch-route", hidden: true }, [
     el("label", { className: "cee-check" }, [withHacktribe, el("span", { textContent: "Patche auch Hacktribe" })]),
-    el("p", { className: "muted", id: "cee-patch-route-note", textContent: "Hacktribe ergänzt Filter für den Synth, zusätzliche Effekte und SysEx zum Lesen und Schreiben im RAM, das der Live-Modus des Editors braucht." }),
+    el("p", { className: "muted", id: "cee-patch-route-note", textContent: "Hacktribe ergänzt Filter für den Synth und zusätzliche Effekte. Den Live-Modus des Editors bringt BLECHTRIBE selbst mit." }),
   ]);
   const patchInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-hacktribe-file" });
   const patchDrop = el("label", { className: "ui-dropzone" }, [
@@ -174,7 +174,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     targetPath,
     after,
   ]);
-  const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: "Ich hab angst dass mein Gerät kaputt geht", disabled: true });
+  const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: "Ich hab Angst, dass mein Gerät kaputt geht", disabled: true });
   const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [usbPut, download, afraid]);
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
 
@@ -320,7 +320,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     verdictBox.hidden = !v;
     routeBox.hidden = flow.origin !== "stock";
     synthSet.hidden = flow.origin !== "synth";
-    if (!synthSet.hidden) synthSet.textContent = `Synth-Satz: ${itemsFor(blech, "synth").map(p => p.label).join(", ")}. BLECH-Menü, Plugins und Startbild-Editor sind noch nicht enthalten.`;
+    if (!synthSet.hidden) synthSet.textContent = `Synth-Satz: ${itemsFor(blech, "synth").map(p => p.label).join(", ")}. Den Startbild-Editor am Gerät gibt es auf der blauen noch nicht, das Startbild kommt aus der App.`;
     withHacktribe.checked = flow.route === "hacktribe";
     withHacktribe.disabled = can.busy;
     patchBox.toggleAttribute("data-disabled", flow.phase !== "needs-patch");

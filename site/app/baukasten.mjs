@@ -775,7 +775,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (!read.ok) { toast(`${file.name}: ${read.reason}`, "error"); return; }
     if (read.preset.kind === "mod") openMod(read.preset, null); else openFx(read.preset, null);
     page("editor");
-    toast(`${file.name} geöffnet. Speichern legt ihn unter Meine Sachen ab.`, "ok");
+    toast(`${file.name} geöffnet. Speichern legt ${read.preset.kind === "mod" ? "sie unter Meine Modulationen" : "ihn unter Meine Effekte"} ab.`, "ok");
   });
   const minePage = el("div", { className: "cee-bk-page", id: "cee-bk-page-mine" }, [
     mineTitle, mineEmpty, mine,
@@ -819,7 +819,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     allFiles.textContent = `${file.name}: ${read.entries.length} Einträge`;
     renderMine();
     renderExport();
-    toast(`${file.name} geladen: ${read.entries.length} Einträge, ${added} neu unter Meine Sachen.`, "ok");
+    toast(`${file.name} geladen: ${read.entries.length} Einträge, ${added} neu unter Meine Effekte und Meine Modulationen.`, "ok");
   });
   const exportLists = el("div", { className: "cee-bk-export", id: "cee-bk-export" });
   /** The catalog's pieces go on a place like own ones; the slot keeps "catalog:<name>" instead of an own id. */

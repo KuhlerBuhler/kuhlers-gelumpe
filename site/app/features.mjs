@@ -17,13 +17,13 @@ const DEVICE = { red: "Electribe 2 Sampler (rot)", blue: "Electribe 2 (blau)" };
 export const FEATURES = [
   { group: "Spielen", id: "note-assist", title: "Notenassistent", where: BOTH, image: "img/features/note-assist.svg",
     text: "Im KEYBOARD-Modus leuchten nach einer Note die Pads, die dazu passen. Je heller, desto besser passt die Note. Im CHORD-Modus zeigt er die passenden nächsten Akkorde.",
-    how: "KEYBOARD-Modus, eine Note spielen. Abschalten unter Menü -> BLECH -> NOTE ASSISTANT." },
+    how: "KEYBOARD-Modus, eine Note spielen. Abschalten unter Menü -> BLECH -> FEATURES -> NOTE ASSIST." },
   { group: "Spielen", id: "dice", title: "Würfeln", where: BOTH, image: "img/features/dice.svg",
     text: "Schreibt eine neue Melodie in den gewählten Part, aus Tonart und Tonleiter des Patterns. Gespeichert wird erst mit WRITE.",
     how: "SHIFT + PART ERASE." },
   { group: "Spielen", id: "tap-motion", title: "TAP Motion", where: BOTH, image: "img/features/tap-motion.svg",
     text: "TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus. Die TAP-Lampe zeigt, ob sie läuft. Das Tap-Tempo fällt dafür weg.",
-    how: "TAP drücken. MASTER FX halten + TAP für die Master-FX-Gesten. Einstellen unter Menü -> BLECH -> TAP MOTION." },
+    how: "TAP drücken. MASTER FX halten + TAP für die Master-FX-Gesten. Einstellen unter Menü -> BLECH -> FEATURES -> TAP MOTION." },
   { group: "Spielen", id: "pattern-switch", title: "Patternwechsel mit Bestätigung", where: BOTH, image: "img/features/pattern-switch.svg",
     text: "Beim Spielen blättert das Rad nur durch die Patterns. Gewechselt wird erst, wenn du bestätigst.",
     how: "Rad drehen, MENU bestätigt, EXIT nimmt zurück." },
@@ -42,7 +42,7 @@ export const FEATURES = [
 
   { group: "Aussehen", id: "splash", title: "Eigenes Startbild", where: BOTH, image: "img/features/splash.png",
     text: "Dein Bild beim Einschalten, selbst gemalt im Bereich Startbildschirm. Auf der roten auch direkt am Gerät.",
-    how: "In der App: Firmware -> Startbildschirm." },
+    how: "In der App: Gerät -> Startbildschirm." },
   { group: "Aussehen", id: "loading", title: "Ladeanimation", where: RED, image: "img/features/loading.png",
     text: "Solange die Samples laden, zieht Blechy eine Line über den Tisch, darunter stehen die Prozent.",
     how: "Kommt von selbst beim Einschalten." },
@@ -64,7 +64,7 @@ export const FEATURES = [
     how: "Am Gerät: Menü -> BLECH. Plugins holst du dir in der App unter Plugins." },
   { group: "Plugins und Effekte", id: "presets", title: "Eigene Effekte", where: RED, image: "img/features/presets.svg",
     text: "128 Plätze für eigene MFX- und IFX-Presets, gebaut in der App mit Namen und echten Einheiten.",
-    how: "In der App: Sound -> Baukasten. Einen fertigen Effekt nehmen oder selbst bauen." },
+    how: "In der App: BLECHTRIBE -> Baukasten. Einen fertigen Effekt nehmen oder selbst bauen." },
   { group: "Plugins und Effekte", id: "doom", title: "Doom", where: RED, image: "img/features/doom.svg",
     text: "Ja, wirklich.",
     how: "Erst die Dateien unter BLECHTRIBE -> Doom auf die Karte legen, dann SHIFT + TAP beim Einschalten." },
@@ -80,7 +80,7 @@ export const FEATURES = [
     how: "Erster Start mit Karte, MENU kopiert, EXIT startet ohne." },
   { group: "Sicher und bequem", id: "usb-update", title: "Update über USB", where: RED,
     text: "Ist BLECHTRIBE einmal drauf, kommt jedes weitere Update aus der App direkt über USB.",
-    how: "In der App: Firmware Patcher -> Aufs Gerät." },
+    how: "In der App: BLECHTRIBE -> Firmware Patcher -> Update auf Gerät." },
   ...[
     // from docs/ideen.md: what is planned or still being worked out, so people know what comes
     ["usb-samples", "Samples übers Kabel", "Samples rein und raus und die Karte lesen, ohne sie aus der Electribe zu nehmen."],
@@ -134,7 +134,7 @@ export function featuresPage(root) {
   const groups = [...new Set(FEATURES.map(f => f.group))];
   root.replaceChildren(
     el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: "Was BLECHTRIBE kann" })]),
-    el("p", { className: "muted", textContent: "Alles, was BLECHTRIBE der Electribe 2 beibringt, und wie du drankommst. Die Spielhilfen lassen sich unter Menü -> BLECH einzeln abschalten, EXIT beim Einschalten schaltet alles ab." }),
+    el("p", { className: "muted", textContent: "Alles, was BLECHTRIBE der Electribe 2 beibringt, und wie du drankommst. Die Spielhilfen lassen sich unter Menü -> BLECH -> FEATURES einzeln abschalten, EXIT beim Einschalten schaltet alles ab." }),
     ...groups.map(group => el("section", { className: "ui-section cee-feature-group" }, [
       el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: group })]),
       group === SOON ? el("p", { className: "muted", id: "cee-features-soon-lead", textContent: "Das kommt noch. Ohne Termin, und manches muss erst noch erforscht werden." }) : null,
