@@ -124,7 +124,9 @@ function ownList() {
  * @param {{emulator?: object, presets?: object, sub?: object, trail?: (parts: string[]) => void, navbar?: (nodes: Node[]) => void}} [options]
  *   presets: the panel of the Presets page (fx.mjs), which knows the slots and writes a record live
  */
-export function baukastenPage(root, { emulator = null, presets = null, sub = null, trail = () => {}, navbar = () => {} } = {}) {
+export function baukastenPage(root, { emulator = null, presets = null, sub = null, trail: setTrail = () => {}, navbar = () => {} } = {}) {
+  // The title in the breadcrumb leads to the catalog, the start of the page.
+  const trail = parts => setTrail(parts, () => page("catalog"));
   let raw = null;            // data/units.json as it is, for the defaults of a block
   let units = null;
   let shelfKind = "fx";      // Effekte or Modulationen, for every sub-page

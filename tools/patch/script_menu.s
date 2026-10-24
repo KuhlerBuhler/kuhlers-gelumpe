@@ -42,8 +42,8 @@
 .equ MX_METER, -0x1C           ; 4 bytes, the colours of the meter (STILL, LOW, MID, LOUD), 0 the firmware's
 .equ MX_SAVE_ON, -0x18         ; byte, the backlight pins that light in power save
 .equ MX_PHASE, -0x1D           ; byte, the hue of METER STILL RAINBOW, three steps every 40 ms
-.equ MX_RGB, -0x17             ; 3 bytes, red, green, blue of that hue
-.equ METER_RAINBOW, 8          ; METER STILL only: the colours turn round the wheel (bit 30 of the settings flags)
+.equ MX_LOUD_PHASE, -0x17      ; 2 bytes (low, high), the hue of METER LOUD RAINBOW in 1/256 steps, a round a bar at the tempo
+.equ METER_RAINBOW, 8          ; METER STILL and LOUD: the colours turn round the wheel (STILL bit 30 of the settings flags, LOUD bit 0 of byte 5)
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ M_PC, 0x158              ; the gap between the two settings buffers (M_FILE_A ends at 0x158, M_FILE_B starts at 0x160)
 .equ PS_SETTING, 0xC0180F10
@@ -267,6 +267,10 @@ menu_load_meter:
     tst r2, #4                  ; bit 30, shifted down with the colours
     movne r3, #METER_RAINBOW
     strbne r3, [r4, #MX_METER]
+    ldrb r3, [r0, #5]           ; bit 0 of byte 5: LOUD is RAINBOW
+    tst r3, #1
+    movne r3, #METER_RAINBOW
+    strbne r3, [r4, #MX_METER+3]
     push {r0-r3}                ; bits 28 to 29: OVERLAP of the pad colours (the patch pad-colors keeps it)
     ldr r0, [r0, #12]
     mov r0, r0, lsr #28
@@ -372,7 +376,7 @@ menu_file_read:
     bne menu_read_fail
     ldrb r0, [r7, #4]
     ldrb r1, [r7, #5]
-    cmp r1, #0
+    bics r1, r1, #1             ; byte 5: only bit 0 (LOUD RAINBOW) may be set
     bne menu_read_fail
     cmp r0, #2
     moveq r2, #SETTINGS_SIZE
@@ -451,6 +455,10 @@ menu_settings_save:
     ldrb r1, [r4, #MX_SAVE]
     orr r0, r0, r1, lsl #12
     ldrb r2, [r4, #MX_METER+3]  ; the meter's colours, colour n at bits 16 + 3n
+    cmp r2, #METER_RAINBOW      ; LOUD RAINBOW: its three bits stay 0, bit 0 of byte 5 says it
+    moveq r2, #0
+    moveq r1, #1
+    strbeq r1, [r7, #5]
     ldrb r1, [r4, #MX_METER+2]
     orr r2, r1, r2, lsl #3
     ldrb r1, [r4, #MX_METER+1]
@@ -950,8 +958,7 @@ meter_zone:
     sub r2, r2, #-MX_METER
     ldrb r2, [r2, r3]
     cmp r2, #METER_RAINBOW
-    ldreq r2, =MENU_STATE + MX_RGB
-    bxeq lr
+    beq meter_zone_rainbow
     cmp r2, #0
     bne meter_zone_palette
     ldr r2, =MENU_STATE
@@ -984,41 +991,65 @@ meter_zone_palette:
     add r2, r2, r2, lsl #1
     add r2, r0, r2
     bx lr
-; METER STILL RAINBOW: three steps of the hue a tick (40 ms), round the wheel (red, green, blue) in 86 ticks, about 3.4 s. Writes the
-; colour to MX_RGB for meter_colour. Keeps r0 and r1.
-meter_rainbow:
+; RAINBOW of a zone (r3 = 0 STILL, else LOUD): the colour of its hue to the 3 bytes at r12 -> r2 = r12. Keeps r1.
+; Round the wheel red, green, blue: three segments of 256 steps.
+meter_zone_rainbow:
     ldr r2, =MENU_STATE
-    ldrb r3, [r2, #MX_METER]
-    cmp r3, #METER_RAINBOW
-    bxne lr
+    cmp r3, #0
+    ldrbeq r3, [r2, #MX_PHASE]
+    ldrbne r3, [r2, #MX_LOUD_PHASE+1]
     push {r0, r1}
-    ldrb r3, [r2, #MX_PHASE]
-    add r3, r3, #3
-    and r3, r3, #255
-    strb r3, [r2, #MX_PHASE]
     add r3, r3, r3, lsl #1      ; 0 to 765: three segments of 256
     and r1, r3, #255            ; rising
     rsb r0, r1, #255            ; falling
     mov r3, r3, lsr #8
-    sub r2, r2, #-MX_RGB
-    mov r12, #0
+    mov r2, #0
     cmp r3, #1
     beq meter_rainbow_gb
     bhi meter_rainbow_br
-    strb r0, [r2]               ; red to green
-    strb r1, [r2, #1]
-    strb r12, [r2, #2]
+    strb r0, [r12]              ; red to green
+    strb r1, [r12, #1]
+    strb r2, [r12, #2]
     b meter_rainbow_out
 meter_rainbow_gb:               ; green to blue
-    strb r12, [r2]
-    strb r0, [r2, #1]
-    strb r1, [r2, #2]
+    strb r2, [r12]
+    strb r0, [r12, #1]
+    strb r1, [r12, #2]
     b meter_rainbow_out
 meter_rainbow_br:               ; blue to red
-    strb r1, [r2]
-    strb r12, [r2, #1]
-    strb r0, [r2, #2]
+    strb r1, [r12]
+    strb r2, [r12, #1]
+    strb r0, [r12, #2]
 meter_rainbow_out:
+    mov r2, r12
+    pop {r0, r1}
+    bx lr
+; The hues of RAINBOW, a step each tick (40 ms). STILL: three steps of 256, round the wheel in 86 ticks, about 3.4 s.
+; LOUD: a round a bar (four beats) at the tempo, the hue in 1/256 steps: tempo/10 BPM / 60 * 0.04 s / 4 * 65536 = tempo * 1.0923,
+; at 128 BPM 1.9 s a round. Keeps r0 and r1.
+meter_rainbow:
+    ldr r2, =MENU_STATE
+    ldrb r3, [r2, #MX_METER]
+    cmp r3, #METER_RAINBOW
+    ldrbeq r3, [r2, #MX_PHASE]
+    addeq r3, r3, #3
+    strbeq r3, [r2, #MX_PHASE]
+    ldrb r3, [r2, #MX_METER+3]
+    cmp r3, #METER_RAINBOW
+    bxne lr
+    push {r0, r1}
+    ldr r0, =HW_TEMPO
+    ldr r0, [r0]                ; tenths of a BPM
+    ldr r1, =4474               ; * 1.0923: * 4474 >> 12
+    mul r3, r0, r1
+    mov r3, r3, lsr #12
+    ldrb r0, [r2, #MX_LOUD_PHASE]
+    ldrb r1, [r2, #MX_LOUD_PHASE+1]
+    orr r0, r0, r1, lsl #8
+    add r0, r0, r3
+    strb r0, [r2, #MX_LOUD_PHASE]
+    mov r0, r0, lsr #8
+    strb r0, [r2, #MX_LOUD_PHASE+1]
     pop {r0, r1}
     bx lr
 led_meter_pass:
@@ -3483,7 +3514,8 @@ menu_slot_value:
     beq menu_value_byte
     mov r2, #7
     cmp r0, #28
-    moveq r2, #METER_RAINBOW    ; STILL has RAINBOW behind the palette
+    cmpne r0, #31
+    moveq r2, #METER_RAINBOW    ; STILL and LOUD have RAINBOW behind the palette
     sub r3, r0, #28
     cmp r3, #3
     subls r3, r3, #-MX_METER

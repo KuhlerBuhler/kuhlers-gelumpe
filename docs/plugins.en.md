@@ -627,7 +627,7 @@ The pages of the groups:
 | CUSTOMIZATION, LED | ENTER | opens the pages of the lower LEDs; EXIT goes back to LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the level meter, COLOR a fixed colour, OFF dark; applies at once |
 | LED, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs for COLOR; with METER the level sets the brightness of this colour while no meter colour is set; 15 15 15 means the firmware's colours ("15 stock"); applies at once |
-| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL: RAINBOW) | the colour of the level meter per zone, split as in the firmware: STILL without level, LOW, MID, LOUD; STOCK is the firmware's colour (white, blue, green, red); STILL also has RAINBOW, the colour turns smoothly through red, green and blue in about 10 s |
+| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL and LOUD: RAINBOW) | the colour of the level meter per zone, split as in the firmware: STILL without level, LOW, MID, LOUD; STOCK is the firmware's colour (white, blue, green, red); STILL and LOUD also have RAINBOW, the colour turns smoothly through red, green and blue: STILL once round in about 3.5 s, LOUD once a bar at the tempo of the pattern (about 1.9 s at 128 BPM) |
 | CUSTOMIZATION, PAD COLOR | ENTER | opens the pages of the pad colours; only where the set has the patch pad-colors |
 | PAD COLOR, PAD COLOR | RED, BLUE, PINK | the colour the pads use for what the firmware shows in red (a part plays, a pad is held, a step); applies at once, WRITE keeps it; RED is the default. Only where the set has the patch pad-colors In SEQUENCER mode a step that holds on the note of the step before it through TIE shows a tail in pink that fades out over the length of the note; where tied notes overlap their brightness adds up. |
 | PAD COLOR, SELECT COLOR | RED, BLUE, PINK | the colour of the selected part, never the one of PAD COLOR; when both light, the pad shows the third colour; BLUE is the default |
@@ -650,7 +650,7 @@ the title holds about 18. IMPORT PLUGIN and EXPORT ALL are in the PLUGINS group,
 
 On the page RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
-number (24 to 88 bytes, tag `GSET`; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
+number (24 to 88 bytes, tag `GSET`, version 2, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at
 the firmware's values). The page reports "saved", "no card", "card protected", "folder missing" or "write
 error". Nothing is written to the flash.

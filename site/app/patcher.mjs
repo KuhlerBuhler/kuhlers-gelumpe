@@ -83,7 +83,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       korgCard("blue", "Electribe 2 (blau)", "https://www.korg.com/us/support/download/product/0/367/#software"),
     ]),
   ]);
-  const usbGet = el("button", { type: "button", className: "btn lg", id: "cee-patch-usb-get", textContent: "Update auf Gerät" });
+  const usbGet = el("button", { type: "button", className: "btn", id: "cee-patch-usb-get", textContent: "Update auf Gerät" });
   const usbNote = el("p", { className: "muted", id: "cee-patch-usb-note", role: "status", hidden: true });
   const usbBox = el("section", { className: "cee-patch-usb", id: "cee-patch-usb" }, [
     el("h2", { className: "cee-patch-usb-title", textContent: "Update direkt über USB" }),
