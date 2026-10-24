@@ -227,5 +227,8 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [EXIT-Shortcuts und Akkorde in Pink auf der blauen Electribe](2026-10-24-blau-shortcuts-akkorde.md)
 - [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
 - [Effekte aus dem Katalog fest in der Firmware](2026-10-23-fx-katalog-fest.md)
+- [Flash-Karte aus dem Code](2026-10-24-flash-karte.md)
+- [Der Stack bei 0xC274E000 und wer den RAM darüber nutzt](2026-10-24-ram-task-stack.md)
+- [USB: was das Gerät anbietet und was eine zweite Schnittstelle bräuchte](2026-10-24-usb.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)
