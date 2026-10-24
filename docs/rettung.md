@@ -64,7 +64,11 @@ und mit `doom.bin` unter `KORG/blechtribe/Doom/`). Der Rückweg ist kurz und lie
 ## Die vier Fälle
 
 1. **Das Gerät startet, aber etwas stimmt nicht.** EXIT, notfalls aus und mit gehaltenem EXIT wieder
-   an (Notschalter, am Gerät nur für den MFX-2-Patch bestätigt). Dann die gesicherte Original-Datei in
+   an (Notschalter, am Gerät nur für den MFX-2-Patch bestätigt). Hilft EXIT, gilt das nur für diesen einen
+   Start. Die Seite fragt dann weiter: einmal ohne Karte normal einschalten (ohne Karte lädt der Plugin-Lader nichts
+   und die Einstellungen stehen auf den Vorgaben, siehe [Plugins](plugins.md)). Läuft sie so, `Plugin/e2sPlugin.all`
+   und `settings.a.bin`/`settings.b.bin` unter `KORG/blechtribe` umbenennen; das hält auch bei normalem Start.
+   Spinnt sie auch ohne Karte, oder hilft EXIT nicht: die gesicherte Original-Datei in
    den Ordner oben legen, Prüfsumme auf der Karte nachlesen, DATA UTILITY, SOFTWARE UPDATE (FACTORY
    RESET direkt davor nicht bestätigen), Abschluss abwarten. Das ist am 10.10. am Gerät geübt.
 2. **SOFTWARE UPDATE, press ENTER beim Einschalten.** Korgs Original-Firmware für den Sampler unter

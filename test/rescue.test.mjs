@@ -27,7 +27,7 @@ test("only answers: no evidence markers on the page, and links point at LINKS", 
 
 test("no way ends without help: every end is a device that runs again, or the way to Kuhler Buhler with the answers in a new issue", () => {
   const ends = nodes.filter(([, n]) => !n.choices && !n.next).map(([id]) => id).sort();
-  assert.deepEqual(ends, ["ask", "fixed", "works"]);
+  assert.deepEqual(ends, ["ask", "cardfixed", "works"]);
   assert.match(JSON.stringify(FLOW.ask.say), /issueNew.*instagram/);
   for (const id of ["stuck", "dark"]) assert.equal(FLOW[id].next, "ask", id);
 });
@@ -41,6 +41,13 @@ test("the folders are the four device cards, and docs/rettung.md carries the sam
   ]);
   const doc = readFileSync(new URL("docs/rettung.md", ROOT), "utf8");
   for (const f of FOLDERS) assert.ok(doc.includes(f.path), `${f.path} is missing in docs/rettung.md`);
+});
+
+test("EXIT helping is not the end: without the card, then the plugin and settings files, else the firmware back", () => {
+  assert.equal(FLOW.fixed.next, "nocard");
+  assert.deepEqual(FLOW.nocard.choices.map(c => c.to), ["cardfiles", "backup"]);
+  assert.deepEqual(FLOW.cardfiles.say.filter(l => l.path).map(l => l.path), ["KORG/blechtribe/Plugin/e2sPlugin.all", "KORG/blechtribe/settings.a.bin", "KORG/blechtribe/settings.b.bin"]);
+  assert.deepEqual(FLOW.cardfiles.choices.map(c => c.to), ["cardfixed", "backup"]);
 });
 
 test("00 and the update prompt go through Korg's file of the device's colour", () => {
