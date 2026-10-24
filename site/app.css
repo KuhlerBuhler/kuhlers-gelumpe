@@ -3406,14 +3406,6 @@ button.cee-text-link:hover {
   flex: none;
 }
 
-.cee-bk-saved:empty {
-  display: none;
-}
-
-.cee-bk-saved {
-  color: var(--color-text-success);
-}
-
 /* Selects and checkboxes look the same in the app (WebKit) as in the browser: the native popup arrow and box
    are replaced by the design's colours. */
 select.select {

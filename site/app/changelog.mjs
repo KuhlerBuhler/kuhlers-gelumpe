@@ -5,6 +5,7 @@
  * says so with a link.
  */
 import { el } from "./fields.mjs";
+import { toast } from "./toast.mjs";
 
 const REPO = "KuhlerBuhler/kuhlers-gelumpe";
 const SEEN = "cee.changelog.seen";
@@ -112,6 +113,8 @@ export function changelogPage(root, tab, fetchImpl = globalThis.fetch) {
     if (latest && latest !== read()) tab.append(badge);
     else badge.remove();
   };
+  // The list loads at the start; that it could not is said once the page is opened, not on every start.
+  let offline = false;
   (async () => {
     let releases = null;
     try {
@@ -119,7 +122,8 @@ export function changelogPage(root, tab, fetchImpl = globalThis.fetch) {
       if (res.ok) releases = (await res.json()).filter(r => !r.draft);
     } catch {}
     if (!releases?.length) {
-      list.replaceChildren(el("p", {}, ["Die Releases sind gerade nicht erreichbar. Sie stehen auch auf ", el("a", { className: "cee-text-link", href: PAGE, target: "_blank", rel: "noopener noreferrer", textContent: "GitHub" }), "."]));
+      offline = true;
+      list.replaceChildren(el("p", {}, ["Alle Releases stehen auch auf ", el("a", { className: "cee-text-link", href: PAGE, target: "_blank", rel: "noopener noreferrer", textContent: "GitHub" }), "."]));
       return;
     }
     const top = releases.find(r => !r.prerelease) ?? releases[0];
@@ -128,5 +132,5 @@ export function changelogPage(root, tab, fetchImpl = globalThis.fetch) {
     if (!root.closest("[hidden]")) keep(latest);
     mark();
   })();
-  return { opened() { if (latest) keep(latest); mark(); } };
+  return { opened() { if (offline) toast("Die Releases sind gerade nicht erreichbar.", "info"); if (latest) keep(latest); mark(); } };
 }

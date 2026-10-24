@@ -885,7 +885,6 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
 
   /** Herunterladen and Aufs Gerät for a plugin of the catalog; `text` gives them words besides the icon. */
   function packButtons(preset, text = false) {
-    const note = el("p", { className: "cee-error", hidden: true });
     const make = (name, label, onclick, primary = false) => {
       const b = el("button", { type: "button", className: `btn${text ? "" : " icon"}${primary ? " cee-primary" : ""}`, title: label, onclick }, [icon(name), text ? label : null]);
       if (!text) b.setAttribute("aria-label", label);
@@ -895,8 +894,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       const result = compile(preset.source, { name: validName(preset.id) ? preset.id : "plugin" });
       const probed = result.ok ? runProbe(result.blob) : null;
       const packed = probed?.ok ? packBlech(markProbed(result.blob), preset.source) : null;
-      note.hidden = !!packed?.ok;
-      if (!packed?.ok) { note.textContent = packed?.error?.message ?? "Dieses Plugin lässt sich nicht speichern."; return null; }
+      if (!packed?.ok) { say(packed?.error?.message ?? "Dieses Plugin lässt sich nicht speichern.", "error"); return null; }
       return packed.bytes;
     };
     const get = make("download", "Herunterladen", () => {
@@ -907,7 +905,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       const bytes = pack();
       if (bytes) toDevice(bytes, preset.id, usb);
     }, true);
-    return { get, usb, note };
+    return { get, usb };
   }
 
   function catalogCard(preset) {

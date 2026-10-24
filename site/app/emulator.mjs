@@ -239,8 +239,10 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     const key = [tone, word, text, quiet, !!extra].join("\0");
     if (key === said) return;
     said = key;
+    // The line is for screen readers only; what goes wrong is said in the toast, nothing stands above the device.
     status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }), ...(extra ? [" ", extra] : []));
-    status.classList.toggle("ui-sr-only", quiet);
+    // A state the emulator reports by itself goes away again; it must not lie on the page's buttons.
+    if (!quiet && (tone === "error" || tone === "warn")) toast(text, "info");
   };
   // In the desktop app the app starts the emulator itself (src-tauri); the page started by `npm start` finds it through
   // /emu.json. Nobody is asked to run a command: the start button looks for it, and what fails is said in a toast.
@@ -270,7 +272,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
 
   const vsbInput = el("input", { type: "file", className: "ui-sr-only", id: "cee-emu-vsb", accept: ".VSB,.vsb", tabIndex: -1 });
   vsbInput.setAttribute("aria-hidden", "true");
-  const vsbInfo = el("span", { className: "ui-dropzone-files", id: "cee-emu-vsb-info" });
+  const vsbInfo = el("span", { className: "ui-dropzone-files ui-sr-only", id: "cee-emu-vsb-info" });
 
   // Which build the loaded VSB is (src/firmware.mjs); the places that need Hacktribe's functions ask `lack()`.
   let build = null;
@@ -280,10 +282,10 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     blech = !!bytes && hasBlechSysex(bytes);
   }
   /** The line for the file chooser; Korg's own build is a recognised file, it only is not the measured one. */
-  /** A recognised file is said by the display; the line stays for screen readers and shows only what went wrong. */
-  const showInfo = text => {
+  /** A recognised file is said by the display; the line is for screen readers, what went wrong goes to the toast. */
+  const showInfo = (text, wrong = /nicht erkannt/.test(text)) => {
     vsbInfo.textContent = text;
-    vsbInfo.classList.toggle("ui-sr-only", /erkannt/.test(text) && !/nicht erkannt/.test(text));
+    if (wrong) toast(text, "error");
   };
   const describe = (name, id, saved) => {
     const when = saved ? " (vom letzten Mal)" : "";
@@ -399,7 +401,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     setBuild(null);
     keep.delete("vsb");
     if (bytes.length !== VSB_SIZE) {
-      showInfo(`${file.name}: ${bytes.length} Byte, eine VSB hat ${VSB_SIZE}.`);
+      showInfo(`${file.name}: ${bytes.length} Byte, eine VSB hat ${VSB_SIZE}.`, true);
       toast(`${file.name} ist keine Firmware-Datei: ${bytes.length} Byte, eine SYSTEM.VSB hat ${VSB_SIZE}.`, "error");
       showStatus({ state: "empty" });
       return;
