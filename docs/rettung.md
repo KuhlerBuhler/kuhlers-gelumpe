@@ -55,7 +55,16 @@ und mit `doom.bin` unter `KORG/blechtribe/Doom/`). Der Rückweg ist kurz und lie
    nicht mit Version `0x96` antwortet ([Boot](messungen/2026-10-08-emulator-boot.md)). Am Gerät bestätigt
    (23.10.): mit Korgs Original-Firmware unter `KORG/electribe sampler/System/SYSTEM.VSB` fragt das Gerät
    nach dem Update, und nach dem Update startet es wieder.
-4. **Nichts, keine Abfrage.** Stoppschild, nur JTAG.
+4. **Nichts, keine Abfrage.** Erst Netzteil und Batterien prüfen. Kommt dann weiter keine Abfrage, hilft
+   nach der Debrick-Anleitung von Hacktribe nur JTAG.
+
+Bei 2 und 3 fragt die Seite nach der Farbe: für die blaue Electribe liegt Korgs Datei unter
+`KORG/electribe/System/SYSTEM.VSB`. So beschrieben, am Gerät nicht geprüft. Ohne gesicherte
+Original-Datei nimmt Fall 1 ebenfalls Korgs Datei von Korgs Download-Seite.
+
+Die Seite spricht mit Leuten, die das Gerät kaum kennen und gerade Angst um es haben: Blechy erklärt
+in Alltagssprache, Fachbegriffe und Belege stehen hinter "Woher wir das wissen". Was nur zu lesen ist,
+folgt nach einer Sekunde von selbst; Knöpfe gibt es nur, wo man etwas tun oder beantworten muss.
 
 Alle Rettungswege liegen in der Firmware selbst. Eine Firmware, die vor ihnen hängt, ist ohne JTAG
 nicht zu retten ([Patcher](patcher.md), "Startablauf und warum er tabu ist"). Offen bleibt die
