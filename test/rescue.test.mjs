@@ -29,6 +29,7 @@ test("no way ends without help: every end is a device that runs again, or the wa
   const ends = nodes.filter(([, n]) => !n.choices && !n.next).map(([id]) => id).sort();
   assert.deepEqual(ends, ["ask", "cardfixed", "works"]);
   assert.match(JSON.stringify(FLOW.ask.say), /issueNew.*instagram/);
+  assert.doesNotMatch(JSON.stringify(FLOW.ask.say), /Foto vom Display/, "the dark case ends here too, its display shows nothing");
   for (const id of ["stuck", "dark"]) assert.equal(FLOW[id].next, "ask", id);
 });
 

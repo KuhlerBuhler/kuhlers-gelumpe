@@ -28,7 +28,7 @@ export const FOLDERS = [
 
 /** Where to ask; a line of parts where { link } is a key of LINKS. */
 const ASK = [
-  "Dann melde dich direkt bei Kuhler Buhler, der hat das gebaut: Schick ein Foto vom Display und schreib kurz, was du zuletzt gemacht hast, ",
+  "Dann melde dich direkt bei Kuhler Buhler, der hat das gebaut: Schreib kurz, was die Electribe beim Einschalten macht und was du zuletzt mit ihr gemacht hast, zeigt das Display etwas, gern mit Foto. Das geht ",
   { link: "issueNew", text: "als GitHub Issue" }, " (deine Antworten hier stehen dann schon drin) oder auf Instagram an ", { link: "instagram", text: "@kuhler_buhler" }, ".",
 ];
 /** The guide the Hacktribe project keeps for a device that no longer starts. */

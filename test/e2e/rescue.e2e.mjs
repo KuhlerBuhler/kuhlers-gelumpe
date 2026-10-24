@@ -68,7 +68,7 @@ test("it starts but something is off: EXIT first, then the backup or Korg's file
   await answer(page, "Ja, hab ich");
   const folders = page.locator("#cee-rescue-answers .cee-rescue-folder");
   assert.deepEqual(await folders.locator(".cee-rescue-answer").allTextContents(), FOLDERS.map(f => f.title));
-  assert.equal(await folders.locator("svg.cee-e2-art").count(), FOLDERS.length, "each with its Electribe drawn");
+  assert.equal(await folders.locator("svg.cee-e2-outline").count(), FOLDERS.length, "each with its Electribe drawn in lines, like on the Features page");
   await answer(page, FOLDERS[3].title);
   assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), FOLDERS[3].path);
   await answer(page, "Liegt drauf");
