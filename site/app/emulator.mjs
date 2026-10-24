@@ -235,14 +235,15 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   };
 
   let said = "";
-  const say = (tone, word, text, quiet = false, extra = null) => {
+  const say = (tone, word, text, quiet = false, extra = null, keep = false) => {
     const key = [tone, word, text, quiet, !!extra].join("\0");
     if (key === said) return;
     said = key;
     // The line is for screen readers only; what goes wrong is said in the toast, nothing stands above the device.
     status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }), ...(extra ? [" ", extra] : []));
-    // A state the emulator reports by itself goes away again; it must not lie on the page's buttons.
-    if (!quiet && (tone === "error" || tone === "warn")) toast(text, "info");
+    // A state the emulator reports by itself goes away again; it must not lie on the page's buttons. Why the firmware
+    // crashed or hangs (`keep`) stays until it is closed: the person needs it to decide on a restart.
+    if (!quiet && (tone === "error" || tone === "warn")) toast(text, keep ? "error" : "info");
   };
   // In the desktop app the app starts the emulator itself (src-tauri); the page started by `npm start` finds it through
   // /emu.json. Nobody is asked to run a command: the start button looks for it, and what fails is said in a toast.
@@ -340,7 +341,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       // A service started again holds no firmware and runs none: the power key the person pressed before counts again.
       if (!live(s.state) && vsb) queueMicrotask(boot);
     }
-    say(tone, word, s.error || (s.state === "running" ? "Die Firmware läuft." : s.state === "off" ? "Die Electribe ist aus." : ""), QUIET.has(s.state) && !s.error);
+    say(tone, word, s.error || (s.state === "running" ? "Die Firmware läuft." : s.state === "off" ? "Die Electribe ist aus." : ""), QUIET.has(s.state) && !s.error, null, !!s.error);
     if (s.state !== "running") device.showLeds({}, true);
     if (!fake) device.setPower(live(s.state));
     deviceBox.dataset.state = s.state;

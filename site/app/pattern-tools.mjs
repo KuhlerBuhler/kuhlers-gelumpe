@@ -8,6 +8,7 @@
  */
 import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
+import { toast } from "./toast.mjs";
 import { stepEditor } from "./steps.mjs";
 import { PatternFile, Pattern, parseSinglePattern, toSinglePattern, FileError, cleanName, NAME_LENGTH } from "../../src/pattern.mjs";
 import { makeTransitions, checkTransition, pickSlots, describe } from "../../src/transition.mjs";
@@ -71,9 +72,12 @@ export function patternToolsPage(root, { device }) {
   /** What the pickers offer: the loaded backup or single file, and copies of the device's buffer. */
   const pool = { file: null, fileName: "", single: null, free: new Set(), copies: [], copyCount: 0 };
   const pickers = [];
-  const say = text => { line.textContent = text; };
+  // Messages go to the toast; only a running step ("Sende …") stands in the line.
+  const say = (text, tone = "info") => {
+    line.textContent = tone === "progress" ? text : "";
+    if (tone !== "progress") toast(text, tone);
+  };
   const line = el("p", { className: "muted ui-break", id: "cee-pt-line", role: "status" });
-  const error = el("p", { className: "cee-error", id: "cee-pt-error", role: "alert", hidden: true });
 
   // ---- Quelle ----
   const input = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-pt-file", accept: ".e2sallpat,.e2spat" });
@@ -84,7 +88,7 @@ export function patternToolsPage(root, { device }) {
   connectEmu.addEventListener("click", () => device.connectEmulator());
   const source = el("section", { className: "ui-section" }, [
     el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: "Quelle" })]),
-    el("p", { className: "muted", textContent: "Die Patterns für beide Werkzeuge kommen aus einer Pattern-Sicherung, einer einzelnen Pattern-Datei oder dem Pattern-Puffer des verbundenen Geräts. Die Datei wird nur gelesen, nie verändert, und bleibt auf deinem Rechner. Das Gerät verbindest du im Bereich Gerät, den Emulator (wenn er läuft) hier." }),
+    el("p", { className: "muted", textContent: "Die Patterns für beide Werkzeuge kommen aus einer Pattern-Sicherung, einer einzelnen Pattern-Datei oder dem Pattern-Puffer des verbundenen Geräts. Die Datei wird nur gelesen, nie verändert, und bleibt auf deinem Rechner. Das Gerät verbindest du im Bereich Emulator unter „Echtes Gerät“, den Emulator (wenn er läuft) hier." }),
     el("label", { className: "ui-dropzone" }, [
       input,
       el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: "Pattern-Sicherung hierher ziehen oder " }), "auswählen"]),
@@ -93,7 +97,6 @@ export function patternToolsPage(root, { device }) {
     ]),
     loaded,
     el("div", { className: "actions cee-pt-device-row" }, [connectEmu, undoSend]),
-    error,
     line,
   ]);
 
@@ -102,7 +105,6 @@ export function patternToolsPage(root, { device }) {
       const bytes = new Uint8Array(await file.arrayBuffer());
       const single = bytes.length === 0x100 + 0x4000;
       const parsed = single ? parseSinglePattern(bytes) : PatternFile.parse(bytes);
-      error.hidden = true;
       pool.fileName = file.name;
       pool.file = single ? null : parsed;
       pool.single = single ? parsed : null;
@@ -114,9 +116,7 @@ export function patternToolsPage(root, { device }) {
       dice.roll();
     } catch (e) {
       const message = e instanceof FileError ? e.message : `Die Datei ließ sich nicht lesen: ${e.message}`;
-      if (window.ui?.rejectFile) window.ui.rejectFile(input, message);
-      error.textContent = message;
-      error.hidden = false;
+      if (window.ui?.rejectFile) window.ui.rejectFile(input, message); else toast(message, "error");
     }
   }
 
@@ -169,7 +169,7 @@ export function patternToolsPage(root, { device }) {
 
   async function fetchFromDevice() {
     const s = device.session;
-    if (!s) { say("Nichts verbunden. Schalte im Bereich Emulator die Electribe ein, oder steck dein Gerät per USB an und wähl dort oben „Echtes Gerät“."); return null; }
+    if (!s) { say("Nichts verbunden. Schalte im Bereich Emulator die Electribe ein, oder steck dein Gerät per USB an und wähl dort oben „Echtes Gerät“.", "error"); return null; }
     const release = s.reserve();
     try {
       await s.idle();
@@ -179,10 +179,10 @@ export function patternToolsPage(root, { device }) {
       const copy = { id: `copy:${pool.copyCount}`, bytes, label: `Gerät, Kopie ${pool.copyCount}: ${name}` };
       pool.copies.push(copy);
       if (pool.copies.length > MAX_DEVICE_COPIES) pool.copies.shift();
-      say(`Geholt: "${name}" aus dem Pattern-Puffer des Geräts.`);
+      say(`Geholt: "${name}" aus dem Pattern-Puffer des Geräts.`, "ok");
       return copy;
     } catch (e) {
-      say(`Das Pattern ließ sich nicht holen. Ist die Electribe noch verbunden? (${e.message})`);
+      say(`Das Pattern ließ sich nicht holen. Ist die Electribe noch verbunden? (${e.message})`, "error");
       return null;
     } finally {
       release();
@@ -198,12 +198,12 @@ export function patternToolsPage(root, { device }) {
       await s.idle();
       let active = "unbekannt";
       try { active = new Pattern(await s.fetchPattern()).name || "ohne Namen"; } catch (e) {
-        say(`Die App konnte das aktuelle Pattern am Gerät nicht sichern, deshalb sendet sie nichts. Verbinde die Electribe neu und versuch es nochmal. (${e.message})`);
+        say(`Die App konnte das aktuelle Pattern am Gerät nicht sichern, deshalb sendet sie nichts. Verbinde die Electribe neu und versuch es nochmal. (${e.message})`, "error");
         return;
       }
       const edit = { kind: "patternSend", block: Uint8Array.from(pattern.bytes) };
       const checked = await s.check(edit);
-      if (checked.verdict === "blocked") { say(`Gesperrt: ${checked.reasons.map(r => r.message).join(" ")}`); return; }
+      if (checked.verdict === "blocked") { say(`Gesperrt: ${checked.reasons.map(r => r.message).join(" ")}`, "error"); return; }
       const warnings = checked.reasons.map(r => `Warnung: ${r.message}`).join("\n");
       const yes = await window.ui.confirm({
         title: `"${label}" ans Gerät senden?`,
@@ -211,16 +211,16 @@ export function patternToolsPage(root, { device }) {
         confirmLabel: "Senden",
       });
       if (!yes) return;
-      say("Sende …");
+      say("Sende …", "progress");
       const res = await s.apply(edit, { confirmed: checked.token });
-      if (res.ok) say(`Gesendet und zurückgelesen: "${label}". Vorher im Puffer: "${active}", mit "Senden zurücknehmen" zurückzuholen.`);
-      else if (res.needsConfirmation) say("Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden.");
-      else if (res.gate?.verdict === "blocked") say(`Gesperrt: ${res.gate.reasons.map(r => r.message).join(" ")}`);
-      else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide links unter Gerät, wie es weitergeht." : ""}`);
+      if (res.ok) say(`Gesendet und zurückgelesen: "${label}". Vorher im Puffer: "${active}", mit "Senden zurücknehmen" zurückzuholen.`, "ok");
+      else if (res.needsConfirmation) say("Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden.", "error");
+      else if (res.gate?.verdict === "blocked") say(`Gesperrt: ${res.gate.reasons.map(r => r.message).join(" ")}`, "error");
+      else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide im Bereich Emulator unter „Echtes Gerät“, wie es weitergeht." : ""}`, "error");
       device.log?.(res.ok ? "Pattern gesendet." : `Pattern: ${res.error?.message ?? "gesperrt"}`, res.ok ? "ok" : "error");
       if (s.blocked) device.showDecision?.();
     } catch (e) {
-      say(`Abgebrochen: ${e.message}`);
+      say(`Abgebrochen: ${e.message}`, "error");
     } finally {
       release();
       sessionChanged();
@@ -234,9 +234,9 @@ export function patternToolsPage(root, { device }) {
     try {
       await s.idle();
       const res = await s.undo();
-      say(res.ok ? "Der vorherige Puffer ist wieder am Gerät." : `Zurücknehmen hat nicht geklappt: ${res.error.message}`);
+      say(res.ok ? "Der vorherige Puffer ist wieder am Gerät." : `Zurücknehmen hat nicht geklappt: ${res.error.message}`, res.ok ? "ok" : "error");
     } catch (e) {
-      say(`Zurücknehmen hat nicht geklappt: ${e.message}`);
+      say(`Zurücknehmen hat nicht geklappt: ${e.message}`, "error");
     } finally {
       release();
       sessionChanged();
@@ -261,10 +261,10 @@ export function patternToolsPage(root, { device }) {
     if (chainA) all.replace(chainA.number, chainA.pattern);
     const name = `${fileStem(pool.fileName)}-neu.e2sallpat`;
     saveFile(all.toBytes(), name);
-    say(`Gespeichert: ${name}, Plätze ${items.map(i => i.slot).join(", ")}${chainA ? `, Chain To von ${chainA.number} auf ${items[0].slot}` : ""}. Die Datei gehört auf die Karte (IMPORT ALL PATTERN) und ersetzt dort alle Patterns.`);
+    say(`Gespeichert: ${name}, Plätze ${items.map(i => i.slot).join(", ")}${chainA ? `, Chain To von ${chainA.number} auf ${items[0].slot}` : ""}. Die Datei gehört auf die Karte (IMPORT ALL PATTERN) und ersetzt dort alle Patterns.`, "ok");
   }
 
-  const saveSingle = (pattern, name) => { saveFile(toSinglePattern(pattern), name); say(`Gespeichert: ${name}.`); };
+  const saveSingle = (pattern, name) => { saveFile(toSinglePattern(pattern), name); say(`Gespeichert: ${name}.`, "ok"); };
 
   /** Findings as a list; true when one of them stops the output. */
   function findingsList(findings) {

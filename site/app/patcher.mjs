@@ -36,7 +36,7 @@ function verdict(flow, items) {
     case "stock": return null;
     case "blech": return { tone: "ok", word: "Schon BLECHTRIBE", text: "Auf dieser Datei ist BLECHTRIBE schon drauf. Nimm deine unveränderte SYSTEM.VSB, zum Beispiel die Sicherung vom Schreibtisch." };
     case "partial": return { tone: "warn", word: "Teils gepatcht", text: `Diese Datei wurde schon teilweise verändert (${input.present.map(id => items.find(p => p.id === id)?.label ?? id).join(", ")}). Nimm deine unveränderte SYSTEM.VSB, zum Beispiel die Sicherung vom Schreibtisch.` };
-    case "wrong-size": return { tone: "error", word: "Keine Firmware", text: `Das ist keine Firmware-Datei (${size} statt ${VSB_SIZE.toLocaleString("de-DE")} Byte). Nimm die SYSTEM.VSB aus dem Ordner KORG › dein Ordner › System auf der SD-Karte.` };
+    case "wrong-size": return { tone: "error", word: "Keine Firmware", text: `Das ist keine Firmware-Datei (${size} statt ${VSB_SIZE.toLocaleString("de-DE")} Byte). Nimm die SYSTEM.VSB aus dem Ordner KORG/dein Ordner/System auf der SD-Karte.` };
     default: return { tone: "error", word: "Nicht erkannt", text: `Diese Firmware kennt der Patcher nicht. Er braucht Hacktribe 2.02 oder Korgs Original 2.02. Grund: ${input.reasons[0] ?? "unbekannt"}` };
   }
 }
@@ -87,7 +87,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const usbNote = el("p", { className: "muted", id: "cee-patch-usb-note", role: "status", hidden: true });
   const usbBox = el("section", { className: "cee-patch-usb", id: "cee-patch-usb" }, [
     el("h2", { className: "cee-patch-usb-title", textContent: "Update direkt über USB" }),
-    el("p", { className: "cee-patch-lead", textContent: "Ist BLECHTRIBE schon auf deiner Electribe, schließ sie nur per USB an und verbinde sie auf der Seite Gerät. Der Knopf holt die Firmware-Datei von der Karte, setzt das neueste BLECHTRIBE drauf, prüft sie im Emulator und legt sie zurück. Am Gerät gehst du danach nur noch auf Menü -> DATA UTILITY -> SOFTWARE UPDATE." }),
+    el("p", { className: "cee-patch-lead", textContent: "Ist BLECHTRIBE schon auf deiner Electribe, schließ sie nur per USB an und verbinde sie im Bereich Emulator unter „Echtes Gerät“. Der Knopf holt die Firmware-Datei von der Karte, setzt das neueste BLECHTRIBE drauf, prüft sie im Emulator und legt sie zurück. Am Gerät gehst du danach nur noch auf Menü -> DATA UTILITY -> SOFTWARE UPDATE." }),
     el("div", { className: "actions" }, [usbGet]),
   ]);
   const usbPut = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
@@ -96,6 +96,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   // What the dropped file is not, said in the toast; the box only keeps it for screen readers and tests.
   const verdictBox = el("div", { className: "cee-patch-verdict ui-sr-only", id: "cee-patch-verdict", role: "status" });
   let toldVerdict = "";
+  let closeVerdict = () => {};
   const synthSet = el("p", { className: "muted", id: "cee-patch-synth-set", hidden: true });
   // Step 2 chooses what goes on the file: BLECHTRIBE of this version or an own BLECH.patch, and on Korg's original Hacktribe as well.
   const release = NEWS[0].version.split(".").slice(0, 2).join(".");
@@ -320,7 +321,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     const v = verdict(flow, blech?.items ?? []);
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
-    if (v && v.text !== toldVerdict) toast(v.text, v.tone === "error" ? "error" : "info", { stay: true });
+    // A new file brings a new verdict: the toast of the old one goes, so two verdicts never stand side by side.
+    if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true }) : () => {}; }
     toldVerdict = v?.text ?? "";
     routeBox.hidden = flow.origin !== "stock";
     synthSet.hidden = flow.origin !== "synth";

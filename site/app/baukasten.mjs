@@ -964,7 +964,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   exportButton.addEventListener("click", exportAll);
   const exportPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-export" }, [
     el("h2", { className: "cee-bk-title", textContent: `${COLLECTION_FILE} für die Karte` }),
-    el("p", { className: "muted", textContent: `Eine Datei für alles: Insert-Effekte, Master-Effekte und Modulationen. Leg fest, was auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen, auch Werks-Presets. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
+    el("p", { className: "muted", textContent: `Eine Datei für alles: Insert-Effekte, Master-Effekte und Modulationen. Leg fest, was auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen, bei Effekten auch Werks-Presets. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
     allDrop,
     exportSwitch,
     exportLists,

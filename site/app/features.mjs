@@ -62,7 +62,7 @@ export const FEATURES = [
 
   { group: "Plugins und Effekte", id: "plugins", title: "BLECH-Menü und Plugins", where: BOTH, image: "img/features/menu.svg",
     text: "Ein eigenes Menü am Gerät mit Plugins: Lauflichter, eigene Menüseiten, Spiele wie Snake und Tetris. Am Ende des Menüs wohnt Blechy.",
-    how: "Am Gerät: Menü -> BLECH. Plugins holst du dir in der App unter Plugins." },
+    how: "Am Gerät: Menü -> BLECH. Plugins holst du dir in der App unter BLECHTRIBE -> Plugins." },
   { group: "Plugins und Effekte", id: "presets", title: "Eigene Effekte", where: RED, image: "img/features/presets.svg",
     text: "128 Plätze für eigene MFX- und IFX-Presets, gebaut in der App mit Namen und echten Einheiten.",
     how: "In der App: BLECHTRIBE -> Baukasten. Einen fertigen Effekt nehmen oder selbst bauen." },

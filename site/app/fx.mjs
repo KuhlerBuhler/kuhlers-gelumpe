@@ -472,8 +472,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       p = progress(`${state.kind === "ifx" ? "IFX" : "MFX"} ${state.slot} ins RAM`);
       // The yes covers exactly what was shown; a different verdict asks again.
       const result = await whenIdle(session, () => session.apply(edit, { confirmed: checked.token, onStep: p.step }));
-      if (result.needsConfirmation) { p.done(false, "Der Befund hat sich geändert, bitte noch einmal senden."); return; }
-      if (result.gate?.verdict === "blocked") { p.done(false, "Vom Türsteher gesperrt."); showBlocked(result.gate.reasons); return; }
+      if (result.needsConfirmation) { p.done(false, "Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden."); return; }
+      if (result.gate?.verdict === "blocked") { p.done(false, "Gesperrt vom Türsteher."); showBlocked(result.gate.reasons); return; }
       finish(result, p);
     } catch (e) {
       if (p) p.done(false, e.message);
@@ -508,7 +508,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     p?.done(false, text);
     device.log?.(`${target}: ${text}`, "error");
     if (device.session?.blocked) {
-      showBlocked([{ severity: "error", code: "target-blocked", message: `${device.session.blocked} Entscheiden im Bereich Gerät.` }]);
+      showBlocked([{ severity: "error", code: "target-blocked", message: `${device.session.blocked} Entscheide im Bereich Emulator unter „Echtes Gerät“.` }]);
       device.showDecision?.();
     }
   }
@@ -528,7 +528,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       release();
     }
     p.done(res.ok, res.ok ? "Alter Stand ist wieder im RAM." : res.error.message);
-    device.log?.(res.ok ? "Letzte Änderung zurückgenommen." : `Zurücknehmen fehlgeschlagen: ${res.error.message}`, res.ok ? "ok" : "error");
+    device.log?.(res.ok ? "Letzte Änderung zurückgenommen." : `Zurücknehmen hat nicht geklappt: ${res.error.message}`, res.ok ? "ok" : "error");
     undoButton.disabled = !session.history.length;
   }
 
@@ -554,13 +554,17 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     downloadButton.hidden = true;
   }
 
+  /** A message of the file group goes to the toast; only the running check stands in the note. */
+  function note(text, kind = "info") {
+    exportNote.hidden = true;
+    toast(text, kind);
+  }
+
   function addCopy() {
     commit();
     const added = addPreset(state.image.bytes, state.kind, state.slot);
     if (!added.ok) {
-      window.ui?.toast?.(added.reasons.join(" "));
-      exportNote.hidden = false;
-      exportNote.textContent = added.reasons.join(" ");
+      note(added.reasons.join(" "), "error");
       return;
     }
     state.image.bytes.set(added.bytes);
@@ -568,8 +572,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     state.fileDirty = true;
     state.passed = null;
     downloadButton.hidden = true;
-    exportNote.hidden = false;
-    exportNote.textContent = `${kindWord(state.kind)} ${added.slot} ist eine Kopie von ${state.slot}. Ändere sie hier und prüfe die Kopie der Firmware.`;
+    note(`${kindWord(state.kind)} ${added.slot} ist eine Kopie von ${state.slot}. Ändere sie hier und prüfe die Kopie der Firmware.`, "ok");
     state.dirty = false;
     state.slot = added.slot;
     renderPicker();
@@ -586,12 +589,11 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   /** A .e2fx file as a new slot of its kind: a copy of slot 1 is made, then the file's record goes in, name and all. */
   async function loadPreset(file) {
     const got = readPresetFile(await file.text());
-    exportNote.hidden = false;
-    if (!got.ok) { exportNote.textContent = got.reason; return; }
-    if (!state.image) { exportNote.textContent = "Erst eine Firmware laden, dann kommt das Preset hinein."; return; }
+    if (!got.ok) { note(got.reason, "error"); return; }
+    if (!state.image) { note("Erst eine Firmware laden, dann kommt das Preset hinein.", "error"); return; }
     commit();
     const added = addPreset(state.image.bytes, got.kind, 1);
-    if (!added.ok) { exportNote.textContent = added.reasons.join(" "); return; }
+    if (!added.ok) { note(added.reasons.join(" "), "error"); return; }
     state.image.bytes.set(added.bytes);
     state.image.write(got.kind, added.slot, new FxRecord(got.record, got.kind));
     state.added.add(`${got.kind}:${added.slot}`);
@@ -601,7 +603,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     state.kind = got.kind;
     state.slot = added.slot;
     state.dirty = false;
-    exportNote.textContent = `${kindWord(got.kind)} ${added.slot}: „${got.name}“ aus der Datei. Prüf die Kopie der Firmware, dann kommt es aufs Gerät.`;
+    note(`${kindWord(got.kind)} ${added.slot}: „${got.name}“ aus der Datei. Prüf die Kopie der Firmware, dann kommt es aufs Gerät.`, "ok");
     renderPicker();
   }
 
@@ -624,12 +626,11 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       ])));
       exportChecks.hidden = false;
       const good = report.checks.filter(c => c.ok).length;
-      exportNote.textContent = report.ok
-        ? "Geprüft, alles in Ordnung. Du kannst die Datei jetzt speichern."
-        : `Die Prüfung hat ${report.checks.length - good} Fehler gefunden. Diese Änderung lässt sich so nicht speichern. Schick uns bitte einen Screenshot.`;
+      if (report.ok) note("Geprüft, alles in Ordnung. Du kannst die Datei jetzt speichern.", "ok");
+      else note(`Die Prüfung hat ${report.checks.length - good} Fehler gefunden. Diese Änderung lässt sich so nicht speichern. Schick uns bitte einen Screenshot.`, "error");
       if (report.ok) { state.passed = res.bytes; downloadButton.hidden = false; }
     } catch (e) {
-      exportNote.textContent = e.message;
+      note(e.message, "error");
     } finally {
       renderRoom();
     }
@@ -638,7 +639,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   function downloadCopy() {
     if (!state.passed) return;
     saveFile(state.passed, "SYSTEM.VSB");
-    exportNote.textContent = "Kopiere die Datei wie im Bereich Patcher beschrieben auf die SD-Karte und starte am Gerät Menü -> DATA UTILITY -> SOFTWARE UPDATE.";
+    note("Kopiere die Datei wie im Bereich Firmware Patcher beschrieben auf die SD-Karte und starte am Gerät Menü -> DATA UTILITY -> SOFTWARE UPDATE.", "ok");
   }
 
   addButton.addEventListener("click", addCopy);
@@ -703,7 +704,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
           if (!(await window.ui.confirm({ title: "Trotz Warnungen senden?", text, confirmLabel: "Senden", danger: false }))) return { ok: false, reason: "" };
         }
         const result = await whenIdle(session, () => session.apply(edit, { confirmed: checked.token }));
-        if (result.needsConfirmation) return { ok: false, reason: "Der Befund hat sich geändert, bitte noch einmal senden." };
+        if (result.needsConfirmation) return { ok: false, reason: "Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden." };
         if (result.gate?.verdict === "blocked") return { ok: false, reason: `Gesperrt: ${result.gate.reasons[0]?.message ?? ""}` };
         if (!result.ok) return { ok: false, reason: result.error?.message ?? "abgebrochen" };
         state.image.write(kind, slot, new FxRecord(made.record, kind));
