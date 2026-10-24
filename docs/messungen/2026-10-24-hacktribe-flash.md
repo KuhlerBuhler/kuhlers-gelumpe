@@ -28,10 +28,22 @@ Ein Lauf schickt die Befehle über die emulierte DIN-Leitung und zählt die Befe
 - Jeder RAM-Schreibvorgang über Hacktribe (`0x53` plus `0x54`) löscht und schreibt zwei Pattern-Plätze im Flash. Bei vielen
   Schreibvorgängen nutzt das diese Sektoren ab, und ein Stromausfall in dem Moment kann Pattern 84 oder 85 beschädigen
   (hergeleitet).
-- BLECHs eigene Befehle (`0x60` bis `0x67`) haben diesen Fehler nicht, sie antworten selbst und laufen nicht in Korgs Code.
+- BLECHs eigene Befehle (`0x60` bis `0x67`, `0x6F`) haben diesen Fehler nicht, sie antworten selbst und laufen nicht in Korgs Code.
+
+## Die Sperre aller Hacktribe-Befehle (24.10., später)
+
+Der Editor schreibt und liest das RAM schon über BLECH, wenn das Gerät es kann; nur Ausführen (`KORG.exec`) und Flash lesen
+gingen noch über Hacktribe. Dafür gibt es jetzt BLECHs EXEC (`0x6F`), und der Sender nimmt FLASH READ (`0x64`). Damit sperrt
+BLECH alle Hacktribe-Befehle `0x52` bis `0x57`, schon beim Funktionsbyte: auch `0x54` dekodiert dann nichts mehr nach
+`0xC1000000`. Mit EXIT beim Einschalten gehen sie für Hacktribes eigene Werkzeuge wieder, außer `0x56`. Die Werkzeuge unter
+`tools/device/`, die Hacktribes Befehle brauchen, sagen das, wenn keine Antwort kommt.
+
+| Aussage | Status |
+|---|---|
+| `0x52` antwortet nicht, `0x53` und `0x54` ändern weder das Ziel noch den Stub-Puffer, `0x57` führt nichts aus | gemessen, `sysex:hacktribe_read_dropped`, `sysex:hacktribe_write_run_dropped` |
+| Mit EXIT beim Einschalten antwortet `0x52` wieder, `0x56` bleibt verworfen | gemessen, `sysex:kill_switch_hacktribe`, `sysex:kill_switch_no_flash_write` |
 
 ## Offen
 
-- Ob `0x57` (Ausführen) ebenfalls einen Pattern-Platz schreibt.
-- Wie oft der Editor, das Terminal (`KORG.exec`) und die Werkzeuge unter `tools/device/` Hacktribes `0x53`/`0x54` benutzen.
+- Ob `0x57` (Ausführen) ebenfalls einen Pattern-Platz schreibt (mit BLECH nur noch mit EXIT beim Einschalten erreichbar).
 - Bestätigung am Gerät.

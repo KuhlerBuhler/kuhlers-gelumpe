@@ -1,5 +1,6 @@
 /**
- * Where code may be put and run through Hacktribe's execute command (0x57).
+ * Where code may be put and run: BLECH's EXEC (0x6F) runs only here and clears the
+ * instruction cache itself; Hacktribe's execute (0x57) is the way on a firmware without BLECH.
  *
  * Not a field the editor edits, so it is not in the device map: a scratch
  * buffer and one firmware routine. Both measured on the own device and in the

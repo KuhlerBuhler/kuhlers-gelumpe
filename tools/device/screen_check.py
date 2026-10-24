@@ -1,6 +1,7 @@
 """Check on the own device that the screen state and display sit where the
 emulator has them (docs/messungen/2026-10-09-menuezustand.md). Read only:
 device search and RAM reads (0x52), nothing is written.
+With BLECH, Hacktribe's 0x52 answers only after a power-on with EXIT held.
 
     python3 screen_check.py                 # device on USB
     python3 screen_check.py --emu VSB       # the same reads against the emulator
