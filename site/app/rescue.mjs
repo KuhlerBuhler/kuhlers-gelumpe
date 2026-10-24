@@ -21,12 +21,14 @@ const pill = status => {
 
 const link = (href, text) => el("a", { className: "cee-text-link", href, target: "_blank", rel: "noopener noreferrer", textContent: text });
 
-/** A line of text: a string, or parts where { link, text } is a link to LINKS[link]. */
-const words = line => (Array.isArray(line) ? line.map(part => (typeof part === "string" ? part : link(LINKS[part.link], part.text))) : [line]);
+/** A line of text: a string, or parts where { link, text } is a link to LINKS[link]; "issueNew" opens a new issue with `issue` filled in. */
+const words = (line, issue = {}) => (Array.isArray(line)
+  ? line.map(part => (typeof part === "string" ? part : link(part.link === "issueNew" ? `${LINKS.issues}/new?${new URLSearchParams(issue)}` : LINKS[part.link], part.text)))
+  : [line]);
 
 /** What Blechy says in one node: the lines, a path on the card, how sure it is, and behind a fold where that comes from. */
-const say = node => [
-  ...node.say.map(line => (line.path ? el("code", { className: "cee-rescue-path", textContent: line.path }) : el("p", {}, words(line)))),
+const say = (node, issue) => [
+  ...node.say.map(line => (line.path ? el("code", { className: "cee-rescue-path", textContent: line.path }) : el("p", {}, words(line, issue)))),
   node.status ? el("div", { className: "cee-rescue-meta" }, [
     pill(node.status),
     node.note ? el("details", { className: "cee-rescue-note" }, [el("summary", { textContent: "Woher wir das wissen" }), el("p", {}, words(node.note))]) : null,
@@ -49,8 +51,14 @@ export function rescuePage(root) {
   ]);
   const you = text => el("li", { className: "cee-rescue-you" }, [el("p", { className: "cee-rescue-bubble", textContent: text })]);
 
+  /** A new issue that already says which way through the page the person took. */
+  const issue = () => ({
+    title: `Rettung: ${picked[0] ?? ""}`,
+    body: `Meine Antworten in der Rettung:\n${picked.filter(Boolean).map(p => `- ${p}`).join("\n")}\n\nWas das Display zeigt und was ich zuletzt gemacht habe:\n\n(Foto vom Display hier hineinziehen)\n`,
+  });
+
   function render() {
-    chat.replaceChildren(...path.flatMap((id, i) => [blechy(nodes[id].mood, say(nodes[id])), picked[i] ? you(picked[i]) : null].filter(Boolean)));
+    chat.replaceChildren(...path.flatMap((id, i) => [blechy(nodes[id].mood, say(nodes[id], issue())), picked[i] ? you(picked[i]) : null].filter(Boolean)));
     const node = nodes[path.at(-1)];
     const choices = node.choices ?? [];
     answers.replaceChildren(...choices.map(c => {

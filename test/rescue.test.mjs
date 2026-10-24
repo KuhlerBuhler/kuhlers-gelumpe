@@ -21,7 +21,14 @@ test("every answer and every follow-up leads to a node, and every node is reache
 test("every status is known, and links point at LINKS", () => {
   for (const [id, n] of nodes) if (n.status) assert.ok(STATUS[n.status], `${id}: unknown status ${n.status}`);
   const parts = JSON.stringify(FLOW).match(/"link":"(\w+)"/g) ?? [];
-  for (const p of parts) assert.ok(LINKS[p.slice(8, -1)], p);
+  for (const p of parts) assert.ok(LINKS[p.slice(8, -1)] || p === '"link":"issueNew"', p);
+});
+
+test("no way ends without help: every end is a device that runs again, or the way to Kuhler Buhler with the answers in a new issue", () => {
+  const ends = nodes.filter(([, n]) => !n.choices && !n.next).map(([id]) => id).sort();
+  assert.deepEqual(ends, ["ask", "fixed", "works"]);
+  assert.match(JSON.stringify(FLOW.ask.say), /issueNew.*instagram/);
+  for (const id of ["stuck", "dark"]) assert.equal(FLOW[id].next, "ask", id);
 });
 
 test("the folders are the four device cards, and docs/rettung.md carries the same paths", () => {

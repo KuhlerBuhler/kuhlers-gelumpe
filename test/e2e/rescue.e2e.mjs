@@ -108,6 +108,10 @@ test("00 goes through the update prompt with Korg's file for the colour, and say
   assert.match(await said(page), /ENTER/);
   await answer(page, "Klappt nicht");
   assert.match(await said(page), /GitHub Issue/, "the end follows by itself");
+  const issue = new URL(await page.locator("#cee-rescue-chat a", { hasText: "als GitHub Issue" }).last().getAttribute("href"));
+  assert.equal(issue.pathname, "/KuhlerBuhler/kuhlers-gelumpe/issues/new");
+  assert.equal(issue.searchParams.get("title"), `Rettung: ${CASES.find(c => c.id === "zero").label}`);
+  assert.match(issue.searchParams.get("body"), /- Es bleibt bei 00\n- Rot: Electribe Sampler\n- Hab ich\n- Liegt drauf\n- Klappt nicht/, "the answers are in the issue");
   const chat = await page.locator("#cee-rescue-chat").textContent();
   assert.match(chat, /Bedienfeld/);
   assert.doesNotMatch(await page.locator("#cee-rescue-chat .cee-rescue-bubble > p").allTextContents().then(t => t.join(" ")), /Bootloader|JTAG|0x96/, "no jargon up front");

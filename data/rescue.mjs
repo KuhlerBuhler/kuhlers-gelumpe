@@ -34,7 +34,11 @@ export const FOLDERS = [
 ];
 
 /** Where to ask; a line of parts where { link } is a key of LINKS. */
-const ASK = ["Schick uns ein Foto vom Display und schreib kurz, was du zuletzt gemacht hast, ", { link: "issues", text: "als GitHub Issue" }, " oder auf Instagram an ", { link: "instagram", text: "@kuhler_buhler" }, ". Dann schauen wir zusammen drauf."];
+const ASK = [
+  "Dann melde dich direkt bei Kuhler Buhler, der hat das gebaut: Schick ein Foto vom Display und schreib kurz, was du zuletzt gemacht hast, ",
+  { link: "issueNew", text: "als GitHub Issue" }, " (deine Antworten hier stehen dann schon drin) oder auf Instagram an ", { link: "instagram", text: "@kuhler_buhler" }, ".",
+];
+const LATER = "Kriegen wir es zusammen hin, kommt der Weg hier mit rein, damit er dem Nächsten gleich hilft.";
 
 export const BUTTONS = { again: "Von vorn", back: "Zurück" };
 
@@ -177,7 +181,7 @@ export const FLOW = {
   },
   ask: {
     mood: "wave",
-    say: [ASK],
+    say: [ASK, LATER],
   },
 };
 
