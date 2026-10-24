@@ -6,6 +6,8 @@ until it is switched off and on (docs/speicherbereiche.md). The flash is read
 twice; the file is written only when both passes agree, so it is one state of
 the device and not a mix of two. The first missing answer stops the run, there
 is no retry. The dump holds Korg data and stays outside the repository.
+With BLECH, Hacktribe's commands answer only after a power-on with EXIT held;
+blech_flash_dump.py reads the flash through BLECH's own FLASH READ instead.
 
     python3 flash_dump.py --out ~/electribe-flash.bin          # device on USB
     python3 flash_dump.py --emu VSB --start 0x220000 --length 0x8000 --out x.bin

@@ -12,6 +12,8 @@ import { buildProfile, STOCK_SLOTS } from "../src/profile.mjs";
 import { recordOf, pointersMatch, RECORD } from "../src/presets.mjs";
 import { protectTable } from "../src/sysex-table.mjs";
 import { tableEntry } from "../src/map/address.mjs";
+import { plan } from "../src/plan.mjs";
+import EXEC from "../data/exec.mjs";
 
 // The session prefers BLECH's own SysEx commands when the device answers INFO, falls back to Hacktribe's 0x52 to 0x57, and else reads only
 // (docs/messungen/2026-10-15-blech-sysex.md). Every device here is the simulation of src/device.mjs.
@@ -76,7 +78,42 @@ test("Korg's original with BLECH: known by its own signatures, RAM through BLECH
   const fx = await session.check({ kind: "fxRecord", table: "ifx", slot: 50, bytes: new Uint8Array(0x20c) });
   assert.ok(fx.reasons.some(r => r.code === "unknown-firmware"), "an effect record needs Hacktribe's tables");
   const exec = await session.check({ kind: "exec", code: Uint8Array.of(0, 0, 0xa0, 0xe1), guards: [] });
-  assert.ok(exec.reasons.some(r => r.code === "exec-needs-hacktribe"), "BLECH has no execute command");
+  assert.ok(!exec.reasons.some(r => r.code === "exec-needs-hacktribe"), "BLECH's EXEC runs code without Hacktribe");
+});
+
+test("code runs through BLECH's EXEC: written and read back with BLECH, the cache step answered by EXEC itself, never Hacktribe's 0x57", async () => {
+  const ran = [];
+  const { session, sent } = await connect({ blech: true, execute: addr => { ran.push(addr); return true; } });
+  assert.ok(session.sender.blech.exec, "INFO says EXEC");
+  const code = Uint8Array.of(1, 0, 0xa0, 0xe3, 0x1e, 0xff, 0x2f, 0xe1);   // mov r0, #1; bx lr
+  sent.length = 0;
+  const run = await session.sender.run(plan({ kind: "exec", code }, { channel: session.device.channel }));
+  assert.equal(run.ok, true, run.error?.message);
+  assert.deepEqual(sent.map(func), [BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.READ, BLECH.EXEC]);
+  assert.deepEqual(ran, [EXEC.stubAt], "only the stub ran, once");
+  assert.ok(!sent.some(m => func(m) >= 0x52 && func(m) <= 0x57), "nothing of Hacktribe's");
+});
+
+test("EXEC that does not come back with 1 fails the run, and EXEC outside the stub buffer is refused by the device", async () => {
+  const { session } = await connect({ blech: true, execute: () => false });
+  const code = Uint8Array.of(0, 0, 0xa0, 0xe3, 0x1e, 0xff, 0x2f, 0xe1);
+  const run = await session.sender.run(plan({ kind: "exec", code }, { channel: session.device.channel }));
+  assert.equal(run.ok, false);
+  assert.match(run.error.message, /meldet 0 statt 1/);
+  await assert.rejects(session.sender.blechExecute(0xc3000000), e => e.kind === "protected");
+});
+
+test("with BLECH the device drops Hacktribe's commands, and a flash read goes through BLECH's FLASH READ", async () => {
+  const flash = Uint8Array.from({ length: 0x3000 }, (_, i) => (i * 13) & 0xff);
+  const { session, sim, sent } = await connect({ blech: true });
+  sim.flash = flash;
+  assert.equal(sim.handle([0xf0, ...head(session.device.channel), 0x52, ...syxEnc([...u32le(0xc0000040), ...u32le(16)]), 0xf7]), null, "0x52 gets no answer");
+  session.sender.blech.flash = true;
+  sent.length = 0;
+  const run = await session.sender.run(plan({ kind: "flashRead", addr: 0x100, length: 0x2000 }, { channel: session.device.channel }));
+  assert.equal(run.ok, true, run.error?.message);
+  assert.deepEqual(run.results[0].value, flash.slice(0x100, 0x2100));
+  assert.deepEqual(sent.map(func), [BLECH.FLASH, BLECH.FLASH], "in pieces of 4096 bytes");
 });
 
 test("a write goes as one BLECH block and a read comes back checked, in blocks of the device's size", async () => {

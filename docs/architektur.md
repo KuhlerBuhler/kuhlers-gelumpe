@@ -33,8 +33,9 @@ Hacktribe noch eine Firmware-Datei. RAM- und Firmware-Funktionen gibt es nur, we
 das Gerät eigene Befehle dafür kennt: BLECHs (`0x60` bis `0x63`, auch auf Korgs
 Original) oder Hacktribes (`0x52` bis `0x57`). Ohne beide kommt Schweigen, darum wird
 bei der Gerätesuche zuerst BLECHs INFO gefragt, dann Hacktribes Lesen, und die
-Funktionen werden sonst ausgeblendet. Flash lesen und Code ausführen gibt es nur über
-Hacktribe, und der Effekt-Editor braucht Hacktribes Preset-Tabellen, nicht nur das RAM.
+Funktionen werden sonst ausgeblendet. Mit BLECH gehen auch Flash lesen (`0x64`) und Code
+ausführen (`0x6F`) über BLECH; die Firmware mit BLECH verwirft Hacktribes Befehle, außer nach
+EXIT beim Einschalten. Der Effekt-Editor braucht Hacktribes Preset-Tabellen, nicht nur das RAM.
 
 **Modulationsarten (Seite Modulationen).** Die Seite ändert Name, Vorgabe-Tiefe, Vorgabe-Speed,
 Kurve und die Slots 0 bis 4 der 72 Modulationsarten auf einer Kopie der geladenen Firmware. Sie
@@ -231,7 +232,9 @@ leeren, Ausführen und Zurückschreiben als eine Einheit, so wie
 `tools/device/led_show.py` es von Hand macht: Firmware-Code, den der Stub aufruft,
 wird vorher gegen die Firmware-Datei verglichen, die Bytes unter dem Stub werden
 gesichert, der Stub wird geschrieben und zurückgelesen, dann Execute `0x57` auf die
-Cache-Routine und auf den Stub, danach kommen die Originalbytes zurück. Der Stub muss
+Cache-Routine und auf den Stub, danach kommen die Originalbytes zurück. Mit BLECH geht
+das als EXEC `0x6F` auf den Stub, das den Cache selbst leert; die Firmware führt es nur im
+Stub-Puffer aus. Der Stub muss
 mit r0 = 1 zurückkehren, sonst kommt keine Bestätigung. Der Türsteher lässt Ausführen
 nur dort zu, wo er es erklärt (`data/exec.mjs`): im Stub-Puffer ab `0xC1000000`
 (nur das erste KiB) und bei der Cache-Routine, und nur Code, der vorher zurückgelesen

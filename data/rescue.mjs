@@ -1,153 +1,187 @@
-/** What the Rettung page (site/app/rescue.mjs) says. `status` uses the markers of docs/README.md. */
-
-export const STATUS = {
-  gemessen: { tone: "ok", text: "gemessen am Gerät", meaning: "Am Gerät beobachtet." },
-  offline: { tone: "info", text: "offline gelesen", meaning: "Im Code oder im Emulator gelesen, am Gerät nicht gesehen." },
-  hergeleitet: { tone: "info", text: "hergeleitet", meaning: "Aus Gemessenem geschlossen, selbst nicht gemessen." },
-  offen: { tone: "warn", text: "offen, nicht geprüft", meaning: "Steht so in einer Anleitung oder ist vermutet, am Gerät nicht geprüft. Behandle es als ungeprüft." },
-};
+/**
+ * What the Rettung page (site/app/rescue.mjs) says: a conversation with Blechy for someone who knows little about the
+ * device and is worried. Only the answers, in plain words; where an official guide covers a step, `source` names it.
+ * The evidence behind each step is in docs/rettung.md.
+ */
 
 export const LINKS = {
   debrick: "https://github.com/bangcorrupt/hacktribe/wiki/Debrick",
-  howTo: "https://github.com/bangcorrupt/hacktribe/wiki/How-To",
   issues: "https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues",
   instagram: "https://www.instagram.com/kuhler_buhler/",
+  korgRed: "https://www.korg.com/us/support/download/product/0/368/#software",
+  korgBlue: "https://www.korg.com/us/support/download/product/0/367/#software",
 };
 
-/** What Blechy says between the steps of the question flow; the steps themselves are the cases below. */
-export const TALK = {
-  hello: "Moin, ich bin Blechy. Keine Panik, wir kriegen das hin. Was zeigt deine Electribe, wenn du sie einschaltest?",
-  helped: "Hat geholfen",
-  notHelped: "Hilft nicht",
-  fixed: "Jut. Mit gehaltenem EXIT startet sie nur dieses Mal ohne BLECHTRIBE. Spinnt sie beim nächsten normalen Start wieder, komm zurück, dann gehen wir auf die alte Firmware.",
-  before: "Dann gehen wir zurück auf deine alte Firmware. Vorher zwei Sachen:",
-  ready: "Hab ich bereit",
-  notReady: "Hab ich nicht",
-  noBackup: "Ohne die gesicherte Original-SYSTEM.VSB gibt es diesen Weg zurück nicht. Such die Sicherung, zum Beispiel auf dem Schreibtisch oder in deinem Download-Ordner, und fang dann von vorn an.",
-  which: "Welche Firmware läuft gerade auf deiner Electribe?",
-  folder: "Leg deine gesicherte Original-SYSTEM.VSB auf der Karte hierhin:",
-  done: "Hab ich gemacht",
-  // A line of parts like the stop sign's: { link } is a key of LINKS.
-  end: ["Kommst du nicht weiter, schick ein Foto vom Display und was du zuletzt gemacht hast, ", { link: "issues", text: "als GitHub Issue" }, " oder auf Instagram an ", { link: "instagram", text: "@kuhler_buhler" }, ". Probier nichts auf Verdacht."],
-  again: "Von vorn",
-  back: "Zurück",
+/** The two Electribes and where Korg's own firmware for each lives: on Korg's page and on the card. */
+export const DEVICES = {
+  red: { title: "Rot: Electribe Sampler", body: "red", link: "korgRed", name: "Electribe Sampler", path: "KORG/electribe sampler/System/SYSTEM.VSB" },
+  blue: { title: "Blau: Electribe", body: "blue", link: "korgBlue", name: "Electribe", path: "KORG/electribe/System/SYSTEM.VSB" },
 };
 
-export default {
-  stop: {
-    title: "Stopp: der Bootloader wird nie angefasst",
-    lines: [
-      "Weder der Editor noch du solltest je den Bootloader beschreiben. Der Editor sperrt ihn (Flash 0x000000 bis 0x020000) und hat keinen Weg, dorthin zu schreiben.",
-      ["Hängt das Gerät schon, bevor eine Update-Abfrage kommt, hilft nach ", { link: "debrick", text: "der Anleitung von Hacktribe" }, " nur noch JTAG mit OpenOCD, und ein defekter Secondary Bootloader braucht eine eigene Wiederherstellung. Dann nichts weiter ausprobieren."],
-    ],
+/** The folder the running firmware reads its update from. Every folder is checked on devices with version 1.2. */
+export const FOLDERS = [
+  { title: "Korg Electribe 2 Sampler", body: "red", path: "KORG/electribe sampler/System/SYSTEM.VSB" },
+  { title: "Korg Electribe 2", body: "blue", path: "KORG/electribe/System/SYSTEM.VSB" },
+  { title: "Electribe 2 / 2s + Hacktribe", body: "grey", path: "KORG/hacktribe/System/SYSTEM.VSB" },
+  { title: "Electribe 2 / 2s + BLECHTRIBE (+ Hacktribe optional)", body: "grey", path: "KORG/blechtribe/System/SYSTEM.VSB" },
+];
+
+/** Where to ask; a line of parts where { link } is a key of LINKS. */
+const ASK = [
+  "Dann melde dich direkt bei Kuhler Buhler, der hat das gebaut: Schick ein Foto vom Display und schreib kurz, was du zuletzt gemacht hast, ",
+  { link: "issueNew", text: "als GitHub Issue" }, " (deine Antworten hier stehen dann schon drin) oder auf Instagram an ", { link: "instagram", text: "@kuhler_buhler" }, ".",
+];
+/** The guide the Hacktribe project keeps for a device that no longer starts. */
+const DEBRICK = [{ link: "debrick", text: "Debrick-Anleitung von Hacktribe" }];
+const LATER = "Kriegen wir es zusammen hin, kommt der Weg hier mit rein, damit er dem Nächsten gleich hilft.";
+
+export const BUTTONS = { again: "Von vorn", back: "Zurück" };
+
+/** The four answers to the first question. */
+export const CASES = [
+  { id: "starts", label: "Sie startet, aber etwas spinnt", hint: "Das Menü hängt, zeigt Unsinn, oder ein Patch oder Plugin macht Ärger." },
+  { id: "prompt", label: "Da steht SOFTWARE UPDATE und press ENTER", hint: "Sie fragt nach einem Update, statt normal zu starten." },
+  { id: "zero", label: "Das Display zeigt nur 00", hint: "Sonst passiert nichts." },
+  { id: "silent", label: "Gar nichts, das Display bleibt dunkel oder hängt", hint: "Auch nach einer Weile kommt keine Frage." },
+];
+
+/**
+ * The conversation. Each node: Blechy's mood, what he says (`say`, lines; `path` a file path on the card), an official
+ * guide for the step if there is one (`source`), and either the answers (`choices`) or the node that follows by itself (`next`).
+ */
+export const FLOW = {
+  start: {
+    mood: "wave",
+    say: ["Moin, ich bin Blechy. Keine Sorge, meistens kriegen wir das wieder hin.", "Was siehst du, wenn du deine Electribe einschaltest?"],
+    choices: CASES.map(c => ({ label: c.label, hint: c.hint, to: c.id, id: c.id })),
   },
 
-  before: [
-    "Lege vor jedem Update die gesicherte Original-SYSTEM.VSB bereit. Ohne sie gibt es den Weg zurück nicht.",
-    "Netzteil anschließen oder frische Batterien einlegen, und das Gerät während des Updates nicht ausschalten.",
-    "Halte beim Einschalten keine anderen Tasten als die hier genannten. Bestimmte Tastenpaare führen in Testseiten der Fertigung, was dort passiert, ist nicht untersucht.",
-  ],
+  // It starts, but something is off.
+  starts: {
+    mood: "idle",
+    say: ["Dann probieren wir erst das Einfachste.", "Drück einmal EXIT. Hängt es weiter: ausschalten, EXIT gedrückt halten und dabei wieder einschalten. Dann startet sie dieses eine Mal ganz normal, ohne die BLECHTRIBE-Funktionen."],
+    choices: [{ label: "Hat geholfen", to: "fixed" }, { label: "Hilft nicht", to: "backup" }],
+  },
+  fixed: {
+    mood: "happy",
+    say: ["Jut! Mit gehaltenem EXIT lief sie aber nur dieses eine Mal ohne BLECHTRIBE. Spinnt sie beim nächsten normalen Start wieder, komm zurück, dann spielen wir die alte Firmware zurück."],
+  },
+  backup: {
+    mood: "idle",
+    say: ["Dann spielen wir die alte Firmware zurück, das ist Korgs normaler Update-Weg.", "Hast du die Original-SYSTEM.VSB, die du vor dem Patchen gesichert hast?"],
+    choices: [{ label: "Ja, hab ich", to: "which" }, { label: "Nein, oder weiß nicht", to: "nobackup" }],
+  },
+  nobackup: {
+    mood: "idle",
+    say: ["Macht nichts, Korgs Original-Firmware tut es genauso. Die holen wir uns direkt bei Korg."],
+    next: "color:starts",
+  },
+  "color:starts": {
+    mood: "idle",
+    say: ["Welche Farbe hat deine Electribe?"],
+    choices: Object.entries(DEVICES).map(([key, d]) => ({ label: d.title, to: `download:starts:${key}`, art: d.body })),
+  },
 
-  // Every folder is checked on devices: version 1.2 went onto four of the author's Electribes and many from the internet.
-  folders: [
-    { title: "Korg Electribe 2 Sampler", body: "red", path: "KORG/electribe sampler/System/SYSTEM.VSB" },
-    { title: "Korg Electribe 2", body: "blue", path: "KORG/electribe/System/SYSTEM.VSB" },
-    { title: "Electribe 2 / 2s + Hacktribe", body: "grey", path: "KORG/hacktribe/System/SYSTEM.VSB" },
-    { title: "Electribe 2 / 2s + BLECHTRIBE (+ Hacktribe optional)", body: "grey", path: "KORG/blechtribe/System/SYSTEM.VSB" },
-  ],
+  which: {
+    mood: "idle",
+    say: ["Welche Firmware läuft gerade auf deiner Electribe? Hast du sie mit unserem Patcher gepatcht, ist es die unterste."],
+    choices: FOLDERS.map((f, i) => ({ label: f.title, to: `folder:${i}`, art: f.body })),
+  },
 
-  cases: [
-    {
-      id: "starts",
-      label: "Das Gerät startet, aber etwas stimmt nicht",
-      hint: "Das Menü hängt, zeigt Unsinn, oder ein Patch oder Plugin macht Ärger.",
-      steps: [
-        {
-          text: "Menü hängt oder zeigt Unsinn: EXIT drücken. Hilft das nicht, das Gerät ausschalten und mit gehaltenem EXIT wieder einschalten. Dann gibt BLECHTRIBE nur an die Original-Firmware weiter, und nur für diesen Start.",
-          status: "offen",
-          note: "Am Gerät bestätigt ist der Notschalter nur für den MFX-2-Patch (13.10.), für den ganzen BLECHTRIBE-Satz nicht. Er hilft nicht gegen kaputte Startdaten, DSP-Patches, kaputte gespeicherte Daten und Patches, die den Panel-Austausch stören.",
-        },
-        {
-          act: true,
-          text: "Die gesicherte Original-SYSTEM.VSB auf der Karte in den Ordner der Firmware legen, die jetzt läuft (Tabelle oben). Am Rechner die Prüfsumme der Datei auf der Karte nachlesen, sie muss der der gesicherten Datei gleichen.",
-          status: "gemessen",
-          note: "So am 10.10. geübt, mit Hacktribe. Der Ordner von BLECHTRIBE ist am 15.10. am Gerät gesehen.",
-        },
-        {
-          act: true,
-          text: "Karte in das ausgeschaltete Gerät, Netzteil anschließen, einschalten. Menü -> DATA UTILITY -> SOFTWARE UPDATE. Direkt davor steht FACTORY RESET in der Liste: das nicht bestätigen.",
-          status: "gemessen",
-          note: "Das Update über das Menü lief am 10.10. am Gerät durch. Dass FACTORY RESET direkt davor steht, steht in der Anleitung für den Gerätetest.",
-        },
-        {
-          act: true,
-          text: "Die Versionsanzeige ansehen, bestätigen, den Abschluss abwarten, dann ausschalten und neu einschalten. Das Gerät startet wieder mit der alten Firmware.",
-          status: "gemessen",
-          note: "Am Gerät zurück auf das alte Startbild beobachtet. Die Anzeige \"Now 2.02, Next 2.02\" und \"OK. Please Reboot.\" stammen aus dem Emulator.",
-        },
-      ],
-      limit: "Das ist Korgs normaler Updateweg. Er setzt eine laufende Anwendung voraus und beweist keine Wiederherstellung nach jedem Firmwarefehler.",
-    },
-    {
-      id: "prompt",
-      label: "Beim Einschalten steht SOFTWARE UPDATE und press ENTER",
-      hint: "Das Gerät fragt nach einer Update-Datei, statt zu starten.",
-      steps: [
-        {
-          text: "Diese Abfrage gehört zur Firmware, nicht zum Bootloader. Sie kommt, wenn die Kennung der Nutzerdaten im Flash fehlt.",
-          status: "offline",
-        },
-        {
-          act: true,
-          text: "Leg Korgs Original-Firmware für den Sampler auf die Karte: KORG/electribe sampler/System/SYSTEM.VSB. Das ist ein anderer Ordner als der von Hacktribe oder BLECHTRIBE.",
-          status: "gemessen",
-          note: "Am Gerät so bestätigt (23.10.). Die Hacktribe-Dokumentation beschreibt denselben Weg.",
-        },
-        {
-          act: true,
-          text: "Karte ins ausgeschaltete Gerät, Netzteil anschließen, einschalten. Bei der Abfrage ENTER drücken, das Update durchlaufen lassen, dann aus- und wieder einschalten. Das Gerät startet wieder mit Korgs Firmware.",
-          status: "gemessen",
-          note: "Am Gerät bestätigt (23.10.). Im Emulator suchte die Abfrage die Datei an der Kartenwurzel und meldete \"Error, Invalid File\"; warum, ist offen.",
-        },
-      ],
-      limit: "Das ist der Weg ohne JTAG, wenn die laufende Firmware nicht mehr startet. Danach kannst du BLECHTRIBE wie beim ersten Mal wieder aufspielen.",
-    },
-    {
-      id: "zero",
-      label: "Das Display zeigt nur 00",
-      hint: "Beim Einschalten erscheint die Anzeige 00.",
-      steps: [
-        {
-          text: "So zeigt die Firmware das Panel-Update: Sie fragt den Panel-Controller nach seiner Version und erwartet 0x96. Bei einer anderen Antwort oder keiner startet das Panel-Update mit der Anzeige 00. Das passt zum Debrick-Wiki von Hacktribe.",
-          status: "offline",
-        },
-        {
-          act: true,
-          text: "Leg Korgs Original-Firmware für den Sampler auf die Karte: KORG/electribe sampler/System/SYSTEM.VSB.",
-          status: "gemessen",
-          note: "Bei 00 am Gerät so bestätigt (23.10.).",
-        },
-        {
-          act: true,
-          text: "Karte ins ausgeschaltete Gerät, Netzteil anschließen, einschalten. Das Gerät fragt nach dem Update: ENTER drücken, das Update durchlaufen lassen, dann aus- und wieder einschalten. Danach startet es wieder.",
-          status: "gemessen",
-          note: "Am Gerät bestätigt (23.10.).",
-        },
-      ],
-      limit: "Kommt keine Update-Abfrage und das Gerät hängt weiter, gilt das Stopp-Schild: nach der Anleitung von Hacktribe nur JTAG.",
-    },
-    {
-      id: "silent",
-      label: "Das Gerät startet nicht und fragt auch nichts",
-      hint: "Das Display bleibt dunkel oder hängt ohne eine Abfrage.",
-      steps: [
-        {
-          text: "Die Dokumentation kennt hier keinen Weg über die Karte. Nach der Anleitung von Hacktribe bleibt JTAG mit OpenOCD, ein defekter Secondary Bootloader braucht eine eigene Wiederherstellung.",
-          status: "offen",
-          note: "Aus der Debrick-Anleitung von Hacktribe. Der Editor führt dich dort nicht weiter und schreibt nie in diesen Bereich.",
-        },
-      ],
-      limit: "Das ist das Stopp-Schild: nichts weiter ausprobieren.",
-    },
-  ],
+  "update:menu": {
+    mood: "idle",
+    say: [
+      "Karte zurück in die Electribe, Netzteil anschließen, einschalten.",
+      "Dann: Menü -> DATA UTILITY -> SOFTWARE UPDATE. Pass auf, direkt davor steht FACTORY RESET, das nicht nehmen.",
+      "Bestätige das Update und warte, bis es fertig ist. In der Zeit nicht ausschalten. Danach einmal aus- und wieder einschalten.",
+    ],
+    choices: [{ label: "Läuft wieder", to: "works" }, { label: "Klappt nicht", to: "stuck" }],
+  },
+
+  // The device asks for an update or shows 00: both go through the update prompt with Korg's own firmware.
+  prompt: {
+    mood: "happy",
+    say: ["Das sieht schlimmer aus, als es ist. Die Electribe passt beim Start nicht zu der Firmware, die drauf ist, und fragt deshalb nach einem Update. Das geben wir ihr: Korgs Original-Firmware für ihre Farbe."],
+    next: "color:update",
+  },
+  zero: {
+    mood: "happy",
+    say: ["Das kenn ich. Bei 00 richtet die Electribe gerade ihr Bedienfeld neu ein. Lass sie eingeschaltet und warte ein, zwei Minuten."],
+    choices: [{ label: "Jetzt steht da Please Reboot", to: "reboot" }, { label: "Es bleibt bei 00", to: "zero:card" }],
+  },
+  reboot: {
+    mood: "happy",
+    say: ["Gut so. Schalte sie einmal aus und wieder ein."],
+    choices: [{ label: "Läuft wieder", to: "works" }, { label: "Jetzt fragt sie nach einem Update", to: "prompt" }, { label: "Wieder 00", to: "zero:card" }],
+  },
+  "zero:card": {
+    mood: "idle",
+    say: ["Dann versuchen wir es mit Korgs Original-Firmware auf der SD-Karte. So hat es bei uns an einem Gerät schon geholfen."],
+    next: "color:update",
+  },
+  "color:update": {
+    mood: "idle",
+    say: ["Welche Farbe hat deine Electribe?"],
+    choices: Object.entries(DEVICES).map(([key, d]) => ({ label: d.title, to: `download:update:${key}`, art: d.body })),
+  },
+
+
+  "update:prompt": {
+    mood: "idle",
+    say: [
+      "Karte zurück in die Electribe, Netzteil anschließen, einschalten.",
+      "Sie fragt jetzt nach dem Update: ENTER drücken, das ist die Taste MENU. Warte, bis \"Please Reboot\" kommt, und schalte sie in der Zeit nicht aus. Dann einmal aus- und wieder einschalten.",
+      "Mit Batterien meldet sie \"Battery Low\" und macht nichts, deshalb das Netzteil.",
+    ],
+    choices: [{ label: "Läuft wieder", to: "works" }, { label: "Klappt nicht", to: "stuck" }],
+  },
+
+  // Nothing at all.
+  silent: {
+    mood: "idle",
+    say: ["Erst mal das Naheliegende: Steckt das Netzteil richtig, oder sind die Batterien voll? Schalte sie danach noch einmal ein und warte kurz."],
+    choices: [{ label: "Jetzt geht sie", to: "works" }, { label: "Jetzt steht da 00", to: "zero" }, { label: "Jetzt fragt sie nach einem Update", to: "prompt" }, { label: "Immer noch nichts", to: "dark" }],
+  },
+  dark: {
+    mood: "sad",
+    say: ["Das ist leider der schwierigste Fall. Kommt beim Einschalten gar keine Frage, gibt es keinen Weg über die SD-Karte. Probier bitte nichts auf eigene Faust, damit wird es eher schlimmer."],
+    source: DEBRICK,
+    next: "ask",
+  },
+
+  // How it ends.
+  works: {
+    mood: "happy",
+    say: ["Super, sie läuft wieder! Jetzt ist Korgs Original-Firmware drauf. BLECHTRIBE kannst du jederzeit wieder mit dem Firmware Patcher aufspielen."],
+  },
+  stuck: {
+    mood: "sad",
+    say: ["Mist. Dann komm ich hier allein nicht weiter. Probier bitte nichts auf eigene Faust."],
+    source: DEBRICK,
+    next: "ask",
+  },
+  ask: {
+    mood: "wave",
+    say: [ASK, LATER],
+  },
 };
+
+const download = (d, to) => ({
+  mood: "idle",
+  say: [["Lade bei Korg das Firmware-Update für die ", d.name, " herunter: ", { link: d.link, text: "Korgs Download-Seite" }, ". Pack die ZIP-Datei aus, du brauchst daraus die Datei SYSTEM.VSB."]],
+  choices: [{ label: "Hab ich", to }],
+});
+const card = path => ["Schalte die Electribe aus, nimm die SD-Karte raus und steck sie in deinen Rechner. Leg die SYSTEM.VSB genau hierhin, fehlende Ordner legst du einfach an:", { path }];
+
+for (const [key, d] of Object.entries(DEVICES)) {
+  FLOW[`download:starts:${key}`] = download(d, "which");
+  FLOW[`download:update:${key}`] = download(d, `card:${key}`);
+  FLOW[`card:${key}`] = { mood: "idle", say: card(d.path), choices: [{ label: "Liegt drauf", to: "update:prompt" }] };
+}
+FOLDERS.forEach((f, i) => {
+  FLOW[`folder:${i}`] = {
+    mood: "idle",
+    say: card(f.path),
+    choices: [{ label: "Liegt drauf", to: "update:menu" }],
+  };
+});
