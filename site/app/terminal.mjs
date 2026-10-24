@@ -74,7 +74,9 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
   log.addEventListener("click", e => { if (!e.target.closest("a, button, textarea") && !getSelection()?.toString()) input.focus(); });
   const run = { disabled: false };            // a script is running; Enter waits for it
   const send = el("button", { type: "button", className: "btn sm cee-primary", id: "cee-term-send", textContent: "An das Gerät senden", disabled: true, hidden: true });
-  const target = el("p", { className: "cee-term-target", id: "cee-term-target", role: "status", hidden: true });
+  // Where the commands go, for screen readers; on the page the toast says it once when it changes.
+  const target = el("p", { className: "cee-term-target ui-sr-only", id: "cee-term-target", role: "status", hidden: true });
+  let toldTarget = "";
   const limit = el("p", { className: "muted", id: "cee-term-limit", hidden: true, textContent: NOTE_LIMIT });
   const rehearsal = el("div", { className: "cee-term-rehearsal", id: "cee-term-rehearsal", "aria-live": "polite", hidden: true });
   const sendNote = el("p", { className: "muted", id: "cee-term-send-note", "aria-live": "polite" });
@@ -95,6 +97,9 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
     const missing = lack();
     target.hidden = mode !== "device" && !missing;
     target.replaceChildren(...(missing ? [pill("error", "nimmt keine Befehle an"), " Die Firmware im Emulator nimmt keine Befehle an."] : [pill("warn", "Gerät über Emulator"), ` ${DEVICE_NOTE}`]));
+    const told = target.hidden ? "" : missing ? "Die Firmware im Emulator nimmt keine Befehle an." : DEVICE_NOTE;
+    if (told && told !== toldTarget) toast(told, missing ? "error" : "info");
+    toldTarget = told;
     input.placeholder = mode === "device" ? "Enter probt im Emulator" : "";
     send.hidden = mode !== "device";
     limit.hidden = mode !== "device";
@@ -210,7 +215,7 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
         toast(text, "error");
         sendNote.textContent = "";
         device.log?.(`Terminal: ${text}`, "error");
-        if (device.session?.blocked) { line("error", "Am Gerät ist etwas angekommen. Entscheide im Bereich Gerät, ob die Sicherung zurückgespielt wird."); device.showDecision?.(); }
+        if (device.session?.blocked) { line("error", "Am Gerät ist etwas angekommen. Entscheide im Bereich Emulator unter „Echtes Gerät“, ob die Sicherung zurückgespielt wird."); device.showDecision?.(); }
       }
     } catch (e) {
       line("error", e.message);

@@ -13,7 +13,7 @@ import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs
 import { clamp } from "./dials.mjs";
 import { parseUnits } from "../../src/units.mjs";
 import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
-import { buildCollection, parseCollection, collectionEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
+import { buildCollection, parseCollection, collectionEntry, factoryEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
 import { buildOf } from "../../src/firmware.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
 import { GROUPS, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
@@ -124,7 +124,9 @@ function ownList() {
  * @param {{emulator?: object, presets?: object, sub?: object, trail?: (parts: string[]) => void, navbar?: (nodes: Node[]) => void}} [options]
  *   presets: the panel of the Presets page (fx.mjs), which knows the slots and writes a record live
  */
-export function baukastenPage(root, { emulator = null, presets = null, sub = null, trail = () => {}, navbar = () => {} } = {}) {
+export function baukastenPage(root, { emulator = null, presets = null, sub = null, trail: setTrail = () => {}, navbar = () => {} } = {}) {
+  // The title in the breadcrumb leads to the catalog, the start of the page.
+  const trail = parts => setTrail(parts, () => page("catalog"));
   let raw = null;            // data/units.json as it is, for the defaults of a block
   let units = null;
   let shelfKind = "fx";      // Effekte or Modulationen, for every sub-page
@@ -176,7 +178,6 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   const fxKind = el("p", { className: "cee-bk-kind muted", id: "cee-bk-fx-kind" });
   const fxSave = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-fx-save", textContent: "Speichern" });
   const fxDownload = el("button", { type: "button", className: "btn", id: "cee-bk-fx-download", textContent: "Als Datei herunterladen" });
-  const fxSaved = el("p", { className: "cee-bk-saved", id: "cee-bk-fx-saved", role: "status" });
   const fxLoad = el("button", { type: "button", className: "btn", id: "cee-bk-fx-load", textContent: "Auf dem Gerät laden" });
   const fxRetarget = el("button", { type: "button", className: "btn", id: "cee-bk-fx-retarget", textContent: "Anderer Platz", hidden: true });
   let fxHelp = null;
@@ -187,7 +188,6 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     fxHelp = el("p", { className: "muted", id: "cee-bk-fx-help", textContent: "Ein Baustein ist ein einzelner Effekt wie Hall, Echo oder Filter. Ein Insert-Effekt kann zwei hintereinander haben, der zweite darf leer bleiben. Anhören kannst du ihn erst an der Electribe." }),
     blocks,
     el("div", { className: "actions" }, [fxSave, fxDownload, fxLoad, fxRetarget, el("button", { type: "button", className: "btn", id: "cee-bk-fx-cancel", textContent: "Abbrechen", onclick: () => leave("fx") })]),
-    fxSaved,
   ]);
   const fxStart = el("div", { className: "cee-bk-builder", id: "cee-bk-fx-start" }, [
     el("h2", { className: "cee-bk-title", textContent: "Neuer Effekt" }),
@@ -491,7 +491,6 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     snap.fx = JSON.stringify(fx);
     fxTarget = null;
     showTarget();
-    fxSaved.textContent = "";
     shelf("fx");
     loadUnits().then(() => { renderFx(); updateTrail(); });
   }
@@ -506,7 +505,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (metaProblem(fx)) return { ok: false, reason: metaProblem(fx) };
     return { ok: true, preset: { ...fx, name: fx.name.trim() } };
   }
-  fxSave.addEventListener("click", () => { const id = keep(readyFx(), fxId, fxSaved); if (id) { fxId = id; snap.fx = JSON.stringify(fx); } });
+  fxSave.addEventListener("click", () => { const id = keep(readyFx(), fxId); if (id) { fxId = id; snap.fx = JSON.stringify(fx); } });
   fxDownload.addEventListener("click", () => {
     const r = readyFx();
     if (!r.ok) { toast(r.reason, "error"); return; }
@@ -580,7 +579,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     // A modulation cannot be loaded live yet: where it goes in the RAM of a running device is not measured.
     const usb = el("button", { type: "button", className: "btn", id: "cee-bk-detail-load", disabled: isMod, title: isMod ? "Für Modulationen noch nicht gemessen" : "", onclick: () => { if (presets) pickSlot(view); } }, [icon("usb"), "Aufs Gerät"]);
     const own = el("button", { type: "button", className: "btn", id: "cee-bk-detail-own", textContent: isMod ? "Als eigene Modulation bearbeiten" : "Als eigenen Effekt bearbeiten", onclick: () => {
-      const id = keep({ ok: true, preset: structuredClone(view) }, null, isMod ? modSaved : fxSaved);
+      const id = keep({ ok: true, preset: structuredClone(view) }, null);
       if (!id) return;
       if (isMod) openMod(view, id); else openFx(view, id);
       page("editor");
@@ -633,13 +632,11 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   const modBody = el("div", { className: "cee-bk-mod-body", id: "cee-bk-mod-body" });
   const modSave = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-mod-save", textContent: "Speichern" });
   const modDownload = el("button", { type: "button", className: "btn", id: "cee-bk-mod-download", textContent: "Als Datei herunterladen" });
-  const modSaved = el("p", { className: "cee-bk-saved", id: "cee-bk-mod-saved", role: "status" });
   const modEditor = el("div", { className: "cee-bk-builder", id: "cee-bk-mod-builder", hidden: true }, [
     el("div", { className: "cee-bk-head" }, [nameField(modName), el("p", { className: "cee-bk-kind muted", textContent: KIND_WORD.mod })]),
     modMeta.node,
     modBody,
     el("div", { className: "actions" }, [modSave, modDownload, el("button", { type: "button", className: "btn", id: "cee-bk-mod-cancel", textContent: "Abbrechen", onclick: () => leave("mod") })]),
-    modSaved,
   ]);
   const modStart = el("div", { className: "cee-bk-builder", id: "cee-bk-mod-start" }, [
     el("h2", { className: "cee-bk-title", textContent: "Neue Modulation" }),
@@ -691,7 +688,6 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     mod = { kind: "mod", name: preset.name, description: preset.description ?? "", creator: preset.creator ?? "", creatorUrl: preset.creatorUrl ?? "", depth: preset.depth, speed: preset.speed, curve: preset.curve, slots: preset.slots.map(s => ({ ...s })) };
     modId = id;
     snap.mod = JSON.stringify(mod);
-    modSaved.textContent = "";
     shelf("mod");
     renderMod();
     updateTrail();
@@ -702,7 +698,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (metaProblem(mod)) return { ok: false, reason: metaProblem(mod) };
     return { ok: true, preset: { ...mod, name: mod.name.trim() } };
   }
-  modSave.addEventListener("click", () => { const id = keep(readyMod(), modId, modSaved); if (id) { modId = id; snap.mod = JSON.stringify(mod); } });
+  modSave.addEventListener("click", () => { const id = keep(readyMod(), modId); if (id) { modId = id; snap.mod = JSON.stringify(mod); } });
 
   /** Abbrechen: closes the open effect or modulation and goes back to the start of the editor; unsaved changes ask first. */
   async function leave(kind) {
@@ -711,7 +707,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const yes = window.ui?.confirm ? await window.ui.confirm({ title: "Änderungen verwerfen?", text: "Was du seit dem letzten Speichern geändert hast, geht verloren.", confirmLabel: "Verwerfen", danger: true }) : true;
       if (!yes) return;
     }
-    if (kind === "fx") { fx = null; fxId = null; fxTarget = null; fxSaved.textContent = ""; renderFx(); } else { mod = null; modId = null; modSaved.textContent = ""; renderMod(); }
+    if (kind === "fx") { fx = null; fxId = null; fxTarget = null; renderFx(); } else { mod = null; modId = null; renderMod(); }
     renderEditor();
     updateTrail();
   }
@@ -723,7 +719,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   const editorPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-editor" }, [fxStart, fxEditor, modStart, modEditor]);
 
   /** Saves into this browser: over the own entry it came from, or as a new one. Returns its id. */
-  function keep(ready, id, status) {
+  function keep(ready, id) {
     if (!ready.ok) { toast(ready.reason, "error"); return null; }
     const list = ownList();
     const at = list.findIndex(o => o.id === id);
@@ -733,8 +729,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     renderMine();
     renderExport();
     const where = ready.preset.kind === "mod" ? "Meine Modulationen" : "Meine Effekte";
-    status.textContent = `Gespeichert: „${ready.preset.name}“ steht unter ${where}. Unter Export legst du fest, auf welchen Platz er kommt.`;
-    toast(`„${ready.preset.name}“ gespeichert, steht unter ${where}.`, "ok");
+    toast(`Gespeichert: „${ready.preset.name}“ steht unter ${where}. Unter Export legst du fest, auf welchen Platz er kommt.`, "ok");
     return entry.id;
   }
 
@@ -775,7 +770,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (!read.ok) { toast(`${file.name}: ${read.reason}`, "error"); return; }
     if (read.preset.kind === "mod") openMod(read.preset, null); else openFx(read.preset, null);
     page("editor");
-    toast(`${file.name} geöffnet. Speichern legt ihn unter Meine Sachen ab.`, "ok");
+    toast(`${file.name} geöffnet. Speichern legt ${read.preset.kind === "mod" ? "sie unter Meine Modulationen" : "ihn unter Meine Effekte"} ab.`, "ok");
   });
   const minePage = el("div", { className: "cee-bk-page", id: "cee-bk-page-mine" }, [
     mineTitle, mineEmpty, mine,
@@ -784,7 +779,6 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
 
   // ---- Export ------------------------------------------------------------------------
   // The collection for the card needs the firmware it is for: the records are made from that firmware's own.
-  const cardNote = el("p", { className: "muted", id: "cee-bk-card-note" });
   const allInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-bk-all", accept: ".all" });
   const allFiles = el("span", { className: "ui-dropzone-files" });
   const allDrop = el("label", { className: "ui-dropzone" }, [
@@ -819,12 +813,14 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     allFiles.textContent = `${file.name}: ${read.entries.length} Einträge`;
     renderMine();
     renderExport();
-    toast(`${file.name} geladen: ${read.entries.length} Einträge, ${added} neu unter Meine Sachen.`, "ok");
+    toast(`${file.name} geladen: ${read.entries.length} Einträge, ${added} neu unter Meine Effekte und Meine Modulationen.`, "ok");
   });
   const exportLists = el("div", { className: "cee-bk-export", id: "cee-bk-export" });
   /** The catalog's pieces go on a place like own ones; the slot keeps "catalog:<name>" instead of an own id. */
   const catalogId = item => `catalog:${item.name}`;
   const catalogOf = kind => (kind === "mod" ? MOD_CATALOG : FX_CATALOG.filter(item => item.kind === kind));
+  /** A factory preset dragged to another place: the slot keeps "factory:<its own place>". */
+  const factoryFrom = id => (/^factory:\d+$/.test(id ?? "") ? Number(id.slice(8)) : null);
   /** The .e2fx text of what a place holds, an own piece or one from the catalog; null when it is gone. */
   function textOf(id) {
     const item = [...FX_CATALOG, ...MOD_CATALOG].find(x => catalogId(x) === id);
@@ -844,8 +840,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   function slotRow(kind, slot, own, slots, factory) {
     const assigned = slots[kind][slot] ?? "";
     const stock = factory.get(slot);
+    const moved = factoryFrom(assigned);
     const select = el("select", { className: "select", id: `cee-bk-slot-${kind}-${slot}` }, [
       el("option", { value: "", textContent: stock ? `Werks-Preset: ${stock}` : "Werks-Preset" }),
+      moved ? el("option", { value: assigned, selected: true, textContent: `Werks-Preset von Platz ${moved}${factory.get(moved) ? `: ${factory.get(moved)}` : ""}` }) : null,
       own.length ? el("optgroup", { label: kind === "mod" ? "Meine Modulationen" : "Meine Effekte" }, own.map(o => el("option", { value: o.id, textContent: parse(o).name, selected: o.id === assigned }))) : null,
       el("optgroup", { label: "Katalog" }, catalogOf(kind).map(item => el("option", { value: catalogId(item), textContent: item.name, selected: catalogId(item) === assigned }))),
     ]);
@@ -901,11 +899,16 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     });
     return row;
   }
+  /** A takes the place of B and B the place of A; a place with nothing set holds its own factory preset, if the loaded
+   * firmware has one there, and that moves too. */
   function swap(kind, a, b) {
     const slots = readSlots();
-    const [x, y] = [slots[kind][a], slots[kind][b]];
-    if (y) slots[kind][a] = y; else delete slots[kind][a];
-    if (x) slots[kind][b] = x; else delete slots[kind][b];
+    const factory = factoryNames(kind);
+    const own = slot => slots[kind][slot] ?? (factory.has(slot) ? `factory:${slot}` : undefined);
+    const [x, y] = [own(a), own(b)];
+    const put = (slot, id) => { if (!id || id === `factory:${slot}`) delete slots[kind][slot]; else slots[kind][slot] = id; };
+    put(a, y);
+    put(b, x);
     writeSlots(slots);
     renderExport();
   }
@@ -941,6 +944,13 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     await loadUnits();
     const entries = [];
     for (const w of wanted) {
+      const from = factoryFrom(w.id);
+      if (from) {
+        const moved = factoryEntry(vsb, w.kind, from, w.slot - 1, units);
+        if (!moved.ok) { toast(`Werks-Preset von Platz ${from}: ${moved.reason}`, "error"); return; }
+        entries.push(moved.entry);
+        continue;
+      }
       const text = textOf(w.id);
       if (!text) continue;
       const read = readFx(text, units);
@@ -954,8 +964,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   exportButton.addEventListener("click", exportAll);
   const exportPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-export" }, [
     el("h2", { className: "cee-bk-title", textContent: `${COLLECTION_FILE} für die Karte` }),
-    el("p", { className: "muted", textContent: `Eine Datei für alles: Insert-Effekte, Master-Effekte und Modulationen. Leg fest, was auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
-    cardNote,
+    el("p", { className: "muted", textContent: `Eine Datei für alles: Insert-Effekte, Master-Effekte und Modulationen. Leg fest, was auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen, bei Effekten auch Werks-Presets. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
     allDrop,
     exportSwitch,
     exportLists,
@@ -1022,9 +1031,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   page("catalog");
   loadUnits().then(() => { renderMine(); renderExport(); }).catch(() => renderMine());
   return {
-    /** The note on the export page follows the firmware in the emulator. */
+    /** The export page follows the firmware in the emulator. */
     update() {
-      cardNote.textContent = emulator?.firmware ? "Deine Firmware ist im Emulator geladen, die Datei kann gebaut werden. Neben jedem Platz steht das Werks-Preset, das dort liegt." : "Für diese Datei braucht die Seite deine Firmware: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen. Sie bleibt auf deinem Rechner. Dann siehst du auch, welches Werks-Preset auf welchem Platz liegt.";
       // Runs every second (main.mjs): the slots are drawn again only when the firmware's presets come or go.
       const loaded = !!presets?.presets();
       if (units && loaded !== factoryShown) { factoryShown = loaded; renderExport(); }

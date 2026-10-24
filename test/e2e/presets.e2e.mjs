@@ -50,12 +50,12 @@ test("presets: a firmware with room for 100 says so, adds a copy of the open pre
   assert.equal(await page.locator("#cee-export").isDisabled(), true, "nothing to write before an edit");
   await page.click("#cee-add");
   await page.locator("#cee-fx-slot option[value='53']").waitFor({ state: "attached" });
-  assert.match(await page.locator("#cee-export-note").textContent(), /Insert 53 ist eine Kopie von 2/);
+  await page.locator("#app-toasts .cee-toast", { hasText: /Insert 53 ist eine Kopie von 2/ }).first().waitFor();
   assert.equal(await page.locator("#cee-fx-slot").inputValue(), "53");
   assert.match(await page.locator("#cee-fx-room").textContent(), /Insert: 53 von 100/);
   await page.click("#cee-export");
   await page.locator("#cee-download").waitFor();
-  assert.match(await page.locator("#cee-export-note").textContent(), /alles in Ordnung/);
+  await page.locator("#app-toasts .cee-toast", { hasText: /alles in Ordnung/ }).first().waitFor();
   const copy = new Uint8Array(fake.seen.check.pair.subarray(0x200100));
   assert.deepEqual(new Uint8Array(fake.seen.check.pair.subarray(0, 0x200100)), vsb, "the original goes to the check unchanged");
   assert.ok(fake.seen.check.allow, "the check is told which data may change");
@@ -88,7 +88,7 @@ test("presets: an edit of the open preset alone is enough to write a copy, and a
   fake.hooks.checkOk = false;
   try {
     await page.click("#cee-export");
-    await page.locator("#cee-export-note", { hasText: "Die Prüfung hat" }).waitFor();
+    await page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat" }).waitFor();
     assert.equal(await page.locator("#cee-download").isVisible(), false);
   } finally {
     fake.hooks.checkOk = true;

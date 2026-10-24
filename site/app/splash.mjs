@@ -1,6 +1,7 @@
 /** The Startbild page: any picture to splash.bmp for the card (SPLASH IMPORT in the BLECH menu). Logic: src/splash-bmp.mjs. */
 import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
+import { toast } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 
 const STYLE = new URL("./splash.css", import.meta.url).href;
@@ -110,7 +111,7 @@ export function splashPage(root) {
     if (!pixels) return;
     const list = readOwn();
     list.push({ id: `own-${Date.now()}`, title: pictureName || "Eigenes Bild", bits: packBits(pixels) });
-    if (!writeOwn(list)) { files.textContent = "Dieser Browser lässt die Seite nichts speichern."; return; }
+    if (!writeOwn(list)) { toast("Dieser Browser lässt die Seite nichts speichern.", "error"); return; }
     drawGallery();
     document.getElementById("cee-splash-gallery").lastElementChild?.scrollIntoView?.({ block: "nearest" });
   });
@@ -177,7 +178,7 @@ export function splashPage(root) {
     ]),
     el("ol", { className: "cee-splash-steps", id: "cee-splash-steps" }, [
       el("li", {}, ["Lege ", el("code", { textContent: SPLASH_FILE }), " auf der Karte nach ", el("code", { textContent: SPLASH_FOLDER }), "."]),
-      el("li", { textContent: "Am Gerät: Menü -> BLECH -> CUSTOMIZATION -> SPLASH IMPORT, dann ENTER." }),
+      el("li", { textContent: "Am Gerät: Menü -> BLECH -> CUSTOMIZATION -> SPLASH -> SPLASH IMPORT, dann MENU." }),
       el("li", { textContent: "Ab dem nächsten Start ist es zu sehen. Ändern lässt es sich unter SPLASH DRAW." }),
     ]),
   ]));
@@ -206,7 +207,7 @@ export function splashPage(root) {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      files.textContent = `${file.name} ist kein Bild, das der Browser lesen kann.`;
+      toast(`${file.name} ist kein Bild, das der Browser lesen kann.`, "error");
     };
     img.src = url;
   });

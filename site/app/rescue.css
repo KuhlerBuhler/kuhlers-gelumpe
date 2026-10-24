@@ -106,15 +106,9 @@
   color: var(--color-text-muted);
 }
 
-.cee-e2-art {
-  width: 100%;
-  height: auto;
-}
-
-.cee-e2-art-lcd { fill: var(--color-surface-panel-alt); }
-.cee-e2-art-knob { fill: var(--color-surface-item-muted); stroke: var(--color-border-muted); }
-.cee-e2-art-pad { fill: var(--color-surface-item-muted); }
-.cee-e2-art-touch { fill: var(--color-surface-panel-alt); stroke: var(--color-border-muted); }
+.cee-rescue-folder [data-device="red"] { --cee-device-tone: var(--color-status-error); }
+.cee-rescue-folder [data-device="blue"] { --cee-device-tone: var(--color-chart-blue); }
+.cee-rescue-folder [data-device="grey"] { --cee-device-tone: var(--color-text-muted); }
 
 @media (max-width: 720px) {
   .cee-rescue-say { grid-template-columns: var(--space-10) minmax(0, 1fr); }

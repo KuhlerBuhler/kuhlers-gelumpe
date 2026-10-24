@@ -23,8 +23,8 @@ Loading a plugin never draws anything (section "Apps and the display").
 The page has five parts: the language reference (structure, apps and display, language, events,
 functions, limits), the card with its file format, the BLECH menu on the device, the Plugins page in the
 editor, and the status section. What the language reference says holds for the language and its checks in
-the browser and in the emulator. **On the device itself nothing of the plugin runtime has been tested
-yet**, see "Status".
+the browser and in the emulator. On the device the BLECH menu and the plugins of the card run; what
+exactly is tested there is in "Status".
 
 ## Language reference
 
@@ -627,7 +627,7 @@ The pages of the groups:
 | CUSTOMIZATION, LED | ENTER | opens the pages of the lower LEDs; EXIT goes back to LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the level meter, COLOR a fixed colour, OFF dark; applies at once |
 | LED, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs for COLOR; with METER the level sets the brightness of this colour while no meter colour is set; 15 15 15 means the firmware's colours ("15 stock"); applies at once |
-| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL: RAINBOW) | the colour of the level meter per zone, split as in the firmware: STILL without level, LOW, MID, LOUD; STOCK is the firmware's colour (white, blue, green, red); STILL also has RAINBOW, the colour turns smoothly through red, green and blue in about 10 s |
+| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL and LOUD: RAINBOW) | the colour of the level meter per zone, split as in the firmware: STILL without level, LOW, MID, LOUD; STOCK is the firmware's colour (white, blue, green, red); STILL and LOUD also have RAINBOW, the colour turns smoothly through red, green and blue: STILL once round in about 3.5 s, LOUD once a bar at the tempo of the pattern (about 1.9 s at 128 BPM) |
 | CUSTOMIZATION, PAD COLOR | ENTER | opens the pages of the pad colours; only where the set has the patch pad-colors |
 | PAD COLOR, PAD COLOR | RED, BLUE, PINK | the colour the pads use for what the firmware shows in red (a part plays, a pad is held, a step); applies at once, WRITE keeps it; RED is the default. Only where the set has the patch pad-colors In SEQUENCER mode a step that holds on the note of the step before it through TIE shows a tail in pink that fades out over the length of the note; where tied notes overlap their brightness adds up. |
 | PAD COLOR, SELECT COLOR | RED, BLUE, PINK | the colour of the selected part, never the one of PAD COLOR; when both light, the pad shows the third colour; BLUE is the default |
@@ -650,7 +650,7 @@ the title holds about 18. IMPORT PLUGIN and EXPORT ALL are in the PLUGINS group,
 
 On the page RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
-number (24 to 88 bytes, tag `GSET`; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
+number (24 to 88 bytes, tag `GSET`, version 2, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at
 the firmware's values). The page reports "saved", "no card", "card protected", "folder missing" or "write
 error". Nothing is written to the flash.
@@ -754,17 +754,19 @@ the coarse pass. Zoom goes up to 7, deeper than that the 14 bits do not reach.
 
 ## The Plugins page in the editor
 
-The Plugins entry has three pages: Katalog (catalog), Editor and Dokumentation (documentation).
+The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
+(documentation). The title in the breadcrumb always leads back to the catalog.
 
-**Catalog:** two buttons that belong together. "Katalog" shows the plugins of the app as cards (the apps
-BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon and Mandelbrot under GAMES, Set-Timer and GIF Player
-under TOOLS, plus Lauflicht and Pulsieren; source `data/script/presets.mjs`). Each card carries a category and
-its maker and only the buttons to download and to send it to the device. The title leads to the plugin's
-page: the picture top left, beside it title, description and details (category, maker, date, controls), with
+**Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
+and Mandelbrot under GAMES, Set-Timer and GIF Player under TOOLS, plus Lauflicht and Pulsieren; source
+`data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
+description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
 "Code" switch between the plugin running on the drawing of the Electribe and its source. A new plugin enters
-the catalog by pull request on GitHub, with its entry in `data/script/presets.mjs`. "Eigene Plugins" (own
-plugins) shows the plugins of this browser.
+the catalog by pull request on GitHub, with its entry in `data/script/presets.mjs`.
+
+**My plugins:** the plugins of this browser as cards like in the catalog, with Neues Plugin (new), Öffnen
+(open) and Alle speichern (save all). A card opens the plugin in the editor.
 
 **Editor:** the editor over the whole page, with line numbers and the result of compiling (errors with line
 and column, a click puts the cursor there). Öffnen (open) and Speichern (save) sit top right in the bar; below
@@ -883,21 +885,21 @@ Unicorn without firmware, **not on the device**.
 
 ### On the device
 
-**Nothing of the plugin runtime has been tested on the device.** The firmware file with the runtime is
-built but has not been put on a device yet. The only thing read on the device is a basis: the display
-address `0xC031B310`, where the picture of the main screen lies
-([measurement](messungen/2026-10-09-menuezustand.md)).
-
-The first test on the device is the card test: reading and writing files through the firmware's FatFs
-functions, without flash ([step list](geraetetests/karte.md), German). The firmware file with the runtime
-follows ([step list](geraetetests/blech-datei.md), German).
+The firmware file with the runtime runs on the own device. The BLECH menu, IMPORT PLUGIN, EXPORT ALL and
+`korg.store` read and wrote files on the card there (`e2sPlugin.all`, `store.a.bin`, `store.b.bin`); the
+customization, the FEATURES pages and SPLASH IMPORT and DRAW were used on the device. The wishes from
+these tests are in the measurements from 18 October on
+([plugin stays off](messungen/2026-10-18-plugin-bleibt-aus.md),
+[import list](messungen/2026-10-19-plugin-import-liste.md),
+[sync and menus](messungen/2026-10-22-sync-und-menues.md), German). What a measurement only played in the
+emulator, it says itself. Step lists for an own test: [card test](geraetetests/karte.md) and
+[firmware file](geraetetests/blech-datei.md) (German).
 
 ### Open
 
-- **Everything on the device:** reading, writing and listing a directory through FatFs in our code, the
-  time per frame against the 5 ms budget (derived: about 0.17 ms for a Snake frame), the listening test (no
-  audible dropouts with music and Snake), the backlight on battery with Power Save "Auto", the LED hold,
-  the menu in the hand.
+- **Not measured on its own on the device:** the time per frame against the 5 ms budget (derived: about
+  0.17 ms for a Snake frame), a listening test for dropouts with music and Snake, the backlight on battery
+  with Power Save "Auto", the LED hold.
 - **Timer3:** the period of one second is measured in the emulator, not read on the device.
 - **`save` hook:** hooked in the emulator but not triggered there (WRITE in Global writes flash). Its effect
   is tested only in a unit test.
@@ -910,8 +912,8 @@ follows ([step list](geraetetests/blech-datei.md), German).
 - **LEDs:** the limit of 400 packets a second holds only at about 25 Hz frame calls, an index that is
   rejected for good blocks the other LEDs without a message, and disabling interrupts presupposes a
   privileged mode ([measurement](messungen/2026-10-14-skript-led.md)).
-- **Menu:** no switch for the splash screen, paused plugins are not remembered by the file, long names are
-  cut off, the file list keeps at most 8 names ([measurement](messungen/2026-10-14-blech-menue.md)).
+- **Menu:** no switch for the splash screen, long names are cut off, the list of IMPORT PLUGIN shows at
+  most 16 plugins ([measurement](messungen/2026-10-14-blech-menue.md)).
 - **IMPORT PLUGIN and EXPORT ALL in DATA UTILITY:** not built, they are in the PLUGINS group of the BLECH
   menu. Adding two pages to DATA UTILITY would mean copying the class table, a page counter "n/16" and states
   of their own for file choice and execution, a job of its own

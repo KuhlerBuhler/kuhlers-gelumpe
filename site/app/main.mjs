@@ -252,9 +252,7 @@ async function load(file) {
     updateActions();
   } catch (e) {
     const message = e instanceof FileError ? e.message : `Die Datei ließ sich nicht lesen: ${e.message}`;
-    if (window.ui?.rejectFile) window.ui.rejectFile(input, message);
-    error.textContent = message;
-    error.hidden = false;
+    if (window.ui?.rejectFile) window.ui.rejectFile(input, message); else toast(message, "error");
   }
 }
 
@@ -335,7 +333,7 @@ function patternDevice(device) {
     if (res.ok) say(`Gesendet und zurückgelesen. Vorher im Puffer: "${active}", mit "Senden zurücknehmen" zurückzuholen.`, "ok");
     else if (res.needsConfirmation) say("Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden.", "error");
     else if (res.gate?.verdict === "blocked") say(`Gesperrt: ${res.gate.reasons.map(r => r.message).join(" ")}`, "error");
-    else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide links unter Gerät, wie es weitergeht." : ""}`, "error");
+    else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide im Bereich Emulator unter „Echtes Gerät“, wie es weitergeht." : ""}`, "error");
     device.log?.(res.ok ? "Pattern gesendet." : `Pattern: ${res.error?.message ?? "gesperrt"}`, res.ok ? "ok" : "error");
     if (s.blocked) device.showDecision?.();
   }
@@ -373,6 +371,7 @@ function navbar({ onMode }) {
   let pluginActions = [];
   let baukastenActions = [];
   const trails = {};
+  const homes = {};
   $("#cee-mode-button").append(icon("chevronDown"));
   const menu = dropdown($("#cee-mode-button"), $("#cee-mode-menu"), { onPick: onMode });
   function render() {
@@ -384,10 +383,10 @@ function navbar({ onMode }) {
       for (const item of $("#cee-mode-menu").querySelectorAll("[role=menuitemradio]")) item.setAttribute("aria-checked", String(item.dataset.value === page));
     } else {
       // A page with sub-pages shows where you are as a breadcrumb: Plugins › Dokumentation › the section you read.
-      // Every crumb but the last leads back: the title to the page's start, a step with `go` to that step.
+      // Every crumb but the last leads back: the title to the page's start sub-page, a step with `go` to that step.
       const parts = trails[page] ?? [];
       const tab = $(`#cee-tab-${page}`);
-      const title = parts.length && tab ? el("button", { type: "button", className: "cee-crumb-link", textContent: tab.textContent, onclick: () => tab.click() }) : tab?.textContent ?? "";
+      const title = parts.length && tab ? el("button", { type: "button", className: "cee-crumb-link", textContent: tab.textContent, onclick: () => (homes[page] ?? (() => tab.click()))() }) : tab?.textContent ?? "";
       $("#cee-nav-title").replaceChildren(title, ...parts.map((t, i) => {
         const text = typeof t === "string" ? t : t.text;
         return t.go && i < parts.length - 1
@@ -414,8 +413,8 @@ function navbar({ onMode }) {
     plugins(nodes) { pluginActions = nodes; render(); },
     /** Exportieren of the Baukasten while its export page is open. */
     baukasten(nodes) { baukastenActions = nodes; render(); },
-    /** The breadcrumb after the title of `id`: the sub-page and, in the docs, the section. */
-    trail(id, parts) { trails[id] = parts; if (id === page) render(); },
+    /** The breadcrumb after the title of `id`: the sub-page and, in the docs, the section. `home` opens the start sub-page. */
+    trail(id, parts, home) { trails[id] = parts; if (home) homes[id] = home; if (id === page) render(); },
   };
 }
 
@@ -597,7 +596,7 @@ function boot() {
   });
   emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, onConnect: next => sd?.connect(next) });
   const modulations = modulationsPage($("#cee-mod"), { emulator });
-  const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: parts => nav.trail("baukasten", parts), navbar: nodes => nav.baukasten(nodes) });
+  const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: (parts, home) => nav.trail("baukasten", parts, home), navbar: nodes => nav.baukasten(nodes) });
   samplesPage($("#cee-samples"), { device, emulator, probe });
   let fxFirmware = null;
   let modFirmware = null;
@@ -638,7 +637,7 @@ function boot() {
   featuresPage($("#cee-features"));
   splashPage($("#cee-splash"));
   // A run from the console opens the Plugins page, where the run area shows it.
-  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null, onRun: () => areas?.select("scripts", { focus: false }), trail: parts => nav.trail("scripts", parts), navbar: nodes => nav.plugins(nodes) });
+  const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null, onRun: () => areas?.select("scripts", { focus: false }), trail: (parts, home) => nav.trail("scripts", parts, home), navbar: nodes => nav.plugins(nodes) });
   // The console always talks to the emulator; this switch in the navbar lets a script go on to a connected Electribe.
   const forward = el("input", { type: "checkbox", role: "switch", id: "cee-term-forward" });
   nav.console(el("label", { className: "ui-switch cee-term-forward" }, [forward, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "An echtes Gerät weiterleiten"]));

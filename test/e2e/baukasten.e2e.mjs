@@ -74,7 +74,10 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   assert.equal(await page.inputValue("#cee-bk-p-0-off_l_delay_time-value"), before, "letting go puts it back");
   await page.locator("#cee-bk-preview .ui-dialog-foot .btn").click();
   assert.equal(await page.inputValue("#cee-bk-p-0-off_l_delay_time"), before, "the preview keeps nothing");
+  // The closing preview gives the focus back while it fades; typing into the name before that cut it to "Mein" in CI.
+  await page.locator("#cee-bk-preview").waitFor({ state: "hidden" });
   await page.fill("#cee-bk-fx-name", "Mein Delay");
+  assert.equal(await page.inputValue("#cee-bk-fx-name"), "Mein Delay");
   // an own effect says what it does and who made it
   await page.fill("#cee-bk-fx-description", "Mein kurzes Echo.");
   await page.fill("#cee-bk-fx-creator", "Jemand");
@@ -87,7 +90,7 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   await page.fill("#cee-bk-p-0-dry_wet-value", "40");
   assert.equal(await page.inputValue("#cee-bk-p-0-dry_wet"), "40", "a typed value turns the knob");
   await page.click("#cee-bk-fx-save");
-  assert.match(await page.locator("#cee-bk-fx-saved").textContent(), /Gespeichert: „Mein Delay“ steht unter Meine Effekte/, "the page says it was saved, not only a toast");
+  await page.locator("#app-toasts .cee-toast", { hasText: "Gespeichert: „Mein Delay“ steht unter Meine Effekte" }).waitFor();
   await page.click("#cee-bk-fx-save");
   await page.click("#cee-baukasten-page-mine");
   assert.equal(await page.locator("#cee-bk-mine li").count(), 1, "saving again changes the same one");
@@ -215,11 +218,18 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-tab-baukasten");
   await page.click("#cee-baukasten-page-export");
-  await page.locator("#cee-bk-card-note", { hasText: "geladen" }).waitFor();
+  // A factory preset moves like an own one: Mod Delay from place 1 to place 2, as its record, not rebuilt.
+  await page.click("#cee-bk-export-tab-mfx");
+  await page.locator("#cee-bk-slots-mfx li[data-slot='1'] .cee-bk-slot-factory", { hasText: "Mod Delay" }).waitFor();
+  await page.locator("#cee-bk-slots-mfx li[data-slot='1'] .cee-bk-grip").dragTo(page.locator("#cee-bk-slots-mfx li[data-slot='2']"));
+  assert.equal(await page.locator("#cee-bk-slot-mfx-2 option:checked").textContent(), "Werks-Preset von Platz 1: Mod Delay");
   const bytes = await h.download(page, () => page.click("#cee-bk-collection"));
   const read = parseCollection(bytes);
   assert.equal(read.ok, true, read.reason);
-  assert.deepEqual(read.entries.map(e => [e.kind, e.index]).sort(), [["ifx", 1], ["mfx", 99], ["mod", 4]], "every place at its index, 0-based, a catalog effect as well");
+  const moved = read.entries.find(e => e.kind === "mfx" && e.index === 1);
+  assert.equal(readFx(moved.text, units).preset.name, "Mod Delay", "place 2 holds the factory preset of place 1");
+  const others = read.entries.filter(e => e !== moved && !(e.kind === "mfx" && e.index === 0));
+  assert.deepEqual(others.map(e => [e.kind, e.index]).sort(), [["ifx", 1], ["mfx", 99], ["mod", 4]], "every place at its index, 0-based, a catalog effect as well");
 
   // the file read back: a fresh browser gets the effects and their places
   await page.evaluate(() => { localStorage.removeItem("cee.baukasten"); localStorage.removeItem("cee.baukasten.slots"); });
@@ -227,7 +237,7 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.click("#cee-tab-baukasten");
   await page.click("#cee-baukasten-page-export");
   await page.setInputFiles("#cee-bk-all", h.file("e2sFx.all", bytes));
-  await page.locator("#app-toasts .cee-toast", { hasText: "3 Einträge" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: `${read.entries.length} Einträge` }).waitFor();
   await page.click("#cee-bk-export-tab-mfx");
   assert.equal(await page.locator("#cee-bk-slot-mfx-100 option:checked").textContent(), "Short Delay");
   await page.click("#cee-bk-export-tab-ifx");

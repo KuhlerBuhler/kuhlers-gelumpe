@@ -474,7 +474,8 @@ export function emulatorSuite(index, parts) {
     fake.broadcast("status", { state: "off" });
     await page.waitForFunction(() => document.querySelector("#cee-e2").dataset.power === "off");
     fake.broadcast("status", { state: "crashed", error: "Abgestürzt." });
-    await page.locator("#cee-emu-status:not(.ui-sr-only)", { hasText: "abgestürzt" }).waitFor();
+    await page.locator("#app-toasts .cee-toast", { hasText: "Abgestürzt." }).waitFor();
+    assert.match(await page.locator("#cee-emu-status").getAttribute("class"), /ui-sr-only/, "a crash too is said in the toast, nothing stands above the device");
     assert.deepEqual(page.errors, []);
   });
 

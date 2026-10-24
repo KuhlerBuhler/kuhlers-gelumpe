@@ -192,6 +192,9 @@ test("the start page has its sections in heading order and the donate link opens
     const d = document.querySelector("#cee-feature-dice canvas").getContext("2d").getImageData(0, 0, 128, 64).data;
     return new Set(Array.from({ length: d.length / 4 }, (_, i) => d[i * 4])).size === 2;
   }, null, { timeout: 5000 });
+  const card = page.locator("#cee-feature-dice");
+  assert.deepEqual(await card.evaluate(c => [...c.children].map(n => n.className || n.tagName)), ["cee-lcd cee-catalog-thumb", "H3", "P", "cee-feature-how", "cee-feature-where"], "picture, name, text, what to press, then the devices at the foot");
+  assert.deepEqual(await card.locator(".cee-feature-where li").allTextContents(), ["Rot", "Blau"]);
   await page.goto(h.url);
   for (const id of ["#cee-donate", "#cee-donate-start"]) assert.equal(await page.getAttribute(id, "href"), "#support", "donating leads to the Unterstützen page first");
   assert.equal(await page.getAttribute("#cee-support-paypal", "target"), "_blank");

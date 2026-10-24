@@ -58,8 +58,10 @@ export function stepEditor(doc) {
     b.dataset.trigger = String(trigger);
     const n = stepIndex(i) + 1;
     const noteText = on && note ? noteLabel(note - 1) : "";
-    b.replaceChildren(el("span", { className: "cee-step-num", textContent: String(n) }), el("span", { className: "cee-step-note", textContent: noteText }));
-    b.setAttribute("aria-label", `Step ${n}, ${on ? "an" : "aus"}${on && !trigger ? ", ohne Trigger" : ""}${noteText ? `, ${noteText}` : ""}`);
+    // The name starts with what the step shows (number and note), the rest only for screen readers (WCAG 2.5.3).
+    b.replaceChildren(el("span", { className: "cee-step-num", textContent: String(n) }), " ", el("span", { className: "cee-step-note", textContent: noteText }),
+      el("span", { className: "ui-sr-only", textContent: `, Step ${n}, ${on ? "an" : "aus"}${on && !trigger ? ", ohne Trigger" : ""}` }));
+    b.removeAttribute("aria-label");
   }
 
   function drawDetail() {

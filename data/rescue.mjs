@@ -181,7 +181,7 @@ export const FLOW = {
   // How it ends.
   works: {
     mood: "happy",
-    say: ["Super, sie läuft wieder! Jetzt ist Korgs Original-Firmware drauf. BLECHTRIBE kannst du jederzeit wieder mit dem Firmware Patcher aufspielen."],
+    say: ["Super, sie läuft wieder! Drauf ist jetzt die Firmware, die du zurückgespielt hast, ohne BLECHTRIBE. Das kannst du jederzeit wieder mit dem Firmware Patcher aufspielen."],
   },
   stuck: {
     mood: "sad",

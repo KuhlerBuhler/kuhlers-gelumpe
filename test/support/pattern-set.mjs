@@ -1,6 +1,6 @@
 /**
  * A pattern set built from nothing for the pattern tools: framed blank patterns, a few with parts.
- * Own data, no Korg bytes (CLAUDE.md).
+ * Own data, no Korg bytes (AGENTS.md).
  */
 import { Pattern, PatternFile } from "../../src/pattern.mjs";
 import { makePatternFile } from "../helpers.mjs";

@@ -34,7 +34,7 @@
 - **Are samples included?** No. BLECHTRIBE contains no samples. Your own samples stay on your card. On the first start, the Electribe offers to take over your existing sample folder.
 - **Does it work on the blue Electribe?** Yes, with fewer features. See the table below.
 - **Do I keep Hacktribe?** Yes, when you start with a Hacktribe firmware file. BLECHTRIBE adds its features on top. Patching Korg's original firmware does not add Hacktribe's features.
-- **How do I make my own effects?** Open **Presets** in the app. Edit MFX and IFX presets in plain text and send them over USB. This works on the red sampler with Hacktribe or BLECHTRIBE.
+- **How do I make my own effects?** Open the **Baukasten** in the app. Take a ready effect or build one from blocks, with names and real units. The export puts them on the SD card, single ones also go live over USB. This works on the red sampler with BLECHTRIBE.
 - **I have an idea for the app or firmware.** [Write it down here](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). You need a GitHub account.
 
 ## Install BLECHTRIBE on your Electribe
@@ -43,7 +43,7 @@ You need a computer (Mac, Windows or Linux) and an SD card reader, once for a fe
 
 1. **Download the app** with the button above. On the release page, find "Assets": `.dmg` for Mac, `.exe` for Windows, `.AppImage` or `.deb` for Linux. macOS blocks the downloaded app at first because it is not signed by Apple. See [Get the app](#get-the-app) for how to allow it.
 2. **Put the Electribe's SD card in your computer.**
-3. **Open the app**, choose **Patcher** and drop your `SYSTEM.VSB` from the card onto the page. It is in `KORG/electribe sampler/System/` (original sampler), `KORG/hacktribe/System/` (Hacktribe) or `KORG/electribe/System/` (blue Electribe).
+3. **Open the app**, choose **Firmware Patcher** and drop your `SYSTEM.VSB` from the card onto the page. It is in `KORG/electribe sampler/System/` (original sampler), `KORG/hacktribe/System/` (Hacktribe) or `KORG/electribe/System/` (blue Electribe).
 4. **Wait for the checks to finish**, then save the new file. The app tells you where to put it on the card.
 5. **Put the card back in the Electribe**, turn it on and start the firmware update. The app shows you which buttons to press.
 
@@ -70,6 +70,9 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Plugins and games (Snake, Tetris, ...) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Pad and LED colours | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Confirm before changing patterns | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Sync groups (patterns play as one) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Quick save (EXIT + WRITE), reset a part (EXIT + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Chords in pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Note assistant | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Dice (random melodies) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -102,9 +105,9 @@ The normal Electribe is on the left, BLECHTRIBE on the right. The animations use
 
 ## Patch the firmware
 
-Open **Patcher**, drop your own `SYSTEM.VSB` (Korg's original 2.02 for sampler or synth, or Hacktribe 2.02) onto the page and choose the patches. Before downloading, the emulator boots the result and checks the main screen, update prompt, start modes and emergency switch. This takes a few minutes; the page shows which group is running. It then explains how to install the file on the device. All patches and their limits are in [docs/patcher.en.md](docs/patcher.en.md). To patch without the app, use `BLECH.patch` or the matching `.bsdiff` from the release as described there.
+Open **Firmware Patcher**, drop your own `SYSTEM.VSB` (Korg's original 2.02 for sampler or synth, or Hacktribe 2.02) onto the page and choose the patches. Before downloading, the emulator boots the result and checks the main screen, update prompt, start modes and emergency switch. This takes a few minutes; the page shows which group is running. It then explains how to install the file on the device. All patches and their limits are in [docs/patcher.en.md](docs/patcher.en.md). To patch without the app, use `BLECH.patch` or the matching `.bsdiff` from the release as described there.
 
-On the sampler, BLECHTRIBE includes the BLECH menu, plugins, display and LED colours, pattern confirmation, TAP Motion, a note assistant in KEYBOARD mode, random melodies (SHIFT + PART ERASE), EXIT + WRITE to save, EXIT + Pad to reset a part's sound, pink chord steps, migration of your existing sample folder, Blechy, loading progress, clearer sample errors and Doom (SHIFT + TAP at power-on; [licence](docs/doom-lizenz.md), German).
+On the sampler, BLECHTRIBE includes the BLECH menu, plugins, display and LED colours, pattern confirmation, sync groups, TAP Motion, a note assistant in KEYBOARD mode, random melodies (SHIFT + PART ERASE), EXIT + WRITE to save, EXIT + Pad to reset a part's sound, pink chord steps, migration of your existing sample folder, Blechy, loading progress, clearer sample errors and Doom (SHIFT + TAP at power-on; [licence](docs/doom-lizenz.md), German).
 
 ## For tinkerers
 
@@ -189,8 +192,8 @@ A plugin gives the Electribe a new function. You put it on the device through th
 `KORG/blechtribe/Plugin/`. The code is a subset of JavaScript, the editor compiles it to bytecode for a
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
-The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon and
-Mandelbrot.
+The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
+Mandelbrot, GIF Player, Lauflicht and Pulsieren.
 
 ## The emulator
 
@@ -210,8 +213,8 @@ A wrong write or a faulty firmware can hang the device. So:
   looks wrong.
 - **Way back:** put the saved original `SYSTEM.VSB` back. How that was rehearsed is in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
-- **If the device no longer starts:** the "Rettung" page in the editor (German) walks through the
-  documented recovery and marks each step as measured on the device or not. The bootloader is never
+- **If the device no longer starts:** the "Rettung" page in the editor (German) asks what you see and
+  walks you back along the documented recovery. The bootloader is never
   touched, beyond it only JTAG helps ([docs/rettung.md](docs/rettung.md)).
 - **Test it yourself:** the [device tests](docs/geraetetests/README.md) describe how to repeat BLECH and
   the card functions on your own device, with a warning, prerequisites, a backup and the way back.

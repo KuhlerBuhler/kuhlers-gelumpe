@@ -170,7 +170,7 @@ test("modulations: with no emulator service the check cannot run and the reason 
   await page.locator("#cee-mod-split").waitFor();
   await depth(page).fill("50");
   await page.click("#cee-mod-run");
-  await page.locator("#app-toasts .cee-toast", { hasText: "antwortet nicht" }).waitFor();
+  await page.locator("#app-toasts .cee-toast.err", { hasText: "antwortet nicht" }).waitFor();
   assert.equal(await page.locator("#cee-mod-download").isVisible(), false);
 });
 

@@ -129,10 +129,11 @@ test("patcher: Weiter and Zurück walk the four steps, Korg's firmware cards sit
 test("patcher: a file that is no VSB, or not the measured firmware, is named and cannot be patched", async () => {
   const page = await patcherPage();
   await drop(page, new Uint8Array(100));
-  await page.locator("#cee-patch-verdict", { hasText: "Keine Firmware" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "Das ist keine Firmware-Datei" }).waitFor();
   assert.equal(await page.isDisabled("#cee-patch-next"), true);
   await drop(page, new Uint8Array(0x200100));
-  await page.locator("#cee-patch-verdict", { hasText: "Nicht erkannt" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "Diese Firmware kennt der Patcher nicht" }).waitFor();
+  assert.equal(await page.locator("#cee-patch-verdict").evaluate(n => n.classList.contains("ui-sr-only")), true, "on the page it is only the toast");
   assert.equal(await page.isDisabled("#cee-patch-next"), true);
   assert.deepEqual(page.errors, []);
 });
@@ -142,7 +143,7 @@ test("patcher: a file that already carries the patches reads as BLECH and is not
   const done = await applyPatches(await makeFirmware(), patches);
   assert.equal(done.ok, true, done.reasons.join(" "));
   await drop(page, done.bytes);
-  await page.locator("#cee-patch-verdict", { hasText: "Schon BLECHTRIBE" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "BLECHTRIBE schon drauf" }).waitFor();
   assert.equal(await page.isDisabled("#cee-patch-next"), true);
   assert.equal(await page.locator("#cee-patch-download").isVisible(), false);
 });
@@ -308,7 +309,7 @@ test("patcher: Korg's original takes BLECH directly, with no hacktribe-2.patch, 
   assert.equal(await page.locator("#cee-patch-hacktribe-use").isChecked(), false, "BLECH direkt is the default");
   assert.equal(await page.isDisabled("#cee-patch-hacktribe-file"), true);
   assert.match(await route.textContent(), /Patche auch Hacktribe/);
-  assert.match(await route.textContent(), /Hacktribe ergänzt Filter für den Synth, zusätzliche Effekte und SysEx zum Lesen und Schreiben im RAM, das der Live-Modus des Editors braucht\./);
+  assert.match(await route.textContent(), /Hacktribe ergänzt Filter für den Synth und zusätzliche Effekte\. Den Live-Modus des Editors bringt BLECHTRIBE selbst mit\./);
   assert.equal(await page.locator("#cee-patch-bar").isVisible(), false, "no progress before the run");
 
   await page.click("#cee-patch-next");
@@ -386,7 +387,7 @@ test("patcher: with no emulator service the check cannot run and the reason is s
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
-  await page.locator("#app-toasts .cee-toast", { hasText: "antwortet nicht" }).waitFor();
+  await page.locator("#app-toasts .cee-toast.err", { hasText: "antwortet nicht" }).waitFor();
   assert.equal(await page.locator("#cee-patch-result").isVisible(), false);
 });
 

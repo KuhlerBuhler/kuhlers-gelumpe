@@ -77,7 +77,7 @@ test("samples: the page says what it does and that a change lives in RAM only, b
 test("samples: the names are read from the emulator and listed with their numbers, an entry opens with its facts", async () => {
   const page = await samples();
   await page.click("#cee-sample-list");
-  await page.locator("#cee-sample-status", { hasText: "2 Samples mit Namen, gelesen aus dem Emulator" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "2 Samples mit Namen, gelesen aus dem Emulator" }).waitFor();
   assert.deepEqual(await page.locator("#cee-sample-names li").allTextContents(), ["501Kick", "653Blech"]);
   await page.locator("#cee-sample-names li", { hasText: "Blech" }).click();
   await name(page).waitFor();
@@ -100,10 +100,10 @@ test("samples: the default names of unused slots (SampleNNN, as the emulator mea
   const page = await samples();
   for (const { addr, bytes } of sampleRam({ index: 700, name: "Sample701", rate: 48000 })) fake.poke(addr, Array.from(bytes));
   await page.click("#cee-sample-list");
-  await page.locator("#cee-sample-status", { hasText: "2 Samples mit Namen" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "2 Samples mit Namen" }).waitFor();
   assert.deepEqual(await page.locator("#cee-sample-names li").allTextContents(), ["501Kick", "653Blech"]);
   await page.locator("label.ui-switch", { hasText: "Standardnamen" }).click();
-  await page.locator("#cee-sample-status", { hasText: "3 Samples in der Liste" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "3 Samples in der Liste" }).waitFor();
   assert.deepEqual(await page.locator("#cee-sample-names li").allTextContents(), ["501Kick", "653Blech", "701Sample701"]);
   await page.locator("#cee-sample-names li", { hasText: "Sample701" }).click();
   await page.locator("#cee-sample-form .cee-hint", { hasText: "sieht unbenutzt aus" }).waitFor();
@@ -118,7 +118,7 @@ test("samples: a slot is read by its number, and one without audio is called unu
   assert.match(await page.locator("#cee-sample-form").textContent(), /Der Platz sieht unbenutzt aus: die PCM-Länge ist 0/);
   await page.fill("#cee-sample-number", "999");
   await page.click("#cee-sample-open");
-  assert.match(await page.locator("#cee-sample-status").textContent(), /Die Sample-Nummer geht von 1 bis 998/);
+  await page.locator("#app-toasts .cee-toast", { hasText: /Die Sample-Nummer geht von 1 bis 998/ }).first().waitFor();
   assert.deepEqual(page.errors, []);
 });
 
@@ -184,7 +184,7 @@ test("samples: without an emulator or a device the page says so and reads nothin
   await page.goto(`${h.url}?labs`);
   await page.click("#cee-tab-samples");
   await page.click("#cee-sample-list");
-  assert.match(await page.locator("#cee-sample-status").textContent(), /Nichts verbunden/);
+  await page.locator("#app-toasts .cee-toast", { hasText: /Nichts verbunden/ }).first().waitFor();
   assert.equal(await page.locator("#cee-sample-split").isVisible(), false);
 });
 
@@ -219,7 +219,7 @@ const stubFaults = page => page.evaluate(() => window.__ceeSim.faults.map(f => f
 test("samples on the device: read from the device, tried in the emulator first, sent, read back and taken back", async () => {
   const page = await device();
   await openBlech(page);
-  assert.match(await page.locator("#cee-sample-status").textContent(), /gelesen aus dem Gerät/);
+  await page.locator("#app-toasts .cee-toast", { hasText: /gelesen aus dem Gerät/ }).first().waitFor();
   await name(page).fill("Dose");
   fake.seen.midi.length = 0;
   await page.click("#cee-sample-send");

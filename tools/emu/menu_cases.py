@@ -29,6 +29,7 @@ HEADER = 0x100
 IMAGE = 0xC0000000
 MENU = 0x2D
 STATE = script_hooks.MENU_STATE
+HW_TEMPO = 0xC0691518            # the tempo in tenths of a BPM (tools/patch/script_hw.s)
 S_ON, S_PAGE, S_ENTER, S_COUNT, S_RUN, S_MFX = 0, 4, 8, 12, 16, 20
 S_SET_RUN, S_SET_MFX = S_RUN, S_MFX
 S_TITLE, S_VALUE, S_LINE3 = 0x40, 0x60, 0x80
@@ -561,6 +562,21 @@ def read_settings(image):
     return {name: (generation, flags) for name, (generation, flags, _) in read_settings_full(image).items()}
 
 
+def settings_extras(image):
+    """Byte 5 of each settings file on a card image (bit 0: METER LOUD RAINBOW), valid or not."""
+    volume = fat32.Volume(bytes(image))
+    out = {}
+    for path in SETTINGS_PATHS:
+        try:
+            raw = volume.read(path)
+        except fat32.FatError:
+            continue
+        if len(raw) >= 20 and raw[:4] == b"GSET":
+            out[path.rsplit(".", 2)[1]] = raw[5]
+    volume.close()
+    return out
+
+
 def read_settings_full(image):
     """The valid settings files as {name: (generation, flags, trusted checksums)}."""
     return {name: (generation, flags, trusted) for name, (generation, flags, trusted, _) in read_settings_look(image).items()}
@@ -577,9 +593,9 @@ def read_settings_look(image):
             continue
         if len(raw) < 20 or raw[:4] != b"GSET":
             continue
-        version, count = struct.unpack_from("<HH", raw, 4)
+        version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
         head = {1: 16, 2: 20}.get(version)
-        if head is None:
+        if head is None or extras & ~1:      # byte 5: bit 0 is METER LOUD RAINBOW
             continue
         size = head + 4 * count
         if count > 16 or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -966,6 +982,45 @@ def look_cases(payload, flash=None):
         and flags >> 30 & 1 == 1 and flags >> 16 & 7 == 0 and kept == 8 and not dev.m.asserts and not again.m.asserts,
         f"page {rainbow_page}, still {first[:3]} then {second[:3]} 1 s later, flags {flags:#x}, after a restart STILL {kept}")
     goto_group(dev, GROUP_LED, 4)
+    dev.turn(-8, wait=0.3)
+
+    # METER LOUD RAINBOW (device wish 24.10.): the full meter turns round the wheel too, a round a bar at the tempo;
+    # WRITE keeps it as bit 0 of byte 5 of the file, the three bits of LOUD stay 0
+    goto_group(dev, GROUP_LED, 7)
+    dev.turn(8, wait=0.3)
+    loud_rainbow_page = texts_of(dev)
+    meter_level(dev, 254)
+    dev.run(0.5)
+    l_first = leds(dev)
+    dev.run(0.5)
+    l_second = leds(dev)
+    tempo_at = synthaddr.tr(HW_TEMPO) if synthaddr.is_synth(payload) else HW_TEMPO
+    tempo = dev.u32(tempo_at)
+    phase = lambda d: int.from_bytes(d.read(STATE - 0x17, 2), "little")
+    def turn(at, seconds=1.0):
+        dev.m.uc.mem_write(tempo_at, struct.pack("<I", at))
+        before = phase(dev)
+        dev.run(seconds)
+        dev.m.uc.mem_write(tempo_at, struct.pack("<I", tempo))
+        return (phase(dev) - before) & 0xFFFF
+    slow, fast = turn(600), turn(1200)
+    press(dev, "write", wait=0.6)
+    image = dev.m.mmc.card.medium.data
+    files = read_settings(image)
+    newest = max(files, key=lambda n: files[n][0]) if files else None
+    l_flags = files[newest][1] if newest else 0
+    extras = settings_extras(image).get(newest, 0)
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(image))))
+    again.run(1.5)
+    l_kept = again.read(STATE - 0x1C, 4)
+    add("led_meter_loud_rainbow", loud_rainbow_page == ("METER LOUD", "RAINBOW", "") and wheel(l_first) and wheel(l_second) and l_first != l_second
+        and 1.6 < fast / max(slow, 1) < 2.4 and extras == 1 and l_flags >> 25 & 7 == 0 and l_kept[3] == 8 and l_kept[0] == 0
+        and not dev.m.asserts and not again.m.asserts,
+        f"page {loud_rainbow_page}, loud {l_first[:3]} then {l_second[:3]}, hue steps in 1 s at 60 BPM {slow}, at 120 BPM {fast}, "
+        f"byte 5 {extras}, flags {l_flags:#x}, after a restart the meter bytes {list(l_kept)}")
+    goto_group(dev, GROUP_LED, 7)
     dev.turn(-8, wait=0.3)
 
     # the firmware's own switches stay: nothing changes while a plugin holds the lock, nothing lights with Global power save
