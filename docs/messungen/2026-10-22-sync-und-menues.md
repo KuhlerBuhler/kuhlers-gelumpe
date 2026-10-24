@@ -126,3 +126,11 @@ Im ersten Bild ohne die Seite setzt `calibrate_off` einmal `UI_REDRAW`.
 
 `next_page_clean`: Die nächste Seite ist in den Pages 1 bis 6 gleich der Firmware allein. Ohne den Fix weichen sie ab, schon die
 ersten 8 Bytes von Page 1.
+
+## MFX-Typ bleibt beim Pattern (24.10.)
+
+Am Gerät: mit MFX 2 an (TOUCH SCALE) und einem Wechsel in ein Pattern derselben Gruppe war MFX 1 des neuen Patterns der
+Typ von MFX 2 des alten. Die Gruppe nahm Byte 61 des Patterns mit, den Effekttyp; mit MFX 2 an steht dort dessen Typ. Byte 61
+ist jetzt aus der Liste (`sg_head` in `tools/patch/pattern_switch.py`): jedes Pattern behält seine Effekttypen, das MFX-Pad und
+HOLD gehen weiter mit. Emulator (Hacktribe und blau): `pswitch_cases.case_sync_group` prüft, dass der Typ bleibt
+(`MFX type stays`), `case_mfx` besteht weiter. Am Gerät noch nicht geprüft.

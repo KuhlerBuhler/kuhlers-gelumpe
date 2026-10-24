@@ -29,7 +29,7 @@ export const FEATURES = [
     text: "Beim Spielen blättert das Rad nur durch die Patterns. Gewechselt wird erst, wenn du bestätigst.",
     how: "Rad drehen, MENU bestätigt, EXIT nimmt zurück." },
   { group: "Spielen", id: "sync-group", title: "Sync-Gruppen", where: BOTH,
-    text: "Patterns einer Gruppe spielen wie ein langes Pattern: am Ende geht es ohne MENU ins nächste, Mutes, Klang, Tempo und MFX gehen mit. So werden aus zwei Patterns mit je 64 Steps eins mit 128.",
+    text: "Patterns einer Gruppe spielen wie ein langes Pattern: am Ende geht es ohne MENU ins nächste, Mutes, Klang, Tempo und das MFX-Pad gehen mit. So werden aus zwei Patterns mit je 64 Steps eins mit 128.",
     how: "Im EDIT-Ring die Seite SYNC GROUP, gleich vor dem Pattern Menü: Gruppe am Rad wählen, WRITE speichert sie mit dem Pattern." },
   { group: "Spielen", id: "mfx2", title: "Zweiter Master-Effekt", where: BOTH, image: "img/features/mfx2.svg",
     text: "TOUCH SCALE wird zu MFX 2: ein zweiter Master-Effekt pro Pattern.",

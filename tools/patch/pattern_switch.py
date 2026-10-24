@@ -14,8 +14,8 @@ for every other way to choose a pattern (pad, MIDI program change, chain), the f
 Sync groups (sampler builds): a pattern carries a sync group, 0 (OFF) to 999, as a little endian half word at GROUP_AT of its
 block (a byte range the firmware never reads or writes; the BLECH menu sets it). While a pattern plays, the wheel on another
 pattern of the same group confirms it at once (NEXT:, no MENU needed), and a pattern load from one pattern of a group to another
-carries the state of the pattern that played, changed or not: part mutes and sound, tempo, swing, level, MFX. Steps, motion,
-length, beat, key, scale and chord set stay the new pattern's.
+carries the state of the pattern that played, changed or not: part mutes and sound, tempo, swing, level, the MFX pad and HOLD.
+Steps, motion, length, beat, key, scale, chord set and the MFX types (1 and 2) stay the new pattern's.
 
 Ten hooks; only the stopped sync runs before the main screen, and there it only reads its own state word:
   wheel        the tail call of the main screen's VALUE handler into the selector, 0xC006513C
@@ -56,7 +56,7 @@ CODE_END = 0xC0180C00
 STATE = 0xC0180F00              # run time state, in RAM only; FF there means "nothing"
 STATE_END = 0xC0180F40
 SG_BUF = 0xC0180C00             # the sync group's buffer, in RAM only, between the code and the state
-SG_SIZE = 11 + 16 * 47          # 10 values of the pattern (tempo two bytes), 47 bytes of each part
+SG_SIZE = 10 + 16 * 47          # 9 values of the pattern (tempo two bytes), 47 bytes of each part
 S_BROWSE, S_ARMED, S_ARMNUM, S_SETTING, S_STOPPED, S_AUTO, S_LOADED, S_LED = 0, 4, 8, 0x10, 0x14, 0x18, 0x1C, 0x20
 LED_MGR, LED_MENU, S_LEDWAS = 0xC0345A1C, 7, 0x21
 PS_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off
@@ -489,7 +489,9 @@ su_put:
 ; the pattern's own values a sync group carries, offsets in the block, 0x80 marks a half word: tempo (34), swing, play level, MFX
 ; type, pad X and Y, byte 64, HOLD, alternate 13-14 and 15-16. Left out: length, beat, key, scale, chord set, the pad's touch (0x3C).
 sg_head:
-    .byte 0xA2, 36, 42, 61, 62, 63, 64, 65, 68, 69, 0
+    ; not 61, the MFX type: with MFX 2 on it holds MFX 2's type, which would become the new pattern's MFX 1 (device 24.10.);
+    ; each pattern keeps its own types, the pad and HOLD go along
+    .byte 0xA2, 36, 42, 62, 63, 64, 65, 68, 69, 0
 .align 4
 ; @COPY_END@
 

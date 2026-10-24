@@ -585,7 +585,7 @@ def case_sync_group(payload, flash):
     rd = lambda b, at, n=1: bytes(b.dev.read(live(b) + at, n))
     mutes = lambda b: [rd(b, 0x800 + 0x330 * k + 1)[0] for k in range(16)]
     P1, P2 = 0x800, 0x800 + 0x330
-    PITCH, MOD, CUTOFF, SAMPLE, TEMPO, STEP = P1 + 36, P1 + 18, P2 + 13, P1 + 8, 34, P1 + 0x30 + 2
+    PITCH, MOD, CUTOFF, SAMPLE, TEMPO, STEP, MFX = P1 + 36, P1 + 18, P2 + 13, P1 + 8, 34, P1 + 0x30 + 2, 61
 
     def setup(b):
         for n, g in ((0, 7), (1, 7), (2, 0), (3, 7)):
@@ -605,6 +605,7 @@ def case_sync_group(payload, flash):
         b.m.uc.mem_write(live(b) + SAMPLE, struct.pack("<H", 0x0106))    # only the low byte differs from the bank
         b.m.uc.mem_write(live(b) + TEMPO, struct.pack("<H", struct.unpack("<H", rd(b, TEMPO, 2))[0] + 50))
         b.m.uc.mem_write(live(b) + STEP, bytes([rd(b, STEP)[0] ^ 0x10]))   # a step: never carried
+        b.m.uc.mem_write(live(b) + MFX, bytes([(rd(b, MFX)[0] + 3) % 30]))  # the MFX type (MFX 2's while it is on): never carried
 
     box = Box(payload, flash)
     setup(box)
@@ -633,6 +634,7 @@ def case_sync_group(payload, flash):
         "tempo": got[TEMPO:TEMPO + 2] == a_live[TEMPO:TEMPO + 2],
         "untouched cutoff carried": got[CUTOFF] == a_live[CUTOFF] != 33,
         "step stays": got[STEP] == b_saved[STEP],
+        "MFX type stays": got[MFX] == b_saved[MFX] != a_live[MFX],
     }
     out.append(entry("group_carries_the_state", box.running() == 1 and all(checks.values()) and not box.m.asserts,
                      f"running {box.running()}: {checks}; mutes {mutes(box)}, wanted {want_mutes}"))
