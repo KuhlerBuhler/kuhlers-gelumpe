@@ -569,8 +569,8 @@ line `press  [ Enter ]`.
 
 - **In the ring** BLECH is a single page ("BLECH 30/32") after Event, followed by two pages of the
   patch: [Blechy](#blechy-the-last-page-of-the-ring) (31/32) and SYNC GROUP (32/32, a setting of the pattern, see
-  below), then the Pattern menu. That is why the ring counts to 32 instead of 29; the blue one has no SYNC GROUP and
-  Blechy is its last page. EDIT left and right page through the ring. With EXIT held at power-on the
+  below), then the Pattern menu. That is why the ring counts to 32 instead of 29; on the blue one to 31 instead of 28
+  (Blechy 29/31, SYNC GROUP 30/31). EDIT left and right page through the ring. With EXIT held at power-on the
   screen is not there and the ring is the firmware's own.
 - **ENTER on the page BLECH** opens the list on the group last left, also after a trip through the other
   menus.
@@ -637,7 +637,7 @@ The pages of the groups:
 | SPLASH, SPLASH DRAW | ENTER | opens the splash editor (a page of the Global screen that only this page reaches): the dial moves the cursor left and right, with SHIFT held up and down, MENU flips the pixel and, held, paints its new colour wherever the cursor goes, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
 | SPLASH, SPLASH RESET | ENTER | drops the stored start image (import or editor); from now on and at every later start the firmware's own start image comes back, the page says "original back". Only where the set has the splash editor |
 | FEATURES, PATTERN CONFIRM | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file The MENU key shows where to press: it blinks while a pattern is only viewed (VIEW:, also stopped with unsaved changes) and is lit once it is confirmed (NEXT:), up to the switch; then it is as the firmware had it. |
-| Ring, SYNC GROUP | OFF, 1 to 999 | a page of its own in the ring, right before the first page of the Pattern menu (EDIT left from there, EDIT right from Blechy; the tag says "Pattern"), Hacktribe and the red one only: the sync group of the pattern in RAM; the main dial changes it, WRITE opens the pattern write as on the Pattern menu's pages, it is saved with the pattern. While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; switching between two patterns of one group carries the state of the pattern that played, changed or not: part mutes and part sound (sample, filter, modulation, pitch, amp, IFX and the other part values), tempo, swing, level, MFX with pad and HOLD, also back; the patterns of a group play as one (in RAM only). Steps, motion, length, beat, key, scale and chord set stay the new pattern's. OFF (0) is no group, nothing carried |
+| Ring, SYNC GROUP | OFF, 1 to 999 | a page of its own in the ring, right before the first page of the Pattern menu (EDIT left from there, EDIT right from Blechy; the tag says "Pattern"), on both Electribes (on the blue one since 24.10., [measurement](messungen/2026-10-24-blau-sync-group.md)): the sync group of the pattern in RAM; the main dial changes it, WRITE opens the pattern write as on the Pattern menu's pages, it is saved with the pattern. While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; switching between two patterns of one group carries the state of the pattern that played, changed or not: part mutes and part sound (sample, filter, modulation, pitch, amp, IFX and the other part values), tempo, swing, level, MFX with pad and HOLD, also back; the patterns of a group play as one (in RAM only). Steps, motion, length, beat, key, scale and chord set stay the new pattern's. OFF (0) is no group, nothing carried |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off, TAP held longer than 0.3 s switches only while held and back on letting go; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 
@@ -668,11 +668,11 @@ is readable, so a setting from the card can no longer change it.
 ## Blechy, the last page of the ring
 
 Blechy, the run-down nose creature, is no plugin. He is built into BLECH and has the **last page of the
-firmware's EDIT ring** but one: after Event, before SYNC GROUP and the Pattern menu ("31/32"; on the blue one the
-last, "31/31"). From the Pattern menu you reach him with EDIT left on its first page and EDIT left once more. On the page he stands there at once, live: no submenu, no `press  [ Enter ]`,
+firmware's EDIT ring** but one: after Event, before SYNC GROUP and the Pattern menu ("31/32"; on the blue one
+"29/31"). From the Pattern menu you reach him with EDIT left on its first page and EDIT left once more. On the page he stands there at once, live: no submenu, no `press  [ Enter ]`,
 the whole display is his (the page number is not visible).
 
-- **Like any page of the ring:** EDIT left goes to BLECH, EDIT right to SYNC GROUP (on the blue one to the Pattern menu), EXIT to the main
+- **Like any page of the ring:** EDIT left goes to BLECH, EDIT right to SYNC GROUP, EXIT to the main
   screen. The main dial, MENU and WRITE change nothing on his page (the main dial does not page through the
   firmware's own ring pages either). Measured in the emulator ([measurement](messungen/2026-10-15-blechy.md),
   German).
