@@ -14,7 +14,7 @@ import { wayOf, classify, convertStock, cardFolder, sampleFolder, loadBlechSet, 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
 /** Where the update test put the file, in the words of the device. */
-const hintFor = folder => `Die gepatchte Datei liegt auf der Karte im Emulator unter KORG/${folder}/System. Am Gerät Menü -> DATA UTILITY -> SOFTWARE UPDATE, ENTER, danach neu starten.`;
+const hintFor = folder => `Die gepatchte Datei liegt auf der Karte im Emulator unter KORG/${folder}/System. Am Gerät Menü -> DATA UTILITY -> SOFTWARE UPDATE, MENU drücken, danach neu starten.`;
 
 const pill = (tone, word) => {
   const p = el("span", { className: "cee-status", textContent: word });
@@ -87,7 +87,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const usbNote = el("p", { className: "muted", id: "cee-patch-usb-note", role: "status", hidden: true });
   const usbBox = el("section", { className: "cee-patch-usb", id: "cee-patch-usb" }, [
     el("h2", { className: "cee-patch-usb-title", textContent: "Update direkt über USB" }),
-    el("p", { className: "cee-patch-lead", textContent: "Ist BLECHTRIBE schon auf deiner Electribe, schließ sie nur per USB an und verbinde sie auf der Seite Gerät. Der Knopf holt die Firmware-Datei von der Karte, setzt das neueste BLECHTRIBE drauf, prüft sie im Emulator und legt sie zurück. Am Gerät drückst du danach nur noch DATA UTILITY > SOFTWARE UPDATE." }),
+    el("p", { className: "cee-patch-lead", textContent: "Ist BLECHTRIBE schon auf deiner Electribe, schließ sie nur per USB an und verbinde sie auf der Seite Gerät. Der Knopf holt die Firmware-Datei von der Karte, setzt das neueste BLECHTRIBE drauf, prüft sie im Emulator und legt sie zurück. Am Gerät gehst du danach nur noch auf Menü -> DATA UTILITY -> SOFTWARE UPDATE." }),
     el("div", { className: "actions" }, [usbGet]),
   ]);
   const usbPut = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
@@ -487,7 +487,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         ]),
         el("li", { textContent: "Lege die Karte bei ausgeschaltetem Gerät ein und schalte es ein. Nimm das Netzteil oder frische Batterien." }),
         flow.origin === "synth" ? el("li", { textContent: "Im Ordner KORG/electribe/System darf nur SYSTEM.VSB liegen. BOOT.VSB, USER.VSB und PCM.VSB gehören dort nicht hinein." }) : null,
-        el("li", { textContent: "Gehe zu Menü -> DATA UTILITY -> SOFTWARE UPDATE und drücke ENTER. Starte das Gerät neu, wenn es dich auffordert." }),
+        el("li", { textContent: "Gehe zu Menü -> DATA UTILITY -> SOFTWARE UPDATE und drücke MENU. Starte das Gerät neu, wenn es dich auffordert." }),
         el("li", { textContent: "Schalte das Gerät während des Updates nicht aus." }),
       ].filter(Boolean)),
       el("p", { className: "cee-patch-exit" }, [el("strong", { textContent: "Notausgang: " }), "Halte EXIT beim Einschalten gedrückt, dann startet das Gerät ohne die BLECHTRIBE-Funktionen. Wenn das nicht reicht: ", el("a", { href: "#rescue", textContent: "Rettung" }), "."]),
