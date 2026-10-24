@@ -754,17 +754,19 @@ the coarse pass. Zoom goes up to 7, deeper than that the 14 bits do not reach.
 
 ## The Plugins page in the editor
 
-The Plugins entry has three pages: Katalog (catalog), Editor and Dokumentation (documentation).
+The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
+(documentation). The title in the breadcrumb always leads back to the catalog.
 
-**Catalog:** two buttons that belong together. "Katalog" shows the plugins of the app as cards (the apps
-BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon and Mandelbrot under GAMES, Set-Timer and GIF Player
-under TOOLS, plus Lauflicht and Pulsieren; source `data/script/presets.mjs`). Each card carries a category and
-its maker and only the buttons to download and to send it to the device. The title leads to the plugin's
-page: the picture top left, beside it title, description and details (category, maker, date, controls), with
+**Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
+and Mandelbrot under GAMES, Set-Timer and GIF Player under TOOLS, plus Lauflicht and Pulsieren; source
+`data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
+description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
 "Code" switch between the plugin running on the drawing of the Electribe and its source. A new plugin enters
-the catalog by pull request on GitHub, with its entry in `data/script/presets.mjs`. "Eigene Plugins" (own
-plugins) shows the plugins of this browser.
+the catalog by pull request on GitHub, with its entry in `data/script/presets.mjs`.
+
+**My plugins:** the plugins of this browser as cards like in the catalog, with Neues Plugin (new), Öffnen
+(open) and Alle speichern (save all). A card opens the plugin in the editor.
 
 **Editor:** the editor over the whole page, with line numbers and the result of compiling (errors with line
 and column, a click puts the cursor there). Öffnen (open) and Speichern (save) sit top right in the bar; below

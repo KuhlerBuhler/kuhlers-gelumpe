@@ -917,17 +917,19 @@ tiefer reichen die 14 Bit nicht.
 
 ## Die Seite Plugins im Editor
 
-Der Eintrag Plugins hat drei Seiten: Katalog, Editor und Dokumentation.
+Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der
+Brotkrumenleiste führt immer zurück zum Katalog.
 
-**Katalog:** zwei Knöpfe, die zusammengehören. „Katalog“ zeigt die Plugins der App als Karten (die Apps
-BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon und Mandelbrot unter GAMES, Set-Timer und GIF Player
-unter TOOLS, dazu Lauflicht und Pulsieren, Quelle `data/script/presets.mjs`). Jede Karte trägt Kategorie und
-Ersteller, auf der Karte stehen nur Herunterladen und Aufs Gerät. Der Titel führt auf die Seite des Plugins:
-Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
+**Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
+und Mandelbrot unter GAMES, Set-Timer und GIF Player unter TOOLS, dazu Lauflicht und Pulsieren, Quelle
+`data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
+Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
 laufenden Plugin auf der Zeichnung der Electribe und seinem Quelltext. Ein neues Plugin kommt per Pull Request auf
-GitHub in den Katalog, mit seinem Eintrag in `data/script/presets.mjs`. „Eigene Plugins“ zeigt die Plugins dieses
-Browsers mit Bearbeiten, Herunterladen, Aufs Gerät und Löschen, dazu Neues Plugin, Öffnen und Alle speichern.
+GitHub in den Katalog, mit seinem Eintrag in `data/script/presets.mjs`.
+
+**Meine Plugins:** die Plugins dieses Browsers als Karten wie im Katalog, dazu Neues Plugin, Öffnen und
+Alle speichern. Eine Karte öffnet das Plugin im Editor.
 
 **Editor:** der Editor über die ganze Seite, mit Zeilenspalte und dem Ergebnis des Übersetzens (Fehler mit
 Zeile und Spalte, ein Klick setzt den Cursor dorthin). Öffnen und Speichern stehen oben rechts in der Leiste,

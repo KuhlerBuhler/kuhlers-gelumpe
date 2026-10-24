@@ -91,7 +91,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     button.disabled = true;
     try {
       const name = await storePlugin(s, id, bytes);
-      toast(`${name}.blech liegt auf der Karte. Am Gerät Menü -> BLECH -> PLUGINS -> IMPORT PLUGIN, ENTER, dann einschalten.`, "ok");
+      toast(`${name}.blech liegt auf der Karte. Am Gerät Menü -> BLECH -> PLUGINS -> IMPORT PLUGIN, MENU, dann einschalten.`, "ok");
     } catch (e) {
       toast(e.message, "error");
     } finally {
