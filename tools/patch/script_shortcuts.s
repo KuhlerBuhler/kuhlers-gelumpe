@@ -4,7 +4,7 @@
 ;   EXIT + pad    the sound of a part goes back to the values saved in the pattern bank: bytes 2 to 0x2F of the part (everything
 ;                 but last step and mute; the steps stay). TRIGGER mode resets the pad's part, the other modes the selected part.
 ;                 The firmware's pattern load (0xC004AB84) then applies the pattern in RAM onto itself, as after a pattern change.
-; Not with EXIT held at power-on, not on the synth (SHORTCUTS 0, not measured there). The firmware addresses SC_LEDMGR (LED manager:
+; Not with EXIT held at power-on. On the synth too, with its places from data/synth-map/ (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md). The firmware addresses SC_LEDMGR (LED manager:
 ; +0xB58 pad mode, +0xB60 selected part), SC_PLAYER (returns the player, +0x318 the running number), SC_PATPTR (the pattern in RAM,
 ; its file at +4), SC_BANK (the pattern bank, 0x4000 each) and SC_LOAD ((pattern, source, 1): the firmware's pattern load) come
 ; with the build (script_hooks.py).

@@ -224,6 +224,8 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Sync Group mit ganzem Stand, MENU blinkt, SYNC GROUP im Ring, SPLASH-Gruppe, Plugin-Menü wie Sample Edit, Kalibrierung](2026-10-22-sync-und-menues.md)
 - [Doom: lesbarere monochrome Ausgabe](2026-10-23-doom-bild.md)
 - [Doom: feste Helligkeit und beleuchtete Pad-Steuerung](2026-10-23-doom-pads.md)
+- [EXIT-Shortcuts und Akkorde in Pink auf der blauen Electribe](2026-10-24-blau-shortcuts-akkorde.md)
+- [Sync Group auf der blauen Electribe](2026-10-24-blau-sync-group.md)
 - [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
 - [Effekte aus dem Katalog fest in der Firmware](2026-10-23-fx-katalog-fest.md)
 

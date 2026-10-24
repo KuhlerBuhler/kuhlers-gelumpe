@@ -106,9 +106,10 @@ def runtime_profile(build):
         (0xC00DFA68,148,'a65f40522347f45bab9a10802914b4a69900ab66e455c279c57c8aa4f48368fd'),
         (0xC00C9BD8,72,'9890f118100188fed55d3f35b6cc98c22191484ac62c8e1b55fb0794c0089277'),
         37, 28, 28, dict(HW_PANEL_KEY=0xC003D158, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8,
-        POWER_HOLD_MASK=0, SHORTCUTS=0, REMOTE=0, HW_ENCODER=0,
-        SC_LEDMGR=0, SC_PLAYER=0, SC_PATPTR=0, SC_BANK=0, SC_LOAD=0, SC_LEDSEND=0,
-        MG_WORK=0, MG_MKDIR=0, MG_GETFREE=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0, SYNC_GROUP_AT=0))   # power hold and the EXIT shortcuts are not measured on the synth
+        POWER_HOLD_MASK=0, SHORTCUTS=1, REMOTE=0, HW_ENCODER=0,
+        SC_LEDMGR=synthaddr.tr(0xC0345A1C), SC_PLAYER=synthaddr.tr(0xC002FAFC), SC_PATPTR=synthaddr.tr(0xC033E6A4),
+        SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_LEDSEND=synthaddr.tr(0xC00875F4),
+        MG_WORK=0, MG_MKDIR=0, MG_GETFREE=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0, SYNC_GROUP_AT=0x3B80))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():

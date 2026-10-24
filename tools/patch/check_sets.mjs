@@ -97,7 +97,8 @@ function requiredGroups(patches, build) {
     "tap-motion": "tap_motion_cases", "note-assistant": "note_assist_cases", dice: "dice_cases", "ifx-idle": "ifx_idle_cases", "load-bar": "loadbar_cases",
     "sample-errors": "sample_error_cases", "synth-filters": "synth_filter_cases", "power-off": "power_off_cases", "blech-sysex": "sysex_cases", "preset-tables": "preset_cases" };
   const groups = ["bootmap", ...patches.map(p => byId[p.id]).filter(Boolean)];
-  if (build !== "synth" && patches.some(p => p.id === "script-runtime")) groups.push("shortcut_cases", "migrate_cases");
+  if (patches.some(p => p.id === "script-runtime")) groups.push("shortcut_cases");
+  if (build !== "synth" && patches.some(p => p.id === "script-runtime")) groups.push("migrate_cases");
   return [...new Set(groups)];
 }
 

@@ -10,7 +10,8 @@ pad is held, a step), blue the selected part; both together are pink. The patch 
 
 Chords (device 18.10.): in SEQUENCER mode a step of a Poly part that holds 2 or more notes takes pink as its PART colour (the
 colour that is left when PART or SELECT is pink), so the pads show where chords play. For that the pads go through the colours
-also with the firmware's red and blue; every other pad then gets exactly the firmware's values. Sampler only.
+also with the firmware's red and blue; every other pad then gets exactly the firmware's values. On the synth too, measured in the
+emulator on 24.10. (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md).
 
 Tied notes (device wish 17.10.): in SEQUENCER mode a step that continues the note of the step before it (both on, that one's gate
 TIE, the same first note) is the tail of a tied note: it takes the same pink at a half, a quarter and from the third step on an
@@ -928,8 +929,10 @@ def source():
         text = text.replace(f"@{key}@", str(value))
     if BUILD == "synth":
         text = synthaddr.source(text, own=[(CODE_AT, CODE_END), (STATE, STATE_END)])
-    # the chord colour reads the pattern and the sequencer model, measured on the Sampler only (docs/messungen/2026-10-19-poly-pads-pink.md)
-    chord = {"CHORD": 0, "CHORD_PATTERN": 0, "CHORD_MODEL": 0} if BUILD == "synth" else {"CHORD": 1, "CHORD_PATTERN": "0xC033E6A4", "CHORD_MODEL": "0xC0348884"}
+    # the chord colour reads the pattern and the sequencer model (docs/messungen/2026-10-19-poly-pads-pink.md); on the synth both
+    # through their entries in data/synth-map/, voice assign is byte 2 of the part there too (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+    chord = {"CHORD": 1, "CHORD_PATTERN": f"{synthaddr.tr(0xC033E6A4):#x}", "CHORD_MODEL": f"{synthaddr.tr(0xC0348884):#x}"} if BUILD == "synth" \
+        else {"CHORD": 1, "CHORD_PATTERN": "0xC033E6A4", "CHORD_MODEL": "0xC0348884"}
     for key, value in chord.items():
         text = text.replace(f"@{key}@", str(value))
     return text
