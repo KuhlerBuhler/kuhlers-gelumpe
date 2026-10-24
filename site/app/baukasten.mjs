@@ -13,7 +13,7 @@ import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs
 import { clamp } from "./dials.mjs";
 import { parseUnits } from "../../src/units.mjs";
 import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
-import { buildCollection, parseCollection, collectionEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
+import { buildCollection, parseCollection, collectionEntry, factoryEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
 import { buildOf } from "../../src/firmware.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
 import { GROUPS, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
@@ -825,6 +825,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   /** The catalog's pieces go on a place like own ones; the slot keeps "catalog:<name>" instead of an own id. */
   const catalogId = item => `catalog:${item.name}`;
   const catalogOf = kind => (kind === "mod" ? MOD_CATALOG : FX_CATALOG.filter(item => item.kind === kind));
+  /** A factory preset dragged to another place: the slot keeps "factory:<its own place>". */
+  const factoryFrom = id => (/^factory:\d+$/.test(id ?? "") ? Number(id.slice(8)) : null);
   /** The .e2fx text of what a place holds, an own piece or one from the catalog; null when it is gone. */
   function textOf(id) {
     const item = [...FX_CATALOG, ...MOD_CATALOG].find(x => catalogId(x) === id);
@@ -844,8 +846,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   function slotRow(kind, slot, own, slots, factory) {
     const assigned = slots[kind][slot] ?? "";
     const stock = factory.get(slot);
+    const moved = factoryFrom(assigned);
     const select = el("select", { className: "select", id: `cee-bk-slot-${kind}-${slot}` }, [
       el("option", { value: "", textContent: stock ? `Werks-Preset: ${stock}` : "Werks-Preset" }),
+      moved ? el("option", { value: assigned, selected: true, textContent: `Werks-Preset von Platz ${moved}${factory.get(moved) ? `: ${factory.get(moved)}` : ""}` }) : null,
       own.length ? el("optgroup", { label: kind === "mod" ? "Meine Modulationen" : "Meine Effekte" }, own.map(o => el("option", { value: o.id, textContent: parse(o).name, selected: o.id === assigned }))) : null,
       el("optgroup", { label: "Katalog" }, catalogOf(kind).map(item => el("option", { value: catalogId(item), textContent: item.name, selected: catalogId(item) === assigned }))),
     ]);
@@ -901,11 +905,16 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     });
     return row;
   }
+  /** A takes the place of B and B the place of A; a place with nothing set holds its own factory preset, if the loaded
+   * firmware has one there, and that moves too. */
   function swap(kind, a, b) {
     const slots = readSlots();
-    const [x, y] = [slots[kind][a], slots[kind][b]];
-    if (y) slots[kind][a] = y; else delete slots[kind][a];
-    if (x) slots[kind][b] = x; else delete slots[kind][b];
+    const factory = factoryNames(kind);
+    const own = slot => slots[kind][slot] ?? (factory.has(slot) ? `factory:${slot}` : undefined);
+    const [x, y] = [own(a), own(b)];
+    const put = (slot, id) => { if (!id || id === `factory:${slot}`) delete slots[kind][slot]; else slots[kind][slot] = id; };
+    put(a, y);
+    put(b, x);
     writeSlots(slots);
     renderExport();
   }
@@ -941,6 +950,13 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     await loadUnits();
     const entries = [];
     for (const w of wanted) {
+      const from = factoryFrom(w.id);
+      if (from) {
+        const moved = factoryEntry(vsb, w.kind, from, w.slot - 1, units);
+        if (!moved.ok) { toast(`Werks-Preset von Platz ${from}: ${moved.reason}`, "error"); return; }
+        entries.push(moved.entry);
+        continue;
+      }
       const text = textOf(w.id);
       if (!text) continue;
       const read = readFx(text, units);
@@ -954,7 +970,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   exportButton.addEventListener("click", exportAll);
   const exportPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-export" }, [
     el("h2", { className: "cee-bk-title", textContent: `${COLLECTION_FILE} für die Karte` }),
-    el("p", { className: "muted", textContent: `Eine Datei für alles: Insert-Effekte, Master-Effekte und Modulationen. Leg fest, was auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
+    el("p", { className: "muted", textContent: `Eine Datei für alles: Insert-Effekte, Master-Effekte und Modulationen. Leg fest, was auf welchem Platz der Electribe liegt. Ein Platz mit Werks-Preset bleibt, wie er ist. Zieh eine Zeile auf eine andere, um die beiden zu tauschen, auch Werks-Presets. Exportieren oben rechts speichert die Datei, sie gehört auf die Karte nach ${COLLECTION_FOLDER}/. Nimmst du sie weg oder hältst EXIT beim Einschalten, sind die alten Presets wieder da.` }),
     cardNote,
     allDrop,
     exportSwitch,

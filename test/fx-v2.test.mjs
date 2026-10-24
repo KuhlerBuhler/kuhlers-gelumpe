@@ -4,7 +4,7 @@ import { readUnits } from "../src/node.mjs";
 import { FxRecord } from "../src/record.mjs";
 import { presetFile } from "../src/preset-file.mjs";
 import { fxText, readFx, fxFromRecord, fxToRecord, modFromType } from "../src/fx-v2.mjs";
-import { buildCollection, parseCollection, collectionEntry, HEADER_SIZE, MOD_RECORD } from "../src/fx-collection.mjs";
+import { buildCollection, parseCollection, collectionEntry, factoryEntry, HEADER_SIZE, MOD_RECORD } from "../src/fx-collection.mjs";
 import { locateModTable, readModType } from "../src/modtable.mjs";
 import { recordOf, RECORD } from "../src/presets.mjs";
 import { makeRecord, makeFirmwareWithArrays } from "./helpers.mjs";
@@ -146,6 +146,25 @@ test("an entry for the user's firmware: the preset over its slot, the modulation
   assert.equal(mod.ok, true, mod.reason);
   assert.equal(readModType(mod.entry.data, 0, 0).depth, 77);
   assert.equal(collectionEntry(shortDelay(), vsb, 200, units).ok, false);
+});
+
+test("a factory preset moved to another place goes there byte for byte, with its v2 text; so does a modulation type", async () => {
+  const vsb = await makeFirmwareWithArrays([
+    { kind: "mfx", slot: 1, record: makeRecord("mfx", { name: "Mod Delay", devices: { mfx: MOD_DELAY } }) },
+    { kind: "mfx", slot: 2, record: makeRecord("mfx", { name: "Tape Echo", devices: { mfx: TAPE_ECHO } }) },
+  ]);
+  const made = factoryEntry(vsb, "mfx", 1, 1, units);
+  assert.equal(made.ok, true, made.reason);
+  const from = recordOf(vsb, "mfx", 1);
+  assert.deepEqual(made.entry.data, vsb.slice(from.file, from.file + RECORD), "the record of place 1, not rebuilt");
+  assert.equal(made.entry.index, 1, "for place 2, 0-based");
+  assert.equal(readFx(made.entry.text, units).preset.name, "Mod Delay");
+  const table = locateModTable(vsb);
+  const mod = factoryEntry(vsb, "mod", 2, 5, units);
+  assert.equal(mod.ok, true, mod.reason);
+  assert.deepEqual(mod.entry.data, vsb.slice(table.file + MOD_RECORD, table.file + 2 * MOD_RECORD), "type 2 is the second record");
+  assert.equal(readFx(mod.entry.text, units).preset.name, readModType(vsb, table.file, 1).name);
+  assert.equal(factoryEntry(vsb, "mfx", 250, 0, units).ok, false, "a place the firmware does not have");
 });
 
 test("a modulation type reads back with negative strengths, and out of range values are refused", () => {

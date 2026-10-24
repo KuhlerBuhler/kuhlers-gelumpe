@@ -13,9 +13,9 @@
 import { crc32 } from "./script/blob.mjs";
 import { RECORD, recordOf, locatePresets } from "./presets.mjs";
 import { TABLES } from "./map/index.mjs";
-import { locateModTable, writeModType } from "./modtable.mjs";
+import { locateModTable, writeModType, readModType } from "./modtable.mjs";
 import { buildOf } from "./firmware.mjs";
-import { fxText, fxToRecord } from "./fx-v2.mjs";
+import { fxText, fxToRecord, fxFromRecord, modFromType } from "./fx-v2.mjs";
 import { FxRecord } from "./record.mjs";
 import { lint } from "./rules.mjs";
 
@@ -143,4 +143,25 @@ export function collectionEntry(preset, vsb, index, units, { risky = false } = {
   const bad = lint(new FxRecord(made.record, preset.kind), { units }).find(f => ["fatal", "silent", "error"].includes(f.severity) && !(risky && RISKY_CODES.has(f.code)));
   if (bad) return { ok: false, reason: `Vom Türsteher gesperrt: ${bad.message}${RISKY_CODES.has(bad.code) ? " Mit „Gesperrte Bausteine freigeben (RISIKO)“ bei der Wahl des Bausteins geht es trotzdem." : ""}` };
   return { ok: true, entry: { kind: preset.kind, index, data: made.record, text: fxText(preset) } };
+}
+
+/**
+ * A preset or modulation type of the firmware in `vsb` moved to another place: the record of place `from` (1-based) as
+ * it is, for `index` (0-based). Nothing is rebuilt, so it sounds as it does on its own place; copying a whole record
+ * within its kind is what adding a preset does too (src/presets.mjs addPreset).
+ * @returns {{ok: true, entry: object} | {ok: false, reason: string}}
+ */
+export function factoryEntry(vsb, kind, from, index, units) {
+  if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für den roten Sampler, mit Korgs Firmware oder mit Hacktribe." };
+  if (kind === "mod") {
+    const table = locateModTable(vsb);
+    if (!table.ok) return { ok: false, reason: table.reasons[0] };
+    if (from < 1 || from > MOD_COUNT || index < 0 || index >= MOD_COUNT) return { ok: false, reason: `Modulation ${from} gibt es nicht, es sind ${MOD_COUNT}.` };
+    const data = vsb.slice(table.file + (from - 1) * MOD_RECORD, table.file + from * MOD_RECORD);
+    return { ok: true, entry: { kind, index, data, text: fxText(modFromType(readModType(vsb, table.file, from - 1))) } };
+  }
+  const at = recordOf(vsb, kind, from);
+  if (!at || !recordOf(vsb, kind, index + 1)) return { ok: false, reason: `Platz ${!at ? from : index + 1} gibt es in dieser Firmware nicht.` };
+  const data = vsb.slice(at.file, at.file + RECORD);
+  return { ok: true, entry: { kind, index, data, text: fxText(fxFromRecord(data, kind, units)) } };
 }
