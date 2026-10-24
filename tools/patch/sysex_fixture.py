@@ -282,7 +282,7 @@ def exercise(machine, sizes=SIZES, ports=(1, 2)):
         machine.port = port
         info = machine.request(b.FUNC_INFO)
         status, version, flags, maximum, _table_crc, flash_maximum = struct.unpack('<6I', info)
-        assert (status, version, flags, maximum, flash_maximum) == (0, 1, 0x3f, 32768, 4096)
+        assert (status, version, flags, maximum, flash_maximum) == (0, 1, 0x7f, 32768, 4096)
         for length in sizes:
             machine.reset()
             data = payload(length)

@@ -404,16 +404,69 @@ def hacktribe_flash_write(dev, lk, at=0x7F0000):
     return not written and bytes(dev.m.flash.mem[at:at + len(data)]) == was, written
 
 
+STUB_MARK = SCRATCH + 0x100
+# The code EXEC runs in the checks: keeps its argument at STUB_MARK and returns it plus one.
+STUB = struct.pack("<5I", 0xE59F1008, 0xE5810000, 0xE2800001, 0xE12FFF1E, STUB_MARK)   # ldr r1, [pc, #8]; str r0, [r1]; add r0, r0, #1; bx lr
+
+
+def has_hacktribe(payload):
+    return any(b != 0xFF for b in payload[0x170000:0x170040])
+
+
+def hacktribe_read(lk):
+    """Whether Hacktribe's 0x52 answers a RAM read."""
+    r, _ = lk.exchange(frame(lk.channel, 0x52, struct.pack("<II", IMAGE + 0x40, 16)), wait=2.0)
+    return any(len(x) > 9 and x[6] == 0x54 and x[7] == 0x52 for x in r)
+
+
+def hacktribe_write_and_run(dev, lk):
+    """Hacktribe's 0x53 and 0x54 write 16 bytes to SCRATCH, its 0x57 runs the stub BLECH put into the stub buffer before. True when
+    none of it happened: SCRATCH, the stub buffer and the stub's mark as they were."""
+    data = bytes(range(0x40, 0x50))
+    before, stub_was, mark_was = mem(dev, SCRATCH, 16), mem(dev, spec.EXEC_START, 0x40), mem(dev, STUB_MARK, 4)
+    lk.exchange(frame(lk.channel, 0x53, struct.pack("<II", SCRATCH, len(data))), wait=2.0)
+    lk.exchange(frame(lk.channel, 0x54, data), wait=2.0)
+    lk.exchange(frame(lk.channel, 0x57, struct.pack("<II", spec.EXEC_START, 0)), wait=2.0)
+    return mem(dev, SCRATCH, 16) == before and mem(dev, spec.EXEC_START, 0x40) == stub_was and mem(dev, STUB_MARK, 4) == mark_was
+
+
+def exec_cases(dev, lk):
+    """EXEC runs a word of the stub buffer after BLECH wrote it there, with its argument, and answers what it returned; anywhere else
+    it refuses and runs nothing. Hacktribe's own commands are dropped."""
+    out = []
+    begin, done = lk.write(spec.EXEC_START, STUB)
+    wrote = bool(done and done["status"] == OK and mem(dev, spec.EXEC_START, len(STUB)) == STUB)
+    out.append(entry("exec_stub_written", wrote, "the stub goes into the stub buffer through WRITE"))
+    r, _ = lk.ask(spec.FUNC_EXEC, struct.pack("<II", spec.EXEC_START, 0x1234), reply=spec.REPLY_EXEC)
+    words = struct.unpack_from("<3I", r["words"]) if r else None
+    out.append(entry("exec_runs", words == (OK, spec.EXEC_START, 0x1235) and mem(dev, STUB_MARK, 4) == struct.pack("<I", 0x1234),
+                     f"EXEC runs the stub with its argument in r0 and answers ok and what it returned ({words})"))
+    bad = []
+    for addr in (spec.EXEC_START + 2, spec.EXEC_END, spec.EXEC_START - 4, SCRATCH, IMAGE + 0x40, 0):
+        dev.m.uc.mem_write(STUB_MARK, b"\0\0\0\0")
+        r, _ = lk.ask(spec.FUNC_EXEC, struct.pack("<II", addr, 7), reply=spec.REPLY_EXEC)
+        words = struct.unpack_from("<3I", r["words"]) if r else None
+        if words != (REFUSED, addr, 0) or mem(dev, STUB_MARK, 4) != b"\0\0\0\0":
+            bad.append((hex(addr), words))
+    out.append(entry("exec_refused", not bad, "EXEC outside the words of the stub buffer is refused and runs nothing" if not bad else f"failed: {bad}"))
+    out.append(entry("hacktribe_read_dropped", not hacktribe_read(lk), "Hacktribe's RAM read 0x52 gets no answer"))
+    out.append(entry("hacktribe_write_run_dropped", hacktribe_write_and_run(dev, lk), "Hacktribe's 0x53, 0x54 and 0x57 write nothing, not even into the stub buffer, and run nothing"))
+    again = lk.info()
+    out.append(entry("exec_info_after", again and again["status"] == OK and again["flags"] & 0x40 and not dev.m.asserts, "INFO says EXEC (flag bit 6) and still answers after all of it, no assertion"))
+    return out
+
+
 def case_kill_switch(payload, flash):
-    """With EXIT held at power-on both hooks pass everything on: our function bytes get no answer, Korg's own do."""
+    """With EXIT held at power-on both hooks pass everything on but 0x56: our function bytes get no answer, Korg's own and Hacktribe's do."""
     dev, lk = boot(payload, flash, held=KILL)
     out = []
     silent = []
     for func, words in ((spec.FUNC_INFO, b""), (spec.FUNC_READ, struct.pack("<II", IMAGE + 0x40, 16)), (spec.FUNC_BEGIN, struct.pack("<III", SCRATCH, 4, 0)),
-                        (spec.FUNC_FLASH, struct.pack("<II", 0x220000, 16))):
-        r, _ = lk.ask(func, words, wait=1.5)
+                        (spec.FUNC_FLASH, struct.pack("<II", 0x220000, 16)), (spec.FUNC_EXEC, struct.pack("<II", spec.EXEC_START, 0))):
+        r, _ = lk.ask(func, words, wait=1.5, reply=spec.REPLY_EXEC if func == spec.FUNC_EXEC else None)
         silent.append(r is None)
-    out.append(entry("kill_switch_silent", all(silent), "with EXIT held at power-on INFO, READ, BEGIN and FLASH READ get no answer"))
+    out.append(entry("kill_switch_silent", all(silent), "with EXIT held at power-on INFO, READ, BEGIN, FLASH READ and EXEC get no answer"))
+    out.append(entry("kill_switch_hacktribe", hacktribe_read(lk) == has_hacktribe(payload), "with EXIT held at power-on Hacktribe's RAM read 0x52 answers again" if has_hacktribe(payload) else "without Hacktribe 0x52 stays unanswered"))
     r, _ = lk.exchange(frame(lk.channel, 0x10), wait=20.0)
     out.append(entry("kill_switch_korg_still_answers", any(len(x) > 7000 for x in r), f"with EXIT held at power-on Korg's own pattern request is answered ({[len(x) for x in r]} bytes)"))
     blocked, written = hacktribe_flash_write(dev, lk)
@@ -423,7 +476,7 @@ def case_kill_switch(payload, flash):
 
 
 def case_other_sysex(payload, flash):
-    """Korg's SysEx and the panel work as they did, and where Hacktribe's own commands exist they still answer."""
+    """Korg's SysEx and the panel work as they did; Hacktribe's own commands are dropped."""
     dev, lk = boot(payload, flash)
     out = []
     replies, _ = lk.exchange(SEARCH, wait=2.0)
@@ -433,10 +486,10 @@ def case_other_sysex(payload, flash):
     out.append(entry("pattern_request", dump and len(dec(dump[7:-1])) == 0x4000, "Korg's pattern request returns the 16384 bytes of the pattern"))
     glob, _ = lk.exchange(frame(lk.channel, 0x0E), wait=5.0)
     out.append(entry("global_request", any(x[6:7] == b"\x51" for x in glob), "Korg's global request is answered with the dump"))
-    r, ms = lk.exchange(frame(lk.channel, 0x52, struct.pack("<II", IMAGE + 0x40, 16)), wait=2.0)
-    has_hacktribe = any(b != 0xFF for b in payload[0x170000:0x170040])
-    answered = any(len(x) > 9 and x[6] == 0x54 and x[7] == 0x52 for x in r)
-    out.append(entry("hacktribe_read", answered == has_hacktribe, "Hacktribe's own RAM read still answers" if has_hacktribe else "without Hacktribe the command 0x52 stays unanswered, as in Korg's original"))
+    if synthaddr.is_synth(payload):
+        out.append(entry("hacktribe_read_dropped", not hacktribe_read(lk), "Hacktribe's RAM read 0x52 gets no answer"))
+    else:
+        out.extend(exec_cases(dev, lk))
     blocked, written = hacktribe_flash_write(dev, lk)
     out.append(entry("hacktribe_flash_write_dropped", blocked, f"Hacktribe's flash write 0x56 after 0x53 writes nothing ({written or 'no program or erase'})"))
     before = mem(dev, 0xC0000040, 64)
@@ -646,6 +699,9 @@ def synth_cases(payload, flash):
         again = lk.info()
         out.append(entry("synth_writes_refused", begin and begin["status"] == REFUSED and mem(dev, SCRATCH, 64) == before and again and again["status"] == OK,
                          "a write is refused already at BEGIN, because the synth's RAM map is not measured; the RAM stays"))
+        r, _ = lk.ask(spec.FUNC_EXEC, struct.pack("<II", spec.EXEC_START, 0), reply=spec.REPLY_EXEC)
+        words = struct.unpack_from("<3I", r["words"]) if r else None
+        out.append(entry("synth_exec_refused", words == (REFUSED, spec.EXEC_START, 0), f"EXEC is refused, because nothing may be written there ({words})"))
         out.extend(flash_cases(dev, lk))
         out.extend(case_kill_switch(payload, flash))
         out.extend(case_other_sysex(payload, flash))
