@@ -1,7 +1,7 @@
 /**
  * The one toast of the app: a small bubble bottom right. Success and info go away by themselves, an error stays until
  * it is closed. Success and info are announced politely, errors at once (two live regions in one popover layer).
- * Only a state that stays true belongs inline; anything that reports an action belongs here.
+ * Infos, warnings and errors never stand in the page itself, they all come here; a screen-reader line may keep them too.
  */
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
@@ -44,6 +44,9 @@ function raise() {
 export function toast(message, kind = "info", { stay = false } = {}) {
   if (!message) return () => {};
   mount();
+  // The same words again (a background check that fails every few seconds): the open toast stays, its time starts anew.
+  const same = [...polite.children, ...assertive.children].find(n => n.dataset.kind === kind && n.textContent === message && !n.dataset.closing);
+  if (same) { same.restart?.(); return same.close; }
   const host = kind === "error" ? assertive : polite;
   const close = el("button", { type: "button", className: "btn icon cee-toast-close", title: "Schließen" }, [icon("x")]);
   close.setAttribute("aria-label", "Schließen");
@@ -52,6 +55,7 @@ export function toast(message, kind = "info", { stay = false } = {}) {
   let timer = null;
   const remove = () => {
     clearTimeout(timer);
+    node.dataset.closing = "1";
     node.classList.remove("visible");
     setTimeout(() => node.remove(), 250);
   };
@@ -62,13 +66,15 @@ export function toast(message, kind = "info", { stay = false } = {}) {
   for (const old of open.slice(0, Math.max(0, open.length - MAX))) old.remove();
   requestAnimationFrame(() => node.classList.add("visible"));
   if (kind !== "error" && !stay) {
-    const arm = () => { timer = setTimeout(remove, AUTO_MS); };
+    const arm = () => { clearTimeout(timer); timer = setTimeout(remove, AUTO_MS); };
     arm();
+    node.restart = arm;
     node.addEventListener("mouseenter", () => clearTimeout(timer));
     node.addEventListener("mouseleave", arm);
     node.addEventListener("focusin", () => clearTimeout(timer));
     node.addEventListener("focusout", arm);
   }
+  node.close = remove;
   return remove;
 }
 

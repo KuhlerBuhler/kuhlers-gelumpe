@@ -93,7 +93,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const usbPut = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-usb-put", textContent: "Über USB aufs Gerät schreiben", hidden: true });
   const way = el("ol", { className: "cee-patch-way", id: "cee-patch-way" });
   way.setAttribute("aria-label", "Weg zur neuen Firmware");
-  const verdictBox = el("div", { className: "cee-patch-verdict", id: "cee-patch-verdict", role: "status" });
+  // What the dropped file is not, said in the toast; the box only keeps it for screen readers and tests.
+  const verdictBox = el("div", { className: "cee-patch-verdict ui-sr-only", id: "cee-patch-verdict", role: "status" });
+  let toldVerdict = "";
   const synthSet = el("p", { className: "muted", id: "cee-patch-synth-set", hidden: true });
   // Step 2 chooses what goes on the file: BLECHTRIBE of this version or an own BLECH.patch, and on Korg's original Hacktribe as well.
   const release = NEWS[0].version.split(".").slice(0, 2).join(".");
@@ -318,6 +320,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     const v = verdict(flow, blech?.items ?? []);
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
+    if (v && v.text !== toldVerdict) toast(v.text, v.tone === "error" ? "error" : "info", { stay: true });
+    toldVerdict = v?.text ?? "";
     routeBox.hidden = flow.origin !== "stock";
     synthSet.hidden = flow.origin !== "synth";
     if (!synthSet.hidden) synthSet.textContent = `Synth-Satz: ${itemsFor(blech, "synth").map(p => p.label).join(", ")}. BLECH-Menü, Plugins und Startbild-Editor sind noch nicht enthalten.`;
@@ -502,7 +506,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usb = { fromOriginal: got.fromOriginal };
     await take(got.bytes);
     if (flow.input?.kind === "blech") {
-      usbNote.textContent = "Auf der Karte ist schon eine veränderte SYSTEM.VSB, aber keine Sicherung davon. Zieh deine unveränderte SYSTEM.VSB (die Sicherung vom Schreibtisch) oben in das Feld. Nach der Prüfung geht es hier über USB weiter.";
+      usbNote.hidden = true;
+      toast("Auf der Karte ist schon eine veränderte SYSTEM.VSB, aber keine Sicherung davon. Zieh deine unveränderte SYSTEM.VSB (die Sicherung vom Schreibtisch) oben in das Feld. Nach der Prüfung geht es hier über USB weiter.", "info", { stay: true });
       return false;
     }
     return true;
@@ -511,9 +516,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   /** The checked copy onto the card; the first time the unpatched file goes beside it as ORIGINAL.BIN. */
   async function storeToDevice(s) {
     await storeUpdateFile(s, passed, usb?.fromOriginal ? null : original, (done, total) => { usbNote.textContent = `Aufs Gerät schreiben, ${percent(done, total)} %`; });
-    usbNote.textContent = "Fertig, die neue Firmware liegt auf der Karte. Jetzt am Gerät: MENU, mit EDIT ◀ zu DATA UTILITY, MENU, mit EDIT ▶ zu SOFTWARE UPDATE, dann MENU drücken, bis „OK. Please Reboot.“ kommt. Dazwischen nicht ausschalten. Danach aus- und wieder einschalten.";
+    usbNote.hidden = true;
     usb = { fromOriginal: true };
-    toast("Die neue Firmware ist auf der Karte. Jetzt das Update am Gerät starten.", "ok");
+    toast("Fertig, die neue Firmware liegt auf der Karte. Jetzt am Gerät: MENU, mit EDIT ◀ zu DATA UTILITY, MENU, mit EDIT ▶ zu SOFTWARE UPDATE, dann MENU drücken, bis „OK. Please Reboot.“ kommt. Dazwischen nicht ausschalten. Danach aus- und wieder einschalten.", "ok", { stay: true });
   }
 
   usbGet.addEventListener("click", async () => {
@@ -523,10 +528,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usbNote.hidden = false;
     try {
       if (!await fetchFromDevice(s)) return;
-      if (flow.phase !== "ready") { usbNote.textContent = "Die Datei vom Gerät braucht noch eine Entscheidung, siehe unten."; return; }
+      if (flow.phase !== "ready") { usbNote.hidden = true; toast("Die Datei vom Gerät braucht noch eine Entscheidung, siehe unten.", "info", { stay: true }); return; }
       usbNote.textContent = "Patchen und im Emulator prüfen, das dauert ein paar Minuten.";
       await patchAndCheck();
-      if (!passed) { usbNote.textContent = "Die Prüfung im Emulator ist nicht bestanden, auf das Gerät kam nichts. Details unten."; return; }
+      if (!passed) { usbNote.hidden = true; toast("Die Prüfung im Emulator ist nicht bestanden, auf das Gerät kam nichts. Details unten.", "error"); return; }
       await storeToDevice(s);
       go(3);
     } catch (e) {
