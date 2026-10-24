@@ -36,7 +36,8 @@ test("the folders are the four device cards, and docs/rettung.md carries the sam
 });
 
 test("00 and the update prompt go through Korg's file of the device's colour; only the red is measured", () => {
-  for (const id of ["zero", "prompt"]) assert.equal(FLOW[id].next, "color:update");
+  for (const id of ["zero:card", "prompt"]) assert.equal(FLOW[id].next, "color:update");
+  assert.deepEqual(FLOW.zero.choices.map(c => c.to), ["reboot", "zero:card"], "00 waits first, the card only when it stays");
   assert.equal(FLOW["card:red"].say.at(-1).path, "KORG/electribe sampler/System/SYSTEM.VSB");
   assert.equal(FLOW["card:blue"].say.at(-1).path, "KORG/electribe/System/SYSTEM.VSB");
   assert.equal(DEVICES.red.status, "gemessen");

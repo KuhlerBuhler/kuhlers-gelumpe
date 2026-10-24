@@ -98,8 +98,9 @@ test("every step that says something about the device says how sure it is", asyn
 test("00 goes through the update prompt with Korg's file for the colour, and says where to ask when it does not help", async () => {
   const page = await open();
   await answer(page, CASES.find(c => c.id === "zero").label);
-  assert.match(await said(page), /Welche Farbe/, "the explanation follows by itself, then the question");
-  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-you").count(), 1);
+  assert.match(await said(page), /warte/, "first wait for the panel update");
+  await answer(page, "Es bleibt bei 00");
+  assert.match(await said(page), /Welche Farbe/, "the card follows by itself, then the question");
   await answer(page, DEVICES.red.title);
   await answer(page, "Hab ich");
   assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), DEVICES.red.path);
@@ -176,7 +177,7 @@ test("on a phone the page does not scroll sideways and nothing sticks out", asyn
 
 test("what is only to read follows by itself after a second, a step to do waits for its answer, and back skips what came by itself", async () => {
   const page = await open();
-  await answer(page, CASES.find(c => c.id === "zero").label);
+  await answer(page, CASES.find(c => c.id === "prompt").label);
   assert.equal(await page.locator("#cee-rescue-answers").getAttribute("data-waiting"), "", "Blechy is still talking");
   const t0 = Date.now();
   await settle(page);
@@ -185,6 +186,7 @@ test("what is only to read follows by itself after a second, a step to do waits 
   await page.click("#cee-rescue-back");
   assert.equal(await page.locator("#cee-rescue-chat > li").count(), 1, "back lands on the first question");
   await answer(page, CASES.find(c => c.id === "prompt").label);
+  await settle(page);
   await answer(page, DEVICES.red.title);
   await page.locator("#cee-rescue-answers button", { hasText: "Hab ich" }).waitFor();
   assert.match(await said(page), /Lade bei Korg/, "the step to do waits");

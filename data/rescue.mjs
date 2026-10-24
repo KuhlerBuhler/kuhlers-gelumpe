@@ -106,16 +106,28 @@ export const FLOW = {
   // The device asks for an update or shows 00: both go through the update prompt with Korg's own firmware.
   prompt: {
     mood: "happy",
-    say: ["Das sieht schlimmer aus, als es ist. Die Electribe findet beim Start ihre Daten nicht und fragt deshalb nach einem Update. Das geben wir ihr: Korgs Original-Firmware."],
+    say: ["Das sieht schlimmer aus, als es ist. Die Electribe passt beim Start nicht zu der Firmware, die drauf ist, und fragt deshalb nach einem Update. Das geben wir ihr: Korgs Original-Firmware für ihre Farbe."],
     status: "offline",
-    note: "Diese Abfrage gehört zur Firmware, nicht zum Bootloader. Sie kommt, wenn die Kennung der Nutzerdaten im Flash fehlt. Im Emulator suchte sie die Datei an der Kartenwurzel und meldete \"Error, Invalid File\", warum, ist offen.",
+    note: "Diese Abfrage gehört zur Firmware, nicht zum Bootloader. Sie kommt, wenn die Kennung des Geräts im Flash nicht zur laufenden Firmware passt, und sucht im Ordner der Kennung: rot KORG/electribe sampler, blau KORG/electribe. Fehlt die Kennung ganz, sucht sie an der Kartenwurzel und meldet immer \"Error, Invalid File\"; dann hilft keine Datei.",
     next: "color:update",
   },
   zero: {
     mood: "happy",
-    say: ["Das kenn ich. Die 00 heißt: Die Electribe will ihr Bedienfeld neu einrichten und findet dafür nichts Passendes. Sieht übel aus, ist aber meistens schnell behoben. Wir geben ihr Korgs Original-Firmware, dann richtet sie sich selbst wieder ein."],
+    say: ["Das kenn ich. Bei 00 richtet die Electribe gerade ihr Bedienfeld neu ein. Lass sie eingeschaltet und warte ein, zwei Minuten."],
     status: "offline",
-    note: "So zeigt die Firmware das Panel-Update: Sie fragt den Panel-Controller nach seiner Version und erwartet 0x96. Bei einer anderen Antwort oder keiner startet das Panel-Update mit der Anzeige 00. Das passt zum Debrick-Wiki von Hacktribe.",
+    note: "So zeigt die Firmware das Panel-Update: Sie fragt den Panel-Controller nach seiner Version und erwartet 0x96, sonst schreibt sie dessen Firmware neu. Im Emulator kommt danach \"Please Reboot\"; antwortet das Panel gar nicht, bleibt 00 stehen. Der Bootloader zeigt nie 00.",
+    choices: [{ label: "Jetzt steht da Please Reboot", to: "reboot" }, { label: "Es bleibt bei 00", to: "zero:card" }],
+  },
+  reboot: {
+    mood: "happy",
+    say: ["Gut so. Schalte sie einmal aus und wieder ein."],
+    choices: [{ label: "Läuft wieder", to: "works" }, { label: "Jetzt fragt sie nach einem Update", to: "prompt" }, { label: "Wieder 00", to: "zero:card" }],
+  },
+  "zero:card": {
+    mood: "idle",
+    say: ["Dann versuchen wir es mit Korgs Original-Firmware auf der SD-Karte. So hat es bei uns an einem Gerät schon geholfen."],
+    status: "gemessen",
+    note: "Am Gerät (23.10.): nach 00 kam mit Korgs Sampler-Firmware auf der Karte die Update-Abfrage, danach startete es wieder. Im Emulator liest die Firmware während 00 die Karte nicht; was am Gerät zwischen 00 und der Abfrage stand, ist offen.",
     next: "color:update",
   },
   "color:update": {
@@ -129,10 +141,11 @@ export const FLOW = {
     mood: "idle",
     say: [
       "Karte zurück in die Electribe, Netzteil anschließen, einschalten.",
-      "Sie fragt jetzt nach dem Update: ENTER drücken und warten, bis es fertig ist. In der Zeit nicht ausschalten. Danach einmal aus- und wieder einschalten.",
+      "Sie fragt jetzt nach dem Update: ENTER drücken, das ist die Taste MENU. Warte, bis \"Please Reboot\" kommt, und schalte sie in der Zeit nicht aus. Dann einmal aus- und wieder einschalten.",
+      "Mit Batterien meldet sie \"Battery Low\" und macht nichts, deshalb das Netzteil.",
     ],
     status: "gemessen",
-    note: "Am Gerät bestätigt, bei 00 und bei der Update-Abfrage (23.10.). Danach kannst du BLECHTRIBE wie beim ersten Mal wieder aufspielen.",
+    note: "Am Gerät bestätigt, bei 00 und bei der Update-Abfrage (23.10.). Im Emulator: \"Working...\", dann \"OK. Please Reboot.\"; ohne Netzteil \"Warning / Battery Low\". Dass ENTER am Gerät die Taste MENU ist, ist aus der Panel-Nachricht hergeleitet.",
     choices: [{ label: "Läuft wieder", to: "works" }, { label: "Klappt nicht", to: "stuck" }],
   },
 
@@ -158,6 +171,8 @@ export const FLOW = {
   stuck: {
     mood: "sad",
     say: ["Mist. Dann komm ich hier allein nicht weiter. Probier bitte nichts auf eigene Faust."],
+    status: "hergeleitet",
+    note: ["Bleibt das Display bei 00 stehen, redet das Bedienfeld nicht mit dem Rest des Geräts. Die ", { link: "debrick", text: "Debrick-Anleitung von Hacktribe" }, " nennt dafür das Flachbandkabel dazwischen, die SD-Karte spielt dabei keine Rolle."],
     next: "ask",
   },
   ask: {
