@@ -1,6 +1,6 @@
 ---
 name: Kuhler's GELUMPE
-description: Editor für den Electribe 2 Sampler. Tokens und Abstände kommen aus dem Interface (site/design/), die cee-Bausteine sind eigene.
+description: Die App für BLECHTRIBE auf der Electribe 2. Tokens und Abstände kommen aus dem Interface (site/design/), die cee-Bausteine sind eigene.
 source:
   codebase: site/design/root.min.css, site/design/colors.min.css, site/app.css, site/app/*.css
 colors:

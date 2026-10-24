@@ -1,10 +1,24 @@
 # Agent instructions
 
 Shared instructions for every agent working in this repository (Claude, Codex, others).
-Kuhler's GELUMPE is a browser editor and emulator for the Korg Electribe 2 Sampler with
-Hacktribe, with a linter and a simulated device in front of the hardware. What it does and
+Kuhler's GELUMPE is the app for BLECHTRIBE, a firmware patch for the Korg Electribe 2 (red
+Sampler and blue Synth, firmware 2.02, Korg's original or Hacktribe). It patches the user's own
+`SYSTEM.VSB`, runs it in an emulator, edits effects (Baukasten), writes plugins for the device and
+puts changes on the device only after a linter and the emulator have checked them. What it does and
 why is in [README.md](README.md) and [docs/README.md](docs/README.md). Read the page that
 matches your task before you start; do not duplicate its content here.
+
+Where the code lives:
+
+| Part | Where |
+|---|---|
+| The page (the app's UI) | `site/index.html`, `site/app/*.mjs`, `site/app.css`, `site/app/*.css` |
+| Browser logic (formats, linter, patcher, plugin compiler) | `src/`, `src/script/` |
+| Device knowledge | `data/map/` (fields), `data/findings.mjs` (behaviour), `data/patches/*.json` (built patches) |
+| Firmware patches (ARM assembler and Python builders) | `tools/patch/` |
+| Emulator and its cases | `tools/emu/` |
+| Desktop app (Tauri) | `src-tauri/` |
+| Plugin catalog | `data/script/presets.mjs` |
 
 ## Build and test
 
@@ -41,7 +55,16 @@ done without a failing test that now passes or a check in the browser or emulato
 - **Records are edited, never built**, and the 7-bit packing needs care with lengths that leave
   a remainder of six. Both traps are explained in [docs/geraetekarte.md](docs/geraetekarte.md).
 - Own CSS classes carry the prefix `cee-`. Standard `ui-*` classes are not redefined. Use
-  tokens instead of raw colours or pixel values. **The editor never gets a design system page**,
+  tokens instead of raw colours or pixel values. Read [DESIGN.md](DESIGN.md) before UI work: it lists
+  the tokens, the spacing levels and the components of the page.
+- `site/design/` is a copy of the Interface design system. Do not edit it here, change it in the
+  Interface. The one exception is `site/design/bg.js`, the page background.
+- Infos, warnings and errors go to the toast (`site/app/toast.mjs`), never as a line in the page. A
+  progress line of a running step may stay in the page.
+- Device menu paths are written as `Menü -> BLECH -> CUSTOMIZATION`, app paths by the sidebar group:
+  `BLECHTRIBE -> Baukasten`.
+- The firmware writes its settings to the SD card (`KORG/blechtribe/`), not to the flash. Do not add
+  flash writes. The app sends no usage data anywhere. **The editor never gets a design system page**,
   no overview of all components. `test/design.test.mjs` holds that.
 - A new linter rule has a severity and a message that says what was observed. Not seen on
   hardware yet means `warn`, not `error` ([docs/linter.md](docs/linter.md)).
@@ -60,7 +83,20 @@ vocabulary. No em or en dashes anywhere, no absolute personal paths, relative li
 Mark facts as measured, derived or open, and keep measurement files at their paths, because
 `data/` and `test/` point at them.
 
+## Firmware patches
+
+- After a change to `tools/patch/script_*.s` rebuild the runtime patch for all three builds:
+  `node tools/patch/script_runtime.mjs --build hacktribe`, `--build stock`, `--build synth`. Other patches
+  have their builder next to them in `tools/patch/`.
+- A patch passes `tools/emu/check.py` with an own `SYSTEM.VSB` for every build it names (see
+  [docs/emulator.md](docs/emulator.md)). New behaviour gets a case in `tools/emu/*_cases.py`.
+- When the patched output changes, `data/patches/verified.json` is stale: before a release run
+  `node tools/verify-patches.mjs <stock> <synth> <hacktribe>` with the three original files.
+- An address on the blue Electribe goes through `tools/patch/synthaddr.py`; an emulator case that pokes
+  firmware RAM has to translate its address the same way.
+
 ## Pull requests and commits
 
-English commit messages and PR descriptions. State what changed and why. Do not add AI
-attribution lines.
+Pull requests go to `develop`, `main` only takes merges from `develop`. English commit messages and PR
+descriptions. State what changed and why, and what was tested on a real device and what not. Do not
+add AI attribution lines.
