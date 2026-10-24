@@ -215,7 +215,7 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
         toast(text, "error");
         sendNote.textContent = "";
         device.log?.(`Terminal: ${text}`, "error");
-        if (device.session?.blocked) { line("error", "Am Gerät ist etwas angekommen. Entscheide im Bereich Gerät, ob die Sicherung zurückgespielt wird."); device.showDecision?.(); }
+        if (device.session?.blocked) { line("error", "Am Gerät ist etwas angekommen. Entscheide im Bereich Emulator unter „Echtes Gerät“, ob die Sicherung zurückgespielt wird."); device.showDecision?.(); }
       }
     } catch (e) {
       line("error", e.message);

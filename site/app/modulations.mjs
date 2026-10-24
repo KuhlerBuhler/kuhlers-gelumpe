@@ -283,7 +283,7 @@ export function modulationsPage(root, { emulator }) {
 
   download.addEventListener("click", () => {
     if (!passed) return;
-    saveFile(passed, "SYSTEM.VSB", { note: "Kopier die Datei auf die SD-Karte nach KORG › dein Ordner › System und starte am Gerät das Update: Menü -> DATA UTILITY -> SOFTWARE UPDATE." });
+    saveFile(passed, "SYSTEM.VSB", { note: "Kopier die Datei auf die SD-Karte nach KORG/dein Ordner/System und starte am Gerät das Update: Menü -> DATA UTILITY -> SOFTWARE UPDATE." });
   });
 
   /** False when the firmware is not one this editor knows. */

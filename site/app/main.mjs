@@ -252,9 +252,7 @@ async function load(file) {
     updateActions();
   } catch (e) {
     const message = e instanceof FileError ? e.message : `Die Datei ließ sich nicht lesen: ${e.message}`;
-    if (window.ui?.rejectFile) window.ui.rejectFile(input, message);
-    error.textContent = message;
-    error.hidden = false;
+    if (window.ui?.rejectFile) window.ui.rejectFile(input, message); else toast(message, "error");
   }
 }
 
@@ -335,7 +333,7 @@ function patternDevice(device) {
     if (res.ok) say(`Gesendet und zurückgelesen. Vorher im Puffer: "${active}", mit "Senden zurücknehmen" zurückzuholen.`, "ok");
     else if (res.needsConfirmation) say("Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden.", "error");
     else if (res.gate?.verdict === "blocked") say(`Gesperrt: ${res.gate.reasons.map(r => r.message).join(" ")}`, "error");
-    else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide links unter Gerät, wie es weitergeht." : ""}`, "error");
+    else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide im Bereich Emulator unter „Echtes Gerät“, wie es weitergeht." : ""}`, "error");
     device.log?.(res.ok ? "Pattern gesendet." : `Pattern: ${res.error?.message ?? "gesperrt"}`, res.ok ? "ok" : "error");
     if (s.blocked) device.showDecision?.();
   }

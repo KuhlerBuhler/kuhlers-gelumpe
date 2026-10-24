@@ -46,7 +46,7 @@ export function toast(message, kind = "info", { stay = false } = {}) {
   mount();
   // The same words again (a background check that fails every few seconds): the open toast stays, its time starts anew.
   const same = [...polite.children, ...assertive.children].find(n => n.dataset.kind === kind && n.textContent === message && !n.dataset.closing);
-  if (same) { same.restart?.(); return same.close; }
+  if (same) { if (stay) same.keep?.(); else same.restart?.(); return same.close; }
   const host = kind === "error" ? assertive : polite;
   const close = el("button", { type: "button", className: "btn icon cee-toast-close", title: "Schließen" }, [icon("x")]);
   close.setAttribute("aria-label", "Schließen");
@@ -66,9 +66,11 @@ export function toast(message, kind = "info", { stay = false } = {}) {
   for (const old of open.slice(0, Math.max(0, open.length - MAX))) old.remove();
   requestAnimationFrame(() => node.classList.add("visible"));
   if (kind !== "error" && !stay) {
-    const arm = () => { clearTimeout(timer); timer = setTimeout(remove, AUTO_MS); };
+    let kept = false;
+    const arm = () => { clearTimeout(timer); if (!kept) timer = setTimeout(remove, AUTO_MS); };
     arm();
-    node.restart = arm;
+    node.restart = () => { if (!node.matches(":hover, :focus-within")) arm(); };
+    node.keep = () => { kept = true; clearTimeout(timer); };
     node.addEventListener("mouseenter", () => clearTimeout(timer));
     node.addEventListener("mouseleave", arm);
     node.addEventListener("focusin", () => clearTimeout(timer));

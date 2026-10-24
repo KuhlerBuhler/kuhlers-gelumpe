@@ -253,7 +253,7 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
         device.log?.("Pegel skaliert und gesendet.", "ok");
       } else if (res.needsConfirmation) say("Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden.");
       else if (res.gate?.verdict === "blocked") say(`Gesperrt: ${res.gate.reasons.map(r => r.message).join(" ")}`);
-      else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide links unter Gerät, wie es weitergeht." : ""}`);
+      else say(`${res.error?.message ?? "Abgebrochen."}${res.pending?.now ? ` ${res.pending.now.text}` : ""}${s.blocked ? " Entscheide im Bereich Emulator unter „Echtes Gerät“, wie es weitergeht." : ""}`);
       if (s.blocked) device.showDecision?.();
     } catch (e) {
       say(`Abgebrochen: ${e.message}`);

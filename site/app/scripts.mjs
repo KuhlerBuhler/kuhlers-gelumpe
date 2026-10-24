@@ -89,7 +89,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   /** A packed .blech onto the connected device's card; IMPORT PLUGIN in the BLECH menu then lists it. */
   async function toDevice(bytes, id, button) {
     const s = session();
-    if (!s) { toast("Erst auf der Seite Gerät die Electribe verbinden.", "error"); return; }
+    if (!s) { toast("Erst im Bereich Emulator oben „Echtes Gerät“ wählen und die Electribe verbinden.", "error"); return; }
     button.disabled = true;
     try {
       const name = await storePlugin(s, id, bytes);
