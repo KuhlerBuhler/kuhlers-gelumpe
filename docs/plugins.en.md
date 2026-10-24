@@ -23,8 +23,8 @@ Loading a plugin never draws anything (section "Apps and the display").
 The page has five parts: the language reference (structure, apps and display, language, events,
 functions, limits), the card with its file format, the BLECH menu on the device, the Plugins page in the
 editor, and the status section. What the language reference says holds for the language and its checks in
-the browser and in the emulator. **On the device itself nothing of the plugin runtime has been tested
-yet**, see "Status".
+the browser and in the emulator. On the device the BLECH menu and the plugins of the card run; what
+exactly is tested there is in "Status".
 
 ## Language reference
 
@@ -883,21 +883,21 @@ Unicorn without firmware, **not on the device**.
 
 ### On the device
 
-**Nothing of the plugin runtime has been tested on the device.** The firmware file with the runtime is
-built but has not been put on a device yet. The only thing read on the device is a basis: the display
-address `0xC031B310`, where the picture of the main screen lies
-([measurement](messungen/2026-10-09-menuezustand.md)).
-
-The first test on the device is the card test: reading and writing files through the firmware's FatFs
-functions, without flash ([step list](geraetetests/karte.md), German). The firmware file with the runtime
-follows ([step list](geraetetests/blech-datei.md), German).
+The firmware file with the runtime runs on the own device. The BLECH menu, IMPORT PLUGIN, EXPORT ALL and
+`korg.store` read and wrote files on the card there (`e2sPlugin.all`, `store.a.bin`, `store.b.bin`); the
+customization, the FEATURES pages and SPLASH IMPORT and DRAW were used on the device. The wishes from
+these tests are in the measurements from 18 October on
+([plugin stays off](messungen/2026-10-18-plugin-bleibt-aus.md),
+[import list](messungen/2026-10-19-plugin-import-liste.md),
+[sync and menus](messungen/2026-10-22-sync-und-menues.md), German). What a measurement only played in the
+emulator, it says itself. Step lists for an own test: [card test](geraetetests/karte.md) and
+[firmware file](geraetetests/blech-datei.md) (German).
 
 ### Open
 
-- **Everything on the device:** reading, writing and listing a directory through FatFs in our code, the
-  time per frame against the 5 ms budget (derived: about 0.17 ms for a Snake frame), the listening test (no
-  audible dropouts with music and Snake), the backlight on battery with Power Save "Auto", the LED hold,
-  the menu in the hand.
+- **Not measured on its own on the device:** the time per frame against the 5 ms budget (derived: about
+  0.17 ms for a Snake frame), a listening test for dropouts with music and Snake, the backlight on battery
+  with Power Save "Auto", the LED hold.
 - **Timer3:** the period of one second is measured in the emulator, not read on the device.
 - **`save` hook:** hooked in the emulator but not triggered there (WRITE in Global writes flash). Its effect
   is tested only in a unit test.
@@ -910,8 +910,8 @@ follows ([step list](geraetetests/blech-datei.md), German).
 - **LEDs:** the limit of 400 packets a second holds only at about 25 Hz frame calls, an index that is
   rejected for good blocks the other LEDs without a message, and disabling interrupts presupposes a
   privileged mode ([measurement](messungen/2026-10-14-skript-led.md)).
-- **Menu:** no switch for the splash screen, paused plugins are not remembered by the file, long names are
-  cut off, the file list keeps at most 8 names ([measurement](messungen/2026-10-14-blech-menue.md)).
+- **Menu:** no switch for the splash screen, long names are cut off, the list of IMPORT PLUGIN shows at
+  most 16 plugins ([measurement](messungen/2026-10-14-blech-menue.md)).
 - **IMPORT PLUGIN and EXPORT ALL in DATA UTILITY:** not built, they are in the PLUGINS group of the BLECH
   menu. Adding two pages to DATA UTILITY would mean copying the class table, a page counter "n/16" and states
   of their own for file choice and execution, a job of its own
