@@ -1,15 +1,8 @@
 /**
  * What the Rettung page (site/app/rescue.mjs) says: a conversation with Blechy for someone who knows little about the
- * device and is worried. Plain words up front; where a step comes from sits behind "Woher wir das wissen".
- * `status` uses the markers of docs/README.md.
+ * device and is worried. Only the answers, in plain words; where an official guide covers a step, `source` names it.
+ * The evidence behind each step is in docs/rettung.md.
  */
-
-export const STATUS = {
-  gemessen: { tone: "ok", text: "gemessen am Gerät", meaning: "Am Gerät beobachtet." },
-  offline: { tone: "info", text: "offline gelesen", meaning: "Im Code oder im Emulator gelesen, am Gerät nicht gesehen." },
-  hergeleitet: { tone: "info", text: "hergeleitet", meaning: "Aus Gemessenem geschlossen, selbst nicht gemessen." },
-  offen: { tone: "warn", text: "offen, nicht geprüft", meaning: "Steht so in einer Anleitung oder ist vermutet, am Gerät nicht geprüft. Behandle es als ungeprüft." },
-};
 
 export const LINKS = {
   debrick: "https://github.com/bangcorrupt/hacktribe/wiki/Debrick",
@@ -21,8 +14,8 @@ export const LINKS = {
 
 /** The two Electribes and where Korg's own firmware for each lives: on Korg's page and on the card. */
 export const DEVICES = {
-  red: { title: "Rot: Electribe Sampler", body: "red", link: "korgRed", name: "Electribe Sampler", path: "KORG/electribe sampler/System/SYSTEM.VSB", status: "gemessen", note: "Am Gerät so bestätigt, bei 00 und bei der Update-Abfrage (23.10.)." },
-  blue: { title: "Blau: Electribe", body: "blue", link: "korgBlue", name: "Electribe", path: "KORG/electribe/System/SYSTEM.VSB", status: "offen", note: "Für die blaue genauso beschrieben, am Gerät nicht geprüft." },
+  red: { title: "Rot: Electribe Sampler", body: "red", link: "korgRed", name: "Electribe Sampler", path: "KORG/electribe sampler/System/SYSTEM.VSB" },
+  blue: { title: "Blau: Electribe", body: "blue", link: "korgBlue", name: "Electribe", path: "KORG/electribe/System/SYSTEM.VSB" },
 };
 
 /** The folder the running firmware reads its update from. Every folder is checked on devices with version 1.2. */
@@ -38,6 +31,8 @@ const ASK = [
   "Dann melde dich direkt bei Kuhler Buhler, der hat das gebaut: Schick ein Foto vom Display und schreib kurz, was du zuletzt gemacht hast, ",
   { link: "issueNew", text: "als GitHub Issue" }, " (deine Antworten hier stehen dann schon drin) oder auf Instagram an ", { link: "instagram", text: "@kuhler_buhler" }, ".",
 ];
+/** The guide the Hacktribe project keeps for a device that no longer starts. */
+const DEBRICK = [{ link: "debrick", text: "Debrick-Anleitung von Hacktribe" }];
 const LATER = "Kriegen wir es zusammen hin, kommt der Weg hier mit rein, damit er dem Nächsten gleich hilft.";
 
 export const BUTTONS = { again: "Von vorn", back: "Zurück" };
@@ -51,8 +46,8 @@ export const CASES = [
 ];
 
 /**
- * The conversation. Each node: Blechy's mood, what he says (`say`, lines; `path` a file path on the card), how sure
- * it is (`status`, `note`), and either the answers (`choices`) or the node that follows by itself (`next`).
+ * The conversation. Each node: Blechy's mood, what he says (`say`, lines; `path` a file path on the card), an official
+ * guide for the step if there is one (`source`), and either the answers (`choices`) or the node that follows by itself (`next`).
  */
 export const FLOW = {
   start: {
@@ -65,8 +60,6 @@ export const FLOW = {
   starts: {
     mood: "idle",
     say: ["Dann probieren wir erst das Einfachste.", "Drück einmal EXIT. Hängt es weiter: ausschalten, EXIT gedrückt halten und dabei wieder einschalten. Dann startet sie dieses eine Mal ganz normal, ohne die BLECHTRIBE-Funktionen."],
-    status: "offen",
-    note: "Am Gerät bestätigt ist dieser Notschalter nur für den MFX-2-Patch (13.10.), für den ganzen BLECHTRIBE-Satz nicht. Er hilft nicht gegen kaputte Startdaten, DSP-Patches, kaputte gespeicherte Daten und Patches, die den Panel-Austausch stören.",
     choices: [{ label: "Hat geholfen", to: "fixed" }, { label: "Hilft nicht", to: "backup" }],
   },
   fixed: {
@@ -102,8 +95,6 @@ export const FLOW = {
       "Dann: Menü -> DATA UTILITY -> SOFTWARE UPDATE. Pass auf, direkt davor steht FACTORY RESET, das nicht nehmen.",
       "Bestätige das Update und warte, bis es fertig ist. In der Zeit nicht ausschalten. Danach einmal aus- und wieder einschalten.",
     ],
-    status: "gemessen",
-    note: "Das Update über das Menü lief am 10.10. am Gerät durch, danach kam das alte Startbild. Dass FACTORY RESET direkt davor steht, steht in der Anleitung für den Gerätetest.",
     choices: [{ label: "Läuft wieder", to: "works" }, { label: "Klappt nicht", to: "stuck" }],
   },
 
@@ -111,15 +102,11 @@ export const FLOW = {
   prompt: {
     mood: "happy",
     say: ["Das sieht schlimmer aus, als es ist. Die Electribe passt beim Start nicht zu der Firmware, die drauf ist, und fragt deshalb nach einem Update. Das geben wir ihr: Korgs Original-Firmware für ihre Farbe."],
-    status: "offline",
-    note: "Diese Abfrage gehört zur Firmware, nicht zum Bootloader. Sie kommt, wenn die Kennung des Geräts im Flash nicht zur laufenden Firmware passt, und sucht im Ordner der Kennung: rot KORG/electribe sampler, blau KORG/electribe. Fehlt die Kennung ganz, sucht sie an der Kartenwurzel und meldet immer \"Error, Invalid File\"; dann hilft keine Datei.",
     next: "color:update",
   },
   zero: {
     mood: "happy",
     say: ["Das kenn ich. Bei 00 richtet die Electribe gerade ihr Bedienfeld neu ein. Lass sie eingeschaltet und warte ein, zwei Minuten."],
-    status: "offline",
-    note: "So zeigt die Firmware das Panel-Update: Sie fragt den Panel-Controller nach seiner Version und erwartet 0x96, sonst schreibt sie dessen Firmware neu. Im Emulator kommt danach \"Please Reboot\"; antwortet das Panel gar nicht, bleibt 00 stehen. Der Bootloader zeigt nie 00.",
     choices: [{ label: "Jetzt steht da Please Reboot", to: "reboot" }, { label: "Es bleibt bei 00", to: "zero:card" }],
   },
   reboot: {
@@ -130,8 +117,6 @@ export const FLOW = {
   "zero:card": {
     mood: "idle",
     say: ["Dann versuchen wir es mit Korgs Original-Firmware auf der SD-Karte. So hat es bei uns an einem Gerät schon geholfen."],
-    status: "gemessen",
-    note: "Am Gerät (23.10.): nach einem Update auf Hacktribe blieb 00 stehen, sonst passierte nichts. Mit Korgs Sampler-Firmware auf der Karte kam beim nächsten Einschalten die Update-Abfrage, danach startete es wieder. Warum die Abfrage kam, ist offen: im Emulator liest die Firmware während 00 die Karte nicht.",
     next: "color:update",
   },
   "color:update": {
@@ -148,8 +133,6 @@ export const FLOW = {
       "Sie fragt jetzt nach dem Update: ENTER drücken, das ist die Taste MENU. Warte, bis \"Please Reboot\" kommt, und schalte sie in der Zeit nicht aus. Dann einmal aus- und wieder einschalten.",
       "Mit Batterien meldet sie \"Battery Low\" und macht nichts, deshalb das Netzteil.",
     ],
-    status: "gemessen",
-    note: "Am Gerät bestätigt, bei 00 und bei der Update-Abfrage (23.10.). Im Emulator: \"Working...\", dann \"OK. Please Reboot.\"; ohne Netzteil \"Warning / Battery Low\". Dass ENTER am Gerät die Taste MENU ist, ist aus der Panel-Nachricht hergeleitet.",
     choices: [{ label: "Läuft wieder", to: "works" }, { label: "Klappt nicht", to: "stuck" }],
   },
 
@@ -162,8 +145,7 @@ export const FLOW = {
   dark: {
     mood: "sad",
     say: ["Das ist leider der schwierigste Fall. Kommt beim Einschalten gar keine Frage, gibt es keinen Weg über die SD-Karte. Probier bitte nichts auf eigene Faust, damit wird es eher schlimmer."],
-    status: "offen",
-    note: ["Aus der ", { link: "debrick", text: "Debrick-Anleitung von Hacktribe" }, ": Dann hilft nur noch JTAG mit OpenOCD, und ein defekter Secondary Bootloader braucht eine eigene Wiederherstellung. Der Editor schreibt nie in den Bootloader, er sperrt diesen Bereich."],
+    source: DEBRICK,
     next: "ask",
   },
 
@@ -175,8 +157,7 @@ export const FLOW = {
   stuck: {
     mood: "sad",
     say: ["Mist. Dann komm ich hier allein nicht weiter. Probier bitte nichts auf eigene Faust."],
-    status: "hergeleitet",
-    note: ["Bleibt das Display bei 00 stehen, redet das Bedienfeld nicht mit dem Rest des Geräts. Die ", { link: "debrick", text: "Debrick-Anleitung von Hacktribe" }, " nennt dafür das Flachbandkabel dazwischen, die SD-Karte spielt dabei keine Rolle."],
+    source: DEBRICK,
     next: "ask",
   },
   ask: {
@@ -195,14 +176,12 @@ const card = path => ["Schalte die Electribe aus, nimm die SD-Karte raus und ste
 for (const [key, d] of Object.entries(DEVICES)) {
   FLOW[`download:starts:${key}`] = download(d, "which");
   FLOW[`download:update:${key}`] = download(d, `card:${key}`);
-  FLOW[`card:${key}`] = { mood: "idle", say: card(d.path), status: d.status, note: d.note, choices: [{ label: "Liegt drauf", to: "update:prompt" }] };
+  FLOW[`card:${key}`] = { mood: "idle", say: card(d.path), choices: [{ label: "Liegt drauf", to: "update:prompt" }] };
 }
 FOLDERS.forEach((f, i) => {
   FLOW[`folder:${i}`] = {
     mood: "idle",
     say: card(f.path),
-    status: "gemessen",
-    note: "So am 10.10. geübt, mit Hacktribe. Der Ordner von BLECHTRIBE ist am 15.10. am Gerät gesehen. Wer sichergehen will, vergleicht am Rechner die Prüfsumme der Datei auf der Karte mit der der gesicherten.",
     choices: [{ label: "Liegt drauf", to: "update:menu" }],
   };
 });

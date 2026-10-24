@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { FLOW, STATUS, LINKS, FOLDERS, DEVICES, CASES } from "../data/rescue.mjs";
+import { FLOW, LINKS, FOLDERS, DEVICES, CASES } from "../data/rescue.mjs";
 
 const ROOT = new URL("../", import.meta.url);
 const nodes = Object.entries(FLOW);
@@ -18,8 +18,9 @@ test("every answer and every follow-up leads to a node, and every node is reache
   assert.deepEqual(FLOW.start.choices.map(c => c.to), CASES.map(c => c.id));
 });
 
-test("every status is known, and links point at LINKS", () => {
-  for (const [id, n] of nodes) if (n.status) assert.ok(STATUS[n.status], `${id}: unknown status ${n.status}`);
+test("only answers: no evidence markers on the page, and links point at LINKS", () => {
+  for (const [id, n] of nodes) assert.ok(!("status" in n) && !("note" in n), `${id} still carries a marker`);
+  assert.doesNotMatch(JSON.stringify(FLOW), /gemessen|offline gelesen|hergeleitet|Emulator/);
   const parts = JSON.stringify(FLOW).match(/"link":"(\w+)"/g) ?? [];
   for (const p of parts) assert.ok(LINKS[p.slice(8, -1)] || p === '"link":"issueNew"', p);
 });
@@ -42,24 +43,22 @@ test("the folders are the four device cards, and docs/rettung.md carries the sam
   for (const f of FOLDERS) assert.ok(doc.includes(f.path), `${f.path} is missing in docs/rettung.md`);
 });
 
-test("00 and the update prompt go through Korg's file of the device's colour; only the red is measured", () => {
+test("00 and the update prompt go through Korg's file of the device's colour", () => {
   for (const id of ["zero:card", "prompt"]) assert.equal(FLOW[id].next, "color:update");
   assert.deepEqual(FLOW.zero.choices.map(c => c.to), ["reboot", "zero:card"], "00 waits first, the card only when it stays");
   assert.equal(FLOW["card:red"].say.at(-1).path, "KORG/electribe sampler/System/SYSTEM.VSB");
   assert.equal(FLOW["card:blue"].say.at(-1).path, "KORG/electribe/System/SYSTEM.VSB");
-  assert.equal(DEVICES.red.status, "gemessen");
-  assert.equal(DEVICES.blue.status, "offen");
   assert.match(text(FLOW["update:prompt"]), /ENTER/);
 });
 
-test("Blechy speaks plainly: the technical words stay behind the fold, nobody gets shouted at", () => {
+test("Blechy speaks plainly, nobody gets shouted at, and the hard cases name the official guide", () => {
   for (const [id, n] of nodes) {
     assert.doesNotMatch(text(n), /Bootloader|JTAG|OpenOCD|0x|Panel-Controller|Flash/, `${id} says it up front`);
     assert.notEqual(n.mood, "angry", id);
   }
-  assert.match(JSON.stringify(FLOW.dark.note), /JTAG/, "the hard case still names where the docs end");
+  for (const id of ["dark", "stuck"]) assert.deepEqual(FLOW[id].source.map(p => p.link), ["debrick"], id);
 });
 
 test("the text has no em or en dash", () => {
-  assert.doesNotMatch(JSON.stringify([FLOW, STATUS, LINKS, FOLDERS, DEVICES, CASES]), /[–—]/);
+  assert.doesNotMatch(JSON.stringify([FLOW, LINKS, FOLDERS, DEVICES, CASES]), /[–—]/);
 });

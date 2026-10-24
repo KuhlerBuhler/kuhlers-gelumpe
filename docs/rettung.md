@@ -106,7 +106,7 @@ Karte nur, wenn "00" stehen bleibt, so wie am Gerät am 23.10.; endet er nicht, 
 Original-Datei nimmt Fall 1 ebenfalls Korgs Datei von Korgs Download-Seite.
 
 Die Seite spricht mit Leuten, die das Gerät kaum kennen und gerade Angst um es haben: Blechy erklärt
-in Alltagssprache, Fachbegriffe und Belege stehen hinter "Woher wir das wissen". Was nur zu lesen ist,
+in Alltagssprache, nur die Antworten. Belege stehen hier in der Doku, auf der Seite steht nur eine offizielle Quelle, wo es eine gibt (Debrick-Anleitung von Hacktribe). Was nur zu lesen ist,
 folgt nach einer Sekunde von selbst; Knöpfe gibt es nur, wo man etwas tun oder beantworten muss.
 
 Alle Rettungswege liegen in der Firmware selbst. Eine Firmware, die vor ihnen hängt, ist ohne JTAG

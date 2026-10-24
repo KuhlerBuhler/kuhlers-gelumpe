@@ -4,7 +4,7 @@
  * the person has to do or answer something. Content: data/rescue.mjs.
  */
 import { el } from "./fields.mjs";
-import { FLOW, STATUS, LINKS, BUTTONS } from "../../data/rescue.mjs";
+import { FLOW, LINKS, BUTTONS } from "../../data/rescue.mjs";
 import { e2Art } from "./e2-art.mjs";
 
 /** The pause before Blechy's next message when the one before only had something to read. */
@@ -13,12 +13,6 @@ const PAUSE_MS = 1000;
 const BODY = { red: "var(--color-card-suit-red)", blue: "var(--color-chart-blue)", grey: "var(--color-text-muted)" };
 const MOODS = { idle: "img/blechy/idle.png", happy: "img/blechy/happy.png", angry: "img/blechy/angry.png", wave: "img/blechy/wave.png", sad: "img/blechy/sad.png" };
 
-const pill = status => {
-  const p = el("span", { className: "cee-status", textContent: STATUS[status].text });
-  p.dataset.tone = STATUS[status].tone;
-  return p;
-};
-
 const link = (href, text) => el("a", { className: "cee-text-link", href, target: "_blank", rel: "noopener noreferrer", textContent: text });
 
 /** A line of text: a string, or parts where { link, text } is a link to LINKS[link]; "issueNew" opens a new issue with `issue` filled in. */
@@ -26,13 +20,10 @@ const words = (line, issue = {}) => (Array.isArray(line)
   ? line.map(part => (typeof part === "string" ? part : link(part.link === "issueNew" ? `${LINKS.issues}/new?${new URLSearchParams(issue)}` : LINKS[part.link], part.text)))
   : [line]);
 
-/** What Blechy says in one node: the lines, a path on the card, how sure it is, and behind a fold where that comes from. */
+/** What Blechy says in one node: the lines, a path on the card, and the official guide for the step if there is one. */
 const say = (node, issue) => [
   ...node.say.map(line => (line.path ? el("code", { className: "cee-rescue-path", textContent: line.path }) : el("p", {}, words(line, issue)))),
-  node.status ? el("div", { className: "cee-rescue-meta" }, [
-    pill(node.status),
-    node.note ? el("details", { className: "cee-rescue-note" }, [el("summary", { textContent: "Woher wir das wissen" }), el("p", {}, words(node.note))]) : null,
-  ]) : null,
+  node.source ? el("p", { className: "cee-rescue-source" }, ["Quelle: ", ...words(node.source)]) : null,
 ];
 
 export function rescuePage(root) {

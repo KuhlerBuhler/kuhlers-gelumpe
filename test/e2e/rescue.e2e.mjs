@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { setUp, go } from "./harness.mjs";
-import { FLOW, STATUS, BUTTONS, CASES, FOLDERS, DEVICES } from "../../data/rescue.mjs";
+import { FLOW, BUTTONS, CASES, FOLDERS, DEVICES } from "../../data/rescue.mjs";
 
 // axe is a dev dependency; without it only the checks that axe would add are skipped.
 const axe = await import("./support/axe.mjs").catch(() => null);
@@ -83,16 +83,15 @@ test("it starts but something is off: EXIT first, then the backup or Korg's file
   assert.deepEqual(page.errors, []);
 });
 
-test("every step that says something about the device says how sure it is", async () => {
+test("only answers on the page: no evidence markers, no folds", async () => {
   const page = await open();
   for (const c of CASES) {
     await page.click("#cee-rescue-again");
     await answer(page, c.label);
     await walk(page);
   }
-  const tones = await page.locator("#cee-rescue-chat .cee-status").allTextContents();
-  const words = new Set(Object.values(STATUS).map(s => s.text));
-  for (const text of tones) assert.ok(words.has(text), `a step without a known status: ${text}`);
+  assert.equal(await page.locator("#cee-rescue-chat .cee-status, #cee-rescue-chat details").count(), 0);
+  assert.doesNotMatch(await page.locator("#cee-rescue-chat").textContent(), /gemessen|offline gelesen|Woher wir das wissen/);
 });
 
 test("00 goes through the update prompt with Korg's file for the colour, and says where to ask when it does not help", async () => {
@@ -118,7 +117,7 @@ test("00 goes through the update prompt with Korg's file for the colour, and say
   assert.deepEqual(page.errors, []);
 });
 
-test("a device that shows nothing: first the power, then calm words, the bootloader only behind the fold", async () => {
+test("a device that shows nothing: first the power, then calm words and the official guide", async () => {
   const page = await open();
   await answer(page, CASES.find(c => c.id === "silent").label);
   assert.match(await said(page), /Netzteil/);
@@ -127,20 +126,19 @@ test("a device that shows nothing: first the power, then calm words, the bootloa
   const chat = await page.locator("#cee-rescue-chat").textContent();
   assert.match(chat, /nichts auf eigene Faust/);
   assert.match(chat, /GitHub Issue/);
-  const fold = page.locator("#cee-rescue-chat details.cee-rescue-note").last();
-  assert.match(await fold.textContent(), /JTAG/);
-  assert.equal(await fold.getAttribute("open"), null, "closed until asked");
+  const source = page.locator("#cee-rescue-chat .cee-rescue-source").last();
+  assert.match(await source.textContent(), /Quelle: Debrick-Anleitung von Hacktribe/);
+  assert.equal(await source.locator("a").getAttribute("href"), "https://github.com/bangcorrupt/hacktribe/wiki/Debrick");
   assert.equal(await page.locator("#cee-rescue-chat img[src$='angry.png']").count(), 0, "Blechy does not get angry");
 });
 
-test("the prompt case names the factory path, and the emulator's open result stays behind the fold", async () => {
+test("the prompt case names the factory path", async () => {
   const page = await open();
   await answer(page, CASES.find(c => c.id === "prompt").label);
   await answer(page, DEVICES.red.title);
   await answer(page, "Hab ich");
   const text = await page.locator("#cee-rescue-chat").textContent();
   assert.match(text, /KORG\/electribe sampler\/System\/SYSTEM\.VSB/);
-  assert.match(text, /Error, Invalid File/);
 });
 
 test("the start page and the patcher link to the page, and the link works", async () => {
