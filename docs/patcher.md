@@ -22,8 +22,10 @@ Tests geprüft.
 
 Die blaue Electribe 2 mit Synth-Firmware 2.02 hat einen eigenen Satz
 `data/patches/blech-synth.json`. Er enthält lesendes BLECH SysEx, Startbild, Theme,
-Ausschaltbild, Patternwechsel mit Bestätigung, TAP Motion, Notenassistent, Würfeln, MFX 2,
-BLECH-Menü und Plugins mit Blechy. Startbild-Editor, Preset-Erweiterung und Doom gehören nicht dazu.
+Ausschaltbild, Patternwechsel mit Bestätigung und Sync-Gruppen, TAP Motion, Notenassistent, Würfeln,
+MFX 2, Pad-Farben mit Akkorden in Pink, BLECH-Menü und Plugins mit Blechy
+und die EXIT-Shortcuts (EXIT + WRITE, EXIT + Pad). Startbild-Editor, Preset-Erweiterung, Ladeanimation
+und Doom gehören nicht dazu.
 Die Spielhilfen lassen sich im BLECH-Menü einstellen; EXIT beim Einschalten schaltet BLECH ab.
 Patternwechsel, TAP Motion, Notenassistent und Würfeln brauchen eine Karte, die seit dem Einschalten einmal da war; wer sie danach zieht, behält die Funktionen ([Messung](messungen/2026-10-18-karte-gezogen-tap-blinkt.md)).
 Warum die übrigen Ports abgelehnt wurden und welche Prüfungen bestehen, steht in der
