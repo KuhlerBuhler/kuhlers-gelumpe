@@ -227,6 +227,7 @@ const isPadLed = i => i >= 0x2c && i <= 0x4b;
 export function devicePanel(send, { prefix = "cee-e2" } = {}) {
   const pre = prefix;
   let frontNode = null;
+  let settled = null;
   const leds = new Map();
   // Knob markers rest at fixed positions while the device is off (KNOB_OFF_ANGLE).
   const restings = [];
@@ -557,7 +558,12 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
     /** The display and the controls only mean something while the firmware runs. */
     setPower(on) {
       const root = frontNode;
-      if (root) root.dataset.power = on ? "on" : "off";
+      if (root) {
+        root.dataset.power = on ? "on" : "off";
+        root.dataset.settling = "";
+        clearTimeout(settled);
+        settled = setTimeout(() => delete root.dataset.settling, 400);
+      }
       powered = on;
       for (const show of restings) show();
       if (!on) popup.close();

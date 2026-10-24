@@ -247,8 +247,10 @@ const CLOSE_HOST: &str = "close.gelumpe.invalid";
 const EMULATOR: &str = "emulator";
 
 /// window.open from the page: its own emulator window opens once, the outside pages go to the browser, nothing else opens.
+/// Any https page counts as outside here: a creator's profile link can point anywhere, and a new window of the page is
+/// only ever a link the user clicked. Navigation in place keeps the short list of `outside`.
 fn new_window(app: &AppHandle, url: Url, features: tauri::webview::NewWindowFeatures) -> NewWindowResponse<tauri::Wry> {
-    if outside(&url) {
+    if outside(&url) || url.scheme() == "https" {
         open_in_browser(url.as_str());
         return NewWindowResponse::Deny;
     }

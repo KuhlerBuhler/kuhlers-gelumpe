@@ -653,3 +653,28 @@ test("Meine Plugins is a sub-page of its own: empty it says so as a plain line; 
   assert.deepEqual(await page.locator("#cee-nav-state").getByRole("button").allTextContents(), ["Öffnen", "Speichern"], "the file actions of the editor sit in the navbar");
   assert.deepEqual(page.errors, []);
 });
+
+test("an own plugin tells about itself: a picture of 128 x 64, a description, the creator with a link; the catalog's creator links to Instagram", async () => {
+  const page = await open(undefined, { plugin: false });
+  await page.click("#cee-scripts-page-catalog");
+  const first = page.locator("#cee-catalog .cee-catalog-card").first();
+  assert.equal(await first.locator(".cee-creator-link").getAttribute("href"), "https://www.instagram.com/kuhler_buhler/", "Kuhler Buhler links to Instagram");
+  await makeOwn(page);
+  await page.click("#cee-script-words-open");
+  await page.locator("#cee-script-words[open]").waitFor();
+  // a picture half white, half black: the white half lights up on the card
+  const png = await page.evaluate(() => { const c = document.createElement("canvas"); c.width = 256; c.height = 128; const g = c.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0, 0, 256, 128); g.fillStyle = "#fff"; g.fillRect(0, 0, 128, 128); return c.toDataURL("image/png").split(",")[1]; });
+  await page.setInputFiles("#cee-script-picture-file", { name: "bild.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+  await page.waitForFunction(() => !document.querySelector("#cee-script-picture-clear").disabled);
+  await page.fill("#cee-script-description", "Eine Schlange.");
+  await page.fill("#cee-script-creator", "Jemand");
+  await page.fill("#cee-script-creatorUrl", "https://example.org/jemand");
+  await page.locator("#cee-script-words .ui-dialog-foot .btn").click();
+  await page.click("#cee-scripts-page-mine");
+  const card = page.locator("#cee-own-snake");
+  assert.match(await card.textContent(), /Eine Schlange\./);
+  assert.equal(await card.locator(".cee-creator-link").getAttribute("href"), "https://example.org/jemand");
+  const lit = await card.locator("canvas").evaluate(c => { const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; const at = x => { const i = (32 * c.width + x) * 4; return d[i] + d[i + 1] + d[i + 2]; }; return [at(10), at(c.width - 10)]; });
+  assert.ok(lit[0] > lit[1], `the white half of the picture is the lit one on the card: ${lit}`);
+  assert.deepEqual(page.errors, []);
+});
