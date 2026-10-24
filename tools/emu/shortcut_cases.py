@@ -2,7 +2,7 @@
 """Emulator checks for the EXIT shortcuts of the BLECH runtime (tools/patch/script_shortcuts.s,
 docs/messungen/2026-10-19-exit-shortcuts.md).
 
-check.py runs `cases` on every patched sampler copy that carries the BLECH menu. With EXIT held on the main screen, WRITE
+check.py runs `cases` on every patched copy that carries the BLECH menu, the blue Electribe's too (its places from data/synth-map/). With EXIT held on the main screen, WRITE
 saves the edited pattern into its own place (through the firmware's Write window) and a pad puts the sound of a part back to
 the values saved in the bank, the steps and the other parts left as they are. WRITE alone still only opens the window, and with
 EXIT held at power-on both are the firmware's.
@@ -34,7 +34,7 @@ KILL = menu_cases.KILL
 
 
 def has_hooks(payload):
-    return menu_cases.has_menu(payload) and not synthaddr.is_synth(payload)
+    return menu_cases.has_menu(payload)
 
 
 def entry(name, ok, detail):
@@ -68,6 +68,15 @@ class SBox(Box):
         self.run(0.3)
 
 
+def nudge(box):
+    """Turns knob 1 so that the pattern changes: 200 is the value it already holds in the synth's Init pattern, 40 then."""
+    for value in (200, 40):
+        box.m.send([2, 0, 0, value, 0])
+        box.run(0.5)
+        if box.live() != box.saved():
+            return
+
+
 def edit(box, part, step_byte=None):
     """Changes three sound bytes of a part (cutoff, level, pan) and, if asked, a byte of its first step. Returns the changed offsets."""
     base = PART + STRIDE * part
@@ -85,8 +94,7 @@ def case_save(payload, flash):
     out = []
     box = SBox(payload, flash)
     others = [box.saved(n) for n in (1, 2)]
-    box.m.send([2, 0, 0, 200, 0])
-    box.run(0.5)
+    nudge(box)
     edited = box.live() != box.saved()
     box.exit_held(True)
     box.dev.press(WRITE, 1.0)
@@ -97,8 +105,7 @@ def case_save(payload, flash):
                      f"edited {edited}; EXIT + WRITE: saved into its own place {box.live() == box.saved()}, screen {box.screen()}, "
                      f"other places untouched {[box.saved(n) for n in (1, 2)] == others}"))
     plain = SBox(payload, flash)
-    plain.m.send([2, 0, 0, 200, 0])
-    plain.run(0.5)
+    nudge(plain)
     plain.dev.press(WRITE, 0.3)
     plain.dev.press(WRITE, 1.5)
     out.append(entry("write_alone_is_stock", plain.screen() == WINDOW and plain.live() != plain.saved() and not plain.m.asserts,
@@ -160,8 +167,7 @@ def case_reset(payload, flash):
 
 def case_kill(payload, flash):
     box = SBox(payload, flash, held=KILL)
-    box.m.send([2, 0, 0, 200, 0])
-    box.run(0.5)
+    nudge(box)
     at = edit(box, 0)
     box.exit_held(True)
     box.dev.press(WRITE, 1.0)
@@ -181,7 +187,7 @@ def case_unsaved(payload, flash):
     led = lambda: box.m.leds.get(WRITE_LED, 0)
     box.run(1.0)
     clean = led()
-    box.m.send([2, 0, 0, 200, 0])
+    nudge(box)
     seen = set()
     for _ in range(40):
         box.run(0.05)
