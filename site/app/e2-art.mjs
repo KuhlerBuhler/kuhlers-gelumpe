@@ -1,7 +1,7 @@
 /**
  * A small Electribe 2 drawn from above (SVG), laid out like the emulator's front (site/app/panel.mjs): the places
- * of its controls were read off that front at a width of 200. Filled for the cards of the Rettung page, as lines
- * for the device cards of the patcher.
+ * of its controls were read off that front at a width of 200. Drawn as lines, for the device cards of the patcher,
+ * the Features page and the Rettung page.
  */
 const NS = "http://www.w3.org/2000/svg";
 const W = 200;
@@ -41,15 +41,7 @@ function svg(cls, label, inner) {
   return node;
 }
 
-export function e2Art(body, label) {
-  return svg("cee-e2-art", label, `<rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="4" fill="${body}"/>`
-    + rect(SCREEN, 1.5, "cee-e2-art-lcd") + rect(TOUCHPAD, 2, "cee-e2-art-touch")
-    + KNOBS.map(k => circle(k, "cee-e2-art-knob")).join("")
-    + BUTTONS.map(b => rect(b, 1, "cee-e2-art-pad")).join("")
-    + PADS.map(p => rect(p, 1.5, "cee-e2-art-pad")).join(""));
-}
-
-/** The same Electribe as lines only, in the colour of the element (`currentColor`). */
+/** The Electribe as lines only, in the colour of the element (`currentColor`). */
 export function e2Outline(label) {
   return svg("cee-e2-outline", label, `<g fill="none" stroke="currentColor" stroke-width="1.2">`
     + `<rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="4" stroke-width="2"/>`
