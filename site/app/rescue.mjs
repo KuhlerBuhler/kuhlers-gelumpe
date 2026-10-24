@@ -5,12 +5,11 @@
  */
 import { el } from "./fields.mjs";
 import { FLOW, LINKS, BUTTONS } from "../../data/rescue.mjs";
-import { e2Art } from "./e2-art.mjs";
+import { e2Outline } from "./e2-art.mjs";
 
 /** The pause before Blechy's next message when the one before only had something to read. */
 const PAUSE_MS = 1000;
 
-const BODY = { red: "var(--color-card-suit-red)", blue: "var(--color-chart-blue)", grey: "var(--color-text-muted)" };
 const MOODS = { idle: "img/blechy/idle.png", happy: "img/blechy/happy.png", angry: "img/blechy/angry.png", wave: "img/blechy/wave.png", sad: "img/blechy/sad.png" };
 
 const link = (href, text) => el("a", { className: "cee-text-link", href, target: "_blank", rel: "noopener noreferrer", textContent: text });
@@ -25,6 +24,13 @@ const say = (node, issue) => [
   ...node.say.map(line => (line.path ? el("code", { className: "cee-rescue-path", textContent: line.path }) : el("p", {}, words(line, issue)))),
   node.source ? el("p", { className: "cee-rescue-source" }, ["Quelle: ", ...words(node.source)]) : null,
 ];
+
+/** The Electribe of an answer as lines, like on the Features page, in the colour of its body. */
+const art = c => {
+  const svg = e2Outline(c.label);
+  svg.dataset.device = c.art;
+  return svg;
+};
 
 export function rescuePage(root) {
   const nodes = FLOW;
@@ -54,7 +60,7 @@ export function rescuePage(root) {
     const choices = node.choices ?? [];
     answers.replaceChildren(...choices.map(c => {
       const b = el("button", { type: "button", className: `btn${c.art ? " cee-rescue-folder" : ""}`, onclick: () => choose(c) }, [
-        c.art ? e2Art(BODY[c.art], c.label) : null,
+        c.art ? art(c) : null,
         el("span", { className: "cee-rescue-answer", textContent: c.label }),
         c.hint ? el("span", { className: "cee-rescue-hint", textContent: c.hint }) : null,
       ]);
