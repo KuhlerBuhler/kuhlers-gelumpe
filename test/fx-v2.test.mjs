@@ -4,7 +4,7 @@ import { readUnits } from "../src/node.mjs";
 import { FxRecord } from "../src/record.mjs";
 import { presetFile } from "../src/preset-file.mjs";
 import { fxText, readFx, fxFromRecord, fxToRecord, modFromType } from "../src/fx-v2.mjs";
-import { buildCollection, parseCollection, collectionEntry, factoryEntry, HEADER_SIZE, MOD_RECORD } from "../src/fx-collection.mjs";
+import { buildCollection, parseCollection, collectionEntry, factoryEntry, firmwarePresets, HEADER_SIZE, MOD_RECORD } from "../src/fx-collection.mjs";
 import { locateModTable, readModType } from "../src/modtable.mjs";
 import { recordOf, RECORD } from "../src/presets.mjs";
 import { makeRecord, makeFirmwareWithArrays } from "./helpers.mjs";
@@ -165,6 +165,20 @@ test("a factory preset moved to another place goes there byte for byte, with its
   assert.deepEqual(mod.entry.data, vsb.slice(table.file + MOD_RECORD, table.file + 2 * MOD_RECORD), "type 2 is the second record");
   assert.equal(readFx(mod.entry.text, units).preset.name, readModType(vsb, table.file, 1).name);
   assert.equal(factoryEntry(vsb, "mfx", 250, 0, units).ok, false, "a place the firmware does not have");
+});
+
+test("the presets of a firmware come out as own pieces: every named effect with its place, the modulation types, no empty place", async () => {
+  const vsb = await makeFirmwareWithArrays([
+    { kind: "mfx", slot: 1, record: makeRecord("mfx", { name: "Mod Delay", devices: { mfx: MOD_DELAY } }) },
+    { kind: "mfx", slot: 2, record: makeRecord("mfx", { name: "Tape Echo", devices: { mfx: TAPE_ECHO } }) },
+  ]);
+  const got = firmwarePresets(vsb, units);
+  assert.equal(got.ok, true, got.reason);
+  const mfx = got.pieces.filter(p => p.kind === "mfx");
+  assert.deepEqual(mfx.map(p => [p.slot, p.name]), [[1, "Mod Delay"], [2, "Tape Echo"]]);
+  for (const p of got.pieces) assert.equal(readFx(p.text, units).ok, true, `${p.kind} ${p.slot} reads back`);
+  assert.ok(got.pieces.some(p => p.kind === "mod"), "the modulation types come along");
+  assert.equal(firmwarePresets(new Uint8Array(0x200100), units).ok, false, "not a firmware of the red sampler");
 });
 
 test("a modulation type reads back with negative strengths, and out of range values are refused", () => {
