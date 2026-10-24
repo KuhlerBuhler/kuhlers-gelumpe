@@ -94,7 +94,7 @@ GROUP_AT = 0x3B80               # the sync group in a pattern block, u16 little 
 
 FIRMWARE_PLACES = ["WHEEL_HOOK", "SELECT", "PAD_HOOK", "PAD_BODY", "MIDI_HOOK", "MIDI_BODY", "MENU_SLOT", "MENU_ORIG", "EXIT_SLOT", "EXIT_ORIG",
                    "SEQ_CALL", "SEQ_FUNC", "STOP_HOOK", "STOP_BODY", "LABEL_HOOK", "NEXT_TEXT",
-                   "SYNC_HOOK", "SYNC_BODY"]
+                   "SYNC_HOOK", "SYNC_BODY", "COPY_CALL", "MEMCPY"]
 SYNTH = False
 SYNTH_LABEL_WORD = 0xE59F10FC   # ldr r1, [pc, #0xfc]: the synth's builder is laid out a little differently
 
@@ -919,15 +919,13 @@ wrap_local:                     ; (value, 0, 249) like the firmware's, the range
 
 def source():
     text = SOURCE.replace("@CARD_CHECK@", card_gate.source("synth" if SYNTH else "hacktribe", "pa_no", STATE + card_gate.LATCH_OFFSET))
-    if SYNTH:                   # no sync groups on the synth: its pattern load is not measured
-        text = text[:text.index("; @COPY_BEGIN@")] + text[text.index("; @COPY_END@") + len("; @COPY_END@"):]
     if SYNTH:
         text = synthaddr.source(text, own=[(STATE, STATE_END)], keep={0xC0040D24}).replace("bl WRAP", "bl wrap_local").replace("\nview_text:", WRAP_LOCAL + "\nview_text:")
     for key, value in {
         "SELECT": f"{SELECT:#x}", "MENU_ORIG": f"{MENU_ORIG:#x}", "EXIT_ORIG": f"{EXIT_ORIG:#x}", "NEXT_TEXT": f"{NEXT_TEXT:#x}",
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "PAD_BODY": f"{PAD_BODY:#x}",
         "MIDI_BODY": f"{MIDI_BODY:#x}", "STOP_BODY": f"{STOP_BODY:#x}", "SYNC_BODY": f"{SYNC_BODY:#x}",
-        "GROUPS": "0" if SYNTH else "1", "GROUP_AT": f"{GROUP_AT:#x}", "MEMCPY": f"{MEMCPY:#x}", "SG_BUF": f"{SG_BUF:#x}",
+        "GROUPS": "1", "GROUP_AT": f"{GROUP_AT:#x}", "MEMCPY": f"{MEMCPY:#x}", "SG_BUF": f"{SG_BUF:#x}",
     }.items():
         text = text.replace(f"@{key}@", value)
     return text
@@ -983,7 +981,7 @@ def build_patch(vsb, build="hacktribe"):
         (STOP_HOOK, STOP_WORD, "the pending applier does not start with ldrb r3, [r0, #0x341]"),
         (LABEL_HOOK, LABEL_WORD, "the lower line builder does not load NEXT: as the patch expects"),
         (SYNC_HOOK, SYNC_WORD, "the stopped sync of the pattern selection does not start with push {r4, r5, r6, lr}"),
-    ) + (() if SYNTH else ((COPY_CALL, bl_word(COPY_CALL, MEMCPY), "the pattern load does not copy with memcpy where the patch expects it"),))
+    ) + ((COPY_CALL, bl_word(COPY_CALL, MEMCPY), "the pattern load does not copy with memcpy where the patch expects it"),)
     for addr, want, why in expected:
         if word(addr) != want:
             raise SystemExit(f"{why} in this VSB")
@@ -993,8 +991,7 @@ def build_patch(vsb, build="hacktribe"):
     if was(NEXT_TEXT, 6) != b"NEXT:\x00":
         raise SystemExit("the NEXT: text is not where the patch expects it in this VSB")
     free(STATE, STATE_END - STATE)
-    if not SYNTH:
-        free(SG_BUF, SG_SIZE)
+    free(SG_BUF, SG_SIZE)
 
     def hook(addr, name, link, note):
         return {"file": file_offset(addr), "bytes": branch(addr, symbols[name], link).hex(), "expect": sha(was(addr, 4)), "note": note}
@@ -1020,7 +1017,8 @@ def build_patch(vsb, build="hacktribe"):
             hook(STOP_HOOK, "stop_hook", False, "first instruction of the pending applier jumps to the hook"),
             hook(LABEL_HOOK, "label_hook", True, "the load of NEXT: goes through the hook"),
             hook(SYNC_HOOK, "sync_hook", False, "first instruction of the stopped sync jumps to the hook"),
-        ] + ([] if SYNTH else [hook(COPY_CALL, "copy_hook", True, "the copy of the pattern load goes through the hook (sync groups)")]),
+            hook(COPY_CALL, "copy_hook", True, "the copy of the pattern load goes through the hook (sync groups)"),
+        ],
         "hooks": [
             declare(WHEEL_HOOK, "instruction", "pattern-set", "replace", False, "wheel while playing: browse with set_number(psel, n, 0) instead of the branch into the selector; set_number is still called, so what reacts to it still sees the number"),
             declare(PAD_HOOK, "instruction", "pattern-set", "before", False, "pad selection clears browse and confirmation"),
@@ -1031,19 +1029,18 @@ def build_patch(vsb, build="hacktribe"):
             declare(STOP_HOOK, "instruction", "stop-pending", "before", False, "STOP drops a browse, or applies the confirmed pattern as the firmware does"),
             declare(LABEL_HOOK, "instruction", "pattern-label", "replace", False, "VIEW: instead of NEXT: while browsing"),
             declare(SYNC_HOOK, "instruction", "stopped-sync", "before", False, "stopped, an unsaved pattern browsed away from: the chosen number is not loaded"),
-        ] + ([] if SYNTH else [declare(COPY_CALL, "call", "pattern-load-copy", "replace", False, "the copy carries the state of the pattern that played (part sound and mutes, tempo, MFX) between two patterns of one sync group")]),
+            declare(COPY_CALL, "call", "pattern-load-copy", "replace", False, "the copy carries the state of the pattern that played (part sound and mutes, tempo, MFX) between two patterns of one sync group"),
+        ],
         "startPhase": [
             {"file": file_offset(SYNC_HOOK), "length": 4, "why": "the stopped sync is an observer the firmware calls from the start on; the hook reads its own state word (FF at start, not 1) and runs the original"},
             {"file": file_offset(symbols["sync_hook"]), "length": symbols["view_text"] - symbols["sync_hook"], "why": "sync_hook: one load, a compare, then the replaced instruction and the way back"},
-        ] + ([] if SYNTH else [
             {"file": file_offset(COPY_CALL), "length": 4, "why": "the pattern load copies the first pattern into RAM during the start, through the copy hook"},
             {"file": file_offset(symbols["pc_group"]), "length": symbols["pc_notify"] - symbols["pc_group"], "why": "copy_hook, pc_group and the sync group walk: the panel's keys, the two sync groups and the loaded bank block read, the memcpy, the bank block remembered, no literal"},
-        ]),
+        ],
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C, MENU's LED at +0x20", "tools/patch/pattern_switch.py:STATE"),
-        ] + ([] if SYNTH else [
             ramdecl.area(SG_BUF, SG_SIZE, "sync group: the values carried into the new pattern during one pattern load", "tools/patch/pattern_switch.py:SG_BUF"),
-        ]),
+        ],
     }
 
 

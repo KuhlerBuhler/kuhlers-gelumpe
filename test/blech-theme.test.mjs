@@ -7,7 +7,7 @@ import { makeFirmware } from "./helpers.mjs";
 import {
   ArtError, FONT_SHAPE, FONT_TABLE, IMAGE_TABLE, buildThemePatch, checkArt, parseGlyph, parseIcon, readFonts, readImages,
 } from "../tools/patch/blech_theme.mjs";
-import { FONT_ART, ICON_ART } from "../tools/patch/blech_theme_art.mjs";
+import { FONT_ART } from "../tools/patch/blech_theme_art.mjs";
 
 const load = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
 const theme = load("data/patches/blech-theme.json");
@@ -110,11 +110,6 @@ test("the committed patch is a data patch with our bytes only and fits the set",
   assert.equal(theme.format, "gelumpe-patch");
   assert.ok(theme.changes.length >= 100 && theme.changes.every(c => /^[0-9a-f]+$/.test(c.bytes) && /^[0-9a-f]{64}$/.test(c.expect) && c.copy === undefined));
   assert.equal(checkHooks([theme]).ok, true);
-  const written = theme.changes.map(c => c.bytes).join("|");
-  const want = [];
-  for (const art of Object.values(FONT_ART)) for (const e of Object.values(art)) if (e) want.push(Buffer.from(parseGlyph(e).bytes).toString("hex"));
-  for (const e of Object.values(ICON_ART)) want.push(Buffer.from(parseIcon(e).bytes).toString("hex"));
-  for (const hex of want) assert.ok(written.includes(hex), `bitmap ${hex} is not in the patch`);
   const size = JSON.stringify(theme).length;
   assert.ok(size < 200_000, `${size} bytes`);
 });
@@ -122,6 +117,15 @@ test("the committed patch is a data patch with our bytes only and fits the set",
 test("the committed patch is what the generator makes from the user's firmware", { skip: process.env.E2_VSB ? false : "set E2_VSB" }, () => {
   const vsb = new Uint8Array(readFileSync(process.env.E2_VSB));
   assert.deepEqual(buildThemePatch(vsb).patch, theme, "rebuild with node tools/patch/blech_theme.mjs --vsb SYSTEM.VSB --out data/patches/blech-theme.json");
+  // Where the drawing equals the firmware's for four bytes or more, the patch leaves the bytes out.
+  for (const c of theme.changes) {
+    const bytes = Buffer.from(c.bytes, "hex");
+    let same = 0;
+    for (let i = 0; i < bytes.length; i++) {
+      same = vsb[c.file + i] === bytes[i] ? same + 1 : 0;
+      assert.ok(same < 4, `firmware bytes at file 0x${(c.file + i).toString(16)}`);
+    }
+  }
 });
 
 test("the theme applies together with the BLECH set to the user's firmware", { skip: process.env.E2_VSB ? false : "set E2_VSB" }, async () => {
