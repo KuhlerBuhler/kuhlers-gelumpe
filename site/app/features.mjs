@@ -143,7 +143,7 @@ export function featuresPage(root) {
         f.image ? pictureOf(f) : null,
         el("h3", { textContent: f.title }),
         el("p", { textContent: f.text }),
-        f.how ? el("div", { className: "cee-feature-how" }, [el("span", { className: "cee-feature-how-label", textContent: "So geht's" }), el("p", { textContent: f.how })]) : null,
+        f.how ? el("p", { className: "cee-feature-how" }, [el("strong", { textContent: "So geht's: " }), f.how]) : null,
         f.where.length ? Object.assign(el("ul", { className: "cee-feature-where" }, f.where.map(device => {
           const art = e2Outline(DEVICE[device]);
           art.setAttribute("aria-hidden", "true");
