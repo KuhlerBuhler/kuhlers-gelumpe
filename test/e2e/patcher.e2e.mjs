@@ -309,7 +309,7 @@ test("patcher: Korg's original takes BLECH directly, with no hacktribe-2.patch, 
   assert.equal(await page.locator("#cee-patch-hacktribe-use").isChecked(), false, "BLECH direkt is the default");
   assert.equal(await page.isDisabled("#cee-patch-hacktribe-file"), true);
   assert.match(await route.textContent(), /Patche auch Hacktribe/);
-  assert.match(await route.textContent(), /Hacktribe ergänzt Filter für den Synth, zusätzliche Effekte und SysEx zum Lesen und Schreiben im RAM, das der Live-Modus des Editors braucht\./);
+  assert.match(await route.textContent(), /Hacktribe ergänzt Filter für den Synth und zusätzliche Effekte\. Den Live-Modus des Editors bringt BLECHTRIBE selbst mit\./);
   assert.equal(await page.locator("#cee-patch-bar").isVisible(), false, "no progress before the run");
 
   await page.click("#cee-patch-next");

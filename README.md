@@ -35,7 +35,7 @@
 - **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen Samples bleiben erhalten. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
 - **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
 - **Hab ich mit BLECHTRIBE noch Hacktribe?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf. Auf Korgs Original schaltet es die Hacktribe-Funktionen nicht frei.
-- **Wie kann ich eigene Effekte machen?** In der App unter **Presets**. Da bearbeitest du die MFX- und IFX-Presets in Klartext und schickst sie per USB an die Electribe. Das geht auf der roten Electribe mit Hacktribe oder BLECHTRIBE.
+- **Wie kann ich eigene Effekte machen?** In der App im **Baukasten**. Da nimmst du einen fertigen Effekt oder baust einen aus Bausteinen, mit Namen und echten Einheiten. Über den Export kommen sie auf die SD-Karte, einzelne auch live per USB. Das geht auf der roten Electribe mit BLECHTRIBE.
 - **Ich hab eine Idee für die App oder die Firmware.** Immer her damit: [Idee aufschreiben](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). Dafür brauchst du ein GitHub-Konto.
 
 ## So kommt BLECHTRIBE auf deine Electribe
@@ -45,7 +45,7 @@ Du brauchst einen Rechner (Mac, Windows oder Linux) und einen SD-Kartenleser. Ei
 1. **App laden** über den Knopf oben. Auf der Seite ganz unten bei "Assets": `.dmg` für Mac, `.exe` für Windows.
    Auf dem Mac blockiert das System die App beim ersten Öffnen, weil sie nicht von Apple signiert ist. Wie du sie freigibst, steht unter [Die App laden](#die-app-laden).
 2. **SD-Karte** aus der Electribe in den Rechner stecken.
-3. **App öffnen**, links auf **Patcher**, dann die Datei `SYSTEM.VSB` von deiner Karte reinziehen.
+3. **App öffnen**, links auf **Firmware Patcher**, dann die Datei `SYSTEM.VSB` von deiner Karte reinziehen.
    Du findest sie im Ordner `KORG/electribe sampler/System/` (Original) oder `KORG/hacktribe/System/` (Hacktribe) oder `KORG/electribe/System/` (blaue Electribe).
 4. **Warten**, bis die App fertig geprüft hat (ein paar Minuten), dann die neue Datei speichern.
    Die App sagt dir, wohin sie auf der Karte muss.
@@ -74,6 +74,9 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Plugins und Spiele (Snake, Tetris, ...) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Pad-Farben und LED-Farben | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Patternwechsel erst nach Bestätigung | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Sync-Gruppen (Patterns spielen wie eins) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Schnell speichern (EXIT + WRITE), Part zurücksetzen (EXIT + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Akkorde in Pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Notenassistent | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Würfeln (Zufallsmelodie) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -115,7 +118,7 @@ schematisch mit unserer eigenen Schrift dargestellt.
 
 ## Die Firmware patchen
 
-Auf der Seite "Patcher" ziehst du deine eigene `SYSTEM.VSB` rein (Korgs Original 2.02 für Sampler oder
+Auf der Seite "Firmware Patcher" ziehst du deine eigene `SYSTEM.VSB` rein (Korgs Original 2.02 für Sampler oder
 Synth, oder Hacktribe 2.02), wählst die Patches aus und bekommst eine neue Datei. Bevor du die
 runterladen kannst, bootet der Emulator sie und prüft, ob alles läuft: Hauptbildschirm, Update-Abfrage,
 Startmodi, Notschalter. Das dauert ein paar Minuten, du siehst dabei, welche Gruppe gerade dran ist.
@@ -124,7 +127,7 @@ Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches 
 `.bsdiff`-Datei aus dem Release, das steht da auch.
 
 Was BLECH auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
-LEDs, Patternwechsel erst nach Bestätigung, TAP Motion, den Notenassistenten im KEYBOARD-Modus, einen
+LEDs, Patternwechsel erst nach Bestätigung, Sync-Gruppen, TAP Motion, den Notenassistenten im KEYBOARD-Modus, einen
 Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
 zurück, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
 hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
@@ -150,8 +153,9 @@ Wenn dir das was bringt, freu ich mich über eine [Spende per PayPal](https://ww
 
 ## Was du damit machen kannst
 
-GELUMPE läuft als App oder im Browser und funktioniert mit dem Electribe 2 Sampler mit Firmware
-2.02, egal ob Korgs Original oder [Hacktribe](https://github.com/bangcorrupt/hacktribe). Du kannst
+GELUMPE läuft als App oder im Browser und funktioniert mit der Electribe 2 mit Firmware 2.02, dem
+roten Sampler (Korgs Original oder [Hacktribe](https://github.com/bangcorrupt/hacktribe)) und der
+blauen Synth (Korgs Original). Du kannst
 
 - die Firmware deiner Electribe im **Emulator** starten und bedienen, mit Display, Tasten, Reglern
   und LEDs, ohne dass irgendwas an dein Gerät geht,
@@ -159,8 +163,9 @@ GELUMPE läuft als App oder im Browser und funktioniert mit dem Electribe 2 Samp
   (BLECH, eigenes Startbild, zweiter Master-Effekt und einiges mehr),
 - **Plugins** schreiben, die direkt auf der Electribe laufen, zum Beispiel ein Lauflicht, ein Spiel
   auf dem Display oder eine eigene Menüseite, oder fertige aus dem Katalog nehmen,
-- Effekte und Patterns in Klartext mit echten Einheiten bearbeiten statt in Bytes und sie per Web MIDI
-  ans Gerät schicken, und einzelne Presets als `.e2fx`-Datei weitergeben und laden.
+- im **Baukasten** eigene Effekte und Modulationen bauen, mit echten Einheiten statt Bytes, und sie
+  als `.e2fx`-Datei weitergeben oder als eine Datei für die Karte exportieren,
+- Patterns bearbeiten und per Web MIDI ans Gerät schicken.
 
 Bevor irgendwas ans Gerät geht, schauen ein Linter mit Regeln, die ich am echten Gerät abgeglichen hab,
 und der Emulator drüber, ob die Electribe das voraussichtlich schluckt. Emulator, Patcher und Plugins
@@ -242,7 +247,7 @@ Mit einem Plugin bringst du der Electribe was Neues bei. Es kommt über die SD-K
 übersetzt das in Bytecode für eine kleine VM in der Firmware. Wenn ein Plugin einen Fehler hat, wird
 nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
 [docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
-Snake, Tetris, Game of Life, Pong, Simon und Mandelbrot.
+Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Lauflicht und Pulsieren.
 
 ## Der Emulator
 
@@ -264,8 +269,8 @@ Ein falscher Schreibzugriff oder eine fehlerhafte Firmware kann das Gerät häng
   also bei einer Abweichung nicht aus.
 - **Zurück:** die gesicherte Original-`SYSTEM.VSB` wieder aufspielen. Wie das geübt wurde, steht in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
-- **Wenn das Gerät nicht mehr startet:** die Seite "Rettung" im Editor führt durch den dokumentierten
-  Weg und sagt bei jedem Schritt, ob er am Gerät gemessen ist. Der Bootloader bleibt tabu, dahinter
+- **Wenn das Gerät nicht mehr startet:** die Seite "Rettung" im Editor fragt, was du siehst, und führt
+  dich den dokumentierten Weg zurück. Der Bootloader bleibt tabu, dahinter
   hilft nur JTAG ([docs/rettung.md](docs/rettung.md)).
 - **Selbst testen:** die [Gerätetests](docs/geraetetests/README.md) beschreiben, wie du BLECH und die
   Kartenfunktionen an deinem Gerät nachvollziehst, mit Warnung, Voraussetzungen, Sicherung und

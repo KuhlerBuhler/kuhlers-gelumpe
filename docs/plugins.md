@@ -24,8 +24,8 @@ Display").
 Die Seite hat fünf Teile: die Sprachreferenz (Aufbau, Apps und Display, Sprache,
 Ereignisse, Funktionen, Grenzen), die Karte mit dem Dateiformat, das Menü BLECH am Gerät, die
 Seite Plugins im Editor und den Abschnitt Stand. Was in der Sprachreferenz steht,
-gilt für die Sprache und ihre Prüfung im Browser und im Emulator. Am Gerät ist von
-der Plugin-Laufzeit noch nichts geprüft, Einzelheiten stehen unter Stand.
+gilt für die Sprache und ihre Prüfung im Browser und im Emulator. Am Gerät laufen das Menü BLECH
+und die Plugins der Karte; was dort im Einzelnen geprüft ist, steht unter Stand.
 
 ## Sprachreferenz
 
@@ -917,17 +917,19 @@ tiefer reichen die 14 Bit nicht.
 
 ## Die Seite Plugins im Editor
 
-Der Eintrag Plugins hat drei Seiten: Katalog, Editor und Dokumentation.
+Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der
+Brotkrumenleiste führt immer zurück zum Katalog.
 
-**Katalog:** zwei Knöpfe, die zusammengehören. „Katalog“ zeigt die Plugins der App als Karten (die Apps
-BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon und Mandelbrot unter GAMES, Set-Timer und GIF Player
-unter TOOLS, dazu Lauflicht und Pulsieren, Quelle `data/script/presets.mjs`). Jede Karte trägt Kategorie und
-Ersteller, auf der Karte stehen nur Herunterladen und Aufs Gerät. Der Titel führt auf die Seite des Plugins:
-Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
+**Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
+und Mandelbrot unter GAMES, Set-Timer und GIF Player unter TOOLS, dazu Lauflicht und Pulsieren, Quelle
+`data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
+Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
 laufenden Plugin auf der Zeichnung der Electribe und seinem Quelltext. Ein neues Plugin kommt per Pull Request auf
-GitHub in den Katalog, mit seinem Eintrag in `data/script/presets.mjs`. „Eigene Plugins“ zeigt die Plugins dieses
-Browsers mit Bearbeiten, Herunterladen, Aufs Gerät und Löschen, dazu Neues Plugin, Öffnen und Alle speichern.
+GitHub in den Katalog, mit seinem Eintrag in `data/script/presets.mjs`.
+
+**Meine Plugins:** die Plugins dieses Browsers als Karten wie im Katalog, dazu Neues Plugin, Öffnen und
+Alle speichern. Eine Karte öffnet das Plugin im Editor.
 
 **Editor:** der Editor über die ganze Seite, mit Zeilenspalte und dem Ergebnis des Übersetzens (Fehler mit
 Zeile und Spalte, ein Klick setzt den Cursor dorthin). Öffnen und Speichern stehen oben rechts in der Leiste,
@@ -1083,23 +1085,21 @@ der Ladebalken liegen; dort ist am Gerät noch nichts geprüft.
 
 ### Am Gerät
 
-Von der Plugin-Laufzeit ist am Gerät nichts geprüft. Die Firmwaredatei mit der
-Laufzeit ist gebaut, aber noch nicht aufs Gerät gespielt. Am Gerät gelesen ist nur
-eine Grundlage: die Display-Adresse `0xC031B310`, dort liegt das Bild des
-Hauptbildschirms ([Messung](messungen/2026-10-09-menuezustand.md)).
-
-Der erste Test am Gerät ist der Kartentest: Dateien lesen und schreiben über die
-FatFs-Funktionen der Firmware, ohne Flash ([Schrittliste](geraetetests/karte.md)).
-Danach folgt die Firmwaredatei mit der Laufzeit
-([Schrittliste](geraetetests/blech-datei.md)).
+Die Firmwaredatei mit der Laufzeit läuft am eigenen Gerät. Das Menü BLECH, IMPORT PLUGIN,
+EXPORT ALL und `korg.store` haben dort Dateien auf der Karte gelesen und geschrieben
+(`e2sPlugin.all`, `store.a.bin`, `store.b.bin`), die Anpassung, die Seiten von FEATURES und
+SPLASH IMPORT und DRAW sind am Gerät bedient. Die Wünsche aus diesen Tests stehen in den Messungen
+ab dem 18.10. ([Plugin bleibt aus](messungen/2026-10-18-plugin-bleibt-aus.md),
+[Importliste](messungen/2026-10-19-plugin-import-liste.md),
+[Sync und Menüs](messungen/2026-10-22-sync-und-menues.md)). Was eine Messung nur im Emulator
+gespielt hat, sagt sie selbst. Die Schrittlisten für einen eigenen Test:
+[Kartentest](geraetetests/karte.md) und [Firmwaredatei](geraetetests/blech-datei.md).
 
 ### Offen
 
-- **Alles am Gerät:** Lesen, Schreiben und Verzeichnis lesen über FatFs in unserem
-  Code, die Zeit je Rahmen gegen das Budget von 5 ms (hergeleitet etwa 0,17 ms je
-  Snake-Rahmen), der Hörtest (keine hörbaren Aussetzer bei Musik und Snake), das
-  Hintergrundlicht auf Batterie mit Power Save "Auto", die LED-Sperre, das Menü in
-  der Hand.
+- **Am Gerät nicht eigens gemessen:** die Zeit je Rahmen gegen das Budget von 5 ms
+  (hergeleitet etwa 0,17 ms je Snake-Rahmen), ein Hörtest auf Aussetzer bei Musik und
+  Snake, das Hintergrundlicht auf Batterie mit Power Save "Auto", die LED-Sperre.
 - **Timer3:** die Periode von einer Sekunde ist im Emulator gemessen, am Gerät nicht
   gelesen.
 - **Haken `save`:** im Emulator eingehängt, dort aber nicht ausgelöst (WRITE auf
@@ -1116,8 +1116,8 @@ Danach folgt die Firmwaredatei mit der Laufzeit
   des Rahmens, ein dauerhaft abgelehnter Index blockiert die übrigen LEDs ohne
   Meldung, und das Ausschalten der Interrupts setzt einen privilegierten Modus
   voraus ([Messung](messungen/2026-10-14-skript-led.md)).
-- **Menü:** kein Schalter für das Startbild, pausierte Plugins merkt sich die Datei
-  nicht, lange Namen werden abgeschnitten, die Dateiliste merkt höchstens 8 Namen
+- **Menü:** kein Schalter für das Startbild, lange Namen werden abgeschnitten, die Liste
+  von IMPORT PLUGIN zeigt höchstens 16 Plugins
   ([Messung](messungen/2026-10-14-blech-menue.md)).
 - **IMPORT PLUGIN und EXPORT ALL in DATA UTILITY:** nicht gebaut, sie stehen in der Gruppe
   PLUGINS des Menüs BLECH. Die Funktionsliste von DATA UTILITY ist der Bildschirm 15, eine
