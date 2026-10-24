@@ -1,7 +1,7 @@
 /**
  * The one toast of the app: a small bubble bottom right. Success and info go away by themselves, an error stays until
  * it is closed. Success and info are announced politely, errors at once (two live regions in one popover layer).
- * Only a state that stays true belongs inline; anything that reports an action belongs here.
+ * Infos, warnings and errors never stand in the page itself, they all come here; a screen-reader line may keep them too.
  */
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";

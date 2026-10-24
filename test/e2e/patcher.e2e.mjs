@@ -129,10 +129,11 @@ test("patcher: Weiter and Zurück walk the four steps, Korg's firmware cards sit
 test("patcher: a file that is no VSB, or not the measured firmware, is named and cannot be patched", async () => {
   const page = await patcherPage();
   await drop(page, new Uint8Array(100));
-  await page.locator("#cee-patch-verdict", { hasText: "Keine Firmware" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "Das ist keine Firmware-Datei" }).waitFor();
   assert.equal(await page.isDisabled("#cee-patch-next"), true);
   await drop(page, new Uint8Array(0x200100));
-  await page.locator("#cee-patch-verdict", { hasText: "Nicht erkannt" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "Diese Firmware kennt der Patcher nicht" }).waitFor();
+  assert.equal(await page.locator("#cee-patch-verdict").evaluate(n => n.classList.contains("ui-sr-only")), true, "on the page it is only the toast");
   assert.equal(await page.isDisabled("#cee-patch-next"), true);
   assert.deepEqual(page.errors, []);
 });
@@ -142,7 +143,7 @@ test("patcher: a file that already carries the patches reads as BLECH and is not
   const done = await applyPatches(await makeFirmware(), patches);
   assert.equal(done.ok, true, done.reasons.join(" "));
   await drop(page, done.bytes);
-  await page.locator("#cee-patch-verdict", { hasText: "Schon BLECHTRIBE" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "BLECHTRIBE schon drauf" }).waitFor();
   assert.equal(await page.isDisabled("#cee-patch-next"), true);
   assert.equal(await page.locator("#cee-patch-download").isVisible(), false);
 });

@@ -87,7 +87,7 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   await page.fill("#cee-bk-p-0-dry_wet-value", "40");
   assert.equal(await page.inputValue("#cee-bk-p-0-dry_wet"), "40", "a typed value turns the knob");
   await page.click("#cee-bk-fx-save");
-  assert.match(await page.locator("#cee-bk-fx-saved").textContent(), /Gespeichert: „Mein Delay“ steht unter Meine Effekte/, "the page says it was saved, not only a toast");
+  await page.locator("#app-toasts .cee-toast", { hasText: "Gespeichert: „Mein Delay“ steht unter Meine Effekte" }).waitFor();
   await page.click("#cee-bk-fx-save");
   await page.click("#cee-baukasten-page-mine");
   assert.equal(await page.locator("#cee-bk-mine li").count(), 1, "saving again changes the same one");
@@ -215,7 +215,6 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-tab-baukasten");
   await page.click("#cee-baukasten-page-export");
-  await page.locator("#cee-bk-card-note", { hasText: "geladen" }).waitFor();
   const bytes = await h.download(page, () => page.click("#cee-bk-collection"));
   const read = parseCollection(bytes);
   assert.equal(read.ok, true, read.reason);

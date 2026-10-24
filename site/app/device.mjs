@@ -16,19 +16,20 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   let session = null;
   // What went wrong survives a reconnect: one carry per port name.
   const carries = new Map();
-  const status = el("div", { className: "cee-device-status", role: "status" });
+  const status = el("div", { className: "cee-device-status ui-sr-only", role: "status" });
   const decide = el("div", { className: "cee-decide", id: "cee-decide", role: "alert", hidden: true });
   const facts = el("dl", { className: "cee-facts" });
   const choose = el("div", { className: "ui-field", hidden: true });
   const button = el("button", { type: "button", className: "btn cee-primary", id: "cee-connect", textContent: "Mit Electribe verbinden" });
   const emuButton = el("button", { type: "button", className: "btn", id: "cee-connect-emu", textContent: "Mit Emulator verbinden", hidden: true });
-  const rehearseState = el("p", { className: "muted", id: "cee-rehearse-state", "aria-live": "polite" });
-  const ledNote = el("p", { className: "muted", id: "cee-led-note", "aria-live": "polite" });
+  const rehearseState = el("p", { className: "ui-sr-only", id: "cee-rehearse-state", "aria-live": "polite" });
+  const ledNote = el("p", { className: "ui-sr-only", id: "cee-led-note", "aria-live": "polite" });
   const log = el("ul", { className: "ui-list cee-log" });
   const say = (tone, word, text) => {
     status.hidden = false;
+    // Only screen readers read the line; on the page it is the toast, nothing stands above the device.
     status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }));
-    if (tone === "error") toast(text, "error");
+    toast(text, tone === "error" ? "error" : tone === "ok" ? "ok" : "info", { stay: tone === "warn" });
   };
   const clear = () => { status.hidden = true; status.replaceChildren(); };
 
@@ -89,6 +90,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     if (!emu?.running) {
       session.rehearseOn(null);
       rehearseState.textContent = "Probe im Emulator: Emulator läuft nicht. Starte ihn im Bereich Emulator, dann neu verbinden; bis dahin geht nichts ans Gerät.";
+      toast(rehearseState.textContent, "info", { stay: true });
       return;
     }
     try {
@@ -101,6 +103,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     } catch (e) {
       session.rehearseOn(null);
       rehearseState.textContent = `Probe im Emulator: nicht möglich (${e.message}). Nichts geht ans Gerät.`;
+      toast(rehearseState.textContent, "error");
     }
   }
 
@@ -191,6 +194,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       if (++ledFails === 3) {
         ledsOffFor = s;
         ledNote.textContent = `LEDs: nicht lesbar, die Anzeige bleibt dunkel. ${e.message}`;
+        toast(ledNote.textContent, "error");
       }
     } finally { lighting = false; }
   }
