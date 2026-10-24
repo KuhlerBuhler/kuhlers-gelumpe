@@ -13,7 +13,7 @@ import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs
 import { clamp } from "./dials.mjs";
 import { parseUnits } from "../../src/units.mjs";
 import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
-import { buildCollection, parseCollection, collectionEntry, factoryEntry, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
+import { buildCollection, parseCollection, collectionEntry, factoryEntry, firmwarePresets, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
 import { buildOf } from "../../src/firmware.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
 import { GROUPS, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
@@ -738,6 +738,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   const mineTitle = el("h2", { className: "cee-bk-title", textContent: "Meine Effekte" });
   const mineEmpty = el("p", { className: "muted", id: "cee-bk-mine-empty" });
   function renderMine() {
+    renderFirmware();
     const list = ownList().filter(o => (shelfKind === "mod") === (o.kind === "mod"));
     mineEmpty.hidden = list.length > 0;
     mineEmpty.textContent = shelfKind === "mod" ? "Noch keine Modulation gespeichert. Nimm eine aus dem Katalog oder bau eine im Editor." : "Noch kein Effekt gespeichert. Nimm einen aus dem Katalog oder bau einen im Editor.";
@@ -772,9 +773,68 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     page("editor");
     toast(`${file.name} geöffnet. Speichern legt ${read.preset.kind === "mod" ? "sie unter Meine Modulationen" : "ihn unter Meine Effekte"} ab.`, "ok");
   });
+
+  // Presets out of a firmware file: who has Korg's original (free at Korg) or Hacktribe takes its presets over as own pieces.
+  // The file stays in the browser; only what is taken over is kept, as .e2fx text like every own piece.
+  let fromFirmware = null;   // {file, pieces} of the last SYSTEM.VSB read here
+  const vsbInput = el("input", { type: "file", className: "cee-visually-hidden", id: "cee-bk-vsb", accept: ".VSB,.vsb" });
+  const fwTitle = el("h3", { id: "cee-bk-fw-title" });
+  const fwList = el("ul", { className: "cee-catalog cee-bk-catalog", id: "cee-bk-fw-list" });
+  const fwAll = el("button", { type: "button", className: "btn", id: "cee-bk-fw-all", textContent: "Alle übernehmen" });
+  const fwSection = el("section", { className: "cee-bk-fw", id: "cee-bk-fw", hidden: true }, [fwTitle, el("div", { className: "actions" }, [fwAll]), fwList]);
+  const fwPieces = () => (fromFirmware?.pieces ?? []).filter(p => (shelfKind === "mod") === (p.kind === "mod"));
+  /** Takes pieces over into the own list; one that is there already (the same text) is not added twice. Returns how many are new. */
+  function takeOver(pieces) {
+    const list = ownList();
+    let added = 0;
+    for (const p of pieces) {
+      if (list.some(o => o.text === p.text)) continue;
+      list.push({ id: newId(), kind: p.kind, text: p.text });
+      added++;
+    }
+    if (added && !writeOwn(list)) { toast("Dieser Browser lässt die Seite nichts speichern.", "error"); return 0; }
+    renderMine();
+    renderExport();
+    return added;
+  }
+  function renderFirmware() {
+    const pieces = fwPieces();
+    fwSection.hidden = !fromFirmware;
+    if (!fromFirmware) return;
+    fwTitle.textContent = `Aus ${fromFirmware.file}: ${pieces.length} ${shelfKind === "mod" ? "Modulationen" : "Effekte"}`;
+    const own = new Set(ownList().map(o => o.text));
+    fwAll.disabled = pieces.every(p => own.has(p.text));
+    fwList.replaceChildren(...pieces.map(p => {
+      const preset = parse(p);
+      const taken = own.has(p.text);
+      const take = el("button", { type: "button", className: "btn sm cee-bk-take", textContent: taken ? "Übernommen" : "Übernehmen", disabled: taken, onclick: () => {
+        if (takeOver([p])) toast(`„${p.name}“ steht jetzt unter ${p.kind === "mod" ? "Meine Modulationen" : "Meine Effekte"}.`, "ok");
+      } });
+      return card({ ...preset, description: `Platz ${p.slot}` }, { creator: null, onOpen: () => { if (p.kind === "mod") openMod(preset, null); else openFx(preset, null); page("editor"); }, extra: take, id: `cee-bk-fw-${p.kind}-${p.slot}` });
+    }));
+  }
+  fwAll.addEventListener("click", () => {
+    const added = takeOver(fwPieces());
+    toast(`${added} ${shelfKind === "mod" ? "Modulationen" : "Effekte"} übernommen. Unter Export legst du fest, auf welchem Platz sie liegen.`, "ok");
+  });
+  vsbInput.addEventListener("change", async () => {
+    const file = vsbInput.files?.[0];
+    vsbInput.value = "";
+    if (!file) return;
+    const got = firmwarePresets(new Uint8Array(await file.arrayBuffer()), await loadUnits());
+    if (!got.ok) { toast(`${file.name}: ${got.reason}`, "error"); return; }
+    fromFirmware = { file: file.name, pieces: got.pieces };
+    renderMine();
+  });
+
   const minePage = el("div", { className: "cee-bk-page", id: "cee-bk-page-mine" }, [
     mineTitle, mineEmpty, mine,
-    el("div", { className: "actions" }, [el("label", { className: "btn", htmlFor: "cee-bk-open", textContent: ".e2fx-Datei öffnen" }), importInput]),
+    el("div", { className: "actions" }, [
+      el("label", { className: "btn", htmlFor: "cee-bk-open", textContent: ".e2fx-Datei öffnen" }), importInput,
+      el("label", { className: "btn", htmlFor: "cee-bk-vsb", textContent: "Presets aus einer Firmware holen" }), vsbInput,
+    ]),
+    el("p", { className: "muted", textContent: "Aus deiner SYSTEM.VSB, zum Beispiel Korgs Original 2.02 (kostenlos bei Korg) oder Hacktribe, holst du dir deren Presets als eigene. Die Datei bleibt auf deinem Rechner, gespeichert wird nur, was du übernimmst." }),
+    fwSection,
   ]);
 
   // ---- Export ------------------------------------------------------------------------

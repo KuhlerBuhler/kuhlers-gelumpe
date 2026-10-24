@@ -2932,7 +2932,9 @@ button.cee-text-link:hover {
 }
 
 /* The trash can sits above the button that reaches over the whole card. */
-.cee-bk-trash {
+/* Above the card's stretched link: the trash can of an own piece, Übernehmen of a piece out of a firmware. */
+.cee-bk-trash,
+.cee-bk-take {
   position: relative;
   z-index: 1;
   align-self: flex-end;

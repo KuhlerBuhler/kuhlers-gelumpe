@@ -165,3 +165,32 @@ export function factoryEntry(vsb, kind, from, index, units) {
   const data = vsb.slice(at.file, at.file + RECORD);
   return { ok: true, entry: { kind, index, data, text: fxText(fxFromRecord(data, kind, units)) } };
 }
+
+/**
+ * Every effect and modulation type of a firmware of the red sampler (Korg's 2.02 or Hacktribe) as .e2fx v2 text, so the
+ * Baukasten can take them over as own pieces: who has Korg's original file gets its presets back, nothing of it is shipped.
+ * Empty places are left out.
+ * @returns {{ok: true, pieces: {kind: "ifx"|"mfx"|"mod", slot: number, name: string, text: string}[]} | {ok: false, reason: string}}
+ */
+export function firmwarePresets(vsb, units) {
+  if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Presets lassen sich aus der Firmware des roten Samplers holen, Korgs Original 2.02 oder Hacktribe." };
+  const pieces = [];
+  for (const kind of ["mfx", "ifx"]) {
+    for (let slot = 1; recordOf(vsb, kind, slot); slot++) {
+      const at = recordOf(vsb, kind, slot);
+      const record = new FxRecord(vsb.slice(at.file, at.file + RECORD), kind);
+      if (record.empty || !record.name.trim()) continue;
+      const preset = fxFromRecord(record.bytes, kind, units);
+      pieces.push({ kind, slot, name: preset.name, text: fxText(preset) });
+    }
+  }
+  const table = locateModTable(vsb);
+  if (table.ok) {
+    for (let slot = 1; slot <= MOD_COUNT; slot++) {
+      const preset = modFromType(readModType(vsb, table.file, slot - 1));
+      if (preset.name.trim()) pieces.push({ kind: "mod", slot, name: preset.name, text: fxText(preset) });
+    }
+  }
+  if (!pieces.length) return { ok: false, reason: "In dieser Datei sind keine Presets zu finden. Nimm eine SYSTEM.VSB des roten Samplers." };
+  return { ok: true, pieces };
+}
