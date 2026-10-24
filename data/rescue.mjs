@@ -64,7 +64,36 @@ export const FLOW = {
   },
   fixed: {
     mood: "happy",
-    say: ["Jut! Mit gehaltenem EXIT lief sie aber nur dieses eine Mal ohne BLECHTRIBE. Spinnt sie beim nächsten normalen Start wieder, komm zurück, dann spielen wir die alte Firmware zurück."],
+    say: ["Gut, dann ist mit dem Gerät alles in Ordnung, es liegt an BLECHTRIBE. Mit gehaltenem EXIT läuft sie aber nur dieses eine Mal so, deshalb finden wir jetzt raus, woran genau."],
+    next: "nocard",
+  },
+  nocard: {
+    mood: "idle",
+    say: [
+      "Schalte sie aus, nimm die SD-Karte raus und schalte sie ganz normal ein, diesmal ohne EXIT.",
+      "Deine eigenen Samples können dabei fehlen, das ist nur für diesen Test.",
+    ],
+    choices: [{ label: "Ohne Karte läuft sie", to: "cardfiles" }, { label: "Spinnt auch ohne Karte", to: "backup" }],
+  },
+  cardfiles: {
+    mood: "idle",
+    say: [
+      "Dann liegt es an etwas auf der Karte, meistens an einem Plugin oder an einer Einstellung.",
+      "Steck die Karte in deinen Rechner und benenn diese Dateien um, zum Beispiel mit einem _ vorne. Fehlt eine, ist das in Ordnung:",
+      { path: "KORG/blechtribe/Plugin/e2sPlugin.all" },
+      { path: "KORG/blechtribe/settings.a.bin" },
+      { path: "KORG/blechtribe/settings.b.bin" },
+      "Dann die Karte zurück in die Electribe und ganz normal einschalten.",
+    ],
+    choices: [{ label: "Läuft jetzt", to: "cardfixed" }, { label: "Spinnt immer noch", to: "backup" }],
+  },
+  cardfixed: {
+    mood: "happy",
+    say: [
+      "Super, das bleibt jetzt so! Sie startet ohne deine Plugins und mit den Grundeinstellungen von BLECHTRIBE. Samples und Patterns sind davon nicht betroffen.",
+      "Willst du wissen, welche Datei es war, benenn sie einzeln zurück und schalte jedes Mal neu ein.",
+      ["Sag Kuhler Buhler gern Bescheid, was gesponnen hat, ", { link: "issueNew", text: "als GitHub Issue" }, ", dann wird es repariert."],
+    ],
   },
   backup: {
     mood: "idle",

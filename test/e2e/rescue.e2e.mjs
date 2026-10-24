@@ -56,8 +56,13 @@ test("it starts but something is off: EXIT first, then the backup or Korg's file
   await answer(page, CASES[0].label);
   assert.match(await said(page), /EXIT gedrückt halten/);
   await answer(page, "Hat geholfen");
-  assert.match(await said(page), /nur dieses eine Mal ohne BLECHTRIBE/);
-  await page.click("#cee-rescue-back");
+  assert.match(await said(page), /SD-Karte raus/, "EXIT only helps once, so the card comes out next");
+  await answer(page, "Ohne Karte läuft sie");
+  assert.deepEqual(await page.locator("#cee-rescue-chat .cee-rescue-path").allTextContents(), ["KORG/blechtribe/Plugin/e2sPlugin.all", "KORG/blechtribe/settings.a.bin", "KORG/blechtribe/settings.b.bin"]);
+  await answer(page, "Läuft jetzt");
+  assert.match(await said(page), /das bleibt jetzt so/);
+  await page.click("#cee-rescue-again");
+  await answer(page, CASES[0].label);
   await answer(page, "Hilft nicht");
   assert.match(await said(page), /Original-SYSTEM\.VSB/);
   await answer(page, "Ja, hab ich");
