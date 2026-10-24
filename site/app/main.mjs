@@ -543,6 +543,8 @@ function boot() {
   areas = window.ui?.tabs ? window.ui.tabs($("#cee-areas"), {
     persist: "cee.area",
     onChange: id => {
+      // all pages scroll the window: without this the next page opens where the last one was scrolled to
+      window.scrollTo({ top: 0, behavior: "instant" });
       nav.page(id);
       options.page(id);
       $("#cee-settings-button").toggleAttribute("aria-current", id === "settings");
