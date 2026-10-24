@@ -23,6 +23,12 @@ export const NEWS = Object.freeze([
       "Fehlermeldungen in einfachen Worten, jede sagt, was zu tun ist.",
       "CALIBRATE DISPLAY: drei unterschiedlich schnelle Bälle auf der Kontrastseite helfen beim Einstellen des Displays.",
       "Plugins werden beim Laden mit weniger Rechenarbeit geprüft. Die Größenlimits bleiben gleich.",
+      "Auch auf der blauen Electribe: BLECH-Menü mit Plugins, Sync Groups, EXIT + WRITE speichert, EXIT + Pad setzt einen Part zurück, Akkorde in Pink.",
+      "Untere LEDs: RAINBOW jetzt auch bei vollem Pegel (METER LOUD), eine Farbrunde pro Takt im Tempo des Patterns.",
+      "Baukasten: Werks-Presets lassen sich beim Export auf andere Plätze schieben. Aus deiner SYSTEM.VSB, etwa Korgs Original, holst du dir deren Presets als eigene, zum Beispiel den Slicer.",
+      "Hinweise und Fehler erscheinen unten rechts statt mitten auf der Seite.",
+      "Ein/Aus 7 s gedrückt halten schaltet auch beim Laden der Samples aus.",
+      "BLECHTRIBE lässt Hacktribes USB-Befehle nicht mehr durch, das Flash-Schreiben darüber ist gesperrt. Hacktribe-Werkzeuge gehen mit EXIT beim Einschalten weiter.",
     ]),
   }),
 ]);
