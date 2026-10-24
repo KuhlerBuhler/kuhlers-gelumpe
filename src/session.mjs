@@ -167,7 +167,7 @@ export class DeviceSession {
       this.sender.blech = null;
       const info = sampler ? await this.sender.blechInfo() : null;
       const usable = info && info.version === BLECH.VERSION && (info.flags & 3) === 3 && info.maxBlock >= 256;
-      if (usable) this.sender.blech = { maxBlock: info.maxBlock };
+      if (usable) this.sender.blech = { maxBlock: info.maxBlock, flash: !!(info.flags & BLECH.FLAG_FLASH), exec: !!(info.flags & BLECH.FLAG_EXEC) };
       const candidates = sampler ? this.known.filter(k => k.version[0] === version[0] && k.version[1] === version[1]) : [];
       const profile = candidates.find(k => (k.build ?? "hacktribe") === "hacktribe");
       let hacktribe = false;
@@ -423,7 +423,7 @@ export class DeviceSession {
    */
   readFlash({ block = 0x4000, onProgress } = {}) {
     return this.exclusive(async () => {
-      if (!this.device?.hacktribe) throw new SendError("no-hacktribe", "Flash lesen geht nur mit Hacktribe.");
+      if (!this.device?.hacktribe && !this.sender.blech?.flash) throw new SendError("no-hacktribe", "Flash lesen geht nur mit Hacktribe oder BLECH.");
       const out = new Uint8Array(FLASH_END);
       for (let addr = 0; addr < FLASH_END; addr += block) {
         const run = await this.sender.run(plan({ kind: "flashRead", addr, length: Math.min(block, FLASH_END - addr) }, { channel: this.device.channel }));

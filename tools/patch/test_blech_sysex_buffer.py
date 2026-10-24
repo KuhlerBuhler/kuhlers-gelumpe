@@ -112,12 +112,23 @@ class SysexBufferTests(unittest.TestCase):
         b = m.spec
         m.failures = {'FLASH_READ': 1}
         self.assertEqual(struct.unpack_from('<I', m.words(b.FUNC_FLASH, 0, b.FLASH_MAX))[0], b.STATUS_FLASH)
-        for function in (0, 0x1c, 0x52, 0x68, 0x7f):
+        for function in (0, 0x1c, 0x68, 0x7f):
             self.assertEqual(m.call('classify_hook', m.message, function), 0x7777)
             m.uc.mem_write(m.message, bytes([function]))
             m.call('process_hook', m.message)
-        self.assertEqual(len(m.fallback), 10)
+        self.assertEqual(len(m.fallback), 8)
+        for function in range(0x52, 0x58):      # Hacktribe's commands are dropped in both hooks
+            self.assertEqual(m.call('classify_hook', m.message, function), 0)
+            m.uc.mem_write(m.message, bytes([function]))
+            m.call('process_hook', m.message)
+        self.assertEqual(len(m.fallback), 8)
         m.write_word(m.panel + 0x18, b.KILL_SWITCH)
+        for function in range(0x52, 0x58):      # with EXIT held at power-on they go on, all but the flash write
+            expected = 0 if function == 0x56 else 0x7777
+            self.assertEqual(m.call('classify_hook', m.message, function), expected)
+            m.uc.mem_write(m.message, bytes([function]))
+            m.call('process_hook', m.message)
+        self.assertEqual(len(m.fallback), 18)
         for function, request in ((b.FUNC_INFO, b''), (b.FUNC_READ, struct.pack('<II', 0xc3000000, 1)), (b.FUNC_FREAD, bytes(8))):
             self.assertIsNone(m.request(function, request))
         m.check_guards()

@@ -155,7 +155,9 @@ export class SimDevice {
     const cmd = body[5];
     const payload = syxDec(body.slice(6));
 
-    if ((cmd >= BLECH.INFO && cmd <= BLECH.DATA) || (this.card && (cmd === BLECH.FILE_READ || cmd === BLECH.FILE_BEGIN))) return this.blech ? this.blechCommand(cmd, body.slice(6)) : null;
+    if ((cmd >= BLECH.INFO && cmd <= BLECH.FLASH) || cmd === BLECH.EXEC || (this.card && (cmd === BLECH.FILE_READ || cmd === BLECH.FILE_BEGIN))) return this.blech ? this.blechCommand(cmd, body.slice(6)) : null;
+    // The firmware with BLECH drops Hacktribe's commands (tools/patch/blech_sysex.py); only EXIT at power-on lets them through.
+    if (this.blech && cmd >= CMD.READ_RAM && cmd <= CMD.EXECUTE) return null;
     if (!this.hacktribe && cmd >= CMD.READ_RAM && cmd <= 0x58) return this.unknown(cmd);
 
     if ([CMD.READ_RAM, CMD.WRITE_ADDR, CMD.WRITE_DATA].includes(cmd) && !this.image) {
@@ -210,7 +212,12 @@ export class SimDevice {
   blechCommand(cmd, encoded) {
     const payload = syxDec(encoded);
     const word = i => readU32le(payload, i * 4);
-    if (cmd === BLECH.INFO) return this.blechReply(BLECH.R_INFO, 0, BLECH.VERSION, this.card ? 7 | BLECH.FLAG_FILE : 7, this.blech.maxBlock, protectTable({ build: this.blech.build }).crc, 0);
+    if (cmd === BLECH.INFO) {
+      const flags = 7 | BLECH.FLAG_EXEC | (this.flash ? BLECH.FLAG_FLASH : 0) | (this.card ? BLECH.FLAG_FILE : 0);
+      return this.blechReply(BLECH.R_INFO, 0, BLECH.VERSION, flags, this.blech.maxBlock, protectTable({ build: this.blech.build }).crc, BLECH.FLASH_MAX);
+    }
+    if (cmd === BLECH.FLASH) return this.blechFlash(payload);
+    if (cmd === BLECH.EXEC) return this.blechExec(payload);
     if (cmd === BLECH.FILE_READ || cmd === BLECH.FILE_BEGIN || (cmd === BLECH.DATA && this.blechPending?.file)) return this.fileCommand(cmd, payload);
     if (!this.image) {
       this.fault("no-image", "the simulation was started without a firmware image, so BLECH's commands have no RAM to work on.");
@@ -254,6 +261,36 @@ export class SimDevice {
     if (!at.ok) return this.blechReply(BLECH.R_DATA, BLECH.STATUS.RANGE, addr, length, 0);
     at.buf.set(bytes, at.offset);
     return this.blechReply(BLECH.R_DATA, BLECH.STATUS.OK, addr, length, crc32(at.buf.subarray(at.offset, at.offset + length)));
+  }
+
+  /** FLASH READ as the firmware does it: 1 to FLASH_MAX bytes wholly below the end of the flash, else status 3. */
+  blechFlash(payload) {
+    if (payload.length < 8) return null;
+    const [addr, length] = [readU32le(payload, 0), readU32le(payload, 4)];
+    const fits = length >= 1 && length <= BLECH.FLASH_MAX && addr + length <= HANG_ABOVE;
+    if (!fits) return this.blechReply(BLECH.R_FLASH, BLECH.STATUS.RANGE, addr, length, 0);
+    if (!this.flash) {
+      this.fault("no-flash-image", "no flash contents were given to the simulation, so the read is not answered. Pass { flash } to serve it.");
+      return null;
+    }
+    const bytes = this.flash.slice(addr, addr + length);
+    return [0xf0, ...this.head, BLECH.R_FLASH, ...syxEnc([...[0, addr, length, crc32(bytes)].flatMap(u32le), ...bytes]), 0xf7];
+  }
+
+  /**
+   * EXEC as the firmware does it: only a word of the stub buffer the editor may write, else refused. Running it is the
+   * `execute` stand-in's, as with Hacktribe's execute; it returns false for code that would not return 1.
+   */
+  blechExec(payload) {
+    if (payload.length < 8) return null;
+    const addr = readU32le(payload, 0);
+    const inBuffer = addr % 4 === 0 && addr >= EXEC.stubAt && addr + 4 <= EXEC.stubAt + EXEC.stubSize;
+    if (!inBuffer || this.blechStatus("write", addr, 4) !== BLECH.STATUS.OK) return this.blechReply(BLECH.R_EXEC, BLECH.STATUS.REFUSED, addr, 0);
+    if (!this.execute) {
+      this.fault("execute", "EXEC runs code at an address on the device. Nothing here simulates that.");
+      return null;
+    }
+    return this.blechReply(BLECH.R_EXEC, BLECH.STATUS.OK, addr, this.execute(addr) === false ? 0 : 1);
   }
 
   /**
