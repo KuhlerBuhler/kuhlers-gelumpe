@@ -43,8 +43,12 @@ und die Prüfsummen und lehnt ab, was die Firmware stören würde:
 | Alle 95 druckbaren ASCII-Zeichen sind in allen vier Schriften belegt (oder mit `null` als unberührt vermerkt) | Namen sind frei wählbar, die Firmware druckt jedes davon |
 | Kein Zeichen sieht aus wie ein anderes, verwechselbare Paare (`O 0`, `I l 1`, `S 5` und so weiter) unterscheiden sich um mindestens zwei Pixel | Lesbarkeit |
 
+Wo unsere Zeichnung vier Byte oder mehr mit der der Firmware übereinstimmt, lässt der Generator diese Bytes aus dem
+Patch weg: sie stehen schon auf dem Gerät, der Patch enthält so keine Bytes der Firmware (geprüft in
+`test/blech-theme.test.mjs` mit `E2_VSB`).
+
 `node tools/patch/blech_theme.mjs --check` prüft die Zeichnungen allein, ohne Firmware. Der Patch besteht aus rohen Änderungen,
-je Glyph-Bitmap, je geändertem Maßfeld und je Symbol eine, jede mit der Prüfsumme der Bytes, die sie ersetzt. Eine
+je geändertem Stück einer Glyph-Bitmap, eines Maßfelds oder eines Symbols eine, jede mit der Prüfsumme der Bytes, die sie ersetzt. Eine
 `copy`-Änderung auf sich selbst wäre kürzer, aber `patchesPresent` erkennt ein angewendetes BLECH dann nicht mehr (die
 Quelle hat sich ja geändert).
 

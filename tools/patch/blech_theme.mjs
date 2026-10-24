@@ -166,10 +166,24 @@ function rawChanges(vsb, lo, overs) {
     if (last && o.at === last.at + last.bytes.length) last.bytes = Uint8Array.from([...last.bytes, ...o.bytes]);
     else merged.push({ at: o.at, bytes: o.bytes });
   }
-  return merged.map(o => {
+  return merged.flatMap(o => {
     const file = lo - RAM + HEADER + o.at;
-    return { file, bytes: hex(o.bytes), expect: sha(vsb.subarray(file, file + o.bytes.length)) };
+    return changedRuns(vsb.subarray(file, file + o.bytes.length), o.bytes).map(([from, to]) =>
+      ({ file: file + from, bytes: hex(o.bytes.subarray(from, to)), expect: sha(vsb.subarray(file + from, file + to)) }));
   });
+}
+
+/** Stretches of `next` that differ from `was`; equal stretches of MIN_SAME bytes or more stay out, no firmware bytes in the patch. */
+const MIN_SAME = 4;
+function changedRuns(was, next) {
+  const runs = [];
+  for (let i = 0; i < next.length; i++) {
+    if (was[i] === next[i]) continue;
+    const last = runs.at(-1);
+    if (last && i - last[1] < MIN_SAME) last[1] = i + 1;
+    else runs.push([i, i + 1]);
+  }
+  return runs;
 }
 
 /** What the art does to one font: the writes, plus a line per glyph for the report. */
