@@ -352,7 +352,7 @@ Befehlszahlen sind Unicorn-Befehle, Zeit rechnet mit 5 ns je Befehl (Annahme des
 | Display-Licht | `0xC0016BB4(0x01E26000, an, 3, maske)`, Maske `0x08` rot, `0x10` grün, `0x20` blau; 40 Befehle, nur Set/Clear-Register | beliebig (läuft auch im Timer-IRQ) | 40 | auf Batterie überschreibt der Dimm-IRQ (siehe 4.3) |
 | Uhr | 24-MHz-Zähler `0x01C21010` (Firmware nutzt ihn in `0xC001673C(0xC031BB20, µs)`) | beliebig | 1 Lesezugriff | Auflösung 1/24 µs; Plugin-Ereignisse selbst kommen höchstens alle 40 ms |
 | Gehaltene Tasten | **kein** laufender Bitplan (`*(*0xC033E6F8)+0x18` ist nur der Schnappschuss vom Start); das Plugin führt ihn aus den Tasten-Ereignissen selbst | | | |
-| Regler-Werte | Panel-Wert 0..1023; die Firmware speichert `wert >> 1` als u16 ab `+0xF4` im Objekt `*(*0xC0691240 + 8)` (Heap-Adresse); gemessen für Regler 0, 3, 5 bis 10; Regler 1, 2, 4 anders abgebildet | | | Rohwert zuverlässig aus dem Ereignis (CS-Ring, siehe 1.3) |
+| Regler-Werte | Panel-Wert 0..1023 im Emulator; laut Code des Panels schickt das echte Panel höchstens 255 ([Panel-Controller](panel-controller.md)); die Firmware speichert `wert >> 1` als u16 ab `+0xF4` im Objekt `*(*0xC0691240 + 8)` (Heap-Adresse); gemessen für Regler 0, 3, 5 bis 10; Regler 1, 2, 4 anders abgebildet | | | Rohwert zuverlässig aus dem Ereignis (CS-Ring, siehe 1.3) |
 | Nicht vorhanden | Buzzer, 7-Segment-Anzeige: keine Strings, kein Host-Befehl | | | |
 
 ### 4.2 Den Bildschirm besitzen

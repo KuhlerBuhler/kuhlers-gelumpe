@@ -389,6 +389,21 @@ def protected_cases(dev, lk, payload, vectors):
     return out
 
 
+def hacktribe_flash_write(dev, lk, at=0x7F0000):
+    """Hacktribe's 0x53 sets address and length, its 0x56 then carries the bytes and writes them to the flash. Measured over
+    0x56 alone (0x53 of its own rewrites a pattern slot, see docs/messungen/2026-10-24-hacktribe-flash.md): no program or erase,
+    the flash at the address unchanged."""
+    data = bytes(range(16))
+    lk.exchange(frame(lk.channel, 0x53, struct.pack("<II", at, len(data))), wait=3.0)
+    was = bytes(dev.m.flash.mem[at:at + len(data)])
+    before_counts, _ = flash_counts(dev)
+    lk.exchange(frame(lk.channel, 0x56, data), wait=3.0)
+    after_counts, _ = flash_counts(dev)
+    changing = (0x01, 0x02, 0x20, 0x52, 0xD8, 0x60, 0xC7)
+    written = {hex(k): after_counts.get(k, 0) - before_counts.get(k, 0) for k in changing if after_counts.get(k, 0) != before_counts.get(k, 0)}
+    return not written and bytes(dev.m.flash.mem[at:at + len(data)]) == was, written
+
+
 def case_kill_switch(payload, flash):
     """With EXIT held at power-on both hooks pass everything on: our function bytes get no answer, Korg's own do."""
     dev, lk = boot(payload, flash, held=KILL)
@@ -401,6 +416,8 @@ def case_kill_switch(payload, flash):
     out.append(entry("kill_switch_silent", all(silent), "with EXIT held at power-on INFO, READ, BEGIN and FLASH READ get no answer"))
     r, _ = lk.exchange(frame(lk.channel, 0x10), wait=20.0)
     out.append(entry("kill_switch_korg_still_answers", any(len(x) > 7000 for x in r), f"with EXIT held at power-on Korg's own pattern request is answered ({[len(x) for x in r]} bytes)"))
+    blocked, written = hacktribe_flash_write(dev, lk)
+    out.append(entry("kill_switch_no_flash_write", blocked, f"with EXIT held at power-on Hacktribe's flash write 0x56 still writes nothing ({written or 'no program or erase'})"))
     out.append(entry("kill_switch_no_asserts", not dev.m.asserts, "no assertion"))
     return out
 
@@ -420,6 +437,8 @@ def case_other_sysex(payload, flash):
     has_hacktribe = any(b != 0xFF for b in payload[0x170000:0x170040])
     answered = any(len(x) > 9 and x[6] == 0x54 and x[7] == 0x52 for x in r)
     out.append(entry("hacktribe_read", answered == has_hacktribe, "Hacktribe's own RAM read still answers" if has_hacktribe else "without Hacktribe the command 0x52 stays unanswered, as in Korg's original"))
+    blocked, written = hacktribe_flash_write(dev, lk)
+    out.append(entry("hacktribe_flash_write_dropped", blocked, f"Hacktribe's flash write 0x56 after 0x53 writes nothing ({written or 'no program or erase'})"))
     before = mem(dev, 0xC0000040, 64)
     for note in (0x3C, 0x40, 0x43):
         dev.m.midi(bytes([0x90 | lk.channel, note, 100]))

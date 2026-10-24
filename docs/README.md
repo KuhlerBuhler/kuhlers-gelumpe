@@ -43,6 +43,8 @@ gelesen), **hergeleitet**, **offen**.
 | [hintergrund/startbild-editor.md](hintergrund/startbild-editor.md) | Das Startbild im Flash und der Editor dafür |
 | [hintergrund/blech-theme.md](hintergrund/blech-theme.md) | Eigene Schriften und Symbole fürs Display, der Patch `blech-theme` |
 | [hintergrund/dsp-erster-blick.md](hintergrund/dsp-erster-blick.md) | Der DSP (Blackfin): Strom, Filter, Effekt-Einheiten |
+| [hintergrund/panel-controller.md](hintergrund/panel-controller.md) | Der Mikrocontroller im Bedienfeld: Abbild, Update, Auflösung von Reglern und Touchpad, LEDs |
+| [hintergrund/sequencer-timing.md](hintergrund/sequencer-timing.md) | Sequencer-Auflösung, MIDI-Clock ein und aus, Tempo |
 | [hintergrund/patternwechsel.md](hintergrund/patternwechsel.md) | Warum ein Patternwechsel eine Lücke hat und wo man einhaken kann |
 
 Die Tools in `tools/` haben je eine kurze Erklärung in [development.md](development.md), der

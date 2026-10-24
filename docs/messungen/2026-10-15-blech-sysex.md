@@ -38,7 +38,7 @@ ein Byte gesendet ist, und merkt sich Adresse, Länge und CRC. DATA wird in eine
 erst dann an die Adresse kopiert, und die Antwort trägt die CRC dessen, was danach im RAM steht. Ein DATA ohne BEGIN wird
 nicht angenommen und nicht beantwortet, jedes BEGIN gilt für genau ein DATA.
 
-Es gibt keinen Befehl, der den Flash schreibt oder löscht, und keinen zum Ausführen von Code. FLASH READ liest nur (siehe unten). Die Schutztabelle (`src/sysex-table.mjs`,
+Es gibt keinen Befehl, der den Flash schreibt oder löscht, und keinen zum Ausführen von Code. Hacktribes eigenen Flash-Schreibbefehl `0x56` verwirft der Nachrichten-Haken, auch mit EXIT beim Einschalten ([Messung vom 24.10.](2026-10-24-hacktribe-flash.md)). FLASH READ liest nur (siehe unten). Die Schutztabelle (`src/sysex-table.mjs`,
 412 Byte) wird aus `data/protected.mjs` und den erklärten Bereichen des Editors geschnitten und beim Bau in den Patch
 geschrieben, nie von Hand: das RAM-Fenster von 128 MiB, jede geschützte RAM-Region (Schreiben), die zwei Regionen, die auch
 Lesen sperren (Lader, DSP-Ports), die Ausnahmefenster der drei Regionen mit `except` (Tabellen und Menülängen,

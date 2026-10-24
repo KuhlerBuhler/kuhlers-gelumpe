@@ -48,6 +48,10 @@ keeps the parser quiet while it goes out, the output queues of USB and DIN, the 
 With EXIT held at power-on both hooks pass everything on: the four function bytes are not taken and the device is silent
 to them, as with Korg's original without the patch (docs/patcher.md, "Notschalter").
 
+Hacktribe's own 0x56 writes the flash from 0xC1000000 at an address and length set by 0x53, with no check. Nothing of ours
+uses it, and it is the one command that can damage the device, so the message hook drops it, with EXIT held at power-on too.
+Hacktribe's other commands (0x52 to 0x55, 0x57) still pass.
+
     python3 tools/patch/blech_sysex.py --vsb SYSTEM.VSB --table table.bin --build hacktribe|stock [--out data/patches/blech-sysex.json]
 
 The table is made by tools/patch/blech_sysex.mjs from data/protected.mjs, one for each build (the regions the editor writes
@@ -279,8 +283,11 @@ killed:
 
 ; ---- hook 2: the message --------------------------------------------------------------------------------------------
 ; Entered instead of the first instruction of the function at 0xC0026418, r0 = the received message, byte 0 its function.
+; Hacktribe's 0x56 (write the flash from 0xC1000000) is dropped here, also with EXIT held at power-on.
 process_hook:
     ldrb r12, [r0]
+    cmp r12, #0x56
+    bxeq lr
     sub r12, r12, #0x60
     cmp r12, #8
     blo process_ours
@@ -1186,7 +1193,7 @@ def build_patch(vsb, table, build):
              "note": "the function bytes 0x60 to 0x66 are taken here, every other byte goes on to the original; with EXIT held at power-on all of them do"},
             {"site": f"0x{PROCESS_HOOK:08X}", "kind": "instruction", "chain": "sysex-request",
              "position": "before", "swallow": True,
-             "note": "a received message with function 0x60 to 0x66 is run here, every other goes on to the original; with EXIT held at power-on all of them do"},
+             "note": "a received message with function 0x60 to 0x66 is run here, Hacktribe's flash write 0x56 is dropped (with EXIT held at power-on too), every other goes on to the original; with EXIT held at power-on all but 0x56 do"},
         ],
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: the declared write, the request as decoded, the words and the packed bytes of a short reply", "tools/patch/blech_sysex.py:STATE"),
