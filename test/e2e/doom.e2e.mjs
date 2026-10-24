@@ -19,6 +19,8 @@ test("the Doom page hands out both files for the card and says where they go and
   for (const name of ["bin", "wad"]) {
     const file = await h.download(page, () => page.click(`#cee-doom-${name}`));
     assert.equal(file.length, readFileSync(new URL(`../../third_party/doom/doom.${name}`, import.meta.url)).length, `doom.${name} comes whole`);
+    // through saveFile like every download, so the app window saves it too and the page says so
+    await page.locator("#app-toasts .cee-toast", { hasText: `„doom.${name}“ gespeichert` }).waitFor();
   }
   assert.deepEqual(await severeViolations(page), [], "axe, the Doom page");
   assert.deepEqual(page.errors, []);

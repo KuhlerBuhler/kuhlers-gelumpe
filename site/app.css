@@ -770,8 +770,10 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   transform: rotate(calc(var(--cee-e2-angle, 0) * 1deg));
 }
 
+/* Only the swing to and from the resting angle at power on and off is animated. While a knob turns, a transition
+   restarted at every value lets the marker jump back (measured: up to 51 degrees in WebKit), it looks doubled. */
 @media (prefers-reduced-motion: no-preference) {
-  .cee-e2-mark {
+  .cee-e2[data-settling] .cee-e2-mark {
     transition: transform var(--dur-fast) var(--ease-out);
   }
 }
@@ -2298,6 +2300,42 @@ select,
   font-size: var(--text-xs);
 }
 
+.cee-own-words {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cee-own-picture-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.cee-own-picture {
+  width: calc(var(--space-16) * 4);
+  max-width: 100%;
+}
+
+.cee-meta-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-meta-who {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-3);
+}
+
+/* The creator's name is a link of its own above the button that covers the card. */
+.cee-creator-link {
+  position: relative;
+  z-index: 1;
+}
+
 .cee-catalog-card h3 { margin: 0; font-size: var(--text-base); }
 .cee-catalog-card p { margin: 0; font-size: var(--text-sm); }
 
@@ -2369,7 +2407,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 .cee-crumb { font-weight: 400; color: var(--color-text-secondary); }
 /* A crumb that leads back: the page's title and the steps before the last. */
 .cee-crumb-link { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
-.cee-crumb-link:hover { color: var(--color-text-primary); text-decoration: underline; }
+.cee-crumb-link:hover { color: var(--color-text-primary); }
 @media (max-width: 60rem) {
   .cee-docs-body { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
   .cee-docs-toc { position: static; max-height: none; }
@@ -2648,7 +2686,8 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   gap: var(--space-4);
 }
 
-.cee-shelf-tabs {
+.cee-shelf-tabs,
+.cee-bk-export-switch {
   align-self: flex-start;
 }
 
@@ -2691,6 +2730,21 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 
 .cee-catalog-open:focus-visible {
   outline: none;
+}
+
+/* Buttons that read as words (a card's title, the breadcrumbs, text links) take no button background on hover from
+   the design; they get underlined like a link. A card's title is underlined while the card is hovered. */
+.cee-catalog-open:hover,
+.cee-crumb-link:hover,
+button.cee-text-link:hover {
+  background: none;
+}
+
+.cee-catalog-card:hover .cee-catalog-open,
+.cee-catalog-open:focus-visible,
+.cee-crumb-link:hover,
+button.cee-text-link:hover {
+  text-decoration: underline;
 }
 
 /* The design scales a pressed button; on the title that would shrink the cover to the title and lose the click. The card gives way instead. */
@@ -3190,6 +3244,23 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 .cee-knob-mapped.cee-knob-fixed .cee-knob-fill,
 .cee-knob-moving .cee-knob-fill {
   stroke: var(--color-accent-primary);
+}
+
+.cee-bk-risky {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* A block freed on purpose keeps its warning in the warning colour. */
+.cee-bk-unit-risky:not(:disabled) .muted {
+  color: var(--color-text-warning);
+}
+
+.cee-bk-wave-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .cee-bk-map-head {

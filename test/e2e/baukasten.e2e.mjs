@@ -39,6 +39,7 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   const first = page.locator("#cee-bk-fx-catalog li").first();
   assert.equal(await first.locator(".cee-catalog-category").textContent(), "Echo", "the tag under the title");
   assert.equal(await first.locator(".cee-catalog-creator").textContent(), "von Kuhler Buhler", "and the creator at the bottom, as on a plugin's card");
+  assert.equal(await first.locator(".cee-creator-link").getAttribute("href"), "https://www.instagram.com/kuhler_buhler/", "the creator's name links to their profile");
   assert.equal(await first.locator(".btn").count(), 0, "the whole card opens it, no button");
   await openCard(page, "#cee-bk-fx-catalog", "Short Delay");
   // A catalog effect has its own page like a plugin: what it is, three buttons, its values read only.
@@ -74,6 +75,13 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   await page.locator("#cee-bk-preview .ui-dialog-foot .btn").click();
   assert.equal(await page.inputValue("#cee-bk-p-0-off_l_delay_time"), before, "the preview keeps nothing");
   await page.fill("#cee-bk-fx-name", "Mein Delay");
+  // an own effect says what it does and who made it
+  await page.fill("#cee-bk-fx-description", "Mein kurzes Echo.");
+  await page.fill("#cee-bk-fx-creator", "Jemand");
+  await page.fill("#cee-bk-fx-creatorUrl", "http://nicht-sicher.example");
+  await page.click("#cee-bk-fx-save");
+  await page.locator("#app-toasts .cee-toast", { hasText: "https://" }).waitFor();
+  await page.fill("#cee-bk-fx-creatorUrl", "https://example.org/jemand");
   // a knob set without dragging (a change event only) counts as well: a user test lost such a value
   await page.locator("#cee-bk-p-0-fb_depth").evaluate(n => { n.value = "70"; n.dispatchEvent(new Event("change")); });
   await page.fill("#cee-bk-p-0-dry_wet-value", "40");
@@ -93,6 +101,10 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   assert.equal(read.ok, true, read.reason);
   assert.equal(read.preset.stages[0].params.fb_depth, 70);
   assert.equal(read.preset.stages[0].params.dry_wet, 40, "a typed value is saved");
+  assert.equal(read.preset.creatorUrl, "https://example.org/jemand", "the words go into the file");
+  assert.equal(read.preset.description, "Mein kurzes Echo.");
+  await page.click("#cee-baukasten-page-mine");
+  assert.equal(await page.locator("#cee-bk-mine .cee-creator-link").first().getAttribute("href"), "https://example.org/jemand");
   assert.deepEqual(page.errors, []);
 });
 
@@ -118,6 +130,11 @@ test("a new insert effect: two blocks from the palette, a name; Meine Effekte op
   await page.locator("#cee-bk-block-2").getByRole("button", { name: "Baustein wählen" }).click();
   const decimator = page.locator("#cee-bk-palette .cee-bk-unit:disabled", { hasText: "Stürzt an zweiter Stelle ab" }).filter({ hasText: "Lo-Fi (Decimator)" });
   assert.equal(await decimator.count(), 1, "the decimator crashes in block 2 and cannot be picked there");
+  // Freed on purpose for a test, it can be picked; the switch says the risk.
+  await page.locator("label.ui-switch:has(#cee-bk-risky)").click();
+  assert.equal(await page.locator("#cee-bk-palette .cee-bk-unit:not(:disabled)", { hasText: "Lo-Fi (Decimator)" }).count(), 1, "freed, the decimator can be picked in block 2");
+  await page.locator("label.ui-switch:has(#cee-bk-risky)").click();
+  assert.equal(await decimator.count(), 1, "switched off, it is barred again");
   await page.locator("#cee-bk-palette .ui-dialog-foot .btn").click();
   // Parameters stop where the device stops (data/map/fx-params.mjs), and a control can be added.
   assert.equal(await page.getAttribute("#cee-bk-p-0-dry_wet", "max"), "100");
@@ -150,6 +167,12 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await open(page);
   await page.click("#cee-bk-tab-mod");
   await openCard(page, "#cee-bk-mod-catalog", "Filter Wobble");
+  // A catalog modulation has its own page too: read only, Aufs Gerät not yet, editing makes it an own one.
+  await page.locator("#cee-bk-detail-mod").waitFor();
+  assert.equal(await page.locator("#cee-bk-detail-title").textContent(), "Filter Wobble");
+  assert.equal(await page.locator("#cee-bk-detail-load").isDisabled(), true, "a modulation cannot go on the device live yet");
+  assert.ok(await page.locator("#cee-bk-detail-mod li").count() > 0, "the slots that move something are listed");
+  await page.click("#cee-bk-detail-own");
   await page.locator("#cee-bk-curve button", { hasText: "Dreieck" }).click();
   assert.equal(await page.getAttribute("#cee-bk-curve button[data-value='2']", "aria-checked"), "true");
   await page.click("#cee-bk-mod-save");
@@ -161,7 +184,10 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
 
   await page.click("#cee-baukasten-page-export");
   assert.equal(await page.locator("#cee-nav-state #cee-bk-collection").isVisible(), true, "Exportieren sits in the navbar");
-  assert.equal(await page.locator("#cee-bk-slots-ifx li").count(), 100);
+  assert.equal(await page.locator("#cee-bk-slots-ifx li").count(), 100, "the insert places first");
+  assert.equal(await page.locator("#cee-bk-tab-fx").isVisible(), false, "no Effekte/Modulationen switch: the file holds all three");
+  assert.equal(await page.locator("#cee-bk-slots-mfx").count(), 0, "one kind of place at a time");
+  await page.click("#cee-bk-export-tab-mfx");
   await page.selectOption("#cee-bk-slot-mfx-3", { label: "Short Delay" });
   await page.locator("#cee-bk-slots-mfx li[data-slot='3'] .cee-bk-grip").dragTo(page.locator("#cee-bk-slots-mfx li[data-slot='100']"));
   assert.equal(await page.locator("#cee-bk-slot-mfx-100 option:checked").textContent(), "Short Delay", "A takes the place of B");
@@ -170,10 +196,11 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.getByRole("button", { name: "Master-Effekt Platz 1 leeren" }).click();
   assert.equal(await page.locator("#cee-bk-slot-mfx-1 option:checked").textContent(), "Werks-Preset");
   // The catalog's effects go on a place too, without saving them as own ones first.
+  await page.click("#cee-bk-export-tab-ifx");
   assert.ok(await page.locator("#cee-bk-slot-ifx-2 optgroup[label=Katalog] option").count() > 0, "the catalog's insert effects are offered");
   const fromCatalog = await page.locator("#cee-bk-slot-ifx-2 optgroup[label=Katalog] option").first().textContent();
   await page.selectOption("#cee-bk-slot-ifx-2", { label: fromCatalog });
-  await page.click("#cee-bk-tab-mod");
+  await page.click("#cee-bk-export-tab-mod");
   assert.equal(await page.locator("#cee-bk-slots-ifx").count(), 0, "Modulationen show only their places");
   await page.selectOption("#cee-bk-slot-mod-5", { label: "Filter Wobble" });
   await page.click("#cee-bk-collection");
@@ -201,7 +228,9 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.click("#cee-baukasten-page-export");
   await page.setInputFiles("#cee-bk-all", h.file("e2sFx.all", bytes));
   await page.locator("#app-toasts .cee-toast", { hasText: "3 Einträge" }).waitFor();
+  await page.click("#cee-bk-export-tab-mfx");
   assert.equal(await page.locator("#cee-bk-slot-mfx-100 option:checked").textContent(), "Short Delay");
+  await page.click("#cee-bk-export-tab-ifx");
   assert.equal(await page.locator("#cee-bk-slot-ifx-2 option:checked").textContent(), fromCatalog, "the catalog effect comes back on its place");
   assert.equal(await page.locator("#cee-bk-slot-ifx-2 option:checked").evaluate(o => o.parentElement.label), "Katalog", "as the catalog's, not as an own copy");
   assert.deepEqual(page.errors, []);
