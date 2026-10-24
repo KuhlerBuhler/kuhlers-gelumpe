@@ -1,0 +1,10 @@
+{
+ "entries": [
+  {
+   "from": "0xC004AC44",
+   "to": "0xC0044D24",
+   "kind": "code",
+   "why": "the copy of the pattern load, bl memcpy(pattern + 4, source, 0x4000), the sync group's hook (tools/patch/pattern_switch.py COPY_CALL): the same code, 16 words equal (fwmap, Hacktribe 2.02 against the synth's 2.02); on the synth the word is bl 0xC0005814, the synth's memcpy (0xC000985C there)"
+  }
+ ]
+}
