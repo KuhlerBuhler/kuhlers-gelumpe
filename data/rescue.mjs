@@ -127,7 +127,7 @@ export const FLOW = {
     mood: "idle",
     say: ["Dann versuchen wir es mit Korgs Original-Firmware auf der SD-Karte. So hat es bei uns an einem Gerät schon geholfen."],
     status: "gemessen",
-    note: "Am Gerät (23.10.): nach 00 kam mit Korgs Sampler-Firmware auf der Karte die Update-Abfrage, danach startete es wieder. Im Emulator liest die Firmware während 00 die Karte nicht; was am Gerät zwischen 00 und der Abfrage stand, ist offen.",
+    note: "Am Gerät (23.10.): nach einem Update auf Hacktribe blieb 00 stehen, sonst passierte nichts. Mit Korgs Sampler-Firmware auf der Karte kam beim nächsten Einschalten die Update-Abfrage, danach startete es wieder. Warum die Abfrage kam, ist offen: im Emulator liest die Firmware während 00 die Karte nicht.",
     next: "color:update",
   },
   "color:update": {

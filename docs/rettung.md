@@ -90,10 +90,13 @@ und mit `doom.bin` unter `KORG/blechtribe/Doom/`). Der Rückweg ist kurz und lie
    - **Was tun (hergeleitet):** warten. Kommt "Please Reboot", aus und wieder an. Bleibt "00" stehen,
      redet das Panel nicht mit der CPU; das Debrick-Wiki von Hacktribe nennt dafür das Flachbandkabel
      zwischen Hauptplatine und Panel, nicht die Karte.
-   - **offen:** Am Gerät (23.10.) kam nach "00" mit Korgs Sampler-Firmware unter
-     `KORG/electribe sampler/System/SYSTEM.VSB` die Update-Abfrage, danach startete es wieder. Laut
-     Emulator wirkt die Karte nicht auf "00" selbst; passen würde "00", dann "Please Reboot", dann beim
-     nächsten Start die Abfrage aus Fall 2. Am Gerät nachfragen, was zwischen "00" und der Abfrage stand.
+   - **gemessen am Gerät (23.10.):** Nach einem Update auf Hacktribe blieb "00" stehen, sonst passierte
+     nichts, an "Please Reboot" erinnert sich der Nutzer nicht. Mit Korgs Sampler-Firmware unter
+     `KORG/electribe sampler/System/SYSTEM.VSB` kam beim nächsten Einschalten die Update-Abfrage, danach
+     startete es wieder.
+   - **offen:** Warum die Abfrage kam. Laut Emulator liest die Firmware während "00" die Karte nicht, und
+     Hacktribe nimmt beide Kennungen an. Ein Panel-Update, das hängen bleibt, und danach eine fehlende
+     oder kaputte Kennung würden passen; nicht geprüft.
 4. **Nichts, keine Abfrage.** Erst Netzteil und Batterien prüfen. Kommt dann weiter keine Abfrage, hilft
    nach der Debrick-Anleitung von Hacktribe nur JTAG.
 
