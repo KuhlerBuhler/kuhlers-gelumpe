@@ -48,7 +48,7 @@ def has_menu(payload):
 def for_build(payload):
     global MENU, RING, BASE_RING, SYNC_GROUP
     synth = synthaddr.is_synth(payload)
-    SYNC_GROUP = not synth
+    SYNC_GROUP = True                  # the page SYNC GROUP is in the ring on both (the synth since 24.10.)
     MENU = 37 if synth else 45
     BASE_RING = 28 if synth else 29
     RING = BASE_RING + 2 + (1 if SYNC_GROUP else 0)
@@ -128,7 +128,7 @@ TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Displa
 RING = 32                                                             # the total of the page counter with the page BLECH, the page of Blechy and SYNC GROUP in the ring
 BASE_RING = 29
 LEVEL_BLECHY = 3                                                      # level 3 of the screen: the page of Blechy at the end of the ring
-LEVEL_SYNC = 4                                                        # level 4: the page SYNC GROUP behind him, right before the Pattern menu (sampler builds)
+LEVEL_SYNC = 4                                                        # level 4: the page SYNC GROUP behind him, right before the Pattern menu
 LEVEL_PLUGIN = 5                                                      # level 5: the pages of one plugin, built like the firmware's Sample Edit
 S_PSEL = 0xFB                                                         # byte: the plugin SELECT PLUGIN chose
 PLUGIN_EDIT, PLUGIN_EXPORT, PLUGIN_IMPORT = 1, 2, 3                   # the pages of PLUGINS behind RUNTIME
