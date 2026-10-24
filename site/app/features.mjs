@@ -12,6 +12,7 @@ const RED = ["red"];
 /** The last group: what is planned (docs/ideen.md), without a date. */
 const SOON = "Geplant";
 const DEVICE = { red: "Electribe 2 Sampler (rot)", blue: "Electribe 2 (blau)" };
+const SHORT = { red: "Rot", blue: "Blau" };
 
 /** One entry per function. `how` is what you press, `where` which Electribe has it, `image` a picture of the display. */
 export const FEATURES = [
@@ -141,13 +142,15 @@ export function featuresPage(root) {
       el("ul", { className: "cee-features" }, FEATURES.filter(f => f.group === group).map(f => el("li", { className: "cee-feature", id: `cee-feature-${f.id}` }, [
         f.image ? pictureOf(f) : null,
         el("h3", { textContent: f.title }),
-        f.where.length ? el("p", { className: "cee-feature-where" }, ["Unterstützt:", ...f.where.map(device => {
-          const art = e2Outline(DEVICE[device]);
-          art.dataset.device = device;
-          return art;
-        })]) : null,
         el("p", { textContent: f.text }),
-        f.how ? el("p", { className: "cee-feature-how" }, [el("strong", { textContent: "So geht's: " }), f.how]) : null,
+        f.how ? el("div", { className: "cee-feature-how" }, [el("span", { className: "cee-feature-how-label", textContent: "So geht's" }), el("p", { textContent: f.how })]) : null,
+        f.where.length ? Object.assign(el("ul", { className: "cee-feature-where" }, f.where.map(device => {
+          const art = e2Outline(DEVICE[device]);
+          art.setAttribute("aria-hidden", "true");
+          const chip = el("li", { className: "ui-chip ui-chip-sm", title: DEVICE[device] }, [art, SHORT[device]]);
+          chip.dataset.device = device;
+          return chip;
+        })), { ariaLabel: "Unterstützt" }) : null,
       ]))),
     ])),
   );
