@@ -703,7 +703,7 @@ function boot() {
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
 else boot();
 
-watchForUpdate($("#cee-update"));
+watchForUpdate($("#cee-update"), undefined, toast);
 showNews(toast);
 
 // In the desktop app a new window goes nowhere: the donate, GitHub, Instagram and Korg links navigate in place and the app opens them in the browser (src-tauri).
