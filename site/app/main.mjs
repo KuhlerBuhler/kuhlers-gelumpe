@@ -21,6 +21,7 @@ import { patternToolsPage } from "./pattern-tools.mjs";
 import { rescuePage } from "./rescue.mjs";
 import { supportPage } from "./support.mjs";
 import { changelogPage } from "./changelog.mjs";
+import { discordPage } from "./discord.mjs";
 import { splashPage } from "./splash.mjs";
 import { terminalPanel } from "./terminal.mjs";
 import { featuresPage } from "./features.mjs";
@@ -488,6 +489,7 @@ function boot() {
   fileLinks();
   settingsPage($("#cee-settings"));
   const changelog = changelogPage($("#cee-changelog"), $("#cee-tab-changelog"));
+  const discord = discordPage($("#cee-discord"));
   settingsButton($("#cee-settings-button"), () => { areas?.select("settings"); drawer.close(); });
   $("#cee-donate").addEventListener("click", () => drawer.close());
   const emu = takeLink();
@@ -554,12 +556,14 @@ function boot() {
       popout?.realDevice(id === "device");
       if (id === "console") terminal?.update();
       if (id === "changelog") changelog.opened();
+      if (id === "discord") discord.opened();
     },
   }) : null;
   $("#cee-areas").addEventListener("click", e => { if (e.target.closest("[role=tab]")) drawer.close(); });
   if (areas) {
     nav.page(areas.current);
     options.page(areas.current);
+    if (areas.current === "discord") discord.opened();
     $("#cee-tab-emu").toggleAttribute("data-active", areas.current === "device");
     $("#cee-device").hidden = areas.current !== "device";
     if (areas.current === "device") { $("#cee-area-emu").hidden = false; $("#cee-area-device").hidden = true; }
