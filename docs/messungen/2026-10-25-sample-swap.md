@@ -446,3 +446,19 @@ dabei weiter.
 
 **hergeleitet:** Die 157 KB/s aus dem Emulator (Abschnitt 3) gelten nicht für das Gerät; dort liest die Karte rund
 zwanzigmal schneller. 10 MB brauchen von der Karte gut 3 s, aus einem RAM-Cache in den DSP rund 1 s.
+
+### Takt der Karte
+
+**gemessen**, nur lesend: der SD-Controller MMC0 (`0x01C40000`) läuft mit 4 Bit (`MMCCTL = 0x4`) und dem Teiler
+`CLKRT = 5` (`MMCCLK = 0x105`): 150 MHz / (2 × 6) = 12,5 MHz, roh 6,25 MB/s. PLL0: `PLLM = 0x18`, `PLLDIV2 = 0x8001`.
+Ein Testcode las mit gestoppter Wiedergabe 2 MiB bei 12,5 MHz, schaltete den Takt nach Datenblatt um (Takt aus,
+`CLKRT = 2`, Takt an), las die nächsten 2 MiB bei 25 MHz und stellte `0x105` wieder her:
+
+| Takt | 2 MiB | Durchsatz | Fehler |
+|---|---|---|---|
+| 12,5 MHz | 649 ms | 3156 KiB/s | keine |
+| 25 MHz | 396 ms | 5172 KiB/s | keine |
+
+Ein zweiter Lauf las dieselben 2 MiB (`f_lseek` `0xC009E404` auf 0) bei beiden Takten: die Prüfsummen sind gleich.
+25 MHz ist die Normalgeschwindigkeit, die jede SD-Karte kann; High Speed (bis 50 MHz, nach Umschalten der Karte) ist
+nicht geprüft. **offen:** andere Karten, Schreiben bei 25 MHz, Dauerbetrieb.
