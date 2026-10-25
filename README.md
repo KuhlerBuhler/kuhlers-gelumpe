@@ -204,7 +204,8 @@ xattr -dr com.apple.quarantine "/Applications/Kuhlers GELUMPE.app"
 ```
 
 Unter Windows zeigt SmartScreen eine Warnung: "Weitere Informationen", dann "Trotzdem
-ausführen".
+ausführen". Die `-setup.exe` bringt WebView2 mit und installiert es, wenn es fehlt (etwa unter
+Windows 10), auch ohne Internet.
 
 ## Schnellstart aus den Quellen
 
