@@ -63,10 +63,11 @@ def card_with(payload, samples):
 class Boot:
     """One start of the copy with a card that holds an e2sSample.all of the samples given, run until the load is over."""
 
-    def __init__(self, payload, flash, samples, held=0, seconds=10):
+    def __init__(self, payload, flash, samples, held=0, seconds=10, slow_card=None):
         samples = {str(k): list(v) for k, v in samples.items()}
         self.dev = Dev(payload, flash, held)
         self.dev.m.insert_card(card_with(payload, samples))
+        self.dev.m.mmc.slow_card = slow_card
         self.dev.run(seconds)
 
     def active(self):
@@ -138,6 +139,14 @@ def case_clean(payload, flash):
     ]
 
 
+def case_slow_card(payload, flash):
+    """A card that cannot read at 25 MHz: the load at 25 MHz ends in a card error, the loader runs once more at 12.5 MHz and
+    every sample loads, without a window."""
+    b = Boot(payload, flash, {500: ok(500), 501: ok(501)}, slow_card=spec.CLKRT_FAST)
+    return [entry("karte-zu-langsam-laedt-mit-12-5-mhz", b.active() == [500, 501] and not b.window() and b.dev.m.mmc.regs.get(4) == 0x105
+                  and not b.dev.m.asserts, dict(active=b.active(), window=b.window(), mmcclk=hex(b.dev.m.mmc.regs.get(4, 0))))]
+
+
 def case_kill(payload, flash):
     """With EXIT held at power-on every hook passes on: the load stops at the first bad sample as before, nothing is counted."""
     b = Boot(payload, flash, {500: ok(500), 501: bad(501, "pcm8"), 502: ok(502)}, held=spec.KILL_SWITCH)
@@ -158,7 +167,7 @@ def case_factory_slots(payload, flash):
     return [entry("werksplaetze-leerer-flash", not b.window() and len(active) == 4, dict(window=b.window(), active=active))]
 
 
-GROUPS = (case_skips, case_reasons, case_clean, case_kill, case_factory_slots)
+GROUPS = (case_skips, case_reasons, case_clean, case_kill, case_factory_slots, case_slow_card)
 
 
 def group_entries(payload, flash, i):
