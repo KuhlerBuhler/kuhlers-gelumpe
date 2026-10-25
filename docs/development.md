@@ -235,7 +235,7 @@ Push. Nur das neueste Release liegt also auf GitHub.
 `--notes=Datei.md` nimmt die Release-Notizen aus der Datei statt GitHubs erzeugter Liste der PRs. Sobald
 das Release veröffentlicht ist, postet der Workflow "Discord release" es über den Webhook im Secret
 `DISCORD_WEBHOOK` (`tools/discord-release.mjs`): Titel "BLECHTRIBE X.Y.Z ist da" mit Link, darunter die
-Notizen, lange in mehreren Nachrichten. Notizen erst danach geändert: den Workflow von Hand mit dem Tag
+Notizen, lange in mehreren Nachrichten, zum Schluss eine Nachricht nur mit dem Link zum Release. Notizen erst danach geändert: den Workflow von Hand mit dem Tag
 starten, er postet das Release noch einmal.
 
 Geprüft wird vorher: alle fünf Ziele da, genau eine Datei je Ziel, alle mit der fälligen Version, `gh`
