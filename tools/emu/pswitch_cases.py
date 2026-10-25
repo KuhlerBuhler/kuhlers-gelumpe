@@ -741,8 +741,180 @@ def case_sync_group(payload, flash):
     return out
 
 
+def case_sync_unsaved(payload, flash):
+    """Stopped with unsaved changes, the wheel on another pattern of the pattern's sync group loads it at once, without the browse
+    (VIEW:) and without MENU; a pattern of another group is browsed as before. A pattern that came in through a sync group's carry is not
+    unsaved because of the carried values, so a run through a group does not stop at a question; an edit made afterwards still is one."""
+    out = []
+    live = lambda b: b.u32(0xC033E6A4) + 4
+    P1 = 0x800
+    STEP = P1 + 0x30 + 2
+
+    def setup(b):
+        for n, g in ((0, 7), (1, 7), (2, 0), (3, 7)):
+            b.pattern_bytes(n, spec.GROUP_AT, struct.pack("<H", g))
+        b.m.uc.mem_write(live(b) + spec.GROUP_AT, struct.pack("<H", 7))
+
+    def flip(b, at):
+        b.m.uc.mem_write(live(b) + at, bytes([b.dev.read(live(b) + at, 1)[0] ^ 0x10]))
+
+    box = Box(payload, flash)
+    setup(box)
+    flip(box, STEP)
+    flip(box, P1 + 1)                 # a part's mute: carried
+    flip(box, 36)                     # the pattern's own value: carried
+    first = box.dirty()
+    box.turn(1)
+    out.append(entry("group_unsaved_loads_at_once", first and box.view() == (1, 1, 0) and box.flags()[0] in (0, 0xFFFFFFFF) and box.u32(spec.STATE + spec.S_STOPPED) == 0
+                     and not box.m.asserts,
+                     f"edited pattern 1 (group 7), a click to pattern 2 (group 7): running/chosen/pending {box.view()}, browse {box.flags()[0]:#x}"))
+    box.turn(2)
+    out.append(entry("group_unsaved_run_through", box.view() == (3, 3, 0) and not box.m.asserts,
+                     f"two clicks on to pattern 4 (group 7) with the carried values differing from the bank: {box.view()}"))
+    box.turn(-1)
+    out.append(entry("group_carry_is_not_unsaved", box.view() == (2, 2, 0) and not box.m.asserts,
+                     f"out of the group into pattern 3 (group 0) after only a carry: loads at once, {box.view()}"))
+    # an edit after the carry is unsaved again
+    ed = Box(payload, flash)
+    setup(ed)
+    flip(ed, P1 + 1)
+    ed.turn(1)
+    flip(ed, STEP)
+    ed.turn(1)
+    out.append(entry("group_edit_after_carry_browses", ed.view() == (1, 2, 1) and ed.flags()[0] == 1 and not ed.m.asserts,
+                     f"into pattern 2 by the carry, a step changed, a click to pattern 3 (group 0): {ed.view()}, browse {ed.flags()[0]}"))
+    mu = Box(payload, flash)
+    setup(mu)
+    mu.turn(1)
+    flip(mu, P1 + 1)
+    mu.turn(1)
+    out.append(entry("group_carried_edit_browses", mu.view() == (1, 2, 1) and mu.flags()[0] == 1 and not mu.m.asserts,
+                     f"into pattern 2 by the carry, a part's mute changed, a click to pattern 3 (group 0): {mu.view()}, browse {mu.flags()[0]}"))
+    # a browse that is open, then a click onto a pattern of the group: loads
+    br = Box(payload, flash)
+    setup(br)
+    flip(br, STEP)
+    br.turn(2)
+    opened = (br.view(), br.flags()[0])
+    br.turn(1)
+    out.append(entry("group_ends_an_open_browse", opened == ((0, 2, 1), 1) and br.view() == (3, 3, 0) and br.flags()[0] == 0 and not br.m.asserts,
+                     f"edited pattern 1, browse to pattern 3 (group 0) {opened}; one more click to pattern 4 (group 7): {br.view()}, browse {br.flags()[0]}"))
+    other = Box(payload, flash)
+    setup(other)
+    flip(other, STEP)
+    other.turn(2)
+    out.append(entry("other_group_unsaved_browses", other.view() == (0, 2, 1) and other.flags()[0] == 1 and other.dirty() and not other.m.asserts,
+                     f"edited pattern 1 (group 7), a click to pattern 3 (group 0): browse as before, {other.view()}"))
+    ref = Box(payload, flash, KILL)
+    setup(ref)
+    flip(ref, STEP)
+    ref.turn(1)
+    out.append(entry("group_unsaved_kill_switch_is_stock", ref.view() == (1, 1, 0) and ref.flags()[0] in (0, 0xFFFFFFFF), f"EXIT held at power-on: {ref.view()}"))
+    return out
+
+
+def case_view(payload, flash):
+    """While a pattern is browsed or confirmed (VIEW:, NEXT:) the pads and the Edit info texts show that pattern, from the pattern bank, and
+    go back when the browse or the confirmation ends; the pattern in RAM and the sound stay on what plays."""
+    import re
+    out = []
+    CELL_W, CELL_O = 0xC0691388, 0xC069136C            # the Sampler's addresses, the device translates them for the synth
+    STEP, PITCH = 0x800 + 0x30, 0x800 + 0x24
+    live = lambda b: b.u32(0xC033E6A4) + 4
+
+    def lit(b):
+        """The pads that show red: steps that are on, parts that are not muted (the blue of the selected part is left out)."""
+        return sorted(n for n in range(16) if b.m.leds.get(0x2C + 2 * n, 0))
+
+    def info_text(b):
+        """The text of the info line's widget (the label while one stands)."""
+        page = b.dev.screen()["page"]
+        return bytes(b.m.uc.mem_read(b.u32(page + 0x50), 40)).split(b"\0")[0].decode("latin-1")
+
+    def cells(b):
+        return b.u32(CELL_W), b.u32(CELL_O)
+
+    def seed(b, live_steps=(0, 4, 8, 12), bank_steps=(1, 3, 5, 7)):
+        for st in live_steps:
+            b.m.uc.mem_write(live(b) + STEP + 12 * st, bytes([1]))
+        for st in bank_steps:
+            b.m.uc.mem_write(b.slots + 0x4000 + STEP + 12 * st, bytes([1]))
+        b.m.uc.mem_write(live(b) + PITCH, bytes([0]))
+        b.m.uc.mem_write(b.slots + 0x4000 + PITCH, bytes([20]))
+
+    box = Box(payload, flash)
+    seed(box, live_steps=(2, 6, 10, 14))
+    box.dev.press(0x15, 0.4)                                  # SEQUENCER: the pads show the steps of the bar
+    start = (lit(box), cells(box))
+    box.turn(1)
+    box.run(0.5)
+    viewing = (box.view(), box.flags()[0], lit(box), cells(box))
+    box.key("exit")
+    box.run(0.5)
+    back = (lit(box), cells(box))
+    out.append(entry("view_pads_show_the_browsed_pattern", start[0] == [2, 6, 10, 14] and viewing[0] == (0, 1, 1) and viewing[1] == 1 and viewing[2] == [1, 3, 5, 7]
+                     and viewing[3][0] == spec.VIEW_W and back == start and not box.m.asserts,
+                     f"SEQUENCER, steps 2,6,10,14 in RAM, 1,3,5,7 in pattern 2: before {start[0]}, VIEW: {viewing[2]} through {viewing[3][0]:#x}, EXIT {back[0]}, "
+                     f"pointers back {back[1] == start[1]}"))
+    mutes = Box(payload, flash)
+    seed(mutes)
+    mutes.key("part_mute")
+    live_mutes = lit(mutes)
+    mutes.m.uc.mem_write(mutes.slots + 0x4000 + 0x800 + 1, bytes([mutes.dev.read(live(mutes) + 0x800 + 1, 1)[0] ^ 1]))
+    mutes.turn(1)
+    mutes.run(0.5)
+    other = lit(mutes)
+    mutes.key("exit")
+    mutes.run(0.5)
+    out.append(entry("view_pads_show_the_browsed_mutes", other != live_mutes and lit(mutes) == live_mutes and not mutes.m.asserts,
+                     f"PART MUTE: pads in RAM {live_mutes}, part 1 muted the other way in pattern 2: VIEW: {other}, EXIT {lit(mutes)}"))
+    info = Box(payload, flash)
+    seed(info)
+    info.turn(1)
+    info.run(0.5)
+    page = info.dev.screen()["page"]
+    label = info_text(info)
+    shown = []
+    for _ in range(6):                       # the Edit key steps the line through Pitch and the rest
+        info.dev.press(0x0C, 0.7)
+        shown.append(info_text(info))
+    pitch = shown[0]
+    info.key("exit")
+    info.run(0.8)
+    for _ in range(5):                       # back to the first line the key showed
+        info.dev.press(0x08, 0.7)
+    after = info_text(info)
+    out.append(entry("view_edit_key_shows_the_info_texts_of_the_browsed_pattern", label.startswith("VIEW:") and pitch.replace("\\", " ").split()[-1:] == ["20"]
+                     and after.startswith("Pitch") and after.replace("\\", " ").split()[-1:] == ["0"] and not info.m.asserts,
+                     f"VIEW: the line says {label!r}; the Edit key steps it: {shown}; after EXIT the same line is {after!r}"))
+    play_box = Box(payload, flash)
+    seed(play_box)
+    play_box.dev.press(0x15, 0.4)
+    play(play_box)
+    play_box.run(0.3)
+    play_box.turn(1)
+    play_box.key("menu", 0.6)
+    armed = (play_box.view(), play_box.flags()[1], cells(play_box)[0] == spec.VIEW_W)
+    play_box.until_change()
+    play_box.run(0.8)
+    done = (play_box.running(), cells(play_box)[0] != spec.VIEW_W, play_box.flags()[1])
+    out.append(entry("view_follows_the_confirmation_and_ends_at_the_switch", armed == ((0, 1, 1), 1, True) and done == (1, True, 0) and not play_box.m.asserts,
+                     f"NEXT: running/chosen/pending, confirmed, pointer on the view {armed}; after the switch running, pointer back, confirmed {done}"))
+    for name, kw in (("kill_switch", dict(held=KILL)), ("setting_off", {})):
+        b = Box(payload, flash, **kw)
+        seed(b)
+        if name == "setting_off":
+            b.set_setting(0)
+        was = cells(b)
+        b.turn(1)
+        b.run(0.5)
+        out.append(entry(f"view_{name}_is_stock", cells(b) == was and b.u32(spec.VIEW_W + spec.V_NUM) in (0xFFFFFFFF, 0) or cells(b) == was,
+                         f"{name}: pointers {cells(b) == was}"))
+    return out
+
+
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
-          case_sync_group)
+          case_sync_group, case_sync_unsaved, case_view)
 
 
 def group_entries(payload, flash, i):

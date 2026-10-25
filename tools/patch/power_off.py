@@ -38,7 +38,7 @@ import synthaddr  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])   # the app's frozen service unpacks its data files here
 
 CODE_AT = 0xC01A5800            # free (FF) in all three builds, between MFX 2 (ends before 0xC01A5800) and its RAM at 0xC01A5C00
 CODE_END = 0xC01A5BF0

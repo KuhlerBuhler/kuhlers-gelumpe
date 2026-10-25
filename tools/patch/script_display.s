@@ -386,7 +386,7 @@ script_display_blit:
     ldr r2, =MENU_STATE
     cmp r1, #MENU_SCREEN
     bne blit_app
-    ldrb r3, [r2, #M_DESC_ON]   ; IMPORT PLUGIN with a plugin open draws its description into the picture (menu_desc_frame)
+    ldrb r3, [r2, #M_DESC_ON]   ; the page DESCRIPTION draws its description into the picture (menu_desc_frame)
     cmp r3, #1
     beq blit_menu
 blit_app:

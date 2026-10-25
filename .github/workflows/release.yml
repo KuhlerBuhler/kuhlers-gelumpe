@@ -1,0 +1,150 @@
+# The release, started by the merge of the release pull request into main (docs/development.md, "Release"): when
+# package.json names a version without a tag and release-notes/<version>.md exists, it builds the apps, checks the BLECH
+# set on Korg's three 2.02 files in the emulator, builds BLECH.patch, publishes the release and posts it to Discord.
+# Any other push to main ends after the first job.
+#
+# The 2.02 files are Korg's and never enter the repo: the job loads them from the links in the secrets E2_VSB_URL
+# (Hacktribe), E2_VSB_STOCK_URL (red) and E2_VSB_SYNTH_URL (blue) and stops when a file is not the expected one.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  due:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      release: ${{ steps.check.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "v$version is released already, nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          elif [ ! -s "release-notes/$version.md" ]; then
+            echo "::notice::release-notes/$version.md is missing, no release for $version."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: due
+    if: needs.due.outputs.release == 'true'
+    uses: ./.github/workflows/build-apps.yml
+    with:
+      version: ${{ needs.due.outputs.version }}
+      macos: true
+    permissions:
+      contents: read
+      actions: write
+
+  # The full emulator check (tools/emu/check.py) of the set on each of Korg's 2.02 files, side by side with the build.
+  verify:
+    needs: due
+    if: needs.due.outputs.release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: hacktribe
+            url: E2_VSB_URL
+            sha256: 7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee
+          - name: red
+            url: E2_VSB_STOCK_URL
+            sha256: 1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646
+          - name: blue
+            url: E2_VSB_SYNTH_URL
+            sha256: 41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8
+    name: verify (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - run: |
+          python -m venv tools/emu/.venv
+          tools/emu/.venv/bin/pip install -r tools/emu/requirements.txt
+      - name: Korg's file
+        env:
+          URL: ${{ secrets[matrix.url] }}
+          SHA256: ${{ matrix.sha256 }}
+        run: |
+          [ -n "$URL" ] || { echo "::error::secret ${{ matrix.url }} is not set"; exit 1; }
+          curl -fsSL "$URL" -o "$RUNNER_TEMP/SYSTEM.VSB"
+          echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
+      - run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
+      # The app skips its own emulator check for a pair listed in verified.json; a pair that is missing only makes
+      # patching slower, so it is a warning.
+      - name: The pair in verified.json
+        run: |
+          node -e '
+            const fs = require("fs");
+            const [fresh] = JSON.parse(fs.readFileSync("data/patches/verified.json", "utf8")).results;
+            const shipped = JSON.parse(require("child_process").execSync("git show HEAD:data/patches/verified.json", { encoding: "utf8" })).results;
+            if (!shipped.some(r => r.input === fresh.input && r.output === fresh.output))
+              console.log(`::warning::verified.json lacks ${fresh.input.slice(0, 8)} -> ${fresh.output.slice(0, 8)}: the app checks this file in its emulator before patching. npm run verify:patches updates it.`);
+          '
+
+  release:
+    needs: [due, build, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      discussions: write
+    env:
+      VERSION: ${{ needs.due.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: app-*
+          path: dist-release
+          merge-multiple: true
+      - name: Hacktribe's 2.02
+        env:
+          URL: ${{ secrets.E2_VSB_URL }}
+        run: |
+          curl -fsSL "$URL" -o "$RUNNER_TEMP/SYSTEM.VSB"
+          echo "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
+      - run: npm run -s build:blech-patch -- --vsb "$RUNNER_TEMP/SYSTEM.VSB" --version "$VERSION"
+      - run: ls -l dist-release
+      - run: node tools/release.mjs dist-release --ci "--notes=release-notes/$VERSION.md" --yes
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  discord:
+    needs: [due, release]
+    uses: ./.github/workflows/discord-release.yml
+    with:
+      tag: v${{ needs.due.outputs.version }}
+    secrets: inherit

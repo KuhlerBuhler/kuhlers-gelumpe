@@ -1,5 +1,6 @@
-# Builds the app on GitHub's runners, started by hand (docs/development.md, "Bauen"): Windows and Linux always,
-# macOS (Apple Silicon and Intel) when the box is ticked. The macOS build from a Mac works as before.
+# Builds the app on GitHub's runners, started by hand (docs/development.md, "Bauen") or by the release workflow
+# (release.yml): Windows and Linux always, macOS (Apple Silicon and Intel) when the box is ticked. The macOS build from
+# a Mac works as before.
 # The files land as artifacts; they go into dist-release/ for npm run release.
 name: Build apps
 
@@ -11,6 +12,14 @@ on:
         required: true
       macos:
         description: "Also build the macOS .dmg files (Apple Silicon and Intel)"
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      macos:
         type: boolean
         default: true
 
@@ -95,6 +104,8 @@ jobs:
           fi
         env:
           SIDECAR_CACHED: ${{ steps.sidecar.outputs.cache-hit }}
+          # With CI=true the dmg bundler skips the Finder script and the dmg has neither background nor icon positions.
+          TAURI_BUNDLER_DMG_IGNORE_CI: "true"
           BUNDLES: ${{ fromJSON('{"windows":"nsis","linux":"appimage,deb","macos":"dmg","macos-intel":"dmg"}')[matrix.target] }}
       - name: Check the Debian MIDI dependency
         if: runner.os == 'Linux'

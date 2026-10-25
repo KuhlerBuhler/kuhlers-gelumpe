@@ -93,7 +93,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     session.requireRehearsal = true;
     if (!emu?.running) {
       session.rehearseOn(null);
-      rehearseState.textContent = "Probe im Emulator: Emulator läuft nicht. Starte ihn im Bereich Emulator, dann neu verbinden; bis dahin geht nichts ans Gerät.";
+      rehearseState.textContent = "Probe im Emulator: Emulator läuft nicht. Starte ihn im Bereich Emulator (die Electribe wird dabei getrennt) und verbinde danach neu; bis dahin geht nichts ans Gerät.";
       toast(rehearseState.textContent, "info", { stay: true });
       return;
     }
@@ -138,7 +138,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       await attachRehearsal();
       if (attempt !== connection) return;
       showDecision();
-      view()?.external(port !== emulator());
+      view()?.external(port !== emulator(), !!session.device?.ram);
       onSession(session);
     } catch (e) {
       candidate?.lost();
@@ -151,6 +151,31 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       session = null;
       onSession(null);
     }
+  }
+
+  /** Ends the connection to a real device or to the emulator; always possible, also while a request is in flight. */
+  async function disconnect() {
+    connection++;
+    const lost = session;
+    if (!lost) return false;
+    session = null;
+    const real = lost.port !== emulator();
+    let closed = null;
+    if (real) {
+      lost.lost();
+      closed = await midi.closePort(lost.port, { refresh: false }).catch(() => null);
+    }
+    view()?.external(false);
+    rehearseState.textContent = "";
+    decide.hidden = true;
+    decide.replaceChildren();
+    facts.replaceChildren();
+    seen = false;
+    onSession(null);
+    say("neutral", "getrennt", closed?.state === "quarantined"
+      ? "Getrennt. Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest."
+      : real ? "Die Electribe ist getrennt." : "Der Emulator ist nicht mehr verbunden.");
+    return true;
   }
 
   async function connect() {
@@ -280,6 +305,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     get session() { return session; },
     /** The same as the button in this area: connect to the running emulator. */
     connectEmulator: () => emuButton.click(),
+    disconnect,
     showDecision,
     log(text, tone = "neutral") {
       log.prepend(el("li", { className: "ui-row" }, [pill(tone, { ok: "ok", warn: "Warnung", error: "Fehler", neutral: "Info" }[tone]), el("span", { textContent: ` ${text}` })]));
