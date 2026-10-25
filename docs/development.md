@@ -249,7 +249,9 @@ venv (`tools/emu/.venv-x64`) eingefroren und unter Rosetta ausgeführt.
 werden und läuft dort emuliert. Alles x64 installieren: Node, Python (python.org "Windows installer
 (64-bit)"), Visual Studio Build Tools mit "Desktop development with C++" und den x64-Tools, Rust mit
 `rustup default stable-x86_64-pc-windows-msvc`. WebView2 ist in Windows 11 dabei, NSIS lädt Tauri
-selbst. Bleibt der Rust-Host ARM, `--target x86_64-pc-windows-msvc` anhängen, die Datei liegt dann
+selbst. Die `-setup.exe` enthält den Offline-Installer von WebView2 (`webviewInstallMode` in
+`src-tauri/tauri.conf.json`, etwa 130 MB mehr): ohne ihn blieb das Fenster unter Windows 10 ohne
+WebView2 weiß, wenn das Nachladen beim Installieren scheiterte. Bleibt der Rust-Host ARM, `--target x86_64-pc-windows-msvc` anhängen, die Datei liegt dann
 unter `target/x86_64-pc-windows-msvc/release/bundle/nsis/`.
 
 Die App prüft beim Start und alle paar Stunden das neueste Release und zeigt oben "Neue Version

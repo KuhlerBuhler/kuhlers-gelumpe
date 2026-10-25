@@ -151,7 +151,8 @@ checks for a newer release and shows "Neue Version verfügbar" at the top; a cli
 xattr -dr com.apple.quarantine "/Applications/Kuhlers GELUMPE.app"
 ```
 
-On Windows, SmartScreen shows a warning: "More info", then "Run anyway".
+On Windows, SmartScreen shows a warning: "More info", then "Run anyway". The `-setup.exe` carries
+WebView2 and installs it when it is missing (e.g. on Windows 10), without needing the internet.
 
 ## Quick start from source
 
