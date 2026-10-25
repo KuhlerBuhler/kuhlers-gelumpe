@@ -4,6 +4,16 @@
  */
 export const NEWS = Object.freeze([
   Object.freeze({
+    version: "1.3.2",
+    items: Object.freeze([
+      "Patcher: Hacktribe-Dateien bestehen die Prüfung wieder. 1.3.1 hat sie fälschlich abgelehnt.",
+      "Die App gibt es jetzt auch für Intel-Macs.",
+      "Windows: der Installer bringt WebView2 mit, das weiße Fenster unter Windows 10 ist weg.",
+      "Patcher: das Feld zeigt, welche Datei drin ist und was sie ist. Mit der blauen Firmware steht dort, wie du Hacktribe auf die blaue bekommst.",
+      "Discord: wer online ist, läuft als Blechy über die Seite.",
+    ]),
+  }),
+  Object.freeze({
     version: "1.3.0",
     items: Object.freeze([
       "Sync Groups: Patterns derselben Gruppe wechseln ohne MENU am Sequenzende und spielen wie eine lange Sequenz. Einstellen auf der Seite SYNC GROUP.",
