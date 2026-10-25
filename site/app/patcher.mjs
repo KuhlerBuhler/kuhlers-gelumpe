@@ -103,11 +103,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let toldVerdict = "";
   let closeVerdict = () => {};
   const synthSet = el("p", { className: "muted", id: "cee-patch-synth-set", hidden: true });
-  // Hacktribe's patch is made from the sampler's firmware and its result runs on the blue too; the blue's own file cannot take it.
+  // Hacktribe for the blue needs the sampler's firmware and a changed header (Hacktribe's own patcher, -e), which this page does not build.
   const blueHacktribe = el("p", { className: "muted", id: "cee-patch-blue-hacktribe", hidden: true }, [
-    "Hacktribe auf der blauen? Das geht nur aus Korgs Firmware für den electribe sampler (rot): ",
-    el("a", { className: "cee-text-link", href: "https://www.korg.com/us/support/download/product/0/368/#software", target: "_blank", rel: "noopener noreferrer", textContent: "System Updater 2.02 (rot)" }),
-    " laden, dessen SYSTEM.VSB hierher ziehen und im nächsten Schritt „Patche auch Hacktribe“ wählen. Das Ergebnis läuft auch auf der blauen.",
+    "Hacktribe auf der blauen machst du mit ",
+    el("a", { className: "cee-text-link", href: "https://github.com/bangcorrupt/hacktribe/wiki/How-To", target: "_blank", rel: "noopener noreferrer", textContent: "Hacktribes eigenem Patcher" }),
+    " (aus Korgs Firmware für den electribe sampler 2.02, mit der Option für die blaue). Hier wird aus deiner blauen Firmware BLECH für die blaue.",
   ]);
   // Step 2 chooses what goes on the file: BLECHTRIBE of this version or an own BLECH.patch, and on Korg's original Hacktribe as well.
   const release = NEWS[0].version.split(".").slice(0, 2).join(".");
