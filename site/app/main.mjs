@@ -11,6 +11,7 @@ import { fxPanel } from "./fx.mjs";
 import { levelsPanel } from "./levels.mjs";
 import { modulationsPage } from "./modulations.mjs";
 import { samplesPage } from "./samples.mjs";
+import { samplesFilePage } from "./sampleset.mjs";
 import { createMidiTransport } from "./midi.mjs";
 import { createUsbWatch } from "./usb-watch.mjs";
 import { usbIndicator } from "./usb.mjs";
@@ -618,6 +619,7 @@ function boot() {
   const modulations = modulationsPage($("#cee-mod"), { emulator });
   const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: (parts, home) => nav.trail("baukasten", parts, home), navbar: nodes => nav.baukasten(nodes) });
   samplesPage($("#cee-samples"), { device, emulator, probe });
+  samplesFilePage($("#cee-sampleset"));
   let fxFirmware = null;
   let modFirmware = null;
   let plainFor = null;
