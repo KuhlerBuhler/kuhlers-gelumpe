@@ -42,6 +42,6 @@ test("the news shows once, as a toast that stays, and never in a browser", () =>
   showNews(toast, { version: "1.3.0" }, storage);
   showNews(toast, undefined, storage);
   assert.equal(shown.length, 1);
-  assert.match(shown[0][0], /^Neu in 1\.3:\n• /);
+  assert.equal(shown[0][0], "BLECHTRIBE 1.3 ist da. Was neu ist, steht unter Changelogs.");
   assert.deepEqual(shown[0].slice(1), ["info", { stay: true }]);
 });
