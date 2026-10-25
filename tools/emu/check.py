@@ -83,10 +83,12 @@ def overlaps(runs, ranges, allow=()):
             a, b = max(lo, s), min(hi, e)
             if a >= b:
                 continue
-            fa, fb = a - IMAGE + HEADER, b - IMAGE + HEADER
-            if any(at <= fa and fb <= at + n for at, n in allow):
-                continue
-            hits.append([fa, fb - fa])
+            # A hit may cross from one allowed span into the next; only what no span covers is left.
+            left = [(a - IMAGE + HEADER, b - IMAGE + HEADER)]
+            for at, n in allow:
+                left = [piece for fa, fb in left
+                        for piece in ((fa, min(fb, at)), (max(fa, at + n), fb)) if piece[0] < piece[1]]
+            hits.extend([fa, fb - fa] for fa, fb in left)
     return hits
 
 

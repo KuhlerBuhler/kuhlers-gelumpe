@@ -313,7 +313,7 @@ mountet die Karte), nicht davor; ohne gemountete Karte (`FatFs[0]->fs_type == 0`
 
 Das BLECH Menü (`docs/messungen/2026-10-14-blech-menue.md`) ist die Ausnahme zu 1: es
 schreibt nur auf WRITE des Nutzers (`settings.a/b.bin` nach Regel 3, `e2sPlugin.all` in einem
-Vorgang) und liest die Dateiliste und `*.blech` beim Öffnen der Seite IMPORT PLUGIN, jeweils
+Vorgang) und liest die Dateiliste und `*.blech` beim Öffnen der Seite PLUGIN EDIT und die Beschreibung eines Plugins beim Öffnen seiner Seite DESCRIPTION, jeweils
 im UiTask bei offenem Menübildschirm. Dann ist weder DATA UTILITY noch Sample-Laden offen.
 
 Belege und Grenzen: `docs/messungen/2026-10-14-skript-speicher.md`. Am Gerät
@@ -397,6 +397,8 @@ sind kein RAM und stehen auch nicht hier.
 | `0xC0174000` + 0x3950, `0xC0178000` + 0x3950 | preset-tables | Platz für je 28 weitere Preset-Records (Insert, Master), vom Editor beschrieben | `preset_tables.py:RES_IFX`, `RES_MFX` |
 | `0xC017C400` + 0x800 | preset-tables | Reglergedächtnis des Insert-Effekts, 16 Parts zu 128 Byte, die Firmware füllt es beim Start | `preset_tables.py:EDIT_TABLE` |
 | `0xC0180F00` + 0x40 | pattern-switch | Zustand, darin `PS_SETTING` bei +0x10 | `pattern_switch.py:STATE` |
+| `0xC0173000` + 762 | pattern-switch | Puffer der Sync Group: die Werte, die ein Patternwechsel in der Gruppe mitnimmt | `pattern_switch.py:SG_BUF` |
+| `0xC0173400` + 0x48 | pattern-switch | die Ansicht: Kopie des Zugriffsobjekts, dessen Pattern der Block der Bank ist, die angezeigte Nummer und der Index der Info-Zeile | `pattern_switch.py:VIEW_W` |
 | `0xC0181F00` + 0x40 | load-bar | Zustand | `load_bar.py:STATE` |
 | `0xC0182000` bis `0xC0183000` | splash-editor | Zustand 0x100, Datensatz 0x420, zwei Bilder zu 0x400, FatFs-Datei 0x2E0 | `splash_editor.py`, fünf Einträge |
 | `0xC0183800` + 0x100 | sample-errors | Zustand (Zähler, erstes übersprungenes Sample, Grund) und die zwei Zeilen des Fensters bei +0x40 und +0x60 (der Code liegt bei `0xC0183000`, 852 Byte, als geänderte Bytes) | `sample_errors.py:STATE` |
