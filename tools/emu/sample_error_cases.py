@@ -128,11 +128,13 @@ def case_reasons(payload, flash):
 
 
 def case_clean(payload, flash):
-    """Samples the loader takes make no window and leave the state empty: 24 bit, stereo and 16 bit mono."""
+    """Samples the loader takes make no window and leave the state empty: 24 bit, stereo and 16 bit mono. The card runs at 25 MHz
+    once the loader starts (MMCCLK 0x102 instead of the firmware's 0x105)."""
     b = Boot(payload, flash, {500: ok(500), 501: ("s502", FRAMES, 48000, "pcm24"), 502: ("s503", FRAMES, 48000, "stereo16")})
     return [
         entry("sauber-kein-fenster", not b.window() and b.active() == [500, 501, 502], dict(window=b.window(), active=b.active())),
         entry("sauber-nichts-gezaehlt", b.word(spec.S_COUNT) == 0, b.word(spec.S_COUNT)),
+        entry("karte-mit-25-mhz", b.dev.m.mmc.regs.get(4) == 0x102, f"MMCCLK {b.dev.m.mmc.regs.get(4, 0):#x}"),
     ]
 
 
@@ -142,6 +144,7 @@ def case_kill(payload, flash):
     return [
         entry("exit-beim-einschalten-wie-vorher", b.active() == [500] and b.window() and b.word(spec.S_COUNT) in (0, 0xFFFFFFFF),
               dict(active=b.active(), window=b.window(), count=hex(b.word(spec.S_COUNT)))),
+        entry("exit-beim-einschalten-takt-der-firmware", b.dev.m.mmc.regs.get(4) == 0x105, f"MMCCLK {b.dev.m.mmc.regs.get(4, 0):#x}"),
     ]
 
 

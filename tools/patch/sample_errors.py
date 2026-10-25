@@ -16,7 +16,8 @@ which the window class does not know and so would show as "Unknown Error."; two 
     python3 tools/patch/sample_errors.py --vsb SYSTEM.VSB [--out data/patches/sample-errors.json] [--listing]
 
 Hooks (the same addresses in both builds, checked byte for byte):
-  0xC00364F0  the loader's first instruction: clears our state
+  0xC00364F0  the loader's first instruction: clears our state and sets the card's clock from 12.5 to 25 MHz (SD default
+              speed; docs/messungen/2026-10-25-sd-takt.md), only from the firmware's own divider
   0xC0035FB4, 0xC0035FC4, 0xC0035FD4  the three branches of the sample function that refuse a format (tag, channels, bits):
               they remember which and the value, then go where they went before
   0xC004EE0C, 0xC004EE50, 0xC004EE68  the three branches of the slot function that refuse a sample (slot not usable, in use,
@@ -63,6 +64,8 @@ LOOP_END = 0xC0036718
 ALLOC = 0xC0028DCC
 WINDOW_TITLE = 0xC00630F0
 WINDOW_TEXT = 0xC0063144
+MMCCLK = 0x01C40004             # MMC0's clock register: bit 8 on, bits 0-7 CLKRT; the card runs at 150 MHz / (2 * (CLKRT + 1))
+CLKRT_FIRMWARE, CLKRT_FAST = 5, 2  # 12.5 MHz as the firmware sets it, 25 MHz (SD default speed)
 
 # the state: counts, the first skipped sample, and what the two refusing places said
 S_COUNT, S_IDX, S_ORIG, S_REASON, S_VAL, S_FREASON, S_FVAL = 0, 4, 8, 12, 16, 20, 24
@@ -83,6 +86,9 @@ SOURCE = f"""
 .equ RESULT_BACK, {RESULT + 4:#x}
 .equ LOOP_END, {LOOP_END:#x}
 .equ ALLOC, {ALLOC:#x}
+.equ MMCCLK, {MMCCLK:#x}
+.equ CLKRT_FIRMWARE, {CLKRT_FIRMWARE}
+.equ CLKRT_FAST, {CLKRT_FAST}
 .equ S_COUNT, {S_COUNT}
 .equ S_IDX, {S_IDX}
 .equ S_ORIG, {S_ORIG}
@@ -125,6 +131,18 @@ entry_clear:
     subs r2, r2, #4
     str r1, [r12, r2]
     bne entry_clear
+    ldr r12, =MMCCLK             ; the card from 12.5 to 25 MHz before the samples load (device 25.10.: 3.1 to 5.2 MiB/s);
+    ldr r1, [r12]                ; only from the firmware's own divider, the clock off while it changes, as the TRM asks
+    and r2, r1, #0xFF
+    cmp r2, #CLKRT_FIRMWARE
+    bne entry_out
+    bic r1, r1, #0x100
+    str r1, [r12]
+    bic r1, r1, #0xFF
+    orr r1, r1, #CLKRT_FAST
+    str r1, [r12]
+    orr r1, r1, #0x100
+    str r1, [r12]
 entry_out:
     b LOADER_BACK
 
