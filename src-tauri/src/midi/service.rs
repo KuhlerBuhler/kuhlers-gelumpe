@@ -473,6 +473,8 @@ impl MidiService {
                         c
                     }
                     Err(e) => {
+                        // No connection was made: the ports are free before the caller hears of the failure and may open them again.
+                        drop(_released);
                         let _ = ready_tx.send(Err(e));
                         return;
                     }
