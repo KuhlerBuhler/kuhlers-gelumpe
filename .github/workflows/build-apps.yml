@@ -46,7 +46,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev patchelf python3-venv
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev patchelf python3-venv libasound2-dev
       - run: npm ci
       - run: cargo install tauri-cli --version "^2" --locked
       - run: node tools/set-version.mjs "$VERSION"
@@ -54,6 +54,14 @@ jobs:
           VERSION: ${{ inputs.version }}
       - run: npm run setup:emu
       - run: npm run app:build -- --bundles ${{ matrix.bundles }}
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - name: Check the Debian MIDI dependency
+        if: runner.os == 'Linux'
+        run: |
+          for package in src-tauri/target/release/bundle/deb/*.deb; do
+            dpkg-deb --field "$package" Depends | grep -E 'libasound2(t64)?'
+          done
       - name: Start the frozen emulator service once, as the app does
         run: |
           for bin in "src-tauri/binaries/Gelumpe Emulator-"*; do :; done
