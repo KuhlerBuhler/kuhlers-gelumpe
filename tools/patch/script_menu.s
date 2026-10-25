@@ -43,6 +43,7 @@
 .equ MX_SAVE_ON, -0x18         ; byte, the backlight pins that light in power save
 .equ MX_PHASE, -0x1D           ; byte, the hue of METER STILL RAINBOW, three steps every 40 ms
 .equ MX_LOUD_PHASE, -0x17      ; 2 bytes (low, high), the hue of METER LOUD RAINBOW in 1/256 steps, a round a bar at the tempo
+.equ METER_OFF, 9              ; METER STILL only: the still meter stays dark (bit 1 of byte 5 of the settings file)
 .equ METER_RAINBOW, 8          ; METER STILL and LOUD: the colours turn round the wheel (STILL bit 30 of the settings flags, LOUD bit 0 of byte 5)
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ M_PC, 0x158              ; the gap between the two settings buffers (M_FILE_A ends at 0x158, M_FILE_B starts at 0x160)
@@ -267,6 +268,10 @@ menu_load_meter:
     tst r2, #4                  ; bit 30, shifted down with the colours
     movne r3, #METER_RAINBOW
     strbne r3, [r4, #MX_METER]
+    ldrb r3, [r0, #5]           ; bit 1 of byte 5: STILL is OFF (a file from before has 0 there)
+    tst r3, #2
+    movne r2, #METER_OFF
+    strbne r2, [r4, #MX_METER]
     ldrb r3, [r0, #5]           ; bit 0 of byte 5: LOUD is RAINBOW
     tst r3, #1
     movne r3, #METER_RAINBOW
@@ -376,7 +381,7 @@ menu_file_read:
     bne menu_read_fail
     ldrb r0, [r7, #4]
     ldrb r1, [r7, #5]
-    bics r1, r1, #1             ; byte 5: only bit 0 (LOUD RAINBOW) may be set
+    bics r1, r1, #3             ; byte 5: only bit 0 (LOUD RAINBOW) and bit 1 (STILL OFF) may be set
     bne menu_read_fail
     cmp r0, #2
     moveq r2, #SETTINGS_SIZE
@@ -464,6 +469,11 @@ menu_settings_save:
     ldrb r1, [r4, #MX_METER+1]
     orr r2, r1, r2, lsl #3
     ldrb r1, [r4, #MX_METER]
+    cmp r1, #METER_OFF
+    moveq r1, #0                ; OFF: the three bits of STILL stay 0, bit 1 of byte 5 says it
+    ldrbeq r12, [r7, #5]
+    orreq r12, r12, #2
+    strbeq r12, [r7, #5]
     cmp r1, #METER_RAINBOW
     moveq r1, #0                ; RAINBOW: the three bits of STILL stay 0, bit 30 says it
     orr r2, r1, r2, lsl #3
@@ -959,6 +969,9 @@ meter_zone:
     ldrb r2, [r2, r3]
     cmp r2, #METER_RAINBOW
     beq meter_zone_rainbow
+    cmp r2, #METER_OFF
+    moveq r2, #0                ; OFF: the palette's black
+    beq meter_zone_palette
     cmp r2, #0
     bne meter_zone_palette
     ldr r2, =MENU_STATE
@@ -3601,6 +3614,8 @@ menu_slot_value:
     cmp r0, #28
     cmpne r0, #31
     moveq r2, #METER_RAINBOW    ; STILL and LOUD have RAINBOW behind the palette
+    cmp r0, #28
+    moveq r2, #METER_OFF        ; STILL has OFF behind RAINBOW
     sub r3, r0, #28
     cmp r3, #3
     subls r3, r3, #-MX_METER
@@ -4378,7 +4393,7 @@ meter_titles:
 over_names:
     .word str_auto, str_c_red, str_c_blue, str_c_pink
 colour_names:
-    .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink, str_c_rainbow
+    .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink, str_c_rainbow, str_off
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
 str_once:

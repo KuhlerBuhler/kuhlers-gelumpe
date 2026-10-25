@@ -563,7 +563,7 @@ def read_settings(image):
 
 
 def settings_extras(image):
-    """Byte 5 of each settings file on a card image (bit 0: METER LOUD RAINBOW), valid or not."""
+    """Byte 5 of each settings file on a card image (bit 0: METER LOUD RAINBOW, bit 1: METER STILL OFF), valid or not."""
     volume = fat32.Volume(bytes(image))
     out = {}
     for path in SETTINGS_PATHS:
@@ -595,7 +595,7 @@ def read_settings_look(image):
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
         head = {1: 16, 2: 20}.get(version)
-        if head is None or extras & ~1:      # byte 5: bit 0 is METER LOUD RAINBOW
+        if head is None or extras & ~3:      # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF
             continue
         size = head + 4 * count
         if count > 16 or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -1023,6 +1023,41 @@ def look_cases(payload, flash=None):
         f"byte 5 {extras}, flags {l_flags:#x}, after a restart the meter bytes {list(l_kept)}")
     goto_group(dev, GROUP_LED, 7)
     dev.turn(-8, wait=0.3)
+
+    # METER STILL OFF: the still meter stays dark, the louder zones keep their colours; WRITE keeps it as bit 1 of byte 5 of the
+    # file, the three bits of STILL stay 0 (and STOCK, the page's first value, lights the still meter)
+    goto_group(dev, GROUP_LED, 4)
+    meter_level(dev, 0)
+    dev.run(0.5)
+    still_stock = leds(dev)
+    dev.turn(9, wait=0.3)
+    off_page = texts_of(dev)
+    dev.run(0.5)
+    off_still = leds(dev)
+    dev.turn(1, wait=0.3)
+    clamp_page = texts_of(dev)
+    meter_level(dev, 254)
+    dev.run(1.0)
+    off_loud = leds(dev)
+    meter_level(dev, 0)
+    press(dev, "write", wait=0.6)
+    image = dev.m.mmc.card.medium.data
+    files = read_settings(image)
+    newest = max(files, key=lambda n: files[n][0]) if files else None
+    off_flags = files[newest][1] if newest else 0
+    off_extras = settings_extras(image).get(newest, 0)
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(image))))
+    again.run(1.5)
+    off_kept = again.read(STATE - 0x1C, 4)
+    add("led_meter_still_off", off_page == ("METER STILL", "OFF", "") and clamp_page == off_page and any(still_stock)
+        and off_still == [0] * 12 and off_loud[0] > 200 and off_extras & 2 == 2 and off_flags >> 16 & 7 == 0 and off_flags >> 30 & 1 == 0
+        and off_kept[0] == 9 and not dev.m.asserts and not again.m.asserts,
+        f"page {off_page}, one more turn {clamp_page}, STOCK still {still_stock[:3]}, OFF still {off_still}, loud {off_loud[:3]}, "
+        f"byte 5 {off_extras}, flags {off_flags:#x}, after a restart the meter bytes {list(off_kept)}")
+    goto_group(dev, GROUP_LED, 4)
+    dev.turn(-9, wait=0.3)
 
     # the firmware's own switches stay: nothing changes while a plugin holds the lock, nothing lights with Global power save
     lock = boot(payload, flash, adapter=True)
