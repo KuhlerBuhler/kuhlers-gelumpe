@@ -499,3 +499,4 @@ remap_owner:
     strb r1, [r0, #0x0d]
     bx lr
 .pool
+remap_input_end:

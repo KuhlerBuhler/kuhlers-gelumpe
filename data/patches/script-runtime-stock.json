@@ -394,6 +394,11 @@
    "why": "Literale der EXIT-Shortcuts."
   },
   {
+   "file": 1630956,
+   "length": 136,
+   "why": "korg.remapKey im Eingangsfilter: ohne umgelegte Taste kehrt es beim ersten Vergleich zurück, mit Blechy ist die Laufzeit schon beim Start scharf; samt Literalen."
+  },
+  {
    "file": 1633856,
    "length": 2488,
    "why": "Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel, EXIT und die Ordner der Karte; nur wenn es keinen blechtribe-Ordner, aber einen hacktribe- oder electribe-sampler-Ordner gibt, fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU."
