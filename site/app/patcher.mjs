@@ -103,6 +103,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let toldVerdict = "";
   let closeVerdict = () => {};
   const synthSet = el("p", { className: "muted", id: "cee-patch-synth-set", hidden: true });
+  // Hacktribe's patch is made from the sampler's firmware and its result runs on the blue too; the blue's own file cannot take it.
+  const blueHacktribe = el("p", { className: "muted", id: "cee-patch-blue-hacktribe", hidden: true }, [
+    "Hacktribe auf der blauen? Das geht nur aus Korgs Firmware für den electribe sampler (rot): ",
+    el("a", { className: "cee-text-link", href: "https://www.korg.com/us/support/download/product/0/368/#software", target: "_blank", rel: "noopener noreferrer", textContent: "System Updater 2.02 (rot)" }),
+    " laden, dessen SYSTEM.VSB hierher ziehen und im nächsten Schritt „Patche auch Hacktribe“ wählen. Das Ergebnis läuft auch auf der blauen.",
+  ]);
   // Step 2 chooses what goes on the file: BLECHTRIBE of this version or an own BLECH.patch, and on Korg's original Hacktribe as well.
   const release = NEWS[0].version.split(".").slice(0, 2).join(".");
   const useLatest = el("input", { type: "checkbox", id: "cee-patch-latest", checked: true });
@@ -188,7 +194,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   // One panel per step of the way; Zurück and Weiter move between them, the flow decides how far Weiter may go.
   const panels = [
-    [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, verdictBox, korg],
+    [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, blueHacktribe, verdictBox, korg],
     [blechBox, routeBox, plan, synthSet],
     [testBox, bar, note, groupList, checksBox],
     [target, result, done],
@@ -336,6 +342,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     toldVerdict = v?.text ?? "";
     routeBox.hidden = flow.origin !== "stock";
     synthSet.hidden = flow.origin !== "synth";
+    blueHacktribe.hidden = flow.origin !== "synth";
     if (!synthSet.hidden) synthSet.textContent = `Synth-Satz: ${itemsFor(blech, "synth").map(p => p.label).join(", ")}. Den Startbild-Editor am Gerät gibt es auf der blauen noch nicht, das Startbild kommt aus der App.`;
     withHacktribe.checked = flow.route === "hacktribe";
     withHacktribe.disabled = can.busy;
