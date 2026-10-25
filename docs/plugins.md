@@ -639,9 +639,10 @@ Die Fehlercodes stehen in `data/script/contract.mjs`.
 ### Dateien für die Karte
 
 Plugins kommen nur über die SD-Karte aufs Gerät, nie in die VSB. Der Ordner ist
-`KORG/blechtribe/Plugin/`, den die Firmware nicht selbst anlegt. Mit verbundenem Gerät legt die Seite Plugins
-sie auch über USB dorthin ("Per USB aufs Gerät", BLECH-SysEx-Befehl `0x67` PLUGIN BEGIN, Name aus Buchstaben,
-Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, IMPORT PLUGIN.
+`KORG/blechtribe/Plugin/` (Einzahl, nicht "Plugins"; bei der roten und der blauen Electribe derselbe), den die
+Firmware nicht selbst anlegt. Mit verbundenem Gerät legt die Seite Plugins
+sie auch über USB dorthin (Knopf "Aufs Gerät", BLECH-SysEx-Befehl `0x67` PLUGIN BEGIN, Name aus Buchstaben,
+Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, PLUGINS, PLUGIN EDIT.
 
 - `e2sPlugin.all` ist die Sammeldatei, die das Gerät beim Start liest. Kopf, 16
   Byte, little endian: Kennung `GSAL`, Dateiversion 1 (u16), Anzahl Blöcke
@@ -656,7 +657,7 @@ Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, IMPORT PLU
   in UTF-8. Die Beschreibung sind die `//`-Zeilen ganz oben im Plugin-Code
   (eine leere `//`-Zeile beginnt einen neuen Absatz, Umlaute werden zu ae, oe,
   ue, ss); ohne solche Zeilen fehlt der Anhang `GDSC`. Das Gerät lädt den
-  Block und zeigt die Beschreibung in IMPORT PLUGIN, der Editor liest den
+  Block und zeigt die Beschreibung auf der Seite DESCRIPTION des Plugins, der Editor liest den
   Quelltext, um das Plugin wieder zu öffnen.
 
 Der Lader läuft einmal beim Start direkt nach dem Laden der `e2sSample.all`
@@ -672,7 +673,7 @@ im Kontrollblock der Laufzeit (`cardStatus`, `cardLoaded`, `cardRejected`,
 
 Dateien schreibt der Editor (`src/script/archive.mjs`: `packAll`, `parseAll`,
 `packBlech`, `parseBlech`). Ein Plugin, das nur auf der Karte liegt, läuft erst
-beim nächsten Start; über "IMPORT PLUGIN" am Gerät (siehe unten) läuft es sofort.
+beim nächsten Start; in PLUGIN EDIT am Gerät (siehe unten) steht es als OFF in der Liste und läuft, sobald man es dort einschaltet.
 
 **Das Kennzeichen "geprobt".** Der Kopf eines Blocks hat ein Feld `flags` (Byte 34,
 u16). Bit 0 heißt PROBED: der Editor setzt es beim Export, nachdem er den Text
@@ -767,13 +768,13 @@ Die Seiten der Gruppen:
 | Gruppe, Seite | Wert | Wirkung |
 |---|---|---|
 | PLUGINS, RUNTIME | ON, OFF | die Plugins der Karte an oder aus, gilt ab dem nächsten Start ("OFF, RESTART" zeigt, dass es noch nicht gilt); Blechy ist kein Plugin der Karte und bleibt |
-| PLUGINS, PLUGIN EDIT | `press  [ Enter ]`, "No Plugin" ohne geladene Plugins | aufgebaut wie SAMPLE EDIT der Firmware: ENTER öffnet die Seiten eines Plugins (das Schild bleibt "Plugins", der Zähler zählt sie, EDIT blättert im Kreis), EXIT führt zurück auf PLUGIN EDIT |
-| Plugin, SELECT PLUGIN | sein Name | das Hauptrad wählt das Plugin, um das es auf den folgenden Seiten geht (wie SELECT SAMPLE) |
-| Plugin, STATE | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen, WRITE behält den Stand über einen Neustart (ein ausgeschaltetes Plugin startet dann nicht, beim Einschalten läuft sein Start nach); bei einem Fehler steht der Fehler mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal) |
+| PLUGINS, PLUGIN EDIT | `press  [ Enter ]`, nach ENTER "No Plugin", wenn es nichts zu zeigen gibt | die eine Liste aller Plugins, aufgebaut wie SAMPLE EDIT der Firmware: ENTER liest den Ordner `KORG/blechtribe/Plugin/` (bis 16 Dateien) und öffnet die Seiten der Liste (das Schild bleibt "Plugins", der Zähler zählt sie, EDIT blättert im Kreis), EXIT führt zurück auf PLUGIN EDIT. In der Liste stehen zuerst die geladenen Plugins, dann die der `*.blech`-Dateien, die nicht geladen sind, jedes Plugin einmal (gleicher Name im Kopf der Datei und im geladenen Block heißt: dasselbe Plugin). Ein Plugin, das nur in `e2sPlugin.all` steht und zu dem es keine Datei gibt, steht als geladenes in der Liste und hat keine Beschreibung. Teile der Firmware (Blechy und was BLECH selbst mitbringt) sind keine Plugins und stehen nie hier, ihre Schalter sind unter FEATURES |
+| Plugin, SELECT PLUGIN | sein Name | das Hauptrad wählt das Plugin, um das es auf den folgenden Seiten geht (wie SELECT SAMPLE), von den geladenen bis zu den nicht geladenen |
+| Plugin, STATE | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen, WRITE behält den Stand über einen Neustart (ein ausgeschaltetes Plugin startet dann nicht, beim Einschalten läuft sein Start nach); bei einem Fehler steht der Fehler mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal). Ein Plugin, das nicht geladen ist, zeigt OFF wie ein ausgeschaltetes: das Hauptrad nach oben oder ENTER lädt es aus der Datei und startet es (ein fremdes wartet dann auf WRITE=ALLOW, ein kaputter Block meldet "rejected", ohne Plugins in der Laufzeit RUNTIME "runtime off"), nach unten tut das Rad nichts. Beides heißt OFF, der Unterschied ist die Zahl der Seiten: ein nicht geladenes Plugin hat nur SELECT PLUGIN, STATE und DESCRIPTION, ein geladenes dazu seine eigenen Seiten und DELETE PLUGIN. Ein so geladenes Plugin läuft bis zum Ausschalten; über Neustarts bleibt es erst mit EXPORT ALL, das es in `e2sPlugin.all` aufnimmt |
+| Plugin, DESCRIPTION | der Zustand des Plugins unter der Beschreibung | die Beschreibung aus der `*.blech`-Datei des Plugins (die `//`-Zeilen ganz oben im Code), als Bild über den ganzen Bildschirm: oben der Name, darunter die Zeilen, unten der Stand. Das Hauptrad scrollt zeilenweise, `^` und `v` zeigen, dass es weitergeht; ENTER tut hier nichts. Ohne Datei oder ohne Beschreibung steht "no description" |
 | Plugin, je `korg.menu.add` eine Seite | die Zahl | die Einstellungen dieses Plugins: das Hauptrad ändert sie, das Plugin bekommt `menu` |
-| Plugin, DELETE PLUGIN | `press  [ Enter ]` | ENTER fragt ("Enter = delete"), ein zweites ENTER löscht: das Plugin hält an, `e2sPlugin.all` wird ohne es neu geschrieben (auch leer, wenn es das letzte war), PLUGIN EDIT meldet "deleted"; die `*.blech` im Ordner bleibt, IMPORT PLUGIN kann es wieder laden |
+| Plugin, DELETE PLUGIN | `press  [ Enter ]` | ENTER fragt ("Enter = delete"), ein zweites ENTER löscht: das Plugin hält an, `e2sPlugin.all` wird ohne es neu geschrieben (auch leer, wenn es das letzte war), PLUGIN EDIT meldet "deleted"; die `*.blech` im Ordner bleibt, das Plugin steht beim nächsten ENTER auf PLUGIN EDIT wieder als OFF in der Liste und lässt sich laden |
 | PLUGINS, EXPORT ALL | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
-| PLUGINS, IMPORT PLUGIN | (leer, `press  [ Enter ]`), dann Name und Stand | ENTER zeigt die Plugins der `*.blech` aus `KORG/blechtribe/Plugin/` als Liste (bis 16): oben der Name des Plugins (aus seinem Kopf, nicht der Dateiname), darunter sein Stand (ON, OFF, FAULT, ENTER=ALLOW); das Hauptrad blättert. ENTER öffnet das gewählte Plugin: oben der Name, darunter seine Beschreibung (das Hauptrad scrollt sie zeilenweise, `^` und `v` zeigen, dass es weitergeht), unten der Stand. ENTER schaltet es dann um: ein noch nicht geladenes wird geladen und gestartet, ein laufendes aus, ein ausgeschaltetes wieder an, ein fremdes wird erlaubt; WRITE behält den Stand über einen Neustart wie auf seiner Seite. EXIT geht zurück in die Liste und von dort auf die Seite. Dateien, deren Name mit einem Punkt beginnt (die `._Name.blech` des Mac auf FAT Karten), versteckte oder Systemdateien und Dateien ohne Plugin-Kopf fehlen in der Liste ([Messung](messungen/2026-10-19-plugin-import-liste.md)) |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | öffnet die Seiten des Display-Lichts; EXIT führt zurück auf DISPLAY |
 | DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 bis 15 | Farbe des Display-Lichts, frei gemischt; 15 15 15 heißt das Weiß der Firmware ("15 stock"); gilt sofort |
@@ -804,7 +805,7 @@ Wert der Seite, bis man das Hauptrad dreht oder die Seite wechselt. Die dritte Z
 Firmware (die Einheit hinter einem Wert) beginnt bei jedem Bildschirm in Spalte 28 der
 Wertzeile: jeder Wert, der breiter ist als ein oder zwei Zeichen, läuft hinein. Das Menü
 benutzt sie deshalb nie. Was eine Seite sagt, steht im Wert, der rund 14 Zeichen fasst, der
-Titel rund 18. IMPORT PLUGIN und EXPORT ALL stehen in der Gruppe PLUGINS, nicht in DATA
+Titel rund 18. EXPORT ALL steht in der Gruppe PLUGINS, nicht in DATA
 UTILITY (siehe Stand).
 
 Auf den Seiten RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION und bei der Zustimmung für fremde Plugins
@@ -1095,7 +1096,7 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
   ([Messung](messungen/2026-10-15-blechy.md)).
 - Menü BLECH (`tools/patch/script_menu.s`): zwei Ebenen mit Gruppen, Zähler und Schild je
   Gruppe, EXIT geht eine Ebene zurück, WRITE, MENU als ENTER, Einstellungen, Plugin-Seiten,
-  Apps, EXPORT ALL, IMPORT PLUGIN, fremde Plugins, `korg.menu.add`; jede Seite ist ohne dritte
+  Apps, EXPORT ALL, die Liste in PLUGIN EDIT, fremde Plugins, `korg.menu.add`; jede Seite ist ohne dritte
   Zeile gezeichnet, ein Fall prüft alle auf Überlappung
   ([Messung](messungen/2026-10-14-blech-menue.md)).
 - Firmwaredatei: das Patch-Set `data/patches/blech.json` (Startbild-Editor, MFX 2,
@@ -1110,8 +1111,8 @@ der Ladebalken liegen; dort ist am Gerät noch nichts geprüft.
 
 ### Am Gerät
 
-Die Firmwaredatei mit der Laufzeit läuft am eigenen Gerät. Das Menü BLECH, IMPORT PLUGIN,
-EXPORT ALL und `korg.store` haben dort Dateien auf der Karte gelesen und geschrieben
+Die Firmwaredatei mit der Laufzeit läuft am eigenen Gerät. Das Menü BLECH, das Laden aus
+PLUGIN EDIT, EXPORT ALL und `korg.store` haben dort Dateien auf der Karte gelesen und geschrieben
 (`e2sPlugin.all`, `store.a.bin`, `store.b.bin`), die Anpassung, die Seiten von FEATURES und
 SPLASH IMPORT und DRAW sind am Gerät bedient. Die Wünsche aus diesen Tests stehen in den Messungen
 ab dem 18.10. ([Plugin bleibt aus](messungen/2026-10-18-plugin-bleibt-aus.md),
@@ -1142,9 +1143,9 @@ gespielt hat, sagt sie selbst. Die Schrittlisten für einen eigenen Test:
   Meldung, und das Ausschalten der Interrupts setzt einen privilegierten Modus
   voraus ([Messung](messungen/2026-10-14-skript-led.md)).
 - **Menü:** kein Schalter für das Startbild, lange Namen werden abgeschnitten, die Liste
-  von IMPORT PLUGIN zeigt höchstens 16 Plugins
+  von PLUGIN EDIT liest höchstens 16 Dateien
   ([Messung](messungen/2026-10-14-blech-menue.md)).
-- **IMPORT PLUGIN und EXPORT ALL in DATA UTILITY:** nicht gebaut, sie stehen in der Gruppe
+- **PLUGIN EDIT und EXPORT ALL in DATA UTILITY:** nicht gebaut, sie stehen in der Gruppe
   PLUGINS des Menüs BLECH. Die Funktionsliste von DATA UTILITY ist der Bildschirm 15, eine
   Zustandsmaschine mit einer Sprungtabelle von 40 Zuständen in einer einzigen Funktion
   (`0xC0061A24`); zwei Seiten mehr heißen eine Kopie der Klassentabelle, einen Seitenzähler

@@ -25,6 +25,9 @@ const pill = (tone, word) => {
 const tick = () => new Promise(r => setTimeout(r, 0));
 
 /** What the verdict line says for a file that cannot be patched or is ready. */
+/** What the dropped file was taken for, after its name in the field. */
+const FOUND = { hacktribe: "Hacktribe 2.02 erkannt", stock: "Korgs Original 2.02, electribe sampler", synth: "Korgs Original 2.02, electribe (blau)" };
+
 function verdict(flow, items) {
   const { input } = flow;
   if (!input) return null;
@@ -59,11 +62,13 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let usb = null;               // the file came over USB: { fromOriginal }; null for a dropped file (then the unpatched one goes to the card too)
 
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-file", accept: ".VSB,.vsb" });
+  const fileInfo = el("span", { className: "ui-dropzone-files", id: "cee-patch-file-info" });
+  let fileName = "";            // the name of the file the page holds, said in the field
   const drop = el("label", { className: "ui-dropzone" }, [
     fileInput,
     el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: "SYSTEM.VSB hierher ziehen oder " }), "auswählen"]),
     el("span", { className: "ui-dropzone-hint", textContent: "Deine Hacktribe-Datei oder Korgs Original 2.02 für electribe sampler oder electribe (blau)" }),
-    el("span", { className: "ui-dropzone-files" }),
+    fileInfo,
   ]);
 
   // Korg's System Updater holds the SYSTEM.VSB; in the app the link opens in the browser (src-tauri/src/main.rs).
@@ -98,6 +103,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let toldVerdict = "";
   let closeVerdict = () => {};
   const synthSet = el("p", { className: "muted", id: "cee-patch-synth-set", hidden: true });
+  // Hacktribe for the blue needs the sampler's firmware and a changed header (Hacktribe's own patcher, -e), which this page does not build.
+  const blueHacktribe = el("p", { className: "muted", id: "cee-patch-blue-hacktribe", hidden: true }, [
+    "Hacktribe auf der blauen machst du mit ",
+    el("a", { className: "cee-text-link", href: "https://github.com/bangcorrupt/hacktribe/wiki/How-To", target: "_blank", rel: "noopener noreferrer", textContent: "Hacktribes eigenem Patcher" }),
+    " (aus Korgs Firmware für den electribe sampler 2.02, mit der Option für die blaue). Hier wird aus deiner blauen Firmware BLECH für die blaue.",
+  ]);
   // Step 2 chooses what goes on the file: BLECHTRIBE of this version or an own BLECH.patch, and on Korg's original Hacktribe as well.
   const release = NEWS[0].version.split(".").slice(0, 2).join(".");
   const useLatest = el("input", { type: "checkbox", id: "cee-patch-latest", checked: true });
@@ -183,7 +194,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   // One panel per step of the way; Zurück and Weiter move between them, the flow decides how far Weiter may go.
   const panels = [
-    [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, verdictBox, korg],
+    [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, blueHacktribe, verdictBox, korg],
     [blechBox, routeBox, plan, synthSet],
     [testBox, bar, note, groupList, checksBox],
     [target, result, done],
@@ -318,6 +329,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     blechDrop.toggleAttribute("data-disabled", useLatest.checked);
     useLatest.disabled = can.busy;
     blechInfo.textContent = ownPatch ? `${ownPatch.file.name} ${ownPatch.file.version}` : "";
+    // The field says which file it holds and what it is; pick() empties the input, so ui.js cannot show the name.
+    const held = flow.input && fileName ? `${fileName}: ${FOUND[flow.origin] ?? "nicht passend"}` : "";
+    drop.toggleAttribute("data-selected", true);
+    drop.toggleAttribute("data-filled", !!held && !!flow.origin);
+    fileInfo.textContent = held;
     const v = verdict(flow, blech?.items ?? []);
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
@@ -326,6 +342,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     toldVerdict = v?.text ?? "";
     routeBox.hidden = flow.origin !== "stock";
     synthSet.hidden = flow.origin !== "synth";
+    blueHacktribe.hidden = flow.origin !== "synth";
     if (!synthSet.hidden) synthSet.textContent = `Synth-Satz: ${itemsFor(blech, "synth").map(p => p.label).join(", ")}. Den Startbild-Editor am Gerät gibt es auf der blauen noch nicht, das Startbild kommt aus der App.`;
     withHacktribe.checked = flow.route === "hacktribe";
     withHacktribe.disabled = can.busy;
@@ -382,6 +399,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   async function pick(file) {
     usb = null;
+    fileName = file.name;
     fileInput.value = "";           // choosing the same path again, after it changed, must still fire
     await take(new Uint8Array(await file.arrayBuffer()));
   }
@@ -506,6 +524,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   async function fetchFromDevice(s) {
     const got = await fetchUpdateFile(s, (done, total) => { usbNote.textContent = `Vom Gerät lesen, ${percent(done, total)} %`; });
     usb = { fromOriginal: got.fromOriginal };
+    fileName = "SYSTEM.VSB von der Electribe";
     await take(got.bytes);
     if (flow.input?.kind === "blech") {
       usbNote.hidden = true;

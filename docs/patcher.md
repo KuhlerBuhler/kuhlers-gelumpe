@@ -313,7 +313,7 @@ mountet die Karte), nicht davor; ohne gemountete Karte (`FatFs[0]->fs_type == 0`
 
 Das BLECH Menü (`docs/messungen/2026-10-14-blech-menue.md`) ist die Ausnahme zu 1: es
 schreibt nur auf WRITE des Nutzers (`settings.a/b.bin` nach Regel 3, `e2sPlugin.all` in einem
-Vorgang) und liest die Dateiliste und `*.blech` beim Öffnen der Seite IMPORT PLUGIN, jeweils
+Vorgang) und liest die Dateiliste und `*.blech` beim Öffnen der Seite PLUGIN EDIT und die Beschreibung eines Plugins beim Öffnen seiner Seite DESCRIPTION, jeweils
 im UiTask bei offenem Menübildschirm. Dann ist weder DATA UTILITY noch Sample-Laden offen.
 
 Belege und Grenzen: `docs/messungen/2026-10-14-skript-speicher.md`. Am Gerät
