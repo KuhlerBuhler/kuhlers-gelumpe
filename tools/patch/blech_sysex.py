@@ -21,7 +21,7 @@ EXEC runs code the editor wrote before (KORG.exec, src/korg.mjs): only at a word
 allows no writes. It drains the write buffer and clears the instruction cache itself, then calls the address with the
 argument in r0; the code follows the ARM calling convention. Status 2 for an address it refuses.
 
-PLUGIN BEGIN writes a plugin file, SD:KORG/blechtribe/Plugin/<name>.blech, where IMPORT PLUGIN of the BLECH menu lists it
+PLUGIN BEGIN writes a plugin file, SD:KORG/blechtribe/Plugin/<name>.blech, where PLUGIN EDIT of the BLECH menu lists it
 (tools/patch/script_menu.s). The name is 1 to 16 letters, digits, "_" or "-", zero bytes after it; anything else is refused
 with status 3, so no path can be built from it. Otherwise it works like FILE BEGIN (offset 0 makes the file anew, the block is
 read back from the card for the CRC).
