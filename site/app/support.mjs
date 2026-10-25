@@ -59,7 +59,7 @@ const TEXT_MAX = 120;
 const NAME_MAX = 40;
 
 /** A 1-bit picture as rows of booleans, cut to the pixels that are set. The more common colour is the background: the art is drawn both ways round, some with a frame. */
-async function maskOf(src, { bands = false } = {}) {
+export async function maskOf(src, { bands = false } = {}) {
   // onload, not decode(): decode() was seen to stay pending for a picture that had loaded long ago.
   const picture = await new Promise((resolve, reject) => {
     const image = new Image();
