@@ -143,7 +143,7 @@ The app in dark mode. The emulator is shown without firmware, so its display sta
 The Releases page of this repository has the app for macOS (Apple Silicon, `.dmg`), Windows
 (`.exe`) and Linux (`.AppImage`, `.deb`). The app starts the emulator service itself and stops it when
 you close it. The emulator's card and flash live in `~/.gelumpe`. On start and every few hours the app
-checks for a newer release and shows "Neue Version verfügbar" at the top; a click opens the release page.
+checks for a newer release and shows "Neue Version verfügbar" at the top; a click downloads the file for your system into the Downloads folder and starts the installation (on failure the release page opens).
 
 **The app is not signed.** On macOS the system blocks the downloaded app. Release it once:
 
