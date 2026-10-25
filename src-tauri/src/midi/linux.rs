@@ -196,7 +196,7 @@ mod tests {
         let decoder = MidiEvent::new(0).unwrap();
         let mut event = Event::new(
             EventType::PortSubscribed,
-            alsa::seq::Connect {
+            &alsa::seq::Connect {
                 sender: Addr { client: 1, port: 2 },
                 dest: Addr { client: 3, port: 4 },
             },

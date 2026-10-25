@@ -266,18 +266,24 @@ impl MidiService {
         }))
     }
     fn lease(&self) -> Result<Lease, CommandError> {
-        self.0
-            .workers
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
-                (n < MAX_WORKERS).then_some(n + 1)
-            })
-            .map_err(|_| {
-                CommandError::new(
+        let mut workers = self.0.workers.load(Ordering::SeqCst);
+        loop {
+            if workers >= MAX_WORKERS {
+                return Err(CommandError::new(
                     "busy",
                     "MIDI-Treiber belegt; vorherige Vorgänge müssen enden.",
-                )
-            })?;
-        Ok(Lease(self.0.workers.clone()))
+                ));
+            }
+            match self.0.workers.compare_exchange_weak(
+                workers,
+                workers + 1,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ) {
+                Ok(_) => return Ok(Lease(self.0.workers.clone())),
+                Err(observed) => workers = observed,
+            }
+        }
     }
     pub fn list(&self) -> Result<Ports, CommandError> {
         let lease = self.lease()?;
@@ -950,6 +956,14 @@ mod tests {
             .unwrap();
         (id, rx)
     }
+    fn close_released(service: &MidiService, id: &str) {
+        service.close(id).unwrap();
+        until(|| {
+            service
+                .close(id)
+                .is_ok_and(|result| result.state == "closed")
+        });
+    }
     fn until(condition: impl Fn() -> bool) {
         let start = Instant::now();
         while !condition() {
@@ -984,7 +998,7 @@ mod tests {
             .unwrap();
         thread.join().unwrap();
         assert_eq!(fake.sends.load(Ordering::SeqCst), 1);
-        service.close(&id).unwrap();
+        close_released(&service, &id);
     }
     #[test]
     fn hung_enumerations_cannot_create_unbounded_workers() {
@@ -1027,7 +1041,7 @@ mod tests {
         assert_eq!(fake.opens.load(Ordering::SeqCst), 1);
         service.document_loaded();
         let (id, _) = open(&service);
-        service.close(&id).unwrap();
+        close_released(&service, &id);
     }
     #[test]
     fn stalled_event_delivery_never_blocks_native_callback_and_overflow_is_terminal() {
@@ -1069,7 +1083,7 @@ mod tests {
         assert!(
             matches!(rx.recv_timeout(Duration::from_secs(1)).unwrap(),Event::Error{code,..} if code=="input_overflow")
         );
-        service.close(&id).unwrap();
+        close_released(&service, &id);
     }
     #[test]
     fn disconnect_survives_a_full_inbound_queue_and_invalidates_immediately() {
@@ -1124,7 +1138,7 @@ mod tests {
             rx.recv_timeout(Duration::from_secs(1)).unwrap(),
             Event::Disconnected { .. }
         ));
-        service.close(&id).unwrap();
+        close_released(&service, &id);
     }
     #[test]
     fn nonblocking_renderer_without_ack_has_one_global_bound_across_sessions() {
@@ -1138,7 +1152,7 @@ mod tests {
                     Event::Message { .. }
                 ));
             }
-            service.close(&id).unwrap();
+            close_released(&service, &id);
         }
         let (id, rx) = open(&service);
         fake.callback.lock().unwrap().as_mut().unwrap()(&[0x90, 60, 127]);
@@ -1149,7 +1163,7 @@ mod tests {
             ),
             "Previously queued renderer data must retain credit after reopening"
         );
-        service.close(&id).unwrap();
+        close_released(&service, &id);
     }
     #[test]
     fn matching_ack_frees_credit_even_for_a_closed_prior_session() {
@@ -1164,7 +1178,7 @@ mod tests {
         assert!(service.read("wrong-session", sequence).is_err());
         assert!(service.ack("wrong-session", sequence).is_err());
         assert!(service.ack(&id, sequence + 1).is_err());
-        service.close(&id).unwrap();
+        close_released(&service, &id);
         service.ack(&id, sequence).unwrap();
         assert!(service.read(&id, sequence).is_err());
         assert!(service.ack(&id, sequence).is_err());
@@ -1179,7 +1193,7 @@ mod tests {
         };
         assert!(next_sequence > sequence);
         service.ack(&next, next_sequence).unwrap();
-        service.close(&next).unwrap();
+        close_released(&service, &next);
     }
     #[test]
     fn completed_document_load_recovers_unacknowledged_frames() {
@@ -1194,7 +1208,7 @@ mod tests {
         }
         service.invalidate();
         assert!(service.epoch().is_err());
-        service.close(&id).unwrap();
+        close_released(&service, &id);
         service.document_loaded();
         let (next, rx) = open(&service);
         fake.callback.lock().unwrap().as_mut().unwrap()(&[0x90, 60, 127]);
@@ -1202,7 +1216,7 @@ mod tests {
             rx.recv_timeout(Duration::from_secs(1)).unwrap(),
             Event::Message { .. }
         ));
-        service.close(&next).unwrap();
+        close_released(&service, &next);
     }
 
     #[test]
@@ -1227,7 +1241,7 @@ mod tests {
             ),
             "Byte budget must stay reserved while Tauri awaits renderer delivery"
         );
-        service.close(&id).unwrap();
+        close_released(&service, &id);
     }
     #[test]
     fn command_errors_have_explicit_codes_and_timeouts_keep_their_event_code() {
@@ -1270,7 +1284,7 @@ mod tests {
         assert!(
             matches!(rx.recv_timeout(Duration::from_secs(1)).unwrap(),Event::Error{code,..} if code=="transport_timeout")
         );
-        service.close(&id).unwrap();
+        close_released(&service, &id);
     }
     #[test]
     fn accepts_bounded_complete_messages_and_rejects_bad_frames() {
@@ -1315,7 +1329,7 @@ mod tests {
             matches!(rx.recv_timeout(Duration::from_millis(200)).unwrap(),Event::Message{session_id,bytes,..} if session_id==id && bytes==[0xf0,1,0xf7])
         );
         assert!(s.send("old-session", vec![0x90, 1, 2]).is_err());
-        assert_eq!(s.close(&id).unwrap().state, "closed");
+        close_released(&s, &id);
         assert!(s.send(&id, vec![0x90, 1, 2]).is_err());
     }
     #[test]
@@ -1328,7 +1342,7 @@ mod tests {
         let (id, _) = open(&s);
         assert!(s.send(&id, vec![0xf0, 1]).is_err());
         assert_eq!(f.sends.load(Ordering::SeqCst), 0);
-        s.close(&id).unwrap();
+        close_released(&s, &id);
     }
     #[test]
     fn timeout_invalidates_session_and_quarantines_ports_until_drop_finishes() {
@@ -1379,7 +1393,7 @@ mod tests {
             Event::Error { .. }
         ));
         assert_eq!(f.sends.load(Ordering::SeqCst), 1);
-        s.close(&id).unwrap();
+        close_released(&s, &id);
         f.fail.store(false, Ordering::SeqCst);
         let (id, rx) = open(&s);
         f.removed.store(true, Ordering::SeqCst);
@@ -1388,7 +1402,7 @@ mod tests {
             Event::Disconnected { .. }
         ));
         assert!(s.send(&id, vec![0x90, 1, 2]).is_err());
-        s.close(&id).unwrap();
+        close_released(&s, &id);
     }
     #[test]
     fn ingress_reassembles_sysex_and_drops_late_session_callbacks() {
@@ -1404,7 +1418,7 @@ mod tests {
             matches!(rx.recv_timeout(Duration::from_millis(200)).unwrap(),Event::Message{bytes,..} if bytes==[0xf0,1,2,0xf7])
         );
         let mut late_callback = f.callback.lock().unwrap().take().unwrap();
-        s.close(&id).unwrap();
+        close_released(&s, &id);
         late_callback(&[0x90, 1, 2]);
         assert!(rx.try_recv().is_err());
     }

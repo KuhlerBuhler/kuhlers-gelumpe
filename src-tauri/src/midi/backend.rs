@@ -107,6 +107,17 @@ impl Connection for NativeConnection {
     }
 }
 
+#[cfg(any(target_os = "macos", test))]
+fn coremidi_packets(
+    bytes: &[u8],
+    mut emit: impl FnMut(&[u8]) -> Result<(), String>,
+) -> Result<(), String> {
+    for packet in bytes.chunks(1024) {
+        emit(packet)?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod packet_tests {
     #[test]
@@ -126,17 +137,6 @@ mod packet_tests {
         assert_eq!(received.iter().filter(|b| **b == 0xf7).count(), 1);
     }
 }
-#[cfg(any(target_os = "macos", test))]
-fn coremidi_packets(
-    bytes: &[u8],
-    mut emit: impl FnMut(&[u8]) -> Result<(), String>,
-) -> Result<(), String> {
-    for packet in bytes.chunks(1024) {
-        emit(packet)?;
-    }
-    Ok(())
-}
-
 #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
 mod tests {
     use super::*;
