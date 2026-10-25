@@ -1,5 +1,6 @@
-# Builds the app for Windows and Linux on GitHub's runners, started by hand (docs/development.md, "Bauen").
-# The macOS build comes from a Mac. The files land as artifacts; they go into dist-release/ for npm run release.
+# Builds the app on GitHub's runners, started by hand (docs/development.md, "Bauen"): Windows and Linux always,
+# macOS (Apple Silicon) when the box is ticked. The macOS build from a Mac works as before.
+# The files land as artifacts; they go into dist-release/ for npm run release.
 name: Build apps
 
 on:
@@ -8,9 +9,17 @@ on:
       version:
         description: "Version for the files, e.g. 1.0.0 (what npm run release -- next prints)"
         required: true
+      macos:
+        description: "Also build the macOS .dmg (Apple Silicon)"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
+
+env:
+  # Tauri's own prebuilt cargo-tauri. Compiling it with cargo install took 6 to 8 minutes per job (run 40213405293).
+  TAURI_CLI_VERSION: 2.12.4
 
 defaults:
   run:
@@ -21,16 +30,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-latest
-            bundles: nsis
-            files: src-tauri/target/release/bundle/nsis/*-setup.exe
-          - os: ubuntu-22.04
-            bundles: appimage,deb
-            files: |
-              src-tauri/target/release/bundle/appimage/*.AppImage
-              src-tauri/target/release/bundle/deb/*.deb
-    runs-on: ${{ matrix.os }}
+        target: ${{ fromJSON(inputs.macos && '["windows", "linux", "macos"]' || '["windows", "linux"]') }}
+    runs-on: ${{ fromJSON('{"windows":"windows-latest","linux":"ubuntu-22.04","macos":"macos-latest"}')[matrix.target] }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -39,23 +40,61 @@ jobs:
           node-version: 22
           cache: npm
       - uses: actions/setup-python@v5
+        id: python
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
+      # Dependencies compiled once stay in the cache; only the app's own crate is compiled again.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
       - name: Linux libraries
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev patchelf python3-venv libasound2-dev
       - run: npm ci
-      - run: cargo install tauri-cli --version "^2" --locked
+      - name: Tauri CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          case "$triple" in *linux*) archive="cargo-tauri-$triple.tgz" ;; *) archive="cargo-tauri-$triple.zip" ;; esac
+          prebuilt() {
+            gh release download "tauri-cli-v$TAURI_CLI_VERSION" --repo tauri-apps/tauri --pattern "$archive" --dir "$RUNNER_TEMP/tauri-cli" &&
+              mkdir -p "$RUNNER_TEMP/tauri-cli/bin" &&
+              case "$archive" in
+                *.tgz) tar xzf "$RUNNER_TEMP/tauri-cli/$archive" -C "$RUNNER_TEMP/tauri-cli/bin" ;;
+                *) unzip -o -q "$RUNNER_TEMP/tauri-cli/$archive" -d "$RUNNER_TEMP/tauri-cli/bin" ;;
+              esac &&
+              mv "$RUNNER_TEMP"/tauri-cli/bin/cargo-tauri* ~/.cargo/bin/
+          }
+          # No prebuilt file for this system or the download fails: compile it as before.
+          prebuilt || cargo install tauri-cli --version "$TAURI_CLI_VERSION" --locked
+          cargo tauri --version
       - run: node tools/set-version.mjs "$VERSION"
         env:
           VERSION: ${{ inputs.version }}
+      # The frozen emulator depends only on these files, the Python version and the pinned packages. Same inputs, same
+      # sidecar: it comes from the cache and the build skips PyInstaller.
+      - uses: actions/cache@v4
+        id: sidecar
+        with:
+          path: src-tauri/binaries
+          key: sidecar-${{ runner.os }}-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('tools/emu/**', 'tools/patch/**', 'data/patches/**', 'data/synth-map/**', 'data/script/blechy-block.hex', 'assets/blechy/*.bin') }}
       - run: npm run setup:emu
-      - run: npm run app:build -- --bundles ${{ matrix.bundles }}
-      - run: cargo test --manifest-path src-tauri/Cargo.toml
-      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+        if: steps.sidecar.outputs.cache-hit != 'true'
+      - name: Build the app
+        run: |
+          if [ "$SIDECAR_CACHED" = true ]; then
+            ls -l src-tauri/binaries
+            npm run app:build -- --bundles "$BUNDLES" --config '{"build":{"beforeBuildCommand":"node tools/build-site.mjs"}}'
+          else
+            npm run app:build -- --bundles "$BUNDLES"
+          fi
+        env:
+          SIDECAR_CACHED: ${{ steps.sidecar.outputs.cache-hit }}
+          BUNDLES: ${{ fromJSON('{"windows":"nsis","linux":"appimage,deb","macos":"dmg"}')[matrix.target] }}
       - name: Check the Debian MIDI dependency
         if: runner.os == 'Linux'
         run: |
@@ -66,14 +105,81 @@ jobs:
         run: |
           for bin in "src-tauri/binaries/Gelumpe Emulator-"*; do :; done
           "$bin" --port 8791 > sidecar.log 2>&1 &
+          # Any HTTP answer counts: without the token the service says 401. Only 000 means it does not listen yet.
+          code=000
           for i in $(seq 1 60); do
-            if curl -sf -o /dev/null http://127.0.0.1:8791/; then echo "answers after $i s"; break; fi
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8791/ || true)
+            if [ "$code" != 000 ]; then echo "answers after $i s with $code"; break; fi
             sleep 1
           done
           cat sidecar.log
-          curl -sf -o /dev/null http://127.0.0.1:8791/ || curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8791/ || (echo "the service does not answer"; exit 1)
+          [ "$code" != 000 ] || (echo "the service does not answer"; exit 1)
+      - name: Collect the files
+        run: |
+          mkdir -p out
+          case "$TARGET" in
+            windows) cp src-tauri/target/release/bundle/nsis/*-setup.exe out/ ;;
+            linux) cp src-tauri/target/release/bundle/appimage/*.AppImage src-tauri/target/release/bundle/deb/*.deb out/ ;;
+            macos) cp src-tauri/target/release/bundle/dmg/*.dmg out/ ;;
+          esac
+          ls -l out
+        env:
+          TARGET: ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
           name: app-${{ runner.os }}
-          path: ${{ matrix.files }}
+          path: out/*
           if-no-files-found: error
+
+  # The native tests and clippy, next to the build instead of after it. They need the page and a file under the sidecar's
+  # name for tauri-build, not the frozen service itself: no test starts it.
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(inputs.macos && '["windows", "linux", "macos"]' || '["windows", "linux"]') }}
+    runs-on: ${{ fromJSON('{"windows":"windows-latest","linux":"ubuntu-22.04","macos":"macos-latest"}')[matrix.target] }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Linux libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev libasound2-dev
+      - run: node tools/build-site.mjs
+      - name: Stand-in for the sidecar
+        run: |
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          mkdir -p src-tauri/binaries
+          touch "src-tauri/binaries/Gelumpe Emulator-$triple$([ "$RUNNER_OS" = Windows ] && echo .exe)"
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+  # Build and checks run side by side, so the files are uploaded before a failing check is known. A red run must leave
+  # nothing behind that could be released by mistake: then this job deletes the run's artifacts.
+  discard:
+    needs: [build, check]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Delete the artifacts of this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '.artifacts[].id'); do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id"
+            echo "deleted artifact $id"
+          done
