@@ -144,6 +144,7 @@ class MMCController:
         self.tx_lba = None
         self.cur_lba = 0
         self.blocks_left = 0
+        self.slow_card = None           # a CLKRT the card cannot keep up with: reads at it go unanswered (a card unfit for that clock)
 
     # ---- registers -------------------------------------------------------------
     def read(self, off, size):
@@ -238,6 +239,9 @@ class MMCController:
         idx, fmt = word & 0x3F, (word >> 9) & 3
         if self.card is None:
             self.st0 |= ST0_RSPDNE if fmt == 0 else ST0_TOUTRS
+            return
+        if idx in (17, 18) and self.slow_card is not None and self.regs.get(CLK, 0) & 0xFF == self.slow_card:
+            self.st0 |= ST0_TOUTRS
             return
         res = self.card.command(idx, self.regs.get(ARG, 0))
         kind = res[0]
