@@ -1,5 +1,7 @@
 """Native clock and read-only views of the firmware's state, without firmware bytes."""
+import json
 import pathlib
+import subprocess
 import struct
 import sys
 import unittest
@@ -65,6 +67,52 @@ class NativeHardwareTests(unittest.TestCase):
         error = contract_data()['error']['API_ARG']
         self.assertEqual(m.call('script_read_step_glue',16),(0,error))
         self.assertEqual(m.call('script_read_mute_glue',99),(0,error))
+
+    def test_pattern_values_read_every_named_field_of_the_pattern_in_ram_and_of_the_bank(self):
+        m,_ = self.machine()
+        fields = json.loads(subprocess.check_output(['node','--input-type=module','-e',
+            "import * as c from './data/script/contract.mjs'; console.log(JSON.stringify({pattern:c.PATTERN_FIELDS,part:c.PART_FIELDS}))"],cwd=ROOT))
+        block, bank = 0xC06B2798 + 4, 0xC08B2940
+        m.uc.mem_map(bank & ~0xFFF,((bank + 250 * 0x4000 + 0xFFF) & ~0xFFF) - (bank & ~0xFFF))
+        error = contract_data()['error']['API_ARG']
+        signed = lambda v: struct.unpack('<i',struct.pack('<I',v))[0]
+        value = lambda pattern,part,field: m.call('script_read_pattern_value_glue',pattern & 0xffffffff,part & 0xffffffff,field)
+        def expect(kind,raw,raw2):
+            return {'u8':raw,'s8':raw - 256 if raw > 127 else raw,'u16':raw | raw2 << 8,'bars':(raw & 3) + 1,
+                    'chain':raw - 1 if 1 <= raw <= 250 else -1,'atLeast1':max(raw,1)}[kind]
+        for pattern,base in [(-1,block),(0,bank),(7,bank + 7 * 0x4000),(249,bank + 249 * 0x4000)]:
+            for part,group in [(-1,fields['pattern']),(0,fields['part']),(15,fields['part'])]:
+                at = base + (0 if part < 0 else 0x800 + part * 0x330)
+                for i,f in enumerate(group):
+                    for raw,raw2 in [(0,0),(1,7),(200,1),(255,255),(251,0)]:
+                        with self.subTest(pattern=pattern,part=part,field=f['name'],raw=raw):
+                            m.uc.mem_write(at + f['offset'],bytes([raw,raw2]) if f['kind'] == 'u16' else bytes([raw]))
+                            got,err = value(pattern,part,i)
+                            self.assertEqual(err,0)
+                            self.assertEqual(signed(got),expect(f['kind'],raw,raw2))
+        self.assertEqual(value(-1,-1,len(fields['pattern']))[1],error)
+        self.assertEqual(value(-1,0,len(fields['part']))[1],error)
+
+    def test_chain_mode_is_the_global_switch(self):
+        m,_ = self.machine()
+        m.uc.mem_map(0xC06A2000,0x1000)
+        for byte,want in [(0,0),(1,1),(7,1)]:
+            m.uc.mem_write(0xC06A2A94 + 31,bytes([byte]))
+            self.assertEqual(m.call('script_read_chain_mode_glue'),(want,0))
+
+    def test_remap_key_records_the_calling_plugin_and_refuses_exit(self):
+        m,built = self.machine()
+        remap = built.layout['card'] + built.symbols['RP_AT']
+        entry, blob = m.input + 0x6000, m.input + 0x6100
+        m.write(entry + 4,blob); m.write(blob + 12,0xCAFE0001)
+        m.write(m.runtime + built.symbols['RT_ENTRY'],entry)
+        error = contract_data()['error']['API_ARG']
+        self.assertEqual(m.call('script_remap_key_glue',17,16),(0,0))
+        self.assertEqual((m.read(remap),m.read(remap + 4),m.read(remap + 8)),(entry,0xCAFE0001,17 | 16 << 8))
+        self.assertEqual(m.call('script_remap_key_glue',5,5),(0,0))
+        self.assertEqual(m.read(remap),0,'the same key twice ends the remap')
+        self.assertEqual(m.call('script_remap_key_glue',13,16)[1],error)
+        self.assertEqual(m.call('script_remap_key_glue',16,13)[1],error)
 
     def test_the_input_filter_keeps_the_last_value_of_each_knob(self):
         m,_ = self.machine()

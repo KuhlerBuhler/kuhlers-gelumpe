@@ -61,6 +61,8 @@ input_power_no:
     cmp r1, #1
     bne input_pass
 script_input_guard_end:
+    bl remap_input
+    ldr r0, [sp, #8]
     bl shortcut_input
     cmp r0, #0
     ldr r0, [sp, #8]

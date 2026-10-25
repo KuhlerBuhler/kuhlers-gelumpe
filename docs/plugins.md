@@ -246,6 +246,19 @@ Rumpf.
 | `korg.knobs.LEVEL`, `korg.knobs[i]` | letzter Wert des Reglers, bis er bewegt wurde 0 | nein | `korg.read.knob(i)` |
 | `korg.store[i]` | gespeicherter Wert von Platz 0 bis 15, sonst 0 | ja, auf die Karte mit `korg.store.save()` | `korg.store.get(i, 0)`, `korg.store.set(i, x)` |
 | `korg.led.TAP`, `korg.leds[i]` | nein | Helligkeit 0 bis 255 | `korg.led(i, x)` |
+| `korg.chainMode` | 1, wenn CHAIN MODE im Global-Menü an ist (nur dann kettet die Firmware) | nein | `korg.read.chainMode()` |
+| `korg.current.tempo` und die anderen Werte unten | das Pattern, das gerade läuft, mit ungespeicherten Änderungen | nein | `korg.read.patternValue(-1, -1, wert)` |
+| `korg.patterns[i].tempo` und die anderen Werte unten | Pattern `i` (0 bis 249), so wie es gespeichert ist | nein | `korg.read.patternValue(i, -1, wert)` |
+| `korg.parts[i].cutoff` und die anderen Part-Werte unten | Part `i` (0 bis 15) im Pattern, das gerade läuft | nein | `korg.read.patternValue(-1, i, wert)` |
+
+**Werte eines Patterns** (`korg.current.…`, `korg.patterns[i].…`): `tempo` (Zehntel BPM), `swing` (-48 bis 48), `length`
+(Takte, 1 bis 4), `beat` (0 16tel, 1 32tel, 2 8tel-Triolen, 3 16tel-Triolen), `key` (0 C bis 11 H), `scale`, `chordSet`,
+`level`, `mfxType`, `chainTo` (das nächste Pattern, 0 bis 249, -1 ohne Kette), `chainRepeat` (mindestens 1).
+**Werte eines Parts** (`korg.parts[i].…`): `sample` (Slot), `filterType`, `cutoff`, `resonance`, `egInt` (-63 bis 63),
+`modType`, `modSpeed`, `modDepth`, `attack`, `decay`, `level`, `pan` (-63 links bis 63 rechts), `ifxOn`, `ifxType`,
+`ifxEdit`, `pitch` (-63 bis 63), `glide`, `voiceAssign`, `oscEdit`, `mfxSend`. Alle Werte lassen sich nur lesen, in den
+Einheiten des Geräts (meist 0 bis 127). Die Liste und woher jeder Wert kommt, steht in `data/script/contract.mjs`
+(`PATTERN_FIELDS`, `PART_FIELDS`), gemessen sind die Stellen in der Gerätekarte `data/map/pattern.mjs`. Ab API Version 8.
 
 `+=`, `-=` und die anderen zusammengesetzten Zuweisungen gehen bei allem, was sich lesen und setzen lässt,
 dazu `++` und `--`: `korg.tempo += 10;` liest das Tempo und setzt es um 1,0 BPM höher. Der Index in den
@@ -301,6 +314,8 @@ Plugin mit einem Fehler.
 | `korg.read.step(part)` | Schrittzähler des Parts, 0 bis 63 | überall |
 | `korg.read.mute(part)` | 1, wenn der Part gemutet ist | überall |
 | `korg.read.knob(index)` | letzter Rohwert des Reglers `index` (0 bis 19), den die Laufzeit gesehen hat, bis dahin 0 | überall |
+| `korg.read.chainMode()` | 1, wenn CHAIN MODE im Global-Menü an ist. Ab API Version 8 | überall |
+| `korg.read.patternValue(pattern, part, wert)` | ein Wert eines Patterns: `pattern` -1 das laufende, 0 bis 249 ein gespeichertes; `part` -1 ein Wert des Patterns, 0 bis 15 einer des Parts; `wert` die Nummer in `PATTERN_FIELDS` oder `PART_FIELDS`. Lesbarer mit den Namen oben (`korg.current.tempo`). Ab API Version 8 | überall |
 | `korg.play()` | PLAY drücken und loslassen, über den Tastenweg der Firmware | wie `korg.led` |
 | `korg.stop()` | STOP drücken und loslassen | wie `korg.led` |
 | `korg.pattern(index)` | Pattern wählen, 0 bis 249 | wie `korg.led` |
@@ -310,6 +325,7 @@ Plugin mit einem Fehler.
 | `korg.backlight(rot, gruen, blau)` | die drei Farben des Display Lichts ein (1) oder aus (0), über die GPIO Funktion der Firmware; auf Batterie mit Power Save "Auto" überschreibt die Dimm Routine der Firmware die Farbe laufend; hat der Nutzer im Menü eine Mischfarbe mit Pegeln zwischen 1 und 14 gewählt, überschreibt auch deren PWM die Farbe | wie `korg.led` |
 | `korg.menu.add(name, min, max, wert)` | legt eine Seite im Menü BLECH am Gerät an und gibt ihre Nummer zurück (-1, wenn alle 12 Plätze belegt sind). `name` höchstens 15 Zeichen, die Seite zeigt `wert` (in `min` bis `max` geklemmt, Betrag unter 100 Millionen) und den Plugin-Namen. Wird am Hauptrad gedreht, bekommt das Plugin `menu`(nummer, wert). Derselbe Name vom selben Plugin ist dieselbe Seite. `min` über `max` ist ein Argumentfehler | nur im Rumpf und in `ready` |
 | `korg.ledHold(an)` | 1 hält die Firmware davon ab, die Panel LEDs neu zu schreiben (Pads, Tasten, untere RGB LEDs zeigen dann, was das Plugin gesetzt hat), 0 gibt sie zurück und lässt die Firmware alle LEDs neu senden; fällt das letzte laufende Plugin aus, gibt die Laufzeit sie selbst zurück | wie `korg.led` |
+| `korg.remapKey(von, nach)` | die Taste `von` kommt bei der Firmware und bei den Plugins als Taste `nach` an (beide 0 bis 33, am besten Namen wie `korg.key.PART_ERASE`), solange das Plugin läuft: der Eingangsfilter schreibt den Code in der Panel-Nachricht um, bevor die Firmware sie liest, die Firmware tut also genau, was sie mit `nach` tut. Es gilt eine Umlegung für alle Plugins, die letzte zählt; dieselbe Taste zweimal hebt sie auf. EXIT lässt sich nicht umlegen. Ab API Version 8 | nur im Rumpf und in `ready` |
 
 **Display auf dem Gerät** (`tools/patch/script_display.s`): Die Laufzeit hält ein
 eigenes Bild von 1024 Byte (8 Seiten zu 128 Spalten, Bit 0 die oberste Zeile) und
@@ -914,6 +930,23 @@ braucht 2594 statt 3065 Rahmen. Eine vollständig innenliegende Zoomansicht wird
 Das sind Messungen der JavaScript-Referenz, keine Gerätezeiten. Die Arbeitsreihenfolge kann einzelne Randdetails
 später sichtbar machen ([Messung](messungen/2026-10-19-mandelbrot-arbeitsliste.md)). Die Zoomstufe geht bis 7,
 tiefer reichen die 14 Bit nicht.
+
+**BPM Glide** (Idee: [KrImZoR](https://www.instagram.com/krimzor_live)) ist keine App, sondern läuft im Hintergrund.
+Kettet das laufende Pattern weiter (Chain To, CHAIN MODE an), gleitet das Tempo vom Tempo beim Start zum gespeicherten
+Tempo des nächsten Patterns, verteilt über Länge mal Chain Repeat; der letzte Schritt erreicht das neue Tempo, der
+Wechsel springt also nicht. Es liest die Kette beim ersten Schritt nach PLAY oder einem Patternwechsel, weil die Firmware
+das neue Pattern erst dann im RAM hat. STOP setzt das Tempo zurück, mit dem das Pattern gestartet ist. Die Seite
+BPM GLIDE im Menü BLECH schaltet es an (1) und aus (0), `korg.store` behält die Einstellung. Weil `korg.tempo` das
+Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
+(`test/script-bpm-glide.test.mjs`), am Gerät nicht.
+
+**Part Mute auf Part Erase** ist für eine Electribe, deren PART MUTE-Taste kaputt ist. Es legt mit `korg.remapKey`
+PART ERASE auf PART MUTE: die Firmware bekommt PART MUTE und schaltet in den Pad-Modus zum Stummschalten, die Pads muten
+die Parts wie im Original. PART MUTE ist in der Firmware ein Pad-Modus wie SEQUENCER oder KEYBOARD (im Emulator gemessen:
+die LED bleibt nach dem Loslassen an, eine andere Modus-Taste beendet ihn). Weil die Firmware die LED der kaputten Taste
+setzt, zeigt das Plugin den Modus auf der LED von PART ERASE. Solange es läuft, gibt es PART ERASE als eigene Taste und
+SHIFT + PART ERASE (Würfeln) nicht. Im Emulator mit der Firmware geprüft: PART ERASE beim Spielen, dann zwei Pads, die
+zwei Parts sind stumm und kein Step ist gelöscht. Am Gerät nicht geprüft.
 
 ## Die Seite Plugins im Editor
 

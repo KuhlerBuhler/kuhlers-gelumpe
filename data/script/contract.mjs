@@ -23,7 +23,7 @@
  */
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 7;
+export const API_VERSION = 8;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -298,6 +298,9 @@ const API_LIST = [
   [39, "korg.read.step", [int("part", 0, 15)], "int", ALL, 4, 3],
   [40, "korg.read.mute", [int("part", 0, 15)], "int", ALL, 4, 3],
   [41, "korg.read.knob", [int("index", 0, 19)], "int", ALL, 4, 3],
+  [42, "korg.read.chainMode", [], "int", ALL, 4, 8],
+  [43, "korg.read.patternValue", [int("pattern", -1, 249), int("part", -1, 15), int("field", 0, 31)], "int", ALL, 6, 8],
+  [44, "korg.remapKey", [int("from", 0, 33), int("to", 0, 33)], "void", MENU_ADD, 20, 8],
   [48, "korg.play", [], "void", UI, 30, 3],
   [49, "korg.stop", [], "void", UI, 30, 3],
   [50, "korg.pattern", [int("index", 0, 249)], "void", UI, 30, 3],
@@ -359,6 +362,54 @@ export const SCRIPT_LED_VALID = Object.freeze({ DESIRED: 1, DELIVERED: 2 });
  * drawn and the firmware shows its main screen, the frame hook copies it over
  * the firmware's display RAM after the firmware has drawn its widgets.
  */
+/**
+ * The values of a pattern that korg.read.patternValue(pattern, part, field) reads, and the properties korg.current.*,
+ * korg.patterns[i].* and korg.parts[i].* stand for. `field` is the index in the list: PATTERN_FIELDS with part -1,
+ * PART_FIELDS with part 0 to 15. Offsets are those of data/map/pattern.mjs, a part's from 0x800 + part * 0x330. The kind
+ * says how the bytes become the value: u8, s8 (signed), u16 (little endian), bars (the length byte 0 to 3 as 1 to 4),
+ * chain (Chain To counted from 1 as 0 to 249, -1 for none), atLeast1 (Chain Repeat, the device shows 0 as 1).
+ * Field indices are never reused or renumbered; new fields go at the end.
+ */
+export const PATTERN_FIELD_KINDS = Object.freeze(["u8", "s8", "u16", "bars", "chain", "atLeast1"]);
+const field = (name, offset, kind, text) => Object.freeze({ name, offset, kind, text });
+export const PATTERN_FIELDS = Object.freeze([
+  field("tempo", 34, "u16", "Tempo in Zehntel BPM, 1280 ist 128,0."),
+  field("swing", 36, "s8", "Swing, -48 bis 48."),
+  field("length", 37, "bars", "Länge in Takten, 1 bis 4."),
+  field("beat", 38, "u8", "Beat: 0 16tel, 1 32tel, 2 8tel-Triolen, 3 16tel-Triolen."),
+  field("key", 39, "u8", "Tonart, 0 C bis 11 H."),
+  field("scale", 40, "u8", "Tonleiter, 0 bis 34 in der Reihenfolge des Pattern-Menüs."),
+  field("chordSet", 41, "u8", "Chord Set, 0 bis 4."),
+  field("level", 42, "u8", "Lautstärke des Patterns, 0 bis 127."),
+  field("mfxType", 61, "u8", "Master-Effekt, sein Platz im Master-Menü."),
+  field("chainTo", 15104, "chain", "Chain To: das nächste Pattern, 0 bis 249, -1 ohne Kette."),
+  field("chainRepeat", 15106, "atLeast1", "Chain Repeat: wie oft das Pattern spielt, bevor die Kette weitergeht, mindestens 1."),
+]);
+export const PART_FIELDS = Object.freeze([
+  field("sample", 8, "u16", "Sample, die Slot-Nummer."),
+  field("filterType", 12, "u8", "Filtertyp, 0 bis 16."),
+  field("cutoff", 13, "u8", "Cutoff, 0 bis 127."),
+  field("resonance", 14, "u8", "Resonanz, 0 bis 127."),
+  field("egInt", 15, "s8", "Filter EG Int, -63 bis 63."),
+  field("modType", 16, "u8", "Modulation, ihr Platz in der Liste."),
+  field("modSpeed", 17, "u8", "Mod Speed, 0 bis 127."),
+  field("modDepth", 18, "u8", "Mod Depth, 0 bis 127."),
+  field("attack", 20, "u8", "Attack, 0 bis 127."),
+  field("decay", 21, "u8", "Decay/Release, 0 bis 127."),
+  field("level", 24, "u8", "Amp Level, 0 bis 127."),
+  field("pan", 25, "s8", "Panorama, -63 links bis 63 rechts."),
+  field("ifxOn", 32, "u8", "1, wenn der Insert-Effekt an ist."),
+  field("ifxType", 33, "u8", "Insert-Effekt, sein Platz im Insert-Menü."),
+  field("ifxEdit", 34, "u8", "IFX Edit, 0 bis 127."),
+  field("pitch", 36, "s8", "Osc Pitch, -63 bis 63."),
+  field("glide", 37, "u8", "Glide, 0 bis 127."),
+  field("voiceAssign", 2, "u8", "Voice Assign, 0 bis 3."),
+  field("oscEdit", 11, "u8", "Osc Edit, 0 bis 127."),
+  field("mfxSend", 27, "u8", "1, wenn der Part an den Master-Effekt geht."),
+]);
+/** Where a part starts in a pattern block, and the distance from one part to the next. */
+export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
+
 /** Knob values the input filter keeps for korg.read.knob: one word per knob, raw panel value. */
 export const SCRIPT_KNOBS = 20;
 

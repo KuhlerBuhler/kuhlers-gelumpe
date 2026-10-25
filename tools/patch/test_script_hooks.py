@@ -121,6 +121,37 @@ class HookTests(unittest.TestCase):
                 self.assertEqual(machine.call('script_ring_take',machine.runtime,machine.input+0x5000)[0],1)
                 self.assertEqual(struct.unpack('<4i',machine.uc.mem_read(machine.input+0x5000,16)),want)
 
+    def test_a_remapped_key_reaches_firmware_and_ring_as_the_other_key_while_its_owner_is_armed(self):
+        machine,built = self.machine()
+        remap = built.layout['card']+built.symbols['RP_AT']
+        owner, blob = machine.input+0x6000, machine.input+0x6100
+        machine.write(machine.runtime,owner); machine.write(owner,0); machine.write(owner+4,blob); machine.write(owner+12,2)
+        machine.write(blob+12,0x5EED1234)
+        machine.write(remap,owner); machine.write(remap+4,0x5EED1234); machine.write(remap+8,17 | 16 << 8)
+        machine.write(machine.runtime+148,0)
+        def send(message):
+            pc = self.input(machine,message)
+            key = machine.uc.mem_read(machine.input+0x3000+13,1)[0]
+            taken = machine.call('script_ring_take',machine.runtime,machine.input+0x5000)[0]
+            ring = struct.unpack('<4i',machine.uc.mem_read(machine.input+0x5000,16)) if taken else None
+            return pc,key,ring
+        self.assertEqual(send([0,17,1,0,0]),(0xC0028380,16,(3,16,0,0)))
+        self.assertEqual(send([0,17,0,0,0]),(0xC0028380,16,(4,16,0,0)))
+        self.assertEqual(send([0,3,1,0,0])[1],3,'another key stays')
+        self.assertEqual(send([4,17,0,100,1])[1],17,'a pad with the same number is no key')
+        machine.write(owner+12,3)
+        self.assertEqual(send([0,17,1,0,0])[1],17,'owner switched off: no remap')
+        machine.write(owner+12,2); machine.write(machine.runtime,0)
+        self.assertEqual(send([0,17,1,0,0])[1],17,'owner no longer in the list: no remap')
+        machine.write(machine.runtime,owner); machine.write(blob+12,0x5EED1235)
+        self.assertEqual(send([0,17,1,0,0])[1],17,'another block at the owner address: no remap')
+        machine.write(blob+12,0x5EED1234)
+        self.assertEqual(send([0,17,1,0,0])[1],16)
+        machine.write(remap,0xFFFFFFFF)
+        self.assertEqual(send([0,17,1,0,0])[1],17,'FF at power-on: no remap')
+        machine.write(remap,0)
+        self.assertEqual(send([0,17,1,0,0])[1],17,'no remap set')
+
     def test_a_touch_position_says_whether_it_is_the_first_of_its_touch(self):
         machine,_ = self.machine()
         machine.write(machine.runtime+148,0x37)

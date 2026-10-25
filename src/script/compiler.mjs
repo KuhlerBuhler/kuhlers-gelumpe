@@ -410,6 +410,7 @@ class Compiler {
       const prop = PROPERTY_BY_PATH.get(path.join("."));
       return prop ? { prop, index: null } : null;
     }
+    if (path.length === 3 && PROPERTY_BY_PATH.has(path.join("."))) return { prop: PROPERTY_BY_PATH.get(path.join(".")), index: null };
     if (path.length === 3 && path[1] === "knobs") {
       const knob = KNOB_NAMES.find(k => k.name === path[2]);
       if (!knob) throw err(n, `Es gibt keinen Regler „korg.knobs.${path[2]}“. Es gibt: ${KNOB_NAMES.map(k => k.name).join(", ")}.`);

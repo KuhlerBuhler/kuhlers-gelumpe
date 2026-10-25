@@ -12,7 +12,7 @@ const python = emuPython();
 const snippet = `import sys,json;sys.path.insert(0,'tools/emu');from patch_performance import validate_capture,compare; x=json.load(sys.stdin);validate_capture(x['baseline']);validate_capture(x['candidate']);print(json.dumps(compare(x['baseline'],x['candidate'],x.get('phase','baseline'),**({'inherited':x['inherited']} if x.get('inherited') else {}))))`;
 const loaderRun = () => ({ totalInstructions: PRESETS.length * 100, plugins: PRESETS.map(p => ({ plugin: p.id, instructions: 100 })) });
 const sample = () => ({ format: "blech-performance", version: 4, method: "fixture", repeats: 3, seconds: 2,
-  appProtocol: { warmupFrames: 8, openClockMs: 0xB1EC, boundary: "frame_return", clockInput: "native-clock-state-at-millis-entry", installedApps: ["blechclicker", "settimer", "snake", "tetris", "life", "pong", "simon", "mandelbrot"], backgroundPlugins: ["lauflicht", "pulsieren"] },
+  appProtocol: { warmupFrames: 8, openClockMs: 0xB1EC, boundary: "frame_return", clockInput: "native-clock-state-at-millis-entry", installedApps: ["blechclicker", "settimer", "snake", "tetris", "life", "pong", "simon", "mandelbrot"], backgroundPlugins: ["lauflicht", "pulsieren", "bpmglide", "partmute"] },
   programsSha256: "a".repeat(64), builds: Object.fromEntries(["hacktribe", "stock", "synth"].map(build => [build, {
     loader: { ...loaderRun(), maxInstructions: PRESETS.length * 100, repeats: Array.from({ length: 3 }, loaderRun) },
     inputSha256: "b".repeat(64), outputSha256: "c".repeat(64), footprint: { codeDataBytes: 10, ramBytes: 20, occupiedBytes: 30 },
@@ -60,7 +60,7 @@ test("loader profiles cover every current preset by name and reject missing or r
 });
 
 test("the app workload fits eight slots while preserving all loader and background inputs", () => {
-  const programs = Object.fromEntries(PRESETS.map(p => [p.id, { info: { app: ["lauflicht", "pulsieren"].includes(p.id) ? null : { name: p.id } } }]));
+  const programs = Object.fromEntries(PRESETS.map(p => [p.id, { info: { app: ["lauflicht", "pulsieren", "bpmglide", "partmute"].includes(p.id) ? null : { name: p.id } } }]));
   const code = `import sys,json;sys.path.insert(0,'tools/emu');from patch_performance import app_workload
 p=json.load(sys.stdin)
 apps=app_workload(p,8)

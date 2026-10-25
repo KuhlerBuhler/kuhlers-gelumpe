@@ -8,6 +8,9 @@ import { BUDGET, LIMITS, ERROR, QUEUED_EVENTS, SCRIPT_ENTRY, SCRIPT_PHASE, EVENT
 import { Script, ScriptFault } from "./vm.mjs";
 import { decodeBlob, fail } from "./blob.mjs";
 import { verifyParts } from "./verifier.mjs";
+import { KEY_NAMES } from "../../data/script/names.mjs";
+
+const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
 
 /** How many pages scripts may add to the device's menu. */
 export const MENU_ITEMS = 12;
@@ -32,6 +35,8 @@ export class ScriptRuntime {
     this.storePending = false;
     /** The menu pages scripts added with korg.menu.add, in the order they were added; an id is the index. */
     this.menus = [];
+    /** korg.remapKey: the key `from` reaches the firmware and the scripts as `to` while `entry` is armed, else null. */
+    this.remap = null;
     /** The apps scripts declared with korg.app, in the order they were declared; an id is the index. */
     this.apps = [];
     /** The script entry that owns the display (its app screen is open, or it took the display), or null. Only it draws. An app gets `frame` only while it is open. */
@@ -97,6 +102,11 @@ export class ScriptRuntime {
       if (this.menus.length >= MENU_ITEMS) return -1;
       this.menus.push({ entry, script: entry.script.name, label: name, min, max, value: Math.min(max, Math.max(min, value)) });
       return this.menus.length - 1;
+    };
+    api["korg.remapKey"] = (from, to) => {
+      if (from === KEY_EXIT || to === KEY_EXIT) throw new ScriptFault(ERROR.API_ARG, "remapKey: EXIT lässt sich nicht umlegen");
+      this.remap = from === to ? null : { entry, from, to };
+      return 0;
     };
     api["korg.app"] = (name, group) => {
       const known = this.apps.findIndex(a => a.entry === entry);
@@ -172,6 +182,12 @@ export class ScriptRuntime {
   }
 
   /** The user turns a page a script added: the value moves within its range and the script gets `menu`(id, value). Returns the new value, or null for an id that does not exist. */
+  /** The key code an input of `key` arrives as, after korg.remapKey. */
+  remapped(key) {
+    const r = this.remap;
+    return r && r.from === key && r.entry.script.state === "armed" && this.scripts.includes(r.entry) ? r.to : key;
+  }
+
   menuSet(id, value) {
     const item = this.menus[id];
     if (!item) return null;

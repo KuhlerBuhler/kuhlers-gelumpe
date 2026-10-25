@@ -4,4 +4,5 @@
  */
 export const CREATORS = Object.freeze({
   "Kuhler Buhler": "https://www.instagram.com/kuhler_buhler/",
+  "KrImZoR": "https://www.instagram.com/krimzor_live",
 });

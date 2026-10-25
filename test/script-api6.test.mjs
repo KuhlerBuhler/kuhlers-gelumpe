@@ -84,7 +84,7 @@ test("the compiler passes a global array by its first slot and length and refuse
 });
 
 test("the API version of a block follows what it uses", () => {
-  assert.equal(API_VERSION, 7);
+  assert.equal(API_VERSION, 8);
   assert.equal(apiVersionOf("let a = 0; korg.onEvent(\"touch\", (x, y) => { a = x + y; });"), 1, "a handler that takes only the old values stays as old as before");
   assert.equal(apiVersionOf("let a = 0; korg.onEvent(\"touch\", (x, y, first) => { a = first; });"), 6);
   assert.equal(apiVersionOf("const pic = [1]; korg.onEvent(\"frame\", () => { korg.display.bitmap(pic, 0, 0, 1); });"), 6);

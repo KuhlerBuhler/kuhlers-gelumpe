@@ -1638,6 +1638,117 @@ korg.onEvent("buttonPress", (key) => {
 `,
   }),
   Object.freeze({
+    id: "bpmglide",
+    title: "BPM Glide",
+    description: "Kettet das laufende Pattern weiter (Chain To, CHAIN MODE an), gleitet das Tempo über seine Spielzeit zum Tempo des nächsten Patterns. Länge und Chain Repeat zählen mit, STOP holt das eigene Tempo zurück.",
+    category: "Werkzeuge",
+    creator: "KrImZoR",
+    added: "2026-10-25",
+    controls: ["Menü -> BLECH -> BPM GLIDE: 1 an, 0 aus"],
+    source: `// BPM Glide, an idea of KrImZoR: while the pattern that plays chains on to another one (Chain To, with CHAIN MODE on in
+// Global), the tempo glides from where it started to the stored tempo of the next pattern, over the time the pattern plays:
+// its length times Chain Repeat. The last step reaches the new tempo, so the switch itself does not jump. STOP gives the
+// pattern its own tempo back. The page BPM GLIDE in the BLECH menu switches it on (1) and off (0).
+let on = korg.store.get(0, 1);
+let page = korg.menu.add("BPM GLIDE", 0, 1, on);
+let pending = 1;
+let active = 0;
+let base = 0;
+let target = 0;
+let length = 16;
+let total = 16;
+let laps = 0;
+let last = -1;
+
+// Reads the chain of the pattern in RAM once it has been loaded: the first step after PLAY or a pattern change.
+function arm(step) {
+  pending = 0;
+  active = 0;
+  const next = korg.current.chainTo;
+  if (!on || !korg.chainMode || next < 0) return;
+  base = korg.tempo;
+  target = korg.patterns[next].tempo;
+  length = korg.current.length * 16;
+  total = length * korg.current.chainRepeat;
+  laps = 0;
+  last = step;
+  active = base != target ? 1 : 0;
+}
+
+function glide(step) {
+  if (step < last) laps += 1;
+  last = step;
+  let done = laps * length + step + 1;
+  if (done > total) done = total;
+  const tempo = base + (target - base) * done / total;
+  if (tempo != korg.tempo) korg.tempo = tempo;
+}
+
+function giveBack() {
+  if (active && korg.tempo != base) korg.tempo = base;
+  active = 0;
+}
+
+korg.onEvent("play", () => { pending = 1; });
+korg.onEvent("patternChange", () => { pending = 1; });
+korg.onEvent("step", (step) => {
+  if (pending) arm(step);
+  if (active) glide(step);
+});
+korg.onEvent("stop", () => {
+  giveBack();
+  pending = 1;
+});
+korg.onEvent("menu", (id, value) => {
+  if (id != page) return;
+  on = value;
+  korg.store.set(0, on);
+  korg.store.save();
+  if (!on) giveBack();
+  pending = 1;
+});
+`,
+  }),
+  Object.freeze({
+    id: "partmute",
+    title: "Part Mute auf Part Erase",
+    description: "Für eine Electribe, deren PART MUTE-Taste nicht mehr geht: PART ERASE wird zu PART MUTE, die Pads schalten Parts stumm wie im Original. Die LED von PART ERASE zeigt den Modus.",
+    category: "Werkzeuge",
+    creator: "Kuhler Buhler",
+    added: "2026-10-25",
+    controls: ["PART ERASE: wie PART MUTE", "PART ERASE als eigene Taste und SHIFT + PART ERASE gibt es nicht, solange das Plugin läuft"],
+    source: `// Part Mute on PART ERASE, for an Electribe whose PART MUTE key no longer works: PART ERASE reaches the firmware as
+// PART MUTE, so the pads mute parts the way the firmware does it. PART ERASE's own pad mode and SHIFT + PART ERASE are not
+// there while the plugin runs. The firmware lights the broken key's LED; the PART ERASE LED shows the mute mode instead.
+korg.remapKey(korg.key.PART_ERASE, korg.key.PART_MUTE);
+const OTHER_MODES = [korg.key.TRIGGER, korg.key.SEQUENCER, korg.key.KEYBOARD, korg.key.CHORD, korg.key.STEP_JUMP, korg.key.PATTERN_SET];
+let muting = 0;
+let ticks = 0;
+
+function show() {
+  korg.led(korg.led.PART_ERASE, muting ? 255 : 0);
+}
+
+// The pad modes are one choice: PART MUTE is on until another mode key is pressed.
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.PART_MUTE) muting = 1;
+  for (let i = 0; i < OTHER_MODES.length; i++) {
+    if (key == OTHER_MODES[i]) muting = 0;
+  }
+  show();
+});
+
+// The firmware sends its own LED states now and then, so the LED is set again twice a second.
+korg.onEvent("frame", () => {
+  ticks += 1;
+  if (ticks >= 12) {
+    ticks = 0;
+    show();
+  }
+});
+`,
+  }),
+  Object.freeze({
     id: "lauflicht",
     title: "Lauflicht",
     description: "Ein Licht läuft über die Pads.",
