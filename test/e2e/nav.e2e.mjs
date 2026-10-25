@@ -279,7 +279,7 @@ test("changelogs: a new release puts a ! on the entry, opening it shows the rele
   const buttons = await release.locator(".cee-release-get a").allTextContents();
   assert.equal(buttons.length, 2, "one app for this system and the patch, not every file");
   assert.equal(buttons[1], "Patch herunterladen");
-  assert.match(buttons[0], /^App für (macOS|Windows|Linux)$/);
+  assert.match(buttons[0], /^App für (Mac mit Apple-Chip|Windows|Linux)$/);
   assert.equal(await release.locator("li strong").textContent(), "Changelogs");
   assert.equal(await release.locator("a[href='https://github.com/KuhlerBuhler/kuhlers-gelumpe']").count(), 1);
   assert.equal(await page.locator("#cee-tab-changelog .cee-nav-badge").count(), 0);

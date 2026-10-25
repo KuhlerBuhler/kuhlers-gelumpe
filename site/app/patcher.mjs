@@ -25,6 +25,9 @@ const pill = (tone, word) => {
 const tick = () => new Promise(r => setTimeout(r, 0));
 
 /** What the verdict line says for a file that cannot be patched or is ready. */
+/** What the dropped file was taken for, after its name in the field. */
+const FOUND = { hacktribe: "Hacktribe 2.02 erkannt", stock: "Korgs Original 2.02, electribe sampler", synth: "Korgs Original 2.02, electribe (blau)" };
+
 function verdict(flow, items) {
   const { input } = flow;
   if (!input) return null;
@@ -59,11 +62,13 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let usb = null;               // the file came over USB: { fromOriginal }; null for a dropped file (then the unpatched one goes to the card too)
 
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-file", accept: ".VSB,.vsb" });
+  const fileInfo = el("span", { className: "ui-dropzone-files", id: "cee-patch-file-info" });
+  let fileName = "";            // the name of the file the page holds, said in the field
   const drop = el("label", { className: "ui-dropzone" }, [
     fileInput,
     el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: "SYSTEM.VSB hierher ziehen oder " }), "auswählen"]),
     el("span", { className: "ui-dropzone-hint", textContent: "Deine Hacktribe-Datei oder Korgs Original 2.02 für electribe sampler oder electribe (blau)" }),
-    el("span", { className: "ui-dropzone-files" }),
+    fileInfo,
   ]);
 
   // Korg's System Updater holds the SYSTEM.VSB; in the app the link opens in the browser (src-tauri/src/main.rs).
@@ -318,6 +323,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     blechDrop.toggleAttribute("data-disabled", useLatest.checked);
     useLatest.disabled = can.busy;
     blechInfo.textContent = ownPatch ? `${ownPatch.file.name} ${ownPatch.file.version}` : "";
+    // The field says which file it holds and what it is; pick() empties the input, so ui.js cannot show the name.
+    const held = flow.input && fileName ? `${fileName}: ${FOUND[flow.origin] ?? "nicht passend"}` : "";
+    drop.toggleAttribute("data-selected", true);
+    drop.toggleAttribute("data-filled", !!held && !!flow.origin);
+    fileInfo.textContent = held;
     const v = verdict(flow, blech?.items ?? []);
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
@@ -382,6 +392,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   async function pick(file) {
     usb = null;
+    fileName = file.name;
     fileInput.value = "";           // choosing the same path again, after it changed, must still fire
     await take(new Uint8Array(await file.arrayBuffer()));
   }
@@ -506,6 +517,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   async function fetchFromDevice(s) {
     const got = await fetchUpdateFile(s, (done, total) => { usbNote.textContent = `Vom Gerät lesen, ${percent(done, total)} %`; });
     usb = { fromOriginal: got.fromOriginal };
+    fileName = "SYSTEM.VSB von der Electribe";
     await take(got.bytes);
     if (flow.input?.kind === "blech") {
       usbNote.hidden = true;
