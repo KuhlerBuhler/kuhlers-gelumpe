@@ -115,3 +115,11 @@ test("the plan creates the latest release first and deletes the others without t
   assert.deepEqual(steps.slice(1).map(s => s.args[2]), ["v1.0.0", "v0.9.0"]);
   assert.ok(steps.slice(1).every(s => s.args[1] === "delete" && !s.args.includes("--cleanup-tag")));
 });
+
+test("release notes from a file replace GitHub's generated list", () => {
+  const generated = planRelease({ tag: "v1.0.1", sha: "abcdef1234567", repo: "o/r", assets: [], older: [] })[0].args;
+  assert.ok(generated.includes("--generate-notes") && !generated.includes("--notes-file"));
+  const own = planRelease({ tag: "v1.0.1", sha: "abcdef1234567", repo: "o/r", assets: [], older: [], notes: "/d/notes.md" })[0].args;
+  assert.equal(own[own.indexOf("--notes-file") + 1], "/d/notes.md");
+  assert.ok(!own.includes("--generate-notes"));
+});

@@ -59,8 +59,8 @@ test("every property names API entries that exist, and the knob names follow the
 test("what a property cannot do is said in words", () => {
   assert.match(error("korg.transport = 1;"), /lässt sich nur lesen/);
   assert.match(error("let t = korg.leds[1];"), /lässt sich nur setzen/);
-  assert.match(error("let t = korg.parts[1];"), /ist ein Objekt.*korg\.parts\[i\]\.step, korg\.parts\[i\]\.muted/);
-  assert.match(error("let t = korg.parts[1].level;"), /gibt es nicht\. Es gibt: \.step, \.muted/);
+  assert.match(error("let t = korg.parts[1];"), /ist ein Objekt.*korg\.parts\[i\]\.step, korg\.parts\[i\]\.muted, korg\.parts\[i\]\.sample/);
+  assert.match(error("let t = korg.parts[1].volume;"), /gibt es nicht\. Es gibt: \.step, \.muted, \.sample/);
   assert.match(error("let t = korg.knobs.CUTOFF;"), /keinen Regler.*LEVEL/);
   assert.match(error("korg.parts[korg.read.part()].muted += 1;"), /Index keinen Funktionsaufruf/);
   assert.match(error("korg.millis = 3;"), /lässt sich nur lesen/);
@@ -72,4 +72,30 @@ test("a setter keeps the events of its call: korg.tempo = … in the body is ref
   assert.equal(r.ok, false);
   assert.equal(compile("korg.tempo(1200);").ok, false);
   assert.equal(r.errors[0].message, compile("korg.tempo(1200);").errors[0].message);
+});
+
+test("the values of a pattern have names: the pattern that plays, every stored pattern and the parts", async () => {
+  for (const [named, call] of [
+    ["let t = korg.current.tempo;", "let t = korg.read.patternValue(-1, -1, 0);"],
+    ["let t = korg.patterns[7].swing;", "let t = korg.read.patternValue(7, -1, 1);"],
+    ["let t = korg.parts[2].cutoff;", "let t = korg.read.patternValue(-1, 2, 2);"],
+    ["let t = korg.chainMode;", "let t = korg.read.chainMode();"],
+  ]) assert.equal(blob(named), blob(call), named);
+  assert.match(error("korg.current.tempo = 1200;"), /nur lesen/);
+  assert.match(error("let t = korg.patterns[1].nope;"), /gibt es nicht/);
+
+  const { SimDevice } = await import("../src/script/sim.mjs");
+  const r = compile(`let tempo = 0; let swing = 0; let bars = 0; let pan = 0; let next = 0;
+korg.onEvent("ready", () => {
+  tempo = korg.patterns[3].tempo; swing = korg.current.swing; bars = korg.current.length; pan = korg.parts[15].pan; next = korg.current.chainTo;
+});`);
+  assert.ok(r.ok, r.errors?.map(formatError).join("\n"));
+  const device = new SimDevice();
+  new DataView(device.hardware.patternBlock(3).buffer).setUint16(34, 1755, true);
+  const live = device.hardware.patternBlock(-1);
+  live[36] = 0xF6; live[37] = 2; live[0x800 + 15 * 0x330 + 25] = 0xC1;
+  const loaded = device.load(r.blob);
+  device.run(2);
+  const v = name => loaded.script.vars[r.info.symbols[name].slot];
+  assert.deepEqual([v("tempo"), v("swing"), v("bars"), v("pan"), v("next")], [1755, -10, 3, -63, -1]);
 });
