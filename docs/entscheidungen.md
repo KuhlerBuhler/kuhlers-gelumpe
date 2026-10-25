@@ -30,7 +30,7 @@ Was entschieden ist und warum. Gilt, bis hier etwas anderes steht.
 |---|---|
 | Erste Version | 1.0.0 |
 | Release-Ablauf | `npm run release` zählt die Version hoch, legt Tag und Release an, lädt die Dateien hoch und löscht ältere Releases ([Entwicklung](development.md#release)). |
-| Update | Die App zeigt nur den Knopf "Neue Version verfügbar", der die Release-Seite öffnet. Ein Selbst-Update bräuchte einen eigenen Signaturschlüssel. |
+| Update | Der Knopf "Neue Version verfügbar" lädt die passende Datei in den Downloads-Ordner und startet die Installation (`src-tauri/src/update.rs`). Die App ersetzt sich nicht selbst im Hintergrund, das bräuchte einen eigenen Signaturschlüssel. |
 | App-Icon | Das Startbild BLECH mit einem G und den Augen. |
 | Signierung | Die Apps sind nicht signiert, das steht in der README. |
 | Patches | `data/patches/` und `tools/patch/` sind öffentlich und bleiben im Repo. |
