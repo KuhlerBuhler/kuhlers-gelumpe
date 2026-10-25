@@ -16,7 +16,9 @@ which the window class does not know and so would show as "Unknown Error."; two 
     python3 tools/patch/sample_errors.py --vsb SYSTEM.VSB [--out data/patches/sample-errors.json] [--listing]
 
 Hooks (the same addresses in both builds, checked byte for byte):
-  0xC00364F0  the loader's first instruction: clears our state
+  0xC00364F0  the loader's first instruction: clears our state and runs the loader with the card at 25 MHz instead of 12.5
+              (SD default speed; docs/messungen/2026-10-25-sd-takt.md), only from the firmware's own divider; a load that
+              ends in a card error runs once more at 12.5 MHz
   0xC0035FB4, 0xC0035FC4, 0xC0035FD4  the three branches of the sample function that refuse a format (tag, channels, bits):
               they remember which and the value, then go where they went before
   0xC004EE0C, 0xC004EE50, 0xC004EE68  the three branches of the slot function that refuse a sample (slot not usable, in use,
@@ -63,6 +65,9 @@ LOOP_END = 0xC0036718
 ALLOC = 0xC0028DCC
 WINDOW_TITLE = 0xC00630F0
 WINDOW_TEXT = 0xC0063144
+MMCCLK = 0x01C40004             # MMC0's clock register: bit 8 on, bits 0-7 CLKRT; the card runs at 150 MHz / (2 * (CLKRT + 1))
+CLKRT_FIRMWARE, CLKRT_FAST = 5, 2  # 12.5 MHz as the firmware sets it, 25 MHz (SD default speed)
+CARD_ERROR = 4                  # the loader's result for a read error of the card, "Card Error"
 
 # the state: counts, the first skipped sample, and what the two refusing places said
 S_COUNT, S_IDX, S_ORIG, S_REASON, S_VAL, S_FREASON, S_FVAL = 0, 4, 8, 12, 16, 20, 24
@@ -83,6 +88,10 @@ SOURCE = f"""
 .equ RESULT_BACK, {RESULT + 4:#x}
 .equ LOOP_END, {LOOP_END:#x}
 .equ ALLOC, {ALLOC:#x}
+.equ MMCCLK, {MMCCLK:#x}
+.equ CLKRT_FIRMWARE, {CLKRT_FIRMWARE}
+.equ CLKRT_FAST, {CLKRT_FAST}
+.equ CARD_ERROR, {CARD_ERROR}
 .equ S_COUNT, {S_COUNT}
 .equ S_IDX, {S_IDX}
 .equ S_ORIG, {S_ORIG}
@@ -112,21 +121,70 @@ killed:
     moveq r12, #0
     bx lr
 
-; ---- the loader's first instruction: the state starts empty for every load ----------------------------------------
+; ---- the loader's first instruction: the state starts empty for every load, the card runs at 25 MHz --------------
+; Replaces push {{r4-r11, lr}}: the loader runs as a call from here (loader_body), so its result comes back. The card goes from
+; the firmware's 12.5 MHz to 25 MHz (device 25.10.: 3.1 to 5.2 MiB/s); a load that ends in a card error (4) is run once more
+; at 12.5 MHz, and only that result reaches the caller, which shows "Card Error" for a 4 as before.
 loader_entry:
-    push {{r4, r5, r6, r7, r8, r9, r10, r11, lr}}
+    push {{r0, lr}}             ; the path and the caller
     bl killed
     cmp r12, #0
+    bne entry_plain
+    bl entry_clear
+    bl clock_fast
+    cmp r0, #0
+    beq entry_plain
+    ldr r0, [sp]
+    bl loader_body
+    cmp r0, #CARD_ERROR
     bne entry_out
+    bl clock_slow
+    bl entry_clear
+entry_plain:
+    ldr r0, [sp]
+    bl loader_body
+entry_out:
+    pop {{r1, lr}}
+    bx lr
+loader_body:
+    push {{r4, r5, r6, r7, r8, r9, r10, r11, lr}}
+    b LOADER_BACK
+
+entry_clear:                    ; the state empty; r1, r2 and r12 change
     ldr r12, =STATE
     mov r1, #0
     mov r2, #0x40
-entry_clear:
+entry_clear_next:
     subs r2, r2, #4
     str r1, [r12, r2]
-    bne entry_clear
-entry_out:
-    b LOADER_BACK
+    bne entry_clear_next
+    bx lr
+
+; the card's divider from the firmware's to the fast one, r0 = 1 when it changed; any other divider is left alone. The clock is
+; off while the divider changes, as the TRM asks. r1, r2 and r12 change.
+clock_fast:
+    ldr r12, =MMCCLK
+    ldr r1, [r12]
+    and r2, r1, #0xFF
+    cmp r2, #CLKRT_FIRMWARE
+    movne r0, #0
+    bxne lr
+    mov r2, #CLKRT_FAST
+    b clock_set
+clock_slow:                     ; back to the firmware's divider
+    ldr r12, =MMCCLK
+    ldr r1, [r12]
+    mov r2, #CLKRT_FIRMWARE
+clock_set:                      ; r1 = the register, r2 = the divider
+    bic r1, r1, #0x100
+    str r1, [r12]
+    bic r1, r1, #0xFF
+    orr r1, r1, r2
+    str r1, [r12]
+    orr r1, r1, #0x100
+    str r1, [r12]
+    mov r0, #1
+    bx lr
 
 ; ---- the places that refuse a sample: they say why, then go where they went before ---------------------------------
 ; r0 to r3, r12 and lr are free at all six (the code they go to sets its result and returns)
@@ -365,7 +423,7 @@ def build_patch(vsb):
         return struct.pack("<I", redirect(0xEA000000 if original is not None else word, addr, symbols[stub]))
 
     words = [
-        (LOADER, "loader_entry", dict(original=0xE92D4FF0), "the loader's first instruction jumps to a stub that clears the state and runs it",
+        (LOADER, "loader_entry", dict(original=0xE92D4FF0), "the loader's first instruction jumps to a stub that clears the state, raises the card clock and runs the loader, once more at 12.5 MHz after a card error",
          "the loader starts: the state of the skipped samples is cleared (all hooks pass on at once with EXIT held at power-on)"),
         (SAMPLE_FORMAT[0], "fmt_tag", dict(goes_to=SAMPLE_FAIL), "the branch that refuses a format tag other than PCM goes to a stub that notes it", None),
         (SAMPLE_FORMAT[1], "fmt_channels", dict(goes_to=SAMPLE_FAIL), "the branch that refuses a channel count other than 1 or 2 goes to a stub that notes it", None),
