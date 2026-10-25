@@ -2575,7 +2575,8 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 /* Features (features.mjs): one list per group, an entry is its name, what it does and what to press. */
 .cee-features {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  /* at least 22rem a card, at most four in a row: wider cards read better than a row of thin ones */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(22rem, (100% - 3 * var(--space-3)) / 4)), 1fr));
   gap: var(--space-3);
   margin: 0;
   padding: 0;
@@ -2609,26 +2610,8 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   color: var(--color-text-secondary);
 }
 
-/* What to press, apart from what it does: a small label over the keys. */
-.cee-feature-how {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-item-muted);
-}
-
-.cee-feature-how-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted);
-}
-
-.cee-feature .cee-feature-how p {
-  margin: 0;
+/* What to press: one line after what it does, the keys in the main text colour. */
+.cee-feature .cee-feature-how {
   color: var(--color-text-primary);
 }
 
