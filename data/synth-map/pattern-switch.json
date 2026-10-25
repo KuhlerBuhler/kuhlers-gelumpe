@@ -143,6 +143,138 @@
    "to": "0xC0340734",
    "kind": "ram",
    "why": "pointer to the command runner, its busy byte at +0x10: the busy getter 0xC002A798 (synth's twin of 0xC002D634) loads it from its literal"
+  },
+  {
+   "from": "0xC0079BE0",
+   "to": "0xC006C56C",
+   "kind": "code",
+   "why": "pattern load: pre-copy call; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC0079C2C",
+   "to": "0xC006C5B8",
+   "kind": "code",
+   "why": "pattern load: post-copy call; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC0079C30",
+   "to": "0xC006C5BC",
+   "kind": "code",
+   "why": "instruction after the post-copy call; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC0098C84",
+   "to": "0xC00860C8",
+   "kind": "code",
+   "why": "global voice reset in the post-copy initializer; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC0091F5C",
+   "to": "0xC007FFE0",
+   "kind": "code",
+   "why": "global voice reset entry; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC0098C70",
+   "to": "0xC00860B4",
+   "kind": "code",
+   "why": "per-part sample preparation in the post-copy initializer; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC009B5D8",
+   "to": "0xC00881C4",
+   "kind": "code",
+   "why": "branch target read from the matched pre-copy call; its single branch reaches 0xC00860EC, the matched pre-copy initializer"
+  },
+  {
+   "from": "0xC009B5DC",
+   "to": "0xC00881C8",
+   "kind": "code",
+   "why": "branch target read from the matched post-copy call; its single branch reaches 0xC008609C, the matched post-copy initializer"
+  },
+  {
+   "from": "0xC009AF20",
+   "to": "0xC0087B60",
+   "kind": "code",
+   "why": "part object getter: same bounds check, assertion and base plus index calculation; sampler stride 0x148, synth stride 0x110, read from both instructions"
+  },
+  {
+   "from": "0xC00998B4",
+   "to": "0xC0086C50",
+   "kind": "code",
+   "why": "voice sample assignment called by note initialization from part+0x34; stores the sample at voice+0x3A on sampler and +0x38 on synth, read in both functions"
+  },
+  {
+   "from": "0xC0079B90",
+   "to": "0xC006C51C",
+   "kind": "code",
+   "why": "pattern load before held-pad cleanup; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC0079BD4",
+   "to": "0xC006C560",
+   "kind": "code",
+   "why": "pattern load after held-pad cleanup and initial note-off flush; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC00413A8",
+   "to": "0xC003F60C",
+   "kind": "code",
+   "why": "getter called at the matched load site C006C51C: singleton allocation of 0x338 bytes, cached pointer, constructor and return, same shape in both builds"
+  },
+  {
+   "from": "0xC0045DAC",
+   "to": "0xC0040078",
+   "kind": "code",
+   "why": "held-note source cleanup entry; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC0045DB0",
+   "to": "0xC004007C",
+   "kind": "code",
+   "why": "second instruction of held-note source cleanup; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC005AA80",
+   "to": "0xC0051608",
+   "kind": "code",
+   "why": "note registry flush called at matched load site C006C55C and the three matched setters; both walk four-byte note entries, emit note-offs and clear the registry; synth inlines the vector copy"
+  },
+  {
+   "from": "0xC004A728",
+   "to": "0xC0044808",
+   "kind": "code",
+   "why": "note-off flush in the key setter; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC004A7A8",
+   "to": "0xC0044888",
+   "kind": "code",
+   "why": "note-off flush in the scale setter; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC00492F4",
+   "to": "0xC00434B4",
+   "kind": "code",
+   "why": "note-off flush in the voice-mode setter; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC005A884",
+   "to": "0xC005140C",
+   "kind": "code",
+   "why": "voice-mode note-slot reinitialization; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC005A7A4",
+   "to": "0xC005132C",
+   "kind": "code",
+   "why": "voice-mode note-slot reinitialization; fwmap, 16 masked words equal"
+  },
+  {
+   "from": "0xC0079B78",
+   "to": "0xC006C504",
+   "kind": "code",
+   "why": "pattern load entry, same prologue and argument moves before the matched held-pad cleanup getter at C006C51C"
   }
  ]
 }

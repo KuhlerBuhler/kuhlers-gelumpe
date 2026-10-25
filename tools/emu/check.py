@@ -84,9 +84,19 @@ def overlaps(runs, ranges, allow=()):
             if a >= b:
                 continue
             fa, fb = a - IMAGE + HEADER, b - IMAGE + HEADER
-            if any(at <= fa and fb <= at + n for at, n in allow):
-                continue
-            hits.append([fa, fb - fa])
+            cursor = fa
+            for at, n in sorted(allow):
+                if n <= 0 or at + n <= cursor:
+                    continue
+                if at >= fb:
+                    break
+                if at > cursor:
+                    hits.append([cursor, at - cursor])
+                cursor = max(cursor, at + n)
+                if cursor >= fb:
+                    break
+            if cursor < fb:
+                hits.append([cursor, fb - cursor])
     return hits
 
 

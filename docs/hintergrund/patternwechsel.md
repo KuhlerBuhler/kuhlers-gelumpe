@@ -387,6 +387,14 @@ Plätze, passt das Modell `10 ms + n * Frame`. Bleibt sie bei gleichen Effekten,
 
 ## Offen
 
+Ergänzung vom 25.10.: Im Ladepfad sind zwei globale Abschaltungen der Stimmenverwaltung
+nachgewiesen, eine vor der Patternkopie und eine nach der Aufbereitung der neuen Part-Sounds.
+Hinzu kommen Freigaben gehaltener Noten und die erneute Einrichtung ihrer Notenplätze.
+Diese Aufrufe laufen auch innerhalb derselben Sync-Gruppe. Der Patch und die
+Gegenproben stehen unter [Stimmen beim Gruppenwechsel](../messungen/2026-10-25-sync-group-stimmen.md).
+Das ist ein eigener Befund neben der Effekt-Neuinitialisierung. Der Übergang 135 nach 136
+mit Part 8 aus Pattern 6 wurde mit dem RAM-Patch ohne Schnitt und Klick gehört.
+
 - Der Ton am Gerät: ob und wie lang die Effekt-Neuinitialisierung hörbar schweigt (2.7).
 - Die Zeit, die der DSP je Mailbox-Frame braucht (der Emulator quittiert sofort).
 - Part-spezifisches Last Step: ob es das Sequenzende verschiebt.
