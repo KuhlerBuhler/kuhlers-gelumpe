@@ -1248,10 +1248,11 @@ def build_patch(vsb, build="hacktribe"):
         ],
         "startPhase": [
             {"file": file_offset(SYNC_HOOK), "length": 4, "why": "the stopped sync is an observer the firmware calls from the start on; the hook reads its own state word (FF at start, not 1) and runs the original"},
+            {"file": file_offset(symbols["sync_hook"]), "length": symbols["view_text"] - symbols["sync_hook"], "why": "sync_hook: one load, a compare, then the replaced instruction and the way back"},
             {"file": file_offset(COPY_CALL), "length": 4, "why": "the pattern load copies the first pattern into RAM during the start, through the copy hook"},
             {"file": file_offset(symbols["pc_group"]), "length": symbols["pc_notify"] - symbols["pc_group"], "why": "copy_hook, pc_group and the sync group walk: the panel's keys, the two sync groups and the loaded bank block read, the memcpy, the bank block remembered, no literal"},
             {"file": file_offset(CMD_END), "length": 4, "why": "the command runner clears its busy byte after the first pattern load of the start, through pad_replay"},
-            {"file": file_offset(symbols["pad_replay"]), "length": symbols["view_text"] - symbols["pad_replay"], "why": "pad_replay and sync_hook, one span (check.py allows a run of changed bytes only inside one span): pad_replay clears the busy byte and reads the two counters (FF, equal: nothing kept), sync_hook is one load, a compare, then the replaced instruction and the way back; no literal in either"},
+            {"file": file_offset(symbols["pad_replay"]), "length": symbols["sync_hook"] - symbols["pad_replay"], "why": "pad_replay: the busy byte cleared, the two counters read (FF, equal: nothing kept), no literal"},
         ],
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C, MENU's LED at +0x20, the kept pad presses at +0x24", "tools/patch/pattern_switch.py:STATE"),
