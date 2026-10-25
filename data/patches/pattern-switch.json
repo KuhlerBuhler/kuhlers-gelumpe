@@ -192,11 +192,6 @@
    "why": "the stopped sync is an observer the firmware calls from the start on; the hook reads its own state word (FF at start, not 1) and runs the original"
   },
   {
-   "file": 1575896,
-   "length": 32,
-   "why": "sync_hook: one load, a compare, then the replaced instruction and the way back"
-  },
-  {
    "file": 306500,
    "length": 4,
    "why": "the pattern load copies the first pattern into RAM during the start, through the copy hook"
@@ -213,8 +208,8 @@
   },
   {
    "file": 1575804,
-   "length": 92,
-   "why": "pad_replay: the busy byte cleared, the two counters read (FF, equal: nothing kept), no literal"
+   "length": 124,
+   "why": "pad_replay and sync_hook, one span (check.py allows a run of changed bytes only inside one span): pad_replay clears the busy byte and reads the two counters (FF, equal: nothing kept), sync_hook is one load, a compare, then the replaced instruction and the way back; no literal in either"
   }
  ],
  "ram": [

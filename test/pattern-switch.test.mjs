@@ -45,7 +45,7 @@ test("the pattern switch has the v1 format, says what it replaces and runs only 
   // command runner's busy clear after that load (0xC002D81C, kept pad presses); every other hook sits behind the start and the rescue paths
   const symbol = name => PATCH.startPhase.find(s => s.why.startsWith(name));
   assert.deepEqual(PATCH.startPhase.map(s => s.file).filter(f => f < 0x180100), [0x81f18, 0x4ad44, 0x2d91c]);
-  assert.ok(symbol("sync_hook") && symbol("copy_hook") && symbol("pad_replay"), "the three code spans are declared");
+  assert.ok(PATCH.startPhase.some(s => s.why.includes("sync_hook")) && symbol("copy_hook") && symbol("pad_replay"), "the three code spans are declared (pad_replay and sync_hook as one)");
   assert.ok(PATCH.startPhase.every(s => s.why.length > 20));
 });
 
