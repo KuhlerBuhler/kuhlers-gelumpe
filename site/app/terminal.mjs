@@ -74,7 +74,8 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
   log.addEventListener("click", e => { if (!e.target.closest("a, button, textarea") && !getSelection()?.toString()) input.focus(); });
   const run = { disabled: false };            // a script is running; Enter waits for it
   const send = el("button", { type: "button", className: "btn sm cee-primary", id: "cee-term-send", textContent: "An das Gerät senden", disabled: true, hidden: true });
-  // Where the commands go, for screen readers; on the page the toast says it once when it changes.
+  // Where the commands go, for screen readers; on the page the toast says it once when it changes; not when the firmware
+  // takes no commands, that came at every start of Korg's firmware and only confused (a typed command says it).
   const target = el("p", { className: "cee-term-target ui-sr-only", id: "cee-term-target", role: "status", hidden: true });
   let toldTarget = "";
   const limit = el("p", { className: "muted", id: "cee-term-limit", hidden: true, textContent: NOTE_LIMIT });
@@ -98,7 +99,7 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
     target.hidden = mode !== "device" && !missing;
     target.replaceChildren(...(missing ? [pill("error", "nimmt keine Befehle an"), " Die Firmware im Emulator nimmt keine Befehle an."] : [pill("warn", "Gerät über Emulator"), ` ${DEVICE_NOTE}`]));
     const told = target.hidden ? "" : missing ? "Die Firmware im Emulator nimmt keine Befehle an." : DEVICE_NOTE;
-    if (told && told !== toldTarget) toast(told, missing ? "error" : "info");
+    if (told && told !== toldTarget && !missing) toast(told, "info");
     toldTarget = told;
     input.placeholder = mode === "device" ? "Enter probt im Emulator" : "";
     send.hidden = mode !== "device";
