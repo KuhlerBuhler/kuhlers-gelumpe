@@ -22,3 +22,10 @@ Ablauf, als Vorschlag: beim Start lädt die Firmware wie bisher, ein Patch liest
 Wird ein Sample gebraucht, das nicht im DSP liegt (Pattern-Wechsel, Sync-Gruppe, Auswahl im Part), tauscht der Patch
 es gegen eines, das gerade kein Part benutzt. Ob das mitten im Spielen geht oder nur zwischen Patterns, entscheidet
 das Tempo des Host-Ports.
+
+## Ladepfad und erste Prüfung (25.10.)
+
+Die [Untersuchung zum Sample-Swap](../messungen/2026-10-25-sample-swap.md) beschreibt den Ladepfad,
+den Host-Port und die Platzverwaltung. Im isolierten ARM-Test gibt Löschen nur am Ende DSP-Platz zurück;
+ein Swap braucht eine eigene Verwaltung. Vor dem Bau fehlen Durchsatz und eine Aufnahme unter Wiedergabe
+am Gerät. Das Testwerkzeug dafür ist vorbereitet. Ein nicht mehr ausgewähltes Sample kann noch ausklingen.
