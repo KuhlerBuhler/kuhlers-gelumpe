@@ -3499,3 +3499,13 @@ input[type="checkbox"]:not([role="switch"]):disabled {
   opacity: 0.5;
   cursor: default;
 }
+
+/* USB status in the navbar: the plug icon is lit while an Electribe is on the USB port. */
+.cee-usb {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.cee-usb[data-tone="ok"] { color: var(--color-status-ok-text); }
