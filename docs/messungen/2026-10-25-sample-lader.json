@@ -1,0 +1,708 @@
+{
+  "date": "2026-10-25",
+  "device": "red Sampler, Hacktribe 2.02 with BLECH, stopped",
+  "card_access": "read-only",
+  "runs": {
+    "loader-baseline-1": {
+      "instrumented": false,
+      "loader_ms": 10195,
+      "result": 0,
+      "timer_period": 149999999,
+      "timer_tcr": 128,
+      "timer_tgcr": 5,
+      "mmcclk": "0x102",
+      "dsp_cursor": "0x17a782a",
+      "counters": {
+        "read": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0
+        },
+        "seek": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0
+        },
+        "parser": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0
+        },
+        "slot": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0
+        },
+        "dsp": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0
+        },
+        "convert24": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0
+        }
+      },
+      "original_sha256": "96675449af3e5a5f5e728347270034792ec5d2f834d5e19473811fbb08dea1c0",
+      "running_sha256": "e77049d8927074cbfc6771a39f3501ff305b64f92d0cce715bff0e223a379fe2",
+      "upload_restored": true,
+      "allocated_address": "0xc06cb9c8",
+      "allocated_bytes": 19584,
+      "allocation_freed": true
+    },
+    "loader-profile-1": {
+      "instrumented": true,
+      "loader_ms": 10163,
+      "result": 0,
+      "timer_period": 149999999,
+      "timer_tcr": 128,
+      "timer_tgcr": 5,
+      "mmcclk": "0x102",
+      "dsp_cursor": "0x17a782a",
+      "counters": {
+        "read": {
+          "count": 2686,
+          "ticks": 805340247,
+          "ms": 5368.93498,
+          "bytes": 21549306
+        },
+        "seek": {
+          "count": 2214,
+          "ticks": 385949798,
+          "ms": 2572.9986533333336,
+          "bytes": 0
+        },
+        "parser": {
+          "count": 246,
+          "ticks": 1519704002,
+          "ms": 10131.360013333333,
+          "bytes": 0
+        },
+        "slot": {
+          "count": 246,
+          "ticks": 863303,
+          "ms": 5.755353333333334,
+          "bytes": 0
+        },
+        "dsp": {
+          "count": 471,
+          "ticks": 270140466,
+          "ms": 1800.93644,
+          "bytes": 21240170
+        },
+        "convert24": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0
+        }
+      },
+      "original_sha256": "96675449af3e5a5f5e728347270034792ec5d2f834d5e19473811fbb08dea1c0",
+      "running_sha256": "e77049d8927074cbfc6771a39f3501ff305b64f92d0cce715bff0e223a379fe2",
+      "upload_restored": true,
+      "allocated_address": "0xc06cb9c8",
+      "allocated_bytes": 19584,
+      "allocation_freed": true
+    },
+    "loader-profile-2": {
+      "instrumented": true,
+      "loader_ms": 10166,
+      "result": 0,
+      "timer_period": 149999999,
+      "timer_tcr": 128,
+      "timer_tgcr": 5,
+      "mmcclk": "0x102",
+      "dsp_cursor": "0x17a782a",
+      "counters": {
+        "read": {
+          "count": 2686,
+          "ticks": 806528252,
+          "ms": 5376.855013333334,
+          "bytes": 21549306
+        },
+        "seek": {
+          "count": 2214,
+          "ticks": 385994962,
+          "ms": 2573.2997466666666,
+          "bytes": 0
+        },
+        "parser": {
+          "count": 246,
+          "ticks": 1520195148,
+          "ms": 10134.63432,
+          "bytes": 0
+        },
+        "slot": {
+          "count": 246,
+          "ticks": 888654,
+          "ms": 5.92436,
+          "bytes": 0
+        },
+        "dsp": {
+          "count": 471,
+          "ticks": 269705753,
+          "ms": 1798.0383533333334,
+          "bytes": 21240170
+        },
+        "convert24": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0
+        }
+      },
+      "original_sha256": "96675449af3e5a5f5e728347270034792ec5d2f834d5e19473811fbb08dea1c0",
+      "running_sha256": "e77049d8927074cbfc6771a39f3501ff305b64f92d0cce715bff0e223a379fe2",
+      "upload_restored": true,
+      "allocated_address": "0xc06cb9c8",
+      "allocated_bytes": 19584,
+      "allocation_freed": true
+    },
+    "loader-profile-sites": {
+      "instrumented": true,
+      "loader_ms": 10183,
+      "result": 0,
+      "timer_period": 149999999,
+      "timer_tcr": 128,
+      "timer_tgcr": 5,
+      "mmcclk": "0x102",
+      "dsp_cursor": "0x17a782a",
+      "counters": {
+        "read": {
+          "count": 2686,
+          "ticks": 806819121,
+          "ms": 5378.79414,
+          "bytes": 21549306
+        },
+        "seek": {
+          "count": 2214,
+          "ticks": 386923703,
+          "ms": 2579.4913533333333,
+          "bytes": 0
+        },
+        "parser": {
+          "count": 246,
+          "ticks": 1522582796,
+          "ms": 10150.551973333333,
+          "bytes": 0
+        },
+        "slot": {
+          "count": 246,
+          "ticks": 876739,
+          "ms": 5.844926666666667,
+          "bytes": 0
+        },
+        "dsp": {
+          "count": 471,
+          "ticks": 269612070,
+          "ms": 1797.4138,
+          "bytes": 21240170
+        },
+        "convert24": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0
+        },
+        "read_pcm": {
+          "count": 471,
+          "ticks": 730652042,
+          "ms": 4871.0136133333335,
+          "bytes": 21240170
+        },
+        "seek_scan": {
+          "count": 984,
+          "ticks": 64957108,
+          "ms": 433.0473866666667,
+          "bytes": 0
+        },
+        "seek_fmt": {
+          "count": 246,
+          "ticks": 126371988,
+          "ms": 842.47992,
+          "bytes": 0
+        },
+        "seek_meta": {
+          "count": 246,
+          "ticks": 35313538,
+          "ms": 235.42358666666667,
+          "bytes": 0
+        },
+        "seek_data": {
+          "count": 246,
+          "ticks": 128803444,
+          "ms": 858.6896266666666,
+          "bytes": 0
+        },
+        "seek_end": {
+          "count": 246,
+          "ticks": 31547307,
+          "ms": 210.31538,
+          "bytes": 0
+        },
+        "seek_slot": {
+          "count": 246,
+          "ticks": 546415,
+          "ms": 3.6427666666666667,
+          "bytes": 0
+        }
+      },
+      "original_sha256": "96675449af3e5a5f5e728347270034792ec5d2f834d5e19473811fbb08dea1c0",
+      "running_sha256": "e77049d8927074cbfc6771a39f3501ff305b64f92d0cce715bff0e223a379fe2",
+      "upload_restored": true,
+      "allocated_address": "0xc06cb9c8",
+      "allocated_bytes": 19584,
+      "allocation_freed": true
+    },
+    "loader-anchor-1": {
+      "instrumented": true,
+      "seek_anchor": true,
+      "loader_ms": 8932,
+      "result": 0,
+      "timer_period": 149999999,
+      "timer_tcr": 128,
+      "timer_tgcr": 5,
+      "mmcclk": "0x102",
+      "dsp_cursor": "0x17a782a",
+      "counters": {
+        "read": {
+          "count": 2686,
+          "ticks": 806596283,
+          "ms": 5377.308553333333,
+          "bytes": 21549306,
+          "maximum_span_ms": 18
+        },
+        "seek": {
+          "count": 2214,
+          "ticks": 199742706,
+          "ms": 1331.61804,
+          "bytes": 0,
+          "maximum_span_ms": 3
+        },
+        "parser": {
+          "count": 246,
+          "ticks": 1334850598,
+          "ms": 8899.003986666667,
+          "bytes": 0,
+          "maximum_span_ms": 275
+        },
+        "slot": {
+          "count": 246,
+          "ticks": 902963,
+          "ms": 6.019753333333333,
+          "bytes": 0,
+          "maximum_span_ms": 1
+        },
+        "dsp": {
+          "count": 471,
+          "ticks": 269421650,
+          "ms": 1796.1443333333334,
+          "bytes": 21240170,
+          "maximum_span_ms": 6
+        },
+        "convert24": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "read_pcm": {
+          "count": 471,
+          "ticks": 730641477,
+          "ms": 4870.94318,
+          "bytes": 21240170,
+          "maximum_span_ms": 18
+        },
+        "seek_scan": {
+          "count": 984,
+          "ticks": 65195474,
+          "ms": 434.6364933333333,
+          "bytes": 0,
+          "maximum_span_ms": 2
+        },
+        "seek_fmt": {
+          "count": 246,
+          "ticks": 33601950,
+          "ms": 224.013,
+          "bytes": 0,
+          "maximum_span_ms": 1
+        },
+        "seek_meta": {
+          "count": 246,
+          "ticks": 35211138,
+          "ms": 234.74092,
+          "bytes": 0,
+          "maximum_span_ms": 3
+        },
+        "seek_data": {
+          "count": 246,
+          "ticks": 33859965,
+          "ms": 225.7331,
+          "bytes": 0,
+          "maximum_span_ms": 2
+        },
+        "seek_end": {
+          "count": 246,
+          "ticks": 31790625,
+          "ms": 211.9375,
+          "bytes": 0,
+          "maximum_span_ms": 2
+        },
+        "seek_slot": {
+          "count": 246,
+          "ticks": 695715,
+          "ms": 4.6381,
+          "bytes": 0,
+          "maximum_span_ms": 1
+        }
+      },
+      "original_sha256": "96675449af3e5a5f5e728347270034792ec5d2f834d5e19473811fbb08dea1c0",
+      "running_sha256": "e77049d8927074cbfc6771a39f3501ff305b64f92d0cce715bff0e223a379fe2",
+      "upload_restored": true,
+      "allocated_address": "0xc06cb9c8",
+      "allocated_bytes": 19584,
+      "allocation_freed": true
+    },
+    "loader-baseline-crc": {
+      "instrumented": true,
+      "seek_anchor": false,
+      "loader_ms": 10322,
+      "result": 0,
+      "timer_period": 149999999,
+      "timer_tcr": 128,
+      "timer_tgcr": 5,
+      "mmcclk": "0x102",
+      "dsp_cursor": "0x17a782a",
+      "counters": {
+        "read": {
+          "count": 2686,
+          "ticks": 819302597,
+          "ms": 5462.017313333334,
+          "bytes": 21549306,
+          "maximum_span_ms": 18
+        },
+        "seek": {
+          "count": 2214,
+          "ticks": 391195382,
+          "ms": 2607.9692133333333,
+          "bytes": 0,
+          "maximum_span_ms": 10
+        },
+        "parser": {
+          "count": 246,
+          "ticks": 1542803949,
+          "ms": 10285.35966,
+          "bytes": 0,
+          "maximum_span_ms": 283
+        },
+        "slot": {
+          "count": 246,
+          "ticks": 872320,
+          "ms": 5.815466666666667,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "dsp": {
+          "count": 471,
+          "ticks": 273092707,
+          "ms": 1820.6180466666667,
+          "bytes": 21240170,
+          "maximum_span_ms": 9
+        },
+        "convert24": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "read_pcm": {
+          "count": 471,
+          "ticks": 743677306,
+          "ms": 4957.848706666667,
+          "bytes": 21240170,
+          "maximum_span_ms": 18
+        },
+        "seek_scan": {
+          "count": 984,
+          "ticks": 66342547,
+          "ms": 442.28364666666664,
+          "bytes": 0,
+          "maximum_span_ms": 4
+        },
+        "seek_fmt": {
+          "count": 246,
+          "ticks": 127536388,
+          "ms": 850.2425866666666,
+          "bytes": 0,
+          "maximum_span_ms": 9
+        },
+        "seek_meta": {
+          "count": 246,
+          "ticks": 35391319,
+          "ms": 235.94212666666667,
+          "bytes": 0,
+          "maximum_span_ms": 4
+        },
+        "seek_data": {
+          "count": 246,
+          "ticks": 128953361,
+          "ms": 859.6890733333333,
+          "bytes": 0,
+          "maximum_span_ms": 10
+        },
+        "seek_end": {
+          "count": 246,
+          "ticks": 32628444,
+          "ms": 217.52296,
+          "bytes": 0,
+          "maximum_span_ms": 4
+        },
+        "seek_slot": {
+          "count": 246,
+          "ticks": 926027,
+          "ms": 6.173513333333333,
+          "bytes": 0,
+          "maximum_span_ms": 1
+        }
+      },
+      "original_sha256": "96675449af3e5a5f5e728347270034792ec5d2f834d5e19473811fbb08dea1c0",
+      "running_sha256": "e77049d8927074cbfc6771a39f3501ff305b64f92d0cce715bff0e223a379fe2",
+      "upload_restored": true,
+      "allocated_address": "0xc06cb9c8",
+      "allocated_bytes": 19584,
+      "allocation_freed": true,
+      "dsp_crc32": "4cacf7c8"
+    },
+    "loader-anchor-crc": {
+      "instrumented": true,
+      "seek_anchor": true,
+      "loader_ms": 9027,
+      "result": 0,
+      "timer_period": 149999999,
+      "timer_tcr": 128,
+      "timer_tgcr": 5,
+      "mmcclk": "0x102",
+      "dsp_cursor": "0x17a782a",
+      "counters": {
+        "read": {
+          "count": 2686,
+          "ticks": 816463465,
+          "ms": 5443.089766666667,
+          "bytes": 21549306,
+          "maximum_span_ms": 18
+        },
+        "seek": {
+          "count": 2214,
+          "ticks": 200688276,
+          "ms": 1337.92184,
+          "bytes": 0,
+          "maximum_span_ms": 5
+        },
+        "parser": {
+          "count": 246,
+          "ticks": 1348213502,
+          "ms": 8988.090013333333,
+          "bytes": 0,
+          "maximum_span_ms": 281
+        },
+        "slot": {
+          "count": 246,
+          "ticks": 895948,
+          "ms": 5.9729866666666664,
+          "bytes": 0,
+          "maximum_span_ms": 1
+        },
+        "dsp": {
+          "count": 471,
+          "ticks": 271482233,
+          "ms": 1809.8815533333334,
+          "bytes": 21240170,
+          "maximum_span_ms": 8
+        },
+        "convert24": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "read_pcm": {
+          "count": 471,
+          "ticks": 739318520,
+          "ms": 4928.790133333333,
+          "bytes": 21240170,
+          "maximum_span_ms": 18
+        },
+        "seek_scan": {
+          "count": 984,
+          "ticks": 65278795,
+          "ms": 435.19196666666664,
+          "bytes": 0,
+          "maximum_span_ms": 3
+        },
+        "seek_fmt": {
+          "count": 246,
+          "ticks": 33575210,
+          "ms": 223.83473333333333,
+          "bytes": 0,
+          "maximum_span_ms": 4
+        },
+        "seek_meta": {
+          "count": 246,
+          "ticks": 34344676,
+          "ms": 228.96450666666667,
+          "bytes": 0,
+          "maximum_span_ms": 3
+        },
+        "seek_data": {
+          "count": 246,
+          "ticks": 34027550,
+          "ms": 226.85033333333334,
+          "bytes": 0,
+          "maximum_span_ms": 5
+        },
+        "seek_end": {
+          "count": 246,
+          "ticks": 33152863,
+          "ms": 221.01908666666668,
+          "bytes": 0,
+          "maximum_span_ms": 5
+        },
+        "seek_slot": {
+          "count": 246,
+          "ticks": 935250,
+          "ms": 6.235,
+          "bytes": 0,
+          "maximum_span_ms": 1
+        }
+      },
+      "original_sha256": "96675449af3e5a5f5e728347270034792ec5d2f834d5e19473811fbb08dea1c0",
+      "running_sha256": "e77049d8927074cbfc6771a39f3501ff305b64f92d0cce715bff0e223a379fe2",
+      "upload_restored": true,
+      "allocated_address": "0xc06cb9c8",
+      "allocated_bytes": 19584,
+      "allocation_freed": true,
+      "dsp_crc32": "4cacf7c8"
+    },
+    "loader-anchor-no-counters": {
+      "instrumented": false,
+      "seek_anchor": true,
+      "loader_ms": 8877,
+      "result": 0,
+      "timer_period": 149999999,
+      "timer_tcr": 128,
+      "timer_tgcr": 5,
+      "mmcclk": "0x102",
+      "dsp_cursor": "0x17a782a",
+      "counters": {
+        "read": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "seek": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "parser": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "slot": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "dsp": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "convert24": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "read_pcm": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "seek_scan": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "seek_fmt": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "seek_meta": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "seek_data": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "seek_end": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        },
+        "seek_slot": {
+          "count": 0,
+          "ticks": 0,
+          "ms": 0.0,
+          "bytes": 0,
+          "maximum_span_ms": 0
+        }
+      },
+      "original_sha256": "96675449af3e5a5f5e728347270034792ec5d2f834d5e19473811fbb08dea1c0",
+      "running_sha256": "e77049d8927074cbfc6771a39f3501ff305b64f92d0cce715bff0e223a379fe2",
+      "upload_restored": true,
+      "allocated_address": "0xc06cb718",
+      "allocated_bytes": 19584,
+      "allocation_freed": true,
+      "dsp_crc32": "4cacf7c8"
+    }
+  }
+}

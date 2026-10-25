@@ -18,7 +18,8 @@ const PATCH = read("../data/patches/sample-errors.json");
 const CODE = 0x183100;               // file offset of 0xC0183000
 const CODE_END = 0x183800;           // 0xC0183700
 // the replaced words: address, whether the original is a plain branch (the rest are instructions)
-const WORDS = [0xC00364F0, 0xC0035FB4, 0xC0035FC4, 0xC0035FD4, 0xC004EE0C, 0xC004EE50, 0xC004EE68, 0xC0036700, 0xC0036714, 0xC00630F0, 0xC0063144];
+const WORDS = [0xC00364F0, 0xC0035FB4, 0xC0035FC4, 0xC0035FD4, 0xC004EE0C, 0xC004EE50, 0xC004EE68, 0xC0036700, 0xC0036714, 0xC00630F0, 0xC0063144,
+  0xC0035B10, 0xC0035C74, 0xC0035C94, 0xC0035D68, 0xC0035DCC, 0xC0035DFC, 0xC00363C0];
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
 const vsb = process.env.E2_VSB;
@@ -44,7 +45,7 @@ test("the patch has the v1 format, is for both builds, says what it replaces and
   }
 });
 
-test("it is our code plus eleven replaced words, each a branch into it, and every hook is declared", () => {
+test("it is our code plus declared branch hooks into it", () => {
   assert.equal(PATCH.changes.length, 1 + WORDS.length);
   const [code, ...words] = PATCH.changes;
   const n = fromHex(code.bytes).length;
@@ -79,6 +80,23 @@ test("the assembler and the patch builder agree with the committed patch, for ei
     assert.ifError(out.error);
     assert.equal(out.status, 0, out.stderr);
     assert.deepEqual(JSON.parse(out.stdout), PATCH, "rebuild with tools/patch/sample_errors.py --vsb SYSTEM.VSB --out data/patches/sample-errors.json");
+  }
+});
+
+test("the builder refuses a parser with a different stack frame", { skip }, () => {
+  const dir = mkdtempSync(join(tmpdir(), "e2-sample-frame-"));
+  try {
+    const raw = Buffer.from(readFileSync(vsb));
+    const offset = 0x35B18 + 0x100;
+    raw.writeUInt32LE((raw.readUInt32LE(offset) ^ 4) >>> 0, offset);
+    const path = join(dir, "own.vsb");
+    writeFileSync(path, raw);
+    const result = spawnSync(python(), [join(root, "tools/patch/sample_errors.py"), "--vsb", path], { encoding: "utf8", timeout: 60_000 });
+    assert.ifError(result.error);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /sample parser stack frame/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 
