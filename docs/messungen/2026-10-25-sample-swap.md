@@ -429,3 +429,20 @@ Probe, jeweils in einer anderen Sitzung nach dem Einschalten. Danach liefen ders
 (Lesen und Schreiben bis 512 Wörter, in beide Puffer, nacheinander in einem Lauf, mit geänderten Bytes) in über 20
 Läufen ohne Hänger, darunter die 17 Messläufe oben. Die Ursache ist nicht gefunden; der Host-Port-Pfad wartet ohne
 Zeitgrenze (Abschnitt 3). Ein Swap-Patch braucht dort eine Zeitgrenze oder einen Weg, der nicht aus EXEC kommt.
+
+## Kartenlesen am Gerät, 25.10.
+
+**gemessen** am selben Gerät: ein Testcode öffnet `SD:KORG/blechtribe/Sample/e2sSample.all` mit der FatFs der
+Firmware (`0xC009DB60`, Modus 1), liest vom Anfang in festen Blöcken nach `0xC274F000` (FIL bei `0xC275F000`),
+schließt die Datei und misst mit Timer 3 und dem OS-Tick (beide gleich). Nur Lesen, über EXEC. Pattern 020 lief
+dabei weiter.
+
+| gelesen | Blockgröße | Zeit | Durchsatz |
+|---|---|---|---|
+| 256 KiB | 32 KiB | 84 ms | 3048 KiB/s |
+| 2 MiB | 32 KiB | 657 ms | 3117 KiB/s |
+| 2 MiB | 64 KiB | 662 ms | 3094 KiB/s |
+| 256 KiB | 4 KiB | 116 ms | 2226 KiB/s |
+
+**hergeleitet:** Die 157 KB/s aus dem Emulator (Abschnitt 3) gelten nicht für das Gerät; dort liest die Karte rund
+zwanzigmal schneller. 10 MB brauchen von der Karte gut 3 s, aus einem RAM-Cache in den DSP rund 1 s.
