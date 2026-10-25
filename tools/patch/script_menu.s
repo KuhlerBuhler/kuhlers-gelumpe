@@ -1608,15 +1608,26 @@ menu_text_look:
     orrs r1, r1, r3
     moveq r7, #1
     movne r7, #0
-    add r2, r5, #M_LED_R
-    ldr r1, [r2, r6, lsl #2]
     cmp r7, #0
-    movne r1, #15
+    beq menu_text_look_hsv
+    add r0, r5, #M_VALUE
+    ldr r1, =str_stock_word
+    bl menu_copy
+    b menu_text_look_line3
+menu_text_look_hsv:             ; the colour as hue (0 to 95), saturation and brightness (0 to 15); the stored values stay red, green, blue
+    cmp r6, #3
+    addlo r0, r5, #M_LED_R
+    addhs r0, r5, #M_BL_R
+    bl look_hsv_get
+    cmp r6, #3
+    subhs r3, r6, #3
+    movlo r3, r6
+    cmp r3, #0
+    moveq r1, r0
+    cmp r3, #2
+    moveq r1, r2
     add r0, r5, #M_VALUE
     bl menu_dec
-    cmp r7, #0
-    ldrne r1, =str_stock
-    blne menu_copy
     b menu_text_look_line3
 ; INTENSITY (26) and SAVE LIGHT (27, 0 is the firmware's dim: STOCK)
 menu_text_intens:
@@ -3650,51 +3661,13 @@ menu_value_look:
 menu_value_level:
     cmp r0, #14
     beq menu_value_invert
-    sub r2, r0, #8
-    cmp r2, #3
-    addlo r12, r6, #M_LED_R
-    addhs r12, r6, #M_BL_R
-    ldr r1, [r12]
-    ldr r3, [r12, #4]
-    orr r1, r1, r3
-    ldr r3, [r12, #8]
-    orrs r1, r1, r3
-    bne menu_value_level_set
-    ; all three zero is the stock state, which the page shows as 15 each: up changes nothing, down starts from 15 each; all three
-    ; turned back up to 15 is the stock state again, and the last channel cannot go to 0 while the other two are (that would be stock)
-    cmp r5, #0
-    bge menu_value_look_done
-    mov r1, #15
-    str r1, [r12]
-    str r1, [r12, #4]
-    str r1, [r12, #8]
-menu_value_level_set:
-    add r3, r6, #M_LED_R
-    ldr r1, [r3, r2, lsl #2]
-    add r1, r1, r5
-    cmp r1, #0
-    movlt r1, #0
-    cmp r1, #15
-    movgt r1, #15
-    str r1, [r3, r2, lsl #2]
-    ldr r1, [r12]
-    ldr r0, [r12, #4]
-    and r1, r1, r0
-    ldr r0, [r12, #8]
-    and r1, r1, r0
-    cmp r1, #15                 ; 15 15 15: the stock state
-    moveq r1, #0
-    streq r1, [r12]
-    streq r1, [r12, #4]
-    streq r1, [r12, #8]
-    beq menu_value_look_done
-    ldr r1, [r12]
-    ldr r0, [r12, #4]
-    orr r1, r1, r0
-    ldr r0, [r12, #8]
-    orrs r1, r1, r0             ; 0 0 0 would read as stock: the channel turned down stays at 1
-    moveq r1, #1
-    streq r1, [r3, r2, lsl #2]
+    sub r1, r0, #8              ; 0 to 5: HUE, SAT, BRIGHT of the LEDs, then of the backlight
+    cmp r1, #3
+    addlo r0, r6, #M_LED_R
+    addhs r0, r6, #M_BL_R
+    subhs r1, r1, #3
+    mov r2, r5
+    bl look_hsv_step
     b menu_value_look_done
 menu_value_invert:
     mov r1, #1
@@ -4253,24 +4226,22 @@ str_meter:
     .asciz "METER"
 str_color:
     .asciz "COLOR"
-str_stock:
-    .asciz " stock"
 str_custom:
     .asciz "CUSTOMIZATION"
 str_features:
     .asciz "FEATURES"
 str_led_red:
-    .asciz "LED RED"
+    .asciz "LED HUE"
 str_led_green:
-    .asciz "LED GREEN"
+    .asciz "LED SAT"
 str_led_blue:
-    .asciz "LED BLUE"
+    .asciz "LED BRIGHT"
 str_bl_red:
-    .asciz "BACKLIGHT RED"
+    .asciz "BACKLIGHT HUE"
 str_bl_green:
-    .asciz "BACKLIGHT GREEN"
+    .asciz "BACKLIGHT SAT"
 str_bl_blue:
-    .asciz "BACKLIGHT BLUE"
+    .asciz "BACKLIGHT BRIGHT"
 str_invert:
     .asciz "DISPLAY INVERT"
 str_splash_import:

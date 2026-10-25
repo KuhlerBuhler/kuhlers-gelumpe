@@ -774,29 +774,21 @@ def goto_page(dev, number):
         goto_group(dev, GROUP_DISPLAY, 4)
 
 
-def shown_levels(dev, at):
-    """What the three level pages of a triple (S_LED_R or S_BL_R) show: the stock state, all zero, shows 15 each."""
-    levels = [state(dev, at + 4 * k) for k in range(3)]
-    return levels if any(levels) else [15, 15, 15]
-
-
 def set_look(dev, mode=None, led=None, backlight=None):
-    """Set the look pages through the main dial, from wherever the menu is."""
+    """Set the look: the mode through the main dial, the colours as red, green, blue (0 to 15, 0 0 0 the stock state) in the menu's state,
+    which the pages show as hue, saturation and brightness; a step of the mode page and back makes the menu apply them."""
     if mode is not None:
         goto_page(dev, PAGE_LED_MODE)
         dev.turn(mode - state(dev, S_LED_MODE), wait=0.25)
-    for first, values, at in ((PAGE_LED_R, led, S_LED_R), (PAGE_BL_R, backlight, S_BL_R)):
-        if values is not None and not any(values):
-            values = (15, 15, 15)      # the stock state: 15 15 15 on the pages (0 0 0 cannot be dialled, it would read as stock)
-        order = sorted(range(len(values or ())), key=lambda k: values[k] == 0)      # channels that stay lit first: going through all zero would be the stock state
-        for i in order:
-            value = values[i]
-            goto_page(dev, first + i)
-            shown = shown_levels(dev, at)[i]
-            while value != shown:
-                step = max(-8, min(8, value - shown))              # the dial reports at most a few steps at once
-                dev.turn(step, wait=0.25)
-                shown += step
+    for values, at in ((led, S_LED_R), (backlight, S_BL_R)):
+        if values is not None:
+            dev.m.uc.mem_write(STATE + at, struct.pack("<III", *values))
+    if led is not None or backlight is not None:
+        goto_page(dev, PAGE_LED_MODE)
+        here = state(dev, S_LED_MODE)
+        step = -1 if here else 1
+        dev.turn(step, wait=0.25)
+        dev.turn(-step, wait=0.25)
 
 
 def meter_level(dev, level):
@@ -866,23 +858,46 @@ def look_cases(payload, flash=None):
         goto_page(dev, page)
         texts.append((text(dev, S_TITLE), text(dev, S_VALUE), text(dev, S_LINE3)))
     add("pages", texts == [("BOTTOM LEDS", "METER", ""),
-                           ("LED RED", "15 stock", ""), ("LED GREEN", "15 stock", ""), ("LED BLUE", "15 stock", ""),
-                           ("BACKLIGHT RED", "15 stock", ""), ("BACKLIGHT GREEN", "15 stock", ""), ("BACKLIGHT BLUE", "15 stock", "")], str(texts))
+                           ("LED HUE", "STOCK", ""), ("LED SAT", "STOCK", ""), ("LED BRIGHT", "STOCK", ""),
+                           ("BACKLIGHT HUE", "STOCK", ""), ("BACKLIGHT SAT", "STOCK", ""), ("BACKLIGHT BRIGHT", "STOCK", "")], str(texts))
 
-    # 15 15 15 is the stock state again; 0 0 0 cannot be dialled (it would read as stock), the last channel stays at 1
-    set_look(dev, backlight=(3, 8, 12))
-    set_look(dev, backlight=(15, 15, 15))
-    stock_again = [state(dev, S_BL_R + 4 * k) for k in range(3)]
-    set_look(dev, backlight=(0, 0, 5))
-    goto_page(dev, PAGE_BL_B)
-    dev.turn(-8, wait=0.25)
-    floor = [state(dev, S_BL_R + 4 * k) for k in range(3)]
-    add("stock_at_15", stock_again == [0, 0, 0] and floor == [0, 0, 1], f"15 15 15 stores {stock_again}; 0 0 5 turned down stores {floor}")
+    # the colour pages are hue (0 to 95, 16 to a sector of the wheel), saturation and brightness (0 to 15) of the stored red, green, blue
+    rgb = lambda at: [state(dev, at + 4 * k) for k in range(3)]
+    def shown(first):
+        out = []
+        for k in range(3):
+            goto_page(dev, first + k)
+            out.append(text(dev, S_VALUE))
+        return out
+    def dial(page, steps, at):
+        goto_page(dev, page)
+        dev.turn(steps, wait=0.25)
+        return rgb(at)
     set_look(dev, backlight=(0, 0, 0))
+    from_stock_up = [dial(PAGE_BL_G, 3, S_BL_R), dial(PAGE_BL_B, 3, S_BL_R)]
+    from_stock_down = dial(PAGE_BL_B, -1, S_BL_R)
+    set_look(dev, backlight=(0, 0, 0))
+    first_hue = dial(PAGE_BL_R, 1, S_BL_R)
+    set_look(dev, backlight=(15, 7, 0))
+    orange = shown(PAGE_BL_R)
+    next_sector = dial(PAGE_BL_R, 16, S_BL_R)
+    set_look(dev, backlight=(15, 14, 14))
+    white = dial(PAGE_BL_G, -1, S_BL_R)
+    set_look(dev, backlight=(8, 8, 8))
+    grey = dial(PAGE_BL_R, 1, S_BL_R)
+    set_look(dev, backlight=(0, 0, 1))
+    floor = dial(PAGE_BL_B, -8, S_BL_R)
+    set_look(dev, backlight=(1, 0, 0))
+    skipped = dial(PAGE_BL_R, 1, S_BL_R)
+    set_look(dev, backlight=(0, 0, 0))
+    add("hue_pages", from_stock_up == [[0, 0, 0]] * 2 and from_stock_down == [14, 0, 0] and first_hue == [15, 1, 0] and orange == ["7", "15", "15"]
+        and next_sector == [8, 15, 0] and white == [0, 0, 0] and grey == [8, 8, 8] and floor == [0, 0, 1] and skipped == [1, 1, 0],
+        f"up on SAT and BRIGHT {from_stock_up}, down on BRIGHT {from_stock_down}, HUE up {first_hue}, 15 7 0 shows {orange}, a sector on {next_sector}, "
+        f"15 14 14 less saturated {white}, grey {grey}, brightness floor {floor}, small colour {skipped}")
 
     # DISPLAY, LED and PAD COLOR are rows of CUSTOMIZATION: ENTER opens their pages, EXIT goes back to the row (device 18.10.)
     rows, ins, backs = [], [], []
-    for row, group, title, tag in ((CUSTOM_DISPLAY, GROUP_DISPLAY, "BACKLIGHT RED", "Display"), (CUSTOM_LED, GROUP_LED, "BOTTOM LEDS", "LED")):
+    for row, group, title, tag in ((CUSTOM_DISPLAY, GROUP_DISPLAY, "BACKLIGHT HUE", "Display"), (CUSTOM_LED, GROUP_LED, "BOTTOM LEDS", "LED")):
         goto_group(dev, GROUP_CUSTOM, row)
         rows.append(texts_of(dev))
         press(dev, "menu", 0.4)
@@ -892,7 +907,7 @@ def look_cases(payload, flash=None):
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
     add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
-        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 5), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 8)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT HUE", 5), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 8)]
         and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
         f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
@@ -1805,9 +1820,9 @@ def early_run(payload, flash, files, held=0):
 
 
 def default_level_cases(payload, flash=None):
-    """The level pages show 15 for a state in which nothing is set (the device is at full light then): no file, or a file whose look word has
-    zeros, shows 15 each and acts as the firmware does; a file with values shows them; the dial turns down from 15 and the last channel
-    turned down to 0 is that state again."""
+    """The colour pages show STOCK for a state in which nothing is set (the device is at full light then): no file, or a file whose look word has
+    zeros, shows that and acts as the firmware does; a file with values shows them as hue, saturation and brightness; the dial turns down from
+    full brightness and zero stored is that state again."""
     out = []
 
     def add(name, ok, detail):
@@ -1817,22 +1832,23 @@ def default_level_cases(payload, flash=None):
     fresh = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     zero = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0))}, adapter=True)
     mixed = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0, (0, 0, 5), (0, 7, 0)))}, adapter=True)
-    want_stock = [(title, "15 stock") for title in ("LED RED", "LED GREEN", "LED BLUE", "BACKLIGHT RED", "BACKLIGHT GREEN", "BACKLIGHT BLUE")]
+    want_stock = [(title, "STOCK") for title in ("LED HUE", "LED SAT", "LED BRIGHT", "BACKLIGHT HUE", "BACKLIGHT SAT", "BACKLIGHT BRIGHT")]
     add("no_file_shows_15", levels(fresh) == want_stock, f"{levels(fresh)}")
     add("zero_word_shows_15_and_acts_as_before", levels(zero) == want_stock and state(zero, S_LED_EFF) == 0 and state(zero, S_BL_ON) == 0x38 and state(zero, S_BL_PWM) == 0,
         f"{levels(zero)}, LED kind {state(zero, S_LED_EFF)}, light pins {state(zero, S_BL_ON):#x}")
-    add("file_with_values_reads_as_before", levels(mixed) == [("LED RED", "0"), ("LED GREEN", "0"), ("LED BLUE", "5"), ("BACKLIGHT RED", "0"), ("BACKLIGHT GREEN", "7"), ("BACKLIGHT BLUE", "0")]
+    add("file_with_values_reads_as_before", levels(mixed) == [("LED HUE", "64"), ("LED SAT", "15"), ("LED BRIGHT", "5"), ("BACKLIGHT HUE", "32"), ("BACKLIGHT SAT", "15"), ("BACKLIGHT BRIGHT", "7")]
         and state(mixed, S_LED_EFF) == 1, f"{levels(mixed)}, LED kind {state(mixed, S_LED_EFF)}")
 
-    # the dial: up from the state changes nothing, down starts at 15 each, back up to 15 15 15 is the state again
-    goto_page(fresh, PAGE_LED_R)
+    # the dial: up on the brightness from the state changes nothing, down starts at 15 each, zero stored is the state again
+    goto_page(fresh, PAGE_LED_B)
     fresh.turn(3, wait=0.3)
     up = [state(fresh, S_LED_R + 4 * k) for k in range(3)]
     fresh.turn(-1, wait=0.3)
     down = [state(fresh, S_LED_R + 4 * k) for k in range(3)], texts_of(fresh)[:2]
     set_look(fresh, led=(0, 0, 0))
+    goto_page(fresh, PAGE_LED_B)
     back = [state(fresh, S_LED_R + 4 * k) for k in range(3)], texts_of(fresh)[:2], state(fresh, S_LED_EFF)
-    add("dial_from_the_default", up == [0, 0, 0] and down == ([14, 15, 15], ("LED RED", "14")) and back == ([0, 0, 0], ("LED BLUE", "15 stock"), 0), f"up {up}, down {down}, back {back}")
+    add("dial_from_the_default", up == [0, 0, 0] and down == ([14, 0, 0], ("LED BRIGHT", "14")) and back == ([0, 0, 0], ("LED BRIGHT", "STOCK"), 0), f"up {up}, down {down}, back {back}")
     return out
 
 

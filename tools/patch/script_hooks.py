@@ -18,6 +18,8 @@ CARD = 0xC01F7000
 CODE_END = 0xC01AE000
 MORE_START = 0xC018D000          # a second code area for the runtime: display, store, hardware, events and apps go here, so the
 MORE_END = 0xC018FF00            # menu has room in the first; free (FF) in all three images, behind the idle insert effect
+MORE2_START = 0xC019B000         # a third code area: the colour maths of the menu's colour pages; free (FF) in all three images, behind the
+MORE2_END = 0xC019C000           # RAM of the BLECH SysEx (0xC0191100 to 0xC019A400) and clear of its file area (0xC019F000)
 RUNTIME = 0xC01AE000
 POOL = 0xC01D7000
 END = 0xC01FFFF0
@@ -231,7 +233,7 @@ class BuiltHooks:
             offset=address-RAM_BASE+0x100
             if offset+4>len(output) or struct.unpack_from('<I',output,offset)[0]!=expected:
                 raise ValueError(f'original hook instruction differs at {address:#x}')
-        for start,end in [(CODE_START,CODE_END),(MORE_START,self.layout['moreEnd']),(RUNTIME,self.layout['runtimeEnd']),(self.layout['runtimeEnd'],POOL),(POOL,self.layout['poolEnd']),(CARD,END),(BLECHY_BLOCK,BLECHY_BLOCK+len(self.sections[-1][1]))]:
+        for start,end in [(CODE_START,CODE_END),(MORE_START,self.layout['moreEnd']),(MORE2_START,self.layout['more2End']),(RUNTIME,self.layout['runtimeEnd']),(self.layout['runtimeEnd'],POOL),(POOL,self.layout['poolEnd']),(CARD,END),(BLECHY_BLOCK,BLECHY_BLOCK+len(self.sections[-1][1]))]:
             offset=start-RAM_BASE+0x100
             if offset<0 or offset+end-start>len(output) or any(value!=255 for value in output[offset:offset+end-start]):
                 raise ValueError(f'script area is not FF at {start:#x}')
@@ -276,8 +278,9 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     more = ['script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s']
     if build != 'synth':
         more.append('fx_card.s')
+    more2 = ['script_hsv.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
-    source = constants+f'\n.equ MORE_START, {MORE_START}\n'+read(files)+'\n.org MORE_START\n'+read(more)
+    source = constants+f'\n.equ MORE_START, {MORE_START}\n.equ MORE2_START, {MORE2_START}\n'+read(files)+'\n.org MORE_START\n'+read(more)+'\n.org MORE2_START\n'+read(more2)
     if build == 'synth':
         from . import synthaddr
         source = '\n'.join(line for line in source.splitlines() if not line.lstrip().startswith(';'))
@@ -292,9 +295,11 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     vm=build_vm(include,origin=CODE_START,glue=linked_glue)
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
     pool_end=POOL+vm.symbols['SCRIPT_POOL_BYTES']
-    (first_at,first),(more_at,more_code)=hooks.sections
+    (first_at,first),(more_at,more_code),(more2_at,more2_code)=hooks.sections
     if first_at!=origin or more_at!=MORE_START or more_at+len(more_code)>MORE_END:
         raise ValueError(f'the second code area runs over: {more_at:#x} + {len(more_code):#x} (limit {MORE_END:#x})')
+    if more2_at!=MORE2_START or more2_at+len(more2_code)>MORE2_END:
+        raise ValueError(f'the third code area runs over: {more2_at:#x} + {len(more2_code):#x} (limit {MORE2_END:#x})')
     if origin+len(first)>MENU_TABLE or runtime_end>MENU_ITEMS or MENU_ITEMS_END>MENU_STATE or MENU_STATE+0x200>POOL or pool_end>CARD:
         raise ValueError(f'script code, runtime or pool exceeds its reserved area: hooks end {origin+len(first):#x} (limit {MENU_TABLE:#x}), runtime end {runtime_end:#x} (limit {MENU_ITEMS:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
@@ -304,7 +309,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
             or s['LIST_DESC']+s['DESC_MAX_BYTES']+1>s['RM_AT'] or s['RM_AT']+s['RM_SIZE']>s['RP_AT'] or s['RP_AT']+s['RP_SIZE']>s.get('FX_STATE_AT',INPUT-CARD)):
         raise ValueError('the plugin list of the import page runs over the card work area')
     symbols={**vm.symbols,**hooks.symbols}
-    layout=dict(code=CODE_START,codeEnd=origin+len(first),more=MORE_START,moreEnd=MORE_START+len(more_code),runtime=RUNTIME,
+    layout=dict(code=CODE_START,codeEnd=origin+len(first),more=MORE_START,moreEnd=MORE_START+len(more_code),more2=MORE2_START,more2End=MORE2_START+len(more2_code),runtime=RUNTIME,
         runtimeEnd=runtime_end,runtimeSize=vm.symbols['SCRIPT_RUNTIME_SIZE'],pool=POOL,poolEnd=pool_end,card=CARD,input=INPUT)
     return BuiltHooks(vm,vm.sections+hooks.sections+[(BLECHY_BLOCK,block)],symbols,layout,profile)
 
