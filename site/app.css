@@ -1089,8 +1089,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   gap: var(--space-3);
 }
 
-.cee-discord-channels,
-.cee-discord-members {
+.cee-discord-channels {
   display: grid;
   gap: var(--space-2);
   margin: 0;
@@ -1098,38 +1097,83 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   list-style: none;
 }
 
-.cee-discord-channels li,
-.cee-discord-member {
+.cee-discord-channels li {
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-muted);
   border-radius: var(--radius-md);
   background: var(--color-surface-item);
 }
 
-.cee-discord-member {
+/* The floor the Blechys walk on: each one is placed by translateX from the left edge. */
+.cee-discord-floor {
+  position: relative;
+  height: 200px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  border-bottom: 2px solid var(--color-border-muted);
+}
+
+.cee-discord-blechy {
+  position: absolute;
+  bottom: 0;
+  left: 0;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-3);
+  justify-items: center;
+  gap: var(--space-1);
+  max-width: 160px;
+  will-change: transform;
 }
 
-.cee-discord-avatar {
-  border-radius: var(--radius-pill);
-  background: var(--color-surface-item-strong);
+.cee-discord-blechy-art {
+  width: 112px;
+  height: 112px;
+  image-rendering: pixelated;
 }
 
-.cee-discord-name {
+.cee-discord-tag {
   display: flex;
-  flex-direction: column;
-  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 160px;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-item);
   font-size: var(--text-sm);
 }
 
-.cee-discord-name > * {
+.cee-discord-tag strong,
+.cee-discord-game {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.cee-discord-game {
+  max-width: 160px;
+  font-size: var(--text-xs);
+}
+
+.cee-discord-avatar {
+  flex: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-item-strong);
+}
+
+.cee-discord-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-text-muted);
+}
+
+.cee-discord-dot[data-tone="ok"] { background: var(--color-btn-success); }
+.cee-discord-dot[data-tone="warn"] { background: var(--color-accent-secondary); }
+.cee-discord-dot[data-tone="error"] { background: var(--color-border-warning); }
 
 .cee-right {
   display: grid;
@@ -3499,3 +3543,13 @@ input[type="checkbox"]:not([role="switch"]):disabled {
   opacity: 0.5;
   cursor: default;
 }
+
+/* USB status in the navbar: the plug icon is lit while an Electribe is on the USB port. */
+.cee-usb {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.cee-usb[data-tone="ok"] { color: var(--color-status-ok-text); }

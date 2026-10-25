@@ -34,7 +34,7 @@
 - **Are samples included?** No. BLECHTRIBE contains no samples. Your own samples stay on your card. On the first start, the Electribe offers to take over your existing sample folder.
 - **Does it work on the blue Electribe?** Yes, with fewer features. See the table below.
 - **Do I keep Hacktribe?** Yes, when you start with a Hacktribe firmware file. BLECHTRIBE adds its features on top. Patching Korg's original firmware does not add Hacktribe's features.
-- **How do I make my own effects?** Open the **Baukasten** in the app. Take a ready effect or build one from blocks, with names and real units. The export puts them on the SD card, single ones also go live over USB. This works on the red sampler with BLECHTRIBE.
+- **How do I make my own effects?** Open the **Baukasten** in the app. Take a ready effect or build one from blocks, with names and real units. The export puts them on the SD card, single ones also go live over USB. This works on the red sampler with BLECHTRIBE. An `.e2fx` file opens under BLECHTRIBE -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", or with a loaded firmware under BLECHTRIBE -> Presets -> "Preset-Datei laden".
 - **I have an idea for the app or firmware.** [Write it down here](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). You need a GitHub account.
 
 ## Install BLECHTRIBE on your Electribe
@@ -143,7 +143,7 @@ The app in dark mode. The emulator is shown without firmware, so its display sta
 The Releases page of this repository has the app for macOS (Apple Silicon and Intel, one `.dmg` each), Windows
 (`.exe`) and Linux (`.AppImage`, `.deb`). The app starts the emulator service itself and stops it when
 you close it. The emulator's card and flash live in `~/.gelumpe`. On start and every few hours the app
-checks for a newer release and shows "Neue Version verfügbar" at the top; a click opens the release page.
+checks for a newer release and shows "Neue Version verfügbar" at the top; a click downloads the file for your system into the Downloads folder and starts the installation (on failure the release page opens).
 
 **The app is not signed.** On macOS the system blocks the downloaded app. Release it once:
 
@@ -151,7 +151,8 @@ checks for a newer release and shows "Neue Version verfügbar" at the top; a cli
 xattr -dr com.apple.quarantine "/Applications/Kuhlers GELUMPE.app"
 ```
 
-On Windows, SmartScreen shows a warning: "More info", then "Run anyway".
+On Windows, SmartScreen shows a warning: "More info", then "Run anyway". The `-setup.exe` carries
+WebView2 and installs it when it is missing (e.g. on Windows 10), without needing the internet.
 
 ## Quick start from source
 
@@ -192,7 +193,10 @@ work. More (Intel Mac, Windows on ARM): [development](docs/development.md) (Germ
 ## Plugins
 
 A plugin gives the Electribe a new function. You put it on the device through the SD card, in the folder
-`KORG/blechtribe/Plugin/`. The code is a subset of JavaScript, the editor compiles it to bytecode for a
+`KORG/blechtribe/Plugin/`. The folder is called `Plugin`, singular, not "Plugins", and it is the same on the
+red and the blue Electribe. The firmware does not create it, you do. With the device connected you can skip
+the card: in the Plugins area the button "Aufs Gerät" writes the plugin there over USB, then on the device
+Menü -> BLECH -> PLUGINS -> IMPORT PLUGIN. The code is a subset of JavaScript, the editor compiles it to bytecode for a
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,

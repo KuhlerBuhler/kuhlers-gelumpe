@@ -162,7 +162,7 @@ export function textScreen(lines, scale = 2) {
 /** States the device itself shows well enough: the status line says nothing, only a screen reader hears it. */
 const QUIET = new Set(["empty", "loaded", "running", "stopped", "off"]);
 
-export function emulatorPanel(root, link = null, { deviceArea = null, onConnect = () => {} } = {}) {
+export function emulatorPanel(root, link = null, { deviceArea = null, onConnect = () => {}, onBlocked = () => {} } = {}) {
   let events = null;
   let vsb = null;
   let base = null;
@@ -183,9 +183,13 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   let queue = Promise.resolve();
   const latest = new Map();
   let external = false;       // the drawing shows a real device; the emulator neither draws nor takes input
+  let mirrored = true;        // the real device's display is drawn (it has RAM access); without, the drawing stays blank
   let lastShade = null;
   const send = (cmd, coalesce) => {
-    if (external) return;
+    if (external) {
+      if (cmd.kind === "power" && cmd.down) onBlocked();
+      return;
+    }
     // A switched-off Electribe does not answer: the power key boots it, everything else is ignored.
     if (lastState !== "running" && lastState !== "hung") {
       if (cmd.kind === "power" && cmd.down) { if (fake) endFake(); else boot(); }
@@ -299,10 +303,17 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   const offerTitle = el("strong", { textContent: "SYSTEM.VSB" });
   const offerText = el("span");
   const offer = el("button", { type: "button", className: "cee-emu-offer", id: "cee-emu-offer" }, [offerTitle, " ", offerText]);
-  offer.addEventListener("click", () => vsbInput.click());
+  offer.addEventListener("click", () => (external ? onBlocked() : vsbInput.click()));
   function renderOffer() {
     const off = lastState !== "running" && lastState !== "hung" && !fake && !external;
-    offer.hidden = !off;
+    const held = external && !mirrored;
+    offer.hidden = !off && !held;
+    if (held) {
+      offerTitle.textContent = "Electribe verbunden";
+      offerText.textContent = "Ihr Display lässt sich nicht zeigen. Antippen, um zu trennen und den Emulator zu starten.";
+      offer.title = "Trennen und den Emulator starten";
+      return;
+    }
     offerTitle.textContent = vsb ? "Firmware geladen" : "SYSTEM.VSB";
     offerText.textContent = vsb ? firmwareName(vsb) : "Deine Firmware hierher ziehen oder antippen.";
     // Its name is what the display says; what a tap does is the title.
@@ -559,9 +570,10 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       return "Der Emulator läuft.";
     },
     /** Let the drawing show a real device (its display bytes through drawBytes) or give it back to the emulator. */
-    external(on) {
+    external(on, mirrors = true) {
       const was = external;
       external = on;
+      mirrored = mirrors;
       renderOffer();
       if (on || was) device.showLeds({}, true);
       if (!on && lastShade) drawShade(canvas, lastShade);

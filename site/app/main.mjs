@@ -11,6 +11,9 @@ import { fxPanel } from "./fx.mjs";
 import { levelsPanel } from "./levels.mjs";
 import { modulationsPage } from "./modulations.mjs";
 import { samplesPage } from "./samples.mjs";
+import { createMidiTransport } from "./midi.mjs";
+import { createUsbWatch } from "./usb-watch.mjs";
+import { usbIndicator } from "./usb.mjs";
 import { emulatorPanel, takeLink, findLink } from "./emulator.mjs";
 import { followDevice } from "./follow.mjs";
 import { emulatorWindow } from "./emu-window.mjs";
@@ -358,11 +361,21 @@ function patternDevice(device) {
   return { update };
 }
 
+/** The emulator cannot start while a real device is connected: ask, disconnect, then switch the emulator on. */
+async function startAfterDisconnect(device, emulator) {
+  if (!device.session) return;
+  const yes = await window.ui?.confirm({ title: "Electribe trennen?", text: "Der Emulator startet nicht, solange die Electribe verbunden ist. Jetzt trennen und den Emulator starten?", confirmLabel: "Trennen und starten" });
+  if (!yes || !device.session) return;
+  await device.disconnect();
+  try { toast(await emulator().powerOn(), "info"); } catch (e) { toast(e.message, "error"); }
+}
+
 /** Pages that share one navbar title: a menu switches between the emulator and the real device. */
 const MODES = { emu: "Emulator", device: "Echtes Gerät" };
 
 /** Navbar: the title of the open page, and whether a device is connected, as words. */
-function navbar({ onMode }) {
+function navbar({ onMode, onDisconnect }) {
+  const disconnectButton = el("button", { type: "button", className: "btn", id: "cee-disconnect", textContent: "Trennen", onclick: onDisconnect });
   let page = "start";
   let connectButton = null;
   let device = false;
@@ -398,7 +411,7 @@ function navbar({ onMode }) {
     // On the device page the navbar carries the connect button while no device is attached (it moves there from
     // the page, so its handlers stay), and the words "Gerät verbunden" once one is.
     connectButton ??= $("#cee-connect");
-    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page === "baukasten" ? baukastenActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" })] : connectButton ? [connectButton] : [];
+    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page === "baukasten" ? baukastenActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: "Gerät verbunden" }), disconnectButton] : connectButton ? [connectButton] : [];
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
@@ -495,8 +508,11 @@ function boot() {
   const emu = takeLink();
   let areas = null;
   // Picking the mode that is open already changes nothing; ui.tabs would show the empty device panel instead of the drawing.
-  const nav = navbar({ onMode: id => { if (id !== areas?.current) areas?.select(id, { focus: false }); } });
+  const nav = navbar({ onMode: id => { if (id !== areas?.current) areas?.select(id, { focus: false }); }, onDisconnect: () => device.disconnect() });
   const drawer = sidebarDrawer();
+  const usb = createUsbWatch({ transport: createMidiTransport(window), permissions: navigator.permissions, hidden: () => document.hidden });
+  usbIndicator($(".cee-navbar"), usb);
+  usb.start();
   sidebarFold();
   const options = subnav();
   let fx = null;
@@ -511,7 +527,7 @@ function boot() {
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
   const device = devicePanel($("#cee-device"), {
-    onSession: () => { restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session && !device.session.sender.disconnected); terminal?.update(); },
+    onSession: () => { restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session && !device.session.sender.disconnected); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,
@@ -598,7 +614,7 @@ function boot() {
     openPreset: slot => { if (fx.open("ifx", slot)) $("#cee-fx").scrollIntoView?.({ block: "start" }); },
     device,
   });
-  emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, onConnect: next => sd?.connect(next) });
+  emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, onConnect: next => sd?.connect(next), onBlocked: () => startAfterDisconnect(device, () => emulator) });
   const modulations = modulationsPage($("#cee-mod"), { emulator });
   const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: (parts, home) => nav.trail("baukasten", parts, home), navbar: nodes => nav.baukasten(nodes) });
   samplesPage($("#cee-samples"), { device, emulator, probe });
@@ -687,7 +703,7 @@ function boot() {
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
 else boot();
 
-watchForUpdate($("#cee-update"));
+watchForUpdate($("#cee-update"), undefined, toast);
 showNews(toast);
 
 // In the desktop app a new window goes nowhere: the donate, GitHub, Instagram and Korg links navigate in place and the app opens them in the browser (src-tauri).
