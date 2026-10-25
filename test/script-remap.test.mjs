@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PRESETS } from "../data/script/presets.mjs";
+import { readFileSync } from "node:fs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { SimDevice } from "../src/script/sim.mjs";
 import { KEY_NAMES, LED_NAMES } from "../data/script/names.mjs";
@@ -54,8 +54,9 @@ test("EXIT can be neither the key nor the target", () => {
   }
 });
 
+// Part Mute on PART ERASE: a plugin made for one device with a broken PART MUTE key, not in the catalog.
 test("Part Mute on PART ERASE: the key becomes PART MUTE and its LED follows the pad mode", () => {
-  const { device, loaded } = load(PRESETS.find(p => p.id === "partmute").source);
+  const { device, loaded } = load(readFileSync(new URL("./fixtures/scripts/partmute.js", import.meta.url), "utf8"));
   assert.ok(loaded.ok, loaded.error?.message);
   device.run(1);
   assert.equal(device.runtime.remapped(key("PART_ERASE")), key("PART_MUTE"));

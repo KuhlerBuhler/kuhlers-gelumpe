@@ -940,14 +940,6 @@ BPM GLIDE im Menü BLECH schaltet es an (1) und aus (0), `korg.store` behält di
 Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
 (`test/script-bpm-glide.test.mjs`), am Gerät nicht.
 
-**Part Mute auf Part Erase** ist für eine Electribe, deren PART MUTE-Taste kaputt ist. Es legt mit `korg.remapKey`
-PART ERASE auf PART MUTE: die Firmware bekommt PART MUTE und schaltet in den Pad-Modus zum Stummschalten, die Pads muten
-die Parts wie im Original. PART MUTE ist in der Firmware ein Pad-Modus wie SEQUENCER oder KEYBOARD (im Emulator gemessen:
-die LED bleibt nach dem Loslassen an, eine andere Modus-Taste beendet ihn). Weil die Firmware die LED der kaputten Taste
-setzt, zeigt das Plugin den Modus auf der LED von PART ERASE. Solange es läuft, gibt es PART ERASE als eigene Taste und
-SHIFT + PART ERASE (Würfeln) nicht. Im Emulator mit der Firmware geprüft: PART ERASE beim Spielen, dann zwei Pads, die
-zwei Parts sind stumm und kein Step ist gelöscht. Am Gerät nicht geprüft.
-
 ## Die Seite Plugins im Editor
 
 Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der

@@ -1710,45 +1710,6 @@ korg.onEvent("menu", (id, value) => {
 `,
   }),
   Object.freeze({
-    id: "partmute",
-    title: "Part Mute auf Part Erase",
-    description: "Für eine Electribe, deren PART MUTE-Taste nicht mehr geht: PART ERASE wird zu PART MUTE, die Pads schalten Parts stumm wie im Original. Die LED von PART ERASE zeigt den Modus.",
-    category: "Werkzeuge",
-    creator: "Kuhler Buhler",
-    added: "2026-10-25",
-    controls: ["PART ERASE: wie PART MUTE", "PART ERASE als eigene Taste und SHIFT + PART ERASE gibt es nicht, solange das Plugin läuft"],
-    source: `// Part Mute on PART ERASE, for an Electribe whose PART MUTE key no longer works: PART ERASE reaches the firmware as
-// PART MUTE, so the pads mute parts the way the firmware does it. PART ERASE's own pad mode and SHIFT + PART ERASE are not
-// there while the plugin runs. The firmware lights the broken key's LED; the PART ERASE LED shows the mute mode instead.
-korg.remapKey(korg.key.PART_ERASE, korg.key.PART_MUTE);
-const OTHER_MODES = [korg.key.TRIGGER, korg.key.SEQUENCER, korg.key.KEYBOARD, korg.key.CHORD, korg.key.STEP_JUMP, korg.key.PATTERN_SET];
-let muting = 0;
-let ticks = 0;
-
-function show() {
-  korg.led(korg.led.PART_ERASE, muting ? 255 : 0);
-}
-
-// The pad modes are one choice: PART MUTE is on until another mode key is pressed.
-korg.onEvent("buttonPress", (key) => {
-  if (key == korg.key.PART_MUTE) muting = 1;
-  for (let i = 0; i < OTHER_MODES.length; i++) {
-    if (key == OTHER_MODES[i]) muting = 0;
-  }
-  show();
-});
-
-// The firmware sends its own LED states now and then, so the LED is set again twice a second.
-korg.onEvent("frame", () => {
-  ticks += 1;
-  if (ticks >= 12) {
-    ticks = 0;
-    show();
-  }
-});
-`,
-  }),
-  Object.freeze({
     id: "lauflicht",
     title: "Lauflicht",
     description: "Ein Licht läuft über die Pads.",

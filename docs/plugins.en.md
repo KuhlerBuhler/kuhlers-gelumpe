@@ -776,14 +776,6 @@ pattern in RAM. STOP sets back the tempo the pattern started with. The page BPM 
 and off (0), `korg.store` keeps the setting. Because `korg.tempo` sets the tempo of the pattern in RAM, it counts as an
 unsaved change until STOP. Checked in the simulator (`test/script-bpm-glide.test.mjs`), not on the device.
 
-**Part Mute on Part Erase** is for an Electribe whose PART MUTE key is broken. With `korg.remapKey` it puts PART MUTE
-on PART ERASE: the firmware gets PART MUTE and switches to the pad mode for muting, and the pads mute parts as in the
-original. PART MUTE is a pad mode in the firmware like SEQUENCER or KEYBOARD (measured in the emulator: the LED stays on
-after the release, another mode key ends it). Because the firmware lights the broken key's LED, the plugin shows the mode
-on the PART ERASE LED. While it runs, PART ERASE as a key of its own and SHIFT + PART ERASE (dice) are not there. Checked in
-the emulator with the firmware: PART ERASE while playing, then two pads, the two parts are muted and no step is erased. Not
-checked on the device.
-
 ## The Plugins page in the editor
 
 The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
