@@ -11,7 +11,8 @@ const q = new URLSearchParams(location.search);
 const list = name => (q.get(name) || "").split(",").filter(Boolean).map(Number);
 
 const bytes = new Uint8Array(await (await fetch("/test-support/files/system.vsb")).arrayBuffer());
-const sim = installWebMidiStub({ image: new VsbImage(bytes), channel: 9, latencyMs: Number(q.get("latency") ?? 2) });
+// ?noram: a sampler that answers the search and nothing else, so the page cannot read its display.
+const sim = installWebMidiStub({ image: q.has("noram") ? null : new VsbImage(bytes), hacktribe: !q.has("noram"), channel: 9, latencyMs: Number(q.get("latency") ?? 2) });
 
 // ?exec=1: the stand-in takes an execute command and notes the address, which it never does otherwise.
 if (q.has("exec")) sim.device.execute = addr => { (window.__ceeExec ??= []).push(addr); return true; };

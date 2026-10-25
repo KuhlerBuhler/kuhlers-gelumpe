@@ -15,7 +15,7 @@ const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "ut
 const PATCH = read("../data/patches/pattern-switch.json");
 const OTHERS = ["splash-editor", "mfx-switch", "script-runtime", "blechtribe", "blech-theme"].map(id => read(`../data/patches/${id}.json`));
 const CODE = 0x180100;              // file offset of 0xC0180000
-const CODE_END = 0x180d00;          // 0xC0180C00
+const CODE_END = 0x181000;          // 0xC0180F00
 // the replaced words: wheel branch, pad and MIDI first instruction, MENU and EXIT slots (pointers), sequence end call, STOP first instruction, label load,
 // stopped sync, the load's copy, the pad handler's busy check, the command runner's busy clear
 const WORDS = [[0x6523c, 0xea, 0xc006513c], [0x6eee4, 0xea, 0xc006ede4], [0x6ef00, 0xea, 0xc006ee00], [0xe35b0, null, 0xc00e34b0],
@@ -45,7 +45,7 @@ test("the pattern switch has the v1 format, says what it replaces and runs only 
   // command runner's busy clear after that load (0xC002D81C, kept pad presses); every other hook sits behind the start and the rescue paths
   const symbol = name => PATCH.startPhase.find(s => s.why.startsWith(name));
   assert.deepEqual(PATCH.startPhase.map(s => s.file).filter(f => f < 0x180100), [0x81f18, 0x4ad44, 0x2d91c]);
-  assert.ok(symbol("sync_hook") && symbol("copy_hook") && symbol("pad_replay"), "the three code spans are declared");
+  assert.ok(PATCH.startPhase.some(s => s.why.includes("sync_hook")) && symbol("copy_hook") && symbol("pad_replay"), "the three code spans are declared (pad_replay and sync_hook as one)");
   assert.ok(PATCH.startPhase.every(s => s.why.length > 20));
 });
 
