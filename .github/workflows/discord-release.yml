@@ -1,6 +1,7 @@
 # A published release goes to the Discord channel behind the webhook in the secret DISCORD_WEBHOOK
 # (tools/discord-release.mjs). Started by hand with a tag, it posts that release again, e.g. after its
-# notes were edited. Without the secret nothing is posted.
+# notes were edited. The release workflow (release.yml) calls it with the tag: a release created with the workflow's
+# own token starts no other workflow. Without the secret nothing is posted.
 name: Discord release
 
 on:
@@ -10,6 +11,11 @@ on:
     inputs:
       tag:
         description: "Tag of the release to post, e.g. v1.3.1"
+        required: true
+  workflow_call:
+    inputs:
+      tag:
+        type: string
         required: true
 
 permissions:
