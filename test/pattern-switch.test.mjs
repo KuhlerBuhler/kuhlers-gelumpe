@@ -15,7 +15,7 @@ const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "ut
 const PATCH = read("../data/patches/pattern-switch.json");
 const OTHERS = ["splash-editor", "mfx-switch", "script-runtime", "blechtribe", "blech-theme"].map(id => read(`../data/patches/${id}.json`));
 const CODE = 0x180100;              // file offset of 0xC0180000
-const CODE_END = 0x180d00;          // 0xC0180C00
+const CODE_END = 0x181000;          // 0xC0180F00
 // the replaced words: wheel branch, pad and MIDI first instruction, MENU and EXIT slots (pointers), sequence end call, STOP first instruction, label load,
 // stopped sync, the load's copy, the pad handler's busy check, the command runner's busy clear
 const WORDS = [[0x6523c, 0xea, 0xc006513c], [0x6eee4, 0xea, 0xc006ede4], [0x6ef00, 0xea, 0xc006ee00], [0xe35b0, null, 0xc00e34b0],

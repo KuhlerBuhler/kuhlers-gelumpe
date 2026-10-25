@@ -397,6 +397,7 @@ sind kein RAM und stehen auch nicht hier.
 | `0xC0174000` + 0x3950, `0xC0178000` + 0x3950 | preset-tables | Platz für je 28 weitere Preset-Records (Insert, Master), vom Editor beschrieben | `preset_tables.py:RES_IFX`, `RES_MFX` |
 | `0xC017C400` + 0x800 | preset-tables | Reglergedächtnis des Insert-Effekts, 16 Parts zu 128 Byte, die Firmware füllt es beim Start | `preset_tables.py:EDIT_TABLE` |
 | `0xC0180F00` + 0x40 | pattern-switch | Zustand, darin `PS_SETTING` bei +0x10 | `pattern_switch.py:STATE` |
+| `0xC0173000` + 762 | pattern-switch | Puffer der Sync Group: die Werte, die ein Patternwechsel in der Gruppe mitnimmt | `pattern_switch.py:SG_BUF` |
 | `0xC0181F00` + 0x40 | load-bar | Zustand | `load_bar.py:STATE` |
 | `0xC0182000` bis `0xC0183000` | splash-editor | Zustand 0x100, Datensatz 0x420, zwei Bilder zu 0x400, FatFs-Datei 0x2E0 | `splash_editor.py`, fünf Einträge |
 | `0xC0183800` + 0x100 | sample-errors | Zustand (Zähler, erstes übersprungenes Sample, Grund) und die zwei Zeilen des Fensters bei +0x40 und +0x60 (der Code liegt bei `0xC0183000`, 852 Byte, als geänderte Bytes) | `sample_errors.py:STATE` |
