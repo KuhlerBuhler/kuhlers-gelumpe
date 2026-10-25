@@ -49,7 +49,9 @@ damit unberührte Bytes auffallen, dazu Backup-Datei und Pattern-Puffer.
 
 Alles außer den letzten drei Zeilen läuft in CI (`.github/workflows/test.yml`): die Einheitstests
 in zwei, die Browsertests in vier Teilen nebeneinander (`--test-shard`), die Prüfungen `unit` und
-`browser` fassen die Teile zusammen.
+`browser` fassen die Teile zusammen. Ändert ein Pull Request nur Markdown oder andere
+Workflows, laufen nur die Einheitstests, die Dokumente lesen, und keine Browsertests (ausgenommen
+`DESIGN.md`, `docs/plugins*.md` und `third_party/`, die die Seite und die Tests lesen).
 
 Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt starten:
 
