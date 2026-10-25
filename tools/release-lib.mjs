@@ -7,6 +7,7 @@
 /** Tauri names its bundles `<productName>_<version>_<arch>[-setup].<ext>`. */
 export const TARGETS = [
   { id: "macos-arm64", label: "macOS Apple Silicon (.dmg)", ext: "dmg", arch: "aarch64", setup: false },
+  { id: "macos-x64", label: "macOS Intel (.dmg)", ext: "dmg", arch: "x64", setup: false },
   { id: "windows-x64", label: "Windows x64 (Setup .exe)", ext: "exe", arch: "x64", setup: true },
   { id: "linux-appimage", label: "Linux (.AppImage)", ext: "AppImage", arch: "amd64", setup: false },
   { id: "linux-deb", label: "Linux (.deb)", ext: "deb", arch: "amd64", setup: false },

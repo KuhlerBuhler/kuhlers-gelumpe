@@ -171,7 +171,7 @@ außerhalb von `src/node.mjs`, `bin/`, `tools/` und `test/`.
 
 Eine Desktop-App (Tauri v2) um dieselbe Seite. Sie startet den Emulator-Dienst selbst
 (freier Port, frischer Token) und beendet ihn beim Schließen. Karte und Flash bleiben in
-`~/.gelumpe`. Gebaut wird für macOS (Apple Silicon), Windows x64 und Linux x64. Einen Intel-Mac-Build gibt es im Release nicht; selbst bauen geht wie unten beschrieben.
+`~/.gelumpe`. Gebaut wird für macOS (Apple Silicon und Intel), Windows x64 und Linux x64.
 
 Aus den Quellen: einmal `npm run setup:emu` und `cargo install tauri-cli --version "^2" --locked`,
 dann `npm run app:dev` (nimmt das Python der venv, kein gebautes Sidecar nötig). Läuft schon ein
@@ -197,7 +197,7 @@ kommen alle in den Ordner `dist-release/` im Repo auf dem Rechner, der das Relea
 `.gitignore`), von den anderen Systemen per Kopie.
 
 Auf GitHub baut der Workflow "Build apps" (von Hand starten, mit der Version) Windows, Linux und,
-wenn angehakt, macOS Apple Silicon gleichzeitig, daneben laufen `cargo test` und `cargo clippy` je
+wenn angehakt, macOS Apple Silicon und Intel (Runner `macos-15-intel`) gleichzeitig, daneben laufen `cargo test` und `cargo clippy` je
 System. Die Dateien liegen danach als Artefakte am Lauf; schlägt ein Build oder ein Test fehl, löscht der
 letzte Job sie wieder, damit aus einem roten Lauf nichts veröffentlicht wird. Rust-Abhängigkeiten und das eingefrorene
 Sidecar kommen aus dem Cache von GitHub, solange sich ihre Quellen nicht geändert haben; ein Cache, der
@@ -264,7 +264,7 @@ Release-Rechner) die nächste Version in `package.json`, `tauri.conf.json`, `Car
 `--major` hebt stattdessen den Teil (bei `prepare` und beim Release gleich angeben). `prepare`
 verlangt, dass `HEAD` auf `origin/main` steht, und committet nichts.
 
-Wenn alle fünf Dateien (zwei `.dmg`, Setup-`.exe`, `.AppImage`, `.deb`) in `dist-release/` liegen:
+Wenn alle fünf Dateien (zwei `.dmg` für Apple Silicon und Intel, Setup-`.exe`, `.AppImage`, `.deb`) in `dist-release/` liegen:
 
 ```bash
 npm run release              # Trockenlauf: prüft alles, zeigt die Schritte
