@@ -132,8 +132,8 @@ LEVEL_BLECHY = 3                                                      # level 3 
 LEVEL_SYNC = 4                                                        # level 4: the page SYNC GROUP behind him, right before the Pattern menu
 LEVEL_PLUGIN = 5                                                      # level 5: the pages of one plugin, built like the firmware's Sample Edit
 S_PSEL = 0xFB                                                         # byte: the plugin SELECT PLUGIN chose
-PLUGIN_EDIT, PLUGIN_EXPORT, PLUGIN_IMPORT = 1, 2, 3                   # the pages of PLUGINS behind RUNTIME
-PLUGIN_SELECT, PLUGIN_STATE = 0, 1                                    # the first pages of one plugin; the pages it added follow, DELETE PLUGIN is the last
+PLUGIN_EDIT, PLUGIN_EXPORT = 1, 2                                    # the pages of PLUGINS behind RUNTIME
+PLUGIN_SELECT, PLUGIN_STATE, PLUGIN_DESCRIPTION = 0, 1, 2             # the first pages of one plugin; the pages it added follow, DELETE PLUGIN is the last
 PRESS = "press  [ Enter ]"                                            # the third line of every Data Util page
 VALUE_ROWS = range(30, 64)                                           # the pixel rows the value (and the firmware's third line) use
 TAB_ROWS = range(1, 9)                                               # the rows of the tab's text, inside the black bar
@@ -430,7 +430,7 @@ def cases(payload, flash=None, settings=True):
     goto_top(dev, LIST_PLUGINS)
     press(dev, "menu")
     inside = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), counter(dev), texts_of(dev))
-    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 4), ("RUNTIME", "ON", "")) and tab(dev) == "Plugins", str(inside))
+    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 3), ("RUNTIME", "ON", "")) and tab(dev) == "Plugins", str(inside))
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
@@ -446,7 +446,7 @@ def cases(payload, flash=None, settings=True):
     wrapped = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
     press(dev, "edit_next")
     forward = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE), dev.screen()["number"])
-    add("group_pages_wrap_and_count_alone", wrapped == (3, (3, 4), "IMPORT PLUGIN") and forward == (0, (0, 4), "RUNTIME", MENU), f"{wrapped}, {forward}")
+    add("group_pages_wrap_and_count_alone", wrapped == (2, (2, 3), "EXPORT ALL") and forward == (0, (0, 3), "RUNTIME", MENU), f"{wrapped}, {forward}")
     press(dev, "exit")
     up = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
     add("exit_goes_one_level_up", up == (MENU, 1, LIST_PLUGINS, (LIST_PLUGINS, len(LIST_PAGES)), "PLUGINS") and tab(dev) == "BLECH", str(up))
@@ -702,8 +702,9 @@ def settings_cases(payload, flash=None):
     press(empty, "edit_prev", wait=0.4)
     edit = texts_of(empty)
     press(empty, "menu", wait=0.4)
-    add("plugin_edit_without_plugins", edit == ("PLUGIN EDIT", "No Plugin", "") and (state(empty, S_LEVEL), state(empty, S_PAGE)) == (2, PLUGIN_EDIT)
-        and not empty.m.asserts, f"{edit}, ENTER stays: level {state(empty, S_LEVEL)}, page {state(empty, S_PAGE)}")
+    add("plugin_edit_without_plugins", edit == ("PLUGIN EDIT", "", PRESS) and texts_of(empty) == ("PLUGIN EDIT", "No Plugin", "")
+        and (state(empty, S_LEVEL), state(empty, S_PAGE)) == (2, PLUGIN_EDIT) and not empty.m.asserts,
+        f"{edit}, ENTER says {texts_of(empty)} and stays: level {state(empty, S_LEVEL)}, page {state(empty, S_PAGE)}")
 
     # one valid and one corrupt file: the valid one is used, a newer corrupt one is ignored
     for name, files, want in [

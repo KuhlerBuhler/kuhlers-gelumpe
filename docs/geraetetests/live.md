@@ -34,9 +34,11 @@ Ein Pattern spielen lassen (PLAY), am besten eins mit vier Takten.
 
 1. Das Rad drehen. **Erwartet:** unten steht `VIEW:` mit der gewählten Nummer, das laufende Pattern spielt weiter, auch über mehrere
    Durchläufe. Ein angeschlossenes MIDI-Gerät bekommt dabei **kein** Program Change.
+   Dabei zeigen die Pads (im SEQUENCER-Modus die Steps, in PART MUTE die Mutes) das gewählte Pattern, nicht das laufende. EDIT drücken: die
+   Zeile zeigt `OSC:`, `Pitch:` und die übrigen Werte des gewählten Patterns; ein Dreh auf ein anderes Pattern bringt `VIEW:` zurück.
 2. MENU drücken. **Erwartet:** unten steht `NEXT:`, jetzt geht Bank Select und Program Change raus, und das Pattern wechselt am nächsten
    Sequenzende (wie die Firmware es sonst tut).
-3. Wieder drehen und EXIT drücken. **Erwartet:** die Anzeige springt auf das laufende Pattern zurück, es wechselt nichts.
+3. Wieder drehen und EXIT drücken. **Erwartet:** die Anzeige springt auf das laufende Pattern zurück, es wechselt nichts, und die Pads zeigen wieder dessen Steps und Mutes.
 4. Drehen, MENU, dann EXIT vor dem Sequenzende. **Erwartet:** die Bestätigung ist weg (ein Program Change für das laufende Pattern geht raus),
    es wechselt nichts.
 5. Drehen, dann STOP. **Erwartet:** das Pattern bleibt das alte (die Firmware würde das gewählte anwenden).

@@ -1,5 +1,6 @@
-# Builds the app on GitHub's runners, started by hand (docs/development.md, "Bauen"): Windows and Linux always,
-# macOS (Apple Silicon) when the box is ticked. The macOS build from a Mac works as before.
+# Builds the app on GitHub's runners, started by hand (docs/development.md, "Bauen") or by the release workflow
+# (release.yml): Windows and Linux always, macOS (Apple Silicon and Intel) when the box is ticked. The macOS build from
+# a Mac works as before.
 # The files land as artifacts; they go into dist-release/ for npm run release.
 name: Build apps
 
@@ -10,7 +11,15 @@ on:
         description: "Version for the files, e.g. 1.0.0 (what npm run release -- next prints)"
         required: true
       macos:
-        description: "Also build the macOS .dmg (Apple Silicon)"
+        description: "Also build the macOS .dmg files (Apple Silicon and Intel)"
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      macos:
         type: boolean
         default: true
 
@@ -30,8 +39,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: ${{ fromJSON(inputs.macos && '["windows", "linux", "macos"]' || '["windows", "linux"]') }}
-    runs-on: ${{ fromJSON('{"windows":"windows-latest","linux":"ubuntu-22.04","macos":"macos-latest"}')[matrix.target] }}
+        target: ${{ fromJSON(inputs.macos && '["windows", "linux", "macos", "macos-intel"]' || '["windows", "linux"]') }}
+    # macos-15-intel is GitHub's x86_64 Mac: the frozen emulator has to be built on the system it runs on.
+    runs-on: ${{ fromJSON('{"windows":"windows-latest","linux":"ubuntu-22.04","macos":"macos-latest","macos-intel":"macos-15-intel"}')[matrix.target] }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +104,9 @@ jobs:
           fi
         env:
           SIDECAR_CACHED: ${{ steps.sidecar.outputs.cache-hit }}
-          BUNDLES: ${{ fromJSON('{"windows":"nsis","linux":"appimage,deb","macos":"dmg"}')[matrix.target] }}
+          # With CI=true the dmg bundler skips the Finder script and the dmg has neither background nor icon positions.
+          TAURI_BUNDLER_DMG_IGNORE_CI: "true"
+          BUNDLES: ${{ fromJSON('{"windows":"nsis","linux":"appimage,deb","macos":"dmg","macos-intel":"dmg"}')[matrix.target] }}
       - name: Check the Debian MIDI dependency
         if: runner.os == 'Linux'
         run: |
@@ -120,14 +132,14 @@ jobs:
           case "$TARGET" in
             windows) cp src-tauri/target/release/bundle/nsis/*-setup.exe out/ ;;
             linux) cp src-tauri/target/release/bundle/appimage/*.AppImage src-tauri/target/release/bundle/deb/*.deb out/ ;;
-            macos) cp src-tauri/target/release/bundle/dmg/*.dmg out/ ;;
+            macos|macos-intel) cp src-tauri/target/release/bundle/dmg/*.dmg out/ ;;
           esac
           ls -l out
         env:
           TARGET: ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
-          name: app-${{ runner.os }}
+          name: app-${{ matrix.target }}
           path: out/*
           if-no-files-found: error
 

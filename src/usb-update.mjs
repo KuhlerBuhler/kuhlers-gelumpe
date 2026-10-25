@@ -58,7 +58,7 @@ export function pluginFileName(id) {
   return name || "plugin";
 }
 
-/** A .blech onto the card of the connected device, as KORG/blechtribe/Plugin/<name>.blech; IMPORT PLUGIN in the BLECH menu lists it. */
+/** A .blech onto the card of the connected device, as KORG/blechtribe/Plugin/<name>.blech; PLUGIN EDIT in the BLECH menu lists it. */
 export function storePlugin(session, id, bytes, onProgress) {
   return session.exclusive(async () => {
     const model = await prepare(session);
