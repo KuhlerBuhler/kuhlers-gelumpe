@@ -140,7 +140,7 @@ The app in dark mode. The emulator is shown without firmware, so its display sta
 
 ## Get the app
 
-The Releases page of this repository has the app for macOS (Apple Silicon, `.dmg`), Windows
+The Releases page of this repository has the app for macOS (Apple Silicon and Intel, one `.dmg` each), Windows
 (`.exe`) and Linux (`.AppImage`, `.deb`). The app starts the emulator service itself and stops it when
 you close it. The emulator's card and flash live in `~/.gelumpe`. On start and every few hours the app
 checks for a newer release and shows "Neue Version verfügbar" at the top; a click downloads the file for your system into the Downloads folder and starts the installation (on failure the release page opens).
@@ -151,7 +151,8 @@ checks for a newer release and shows "Neue Version verfügbar" at the top; a cli
 xattr -dr com.apple.quarantine "/Applications/Kuhlers GELUMPE.app"
 ```
 
-On Windows, SmartScreen shows a warning: "More info", then "Run anyway".
+On Windows, SmartScreen shows a warning: "More info", then "Run anyway". The `-setup.exe` carries
+WebView2 and installs it when it is missing (e.g. on Windows 10), without needing the internet.
 
 ## Quick start from source
 
