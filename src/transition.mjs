@@ -4,7 +4,7 @@
  * the command line is tools/set/transition.mjs, the page is site/app/pattern-tools.mjs.
  *
  * Every transition is an edit of a copy of pattern A (records are edited,
- * never built, see CLAUDE.md); B's parts come in as copies of B's own part
+ * never built, see AGENTS.md); B's parts come in as copies of B's own part
  * blocks.
  */
 import { Pattern, frameProblem, cleanName } from "./pattern.mjs";

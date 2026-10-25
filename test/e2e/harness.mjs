@@ -43,6 +43,8 @@ export async function setUp(routes = () => [], { realDevices = false } = {}) {
     async page({ device = false } = {}) {
       const context = await browser.newContext({ acceptDownloads: true });
       context.setDefaultTimeout(20_000);
+      // The changelog page asks GitHub for the releases; tests never reach the network and see none.
+      await context.route("https://api.github.com/**", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
       const page = await context.newPage();
       if (device) await page.addInitScript(() => { window.__ceeStubReady = import("/test-support/install.mjs"); });
       const errors = [];
@@ -80,7 +82,9 @@ export async function go(page, id) {
       await page.click("#cee-mode-menu [data-value=emu]");
       return;
     }
-    await page.click(`#cee-tab-${id}`);
+    // Presets and Modulationen have no sidebar entry any more, only their address
+    if (["fx", "mod"].includes(id)) await page.evaluate(tab => { location.hash = tab; }, id);
+    else await page.click(`#cee-tab-${id}`);
     return;
   }
   if (!(await page.locator("#cee-mode").isVisible())) await page.click("#cee-tab-emu");

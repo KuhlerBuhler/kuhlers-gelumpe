@@ -22,19 +22,22 @@ import { markProbed } from "../src/script/blob.mjs";
 import { probe } from "../src/script/sim.mjs";
 import { blechyInputs } from "../test/support/blechy-inputs.mjs";
 import { pixelPng, readPng, sheet } from "./blechy-png.mjs";
+import { outlined } from "../src/blechy-outline.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const WIDTH = 128;
 const HEIGHT = 64;
-/** What a slot costs in code (an index, a value and the store: 2 + 2 + 5 bytes; a zero needs none) and what a call costs. */
-const SLOT_BYTES = 9;
+/** A picture is a record in the block's data section: 4 bytes and its slots from the first to the last lit one, padded to 4. */
+const RECORD_BYTES = 4;
 const CALL_BYTES = 20;
 const BITMAP = API_BY_NAME.get("korg.display.bitmap");
 
 /** The frames of the art table with their picture: { sprite, x, y, rows }. */
 export function loadFrames() {
   const sprites = {};
-  const rowsOf = name => (sprites[name] ??= readPng(readFileSync(root + SPRITE_DIR + `blechy-${name}.png`)));
+  // The sprites are filled; on the display he is drawn as the loading animation draws him, the body as its outline.
+  const rowsOf = name => (sprites[name] ??= outlined(readPng(readFileSync(root + SPRITE_DIR + `blechy-${name}.png`)).map(r => [...r].map(c => c === "#")))
+    .map(r => r.map(lit => (lit ? "#" : ".")).join("")));
   return Object.fromEntries(FRAME_ORDER.map(name => [name, { ...FRAMES[name], rows: rowsOf(FRAMES[name].sprite) }]));
 }
 
@@ -77,7 +80,10 @@ export function slotsOf(rows) {
   return best;
 }
 
-const bitmapBytes = b => CALL_BYTES + b.used * SLOT_BYTES;
+const bitmapBytes = b => {
+  const first = b.slots.findIndex(v => v), last = b.slots.findLastIndex(v => v);
+  return CALL_BYTES + (first < 0 ? 0 : RECORD_BYTES + ((last - first + 4) & ~3));
+};
 const bitmapFuel = b => BITMAP.cost + b.slots.length * BITMAP.perItem;
 
 /** The array declaration of a picture, one line a band. */
@@ -214,6 +220,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       writeFileSync(file, want);
     }
   }
-  for (const r of report) console.log(`${r.name.padEnd(11)} ${String(r.slots).padStart(4)} slots, ${String(r.used).padStart(4)} not 0, about ${String(r.bytes).padStart(5)} bytes of code, ${String(r.fuel).padStart(4)} fuel`);
+  for (const r of report) console.log(`${r.name.padEnd(11)} ${String(r.slots).padStart(4)} slots, ${String(r.used).padStart(4)} not 0, about ${String(r.bytes).padStart(5)} bytes of code and data, ${String(r.fuel).padStart(4)} fuel`);
   if (stale) process.exit(1);
 }

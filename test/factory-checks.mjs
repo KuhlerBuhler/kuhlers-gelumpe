@@ -15,7 +15,7 @@ import { tableEntry, patternInBackup, PATTERN_FILE } from "../src/map/address.mj
 import { locateModTable } from "../src/modtable.mjs";
 import FINDINGS from "../data/findings.mjs";
 import FX_RANGES from "../data/map/fx-ranges.mjs";
-import { GAIN_STAGING } from "../src/layout.mjs";
+import { GAIN_STAGING, REC, STAGE_BLOCK_SIZE } from "../src/layout.mjs";
 
 // Addresses come from the map, so a wrong map entry fails the check that is its evidence.
 const at = (tableId, index, fieldId, indices = []) => tableEntry(tableId, index).file + offsetOf(field(fieldId), indices);
@@ -108,6 +108,30 @@ export const VSB_CHECKS = {
     return `master field in insert presets: ${[...seen].map(([k, n]) => `0x${k.toString(16)} x${n}`).join(", ")}`;
   },
 
+  "stage-block-shared"({ image }) {
+    const seen = [];
+    for (const kind of ["mfx", "ifx"]) {
+      const records = factory(image, kind).map(e => e.record);
+      for (const stage of records[0].stageNames) {
+        const { device: at, params } = REC.stage[stage];
+        const blocks = new Set();
+        let filled = 0;
+        for (const record of records) {
+          if (!record.device(stage)) continue;
+          filled++;
+          const rest = record.bytes.slice(at, at + STAGE_BLOCK_SIZE);
+          rest[0] = rest[1] = 0;
+          for (let i = params - at; i < rest.length; i += 2) rest[i] = 0;
+          blocks.add(rest.join(","));
+        }
+        assert(filled > 0, `no factory ${kind} preset fills ${stage}`);
+        assert(blocks.size === 1, `the ${stage} blocks of the factory ${kind} presets differ beyond the device, the byte after it and the parameters: ${blocks.size} kinds`);
+        seen.push(`${stage} ${filled}`);
+      }
+    }
+    return `one stage block per position apart from device, the byte after it and the parameters: ${seen.join(", ")}`;
+  },
+
   "stage2-factory-chains"({ image }) {
     const chains = new Set();
     for (const { record } of factory(image, "ifx")) {
@@ -129,17 +153,20 @@ export const VSB_CHECKS = {
   },
 
   "mfx-fade-shapes"({ image }) {
-    let switchFade = 0, inputFade = 0, mute = 0, none = 0;
-    for (const { record } of factory(image, "mfx")) {
+    let switchFade = 0, inputFade = 0, mute = 0, hacktribe = 0;
+    const none = [];
+    for (const { slot, record } of factory(image, "mfx")) {
       if (record.device("mfx") === 0x27) { mute++; continue; }
       const sw = record.map.some(r => r.source === 0x41 && r.chain === 0x0a);
       const inp = record.map.some(r => r.chain === 0x07 && r.low === 0);
+      // Hacktribe's file moves Big Hall's 0x41 row to chain 2, so it has no fade there; Korg's own 2.02 has one.
       if (sw) switchFade++;
       else if (inp) inputFade++;
-      else none++;
+      else if (slot === 10 && record.name.trim() === "Big Hall" && record.map.some(r => r.source === 0x41 && r.chain === 2)) hacktribe++;
+      else none.push(`${slot} ${record.name.trim()}`);
     }
-    assert(none === 0, `${none} factory master presets have no fade`);
-    return `switch fade ${switchFade}, input fade ${inputFade}, mute unit ${mute}`;
+    assert(none.length === 0, `factory master presets without a fade: ${none.join(", ")}`);
+    return `switch fade ${switchFade}, input fade ${inputFade}, mute unit ${mute}${hacktribe ? ", Hacktribe's Big Hall without one" : ""}`;
   },
 
   "level-mod-play-row"({ image, units }) {

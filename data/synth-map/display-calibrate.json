@@ -1,0 +1,10 @@
+{
+ "entries": [
+  {
+   "from": "0xC033E6A0",
+   "to": "0xC033E6A0",
+   "kind": "ram",
+   "why": "Global settings object pointer: the PC-relative literal load at 0xC0064728 maps to 0xC005ABC4 with same code True (tools/patch/fwmap.py). Their literal pool values identify the respective global objects. Offset 4 + 30 is the contrast byte, validated through the original Global page in the emulator."
+  }
+ ]
+}

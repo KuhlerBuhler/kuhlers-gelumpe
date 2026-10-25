@@ -4,7 +4,8 @@
  * service on this computer.
  */
 import { el } from "./fields.mjs";
-import { identify, buildOf, lackOf, hasBlechSysex } from "../../src/firmware.mjs";
+import { toast } from "./toast.mjs";
+import { identify, buildOf, lackOf, hasBlechSysex, firmwareName } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
 
 const VSB_SIZE = 0x200100;
@@ -124,7 +125,7 @@ export function drawShade(canvas, levels) {
 
 function parseColor(value) {
   const probe = document.createElement("canvas").getContext("2d");
-  probe.fillStyle = value.trim() || "#000";
+  probe.fillStyle = value.trim() || "#000"; // raw-ok: an unset LCD colour falls back to an unlit pixel
   probe.fillRect(0, 0, 1, 1);
   return Array.from(probe.getImageData(0, 0, 1, 1).data.slice(0, 3));
 }
@@ -161,18 +162,21 @@ export function textScreen(lines, scale = 2) {
 /** States the device itself shows well enough: the status line says nothing, only a screen reader hears it. */
 const QUIET = new Set(["empty", "loaded", "running", "stopped", "off"]);
 
-export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
+export function emulatorPanel(root, link = null, { deviceArea = null, onConnect = () => {} } = {}) {
   let events = null;
   let vsb = null;
   let base = null;
   let pushed = null;          // the VSB the service holds. It boots from its own flash after an update, so what it runs may not be `vsb`
+  let resume = false;         // the service went away while the firmware ran: once it answers again, the page boots it again
 
   const deviceBox = el("div", { className: "cee-emu-device", id: "cee-emu-device" });
   const status = el("p", { className: "cee-emu-status ui-sr-only", id: "cee-emu-status", role: "status" });
   const canvas = el("canvas", { className: "cee-lcd", id: "cee-emu-lcd", width: 128, height: 64 });
   canvas.setAttribute("role", "img");
   canvas.setAttribute("aria-label", "Display der emulierten Electribe");
-  canvas.setAttribute("aria-describedby", "cee-side-where");
+  // What the device shows, as text: only a screen reader hears it (follow.mjs fills it in).
+  const where = el("p", { className: "ui-sr-only", id: "cee-emu-where" });
+  canvas.setAttribute("aria-describedby", "cee-emu-where");
 
   // Inputs go out one after another, so a release never overtakes its press.
   // Knob and touch moves only send their latest value.
@@ -231,16 +235,45 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
   };
 
   let said = "";
-  const say = (tone, word, text, quiet = false) => {
-    const key = [tone, word, text, quiet].join("\0");
+  const say = (tone, word, text, quiet = false, extra = null, keep = false) => {
+    const key = [tone, word, text, quiet, !!extra].join("\0");
     if (key === said) return;
     said = key;
-    status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }));
-    status.classList.toggle("ui-sr-only", quiet);
+    // The line is for screen readers only; what goes wrong is said in the toast, nothing stands above the device.
+    status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }), ...(extra ? [" ", extra] : []));
+    // A state the emulator reports by itself goes away again; it must not lie on the page's buttons. Why the firmware
+    // crashed or hangs (`keep`) stays until it is closed: the person needs it to decide on a restart.
+    if (!quiet && (tone === "error" || tone === "warn")) toast(text, keep ? "error" : "info");
   };
+  // In the desktop app the app starts the emulator itself (src-tauri); the page started by `npm start` finds it through
+  // /emu.json. Nobody is asked to run a command: the start button looks for it, and what fails is said in a toast.
+  const inApp = !!window.__GELUMPE_APP;
+  const START_HINT = inApp
+    ? "Der Emulator der App startet gerade nicht. Die App versucht es weiter; hilft das nicht, schließ sie und öffne sie neu. Was er meldet, steht in ~/.gelumpe/emu.log."
+    : "Der Emulator läuft nicht. In der App GELUMPE startet er von selbst; wer die Seite aus dem Quelltext startet, nimmt npm start.";
+  const startButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-emu-start", textContent: "Emulator starten", hidden: true });
+  /** Looks for the emulator service; false and a toast when there is none. */
+  async function start() {
+    startButton.disabled = true;
+    try {
+      const found = await findLink({ link: null, fresh: false });
+      if (!found.link) throw new Error(START_HINT);
+      link = found.link;
+      listen();
+      onConnect(link);
+      return true;
+    } catch (e) {
+      toast(e.message, "error");
+      return false;
+    } finally {
+      startButton.disabled = false;
+    }
+  }
+  startButton.addEventListener("click", () => start());
 
-  const vsbInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-emu-vsb", accept: ".VSB,.vsb" });
-  const vsbInfo = el("span", { className: "ui-dropzone-files" });
+  const vsbInput = el("input", { type: "file", className: "ui-sr-only", id: "cee-emu-vsb", accept: ".VSB,.vsb", tabIndex: -1 });
+  vsbInput.setAttribute("aria-hidden", "true");
+  const vsbInfo = el("span", { className: "ui-dropzone-files ui-sr-only", id: "cee-emu-vsb-info" });
 
   // Which build the loaded VSB is (src/firmware.mjs); the places that need Hacktribe's functions ask `lack()`.
   let build = null;
@@ -250,6 +283,11 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     blech = !!bytes && hasBlechSysex(bytes);
   }
   /** The line for the file chooser; Korg's own build is a recognised file, it only is not the measured one. */
+  /** A recognised file is said by the display; the line is for screen readers, what went wrong goes to the toast. */
+  const showInfo = (text, wrong = /nicht erkannt/.test(text)) => {
+    vsbInfo.textContent = text;
+    if (wrong) toast(text, "error");
+  };
   const describe = (name, id, saved) => {
     const when = saved ? " (vom letzten Mal)" : "";
     if (id.build === "synth") return `${name}: Firmware der blauen Electribe 2 (Synth), erkannt${when}. Presets und Modulationen gibt es für sie nicht.`;
@@ -257,22 +295,29 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     return id.known ? `${name}: erkannt${when}.` : `${name}: nicht erkannt${when}.${saved ? "" : ` ${id.reasons.join(" ")} Der Emulator ist für die vermessene Firmware gebaut.`}`;
   };
 
-  const drop = (input, title, hint, info) => el("label", { className: "ui-dropzone" }, [
-    input,
-    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: `${title} hierher ziehen oder ` }), "auswählen"]),
-    el("span", { className: "ui-dropzone-hint", textContent: hint }),
-    info,
-  ]);
+  // A switched-off Electribe takes its firmware on the display: drop the file there or tap it.
+  const offerTitle = el("strong", { textContent: "SYSTEM.VSB" });
+  const offerText = el("span");
+  const offer = el("button", { type: "button", className: "cee-emu-offer", id: "cee-emu-offer" }, [offerTitle, " ", offerText]);
+  offer.addEventListener("click", () => vsbInput.click());
+  function renderOffer() {
+    const off = lastState !== "running" && lastState !== "hung" && !fake && !external;
+    offer.hidden = !off;
+    offerTitle.textContent = vsb ? "Firmware geladen" : "SYSTEM.VSB";
+    offerText.textContent = vsb ? firmwareName(vsb) : "Deine Firmware hierher ziehen oder antippen.";
+    // Its name is what the display says; what a tap does is the title.
+    offer.title = vsb ? "Antippen für eine andere Datei" : "Firmware-Datei (SYSTEM.VSB) wählen";
+  }
 
   const api = async (path, body, type = "application/octet-stream") => {
-    if (!link) throw new Error("Nicht verbunden. Starte npm run emu und öffne den Link, den es ausgibt.");
+    if (!link) throw new Error(START_HINT);
     let res;
     try {
       res = await fetch(`http://127.0.0.1:${link.port}${path}`, {
         method: "POST", body, headers: { "Content-Type": type, "X-Emu-Token": link.token },
       });
     } catch {
-      throw new Error(`Der Emulator auf Port ${link.port} antwortet nicht. Läuft npm run emu?`);
+      throw new Error(inApp ? `Der Emulator der App antwortet gerade nicht, die App startet ihn neu. Versuch es gleich nochmal; was er meldet, steht in ~/.gelumpe/emu.log.` : `Der Emulator auf Port ${link.port} antwortet nicht. Läuft npm start noch?`);
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Emulator antwortet mit ${res.status}.`);
@@ -291,16 +336,23 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     lastState = s.state;
     booted = s.state === "running" && s.booted !== false;
     if (stopped) port.ondisconnect?.();
-    say(tone, word, s.error || (s.state === "running" ? "Die Firmware läuft." : s.state === "off" ? "Die Electribe ist aus." : ""), QUIET.has(s.state) && !s.error);
+    if (resume) {
+      resume = false;
+      // A service started again holds no firmware and runs none: the power key the person pressed before counts again.
+      if (!live(s.state) && vsb) queueMicrotask(boot);
+    }
+    say(tone, word, s.error || (s.state === "running" ? "Die Firmware läuft." : s.state === "off" ? "Die Electribe ist aus." : ""), QUIET.has(s.state) && !s.error, null, !!s.error);
     if (s.state !== "running") device.showLeds({}, true);
     if (!fake) device.setPower(live(s.state));
     deviceBox.dataset.state = s.state;
+    renderOffer();
   }
 
   function listen() {
     events?.close();
+    startButton.hidden = !!link;
     if (!link) {
-      say("muted", "nicht verbunden", "Starte npm run emu im Projektordner und öffne den Link, den es ausgibt.");
+      say("muted", "aus", "Der Emulator ist noch nicht gestartet.", true);
       return;
     }
     events = new EventSource(`http://127.0.0.1:${link.port}/events?token=${encodeURIComponent(link.token)}`);
@@ -325,7 +377,17 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     });
     events.addEventListener("error", () => {
       if (events.readyState === EventSource.CLOSED || events.readyState === EventSource.CONNECTING) {
-        say("warn", "getrennt", `Keine Verbindung zum Emulator auf Port ${link.port}. Läuft npm run emu, und ist der Link aktuell?`);
+        // The app starts its service again on the same port (src-tauri), `npm start` too: whatever answers next
+        // holds no firmware, and what ran is booted again once it is back.
+        pushed = null;
+        if (lastState === "running" || lastState === "hung") {
+          showStatus({ state: "stopped" });
+          resume = true;
+        }
+        const text = inApp ? "Der Emulator antwortet nicht mehr. Die App startet ihn neu, gleich geht es weiter." : "Der Emulator antwortet nicht mehr. Sobald er wieder läuft, geht es hier von selbst weiter. Läuft npm start noch?";
+        say("warn", "getrennt", text);
+        // A browser that gives up instead of trying again is asked again.
+        if (events.readyState === EventSource.CLOSED) setTimeout(() => { if (events?.readyState === EventSource.CLOSED) listen(); }, 2000);
       }
     });
   }
@@ -333,22 +395,25 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
   vsbInput.addEventListener("change", async () => {
     const file = vsbInput.files?.[0];
     if (!file) return;
+    vsbInput.value = "";
     const bytes = new Uint8Array(await file.arrayBuffer());
     vsb = null;
     base = null;
     setBuild(null);
     keep.delete("vsb");
     if (bytes.length !== VSB_SIZE) {
-      vsbInfo.textContent = `${file.name}: ${bytes.length} Byte, eine VSB hat ${VSB_SIZE}.`;
+      showInfo(`${file.name}: ${bytes.length} Byte, eine VSB hat ${VSB_SIZE}.`, true);
+      toast(`${file.name} ist keine Firmware-Datei: ${bytes.length} Byte, eine SYSTEM.VSB hat ${VSB_SIZE}.`, "error");
       showStatus({ state: "empty" });
       return;
     }
     const id = await identify(bytes);
-    vsbInfo.textContent = describe(file.name, id, false);
+    showInfo(describe(file.name, id, false));
     vsb = bytes;
     setBuild(bytes);
     keep.put("vsb", { name: file.name, bytes });
     if (lastState !== "running" && lastState !== "hung") showStatus({ state: "loaded" });
+    renderOffer();
   });
 
   let booting = false;
@@ -358,11 +423,13 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     drawDisplay(canvas, textScreen(["NO", "FIRMWARE"]));
     device.setPower(true);
     fake = setTimeout(endFake, FAKE_BOOT_MS);
+    renderOffer();
   }
   function endFake() {
     clearTimeout(fake);
     fake = null;
     device.setPower(false);
+    renderOffer();
   }
   /** The power key of a switched-off device: the firmware goes to the service, then it starts. */
   async function boot() {
@@ -370,27 +437,30 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     if (!vsb) { startFake(); return; }
     booting = true;
     try {
+      if (!link && !await start()) return;
       if (pushed !== vsb) { await api("/firmware", vsb); pushed = vsb; }   // sent again, a restart after SOFTWARE UPDATE would start the old file
       showStatus(await api("/start", "{}", "application/json"));
-      firmware.details.open = false;
     } catch (e) {
       say("error", "Fehler", e.message);
+      toast(e.message, "error");
     } finally {
       booting = false;
     }
   }
 
-  // Under the device front: what it shows right now, read from its RAM.
-  const aside = el("section", { className: "ui-section cee-emu-live", id: "cee-emu-side" });
-  // The firmware is an option of the page: a sub-item of its sidebar entry.
-  const firmware = sub.add("emu", { id: "cee-emu-setup", title: "Firmware (VSB)" });
-  firmware.body.append(drop(vsbInput, "SYSTEM.VSB", "Deine eigene Firmware-Datei.", vsbInfo));
-  root.replaceChildren(
-    el("div", { className: "cee-emu-bar" }, [status]),
-    deviceBox,
-    aside,
-  );
-  deviceBox.append(device.build(el("div", { className: "cee-lcd-frame" }, [canvas])));
+  const bar = el("div", { className: "cee-emu-bar" }, [status, startButton, el("div", { className: "cee-emu-file" }, [vsbInput, vsbInfo])]);
+  root.replaceChildren(bar, deviceBox, where);
+  const frame = el("div", { className: "cee-lcd-frame" }, [canvas, offer]);
+  frame.addEventListener("dragover", e => { if (!offer.hidden) { e.preventDefault(); frame.dataset.drag = ""; } });
+  frame.addEventListener("dragleave", () => delete frame.dataset.drag);
+  frame.addEventListener("drop", e => {
+    delete frame.dataset.drag;
+    if (offer.hidden || !e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    vsbInput.files = e.dataTransfer.files;
+    vsbInput.dispatchEvent(new Event("change"));
+  });
+  deviceBox.append(device.build(frame));
   showStatus({ state: "empty" });
   listen();
   // After a reload: the VSB chosen before comes back from this browser. The service reports by itself
@@ -399,11 +469,14 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
     if (!saved?.bytes || vsb) return;
     vsb = saved.bytes;
     setBuild(vsb);
-    vsbInfo.textContent = describe(saved.name, await identify(vsb), true);
+    showInfo(describe(saved.name, await identify(vsb), true));
     if (lastState === "empty") showStatus({ state: "loaded" });
+    renderOffer();
   });
   return {
-    port, aside,
+    port, where, bar,
+    /** The device front, display and controls. */
+    front: deviceBox,
     get link() { return link; },
     get firmware() { return vsb; },
     /** "hacktribe" or "stock" for the loaded VSB, null while there is none. */
@@ -428,7 +501,10 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
           if (over) break;
           try {
             const res = await fetch(`http://127.0.0.1:${link.port}/check/progress?token=${encodeURIComponent(link.token)}`);
-            if (res.ok && !over) onProgress(await res.json());
+            if (res.ok) {
+              const snapshot = await res.json();
+              if (!over) onProgress(snapshot);
+            }
           } catch { /* the next poll tries again; the check request itself reports a lost service */ }
         }
       })();
@@ -447,9 +523,8 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
       base = null;
       setBuild(running);
       keep.put("vsb", { name: "SYSTEM.VSB", bytes: running });
-      vsbInfo.textContent = "SYSTEM.VSB für den Update-Test geladen.";
+      showInfo("SYSTEM.VSB für den Update-Test geladen.");
       showStatus(await api("/start", "{}", "application/json"));
-      firmware.details.open = false;
       return sd.korg;
     },
     /** Boot the emulator with other firmware bytes, such as an export. */
@@ -459,7 +534,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
       base = base ?? vsb;
       vsb = bytes;
       setBuild(bytes);
-      vsbInfo.textContent = "Exportierte Kopie geladen.";
+      showInfo("Exportierte Kopie geladen.");
       showStatus(await api("/start", "{}", "application/json"));
     },
     /**
@@ -475,10 +550,19 @@ export function emulatorPanel(root, link = null, { deviceArea = null, sub }) {
       await wait(400);
     },
     connect(next) { link = next; listen(); },
+    /** Switch the Electribe on, as the power key does; says in words what happened (the console's start). */
+    async powerOn() {
+      if (lastState === "running" || lastState === "hung") return "Der Emulator läuft schon.";
+      if (!vsb) throw new Error("Erst eine Firmware laden: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen.");
+      await boot();
+      if (lastState !== "running") throw new Error("Der Emulator ist nicht angegangen, siehe die Meldung unten rechts.");
+      return "Der Emulator läuft.";
+    },
     /** Let the drawing show a real device (its display bytes through drawBytes) or give it back to the emulator. */
     external(on) {
       const was = external;
       external = on;
+      renderOffer();
       if (on || was) device.showLeds({}, true);
       if (!on && lastShade) drawShade(canvas, lastShade);
     },

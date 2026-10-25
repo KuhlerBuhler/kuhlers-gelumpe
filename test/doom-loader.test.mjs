@@ -21,3 +21,17 @@ test("Doom loader verifies SHA256 vectors and refuses unknown firmware or occupi
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stdout + result.stderr);
 });
+
+const unicorn = spawnSync(python, ["-c", "import unicorn"]);
+const hasUnicorn = !unicorn.error && unicorn.status === 0;
+
+test("Doom bootstrap preserves normal boot context and aligns the C loader stack", {
+  skip: !hasUnicorn && !required ? "requires Python with Unicorn" : false,
+}, () => {
+  assert.ok(hasUnicorn, "Unicorn is required for the ARM bootstrap checks");
+  const result = spawnSync(python, ["tools/doom/bootstrap_tests.py", "-v"], {
+    cwd: fileURLToPath(new URL("../", import.meta.url)), encoding: "utf8", timeout: 30_000,
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+});

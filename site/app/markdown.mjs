@@ -5,16 +5,33 @@
  * a heading of the same doc go to `onJump(id)`.
  */
 import { el } from "./fields.mjs";
+import { BUTTONS } from "../../data/panel.mjs";
 
 export const slug = text => text.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, "").trim().replace(/\s+/g, "-");
 
 const INLINE = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\[[^\]]+\]\([^)]+\))|(\*[^*\s][^*]*\*)/g;
 
+/** The keys printed on the device (EXIT, SHIFT, PART ERASE ...), longest first, so a name in running text shows as a key. */
+const KEY_NAMES = BUTTONS.map(b => b.label).filter(l => /^[A-Z][A-Z ]+$/.test(l)).sort((a, b) => b.length - a.length);
+const KEYS = new RegExp(`\\b(${KEY_NAMES.join("|")})\\b`, "g");
+
+function keys(text) {
+  const out = [];
+  let last = 0;
+  for (const m of text.matchAll(KEYS)) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(el("kbd", { className: "cee-key", textContent: m[0] }));
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
 function inline(text, onJump) {
   const out = [];
   let last = 0;
   for (const m of text.matchAll(INLINE)) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last) out.push(...keys(text.slice(last, m.index)));
     const [token] = m;
     if (m[1]) out.push(el("code", { textContent: token.slice(1, -1) }));
     else if (m[2]) out.push(el("strong", {}, inline(token.slice(2, -2), onJump)));
@@ -26,7 +43,7 @@ function inline(text, onJump) {
     } else out.push(el("em", {}, inline(token.slice(1, -1), onJump)));
     last = m.index + token.length;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length) out.push(...keys(text.slice(last)));
   return out;
 }
 
@@ -61,7 +78,7 @@ export function parseMarkdown(source, { onJump = () => {} } = {}) {
       const body = [];
       for (i++; i < lines.length && !lines[i].startsWith("```"); i++) body.push(lines[i]);
       i++;
-      add(el("pre", { className: "cee-doc-code" }, [el("code", { textContent: body.join("\n") })]));
+      add(el("pre", { className: "cee-doc-code", tabIndex: 0 }, [el("code", { textContent: body.join("\n") })]));
       continue;
     }
     const heading = /^(#{1,4})\s+(.*)$/.exec(line);
@@ -76,7 +93,7 @@ export function parseMarkdown(source, { onJump = () => {} } = {}) {
       const head = cells(line);
       const rows = [];
       for (i += 2; i < lines.length && lines[i].trim().startsWith("|"); i++) rows.push(cells(lines[i]));
-      add(el("div", { className: "cee-doc-table" }, [el("table", { className: "cee-names" }, [
+      add(el("div", { className: "cee-doc-table", tabIndex: 0 }, [el("table", { className: "cee-names" }, [
         el("thead", {}, el("tr", {}, head.map(h => el("th", { scope: "col" }, inline(h, onJump))))),
         el("tbody", {}, rows.map(r => el("tr", {}, r.map(c => el("td", {}, inline(c, onJump)))))),
       ])]));

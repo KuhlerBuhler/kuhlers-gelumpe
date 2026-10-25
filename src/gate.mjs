@@ -13,7 +13,7 @@
  */
 import { checkReadGuard } from "./guards.mjs";
 import { recordOf } from "./presets.mjs";
-import { describeMessage, parseReadRam, parsePatternDump } from "./protocol.mjs";
+import { BLECH, describeMessage, parseReadRam, parsePatternDump } from "./protocol.mjs";
 import { allowedRegions, allowedExecutes } from "./plan.mjs";
 import { accessOf, refusal, UNKNOWN_COMMAND } from "./protect.mjs";
 import { lint, SEVERITY_ORDER } from "./rules.mjs";
@@ -58,7 +58,7 @@ export function preconditions(ctx, edit = {}) {
     if (!ctx.device.versionKnown) out.push(reason("error", "unknown-device", `Unbekannter Gerätestand (Gerätesuche meldet ${ctx.device.version.join(".")}). Unbekannt heißt: nur lesen.`));
     const ram = ctx.device.ram ?? (ctx.device.hacktribe ? "hacktribe" : null);
     if (!pattern && !ram) out.push(reason("error", "no-hacktribe", "Das Gerät beantwortet weder BLECHs noch Hacktribes Befehle für das RAM. Live ins RAM geht nur mit BLECH oder Hacktribe."));
-    if (edit.kind === "exec" && !ctx.device.hacktribe) out.push(reason("error", "exec-needs-hacktribe", "Code ausführen geht nur mit Hacktribes Befehl 0x57. BLECHs Befehle lesen und schreiben das RAM und führen nichts aus."));
+    if (edit.kind === "exec" && !ctx.device.hacktribe && !(ctx.device.blech?.flags & BLECH.FLAG_EXEC)) out.push(reason("error", "exec-needs-hacktribe", "Code ausführen geht nur mit BLECHs EXEC oder Hacktribes Befehl 0x57. Diese Firmware hat keinen von beiden."));
   }
   if (!pattern) {
     if (!ctx.firmware) out.push(reason("error", "no-firmware", "Live ins RAM geht nur mit geladener Firmware-Datei: ohne sie fehlt der Simulation das Abbild und dem Prüfer das Werksprofil."));

@@ -82,7 +82,7 @@ test("the table in the code is the rule: a cycle per family, the same make acros
 test("it sits clear of every other patch of the stock set and is accepted with all of them", () => {
   const span = (c, id) => [c.file, c.file + (c.bytes ? c.bytes.length / 2 : c.copy.length), id];
   const mine = PATCH.changes.map(c => span(c, PATCH.id));
-  const others = STOCK_SET.filter(p => p.id !== PATCH.id).flatMap(p => p.changes.filter(c => typeof c.file === "number").map(c => span(c, p.id)));
+  const others = STOCK_SET.filter(p => p.id !== PATCH.id).flatMap(p => (p.changes ?? []).filter(c => typeof c.file === "number").map(c => span(c, p.id)));
   for (const [a, b] of mine) for (const [c, d, id] of others) assert.ok(b <= c || d <= a, `synth-filters and ${id} overlap at 0x${Math.max(a, c).toString(16)}`);
   const res = checkHooks(STOCK_SET);
   assert.equal(res.ok, true, res.reasons.join(" "));

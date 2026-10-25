@@ -58,6 +58,9 @@ class Encodings(unittest.TestCase):
         ("strne r1, [r2]", 0x15821000),
         ("mul r2, r0, r3", 0xE0020390),
         ("mulne r3, r1, r2", 0x10030291),
+        ("mla r2, r0, r1, r4", 0xE0224190),
+        ("mlane r3, r1, r2, r4", 0x10234291),
+        ("mlas r2, r0, r1, r4", 0xE0324190),
     ]
 
     def test_known_words(self):
@@ -105,6 +108,14 @@ class Encodings(unittest.TestCase):
     def test_errors(self):
         for bad in ("mov r0, #0x12345", "foo r0", "ldr r0, [r1, #4096]", "b nowhere", "ldrh r0, [r1]", "mul r1, r1, r2"):
             with self.assertRaises(arm.AsmError, msg=bad):
+                arm.assemble(bad)
+
+    def test_mla_rejects_unpredictable_registers_and_wrong_arity(self):
+        for bad in ("mla r1, r1, r2, r3", "mla pc, r0, r1, r2",
+                    "mla r0, pc, r1, r2", "mla r0, r1, pc, r2",
+                    "mla r0, r1, r2, pc", "mla r0, r1, r2",
+                    "mla r0, r1, r2, r3, r4"):
+            with self.subTest(source=bad), self.assertRaises(arm.AsmError):
                 arm.assemble(bad)
 
     @unittest.skipUnless(capstone, "capstone not installed")

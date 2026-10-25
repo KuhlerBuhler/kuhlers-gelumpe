@@ -27,11 +27,69 @@ script_runtime_init:
 mem_fill:
     cmp r2, #0
     bxeq lr
+    cmp r2, #16
+    blo mf_loop
+    push {r3}
+    and r3, r1, #255
+    orr r3, r3, r3, lsl #8
+    orr r3, r3, r3, lsl #16
+mf_align:
+    tst r0, #3
+    beq mf_blocks
+    strb r1, [r0], #1
+    sub r2, r2, #1
+    b mf_align
+mf_blocks:
+    cmp r2, #16
+    blo mf_words
+    str r3, [r0]
+    str r3, [r0, #4]
+    str r3, [r0, #8]
+    str r3, [r0, #12]
+    add r0, r0, #16
+    sub r2, r2, #16
+    b mf_blocks
+mf_words:
+    cmp r2, #4
+    blo mf_tail
+    str r3, [r0], #4
+    sub r2, r2, #4
+    b mf_words
+mf_tail:
+    pop {r3}
+    cmp r2, #0
+    bxeq lr
 mf_loop:
     strb r1, [r0], #1
     subs r2, r2, #1
     bne mf_loop
     bx lr
+
+; r0 bytes, r1 length, r2 running CRC state; r0 and r1 return the end.
+crc_update:
+    ldr r12, =0xEDB88320
+    add r1, r0, r1
+crc_update_byte:
+    cmp r0, r1
+    bhs crc_update_done
+    ldrb r3, [r0], #1
+    eor r2, r2, r3
+    mov r3, #2
+crc_update_bits:
+    movs r2, r2, lsr #1
+    eorcs r2, r2, r12
+    movs r2, r2, lsr #1
+    eorcs r2, r2, r12
+    movs r2, r2, lsr #1
+    eorcs r2, r2, r12
+    movs r2, r2, lsr #1
+    eorcs r2, r2, r12
+    subs r3, r3, #1
+    bne crc_update_bits
+    b crc_update_byte
+crc_update_done:
+    bx lr
+.pool
 
 ; r0 address -> little endian halfword, no alignment requirement.
 read_half:
@@ -42,38 +100,29 @@ read_half:
 
 ; r0 instruction address, r1 opcode -> r0 first operand, r1 second operand.
 decode_operands:
-    push {r4-r6, lr}
-    mov r4, r0
+    mov r12, r0
     ldr r2, =script_op_operands
     add r2, r2, r1, lsl #1
     ldrb r3, [r2]
-    ldrb r6, [r2, #1]
-    mov r5, #0
+    ldrb r2, [r2, #1]
+    mov r0, #0
     cmp r3, #ARG_NONE
     beq dec_second
-    ldrb r5, [r4, #1]
-    add r4, r4, #1
-    cmp r3, #ARG_VAR
-    blo dec_second
-    cmp r3, #ARG_TARGET
-    bhi dec_second
-    ldrb r3, [r4, #1]
-    orr r5, r5, r3, lsl #8
-    add r4, r4, #1
+    ldrb r0, [r12, #1]!
+    sub r3, r3, #ARG_VAR
+    cmp r3, #ARG_TARGET-ARG_VAR
+    ldrbls r3, [r12, #1]!
+    orrls r0, r0, r3, lsl #8
 dec_second:
     mov r1, #0
-    cmp r6, #ARG_NONE
-    beq dec_done
-    ldrb r1, [r4, #1]
-    cmp r6, #ARG_VAR
-    blo dec_done
-    cmp r6, #ARG_TARGET
-    bhi dec_done
-    ldrb r3, [r4, #2]
-    orr r1, r1, r3, lsl #8
-dec_done:
-    mov r0, r5
-    pop {r4-r6, pc}
+    cmp r2, #ARG_NONE
+    bxeq lr
+    ldrb r1, [r12, #1]
+    sub r2, r2, #ARG_VAR
+    cmp r2, #ARG_TARGET-ARG_VAR
+    ldrbls r3, [r12, #2]
+    orrls r1, r1, r3, lsl #8
+    bx lr
 .pool
 
 ; r4 runtime, r6 GSCR block. Only section pointers are changed.
@@ -179,33 +228,38 @@ script_load_block_ex:
     ldr r0, [r4, #RT_LINES]
     ldr r1, [r4, #RT_LINECOUNT]
     add r0, r0, r1, lsl #2
-    sub r0, r0, r6
+    sub r10, r0, r6
     ldr r9, [r6, #HDR_TOTAL_SIZE]
-    cmp r0, r9
+    add r0, r6, #HDR_FLAGS
+    bl read_half
+    tst r0, #BLOCK_FLAG_DATA
+    beq size_plain
+    cmp r10, r9                 ; a data section follows the lines up to totalSize
+    bhs l_bad_size
+    b size_known
+size_plain:
+    cmp r10, r9
     bne l_bad_size
+size_known:
     cmp r7, r9
     blo l_truncated
     add r0, r6, #HDR_CHECKSUM+4
-    add r1, r6, r9
+    sub r1, r9, #HDR_CHECKSUM+4
     mvn r2, #0
-    ldr r5, =0xEDB88320
-crc_byte:
-    cmp r0, r1
-    bhs crc_done
-    ldrb r3, [r0], #1
-    eor r2, r2, r3
-    mov r3, #8
-crc_bit:
-    movs r2, r2, lsr #1
-    eorcs r2, r2, r5
-    subs r3, r3, #1
-    bne crc_bit
-    b crc_byte
-crc_done:
+    bl crc_update
     mvn r2, r2
     ldr r0, [r6, #HDR_CHECKSUM]
     cmp r0, r2
     bne l_checksum
+    mov r0, r6
+    mov r1, #0
+    mov r2, r10
+    mov r3, r9
+    bl data_walk
+    cmp r0, #1
+    beq l_bad_size
+    cmp r0, #2
+    beq l_bad_var
     ldr r5, [r4, #RT_STRINGS]
     ldr r7, [r4, #RT_CODE]
 text_slot:
@@ -280,6 +334,14 @@ copy_done:
     mov r2, r2, lsl #2
     mov r1, #0
     bl mem_fill
+    ldr r0, [r4, #RT_LINES]
+    ldr r1, [r4, #RT_LINECOUNT]
+    add r2, r0, r1, lsl #2
+    sub r2, r2, r6
+    mov r0, r11
+    ldr r1, [r5, #SCRIPT_ENTRY_VARS]
+    ldr r3, [r6, #HDR_TOTAL_SIZE]
+    bl data_walk
     mov r0, #SCRIPT_STATE_LOADED
     str r0, [r5, #SCRIPT_ENTRY_STATE]
     ldr r0, [r4, #RT_TAIL]
@@ -299,12 +361,63 @@ load_return:
     pop {r4-r11, pc}
 .pool
 
+; The data section (BLOCK_FLAG_DATA): r0 = the block, r1 = its variables (0: only check), r2 = where the section starts in
+; the block, r3 = totalSize -> r0 = 0 fine, 1 a record runs past totalSize, 2 a record is empty or leaves the variables.
+; With variables, every byte of a record goes into one slot, from slot `base` on. Clobbers r1 to r3 and r12.
+data_walk:
+    push {r4-r8, lr}
+    ldr r8, [r0, #HDR_VAR_COUNT]
+    add r4, r0, r2
+    add r5, r0, r3
+dw_next:
+    cmp r4, r5
+    movhs r0, #0
+    bhs dw_done
+    add r6, r4, #4
+    cmp r6, r5
+    bhi dw_size
+    ldrb r6, [r4]
+    ldrb r7, [r4, #1]
+    orr r6, r6, r7, lsl #8
+    ldrb r7, [r4, #2]
+    ldrb r12, [r4, #3]
+    orr r7, r7, r12, lsl #8
+    cmp r7, #0
+    beq dw_var
+    add r12, r6, r7
+    cmp r12, r8
+    bhi dw_var
+    add r4, r4, #4
+    add r12, r7, #3
+    bic r12, r12, #3
+    add r12, r4, r12
+    cmp r12, r5
+    bhi dw_size
+    cmp r1, #0
+    beq dw_skip
+    add r2, r1, r6, lsl #2
+dw_copy:
+    ldrb r3, [r4], #1
+    str r3, [r2], #4
+    subs r7, r7, #1
+    bne dw_copy
+dw_skip:
+    mov r4, r12
+    b dw_next
+dw_size:
+    mov r0, #1
+    b dw_done
+dw_var:
+    mov r0, #2
+dw_done:
+    pop {r4-r8, pc}
+
 verify_code:
     push {r5, r7, r9-r11, lr}
     ldr r0, =RT_BOUNDARIES
     add r0, r4, r0
     mov r1, #0
-    ldr r2, =LIM_CODE
+    ldr r2, [r4, #RT_CODESIZE]
     bl mem_fill
     ldr r7, [r4, #RT_CODE]
     ldr r9, [r4, #RT_CODESIZE]
@@ -424,12 +537,12 @@ vc_next:
     ldr r0, =RT_ARGC
     add r0, r4, r0
     mov r1, #255
-    ldr r2, =LIM_CODE
+    ldr r2, [r4, #RT_CODESIZE]
     bl mem_fill
     ldr r0, =RT_FNSTATE
     add r0, r4, r0
     mov r1, #0
-    ldr r2, =LIM_CODE
+    ldr r2, [r4, #RT_CODESIZE]
     bl mem_fill
     add r0, r6, #HDR_ENTRY
     bl read_half
@@ -583,7 +696,7 @@ vf_restart:
     ldr r0, =RT_DEPTH
     add r0, r4, r0
     mov r1, #255
-    ldr r2, =LIM_CODE
+    ldr r2, [r4, #RT_CODESIZE]
     bl mem_fill
     ldr r0, =RT_ARGC
     add r0, r4, r0
@@ -739,7 +852,7 @@ verify_event:
     ldr r0, =RT_DEPTH
     add r0, r4, r0
     mov r1, #0
-    ldr r2, =LIM_CODE
+    ldr r2, [r4, #RT_CODESIZE]
     bl mem_fill
     mov r10, #0
 ve_ins:

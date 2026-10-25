@@ -14,6 +14,15 @@ try:
 except ModuleNotFoundError:
     pass
 
+class SharedWordTests(unittest.TestCase):
+    def test_load_bar_reads_the_app_picture_where_it_is(self):
+        """tools/patch/load_bar.py leaves a frame equal to the open app's picture without the look; it names the address itself."""
+        from tools.patch.script_hooks import build, RUNTIME
+        from tools.patch import load_bar
+        for name in ('hacktribe','stock'):
+            built=build(contract_data()['include'],build=name)
+            self.assertEqual(load_bar.APP_PICTURE,RUNTIME+built.symbols['RT_DISPLAY'],name)
+
 @unittest.skipUnless(UNICORN_AVAILABLE,'Unicorn is required for native hook tests')
 class HookTests(unittest.TestCase):
     def machine(self):
@@ -26,6 +35,9 @@ class HookTests(unittest.TestCase):
         machine.uc.mem_map(BLECHY_BLOCK,BLECHY_BLOCK_END-BLECHY_BLOCK)    # where the image holds the block of Blechy
         from tools.patch.script_hooks import MORE_START,MORE_END
         machine.uc.mem_map(MORE_START,(MORE_END-MORE_START+0xFFF)&~0xFFF)  # the second code area (display, store, hardware, events, apps)
+        from tools.patch.script_hooks import runtime_profile
+        work = runtime_profile('hacktribe').actions['MG_WORK']
+        machine.uc.mem_map(work&~0xFFF,((work+0xF00+0xFFF)&~0xFFF)-(work&~0xFFF))  # the folder copy's work area, read by every input
         for address,data in built.sections[len(built.vm.sections):]:
             machine.uc.mem_write(address,data)
         machine.symbols.update(built.symbols)
@@ -37,6 +49,7 @@ class HookTests(unittest.TestCase):
         machine.write(0xC0083710,0xC031BB2C)
         machine.uc.mem_map(0xC033E000,4096)
         machine.uc.mem_map(0xC0340000,4096)
+        machine.uc.mem_map(0xC0345000,4096)    # the LED manager's pointer (0xC0345A1C), 0: the unsaved WRITE LED stays out
         machine.uc.mem_map(0xC0310000,0x10000)
         for at,size in [(0xC0690000,0x2000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)
         machine.write(0xC033E6F8,machine.input+0x1000)
@@ -444,7 +457,7 @@ class HookTests(unittest.TestCase):
         machine.write(machine.runtime+88,entry)
         return machine.call('script_app_glue',machine.input+0x6000,machine.input+0x6040)
 
-    def test_korg_app_registers_each_script_once_in_a_group_and_refuses_a_ninth(self):
+    def test_korg_app_registers_each_script_once_in_a_group_and_refuses_a_thirteenth(self):
         machine,built=self.machine()
         base=self.apps_base(machine,built)
         self.assertEqual(self.call_glue(machine,built,'Snake','GAMES',0x1000),(0,0))
@@ -456,9 +469,12 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.call_glue(machine,built,'X','MUSIC',0x3000),(0,error))
         self.assertEqual(self.call_glue(machine,built,'','GAMES',0x3000),(0,error))
         self.assertEqual(self.call_glue(machine,built,'X','GAMESX',0x3000),(0,error),'the group is compared whole')
-        for i in range(6): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],2+i)
+        for i in range(10): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],2+i)
+        from tools.patch.script_hooks import MENU_STATE
+        machine.write(MENU_STATE+36,0)
         self.assertEqual(self.call_glue(machine,built,'Late','GAMES',0x5000),(0xffffffff,0))
-        self.assertEqual(machine.read(base+4),8)
+        self.assertEqual(machine.read(base+4),12)
+        self.assertEqual(machine.read(MENU_STATE+36),0x37,'the import page says that no app place is left')
 
     def test_take_and_release(self):
         machine,built=self.machine()
@@ -516,11 +532,12 @@ class HookTests(unittest.TestCase):
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
         card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
-        self.assertEqual(len(patch['startPhase']),42)
+        self.assertEqual(len(patch['startPhase']),46)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]
-        pairs+=[('blechy_boot','blechy_boot_end'),('menu_arm','menu_arm_end'),('menu_arm_load','menu_arm_load_end'),('menu_settings_load','menu_settings_end'),('menu_needs_confirm','menu_confirm'),('menu_recount','menu_recount_end'),('menu_event_right','menu_hooks_end'),('led_meter_hook','look_hooks_end')]
+        pairs+=[('blechy_boot','blechy_boot_end'),('menu_arm','menu_arm_end'),('menu_arm_load','menu_arm_load_end'),('menu_settings_load','menu_settings_end'),('menu_needs_confirm','menu_confirm'),('menu_recount','menu_recount_end'),('menu_event_right','menu_hooks_end'),('led_meter_hook','look_hooks_end'),
+            ('shortcut_input','shortcut_tick'),('shortcut_pool','shortcut_end'),('migrate_start','migrate_end'),('fx_card_load','fx_card_load_end')]
         spans=sum(built.symbols[end]-built.symbols[start] for start,end in pairs)
         self.assertEqual(sum(span['length'] for span in patch['startPhase']),spans+len(SITES)*4+len(WORDS)*4+184+card+len(built.sections[-1][1])+len(built.sections[0][1]))
         size=lambda change: len(change['bytes'])//2 if 'bytes' in change else change['copy']['length']
@@ -622,13 +639,13 @@ class HookTests(unittest.TestCase):
         self.assertEqual((machine.read(again),machine.read(again+12),machine.read(machine.runtime+4)),(0,2,again),'one entry, started again, armed')
         self.assertEqual(machine.read(machine.runtime+96),1)
 
-    def test_the_app_limit_for_plugins_stays_eight_with_him_in_the_table(self):
+    def test_the_app_limit_for_plugins_stays_twelve_with_him_in_the_table(self):
         machine,built=self.machine()
         self.booted(machine,built)
         base=self.apps_base(machine,built)
-        for i in range(8): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],1+i)
+        for i in range(12): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],1+i)
         self.assertEqual(self.call_glue(machine,built,'Late','GAMES',0x5000),(0xffffffff,0))
-        self.assertEqual(machine.read(base+4),9)
+        self.assertEqual(machine.read(base+4),13)
         self.assertEqual(self.call_glue(machine,built,'Blechy','GAMES',machine.read(base+8)),(0,0),'his own call only names him')
         self.assertEqual(machine.read(base+8+8),built.symbols['SCRIPT_APPS_BUILTIN_GROUP'],'and his group stays hidden')
 
@@ -708,5 +725,60 @@ class HookTests(unittest.TestCase):
         self.page(machine,0x2D,0)
         self.assertEqual(self.input(machine,[0,34,1,0,0]),0xC0028380)
         self.assertEqual(self.drain(machine),[],'the other pages of the menu show the plugins nothing, as before')
+
+
+@unittest.skipUnless(UNICORN_AVAILABLE, 'Unicorn is required for native settings tests')
+class MenuSettingsTests(unittest.TestCase):
+    def test_off_flags_survive_mixed_settings_and_pad_calls(self):
+        import itertools
+        import zlib
+        from tools.patch.script_hooks import build
+        from unicorn.arm_const import UC_ARM_REG_PC
+        for build_name in ('hacktribe', 'stock', 'synth'):
+            built = build(contract_data()['include'], build=build_name)
+            machine = BareMachine(built.vm)
+            for address, data in built.sections:
+                for page in range(address & ~4095, (address + len(data) + 4095) & ~4095, 4096):
+                    if not any(a <= page <= b for a, b, _ in machine.uc.mem_regions()):
+                        machine.uc.mem_map(page, 4096)
+                machine.uc.mem_write(address, data)
+            machine.symbols.update(built.symbols)
+            symbols = machine.symbols
+            state = symbols['MENU_STATE']
+            opened = []
+            def glue(uc, address, size, _):
+                if address == symbols['menu_pc_call']:
+                    offset = uc.reg_read(UC_ARM_REG_R1)
+                    uc.reg_write(UC_ARM_REG_R0, {20: 2, 28: 13, 4: 0x120}[offset])
+                    uc.reg_write(UC_ARM_REG_R1, 0xdeadbeef)
+                    uc.reg_write(UC_ARM_REG_R2, 0xa5a5a5a5)
+                    uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
+                elif address == symbols['FS_OPEN']:
+                    opened.append(bytes(uc.mem_read(state + symbols['M_FILE_A'], 24)))
+                    uc.reg_write(UC_ARM_REG_PC, machine.stop)
+            fs_page = symbols['FS_OPEN'] & ~4095
+            if not any(a <= fs_page <= b for a, b, _ in machine.uc.mem_regions()):
+                machine.uc.mem_map(fs_page, 4096)
+            machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['menu_pc_call'], end=symbols['menu_pc_call'])
+            machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['FS_OPEN'], end=symbols['FS_OPEN'])
+            machine.write(symbols['HOOK_RUNTIME'] + symbols['RT_HEAD'], 0)
+            for run, mfx, pc, na, tm in itertools.product(range(2), range(2), range(2), range(2), range(3)):
+                with self.subTest(build=build_name, run=run, mfx=mfx, pc=pc, na=na, tm=tm):
+                    machine.uc.mem_write(state - 32, bytes(544))
+                    for name, value in [('M_SET_RUN', run), ('M_SET_MFX', mfx), ('M_PC', pc), ('M_NA', na), ('M_TM', tm)]:
+                        machine.write(state + symbols[name], value)
+                    for name, value in [('MX_INTENS', 9), ('MX_SAVE', 5)]:
+                        machine.uc.mem_write((state + symbols[name]) & 0xffffffff, bytes([value]))
+                    machine.uc.mem_write((state + symbols['MX_METER']) & 0xffffffff, bytes([1, 2, 3, 4]))
+                    opened.clear()
+                    machine.call('menu_settings_save')
+                    self.assertEqual(len(opened), 1)
+                    data = opened[0]
+                    expected = run | (mfx << 1) | ((1-pc) << 2) | ((tm == 0) << 3) | ((1-na) << 4) | ((tm == 2) << 5)
+                    expected |= (6 << 8) | (5 << 12) | ((1 | (2 << 3) | (3 << 6) | (4 << 9)) << 16)
+                    expected |= (2 << 28) | (1 << 6) | (1 << 31)
+                    self.assertEqual(struct.unpack_from('<I', data, 12)[0], expected)
+                    self.assertEqual(struct.unpack_from('<I', data, 16)[0], 0x80000120)
+                    self.assertEqual(struct.unpack_from('<I', data, 20)[0], zlib.crc32(data[:20]))
 
 if __name__=='__main__': unittest.main()

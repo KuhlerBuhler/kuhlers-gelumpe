@@ -12,9 +12,9 @@
  * run in the emulator only, and what they return is the emulator's. The send
  * does not repeat them on the device; what the device checks itself are the
  * reads that belong to a write (the backup, the read-back of what was
- * written, the check of firmware code before code runs). Keys pressed in a
- * script have no counterpart on the device, so a script that presses keys
- * can be tried in the emulator but not sent.
+ * written, the check of firmware code before code runs). Keys go through
+ * KORG.exec on a firmware with the BLECH runtime and are sent like any exec;
+ * without it they are the emulator's panel and the script cannot be sent.
  */
 import { makeKorg, ensureFirmware } from "./korg.mjs";
 import { rehearse, isPassed } from "./rehearsal.mjs";
@@ -37,25 +37,28 @@ export class Terminal {
    * @param {{ port: object, baseFirmware: Uint8Array | null, button: (index: number) => Promise<void> }} o.emulator
    * @param {() => Promise<object>} o.probe the shared session on the emulator port, for rehearsals
    * @param {object} [o.timing] settleMs and codeSettleMs for rehearse(), for tests
+   * @param {() => boolean} [o.forward] whether scripts go on to a connected real device (the switch of the console)
    */
-  constructor({ device, emulator, probe, timing = {} }) {
+  constructor({ device, emulator, probe, timing = {}, forward = () => true }) {
     this.device = device;
     this.emulator = emulator;
     this.probe = probe;
     this.timing = timing;
+    this.forward = forward;
     this.used = new WeakSet();
   }
 
-  /** "none", "emulator" (the connected session is the emulator) or "device" (a real device, through the emulator). */
+  /** "emulator", always there, or "device": forwarding is on and a real device is connected, so everything goes through the emulator first. */
   get mode() {
     const s = this.device.session;
-    if (!s) return "none";
-    return s.port === this.emulator.port ? "emulator" : "device";
+    return this.forward() && s && s.port !== this.emulator.port ? "device" : "emulator";
   }
 
-  /** Run a script in the emulator session that is connected; nothing involves the device. `print` gets a script's progress lines while it runs. */
+  /** Run a script in the emulator; nothing involves the device. `print` gets a script's progress lines while it runs. */
   async runDirect(code, { print = null } = {}) {
-    const s = this.device.session;
+    if (this.emulator.port.running === false) throw new Error("Der Emulator ist aus. Tippe „start“, dann läuft er.");
+    const own = this.device.session;
+    const s = own && own.port === this.emulator.port ? own : await this.probe();
     const release = s.reserve?.({ wait: true }) ?? (() => {});
     try {
       await s.idle?.();

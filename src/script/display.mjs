@@ -90,8 +90,8 @@ export class Display {
 /** The screen a faulted script leaves: its name, the source line and the error name, one text row each. */
 export function drawFault(display, script, line, errorName) {
   display.clear();
-  display.text(script, 0, 0);
-  display.text("Zeile", 0, 10);
-  display.number(line, 36, 10);
-  display.text(errorName, 0, 20);
+  display.text(script, 4, 2);
+  display.text("Zeile", 4, 12);
+  display.number(line, 40, 12);
+  display.text(errorName, 4, 22);
 }

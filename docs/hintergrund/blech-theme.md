@@ -16,12 +16,12 @@ liegen im Repo.
 
 ## Aussehen
 
-Blech, roh, einbittig. Ecken sind abgeschnitten wie bei gestanztem Blech, nicht gerundet. Das große O ist ein Auge mit
-Schlitzpupille, die Null trägt die Pupille, jede Zahl hat also ein Auge. Das A ist spitz, das Q tropft. Die
+Blech, roh, einbittig. Ecken sind abgeschnitten wie bei gestanztem Blech, nicht gerundet. Das große O ist ein glatter Ring,
+nur die Null trägt die Schlitzpupille, jede Zahl hat also ein Auge. Das A ist spitz, das Q tropft. Die
 Schildchen (`EDIT`, `CLIP`, `ORIG` und so weiter) sind Platten mit abgeschnittenen Ecken und ausgestanzter
 Schrift, die Batterie ist ein Blechkasten. Die Schrift 1 ist kräftig (Striche zwei Pixel breit), die Schrift 3 ist
-dünn, die Schrift 2 hat Festbreite. In der Festbreitenschrift ist das O ein glatter Ring und nur die Null trägt
-die Pupille, damit ein Name beide auseinanderhält. Alles bleibt auf 128 x 64 lesbar: keine Verzierung im
+dünn, die Schrift 2 hat Festbreite. So hält ein Name O und Null in jeder Schrift
+auseinander. Alles bleibt auf 128 x 64 lesbar: keine Verzierung im
 Zeichenkörper selbst, die Auffälligkeit sitzt in wenigen Formen.
 
 Vorschau: [theme-preview.png](../../assets/blechy/theme-preview.png), die wichtigsten Bildschirme und alle
@@ -43,8 +43,12 @@ und die Prüfsummen und lehnt ab, was die Firmware stören würde:
 | Alle 95 druckbaren ASCII-Zeichen sind in allen vier Schriften belegt (oder mit `null` als unberührt vermerkt) | Namen sind frei wählbar, die Firmware druckt jedes davon |
 | Kein Zeichen sieht aus wie ein anderes, verwechselbare Paare (`O 0`, `I l 1`, `S 5` und so weiter) unterscheiden sich um mindestens zwei Pixel | Lesbarkeit |
 
+Wo unsere Zeichnung vier Byte oder mehr mit der der Firmware übereinstimmt, lässt der Generator diese Bytes aus dem
+Patch weg: sie stehen schon auf dem Gerät, der Patch enthält so keine Bytes der Firmware (geprüft in
+`test/blech-theme.test.mjs` mit `E2_VSB`).
+
 `node tools/patch/blech_theme.mjs --check` prüft die Zeichnungen allein, ohne Firmware. Der Patch besteht aus rohen Änderungen,
-je Glyph-Bitmap, je geändertem Maßfeld und je Symbol eine, jede mit der Prüfsumme der Bytes, die sie ersetzt. Eine
+je geändertem Stück einer Glyph-Bitmap, eines Maßfelds oder eines Symbols eine, jede mit der Prüfsumme der Bytes, die sie ersetzt. Eine
 `copy`-Änderung auf sich selbst wäre kürzer, aber `patchesPresent` erkennt ein angewendetes BLECH dann nicht mehr (die
 Quelle hat sich ja geändert).
 

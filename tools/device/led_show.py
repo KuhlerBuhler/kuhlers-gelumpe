@@ -6,9 +6,9 @@ back afterwards. Stops before anything is written if the firmware code it
 calls does not match the measured build.
 
     python3 led_show.py --emu VSB          # against the local emulator
-    python3 led_show.py --dry-run          # on the laptop: checks only, writes nothing
-    python3 led_show.py                     # on the laptop: the pads pattern, held
-    python3 led_show.py --animate comet     # on the laptop: a running light over the pads
+    python3 led_show.py --dry-run          # device on USB: checks only, writes nothing
+    python3 led_show.py                     # device on USB: the pads pattern, held
+    python3 led_show.py --animate comet     # device on USB: a running light over the pads
 """
 import argparse
 import hashlib
@@ -128,6 +128,11 @@ class Device:
         if reply[:4] != [0xF0, 0x42, 0x50, 0x01] or reply[6] != 0x24:
             raise SystemExit(f"no Electribe sampler answered the search: {bytes(reply).hex()}")
         self.head = [0x42, 0x30 + reply[4], 0x00, 0x01, 0x24]
+        # The firmware with BLECH drops Hacktribe's commands unless EXIT was held at power-on (tools/patch/blech_sysex.py).
+        try:
+            self.read(0xC0000040, 4)
+        except SystemExit:
+            raise SystemExit("Hacktribe's RAM read gets no answer. With BLECH, switch the device on with EXIT held.") from None
 
     def msg(self, func, payload=b""):
         return [0xF0, *self.head, func, *enc(payload), 0xF7]

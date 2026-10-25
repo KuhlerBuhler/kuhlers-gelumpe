@@ -23,17 +23,24 @@ void doom_load(void)
     zero((void *)state, sizeof(*state));
     state->magic=DOOM_BOOT_MAGIC; state->version=DOOM_BOOT_VERSION;
     state->stage=DOOM_STAGE_SELECTED;
+    doom_status_display("DOOM", "BOOT", 0, 0);
     ((void (*)(int))0xC0025754u)(1);
     ((void (*)(int))0xC00005A0u)(8);
     ((void (*)(int))0xC0025A14u)(1);
     ((void (*)(void))0xC003FD20u)();
-    /* The firmware has just mounted the card (its own FatFs volume, as the plugins read it). Mounting it again this early
-       failed on the device with FR_DISK_ERR (0x101). Its volume entry is 0 or its type byte 0 when there is no card. */
+    /* FatFs registers the volume before mounting it lazily on the first file access. */
     const unsigned char *volume = *(const unsigned char *const *)0xC06A010Cu;
-    if (!volume || !volume[0]) failed(0x100u);
+    if (!volume) failed(0x100u);
+    int result=1;
+    for (unsigned int attempt=0; attempt<6; ++attempt) {
+        result=((int (*)(void *,const char *,int))0xC009DB60u)(fil,DOOM_PROGRAM_PATH,1);
+        if (!result) break;
+        doom_power_poll_initializing();
+        ((void (*)(unsigned int))0xC0000B78u)(500);
+    }
+    if (result) failed((volume[0] ? 0x200u : 0x100u)+(unsigned int)result);
     state->stage=DOOM_STAGE_MOUNTED;
-    int result=((int (*)(void *,const char *,int))0xC009DB60u)(fil,DOOM_PROGRAM_PATH,1);
-    if (result) failed(0x200u+(unsigned int)result);
+    doom_status_display("DOOM", "READ", 0, 1);
     if (fil[3] != EXPECTED_PROGRAM_BYTES) {
         ((int (*)(void *))0xC009E3DCu)(fil);
         failed(0x300);
@@ -52,6 +59,8 @@ void doom_load(void)
         sha256_add(&hash,at,count);
         doom_power_poll_initializing();
         left-=count; at+=count;
+        if (!((EXPECTED_PROGRAM_BYTES-left) & 0x7fffu) || !left)
+            doom_status_display("DOOM", "READ", EXPECTED_PROGRAM_BYTES-left, 1);
     }
     result=((int (*)(void *))0xC009E3DCu)(fil);
     if (result) failed(0x600u+(unsigned int)result);
@@ -59,5 +68,6 @@ void doom_load(void)
     static const unsigned char expected[32]=EXPECTED_PROGRAM_SHA256;
     for (unsigned int i=0; i<32; ++i) if (digest[i]!=expected[i]) failed(0x500);
     state->stage=DOOM_STAGE_VERIFIED;
+    doom_status_display("DOOM", "START", 0, 0);
     doom_enter((void *)state);
 }

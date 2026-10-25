@@ -1,0 +1,448 @@
+{
+  "date": "2026-10-20",
+  "baselineProductCommit": "0b2aad8de3a91b8a9dab8c67a66f73b5d6ca6a3c",
+  "mul": {
+    "baseline": {
+      "pairs": 2225,
+      "meanInstructions": 696.0314606741573,
+      "maxHandlerInstructions": 168,
+      "resultsMatch": true,
+      "vmCodeBytes": 11352,
+      "vectorsSha256": "2cd65429c0ec508b05477b96da9aaba7b3e657f0275c6fd524edb1587f05376b"
+    },
+    "candidate": {
+      "pairs": 2225,
+      "meanInstructions": 558.0,
+      "maxHandlerInstructions": 7,
+      "resultsMatch": true,
+      "vmCodeBytes": 11328,
+      "vectorsSha256": "2cd65429c0ec508b05477b96da9aaba7b3e657f0275c6fd524edb1587f05376b"
+    },
+    "fullHandlerReductionPercent": 19.83121000600515,
+    "minimumReductionPercent": 20,
+    "minimumReached": false,
+    "nativeTestsPassed": 17,
+    "acceptedDeviation": {
+      "originalMinimumReductionPercent": 20,
+      "acceptedMeasuredReductionPercent": 19.83121000600515,
+      "acceptance": "19,83 % als ausreichend annehmen; übrige Regressionen müssen bestehen"
+    },
+    "acceptedMinimumReductionPercent": 19.83,
+    "acceptedMinimumReached": true
+  },
+  "originalScan": {
+    "hacktribe": {
+      "inputSha256": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+      "payloadBytesScanned": 2097152,
+      "alignedWordsScanned": 524288,
+      "directRootGraphWords": 5667,
+      "exactBoundedDuplicateGroups": 49,
+      "completeControlFlowCoverage": false
+    },
+    "stock": {
+      "inputSha256": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+      "payloadBytesScanned": 2097152,
+      "alignedWordsScanned": 524288,
+      "directRootGraphWords": 5667,
+      "exactBoundedDuplicateGroups": 46,
+      "completeControlFlowCoverage": false
+    },
+    "synth": {
+      "inputSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "payloadBytesScanned": 2097152,
+      "alignedWordsScanned": 524288,
+      "directRootGraphWords": 5667,
+      "exactBoundedDuplicateGroups": 41,
+      "completeControlFlowCoverage": false
+    }
+  },
+  "original112": {
+    "vectorsPerBuild": 64,
+    "builds": 3,
+    "resultsMemoryRegistersAndInstructionsMatch": true,
+    "realIndirectMethodsCovered": false,
+    "originalReplaced": false
+  },
+  "fill": {
+    "vectorsPerBuild": 256,
+    "builds": 3,
+    "resultsAndGuardsMatch": true,
+    "bytesPerLargeCall": 163840,
+    "baselineInstructions": 491523,
+    "originalInstructions": 81948,
+    "dropInRegisterContractProven": false,
+    "sampleIoGainProven": false
+  },
+  "fullSetChecks": {
+    "ok": true,
+    "sourcesUnchanged": true,
+    "builds": {
+      "hacktribe": {
+        "inputSha256": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+        "outputSha256": "c7c8ad3c136cbe0964c9446934b94145a0f16ab696dc23678e75294cd640d8a3",
+        "checks": 432,
+        "tasksDone": 104,
+        "tasksTotal": 104,
+        "failures": 0,
+        "codeDataBytes": 86960,
+        "ramBytes": 451587,
+        "occupiedBytes": 538547,
+        "unallocatedBytes": 34445
+      },
+      "stock": {
+        "inputSha256": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+        "outputSha256": "fdce693a71cf7bc9ba48177b1c35dd4e2c13887d692bc1e9a00f63702aa0b0fd",
+        "checks": 457,
+        "tasksDone": 111,
+        "tasksTotal": 111,
+        "failures": 0,
+        "codeDataBytes": 87171,
+        "ramBytes": 451587,
+        "occupiedBytes": 538758,
+        "unallocatedBytes": 34234
+      },
+      "synth": {
+        "inputSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+        "outputSha256": "4038fad2dac31432f9c32b4dbdd4258f2920e3db590dfe3fa19550a2f366cf4f",
+        "checks": 338,
+        "tasksDone": 76,
+        "tasksTotal": 76,
+        "failures": 0,
+        "codeDataBytes": 71168,
+        "ramBytes": 397984,
+        "occupiedBytes": 469152,
+        "unallocatedBytes": 442204
+      }
+    }
+  },
+  "deviceTested": false,
+  "mla": {
+    "source": "tools/patch/tap_motion.py, tk_part, multiplication plus base pointer addition",
+    "vectors": 2225,
+    "vectorsSha256": "0885d5156936e69822e4406afb421f1f246b69c73486f9c077425f7a5174b806",
+    "allRegistersAndFlagsMatch": true,
+    "beforeCodeBytes": 20,
+    "afterCodeBytes": 16,
+    "beforeInstructions": [
+      5
+    ],
+    "afterInstructions": [
+      4
+    ],
+    "fullPatchApplied": false,
+    "sampleIoGainClaimed": false,
+    "mlaEncodingDisassembledAs": [
+      "mla",
+      "r2, r0, r1, r4"
+    ]
+  },
+  "sampleStartHelperProfile": {
+    "0": {
+      "syntheticAudioBytes": 0,
+      "screen": 1,
+      "sampleActive": false,
+      "asserts": [],
+      "helperCalls": {
+        "original_memset": {
+          "calls": 1610,
+          "requestedBytes": 129433
+        },
+        "fs_read": {
+          "calls": 1,
+          "requestedBytes": 4096
+        },
+        "vm_mem_fill": {
+          "calls": 86,
+          "requestedBytes": 1542640
+        }
+      },
+      "throughputOnHardwareProven": false
+    },
+    "512": {
+      "syntheticAudioBytes": 1024,
+      "screen": 1,
+      "sampleActive": true,
+      "asserts": [],
+      "helperCalls": {
+        "original_memset": {
+          "calls": 1611,
+          "requestedBytes": 130605
+        },
+        "fs_read": {
+          "calls": 11,
+          "requestedBytes": 6360
+        },
+        "vm_mem_fill": {
+          "calls": 86,
+          "requestedBytes": 1542640
+        }
+      },
+      "throughputOnHardwareProven": false
+    },
+    "32768": {
+      "syntheticAudioBytes": 65536,
+      "screen": 1,
+      "sampleActive": true,
+      "asserts": [],
+      "helperCalls": {
+        "original_memset": {
+          "calls": 1611,
+          "requestedBytes": 130605
+        },
+        "fs_read": {
+          "calls": 11,
+          "requestedBytes": 70872
+        },
+        "vm_mem_fill": {
+          "calls": 86,
+          "requestedBytes": 1542640
+        }
+      },
+      "throughputOnHardwareProven": false
+    }
+  },
+  "verification": {
+    "nativeTests": {
+      "passed": 17,
+      "failed": 0
+    },
+    "unit": {
+      "total": 1089,
+      "passed": 946,
+      "failed": 0,
+      "skipped": 143
+    },
+    "browser": {
+      "total": 163,
+      "passed": 162,
+      "failed": 0,
+      "skipped": 1
+    },
+    "measurementTools": {
+      "total": 15,
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0
+    },
+    "generatorReproducibility": {
+      "builds": 3,
+      "exactMatches": 3
+    }
+  },
+  "sharedCrcPrototype": {
+    "scope": "Isolated native helper group, including initial-state entry and a streaming state adapter preserving end pointers. No caller source or product manifest changed.",
+    "codeBytes": {
+      "splash": 64,
+      "sysex": 132,
+      "card": 64,
+      "shared": 156,
+      "oldTotal": 260,
+      "newTotal": 156,
+      "netHelperSaving": 104
+    },
+    "allFinalAndStreamingResultsMatch": true,
+    "lengths": 6,
+    "finalComparisons": 18,
+    "streamingComparisons": 36,
+    "callSiteAndManifestRelocationVerified": false,
+    "realTransferOrFullFirmwareSpeedClaimed": false,
+    "largeBuffer": {
+      "length": 32768,
+      "final": {
+        "splash": {
+          "instructions": 1277958,
+          "crc": 3994991721
+        },
+        "sysex": {
+          "instructions": 393222,
+          "crc": 3994991721
+        },
+        "shared": {
+          "instructions": 360455,
+          "crc": 3994991721
+        }
+      },
+      "streaming": {
+        "0xffffffff": {
+          "card": {
+            "instructions": 1245219,
+            "state": 299975574
+          },
+          "shared": {
+            "instructions": 360508,
+            "state": 299975574
+          }
+        },
+        "0x0": {
+          "card": {
+            "instructions": 1245219,
+            "state": 4009836751
+          },
+          "shared": {
+            "instructions": 360508,
+            "state": 4009836751
+          }
+        },
+        "0x12345678": {
+          "card": {
+            "instructions": 1245219,
+            "state": 3174221310
+          },
+          "shared": {
+            "instructions": 360508,
+            "state": 3174221310
+          }
+        }
+      }
+    },
+    "emptyBuffer": {
+      "length": 0,
+      "final": {
+        "splash": {
+          "instructions": 6,
+          "crc": 0
+        },
+        "sysex": {
+          "instructions": 6,
+          "crc": 0
+        },
+        "shared": {
+          "instructions": 7,
+          "crc": 0
+        }
+      },
+      "streaming": {
+        "0xffffffff": {
+          "card": {
+            "instructions": 35,
+            "state": 4294967295
+          },
+          "shared": {
+            "instructions": 60,
+            "state": 4294967295
+          }
+        },
+        "0x0": {
+          "card": {
+            "instructions": 35,
+            "state": 0
+          },
+          "shared": {
+            "instructions": 60,
+            "state": 0
+          }
+        },
+        "0x12345678": {
+          "card": {
+            "instructions": 35,
+            "state": 305419896
+          },
+          "shared": {
+            "instructions": 60,
+            "state": 305419896
+          }
+        }
+      }
+    }
+  },
+  "appComparison": {
+    "ok": true,
+    "formatVersion": 2,
+    "protocol": {
+      "warmupFrames": 8,
+      "rngSeed": 45548,
+      "boundary": "frame_return"
+    },
+    "repeatsPerFirmwareAndVariant": 3,
+    "startsPerCapture": 18,
+    "sceneWindowsPerCapture": 126,
+    "appWindowsPerCapture": 27,
+    "completeAppFramesPerCapture": 1350,
+    "comparisonSourceCommit": "0b2aad8de3a91b8a9dab8c67a66f73b5d6ca6a3c",
+    "entireInitialAndFinalVariableStateCompared": true,
+    "version1DiagnosticRejected": true,
+    "builds": {
+      "hacktribe": {
+        "apps": {
+          "mandelbrot": {
+            "baselineInstructions": 23371298,
+            "candidateInstructions": 23299231,
+            "allArmReductionPercent": 0.3083568572015083,
+            "runtimeArmReductionPercent": 1.1139752471913567,
+            "semanticMatch": true
+          },
+          "life": {
+            "baselineInstructions": 23470425,
+            "candidateInstructions": 23462681,
+            "allArmReductionPercent": 0.03299471569006007,
+            "runtimeArmReductionPercent": 0.12399245157836969,
+            "semanticMatch": true
+          },
+          "pong": {
+            "baselineInstructions": 18194390,
+            "candidateInstructions": 18194073,
+            "allArmReductionPercent": 0.0017422952899193156,
+            "runtimeArmReductionPercent": 0.029394255787518198,
+            "semanticMatch": true
+          }
+        },
+        "codeDataChangeBytes": -24,
+        "ramChangeBytes": 0
+      },
+      "stock": {
+        "apps": {
+          "mandelbrot": {
+            "baselineInstructions": 23370836,
+            "candidateInstructions": 23298820,
+            "allArmReductionPercent": 0.30814473217817273,
+            "runtimeArmReductionPercent": 1.1105948952686573,
+            "semanticMatch": true
+          },
+          "life": {
+            "baselineInstructions": 23464002,
+            "candidateInstructions": 23456229,
+            "allArmReductionPercent": 0.03312734119269578,
+            "runtimeArmReductionPercent": 0.12403252316106617,
+            "semanticMatch": true
+          },
+          "pong": {
+            "baselineInstructions": 18189524,
+            "candidateInstructions": 18189203,
+            "allArmReductionPercent": 0.001764752062782815,
+            "runtimeArmReductionPercent": 0.02982520201696426,
+            "semanticMatch": true
+          }
+        },
+        "codeDataChangeBytes": -24,
+        "ramChangeBytes": 0
+      },
+      "synth": {
+        "apps": {
+          "mandelbrot": {
+            "baselineInstructions": 27166332,
+            "candidateInstructions": 27094650,
+            "allArmReductionPercent": 0.2638633732371387,
+            "runtimeArmReductionPercent": 1.112834814700836,
+            "semanticMatch": true
+          },
+          "life": {
+            "baselineInstructions": 27275735,
+            "candidateInstructions": 27267933,
+            "allArmReductionPercent": 0.028604178769153776,
+            "runtimeArmReductionPercent": 0.1251960745510372,
+            "semanticMatch": true
+          },
+          "pong": {
+            "baselineInstructions": 22078092,
+            "candidateInstructions": 22077773,
+            "allArmReductionPercent": 0.0014448712325365598,
+            "runtimeArmReductionPercent": 0.03157404160021304,
+            "semanticMatch": true
+          }
+        },
+        "codeDataChangeBytes": -24,
+        "ramChangeBytes": 0
+      }
+    }
+  }
+}

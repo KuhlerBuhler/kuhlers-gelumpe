@@ -18,6 +18,16 @@ const hex = n => `0x${n.toString(16).toUpperCase()}`;
 const IMAGE = PROTECTED.regions.find(r => r.id === "firmware-image");
 const where = { free: FREE_RUNS, regions: PROTECTED.regions, window: PROTECTED.ram.window, image: IMAGE };
 
+test("all three builds can reuse the released SysEx space without taking the file workspace", () => {
+  for (const build of ["hacktribe", "stock", "synth"]) {
+    const set = build === "synth" ? read("data/patches/blech-synth.json").patches.map(read) : chosen(build);
+    const claim = (at, length) => ({ id: "new-area", changes: [], ram: [{ at: hex(at), length, what: "test", source: "test:capacity" }] });
+    assert.deepEqual(checkRam([...set, claim(0xc019a400, 19456)]), [], build);
+    assert.deepEqual(checkRamPlacement([...set, claim(0xc019a400, 19456)], { ...where, free: build === "synth" ? SYNTH_FREE_RUNS : FREE_RUNS }), [], build);
+    for (const at of [0xc019a3ff, 0xc019f000]) assert.match(checkRam([...set, claim(at, 1)]).join(), /blech-sysex.*overlaps|overlaps blech-sysex/, build);
+  }
+});
+
 test("the synth set keeps its code and declared state inside the measured free image run", () => {
   const synth = read("data/patches/blech-synth.json").patches.map(read);
   assert.deepEqual(selectFor(synth, "synth").reasons, []);
@@ -70,7 +80,7 @@ test("every patch of the BLECH set declares its RAM, and every entry names where
     for (const share of shares) assert.ok(patches.some(p => p.id === share.with), `${patch.id}: shares with ${share.with}, not in the set`);
     assert.equal(own.length, patch.ram.length);
   }
-  assert.deepEqual(patches.filter(p => p.ram.length).map(p => p.id).sort(), ["blech-sysex", "blech-sysex", "dice", "doom-loader", "ifx-idle", "load-bar", "mfx-switch", "note-assistant", "pad-colors", "pattern-switch", "preset-tables", "preset-tables", "sample-errors", "script-runtime", "script-runtime", "splash-editor", "tap-motion"]);
+  assert.deepEqual(patches.filter(p => p.ram.length).map(p => p.id).sort(), ["blech-sysex", "blech-sysex", "dice", "doom-loader", "load-bar", "mfx-switch", "note-assistant", "pad-colors", "pattern-switch", "power-off", "preset-tables", "preset-tables", "sample-errors", "script-runtime", "script-runtime", "splash-editor", "tap-motion"]);
 });
 
 for (const build of BUILDS) {
@@ -113,7 +123,8 @@ test("a start editor at its old address overlaps the power-off patch, and the ch
   assert.ok(reasons.length >= 3, reasons.join("\n"));
   assert.ok(reasons.some(r => /splash-editor: (EDIT|FIL|RECBUF) .* overlaps power-off: .*power-off picture/.test(r)), reasons.join("\n"));
   assert.ok(reasons.some(r => /splash-editor: FIL .* overlaps (mfx-switch|power-off): /.test(r)), reasons.join("\n"));
-  for (const r of reasons) assert.match(r, /overlaps/);
+  // the load bar reads the editor's open flag: with the editor moved, that word lies outside its areas
+  for (const r of reasons) assert.match(r, /overlaps|load-bar: .* lies in no area that splash-editor declares/);
   assert.deepEqual(checkRam(chosen("hacktribe")), [], "the set as it is passes");
 });
 

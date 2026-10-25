@@ -9,7 +9,7 @@ CRC is asked again, three times in all), and writes the file only when both pass
 not a mix of two. The first missing answer stops the run, there is no retry for a silence. The dump holds Korg data: the tool
 refuses a path inside a git working tree, and the file belongs outside any repository.
 
-    python3 blech_flash_dump.py --out ~/electribe-flash.bin                     # on the laptop, device on USB
+    python3 blech_flash_dump.py --out ~/electribe-flash.bin                     # device on USB
     python3 blech_flash_dump.py --out x.bin --start 0x220000 --length 0x8000    # a part, for a first try
     python3 blech_flash_dump.py --emu VSB --out x.bin --start 0x220000 --length 0x8000
 

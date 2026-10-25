@@ -32,7 +32,7 @@
     "test:local": "E2_LOCAL_REQUIRED=1 node --test \"test/*.test.mjs\"",
     "test:e2e": "node --test --test-timeout=180000 \"test/e2e/*.e2e.mjs\"",
     "test:all": "node tools/test-all.mjs",
-    "test:emu": "E2_EMU_REQUIRED=1 node --test test/emulator.test.mjs test/emulator-session.test.mjs test/emulator-card.test.mjs test/emulator-card-stock.test.mjs test/emulator-stock.test.mjs test/emulator-update.test.mjs test/emulator-blue.test.mjs test/emulator-modtable.test.mjs test/emulator-sample-full.test.mjs test/emulator-sample-meta.test.mjs test/emulator-blechy.test.mjs test/emu-service.test.mjs",
+    "test:emu": "E2_EMU_REQUIRED=1 node --test test/emulator.test.mjs test/emulator-session.test.mjs test/emulator-card.test.mjs test/emulator-card-stock.test.mjs test/emulator-stock.test.mjs test/emulator-update.test.mjs test/emulator-blue.test.mjs test/emulator-modtable.test.mjs test/emulator-sample-full.test.mjs test/emulator-sample-meta.test.mjs test/emulator-blechy.test.mjs test/emulator-fxcard.test.mjs test/emu-service.test.mjs",
     "emu": "node tools/emu/start.mjs",
     "setup:emu": "node tools/emu/setup.mjs",
     "build:sidecar": "node tools/emu/build-sidecar.mjs",

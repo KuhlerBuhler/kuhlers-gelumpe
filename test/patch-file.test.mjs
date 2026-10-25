@@ -105,7 +105,7 @@ test("the user data ranges are the writable tables and fields, and no patch of t
   const patches = read("data/patches/blech.json").patches.map(read);
   const pointerArrays = [...POINTER_TABLES.values()].flatMap(t => t.arrays.map(a => a.ram - 0xc0000000 + 0x100));
   for (const p of patches) {
-    for (const c of p.changes) {
+    for (const c of p.changes ?? []) {
       if (c.field !== undefined) continue;
       assert.deepEqual(hit(c.file, c.bytes ? c.bytes.length / 2 : c.copy.length), [], `${p.id} writes at 0x${c.file.toString(16)}`);
       // The ranges are Hacktribe's tables; Korg's pointer arrays lie inside that span and hold pointers nobody edits.

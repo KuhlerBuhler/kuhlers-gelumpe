@@ -1,7 +1,7 @@
 """Measure BLECH's own SysEx commands on the own device (docs/messungen/2026-10-15-blech-sysex.md). Read only:
 the device search, INFO and READ with their CRC-32, nothing is written, nothing is executed.
 
-    python3 blech_sysex_probe.py                  # on the laptop, device on USB, firmware with BLECH
+    python3 blech_sysex_probe.py                  # device on USB, firmware with BLECH
     python3 blech_sysex_probe.py --emu VSB        # the same against the emulator (blocks up to 4096 bytes: its line is DIN)
     python3 blech_sysex_probe.py --repeat 10      # ten reads per block size
 

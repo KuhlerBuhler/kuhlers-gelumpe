@@ -1,26 +1,42 @@
 /**
- * The plugins page (code name: scripts): templates and own plugins, the editor with its compile
- * result, and the run area. A plugin leaves as a file only after a probe of
+ * The plugins page (code name: scripts): the catalog with a page per plugin, the own plugins, the editor over the
+ * whole page and the preview, the simulated device over the page. A plugin leaves as a file only after a probe of
  * exactly this text (src/script/gate.mjs).
  */
 import { el } from "./fields.mjs";
+import { icon } from "./icons.mjs";
 import { simPanel } from "./sim-panel.mjs";
 import { drawDisplay } from "./emulator.mjs";
 import { PADS } from "../../data/panel.mjs";
 import { parseMarkdown } from "./markdown.mjs";
 import { toast } from "./toast.mjs";
+import { saveFile } from "./save-file.mjs";
 import { createScriptEditor } from "./script-editor.mjs";
+import { highlightLines } from "../../src/script/highlight.mjs";
 import { compile, formatError } from "../../src/script/compiler.mjs";
 import { decodeBlob, markProbed } from "../../src/script/blob.mjs";
-import { LIMITS, BUDGET, ARCHIVE } from "../../data/script/contract.mjs";
+import { LIMITS, BUDGET, ARCHIVE, SCRIPT_APPS } from "../../data/script/contract.mjs";
 import { PRESETS } from "../../data/script/presets.mjs";
 import { TEMPLATES, templateSource } from "../../data/script/templates.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
+import { KNOB_NAMES } from "../../data/script/properties.mjs";
 import { hintAt } from "../../src/script/names.mjs";
 import { Workspace, sourceKey, validName } from "../../src/script/workspace.mjs";
 import { SimDevice, probe as runProbe, FRAME_MS } from "../../src/script/sim.mjs";
 import { exportGate } from "../../src/script/gate.mjs";
 import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
+import { storePlugin } from "../../src/usb-update.mjs";
+import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
+import { pixelsOf } from "./splash.mjs";
+
+/** 0/1 pixels row by row (splash.mjs) to the display's 1024 bytes: eight rows per byte, bit 0 on top. */
+function displayBytes(pixels) {
+  const out = new Uint8Array(1024);
+  for (let i = 0; i < pixels.length; i++) if (pixels[i]) { const x = i % 128, y = Math.floor(i / 128); out[(y >> 3) * 128 + x] |= 1 << (y & 7); }
+  return out;
+}
+const toBase64 = bytes => btoa(String.fromCharCode(...bytes));
+const fromBase64 = text => { try { const b = Uint8Array.from(atob(text), c => c.charCodeAt(0)); return b.length === 1024 ? b : null; } catch { return null; } };
 
 const EXIT_KEY = KEY_NAMES.find(n => n.name === "EXIT").value;
 
@@ -29,14 +45,6 @@ const pill = (tone, word) => {
   p.dataset.tone = tone;
   return p;
 };
-
-function download(bytes, name) {
-  const blob = new Blob([bytes], { type: "application/octet-stream" });
-  const a = el("a", { href: URL.createObjectURL(blob), download: name });
-  document.body.append(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
-}
 
 const ask = async (options, fallback) => (window.ui?.prompt ? window.ui.prompt(options) : fallback);
 
@@ -57,7 +65,7 @@ function askKind() {
       el("div", { className: "ui-dialog-body" }, [group, hint]),
       el("footer", { className: "ui-dialog-foot" }, [
         el("button", { type: "submit", className: "btn", value: "cancel", textContent: "Abbrechen", formNoValidate: true }),
-        el("button", { type: "submit", className: "btn primary", value: "ok", textContent: "Anlegen" }),
+        el("button", { type: "submit", className: "btn cee-primary", value: "ok", textContent: "Anlegen" }),
       ]),
     ]));
     for (const r of radios) {
@@ -75,7 +83,24 @@ function askKind() {
 }
 const confirmed = async options => (window.ui?.confirm ? window.ui.confirm(options) : false);
 
-export function scriptsPanel(root, { storage = null, sub = null } = {}) {
+export function scriptsPanel(root, { storage = null, sub = null, session = () => null, onRun = () => {}, trail: setTrail = () => {}, navbar = () => {} } = {}) {
+  // The title in the breadcrumb leads to the catalog, the start of the page.
+  const trail = parts => setTrail(parts, () => page("catalog"));
+  /** A packed .blech onto the connected device's card; IMPORT PLUGIN in the BLECH menu then lists it. */
+  async function toDevice(bytes, id, button) {
+    const s = session();
+    if (!s) { toast("Erst im Bereich Emulator oben „Echtes Gerät“ wählen und die Electribe verbinden.", "error"); return; }
+    button.disabled = true;
+    try {
+      const name = await storePlugin(s, id, bytes);
+      toast(`${name}.blech liegt auf der Karte. Am Gerät Menü -> BLECH -> PLUGINS -> IMPORT PLUGIN, MENU, dann einschalten.`, "ok");
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   const workspace = new Workspace(storage);
   const saved = new Map();
   const values = { load: name => saved.get(name) ?? null, save: records => records.forEach(r => saved.set(r.name, r)) };
@@ -96,27 +121,31 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
   const namesBody = el("div", { className: "cee-names-body", id: "cee-names-body" });
   const problems = el("ul", { className: "cee-script-problems", id: "cee-script-problems" });
   const log = el("ul", { className: "cee-script-log", id: "cee-script-log", "aria-live": "polite" });
-  const presetList = el("ul", { className: "ui-list cee-pattern-list", id: "cee-script-presets" });
-  const ownList = el("ul", { className: "ui-list cee-pattern-list", id: "cee-script-own" });
-  const ownEmpty = el("p", { className: "muted cee-ws-empty", textContent: "Noch keine eigenen." });
+  const ownList = el("ul", { className: "cee-catalog cee-own", id: "cee-script-own" });
+  const ownEmpty = el("p", { className: "muted cee-ws-empty", id: "cee-script-own-empty", textContent: "Noch keine eigenen Plugins. Leg eins an, öffne eine Datei, oder nimm eins aus dem Katalog als Vorlage." });
   const note = el("span", { className: "cee-status", id: "cee-script-readonly", hidden: true, textContent: "Schreibgeschützt" });
   note.dataset.tone = "neutral";
 
   const button = (id, label, onclick, extra = "") => el("button", { type: "button", className: `btn ${extra}`.trim(), id, textContent: label, onclick });
-  const copy = button("cee-script-copy", "Als eigenes Plugin öffnen", () => copyPreset(), "sm primary");
+  const copy = button("cee-script-copy", "Als eigenes Plugin öffnen", () => copyPreset(), "sm cee-primary");
   const newButton = button("cee-script-new", "Neues Plugin", () => newScript(), "sm");
   const duplicate = button("cee-script-duplicate", "Duplizieren", () => duplicateScript(), "sm");
   const remove = button("cee-script-remove", "Löschen", () => removeScript(), "sm");
-  const runButton = button("cee-script-run", "Lauf starten", () => start(), "sm");
-  const stopButton = button("cee-script-stop", "Lauf beenden", () => stop(), "sm");
+  const runButton = button("cee-script-run", "Neu starten", () => (shown === "detail" ? detailView("preview") : start()), "sm");
+  const stopButton = button("cee-script-stop", "Anhalten", () => stop(), "sm");
+  const previewButton = button("cee-script-preview", "Vorschau", () => preview(), "cee-primary");
   const probeButton = button("cee-script-probe", "Proben", () => probeScript(), "sm");
   const recordButton = button("cee-script-record", "Eingaben aufnehmen", () => toggleRecording(), "sm");
   const clearInputs = button("cee-script-clear-inputs", "Aufnahme löschen", () => dropInputs(), "sm");
-  const exportButton = button("cee-script-export", "Als .blech speichern", () => exportOne(), "sm");
+  const exportButton = button("cee-script-export", "Herunterladen", () => exportOne(), "");
+  const usbButton = button("cee-script-usb", "Aufs Gerät", () => exportOne(usbButton), "");
   const exportAll = button("cee-script-export-all", "Alle speichern", () => exportCollection(), "sm");
   exportAll.title = `Alle Plugins als ${ARCHIVE.file} speichern`;
   const open = el("input", { type: "file", className: "cee-visually-hidden", id: "cee-script-open", accept: ".blech" });
-  const openLabel = el("label", { className: "btn sm", htmlFor: "cee-script-open" }, ["Datei öffnen"]);
+  const openLabel = el("label", { className: "btn sm", htmlFor: "cee-script-open" }, ["Öffnen"]);
+  // The editor's file actions sit in the navbar: Öffnen a .blech from this computer, Speichern the one in the editor.
+  const openNav = button("cee-script-open-nav", "Öffnen", () => open.click(), "sm");
+  const saveNav = button("cee-script-save", "Speichern", () => exportOne(), "sm cee-primary");
   const inputsInfo = el("p", { className: "muted", id: "cee-script-inputs" });
   const probeInfo = el("p", { id: "cee-script-probe-info", role: "status" });
 
@@ -171,28 +200,42 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     updateActions();
   }
 
+  /** The own plugins of this browser as cards like the catalog's: the whole card opens the plugin in the editor, where
+   * Herunterladen, Aufs Gerät and Löschen are. */
   function renderLists() {
-    const item = (kind, id, title, detail) => {
-      const b = el("button", { type: "button", className: "cee-pattern-item cee-plugin-item", title: detail ? `${title}: ${detail}` : title }, [
-        el("span", { className: "cee-plugin-title ui-truncate", textContent: title }),
-        detail ? el("span", { className: "cee-plugin-detail muted ui-truncate", textContent: detail }) : null,
-      ]);
-      b.dataset.kind = kind;
-      b.dataset.id = id;
-      b.setAttribute("aria-current", String(current?.kind === kind && current.id === id));
-      b.addEventListener("click", () => select(kind, id));
-      return el("li", {}, b);
-    };
-    presetList.replaceChildren(...PRESETS.map(p => item("preset", p.id, p.title, p.description)));
     const mine = workspace.list();
-    ownList.hidden = !mine.length;
     ownEmpty.hidden = mine.length > 0;
-    ownList.replaceChildren(...mine.map(s => item("own", s.name, s.name, s.probe?.key === sourceKey(s.source) && s.probe.ok ? "geprobt" : "")));
+    // Drawn once the cards are in the page: the display's colours come from the stylesheet.
+    const draws = [];
+    ownList.replaceChildren(...mine.map(s => {
+      const probed = s.probe?.key === sourceKey(s.source) && s.probe.ok;
+      const canvas = el("canvas", { className: "cee-lcd cee-catalog-thumb", width: 128, height: 64 });
+      canvas.setAttribute("role", "img");
+      canvas.setAttribute("aria-label", `Display von ${s.name}`);
+      const picture = s.meta?.image ? fromBase64(s.meta.image) : null;
+      draws.push(() => { if (picture) drawDisplay(canvas, picture); else renderThumb(canvas, { id: s.name, source: s.source }); });
+      const open = el("button", { type: "button", className: "cee-catalog-open cee-own-name", textContent: s.name, onclick: () => { select("own", s.name); page("editor"); } });
+      return el("li", { className: "cee-catalog-card cee-own-card", id: `cee-own-${s.name}` }, [
+        canvas,
+        el("h3", {}, open),
+        el("p", { className: "cee-catalog-category", textContent: "Eigenes Plugin" }),
+        s.meta?.description ? el("p", { className: "muted", textContent: s.meta.description }) : null,
+        el("p", { className: "muted", textContent: probed ? "Geprobt." : "Noch nicht geprobt." }),
+        creatorLine(s.meta?.creator, s.meta?.creatorUrl),
+      ]);
+    }));
+    for (const draw of draws) draw();
   }
 
   function updateActions() {
+    emptyEditor.hidden = !!current;
+    main.hidden = !current;
     const mine = own();
     const isOwn = !!mine;
+    wordsButton.hidden = !isOwn;
+    // The words are filled in only when another plugin opens, so typing is never overwritten.
+    if (isOwn && wordsFor !== mine.name) { wordsFor = mine.name; words = { ...mine.meta }; ownMeta.set(words); showPicture(); }
+    if (!isOwn) { wordsFor = null; words = null; }
     const isPreset = current?.kind === "preset";
     note.hidden = !isPreset;
     copy.hidden = !isPreset;
@@ -209,12 +252,17 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     recordButton.textContent = recording ? "Aufnahme beenden" : "Eingaben aufnehmen";
     clearInputs.hidden = !isOwn || !mine?.inputs?.length;
     exportButton.hidden = !isOwn;
+    usbButton.hidden = !isOwn;
     exportAll.disabled = workspace.list().length === 0;
     const n = mine?.inputs?.length ?? 0;
     inputsInfo.textContent = isOwn ? (n ? `Eingabefolge: ${n} Eingaben, bis Rahmen ${mine.inputs.at(-1).frame}.` : "Keine Eingabefolge. Die Probe läuft ohne Eingaben, nur ready und frame.") : "";
     const gate = isOwn ? exportGate({ source: mine.source, probe: mine.probe }) : null;
     probeInfo.replaceChildren(...(gate ? [gate.ok ? pill(gate.confirm ? "warn" : "ok", gate.confirm ? "Zeilen offen" : "Probe bestanden") : pill("neutral", "nicht geprobt"), ` ${gate.reason ?? "Alle Zeilen mit Code sind gelaufen."}`] : []));
     exportButton.disabled = !ok || !gate?.ok;
+    usbButton.disabled = exportButton.disabled;
+    // Speichern in the navbar is the same export: a plugin of the catalog is read only, an own one needs its probe first
+    saveNav.disabled = !isOwn || exportButton.disabled;
+    saveNav.title = !isOwn ? "Ein Plugin aus dem Katalog ist schreibgeschützt. Erst „Als eigenes Plugin öffnen“." : exportButton.disabled ? "Erst mit Vorschau und Proben die Probe bestehen." : "";
   }
 
   function select(kind, id) {
@@ -234,7 +282,7 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     renderLists();
     recompile();
     caretHelp();
-    try { storage?.setItem("cee.scripts.last", `${kind}:${id}`); } catch { /* optional */ }
+    if (shown === "editor") trail(["Editor", id]);
   }
 
   function flush() {
@@ -266,7 +314,8 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     };
     namesBody.replaceChildren(...[
       group("key", "Tasten (korg.key, der Wert von buttonPress und buttonRelease)", KEY_NAMES),
-      group("led", "LEDs (korg.led, das erste Argument von korg.led(...))", LED_NAMES),
+      group("led", "LEDs (korg.led, setzen mit korg.led.TAP = 255)", LED_NAMES),
+      group("knobs", "Regler (korg.knobs, lesen wie korg.knobs.LEVEL)", KNOB_NAMES),
     ].filter(Boolean));
     if (!namesBody.children.length) namesBody.textContent = "Kein Name passt zum Filter.";
   }
@@ -290,6 +339,7 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     if (kind === null) return;
     workspace.save({ name: chosen, source: templateSource(kind, chosen) });
     select("own", chosen);
+    page("editor");
     editor.focus();
   }
 
@@ -297,7 +347,7 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     const preset = PRESETS.find(p => p.id === current?.id);
     if (!preset) return;
     const chosen = workspace.freeName(preset.id);
-    workspace.save({ name: chosen, source: preset.source });
+    workspace.save({ name: chosen, source: preset.source, meta: { description: preset.description } });
     select("own", chosen);
     say(`Als „${chosen}“ unter Meine Plugins angelegt.`, "ok");
   }
@@ -307,7 +357,7 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     if (!mine) return;
     flush();
     const chosen = workspace.freeName(mine.name);
-    workspace.save({ name: chosen, source: sourceNow(), inputs: mine.inputs });
+    workspace.save({ name: chosen, source: sourceNow(), inputs: mine.inputs, meta: mine.meta });
     select("own", chosen);
   }
 
@@ -318,6 +368,8 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     stop();
     workspace.remove(mine.name);
     select("preset", PRESETS[0].id);
+    page("catalog");
+    shelf("own");
   }
 
   name.addEventListener("change", () => {
@@ -352,7 +404,7 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     const loaded = device.load(blob);
     log.replaceChildren();
     live = { device, label, timer: null };
-    page("run");
+    showRun();
     if (loaded.error) showFaults([{ script: label, ...loaded.error }]);
     const appActions = { open: id => device.openApp(id), exit: () => device.post("buttonPress", EXIT_KEY) };
     if (device.apps.length && !loaded.error) device.openApp(device.apps[0].id);
@@ -447,7 +499,7 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     return confirmed({ title: "Zeilen ohne Lauf exportieren?", text: `Die Probe hat diese Zeilen nie ausgeführt:\n${list}\n\nSie laufen am Gerät zum ersten Mal.`, confirmLabel: `${subject} trotzdem speichern` });
   }
 
-  async function exportOne() {
+  async function exportOne(toUsb = null) {
     const mine = own();
     if (!mine) return;
     flush();
@@ -457,8 +509,8 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     if (!(await allowExport("Plugin", [{ name: fresh.name, gate: exportGate(fresh) }]))) return;
     const packed = packBlech(markProbed(result.blob), fresh.source);
     if (!packed.ok) { say(packed.error.message, "error"); return; }
-    download(packed.bytes, `${fresh.name}.blech`);
-    say(`${fresh.name}.blech gespeichert. Auf die Karte nach ${ARCHIVE.folder}/ kopieren.`, "ok");
+    if (toUsb) { await toDevice(packed.bytes, fresh.name, toUsb); return; }
+    saveFile(packed.bytes, `${fresh.name}.blech`, { note: `Auf die Karte nach ${ARCHIVE.folder}/ kopieren.` });
   }
 
   async function exportCollection() {
@@ -466,17 +518,19 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     const items = workspace.list();
     const blocks = [];
     const gates = [];
+    let apps = 0;
     for (const s of items) {
       const result = compile(s.source, { name: s.name });
       if (!result.ok) { say(`„${s.name}“ lässt sich nicht übersetzen.`, "error"); return; }
+      if (result.info.app) apps += 1;
       blocks.push(markProbed(result.blob));
       gates.push({ name: s.name, gate: exportGate(s) });
     }
+    if (apps > SCRIPT_APPS.max) { say(`Das sind ${apps} Apps. Die Electribe zeigt höchstens ${SCRIPT_APPS.max}. Lösch ein paar Apps aus der Liste und speichere nochmal.`, "error"); return; }
     if (!(await allowExport("Alle", gates))) return;
     const packed = packAll(blocks);
     if (!packed.ok) { say(packed.error.message, "error"); return; }
-    download(packed.bytes, ARCHIVE.file);
-    say(`${ARCHIVE.file} mit ${blocks.length} Plugins gespeichert. Auf die Karte nach ${ARCHIVE.folder}/ kopieren.`, "ok");
+    saveFile(packed.bytes, ARCHIVE.file, { note: `${blocks.length} Plugins. Auf die Karte nach ${ARCHIVE.folder}/ kopieren.` });
   }
 
   open.addEventListener("change", async () => {
@@ -489,34 +543,122 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     const chosen = workspace.freeName(parsed.parts.header.name);
     workspace.save({ name: chosen, source: parsed.source });
     select("own", chosen);
+    page("editor");
     say(`„${chosen}“ aus ${file.name} geöffnet.`, "ok");
   });
 
-  const sideActions = el("div", { className: "cee-ws-side-actions" }, [newButton, openLabel, open, exportAll]);
-  const side = el("aside", { className: "ui-split-side cee-ws-side", id: "cee-scripts-side" }, [
-    sideActions,
-    el("h2", { className: "cee-list-title", textContent: "Beispiele" }),
-    presetList,
-    el("h2", { className: "cee-list-title", textContent: "Meine Plugins" }),
-    ownList,
-    ownEmpty,
-    el("p", { className: "muted cee-ws-side-note", textContent: "Eigene Plugins bleiben auf diesem Rechner." }),
-  ]);
-
   const nameField = el("div", { className: "cee-ws-name" }, [el("label", { className: "muted", htmlFor: "cee-script-name", textContent: "Name" }), name]);
-  const toolbar = el("div", { className: "cee-ws-toolbar" }, [nameField, note, el("div", { className: "cee-ws-toolbar-actions" }, [copy, duplicate, remove, exportButton])]);
+  // Angaben: what an own plugin shows on its card. Kept in this browser with the plugin, not in the file for the device.
+  let words = null;                         // the meta of the open own plugin, written back on every edit
+  let wordsFor = null;
+  const keepWords = () => {
+    const mine = own();
+    if (!mine || !words || metaProblem(words)) return;
+    workspace.save({ name: mine.name, source: mine.source, meta: words });
+    renderLists();
+  };
+  const ownMeta = metaFields("cee-script", () => words, keepWords);
+  const pictureCanvas = el("canvas", { className: "cee-lcd cee-catalog-thumb cee-own-picture", id: "cee-script-picture", width: 128, height: 64 });
+  pictureCanvas.setAttribute("role", "img");
+  pictureCanvas.setAttribute("aria-label", "Bild auf der Karte des Plugins");
+  const pictureInput = el("input", { type: "file", className: "cee-visually-hidden", id: "cee-script-picture-file", accept: "image/*" });
+  const pictureInvert = el("input", { type: "checkbox", role: "switch", id: "cee-script-picture-invert" });
+  const pictureClear = button("cee-script-picture-clear", "Bild entfernen", () => { if (words) { delete words.image; keepWords(); showPicture(); } }, "sm");
+  let pictureSource = null;
+  const takePicture = async () => {
+    if (!pictureSource || !words) return;
+    words.image = toBase64(displayBytes(pixelsOf(pictureSource, { dither: true, invert: !pictureInvert.checked })));
+    keepWords();
+    showPicture();
+  };
+  pictureInput.addEventListener("change", async () => {
+    const file = pictureInput.files?.[0];
+    pictureInput.value = "";
+    if (!file) return;
+    try {
+      pictureSource = await createImageBitmap(file);
+      await takePicture();
+    } catch {
+      toast(`${file.name} ist kein Bild, das die Seite lesen kann.`, "error");
+    }
+  });
+  pictureInvert.addEventListener("change", takePicture);
+  function showPicture() {
+    const mine = own();
+    const bytes = words?.image ? fromBase64(words.image) : null;
+    if (bytes) drawDisplay(pictureCanvas, bytes); else if (mine) renderThumb(pictureCanvas, { id: mine.name, source: mine.source });
+    pictureClear.disabled = !bytes;
+  }
+  // In a dialog, so the editor keeps the whole height of the page.
+  const wordsSection = el("dialog", { className: "ui-dialog cee-own-words-dialog", id: "cee-script-words" });
+  wordsSection.setAttribute("aria-labelledby", "cee-script-words-title");
+  const wordsBody = el("div", { className: "ui-dialog-body cee-own-words" }, [
+    el("div", { className: "cee-own-picture-row" }, [
+      pictureCanvas,
+      el("div", { className: "cee-meta-fields" }, [
+        el("p", { className: "ui-field-help", textContent: "Das Bild auf der Karte, 128 x 64 Pixel wie das Display. Ohne eigenes zeigt sie, was das Plugin selbst zeichnet." }),
+        el("div", { className: "actions" }, [el("label", { className: "btn sm", htmlFor: "cee-script-picture-file", textContent: "Bild wählen" }), pictureInput, pictureClear]),
+        el("label", { className: "ui-switch" }, [pictureInvert, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Hell und dunkel tauschen"]),
+      ]),
+    ]),
+    ownMeta.node,
+  ]);
+  wordsSection.append(el("form", { method: "dialog", className: "ui-dialog-box" }, [
+    el("header", { className: "ui-dialog-head" }, el("h2", { className: "ui-dialog-title", id: "cee-script-words-title", textContent: "Angaben zum Plugin" })),
+    wordsBody,
+    el("footer", { className: "ui-dialog-foot" }, el("button", { type: "submit", className: "btn", value: "close", textContent: "Fertig" })),
+  ]));
+  document.body.append(wordsSection);
+  const wordsButton = button("cee-script-words-open", "Angaben", () => { if (window.ui?.openDialog) window.ui.openDialog(wordsSection); else wordsSection.showModal?.(); }, "sm");
+  const toolbar = el("div", { className: "cee-ws-toolbar" }, [nameField, note, el("div", { className: "cee-ws-toolbar-actions" }, [copy, wordsButton, duplicate, remove])]);
   const strip = el("div", { className: "cee-ws-strip" }, [status, probeInfo, hint]);
 
-  const consoleHost = el("div", { className: "cee-ws-console", id: "cee-terminal" });
   const runTarget = el("p", { className: "muted", id: "cee-run-target" });
 
-  const main = el("div", { className: "ui-split-main cee-ws-main" }, [toolbar, editorHost, problems, strip]);
-
-  const split = el("div", { className: "ui-split cee-workspace", id: "cee-scripts-split" }, [
-    el("button", { type: "button", className: "btn ui-split-toggle", textContent: "Plugins", "aria-expanded": "false", "aria-controls": "cee-scripts-side" }),
-    side,
-    main,
+  // The editor is the whole page: no list beside it. Vorschau, Herunterladen and Aufs Gerät stand under it.
+  const main = el("div", { className: "cee-ws-main" }, [toolbar, editorHost, problems, strip, el("div", { className: "actions cee-ws-actions" }, [previewButton, exportButton, usbButton])]);
+  // Nothing is open until a plugin is chosen: the editor says so and offers the ways to one.
+  const emptyEditor = el("div", { className: "cee-ws-empty", id: "cee-editor-empty" }, [
+    el("p", { className: "muted", textContent: "Kein Plugin offen. Leg ein neues an, öffne eine Datei oder nimm eins aus dem Katalog." }),
+    el("div", { className: "actions" }, [
+      button("cee-editor-empty-new", "Neues Plugin", () => newScript(), "cee-primary"),
+      button("cee-editor-empty-open", "Öffnen", () => open.click(), ""),
+      button("cee-editor-empty-catalog", "Zum Katalog", () => { page("catalog"); shelf("catalog"); }, ""),
+    ]),
   ]);
+  const split = el("div", { className: "cee-workspace", id: "cee-scripts-split" }, [emptyEditor, main]);
+
+  // The preview: the simulated Electribe over the darkened editor; a click beside it or the X closes it.
+  const runBox = el("div", { className: "cee-run", id: "cee-run" }, [
+    runTarget,
+    el("div", { className: "cee-run-bar" }, [runButton, stopButton, probeButton, recordButton, clearInputs, inputsInfo]),
+    simRoot,
+    log,
+  ]);
+  const previewClose = el("button", { type: "button", className: "btn icon", id: "cee-plugin-run-close", title: "Vorschau schließen" }, [icon("x")]);
+  previewClose.setAttribute("aria-label", "Vorschau schließen");
+  const previewDialog = el("dialog", { className: "ui-dialog cee-preview", id: "cee-plugin-run" });
+  previewDialog.setAttribute("aria-labelledby", "cee-plugin-run-title");
+  const previewBody = el("div", { className: "ui-dialog-body" });
+  previewDialog.append(el("div", { className: "ui-dialog-box" }, [
+    el("header", { className: "ui-dialog-head" }, [el("h2", { className: "ui-dialog-title", id: "cee-plugin-run-title", textContent: "Vorschau" }), previewClose]),
+    previewBody,
+  ]));
+  previewClose.addEventListener("click", () => previewDialog.close());
+  previewDialog.addEventListener("click", e => { if (e.target === previewDialog) previewDialog.close(); });
+  previewDialog.addEventListener("close", () => { if (runBox.parentNode === previewBody) stop(); });
+  document.body.append(previewDialog);
+  /** Where a run shows: in the preview of a plugin's page while that is open, else in the preview over the editor. */
+  function showRun() {
+    panel();
+    if (shown === "detail" && detailRun.contains(runBox)) return;
+    if (runBox.parentNode !== previewBody) previewBody.append(runBox);
+    if (!previewDialog.open) (window.ui?.openDialog ? window.ui.openDialog(previewDialog) : previewDialog.showModal?.());
+  }
+  function preview() {
+    if (start()) return;
+    say("Das Plugin lässt sich nicht übersetzen, siehe die Fehler unter dem Editor.", "error");
+  }
 
   const thumbs = new Map();
   let thumbsDone = false;
@@ -524,10 +666,32 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
   // The documentation: docs/plugins.md read as a page, with the live table of names as one of its sections.
   const docsSearch = el("input", { className: "input", id: "cee-docs-search", type: "search", placeholder: "Dokumentation durchsuchen", spellcheck: false, autocomplete: "off" });
   docsSearch.setAttribute("aria-label", "Dokumentation durchsuchen");
-  const docsToc = el("details", { className: "ui-details", id: "cee-docs-toc" }, [el("summary", { textContent: "Inhalt" }), el("div", { className: "ui-details-body" })]);
+  // The contents stand beside the text and scroll along; on a narrow window they fold above it.
+  const docsToc = el("details", { className: "ui-details cee-docs-toc", id: "cee-docs-toc" }, [el("summary", { textContent: "Inhalt" }), el("div", { className: "ui-details-body" })]);
+  const wide = window.matchMedia?.("(min-width: 60rem)");
+  const unfold = () => { docsToc.open = !!wide?.matches; };
+  wide?.addEventListener?.("change", unfold);
+  unfold();
   const docsArticle = el("article", { className: "cee-docs-article", id: "cee-docs-article" }, [el("p", { className: "muted", textContent: "Wird geladen …" })]);
   const docsEmpty = el("p", { className: "muted", id: "cee-docs-empty", hidden: true, textContent: "Nichts gefunden." });
-  const docsPage = el("div", { className: "cee-plug-page cee-docs" }, [el("div", { className: "cee-docs-head" }, [docsSearch]), docsToc, docsArticle, docsEmpty]);
+  const docsPage = el("div", { className: "cee-plug-page cee-docs" }, [
+    el("div", { className: "cee-docs-head" }, [docsSearch]),
+    el("div", { className: "cee-docs-body" }, [docsToc, el("div", { className: "cee-docs-text" }, [docsArticle, docsEmpty])]),
+  ]);
+  /** The heading the reader is at: the last one above the top of the page, for the breadcrumb. */
+  let reading = null;
+  docsPage.addEventListener("scroll", () => {
+    const top = docsPage.getBoundingClientRect().top + 8;
+    let at = null;
+    for (const h of docsArticle.querySelectorAll(".cee-doc-heading")) {
+      if (h.closest("[hidden]")) continue;
+      if (h.getBoundingClientRect().top <= top) at = h; else break;
+    }
+    const text = at?.textContent ?? null;
+    // The section you read stands out in the table of contents.
+    for (const b of docsToc.querySelectorAll("button[data-target]")) b.toggleAttribute("aria-current", !!at && b.dataset.target === at.id);
+    if (text !== reading) { reading = text; trail([{ text: "Dokumentation", go: () => { docsPage.scrollTo({ top: 0 }); } }, ...(text ? [text] : [])]); }
+  }, { passive: true });
   let docSections = [];
   let docsLoaded = false;
   const jumpTo = id => {
@@ -578,39 +742,117 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     const names = docSections.find(s => s.title === NAMES_TITLE);
     if (names) names.node.append(el("div", { className: "cee-names-head" }, [namesFilter, el("p", { className: "muted", textContent: "Klick kopiert den Namen. Beim Übersetzen wird er zur Nummer." })]), namesBody);
     docsArticle.replaceChildren(...docSections.map(s => s.node));
-    docsToc.querySelector(".ui-details-body").replaceChildren(el("ul", { className: "cee-doc-toc" }, links.map(h => el("li", { className: `cee-doc-toc-${h.level}` }, el("button", { type: "button", className: "cee-text-link", textContent: h.text, onclick: () => jumpTo(h.id) })))));
+    const tocLink = h => {
+      const b = el("button", { type: "button", className: "cee-text-link", textContent: h.text, onclick: () => jumpTo(h.id) });
+      b.dataset.target = h.id;
+      return b;
+    };
+    docsToc.querySelector(".ui-details-body").replaceChildren(el("ul", { className: "cee-doc-toc" }, links.map(h => el("li", { className: `cee-doc-toc-${h.level}` }, tocLink(h)))));
   }
 
-  // The catalog: the bundled examples as cards, each with a picture of its display after a few frames of the browser VM.
+  // The catalog: the plugins of the app as cards, each with a picture of its display after a few frames of the browser VM.
+  // Beside it, under its own button, the plugins of this browser.
   const catalog = el("ul", { className: "cee-catalog", id: "cee-catalog" }, PRESETS.map(catalogCard));
+  const exportAllOwn = exportAll;
+  const ownShelf = el("div", { className: "cee-plug-page cee-own-shelf", id: "cee-own-shelf" }, [
+    el("div", { className: "actions" }, [newButton, openLabel, open, exportAllOwn]),
+    ownEmpty,
+    ownList,
+    el("p", { className: "muted", textContent: "Deine Plugins bleiben auf diesem Rechner." }),
+  ]);
+  /** The catalog or Meine Plugins, each its own sub-page. */
+  const shelf = id => page(id === "own" ? "mine" : "catalog");
+
+  // A plugin's own page: picture, title, description and details on top; Vorschau and Code below, switched by a segmented control.
+  const detailRun = el("div", { className: "cee-detail-run", id: "cee-detail-run" });
+  const detailCode = el("pre", { className: "cee-doc-code cee-detail-code", id: "cee-detail-code", tabIndex: 0, hidden: true });
+  const detailHead = el("div", { className: "cee-detail-head", id: "cee-detail-head" });
+  const views = [["preview", "Vorschau"], ["code", "Code"]].map(([id, text]) => {
+    const input = el("input", { type: "radio", name: "cee-detail-view", value: id, onchange: () => detailView(id) });
+    return el("label", { className: "ui-segmented-option", id: `cee-detail-view-${id}` }, [input, el("span", { textContent: text })]);
+  });
+  const viewTabs = el("div", { className: "ui-segmented cee-detail-views", role: "radiogroup" }, views);
+  viewTabs.setAttribute("aria-label", "Vorschau oder Code");
+  const detailPage = el("div", { className: "cee-plug-page cee-detail" }, [
+    el("button", { type: "button", className: "cee-text-link cee-detail-back", id: "cee-detail-back", textContent: "← Zurück zum Katalog", onclick: () => page("catalog") }),
+    detailHead,
+    viewTabs,
+    detailRun,
+    detailCode,
+  ]);
+  let detailOf = null;
+  function detailView(id) {
+    for (const v of views) { const input = v.querySelector("input"); input.checked = input.value === id; }
+    detailRun.hidden = id !== "preview";
+    detailCode.hidden = id !== "code";
+    if (id === "preview") {
+      detailRun.append(runBox);
+      const result = compile(detailOf.source, { name: validName(detailOf.id) ? detailOf.id : "plugin" });
+      if (result.ok) start(result.blob, detailOf.id);
+      runTarget.textContent = `Plugin: ${detailOf.title}`;
+      probeButton.hidden = true;
+    } else stop();
+  }
+  /** Opens the page of one plugin of the catalog. */
+  function openDetail(preset) {
+    detailOf = preset;
+    const canvas = el("canvas", { className: "cee-lcd cee-catalog-thumb", width: 128, height: 64 });
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", `Display von ${preset.title}`);
+    const { get, usb } = packButtons(preset, true);
+    const copyOwn = el("button", { type: "button", className: "btn", id: "cee-detail-copy", textContent: "Als eigenes Plugin öffnen", onclick: () => { select("preset", preset.id); copyPreset(); page("editor"); } });
+    const added = new Date(`${preset.added}T12:00:00`).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+    detailHead.replaceChildren(
+      canvas,
+      el("div", { className: "cee-detail-text" }, [
+        el("h2", { className: "cee-detail-title", id: "cee-detail-title", textContent: preset.title }),
+        el("p", { textContent: preset.description }),
+        el("dl", { className: "cee-detail-facts" }, [
+          el("dt", { textContent: "Kategorie" }), el("dd", { textContent: preset.category }),
+          el("dt", { textContent: "Von" }), el("dd", {}, creatorName(preset.creator) ?? "?"),
+          el("dt", { textContent: "Hinzugefügt" }), el("dd", {}, el("time", { dateTime: preset.added, textContent: added })),
+          el("dt", { textContent: "Steuerung" }), el("dd", {}, preset.controls.length ? el("ul", { className: "cee-detail-controls" }, preset.controls.map(c => el("li", { textContent: c }))) : "Keine, es läuft von selbst."),
+        ]),
+        el("div", { className: "actions" }, [get, usb, copyOwn]),
+      ]),
+    );
+    renderThumb(canvas, preset);
+    // Coloured like the editor: the same tokenizer, the same token classes.
+    detailCode.replaceChildren(...highlightLines(preset.source).flatMap((pieces, i) => [
+      ...(i ? ["\n"] : []),
+      ...pieces.map(([text, type]) => type ? el("span", { className: type.split(".").map(t => `tok-${t}`).join(" "), textContent: text }) : text),
+    ]));
+    page("detail");
+    trail([{ text: "Katalog", go: () => { page("catalog"); shelf("catalog"); } }, preset.title]);
+    detailView("preview");
+  }
 
   const PAGES = [
     { id: "catalog", title: "Katalog", node: el("div", { className: "cee-plug-page" }, [catalog]) },
+    { id: "mine", title: "Meine Plugins", node: ownShelf },
     { id: "editor", title: "Editor", node: split },
-    { id: "run", title: "Lauf", node: el("div", { className: "cee-plug-page cee-run" }, [
-      runTarget,
-      el("div", { className: "cee-run-bar" }, [runButton, stopButton, probeButton, recordButton, clearInputs, inputsInfo]),
-      simRoot,
-      log,
-    ]) },
-    { id: "console", title: "Konsole", node: el("div", { className: "cee-plug-page" }, [consoleHost]) },
     { id: "docs", title: "Dokumentation", node: docsPage },
+    { id: "detail", title: "Plugin", node: detailPage, hidden: true },
   ];
   for (const p of PAGES) { p.node.id ||= `cee-plugin-${p.id}`; p.node.hidden = true; p.node.dataset.page = p.id; }
   root.replaceChildren(...PAGES.map(p => p.node));
 
   let shown = null;
-  const subPages = sub?.pages("scripts", { id: "cee-scripts-pages", label: "Bereiche der Plugins", items: PAGES.map(({ id, title }) => ({ id, title })), pick: id => page(id) });
-  /** Opens one of the pages of Plugins: the editor, the run area, the console, the names, the catalog. */
+  const PAGE_ICONS = { catalog: "grid", mine: "folder", editor: "code", docs: "book" };
+  const subPages = sub?.pages("scripts", { id: "cee-scripts-pages", label: "Bereiche der Plugins", items: PAGES.filter(p => !p.hidden).map(({ id, title }) => ({ id, title, icon: PAGE_ICONS[id] })), pick: id => page(id) });
+  /** Opens one of the pages of Plugins: the catalog, a plugin's page, the editor, the documentation. */
   function page(id) {
     if (!PAGES.some(p => p.id === id)) id = "editor";
     if (id === shown) return;
+    if (shown === "detail") { stop(); probeButton.hidden = false; runTarget.textContent = current ? `Plugin: ${current.id}` : ""; }
     shown = id;
     for (const p of PAGES) p.node.hidden = p.id !== id;
-    subPages?.select(id);
+    subPages?.select(id === "detail" ? "catalog" : id);
+    reading = null;
+    trail(id === "editor" ? ["Editor", ...(current ? [current.id] : [])] : [PAGES.find(p => p.id === id).title]);
+    navbar(id === "editor" ? [openNav, saveNav] : []);
     if (id === "catalog") drawThumbs();
     if (id === "docs") loadDocs();
-    if (id === "run") panel();
   }
 
   const THUMB_FRAMES = 40;
@@ -643,37 +885,51 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
     for (const [canvas, preset] of thumbs) renderThumb(canvas, preset);
   }
 
+  /** Herunterladen and Aufs Gerät for a plugin of the catalog; `text` gives them words besides the icon. */
+  function packButtons(preset, text = false) {
+    const make = (name, label, onclick, primary = false) => {
+      const b = el("button", { type: "button", className: `btn${text ? "" : " icon"}${primary ? " cee-primary" : ""}`, title: label, onclick }, [icon(name), text ? label : null]);
+      if (!text) b.setAttribute("aria-label", label);
+      return b;
+    };
+    const pack = () => {
+      const result = compile(preset.source, { name: validName(preset.id) ? preset.id : "plugin" });
+      const probed = result.ok ? runProbe(result.blob) : null;
+      const packed = probed?.ok ? packBlech(markProbed(result.blob), preset.source) : null;
+      if (!packed?.ok) { say(packed?.error?.message ?? "Dieses Plugin lässt sich nicht speichern.", "error"); return null; }
+      return packed.bytes;
+    };
+    const get = make("download", "Herunterladen", () => {
+      const bytes = pack();
+      if (bytes) saveFile(bytes, `${preset.id}.blech`, { note: `Auf die Karte nach ${ARCHIVE.folder}/ kopieren.` });
+    });
+    const usb = make("usb", "Aufs Gerät", () => {
+      const bytes = pack();
+      if (bytes) toDevice(bytes, preset.id, usb);
+    }, true);
+    return { get, usb };
+  }
+
   function catalogCard(preset) {
     const canvas = el("canvas", { className: "cee-lcd cee-catalog-thumb", width: 128, height: 64 });
     canvas.setAttribute("role", "img");
     canvas.setAttribute("aria-label", `Display von ${preset.title}`);
     thumbs.set(canvas, preset);
-    const note = el("p", { className: "cee-error", hidden: true });
-    const view = el("button", { type: "button", className: "btn sm", textContent: "Code ansehen", onclick: () => { select("preset", preset.id); page("editor"); } });
-    const get = el("button", { type: "button", className: "btn sm primary", textContent: "Download .blech", onclick: () => {
-      const result = compile(preset.source, { name: validName(preset.id) ? preset.id : "plugin" });
-      const probed = result.ok ? runProbe(result.blob) : null;
-      const packed = probed?.ok ? packBlech(markProbed(result.blob), preset.source) : null;
-      note.hidden = !!packed?.ok;
-      if (!packed?.ok) { note.textContent = packed?.error?.message ?? "Dieses Beispiel lässt sich nicht speichern."; return; }
-      download(packed.bytes, `${preset.id}.blech`);
-    } });
+    // The whole card leads to the plugin's page (the title's button covers it); download and device are there.
+    const title = el("button", { type: "button", className: "cee-catalog-open", textContent: preset.title, onclick: () => openDetail(preset) });
     return el("li", { className: "cee-catalog-card", id: `cee-catalog-${preset.id}` }, [
       canvas,
-      el("h3", { textContent: preset.title }),
+      el("h3", {}, title),
+      el("p", { className: "cee-catalog-category", textContent: preset.category }),
       el("p", { className: "muted", textContent: preset.description }),
-      el("div", { className: "cee-catalog-actions" }, [view, get]),
-      note,
+      creatorLine(preset.creator),
     ]);
   }
 
   renderNames();
-  let last = null;
-  try { last = storage?.getItem("cee.scripts.last"); } catch { /* optional */ }
-  const [kind, id] = (last ?? "").split(/:(.*)/s);
-  if (kind === "own" && workspace.get(id)) select("own", id);
-  else select("preset", PRESETS.some(p => p.id === id) ? id : PRESETS[0].id);
   page("catalog");
+  updateActions();
+  renderLists();
 
   return {
     /** The names the terminal's run() accepts. */
@@ -689,14 +945,16 @@ export function scriptsPanel(root, { storage = null, sub = null } = {}) {
       const result = compile(source, { name: validName(label) ? label : "plugin" });
       if (!result.ok) throw new Error(result.errors.map(formatError).join("\n"));
       start(result.blob, label);
-      return `„${label}“ läuft im Bereich Lauf, Display und LEDs stehen dort.`;
+      onRun();
+      return `„${label}“ läuft in der Vorschau, Display und LEDs stehen dort.`;
     },
     /** Run lines of script language once, at the first frame, in the run area. */
     runSnippet(code) {
       const result = compile(`korg.app("einzeiler", "TOOLS");\nkorg.onEvent("ready", () => {\n${code.trim().replace(/;?$/, ";")}\n});`, { name: "einzeiler" });
       if (!result.ok) throw new Error(result.errors.map(e => `${formatError({ ...e, line: Math.max(1, e.line - 2) })}`).join("\n"));
       start(result.blob, "einzeiler");
-      return "Läuft im Bereich Lauf, als App geöffnet.";
+      onRun();
+      return "Läuft in der Vorschau, als App geöffnet.";
     },
     stop,
     page,

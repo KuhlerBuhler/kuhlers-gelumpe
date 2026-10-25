@@ -17,7 +17,7 @@ sie zurück, ohne die Karte umzustecken.
 - **ORIGINAL.BIN:** Eine schon gepatchte Datei kann der Patcher nicht noch einmal patchen. Beim ersten Update über USB legt
   GELUMPE die unveränderte Datei als `ORIGINAL.BIN` neben die neue `SYSTEM.VSB`; jedes weitere Update startet von ihr. Keine
   Endung `.VSB`, damit kein Updater sie nimmt (der blaue liest auch `BOOT.VSB`, `USER.VSB`, `PCM.VSB`).
-- **App:** Patcher-Seite, "Vom Gerät über USB holen" und nach bestandener Prüfung "Über USB aufs Gerät schreiben"
+- **App:** Patcher-Seite, Abschnitt "Update direkt über USB" mit dem Knopf "Update auf Gerät" (20.10.: holt, patcht, prüft und schreibt in einem Zug; vorher zwei Knöpfe), und nach bestandener Prüfung weiter "Über USB aufs Gerät schreiben"
   (`src/usb-update.mjs`, `src/sender.mjs`, `src/protocol.mjs`). Auch eine hineingezogene Datei kann so aufs Gerät; dann kommt
   sie selbst als `ORIGINAL.BIN` mit.
 

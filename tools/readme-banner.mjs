@@ -11,6 +11,7 @@ import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
+import { resizedHead } from "./blechy-head.mjs";
 
 const W = 320;
 const H = 80;
@@ -160,35 +161,6 @@ function heavyText(g, s, x, y, scale, c, { seed = 7, drips = true, grit = 0.006,
   }
 }
 
-// Terror eye: ring, square pupil, lid tab under it (same idea as the app icon).
-// look = pupil offset in cells.
-function eye(g, { cx, cy, R, th, pupil, look = [0, 0], lid = true, ring = "W", pup = "W" }) {
-  for (let j = 0; j < H; j++)
-    for (let i = 0; i < W; i++) {
-      const d = Math.hypot(i + 0.5 - cx, j + 0.5 - cy);
-      if (d <= R) g[j][i] = " ";
-      if (d >= R - th && d <= R) g[j][i] = ring;
-    }
-  const p0 = Math.round(cx - pupil / 2 + look[0]);
-  const q0 = Math.round(cy - pupil / 2 + look[1]);
-  fillRect(g, p0, q0, pupil, pupil, pup);
-  if (lid) {
-    const y0 = Math.round(cy + R - 0.5);
-    const steps = [0.62, 0.52, 0.52].map((k) => Math.round(R * k));
-    const t = Math.max(2, Math.round(th * 0.6));
-    steps.forEach((half, n) => {
-      for (let b = 0; b < t; b++) {
-        const a = Math.round(cx - half), z = Math.round(cx + half);
-        for (let i = a; i < z; i++) {
-          const edge = i < a + t || i >= z - t || n === steps.length - 1;
-          put(g, i, y0 + n * t + b, edge ? ring : " ");
-        }
-      }
-    });
-  }
-}
-
-// Faint dither on a 2-cell pitch with some staggered extra dots.
 function dither(g, x0, y0, x1, y1, c = "F", denseBand = 0) {
   for (let j = y0; j < y1; j += 2)
     for (let i = x0; i < x1; i += 2)
@@ -216,8 +188,13 @@ function banner() {
   const g = grid();
   dither(g, 0, 0, 36, H, "F");
   dither(g, 304, 0, W, H, "F");
-  // the two terror eyes stare at the wordmark
-  [31, 71].forEach((cx) => eye(g, { cx, cy: 38, R: 19, th: 5, pupil: 9, look: [4, 1] }));
+  const head = resizedHead(76, 68);
+  const headX = Math.floor((100 - head[0].length) / 2);
+  const headY = Math.floor((H - head.length) / 2);
+  fillRect(g, headX, headY, head[0].length, head.length, " ");
+  head.forEach((row, y) => [...row].forEach((pixel, x) => {
+    if (pixel === "#") put(g, headX + x, headY + y, "W");
+  }));
   const x0 = 104;
   text(g, "Kuhler's", x0, 3, 2, "W");
   heavyText(g, "GELUMPE", x0, 19, 5, "A", { seed: 11, maxDrip: 5, shadow: { dx: 2, dy: 2, c: "F" } });
@@ -275,7 +252,7 @@ console.log(`wrote ${files.length} SVGs to ${out}`);
 
 if (argv.includes("--png")) {
   const { chromium } = await import("playwright");
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ channel: "chrome" });
   const page = await browser.newPage({ viewport: { width: W * CELL, height: H * CELL } });
   for (const f of files) {
     const svg = readFileSync(join(out, f), "utf8");

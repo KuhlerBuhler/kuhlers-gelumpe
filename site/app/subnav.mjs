@@ -4,20 +4,24 @@
  * options adds nothing and its entry stays a single line.
  */
 import { el } from "./fields.mjs";
+import { icon } from "./icons.mjs";
 
 export function subnav() {
   let current = null;
   const hosts = new Map();
+  // A tablist holds tabs only: the group headings and the options sit beside it in the same flex column and take
+  // their place by order, a heading above the entry it names in data-before, the options under their entry.
+  const tabs = [...document.querySelectorAll("#cee-areas [role=tab]")];
+  const slot = tab => 3 * tabs.indexOf(tab);
+  tabs.forEach(t => { t.style.order = String(slot(t) + 1); });
+  for (const g of document.querySelectorAll(".cee-nav-group")) g.style.order = String(slot(document.getElementById(`cee-tab-${g.dataset.before}`)));
 
   const host = tab => {
     if (hosts.has(tab)) return hosts.get(tab);
     const entry = document.getElementById(`cee-tab-${tab}`);
     const node = el("div", { className: "cee-nav-sub", id: `cee-sub-${tab}`, role: "group", hidden: true });
     node.setAttribute("aria-label", `Optionen ${entry.textContent}`);
-    // A tablist holds tabs only: the options sit beside it and take their place under the entry by order.
-    const tabs = [...entry.parentElement.querySelectorAll("[role=tab]")];
-    tabs.forEach((t, i) => { t.style.order = String(2 * i); });
-    node.style.order = String(2 * tabs.indexOf(entry) + 1);
+    node.style.order = String(slot(entry) + 2);
     entry.closest(".cee-nav").append(node);
     hosts.set(tab, node);
     return node;
@@ -47,7 +51,7 @@ export function subnav() {
       const list = el("div", { className: "cee-nav-pages", id, role: "group" });
       list.setAttribute("aria-label", label);
       const buttons = items.map(item => {
-        const button = el("button", { type: "button", className: "cee-nav-subitem", id: `cee-${tab}-page-${item.id}`, textContent: item.title });
+        const button = el("button", { type: "button", className: "cee-nav-subitem", id: `cee-${tab}-page-${item.id}` }, [item.icon ? icon(item.icon) : null, el("span", { textContent: item.title })]);
         button.dataset.page = item.id;
         button.addEventListener("click", () => pick(item.id));
         return button;

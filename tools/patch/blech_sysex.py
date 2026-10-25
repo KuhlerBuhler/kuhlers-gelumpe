@@ -13,6 +13,18 @@ F0 42 3n 00 01 24 <function> <7-bit packed words> F7, with n the global channel.
     0x64      FLASH READ: address, length                        0x6C  status, address, length, CRC-32, the bytes
     0x65      FILE READ: offset, length (0 for the size only)    0x6D  status, offset, length, CRC-32, file size, the bytes
     0x66      FILE BEGIN: offset, length, CRC-32 of the bytes    0x6E  status, offset, length; WRITE DATA follows
+    0x67      PLUGIN BEGIN: offset, length, CRC-32, 16 bytes name 0x6E  status, offset, length; WRITE DATA follows
+    0x6F      EXEC: address, argument                            0x70  status, address, what the code returned in r0
+
+EXEC runs code the editor wrote before (KORG.exec, src/korg.mjs): only at a word in the stub buffer of data/exec.mjs
+(EXEC_START to EXEC_END), and only where the table lets the editor write, so it is refused on the synth, whose table
+allows no writes. It drains the write buffer and clears the instruction cache itself, then calls the address with the
+argument in r0; the code follows the ARM calling convention. Status 2 for an address it refuses.
+
+PLUGIN BEGIN writes a plugin file, SD:KORG/blechtribe/Plugin/<name>.blech, where IMPORT PLUGIN of the BLECH menu lists it
+(tools/patch/script_menu.s). The name is 1 to 16 letters, digits, "_" or "-", zero bytes after it; anything else is refused
+with status 3, so no path can be built from it. Otherwise it works like FILE BEGIN (offset 0 makes the file anew, the block is
+read back from the card for the CRC).
 
 The two FILE commands reach exactly two files of the card, chosen by bit 31 of the offset: the update file
 KORG/<folder>/System/SYSTEM.VSB (bit clear) and beside it ORIGINAL.BIN (bit set), where the editor keeps the unpatched file the
@@ -28,7 +40,7 @@ Every field is a 32-bit little endian word (the status too), the words are packe
 read back after the copy differ. A BEGIN that is answered with 0 declares one DATA message; a DATA message without it is not
 taken in at all. The firmware refuses by its own table (the protection of data/protected.mjs, src/sysex-table.mjs): outside
 the RAM window of 128 MiB, in every region a write must not touch (the table says which windows of a region the editor may write),
-and in the mirror of such a region. The commands touch RAM only; there is no flash command and no execute command.
+and in the mirror of such a region. The commands touch RAM only; there is no command that writes the flash.
 
 Two hooks, none in the start phase and none that does anything before the main screen:
   0xC0026A8C  the function that sorts a SysEx function byte into how many bytes follow and where they go; our four
@@ -41,6 +53,12 @@ keeps the parser quiet while it goes out, the output queues of USB and DIN, the 
 
 With EXIT held at power-on both hooks pass everything on: the four function bytes are not taken and the device is silent
 to them, as with Korg's original without the patch (docs/patcher.md, "Notschalter").
+
+Hacktribe's commands 0x52 to 0x57 read and write RAM, read and write the flash and run code, with no check of the address
+(docs/messungen/2026-10-24-hacktribe-flash.md); 0x53, 0x54 and 0x56 also rewrite a pattern slot each time. The editor does
+all of it through the commands above, so both hooks drop them: the function byte is not taken and the message never runs.
+With EXIT held at power-on they pass again for Hacktribe's own tools, all but 0x56, the flash write, which is the one
+command that can damage the device and stays dropped.
 
     python3 tools/patch/blech_sysex.py --vsb SYSTEM.VSB --table table.bin --build hacktribe|stock [--out data/patches/blech-sysex.json]
 
@@ -71,23 +89,29 @@ TABLE_END = 0xC0174000
 STATE = 0xC0191000              # run time state, in RAM only (behind the synth filters' 0xC0190000 to 0xC0190100)
 STATE_END = 0xC0191100
 BUF = 0xC0191100                # the buffer a message is decoded into and a reply is packed in
-BUF_END = 0xC019F000            # 0xC019F000 to 0xC01A0000 the file object and the path of the FILE commands; Hacktribe's code starts at 0xC01A0000
+MAX_BLOCK = 0x8000              # bytes in one READ or WRITE DATA
+MAX_REPLY_HEADER = 20
+# Packed frame, its group bytes, and up to three bytes lost aligning the raw source.
+BUFFER_REQUIRED = MAX_BLOCK + MAX_REPLY_HEADER + (MAX_BLOCK + MAX_REPLY_HEADER + 6) // 7 + 8 + 3
+BUF_END = BUF + ((BUFFER_REQUIRED + 255) & ~255)
 FILE_AREA = 0xC019F000          # FatFs file object (0x224 bytes, measured), the count of bytes read or written, the path
 FILE_AREA_END = 0xC01A0000
 FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
 FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
-MAX_BLOCK = 0x8000              # bytes in one READ or WRITE DATA
+NAME_MAX = 16                   # characters of a plugin file's name (PLUGIN BEGIN)
 
 # STATE: +0 pending (the magic below when a BEGIN waits for its DATA), +4 address, +8 length, +12 CRC,
 # +0x10 a request as decoded, +0x20 the words of a short reply, +0x40 where a short reply is packed
 S_PENDING, S_ADDR, S_LEN, S_CRC, S_REQ, S_MODE, S_RAW, S_OUT = 0, 4, 8, 12, 0x10, 0x1C, 0x20, 0x40   # S_MODE 1: the declared write goes to SYSTEM.VSB, 2 to ORIGINAL.BIN
 PENDING_MAGIC = 0x444E4550      # "PEND": the image is FF where it has not been written, so 0 and FF both mean nothing waits
 
-FUNC_INFO, FUNC_READ, FUNC_BEGIN, FUNC_DATA, FUNC_FLASH, FUNC_FREAD, FUNC_FBEGIN = 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66
-REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY_FBEGIN = 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E
+FUNC_INFO, FUNC_READ, FUNC_BEGIN, FUNC_DATA, FUNC_FLASH, FUNC_FREAD, FUNC_FBEGIN, FUNC_PBEGIN, FUNC_EXEC = 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x6F
+REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY_FBEGIN, REPLY_EXEC = 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x70
 STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE = 0, 1, 2, 3, 4, 5, 6
 PROTOCOL_VERSION = 1
-FLAGS = 0x1F                    # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file
+FLAGS = 0x7F                    # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC
+EXEC_START, EXEC_END = 0xC1000000, 0xC1000400   # the stub buffer of data/exec.mjs (stubAt, stubAt + stubSize)
+HACKTRIBE_FIRST, HACKTRIBE_FLASH_WRITE = 0x52, 0x56   # Hacktribe's commands are 0x52 to 0x57
 FLASH_MAX = 0x1000              # bytes in one FLASH READ: the sector size, the largest piece the firmware's own flash code takes at once
 FLASH_LIMIT = 0x1000000         # the end of the 16 MiB flash; a request from 0x1000000 on hung the device (docs/speicherbereiche.md), so none reaches it
 
@@ -162,6 +186,8 @@ def source():
 .equ FILE_FIL, {FILE_AREA:#x}
 .equ FILE_BR, {FILE_AREA + 0x240:#x}
 .equ FILE_PATH, {FILE_AREA + 0x280:#x}
+.equ FILE_NAME, {FILE_AREA + 0x300:#x}
+.equ NAME_MAX, {NAME_MAX}
 .equ FILE_LIMIT, {FILE_LIMIT:#x}
 .equ S_MODE, {S_MODE}
 .equ FLASH_MAX, {FLASH_MAX:#x}
@@ -185,19 +211,46 @@ def source():
 .equ S_RAW, {S_RAW}
 .equ S_OUT, {S_OUT}
 .equ FLAGS, {FLAGS}
+.equ EXEC_START, {EXEC_START:#x}
+.equ EXEC_END, {EXEC_END:#x}
+.equ HT_FIRST, {HACKTRIBE_FIRST:#x}
+.equ HT_FLASH_WRITE, {HACKTRIBE_FLASH_WRITE:#x}
 .equ VERSION, {PROTOCOL_VERSION}
 
 .org {CODE_AT:#x}
 
 ; ---- hook 1: the function byte ------------------------------------------------------------------------------------
 ; Entered instead of the first instruction of the function at 0xC0026A8C. r0 = the parser's state object, r1 = the function byte.
-; It returns the state the parser goes on in. For anything but our four bytes it is the original instruction and the original function.
+; It returns the state the parser goes on in. For anything but our function bytes and Hacktribe's it is the original instruction and the original function.
 classify_hook:
     sub r2, r1, #0x60
-    cmp r2, #7
+    cmp r2, #8
     blo classify_ours
+    cmp r1, #{FUNC_EXEC}
+    beq classify_ours
+    sub r2, r1, #HT_FIRST
+    cmp r2, #6
+    blo classify_hacktribe
+classify_original:
     cmp r1, #0x1c
     b CLASSIFY_BACK
+
+; Hacktribe's 0x52 to 0x57 go on only with EXIT held at power-on, the flash write 0x56 never
+classify_hacktribe:
+    cmp r1, #HT_FLASH_WRITE
+    beq classify_drop
+    push {{r0, lr}}
+    bl killed                   ; touches r0 only
+    mov r12, r0
+    pop {{r0, lr}}
+    cmp r12, #0
+    bne classify_original
+classify_drop:
+    strb r1, [r0]
+    mvn r3, #0
+    strb r3, [r0, #0x10]
+    mov r0, #0
+    bx lr
 
 classify_ours:
     push {{r4, lr}}
@@ -218,6 +271,8 @@ classify_ours:
     cmpne r1, #0x66
     moveq r2, #12
     movne r2, #8
+    cmp r1, #0x67
+    moveq r2, #12+NAME_MAX
     b classify_receive
 classify_data:
     ldr r2, [r12]
@@ -265,13 +320,32 @@ killed:
 
 ; ---- hook 2: the message --------------------------------------------------------------------------------------------
 ; Entered instead of the first instruction of the function at 0xC0026418, r0 = the received message, byte 0 its function.
+; Hacktribe's 0x52 to 0x57 are dropped here as in the first hook, should one get this far: with EXIT held at power-on they run, 0x56 never.
 process_hook:
     ldrb r12, [r0]
+    cmp r12, #HT_FLASH_WRITE
+    bxeq lr
+    sub r12, r12, #HT_FIRST
+    cmp r12, #6
+    blo process_hacktribe
+    ldrb r12, [r0]
+    cmp r12, #{FUNC_EXEC}
+    beq process_ours
     sub r12, r12, #0x60
-    cmp r12, #7
+    cmp r12, #8
     blo process_ours
+process_original:
     push {{r0, r1, r2, r3, r4, r5, r6, lr}}
     b PROCESS_BACK
+
+process_hacktribe:
+    push {{r0, lr}}
+    bl killed                   ; touches r0 only
+    mov r12, r0
+    pop {{r0, lr}}
+    cmp r12, #0
+    bne process_original
+    bx lr
 
 process_ours:
     push {{r3, r4, r5, r6, r7, r8, r9, r10, r11, lr}}
@@ -296,6 +370,10 @@ process_ours:
     beq do_fread
     cmp r5, #0x66
     beq do_fbegin
+    cmp r5, #0x67
+    beq do_pbegin
+    cmp r5, #{FUNC_EXEC}
+    beq do_exec
     b do_data
 process_done:
     pop {{r3, r4, r5, r6, r7, r8, r9, r10, r11, pc}}
@@ -462,6 +540,44 @@ begin_reply:
     b reply_tail
 .pool
 
+; EXEC: address, argument. Only a word of the stub buffer that the table lets the editor write; the write buffer is drained and the
+; instruction cache cleared first, so the code just written is what runs. Answers status, address and r0 of the code (0 when refused).
+do_exec:
+    ldr r8, [r6, #S_REQ]
+    mov r9, #0
+    mov r4, #{STATUS_REFUSED}
+    tst r8, #3
+    bne exec_reply
+    ldr r3, =EXEC_START
+    cmp r8, r3
+    blo exec_reply
+    ldr r3, =EXEC_END - 4
+    cmp r8, r3
+    bhi exec_reply
+    mov r0, r8
+    mov r1, #4
+    mov r2, #1
+    bl policy
+    cmp r0, #0
+    bne exec_reply
+    .word 0xEE070F9A            ; mcr p15, 0, r0, c7, c10, 4: drain the write buffer (r0 is 0)
+    .word 0xEE070F15            ; mcr p15, 0, r0, c7, c5, 0: clear the instruction cache
+    ldr r0, [r6, #S_REQ + 4]
+    blx r8
+    mov r9, r0
+    mov r4, #{STATUS_OK}
+exec_reply:
+    add r11, r6, #S_RAW
+    str r4, [r11]
+    str r8, [r11, #4]
+    str r9, [r11, #8]
+    mov r0, #{REPLY_EXEC}
+    mov r1, r11
+    mov r2, #12
+    add r3, r6, #S_OUT
+    b reply_tail
+.pool
+
 ; WRITE DATA: CRC of what arrived, the range again, the copy, the CRC of what is there now
 do_data:
     ldr r0, [r6]
@@ -481,9 +597,9 @@ do_data:
     movne r4, #{STATUS_BAD_CRC}
     bne data_reply
     ldr r0, [r6, #S_MODE]
-    cmp r0, #1
-    cmpne r0, #2
-    beq data_file
+    sub r0, r0, #1
+    cmp r0, #3                  ; 1 SYSTEM.VSB, 2 ORIGINAL.BIN, 3 a plugin file
+    blo data_file
     mov r0, r8
     mov r1, r9
     mov r2, #1
@@ -587,6 +703,8 @@ do_fbegin:
     str r3, [r6]
     mov r5, r8, lsr #31         ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN (r5, the function byte, is not needed any more)
     bic r8, r8, #0x80000000
+fbegin_checked:
+    ldr r10, [r6, #S_REQ + 8]
     mov r0, #{STATUS_RANGE}
     cmp r9, #0
     beq fbegin_reply
@@ -616,6 +734,54 @@ fbegin_reply:
     mov r2, #12
     add r3, r6, #S_OUT
     b reply_tail
+
+; PLUGIN BEGIN: offset, length, CRC, the name. The name is checked and kept for the path, then it is a FILE BEGIN of file 2.
+do_pbegin:
+    ldr r8, [r6, #S_REQ]
+    ldr r9, [r6, #S_REQ + 4]
+    mov r3, #0
+    str r3, [r6]
+    add r1, r6, #S_REQ + 12      ; the name as received (it reaches over S_MODE and S_RAW, both written only after it is copied)
+    ldr r2, =FILE_NAME
+    mov r3, #0                   ; characters
+    mov r0, #{STATUS_RANGE}
+pb_char:
+    ldrb r12, [r1, r3]
+    cmp r12, #0
+    beq pb_end
+    cmp r12, #0x2D               ; "-"
+    cmpne r12, #0x5F             ; "_"
+    beq pb_ok
+    sub r10, r12, #0x30
+    cmp r10, #10
+    blo pb_ok
+    orr r10, r12, #0x20
+    sub r10, r10, #0x61
+    cmp r10, #26
+    bhs fbegin_reply
+pb_ok:
+    strb r12, [r2, r3]
+    add r3, r3, #1
+    cmp r3, #NAME_MAX
+    blo pb_char
+pb_end:
+    cmp r3, #0
+    beq fbegin_reply
+    mov r12, #0
+    strb r12, [r2, r3]
+pb_rest:                         ; zero bytes only behind the name
+    cmp r3, #NAME_MAX
+    bhs pb_named
+    ldrb r12, [r1, r3]
+    cmp r12, #0
+    bne fbegin_reply
+    add r3, r3, #1
+    b pb_rest
+pb_named:
+    bic r8, r8, #0x80000000
+    str r8, [r6, #S_REQ]
+    mov r5, #2
+    b fbegin_checked
 
 ; FILE READ: offset, length (0 asks for the size only). The bytes go into the end of BUF behind five words, like READ;
 ; at the end of the file fewer come back, the length word says how many.
@@ -728,8 +894,10 @@ frb_error:
     pop {{r4, r5, r6, pc}}
 
 ; r0 = which: FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB", or
-; "System/ORIGINAL.BIN" for 1. Keeps r4 to r11.
+; "System/ORIGINAL.BIN" for 1; for 2 the plugin file SD:KORG/blechtribe/Plugin/<FILE_NAME>.blech. Keeps r4 to r11.
 file_path:
+    cmp r0, #2
+    beq plugin_path
     push {{r4, r5, lr}}
     mov r4, r0
     sub sp, sp, #0x10
@@ -759,6 +927,32 @@ fp_name:
     bl STRING_FREE
     add sp, sp, #0x10
     pop {{r4, r5, pc}}
+plugin_path:
+    ldr r0, =FILE_PATH
+    ldr r1, =plugin_prefix
+pp_prefix:
+    ldrb r3, [r1], #1
+    cmp r3, #0
+    strbne r3, [r0], #1
+    bne pp_prefix
+    ldr r1, =FILE_NAME
+pp_name:
+    ldrb r3, [r1], #1
+    cmp r3, #0
+    strbne r3, [r0], #1
+    bne pp_name
+    ldr r1, =plugin_suffix
+pp_suffix:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne pp_suffix
+    bx lr
+plugin_prefix:
+    .asciz "SD:KORG/blechtribe/Plugin/"
+plugin_suffix:
+    .asciz ".blech"
+.align 4
 update_name:
     .asciz "System/SYSTEM.VSB"
 original_name:
@@ -1054,8 +1248,7 @@ def build_patch(vsb, table, build):
         raise SystemExit(f"code is {len(code):#x} bytes, room for {CODE_END - CODE_AT:#x}")
     if len(table) % 4 or TABLE_AT + len(table) > TABLE_END:
         raise SystemExit(f"the table is {len(table)} bytes, room for {TABLE_END - TABLE_AT}")
-    groups = -(-(16 + MAX_BLOCK) // 7)
-    if BUF_END - BUF < groups * 8 + 8 + 64:
+    if BUF_END - BUF < BUFFER_REQUIRED:
         raise SystemExit("the buffer is too small for the largest block packed in place")
 
     def was(addr, n):
@@ -1090,10 +1283,10 @@ def build_patch(vsb, table, build):
         "hooks": [
             {"site": f"0x{CLASSIFY_HOOK:08X}", "kind": "instruction", "chain": "sysex-request",
              "position": "before", "swallow": True,
-             "note": "the function bytes 0x60 to 0x66 are taken here, every other byte goes on to the original; with EXIT held at power-on all of them do"},
+             "note": "the function bytes 0x60 to 0x67 and 0x6F are taken here, Hacktribe's 0x52 to 0x57 are dropped, every other byte goes on to the original; with EXIT held at power-on ours are dropped and Hacktribe's but 0x56 go on"},
             {"site": f"0x{PROCESS_HOOK:08X}", "kind": "instruction", "chain": "sysex-request",
              "position": "before", "swallow": True,
-             "note": "a received message with function 0x60 to 0x66 is run here, every other goes on to the original; with EXIT held at power-on all of them do"},
+             "note": "a received message with function 0x60 to 0x67 or 0x6F is run here, Hacktribe's 0x52 to 0x57 are dropped, every other goes on to the original; with EXIT held at power-on ours are dropped and Hacktribe's but 0x56 go on"},
         ],
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: the declared write, the request as decoded, the words and the packed bytes of a short reply", "tools/patch/blech_sysex.py:STATE"),

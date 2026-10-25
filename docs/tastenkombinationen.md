@@ -150,6 +150,13 @@ Pattern-Daten und (bei Pad und Touchpad als zweitem Element) der MIDI-Ausgang es
 | Ein/Aus-Taste 2 s halten | ausschalten | gemessen am Gerät am 8.10. (`docs/messungen/2026-10-08-panel-bedienung.md`) |
 | Pad **halten** + Regler, Taste oder Drehgeber | nur der übliche Part-Wechsel durch das Pad, sonst nichts | gemessen (985 Läufe je Zustand) |
 
+**Mit BLECH** (nicht mit EXIT beim Einschalten, nicht auf der blauen):
+
+| Kombination | Wirkung | Beleg |
+|---|---|---|
+| EXIT **halten** + WRITE | speichert das Pattern sofort an seinen eigenen Platz (ohne das Zielwahl-Fenster zu bestätigen) | gemessen, `docs/messungen/2026-10-19-exit-shortcuts.md` |
+| EXIT **halten** + Pad | setzt den Klang eines Parts auf die gespeicherten Werte zurück, die Steps bleiben; TRIGGER: der Part des Pads, sonst der gewählte Part | gemessen, ebenda |
+
 Die Modus-Tasten (TRIGGER, SEQUENCER, KEYBOARD, CHORD, PART MUTE, PART ERASE, STEP JUMP,
 PATTERN SET) bleiben nach dem Loslassen an. Sie müssen nicht gehalten werden, nur die ersten
 vier Zeilen oben verlangen das Halten.

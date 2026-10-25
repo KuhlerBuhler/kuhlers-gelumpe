@@ -65,13 +65,13 @@ test("no pointer, two pointers, a pointer at bytes that are no table, a word in 
   for (const at of WORDS) new DataView(none.buffer).setUint32(at, 0, true);
   const a = locateModTable(none);
   assert.equal(a.ok, false);
-  assert.match(a.reasons[0], /von keiner Stelle im Code/);
+  assert.match(a.reasons[0], /nicht zu finden/);
 
   const two = await image();
   new DataView(two.buffer).setUint32(WORDS[1], ram(KORG) + 4, true);
   const b = locateModTable(two);
   assert.equal(b.ok, false);
-  assert.match(b.reasons[0], /Mehrere Kopien/);
+  assert.match(b.reasons[0], /mehrfach drin/);
 
   const junk = await image();
   junk.fill(0xff, READ, READ + 72 * 0x58);
@@ -128,7 +128,9 @@ test("identify finds the table through the pointer and gives its reasons when th
   for (const at of WORDS) new DataView(none.buffer).setUint32(at, 0, true);
   const bad = await identify(none);
   assert.equal(bad.known, false);
-  assert.match(bad.reasons.join(" "), /Modulationstabelle/);
+  assert.match(bad.reasons.join(" "), /Tabelle mit den Modulationen/);
+  assert.match(bad.reasons.join(" "), /BLECHTRIBE/);
+  assert.match(bad.reasons.join(" "), /unveränderte.*SYSTEM\.VSB/);
 });
 
 const EMPTY = { source: 0, target: 0, lo: 0, hi: 0, follow: 0 };
@@ -252,7 +254,7 @@ test("export is refused for a value out of range, with the number of the type, a
   for (const at of WORDS) new DataView(none.buffer).setUint32(at, 0, true);
   const res = await exportModTypes(none, types);
   assert.equal(res.ok, false);
-  assert.match(res.reasons[0], /von keiner Stelle im Code/);
+  assert.match(res.reasons[0], /nicht zu finden/);
   await assert.rejects(exportModTypes(vsb, types.slice(1)), TypeError);
 });
 

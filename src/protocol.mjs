@@ -46,15 +46,24 @@ export const GLOBAL_SIZE = 256;
 /**
  * BLECH's own commands (tools/patch/blech_sysex.py, docs/messungen/2026-10-15-blech-sysex.md): RAM in blocks of up to
  * `maxBlock` bytes, each with a CRC-32 and an answer that carries a status. Every field of a payload is a 32-bit little
- * endian word, packed like every Electribe payload. They exist beside Hacktribe's 0x52 to 0x57, with other function
- * bytes, and work on Korg's original with BLECH too.
+ * endian word, packed like every Electribe payload. They replace Hacktribe's 0x52 to 0x57, which the firmware with BLECH
+ * drops unless EXIT was held at power-on, and work on Korg's original with BLECH too.
  */
 export const BLECH = {
-  INFO: 0x60, READ: 0x61, BEGIN: 0x62, DATA: 0x63, FLASH: 0x64, FILE_READ: 0x65, FILE_BEGIN: 0x66,
-  R_INFO: 0x68, R_READ: 0x69, R_BEGIN: 0x6a, R_DATA: 0x6b, R_FLASH: 0x6c, R_FILE_READ: 0x6d, R_FILE_BEGIN: 0x6e,
+  INFO: 0x60, READ: 0x61, BEGIN: 0x62, DATA: 0x63, FLASH: 0x64, FILE_READ: 0x65, FILE_BEGIN: 0x66, PLUGIN_BEGIN: 0x67, EXEC: 0x6f,
+  R_INFO: 0x68, R_READ: 0x69, R_BEGIN: 0x6a, R_DATA: 0x6b, R_FLASH: 0x6c, R_FILE_READ: 0x6d, R_FILE_BEGIN: 0x6e, R_EXEC: 0x70,
   STATUS: { OK: 0, BAD_CRC: 1, REFUSED: 2, RANGE: 3, FLASH: 4, VERIFY: 5, FILE: 6 },
+  /** INFO flag: FLASH READ, in pieces of up to FLASH_MAX bytes */
+  FLAG_FLASH: 0x08,
+  FLASH_MAX: 0x1000,
+  /** INFO flag: EXEC runs code in the stub buffer of data/exec.mjs and clears the instruction cache itself */
+  FLAG_EXEC: 0x40,
   /** INFO flag: the update file on the card (KORG/<folder>/System/SYSTEM.VSB) can be read and written, nothing else of the card */
   FLAG_FILE: 0x10,
+  /** INFO flag: plugin files can be written (PLUGIN BEGIN, SD:KORG/blechtribe/Plugin/<name>.blech) */
+  FLAG_PLUGIN: 0x20,
+  /** characters of a plugin file's name: letters, digits, "_" and "-" */
+  NAME_MAX: 16,
   /** the largest offset + length of the update file: the size of a VSB */
   FILE_LIMIT: 0x200100,
   /** bit 31 of a FILE offset: ORIGINAL.BIN beside SYSTEM.VSB, the unpatched file the next update starts from */
@@ -121,7 +130,7 @@ export function classify(msg, channel) {
   if (d[5] !== DEVICE_ID && ![BLECH.R_INFO, BLECH.R_DATA, BLECH.R_FILE_READ, BLECH.R_FILE_BEGIN].includes(d[6])) return "other";
   return { [READ_REPLY]: "read", [FUNC.PATTERN_DUMP]: "pattern", [FUNC.GLOBAL_DUMP]: "global", [WRITE_ACK]: "ack", [PATTERN_ACK]: "ack",
     [BLECH.R_INFO]: "blech-info", [BLECH.R_READ]: "blech-read", [BLECH.R_BEGIN]: "blech-begin", [BLECH.R_DATA]: "blech-data",
-    [BLECH.R_FILE_READ]: "blech-file-read", [BLECH.R_FILE_BEGIN]: "blech-file-begin" }[d[6]] ?? "other";
+    [BLECH.R_FILE_READ]: "blech-file-read", [BLECH.R_FILE_BEGIN]: "blech-file-begin", [BLECH.R_FLASH]: "blech-flash", [BLECH.R_EXEC]: "blech-exec" }[d[6]] ?? "other";
 }
 
 function checkHead(d, channel, func, model = DEVICE_ID) {
@@ -214,8 +223,18 @@ export const blechRead = (channel, addr, length, model = DEVICE_ID) => blechFram
 export const blechBegin = (channel, addr, length, crc) => blechFrame(channel, BLECH.BEGIN, words(addr, length, crc));
 export const blechData = (channel, bytes, model = DEVICE_ID) => blechFrame(channel, BLECH.DATA, bytes, model);
 /** The update file on the card: `length` bytes from `offset`; and the announcement of a write to it (DATA follows as for RAM). */
+export const blechFlash = (channel, addr, length) => blechFrame(channel, BLECH.FLASH, words(addr, length));
+export const blechExec = (channel, addr, arg = 0) => blechFrame(channel, BLECH.EXEC, words(addr, arg));
 export const blechFileRead = (channel, offset, length, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_READ, words(offset, length), model);
 export const blechFileBegin = (channel, offset, length, crc, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_BEGIN, words(offset, length, crc), model);
+/** A plugin file's name as the device takes it, or null: 1 to NAME_MAX letters, digits, "_" or "-". */
+export const pluginName = name => (typeof name === "string" && new RegExp(`^[A-Za-z0-9_-]{1,${BLECH.NAME_MAX}}$`).test(name) ? name : null);
+/** The announcement of a write to a plugin file; the answer is the one of FILE BEGIN, DATA follows the same way. */
+export function blechPluginBegin(channel, offset, length, crc, name, model = DEVICE_ID) {
+  if (!pluginName(name)) throw new RangeError(`plugin name ${name}`);
+  const raw = Array.from(name, c => c.charCodeAt(0));
+  return blechFrame(channel, BLECH.PLUGIN_BEGIN, [...words(offset, length, crc), ...raw, ...new Array(BLECH.NAME_MAX - raw.length).fill(0)], model);
+}
 
 function blechWords(msg, channel, func, count, what, model = DEVICE_ID) {
   const d = checkFrame(msg);
@@ -240,6 +259,23 @@ export function parseBlechRead(msg, channel, length, model = DEVICE_ID) {
   if (bytes.length !== length || word(2) !== length) throw new ReplyError(`BLECH Lesen hat ${bytes.length} Byte statt ${length}.`);
   if (crc32(bytes) !== word(3)) throw new BlechError(BLECH.STATUS.BAD_CRC, "BLECH Lesen");
   return bytes;
+}
+
+/** The bytes of a FLASH READ answer, checked like a READ. */
+export function parseBlechFlash(msg, channel, length) {
+  const { payload, word } = blechWords(msg, channel, BLECH.R_FLASH, 4, "BLECH Flash lesen");
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "BLECH Flash lesen");
+  const bytes = payload.slice(16, 16 + length);
+  if (word(2) !== length || bytes.length !== length) throw new ReplyError(`BLECH Flash lesen: ${bytes.length} Byte statt ${length}.`);
+  if (crc32(bytes) !== word(3)) throw new BlechError(BLECH.STATUS.BAD_CRC, "BLECH Flash lesen");
+  return Uint8Array.from(bytes);
+}
+
+/** What the code EXEC ran returned in r0. */
+export function parseBlechExec(msg, channel) {
+  const { word } = blechWords(msg, channel, BLECH.R_EXEC, 3, "BLECH Ausführen");
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "BLECH Ausführen");
+  return { addr: word(1), result: word(2) };
 }
 
 /** A FILE READ answer: the bytes, checked against the length and the CRC, and the size of the whole file. */
@@ -304,8 +340,9 @@ export function describeMessage(msg) {
   if (func === BLECH.INFO) return { kind: "blech-info", channel: d[2] - 0x30, length: 0 };
   if (func === BLECH.READ || func === BLECH.BEGIN) return { kind: func === BLECH.READ ? "read-ram" : "write-address", channel: d[2] - 0x30, addr: readU32le(payload, 0), length: readU32le(payload, 4) };
   if (func === BLECH.DATA) return { kind: "write-data", channel: d[2] - 0x30, length: payload.length };
-  if (func === BLECH.FILE_READ || func === BLECH.FILE_BEGIN) return { kind: func === BLECH.FILE_READ ? "file-read" : "file-write", channel: d[2] - 0x30, offset: readU32le(payload, 0), length: readU32le(payload, 4) };
-  if (func === FUNC.EXECUTE) return { kind: "execute", channel: d[2] - 0x30, addr: readU32le(payload, 0), length: 0 };
+  if (func === BLECH.FILE_READ || func === BLECH.FILE_BEGIN || func === BLECH.PLUGIN_BEGIN) return { kind: func === BLECH.FILE_READ ? "file-read" : "file-write", channel: d[2] - 0x30, offset: readU32le(payload, 0), length: readU32le(payload, 4) };
+  if (func === FUNC.EXECUTE || func === BLECH.EXEC) return { kind: "execute", channel: d[2] - 0x30, addr: readU32le(payload, 0), length: 0 };
+  if (func === BLECH.FLASH) return { kind: "read-flash", channel: d[2] - 0x30, addr: readU32le(payload, 0), length: readU32le(payload, 4) };
   if (func === FUNC.READ_RAM || func === FUNC.WRITE_ADDR || func === FUNC.READ_FLASH) {
     const kind = { [FUNC.READ_RAM]: "read-ram", [FUNC.WRITE_ADDR]: "write-address", [FUNC.READ_FLASH]: "read-flash" }[func];
     return { kind, channel: d[2] - 0x30, addr: readU32le(payload, 0), length: readU32le(payload, 4) };

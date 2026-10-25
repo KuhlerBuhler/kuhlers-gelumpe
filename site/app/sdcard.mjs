@@ -9,9 +9,10 @@
  * it. The card goes in and out also while the Electribe runs.
  *
  * Mounting: the panel reads the link from `emulator.link` and takes a new one through
- * connect(). `heading: false` leaves out the title when the host already names the block.
+ * connect(). `heading: false` leaves out the title when the host already names the block; `bar: true`
+ * lays it out for the navbar, the switch and "SD-Karte öffnen" in a row, the state for screen readers only.
  *
- *   const sd = sdcardPanel(node, emulator, { heading: false });
+ *   const sd = sdcardPanel(node, emulator, { bar: true });
  *   sd.connect(found.link);       // when the link changes later
  */
 import { el } from "./fields.mjs";
@@ -33,7 +34,7 @@ export function cardView(state) {
   };
 }
 
-export function sdcardPanel(root, emulator = null, { heading = true } = {}) {
+export function sdcardPanel(root, emulator = null, { heading = true, bar = false } = {}) {
   if (typeof document !== "undefined" && !document.querySelector("link[data-cee-sd]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-sd", "");
@@ -49,14 +50,14 @@ export function sdcardPanel(root, emulator = null, { heading = true } = {}) {
 
   const api = async (method, path) => {
     const l = link();
-    if (!l) throw new Error("Nicht verbunden. Starte npm run emu und öffne den Link, den es ausgibt.");
+    if (!l) throw new Error(window.__GELUMPE_APP ? "Der Emulator der App läuft nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log." : "Nicht verbunden. Starte npm run emu und öffne den Link, den es ausgibt.");
     let res;
     try {
       res = await fetch(`http://127.0.0.1:${l.port}${path}`, {
         method, body: method === "POST" ? "{}" : undefined, headers: { "X-Emu-Token": l.token, ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
       });
     } catch {
-      throw new Error(`Der Emulator auf Port ${l.port} antwortet nicht. Läuft npm run emu?`);
+      throw new Error(window.__GELUMPE_APP ? "Der Emulator der App antwortet nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log." : `Der Emulator auf Port ${l.port} antwortet nicht. Läuft npm start noch?`);
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(data.error || `Emulator antwortet mit ${res.status}.`), { status: res.status });
@@ -67,33 +68,35 @@ export function sdcardPanel(root, emulator = null, { heading = true } = {}) {
   const status = el("p", { className: "muted", id: "cee-sd-status", role: "status", ariaLive: "polite" });
   const inserted = el("input", { type: "checkbox", id: "cee-sd-inserted" });
   inserted.setAttribute("role", "switch");
-  const open = el("button", { type: "button", className: "btn", id: "cee-sd-open", textContent: "Öffnen" });
-  let problem = "";                          // the last error of an action; it takes the place of the line until the next action
+  const open = el("button", { type: "button", className: bar ? "btn sm" : "btn", id: "cee-sd-open", textContent: bar ? "SD-Karte öffnen" : "Öffnen" });
+  let shownError = "";                       // the card's own error, toasted once when it comes up
 
-  const say = (text) => { problem = text; render(); };
+  // What goes wrong in the background goes to a toast that goes away again; the line only says the state of the card.
+  // An action the user started says its error in a toast that stays (run).
+  let toldProblem = "";
+  const say = (text) => { if (text !== toldProblem) toast(text, "info"); toldProblem = text; };
 
   function render() {
     const view = cardView(state);
-    const error = problem || view.error;
-    status.textContent = error || view.line;
-    status.dataset.tone = error ? "error" : "";
+    if (view.error && view.error !== shownError) toast(view.error, "info");
+    shownError = view.error || "";
+    status.textContent = view.line;
     inserted.checked = view.checked;
     inserted.disabled = !view.available || working;
     open.disabled = !view.canOpen || working;
   }
 
   // ---- data --------------------------------------------------------------------
-  async function load(keepProblem = false) {
+  async function load() {
     state = await api("GET", "/sd").catch(e => { if (e.status === 404) return { available: false }; throw e; });
-    if (!keepProblem) problem = "";
+    toldProblem = "";
     render();
   }
 
-  /** One action at a time: the controls stay off until it is done, errors take the place of the status line. */
+  /** One action at a time: the controls stay off until it is done, errors go to the toast. */
   async function run(action) {
     if (working) return;
     working = true;
-    problem = "";
     render();
     try {
       await action();
@@ -101,7 +104,7 @@ export function sdcardPanel(root, emulator = null, { heading = true } = {}) {
       toast(e.message, "error");
     } finally {
       working = false;
-      try { await load(true); } catch (e) { say(e.message); }
+      try { await load(); } catch (e) { say(e.message); }
     }
   }
 
@@ -139,7 +142,14 @@ export function sdcardPanel(root, emulator = null, { heading = true } = {}) {
   open.addEventListener("click", () => run(() => api("POST", "/sd/open")));
 
   // ---- layout --------------------------------------------------------------------
-  root.replaceChildren(...[
+  if (bar) {
+    status.className = "ui-sr-only";
+    root.replaceChildren(
+      el("label", { className: "ui-switch cee-sd-switch" }, [inserted, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Karte eingelegt"]),
+      open,
+      status,
+    );
+  } else root.replaceChildren(...[
     heading ? el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: "SD-Karte" })]) : null,
     el("div", { className: "actions cee-sd-actions" }, [
       el("label", { className: "ui-switch" }, [inserted, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Karte einlegen"]),

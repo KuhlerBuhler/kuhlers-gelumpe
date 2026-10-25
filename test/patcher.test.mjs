@@ -106,7 +106,7 @@ test("itemsFor: the items of a set that apply to a build, one per id", () => {
   const set = { items: [{ id: "a" }, { id: "f" }, { id: "f" }], patches: [{ id: "a", builds: ["hacktribe", "stock"] }, { id: "f", builds: ["hacktribe"] }, { id: "f", builds: ["stock"] }] };
   assert.deepEqual(itemsFor(set, "hacktribe"), [set.items[0], set.items[1]]);
   assert.deepEqual(itemsFor(set, "stock"), [set.items[0], set.items[2]]);
-  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "ifx-idle", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "synth-filters", "power-off", "doom-loader", "blech-sysex"]);
+  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "doom-loader", "blech-sysex"]);
   assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 1, "the synth filters are for Korg's build only");
 });
 
@@ -115,7 +115,7 @@ test("BLECH is the set data/patches/blech.json: every patch it lists, in its ord
   const listed = readFile(BLECH_SET_URL).patches;
   assert.deepEqual(BLECH.map(p => p.url), listed);
   assert.ok(BLECH.length > 3, "the whole set, not three of its patches");
-  for (const id of ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "ifx-idle", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "synth-filters", "power-off", "blech-sysex"]) assert.ok(BLECH.some(p => p.id === id), id);
+  for (const id of ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "synth-filters", "power-off", "blech-sysex"]) assert.ok(BLECH.some(p => p.id === id), id);
   BLECH.forEach((p, i) => {
     const file = readFile(p.url);
     assert.deepEqual([p.id, p.label], [file.id, file.name]);
@@ -334,7 +334,7 @@ test("your Korg 2.02 takes BLECH directly, reads as BLECH afterwards, and every 
   const stock = new Uint8Array(readFileSync(STOCK));
   const res = await applyPatches(stock, BLECH_SET.patches);
   assert.equal(res.ok, true, res.reasons.join(" "));
-  assert.deepEqual([...new Set(res.spans.map(s => s.patch))], itemsFor(BLECH_SET, "stock").map(p => p.id));
+  assert.deepEqual([...new Set(res.spans.map(s => s.patch))], itemsFor(BLECH_SET, "stock").map(p => p.id).filter(id => id !== "fx-catalog"), "the catalog writes userData, outside the spans");
   const after = await classify(res.bytes, BLECH_SET.patches);
   assert.deepEqual([after.kind, after.present], ["blech", itemsFor(BLECH_SET, "stock").map(p => p.id)]);
 });
@@ -406,4 +406,41 @@ test("a copy that passed the quick check can be checked thoroughly, and only the
   assert.equal(allowed(f).download, false, "a thorough check that fails takes the download away");
   assert.equal(step({ ...newFlow(), phase: "ready" }, { type: "recheck" }).phase, "ready");
   assert.equal(checkName("quick"), "Kurzprüfung");
+});
+
+test("the way the page shows follows the flow: the step it is at is current, the ones before done, a failed check is the error", async () => {
+  const { wayOf, newFlow, WAY } = await import("../src/patcher.mjs");
+  const states = phase => wayOf({ ...newFlow(), phase, report: phase === "failed" ? { ok: false, checks: [] } : null }).map(s => s.state);
+  assert.equal(WAY.length, 4);
+  assert.deepEqual(states("empty"), ["current", "todo", "todo", "todo"]);
+  assert.deepEqual(states("ready"), ["done", "current", "todo", "todo"]);
+  assert.deepEqual(states("checking"), ["done", "done", "current", "todo"]);
+  assert.deepEqual(states("failed"), ["done", "done", "error", "todo"]);
+  assert.deepEqual(states("passed"), ["done", "done", "done", "current"]);
+  assert.deepEqual(states("downloaded"), ["done", "done", "done", "done"]);
+  assert.deepEqual(states("rejected"), ["error", "todo", "todo", "todo"]);
+});
+
+test("no test: the patched copy goes on without a report and says so; a new run clears that", async () => {
+  const { step, newFlow } = await import("../src/patcher.mjs");
+  let flow = step(newFlow(), { type: "input", input: { kind: "hacktribe", size: 1, reasons: [], present: [] } });
+  flow = step(flow, { type: "patching", patches: [{ id: "a", label: "A" }] });
+  assert.equal(step(flow, { type: "untested" }).phase, "patching", "not before every patch went on");
+  flow = step(flow, { type: "patch", id: "a", ok: true });
+  flow = step(flow, { type: "untested" });
+  assert.equal(flow.phase, "passed");
+  assert.equal(flow.untested, true);
+  assert.equal(flow.steps.find(s => s.id === "check").status, "skip");
+  assert.equal(step(flow, { type: "downloaded" }).phase, "downloaded");
+});
+
+test("an untested copy can be patched again, with a test; a tested one cannot", async () => {
+  const { step, newFlow, allowed } = await import("../src/patcher.mjs");
+  let flow = step(newFlow(), { type: "input", input: { kind: "hacktribe", size: 1, reasons: [], present: [] } });
+  flow = step(step(flow, { type: "patching", patches: [{ id: "a", label: "A" }] }), { type: "patch", id: "a", ok: true });
+  const untested = step(flow, { type: "untested" });
+  assert.equal(allowed(untested).patch, true);
+  assert.equal(step(untested, { type: "patching", patches: [] }).untested, false);
+  const tested = step(step(flow, { type: "checking" }), { type: "checked", report: { ok: true, checks: [{ id: "x", ok: true }] } });
+  assert.equal(allowed(tested).patch, false);
 });

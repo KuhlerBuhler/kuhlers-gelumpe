@@ -2,6 +2,7 @@
  * The Samples page: name and tune of a sample in RAM, sent through the same gate, rehearsal and
  * read-back as every other live edit. Logic: src/samples.mjs, src/sample-rules.mjs, src/plan.mjs.
  */
+import { toast } from "./toast.mjs";
 import { el } from "./fields.mjs";
 import { field, typeOf } from "../../src/map/index.mjs";
 import { SAMPLE_COUNT } from "../../src/samples.mjs";
@@ -32,7 +33,7 @@ export function samplesPage(root, { device, emulator, probe }) {
     "Gemessen ist: Name und Tune wirkten am Gerät sofort (das Display zeigte den neuen Namen, die Tonhöhe änderte sich hörbar), und die SD-Datei mit den Samples blieb dabei unverändert. Nicht gemessen ist, ob eine Änderung einen Neustart überlebt oder ob DATA UTILITY, 11 EXPORT ALL SAMPLE sie auf die Karte schreibt. Rechne damit, dass sie weg ist, wenn du das Gerät ausschaltest.",
   ]);
   const status = el("p", { className: "muted", id: "cee-sample-status", role: "status" });
-  const listButton = el("button", { type: "button", className: "btn primary", id: "cee-sample-list", textContent: "Namen lesen" });
+  const listButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-sample-list", textContent: "Namen lesen" });
   const numberId = "cee-sample-number";
   const number = el("input", { type: "number", className: "input cee-num", id: numberId, min: 1, max: SAMPLE_COUNT, step: 1, value: "501" });
   const openButton = el("button", { type: "button", className: "btn", id: "cee-sample-open", textContent: "Sample lesen" });
@@ -59,20 +60,25 @@ export function samplesPage(root, { device, emulator, probe }) {
     return device.session ?? (emulator.port.running ? await probe().catch(() => null) : null);
   }
 
-  const say = (text, tone = "") => { status.textContent = text; status.dataset.tone = tone; };
+  // Messages go to the toast; a running read ("Lese die Namenstabelle …") and the hint before the first read stand in the line.
+  const say = (text, tone = "") => {
+    const progress = tone === "progress" || tone === "hint";
+    status.textContent = progress ? text : "";
+    if (!progress) toast(text, tone === "error" ? "error" : tone === "ok" ? "ok" : "info");
+  };
   const where = s => (s.port.emulator ? "Emulator" : "Gerät");
   const busy = on => { for (const b of [listButton, openButton]) b.disabled = on; };
 
   async function withSession(fn) {
     const s = await pick();
-    if (!s) { say("Weder Emulator noch Gerät verbunden. Starte den Emulator im Bereich Emulator oder verbinde das Gerät.", "error"); return null; }
+    if (!s) { say("Nichts verbunden. Schalte im Bereich Emulator die Electribe ein, oder steck dein Gerät per USB an und wähl dort oben „Echtes Gerät“.", "error"); return null; }
     const release = s.reserve();
     busy(true);
     try {
       await s.idle();
       return await fn(s);
     } catch (e) {
-      say(`Nicht gelesen: ${e.message}`, "error");
+      say(`Lesen hat nicht geklappt. Ist die Electribe noch verbunden? (${e.message})`, "error");
       return null;
     } finally {
       release();
@@ -98,15 +104,15 @@ export function samplesPage(root, { device, emulator, probe }) {
 
   async function readList() {
     const names = await withSession(async s => {
-      say("Lese die Namenstabelle …");
-      const got = await s.readSampleNames({ onProgress: (n, total) => say(`Lese die Namenstabelle: ${Math.round((n / total) * 100)} %`) });
+      say("Lese die Namenstabelle …", "progress");
+      const got = await s.readSampleNames({ onProgress: (n, total) => say(`Lese die Namenstabelle: ${Math.round((n / total) * 100)} %`, "progress") });
       state.source = where(s);
       return got;
     });
     if (!names) return;
     state.names = names;
     const n = drawList();
-    say(n ? `${n} Samples mit Namen, gelesen aus dem ${state.source}.` : `Keine Namen gefunden, die Tabelle im ${state.source} ist leer (zum Beispiel im Emulator ohne Samples auf der Karte). Mit der Sample-Nummer geht ein Platz trotzdem zu lesen.`);
+    say(n ? `${n} Samples mit Namen, gelesen aus dem ${state.source}.` : `Keine Sample-Namen gefunden. Im Emulator ist das normal, wenn keine Samples auf der Karte sind. Über die Sample-Nummer kannst du trotzdem einen Platz öffnen.`);
   }
 
   async function openSample(index) {
@@ -131,7 +137,7 @@ export function samplesPage(root, { device, emulator, probe }) {
   });
 
   const verdict = el("div", { className: "cee-verdict", id: "cee-sample-verdict", ariaLive: "polite" });
-  const sendButton = el("button", { type: "button", className: "btn primary", id: "cee-sample-send", textContent: "Live ins RAM", disabled: true });
+  const sendButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-sample-send", textContent: "Live ins RAM", disabled: true });
   const undoButton = el("button", { type: "button", className: "btn", id: "cee-sample-undo", textContent: "Zurücknehmen", disabled: true });
   const job = el("div", { className: "ui-job cee-job", id: "cee-sample-job", hidden: true, role: "status" });
 
@@ -241,12 +247,12 @@ export function samplesPage(root, { device, emulator, probe }) {
     try {
       state.entry = await s.readSample(state.index);
       Object.assign(state, { name: state.entry.name, tune: state.entry.tune, nameError: null, tuneError: false });
-    } catch (e) { say(`Nicht neu gelesen: ${e.message}`, "error"); }
+    } catch (e) { say(`Neu lesen hat nicht geklappt. Ist die Electribe noch verbunden? (${e.message})`, "error"); }
   }
 
   async function send() {
     const s = await pick();
-    if (!s) { say("Weder Emulator noch Gerät verbunden.", "error"); return; }
+    if (!s) { say("Nichts verbunden. Schalte im Bereich Emulator die Electribe ein, oder steck dein Gerät per USB an und wähl dort oben „Echtes Gerät“.", "error"); return; }
     sendButton.disabled = undoButton.disabled = true;
     const release = s.reserve();
     let p = null;
@@ -263,8 +269,8 @@ export function samplesPage(root, { device, emulator, probe }) {
       }
       p = progress(`Sample ${state.index + 1} ins RAM`);
       const result = await s.apply(edit, { confirmed: checked.token, onStep: p.step });
-      if (result.needsConfirmation) { p.done(false, "Der Befund hat sich geändert, bitte noch einmal senden."); return; }
-      if (result.gate?.verdict === "blocked") { p.done(false, "Vom Türsteher gesperrt."); showBlocked(result.gate.reasons); return; }
+      if (result.needsConfirmation) { p.done(false, "Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden."); return; }
+      if (result.gate?.verdict === "blocked") { p.done(false, "Gesperrt vom Türsteher."); showBlocked(result.gate.reasons); return; }
       if (result.ok) {
         await reread(s);
         p.done(true, "Gesendet und zurückgelesen, stimmt überein. Nur im RAM, nicht gespeichert.");
@@ -275,7 +281,7 @@ export function samplesPage(root, { device, emulator, probe }) {
       const text = result.error ? `${result.error.message}${result.pending?.now ? ` ${result.pending.now.text}` : ""}` : "abgebrochen";
       p.done(false, text);
       device.log?.(`Sample ${state.index + 1}: ${text}`, "error");
-      if (s.blocked) { showBlocked([{ severity: "error", code: "target-blocked", message: `${s.blocked} Entscheiden im Bereich Gerät.` }]); device.showDecision?.(); }
+      if (s.blocked) { showBlocked([{ severity: "error", code: "target-blocked", message: `${s.blocked} Entscheide im Bereich Emulator unter „Echtes Gerät“.` }]); device.showDecision?.(); }
     } catch (e) {
       if (p) p.done(false, e.message);
       else say(e.message, "error");
@@ -303,7 +309,7 @@ export function samplesPage(root, { device, emulator, probe }) {
       release();
     }
     p.done(res.ok, res.ok ? "Alter Stand ist wieder im RAM." : res.error.message);
-    device.log?.(res.ok ? "Letzte Änderung zurückgenommen." : `Zurücknehmen fehlgeschlagen: ${res.error.message}`, res.ok ? "ok" : "error");
+    device.log?.(res.ok ? "Letzte Änderung zurückgenommen." : `Zurücknehmen hat nicht geklappt: ${res.error.message}`, res.ok ? "ok" : "error");
     if (state.entry) render();
   }
 
@@ -320,5 +326,5 @@ export function samplesPage(root, { device, emulator, probe }) {
   });
   sendButton.addEventListener("click", send);
   undoButton.addEventListener("click", undo);
-  say("Noch nichts gelesen. Verbinde den Emulator oder das Gerät und lies die Namen.");
+  say("Noch nichts gelesen. Schalte im Bereich Emulator die Electribe ein oder verbinde dein Gerät, dann die Namen lesen.", "hint");
 }

@@ -23,8 +23,9 @@ test("the idle insert effect has the v1 format, replaces only the timer literal 
   assert.deepEqual(PATCH.ram.map(r => [r.at, r.length]), [["0xC018CF00", 0x40]]);
 });
 
-test("the idle insert effect sits in the BLECH set without a hook conflict", () => {
-  assert.ok(SET.some(p => p.id === "ifx-idle"));
-  const result = checkHooks(SET);
+test("the idle insert effect is out of the BLECH set for now (it sets Punch and never resets it), and fits back in without a hook conflict", () => {
+  assert.ok(!SET.some(p => p.id === "ifx-idle"));
+  assert.ok(!read("../data/patches/blech-synth.json").patches.some(p => p.includes("ifx-idle")), "the blue set leaves it out too");
+  const result = checkHooks([...SET, PATCH]);
   assert.equal(result.ok, true, result.reasons.join(" "));
 });

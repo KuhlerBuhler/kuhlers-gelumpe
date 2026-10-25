@@ -1,73 +1,100 @@
-/** The Rettung page: a guide through the documented way back, with a stop sign. Content: data/rescue.mjs. */
+/**
+ * The Rettung page: Blechy asks what the device shows and walks through the documented way back, one question at a
+ * time, with the answers as buttons. What is only to read follows by itself after a second; Blechy waits only where
+ * the person has to do or answer something. Content: data/rescue.mjs.
+ */
 import { el } from "./fields.mjs";
-import RESCUE, { STATUS, LINKS } from "../../data/rescue.mjs";
+import { FLOW, LINKS, BUTTONS } from "../../data/rescue.mjs";
+import { e2Outline } from "./e2-art.mjs";
 
-const pill = status => {
-  const p = el("span", { className: "cee-status", textContent: STATUS[status].text });
-  p.dataset.tone = STATUS[status].tone;
-  return p;
-};
+/** The pause before Blechy's next message when the one before only had something to read. */
+const PAUSE_MS = 1000;
 
-const source = path => el("span", { className: "cee-rescue-source" }, ["Beleg: ", el("code", { textContent: path })]);
+const MOODS = { idle: "img/blechy/idle.png", happy: "img/blechy/happy.png", angry: "img/blechy/angry.png", wave: "img/blechy/wave.png", sad: "img/blechy/sad.png" };
 
 const link = (href, text) => el("a", { className: "cee-text-link", href, target: "_blank", rel: "noopener noreferrer", textContent: text });
 
-function stepItem(step) {
-  return el("li", { className: "cee-rescue-step" }, [
-    el("p", { textContent: step.text }),
-    el("p", { className: "cee-rescue-meta" }, [pill(step.status), source(step.source)]),
-    step.note ? el("p", { className: "muted", textContent: step.note }) : null,
-  ]);
-}
+/** A line of text: a string, or parts where { link, text } is a link to LINKS[link]; "issueNew" opens a new issue with `issue` filled in. */
+const words = (line, issue = {}) => (Array.isArray(line)
+  ? line.map(part => (typeof part === "string" ? part : link(part.link === "issueNew" ? `${LINKS.issues}/new?${new URLSearchParams(issue)}` : LINKS[part.link], part.text)))
+  : [line]);
 
-function caseBlock(c) {
-  const body = el("div", { className: "ui-details-body" }, [
-    el("ol", { className: "cee-rescue-steps" }, c.steps.map(stepItem)),
-    el("p", { className: "cee-rescue-limit" }, [el("strong", { textContent: "Grenze: " }), c.limit, " ", source(c.limitSource)]),
-  ]);
-  const summary = el("summary", {}, [el("span", { textContent: c.label }), el("span", { className: "muted cee-rescue-hint", textContent: c.hint })]);
-  return el("details", { className: "ui-details cee-rescue-case", id: `cee-rescue-case-${c.id}` }, [summary, body]);
-}
+/** What Blechy says in one node: the lines, a path on the card, and the official guide for the step if there is one. */
+const say = (node, issue) => [
+  ...node.say.map(line => (line.path ? el("code", { className: "cee-rescue-path", textContent: line.path }) : el("p", {}, words(line, issue)))),
+  node.source ? el("p", { className: "cee-rescue-source" }, ["Quelle: ", ...words(node.source)]) : null,
+];
+
+/** The Electribe of an answer as lines, like on the Features page, in the colour of its body. */
+const art = c => {
+  const svg = e2Outline(c.label);
+  svg.dataset.device = c.art;
+  return svg;
+};
 
 export function rescuePage(root) {
-  const stop = el("section", { className: "cee-rescue-stop", id: "cee-rescue-stop" }, [
-    el("h2", { id: "cee-rescue-stop-title", textContent: RESCUE.stop.title }),
-    ...RESCUE.stop.lines.map(text => el("p", { textContent: text })),
-    el("p", { className: "cee-rescue-meta" }, [source(RESCUE.stop.source)]),
+  const nodes = FLOW;
+  const chat = el("ol", { className: "cee-rescue-chat", id: "cee-rescue-chat", "aria-live": "polite" });
+  const answers = el("div", { className: "cee-rescue-answers", id: "cee-rescue-answers" });
+  const back = el("button", { type: "button", className: "btn sm", id: "cee-rescue-back", textContent: BUTTONS.back });
+  const again = el("button", { type: "button", className: "btn sm", id: "cee-rescue-again", textContent: BUTTONS.again });
+  let path = ["start"];
+  let picked = [];
+  let timer = null;
+
+  const blechy = (mood, parts) => el("li", { className: "cee-rescue-say" }, [
+    el("img", { className: "cee-rescue-blechy", src: MOODS[mood], alt: "", width: 45, height: 55 }),
+    el("div", { className: "cee-rescue-bubble" }, parts.filter(Boolean)),
   ]);
-  stop.setAttribute("role", "note");
-  stop.setAttribute("aria-labelledby", "cee-rescue-stop-title");
+  const you = text => el("li", { className: "cee-rescue-you" }, [el("p", { className: "cee-rescue-bubble", textContent: text })]);
 
-  const folders = el("ul", { className: "cee-rescue-folders", id: "cee-rescue-folders" }, RESCUE.folders.map(f => el("li", {}, [
-    el("strong", { textContent: `Läuft ${f.running}` }),
-    el("code", { className: "cee-rescue-path", textContent: f.path }),
-    el("p", { className: "cee-rescue-meta" }, [pill(f.status), source(f.source)]),
-    el("p", { className: "muted", textContent: f.note }),
-  ])));
+  /** A new issue that already says which way through the page the person took. */
+  const issue = () => ({
+    title: `Rettung: ${picked[0] ?? ""}`,
+    body: `Meine Antworten in der Rettung:\n${picked.filter(Boolean).map(p => `- ${p}`).join("\n")}\n\nWas die Electribe beim Einschalten macht und was ich zuletzt gemacht habe:\n\n(zeigt das Display etwas: Foto hier hineinziehen)\n`,
+  });
 
-  const legend = el("ul", { className: "cee-rescue-legend" }, Object.keys(STATUS).map(k => el("li", {}, [pill(k), el("span", { textContent: ` ${STATUS[k].meaning}` })])));
+  function render() {
+    chat.replaceChildren(...path.flatMap((id, i) => [blechy(nodes[id].mood, say(nodes[id], issue())), picked[i] ? you(picked[i]) : null].filter(Boolean)));
+    const node = nodes[path.at(-1)];
+    const choices = node.choices ?? [];
+    answers.replaceChildren(...choices.map(c => {
+      const b = el("button", { type: "button", className: `btn${c.art ? " cee-rescue-folder" : ""}`, onclick: () => choose(c) }, [
+        c.art ? art(c) : null,
+        el("span", { className: "cee-rescue-answer", textContent: c.label }),
+        c.hint ? el("span", { className: "cee-rescue-hint", textContent: c.hint }) : null,
+      ]);
+      if (c.id) b.id = `cee-rescue-case-${c.id}`;
+      return b;
+    }));
+    answers.hidden = !choices.length;
+    back.disabled = path.length < 2;
+    chat.lastElementChild?.scrollIntoView?.({ block: "nearest" });
+    clearTimeout(timer);
+    // While Blechy still has something to say, the answers wait and tests can tell (data-waiting).
+    answers.toggleAttribute("data-waiting", !!node.next);
+    if (node.next) timer = setTimeout(() => { path = [...path, node.next]; render(); }, PAUSE_MS);
+  }
+  function choose(c) {
+    picked[path.length - 1] = c.label;
+    path = [...path, c.to];
+    render();
+    answers.querySelector("button")?.focus({ preventScroll: true });
+  }
+  back.addEventListener("click", () => {
+    if (path.length < 2) return;
+    // Back to the last question, past what Blechy said by himself.
+    do path = path.slice(0, -1); while (path.length > 1 && nodes[path.at(-1)].next);
+    picked = picked.slice(0, path.length - 1);
+    render();
+  });
+  again.addEventListener("click", () => { path = ["start"]; picked = []; render(); });
 
   root.replaceChildren(el("div", { className: "cee-rescue" }, [
-    el("h1", { className: "cee-rescue-title", textContent: "Rettung" }),
-    el("p", { className: "cee-rescue-lead", textContent: "Das Gerät startet nach einem Update oder Patch nicht mehr richtig? Hier steht der Weg zurück, soweit die Dokumentation ihn belegt. Jeder Schritt sagt dazu, wie sicher er ist. Lies erst alles, bevor du etwas tust." }),
-    stop,
-    el("section", { className: "cee-rescue-sec" }, [
-      el("h2", { textContent: "Vorher" }),
-      el("ul", {}, RESCUE.before.map(text => el("li", { textContent: text }))),
-    ]),
-    el("section", { className: "cee-rescue-sec" }, [
-      el("h2", { textContent: "Welche Datei in welchen Ordner" }),
-      el("p", { className: "muted", textContent: "Die Datei heißt immer SYSTEM.VSB. Der Ordner hängt von der Firmware ab, die gerade läuft." }),
-      folders,
-    ]),
-    el("section", { className: "cee-rescue-sec" }, [
-      el("h2", { textContent: "Was zeigt dein Gerät?" }),
-      el("div", { className: "cee-rescue-cases" }, RESCUE.cases.map(caseBlock)),
-    ]),
-    el("section", { className: "cee-rescue-sec" }, [
-      el("h2", { textContent: "Wie sicher ist ein Schritt?" }),
-      legend,
-    ]),
-    el("p", { className: "muted" }, ["Die Anleitungen von Hacktribe, auf die sich die Seite stützt: ", link(LINKS.howTo, "How-To"), ", ", link(LINKS.debrick, "Debrick"), "."]),
+    el("h1", { className: "cee-rescue-title ui-sr-only", textContent: "Rettung" }),
+    chat,
+    answers,
+    el("div", { className: "actions cee-rescue-nav" }, [back, again]),
   ]));
+  render();
 }

@@ -23,8 +23,8 @@ Loading a plugin never draws anything (section "Apps and the display").
 The page has five parts: the language reference (structure, apps and display, language, events,
 functions, limits), the card with its file format, the BLECH menu on the device, the Plugins page in the
 editor, and the status section. What the language reference says holds for the language and its checks in
-the browser and in the emulator. **On the device itself nothing of the plugin runtime has been tested
-yet**, see "Status".
+the browser and in the emulator. On the device the BLECH menu and the plugins of the card run; what
+exactly is tested there is in "Status".
 
 ## Language reference
 
@@ -101,6 +101,10 @@ korg.onEvent("buttonRelease", (key) => {
 });
 ```
 
+**Margin.** Text and hints keep away from the edge of the display, as the firmware's menus do: 4 pixels left and right,
+2 pixels top and bottom (a line of text at the top at `y = 2`, at the bottom at `y = 55`, right-aligned it ends at `x = 123`).
+A playing field or a picture may go up to the edge. The plugins in the catalog keep to this.
+
 Use way 2 only when a menu entry does not fit: the display is then taken until someone presses EXIT, and
 the keys belong to the plugin as long as it owns the display. A plugin that only needs LEDs or keys never
 takes the display.
@@ -120,6 +124,8 @@ takes the display.
 - **Arrays:** `const a = new Array(16);` or `const a = [1, 2, 3];`, only at the top, a fixed 1 to 65535
   slots, numbers. `a[i]`, `a[i] = x`, `a[i] += x`, `a.length`. An index outside the array ends the plugin
   with an error.
+  An array literal with only values from 0 to 255 (a picture for `korg.display.bitmap`, say) is stored as
+  bytes in the block and costs no code; otherwise the code stores every value except 0 one by one.
 - **Arithmetic:** `+ - * / %`, `& | ^ << >> ~`, comparisons `== != === !== < <= > >=`, `&& || !`, `? :`.
   Everything computes in 32 bits and wraps around. `/` divides whole numbers and truncates toward zero
   (unlike JavaScript), `%` takes the sign of the dividend, a shift count uses its lower 5 bits, `>>` keeps
@@ -130,7 +136,8 @@ takes the display.
   or the end gives 0). A function sees the variables at the top and its own, nothing else: there are no
   closures. A function must not call itself, not even through others (recursion), because every variable
   has a fixed slot.
-- **Not included:** fractions, objects, `var`, `switch`, `do`, exceptions, template strings, `null`,
+- **Not included:** fractions, objects of your own (the Electribe itself comes as objects, see
+  "The Electribe as objects"), `var`, `switch`, `do`, exceptions, template strings, `null`,
   assignment inside an expression.
 
 A compile error names line and column and says what to do. The wording is German for now.
@@ -181,6 +188,50 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
+### The Electribe as objects
+
+A plugin reads and sets what the Electribe is doing like a variable: `korg.tempo` is the tempo,
+`korg.tempo = 1280;` changes it, `korg.parts[3].muted = 1;` mutes part 4. These are no objects of the
+language that a variable could hold. The compiler turns every read and every assignment into the call
+listed next to it in the table below, and the block is the same. A plugin written this way therefore runs
+on every device those calls run on, BLECHTRIBE 1.2 included. The limits and events of the call apply:
+like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
+
+| Property | Read | Set | Same as |
+|---|---|---|---|
+| `korg.tempo` | tempo in tenths of a BPM, 1280 is 128.0 | 100 to 3000 | `korg.read.tempo()`, `korg.tempo(x)` |
+| `korg.transport` | 0 stop, 1 play, 2 pause, 3 REC armed, 4 recording | no, use `korg.play()` and `korg.stop()` | `korg.read.transport()` |
+| `korg.selectedPattern` | selected pattern, 0 to 249 | selects another one | `korg.read.pattern()`, `korg.pattern(x)` |
+| `korg.selectedPart` | selected part, 0 to 15, 16 for all | 0 to 15 | `korg.read.part()`, `korg.part(x)` |
+| `korg.millis` | milliseconds since the first call | no | `korg.millis()` |
+| `korg.parts[i].step` | step counter of the part, 0 to 63 | no | `korg.read.step(i)` |
+| `korg.parts[i].muted` | 1 when the part is muted | 1 muted, 0 playing | `korg.read.mute(i)`, `korg.mute(i, x)` |
+| `korg.knobs.LEVEL`, `korg.knobs[i]` | last value of the knob, 0 until it moved | no | `korg.read.knob(i)` |
+| `korg.store[i]` | stored value of slot 0 to 15, otherwise 0 | yes, to the card with `korg.store.save()` | `korg.store.get(i, 0)`, `korg.store.set(i, x)` |
+| `korg.led.TAP`, `korg.leds[i]` | no | brightness 0 to 255 | `korg.led(i, x)` |
+
+`+=`, `-=` and the other compound assignments work on everything that can be read and set, and so do
+`++` and `--`: `korg.tempo += 10;` reads the tempo and sets it 1.0 BPM higher. The index in the brackets
+must not contain a function call there. `korg.led.TAP` on its own is still the number of the LED, as in
+`korg.led(korg.led.TAP, 255)`; only on the left of an assignment does it set the LED.
+
+The knobs carry the names of the panel table: `LEVEL`, `PAN`, `PITCH`, `RESONANCE`, `EG_INT`,
+`MOD_DEPTH`, `ATTACK`, `IFX_EDIT`, `DECAY`, `OSC_EDIT` and `MOD_SPEED`, numbers 0 to 10 in this order.
+
+```js
+// From step 16 of part 1 on, part 4 is muted, anew in every bar.
+korg.onEvent("step", (step) => {
+  korg.parts[3].muted = korg.parts[0].step >= 15 ? 1 : 0;
+});
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.TAP) korg.tempo += 10;
+  korg.led.TAP = korg.transport == 1 ? 255 : 0;
+});
+```
+
+The calls in the table below stay valid, older plugins keep running unchanged. What is an action stays
+a call: drawing, pressing PLAY, registering an app, saving.
+
 ### Functions of the Electribe
 
 All names begin with `korg.`. Numbers outside the range end the plugin with an error. "Allowed in" names
@@ -191,6 +242,7 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.led(index, level)` | queue an LED job, `index` 0 to 87 (best a name such as `korg.led.TAP`), `level` 0 to 255 | all events except the body and `save` |
 | `korg.millis()` | milliseconds since the first call, from Timer3 (150 MHz), which wraps every 150 million ticks | everywhere |
 | `korg.app(name, group)` | registers the plugin as an app: `name` 1 to 15 characters, `group` `"GAMES"` or `"TOOLS"`. Returns the number of the app, -1 if all 8 places are taken. As a statement of its own at the top, once per plugin (the compiler checks this) | body only |
+| `korg.file.frame(array, file, index)` | reads frame `index` (0 to 65535) of the file `GIFnn.E2G` (`file` 0 to 99 is nn) in `KORG/blechtribe/Gif/` into the array, one byte to a slot, which is exactly what `korg.display.bitmap(array, 0, 0, 128)` draws. The array needs at least 1024 slots. Returns the frame's delay in ms (at least 1), 0 past the last frame, -1 without a file, for a wrong or cut file and outside the main screen; after -1 the device may have changed the last quarter of the array. From API version 7 | like `korg.led` |
 | `korg.display.take()` | take the display (way 2, see above); 1 on success, 0 if not (an app, another owner, not the main screen) | like `korg.led` |
 | `korg.display.release()` | give the display back | like `korg.led` |
 | `korg.display.clear()` | clear the display; the drawing calls only work for the owner of the display (the open app, or whoever took it) | like `korg.led` |
@@ -458,9 +510,12 @@ Plugins reach the device only through the SD card, never inside the VSB. The fol
   from byte 16 (u32). Then the blocks in format 2, unchanged, one after the other (each has its own size and
   CRC; a block size is divisible by 4, there is no padding). One block may have at most 32752 bytes (the
   loader's buffer).
-- `<name>.blech` is one block with the source text attached: after the block the tag `GSRC`, the length
-  (u32) and the text in UTF-8. The device reads only the block, the editor reads the attachment to open the
-  plugin again.
+- `<name>.blech` is one block with a description and the source text attached: after the block the tag
+  `GDSC`, the length (u32) and the description in ASCII, lines of at most 20 characters ending in `\n` (at most
+  2047 bytes); then the tag `GSRC`, the length (u32) and the text in UTF-8. The description is the `//` lines at
+  the very top of the plugin code (an empty `//` line starts a new paragraph, umlauts become ae, oe, ue, ss);
+  without such lines there is no `GDSC`. The device loads the block and shows the description in IMPORT PLUGIN,
+  the editor reads the source to open the plugin again.
 
 The loader runs once at start, right after the device has loaded `e2sSample.all`. With EXIT held at
 power-on, without a card or without the file it does nothing, and the Electribe starts as it would without
@@ -478,6 +533,14 @@ sets it on export, after it has tried the text out (`markProbed` in `src/script/
 recomputed). All other bits are forbidden, and browser and device reject the block if one is set. A block
 without the bit is foreign: the device loads it but starts it only after someone has agreed on the device
 once (see "The BLECH menu on the device"). The bit is a hint, not protection, anyone can set it.
+
+**Picture files** (`korg.file.frame`): `KORG/blechtribe/Gif/GIF00.E2G` to `GIF99.E2G`, little endian: tag `GGIF`,
+version 1 (u16), number of frames (u16), then per frame its delay in ms (u16), two zero bytes and 1024 bytes of display
+memory (byte `(y / 8) * 128 + x`, bit `y % 8`). `tools/gif/gif2e2g.py` makes one from a GIF (Pillow), `src/script/gif.mjs`
+reads it in the browser. A call opens the file, seeks to the frame, reads it and closes the file again, through the
+firmware's FatFs functions (also `f_lseek`, `0xC009E404`, on blue `0xC008AF5C`) with the card loader's file object. It
+reads only while the main screen is open, like the save of `korg.store`. How long 1 KiB takes on the device is not
+measured; the 5 ms of a frame stay the limit.
 
 ### Persistent values
 
@@ -504,9 +567,10 @@ With the BLECH patch the Electribe has a screen of its own, "BLECH", at the end 
 after Event (screen 0x2D). It has three levels and looks like Data Util: same font, same places, the same
 line `press  [ Enter ]`.
 
-- **In the ring** BLECH is a single page ("BLECH 30/31") after Event, followed by a second page of the
-  patch: [Blechy](#blechy-the-last-page-of-the-ring) (31/31), then the Pattern menu. That is why the ring
-  counts to 31 instead of 29. EDIT left and right page through the ring. With EXIT held at power-on the
+- **In the ring** BLECH is a single page ("BLECH 30/32") after Event, followed by two pages of the
+  patch: [Blechy](#blechy-the-last-page-of-the-ring) (31/32) and SYNC GROUP (32/32, a setting of the pattern, see
+  below), then the Pattern menu. That is why the ring counts to 32 instead of 29; on the blue one to 31 instead of 28
+  (Blechy 29/31, SYNC GROUP 30/31). EDIT left and right page through the ring. With EXIT held at power-on the
   screen is not there and the ring is the firmware's own.
 - **ENTER on the page BLECH** opens the list on the group last left, also after a trip through the other
   menus.
@@ -524,7 +588,7 @@ customization, then the plugins, last the groups that plugins register themselve
 | Entry | What is behind it |
 |---|---|
 | FEATURES | four pages with the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (table below) |
-| CUSTOMIZATION | DISPLAY, LED, then PAD COLOR and the splash pages where the set has them; see below |
+| CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | PLUGINS | a group, see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
 | TOOLS | like GAMES |
@@ -545,29 +609,37 @@ The pages of the groups:
 | Group, page | Value | Effect |
 |---|---|---|
 | PLUGINS, RUNTIME | ON, OFF | the plugins of the card on or off, applies from the next start ("OFF, RESTART" shows that it does not apply yet); Blechy is no plugin of the card and stays |
-| PLUGINS, one plugin per page | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume, WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error its name stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
-| PLUGINS, one page per `korg.menu.add` | the number | the main dial changes it, the plugin gets `menu` |
+| PLUGINS, PLUGIN EDIT | `press  [ Enter ]`, "No Plugin" with none loaded | built like the firmware's SAMPLE EDIT: ENTER opens the pages of one plugin (the tag stays "Plugins", the counter counts them, EDIT pages round in a circle), EXIT goes back to PLUGIN EDIT |
+| Plugin, SELECT PLUGIN | its name | the main dial chooses the plugin the following pages are about (like SELECT SAMPLE) |
+| Plugin, STATE | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume, WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error the error stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
+| Plugin, one page per `korg.menu.add` | the number | the settings of this plugin: the main dial changes it, the plugin gets `menu` |
+| Plugin, DELETE PLUGIN | `press  [ Enter ]` | ENTER asks ("Enter = delete"), a second ENTER deletes: the plugin stops, `e2sPlugin.all` is written again without it (empty too, when it was the last one), PLUGIN EDIT says "deleted"; the `*.blech` in the folder stays, IMPORT PLUGIN can load it again |
 | PLUGINS, EXPORT ALL | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them, then saves the settings too (plugins switched off stay off) |
-| PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then a file name | ENTER shows the first `*.blech` in `KORG/blechtribe/Plugin/` (shown up to 14 characters), the main dial or EDIT pages through the files, ENTER or WRITE loads and starts the one shown at once, EXIT goes back to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards) and hidden or system files are not listed |
+| PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then name and state | ENTER lists the plugins of the `*.blech` files in `KORG/blechtribe/Plugin/` (up to 16): on top the plugin's name (from its header, not the file name), below it its state (ON, OFF, FAULT, ENTER=ALLOW); the main dial pages through them. ENTER opens the selected plugin: its name on top, its description below (the main dial scrolls it line by line, `^` and `v` show there is more), its state at the bottom. ENTER then switches it: one not loaded yet is loaded and started, a running one goes off, one switched off on again, a foreign one is allowed; WRITE keeps the state over a restart as on its page. EXIT goes back to the list and from there to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards), hidden or system files and files without a plugin header are not listed |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | opens the pages of the display light; EXIT goes back to DISPLAY |
 | DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 15 15 15 means the firmware's white ("15 stock"); applies at once |
 | DISPLAY, INTENSITY | 0 to 15 | brightness of the display light over all three colours, the mix stays; 0 is no light, 15 the full colour; applies at once |
-| DISPLAY, SAVE LIGHT | STOCK, 1 to 15 | the display light in power save: STOCK is the firmware's dimming, 1 to 15 the own colour at that brightness |
-| DISPLAY, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; OFF is the default |
+| DISPLAY, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; ON is the default (a light trail on a dark screen smears less than a dark one), a settings file from 1.2 without it keeps OFF |
+| CUSTOMIZATION, POWER SAVE | ENTER | opens the pages for power save (on battery only); EXIT goes back to POWER SAVE |
+| POWER SAVE, DISPLAY LIGHT | STOCK, 1 to 15 | the display light in power save: STOCK is the firmware's dimming, 1 to 15 the own colour, 1 lights at 3 of 15, 15 full |
+| POWER SAVE, LED DIMMING | 0 to 100 % | how much power save dims the pad, key and knob LEDs: 0 % not at all, 100 % off, 75 % (the default) a quarter of the brightness; the knob LEDs go out except at 0 %; applies at once, WRITE keeps it |
 | CUSTOMIZATION, LED | ENTER | opens the pages of the lower LEDs; EXIT goes back to LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the level meter, COLOR a fixed colour, OFF dark; applies at once |
 | LED, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs for COLOR; with METER the level sets the brightness of this colour while no meter colour is set; 15 15 15 means the firmware's colours ("15 stock"); applies at once |
-| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK | the colour of the level meter per zone, split as in the firmware: STILL without level, LOW, MID, LOUD; STOCK is the firmware's colour (white, blue, green, red) |
+| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL and LOUD: RAINBOW) | the colour of the level meter per zone, split as in the firmware: STILL without level, LOW, MID, LOUD; STOCK is the firmware's colour (white, blue, green, red); STILL and LOUD also have RAINBOW, the colour turns smoothly through red, green and blue: STILL once round in about 3.5 s, LOUD once a bar at the tempo of the pattern (about 1.9 s at 128 BPM) |
 | CUSTOMIZATION, PAD COLOR | ENTER | opens the pages of the pad colours; only where the set has the patch pad-colors |
-| PAD COLOR, PAD COLOR | RED, BLUE, PINK | the colour the pads use for what the firmware shows in red (a part plays, a pad is held, a step); applies at once, WRITE keeps it; RED is the default. Only where the set has the patch pad-colors |
+| PAD COLOR, PAD COLOR | RED, BLUE, PINK | the colour the pads use for what the firmware shows in red (a part plays, a pad is held, a step); applies at once, WRITE keeps it; RED is the default. Only where the set has the patch pad-colors In SEQUENCER mode a step that holds on the note of the step before it through TIE shows a tail in pink that fades out over the length of the note; where tied notes overlap their brightness adds up. |
 | PAD COLOR, SELECT COLOR | RED, BLUE, PINK | the colour of the selected part, never the one of PAD COLOR; when both light, the pad shows the third colour; BLUE is the default |
 | PAD COLOR, OVERLAP | AUTO, RED, BLUE, PINK | the colour of a pad that is lit and selected at once; AUTO is the third colour, neither PAD COLOR nor SELECT COLOR |
-| CUSTOMIZATION, SPLASH IMPORT | ENTER | reads `KORG/blechtribe/splash.bmp` (128 x 64 pixels, 1 bit per pixel, not compressed; the darker colour is drawn) and stores it as the start image like WRITE in the splash editor; shown from the next start. Says "loaded", "no splash.bmp" or "not 128x64 1 bit" (then nothing changes). Only where the set has the splash editor, so not on the blue one |
-| CUSTOMIZATION, SPLASH DRAW | ENTER | opens the splash editor (a page of the Global screen that only this page reaches): the dial moves the cursor left and right, with SHIFT held up and down, MENU flips the pixel and, held, paints its new colour wherever the cursor goes, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
-| FEATURES, PATTERN CONFIRM | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file |
+| CUSTOMIZATION, SPLASH | ENTER | opens the three pages of the start image; EXIT goes back to SPLASH. Only where the set has the splash editor |
+| SPLASH, SPLASH IMPORT | ENTER | reads `KORG/blechtribe/splash.bmp` (128 x 64 pixels, 1 bit per pixel, not compressed; the darker colour is drawn) and stores it as the start image like WRITE in the splash editor; shown from the next start. Says "loaded", "no splash.bmp" or "not 128x64 1 bit" (then nothing changes). Only where the set has the splash editor, so not on the blue one |
+| SPLASH, SPLASH DRAW | ENTER | opens the splash editor (a page of the Global screen that only this page reaches): the dial moves the cursor left and right, with SHIFT held up and down, MENU flips the pixel and, held, paints its new colour wherever the cursor goes, WRITE saves, EXIT leaves the editor. Only where the set has the splash editor |
+| SPLASH, SPLASH RESET | ENTER | drops the stored start image (import or editor); from now on and at every later start the firmware's own start image comes back, the page says "original back". Only where the set has the splash editor |
+| FEATURES, PATTERN CONFIRM | ON, OFF | ON: a pattern chosen with the dial while playing waits for MENU (ENTER) and starts at the end of the sequence; OFF: the firmware as without the pattern switch patch; applies at once, ON is the default (also without a file); OFF is bit 2 of the flags in the settings file The MENU key shows where to press: it blinks while a pattern is only viewed (VIEW:, also stopped with unsaved changes) and is lit once it is confirmed (NEXT:), up to the switch; then it is as the firmware had it. |
+| Ring, SYNC GROUP | OFF, 1 to 999 | a page of its own in the ring, right before the first page of the Pattern menu (EDIT left from there, EDIT right from Blechy; the tag says "Pattern"), on both Electribes (on the blue one since 24.10., [measurement](messungen/2026-10-24-blau-sync-group.md)): the sync group of the pattern in RAM; the main dial changes it, WRITE opens the pattern write as on the Pattern menu's pages, it is saved with the pattern. While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; switching between two patterns of one group carries the state of the pattern that played, changed or not: part mutes and part sound (sample, filter, modulation, pitch, amp, IFX and the other part values), tempo, swing, level, the MFX pad with HOLD, also back; the effect types MFX 1 and MFX 2 stay the new pattern's; the patterns of a group play as one (in RAM only). Steps, motion, length, beat, key, scale and chord set stay the new pattern's. OFF (0) is no group, nothing carried |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off, TAP held longer than 0.3 s switches only while held and back on letting go; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
-| FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a pad note and go out after 1.5 s; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
+| FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 
 Feedback ("saved", "no card", "imported", "2 exported" and so on) replaces the value of the page until you
 turn the main dial or change the page. The firmware's third line (the unit behind a value) starts in
@@ -578,7 +650,7 @@ the title holds about 18. IMPORT PLUGIN and EXPORT ALL are in the PLUGINS group,
 
 On the page RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
-number (24 to 88 bytes, tag `GSET`; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
+number (24 to 88 bytes, tag `GSET`, version 2, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at
 the firmware's values). The page reports "saved", "no card", "card protected", "folder missing" or "write
 error". Nothing is written to the flash.
@@ -596,11 +668,11 @@ is readable, so a setting from the card can no longer change it.
 ## Blechy, the last page of the ring
 
 Blechy, the run-down nose creature, is no plugin. He is built into BLECH and has the **last page of the
-firmware's EDIT ring**: after Event, before the Pattern menu ("31/31"). From the Pattern menu you reach him
-with EDIT left on its first page. On the page he stands there at once, live: no submenu, no `press  [ Enter ]`,
+firmware's EDIT ring** but one: after Event, before SYNC GROUP and the Pattern menu ("31/32"; on the blue one
+"29/31"). From the Pattern menu you reach him with EDIT left on its first page and EDIT left once more. On the page he stands there at once, live: no submenu, no `press  [ Enter ]`,
 the whole display is his (the page number is not visible).
 
-- **Like any page of the ring:** EDIT left goes to Event, EDIT right to the Pattern menu, EXIT to the main
+- **Like any page of the ring:** EDIT left goes to BLECH, EDIT right to SYNC GROUP, EXIT to the main
   screen. The main dial, MENU and WRITE change nothing on his page (the main dial does not page through the
   firmware's own ring pages either). Measured in the emulator ([measurement](messungen/2026-10-15-blechy.md),
   German).
@@ -646,7 +718,7 @@ the whole display is his (the page number is not visible).
 
 ## The example plugins
 
-All eight apps are in the catalog of the Plugins page and in `data/script/presets.mjs`. They have run in the emulator of
+All nine apps are in the catalog of the Plugins page and in `data/script/presets.mjs`. They have run in the emulator of
 the plugin runtime (browser VM), nothing of them is checked on the device. `test/script-plugins.test.mjs` plays each one
 with input. The cost is the most expensive handler in cost units, counted in a run with input; the time next to it is
 **derived**: the Snake frame with 542 units took 0.103 ms in the emulator, so the 0.5 ms warning line is about 2630
@@ -660,8 +732,9 @@ units. Every app stays below it, the tests check that. On the device the time pe
 | Tetris | GAMES | Part left and right move, Edit right turns, Edit left held drops faster, any key restarts after game over | 3772 bytes | 2305 units, 0.44 ms |
 | Game of Life | GAMES | the touchpad sets cells, key 1 starts and pauses (LED), key 2 one step, key 3 clears, key 4 fills at random | 2184 bytes | 2484 units, 0.47 ms |
 | Pong | GAMES | paddle by touchpad (height of the finger), Part left up, Part right down, encoder; first to 9 wins; ball and bot move on every second frame only, otherwise the slow display hardly shows the ball | 2120 bytes | 1221 units, 0.23 ms |
-| Simon | GAMES | the four middle pads (3, 4, 11, 12, counted from 0) light a sequence, you play it back, one more step each round; a wrong pad ends the game, TAP or a pad restarts | 2344 bytes | 2114 units (opening), frame 693 |
+| Simon | GAMES | the 16 pads light a sequence (a step 0.72 s, a little shorter every fourth round, never below 0.4 s), you play it back, one more step each round; the display shows the round, the step and what to do; a wrong pad ends the game, TAP or a pad restarts | 2268 bytes | frame at most 1673 units (game over), opening 1644 |
 | Mandelbrot | GAMES | a finger on the touchpad pans, Part right and the encoder zoom in, Part left out, keys 1 and 2 set the iterations (8 to 64), TAP resets | 2436 bytes | 2135 units, 0.41 ms |
+| GIF Player | TOOLS | plays `GIF00.E2G` to `GIF99.E2G` from the card: the encoder picks the file, Part left and right halve and double the speed (25 to 400 %), TAP pauses; a missing file is said. For trying animations on the display, a frame stays at least one runtime frame (40 ms) | 972 bytes | frame 3762 units, about 0.72 ms (the picture alone 3086), above the warning line of 0.5 ms |
 
 **Set-Timer** is meant for use in a set. Its clock is `korg.millis()`, which the runtime keeps current every frame,
 also while the app is closed. It subscribes only to `play`, the keys, `open` and `close`: closed it costs a few
@@ -681,12 +754,24 @@ the coarse pass. Zoom goes up to 7, deeper than that the 14 bits do not reach.
 
 ## The Plugins page in the editor
 
-The Plugins tab has example plugins on the left (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong,
-Simon and Mandelbrot under GAMES, Set-Timer under TOOLS, plus Lauflicht and Pulsieren; source
-`data/script/presets.mjs`, all using names such as `korg.key.TAP`; the same examples are the cards of the catalog)
-and your own plugins. On the right it has the editor with line numbers, the
-result of compiling (errors with line and column, a click puts the cursor there), the list "Namen der
-Tasten und LEDs" (names of keys and LEDs) and the area "Lauf" (run). The console is below. Your own plugins
+The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
+(documentation). The title in the breadcrumb always leads back to the catalog.
+
+**Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
+and Mandelbrot under GAMES, Set-Timer and GIF Player under TOOLS, plus Lauflicht and Pulsieren; source
+`data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
+description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
+download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
+"Code" switch between the plugin running on the drawing of the Electribe and its source. A new plugin enters
+the catalog by pull request on GitHub, with its entry in `data/script/presets.mjs`.
+
+**My plugins:** the plugins of this browser as cards like in the catalog, with Neues Plugin (new), Öffnen
+(open) and Alle speichern (save all). A card opens the plugin in the editor.
+
+**Editor:** the editor over the whole page, with line numbers and the result of compiling (errors with line
+and column, a click puts the cursor there). Öffnen (open) and Speichern (save) sit top right in the bar; below
+the editor are Vorschau, download and to the device. The preview lies over the darkened editor; a click beside
+it or the X closes it. The console is an entry of its own under Gerät. Your own plugins
 are kept in the browser (`localStorage`) and never leave it. A plugin name is the block name: ASCII, a
 letter first, at most 15 characters.
 
@@ -726,14 +811,14 @@ descriptions in `data/script/describe.mjs` (German), the names of keys and LEDs 
 `src/script/editor-model.mjs` turns them into completion, hint and hover. A test fails if a function or an
 event of the contract has no description.
 
-**Run** ("Lauf", `src/script/sim.mjs`): a simulated device on the reference VM with a display (128 by 64,
+**Preview** ("Vorschau", `src/script/sim.mjs`): a simulated device on the reference VM with a display (128 by 64,
 preview font, not the firmware's), an LED book and a millisecond clock, one frame every 40 ms. Keys, pads,
 knobs, encoders and the touchpad send their events to the runtime. The display shows what the device would
 show: the picture of the open app or of the plugin that took the display, otherwise nothing (on the device
-the firmware's main screen is there). If the plugin has an app, the run opens it as ENTER does in the menu;
+the firmware's main screen is there). If the plugin has an app, the preview opens it as ENTER does in the menu;
 below the display the apps are listed as in the BLECH menu ("GAMES > Snake: öffnen", that is "open"), with
 an EXIT key that closes the app as on the device, before the plugin sees the key. This is not the firmware:
-the run does not show its timing (in the browser only the compute budget applies, no time limit). The
+the preview does not show its timing (in the browser only the compute budget applies, no time limit). The
 runtime inside the firmware runs in the emulator, see "Status".
 
 **Inputs and probe:** "Eingaben aufnehmen" (record inputs) stores the inputs with their frame in the plugin.
@@ -746,9 +831,9 @@ plugins) are available only after a probe of exactly this text (`src/script/gate
 text discards the probe. If lines remain that never ran, the page asks once and names them. An error in the
 probe blocks the export.
 
-**Console:** `run("name")` starts one of your plugins or an example plugin in the Lauf area. A line that
+**Console:** `run("name")` starts one of your plugins or one of the catalog in the preview. A line that
 starts with `korg.` (for example `korg.display.text("Hi", 0, 0)`) runs there as plugin code at once, once,
-as an app "einzeiler" in TOOLS that the run opens. Anything else is plain JavaScript with `KORG` for the
+as an app "einzeiler" in TOOLS that the preview opens. Anything else is plain JavaScript with `KORG` for the
 emulator.
 
 ## Status
@@ -800,21 +885,21 @@ Unicorn without firmware, **not on the device**.
 
 ### On the device
 
-**Nothing of the plugin runtime has been tested on the device.** The firmware file with the runtime is
-built but has not been put on a device yet. The only thing read on the device is a basis: the display
-address `0xC031B310`, where the picture of the main screen lies
-([measurement](messungen/2026-10-09-menuezustand.md)).
-
-The first test on the device is the card test: reading and writing files through the firmware's FatFs
-functions, without flash ([step list](geraetetests/karte.md), German). The firmware file with the runtime
-follows ([step list](geraetetests/blech-datei.md), German).
+The firmware file with the runtime runs on the own device. The BLECH menu, IMPORT PLUGIN, EXPORT ALL and
+`korg.store` read and wrote files on the card there (`e2sPlugin.all`, `store.a.bin`, `store.b.bin`); the
+customization, the FEATURES pages and SPLASH IMPORT and DRAW were used on the device. The wishes from
+these tests are in the measurements from 18 October on
+([plugin stays off](messungen/2026-10-18-plugin-bleibt-aus.md),
+[import list](messungen/2026-10-19-plugin-import-liste.md),
+[sync and menus](messungen/2026-10-22-sync-und-menues.md), German). What a measurement only played in the
+emulator, it says itself. Step lists for an own test: [card test](geraetetests/karte.md) and
+[firmware file](geraetetests/blech-datei.md) (German).
 
 ### Open
 
-- **Everything on the device:** reading, writing and listing a directory through FatFs in our code, the
-  time per frame against the 5 ms budget (derived: about 0.17 ms for a Snake frame), the listening test (no
-  audible dropouts with music and Snake), the backlight on battery with Power Save "Auto", the LED hold,
-  the menu in the hand.
+- **Not measured on its own on the device:** the time per frame against the 5 ms budget (derived: about
+  0.17 ms for a Snake frame), a listening test for dropouts with music and Snake, the backlight on battery
+  with Power Save "Auto", the LED hold.
 - **Timer3:** the period of one second is measured in the emulator, not read on the device.
 - **`save` hook:** hooked in the emulator but not triggered there (WRITE in Global writes flash). Its effect
   is tested only in a unit test.
@@ -827,8 +912,8 @@ follows ([step list](geraetetests/blech-datei.md), German).
 - **LEDs:** the limit of 400 packets a second holds only at about 25 Hz frame calls, an index that is
   rejected for good blocks the other LEDs without a message, and disabling interrupts presupposes a
   privileged mode ([measurement](messungen/2026-10-14-skript-led.md)).
-- **Menu:** no switch for the splash screen, paused plugins are not remembered by the file, long names are
-  cut off, the file list keeps at most 8 names ([measurement](messungen/2026-10-14-blech-menue.md)).
+- **Menu:** no switch for the splash screen, long names are cut off, the list of IMPORT PLUGIN shows at
+  most 16 plugins ([measurement](messungen/2026-10-14-blech-menue.md)).
 - **IMPORT PLUGIN and EXPORT ALL in DATA UTILITY:** not built, they are in the PLUGINS group of the BLECH
   menu. Adding two pages to DATA UTILITY would mean copying the class table, a page counter "n/16" and states
   of their own for file choice and execution, a job of its own

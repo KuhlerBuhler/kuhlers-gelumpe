@@ -92,13 +92,46 @@ werden die entsprechenden Tests ausdrücklich übersprungen.
 | MENU oder EXIT | Menü / abbrechen |
 | Ein/Aus halten | native Selbsthaltung ausschalten |
 
+Zusätzlich lassen sich die Pads nutzen:
+
+| Pad | Doom |
+|---|---|
+| 2 / 10 | vorwärts / rückwärts |
+| 9 / 11 | links / rechts drehen |
+| 1 / 3 | seitwärts links / rechts |
+| 16 | schießen |
+| 8 | benutzen |
+| 15 halten | rennen |
+| 7 | nächste verfügbare Waffe |
+
+Bewegung leuchtet blau, Schießen rot, die übrigen Aktionen violett. Drücken
+verstärkt die Helligkeit. Unbelegte Pads bleiben aus. Die Ausgabe nutzt den
+vorhandenen Paneltreiber, schreibt nur geänderte Werte und höchstens vier
+LED-Nachrichten je zehn Millisekunden. Mehrere Quellen derselben Aktion
+bleiben gedrückt, bis auch die letzte Quelle losgelassen wird. Die bisherigen
+Tasten bleiben erhalten; REC bestätigt im Menü, MENU und EXIT brechen ab.
+Die Drehgeschwindigkeit ist für das kleine Display reduziert.
+
 Doom rendert intern 320 mal 200 Pixel. Der Port verkleinert und dithert auf
-128 mal 64 Pixel und sendet beide Displayhälften. Gegner sind aktiv;
-Ton und Speichern sind abgeschaltet. SD-Dateien werden nur gelesen.
-Quit zeigt `DOOM STOP`, Fehler zeigen `DOOM ERROR` mit Code. Ein/Aus bleibt
-in diesen Zuständen bedienbar. Nach erneutem Einschalten ohne SHIFT + TAP
-ist der normale Sampler der Rückweg. Das ist im Emulator geprüft;
-Bildrate, Cachewirkung, Tasten und Ausschalten am Gerät bleiben ungeprüft.
+128 mal 64 Pixel: gewichtete Flächenmittelung, feste Helligkeitskennlinie
+mit Exponent 0,4 und Atkinson-Fehlerverteilung. Die 256 Kennlinienwerte
+liegen fertig berechnet im Code. Es gibt keine bildweise Kontrastanpassung
+und keinen vollständigen Graubildpuffer. Die Entfernungstabellen für Wände,
+Gegner und Flächen werden vor dem Rendern auf höchstens Farbtabelle 16 von
+31 begrenzt. Hellere Stufen, Texturen und besondere Spielbeleuchtung bleiben
+erhalten. Der globale LCD-Kontrast wird nicht geschrieben.
+
+Mandelbrot zeichnet endgültige Schwarzweißkonturen direkt auf dasselbe
+128-mal-64-Raster. Doom muss bewegte Farbdetails verkleinern und Grautöne
+mit Punktmustern nachbilden. Mandelbrot hat keine höhere Displayauflösung.
+
+Der Port sendet beide Displayhälften. Gegner sind aktiv; Ton und Speichern
+sind abgeschaltet. SD-Dateien werden nur gelesen. Quit zeigt `DOOM STOP`,
+Fehler zeigen `DOOM ERROR` mit Code. Ein/Aus bleibt in diesen Zuständen
+bedienbar. Nach erneutem Einschalten ohne SHIFT + TAP ist der normale
+Sampler der Rückweg. Der vorherige Bildstand startet laut Rückmeldung am
+Gerät, war aber zu dunkel und schwer zu bedienen. Die hellere Ausgabe,
+Pad-Steuerung und Beleuchtung brauchen noch einen Gerätetest.
 
 Der Bereich `0xC1000000..0xC1800000` liegt im Arbeitspuffer des normalerweise
 laufenden Samplers. Seine Verfügbarkeit im Doom-Zweig ist aus den beobachteten

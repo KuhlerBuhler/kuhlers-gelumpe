@@ -6,12 +6,13 @@ import json
 from pathlib import Path
 import struct
 import unittest
-from unicorn import Uc, UC_ARCH_ARM, UC_MODE_ARM, UC_HOOK_CODE
+from unicorn import Uc, UC_ARCH_ARM, UC_MODE_ARM, UC_HOOK_CODE, UC_HOOK_MEM_READ
 from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
 
 BUILD = None
 SHARED = json.loads((Path(__file__).parent / "layout.json").read_text())["shared"]
 TICK, SCRATCH, TRAP = 0xC06A2930, 0xC0E00000, 0xC0F00000
+GPIO_IN67 = 0x01E26098          # bit 31 (GPIO 7.15) low while the power key is held
 WAD = b"SD:/KORG/blechtribe/Doom/doom.wad\0"
 REGS = [UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3]
 
@@ -20,6 +21,7 @@ class Adapter:
     def __init__(self):
         self.uc = Uc(UC_ARCH_ARM, UC_MODE_ARM)
         self.uc.mem_map(0xC0000000, 0x2000000)
+        self.uc.mem_map(0x01E26000, 0x1000)       # GPIO: the power key reads as held unless a test lets go
         self.uc.mem_write(0xC1000000, (BUILD / "doom-runtime.bin").read_bytes())
         self.symbols = {}
         for line in (BUILD / "symbols.txt").read_text().splitlines():
@@ -51,11 +53,16 @@ class Adapter:
         if at == TRAP:
             uc.emu_stop()
             return
-        if at not in (0xC009DB60, 0xC009DD74, 0xC009E404, 0xC009E3DC, 0xC0024B6C, 0xC0015DD0, 0xC001734C):
+        render = getattr(self, "render_stub", False) and at == self.symbols.get("R_RenderPlayerView")
+        if not render and at not in (0xC0028600, 0xC009DB60, 0xC009DD74, 0xC009E404, 0xC009E3DC, 0xC0024B6C, 0xC0015DD0, 0xC001734C, 0xC0016BB4):
             return
         args = [uc.reg_read(r) for r in REGS]
         self.calls.append((at, args))
         result = 0
+        if at == 0xC0016BB4 and args[:4] == [0x01E26000, 0, 3, 0x08000000]:      # the power hold let go, as at the start
+            self.powered = False
+            uc.emu_stop()
+            return
         if at == 0xC001734C:
             self.powered = False
             uc.emu_stop()
@@ -157,6 +164,112 @@ class NativeAdapterTest(unittest.TestCase):
         self.assertEqual(len(a.messages), 8)
         self.assertEqual(a.word(SHARED + 44), 18)
 
+    def test_pad_controls_hold_release_and_multiple_sources(self):
+        a = self.arm
+        mapping = {0: 0xA0, 1: 0xAD, 2: 0xA1, 6: ord("]"), 7: 0xA2,
+                   8: 0xAC, 9: 0xAF, 10: 0xAE, 14: 0xB6, 15: 0xA3}
+        for index, key in mapping.items():
+            for down in (1, 0):
+                a.messages.append([4, index, 0, 100, down])
+                self.assertEqual(a.call("DG_GetKey", SCRATCH, SCRATCH + 4), 1)
+                self.assertEqual(a.word(SCRATCH), down)
+                self.assertEqual(a.uc.mem_read(SCRATCH + 4, 1)[0], key)
+        a.messages += [[4, 1, 0, 90, 1], [0, 11, 1, 0, 0],
+                       [4, 1, 0, 0, 0], [0, 11, 0, 0, 0]]
+        self.assertEqual(a.call("DG_GetKey", SCRATCH, SCRATCH + 4), 1)
+        self.assertEqual(a.word(SCRATCH), 1)
+        self.assertEqual(a.call("DG_GetKey", SCRATCH, SCRATCH + 4), 1)
+        self.assertEqual(a.word(SCRATCH), 0)
+        self.assertEqual(a.call("DG_GetKey", SCRATCH, SCRATCH + 4), 0)
+        a.messages += [[4, 1, 0, 100, 1], [4, 10, 0, 100, 1], [4, 15, 0, 100, 1]]
+        keys = []
+        for _ in range(3):
+            self.assertEqual(a.call("DG_GetKey", SCRATCH, SCRATCH + 4), 1)
+            keys.append(a.uc.mem_read(SCRATCH + 4, 1)[0])
+        self.assertEqual(keys, [0xAD, 0xAE, 0xA3])
+        a.messages += [[4, 16, 0, 100, 1], [4, 3, 0, 100, 1]]
+        self.assertEqual(a.call("DG_GetKey", SCRATCH, SCRATCH + 4), 0)
+
+    def test_pad_leds_are_bounded_cached_and_show_pressed_actions(self):
+        a = self.arm
+        a.word(0xC033E6FC, 0xC0100000)
+        for i in range(10):
+            a.word(TICK, 100 + i * 10)
+            before = len(a.calls)
+            a.call("doom_update_leds")
+            self.assertLessEqual(len(a.calls) - before, 4)
+        leds = {args[1]: args[2] for at, args in a.calls if at == 0xC0028600}
+        self.assertEqual(len(leds), 32)
+        self.assertEqual(leds[0x2F], 64)
+        self.assertEqual(leds[0x4A], 96)
+        self.assertEqual(leds[0x32], 0)
+        before = len(a.calls)
+        a.call("doom_update_leds")
+        self.assertEqual(len(a.calls), before)
+        a.messages.append([4, 15, 0, 100, 1])
+        a.call("DG_GetKey", SCRATCH, SCRATCH + 4)
+        a.word(TICK, 210)
+        a.call("doom_update_leds")
+        self.assertIn((0xC0028600, [0xC0100000, 0x4A, 255]),
+                      [(at, args[:3]) for at, args in a.calls])
+        a.messages.append([4, 15, 0, 0, 0])
+        a.call("DG_GetKey", SCRATCH, SCRATCH + 4)
+        a.word(TICK, 220)
+        a.call("doom_update_leds")
+        self.assertEqual([args[2] for at, args in a.calls if at == 0xC0028600 and args[1] == 0x4A][-1], 96)
+
+    def test_controls_configure_gentle_turns_and_weapon_selection(self):
+        a = self.arm
+        a.call("doom_configure_controls")
+        self.assertEqual(a.word(a.symbols["key_nextweapon"]), ord("]"))
+        self.assertEqual(struct.unpack("<III", a.uc.mem_read(a.symbols["angleturn"], 12)), (320, 480, 240))
+
+    def test_distant_lighting_is_bounded_without_fullbright(self):
+        a = self.arm
+        base = SCRATCH + 0x10000
+        a.word(a.symbols["colormaps"], base)
+        for name, count in (("scalelight", 16 * 48), ("zlight", 16 * 128)):
+            address = a.symbols[name]
+            a.uc.mem_write(address, struct.pack("<I", base + 31 * 256) * count)
+            a.word(address + 4, base + 4 * 256)
+        a.render_stub = True
+        a.call("__wrap_R_RenderPlayerView", SCRATCH)
+        for name, count in (("scalelight", 16 * 48), ("zlight", 16 * 128)):
+            address = a.symbols[name]
+            values = struct.unpack("<" + "I" * count, a.uc.mem_read(address, count * 4))
+            self.assertEqual(values[0], base + 16 * 256)
+            self.assertEqual(values[1], base + 4 * 256)
+            self.assertTrue(all(base <= v <= base + 16 * 256 for v in values))
+        a.call("__wrap_R_RenderPlayerView", SCRATCH)
+        self.assertEqual(a.word(a.symbols["scalelight"]), base + 16 * 256)
+        a.word(a.symbols["scalelight"], base + 30 * 256)
+        a.call("__wrap_R_RenderPlayerView", SCRATCH)
+        self.assertEqual(a.word(a.symbols["scalelight"]), base + 16 * 256)
+
+    def test_dark_midtones_have_readable_light_coverage(self):
+        a = self.arm
+        pixels = a.symbols["__heap_start"]
+        a.uc.mem_write(pixels, struct.pack("<I", 0x202020) * (320 * 200))
+        a.word(a.symbols["DG_ScreenBuffer"], pixels)
+        a.call("DG_DrawFrame", count=3000000)
+        white = 8192 - sum(v.bit_count() for v in a.uc.mem_read(0xC031B310, 1024))
+        self.assertGreaterEqual(white, 3000)
+        self.assertLessEqual(white, 5000)
+
+    def test_fixed_brightness_is_independent_of_other_image_regions(self):
+        a = self.arm
+        pixels = a.symbols["__heap_start"]
+        frames = []
+        for other in (0x606060, 0xFFFFFF):
+            image = b"".join(struct.pack("<I", 0x202020 if x < 160 else other)
+                             for y in range(200) for x in range(320))
+            a.uc.mem_write(pixels, image)
+            a.word(a.symbols["DG_ScreenBuffer"], pixels)
+            a.call("DG_DrawFrame", count=3000000)
+            frames.append(bytes(a.uc.mem_read(0xC031B310, 1024)))
+        self.assertEqual(frames[0][:32], frames[1][:32])
+        self.assertLess(sum(v.bit_count() for v in frames[0][:32]), 240)
+
     def test_clock_does_not_advance_on_reads_and_sleep_uses_external_ticks(self):
         a = self.arm
         a.word(TICK, 1234)
@@ -215,25 +328,94 @@ class NativeAdapterTest(unittest.TestCase):
         self.assertEqual(a.call("DG_GetKey", SCRATCH + 200, SCRATCH + 204), 1)
         self.assertTrue(a.powered)
         a.messages = [[6, 1, 0, 0, 0]]
+        a.clock_step = True
+        start = a.word(TICK)
         a.uc.reg_write(UC_ARM_REG_R0, SCRATCH + 200)
         a.uc.reg_write(UC_ARM_REG_R1, SCRATCH + 204)
         a.uc.reg_write(UC_ARM_REG_SP, 0xC1800000)
-        a.uc.emu_start(a.symbols["DG_GetKey"], 0xFFFFFFFF, count=100000)
+        a.uc.emu_start(a.symbols["DG_GetKey"], 0xFFFFFFFF, count=3000000)
         self.assertFalse(a.powered)
-        self.assertEqual(a.calls[-1][0], 0xC001734C)
-        self.assertEqual(a.calls[-1][1][:2], [0x01E26000, 1])
+        self.assertGreaterEqual(a.word(TICK) - start, 5000, "only after the key stayed down 5 s more")
+        self.assertEqual(a.calls[-1][0], 0xC0016BB4)
+        self.assertEqual(a.calls[-1][1][:4], [0x01E26000, 0, 3, 0x08000000])
+
+    def test_power_key_let_go_within_5_s_keeps_the_game(self):
+        a = self.arm
+        a.messages = [[6, 1, 0, 0, 0]]
+        a.clock_step = True
+        a.word(GPIO_IN67, 0x80000000)
+        self.assertEqual(a.call("DG_GetKey", SCRATCH + 200, SCRATCH + 204, count=3000000), 0)
+        self.assertTrue(a.powered)
+        self.assertNotIn(0xC001734C, [at for at, _ in a.calls])
 
     def test_error_idle_still_accepts_native_power_button(self):
         a = self.arm
         a.messages = [[6, 0, 0, 0, 0], [6, 1, 0, 0, 0]]
+        a.clock_step = True
         a.uc.reg_write(UC_ARM_REG_R0, 0xFFFFFFFF)
         a.uc.reg_write(UC_ARM_REG_SP, 0xC1800000)
-        a.uc.emu_start(a.symbols["_exit"], 0xFFFFFFFF, count=100000)
+        a.uc.emu_start(a.symbols["_exit"], 0xFFFFFFFF, count=3000000)
         self.assertFalse(a.powered)
         self.assertEqual(a.word(SHARED + 8), 0x80000000)
         self.assertEqual(a.word(SHARED + 12), 0xFFFFFFFF)
-        self.assertEqual(a.calls[-1][0], 0xC001734C)
-        self.assertEqual(a.calls[-1][1][:2], [0x01E26000, 1])
+        self.assertEqual(a.calls[-1][0], 0xC0016BB4)
+        self.assertEqual(a.calls[-1][1][:4], [0x01E26000, 0, 3, 0x08000000])
+
+    def test_dark_scene_contours_use_the_display_contrast(self):
+        a = self.arm
+        pixels = a.symbols["__heap_start"]
+        image = b"".join(struct.pack("<I", 0x181818 if x < 160 else 0x484848)
+                         for y in range(200) for x in range(320))
+        a.uc.mem_write(pixels, image)
+        a.word(a.symbols["DG_ScreenBuffer"], pixels)
+        a.call("DG_DrawFrame", count=3000000)
+        frame = bytes(a.uc.mem_read(0xC031B310, 1024))
+        dark = sum(frame[y * 128 + x].bit_count() for y in range(8) for x in range(48))
+        light = sum(frame[y * 128 + x].bit_count() for y in range(8) for x in range(80, 128))
+        self.assertGreater(dark - light, 500)
+        self.assertGreater(light, 0)
+        self.assertLess(dark, 48 * 64)
+
+    def test_source_pixels_between_old_sample_points_affect_the_display(self):
+        a = self.arm
+        pixels = a.symbols["__heap_start"]
+        image = bytearray(struct.pack("<I", 0x787878) * (320 * 200))
+        a.uc.mem_write(pixels, bytes(image))
+        a.word(a.symbols["DG_ScreenBuffer"], pixels)
+        a.call("DG_DrawFrame", count=3000000)
+        before = bytes(a.uc.mem_read(0xC031B310, 1024))
+        for y in range(200):
+            struct.pack_into("<I", image, (y * 320 + 1) * 4, 0xFFFFFF)
+        a.uc.mem_write(pixels, bytes(image))
+        a.call("DG_DrawFrame", count=3000000)
+        after = bytes(a.uc.mem_read(0xC031B310, 1024))
+        self.assertNotEqual(before, after)
+        a.call("DG_DrawFrame", count=3000000)
+        self.assertEqual(bytes(a.uc.mem_read(0xC031B310, 1024)), after)
+        image = bytearray(struct.pack("<I", 0x787878) * (320 * 200))
+        image[320 * 4:640 * 4] = struct.pack("<I", 0xFFFFFF) * 320
+        a.uc.mem_write(pixels, bytes(image))
+        a.call("DG_DrawFrame", count=3000000)
+        self.assertNotEqual(bytes(a.uc.mem_read(0xC031B310, 1024)), before)
+
+    def test_display_conversion_preserves_source_and_stack_guards(self):
+        a = self.arm
+        pixels = a.symbols["__heap_start"]
+        image = bytes(range(256)) * 1000
+        a.uc.mem_write(pixels, image)
+        a.uc.mem_write(pixels - 32, b"\xa6" * 32)
+        a.uc.mem_write(pixels + len(image), b"\x5a" * 32)
+        a.uc.mem_write(0xC1800000 - 16384, b"\x93" * 32)
+        a.word(a.symbols["DG_ScreenBuffer"], pixels)
+        reads = []
+        a.uc.hook_add(UC_HOOK_MEM_READ, lambda uc, kind, at, size, value, data: reads.append((at, size)),
+                      begin=pixels, end=pixels + len(image) - 1)
+        a.call("DG_DrawFrame", count=3000000)
+        self.assertEqual(sorted(reads), [(pixels + i * 4, 4) for i in range(320 * 200)])
+        self.assertEqual(bytes(a.uc.mem_read(pixels, len(image))), image)
+        self.assertEqual(bytes(a.uc.mem_read(pixels - 32, 32)), b"\xa6" * 32)
+        self.assertEqual(bytes(a.uc.mem_read(pixels + len(image), 32)), b"\x5a" * 32)
+        self.assertEqual(bytes(a.uc.mem_read(0xC1800000 - 16384, 32)), b"\x93" * 32)
 
     def test_display_conversion_calls_both_native_spi_halves(self):
         a = self.arm

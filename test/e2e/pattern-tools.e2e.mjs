@@ -86,7 +86,7 @@ test("transitions: a single file, a name of your own, chain to and the same byte
   const { makeTransitions } = await import("../../src/transition.mjs");
   const expected = makeTransitions(backup.a, backup.b, { count: 2, slots: [4, 5], slotB: 2, chain: true, names: ["", "Drop In"] }).items[1].pattern;
   assert.deepEqual(got.bytes, expected.bytes);
-  assert.match(await page.locator("#cee-pt-line").textContent(), /^Gespeichert: T2_005_Drop-In\.e2spat/);
+  await page.locator("#app-toasts .cee-toast", { hasText: /^Gespeichert: T2_005_Drop-In\.e2spat/ }).first().waitFor();
   assert.deepEqual(page.errors, []);
 });
 
@@ -194,8 +194,7 @@ test("dice: an empty part without sample says so, a bad file is refused with its
   await page.fill("#cee-pt-seed", "5");
   assert.match(await page.locator("#cee-pt-d-warnings").textContent(), /kein Sample/);
   await page.setInputFiles("#cee-pt-file", { name: "bad.e2sallpat", mimeType: "application/octet-stream", buffer: Buffer.from("nope") });
-  await page.locator("#cee-pt-error").waitFor();
-  assert.match(await page.locator("#cee-pt-error").textContent(), /Pattern-Sicherung/);
+  await page.locator("#app-toasts .cee-toast", { hasText: /Pattern-Sicherung/ }).first().waitFor();
   assert.equal(await page.locator("#cee-pt-loaded").textContent(), "set.e2sallpat, 12 Patterns, 9 davon frei", "the loaded file stays");
   assert.deepEqual(page.errors.filter(e => !/bad|resource/i.test(e)), []);
 });
@@ -203,7 +202,6 @@ test("dice: an empty part without sample says so, a bad file is refused with its
 test("device: fetch A and B from the buffer, send a rolled pattern through the gate and a confirmation", async () => {
   const page = await h.page();
   await page.goto(`${h.url}?labs#emu=${fake.port}:${TOKEN}`);
-  await page.click("#cee-sub-emu #cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", `${h.dir}/system.vsb`);
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-e2-power");
@@ -215,7 +213,7 @@ test("device: fetch A and B from the buffer, send a rolled pattern through the g
   assert.equal(await page.locator("#cee-pt-d-send").isDisabled(), true, "nothing rolled yet");
 
   await page.click("#cee-pt-dice-base-fetch");
-  await page.locator("#cee-pt-line", { hasText: "Geholt" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "Geholt" }).waitFor();
   assert.match(await page.locator("#cee-pt-dice-base option:checked").textContent(), /^Gerät, Kopie 1/);
   await page.selectOption("#cee-pt-kind", "drums");
   await page.fill("#cee-pt-seed", "2024");
@@ -227,7 +225,7 @@ test("device: fetch A and B from the buffer, send a rolled pattern through the g
   await dialog.waitFor();
   assert.match(await dialog.textContent(), /Write am Gerät/);
   await dialog.getByRole("button", { name: "Senden" }).click();
-  await page.locator("#cee-pt-line", { hasText: "Gesendet und zurückgelesen" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "Gesendet und zurückgelesen" }).waitFor();
   const dump = fake.seen.midi.map(hex => Uint8Array.from(Buffer.from(hex, "hex"))).find(m => m[6] === 0x40);
   const sent = new Pattern(parsePatternDump(dump, 9));
   const expected = rollPart(new Pattern(new SimDevice({}).pattern), { kind: "drums", seed: 2024, density: 0.5, name: "DICE 2024" });

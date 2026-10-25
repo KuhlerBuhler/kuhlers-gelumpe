@@ -45,7 +45,6 @@ export function liveSuite(index, parts) {
     if (route) await page.route("**/data/devices.mjs", r => r.fulfill({ contentType: "text/javascript", body: route }));
     await page.goto(`${h.url}${query}#emu=${fake.port}:${TOKEN}`);
     await page.evaluate(() => window.__ceeStubReady);
-    await page.click("#cee-sub-emu #cee-emu-setup > summary");
     await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
     await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
     await page.click("#cee-e2-power");
@@ -56,7 +55,7 @@ export function liveSuite(index, parts) {
     await page.locator(".cee-device-status .cee-status").filter({ hasNotText: "getrennt" }).waitFor();
     await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
     // The Presets page has no file picker: it takes the firmware chosen in the sidebar of the emulator page.
-    await page.click("#cee-tab-fx");
+    await page.evaluate(() => { location.hash = "fx"; });
     await page.locator("#cee-fx-slot").waitFor({ timeout: 15_000 });
     // The initial emulator status poll schedules a preset refresh 3 s later.
     await new Promise(r => setTimeout(r, Math.max(0, 4500 - (Date.now() - running))));
@@ -125,7 +124,7 @@ export function liveSuite(index, parts) {
     const page = await open("", { route: "export default [];" });
     await go(page, "device");
     assert.match(await page.locator(".cee-device-status").textContent(), /nur lesen/);
-    await page.click("#cee-tab-fx");
+    await page.evaluate(() => { location.hash = "fx"; });
     await pick(page, 50);
     await nudgeFirstParam(page);
     await page.click("#cee-send");
@@ -137,7 +136,7 @@ export function liveSuite(index, parts) {
     const page = await h.page({ device: true });
     await page.goto(h.url);
     await page.setInputFiles("#cee-emu-vsb", h.file("other.vsb", new Uint8Array(0x200100)));
-    await page.click("#cee-tab-fx");
+    await page.evaluate(() => { location.hash = "fx"; });
     await page.locator("#cee-vsb-identity .cee-status").waitFor({ timeout: 15_000 });
     assert.equal(await page.locator("#cee-vsb-identity .cee-status").textContent(), "unbekannt");
     assert.equal(await page.locator("#cee-fx-slot").count(), 0);

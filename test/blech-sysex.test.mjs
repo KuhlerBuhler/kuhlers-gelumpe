@@ -11,8 +11,9 @@ import { protectTable } from "../src/sysex-table.mjs";
 import { allowedRegions } from "../src/plan.mjs";
 import { refusal } from "../src/protect.mjs";
 import PROTECTED from "../data/protected.mjs";
-import { BLECH, blechInfo, blechRead, blechBegin, blechData, classify, parseBlechInfo, parseBlechRead, parseBlechBegin, parseBlechData, BlechError, ReplyError, head, crc32, ackFor } from "../src/protocol.mjs";
+import { BLECH, blechInfo, blechRead, blechBegin, blechData, classify, parseBlechInfo, parseBlechRead, parseBlechBegin, parseBlechData, BlechError, ReplyError, head, crc32, ackFor, pluginName, blechPluginBegin, describeMessage } from "../src/protocol.mjs";
 import { syxEnc, syxDec, u32le } from "../src/bytes.mjs";
+import EXEC from "../data/exec.mjs";
 import { hasBlechSysex } from "../src/firmware.mjs";
 import { sysexVectors as vectors } from "./support/sysex-vectors.mjs";
 
@@ -33,6 +34,14 @@ const TABLE = 0x173900;
 const words = (...v) => v.flatMap(u32le);
 const answer = (fn, ...v) => [0xf0, ...head(3), fn, ...syxEnc(words(...v)), 0xf7];
 
+test("native SysEx commands retain their bounds, CRCs and guards on both port identifiers", { timeout: 180000 }, t => {
+  const probe = spawnSync(python, ["-c", "import unicorn"], { encoding: "utf8" });
+  if (probe.status && process.env.E2_ARM_REQUIRED !== "1") return t.skip("Unicorn not installed");
+  assert.equal(probe.status, 0, probe.stderr);
+  const result = spawnSync(python, ["-m", "unittest", "tools.patch.test_blech_sysex_buffer"], { cwd: root, encoding: "utf8", timeout: 170000 });
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+});
+
 describe("the messages", () => {
   test("a request is Korg's frame with the global channel, a function byte of ours and packed little endian words", () => {
     assert.deepEqual(blechInfo(3), [0xf0, 0x42, 0x33, 0x00, 0x01, 0x24, 0x60, 0xf7]);
@@ -46,8 +55,17 @@ describe("the messages", () => {
 
   test("the function bytes collide with neither Korg's nor Hacktribe's", () => {
     const taken = [0x0e, 0x10, 0x11, 0x1c, 0x21, 0x22, 0x23, 0x24, 0x26, 0x30, 0x31, 0x32, 0x40, 0x41, 0x4c, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58];
-    for (const fn of [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.FLASH, BLECH.FILE_READ, BLECH.FILE_BEGIN, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, BLECH.R_FLASH, BLECH.R_FILE_READ, BLECH.R_FILE_BEGIN]) assert.ok(!taken.includes(fn), fn.toString(16));
-    assert.equal(new Set(Object.values(BLECH).filter(v => v > 0x5f && v < 0x7f)).size, 14);
+    for (const fn of [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.FLASH, BLECH.FILE_READ, BLECH.FILE_BEGIN, BLECH.PLUGIN_BEGIN, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, BLECH.R_FLASH, BLECH.R_FILE_READ, BLECH.R_FILE_BEGIN, BLECH.EXEC, BLECH.R_EXEC]) assert.ok(!taken.includes(fn), fn.toString(16));
+    assert.equal(new Set(Object.values(BLECH).filter(v => v > 0x5f && v < 0x7f)).size, 17);
+  });
+
+  test("a plugin file's name is 1 to 16 letters, digits, _ or -, and PLUGIN BEGIN carries it padded behind the three words", () => {
+    for (const ok of ["a", "Short-Delay_2", "x".repeat(16)]) assert.equal(pluginName(ok), ok);
+    for (const bad of ["", "x".repeat(17), "a/b", "../x", "a.b", "a b", "\u00e4", null]) assert.equal(pluginName(bad), null);
+    const msg = blechPluginBegin(3, 0, 10, 0x1234, "ab");
+    assert.deepEqual(syxDec(msg.slice(7, -1)), [0, 0, 0, 0, 10, 0, 0, 0, 0x34, 0x12, 0, 0, 0x61, 0x62, ...new Array(14).fill(0)]);
+    assert.equal(describeMessage(msg).kind, "file-write");
+    assert.throws(() => blechPluginBegin(3, 0, 10, 0, "a/b"));
   });
 
   test("answers are told apart by kind, and one for another channel is not ours", () => {
@@ -188,19 +206,19 @@ describe("the patch", () => {
     }
   });
 
-  test("the code stays in the free run in front of the other patches, its RAM ends where the pattern switch starts", () => {
+  test("the code and separate file workspace fit while the transfer buffer releases 19 KiB", () => {
     const ram = PATCH.ram.map(r => [Number(r.at), Number(r.at) + r.length]);
-    assert.deepEqual(ram, [[0xc0191000, 0xc0191100], [0xc0191100, 0xc019f000], [0xc019f000, 0xc01a0000]]);
+    assert.deepEqual(ram, [[0xc0191000, 0xc0191100], [0xc0191100, 0xc019a400], [0xc019f000, 0xc01a0000]]);
     const code = PATCH.changes.find(c => c.file === CODE);
     assert.ok(0xc0172100 + code.bytes.length / 2 <= 0xc0173800, "code");
     assert.ok(0xc0173800 + PATCH.changes.find(c => c.file === TABLE).bytes.length / 2 <= 0xc0174000, "table");
   });
 
   test("the constants of the builder are the ones of the editor", () => {
-    const run = spawnSync("python3", ["-c", "import sys, json; sys.path.insert(0, 'tools/patch'); import blech_sysex as b; print(json.dumps([b.FUNC_INFO, b.FUNC_READ, b.FUNC_BEGIN, b.FUNC_DATA, b.REPLY_INFO, b.REPLY_READ, b.REPLY_BEGIN, b.REPLY_DATA, b.STATUS_OK, b.STATUS_BAD_CRC, b.STATUS_REFUSED, b.STATUS_RANGE, b.STATUS_VERIFY, b.PROTOCOL_VERSION, b.MAX_BLOCK, b.FLAGS, b.FUNC_FLASH, b.REPLY_FLASH, b.STATUS_FLASH, b.FLASH_MAX, b.FLASH_LIMIT]))"], { cwd: root, encoding: "utf8" });
+    const run = spawnSync("python3", ["-c", "import sys, json; sys.path.insert(0, 'tools/patch'); import blech_sysex as b; print(json.dumps([b.FUNC_INFO, b.FUNC_READ, b.FUNC_BEGIN, b.FUNC_DATA, b.REPLY_INFO, b.REPLY_READ, b.REPLY_BEGIN, b.REPLY_DATA, b.STATUS_OK, b.STATUS_BAD_CRC, b.STATUS_REFUSED, b.STATUS_RANGE, b.STATUS_VERIFY, b.PROTOCOL_VERSION, b.MAX_BLOCK, b.FLAGS, b.FUNC_FLASH, b.REPLY_FLASH, b.STATUS_FLASH, b.FLASH_MAX, b.FLASH_LIMIT, b.FUNC_PBEGIN, b.NAME_MAX, b.FUNC_EXEC, b.REPLY_EXEC, b.EXEC_START, b.EXEC_END]))"], { cwd: root, encoding: "utf8" });
     assert.equal(run.status, 0, run.stderr);
     const { STATUS } = BLECH;
-    assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 31, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000]);
+    assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 0x7f, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000, BLECH.PLUGIN_BEGIN, BLECH.NAME_MAX, BLECH.EXEC, BLECH.R_EXEC, EXEC.stubAt, EXEC.stubAt + EXEC.stubSize]);
   });
 
   test("the synth gets read commands with a table that refuses every RAM write, in its own set", () => {

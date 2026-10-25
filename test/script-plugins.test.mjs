@@ -249,8 +249,8 @@ test("Tetris moves, turns and drops a piece with the keys, keeps it inside the w
   p.device.run(3);
   assert.equal(p.v("state"), 2);
   const text = new Display();
-  text.text("GAME OVER", 54, 56);
-  assert.equal(p.device.display.rows().slice(56, 63).map(r => r.slice(54, 110)).join("\n"), text.rows().slice(56, 63).map(r => r.slice(54, 110)).join("\n"));
+  text.text("GAME OVER", 54, 55);
+  assert.equal(p.device.display.rows().slice(55, 62).map(r => r.slice(54, 110)).join("\n"), text.rows().slice(55, 62).map(r => r.slice(54, 110)).join("\n"));
   press(p, "TAP", 6);
   assert.equal(p.v("state"), 0, "a key starts a new game");
   assert.equal(Array.from({ length: 160 }, (_, i) => p.at("board", i)).reduce((a, b) => a + b, 0), 0);
@@ -543,10 +543,10 @@ test("Pong: the bot can be beaten, a player who returns with the edge of the pad
 
 // ---- Simon ----
 
-const SIMON_PADS = [3, 4, 11, 12];
+const SIMON_PADS = [...Array(16).keys()];
 const padLed = i => 44 + 2 * SIMON_PADS[i];
 
-test("Simon lights one pad at a time, takes the sequence back on the pads and grows it by a step each round", () => {
+test("Simon lights one of the 16 pads at a time, takes the sequence back on the pads and grows it by a step each round", () => {
   const p = plugin("simon");
   p.device.run(1);
   assert.equal(p.device.hardware.ledHold, 1, "it holds the panel LEDs while it is open");
@@ -574,6 +574,7 @@ test("Simon lights one pad at a time, takes the sequence back on the pads and gr
     assert.equal(p.v("score"), round);
   }
   assert.ok(seen.length > 10);
+  assert.ok(new Set(Array.from({ length: 6 }, (_, i) => p.at("seq", i))).size > 1, "the sequence uses more than one pad");
   withinWarn(p, "simon");
 });
 
@@ -590,20 +591,17 @@ test("Simon: a wrong pad ends the game with the score, all LEDs go dark, a pad o
     p.device.run(1);
   }
   while (p.v("state") != 2) p.device.run(1);
-  p.device.post("pad", 0, 1, 100);
-  p.device.run(2);
-  assert.equal(p.v("state"), 2, "a pad that is not one of the four does nothing");
-  const wrong = (p.at("seq", 0) + 1) & 3;
+  const wrong = (p.at("seq", 0) + 1) & 15;
   p.device.post("pad", SIMON_PADS[wrong], 1, 100);
   p.device.run(1);
   assert.equal(p.v("state"), 3);
   p.device.run(80);
   assert.equal(p.v("state"), 5);
   assert.equal(p.v("score"), 3, "three rounds were got through");
-  assert.deepEqual(SIMON_PADS.map((_, i) => p.device.leds[padLed(i)]), [0, 0, 0, 0]);
+  assert.deepEqual(SIMON_PADS.map((_, i) => p.device.leds[padLed(i)]), Array(16).fill(0));
   const text = new Display();
-  text.textNumber("SCORE ", 3, 70, 0);
-  assert.equal(p.device.display.rows().slice(0, 7).map(r => r.slice(70, 128)).join("\n"), text.rows().slice(0, 7).map(r => r.slice(70, 128)).join("\n"));
+  text.textNumber("SCORE ", 3, 83, 2);
+  assert.equal(p.device.display.rows().slice(0, 10).map(r => r.slice(60, 128)).join("\n"), text.rows().slice(0, 10).map(r => r.slice(60, 128)).join("\n"));
   press(p, "TAP", 40);
   assert.ok(p.v("state") <= 1 && p.v("len") <= 1, "TAP starts a new game");
   p.device.closeApp();
@@ -653,13 +651,13 @@ test("Mandelbrot shows final interior pixels early and finishes pixel for pixel 
   const frames = finishRender(p);
   assert.ok(first + frames < 3000, `the full picture takes ${first + frames} frames`);
   const picked = [];
-  for (let y = 0; y < 64; y += 3) for (let x = 0; x < 128; x += 3) if (y < 56 || x < 78) picked.push([x, y]);
+  for (let y = 0; y < 64; y += 3) for (let x = 0; x < 128; x += 3) if (y < 53 || x < 76) picked.push([x, y]);
   const mismatches = picked.filter(([x, y]) => pixel(p.device, x, y) !== ink(reference(p.v("cx"), p.v("cy"), p.v("ds"), p.v("maxIter"), x, y), p.v("maxIter")));
   assert.deepEqual(mismatches, [], "every sampled pixel equals the reference");
   const hud = new Display();
-  hud.textNumber("Z", 0, 80, 57);
-  hud.textNumber("I", 24, 104, 57);
-  for (let y = 56; y < 64; y++) for (let x = 78; x < 128; x++) assert.equal(pixel(p.device, x, y), hud.get(x, y), `the zoom and iteration read-out at ${x},${y}`);
+  hud.textNumber("Z", 0, 80, 55);
+  hud.textNumber("I", 24, 104, 55);
+  for (let y = 53; y < 64; y++) for (let x = 76; x < 128; x++) assert.equal(pixel(p.device, x, y), hud.get(x, y), `the zoom and iteration read-out at ${x},${y}`);
   const on = p.device.display.bytes.reduce((n, b) => n + b.toString(2).replace(/0/g, "").length, 0);
   assert.ok(on > 800 && on < 5000, `${on} pixels lit`);
   withinWarn(p, "mandelbrot");
@@ -670,7 +668,7 @@ test("Mandelbrot resolves each image pixel once, without guessed coarse colours"
   const writes = new Uint16Array(128 * 64);
   const paint = p.device.display.pixel.bind(p.device.display);
   p.device.display.pixel = (x, y, on) => {
-    if (x >= 0 && x < 128 && y >= 0 && y < 64 && (y < 56 || x < 78)) {
+    if (x >= 0 && x < 128 && y >= 0 && y < 64 && (y < 53 || x < 76)) {
       writes[y * 128 + x] += 1;
       assert.ok(writes[y * 128 + x] <= 1, `pixel ${x},${y} is already resolved`);
       assert.equal(on, ink(reference(-8192, 0, 384, 24, x, y), 24), `final colour ${x},${y}`);
@@ -679,7 +677,7 @@ test("Mandelbrot resolves each image pixel once, without guessed coarse colours"
   };
   finishRender(p);
   for (let y = 0; y < 64; y++) for (let x = 0; x < 128; x++) {
-    if (y < 56 || x < 78) assert.equal(writes[y * 128 + x], 1, `resolved ${x},${y}`);
+    if (y < 53 || x < 76) assert.equal(writes[y * 128 + x], 1, `resolved ${x},${y}`);
   }
   withinWarn(p, "Mandelbrot worklist");
 });
@@ -695,7 +693,7 @@ test("Mandelbrot fills a certified interior view without refining its individual
     noFault(p.device.run(1));
     const frames = finishRender(p);
     assert.ok(frames < 100, `interior ${cx} at zoom ${zoom}: ${frames} frames`);
-    for (let y = 0; y < 56; y++) for (let x = 0; x < 128; x++) {
+    for (let y = 0; y < 53; y++) for (let x = 0; x < 128; x++) {
       assert.equal(pixel(p.device, x, y), 1, `${cx}: ${x},${y}`);
     }
     withinWarn(p, "mandelbrot interior");
@@ -724,7 +722,7 @@ test("Mandelbrot block fills preserve every reference pixel across boundaries, z
     assert.equal(p.v("done"), 1, `finished ${cx},${cy},${zoom},${limit}`);
     let wrong = 0;
     for (let y = 0; y < 64; y++) for (let x = 0; x < 128; x++) {
-      if (y >= 56 && x >= 78) continue;
+      if (y >= 53 && x >= 76) continue;
       if (pixel(p.device, x, y) !== ink(reference(cx, cy, 384 >> zoom, limit, x, y), limit)) wrong += 1;
     }
     assert.equal(wrong, 0, `reference ${cx},${cy},${zoom},${limit}`);
@@ -742,18 +740,18 @@ test("Mandelbrot discards unfinished work when the view changes", () => {
   p.device.post("encoder", 0, -1);
   noFault(p.device.run(1));
   assert.equal(p.v("done"), 1, "the fully interior view completes in one frame");
-  for (let y = 0; y < 56; y++) for (let x = 0; x < 128; x++) assert.equal(pixel(p.device, x, y), 1);
+  for (let y = 0; y < 53; y++) for (let x = 0; x < 128; x++) assert.equal(pixel(p.device, x, y), 1);
   p.set("cx", 32768);
   p.set("cy", 32768);
   p.set("zoom", 1);
   p.device.post("encoder", 0, -1);
   noFault(p.device.run(1));
   assert.equal(p.v("done"), 0);
-  for (let y = 0; y < 56; y++) for (let x = 0; x < 128; x++) assert.equal(pixel(p.device, x, y), 0, "old white tiles disappear immediately");
+  for (let y = 0; y < 53; y++) for (let x = 0; x < 128; x++) assert.equal(pixel(p.device, x, y), 0, "old white tiles disappear immediately");
   noFault(p.device.run(30));
   press(p, "TAP", 1);
   finishRender(p);
-  for (let y = 0; y < 56; y++) for (let x = 0; x < 128; x++) {
+  for (let y = 0; y < 53; y++) for (let x = 0; x < 128; x++) {
     assert.equal(pixel(p.device, x, y), ink(reference(-8192, 0, 384, 24, x, y), 24), `reset ${x},${y}`);
   }
   withinWarn(p, "Mandelbrot restarted worklist");
@@ -817,7 +815,7 @@ test("Mandelbrot: a deep zoom still matches the reference and no frame of the wh
   p.set("cy", 1700);
   finishRender(p);
   let wrong = 0;
-  for (let y = 0; y < 56; y += 5) for (let x = 0; x < 128; x += 5) if (pixel(p.device, x, y) !== ink(reference(p.v("cx"), p.v("cy"), p.v("ds"), p.v("maxIter"), x, y), p.v("maxIter"))) wrong += 1;
+  for (let y = 0; y < 53; y += 5) for (let x = 0; x < 128; x += 5) if (pixel(p.device, x, y) !== ink(reference(p.v("cx"), p.v("cy"), p.v("ds"), p.v("maxIter"), x, y), p.v("maxIter"))) wrong += 1;
   assert.equal(wrong, 0);
   assert.ok(p.device.display.bytes.some(b => b));
   withinWarn(p, "mandelbrot");
@@ -838,13 +836,13 @@ test("Snake: a tap above, below, left or right of the touchpad centre steers, ne
   };
   tap(512, 1000); p.device.run(1);
   assert.equal(p.v("dir"), 3, "above the centre is up");
-  p.device.run(3);
+  p.device.run(6);
   tap(100, 512); p.device.run(1);
   assert.equal(p.v("dir"), 2, "left");
-  p.device.run(3);
+  p.device.run(6);
   tap(1000, 512); p.device.run(1);
   assert.equal(p.v("dir"), 2, "straight back is ignored");
-  p.device.run(3);
+  p.device.run(6);
   p.device.post("buttonPress", key("TOUCHPAD"));
   p.device.post("touch", 512, 20, 1);
   p.device.run(1);
@@ -853,4 +851,17 @@ test("Snake: a tap above, below, left or right of the touchpad centre steers, ne
   p.device.run(1);
   assert.equal(p.v("dir"), 1, "the finger moving on, without lifting, does not steer");
   p.device.post("buttonRelease", key("TOUCHPAD"));
+});
+
+test("Snake: PART left and right turn it a quarter from the direction of its last step", () => {
+  const p = plugin("snake");
+  p.device.run(1);
+  assert.equal(p.v("dir"), 0, "heads right");
+  p.device.post("buttonPress", key("PART_LEFT"));
+  p.device.run(1);
+  assert.equal(p.v("dir"), 3, "PART left: up");
+  p.device.run(6);
+  p.device.post("buttonPress", key("PART_RIGHT"));
+  p.device.run(1);
+  assert.equal(p.v("dir"), 0, "PART right: right again");
 });

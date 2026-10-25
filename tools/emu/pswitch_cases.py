@@ -32,7 +32,7 @@ from splash_cases import Dev  # noqa: E402
 IMAGE = 0xC0000000
 PSEL_PTR, PLAYER_PTR, TRANSPORT_PTR = 0xC03487E8, 0xC034029C, 0xC03405BC
 PAD_SELECT, MIDI_PROGRAM = 0xC006EDE4, 0xC006EE00     # (any, number) and (any, number, any), called from the screen tick
-KEYS = {"play": 2, "stop": 1, "menu": 9, "exit": 0x0D, "shift": 0x0A}
+KEYS = {"play": 2, "stop": 1, "menu": 9, "exit": 0x0D, "shift": 0x0A, "part_mute": 0x10}
 SLOTS = 0xC08B2940                  # the pattern bank in RAM, 0x4000 per pattern
 CHAIN_TO, CHAIN_REPEAT = 15104, 15106
 KILL = spec.KILL_SWITCH
@@ -103,6 +103,11 @@ class Box:
         """(browse, confirmed, number) of the patch; FFFFFFFF where nothing was ever written."""
         return tuple(self.u32(spec.STATE + o) for o in (spec.S_BROWSE, spec.S_ARMED, spec.S_ARMNUM))
 
+    def menu_led(self):
+        """MENU's LED in the LED manager: (mode, brightness now); mode 1 steady, 2 blinking."""
+        at = self.u32(spec.LED_MGR) + 8 * spec.LED_MENU
+        return self.dev.read(at + 0x4D, 1)[0], self.dev.read(at + 0x4E, 1)[0]
+
     def view(self):
         """What the pattern selection shows: (running, chosen, pending)."""
         return self.running(), self.chosen(), self.pending()
@@ -166,8 +171,11 @@ class Box:
         return changed
 
     def look(self):
-        return self.dev.screen()["number"], bytes(self.dev.fb())
+        """The screen and the frame as the firmware drew it (the frame buffer: the load bar's look changes only what is sent)."""
+        return self.dev.screen()["number"], self.dev.read(VRAM, 1024)
 
+
+VRAM = 0xC031B310               # the firmware's frame buffer
 
 def near(a, b, tolerance=0.03):
     """Two times of the same device timeline, looked at in steps of 10 ms."""
@@ -210,8 +218,8 @@ def case_browse(payload, flash):
     # line differs is the answer.
     differ = None
     for _ in range(10):
-        fb = bytes(box.dev.fb())
-        now = {i // 128 for i in range(1024) if fb[i] != ref2.dev.fb()[i]}
+        fb, theirs = box.dev.read(VRAM, 1024), ref2.dev.read(VRAM, 1024)
+        now = {i // 128 for i in range(1024) if fb[i] != theirs[i]}
         if now and now <= {6, 7}:
             differ = now
             break
@@ -231,12 +239,21 @@ def case_confirm(payload, flash):
     out = []
     ref = Box(payload, flash, KILL)
     box = Box(payload, flash)
+    leds = []
     for b in (ref, box):
         play(b)
         b.mark()
+        leds.append(b.menu_led())
         b.turn(3)
+        leds.append(b.menu_led())
+        b.run(0.3)
+        leds.append(b.menu_led())
         b.key("menu")
+        leds.append(b.menu_led())
     ref_end, box_end = ref.until_change(), box.until_change()
+    leds.append(box.menu_led())
+    out.append(entry("menu_led_shows_where_to_press", leds[4:] == [(1, 0), (2, 0), (2, 255), (1, 255), (1, 0)] and set(leds[:4]) == {(1, 0)},
+                     f"MENU's LED (mode, brightness) playing, browsed, 0.3 s later, confirmed, switched: {leds[4:]}; the firmware alone: {leds[:4]}"))
     out.append(entry("confirm_switches_at_sequence_end",
                      near(box_end, ref_end) and box.running() == 3 and box.view() == (3, 3, 0) and box.flags()[:2] == (0, 0) and not box.m.asserts,
                      f"browse +3, MENU: the pattern changes after {box_end} s, the firmware's own pending number after {ref_end} s; running/chosen/pending {box.view()}, flags {box.flags()}"))
@@ -491,6 +508,7 @@ def case_unsaved(payload, flash):
         at = IMAGE + bytes(b.payload).find(b"VIEW:\x00", spec.CODE_AT - IMAGE, spec.CODE_END - IMAGE)
         seen = []
         b.m.uc.hook_add(unicorn.UC_HOOK_MEM_READ, lambda *a: seen.append(1), begin=at, end=at)
+        b.m.uc.ctl_flush_tb()           # a memory hook only reaches code translated after it
         return seen
 
     box = Box(payload, flash)
@@ -513,6 +531,16 @@ def case_unsaved(payload, flash):
     clean.turn(1)
     out.append(entry("saved_wheel_is_stock", clean.view() == (1, 1, 0) and clean.flags()[0] in (0, 0xFFFFFFFF),
                      f"without changes a click loads at once as always: {clean.view()}"))
+    if not clean.dev.synth:
+        # saved with the MFX pad touched (byte 0x3C = 1, HOLD off): the load writes 0 there; that is no edit (device report 19.10.)
+        pad = Box(payload, flash)
+        pad.pattern_bytes(1, 0x3C, [1])
+        pad.pattern_bytes(1, 0x41, [0])
+        pad.turn(1, 1.0)
+        first = pad.view()
+        pad.turn(1, 1.0)
+        out.append(entry("pad_state_saved_wheel_loads", first == (1, 1, 0) and pad.view() == (2, 2, 0) and not pad.m.asserts,
+                         f"pattern saved with the pad touched: a click {first}, the next click {pad.view()}"))
     played = Box(payload, flash)
     edited(played)
     played.turn(3)
@@ -548,7 +576,134 @@ def case_unsaved(payload, flash):
     return out
 
 
-GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved)
+def case_sync_group(payload, flash):
+    """Sync groups (all builds; on the synth since 24.10.): the wheel on another pattern of the running pattern's group confirms it at once, a pattern of
+    another group only browses; between two patterns of one group the state of the pattern that played (part mutes and sound,
+    tempo) carries over, changed or not, and back again; the steps stay the new pattern's; into any other pattern nothing carries."""
+    out = []
+    live = lambda b: b.u32(0xC033E6A4) + 4
+    rd = lambda b, at, n=1: bytes(b.dev.read(live(b) + at, n))
+    mutes = lambda b: [rd(b, 0x800 + 0x330 * k + 1)[0] for k in range(16)]
+    P1, P2 = 0x800, 0x800 + 0x330
+    PITCH, MOD, CUTOFF, SAMPLE, TEMPO, STEP, MFX = P1 + 36, P1 + 18, P2 + 13, P1 + 8, 34, P1 + 0x30 + 2, 61
+
+    def setup(b):
+        for n, g in ((0, 7), (1, 7), (2, 0), (3, 7)):
+            b.pattern_bytes(n, spec.GROUP_AT, struct.pack("<H", g))
+        b.pattern_bytes(0, SAMPLE, struct.pack("<H", 0x0105))
+        b.pattern_bytes(1, SAMPLE, struct.pack("<H", 0x0200))
+        b.pattern_bytes(1, CUTOFF, [33])          # an untouched value pattern 2 has of its own
+        b.m.uc.mem_write(live(b) + spec.GROUP_AT, struct.pack("<H", 7))
+        b.m.uc.mem_write(live(b) + SAMPLE, struct.pack("<H", 0x0105))
+
+    def edit(b):
+        for k in (3, 5):                          # parts 4 and 6 switched live
+            at = live(b) + 0x800 + 0x330 * k + 1
+            b.m.uc.mem_write(at, bytes([b.dev.read(at, 1)[0] ^ 1]))
+        b.m.uc.mem_write(live(b) + PITCH, bytes([(rd(b, PITCH)[0] + 5) & 0xFF]))
+        b.m.uc.mem_write(live(b) + MOD, bytes([rd(b, MOD)[0] ^ 0x20]))
+        b.m.uc.mem_write(live(b) + SAMPLE, struct.pack("<H", 0x0106))    # only the low byte differs from the bank
+        b.m.uc.mem_write(live(b) + TEMPO, struct.pack("<H", struct.unpack("<H", rd(b, TEMPO, 2))[0] + 50))
+        b.m.uc.mem_write(live(b) + STEP, bytes([rd(b, STEP)[0] ^ 0x10]))   # a step: never carried
+        b.m.uc.mem_write(live(b) + MFX, bytes([(rd(b, MFX)[0] + 3) % 30]))  # the MFX type (MFX 2's while it is on): never carried
+
+    box = Box(payload, flash)
+    setup(box)
+    # the bank block the pattern in RAM came from is the start's load, remembered by the copy hook
+    loaded = box.u32(spec.STATE + spec.S_LOADED)
+    out.append(entry("sync_remembers_the_start_load", loaded == box.slots + box.running() * 0x4000,
+                     f"loaded bank block {loaded:#x}, pattern {box.running()} at {box.slots + box.running() * 0x4000:#x}"))
+    play(box)
+    box.run(0.3)
+    edit(box)
+    b_saved = bytes(box.m.uc.mem_read(box.slots + 0x4000, 0x4000))
+    a_live = bytes(box.m.uc.mem_read(live(box), 0x4000))
+    box.mark()
+    box.turn(1)
+    armed = (box.view(), box.flags(), box.u32(spec.STATE + spec.S_AUTO), box.program_changes())
+    out.append(entry("group_confirms_at_once", armed == ((0, 1, 1), (0, 1, 1), 1, [1]) and not box.m.asserts,
+                     f"group 7 to group 7: running/chosen/pending, flags (browse, confirmed, number), auto, program changes {armed}"))
+    box.until_change()
+    got = bytes(box.m.uc.mem_read(live(box), 0x4000))
+    want_mutes = [a_live[0x800 + 0x330 * k + 1] for k in range(16)]
+    checks = {
+        "mutes": mutes(box) == want_mutes,
+        "pitch": got[PITCH] == a_live[PITCH],
+        "mod depth": got[MOD] == a_live[MOD],
+        "sample as one value": got[SAMPLE:SAMPLE + 2] == struct.pack("<H", 0x0106),
+        "tempo": got[TEMPO:TEMPO + 2] == a_live[TEMPO:TEMPO + 2],
+        "untouched cutoff carried": got[CUTOFF] == a_live[CUTOFF] != 33,
+        "step stays": got[STEP] == b_saved[STEP],
+        "MFX type stays": got[MFX] == b_saved[MFX] != a_live[MFX],
+    }
+    out.append(entry("group_carries_the_state", box.running() == 1 and all(checks.values()) and not box.m.asserts,
+                     f"running {box.running()}: {checks}; mutes {mutes(box)}, wanted {want_mutes}"))
+    back = Box(payload, flash)
+    setup(back)
+    play(back)
+    back.run(0.3)
+    back.turn(1)
+    back.until_change()
+    at = live(back) + 0x800 + 1                   # part 1 switched in the second pattern
+    back.m.uc.mem_write(at, bytes([back.dev.read(at, 1)[0] ^ 1]))
+    b_live = mutes(back)
+    back.turn(-1)
+    back.until_change()
+    out.append(entry("group_carries_back", back.running() == 0 and mutes(back) == b_live and not back.m.asserts,
+                     f"back to pattern 1: running {back.running()}, mutes {mutes(back)}, wanted {b_live}"))
+    pad = Box(payload, flash)                     # a pad pressed right after the switch acts on what played, as one before it
+    setup(pad)
+    a_mute = mutes(pad)[0]
+    pad.pattern_bytes(1, 0x800 + 1, [a_mute ^ 1])
+    play(pad)
+    pad.key("part_mute")
+    pad.turn(1)
+    pad.until_change(settle=0.0)
+    # The carry into the new pattern runs right at the change: a press in its first 5 ms or less is lost (measured 23.10.). The change is
+    # seen on a 10 ms grid, so the press waits 20 ms, after the carry in every build.
+    pad.run(0.02)
+    pad.m.send([4, 0, 0, 100, 1])
+    pad.run(0.08)
+    pad.m.send([4, 0, 0, 0, 0])
+    pad.run(0.5)
+    out.append(entry("pad_at_the_switch_toggles_what_played", pad.running() == 1 and mutes(pad)[0] == a_mute ^ 1 and not pad.m.asserts,
+                     f"part 1 was {a_mute} in the first pattern, {a_mute ^ 1} saved in the second; pressed in PART MUTE right after the switch: {mutes(pad)[0]}"))
+    box.turn(1)
+    browse = (box.view(), box.flags()[:2], box.u32(spec.STATE + spec.S_AUTO))
+    out.append(entry("other_group_only_browses", browse == ((1, 2, 1), (1, 0), 0), f"group 7 to group 0: {browse}"))
+    box.turn(1)
+    again = (box.view(), box.flags())
+    out.append(entry("turning_on_rearms_in_the_group", again == ((1, 3, 1), (0, 1, 3)), f"on to pattern 4 (group 7): {again}"))
+    box.turn(-1)
+    left = (box.view(), box.flags()[:2], box.u32(spec.STATE + spec.S_AUTO))
+    out.append(entry("turning_away_takes_the_group_back", left == ((1, 2, 1), (1, 0), 0), f"back to pattern 3 (group 0): {left}"))
+    box.key("menu")
+    box.until_change()
+    other = bytes(box.m.uc.mem_read(live(box), 0x4000))
+    stored = bytes(box.m.uc.mem_read(box.slots + 2 * 0x4000, 0x4000))
+    differ = [i for i in range(0x4000) if other[i] != stored[i] and i != 0x3C]
+    out.append(entry("no_carry_out_of_the_group", box.running() == 2 and not differ and not box.m.asserts,
+                     f"confirmed into pattern 3 (group 0): differs from its bank block at {differ[:8]}"))
+    ref = Box(payload, flash, KILL)
+    setup(ref)
+    play(ref)
+    ref.run(0.3)
+    edit(ref)
+    ref.turn(1)
+    ref.until_change()
+    got = bytes(ref.m.uc.mem_read(live(ref), 0x4000))
+    saved = bytes(ref.m.uc.mem_read(ref.slots + 0x4000, 0x4000))
+    # Korg's synth firmware itself leaves bytes 0x0B and 0x24 of part 1 different from the bank after this switch: measured the
+    # same on the unpatched synth 2.02 (docs/messungen/2026-10-24-blau-sync-group.md), so they are the firmware's, not a carry.
+    native = {0x80B, 0x824} if synthaddr.is_synth(payload) else set()
+    differ = [i for i in range(0x4000) if got[i] != saved[i] and i != 0x3C and i not in native]
+    out.append(entry("group_off_with_exit_held", ref.running() == 1 and not differ and not ref.m.asserts,
+                     f"EXIT held at power-on: the firmware's own switch, differs from the bank block at {differ[:8]}"))
+    return out
+
+
+GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
+          case_sync_group)
 
 
 def group_entries(payload, flash, i):

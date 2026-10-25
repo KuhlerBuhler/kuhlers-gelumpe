@@ -107,10 +107,10 @@ test("applied to the own firmware it changes only what it names, and the splash 
   for (let i = 0; i < original.length; i++) {
     if (original[i] !== res.bytes[i]) assert.ok(named.some(([at, n]) => i >= at && i < at + n), `0x${i.toString(16)} changed without being named`);
   }
-  assert.equal(res.allowCode.length, 5, "the spans the patch asks to run at start");
+  assert.equal(res.allowCode.length, PATCH.startPhase.length, "the spans the patch asks to run at start");
   const both = await applyPatches(original, [SPLASH, PATCH]);
   assert.equal(both.ok, true, both.reasons.join(" "));
-  assert.equal(both.allowCode.length, 8, "the splash editor's three and this patch's five");
+  assert.equal(both.allowCode.length, SPLASH.startPhase.length + PATCH.startPhase.length, "the splash editor's spans and this patch's");
 });
 
 describe("the MFX 2 switch in the emulator", { concurrency: slots }, () => {

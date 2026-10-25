@@ -26,3 +26,18 @@ Stand 2026-10-17. Am Gerät gemeldet, im Emulator umgebaut und geprüft. Markier
   unverändert; keine Karte, fehlende Datei, kurze und kaputte `doom.bin`, fehlende und kaputte WAD melden `DOOM ERROR` und lassen
   sich ausschalten.
 - **Offen:** ob der Disk-Fehler am Gerät weg ist und ob Doom dort spielt.
+
+## Ladeanzeige (20.10.)
+
+- **Am Gerät (Besitzer, 20.10.):** mit dem Stand nach dem Einhängen-Umbau blieb nach SHIFT + TAP nur das Startbild stehen,
+  gewartet wurde weniger als 56 s. Kein `DOOM ERROR`.
+- **Gemessen (`run_runtime.py`, 512-MiB-Karte):** Doom spielt nach 55,6 s Gerätezeit, bis dahin liest die Engine die WAD und
+  zeigt nichts. Auf einer 64-MiB-Karte mit 512-Byte-Clustern liest sie etwa neunmal langsamer (nach 110 s 6 MB). Der Look des
+  Ladebalken-Patches ändert daran nichts (mit und ohne Seitenhaken nach 30 s je 7,8 MB).
+- **Umbau:** `tools/doom/runtime.c` zeichnet, solange die Engine vor ihrem ersten Bild liest, alle 200 ms "DOOM", "LADE WAD n MB"
+  und einen Balken aus gelesenen Bytes durch WAD-Größe (`status_display.h`, `doom_status_loading`). Die Engine liest nicht die
+  ganze WAD, der Balken steht beim ersten Bild also nicht am Ende.
+- **Gemessen:** neue `doom.bin` (`7bfb6282…`, 450972 Byte), bytegleich aus dem neuen Quellarchiv neu gebaut; nach 15 s zeigt das
+  Display die Anzeige mit 2 MB; Doom spielt weiter nach 55,6 s, die Anzeige kostet keine messbare Zeit. Der Lader ist auf die
+  neue Datei gepinnt (`data/patches/doom-loader.json`), die alte `doom.bin` auf der Karte lehnt er ab.
+- **Offen:** die echte Ladezeit am Gerät.

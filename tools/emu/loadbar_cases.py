@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""Emulator checks for the loading bar patch (tools/patch/load_bar.py,
-docs/ideen/41-startbild-ausbauen.md).
+"""Emulator checks for the loading animation and the look (tools/patch/load_bar.py, tools/art/loading).
 
 check.py runs `cases` on every patched copy that carries the patch's hooks. With a card and an
-e2sSample.all the BLECH image is shown while the samples load, whatever the start image: the underline
-is the bar, the eyes look around, no frame shows the window "Loading nnn%". Without a card, with EXIT held at
-power-on and on every rescue path nothing of it runs. The reference for "as it was" is the same
-copy with EXIT held at power-on, where no hook of the patch does anything.
+e2sSample.all Blechy draws the line while the samples load, whatever the start image: every frame is the
+picture load_bar.compose_reference makes for the key in the state, the percent counts up, from 95 percent the
+finale plays, no frame shows the window "Loading nnn%" and the display stays dark through the switch to
+DISPLAY INVERT. Without a card, with EXIT held at power-on and on every rescue path nothing of it runs. The
+reference for "as it was" is the same copy with EXIT held at power-on, where no hook of the patch does anything.
 
     tools/emu/.venv/bin/python tools/emu/loadbar_cases.py cases --patched NEW.VSB [--flash dump.bin]
     tools/emu/.venv/bin/python tools/emu/loadbar_cases.py shots --patched NEW.VSB --png-dir DIR [--flash dump.bin]
@@ -29,10 +29,11 @@ import sampleset  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import DESC13, SPLASH, Dev, display_of  # noqa: E402
+from frame_match import matches_pages  # noqa: E402
 
 IMAGE = 0xC0000000
 KILL = spec.KILL_SWITCH
-S_EXPECT, S_CUR, S_MAX, S_DONE, S_FRAME, S_MODE, S_DRAWN, S_FILL, S_DX, S_FACE, S_FACE_NOW = (4 * i for i in range(11))
+S_EXPECT, S_CUR, S_MAX, S_DONE, S_FRAME, S_MODE, S_DRAWN, S_KEY, S_LAST = (4 * i for i in range(9))
 SAMPLE = 0.01                   # seconds of device time between two looks at the display
 LOADER = spec.LOAD_FUNC
 _card = {}
@@ -95,13 +96,15 @@ class Run:
         self.loader = []            # (start, end) of the loader in ms of device time
         self.hook_loader()
         self.frames = []            # (ms, display bytes, state words, screen number)
+        self.lcd_positions = {}
         self.main_at = None
         t = 0.0
         while t < limit and not self.m.asserts:
             self.dev.run(SAMPLE)
             t += SAMPLE
             screen = self.dev.screen()["number"]
-            self.frames.append((self.m.time_ns / 1e6, self.dev.fb(), self.state(), screen))
+            self.lcd_positions[self.m.time_ns / 1e6] = (self.m.lcd_page, self.m.lcd_col)
+            self.frames.append((self.m.time_ns / 1e6, self.dev.fb(), self.state(), screen, self.m.shown()))
             if screen == 1 and self.main_at is None:
                 self.main_at = self.m.time_ns / 1e6
             if self.main_at is not None and self.m.time_ns / 1e6 > self.main_at + 300:
@@ -129,7 +132,7 @@ class Run:
         uc.ctl_flush_tb()
 
     def state(self):
-        return tuple(self.dev.u32(spec.STATE + o) for o in (S_EXPECT, S_CUR, S_MAX, S_DONE, S_FRAME, S_MODE, S_DRAWN, S_FILL, S_DX, S_FACE, S_FACE_NOW))
+        return tuple(self.dev.u32(spec.STATE + o) for o in (S_EXPECT, S_CUR, S_MAX, S_DONE, S_FRAME, S_MODE, S_DRAWN, S_KEY, S_LAST))
 
     def loader_ms(self):
         return None if not self.loader or self.loader[0][1] is None else self.loader[0][1] - self.loader[0][0]
@@ -139,47 +142,19 @@ def vsb_image(payload):
     return bytes(payload[SPLASH - IMAGE:SPLASH - IMAGE + 1024])
 
 
-def pixel(buf, x, y, v):
-    """Set pixel (x, y) of a frame in the display's order (bit 0 is the top row of a page)."""
-    i = (y >> 3) * 128 + x
-    buf[i] = (buf[i] | (1 << (y & 7))) if v else (buf[i] & ~(1 << (y & 7)) & 0xFF)
+ART = None
 
 
-def draw_face(frame, key):
-    """The small face of `key` (place * 256 + level): dark pixels of the face whose dither threshold is below the level."""
-    level, place = key & 0xFF, key >> 8 & 3
-    x0, y0 = spec.FACE_PLACES[place]
-    for dy, row in enumerate(spec.FACE):
-        for dx, c in enumerate(row):
-            if c == "X" and spec.BAYER[((y0 + dy) & 3) * 4 + ((x0 + dx) & 3)] < level:
-                pixel(frame, x0 + dx, y0 + dy, 0)
+def art():
+    global ART
+    ART = ART or spec.parse_loading(spec.LOAD_ART.read_bytes())
+    return ART
 
 
-def expected(image, fill, dx, blech, face=0):
-    """The frame the patch draws for an image, a bar of `fill` pixels, the pupils `dx` to the side and the face `face`."""
-    frame = bytearray(display_of(image))
-    if blech:
-        for x in range(88):
-            lit = 0 if x < fill else x & 1
-            pixel(frame, 20 + x, 61, lit)
-            pixel(frame, 20 + x, 62, lit)
-        for eye in (50, 77):
-            for y in range(15, 18):
-                for k in range(3):
-                    pixel(frame, eye + k, y, 1)
-        for eye in (50, 77):
-            for y in range(15, 18):
-                for k in range(3):
-                    pixel(frame, eye + dx + k, y, 0)
-        draw_face(frame, face)
-    else:
-        for x in range(fill):
-            pixel(frame, x, 63, 0)
-    return bytes(frame)
-
-
-def signed(word):
-    return word - (1 << 32) if word >= 0x80000000 else word
+def pictures(key):
+    """The picture for a key and its complement (drawn while the BLECH menu is not yet armed with DISPLAY INVERT ON)."""
+    ref = spec.compose_reference(art(), key)
+    return ref, bytes(b ^ 0xFF for b in ref)
 
 
 def entry(name, ok, detail):
@@ -187,47 +162,61 @@ def entry(name, ok, detail):
 
 
 def overlay_frames(run):
-    """The frames in which the overlay was on and had drawn (the state says what was marked: fill and the pupils' step)."""
+    """The frames in which the overlay was on and had drawn."""
     return [f for f in run.frames if f[2][0] == 1 and f[2][6] == 1 and f[3] != 1]
 
 
-def mismatches(run, image, blech):
-    """(frames looked at, first frame that showed the overlay in ms, ms of the frames that are not the image with bar and pupils).
+def mismatches(run):
+    """(frames looked at, first frame that showed the animation in ms, ms of the frames that are not one of its pictures).
 
-    The display follows the state by up to a frame (the pages are sent with the next flush), so a frame may show one of the
-    last three states, page by page (the controller gets the pages one after the other, so a look in the middle of a transfer
-    shows some pages new and some old); before the first frame that equals one, the display shows the start image the firmware drew early; and
-    the one frame in which the firmware closes its window (just before the main screen) is its own."""
+    The display follows the state by a few frames (the pages of a new picture go out one after the other), so a frame may show
+    any of the last three keys, page by page. The page currently being sent can have its prefix and suffix from different
+    keys at the recorded LCD column. Before the first frame that equals one, the display shows the start image the
+    firmware drew early; and the one frame in which the firmware closes its window (just before the main screen) is its own."""
     frames, recent, bad, first = overlay_frames(run), [], [], None
-    for t, fb, st, _ in frames:
-        key = (st[7], signed(st[8]) if blech else 0, st[10] if blech else 0)
-        if not recent or recent[-1][0] != key:
-            recent = (recent + [(key, expected(image, key[0], key[1], blech, key[2]))])[-3:]
-        if any(fb == exp for _, exp in recent) or all(any(fb[o:o + 128] == exp[o:o + 128] for _, exp in recent) for o in range(0, 1024, 128)):
+    for t, fb, st, _, _ in frames:
+        if not recent or recent[-1][0] != st[7]:
+            recent = (recent + [(st[7], pictures(st[7]))])[-3:]
+        candidates = [p for _, pair in recent for p in pair]
+        if matches_pages(fb, candidates, run.lcd_positions[t]):
             first = first if first is not None else t
         elif first is not None and not (run.main_at and t >= run.main_at - 60):
             bad.append(round(t, 1))
     return frames, first, bad
 
 
+def dark_share(shown):
+    return sum(bin(b).count("1") for b in shown) / 8192
+
+
 def case_bar(payload, flash):
-    """The image stays, the bar grows to the end, the eyes move, no frame shows the window; the loader is no slower than without the patch."""
+    """Blechy draws the line, the percent counts up, the finale from 95, at most 20 pictures a second, the display stays dark,
+    no frame shows the window; the loader is no slower than without the patch."""
     out = []
     run = Run(payload, flash)
     ref = Run(payload, flash, KILL)
     off = Run(without_overlay(payload), flash)
-    image = spec.ART.read_bytes()
-    blech = True
-    frames, first, bad = mismatches(run, image, blech)
-    out.append(entry("overlay_frames_are_the_image", len(frames) >= 30 and first is not None and first < 300 and not bad and not run.m.asserts and run.main_at is not None,
-                     (f"{len(frames)} looks at the display (every 10 ms) from {frames[0][0]:.0f} ms to {frames[-1][0]:.0f} ms: from {first and round(first)} ms on each is exactly the start image with the bar and the pupils "
-                      f"as the state says, so none shows the window" + (f"; frames that differ at {bad[:5]} ms" if bad else "")) if frames else "no frame of the overlay"))
-    fills = [st[7] for _, _, st, _ in frames]
-    steps = {signed(st[8]) for _, _, st, _ in frames}
-    out.append(entry("bar_grows_to_the_end", fills == sorted(fills) and fills and fills[-1] == (88 if blech else 128) and fills[0] < fills[-1] // 2,
-                     f"the bar went from {fills[0]} to {fills[-1]} of {88 if blech else 128} pixels, never back"))
-    out.append(entry("eyes_wander", len(steps) >= 5 and all(-5 <= s <= 5 for s in steps) if blech else True,
-                     f"the pupils took {len(steps)} positions between {min(steps)} and {max(steps)} pixels" if blech else "not the BLECH image: no eyes"))
+    frames, first, bad = mismatches(run)
+    out.append(entry("overlay_frames_are_the_animation", len(frames) >= 30 and first is not None and first < 300 and not bad and not run.m.asserts and run.main_at is not None,
+                     (f"{len(frames)} looks at the display (every 10 ms) from {frames[0][0]:.0f} ms to {frames[-1][0]:.0f} ms: from {first and round(first)} ms on each is exactly "
+                      f"the picture of the key in the state (or its complement before DISPLAY INVERT), so none shows the window" + (f"; frames that differ at {bad[:5]} ms" if bad else "")) if frames else "no frame of the overlay"))
+    keys = [st[7] for _, _, st, _, _ in frames]
+    pcts = [k & 0xFF for k in keys]
+    out.append(entry("percent_counts_up", pcts == sorted(pcts) and pcts and pcts[0] <= 5 and pcts[-1] >= spec.FINALE_AT,
+                     f"the percent went from {pcts[0] if pcts else '?'} to {pcts[-1] if pcts else '?'}, never back"))
+    early = [k for k in keys if (k & 0xFF) < spec.FINALE_AT and k >> 16]
+    late = [k for k in keys if (k & 0xFF) >= spec.FINALE_AT]
+    out.append(entry("finale_from_95", late and not early,
+                     f"{len(late)} looks at the finale (percent {sorted({k & 0xFF for k in late})}, pictures {sorted({k >> 16 for k in late})}), "
+                     f"none of its pictures before {spec.FINALE_AT} percent"))
+    changes = [t for (t, _, st, _, _), prev in zip(frames[1:], frames) if st[7] != prev[2][7]]
+    gaps = [round(b - a) for a, b in zip(changes, changes[1:])]
+    out.append(entry("at_most_20_pictures_a_second", all(g >= spec.FRAME_MS - 10 for g in gaps) and len(changes) >= 5,
+                     f"{len(changes)} new pictures, the shortest gap {min(gaps) if gaps else None} ms (looks every 10 ms, so one look of slack)"))
+    shares = [dark_share(f[4]) for f in run.frames if f[3] != 1 and f[0] >= (first or 0) and f[2][0] == 1]
+    out.append(entry("display_stays_dark", shares and min(shares) >= 0.6 and run.m.lcd_reverse,
+                     f"from the first picture to the main screen at least {min(shares) if shares else 0:.0%} of the pixels are dark on the panel, "
+                     f"also while the controller is switched to DISPLAY INVERT (reversed at the end: {run.m.lcd_reverse})"))
     # One card alone is noise: the same copy measured -0.12 % to +0.63 % with 18, 20 and 22 samples (unrelated changes elsewhere move
     # where the interrupts fall, docs/messungen/2026-10-18-ladebalken-streuung.md), so the sum over three cards is compared; the overlay
     # itself costs about half a percent there (six cards, every one of them slower), so the limit is 1 %
@@ -241,21 +230,12 @@ def case_bar(payload, flash):
     out.append(entry("main_screen_is_no_later", run.main_at is not None and off.main_at is not None and run.main_at <= off.main_at + 20,
                      f"the main screen came at {run.main_at and round(run.main_at, 1)} ms with the overlay and at {off.main_at and round(off.main_at, 1)} ms in the same copy without it; "
                      f"with EXIT held, every patch of the set off, at {ref.main_at and round(ref.main_at, 1)} ms: the rest of the set starts later, the overlay does not"))
-    keys = [st[10] for _, _, st, _ in frames]
-    levels = sorted({k & 0xFF for k in keys})
-    # the one frame in which the firmware closes its window, just before the main screen, is its own (as in mismatches)
-    shown = [fb for t, fb, st, _ in frames if st[10] & 0xFF and not (run.main_at and t >= run.main_at - 60)]
-    faces = [fb for fb in shown if fb != expected(image, 0, 0, blech) and any(fb)]
-    margin = all(fb[(y >> 3) * 128 + x] == display_of(image)[(y >> 3) * 128 + x] for fb in shown for y in range(64) for x in list(range(0, 2)) + list(range(126, 128)))
-    out.append(entry("faces_fade_in_at_the_edge", (not blech) or (len(levels) >= 3 and levels[0] == 0 and len(shown) >= 6 and len(faces) >= 6 and margin),
-                     (f"the faces took the levels {levels} of 16, {len(shown)} looks at the display with a face, the two outer columns are the image's own in all of them; the exact pixels are part of overlay_frames_are_the_image")
-                     if blech else "not the BLECH image: no faces"))
     after = [f for f in run.frames if f[3] == 1][-1][1]
-    out.append(entry("main_screen_is_clean", after == [f for f in ref.frames if f[3] == 1][-1][1] and run.state()[0] == 2,
-                     "300 ms after the main screen the display equals the one of the run with EXIT held, the overlay is over (state 2)"))
+    out.append(entry("main_screen_is_clean", after == [f for f in off.frames if f[3] == 1][-1][1] and run.state()[0] == 2,
+                     "300 ms after the main screen the display equals the one of the same copy without the overlay's calls, the overlay is over (state 2)"))
     stock_window = [f for f in ref.frames if f[3] == 0 and f[0] > 400]
-    shown = any(fb != display_of(image) and any(fb) for _, fb, _, _ in stock_window)
-    out.append(entry("reference_shows_the_window", shown, "with EXIT held the firmware's own window is on the display while the samples load, so the overlay is what covers it"))
+    shown = any(fb != stock_window[0][1] for _, fb, _, _, _ in stock_window) if stock_window else False
+    out.append(entry("reference_shows_the_window", shown, "with EXIT held the firmware's own window changes on the display while the samples load, so the overlay is what covers it"))
     return out
 
 
@@ -296,24 +276,18 @@ def case_rescue(payload, flash):
 
 
 def case_custom_image(payload, flash):
-    """A start image that is not the BLECH one is seen until the load begins; while the samples load the BLECH image with bar and eyes is."""
+    """A start image of the user's own is seen until the load begins; while the samples load the animation is."""
     image = vsb_image(payload)
     other = bytes(b ^ 0x5A for b in image)
     changed = bytearray(payload)
     changed[SPLASH - IMAGE:SPLASH - IMAGE + 1024] = other
     run = Run(bytes(changed), flash)
-    frames, first, bad = mismatches(run, spec.ART.read_bytes(), True)
-    fills = [st[7] for _, _, st, _ in frames]
-    steps = {signed(st[8]) for _, _, st, _ in frames}
-    before = any(fb == display_of(other) for _, fb, st, _ in run.frames if st[6] != 1)
-    return [entry("other_image_then_blech_with_eyes", before and len(frames) >= 30 and first is not None and not bad and st_mode(frames) == 1
-                  and fills == sorted(fills) and fills[-1] == 88 and len(steps) >= 5,
-                  f"the changed image on the display before the load: {before}; then {len(frames)} looks at the BLECH image with a bar of {fills[0] if fills else '?'} to "
-                  f"{fills[-1] if fills else '?'} of 88 pixels and the pupils in {len(steps)} places" + (f"; frames that differ at {bad[:5]} ms" if bad else ""))]
-
-
-def st_mode(frames):
-    return frames[-1][2][5] if frames else None
+    frames, first, bad = mismatches(run)
+    pcts = [st[7] & 0xFF for _, _, st, _, _ in frames]
+    before = any(fb == display_of(other) for _, fb, st, _, _ in run.frames if st[6] != 1)
+    return [entry("own_image_then_the_animation", before and len(frames) >= 30 and first is not None and not bad and pcts == sorted(pcts) and pcts[-1] >= spec.FINALE_AT,
+                  f"the changed image on the display before the load: {before}; then {len(frames)} looks at the animation from {pcts[0] if pcts else '?'} to "
+                  f"{pcts[-1] if pcts else '?'} percent" + (f"; frames that differ at {bad[:5]} ms" if bad else ""))]
 
 
 class FailingCard:
@@ -333,9 +307,12 @@ class FailingCard:
 def case_card_error(payload, flash):
     """A card that stops answering while the samples load: the loader ends with the card error and the overlay goes at once, so
     the firmware's window is seen (device 18.10.: the image stayed over it). The power key while the start still runs switches off
-    at once (it waited for the end of the start, batteries out was the way)."""
+    once held for 5 s (it waited for the end of the start, batteries out was the way); a short press does nothing, where
+    the firmware switches off at the end of the start."""
     import menu_cases
     from power_off_cases import POWER_KEY
+    from machine import pin
+    import power_off
     out = []
     dev = WatchedDev(bytes(payload), flash, 0)
     card = card_with(cardstore.card_folder(payload), 20, 4)
@@ -352,33 +329,117 @@ def case_card_error(payload, flash):
         dev.run(0.05)
     dev.run(0.1)
     expect = dev.u32(spec.STATE)
-    out.append(entry("card_error_ends_the_overlay", ended and ended[0][1] == 4 and expect == 2 and not dev.m.asserts,
-                     f"the loader returned {ended[0][1] if ended else None} at {round(ended[0][0], 2) if ended else None} s, the overlay state is then {expect:#x} (2: over)"))
+    done = dev.u32(spec.STATE + S_DONE)
+    out.append(entry("card_error_keeps_the_overlay", ended and ended[0][1] == 4 and expect == 1 and done != 1 and not dev.m.asserts,
+                     f"the loader returned {ended[0][1] if ended else None} at {round(ended[0][0], 2) if ended else None} s, the overlay state is then {expect:#x} (1: still drawn), done {done:#x}"))
+    # the firmware's box "Card Error" comes with the main screen a few seconds later; the overlay is over by then and the
+    # display shows Blechy's card picture instead of the box, until EXIT
+    picture = spec.card_frame(4)
+    while dev.u32(spec.ERR_CODE) != 4 and dev.m.time_ns / 1e9 < 20:
+        dev.run(0.1)
+    dev.run(0.2)
+    boxed_over = dev.u32(spec.STATE) == 2
+    ram = lambda: bytes(b for row in dev.m.fb for b in row)
+    boxed = boxed_over and dev.u32(spec.ERR_CODE) == 4 and ram() == picture
+    dev.press("exit")
+    dev.run(0.5)
+    out.append(entry("card_error_picture", boxed and dev.u32(spec.ERR_CODE) == 0x26 and ram() != picture and not dev.m.asserts,
+                     f"with the box up the display is the card picture: {boxed}; after EXIT the code is {dev.u32(spec.ERR_CODE):#x} and the picture is gone"))
     if menu_cases.has_menu(payload) and not synthaddr_is_synth(payload):
-        start = WatchedDev(bytes(payload), flash, 0)
-        card = card_with(cardstore.card_folder(payload), 20, 4)
-        hold = FailingCard(card, start)
-        start.m.insert_card(card)
-        start.run(0.5)
-        hold.after = 0.5
-        start.run(1.0)
+        def stuck_start(kill):
+            dev = WatchedDev(bytes(payload), flash, kill)
+            card = card_with(cardstore.card_folder(payload), 20, 4)
+            hold = FailingCard(card, dev)
+            dev.m.insert_card(card)
+            dev.window = []         # the firmware's power-off handler reached its one-second wait behind the "Power Off" box
+            dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, a, s, d, dev=dev: dev.window.append(dev.m.time_ns / 1e9),
+                              begin=power_off.WAIT_CALL, end=power_off.WAIT_CALL)
+            dev.run(0.5)
+            hold.after = 0.5
+            dev.run(1.0)
+            return dev
+
+        def press(dev, release_after, limit=7.0):
+            """The key goes down (pin GPIO 7.15 low, the panel sends 06 01) and comes up after release_after seconds, or never.
+            Returns the seconds until the power went (or limit)."""
+            dev.m.inputs[pin(7, 15)] = 0
+            dev.m.send(POWER_KEY)
+            t = 0.0
+            while dev.m.powered and t < limit:
+                if release_after is not None and t >= release_after:
+                    dev.m.inputs[pin(7, 15)] = 1
+                dev.run(0.05)
+                t += 0.05
+            return t
+
+        start = stuck_start(0)
         screen = start.screen()["number"]
-        start.m.send(POWER_KEY)
-        t = 0.0
-        while start.m.powered and t < 2.0:
-            start.run(0.05)
-            t += 0.05
-        held = WatchedDev(bytes(payload), flash, KILL)
-        card = card_with(cardstore.card_folder(payload), 20, 4)
-        stuck = FailingCard(card, held)
-        held.m.insert_card(card)
-        held.run(0.5)
-        stuck.after = 0.5
-        held.run(1.0)
-        held.m.send(POWER_KEY)
-        held.run(1.0)
-        out.append(entry("power_key_during_the_start", screen == 0 and not start.m.powered and t <= 0.3 and held.m.powered,
-                         f"screen {screen} while the start waits on the card, off {round(t, 2)} s after the power key; with EXIT held at power-on still on after 1 s (the firmware's way)"))
+        t = press(start, None)
+        short = stuck_start(0)
+        press(short, 1.0, 10.0)
+        held = stuck_start(KILL)
+        t_held = press(held, None)
+        out.append(entry("power_key_during_the_start", screen == 0 and not start.m.powered and 4.9 <= t <= 5.5 and not start.window
+                         and short.m.powered and not short.window and not held.m.powered and held.window,
+                         f"screen {screen} while the start waits on the card, off {round(t, 2)} s after the power key went down and stayed; "
+                         f"let go after 1 s still on after 10 s, past the end of the start: {short.m.powered}; "
+                         f"with EXIT held at power-on the firmware's way: its Power Off box at {[round(w, 2) for w in held.window]} s, "
+                         f"at the end of the start, off {round(t_held, 2)} s after the key"))
+    return out
+
+
+def without_look(payload):
+    """The same copy with the display send's page compare put back to the firmware's own function."""
+    out = bytearray(payload)
+    struct.pack_into("<I", out, spec.PAGE_CALL - IMAGE, 0xEB000000 | (((spec.PAGE_FUNC - (spec.PAGE_CALL + 8)) >> 2) & 0xFFFFFF))
+    return bytes(out)
+
+
+def case_look(payload, flash):
+    """The look (tools/patch/load_bar.py, restyle_reference): with the BLECH menu armed and DISPLAY INVERT ON every frame the
+    display gets is the firmware's frame with the look, exactly as the reference draws it, while the firmware's frame buffer
+    stays its own; an open app, DISPLAY INVERT OFF and EXIT held at power-on get the frame as it is."""
+    import menu_cases
+    out = []
+    ram = lambda dev: bytes(b for row in dev.m.fb for b in row)
+    vram = lambda dev: dev.read(spec.VRAM_ADDR, 1024)
+    looked = lambda dev: ram(dev) == spec.restyle_reference(vram(dev)) and ram(dev) != vram(dev)
+    plain = lambda dev: ram(dev) == vram(dev)
+    if not menu_cases.has_menu(payload):
+        run = Run(payload, flash)
+        return [entry("look_needs_the_menu", plain(run.dev) and run.main_at is not None and not run.m.asserts,
+                      "without the plugin runtime the BLECH menu is never armed: the display shows the frame buffer as it is")]
+    dev = menu_cases.boot(payload, flash, adapter=True)
+    dev.run(0.3)
+    bare = menu_cases.boot(without_look(payload), flash, adapter=True)
+    bare.run(0.3)
+    out.append(entry("look_main_screen", looked(dev) and vram(dev) == vram(bare) and plain(bare) and not dev.m.asserts,
+                     "the main screen on the display is restyle_reference of the frame buffer, and the frame buffer is the one of the same copy "
+                     "without the page hook (whose display shows it as it is)"))
+    dev.m.send([2, 1, 0, 100, 0])
+    dev.run(0.05)
+    dev.m.send([2, 1, 0, 40, 0])
+    dev.run(0.3)
+    window = dev.screen()["window"]
+    out.append(entry("look_value_window", window and looked(dev), f"turning a knob opens the value window ({window:#x}), it gets the look too"))
+    dev.run(1.5)
+    menu_cases.go(dev, 3)
+    dev.run(0.4)
+    out.append(entry("look_menu_page", dev.screen()["number"] == 3 and looked(dev), f"the Pattern menu with its page tab (screen {dev.screen()['number']})"))
+    menu_cases.goto_blechy(dev)
+    dev.run(0.5)
+    out.append(entry("look_app_untouched", menu_cases.open_app_entry(dev) != 0 and plain(dev) and any(ram(dev)),
+                     "with the built-in app open on its page the display is the app's picture as it drew it"))
+    menu_cases.press(dev, "exit", wait=0.6)
+    menu_cases.goto_page(dev, menu_cases.PAGE_INVERT)
+    dev.turn(-1, wait=0.4)
+    menu_cases.go(dev, 1)
+    dev.run(0.5)
+    out.append(entry("look_off_with_invert_off", menu_cases.state(dev, menu_cases.S_INVERT) == 0 and plain(dev) and not dev.m.asserts,
+                     "DISPLAY INVERT OFF: the main screen goes out as the firmware drew it"))
+    held = menu_cases.boot(payload, flash, held=KILL, adapter=True)
+    held.run(0.3)
+    out.append(entry("look_off_with_exit_held", plain(held) and any(ram(held)) and not held.m.asserts, "EXIT held at power-on: the frame as it is"))
     return out
 
 
@@ -387,7 +448,35 @@ def synthaddr_is_synth(payload):
     return synthaddr.is_synth(payload)
 
 
-GROUPS = (case_bar, case_off, case_rescue, case_custom_image, case_card_error)
+def case_power_while_loading(payload, flash):
+    """The power key while the samples load (device 25.10.: held 30 s, the device stayed on): the panel's report of the key does
+    not come in this phase, so only the pin goes down here. Held 7 s the overlay lets the power go; let go after 3 s the device
+    stays on and the load goes on."""
+    from machine import pin
+    out = []
+
+    def run(release):
+        dev = WatchedDev(bytes(payload), flash, 0)
+        dev.m.insert_card(card_with(cardstore.card_folder(payload), 400, 6))
+        dev.run(0.8)
+        t0 = dev.m.time_ns / 1e9
+        dev.m.inputs[pin(7, 15)] = 0
+        while dev.m.powered and dev.m.time_ns / 1e9 - t0 < 10:
+            if release is not None and dev.m.time_ns / 1e9 - t0 >= release:
+                dev.m.inputs[pin(7, 15)] = 1
+            dev.run(0.1)
+        return dev, round(dev.m.time_ns / 1e9 - t0, 1)
+
+    held, t = run(None)
+    short, _ = run(3.0)
+    out.append(entry("power_key_while_loading", not held.m.powered and 6.9 <= t <= 7.6 and short.m.powered
+                     and short.u32(spec.STATE) == 1 and not held.m.asserts and not short.m.asserts,
+                     f"held: off {t} s after the key went down (the overlay still drawing); let go after 3 s: on {short.m.powered}, "
+                     f"overlay state {short.u32(spec.STATE):#x}"))
+    return out
+
+
+GROUPS = (case_bar, case_off, case_rescue, case_custom_image, case_card_error, case_look, case_power_while_loading)
 
 
 def group_entries(payload, flash, i):
@@ -406,19 +495,19 @@ def cases(payload, flash=None):
 
 
 def shots(payload, flash, png_dir):
-    """The display while the samples load, in the first frame where a face is at full strength (docs/images/blech-ladebalken-gesicht.png)."""
+    """The display while the samples load, at 40 percent or more (docs/images/blech-laden.png)."""
     png_dir.mkdir(parents=True, exist_ok=True)
     run = Run(payload, flash, limit=0.0)
     for _ in range(400):
         run.dev.run(SAMPLE)
         st = run.state()
-        if st[0] == 1 and st[10] & 0xFF == 16 and st[7] > 20:
+        if st[0] == 1 and st[6] == 1 and (st[7] & 0xFF) >= 40:
             break
     else:
-        raise SystemExit("no face at full strength while loading")
-    run.dev.run(0.06)            # the display follows the state by a frame
-    run.m.png(png_dir / "blech-ladebalken-gesicht.png", scale=5)
-    return {"face": hex(run.state()[10]), "fill": run.state()[7], "ms": round(run.m.time_ns / 1e6)}
+        raise SystemExit("the load never got to 40 percent")
+    run.dev.run(0.06)            # the display follows the state by a few frames
+    run.m.png(png_dir / "blech-laden.png", scale=5)
+    return {"percent": run.state()[7] & 0xFF, "ms": round(run.m.time_ns / 1e6)}
 
 
 def main():

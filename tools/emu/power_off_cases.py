@@ -67,6 +67,12 @@ def frame_of(payload):
     return bytes(payload[spec.FRAME_AT - IMAGE:spec.FRAME_AT - IMAGE + 1024])
 
 
+def sequence_of(payload):
+    """Every picture of the sequence (spec.sequence), with DISPLAY INVERT on and off; the first is the waving frame in the copy."""
+    first = frame_of(payload)
+    return {first} | {spec.sequence(ms, inv) for inv in (True, False) for ms in range(0, 1001, 5)}
+
+
 def sha(data):
     return hashlib.sha256(data).hexdigest()[:16]
 
@@ -118,6 +124,7 @@ def run_case(payload, flash, name):
         menu_cases.goto_blechy(dev)
         dev.run(5.0)
     ours = frame_of(payload)
+    pictures = sequence_of(payload)
     ops, card = traced(dev)
     card_before = sha(bytes(medium.data))
     main = dev.fb()
@@ -126,7 +133,7 @@ def run_case(payload, flash, name):
     while m.powered and (m.time_ns - t0) / 1e9 < LIMIT_S:
         dev.run(STEP_S)
         fb = dev.fb()
-        label = "main" if fb == main else "ours" if fb == ours else "blank" if not any(fb) else "fb:" + sha(fb)
+        label = "main" if fb == main else "blank" if not any(fb) else "ours" if fb in pictures else "fb:" + sha(fb)
         if not timeline or timeline[-1][1] != label:
             timeline.append([round((m.time_ns - t0) / 1e6, 1), label])
     box = [t for t in timeline if t[1].startswith("fb:")]

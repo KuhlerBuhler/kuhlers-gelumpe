@@ -59,7 +59,6 @@ async function open({ connected = true, running = true } = {}) {
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.evaluate(() => window.__ceeStubReady);
   await page.evaluate(bytes => { window.__ceeSim.device.pattern = Uint8Array.from(bytes); }, [...start]);
-  await page.click("#cee-sub-emu #cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   const since = Date.now();
@@ -73,7 +72,7 @@ async function open({ connected = true, running = true } = {}) {
     await page.locator(".cee-device-status .cee-status").filter({ hasNotText: "getrennt" }).waitFor();
     await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
   }
-  await page.click("#cee-tab-fx");
+  await page.evaluate(() => { location.hash = "fx"; });
   await page.locator("#cee-fx-slot").waitFor({ timeout: 15_000 });
   // The first status poll schedules a preset refresh 3 s later; an edit made before it would be redrawn.
   if (running) await new Promise(r => setTimeout(r, Math.max(0, 4500 - (Date.now() - since))));
@@ -88,7 +87,7 @@ test("levels: nothing is shown before the pattern is fetched, and without a devi
   assert.equal(await page.locator("#cee-lv-body").isHidden(), true);
   assert.match(await page.locator("#cee-levels h2").textContent(), /Pegel/);
   await page.click("#cee-lv-fetch");
-  await page.locator("#app-toasts .cee-toast", { hasText: "Weder Emulator noch Gerät verbunden" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "Nichts verbunden" }).waitFor();
   assert.equal(await page.locator("#cee-lv-body").isHidden(), true);
   assert.deepEqual(page.errors, []);
 });

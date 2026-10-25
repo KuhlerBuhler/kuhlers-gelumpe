@@ -1,6 +1,6 @@
 /** The Modulationen page: 72 modulation types of the loaded firmware, a firmware copy after the emulator check. Logic: src/modtable.mjs, src/export.mjs. */
 import { el, control } from "./fields.mjs";
-import { identify } from "../../src/firmware.mjs";
+import { identify, firmwareAdvice } from "../../src/firmware.mjs";
 import { field, describe } from "../../src/map/index.mjs";
 import { converter } from "../../src/map/convert.mjs";
 import { locateModTable, readModType, readModTypes, writeModType, MOD_FIELDS, SLOT_FIELDS, SLOT_COUNT, MOD_COUNT } from "../../src/modtable.mjs";
@@ -8,6 +8,7 @@ import { lintModType, slotActive, TARGETS_KNOWN, TARGETS_UNCLEAR } from "../../s
 import { exportModTypes } from "../../src/export.mjs";
 import { checkName, checkDetail } from "../../src/patcher.mjs";
 import { toast } from "./toast.mjs";
+import { saveFile } from "./save-file.mjs";
 
 const TARGET = field("modType.target");
 
@@ -60,9 +61,9 @@ export function modulationsPage(root, { emulator }) {
 
   const count = el("span", { className: "muted", id: "cee-mod-count", role: "status" });
   const warnings = el("span", { className: "muted", id: "cee-mod-warnings" });
-  const run = el("button", { type: "button", className: "btn primary", id: "cee-mod-run", textContent: "Im Emulator prüfen", disabled: true });
+  const run = el("button", { type: "button", className: "btn cee-primary", id: "cee-mod-run", textContent: "Im Emulator prüfen", disabled: true });
   const reset = el("button", { type: "button", className: "btn", id: "cee-mod-reset-all", textContent: "Alles zurücksetzen", disabled: true });
-  const download = el("button", { type: "button", className: "btn primary", id: "cee-mod-download", textContent: "SYSTEM.VSB herunterladen", hidden: true });
+  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-mod-download", textContent: "SYSTEM.VSB herunterladen", hidden: true });
   const bar = el("div", { className: "ui-progress", id: "cee-mod-bar", hidden: true });
   const note = el("p", { className: "muted", id: "cee-mod-note", role: "status", hidden: true });
   const checkList = el("ul", { className: "ui-list", id: "cee-mod-checks" });
@@ -269,7 +270,7 @@ export function modulationsPage(root, { emulator }) {
       checks.hidden = false;
       const good = report.checks.filter(c => c.ok).length;
       note.hidden = true;
-      toast(report.ok ? `Geprüft: ${good} von ${report.checks.length} bestanden. Die Kopie ändert nur die Modulationsarten.` : `Nicht bestanden: ${report.checks.length - good} von ${report.checks.length}. Die Kopie wird nicht angeboten.`, report.ok ? "ok" : "error");
+      toast(report.ok ? `Geprüft, alles in Ordnung. Du kannst die Datei jetzt speichern.` : `Die Prüfung hat ${report.checks.length - good} Fehler gefunden. Diese Änderung lässt sich so nicht speichern. Schick uns bitte einen Screenshot.`, report.ok ? "ok" : "error");
       if (report.ok) { passed = res.bytes; download.hidden = false; }
     } catch (e) {
       note.hidden = true;
@@ -282,12 +283,7 @@ export function modulationsPage(root, { emulator }) {
 
   download.addEventListener("click", () => {
     if (!passed) return;
-    const a = el("a", { href: URL.createObjectURL(new Blob([passed], { type: "application/octet-stream" })), download: "SYSTEM.VSB" });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-    toast("Kopiere die Datei wie im Bereich Patcher beschrieben auf die SD-Karte und starte SOFTWARE UPDATE unter DATA UTILITY.", "info");
+    saveFile(passed, "SYSTEM.VSB", { note: "Kopier die Datei auf die SD-Karte nach KORG/dein Ordner/System und starte am Gerät das Update: Menü -> DATA UTILITY -> SOFTWARE UPDATE." });
   });
 
   /** False when the firmware is not one this editor knows. */
@@ -297,7 +293,7 @@ export function modulationsPage(root, { emulator }) {
     idle.hidden = false;
     intro.hidden = split.hidden = actions.hidden = true;
     if (!found?.ok) {
-      idle.textContent = id.build === "stock" ? "Diese Firmware kennt der Editor nicht." : `Diese Firmware kennt der Editor nicht: ${(found?.reasons ?? id.reasons).join(" ")}`;
+      idle.textContent = firmwareAdvice(id, found?.reasons ?? id.reasons);
       return false;
     }
     Object.assign(state, { original: bytes, bytes: Uint8Array.from(bytes), file: found.file, place: found.place, index: 0 });

@@ -1,12 +1,17 @@
 /**
- * Starting points for the scripts page and the cards of its catalog. Snake is the reference script the tests run
- * (test/fixtures/scripts); a test keeps the source here equal to that file.
+ * The catalog of plugins, also the starting points of the plugins page. Each entry carries its category, who made it,
+ * when it came in and what its keys do; a new plugin comes in by pull request on GitHub with its entry here. Snake is
+ * the reference script the tests run (test/fixtures/scripts); a test keeps the source here equal to that file.
  */
 export const PRESETS = Object.freeze([
   Object.freeze({
     id: "blechclicker",
     title: "BLECH Clicker",
     description: "App in GAMES: ein Kristall in der Mitte, jeder Pad-Druck zählt eins hoch, der Stand bleibt über das Ausschalten.",
+    category: "Spiele",
+    creator: "Kuhler Buhler",
+    added: "2026-10-16",
+    controls: ["Pad: zählt eins hoch"],
     source: `// BLECH Clicker, an app under GAMES: a crystal in the middle, the number of pad presses below it. Every pad press
 // while the app is open adds one and shakes the crystal, korg.store keeps the count over power off. The crystal is one
 // bitmap of 40 x 40 pixels (5 bands of 40 columns), the screen is only drawn again when something changed.
@@ -69,6 +74,10 @@ korg.onEvent("frame", () => {
     id: "settimer",
     title: "Set-Timer",
     description: "App in TOOLS: große Uhr für die Länge des Sets. Startet mit dem ersten PLAY oder [1], zählt auch bei geschlossener App weiter, [4] zweimal setzt zurück.",
+    category: "Werkzeuge",
+    creator: "Kuhler Buhler",
+    added: "2026-10-16",
+    controls: ["PLAY oder [1]: startet die Uhr", "[4] zweimal: setzt zurück"],
     source: `// Set timer, an app under TOOLS: big mm:ss (h:mm:ss from one hour on) for how long the set has run.
 // The first PLAY or key 1 starts it, then it only counts: PLAY and STOP change nothing, key 4 resets after a second press.
 // The clock is korg.millis(), so it keeps counting with the app closed; closed, the app only reacts to \`play\` and keys.
@@ -162,17 +171,17 @@ function showStatus() {
   const s = wantStatus();
   if (s == status) return;
   status = s;
-  korg.display.clearRect(90, 0, 38, 8);
-  korg.display.clearRect(0, 52, 128, 8);
+  korg.display.clearRect(84, 0, 44, 10);
+  korg.display.clearRect(0, 53, 128, 11);
   if (s == 0) {
-    korg.display.text("WAIT", 98, 0);
-    korg.display.text("PLAY OR KEY 1 STARTS", 0, 56);
+    korg.display.text("WAIT", 101, 2);
+    korg.display.text("PLAY OR KEY 1 STARTS", 4, 55);
   } else if (s == 1) {
-    korg.display.text("RUN", 104, 0);
-    korg.display.text("KEY 4 = RESET", 0, 56);
+    korg.display.text("RUN", 107, 2);
+    korg.display.text("KEY 4 = RESET", 4, 55);
   } else {
-    korg.display.text("RESET?", 92, 0);
-    korg.display.text("KEY 4 AGAIN = RESET", 0, 56);
+    korg.display.text("RESET?", 89, 2);
+    korg.display.text("KEY 4 AGAIN = RESET", 4, 55);
   }
 }
 
@@ -186,7 +195,7 @@ korg.onEvent("open", () => {
   isOpen = 1;
   if (confirmUntil > 0 && korg.millis() > confirmUntil) confirmUntil = 0;
   korg.display.clear();
-  korg.display.text("SET TIMER", 0, 0);
+  korg.display.text("SET TIMER", 4, 2);
   status = -1;
   layout();
 });
@@ -220,10 +229,16 @@ korg.onEvent("frame", () => {
   Object.freeze({
     id: "snake",
     title: "Snake",
-    description: "App in GAMES: das Spiel auf dem Display. Tippe aufs Touchpad oben, unten, links oder rechts, dorthin läuft die Schlange.",
+    description: "App in GAMES: das Spiel auf dem Display. Tippe aufs Touchpad oben, unten, links oder rechts, dorthin läuft die Schlange; PART < und > drehen sie nach links und rechts. Sie wird mit jedem vierten Futter schneller.",
+    category: "Spiele",
+    creator: "Kuhler Buhler",
+    added: "2026-10-16",
+    controls: ["Touchpad oben, unten, links, rechts: dorthin läuft die Schlange", "◄ PART und PART ►: dreht nach links und rechts"],
     source: `// Snake on a 16 x 8 grid of 8 x 8 pixel cells, an app under GAMES: it opens from the BLECH menu, starts anew
 // on every open and leaves with EXIT. The body is a ring buffer, \`cell\` marks occupied cells. A tap on the
-// touchpad steers: above, below, left or right of its centre is the new direction, never straight back.
+// touchpad steers: above, below, left or right of its centre is the new direction, never straight back. PART left
+// and right turn it left and right. It starts at one cell every 6 frames (about 4 a second) and gets a frame
+// faster with every fourth food, down to every 3 frames.
 korg.app("Snake", "GAMES");
 const W = 16;
 const H = 8;
@@ -241,6 +256,7 @@ let fy = 2;
 let score = 0;
 let seed = 12345;
 let frames = 0;
+let speed = 6;
 
 function rnd() {
   seed = seed * 1103515245 + 12345;
@@ -261,6 +277,7 @@ function reset() {
   dir = 0;
   moved = 0;
   score = 0;
+  speed = 6;
   head = MAXLEN - 1;
   put(5, 4);
   put(6, 4);
@@ -297,6 +314,7 @@ function step() {
   if (eat) {
     len += 1;
     score += 1;
+    if (score % 4 == 0 && speed > 3) speed -= 1;
     newFood();
   }
 }
@@ -335,9 +353,15 @@ korg.onEvent("touch", (x, y, first) => {
   if ((want + 2) % 4 != moved) dir = want;
 });
 
+// PART left and right: a quarter turn from the direction of the last step
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.PART_LEFT) dir = (moved + 3) % 4;
+  if (key == korg.key.PART_RIGHT) dir = (moved + 1) % 4;
+});
+
 korg.onEvent("frame", () => {
   frames += 1;
-  if (frames >= 3) {
+  if (frames >= speed) {
     frames = 0;
     step();
   }
@@ -349,6 +373,10 @@ korg.onEvent("frame", () => {
     id: "tetris",
     title: "Tetris",
     description: "App in GAMES: fallende Blöcke auf einem Feld von 10 mal 16. [◄ PART] und [PART ►] bewegen, [EDIT ►] dreht, [◄ EDIT] gehalten lässt schneller fallen.",
+    category: "Spiele",
+    creator: "Kuhler Buhler",
+    added: "2026-10-16",
+    controls: ["◄ PART und PART ►: bewegen", "EDIT ►: drehen", "◄ EDIT gehalten: schneller fallen lassen"],
     source: `// Tetris on a 10 x 16 board of 4 x 4 pixel cells, an app under GAMES: it opens from the BLECH menu, starts anew on
 // every open and leaves with EXIT. Part left and right move the piece, Edit right turns it, Edit left drops it faster
 // while it is held. A piece is a 4 x 4 mask (bit y * 4 + x), SHAPES holds the 4 rotations of 7 pieces. Only what
@@ -423,19 +451,19 @@ function paint(on) {
 
 function drawNext() {
   const m = SHAPES[nextKind * 4];
-  korg.display.clearRect(100, 10, 16, 12);
+  korg.display.clearRect(100, 12, 16, 12);
   for (let i = 0; i < 16; i++) {
-    if ((m >> i) & 1) korg.display.rect(100 + (i & 3) * 4, 10 + (i >> 2) * 4, 3, 3);
+    if ((m >> i) & 1) korg.display.rect(100 + (i & 3) * 4, 12 + (i >> 2) * 4, 3, 3);
   }
 }
 
 function drawHud() {
-  korg.display.clearRect(54, 9, 42, 7);
-  korg.display.number(score, 54, 9);
-  korg.display.clearRect(54, 29, 42, 7);
-  korg.display.number(lines, 54, 29);
-  korg.display.clearRect(54, 49, 42, 7);
-  korg.display.number(level, 54, 49);
+  korg.display.clearRect(54, 10, 42, 7);
+  korg.display.number(score, 54, 10);
+  korg.display.clearRect(54, 28, 42, 7);
+  korg.display.number(lines, 54, 28);
+  korg.display.clearRect(54, 46, 42, 7);
+  korg.display.number(level, 54, 46);
 }
 
 function drawRow(y) {
@@ -468,10 +496,10 @@ function setupStep() {
     korg.display.clear();
     korg.display.rect(4, 0, 1, 64);
     korg.display.rect(47, 0, 1, 64);
-    korg.display.text("SCORE", 54, 0);
+    korg.display.text("SCORE", 54, 2);
     korg.display.text("LINES", 54, 20);
-    korg.display.text("LEVEL", 54, 40);
-    korg.display.text("NEXT", 100, 0);
+    korg.display.text("LEVEL", 54, 38);
+    korg.display.text("NEXT", 100, 2);
   } else {
     hud = 1;
     state = 5;
@@ -488,8 +516,8 @@ function spawn() {
   drawNext();
   if (!fits(kind, rot, px, py)) {
     state = 2;
-    korg.display.clearRect(54, 56, 70, 8);
-    korg.display.text("GAME OVER", 54, 56);
+    korg.display.clearRect(54, 54, 70, 10);
+    korg.display.text("GAME OVER", 54, 55);
     return;
   }
   paint(1);
@@ -650,6 +678,10 @@ korg.onEvent("frame", () => {
     id: "life",
     title: "Game of Life",
     description: "App in GAMES: das Touchpad zeichnet Zellen. [1] Start und Pause, [2] ein Schritt, [3] löschen, [4] zufällig füllen.",
+    category: "Spiele",
+    creator: "Kuhler Buhler",
+    added: "2026-10-16",
+    controls: ["Touchpad: Zellen zeichnen", "[1]: Start und Pause", "[2]: ein Schritt", "[3]: löschen", "[4]: zufällig füllen"],
     source: `// Conway's Game of Life on a 32 x 16 torus of 4 x 4 pixel cells, an app under GAMES. The touchpad draws: a touch
 // sets the cell under the finger. Key 1 starts and pauses (its LED is lit while it runs), key 2 steps once, key 3
 // clears, key 4 fills the grid with random cells. A row of the grid is one 32-bit number, a generation is computed
@@ -882,6 +914,10 @@ korg.onEvent("frame", () => {
     id: "pong",
     title: "Pong",
     description: "App in GAMES: Pong gegen den Bot bis 9. Das Paddel folgt dem Finger auf dem Touchpad, oder [◄ PART] hoch und [PART ►] runter.",
+    category: "Spiele",
+    creator: "Kuhler Buhler",
+    added: "2026-10-16",
+    controls: ["Touchpad: das Paddel folgt dem Finger", "◄ PART hoch, PART ► runter"],
     source: `// Pong against a bot, an app under GAMES: first to 9 wins. Your paddle is on the left. Move it with a finger on the
 // touchpad (the height of the finger is the height of the paddle), with Part left (up) and Part right (down), or
 // with an encoder. The bot is slow on purpose: it only reacts to a ball that comes towards it, it misjudges the height
@@ -1082,15 +1118,16 @@ korg.onEvent("frame", () => {
   Object.freeze({
     id: "simon",
     title: "Simon",
-    description: "App in GAMES: vier Pads in der Mitte leuchten eine Folge vor, du spielst sie nach, jede Runde wird sie länger. [TAP] startet neu.",
-    source: `// Simon, an app under GAMES, on the four middle pads (3, 4, 11 and 12 counted from 0). The pads light up in a
-// sequence, repeat it on the pads, and the sequence grows by one step every round. A wrong pad ends the game and
-// shows the number of rounds you got through. While the app is open it holds the panel LEDs (korg.ledHold) so the
-// firmware does not paint over the pads; the four squares on the display follow the pads. TAP or any pad starts anew.
+    description: "App in GAMES: die 16 Pads leuchten eine Folge vor, du spielst sie nach, jede Runde wird sie länger. [TAP] startet neu.",
+    category: "Spiele",
+    creator: "Kuhler Buhler",
+    added: "2026-10-16",
+    controls: ["Pads: die Folge nachspielen", "TAP: neu starten"],
+    source: `// Simon, an app under GAMES, on all 16 pads. The pads light up in a sequence, repeat it on the pads, and the sequence
+// grows by one step every round. A wrong pad ends the game and shows the number of rounds you got through. While the app is
+// open it holds the panel LEDs (korg.ledHold) so the firmware does not paint over the pads; the display shows the round, the
+// step and what to do. TAP or any pad starts anew.
 korg.app("Simon", "GAMES");
-const PADI = [3, 4, 11, 12];
-const SX = [38, 66, 38, 66];
-const SY = [10, 10, 33, 33];
 const seq = new Array(60);
 let len = 0;
 let pos = 0;
@@ -1107,14 +1144,8 @@ function rnd() {
   return (seed >> 16) & 0x7fff;
 }
 
-function square(i, on) {
-  korg.display.rect(SX[i], SY[i], 24, 20);
-  if (!on) korg.display.clearRect(SX[i] + 2, SY[i] + 2, 20, 16);
-}
-
 function setPad(i, on) {
-  korg.led(korg.led.PAD_1_RED + PADI[i] * 2, on ? 255 : 0);
-  square(i, on);
+  korg.led(korg.led.PAD_1_RED + i * 2, on ? 255 : 0);
 }
 
 function light(i) {
@@ -1124,21 +1155,31 @@ function light(i) {
 }
 
 function setAll(on) {
-  for (let i = 0; i < 4; i++) setPad(i, on);
+  for (let i = 0; i < 16; i++) setPad(i, on);
 }
 
 function status(which) {
-  korg.display.clearRect(0, 56, 128, 8);
-  if (which == 0) korg.display.text("GET READY", 0, 57);
-  else if (which == 1) korg.display.text("WATCH", 0, 57);
-  else if (which == 2) korg.display.text("YOUR TURN", 0, 57);
-  else if (which == 3) korg.display.text("WELL DONE", 0, 57);
-  else korg.display.text("GAME OVER, TAP OR PAD", 0, 57);
+  korg.display.clearRect(0, 22, 128, 20);
+  if (which == 0) korg.display.text("GET READY", 37, 28);
+  else if (which == 1) korg.display.text("WATCH", 49, 28);
+  else if (which == 2) korg.display.text("YOUR TURN", 37, 28);
+  else if (which == 3) korg.display.text("WELL DONE", 37, 28);
+  else korg.display.text("GAME OVER", 37, 28);
 }
 
-function header() {
-  korg.display.clearRect(60, 0, 68, 8);
-  korg.display.textNumber("ROUND ", len, 70, 0);
+// the round (0) or the score (1), right-aligned 4 pixels from the edge
+function header(which, n) {
+  const x = n >= 10 ? 77 : 83;
+  korg.display.clearRect(60, 0, 68, 10);
+  if (which == 0) korg.display.textNumber("ROUND ", n, x, 2);
+  else korg.display.textNumber("SCORE ", n, x, 2);
+}
+
+// the bottom line: nothing (0), the step to play (1, n), how to start anew (2)
+function hint(which, n) {
+  korg.display.clearRect(0, 53, 128, 11);
+  if (which == 1) korg.display.textNumber("STEP ", n, 4, 55);
+  else if (which == 2) korg.display.text("TAP OR PAD: NEW GAME", 4, 55);
 }
 
 function newGame() {
@@ -1149,26 +1190,20 @@ function newGame() {
   state = 0;
   timer = 25;
   korg.display.clear();
-  korg.display.text("SIMON", 0, 0);
-  for (let i = 0; i < 4; i++) square(i, 0);
+  korg.display.text("SIMON", 4, 2);
   status(0);
+  hint(0, 0);
 }
 
 function addStep() {
-  seq[len] = rnd() & 3;
+  seq[len] = rnd() & 15;
   len += 1;
   pos = 0;
-  timer = 10;
+  timer = 12;
   state = 1;
-  header();
+  header(0, len);
   status(1);
-}
-
-function padIndex(index) {
-  for (let i = 0; i < 4; i++) {
-    if (PADI[i] == index) return i;
-  }
-  return -1;
+  hint(0, 0);
 }
 
 korg.onEvent("open", () => {
@@ -1186,20 +1221,18 @@ korg.onEvent("close", () => {
 });
 
 korg.onEvent("pad", (index, down) => {
-  if (!isOpen) return;
+  if (!isOpen || index > 15) return;
   if (state == 5) {
     if (down) newGame();
     return;
   }
-  const i = padIndex(index);
-  if (i < 0) return;
   if (!down) {
-    if (lit == i && (state == 2 || state == 4)) light(-1);
+    if (lit == index && (state == 2 || state == 4)) light(-1);
     return;
   }
   if (state != 2) return;
-  light(i);
-  if (seq[pos] != i) {
+  light(index);
+  if (seq[pos] != index) {
     state = 3;
     flash = 0;
     timer = 8;
@@ -1211,6 +1244,8 @@ korg.onEvent("pad", (index, down) => {
     state = 4;
     timer = 20;
     status(3);
+  } else {
+    hint(1, pos + 1);
   }
 });
 
@@ -1218,6 +1253,7 @@ korg.onEvent("buttonPress", (key) => {
   if (isOpen && state == 5 && key == korg.key.TAP) newGame();
 });
 
+// A step of the sequence lights for 18 frames (0.72 s), a little shorter every fourth round, never below 10 (0.4 s).
 korg.onEvent("frame", () => {
   if (state == 0) {
     timer -= 1;
@@ -1232,12 +1268,13 @@ korg.onEvent("frame", () => {
         pos = 0;
         state = 2;
         status(2);
+        hint(1, 1);
       }
-      timer = 5;
+      timer = 6;
     } else {
       light(seq[pos]);
-      timer = 12 - len / 4;
-      if (timer < 5) timer = 5;
+      timer = 18 - len / 4;
+      if (timer < 10) timer = 10;
     }
   } else if (state == 4) {
     timer -= 1;
@@ -1257,8 +1294,8 @@ korg.onEvent("frame", () => {
       setAll(0);
       state = 5;
       status(4);
-      korg.display.clearRect(60, 0, 68, 8);
-      korg.display.textNumber("SCORE ", score, 70, 0);
+      header(1, score);
+      hint(2, 0);
     }
   }
 });
@@ -1268,6 +1305,10 @@ korg.onEvent("frame", () => {
     id: "mandelbrot",
     title: "Mandelbrot",
     description: "App in GAMES: rechnet die Mandelbrot-Menge Stück für Stück. Touchpad verschiebt, [PART ►] zoomt hinein, [◄ PART] hinaus, [1] und [2] stellen die Iterationen, [TAP] setzt zurück.",
+    category: "Spiele",
+    creator: "Kuhler Buhler",
+    added: "2026-10-16",
+    controls: ["Touchpad: verschieben", "PART ►: hinein zoomen, ◄ PART: hinaus", "[1] und [2]: Iterationen", "TAP: zurücksetzen"],
     source: `// Mandelbrot in Q14 fixed point. A bounded worklist holds unresolved rectangles. Proven interior rectangles are
 // filled once; other rectangles split until their pixels can be iterated individually. Each frame has a small work
 // budget. Touchpad pans, Part keys and encoder zoom, keys 1 and 2 change iterations, TAP resets the view.
@@ -1373,9 +1414,9 @@ function restart() {
 }
 
 function hud() {
-  korg.display.clearRect(78, 56, 50, 8);
-  korg.display.textNumber("Z", zoom, 80, 57);
-  korg.display.textNumber("I", maxIter, 104, 57);
+  korg.display.clearRect(76, 53, 52, 11);
+  korg.display.textNumber("Z", zoom, 80, 55);
+  korg.display.textNumber("I", maxIter, 104, 55);
 }
 
 function changed() {
@@ -1517,9 +1558,93 @@ korg.onEvent("frame", () => {
 `,
   }),
   Object.freeze({
+    id: "gifplayer",
+    title: "GIF Player",
+    description: "App in TOOLS: spielt Bilddateien GIF00.E2G bis GIF99.E2G von der Karte ab, der Encoder wählt die Datei, Part links und rechts das Tempo, TAP hält an.",
+    category: "Werkzeuge",
+    creator: "Kuhler Buhler",
+    added: "2026-10-20",
+    controls: ["Encoder: Datei wählen", "◄ PART und PART ►: Tempo", "TAP: anhalten"],
+    source: `// GIF Player, an app under TOOLS: plays the picture files GIF00.E2G to GIF99.E2G from KORG/blechtribe/Gif/ on the card
+// (tools/gif/gif2e2g.py makes one from a GIF). The encoder picks the file, Part left and right halve and double the speed
+// (25 to 400 percent), TAP pauses. The runtime draws once per frame of 40 ms, so a picture stays at least that long.
+korg.app("GIF Player", "TOOLS");
+const pic = new Array(1024);
+let file = 0;
+let index = 0;
+let speed = 100;
+let paused = 0;
+let due = 0;
+let isOpen = 0;
+
+function info(pause) {
+  korg.display.clear();
+  korg.display.textNumber("GIF ", file, 4, 14);
+  if (pause == 1) korg.display.text("Pause", 4, 26);
+  else korg.display.text("keine Datei", 4, 26);
+  korg.display.textNumber("Tempo % ", speed, 4, 38);
+}
+
+function next() {
+  let delay = korg.file.frame(pic, file, index);
+  if (delay == 0 && index > 0) {
+    index = 0;
+    delay = korg.file.frame(pic, file, 0);
+  }
+  if (delay <= 0) {
+    info(0);
+    due = korg.millis() + 500;
+    return;
+  }
+  korg.display.clear();
+  korg.display.bitmap(pic, 0, 0, 128);
+  index += 1;
+  due = korg.millis() + delay * 100 / speed;
+}
+
+korg.onEvent("open", () => {
+  isOpen = 1;
+  index = 0;
+  due = 0;
+  next();
+});
+
+korg.onEvent("close", () => {
+  isOpen = 0;
+});
+
+korg.onEvent("frame", () => {
+  if (paused == 0 && korg.millis() >= due) next();
+});
+
+korg.onEvent("encoder", (i, delta) => {
+  if (isOpen == 0) return;
+  file += delta;
+  if (file < 0) file = 0;
+  if (file > 99) file = 99;
+  index = 0;
+  due = 0;
+  if (paused == 1) next();
+});
+
+korg.onEvent("buttonPress", (key) => {
+  if (isOpen == 0) return;
+  if (key == korg.key.PART_LEFT && speed > 25) speed = speed / 2;
+  if (key == korg.key.PART_RIGHT && speed < 400) speed = speed * 2;
+  if (key == korg.key.TAP) paused = 1 - paused;
+  if (key == korg.key.TAP && paused == 1) info(1);
+  if (key == korg.key.TAP && paused == 0) due = 0;
+});
+`,
+  }),
+  Object.freeze({
     id: "lauflicht",
     title: "Lauflicht",
     description: "Ein Licht läuft über die Pads.",
+    category: "Licht",
+    creator: "Kuhler Buhler",
+    added: "2026-10-16",
+    controls: [],
     source: `// Lauflicht: ein rotes Pad-Licht wandert über die 16 Pads.
 const FIRST_RED_PAD = korg.led.PAD_1_RED;
 let pos = 0;
@@ -1542,6 +1667,10 @@ korg.onEvent("frame", () => {
     id: "pulsieren",
     title: "Pulsieren",
     description: "Alle roten Pad-LEDs werden heller und dunkler.",
+    category: "Licht",
+    creator: "Kuhler Buhler",
+    added: "2026-10-16",
+    controls: [],
     source: `// Pulsieren: alle roten Pad-LEDs werden im Dreieck heller und dunkler.
 const FIRST_RED_PAD = korg.led.PAD_1_RED;
 let phase = 0;

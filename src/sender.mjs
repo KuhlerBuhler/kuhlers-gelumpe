@@ -16,6 +16,7 @@ import { checkReadGuard } from "./guards.mjs";
 import * as P from "./protocol.mjs";
 import { refuseSteps } from "./protect.mjs";
 import { syxDec } from "./bytes.mjs";
+import EXEC from "../data/exec.mjs";
 
 /**
  * Waiting times in milliseconds. Measured over USB on Linux
@@ -64,7 +65,7 @@ export class Sender {
     this.unsynced = false;
     this.lastHeard = 0;
     this.stray = 0;
-    /** Set by the session when the device answers BLECH's commands: { maxBlock }. Reads and writes then go as BLECH blocks. */
+    /** Set by the session when the device answers BLECH's commands: { maxBlock, flash, exec }. Reads and writes then go as BLECH blocks. */
     this.blech = null;
     this.build = null;
   }
@@ -206,6 +207,36 @@ export class Sender {
     return P.ackFor(this.channel);
   }
 
+  /** `length` bytes of the flash at `addr`, in pieces of FLASH_MAX bytes, each checked against its CRC. */
+  async blechFlash(addr, length) {
+    const out = new Uint8Array(length);
+    for (let at = 0; at < length; at += P.BLECH.FLASH_MAX) {
+      const n = Math.min(P.BLECH.FLASH_MAX, length - at);
+      out.set(await this.blechAttempts("read", async () =>
+        P.parseBlechFlash(await this.blechExchange(P.blechFlash(this.channel, addr + at, n), "blech-flash", n), this.channel, n)), at);
+    }
+    return out;
+  }
+
+  /**
+   * Runs the code at `addr` through EXEC. BLECH's EXEC clears the instruction cache itself, so the step that runs the firmware's
+   * own routine for it is answered here. The code must return 1, as with Hacktribe's execute, whose answer came only then.
+   */
+  async blechExecute(addr) {
+    if (addr === EXEC.icache.addr) return P.ackFor(this.channel);
+    const { result } = await this.blechAttempts("execute", async () => P.parseBlechExec(await this.blechExchange(P.blechExec(this.channel, addr), "blech-exec"), this.channel));
+    if (result !== 1) throw new SendError("reply", `Der Code bei 0x${addr.toString(16)} meldet ${result} statt 1.`);
+    return P.ackFor(this.channel);
+  }
+
+  /** A read, flash read or execute step through BLECH's commands where the device has them; null where it does not. */
+  blechStep(sent) {
+    if (sent?.kind === "read-ram") return this.blechRead(sent.addr, sent.length);
+    if (sent?.kind === "read-flash" && this.blech.flash) return this.blechFlash(sent.addr, sent.length);
+    if (sent?.kind === "execute" && this.blech.exec) return this.blechExecute(sent.addr);
+    return null;
+  }
+
   /** The size of a file of the update folder on the card (`other`: ORIGINAL.BIN, else SYSTEM.VSB); 0 when there is none. */
   async fileSize(model, other = false) {
     const at = other ? P.BLECH.FILE_OTHER : 0;
@@ -246,6 +277,20 @@ export class Sender {
     }
   }
 
+  /** The bytes as the plugin file `name` on the card (KORG/blechtribe/Plugin/<name>.blech), in blocks, each read back from the card. */
+  async pluginWrite(bytes, name, model, onProgress) {
+    const max = this.blech.maxBlock;
+    for (let at = 0; at < bytes.length; at += max) {
+      const part = bytes.subarray(at, Math.min(at + max, bytes.length));
+      const crc = P.crc32(part);
+      await this.blechAttempts("write", async () => {
+        P.parseBlechFileBegin(await this.blechExchange(P.blechPluginBegin(this.channel, at, part.length, crc, name, model), "blech-file-begin"), this.channel, model);
+        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, model), "blech-data", part.length), this.channel, crc, model);
+      });
+      onProgress?.(at + part.length, bytes.length);
+    }
+  }
+
   /**
    * Run the steps. Stops at the first failure and says where. `check(step, value, i)` may return a
    * reason to stop after a step that answered.
@@ -273,7 +318,8 @@ export class Sender {
           i++;
           continue;
         }
-        value = sent?.kind === "read-ram" ? await this.blechRead(sent.addr, sent.length) : this.decode(step, await this.exchange(step));
+        const blech = this.blech && this.blechStep(sent);
+        value = blech ? await blech : this.decode(step, await this.exchange(step));
         checkReadGuard(step, value);
       } catch (e) {
         const error = e instanceof SendError ? e : new SendError(step.guard ? "unexpected-code" : "reply", e.message);

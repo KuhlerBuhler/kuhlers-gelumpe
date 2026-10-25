@@ -29,14 +29,8 @@ export function emulatorSuite(index, parts) {
     await h.tearDown();
   });
 
-  /** The sidebar blocks start closed (and remember it); open one the way a person does. */
-  async function openSub(page, id) {
-    if (!(await page.locator(`#${id}`).evaluate(n => n.open))) await page.click(`#${id} > summary`);
-  }
-
-  /** Load a firmware in the sidebar, then boot with the drawn power key. */
+  /** Load a firmware onto the display, then boot with the drawn power key. */
   async function powerOn(page, file) {
-    await openSub(page, "cee-emu-setup");
     await page.setInputFiles("#cee-emu-vsb", typeof file === "string" ? file : h.file("system.vsb", file));
     await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
     await page.click("#cee-e2-power");
@@ -52,10 +46,8 @@ export function emulatorSuite(index, parts) {
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
     await page.locator("#cee-area-emu").waitFor({ state: "visible" });
     assert.equal(new URL(page.url()).hash.includes(TOKEN), false, "the key leaves the address bar");
-    assert.equal(await page.locator("#cee-emu-setup").evaluate(n => n.open), false, "the sidebar block starts closed");
-    assert.equal(await page.locator("#cee-emu-vsb ~ .ui-dropzone-title").isVisible(), false, "the dropzone is hidden until the block is opened");
-    await openSub(page, "cee-emu-setup");
-    assert.equal(await page.locator("#cee-emu-vsb ~ .ui-dropzone-title").isVisible(), true);
+    assert.equal(await page.locator("#cee-emu-offer").isVisible(), true, "the switched-off display offers the firmware");
+    assert.equal(await page.locator("#cee-emu-start").isVisible(), false, "a linked page needs no start button");
     assert.equal(await page.locator("#cee-emu-flash").count(), 0, "there is no flash import any more");
     await powerOn(page, new Uint8Array(0x200100));
     await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
@@ -70,25 +62,22 @@ export function emulatorSuite(index, parts) {
     assert.deepEqual(page.errors, []);
   });
 
-  test("emulator: the SD card block in the sidebar talks to the service the page is linked to", async () => {
+  test("emulator: the SD card in the navbar talks to the service the page is linked to", async () => {
     const page = await h.page();
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
-    assert.equal(await page.locator("#cee-emu-card").evaluate(n => n.open), false, "the sidebar block starts closed");
-    await openSub(page, "cee-emu-card");
     await page.locator("#cee-sd-status", { hasText: "Nicht eingelegt" }).waitFor();
     assert.ok(fake.seen.sd > 0, "the card state came from the linked service");
     const card = page.locator("#cee-sd-inserted");
     assert.equal(await card.isChecked(), false);
-    await page.locator("label.ui-switch", { hasText: "Karte einlegen" }).click();
+    await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
     await page.waitForFunction(() => document.querySelector("#cee-sd-inserted").checked && !document.querySelector("#cee-sd-inserted").disabled);
     await page.locator("#cee-sd-status", { hasText: "Eingelegt" }).waitFor();
     await page.click("#cee-sd-open");
     await page.waitForFunction(() => !document.querySelector("#cee-sd-open").disabled);
-    await page.locator("label.ui-switch", { hasText: "Karte einlegen" }).click();
+    await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
     await page.waitForFunction(() => !document.querySelector("#cee-sd-inserted").checked && !document.querySelector("#cee-sd-inserted").disabled);
     assert.deepEqual(fake.seen.sdCalls.slice(-3), ["/sd/insert", "/sd/open", "/sd/eject"], "insert, open and eject went to the linked service");
-    assert.equal(await page.locator("#cee-emu-card").evaluate(n => n.closest("#cee-sidebar") !== null), true, "the card block lives in the sidebar");
-    assert.equal(await page.locator("#cee-emu-card > summary").textContent(), "SD-Karte");
+    assert.equal(await page.locator("#cee-nav-state #cee-emu-card").count(), 1, "the card sits in the navbar");
     assert.equal(await page.locator("#cee-area-emu #cee-emu-card").count(), 0, "nothing of it stays in the page");
     assert.deepEqual(page.errors, []);
   });
@@ -97,14 +86,12 @@ export function emulatorSuite(index, parts) {
     const page = await h.page();
     await page.goto(`${h.url}#emu=1:${TOKEN}`);
     await page.locator("#cee-emu-status", { hasText: "getrennt" }).waitFor();
-    await openSub(page, "cee-emu-setup");
     await page.setInputFiles("#cee-emu-vsb", h.file("short.vsb", new Uint8Array(100)));
     await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "100 Byte" }).waitFor();
 
     // Against a live service: the power key finds no firmware and sends nothing.
     const linked = await h.page();
     await linked.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
-    await openSub(linked, "cee-emu-setup");
     await linked.setInputFiles("#cee-emu-vsb", h.file("short.vsb", new Uint8Array(100)));
     await linked.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "100 Byte" }).waitFor();
     fake.seen.firmware = 0;
@@ -118,7 +105,6 @@ export function emulatorSuite(index, parts) {
   test("emulator: Korg's original firmware is named as such, without a box of what it lacks", async () => {
     const page = await h.page();
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
-    await openSub(page, "cee-emu-setup");
     const files = page.locator("#cee-emu-vsb ~ .ui-dropzone-files");
     // The stand-in image with the run Hacktribe's code sits in erased is what Korg's build looks like.
     const stock = await makeFirmware();
@@ -183,18 +169,14 @@ export function emulatorSuite(index, parts) {
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
     await page.locator("#cee-emu-status", { hasText: "bereit" }).waitFor();
     fake.seen.midi.length = 0;
-    await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
-    await page.click("#cee-term-connect");
+    await page.locator("#cee-connect-emu").evaluate(b => b.click());
     await page.locator(".cee-device-status", { hasText: "Emulator läuft nicht" }).waitFor({ state: "attached" });
     assert.deepEqual(fake.seen.midi, [], "nothing sent to a stopped emulator");
 
     await go(page, "emu");
     await powerOn(page, new Uint8Array(0x200100));
     await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
-    await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
-    await page.click("#cee-term-connect");
+    await page.locator("#cee-connect-emu").evaluate(b => b.click());
     await go(page, "device");
     await page.locator(".cee-facts", { hasText: "Globaler Kanal10" }).waitFor({ state: "attached", timeout: 10_000 });
     assert.equal(fake.seen.midi[0], "f042500000f7", "the device search went to the emulator");
@@ -212,17 +194,13 @@ export function emulatorSuite(index, parts) {
     await go(page, "emu");
     await powerOn(page, new Uint8Array(0x200100));
     await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
-    await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
-    await page.click("#cee-term-connect");
+    await page.locator("#cee-connect-emu").evaluate(b => b.click());
     await go(page, "device");
     await page.locator(".cee-device-status", { hasText: "Emulator läuft nicht" }).waitFor({ state: "attached" });
     await page.waitForTimeout(500);
     assert.deepEqual(fake.seen.midi, [], "nothing goes to a firmware that has not reached its main screen");
     fake.broadcast("status", { state: "running", booted: true, device_ms: 1500, speed: 1 });
-    await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
-    await page.click("#cee-term-connect");
+    await page.locator("#cee-connect-emu").evaluate(b => b.click());
     await go(page, "device");
     await page.locator(".cee-facts", { hasText: "Globaler Kanal10" }).waitFor({ state: "attached", timeout: 10_000 });
     assert.equal(fake.seen.midi[0], "f042500000f7", "the device search goes out once the service said booted");
@@ -239,6 +217,7 @@ export function emulatorSuite(index, parts) {
   }
   const sidebarFirmware = () => makeFirmware([
     { kind: "ifx", slot: 50, record: makeRecord("ifx", { name: "Gate Filter", devices: { ifx1: 0x0a }, params: { ifx1: [0, 64, 64, 64] } }) },
+    { kind: "ifx", slot: 7, record: makeRecord("ifx", { name: "Other Filter", devices: { ifx1: 0x0a }, params: { ifx1: [0, 64, 64, 64] } }) },
     { kind: "mfx", slot: 2, record: masterPreset() },
   ]);
 
@@ -269,10 +248,7 @@ export function emulatorSuite(index, parts) {
   test("terminal: KORG puts a picture into the emulator's display RAM and reads the screen state", async t => {
     baseScreen();
     const page = await sidebarPage();
-    await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
-    await page.click("#cee-term-connect");
-    await page.locator(".cee-facts", { hasText: "Globaler Kanal10" }).waitFor({ state: "attached", timeout: 15_000 });
+    await page.click("#cee-tab-console");
     fake.hooks.midiDelayMs = 200;
     t.after(() => { fake.hooks.midiDelayMs = 0; });
     const run = async code => {
@@ -290,7 +266,6 @@ export function emulatorSuite(index, parts) {
     assert.ok(display.slice(0, 128).every(b => b === 0x01) && display.slice(128).every(b => b === 0), "only the top row is lit");
     await run("KORG.screen.state()");
     await page.locator(".cee-term-line", { hasText: "Hauptbildschirm" }).waitFor();
-    await page.click("#cee-term-connect");
     await run("KORG.screen.set((x, y) => y === 0)");
     await page.waitForFunction(() => [...document.querySelectorAll(".cee-term-out")].filter(n => n.textContent.includes("Bild steht im Display")).length === 2);
     await run("KORG.nope()");
@@ -298,42 +273,52 @@ export function emulatorSuite(index, parts) {
     assert.deepEqual(page.errors, []);
   });
 
-  test("emulator: the sidebar opens the effect the device shows", async () => {
-    baseScreen();
+  /** The Presets page with its switch "Folgt dem Gerät" on. */
+  async function followPage() {
     const page = await sidebarPage();
-    await page.locator("#cee-side-where", { hasText: "Hauptbildschirm · Part 1" }).waitFor({ timeout: 5000 });
-    assert.equal(await page.locator("#cee-side-fx").isHidden(), true, "no effect on the main screen");
+    await page.evaluate(() => { location.hash = "fx"; });
+    await page.locator("#cee-fx-slot").waitFor();
+    await page.locator("label:has(#cee-fx-follow)").click();
+    return page;
+  }
+
+  test("emulator: with the switch on, the Presets page opens the effect the device shows", async () => {
+    baseScreen();
+    const page = await followPage();
+    await page.locator("#cee-emu-where", { hasText: "Hauptbildschirm · Part 1" }).waitFor({ state: "attached", timeout: 5000 });
+    const other = "7";
+    await page.selectOption("#cee-fx-slot", other);
+    await page.waitForTimeout(1500);
+    assert.equal(await page.inputValue("#cee-fx-slot"), other, "the main screen shows no effect and leaves the choice alone");
 
     fake.word(MANAGER + 0x24, 0xc06cb2e0);           // the IFX TYPE window
     fake.word(MANAGER + 0x30, 23);
-    await page.locator("#cee-side-where", { hasText: "Fenster IFX TYPE" }).waitFor({ timeout: 5000 });
-    await page.locator("#cee-side-fx").waitFor({ state: "visible" });
-    assert.equal(await page.inputValue("#cee-side-fx-slot"), "50");
-    assert.equal(await page.locator("input[name=cee-side-fx-kind]:checked").getAttribute("value"), "ifx");
+    await page.locator("#cee-emu-where", { hasText: "Fenster IFX TYPE" }).waitFor({ state: "attached", timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector("#cee-fx-slot")?.value === "50", null, { timeout: 5000 });
+    assert.equal(await page.locator("input[name=cee-fx-kind]:checked").getAttribute("value"), "ifx");
 
     fake.word(MANAGER + 0x24, 0);                    // the window closes; the editor stays
-    await page.locator("#cee-side-hint", { hasText: "Zuletzt gezeigt: Insert 50" }).waitFor({ timeout: 5000 });
-    assert.equal(await page.locator("#cee-side-fx").isHidden(), false);
+    await page.locator("#cee-emu-where", { hasText: "Hauptbildschirm" }).waitFor({ state: "attached", timeout: 5000 });
+    assert.equal(await page.inputValue("#cee-fx-slot"), "50");
     assert.deepEqual(page.errors, []);
   });
 
-  test("emulator: a change sent from the sidebar on MFX TYPE lands in RAM and the page is reopened", async () => {
+  test("emulator: a change sent from the Presets page on MFX TYPE lands in RAM and the page is reopened", async () => {
     baseScreen();
     fake.word(MANAGER + 0x2c, 3);                    // pattern menu
     fake.word(SCREEN + 0x2c, 5);                     // MFX TYPE
     const master = tableEntry("table.mfx", 1);       // RAM holds what the firmware file holds
     fake.poke(master.ram, Array.from((await sidebarFirmware()).subarray(master.file, master.file + master.size)));
-    const page = await sidebarPage();
-    await page.locator("#cee-side-where", { hasText: "MFX TYPE" }).waitFor({ timeout: 5000 });
-    await page.locator("#cee-side-fx").waitFor({ state: "visible" });
-    assert.equal(await page.inputValue("#cee-side-fx-slot"), "2");
-    const name = page.locator("#cee-side-fx-editor input[type=text]").first();
+    const page = await followPage();
+    await page.locator("#cee-emu-where", { hasText: "MFX TYPE" }).waitFor({ state: "attached", timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector("#cee-fx-slot")?.value === "2", null, { timeout: 5000 });
+    const name = page.locator("#cee-fx-editor input[type=text]").first();
     await name.fill("Long Delay");
     await name.press("Enter");
     fake.seen.inputs.length = 0;
-    await page.click("#cee-side-send");
+    await page.click("#cee-send");
     const ok = page.locator("dialog button[value=ok]");
-    const job = page.locator("#cee-side-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
+    const job = page.locator("#cee-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
     await Promise.race([ok.waitFor().then(() => ok.click(), () => {}), job.waitFor()]);   // a gate warning asks first
     await job.waitFor({ timeout: 15_000 });
     assert.equal(await job.textContent(), "Fertig");
@@ -366,7 +351,7 @@ export function emulatorSuite(index, parts) {
     await go(page, "device");
     await page.click("#cee-connect");
     await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
-    await page.click("#cee-tab-fx");
+    await page.evaluate(() => { location.hash = "fx"; });
     await page.locator("#cee-fx-slot").waitFor({ timeout: 15_000 });   // the firmware comes from the emulator, there is no file picker here
     assert.equal(await page.locator("#cee-vsb").count(), 0);
     await pickPreset(page, 50);
@@ -395,7 +380,7 @@ export function emulatorSuite(index, parts) {
     const page = await h.page({ device: true });
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
     await page.evaluate(() => window.__ceeStubReady);
-    assert.deepEqual(await page.locator("#cee-sub-emu > .ui-details > summary").allTextContents(), ["Firmware (VSB)", "SD-Karte"], "no Flash block in the sidebar");
+    assert.equal(await page.locator("#cee-sub-emu, #cee-emu-flash").count(), 0, "no Flash block, and the emulator has no sidebar block at all");
     fake.seen.flash = 0;
     fake.seen.firmware = 0;
     await powerOn(page, await makeFirmware());
@@ -470,7 +455,7 @@ export function emulatorSuite(index, parts) {
     const page = await h.page();
     await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
     await page.locator("#cee-e2-power").waitFor();
-    assert.equal(await page.locator("#cee-emu-start, #cee-emu-stop").count(), 0, "no Start or Stop button; the power key does it");
+    assert.equal(await page.locator("#cee-emu-start:visible, #cee-emu-stop").count(), 0, "no Start or Stop button once linked; the power key does it");
     assert.equal(await page.locator("#cee-e2").getAttribute("data-power"), "off");
     assert.equal(await page.locator("#cee-emu-lcd").evaluate(n => getComputedStyle(n).visibility), "hidden", "no display while off");
     assert.equal(await page.locator("#cee-emu-intro, #cee-emu-facts, #cee-e2-adapter").count(), 0, "no intro text, no device time, no adapter switch");
@@ -484,12 +469,13 @@ export function emulatorSuite(index, parts) {
     assert.equal(await page.locator("#cee-emu-lcd").evaluate(n => getComputedStyle(n).visibility), "visible");
     assert.match(await page.locator("#cee-emu-status").getAttribute("class"), /ui-sr-only/, "a running device needs no status pill");
     assert.match(await page.locator("#cee-emu-status").textContent(), /läuft/, "a screen reader still hears it");
-    assert.equal(await page.locator("#cee-emu-setup").evaluate(n => n.open), false, "the firmware block folds away once it runs");
+    assert.equal(await page.locator("#cee-emu-offer").isVisible(), false, "a running display offers nothing");
 
     fake.broadcast("status", { state: "off" });
     await page.waitForFunction(() => document.querySelector("#cee-e2").dataset.power === "off");
     fake.broadcast("status", { state: "crashed", error: "Abgestürzt." });
-    await page.locator("#cee-emu-status:not(.ui-sr-only)", { hasText: "abgestürzt" }).waitFor();
+    await page.locator("#app-toasts .cee-toast", { hasText: "Abgestürzt." }).waitFor();
+    assert.match(await page.locator("#cee-emu-status").getAttribute("class"), /ui-sr-only/, "a crash too is said in the toast, nothing stands above the device");
     assert.deepEqual(page.errors, []);
   });
 
@@ -649,8 +635,8 @@ export function emulatorSuite(index, parts) {
     await go(page, "device");
     await page.click("#cee-connect");
     await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
-    await page.click("#cee-tab-scripts");
-    await page.click("#cee-scripts-page-console");
+    await page.click("#cee-tab-console");
+    await page.click("label.cee-term-forward");
     return page;
   }
 
@@ -659,7 +645,7 @@ export function emulatorSuite(index, parts) {
   test("terminal: with the real device a script is rehearsed in the emulator, shown step by step, and only a passed one can be sent", async () => {
     const page = await deviceThroughEmulator();
     assert.match(await page.locator("#cee-term-target").textContent(), /Gerät über Emulator/);
-    assert.equal(await page.locator("#cee-term-run").textContent(), "Im Emulator proben");
+    assert.equal(await page.getAttribute("#cee-term-input", "placeholder"), "Enter probt im Emulator");
     assert.equal(await page.locator("#cee-term-send").isDisabled(), true, "nothing to send before a rehearsal");
 
     const code = "KORG.screen.set((x, y) => y === 0)";

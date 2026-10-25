@@ -18,7 +18,7 @@ npm start
   test fixture. Tests build their own data (`test/helpers.mjs`). A check (`tools/korg-guard.mjs`) closes a pull request
   that carries such data. Names and labels from the device are fine.
 - **Every address is measured.** A new field, hook or address needs evidence: a file in `docs/messungen/`, a factory
-  check or a derivation, see `CLAUDE.md` and `test/map.test.mjs`.
+  check or a derivation, see `AGENTS.md` and `test/map.test.mjs`.
 - **Firmware patches pass the emulator.** `tools/emu/check.py` with your own `SYSTEM.VSB` and flash dump must be green
   for every build the patch names. Say in the pull request what you tested on a real device and what not.
 - **The bootloader is never touched.** No patch, tool or plugin writes to it.

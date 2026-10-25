@@ -110,6 +110,7 @@ test("the plan creates the latest release first and deletes the others without t
   assert.equal(steps.length, 3);
   assert.deepEqual(steps[0].args.slice(0, 5), ["release", "create", "v1.0.1", "/d/a.dmg", "/d/b.deb"]);
   assert.ok(steps[0].args.includes("--latest"));
+  assert.equal(steps[0].args[steps[0].args.indexOf("--discussion-category") + 1], "Announcements");
   assert.equal(steps[0].args[steps[0].args.indexOf("--target") + 1], "abcdef1234567");
   assert.deepEqual(steps.slice(1).map(s => s.args[2]), ["v1.0.0", "v0.9.0"]);
   assert.ok(steps.slice(1).every(s => s.args[1] === "delete" && !s.args.includes("--cleanup-tag")));

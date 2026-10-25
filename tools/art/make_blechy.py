@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render Blechy sprites as 1-bit PNGs, from the prototype draw code.
 Figure = black (lit / set bit). Canvas 56x56, figure centred at cx,cy."""
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageChops
 import sys, math, os
 
 CW, CH = 56, 56
@@ -16,10 +16,11 @@ def hand(d, x, y, tilt):
     for k in (-1, 0, 1):
         d.line([x+k, y-4, x+k+tilt*(k+2)//2, y-8], fill=0)
 
-def blechy(d, cx, cy, aL, aR, lp, twitch, sweat, face=None, wave=None):
+def blechy(d, cx, cy, aL, aR, lp, twitch, sweat, face=None, wave=None, face_only=False):
     # body + nose (black silhouette)
-    E(d, cx, cy+7, 13, 15, 0)
-    E(d, cx, cy+4, 15, 12, 0)
+    if not face_only:
+        E(d, cx, cy+7, 13, 15, 0)
+        E(d, cx, cy+4, 15, 12, 0)
     E(d, cx-7, cy-8, 8, 11, 0)          # bridge (rotation dropped)
     E(d, cx-2, cy-6, 11, 8, 255)        # white face patch
     ey = cy-8
@@ -52,6 +53,8 @@ def blechy(d, cx, cy, aL, aR, lp, twitch, sweat, face=None, wave=None):
         d.line([cx+2, ey-6, cx+8, ey-6], fill=0)
     else:
         d.line([cx+1, ey-5-tw, cx+9, ey-6-2*tw], fill=0)    # brow
+    if face_only:
+        return
     # nostrils + drip
     E(d, cx-4, cy+11, 2, 3, 0)
     E(d, cx+5, cy+11, 2, 3, 0)
@@ -96,6 +99,13 @@ def render(p):
     if p["lean"]:
         img = img.rotate(p["lean"], resample=Image.BILINEAR, fillcolor=255)
     return img.point(lambda v: 0 if v < 128 else 255, mode="1")
+
+if sys.argv[1] == "--head":
+    image = Image.new("L", (CW, CH), 255)
+    blechy(ImageDraw.Draw(image), CX, CY, (-20, 10), (20, 9), 0, 0, 0, face_only=True)
+    image = image.crop(ImageChops.invert(image).getbbox()).convert("1")
+    image.save(sys.argv[2])
+    sys.exit(0)
 
 outdir = sys.argv[1]
 os.makedirs(outdir, exist_ok=True)

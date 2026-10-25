@@ -20,6 +20,17 @@ Messungen: [CPU-Last und Laden im Emulator](../messungen/2026-10-18-cpu-last-und
 | Die Pad-LEDs kennen Helligkeitsstufen | am Gerät gesehen (Pulsieren, 18.10.) |
 | Power Save der Firmware: dimmt das Licht (2 von 18 Takten) und schaltet die untere LED-Leiste ab | gemessen ([Anpassung](../messungen/2026-10-14-blech-anpassung.md)) |
 
+## Wohin die Ladezeit geht (24.10.)
+
+Gemessen am Gerät mit der Stoppuhr: eine `e2sSample.all` mit 23 974 068 Byte lädt in 14,87 s, also rund 1,6 MB/s
+(ein Lauf). Die Karte schafft mit 4 Bit bei 12,5 MHz theoretisch rund 6 MB/s. Die ARM-Arbeit aus dem Emulator
+(71 Befehle je Byte, 5 ns je Befehl angenommen) ergibt rund 8,5 s (hergeleitet). Der größere Teil der Zeit ist damit
+Rechnen, der Rest Warten auf die Karte, auf den Weg in den DSP über den Host-Port oder auf Pausen in der Firmware.
+Davon hängt ab, was hilft: weniger Zeichnen beim Laden spart Rechenzeit, der höhere Kartentakt nur Wartezeit an der Karte.
+
+**Offene Messung:** während des Ladens Zeitstempel mitschreiben (freier Timer, ein kleiner Stub an der Kartenlesefunktion
+`0xC00180F0` und am Host-Port-Schreibweg), dann zeigt sich die Aufteilung.
+
 ## Optionen
 
 | Option | Nutzen | Aufwand | Risiko |
@@ -28,7 +39,7 @@ Messungen: [CPU-Last und Laden im Emulator](../messungen/2026-10-18-cpu-last-und
 | **Display beim Laden seltener zeichnen** | halbiert die ARM-Arbeit je Byte (gemessen), hilft nur, wenn die CPU der Engpass ist (offen) | mittel | klein |
 | **DMA statt Interrupt je 64 Byte** | weniger Task-Wechsel, CPU frei | groß: Treiber der Firmware umbauen | hoch |
 | **Pattern-Import: nur geänderte Flash-Sektoren schreiben** | schneller, wenn ein Satz größtenteils gleich ist; schont den Flash | mittel | mittel: Flash-Schreibweg der Firmware |
-| **Energiesparen: Pad- und Tasten-LEDs dimmen** | offen, bis gemessen | gebaut für die rote Electribe: im Power Save ein Viertel ([Messung](../messungen/2026-10-18-energiesparen-leds.md)) | klein |
+| **Energiesparen: Pad- und Tasten-LEDs dimmen** | offen, bis gemessen | gebaut: im Power Save einstellbar 0 bis 100 % (POWER SAVE, LED DIMMING, Vorgabe 75 %) ([Messung](../messungen/2026-10-18-energiesparen-leds.md)) | klein |
 | **Licht nach einer Zeit ohne Bedienung ganz aus** (wie ein Bildschirmschoner) | offen, bis gemessen | mittel: eine Zeit seit der letzten Taste führen | klein |
 | **CPU-Takt senken** | klein: der ARM schläft schon fast immer | groß | hoch: DSP und Audio hängen am selben PLL |
 

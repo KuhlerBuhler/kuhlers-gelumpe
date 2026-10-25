@@ -48,38 +48,33 @@ export function set(id, value) {
   apply();
 }
 
-/** The gear in the sidebar footer and the dialog it opens. */
-export function settingsButton(button) {
-  button.prepend(icon("settings"));
-  let dialog = null;
-  const build = () => {
-    const rows = FIELDS.map(field => {
-      if (field.type === "switch") {
-        const input = el("input", { type: "checkbox", id: `cee-set-${field.id}`, checked: !!get(field.id) });
-        input.setAttribute("role", "switch");
-        input.addEventListener("change", () => set(field.id, input.checked));
-        const track = el("span", { className: "ui-switch-track" });
-        track.setAttribute("aria-hidden", "true");
-        const label = el("label", { className: "ui-switch" }, [input, track, el("span", { className: "ui-switch-text" }, [field.label, field.hint ? el("span", { className: "ui-switch-hint", textContent: field.hint }) : null])]);
-        label.setAttribute("data-end", "");
-        return label;
-      }
-      const select = el("select", { className: "select", id: `cee-set-${field.id}` }, field.options.map(([value, label]) => el("option", { value, textContent: label, selected: get(field.id) === value })));
-      select.addEventListener("change", () => set(field.id, select.value));
-      return el("div", { className: "cee-settings-row" }, [el("label", { htmlFor: select.id, textContent: field.label }), select]);
-    });
-    dialog = el("dialog", { className: "ui-dialog ui-dialog-narrow", id: "cee-settings" });
-    dialog.setAttribute("aria-labelledby", "cee-settings-title");
-    dialog.append(el("form", { method: "dialog", className: "ui-dialog-box" }, [
-      el("header", { className: "ui-dialog-head" }, el("h2", { className: "ui-dialog-title", id: "cee-settings-title", textContent: "Einstellungen" })),
-      el("div", { className: "ui-dialog-body cee-settings" }, rows),
-      el("footer", { className: "ui-dialog-foot" }, [el("button", { type: "submit", className: "btn primary", textContent: "Fertig" })]),
-    ]));
-    document.body.append(dialog);
-  };
-  button.addEventListener("click", () => {
-    if (!dialog) build();
-    if (window.ui?.openDialog) window.ui.openDialog(dialog);
-    else dialog.showModal();
+/** The settings button in the sidebar footer: it opens the settings page like any other area. */
+export function settingsButton(button, open) {
+  button.prepend(icon("slidersHorizontal"));
+  button.addEventListener("click", open);
+}
+
+/** The settings page in the main content. */
+/** The installed app's version, from the desktop app (src-tauri); a browser has none, and the line stays away. */
+export function settingsPage(root, app = window.__GELUMPE_APP) {
+  const rows = FIELDS.map(field => {
+    if (field.type === "switch") {
+      const input = el("input", { type: "checkbox", id: `cee-set-${field.id}`, checked: !!get(field.id) });
+      input.setAttribute("role", "switch");
+      input.addEventListener("change", () => set(field.id, input.checked));
+      const track = el("span", { className: "ui-switch-track" });
+      track.setAttribute("aria-hidden", "true");
+      const label = el("label", { className: "ui-switch" }, [input, track, el("span", { className: "ui-switch-text" }, [field.label, field.hint ? el("span", { className: "ui-switch-hint", textContent: field.hint }) : null])]);
+      label.setAttribute("data-end", "");
+      return label;
+    }
+    const select = el("select", { className: "select", id: `cee-set-${field.id}` }, field.options.map(([value, label]) => el("option", { value, textContent: label, selected: get(field.id) === value })));
+    select.addEventListener("change", () => set(field.id, select.value));
+    return el("div", { className: "cee-settings-row" }, [el("label", { htmlFor: select.id, textContent: field.label }), select]);
   });
+  root.replaceChildren(
+    el("h1", { className: "ui-sr-only", id: "cee-settings-title", textContent: "Einstellungen" }),
+    el("div", { className: "cee-settings" }, rows),
+    ...(app?.version ? [el("p", { className: "muted cee-version", id: "cee-version", textContent: `App-Version ${app.version}` })] : []),
+  );
 }

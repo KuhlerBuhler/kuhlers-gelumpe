@@ -194,6 +194,7 @@ export class Script {
     this.lines = parts.lines;
     this.handlers = new Map(parts.handlers.map(h => [h.event, h]));
     this.vars = new Int32Array(parts.header.varCount);
+    for (const r of parts.data ?? []) this.vars.set(r.bytes, r.base);
     this.info = info;
     this.state = "loaded";
     this.fault = null;

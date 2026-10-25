@@ -81,7 +81,13 @@ def runtime_profile(build):
         return RuntimeProfile(build, SITES, WORDS, LITERALS, MENU_TABLE_SOURCE, MENU_VTABLE_SOURCE,
                               45, 29, 29, dict(HW_PANEL_KEY=0xC0042BB8, HW_PART_SELECT=0xC0081BB4,
                                               HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760,
-                                              POWER_HOLD_MASK=0x08000000))
+                                              POWER_HOLD_MASK=0x08000000, SHORTCUTS=1, REMOTE=1, HW_ENCODER=0xC00419B4,
+                                              SC_LEDMGR=0xC0345A1C, SC_PLAYER=0xC002FAFC, SC_PATPTR=0xC033E6A4,
+                                              SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84, SC_LEDSEND=0xC00875F4,
+                                              MG_WORK=0xC0190100, MG_MKDIR=0xC009EB00, MG_GETFREE=0xC009E85C, MG_ALLOC=0xC0028DCC, MG_FREE=0xC0028DD4,
+                                              MG_VRAM=0xC031B310, MG_MARK=0xC001531C, SYNC_GROUP_AT=0x3B80,
+                                              # the collection on the card (fx_card.s): which build it is for, and the modulation table this build reads
+                                              FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC))
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
@@ -100,7 +106,10 @@ def runtime_profile(build):
         (0xC00DFA68,148,'a65f40522347f45bab9a10802914b4a69900ab66e455c279c57c8aa4f48368fd'),
         (0xC00C9BD8,72,'9890f118100188fed55d3f35b6cc98c22191484ac62c8e1b55fb0794c0089277'),
         37, 28, 28, dict(HW_PANEL_KEY=0xC003D158, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8,
-        POWER_HOLD_MASK=0))   # the power hold of the synth is not measured: no switch-off during the start there
+        POWER_HOLD_MASK=0, SHORTCUTS=1, REMOTE=0, HW_ENCODER=0,
+        SC_LEDMGR=synthaddr.tr(0xC0345A1C), SC_PLAYER=synthaddr.tr(0xC002FAFC), SC_PATPTR=synthaddr.tr(0xC033E6A4),
+        SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_LEDSEND=synthaddr.tr(0xC00875F4),
+        MG_WORK=0, MG_MKDIR=0, MG_GETFREE=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0, SYNC_GROUP_AT=0x3B80))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
@@ -154,6 +163,7 @@ class BuiltHooks:
             ('script_early_hook','script_early_end','Der Haken vor dem Sample-Lader (erster Befehl des Ladebefehls) erhält Register und Flags, schaltet das Menü scharf und liest die Einstellungen, damit das Aussehen schon beim Laden gilt, und führt den verdrängten Befehl aus.'),
             ('script_card_hook','script_card_wrapper_end','Start-Wrapper erhält Register und Flags, prüft den Notschalter vor Menü und Plugins und führt den verdrängten nativen Befehl aus.'),
             ('script_card_load','script_card_load_end','Kartenlader prüft Panel und EXIT, öffnet die Plugin-Datei und kehrt ohne Karte oder Datei zurück.'),
+            ('fx_card_load','fx_card_load_end','Der Lader der Sammeldatei e2sFx.all prüft Panel und EXIT, liest die Datei erst ganz zur Prüfung und schreibt nur dann Presets und Modulationen ins RAM; ohne Karte, Datei oder bei einem Fehler kehrt er zurück, ohne etwas zu schreiben.'),
             ('menu_arm','menu_arm_end','Das Menü prüft Panel, EXIT und Panel-Update, bevor es seinen Zustand initialisiert und sich scharf schaltet.'),
             ('menu_arm_load','menu_arm_load_end','Schaltet das Menü scharf und liest die Einstellungen genau einmal.'),
             ('menu_settings_load','menu_settings_end','Die Einstellungsdatei wird vor den Plugins gelesen; fehlt sie oder ist sie beschädigt, gelten die Voreinstellungen.'),
@@ -161,6 +171,9 @@ class BuiltHooks:
             ('menu_needs_confirm','menu_confirm','Der Kartenlader fragt für jedes geladene Plugin, ob es erst auf eine Zustimmung wartet; ohne Plugins läuft das nicht.'),
             ('menu_recount','menu_recount_end','Nach dem Laden zählt das Menü die Plugins und stellt die Seitenzahl ein.'),
             ('led_meter_hook','look_hooks_end','Die Haken der Anpassung (untere LEDs, Hintergrundlicht, Software-PWM, Display umkehren) geben die Firmware sofort zurück, wenn das Menü nicht scharf ist oder die Firmware das Licht für Power Save dimmt.'),
+            ('shortcut_input','shortcut_tick','Die EXIT-Shortcuts im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und lassen jede Meldung durch, solange EXIT nicht auf dem Hauptbildschirm gehalten wird.'),
+            ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts.'),
+            ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel, EXIT und die Ordner der Karte; nur wenn es keinen blechtribe-Ordner, aber einen hacktribe- oder electribe-sampler-Ordner gibt, fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
         ]:
             if start in self.symbols and end in self.symbols:
@@ -195,11 +208,13 @@ class BuiltHooks:
         layout=self.layout
         return [area(layout['runtime'],layout['runtimeSize'],'runtime: control block, stacks, ring, LED, display buffer, knobs, app table (RT_* layout)','tools/patch/script_hooks.py:RUNTIME'),
             area(MENU_ITEMS,MENU_ITEMS_END-MENU_ITEMS,'pages of the plugins in the BLECH menu, 12 entries of 40 bytes','tools/patch/script_hooks.py:MENU_ITEMS'),
-            area(MENU_ITEMS_END,MENU_STATE-MENU_ITEMS_END,'more state of the BLECH menu: intensity, save light, meter and overlap colours, the power save tables of the backlight','tools/patch/script_menu.s:MX_INTENS'),
+            area(MENU_ITEMS_END,MENU_STATE-MENU_ITEMS_END,'more state of the BLECH menu: intensity, save light, meter and overlap colours, the power save tables of the backlight; the last bytes are the EXIT shortcuts (EXIT held, save and reset asked for)','tools/patch/script_menu.s:MX_INTENS'),
             area(MENU_STATE,0x200,'state of the BLECH menu and its two settings file buffers','tools/patch/script_hooks.py:MENU_STATE'),
             area(layout['pool'],layout['poolEnd']-layout['pool'],'plugin pool, SCRIPT_POOL_BYTES','tools/patch/script_hooks.py:POOL'),
             area(layout['card'],layout['input']-layout['card'],'work area of the card loader: file object, state, plugin list of the import page','tools/patch/script_hooks.py:CARD'),
-            area(layout['input'],END-layout['input'],'block buffer for file reads, the two store images lie in it','tools/patch/script_hooks.py:INPUT')]
+            area(layout['input'],END-layout['input'],'block buffer for file reads, the two store images lie in it','tools/patch/script_hooks.py:INPUT')]+(
+            [area(self.profile.actions['MG_WORK'],0xF00,'work area of the folder copy at the first start: state, file and folder objects, paths','tools/patch/script_migrate.s:MG_ACTIVE')]
+            if self.profile.actions.get('MG_WORK') else [])
 
     def menu_copy_changes(self):
         table_at,table_len,table_hash=self.profile.table
@@ -252,12 +267,15 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants=include.split('.align 4',1)[0]
     constants += '\n'+ '\n'.join(f'.equ {key}, {value}' for key,value in vm.symbols.items() if key.startswith('RT_'))
     constants += '\n'+ '\n'.join(f'.equ VM_{name.upper()}, {vm.symbols[name]}' for name in ['script_run_event','script_runtime_init','script_load_block','script_load_block_ex'])
+    constants += f'\n.equ VM_CRC_UPDATE, {vm.symbols["crc_update"]}'
     constants += ''.join(f'\n.equ {name.upper()}, {vm.symbols[name]}' for name in ['script_font','script_error_names'])
     constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
     files = ['script_hooks.s','script_led.s','script_card.s','script_builtin.s','script_menu.s']
-    more = ['script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s']
+    more = ['script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s']
+    if build != 'synth':
+        more.append('fx_card.s')
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
     source = constants+f'\n.equ MORE_START, {MORE_START}\n'+read(files)+'\n.org MORE_START\n'+read(more)
     if build == 'synth':
@@ -269,7 +287,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     source = source.replace('@MENU_TOPLEVEL@', Path(__file__).with_name(f'script_toplevel_{variant}.s').read_text())
     actions = '\n'.join(f'.equ {name}, {value}' for name, value in profile.actions.items())
     hooks=assemble(actions+'\n'+source,origin=origin)
-    linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
+    linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_glue'],**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
         for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number')]}}
     vm=build_vm(include,origin=CODE_START,glue=linked_glue)
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
@@ -282,7 +300,8 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     s=hooks.symbols
     if s['STORE_IMAGE']+s['STORE_CAPACITY']>s['STORE_OTHER'] or s['STORE_OTHER']+s['STORE_CAPACITY']>END:
         raise ValueError('the store images run over the block buffer')
-    if s['LIST_NAMES']+s['LIST_MAX']*s['LIST_NAME_SIZE']>INPUT-CARD:
+    if (s['LIST_NAMES']+s['LIST_MAX']*s['LIST_NAME_SIZE']>s['LIST_TITLES'] or s['LIST_TITLES']+s['LIST_MAX']*16>s['LIST_DESC']
+            or s['LIST_DESC']+s['DESC_MAX_BYTES']+1>s['RM_AT'] or s['RM_AT']+s['RM_SIZE']>s.get('FX_STATE_AT',INPUT-CARD)):
         raise ValueError('the plugin list of the import page runs over the card work area')
     symbols={**vm.symbols,**hooks.symbols}
     layout=dict(code=CODE_START,codeEnd=origin+len(first),more=MORE_START,moreEnd=MORE_START+len(more_code),runtime=RUNTIME,

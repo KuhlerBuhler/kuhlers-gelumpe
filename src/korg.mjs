@@ -12,6 +12,7 @@ import { field, readRaw } from "./map/index.mjs";
 import { plan } from "./plan.mjs";
 import { identify } from "./firmware.mjs";
 import { ramTools } from "./ramsearch.mjs";
+import { remoteMailbox, command, stub, KEY, ENCODER } from "./remote.mjs";
 
 export const SCREEN_W = 128;
 export const SCREEN_H = 64;
@@ -46,7 +47,8 @@ export const HELP = [
   "KORG.screen.set(bild)     Bild aufs Display: 64 Textzeilen mit # für an, 1024 Display-Bytes, 8192 Pixel oder (x, y) => an/aus",
   "KORG.screen.get()         das Display als 64 Textzeilen",
   "KORG.screen.state()       welcher Bildschirm, welche Seite, welcher Part",
-  "KORG.press(name)          eine Taste drücken und loslassen, etwa \"menu\", \"exit\", \"play\"",
+  "KORG.press(name)          eine Taste drücken und loslassen, etwa \"menu\", \"exit\", \"play\"; mit dem BLECH-Satz auch am Gerät",
+  "KORG.turn(n)              das Hauptrad um n Rasten drehen (negativ nach links), nur mit dem BLECH-Satz",
   "KORG.buttons              die Namen aller Tasten",
   "KORG.ram.read(adr, n)     n Byte aus dem RAM",
   "KORG.ram.snapshot({from, to})  einen RAM-Bereich festhalten; was die Gerätekarte und die Speicherkarte erklären, wird nicht gelesen ({mask: false} liest alles, {show: [\"image\"]} holt eine Gruppe zurück)",
@@ -69,6 +71,15 @@ export async function ensureFirmware(session, bytes) {
   if (!bytes) throw new Error("Erst im Bereich Emulator die SYSTEM.VSB wählen.");
   session.useFirmware(bytes, await identify(bytes), { units: session.units ?? null, profile: session.profile ?? null });
   return session;
+}
+
+/** Guards for an exec: the bytes the firmware file holds at each range, which the device must still have. */
+function guardsOf(s, ranges) {
+  return ranges.map(([addr, length]) => {
+    const from = ramToFile(addr);
+    if (!Number.isInteger(addr) || !Number.isInteger(length) || length < 1 || from < 0 || from + length > s.firmwareBytes.length) throw new RangeError(`guard 0x${Number(addr).toString(16)}: nicht in der Firmware-Datei`);
+    return { addr, bytes: Uint8Array.from(s.firmwareBytes.subarray(from, from + length)) };
+  });
 }
 
 /** Code as bytes: a Uint8Array is taken as it is, an Array or Uint32Array holds 32-bit words, little endian. */
@@ -110,6 +121,16 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
     return readRaw(await readRam(e.ram, e.size), field("fx.name"));
   };
   const buttons = Object.fromEntries(BUTTONS.map(b => [b.id, b.index]));
+  // With the BLECH runtime a key goes through KORG.exec, so it can be sent to the device too; without it the emulator's panel.
+  const remote = async word => {
+    if (!emulator.baseFirmware) return false;
+    const s = await withFirmware();
+    const mailbox = remoteMailbox(s.firmwareBytes);
+    if (mailbox === null) return false;
+    const res = await s.apply({ kind: "exec", code: toCode(stub(mailbox, word)), at: EXEC.stubAt, guards: guardsOf(s, [[EXEC.icache.addr, EXEC.icache.length]]), invalidate: true }, { confirmed: true });
+    if (!res.ok) throw new Error(res.error?.message ?? res.gate?.reasons?.map(r => r.message).join(" ") ?? "abgelehnt");
+    return true;
+  };
 
   return {
     help: () => HELP.join("\n"),
@@ -128,11 +149,7 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
       const bytes = toCode(typeof code === "function" ? code(at) : code);
       // What the stub calls in the firmware must still be what the firmware file holds, or nothing runs.
       const ranges = [...(invalidate ? [[EXEC.icache.addr, EXEC.icache.length]] : []), ...guard];
-      const guards = ranges.map(([addr, length]) => {
-        const from = ramToFile(addr);
-        if (!Number.isInteger(addr) || !Number.isInteger(length) || length < 1 || from < 0 || from + length > s.firmwareBytes.length) throw new RangeError(`guard 0x${Number(addr).toString(16)}: nicht in der Firmware-Datei`);
-        return { addr, bytes: Uint8Array.from(s.firmwareBytes.subarray(from, from + length)) };
-      });
+      const guards = guardsOf(s, ranges);
       const res = await s.apply({ kind: "exec", code: bytes, at, guards, invalidate }, { confirmed: true });
       if (!res.ok) throw new Error(res.error?.message ?? res.gate?.reasons?.map(r => r.message).join(" ") ?? "abgelehnt");
       return "Code ausgeführt, die Originalbytes im Stub-Puffer sind zurückgeschrieben.";
@@ -141,9 +158,15 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
       const index = typeof name === "number" ? name : buttons[name];
       if (index === undefined) throw new Error(`Keine Taste „${name}“. Namen: ${Object.keys(buttons).join(", ")}`);
       live();
-      hooks.press?.("Tastendrücke");
+      if (await remote(command(KEY, index))) return `${name} gedrückt`;
+      hooks.press?.("Tastendrücke ohne die Tasten der BLECH-Laufzeit");
       await emulator.button(index);
       return `${name} gedrückt`;
+    },
+    async turn(delta, encoder = 0) {
+      const word = command(ENCODER, encoder, delta);
+      if (!(await remote(word))) throw new Error("Drehen geht nur mit einer Firmware mit dem BLECH-Satz (die Laufzeit nimmt den Befehl an).");
+      return `um ${delta} gedreht`;
     },
     ram: { read: readRam, ...ram },
     fx: { mfx: n => slotName("mfx", n), ifx: n => slotName("ifx", n) },

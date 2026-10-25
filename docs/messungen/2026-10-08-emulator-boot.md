@@ -15,7 +15,7 @@ Nutzerdaten-Kennung steht: Hauptbildschirm mit „120.0“, „001 Init Pattern�
 „OSC: SAW“, also leere Patterns und keine Samples (siehe „Ohne Dump
 starten“).
 
-Tempo (gemessen, MacBook, ohne Analyse-Hooks): 12 s Gerätezeit in 18 s,
+Tempo (gemessen, macOS, ohne Analyse-Hooks): 12 s Gerätezeit in 18 s,
 rund 135 Millionen Instruktionen pro Sekunde. Die erste Gerätesekunde
 braucht rund 10 s, weil der Boot den DSP Byte für Byte über SPI lädt; danach
 läuft er schneller als echt und wird im Dienst auf Gerätezeit gebremst. Die

@@ -91,17 +91,17 @@ function showStatus() {
   const s = wantStatus();
   if (s == status) return;
   status = s;
-  korg.display.clearRect(90, 0, 38, 8);
-  korg.display.clearRect(0, 52, 128, 8);
+  korg.display.clearRect(84, 0, 44, 10);
+  korg.display.clearRect(0, 53, 128, 11);
   if (s == 0) {
-    korg.display.text("WAIT", 98, 0);
-    korg.display.text("PLAY OR KEY 1 STARTS", 0, 56);
+    korg.display.text("WAIT", 101, 2);
+    korg.display.text("PLAY OR KEY 1 STARTS", 4, 55);
   } else if (s == 1) {
-    korg.display.text("RUN", 104, 0);
-    korg.display.text("KEY 4 = RESET", 0, 56);
+    korg.display.text("RUN", 107, 2);
+    korg.display.text("KEY 4 = RESET", 4, 55);
   } else {
-    korg.display.text("RESET?", 92, 0);
-    korg.display.text("KEY 4 AGAIN = RESET", 0, 56);
+    korg.display.text("RESET?", 89, 2);
+    korg.display.text("KEY 4 AGAIN = RESET", 4, 55);
   }
 }
 
@@ -115,7 +115,7 @@ korg.onEvent("open", () => {
   isOpen = 1;
   if (confirmUntil > 0 && korg.millis() > confirmUntil) confirmUntil = 0;
   korg.display.clear();
-  korg.display.text("SET TIMER", 0, 0);
+  korg.display.text("SET TIMER", 4, 2);
   status = -1;
   layout();
 });

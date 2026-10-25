@@ -38,7 +38,7 @@ ein Byte gesendet ist, und merkt sich Adresse, Länge und CRC. DATA wird in eine
 erst dann an die Adresse kopiert, und die Antwort trägt die CRC dessen, was danach im RAM steht. Ein DATA ohne BEGIN wird
 nicht angenommen und nicht beantwortet, jedes BEGIN gilt für genau ein DATA.
 
-Es gibt keinen Befehl, der den Flash schreibt oder löscht, und keinen zum Ausführen von Code. FLASH READ liest nur (siehe unten). Die Schutztabelle (`src/sysex-table.mjs`,
+Es gibt keinen Befehl, der den Flash schreibt oder löscht. EXEC (`0x6F`, Antwort `0x70`: Status, Adresse, r0) führt Code aus, aber nur an einem Wort des Stub-Puffers (`0xC1000000` bis `0xC1000400`, `data/exec.mjs`) und nur, wo die Schutztabelle dem Editor das Schreiben erlaubt (auf der blauen also nie); vorher leert es den Schreibpuffer und den Befehls-Cache, das Argument kommt in r0. Hacktribes Befehle `0x52` bis `0x57` verwerfen beide Haken, mit EXIT beim Einschalten gehen sie wieder, außer dem Flash-Schreiben `0x56` ([Messung vom 24.10.](2026-10-24-hacktribe-flash.md)). FLASH READ liest nur (siehe unten). Die Schutztabelle (`src/sysex-table.mjs`,
 412 Byte) wird aus `data/protected.mjs` und den erklärten Bereichen des Editors geschnitten und beim Bau in den Patch
 geschrieben, nie von Hand: das RAM-Fenster von 128 MiB, jede geschützte RAM-Region (Schreiben), die zwei Regionen, die auch
 Lesen sperren (Lader, DSP-Ports), die Ausnahmefenster der drei Regionen mit `except` (Tabellen und Menülängen,
@@ -82,8 +82,10 @@ seit den Preset-Tabellen deren Plätze für weitere Presets (`0xC0174000` bis `0
 | Display, Stub-Puffer, Sample-Name, Sample-Tune, ein Insert- und ein Master-Record gehen durch, ein Schreiben über die Kante zweier Records nicht | gemessen | `sysex:allows_declared`, `sysex:window_edges` |
 | Lesen geht überall im Fenster (Firmware, Heap, Stacks, der eigene Code) | gemessen | `sysex:reads_everywhere_in_the_window` |
 | Die Firmware sagt zu 209 Bereichen (128 ja, 74 verweigert, 7 außerhalb) dasselbe wie `src/protect.mjs` (Ränder jeder Region, erklärte Fenster, Zufallsstellen), mit einer Ausnahme der Benennung: was außerhalb des Fensters liegt, ist bei der Firmware "außerhalb" (3), auch Lader und DSP-Ports | gemessen | `sysex:same_rule_as_the_editor`, `test/emulator-sysex.test.mjs` |
-| Mit EXIT beim Einschalten bleiben INFO, READ und BEGIN ohne Antwort, Korgs Musterabfrage wird beantwortet (18733 Byte) | gemessen | `sysex:kill_switch_silent`, `sysex:kill_switch_korg_still_answers` |
-| Die Gerätesuche, Korgs Pattern- und Global-Abfrage, bei Hacktribe `0x52` gehen wie vorher; ohne Hacktribe bleibt `0x52` stumm; MIDI-Noten laufen, kein Assert | gemessen | `sysex:search`, `sysex:pattern_request`, `sysex:global_request`, `sysex:hacktribe_read`, `sysex:notes` |
+| Mit EXIT beim Einschalten bleiben INFO, READ, BEGIN, FLASH READ und EXEC ohne Antwort, Korgs Musterabfrage wird beantwortet (18733 Byte), Hacktribes `0x52` antwortet wieder | gemessen | `sysex:kill_switch_silent`, `sysex:kill_switch_korg_still_answers`, `sysex:kill_switch_hacktribe` |
+| Die Gerätesuche, Korgs Pattern- und Global-Abfrage gehen wie vorher, MIDI-Noten laufen, kein Assert | gemessen | `sysex:search`, `sysex:pattern_request`, `sysex:global_request`, `sysex:notes` |
+| Hacktribes `0x52` bleibt stumm; `0x53` und `0x54` schreiben nichts, auch nicht in den Stub-Puffer, `0x57` führt nichts aus (24.10.) | gemessen | `sysex:hacktribe_read_dropped`, `sysex:hacktribe_write_run_dropped` |
+| EXEC führt einen über WRITE geschriebenen Stub mit seinem Argument aus und antwortet mit dem, was er in r0 zurückgibt; an `0xC1000002`, `0xC1000400`, `0xC0FFFFFC`, `0xC3000000`, im Abbild und bei 0 lehnt es ab (Status 2) und führt nichts aus; INFO meldet Bit 6; auf der blauen lehnt es auch im Puffer ab; Hacktribe und Korgs Original (24.10.) | gemessen | `sysex:exec_runs`, `sysex:exec_refused`, `sysex:exec_info_after`, `sysex:synth_exec_refused` |
 | Die Firmware stößt in keinem dieser Läufe auf eine Assertion | gemessen | `sysex:no_asserts` |
 | Die Signaturen, die die Seite für Korgs Original mit BLECH nimmt (`0xC0000040`, `0xC0026430`, `0xC0170000`), stimmen im laufenden Emulator mit denen der Datei überein | gemessen | Lesen über BLECH, `data/devices.mjs` |
 

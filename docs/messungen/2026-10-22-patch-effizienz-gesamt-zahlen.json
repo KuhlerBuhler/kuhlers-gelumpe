@@ -1,0 +1,63 @@
+{
+  "format": "blech-performance-combined-summary",
+  "version": 1,
+  "date": "2026-10-22",
+  "automaticComparisonPassed": true,
+  "inheritedPhases": [
+    "pad",
+    "loader",
+    "mul"
+  ],
+  "mulMinimumReductionPercent": 19.83,
+  "codeBudgetBytes": 112,
+  "hardwareVerified": false,
+  "fullChecksReused": {
+    "hacktribe": 459,
+    "stock": 484,
+    "synth": 363
+  },
+  "builds": {
+    "hacktribe": {
+      "inputSha256": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+      "outputSha256": "bb9863cba74f9fe644cfd09cafb31c65afc839b200d4bb8ca668994d820eead0",
+      "codeDataDeltaBytes": 44,
+      "reservedRamSavingBytes": 19456,
+      "largestGapBytes": 19456,
+      "maximumSceneRatio": 1.0000469982438733,
+      "loaderInstructionReductionPercent": 39.58957778568683,
+      "nativeTransferCases": 490
+    },
+    "stock": {
+      "inputSha256": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
+      "outputSha256": "cc7cd0b62d3f014aef7276e985a81759a027a48d85fe7012499e6abaf31dc456",
+      "codeDataDeltaBytes": 44,
+      "reservedRamSavingBytes": 19456,
+      "largestGapBytes": 19456,
+      "maximumSceneRatio": 1.0020697180300981,
+      "loaderInstructionReductionPercent": 39.58957778568683,
+      "nativeTransferCases": 490
+    },
+    "synth": {
+      "inputSha256": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
+      "outputSha256": "1a5b53b90b4f008000b4db82de84ee5b5837a50152c4b2756ee07b95362b4265",
+      "codeDataDeltaBytes": 60,
+      "reservedRamSavingBytes": 19456,
+      "largestGapBytes": 329996,
+      "maximumSceneRatio": 1.0013774591274713,
+      "loaderInstructionReductionPercent": 39.58957778568683,
+      "nativeTransferCases": 452
+    }
+  },
+  "tests": {
+    "toolingPassed": 14,
+    "unitPassed": 963,
+    "unitSkipped": 143,
+    "browserPassed": 164,
+    "browserSkipped": 1,
+    "docsPassed": 9,
+    "failed": 0
+  },
+  "sourceHashesVerified": 273,
+  "firmwareHashesVerified": 6,
+  "rebuiltFirmwareIdentical": true
+}

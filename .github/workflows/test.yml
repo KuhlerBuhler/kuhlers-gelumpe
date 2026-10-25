@@ -28,6 +28,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # DESIGN.md against the design.md spec: a broken token reference or a failing contrast pair stops the run.
+      # The raw-value check and the spacing check run with the suites (test/raw-values.test.mjs, test/e2e/design.e2e.mjs).
+      - run: npx --yes @google/design.md@0.4.0 lint DESIGN.md
       - run: python3 -m pip install -r tools/emu/requirements.txt
       - run: npm run test:ci
         env:

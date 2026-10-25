@@ -49,6 +49,7 @@ export const CHAINS = {
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
   "stopped-sync": [{ id: "load-chosen", sites: [0xC0081E18] }],
+  "pattern-load-copy": [{ id: "copy-into-ram", sites: [0xC004AC44] }],
   "frame": [
     { id: "frame-call", sites: [0xC00836F0] },
     { id: "screen-tick", sites: [0xC00836F8] },
@@ -81,6 +82,7 @@ export const CHAINS = {
     { id: "dim-irq", sites: [0xC00289F4] },
   ],
   "lcd-invert": [{ id: "page-write", sites: [0xC00161A4] }],
+  "display-send": [{ id: "page-compare", sites: [0xC0016084] }],
   "power-off": [{ id: "hold-wait", sites: [0xC0038A74] }],
   "sysex-request": [
     { id: "classify", sites: [0xC0026A8C, 0xC002240C] },   // the second of each is the synth build's

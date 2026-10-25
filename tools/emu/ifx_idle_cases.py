@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import ifx_idle as spec  # noqa: E402
+import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
 from mfx_cases import DspLog  # noqa: E402
 from pswitch_cases import Box  # noqa: E402
@@ -31,10 +32,26 @@ PART_OBJ, REMEMBERED, RELOAD = 0xC009AF20, 0xC0097D18, 0xC0097E70
 MUTE_AT, ON_AT, TYPE_AT, STRIDE = 0x805, 0x824, 0x825, 0x330
 OVERDRIVE, DISTORTION = 1, 2    # indices of insert presets 2 and 3 (Overdrive, Distortion); any effect that is not Punch
 KEYS = {"menu": 0x09, "exit": 0x0D}
+SYNTH = False
+TABLE = 0                       # the synth: the remembered indices, which its reload takes as a whole (it has no function for one part)
+BOOT = 3.0
+
+
+def for_build(payload):
+    """The places of the build of this image (the synth's: tools/patch/ifx_idle.py PLACES, data/synth-map/ifx-idle.json)."""
+    global SYNTH, TABLE, FIELDS, PART_OBJ, RELOAD, BOOT
+    SYNTH = synthaddr.is_synth(payload)
+    spec.use_build("synth" if SYNTH else "hacktribe")
+    places = spec.PLACES[spec.BUILD]
+    FIELDS = 0xC0346522 if SYNTH else 0xC034680E
+    PART_OBJ, RELOAD = places["PART_OBJ"], places["RELOAD"]
+    TABLE = places.get("REMEMBERED_TABLE", 0)
+    BOOT = 10.0 if SYNTH else 3.0   # the synth reaches its main screen after about 8 s
 
 
 def has_hooks(payload):
     """True when the LED manager's timer literal points into the patch's code."""
+    for_build(payload)
     word = struct.unpack_from("<I", payload, spec.TIMER_LITERAL - IMAGE)[0]
     return spec.CODE_AT <= word < spec.CODE_END
 
@@ -47,7 +64,8 @@ class IBox(Box):
     """A booted device on mains power with the helpers of these cases."""
 
     def __init__(self, payload, flash=None, held=0):
-        super().__init__(payload, flash, held, True, 3.0, adapter=True)
+        for_build(payload)
+        super().__init__(payload, flash, held, True, BOOT, adapter=True)
 
     def byte(self, addr, value=None):
         if value is None:
@@ -60,8 +78,12 @@ class IBox(Box):
     def loaded(self, n):
         return self.byte(FIELDS + 2 * n)
 
+    def place(self, n):
+        """Where the firmware keeps the index it gave part n last."""
+        return TABLE + n if SYNTH else self.dev.call(REMEMBERED, n)
+
     def remembered(self, n):
-        return self.byte(self.dev.call(REMEMBERED, n))
+        return self.byte(self.place(n))
 
     def give(self, n, index, on=1, mute=0):
         """The part's effect as an edit leaves it and the firmware's reload, the way a pattern change runs it; then the IFX switch and
@@ -72,7 +94,7 @@ class IBox(Box):
         self.byte(self.part(n) + TYPE_AT, index)
         self.byte(self.part(n) + ON_AT, 1)
         self.byte(self.part(n) + MUTE_AT, 0)
-        self.dev.call(RELOAD, obj, self.dev.call(REMEMBERED, n))
+        self.dev.call(RELOAD, obj, TABLE if SYNTH else self.place(n))
         self.run(0.1)
         self.byte(self.part(n) + ON_AT, on)
         self.byte(self.part(n) + MUTE_AT, mute)

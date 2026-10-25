@@ -33,21 +33,23 @@ async function modulations(vsb) {
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.click("#cee-tab-emu");
   if (vsb) {
-    if (!(await page.locator("#cee-emu-setup").evaluate(n => n.open))) await page.click("#cee-emu-setup > summary");
     await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", vsb));
     await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   }
-  await page.click("#cee-tab-mod");
+  await page.evaluate(() => { location.hash = "mod"; });
   return page;
 }
 
 const form = page => page.locator("#cee-mod-form");
 const depth = page => form(page).getByLabel("Vorgabe-Tiefe");
 
-test("modulations: before a firmware is loaded the page says where to get one and shows no list", async () => {
-  const page = await modulations(null);
-  assert.equal(await page.locator("#cee-nav-title").textContent(), "Modulationen");
-  assert.match(await page.locator("#cee-mod-idle").textContent(), /Wähle im Bereich Emulator die Firmware/);
+test("modulations: before a firmware is loaded the entry is shut and says where to get one", async () => {
+  const page = await h.page();
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-emu");
+  const tab = page.locator("#cee-tab-mod");
+  assert.equal(await tab.getAttribute("aria-disabled"), "true");
+  assert.match(await tab.getAttribute("title"), /Erst im Emulator eine Firmware \(VSB\) wählen/);
   assert.equal(await page.locator("#cee-mod-split").isVisible(), false);
   assert.deepEqual(page.errors, []);
 });
@@ -90,7 +92,7 @@ test("modulations: an edit is counted and marked, the check gets only the change
   assert.equal(await page.locator("#cee-mod-download").isVisible(), false, "nothing to download before the check");
   await page.click("#cee-mod-run");
   await page.locator("#cee-mod-download").waitFor();
-  await page.locator("#app-toasts .cee-toast", { hasText: /2 von 2 bestanden/ }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: /alles in Ordnung/ }).waitFor();
   const at = READ + 12 * 0x58 + 26;
   assert.equal(fake.seen.check.allow, `0x${at.toString(16)}:1`, "the check is told which byte may change");
   assert.deepEqual(new Uint8Array(fake.seen.check.pair.subarray(0, 0x200100)), vsb, "the original goes to the check unchanged");
@@ -149,7 +151,7 @@ test("modulations: a failed emulator check offers no download", async () => {
   try {
     await depth(page).fill("50");
     await page.click("#cee-mod-run");
-    await page.locator("#app-toasts .cee-toast", { hasText: "Nicht bestanden: 1 von 2" }).waitFor();
+    await page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat 1 Fehler gefunden" }).waitFor();
     assert.equal(await page.locator("#cee-mod-download").isVisible(), false);
     await page.locator("#cee-mod-details > summary").click();
     assert.match(await page.locator("#cee-mod-checks").textContent(), /nicht bestanden Notschalter/);
@@ -162,14 +164,13 @@ test("modulations: with no emulator service the check cannot run and the reason 
   const page = await h.page();
   await page.goto(`${h.url}#emu=1:${TOKEN}`);
   await page.click("#cee-tab-emu");
-  await page.click("#cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", await makeFirmware()));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
-  await page.click("#cee-tab-mod");
+  await page.evaluate(() => { location.hash = "mod"; });
   await page.locator("#cee-mod-split").waitFor();
   await depth(page).fill("50");
   await page.click("#cee-mod-run");
-  await page.locator("#app-toasts .cee-toast", { hasText: "antwortet nicht" }).waitFor();
+  await page.locator("#app-toasts .cee-toast.err", { hasText: "antwortet nicht" }).waitFor();
   assert.equal(await page.locator("#cee-mod-download").isVisible(), false);
 });
 

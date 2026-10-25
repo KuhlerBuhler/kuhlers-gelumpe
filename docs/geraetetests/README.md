@@ -75,3 +75,5 @@ im Projekt (offen: derzeit kein festgelegter Meldeweg).
 - [Tastenkombinationen](../tastenkombinationen.md): Startmodi und gehaltene Tasten
 
 - [Doom auf BLECH v21: manueller Gerätetest](doom-v21.md)
+
+- [BLECHTRIBE 1.3: aktueller Bedien- und Displaytest](blech-1.3.md)

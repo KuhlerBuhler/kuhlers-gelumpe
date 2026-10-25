@@ -35,7 +35,6 @@ async function effects(vsb) {
   const page = await h.page();
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.click("#cee-tab-emu");
-  if (!(await page.locator("#cee-emu-setup").evaluate(n => n.open))) await page.click("#cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", vsb));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await go(page, "fx");
@@ -47,16 +46,16 @@ test("presets: a firmware with room for 100 says so, adds a copy of the open pre
   const vsb = await makeFirmwareWithArrays(presets);
   const page = await effects(vsb);
   await page.selectOption("#cee-fx-slot", "2");
-  assert.match(await page.locator("#cee-fx-room").textContent(), /Insert: 52 von 100 Plätzen im Menü.*mit dem BLECH-Patch preset-tables sind es 128/);
+  assert.match(await page.locator("#cee-fx-room").textContent(), /Insert: 52 von 100 Plätzen im Menü.*mit dem BLECHTRIBE-Patch preset-tables sind es 128/);
   assert.equal(await page.locator("#cee-export").isDisabled(), true, "nothing to write before an edit");
   await page.click("#cee-add");
   await page.locator("#cee-fx-slot option[value='53']").waitFor({ state: "attached" });
-  assert.match(await page.locator("#cee-export-note").textContent(), /Insert 53 ist eine Kopie von 2/);
+  await page.locator("#app-toasts .cee-toast", { hasText: /Insert 53 ist eine Kopie von 2/ }).first().waitFor();
   assert.equal(await page.locator("#cee-fx-slot").inputValue(), "53");
   assert.match(await page.locator("#cee-fx-room").textContent(), /Insert: 53 von 100/);
   await page.click("#cee-export");
   await page.locator("#cee-download").waitFor();
-  assert.match(await page.locator("#cee-export-note").textContent(), /2 von 2 bestanden/);
+  await page.locator("#app-toasts .cee-toast", { hasText: /alles in Ordnung/ }).first().waitFor();
   const copy = new Uint8Array(fake.seen.check.pair.subarray(0x200100));
   assert.deepEqual(new Uint8Array(fake.seen.check.pair.subarray(0, 0x200100)), vsb, "the original goes to the check unchanged");
   assert.ok(fake.seen.check.allow, "the check is told which data may change");
@@ -75,7 +74,7 @@ test("presets: a firmware with room for 100 says so, adds a copy of the open pre
 test("presets: with the BLECH patch the room is 128 and no hint to get it", async () => {
   const page = await effects(await makeFirmwareWithArrays(presets, { patched: true }));
   assert.match(await page.locator("#cee-fx-room").textContent(), /Insert: 52 von 128 Plätzen im Menü\.$/);
-  await page.click("#cee-fx-kind-master, label:has-text('Master')");
+  await page.click("label:has(input[name=cee-fx-kind][value=mfx])");
   assert.match(await page.locator("#cee-fx-room").textContent(), /Master: 33 von 128/);
   assert.deepEqual(page.errors, []);
 });
@@ -89,7 +88,7 @@ test("presets: an edit of the open preset alone is enough to write a copy, and a
   fake.hooks.checkOk = false;
   try {
     await page.click("#cee-export");
-    await page.locator("#cee-export-note", { hasText: "Nicht bestanden" }).waitFor();
+    await page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat" }).waitFor();
     assert.equal(await page.locator("#cee-download").isVisible(), false);
   } finally {
     fake.hooks.checkOk = true;
@@ -107,10 +106,9 @@ test("presets: Korg's own build without BLECH closes the Presets tab, no text ab
   const page = await h.page();
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.click("#cee-tab-emu");
-  if (!(await page.locator("#cee-emu-setup").evaluate(n => n.open))) await page.click("#cee-emu-setup > summary");
   await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", stock));
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
-  await page.locator("#cee-tab-fx[title='Nicht mit Korgs Original-Firmware']").waitFor();
+  await page.locator("#cee-tab-fx[title='Nicht mit Korgs Original-Firmware']").waitFor({ state: "attached" });
   assert.doesNotMatch(await page.locator("body").textContent(), /live ins RAM geht mit BLECH|Es fehlt:/);
   assert.deepEqual(page.errors, []);
 });

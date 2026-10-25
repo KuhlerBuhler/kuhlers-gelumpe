@@ -50,6 +50,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [FX-Tabellen: Parameterspannen und Wahlnamen aus dem DSP-Strom](2026-10-14-fx-tabellen.md)
 - [Alte offene Fragen, mit Emulator und DSP-Tabellen nachgeprüft](2026-10-14-offene-fragen.md)
 - [Modulationsarten, Stufe 2: was die übrigen Bytes eines Eintrags tun, im Emulator gemessen](2026-10-15-modulation-stufe2.md)
+- [FX-Katalog neu: Notenwerte der Delays, unbenutzte Bausteine, laute Distortion](2026-10-22-fx-katalog-neu.md)
 
 
 ## SysEx und Transport
@@ -112,7 +113,17 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 
 ## Patches
 
+- [20.10.2026: Native Multiplikation, Originalscan und gemeinsame Helfer](2026-10-20-arm-optimierungen.md)
+
 Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung, Ladebalken, das BLECH-Menü und seine Anpassung.
+
+- [Gebundene Noten auf den Pads: lokale Geometrie und genaue Bruchtabelle](2026-10-20-pad-geometrie.md)
+- [20.10.2026: Reproduzierbarer Ausgangsstand für die Optimierungen](2026-10-20-patch-effizienz-ausgang.md)
+- [21.10.2026: Neue Vergleichsbasis auf develop, im Emulator gemessen](2026-10-21-patch-effizienz-basis.md)
+- [21.10.2026: Operanddecoder mit gleicher Ausgabe und weniger ARM-Arbeit](2026-10-21-patch-effizienz-decoder.md)
+- [21.10.2026: SysEx-Puffer mit 19 KiB mehr Platz, im Emulator und nativ geprüft](2026-10-21-patch-effizienz-sysex.md)
+- [22.10.2026: Gemeinsame CRC, Speicherfüllung und kombinierte Rechenbefehle](2026-10-22-patch-effizienz-helfer.md)
+- [20.10.2026: Laufzeit und Platz der BLECH-Patches](2026-10-20-patch-performance.md)
 
 - [Startbild-Editor im Menü Global (Idee 35): gebaut und im Emulator geprüft](2026-10-10-startbild-editor.md)
 - [MFX 2 auf TOUCH SCALE (Idee 44): gebaut und im Emulator geprüft](2026-10-10-mfx-umschalter.md)
@@ -179,6 +190,8 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Startbild: Rad im Editor, Bild von der Karte](2026-10-17-startbild-import.md)
 - [Windows: der Emulator stirbt beim ersten Firmware-Befehl, Control Flow Guard im gepackten Dienst](2026-10-17-windows-cfg.md)
 - [Doom: der Lader startet nach dem Einhängen der Karte](2026-10-17-doom-nach-dem-einhaengen.md)
+- [Doom am Gerät: Zwischenanzeigen und der Cache-Befehl, an dem es hing](2026-10-22-doom-am-geraet.md)
+- [Freier RAM oberhalb von 0xC1010000: Füllmuster am Gerät](2026-10-22-ram-frei.md)
 - [Pad-Farben: Part und Auswahl in Rot, Blau oder Pink](2026-10-17-pad-farben.md)
 - [Karte gezogen: Funktionen bleiben an; TAP blinkt bei laufender Master-FX-Bewegung](2026-10-18-karte-gezogen-tap-blinkt.md)
 - [Plugin bleibt aus über einen Neustart](2026-10-18-plugin-bleibt-aus.md)
@@ -193,3 +206,32 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Mandelbrot: nachgewiesene Innenflächen überspringen](2026-10-19-mandelbrot-schneller.md)
 - [Pong: kurzer Ballschweif, Life: Zeichnen und Berechnen verzahnen](2026-10-19-pong-life.md)
 - [Mandelbrot: offene Rechtecke in einer Arbeitsliste](2026-10-19-mandelbrot-arbeitsliste.md)
+- [EXIT-Shortcuts: speichern und Part zurücksetzen](2026-10-19-exit-shortcuts.md)
+- [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
+- [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
+- [Notenassistent: Helligkeit nach Passung, stehen lassen und ausblenden](2026-10-19-notenassistent-helligkeit.md)
+- [Notenassistent: die gespielte Note bleibt rot, bis die nächste kommt](2026-10-22-notenassistent-spielende-note.md)
+- [Notenassistent: volle Helligkeit, sechs Stufen, die gespielte Note gedimmt](2026-10-22-notenassistent-stufen.md)
+- [IMPORT PLUGIN als Liste mit Namen und Beschreibung](2026-10-19-plugin-import-liste.md)
+- [Sync Groups: Patterns verketten, Live-Änderungen mitnehmen](2026-10-19-sync-groups.md)
+- [Gate-Schweif: gehaltene Noten auf den Step-Pads](2026-10-19-gate-schweif.md)
+
+- [Plugin-Prüfung: weniger Speicherarbeit beim Laden](2026-10-21-plugin-pruefung.md)
+- [Display-Kalibrierung mit drei Geschwindigkeiten](2026-10-21-display-kalibrierung.md)
+- [Doom: Stack am Lader-Einstieg und sichtbarer Start](2026-10-19-doom-start-stack.md)
+- [Presets und Modulationen von der Karte ins RAM (e2sFx.all)](2026-10-22-sammeldatei-karte.md)
+- [Tasten vom Rechner: KORG.press und KORG.turn über die Laufzeit](2026-10-22-tasten-vom-rechner.md)
+- [Sync Group mit ganzem Stand, MENU blinkt, SYNC GROUP im Ring, SPLASH-Gruppe, Plugin-Menü wie Sample Edit, Kalibrierung](2026-10-22-sync-und-menues.md)
+- [Doom: lesbarere monochrome Ausgabe](2026-10-23-doom-bild.md)
+- [Doom: feste Helligkeit und beleuchtete Pad-Steuerung](2026-10-23-doom-pads.md)
+- [EXIT-Shortcuts und Akkorde in Pink auf der blauen Electribe](2026-10-24-blau-shortcuts-akkorde.md)
+- [Sync Group auf der blauen Electribe](2026-10-24-blau-sync-group.md)
+- [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
+- [Meter: RAINBOW auch bei LOUD, im Tempo](2026-10-24-meter-loud-rainbow.md)
+- [Effekte aus dem Katalog fest in der Firmware](2026-10-23-fx-katalog-fest.md)
+- [Flash-Karte aus dem Code](2026-10-24-flash-karte.md)
+- [Der Stack bei 0xC274E000 und wer den RAM darüber nutzt](2026-10-24-ram-task-stack.md)
+- [USB: was das Gerät anbietet und was eine zweite Schnittstelle bräuchte](2026-10-24-usb.md)
+- [Hacktribes Flash-Schreibbefehl gesperrt, Pattern-Schreibvorgänge nach 0x53 bis 0x56](2026-10-24-hacktribe-flash.md)
+
+- [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

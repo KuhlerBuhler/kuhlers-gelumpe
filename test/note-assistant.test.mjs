@@ -71,7 +71,7 @@ test("only the LED tick's hook runs before the main screen, and the patch names 
 test("it sits clear of every other patch of the set and is accepted with all of them", () => {
   const span = (c, id) => [c.file, c.file + (c.bytes ? c.bytes.length / 2 : c.copy.length), id];
   const mine = PATCH.changes.map(c => span(c, PATCH.id));
-  const others = SET.filter(p => p.id !== PATCH.id).flatMap(p => p.changes.filter(c => typeof c.file === "number").map(c => span(c, p.id)));
+  const others = SET.filter(p => p.id !== PATCH.id).flatMap(p => (p.changes ?? []).filter(c => typeof c.file === "number").map(c => span(c, p.id)));
   for (const [a, b] of mine) for (const [c, d, id] of others) assert.ok(b <= c || d <= a, `note-assistant and ${id} overlap at 0x${Math.max(a, c).toString(16)}`);
   const res = checkHooks(SET);
   assert.equal(res.ok, true, res.reasons.join(" "));
@@ -81,14 +81,14 @@ test("the BLECH menu writes the word the note assistant reads, as bit 4 of the s
   const builder = readFileSync(new URL("../tools/patch/note_assist.py", import.meta.url), "utf8");
   const menu = readFileSync(new URL("../tools/patch/script_menu.s", import.meta.url), "utf8");
   assert.match(builder, /^NA_SETTING = STATE \+ S_SETTING/m);
-  assert.match(builder, /^S_SETTING, S_SINCE, S_NOTE, S_PAD, S_PARTPAD = 0, 4, 8, 0xC, 0x10/m);
+  assert.match(builder, /^S_SETTING, S_SINCE, S_NOTE, S_PAD, S_PARTPAD, S_FADE, S_LEVEL = 0, 4, 8, 0xC, 0x10, 0x14, 0x20/m);
   assert.match(builder, /^FLAG_OFF_BIT = 4 /m);
   const word = menu.match(/^\.equ NA_SETTING, (0x[0-9A-Fa-f]+)/m);
   assert.ok(word, "script_menu.s names NA_SETTING");
   const state = builder.match(/^STATE = (0x[0-9A-Fa-f]+)/m)[1];
   assert.equal(parseInt(word[1], 16), parseInt(state, 16), "STATE + S_SETTING (0) of tools/patch/note_assist.py");
   assert.match(menu, /bit 4 NOTE ASSIST is OFF/);
-  assert.match(menu, /orreq r0, r0, #16\n(?:[^\n]*\n){0,30}?\s+str r0, \[r7, #12\]/, "OFF is bit 4 of the flags");
+  assert.match(menu, /orreq r0, r0, #16\n(?:[^\n]*\n){0,40}?\s+mov r10, r0\n(?:[^\n]*\n){0,20}?\s+str r10, \[r7, #12\]/, "OFF is bit 4 of the flags");
 });
 
 test("the assembler and the patch builder agree with the committed patch", { skip }, () => {

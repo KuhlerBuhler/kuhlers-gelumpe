@@ -74,7 +74,7 @@ test("native input and frame hooks preserve guards, queues, budget and continuat
 }, () => {
   assert.ok(available, probe.error?.message ?? probe.stderr);
   // Every test that boots Blechy runs about 5.4 million ARM instructions: this file takes about a minute alone, several on a busy machine.
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_hooks.py"], {
+  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_hooks.py", "tools/patch/test_script_vm_optimizations.py", "tools/patch/test_script_vm_validator.py"], {
     cwd: root, encoding: "utf8", timeout: 900_000, maxBuffer: 4 * 1024 * 1024,
   });
   assert.ifError(result.error);
@@ -98,7 +98,7 @@ test("native display calls match the browser model pixel for pixel, and a fault 
   skip: !available && !nativeRequired ? "Unicorn not installed" : false,
 }, () => {
   assert.ok(available, probe.error?.message ?? probe.stderr);
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_display.py"], {
+  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_display.py", "tools/patch/test_display_calibrate.py"], {
     cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 4 * 1024 * 1024,
   });
   assert.ifError(result.error);
@@ -111,6 +111,18 @@ test("native store glue, store file read and write match the browser's file buil
 }, () => {
   assert.ok(available, probe.error?.message ?? probe.stderr);
   const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_store.py"], {
+    cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 4 * 1024 * 1024,
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.doesNotMatch(result.stderr, /skipped=/);
+});
+
+test("native korg.file.frame reads a frame of a picture file exactly as the browser does", {
+  skip: !available && !nativeRequired ? "Unicorn not installed" : false,
+}, () => {
+  assert.ok(available, probe.error?.message ?? probe.stderr);
+  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_file.py"], {
     cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 4 * 1024 * 1024,
   });
   assert.ifError(result.error);
@@ -238,7 +250,7 @@ test("fault-status: native script hooks in firmware leave control usable and exp
     "exit-oeffnet-die-falle-nicht-zu", "exit-schliesst-trotz-fallen-app", "take-zeigt-das-bild", "exit-beendet-take", "laden-allein-zeichnet-nie", "bitmap-und-text-mit-zahl-wie-im-browser",
     "hw-lesen-ruhezustand", "hw-lesen-play", "hw-lesen-regler", "hw-uhr", "hw-handeln-tempo", "hw-handeln-pattern", "hw-handeln-part", "hw-handeln-mute", "hw-handeln-play-stop", "ereignis-play-schritte", "ereignis-stop", "ereignis-tempo-pattern-part-mute", "ereignis-save-haken-eingehaengt", "hw-backlight", "hw-led-halten-flag", "hw-led-halten-sperrt-firmware-leds", "hw-led-halten-loesen", "speicher-ohne-save-keine-datei", "speicher-schreibt-datei", "speicher-pause-zwischen-schreibvorgaengen", "speicher-neustart-zaehler", "speicher-defekte-datei-faellt-zurueck", "menu-skripte-gezaehlt", "menu-skriptseiten", "menu-eingaben-erreichen-skripte-nicht", "menu-skripte-laufen-wieder", "menu-skript-aus", "menu-skript-wieder-an", "menu-fehlerskript-bleibt-aus", "menu-export-seite", "menu-export-gleich-dem-browser-bauer", "menu-export-wird-wieder-geladen", "menu-plugin-bleibt-aus-nach-neustart", "menu-plugin-an-mit-write-gespeichert",
     "fremd-wartet", "fremd-fragt", "fremd-erlaubt", "fremd-bekommt-ready-nach-ja", "fremd-lauft-nach-ja-ereignisse", "fremd-fragt-nicht-wieder", "fremd-liste-voll-schiebt",
-    "import-liste", "import-versteckte-dateien-fehlen", "menu-liste-ohne-about", "menu-blechy-keine-plugin-seite", "import-vor-dem-laden-nichts", "import-laedt-und-startet", "import-doppelt", "import-fremd-wartet", "import-abgelehnt", "import-laeuft", "import-ohne-dateien", "import-bei-ausgeschalteten-skripten",
+    "import-liste", "import-versteckte-dateien-fehlen", "menu-liste-ohne-about", "menu-blechy-keine-plugin-seite", "import-vor-dem-laden-nichts", "import-beschreibung", "import-beschreibung-scrollt", "import-laedt-und-startet", "import-speicherbild-bleibt", "import-aus-und-an", "import-zurueck-in-die-liste", "import-fremd-wartet", "import-fremd-erlaubt", "import-abgelehnt", "import-verlassen-zeichnet-neu", "import-laeuft", "import-ohne-dateien", "import-bei-ausgeschalteten-skripten",
     "menu-add-seiten-angelegt", "menu-add-seitentexte", "menu-add-werte-und-grenzen", "menu-add-ereignisse-erreichen-das-skript", "menu-add-keine-doppelten-seiten", "menu-add-zwoelf-seiten", "menu-add-bereich-verkehrt"]) {
     assert.ok(report.checks.some(check => check.id === id && check.ok), id);
   }

@@ -1,7 +1,7 @@
 /**
  * The dice: one drum or melody part of a pattern, rolled from a few controls.
  *
- * Records are edited, never built (CLAUDE.md): the dice take a pattern that exists, write the steps of
+ * Records are edited, never built (AGENTS.md): the dice take a pattern that exists, write the steps of
  * one part into a copy of it (on, trigger, velocity, gate, note) and set the few pattern fields the
  * controls name (swing, length, name, and on request key and scale). Everything else stays byte for
  * byte. The same seed with the same controls and the same base gives the same bytes; no clock, no

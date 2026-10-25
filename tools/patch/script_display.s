@@ -376,10 +376,6 @@ script_display_blit:
     ldr r1, [r0, #SCRIPT_CONTROL_DISPLAY_ACTIVE]
     cmp r1, #1
     bxne lr
-    ldr r1, =APP_STATE
-    ldr r1, [r1]
-    cmp r1, #0
-    bxeq lr
     ldr r1, =SCREEN_MANAGER
     ldr r1, [r1]
     cmp r1, #0
@@ -387,14 +383,25 @@ script_display_blit:
     cmn r1, #1
     bxeq lr
     ldr r1, [r1, #0x2c]
+    ldr r2, =MENU_STATE
+    cmp r1, #MENU_SCREEN
+    bne blit_app
+    ldrb r3, [r2, #M_DESC_ON]   ; IMPORT PLUGIN with a plugin open draws its description into the picture (menu_desc_frame)
+    cmp r3, #1
+    beq blit_menu
+blit_app:
+    ldr r3, =APP_STATE
+    ldr r3, [r3]
+    cmp r3, #0
+    bxeq lr
     cmp r1, #1
     beq blit_go
     cmp r1, #MENU_SCREEN
     bxne lr
-    ldr r1, =MENU_STATE
-    ldr r2, [r1, #M_LEVEL]
+    ldr r2, [r2, #M_LEVEL]
     cmp r2, #M_LEVEL_BLECHY
     bxne lr
+blit_menu:
     ldr r1, =SCREEN_MANAGER
     ldr r1, [r1]
     ldr r1, [r1, #0x24]
@@ -440,24 +447,24 @@ fault_name:
     strb r1, [sp, r0]
 fault_name_done:
     mov r4, sp
-    mov r5, #0
-    mov r6, #0
+    mov r5, #4                  ; 4 pixels from the side, 2 from the top, as the firmware's menus
+    mov r6, #2
     bl display_draw_text
     ldr r4, =fault_label
-    mov r5, #0
-    mov r6, #10
+    mov r5, #4
+    mov r6, #12
     bl display_draw_text
     ldr r0, [r7, #SCRIPT_ENTRY_LINE]
-    mov r5, #36
-    mov r6, #10
+    mov r5, #40
+    mov r6, #12
     bl display_draw_number
     ldr r0, [r7, #SCRIPT_ENTRY_FAULT]
     cmp r0, #SCRIPT_ERROR_COUNT
     movhs r0, #0
     ldr r4, =SCRIPT_ERROR_NAMES
     add r4, r4, r0, lsl #4
-    mov r5, #0
-    mov r6, #20
+    mov r5, #4
+    mov r6, #22
     bl display_draw_text
     ldr r2, =HOOK_RUNTIME
     mov r3, #1

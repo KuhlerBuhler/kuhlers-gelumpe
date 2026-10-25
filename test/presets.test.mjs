@@ -202,7 +202,12 @@ test("the patch applies to the user's firmware and gives it room for 128 presets
     const applied = await applyPatches(vsb, set);
     assert.equal(applied.ok, true, `${build}: ${applied.reasons.join(" ")}`);
     const after = presetRoom(applied.bytes, "ifx");
-    assert.deepEqual([after.capacity, after.count, after.patched], [128, before.count, true], build);
+    const catalog = set.find(p => p.id === "fx-catalog").presets;
+    assert.deepEqual([after.capacity, after.count, after.patched], [128, before.count + catalog.filter(p => p.kind === "ifx").length, true], build);
+    const mfx = [presetRoom(vsb, "mfx").count, presetRoom(applied.bytes, "mfx").count];
+    assert.equal(mfx[1], mfx[0] + catalog.filter(p => p.kind === "mfx").length, `${build}: the catalog's master effects behind the firmware's`);
+    const again = await applyPatches(applied.bytes, set.filter(p => p.id === "fx-catalog"));
+    assert.deepEqual([again.ok, presetRoom(again.bytes, "ifx").count], [true, after.count], `${build}: applied twice, nothing is added`);
     for (const kind of ["ifx", "mfx"]) {
       for (let slot = 1; slot <= presetRoom(vsb, kind).count; slot++) {
         const a = recordOf(vsb, kind, slot), b = recordOf(applied.bytes, kind, slot);

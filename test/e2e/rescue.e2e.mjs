@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { setUp, go } from "./harness.mjs";
-import RESCUE, { STATUS } from "../../data/rescue.mjs";
+import { FLOW, BUTTONS, CASES, FOLDERS, DEVICES } from "../../data/rescue.mjs";
 
 // axe is a dev dependency; without it only the checks that axe would add are skipped.
 const axe = await import("./support/axe.mjs").catch(() => null);
@@ -18,7 +18,19 @@ async function open(viewport) {
   return page;
 }
 
-const openAll = page => page.locator("#cee-rescue details").evaluateAll(list => list.forEach(d => d.setAttribute("open", "")));
+/** Until Blechy has said everything that follows by itself. */
+const settle = page => page.locator("#cee-rescue-answers:not([data-waiting])").waitFor({ state: "attached" });
+/** Answer Blechy with the button of that text. */
+const answer = (page, text) => page.locator("#cee-rescue-answers button", { hasText: text }).first().click();
+/** Every answer button until the flow ends, always the first one: one whole walk through a case. */
+async function walk(page) {
+  for (let i = 0; i < 12; i++) {
+    await settle(page);
+    if (!await page.locator("#cee-rescue-answers button").count()) return;
+    await page.locator("#cee-rescue-answers button").first().click();
+  }
+}
+const said = async page => { await settle(page); return page.locator("#cee-rescue-chat .cee-rescue-say").last().textContent(); };
 
 test("Rettung is an entry of the sidebar, and the navbar names the page", async () => {
   const page = await h.page();
@@ -30,80 +42,108 @@ test("Rettung is an entry of the sidebar, and the navbar names the page", async 
   assert.deepEqual(page.errors, []);
 });
 
-test("the stop sign says the bootloader is never touched and that beyond that only JTAG helps", async () => {
+test("Blechy asks first what the device shows; the four cases are the answers", async () => {
   const page = await open();
-  const stop = page.locator("#cee-rescue-stop");
-  assert.equal(await stop.isVisible(), true);
-  assert.equal(await stop.getAttribute("role"), "note");
-  assert.equal(await stop.getAttribute("aria-labelledby"), "cee-rescue-stop-title");
-  assert.match(await page.locator("#cee-rescue-stop-title").textContent(), /^Stopp/, "a word, not only a colour");
-  const text = await stop.textContent();
-  assert.match(text, /Bootloader/);
-  assert.match(text, /nie/);
-  assert.match(text, /JTAG/);
-  assert.match(text, /nichts weiter ausprobieren/i);
-  const first = await page.evaluate(() => [...document.querySelectorAll("#cee-rescue .cee-rescue > *")].findIndex(n => n.id === "cee-rescue-stop"));
-  assert.ok(first <= 2, "the sign stands above the steps");
+  assert.equal(await page.locator("#cee-rescue-chat > li").count(), 1);
+  assert.match(await said(page), /Was siehst du/);
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-blechy").count(), 1, "Blechy speaks");
+  assert.deepEqual(await page.locator("#cee-rescue-answers button .cee-rescue-answer").allTextContents(), CASES.map(c => c.label));
+  assert.deepEqual(page.errors, []);
 });
 
-test("the folder for each running firmware is the documented one, and what no measurement backs is marked open", async () => {
+test("it starts but something is off: EXIT first, then the backup or Korg's file, the folder of the running firmware, SOFTWARE UPDATE", async () => {
   const page = await open();
-  const rows = await page.locator("#cee-rescue-folders > li").evaluateAll(list => list.map(li => ({
-    running: li.querySelector("strong").textContent,
-    path: li.querySelector("code.cee-rescue-path").textContent,
-    pill: li.querySelector(".cee-status").textContent,
-  })));
-  assert.deepEqual(rows, [
-    { running: "Läuft Hacktribe", path: "KORG/hacktribe/System/SYSTEM.VSB", pill: STATUS.gemessen.text },
-    { running: "Läuft BLECH", path: "KORG/blechtribe/System/SYSTEM.VSB", pill: STATUS.gemessen.text },
-    { running: "Läuft Korgs Original", path: "KORG/electribe sampler/System/SYSTEM.VSB", pill: STATUS.offen.text },
-  ]);
-  const blech = await page.locator("#cee-rescue-folders > li:nth-child(2)").textContent();
-  assert.match(blech, /am Gerät gesehen/);
-  assert.doesNotMatch(blech, /auch nach KORG\/hacktribe\/System/);
+  await answer(page, CASES[0].label);
+  assert.match(await said(page), /EXIT gedrückt halten/);
+  await answer(page, "Hat geholfen");
+  assert.match(await said(page), /SD-Karte raus/, "EXIT only helps once, so the card comes out next");
+  await answer(page, "Ohne Karte läuft sie");
+  assert.deepEqual(await page.locator("#cee-rescue-chat .cee-rescue-path").allTextContents(), ["KORG/blechtribe/Plugin/e2sPlugin.all", "KORG/blechtribe/settings.a.bin", "KORG/blechtribe/settings.b.bin"]);
+  await answer(page, "Läuft jetzt");
+  assert.match(await said(page), /das bleibt jetzt so/);
+  await page.click("#cee-rescue-again");
+  await answer(page, CASES[0].label);
+  await answer(page, "Hilft nicht");
+  assert.match(await said(page), /Original-SYSTEM\.VSB/);
+  await answer(page, "Ja, hab ich");
+  const folders = page.locator("#cee-rescue-answers .cee-rescue-folder");
+  assert.deepEqual(await folders.locator(".cee-rescue-answer").allTextContents(), FOLDERS.map(f => f.title));
+  assert.equal(await folders.locator("svg.cee-e2-outline").count(), FOLDERS.length, "each with its Electribe drawn in lines, like on the Features page");
+  await answer(page, FOLDERS[3].title);
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), FOLDERS[3].path);
+  await answer(page, "Liegt drauf");
+  assert.match(await said(page), /SOFTWARE UPDATE.*FACTORY RESET, das nicht nehmen/s);
+  await answer(page, "Läuft wieder");
+  assert.match(await said(page), /läuft wieder/);
+  await page.click("#cee-rescue-again");
+  assert.equal(await page.locator("#cee-rescue-chat > li").count(), 1, "Von vorn starts over");
+  await answer(page, CASES[0].label);
+  await answer(page, "Hilft nicht");
+  await answer(page, "Nein, oder weiß nicht");
+  assert.match(await said(page), /Welche Farbe/, "without a backup Korg's own file comes from Korg's page");
+  await answer(page, DEVICES.blue.title);
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-say a", { hasText: "Korgs Download-Seite" }).last().getAttribute("href"), "https://www.korg.com/us/support/download/product/0/367/#software");
+  await answer(page, "Hab ich");
+  assert.match(await said(page), /Welche Firmware läuft/);
+  assert.deepEqual(page.errors, []);
 });
 
-test("four cases open from the keyboard, and every step says how sure it is and where it comes from", async () => {
+test("only answers on the page: no evidence markers, no folds", async () => {
   const page = await open();
-  assert.deepEqual(await page.locator("#cee-rescue .cee-rescue-case").evaluateAll(l => l.map(d => d.id)), RESCUE.cases.map(c => `cee-rescue-case-${c.id}`));
-  const summary = page.locator("#cee-rescue-case-zero > summary");
-  await summary.focus();
-  assert.equal(await page.locator("#cee-rescue-case-zero").evaluate(d => d.open), false);
-  await page.keyboard.press("Enter");
-  assert.equal(await page.locator("#cee-rescue-case-zero").evaluate(d => d.open), true);
-  await openAll(page);
-  const steps = page.locator("#cee-rescue .cee-rescue-step");
-  assert.equal(await steps.count(), RESCUE.cases.reduce((n, c) => n + c.steps.length, 0));
-  const words = new Set(Object.values(STATUS).map(s => s.text));
-  for (const step of await steps.evaluateAll(l => l.map(li => ({ pill: li.querySelector(".cee-status")?.textContent, source: li.querySelector(".cee-rescue-source code")?.textContent })))) {
-    assert.ok(words.has(step.pill), `a step without a status: ${step.pill}`);
-    assert.match(step.source, /^docs\/.+\.md$/, "a step without a source");
+  for (const c of CASES) {
+    await page.click("#cee-rescue-again");
+    await answer(page, c.label);
+    await walk(page);
   }
+  assert.equal(await page.locator("#cee-rescue-chat .cee-status, #cee-rescue-chat details").count(), 0);
+  assert.doesNotMatch(await page.locator("#cee-rescue-chat").textContent(), /gemessen|offline gelesen|Woher wir das wissen/);
 });
 
-test("the recovery the docs measured reads as steps: EXIT, the file in the folder, SOFTWARE UPDATE", async () => {
+test("00 goes through the update prompt with Korg's file for the colour, and says where to ask when it does not help", async () => {
   const page = await open();
-  await openAll(page);
-  const starts = await page.locator("#cee-rescue-case-starts").textContent();
-  for (const part of [/gehaltenem EXIT/, /SYSTEM\.VSB/, /Prüfsumme/, /SOFTWARE UPDATE/, /FACTORY RESET/, /nicht bestätigen/]) assert.match(starts, part);
-  const prompt = await page.locator("#cee-rescue-case-prompt").textContent();
-  assert.match(prompt, /KORG\/electribe sampler\/System\/SYSTEM\.VSB/);
-  assert.match(prompt, /ENTER/);
-  assert.match(prompt, /Error, Invalid File/);
-  const zero = await page.locator("#cee-rescue-case-zero").textContent();
-  assert.match(zero, /Panel-Update/);
-  assert.match(zero, /nicht gemessen/, "no recovery for 00 is claimed");
-  assert.match(await page.locator("#cee-rescue-case-silent").textContent(), /JTAG/);
+  await answer(page, CASES.find(c => c.id === "zero").label);
+  assert.match(await said(page), /warte/, "first wait for the panel update");
+  await answer(page, "Es bleibt bei 00");
+  assert.match(await said(page), /Welche Farbe/, "the card follows by itself, then the question");
+  await answer(page, DEVICES.red.title);
+  await answer(page, "Hab ich");
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), DEVICES.red.path);
+  await answer(page, "Liegt drauf");
+  assert.match(await said(page), /ENTER/);
+  await answer(page, "Klappt nicht");
+  assert.match(await said(page), /GitHub Issue/, "the end follows by itself");
+  const issue = new URL(await page.locator("#cee-rescue-chat a", { hasText: "als GitHub Issue" }).last().getAttribute("href"));
+  assert.equal(issue.pathname, "/KuhlerBuhler/kuhlers-gelumpe/issues/new");
+  assert.equal(issue.searchParams.get("title"), `Rettung: ${CASES.find(c => c.id === "zero").label}`);
+  assert.match(issue.searchParams.get("body"), /- Es bleibt bei 00\n- Rot: Electribe Sampler\n- Hab ich\n- Liegt drauf\n- Klappt nicht/, "the answers are in the issue");
+  const chat = await page.locator("#cee-rescue-chat").textContent();
+  assert.match(chat, /Bedienfeld/);
+  assert.doesNotMatch(await page.locator("#cee-rescue-chat .cee-rescue-bubble > p").allTextContents().then(t => t.join(" ")), /Bootloader|JTAG|0x96/, "no jargon up front");
+  assert.deepEqual(page.errors, []);
 });
 
-test("what is open is marked open: the BLECH notch, the factory path and 00 carry the open status", async () => {
+test("a device that shows nothing: first the power, then calm words and the official guide", async () => {
   const page = await open();
-  await openAll(page);
-  const open_ = await page.locator("#cee-rescue .cee-rescue-step").evaluateAll(l => l.filter(li => li.querySelector(".cee-status").dataset.tone === "warn").length);
-  const wanted = RESCUE.cases.flatMap(c => c.steps).filter(s => s.status === "offen").length;
-  assert.equal(open_, wanted);
-  assert.ok(wanted >= 5);
-  assert.equal(await page.locator("#cee-rescue-case-zero .cee-status[data-tone=ok]").count(), 0, "nothing about 00 is measured on the device");
+  await answer(page, CASES.find(c => c.id === "silent").label);
+  assert.match(await said(page), /Netzteil/);
+  await answer(page, "Immer noch nichts");
+  await settle(page);
+  const chat = await page.locator("#cee-rescue-chat").textContent();
+  assert.match(chat, /nichts auf eigene Faust/);
+  assert.match(chat, /GitHub Issue/);
+  const source = page.locator("#cee-rescue-chat .cee-rescue-source").last();
+  assert.match(await source.textContent(), /Quelle: Debrick-Anleitung von Hacktribe/);
+  assert.equal(await source.locator("a").getAttribute("href"), "https://github.com/bangcorrupt/hacktribe/wiki/Debrick");
+  assert.equal(await page.locator("#cee-rescue-chat img[src$='angry.png']").count(), 0, "Blechy does not get angry");
+});
+
+test("the prompt case names the factory path", async () => {
+  const page = await open();
+  await answer(page, CASES.find(c => c.id === "prompt").label);
+  await answer(page, DEVICES.red.title);
+  await answer(page, "Hab ich");
+  const text = await page.locator("#cee-rescue-chat").textContent();
+  assert.match(text, /KORG\/electribe sampler\/System\/SYSTEM\.VSB/);
 });
 
 test("the start page and the patcher link to the page, and the link works", async () => {
@@ -113,24 +153,28 @@ test("the start page and the patcher link to the page, and the link works", asyn
   await page.locator("#cee-area-rescue:not([hidden])").waitFor();
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Rettung");
   await page.click("#cee-tab-patcher");
-  assert.equal(await page.getAttribute("#cee-patch-rescue", "href"), "#rescue");
-  await page.click("#cee-patch-rescue");
-  await page.locator("#cee-area-rescue:not([hidden])").waitFor();
-  assert.equal(await page.locator("#cee-rescue-stop").isVisible(), true);
+  assert.equal(await page.getAttribute("#cee-patch-step-4 #cee-patch-rescue", "href"), "#rescue", "the patcher names it where the copy goes onto the device");
+  assert.equal(await page.locator("#cee-patch-step-1 #cee-patch-rescue").count(), 0, "not where only a file is loaded");
+  assert.equal(await page.locator("#cee-rescue-answers").count(), 1);
 });
 
-test("no serious axe violation, wide and on a phone", { skip: axe ? false : "@axe-core/playwright is not installed" }, async () => {
+test("no serious axe violation, wide and on a phone, at the start and deep in a case", { skip: axe ? false : "@axe-core/playwright is not installed" }, async () => {
   for (const viewport of [undefined, { width: 375, height: 800 }]) {
     const page = await open(viewport);
-    await openAll(page);
-    assert.deepEqual(await axe.severeViolations(page), [], `axe at ${viewport?.width ?? "desktop"}`);
+    assert.deepEqual(await axe.severeViolations(page), [], `axe at ${viewport?.width ?? "desktop"}, the first question`);
+    await answer(page, CASES[0].label);
+    await answer(page, "Hilft nicht");
+    await answer(page, "Ja, hab ich");
+    assert.deepEqual(await axe.severeViolations(page), [], `axe at ${viewport?.width ?? "desktop"}, the folders`);
     assert.deepEqual(page.errors, []);
   }
 });
 
 test("on a phone the page does not scroll sideways and nothing sticks out", async () => {
   const page = await open({ width: 375, height: 800 });
-  await openAll(page);
+  await answer(page, CASES[0].label);
+  await answer(page, "Hilft nicht");
+  await answer(page, "Ja, hab ich");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(overflow <= 0, `the page scrolls sideways by ${overflow}px`);
   const wide = await page.evaluate(() => [...document.querySelectorAll("#cee-rescue *")].filter(n => n.getBoundingClientRect().right > innerWidth + 1).map(n => n.className || n.tagName));
@@ -138,34 +182,32 @@ test("on a phone the page does not scroll sideways and nothing sticks out", asyn
   assert.deepEqual(page.errors, []);
 });
 
-test("the page text has no em or en dash and no absolute personal path", async () => {
+test("what is only to read follows by itself after a second, a step to do waits for its answer, and back skips what came by itself", async () => {
   const page = await open();
-  await openAll(page);
-  const text = await page.locator("#cee-rescue").textContent();
-  assert.doesNotMatch(text, /[\u2013\u2014]/);
-  assert.doesNotMatch(text, /\/Users\//);
+  await answer(page, CASES.find(c => c.id === "prompt").label);
+  assert.equal(await page.locator("#cee-rescue-answers").getAttribute("data-waiting"), "", "Blechy is still talking");
+  const t0 = Date.now();
+  await settle(page);
+  assert.ok(Date.now() - t0 >= 800, "about a second before the next message");
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-say").count(), 3, "the explanation and the question, no button in between");
+  await page.click("#cee-rescue-back");
+  assert.equal(await page.locator("#cee-rescue-chat > li").count(), 1, "back lands on the first question");
+  await answer(page, CASES.find(c => c.id === "prompt").label);
+  await settle(page);
+  await answer(page, DEVICES.red.title);
+  await page.locator("#cee-rescue-answers button", { hasText: "Hab ich" }).waitFor();
+  assert.match(await said(page), /Lade bei Korg/, "the step to do waits");
+  assert.deepEqual(page.errors, []);
 });
 
-test("every accordion chevron sits inside its summary, vertically centred, with the text left-aligned", async () => {
-  const page = await open({ width: 1440, height: 900 });
-  await openAll(page);
-  const rows = await page.locator("#cee-rescue details.ui-details > summary").evaluateAll(list => list.map(s => {
-    const box = s.getBoundingClientRect();
-    const after = getComputedStyle(s, "::after");
-    const parts = [...s.children].map(c => c.getBoundingClientRect());
-    return {
-      display: getComputedStyle(s).display, align: getComputedStyle(s).textAlign, alignItems: getComputedStyle(s).alignItems,
-      column: after.gridColumnStart, rows: after.gridRowEnd,
-      textRight: Math.max(...parts.map(p => p.right)), summaryRight: box.right, labelLeft: parts[0].left, summaryLeft: box.left,
-    };
-  }));
-  assert.ok(rows.length >= 4);
-  for (const r of rows) {
-    assert.equal(r.display, "grid");
-    assert.equal(r.alignItems, "center", "the chevron is centred on the row");
-    assert.match(r.align, /left|start/);
-    assert.equal(r.column, "2", "the chevron has a column of its own");
-    assert.ok(r.textRight < r.summaryRight - 8, "the text does not run under the chevron");
-    assert.ok(r.labelLeft - r.summaryLeft < 40, "the title starts at the left");
+test("the page text has no em or en dash and no absolute personal path", async () => {
+  const page = await open();
+  for (const c of CASES) {
+    await page.click("#cee-rescue-again");
+    await answer(page, c.label);
+    await walk(page);
+    const text = await page.locator("#cee-rescue").textContent();
+    assert.doesNotMatch(text, /[–—]/);
+    assert.doesNotMatch(text, /\/Users\//);
   }
 });

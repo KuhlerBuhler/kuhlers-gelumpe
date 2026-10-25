@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { API, EVENTS, SCRIPT_APPS } from "../data/script/contract.mjs";
 import { KEY_NAMES, LED_NAMES } from "../data/script/names.mjs";
+import { PROPERTIES, KNOB_NAMES } from "../data/script/properties.mjs";
 import { compile } from "../src/script/compiler.mjs";
 import { completionsAt, callAt, hoverAt, errorRange, allowedIn, rangeText } from "../src/script/editor-model.mjs";
 
@@ -27,9 +28,11 @@ test("korg.disp offers every korg.display entry, each with a description, its pa
   assert.equal(display.find(o => o.label === "korg.display.take").info.returns, "eine ganze Zahl");
 });
 
-test("the completions after korg. cover every API entry once, korg.onEvent and the key names, all described", () => {
+test("the completions after korg. cover every property and API entry once, korg.onEvent and the key names, all described", () => {
   const result = complete("korg.|");
-  assert.deepEqual(labels(result).filter(l => l !== "korg.onEvent" && l !== "korg.key"), API.map(a => a.name));
+  const props = result.options.filter(o => o.type === "property");
+  assert.deepEqual(props.map(o => o.label), PROPERTIES.map(p => p.path.replace("[]", "[i]")));
+  assert.deepEqual(result.options.filter(o => o.type === "function").map(o => o.label).filter(l => l !== "korg.onEvent"), API.map(a => a.name));
   assert.ok(labels(result).includes("korg.onEvent"));
   for (const o of result.options) {
     assert.ok(o.info.text?.trim(), `${o.label} has a description`);
@@ -37,8 +40,19 @@ test("the completions after korg. cover every API entry once, korg.onEvent and t
   }
   assert.equal(result.options.find(o => o.label === "korg.menu.add").info.allowed, "nur im Rumpf und in ready");
   assert.equal(result.options.find(o => o.label === "korg.app").info.allowed, "nur im Rumpf");
-  assert.equal(result.options.find(o => o.label === "korg.millis").info.allowed, "überall");
+  assert.equal(result.options.find(o => o.label === "korg.millis" && o.type === "function").info.allowed, "überall");
+  assert.equal(props.find(o => o.label === "korg.tempo").info.allowed, "lesen überall; setzen in allen Ereignissen außer dem Rumpf und save");
+  assert.equal(props.find(o => o.label === "korg.parts[i].muted").snippet, "korg.parts[${1:i}].muted");
   assert.equal(result.options.find(o => o.label === "korg.key").retrigger, true);
+});
+
+test("korg.knobs. offers the knob names, and a property reads differently from the call of the same name", () => {
+  assert.deepEqual(labels(complete("let a = korg.knobs.|")), KNOB_NAMES.map(k => k.name));
+  const text = "korg.tempo = 1200;\nkorg.tempo(1200);\nlet a = korg.parts[2].step + korg.knobs.LEVEL;";
+  assert.equal(hoverAt(text, 3).info.signature, "korg.tempo");
+  assert.equal(hoverAt(text, 22).info.signature, "korg.tempo(tenthsBpm)");
+  assert.match(hoverAt(text, text.indexOf("parts") + 1).info.text, /korg\.parts\[i\]\.step: .*korg\.parts\[i\]\.muted: /);
+  assert.equal(hoverAt(text, text.indexOf("LEVEL") + 1).info.signature, "korg.knobs.LEVEL");
 });
 
 test("a short start offers korg, and ordinary words offer nothing", () => {
