@@ -167,11 +167,14 @@ npm start           # page and emulator together
 the emulator `npm run serve` is enough and `setup:emu` is not needed. To talk to the device you need
 Chrome or Edge on a desktop computer: the page uses Web MIDI with SysEx, which Safari does not have.
 
+The desktop app uses native MIDI ports on macOS and Linux. It needs no additional browser
+or separately installed MIDI helper. On Windows the app keeps its existing Web MIDI path.
+
 **Build the app yourself** (Tauri v2). Once: Node 20+, Python 3.10+, Rust via `rustup` and
 `cargo install tauri-cli --version "^2" --locked`. Plus per system: on macOS the Xcode Command Line
 Tools, on Windows the Visual Studio Build Tools with "Desktop development with C++", on Linux
 `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev
-patchelf python3-venv`.
+patchelf python3-venv libasound2-dev`.
 
 ```bash
 npm ci

@@ -33,11 +33,31 @@ export const BLECH_WRITE = 0x1000;
 
 const ELECTRIBE = /electribe/i;
 
-/** Ports that look like an Electribe, paired by name, so the page can ask when there is more than one. */
+/** Windows names a device's second MIDI jack "MIDIOUT2 (name)" and "MIDIIN2 (name)"; both become "MIDI2 (name)". */
+const pairKey = name => name.replace(/^MIDI(?:IN|OUT)(\d+)/i, "MIDI$1");
+/** The device a port belongs to: its name without Windows' jack number and without the jack's own name. */
+const deviceOf = name => name.replace(/^MIDI(?:IN|OUT)\d+\s*\((.*)\)$/i, "$1").replace(/[\s_]*(PAD\/KNOB|SOUND)\s*$/i, "").trim();
+/** The jack that answers SysEx comes first: the first one of the device, not PAD/KNOB. */
+const jackRank = name => (/^MIDI(?:IN|OUT)\d+/i.test(name) ? 2 : 0) + (/PAD\/KNOB/i.test(name) ? 1 : 0);
+
+/**
+ * Ports that look like an Electribe, paired by name, one pair per device, so the page asks only when there are
+ * really several. An Electribe has two jacks per direction (SOUND and PAD/KNOB); a jack without an input of its
+ * name never answers and is left out.
+ */
 export function electribePorts(access) {
   const outs = [...access.outputs.values()].filter(p => ELECTRIBE.test(p.name));
   const ins = [...access.inputs.values()].filter(p => ELECTRIBE.test(p.name));
-  return outs.map(out => ({ out, in: ins.find(i => i.name === out.name) ?? null, name: out.name }));
+  const pairs = outs
+    .map(out => ({ out, in: ins.find(i => i.name === out.name) ?? ins.find(i => pairKey(i.name) === pairKey(out.name)) ?? null, name: out.name }))
+    .filter(p => p.in);
+  const best = new Map();
+  for (const p of pairs) {
+    const device = deviceOf(p.name);
+    const kept = best.get(device);
+    if (!kept || jackRank(p.name) < jackRank(kept.name)) best.set(device, p);
+  }
+  return pairs.filter(p => best.get(deviceOf(p.name)) === p);
 }
 
 export const newCarry = () => ({ blocked: null, pending: null, history: [] });

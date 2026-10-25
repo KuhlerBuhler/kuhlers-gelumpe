@@ -1,9 +1,10 @@
 /**
- * The device panel: connect over Web MIDI, show what the device said, and
+ * The device panel: connect over MIDI, show what the device said, and
  * why it may only be read when that is the case.
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
+import { createMidiTransport } from "./midi.mjs";
 import { DeviceSession, electribePorts, newCarry } from "../../src/session.mjs";
 
 const pill = (tone, word) => {
@@ -14,6 +15,9 @@ const pill = (tone, word) => {
 
 export function devicePanel(root, { onSession, emulator = () => null, probe, view = () => null }) {
   let session = null;
+  const midi = createMidiTransport(window);
+  let connection = 0;
+  window.addEventListener("pagehide", () => { connection++; session?.lost(); midi.dispose().catch(() => {}); });
   // What went wrong survives a reconnect: one carry per port name.
   const carries = new Map();
   const status = el("div", { className: "cee-device-status ui-sr-only", role: "status" });
@@ -108,64 +112,90 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   }
 
   async function connectPort(port) {
-    if (session && session.port !== emulator()) session.lost();
+    const attempt = ++connection;
+    const previous = session;
+    session = null;
+    if (previous && previous.port !== emulator()) previous.lost();
+    let candidate;
     try {
-      if (port === emulator()) {
-        session = await probe();
-        showDevice(session.device);
-      } else {
-        if (!carries.has(port.name)) carries.set(port.name, newCarry());
-        session = new DeviceSession({ port, carry: carries.get(port.name) });
-        showDevice(await session.connect());
+      if (previous && previous.port !== emulator()) {
+        const closed = await midi.closePort(previous.port);
+        if (closed?.state === "quarantined") throw new Error("Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest.");
       }
+      if (attempt !== connection) return;
+      if (port === emulator()) {
+        candidate = await probe();
+      } else {
+        await midi.openPort(port);
+        if (attempt !== connection) { await midi.closePort(port); return; }
+        if (!carries.has(port.name)) carries.set(port.name, newCarry());
+        candidate = new DeviceSession({ port, carry: carries.get(port.name) });
+        await candidate.connect();
+      }
+      if (attempt !== connection) { candidate.lost(); await midi.closePort(port); return; }
+      session = candidate;
+      showDevice(session.device);
       await attachRehearsal();
+      if (attempt !== connection) return;
       showDecision();
       view()?.external(port !== emulator());
       onSession(session);
     } catch (e) {
+      candidate?.lost();
+      const closed = port !== emulator() ? await midi.closePort(port, { refresh: false }).catch(() => null) : null;
+      if (attempt !== connection) return;
       view()?.external(false);
-      say("error", "keine Antwort", `Die Electribe antwortet nicht. Ist sie eingeschaltet und per USB angesteckt? Dann nochmal verbinden. (${e.message})`);
+      say("error", "keine Antwort", closed?.state === "quarantined"
+        ? `Die MIDI-Verbindung ist unterbrochen. Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest. Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen. (${e.message})`
+        : `Die Electribe antwortet nicht. Ist sie eingeschaltet und per USB angesteckt? Dann nochmal verbinden. (${e.message})`);
       session = null;
       onSession(null);
     }
   }
 
   async function connect() {
-    if (!navigator.requestMIDIAccess) {
-      // The desktop app runs in the system's WebKit (Apple's on the Mac, WebKitGTK on Linux): neither has Web MIDI.
-      say("error", "nicht möglich", window.__GELUMPE_APP
-        ? "Die App kann noch nicht mit der echten Electribe reden, ihr fehlt Web MIDI. Nimm dafür Chrome oder Edge am Rechner."
-        : "Dieser Browser kann nicht mit der Electribe reden. Nimm die App oder Chrome oder Edge am Rechner. Safari geht nicht.");
+    if (!midi.supported) {
+      say("error", "nicht möglich", "Dieser Browser kann nicht mit der Electribe reden. Nimm die App oder Chrome oder Edge am Rechner. Safari geht nicht.");
       return;
     }
     let access;
     try {
       window.ui?.busy(button, true);
-      access = await navigator.requestMIDIAccess({ sysex: true });
-    } catch {
-      say("error", "verweigert", "Der Zugriff auf MIDI wurde abgelehnt. Ohne ihn erreicht die App die Electribe nicht. Lade die Seite neu und klick bei der Frage auf Erlauben.");
+      access = await midi.requestAccess();
+    } catch (e) {
+      say("error", "nicht möglich", midi.native
+        ? `Die MIDI-Verbindung konnte nicht geöffnet werden. ${e.message ?? e}`
+        : "Der Zugriff auf MIDI wurde abgelehnt. Ohne ihn erreicht die App die Electribe nicht. Lade die Seite neu und klick bei der Frage auf Erlauben.");
       return;
     } finally {
       window.ui?.busy(button, false);
     }
     access.onstatechange = e => {
       if (session && e.port.state === "disconnected" && (e.port === session.port.out || e.port === session.port.in)) {
-        session.lost();
+        const lost = session;
+        connection++;
+        lost.lost();
+        midi.closePort(lost.port, { refresh: false }).catch(() => {});
+        onSession(lost);
         view()?.external(false);
-        say("error", "getrennt", "Die Electribe wurde abgesteckt. Steck sie wieder an und verbinde neu. Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen.");
+        say("error", "getrennt", `Die Electribe wurde abgesteckt oder die MIDI-Verbindung ist unterbrochen. ${e.quarantined ? "Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest." : "Verbinde neu."} Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen.${e.message ? ` (${e.message})` : ""}`);
       }
     };
     const ports = electribePorts(access);
+    choose.hidden = true;
+    choose.replaceChildren();
     if (!ports.length) {
       say("warn", "nicht gefunden", "Keine Electribe gefunden. Steck sie per USB an und schalte sie ein.");
       return;
     }
     if (ports.length > 1) {
       const select = el("select", { className: "select", id: "cee-port" });
+      select.append(el("option", { value: "", textContent: "Electribe auswählen", disabled: true, selected: true }));
       ports.forEach((p, i) => select.append(el("option", { value: String(i), textContent: p.name })));
       select.addEventListener("change", () => connectPort(ports[Number(select.value)]));
       choose.replaceChildren(el("label", { className: "ui-field-label", htmlFor: "cee-port", textContent: "Mehrere Electribes gefunden, welche?" }), select);
       choose.hidden = false;
+      return;
     }
     await connectPort(ports[0]);
   }
@@ -200,13 +230,13 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   }
   setInterval(showLeds, 250);
 
-  /** Whether an Electribe is plugged in, asked every few seconds; only once the browser has granted MIDI, so it never prompts. */
+  /** Detection lists ports without opening them; browser permission is never requested here. */
   let seen = false;
   async function detect() {
-    if (session || document.hidden || !navigator.requestMIDIAccess || !navigator.permissions) return;
+    if (session || document.hidden || !midi.supported || (!midi.native && !navigator.permissions)) return;
     try {
-      if ((await navigator.permissions.query({ name: "midi", sysex: true })).state !== "granted") return;
-      const found = electribePorts(await navigator.requestMIDIAccess({ sysex: true })).length > 0;
+      if (!midi.native && (await navigator.permissions.query({ name: "midi", sysex: true })).state !== "granted") return;
+      const found = electribePorts(await midi.requestAccess()).length > 0;
       if (found === seen || session) return;
       seen = found;
       if (found) say("neutral", "erkannt", "Eine Electribe ist angesteckt. Klick auf „Mit Electribe verbinden“.");

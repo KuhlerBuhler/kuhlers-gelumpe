@@ -9,12 +9,41 @@ Grundlagen der Patches in [patcher.md](patcher.md).
 Eine statische Seite ohne Server, verteilt nur als App (Tauri). Die App lädt die Seite
 und startet den Emulator-Dienst selbst.
 
-- Die Electribe hängt am Rechner, das MIDI läuft im Browser über Web MIDI mit SysEx.
-  Das braucht Chrome oder Edge auf dem Desktop, Safari kann es nicht.
+- Die Electribe hängt am Rechner. Auf macOS und Linux sendet und empfängt die Desktop-App
+  MIDI nativ über den Rust-Teil von Tauri: CoreMIDI auf macOS und ALSA unter Linux.
+  Die Oberfläche benutzt dafür eine interne Schnittstelle.
+  Beim Start mit `npm start` bleibt es bei Web MIDI mit SysEx in Chrome oder Edge. Safari
+  kann das nicht. Unter Windows bleibt die App vorerst auf dem bisherigen Web-MIDI-Weg.
 - Die Firmware kommt von der eigenen Platte und verlässt den Rechner nie. Es
   liegt nirgends Korg-Firmware auf einem Server.
 - Der Kern in `src/` läuft ohne Node-Bibliotheken im Browser, mit Ausnahme von
   `src/node.mjs`. Die Simulation kann sich als MIDI-Port ausgeben.
+
+### MIDI-Transport
+
+Der Sender wartet auf den Abschluss des Transports und die erwartete Geräteantwort.
+Kommt die Antwort früher, bleibt sie bis zum erfolgreichen Versand zurückgehalten.
+Ein Versandfehler gilt auch dann als Fehler, wenn bereits eine passende Antwort vorliegt.
+Ohne erwartete Antwort endet der Schritt erst nach dem Transportabschluss.
+
+Die Portsuche verwendet midir. Empfang und Versand laufen direkt über CoreMIDI und ALSA,
+damit große Nachrichten begrenzt bleiben: CoreMIDI-Pakete tragen höchstens 1024 Byte,
+ALSA-Ereignisse höchstens 256 Byte mit Entleeren und 2 ms Pause. Ein SysEx-Frame behält
+sein einziges F0 und F7.
+
+Der Rückkanal enthält nur kurze Benachrichtigungen mit Sitzungskennung und Sequenznummer.
+Die Oberfläche holt die Daten einzeln ab und bestätigt jede Nachricht nach der Verarbeitung.
+Bis dahin bleiben die Daten im gemeinsamen Empfangsbudget des nativen Dienstes. Das Budget
+gilt auch über einen Verbindungswechsel hinweg. Während eines Dokumentwechsels sind neue
+Verbindungen gesperrt; erst nach dem bestätigten Laden werden die alten Empfangsdaten freigegeben.
+Große MIDI-Nachrichten landen dadurch nicht in Tauris dauerhafter Channel-Warteschlange.
+
+Der native Dienst besitzt die Ports, begrenzt seine Warteschlangen und versieht jede Verbindung
+mit einer neuen Kennung. Nach einem Abbruch gehören alte Antworten nicht zur neuen Verbindung.
+Ein hängender Betriebssystemaufruf sperrt seine Ports bis zur tatsächlichen Freigabe.
+Es gibt keine automatische Wiederholung eines möglicherweise teilweise gesendeten Schreibbefehls.
+Protokollprüfung, Sicherungen, Linter und Emulatorprobe bleiben im vorhandenen JavaScript-Ablauf.
+
 
 ## Drei Wege aufs Gerät
 
@@ -173,7 +202,7 @@ CRC-32; der Sender bildet die Schritte des Plans (Adresse, dann Daten) auf einen
 ab, wiederholt einen Block mit falscher Prüfsumme zweimal und bricht dann mit der
 Meldung ab. Die Pläne, der Türsteher und die Aufzeichnungen bleiben dieselben für
 beide Wege. Auf Korgs Original mit BLECH erkennt `data/devices.mjs` das Gerät an eigenen
-Signaturen; Display und Sample-Namen sind dort schreibbar, der Effekt-Editor nicht. Das Linux-Werkzeug ersetzt den Web-MIDI-Sender nicht, siehe
+Signaturen; Display und Sample-Namen sind dort schreibbar, der Effekt-Editor nicht. Das Linux-Werkzeug ist von der nativen App-Anbindung und vom Browser-Sender getrennt, siehe
 [tools/alsa-sysex.md](../tools/alsa-sysex.md).
 
 ## Terminal und echtes Gerät: erst der Emulator, dann das Gerät

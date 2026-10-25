@@ -221,11 +221,15 @@ Ohne Emulator reicht `npm run serve`, dann entfällt `setup:emu`. Für die Kommu
 brauchst du Chrome oder Edge auf einem Desktopcomputer, die Seite nutzt Web MIDI mit SysEx, das Safari
 nicht kann.
 
+Die Desktop-App spricht auf macOS und Linux nativ mit den MIDI-Ports. Dafür braucht sie
+keinen zusätzlichen Browser und keinen separat installierten MIDI-Helfer. Unter Windows
+bleibt die App vorerst bei Web MIDI.
+
 **Die App selbst bauen** (Tauri v2). Einmalig: Node 20+, Python 3.10+, Rust über `rustup` und
 `cargo install tauri-cli --version "^2" --locked`. Dazu je nach System: unter macOS die Xcode Command
 Line Tools, unter Windows die Visual Studio Build Tools mit "Desktop development with C++", unter Linux
 `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev
-patchelf python3-venv`.
+patchelf python3-venv libasound2-dev`.
 
 ```bash
 npm ci
