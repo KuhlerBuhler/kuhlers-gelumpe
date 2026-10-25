@@ -232,6 +232,12 @@ auf diesem Commit, das Release wird als neuestes markiert) mit den fünf Dateien
 Releases samt Dateien löschen, die Tags bleiben. Steht die Version schon in `HEAD`, entfallen Commit und
 Push. Nur das neueste Release liegt also auf GitHub.
 
+`--notes=Datei.md` nimmt die Release-Notizen aus der Datei statt GitHubs erzeugter Liste der PRs. Sobald
+das Release veröffentlicht ist, postet der Workflow "Discord release" es über den Webhook im Secret
+`DISCORD_WEBHOOK` (`tools/discord-release.mjs`): Titel "BLECHTRIBE X.Y.Z ist da" mit Link, darunter die
+Notizen, lange in mehreren Nachrichten, zum Schluss eine Nachricht nur mit dem Link zum Release. Notizen erst danach geändert: den Workflow von Hand mit dem Tag
+starten, er postet das Release noch einmal.
+
 Geprüft wird vorher: alle fünf Ziele da, genau eine Datei je Ziel, alle mit der fälligen Version, `gh`
 angemeldet, das Release gibt es noch nicht, `HEAD` ist `origin/main`. Scheitert der Push, liegt der
 Commit lokal: beheben und `git push origin HEAD:main`, dann `npm run release -- --yes` erneut, es läuft

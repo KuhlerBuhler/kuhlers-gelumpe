@@ -14,7 +14,8 @@
  *       version files as "Release vX.Y.Z", push that commit, create the tag on
  *       it and the release on GitHub (gh) with a discussion under Announcements,
  *       then delete every older release.
- *       Tags stay.
+ *       Tags stay. --notes=FILE takes the release notes from FILE (Markdown)
+ *       instead of GitHub's generated list; they are what Discord gets.
  *
  * BLECH.patch and BLECH-for-<sha8>.bsdiff in the folder (npm run build:blech-patch) go up
  * as well; BLECH.patch has to be built for the version that is due.
@@ -39,7 +40,8 @@ const args = process.argv.slice(2);
 const flags = new Set(args.filter(a => a.startsWith("--")));
 const positional = args.filter(a => !a.startsWith("--"));
 const known = ["--minor", "--major", "--yes", "--dry-run"];
-const unknown = [...flags].filter(f => !known.includes(f));
+const notesFlag = [...flags].find(f => f.startsWith("--notes="));
+const unknown = [...flags].filter(f => !known.includes(f) && f !== notesFlag);
 if (unknown.length) fail(`Unbekannte Option: ${unknown.join(", ")}`);
 if (flags.has("--minor") && flags.has("--major")) fail("--minor und --major schließen sich aus.");
 const bump = flags.has("--major") ? "major" : flags.has("--minor") ? "minor" : "patch";
@@ -115,6 +117,15 @@ if (optional.some(f => f.name === "BLECH.patch")) {
   }
 }
 for (const name of ignored) console.log(`  --  ${name}  (wird nicht hochgeladen)`);
+const notes = notesFlag ? resolve(notesFlag.slice("--notes=".length)) : null;
+if (notes) {
+  try {
+    if (!readFileSync(notes, "utf8").trim()) problems.push(`Die Release-Notizen sind leer: ${notes}`);
+    else console.log(`Notizen: ${notes}`);
+  } catch {
+    problems.push(`Release-Notizen nicht lesbar: ${notes}`);
+  }
+}
 
 // Everything below only reads from GitHub; changes happen further down, and only with --yes.
 let repo = "";
@@ -140,7 +151,7 @@ if (problems.length) {
   console.error("\nProbleme:");
   for (const p of problems) console.error(`  - ${p}`);
 }
-const steps = planRelease({ tag, sha, assets: [...files, ...optional].map(f => resolve(dir, f.name)), older, repo, bump: needsBump });
+const steps = planRelease({ tag, sha, assets: [...files, ...optional].map(f => resolve(dir, f.name)), older, repo, bump: needsBump, notes });
 console.log("\nSchritte:");
 steps.forEach((s, i) => console.log(`  ${i + 1}. ${s.what}\n     ${s.cmd} ${s.args.map(a => (/\s/.test(a) ? JSON.stringify(a) : a)).join(" ")}`));
 
