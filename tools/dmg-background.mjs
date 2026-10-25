@@ -21,6 +21,7 @@ const H = HEIGHT / CELL;
 const BG = "#0a0a0b";
 const ACCENT = "#9ec3d1";
 const FG = "#fafafa";
+const PLATE = "#cfe1e8";
 
 const grid = Array.from({ length: H }, () => new Array(W).fill(" "));
 const put = (x, y, c) => {
@@ -62,6 +63,15 @@ const rowMid = Math.round(215 / CELL);
 for (let i = 69; i < 91; i++) for (const j of [rowMid - 1, rowMid]) put(i, j, "A");
 for (let d = 0; d < 6; d++) for (let j = rowMid - 6 + d; j <= rowMid + 5 - d; j++) put(91 + d, j, "A");
 
+// Finder draws the icon labels in black whatever the system theme, so they sit on light plates.
+for (const centre of [180, 480]) {
+  const left = Math.round(centre / CELL) - 18;
+  for (let j = 71; j < 79; j++) for (let i = left; i < left + 37; i++) {
+    const corner = (j === 71 || j === 78) && (i === left || i === left + 36);
+    if (!corner) put(i, j, "B");
+  }
+}
+
 const runs = (chars) => {
   let d = "";
   for (let j = 0; j < H; j++) {
@@ -77,7 +87,7 @@ const runs = (chars) => {
 };
 const layer = (chars, fill, opacity) => `<path fill="${fill}" fill-opacity="${opacity}" d="${runs(chars)}"/>`;
 const art = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${WIDTH}" height="${HEIGHT}" shape-rendering="crispEdges">
-<rect width="${W}" height="${H}" fill="${BG}"/>${layer("F", ACCENT, 0.3)}${layer("S", ACCENT, 0.6)}${layer("A", ACCENT, 1)}${layer("W", FG, 1)}</svg>`;
+<rect width="${W}" height="${H}" fill="${BG}"/>${layer("F", ACCENT, 0.3)}${layer("S", ACCENT, 0.6)}${layer("A", ACCENT, 1)}${layer("B", PLATE, 1)}${layer("W", FG, 1)}</svg>`;
 
 const font = `data:font/woff2;base64,${readFileSync(join(root, "site/design/fonts/sora-latin.woff2")).toString("base64")}`;
 const page = `<!doctype html><meta charset="utf-8"><style>
