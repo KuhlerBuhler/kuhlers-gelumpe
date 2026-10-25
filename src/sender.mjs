@@ -25,10 +25,10 @@ import EXEC from "../data/exec.mjs";
  * 183 ms. The limits keep a wide margin, because those are no worst cases
  * under load and nothing was measured over DIN, in Chrome or on Windows; a
  * pattern over DIN takes about six seconds by calculation. A 16 KiB flash
- * block took 105 ms on average (measure:2026-10-09/flash-dump). Global and quiet
- * are not measured.
+ * block took 105 ms on average (measure:2026-10-09/flash-dump). Global, quiet
+ * and transport are not measured.
  */
-export const TIMEOUTS = { search: 1500, read: 3000, ack: 3000, pattern: 12000, global: 3000, flash: 12000, quiet: 300, info: 400 };
+export const TIMEOUTS = { search: 1500, read: 3000, ack: 3000, pattern: 12000, global: 3000, flash: 12000, quiet: 300, info: 400, transport: 3000 };
 
 /**
  * A BLECH block is answered within the time of the line it travels on: the usual waiting time and 0.4 ms for every byte, which is
@@ -47,12 +47,10 @@ export class SendError extends Error {
   }
 }
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
 export class Sender {
   /**
    * @param {object} io
-   * @param {(msg: number[]) => void} io.send hands one message to the port
+   * @param {(msg: number[]) => void | Promise<void>} io.send hands one message to the port
    * @param {number} [io.channel]
    * @param {object} [io.timeouts]
    */
@@ -85,49 +83,71 @@ export class Sender {
     if (P.isRealtime(data) || data[0] !== 0xf0) return;
     this.lastHeard = Date.now();
     const w = this.waiting;
-    if (!w || !this.accepts(w.step, data)) { this.stray++; return; }
-    this.waiting = null;
-    clearTimeout(w.timer);
-    w.resolve(Array.from(data));
+    if (!w || w.phase === "quiet" || w.reply || !this.accepts(w.step, data)) { this.stray++; return; }
+    w.reply = Array.from(data);
+    if (w.phase === "reply") w.finish(null, w.reply);
   }
 
   /** The port went away. Whatever is waiting fails now instead of at its timeout. */
   disconnect() {
     this.disconnected = true;
-    const w = this.waiting;
-    if (w) { this.waiting = null; clearTimeout(w.timer); w.reject(new SendError("disconnected", "Gerät während der Sendung abgezogen.")); }
-  }
-
-  /** After a timeout: wait until nothing has arrived for a while. */
-  async quiet() {
-    const ms = this.timeouts.quiet;
-    this.lastHeard = Math.max(this.lastHeard, Date.now());
-    while (Date.now() - this.lastHeard < ms) await sleep(ms);
-    this.unsynced = false;
+    this.waiting?.finish(new SendError("disconnected", "Gerät während der Sendung abgezogen."));
   }
 
   async exchange(step) {
     if (this.disconnected) throw new SendError("disconnected", "Kein Gerät verbunden.");
     if (this.waiting) throw new SendError("busy", "Es läuft schon eine Sendung.");
-    if (this.unsynced) await this.quiet();
-    if (step.expect.kind === "none") { this.send(step.msg); return null; }
     return new Promise((resolve, reject) => {
-      const wanted = step.expect.timeout ?? step.expect.kind;
-      const ms = typeof wanted === "number" ? wanted : this.timeouts[wanted];
-      const timer = setTimeout(() => {
-        if (this.waiting?.timer !== timer) return;
+      const w = { step, phase: "quiet", reply: null, timer: null, finish: (error, reply) => {
+        if (this.waiting !== w) return;
+        clearTimeout(w.timer);
         this.waiting = null;
+        if (error) reject(error);
+        else resolve(reply);
+      } };
+      this.waiting = w;
+      const failed = error => {
+        if (this.waiting !== w) return;
         this.unsynced = true;
-        reject(new SendError("timeout", `Keine Antwort innerhalb von ${ms} ms. Auf dem Gerät heißt Schweigen jede Art von Nein.`));
-      }, ms);
-      this.waiting = { resolve, reject, timer, step };
-      try { this.send(step.msg); }
-      catch (e) {
-        clearTimeout(timer);
-        this.waiting = null;
-        this.unsynced = true;
-        reject(new SendError("send", e.message));
-      }
+        w.finish(new SendError("send", error?.message ?? String(error)));
+      };
+      const sent = () => {
+        if (this.waiting !== w) return;
+        clearTimeout(w.timer);
+        if (step.expect.kind === "none") { w.finish(null, null); return; }
+        if (w.reply) { w.finish(null, w.reply); return; }
+        w.phase = "reply";
+        const wanted = step.expect.timeout ?? step.expect.kind;
+        const ms = typeof wanted === "number" ? wanted : this.timeouts[wanted];
+        w.timer = setTimeout(() => {
+          if (this.waiting !== w) return;
+          this.unsynced = true;
+          w.finish(new SendError("timeout", `Keine Antwort innerhalb von ${ms} ms. Auf dem Gerät heißt Schweigen jede Art von Nein.`));
+        }, ms);
+      };
+      const send = () => {
+        w.phase = "send";
+        const ms = this.timeouts.transport + Math.ceil(step.msg.length * LINE_MS_PER_BYTE);
+        w.timer = setTimeout(() => {
+          if (this.waiting !== w) return;
+          this.unsynced = true;
+          this.disconnected = true;
+          w.finish(new SendError("send-timeout", `Versand nach ${ms} ms nicht abgeschlossen. Verbindung neu öffnen.`));
+        }, ms);
+        try { Promise.resolve(this.send(step.msg)).then(sent, failed); }
+        catch (error) { failed(error); }
+      };
+      const quiet = () => {
+        if (this.waiting !== w) return;
+        const ms = this.timeouts.quiet;
+        if (Date.now() - this.lastHeard < ms) { w.timer = setTimeout(quiet, ms); return; }
+        this.unsynced = false;
+        send();
+      };
+      if (this.unsynced) {
+        this.lastHeard = Math.max(this.lastHeard, Date.now());
+        quiet();
+      } else send();
     });
   }
 
