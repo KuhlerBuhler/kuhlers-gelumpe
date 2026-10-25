@@ -164,3 +164,22 @@ jobs:
           touch "src-tauri/binaries/Gelumpe Emulator-$triple$([ "$RUNNER_OS" = Windows ] && echo .exe)"
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+  # Build and checks run side by side, so the files are uploaded before a failing check is known. A red run must leave
+  # nothing behind that could be released by mistake: then this job deletes the run's artifacts.
+  discard:
+    needs: [build, check]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Delete the artifacts of this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '.artifacts[].id'); do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id"
+            echo "deleted artifact $id"
+          done

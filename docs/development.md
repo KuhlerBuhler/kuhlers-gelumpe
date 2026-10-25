@@ -198,7 +198,8 @@ kommen alle in den Ordner `dist-release/` im Repo auf dem Rechner, der das Relea
 
 Auf GitHub baut der Workflow "Build apps" (von Hand starten, mit der Version) Windows, Linux und,
 wenn angehakt, macOS Apple Silicon gleichzeitig, daneben laufen `cargo test` und `cargo clippy` je
-System. Die Dateien liegen danach als Artefakte am Lauf. Rust-Abhängigkeiten und das eingefrorene
+System. Die Dateien liegen danach als Artefakte am Lauf; schlägt ein Build oder ein Test fehl, löscht der
+letzte Job sie wieder, damit aus einem roten Lauf nichts veröffentlicht wird. Rust-Abhängigkeiten und das eingefrorene
 Sidecar kommen aus dem Cache von GitHub, solange sich ihre Quellen nicht geändert haben; ein Cache, der
 sieben Tage nicht benutzt wurde, ist weg, dann dauert der nächste Lauf länger.
 
