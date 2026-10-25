@@ -531,6 +531,13 @@ def case_unsaved(payload, flash):
     clean.turn(1)
     out.append(entry("saved_wheel_is_stock", clean.view() == (1, 1, 0) and clean.flags()[0] in (0, 0xFFFFFFFF),
                      f"without changes a click loads at once as always: {clean.view()}"))
+    # the MFX pad's X and Y (0x3E, 0x3F) differ from the bank after a touch of the pad: no edit, the click loads (device wish 25.10.)
+    touched = Box(payload, flash)
+    xy = touched.u32(0xC033E6A4) + 4 + 0x3E
+    touched.m.uc.mem_write(xy, bytes(b ^ 0x40 for b in touched.dev.read(xy, 2)))
+    touched.turn(1)
+    out.append(entry("pad_xy_is_not_an_edit", touched.view() == (1, 1, 0) and not touched.m.asserts,
+                     f"pad X and Y changed in RAM, a click: {touched.view()}"))
     if not clean.dev.synth:
         # saved with the MFX pad touched (byte 0x3C = 1, HOLD off): the load writes 0 there; that is no edit (device report 19.10.)
         pad = Box(payload, flash)
@@ -579,12 +586,15 @@ def case_unsaved(payload, flash):
 def case_sync_group(payload, flash):
     """Sync groups (all builds; on the synth since 24.10.): the wheel on another pattern of the running pattern's group confirms it at once, a pattern of
     another group only browses; between two patterns of one group the state of the pattern that played (part mutes and sound,
-    tempo) carries over, changed or not, and back again; the steps stay the new pattern's; into any other pattern nothing carries."""
+    tempo) carries over, changed or not, and back again; a part's sample only when it was changed live; the steps stay the new pattern's;
+    into any other pattern nothing carries; a pad pressed during the load counts."""
+    import unicorn
     out = []
     live = lambda b: b.u32(0xC033E6A4) + 4
     rd = lambda b, at, n=1: bytes(b.dev.read(live(b) + at, n))
     mutes = lambda b: [rd(b, 0x800 + 0x330 * k + 1)[0] for k in range(16)]
     P1, P2 = 0x800, 0x800 + 0x330
+    BUSY_PTR = 0xC034057C                         # the firmware's command runner, its busy byte at +0x10
     PITCH, MOD, CUTOFF, SAMPLE, TEMPO, STEP, MFX = P1 + 36, P1 + 18, P2 + 13, P1 + 8, 34, P1 + 0x30 + 2, 61
 
     def setup(b):
@@ -644,13 +654,17 @@ def case_sync_group(payload, flash):
     back.run(0.3)
     back.turn(1)
     back.until_change()
+    own = rd(back, SAMPLE, 2)                     # not changed live: pattern 2 plays its own sample on part 1 (device wish 25.10.)
     at = live(back) + 0x800 + 1                   # part 1 switched in the second pattern
     back.m.uc.mem_write(at, bytes([back.dev.read(at, 1)[0] ^ 1]))
     b_live = mutes(back)
     back.turn(-1)
     back.until_change()
-    out.append(entry("group_carries_back", back.running() == 0 and mutes(back) == b_live and not back.m.asserts,
-                     f"back to pattern 1: running {back.running()}, mutes {mutes(back)}, wanted {b_live}"))
+    out.append(entry("group_keeps_an_unchanged_sample", own == struct.pack("<H", 0x0200) and not back.m.asserts,
+                     f"part 1's sample after the switch {own.hex()}, pattern 2 has 0002 of its own"))
+    out.append(entry("group_carries_back", back.running() == 0 and mutes(back) == b_live and rd(back, SAMPLE, 2) == struct.pack("<H", 0x0105)
+                     and not back.m.asserts,
+                     f"back to pattern 1: running {back.running()}, mutes {mutes(back)}, wanted {b_live}; sample {rd(back, SAMPLE, 2).hex()}, wanted 0501"))
     pad = Box(payload, flash)                     # a pad pressed right after the switch acts on what played, as one before it
     setup(pad)
     a_mute = mutes(pad)[0]
@@ -668,6 +682,31 @@ def case_sync_group(payload, flash):
     pad.run(0.5)
     out.append(entry("pad_at_the_switch_toggles_what_played", pad.running() == 1 and mutes(pad)[0] == a_mute ^ 1 and not pad.m.asserts,
                      f"part 1 was {a_mute} in the first pattern, {a_mute ^ 1} saved in the second; pressed in PART MUTE right after the switch: {mutes(pad)[0]}"))
+    # The firmware drops a pad press while its command runner is busy, the pattern load among others (device report 25.10.); the patch
+    # keeps it and hands it on when the load is done. A tap sent the moment the runner turns busy: press and release both fall in.
+    tap = Box(payload, flash)
+    setup(tap)
+    t_mute = mutes(tap)[0]
+    play(tap)
+    tap.key("part_mute")
+    tap.turn(1)
+    runner = tap.u32(BUSY_PTR) + 0x10
+    sent, calls = [], []
+
+    def on_busy(uc, access, addr, size, value, _):
+        if value == 1 and not sent:
+            sent.append(round((tap.m.time_ns - tap.t_play) / 1e9, 3))
+            tap.m.send([4, 0, 0, 100, 1])
+            tap.m.send([4, 0, 0, 0, 0])
+    tap.m.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, on_busy, begin=runner, end=runner)
+    tap.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *a: calls.append(uc.reg_read(unicorn.arm_const.UC_ARM_REG_R4)),
+                      begin=spec.PGATE_CONT, end=spec.PGATE_CONT)     # where the handler goes on with a pad (r4 = pressed)
+    tap.m.uc.ctl_flush_tb()
+    changed = tap.until_change()
+    out.append(entry("pad_during_the_load_is_kept", tap.running() == 1 and sent and changed is not None and 0 <= changed - sent[0] < 0.02
+                     and mutes(tap)[0] == t_mute ^ 1 and calls == [1, 0] and not tap.m.asserts,
+                     f"tap sent at {sent} s as the runner turned busy, the pattern changed at {changed} s; part 1 was {t_mute}, now {mutes(tap)[0]}; "
+                     f"pads the handler went on with, pressed: {calls}"))
     box.turn(1)
     browse = (box.view(), box.flags()[:2], box.u32(spec.STATE + spec.S_AUTO))
     out.append(entry("other_group_only_browses", browse == ((1, 2, 1), (1, 0), 0), f"group 7 to group 0: {browse}"))

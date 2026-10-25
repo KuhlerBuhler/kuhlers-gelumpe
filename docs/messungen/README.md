@@ -226,6 +226,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Doom: feste Helligkeit und beleuchtete Pad-Steuerung](2026-10-23-doom-pads.md)
 - [EXIT-Shortcuts und Akkorde in Pink auf der blauen Electribe](2026-10-24-blau-shortcuts-akkorde.md)
 - [Sync Group auf der blauen Electribe](2026-10-24-blau-sync-group.md)
+- [Sync Group behält unveränderte Samples, Pad X und Y sind keine Änderung, Pad-Druck beim Wechsel](2026-10-25-sync-sample-und-pad-xy.md)
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
 - [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
 - [Meter: RAINBOW auch bei LOUD, im Tempo](2026-10-24-meter-loud-rainbow.md)

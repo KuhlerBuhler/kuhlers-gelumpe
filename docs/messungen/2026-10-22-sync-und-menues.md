@@ -11,6 +11,7 @@ Jetzt geht der Stand des Patterns, das gespielt hat, immer mit, ob verändert od
 vorher: Part-Mutes und Klang der Parts, Tempo, Swing, Lautstärke und MFX. Die Steps bleiben die des neuen Patterns, so spielen die
 Patterns einer Gruppe wie eines mit längerer Sequenz. Der Vergleich mit dem Bank-Platz (`S_LOADED`) entscheidet nur noch, ob es
 ein Wechsel ist. Lädt man den Platz, aus dem das Pattern kam, geht nichts mit.
+Ausnahme seit 25.10.: die Sample-Nummer eines Parts geht nur mit, wenn sie live geändert wurde ([Messung](2026-10-25-sync-sample-und-pad-xy.md)).
 
 `pswitch_cases.py`, `case_sync_group`:
 
