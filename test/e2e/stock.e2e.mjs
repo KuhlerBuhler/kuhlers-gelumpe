@@ -66,7 +66,7 @@ test("Korg's plain build: Presets and Modulationen are disabled with a short too
   assert.equal(await page.locator("body").evaluate(n => /Es fehlt:|Hacktribe-SysEx|0x52 bis 0x57/.test(n.textContent)), false, "no text about what Korg's build lacks");
 
   assert.deepEqual(await severeViolations(page), [], "the disabled entries are accessible");
-  await page.click("#cee-tab-features");
+  await page.click("#cee-tab-discord");
   await page.keyboard.press("ArrowDown");
   assert.equal(await page.locator("#cee-areas [aria-selected='true']").getAttribute("data-tab"), "start", "the arrow keys skip the disabled entries and wrap round");
   assert.deepEqual(page.errors, []);
