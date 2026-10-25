@@ -101,10 +101,12 @@ export function checkFiles(names, expectedVersion) {
  * The steps of a release, in order. Each step is a description and a command;
  * the CLI prints them or runs them. Older releases are deleted without
  * --cleanup-tag, so their tags stay. With `bump` the version files are
- * committed as "Release vX.Y.Z" and pushed first, and the tag goes on that
- * commit, which does not exist yet: its place is RELEASE_COMMIT, filled in by
+ * committed as "Release vX.Y.Z" and pushed to develop first (main is protected,
+ * it gets the commit with the one develop -> main pull request), and the tag
+ * goes on that commit, which does not exist yet: its place is RELEASE_COMMIT, filled in by
  * the CLI after the commit.
  */
+export const BASE_BRANCH = "develop";
 export const RELEASE_COMMIT = "@release-commit";
 export const VERSION_FILES = ["package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock"];
 
@@ -120,9 +122,9 @@ export function planRelease({ tag, sha, assets, older, repo, bump = false, notes
       cmd: "git",
       args: ["commit", "-m", `Release ${tag}`, "--", ...VERSION_FILES],
     }, {
-      what: "Den Commit nach origin/main pushen",
+      what: `Den Commit nach origin/${BASE_BRANCH} pushen`,
       cmd: "git",
-      args: ["push", "origin", "HEAD:main"],
+      args: ["push", "origin", `HEAD:${BASE_BRANCH}`],
     });
   }
   steps.push({
