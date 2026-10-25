@@ -52,6 +52,7 @@ class PadMachine:
         self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
         self.uc.mem_map(0xC0000000, 0x400000)
         self.uc.mem_map(self.STOP, 0x1000)
+        self.uc.mem_map(0xC0690000, 0x2000)                  # the display's pointer to the pattern's accessor (0xC0691388), 0: the pattern in RAM
         self.uc.mem_write(at, code)
         self.write(0xC033E6A4, self.PATTERN)
         self.write(0xC0348884, self.MODEL)
@@ -124,6 +125,21 @@ class PadGeometryTests(unittest.TestCase):
             m.steps(steps,case%4)
             for i in range(64):
                 self.assertEqual(m.run(i)[0], geometry(steps,case%4,i), (case,i))
+
+    def test_the_viewed_pattern_gives_the_steps_while_the_display_points_at_it(self):
+        m = PadMachine()
+        viewed, accessor = 0xC0330000, 0xC0340000
+        live = [[1,127,100,1,61,65,68,73,0,0,0,0] for _ in range(64)]
+        other = [[1,127,100,1,61,0,0,0,0,0,0,0] for _ in range(64)]
+        m.steps(live)
+        self.assertEqual(m.run(16)[0], geometry(live, 2, 16))
+        m.write(accessor + 4, viewed)
+        m.uc.mem_write(viewed + 0x806, bytes([2]))
+        m.uc.mem_write(viewed + 0x834, b''.join(bytes(step) for step in other))
+        m.write(0xC0691388, accessor)
+        self.assertEqual(m.run(16)[0], geometry(other, 2, 16))
+        m.write(0xC0691388, 0)
+        self.assertEqual(m.run(16)[0], geometry(live, 2, 16))
 
     def test_inputs_and_persistent_state_are_unchanged(self):
         m = PadMachine()

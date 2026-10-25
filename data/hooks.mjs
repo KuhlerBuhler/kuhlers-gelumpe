@@ -50,6 +50,7 @@ export const CHAINS = {
   "sequence-end": [{ id: "pattern-number", sites: [0xC005F1C4] }],
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
+  "info-line": [{ id: "label-flag", sites: [0xC008684C] }],
   "stopped-sync": [{ id: "load-chosen", sites: [0xC0081E18] }],
   "pattern-load-copy": [{ id: "copy-into-ram", sites: [0xC004AC44] }],
   "pad-input": [{ id: "busy-gate", sites: [0xC0044888] }],

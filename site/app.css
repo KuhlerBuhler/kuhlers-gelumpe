@@ -3543,3 +3543,30 @@ input[type="checkbox"]:not([role="switch"]):disabled {
   opacity: 0.5;
   cursor: default;
 }
+
+/* USB status in the navbar: the plug icon is lit while an Electribe is on the USB port. */
+.cee-usb {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.cee-usb[data-tone="ok"] { color: var(--color-status-ok-text); }
+
+/* Samples page: one row per sample of e2sSample.all. */
+.cee-sf-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.cee-sf-nr {
+  min-width: var(--space-8);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cee-sf-name { flex: 1 1 10rem; color: var(--color-text-primary); }
+.cee-sf-row[data-state="removed"] .cee-sf-name { text-decoration: line-through; color: var(--color-text-muted); }

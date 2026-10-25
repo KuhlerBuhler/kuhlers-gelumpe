@@ -4,6 +4,21 @@
  */
 export const NEWS = Object.freeze([
   Object.freeze({
+    version: "1.3.2",
+    items: Object.freeze([
+      "Patcher: Hacktribe-Dateien bestehen die Prüfung wieder. 1.3.1 hat sie fälschlich abgelehnt.",
+      "Der Emulator der App findet Blechys Bilder wieder, die Prüfung im Patcher startet.",
+      "Die App gibt es jetzt auch für Intel-Macs.",
+      "Windows: der Installer bringt WebView2 mit, das weiße Fenster unter Windows 10 ist weg.",
+      "Patcher: das Feld zeigt, welche Datei drin ist und was sie ist. Mit der blauen Firmware steht dort, wie du Hacktribe auf die blaue bekommst.",
+      "Discord: wer online ist, läuft als Blechy über die Seite.",
+      "Neue Version direkt aus der App laden: der Eintrag in der Seitenleiste lädt die passende Datei und startet den Installer.",
+      "Verbindung: Trennen geht immer, und bevor der Emulator startet, fragt die App, ob sie die Electribe trennen soll.",
+      "Ein USB-Symbol oben zeigt, ob eine Electribe angeschlossen ist.",
+      "Neuer Tab Samples: Samples einer e2sSample.all vom Kartenleser ansehen, hinzufügen und entfernen.",
+    ]),
+  }),
+  Object.freeze({
     version: "1.3.0",
     items: Object.freeze([
       "Sync Groups: Patterns derselben Gruppe wechseln ohne MENU am Sequenzende und spielen wie eine lange Sequenz. Einstellen auf der Seite SYNC GROUP.",
