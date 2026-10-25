@@ -441,7 +441,7 @@ test("patcher: the blue original gets its synth set and trials the copy in elect
   await page.locator(".cee-patch-title").waitFor();
   await drop(page, original);
   assert.equal(await page.locator("#cee-patch-route").isVisible(), false);
-  assert.match(await page.locator("#cee-patch-blue-hacktribe:visible").textContent(), /electribe sampler \(rot\)/);
+  assert.match(await page.locator("#cee-patch-blue-hacktribe:visible").textContent(), /Hacktribes eigenem Patcher/);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
