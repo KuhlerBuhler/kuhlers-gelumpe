@@ -55,13 +55,14 @@ HEADER = 0x100
 RAM = 0xC0000000
 
 CODE_AT = 0xC0180000            # free (FF) in the image, far from the other patches
-CODE_END = 0xC0180C00
+CODE_END = 0xC0180F00
 STATE = 0xC0180F00              # run time state, in RAM only; FF there means "nothing"
 STATE_END = 0xC0180F40
-SG_BUF = 0xC0180C00             # the sync group's buffer, in RAM only, between the code and the state
+SG_BUF = 0xC0173000             # the sync group's buffer, in RAM only, in the free run between the SysEx patch's code and its table
 SG_SIZE = 10 + 16 * 47          # 9 values of the pattern (tempo two bytes), 47 bytes of each part
 S_BROWSE, S_ARMED, S_ARMNUM, S_SETTING, S_STOPPED, S_AUTO, S_LOADED, S_LED = 0, 4, 8, 0x10, 0x14, 0x18, 0x1C, 0x20
 S_PADH, S_PADT, S_PADQ, PADQ_SIZE = 0x24, 0x25, 0x28, 4
+S_SGNUM = 0x38
 LED_MGR, LED_MENU, S_LEDWAS = 0xC0345A1C, 7, 0x21
 PS_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off
 
@@ -167,6 +168,7 @@ SOURCE = """
 .equ S_PADT, 0x25               ; byte: pad presses handed on so far; equal to S_PADH: none waiting
 .equ S_PADQ, 0x28               ; PADQ_SIZE entries of 4 bytes: pad, pressed, velocity, source
 .equ PADQ_SIZE, 4
+.equ S_SGNUM, 0x38               ; the bank block (address) a sync group carried into the pattern in RAM (SG_BUF holds what it put there), else not a bank block (FF at start)
 .equ REPLAYED, 0x80000000       ; in the source argument: a kept press handed on, the gate lets it through                   ; mode 2 toggles every BLINK ticks of the manager's 40 ms tick: 280 ms on, 280 ms off
 
 .org @CODE_AT@
@@ -295,6 +297,9 @@ wh_stopped_go:
     mov r2, #249
     bl WRAP
     mov r5, r0
+    bl pc_grouped
+    cmp r0, #0
+    bne wh_group_load
     bl PLAYER
     ldr r1, [r0, #0x318]
     mov r0, #1
@@ -309,6 +314,19 @@ wh_stopped_go:
     bl pc_notify
     bl pc_led
     pop {r4, r5, r6, pc}
+
+; stopped, another pattern of the running pattern's sync group: no question, the firmware's selector loads it at once and the copy
+; hook carries the group's state; a browse that was open ends here. r5 = the number, r4 = the selection object.
+wh_group_load:
+    mov r0, #0
+    str r0, [r6, #S_STOPPED]
+    str r0, [r6, #S_BROWSE]
+    bl pc_led
+    ldr r1, [r4, #0x318]
+    sub r1, r5, r1              ; WRAP(number + step) is the target itself, whatever the browse number was
+    mov r0, r4
+    pop {r4, r5, r6, lr}
+    b SELECT
 
 ; r5 = a pattern number -> r0 = 1 when it is not the running pattern and has the running pattern's sync group (not 0). The
 ; group of the running pattern is read in RAM (an unsaved change counts), the other's in the bank. Clobbers r0 to r3 and r12.
@@ -420,6 +438,9 @@ ch_copy:
     orr r12, r12, #(STATE & 0x0000FF00)
     orr r12, r12, #(STATE & 0x000000FF)
     str r5, [r12, #S_LOADED]
+    cmp r7, #1
+    mvnne r5, #0                ; only a carry makes SG_BUF what the pattern in RAM holds (pc_dirty)
+    str r5, [r12, #S_SGNUM]
 ch_out:
     pop {r4-r10, pc}
 
@@ -540,6 +561,9 @@ sg_head:
     ; each pattern keeps its own types, the pad and HOLD go along
     .byte 0xA2, 36, 42, 62, 63, 64, 65, 68, 69, 0
 .align 4
+; the same offsets one by one, the half word as two, for the unsaved check (pd_synced), closed by a value no offset reaches
+sg_head_at:
+    .word 34, 35, 36, 42, 62, 63, 64, 65, 68, 69, 0xFFFF
 ; @COPY_END@
 
 ; ===================================================== MENU's LED
@@ -628,6 +652,10 @@ pc_dirty:
     cmp r0, #0
     beq pd_clean
     add r0, r0, #4
+    ldr r3, =STATE
+    ldr r3, [r3, #S_SGNUM]
+    cmp r3, r2                  ; the carry's bank block is this pattern's place
+    beq pd_synced
     add r4, r0, #0x40           ; behind the word of byte 0x3C: of it only the MFX type (0x3D) counts. 0x3C, pad touched, each load sets
     ldr r3, =PAT_WORDS          ; anew; 0x3E and 0x3F, pad X and Y, a touch of the pad writes (device wish 25.10.): not edits
 pd_word:
@@ -646,6 +674,59 @@ pd_clean:
 pd_dirty:
     mov r0, #1
     pop {r4, pc}
+
+; The pattern in RAM came in through a sync group's carry: the values the group carries (sg_walk) differ from the bank block on
+; purpose, so they are also compared with SG_BUF, which holds what the carry put there. Everything else, and the exclusions above, as
+; before. The values are visited in address order, which is the order sg_walk stored them in. r0 = the pattern in RAM, r2 = its place in the bank.
+pd_synced:
+    push {r5-r8}
+    ldr r4, =SG_BUF
+    ldr r5, =sg_head_at
+    mov r6, #0                  ; the offset inside the part, once the parts begin
+    mov r3, #0                  ; the offset in the block
+pd_byte:
+    mov r1, #0                  ; 1 when this offset is a carried value
+    cmp r3, #0x800
+    bhs pd_part
+    ldr r12, [r5]
+    cmp r12, r3
+    moveq r1, #1
+    addeq r5, r5, #4
+    b pd_cmp
+pd_part:
+    cmp r3, #0x3B00
+    bhs pd_cmp
+    sub r12, r6, #1
+    cmp r12, #0x2E              ; 1 to 0x2F of a part
+    movls r1, #1
+pd_cmp:
+    ldrb r7, [r0, r3]
+    ldrb r8, [r2, r3]
+    cmp r1, #0
+    beq pd_plain
+    ldrb r12, [r4], #1
+    cmp r7, r12                 ; a carried value counts as the carry's or, after a WRITE, as the bank's
+    beq pd_skip
+pd_plain:
+    cmp r3, #0x3C
+    cmpne r3, #0x3E
+    cmpne r3, #0x3F
+    beq pd_skip
+    cmp r7, r8
+    bne pd_sdirty
+pd_skip:
+    cmp r3, #0x800
+    addhs r6, r6, #1
+    cmp r6, #0x330
+    moveq r6, #0
+    add r3, r3, #1
+    cmp r3, #0x4000
+    blo pd_byte
+    pop {r5-r8}
+    b pd_clean
+pd_sdirty:
+    pop {r5-r8}
+    b pd_dirty
 
 ; the stopped browse is over: nothing pending, the number in RAM chosen and shown. Keeps r4 to r11.
 pc_stopped_end:
