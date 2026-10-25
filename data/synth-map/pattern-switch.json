@@ -107,6 +107,42 @@
    "to": "0xC0072814",
    "kind": "code",
    "why": "the second instruction of that function (the hook's way back)"
+  },
+  {
+   "from": "0xC0044874",
+   "to": "0xC003EB60",
+   "kind": "code",
+   "why": "pad handler 0xC0044874 found once in the synth at 0xC003EB60 (12 words equal with branch offsets masked: push {r0-r2,r4-r11,lr}, the four movs, bl to the busy getter 0xC002A798, cmp, beq, cmp r4, bne)"
+  },
+  {
+   "from": "0xC0044888",
+   "to": "0xC003EB74",
+   "kind": "code",
+   "why": "the pad handler's bl to the busy getter, +0x14 of the handler in both builds"
+  },
+  {
+   "from": "0xC004489C",
+   "to": "0xC003EB88",
+   "kind": "code",
+   "why": "the pad handler goes on with the pad: the beq target after the busy check, +0x28 in both builds"
+  },
+  {
+   "from": "0xC004499C",
+   "to": "0xC003EC88",
+   "kind": "code",
+   "why": "the pad handler's way out: the bne target of the busy check in both builds (bne +0xfc)"
+  },
+  {
+   "from": "0xC002D81C",
+   "to": "0xC002A980",
+   "kind": "code",
+   "why": "the command runner clears its busy byte (strb r3, [r6, #0x10]): the 8 words 0xC002D810 to 0xC002D82C found once in the synth at 0xC002A974, branch offsets masked"
+  },
+  {
+   "from": "0xC034057C",
+   "to": "0xC0340734",
+   "kind": "ram",
+   "why": "pointer to the command runner, its busy byte at +0x10: the busy getter 0xC002A798 (synth's twin of 0xC002D634) loads it from its literal"
   }
  ]
 }
