@@ -50,6 +50,8 @@ export const CHAINS = {
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
   "stopped-sync": [{ id: "load-chosen", sites: [0xC0081E18] }],
   "pattern-load-copy": [{ id: "copy-into-ram", sites: [0xC004AC44] }],
+  "pad-input": [{ id: "busy-gate", sites: [0xC0044888] }],
+  "command-end": [{ id: "busy-clear", sites: [0xC002D81C] }],
   "frame": [
     { id: "frame-call", sites: [0xC00836F0] },
     { id: "screen-tick", sites: [0xC00836F8] },

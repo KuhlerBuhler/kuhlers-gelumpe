@@ -218,8 +218,15 @@ def case_pad_state(payload, flash):
     live, saved = box.live(), box.saved()
     rewritten = box.running() == 1 and live[0x3C] == 0 and saved[0x3C] == 1
     rest = [i for i in range(0x4000) if i != 0x3C and live[i] != saved[i]]
+    xy = box.u32(PATPTR) + 4 + 0x3E               # a touch of the pad writes its X and Y: no edit either (device wish 25.10.)
+    box.m.uc.mem_write(xy, bytes(b ^ 0x40 for b in box.dev.read(xy, 2)))
+    touched = set()
+    for _ in range(40):
+        box.run(0.05)
+        touched.add(led())
     return [entry("pad_state_is_not_an_edit", rewritten and not rest and seen == {0} and not box.m.asserts,
-                  f"pattern {box.running()}, byte 0x3C live {live[0x3C]} saved {saved[0x3C]}, other differences {rest[:8]}, WRITE LED {sorted(seen)}")]
+                  f"pattern {box.running()}, byte 0x3C live {live[0x3C]} saved {saved[0x3C]}, other differences {rest[:8]}, WRITE LED {sorted(seen)}"),
+            entry("pad_xy_is_not_an_edit", touched == {0} and not box.m.asserts, f"pad X and Y changed in RAM: WRITE LED {sorted(touched)}")]
 
 
 GROUPS = (case_save, case_reset, case_kill, case_unsaved, case_pad_state)
