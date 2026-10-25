@@ -95,6 +95,8 @@ jobs:
           fi
         env:
           SIDECAR_CACHED: ${{ steps.sidecar.outputs.cache-hit }}
+          # With CI=true the dmg bundler skips the Finder script and the dmg has neither background nor icon positions.
+          TAURI_BUNDLER_DMG_IGNORE_CI: "true"
           BUNDLES: ${{ fromJSON('{"windows":"nsis","linux":"appimage,deb","macos":"dmg","macos-intel":"dmg"}')[matrix.target] }}
       - name: Check the Debian MIDI dependency
         if: runner.os == 'Linux'
