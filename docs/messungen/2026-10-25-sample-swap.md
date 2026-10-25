@@ -13,15 +13,14 @@ ins Repository geschrieben.
 
 | Betriebsart | Stand | Grund |
 |---|---|---|
-| Während laufender Wiedergabe | offen, noch nicht freigeben | Host-Port-Wartezeiten, neue Noten während des Transfers und ausklingende Stimmen sind am Gerät ungeprüft |
-| Beim Patternwechsel | offen, noch nicht freigeben | Auch dort laufen alte Stimmen weiter; Ladezeit und verfügbare Vorlaufzeit sind unbekannt |
-| Bei gestoppter Wiedergabe | hergeleitet möglich, am Gerät ungeprüft | Der ARM kann einen bestimmten DSP-Bytebereich lesen und schreiben; reguläres Löschen allein verwaltet keine wiederverwendbaren Löcher |
-| Grundsätzlich unmöglich | nicht belegt | Keine der bisherigen Messungen schließt den Ansatz aus |
+| Während laufender Wiedergabe | am Gerät gemessen, für eine erste Version freigegeben | 64 KiB in 5,5 bis 6,3 ms, Bytes und Tabellen danach gleich; hörbar nur bei gezieltem Hinhören als ganz kurze Verzögerung (siehe Gerätemessung) |
+| Beim Patternwechsel | offen | Alte Stimmen laufen weiter; Ladezeit von der Karte und Vorlaufzeit sind nicht gemessen |
+| Bei gestoppter Wiedergabe | am Gerät gemessen | 1 bis 64 KiB, je dreimal, rund 11 bis 12 MiB/s |
+| Grundsätzlich unmöglich | widerlegt | Lesen und Schreiben eines geladenen Samples im DSP gehen am Gerät, auch beim Abspielen |
 
-**Entscheidung:** Vor Phase 2 stoppen. Erst den gestoppten Durchsatztest und danach
-die Aufnahme unter Wiedergabe durchführen. Das ist keine Freigabe für einen
-Patch. Ein bestandener Kopiertest ersetzt außerdem noch keinen Test von
-Slotwechseln, Voice-Lebensdauer und Fehlerbehandlung.
+**Entscheidung (25.10., nach der Gerätemessung):** Phase 2 darf gebaut werden. Offen und vor der
+Freigabe zu klären: ein gelegentlicher Hänger beim ersten DSP-Zugriff (siehe unten), Slotwechsel,
+Lebensdauer klingender Stimmen und die Fehlerbehandlung.
 
 ## Grundlage und Wiederholung
 
@@ -394,3 +393,39 @@ keine Produktfunktionen oder Testzeitgrenzen verändert.
 
 **Offen:** Kein Gerätetest, keine 50-MB-Datei auf dem Gerät, kein Klangtest und
 kein Swap-Patch. Phase 2 bleibt bis zu den Messwerten angehalten.
+
+## Gerätemessung 25.10.
+
+**gemessen** am roten Sampler, Hacktribe 2.02 mit BLECH, über USB am Linux-Laptop (ALSA, `mido`). Zielplatz 645
+(ein vorhandenes Nutzer-Sample mit 115346 Byte PCM, DSP-Offset `0x8E4F40`, identische Zuordnung), in keinem
+gespielten Pattern benutzt (Pattern-Bank im RAM gelesen, Sample-ID bei `0x808` je Part). Alle 499 Nutzerplätze
+waren belegt, ein synthetisches Sample ließ sich nicht importieren. Die Probe stellt die Bytes wieder her und
+prüft sie, die Karte bleibt unberührt.
+
+| Größe | gestoppt (je 3 Läufe) | beim Abspielen, Pattern 020 (5 Läufe) |
+|---|---|---|
+| 1 KiB | 0,080 bis 0,091 ms | |
+| 4 KiB | 0,313 bis 0,338 ms | |
+| 16 KiB | 1,327 bis 1,440 ms | |
+| 64 KiB | 5,433 bis 5,455 ms (11,5 MiB/s) | 5,451 bis 6,276 ms (10 bis 11,5 MiB/s) |
+
+Jeder Lauf: Bytes nach dem Wiederherstellen gleich, Metadaten, Wiedergabeeintrag, Name, Zeiger und Zuordnung
+gleich. Hörbar beim Abspielen: nach Aussage am Gerät nur bei gezieltem Hinhören eine ganz kurze Verzögerung,
+"hättest du mir nicht gesagt, dass ich darauf achten soll, wäre es mir nicht aufgefallen". Keine Aufnahme.
+
+**Korrekturen an der Probe:**
+
+- Die Periode von Timer 3 steht am Gerät auf 149999999 (der Zähler läuft von 0 bis PRD, also 150 MHz). Die Probe
+  verlangte mindestens 150000000 und brach so vor jedem DSP-Zugriff ab. Jetzt `TIMER_HZ - 1`.
+- Die Puffer bei `0xC274F000` und `0xC275F000` waren nach dem Einschalten nicht null, sondern zeigten das Muster
+  nie beschriebenen RAMs (vereinzelte gesetzte Bits, in beiden fast gleich). Sie wurden vor dem Test per BLECH
+  WRITE in 2-KiB-Blöcken genullt.
+- ALSA am Linux-Laptop verschickt keine SysEx-Nachricht mit 32 KiB (`MidiOutAlsa::sendMessage`); die abgebrochene
+  Nachricht ließ das Gerät mit "MIDI receive error" zurück. 2 KiB gehen.
+
+**offen, ein gelegentlicher Hänger:** Dreimal kam auf EXEC keine Antwort mehr und das Gerät musste neu gestartet
+werden: einmal direkt nach der abgebrochenen 32-KiB-Nachricht, dann zweimal mit dem vollen Testcode der korrigierten
+Probe, jeweils in einer anderen Sitzung nach dem Einschalten. Danach liefen derselbe Testcode und alle Teilschritte
+(Lesen und Schreiben bis 512 Wörter, in beide Puffer, nacheinander in einem Lauf, mit geänderten Bytes) in über 20
+Läufen ohne Hänger, darunter die 17 Messläufe oben. Die Ursache ist nicht gefunden; der Host-Port-Pfad wartet ohne
+Zeitgrenze (Abschnitt 3). Ein Swap-Patch braucht dort eine Zeitgrenze oder einen Weg, der nicht aus EXEC kommt.

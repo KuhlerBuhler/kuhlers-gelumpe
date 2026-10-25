@@ -138,7 +138,7 @@ start:
     str r0, [r4, #4]
     ldr r0, [r11, #0x18]
     str r0, [r4, #16]
-    ldr r1, ={TIMER_HZ}
+    ldr r1, ={TIMER_HZ - 1}
     cmp r0, r1
     blo failed
     ldr r0, [r11, #0x20]
