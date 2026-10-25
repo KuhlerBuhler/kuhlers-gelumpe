@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -14,6 +14,8 @@ import { checkHooks } from "../src/hooks.mjs";
 import { packAll } from "../src/script/archive.mjs";
 import { SimDevice } from "../src/script/sim.mjs";
 import { buildRuntimePatch } from "../tools/patch/script_runtime.mjs";
+import { slots } from "./support/spawn.mjs";
+import { nativeTest } from "./support/native.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const venv = fileURLToPath(new URL(process.platform === "win32" ? "../tools/emu/.venv/Scripts/python.exe" : "../tools/emu/.venv/bin/python", import.meta.url));
@@ -69,101 +71,14 @@ test("the Synth runtime uses its own startup and preserves the native instructio
   assert.equal(result.status, 0, result.stdout + result.stderr);
 });
 
-test("native input and frame hooks preserve guards, queues, budget and continuation", {
-  skip: !available && !nativeRequired ? "Unicorn not installed" : false,
-}, () => {
-  assert.ok(available, probe.error?.message ?? probe.stderr);
-  // Every test that boots Blechy runs about 5.4 million ARM instructions: this file takes about a minute alone, several on a busy machine.
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_hooks.py", "tools/patch/test_script_vm_optimizations.py", "tools/patch/test_script_vm_validator.py"], {
-    cwd: root, encoding: "utf8", timeout: 900_000, maxBuffer: 4 * 1024 * 1024,
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.doesNotMatch(result.stderr, /skipped=/);
-});
-
-test("native LED glue stages commands and tries panel transport without waiting", {
-  skip: !available && !nativeRequired ? "Unicorn not installed" : false,
-}, () => {
-  assert.ok(available, probe.error?.message ?? probe.stderr);
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_led.py"], {
-    cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 4 * 1024 * 1024,
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.doesNotMatch(result.stderr, /skipped=/);
-});
-
-test("native display calls match the browser model pixel for pixel, and a fault leaves its message on the display", {
-  skip: !available && !nativeRequired ? "Unicorn not installed" : false,
-}, () => {
-  assert.ok(available, probe.error?.message ?? probe.stderr);
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_display.py", "tools/patch/test_display_calibrate.py"], {
-    cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 4 * 1024 * 1024,
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.doesNotMatch(result.stderr, /skipped=/);
-});
-
-test("native store glue, store file read and write match the browser's file builder", {
-  skip: !available && !nativeRequired ? "Unicorn not installed" : false,
-}, () => {
-  assert.ok(available, probe.error?.message ?? probe.stderr);
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_store.py"], {
-    cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 4 * 1024 * 1024,
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.doesNotMatch(result.stderr, /skipped=/);
-});
-
-test("native korg.file.frame reads a frame of a picture file exactly as the browser does", {
-  skip: !available && !nativeRequired ? "Unicorn not installed" : false,
-}, () => {
-  assert.ok(available, probe.error?.message ?? probe.stderr);
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_file.py"], {
-    cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 4 * 1024 * 1024,
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.doesNotMatch(result.stderr, /skipped=/);
-});
-
-test("native clock and read-only hardware views match the firmware's state words and the timer's period", {
-  skip: !available && !nativeRequired ? "Unicorn not installed" : false,
-}, () => {
-  assert.ok(available, probe.error?.message ?? probe.stderr);
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_hw.py"], {
-    cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 4 * 1024 * 1024,
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.doesNotMatch(result.stderr, /skipped=/);
-});
-
-test("native sequencer events from state comparison and the save hook", {
-  skip: !available && !nativeRequired ? "Unicorn not installed" : false,
-}, () => {
-  assert.ok(available, probe.error?.message ?? probe.stderr);
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_events.py"], {
-    cwd: root, encoding: "utf8", timeout: 300_000, maxBuffer: 4 * 1024 * 1024,
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.doesNotMatch(result.stderr, /skipped=/);
-});
-
-test("native card loader reads the collection, isolates bad blocks and refuses damaged files", {
-  skip: !available && !nativeRequired ? "Unicorn not installed" : false,
-}, () => {
-  assert.ok(available, probe.error?.message ?? probe.stderr);
-  const result = spawnSync(python, ["-m", "unittest", "tools/patch/test_script_card.py"], {
-    cwd: root, encoding: "utf8", timeout: 900_000, maxBuffer: 4 * 1024 * 1024,
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.doesNotMatch(result.stderr, /skipped=/);
+// One Python process each, side by side; the input and frame hooks and the card loader, the two longest, have a file of their own.
+describe("native runtime modules", { concurrency: slots }, () => {
+  nativeTest("native LED glue stages commands and tries panel transport without waiting", ["test_script_led"]);
+  nativeTest("native display calls match the browser model pixel for pixel, and a fault leaves its message on the display", ["test_script_display", "test_display_calibrate"]);
+  nativeTest("native store glue, store file read and write match the browser's file builder", ["test_script_store"]);
+  nativeTest("native korg.file.frame reads a frame of a picture file exactly as the browser does", ["test_script_file"]);
+  nativeTest("native clock and read-only hardware views match the firmware's state words and the timer's period", ["test_script_hw"]);
+  nativeTest("native sequencer events from state comparison and the save hook", ["test_script_events"]);
 });
 
 test("fault-status: native script hooks in firmware leave control usable and expose status over DIN", {

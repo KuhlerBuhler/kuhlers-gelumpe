@@ -17,7 +17,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit:
+  # The test files are split across runners with --test-shard (file i goes to part i mod n). Branch protection
+  # requires the checks "unit" and "browser", so a job of that name collects the parts.
+  unit-part:
+    name: unit (${{ matrix.part }}/2)
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2]
     runs-on: ubuntu-latest
     # The suites outgrew 10 minutes (browser 10:19 on PR 27); 20 leaves room before a run counts as hung.
     timeout-minutes: 20
@@ -30,13 +37,27 @@ jobs:
       - run: npm ci
       # DESIGN.md against the design.md spec: a broken token reference or a failing contrast pair stops the run.
       # The raw-value check and the spacing check run with the suites (test/raw-values.test.mjs, test/e2e/design.e2e.mjs).
-      - run: npx --yes @google/design.md@0.4.0 lint DESIGN.md
+      - if: matrix.part == 1
+        run: npx --yes @google/design.md@0.4.0 lint DESIGN.md
       - run: python3 -m pip install -r tools/emu/requirements.txt
-      - run: npm run test:ci
+      # npm run test:ci with the part: an option after the file pattern would not reach node --test.
+      - run: node --test --test-timeout=300000 --test-shard=${{ matrix.part }}/2 "test/*.test.mjs"
         env:
           E2_ARM_REQUIRED: "1"
 
-  browser:
+  unit:
+    needs: unit-part
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.unit-part.result }}" = success
+
+  browser-part:
+    name: browser (${{ matrix.part }}/4)
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2, 3, 4]
     runs-on: ubuntu-latest
     # The suites outgrew 10 minutes (browser 10:19 on PR 27); 20 leaves room before a run counts as hung.
     timeout-minutes: 20
@@ -49,9 +70,48 @@ jobs:
       - run: npm ci
       # The runner image ships Chrome and the tests drive that one (channel "chrome"),
       # so there is no browser download to cache or to limit to Chromium.
-      - run: npm run test:e2e
+      - run: node --test --test-timeout=180000 --test-shard=${{ matrix.part }}/4 "test/e2e/*.e2e.mjs"
+
+  browser:
+    needs: browser-part
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.browser-part.result }}" = success
+
+  # native-midi is not a required check; a pull request that touches nothing it builds or runs skips it.
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      native: ${{ steps.filter.outputs.native }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            native:
+              - 'src-tauri/**'
+              - 'tools/emu/**'
+              - 'tools/patch/**'
+              - 'tools/build-site.mjs'
+              - 'tools/site-routes.mjs'
+              - 'data/patches/**'
+              - 'data/synth-map/**'
+              - 'data/script/blechy-block.hex'
+              - 'assets/blechy/**'
+              - 'site/index.html'
+              - 'site/app/midi.mjs'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/test.yml'
 
   native-midi:
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.native == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -73,6 +133,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # The compiled dependencies, saved by the runs on main, which every pull request can read; without them
+      # cargo test and clippy compile the dependencies on every run. Pull requests do not save, so they do not crowd it out.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          save-if: ${{ github.event_name == 'push' }}
       - name: Linux libraries
         if: runner.os == 'Linux'
         run: |
