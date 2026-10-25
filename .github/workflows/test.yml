@@ -19,8 +19,12 @@ concurrency:
 jobs:
   # The test files are split across runners with --test-shard (file i goes to part i mod n). Branch protection
   # requires the checks "unit" and "browser", so a job of that name collects the parts.
+  # A pull request that changes only Markdown, thoughts/ or other workflows (see changes) runs the unit tests that read
+  # those files instead, and no browser tests: with all of them removed the browser suite still passes.
   unit-part:
     name: unit (${{ matrix.part }}/2)
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.suites == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -45,15 +49,35 @@ jobs:
         env:
           E2_ARM_REQUIRED: "1"
 
+  unit-docs:
+    needs: changes
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.result == 'success' && needs.changes.outputs.suites == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Every test file that names a document; the files a test reads through a helper are not Markdown (docs/messungen/*.json, images).
+      - run: node --test --test-timeout=300000 $(grep -lE 'docs/|\.md\b|messungen' test/*.test.mjs)
+
   unit:
-    needs: unit-part
+    needs: [unit-part, unit-docs]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
-      - run: test "${{ needs.unit-part.result }}" = success
+      # One of the two ran and nothing failed; both skipped would be a hole in the conditions, not a pass.
+      - run: |
+          for r in "${{ needs.unit-part.result }}" "${{ needs.unit-docs.result }}"; do [ "$r" = success ] || [ "$r" = skipped ] || exit 1; done
+          [ "${{ needs.unit-part.result }}" = success ] || [ "${{ needs.unit-docs.result }}" = success ]
 
   browser-part:
     name: browser (${{ matrix.part }}/4)
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.suites == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -73,13 +97,15 @@ jobs:
       - run: node --test --test-timeout=180000 --test-shard=${{ matrix.part }}/4 "test/e2e/*.e2e.mjs"
 
   browser:
-    needs: browser-part
+    needs: [changes, browser-part]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
-      - run: test "${{ needs.browser-part.result }}" = success
+      # Skipped only for a pull request the filter found to be documents only.
+      - run: |
+          [ "${{ needs.browser-part.result }}" = success ] || { [ "${{ needs.browser-part.result }}" = skipped ] && [ "${{ needs.changes.result }}" = success ] && [ "${{ needs.changes.outputs.suites }}" = false ]; }
 
-  # native-midi is not a required check; a pull request that touches nothing it builds or runs skips it.
+  # What a pull request touches. When this job fails, everything runs.
   changes:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -88,11 +114,30 @@ jobs:
       pull-requests: read
     outputs:
       native: ${{ steps.filter.outputs.native }}
+      suites: ${{ steps.filter.outputs.suites == 'true' || steps.documents.outputs.other == 'true' }}
     steps:
+      # A file counts as "other" when it matches every pattern: outside Markdown, thoughts/ and .github/.
+      - uses: dorny/paths-filter@v3
+        id: documents
+        with:
+          predicate-quantifier: every
+          filters: |
+            other:
+              - '**'
+              - '!**/*.md'
+              - '!thoughts/**'
+              - '!.github/**'
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
+            # Markdown and workflow files the suites read or run
+            suites:
+              - 'DESIGN.md'
+              - 'docs/plugins.md'
+              - 'docs/plugins.en.md'
+              - 'third_party/**'
+              - '.github/workflows/test.yml'
             native:
               - 'src-tauri/**'
               - 'tools/emu/**'
@@ -109,9 +154,10 @@ jobs:
               - 'package-lock.json'
               - '.github/workflows/test.yml'
 
+  # native-midi is not a required check; a pull request that touches nothing it builds or runs skips it.
   native-midi:
     needs: changes
-    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.native == 'true') }}
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.native == 'true') }}
     strategy:
       fail-fast: false
       matrix:

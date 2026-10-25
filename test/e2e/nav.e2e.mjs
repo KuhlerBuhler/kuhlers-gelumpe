@@ -18,7 +18,7 @@ test("the sidebar lists only the entries, the navbar names the open page, up and
   const page = await h.page();
   await page.goto(h.url);
   assert.equal(await selectedTab(page), "start");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Startbildschirm", "Konsole", "Rettung", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Doom", "Features", "Discord"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Startbildschirm", "Samples", "Konsole", "Rettung", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Doom", "Features", "Discord"]);
   assert.equal(await page.locator("#cee-sidebar .cee-nav-label").count(), 0, "no headings between the entries");
   await page.click("#cee-tab-patcher");
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Firmware Patcher");
@@ -46,7 +46,7 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.equal(await selectedTab(page), "start", "a remembered hidden page is ignored");
   await page.goto(`${h.url}?labs#ptools`);
   assert.equal(await selectedTab(page), "ptools", "with ?labs the pages stay reachable for tests");
-  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Startbildschirm", "Konsole", "Rettung", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Doom", "Features", "Discord", "Pattern-Werkzeuge", "Samples"]);
+  assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Startbildschirm", "Samples", "Konsole", "Rettung", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Doom", "Features", "Discord", "Pattern-Werkzeuge", "Samples"]);
 });
 
 test("the navbar title of the emulator page is a menu: emulator or real device", async () => {
@@ -279,7 +279,7 @@ test("changelogs: a new release puts a ! on the entry, opening it shows the rele
   const buttons = await release.locator(".cee-release-get a").allTextContents();
   assert.equal(buttons.length, 2, "one app for this system and the patch, not every file");
   assert.equal(buttons[1], "Patch herunterladen");
-  assert.match(buttons[0], /^App für (macOS|Windows|Linux)$/);
+  assert.match(buttons[0], /^App für (Mac mit Apple-Chip|Windows|Linux)$/);
   assert.equal(await release.locator("li strong").textContent(), "Changelogs");
   assert.equal(await release.locator("a[href='https://github.com/KuhlerBuhler/kuhlers-gelumpe']").count(), 1);
   assert.equal(await page.locator("#cee-tab-changelog .cee-nav-badge").count(), 0);

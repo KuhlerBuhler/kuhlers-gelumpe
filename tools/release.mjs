@@ -5,16 +5,17 @@
  *   npm run release -- prepare [--minor|--major]
  *       Work out the next version and put it into the version files
  *       (tools/set-version.mjs). Run it on every build machine before building;
- *       HEAD must be origin/main. Nothing is committed yet.
+ *       HEAD must be origin/develop. Nothing is committed yet.
  *   npm run release -- next [--minor|--major]
  *       Print the next version only.
  *   npm run release -- [folder] [--minor|--major] [--yes]
  *       Check the folder (default dist-release/) and publish. Without --yes
  *       nothing is changed, the steps are only printed. With --yes: commit the
- *       version files as "Release vX.Y.Z", push that commit, create the tag on
- *       it and the release on GitHub (gh) with a discussion under Announcements,
+ *       version files as "Release vX.Y.Z", push that commit to develop, create the
+ *       tag on it and the release on GitHub (gh) with a discussion under Announcements,
  *       then delete every older release.
- *       Tags stay. --notes=FILE takes the release notes from FILE (Markdown)
+ *       Tags stay. The commit reaches main with the one develop -> main pull
+ *       request, opened after the release. --notes=FILE takes the release notes from FILE (Markdown)
  *       instead of GitHub's generated list; they are what Discord gets.
  *
  * BLECH.patch and BLECH-for-<sha8>.bsdiff in the folder (npm run build:blech-patch) go up
@@ -28,7 +29,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parsePatchFile } from "../src/patchfile.mjs";
-import { RELEASE_COMMIT, checkFiles, latestVersion, nextVersion, planRelease } from "./release-lib.mjs";
+import { BASE_BRANCH, RELEASE_COMMIT, checkFiles, latestVersion, nextVersion, planRelease } from "./release-lib.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const fail = message => {
@@ -66,14 +67,14 @@ function allTags() {
   return tags;
 }
 
-/** A sentence when HEAD is not what origin/main points at, else null. */
+/** A sentence when HEAD is not what origin/develop points at, else null. */
 function headProblem() {
   try {
     const head = read("git", ["rev-parse", "HEAD"]);
-    const remoteMain = lines(read("git", ["ls-remote", "origin", "refs/heads/main"]))[0]?.split(/\s/)[0];
-    return remoteMain === head ? null : `HEAD (${head.slice(0, 7)}) ist nicht der Stand von origin/main (${remoteMain?.slice(0, 7) ?? "unbekannt"}), erst pullen oder pushen`;
+    const remote = lines(read("git", ["ls-remote", "origin", `refs/heads/${BASE_BRANCH}`]))[0]?.split(/\s/)[0];
+    return remote === head ? null : `HEAD (${head.slice(0, 7)}) ist nicht der Stand von origin/${BASE_BRANCH} (${remote?.slice(0, 7) ?? "unbekannt"}), erst pullen oder pushen`;
   } catch (error) {
-    return `origin/main nicht lesbar: ${error.message}`;
+    return `origin/${BASE_BRANCH} nicht lesbar: ${error.message}`;
   }
 }
 
@@ -166,4 +167,4 @@ for (const s of steps) {
   const r = spawnSync(s.cmd, args, { cwd: root, stdio: "inherit" });
   if (r.status !== 0) fail(`Abgebrochen bei: ${s.what}. Spätere Schritte (auch das Löschen alter Releases) sind nicht gelaufen.`);
 }
-console.log(`\nFertig: ${tag}`);
+console.log(`\nFertig: ${tag}. Jetzt den Pull Request ${BASE_BRANCH} -> main öffnen und mergen: gh pr create --base main --head ${BASE_BRANCH}`);

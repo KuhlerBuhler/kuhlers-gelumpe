@@ -202,7 +202,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
 
   let opening = 0;
   async function openSlot(slot, { refresh = false } = {}) {
-    const mine = ++opening;
+    // A refresh gives way to an open that is under way; counting it would drop that open while the refresh itself gives up on the busy session.
+    const mine = refresh ? opening : ++opening;
     state.slot = slot;
     let from = "Stand aus der Firmware-Datei.";
     const session = await pick();
