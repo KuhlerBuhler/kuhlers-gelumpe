@@ -519,7 +519,10 @@ The error codes are in `data/script/contract.mjs`.
 ### Files for the card
 
 Plugins reach the device only through the SD card, never inside the VSB. The folder is
-`KORG/blechtribe/Plugin/`, which the firmware does not create itself. You create it.
+`KORG/blechtribe/Plugin/` (singular, not "Plugins"; the same on the red and the blue Electribe), which the
+firmware does not create itself. You create it. With the device connected, the Plugins page also writes a
+plugin there over USB (button "Aufs Gerät", BLECH SysEx command `0x67` PLUGIN BEGIN, a name of letters,
+digits, `_` and `-`, at most 16 characters); then on the device BLECH, IMPORT PLUGIN.
 
 - `e2sPlugin.all` is the collection file that the device reads at start. Header, 16 bytes, little endian:
   the tag `GSAL`, file version 1 (u16), number of blocks (u16), total size (u32), CRC-32 over everything
