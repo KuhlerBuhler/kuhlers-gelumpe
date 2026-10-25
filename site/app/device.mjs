@@ -132,9 +132,9 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
 
   async function connect() {
     if (!navigator.requestMIDIAccess) {
-      // The Mac app runs in Apple's WebKit, which has no Web MIDI either.
+      // The desktop app runs in the system's WebKit (Apple's on the Mac, WebKitGTK on Linux): neither has Web MIDI.
       say("error", "nicht möglich", window.__GELUMPE_APP
-        ? "Die App auf dem Mac kann noch nicht mit der echten Electribe reden, ihr fehlt Web MIDI. Nimm dafür Chrome oder Edge am Rechner."
+        ? "Die App kann noch nicht mit der echten Electribe reden, ihr fehlt Web MIDI. Nimm dafür Chrome oder Edge am Rechner."
         : "Dieser Browser kann nicht mit der Electribe reden. Nimm die App oder Chrome oder Edge am Rechner. Safari geht nicht.");
       return;
     }
