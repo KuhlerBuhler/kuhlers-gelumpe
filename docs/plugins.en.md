@@ -209,6 +209,19 @@ like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
 | `korg.knobs.LEVEL`, `korg.knobs[i]` | last value of the knob, 0 until it moved | no | `korg.read.knob(i)` |
 | `korg.store[i]` | stored value of slot 0 to 15, otherwise 0 | yes, to the card with `korg.store.save()` | `korg.store.get(i, 0)`, `korg.store.set(i, x)` |
 | `korg.led.TAP`, `korg.leds[i]` | no | brightness 0 to 255 | `korg.led(i, x)` |
+| `korg.chainMode` | 1 when CHAIN MODE is on in the Global menu (only then does the firmware chain) | no | `korg.read.chainMode()` |
+| `korg.current.tempo` and the other values below | the pattern that plays, with its unsaved changes | no | `korg.read.patternValue(-1, -1, value)` |
+| `korg.patterns[i].tempo` and the other values below | pattern `i` (0 to 249) as stored | no | `korg.read.patternValue(i, -1, value)` |
+| `korg.parts[i].cutoff` and the other part values below | part `i` (0 to 15) in the pattern that plays | no | `korg.read.patternValue(-1, i, value)` |
+
+**Values of a pattern** (`korg.current.…`, `korg.patterns[i].…`): `tempo` (tenths of BPM), `swing` (-48 to 48), `length`
+(bars, 1 to 4), `beat` (0 16ths, 1 32nds, 2 8th triplets, 3 16th triplets), `key` (0 C to 11 B), `scale`, `chordSet`,
+`level`, `mfxType`, `chainTo` (the next pattern, 0 to 249, -1 without a chain), `chainRepeat` (at least 1).
+**Values of a part** (`korg.parts[i].…`): `sample` (slot), `filterType`, `cutoff`, `resonance`, `egInt` (-63 to 63),
+`modType`, `modSpeed`, `modDepth`, `attack`, `decay`, `level`, `pan` (-63 left to 63 right), `ifxOn`, `ifxType`,
+`ifxEdit`, `pitch` (-63 to 63), `glide`, `voiceAssign`, `oscEdit`, `mfxSend`. All values are read only, in the device's
+units (mostly 0 to 127). The list and where each value comes from is in `data/script/contract.mjs` (`PATTERN_FIELDS`,
+`PART_FIELDS`); the places are measured in the device map `data/map/pattern.mjs`. From API version 8.
 
 `+=`, `-=` and the other compound assignments work on everything that can be read and set, and so do
 `++` and `--`: `korg.tempo += 10;` reads the tempo and sets it 1.0 BPM higher. The index in the brackets
@@ -263,6 +276,8 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.read.step(part)` | step counter of the part, 0 to 63 | everywhere |
 | `korg.read.mute(part)` | 1 if the part is muted | everywhere |
 | `korg.read.knob(index)` | last raw value of knob `index` (0 to 19) that the runtime has seen, 0 until then | everywhere |
+| `korg.read.chainMode()` | 1 when CHAIN MODE is on in the Global menu. From API version 8 | everywhere |
+| `korg.read.patternValue(pattern, part, value)` | a value of a pattern: `pattern` -1 the one that plays, 0 to 249 a stored one; `part` -1 a value of the pattern, 0 to 15 one of the part; `value` the number in `PATTERN_FIELDS` or `PART_FIELDS`. Easier to read with the names above (`korg.current.tempo`). From API version 8 | everywhere |
 | `korg.play()` | press and release PLAY, through the firmware's key path | like `korg.led` |
 | `korg.stop()` | press and release STOP | like `korg.led` |
 | `korg.pattern(index)` | select a pattern, 0 to 249 | like `korg.led` |
@@ -272,6 +287,7 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.backlight(red, green, blue)` | switch the three colours of the display light on (1) or off (0), through the firmware's GPIO function; on battery with Power Save "Auto" the firmware's dimming routine keeps overwriting the colour; if the user chose a mixed colour with levels between 1 and 14 in the menu, its PWM overwrites the colour as well | like `korg.led` |
 | `korg.menu.add(name, min, max, value)` | creates a page in the BLECH menu on the device and returns its number (-1 if all 12 places are taken). `name` at most 15 characters, the page shows `value` (clamped to `min` to `max`, magnitude below 100 million) and the plugin name. When the main dial is turned, the plugin gets `menu`(number, value). The same name from the same plugin is the same page. `min` above `max` is an argument error | body and `ready` only |
 | `korg.ledHold(on)` | 1 stops the firmware from rewriting the panel LEDs (pads, keys and lower RGB LEDs then show what the plugin set), 0 gives them back and makes the firmware resend all LEDs; if the last running plugin fails, the runtime gives them back itself | like `korg.led` |
+| `korg.remapKey(from, to)` | the key `from` reaches the firmware and the plugins as the key `to` (both 0 to 33, best names like `korg.key.PART_ERASE`) while the plugin runs: the input filter rewrites the code in the panel message before the firmware reads it, so the firmware does exactly what it does with `to`. One remap holds for all plugins, the last one counts; the same key twice takes it back. EXIT cannot be remapped. From API version 8 | only in the body and in `ready` |
 
 **Display on the device:** the runtime keeps its own image of 1024 bytes (8 pages of 128 columns, bit 0 is
 the top row) and draws only into that. Coordinates past the edge are cut off, never wrapped. Only the owner
@@ -751,6 +767,14 @@ VM is enough, no floats needed; the picture comes in four passes of blocks 8, 4,
 needs more than the rest of a frame is continued in the next one. The first pictures are up after one to three seconds,
 the full picture takes about 3400 frames (a little over two minutes, counted in the emulator); every input starts again at
 the coarse pass. Zoom goes up to 7, deeper than that the 14 bits do not reach.
+
+**BPM Glide** (idea: [KrImZoR](https://www.instagram.com/krimzor_live)) is no app, it runs in the background. While
+the playing pattern chains on (Chain To, CHAIN MODE on), the tempo glides from the tempo at the start to the stored tempo of
+the next pattern, spread over length times Chain Repeat; the last step reaches the new tempo, so the switch does not jump.
+It reads the chain at the first step after PLAY or a pattern change, because only then does the firmware have the new
+pattern in RAM. STOP sets back the tempo the pattern started with. The page BPM GLIDE in the BLECH menu switches it on (1)
+and off (0), `korg.store` keeps the setting. Because `korg.tempo` sets the tempo of the pattern in RAM, it counts as an
+unsaved change until STOP. Checked in the simulator (`test/script-bpm-glide.test.mjs`), not on the device.
 
 ## The Plugins page in the editor
 

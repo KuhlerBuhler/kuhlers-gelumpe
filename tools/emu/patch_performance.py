@@ -22,7 +22,7 @@ BUILDS = ('hacktribe', 'stock', 'synth')
 CORE = ('idle', 'playing', 'playing-keyboard', 'sequencer-four-note-long-ties')
 APPS = ('mandelbrot', 'life', 'pong')
 INSTALLED_APPS = ('blechclicker', 'settimer', 'snake', 'tetris', 'life', 'pong', 'simon', 'mandelbrot')
-BACKGROUND_PLUGINS = ('lauflicht', 'pulsieren')
+BACKGROUND_PLUGINS = ('lauflicht', 'pulsieren', 'bpmglide')
 REPEATS = 3
 SECONDS = 2
 MUL_MIN_REDUCTION_PERCENT = 19.83
@@ -60,7 +60,7 @@ def require(ok, message):
 
 def app_workload(programs, capacity):
     expected = set(INSTALLED_APPS) | set(BACKGROUND_PLUGINS) | {'gifplayer'}
-    require(set(programs) == expected, 'all eleven named plugin inputs required')
+    require(set(programs) == expected, 'all named plugin inputs required')
     require(len(INSTALLED_APPS) <= capacity, 'app workload exceeds native capacity')
     require(all(programs[name]['info'].get('app') is not None for name in INSTALLED_APPS), 'app metadata missing')
     require(all(programs[name]['info'].get('app') is None for name in BACKGROUND_PLUGINS), 'background plugin became an app')
@@ -112,7 +112,7 @@ def validate_capture(data):
         for result in repeats:
             plugins = result.get('plugins', [])
             expected_plugins = set(INSTALLED_APPS) | set(BACKGROUND_PLUGINS) | {'gifplayer'}
-            require(len(plugins) == len(expected_plugins) and {p.get('plugin') for p in plugins} == expected_plugins, 'all eleven named loader inputs required')
+            require(len(plugins) == len(expected_plugins) and {p.get('plugin') for p in plugins} == expected_plugins, 'all named loader inputs required')
             require(all(isinstance(p.get('instructions'), int) and p['instructions'] > 0 for p in plugins), 'invalid loader count')
             require(result.get('totalInstructions') == sum(p['instructions'] for p in plugins), 'inconsistent loader total')
         require(all(r == repeats[0] for r in repeats), 'non-reproducible loader counts')

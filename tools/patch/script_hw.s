@@ -112,6 +112,103 @@ script_read_knob_glue:
     mov r1, #ERR_OK
     bx lr
 
+.equ HW_GLOBAL, 0xC06A2A94      ; the live global block (GLST, docs/messungen/2026-10-14-global-felder.md)
+.equ HW_GLOBAL_CHAIN_MODE, 31   ; CHAIN MODE: without it the firmware does not chain
+
+; -> 1 when CHAIN MODE is on in Global.
+script_read_chain_mode_glue:
+    ldr r0, =HW_GLOBAL
+    ldrb r0, [r0, #HW_GLOBAL_CHAIN_MODE]
+    cmp r0, #0
+    movne r0, #1
+    mov r1, #ERR_OK
+    bx lr
+
+; r0 pattern (-1 the pattern in RAM, so an unsaved edit counts; 0 to 249 the bank, 0x4000 per pattern, the same block layout),
+; r1 part (-1 a value of the pattern, 0 to 15 a value of that part), r2 field -> the value. The fields and how their bytes
+; become the value are PATTERN_FIELDS and PART_FIELDS of data/script/contract.mjs: a table word holds the offset (bits 0 to
+; 15) and the kind (bits 16 and up). Clobbers r0 to r3 and r12.
+script_read_pattern_value_glue:
+    cmn r1, #1
+    ldreq r12, =pattern_fields
+    moveq r3, #SCRIPT_PATTERN_FIELD_COUNT
+    ldrne r12, =part_fields
+    movne r3, #SCRIPT_PART_FIELD_COUNT
+    cmp r2, r3
+    bhs hw_bad_arg
+    ldr r12, [r12, r2, lsl #2]
+    cmn r0, #1
+    ldreq r3, =HW_PATTERN_OBJECT+4
+    ldrne r3, =SC_BANK
+    addne r3, r3, r0, lsl #14
+    cmn r1, #1
+    beq pattern_value_at
+    ldr r2, =SCRIPT_PART_STRIDE
+    mla r3, r1, r2, r3
+    add r3, r3, #SCRIPT_PART_BASE
+pattern_value_at:
+    mov r2, r12, lsl #16
+    add r3, r3, r2, lsr #16
+    ldrb r0, [r3]
+    mov r12, r12, lsr #16
+    cmp r12, #1
+    moveq r0, r0, lsl #24
+    moveq r0, r0, asr #24
+    cmp r12, #2
+    ldrbeq r2, [r3, #1]
+    orreq r0, r0, r2, lsl #8
+    cmp r12, #3
+    andeq r0, r0, #3
+    addeq r0, r0, #1
+    cmp r12, #4
+    bne pattern_value_repeat
+    sub r0, r0, #1
+    cmp r0, #249
+    mvnhi r0, #0
+pattern_value_repeat:
+    cmp r12, #5
+    bne pattern_value_done
+    cmp r0, #1
+    movlo r0, #1
+pattern_value_done:
+    mov r1, #ERR_OK
+    bx lr
+.pool
+
+pattern_fields:
+    .word SCRIPT_PATTERN_FIELD_0
+    .word SCRIPT_PATTERN_FIELD_1
+    .word SCRIPT_PATTERN_FIELD_2
+    .word SCRIPT_PATTERN_FIELD_3
+    .word SCRIPT_PATTERN_FIELD_4
+    .word SCRIPT_PATTERN_FIELD_5
+    .word SCRIPT_PATTERN_FIELD_6
+    .word SCRIPT_PATTERN_FIELD_7
+    .word SCRIPT_PATTERN_FIELD_8
+    .word SCRIPT_PATTERN_FIELD_9
+    .word SCRIPT_PATTERN_FIELD_10
+part_fields:
+    .word SCRIPT_PART_FIELD_0
+    .word SCRIPT_PART_FIELD_1
+    .word SCRIPT_PART_FIELD_2
+    .word SCRIPT_PART_FIELD_3
+    .word SCRIPT_PART_FIELD_4
+    .word SCRIPT_PART_FIELD_5
+    .word SCRIPT_PART_FIELD_6
+    .word SCRIPT_PART_FIELD_7
+    .word SCRIPT_PART_FIELD_8
+    .word SCRIPT_PART_FIELD_9
+    .word SCRIPT_PART_FIELD_10
+    .word SCRIPT_PART_FIELD_11
+    .word SCRIPT_PART_FIELD_12
+    .word SCRIPT_PART_FIELD_13
+    .word SCRIPT_PART_FIELD_14
+    .word SCRIPT_PART_FIELD_15
+    .word SCRIPT_PART_FIELD_16
+    .word SCRIPT_PART_FIELD_17
+    .word SCRIPT_PART_FIELD_18
+    .word SCRIPT_PART_FIELD_19
+
 hw_bad_arg:
     mov r0, #0
     mov r1, #ERR_API_ARG
@@ -330,4 +427,75 @@ led_guard_release:
     mov r0, #0
     bl script_led_hold_glue
     pop {pc}
+.pool
+
+; korg.remapKey: one key the panel sends reaches the firmware and the plugins as another, while the plugin that asked for it
+; is armed. The record lies in the card loader's work area, between RM_AT and FX_STATE_AT: the plugin's entry, the checksum
+; of its block (an entry address a later load reuses holds another block) and the two key codes (from in bits 0 to 7, to in
+; bits 8 to 15). The area is FF at power-on, which matches no entry.
+.equ RP_AT, 0xFCC
+.equ RP_OWNER, 0
+.equ RP_CRC, 4
+.equ RP_KEYS, 8
+.equ RP_SIZE, 12
+.equ KEY_EXIT, 13
+
+; r0 from, r1 to (0 to 33, checked by the VM). The same key twice ends the remap; EXIT is never remapped, so apps stay closable.
+script_remap_key_glue:
+    cmp r0, #KEY_EXIT
+    cmpne r1, #KEY_EXIT
+    beq hw_bad_arg
+    ldr r2, =HOOK_CARD+RP_AT
+    ldr r3, =HOOK_RUNTIME
+    ldr r3, [r3, #RT_ENTRY]
+    cmp r0, r1
+    moveq r3, #0
+    str r3, [r2, #RP_OWNER]
+    orr r0, r0, r1, lsl #8
+    str r0, [r2, #RP_KEYS]
+    cmp r3, #0
+    ldrne r3, [r3, #SCRIPT_ENTRY_BLOB]
+    ldrne r3, [r3, #12]
+    str r3, [r2, #RP_CRC]
+    mov r0, #0
+    mov r1, #ERR_OK
+    bx lr
+
+; r0 a panel message. A key message of the remapped key gets the other key code, before the firmware or a plugin sees it,
+; when the owner is still in the runtime's list, armed and holds the same block. Clobbers r0 to r3 and r12.
+remap_input:
+    ldr r1, =HOOK_CARD+RP_AT
+    ldr r2, [r1, #RP_OWNER]
+    cmp r2, #0
+    bxeq lr
+    ldrb r3, [r0, #0x0c]
+    cmp r3, #0
+    bxne lr
+    ldr r3, =HOOK_RUNTIME
+    ldr r3, [r3]
+remap_find:
+    cmp r3, r2
+    beq remap_owner
+    cmp r3, #0
+    cmnne r3, #1
+    bxeq lr
+    ldr r3, [r3]
+    b remap_find
+remap_owner:
+    ldr r3, [r2, #SCRIPT_ENTRY_STATE]
+    cmp r3, #SCRIPT_STATE_ARMED
+    bxne lr
+    ldr r3, [r2, #SCRIPT_ENTRY_BLOB]
+    ldr r3, [r3, #12]
+    ldr r12, [r1, #RP_CRC]
+    cmp r3, r12
+    bxne lr
+    ldr r1, [r1, #RP_KEYS]
+    ldrb r3, [r0, #0x0d]
+    and r2, r1, #0xFF
+    cmp r3, r2
+    bxne lr
+    mov r1, r1, lsr #8
+    strb r1, [r0, #0x0d]
+    bx lr
 .pool

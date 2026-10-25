@@ -95,6 +95,7 @@ export class SimDevice {
 
   /** One input as the panel sends it. EXIT with an app open closes it, in the input filter, before any script sees the key. */
   #deliver(event, args) {
+    if (event === "buttonPress" || event === "buttonRelease") args = [this.runtime.remapped(args[0]), ...args.slice(1)];
     if (event === "buttonPress" && args[0] === KEY_EXIT && this.runtime.open) { this.runtime.closeApp(); return true; }
     return this.runtime.post(event, ...this.hardware.input(event, ...args));
   }
