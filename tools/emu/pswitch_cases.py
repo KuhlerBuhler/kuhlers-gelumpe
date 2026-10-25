@@ -741,8 +741,80 @@ def case_sync_group(payload, flash):
     return out
 
 
+def case_sync_unsaved(payload, flash):
+    """Stopped with unsaved changes, the wheel on another pattern of the pattern's sync group loads it at once, without the browse
+    (VIEW:) and without MENU; a pattern of another group is browsed as before. A pattern that came in through a sync group's carry is not
+    unsaved because of the carried values, so a run through a group does not stop at a question; an edit made afterwards still is one."""
+    out = []
+    live = lambda b: b.u32(0xC033E6A4) + 4
+    P1 = 0x800
+    STEP = P1 + 0x30 + 2
+
+    def setup(b):
+        for n, g in ((0, 7), (1, 7), (2, 0), (3, 7)):
+            b.pattern_bytes(n, spec.GROUP_AT, struct.pack("<H", g))
+        b.m.uc.mem_write(live(b) + spec.GROUP_AT, struct.pack("<H", 7))
+
+    def flip(b, at):
+        b.m.uc.mem_write(live(b) + at, bytes([b.dev.read(live(b) + at, 1)[0] ^ 0x10]))
+
+    box = Box(payload, flash)
+    setup(box)
+    flip(box, STEP)
+    flip(box, P1 + 1)                 # a part's mute: carried
+    flip(box, 36)                     # the pattern's own value: carried
+    first = box.dirty()
+    box.turn(1)
+    out.append(entry("group_unsaved_loads_at_once", first and box.view() == (1, 1, 0) and box.flags()[0] in (0, 0xFFFFFFFF) and box.u32(spec.STATE + spec.S_STOPPED) == 0
+                     and not box.m.asserts,
+                     f"edited pattern 1 (group 7), a click to pattern 2 (group 7): running/chosen/pending {box.view()}, browse {box.flags()[0]:#x}"))
+    box.turn(2)
+    out.append(entry("group_unsaved_run_through", box.view() == (3, 3, 0) and not box.m.asserts,
+                     f"two clicks on to pattern 4 (group 7) with the carried values differing from the bank: {box.view()}"))
+    box.turn(-1)
+    out.append(entry("group_carry_is_not_unsaved", box.view() == (2, 2, 0) and not box.m.asserts,
+                     f"out of the group into pattern 3 (group 0) after only a carry: loads at once, {box.view()}"))
+    # an edit after the carry is unsaved again
+    ed = Box(payload, flash)
+    setup(ed)
+    flip(ed, P1 + 1)
+    ed.turn(1)
+    flip(ed, STEP)
+    ed.turn(1)
+    out.append(entry("group_edit_after_carry_browses", ed.view() == (1, 2, 1) and ed.flags()[0] == 1 and not ed.m.asserts,
+                     f"into pattern 2 by the carry, a step changed, a click to pattern 3 (group 0): {ed.view()}, browse {ed.flags()[0]}"))
+    mu = Box(payload, flash)
+    setup(mu)
+    mu.turn(1)
+    flip(mu, P1 + 1)
+    mu.turn(1)
+    out.append(entry("group_carried_edit_browses", mu.view() == (1, 2, 1) and mu.flags()[0] == 1 and not mu.m.asserts,
+                     f"into pattern 2 by the carry, a part's mute changed, a click to pattern 3 (group 0): {mu.view()}, browse {mu.flags()[0]}"))
+    # a browse that is open, then a click onto a pattern of the group: loads
+    br = Box(payload, flash)
+    setup(br)
+    flip(br, STEP)
+    br.turn(2)
+    opened = (br.view(), br.flags()[0])
+    br.turn(1)
+    out.append(entry("group_ends_an_open_browse", opened == ((0, 2, 1), 1) and br.view() == (3, 3, 0) and br.flags()[0] == 0 and not br.m.asserts,
+                     f"edited pattern 1, browse to pattern 3 (group 0) {opened}; one more click to pattern 4 (group 7): {br.view()}, browse {br.flags()[0]}"))
+    other = Box(payload, flash)
+    setup(other)
+    flip(other, STEP)
+    other.turn(2)
+    out.append(entry("other_group_unsaved_browses", other.view() == (0, 2, 1) and other.flags()[0] == 1 and other.dirty() and not other.m.asserts,
+                     f"edited pattern 1 (group 7), a click to pattern 3 (group 0): browse as before, {other.view()}"))
+    ref = Box(payload, flash, KILL)
+    setup(ref)
+    flip(ref, STEP)
+    ref.turn(1)
+    out.append(entry("group_unsaved_kill_switch_is_stock", ref.view() == (1, 1, 0) and ref.flags()[0] in (0, 0xFFFFFFFF), f"EXIT held at power-on: {ref.view()}"))
+    return out
+
+
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
-          case_sync_group)
+          case_sync_group, case_sync_unsaved)
 
 
 def group_entries(payload, flash, i):

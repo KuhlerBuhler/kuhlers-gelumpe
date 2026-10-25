@@ -574,7 +574,7 @@ def blech_file(block, description=None, source=b"hello"):
 def import_cases(programs, built, patched, flash, check):
     """PLUGIN EDIT lists every *.blech of the plugin folder and the loaded plugins in one list (loaded ones first, then the files not
     loaded, a plugin of both once): the name is SELECT PLUGIN, STATE shows OFF for one not loaded and the dial up or ENTER loads and
-    starts it, DESCRIPTION is a page that shows the description from the file (the dial scrolls it). There is no IMPORT PLUGIN."""
+    starts it, DESCRIPTION is a page that shows the description from the file (the dial scrolls it)."""
     import menu_cases
     runtime = built.layout["runtime"]
     sym = built.symbols

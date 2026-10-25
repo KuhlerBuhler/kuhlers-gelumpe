@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RELEASE_COMMIT, VERSION_FILES, checkFiles, classifyFile, compareVersions, latestVersion, nextVersion, planRelease } from "../tools/release-lib.mjs";
+import { BASE_BRANCH, RELEASE_COMMIT, VERSION_FILES, checkFiles, classifyFile, compareVersions, latestVersion, nextVersion, planRelease } from "../tools/release-lib.mjs";
 
 const set = v => [
   `Kuhlers GELUMPE_${v}_aarch64.dmg`,
@@ -89,7 +89,8 @@ test("a bump puts set-version, the commit and the push before the release, and t
   assert.deepEqual(steps.map(s => `${s.cmd} ${s.args[0]}`), ["node tools/set-version.mjs", "git commit", "git push", "gh release", "gh release"]);
   assert.deepEqual(steps[1].args.slice(0, 4), ["commit", "-m", "Release v1.0.1", "--"]);
   assert.deepEqual(steps[1].args.slice(4), VERSION_FILES);
-  assert.deepEqual(steps[2].args, ["push", "origin", "HEAD:main"]);
+  assert.equal(BASE_BRANCH, "develop");
+  assert.deepEqual(steps[2].args, ["push", "origin", "HEAD:develop"], "main is protected: the bump goes to develop and reaches main with the release pull request");
   const create = steps[3].args;
   assert.equal(create[create.indexOf("--target") + 1], RELEASE_COMMIT);
   assert.ok(!create.includes("abcdef1234567"));

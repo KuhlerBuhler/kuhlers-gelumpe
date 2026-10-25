@@ -11,6 +11,10 @@ import { fxPanel } from "./fx.mjs";
 import { levelsPanel } from "./levels.mjs";
 import { modulationsPage } from "./modulations.mjs";
 import { samplesPage } from "./samples.mjs";
+import { samplesFilePage } from "./sampleset.mjs";
+import { createMidiTransport } from "./midi.mjs";
+import { createUsbWatch } from "./usb-watch.mjs";
+import { usbIndicator } from "./usb.mjs";
 import { emulatorPanel, takeLink, findLink } from "./emulator.mjs";
 import { followDevice } from "./follow.mjs";
 import { emulatorWindow } from "./emu-window.mjs";
@@ -507,6 +511,9 @@ function boot() {
   // Picking the mode that is open already changes nothing; ui.tabs would show the empty device panel instead of the drawing.
   const nav = navbar({ onMode: id => { if (id !== areas?.current) areas?.select(id, { focus: false }); }, onDisconnect: () => device.disconnect() });
   const drawer = sidebarDrawer();
+  const usb = createUsbWatch({ transport: createMidiTransport(window), permissions: navigator.permissions, hidden: () => document.hidden });
+  usbIndicator($(".cee-navbar"), usb);
+  usb.start();
   sidebarFold();
   const options = subnav();
   let fx = null;
@@ -521,7 +528,7 @@ function boot() {
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
   const device = devicePanel($("#cee-device"), {
-    onSession: () => { restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session && !device.session.sender.disconnected); terminal?.update(); },
+    onSession: () => { restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session && !device.session.sender.disconnected); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,
@@ -612,6 +619,7 @@ function boot() {
   const modulations = modulationsPage($("#cee-mod"), { emulator });
   const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: (parts, home) => nav.trail("baukasten", parts, home), navbar: nodes => nav.baukasten(nodes) });
   samplesPage($("#cee-samples"), { device, emulator, probe });
+  samplesFilePage($("#cee-sampleset"));
   let fxFirmware = null;
   let modFirmware = null;
   let plainFor = null;
@@ -697,7 +705,7 @@ function boot() {
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
 else boot();
 
-watchForUpdate($("#cee-update"));
+watchForUpdate($("#cee-update"), undefined, toast);
 showNews(toast);
 
 // In the desktop app a new window goes nowhere: the donate, GitHub, Instagram and Korg links navigate in place and the app opens them in the browser (src-tauri).
