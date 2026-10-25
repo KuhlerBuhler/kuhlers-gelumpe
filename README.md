@@ -191,7 +191,7 @@ Die App im Dunkelmodus. Der Emulator ist hier ohne Firmware zu sehen, das Displa
 
 ## Die App laden
 
-Auf der Releases-Seite dieses Repositories liegt die App für macOS (Apple Silicon, `.dmg`), Windows (`.exe`) und Linux (`.AppImage`, `.deb`). Die App startet den
+Auf der Releases-Seite dieses Repositories liegt die App für macOS (Apple Silicon und Intel, je eine `.dmg`), Windows (`.exe`) und Linux (`.AppImage`, `.deb`). Die App startet den
 Emulator-Dienst selbst und beendet ihn beim Schließen. Karte und Flash des Emulators liegen
 in `~/.gelumpe`. Beim Start und alle paar Stunden prüft die App, ob es ein neueres Release
 gibt, und zeigt dann oben "Neue Version verfügbar". Ein Klick öffnet die Release-Seite.

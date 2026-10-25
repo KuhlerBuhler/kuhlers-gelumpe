@@ -107,6 +107,8 @@ test("patcher: Weiter and Zurück walk the four steps, Korg's firmware cards sit
   assert.equal(await page.isVisible("#cee-patch-back"), false, "no way back from the first step");
   assert.equal(await page.isDisabled("#cee-patch-next"), true, "Weiter waits for a file");
   await drop(page, await makeFirmware());
+  await page.waitForFunction(() => document.querySelector("#cee-patch-file-info").textContent === "SYSTEM.VSB: Hacktribe 2.02 erkannt");
+  assert.equal(await page.locator("#cee-patcher .ui-dropzone:has(#cee-patch-file)").getAttribute("data-filled"), "", "the field shows that it holds a file");
   await page.click("#cee-patch-next");
   assert.equal(await page.isVisible("#cee-patch-step-2"), true);
   assert.equal(await page.locator("#cee-patch-way [aria-current=step]").textContent(), "2Patches anwenden");
