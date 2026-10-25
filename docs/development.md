@@ -265,7 +265,7 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 Release-Rechner) die nächste Version in `package.json`, `tauri.conf.json`, `Cargo.toml` und
 `Cargo.lock`: erste Version 1.0.0, danach der letzte Tag `vX.Y.Z` mit Patch plus eins, `--minor` oder
 `--major` hebt stattdessen den Teil (bei `prepare` und beim Release gleich angeben). `prepare`
-verlangt, dass `HEAD` auf `origin/main` steht, und committet nichts.
+verlangt, dass `HEAD` auf `origin/develop` steht, und committet nichts.
 
 Wenn alle fünf Dateien (zwei `.dmg` für Apple Silicon und Intel, Setup-`.exe`, `.AppImage`, `.deb`) in `dist-release/` liegen:
 
@@ -275,10 +275,15 @@ npm run release -- --yes     # wirklich
 ```
 
 Mit `--yes` passiert der Reihe nach: Version in die Dateien schreiben, die vier Dateien als "Release
-vX.Y.Z" committen (nur diese), den Commit nach `origin/main` pushen, das Release anlegen (der Tag liegt
+vX.Y.Z" committen (nur diese), den Commit nach `origin/develop` pushen, das Release anlegen (der Tag liegt
 auf diesem Commit, das Release wird als neuestes markiert) mit den fünf Dateien, dann alle älteren
 Releases samt Dateien löschen, die Tags bleiben. Steht die Version schon in `HEAD`, entfallen Commit und
 Push. Nur das neueste Release liegt also auf GitHub.
+
+`main` ist geschützt, deshalb geht der Versions-Commit nach `develop` und erreicht `main` mit dem einen
+Pull Request `develop` -> `main`, den du danach öffnest (`gh pr create --base main --head develop`). Ein
+eigener Bump-PR ist nicht nötig. Der Workflow "Sync develop" holt den Merge-Commit danach nach `develop`
+zurück.
 
 `--notes=Datei.md` nimmt die Release-Notizen aus der Datei statt GitHubs erzeugter Liste der PRs. Sobald
 das Release veröffentlicht ist, postet der Workflow "Discord release" es über den Webhook im Secret
@@ -287,8 +292,8 @@ Notizen, lange in mehreren Nachrichten, zum Schluss eine Nachricht nur mit dem L
 starten, er postet das Release noch einmal.
 
 Geprüft wird vorher: alle fünf Ziele da, genau eine Datei je Ziel, alle mit der fälligen Version, `gh`
-angemeldet, das Release gibt es noch nicht, `HEAD` ist `origin/main`. Scheitert der Push, liegt der
-Commit lokal: beheben und `git push origin HEAD:main`, dann `npm run release -- --yes` erneut, es läuft
+angemeldet, das Release gibt es noch nicht, `HEAD` ist `origin/develop`. Scheitert der Push, liegt der
+Commit lokal: beheben und `git push origin HEAD:develop`, dann `npm run release -- --yes` erneut, es läuft
 nur noch das Release.
 
 **BLECH-Patch zum Release** (optional): `E2_VSB=<SYSTEM.VSB aus Hacktribes Paket> npm run
