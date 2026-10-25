@@ -228,6 +228,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Sync Group auf der blauen Electribe](2026-10-24-blau-sync-group.md)
 - [Sync Group behält unveränderte Samples, Pad X und Y sind keine Änderung, Pad-Druck beim Wechsel](2026-10-25-sync-sample-und-pad-xy.md)
 - [Sync Group: gestoppt mit ungespeicherten Änderungen ohne Rückfrage](2026-10-25-sync-ungespeichert.md)
+- [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
 - [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
 - [Meter: RAINBOW auch bei LOUD, im Tempo](2026-10-24-meter-loud-rainbow.md)
