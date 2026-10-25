@@ -107,7 +107,7 @@ export function checkFiles(names, expectedVersion) {
 export const RELEASE_COMMIT = "@release-commit";
 export const VERSION_FILES = ["package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock"];
 
-export function planRelease({ tag, sha, assets, older, repo, bump = false }) {
+export function planRelease({ tag, sha, assets, older, repo, bump = false, notes = null }) {
   const steps = [];
   if (bump) {
     steps.push({
@@ -127,7 +127,7 @@ export function planRelease({ tag, sha, assets, older, repo, bump = false }) {
   steps.push({
     what: `Release ${tag} anlegen (Tag auf ${bump ? "den Bump-Commit" : sha.slice(0, 7)}), ${assets.length} Dateien hochladen, als neuestes markieren, unter Announcements als Discussion ankündigen`,
     cmd: "gh",
-    args: ["release", "create", tag, ...assets, "--repo", repo, "--target", bump ? RELEASE_COMMIT : sha, "--title", tag, "--generate-notes", "--latest", "--discussion-category", "Announcements"],
+    args: ["release", "create", tag, ...assets, "--repo", repo, "--target", bump ? RELEASE_COMMIT : sha, "--title", tag, ...(notes ? ["--notes-file", notes] : ["--generate-notes"]), "--latest", "--discussion-category", "Announcements"],
   });
   for (const old of older.filter(t => t !== tag)) {
     steps.push({
