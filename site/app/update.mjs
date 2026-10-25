@@ -50,14 +50,13 @@ export function unseenNews(current, seen, news = NEWS) {
   return news.filter(n => !isNewer(n.version, current) && (seen ? isNewer(n.version, seen) : !isNewer(current, n.version)));
 }
 
-/** Once after an update, a toast that stays with what is new; then the version counts as seen. Never throws. */
+/** Once after an update with news, a one-line toast that stays and points to the changelogs; then the version counts as seen. Never throws. */
 export function showNews(toast, app = globalThis.window?.__GELUMPE_APP, storage = globalThis.localStorage) {
   if (!app?.version) return;
   try {
     const fresh = unseenNews(app.version, storage.getItem(SEEN));
     storage.setItem(SEEN, app.version);
     if (!fresh.length) return;
-    const lines = fresh.flatMap(n => n.items.map(item => `• ${item}`));
-    toast(`Neu in ${fresh.at(-1).version.replace(/\.0$/, "")}:\n${lines.join("\n")}`, "info", { stay: true });
+    toast(`BLECHTRIBE ${fresh.at(-1).version.replace(/\.0$/, "")} ist da. Was neu ist, steht unter Changelogs.`, "info", { stay: true });
   } catch { /* no storage: no news, the app works as before */ }
 }
