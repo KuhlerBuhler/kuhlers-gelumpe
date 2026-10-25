@@ -6,8 +6,10 @@ anlegen. Was der Editor tut und wie er prüft, steht in
 
 Voraussetzung ist Node.js 20 oder neuer. Kern, Unit-Tests und Server haben keine
 Abhängigkeiten. Die Browsertests brauchen Playwright mit dem installierten Chrome, der
-Emulator Python 3.10 oder neuer mit Unicorn. Für die Kommunikation mit dem Gerät ist Chrome
-oder Edge auf einem Desktopcomputer nötig (Web MIDI mit SysEx, Safari kann das nicht).
+Emulator Python 3.10 oder neuer mit Unicorn. Die Desktop-App verwendet auf macOS und Linux
+einen nativen MIDI-Dienst. Beim Start mit `npm start` ist Chrome oder Edge auf einem
+Desktopcomputer nötig (Web MIDI mit SysEx, Safari kann das nicht). Unter Windows bleibt
+die App vorerst bei Web MIDI.
 
 Agenten arbeiten nach [AGENTS.md](../AGENTS.md), dort stehen die harten Regeln des Repos.
 
@@ -188,11 +190,47 @@ Python 3.10+ (die venv und PyInstaller legt der Build selbst an).
 | macOS Apple Silicon | Xcode Command Line Tools | `npm run app:build -- --bundles dmg` | `bundle/dmg/*_aarch64.dmg` |
 | macOS Intel (auf Apple Silicon) | siehe unten | `GELUMPE_X64_PYTHON=<x86_64-python> npm run app:build -- --target x86_64-apple-darwin --bundles dmg` | `target/x86_64-apple-darwin/release/bundle/dmg/*_x64.dmg` |
 | Windows x64 | siehe unten | `npm run app:build -- --bundles nsis` | `bundle/nsis/*_x64-setup.exe` |
-| Linux x64 | `sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev patchelf python3-venv` | `npm run app:build -- --bundles appimage,deb` | `bundle/appimage/*.AppImage`, `bundle/deb/*.deb` |
+| Linux x64 | `sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev patchelf python3-venv libasound2-dev` | `npm run app:build -- --bundles appimage,deb` | `bundle/appimage/*.AppImage`, `bundle/deb/*.deb` |
 
 Pfade ab `src-tauri/target/release/`, außer wo `target/<Triple>/` steht. Die fertigen Dateien
 kommen alle in den Ordner `dist-release/` im Repo auf dem Rechner, der das Release anlegt (in
 `.gitignore`), von den anderen Systemen per Kopie.
+
+Für MIDI braucht das Linux-Paket zur Laufzeit ALSA (`libasound.so.2`, auf Debian und Ubuntu
+das Paket `libasound2` beziehungsweise `libasound2t64`). Das deb-Paket nennt die Abhängigkeit;
+beim AppImage muss sie auf dem Rechner vorhanden sein.
+
+Die nativen MIDI-Tests laufen ohne Gerät und ohne Korg-Daten:
+
+```bash
+npm run build:site
+npm run build:sidecar
+cargo test --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+```
+
+Die gesonderte Prüfung mit virtuellen MIDI-Ports wird ausdrücklich gestartet:
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml --lib midi::backend::tests::virtual_ports -- --ignored --nocapture
+cargo run --manifest-path src-tauri/Cargo.toml --example midi-smoke
+```
+
+Das Beispiel startet eine verborgene echte WebKit-Ansicht mit dem gebauten Editor und
+prüft den Adapter, die Tauri-Aufrufe, den Rückkanal und eigene virtuelle Ports zusammen.
+Es gehört nicht zur ausgelieferten Oberfläche. Beide Prüfungen verwenden
+nur eigens erzeugte Testports, keine angeschlossene Electribe. Native Prüfungen unter Windows
+ersetzen keinen Funktionstest; die native Anbindung bleibt dort bis zur Abnahme ausgeschaltet.
+
+Vor einer Freigabe werden die installierten Pakete getrennt geprüft: macOS auf Apple Silicon
+und Intel, Linux als deb und AppImage sowie Windows. Zu jedem Ergebnis gehören System,
+Paketarchitektur, Senden, Empfangen, Trennen und Neuverbinden über eigene Testports. Ein
+Compilerlauf ist kein Nachweis für ein gestartetes Paket.
+
+Ein nativer Funktionstest unter Windows braucht einen vorher eingerichteten Loopback-Provider
+mit ausdrücklich benannten virtuellen Ports. Provider, Version und Einrichtung gehören ins
+Prüfprotokoll. Diese Testvoraussetzung wird nicht mit der App ausgeliefert. Ohne diesen Nachweis
+bleibt die native Windows-Anbindung ausgeschaltet.
 
 **macOS Intel** baut ein Apple-Silicon-Mac unter Rosetta: `rustup target add x86_64-apple-darwin`
 und ein x86_64-Python 3.10+ (zum Beispiel `uv python install cpython-3.12-macos-x86_64`, Pfad mit

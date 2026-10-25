@@ -509,7 +509,7 @@ function boot() {
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
   const device = devicePanel($("#cee-device"), {
-    onSession: () => { restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session); terminal?.update(); },
+    onSession: () => { restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session && !device.session.sender.disconnected); terminal?.update(); },
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,

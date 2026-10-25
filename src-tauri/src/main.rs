@@ -16,8 +16,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use tauri::webview::NewWindowResponse;
-use tauri::{AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use kuhlers_gelumpe::midi::{self, Config as MidiConfig, MidiService, NativeDriver};
+use tauri::webview::{NewWindowResponse, PageLoadEvent};
+use tauri::{
+    AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
+};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 /// The service this app started, if any. `quitting` keeps the watchdog from starting it again while the app ends.
@@ -34,22 +37,38 @@ fn token() -> Result<String, String> {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut bytes = [0u8; 22];
     getrandom::fill(&mut bytes).map_err(|e| format!("Keine Zufallszahlen vom System: {e}"))?;
-    Ok(bytes.iter().map(|b| ALPHABET[(*b & 63) as usize] as char).collect())
+    Ok(bytes
+        .iter()
+        .map(|b| ALPHABET[(*b & 63) as usize] as char)
+        .collect())
 }
 
 /// The frozen service next to the app binary; without it (cargo tauri dev) the
 /// source tree's service run by the venv of `npm run setup:emu`.
 fn service_command() -> Result<Command, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("Der Pfad der App ist unbekannt: {e}"))?;
+    let exe =
+        std::env::current_exe().map_err(|e| format!("Der Pfad der App ist unbekannt: {e}"))?;
     let dir = exe.parent().ok_or("Der Ordner der App ist unbekannt.")?;
-    let name = if cfg!(windows) { "Gelumpe Emulator.exe" } else { "Gelumpe Emulator" };
+    let name = if cfg!(windows) {
+        "Gelumpe Emulator.exe"
+    } else {
+        "Gelumpe Emulator"
+    };
     let frozen = dir.join(name);
     if frozen.exists() {
         return Ok(Command::new(frozen));
     }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let venv = root.join("tools/emu/.venv").join(if cfg!(windows) { "Scripts/python.exe" } else { "bin/python" });
-    let mut cmd = Command::new(if venv.exists() { venv } else { PathBuf::from("python3") });
+    let venv = root.join("tools/emu/.venv").join(if cfg!(windows) {
+        "Scripts/python.exe"
+    } else {
+        "bin/python"
+    });
+    let mut cmd = Command::new(if venv.exists() {
+        venv
+    } else {
+        PathBuf::from("python3")
+    });
     cmd.arg(root.join("tools/emu/server.py"));
     Ok(cmd)
 }
@@ -64,11 +83,16 @@ fn start_service(port: u16, token: &str, again: bool) -> Result<Child, String> {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
-    cmd.arg("--port").arg(port.to_string())
-        .arg("--allow-origin").arg("tauri://localhost")
-        .arg("--allow-origin").arg("http://tauri.localhost")
-        .arg("--allow-origin").arg("https://tauri.localhost")
-        .arg("--parent-pid").arg(std::process::id().to_string())
+    cmd.arg("--port")
+        .arg(port.to_string())
+        .arg("--allow-origin")
+        .arg("tauri://localhost")
+        .arg("--allow-origin")
+        .arg("http://tauri.localhost")
+        .arg("--allow-origin")
+        .arg("https://tauri.localhost")
+        .arg("--parent-pid")
+        .arg(std::process::id().to_string())
         .env("E2_EMU_TOKEN", token);
     // What the service prints goes to ~/.gelumpe/emu.log, so a failure on a user's machine can be read afterwards.
     if let Some(log) = log_file(again) {
@@ -76,7 +100,8 @@ fn start_service(port: u16, token: &str, again: bool) -> Result<Child, String> {
             cmd.stdout(Stdio::from(out)).stderr(Stdio::from(err));
         }
     }
-    cmd.spawn().map_err(|e| format!("Der Emulator-Dienst ließ sich nicht starten: {e}"))
+    cmd.spawn()
+        .map_err(|e| format!("Der Emulator-Dienst ließ sich nicht starten: {e}"))
 }
 
 fn wait_for(port: u16, child: &mut Child) -> Result<(), String> {
@@ -84,7 +109,9 @@ fn wait_for(port: u16, child: &mut Child) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_secs(60);
     while Instant::now() < deadline {
         if let Ok(Some(status)) = child.try_wait() {
-            let tail = log_tail().map(|t| format!("\n\nAus ~/.gelumpe/emu.log:\n{t}")).unwrap_or_default();
+            let tail = log_tail()
+                .map(|t| format!("\n\nAus ~/.gelumpe/emu.log:\n{t}"))
+                .unwrap_or_default();
             return Err(format!("Der Emulator-Dienst ist beendet ({status}). Läuft schon eine andere Instanz auf demselben Kartenordner?{tail}"));
         }
         if TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok() {
@@ -96,14 +123,28 @@ fn wait_for(port: u16, child: &mut Child) -> Result<(), String> {
 }
 
 fn log_path() -> Option<PathBuf> {
-    Some(PathBuf::from(std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })?).join(".gelumpe").join("emu.log"))
+    Some(
+        PathBuf::from(std::env::var_os(if cfg!(windows) {
+            "USERPROFILE"
+        } else {
+            "HOME"
+        })?)
+        .join(".gelumpe")
+        .join("emu.log"),
+    )
 }
 
 /// The service's log, new at launch; a restart by the watchdog writes behind what the ended one said.
 fn log_file(again: bool) -> Option<std::fs::File> {
     let path = log_path()?;
     std::fs::create_dir_all(path.parent()?).ok()?;
-    std::fs::OpenOptions::new().create(true).write(true).append(again).truncate(!again).open(path).ok()
+    std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(again)
+        .truncate(!again)
+        .open(path)
+        .ok()
 }
 
 /// The last lines of the log, for the dialog when the service does not come up.
@@ -117,7 +158,13 @@ fn log_tail() -> Option<String> {
 fn announce_file() -> Option<PathBuf> {
     let root = match std::env::var_os("GELUMPE_SD_DIR") {
         Some(dir) if !dir.is_empty() => PathBuf::from(dir),
-        _ => PathBuf::from(std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })?).join(".gelumpe").join("sd"),
+        _ => PathBuf::from(std::env::var_os(if cfg!(windows) {
+            "USERPROFILE"
+        } else {
+            "HOME"
+        })?)
+        .join(".gelumpe")
+        .join("sd"),
     };
     Some(root.join("service.json"))
 }
@@ -126,10 +173,14 @@ fn announce_file() -> Option<PathBuf> {
 /// emu`), only when it is alive: the file names a living pid and /status
 /// answers with that token. A stale file (the service crashed) finds nothing.
 fn running_service() -> Option<(u16, String)> {
-    let info: serde_json::Value = serde_json::from_slice(&std::fs::read(announce_file()?).ok()?).ok()?;
+    let info: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(announce_file()?).ok()?).ok()?;
     let port = u16::try_from(info.get("port")?.as_u64()?).ok()?;
     let token = info.get("token")?.as_str()?.to_string();
-    if !token.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+    if !token
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
         return None;
     }
     answers(port, &token).then_some((port, token))
@@ -138,9 +189,15 @@ fn running_service() -> Option<(u16, String)> {
 /// Whether a service on `port` answers /status for `token`.
 fn answers(port: u16, token: &str) -> bool {
     let ask = || -> Option<bool> {
-        let mut stream = TcpStream::connect_timeout(&SocketAddr::from(([127, 0, 0, 1], port)), Duration::from_millis(500)).ok()?;
+        let mut stream = TcpStream::connect_timeout(
+            &SocketAddr::from(([127, 0, 0, 1], port)),
+            Duration::from_millis(500),
+        )
+        .ok()?;
         stream.set_read_timeout(Some(Duration::from_secs(2))).ok()?;
-        let request = format!("GET /status HTTP/1.0\r\nHost: 127.0.0.1:{port}\r\nX-Emu-Token: {token}\r\n\r\n");
+        let request = format!(
+            "GET /status HTTP/1.0\r\nHost: 127.0.0.1:{port}\r\nX-Emu-Token: {token}\r\n\r\n"
+        );
         stream.write_all(request.as_bytes()).ok()?;
         let mut answer = String::new();
         stream.read_to_string(&mut answer).ok()?;
@@ -231,7 +288,9 @@ fn open_in_browser(url: &str) {
     let _ = if cfg!(target_os = "macos") {
         Command::new("open").arg(url).spawn()
     } else if cfg!(windows) {
-        Command::new("rundll32").args(["url.dll,FileProtocolHandler", url]).spawn()
+        Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", url])
+            .spawn()
     } else {
         Command::new("xdg-open").arg(url).spawn()
     };
@@ -239,7 +298,14 @@ fn open_in_browser(url: &str) {
 
 /// Pages that open in the browser instead of a window of this app: releases, donations, Korg's firmware downloads, Instagram for help.
 fn outside(url: &Url) -> bool {
-    url.scheme() == "https" && matches!(url.host_str(), Some("github.com") | Some("www.paypal.me") | Some("www.korg.com") | Some("www.instagram.com"))
+    url.scheme() == "https"
+        && matches!(
+            url.host_str(),
+            Some("github.com")
+                | Some("www.paypal.me")
+                | Some("www.korg.com")
+                | Some("www.instagram.com")
+        )
 }
 
 /// The page closes the emulator window by navigating here (site/app/emu-window.mjs); WebKit has no window.close() for it.
@@ -249,7 +315,11 @@ const EMULATOR: &str = "emulator";
 /// window.open from the page: its own emulator window opens once, the outside pages go to the browser, nothing else opens.
 /// Any https page counts as outside here: a creator's profile link can point anywhere, and a new window of the page is
 /// only ever a link the user clicked. Navigation in place keeps the short list of `outside`.
-fn new_window(app: &AppHandle, url: Url, features: tauri::webview::NewWindowFeatures) -> NewWindowResponse<tauri::Wry> {
+fn new_window(
+    app: &AppHandle,
+    url: Url,
+    features: tauri::webview::NewWindowFeatures,
+) -> NewWindowResponse<tauri::Wry> {
     if outside(&url) || url.scheme() == "https" {
         open_in_browser(url.as_str());
         return NewWindowResponse::Deny;
@@ -262,20 +332,24 @@ fn new_window(app: &AppHandle, url: Url, features: tauri::webview::NewWindowFeat
         return NewWindowResponse::Deny;
     }
     let handle = app.clone();
-    let built = WebviewWindowBuilder::new(app, EMULATOR, WebviewUrl::External("about:blank".parse().unwrap()))
-        .window_features(features)
-        .on_navigation(move |url| {
-            if url.host_str() == Some(CLOSE_HOST) {
-                if let Some(window) = handle.get_webview_window(EMULATOR) {
-                    let _ = window.close();
-                }
-                return false;
+    let built = WebviewWindowBuilder::new(
+        app,
+        EMULATOR,
+        WebviewUrl::External("about:blank".parse().unwrap()),
+    )
+    .window_features(features)
+    .on_navigation(move |url| {
+        if url.host_str() == Some(CLOSE_HOST) {
+            if let Some(window) = handle.get_webview_window(EMULATOR) {
+                let _ = window.close();
             }
-            true
-        })
-        .title("Emulator · Kuhler's GELUMPE")
-        .min_inner_size(600.0, 360.0)
-        .build();
+            return false;
+        }
+        true
+    })
+    .title("Emulator · Kuhler's GELUMPE")
+    .min_inner_size(600.0, 360.0)
+    .build();
     match built {
         Ok(window) => NewWindowResponse::Create { window },
         Err(_) => NewWindowResponse::Deny,
@@ -297,27 +371,49 @@ struct Placement {
 struct Placed(Mutex<Option<Placement>>);
 
 fn placement_file(app: &AppHandle) -> Option<PathBuf> {
-    app.path().app_config_dir().ok().map(|dir| dir.join("window.json"))
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|dir| dir.join("window.json"))
 }
 
 fn load_placement(app: &AppHandle) -> Option<Placement> {
-    let v: serde_json::Value = serde_json::from_slice(&std::fs::read(placement_file(app)?).ok()?).ok()?;
+    let v: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(placement_file(app)?).ok()?).ok()?;
     let n = |k: &str| v.get(k).and_then(|x| x.as_f64());
-    Some(Placement { x: n("x")?, y: n("y")?, w: n("w")?, h: n("h")?, maximized: v.get("maximized")?.as_bool()? })
+    Some(Placement {
+        x: n("x")?,
+        y: n("y")?,
+        w: n("w")?,
+        h: n("h")?,
+        maximized: v.get("maximized")?.as_bool()?,
+    })
 }
 
 fn save_placement(app: &AppHandle) {
-    let Some(p) = app.try_state::<Placed>().and_then(|placed| *placed.0.lock().ok()?) else { return };
-    let Some(file) = placement_file(app) else { return };
+    let Some(p) = app
+        .try_state::<Placed>()
+        .and_then(|placed| *placed.0.lock().ok()?)
+    else {
+        return;
+    };
+    let Some(file) = placement_file(app) else {
+        return;
+    };
     let _ = std::fs::create_dir_all(file.parent().unwrap_or(&file));
-    let json = serde_json::json!({ "x": p.x, "y": p.y, "w": p.w, "h": p.h, "maximized": p.maximized });
+    let json =
+        serde_json::json!({ "x": p.x, "y": p.y, "w": p.w, "h": p.h, "maximized": p.maximized });
     let _ = std::fs::write(file, json.to_string());
 }
 
 /// The window's place now. While it is maximized the size it had before stays, so un-maximizing after a restart finds it.
 fn follow_placement(window: &WebviewWindow) {
-    let Some(placed) = window.try_state::<Placed>() else { return };
-    let Ok(mut slot) = placed.0.lock() else { return };
+    let Some(placed) = window.try_state::<Placed>() else {
+        return;
+    };
+    let Ok(mut slot) = placed.0.lock() else {
+        return;
+    };
     let maximized = window.is_maximized().unwrap_or(false);
     if maximized {
         if let Some(p) = slot.as_mut() {
@@ -326,18 +422,35 @@ fn follow_placement(window: &WebviewWindow) {
         }
     }
     let scale = window.scale_factor().unwrap_or(1.0);
-    let (Ok(at), Ok(size)) = (window.outer_position(), window.inner_size()) else { return };
+    let (Ok(at), Ok(size)) = (window.outer_position(), window.inner_size()) else {
+        return;
+    };
     let (at, size) = (at.to_logical::<f64>(scale), size.to_logical::<f64>(scale));
-    *slot = Some(Placement { x: at.x, y: at.y, w: size.width, h: size.height, maximized });
+    *slot = Some(Placement {
+        x: at.x,
+        y: at.y,
+        w: size.width,
+        h: size.height,
+        maximized,
+    });
 }
 
 /// True when the top left corner of a saved place lies on a screen that is still there.
 fn on_a_screen(app: &AppHandle, p: &Placement) -> bool {
-    app.available_monitors().unwrap_or_default().iter().any(|m| {
-        let scale = m.scale_factor();
-        let (at, size) = (m.position().to_logical::<f64>(scale), m.size().to_logical::<f64>(scale));
-        p.x + 40.0 >= at.x && p.x + 40.0 < at.x + size.width && p.y + 20.0 >= at.y && p.y + 20.0 < at.y + size.height
-    })
+    app.available_monitors()
+        .unwrap_or_default()
+        .iter()
+        .any(|m| {
+            let scale = m.scale_factor();
+            let (at, size) = (
+                m.position().to_logical::<f64>(scale),
+                m.size().to_logical::<f64>(scale),
+            );
+            p.x + 40.0 >= at.x
+                && p.x + 40.0 < at.x + size.width
+                && p.y + 20.0 >= at.y
+                && p.y + 20.0 < at.y + size.height
+        })
 }
 
 /// Start (or find) the service and open the window. Any failure comes back
@@ -357,31 +470,56 @@ fn open_app(app: &tauri::App) -> Result<(), String> {
             (port, token, Some(child))
         }
     };
-    let service = Service { child: Arc::new(Mutex::new(own)), quitting: Arc::new(AtomicBool::new(false)) };
-    watchdog(port, token.clone(), service.child.clone(), service.quitting.clone());
+    let service = Service {
+        child: Arc::new(Mutex::new(own)),
+        quitting: Arc::new(AtomicBool::new(false)),
+    };
+    watchdog(
+        port,
+        token.clone(),
+        service.child.clone(),
+        service.quitting.clone(),
+    );
     app.manage(service);
     let version = app.package_info().version.to_string();
+    let native_midi = cfg!(any(target_os = "macos", target_os = "linux"));
     let saved = load_placement(app.handle());
     app.manage(Placed(Mutex::new(saved)));
     let handle = app.handle().clone();
-    let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App(format!("index.html#emu={port}:{token}").into()))
-        // The page shows "Neue Version verfügbar" only when it knows its version.
-        .initialization_script(format!("window.__GELUMPE_APP = {{ version: \"{version}\" }};"))
-        // A link to the release page or the donate page opens in the browser, not in this window.
-        .on_navigation(|url| {
-            if outside(url) {
-                open_in_browser(url.as_str());
-                return false;
+    let mut builder = WebviewWindowBuilder::new(
+        app,
+        "main",
+        WebviewUrl::App(format!("index.html#emu={port}:{token}").into()),
+    )
+    // The page shows "Neue Version verfügbar" only when it knows its version.
+    .initialization_script(format!(
+        "window.__GELUMPE_APP = {{ version: \"{version}\", nativeMidi: {native_midi} }};"
+    ))
+    // A link to the release page or the donate page opens in the browser, not in this window.
+    .on_navigation(|url| {
+        if outside(url) {
+            open_in_browser(url.as_str());
+            return false;
+        }
+        true
+    })
+    .on_new_window(move |url, features| new_window(&handle, url, features))
+    .on_page_load(|window, payload| {
+        if let Some(midi) = window.try_state::<MidiService>() {
+            match payload.event() {
+                PageLoadEvent::Started => midi.invalidate(),
+                PageLoadEvent::Finished => midi.document_loaded(),
             }
-            true
-        })
-        .on_new_window(move |url, features| new_window(&handle, url, features))
-        .title("Kuhler's GELUMPE")
-        .inner_size(1280.0, 860.0)
-        .min_inner_size(900.0, 600.0);
+        }
+    })
+    .title("Kuhler's GELUMPE")
+    .inner_size(1280.0, 860.0)
+    .min_inner_size(900.0, 600.0);
     match saved {
         Some(p) => {
-            builder = builder.inner_size(p.w.max(900.0), p.h.max(600.0)).maximized(p.maximized);
+            builder = builder
+                .inner_size(p.w.max(900.0), p.h.max(600.0))
+                .maximized(p.maximized);
             if on_a_screen(app.handle(), &p) {
                 builder = builder.position(p.x, p.y);
             }
@@ -402,6 +540,9 @@ fn open_app(app: &tauri::App) -> Result<(), String> {
             save_placement(&handle);
         }
         if let WindowEvent::Destroyed = event {
+            if let Some(midi) = handle.try_state::<MidiService>() {
+                midi.invalidate();
+            }
             if let Some(emulator) = handle.get_webview_window(EMULATOR) {
                 let _ = emulator.close();
             }
@@ -412,6 +553,18 @@ fn open_app(app: &tauri::App) -> Result<(), String> {
 
 fn main() {
     let built = tauri::Builder::default()
+        .manage(MidiService::new(
+            Arc::new(NativeDriver),
+            MidiConfig::default(),
+        ))
+        .invoke_handler(tauri::generate_handler![
+            midi::midi_list,
+            midi::midi_open,
+            midi::midi_send,
+            midi::midi_ack,
+            midi::midi_read,
+            midi::midi_close
+        ])
         // A second launch focuses the window of the first and leaves.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -442,6 +595,9 @@ fn main() {
 
     app.run(|handle, event| {
         if let RunEvent::ExitRequested { .. } | RunEvent::Exit = event {
+            if let Some(midi) = handle.try_state::<MidiService>() {
+                midi.shutdown();
+            }
             if let Some(service) = handle.try_state::<Service>() {
                 service.quitting.store(true, Ordering::SeqCst);
             }
