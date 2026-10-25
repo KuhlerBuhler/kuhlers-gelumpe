@@ -981,6 +981,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   const exportSwitch = el("div", { className: "ui-segmented cee-bk-export-switch", role: "radiogroup" }, exportTabs);
   exportSwitch.setAttribute("aria-label", "Welche Plätze");
   function renderExport() {
+    // Remembered here, so the tick in update() does not draw the rows again under a drag that has already started.
+    factoryShown = !!presets?.presets();
     const list = ownList();
     const slots = readSlots();
     const kinds = [[exportKind, exportKind === "mod" ? MOD_COUNT : SLOT_COUNT_FX]];
@@ -1095,7 +1097,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     update() {
       // Runs every second (main.mjs): the slots are drawn again only when the firmware's presets come or go.
       const loaded = !!presets?.presets();
-      if (units && loaded !== factoryShown) { factoryShown = loaded; renderExport(); }
+      if (units && loaded !== factoryShown) renderExport();
     },
     page,
   };
