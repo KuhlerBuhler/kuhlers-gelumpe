@@ -12,6 +12,10 @@ export const NEWS = Object.freeze([
       "Windows: der Installer bringt WebView2 mit, das weiße Fenster unter Windows 10 ist weg.",
       "Patcher: das Feld zeigt, welche Datei drin ist und was sie ist. Mit der blauen Firmware steht dort, wie du Hacktribe auf die blaue bekommst.",
       "Discord: wer online ist, läuft als Blechy über die Seite.",
+      "Neue Version direkt aus der App laden: der Eintrag in der Seitenleiste lädt die passende Datei und startet den Installer.",
+      "Verbindung: Trennen geht immer, und bevor der Emulator startet, fragt die App, ob sie die Electribe trennen soll.",
+      "Ein USB-Symbol oben zeigt, ob eine Electribe angeschlossen ist.",
+      "Neuer Tab Samples: Samples einer e2sSample.all vom Kartenleser ansehen, hinzufügen und entfernen.",
     ]),
   }),
   Object.freeze({
