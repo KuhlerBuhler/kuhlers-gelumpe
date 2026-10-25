@@ -47,8 +47,9 @@ damit unberührte Bytes auffallen, dazu Backup-Datei und Pattern-Puffer.
 | Werksprüfungen | eigene Dateien (`E2_VSB`, `E2_PATTERNS`) | `npm run test:local` |
 | am Gerät | Anleitungen in [geraetetests/](geraetetests/README.md) | von Hand |
 
-Alles außer den letzten drei Zeilen läuft in CI (`.github/workflows/test.yml`, zwei Jobs
-`unit` und `browser` nebeneinander).
+Alles außer den letzten drei Zeilen läuft in CI (`.github/workflows/test.yml`): die Einheitstests
+in zwei, die Browsertests in vier Teilen nebeneinander (`--test-shard`), die Prüfungen `unit` und
+`browser` fassen die Teile zusammen.
 
 Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt starten:
 
