@@ -6,7 +6,8 @@
  *
  * release.json is the release as GitHub's API gives it (tag_name, html_url, body). The notes go
  * out as embeds of at most 4000 characters, one message each, cut at line ends; a last message with
- * only the link to the release follows, so it is one click away. Nobody is pinged.
+ * only the link to the release follows, so it is one click away. The first message pings @everyone; the notes
+ * themselves never ping, mentions in an embed do not notify.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -32,13 +33,13 @@ export function split(text, max = PART) {
   return parts;
 }
 
-/** The messages for one release: the first carries the title and the link, the last only the link. */
+/** The messages for one release: the first pings @everyone and carries the title and the link, the last only the link. */
 export function messages(release) {
   const version = String(release.tag_name).replace(/^v/, "");
   const parts = split(release.body);
   if (!parts.length) parts.push("");
   const notes = parts.map((description, i) => ({
-    allowed_mentions: { parse: [] },
+    ...(i === 0 ? { content: "@everyone", allowed_mentions: { parse: ["everyone"] } } : { allowed_mentions: { parse: [] } }),
     embeds: [{
       ...(i === 0 ? { title: `BLECHTRIBE ${version} ist da`, url: release.html_url } : {}),
       description,
