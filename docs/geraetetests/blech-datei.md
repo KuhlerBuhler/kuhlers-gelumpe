@@ -283,13 +283,13 @@ probieren, Ausgabe und Display notieren.
     gleich groß und gleich dem, was vorher drauf war.
     Melden: ok, sonst die Meldung des Geräts und die Größen.
 
-15. **IMPORT PLUGIN.** Ein `.blech` aus dem Editor ("Als .blech speichern") nach
+15. **Plugin laden.** Ein `.blech` aus dem Editor ("Als .blech speichern") nach
     `KORG/blechtribe/Plugin/` legen (auf einem Mac liegen dort oft auch `._Name.blech` Dateien), am Gerät im Menü, Gruppe
-    PLUGINS, die Seite IMPORT PLUGIN öffnen (sie sieht aus wie IMPORT SAMPLE). ENTER zeigt den ersten Dateinamen, das
-    Hauptrad oder EDIT blättert Datei für Datei, ENTER oder WRITE lädt die gezeigte, EXIT geht zurück auf die Seite.
-    Erwartet: nur echte Plugin Dateien stehen in der Liste (keine mit Punkt am Anfang, kein "Upper Folder"), die gezeigte
-    Datei zeigt "imported", das Plugin läuft sofort, eine neue Seite für das Plugin ist da (hat es eine App, steht sie
-    unter GAMES oder TOOLS). IMPORT PLUGIN steht nicht unter DATA UTILITY, siehe [Plugins](../plugins.md), "Stand".
+    PLUGINS, auf PLUGIN EDIT ENTER drücken. Das Hauptrad wählt auf SELECT PLUGIN durch die Liste, EDIT blättert zu STATE
+    und DESCRIPTION. Auf STATE zeigt das Plugin OFF; das Hauptrad nach oben oder ENTER lädt es, WRITE behält den Stand.
+    Erwartet: nur echte Plugin Dateien stehen in der Liste (keine mit Punkt am Anfang), ein Plugin kommt nur einmal vor,
+    DESCRIPTION zeigt die Beschreibung (das Hauptrad scrollt sie), STATE zeigt nach dem Laden ON, das Plugin läuft sofort,
+    es hat nun mehr Seiten (hat es eine App, steht sie unter GAMES oder TOOLS).
     Melden: ok, sonst Meldung und Anzeige.
 
 16. **Fremdes Plugin.** Das Flag "geprobt" entfernen:
@@ -421,7 +421,7 @@ Alle Angaben ohne Gerät sind im Emulator gemessen, mit der echten Firmware und 
 | Prüfungen im Emulator: 191 von 191 mit Flash-Dump, alle Startwege, Menüfälle mit der Anpassung und der Seite von Blechy, Startbild Editor, MFX 2, Power-Off-Bild auch von seiner Seite aus (Datei v18b, SHA-256 beginnt mit b0f1f5f0) | im Emulator gemessen, am Gerät offen | 15.10., [Menü](../messungen/2026-10-14-blech-menue.md), `tools/emu/check.py` |
 | Menü BLECH mit drei Ebenen (Ring, Gruppen ohne ABOUT, Seiten, Optik von Data Util, Schilder ganz, versteckte Dateien fehlen in der Importliste): Ring und Zähler, ENTER, EXIT, WRITE, MENU, 48 Tasten, EXIT beim Einschalten, Einstellungen, Plugin-Seiten, EXPORT ALL, IMPORT PLUGIN, fremde Plugins, `korg.menu.add`; keine Seite zeichnet Text über Text | im Emulator gemessen, am Gerät offen | 15.10., [Menü](../messungen/2026-10-14-blech-menue.md) |
 | Apps: Laden zeichnet nichts, öffnen aus dem Menü, EXIT, der Hauptbildschirm kommt Pixel für Pixel zurück, EXIT lässt sich nicht abfangen, `korg.display.take()` | im Emulator gemessen, am Gerät offen | 15.10., [Apps](../messungen/2026-10-14-plugin-apps.md) |
-| IMPORT PLUGIN und EXPORT ALL unter DATA UTILITY | nicht gebaut | [Plugins](../plugins.md), "Stand" |
+| PLUGIN EDIT und EXPORT ALL unter DATA UTILITY | nicht gebaut | [Plugins](../plugins.md), "Stand" |
 | Kartenlader für `e2sPlugin.all` (Datei, Block mit falscher Prüfsumme, falsche Kennung, halbierte Datei, EXIT) | im Emulator gemessen, am Gerät offen | 14.10., [Messung](../messungen/2026-10-14-skript-karte.md) |
 | Update-Datei der laufenden BLECH unter `KORG/blechtribe/System/SYSTEM.VSB`, unter dem alten Pfad "Error, No File" | im Emulator gemessen; die Datei im Ordner `blechtribe` nahm eine laufende BLECH am 15.10. am Gerät als Update | [Hintergrund](../hintergrund/virtuelle-sd.md) |
 | Karte ohne `KORG/blechtribe/`: Slot leer, Karte bleibt unverändert, Samples sind weg bis der Ordner kopiert ist | im Emulator gemessen, am Gerät offen | [Hintergrund](../hintergrund/virtuelle-sd.md) |

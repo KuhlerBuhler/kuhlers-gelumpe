@@ -55,13 +55,14 @@ HEADER = 0x100
 RAM = 0xC0000000
 
 CODE_AT = 0xC0180000            # free (FF) in the image, far from the other patches
-CODE_END = 0xC0180C00
+CODE_END = 0xC0180F00
 STATE = 0xC0180F00              # run time state, in RAM only; FF there means "nothing"
 STATE_END = 0xC0180F40
-SG_BUF = 0xC0180C00             # the sync group's buffer, in RAM only, between the code and the state
+SG_BUF = 0xC0173000             # the sync group's buffer, in RAM only, in the free run between the SysEx patch's code and its table
 SG_SIZE = 10 + 16 * 47          # 9 values of the pattern (tempo two bytes), 47 bytes of each part
 S_BROWSE, S_ARMED, S_ARMNUM, S_SETTING, S_STOPPED, S_AUTO, S_LOADED, S_LED = 0, 4, 8, 0x10, 0x14, 0x18, 0x1C, 0x20
 S_PADH, S_PADT, S_PADQ, PADQ_SIZE = 0x24, 0x25, 0x28, 4
+S_SGNUM = 0x38
 LED_MGR, LED_MENU, S_LEDWAS = 0xC0345A1C, 7, 0x21
 PS_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off
 
@@ -101,13 +102,22 @@ PAD_HANDLER = 0xC0044874
 CMD_BUSY = 0xC002D634           # returns the command runner's busy byte (+0x10 of its object)
 CMD_END = 0xC002D81C            # strb r3, [r6, #0x10]: the command runner clears its busy byte (r3 = 0)
 CMD_END_WORD = 0xE5C63010
+VIEW_W = 0xC0173400             # the view's own accessor and state, in RAM only (between SG_BUF and the SysEx patch's table)
+VIEW_SIZE = 0x48
+V_NUM, V_LIDX = 0x40, 0x44
+INFO_HOOK = 0xC008684C          # ldrb r3, [r0, #0x5c]: the first instruction of the info line's builder that reads the label flag
+INFO_WORD = 0xE5D0305C
+INFO_BODY = 0xC0086850
+CELL_W = 0xC0691388             # the pointer the pad LEDs read the pattern's accessor through (UI only)
+CELL_O = 0xC069136C             # the pointer the info texts read the pattern through (UI only)
+PADS_REFRESH = 0xC00892D4       # (LED manager): the firmware's own refresh of the pads after a pattern load, it draws the pads of the current mode
 GROUP_AT = 0x3B80               # the sync group in a pattern block, u16 little endian; the firmware never touches 0x3B03 to 0x3BFB
 
 
 FIRMWARE_PLACES = ["WHEEL_HOOK", "SELECT", "PAD_HOOK", "PAD_BODY", "MIDI_HOOK", "MIDI_BODY", "MENU_SLOT", "MENU_ORIG", "EXIT_SLOT", "EXIT_ORIG",
                    "SEQ_CALL", "SEQ_FUNC", "STOP_HOOK", "STOP_BODY", "LABEL_HOOK", "NEXT_TEXT",
                    "SYNC_HOOK", "SYNC_BODY", "COPY_CALL", "MEMCPY", "PGATE_HOOK", "PGATE_CONT", "PGATE_SKIP", "PAD_HANDLER",
-                   "CMD_BUSY", "CMD_END"]
+                   "CMD_BUSY", "CMD_END", "INFO_HOOK", "INFO_BODY", "CELL_W", "CELL_O", "PADS_REFRESH"]
 SYNTH = False
 SYNTH_LABEL_WORD = 0xE59F10FC   # ldr r1, [pc, #0xfc]: the synth's builder is laid out a little differently
 
@@ -167,6 +177,13 @@ SOURCE = """
 .equ S_PADT, 0x25               ; byte: pad presses handed on so far; equal to S_PADH: none waiting
 .equ S_PADQ, 0x28               ; PADQ_SIZE entries of 4 bytes: pad, pressed, velocity, source
 .equ PADQ_SIZE, 4
+.equ VIEW_W, @VIEW_W@           ; the view's accessor (copy of the pattern's, pointing into the bank), its state behind it
+.equ V_NUM, 0x40                ; the bank pattern the display shows, FFFFFFFF none (also: nothing ever written)
+.equ V_LIDX, 0x44               ; the info line's index while the label was built
+.equ CELL_W, @CELL_W@
+.equ CELL_O, @CELL_O@
+.equ PADS_REFRESH, @PADS_REFRESH@
+.equ S_SGNUM, 0x38               ; the bank block (address) a sync group carried into the pattern in RAM (SG_BUF holds what it put there), else not a bank block (FF at start)
 .equ REPLAYED, 0x80000000       ; in the source argument: a kept press handed on, the gate lets it through                   ; mode 2 toggles every BLINK ticks of the manager's 40 ms tick: 280 ms on, 280 ms off
 
 .org @CODE_AT@
@@ -295,6 +312,9 @@ wh_stopped_go:
     mov r2, #249
     bl WRAP
     mov r5, r0
+    bl pc_grouped
+    cmp r0, #0
+    bne wh_group_load
     bl PLAYER
     ldr r1, [r0, #0x318]
     mov r0, #1
@@ -309,6 +329,19 @@ wh_stopped_go:
     bl pc_notify
     bl pc_led
     pop {r4, r5, r6, pc}
+
+; stopped, another pattern of the running pattern's sync group: no question, the firmware's selector loads it at once and the copy
+; hook carries the group's state; a browse that was open ends here. r5 = the number, r4 = the selection object.
+wh_group_load:
+    mov r0, #0
+    str r0, [r6, #S_STOPPED]
+    str r0, [r6, #S_BROWSE]
+    bl pc_led
+    ldr r1, [r4, #0x318]
+    sub r1, r5, r1              ; WRAP(number + step) is the target itself, whatever the browse number was
+    mov r0, r4
+    pop {r4, r5, r6, lr}
+    b SELECT
 
 ; r5 = a pattern number -> r0 = 1 when it is not the running pattern and has the running pattern's sync group (not 0). The
 ; group of the running pattern is read in RAM (an unsaved change counts), the other's in the bank. Clobbers r0 to r3 and r12.
@@ -420,6 +453,9 @@ ch_copy:
     orr r12, r12, #(STATE & 0x0000FF00)
     orr r12, r12, #(STATE & 0x000000FF)
     str r5, [r12, #S_LOADED]
+    cmp r7, #1
+    mvnne r5, #0                ; only a carry makes SG_BUF what the pattern in RAM holds (pc_dirty)
+    str r5, [r12, #S_SGNUM]
 ch_out:
     pop {r4-r10, pc}
 
@@ -540,13 +576,30 @@ sg_head:
     ; each pattern keeps its own types, the pad and HOLD go along
     .byte 0xA2, 36, 42, 62, 63, 64, 65, 68, 69, 0
 .align 4
+; the same offsets one by one, the half word as two, for the unsaved check (pd_synced), closed by a value no offset reaches
+sg_head_at:
+    .word 34, 35, 36, 42, 62, 63, 64, 65, 68, 69, 0xFFFF
 ; @COPY_END@
 
 ; ===================================================== MENU's LED
 ; Shows where to press: blinking while a pattern is only browsed (VIEW:, MENU confirms it, or loads it when stopped), lit while
 ; one is confirmed (NEXT:). Otherwise the LED is the firmware's (dark on the main screen, mode 1 with brightness 0): its entry is
 ; remembered when the patch takes the LED and given back after. Sent only when that changes. Clobbers r0 to r3 and r12.
+; Every change of the browse or the confirmation passes here, so the view follows it (pc_view_cells); pc_led_engine is for the engine
+; task, where the view only ends and the firmware's own refresh after the pattern load draws the pads.
 pc_led:
+    push {lr}
+    bl pc_led_core
+    bl pc_view_cells
+    cmp r0, #0
+    blne pc_view_refresh
+    pop {pc}
+pc_led_engine:
+    push {lr}
+    bl pc_led_core
+    bl pc_view_cells
+    pop {pc}
+pc_led_core:
     push {r4, lr}
     ldr r3, =STATE
     ldr r0, [r3, #S_BROWSE]
@@ -599,6 +652,87 @@ pl_set:
     bl LED_SET
     pop {r4, pc}
 
+; ===================================================== the view
+; While a pattern is browsed or confirmed the display reads that pattern from the pattern bank in RAM: the pad LEDs (part mutes, steps)
+; and the info texts (OSC, PITCH and the rest of the Edit line) take the pattern through two pointers that only the display code reads.
+; One points at the pattern's accessor (an object inside the pattern in RAM, +4 holds the pattern), the other at the pattern. While
+; viewing, the first points at a copy of the accessor whose pattern is the bank block (the block lies 4 bytes in front of its file),
+; the second at that copy minus the accessor's place in the pattern. The engine and the sound read the pattern in RAM through other
+; paths and stay on what plays. -> r0 = 1 when the pattern the display reads changed. Clobbers r0 to r3 and r12.
+pc_view_cells:
+    push {r4, r5, lr}
+    mvn r4, #0                  ; the bank pattern to show, none
+    ldr r3, =STATE
+    ldr r0, [r3, #S_BROWSE]
+    cmp r0, #1
+    beq pv_want
+    ldr r0, [r3, #S_ARMED]
+    cmp r0, #1
+    bne pv_set
+pv_want:
+    bl pc_active
+    cmp r0, #0
+    beq pv_set
+    bl PSEL
+    ldrb r1, [r0, #0x341]
+    cmp r1, #0
+    beq pv_set
+    ldr r4, [r0, #0x318]
+    bl PLAYER
+    ldr r1, [r0, #0x318]
+    cmp r1, r4
+    mvneq r4, #0                ; back on the pattern that runs: its own display
+    cmp r4, #249
+    mvnhi r4, #0
+pv_set:
+    ldr r5, =VIEW_W
+    ldr r0, [r5, #V_NUM]
+    cmp r0, r4
+    beq pv_same
+    ldr r0, =PATPTR
+    ldr r0, [r0]
+    cmp r0, #0
+    beq pv_same
+    str r4, [r5, #V_NUM]
+    add r1, r0, #0x4000         ; the accessor inside the pattern in RAM, 0x400C in
+    add r1, r1, #0xC
+    cmn r4, #1
+    beq pv_cells
+    mov r2, #0
+pv_copy:
+    ldr r3, [r1, r2]
+    str r3, [r5, r2]
+    add r2, r2, #4
+    cmp r2, #V_NUM
+    blo pv_copy
+    ldr r3, =BANK
+    add r3, r3, r4, lsl #14
+    sub r3, r3, #4
+    str r3, [r5, #4]
+    mov r1, r5
+pv_cells:
+    ldr r2, =CELL_W
+    str r1, [r2]
+    sub r1, r1, #0x4000
+    sub r1, r1, #0xC
+    ldr r2, =CELL_O
+    str r1, [r2]
+    mov r0, #1
+    pop {r4, r5, pc}
+pv_same:
+    mov r0, #0
+    pop {r4, r5, pc}
+
+; Draws the pads of the current mode again (the part mutes and the steps), from the UI task. Clobbers r0 to r3 and r12.
+pc_view_refresh:
+    push {lr}
+    ldr r0, =LED_MGR
+    ldr r0, [r0]
+    cmp r0, #0
+    popeq {pc}
+    bl PADS_REFRESH
+    pop {pc}
+
 ; r0 = the selection object, r1 = number: the display is told as SET_NUMBER tells it. Clobbers r0 to r3 and r12.
 pc_notify:
     push {r4, lr}
@@ -628,6 +762,10 @@ pc_dirty:
     cmp r0, #0
     beq pd_clean
     add r0, r0, #4
+    ldr r3, =STATE
+    ldr r3, [r3, #S_SGNUM]
+    cmp r3, r2                  ; the carry's bank block is this pattern's place
+    beq pd_synced
     add r4, r0, #0x40           ; behind the word of byte 0x3C: of it only the MFX type (0x3D) counts. 0x3C, pad touched, each load sets
     ldr r3, =PAT_WORDS          ; anew; 0x3E and 0x3F, pad X and Y, a touch of the pad writes (device wish 25.10.): not edits
 pd_word:
@@ -646,6 +784,59 @@ pd_clean:
 pd_dirty:
     mov r0, #1
     pop {r4, pc}
+
+; The pattern in RAM came in through a sync group's carry: the values the group carries (sg_walk) differ from the bank block on
+; purpose, so they are also compared with SG_BUF, which holds what the carry put there. Everything else, and the exclusions above, as
+; before. The values are visited in address order, which is the order sg_walk stored them in. r0 = the pattern in RAM, r2 = its place in the bank.
+pd_synced:
+    push {r5-r8}
+    ldr r4, =SG_BUF
+    ldr r5, =sg_head_at
+    mov r6, #0                  ; the offset inside the part, once the parts begin
+    mov r3, #0                  ; the offset in the block
+pd_byte:
+    mov r1, #0                  ; 1 when this offset is a carried value
+    cmp r3, #0x800
+    bhs pd_part
+    ldr r12, [r5]
+    cmp r12, r3
+    moveq r1, #1
+    addeq r5, r5, #4
+    b pd_cmp
+pd_part:
+    cmp r3, #0x3B00
+    bhs pd_cmp
+    sub r12, r6, #1
+    cmp r12, #0x2E              ; 1 to 0x2F of a part
+    movls r1, #1
+pd_cmp:
+    ldrb r7, [r0, r3]
+    ldrb r8, [r2, r3]
+    cmp r1, #0
+    beq pd_plain
+    ldrb r12, [r4], #1
+    cmp r7, r12                 ; a carried value counts as the carry's or, after a WRITE, as the bank's
+    beq pd_skip
+pd_plain:
+    cmp r3, #0x3C
+    cmpne r3, #0x3E
+    cmpne r3, #0x3F
+    beq pd_skip
+    cmp r7, r8
+    bne pd_sdirty
+pd_skip:
+    cmp r3, #0x800
+    addhs r6, r6, #1
+    cmp r6, #0x330
+    moveq r6, #0
+    add r3, r3, #1
+    cmp r3, #0x4000
+    blo pd_byte
+    pop {r5-r8}
+    b pd_clean
+pd_sdirty:
+    pop {r5-r8}
+    b pd_dirty
 
 ; the stopped browse is over: nothing pending, the number in RAM chosen and shown. Keeps r4 to r11.
 pc_stopped_end:
@@ -848,7 +1039,7 @@ seq_hook:
     mov r1, #0
     str r1, [r3, #S_ARMED]
     str r1, [r3, #S_BROWSE]
-    bl pc_led                   ; the firmware sets LEDs from this task too (the beat flash of TAP)
+    bl pc_led_engine            ; the firmware sets LEDs from this task too (the beat flash of TAP)
     mov r0, r4
     pop {r4, pc}
 sq_browse:
@@ -922,6 +1113,10 @@ label_hook:
     ldrb r0, [r3, #0x341]
     cmp r0, #0
     beq lb_next
+    ldr r1, [sp]                ; the screen: the info line's index while the label stands (info_hook)
+    ldr r1, [r1, #0x54]
+    ldr r2, =VIEW_W
+    str r1, [r2, #V_LIDX]
     ldr r2, =STATE
     ldr r0, [r2, #S_BROWSE]
     cmp r0, #1
@@ -931,6 +1126,32 @@ label_hook:
 lb_next:
     ldr r1, =NEXT_TEXT
     pop {r0, pc}
+
+; ===================================================== the info line while viewing
+; First instruction of the info line's builder that reads the label flag (r0 = the screen, r3 = the flag): while the lower line says
+; VIEW: or NEXT: the builder does nothing. When the Edit key stepped the line on from where it was while the label was built, the flag is
+; read as clear, so the line shows OSC, PITCH and the rest of the pattern that is viewed. Only r3 and r12 are used, and the state
+; address is built without a literal: the main screen draws during the start.
+info_hook:
+    ldrb r3, [r0, #0x5c]
+    cmp r3, #0
+    beq ih_back
+    mov r12, #(VIEW_W & 0xFF000000)
+    orr r12, r12, #(VIEW_W & 0x00FF0000)
+    orr r12, r12, #(VIEW_W & 0x0000FF00)
+    orr r12, r12, #(VIEW_W & 0x000000FF)
+    ldr r3, [r12, #V_NUM]
+    cmn r3, #1
+    beq ih_flag
+    ldr r3, [r12, #V_LIDX]
+    ldr r12, [r0, #0x54]
+    cmp r12, r3
+    movne r3, #0
+    bne ih_back
+ih_flag:
+    ldrb r3, [r0, #0x5c]
+ih_back:
+    b @INFO_BODY@
 
 ; ===================================================== pad presses during a command
 ; The pad handler (r7 = pad, r4 = pressed, r8 = velocity, r9 = source) drops a press while the command runner is busy, a pattern load
@@ -1053,6 +1274,8 @@ def source():
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "PAD_BODY": f"{PAD_BODY:#x}",
         "MIDI_BODY": f"{MIDI_BODY:#x}", "STOP_BODY": f"{STOP_BODY:#x}", "SYNC_BODY": f"{SYNC_BODY:#x}",
         "GROUPS": "1", "GROUP_AT": f"{GROUP_AT:#x}", "MEMCPY": f"{MEMCPY:#x}", "SG_BUF": f"{SG_BUF:#x}",
+        "VIEW_W": f"{VIEW_W:#x}", "INFO_BODY": f"{INFO_BODY:#x}",
+        "CELL_W": f"{CELL_W:#x}", "CELL_O": f"{CELL_O:#x}", "PADS_REFRESH": f"{PADS_REFRESH:#x}",
         "PGATE_CONT": f"{PGATE_CONT:#x}", "PGATE_SKIP": f"{PGATE_SKIP:#x}", "PAD_HANDLER": f"{PAD_HANDLER:#x}", "CMD_BUSY": f"{CMD_BUSY:#x}",
     }.items():
         text = text.replace(f"@{key}@", value)
@@ -1112,6 +1335,7 @@ def build_patch(vsb, build="hacktribe"):
     ) + ((COPY_CALL, bl_word(COPY_CALL, MEMCPY), "the pattern load does not copy with memcpy where the patch expects it"),
          (PGATE_HOOK, bl_word(PGATE_HOOK, CMD_BUSY), "the pad handler does not ask the command runner whether it is busy where the patch expects it"),
          (CMD_END, CMD_END_WORD, "the command runner does not clear its busy byte with strb r3, [r6, #0x10] where the patch expects it"))
+    expected += ((INFO_HOOK, INFO_WORD, "the info line's builder does not start by reading the label flag where the patch expects it"),)
     for addr, want, why in expected:
         if word(addr) != want:
             raise SystemExit(f"{why} in this VSB")
@@ -1150,6 +1374,7 @@ def build_patch(vsb, build="hacktribe"):
             hook(COPY_CALL, "copy_hook", True, "the copy of the pattern load goes through the hook (sync groups)"),
             hook(PGATE_HOOK, "pad_gate", False, "the busy check of the pad handler jumps to the gate"),
             hook(CMD_END, "pad_replay", True, "the clear of the command runner's busy byte goes through the hook"),
+            hook(INFO_HOOK, "info_hook", False, "the label flag read of the info line's builder goes through the hook (view)"),
         ],
         "hooks": [
             declare(WHEEL_HOOK, "instruction", "pattern-set", "replace", False, "wheel while playing: browse with set_number(psel, n, 0) instead of the branch into the selector; set_number is still called, so what reacts to it still sees the number"),
@@ -1164,18 +1389,21 @@ def build_patch(vsb, build="hacktribe"):
             declare(COPY_CALL, "call", "pattern-load-copy", "replace", False, "the copy carries the state of the pattern that played (part sound and mutes, tempo, MFX) between two patterns of one sync group"),
             declare(PGATE_HOOK, "instruction", "pad-input", "replace", False, "a pad pressed while a command runs is kept instead of dropped"),
             declare(CMD_END, "instruction", "command-end", "after", False, "after the busy byte is cleared the kept pad presses go to the pad handler"),
+            declare(INFO_HOOK, "instruction", "info-line", "before", False, "while the lower line says VIEW: or NEXT:, the Edit key still shows the info texts of the pattern that is viewed"),
         ],
         "startPhase": [
             {"file": file_offset(SYNC_HOOK), "length": 4, "why": "the stopped sync is an observer the firmware calls from the start on; the hook reads its own state word (FF at start, not 1) and runs the original"},
-            {"file": file_offset(symbols["sync_hook"]), "length": symbols["view_text"] - symbols["sync_hook"], "why": "sync_hook: one load, a compare, then the replaced instruction and the way back"},
             {"file": file_offset(COPY_CALL), "length": 4, "why": "the pattern load copies the first pattern into RAM during the start, through the copy hook"},
             {"file": file_offset(symbols["pc_group"]), "length": symbols["pc_notify"] - symbols["pc_group"], "why": "copy_hook, pc_group and the sync group walk: the panel's keys, the two sync groups and the loaded bank block read, the memcpy, the bank block remembered, no literal"},
             {"file": file_offset(CMD_END), "length": 4, "why": "the command runner clears its busy byte after the first pattern load of the start, through pad_replay"},
-            {"file": file_offset(symbols["pad_replay"]), "length": symbols["sync_hook"] - symbols["pad_replay"], "why": "pad_replay: the busy byte cleared, the two counters read (FF, equal: nothing kept), no literal"},
+            {"file": file_offset(INFO_HOOK), "length": 4, "why": "the main screen builds its info line during the start, through info_hook"},
+            {"file": file_offset(symbols["info_hook"]), "length": symbols["pad_gate"] - symbols["info_hook"], "why": "info_hook: the label flag read, the view state read when it is set (FF at start: no view), the way back, no literal"},
+            {"file": file_offset(symbols["pad_replay"]), "length": symbols["view_text"] - symbols["pad_replay"], "why": "pad_replay and sync_hook, one span (check.py allows a run of changed bytes only inside one span): pad_replay clears the busy byte and reads the two counters (FF, equal: nothing kept), sync_hook is one load, a compare, then the replaced instruction and the way back; no literal in either"},
         ],
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C, MENU's LED at +0x20, the kept pad presses at +0x24", "tools/patch/pattern_switch.py:STATE"),
             ramdecl.area(SG_BUF, SG_SIZE, "sync group: the values carried into the new pattern during one pattern load", "tools/patch/pattern_switch.py:SG_BUF"),
+            ramdecl.area(VIEW_W, VIEW_SIZE, "view: the accessor the display reads the browsed or confirmed pattern through, the number shown and the info line's index", "tools/patch/pattern_switch.py:VIEW_W"),
         ],
     }
 

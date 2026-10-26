@@ -18,8 +18,8 @@ CARD = 0xC01F7000
 CODE_END = 0xC01AE000
 MORE_START = 0xC018D000          # a second code area for the runtime: display, store, hardware, events and apps go here, so the
 MORE_END = 0xC018FF00            # menu has room in the first; free (FF) in all three images, behind the idle insert effect
-MORE2_START = 0xC019B000         # a third code area: the colour maths of the menu's colour pages; free (FF) in all three images, behind the
-MORE2_END = 0xC019C000           # RAM of the BLECH SysEx (0xC0191100 to 0xC019A400) and clear of its file area (0xC019F000)
+MORE2_START = 0xC0188A00         # a third code area: the colour maths of the menu's colour pages; free (FF) in all three images, in the unused
+MORE2_END = 0xC0188F00           # end of the page of the tap motion patch (its code ends at 0xC018852C, its state sits at 0xC0188F00)
 RUNTIME = 0xC01AE000
 POOL = 0xC01D7000
 END = 0xC01FFFF0
@@ -176,6 +176,7 @@ class BuiltHooks:
             ('shortcut_input','shortcut_tick','Die EXIT-Shortcuts im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und lassen jede Meldung durch, solange EXIT nicht auf dem Hauptbildschirm gehalten wird.'),
             ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts.'),
             ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel, EXIT und die Ordner der Karte; nur wenn es keinen blechtribe-Ordner, aber einen hacktribe- oder electribe-sampler-Ordner gibt, fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU.'),
+            ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
         ]:
             if start in self.symbols and end in self.symbols:
