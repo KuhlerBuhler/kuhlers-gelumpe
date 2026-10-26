@@ -18,8 +18,10 @@
  *       tag on it and the release on GitHub (gh) with a discussion under Announcements,
  *       then delete every older release.
  *       Tags stay. The commit reaches main with the one develop -> main pull
- *       request, opened after the release. --notes=FILE takes the release notes from FILE (Markdown)
- *       instead of GitHub's generated list; they are what Discord gets.
+ *       request, opened after the release. --notes=FILE takes the release notes from FILE (Markdown,
+ *       German first, then "## English" and the English text; release-notes/<version>.md) instead of
+ *       GitHub's generated list. The release body is the notes with a download block (links to the
+ *       files that go up) at the top of each language; that body is what Discord gets.
  *
  * BLECH.patch and BLECH-for-<sha8>.bsdiff in the folder (npm run build:blech-patch) go up
  * as well; BLECH.patch has to be built for the version that is due.
@@ -28,11 +30,12 @@
  * patch number raised by one, 1.0.0 when there is none.
  */
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parsePatchFile } from "../src/patchfile.mjs";
-import { BASE_BRANCH, RELEASE_COMMIT, checkFiles, compareVersions, latestVersion, nextVersion, planRelease } from "./release-lib.mjs";
+import { BASE_BRANCH, RELEASE_COMMIT, checkFiles, checkNotes, compareVersions, latestVersion, nextVersion, planRelease, releaseBody } from "./release-lib.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const fail = message => {
@@ -127,13 +130,22 @@ if (optional.some(f => f.name === "BLECH.patch")) {
   }
 }
 for (const name of ignored) console.log(`  --  ${name}  (wird nicht hochgeladen)`);
-const notes = notesFlag ? resolve(notesFlag.slice("--notes=".length)) : null;
-if (notes) {
+const notesFile = notesFlag ? resolve(notesFlag.slice("--notes=".length)) : null;
+let notes = null;
+if (notesFile) {
   try {
-    if (!readFileSync(notes, "utf8").trim()) problems.push(`Die Release-Notizen sind leer: ${notes}`);
-    else console.log(`Notizen: ${notes}`);
+    const text = readFileSync(notesFile, "utf8");
+    const notesProblems = text.trim() ? checkNotes(text) : ["die Datei ist leer"];
+    for (const p of notesProblems) problems.push(`Release-Notizen ${notesFile}: ${p}`);
+    if (!notesProblems.length) {
+      // GitHub gets the body with the download blocks, built from the files that really go up.
+      const body = releaseBody(text, version, [...files, ...optional].map(f => f.name));
+      notes = join(mkdtempSync(join(tmpdir(), "release-body-")), "body.md");
+      writeFileSync(notes, body);
+      console.log(`Notizen: ${notesFile} (Rumpf mit Download-Blöcken: ${notes})`);
+    }
   } catch {
-    problems.push(`Release-Notizen nicht lesbar: ${notes}`);
+    problems.push(`Release-Notizen nicht lesbar: ${notesFile}`);
   }
 }
 
