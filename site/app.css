@@ -1106,7 +1106,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 /* The floor the Blechys walk on: each one is placed by translateX from the left edge. */
 .cee-discord-floor {
   position: relative;
-  height: 150px;
+  height: 170px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1137,8 +1137,23 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   white-space: nowrap;
 }
 
-.cee-discord-blechy:hover {
+/* Three rows: the back ones a little higher, the front row on top. */
+.cee-discord-blechy[data-row="1"] {
+  bottom: 10px;
+  z-index: 2;
+}
+
+.cee-discord-blechy[data-row="2"] {
+  bottom: 20px;
   z-index: 1;
+}
+
+.cee-discord-blechy[data-row="0"] {
+  z-index: 3;
+}
+
+.cee-discord-blechy:hover {
+  z-index: 4;
 }
 
 .cee-discord-blechy:hover .cee-discord-tag {
@@ -3618,19 +3633,6 @@ input[type="checkbox"]:not([role="switch"]):disabled {
 
 .cee-usb[data-tone="ok"] { color: var(--color-status-ok-text); }
 
-/* Samples page: one row per sample of e2sSample.all. */
-.cee-sf-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-}
-
-.cee-sf-nr {
-  min-width: var(--space-8);
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.cee-sf-name { flex: 1 1 10rem; color: var(--color-text-primary); }
+/* Samples page: one ui-row per sample of e2sSample.all, the slot number in the row's icon box. */
+.cee-sf-nr { font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
 .cee-sf-row[data-state="removed"] .cee-sf-name { text-decoration: line-through; color: var(--color-text-muted); }
