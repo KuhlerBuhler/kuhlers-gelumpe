@@ -117,6 +117,11 @@ test("patcher: Weiter and Zurück walk the four steps, Korg's firmware cards sit
   assert.equal(await page.locator("#cee-patch-way [aria-current=step]").textContent(), "2Patches anwenden");
   assert.ok(await page.locator("#cee-patch-plan li").count() > 0, "the patches that go on are listed");
   assert.equal(await page.isVisible("#cee-patch-latest"), true, "the second step chooses the patches");
+  const tick = box => box.evaluate(b => { const a = getComputedStyle(b, "::after"); return [a.content, a.borderRightWidth, a.borderBottomWidth]; });
+  assert.deepEqual(await tick(page.locator("#cee-patch-latest")), ['""', "2px", "2px"], "a checked .cee-check box draws its tick");
+  await page.uncheck("#cee-patch-latest");
+  assert.equal((await tick(page.locator("#cee-patch-latest")))[0], "none", "an unchecked one has none");
+  await page.check("#cee-patch-latest");
   assert.equal(await page.locator("label:has(#cee-patch-latest)").textContent(), `Nutze die neueste Version von BLECHTRIBE (${NEWS[0].version})`, "the full version, not only major.minor");
   assert.equal(await page.isVisible("#cee-patch-run"), false, "the run is on the third step, with the test");
   await page.click("#cee-patch-back");
@@ -277,6 +282,9 @@ test("patcher: Korg's original asks for the user's own hacktribe-2.patch, conver
   await page.locator("#app-toasts .cee-toast", { hasText: "nicht die bekannte Hacktribe-2.02-Datei" }).waitFor();
 
   await patchFile("hacktribe-2.patch", fixture("./patch/fake-original-to-hacktribe.patch"));
+  await page.locator("#cee-patch-hacktribe-info", { hasText: "hacktribe-2.patch: umgewandelt" }).waitFor();
+  assert.equal(await page.locator("#cee-patch-needs").getAttribute("data-disabled"), null, "the field stays open and names the file it took, it does not dim");
+  assert.equal(await page.isDisabled("#cee-patch-hacktribe-file"), false, "and takes another patch file");
   await page.click("#cee-patch-next");
   assert.equal(await needs.isVisible(), false);
   assert.equal(await page.locator("#app-toasts .cee-toast[data-kind=error]").count(), 2, "the two wrong files told their error, the conversion adds none");
@@ -298,7 +306,7 @@ test("patcher: Korg's original asks for the user's own hacktribe-2.patch, conver
   await page.click("#cee-patch-back");
   await page.click("#cee-patch-back");
   await page.locator("#cee-patch-device-box").waitFor();
-  await page.check("#cee-patch-device input[value=blue]");
+  await page.click("#cee-patch-device [data-device=blue]");
   assert.match(await page.locator("#cee-patch-device-note").textContent(), /Kopf der blauen/);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
@@ -522,6 +530,7 @@ test("patcher: Hacktribe for the blue is patched with the Sampler head, checked 
   assert.equal(await page.locator("#cee-patch-blue-hacktribe").isVisible(), false, "the hint is for Korg's blue file");
   await page.click("#cee-patch-next");
   assert.equal(await page.locator("#cee-patch-device input[value=blue]").isChecked(), true, "the head says blue");
+  assert.deepEqual(await page.locator("#cee-patch-device .cee-device-card").evaluateAll(l => l.map(c => [c.dataset.device, !!c.querySelector(".cee-e2-outline")])), [["red", true], ["blue", true]], "the two Electribes drawn as on the Korg cards");
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
