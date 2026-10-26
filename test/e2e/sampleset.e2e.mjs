@@ -31,13 +31,28 @@ test("the tab is in the sidebar, says to restart the device, and lists the sampl
   assert.deepEqual(page.errors, []);
 });
 
+test("both files come in through the design's upload fields, and the intro reads as one paragraph", async () => {
+  const page = await h.page();
+  await page.goto(`${h.url}#sampleset`);
+  assert.equal(await page.locator("#cee-sampleset .ui-dropzone #cee-sf-file").count(), 1);
+  assert.equal(await page.locator("#cee-sf-wav").isDisabled(), true, "WAVs only once a file is open");
+  assert.equal(await page.locator("#cee-sf-wav").evaluate(i => i.closest(".ui-dropzone").hidden), true);
+  assert.equal(await page.locator("#cee-sf-list").isHidden(), true, "no empty list frame before a file is open");
+  assert.equal(await page.locator(".cee-sf-intro").evaluate(p => getComputedStyle(p).display), "block");
+  assert.equal(await page.locator(".cee-sf-intro code").evaluate(c => getComputedStyle(c).display), "inline");
+  await page.setInputFiles("#cee-sf-file", h.file("e2sSample.all", file({ 500: "Kick" })));
+  await page.locator(".cee-sf-row").first().waitFor();
+  assert.equal(await page.locator("#cee-sampleset .ui-dropzone #cee-sf-wav").isEnabled(), true);
+  assert.equal(await page.locator(".cee-sf-row .ui-row-title").textContent(), "Kick");
+});
+
 test("a file that is no e2sSample.all is refused with a toast and the list stays empty", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#sampleset`);
   await page.setInputFiles("#cee-sf-file", h.file("bad.all", new Uint8Array(5000)));
   await page.locator("#app-toasts .cee-toast[data-kind=error]", { hasText: "e2s sample all" }).waitFor();
   assert.equal(await page.locator(".cee-sf-row").count(), 0);
-  assert.equal(await page.locator("#cee-sf-add").isDisabled(), true);
+  assert.equal(await page.locator("#cee-sf-wav").isDisabled(), true);
 });
 
 test("removing marks the row, can be taken back, and the saved file has no gap", async () => {

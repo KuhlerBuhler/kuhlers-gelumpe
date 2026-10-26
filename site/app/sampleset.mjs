@@ -25,27 +25,35 @@ export function samplesFilePage(root) {
   let parsed = null;
   let removed = new Set();
   let added = [];
-  const pick = el("input", { type: "file", className: "ui-sr-only", id: "cee-sf-file", accept: ".all,.ALL", tabIndex: -1 });
-  const wavs = el("input", { type: "file", className: "ui-sr-only", id: "cee-sf-wav", accept: ".wav,.WAV,audio/wav", multiple: true, tabIndex: -1 });
-  for (const input of [pick, wavs]) input.setAttribute("aria-hidden", "true");
-  const open = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-open", textContent: t("sampleset.open"), onclick: () => pick.click() });
-  const add = el("button", { type: "button", className: "btn", id: "cee-sf-add", textContent: t("sampleset.add"), disabled: true, onclick: () => wavs.click() });
+  // Both files come in through the design's upload field (ui-dropzone): click to pick or drop on it.
+  const dropzone = (input, drag, hint) => el("label", { className: "ui-dropzone" }, [
+    input,
+    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t(drag) }), t("common.pick")]),
+    el("span", { className: "ui-dropzone-hint", textContent: t(hint) }),
+    el("span", { className: "ui-dropzone-files" }),
+  ]);
+  const pick = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-file", accept: ".all,.ALL" });
+  const wavs = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-wav", accept: ".wav,.WAV,audio/wav", multiple: true, disabled: true });
   const save = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-save", textContent: t("common.save"), disabled: true });
   const reset = el("button", { type: "button", className: "btn", id: "cee-sf-reset", textContent: t("sampleset.reset"), disabled: true });
   const summary = el("p", { className: "muted", id: "cee-sf-summary", role: "status" });
-  const list = el("ul", { className: "ui-list cee-sf-list", id: "cee-sf-list" });
-  const intro = el("p", { className: "cee-sample-intro" }, [
+  const list = el("ul", { className: "ui-list cee-sf-list", id: "cee-sf-list", hidden: true });
+  const intro = el("p", { className: "cee-sf-intro" }, [
     ...tNodes("sampleset.intro", { path: el("code", { textContent: "KORG/…/Sample/e2sSample.all" }), restart: restart() }),
   ]);
-  root.replaceChildren(intro, el("div", { className: "actions" }, [open, add, save, reset, pick, wavs]), summary, list);
+  const wavZone = dropzone(wavs, "sampleset.wav.drag", "sampleset.wav.hint");
+  const actions = el("div", { className: "actions" }, [save, reset]);
+  root.replaceChildren(intro, dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), wavZone, summary, list, actions);
 
   const taken = () => new Set([...parsed.samples.filter(s => !removed.has(s.slot)).map(s => s.slot), ...added.map(a => a.slot)]);
   const dirty = () => removed.size > 0 || added.length > 0;
 
   function render() {
     list.replaceChildren();
-    add.disabled = !parsed;
+    wavs.disabled = !parsed;
+    wavZone.hidden = actions.hidden = !parsed;
     save.disabled = reset.disabled = !dirty();
+    list.hidden = !parsed?.samples.length && !added.length;
     if (!parsed) { summary.textContent = ""; return; }
     const kept = parsed.samples.filter(s => !removed.has(s.slot));
     const plan = planChange(base, parsed, { remove: removed, add: added.map(a => ({ slot: a.slot, bytes: a.bytes })) });
@@ -63,11 +71,15 @@ export function samplesFilePage(root) {
         render();
       });
       const row = el("li", { className: "ui-row cee-sf-row" }, [
-        el("span", { className: "cee-sf-nr", textContent: String(s.slot + 1) }),
-        el("span", { className: "cee-sf-name", textContent: s.name || t("sampleset.noName") }),
-        el("span", { className: "muted", textContent: s.problem ? "" : `${format(s)}, ${seconds(s)}, ${size(s.length)}` }),
-        s.problem ? pill("error", s.problem) : s.state === "new" ? pill("ok", t("sampleset.new")) : s.state === "removed" ? pill("warn", t("sampleset.removing")) : null,
-        button,
+        el("span", { className: "ui-row-icon cee-sf-nr", textContent: String(s.slot + 1) }),
+        el("span", { className: "ui-row-text" }, [
+          el("span", { className: "ui-row-title cee-sf-name", textContent: s.name || t("sampleset.noName") }),
+          s.problem ? null : el("span", { className: "ui-row-meta", textContent: `${format(s)}, ${seconds(s)}, ${size(s.length)}` }),
+        ]),
+        el("div", { className: "ui-row-actions" }, [
+          s.problem ? pill("error", s.problem) : s.state === "new" ? pill("ok", t("sampleset.new")) : s.state === "removed" ? pill("warn", t("sampleset.removing")) : null,
+          button,
+        ]),
       ]);
       row.dataset.state = s.state;
       list.append(row);
