@@ -31,6 +31,22 @@ export function withHead(bytes, head) {
 }
 export const samplerHead = bytes => withHead(bytes, "sampler");
 
+/**
+ * Korg's System Updater 2.02 per Electribe: the support page with Korg's licence agreement, and the zip on Korg's download
+ * server. The page offers the download only after the user accepted the agreement; the app fetches it natively
+ * (src-tauri/src/korg.rs, the same URLs), the browser only links it, since Korg's server sends no CORS header.
+ */
+export const KORG_DOWNLOADS = {
+  red: {
+    page: "https://www.korg.com/us/support/download/software/0/368/2579/",
+    file: "https://cdn.korg.com/us/support/download/files/0b87bcd3112fbb8c0ad7b0f55e618837.zip?response-content-disposition=attachment%3Bfilename%2A%3DUTF-8%27%27electribe_sampler_system_v202.zip&response-content-type=application%2Foctet-stream%3B",
+  },
+  blue: {
+    page: "https://www.korg.com/us/support/download/software/0/367/2578/",
+    file: "https://cdn.korg.com/us/support/download/files/89f5b5eb14071e3456ceedd534618d8a.zip?response-content-disposition=attachment%3Bfilename%2A%3DUTF-8%27%27electribe_system_v202.zip&response-content-type=application%2Foctet-stream%3B",
+  },
+};
+
 /** Where the BLECH set lives, relative to the page: the one list of what BLECH is (docs/patcher.md). */
 export const BLECH_SET_URL = "data/patches/blech.json";
 export const BLECH_SYNTH_SET_URL = "data/patches/blech-synth.json";

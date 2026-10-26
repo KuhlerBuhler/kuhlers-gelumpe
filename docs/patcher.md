@@ -600,6 +600,21 @@ benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige F
   kopiert den Ordner selbst im Dateimanager ("Öffnen" im Feld SD-Karte). Früher kopierte der Dienst selbst und bot
   einen Knopf "Ordner für BLECH übernehmen" an; beides ist entfernt.
 
+### Korgs Firmware laden
+
+Wer keine `SYSTEM.VSB` hat, bekommt sie in Schritt 1 von Korg: erst den Haken "Ich habe Korgs Lizenzvertrag gelesen und
+nehme ihn an" (Korgs Downloadseite zeigt den Vertrag und sagt, man soll nur nach Annahme laden). Ohne Haken öffnen die
+Karten nur Korgs Seite.
+
+- **App:** mit Haken lädt die App Korgs Zip selbst von Korgs Server (`korg_firmware`, `src-tauri/src/korg.rs`) und legt
+  es ins Feld. Nichts geht über einen Server von uns, nichts wird gespeichert.
+- **Browser:** Korgs Server schickt keinen CORS-Kopf (gemessen am 26.10.: keine `Access-Control-Allow-Origin` auf GET,
+  `OPTIONS` mit 403), die Seite kann das Zip also nicht selbst holen. Der Haken macht aus den Karten den direkten Link
+  auf Korgs Zip, das man danach ins Feld zieht.
+- **Zip im Feld:** das Feld nimmt Korgs Zip wie es ist und nimmt `SYSTEM.VSB` heraus (`src/zip.mjs`, mit dem
+  `DecompressionStream` des Browsers); gemessen an beiden Zips von Korg: die herausgenommenen Dateien haben die SHA-256
+  `1d0f0689…` (rot) und `41fc5f1c…` (blau).
+
 ### BLECH mit Hacktribe für die blaue Electribe 2
 
 Hacktribe ist Code des Samplers und läuft auf der roten und der blauen gleich ([Idee 65](ideen/65-blech-hacktribe-blau.md)).
