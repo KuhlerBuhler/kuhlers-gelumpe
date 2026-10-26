@@ -5,6 +5,7 @@
 import { el } from "./fields.mjs";
 import { CREATORS } from "../../data/creators.mjs";
 import { linkOk } from "../../src/fx-v2.mjs";
+import { t, tNodes } from "./i18n.mjs";
 
 /** The creator's name, as a link to their profile when one is known; null without a name. */
 export function creatorName(name, url = null) {
@@ -18,7 +19,7 @@ export function creatorName(name, url = null) {
 /** The line at the bottom of a catalog card. */
 export function creatorLine(name, url = null) {
   const who = creatorName(name, url);
-  return who ? el("p", { className: "cee-catalog-creator muted" }, ["von ", who]) : null;
+  return who ? el("p", { className: "cee-catalog-creator muted" }, tNodes("creator.by", { name: who })) : null;
 }
 
 const LIMITS = { description: 300, creator: 40, creatorUrl: 200 };
@@ -35,7 +36,7 @@ export function metaFields(prefix, target, changed = () => {}) {
       const into = target();
       if (!into) return;
       into[key] = control.value;
-      if (key === "creatorUrl") control.setCustomValidity(control.value && !linkOk(control.value) ? "Bitte eine Adresse mit https://" : "");
+      if (key === "creatorUrl") control.setCustomValidity(control.value && !linkOk(control.value) ? t("creator.url.invalid") : "");
       changed();
     });
     return el("div", { className: "ui-field" }, [
@@ -44,14 +45,14 @@ export function metaFields(prefix, target, changed = () => {}) {
       help ? el("p", { className: "ui-field-help", textContent: help }) : null,
     ]);
   };
-  const description = el("textarea", { className: "textarea", rows: 3, placeholder: "Was macht er, wofür ist er gut?" });
-  const creator = el("input", { type: "text", className: "input", autocomplete: "nickname", placeholder: "Dein Name" });
+  const description = el("textarea", { className: "textarea", rows: 3, placeholder: t("creator.description.placeholder") });
+  const creator = el("input", { type: "text", className: "input", autocomplete: "nickname", placeholder: t("creator.name.placeholder") });
   const creatorUrl = el("input", { type: "url", className: "input", inputMode: "url", placeholder: "https://www.instagram.com/…" });
   const node = el("div", { className: "cee-meta-fields", id: `${prefix}-meta` }, [
-    field("description", "Beschreibung", description),
+    field("description", t("creator.description"), description),
     el("div", { className: "cee-meta-who" }, [
-      field("creator", "Creator", creator),
-      field("creatorUrl", "Link zum Profil", creatorUrl, "Ein Klick auf deinen Namen führt dorthin."),
+      field("creator", t("creator.name"), creator),
+      field("creatorUrl", t("creator.url"), creatorUrl, t("creator.url.help")),
     ]),
   ]);
   return {
@@ -66,4 +67,4 @@ export function metaFields(prefix, target, changed = () => {}) {
 }
 
 /** Why the words cannot be kept, or null: only the link can be wrong. */
-export const metaProblem = values => (values?.creatorUrl && !linkOk(values.creatorUrl) ? "Der Link zum Profil muss mit https:// beginnen." : null);
+export const metaProblem = values => (values?.creatorUrl && !linkOk(values.creatorUrl) ? t("creator.url.problem") : null);

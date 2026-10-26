@@ -6,16 +6,17 @@
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { BUTTONS } from "../../data/panel.mjs";
+import { t } from "./i18n.mjs";
 
 const POLL_MS = 1000;
 const KEY = "cee.fx.follow";
 const button = id => BUTTONS.find(b => b.id === id).index;
 
 export function describeScreen(c) {
-  const parts = [c.name?.de ?? `Bildschirm ${c.mode}`];
+  const parts = [c.name?.de ?? t("follow.screen", { mode: c.mode })];
   if (c.pageName) parts.push(c.pageName);
-  if (c.overlay) parts.push(`Fenster ${c.overlay.name?.de ?? c.overlay.kind}`);
-  parts.push(`Part ${c.part + 1}`);
+  if (c.overlay) parts.push(t("follow.window", { name: c.overlay.name?.de ?? c.overlay.kind }));
+  parts.push(t("follow.part", { part: c.part + 1 }));
   return parts.join(" · ");
 }
 
@@ -24,7 +25,7 @@ export function followDevice({ device, emulator: emu, probe, fx, storage = null 
   let saved = false;
   try { saved = storage?.getItem(KEY) === "1"; } catch { /* blocked storage: the switch starts off */ }
   const toggle = el("input", { type: "checkbox", id: "cee-fx-follow", checked: saved });
-  const node = el("label", { className: "ui-switch cee-fx-follow" }, [toggle, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Folgt dem Gerät"]);
+  const node = el("label", { className: "ui-switch cee-fx-follow" }, [toggle, el("span", { className: "ui-switch-track", ariaHidden: "true" }), t("follow.toggle")]);
   let shown = null;
   let last = null;
   let current = null;
@@ -51,7 +52,7 @@ export function followDevice({ device, emulator: emu, probe, fx, storage = null 
     if (lack) { current = null; put(""); return; }
     const s = await source(emulator);
     current = s;
-    if (!s) { put("Die Electribe ist aus."); return; }
+    if (!s) { put(t("follow.off")); return; }
     if (s.busy || s.reserved || document.hidden) return;
     let c;
     try {
@@ -79,7 +80,7 @@ export function followDevice({ device, emulator: emu, probe, fx, storage = null 
     if (!current?.port.emulator || last?.fx?.kind !== sent.kind || last.fx.slot !== sent.slot || last.overlay) return;
     await emulator.button(button("exit"));
     await emulator.button(button("menu"));
-    toast("Display neu aufgebaut (EXIT, MENU), damit es den neuen Stand zeigt.", "info");
+    toast(t("follow.redrawn"), "info");
   }
 
   setInterval(tick, POLL_MS);

@@ -6,6 +6,7 @@
 import { el } from "./fields.mjs";
 import { FLOW, LINKS, BUTTONS } from "../../data/rescue.mjs";
 import { e2Outline } from "./e2-art.mjs";
+import { t, tNodes } from "./i18n.mjs";
 
 /** The pause before Blechy's next message when the one before only had something to read. */
 const PAUSE_MS = 1000;
@@ -22,7 +23,7 @@ const words = (line, issue = {}) => (Array.isArray(line)
 /** What Blechy says in one node: the lines, a path on the card, and the official guide for the step if there is one. */
 const say = (node, issue) => [
   ...node.say.map(line => (line.path ? el("code", { className: "cee-rescue-path", textContent: line.path }) : el("p", {}, words(line, issue)))),
-  node.source ? el("p", { className: "cee-rescue-source" }, ["Quelle: ", ...words(node.source)]) : null,
+  node.source ? el("p", { className: "cee-rescue-source" }, tNodes("rescue.source", { source: words(node.source) })) : null,
 ];
 
 /** The Electribe of an answer as lines, like on the Features page, in the colour of its body. */
@@ -50,8 +51,8 @@ export function rescuePage(root) {
 
   /** A new issue that already says which way through the page the person took. */
   const issue = () => ({
-    title: `Rettung: ${picked[0] ?? ""}`,
-    body: `Meine Antworten in der Rettung:\n${picked.filter(Boolean).map(p => `- ${p}`).join("\n")}\n\nWas die Electribe beim Einschalten macht und was ich zuletzt gemacht habe:\n\n(zeigt das Display etwas: Foto hier hineinziehen)\n`,
+    title: t("rescue.issue.title", { answer: picked[0] ?? "" }),
+    body: t("rescue.issue.body", { answers: picked.filter(Boolean).map(p => `- ${p}`).join("\n") }),
   });
 
   function render() {
@@ -91,7 +92,7 @@ export function rescuePage(root) {
   again.addEventListener("click", () => { path = ["start"]; picked = []; render(); });
 
   root.replaceChildren(el("div", { className: "cee-rescue" }, [
-    el("h1", { className: "cee-rescue-title ui-sr-only", textContent: "Rettung" }),
+    el("h1", { className: "cee-rescue-title ui-sr-only", textContent: t("nav.rescue") }),
     chat,
     answers,
     el("div", { className: "actions cee-rescue-nav" }, [back, again]),

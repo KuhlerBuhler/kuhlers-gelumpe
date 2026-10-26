@@ -7,6 +7,7 @@ import { el } from "./fields.mjs";
 import { TOUCH_BUTTON } from "../../data/panel.mjs";
 import { drawDisplay } from "./emulator.mjs";
 import { devicePanel } from "./panel.mjs";
+import { t } from "./i18n.mjs";
 
 /**
  * @param {HTMLElement} root
@@ -15,8 +16,8 @@ import { devicePanel } from "./panel.mjs";
 export function simPanel(root, { post }) {
   const canvas = el("canvas", { className: "cee-lcd cee-sim-lcd", id: "cee-sim-lcd", width: 128, height: 64 });
   canvas.setAttribute("role", "img");
-  canvas.setAttribute("aria-label", "Display des simulierten Geräts");
-  const state = el("p", { className: "muted cee-sim-state", id: "cee-sim-state", role: "status", textContent: "Kein Lauf." });
+  canvas.setAttribute("aria-label", t("sim.display"));
+  const state = el("p", { className: "muted cee-sim-state", id: "cee-sim-state", role: "status", textContent: t("sim.idle") });
   const screenNote = el("p", { className: "muted cee-sim-screen", id: "cee-sim-screen", role: "status" });
 
   // What the drawing sends is what the emulator would get; the VM takes the same events by their script names.
@@ -39,11 +40,11 @@ export function simPanel(root, { post }) {
   front.setPower(true);
 
   const menuBody = el("div", { className: "ui-details-body cee-sim-menu", id: "cee-sim-menu-pages" });
-  const menuBox = el("details", { className: "ui-details", id: "cee-sim-menu-box", hidden: true }, [el("summary", { textContent: "Menüseiten des Plugins" }), menuBody]);
+  const menuBox = el("details", { className: "ui-details", id: "cee-sim-menu-box", hidden: true }, [el("summary", { textContent: t("sim.menuPages") }), menuBody]);
   let menuKey = "";
   let menuInputs = [];
   const appBody = el("div", { className: "cee-sim-apps", id: "cee-sim-apps" });
-  const appBox = el("div", { className: "cee-sim-appbox", id: "cee-sim-apps-box", hidden: true }, [el("p", { className: "muted", textContent: "Apps (Menü BLECH)" }), appBody]);
+  const appBox = el("div", { className: "cee-sim-appbox", id: "cee-sim-apps-box", hidden: true }, [el("p", { className: "muted", textContent: t("sim.apps") }), appBody]);
   let appKey = null;
   let appButtons = [];
 
@@ -64,18 +65,18 @@ export function simPanel(root, { post }) {
       appBox.hidden = items.length === 0;
       const open_ = items.find(a => a.open) ?? null;
       screenNote.textContent = items.length === 0
-        ? "Das Gerät zeigt hier sein eigenes Bild. Ein Plugin zeichnet nur in einer App (korg.app) oder nach korg.display.take()."
-        : open_ ? `Das Gerät zeigt die App „${open_.name}“. EXIT verlässt sie.` : "Das Gerät zeigt seinen Hauptbildschirm. Eine App öffnest du unter Menü -> BLECH -> GAMES oder TOOLS.";
+        ? t("sim.screen.own")
+        : open_ ? t("sim.screen.app", { name: open_.name }) : t("sim.screen.home");
       const key = items.map(a => `${a.id}:${a.group}:${a.name}`).join("|");
       if (key !== appKey) {
         appKey = key;
         appBody.replaceChildren();
         appButtons = items.map(a => {
-          const b = el("button", { type: "button", className: "btn sm cee-sim-app", textContent: `${a.group} > ${a.name}: öffnen`, onclick: () => open(a.id) });
+          const b = el("button", { type: "button", className: "btn sm cee-sim-app", textContent: t("sim.openApp", { group: a.group, name: a.name }), onclick: () => open(a.id) });
           b.dataset.app = String(a.id);
           return b;
         });
-        const leave = el("button", { type: "button", className: "btn sm", id: "cee-sim-app-exit", textContent: "EXIT: App verlassen", onclick: () => exit() });
+        const leave = el("button", { type: "button", className: "btn sm", id: "cee-sim-app-exit", textContent: t("sim.exitApp"), onclick: () => exit() });
         appButtons.push(leave);
         appBody.append(...appButtons);
       }
