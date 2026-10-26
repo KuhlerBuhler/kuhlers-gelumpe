@@ -74,6 +74,12 @@ function blankGlobal(channel) {
   return b;
 }
 
+/** The names the sample file and its temp file have in the card map of the simulation. */
+export const SAMPLE_FILE = "e2sSample.all";
+export const SAMPLE_TEMP = "e2sSample.tmp";
+/** Which sample file a FILE offset names: bit 30 for the sample file, bits 30 and 31 for the temp file; null for the update folder's files. */
+const sampleFileName = offset => (offset & BLECH.FILE_SAMPLE ? (offset & BLECH.FILE_OTHER ? SAMPLE_TEMP : SAMPLE_FILE) : null);
+
 export class SimDevice {
   /**
    * @param {object} opts
@@ -155,7 +161,7 @@ export class SimDevice {
     const cmd = body[5];
     const payload = syxDec(body.slice(6));
 
-    if ((cmd >= BLECH.INFO && cmd <= BLECH.FLASH) || cmd === BLECH.EXEC || (this.card && (cmd === BLECH.FILE_READ || cmd === BLECH.FILE_BEGIN))) return this.blech ? this.blechCommand(cmd, body.slice(6)) : null;
+    if ((cmd >= BLECH.INFO && cmd <= BLECH.FLASH) || cmd === BLECH.EXEC || (this.card && (cmd === BLECH.FILE_READ || cmd === BLECH.FILE_BEGIN || cmd === BLECH.FILE_COPY || cmd === BLECH.FILE_DELETE || cmd === BLECH.FILE_CRC))) return this.blech ? this.blechCommand(cmd, body.slice(6)) : null;
     // The firmware with BLECH drops Hacktribe's commands (tools/patch/blech_sysex.py); only EXIT at power-on lets them through.
     if (this.blech && cmd >= CMD.READ_RAM && cmd <= CMD.EXECUTE) return null;
     if (!this.hacktribe && cmd >= CMD.READ_RAM && cmd <= 0x58) return this.unknown(cmd);
@@ -213,11 +219,12 @@ export class SimDevice {
     const payload = syxDec(encoded);
     const word = i => readU32le(payload, i * 4);
     if (cmd === BLECH.INFO) {
-      const flags = 7 | BLECH.FLAG_EXEC | (this.flash ? BLECH.FLAG_FLASH : 0) | (this.card ? BLECH.FLAG_FILE : 0);
+      const flags = 7 | BLECH.FLAG_EXEC | (this.flash ? BLECH.FLAG_FLASH : 0) | (this.card ? BLECH.FLAG_FILE | BLECH.FLAG_SAMPLE : 0);
       return this.blechReply(BLECH.R_INFO, 0, BLECH.VERSION, flags, this.blech.maxBlock, protectTable({ build: this.blech.build }).crc, BLECH.FLASH_MAX);
     }
     if (cmd === BLECH.FLASH) return this.blechFlash(payload);
     if (cmd === BLECH.EXEC) return this.blechExec(payload);
+    if (cmd === BLECH.FILE_COPY || cmd === BLECH.FILE_DELETE || cmd === BLECH.FILE_CRC) return this.sampleCommand(cmd, payload);
     if (cmd === BLECH.FILE_READ || cmd === BLECH.FILE_BEGIN || (cmd === BLECH.DATA && this.blechPending?.file)) return this.fileCommand(cmd, payload);
     if (!this.image) {
       this.fault("no-image", "the simulation was started without a firmware image, so BLECH's commands have no RAM to work on.");
@@ -299,21 +306,23 @@ export class SimDevice {
    */
   fileCommand(cmd, payload) {
     const word = i => readU32le(payload, i * 4);
-    const name = offset => (offset & BLECH.FILE_OTHER ? "ORIGINAL.BIN" : "SYSTEM.VSB");
+    const name = offset => sampleFileName(offset) ?? (offset & BLECH.FILE_OTHER ? "ORIGINAL.BIN" : "SYSTEM.VSB");
+    const limit = offset => (sampleFileName(offset) ? BLECH.SAMPLE_LIMIT : BLECH.FILE_LIMIT);
+    const plain = offset => offset & ~(BLECH.FILE_OTHER | BLECH.FILE_SAMPLE);
     if (cmd === BLECH.FILE_READ) {
-      const offset = word(0) & ~BLECH.FILE_OTHER;
+      const offset = plain(word(0)) >>> 0;
       const length = word(1);
       const file = this.card.get(name(word(0)));
-      if (length > this.blech.maxBlock || offset + length > BLECH.FILE_LIMIT) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.RANGE, offset, 0, 0, 0);
+      if (length > this.blech.maxBlock || offset + length > limit(word(0))) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.RANGE, offset, 0, 0, 0);
       if (!file) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.FILE, offset, 0, 0, 0);
       const bytes = file.slice(Math.min(offset, file.length), Math.min(offset + length, file.length));
       return [0xf0, ...this.head, BLECH.R_FILE_READ, ...syxEnc([...[0, offset, bytes.length, crc32(bytes), file.length].flatMap(u32le), ...bytes]), 0xf7];
     }
     if (cmd === BLECH.FILE_BEGIN) {
       this.blechPending = null;
-      const offset = word(0) & ~BLECH.FILE_OTHER;
+      const offset = plain(word(0)) >>> 0;
       const [length, crc] = [word(1), word(2)];
-      const ok = length >= 1 && length <= this.blech.maxBlock && offset + length <= BLECH.FILE_LIMIT;
+      const ok = length >= 1 && length <= this.blech.maxBlock && offset + length <= limit(word(0));
       if (ok) this.blechPending = { file: name(word(0)), addr: offset, length, crc };
       return this.blechReply(BLECH.R_FILE_BEGIN, ok ? BLECH.STATUS.OK : BLECH.STATUS.RANGE, offset, length);
     }
@@ -321,12 +330,56 @@ export class SimDevice {
     this.blechPending = null;
     const bytes = Uint8Array.from(payload.slice(0, length));
     if (crc32(bytes) !== crc) return this.blechReply(BLECH.R_DATA, BLECH.STATUS.BAD_CRC, addr, length, crc32(bytes));
-    const old = addr === 0 ? new Uint8Array(0) : this.card.get(file) ?? new Uint8Array(0);
+    // a first block at offset 0 makes the file anew, except the sample file itself: its header at 0 is rewritten in place
+    const old = addr === 0 && file !== SAMPLE_FILE ? new Uint8Array(0) : this.card.get(file) ?? new Uint8Array(0);
     const next = new Uint8Array(Math.max(old.length, addr + length));
     next.set(old);
     next.set(bytes, addr);
     this.card.set(file, next);
     return this.blechReply(BLECH.R_DATA, BLECH.STATUS.OK, addr, length, crc32(next.subarray(addr, addr + length)));
+  }
+
+  /**
+   * FILE COPY, FILE DELETE and FILE CRC on the sample file and its temp file (tools/patch/blech_sysex.py): COPY needs two different
+   * sample files and 1 to COPY_MAX bytes, a source that ends early is refused before the target is made, the target is opened or made
+   * and never cut; DELETE takes a sample file only and a missing file is a card error; CRC reads a range and sends no bytes.
+   */
+  sampleCommand(cmd, payload) {
+    const word = i => readU32le(payload, i * 4);
+    const file = sel => sampleFileName(sel);
+    const offsetOf = sel => (sel & ~(BLECH.FILE_OTHER | BLECH.FILE_SAMPLE)) >>> 0;
+    const S = BLECH.STATUS;
+    if (cmd === BLECH.FILE_DELETE) {
+      const name = file(word(0));
+      if (!name) return this.blechReply(BLECH.R_FILE_DELETE, S.REFUSED, word(0));
+      if (!this.card.has(name)) return this.blechReply(BLECH.R_FILE_DELETE, S.FILE, word(0));
+      this.card.delete(name);
+      return this.blechReply(BLECH.R_FILE_DELETE, S.OK, word(0));
+    }
+    if (cmd === BLECH.FILE_CRC) {
+      const name = file(word(0));
+      const [offset, length] = [offsetOf(word(0)), word(1)];
+      if (!name) return this.blechReply(BLECH.R_FILE_CRC, S.REFUSED, offset, 0, 0);
+      if (length < 1 || length > BLECH.COPY_MAX || offset + length > BLECH.SAMPLE_LIMIT) return this.blechReply(BLECH.R_FILE_CRC, S.RANGE, offset, 0, 0);
+      const data = this.card.get(name);
+      if (!data) return this.blechReply(BLECH.R_FILE_CRC, S.FILE, offset, 0, 0);
+      if (offset + length > data.length) return this.blechReply(BLECH.R_FILE_CRC, S.RANGE, offset, 0, 0);
+      return this.blechReply(BLECH.R_FILE_CRC, S.OK, offset, length, crc32(data.subarray(offset, offset + length)));
+    }
+    const [from, to, length] = [file(word(0)), file(word(1)), word(2)];
+    if (!from || !to || from === to) return this.blechReply(BLECH.R_FILE_COPY, S.REFUSED, 0, 0);
+    const [src, dst] = [offsetOf(word(0)), offsetOf(word(1))];
+    if (length < 1 || length > BLECH.COPY_MAX || src + length > BLECH.SAMPLE_LIMIT || dst + length > BLECH.SAMPLE_LIMIT) return this.blechReply(BLECH.R_FILE_COPY, S.RANGE, 0, 0);
+    const data = this.card.get(from);
+    if (!data) return this.blechReply(BLECH.R_FILE_COPY, S.FILE, 0, 0);
+    if (src + length > data.length) return this.blechReply(BLECH.R_FILE_COPY, S.RANGE, 0, 0);
+    const bytes = data.slice(src, src + length);
+    const old = this.card.get(to) ?? new Uint8Array(0);
+    const next = new Uint8Array(Math.max(old.length, dst + length));
+    next.set(old);
+    next.set(bytes, dst);
+    this.card.set(to, next);
+    return this.blechReply(BLECH.R_FILE_COPY, S.OK, length, crc32(bytes));
   }
 
   /**

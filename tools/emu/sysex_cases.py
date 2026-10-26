@@ -225,6 +225,30 @@ class Link:
         s, a, length, crc2 = struct.unpack_from("<4I", r["words"])
         return begin, {"status": s, "offset": a, "length": length, "crc": crc2}
 
+    def file_copy(self, source, target, n, wait=120.0):
+        """FILE COPY between the two sample files: status, the bytes copied and their CRC-32."""
+        r, _ = self.ask(spec.FUNC_COPY, struct.pack("<III", source, target, n), reply=spec.REPLY_COPY, wait=wait)
+        if not r:
+            return None
+        s, copied, crc = struct.unpack_from("<3I", r["words"])
+        return {"status": s, "copied": copied, "crc": crc}
+
+    def file_delete(self, selector, wait=120.0):
+        """FILE DELETE of a sample file: status and the word asked."""
+        r, _ = self.ask(spec.FUNC_DELETE, struct.pack("<I", selector), reply=spec.REPLY_DELETE, wait=wait)
+        if not r:
+            return None
+        s, word = struct.unpack_from("<2I", r["words"])
+        return {"status": s, "selector": word}
+
+    def file_crc(self, offset, n, wait=120.0):
+        """FILE CRC of a range of a sample file: status, offset, the bytes read and their CRC-32."""
+        r, _ = self.ask(spec.FUNC_CRC, struct.pack("<II", offset, n), reply=spec.REPLY_CRC, wait=wait)
+        if not r:
+            return None
+        s, a, length, crc = struct.unpack_from("<4I", r["words"])
+        return {"status": s, "offset": a, "length": length, "crc": crc}
+
     def write(self, addr, data, crc=None, send_data=True, wait=120.0):
         """BEGIN, and when it says ok, DATA. Returns (begin reply, data reply or None)."""
         crc = zlib.crc32(data) if crc is None else crc
@@ -619,8 +643,132 @@ def file_cases(payload, flash):
     return out
 
 
+def sample_cases(payload, flash):
+    """The sample file Sample/e2sSample.all and its temp file beside it (bit 30 of a FILE offset, bit 31 for the temp file): read, written
+    in place without cutting the file, FILE COPY between the two, FILE CRC, FILE DELETE, and the whole way the editor takes to compact the
+    file: the temp file complete and checked, the old file deleted, the temp file copied back, deleted. The card image is read back with the
+    FAT reader after every step. Nothing else of the card may change: SYSTEM.VSB stays."""
+    import cardstore
+    import fat32
+    from sdcard import MemoryMedium, SDCard
+    folder = cardstore.card_folder(bytes(payload))
+    sample = f"KORG/{folder}/Sample/e2sSample.all"
+    temp = f"KORG/{folder}/Sample/e2sSample.tmp"
+    vsb = f"KORG/{folder}/System/SYSTEM.VSB"
+    ALL, TMP = spec.FILE_SAMPLE, spec.FILE_SAMPLE | spec.FILE_OTHER
+    out = []
+
+    def device(files=None, card=True, held=0):
+        dev = Dev(payload, flash, held)
+        if card:
+            img = fat32.format_image(64 * 1024 * 1024)
+            vol = fat32.Volume(img)
+            for name, data in (files or {}).items():
+                vol.write(name, data)
+            vol.close()
+            dev.m.insert_card(SDCard(MemoryMedium(bytearray(img))))
+        dev.run(1.0)
+        lk = Link(dev)
+        lk.find_channel()
+        return dev, lk
+
+    def on_card(dev, name):
+        try:
+            return fat32.Volume(dev.m.mmc.card.medium.data).read(name)
+        except Exception:
+            return None
+
+    rng = random.Random(20261026)
+    blob = lambda n: bytes(rng.getrandbits(8) for _ in range(n))
+    old = blob(40000)
+    system = blob(3000)
+    dev, lk = device({sample: old, vsb: system, f"KORG/{folder}/Sample/keep.txt": b"x"})
+    size = lk.file_read(ALL | 0, 0)
+    head = lk.file_read(ALL | 100, 500)
+    out.append(entry("sample_read", size and size["status"] == OK and size["size"] == len(old) and head and head["data"] == old[100:600] and head["crc_ok"],
+                     f"the sample file {sample} is read through bit 30: size {size and size['size']}, 500 bytes from offset 100 equal: {bool(head) and head['data'] == old[100:600]}"))
+    big = lk.file_read(ALL | (spec.SAMPLE_LIMIT - 10), 100)
+    ok_far = lk.file_read(ALL | 0x0FFF0000, 100)
+    out.append(entry("sample_read_limits", big and big["status"] == RANGE and ok_far and ok_far["status"] == OK and ok_far["length"] == 0,
+                     f"past the limit of a sample file {big and big['status']}; a read inside the limit but past the end of the file gives {ok_far and ok_far['length']} bytes"))
+    # in place: the header block at offset 0 does not cut the file
+    header = blob(4096)
+    b, d = lk.file_write(ALL | 0, header)
+    new = header + old[4096:]
+    out.append(entry("sample_header_in_place", b and b["status"] == OK and d and d["status"] == OK and d["crc"] == zlib.crc32(header) and on_card(dev, sample) == new,
+                     f"a block at offset 0 rewrites the header and the rest of the file stays: {on_card(dev, sample) == new}, {len(on_card(dev, sample) or b'')} bytes on the card"))
+    tail = blob(5000)
+    b, d = lk.file_write(ALL | len(new), tail)
+    new += tail
+    out.append(entry("sample_append", b and b["status"] == OK and d and d["status"] == OK and on_card(dev, sample) == new,
+                     f"a block at the end appends: {len(on_card(dev, sample) or b'')} bytes on the card, expected {len(new)}"))
+    # the temp file: offset 0 makes it anew
+    b, d = lk.file_write(TMP | 0, header)
+    stale = on_card(dev, temp)
+    b2, d2 = lk.file_write(TMP | 0, header[:1000])
+    out.append(entry("sample_temp_anew", b and d and stale == header and b2 and d2 and on_card(dev, temp) == header[:1000] and on_card(dev, sample) == new,
+                     f"the temp file is made at offset 0 and made anew by the next block at 0 ({len(on_card(dev, temp) or b'')} bytes); the sample file stays"))
+    # copy, with the CRC of what was copied
+    lk.file_write(TMP | 0, header)
+    r1 = lk.file_copy(ALL | 4096, TMP | 4096, 12345)
+    r2 = lk.file_copy(ALL | 20000, TMP | 4096 + 12345, 9000)
+    want = header + new[4096:4096 + 12345] + new[20000:29000]
+    out.append(entry("sample_copy", r1 and r2 and r1["status"] == OK and r2["status"] == OK and r1["copied"] == 12345 and r2["copied"] == 9000
+                     and r1["crc"] == zlib.crc32(new[4096:4096 + 12345]) and r2["crc"] == zlib.crc32(new[20000:29000]) and on_card(dev, temp) == want and on_card(dev, sample) == new,
+                     f"two pieces copied to the temp file, each with the CRC of its bytes ({r1 and r1['status']}, {r2 and r2['status']}); the temp file equals the pieces: {on_card(dev, temp) == want}"))
+    c1 = lk.file_crc(TMP | 0, len(want))
+    c2 = lk.file_crc(TMP | 4096, 12345)
+    out.append(entry("sample_crc", c1 and c2 and c1["status"] == OK and c1["length"] == len(want) and c1["crc"] == zlib.crc32(want) and c2["crc"] == zlib.crc32(new[4096:4096 + 12345]),
+                     f"FILE CRC reads the card and answers the CRC-32 of {c1 and c1['length']} bytes without sending them: {bool(c1) and c1['crc'] == zlib.crc32(want)}"))
+    if MODEL == 0x23:
+        # the blue Electribe 2's image has no f_unlink: DELETE says 6, the files stay, and INFO does not claim the sample file commands
+        info = lk.info()
+        d1 = lk.file_delete(ALL)
+        out.append(entry("sample_synth_no_delete", d1 and d1["status"] == spec.STATUS_FILE and on_card(dev, sample) == new and info and not info["flags"] & 0x80 and not dev.m.asserts,
+                         f"the synth's FatFs has no unlink: DELETE says {d1 and d1['status']}, the sample file stays ({on_card(dev, sample) == new}), the INFO flags {info and hex(info['flags'])} do not carry bit 7"))
+        return out
+    # the way back: delete the old, copy the temp file back, delete the temp file
+    d1 = lk.file_delete(ALL)
+    gone = on_card(dev, sample) is None
+    back = lk.file_copy(TMP | 0, ALL | 0, len(want))
+    done = lk.file_delete(TMP)
+    out.append(entry("sample_swap", d1 and d1["status"] == OK and gone and back and back["status"] == OK and back["crc"] == zlib.crc32(want) and done and done["status"] == OK
+                     and on_card(dev, sample) == want and on_card(dev, temp) is None and on_card(dev, vsb) == system and not dev.m.asserts,
+                     f"delete the old file ({d1 and d1['status']}, gone {gone}), copy the temp file back ({back and back['status']}), delete it ({done and done['status']}): the sample file equals the compacted one "
+                     f"({on_card(dev, sample) == want}), the temp file is gone, SYSTEM.VSB is untouched ({on_card(dev, vsb) == system}), no assertion in the firmware"))
+    # refusals
+    other = lk.file_delete(0)
+    plain = lk.file_delete(spec.FILE_OTHER | 0)
+    same = lk.file_copy(ALL | 0, ALL | 100, 10)
+    from_vsb = lk.file_copy(0, TMP | 0, 10)
+    to_vsb = lk.file_copy(ALL | 0, 0, 10)
+    nothing = lk.file_copy(ALL | 0, TMP | 0, 0)
+    toolong = lk.file_copy(ALL | 0, TMP | 0, spec.COPY_MAX + 1)
+    beyond = lk.file_copy(ALL | 0, TMP | (spec.SAMPLE_LIMIT - 5), 10)
+    short = lk.file_copy(ALL | len(want) - 100, TMP | 0, 500)
+    missing = lk.file_delete(TMP)
+    crc_bad = [lk.file_crc(0, 10), lk.file_crc(ALL | 0, 0), lk.file_crc(ALL | 0, spec.COPY_MAX + 1), lk.file_crc(ALL | len(want) - 10, 100)]
+    statuses = [r and r["status"] for r in (other, plain, same, from_vsb, to_vsb, nothing, toolong, beyond, short, missing)] + [r and r["status"] for r in crc_bad]
+    wanted = [REFUSED, REFUSED, REFUSED, REFUSED, REFUSED, RANGE, RANGE, RANGE, RANGE, spec.STATUS_FILE, REFUSED, RANGE, RANGE, RANGE]
+    out.append(entry("sample_refusals", statuses == wanted and on_card(dev, vsb) == system and on_card(dev, sample) == want and on_card(dev, temp) is None,
+                     f"DELETE of SYSTEM.VSB or ORIGINAL.BIN, COPY inside one file or from or to a file that is no sample file, no bytes, over COPY_MAX, past the limit, a source that ends early, "
+                     f"DELETE of a missing file, and the bad CRC ranges: {statuses}, wanted {wanted}; SYSTEM.VSB and the sample file are unchanged"))
+    # no card, EXIT held
+    nocard, lk2 = device(card=False)
+    r = lk2.file_read(ALL | 0, 0)
+    c = lk2.file_copy(ALL | 0, TMP | 0, 10)
+    dl = lk2.file_delete(ALL)
+    out.append(entry("sample_no_card", r and c and dl and r["status"] == spec.STATUS_FILE and c["status"] == spec.STATUS_FILE and dl["status"] == spec.STATUS_FILE and not nocard.m.asserts,
+                     f"without a card READ, COPY and DELETE say 6: {[x and x['status'] for x in (r, c, dl)]}"))
+    held, lk3 = device({sample: old}, held=KILL)
+    answers = [lk3.file_read(ALL | 0, 0), lk3.file_copy(ALL | 0, TMP | 0, 10), lk3.file_delete(ALL), lk3.file_crc(ALL | 0, 10)]
+    out.append(entry("sample_kill_switch_silent", all(a is None for a in answers) and on_card(held, sample) == old,
+                     "with EXIT held at power-on READ, COPY, DELETE and CRC get no answer and the file is still there"))
+    return out
+
+
 def case_files(payload, flash):
-    return file_cases(payload, flash)
+    return file_cases(payload, flash) + sample_cases(payload, flash)
 
 
 def case_flash(payload, flash):
@@ -685,7 +833,7 @@ def synth_cases(payload, flash):
         out.append(entry("synth_main_screen", dev.m.screen() == 1 and not dev.m.asserts, f"the patched synth firmware is on screen {dev.m.screen()} (1 is the main screen)"))
         info = lk.info()
         table = table_of(payload)
-        out.append(entry("synth_info", info and info["status"] == OK and info["version"] == spec.PROTOCOL_VERSION and info["flags"] == spec.FLAGS
+        out.append(entry("synth_info", info and info["status"] == OK and info["version"] == spec.PROTOCOL_VERSION and info["flags"] == spec.FLAGS & ~0x80
                          and info["max_block"] == spec.MAX_BLOCK and info["max_flash"] == spec.FLASH_MAX and info["table_crc"] == zlib.crc32(table),
                          f"INFO answered with model byte 0x23: flags {info and hex(info['flags'])}, flash block {info and info['max_flash']}, table {len(table)} bytes, CRC equal to the image's: {bool(info) and info['table_crc'] == zlib.crc32(table)}"))
         bad = []
@@ -706,6 +854,7 @@ def synth_cases(payload, flash):
         out.extend(case_kill_switch(payload, flash))
         out.extend(case_other_sysex(payload, flash))
         out.extend(file_cases(payload, flash))
+        out.extend(sample_cases(payload, flash))
         out.extend(case_stream(payload, flash))
         return out
     finally:

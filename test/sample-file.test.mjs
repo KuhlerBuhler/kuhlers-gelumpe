@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, HEADER, ESLI } from "../src/sample-file.mjs";
+import { parseRemote, parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, HEADER, ESLI } from "../src/sample-file.mjs";
 import { wav, file, put32 } from "./support/sample-file.mjs";
 
 test("parses the slots, names and formats of a file", () => {
@@ -86,4 +86,35 @@ test("free slots and names", () => {
   assert.equal(freeSlot(new Set([500, 501])), 502);
   assert.equal(freeSlot(new Set(Array.from({ length: 499 }, (_, i) => 500 + i))), null);
   assert.equal(cleanSampleName("  Kick Drum Ünï mit sehr langem Namen "), "Kick Drum n mit");
+});
+
+test("a file read in pieces lists the same samples as the file in memory, from the header and a few bytes of each sample", async () => {
+  const bytes = file({ 500: "Kick", 501: "Snare", 700: "Hat" });
+  const asked = [];
+  const read = async (at, n) => { asked.push(n); return bytes.slice(at, at + n); };
+  const remote = await parseRemote(read, bytes.length);
+  const local = parseSampleFile(bytes);
+  assert.deepEqual(remote.samples.map(s => [s.slot, s.offset, s.length, s.name, s.rate, s.channels, s.bits, s.frames, s.problem]), local.samples.map(s => [s.slot, s.offset, s.length, s.name, s.rate, s.channels, s.bits, s.frames, s.problem]));
+  assert.deepEqual(asked.slice(0, 1), [HEADER]);
+  assert.ok(Math.max(...asked.slice(1)) <= 44, "no read of audio");
+  assert.equal(remote.header.length, HEADER);
+});
+
+test("an entry laid out in another order is listed with a problem and its length, and can be removed", async () => {
+  const bytes = file({ 500: "Kick" });
+  const entry = wav({ frames: 20, list: true, esli: new Uint8Array(1172) });
+  const odd = new Uint8Array(HEADER + entry.length);
+  odd.set(bytes.subarray(0, HEADER));
+  put32(odd, 16 + 4 * 500, HEADER);
+  odd.set(entry, HEADER);
+  const remote = await parseRemote(async (at, n) => odd.slice(at, at + n), odd.length);
+  assert.equal(remote.samples[0].length, entry.length);
+  assert.equal(remote.samples[0].problem, "Aufbau nicht erkannt");
+  const plan = planChange(odd, remote, { remove: [500] });
+  assert.equal(plan.size, HEADER);
+});
+
+test("a remote file that is no sample file or shorter than a header is refused", async () => {
+  await assert.rejects(parseRemote(async () => new Uint8Array(HEADER), HEADER), /e2s sample all/);
+  await assert.rejects(parseRemote(async () => new Uint8Array(10), 10), /kürzer als ein Kopf/);
 });
