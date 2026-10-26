@@ -3,6 +3,7 @@
  * `data-i18n` / `data-i18n-label`, so the page reads right before the script runs; test/i18n.test.mjs keeps both equal.
  */
 import de from "./i18n-de.mjs";
+import { fill, isText, useTexts } from "../../src/text.mjs";
 
 const TABLES = { de };
 /** The languages there are, with their own names for the settings. */
@@ -17,11 +18,20 @@ export function setLanguage(id) {
 
 export const language = () => lang;
 
-/** The text for `key`; `{name}` in it is replaced by `vars.name`. */
+/** The locale numbers and dates follow: the language, German as de-DE. */
+const LOCALES = { de: "de-DE" };
+export const locale = () => LOCALES[lang] ?? lang;
+
+/**
+ * The text for `key`; `{name}` in it is replaced by `vars.name`. `key` may also be a text from src/ or data/
+ * ({key, vars}, src/text.mjs), and so may a value.
+ */
 export function t(key, vars = {}) {
-  const text = TABLES[lang][key] ?? de[key] ?? key;
-  return text.replace(/\{(\w+)\}/g, (all, name) => (name in vars ? String(vars[name]) : all));
+  if (isText(key)) return t(key.key, key.vars);
+  return fill(TABLES[lang][key] ?? de[key] ?? key, vars);
 }
+
+useTexts(t, locale);
 
 /** Like t(), but a value may be a DOM node or a list of them: the text comes back as a flat list of strings and nodes, for append(). */
 export function tNodes(key, vars = {}) {

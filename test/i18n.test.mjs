@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import de from "../site/app/i18n-de.mjs";
-import { t, tNodes, setLanguage, language, LANGUAGES } from "../site/app/i18n.mjs";
+import { t, tNodes, setLanguage, language, locale, LANGUAGES } from "../site/app/i18n.mjs";
+import { text, render, number, TextError } from "../src/text.mjs";
 import { literals, looksLikeUiText, htmlText } from "./ui-text.mjs";
 
 const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
@@ -10,10 +11,18 @@ const code = readdirSync(new URL("../site/app/", import.meta.url))
   .filter(f => f.endsWith(".mjs") && !f.startsWith("i18n-"))
   .map(f => readFileSync(new URL(`../site/app/${f}`, import.meta.url), "utf8"))
   .join("\n");
+/**
+ * The parts of src/ and data/ that hand text to the page as keys (src/text.mjs), and so are held to the same scans as
+ * site/app. Path relative to the repository root.
+ */
+const KEYED = [
+  "src/text.mjs",
+];
+const keyed = KEYED.map(f => [f, readFileSync(new URL(`../${f}`, import.meta.url), "utf8")]);
 // A literal like "nav.start" whose first part names a namespace of the table counts as a key, in t() or in a FIELDS label.
 const spaces = new Set(Object.keys(de).map(k => k.split(".")[0]));
 const used = new Set([
-  ...[...code.matchAll(/"([a-z]+(?:\.[A-Za-z0-9]+)+)"/g)].map(m => m[1]).filter(k => spaces.has(k.split(".")[0])),
+  ...[...[code, ...keyed.map(([, src]) => src)].join("\n").matchAll(/"([a-z]+(?:\.[A-Za-z0-9]+)+)"/g)].map(m => m[1]).filter(k => spaces.has(k.split(".")[0])),
   ...[...html.matchAll(/data-i18n(?:-label|-html)?="([^"]+)"/g)].map(m => m[1]),
 ]);
 
@@ -44,6 +53,16 @@ test("t() fills in values, falls back to German and then to the key", () => {
   setLanguage("xx");
   assert.equal(language(), "de");
   assert.deepEqual(LANGUAGES, [["de", "Deutsch"]]);
+});
+
+test("t() renders a text from src/ or data/, also one nested in a value, and an error's message follows the language", () => {
+  assert.equal(t(text("settings.version", { version: text("nav.start") })), "App-Version Start");
+  assert.equal(render("schon fertig"), "schon fertig");
+  const error = new TextError("settings.version", { version: "1.3.3" });
+  assert.equal(error.message, "App-Version 1.3.3");
+  assert.deepEqual(error.text, { key: "settings.version", vars: { version: "1.3.3" } });
+  assert.equal(number(1234.5), "1.234,5");
+  assert.equal(locale(), "de-DE");
 });
 
 test("every file that calls t() or tNodes() imports it, so no page breaks on a missing import", () => {
@@ -85,6 +104,10 @@ const hardcoded = (file, src) => literals(src)
 test("site/app has no hard-coded UI text: every German label, message and toast goes through t()", () => {
   const files = readdirSync(new URL("../site/app/", import.meta.url)).filter(f => f.endsWith(".mjs") && !f.startsWith("i18n"));
   assert.deepEqual(files.flatMap(f => hardcoded(f, readFileSync(new URL(`../site/app/${f}`, import.meta.url), "utf8"))), []);
+});
+
+test("the parts of src/ and data/ that hand text to the page have no hard-coded UI text either", () => {
+  assert.deepEqual(keyed.flatMap(([f, src]) => hardcoded(f, src)), []);
 });
 
 test("index.html has no hard-coded UI text outside data-i18n, data-i18n-html and data-i18n-label", () => {
