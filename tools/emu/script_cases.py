@@ -305,6 +305,7 @@ def firmware_cases(vsb, flash, request):
           and not led.m.asserts)
 
     card_cases(request, programs, built, patched, stock, flash, check)
+    seq_cases(request, programs, built, patched, flash, check)
     menu_script_cases(programs, built, patched, flash, check)
 
     write_word(faulty, runtime + built.symbols["SCRIPT_CONTROL_ARMED"], 0)
@@ -331,6 +332,66 @@ def firmware_cases(vsb, flash, request):
         check("status-din-" + item["name"], len(received) == 1)
     return dict(ok=all(check["ok"] for check in checks), checks=checks,
                 search=search.hex() if search is not None else None, reads=replies, layout=built.layout)
+
+
+def seq_cases(request, programs, built, patched, flash, check):
+    """korg.seq: the steps a plugin writes land in the pattern in RAM byte for byte as in the browser model, the pads show them,
+    the sequencer plays them, also a step written while it runs, and the pattern then counts as unsaved."""
+    seq = with_card(patched, flash, {CARD_FILE: archive([bytes.fromhex(programs["seqwrite"]["blob"])])})
+    seq.run(2)
+    pattern = seq.u32(0xC033E6A4) + 4                       # the pattern object's pointer; the block starts 4 bytes in
+    records = lambda: [seq.m.uc.mem_read(pattern + 0x800 + 0x30 + 12 * step, 12) for step in range(64)]
+
+    def same(model):
+        """Every on byte as the model has it, and every byte the model wrote for a step that is on."""
+        bad = []
+        for step, (record, (on, gate, velocity, trigger, note)) in enumerate(zip(records(), model)):
+            want = [on] if not on else [on, gate, velocity, trigger, note + 1, 0, 0, 0]
+            if list(record[:len(want)]) != want:
+                bad.append((step, list(record[:8]), want))
+        return bad
+
+    check("seq-schreibt-wie-der-browser", seq.a(0xC06B2798) + 4 == pattern and not same(request["seq"]["ready"]), same(request["seq"]["ready"])[:4])
+    lit = lambda: sorted(n for n in range(16) if seq.m.leds.get(0x2C + 2 * n, 0) > 0)
+    seq.press(0x15, 0.4)                                     # SEQUENCER: the pads show the steps of bar 1
+    before = lit()
+    seq.press(0x03, 0.3)                                     # TAP: the plugin turns step 1 off and step 6 on
+    after = lit()
+    on = lambda model: [step for step in range(16) if model[step][0]]
+    check("seq-tap-wie-der-browser", not same(request["seq"]["tap"]), same(request["seq"]["tap"])[:4])
+    check("seq-pads-zeigen-die-steps", before == on(request["seq"]["ready"]) and after == on(request["seq"]["tap"]) and not seq.m.asserts,
+          dict(before=before, after=after))
+    dirty = seq.read(script_hooks.MENU_STATE - 1, 1)[0]
+    plain = with_card(patched, flash, {})
+    plain.run(2)
+    check("seq-ungespeichert", dirty == 1 and plain.read(script_hooks.MENU_STATE - 1, 1)[0] == 0,
+          dict(written=dirty, untouched=plain.read(script_hooks.MENU_STATE - 1, 1)[0]))
+    seq.m.uc.mem_write(pattern + 37, bytes([0]))            # one bar: the pass comes round every 16 steps
+    seq.press(0x15, 0.3)                                     # back out of SEQUENCER mode
+    mark = len(seq.m.uart[0x01D0C000]["tx"])
+    seq.m.press(2, True)
+    seq.run(0.05)
+    seq.m.press(2, False)
+    seq.run(5.0)
+    seq.m.press(1, True)
+    seq.run(0.05)
+    seq.m.press(1, False)
+    seq.run(0.3)
+    data, played, status, cur = bytes(seq.m.uart[0x01D0C000]["tx"][mark:]), [], None, []
+    for x in data:
+        if x >= 0xF8:
+            continue
+        if x & 0x80:
+            status, cur = x, []
+            continue
+        cur.append(x)
+        if status is not None and len(cur) == 2:
+            if status & 0xF0 == 0x90 and status & 0x0F == 0 and cur[1] > 0:
+                played.append(cur[0])
+            cur = []
+    first = [62, 64, 65, 66, 68, 70, 72, 74]
+    check("seq-spielt-was-geschrieben-ist", played[:8] == first and not seq.m.asserts, played[:20])
+    check("seq-schreibt-waehrend-es-laeuft", played[8:17] == [50] + first and not seq.m.asserts, played[:20])
 
 
 def with_flags(block, flags):

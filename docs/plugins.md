@@ -326,6 +326,41 @@ Plugin mit einem Fehler.
 | `korg.menu.add(name, min, max, wert)` | legt eine Seite im Menü BLECH am Gerät an und gibt ihre Nummer zurück (-1, wenn alle 12 Plätze belegt sind). `name` höchstens 15 Zeichen, die Seite zeigt `wert` (in `min` bis `max` geklemmt, Betrag unter 100 Millionen) und den Plugin-Namen. Wird am Hauptrad gedreht, bekommt das Plugin `menu`(nummer, wert). Derselbe Name vom selben Plugin ist dieselbe Seite. `min` über `max` ist ein Argumentfehler | nur im Rumpf und in `ready` |
 | `korg.ledHold(an)` | 1 hält die Firmware davon ab, die Panel LEDs neu zu schreiben (Pads, Tasten, untere RGB LEDs zeigen dann, was das Plugin gesetzt hat), 0 gibt sie zurück und lässt die Firmware alle LEDs neu senden; fällt das letzte laufende Plugin aus, gibt die Laufzeit sie selbst zurück | wie `korg.led` |
 | `korg.remapKey(von, nach)` | die Taste `von` kommt bei der Firmware und bei den Plugins als Taste `nach` an (beide 0 bis 33, am besten Namen wie `korg.key.PART_ERASE`), solange das Plugin läuft: der Eingangsfilter schreibt den Code in der Panel-Nachricht um, bevor die Firmware sie liest, die Firmware tut also genau, was sie mit `nach` tut. Es gilt eine Umlegung für alle Plugins, die letzte zählt; dieselbe Taste zweimal hebt sie auf. EXIT lässt sich nicht umlegen. Ab API Version 8 | nur im Rumpf und in `ready` |
+| `korg.seq.setStep(part, step, note, velocity)` | schreibt Step `step` (0 bis 63) von Part `part` (0 bis 15) im Pattern, das läuft: `note` 0 bis 127 mit `velocity` 1 bis 127 schaltet ihn an, mit dieser Note auf dem ersten Notenplatz (die anderen drei leer) und Trigger an; `note` -1 oder `velocity` 0 schaltet ihn aus. Das Gate bleibt, wie es ist. Ab API Version 9 | wie `korg.led` |
+| `korg.seq.setGate(part, step, gate)` | setzt das Gate des Steps, 0 bis 127; 96 ist ein ganzer Schritt, 127 bindet an die nächste Note (Tie). Ab API Version 9 | wie `korg.led` |
+| `korg.seq.clearPart(part)` | schaltet alle 64 Steps des Parts aus, Noten, Gates und Velocity bleiben stehen. Ab API Version 9 | wie `korg.led` |
+
+**Steps schreiben** (`tools/patch/script_seq.s`, ab API Version 9): `korg.seq.*` schreibt in das Pattern im RAM,
+das gerade läuft oder bearbeitet wird, genau wie das Würfeln mit SHIFT + PART ERASE
+([Würfeln](messungen/2026-10-16-wuerfeln.md)): dieselben Bytes im Step, kein Umweg über die Bedienung. Der Sequencer spielt
+einen geschriebenen Step beim nächsten Durchlauf, auch während er läuft (gemessen im Emulator, siehe unten). Das Pattern im RAM
+weicht danach von seinem gespeicherten Platz ab und zählt wie nach einer Eingabe von Hand als ungespeichert: erst WRITE legt es
+ab, ohne WRITE ist die Änderung nach dem Laden eines anderen Patterns weg. Der Flash und die Karte bleiben unberührt, und
+SHIFT + EDIT< nimmt nichts zurück. Die Pads zeigen die Steps des gewählten Taktabschnitts; hat ein Plugin in
+einem Rahmen Steps geschrieben, sagt die Laufzeit der Firmware am Ende des Rahmens einmal Bescheid, und die Pads zeichnen sich
+neu (nur auf dem Hauptbildschirm, sonst beim nächsten Rahmen dort). Ein Step, der hinter der Länge des Patterns oder hinter
+LAST STEP des Parts liegt, wird geschrieben, aber nicht gespielt. Die Noten sind MIDI-Noten wie beim Würfeln: 48 ist der
+Grundton C, auf dem die Tonart des Patterns aufsetzt (`korg.current.key`).
+
+```js
+// TAP schreibt ein Arpeggio in den gewählten Part: Grundton, Terz, Quinte und Oktave
+// in der Tonart des Patterns, auf jedem zweiten 16tel, so lang wie das Pattern.
+const chord = [0, 4, 7, 12];
+korg.onEvent("buttonPress", (key) => {
+  if (key != korg.key.TAP) return;
+  let part = korg.selectedPart;
+  if (part > 15) return;
+  korg.seq.clearPart(part);
+  for (let step = 0; step < korg.current.length * 16; step += 2) {
+    let note = 48 + korg.current.key + chord[(step / 2) % 4];
+    korg.seq.setStep(part, step, note, step % 8 == 0 ? 110 : 80);
+    korg.seq.setGate(part, step, 40);
+  }
+});
+```
+
+Ein Arpeggiator, der mitläuft, schreibt im Ereignis `step` den Schritt, der als nächster kommt. Ein Aufruf kostet wenig
+(`setStep` 6, `setGate` 4, `clearPart` 30 Einheiten), ein ganzes Pattern von 64 Steps passt bequem in einen Rahmen.
 
 **Display auf dem Gerät** (`tools/patch/script_display.s`): Die Laufzeit hält ein
 eigenes Bild von 1024 Byte (8 Seiten zu 128 Spalten, Bit 0 die oberste Zeile) und
@@ -1057,7 +1092,7 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
 
 - Compiler, Prüfer und Referenz-VM in JavaScript (`src/script/`), die Seite
   Plugins mit Lauf, Probe und Export (`site/app/scripts.mjs`), Tests in
-  `test/script-*.test.mjs`. Blockformat 2, API Version 6
+  `test/script-*.test.mjs`. Blockformat 2, API Version 9
   (`data/script/contract.mjs`).
 - ARM-VM (`tools/patch/script_vm.s`): alle 34 Opcodes, 506 Vergleichsfälle gegen
   die JS-VM stimmen ([Messung](messungen/2026-10-14-skript-arm-vm.md)).
@@ -1078,6 +1113,10 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
 - Dauerhafte Werte (`tools/patch/script_store.s`): ein Zählerstand übersteht Aus-
   und Einschalten über die virtuelle Karte
   ([Messung](messungen/2026-10-14-skript-speicher.md)).
+- Steps schreiben (`tools/patch/script_seq.s`): ein Plugin schreibt Steps in Part 1, während das Pattern läuft, und der
+  Sequencer spielt sie (MIDI-Ausgang des Emulators: die Noten in der Reihenfolge der Steps), die Bytes im Pattern sind die
+  des Browsermodells, die Pads zeigen danach die geschriebenen Steps; am Gerät nicht gehört
+  ([Messung](messungen/2026-10-26-plugin-steps.md)).
 - Uhr, Lesen, Handeln, Sequencer-Ereignisse, Hintergrundlicht und LED-Sperre
   (`tools/patch/script_hw.s`, `tools/patch/script_events.s`). Befund: die Firmware
   kennt für Mute nur Umschalten, `korg.mute` liest darum den Zustand zuerst
