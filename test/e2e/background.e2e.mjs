@@ -61,7 +61,7 @@ test("the stars drift", async () => {
 });
 
 test("prefers-reduced-motion draws one static frame without eyes", async () => {
-  const context = await h.browser.newContext({ reducedMotion: "reduce" });
+  const context = await h.browser.newContext({ reducedMotion: "reduce", locale: "de-DE" });
   const page = await context.newPage();
   await page.goto(`${h.url}?bg-eyes=now`);
   await page.waitForTimeout(300);
