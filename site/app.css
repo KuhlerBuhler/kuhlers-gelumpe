@@ -1088,21 +1088,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   gap: var(--space-3);
 }
 
-.cee-discord-channels {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cee-discord-channels li {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border-muted);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-item);
-}
-
 /* The floor the Blechys walk on: each one is placed by translateX from the left edge. */
 .cee-discord-floor {
   position: relative;
