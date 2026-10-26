@@ -104,3 +104,46 @@ test("the variants: bands has no clouds, off hides the canvas", async () => {
   await page.goto(`${h.url}?bg=off`);
   assert.equal(await page.locator("#bg-canvas").isHidden(), true);
 });
+
+// The page's clock is Playwright's here, so frame timing does not depend on how busy the machine is:
+// runFor() lets frames come on time, fastForward() jumps ahead so the next frame comes late once.
+
+test("frames that come late again and again leave a still background", async () => {
+  const page = await h.page();
+  await page.clock.install();
+  await page.goto(`${h.url}?bg-eyes=off`);
+  await page.clock.runFor(300);
+  for (let i = 0; i < 3; i++) { await page.clock.fastForward(500); await page.clock.runFor(200); }
+  assert.equal(await page.locator("#bg-canvas").getAttribute("data-still"), "stalled");
+  const a = await frame(page);
+  await page.clock.runFor(1500);
+  assert.deepEqual(await frame(page), a, "nothing moves any more");
+  assert.ok(a.lit > 500, "the still frame is drawn, not blank");
+});
+
+test("one late frame alone does not stop the background", async () => {
+  const page = await h.page();
+  await page.clock.install();
+  await page.goto(h.url);
+  await page.clock.runFor(300);
+  await page.clock.fastForward(500);
+  await page.clock.runFor(300);
+  assert.equal(await page.locator("#bg-canvas").getAttribute("data-still"), null);
+  const a = await frame(page);
+  await page.clock.runFor(1500);
+  assert.notEqual((await frame(page)).sum, a.sum, "still drifting");
+});
+
+test("the background rests while the window is in the background and goes on when it comes back", async () => {
+  const page = await h.page();
+  await page.clock.install();
+  await page.goto(`${h.url}?bg-eyes=off`);
+  await page.clock.runFor(300);
+  await page.evaluate(() => dispatchEvent(new Event("blur")));
+  const a = await frame(page);
+  await page.clock.runFor(1200);
+  assert.deepEqual(await frame(page), a, "nothing drawn while away");
+  await page.evaluate(() => dispatchEvent(new Event("focus")));
+  await page.clock.runFor(1500);
+  assert.notEqual((await frame(page)).sum, a.sum, "drawing again");
+});

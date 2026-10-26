@@ -8,6 +8,7 @@
  */
 import { converter } from "../../src/map/convert.mjs";
 import { typeOf, describe } from "../../src/map/index.mjs";
+import { t } from "./i18n.mjs";
 
 let seq = 0;
 const uid = prefix => `${prefix}-${++seq}`;
@@ -91,7 +92,7 @@ export function control(f, read, onChange, { compact = false } = {}) {
         let hit = false;
         for (const input of inputs) { input.checked = Number(input.value) === raw; hit ||= input.checked; }
         unknown.hidden = hit;
-        unknown.textContent = hit ? "" : `Gerätewert: ${c.format(raw)}`;
+        unknown.textContent = hit ? "" : t("fields.deviceValue", { value: c.format(raw) });
       };
       refresh();
       return { node: el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: label(f) }), group, unknown, help]), refresh };
@@ -117,7 +118,7 @@ export function control(f, read, onChange, { compact = false } = {}) {
     const [min, max] = f.range || converter(f.convert).domain;
     const input = el("input", { type: "range", className: "ui-range", id, min, max, step: 1 });
     const out = el("output", { className: "ui-range-value" });
-    const outside = el("span", { className: "cee-outside", hidden: true, textContent: "Gerätewert außerhalb" });
+    const outside = el("span", { className: "cee-outside", hidden: true, textContent: t("fields.outside") });
     input.addEventListener("input", () => {
       onChange(Number(input.value));
       show(Number(input.value));

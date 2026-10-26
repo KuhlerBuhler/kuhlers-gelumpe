@@ -70,6 +70,11 @@ jobs:
           - name: blue
             url: E2_VSB_SYNTH_URL
             sha256: 41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8
+          # Hacktribe for the blue: the Hacktribe file with the blue head (bytes 0x12 and 0x2E), as Hacktribe's -e makes it
+          - name: hacktribe-blue
+            url: E2_VSB_URL
+            sha256: 7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee
+            blue_head: 2b2e1c2f928c1faf4cc2a6580292763a5282a37f19eb9165c1bdd05db832ddbe
     name: verify (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -94,6 +99,14 @@ jobs:
           [ -n "$URL" ] || { echo "::error::secret ${{ matrix.url }} is not set"; exit 1; }
           curl -fsSL "$URL" -o "$RUNNER_TEMP/SYSTEM.VSB"
           echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
+      - name: The blue head
+        if: matrix.blue_head
+        env:
+          SHA256: ${{ matrix.blue_head }}
+        run: |
+          printf '\000' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=18 conv=notrunc status=none
+          printf '\043' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=46 conv=notrunc status=none
+          echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
       - run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
       # The fresh entry (hashes only), so the run shows the exact pair.
       - uses: actions/upload-artifact@v4
@@ -109,7 +122,7 @@ jobs:
             const fs = require("fs");
             const [fresh] = JSON.parse(fs.readFileSync("data/patches/verified.json", "utf8")).results;
             const shipped = JSON.parse(require("child_process").execSync("git show HEAD:data/patches/verified.json", { encoding: "utf8" })).results;
-            if (!shipped.some(r => r.input === fresh.input && r.output === fresh.output))
+            if (!shipped.some(r => r.input === fresh.input && r.output === fresh.output && (r.hardware ?? null) === (fresh.hardware ?? null)))
               console.log(`::warning::verified.json lacks ${fresh.input.slice(0, 8)} -> ${fresh.output.slice(0, 8)}: the app checks this file in its emulator before patching. The workflow Verify patches updates it.`);
           '
 
@@ -136,13 +149,23 @@ jobs:
           pattern: app-*
           path: dist-release
           merge-multiple: true
-      - name: Hacktribe's 2.02
+      # BLECH.patch takes Hacktribe's, Korg's red and Korg's blue 2.02 (and Hacktribe with the blue head), a bsdiff for each
+      - name: Korg's and Hacktribe's 2.02
         env:
-          URL: ${{ secrets.E2_VSB_URL }}
+          HACKTRIBE: ${{ secrets.E2_VSB_URL }}
+          RED: ${{ secrets.E2_VSB_STOCK_URL }}
+          BLUE: ${{ secrets.E2_VSB_SYNTH_URL }}
         run: |
-          curl -fsSL "$URL" -o "$RUNNER_TEMP/SYSTEM.VSB"
-          echo "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
-      - run: npm run -s build:blech-patch -- --vsb "$RUNNER_TEMP/SYSTEM.VSB" --version "$VERSION"
+          for name in HACKTRIBE RED BLUE; do [ -n "${!name}" ] || { echo "::error::the secret for $name is not set"; exit 1; }; done
+          curl -fsSL "$HACKTRIBE" -o "$RUNNER_TEMP/SYSTEM.VSB"
+          curl -fsSL "$RED" -o "$RUNNER_TEMP/RED.VSB"
+          curl -fsSL "$BLUE" -o "$RUNNER_TEMP/BLUE.VSB"
+          sha256sum -c <<EOF
+          7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee  $RUNNER_TEMP/SYSTEM.VSB
+          1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646  $RUNNER_TEMP/RED.VSB
+          41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8  $RUNNER_TEMP/BLUE.VSB
+          EOF
+      - run: npm run -s build:blech-patch -- --vsb "$RUNNER_TEMP/SYSTEM.VSB" --stock "$RUNNER_TEMP/RED.VSB" --synth "$RUNNER_TEMP/BLUE.VSB" --version "$VERSION"
       - run: ls -l dist-release
       - run: node tools/release.mjs dist-release --ci "--notes=release-notes/$VERSION.md" --yes
         env:

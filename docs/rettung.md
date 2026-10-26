@@ -26,6 +26,14 @@ Die Datei heißt immer `SYSTEM.VSB`.
 | BLECH | `KORG/blechtribe/System/SYSTEM.VSB` | gemessen: am 15.10. nahm eine laufende BLECH am Gerät ihr Update aus dieser Datei ([Gerätetest](geraetetests/blech-datei.md)) |
 | Korgs Original (Sampler) | `KORG/electribe sampler/System/SYSTEM.VSB` | Pfad laut Hacktribe-Doku, am Gerät nicht geübt |
 | Korgs Original (Electribe 2) | `KORG/electribe/System/SYSTEM.VSB` | Pfad laut Hacktribe-Doku, am Gerät nicht geübt |
+| BLECH auf der blauen (Synth-Satz oder mit Hacktribe) | `KORG/blechtribe/System/SYSTEM.VSB` | im Emulator gemessen ([Messung](messungen/2026-10-26-blech-hacktribe-blau.md)), am Gerät offen |
+
+**Hacktribe oder BLECH mit Hacktribe auf der blauen, zurück zu Korgs Original:** Korgs blaue 2.02 nehmen und im Kopf zwei
+Bytes ändern: Byte `0x12` auf `0x53`, Byte `0x2E` auf `0x24` (das macht Hacktribes `e2-header.py DATEI sampler`). Die Datei
+als `SYSTEM.VSB` in den Ordner der laufenden Firmware legen (`KORG/hacktribe/System/` oder `KORG/blechtribe/System/`), dort
+nur diese Datei, dann SOFTWARE UPDATE. Unverändert sagt das Gerät "Error / Invalid File" und schreibt nichts. Im Emulator
+gemessen ([Messung](messungen/2026-10-26-blech-hacktribe-blau.md)), am Gerät offen. Korgs BLECH-Synth-Satz (ohne Hacktribe)
+nimmt die unveränderte blaue Datei in `KORG/blechtribe/System/`.
 
 Diese Tabelle gilt für DATA UTILITY, SOFTWARE UPDATE in einer laufenden Firmware. Die Abfrage beim
 Einschalten (Fall 2) sucht woanders: sie richtet sich nach der Kennung des Geräts im Flash

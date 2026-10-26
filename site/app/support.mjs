@@ -7,14 +7,15 @@ import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
 import { outlined } from "../../src/blechy-outline.mjs";
 import { FONT, FONT_FIRST, FONT_LAST, GLYPH_WIDTH, GLYPH_HEIGHT, ADVANCE } from "../../data/script/font.mjs";
+import { t } from "./i18n.mjs";
 
 /** Background and pixel colour of each look, as tokens: the red sampler, the blue synth, black, and the display. */
 const LOOKS = [
-  ["red", "Rot", "--color-card-suit-red", "--color-bg-page"],
-  ["blue", "Blau", "--color-chart-blue", "--color-bg-page"],
-  ["black", "Schwarz", "--color-bg-page", "--color-surface-card-face"],
-  ["display", "Display", "--color-surface-card-face", "--color-bg-page"],
-  ["own", "Eigene"],
+  ["red", "support.look.red", "--color-card-suit-red", "--color-bg-page"],
+  ["blue", "support.look.blue", "--color-chart-blue", "--color-bg-page"],
+  ["black", "support.look.black", "--color-bg-page", "--color-surface-card-face"],
+  ["display", "support.look.display", "--color-surface-card-face", "--color-bg-page"],
+  ["own", "support.look.own"],
 ];
 
 // Blechy's eyes as the page background draws them (site/design/bg.js), with the pupils looking straight ahead.
@@ -36,25 +37,25 @@ const EYES = [
 
 /** What can stand in the picture: a file of site/img, or a mask drawn here. */
 const FIGURES = {
-  idle: ["Ruhig", "img/blechy/idle.png", "stroke"],
-  happy: ["Froh", "img/blechy/happy.png", "stroke"],
-  wave: ["Winkt", "img/blechy/wave.png", "stroke"],
-  angry: ["Sauer", "img/blechy/angry.png", "stroke"],
-  sad: ["Traurig", "img/blechy/sad.png", "stroke"],
-  tube: ["Röhrchen", "img/blechy/tube.png"],
-  loaded: ["Geladen", "img/blechy/loaded.png"],
-  eyes: ["Augen", EYES],
-  blechtribe: ["BLECHTRIBE", "img/splash/blechtribe.png", "bands"],
-  blech: ["BLECH", "img/splash/blech.png", "bands"],
-  none: ["Nichts", []],
+  idle: ["support.figure.idle", "img/blechy/idle.png", "stroke"],
+  happy: ["support.figure.happy", "img/blechy/happy.png", "stroke"],
+  wave: ["support.figure.wave", "img/blechy/wave.png", "stroke"],
+  angry: ["support.figure.angry", "img/blechy/angry.png", "stroke"],
+  sad: ["support.figure.sad", "img/blechy/sad.png", "stroke"],
+  tube: ["support.figure.tube", "img/blechy/tube.png"],
+  loaded: ["support.figure.loaded", "img/blechy/loaded.png"],
+  eyes: ["support.figure.eyes", EYES],
+  blechtribe: ["support.figure.blechtribe", "img/splash/blechtribe.png", "bands"],
+  blech: ["support.figure.blech", "img/splash/blech.png", "bands"],
+  none: ["support.figure.none", []],
 };
 
 const PLACES = [
-  ["top-left", "Oben links"], ["top", "Oben"], ["top-right", "Oben rechts"],
-  ["left", "Links"], ["middle", "Mitte"], ["right", "Rechts"],
-  ["bottom-left", "Unten links"], ["bottom", "Unten"], ["bottom-right", "Unten rechts"],
+  ["top-left", "support.place.topLeft"], ["top", "support.place.top"], ["top-right", "support.place.topRight"],
+  ["left", "support.place.left"], ["middle", "support.place.middle"], ["right", "support.place.right"],
+  ["bottom-left", "support.place.bottomLeft"], ["bottom", "support.place.bottom"], ["bottom-right", "support.place.bottomRight"],
 ];
-const FORMATS = { avatar: ["Profilbild", 1024, 1024], desktop: ["Rechner", 2560, 1440], phone: ["Handy", 1170, 2532] };
+const FORMATS = { avatar: ["support.avatar", 1024, 1024], desktop: ["support.format.desktop", 2560, 1440], phone: ["support.format.phone", 1170, 2532] };
 const TEXT_MAX = 120;
 const NAME_MAX = 40;
 
@@ -202,7 +203,7 @@ function choices(id, label, items, value, onPick) {
   const group = el("div", { className: "ui-segmented", id }, items.map(([v, text]) => {
     const input = el("input", { type: "radio", name: id, value: v, checked: v === value });
     input.addEventListener("change", () => onPick(v));
-    return el("label", { className: "ui-segmented-option" }, [input, el("span", { textContent: text })]);
+    return el("label", { className: "ui-segmented-option" }, [input, el("span", { textContent: t(text) })]);
   }));
   group.setAttribute("role", "radiogroup");
   group.setAttribute("aria-label", label);
@@ -222,7 +223,7 @@ const fileName = text => text.trim().replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|
 function maker(root, { id, title, formats, figures, state, textLabel, textMax, placeholder, saveText, name }) {
   const canvas = el("canvas", { className: "cee-support-preview", id: `${id}-canvas` });
   canvas.setAttribute("role", "img");
-  canvas.setAttribute("aria-label", `Vorschau: ${title}`);
+  canvas.setAttribute("aria-label", t("support.preview", { title }));
   const render = async () => {
     const figure = await figureMask(state.figure);
     draw(canvas, state, figure);
@@ -235,7 +236,7 @@ function maker(root, { id, title, formats, figures, state, textLabel, textMax, p
     input.addEventListener("input", () => { state[key] = input.value; render(); });
     return el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: input.id, textContent: label }), input]);
   };
-  const own = el("div", { className: "cee-support-own", id: `${id}-own`, hidden: state.look !== "own" }, [colour("bg", "Hintergrund"), colour("ink", "Pixel")]);
+  const own = el("div", { className: "cee-support-own", id: `${id}-own`, hidden: state.look !== "own" }, [colour("bg", t("support.colour.bg")), colour("ink", t("support.colour.ink"))]);
   const slider = (key, label) => {
     const input = el("input", { type: "range", className: "ui-range", id: `${id}-${key}`, min: 10, max: 100, step: 5, value: state[key] });
     const out = el("output", { className: "ui-range-value", htmlFor: input.id, textContent: `${state[key]} %` });
@@ -257,14 +258,14 @@ function maker(root, { id, title, formats, figures, state, textLabel, textMax, p
     el("div", { className: "cee-support-maker" }, [
       canvas,
       el("div", { className: "cee-support-controls" }, [
-        formats.length > 1 ? choices(`${id}-format`, "Für", formats.map(f => [f, FORMATS[f][0]]), state.format, set("format")) : null,
-        choices(`${id}-figure`, "Bild", figures.map(f => [f, FIGURES[f][0]]), state.figure, set("figure")),
-        el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: text.id, textContent: `${textLabel} (bis ${textMax} Zeichen, Enter für eine neue Zeile)` }), text]),
-        slider("size", "Bildgröße"),
-        slider("textSize", "Textgröße"),
-        choices(`${id}-place`, "Platz", PLACES, state.place, set("place")),
-        el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: "Hintergrund" }), toggle("bands", "Punktmuster an den Rändern"), toggle("stars", "Sterne")]),
-        choices(`${id}-look`, "Farbe", LOOKS, state.look, value => { own.hidden = value !== "own"; set("look")(value); }),
+        formats.length > 1 ? choices(`${id}-format`, t("support.for"), formats.map(f => [f, FORMATS[f][0]]), state.format, set("format")) : null,
+        choices(`${id}-figure`, t("support.figure"), figures.map(f => [f, FIGURES[f][0]]), state.figure, set("figure")),
+        el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: text.id, textContent: t("support.textHint", { label: textLabel, max: textMax }) }), text]),
+        slider("size", t("support.size")),
+        slider("textSize", t("support.textSize")),
+        choices(`${id}-place`, t("support.place"), PLACES, state.place, set("place")),
+        el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: t("support.background") }), toggle("bands", t("support.bands")), toggle("stars", t("support.stars"))]),
+        choices(`${id}-look`, t("support.look"), LOOKS, state.look, value => { own.hidden = value !== "own"; set("look")(value); }),
         own,
         el("div", { className: "actions" }, [save]),
       ]),
@@ -277,17 +278,17 @@ export function supportPage({ avatar, wallpaper }) {
   const blechys = ["wave", "idle", "happy", "angry", "sad", "tube", "loaded", "eyes"];
   maker(avatar, {
     // The tube scene is wide and flat, a square leaves it a strip in the middle: only for the wallpapers.
-    id: "cee-support-avatar", title: "Profilbild", formats: ["avatar"], figures: blechys.filter(f => f !== "tube"),
+    id: "cee-support-avatar", title: t("support.avatar"), formats: ["avatar"], figures: blechys.filter(f => f !== "tube"),
     // raw-ok: a colour input takes only hex, these are the start values of the own colours
     state: { format: "avatar", figure: "wave", text: "", size: 100, textSize: 60, place: "middle", bands: true, stars: true, look: "black", bg: "#0a0a0b", ink: "#fafafa" },
-    textLabel: "Dein Name", textMax: NAME_MAX, placeholder: "zum Beispiel dein Künstlername", saveText: "Profilbild speichern",
+    textLabel: t("support.name"), textMax: NAME_MAX, placeholder: t("support.name.placeholder"), saveText: t("support.avatar.save"),
     name: s => `Blechy${s.text.trim() ? `-${fileName(s.text)}` : ""}`,
   });
   maker(wallpaper, {
-    id: "cee-support-wallpaper", title: "Hintergrund", formats: ["desktop", "phone"], figures: ["blechtribe", "blech", ...blechys, "none"],
+    id: "cee-support-wallpaper", title: t("support.wallpaper"), formats: ["desktop", "phone"], figures: ["blechtribe", "blech", ...blechys, "none"],
     // raw-ok: a colour input takes only hex, these are the start values of the own colours
     state: { format: "desktop", figure: "blechtribe", text: "", size: 100, textSize: 40, place: "middle", bands: true, stars: true, look: "black", bg: "#0a0a0b", ink: "#fafafa" },
-    textLabel: "Text", textMax: TEXT_MAX, placeholder: "zum Beispiel MEINE ELECTRIBE ROCKT", saveText: "Hintergrund speichern",
-    name: s => `${fileName(FIGURES[s.figure][0]) || "BLECHTRIBE"}-${FORMATS[s.format][0]}`,
+    textLabel: t("support.text"), textMax: TEXT_MAX, placeholder: t("support.text.placeholder"), saveText: t("support.wallpaper.save"),
+    name: s => `${fileName(t(FIGURES[s.figure][0])) || "BLECHTRIBE"}-${t(FORMATS[s.format][0])}`,
   });
 }

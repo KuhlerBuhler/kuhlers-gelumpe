@@ -438,6 +438,23 @@ export class DeviceSession {
   }
 
   /**
+   * "red" or "blue": the Electribe on the cable, or null when it cannot be told. Korg's blue firmware answers the search
+   * as model 0x23; Sampler code answers 0x24 on both, Hacktribe on the blue too, so then the user-data mark in the flash
+   * at 0x220000 decides (KORGelec2USR blue, KORGele2sUSR red), read with Hacktribe's or BLECH's flash read.
+   */
+  hardware() {
+    return this.exclusive(async () => {
+      if (!this.device) return null;
+      if (this.device.model === 0x23) return "blue";
+      if (!this.device.hacktribe && !this.sender.blech?.flash) return null;
+      const run = await this.sender.run(plan({ kind: "flashRead", addr: 0x220000, length: 12 }, { channel: this.device.channel }));
+      if (!run.ok) return null;
+      const mark = String.fromCharCode(...run.results[0].value);
+      return { KORGelec2USR: "blue", KORGele2sUSR: "red" }[mark] ?? null;
+    });
+  }
+
+  /**
    * The whole flash, read only, in blocks up to but never past P.FLASH_END.
    * Stops at the first block without an answer.
    */

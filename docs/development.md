@@ -269,13 +269,14 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 2. Pull Request `develop` -> `main` mergen.
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
    Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
-   2.02 (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
+   2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
    `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
    `main` endet nach dem ersten Schritt.
 
 Korgs drei 2.02 kommen nie ins Repo. Der Workflow lädt sie über die Links in den Secrets `E2_VSB_URL` (Hacktribe),
 `E2_VSB_STOCK_URL` (rot) und `E2_VSB_SYNTH_URL` (blau) und bricht ab, wenn eine Datei nicht die erwartete SHA-256 hat.
-Fehlt in `data/patches/verified.json` das Paar einer der drei, warnt der Lauf: die App prüft diese Datei dann vor dem
+Hacktribe für die blaue macht er selbst aus der Hacktribe-Datei: Byte `0x12` auf `0x00`, `0x2E` auf `0x23`, danach
+SHA-256 `2b2e1c2f…`. Fehlt in `data/patches/verified.json` das Paar einer der vier, warnt der Lauf: die App prüft diese Datei dann vor dem
 Patchen selbst im Emulator.
 
 **Von Hand** geht es weiter so, etwa wenn GitHubs Runner ausfallen:
@@ -333,13 +334,14 @@ und Grenzen: [patcher.md](patcher.md), "Patch-Datei und bsdiff".
 
 **Geprüfte Kopien** (vor jedem Release mit geändertem Patch-Satz): `data/patches/verified.json` hält die SHA-256 von
 Eingabe und Ergebnis jeder Kopie, die den ganzen Check im Emulator (`tools/emu/check.py`) bestanden hat. Der Patcher
-überspringt die Prüfung für genau diese Kopien, auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei
+überspringt die Prüfung für genau diese Kopien (Hacktribe für die blaue steht mit `"hardware": "blue"` darin, sie läuft
+im Emulator auf dem Flash der blauen), auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei
 wird weiter ganz geprüft; eine Liste von einem alten Patch-Satz trifft nichts mehr und kostet nur die Zeit.
 
 Neu geschrieben wird sie in GitHub vom Workflow "Verify patches" (`.github/workflows/verify-patches.yml`). Er prüft den
-Patch-Satz eines Branches auf Korgs drei 2.02 (dieselben Secrets wie das Release), jede Datei in einem eigenen Job
-nebeneinander, und schreibt die drei Einträge in eine `verified.json` (`verify-patches.mjs --results`). Stehen alle drei
-Paare schon drin, bleibt alles, wie es war.
+Patch-Satz eines Branches auf Korgs drei 2.02 und auf Hacktribe mit blauem Kopf (dieselben Secrets wie das Release),
+jede Datei in einem eigenen Job nebeneinander, und schreibt die Einträge in eine `verified.json` (`verify-patches.mjs
+--results`). Stehen alle Paare schon drin, bleibt alles, wie es war.
 
 Er läuft von selbst bei jedem Pull Request, der den Patch-Satz (`data/patches/`), etwas, das `verify-patches.mjs` lädt,
 `tools/patch/` oder `tools/emu/` ändert, und committet die neue `verified.json` auf den Branch des Pull Requests.
@@ -357,7 +359,8 @@ Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push s
 Pull Request hinein. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
 Release-Workflows hängt seinen frischen Eintrag je Datei als Artefakt `verified-<name>` an.
 
-Lokal: `npm run verify:patches -- <Korgs rote 2.02> <Korgs blaue 2.02> <Hacktribe 2.02>`: patcht jede
+Lokal: `npm run verify:patches -- <Korgs rote 2.02> <Korgs blaue 2.02> <Hacktribe 2.02> <Hacktribe 2.02 mit blauem
+Kopf>`: patcht jede
 Datei wie die Seite, prüft sie und schreibt die Liste nur, wenn alle bestehen. Ohne Option ersetzt der Lauf die Liste;
 `--merge` behält die Einträge der anderen Eingaben und ersetzt nur die der geprüften Dateien, so kann man eine Datei
 nach der anderen prüfen. Ein Paar, das schon mit demselben Satz drinsteht, behält sein altes Datum.

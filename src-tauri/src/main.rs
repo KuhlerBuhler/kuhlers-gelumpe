@@ -564,7 +564,8 @@ fn main() {
             midi::midi_ack,
             midi::midi_read,
             midi::midi_close,
-            kuhlers_gelumpe::update::update_install
+            kuhlers_gelumpe::update::update_install,
+            kuhlers_gelumpe::korg::korg_firmware
         ])
         // A second launch focuses the window of the first and leaves.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {

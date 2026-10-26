@@ -459,6 +459,20 @@ test("the whole flash is read in blocks below the end the device hangs at", asyn
   assert.throws(() => plan({ kind: "flashRead", addr: 0xffc000, length: 0x8000 }, { channel: 9 }), /past 0x1000000/);
 });
 
+test("the Electribe on the cable is red or blue by the user-data mark in its flash", async () => {
+  for (const [mark, hardware] of [["KORGelec2USR", "blue"], ["KORGele2sUSR", "red"], ["xxxxxxxxxxxx", null]]) {
+    const flash = new Uint8Array(0x1000000).fill(0xff);
+    flash.set([...mark].map(c => c.charCodeAt(0)), 0x220000);
+    const nav = {};
+    const sim = installWebMidiStub({ image: { bytes: firmwareImage() }, channel: 9, latencyMs: 0, target: nav });
+    sim.device.flash = flash;
+    const session = new DeviceSession({ port: electribePorts(await nav.requestMIDIAccess({ sysex: true }))[0], known: KNOWN, timeouts: FAST });
+    assert.equal(await session.hardware(), null, "not connected");
+    await session.connect();
+    assert.equal(await session.hardware(), hardware, mark);
+  }
+});
+
 async function rehearsed({ faults = null } = {}) {
   const device = await connected();
   const emuNav = {};

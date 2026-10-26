@@ -6,6 +6,7 @@
  * downloads and installs it from inside the app (src-tauri/src/update.rs).
  */
 import { NEWS } from "../../data/news.mjs";
+import { t } from "./i18n.mjs";
 
 const REPO = "KuhlerBuhler/kuhlers-gelumpe";
 const SEEN = "gelumpe.newsSeen";
@@ -38,22 +39,22 @@ export async function newerRelease(current, fetchImpl = fetch) {
  * any failure goes to the toast and the release page opens instead. Never throws.
  */
 export async function installRelease(release, { core = globalThis.__TAURI__?.core, toast, label = () => {}, openPage }) {
-  const idle = "Neue Version verfügbar";
+  const idle = t("nav.update");
   try {
-    if (!core?.invoke || !core.Channel) throw new Error("Die App kann sich hier nicht selbst aktualisieren.");
+    if (!core?.invoke || !core.Channel) throw new Error(t("update.cannot"));
     const events = new core.Channel();
     events.onmessage = e => {
-      if (e.stage === "install") label("Installation startet …");
-      else label(e.total ? `Lade … ${Math.floor(100 * e.received / e.total)} %` : "Lade …");
+      if (e.stage === "install") label(t("update.installing"));
+      else label(e.total ? t("update.loadingPercent", { percent: Math.floor(100 * e.received / e.total) }) : t("update.loading"));
     };
-    label("Lade …");
+    label(t("update.loading"));
     const done = await core.invoke("update_install", { tag: release.tag_name, events });
-    label(done.quits ? "Installation läuft, die App schließt sich" : "Installation geöffnet");
-    toast(done.quits ? "Die App schließt sich und installiert die neue Version." : `Die neue Version liegt in Downloads: ${done.file}`, "ok");
+    label(done.quits ? t("update.quits") : t("update.opened"));
+    toast(done.quits ? t("update.quitsToast") : t("update.downloaded", { file: done.file }), "ok");
     return true;
   } catch (reason) {
     label(idle);
-    toast(`Die neue Version ließ sich nicht selbst laden: ${reason?.message ?? reason}. Die Release-Seite öffnet sich.`, "error");
+    toast(t("update.failed", { reason: reason?.message ?? reason }), "error");
     openPage(release.html_url);
     return false;
   }
@@ -96,6 +97,6 @@ export function showNews(toast, app = globalThis.window?.__GELUMPE_APP, storage 
     const fresh = unseenNews(app.version, storage.getItem(SEEN));
     storage.setItem(SEEN, app.version);
     if (!fresh.length) return;
-    toast(`BLECHTRIBE ${fresh.at(-1).version.replace(/\.0$/, "")} ist da. Was neu ist, steht unter Changelogs.`, "info", { stay: true });
+    toast(t("update.news", { version: fresh.at(-1).version.replace(/\.0$/, "") }), "info", { stay: true });
   } catch { /* no storage: no news, the app works as before */ }
 }

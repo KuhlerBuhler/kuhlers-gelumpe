@@ -14,7 +14,9 @@
 //                                   after a second (for screenshots and tests)
 //
 // prefers-reduced-motion draws one static frame (no drift, no twinkle, no eyes). Drawing runs at a
-// low frame rate and stops while the tab is hidden.
+// low frame rate and stops while the tab is hidden or the window is in the background. A machine that
+// cannot keep up gets the static frame too: when frames come late again and again, drawing stops until
+// the next load, and the canvas says so in data-still="stalled".
 (function () {
     const bg = document.getElementById('bg-canvas');
     if (!bg) return;
@@ -28,6 +30,8 @@
 
     const FPS = 12;
     const FRAME_MS = 1000 / FPS;
+    // A frame this much later than planned counts as late; this many late frames within the window stop drawing.
+    const LATE_MS = 250, LATE_COUNT = 3, LATE_WINDOW_MS = 10000;
     const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
     let reduceMotion = motionQuery.matches;
 
@@ -230,10 +234,22 @@
     }
 
     let timer = 0, last = 0, clock = 0, dustClock = 0;
+    let late = [], stalled = false, away = false;
     function tick() {
         timer = 0;
-        if (document.hidden || reduceMotion) return;
+        if (document.hidden || reduceMotion || away) return;
         const now = performance.now();
+        if (now - last > FRAME_MS + LATE_MS) {
+            late = late.filter(at => now - at < LATE_WINDOW_MS);
+            late.push(now);
+            if (late.length >= LATE_COUNT) {
+                stalled = true;
+                bg.dataset.still = 'stalled';
+                eye = null;
+                draw(clock, 0);
+                return;
+            }
+        }
         const dt = Math.min(0.25, (now - last) / 1000);
         last = now;
         clock += dt;
@@ -250,7 +266,7 @@
     }
 
     function start() {
-        if (timer || document.hidden || reduceMotion) return;
+        if (timer || document.hidden || reduceMotion || stalled || away) return;
         last = performance.now();
         timer = setTimeout(tick, FRAME_MS);
     }
@@ -281,6 +297,9 @@
 
     addEventListener('resize', resize);
     document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+    // Another window in front (the desktop app or the browser switched away): nothing to look at, nothing to draw.
+    addEventListener('blur', () => { away = true; stop(); });
+    addEventListener('focus', () => { away = false; start(); });
     motionQuery.addEventListener?.('change', () => {
         reduceMotion = motionQuery.matches;
         if (reduceMotion) { stop(); eye = null; draw(0, 0); } else start();

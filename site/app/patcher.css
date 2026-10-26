@@ -289,3 +289,27 @@
   opacity: 0.45;
   pointer-events: none;
 }
+
+/* "Für welche Electribe": the device cards as radio buttons; the chosen one in the colour of its case. */
+.cee-patch-device-card {
+  cursor: pointer;
+  padding-right: var(--space-4);
+}
+
+.cee-patch-device-card:has(input:checked) {
+  border-color: var(--cee-device-tone);
+  background: var(--color-surface-panel);
+}
+
+.cee-patch-device-card:has(input:disabled) {
+  cursor: default;
+}
+
+.cee-patch-device-card:has(input:disabled):not(:has(input:checked)) {
+  opacity: 0.45;
+}
+
+.cee-patch-device-card:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}

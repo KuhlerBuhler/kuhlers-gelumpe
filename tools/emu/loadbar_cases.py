@@ -252,12 +252,15 @@ def case_off(payload, flash):
     # Korg's own build draws its own loading bar over the start image while it loads the user data (about 6 s without a card), so
     # "only the start image" holds on Hacktribe alone; what holds on both is that the overlay changes nothing: every look equals the one
     # of the same copy with the overlay's four calls put back (the last frame of a run may be missing in one of them: the end
-    # of a run is 300 ms after the main screen, which the two reach within a few ms of each other)
-    shown, bare_shown = [f[1] for f in none.frames], [f[1] for f in bare.frames]
-    same = all(a == b for a, b in zip(shown, bare_shown)) and abs(len(shown) - len(bare_shown)) <= 2
+    # of a run is 300 ms after the main screen, which the two reach within a few ms of each other). A look may come one refresh later: with
+    # the user data the blue's own firmware left in its flash the first one after the main screen is 40 ms late (measured, docs/messungen/
+    # 2026-10-26-blech-hacktribe-blau.md), so every look has to be one of the other copy's, not the one at the same index
+    shown, bare_shown = [bytes(f[1]) for f in none.frames], [bytes(f[1]) for f in bare.frames]
+    looks = set(bare_shown)
+    same = all(fb in looks for fb in shown) and shown[-1:] == bare_shown[-1:] and abs(len(shown) - len(bare_shown)) <= 2
     out.append(entry("no_card_draws_nothing", len(shown) >= 30 and same and any(any(fb) for fb in shown),
-                     f"without a card the {len(shown)} looks at the display from power-on to 300 ms after the main screen are those of the same copy without the overlay's calls ({len(bare_shown)} looks), "
-                     f"so no bar, no eyes, no face and no window of the overlay"))
+                     f"without a card each of the {len(shown)} looks at the display from power-on to 300 ms after the main screen is one of the same copy without the overlay's calls ({len(bare_shown)} looks), "
+                     f"the last one the same, so no bar, no eyes, no face and no window of the overlay"))
     return out
 
 
