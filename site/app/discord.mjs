@@ -1,8 +1,8 @@
 /**
  * Discord: the project's server from Discord's widget API, drawn in the page's own look instead of Discord's iframe.
- * Up to a dozen of those online are Blechys on the floor of the page: online ones walk to and fro and now and then stop
- * for his dance from the device, away ones stand, busy ones stand with an angry face. Everyone online is in the list of
- * names below the floor, so a full server stays readable. The way in is the invite the widget names (Server settings ->
+ * Everyone online is a Blechy on the floor of the page: online ones walk to and fro and now and then stop for his dance
+ * from the device, away ones stand, busy ones stand with an angry face. The Blechys are solid, so on a full server the
+ * front ones cover those behind instead of piling up, and the list of names below the floor keeps everyone readable. The way in is the invite the widget names (Server settings ->
  * Widget -> invite channel), so a deleted invite never sticks in the app.
  */
 import { el } from "./fields.mjs";
@@ -35,24 +35,50 @@ const STEP_MS = 240;
 const EIGHTH_MS = 250;
 const DANCE_MS = 16 * EIGHTH_MS;
 const walkFor = () => 6000 + Math.random() * 14000;
-/** The floor holds at most this many, fewer on a narrow one; everyone is in the list below it. */
-const MAX_WALKERS = 12;
-const ROOM_PER_WALKER = 96;
+/** Blechys walk in this many rows, each a little higher and further back than the one in front (app.css). */
+const ROWS = 3;
 /** The list shows this many names until "more" is pressed. */
 const LISTED = 24;
 
 const link = (href, text, className = "cee-text-link") => el("a", { className, href, target: "_blank", rel: "noopener noreferrer", textContent: text });
 
+/** The pixels of a sprite that open space outside cannot reach: his lines and everything they close in. */
+function solid(mask) {
+  const outside = mask.map(row => row.map(() => false));
+  const todo = [];
+  mask.forEach((row, y) => row.forEach((_, x) => { if (y === 0 || x === 0 || y === mask.length - 1 || x === row.length - 1) todo.push([x, y]); }));
+  while (todo.length) {
+    const [x, y] = todo.pop();
+    if (outside[y]?.[x] !== false || mask[y][x]) continue;
+    outside[y][x] = true;
+    todo.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+  return mask.map((row, y) => row.map((_, x) => !outside[y][x]));
+}
+
 let poses;
-const loadPoses = () => (poses ??= Promise.all(Object.entries(POSES).map(async ([id, src]) => [id, outlined(await maskOf(src))]))
+const loadPoses = () => (poses ??= Promise.all(Object.entries(POSES).map(async ([id, src]) => {
+  const mask = await maskOf(src);
+  return [id, { line: outlined(mask), body: solid(mask) }];
+}))
   .then(Object.fromEntries)
   .catch(() => (poses = null)));
 
-function paint(canvas, mask, ink) {
+/** A pose drawn once: the body in the page's colour, so he covers whoever stands behind him, and his lines on top. */
+function sprite({ line, body }, ink, fill) {
+  const canvas = el("canvas", { width: WIDTH, height: WIDTH });
+  const ctx = canvas.getContext("2d");
+  for (const [mask, colour] of [[body, fill], [line, ink]]) {
+    ctx.fillStyle = colour;
+    mask.forEach((row, y) => row.forEach((set, x) => { if (set) ctx.fillRect(x * SCALE, canvas.height - (mask.length - y) * SCALE, SCALE, SCALE); }));
+  }
+  return canvas;
+}
+
+function paint(canvas, picture) {
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = ink;
-  mask.forEach((row, y) => row.forEach((set, x) => { if (set) ctx.fillRect(x * SCALE, canvas.height - (mask.length - y) * SCALE, SCALE, SCALE); }));
+  ctx.drawImage(picture, 0, 0);
 }
 
 /** The name of a member with picture, game and status dot, on the floor above a Blechy and in the list. */
@@ -71,7 +97,7 @@ function tag(m) {
 function blechy(m) {
   const canvas = el("canvas", { className: "cee-discord-blechy-art", width: WIDTH, height: WIDTH });
   const node = el("li", { className: "cee-discord-blechy" }, [tag(m), canvas]);
-  return { node, canvas, pose: POSE_OF[m.status] ?? "idle", walks: m.status === "online", x: 0, dir: 1, shown: "", dancing: false, until: 0 };
+  return { node, canvas, pose: POSE_OF[m.status] ?? "idle", walks: m.status === "online", x: 0, dir: 1, speed: SPEED, shown: "", dancing: false, until: 0 };
 }
 
 /** Everyone online as names, the first LISTED of them until the button shows the rest. */
@@ -92,45 +118,44 @@ function people(members) {
 }
 
 /**
- * The floor with some of those online, the ones who walk first. Returns the element and `start()`, which runs the walk
- * in one animation loop for all of them; now and then each one stops and dances. On another tab the frames only check
- * and skip, and the walk ends when a new answer replaces the floor.
+ * The floor with everyone online, in ROWS rows, the front row lowest and on top. Returns the element and `start()`,
+ * which runs the walk in one animation loop for all of them; now and then each one stops and dances. On another tab
+ * the frames only check and skip, and the walk ends when a new answer replaces the floor.
  */
 function floor(members) {
-  const order = { online: 0, idle: 1, dnd: 2 };
-  const figures = [...members].sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3)).slice(0, MAX_WALKERS).map(blechy);
+  const figures = members.map(blechy);
+  figures.forEach((f, i) => { f.node.dataset.row = String(i % ROWS); });
   const list = el("ul", { className: "cee-discord-floor" }, figures.map(f => f.node));
   list.setAttribute("aria-hidden", "true");
   let running = false;
   let room = -1;
-  let on = figures;
-  /** Only as many as the width holds stand on the floor, spread out evenly. */
+  /** Everyone spread out evenly over the width. */
   function place(width) {
     room = width;
-    const cap = Math.max(1, Math.min(figures.length, Math.floor(width / ROOM_PER_WALKER)));
-    on = figures.slice(0, cap);
     figures.forEach((f, i) => {
-      f.node.hidden = i >= cap;
-      f.x = ((i + 0.5) / cap) * Math.max(0, width - WIDTH);
+      f.x = ((i + 0.5) / figures.length) * Math.max(0, width - WIDTH);
       f.node.style.transform = `translateX(${f.x}px)`;
     });
   }
-  function show(f, pose, art, ink) {
-    if (f.shown !== pose) { f.shown = pose; paint(f.canvas, art[pose], ink); }
+  function show(f, pose, art) {
+    if (f.shown !== pose) { f.shown = pose; paint(f.canvas, art[pose]); }
   }
   async function start() {
-    const art = await loadPoses();
-    if (!art || running) return;
+    const loaded = await loadPoses();
+    if (!loaded || running) return;
     const ink = getComputedStyle(list).color;
+    const fill = getComputedStyle(list).getPropertyValue("--color-bg-page").trim() || "#0a0a0b";
+    const art = Object.fromEntries(Object.entries(loaded).map(([id, pose]) => [id, sprite(pose, ink, fill)]));
     place(list.clientWidth);
     const begin = performance.now();
     figures.forEach((f, i) => {
       f.dir = i % 2 ? -1 : 1;
+      f.speed = SPEED * (0.75 + Math.random() * 0.5);
       f.dancing = false;
       f.until = begin + 2000 + Math.random() * 12000;
       f.shown = "";
       f.canvas.style.transform = f.walks && f.dir < 0 && !reducedMotion() ? "scaleX(-1)" : "";
-      show(f, f.pose, art, ink);
+      show(f, f.pose, art);
     });
     if (reducedMotion()) return;
     running = true;
@@ -144,7 +169,7 @@ function floor(members) {
       const max = Math.max(0, room - WIDTH);
       const step = Math.floor(now / STEP_MS) % 2;
       const eighth = Math.floor(now / EIGHTH_MS);
-      for (const f of on) {
+      for (const f of figures) {
         if (!f.walks) continue;
         if (now >= f.until) {
           f.dancing = !f.dancing;
@@ -152,14 +177,14 @@ function floor(members) {
           f.node.dataset.move = f.dancing ? "dance" : "walk";
           f.canvas.style.transform = !f.dancing && f.dir < 0 ? "scaleX(-1)" : "";
         }
-        if (f.dancing) { show(f, `dance${DANCE[eighth % DANCE.length]}`, art, ink); continue; }
-        f.x += f.dir * SPEED * dt;
+        if (f.dancing) { show(f, `dance${DANCE[eighth % DANCE.length]}`, art); continue; }
+        f.x += f.dir * f.speed * dt;
         if (f.x <= 0 || f.x >= max) {
           f.x = Math.min(Math.max(f.x, 0), max);
           f.dir = -f.dir;
           f.canvas.style.transform = f.dir < 0 ? "scaleX(-1)" : "";
         }
-        show(f, step ? "walk" : f.pose, art, ink);
+        show(f, step ? "walk" : f.pose, art);
         f.node.style.transform = `translateX(${f.x}px)`;
       }
       requestAnimationFrame(tick);

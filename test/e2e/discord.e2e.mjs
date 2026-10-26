@@ -55,13 +55,20 @@ const frames = page => page.evaluate(() => new Promise(resolve => {
 
 for (const [label, viewport] of [["desktop", { width: 1280, height: 800 }], ["wide screen", { width: 1920, height: 900 }], ["phone", { width: 390, height: 844 }]]) {
   for (const count of [5, 40, 150]) {
-    test(`${count} online on a ${label}: a few Blechys on the floor, every name readable in the list`, async () => {
+    test(`${count} online on a ${label}: everyone on the floor as a solid Blechy, every name readable in the list`, async () => {
       const page = await open(count, viewport);
       const floorWidth = await page.locator(".cee-discord-floor").evaluate(n => n.clientWidth);
       const mainWidth = await page.locator("#cee-discord").evaluate(n => n.clientWidth - parseFloat(getComputedStyle(n).paddingLeft) - parseFloat(getComputedStyle(n).paddingRight));
       assert.ok(floorWidth >= mainWidth - 1, `the floor spans the main area: ${floorWidth} of ${mainWidth} px`);
-      const walkers = await page.locator(".cee-discord-blechy:visible").count();
-      assert.ok(walkers >= 1 && walkers <= Math.min(count, 12, Math.floor(floorWidth / 96)), `${walkers} Blechys on a floor ${floorWidth} px wide`);
+      assert.equal(await page.locator(".cee-discord-blechy:visible").count(), count, "everyone online is on the floor");
+      // Solid: inside his outline every Blechy is filled with the dark page colour, so he covers whoever is behind him.
+      await page.waitForFunction(() => {
+        const c = document.querySelector(".cee-discord-blechy-art");
+        const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+        let dark = 0;
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] === 255 && d[i] < 40) dark++;
+        return dark > 1000;
+      });
       assert.deepEqual(await page.locator(".cee-discord-blechy .cee-discord-tag").evaluateAll(tags => tags.filter(t => getComputedStyle(t).visibility !== "hidden").length), 0, "no name stands on the floor until the pointer is there");
 
       const listed = Math.min(count, 24);
