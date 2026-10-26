@@ -265,13 +265,47 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 **Der normale Weg läuft in GitHub** (Workflow "Release", `.github/workflows/release.yml`):
 
 1. Auf `develop` per Pull Request: `node tools/set-version.mjs X.Y.Z` (schreibt die vier Versionsdateien) und die
-   Notizen als `release-notes/X.Y.Z.md`. Sie sind das, was im Release und im Discord steht.
+   Notizen als `release-notes/X.Y.Z.md` (Format unten). Sie sind das, was im Release und im Discord steht.
 2. Pull Request `develop` -> `main` mergen.
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
    Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
    2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
    `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
    `main` endet nach dem ersten Schritt.
+
+**Format der Notizen** (`release-notes/X.Y.Z.md`): eine Datei, erst Deutsch, dann eine Zeile `## English` und darunter
+dieselben Notizen auf Englisch. Die Datei enthält nur die Notizen, keinen Download-Abschnitt und keine "Ohne App
+patchen"-Zeile: `tools/release.mjs` setzt oben in jede Sprache einen Block (ein Link je System, Mac-Chip-Hinweis,
+`xattr`-Zeile, "Die vielen Dateien unter Assets brauchst du nicht", `BLECH.patch`/`.bsdiff`) und baut ihn aus den
+Dateien, die wirklich hochgeladen werden, mit GitHubs Namen (`Kuhlers.GELUMPE_X.Y.Z_x64-setup.exe`, ...). Ein System
+ohne Datei bekommt keinen Link. Der Prüfschritt "due" in `release.yml` (`node tools/release-notes.mjs check Datei`)
+startet kein Release, wenn der deutsche oder der englische Teil fehlt oder leer ist. Das Release und der
+Discord-Post tragen beide Sprachen, Deutsch zuerst; der englische Teil beginnt im Discord eine eigene Nachricht, jede
+Nachricht hat höchstens 4000 Zeichen, der @everyone-Ping steht nur in der ersten. Vorlage:
+
+```markdown
+BLECH X.Y.Z und die App X.Y.Z.
+
+**Neu**
+- ...
+
+**Behoben**
+- ...
+
+Spenden: https://www.paypal.me/kuhlerbuhler
+
+## English
+
+BLECH X.Y.Z and the app X.Y.Z.
+
+**New**
+- ...
+
+**Fixed**
+- ...
+
+Donations: https://www.paypal.me/kuhlerbuhler
+```
 
 Korgs drei 2.02 kommen nie ins Repo. Der Workflow lädt sie über die Links in den Secrets `E2_VSB_URL` (Hacktribe),
 `E2_VSB_STOCK_URL` (rot) und `E2_VSB_SYNTH_URL` (blau) und bricht ab, wenn eine Datei nicht die erwartete SHA-256 hat.
@@ -311,7 +345,7 @@ diesen Branch in jeden offenen Pull Request, der auf ihm aufbaut und hinterherh�
 `SYNC_TOKEN`, damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein
 Basis-Branch ist; bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
 
-`--notes=Datei.md` nimmt die Release-Notizen aus der Datei statt GitHubs erzeugter Liste der PRs. Sobald
+`--notes=Datei.md` nimmt die Release-Notizen aus der Datei (zweisprachig, mit Download-Blöcken, siehe "Format der Notizen") statt GitHubs erzeugter Liste der PRs. Sobald
 das Release veröffentlicht ist, postet der Workflow "Discord release" es über den Webhook im Secret
 `DISCORD_WEBHOOK` (`tools/discord-release.mjs`): Titel "BLECHTRIBE X.Y.Z ist da" mit Link und einem Ping an @everyone, darunter die
 Notizen, lange in mehreren Nachrichten, zum Schluss eine Nachricht nur mit dem Link zum Release. Notizen erst danach geändert: den Workflow von Hand mit dem Tag
