@@ -105,42 +105,45 @@ test("the variants: bands has no clouds, off hides the canvas", async () => {
   assert.equal(await page.locator("#bg-canvas").isHidden(), true);
 });
 
-/** Blocks the page's main thread for `ms`, as a machine that cannot keep up does. */
-const hang = (page, ms) => page.evaluate(ms => { const end = performance.now() + ms; while (performance.now() < end); }, ms);
+// The page's clock is Playwright's here, so frame timing does not depend on how busy the machine is:
+// runFor() lets frames come on time, fastForward() jumps ahead so the next frame comes late once.
 
 test("frames that come late again and again leave a still background", async () => {
   const page = await h.page();
+  await page.clock.install();
   await page.goto(`${h.url}?bg-eyes=off`);
-  await page.waitForTimeout(300);
-  for (let i = 0; i < 3; i++) { await hang(page, 500); await page.waitForTimeout(150); }
+  await page.clock.runFor(300);
+  for (let i = 0; i < 3; i++) { await page.clock.fastForward(500); await page.clock.runFor(200); }
   assert.equal(await page.locator("#bg-canvas").getAttribute("data-still"), "stalled");
   const a = await frame(page);
-  await page.waitForTimeout(1500);
+  await page.clock.runFor(1500);
   assert.deepEqual(await frame(page), a, "nothing moves any more");
   assert.ok(a.lit > 500, "the still frame is drawn, not blank");
 });
 
 test("one late frame alone does not stop the background", async () => {
   const page = await h.page();
+  await page.clock.install();
   await page.goto(h.url);
-  await page.waitForTimeout(300);
-  await hang(page, 500);
-  await page.waitForTimeout(300);
+  await page.clock.runFor(300);
+  await page.clock.fastForward(500);
+  await page.clock.runFor(300);
   assert.equal(await page.locator("#bg-canvas").getAttribute("data-still"), null);
   const a = await frame(page);
-  await page.waitForTimeout(1500);
+  await page.clock.runFor(1500);
   assert.notEqual((await frame(page)).sum, a.sum, "still drifting");
 });
 
 test("the background rests while the window is in the background and goes on when it comes back", async () => {
   const page = await h.page();
+  await page.clock.install();
   await page.goto(`${h.url}?bg-eyes=off`);
-  await page.waitForTimeout(300);
+  await page.clock.runFor(300);
   await page.evaluate(() => dispatchEvent(new Event("blur")));
   const a = await frame(page);
-  await page.waitForTimeout(1200);
+  await page.clock.runFor(1200);
   assert.deepEqual(await frame(page), a, "nothing drawn while away");
   await page.evaluate(() => dispatchEvent(new Event("focus")));
-  await page.waitForTimeout(1500);
+  await page.clock.runFor(1500);
   assert.notEqual((await frame(page)).sum, a.sum, "drawing again");
 });
