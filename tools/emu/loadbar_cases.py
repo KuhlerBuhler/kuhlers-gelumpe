@@ -456,23 +456,26 @@ def case_power_while_loading(payload, flash):
     out = []
 
     def run(release):
+        at_release = None
         dev = WatchedDev(bytes(payload), flash, 0)
         dev.m.insert_card(card_with(cardstore.card_folder(payload), 400, 6))
         dev.run(0.8)
         t0 = dev.m.time_ns / 1e9
         dev.m.inputs[pin(7, 15)] = 0
         while dev.m.powered and dev.m.time_ns / 1e9 - t0 < 10:
-            if release is not None and dev.m.time_ns / 1e9 - t0 >= release:
+            if release is not None and at_release is None and dev.m.time_ns / 1e9 - t0 >= release:
                 dev.m.inputs[pin(7, 15)] = 1
+                at_release = dev.u32(spec.STATE)
             dev.run(0.1)
-        return dev, round(dev.m.time_ns / 1e9 - t0, 1)
+        return dev, round(dev.m.time_ns / 1e9 - t0, 1), at_release
 
-    held, t = run(None)
-    short, _ = run(3.0)
+    held, t, _ = run(None)
+    # The sample loader may finish after the key is let go (state 2); what counts is that it was still loading then.
+    short, _, at_release = run(3.0)
     out.append(entry("power_key_while_loading", not held.m.powered and 6.9 <= t <= 7.6 and short.m.powered
-                     and short.u32(spec.STATE) == 1 and not held.m.asserts and not short.m.asserts,
+                     and at_release == 1 and short.u32(spec.STATE) in (1, 2) and not held.m.asserts and not short.m.asserts,
                      f"held: off {t} s after the key went down (the overlay still drawing); let go after 3 s: on {short.m.powered}, "
-                     f"overlay state {short.u32(spec.STATE):#x}"))
+                     f"overlay state {at_release:#x} at the release, {short.u32(spec.STATE):#x} after"))
     return out
 
 
