@@ -15,15 +15,15 @@ const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "ut
 const PATCH = read("../data/patches/pattern-switch.json");
 const OTHERS = ["splash-editor", "mfx-switch", "script-runtime", "blechtribe", "blech-theme"].map(id => read(`../data/patches/${id}.json`));
 const CODE = 0x180100;              // file offset of 0xC0180000
-const CODE_END = 0x180d00;          // 0xC0180C00
+const CODE_END = 0x181000;          // 0xC0180F00
 // the replaced words: wheel branch, pad and MIDI first instruction, MENU and EXIT slots (pointers), sequence end call, STOP first instruction, label load,
-// stopped sync, the load's copy, the pad handler's busy check, the command runner's busy clear
+// stopped sync, the load's copy, the pad handler's busy check, the command runner's busy clear, the info line's label flag read
 const WORDS = [[0x6523c, 0xea, 0xc006513c], [0x6eee4, 0xea, 0xc006ede4], [0x6ef00, 0xea, 0xc006ee00], [0xe35b0, null, 0xc00e34b0],
   [0xe35a0, null, 0xc00e34a0], [0x5f2c4, 0xeb, 0xc005f1c4], [0x81c5c, 0xea, 0xc0081b5c], [0x86ec4, 0xeb, 0xc0086dc4], [0x81f18, 0xea, 0xc0081e18],
   [0x4ad44, 0xeb, 0xc004ac44], [0x44988, 0xea, 0xc0044888], [0x2d91c, 0xeb, 0xc002d81c],
   [0x79ce0, 0xeb, 0xc0079be0], [0x79d2c, 0xeb, 0xc0079c2c], [0x98d84, 0xeb, 0xc0098c84],
   [0x79c90, 0xeb, 0xc0079b90], [0x45eac, 0xea, 0xc0045dac],
-  [0x4a828, 0xeb, 0xc004a728], [0x4a8a8, 0xeb, 0xc004a7a8], [0x493f4, 0xeb, 0xc00492f4], [0x5a984, 0xeb, 0xc005a884]];
+  [0x4a828, 0xeb, 0xc004a728], [0x4a8a8, 0xeb, 0xc004a7a8], [0x493f4, 0xeb, 0xc00492f4], [0x5a984, 0xeb, 0xc005a884], [0x8694c, 0xea, 0xc008684c]];
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
 const vsb = process.env.E2_VSB;
@@ -45,12 +45,12 @@ test("the pattern switch declares the observers and pattern load hooks that run 
     assert.equal(change.copy, undefined, "nothing of the firmware is copied");
   }
   const symbol = name => PATCH.startPhase.find(s => s.why.startsWith(name));
-  assert.deepEqual(PATCH.startPhase.map(s => s.file).filter(f => f < 0x180100), [0x79c90, 0x79ce0, 0x45eac, 0x4a828, 0x4a8a8, 0x493f4, 0x5a984, 0x79d2c, 0x98d84, 0x81f18, 0x4ad44, 0x2d91c]);
-  assert.ok(symbol("sync_hook") && symbol("copy_hook") && symbol("pad_replay"), "the three code spans are declared");
+  assert.deepEqual(PATCH.startPhase.map(s => s.file).filter(f => f < 0x180100), [0x79c90, 0x79ce0, 0x45eac, 0x4a828, 0x4a8a8, 0x493f4, 0x5a984, 0x79d2c, 0x98d84, 0x81f18, 0x4ad44, 0x2d91c, 0x8694c]);
+  assert.ok(PATCH.startPhase.some(s => s.why.includes("sync_hook")) && symbol("copy_hook") && symbol("pad_replay"), "the three code spans are declared (pad_replay and sync_hook as one)");
   assert.ok(PATCH.startPhase.every(s => s.why.length > 20));
 });
 
-test("two ARM code areas and twenty-one declared hooks stay within their bounds", () => {
+test("two ARM code areas and twenty-two declared hooks stay within their bounds", () => {
   assert.equal(PATCH.changes.length, 2 + WORDS.length);
   const code = PATCH.changes.find(c => c.file === CODE);
   const tail = PATCH.changes.find(c => c.file === 0x181040);

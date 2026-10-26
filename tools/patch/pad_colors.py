@@ -112,6 +112,7 @@ SOURCE = """
 .equ LEDMGR_PTR, 0xC0345A1C
 .equ CHORD, @CHORD@             ; 1: the steps of a poly part that hold 2 or more notes show pink in SEQUENCER mode (device 18.10.)
 .equ CHORD_PATTERN, @CHORD_PATTERN@ ; pointer to the pattern in RAM, its file at + 4
+.equ VIEW_CELL, @VIEW_CELL@     ; pointer to the pattern's accessor the display reads (tools/patch/pattern_switch.py), +4 the pattern it shows
 .equ CHORD_MODEL, @CHORD_MODEL@ ; pointer to the sequencer model, + 0x344 the bar section the pads show (0 to 3)
 .equ MODE_AT, 0xB58             ; manager + 0xB58: the pad mode (4 SEQUENCER), + 0xB60 the selected part
 .equ PART_AT, 0xB60
@@ -461,6 +462,12 @@ pc_chord:
     bhs pch_no
     ldr r2, =CHORD_PATTERN
     ldr r2, [r2]
+    ldr r3, =VIEW_CELL
+    ldr r3, [r3]
+    cmp r3, #0
+    ldrne r3, [r3, #4]          ; viewing the next pattern: the steps shown are its steps
+    cmpne r3, #0
+    movne r2, r3
     cmp r2, #0
     beq pch_no
     mov r3, #0x330
@@ -931,8 +938,8 @@ def source():
         text = synthaddr.source(text, own=[(CODE_AT, CODE_END), (STATE, STATE_END)])
     # the chord colour reads the pattern and the sequencer model (docs/messungen/2026-10-19-poly-pads-pink.md); on the synth both
     # through their entries in data/synth-map/, voice assign is byte 2 of the part there too (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
-    chord = {"CHORD": 1, "CHORD_PATTERN": f"{synthaddr.tr(0xC033E6A4):#x}", "CHORD_MODEL": f"{synthaddr.tr(0xC0348884):#x}"} if BUILD == "synth" \
-        else {"CHORD": 1, "CHORD_PATTERN": "0xC033E6A4", "CHORD_MODEL": "0xC0348884"}
+    chord = {"CHORD": 1, "CHORD_PATTERN": f"{synthaddr.tr(0xC033E6A4):#x}", "CHORD_MODEL": f"{synthaddr.tr(0xC0348884):#x}", "VIEW_CELL": f"{synthaddr.tr(0xC0691388):#x}"} if BUILD == "synth" \
+        else {"CHORD": 1, "CHORD_PATTERN": "0xC033E6A4", "CHORD_MODEL": "0xC0348884", "VIEW_CELL": "0xC0691388"}
     for key, value in chord.items():
         text = text.replace(f"@{key}@", str(value))
     return text

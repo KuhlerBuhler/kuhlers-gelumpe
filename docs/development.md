@@ -262,6 +262,24 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 
 ## Release
 
+**Der normale Weg läuft in GitHub** (Workflow "Release", `.github/workflows/release.yml`):
+
+1. Auf `develop` per Pull Request: `node tools/set-version.mjs X.Y.Z` (schreibt die vier Versionsdateien) und die
+   Notizen als `release-notes/X.Y.Z.md`. Sie sind das, was im Release und im Discord steht.
+2. Pull Request `develop` -> `main` mergen.
+3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
+   Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
+   2.02 (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
+   `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
+   `main` endet nach dem ersten Schritt.
+
+Korgs drei 2.02 kommen nie ins Repo. Der Workflow lädt sie über die Links in den Secrets `E2_VSB_URL` (Hacktribe),
+`E2_VSB_STOCK_URL` (rot) und `E2_VSB_SYNTH_URL` (blau) und bricht ab, wenn eine Datei nicht die erwartete SHA-256 hat.
+Fehlt in `data/patches/verified.json` das Paar einer der drei, warnt der Lauf: die App prüft diese Datei dann vor dem
+Patchen selbst im Emulator.
+
+**Von Hand** geht es weiter so, etwa wenn GitHubs Runner ausfallen:
+
 `npm run release` (`tools/release.mjs`). Auf jedem System vor dem Bauen setzt
 `npm run release -- prepare` (oder `node tools/set-version.mjs <Version>` mit der Version vom
 Release-Rechner) die nächste Version in `package.json`, `tauri.conf.json`, `Cargo.toml` und

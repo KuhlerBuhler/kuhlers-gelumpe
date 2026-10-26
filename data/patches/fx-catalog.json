@@ -308,6 +308,116 @@
   },
   {
    "kind": "ifx",
+   "name": "Slap Delay",
+   "stages": [
+    {
+     "stage": "ifx1",
+     "unit": 24,
+     "unitName": "I_short_delay",
+     "params": {
+      "dry_level": 127,
+      "wet_level": 100,
+      "input_trim": 127,
+      "tempo_sync": 1,
+      "off_time_ratio": 65,
+      "off_delay_time": 24,
+      "on_time_ratio": 35,
+      "on_syncnote": 1,
+      "fb_depth": 35,
+      "high_damp": 60,
+      "low_damp": 15,
+      "delay_lag": 15
+     }
+    },
+    {
+     "stage": "ifx2",
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
+    }
+   ],
+   "map": [
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 1,
+     "low": 100,
+     "high": 0
+    },
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 8,
+     "low": 35,
+     "high": 10
+    },
+    {
+     "source": 68,
+     "chain": 0,
+     "param": 8,
+     "low": 35,
+     "high": 88
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "ifx",
+   "name": "Long Delay",
+   "stages": [
+    {
+     "stage": "ifx1",
+     "unit": 24,
+     "unitName": "I_short_delay",
+     "params": {
+      "dry_level": 127,
+      "wet_level": 90,
+      "input_trim": 127,
+      "tempo_sync": 1,
+      "off_time_ratio": 65,
+      "off_delay_time": 24,
+      "on_time_ratio": 35,
+      "on_syncnote": 10,
+      "fb_depth": 70,
+      "high_damp": 50,
+      "low_damp": 25,
+      "delay_lag": 15
+     }
+    },
+    {
+     "stage": "ifx2",
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
+    }
+   ],
+   "map": [
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 1,
+     "low": 90,
+     "high": 0
+    },
+    {
+     "source": 69,
+     "chain": 0,
+     "param": 8,
+     "low": 70,
+     "high": 10
+    },
+    {
+     "source": 68,
+     "chain": 0,
+     "param": 8,
+     "low": 70,
+     "high": 88
+    }
+   ],
+   "creator": "Kuhler Buhler"
+  },
+  {
+   "kind": "ifx",
    "name": "Loud Distortion",
    "stages": [
     {

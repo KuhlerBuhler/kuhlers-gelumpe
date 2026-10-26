@@ -20,3 +20,7 @@ sofort passieren. Das Gerät fragt "Ungespeicherte Änderungen verwerfen?": MENU
 
 Offen: ob Pad-Auswahl und MIDI Program Change auch fragen sollen (Vorschlag: ja, Pad ja, MIDI nein, weil ein Rechner
 das Gerät fernsteuert), und der Text (die Oberfläche ist englisch).
+
+## Sync Group
+
+Gestoppt und ungespeichert lädt das Rad ein Pattern derselben Sync Group sofort, ohne VIEW: und ohne MENU; ein Pattern, das nur durch den Abgleich der Gruppe hereinkam, gilt nicht als ungespeichert ([Messung](../messungen/2026-10-25-sync-ungespeichert.md)). Gebaut und im Emulator geprüft, am Gerät offen.
