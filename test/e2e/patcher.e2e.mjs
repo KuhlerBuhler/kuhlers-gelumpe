@@ -5,11 +5,11 @@ import { join } from "node:path";
 import { setUp } from "./harness.mjs";
 import { tempDir } from "../support/lifetime.mjs";
 import { fakeService, TOKEN } from "./support/fake-emu.mjs";
-import { makeFirmware } from "../helpers.mjs";
+import { makeFirmware, makeZip } from "../helpers.mjs";
 import { applyPatches, splashPatch, SPLASH_W, SPLASH_H } from "../../src/patch.mjs";
 import { sha256 } from "../../src/firmware.mjs";
 import { field } from "../../src/map/index.mjs";
-import { STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, SYNTH_SHA256 } from "../../src/patcher.mjs";
+import { STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, SYNTH_SHA256, KORG_DOWNLOADS } from "../../src/patcher.mjs";
 import { expected, fakeFirmware, fixture, sha } from "../fixtures/bsdiff/data.mjs";
 
 // The real BLECH patches only fit Korg's bytes, which never come into the repository. The page
@@ -99,9 +99,13 @@ test("patcher: Weiter and Zurück walk the four steps, Korg's firmware cards sit
   const page = await patcherPage();
   const cards = page.locator("#cee-patch-step-1 #cee-patch-firmware a.cee-device-card");
   assert.deepEqual(await cards.evaluateAll(list => list.map(a => [a.dataset.device, a.href, a.target])), [
-    ["red", "https://www.korg.com/us/support/download/product/0/368/#software", "_blank"],
-    ["blue", "https://www.korg.com/us/support/download/product/0/367/#software", "_blank"],
+    ["red", KORG_DOWNLOADS.red.page, "_blank"],
+    ["blue", KORG_DOWNLOADS.blue.page, "_blank"],
   ]);
+  assert.match(await page.locator("#cee-patch-korg-red").textContent(), /System Updater bei Korg laden/, "without the licence accepted: Korg's page with its agreement");
+  await page.check("#cee-patch-korg-licence");
+  assert.deepEqual(await cards.evaluateAll(list => list.map(a => a.href)), [KORG_DOWNLOADS.red.file, KORG_DOWNLOADS.blue.file], "accepted, the browser links Korg's zip");
+  assert.match(await page.locator("#cee-patch-korg-red").textContent(), /Zip bei Korg laden, dann hierher ziehen/);
   const tone = await cards.evaluateAll(list => list.map(a => getComputedStyle(a.querySelector(".cee-e2-outline")).color));
   assert.notEqual(tone[0], tone[1], "each card draws its Electribe in the device's colour");
   assert.equal(await page.isVisible("#cee-patch-back"), false, "no way back from the first step");
@@ -461,7 +465,9 @@ test("patcher: the blue original gets its synth set and trials the copy in elect
   assert.equal(await page.locator("#cee-patch-route").isVisible(), false);
   await page.click("#cee-patch-next");
   assert.match(await page.locator("#cee-patch-blue-hacktribe:visible").textContent(), /Aus der Firmware der blauen geht kein Hacktribe/);
-  assert.equal(await page.locator("#cee-patch-device-box").isVisible(), false, "the blue's own file needs no choice");
+  assert.equal(await page.locator("#cee-patch-device input[value=blue]").isChecked(), true, "the blue's own file shows its Electribe");
+  assert.equal(await page.isDisabled("#cee-patch-device input[value=red]"), true, "and offers no other");
+  assert.match(await page.locator("#cee-patch-device-note").textContent(), /nur auf die blaue Electribe/);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
@@ -482,6 +488,35 @@ test("patcher: the blue original gets its synth set and trials the copy in elect
     fake.hooks.korg = null;
   }
   assert.deepEqual(page.errors, []);
+});
+
+test("patcher: Korg's zip goes into the field as it is, and the app loads it from Korg itself once the licence is accepted", async () => {
+  const vsb = await makeFirmware();
+  const zip = makeZip([{ name: "__MACOSX/x/._SYSTEM.VSB", bytes: Uint8Array.of(1) }, { name: "electribe_sampler_system_v202/SYSTEM.VSB", bytes: vsb }]);
+  const page = await patcherPage();
+  await page.setInputFiles("#cee-patch-file", h.file("electribe_sampler_system_v202.zip", zip));
+  await page.locator("#cee-patch-file-info", { hasText: "electribe_sampler_system_v202.zip › SYSTEM.VSB: Hacktribe 2.02 erkannt" }).waitFor();
+  await page.setInputFiles("#cee-patch-file", h.file("other.zip", makeZip([{ name: "readme.txt", bytes: Uint8Array.of(1) }])));
+  await page.locator("#app-toasts .cee-toast", { hasText: "In other.zip ist keine SYSTEM.VSB." }).waitFor();
+
+  const app = await h.page();
+  await app.addInitScript(([bytes]) => {
+    window.__GELUMPE_APP = { version: "0.0.0" };
+    window.__korgAsked = [];
+    window.__TAURI__ = { core: { invoke: async (command, args) => { window.__korgAsked.push([command, args]); return new Uint8Array(bytes).buffer; } } };
+  }, [[...zip]]);
+  await app.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await app.click("#cee-tab-patcher");
+  await app.locator(".cee-patch-title").waitFor();
+  assert.equal(await app.getAttribute("#cee-patch-korg-red", "href"), KORG_DOWNLOADS.red.page, "before the licence is accepted the card only opens Korg's page");
+  await app.check("#cee-patch-korg-licence");
+  assert.match(await app.locator("#cee-patch-korg-red").textContent(), /Von Korg laden und übernehmen/);
+  await app.click("#cee-patch-korg-red");
+  await app.locator("#cee-patch-file-info", { hasText: "electribe_sampler_system_v202.zip › SYSTEM.VSB" }).waitFor();
+  assert.deepEqual(await app.evaluate(() => window.__korgAsked), [["korg_firmware", { device: "red" }]]);
+  await app.click("#cee-patch-next");
+  assert.equal(await app.locator("#cee-patch-device-box").isVisible(), true, "the Electribe is in view in step 2");
+  assert.deepEqual(app.errors, []);
 });
 
 test("patcher: Hacktribe for the blue is patched with the Sampler head, checked on the blue and goes to KORG/hacktribe/System", async () => {
