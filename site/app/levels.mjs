@@ -12,6 +12,7 @@ import { FxRecord } from "../../src/record.mjs";
 import { profileKey } from "../../src/profile.mjs";
 import { readLevels, planScale, applyScale, outputLevels, judgeOutput, LEVEL_MAX } from "../../src/gain.mjs";
 import { t } from "./i18n.mjs";
+import { number as formatNumber } from "../../src/text.mjs";
 
 const pill = (tone, word) => {
   const p = el("span", { className: "cee-status", textContent: word });
@@ -19,7 +20,7 @@ const pill = (tone, word) => {
   return p;
 };
 
-const number = n => String(Math.round(n * 100) / 100).replace(".", ",");
+const number = n => formatNumber(Math.round(n * 100) / 100 + 0, { useGrouping: false, maximumFractionDigits: 2 });
 
 /**
  * @param {HTMLElement} root

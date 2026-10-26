@@ -28,7 +28,7 @@ import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
 import { storePlugin } from "../../src/usb-update.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
-import { t } from "./i18n.mjs";
+import { t, locale } from "./i18n.mjs";
 
 /** 0/1 pixels row by row (splash.mjs) to the display's 1024 bytes: eight rows per byte, bit 0 on top. */
 function displayBytes(pixels) {
@@ -802,7 +802,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     canvas.setAttribute("aria-label", t("plugins.display", { name: preset.title }));
     const { get, usb } = packButtons(preset, true);
     const copyOwn = el("button", { type: "button", className: "btn", id: "cee-detail-copy", textContent: t("plugins.copy"), onclick: () => { select("preset", preset.id); copyPreset(); page("editor"); } });
-    const added = new Date(`${preset.added}T12:00:00`).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+    const added = new Date(`${preset.added}T12:00:00`).toLocaleDateString(locale(), { day: "numeric", month: "long", year: "numeric" });
     detailHead.replaceChildren(
       canvas,
       el("div", { className: "cee-detail-text" }, [

@@ -10,6 +10,7 @@ import { NEWS } from "../../data/news.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf, hardwareOf } from "../../src/firmware.mjs";
 import { t, tNodes } from "./i18n.mjs";
+import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
 import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
 
@@ -39,7 +40,7 @@ function verdict(flow, items) {
 }
 
 function verdictText(input, items) {
-  const size = input.size.toLocaleString("de-DE");
+  const size = number(input.size);
   switch (input.kind) {
     // A file the page takes says nothing: the user knows what was dropped, the button and the route say what comes next.
     case "hacktribe":
@@ -47,7 +48,7 @@ function verdictText(input, items) {
     case "stock": return null;
     case "blech": return { tone: "ok", word: t("patcher.verdict.blech"), text: t("patcher.verdict.blech.text") };
     case "partial": return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => items.find(p => p.id === id)?.label ?? id).join(", ") }) };
-    case "wrong-size": return { tone: "error", word: t("patcher.verdict.size"), text: t("patcher.verdict.size.text", { size, expected: VSB_SIZE.toLocaleString("de-DE") }) };
+    case "wrong-size": return { tone: "error", word: t("patcher.verdict.size"), text: t("patcher.verdict.size.text", { size, expected: number(VSB_SIZE) }) };
     default: return { tone: "error", word: t("patcher.verdict.unknown"), text: t("patcher.verdict.unknown.text", { reason: input.reasons[0] ?? t("patcher.verdict.unknown.reason") }) };
   }
 }
