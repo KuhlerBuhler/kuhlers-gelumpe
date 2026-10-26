@@ -120,6 +120,7 @@ Entfernen nur ungeschützter Samples, der Geber-Haken.
 | Patternwechsel bei gestoppter Wiedergabe | lädt wie immer sofort, die Samples kommen danach in einigen Sekunden; keine Sperre |
 | Ein Pattern, das mit dem laufenden zusammen nicht ins Budget passt | der Platz scheitert, der Wechsel kommt ohne die fehlenden Samples, die nach dem Wechsel nachgeladen werden |
 | Last der Command-Task beim Laden während des Spielens | hergeleitet höchstens 15 ms je UI-Bild (40 ms); ob Pattern-Laden oder Stimmen das hören, ist offen |
+| `e2sSample.all` über USB neu schreiben (BLECH SysEx FILE COPY und DELETE), während der Swap an ist | der Swap liest weiter nach dem alten Kopf, bis der Cache verworfen wird; Karte und Datei bleiben unberührt, falsche Samples sind möglich; danach neu starten |
 | Ein Kartenfehler beim Öffnen | schaltet den Swap bis zum nächsten Start ab, Wechsel gehen dann ohne Sperre |
 | High Speed (50 MHz) | aus; erst nach einem Versuch mit einer entbehrlichen microSD |
 | DMA | aus |
