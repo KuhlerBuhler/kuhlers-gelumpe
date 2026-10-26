@@ -7,7 +7,7 @@ import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, FIRST_USER, LAST_USER } from "../../src/sample-file.mjs";
-import { readDeviceSamples, writeDeviceChange, needsCompaction, inspectTemp, finishTemp, discardTemp, SwapInterrupted } from "../../src/usb-sample-file.mjs";
+import { readDeviceSamples, downloadDeviceSamples, writeDeviceChange, needsCompaction, inspectTemp, finishTemp, discardTemp, SwapInterrupted } from "../../src/usb-sample-file.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 
@@ -40,6 +40,7 @@ export function samplesFilePage(root, { device = null } = {}) {
   const pick = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-file", accept: ".all,.ALL" });
   const wavs = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-wav", accept: ".wav,.WAV,audio/wav", multiple: true, disabled: true });
   const fromDevice = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-device", textContent: t("sampleset.device.read"), disabled: true, onclick: () => loadFromDevice() });
+  const download = el("button", { type: "button", className: "btn", id: "cee-sf-download", textContent: t("sampleset.device.download"), disabled: true, onclick: () => downloadFromDevice() });
   const save = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-save", textContent: t("common.save"), disabled: true });
   const job = el("div", { className: "ui-job", id: "cee-sf-job", hidden: true });
   const reset = el("button", { type: "button", className: "btn", id: "cee-sf-reset", textContent: t("sampleset.reset"), disabled: true });
@@ -50,7 +51,7 @@ export function samplesFilePage(root, { device = null } = {}) {
   ]);
   const wavZone = dropzone(wavs, "sampleset.wav.drag", "sampleset.wav.hint");
   const actions = el("div", { className: "actions" }, [save, reset]);
-  root.replaceChildren(intro, el("div", { className: "actions" }, [fromDevice]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), wavZone, job, summary, list, actions);
+  root.replaceChildren(intro, el("div", { className: "actions" }, [fromDevice, download]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), wavZone, job, summary, list, actions);
 
   const taken = () => new Set([...parsed.samples.filter(s => !removed.has(s.slot)).map(s => s.slot), ...added.map(a => a.slot)]);
   const dirty = () => removed.size > 0 || added.length > 0;
@@ -59,7 +60,7 @@ export function samplesFilePage(root, { device = null } = {}) {
 
   function render() {
     list.replaceChildren();
-    fromDevice.disabled = busy || !session();
+    fromDevice.disabled = download.disabled = busy || !session();
     pick.disabled = busy;
     wavs.disabled = !parsed || busy;
     wavZone.hidden = actions.hidden = !parsed;
@@ -107,27 +108,29 @@ export function samplesFilePage(root, { device = null } = {}) {
     render();
   }
 
-  /** The progress of a running job in the page: its phase and how far it is. */
-  function progress(name) {
+  /** The progress of a running job in the page: its phase and how far it is; `cancel` adds a button that stops it. */
+  function progress(name, cancel) {
     job.hidden = false;
     const bar = el("div", { className: "ui-progress", role: "progressbar" }, [el("span", { className: "ui-progress-bar" })]);
     bar.setAttribute("aria-valuemin", "0");
     bar.setAttribute("aria-valuemax", "100");
     const meta = el("span", { className: "ui-job-meta" });
-    job.replaceChildren(el("div", { className: "ui-job-head" }, [el("span", { className: "ui-job-name", textContent: name })]), bar, meta);
+    const stop = cancel ? el("div", { className: "ui-job-actions" }, el("button", { type: "button", className: "btn", id: "cee-sf-cancel", textContent: t("common.cancel"), onclick: cancel })) : null;
+    job.replaceChildren(el("div", { className: "ui-job-head" }, [el("span", { className: "ui-job-name", textContent: name }), stop]), bar, meta);
     return {
       step(phase, done, total) { window.ui?.setProgress(bar, total ? Math.round((done / total) * 100) : 0, name); meta.textContent = phase; },
       end() { job.hidden = true; job.replaceChildren(); },
     };
   }
 
-  /** Runs `work` with the buttons held; a thrown error becomes a toast. */
-  async function busyWith(name, work) {
+  /** Runs `work` with the buttons held; a thrown error becomes a toast, a cancel through `stop` a short note. */
+  async function busyWith(name, work, stop) {
     busy = true;
     render();
-    const p = progress(name);
+    const p = progress(name, stop && (() => stop.abort()));
     try { return await work(p); }
     catch (e) {
+      if (stop?.signal.aborted) { toast(t("common.aborted"), "info"); return undefined; }
       toast(e instanceof SampleFileError || e instanceof SwapInterrupted ? e.message : `${name}: ${e.message}`, "error");
       return undefined;
     } finally {
@@ -164,6 +167,19 @@ export function samplesFilePage(root, { device = null } = {}) {
       added = [];
       toast(t("sampleset.device.read.done", { count: parsed.samples.length }), "ok");
     });
+  }
+
+  /** The whole sample file of the card as a file on the computer, checked block by block and as a whole before it is saved. */
+  async function downloadFromDevice() {
+    const s = session();
+    if (!s) return;
+    const stop = new AbortController();
+    const got = await busyWith(t("sampleset.device.downloading"), p => downloadDeviceSamples(s, (done, total) => p.step(t("sampleset.device.downloadStep", { done: size(done), total: size(total) }), done, total), stop.signal), stop);
+    if (got === null) { toast(t("sampleset.device.downloadNone"), "info"); return; }
+    if (!got) return;
+    const broken = got.parsed.samples.filter(x => x.problem).length;
+    if (broken) toast(t("sampleset.device.downloadProblems", { count: broken }), "info", { stay: true });
+    saveFile(got.bytes, "e2sSample.all");
   }
 
   async function saveToDevice() {
