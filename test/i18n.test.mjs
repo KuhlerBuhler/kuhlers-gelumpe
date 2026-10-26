@@ -62,9 +62,6 @@ test("tNodes() puts nodes where the text names them", () => {
   assert.deepEqual(tNodes("{a}.", { a: [node, "y"] }), [node, "y", "."]);
 });
 
-// Hard-coded UI text. patcher.mjs and emulator.mjs (and their sections in index.html) follow in a later step.
-const EXCLUDED = ["patcher.mjs", "emulator.mjs"];
-const EXCLUDED_AREAS = ["cee-area-patcher", "cee-area-emu"];
 // Literals that pass the heuristic but are no UI text: KeyboardEvent.key names, HTTP headers, and per file with the reason.
 const KEYS = ["Escape", "Enter", "Home", "End", "Backspace", "Delete", "Content-Type"];
 const ALLOWED = {
@@ -86,17 +83,17 @@ const hardcoded = (file, src) => literals(src)
   .map(l => `${file}:${l.line}: ${l.value}`);
 
 test("site/app has no hard-coded UI text: every German label, message and toast goes through t()", () => {
-  const files = readdirSync(new URL("../site/app/", import.meta.url)).filter(f => f.endsWith(".mjs") && !f.startsWith("i18n") && !EXCLUDED.includes(f));
+  const files = readdirSync(new URL("../site/app/", import.meta.url)).filter(f => f.endsWith(".mjs") && !f.startsWith("i18n"));
   assert.deepEqual(files.flatMap(f => hardcoded(f, readFileSync(new URL(`../site/app/${f}`, import.meta.url), "utf8"))), []);
 });
 
 test("index.html has no hard-coded UI text outside data-i18n, data-i18n-html and data-i18n-label", () => {
-  assert.deepEqual(htmlText(html, EXCLUDED_AREAS).filter(s => looksLikeUiText(s.value)).map(s => `${s.line}: ${s.value}`), []);
+  assert.deepEqual(htmlText(html).filter(s => looksLikeUiText(s.value)).map(s => `${s.line}: ${s.value}`), []);
 });
 
 test("the scan catches a planted string, a template, an aria-label and a text node", () => {
   assert.deepEqual(hardcoded("x.mjs", 'toast("Datei gespeichert"); el("b", { textContent: `Noch ${n} Samples frei` }); t("nav.start");').length, 2);
   assert.deepEqual(hardcoded("x.mjs", 'el("div", { className: "cee-a cee-b" }); if (e.key === "Escape") x("data-tone");'), []);
   const page = '<body><p>Hallo Welt</p><p data-i18n="a.b">Schon im Table</p><button aria-label="Schließen"></button><div id="cee-area-emu"><p>Hier nicht</p></div></body>';
-  assert.deepEqual(htmlText(page, EXCLUDED_AREAS).filter(s => looksLikeUiText(s.value)).map(s => s.value), ["Hallo Welt", "Schließen"]);
+  assert.deepEqual(htmlText(page, ["cee-area-emu"]).filter(s => looksLikeUiText(s.value)).map(s => s.value), ["Hallo Welt", "Schließen"]);
 });
