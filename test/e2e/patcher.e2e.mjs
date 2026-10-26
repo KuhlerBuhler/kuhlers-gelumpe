@@ -167,8 +167,9 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   assert.match(await page.locator("#cee-patch-checks").textContent(), /bestanden Notschalter/, "the single checks stay behind the disclosure");
   assert.equal(await page.locator("#cee-patch-done").isVisible(), false, "the guide comes after the download");
 
-  const { length, allow, allowCode, pair } = fake.seen.check;
+  const { length, allow, allowCode, pair, hardware } = fake.seen.check;
   assert.equal(length, 2 * 0x200100);
+  assert.equal(hardware, null, "the red's file names no hardware, the service takes its own");
   assert.equal(allow, `0x${SPLASH.toString(16)}:1024`);
   assert.equal(allowCode, `0x${FREE.toString(16)}:4,0x${(FREE + 0x200).toString(16)}:4`, "the start-phase spans of every patch in the set reach the check");
   assert.deepEqual(new Uint8Array(pair.subarray(0, 0x200100)), vsb, "the check gets the user's file as the original");
@@ -286,6 +287,22 @@ test("patcher: Korg's original asks for the user's own hacktribe-2.patch, conver
   assert.doesNotMatch(await guide.textContent(), /KORG\/hacktribe\/System\//);
   assert.match(await guide.locator("#cee-patch-guide-copy").textContent(), /den Ordner KORG\/electribe sampler\/ nach KORG\/blechtribe\//, "the samples of the stock firmware move too");
   assert.deepEqual(requests.filter(u => /github\.com|hacktribe-2\.patch/.test(u)), [], "the page never fetches the patch");
+
+  // The same for the blue: Korg's firmware runs there, so the copy gets the blue's head and goes to KORG/electribe.
+  await page.click("#cee-patch-back");
+  await page.click("#cee-patch-back");
+  await page.locator("#cee-patch-device-box").waitFor();
+  await page.check("#cee-patch-device input[value=blue]");
+  assert.match(await page.locator("#cee-patch-device-note").textContent(), /Kopf der blauen/);
+  await page.click("#cee-patch-next");
+  await page.click("#cee-patch-run");
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
+  const blueBase = new Uint8Array(fake.seen.check.pair.subarray(0, 0x200100));
+  assert.deepEqual([blueBase[0x12], blueBase[0x2e]], [0x00, 0x23], "the check gets Hacktribe with the blue's head");
+  assert.equal(fake.seen.check.hardware, "blue");
+  await page.click("#cee-patch-next");
+  assert.equal(await page.locator("#cee-patch-path").textContent(), "KORG/electribe/System/SYSTEM.VSB");
+  assert.equal(await page.locator("#cee-patch-afraid").isVisible(), false, "the update test would run Korg's red file");
   assert.deepEqual(page.errors, []);
 });
 
@@ -442,8 +459,9 @@ test("patcher: the blue original gets its synth set and trials the copy in elect
   await page.locator(".cee-patch-title").waitFor();
   await drop(page, original);
   assert.equal(await page.locator("#cee-patch-route").isVisible(), false);
-  assert.match(await page.locator("#cee-patch-blue-hacktribe:visible").textContent(), /Hacktribes eigenem Patcher/);
   await page.click("#cee-patch-next");
+  assert.match(await page.locator("#cee-patch-blue-hacktribe:visible").textContent(), /Aus der Firmware der blauen geht kein Hacktribe/);
+  assert.equal(await page.locator("#cee-patch-device-box").isVisible(), false, "the blue's own file needs no choice");
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
@@ -463,6 +481,35 @@ test("patcher: the blue original gets its synth set and trials the copy in elect
   } finally {
     fake.hooks.korg = null;
   }
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher: Hacktribe for the blue is patched with the Sampler head, checked on the blue and goes to KORG/hacktribe/System", async () => {
+  const red = await makeFirmware();
+  red.set([0x45, 0x32, 0x53], 0x10);
+  red[0x2e] = 0x24;
+  const blue = Uint8Array.from(red);
+  blue[0x12] = 0x00;
+  blue[0x2e] = 0x23;
+  const page = await patcherPage();
+  await drop(page, blue);
+  await page.locator("#cee-patch-file-info", { hasText: "Hacktribe 2.02 für die blaue erkannt" }).waitFor();
+  assert.equal(await page.locator("#cee-patch-blue-hacktribe").isVisible(), false, "the hint is for Korg's blue file");
+  await page.click("#cee-patch-next");
+  assert.equal(await page.locator("#cee-patch-device input[value=blue]").isChecked(), true, "the head says blue");
+  await page.click("#cee-patch-next");
+  await page.click("#cee-patch-run");
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
+  assert.deepEqual(new Uint8Array(fake.seen.check.pair.subarray(0, 0x200100)), red, "the check gets the file with the Sampler head");
+  assert.equal(fake.seen.check.hardware, "blue", "and runs it on the blue's flash");
+  await page.click("#cee-patch-next");
+  assert.equal(await page.locator("#cee-patch-path").textContent(), "KORG/hacktribe/System/SYSTEM.VSB");
+  const downloaded = await h.download(page, () => page.click("#cee-patch-download"));
+  assert.deepEqual([downloaded[0x12], downloaded[0x2e]], [0x53, 0x24], "the copy has the head Hacktribe's updater on the blue takes");
+  fake.seen.firmwareBody = null;
+  await page.click("#cee-patch-afraid");
+  await page.locator("#cee-patch-hint").waitFor();
+  assert.deepEqual(new Uint8Array(fake.seen.firmwareBody), blue, "the update test runs the user's own file, blue head and all");
   assert.deepEqual(page.errors, []);
 });
 

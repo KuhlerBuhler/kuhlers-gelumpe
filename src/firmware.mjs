@@ -31,6 +31,9 @@ const HACKTRIBE_CODE = { file: 0x170100, length: 0x40 };
  * each (docs/messungen/2026-10-15-blaue-electribe.md). The service identifies by code (tools/emu/firmware.py). */
 const isSynth = bytes => bytes.length > 0x12 && bytes[0x10] === 0x45 && bytes[0x11] === 0x32 && bytes[0x12] === 0;
 
+/** The Electribe a file is made for, by its head: Hacktribe for the blue carries the blue head (tools/emu/firmware.py, hardware_of_head). */
+export const hardwareOf = bytes => (isSynth(bytes) ? "blue" : "red");
+
 /** @returns {"hacktribe" | "stock" | "synth"} */
 export function buildOf(bytes) {
   // Hacktribe's code decides before the head: Hacktribe on a blue Electribe can carry the synth head (docs/ideen/65-blech-hacktribe-blau.md).

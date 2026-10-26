@@ -1,5 +1,5 @@
 /** The Patcher page's logic without the page: what a dropped SYSTEM.VSB is, the BLECH patches, the state from drop to download. */
-import { identifyBase, sha256 } from "./firmware.mjs";
+import { hardwareOf, identifyBase, sha256 } from "./firmware.mjs";
 import { buildsOf, patchesPresent, selectFor } from "./patch.mjs";
 import { applyBsdiff, parseBsdiff } from "./bsdiff.mjs";
 
@@ -14,6 +14,22 @@ export const HACKTRIBE_SHA256 = "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e
 export const HACKTRIBE_PATCH_URL = "https://github.com/bangcorrupt/hacktribe/raw/main/patch/hacktribe-2.patch";
 /** The real file is 17.6 KB; anything near a megabyte is not it. */
 export const HACKTRIBE_PATCH_MAX = 1 << 20;
+
+/**
+ * Hacktribe for the blue Electribe 2 is Hacktribe 2.02 with the blue head (Hacktribe's e2-firmware-patch.py -e): byte
+ * 0x12 = 0x00, 0x2E = 0x23 (docs/ideen/65-blech-hacktribe-blau.md). Korg's blue firmware takes only that head; once
+ * Hacktribe runs on the blue, its updater takes only the Sampler head (0x53, 0x24), and so do later BLECH updates.
+ */
+export const HACKTRIBE_BLUE_SHA256 = "2b2e1c2f928c1faf4cc2a6580292763a5282a37f19eb9165c1bdd05db832ddbe";
+const HEADS = { sampler: [[0x12, 0x53], [0x2e, 0x24]], blue: [[0x12, 0x00], [0x2e, 0x23]] };
+
+/** A copy of the file with the Sampler's or the blue's head. Only the two bytes change. */
+export function withHead(bytes, head) {
+  const out = Uint8Array.from(bytes);
+  for (const [at, value] of HEADS[head]) out[at] = value;
+  return out;
+}
+export const samplerHead = bytes => withHead(bytes, "sampler");
 
 /** Where the BLECH set lives, relative to the page: the one list of what BLECH is (docs/patcher.md). */
 export const BLECH_SET_URL = "data/patches/blech.json";
@@ -61,7 +77,8 @@ export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHa
     return { ...out, reasons: [`Das ist Korgs Original-Firmware 2.02, aber nicht die unveränderte Datei aus dem Systemupdate (sha256 ${stockHash.slice(0, 8)}...).`] };
   }
   const kind = present.length === 0 ? "hacktribe" : present.length === mine.length ? "blech" : "partial";
-  return { ...out, kind, present };
+  // hardware: the head says which Electribe a Hacktribe file is for (the blue one carries the synth head)
+  return { ...out, kind, present, hardware: hardwareOf(bytes) };
 }
 
 /**
@@ -83,7 +100,7 @@ export async function convertStock(stock, patch, { stockHash = STOCK_SHA256, tar
   }
 }
 
-/** The folder below KORG/ the firmware of this kind keeps its files in (the stock firmware's has a space). */
+/** The folder below KORG/ the firmware of this kind keeps its files in (the stock firmware's has a space). Hacktribe on the blue reads KORG/hacktribe like on the red. */
 const FOLDER = { stock: "electribe sampler", synth: "electribe" };
 export const BLECH_FOLDER = "blechtribe";
 
@@ -107,11 +124,12 @@ export function sampleFolder(kind) {
  * data/patches/verified.json), or null. The same input and the same result give the same boots, so the check need not
  * run again: on a slow PC it takes more than an hour.
  */
-export async function verifiedReport(input, output, verified) {
+export async function verifiedReport(input, output, verified, hardware = null) {
   const results = verified?.format === "gelumpe-verified" && verified.version === 1 && Array.isArray(verified.results) ? verified.results : [];
   if (!results.length) return null;
   const [from, to] = await Promise.all([sha256(input), sha256(output)]);
-  const hit = results.find(r => r.input === from && r.output === to);
+  // the same files on the other hardware boot from another flash: that is another check
+  const hit = results.find(r => r.input === from && r.output === to && (r.hardware ?? null) === hardware);
   if (!hit) return null;
   return {
     ok: true, verified: true, changed: [],
@@ -175,8 +193,9 @@ export function clock(ms) {
 
 /**
  * phase: empty, rejected, needs-patch (Korg's original on the Hacktribe route, waiting for the user's hacktribe-2.patch),
- * ready, patching, checking, passed, failed, downloaded. origin: what the user dropped (stock or hacktribe), for the card
+ * ready, patching, checking, passed, failed, downloaded. origin: what the user dropped (stock, hacktribe or synth), for the card
  * folder. route: for Korg's original, "direct" (BLECH straight onto it) or "hacktribe" (hacktribe-2.patch first).
+ * device: the Electribe the copy is for, "red" or "blue"; asked for every copy with Hacktribe (`choosesDevice`).
  * steps: the pass list, status todo|ok|error.
  */
 /** The four steps of the way the page shows above everything (firmware, patches, emulator, device), each todo, current, done or error. */
@@ -187,7 +206,24 @@ export function wayOf(flow) {
   return WAY.map((label, i) => ({ label, state: i === bad ? "error" : i < at ? "done" : i === at ? "current" : "todo" }));
 }
 
-export const newFlow = () => ({ phase: "empty", input: null, origin: null, route: null, steps: [], report: null, error: null });
+export const newFlow = () => ({ phase: "empty", input: null, origin: null, route: null, device: null, steps: [], report: null, error: null });
+
+/** Whether the copy carries Hacktribe, which runs on the red and the blue alike: then the user says which one it is for. */
+export const choosesDevice = flow => flow.origin === "hacktribe" || (flow.origin === "stock" && flow.route === "hacktribe");
+
+/**
+ * The head the patches go on, or null to leave it. Hacktribe already running (a Hacktribe file dropped) takes the Sampler
+ * head on either Electribe; Korg's firmware running on the blue (Korg's red file turned into Hacktribe for the blue)
+ * takes only the blue one (docs/messungen/2026-10-26-blech-hacktribe-blau.md).
+ */
+export function headFor(flow) {
+  if (flow.origin === "hacktribe") return flow.input?.hardware === "blue" ? "sampler" : null;
+  if (flow.origin === "stock" && flow.route === "hacktribe" && flow.device === "blue") return "blue";
+  return null;
+}
+
+/** The card folder of the firmware that runs on the device when it takes this copy. */
+export const folderOf = flow => cardFolder(flow.origin === "stock" && flow.device === "blue" ? "synth" : flow.origin);
 
 const STOCK_READ = { id: "read", label: "Datei erkannt: originale Korg 2.02", status: "ok", detail: "" };
 
@@ -201,21 +237,28 @@ export function step(flow, event) {
     case "input": {
       if (RUNNING.has(flow.phase)) return flow;
       const { input } = event;
-      if (input.kind === "stock") return { ...newFlow(), phase: "ready", input, origin: "stock", route: "direct", steps: [STOCK_READ] };
-      if (input.kind === "synth") return { ...newFlow(), phase: "ready", input, origin: "synth", route: "direct", steps: [{ id: "read", label: "Datei erkannt: blaue Electribe 2, Synth 2.02", status: "ok", detail: "" }] };
+      if (input.kind === "stock") return { ...newFlow(), phase: "ready", input, origin: "stock", route: "direct", device: "red", steps: [STOCK_READ] };
+      if (input.kind === "synth") return { ...newFlow(), phase: "ready", input, origin: "synth", route: "direct", device: "blue", steps: [{ id: "read", label: "Datei erkannt: blaue Electribe 2, Synth 2.02", status: "ok", detail: "" }] };
       if (input.kind !== "hacktribe") return { ...newFlow(), phase: "rejected", input };
-      return { ...newFlow(), phase: "ready", input, origin: "hacktribe", steps: [{ id: "read", label: "Datei erkannt: Hacktribe 2.02", status: "ok", detail: "" }] };
+      const blue = input.hardware === "blue";
+      return { ...newFlow(), phase: "ready", input, origin: "hacktribe", device: blue ? "blue" : "red", steps: [{ id: "read", label: `Datei erkannt: Hacktribe 2.02${blue ? " für die blaue Electribe" : ""}`, status: "ok", detail: "" }] };
+    }
+    case "device": {
+      // a copy made for the other Electribe is another copy: what was patched or checked goes
+      if (!choosesDevice(flow) || RUNNING.has(flow.phase) || !["red", "blue"].includes(event.device) || event.device === flow.device) return flow;
+      const done = ["passed", "downloaded", "failed"].includes(flow.phase);
+      return { ...flow, device: event.device, ...(done ? { phase: "ready", report: null, error: null, untested: false, steps: flow.steps.filter(s => s.id === "read" || s.id === "convert") } : {}) };
     }
     case "route": {
       // `event.input` is Korg's original again, whichever route the file was on
       if (flow.origin !== "stock" || RUNNING.has(flow.phase) || !["direct", "hacktribe"].includes(event.route)) return flow;
       const direct = event.route === "direct";
-      return { ...newFlow(), phase: direct ? "ready" : "needs-patch", input: event.input, origin: "stock", route: event.route, steps: direct ? [STOCK_READ] : [] };
+      return { ...newFlow(), phase: direct ? "ready" : "needs-patch", input: event.input, origin: "stock", route: event.route, device: direct ? "red" : flow.device ?? "red", steps: direct ? [STOCK_READ] : [] };
     }
     case "converted": {
       if (flow.phase !== "needs-patch") return flow;
       return {
-        ...newFlow(), phase: "ready", input: event.input, origin: "stock", route: "hacktribe",
+        ...newFlow(), phase: "ready", input: event.input, origin: "stock", route: "hacktribe", device: flow.device ?? "red",
         steps: [
           STOCK_READ,
           { id: "convert", label: "Mit hacktribe-2.patch zu Hacktribe 2.02 umgewandelt", status: "ok", detail: event.detail ?? "" },
@@ -227,9 +270,11 @@ export function step(flow, event) {
     case "patching": {
       if (!allowed(flow).patch) return flow;
       const base = flow.steps.filter(s => s.id === "read" || s.id === "convert");
+      const head = headFor(flow);
+      const headStep = head ? [{ id: "head", label: head === "blue" ? "Kopf der blauen gesetzt, für Korgs Firmware der blauen" : "Kopf des Samplers gesetzt, den Hacktribes Update nimmt", status: "ok", detail: head === "blue" ? "Byte 0x12 = 0x00, 0x2E = 0x23" : "Byte 0x12 = 0x53, 0x2E = 0x24" }] : [];
       return {
         ...flow, phase: "patching", report: null, error: null, untested: false,
-        steps: [...base, ...event.patches.map(p => ({ id: `patch:${p.id}`, label: p.label, status: "todo", detail: "" })), { id: "check", label: "Prüfung im Emulator", status: "todo", detail: "" }],
+        steps: [...base, ...headStep, ...event.patches.map(p => ({ id: `patch:${p.id}`, label: p.label, status: "todo", detail: "" })), { id: "check", label: "Prüfung im Emulator", status: "todo", detail: "" }],
       };
     }
     case "patch":
@@ -263,6 +308,9 @@ export function step(flow, event) {
     default: return flow;
   }
 }
+
+/** "blue" for Sampler code on the blue (Hacktribe for the blue), which the emulator check cannot tell from a Sampler head; the synth build it knows itself. */
+export const hardwareOfFlow = flow => (flow.device === "blue" && flow.origin !== "synth" ? "blue" : null);
 
 /** What the buttons may do now. The download and the emulator test only exist for a copy that passed the check. */
 export function allowed(flow) {

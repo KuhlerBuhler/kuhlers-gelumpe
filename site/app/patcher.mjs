@@ -8,8 +8,8 @@ import { applyPatches } from "../../src/patch.mjs";
 import { applyPatchFile, parsePatchFile } from "../../src/patchfile.mjs";
 import { NEWS } from "../../data/news.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
-import { buildOf } from "../../src/firmware.mjs";
-import { wayOf, classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
+import { buildOf, hardwareOf } from "../../src/firmware.mjs";
+import { wayOf, classify, convertStock, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -67,7 +67,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const drop = el("label", { className: "ui-dropzone" }, [
     fileInput,
     el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: "SYSTEM.VSB hierher ziehen oder " }), "auswählen"]),
-    el("span", { className: "ui-dropzone-hint", textContent: "Deine Hacktribe-Datei oder Korgs Original 2.02 für electribe sampler oder electribe (blau)" }),
+    el("span", { className: "ui-dropzone-hint", textContent: "Deine Hacktribe-Datei (rot oder blau) oder Korgs Original 2.02 für electribe sampler oder electribe (blau)" }),
     fileInfo,
   ]);
 
@@ -103,12 +103,23 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let toldVerdict = "";
   let closeVerdict = () => {};
   const synthSet = el("p", { className: "muted", id: "cee-patch-synth-set", hidden: true });
-  // Hacktribe for the blue needs the sampler's firmware and a changed header (Hacktribe's own patcher, -e), which this page does not build.
-  const blueHacktribe = el("p", { className: "muted", id: "cee-patch-blue-hacktribe", hidden: true }, [
-    "Hacktribe auf der blauen machst du mit ",
-    el("a", { className: "cee-text-link", href: "https://github.com/bangcorrupt/hacktribe/wiki/How-To", target: "_blank", rel: "noopener noreferrer", textContent: "Hacktribes eigenem Patcher" }),
-    " (aus Korgs Firmware für den electribe sampler 2.02, mit der Option für die blaue). Hier wird aus deiner blauen Firmware BLECH für die blaue.",
+  // Hacktribe is the Sampler's code: it is made from Korg's red file (or brought as a Hacktribe file), never from the blue one.
+  const blueHacktribe = el("p", { className: "muted", id: "cee-patch-blue-hacktribe", hidden: true },
+    "Aus der Firmware der blauen geht kein Hacktribe, Hacktribe ist der Code des Samplers. Für BLECH mit Hacktribe auf der blauen nimm in Schritt 1 Korgs Firmware der roten (electribe sampler 2.02) und hacktribe-2.patch und wähle die blaue, oder deine Hacktribe-Datei. Mit dieser Datei wird es BLECH für die blaue, ohne Hacktribe.");
+  // A copy with Hacktribe runs on the red and the blue: the user says which, the cable says it too when one is connected.
+  const deviceInputs = [["red", "Rot (electribe sampler)"], ["blue", "Blau (electribe)"]].map(([value, text]) => {
+    const radio = el("input", { type: "radio", name: "cee-patch-device", value });
+    radio.addEventListener("change", () => { if (radio.checked) chooseDevice(value); });
+    return { value, radio, label: el("label", { className: "ui-segmented-option" }, [radio, el("span", { textContent: text })]) };
+  });
+  const deviceGroup = el("div", { className: "ui-segmented", id: "cee-patch-device" }, deviceInputs.map(d => d.label));
+  deviceGroup.setAttribute("role", "radiogroup");
+  deviceGroup.setAttribute("aria-label", "Für welche Electribe");
+  const deviceNote = el("p", { className: "muted", id: "cee-patch-device-note" });
+  const deviceBox = el("section", { className: "cee-patch-choice", id: "cee-patch-device-box", hidden: true }, [
+    el("p", { className: "cee-patch-lead", textContent: "Für welche Electribe ist die Datei?" }), deviceGroup, deviceNote,
   ]);
+  let cable = null;             // "red" or "blue": what the Electribe connected over USB said it is, null when none is or it cannot tell
   // Step 2 chooses what goes on the file: BLECHTRIBE of this version or an own BLECH.patch, and on Korg's original Hacktribe as well.
   const release = NEWS[0].version.split(".").slice(0, 2).join(".");
   const useLatest = el("input", { type: "checkbox", id: "cee-patch-latest", checked: true });
@@ -194,8 +205,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   // One panel per step of the way; Zurück and Weiter move between them, the flow decides how far Weiter may go.
   const panels = [
-    [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, blueHacktribe, verdictBox, korg],
-    [blechBox, routeBox, plan, synthSet],
+    [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: "Wenn nicht:" }), drop, verdictBox, korg],
+    [blechBox, routeBox, deviceBox, plan, synthSet, blueHacktribe],
     [testBox, bar, note, groupList, checksBox],
     [target, result, done],
   ].map((children, i) => el("div", { className: "cee-patch-panel", id: `cee-patch-step-${i + 1}`, tabIndex: -1, hidden: i > 0 }, children));
@@ -330,7 +341,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     useLatest.disabled = can.busy;
     blechInfo.textContent = ownPatch ? `${ownPatch.file.name} ${ownPatch.file.version}` : "";
     // The field says which file it holds and what it is; pick() empties the input, so ui.js cannot show the name.
-    const held = flow.input && fileName ? `${fileName}: ${FOUND[flow.origin] ?? "nicht passend"}` : "";
+    const found = flow.origin === "hacktribe" && flow.input?.hardware === "blue" ? "Hacktribe 2.02 für die blaue erkannt" : FOUND[flow.origin];
+    const held = flow.input && fileName ? `${fileName}: ${found ?? "nicht passend"}` : "";
     drop.toggleAttribute("data-selected", true);
     drop.toggleAttribute("data-filled", !!held && !!flow.origin);
     fileInfo.textContent = held;
@@ -343,6 +355,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     routeBox.hidden = flow.origin !== "stock";
     synthSet.hidden = flow.origin !== "synth";
     blueHacktribe.hidden = flow.origin !== "synth";
+    deviceBox.hidden = !choosesDevice(flow);
+    for (const d of deviceInputs) { d.radio.checked = d.value === flow.device; d.radio.disabled = can.busy; }
+    deviceNote.textContent = !choosesDevice(flow) ? "" : [
+      flow.device === "blue" ? (flow.origin === "stock" ? "Auf der blauen läuft jetzt Korgs Firmware: die Datei bekommt den Kopf der blauen." : "Auf der blauen läuft jetzt Hacktribe: die Datei behält den Kopf des Samplers, den Hacktribes Update nimmt.") : "",
+      cable && cable !== flow.device ? `Achtung: die verbundene Electribe ist die ${cable === "blue" ? "blaue" : "rote"}.` : "",
+    ].filter(Boolean).join(" ");
     if (!synthSet.hidden) synthSet.textContent = `Synth-Satz: ${itemsFor(blech, "synth").map(p => p.label).join(", ")}. Den Startbild-Editor am Gerät gibt es auf der blauen noch nicht, das Startbild kommt aus der App.`;
     withHacktribe.checked = flow.route === "hacktribe";
     withHacktribe.disabled = can.busy;
@@ -354,7 +372,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     for (const t of testInputs) { t.radio.checked = t.value === testChoice; t.radio.disabled = can.busy; }
     testNote.textContent = TESTS.find(([v]) => v === testChoice)[2];
     consentBox.hidden = testChoice !== "none";
-    targetPath.textContent = `${cardFolder(flow.origin)}SYSTEM.VSB`;
+    targetPath.textContent = `${folderOf(flow)}SYSTEM.VSB`;
     untested.hidden = !flow.untested;
     fileInput.disabled = can.busy;
 
@@ -373,6 +391,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usbGet.disabled = can.busy;
     download.disabled = !can.download;
     afraid.disabled = !can.test;
+    // the update test runs the dropped file; it stands for the device only when it is made for the same Electribe
+    afraid.hidden = !rehearsable();
     done.hidden = flow.phase !== "downloaded";
   }
 
@@ -416,7 +436,27 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     stockFile = kind.kind === "stock" ? { bytes, kind } : null;
     passed = null;
     dispatch({ type: "input", input: kind });
+    await askCable();
   }
+
+  /** What the Electribe on the cable is, red or blue; it picks the device for a copy with Hacktribe. */
+  async function askCable() {
+    const s = session();
+    try { cable = s?.hardware ? await s.hardware() : null; } catch { cable = null; }
+    if (cable && choosesDevice(flow)) dispatch({ type: "device", device: cable });
+    else render();
+  }
+
+  function chooseDevice(device) {
+    if (allowed(flow).busy) return;
+    passed = null;
+    dispatch({ type: "device", device });
+  }
+
+  /** The bytes the patches go on: the input with the head the device takes (headFor). */
+  const base = () => (headFor(flow) ? withHead(input, headFor(flow)) : input);
+
+  const rehearsable = () => !!original && (flow.device !== "blue" || flow.origin === "synth" || hardwareOf(original) === "blue");
 
   function chooseRoute(route) {
     if (!stockFile || route === flow.route || allowed(flow).busy) return;
@@ -456,7 +496,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     try {
       const items = planItems();
       await tick();
-      const res = ownPatch ? await applyPatchFile(input, ownPatch.bytes) : await applyPatches(input, (await loadPatches()).patches);
+      const from = base();
+      const res = ownPatch ? await applyPatchFile(from, ownPatch.bytes) : await applyPatches(from, (await loadPatches()).patches);
       if (!res.ok) {
         for (const p of items) {
           const own = res.reasons.filter(r => r.startsWith(`${p.id}:`)).map(r => r.slice(p.id.length + 2));
@@ -477,8 +518,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       dispatch({ type: "checking" });
       await tick();
       // a copy checked before needs no run; otherwise the quick check (start and rescue paths) or the full one
-      const report = (testChoice === "quick" ? await verifiedReport(input, res.bytes, await loadVerified()) : null)
-        ?? await emulator.check(input, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: testChoice === "quick" });
+      const hardware = hardwareOfFlow(flow);
+      const report = (testChoice === "quick" ? await verifiedReport(from, res.bytes, await loadVerified(), hardware) : null)
+        ?? await emulator.check(from, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: testChoice === "quick", hardware });
       if (report.ok) passed = res.bytes;
       dispatch({ type: "checked", report });
     } catch (e) {
@@ -487,9 +529,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   }
 
   function buildDone() {
-    const folder = cardFolder(flow.origin);
+    const folder = folderOf(flow);
     const old = sampleFolder(flow.origin);
-    const moves = blech?.items.some(p => p.id === "blechtribe");
+    // Korg's firmware of the blue keeps the synth's files, which the Sampler code cannot read: nothing to copy then
+    const moves = blech?.items.some(p => p.id === "blechtribe") && !(flow.origin === "stock" && flow.device === "blue");
     done.replaceChildren(
       el("h2", { textContent: "Viel Spaß beim BLECHEN" }),
       el("ol", { className: "cee-patch-guide" }, [
@@ -510,7 +553,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
           ", also in den Ordner der Firmware, die jetzt auf dem Gerät läuft", moves ? ", nicht nach blechtribe" : "", ". Die Datei dort wird ersetzt.",
         ]),
         el("li", { textContent: "Lege die Karte bei ausgeschaltetem Gerät ein und schalte es ein. Nimm das Netzteil oder frische Batterien." }),
-        flow.origin === "synth" ? el("li", { textContent: "Im Ordner KORG/electribe/System darf nur SYSTEM.VSB liegen. BOOT.VSB, USER.VSB und PCM.VSB gehören dort nicht hinein." }) : null,
+        folder === "KORG/electribe/System/" ? el("li", { textContent: "Im Ordner KORG/electribe/System darf nur SYSTEM.VSB liegen. BOOT.VSB, USER.VSB und PCM.VSB gehören dort nicht hinein." }) : null,
         el("li", { textContent: "Gehe zu Menü -> DATA UTILITY -> SOFTWARE UPDATE und drücke MENU. Starte das Gerät neu, wenn es dich auffordert." }),
         el("li", { textContent: "Schalte das Gerät während des Updates nicht aus." }),
       ].filter(Boolean)),
@@ -595,7 +638,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   }
 
   afraid.addEventListener("click", async () => {
-    if (!passed || !allowed(flow).test) return;
+    if (!passed || !allowed(flow).test || !rehearsable()) return;
     afraid.disabled = true;
     try {
       showHint(await emulator.rehearseUpdate(original, passed));

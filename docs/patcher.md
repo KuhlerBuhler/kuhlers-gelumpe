@@ -26,6 +26,9 @@ Ausschaltbild, Patternwechsel mit Bestätigung und Sync-Gruppen, TAP Motion, Not
 MFX 2, Pad-Farben mit Akkorden in Pink, BLECH-Menü und Plugins mit Blechy
 und die EXIT-Shortcuts (EXIT + WRITE, EXIT + Pad). Startbild-Editor, Preset-Erweiterung, Ladeanimation
 und Doom gehören nicht dazu.
+Wie auf der roten liest und schreibt BLECH auf der blauen `KORG/blechtribe/` statt `KORG/electribe/` (`blechtribe-synth.json`,
+[Messung](messungen/2026-10-26-blech-hacktribe-blau.md)); die Anleitung sagt, den alten Ordner zu kopieren. Fehlt der Ordner
+beim Schreiben, legt die Firmware ihn an.
 Die Spielhilfen lassen sich im BLECH-Menü einstellen; EXIT beim Einschalten schaltet BLECH ab.
 Patternwechsel, TAP Motion, Notenassistent und Würfeln brauchen eine Karte, die seit dem Einschalten einmal da war; wer sie danach zieht, behält die Funktionen ([Messung](messungen/2026-10-18-karte-gezogen-tap-blinkt.md)).
 Warum die übrigen Ports abgelehnt wurden und welche Prüfungen bestehen, steht in der
@@ -51,7 +54,7 @@ Warum die übrigen Ports abgelehnt wurden und welche Prüfungen bestehen, steht 
 | Sample-Fehler: der Lader von `e2sSample.all` überspringt ein Sample, das er nicht nehmen kann (Format, belegter Platz), und lädt das nächste; das Fenster nennt das erste (`Sample 371`, darunter der Grund) statt "Unknown Error."; elf Haken im Lader, auf beiden Builds | `data/patches/sample-errors.json`, `tools/patch/sample_errors.py`, `tools/emu/sample_error_cases.py`, `test/sample-errors.test.mjs`, [Messung](messungen/2026-10-15-sample-fehler.md) |
 | Werksbank im leeren Flash des Emulators (411 Einträge, ohne Korg-Daten), damit Werksplätze Samples aufnehmen | `tools/emu/factorybank.py`, `tools/emu/machine.py` (`blank_flash`), `tools/emu/test_factorybank.py`, [Messung](messungen/2026-10-15-sample-fehler.md) |
 | Startbild des Editors im Flash (Sektor `0x7F0000`), ab dem ersten Bild beim Start (Idee 35); vom 15. bis 16.10. lag es auf der Karte | `tools/patch/splash_editor.py`, `tools/emu/splash_cases.py`, [Messung](messungen/2026-10-15-startbild-karte.md) |
-| Geprüfte Kopien: dieselbe Eingabe mit demselben Patch-Satz ergibt dieselbe Datei und dieselben Starts, die Prüfung im Emulator entfällt für Kopien, deren SHA-256 von Eingabe und Ergebnis in der Liste stehen (vor dem Release mit Korgs roter und blauer 2.02 und Hacktribe 2.02 gebaut) | `src/patcher.mjs` (`verifiedReport`), `data/patches/verified.json`, `tools/verify-patches.mjs`, `test/patcher.test.mjs` |
+| Geprüfte Kopien: dieselbe Eingabe mit demselben Patch-Satz ergibt dieselbe Datei und dieselben Starts, die Prüfung im Emulator entfällt für Kopien, deren SHA-256 von Eingabe und Ergebnis in der Liste stehen (vor dem Release mit Korgs roter und blauer 2.02, Hacktribe 2.02 und Hacktribe für die blaue gebaut; diese mit `"hardware": "blue"`) | `src/patcher.mjs` (`verifiedReport`), `data/patches/verified.json`, `tools/verify-patches.mjs`, `test/patcher.test.mjs` |
 | Kurzprüfung: eine Kopie, die nicht in der Liste steht, prüft der Patcher zuerst nur auf Start und Rettungswege (normaler Start, Update-Abfrage, Panel-Update, Startmodi, EXIT, DSP einmal, Startphase), auf dem Mac 14 s statt rund 7 min; die Tests der einzelnen Patches laufen nur mit der Wahl "Voller Test", denn sie prüfen unseren Code, der in jeder Datei derselbe ist. "Kein Test" patcht nur und braucht ein Häkchen, dass der Nutzer die Folgen kennt | `tools/emu/check.py` (`--quick`), `tools/emu/server.py` (`/check?quick=1`), `site/app/patcher.mjs`, `test/patcher.test.mjs` |
 | Prüfung vor dem Export im Emulator | `tools/emu/check.py`, `tools/emu/bootmap.py`, `tools/emu/splash_cases.py`, `tools/emu/mfx_cases.py`, `tools/emu/menu_cases.py`, `tools/emu/pswitch_cases.py`, `tools/emu/tap_motion_cases.py`, `tools/emu/note_assist_cases.py`, `tools/emu/dice_cases.py`, `tools/emu/ifx_idle_cases.py`, `tools/emu/shortcut_cases.py`, `tools/emu/remote_cases.py`, `tools/emu/loadbar_cases.py`, `tools/emu/power_off_cases.py`, `tools/emu/synth_filter_cases.py` |
 | Schreibregel für die Karte (Plugin-Werte) | `tools/patch/script_store.s`, [Messung](messungen/2026-10-14-skript-speicher.md) |
@@ -596,6 +599,34 @@ benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige F
   fasst der Dienst nicht an: wer die Dateien von `KORG/hacktribe/` in `KORG/blechtribe/` der virtuellen Karte will,
   kopiert den Ordner selbst im Dateimanager ("Öffnen" im Feld SD-Karte). Früher kopierte der Dienst selbst und bot
   einen Knopf "Ordner für BLECH übernehmen" an; beides ist entfernt.
+
+### BLECH mit Hacktribe für die blaue Electribe 2
+
+Hacktribe ist Code des Samplers und läuft auf der roten und der blauen gleich ([Idee 65](ideen/65-blech-hacktribe-blau.md)).
+Für die blaue unterscheidet sich nur der Kopf der Datei (Byte `0x12` und `0x2E`), und der hängt an der Firmware, die beim
+Update auf dem Gerät läuft (gemessen, [Messung](messungen/2026-10-26-blech-hacktribe-blau.md)):
+
+| Eingabe | Electribe | Kopf des Ergebnisses | Kartenordner |
+|---|---|---|---|
+| Hacktribe-Datei (roter oder blauer Kopf) | rot oder blau | Sampler (`0x53`, `0x24`): Hacktribes Update nimmt nur ihn | `KORG/hacktribe/System/` |
+| Korgs rote 2.02 mit `hacktribe-2.patch` | rot | Sampler | `KORG/electribe sampler/System/` |
+| Korgs rote 2.02 mit `hacktribe-2.patch` | blau | blau (`0x00`, `0x23`, wie Hacktribes `-e`): Korgs Firmware der blauen nimmt nur ihn | `KORG/electribe/System/` |
+| Korgs blaue 2.02 | blau | blau, Synth-Satz ohne Hacktribe | `KORG/electribe/System/` |
+
+- **Welche Electribe:** bei jeder Kopie mit Hacktribe fragt Schritt 2 "Für welche Electribe ist die Datei?". Vorgewählt ist,
+  was der Kopf der Datei sagt; ist eine Electribe per USB verbunden, gilt sie (`DeviceSession.hardware`: Modell `0x23` ist
+  Korgs blaue, sonst die Kennung im Flash bei `0x220000`, gelesen mit Hacktribes oder BLECHs Flash-Lesen). Passt die Wahl
+  nicht zur verbundenen, sagt die Seite es in einer Zeile.
+- **Aus Korgs blauer Datei** geht kein Hacktribe: `hacktribe-2.patch` baut nur aus Korgs roter Datei. Die Seite sagt das in
+  Schritt 2 und nennt den Weg über die rote Datei.
+- **Kopf:** gesetzt vor dem Patchen (`headFor`, `withHead` in `src/patcher.mjs`), damit Eingabe und Ergebnis denselben Kopf
+  haben; die Liste der Schritte nennt ihn.
+- **Prüfung:** für die blaue schickt die Seite `hardware=blue` an `POST /check`, der Emulator startet die Kopie auf dem Flash
+  der blauen (Kennung `KORGelec2USR`). Die Liste geprüfter Kopien führt sie mit `"hardware": "blue"`.
+- **"Ich hab Angst":** für Korgs rote Datei mit Hacktribe für die blaue gibt es den Knopf nicht, der Probelauf liefe mit
+  Korgs roter Firmware statt mit der blauen.
+- Gebaut und im Emulator geprüft, am Gerät offen. Was der Emulator nicht zeigt (Hintergrundlicht-Pins, Pad-LEDs, Klang
+  der blauen unter Sampler-Code), steht in der Idee unter "Offene Risiken".
 
 ### BLECH direkt auf Korgs Original 2.02
 

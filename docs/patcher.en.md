@@ -88,6 +88,15 @@ All six apply together. The page applies them in the browser, and the result is 
   - **"BLECH mit Hacktribe (hacktribe-2.patch selbst mitbringen)"**, BLECH with Hacktribe: the page first
     turns Korg's file into Hacktribe's file and then adds BLECH. You bring Hacktribe's `hacktribe-2.patch`
     yourself.
+- **Hacktribe on the blue Electribe 2.** Hacktribe is the Sampler's code and runs on both. For every copy with
+  Hacktribe, step 2 asks which Electribe it is for (preset from the file's head, or from an Electribe connected over
+  USB). Only the file head differs, and it follows the firmware that runs during the update: a Hacktribe file
+  (red or blue head) gets the Sampler head and goes to `KORG/hacktribe/System/`; Korg's red 2.02 with
+  `hacktribe-2.patch` for the blue gets the blue head (as Hacktribe's `-e`) and goes to `KORG/electribe/System/`, where
+  Korg's blue firmware takes it. The check runs on the blue's flash. Built and checked in the emulator, **open on the
+  device** ([measurement](messungen/2026-10-26-blech-hacktribe-blau.md), German).
+- Korg's blue 2.02 gets the synth set. Hacktribe cannot be made from it (`hacktribe-2.patch` only builds from Korg's red
+  file); the page says so and points to the red file.
 - Any other file is rejected.
 
 **Why you bring `hacktribe-2.patch` yourself.** Hacktribe's README says that the contents of its `patch`

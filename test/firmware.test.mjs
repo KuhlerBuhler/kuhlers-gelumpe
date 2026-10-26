@@ -1,7 +1,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { identify, buildOf, lackOf, FEATURES, STOCK_REASON, SYNTH_REASON } from "../src/firmware.mjs";
+import { identify, buildOf, hardwareOf, lackOf, FEATURES, STOCK_REASON, SYNTH_REASON } from "../src/firmware.mjs";
 import { makeFirmware } from "./helpers.mjs";
 
 // Korg's own build leaves the run Hacktribe puts its code in erased; the stand-in image has it zeroed.
@@ -69,6 +69,7 @@ describe("the blue Electribe 2 (synth)", () => {
     const hacktribeOnBlue = Uint8Array.from(await makeFirmware());
     hacktribeOnBlue.set([0x45, 0x32, 0x00], 0x10);
     assert.equal(buildOf(hacktribeOnBlue), "hacktribe", "Hacktribe's code with the synth head is Hacktribe, not Korg's blue");
+    assert.equal(hardwareOf(hacktribeOnBlue), "blue");
     const sampler = Uint8Array.from(await makeFirmware());
     sampler.set([0x45, 0x32, 0x53], 0x10);
     assert.equal(buildOf(sampler), "hacktribe");
