@@ -4,6 +4,15 @@
  */
 export const NEWS = Object.freeze([
   Object.freeze({
+    version: "1.3.3",
+    items: Object.freeze([
+      "Sync Groups: klingende Samples laufen beim Wechsel in das nächste Pattern der Gruppe weiter.",
+      "Sync Groups: gestoppt mit ungespeicherten Änderungen lädt das Rad ein Pattern derselben Gruppe sofort.",
+      "Bei einem vorgemerkten Patternwechsel zeigen Pads und Infotexte schon das nächste Pattern.",
+      "Patcher: Hacktribe mit dem Kopf der blauen Electribe wird als Hacktribe erkannt.",
+    ]),
+  }),
+  Object.freeze({
     version: "1.3.2",
     items: Object.freeze([
       "Patcher: Hacktribe-Dateien bestehen die Prüfung wieder. 1.3.1 hat sie fälschlich abgelehnt.",

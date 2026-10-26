@@ -95,6 +95,12 @@ jobs:
           curl -fsSL "$URL" -o "$RUNNER_TEMP/SYSTEM.VSB"
           echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
       - run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
+      # The fresh entry (hashes only), so the run shows the exact pair.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-${{ matrix.name }}
+          path: data/patches/verified.json
+          retention-days: 30
       # The app skips its own emulator check for a pair listed in verified.json; a pair that is missing only makes
       # patching slower, so it is a warning.
       - name: The pair in verified.json
@@ -104,7 +110,7 @@ jobs:
             const [fresh] = JSON.parse(fs.readFileSync("data/patches/verified.json", "utf8")).results;
             const shipped = JSON.parse(require("child_process").execSync("git show HEAD:data/patches/verified.json", { encoding: "utf8" })).results;
             if (!shipped.some(r => r.input === fresh.input && r.output === fresh.output))
-              console.log(`::warning::verified.json lacks ${fresh.input.slice(0, 8)} -> ${fresh.output.slice(0, 8)}: the app checks this file in its emulator before patching. npm run verify:patches updates it.`);
+              console.log(`::warning::verified.json lacks ${fresh.input.slice(0, 8)} -> ${fresh.output.slice(0, 8)}: the app checks this file in its emulator before patching. The workflow Verify patches updates it.`);
           '
 
   release:
