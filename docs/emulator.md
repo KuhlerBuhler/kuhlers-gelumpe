@@ -668,6 +668,21 @@ ist nur verschoben. Messung und Belege:
   `tools/emu/synth_probe.py` ist das Werkzeug dazu (Bank lesen, Oszillator-Tabelle, Start mit einer selbstgebauten Bank,
   Stimmennachrichten, Kartenfunktionen); seine Tests laufen mit `E2_BLUE_VSB` in `npm run test:emu`.
 
+### Hacktribe auf der blauen
+
+Hacktribe für die blaue ist Sampler-Code auf der blauen Hardware ([Idee 65](ideen/65-blech-hacktribe-blau.md)). Welche
+Hardware der Emulator spielt, steht in der Kennung im Flash: die blaue `KORGelec2USR`, die rote `KORGele2sUSR`
+(`firmware.HARDWARE_MARKS`).
+
+- `machine.py --hardware blue` und `check.py --hardware blue` starten ohne `--flash` von einem leeren Flash der blauen,
+  mit ihrer Kennung und ohne Sample-Bank. Der Fall `normal_blank` von `check.py` nimmt die Hardware des gegebenen Flashs.
+- Der Dienst liest die Hardware aus dem Kopf der VSB (`E2` statt `E2S`): auch Hacktribe mit blauem Kopf läuft auf
+  `flash-synth.bin` und, solange die fehlt, auf einem leeren Flash der blauen. Eine Prüfung (`POST /check`) nimmt den Flash
+  der Hardware des Originals; `?hardware=blue` sagt es für eine Datei mit Sampler-Kopf, die auf der blauen laufen soll.
+- `tools/emu/hacktribe_blue_probe.py` geht jeden Update-Weg auf der blauen durch (Korgs blaue, Hacktribe, BLECH mit
+  Hacktribe, der Weg zurück), mit beiden Köpfen; Messung:
+  [BLECH mit Hacktribe auf der blauen](messungen/2026-10-26-blech-hacktribe-blau.md).
+
 ## Check und Tests
 
 ### Prüflauf
