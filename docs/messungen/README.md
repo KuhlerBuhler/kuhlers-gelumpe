@@ -177,6 +177,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 
 - [2026-10-15-doom-sd-lader](2026-10-15-doom-sd-lader.md)
 - [BLECH SysEx: RAM lesen und schreiben in großen Blöcken, mit CRC, FLASH READ, auch auf Korgs Original und der blauen Electribe 2](2026-10-15-blech-sysex.md)
+- [Die Sample-Datei über SysEx: lesen, hinzufügen, entfernen mit Tauschdatei (Emulator)](2026-10-26-sample-datei-sysex.md)
 - [Effekt-Editor auf Korgs Original: Records über die Zeigerfelder live lesen, schreiben und zurücknehmen, Schutztabelle je Build](2026-10-15-effekt-editor-original.md)
 
 - [Doom auf BLECH v21](2026-10-15-doom-v21.md)

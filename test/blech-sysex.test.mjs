@@ -11,7 +11,7 @@ import { protectTable } from "../src/sysex-table.mjs";
 import { allowedRegions } from "../src/plan.mjs";
 import { refusal } from "../src/protect.mjs";
 import PROTECTED from "../data/protected.mjs";
-import { BLECH, blechInfo, blechRead, blechBegin, blechData, classify, parseBlechInfo, parseBlechRead, parseBlechBegin, parseBlechData, BlechError, ReplyError, head, crc32, ackFor, pluginName, blechPluginBegin, describeMessage } from "../src/protocol.mjs";
+import { BLECH, blechInfo, blechRead, blechBegin, blechData, classify, parseBlechInfo, parseBlechRead, parseBlechBegin, parseBlechData, BlechError, ReplyError, head, crc32, ackFor, pluginName, blechPluginBegin, describeMessage, blechFileCopy, blechFileDelete, blechFileCrc, parseBlechFileCopy, parseBlechFileDelete, parseBlechFileCrc } from "../src/protocol.mjs";
 import { syxEnc, syxDec, u32le } from "../src/bytes.mjs";
 import EXEC from "../data/exec.mjs";
 import { hasBlechSysex } from "../src/firmware.mjs";
@@ -30,6 +30,7 @@ const venv = join(root, "tools/emu/.venv/bin/python");
 const python = process.env.E2_EMU_PYTHON || (existsSync(venv) ? venv : "python3");
 const CODE = 0x172200;     // file offsets: 0xC0172100 + 0x100
 const TABLE = 0x173900;
+const SAMPLE_CODE = 0x17ba50;  // 0xC017B950 + 0x100
 
 const words = (...v) => v.flatMap(u32le);
 const answer = (fn, ...v) => [0xf0, ...head(3), fn, ...syxEnc(words(...v)), 0xf7];
@@ -55,8 +56,8 @@ describe("the messages", () => {
 
   test("the function bytes collide with neither Korg's nor Hacktribe's", () => {
     const taken = [0x0e, 0x10, 0x11, 0x1c, 0x21, 0x22, 0x23, 0x24, 0x26, 0x30, 0x31, 0x32, 0x40, 0x41, 0x4c, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58];
-    for (const fn of [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.FLASH, BLECH.FILE_READ, BLECH.FILE_BEGIN, BLECH.PLUGIN_BEGIN, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, BLECH.R_FLASH, BLECH.R_FILE_READ, BLECH.R_FILE_BEGIN, BLECH.EXEC, BLECH.R_EXEC]) assert.ok(!taken.includes(fn), fn.toString(16));
-    assert.equal(new Set(Object.values(BLECH).filter(v => v > 0x5f && v < 0x7f)).size, 17);
+    for (const fn of [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.FLASH, BLECH.FILE_READ, BLECH.FILE_BEGIN, BLECH.PLUGIN_BEGIN, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, BLECH.R_FLASH, BLECH.R_FILE_READ, BLECH.R_FILE_BEGIN, BLECH.EXEC, BLECH.R_EXEC, BLECH.FILE_COPY, BLECH.FILE_DELETE, BLECH.FILE_CRC, BLECH.R_FILE_COPY, BLECH.R_FILE_DELETE, BLECH.R_FILE_CRC]) assert.ok(!taken.includes(fn), fn.toString(16));
+    assert.equal(new Set(Object.values(BLECH).filter(v => v > 0x5f && v < 0x7f)).size, 23);
   });
 
   test("a plugin file's name is 1 to 16 letters, digits, _ or -, and PLUGIN BEGIN carries it padded behind the three words", () => {
@@ -66,6 +67,20 @@ describe("the messages", () => {
     assert.deepEqual(syxDec(msg.slice(7, -1)), [0, 0, 0, 0, 10, 0, 0, 0, 0x34, 0x12, 0, 0, 0x61, 0x62, ...new Array(14).fill(0)]);
     assert.equal(describeMessage(msg).kind, "file-write");
     assert.throws(() => blechPluginBegin(3, 0, 10, 0, "a/b"));
+  });
+
+  test("the sample file commands: copy, delete and CRC carry their words, their answers are told apart and read", () => {
+    const sel = BLECH.FILE_SAMPLE | BLECH.FILE_OTHER;
+    assert.deepEqual(syxDec(blechFileCopy(3, BLECH.FILE_SAMPLE | 4096, sel | 8192, 0x40000).slice(7, -1)), words(BLECH.FILE_SAMPLE + 4096, sel + 8192, 0x40000));
+    assert.deepEqual(syxDec(blechFileDelete(3, sel).slice(7, -1)), words(sel));
+    assert.deepEqual(syxDec(blechFileCrc(3, BLECH.FILE_SAMPLE | 100, 500).slice(7, -1)), words(BLECH.FILE_SAMPLE + 100, 500));
+    for (const [fn, kind] of [[BLECH.R_FILE_COPY, "blech-file-copy"], [BLECH.R_FILE_DELETE, "blech-file-delete"], [BLECH.R_FILE_CRC, "blech-file-crc"]]) assert.equal(classify(answer(fn, 0), 3), kind);
+    assert.deepEqual(parseBlechFileCopy(answer(BLECH.R_FILE_COPY, 0, 99, 0xabcd), 3), { copied: 99, crc: 0xabcd });
+    assert.deepEqual(parseBlechFileCrc(answer(BLECH.R_FILE_CRC, 0, 4096, 500, 0x1234), 3), { offset: 4096, length: 500, crc: 0x1234 });
+    assert.equal(parseBlechFileDelete(answer(BLECH.R_FILE_DELETE, 0, sel), 3), undefined);
+    for (const [parse, fn] of [[parseBlechFileCopy, BLECH.R_FILE_COPY], [parseBlechFileDelete, BLECH.R_FILE_DELETE], [parseBlechFileCrc, BLECH.R_FILE_CRC]]) {
+      assert.throws(() => parse(answer(fn, 6, 0, 0, 0), 3), BlechError, "a status that is not ok is an error");
+    }
   });
 
   test("answers are told apart by kind, and one for another channel is not ours", () => {
@@ -210,7 +225,9 @@ describe("the patch", () => {
     const ram = PATCH.ram.map(r => [Number(r.at), Number(r.at) + r.length]);
     assert.deepEqual(ram, [[0xc0191000, 0xc0191100], [0xc0191100, 0xc019a400], [0xc019f000, 0xc01a0000]]);
     const code = PATCH.changes.find(c => c.file === CODE);
-    assert.ok(0xc0172100 + code.bytes.length / 2 <= 0xc0173800, "code");
+    assert.ok(0xc0172100 + code.bytes.length / 2 <= 0xc0173000, "code ends before the Sync Group's buffer");
+    const sample = PATCH.changes.find(c => c.file === SAMPLE_CODE);
+    assert.ok(sample && 0xc017b950 + sample.bytes.length / 2 <= 0xc017c190, "the sample file commands end before the preset tables' next change");
     assert.ok(0xc0173800 + PATCH.changes.find(c => c.file === TABLE).bytes.length / 2 <= 0xc0174000, "table");
   });
 
@@ -218,7 +235,7 @@ describe("the patch", () => {
     const run = spawnSync("python3", ["-c", "import sys, json; sys.path.insert(0, 'tools/patch'); import blech_sysex as b; print(json.dumps([b.FUNC_INFO, b.FUNC_READ, b.FUNC_BEGIN, b.FUNC_DATA, b.REPLY_INFO, b.REPLY_READ, b.REPLY_BEGIN, b.REPLY_DATA, b.STATUS_OK, b.STATUS_BAD_CRC, b.STATUS_REFUSED, b.STATUS_RANGE, b.STATUS_VERIFY, b.PROTOCOL_VERSION, b.MAX_BLOCK, b.FLAGS, b.FUNC_FLASH, b.REPLY_FLASH, b.STATUS_FLASH, b.FLASH_MAX, b.FLASH_LIMIT, b.FUNC_PBEGIN, b.NAME_MAX, b.FUNC_EXEC, b.REPLY_EXEC, b.EXEC_START, b.EXEC_END]))"], { cwd: root, encoding: "utf8" });
     assert.equal(run.status, 0, run.stderr);
     const { STATUS } = BLECH;
-    assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 0x7f, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000, BLECH.PLUGIN_BEGIN, BLECH.NAME_MAX, BLECH.EXEC, BLECH.R_EXEC, EXEC.stubAt, EXEC.stubAt + EXEC.stubSize]);
+    assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 0xff, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000, BLECH.PLUGIN_BEGIN, BLECH.NAME_MAX, BLECH.EXEC, BLECH.R_EXEC, EXEC.stubAt, EXEC.stubAt + EXEC.stubSize]);
   });
 
   test("the synth gets read commands with a table that refuses every RAM write, in its own set", () => {
