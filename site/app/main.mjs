@@ -524,11 +524,12 @@ function boot() {
   let popout = null;
   let terminal = null;
   let sd = null;
+  let sampleset = null;
   // One session on the emulator's port, shared by the effect editor's probe and the terminal's rehearsal.
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
   const device = devicePanel($("#cee-device"), {
-    onSession: () => { restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session && !device.session.sender.disconnected); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
+    onSession: () => { sampleset?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session && !device.session.sender.disconnected); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,
@@ -619,7 +620,7 @@ function boot() {
   const modulations = modulationsPage($("#cee-mod"), { emulator });
   const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: (parts, home) => nav.trail("baukasten", parts, home), navbar: nodes => nav.baukasten(nodes) });
   samplesPage($("#cee-samples"), { device, emulator, probe });
-  samplesFilePage($("#cee-sampleset"));
+  sampleset = samplesFilePage($("#cee-sampleset"), { device });
   let fxFirmware = null;
   let modFirmware = null;
   let plainFor = null;

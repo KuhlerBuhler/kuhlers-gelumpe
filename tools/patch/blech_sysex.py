@@ -83,7 +83,9 @@ HEADER = 0x100
 RAM = 0xC0000000
 
 CODE_AT = 0xC0172100            # free (FF) in the image, behind Hacktribe's code (ends 0xC01720B0) and clear of every other patch
-CODE_END = 0xC0173800
+CODE_END = 0xC0173000           # the Sync Group's buffer of the pattern switch begins here (data/patches/pattern-switch.json)
+SAMPLE_AT = 0xC017B950          # the sample file commands: free (FF) behind the second block of the preset tables, ends before 0xC017C190
+SAMPLE_END = 0xC017C190
 TABLE_AT = 0xC0173800           # the protection table, 412 bytes today (src/sysex-table.mjs)
 TABLE_END = 0xC0174000
 STATE = 0xC0191000              # run time state, in RAM only (behind the synth filters' 0xC0190000 to 0xC0190100)
@@ -98,6 +100,11 @@ FILE_AREA = 0xC019F000          # FatFs file object (0x224 bytes, measured), the
 FILE_AREA_END = 0xC01A0000
 FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
 FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
+FILE_SAMPLE = 0x40000000        # bit 30 of a FILE offset: the sample file Sample/e2sSample.all, with bit 31 as well Sample/e2sSample.tmp
+SAMPLE_LIMIT = 0x10000000       # offset plus length of a FILE command on the sample file (256 MiB)
+COPY_MAX = 0x40000              # bytes one FILE COPY or FILE CRC works on
+COPY_CHUNK = 0x4000             # bytes the copy moves at once through BUF
+FILE_FIL2 = FILE_AREA + 0x400   # the second FatFs file object, for FILE COPY
 NAME_MAX = 16                   # characters of a plugin file's name (PLUGIN BEGIN)
 
 # STATE: +0 pending (the magic below when a BEGIN waits for its DATA), +4 address, +8 length, +12 CRC,
@@ -106,10 +113,12 @@ S_PENDING, S_ADDR, S_LEN, S_CRC, S_REQ, S_MODE, S_RAW, S_OUT = 0, 4, 8, 12, 0x10
 PENDING_MAGIC = 0x444E4550      # "PEND": the image is FF where it has not been written, so 0 and FF both mean nothing waits
 
 FUNC_INFO, FUNC_READ, FUNC_BEGIN, FUNC_DATA, FUNC_FLASH, FUNC_FREAD, FUNC_FBEGIN, FUNC_PBEGIN, FUNC_EXEC = 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x6F
+FUNC_COPY, FUNC_DELETE, FUNC_CRC = 0x71, 0x72, 0x73
 REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY_FBEGIN, REPLY_EXEC = 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x70
+REPLY_COPY, REPLY_DELETE, REPLY_CRC = 0x79, 0x7A, 0x7B
 STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE = 0, 1, 2, 3, 4, 5, 6
 PROTOCOL_VERSION = 1
-FLAGS = 0x7F                    # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC
+FLAGS = 0xFF                    # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC)
 EXEC_START, EXEC_END = 0xC1000000, 0xC1000400   # the stub buffer of data/exec.mjs (stubAt, stubAt + stubSize)
 HACKTRIBE_FIRST, HACKTRIBE_FLASH_WRITE = 0x52, 0x56   # Hacktribe's commands are 0x52 to 0x57
 FLASH_MAX = 0x1000              # bytes in one FLASH READ: the sector size, the largest piece the firmware's own flash code takes at once
@@ -135,6 +144,7 @@ MODEL = 0x24                    # the model byte of the frame: 0x24 on the Sampl
 FLASH_OBJ = 0xC0029A40          # returns the flash object (the one the MFX 2 patch reads its table with)
 FLASH_READ = 0xC0029A74         # (object, destination, flash address, length): takes the firmware's lock, calls the driver, 1 on success
 FS_OPEN, FS_READ, FS_WRITE, FS_CLOSE, FS_LSEEK = 0xC009DB60, 0xC009DD74, 0xC009DFB8, 0xC009E3DC, 0xC009E404   # FatFs (docs/hintergrund/virtuelle-sd.md)
+FS_UNLINK = 0xC009E9B8          # f_unlink(path); the image has no f_truncate and no f_rename (docs/hintergrund/sample-datei.md)
 FOLDER = 0xC0035720             # (string object, id): the card folder the update reads from, "KORG/blechtribe/" with BLECH (measured)
 FOLDER_ID = 0x124               # the id the update passes (0x123 in the synth)
 STRING_FREE = 0xC00A21D4        # frees such a string object, as the update does after reading it
@@ -159,6 +169,12 @@ def sha(data):
 
 
 CRC_WORDS = ", ".join(f"{w:#010x}" for w in crc_nibbles())
+
+def unlink_body():
+    if FS_UNLINK is None:
+        return "    mov r0, #1\n    bx lr"
+    return f"    b {FS_UNLINK:#x}"
+
 
 def source():
     return f"""
@@ -189,6 +205,10 @@ def source():
 .equ FILE_NAME, {FILE_AREA + 0x300:#x}
 .equ NAME_MAX, {NAME_MAX}
 .equ FILE_LIMIT, {FILE_LIMIT:#x}
+.equ SAMPLE_LIMIT, {SAMPLE_LIMIT:#x}
+.equ COPY_MAX, {COPY_MAX:#x}
+.equ COPY_CHUNK, {COPY_CHUNK:#x}
+.equ FILE_FIL2, {FILE_FIL2:#x}
 .equ S_MODE, {S_MODE}
 .equ FLASH_MAX, {FLASH_MAX:#x}
 .equ FLASH_LIMIT, {FLASH_LIMIT:#x}
@@ -228,6 +248,9 @@ classify_hook:
     blo classify_ours
     cmp r1, #{FUNC_EXEC}
     beq classify_ours
+    sub r2, r1, #{FUNC_COPY}
+    cmp r2, #3
+    blo classify_ours
     sub r2, r1, #HT_FIRST
     cmp r2, #6
     blo classify_hacktribe
@@ -273,6 +296,12 @@ classify_ours:
     movne r2, #8
     cmp r1, #0x67
     moveq r2, #12+NAME_MAX
+    cmp r1, #{FUNC_COPY}
+    moveq r2, #12
+    cmp r1, #{FUNC_DELETE}
+    moveq r2, #4
+    cmp r1, #{FUNC_CRC}
+    moveq r2, #8
     b classify_receive
 classify_data:
     ldr r2, [r12]
@@ -331,7 +360,10 @@ process_hook:
     ldrb r12, [r0]
     cmp r12, #{FUNC_EXEC}
     beq process_ours
-    sub r12, r12, #0x60
+    sub r12, r12, #{FUNC_COPY}
+    cmp r12, #3
+    blo process_ours
+    add r12, r12, #{FUNC_COPY - 0x60}
     cmp r12, #8
     blo process_ours
 process_original:
@@ -372,6 +404,12 @@ process_ours:
     beq do_fbegin
     cmp r5, #0x67
     beq do_pbegin
+    cmp r5, #{FUNC_COPY}
+    beq do_fcopy
+    cmp r5, #{FUNC_DELETE}
+    beq do_fdelete
+    cmp r5, #{FUNC_CRC}
+    beq do_fcrc
     cmp r5, #{FUNC_EXEC}
     beq do_exec
     b do_data
@@ -598,7 +636,7 @@ do_data:
     bne data_reply
     ldr r0, [r6, #S_MODE]
     sub r0, r0, #1
-    cmp r0, #3                  ; 1 SYSTEM.VSB, 2 ORIGINAL.BIN, 3 a plugin file
+    cmp r0, #5                  ; 1 SYSTEM.VSB, 2 ORIGINAL.BIN, 3 a plugin file, 4 e2sSample.all, 5 e2sSample.tmp
     blo data_file
     mov r0, r8
     mov r1, r9
@@ -632,6 +670,8 @@ data_file:
     cmp r8, #0
     moveq r2, #0x0A             ; FA_CREATE_ALWAYS | FA_WRITE: the first block makes the file anew
     movne r2, #0x03             ; FA_OPEN_EXISTING | FA_READ | FA_WRITE
+    cmp r5, #3
+    moveq r2, #0x13             ; the sample file: opened or made, never cut by a block at offset 0 (that one is its header)
     bl FS_OPEN
     cmp r0, #0
     bne data_file_error
@@ -701,8 +741,10 @@ do_fbegin:
     ldr r10, [r6, #S_REQ + 8]
     mov r3, #0
     str r3, [r6]
-    mov r5, r8, lsr #31         ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN (r5, the function byte, is not needed any more)
-    bic r8, r8, #0x80000000
+    mov r5, r8, lsr #31         ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN, with bit 30 3 e2sSample.all, 4 e2sSample.tmp (r5, the function byte, is not needed any more)
+    tst r8, #{FILE_SAMPLE}
+    addne r5, r5, #3
+    bic r8, r8, #0xC0000000
 fbegin_checked:
     ldr r10, [r6, #S_REQ + 8]
     mov r0, #{STATUS_RANGE}
@@ -714,6 +756,8 @@ fbegin_checked:
     adds r3, r8, r9
     bcs fbegin_reply
     ldr r2, =FILE_LIMIT
+    cmp r5, #3
+    ldrhs r2, =SAMPLE_LIMIT
     cmp r3, r2
     bhi fbegin_reply
     str r8, [r6, #S_ADDR]
@@ -788,8 +832,10 @@ pb_named:
 do_fread:
     ldr r8, [r6, #S_REQ]
     ldr r9, [r6, #S_REQ + 4]
-    mov r11, r8, lsr #31        ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN
-    bic r8, r8, #0x80000000
+    mov r11, r8, lsr #31        ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN, with bit 30 3 e2sSample.all, 4 e2sSample.tmp
+    tst r8, #{FILE_SAMPLE}
+    addne r11, r11, #3
+    bic r8, r8, #0xC0000000
     mov r4, #{STATUS_RANGE}
     mov r5, #0
     ldr r3, =MAX_BLOCK
@@ -798,6 +844,8 @@ do_fread:
     adds r3, r8, r9
     bcs fread_failed
     ldr r2, =FILE_LIMIT
+    cmp r11, #3
+    ldrhs r2, =SAMPLE_LIMIT
     cmp r3, r2
     bhi fread_failed
     mov r0, r8
@@ -894,7 +942,8 @@ frb_error:
     pop {{r4, r5, r6, pc}}
 
 ; r0 = which: FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB", or
-; "System/ORIGINAL.BIN" for 1; for 2 the plugin file SD:KORG/blechtribe/Plugin/<FILE_NAME>.blech. Keeps r4 to r11.
+; "System/ORIGINAL.BIN" for 1, "Sample/e2sSample.all" for 3 and "Sample/e2sSample.tmp" for 4; for 2 the plugin file
+; SD:KORG/blechtribe/Plugin/<FILE_NAME>.blech. Keeps r4 to r11.
 file_path:
     cmp r0, #2
     beq plugin_path
@@ -916,8 +965,12 @@ fp_folder:
     bne fp_folder
 fp_tail:
     ldr r1, =update_name
-    cmp r4, #0
-    ldrne r1, =original_name
+    cmp r4, #1
+    ldreq r1, =original_name
+    cmp r4, #3
+    ldreq r1, =sample_name
+    cmp r4, #4
+    ldreq r1, =sample_tmp_name
 fp_name:
     ldrb r3, [r1], #1
     strb r3, [r0], #1
@@ -957,6 +1010,10 @@ update_name:
     .asciz "System/SYSTEM.VSB"
 original_name:
     .asciz "System/ORIGINAL.BIN"
+sample_name:
+    .asciz "Sample/e2sSample.all"
+sample_tmp_name:
+    .asciz "Sample/e2sSample.tmp"
 .align 4
 .pool
 
@@ -1194,6 +1251,313 @@ window_no:
     mov r0, #0
     pop {{r3, r4, r5, r6, r7, r8, pc}}
 .pool
+
+; The sample file commands sit apart from the rest, in the free run behind the preset tables' second block, so that the code above
+; keeps its room (the Sync Group's buffer of the pattern switch starts at 0xC0173000).
+.org {SAMPLE_AT:#x}
+; ---- the sample file ------------------------------------------------------------------------------------------------
+; r0 = a FILE offset with its selector bits: r0 = 3 (Sample/e2sSample.all, bit 30 only) or 4 (Sample/e2sSample.tmp, bits 30 and 31),
+; r1 = the offset; r0 = 0 when the word names no sample file. Touches r0 and r1.
+sel_decode:
+    bic r1, r0, #0xC0000000
+    tst r0, #{FILE_SAMPLE}
+    moveq r0, #0
+    bxeq lr
+    tst r0, #{FILE_OTHER:#x}
+    movne r0, #4
+    moveq r0, #3
+    bx lr
+
+; r0 = the bytes, r1 = their count, r2 = the running CRC state (0xFFFFFFFF at the start, the CRC-32 is its complement); returns it in r2
+crc_feed:
+    ldr r3, =crc_table
+cf_loop:
+    cmp r1, #0
+    bxeq lr
+    ldrb r12, [r0], #1
+    eor r2, r2, r12
+    and r12, r2, #15
+    ldr r12, [r3, r12, lsl #2]
+    eor r2, r12, r2, lsr #4
+    and r12, r2, #15
+    ldr r12, [r3, r12, lsl #2]
+    eor r2, r12, r2, lsr #4
+    sub r1, r1, #1
+    b cf_loop
+.pool
+
+; FILE COPY: source and target, each a FILE offset with its selector bits (one of the two sample files, not the same), and a length of
+; 1 to COPY_MAX. The bytes go from the source to the target through BUF in pieces of COPY_CHUNK, both files open at once; the target is
+; opened or made and never cut. Answers status, the bytes copied and the CRC-32 of them. Status 2 for a selector that is no sample file,
+; 3 for a range, 6 when the card says no (also a card that is full).
+do_fcopy:
+    sub sp, sp, #0x20            ; 0 source file, 4 its offset, 8 target file, 12 its offset, 16 left, 20 CRC state, 24 copied
+    mvn r5, #0
+    str r5, [sp, #20]
+    mov r5, #0
+    str r5, [sp, #24]
+    mov r4, #{STATUS_REFUSED}
+    ldr r0, [r6, #S_REQ]
+    bl sel_decode
+    cmp r0, #0
+    beq copy_reply
+    str r0, [sp]
+    str r1, [sp, #4]
+    ldr r0, [r6, #S_REQ + 4]
+    bl sel_decode
+    cmp r0, #0
+    beq copy_reply
+    str r0, [sp, #8]
+    str r1, [sp, #12]
+    ldr r2, [sp]
+    cmp r0, r2
+    beq copy_reply
+    mov r4, #{STATUS_RANGE}
+    ldr r9, [r6, #S_REQ + 8]
+    cmp r9, #0
+    beq copy_reply
+    ldr r3, =COPY_MAX
+    cmp r9, r3
+    bhi copy_reply
+    ldr r2, =SAMPLE_LIMIT
+    ldr r1, [sp, #4]
+    add r1, r1, r9
+    cmp r1, r2
+    bhi copy_reply
+    ldr r1, [sp, #12]
+    add r1, r1, r9
+    cmp r1, r2
+    bhi copy_reply
+    mov r4, #{STATUS_FILE}
+    ldr r0, [sp]
+    bl file_path
+    ldr r0, =FILE_FIL
+    ldr r1, =FILE_PATH
+    mov r2, #1                  ; FA_READ
+    bl FS_OPEN
+    cmp r0, #0
+    bne copy_reply
+    ldr r0, =FILE_FIL
+    ldr r1, [sp, #4]
+    bl FS_LSEEK
+    cmp r0, #0
+    bne copy_close1
+    ldr r0, =FILE_FIL           ; a source that ends before the length asked for is refused before the target is made
+    ldr r0, [r0, #FIL_SIZE]
+    ldr r1, [sp, #4]
+    add r1, r1, r9
+    cmp r0, r1
+    movlo r4, #{STATUS_RANGE}
+    blo copy_close1
+    ldr r0, [sp, #8]
+    bl file_path
+    ldr r0, =FILE_FIL2
+    ldr r1, =FILE_PATH
+    mov r2, #0x13               ; FA_OPEN_ALWAYS | FA_READ | FA_WRITE
+    bl FS_OPEN
+    cmp r0, #0
+    bne copy_close1
+    ldr r0, =FILE_FIL2
+    ldr r1, [sp, #12]
+    bl FS_LSEEK
+    cmp r0, #0
+    bne copy_close2
+    str r9, [sp, #16]
+copy_loop:
+    ldr r10, [sp, #16]
+    cmp r10, #0
+    beq copy_done
+    ldr r3, =COPY_CHUNK
+    cmp r10, r3
+    movhi r10, r3
+    ldr r0, =FILE_FIL
+    ldr r1, =BUF
+    mov r2, r10
+    ldr r3, =FILE_BR
+    bl FS_READ
+    cmp r0, #0
+    bne copy_close2
+    ldr r0, =FILE_BR
+    ldr r0, [r0]
+    cmp r0, r10
+    movne r4, #{STATUS_RANGE}   ; the source ends before the length asked for
+    bne copy_close2
+    ldr r0, =BUF
+    mov r1, r10
+    ldr r2, [sp, #20]
+    bl crc_feed
+    str r2, [sp, #20]
+    ldr r0, =FILE_FIL2
+    ldr r1, =BUF
+    mov r2, r10
+    ldr r3, =FILE_BR
+    bl FS_WRITE
+    cmp r0, #0
+    bne copy_close2
+    ldr r0, =FILE_BR
+    ldr r0, [r0]
+    cmp r0, r10
+    bne copy_close2
+    ldr r0, [sp, #24]
+    add r0, r0, r10
+    str r0, [sp, #24]
+    ldr r0, [sp, #16]
+    sub r0, r0, r10
+    str r0, [sp, #16]
+    b copy_loop
+copy_done:
+    ldr r0, =FILE_FIL2
+    bl FS_CLOSE
+    cmp r0, #0
+    bne copy_close1
+    ldr r0, =FILE_FIL
+    bl FS_CLOSE
+    cmp r0, #0
+    moveq r4, #{STATUS_OK}
+    b copy_reply
+copy_close2:
+    ldr r0, =FILE_FIL2
+    bl FS_CLOSE
+copy_close1:
+    ldr r0, =FILE_FIL
+    bl FS_CLOSE
+copy_reply:
+    ldr r2, [sp, #20]
+    mvn r2, r2
+    ldr r3, [sp, #24]
+    add sp, sp, #0x20
+    add r11, r6, #S_RAW
+    str r4, [r11]
+    str r3, [r11, #4]
+    str r2, [r11, #8]
+    mov r0, #{REPLY_COPY}
+    mov r1, r11
+    mov r2, #12
+    add r3, r6, #S_OUT
+    b reply_tail
+.pool
+
+; FILE DELETE: a FILE offset with its selector bits (one of the two sample files, the offset is ignored). Deletes that file with the
+; firmware's own f_unlink. Answers status and the word asked. Status 2 for a selector that is no sample file, 6 when the card says no
+; (a missing file counts).
+do_fdelete:
+    mov r4, #{STATUS_REFUSED}
+    ldr r0, [r6, #S_REQ]
+    bl sel_decode
+    cmp r0, #0
+    beq delete_reply
+    bl file_path
+    ldr r0, =FILE_PATH
+    bl fs_unlink
+    cmp r0, #0
+    moveq r4, #{STATUS_OK}
+    movne r4, #{STATUS_FILE}
+delete_reply:
+    add r11, r6, #S_RAW
+    str r4, [r11]
+    ldr r3, [r6, #S_REQ]
+    str r3, [r11, #4]
+    mov r0, #{REPLY_DELETE}
+    mov r1, r11
+    mov r2, #8
+    add r3, r6, #S_OUT
+    b reply_tail
+
+; FILE CRC: offset with its selector bits and a length of 1 to COPY_MAX. Reads that range of the sample file from the card in pieces
+; and answers status, offset, the bytes read and their CRC-32, without sending them. Status 2, 3 and 6 as FILE COPY; 3 also when the
+; file ends before the length asked for.
+do_fcrc:
+    sub sp, sp, #8               ; 0 CRC state, 4 bytes read
+    mvn r5, #0
+    str r5, [sp]
+    mov r5, #0
+    str r5, [sp, #4]
+    mov r8, #0
+    mov r4, #{STATUS_REFUSED}
+    ldr r0, [r6, #S_REQ]
+    bl sel_decode
+    cmp r0, #0
+    beq fcrc_reply
+    mov r8, r1
+    mov r4, #{STATUS_RANGE}
+    ldr r9, [r6, #S_REQ + 4]
+    cmp r9, #0
+    beq fcrc_reply
+    ldr r3, =COPY_MAX
+    cmp r9, r3
+    bhi fcrc_reply
+    ldr r2, =SAMPLE_LIMIT
+    add r1, r8, r9
+    cmp r1, r2
+    bhi fcrc_reply
+    mov r4, #{STATUS_FILE}
+    bl file_path
+    ldr r0, =FILE_FIL
+    ldr r1, =FILE_PATH
+    mov r2, #1                  ; FA_READ
+    bl FS_OPEN
+    cmp r0, #0
+    bne fcrc_reply
+    ldr r0, =FILE_FIL
+    mov r1, r8
+    bl FS_LSEEK
+    cmp r0, #0
+    bne fcrc_close
+    mov r10, r9
+fcrc_loop:
+    cmp r10, #0
+    beq fcrc_ok
+    ldr r3, =COPY_CHUNK
+    mov r5, r10
+    cmp r5, r3
+    movhi r5, r3
+    ldr r0, =FILE_FIL
+    ldr r1, =BUF
+    mov r2, r5
+    ldr r3, =FILE_BR
+    bl FS_READ
+    cmp r0, #0
+    bne fcrc_close
+    ldr r0, =FILE_BR
+    ldr r0, [r0]
+    cmp r0, r5
+    movne r4, #{STATUS_RANGE}
+    bne fcrc_close
+    ldr r0, =BUF
+    mov r1, r5
+    ldr r2, [sp]
+    bl crc_feed
+    str r2, [sp]
+    ldr r0, [sp, #4]
+    add r0, r0, r5
+    str r0, [sp, #4]
+    sub r10, r10, r5
+    b fcrc_loop
+fcrc_ok:
+    mov r4, #{STATUS_OK}
+fcrc_close:
+    ldr r0, =FILE_FIL
+    bl FS_CLOSE
+fcrc_reply:
+    ldr r2, [sp]
+    mvn r2, r2
+    ldr r3, [sp, #4]
+    add sp, sp, #8
+    add r11, r6, #S_RAW
+    str r4, [r11]
+    str r8, [r11, #4]
+    str r3, [r11, #8]
+    str r2, [r11, #12]
+    mov r0, #{REPLY_CRC}
+    mov r1, r11
+    mov r2, #16
+    add r3, r6, #S_OUT
+    b reply_tail
+
+; f_unlink(r0 = path) of the firmware; the blue Electribe 2's image has none, there it fails with 1 (FR_DISK_ERR)
+fs_unlink:
+{unlink_body()}
+.pool
 """
 
 
@@ -1224,13 +1588,27 @@ def use_build(build, ref=None, vsb=None):
         except fwmap.Unmapped as error:
             raise SystemExit(f"{name}: {error}")
     globals().update(found)
+    try:
+        found["FS_UNLINK"] = globals()["FS_UNLINK"] = mapped.at(FS_UNLINK)
+        if not mapped.same_code(FS_UNLINK):
+            raise fwmap.Unmapped("not the same code")
+    except fwmap.Unmapped:
+        globals()["FS_UNLINK"] = None            # compiled out of the synth's FatFs: no FILE DELETE, no sample file flag
+        globals()["FLAGS"] = FLAGS & ~0x80
     return found
 
 
 def build_code():
     code = arm.assemble(source())
-    (at, data), = code.sections
+    (at, data), _ = code.sections
     return at, data, code.symbols
+
+
+def build_sample_code():
+    """The second section: the sample file commands."""
+    code = arm.assemble(source())
+    _, (at, data) = code.sections
+    return at, data
 
 
 def file_offset(addr):
@@ -1246,6 +1624,9 @@ def build_patch(vsb, table, build):
     at, code, symbols = build_code()
     if at != CODE_AT or at + len(code) > CODE_END:
         raise SystemExit(f"code is {len(code):#x} bytes, room for {CODE_END - CODE_AT:#x}")
+    sample_at, sample_code = build_sample_code()
+    if sample_at != SAMPLE_AT or sample_at + len(sample_code) > SAMPLE_END:
+        raise SystemExit(f"the sample file commands are {len(sample_code):#x} bytes, room for {SAMPLE_END - SAMPLE_AT:#x}")
     if len(table) % 4 or TABLE_AT + len(table) > TABLE_END:
         raise SystemExit(f"the table is {len(table)} bytes, room for {TABLE_END - TABLE_AT}")
     if BUF_END - BUF < BUFFER_REQUIRED:
@@ -1273,6 +1654,8 @@ def build_patch(vsb, table, build):
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
              "note": "BLECH SysEx: the two hooks, the CRC-32, the packing, the range check and the commands"},
+            {"file": file_offset(SAMPLE_AT), "bytes": sample_code.hex(), "expect": free(SAMPLE_AT, len(sample_code)),
+             "note": "BLECH SysEx: FILE COPY, FILE DELETE and FILE CRC on the sample file, and what they use"},
             {"file": file_offset(TABLE_AT), "bytes": bytes(table).hex(), "expect": free(TABLE_AT, len(table)),
              "note": "the protection table, cut from data/protected.mjs by src/sysex-table.mjs"},
             {"file": file_offset(CLASSIFY_HOOK), "bytes": classify.hex(), "expect": sha(was(CLASSIFY_HOOK, 4)),
@@ -1316,6 +1699,8 @@ def main():
     if a.listing:
         at, code, symbols = build_code()
         print(f"section {at:#x} + {len(code):#x} bytes, room for {CODE_END - CODE_AT:#x}")
+        sample_at, sample_code = build_sample_code()
+        print(f"section {sample_at:#x} + {len(sample_code):#x} bytes, room for {SAMPLE_END - SAMPLE_AT:#x}")
         for name, addr in sorted(symbols.items(), key=lambda kv: kv[1]):
             print(f"  {addr:#010x} {name}")
     text = json.dumps(patch, indent=1) + "\n"

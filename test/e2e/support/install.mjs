@@ -12,7 +12,10 @@ const list = name => (q.get(name) || "").split(",").filter(Boolean).map(Number);
 
 const bytes = new Uint8Array(await (await fetch("/test-support/files/system.vsb")).arrayBuffer());
 // ?noram: a sampler that answers the search and nothing else, so the page cannot read its display.
-const sim = installWebMidiStub({ image: q.has("noram") ? null : new VsbImage(bytes), hacktribe: !q.has("noram"), channel: 9, latencyMs: Number(q.get("latency") ?? 2) });
+// ?card: BLECH's own commands and a card the test fills (window.__ceeCard, a Map of file name to bytes: e2sSample.all, e2sSample.tmp, SYSTEM.VSB).
+const card = q.has("card") ? new Map() : null;
+window.__ceeCard = card;
+const sim = installWebMidiStub({ image: q.has("noram") ? null : new VsbImage(bytes), hacktribe: !q.has("noram"), channel: 9, latencyMs: Number(q.get("latency") ?? 2), blech: q.has("card"), card });
 
 // ?exec=1: the stand-in takes an execute command and notes the address, which it never does otherwise.
 if (q.has("exec")) sim.device.execute = addr => { (window.__ceeExec ??= []).push(addr); return true; };

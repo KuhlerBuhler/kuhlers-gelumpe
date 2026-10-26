@@ -37,11 +37,48 @@ rücken (aufsteigend, jeder nur nach unten, also liest ein einfaches Kopieren ni
 am Ende. Übertragen werden müssen nur der Kopf und die neuen Samples, das Verschieben macht der Besitzer der Datei. Aus dem
 Kartenleser läuft der Plan im Speicher (`applyPlan`).
 
-## Der Weg übers Kabel (SysEx): Stand
+## Der Weg übers Kabel (SysEx)
 
-**gemessen, offline im Code:** Die FILE-Befehle von BLECH (`0x65` FILE READ, `0x66` FILE BEGIN, `tools/patch/blech_sysex.py`)
-erreichen nur zwei Dateien: `SYSTEM.VSB` und `ORIGINAL.BIN` im Ordner der Firmware (Bit 31 des Offsets wählt), dazu schreibt
-`0x67` PLUGIN BEGIN eine Plugin-Datei. Offset plus Länge ist auf `0x200100` begrenzt. `e2sSample.all` ist damit in keinem der
-Ordner `electribe sampler`, `hacktribe` und `blechtribe` erreichbar. Für den Weg übers Kabel braucht es eine Erweiterung der
-Firmware: Lesen und Schreiben der Sample-Datei mit größeren Offsets, und einen Befehl, der nach dem Entfernen die Einträge auf der
-Karte aufrücken lässt und die Datei kürzt. **offen**, noch nicht gebaut.
+**gemessen im Emulator** ([Messung](../messungen/2026-10-26-sample-datei-sysex.md)), am Gerät **nicht** gemessen. Die FILE-Befehle von
+BLECH (`0x65` FILE READ, `0x66` FILE BEGIN, `tools/patch/blech_sysex.py`) erreichten vorher nur `SYSTEM.VSB` und `ORIGINAL.BIN` im
+Ordner der Firmware (Bit 31 des Offsets wählt), dazu `0x67` PLUGIN BEGIN eine Plugin-Datei, mit Offset plus Länge bis `0x200100`.
+`e2sSample.all` war in keinem der Ordner `electribe sampler`, `hacktribe` und `blechtribe` erreichbar. Jetzt gilt:
+
+| Befehl | Was er tut |
+|---|---|
+| Bit 30 im Offset von FILE READ und FILE BEGIN | `KORG/<Ordner>/Sample/e2sSample.all`; mit Bit 31 dazu die Tauschdatei `e2sSample.tmp` daneben. Der Ordner ist der, den das Update nimmt (die eigene Funktion der Firmware), Offset plus Länge bis 256 MiB |
+| `0x71` FILE COPY, Antwort `0x79` | Quelle, Ziel (je Selektor und Offset, die zwei Sample-Dateien, nicht dieselbe) und Länge 1 bis 256 KiB: kopiert auf der Karte in Stücken von 16 KiB, beide Dateien offen. Antwort: Status, kopierte Bytes, CRC-32 davon. Ist die Quelle kürzer als verlangt, wird abgelehnt, bevor das Ziel angelegt wird |
+| `0x72` FILE DELETE, Antwort `0x7A` | löscht eine der beiden Sample-Dateien mit `f_unlink` der Firmware. SYSTEM.VSB, ORIGINAL.BIN und Plugins sind abgelehnt |
+| `0x73` FILE CRC, Antwort `0x7B` | liest bis 256 KiB einer Sample-Datei von der Karte und schickt nur Status, Offset, Länge und CRC-32 |
+
+Ein Block bei Offset 0 schneidet `e2sSample.all` nicht ab (er schreibt den Kopf an Ort und Stelle, `FA_OPEN_ALWAYS`), bei der Tauschdatei
+macht er sie neu. INFO meldet Bit 7 der Flags, wenn die Befehle da sind. Auf der blauen Electribe 2 fehlt `f_unlink` im Abbild, dort
+antwortet DELETE mit 6 und INFO meldet Bit 7 nicht. Der Code liegt in einem zweiten Abschnitt bei `0xC017B950` (1116 Byte), weil der
+erste bis `0xC0173000` reicht, wo der Puffer der Sync Group anfängt.
+
+### Warum die Datei über eine Tauschdatei kleiner wird
+
+Das FatFs in der Firmware hat kein `f_truncate` und kein `f_rename` (**offline** gelesen: `f_getfree` `0xC009E85C` steht direkt vor
+`f_unlink` `0xC009E9B8`, `follow_path` `0xC009CF2C` wird nur von `f_open`, `f_opendir`, `f_stat`, `f_unlink` und `f_mkdir` gerufen). Eine
+Datei lässt sich also nicht kürzen und nicht umbenennen. Eigene Eingriffe in die FAT-Kette kommen nicht in Frage: ein Absturz darf Daten
+kosten, die Karte darf er nicht beschädigen. Entfernen geht deshalb so, und die Seite macht es von selbst:
+
+1. Kopf und neue Samples der neuen Datei kommen als Tauschdatei auf die Karte; was bleibt, kopiert die Electribe auf der Karte
+   (FILE COPY, aneinanderliegende Samples in einem Zug).
+2. Die Seite prüft die Tauschdatei: Größe und CRC-32, den das Gerät selbst von der Karte liest (FILE CRC), gegen die Teil-CRCs der
+   Antworten (`src/crc-combine.mjs`).
+3. Erst dann wird die alte Datei gelöscht, die Tauschdatei zurückkopiert, wieder geprüft und die Tauschdatei gelöscht.
+
+Bis zum Löschen der alten Datei ist an ihr nichts verändert, ein Fehler davor löscht nur die Tauschdatei. Bricht es danach ab (Kabel
+gezogen, Strom aus), liegt die fertige Tauschdatei auf der Karte; beim nächsten Lesen über USB bietet die Seite an, sie fertigzustellen,
+oder sie zu löschen, wenn ihr Kopf nicht zu ihrer Größe passt. Fehlt `e2sSample.all` dazwischen, lädt die Electribe beim Start keine
+Samples, die Karte ist heil. Eine Wiederherstellung beim Einschalten, ohne die App, gibt es **nicht**.
+
+Nur Hinzufügen braucht das nicht: die neuen Samples kommen hinter die alten, der Kopf zuletzt, ein Abbruch dazwischen lässt Samples
+zurück, die niemand listet, nie einen Kopf ohne seine Samples.
+
+### Wie die Seite listet
+
+Sie liest den Kopf und von jedem Sample die ersten 44 Byte und den Namen im Satz hinter dem Audio, nicht das Audio. Ein Eintrag mit
+anderem Aufbau als fmt, data, korg steht mit seiner Länge aus dem RIFF-Kopf und dem Vermerk `Aufbau nicht erkannt` da und lässt sich
+entfernen. Fehlt die Datei, ist die Liste leer, und ein erstes Sample legt sie an.

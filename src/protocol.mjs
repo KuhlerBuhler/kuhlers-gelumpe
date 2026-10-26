@@ -52,6 +52,7 @@ export const GLOBAL_SIZE = 256;
 export const BLECH = {
   INFO: 0x60, READ: 0x61, BEGIN: 0x62, DATA: 0x63, FLASH: 0x64, FILE_READ: 0x65, FILE_BEGIN: 0x66, PLUGIN_BEGIN: 0x67, EXEC: 0x6f,
   R_INFO: 0x68, R_READ: 0x69, R_BEGIN: 0x6a, R_DATA: 0x6b, R_FLASH: 0x6c, R_FILE_READ: 0x6d, R_FILE_BEGIN: 0x6e, R_EXEC: 0x70,
+  FILE_COPY: 0x71, FILE_DELETE: 0x72, FILE_CRC: 0x73, R_FILE_COPY: 0x79, R_FILE_DELETE: 0x7a, R_FILE_CRC: 0x7b,
   STATUS: { OK: 0, BAD_CRC: 1, REFUSED: 2, RANGE: 3, FLASH: 4, VERIFY: 5, FILE: 6 },
   /** INFO flag: FLASH READ, in pieces of up to FLASH_MAX bytes */
   FLAG_FLASH: 0x08,
@@ -62,6 +63,14 @@ export const BLECH = {
   FLAG_FILE: 0x10,
   /** INFO flag: plugin files can be written (PLUGIN BEGIN, SD:KORG/blechtribe/Plugin/<name>.blech) */
   FLAG_PLUGIN: 0x20,
+  /** INFO flag: the sample file Sample/e2sSample.all and its temp file can be read, written, copied between, checked and deleted */
+  FLAG_SAMPLE: 0x80,
+  /** bit 30 of a FILE offset: Sample/e2sSample.all; with bit 31 as well Sample/e2sSample.tmp */
+  FILE_SAMPLE: 0x40000000,
+  /** the largest offset + length on a sample file */
+  SAMPLE_LIMIT: 0x10000000,
+  /** the most bytes one FILE COPY or FILE CRC works on */
+  COPY_MAX: 0x40000,
   /** characters of a plugin file's name: letters, digits, "_" and "-" */
   NAME_MAX: 16,
   /** the largest offset + length of the update file: the size of a VSB */
@@ -127,10 +136,11 @@ export function classify(msg, channel) {
   // the Sampler's model byte, or the blue Electribe 2's for BLECH's own replies (its update file goes the same way)
   const ours = channel != null && [DEVICE_ID, 0x23].some(model => head(channel, model).every((b, i) => d[1 + i] === b));
   if (!ours) return "other";
-  if (d[5] !== DEVICE_ID && ![BLECH.R_INFO, BLECH.R_DATA, BLECH.R_FILE_READ, BLECH.R_FILE_BEGIN].includes(d[6])) return "other";
+  if (d[5] !== DEVICE_ID && ![BLECH.R_INFO, BLECH.R_DATA, BLECH.R_FILE_READ, BLECH.R_FILE_BEGIN, BLECH.R_FILE_COPY, BLECH.R_FILE_DELETE, BLECH.R_FILE_CRC].includes(d[6])) return "other";
   return { [READ_REPLY]: "read", [FUNC.PATTERN_DUMP]: "pattern", [FUNC.GLOBAL_DUMP]: "global", [WRITE_ACK]: "ack", [PATTERN_ACK]: "ack",
     [BLECH.R_INFO]: "blech-info", [BLECH.R_READ]: "blech-read", [BLECH.R_BEGIN]: "blech-begin", [BLECH.R_DATA]: "blech-data",
-    [BLECH.R_FILE_READ]: "blech-file-read", [BLECH.R_FILE_BEGIN]: "blech-file-begin", [BLECH.R_FLASH]: "blech-flash", [BLECH.R_EXEC]: "blech-exec" }[d[6]] ?? "other";
+    [BLECH.R_FILE_READ]: "blech-file-read", [BLECH.R_FILE_BEGIN]: "blech-file-begin", [BLECH.R_FLASH]: "blech-flash", [BLECH.R_EXEC]: "blech-exec",
+    [BLECH.R_FILE_COPY]: "blech-file-copy", [BLECH.R_FILE_DELETE]: "blech-file-delete", [BLECH.R_FILE_CRC]: "blech-file-crc" }[d[6]] ?? "other";
 }
 
 function checkHead(d, channel, func, model = DEVICE_ID) {
@@ -227,6 +237,10 @@ export const blechFlash = (channel, addr, length) => blechFrame(channel, BLECH.F
 export const blechExec = (channel, addr, arg = 0) => blechFrame(channel, BLECH.EXEC, words(addr, arg));
 export const blechFileRead = (channel, offset, length, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_READ, words(offset, length), model);
 export const blechFileBegin = (channel, offset, length, crc, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_BEGIN, words(offset, length, crc), model);
+/** The sample file commands: `source` and `target` are FILE offsets with their selector bits (FILE_SAMPLE, and FILE_OTHER for the temp file). */
+export const blechFileCopy = (channel, source, target, length, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_COPY, words(source, target, length), model);
+export const blechFileDelete = (channel, selector, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_DELETE, words(selector), model);
+export const blechFileCrc = (channel, offset, length, model = DEVICE_ID) => blechFrame(channel, BLECH.FILE_CRC, words(offset, length), model);
 /** A plugin file's name as the device takes it, or null: 1 to NAME_MAX letters, digits, "_" or "-". */
 export const pluginName = name => (typeof name === "string" && new RegExp(`^[A-Za-z0-9_-]{1,${BLECH.NAME_MAX}}$`).test(name) ? name : null);
 /** The announcement of a write to a plugin file; the answer is the one of FILE BEGIN, DATA follows the same way. */
@@ -293,6 +307,26 @@ export function parseBlechFileBegin(msg, channel, model = DEVICE_ID) {
   const { word } = blechWords(msg, channel, BLECH.R_FILE_BEGIN, 3, "Datei schreiben", model);
   if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei schreiben");
   return { offset: word(1), length: word(2) };
+}
+
+/** The answer to FILE COPY: the bytes copied and the CRC-32 of them. */
+export function parseBlechFileCopy(msg, channel, model = DEVICE_ID) {
+  const { word } = blechWords(msg, channel, BLECH.R_FILE_COPY, 3, "Datei kopieren", model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei kopieren");
+  return { copied: word(1), crc: word(2) };
+}
+
+/** The answer to FILE DELETE. */
+export function parseBlechFileDelete(msg, channel, model = DEVICE_ID) {
+  const { word } = blechWords(msg, channel, BLECH.R_FILE_DELETE, 2, "Datei löschen", model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei löschen");
+}
+
+/** The answer to FILE CRC: the offset, the bytes read and their CRC-32. */
+export function parseBlechFileCrc(msg, channel, model = DEVICE_ID) {
+  const { word } = blechWords(msg, channel, BLECH.R_FILE_CRC, 4, "Datei prüfen", model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei prüfen");
+  return { offset: word(1), length: word(2), crc: word(3) };
 }
 
 /** The answer to BEGIN: ok, or the reason the write was refused before any byte was sent. */
