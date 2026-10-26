@@ -38,6 +38,19 @@ mehr als den Kopf und die neuen Samples zu übertragen, und ohne die Karte zu ge
   Tauschdatei geht), ein beschädigtes Zurückkopieren (die fertige Tauschdatei bleibt, `finishTemp` schließt es ab) und eine kaputte
   Tauschdatei (wird erkannt und gelöscht): `test/usb-sample-file.test.mjs`, `test/e2e/sampleset-device.e2e.mjs`.
 
+## Am Gerät: Lesegeschwindigkeit
+
+Rote Electribe 2 am Linux-Laptop, USB 2.0 High Speed, Python mit `mido`, nur gelesen, nichts geschrieben.
+
+- **gemessen:** Auf der Karte lag noch ein BLECH-Satz ohne die Sample-Befehle: INFO meldet die Flags `0x7f` (Bit 7 fehlt), FILE READ mit
+  Bit 30 antwortet mit Status 3. Die Sample-Datei selbst ließ sich darum am Gerät noch nicht lesen.
+- **gemessen:** Derselbe Weg der Firmware (FILE READ, `f_lseek` und `f_read` von der Karte, CRC-32 je Block) auf `SYSTEM.VSB`,
+  2.097.408 Byte: mit Blöcken von 32 KiB 8,68 s und 8,69 s, also **236 KiB/s**; mit 16 KiB 9,54 s (215 KiB/s).
+- **hergeleitet:** Die Sample-Datei geht über denselben Befehl, nur mit Bit 30 im Offset. Bei 236 KiB/s braucht eine volle Datei
+  (25 MiB Audio, 26,8 MB, [Speicher voll](2026-10-14-sample-speicher-voll.md)) rund 111 s, 5 MB rund 21 s. Mehr Audio als
+  25 MiB lädt die Electribe nicht; eine größere Datei auf der Karte bräuchte bei 100 MB rund 7 min. Die App liest in Blöcken der Größe, die INFO meldet
+  (32 KiB); ob Web MIDI oder das native MIDI der App gleich schnell sind, ist **offen**.
+
 ## Offen
 
 - Am Gerät (Karte, echter Kartenleser, Zeiten bei 20 MB) ist nichts gemessen. Die Zeit der Kopierschritte ist nur im Emulator gesehen.

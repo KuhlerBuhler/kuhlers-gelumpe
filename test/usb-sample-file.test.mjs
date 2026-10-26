@@ -2,9 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DeviceSession } from "../src/session.mjs";
 import { SAMPLE_FILE, SAMPLE_TEMP } from "../src/device.mjs";
-import { readDeviceSamples, writeDeviceChange, inspectTemp, finishTemp, discardTemp, needsCompaction } from "../src/usb-sample-file.mjs";
+import { readDeviceSamples, downloadDeviceSamples, writeDeviceChange, inspectTemp, finishTemp, discardTemp, needsCompaction } from "../src/usb-sample-file.mjs";
 import { parseSampleFile, planChange, applyPlan, entryFromWav, HEADER } from "../src/sample-file.mjs";
 import { simPort } from "./helpers.mjs";
+import { BLECH } from "../src/protocol.mjs";
 import { wav, file } from "./support/sample-file.mjs";
 
 // The sample file over USB (src/usb-sample-file.mjs) against the simulation of BLECH's sample file commands (src/device.mjs), which follows
@@ -163,4 +164,68 @@ test("a temp file with no sample file beside it is finished; a broken one is fou
 test("a firmware without the sample file commands is told why", async () => {
   const old = await device({}, { card: null });
   await assert.rejects(readDeviceSamples(old.session), /zu alt für Updates über USB/);
+});
+
+/** A sample file bigger than one piece of the download (BLECH.COPY_MAX), so it takes several. */
+function bigFile() {
+  const small = file({ 500: "Kick", 501: "Snare" });
+  const parsed = parseSampleFile(small);
+  const plan = planChange(small.subarray(0, HEADER), parsed, { add: [{ slot: 700, bytes: entryFromWav(wav({ frames: 300000 }), 700, "Pad") }] });
+  return applyPlan(small, plan);
+}
+
+test("downloading reads the whole file, audio and all, in pieces, and writes nothing", async () => {
+  const old = bigFile();
+  assert.ok(old.length > 2 * BLECH.COPY_MAX);
+  const { session, card } = await device({ [SAMPLE_FILE]: old });
+  const seen = [];
+  const got = await downloadDeviceSamples(session, (done, total) => seen.push([done, total]));
+  assert.deepEqual(got.bytes, old);
+  assert.deepEqual(names(got.parsed), [[500, "Kick"], [501, "Snare"], [700, "Pad"]]);
+  assert.deepEqual(seen.at(-1), [old.length, old.length]);
+  assert.ok(seen.length > 3, "progress per piece");
+  assert.deepEqual(card.log, [], "nothing was written");
+});
+
+test("downloading without a sample file on the card gives null", async () => {
+  const { session } = await device({});
+  assert.equal(await downloadDeviceSamples(session), null);
+});
+
+test("a block that comes back damaged is read again, the download is still exact", async () => {
+  const old = bigFile();
+  let hits = 0;
+  // flip one bit in the payload of the third FILE READ reply that carries bytes: its CRC no longer matches
+  const tamper = reply => {
+    if (reply[6] !== BLECH.R_FILE_READ || reply.length < 200 || ++hits !== 3) return null;
+    const out = reply.slice();
+    out[150] ^= 1;
+    return out;
+  };
+  const { session } = await device({ [SAMPLE_FILE]: old }, { tamper });
+  const got = await downloadDeviceSamples(session);
+  assert.ok(hits > 3);
+  assert.deepEqual(got.bytes, old);
+});
+
+test("a download can be cancelled between two pieces; the session stays usable", async () => {
+  const old = bigFile();
+  const { session, card } = await device({ [SAMPLE_FILE]: old });
+  const stop = new AbortController();
+  let pieces = 0;
+  await assert.rejects(downloadDeviceSamples(session, done => { if (done && ++pieces === 1) stop.abort(); }, stop.signal), { name: "AbortError" });
+  assert.equal(pieces, 1, "no piece after the cancel");
+  assert.deepEqual(card.log, []);
+  assert.equal((await readDeviceSamples(session)).parsed.samples.length, 3);
+});
+
+test("a file that is no sample file, or that changes while it is read, is not handed out", async () => {
+  const junk = new Uint8Array(5000).fill(7);
+  const a = await device({ [SAMPLE_FILE]: junk });
+  await assert.rejects(downloadDeviceSamples(a.session), /keine e2sSample.all/);
+  const old = bigFile();
+  const b = await device({ [SAMPLE_FILE]: old });
+  let once = false;
+  const grow = done => { if (done && !once) { once = true; Map.prototype.set.call(b.card, SAMPLE_FILE, Uint8Array.from([...old, 1, 2, 3])); } };
+  await assert.rejects(downloadDeviceSamples(b.session, grow), /geändert worden/);
 });
