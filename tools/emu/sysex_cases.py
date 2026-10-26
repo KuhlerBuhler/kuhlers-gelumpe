@@ -610,6 +610,11 @@ def file_cases(payload, flash):
                      and all(r and r["status"] == RANGE for r in bad) and on_card(dev) == short and not dev.m.asserts,
                      f"PLUGIN BEGIN writes {plugin} ({on_card(dev, plugin) == blob}), read back with its CRC; a name with a slash, dots, nothing, a zero inside, "
                      f"a dot or a letter beyond ASCII is refused: {[r and r['status'] for r in bad]}"))
+    bare, lk4 = device({f"KORG/{folder}/System/keep.txt": b"x"})
+    made = "KORG/blechtribe/Plugin/Made-Folder.blech"
+    nb, nd = lk4.plugin_write("Made-Folder", blob[:300])
+    out.append(entry("file_plugin_makes_folders", nb and nb["status"] == OK and nd and nd["status"] == OK and on_card(bare, made) == blob[:300] and not bare.m.asserts,
+                     f"a card without KORG/blechtribe (the blue's has only KORG/electribe): PLUGIN BEGIN makes the folders and writes {made} ({on_card(bare, made) == blob[:300]})"))
     nocard, lk2 = device(card=False)
     r = lk2.file_read(0, 0)
     out.append(entry("file_no_card", r and r["status"] == spec.STATUS_FILE and not nocard.m.asserts, f"without a card: status {r and r['status']}"))

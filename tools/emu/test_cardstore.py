@@ -110,15 +110,18 @@ class StoreTest(unittest.TestCase):
             self.assertEqual(card_folder(data), folder)
         self.assertEqual(card_folder(bytes(100)), "hacktribe", "no sample file name: the default")
 
-    def test_the_blue_firmware_uses_electribe_without_a_sample_filename(self):
+    def test_the_blue_firmware_names_its_folder_through_its_pool_word(self):
         from unittest.mock import patch
         payload = bytearray(0x200000)
-        text = b"KORG/electribe/\0"
-        payload[0x904D4:0x904D4 + len(text)] = text
+        payload[0x904D4:0x904D4 + 16] = b"KORG/electribe/\0"
+        payload[0x904E4:0x904E4 + 17] = b"KORG/blechtribe/\0"
         with patch.object(cardstore, "is_synth", return_value=True):
+            payload[0x325B4:0x325B8] = (0xC00904D4).to_bytes(4, "little")
             for raw in (payload, bytes(0x100) + payload):
                 self.assertEqual(card_folder(raw), "electribe")
-            payload[0x904D4] = 0
+            payload[0x325B4:0x325B8] = (0xC00904E4).to_bytes(4, "little")
+            self.assertEqual(card_folder(payload), "blechtribe", "with BLECH the word points at the rewritten window")
+            payload[0x904E4] = 0
             with self.assertRaises(CardError):
                 card_folder(payload)
 
