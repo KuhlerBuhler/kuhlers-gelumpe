@@ -1,5 +1,6 @@
 /** Own scripts in the browser. Storage is injected and may throw or be missing; the workspace then lives in memory. */
 import { LIMITS } from "../../data/script/contract.mjs";
+import { TextError, text, render } from "../text.mjs";
 
 const NAME = new RegExp(`^[A-Za-z][A-Za-z0-9_]{0,${LIMITS.nameLength - 1}}$`);
 export const STORAGE_KEY = "cee.scripts.v1";
@@ -55,7 +56,7 @@ export class Workspace {
 
   /** Create or replace the script `name`. A changed source drops the recorded probe, which belongs to the old text. */
   save({ name, source, inputs, probe, meta }) {
-    if (!validName(name)) throw new RangeError(`Name: ASCII, Buchstabe am Anfang, höchstens ${LIMITS.nameLength} Zeichen`);
+    if (!validName(name)) throw new RangeError(render(text("script.name.rule", { max: LIMITS.nameLength })));
     const at = this.items.findIndex(s => s.name === name);
     const old = at >= 0 ? this.items[at] : null;
     const next = {
@@ -70,10 +71,10 @@ export class Workspace {
   }
 
   rename(from, to) {
-    if (!validName(to)) throw new RangeError(`Name: ASCII, Buchstabe am Anfang, höchstens ${LIMITS.nameLength} Zeichen`);
-    if (this.get(to)) throw new Error(`„${to}“ gibt es schon.`);
+    if (!validName(to)) throw new RangeError(render(text("script.name.rule", { max: LIMITS.nameLength })));
+    if (this.get(to)) throw new TextError("script.name.taken", { name: to });
     const item = this.items.find(s => s.name === from);
-    if (!item) throw new Error(`„${from}“ gibt es nicht.`);
+    if (!item) throw new TextError("script.name.missing", { name: from });
     item.name = to;
     this.#store();
   }

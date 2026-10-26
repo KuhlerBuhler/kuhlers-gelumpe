@@ -3,6 +3,7 @@
  * suggestions after `korg.key.` or `korg.led.`. Nothing here changes the compiled block.
  */
 import { KEY_NAMES, LED_NAMES, keyNamed, ledNamed } from "../../data/script/names.mjs";
+import { text as msg, render } from "../text.mjs";
 
 const NUMBER = /\b(?:0[xX][0-9a-fA-F]+|\d+)\b/g;
 const KEY_BEFORE = /\w*key\w*\s*[!=]=*\s*$/i;
@@ -32,13 +33,13 @@ export function hintAt(text, pos) {
   const parts = [];
   if (KEY_BEFORE.test(n.before) || KEY_AFTER.test(n.after)) {
     const k = keyNamed(n.value);
-    parts.push(k ? `${n.value} ist die Taste ${k.label} (korg.key.${k.name}).` : `${n.value} ist keine Taste des Geräts.`);
+    parts.push(k ? msg("script.hint.key", { value: n.value, label: k.label, name: k.name }) : msg("script.hint.noKey", { value: n.value }));
   }
   if (LED_BEFORE.test(n.before)) {
     const l = ledNamed(n.value);
-    parts.push(l ? `${n.value} ist die LED ${l.label} (korg.led.${l.name}).` : `${n.value} ist keine LED des Geräts.`);
+    parts.push(l ? msg("script.hint.led", { value: n.value, label: l.label, name: l.name }) : msg("script.hint.noLed", { value: n.value }));
   }
-  return parts.join(" ");
+  return parts.map(render).join(" ");
 }
 
 /** The names that complete `korg.key.XY` or `korg.led.XY` right before `pos`: { kind, typed, names } or null. */

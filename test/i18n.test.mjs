@@ -2,7 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import de from "../site/app/i18n-de.mjs";
-import { t, tNodes, setLanguage, language, LANGUAGES, systemLanguage } from "../site/app/i18n.mjs";
+import { t, tNodes, setLanguage, loadLanguage, language, locale, LANGUAGES, systemLanguage } from "../site/app/i18n.mjs";
+import { text, render, number, TextError } from "../src/text.mjs";
+import { PRESETS } from "../data/script/presets.mjs";
 import { literals, looksLikeUiText, htmlText } from "./ui-text.mjs";
 
 const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
@@ -10,10 +12,54 @@ const code = readdirSync(new URL("../site/app/", import.meta.url))
   .filter(f => f.endsWith(".mjs") && !f.startsWith("i18n-"))
   .map(f => readFileSync(new URL(`../site/app/${f}`, import.meta.url), "utf8"))
   .join("\n");
+/**
+ * The parts of src/ and data/ that hand text to the page as keys (src/text.mjs), and so are held to the same scans as
+ * site/app. Path relative to the repository root.
+ */
+const KEYED = [
+  "src/text.mjs",
+  "src/patcher.mjs",
+  "src/script/parser.mjs",
+  "src/script/compiler.mjs",
+  "src/script/gate.mjs",
+  "src/script/names.mjs",
+  "src/script/workspace.mjs",
+  "src/script/runtime.mjs",
+  "src/script/editor-model.mjs",
+  "src/script/vm.mjs",
+  "src/script/sim.mjs",
+  "src/script/hardware.mjs",
+  "src/script/archive.mjs",
+  "src/script/blob.mjs",
+  "src/protocol.mjs",
+  "src/sender.mjs",
+  "src/session.mjs",
+  "src/pattern.mjs",
+  "src/sample-file.mjs",
+  "src/usb-sample-file.mjs",
+  "src/usb-update.mjs",
+  "src/firmware.mjs",
+  "data/script/presets.mjs",
+  "data/script/describe.mjs",
+  "data/script/contract.mjs",
+  "data/script/templates.mjs",
+  "data/script/properties.mjs",
+  "data/script/names.mjs",
+  "data/news.mjs",
+  "data/rescue.mjs",
+  "src/finding.mjs",
+  "src/rules.mjs",
+  "src/gain.mjs",
+  "src/gate.mjs",
+  "src/modtable-rules.mjs",
+  "src/sample-rules.mjs",
+  "src/pattern-rules.mjs",
+];
+const keyed = KEYED.map(f => [f, readFileSync(new URL(`../${f}`, import.meta.url), "utf8")]);
 // A literal like "nav.start" whose first part names a namespace of the table counts as a key, in t() or in a FIELDS label.
 const spaces = new Set(Object.keys(de).map(k => k.split(".")[0]));
 const used = new Set([
-  ...[...code.matchAll(/"([a-z]+(?:\.[A-Za-z0-9]+)+)"/g)].map(m => m[1]).filter(k => spaces.has(k.split(".")[0])),
+  ...[...[code, ...keyed.map(([, src]) => src)].join("\n").matchAll(/"([a-z]+(?:\.[A-Za-z0-9]+)+)"/g)].map(m => m[1]).filter(k => spaces.has(k.split(".")[0])),
   ...[...html.matchAll(/data-i18n(?:-label|-html)?="([^"]+)"/g)].map(m => m[1]),
 ]);
 
@@ -46,6 +92,16 @@ test("t() fills in values, falls back to German and then to the key", () => {
   assert.deepEqual(LANGUAGES.map(([id]) => id), ["de", "en", "fr", "it", "es", "nl", "pt", "pl", "cs", "ru", "uk"]);
 });
 
+test("t() renders a text from src/ or data/, also one nested in a value, and an error's message follows the language", () => {
+  assert.equal(t(text("settings.version", { version: text("nav.start") })), "App-Version Start");
+  assert.equal(render("schon fertig"), "schon fertig");
+  const error = new TextError("settings.version", { version: "1.3.3" });
+  assert.equal(error.message, "App-Version 1.3.3");
+  assert.deepEqual(error.text, { key: "settings.version", vars: { version: "1.3.3" } });
+  assert.equal(number(1234.5), "1.234,5");
+  assert.equal(locale(), "de-DE");
+});
+
 test("every file that calls t() or tNodes() imports it, so no page breaks on a missing import", () => {
   for (const f of readdirSync(new URL("../site/app/", import.meta.url)).filter(f => f.endsWith(".mjs") && !f.startsWith("i18n"))) {
     const src = readFileSync(new URL(`../site/app/${f}`, import.meta.url), "utf8");
@@ -64,6 +120,7 @@ test("tNodes() puts nodes where the text names them", () => {
 
 // Literals that pass the heuristic but are no UI text: KeyboardEvent.key names, HTTP headers, and per file with the reason.
 const KEYS = ["Escape", "Enter", "Home", "End", "Backspace", "Delete", "Content-Type"];
+const AST = ["Array", "Assign", "Binary", "Block", "Break", "Call", "Cond", "Continue", "Func", "Ident", "Index", "Logical", "Member", "Program", "Return", "Unary", "While"];
 const ALLOWED = {
   // The labels printed on the front of the Electribe, drawn as they are on the device.
   "panel.mjs": ["Volume", "Input Level", "Sample", "Filter", "Modulation", "Insert Fx"],
@@ -76,15 +133,36 @@ const ALLOWED = {
   "scripts.mjs": ["Namen für Tasten und LEDs"],
   // The file name of a saved profile picture.
   "support.mjs": ["Blechy{}"],
+  // The node types of the plugin language's syntax tree.
+  "src/script/parser.mjs": AST,
+  "src/script/compiler.mjs": AST,
+  // An unused table of family names, and the disassembly listing, which only the tools print.
+  "src/script/editor-model.mjs": ["Taste"],
+  "src/script/blob.mjs": ["; Zeile {}"],
+  // Errors of a caller's mistake (RangeError, TypeError), for the developer, never shown on the page.
+  "src/pattern.mjs": ["Pattern {} gibt es in dieser Datei nicht", "expected a Pattern"],
+  // The names of the firmware builds, the same in every language.
+  "src/firmware.mjs": ["Synth", "Sampler", "Bleched Hacktribe", "Hacktribe", "Blechtribe {}"],
+  // Korg's product names, put into a sentence of the table as they are.
+  "data/rescue.mjs": ["Electribe Sampler", "Electribe"],
 };
+
+// The plugin catalog: names of plugins and of their makers stay as they are, and so does the plugin code (it holds korg.).
+ALLOWED["data/script/presets.mjs"] = PRESETS.flatMap(p => [p.title, p.creator]);
+const PLUGIN_CODE = ["data/script/presets.mjs", "data/script/templates.mjs"];
 
 const hardcoded = (file, src) => literals(src)
   .filter(l => looksLikeUiText(l.value) && !KEYS.includes(l.value) && !(ALLOWED[file] ?? []).includes(l.value))
+  .filter(l => !(PLUGIN_CODE.includes(file) && l.value.includes("korg.")))
   .map(l => `${file}:${l.line}: ${l.value}`);
 
 test("site/app has no hard-coded UI text: every German label, message and toast goes through t()", () => {
   const files = readdirSync(new URL("../site/app/", import.meta.url)).filter(f => f.endsWith(".mjs") && !f.startsWith("i18n"));
   assert.deepEqual(files.flatMap(f => hardcoded(f, readFileSync(new URL(`../site/app/${f}`, import.meta.url), "utf8"))), []);
+});
+
+test("the parts of src/ and data/ that hand text to the page have no hard-coded UI text either", () => {
+  assert.deepEqual(keyed.flatMap(([f, src]) => hardcoded(f, src)), []);
 });
 
 test("index.html has no hard-coded UI text outside data-i18n, data-i18n-html and data-i18n-label", () => {
@@ -119,4 +197,15 @@ test("the start language is the system's when there is a table for it, German ot
   assert.equal(systemLanguage(["ja-JP", "fr-CA"]), "fr");
   assert.equal(systemLanguage(["ja-JP"]), "de");
   assert.equal(systemLanguage([]), "de");
+});
+
+test("each language's name in the settings is the one its table gives, and loadLanguage loads it", async () => {
+  for (const [id, name] of LANGUAGES) {
+    const table = (await import(`../site/app/i18n-${id}.mjs`)).default;
+    assert.equal(table["language.name"], name, id);
+  }
+  await loadLanguage("en");
+  assert.equal(language(), "en");
+  await loadLanguage("xx");
+  assert.equal(language(), "de");
 });

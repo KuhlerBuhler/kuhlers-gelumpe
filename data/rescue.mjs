@@ -14,35 +14,32 @@ export const LINKS = {
 
 /** The two Electribes and where Korg's own firmware for each lives: on Korg's page and on the card. */
 export const DEVICES = {
-  red: { title: "Rot: Electribe Sampler", body: "red", link: "korgRed", name: "Electribe Sampler", path: "KORG/electribe sampler/System/SYSTEM.VSB" },
-  blue: { title: "Blau: Electribe", body: "blue", link: "korgBlue", name: "Electribe", path: "KORG/electribe/System/SYSTEM.VSB" },
+  red: { title: "rescue.device.red", body: "red", link: "korgRed", name: "Electribe Sampler", path: "KORG/electribe sampler/System/SYSTEM.VSB" },
+  blue: { title: "rescue.device.blue", body: "blue", link: "korgBlue", name: "Electribe", path: "KORG/electribe/System/SYSTEM.VSB" },
 };
 
 /** The folder the running firmware reads its update from. Every folder is checked on devices with version 1.2. */
 export const FOLDERS = [
-  { title: "Korg Electribe 2 Sampler", body: "red", path: "KORG/electribe sampler/System/SYSTEM.VSB" },
-  { title: "Korg Electribe 2", body: "blue", path: "KORG/electribe/System/SYSTEM.VSB" },
-  { title: "Electribe 2 / 2s + Hacktribe", body: "grey", path: "KORG/hacktribe/System/SYSTEM.VSB" },
-  { title: "Electribe 2 / 2s + BLECHTRIBE (+ Hacktribe optional)", body: "grey", path: "KORG/blechtribe/System/SYSTEM.VSB" },
+  { title: "rescue.folder.red", body: "red", path: "KORG/electribe sampler/System/SYSTEM.VSB" },
+  { title: "rescue.folder.blue", body: "blue", path: "KORG/electribe/System/SYSTEM.VSB" },
+  { title: "rescue.folder.hacktribe", body: "grey", path: "KORG/hacktribe/System/SYSTEM.VSB" },
+  { title: "rescue.folder.blech", body: "grey", path: "KORG/blechtribe/System/SYSTEM.VSB" },
 ];
 
-/** Where to ask; a line of parts where { link } is a key of LINKS. */
-const ASK = [
-  "Dann melde dich direkt bei Kuhler Buhler, der hat das gebaut: Schreib kurz, was die Electribe beim Einschalten macht und was du zuletzt mit ihr gemacht hast, zeigt das Display etwas, gern mit Foto. Das geht ",
-  { link: "issueNew", text: "als GitHub Issue" }, " (deine Antworten hier stehen dann schon drin) oder auf Instagram an ", { link: "instagram", text: "@kuhler_buhler" }, ".",
-];
+/** Where to ask: a line with links, `{name}` in its text is the link `links.name`, whose `link` is a key of LINKS. */
+const ASK = { key: "rescue.say.ask", links: { issue: { link: "issueNew", text: "rescue.link.issue" }, instagram: { link: "instagram", text: "rescue.link.instagram" } } };
 /** The guide the Hacktribe project keeps for a device that no longer starts. */
-const DEBRICK = [{ link: "debrick", text: "Debrick-Anleitung von Hacktribe" }];
-const LATER = "Kriegen wir es zusammen hin, kommt der Weg hier mit rein, damit er dem Nächsten gleich hilft.";
+const DEBRICK = [{ link: "debrick", text: "rescue.link.debrick" }];
+const LATER = "rescue.say.later";
 
-export const BUTTONS = { again: "Von vorn", back: "Zurück" };
+export const BUTTONS = { again: "rescue.again", back: "rescue.back" };
 
 /** The four answers to the first question. */
 export const CASES = [
-  { id: "starts", label: "Sie startet, aber etwas spinnt", hint: "Das Menü hängt, zeigt Unsinn, oder ein Patch oder Plugin macht Ärger." },
-  { id: "prompt", label: "Da steht SOFTWARE UPDATE und press ENTER", hint: "Sie fragt nach einem Update, statt normal zu starten." },
-  { id: "zero", label: "Das Display zeigt nur 00", hint: "Sonst passiert nichts." },
-  { id: "silent", label: "Gar nichts, das Display bleibt dunkel oder hängt", hint: "Auch nach einer Weile kommt keine Frage." },
+  { id: "starts", label: "rescue.case.starts", hint: "rescue.case.starts.hint" },
+  { id: "prompt", label: "rescue.case.prompt", hint: "rescue.case.prompt.hint" },
+  { id: "zero", label: "rescue.case.zero", hint: "rescue.case.zero.hint" },
+  { id: "silent", label: "rescue.case.silent", hint: "rescue.case.silent.hint" },
 ];
 
 /**
@@ -52,105 +49,105 @@ export const CASES = [
 export const FLOW = {
   start: {
     mood: "wave",
-    say: ["Moin, ich bin Blechy. Keine Sorge, meistens kriegen wir das wieder hin.", "Was siehst du, wenn du deine Electribe einschaltest?"],
+    say: ["rescue.say.start.1", "rescue.say.start.2"],
     choices: CASES.map(c => ({ label: c.label, hint: c.hint, to: c.id, id: c.id })),
   },
 
   // It starts, but something is off.
   starts: {
     mood: "idle",
-    say: ["Dann probieren wir erst das Einfachste.", "Drück einmal EXIT. Hängt es weiter: ausschalten, EXIT gedrückt halten und dabei wieder einschalten. Dann startet sie dieses eine Mal ganz normal, ohne die BLECHTRIBE-Funktionen."],
-    choices: [{ label: "Hat geholfen", to: "fixed" }, { label: "Hilft nicht", to: "backup" }],
+    say: ["rescue.say.starts.1", "rescue.say.starts.2"],
+    choices: [{ label: "rescue.answer.helped", to: "fixed" }, { label: "rescue.answer.notHelped", to: "backup" }],
   },
   fixed: {
     mood: "happy",
-    say: ["Gut, dann ist mit dem Gerät alles in Ordnung, es liegt an BLECHTRIBE. Mit gehaltenem EXIT läuft sie aber nur dieses eine Mal so, deshalb finden wir jetzt raus, woran genau."],
+    say: ["rescue.say.fixed.1"],
     next: "nocard",
   },
   nocard: {
     mood: "idle",
     say: [
-      "Schalte sie aus, nimm die SD-Karte raus und schalte sie ganz normal ein, diesmal ohne EXIT.",
-      "Deine eigenen Samples können dabei fehlen, das ist nur für diesen Test.",
+      "rescue.say.nocard.1",
+      "rescue.say.nocard.2",
     ],
-    choices: [{ label: "Ohne Karte läuft sie", to: "cardfiles" }, { label: "Spinnt auch ohne Karte", to: "backup" }],
+    choices: [{ label: "rescue.answer.runsWithoutCard", to: "cardfiles" }, { label: "rescue.answer.oddWithoutCard", to: "backup" }],
   },
   cardfiles: {
     mood: "idle",
     say: [
-      "Dann liegt es an etwas auf der Karte, meistens an einem Plugin oder an einer Einstellung.",
-      "Steck die Karte in deinen Rechner und benenn diese Dateien um, zum Beispiel mit einem _ vorne. Fehlt eine, ist das in Ordnung:",
+      "rescue.say.cardfiles.1",
+      "rescue.say.cardfiles.2",
       { path: "KORG/blechtribe/Plugin/e2sPlugin.all" },
       { path: "KORG/blechtribe/settings.a.bin" },
       { path: "KORG/blechtribe/settings.b.bin" },
-      "Dann die Karte zurück in die Electribe und ganz normal einschalten.",
+      "rescue.say.cardfiles.3",
     ],
-    choices: [{ label: "Läuft jetzt", to: "cardfixed" }, { label: "Spinnt immer noch", to: "backup" }],
+    choices: [{ label: "rescue.answer.runsNow", to: "cardfixed" }, { label: "rescue.answer.stillOdd", to: "backup" }],
   },
   cardfixed: {
     mood: "happy",
     say: [
-      "Super, das bleibt jetzt so! Sie startet ohne deine Plugins und mit den Grundeinstellungen von BLECHTRIBE. Samples und Patterns sind davon nicht betroffen.",
-      "Willst du wissen, welche Datei es war, benenn sie einzeln zurück und schalte jedes Mal neu ein.",
-      ["Sag Kuhler Buhler gern Bescheid, was gesponnen hat, ", { link: "issueNew", text: "als GitHub Issue" }, ", dann wird es repariert."],
+      "rescue.say.cardfixed.1",
+      "rescue.say.cardfixed.2",
+      { key: "rescue.say.cardfixed.3", links: { issue: { link: "issueNew", text: "rescue.link.issue" } } },
     ],
   },
   backup: {
     mood: "idle",
-    say: ["Dann spielen wir die alte Firmware zurück, das ist Korgs normaler Update-Weg.", "Hast du die Original-SYSTEM.VSB, die du vor dem Patchen gesichert hast?"],
-    choices: [{ label: "Ja, hab ich", to: "which" }, { label: "Nein, oder weiß nicht", to: "nobackup" }],
+    say: ["rescue.say.backup.1", "rescue.say.backup.2"],
+    choices: [{ label: "rescue.answer.haveIt", to: "which" }, { label: "rescue.answer.dontHave", to: "nobackup" }],
   },
   nobackup: {
     mood: "idle",
-    say: ["Macht nichts, Korgs Original-Firmware tut es genauso. Die holen wir uns direkt bei Korg."],
+    say: ["rescue.say.nobackup.1"],
     next: "color:starts",
   },
   "color:starts": {
     mood: "idle",
-    say: ["Welche Farbe hat deine Electribe?"],
+    say: ["rescue.say.colorStarts.1"],
     choices: Object.entries(DEVICES).map(([key, d]) => ({ label: d.title, to: `download:starts:${key}`, art: d.body })),
   },
 
   which: {
     mood: "idle",
-    say: ["Welche Firmware läuft gerade auf deiner Electribe? Hast du sie mit unserem Patcher gepatcht, ist es die unterste."],
+    say: ["rescue.say.which.1"],
     choices: FOLDERS.map((f, i) => ({ label: f.title, to: `folder:${i}`, art: f.body })),
   },
 
   "update:menu": {
     mood: "idle",
     say: [
-      "Karte zurück in die Electribe, Netzteil anschließen, einschalten.",
-      "Dann: Menü -> DATA UTILITY -> SOFTWARE UPDATE. Pass auf, direkt davor steht FACTORY RESET, das nicht nehmen.",
-      "Bestätige das Update und warte, bis es fertig ist. In der Zeit nicht ausschalten. Danach einmal aus- und wieder einschalten.",
+      "rescue.say.updateMenu.1",
+      "rescue.say.updateMenu.2",
+      "rescue.say.updateMenu.3",
     ],
-    choices: [{ label: "Läuft wieder", to: "works" }, { label: "Klappt nicht", to: "stuck" }],
+    choices: [{ label: "rescue.answer.runsAgain", to: "works" }, { label: "rescue.answer.fails", to: "stuck" }],
   },
 
   // The device asks for an update or shows 00: both go through the update prompt with Korg's own firmware.
   prompt: {
     mood: "happy",
-    say: ["Das sieht schlimmer aus, als es ist. Die Electribe passt beim Start nicht zu der Firmware, die drauf ist, und fragt deshalb nach einem Update. Das geben wir ihr: Korgs Original-Firmware für ihre Farbe."],
+    say: ["rescue.say.prompt.1"],
     next: "color:update",
   },
   zero: {
     mood: "happy",
-    say: ["Das kenn ich. Bei 00 richtet die Electribe gerade ihr Bedienfeld neu ein. Lass sie eingeschaltet und warte ein, zwei Minuten."],
-    choices: [{ label: "Jetzt steht da Please Reboot", to: "reboot" }, { label: "Es bleibt bei 00", to: "zero:card" }],
+    say: ["rescue.say.zero.1"],
+    choices: [{ label: "rescue.answer.pleaseReboot", to: "reboot" }, { label: "rescue.answer.stays00", to: "zero:card" }],
   },
   reboot: {
     mood: "happy",
-    say: ["Gut so. Schalte sie einmal aus und wieder ein."],
-    choices: [{ label: "Läuft wieder", to: "works" }, { label: "Jetzt fragt sie nach einem Update", to: "prompt" }, { label: "Wieder 00", to: "zero:card" }],
+    say: ["rescue.say.reboot.1"],
+    choices: [{ label: "rescue.answer.runsAgain", to: "works" }, { label: "rescue.answer.asksUpdate", to: "prompt" }, { label: "rescue.answer.again00", to: "zero:card" }],
   },
   "zero:card": {
     mood: "idle",
-    say: ["Dann versuchen wir es mit Korgs Original-Firmware auf der SD-Karte. So hat es bei uns an einem Gerät schon geholfen."],
+    say: ["rescue.say.zeroCard.1"],
     next: "color:update",
   },
   "color:update": {
     mood: "idle",
-    say: ["Welche Farbe hat deine Electribe?"],
+    say: ["rescue.say.colorUpdate.1"],
     choices: Object.entries(DEVICES).map(([key, d]) => ({ label: d.title, to: `download:update:${key}`, art: d.body })),
   },
 
@@ -158,22 +155,22 @@ export const FLOW = {
   "update:prompt": {
     mood: "idle",
     say: [
-      "Karte zurück in die Electribe, Netzteil anschließen, einschalten.",
-      "Sie fragt jetzt nach dem Update: ENTER drücken, das ist die Taste MENU. Warte, bis \"Please Reboot\" kommt, und schalte sie in der Zeit nicht aus. Dann einmal aus- und wieder einschalten.",
-      "Mit Batterien meldet sie \"Battery Low\" und macht nichts, deshalb das Netzteil.",
+      "rescue.say.updatePrompt.1",
+      "rescue.say.updatePrompt.2",
+      "rescue.say.updatePrompt.3",
     ],
-    choices: [{ label: "Läuft wieder", to: "works" }, { label: "Klappt nicht", to: "stuck" }],
+    choices: [{ label: "rescue.answer.runsAgain", to: "works" }, { label: "rescue.answer.fails", to: "stuck" }],
   },
 
   // Nothing at all.
   silent: {
     mood: "idle",
-    say: ["Erst mal das Naheliegende: Steckt das Netzteil richtig, oder sind die Batterien voll? Schalte sie danach noch einmal ein und warte kurz."],
-    choices: [{ label: "Jetzt geht sie", to: "works" }, { label: "Jetzt steht da 00", to: "zero" }, { label: "Jetzt fragt sie nach einem Update", to: "prompt" }, { label: "Immer noch nichts", to: "dark" }],
+    say: ["rescue.say.silent.1"],
+    choices: [{ label: "rescue.answer.worksNow", to: "works" }, { label: "rescue.answer.shows00", to: "zero" }, { label: "rescue.answer.asksUpdate", to: "prompt" }, { label: "rescue.answer.stillNothing", to: "dark" }],
   },
   dark: {
     mood: "sad",
-    say: ["Das ist leider der schwierigste Fall. Kommt beim Einschalten gar keine Frage, gibt es keinen Weg über die SD-Karte. Probier bitte nichts auf eigene Faust, damit wird es eher schlimmer."],
+    say: ["rescue.say.dark.1"],
     source: DEBRICK,
     next: "ask",
   },
@@ -181,11 +178,11 @@ export const FLOW = {
   // How it ends.
   works: {
     mood: "happy",
-    say: ["Super, sie läuft wieder! Drauf ist jetzt die Firmware, die du zurückgespielt hast, ohne BLECHTRIBE. Das kannst du jederzeit wieder mit dem Firmware Patcher aufspielen."],
+    say: ["rescue.say.works.1"],
   },
   stuck: {
     mood: "sad",
-    say: ["Mist. Dann komm ich hier allein nicht weiter. Probier bitte nichts auf eigene Faust."],
+    say: ["rescue.say.stuck.1"],
     source: DEBRICK,
     next: "ask",
   },
@@ -197,20 +194,20 @@ export const FLOW = {
 
 const download = (d, to) => ({
   mood: "idle",
-  say: [["Lade bei Korg das Firmware-Update für die ", d.name, " herunter: ", { link: d.link, text: "Korgs Download-Seite" }, ". Pack die ZIP-Datei aus, du brauchst daraus die Datei SYSTEM.VSB."]],
-  choices: [{ label: "Hab ich", to }],
+  say: [{ key: "rescue.say.download", vars: { name: d.name }, links: { link: { link: d.link, text: "rescue.link.korg" } } }],
+  choices: [{ label: "rescue.answer.gotIt", to }],
 });
-const card = path => ["Schalte die Electribe aus, nimm die SD-Karte raus und steck sie in deinen Rechner. Leg die SYSTEM.VSB genau hierhin, fehlende Ordner legst du einfach an:", { path }];
+const card = path => ["rescue.say.card", { path }];
 
 for (const [key, d] of Object.entries(DEVICES)) {
   FLOW[`download:starts:${key}`] = download(d, "which");
   FLOW[`download:update:${key}`] = download(d, `card:${key}`);
-  FLOW[`card:${key}`] = { mood: "idle", say: card(d.path), choices: [{ label: "Liegt drauf", to: "update:prompt" }] };
+  FLOW[`card:${key}`] = { mood: "idle", say: card(d.path), choices: [{ label: "rescue.answer.onCard", to: "update:prompt" }] };
 }
 FOLDERS.forEach((f, i) => {
   FLOW[`folder:${i}`] = {
     mood: "idle",
     say: card(f.path),
-    choices: [{ label: "Liegt drauf", to: "update:menu" }],
+    choices: [{ label: "rescue.answer.onCard", to: "update:menu" }],
   };
 });

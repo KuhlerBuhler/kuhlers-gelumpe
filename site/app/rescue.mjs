@@ -15,10 +15,16 @@ const MOODS = { idle: "img/blechy/idle.png", happy: "img/blechy/happy.png", angr
 
 const link = (href, text) => el("a", { className: "cee-text-link", href, target: "_blank", rel: "noopener noreferrer", textContent: text });
 
-/** A line of text: a string, or parts where { link, text } is a link to LINKS[link]; "issueNew" opens a new issue with `issue` filled in. */
-const words = (line, issue = {}) => (Array.isArray(line)
-  ? line.map(part => (typeof part === "string" ? part : link(part.link === "issueNew" ? `${LINKS.issues}/new?${new URLSearchParams(issue)}` : LINKS[part.link], part.text)))
-  : [line]);
+/** A link part { link, text }: a link to LINKS[link] with the text of that key; "issueNew" opens a new issue with `issue` filled in. */
+const linkTo = (part, issue) => link(part.link === "issueNew" ? `${LINKS.issues}/new?${new URLSearchParams(issue)}` : LINKS[part.link], t(part.text));
+
+/** A line of text: a key, a list of link parts, or { key, vars, links } where `{name}` in the text is the link `links.name`. */
+const words = (line, issue = {}) => {
+  if (Array.isArray(line)) return line.map(part => linkTo(part, issue));
+  if (typeof line === "string") return [t(line)];
+  const links = Object.fromEntries(Object.entries(line.links ?? {}).map(([name, part]) => [name, linkTo(part, issue)]));
+  return tNodes(line.key, { ...line.vars, ...links });
+};
 
 /** What Blechy says in one node: the lines, a path on the card, and the official guide for the step if there is one. */
 const say = (node, issue) => [
@@ -28,7 +34,7 @@ const say = (node, issue) => [
 
 /** The Electribe of an answer as lines, like on the Features page, in the colour of its body. */
 const art = c => {
-  const svg = e2Outline(c.label);
+  const svg = e2Outline(t(c.label));
   svg.dataset.device = c.art;
   return svg;
 };
@@ -37,8 +43,8 @@ export function rescuePage(root) {
   const nodes = FLOW;
   const chat = el("ol", { className: "cee-rescue-chat", id: "cee-rescue-chat", "aria-live": "polite" });
   const answers = el("div", { className: "cee-rescue-answers", id: "cee-rescue-answers" });
-  const back = el("button", { type: "button", className: "btn sm", id: "cee-rescue-back", textContent: BUTTONS.back });
-  const again = el("button", { type: "button", className: "btn sm", id: "cee-rescue-again", textContent: BUTTONS.again });
+  const back = el("button", { type: "button", className: "btn sm", id: "cee-rescue-back", textContent: t(BUTTONS.back) });
+  const again = el("button", { type: "button", className: "btn sm", id: "cee-rescue-again", textContent: t(BUTTONS.again) });
   let path = ["start"];
   let picked = [];
   let timer = null;
@@ -47,12 +53,12 @@ export function rescuePage(root) {
     el("img", { className: "cee-rescue-blechy", src: MOODS[mood], alt: "", width: 45, height: 55 }),
     el("div", { className: "cee-rescue-bubble" }, parts.filter(Boolean)),
   ]);
-  const you = text => el("li", { className: "cee-rescue-you" }, [el("p", { className: "cee-rescue-bubble", textContent: text })]);
+  const you = label => el("li", { className: "cee-rescue-you" }, [el("p", { className: "cee-rescue-bubble", textContent: t(label) })]);
 
   /** A new issue that already says which way through the page the person took. */
   const issue = () => ({
-    title: t("rescue.issue.title", { answer: picked[0] ?? "" }),
-    body: t("rescue.issue.body", { answers: picked.filter(Boolean).map(p => `- ${p}`).join("\n") }),
+    title: t("rescue.issue.title", { answer: picked[0] ? t(picked[0]) : "" }),
+    body: t("rescue.issue.body", { answers: picked.filter(Boolean).map(p => `- ${t(p)}`).join("\n") }),
   });
 
   function render() {
@@ -62,8 +68,8 @@ export function rescuePage(root) {
     answers.replaceChildren(...choices.map(c => {
       const b = el("button", { type: "button", className: `btn${c.art ? " cee-rescue-folder" : ""}`, onclick: () => choose(c) }, [
         c.art ? art(c) : null,
-        el("span", { className: "cee-rescue-answer", textContent: c.label }),
-        c.hint ? el("span", { className: "cee-rescue-hint", textContent: c.hint }) : null,
+        el("span", { className: "cee-rescue-answer", textContent: t(c.label) }),
+        c.hint ? el("span", { className: "cee-rescue-hint", textContent: t(c.hint) }) : null,
       ]);
       if (c.id) b.id = `cee-rescue-case-${c.id}`;
       return b;
@@ -77,6 +83,7 @@ export function rescuePage(root) {
     if (node.next) timer = setTimeout(() => { path = [...path, node.next]; render(); }, PAUSE_MS);
   }
   function choose(c) {
+    // the key: the answers read in the language of the moment, also in the issue
     picked[path.length - 1] = c.label;
     path = [...path, c.to];
     render();

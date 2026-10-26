@@ -4,7 +4,7 @@
  */
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
-import { LANGUAGES, language, setLanguage, systemLanguage, t, translate } from "./i18n.mjs";
+import { LANGUAGES, language, loadLanguage, setLanguage, systemLanguage, t, translate } from "./i18n.mjs";
 
 const KEY = "cee.settings";
 
@@ -29,7 +29,7 @@ try { values = JSON.parse(localStorage.getItem(KEY) ?? "{}") ?? {}; } catch { va
 
 export const get = id => values[id] ?? FIELDS.find(f => f.id === id).default;
 
-setLanguage(get("language"));
+await loadLanguage(get("language"));
 let shown = null;
 
 function save() {

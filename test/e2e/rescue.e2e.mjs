@@ -1,7 +1,13 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { setUp, go } from "./harness.mjs";
-import { FLOW, BUTTONS, CASES, FOLDERS, DEVICES } from "../../data/rescue.mjs";
+import * as rescue from "../../data/rescue.mjs";
+import { t } from "../../site/app/i18n.mjs";
+
+// The data holds keys of the table; the page shows their German text.
+const CASES = rescue.CASES.map(c => ({ ...c, label: t(c.label), hint: t(c.hint) }));
+const FOLDERS = rescue.FOLDERS.map(f => ({ ...f, title: t(f.title) }));
+const DEVICES = Object.fromEntries(Object.entries(rescue.DEVICES).map(([key, d]) => [key, { ...d, title: t(d.title) }]));
 
 // axe is a dev dependency; without it only the checks that axe would add are skipped.
 const axe = await import("./support/axe.mjs").catch(() => null);

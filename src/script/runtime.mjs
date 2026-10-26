@@ -8,6 +8,7 @@ import { BUDGET, LIMITS, ERROR, QUEUED_EVENTS, SCRIPT_ENTRY, SCRIPT_PHASE, EVENT
 import { Script, ScriptFault } from "./vm.mjs";
 import { decodeBlob, fail } from "./blob.mjs";
 import { verifyParts } from "./verifier.mjs";
+import { text, render } from "../text.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
 
 const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
@@ -72,12 +73,12 @@ export class ScriptRuntime {
     const poolBytes = Math.ceil(parts.header.totalSize / 4) * 4 + parts.header.varCount * 4 + SCRIPT_ENTRY.size;
     const bytesFree = this.scriptBytes - this.bytesUsed;
     if (poolBytes > bytesFree) {
-      return { ok: false, error: fail(ERROR.POOL_BUDGET, `„${parts.header.name}“ braucht ${poolBytes} Bytes für Block, Variablen und Eintrag, frei sind noch ${bytesFree} von ${this.scriptBytes} Bytes`) };
+      return { ok: false, error: fail(ERROR.POOL_BUDGET, render(text("script.load.bytes", { name: parts.header.name, needed: poolBytes, free: bytesFree, total: this.scriptBytes }))) };
     }
     const free = this.varSlots - this.slotsUsed;
     if (parts.header.varCount > free) {
       const kib = n => `${Math.round((n * 4) / 102.4) / 10} KiB`;
-      return { ok: false, error: fail(ERROR.VARS_BUDGET, `„${parts.header.name}“ braucht ${parts.header.varCount} Variablenplätze (${kib(parts.header.varCount)}), frei sind noch ${free} von ${this.varSlots} (${kib(this.varSlots)})`) };
+      return { ok: false, error: fail(ERROR.VARS_BUDGET, render(text("script.load.slots", { name: parts.header.name, needed: parts.header.varCount, size: kib(parts.header.varCount), free, total: this.varSlots, totalSize: kib(this.varSlots) }))) };
     }
     const script = new Script(parts, verified.info);
     const entry = { script, poolBytes, readySent: false, onStep, maxCost: {}, maxMs: {}, warnings: 0, slowest: { event: null, ms: 0 }, store: { mask: 0, values: new Int32Array(STORE.slots) } };
@@ -95,7 +96,7 @@ export class ScriptRuntime {
     api["korg.store.set"] = (slot, value) => { entry.store.values[slot] = value | 0; entry.store.mask = (entry.store.mask | (1 << slot)) >>> 0; return 0; };
     api["korg.store.save"] = () => { this.storePending = true; return 0; };
     api["korg.menu.add"] = (label, min, max, value) => {
-      if (min > max) throw new ScriptFault(ERROR.API_ARG, "menu: min liegt über max");
+      if (min > max) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.menuRange")));
       const name = String(label).slice(0, LIMITS.nameLength);
       const known = this.menus.findIndex(m => m.entry === entry && m.label === name);
       if (known >= 0) return known;
@@ -104,16 +105,16 @@ export class ScriptRuntime {
       return this.menus.length - 1;
     };
     api["korg.remapKey"] = (from, to) => {
-      if (from === KEY_EXIT || to === KEY_EXIT) throw new ScriptFault(ERROR.API_ARG, "remapKey: EXIT lässt sich nicht umlegen");
+      if (from === KEY_EXIT || to === KEY_EXIT) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.remapExit")));
       this.remap = from === to ? null : { entry, from, to };
       return 0;
     };
     api["korg.app"] = (name, group) => {
       const known = this.apps.findIndex(a => a.entry === entry);
       if (known >= 0) return known;
-      if (!SCRIPT_APPS.groups.includes(group)) throw new ScriptFault(ERROR.API_ARG, "app: die Gruppe gibt es nicht");
+      if (!SCRIPT_APPS.groups.includes(group)) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.appGroup")));
       const label = String(name).slice(0, SCRIPT_APPS.nameLength);
-      if (!label) throw new ScriptFault(ERROR.API_ARG, "app: der Name ist leer");
+      if (!label) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.appName")));
       if (this.apps.length >= SCRIPT_APPS.max) return -1;
       this.apps.push({ entry, script: entry.script.name, name: label, group });
       return this.apps.length - 1;

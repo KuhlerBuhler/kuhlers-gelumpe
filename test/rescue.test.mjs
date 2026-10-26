@@ -1,11 +1,38 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { FLOW, LINKS, FOLDERS, DEVICES, CASES } from "../data/rescue.mjs";
+import { FLOW, LINKS, FOLDERS, DEVICES, CASES, BUTTONS } from "../data/rescue.mjs";
+import { t } from "../site/app/i18n.mjs";
 
 const ROOT = new URL("../", import.meta.url);
 const nodes = Object.entries(FLOW);
-const text = node => JSON.stringify(node.say);
+/** A line as the page reads it in German: a key, link parts, a path, or a text with links in it. */
+const line = l => {
+  if (typeof l === "string") return t(l);
+  if (Array.isArray(l)) return l.map(part => t(part.text)).join("");
+  if (l.path) return l.path;
+  return t(l.key, { ...l.vars, ...Object.fromEntries(Object.entries(l.links ?? {}).map(([name, part]) => [name, t(part.text)])) });
+};
+const text = node => [...node.say, ...(node.source ? [node.source] : [])].map(line).join("\n");
+/** Everything the page can show, in German. */
+const everything = () => [
+  ...nodes.flatMap(([, n]) => [text(n), ...(n.choices ?? []).flatMap(c => [t(c.label), c.hint ? t(c.hint) : ""])]),
+  ...Object.values(DEVICES).flatMap(d => [t(d.title), d.name]), ...FOLDERS.map(f => t(f.title)), ...Object.values(BUTTONS).map(b => t(b)),
+].join("\n");
+
+test("every text of the page is a key of the German table", () => {
+  const keys = [];
+  for (const [, n] of nodes) {
+    for (const l of [...n.say, ...(n.source ? [n.source] : [])]) {
+      if (typeof l === "string") keys.push(l);
+      else if (Array.isArray(l)) keys.push(...l.map(part => part.text));
+      else if (!l.path) keys.push(l.key, ...Object.values(l.links ?? {}).map(part => part.text));
+    }
+    for (const c of n.choices ?? []) keys.push(c.label, ...(c.hint ? [c.hint] : []));
+  }
+  keys.push(...Object.values(DEVICES).map(d => d.title), ...FOLDERS.map(f => f.title), ...Object.values(BUTTONS));
+  assert.deepEqual(keys.filter(k => t(k) === k), []);
+});
 
 test("every answer and every follow-up leads to a node, and every node is reached", () => {
   const reached = new Set(["start"]);
@@ -20,7 +47,7 @@ test("every answer and every follow-up leads to a node, and every node is reache
 
 test("only answers: no evidence markers on the page, and links point at LINKS", () => {
   for (const [id, n] of nodes) assert.ok(!("status" in n) && !("note" in n), `${id} still carries a marker`);
-  assert.doesNotMatch(JSON.stringify(FLOW), /gemessen|offline gelesen|hergeleitet|Emulator/);
+  assert.doesNotMatch(everything(), /gemessen|offline gelesen|hergeleitet|Emulator/);
   const parts = JSON.stringify(FLOW).match(/"link":"(\w+)"/g) ?? [];
   for (const p of parts) assert.ok(LINKS[p.slice(8, -1)] || p === '"link":"issueNew"', p);
 });
@@ -29,7 +56,7 @@ test("no way ends without help: every end is a device that runs again, or the wa
   const ends = nodes.filter(([, n]) => !n.choices && !n.next).map(([id]) => id).sort();
   assert.deepEqual(ends, ["ask", "cardfixed", "works"]);
   assert.match(JSON.stringify(FLOW.ask.say), /issueNew.*instagram/);
-  assert.doesNotMatch(JSON.stringify(FLOW.ask.say), /Foto vom Display/, "the dark case ends here too, its display shows nothing");
+  assert.doesNotMatch(text(FLOW.ask), /Foto vom Display/, "the dark case ends here too, its display shows nothing");
   for (const id of ["stuck", "dark"]) assert.equal(FLOW[id].next, "ask", id);
 });
 
@@ -68,5 +95,5 @@ test("Blechy speaks plainly, nobody gets shouted at, and the hard cases name the
 });
 
 test("the text has no em or en dash", () => {
-  assert.doesNotMatch(JSON.stringify([FLOW, LINKS, FOLDERS, DEVICES, CASES]), /[–—]/);
+  assert.doesNotMatch(everything(), /[–—]/);
 });

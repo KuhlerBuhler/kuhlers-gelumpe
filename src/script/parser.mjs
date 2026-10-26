@@ -1,13 +1,15 @@
 /**
  * Lexer and parser for the script language, a small subset of JavaScript.
- * Every error is a CompileError with a line, a column and a German message
- * for the editor. The parser stops at the first one.
+ * Every error is a CompileError with a line, a column and a message for the
+ * editor, a text of the table (src/text.mjs). The parser stops at the first one.
  */
 import { LIMITS } from "../../data/script/contract.mjs";
+import { TextError, text } from "../text.mjs";
 
-export class CompileError extends Error {
+/** `message` is a text (src/text.mjs); a plain string is shown as it is. */
+export class CompileError extends TextError {
   constructor(message, line = 1, column = 1) {
-    super(message);
+    super(typeof message === "string" ? message : message.key, typeof message === "string" ? undefined : message.vars);
     this.line = line;
     this.column = column;
   }
@@ -15,31 +17,32 @@ export class CompileError extends Error {
 
 const KEYWORDS = new Set(["let", "const", "function", "if", "else", "while", "for", "break", "continue", "return", "true", "false", "new"]);
 
+/** JavaScript words the language does not have, with the key of what to say instead; `{word}` is the word. */
 const NOT_HERE = {
-  var: "„var“ gibt es nicht, nimm „let“ oder „const“.",
-  class: "Klassen gibt es nicht.",
-  switch: "„switch“ gibt es nicht, nimm „if“ und „else if“.",
-  case: "„switch“ gibt es nicht, nimm „if“ und „else if“.",
-  default: "„switch“ gibt es nicht, nimm „if“ und „else if“.",
-  do: "„do … while“ gibt es nicht, nimm „while“.",
-  try: "Es gibt keine Ausnahmen („try“). Ein Fehler schaltet das Plugin ab und erscheint am Gerät.",
-  catch: "Es gibt keine Ausnahmen („catch“). Ein Fehler schaltet das Plugin ab und erscheint am Gerät.",
-  throw: "Es gibt keine Ausnahmen („throw“). Ein Fehler schaltet das Plugin ab und erscheint am Gerät.",
-  typeof: "„typeof“ gibt es nicht, es gibt nur ganze Zahlen und kurzen Text.",
-  null: "Es gibt kein „null“, nur ganze Zahlen und kurzen Text.",
-  undefined: "Es gibt kein „undefined“, nur ganze Zahlen und kurzen Text.",
-  this: "„this“ gibt es nicht.",
-  import: "Es gibt keine Module („import“).",
-  export: "Es gibt keine Module („export“).",
-  async: "„async“ gibt es nicht.",
-  await: "„await“ gibt es nicht.",
-  in: "„in“ gibt es nicht.",
-  of: "„for … of“ gibt es nicht, nimm „for (let i = 0; i < n; i++)“.",
-  delete: "„delete“ gibt es nicht.",
-  void: "„void“ gibt es nicht.",
-  yield: "„yield“ gibt es nicht.",
-  with: "„with“ gibt es nicht.",
-  instanceof: "„instanceof“ gibt es nicht.",
+  var: "compile.notHere.var",
+  class: "compile.notHere.class",
+  switch: "compile.notHere.switch",
+  case: "compile.notHere.switch",
+  default: "compile.notHere.switch",
+  do: "compile.notHere.do",
+  try: "compile.notHere.exceptions",
+  catch: "compile.notHere.exceptions",
+  throw: "compile.notHere.exceptions",
+  typeof: "compile.notHere.typeof",
+  null: "compile.notHere.empty",
+  undefined: "compile.notHere.empty",
+  this: "compile.notHere.word",
+  import: "compile.notHere.modules",
+  export: "compile.notHere.modules",
+  async: "compile.notHere.word",
+  await: "compile.notHere.word",
+  in: "compile.notHere.word",
+  of: "compile.notHere.of",
+  delete: "compile.notHere.word",
+  void: "compile.notHere.word",
+  yield: "compile.notHere.word",
+  with: "compile.notHere.word",
+  instanceof: "compile.notHere.word",
 };
 
 const PUNCT = [
@@ -81,7 +84,7 @@ export function tokenize(src) {
       const c0 = col;
       adv(2);
       while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) adv();
-      if (i >= src.length) throw new CompileError("Der Kommentar mit /* ist nie mit */ geschlossen.", l0, c0);
+      if (i >= src.length) throw new CompileError(text("compile.comment.open"), l0, c0);
       adv(2);
       continue;
     }
@@ -92,17 +95,17 @@ export function tokenize(src) {
       if (c === "0" && (src[i + 1] === "x" || src[i + 1] === "X")) {
         j = i + 2;
         while (/[0-9a-fA-F]/.test(src[j] ?? "")) j += 1;
-        if (j === i + 2) throw new CompileError("Nach „0x“ fehlen die Ziffern.", at.line, at.col);
+        if (j === i + 2) throw new CompileError(text("compile.number.hexEmpty"), at.line, at.col);
         value = parseInt(src.slice(i + 2, j), 16);
-        if (value > 0xffffffff) throw new CompileError("Die Zahl ist zu groß (höchstens 0xFFFFFFFF).", at.line, at.col);
+        if (value > 0xffffffff) throw new CompileError(text("compile.number.tooBigHex"), at.line, at.col);
         value |= 0;
       } else {
         while (isDigit(src[j] ?? "")) j += 1;
         value = Number(src.slice(i, j));
-        if (value > 2147483647) throw new CompileError("Die Zahl ist zu groß (höchstens 2147483647, als Hex bis 0xFFFFFFFF).", at.line, at.col);
+        if (value > 2147483647) throw new CompileError(text("compile.number.tooBig"), at.line, at.col);
       }
-      if (src[j] === "." || src[j] === "e" || src[j] === "E") throw new CompileError("Es gibt nur ganze Zahlen, keine Kommazahlen.", at.line, at.col);
-      if (isIdStart(src[j] ?? "")) throw new CompileError("Direkt hinter einer Zahl steht ein Buchstabe.", at.line, at.col);
+      if (src[j] === "." || src[j] === "e" || src[j] === "E") throw new CompileError(text("compile.number.fraction"), at.line, at.col);
+      if (isIdStart(src[j] ?? "")) throw new CompileError(text("compile.number.letter"), at.line, at.col);
       tokens.push({ t: "num", v: value, len: j - i, ...at });
       adv(j - i);
       continue;
@@ -111,38 +114,38 @@ export function tokenize(src) {
       let j = i;
       while (isIdPart(src[j] ?? "")) j += 1;
       const word = src.slice(i, j);
-      if (NOT_HERE[word]) throw new CompileError(NOT_HERE[word], at.line, at.col);
+      if (NOT_HERE[word]) throw new CompileError(text(NOT_HERE[word], { word }), at.line, at.col);
       tokens.push({ t: KEYWORDS.has(word) ? "kw" : "id", v: word, len: word.length, ...at });
       adv(j - i);
       continue;
     }
     if (c === '"' || c === "'") {
-      let text = "";
+      let value = "";
       let j = i + 1;
       for (;;) {
         const d = src[j];
-        if (d === undefined || d === "\n") throw new CompileError("Der Text ist nicht geschlossen.", at.line, at.col);
+        if (d === undefined || d === "\n") throw new CompileError(text("compile.string.open"), at.line, at.col);
         if (d === c) break;
         if (d === "\\") {
           const e = src[j + 1];
-          if (e !== "\\" && e !== '"' && e !== "'") throw new CompileError("Im Text geht nur \\\\, \\\" und \\'.", at.line, at.col + (j - i));
-          text += e;
+          if (e !== "\\" && e !== '"' && e !== "'") throw new CompileError(text("compile.string.escape"), at.line, at.col + (j - i));
+          value += e;
           j += 2;
           continue;
         }
-        if (d < " " || d > "~") throw new CompileError("Das Display zeigt nur ASCII-Zeichen ohne Umlaute.", at.line, at.col + (j - i));
-        text += d;
+        if (d < " " || d > "~") throw new CompileError(text("compile.string.ascii"), at.line, at.col + (j - i));
+        value += d;
         j += 1;
       }
-      if (text.length > LIMITS.stringLength) throw new CompileError(`Der Text ist zu lang (${text.length} Zeichen, höchstens ${LIMITS.stringLength}).`, at.line, at.col);
-      tokens.push({ t: "str", v: text, len: j + 1 - i, ...at });
+      if (value.length > LIMITS.stringLength) throw new CompileError(text("compile.string.long", { length: value.length, max: LIMITS.stringLength }), at.line, at.col);
+      tokens.push({ t: "str", v: value, len: j + 1 - i, ...at });
       adv(j + 1 - i);
       continue;
     }
-    if (c === "`") throw new CompileError("Textvorlagen mit ` gibt es nicht, nimm einen Text in Anführungszeichen.", at.line, at.col);
+    if (c === "`") throw new CompileError(text("compile.string.template"), at.line, at.col);
     const p = PUNCT.find(x => src.startsWith(x, i));
-    if (!p) throw new CompileError(`Das Zeichen „${c}“ gibt es im Plugin-Code nicht.`, at.line, at.col);
-    if (p === ">>>" || p === "**") throw new CompileError(`„${p}“ gibt es nicht.`, at.line, at.col);
+    if (!p) throw new CompileError(text("compile.char", { char: c }), at.line, at.col);
+    if (p === ">>>" || p === "**") throw new CompileError(text("compile.notHere.word", { word: p }), at.line, at.col);
     tokens.push({ t: "p", v: p, len: p.length, ...at });
     adv(p.length);
   }
@@ -150,7 +153,7 @@ export function tokenize(src) {
   return tokens;
 }
 
-const describe = tok => (tok.t === "eof" ? "das Ende des Codes" : `„${tok.v}“`);
+const describe = tok => (tok.t === "eof" ? text("compile.token.end") : text("compile.token.quoted", { token: tok.v }));
 
 class Parser {
   constructor(tokens) {
@@ -176,15 +179,15 @@ class Parser {
 
   expect(v) {
     if (this.is(v)) return this.next();
-    const hint = this.is("=") ? " Eine Zuweisung gibt es hier nicht als Ausdruck, meinst du „==“?" : "";
-    if (this.is("++") || this.is("--")) return this.fail("++ und -- gibt es nur als eigene Anweisung, nicht in einem Ausdruck.");
+    const hint = this.is("=") ? text("compile.expect.assignHint") : "";
+    if (this.is("++") || this.is("--")) return this.fail(text("compile.incDec.expression"));
     const prev = this.tokens[this.pos - 1];
-    if (v === ";" && prev && prev.line < this.tok.line) return this.fail("Hier fehlt „;“ am Ende der Anweisung.", { line: prev.line, col: prev.col + prev.len });
-    return this.fail(`Hier fehlt „${v}“, gefunden wurde ${describe(this.tok)}.${hint}`);
+    if (v === ";" && prev && prev.line < this.tok.line) return this.fail(text("compile.expect.semicolon"), { line: prev.line, col: prev.col + prev.len });
+    return this.fail(text("compile.expect.missing", { token: v, found: describe(this.tok), hint }));
   }
 
-  ident(what = "ein Name") {
-    if (this.tok.t !== "id") this.fail(`Hier wird ${what} erwartet, gefunden wurde ${describe(this.tok)}.`);
+  ident(what = text("compile.expect.name")) {
+    if (this.tok.t !== "id") this.fail(text("compile.expect.wanted", { what, found: describe(this.tok) }));
     return this.next();
   }
 
@@ -198,7 +201,7 @@ class Parser {
     const open = this.expect("{");
     const body = [];
     while (!this.is("}")) {
-      if (this.tok.t === "eof") this.fail("Die Klammer { wurde nie mit } geschlossen.", open);
+      if (this.tok.t === "eof") this.fail(text("compile.block.open"), open);
       body.push(this.statement(false));
     }
     this.next();
@@ -211,9 +214,9 @@ class Parser {
     if (t.t === "kw") {
       switch (t.v) {
         case "function": {
-          if (!top) this.fail("Funktionen stehen nur ganz oben im Plugin-Code, nicht in einem Block oder einer anderen Funktion.");
+          if (!top) this.fail(text("compile.func.nested"));
           this.next();
-          const name = this.ident("ein Funktionsname");
+          const name = this.ident(text("compile.expect.funcName"));
           return { type: "Func", name: name.v, params: this.params(), body: this.block(), ...at };
         }
         case "let": case "const": {
@@ -249,7 +252,7 @@ class Parser {
           this.expect(";");
           return { type: "Return", value, ...at };
         }
-        case "else": return this.fail("„else“ ohne ein „if“ davor.");
+        case "else": return this.fail(text("compile.else"));
         default: break;
       }
     }
@@ -265,7 +268,7 @@ class Parser {
     const list = [];
     if (!this.is(")")) {
       do {
-        const p = this.ident("ein Parametername");
+        const p = this.ident(text("compile.expect.param"));
         list.push({ name: p.v, line: p.line, col: p.col });
       } while (this.eat(","));
     }
@@ -280,7 +283,7 @@ class Parser {
       const name = this.ident();
       let init = null;
       if (this.eat("=")) init = this.expression();
-      else if (kw.v === "const") this.fail(`„const ${name.v}“ braucht einen Wert.`, name);
+      else if (kw.v === "const") this.fail(text("compile.const.value", { name: name.v }), name);
       decls.push({ name: name.v, init, line: name.line, col: name.col });
     } while (this.eat(","));
     return { type: "Let", kind: kw.v, decls, line: kw.line, col: kw.col };
@@ -313,7 +316,7 @@ class Parser {
     const e = this.expression();
     if (this.tok.t === "p" && ASSIGN_OPS.has(this.tok.v)) {
       const op = this.next().v;
-      this.checkTarget(e, "Links von „" + op + "“ muss eine Variable oder ein Feldelement stehen.");
+      this.checkTarget(e, text("compile.assign.target", { op }));
       return { type: "Assign", op, target: e, value: this.expression(), ...at };
     }
     if (this.is("++") || this.is("--")) {
@@ -321,11 +324,11 @@ class Parser {
       this.checkTarget(e);
       return { type: "IncDec", op, target: e, ...at };
     }
-    if (e.type !== "Call") throw new CompileError("Das ist keine Anweisung. Erlaubt sind eine Zuweisung, ++, -- oder ein Funktionsaufruf.", e.line, e.col);
+    if (e.type !== "Call") throw new CompileError(text("compile.statement"), e.line, e.col);
     return { type: "ExprStmt", expr: e, ...at };
   }
 
-  checkTarget(e, message = "++ und -- gehen nur bei einer Variablen oder einem Feldelement.") {
+  checkTarget(e, message = text("compile.incDec.target")) {
     if (e.type !== "Ident" && e.type !== "Index" && e.type !== "Member") throw new CompileError(message, e.line, e.col);
   }
 
@@ -359,8 +362,8 @@ class Parser {
       this.next();
       return { type: "Unary", op: t.v, arg: this.unary(), line: t.line, col: t.col };
     }
-    if (t.t === "p" && (t.v === "++" || t.v === "--")) this.fail("++ und -- gibt es nur als eigene Anweisung, nicht in einem Ausdruck.");
-    if (t.t === "p" && t.v === "+") this.fail("Ein Plus vor einer Zahl gibt es nicht.");
+    if (t.t === "p" && (t.v === "++" || t.v === "--")) this.fail(text("compile.incDec.expression"));
+    if (t.t === "p" && t.v === "+") this.fail(text("compile.plus"));
     return this.postfix();
   }
 
@@ -369,7 +372,7 @@ class Parser {
     for (;;) {
       if (this.is(".")) {
         this.next();
-        const name = this.ident("ein Name nach dem Punkt");
+        const name = this.ident(text("compile.expect.member"));
         e = { type: "Member", object: e, name: name.v, line: e.line, col: e.col };
       } else if (this.is("[")) {
         this.next();
@@ -419,13 +422,13 @@ class Parser {
       this.expect("=>");
       if (this.is("{")) return { type: "FuncExpr", params, body: this.block(), ...at };
       const body = this.expression();
-      if (body.type !== "Call") throw new CompileError("Nach „=>“ folgt ein Block { … } oder ein einzelner Funktionsaufruf.", body.line, body.col);
+      if (body.type !== "Call") throw new CompileError(text("compile.arrow.body"), body.line, body.col);
       return { type: "FuncExpr", params, body: { type: "Block", body: [{ type: "ExprStmt", expr: body, line: body.line, col: body.col }], line: body.line, col: body.col }, ...at };
     }
     if (t.t === "kw" && t.v === "new") {
       this.next();
-      const cls = this.ident("„Array“");
-      if (cls.v !== "Array") this.fail("„new“ gibt es nur als new Array(Größe).", cls);
+      const cls = this.ident(text("compile.expect.array"));
+      if (cls.v !== "Array") this.fail(text("compile.new"), cls);
       this.expect("(");
       const size = this.expression();
       this.expect(")");
@@ -447,7 +450,7 @@ class Parser {
       this.expect("]");
       return { type: "ArrayLit", items, ...at };
     }
-    return this.fail(`Hier wird ein Wert erwartet, gefunden wurde ${describe(t)}.`);
+    return this.fail(text("compile.expect.value", { found: describe(t) }));
   }
 }
 
