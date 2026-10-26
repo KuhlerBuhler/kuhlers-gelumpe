@@ -269,13 +269,14 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 2. Pull Request `develop` -> `main` mergen.
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
    Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
-   2.02 (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
+   2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
    `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
    `main` endet nach dem ersten Schritt.
 
 Korgs drei 2.02 kommen nie ins Repo. Der Workflow lädt sie über die Links in den Secrets `E2_VSB_URL` (Hacktribe),
 `E2_VSB_STOCK_URL` (rot) und `E2_VSB_SYNTH_URL` (blau) und bricht ab, wenn eine Datei nicht die erwartete SHA-256 hat.
-Fehlt in `data/patches/verified.json` das Paar einer der drei, warnt der Lauf: die App prüft diese Datei dann vor dem
+Hacktribe für die blaue macht er selbst aus der Hacktribe-Datei: Byte `0x12` auf `0x00`, `0x2E` auf `0x23`, danach
+SHA-256 `2b2e1c2f…`. Fehlt in `data/patches/verified.json` das Paar einer der vier, warnt der Lauf: die App prüft diese Datei dann vor dem
 Patchen selbst im Emulator.
 
 **Von Hand** geht es weiter so, etwa wenn GitHubs Runner ausfallen:
@@ -327,9 +328,10 @@ App) passt nur auf genau die Hacktribe-Datei mit diesem sha256-Anfang. Liegen si
 und Grenzen: [patcher.md](patcher.md), "Patch-Datei und bsdiff".
 
 **Geprüfte Kopien** (vor jedem Release mit geändertem Patch-Satz): `npm run verify:patches -- <Korgs rote 2.02>
-<Korgs blaue 2.02> <Hacktribe 2.02>` patcht jede Datei wie die Seite, lässt `tools/emu/check.py` laufen und schreibt die
+<Korgs blaue 2.02> <Hacktribe 2.02> <Hacktribe 2.02 mit blauem Kopf>` patcht jede Datei wie die Seite, lässt `tools/emu/check.py` laufen und schreibt die
 SHA-256 von Eingabe und Ergebnis nach `data/patches/verified.json`, nur wenn alle bestehen. Der Patcher überspringt die
-Prüfung im Emulator für genau diese Kopien, auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei wird
+Prüfung im Emulator für genau diese Kopien (Hacktribe für die blaue steht mit `"hardware": "blue"` darin, sie läuft
+im Emulator auf dem Flash der blauen), auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei wird
 weiter ganz geprüft; eine Liste von einem alten Patch-Satz trifft nichts mehr und kostet nur die Zeit.
 
 ## Keine öffentliche Seite

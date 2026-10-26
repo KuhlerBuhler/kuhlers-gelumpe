@@ -6,7 +6,10 @@ Only the patched copy is booted. A changed byte that affects the start is
 itself executed or read on the way, so it shows up in the start phase of the
 patched copy; one that is never reached cannot change the start.
 
-    tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched NEW.VSB [--flash dump.bin] [--allow 0xF9954:1024] [--allow-code 0x2AEAC:4]
+    tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched NEW.VSB [--flash dump.bin | --hardware blue] [--allow 0xF9954:1024] [--allow-code 0x2AEAC:4]
+
+--hardware blue runs every boot on a blank flash of the blue Electribe 2 (its user-data mark), for Sampler code
+that runs there (Hacktribe for the blue, docs/ideen/65-blech-hacktribe-blau.md).
 
 --allow is data of the map's formats that is read at start. --allow-code is an
 explicit exception to rule 2 of docs/patcher.md: start-phase code a patch
@@ -27,8 +30,8 @@ import parallel
 import progress as progress_lib
 from bootmap import IMAGE, KILL_SWITCH, START_MODES, combine, scenario_names
 from loadbar_cases import GROUPS as LOADBAR_GROUPS, has_hooks as has_loadbar
-from machine import load_flash
-from firmware import is_synth
+from machine import hardware_flash, load_flash
+from firmware import HARDWARE_MARKS, is_synth
 from menu_cases import has_menu
 from mfx_cases import has_key_hook
 from pswitch_cases import GROUPS as PSWITCH_GROUPS, has_hooks as has_pswitch
@@ -257,11 +260,13 @@ def main():
     p.add_argument("--flash", nargs="*", default=[], type=Path)
     p.add_argument("--allow", action="append", default=[], type=span, metavar="FILE:LEN",
                    help="data the map knows and that may be read at start, e.g. the start image 0xF9954:1024")
+    p.add_argument("--hardware", choices=sorted(HARDWARE_MARKS), help="without --flash: a blank flash of this hardware")
     p.add_argument("--quick", action="store_true", help="only the start scenarios, not the cases of the patches")
     p.add_argument("--allow-code", action="append", default=[], type=span, metavar="FILE:LEN",
                    help="start-phase code a patch replaces on purpose (docs/patcher.md rule 2), e.g. 0x2AEAC:4")
     a = p.parse_args()
-    result = check(a.base.read_bytes(), a.patched.read_bytes(), load_flash(a.flash) if a.flash else None, a.allow, a.allow_code,
+    flash = load_flash(a.flash) if a.flash else bytes(hardware_flash(a.hardware)) if a.hardware else None
+    result = check(a.base.read_bytes(), a.patched.read_bytes(), flash, a.allow, a.allow_code,
                    progress=progress_lib.to_stderr, quick=a.quick)
     print(json.dumps(result, indent=1, ensure_ascii=False))
     return 0 if result["ok"] else 1

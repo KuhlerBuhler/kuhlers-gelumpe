@@ -1,0 +1,54 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "blechtribe",
+ "name": "Kartenordner blechtribe statt electribe",
+ "builds": [
+  "synth"
+ ],
+ "changes": [
+  {
+   "file": 591298,
+   "bytes": "626c65636874726962650000000000000000",
+   "expect": "35b309e80b6bc04cd3ca9c2476bcd8b2d1bfd5ae59965a44cce780c7c85ede02"
+  },
+  {
+   "file": 591332,
+   "bytes": "4b4f52472f626c65636874726962652f0000000000000000",
+   "expect": "8ce986e0b56b0817bb506f43cb5b8be7cf4043992b3fddc3bb9ea5a8a756ffbf"
+  },
+  {
+   "file": 206440,
+   "bytes": "c20409c0",
+   "expect": "db0b61a34578aa6007082818529a4c310346ab21db9d2144bbe5ab6c3a93fe7e"
+  },
+  {
+   "file": 206516,
+   "bytes": "e40409c0",
+   "expect": "d5832e3fd8a6d261d80865fe52fdb0c5657b2adde550d8f9453c1e759a74f0c0"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 591298,
+   "length": 18,
+   "why": "the firmware reads its card folder name from this string while it builds the sample path at start"
+  },
+  {
+   "file": 591332,
+   "length": 24,
+   "why": "the firmware reads its card folder name from this string while it builds the sample path at start"
+  },
+  {
+   "file": 206440,
+   "length": 4,
+   "why": "the folder functions of the synth take the card folder of device type 0x123 from this pool word"
+  },
+  {
+   "file": 206516,
+   "length": 4,
+   "why": "the folder functions of the synth take the card folder of device type 0x123 from this pool word"
+  }
+ ],
+ "ram": []
+}

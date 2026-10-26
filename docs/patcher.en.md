@@ -88,6 +88,15 @@ All six apply together. The page applies them in the browser, and the result is 
   - **"BLECH mit Hacktribe (hacktribe-2.patch selbst mitbringen)"**, BLECH with Hacktribe: the page first
     turns Korg's file into Hacktribe's file and then adds BLECH. You bring Hacktribe's `hacktribe-2.patch`
     yourself.
+- **Hacktribe on the blue Electribe 2.** Hacktribe is the Sampler's code and runs on both. For every copy with
+  Hacktribe, step 2 asks which Electribe it is for (preset from the file's head, or from an Electribe connected over
+  USB). Only the file head differs, and it follows the firmware that runs during the update: a Hacktribe file
+  (red or blue head) gets the Sampler head and goes to `KORG/hacktribe/System/`; Korg's red 2.02 with
+  `hacktribe-2.patch` for the blue gets the blue head (as Hacktribe's `-e`) and goes to `KORG/electribe/System/`, where
+  Korg's blue firmware takes it. The check runs on the blue's flash. Built and checked in the emulator, **open on the
+  device** ([measurement](messungen/2026-10-26-blech-hacktribe-blau.md), German).
+- Korg's blue 2.02 gets the synth set. Hacktribe cannot be made from it (`hacktribe-2.patch` only builds from Korg's red
+  file); the page says so and points to the red file.
 - Any other file is rejected.
 
 **Why you bring `hacktribe-2.patch` yourself.** Hacktribe's README says that the contents of its `patch`
@@ -306,8 +315,8 @@ npm run build:blech-patch -- --vsb <SYSTEM.VSB> --version 1.0.1
 
 | File | What for | How to apply |
 |---|---|---|
-| `BLECH.patch` | the whole set in our format: all patches with hooks, checksums and start-phase exceptions. Fits any Hacktribe 2.02 whose code and fixed data match, and with `--stock` Korg's original 2.02 too (a second fingerprint, the folder variant for Korg's build) | `node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`, or `applyPatchFile` in `src/patchfile.mjs` |
-| `BLECH-for-7cb4825c.bsdiff`, with `--stock` also `BLECH-for-1d0f0689.bsdiff` | exactly this file to BLECH as a bsdiff 4 (`BSDIFF40`, like Hacktribe's patch). The name carries the start of the sha256 of the input | `bspatch SYSTEM.VSB BLECH.VSB BLECH-for-7cb4825c.bsdiff`, without our app, only with the file that has this hash |
+| `BLECH.patch` | the whole set in our format: all patches with hooks, checksums and start-phase exceptions. Fits any Hacktribe 2.02 whose code and fixed data match, also with the blue Electribe's head; with `--stock` Korg's red 2.02 and with `--synth` Korg's blue 2.02 (fingerprints of their own, the blue with its own set). The release builds it with all three files | `node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`, or `applyPatchFile` in `src/patchfile.mjs` |
+| `BLECH-for-7cb4825c.bsdiff`, `BLECH-for-2b2e1c2f.bsdiff` (Hacktribe with the blue head, gives the Sampler head its updater takes), with `--stock` `BLECH-for-1d0f0689.bsdiff`, with `--synth` `BLECH-for-41fc5f1c.bsdiff` | exactly this file to BLECH as a bsdiff 4 (`BSDIFF40`, like Hacktribe's patch). The name carries the start of the sha256 of the input | `bspatch SYSTEM.VSB BLECH.VSB BLECH-for-7cb4825c.bsdiff`, without our app, only with the file that has this hash |
 
 **Which VSB fits.** Hacktribe's file and an edited VSB differ only in data that users change. Measured on one
 of our own `SYSTEM.VSB` files against the one from the package: 2317 bytes in 1331 runs, namely FX presets,
@@ -335,9 +344,10 @@ what the patch wrote too.
 The `patches` are the same objects that `applyPatches` gets from the JSON files, in the same order. Applying
 the file therefore means: check the input fingerprint, run `applyPatches`, check the output fingerprint. If
 either differs, nothing is written; the result is byte for byte that of the set
-(`test/patch-file.test.mjs`). `--patch BLECH.patch` stands alone, not together with JSON patches. For Korg's
-original, the fingerprints stand in the payload under `alternates.stock` (the format stays 2), and a file
-without `alternates` rejects Korg's original with a note of its own. Version 1 (one hash over the whole
+(`test/patch-file.test.mjs`). `--patch BLECH.patch` stands alone, not together with JSON patches. The other
+firmwares' fingerprints stand in the payload under `alternates` (the format stays 2): `stock` (Korg's red),
+`hacktribe-blue` (Hacktribe with the blue head) and `synth` (Korg's blue, with its own patch list); a file without
+the matching key rejects that firmware with a note of its own, and an unknown key is refused. Version 1 (one hash over the whole
 file) was never published and is not read.
 
 **No firmware in the file.** `BLECH.patch` carries only what the JSON patches already carry: our code and

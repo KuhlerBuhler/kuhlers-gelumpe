@@ -4,23 +4,39 @@
  "results": [
   {
    "input": "1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646",
-   "output": "9b889fa95d9553098a5d6695eaeec7272c9932e262088c8ce6f0a883b39bc76c",
+   "output": "2f69376faeb229989aa09e199f1564fcd3f45eff55b3915334e4ecea930066e5",
    "set": "blech",
-   "checks": 551,
+   "checks": 552,
    "date": "2026-10-26"
   },
   {
    "input": "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8",
-   "output": "2030379ba3aca5f837881031e25e8bb21a299dd6b20270e719c487bf9007dc4c",
+   "output": "91fee30864c1c1c95fb6cd3a62c0b3f24b1ef7cda9b87322307e231273366a50",
    "set": "blech-synth",
-   "checks": 416,
+   "checks": 417,
    "date": "2026-10-26"
   },
   {
    "input": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
-   "output": "59776401ed44843889dc3c1ccdfd3add72b61eae90c0c7ec639a08070973d670",
+   "output": "6ca2c5e6596155f1bf54ed9f39023bb5250ffc3b1896e3b3a1990991ac35d437",
    "set": "blech",
-   "checks": 526,
+   "checks": 527,
+   "date": "2026-10-26"
+  },
+  {
+   "input": "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee",
+   "output": "6ca2c5e6596155f1bf54ed9f39023bb5250ffc3b1896e3b3a1990991ac35d437",
+   "set": "blech",
+   "hardware": "blue",
+   "checks": 528,
+   "date": "2026-10-26"
+  },
+  {
+   "input": "2b2e1c2f928c1faf4cc2a6580292763a5282a37f19eb9165c1bdd05db832ddbe",
+   "output": "8bea8460520c253b9017460d82756239237d21c6865499a103d7b51a87c3d76c",
+   "set": "blech",
+   "hardware": "blue",
+   "checks": 528,
    "date": "2026-10-26"
   }
  ]

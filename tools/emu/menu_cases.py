@@ -675,11 +675,17 @@ def settings_cases(payload, flash=None):
     add("settings_protected_card", text(prot, S_VALUE) == "card protected" and bytes(prot.m.mmc.card.medium.data) == before and not prot.m.asserts,
         f"value {text(prot, S_VALUE)!r}, card unchanged {bytes(prot.m.mmc.card.medium.data) == before}")
 
-    # no BLECH folder on the card: the open fails with 4 or 5
-    nofolder = boot(payload, flash, files={"/KORG/other/file": b"1"})
+    # no BLECH folder on the card, as on the blue, which keeps KORG/electribe: the save makes KORG/blechtribe, the next start reads it
+    nofolder = boot(payload, flash, files={"/KORG/electribe/Sample/placeholder": b"1"})
     goto_group(nofolder, GROUP_FEATURES, FEAT_MFX)
+    nofolder.turn(-1, wait=0.2)
     press(nofolder, "write", wait=0.6)
-    add("settings_without_folder", text(nofolder, S_VALUE) == "folder missing" and not nofolder.m.asserts, f"value {text(nofolder, S_VALUE)!r}")
+    made = read_settings(nofolder.m.mmc.card.medium.data)
+    later = Dev(payload, flash, 0)
+    later.m.insert_card(SDCard(MemoryMedium(bytearray(nofolder.m.mmc.card.medium.data))))
+    later.run(1.2)
+    add("settings_without_folder", text(nofolder, S_VALUE) == "saved" and made == {"b": (1, 1)} and state(later, S_SET_MFX) == 0 and not nofolder.m.asserts and not later.m.asserts,
+        f"value {text(nofolder, S_VALUE)!r}, files {made}, MFX 2 after the restart {state(later, S_SET_MFX)}")
 
     # MFX 2 off in the file: the touch pad starts as in the stock firmware and TOUCH SCALE stays the stock key
     from mfx_cases import Box, S_MODE as MFX_MODE, S_BOOT as MFX_BOOT

@@ -238,5 +238,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Der Stack bei 0xC274E000 und wer den RAM darüber nutzt](2026-10-24-ram-task-stack.md)
 - [USB: was das Gerät anbietet und was eine zweite Schnittstelle bräuchte](2026-10-24-usb.md)
 - [Hacktribes Flash-Schreibbefehl gesperrt, Pattern-Schreibvorgänge nach 0x53 bis 0x56](2026-10-24-hacktribe-flash.md)
+- [BLECH mit Hacktribe auf der blauen: Start, Update-Wege, Kartenordner](2026-10-26-blech-hacktribe-blau.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)
