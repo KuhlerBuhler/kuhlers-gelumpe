@@ -316,7 +316,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     window.ui?.setProgress(bar, p ? p.value : null, t("patcher.progress.label"));
     groupList.hidden = !p;
     groupList.replaceChildren(...(p?.groups ?? []).map(g => {
-      const li = el("li", {}, [el("span", { textContent: g.name }), el("span", { className: "cee-patch-group-state", textContent: g.text })]);
+      const li = el("li", {}, [el("span", { textContent: g.name }), el("span", { className: "cee-patch-group-state", textContent: t(g.text) })]);
       li.dataset.state = g.state;
       return li;
     }));
@@ -344,7 +344,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     note.hidden = !can.busy;
     if (flow.phase === "patching") note.textContent = t("patcher.patching");
     // A result is told once, as a toast; the line is only for the run itself.
-    const result = passed_ ? [t("patcher.passed"), "ok"] : can.busy ? null : flow.error ? [flow.error, "error"] : failed ? [failed, "error"] : null;
+    const result = passed_ ? [t("patcher.passed"), "ok"] : can.busy ? null : flow.error ? [t(flow.error), "error"] : failed ? [failed, "error"] : null;
     const key = result ? `${flow.phase}|${result[0]}` : null;
     if (key !== toasted) { toasted = key; if (result) toast(result[0], result[1]); }
   }
@@ -361,7 +361,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     view = Math.min(view, reach());
     way.replaceChildren(...wayOf(flow).map((s, i) => {
       const state = s.state === "error" ? "error" : i === view ? "current" : i < reach() || s.state === "done" ? "done" : "todo";
-      const li = el("li", { className: "cee-patch-way-step" }, [el("span", { className: "cee-patch-way-n", textContent: state === "done" ? "✓" : String(i + 1) }), el("span", { textContent: s.label })]);
+      const li = el("li", { className: "cee-patch-way-step" }, [el("span", { className: "cee-patch-way-n", textContent: state === "done" ? "✓" : String(i + 1) }), el("span", { textContent: t(s.label) })]);
       li.dataset.state = state;
       if (state === "current") li.setAttribute("aria-current", "step");
       return li;
@@ -422,7 +422,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     checksBox.hidden = !checks.length;
     document.getElementById("cee-patch-details-title").textContent = t("patcher.checks", { count: checks.length });
     checkList.replaceChildren(...checks.map(c => el("li", { className: "ui-row" }, [
-      pill(c.ok ? "ok" : "error", c.ok ? t("patcher.check.ok") : t("patcher.check.failed")), el("strong", { textContent: ` ${checkName(c.id)}` }), el("span", { className: "ui-break muted", textContent: ` ${checkDetail(c.detail)}` }),
+      pill(c.ok ? "ok" : "error", c.ok ? t("patcher.check.ok") : t("patcher.check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
     ])));
 
     result.hidden = !can.download;

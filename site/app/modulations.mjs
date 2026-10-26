@@ -265,7 +265,7 @@ export function modulationsPage(root, { emulator }) {
       progress(t("mod.checking"));
       const report = await emulator.check(state.original, res.bytes, res.allow, []);
       checkList.replaceChildren(...report.checks.map(c => el("li", { className: "ui-row" }, [
-        pill(c.ok ? "ok" : "error", c.ok ? t("check.passed") : t("check.failed")), el("strong", { textContent: ` ${checkName(c.id)}` }), el("span", { className: "ui-break muted", textContent: ` ${checkDetail(c.detail)}` }),
+        pill(c.ok ? "ok" : "error", c.ok ? t("check.passed") : t("check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
       ])));
       document.getElementById("cee-mod-details-title").textContent = t("check.all", { count: report.checks.length });
       checks.hidden = false;

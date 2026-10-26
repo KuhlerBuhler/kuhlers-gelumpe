@@ -624,7 +624,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       exportNote.textContent = t("presets.checking");
       const report = await emu.check(state.base, res.bytes, res.allow, res.allowCode);
       exportChecks.replaceChildren(...report.checks.map(c => el("li", { className: "ui-row" }, [
-        pill(c.ok ? "ok" : "error", c.ok ? t("check.passed") : t("check.failed")), el("strong", { textContent: ` ${checkName(c.id)}` }), el("span", { className: "ui-break muted", textContent: ` ${checkDetail(c.detail)}` }),
+        pill(c.ok ? "ok" : "error", c.ok ? t("check.passed") : t("check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
       ])));
       exportChecks.hidden = false;
       const good = report.checks.filter(c => c.ok).length;
