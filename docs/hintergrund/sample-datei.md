@@ -29,6 +29,10 @@ oder 24 Bit, mehr als zwei Kanäle, Platz belegt), wird übersprungen, wenn BLEC
 - Änderungen stehen erst als Vorschlag da (`wird entfernt`, `neu`) und lassen sich zurücknehmen. **Speichern** schreibt alles
   auf einmal.
 - Die Electribe liest `e2sSample.all` nur beim Start. Die Seite sagt es vor dem Speichern und im Hinweis danach.
+- **Als Datei speichern** holt die ganze Datei der Karte über USB auf den Rechner, mit Audio, als Sicherung oder zum Bearbeiten
+  ohne Gerät. Jeder Block kommt mit seinem CRC-32, die Größe wird am Ende nochmal gefragt, und die Bytes müssen sich als Sample-Datei
+  lesen lassen. Abbrechen geht zwischen zwei Stücken von 256 KiB. Eine volle Datei (26,8 MB) dauert rund zwei Minuten
+  ([Messung](../messungen/2026-10-26-sample-datei-sysex.md#am-gerät-lesegeschwindigkeit)).
 
 ## Der Plan einer Änderung
 

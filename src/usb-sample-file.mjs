@@ -9,7 +9,7 @@
 import { BLECH, crc32 } from "./protocol.mjs";
 import { crc32Join } from "./crc-combine.mjs";
 import { prepare } from "./usb-update.mjs";
-import { HEADER, SampleFileError, emptySampleFile, parseRemote, planChange } from "./sample-file.mjs";
+import { HEADER, SampleFileError, emptySampleFile, parseRemote, parseSampleFile, planChange } from "./sample-file.mjs";
 
 /** The error of a swap that went wrong after the old file was deleted: the temp file on the card holds the finished file. */
 export class SwapInterrupted extends Error {}
@@ -39,6 +39,32 @@ export function readDeviceSamples(session, onProgress) {
     if (!size) return { parsed: { size: 0, samples: [], header: emptySampleFile() }, header: emptySampleFile(), temp };
     const parsed = await parseRemote((at, n) => sender.sampleFileRead(at, n, model), size, onProgress);
     return { parsed, header: parsed.header, temp };
+  });
+}
+
+/**
+ * The whole sample file from the card, audio and all, as a backup or to edit it offline. Every block comes with its CRC-32 (a block
+ * that does not match is read again), the size is asked again at the end, and the bytes must parse as a sample file.
+ * `onProgress(done, total)` in bytes; `signal` (an AbortSignal) stops it between two pieces with its reason.
+ * @returns {Promise<{ bytes: Uint8Array, parsed: object } | null>} null when there is no sample file on the card
+ */
+export function downloadDeviceSamples(session, onProgress = () => {}, signal) {
+  return session.exclusive(async () => {
+    const { model, sender } = await prepareSamples(session);
+    const size = await sender.sampleFileSize(model);
+    if (!size) return null;
+    const bytes = new Uint8Array(size);
+    onProgress(0, size);
+    for (const piece of pieces(0, size)) {
+      signal?.throwIfAborted();
+      const got = await sender.sampleFileRead(piece.at, piece.length, model);
+      if (got.length !== piece.length) throw new SampleFileError(`Die Sample-Datei auf der Karte endet bei ${piece.at + got.length} Byte statt bei ${size}.`);
+      bytes.set(got, piece.at);
+      onProgress(piece.at + piece.length, size);
+    }
+    const after = await sender.sampleFileSize(model);
+    if (after !== size) throw new SampleFileError(`Die Sample-Datei auf der Karte ist während des Lesens von ${size} auf ${after} Byte geändert worden.`);
+    return { bytes, parsed: parseSampleFile(bytes) };
   });
 }
 
