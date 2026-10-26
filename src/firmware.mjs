@@ -34,12 +34,25 @@ const isSynth = bytes => bytes.length > 0x12 && bytes[0x10] === 0x45 && bytes[0x
 /** The Electribe a file is made for, by its head: Hacktribe for the blue carries the blue head (tools/emu/firmware.py, hardware_of_head). */
 export const hardwareOf = bytes => (isSynth(bytes) ? "blue" : "red");
 
+/** CRC-32 of the run in Hacktribe 2.02 (`7cb4825c`); the same in every Hacktribe file, BLECH never writes there. */
+const HACKTRIBE_RUN_CRC = 0x12224d92;
+
+function crc32(bytes) {
+  let crc = ~0;
+  for (const b of bytes) {
+    crc ^= b;
+    for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return ~crc >>> 0;
+}
+
 /** @returns {"hacktribe" | "stock" | "synth"} */
 export function buildOf(bytes) {
-  // Hacktribe's code decides before the head: Hacktribe on a blue Electribe can carry the synth head (docs/ideen/65-blech-hacktribe-blau.md).
   const run = bytes.subarray(HACKTRIBE_CODE.file, HACKTRIBE_CODE.file + HACKTRIBE_CODE.length);
   const erased = run.length === HACKTRIBE_CODE.length && run.every(b => b === 0xff);
-  if (isSynth(bytes)) return erased ? "synth" : "hacktribe";
+  // With the synth head only Hacktribe's own run makes it Hacktribe for the blue (docs/ideen/65-blech-hacktribe-blau.md); any
+  // other blue file stays the blue's, so an altered one hears "take Korg's original", not a Hacktribe fingerprint
+  if (isSynth(bytes)) return !erased && crc32(run) === HACKTRIBE_RUN_CRC ? "hacktribe" : "synth";
   return erased ? "stock" : "hacktribe";
 }
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { setUp } from "./harness.mjs";
 import { tempDir } from "../support/lifetime.mjs";
 import { fakeService, TOKEN } from "./support/fake-emu.mjs";
-import { makeFirmware } from "../helpers.mjs";
+import { makeFirmware, withHacktribeRun } from "../helpers.mjs";
 import { applyPatches, splashPatch, SPLASH_W, SPLASH_H } from "../../src/patch.mjs";
 import { sha256 } from "../../src/firmware.mjs";
 import { field } from "../../src/map/index.mjs";
@@ -135,6 +135,8 @@ test("patcher: a file that is no VSB, or not the measured firmware, is named and
   assert.equal(await page.isDisabled("#cee-patch-next"), true);
   await drop(page, new Uint8Array(0x200100));
   await page.locator("#app-toasts .cee-toast", { hasText: "Diese Firmware kennt der Patcher nicht" }).waitFor();
+  const hash = (await sha256(new Uint8Array(0x200100))).slice(0, 8);
+  await page.locator("#app-toasts .cee-toast", { hasText: `Deine Datei: SHA-256 ${hash}` }).waitFor();
   assert.equal(await page.locator("#cee-patch-verdict").evaluate(n => n.classList.contains("ui-sr-only")), true, "on the page it is only the toast");
   assert.equal(await page.isDisabled("#cee-patch-next"), true);
   assert.deepEqual(page.errors, []);
@@ -485,7 +487,7 @@ test("patcher: the blue original gets its synth set and trials the copy in elect
 });
 
 test("patcher: Hacktribe for the blue is patched with the Sampler head, checked on the blue and goes to KORG/hacktribe/System", async () => {
-  const red = await makeFirmware();
+  const red = withHacktribeRun(await makeFirmware());
   red.set([0x45, 0x32, 0x53], 0x10);
   red[0x2e] = 0x24;
   const blue = Uint8Array.from(red);

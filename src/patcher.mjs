@@ -61,9 +61,10 @@ export const itemsFor = (blech, build) => blech.items.filter((_, i) => buildsOf(
  * or when it already carries the BLECH patches made for it.
  */
 export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHash = SYNTH_SHA256) {
-  const out = { kind: "unknown", size: bytes.length, reasons: [], present: [] };
-  if (bytes.length !== VSB_SIZE) return { ...out, kind: "wrong-size" };
   const hash = await sha256(bytes);
+  // sha256: what support needs to tell which file was dropped
+  const out = { kind: "unknown", size: bytes.length, sha256: hash, reasons: [], present: [] };
+  if (bytes.length !== VSB_SIZE) return { ...out, kind: "wrong-size" };
   if (hash === stockHash) return { ...out, kind: "stock" };
   if (hash === synthHash) return { ...out, kind: "synth" };
   const base = await identifyBase(bytes);
@@ -71,7 +72,7 @@ export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHa
   const mine = selectFor(patches, base.build).patches;
   const present = (await patchesPresent(bytes, mine)).filter(p => p.present).map(p => p.id);
   if (base.build === "synth" && !present.length) {
-    return { ...out, reasons: ["Nimm die unveränderte originale SYSTEM.VSB 2.02 der blauen Electribe 2."] };
+    return { ...out, reasons: ["Das ist nicht Korgs unveränderte SYSTEM.VSB 2.02 der blauen Electribe 2. Nimm die aus Korgs Zip, nicht die von der SD-Karte."] };
   }
   if (base.build === "stock" && !present.length) {
     return { ...out, reasons: [`Das ist Korgs Original-Firmware 2.02, aber nicht die unveränderte Datei aus dem Systemupdate (sha256 ${stockHash.slice(0, 8)}...).`] };

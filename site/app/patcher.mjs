@@ -31,6 +31,12 @@ const FOUND = { hacktribe: "Hacktribe 2.02 erkannt", stock: "Korgs Original 2.02
 function verdict(flow, items) {
   const { input } = flow;
   if (!input) return null;
+  const v = verdictText(input, items);
+  // every "not this file" names the file by its checksum, so a screenshot tells support what was dropped
+  return v && input.sha256 ? { ...v, text: `${v.text} (Deine Datei: SHA-256 ${input.sha256.slice(0, 8)}…)` } : v;
+}
+
+function verdictText(input, items) {
   const size = input.size.toLocaleString("de-DE");
   switch (input.kind) {
     // A file the page takes says nothing: the user knows what was dropped, the button and the route say what comes next.
