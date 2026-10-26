@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BASE_BRANCH, RELEASE_COMMIT, VERSION_FILES, checkFiles, classifyFile, compareVersions, latestVersion, nextVersion, planRelease } from "../tools/release-lib.mjs";
+import { BASE_BRANCH, RELEASE_COMMIT, VERSION_FILES, checkFiles, checkNotes, classifyFile, downloadBlock, parseNotes, releaseBody, compareVersions, latestVersion, nextVersion, planRelease } from "../tools/release-lib.mjs";
 
 const set = v => [
   `Kuhlers GELUMPE_${v}_aarch64.dmg`,
@@ -123,4 +123,73 @@ test("release notes from a file replace GitHub's generated list", () => {
   const own = planRelease({ tag: "v1.0.1", sha: "abcdef1234567", repo: "o/r", assets: [], older: [], notes: "/d/notes.md" })[0].args;
   assert.equal(own[own.indexOf("--notes-file") + 1], "/d/notes.md");
   assert.ok(!own.includes("--generate-notes"));
+});
+
+const U = "https://github.com/KuhlerBuhler/kuhlers-gelumpe/releases/download/v1.3.5";
+
+test("the download block links every system with GitHub's dotted file names", () => {
+  const de = downloadBlock("1.3.5", [...set("1.3.5"), "BLECH.patch"], "de");
+  for (const name of ["Kuhlers.GELUMPE_1.3.5_x64-setup.exe", "Kuhlers.GELUMPE_1.3.5_aarch64.dmg", "Kuhlers.GELUMPE_1.3.5_x64.dmg", "Kuhlers.GELUMPE_1.3.5_amd64.AppImage", "Kuhlers.GELUMPE_1.3.5_amd64.deb"])
+    assert.ok(de.includes(`(${U}/${name})`), name);
+  assert.ok(!de.includes("Kuhlers GELUMPE_"), "no space in a link");
+  assert.match(de, /^\*\*Herunterladen/);
+  assert.ok(de.includes("SmartScreen") && de.includes("Apple M") && de.includes("xattr -dr com.apple.quarantine"));
+  assert.ok(de.includes("brauchst du nicht"));
+  assert.match(de, /\*\*Ohne App patchen\*\*\n- `BLECH\.patch`$/);
+  const en = downloadBlock("1.3.5", [...set("1.3.5"), "BLECH.patch"], "en");
+  assert.match(en, /^\*\*Download/);
+  assert.ok(en.includes("Apple chip") && en.includes("Run anyway") && en.includes(`(${U}/Kuhlers.GELUMPE_1.3.5_amd64.deb)`));
+  assert.match(en, /\*\*Patch without the app\*\*/);
+});
+
+test("a platform that is not uploaded gets no link and no dead one", () => {
+  const names = set("1.3.5").filter(n => !n.endsWith("_x64.dmg") && !n.endsWith(".deb") && !n.endsWith("-setup.exe"));
+  const de = downloadBlock("1.3.5", names, "de");
+  assert.ok(!de.includes("Intel") && !de.includes(".deb") && !de.includes("Windows") && !de.includes("SmartScreen"));
+  assert.ok(de.includes("aarch64.dmg") && de.includes("AppImage") && !de.includes(" oder "));
+  const noMac = downloadBlock("1.3.5", set("1.3.5").filter(n => !n.endsWith(".dmg")), "en");
+  assert.ok(!noMac.includes("xattr") && !noMac.includes("Mac"));
+  assert.equal(downloadBlock("1.3.5", [], "de"), "");
+  assert.ok(!downloadBlock("1.3.5", set("1.3.5"), "de").includes("BLECH"), "no patch line without the file");
+});
+
+test("the patch line names the bsdiff only when it goes up, and the version comes from the argument", () => {
+  const both = downloadBlock("2.0.0", ["BLECH.patch", "BLECH-for-7cb4825c.bsdiff", "Kuhlers GELUMPE_2.0.0_x64.dmg"], "de");
+  assert.ok(both.includes(".bsdiff") && both.includes("/download/v2.0.0/Kuhlers.GELUMPE_2.0.0_x64.dmg"));
+  assert.ok(!downloadBlock("2.0.0", ["BLECH.patch"], "de").includes("bsdiff"));
+  assert.throws(() => downloadBlock("1.0.0", [], "fr"));
+});
+
+const notes = "BLECH 1.3.5.\n\n**Neu**\n- Eins\n\n## English\n\nBLECH 1.3.5.\n\n**New**\n- One\n";
+
+test("the notes file splits at the English heading", () => {
+  assert.deepEqual(parseNotes(notes), { de: "BLECH 1.3.5.\n\n**Neu**\n- Eins", en: "BLECH 1.3.5.\n\n**New**\n- One" });
+  assert.deepEqual(parseNotes("nur deutsch"), { de: "nur deutsch", en: null });
+  assert.equal(parseNotes("a\r\n## English\r\nb").en, "b");
+  assert.equal(parseNotes("a\n### English\nb").en, null, "only a level 2 heading counts");
+});
+
+test("the body is German block and notes, then the English heading with the English block and notes", () => {
+  const body = releaseBody(notes, "1.3.5", [...set("1.3.5"), "BLECH.patch"]);
+  const at = body.indexOf("\n## English\n");
+  assert.ok(at > 0);
+  const [de, en] = [body.slice(0, at), body.slice(at)];
+  assert.match(de, /^\*\*Herunterladen[^]*\*\*Neu\*\*\n- Eins\n$/);
+  assert.match(en, /^\n## English\n\n\*\*Download[^]*\*\*New\*\*\n- One\n$/);
+  assert.ok(!de.includes("Download:") && !en.includes("Herunterladen"));
+  assert.ok(body.indexOf("BLECH 1.3.5.") > body.indexOf("**Herunterladen"), "the block comes first");
+  assert.equal(parseNotes(body).en.startsWith("**Download"), true);
+});
+
+test("a German-only file gives a German-only body", () => {
+  assert.ok(!releaseBody("Nur deutsch.", "1.3.5", set("1.3.5")).includes("English"));
+});
+
+test("the due check wants both languages", () => {
+  assert.deepEqual(checkNotes(notes), []);
+  assert.equal(checkNotes("Nur deutsch.\n").length, 1);
+  assert.match(checkNotes("Nur deutsch.\n")[0], /englische Teil fehlt/);
+  assert.match(checkNotes("Deutsch\n\n## English\n\n  \n")[0], /leer/);
+  assert.match(checkNotes("## English\n\nOnly English")[0], /deutsche Teil ist leer/);
+  assert.equal(checkNotes("").length, 2);
 });

@@ -4,10 +4,29 @@
  */
 import de from "./i18n-de.mjs";
 import { fill, isText, useTexts } from "../../src/text.mjs";
+import en from "./i18n-en.mjs";
+import fr from "./i18n-fr.mjs";
+import it from "./i18n-it.mjs";
+import es from "./i18n-es.mjs";
+import nl from "./i18n-nl.mjs";
+import pt from "./i18n-pt.mjs";
+import pl from "./i18n-pl.mjs";
+import cs from "./i18n-cs.mjs";
+import ru from "./i18n-ru.mjs";
+import uk from "./i18n-uk.mjs";
 
-const TABLES = { de };
+const TABLES = { de, en, fr, it, es, nl, pt, pl, cs, ru, uk };
 /** The languages there are, with their own names for the settings. */
 export const LANGUAGES = Object.keys(TABLES).map(id => [id, TABLES[id]["language.name"]]);
+
+/** The language of the system when there is a table for it, else German: the start value until the user picks one. */
+export function systemLanguage(prefs = globalThis.navigator?.languages ?? []) {
+  for (const tag of prefs) {
+    const id = String(tag).toLowerCase().split("-")[0];
+    if (TABLES[id]) return id;
+  }
+  return "de";
+}
 
 let lang = "de";
 

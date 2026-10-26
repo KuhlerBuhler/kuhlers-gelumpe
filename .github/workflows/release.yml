@@ -1,5 +1,5 @@
 # The release, started by the merge of the release pull request into main (docs/development.md, "Release"): when
-# package.json names a version without a tag and release-notes/<version>.md exists, it builds the apps, checks the BLECH
+# package.json names a version without a tag and release-notes/<version>.md exists with a German and an English part, it builds the apps, checks the BLECH
 # set on Korg's three 2.02 files in the emulator, builds BLECH.patch, publishes the release and posts it to Discord.
 # Any other push to main ends after the first job.
 #
@@ -37,6 +37,9 @@ jobs:
             echo "release=false" >> "$GITHUB_OUTPUT"
           elif [ ! -s "release-notes/$version.md" ]; then
             echo "::notice::release-notes/$version.md is missing, no release for $version."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          elif ! node tools/release-notes.mjs check "release-notes/$version.md"; then
+            echo "::warning::release-notes/$version.md needs the German part and the English part under '## English', no release for $version."
             echo "release=false" >> "$GITHUB_OUTPUT"
           else
             echo "release=true" >> "$GITHUB_OUTPUT"
