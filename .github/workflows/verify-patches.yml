@@ -167,16 +167,23 @@ jobs:
         with:
           ref: ${{ needs.ref.outputs.sha }}
           token: ${{ secrets.SYNC_TOKEN || github.token }}
+      # The joining tool from this workflow's own commit: the checked branch may be older than --results.
+      - uses: actions/checkout@v4
+        with:
+          path: .verify-tool
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
       - uses: actions/download-artifact@v4
         with:
           pattern: verified-*
           path: ${{ runner.temp }}/verified
-      - run: node tools/verify-patches.mjs --results "$RUNNER_TEMP"/verified/*/verified.json
+      - run: |
+          cp data/patches/verified.json .verify-tool/data/patches/verified.json
+          node .verify-tool/tools/verify-patches.mjs --results "$RUNNER_TEMP"/verified/*/verified.json
+          cp .verify-tool/data/patches/verified.json data/patches/verified.json
+          rm -rf .verify-tool
       - name: Commit
         env:
           GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
