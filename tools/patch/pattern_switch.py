@@ -17,7 +17,7 @@ pattern of the same group confirms it at once (NEXT:, no MENU needed), and a pat
 carries the state of the pattern that played, changed or not: part mutes and sound, tempo, swing, level, the MFX pad and HOLD.
 A part's sample goes along only when it was changed live (it differs from the bank block the pattern came from). Steps, motion, length, beat, key, scale, chord set and the MFX types (1 and 2) stay the new pattern's.
 
-Twelve hooks; only the stopped sync and the command end run before the main screen, and there they only read their own state:
+Twenty-one hooks; the stopped sync, command end, note cleanup and pattern load run before the main screen:
   wheel        the tail call of the main screen's VALUE handler into the selector, 0xC006513C
   pad          first instruction of the pad selection, 0xC006EDE4, clears browse and confirmation
   MIDI         first instruction of the program change handler, 0xC006EE00, ditto
@@ -31,9 +31,16 @@ Twelve hooks; only the stopped sync and the command end run before the main scre
   pad gate     the busy check of the pad handler, 0xC0044888: a pad pressed while the firmware runs a command (a pattern load) is
                kept instead of dropped
   command end  where the command runner clears its busy flag, 0xC002D81C: the kept pad presses are handed to the pad handler
+  voice begin  held-pad cleanup at 0xC0079B90; same-group loads keep the existing note ownership
+  voice stop   pre-copy silencing at 0xC0079BE0
+  note cleanup source cleanup at 0xC0045DAC and note-off calls at 0xC004A728, 0xC004A7A8, 0xC00492F4
+  note slots   voice-mode reinitialization at 0xC005A884; the carried voice mode keeps its active notes
+  voice reset  global reset at 0xC0098C84; skipped within a protected load
+  voice end    post-copy initialization at 0xC0079C2C; new samples are prepared for subsequent triggers
 
-The patch is on only when EXIT was not held at power-on, a card was seen since power-on and the setting word PS_SETTING
-is not 0 (the BLECH menu writes it; never written means on). Off, every hook goes straight to the original.
+Pattern confirmation requires that EXIT was not held at power-on, a card was seen since power-on and PS_SETTING
+is not 0 (the BLECH menu writes it; never written means on). Sync groups remain active independently of that setting
+and the card latch; EXIT held at power-on disables them too.
 Nothing of the firmware is copied and nothing is written to flash or to the card.
 """
 
@@ -58,11 +65,13 @@ CODE_AT = 0xC0180000            # free (FF) in the image, far from the other pat
 CODE_END = 0xC0180F00
 STATE = 0xC0180F00              # run time state, in RAM only; FF there means "nothing"
 STATE_END = 0xC0180F40
+VOICE_CODE = STATE_END
+VOICE_END = 0xC0181000
+S_VOICES = 0x38
 SG_BUF = 0xC0173000             # the sync group's buffer, in RAM only, in the free run between the SysEx patch's code and its table
 SG_SIZE = 10 + 16 * 47          # 9 values of the pattern (tempo two bytes), 47 bytes of each part
 S_BROWSE, S_ARMED, S_ARMNUM, S_SETTING, S_STOPPED, S_AUTO, S_LOADED, S_LED = 0, 4, 8, 0x10, 0x14, 0x18, 0x1C, 0x20
 S_PADH, S_PADT, S_PADQ, PADQ_SIZE = 0x24, 0x25, 0x28, 4
-S_SGNUM = 0x38
 LED_MGR, LED_MENU, S_LEDWAS = 0xC0345A1C, 7, 0x21
 PS_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off
 
@@ -103,8 +112,8 @@ CMD_BUSY = 0xC002D634           # returns the command runner's busy byte (+0x10 
 CMD_END = 0xC002D81C            # strb r3, [r6, #0x10]: the command runner clears its busy byte (r3 = 0)
 CMD_END_WORD = 0xE5C63010
 VIEW_W = 0xC0173400             # the view's own accessor and state, in RAM only (between SG_BUF and the SysEx patch's table)
-VIEW_SIZE = 0x48
-V_NUM, V_LIDX = 0x40, 0x44
+VIEW_SIZE = 0x4C
+V_NUM, V_LIDX, V_SGNUM = 0x40, 0x44, 0x48
 INFO_HOOK = 0xC008684C          # ldrb r3, [r0, #0x5c]: the first instruction of the info line's builder that reads the label flag
 INFO_WORD = 0xE5D0305C
 INFO_BODY = 0xC0086850
@@ -112,12 +121,33 @@ CELL_W = 0xC0691388             # the pointer the pad LEDs read the pattern's ac
 CELL_O = 0xC069136C             # the pointer the info texts read the pattern through (UI only)
 PADS_REFRESH = 0xC00892D4       # (LED manager): the firmware's own refresh of the pads after a pattern load, it draws the pads of the current mode
 GROUP_AT = 0x3B80               # the sync group in a pattern block, u16 little endian; the firmware never touches 0x3B03 to 0x3BFB
+VOICE_BEGIN_CALL = 0xC0079B90
+VOICE_CONT = 0xC0079BD4
+VOICE_SILENCE_CALL = 0xC0079BE0
+VOICE_END_CALL = 0xC0079C2C
+VOICE_RESET_CALL = 0xC0098C84
+VOICE_BEGIN_ORIG = 0xC00413A8
+VOICE_SILENCE_ORIG = 0xC009B5D8
+VOICE_END_ORIG = 0xC009B5DC
+VOICE_RESET_ORIG = 0xC0091F5C
+NOTE_CLEAR_HOOK = 0xC0045DAC
+NOTE_CLEAR_BODY = 0xC0045DB0
+NOTE_CLEAR_WORD = 0xE5903014
+NOTE_FLUSH_ORIG = 0xC005AA80
+NOTE_FLUSH_KEY = 0xC004A728
+NOTE_FLUSH_SCALE = 0xC004A7A8
+NOTE_FLUSH_VOICE = 0xC00492F4
+NOTE_ASSIGN_CALL = 0xC005A884
+NOTE_ASSIGN_ORIG = 0xC005A7A4
 
 
 FIRMWARE_PLACES = ["WHEEL_HOOK", "SELECT", "PAD_HOOK", "PAD_BODY", "MIDI_HOOK", "MIDI_BODY", "MENU_SLOT", "MENU_ORIG", "EXIT_SLOT", "EXIT_ORIG",
                    "SEQ_CALL", "SEQ_FUNC", "STOP_HOOK", "STOP_BODY", "LABEL_HOOK", "NEXT_TEXT",
                    "SYNC_HOOK", "SYNC_BODY", "COPY_CALL", "MEMCPY", "PGATE_HOOK", "PGATE_CONT", "PGATE_SKIP", "PAD_HANDLER",
-                   "CMD_BUSY", "CMD_END", "INFO_HOOK", "INFO_BODY", "CELL_W", "CELL_O", "PADS_REFRESH"]
+                   "CMD_BUSY", "CMD_END", "INFO_HOOK", "INFO_BODY", "CELL_W", "CELL_O", "PADS_REFRESH", "VOICE_BEGIN_CALL", "VOICE_END_CALL", "VOICE_RESET_CALL",
+                   "VOICE_BEGIN_ORIG", "VOICE_END_ORIG", "VOICE_RESET_ORIG", "VOICE_CONT", "VOICE_SILENCE_CALL", "VOICE_SILENCE_ORIG",
+                   "NOTE_CLEAR_HOOK", "NOTE_CLEAR_BODY", "NOTE_FLUSH_ORIG", "NOTE_FLUSH_KEY", "NOTE_FLUSH_SCALE", "NOTE_FLUSH_VOICE",
+                   "NOTE_ASSIGN_CALL", "NOTE_ASSIGN_ORIG"]
 SYNTH = False
 SYNTH_LABEL_WORD = 0xE59F10FC   # ldr r1, [pc, #0xfc]: the synth's builder is laid out a little differently
 
@@ -180,11 +210,14 @@ SOURCE = """
 .equ VIEW_W, @VIEW_W@           ; the view's accessor (copy of the pattern's, pointing into the bank), its state behind it
 .equ V_NUM, 0x40                ; the bank pattern the display shows, FFFFFFFF none (also: nothing ever written)
 .equ V_LIDX, 0x44               ; the info line's index while the label was built
+.equ V_SGNUM, 0x48              ; the bank block (address) a sync group carried into the pattern in RAM (SG_BUF holds what it put there), else not a bank block (FF at start)
 .equ CELL_W, @CELL_W@
 .equ CELL_O, @CELL_O@
 .equ PADS_REFRESH, @PADS_REFRESH@
-.equ S_SGNUM, 0x38               ; the bank block (address) a sync group carried into the pattern in RAM (SG_BUF holds what it put there), else not a bank block (FF at start)
 .equ REPLAYED, 0x80000000       ; in the source argument: a kept press handed on, the gate lets it through                   ; mode 2 toggles every BLINK ticks of the manager's 40 ms tick: 280 ms on, 280 ms off
+.equ S_VOICES, 0x38
+.equ VOICE_BEGIN_ORIG, @VOICE_BEGIN_ORIG@
+.equ VOICE_CONT, @VOICE_CONT@
 
 .org @CODE_AT@
 
@@ -455,7 +488,11 @@ ch_copy:
     str r5, [r12, #S_LOADED]
     cmp r7, #1
     mvnne r5, #0                ; only a carry makes SG_BUF what the pattern in RAM holds (pc_dirty)
-    str r5, [r12, #S_SGNUM]
+    mov r12, #(VIEW_W & 0xFF000000)
+    orr r12, r12, #(VIEW_W & 0x00FF0000)
+    orr r12, r12, #(VIEW_W & 0x0000FF00)
+    orr r12, r12, #(VIEW_W & 0x000000FF)
+    str r5, [r12, #V_SGNUM]
 ch_out:
     pop {r4-r10, pc}
 
@@ -762,8 +799,8 @@ pc_dirty:
     cmp r0, #0
     beq pd_clean
     add r0, r0, #4
-    ldr r3, =STATE
-    ldr r3, [r3, #S_SGNUM]
+    ldr r3, =VIEW_W
+    ldr r3, [r3, #V_SGNUM]
     cmp r3, r2                  ; the carry's bank block is this pattern's place
     beq pd_synced
     add r4, r0, #0x40           ; behind the word of byte 0x3C: of it only the MFX type (0x3D) counts. 0x3C, pad touched, each load sets
@@ -1246,6 +1283,57 @@ sync_hook:
     push {r4, r5, r6, lr}       ; the replaced first instruction
     b @SYNC_BODY@
 
+; r7 is the source block. Only a playing load from a different bank block of the same group keeps voices.
+voice_begin:
+    push {r0-r6, lr}
+    mov r4, #0
+    mov r0, #(PANEL & 0xFF000000)
+    orr r0, r0, #(PANEL & 0x00FF0000)
+    orr r0, r0, #(PANEL & 0x0000FF00)
+    orr r0, r0, #(PANEL & 0x000000FF)
+    ldr r0, [r0]
+    cmp r0, #0
+    beq vb_off
+    ldr r0, [r0, #0x18]
+    tst r0, #KILL
+    bne vb_off
+    bl TRANSPORT
+    ldr r0, [r0, #0x308]
+    cmp r0, #0
+    beq vb_off
+    mov r0, r7
+    bl sg_banked
+    cmp r0, #0
+    beq vb_off
+    mov r5, #(STATE & 0xFF000000)
+    orr r5, r5, #(STATE & 0x00FF0000)
+    orr r5, r5, #(STATE & 0x0000FF00)
+    ldr r0, [r5, #S_LOADED]
+    cmp r0, r7
+    beq vb_off
+    mov r0, #(PATPTR & 0xFF000000)
+    orr r0, r0, #(PATPTR & 0x00FF0000)
+    orr r0, r0, #(PATPTR & 0x0000FF00)
+    orr r0, r0, #(PATPTR & 0x000000FF)
+    ldr r0, [r0]
+    add r0, r0, #4
+    bl pc_group
+    movs r6, r0
+    beq vb_off
+    mov r0, r7
+    bl pc_group
+    cmp r0, r6
+    moveq r4, #1
+vb_off:
+    mov r12, #(STATE & 0xFF000000)
+    orr r12, r12, #(STATE & 0x00FF0000)
+    orr r12, r12, #(STATE & 0x0000FF00)
+    str r4, [r12, #S_VOICES]
+    cmp r4, #1
+    pop {r0-r6, lr}
+    bne VOICE_BEGIN_ORIG
+    b VOICE_CONT
+
 view_text:
     .asciz "VIEW:"
 .align 4
@@ -1277,6 +1365,8 @@ def source():
         "VIEW_W": f"{VIEW_W:#x}", "INFO_BODY": f"{INFO_BODY:#x}",
         "CELL_W": f"{CELL_W:#x}", "CELL_O": f"{CELL_O:#x}", "PADS_REFRESH": f"{PADS_REFRESH:#x}",
         "PGATE_CONT": f"{PGATE_CONT:#x}", "PGATE_SKIP": f"{PGATE_SKIP:#x}", "PAD_HANDLER": f"{PAD_HANDLER:#x}", "CMD_BUSY": f"{CMD_BUSY:#x}",
+        "VOICE_BEGIN_ORIG": f"{VOICE_BEGIN_ORIG:#x}",
+        "VOICE_CONT": f"{VOICE_CONT:#x}",
     }.items():
         text = text.replace(f"@{key}@", value)
     return text
@@ -1286,6 +1376,53 @@ def build_code():
     code = arm.assemble(source())
     (at, data), = code.sections
     return at, data, code.symbols
+
+
+def build_voice_code():
+    return arm.assemble(f"""
+.equ STATE, {STATE}
+.equ S_VOICES, {S_VOICES}
+.org {VOICE_CODE}
+voice_silence:
+    ldr r12, =STATE
+    ldr r12, [r12, #S_VOICES]
+    cmp r12, #1
+    bne {VOICE_SILENCE_ORIG}
+    bx lr
+voice_clear:
+    ldr r12, =STATE
+    ldr r12, [r12, #S_VOICES]
+    cmp r12, #1
+    bxeq lr
+    ldr r3, [r0, #0x14]
+    b {NOTE_CLEAR_BODY}
+voice_flush:
+    ldr r12, =STATE
+    ldr r12, [r12, #S_VOICES]
+    cmp r12, #1
+    bne {NOTE_FLUSH_ORIG}
+    bx lr
+voice_assign:
+    ldr r12, =STATE
+    ldr r12, [r12, #S_VOICES]
+    cmp r12, #1
+    bne {NOTE_ASSIGN_ORIG}
+    bx lr
+voice_reset:
+    ldr r12, =STATE
+    ldr r12, [r12, #S_VOICES]
+    cmp r12, #1
+    bne {VOICE_RESET_ORIG}
+    bx lr
+voice_end:
+    push {{r4, lr}}
+    bl {VOICE_END_ORIG}
+    ldr r12, =STATE
+    mov r4, #0
+    str r4, [r12, #S_VOICES]
+    pop {{r4, pc}}
+.pool
+""")
 
 
 def file_offset(addr):
@@ -1310,6 +1447,11 @@ def build_patch(vsb, build="hacktribe"):
     at, code, symbols = build_code()
     if at != CODE_AT or at + len(code) > CODE_END:
         raise SystemExit(f"code is {len(code):#x} bytes, room for {CODE_END - CODE_AT:#x}")
+    voices = build_voice_code()
+    (voice_at, voice_code), = voices.sections
+    if voice_at != VOICE_CODE or voice_at + len(voice_code) > VOICE_END:
+        raise SystemExit("voice hooks exceed their code area")
+    symbols.update(voices.symbols)
 
     def was(addr, n):
         return vsb[file_offset(addr):file_offset(addr) + n]
@@ -1334,8 +1476,17 @@ def build_patch(vsb, build="hacktribe"):
         (SYNC_HOOK, SYNC_WORD, "the stopped sync of the pattern selection does not start with push {r4, r5, r6, lr}"),
     ) + ((COPY_CALL, bl_word(COPY_CALL, MEMCPY), "the pattern load does not copy with memcpy where the patch expects it"),
          (PGATE_HOOK, bl_word(PGATE_HOOK, CMD_BUSY), "the pad handler does not ask the command runner whether it is busy where the patch expects it"),
-         (CMD_END, CMD_END_WORD, "the command runner does not clear its busy byte with strb r3, [r6, #0x10] where the patch expects it"))
-    expected += ((INFO_HOOK, INFO_WORD, "the info line's builder does not start by reading the label flag where the patch expects it"),)
+         (CMD_END, CMD_END_WORD, "the command runner does not clear its busy byte with strb r3, [r6, #0x10] where the patch expects it"),
+         (INFO_HOOK, INFO_WORD, "the info line's builder does not start by reading the label flag where the patch expects it"),
+         (VOICE_BEGIN_CALL, bl_word(VOICE_BEGIN_CALL, VOICE_BEGIN_ORIG), "the pattern load's pre-copy voice call differs"),
+         (VOICE_SILENCE_CALL, bl_word(VOICE_SILENCE_CALL, VOICE_SILENCE_ORIG), "the pattern load's pre-copy silencing differs"),
+         (VOICE_END_CALL, bl_word(VOICE_END_CALL, VOICE_END_ORIG), "the pattern load's post-copy voice call differs"),
+         (VOICE_RESET_CALL, bl_word(VOICE_RESET_CALL, VOICE_RESET_ORIG), "the post-copy global voice reset differs"),
+         (NOTE_CLEAR_HOOK, NOTE_CLEAR_WORD, "the held-note source cleanup does not start with ldr r3, [r0, #0x14]"),
+         (NOTE_FLUSH_KEY, bl_word(NOTE_FLUSH_KEY, NOTE_FLUSH_ORIG), "the key setter's note-off call differs"),
+         (NOTE_FLUSH_SCALE, bl_word(NOTE_FLUSH_SCALE, NOTE_FLUSH_ORIG), "the scale setter's note-off call differs"),
+         (NOTE_FLUSH_VOICE, bl_word(NOTE_FLUSH_VOICE, NOTE_FLUSH_ORIG), "the voice setter's note-off call differs"),
+         (NOTE_ASSIGN_CALL, bl_word(NOTE_ASSIGN_CALL, NOTE_ASSIGN_ORIG), "voice mode does not reinitialize the note slots where expected"))
     for addr, want, why in expected:
         if word(addr) != want:
             raise SystemExit(f"{why} in this VSB")
@@ -1362,6 +1513,17 @@ def build_patch(vsb, build="hacktribe"):
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
              "note": "pattern switch: wheel, MENU, EXIT, pad, program change, sequence end, STOP, label and stopped sync hooks"},
+            {"file": file_offset(VOICE_CODE), "bytes": voice_code.hex(), "expect": free(VOICE_CODE, len(voice_code)),
+             "note": "sync group: scoped post-copy voice reset and cleanup"},
+            hook(VOICE_BEGIN_CALL, "voice_begin", True, "same-group playing loads keep their sounding voices"),
+            hook(VOICE_SILENCE_CALL, "voice_silence", True, "keep the voices of a protected group load"),
+            hook(NOTE_CLEAR_HOOK, "voice_clear", False, "keep held-note ownership during a protected group load"),
+            hook(NOTE_FLUSH_KEY, "voice_flush", True, "the key setter keeps a protected group's notes"),
+            hook(NOTE_FLUSH_SCALE, "voice_flush", True, "the scale setter keeps a protected group's notes"),
+            hook(NOTE_FLUSH_VOICE, "voice_flush", True, "the voice setter keeps a protected group's notes"),
+            hook(NOTE_ASSIGN_CALL, "voice_assign", True, "the carried voice mode keeps its note slots"),
+            hook(VOICE_END_CALL, "voice_end", True, "prepare the new samples and clear the voice protection"),
+            hook(VOICE_RESET_CALL, "voice_reset", True, "skip the global reset only during a protected group load"),
             hook(WHEEL_HOOK, "wheel_hook", False, "the wheel's tail call into the selector goes through the hook"),
             hook(PAD_HOOK, "pad_hook", False, "first instruction of the pad selection jumps to the hook"),
             hook(MIDI_HOOK, "midi_hook", False, "first instruction of the program change handler jumps to the hook"),
@@ -1377,6 +1539,15 @@ def build_patch(vsb, build="hacktribe"):
             hook(INFO_HOOK, "info_hook", False, "the label flag read of the info line's builder goes through the hook (view)"),
         ],
         "hooks": [
+            declare(VOICE_BEGIN_CALL, "call", "pattern-load-voices", "replace", False, "same-group voice protection begins at the load"),
+            declare(VOICE_SILENCE_CALL, "call", "pattern-load-voices", "replace", False, "global silencing outside a protected load"),
+            declare(NOTE_CLEAR_HOOK, "instruction", "note-cleanup", "replace", True, "preserve held-note ownership during the group load"),
+            declare(NOTE_FLUSH_KEY, "call", "note-flush", "replace", True, "preserve the group's notes while applying the key"),
+            declare(NOTE_FLUSH_SCALE, "call", "note-flush", "replace", True, "preserve the group's notes while applying the scale"),
+            declare(NOTE_FLUSH_VOICE, "call", "note-flush", "replace", True, "preserve the group's notes while applying voice mode"),
+            declare(NOTE_ASSIGN_CALL, "call", "note-capacity", "replace", True, "the carried voice mode retains its active note slots"),
+            declare(VOICE_END_CALL, "call", "pattern-load-voices", "after", False, "sample preparation completes and voice protection ends"),
+            declare(VOICE_RESET_CALL, "call", "pattern-load-voices", "replace", False, "global voice reset outside a protected load"),
             declare(WHEEL_HOOK, "instruction", "pattern-set", "replace", False, "wheel while playing: browse with set_number(psel, n, 0) instead of the branch into the selector; set_number is still called, so what reacts to it still sees the number"),
             declare(PAD_HOOK, "instruction", "pattern-set", "before", False, "pad selection clears browse and confirmation"),
             declare(MIDI_HOOK, "instruction", "pattern-set", "before", False, "MIDI program change clears browse and confirmation"),
@@ -1392,6 +1563,16 @@ def build_patch(vsb, build="hacktribe"):
             declare(INFO_HOOK, "instruction", "info-line", "before", False, "while the lower line says VIEW: or NEXT:, the Edit key still shows the info texts of the pattern that is viewed"),
         ],
         "startPhase": [
+            {"file": file_offset(VOICE_BEGIN_CALL), "length": 4, "why": "the first pattern load goes through the voice guard; stopped, the original initializer runs"},
+            {"file": file_offset(VOICE_SILENCE_CALL), "length": 4, "why": "the first pattern load retains the pre-copy silencing"},
+            {"file": file_offset(NOTE_CLEAR_HOOK), "length": 4, "why": "note source cleanup also runs during startup, without group protection"},
+            {"file": file_offset(NOTE_FLUSH_KEY), "length": 4, "why": "the first pattern applies its key and retains the note-off cleanup"},
+            {"file": file_offset(NOTE_FLUSH_SCALE), "length": 4, "why": "the first pattern applies its scale and retains the note-off cleanup"},
+            {"file": file_offset(NOTE_FLUSH_VOICE), "length": 4, "why": "the first pattern applies voice mode and retains the note-off cleanup"},
+            {"file": file_offset(NOTE_ASSIGN_CALL), "length": 4, "why": "the first pattern initializes its note slots without protection"},
+            {"file": file_offset(VOICE_END_CALL), "length": 4, "why": "the first pattern load prepares samples and clears the guard"},
+            {"file": file_offset(VOICE_RESET_CALL), "length": 4, "why": "the first pattern load keeps its global voice reset"},
+            {"file": file_offset(VOICE_CODE), "length": len(voice_code), "why": "post-copy reset guard and completion, including their state literal"},
             {"file": file_offset(SYNC_HOOK), "length": 4, "why": "the stopped sync is an observer the firmware calls from the start on; the hook reads its own state word (FF at start, not 1) and runs the original"},
             {"file": file_offset(COPY_CALL), "length": 4, "why": "the pattern load copies the first pattern into RAM during the start, through the copy hook"},
             {"file": file_offset(symbols["pc_group"]), "length": symbols["pc_notify"] - symbols["pc_group"], "why": "copy_hook, pc_group and the sync group walk: the panel's keys, the two sync groups and the loaded bank block read, the memcpy, the bank block remembered, no literal"},
@@ -1401,7 +1582,7 @@ def build_patch(vsb, build="hacktribe"):
             {"file": file_offset(symbols["pad_replay"]), "length": symbols["view_text"] - symbols["pad_replay"], "why": "pad_replay and sync_hook, one span (check.py allows a run of changed bytes only inside one span): pad_replay clears the busy byte and reads the two counters (FF, equal: nothing kept), sync_hook is one load, a compare, then the replaced instruction and the way back; no literal in either"},
         ],
         "ram": [
-            ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C, MENU's LED at +0x20, the kept pad presses at +0x24", "tools/patch/pattern_switch.py:STATE"),
+            ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C, MENU's LED at +0x20, the kept pad presses at +0x24, the voice-load guard at +0x38", "tools/patch/pattern_switch.py:STATE"),
             ramdecl.area(SG_BUF, SG_SIZE, "sync group: the values carried into the new pattern during one pattern load", "tools/patch/pattern_switch.py:SG_BUF"),
             ramdecl.area(VIEW_W, VIEW_SIZE, "view: the accessor the display reads the browsed or confirmed pattern through, the number shown and the info line's index", "tools/patch/pattern_switch.py:VIEW_W"),
         ],

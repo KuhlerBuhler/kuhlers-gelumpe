@@ -25,7 +25,7 @@ Rückfrage hängen.
 
 - `wh_group_load`: das Rad gestoppt auf ein Pattern der Gruppe (`pc_grouped`): Blättern beenden, den Selektor der Firmware mit dem
   Schritt zur Zielnummer aufrufen.
-- `S_SGNUM` (Zustand `+0x38`): der Bank-Platz, den ein Abgleich ins RAM-Pattern gebracht hat, sonst "keiner". Setzt `copy_hook`.
+- `V_SGNUM` (`VIEW_W + 0x48`, nur im RAM): der Bank-Platz, den ein Abgleich ins RAM-Pattern gebracht hat, sonst "keiner". Setzt `copy_hook`.
 - `pd_synced` in `pc_dirty`: die Byte-Schleife über das Pattern in Adressreihenfolge, die mitgenommenen Werte (`sg_head_at`, Bytes 1 bis
   `0x2F` je Part) gegen `SG_BUF`, alles andere gegen den Bank-Platz, `0x3C`, `0x3E`, `0x3F` ausgenommen wie bisher.
 - `SG_BUF` liegt jetzt bei `0xC0173000` (frei zwischen dem Code und der Tabelle des SysEx-Patches, beide Builds), weil der Code mit

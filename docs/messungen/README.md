@@ -227,6 +227,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [EXIT-Shortcuts und Akkorde in Pink auf der blauen Electribe](2026-10-24-blau-shortcuts-akkorde.md)
 - [Sync Group auf der blauen Electribe](2026-10-24-blau-sync-group.md)
 - [Sync Group behält unveränderte Samples, Pad X und Y sind keine Änderung, Pad-Druck beim Wechsel](2026-10-25-sync-sample-und-pad-xy.md)
+- [Stimmen beim Wechsel innerhalb einer Sync-Gruppe, im Emulator geprüft](2026-10-25-sync-group-stimmen.md)
 - [Sync Group: gestoppt mit ungespeicherten Änderungen ohne Rückfrage](2026-10-25-sync-ungespeichert.md)
 - [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)

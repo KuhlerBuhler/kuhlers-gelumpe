@@ -741,6 +741,111 @@ def case_sync_group(payload, flash):
     return out
 
 
+def case_sync_voices(payload, flash):
+    """A held pad keeps its allocated voice and old sample through the load; the next press uses the new sample."""
+    import unicorn
+    out = []
+    for name, group, held, keep in (("different_samples", 7, 0, True), ("same_samples", 7, 0, True),
+                                    ("other_group", 8, 0, False), ("group_off", 0, 0, False),
+                                    ("exit_held", 7, KILL, False)):
+        box = Box(payload, flash, held)
+        live = box.u32(0xC033E6A4) + 4
+        box.m.uc.mem_write(live + spec.GROUP_AT, struct.pack("<H", 7))
+        box.pattern_bytes(0, spec.GROUP_AT, struct.pack("<H", 7))
+        box.pattern_bytes(1, spec.GROUP_AT, struct.pack("<H", group))
+        for pat in (0, 1):
+            box.pattern_bytes(pat, 37, b"\0")
+        box.m.uc.mem_write(live + 37, b"\0")
+        wanted = []
+        previous = []
+        native = []
+        if not spec.SYNTH:
+            descriptors = box.u32(0xC00997F0)
+            native = [i for i in range(421) if struct.unpack("<H", box.dev.read(descriptors + i * 32 + 18, 2))[0] <= 49]
+            if len(native) < 2:
+                raise RuntimeError("the sampler has no two built-in DSP oscillators for the voice check")
+        for part in range(16):
+            at = 0x800 + part * 0x330
+            old = struct.unpack("<H", box.dev.read(live + at + 8, 2))[0]
+            if native:
+                old = native[0]
+            new = (native[1] if native else (old + 1) % 1000) if name == "different_samples" else old
+            previous.append(old)
+            wanted.append(new)
+            box.m.uc.mem_write(live + at + 8, struct.pack("<H", old))
+            box.pattern_bytes(0, at + 8, struct.pack("<H", old))
+            box.pattern_bytes(1, at + 8, struct.pack("<H", new))
+            for pat in (0, 1):
+                box.pattern_bytes(pat, at + 0x30, bytes(0x300))
+            box.m.uc.mem_write(live + at + 0x30, bytes(0x300))
+        box.dev.call(0xC0079B78, box.u32(PLAYER_PTR), box.slots, 0)
+        play(box)
+        part8 = box.dev.call(0xC009AF20, 7)
+        voice_sample = 0x38 if spec.SYNTH else 0x3A
+        calls, parts = [], []
+        notes, snapshots = [], {}
+        loading = [False]
+        hooks = []
+
+        def voice_state():
+            return (box.u32(part8 + 4), struct.unpack("<H", box.dev.read(notes[0][0] + voice_sample, 2))[0]) if notes else (0, None)
+
+        def trace(uc, addr, size, _):
+            if addr == box.dev.a(0xC0079BE0):
+                loading[0] = True
+                snapshots["before"] = voice_state()
+            elif addr == box.dev.a(0xC0079C30):
+                loading[0] = False
+                snapshots["after"] = voice_state()
+            elif loading[0] and addr == box.dev.a(0xC0098C70):
+                parts.append(uc.reg_read(unicorn.arm_const.UC_ARM_REG_R0))
+            elif loading[0]:
+                calls.append(addr)
+
+        for at in (0xC0079BE0, 0xC0079C30, 0xC0098C70, 0xC0091F5C):
+            address = box.dev.a(at)
+            hooks.append(box.m.uc.hook_add(unicorn.UC_HOOK_CODE, trace, begin=address, end=address))
+        address = box.dev.a(0xC00998B4)
+        hooks.append(box.m.uc.hook_add(unicorn.UC_HOOK_CODE,
+                     lambda uc, *_: notes.append((uc.reg_read(unicorn.arm_const.UC_ARM_REG_R0),
+                                                   uc.reg_read(unicorn.arm_const.UC_ARM_REG_R1))), begin=address, end=address))
+        box.m.uc.ctl_flush_tb()
+        box.m.send([4, 7, 0, 100, 1])
+        box.run(0.1)
+        box.turn(1)
+        if not keep:
+            box.key("menu")
+        box.until_change()
+        samples = [struct.unpack("<H", box.dev.read(at + 0x34, 2))[0] for at in parts]
+        stopped = box.dev.a(0xC0091F5C) in calls
+        preserved = snapshots.get("before", (0, None))[0] != 0 and snapshots.get("before") == snapshots.get("after")
+        old_sample = snapshots.get("after", (0, None))[1] == previous[7]
+        held = voice_state() == snapshots.get("before")
+        count = len(notes)
+        box.m.send([4, 7, 0, 0, 0])
+        box.run(0.05)
+        box.m.send([4, 7, 0, 100, 1])
+        box.run(0.1)
+        next_sample = len(notes) > count and notes[-1][1] == wanted[7] and struct.unpack(
+            "<H", box.dev.read(notes[-1][0] + voice_sample, 2))[0] == wanted[7]
+        cleared = snapshots.get("after", (None, None))[0] == 0
+        box.key("stop")
+        stop_works = box.u32(box.u32(TRANSPORT_PTR) + 0x308) == 0 and box.u32(spec.STATE + spec.S_VOICES) == 0
+        box.m.send([4, 7, 0, 0, 0])
+        box.run(0.1)
+        released = box.u32(part8 + 4) == 0
+        out.append(entry(f"voices_{name}", box.running() == 1 and stopped != keep and len(parts) == 16
+                         and samples == wanted and (preserved and old_sample and held if keep else cleared)
+                         and next_sample and stop_works and released and not box.m.asserts,
+                         f"global reset {stopped}, voice before/after {snapshots}, prepared samples {samples}, expected {wanted}; "
+                         f"held voice after settling {held}, next trigger uses new sample {next_sample}, STOP stops transport {stop_works}, "
+                         f"pad release frees voice {released}; "
+                         f"asserts {box.m.asserts}"))
+        for hook in hooks:
+            box.m.uc.hook_del(hook)
+    return out
+
+
 def case_sync_unsaved(payload, flash):
     """Stopped with unsaved changes, the wheel on another pattern of the pattern's sync group loads it at once, without the browse
     (VIEW:) and without MENU; a pattern of another group is browsed as before. A pattern that came in through a sync group's carry is not
@@ -914,7 +1019,7 @@ def case_view(payload, flash):
 
 
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
-          case_sync_group, case_sync_unsaved, case_view)
+          case_sync_group, case_sync_voices, case_sync_unsaved, case_view)
 
 
 def group_entries(payload, flash, i):
