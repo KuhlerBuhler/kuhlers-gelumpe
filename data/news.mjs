@@ -4,6 +4,16 @@
  */
 export const NEWS = Object.freeze([
   Object.freeze({
+    version: "1.3.4",
+    items: Object.freeze([
+      "BLECH auf der blauen Electribe, mit oder ohne Hacktribe. Auf einer echten blauen noch ungetestet: Rückmeldung im Discord ist willkommen.",
+      "Patcher: Korgs Firmware für rot oder blau nach dem Lizenz-Haken direkt laden, oder Korgs Zip ins Feld ziehen.",
+      "Blaue Electribe: Einstellungen werden wieder gespeichert. Kopiere einmal KORG/electribe nach KORG/blechtribe.",
+      "Discord: alle Online-Leute als Blechys über die ganze Breite, mit Tanzpausen.",
+      "Kommt der animierte Hintergrund nicht hinterher, bleibt er stehen.",
+    ]),
+  }),
+  Object.freeze({
     version: "1.3.3",
     items: Object.freeze([
       "Sync Groups: klingende Samples laufen beim Wechsel in das nächste Pattern der Gruppe weiter.",
