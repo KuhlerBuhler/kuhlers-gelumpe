@@ -53,11 +53,13 @@ const frames = page => page.evaluate(() => new Promise(resolve => {
   requestAnimationFrame(tick);
 }));
 
-for (const [label, viewport] of [["desktop", { width: 1280, height: 800 }], ["phone", { width: 390, height: 844 }]]) {
+for (const [label, viewport] of [["desktop", { width: 1280, height: 800 }], ["wide screen", { width: 1920, height: 900 }], ["phone", { width: 390, height: 844 }]]) {
   for (const count of [5, 40, 150]) {
     test(`${count} online on a ${label}: a few Blechys on the floor, every name readable in the list`, async () => {
       const page = await open(count, viewport);
       const floorWidth = await page.locator(".cee-discord-floor").evaluate(n => n.clientWidth);
+      const mainWidth = await page.locator("#cee-discord").evaluate(n => n.clientWidth - parseFloat(getComputedStyle(n).paddingLeft) - parseFloat(getComputedStyle(n).paddingRight));
+      assert.ok(floorWidth >= mainWidth - 1, `the floor spans the main area: ${floorWidth} of ${mainWidth} px`);
       const walkers = await page.locator(".cee-discord-blechy:visible").count();
       assert.ok(walkers >= 1 && walkers <= Math.min(count, 12, Math.floor(floorWidth / 96)), `${walkers} Blechys on a floor ${floorWidth} px wide`);
       assert.deepEqual(await page.locator(".cee-discord-blechy .cee-discord-tag").evaluateAll(tags => tags.filter(t => getComputedStyle(t).visibility !== "hidden").length), 0, "no name stands on the floor until the pointer is there");

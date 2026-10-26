@@ -1065,7 +1065,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 .cee-discord {
   display: grid;
   gap: var(--space-6);
-  max-width: 720px;
 }
 
 .cee-discord h2,
