@@ -5,12 +5,14 @@
  *   DISCORD_WEBHOOK=<url> node tools/discord-release.mjs <release.json>
  *
  * release.json is the release as GitHub's API gives it (tag_name, html_url, body). The notes go
- * out as embeds of at most 4000 characters, one message each, cut at line ends; a last message with
+ * out as embeds of at most 4000 characters, one message each, cut at line ends; the English part
+ * (under "## English") starts a message of its own, after the German one; a last message with
  * only the link to the release follows, so it is one click away. The first message pings @everyone; the notes
  * themselves never ping, mentions in an embed do not notify.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { ENGLISH_HEADING, parseNotes } from "./release-lib.mjs";
 
 /** Discord allows 4096 characters in an embed's description; the rest is margin. */
 export const PART = 4000;
@@ -33,10 +35,16 @@ export function split(text, max = PART) {
   return parts;
 }
 
+/** The release body in parts: the German text first, then the English text under its heading, which starts a new part. */
+export function splitBody(body, max = PART) {
+  const { de, en } = parseNotes(body);
+  return [...split(de, max), ...(en === null ? [] : split(`${ENGLISH_HEADING}\n\n${en}`, max))];
+}
+
 /** The messages for one release: the first pings @everyone and carries the title and the link, the last only the link. */
 export function messages(release) {
   const version = String(release.tag_name).replace(/^v/, "");
-  const parts = split(release.body);
+  const parts = splitBody(release.body);
   if (!parts.length) parts.push("");
   const notes = parts.map((description, i) => ({
     ...(i === 0 ? { content: "@everyone", allowed_mentions: { parse: ["everyone"] } } : { allowed_mentions: { parse: [] } }),
