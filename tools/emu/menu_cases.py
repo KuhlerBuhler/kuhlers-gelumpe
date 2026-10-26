@@ -751,6 +751,17 @@ def leds(dev):
     return [dev.m.leds.get(i) for i in range(LED_FIRST, LED_FIRST + LED_COUNT)]
 
 
+def steady_leds(dev, tries=20):
+    """The lower LEDs once the firmware has written all four: it sets them one after another, and a colour that moves every
+    frame (RAINBOW at LOUD) can be read between two of them."""
+    for _ in range(tries):
+        now = leds(dev)
+        if now[:3] * (LED_COUNT // 3) == now:
+            return now
+        dev.run(0.005)
+    return now
+
+
 def pins(dev):
     return dev.m.gpio.get(3, 0) & GPIO_PINS
 
@@ -1007,9 +1018,9 @@ def look_cases(payload, flash=None):
     loud_rainbow_page = texts_of(dev)
     meter_level(dev, 254)
     dev.run(0.5)
-    l_first = leds(dev)
+    l_first = steady_leds(dev)
     dev.run(0.5)
-    l_second = leds(dev)
+    l_second = steady_leds(dev)
     tempo_at = synthaddr.tr(HW_TEMPO) if synthaddr.is_synth(payload) else HW_TEMPO
     tempo = dev.u32(tempo_at)
     phase = lambda d: int.from_bytes(d.read(STATE - 0x17, 2), "little")
