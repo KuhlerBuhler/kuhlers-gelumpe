@@ -331,16 +331,25 @@ Eingabe und Ergebnis jeder Kopie, die den ganzen Check im Emulator (`tools/emu/c
 überspringt die Prüfung für genau diese Kopien, auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei
 wird weiter ganz geprüft; eine Liste von einem alten Patch-Satz trifft nichts mehr und kostet nur die Zeit.
 
-Neu schreiben lässt man sie in GitHub mit dem Workflow "Verify patches" (`.github/workflows/verify-patches.yml`):
+Neu geschrieben wird sie in GitHub vom Workflow "Verify patches" (`.github/workflows/verify-patches.yml`). Er prüft den
+Patch-Satz eines Branches auf Korgs drei 2.02 (dieselben Secrets wie das Release), jede Datei in einem eigenen Job
+nebeneinander, und schreibt die drei Einträge in eine `verified.json` (`verify-patches.mjs --results`). Stehen alle drei
+Paare schon drin, bleibt alles, wie es war.
+
+Er läuft von selbst bei jedem Pull Request, der den Patch-Satz (`data/patches/`), etwas, das `verify-patches.mjs` lädt,
+`tools/patch/` oder `tools/emu/` ändert, und committet die neue `verified.json` auf den Branch des Pull Requests.
+Gepusht wird mit `SYNC_TOKEN`, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
+ersten Schritt. Ein neuer Push bricht den laufenden Check ab. Pull Requests aus Forks haben keine Secrets und werden
+übersprungen. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
+
+Von Hand, für einen beliebigen Branch:
 
 ```bash
-gh workflow run verify-patches.yml -f branch=develop
+gh workflow run verify-patches.yml -f branch=release/X.Y.Z
 ```
 
-Er prüft den Patch-Satz des Branches auf Korgs drei 2.02 (dieselben Secrets wie das Release), jede Datei in einem
-eigenen Job nebeneinander, und schreibt die drei Einträge in eine `verified.json` (`verify-patches.mjs --results`).
-Hat sich etwas geändert, pusht er den Commit auf den Branch; ist der geschützt oder inzwischen weitergelaufen, öffnet er
-stattdessen einen Pull Request hinein. Stehen alle drei Paare schon drin, bleibt alles, wie es war. Auch der Lauf des
+Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push scheitert, öffnet er stattdessen einen
+Pull Request hinein. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
 Release-Workflows hängt seinen frischen Eintrag je Datei als Artefakt `verified-<name>` an.
 
 Lokal: `npm run verify:patches -- <Korgs rote 2.02> <Korgs blaue 2.02> <Hacktribe 2.02>`: patcht jede

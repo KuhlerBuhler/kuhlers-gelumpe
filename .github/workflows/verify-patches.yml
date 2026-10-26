@@ -1,14 +1,57 @@
 # Refreshes data/patches/verified.json without a local machine: the full emulator check (tools/emu/check.py) of the
 # patch set on each of Korg's three 2.02 files runs in its own job, side by side, and a last job writes the three
-# entries into one verified.json (tools/verify-patches.mjs --results). It pushes the change to the branch it checked,
-# or, when the branch is protected or moved on in the meantime, opens a pull request into it. Nothing changes when
-# every pair is already in the file. See docs/development.md, "Release".
+# entries into one verified.json (tools/verify-patches.mjs --results). Nothing is committed when every pair is already in
+# the file. See docs/development.md, "Release".
+#
+# It runs on a pull request that changes what the patched copies or the check are made of (the paths below: the patch
+# set, everything tools/verify-patches.mjs imports, tools/patch and tools/emu; test/verify-patches.test.mjs keeps the
+# list complete) and commits the new verified.json to the pull request's branch. A pull request from a fork has no
+# secrets and is skipped. Started by hand it checks the branch it is given and pushes there, except to main and
+# develop, which get a pull request instead.
+#
+# The push uses SYNC_TOKEN when it is set: a push with the workflow's own token starts no workflow, so the new commit
+# would have no Test run and the pull request would wait for its required checks. The new commit only changes
+# verified.json, and a run on such a commit stops after its first job, so there is no loop.
 #
 # The 2.02 files are Korg's and never enter the repo: the jobs load them from the links in the secrets E2_VSB_URL
 # (Hacktribe), E2_VSB_STOCK_URL (red) and E2_VSB_SYNTH_URL (blue) and stop when a file is not the expected one.
 name: Verify patches
 
 on:
+  pull_request:
+    paths:
+      - "data/patches/**"
+      - "!data/patches/verified.json"
+      - "data/findings.mjs"
+      - "data/hooks.mjs"
+      - "data/originals.mjs"
+      - "data/synth-sites.mjs"
+      - "data/map/**"
+      - "data/script/**"
+      - "src/bsdiff.mjs"
+      - "src/bytes.mjs"
+      - "src/bzip2.mjs"
+      - "src/firmware.mjs"
+      - "src/fx-append.mjs"
+      - "src/fx-v2.mjs"
+      - "src/guards.mjs"
+      - "src/hooks.mjs"
+      - "src/layout.mjs"
+      - "src/map/**"
+      - "src/modtable.mjs"
+      - "src/patch.mjs"
+      - "src/patcher.mjs"
+      - "src/preset-file.mjs"
+      - "src/presets.mjs"
+      - "src/profile.mjs"
+      - "src/ramspans.mjs"
+      - "src/record.mjs"
+      - "src/script/**"
+      - "src/units.mjs"
+      - "tools/emu/**"
+      - "tools/patch/**"
+      - "tools/verify-patches.mjs"
+      - ".github/workflows/verify-patches.yml"
   workflow_dispatch:
     inputs:
       branch:
@@ -19,29 +62,49 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: verify-patches-${{ inputs.branch }}
-  cancel-in-progress: false
-
 jobs:
   # The commit all jobs check, so a push to the branch during the hour cannot mix two patch sets.
   ref:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
+      branch: ${{ steps.sha.outputs.branch }}
+      run: ${{ steps.own.outputs.run || 'true' }}
     steps:
       - id: sha
         env:
-          BRANCH: ${{ inputs.branch }}
+          BRANCH: ${{ inputs.branch || github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.server_url }}/${{ github.repository }}
         run: |
-          sha=$(git ls-remote --exit-code "$REPO" "refs/heads/$BRANCH" | cut -f1)
+          sha=${HEAD_SHA:-$(git ls-remote --exit-code "$REPO" "refs/heads/$BRANCH" | cut -f1)}
           echo "$BRANCH is at $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+      # A commit of this workflow changes only verified.json, which the check before it wrote: no new check.
+      - if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.sha }}
+          fetch-depth: 2
+      - id: own
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ "$(git diff --name-only HEAD^ HEAD)" = "data/patches/verified.json" ]; then
+            echo "::notice::the last commit only changes verified.json, nothing to check."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
 
   verify:
     needs: ref
+    if: needs.ref.outputs.run == 'true'
+    # A newer push to a pull request makes its running check pointless; a run started by hand is never cancelled. The
+    # groups are per job, so a run that skips (after this workflow's own commit) cancels nothing.
+    concurrency:
+      group: verify-patches-${{ needs.ref.outputs.branch }}-${{ matrix.name }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     strategy:
       fail-fast: false
       matrix:
@@ -91,6 +154,9 @@ jobs:
 
   join:
     needs: [ref, verify]
+    concurrency:
+      group: verify-patches-${{ needs.ref.outputs.branch }}-join
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -100,6 +166,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.ref.outputs.sha }}
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -112,8 +179,9 @@ jobs:
       - run: node tools/verify-patches.mjs --results "$RUNNER_TEMP"/verified/*/verified.json
       - name: Commit
         env:
-          GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ inputs.branch }}
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+          BRANCH: ${{ needs.ref.outputs.branch }}
+          EVENT: ${{ github.event_name }}
         run: |
           { echo '```json'; cat data/patches/verified.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           if git diff --quiet -- data/patches/verified.json; then
@@ -124,9 +192,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore(patches): refresh verified.json" -m "Checked by the workflow Verify patches, run $GITHUB_RUN_ID." -- data/patches/verified.json
-          if git push origin "HEAD:refs/heads/$BRANCH"; then
-            echo "::notice::pushed the new verified.json to $BRANCH."
-            exit 0
+          if [ "$BRANCH" != main ] && [ "$BRANCH" != develop ]; then
+            if git push origin "HEAD:refs/heads/$BRANCH"; then
+              echo "::notice::pushed the new verified.json to $BRANCH."
+              exit 0
+            fi
+            if [ "$EVENT" = pull_request ]; then
+              echo "::warning::$BRANCH moved on during the check; the run for its new head checks again."
+              exit 0
+            fi
           fi
           head="verified/$BRANCH-$GITHUB_RUN_ID"
           git push origin "HEAD:refs/heads/$head"
