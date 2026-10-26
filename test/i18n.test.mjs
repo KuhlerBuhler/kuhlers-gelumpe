@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import de from "../site/app/i18n-de.mjs";
-import { t, tNodes, setLanguage, language, locale, LANGUAGES, systemLanguage } from "../site/app/i18n.mjs";
+import { t, tNodes, setLanguage, loadLanguage, language, locale, LANGUAGES, systemLanguage } from "../site/app/i18n.mjs";
 import { text, render, number, TextError } from "../src/text.mjs";
 import { PRESETS } from "../data/script/presets.mjs";
 import { literals, looksLikeUiText, htmlText } from "./ui-text.mjs";
@@ -197,4 +197,15 @@ test("the start language is the system's when there is a table for it, German ot
   assert.equal(systemLanguage(["ja-JP", "fr-CA"]), "fr");
   assert.equal(systemLanguage(["ja-JP"]), "de");
   assert.equal(systemLanguage([]), "de");
+});
+
+test("each language's name in the settings is the one its table gives, and loadLanguage loads it", async () => {
+  for (const [id, name] of LANGUAGES) {
+    const table = (await import(`../site/app/i18n-${id}.mjs`)).default;
+    assert.equal(table["language.name"], name, id);
+  }
+  await loadLanguage("en");
+  assert.equal(language(), "en");
+  await loadLanguage("xx");
+  assert.equal(language(), "de");
 });

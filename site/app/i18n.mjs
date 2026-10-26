@@ -4,35 +4,36 @@
  */
 import de from "./i18n-de.mjs";
 import { fill, isText, useTexts } from "../../src/text.mjs";
-import en from "./i18n-en.mjs";
-import fr from "./i18n-fr.mjs";
-import it from "./i18n-it.mjs";
-import es from "./i18n-es.mjs";
-import nl from "./i18n-nl.mjs";
-import pt from "./i18n-pt.mjs";
-import pl from "./i18n-pl.mjs";
-import cs from "./i18n-cs.mjs";
-import ru from "./i18n-ru.mjs";
-import uk from "./i18n-uk.mjs";
-
-const TABLES = { de, en, fr, it, es, nl, pt, pl, cs, ru, uk };
+// Only German loads with the page; another language loads when it is chosen (loadLanguage), so a start reads one
+// table, not eleven. The names are here so the settings can list every language without loading it.
+const NAMES = { de: "Deutsch", en: "English", fr: "Français", it: "Italiano", es: "Español", nl: "Nederlands", pt: "Português", pl: "Polski", cs: "Čeština", ru: "Русский", uk: "Українська" };
+const TABLES = { de };
 /** The languages there are, with their own names for the settings. */
-export const LANGUAGES = Object.keys(TABLES).map(id => [id, TABLES[id]["language.name"]]);
+export const LANGUAGES = Object.entries(NAMES);
 
 /** The language of the system when there is a table for it, else German: the start value until the user picks one. */
 export function systemLanguage(prefs = globalThis.navigator?.languages ?? []) {
   for (const tag of prefs) {
     const id = String(tag).toLowerCase().split("-")[0];
-    if (TABLES[id]) return id;
+    if (NAMES[id]) return id;
   }
   return "de";
 }
 
 let lang = "de";
 
+/** Switches to a language whose table is loaded; any other id means German. */
 export function setLanguage(id) {
   lang = TABLES[id] ? id : "de";
   if (globalThis.document) document.documentElement.lang = lang;
+}
+
+/** Loads the table of `id` (once) and switches to it; an unknown id, or a table that does not load, means German. */
+export async function loadLanguage(id) {
+  if (NAMES[id] && !TABLES[id]) {
+    try { TABLES[id] = (await import(`./i18n-${id}.mjs`)).default; } catch { /* German stays */ }
+  }
+  setLanguage(id);
 }
 
 export const language = () => lang;
