@@ -5,6 +5,7 @@
  */
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
+import { t } from "./i18n.mjs";
 
 const AUTO_MS = 5000;
 const MAX = 4;
@@ -48,8 +49,8 @@ export function toast(message, kind = "info", { stay = false } = {}) {
   const same = [...polite.children, ...assertive.children].find(n => n.dataset.kind === kind && n.textContent === message && !n.dataset.closing);
   if (same) { if (stay) same.keep?.(); else same.restart?.(); return same.close; }
   const host = kind === "error" ? assertive : polite;
-  const close = el("button", { type: "button", className: "btn icon cee-toast-close", title: "Schließen" }, [icon("x")]);
-  close.setAttribute("aria-label", "Schließen");
+  const close = el("button", { type: "button", className: "btn icon cee-toast-close", title: t("common.close") }, [icon("x")]);
+  close.setAttribute("aria-label", t("common.close"));
   const node = el("div", { className: `app-toast cee-toast${kind === "ok" ? " ok" : kind === "error" ? " err" : ""}` }, [el("span", { className: "cee-toast-text", textContent: message }), close]);
   node.dataset.kind = kind;
   let timer = null;

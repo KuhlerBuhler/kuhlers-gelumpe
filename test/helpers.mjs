@@ -10,6 +10,7 @@ import { FxRecord } from "../src/record.mjs";
 import { VsbImage } from "../src/image.mjs";
 import { writeName } from "../src/bytes.mjs";
 import { readUnits } from "../src/node.mjs";
+import { deflateRawSync } from "node:zlib";
 
 readUnits();
 
@@ -190,5 +191,55 @@ export async function simPort({ bytes, channel = 9, name = "electribe2 sampler",
 export function asStock(bytes) {
   const out = Uint8Array.from(bytes);
   out.fill(0xff, 0x170100, 0x170140);
+  return out;
+}
+
+/** A zip of our own: entries {name, bytes, method}, method 0 stored or 8 deflated. */
+export function makeZip(entries) {
+  const locals = [], central = [];
+  let offset = 0;
+  for (const { name, bytes, method = 8 } of entries) {
+    const packed = method === 8 ? deflateRawSync(bytes) : bytes;
+    const n = Buffer.from(name);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(method, 8);
+    local.writeUInt32LE(packed.length, 18); local.writeUInt32LE(bytes.length, 22); local.writeUInt16LE(n.length, 26);
+    const dir = Buffer.alloc(46);
+    dir.writeUInt32LE(0x02014b50, 0); dir.writeUInt16LE(method, 10);
+    dir.writeUInt32LE(packed.length, 20); dir.writeUInt32LE(bytes.length, 24); dir.writeUInt16LE(n.length, 28); dir.writeUInt32LE(offset, 42);
+    locals.push(local, n, packed);
+    central.push(dir, n);
+    offset += 30 + n.length + packed.length;
+  }
+  const dir = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(dir.length, 12); end.writeUInt32LE(offset, 16);
+  return new Uint8Array(Buffer.concat([...locals, dir, end]));
+}
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+
+/**
+ * The image with a run at 0x170100 that src/firmware.mjs takes for Hacktribe's code: not Hacktribe's bytes, 60 of ours and
+ * four that give the same CRC-32 (a CRC can be steered by four bytes, run backwards through its table).
+ */
+export function withHacktribeRun(bytes, crc = 0x12224d92) {
+  const out = Uint8Array.from(bytes);
+  const run = Uint8Array.from({ length: 64 }, (_, i) => (i * 37 + 11) & 0xff);
+  let state = ~0 >>> 0;
+  for (const b of run.subarray(0, 60)) state = (CRC_TABLE[(state ^ b) & 0xff] ^ (state >>> 8)) >>> 0;
+  let want = ~crc >>> 0;
+  for (let i = 0; i < 4; i++) {
+    const idx = CRC_TABLE.findIndex(t => t >>> 24 === want >>> 24);
+    want = (((want ^ CRC_TABLE[idx]) << 8) | idx) >>> 0;
+  }
+  const tail = (want ^ state) >>> 0;
+  run.set([tail & 0xff, (tail >>> 8) & 0xff, (tail >>> 16) & 0xff, tail >>> 24], 60);
+  out.set(run, 0x170100);
   return out;
 }

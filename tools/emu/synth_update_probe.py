@@ -46,7 +46,9 @@ BANK = (0x800000, 0x1000000)
 USER = (0x220000, 0x800000)
 DATA_UTILITY_HEADER = 14                 # measured: the screen of the ring page "DATA UTILITY press [ Enter ]"
 SOFTWARE_UPDATE_PAGE = 10               # DATA UTILITY 11 of 11: ten steps right from page 1 (measured, the picture of each step is in --shots)
+SAMPLER_SOFTWARE_UPDATE_PAGE = 13       # the Sampler's DATA UTILITY 14 of 14, after a start on page 1 (measured, hacktribe_blue_probe.py --shots)
 FILES_TRIED = ("BOOT.VSB", "USER.VSB", "PCM.VSB", "SYSTEM.VSB")
+SAMPLER_F_OPEN = 0xC009DB60              # FatFs f_open of the Sampler, Korg's and Hacktribe's (tools/patch/blech_sysex.py, FS_OPEN)
 
 
 def inside_repo(path):
@@ -54,7 +56,8 @@ def inside_repo(path):
 
 
 class Rig:
-    """A synth device on mains power with a virtual card, its flash chip logged, the files the firmware opens logged."""
+    """A device on mains power with a virtual card, its flash chip logged, the files the firmware opens logged. The synth
+    build, or Sampler code (Hacktribe for the blue, hacktribe_blue_probe.py); the PCM load is only watched on the synth."""
 
     def __init__(self, payload, flash, files, shots=None, tag=""):
         import unicorn
@@ -97,8 +100,11 @@ class Rig:
         def on_pcm(u, a, s, d):
             self.pcm_result.append(u.reg_read(unicorn.arm_const.UC_ARM_REG_R6))
 
-        uc.hook_add(unicorn.UC_HOOK_CODE, on_open, begin=sp.FUNCS["f_open"], end=sp.FUNCS["f_open"])
-        uc.hook_add(unicorn.UC_HOOK_CODE, on_pcm, begin=sp.FUNCS["pcm_loaded"], end=sp.FUNCS["pcm_loaded"])
+        self.synth = self.m.profile.build == "synth"
+        f_open = sp.FUNCS["f_open"] if self.synth else SAMPLER_F_OPEN
+        uc.hook_add(unicorn.UC_HOOK_CODE, on_open, begin=f_open, end=f_open)
+        if self.synth:
+            uc.hook_add(unicorn.UC_HOOK_CODE, on_pcm, begin=sp.FUNCS["pcm_loaded"], end=sp.FUNCS["pcm_loaded"])
         uc.ctl_flush_tb()
 
     def shot(self, name):
@@ -126,7 +132,8 @@ class Rig:
             self.press("edit_prev")
         self.press("menu")
         log.append(self.shot("data-utility-1"))
-        for _ in range(SOFTWARE_UPDATE_PAGE):
+        # counted, not found by the title: BLECH's theme draws other titles
+        for _ in range(SOFTWARE_UPDATE_PAGE if self.synth else SAMPLER_SOFTWARE_UPDATE_PAGE):
             self.press("edit_next", 0.25)
         log.append(self.shot("software-update-page"))
 

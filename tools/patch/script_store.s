@@ -353,9 +353,7 @@ store_flush_write:
     tst r8, #1
     ldrne r1, =store_path_b
     mov r0, r6
-    mov r2, #0x0A
-    ldr r12, =FS_OPEN
-    blx r12
+    bl card_create
     cmp r0, #0
     bne store_flush_error
     mov r0, r6

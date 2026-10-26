@@ -11,11 +11,14 @@
  *       64    32  fingerprint of the SYSTEM.VSB it produces
  *       96    32  sha256 of the payload
  *      128     n  payload: JSON { format: "gelumpe-patch-file", id, name, userData: [[file, length], ...], patches: [...],
- *                      alternates: { stock: { input, output } } }
+ *                      alternates: { stock: { input, output }, "hacktribe-blue": { input, output },
+ *                                    synth: { input, output, patches: [...] } } }
  *
- * The two fingerprints in the head are for Hacktribe 2.02. A set that also builds on Korg's own 2.02 says so in
- * `alternates.stock`, with the same two fingerprints for that firmware; the patches carry a variant per build
- * (`builds`, src/patch.mjs) and the base firmware picks which one is applied.
+ * The two fingerprints in the head are for Hacktribe 2.02. `alternates` names the other firmwares the file takes, each
+ * with the same two fingerprints for that firmware: Korg's own 2.02 (`stock`, the same patches, which carry a variant per
+ * build, `builds` in src/patch.mjs), Hacktribe with the blue Electribe's head (`hacktribe-blue`, the same patches; only
+ * the head is different, and the fingerprint covers it) and the blue Electribe's own 2.02 (`synth`, with its own list:
+ * the synth set has fewer patches).
  *
  * The fingerprint of an image is the sha256 of all its bytes except the
  * `userData` ranges: the data this editor and other tools change in a VSB
@@ -34,8 +37,8 @@
  * carry, namely our own code and the displaced instruction words our hook code
  * replays at a hook site.
  */
-import { applyPatches, fromHex, toHex } from "./patch.mjs";
-import { buildOf, sha256 } from "./firmware.mjs";
+import { applyPatches, fromHex, selectFor, toHex } from "./patch.mjs";
+import { buildOf, hardwareOf, sha256 } from "./firmware.mjs";
 import { FIELDS, TABLES, byteSpans } from "./map/index.mjs";
 import { tableEntry } from "./map/address.mjs";
 
@@ -43,6 +46,8 @@ export const PATCH_FILE_MAGIC = "GLMPPAT\0";
 export const PATCH_FILE_VERSION = 2;
 export const PATCH_FILE_FORMAT = "gelumpe-patch-file";
 export const PATCH_FILE_HEADER = 128;
+/** The firmwares a patch file can name besides Hacktribe 2.02 (the head), as keys of `alternates`. */
+export const ALTERNATES = ["stock", "hacktribe-blue", "synth"];
 const VERSION_WIDTH = 16;
 const IMAGE = 0x200100;
 const FIRST = 0x100;
@@ -120,25 +125,34 @@ const asRanges = list => list.map(([file, length]) => [file, file + length]);
  * fingerprint is the real one and a set that does not apply is never written.
  * @param {Uint8Array} vsb a firmware the set is made for
  * @param {object[]} patches the patches in the order they are applied
- * @param {{version: string, id?: string, name?: string, userData?: number[][], stock?: Uint8Array}} meta
- *   `stock` is Korg's own 2.02, for a set that builds on it as well
+ * @param {{version: string, id?: string, name?: string, userData?: number[][], stock?: Uint8Array, synth?: Uint8Array, synthPatches?: object[]}} meta
+ *   `stock` is Korg's own 2.02, `synth` the blue Electribe's own 2.02 with `synthPatches`, its set; Hacktribe with the
+ *   blue head is always named, made from `vsb`
  */
-export async function buildPatchFile(vsb, patches, { version, id = "patch-set", name = id, userData = userDataRanges(), stock } = {}) {
+export async function buildPatchFile(vsb, patches, { version, id = "patch-set", name = id, userData = userDataRanges(), stock, synth, synthPatches } = {}) {
   if (typeof version !== "string" || !/^[\x21-\x7e]{1,16}$/.test(version)) throw new TypeError("version is 1 to 16 printable characters");
-  if (buildOf(vsb) !== "hacktribe") throw new TypeError("the head names Hacktribe 2.02, give Korg's own as `stock`");
+  if (buildOf(vsb) !== "hacktribe" || hardwareOf(vsb) !== "red") throw new TypeError("the head names Hacktribe 2.02 with the Sampler head, give Korg's own as `stock` or `synth`");
   const applied = await applyPatches(vsb, patches);
   if (!applied.ok) throw new Error(`the set does not apply:\n${applied.reasons.join("\n")}`);
-  const alternates = {};
+  const pair = async (input, list, label) => {
+    const done = await applyPatches(input, list);
+    if (!done.ok) throw new Error(`the set does not apply to ${label}:\n${done.reasons.join("\n")}`);
+    return { input: await fingerprint(input, asRanges(userData)), output: await fingerprint(done.bytes, without(asRanges(userData), done.spans)) };
+  };
+  const blue = Uint8Array.from(vsb);
+  blue.set([0x00], 0x12);
+  blue.set([0x23], 0x2e);
+  // only Hacktribe's own code stays Hacktribe under the blue head (src/firmware.mjs, buildOf)
+  const alternates = buildOf(blue) === "hacktribe" ? { "hacktribe-blue": await pair(blue, patches, "Hacktribe with the blue head") } : {};
   if (stock) {
     if (buildOf(stock) !== "stock") throw new TypeError("`stock` is not Korg's own 2.02");
-    const onStock = await applyPatches(stock, patches);
-    if (!onStock.ok) throw new Error(`the set does not apply to Korg's own 2.02:\n${onStock.reasons.join("\n")}`);
-    alternates.stock = {
-      input: await fingerprint(stock, asRanges(userData)),
-      output: await fingerprint(onStock.bytes, without(asRanges(userData), onStock.spans)),
-    };
+    alternates.stock = await pair(stock, patches, "Korg's own 2.02");
   }
-  const payload = new TextEncoder().encode(JSON.stringify({ format: PATCH_FILE_FORMAT, id, name, userData, patches, ...(stock ? { alternates } : {}) }));
+  if (synth) {
+    if (buildOf(synth) !== "synth" || !Array.isArray(synthPatches) || !synthPatches.length) throw new TypeError("`synth` is the blue Electribe's own 2.02, with `synthPatches`");
+    alternates.synth = { ...await pair(synth, synthPatches, "the blue Electribe's own 2.02"), patches: synthPatches };
+  }
+  const payload = new TextEncoder().encode(JSON.stringify({ format: PATCH_FILE_FORMAT, id, name, userData, patches, ...(Object.keys(alternates).length ? { alternates } : {}) }));
   const out = new Uint8Array(PATCH_FILE_HEADER + payload.length);
   const view = new DataView(out.buffer);
   out.set(MAGIC, 0);
@@ -177,8 +191,10 @@ export async function parsePatchFile(bytes) {
   if (!Array.isArray(body.userData) || !body.userData.every(ok)) throw new Error("userData ist eine Liste von [Datei, Länge] im Abbild");
   const alternates = body.alternates ?? {};
   const hex64 = h => typeof h === "string" && /^[0-9a-f]{64}$/.test(h);
-  if (typeof alternates !== "object" || Array.isArray(alternates) || Object.entries(alternates).some(([k, v]) => k !== "stock" || !hex64(v?.input) || !hex64(v?.output))) {
-    throw new Error("alternates nennt nur stock, mit input und output als sha256");
+  const fits = ([k, v]) => ALTERNATES.includes(k) && hex64(v?.input) && hex64(v?.output)
+    && (k === "synth" ? Array.isArray(v.patches) && v.patches.length > 0 : v.patches === undefined);
+  if (typeof alternates !== "object" || Array.isArray(alternates) || !Object.entries(alternates).every(fits)) {
+    throw new Error(`alternates nennt nur ${ALTERNATES.join(", ")}, mit input und output als sha256 (synth mit eigenen patches)`);
   }
   return {
     formatVersion, version,
@@ -186,6 +202,21 @@ export async function parsePatchFile(bytes) {
     output: toHex(bytes.subarray(64, 96)),
     id: body.id, name: body.name, userData: body.userData, patches: body.patches, alternates,
   };
+}
+
+const FIRMWARE_NAMES = { hacktribe: "Hacktribe 2.02", stock: "Korgs Original 2.02", "hacktribe-blue": "Hacktribe 2.02 für die blaue Electribe", synth: "Korgs 2.02 der blauen Electribe" };
+
+/** Which of the head's firmware or of `alternates` a VSB is. */
+const firmwareKey = vsb => {
+  const build = buildOf(vsb);
+  return build === "hacktribe" && hardwareOf(vsb) === "blue" ? "hacktribe-blue" : build;
+};
+
+/** The patches of a parsed patch file that go onto this VSB, one variant per patch (what the page lists). */
+export function patchesFor(file, vsb) {
+  const key = firmwareKey(vsb);
+  const list = key === "synth" ? file.alternates.synth?.patches ?? [] : file.patches;
+  return selectFor(list, buildOf(vsb)).patches;
 }
 
 /**
@@ -201,14 +232,14 @@ export async function applyPatchFile(vsb, bytes) {
   try { file = await parsePatchFile(bytes); } catch (error) { return none([error.message]); }
   if (vsb.length !== IMAGE) return none([`Die Datei ist ${vsb.length} Byte groß; eine SYSTEM.VSB für 2.02 hat ${IMAGE}.`]);
   const userData = asRanges(file.userData);
-  const build = buildOf(vsb);
-  const target = build === "stock" ? file.alternates.stock : { input: file.input, output: file.output };
-  if (!target) return none([`${file.name} ${file.version} ist nicht für Korgs Original-Firmware 2.02 gebaut, nur für Hacktribe 2.02.`]);
+  const key = firmwareKey(vsb);
+  const target = key === "hacktribe" ? { input: file.input, output: file.output } : file.alternates[key];
+  if (!target) return none([`${file.name} ${file.version} ist nicht für ${FIRMWARE_NAMES[key]} gebaut.`]);
   const input = await fingerprint(vsb, userData);
   if (input !== target.input) {
-    return none([`Das ist keine SYSTEM.VSB, auf die ${file.name} ${file.version} passt: Code oder feste Daten weichen von ${build === "stock" ? "Korgs Original 2.02" : "Hacktribe 2.02"} ab (Fingerabdruck ohne FX-Presets, Menülängen, Startbild und Tabellen: erwartet ${target.input}, gefunden ${input}).`]);
+    return none([`Das ist keine SYSTEM.VSB, auf die ${file.name} ${file.version} passt: Code oder feste Daten weichen von ${FIRMWARE_NAMES[key]} ab (Fingerabdruck ohne FX-Presets, Menülängen, Startbild und Tabellen: erwartet ${target.input}, gefunden ${input}).`]);
   }
-  const applied = await applyPatches(vsb, file.patches);
+  const applied = await applyPatches(vsb, target.patches ?? file.patches);
   if (!applied.ok) return applied;
   const output = await fingerprint(applied.bytes, without(userData, applied.spans));
   if (output !== target.output) {
