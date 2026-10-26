@@ -311,6 +311,76 @@ export class Sender {
     }
   }
 
+  /** A FILE offset of the sample file (`temp`: its temp file) at `at`. */
+  sampleSelector(temp, at = 0) {
+    return (P.BLECH.FILE_SAMPLE | (temp ? P.BLECH.FILE_OTHER : 0) | at) >>> 0;
+  }
+
+  /** The size of the sample file (`temp`: its temp file); 0 when there is none. */
+  async sampleFileSize(model, temp = false) {
+    try {
+      return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, this.sampleSelector(temp), 0, model), "blech-file-read"), this.channel, 0, model))).size;
+    } catch (e) {
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      throw e;
+    }
+  }
+
+  /** `length` bytes of the sample file from `at`, in blocks of the device's largest size, each checked against its CRC; fewer come back at the end of the file. */
+  async sampleFileRead(at, length, model, onProgress, temp = false) {
+    const out = new Uint8Array(length);
+    const max = this.blech.maxBlock;
+    let got = 0;
+    for (; got < length; ) {
+      const n = Math.min(max, length - got);
+      const r = await this.blechAttempts("read", async () =>
+        P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, this.sampleSelector(temp, at + got), n, model), "blech-file-read", n), this.channel, n, model));
+      out.set(r.bytes, got);
+      got += r.bytes.length;
+      onProgress?.(got, length);
+      if (r.bytes.length < n) break;
+    }
+    return out.subarray(0, got);
+  }
+
+  /**
+   * `bytes` into the sample file from `at` (the file is made when it is not there and never cut: a block at 0 rewrites the header
+   * in place), in blocks of the largest size, each read back from the card with its CRC. In the temp file a block at 0 makes it anew.
+   */
+  async sampleFileWrite(at, bytes, model, onProgress, temp = false) {
+    const max = this.blech.maxBlock;
+    for (let done = 0; done < bytes.length; done += max) {
+      const part = bytes.subarray(done, Math.min(done + max, bytes.length));
+      const crc = P.crc32(part);
+      await this.blechAttempts("write", async () => {
+        P.parseBlechFileBegin(await this.blechExchange(P.blechFileBegin(this.channel, this.sampleSelector(temp, at + done), part.length, crc, model), "blech-file-begin"), this.channel, model);
+        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, model), "blech-data", part.length), this.channel, crc, model);
+      });
+      onProgress?.(done + part.length, bytes.length);
+    }
+  }
+
+  /** `length` bytes (at most COPY_MAX) from one sample file to the other, on the card; the CRC-32 of the bytes copied comes back. */
+  async sampleFileCopy(from, to, length, model) {
+    const r = await this.blechAttempts("write", async () =>
+      P.parseBlechFileCopy(await this.blechExchange(P.blechFileCopy(this.channel, this.sampleSelector(from.temp, from.at), this.sampleSelector(to.temp, to.at), length, model), "blech-file-copy", length / 4), this.channel, model));
+    if (r.copied !== length) throw new SendError("reply", `Datei kopieren: ${r.copied} Byte statt ${length}.`);
+    return r.crc;
+  }
+
+  /** Deletes the sample file (`temp`: its temp file). */
+  async sampleFileDelete(model, temp = false) {
+    await this.blechAttempts("write", async () => P.parseBlechFileDelete(await this.blechExchange(P.blechFileDelete(this.channel, this.sampleSelector(temp), model), "blech-file-delete"), this.channel, model));
+  }
+
+  /** The CRC-32 of `length` bytes (at most COPY_MAX) of a sample file, read from the card by the device and not sent. */
+  async sampleFileCrc(at, length, model, temp = false) {
+    const r = await this.blechAttempts("read", async () =>
+      P.parseBlechFileCrc(await this.blechExchange(P.blechFileCrc(this.channel, this.sampleSelector(temp, at), length, model), "blech-file-crc", length / 4), this.channel, model));
+    if (r.length !== length) throw new SendError("reply", `Datei prüfen: ${r.length} Byte statt ${length}.`);
+    return r.crc;
+  }
+
   /**
    * Run the steps. Stops at the first failure and says where. `check(step, value, i)` may return a
    * reason to stop after a step that answered.

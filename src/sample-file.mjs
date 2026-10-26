@@ -78,6 +78,58 @@ export function parseSampleFile(bytes) {
   return { size: bytes.length, samples };
 }
 
+/** A sample file with no sample in it: the header only, as a first sample is added to a card that has none. */
+export function emptySampleFile() {
+  const out = new Uint8Array(HEADER);
+  for (let i = 0; i < MAGIC.length; i++) out[i] = MAGIC.charCodeAt(i);
+  return out;
+}
+
+/**
+ * The same list as parseSampleFile, from a file that is not here: `read(offset, length)` returns the bytes (fewer at the end of the
+ * file), `size` is the file's size. It reads the header and, for each sample, the first 44 bytes and the name in the record behind
+ * the audio, a few bytes each, not the audio. An entry laid out otherwise than the firmware writes it (fmt, data, korg) is listed
+ * with its length from the RIFF header and a problem, so it can still be removed.
+ * @param {(offset: number, length: number) => Promise<Uint8Array>} read
+ * @param {(done: number, total: number) => void} [onProgress]
+ */
+export async function parseRemote(read, size, onProgress) {
+  if (size < HEADER) throw new SampleFileError("Die Datei auf der Karte ist kürzer als ein Kopf.");
+  const header = await read(0, HEADER);
+  if (header.length < HEADER || ascii(header, 0, 14) !== "e2s sample all" || header[14] !== 0x1a) {
+    throw new SampleFileError("Das ist keine e2sSample.all: der Kopf „e2s sample all“ fehlt.");
+  }
+  const entries = [];
+  for (let slot = 0; slot < SLOTS; slot++) {
+    const offset = u32(header, 16 + 4 * slot);
+    if (offset) entries.push({ slot, offset });
+  }
+  const samples = [];
+  for (const [i, e] of entries.entries()) {
+    onProgress?.(i, entries.length);
+    const base = { slot: e.slot, offset: e.offset, length: 0, name: "", rate: 0, channels: 0, bits: 0, frames: 0, problem: null };
+    if (e.offset < HEADER || e.offset + 12 > size) { samples.push({ ...base, problem: "Der Eintrag liegt außerhalb der Datei." }); continue; }
+    const head = await read(e.offset, 44);
+    if (head.length < 12 || tag(head, 0) !== "RIFF" || tag(head, 8) !== "WAVE") { samples.push({ ...base, problem: "keine WAV-Datei (RIFF/WAVE fehlt)" }); continue; }
+    const length = 8 + u32(head, 4);
+    if (e.offset + length > size) { samples.push({ ...base, length: size - e.offset, problem: "Der Eintrag ist abgeschnitten." }); continue; }
+    const layout = head.length >= 44 && tag(head, 12) === "fmt " && u32(head, 16) === 16 && tag(head, 36) === "data";
+    if (!layout) { samples.push({ ...base, length, problem: "Aufbau nicht erkannt" }); continue; }
+    const channels = u16(head, 22);
+    const bits = u16(head, 34);
+    const dataSize = u32(head, 40);
+    const korgAt = e.offset + 44 + dataSize + (dataSize & 1);
+    let name = "";
+    if (korgAt + 8 + 8 + 18 <= e.offset + length) {
+      const record = await read(korgAt, 8 + 8 + 18);
+      if (tag(record, 0) === "korg" && tag(record, 8) === "esli") name = ascii(record, 8 + 8 + 2, 16);
+    }
+    samples.push({ ...base, length, name, rate: u32(head, 24), channels, bits, frames: Math.floor(dataSize / Math.max(1, channels * (bits >> 3))), problem: null });
+  }
+  onProgress?.(entries.length, entries.length);
+  return { size, samples, header };
+}
+
 /** The first empty user slot at or after `from`, or null when 501 to 999 are all taken. */
 export function freeSlot(taken, from = FIRST_USER) {
   for (let slot = from; slot <= LAST_USER; slot++) if (!taken.has(slot)) return slot;

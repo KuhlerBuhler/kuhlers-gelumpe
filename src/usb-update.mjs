@@ -16,7 +16,7 @@ export function unsupported(info) {
 }
 
 /** The device's BLECH INFO for its own model byte, and the block size set on the sender. */
-async function prepare(session) {
+export async function prepare(session) {
   const model = session.device?.model;
   if (model == null) throw new Error("Die Electribe ist nicht verbunden. Steck sie per USB an und schalte sie ein. Dann im Bereich Emulator oben „Echtes Gerät“ wählen und auf „Mit Electribe verbinden“ klicken.");
   const info = await session.sender.blechInfo(model);
