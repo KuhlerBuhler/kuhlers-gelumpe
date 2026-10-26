@@ -28,6 +28,7 @@ on:
       - "data/synth-sites.mjs"
       - "data/map/**"
       - "data/script/**"
+      - "site/app/i18n-de.mjs"
       - "src/bsdiff.mjs"
       - "src/bytes.mjs"
       - "src/bzip2.mjs"

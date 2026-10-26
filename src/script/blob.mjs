@@ -15,7 +15,7 @@ const say = (key, vars) => render(text(key, vars));
 /** A load or run failure: the contract's code, its name and message, and where in the code it happened. */
 export function fail(code, detail = "", offset = null) {
   const info = ERROR_BY_CODE.get(code);
-  return { code, name: info.name, message: detail ? `${info.message}: ${detail}` : info.message, offset };
+  return { code, name: info.name, message: detail ? `${render(info.message)}: ${detail}` : render(info.message), offset };
 }
 
 const TABLE = (() => {

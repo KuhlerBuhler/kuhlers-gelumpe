@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { render } from "../src/text.mjs";
 import { PRESETS } from "../data/script/presets.mjs";
 import { LIMITS } from "../data/script/contract.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
@@ -51,7 +52,7 @@ test("the new plugins are in the catalog, Klicker is not, and each is an app tha
     assert.ok(p.blob.length < 16 * 1024, `${id}: ${p.blob.length} bytes`);
     assert.ok(p.info.vars <= LIMITS.vars);
     assert.equal(p.device.apps.length, 1, id);
-    assert.match(PRESETS.find(x => x.id === id).description, /^App in (GAMES|TOOLS):/);
+    assert.match(render(PRESETS.find(x => x.id === id).description), /^App in (GAMES|TOOLS):/);
   }
   assert.deepEqual(IDS.map(id => plugin(id, { open: false }).device.apps[0].group), ["GAMES", "TOOLS", "GAMES", "GAMES", "GAMES", "GAMES", "GAMES"]);
 });

@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import de from "../site/app/i18n-de.mjs";
 import { t, tNodes, setLanguage, language, locale, LANGUAGES } from "../site/app/i18n.mjs";
 import { text, render, number, TextError } from "../src/text.mjs";
+import { PRESETS } from "../data/script/presets.mjs";
 import { literals, looksLikeUiText, htmlText } from "./ui-text.mjs";
 
 const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
@@ -38,6 +39,12 @@ const KEYED = [
   "src/usb-sample-file.mjs",
   "src/usb-update.mjs",
   "src/firmware.mjs",
+  "data/script/presets.mjs",
+  "data/script/describe.mjs",
+  "data/script/contract.mjs",
+  "data/script/templates.mjs",
+  "data/script/properties.mjs",
+  "data/script/names.mjs",
 ];
 const keyed = KEYED.map(f => [f, readFileSync(new URL(`../${f}`, import.meta.url), "utf8")]);
 // A literal like "nav.start" whose first part names a namespace of the table counts as a key, in t() or in a FIELDS label.
@@ -129,8 +136,13 @@ const ALLOWED = {
   "src/firmware.mjs": ["Synth", "Sampler", "Bleched Hacktribe", "Hacktribe", "Blechtribe {}"],
 };
 
+// The plugin catalog: names of plugins and of their makers stay as they are, and so does the plugin code (it holds korg.).
+ALLOWED["data/script/presets.mjs"] = PRESETS.flatMap(p => [p.title, p.creator]);
+const PLUGIN_CODE = ["data/script/presets.mjs", "data/script/templates.mjs"];
+
 const hardcoded = (file, src) => literals(src)
   .filter(l => looksLikeUiText(l.value) && !KEYS.includes(l.value) && !(ALLOWED[file] ?? []).includes(l.value))
+  .filter(l => !(PLUGIN_CODE.includes(file) && l.value.includes("korg.")))
   .map(l => `${file}:${l.line}: ${l.value}`);
 
 test("site/app has no hard-coded UI text: every German label, message and toast goes through t()", () => {

@@ -92,7 +92,7 @@ function objectInfo(name) {
   const props = PROPERTIES.filter(p => owner(p) === name);
   if (!props.length) return null;
   if (props.length === 1) return propertyInfo(props[0]);
-  return { name, signature: `${name}[i]`, text: props.map(p => `${shown(p)}: ${p.text}`).join(" "), params: [], returns: null, allowed: null };
+  return { name, signature: `${name}[i]`, text: props.map(p => `${shown(p)}: ${render(p.text)}`).join(" "), params: [], returns: null, allowed: null };
 }
 
 /** An API entry by its name; `korg.tempo` without a bracket behind it is the property. */
