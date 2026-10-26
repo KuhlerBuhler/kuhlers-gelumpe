@@ -4,6 +4,7 @@
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
+import { t } from "./i18n.mjs";
 
 /**
  * @param {Uint8Array|string} bytes
@@ -17,5 +18,5 @@ export function saveFile(bytes, name, { type = "application/octet-stream", note 
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  toast(`„${name}“ gespeichert, im Ordner Downloads.${note ? ` ${note}` : ""}`, "ok");
+  toast((note ? t("save.doneNote", { name, note }) : t("save.done", { name })), "ok");
 }

@@ -8,6 +8,7 @@ import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { icon } from "./icons.mjs";
 import { emulatorPanel, takeLink } from "./emulator.mjs";
+import { t } from "./i18n.mjs";
 
 const CHANNEL = "cee.emu.window";
 const BEAT_MS = 1000;
@@ -23,10 +24,10 @@ const inApp = () => !!window.__GELUMPE_APP || location.protocol === "tauri:" || 
 /** On the main page: the button that opens the window, and the note with "Hier anzeigen" while it is open. */
 export function emulatorWindow(emulator, { place }) {
   const channel = new BroadcastChannel(CHANNEL);
-  const open = el("button", { type: "button", className: "btn sm cee-emu-pop", id: "cee-emu-pop" }, [icon("popout"), "Eigenes Fenster"]);
-  const back = el("button", { type: "button", className: "btn", id: "cee-emu-back", textContent: "Hier anzeigen" });
+  const open = el("button", { type: "button", className: "btn sm cee-emu-pop", id: "cee-emu-pop" }, [icon("popout"), t("popout.open")]);
+  const back = el("button", { type: "button", className: "btn", id: "cee-emu-back", textContent: t("popout.back") });
   const note = el("div", { className: "cee-emu-away", id: "cee-emu-away", hidden: true }, [
-    el("p", { textContent: "Der Emulator ist in einem eigenen Fenster geöffnet." }),
+    el("p", { textContent: t("popout.away") }),
     back,
   ]);
   place(open);
@@ -59,7 +60,7 @@ export function emulatorWindow(emulator, { place }) {
     const link = emulator.link;
     url.hash = link ? `emu=${link.port}:${link.token}` : "";
     win = window.open(url.href, "cee-emulator", "popup,width=1180,height=620");
-    if (!win && !inApp()) { toast("Der Browser hat das Fenster blockiert. Erlaube Popups für diese Seite.", "error"); return; }
+    if (!win && !inApp()) { toast(t("popout.blocked"), "error"); return; }
     seen = Date.now() + START_MS;
     leave();
   });

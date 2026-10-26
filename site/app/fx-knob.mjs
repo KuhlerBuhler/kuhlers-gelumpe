@@ -5,6 +5,7 @@
  */
 import { el } from "./fields.mjs";
 import { clamp, wheelPixels, DRAG_PX_FULL_RANGE, WHEEL_PX_FULL_RANGE, SWEEP_DEG } from "./dials.mjs";
+import { t } from "./i18n.mjs";
 
 const NS = "http://www.w3.org/2000/svg";
 const C = 24;
@@ -32,7 +33,7 @@ const breakable = text => text.split("_").flatMap((part, n) => (n ? [el("wbr"), 
 export function knob(id, label, hint, min, max, value, change, { readOnly = false } = {}) {
   const input = el("input", { type: "range", className: "cee-knob-input", id, min, max, value, disabled: readOnly });
   const box = el("input", { type: "number", className: "input cee-bk-number", id: `${id}-value`, min, max, value, readOnly });
-  box.setAttribute("aria-label", `${label}, Wert`);
+  box.setAttribute("aria-label", t("knob.value", { label }));
 
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", "0 0 48 48");

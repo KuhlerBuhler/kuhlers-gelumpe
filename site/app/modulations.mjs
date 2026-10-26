@@ -9,32 +9,33 @@ import { exportModTypes } from "../../src/export.mjs";
 import { checkName, checkDetail } from "../../src/patcher.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
+import { t } from "./i18n.mjs";
 
 const TARGET = field("modType.target");
 
 // Not the map's notes: those are for people who work on the map.
 const FIELD_TEXT = {
-  name: { label: "Name", note: "Bis zu 16 Zeichen, die das Display zeigen kann." },
+  name: { label: "mod.field.name", note: "mod.field.name.note" },
   depth: {
-    label: "Vorgabe-Tiefe (MOD. DEPTH)",
-    note: "Diesen Wert setzt die Firmware auf MOD. DEPTH, wenn du die Art mit MOD. TYPE wählst. Danach kannst du daran drehen.",
+    label: "mod.field.depth",
+    note: "mod.field.depth.note",
   },
   speed: {
-    label: "Vorgabe-Speed (MOD. SPEED)",
-    note: "Diesen Wert setzt die Firmware auf MOD. SPEED, wenn du die Art mit MOD. TYPE wählst. Danach kannst du daran drehen.",
+    label: "mod.field.speed",
+    note: "mod.field.speed.note",
   },
   curve: {
-    label: "Kurve",
-    note: "Die Wellenform der LFO-Einheit. Sie wirkt nur bei Slots mit der Quelle LFO. Im Emulator gemessen, nicht gehört.",
+    label: "mod.field.curve",
+    note: "mod.field.curve.note",
   },
 };
 
 const SLOT_TEXT = {
-  source: "Quelle",
-  target: "Ziel",
-  lo: { label: "Stärke von" },
-  hi: { label: "Stärke bis" },
-  follow: { label: "Tiefe folgt MOD. DEPTH" },
+  source: "mod.slot.source",
+  target: "mod.slot.target",
+  lo: { label: "mod.slot.lo" },
+  hi: { label: "mod.slot.hi" },
+  follow: { label: "mod.slot.follow" },
 };
 
 const pill = (tone, word) => {
@@ -47,23 +48,23 @@ export function modulationsPage(root, { emulator }) {
   const state = { original: null, bytes: null, file: 0, place: null, index: 0 };
   let passed = null;
 
-  const idle = el("p", { className: "muted", id: "cee-mod-idle", textContent: "Wähle im Bereich Emulator die Firmware (VSB). Die Modulationsarten liest dieser Bereich aus der geladenen Datei." });
+  const idle = el("p", { className: "muted", id: "cee-mod-idle", textContent: t("mod.idle") });
   const intro = el("div", { className: "cee-mod-intro", id: "cee-mod-intro", hidden: true }, [
-    el("p", { id: "cee-mod-measured", textContent: "Im Emulator gemessen, nicht gehört. Wirkt erst mit der neuen Firmware." }),
+    el("p", { id: "cee-mod-measured", textContent: t("mod.measured") }),
   ]);
   const list = el("ul", { className: "ui-list cee-pattern-list", id: "cee-mod-list" });
-  const side = el("aside", { className: "ui-split-side", id: "cee-mod-side" }, [el("h2", { className: "ui-section-title", textContent: "Modulationsarten" }), list]);
+  const side = el("aside", { className: "ui-split-side", id: "cee-mod-side" }, [el("h2", { className: "ui-section-title", textContent: t("mod.types") }), list]);
   const form = el("div", { className: "cee-mod-form", id: "cee-mod-form" });
-  const toggle = el("button", { type: "button", className: "btn ui-split-toggle", textContent: "Arten" });
+  const toggle = el("button", { type: "button", className: "btn ui-split-toggle", textContent: t("mod.typesShort") });
   toggle.setAttribute("aria-expanded", "false");
   toggle.setAttribute("aria-controls", "cee-mod-side");
   const split = el("div", { className: "ui-split", id: "cee-mod-split", hidden: true }, [toggle, side, el("div", { className: "ui-split-main" }, [form])]);
 
   const count = el("span", { className: "muted", id: "cee-mod-count", role: "status" });
   const warnings = el("span", { className: "muted", id: "cee-mod-warnings" });
-  const run = el("button", { type: "button", className: "btn cee-primary", id: "cee-mod-run", textContent: "Im Emulator prüfen", disabled: true });
-  const reset = el("button", { type: "button", className: "btn", id: "cee-mod-reset-all", textContent: "Alles zurücksetzen", disabled: true });
-  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-mod-download", textContent: "SYSTEM.VSB herunterladen", hidden: true });
+  const run = el("button", { type: "button", className: "btn cee-primary", id: "cee-mod-run", textContent: t("mod.check"), disabled: true });
+  const reset = el("button", { type: "button", className: "btn", id: "cee-mod-reset-all", textContent: t("mod.resetAll"), disabled: true });
+  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-mod-download", textContent: t("common.download", { file: "SYSTEM.VSB" }), hidden: true });
   const bar = el("div", { className: "ui-progress", id: "cee-mod-bar", hidden: true });
   const note = el("p", { className: "muted", id: "cee-mod-note", role: "status", hidden: true });
   const checkList = el("ul", { className: "ui-list", id: "cee-mod-checks" });
@@ -93,9 +94,9 @@ export function modulationsPage(root, { emulator }) {
 
   function status() {
     const n = changedTypes().length;
-    count.textContent = n ? `${n} ${n === 1 ? "Art" : "Arten"} geändert` : "Nichts geändert";
+    count.textContent = n ? t(n === 1 ? "mod.changed.one" : "mod.changed.many", { count: n }) : t("mod.unchanged");
     const hints = changedTypes().reduce((sum, i) => sum + hintsOf(i).length, 0);
-    warnings.textContent = hints ? `${hints} ${hints === 1 ? "Hinweis" : "Hinweise"} zu den Änderungen` : "";
+    warnings.textContent = hints ? t(hints === 1 ? "mod.hints.one" : "mod.hints.many", { count: hints }) : "";
     reset.disabled = !n;
     run.disabled = !n;
   }
@@ -128,7 +129,7 @@ export function modulationsPage(root, { emulator }) {
       const known = groups.some(([, options]) => options.some(o => o.raw === raw));
       extra.hidden = known;
       extra.value = String(raw);
-      extra.textContent = `Wert ${raw}, nicht gemessen`;
+      extra.textContent = t("mod.unmeasured", { raw });
       select.value = String(raw);
     };
     refresh();
@@ -139,14 +140,14 @@ export function modulationsPage(root, { emulator }) {
   const targetChoices = converter("modSlotTarget").choices;
   const targetGroups = [
     [null, [0, ...TARGETS_KNOWN].map(raw => targetChoices[raw])],
-    ["Expertenwerte, Wirkung am Klang unklar", TARGETS_UNCLEAR.map(raw => ({ raw, label: `Code ${raw}, Wirkung unklar` }))],
+    [t("mod.expert"), TARGETS_UNCLEAR.map(raw => ({ raw, label: t("mod.code", { raw }) }))],
   ];
 
   function slotState(slot) {
     if (slotActive(slot)) return "";
-    if (slot.source > 1) return "Ohne Wirkung: die Quelle ist aus.";
-    if (slot.target === 0) return "Ohne Wirkung: kein Ziel.";
-    return "Ohne Wirkung: die Stärke ist 0.";
+    if (slot.source > 1) return t("mod.slot.off.source");
+    if (slot.target === 0) return t("mod.slot.off.target");
+    return t("mod.slot.off.zero");
   }
 
   function slotGroup(i, k) {
@@ -155,14 +156,14 @@ export function modulationsPage(root, { emulator }) {
     const stateLine = el("p", { className: "ui-field-help cee-mod-slot-state", id: `cee-mod-slot-${k}-state` });
     const refreshState = () => { stateLine.textContent = slotState(slot()); };
     refreshState();
-    const named = key => ({ ...SLOT_FIELDS[key], label: { de: SLOT_TEXT[key].label, en: SLOT_TEXT[key].label }, note: null });
+    const named = key => ({ ...SLOT_FIELDS[key], label: { de: t(SLOT_TEXT[key].label), en: t(SLOT_TEXT[key].label) }, note: null });
     const numeric = key => control(named(key), () => slot()[key], set(key)).node;
-    const title = el("h5", { id: `cee-mod-slot-${k}-title`, textContent: `Slot ${k + 1}` });
+    const title = el("h5", { id: `cee-mod-slot-${k}-title`, textContent: t("mod.slot.title", { n: k + 1 }) });
     const group = el("div", { className: "cee-group cee-mod-slot", id: `cee-mod-slot-${k}` }, [
       title, stateLine,
       el("div", { className: "cee-grid" }, [
-        pick(SLOT_TEXT.source, [[null, sourceChoices]], () => slot().source, set("source")),
-        pick(SLOT_TEXT.target, targetGroups, () => slot().target, set("target")),
+        pick(t(SLOT_TEXT.source), [[null, sourceChoices]], () => slot().source, set("source")),
+        pick(t(SLOT_TEXT.target), targetGroups, () => slot().target, set("target")),
         numeric("lo"), numeric("hi"), numeric("follow"),
       ]),
     ]);
@@ -176,26 +177,26 @@ export function modulationsPage(root, { emulator }) {
     for (const b of list.querySelectorAll("button")) b.setAttribute("aria-current", String(Number(b.dataset.n) === i));
     const set = key => raw => { writeModType(state.bytes, state.file, i, { [key]: raw }); edited(i); };
     const fields = Object.keys(MOD_FIELDS).map(key => {
-      const f = { ...MOD_FIELDS[key], label: { de: FIELD_TEXT[key].label, en: FIELD_TEXT[key].label }, note: FIELD_TEXT[key].note };
+      const f = { ...MOD_FIELDS[key], label: { de: t(FIELD_TEXT[key].label), en: t(FIELD_TEXT[key].label) }, note: t(FIELD_TEXT[key].note) };
       return control(f, () => value(state.bytes, i)[key], set(key)).node;
     });
     const target = value(state.bytes, i).target;
     const label = el("div", { className: "ui-field", id: "cee-mod-target" }, [
-      el("span", { className: "ui-field-label", textContent: "Ziel (nur Etikett)" }),
+      el("span", { className: "ui-field-label", textContent: t("mod.target") }),
       el("span", { className: "muted", id: "cee-mod-target-value", textContent: describe(TARGET, target)?.text ?? String(target) }),
-      el("p", { className: "ui-field-help", textContent: "Die Firmware liest dieses Byte nie, es ist nur ein Etikett. Was eine Art moduliert, steht in den Slots unten." }),
+      el("p", { className: "ui-field-help", textContent: t("mod.target.help") }),
     ]);
     fields.splice(1, 0, label);
     const slots = Array.from({ length: SLOT_COUNT }, (_, k) => slotGroup(i, k));
     const hints = el("ul", { className: "ui-list", id: "cee-mod-hints" });
-    const hintBox = el("div", { className: "cee-group", id: "cee-mod-hint-box", hidden: true }, [el("h4", { textContent: "Hinweise zu dieser Art" }), hints]);
+    const hintBox = el("div", { className: "cee-group", id: "cee-mod-hint-box", hidden: true }, [el("h4", { textContent: t("mod.hints.title") }), hints]);
     redraw = () => {
       slots.forEach(sl => sl.refreshState());
       const found = hintsOf(i);
-      hints.replaceChildren(...found.map(h => el("li", { className: "ui-row" }, [pill("warn", "Hinweis"), el("span", { className: "ui-break", textContent: ` ${h.message}` })])));
+      hints.replaceChildren(...found.map(h => el("li", { className: "ui-row" }, [pill("warn", t("mod.hint")), el("span", { className: "ui-break", textContent: ` ${h.message}` })])));
       hintBox.hidden = !found.length;
     };
-    const back = el("button", { type: "button", className: "btn sm", id: "cee-mod-reset", textContent: "Diese Art zurücksetzen" });
+    const back = el("button", { type: "button", className: "btn sm", id: "cee-mod-reset", textContent: t("mod.reset") });
     back.addEventListener("click", () => {
       const { target: _label,...was } = value(state.original, i);
       writeModType(state.bytes, state.file, i, was);
@@ -203,11 +204,11 @@ export function modulationsPage(root, { emulator }) {
       openType(i);
     });
     form.replaceChildren(
-      el("h3", { textContent: `Art ${i + 1}` }),
+      el("h3", { textContent: t("mod.type", { n: i + 1 }) }),
       el("div", { className: "cee-grid" }, fields),
       el("div", { className: "cee-group" }, [
-        el("h4", { textContent: "Was die Art moduliert" }),
-        el("p", { className: "ui-field-help", textContent: "Jeder Slot ist eine Modulation: eine Quelle, ein Ziel und eine Stärke. Mehrere Slots mit demselben Ziel addieren sich. Die Stärke läuft von -63 bis 63: \"von\" gilt bei MOD. DEPTH 0, \"bis\" bei 127, mit \"bis\" auf 0 oder darunter kehrt sich die Wirkung um. Ist \"Tiefe folgt MOD. DEPTH\" aus, bleibt die Stärke bei der Vorgabe-Tiefe der Art und MOD. DEPTH ändert sie nicht." }),
+        el("h4", { textContent: t("mod.slots.title") }),
+        el("p", { className: "ui-field-help", textContent: t("mod.slots.help") }),
       ]),
       ...slots.map(sl => sl.node),
       hintBox,
@@ -218,7 +219,7 @@ export function modulationsPage(root, { emulator }) {
 
   function build() {
     list.replaceChildren(...Array.from({ length: MOD_COUNT }, (_, i) => {
-      const changed = pill("info", "geändert");
+      const changed = pill("info", t("mod.changedTag"));
       changed.classList.add("cee-mod-changed");
       changed.hidden = true;
       const b = el("button", { type: "button", className: "cee-pattern-item" }, [
@@ -261,16 +262,16 @@ export function modulationsPage(root, { emulator }) {
     try {
       const res = await exportModTypes(state.original, readModTypes(state.bytes, state.file));
       if (!res.ok) throw new Error(res.reasons.join(" "));
-      progress("Der Emulator startet die Kopie auf allen Startwegen, das dauert ein paar Minuten.");
+      progress(t("mod.checking"));
       const report = await emulator.check(state.original, res.bytes, res.allow, []);
       checkList.replaceChildren(...report.checks.map(c => el("li", { className: "ui-row" }, [
-        pill(c.ok ? "ok" : "error", c.ok ? "bestanden" : "nicht bestanden"), el("strong", { textContent: ` ${checkName(c.id)}` }), el("span", { className: "ui-break muted", textContent: ` ${checkDetail(c.detail)}` }),
+        pill(c.ok ? "ok" : "error", c.ok ? t("check.passed") : t("check.failed")), el("strong", { textContent: ` ${checkName(c.id)}` }), el("span", { className: "ui-break muted", textContent: ` ${checkDetail(c.detail)}` }),
       ])));
-      document.getElementById("cee-mod-details-title").textContent = `Alle Prüfungen des Emulators (${report.checks.length})`;
+      document.getElementById("cee-mod-details-title").textContent = t("check.all", { count: report.checks.length });
       checks.hidden = false;
       const good = report.checks.filter(c => c.ok).length;
       note.hidden = true;
-      toast(report.ok ? `Geprüft, alles in Ordnung. Du kannst die Datei jetzt speichern.` : `Die Prüfung hat ${report.checks.length - good} Fehler gefunden. Diese Änderung lässt sich so nicht speichern. Schick uns bitte einen Screenshot.`, report.ok ? "ok" : "error");
+      toast(report.ok ? t("mod.checked.ok") : t("mod.checked.failed", { count: report.checks.length - good }), report.ok ? "ok" : "error");
       if (report.ok) { passed = res.bytes; download.hidden = false; }
     } catch (e) {
       note.hidden = true;
@@ -283,7 +284,7 @@ export function modulationsPage(root, { emulator }) {
 
   download.addEventListener("click", () => {
     if (!passed) return;
-    saveFile(passed, "SYSTEM.VSB", { note: "Kopier die Datei auf die SD-Karte nach KORG/dein Ordner/System und starte am Gerät das Update: Menü -> DATA UTILITY -> SOFTWARE UPDATE." });
+    saveFile(passed, "SYSTEM.VSB", { note: t("firmware.copyNote") });
   });
 
   /** False when the firmware is not one this editor knows. */

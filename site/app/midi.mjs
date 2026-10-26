@@ -1,3 +1,4 @@
+import { t } from "./i18n.mjs";
 const ELECTRIBE = /electribe/i;
 
 /** The browser transport and the desktop's native MIDI commands share the same port shape. */
@@ -6,7 +7,7 @@ export function createMidiTransport(scope = globalThis, { sendTimeout = bytes =>
   const active = new Set();
   const api = () => {
     const core = scope.__TAURI__?.core;
-    if (!core?.invoke || !core.Channel) throw new Error("Die native MIDI-Schnittstelle ist nicht verfügbar.");
+    if (!core?.invoke || !core.Channel) throw new Error(t("midi.nativeMissing"));
     return {
       Channel: core.Channel,
       async invoke(command, args) {
@@ -48,10 +49,10 @@ export function createMidiTransport(scope = globalThis, { sendTimeout = bytes =>
     let result;
     try { result = await closePort(port); } catch {}
     const quarantined = result?.state === "quarantined";
-    const message = error?.message ?? (typeof error === "string" ? error : "Die MIDI-Verbindung wurde getrennt.");
+    const message = error?.message ?? (typeof error === "string" ? error : t("midi.disconnected"));
     port.out._native.access.onstatechange?.({
       port: port.out, code: error?.code, quarantined,
-      message: quarantined ? `${message} Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest.` : message,
+      message: quarantined ? t("midi.quarantined", { message }) : message,
     });
   };
   return {
@@ -64,7 +65,7 @@ export function createMidiTransport(scope = globalThis, { sendTimeout = bytes =>
       for (const output of ports.outputs.filter(port => ELECTRIBE.test(port.name))) {
         const inputs = ports.inputs.filter(port => port.name === output.name);
         if (inputs.length > 1 || ports.outputs.filter(port => port.name === output.name).length > 1) {
-          throw new Error(`Die MIDI-Ports für „${output.name}“ sind nicht eindeutig. Trenne weitere gleich benannte Geräte und verbinde neu.`);
+          throw new Error(t("midi.ambiguous", { name: output.name }));
         }
         if (!inputs.length) continue;
         const entry = { inputId: inputs[0].id, outputId: output.id, access, sessionId: null, closed: true };
@@ -81,7 +82,7 @@ export function createMidiTransport(scope = globalThis, { sendTimeout = bytes =>
         return port;
       }
       const entry = port.out._native;
-      if (!entry || !entry.closed) throw new Error("Der MIDI-Port ist bereits geöffnet oder ungültig.");
+      if (!entry || !entry.closed) throw new Error(t("midi.portBusy"));
       entry.sessionId = null;
       entry.closing = null;
       const { invoke, Channel } = api();
@@ -124,12 +125,12 @@ export function createMidiTransport(scope = globalThis, { sendTimeout = bytes =>
       port.in.state = port.out.state = "connected";
       active.add(port);
       port.out.send = async bytes => {
-        if (entry.closed) throw new Error("Die MIDI-Verbindung ist getrennt. Bitte neu verbinden.");
+        if (entry.closed) throw new Error(t("midi.closed"));
         let timer;
         try {
           await Promise.race([
             invoke("midi_send", { sessionId: entry.sessionId, bytes: Array.from(bytes) }),
-            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Das Senden über MIDI dauert zu lange. Bitte neu verbinden.")), sendTimeout(bytes.length)); }),
+            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(t("midi.sendTimeout"))), sendTimeout(bytes.length)); }),
           ]);
         } catch (error) {
           await disconnect(port, error);
@@ -139,7 +140,7 @@ export function createMidiTransport(scope = globalThis, { sendTimeout = bytes =>
       opening = false;
       early.forEach(enqueue);
       await delivery;
-      if (entry.closed) throw new Error("Die MIDI-Verbindung wurde beim Öffnen getrennt.");
+      if (entry.closed) throw new Error(t("midi.closedOnOpen"));
       return port;
     },
     closePort,
