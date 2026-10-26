@@ -248,6 +248,7 @@ export default {
   "discord.online": "Gerade online",
   "discord.count": "{count} online. Hier kommen auch die Ankündigungen neuer Versionen an.",
   "discord.join": "Server beitreten",
+  "discord.more": "+{count} weitere",
   "discord.nobody": "Gerade ist niemand online.",
   "discord.voice": "Sprachkanäle",
   "discord.loading": "Lade den Discord-Server...",
