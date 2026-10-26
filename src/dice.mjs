@@ -10,6 +10,7 @@
  * Runs in the browser and in node. The page is site/app/pattern-tools.mjs.
  */
 import { Pattern, cleanName, frameProblem } from "./pattern.mjs";
+import { render } from "./text.mjs";
 import { lintPattern } from "./pattern-rules.mjs";
 import { NO_SAMPLE, PARTS, STEPS } from "./pattern-set.mjs";
 import { noteLabel } from "./map/convert.mjs";
@@ -201,7 +202,7 @@ export function rollPart(base, options = {}) {
 export function checkRoll(pattern) {
   const out = [];
   const fp = frameProblem(pattern.bytes);
-  if (fp) out.push({ severity: "error", message: `Rahmen: ${fp}` });
+  if (fp) out.push({ severity: "error", message: `Rahmen: ${render(fp)}` });
   for (const f of lintPattern(pattern.bytes)) out.push({ severity: f.severity, message: f.message });
   return out;
 }

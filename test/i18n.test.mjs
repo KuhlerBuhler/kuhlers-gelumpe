@@ -30,6 +30,14 @@ const KEYED = [
   "src/script/hardware.mjs",
   "src/script/archive.mjs",
   "src/script/blob.mjs",
+  "src/protocol.mjs",
+  "src/sender.mjs",
+  "src/session.mjs",
+  "src/pattern.mjs",
+  "src/sample-file.mjs",
+  "src/usb-sample-file.mjs",
+  "src/usb-update.mjs",
+  "src/firmware.mjs",
 ];
 const keyed = KEYED.map(f => [f, readFileSync(new URL(`../${f}`, import.meta.url), "utf8")]);
 // A literal like "nav.start" whose first part names a namespace of the table counts as a key, in t() or in a FIELDS label.
@@ -115,6 +123,10 @@ const ALLOWED = {
   // An unused table of family names, and the disassembly listing, which only the tools print.
   "src/script/editor-model.mjs": ["Taste"],
   "src/script/blob.mjs": ["; Zeile {}"],
+  // Errors of a caller's mistake (RangeError, TypeError), for the developer, never shown on the page.
+  "src/pattern.mjs": ["Pattern {} gibt es in dieser Datei nicht", "expected a Pattern"],
+  // The names of the firmware builds, the same in every language.
+  "src/firmware.mjs": ["Synth", "Sampler", "Bleched Hacktribe", "Hacktribe", "Blechtribe {}"],
 };
 
 const hardcoded = (file, src) => literals(src)

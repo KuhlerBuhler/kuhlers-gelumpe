@@ -13,7 +13,8 @@
  */
 import { plan, sampleWrites } from "./plan.mjs";
 import { admit, regionCheck } from "./gate.mjs";
-import { Sender, SendError, backupsOf } from "./sender.mjs";
+import { Sender, SendError, backupsOf, textOf } from "./sender.mjs";
+import { render, text } from "./text.mjs";
 import { withChannel, describeMessage } from "./protocol.mjs";
 import { isPassed } from "./rehearsal.mjs";
 import { SimDevice } from "./device.mjs";
@@ -82,7 +83,7 @@ export class DeviceSession {
    * @param {object} [opts.timeouts]
    */
   constructor({ port, carry = newCarry(), known = KNOWN_DEVICES, timeouts }) {
-    if (!port?.out || !port?.in) throw new SendError("port", "Zu diesem MIDI-Ausgang gibt es keinen Eingang mit demselben Namen; so kommt keine Antwort an.");
+    if (!port?.out || !port?.in) throw new SendError("port", text("session.noInput"));
     this.port = port;
     this.carry = carry;
     this.known = known;
@@ -128,7 +129,7 @@ export class DeviceSession {
    */
   async exclusive(fn) {
     while (this.running && (this.waiters ?? 0) > 0) await this.idle();
-    if (this.running) throw new SendError("busy", "Es läuft schon eine Sendung. Erst wenn sie fertig ist, geht die nächste.");
+    if (this.running) throw new SendError("busy", text("session.busy"));
     this.running = fn();
     try { return await this.running; } finally { this.running = null; }
   }
@@ -268,7 +269,7 @@ export class DeviceSession {
     let thrown = null;
     try { res = await this.applyInner(edit, { confirmed, onStep }, unit); } catch (e) { thrown = e; }
     unit.ok = !!res?.ok;
-    unit.error ??= thrown ? thrown.message : res.ok ? null : (res.error?.message ?? res.gate?.reasons?.map(r => r.message).join(" ") ?? "abgelehnt");
+    unit.error ??= thrown ? thrown.message : res.ok ? null : (res.error?.message ?? res.gate?.reasons?.map(r => render(r.message)).join(" ") ?? render(text("session.refused")));
     if (this.onUnit) {
       const { run, ...rest } = unit;
       const acks = {};
@@ -288,7 +289,7 @@ export class DeviceSession {
     }
     if (this.requireRehearsal && !this.rehearsal && this.port.emulator !== true) {
       return { ok: false, gate: checked, rolledBack: false,
-        error: new SendError("rehearsal", "Jede Änderung geht erst durch den Emulator, und der läuft nicht. Starte ihn im Bereich Emulator und verbinde neu. Ans Gerät ging nichts.") };
+        error: new SendError("rehearsal", text("session.noEmulator")) };
     }
     if (this.rehearsal) {
       const probe = await this.rehearsal.rehearse(edit);
@@ -296,7 +297,7 @@ export class DeviceSession {
       if (this.rehearsal.blocked) this.rehearsal.carry = { ...newCarry(), history: this.rehearsal.history };
       if (!probe.ok) {
         return { ok: false, gate: checked, rehearsal: probe, rolledBack: false,
-          error: new SendError("rehearsal", `Im Emulator nicht bestanden: ${probe.reason} Ans Gerät ging nichts.`) };
+          error: new SendError("rehearsal", text("session.rehearsalFailed", { reason: probe.reason })) };
       }
     }
     const run = await this.sender.run(checked.steps, { onStep });
@@ -330,7 +331,8 @@ export class DeviceSession {
   async holdAfterFailure(edit, backups, patternBackup, error) {
     const target = describeTarget(edit);
     this.carry.pending = { edit, backups, pattern: patternBackup, error: error.message, target };
-    this.blocked = `${target}: ${error.message} Was angekommen ist, zeigt das Zurücklesen. Bis du entschieden hast (Sicherung zurückspielen oder so lassen), geht an dieses Gerät nichts mehr.`;
+    // Kept as finished text in the page's language: the gate and the page read it as a reason like any other.
+    this.blocked = render(text("session.blocked", { target, error: textOf(error) }));
     if (!this.sender.disconnected) this.carry.pending.now = await this.readBack(this.carry.pending);
     return this.carry.pending;
   }
@@ -368,15 +370,15 @@ export class DeviceSession {
 
   async replayNow(record, { onStep }) {
     const refuse = (code, message, extra = {}) => ({ ok: false, refused: true, error: new SendError(code, message), ...extra });
-    if (!isPassed(record)) return refuse("not-rehearsed", "Das ist keine bestandene Probe im Emulator. Ans Gerät geht nichts.");
+    if (!isPassed(record)) return refuse("not-rehearsed", text("session.notRehearsed"));
     const d = this.device;
-    if (!d) return refuse("no-device", "Kein Gerät verbunden.");
-    if (!d.versionKnown || !d.fingerprintVerified) return refuse("firmware", "Der Gerätestand ist nicht bestätigt: Die Firmware im Gerät ist nicht die, auf der die Probe lief.");
+    if (!d) return refuse("no-device", text("sender.noDevice"));
+    if (!d.versionKnown || !d.fingerprintVerified) return refuse("firmware", text("session.unconfirmed"));
     if (d.version[0] !== record.target.version[0] || d.version[1] !== record.target.version[1]) {
-      return refuse("firmware", `Das Gerät meldet ${d.version.join(".")}, die Probe lief auf ${record.target.version.join(".")}.`);
+      return refuse("firmware", text("session.version", { device: d.version.join("."), probe: record.target.version.join(".") }));
     }
     if (this.firmwareBytes && await sha256(this.firmwareBytes) !== record.target.firmwareSha) {
-      return refuse("firmware", "Für das Gerät ist eine andere Firmware-Datei geladen als die, auf der die Probe lief.");
+      return refuse("firmware", text("session.otherFile"));
     }
     const channel = d.channel;
     const ctx = { ...this.context(), rehearsed: true };
@@ -385,8 +387,8 @@ export class DeviceSession {
       const steps = unit.steps.map(s => ({ ...s, msg: withChannel(s.msg, channel) }));
       const checked = await admit(unit.edit, steps, ctx);
       if (checked.verdict !== "clean") {
-        const why = checked.reasons.map(r => r.message).join(" ") || "Der Türsteher will eine Bestätigung.";
-        return refuse("gate", `Einheit ${n + 1}: ${why}`, { unit: n, gate: checked });
+        const why = checked.reasons.map(r => render(r.message)).join(" ") || text("session.gateConfirm");
+        return refuse("gate", text("session.unit", { unit: n + 1, why }), { unit: n, gate: checked });
       }
       prepared.push({ unit, steps });
     }
@@ -396,7 +398,7 @@ export class DeviceSession {
         const want = unit.acks[i];
         if (step.expect.kind !== "ack" || !want) return null;
         const wanted = withChannel(want, channel);
-        return wanted.length === value.length && wanted.every((b, k) => b === value[k]) ? null : "Die Bestätigung weicht von der in der Probe ab.";
+        return wanted.length === value.length && wanted.every((b, k) => b === value[k]) ? null : text("session.ackDiffers");
       };
       const run = await this.sender.run(steps, { onStep: (i, total) => onStep?.({ unit: n, step: i, of: total, units: prepared.length }), check: sameAck });
       if (!run.ok) {
@@ -421,7 +423,7 @@ export class DeviceSession {
         await sleep(this.execSettleMs ?? 200);
         const back = await this.restore({ backups: backupsOf(run.results) });
         if (!back.ok || shapeOf(back.steps).join() !== shapeOf(unit.cleanup.steps).join()) {
-          const error = back.error ?? new SendError("replay-mismatch", "Das Zurückschreiben hat nicht die Form wie in der Probe.");
+          const error = back.error ?? new SendError("replay-mismatch", text("session.cleanupShape"));
           const pending = await this.holdAfterFailure(unit.edit, backupsOf(run.results), null, error);
           return { ok: false, unit: n, step: steps.length, error, pending, done: results };
         }
@@ -460,7 +462,7 @@ export class DeviceSession {
    */
   readFlash({ block = 0x4000, onProgress } = {}) {
     return this.exclusive(async () => {
-      if (!this.device?.hacktribe && !this.sender.blech?.flash) throw new SendError("no-hacktribe", "Flash lesen geht nur mit Hacktribe oder BLECH.");
+      if (!this.device?.hacktribe && !this.sender.blech?.flash) throw new SendError("no-hacktribe", text("session.flashNeedsHacktribe"));
       const out = new Uint8Array(FLASH_END);
       for (let addr = 0; addr < FLASH_END; addr += block) {
         const run = await this.sender.run(plan({ kind: "flashRead", addr, length: Math.min(block, FLASH_END - addr) }, { channel: this.device.channel }));
@@ -478,18 +480,18 @@ export class DeviceSession {
    * still running and answering afterwards (plan 5.2).
    */
   async rehearse(edit) {
-    if (this.port.running === false) return { ok: false, reason: "Der Emulator läuft nicht." };
+    if (this.port.running === false) return { ok: false, reason: text("session.emuStopped") };
     const res = await this.apply(edit, { confirmed: true });
     if (!res.ok) {
-      const why = res.error?.message ?? res.gate?.reasons?.map(r => r.message).join(" ") ?? "abgelehnt";
+      const why = res.error ? textOf(res.error) : res.gate?.reasons?.map(r => render(r.message)).join(" ") ?? text("session.refused");
       return { ok: false, reason: why };
     }
     await new Promise(r => setTimeout(r, this.settleMs ?? 500));
-    if (this.port.running === false) return { ok: false, reason: "Die Firmware im Emulator ist danach stehen geblieben (Absturz oder Assertion)." };
+    if (this.port.running === false) return { ok: false, reason: text("session.emuCrashed") };
     const alive = await this.exclusive(() => this.sender.run(plan({ kind: "search" })));
     if (!alive.ok) {
       await this.undo().catch(() => {});              // the device does not get it, so the emulator should not keep it
-      return { ok: false, reason: "Die Firmware im Emulator antwortet danach nicht mehr." };
+      return { ok: false, reason: text("session.emuSilent") };
     }
     return { ok: true };
   }
@@ -521,7 +523,7 @@ export class DeviceSession {
   /** Which screen, menu page, part and effect the device shows (src/screen.mjs). */
   screen() {
     return this.exclusive(() => readContext(async (addr, length) => {
-      if (addr < RAM_BASE || addr + length > RAM_BASE + 0x8000000) throw new SendError("pointer", `Zeiger 0x${addr.toString(16)} zeigt nicht ins RAM; nicht gelesen.`);
+      if (addr < RAM_BASE || addr + length > RAM_BASE + 0x8000000) throw new SendError("pointer", text("session.pointer", { addr: addr.toString(16) }));
       const run = await this.sender.run(plan({ kind: "readRam", addr, length }, { channel: this.device.channel }));
       if (!run.ok) throw run.error;
       return run.results[0].value;
@@ -532,7 +534,7 @@ export class DeviceSession {
   readLeds() {
     return this.exclusive(async () => {
       const res = await readLeds(async (addr, length) => {
-        if (addr < RAM_BASE || addr + length > RAM_BASE + 0x8000000) throw new SendError("pointer", `Zeiger 0x${addr.toString(16)} zeigt nicht ins RAM; nicht gelesen.`);
+        if (addr < RAM_BASE || addr + length > RAM_BASE + 0x8000000) throw new SendError("pointer", text("session.pointer", { addr: addr.toString(16) }));
         const run = await this.sender.run(plan({ kind: "readRam", addr, length }, { channel: this.device.channel }));
         if (!run.ok) throw run.error;
         return run.results[0].value;
@@ -545,7 +547,7 @@ export class DeviceSession {
   /** One RAM read, for code that decodes what it reads; inside `exclusive`, only reads go out. */
   ramReader() {
     return async (addr, length) => {
-      if (addr < RAM_BASE || addr + length > RAM_BASE + 0x8000000) throw new SendError("pointer", `Adresse 0x${addr.toString(16)} liegt nicht im RAM; nicht gelesen.`);
+      if (addr < RAM_BASE || addr + length > RAM_BASE + 0x8000000) throw new SendError("pointer", text("session.address", { addr: addr.toString(16) }));
       const run = await this.sender.run(plan({ kind: "readRam", addr, length }, { channel: this.device.channel }));
       if (!run.ok) throw run.error;
       return run.results[0].value;
@@ -558,7 +560,7 @@ export class DeviceSession {
   /** One sample's name, tune and measured facts; `index` is zero-based. */
   readSample(index) { return this.exclusive(() => readSample(this.ramReader(), index)); }
 
-  /** Read what the target of a failed send holds now, and compare it with before and intended. */
+  /** Read what the target of a failed send holds now, and compare it with before and intended. The text is kept finished, in the page's language, like `blocked`. */
   async readBack(pending) {
     const ch = this.device?.channel;
     if (ch == null) return null;
@@ -567,10 +569,10 @@ export class DeviceSession {
       const run = await this.sender.run(plan({ kind: "patternFetch" }, { channel: ch }));
       if (!run.ok) return { ok: false, text: run.error.message };
       const now = run.results[0].value;
-      const text = same(pending.pattern, now) ? "Im Puffer steht noch das alte Pattern."
-        : same(pending.edit.block, now) ? "Das neue Pattern ist vollständig angekommen."
-          : "Im Puffer steht weder das alte noch das neue Pattern.";
-      return { ok: true, text };
+      const said = same(pending.pattern, now) ? text("session.readBack.patternOld")
+        : same(pending.edit.block, now) ? text("session.readBack.patternNew")
+          : text("session.readBack.patternNeither");
+      return { ok: true, text: render(said) };
     }
     const parts = new Set();
     for (const b of pending.backups) {
@@ -580,10 +582,10 @@ export class DeviceSession {
       const intended = pending.edit.kind === "sample" ? sampleWrites(pending.edit).find(w => w.addr === b.addr)?.bytes : pending.edit.bytes ?? pending.edit.code;
       parts.add(same(now, b.bytes) ? "alt" : same(now, intended) ? "neu" : "gemischt");
     }
-    const text = parts.size === 1 && parts.has("alt") ? "Am Gerät steht noch der alte Stand."
-      : parts.size === 1 && parts.has("neu") ? "Der neue Stand ist vollständig angekommen."
-        : "Am Gerät steht ein Gemisch aus altem und neuem Stand.";
-    return { ok: true, text };
+    const said = parts.size === 1 && parts.has("alt") ? text("session.readBack.old")
+      : parts.size === 1 && parts.has("neu") ? text("session.readBack.new")
+        : text("session.readBack.mixed");
+    return { ok: true, text: render(said) };
   }
 
   /**
@@ -628,7 +630,7 @@ export class DeviceSession {
     return this.exclusive(async () => {
       if (this.blocked) return { ok: false, error: new SendError("blocked", this.blocked) };
       const last = this.history[this.history.length - 1];
-      if (!last) return { ok: false, error: new SendError("empty", "Nichts zurückzunehmen.") };
+      if (!last) return { ok: false, error: new SendError("empty", text("session.nothingToUndo")) };
       const res = await this.restore(last, { onStep });
       if (res.ok) {
         this.history.pop();
@@ -637,7 +639,7 @@ export class DeviceSession {
       }
       const target = describeTarget(last.edit);
       this.carry.pending = { edit: { kind: "restore" }, backups: last.backups, pattern: last.pattern, error: res.error.message, target };
-      this.blocked = `Zurücknehmen von ${target} ist abgebrochen (${res.error.message}). Bis du entschieden hast, geht an dieses Gerät nichts mehr.`;
+      this.blocked = render(text("session.undoBlocked", { target, error: textOf(res.error) }));
       return res;
     });
   }
@@ -646,8 +648,8 @@ export class DeviceSession {
 function describeTarget(edit) {
   if (edit.kind === "fxRecord") return `${edit.table === "ifx" ? "IFX" : "MFX"} ${edit.slot}`;
   if (edit.kind === "sites" || edit.kind === "immediate") return edit.fieldId;
-  if (edit.kind === "sample") return `Sample ${edit.index + 1}`;
-  if (edit.kind === "patternSend" || edit.kind === "patternRestore") return "Pattern-Puffer";
-  if (edit.kind === "exec") return "Code im Stub-Puffer";
+  if (edit.kind === "sample") return text("session.target.sample", { n: edit.index + 1 });
+  if (edit.kind === "patternSend" || edit.kind === "patternRestore") return text("session.target.pattern");
+  if (edit.kind === "exec") return text("session.target.code");
   return edit.kind;
 }

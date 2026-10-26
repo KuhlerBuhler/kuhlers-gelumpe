@@ -8,6 +8,7 @@
  * blocks.
  */
 import { Pattern, frameProblem, cleanName } from "./pattern.mjs";
+import { render } from "./text.mjs";
 import { lintPattern } from "./pattern-rules.mjs";
 import { number } from "./text.mjs";
 import {
@@ -400,7 +401,7 @@ export function makeTransitions(a, b, o = {}) {
 export function checkTransition(t, a) {
   const out = [];
   const fp = frameProblem(t.bytes);
-  if (fp) out.push({ severity: "error", message: `Rahmen: ${fp}` });
+  if (fp) out.push({ severity: "error", message: `Rahmen: ${render(fp)}` });
   const before = new Set(lintPattern(a.bytes).map(f => f.code));
   for (const f of lintPattern(t.bytes)) if (!before.has(f.code)) out.push({ severity: f.severity, message: f.message });
   const tempo = t.raw("pattern.tempo");
