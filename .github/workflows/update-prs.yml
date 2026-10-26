@@ -1,0 +1,55 @@
+# After every push to a base branch (develop, main, a release branch), each open pull request into that branch that is
+# behind it gets the branch merged in (GitHub's "Update branch"), so its checks run against what it will be merged into.
+# The update uses SYNC_TOKEN: a push with the workflow's own token starts no workflow, so the pull request would get no
+# new checks. A pull request from a fork, one whose head is itself a base branch (the sync main -> develop) and one that
+# conflicts are left alone; a conflict is only logged, it needs a person.
+name: Update pull requests
+
+on:
+  push:
+    branches: [develop, main, "release/**"]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Base branch whose pull requests to update, e.g. develop"
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: update-prs-${{ inputs.base || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Merge the base into pull requests that are behind
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          BASE: ${{ inputs.base || github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "no SYNC_TOKEN: nothing is updated"; exit 0
+          fi
+          gh pr list -R "$REPO" --base "$BASE" --state open --limit 100 \
+            --json number,headRefName,headRefOid,isCrossRepository \
+            --jq '.[] | select(.isCrossRepository | not) | [.number, .headRefName, .headRefOid] | @tsv' |
+          while IFS=$'\t' read -r n head sha; do
+            case "$head" in
+              main|develop|release/*) echo "#$n: head $head is a base branch, skipped"; continue ;;
+            esac
+            behind=$(gh api "repos/$REPO/compare/$sha...$BASE" --jq .ahead_by)
+            if [ "$behind" = 0 ]; then
+              echo "#$n: up to date"; continue
+            fi
+            if out=$(gh api -X PUT "repos/$REPO/pulls/$n/update-branch" -f expected_head_sha="$sha" 2>&1); then
+              echo "#$n: $BASE merged in ($behind commits)"
+            else
+              echo "::warning::#$n ($head) is $behind commits behind $BASE and could not be updated: $out"
+            fi
+          done
