@@ -18,6 +18,18 @@ const code = readdirSync(new URL("../site/app/", import.meta.url))
 const KEYED = [
   "src/text.mjs",
   "src/patcher.mjs",
+  "src/script/parser.mjs",
+  "src/script/compiler.mjs",
+  "src/script/gate.mjs",
+  "src/script/names.mjs",
+  "src/script/workspace.mjs",
+  "src/script/runtime.mjs",
+  "src/script/editor-model.mjs",
+  "src/script/vm.mjs",
+  "src/script/sim.mjs",
+  "src/script/hardware.mjs",
+  "src/script/archive.mjs",
+  "src/script/blob.mjs",
 ];
 const keyed = KEYED.map(f => [f, readFileSync(new URL(`../${f}`, import.meta.url), "utf8")]);
 // A literal like "nav.start" whose first part names a namespace of the table counts as a key, in t() or in a FIELDS label.
@@ -84,6 +96,7 @@ test("tNodes() puts nodes where the text names them", () => {
 
 // Literals that pass the heuristic but are no UI text: KeyboardEvent.key names, HTTP headers, and per file with the reason.
 const KEYS = ["Escape", "Enter", "Home", "End", "Backspace", "Delete", "Content-Type"];
+const AST = ["Array", "Assign", "Binary", "Block", "Break", "Call", "Cond", "Continue", "Func", "Ident", "Index", "Logical", "Member", "Program", "Return", "Unary", "While"];
 const ALLOWED = {
   // The labels printed on the front of the Electribe, drawn as they are on the device.
   "panel.mjs": ["Volume", "Input Level", "Sample", "Filter", "Modulation", "Insert Fx"],
@@ -96,6 +109,12 @@ const ALLOWED = {
   "scripts.mjs": ["Namen für Tasten und LEDs"],
   // The file name of a saved profile picture.
   "support.mjs": ["Blechy{}"],
+  // The node types of the plugin language's syntax tree.
+  "src/script/parser.mjs": AST,
+  "src/script/compiler.mjs": AST,
+  // An unused table of family names, and the disassembly listing, which only the tools print.
+  "src/script/editor-model.mjs": ["Taste"],
+  "src/script/blob.mjs": ["; Zeile {}"],
 };
 
 const hardcoded = (file, src) => literals(src)

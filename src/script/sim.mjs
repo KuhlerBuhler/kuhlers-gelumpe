@@ -11,6 +11,7 @@ import { Coverage } from "./coverage.mjs";
 import { SimHardware } from "./hardware.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
 import { ScriptFault } from "./vm.mjs";
+import { text, render } from "../text.mjs";
 import { gifPath, readGifFrame } from "./gif.mjs";
 
 export const FRAME_MS = 40;
@@ -49,7 +50,7 @@ export class SimDevice {
         "korg.display.bitmap": (slots, x, y, width) => this.display.bitmap(slots, x, y, width),
         "korg.display.textNumber": (text, value, x, y) => this.display.textNumber(text, value, x, y),
         "korg.file.frame": (slots, file, index) => {
-          if (slots.length < SCRIPT_GIF.frameBytes) throw new ScriptFault(ERROR.API_ARG, `korg.file.frame: das Feld hat ${slots.length} Plätze, ein Bild braucht ${SCRIPT_GIF.frameBytes}`);
+          if (slots.length < SCRIPT_GIF.frameBytes) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.gifFrame", { length: slots.length, needed: SCRIPT_GIF.frameBytes })));
           return readGifFrame(this.card.get(gifPath(file)), index, slots);
         },
         ...this.hardware.api(),

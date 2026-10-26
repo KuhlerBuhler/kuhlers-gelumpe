@@ -8,6 +8,9 @@ import {
   FORMAT_VERSION, API_VERSION, MAGIC, LIMITS, HEADER, SECTION, ERROR, ERROR_BY_CODE,
   OPCODE_BY_CODE, OPCODE_COUNT, EVENT_BY_ID, BLOCK_FLAGS,
 } from "../../data/script/contract.mjs";
+import { text, render } from "../text.mjs";
+
+const say = (key, vars) => render(text(key, vars));
 
 /** A load or run failure: the contract's code, its name and message, and where in the code it happened. */
 export function fail(code, detail = "", offset = null) {
@@ -114,37 +117,37 @@ export function encodeBlob(p) {
 export function decodeBlob(bytes) {
   const bad = (code, detail, offset) => ({ ok: false, error: fail(code, detail, offset) });
   // Magic and version come first and need only 8 bytes, so a blob of another format is told so, not "truncated".
-  if (bytes.length < 8) return bad(ERROR.TRUNCATED, `${bytes.length} Bytes`);
+  if (bytes.length < 8) return bad(ERROR.TRUNCATED, say("script.file.bytes", { size: bytes.length }));
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (dv.getUint32(0, true) !== MAGIC) return bad(ERROR.MAGIC);
   const version = dv.getUint16(4, true);
-  if (version !== FORMAT_VERSION) return bad(ERROR.FORMAT_VERSION, `Block ${version}, diese Laufzeit ${FORMAT_VERSION}`);
-  if (bytes.length < HEADER.size) return bad(ERROR.TRUNCATED, `${bytes.length} Bytes, der Kopf braucht ${HEADER.size}`);
+  if (version !== FORMAT_VERSION) return bad(ERROR.FORMAT_VERSION, say("script.file.blockVersion", { block: version, runtime: FORMAT_VERSION }));
+  if (bytes.length < HEADER.size) return bad(ERROR.TRUNCATED, say("script.file.header", { size: bytes.length, needed: HEADER.size }));
   const h = {};
   for (const f of HEADER.fields) {
     if (f.type === "u32") h[f.name] = dv.getUint32(f.offset, true);
     else if (f.type === "u16") h[f.name] = dv.getUint16(f.offset, true);
     else h[f.name] = latin1(bytes, f.offset, f.offset + 16);
   }
-  if (h.apiVersion < 1 || h.apiVersion > API_VERSION) return bad(ERROR.API_VERSION, `Block ${h.apiVersion}, diese Laufzeit ${API_VERSION}`);
+  if (h.apiVersion < 1 || h.apiVersion > API_VERSION) return bad(ERROR.API_VERSION, say("script.file.blockVersion", { block: h.apiVersion, runtime: API_VERSION }));
   const over = [
-    ["Code", h.codeSize, LIMITS.code], ["Variablen", h.varCount, LIMITS.vars], ["Stapel", h.stackMax, LIMITS.stack],
-    ["Konstanten", h.constCount, LIMITS.consts], ["Texte", h.stringCount, LIMITS.strings], ["Ereignisse", h.handlerCount, EVENT_BY_ID.size],
-    ["Zeilen", h.lineCount, LIMITS.code],
+    ["script.file.part.code", h.codeSize, LIMITS.code], ["script.file.part.vars", h.varCount, LIMITS.vars], ["script.file.part.stack", h.stackMax, LIMITS.stack],
+    ["script.file.part.consts", h.constCount, LIMITS.consts], ["script.file.part.strings", h.stringCount, LIMITS.strings], ["script.file.part.events", h.handlerCount, EVENT_BY_ID.size],
+    ["script.file.part.lines", h.lineCount, LIMITS.code],
   ].find(([, n, max]) => n > max);
-  if (over) return bad(ERROR.LIMITS, `${over[0]}: ${over[1]} von höchstens ${over[2]}`);
+  if (over) return bad(ERROR.LIMITS, say("script.file.over", { part: text(over[0]), count: over[1], max: over[2] }));
   const at = sectionOffsets(h);
-  if (h.flags & ~BLOCK_FLAGS.KNOWN) return bad(ERROR.BAD_SIZE, "unbekannte Bits im Feld flags");
-  if (h.flags & BLOCK_FLAGS.DATA ? h.totalSize <= at.total : h.totalSize !== at.total) return bad(ERROR.BAD_SIZE, `Kopf nennt ${h.totalSize} Bytes, die Abschnitte brauchen ${at.total}`);
-  if (bytes.length < h.totalSize) return bad(ERROR.TRUNCATED, `${bytes.length} von ${h.totalSize} Bytes`);
+  if (h.flags & ~BLOCK_FLAGS.KNOWN) return bad(ERROR.BAD_SIZE, say("script.file.flags"));
+  if (h.flags & BLOCK_FLAGS.DATA ? h.totalSize <= at.total : h.totalSize !== at.total) return bad(ERROR.BAD_SIZE, say("script.file.sections", { size: h.totalSize, needed: at.total }));
+  if (bytes.length < h.totalSize) return bad(ERROR.TRUNCATED, say("script.file.of", { size: bytes.length, total: h.totalSize }));
   if (crc32(bytes, HEADER.checksumFrom, h.totalSize) !== h.checksum) return bad(ERROR.CHECKSUM);
   const data = [];
   for (let o = at.total; o < h.totalSize;) {
-    if (o + SECTION.dataRecord > h.totalSize) return bad(ERROR.BAD_SIZE, "Datenabschnitt endet mitten in einem Eintrag");
+    if (o + SECTION.dataRecord > h.totalSize) return bad(ERROR.BAD_SIZE, say("script.file.dataCut"));
     const base = dv.getUint16(o, true), count = dv.getUint16(o + 2, true);
-    if (count === 0 || base + count > h.varCount) return bad(ERROR.BAD_VAR, `Daten für Feld ${base}+${count} von ${h.varCount} Variablen`);
+    if (count === 0 || base + count > h.varCount) return bad(ERROR.BAD_VAR, say("script.file.dataField", { base, count, vars: h.varCount }));
     const next = o + SECTION.dataRecord + pad4(count);
-    if (next > h.totalSize) return bad(ERROR.BAD_SIZE, "Datenabschnitt endet mitten in einem Eintrag");
+    if (next > h.totalSize) return bad(ERROR.BAD_SIZE, say("script.file.dataCut"));
     data.push({ base, bytes: bytes.slice(o + SECTION.dataRecord, o + SECTION.dataRecord + count) });
     o = next;
   }
@@ -159,10 +162,10 @@ export function decodeBlob(bytes) {
   for (let i = 0; i < h.stringCount; i++) {
     const from = at.strings + i * SECTION.string;
     const slot = bytes.subarray(from, from + SECTION.string);
-    if (slot[SECTION.string - 1] !== 0) return bad(ERROR.BAD_STRING, `Text ${i} hat keine Endmarke`);
+    if (slot[SECTION.string - 1] !== 0) return bad(ERROR.BAD_STRING, say("script.file.string.end", { index: i }));
     const end = slot.indexOf(0);
-    for (let k = 0; k < end; k++) if (slot[k] < 0x20 || slot[k] > 0x7e) return bad(ERROR.BAD_STRING, `Text ${i} enthält ein Zeichen, das das Display nicht zeigt`);
-    for (let k = end; k < slot.length; k++) if (slot[k] !== 0) return bad(ERROR.BAD_STRING, `Text ${i} hat Reste hinter der Endmarke`);
+    for (let k = 0; k < end; k++) if (slot[k] < 0x20 || slot[k] > 0x7e) return bad(ERROR.BAD_STRING, say("script.file.string.char", { index: i }));
+    for (let k = end; k < slot.length; k++) if (slot[k] !== 0) return bad(ERROR.BAD_STRING, say("script.file.string.rest", { index: i }));
     strings.push(String.fromCharCode(...slot.subarray(0, end)));
   }
   const code = bytes.slice(at.code, at.code + h.codeSize);
@@ -194,7 +197,7 @@ export function decodeInstructions(code) {
   while (pc < code.length) {
     const info = code[pc] < OPCODE_COUNT ? OPCODE_BY_CODE[code[pc]] : null;
     if (!info) return { ok: false, error: fail(ERROR.BAD_OPCODE, `0x${code[pc].toString(16)} bei ${pc}`, pc) };
-    if (pc + info.size > code.length) return { ok: false, error: fail(ERROR.TRUNCATED, `${info.name} bei ${pc} ohne Operanden`, pc) };
+    if (pc + info.size > code.length) return { ok: false, error: fail(ERROR.TRUNCATED, say("script.file.operands", { op: info.name, at: pc }), pc) };
     const operands = {};
     let at = pc + 1;
     for (const o of info.operands) {

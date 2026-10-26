@@ -3,12 +3,16 @@
  * a caret position: completions, the parameter hint of a call, the hover text and the range of a
  * compile error. It reads the contract and the descriptions and never touches a DOM or the editor
  * library, so it runs in Node and the tests drive it directly. site/app/script-editor.mjs wires it to CodeMirror.
+ * Its words are texts of the table (src/text.mjs), read through getters, so they follow the language the page shows now.
  */
 import { API, API_BY_NAME, EVENTS, EVENT_BY_NAME, SCRIPT_APPS, LIMITS } from "../../data/script/contract.mjs";
 import { API_DOCS, ON_EVENT_DOC, EVENT_DOCS, GROUP_DOCS, NAME_FAMILY_DOCS } from "../../data/script/describe.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
 import { PROPERTIES, KNOB_NAMES } from "../../data/script/properties.mjs";
 import { hintAt } from "./names.mjs";
+import { text as msg, render } from "../text.mjs";
+
+const say = (key, vars) => render(msg(key, vars));
 
 const INT_MIN = -2147483648;
 const INT_MAX = 2147483647;
@@ -21,32 +25,32 @@ const PATH = new RegExp(`${IDENT}(?:\\.${IDENT})*`, "g");
 
 /** How an argument reads in a hint: its range, or what kind of value it is. */
 export function rangeText(arg) {
-  if (arg.kind === "str") return `Text, höchstens ${LIMITS.stringLength} Zeichen`;
-  if (arg.kind === "arr") return "ein Feld aus Zahlen von 0 bis 255";
-  if (arg.min === INT_MIN && arg.max === INT_MAX) return "ganze Zahl";
-  return `${arg.min} bis ${arg.max}`;
+  if (arg.kind === "str") return say("script.editor.range.text", { max: LIMITS.stringLength });
+  if (arg.kind === "arr") return say("script.editor.range.array");
+  if (arg.min === INT_MIN && arg.max === INT_MAX) return say("script.editor.range.int");
+  return say("script.editor.range.span", { min: arg.min, max: arg.max });
 }
 
-const list = (items, last = "und") => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} ${last} ${items.at(-1)}`);
+const list = (items, last = say("script.editor.and")) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} ${last} ${items.at(-1)}`);
 const sameSet = (a, b) => a.length === b.length && a.every(n => b.includes(n));
 
 /** Where an API entry may be called, from the events its contract entry lists. */
 export function allowedIn(entry) {
-  if (sameSet(entry.events, ALL_EVENTS)) return "überall";
-  if (sameSet(entry.events, ALL_EVENTS.filter(n => n !== "start" && n !== "save"))) return "in allen Ereignissen außer dem Rumpf und save";
-  return `nur ${list(entry.events.map(n => (n === "start" ? "im Rumpf" : `in ${n}`)))}`;
+  if (sameSet(entry.events, ALL_EVENTS)) return say("script.editor.allowed.everywhere");
+  if (sameSet(entry.events, ALL_EVENTS.filter(n => n !== "start" && n !== "save"))) return say("script.editor.allowed.events");
+  return say("script.editor.allowed.only", { list: list(entry.events.map(n => (n === "start" ? say("script.editor.allowed.body") : say("script.editor.allowed.event", { event: n })))) });
 }
 
 /** The facts the editor shows about an API entry. */
 function apiInfo(entry) {
-  const params = entry.args.map(a => ({ name: a.name, range: rangeText(a) }));
+  const params = entry.args.map(a => ({ name: a.name, get range() { return rangeText(a); } }));
   return {
     name: entry.name,
     signature: `${entry.name}(${params.map(p => p.name).join(", ")})`,
     text: API_DOCS[entry.name],
     params,
-    returns: entry.returns === "int" ? "eine ganze Zahl" : null,
-    allowed: allowedIn(entry),
+    get returns() { return entry.returns === "int" ? say("script.editor.returns.int") : null; },
+    get allowed() { return allowedIn(entry); },
   };
 }
 
@@ -54,9 +58,9 @@ const ON_EVENT_INFO = Object.freeze({
   name: ON_EVENT_DOC.name,
   signature: ON_EVENT_DOC.signature,
   text: ON_EVENT_DOC.text,
-  params: Object.freeze([{ name: "ereignis", range: `der Name eines Ereignisses, zum Beispiel "frame"` }, { name: "handler", range: "eine Pfeilfunktion oder der Name einer Funktion" }]),
+  params: Object.freeze([{ name: "ereignis", get range() { return say("script.editor.onEvent.event"); } }, { name: "handler", get range() { return say("script.editor.onEvent.handler"); } }]),
   returns: null,
-  allowed: "nur ganz oben im Code",
+  get allowed() { return say("script.editor.onEvent.allowed"); },
 });
 
 function eventInfo(event) {
@@ -79,8 +83,8 @@ const owner = prop => prop.path.split("[]")[0];
 function propertyInfo(prop) {
   const read = prop.read && API_BY_NAME.get(prop.read[0]);
   const write = prop.write && API_BY_NAME.get(prop.write[0]);
-  const where = [read && `lesen ${allowedIn(read)}`, write && `setzen ${allowedIn(write)}`].filter(Boolean).join("; ");
-  return { name: shown(prop), signature: shown(prop), text: prop.text, params: [], returns: read ? "eine ganze Zahl" : null, allowed: where };
+  const where = () => [read && say("script.editor.read", { where: allowedIn(read) }), write && say("script.editor.write", { where: allowedIn(write) })].filter(Boolean).join("; ");
+  return { name: shown(prop), signature: shown(prop), text: prop.text, params: [], get returns() { return read ? say("script.editor.returns.int") : null; }, get allowed() { return where(); } };
 }
 
 /** The properties of one object, korg.parts: every field in one text. */
@@ -142,12 +146,12 @@ function apiOption(entry) {
   return { label: entry.name, type: "function", detail: `(${info.params.map(p => p.name).join(", ")})`, info, snippet: `${entry.name}(${fields})` };
 }
 
-const NAMESPACE_OPTION = Object.freeze({ label: "korg.key", type: "namespace", detail: "Namen der Tasten", info: { name: "korg.key", signature: "korg.key.NAME", text: NAME_FAMILY_DOCS.key, params: [], returns: null, allowed: null }, apply: "korg.key.", retrigger: true });
+const NAMESPACE_OPTION = Object.freeze({ label: "korg.key", type: "namespace", get detail() { return say("script.editor.keys"); }, info: { name: "korg.key", signature: "korg.key.NAME", text: NAME_FAMILY_DOCS.key, params: [], returns: null, allowed: null }, apply: "korg.key.", retrigger: true });
 const ON_EVENT_OPTION = Object.freeze({ label: ON_EVENT_DOC.name, type: "function", detail: "(ereignis, handler)", info: ON_EVENT_INFO, snippet: `korg.onEvent("\${1:ereignis}", (\${2}) => {\n  \${3}\n});` });
 
 function propertyOption(prop) {
   const snippet = prop.path.replace("[]", "[${1:i}]");
-  return { label: shown(prop), type: "property", detail: prop.write ? "lesen und setzen" : prop.read ? "nur lesen" : "nur setzen", info: propertyInfo(prop), snippet };
+  return { label: shown(prop), type: "property", get detail() { return say(prop.write ? "script.editor.readWrite" : prop.read ? "script.editor.readOnly" : "script.editor.writeOnly"); }, info: propertyInfo(prop), snippet };
 }
 
 /** The options for every name a plugin may write after `korg.`, with `korg` itself for the first letters. */
@@ -155,7 +159,7 @@ const KORG_OPTIONS = Object.freeze([...PROPERTIES.map(propertyOption), ...API.ma
 
 const KNOB_OPTIONS = Object.freeze(KNOB_NAMES.map(k => ({
   label: k.name, type: "constant", detail: String(k.value),
-  info: { name: `korg.knobs.${k.name}`, signature: `korg.knobs.${k.name}`, text: `Der letzte Wert des Reglers ${k.label}, bis er bewegt wurde 0.`, params: [], returns: "eine ganze Zahl", allowed: allowedIn(API_BY_NAME.get("korg.read.knob")) },
+  info: { name: `korg.knobs.${k.name}`, signature: `korg.knobs.${k.name}`, get text() { return say("script.editor.knob", { label: k.label }); }, params: [], get returns() { return say("script.editor.returns.int"); }, get allowed() { return allowedIn(API_BY_NAME.get("korg.read.knob")); } },
 })));
 
 function nameOptions(family) {
@@ -163,7 +167,7 @@ function nameOptions(family) {
     label: n.name,
     type: "constant",
     detail: String(n.value),
-    info: { name: `korg.${family}.${n.name}`, signature: `korg.${family}.${n.name}`, text: family === "key" ? `Die Taste ${n.label}, Code ${n.value}.` : `Die LED ${n.label}, Nummer ${n.value}.`, params: [], returns: null, allowed: null },
+    info: { name: `korg.${family}.${n.name}`, signature: `korg.${family}.${n.name}`, get text() { return say(family === "key" ? "script.editor.key" : "script.editor.led", { label: n.label, value: n.value }); }, params: [], returns: null, allowed: null },
   }));
 }
 
@@ -191,7 +195,7 @@ export function completionsAt(text, pos) {
       };
     }
     if (call.callee === "korg.app" && call.commas === 1) {
-      return { from, options: SCRIPT_APPS.groups.map(g => ({ label: g, type: "enum", detail: "Gruppe", info: { name: g, signature: `"${g}"`, text: GROUP_DOCS[g], params: [], returns: null, allowed: null }, ...(blank ? { apply: `${g}");` } : {}) })) };
+      return { from, options: SCRIPT_APPS.groups.map(g => ({ label: g, type: "enum", get detail() { return say("script.editor.group"); }, info: { name: g, signature: `"${g}"`, text: GROUP_DOCS[g], params: [], returns: null, allowed: null }, ...(blank ? { apply: `${g}");` } : {}) })) };
     }
     return null;
   }
@@ -204,7 +208,7 @@ export function completionsAt(text, pos) {
   if (parts[0] === "korg" && parts.length === 3 && parts[1] === "knobs") return { from: pos - parts[2].length, options: KNOB_OPTIONS };
   if (parts[0] === "korg" && parts.length > 1) return { from: pos - token.length, options: KORG_OPTIONS };
   if (parts.length === 1 && token.length >= 2 && "korg".startsWith(token)) {
-    return { from: pos - token.length, options: [{ label: "korg", type: "keyword", detail: "die Funktionen der Electribe", info: { name: "korg", signature: "korg", text: "Alle Funktionen der Electribe beginnen mit korg., zum Beispiel korg.display.text oder korg.led.", params: [], returns: null, allowed: null }, apply: "korg.", retrigger: true }] };
+    return { from: pos - token.length, options: [{ label: "korg", type: "keyword", detail: say("script.editor.korg"), info: { name: "korg", signature: "korg", text: say("script.editor.korg.text"), params: [], returns: null, allowed: null }, apply: "korg.", retrigger: true }] };
   }
   return null;
 }
