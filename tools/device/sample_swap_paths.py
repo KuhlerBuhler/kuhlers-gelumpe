@@ -508,6 +508,7 @@ def scan_usage(link,firmware):
 
 def run(link,firmware,a):
     sample_swap_io=validate_device(link,firmware)
+    old.swap_off(link)
     length=a.kib*1024
     previous=link.read(MARKER,8)
     marker,fault=struct.unpack('<II',previous)

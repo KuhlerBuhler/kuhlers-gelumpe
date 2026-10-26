@@ -11,3 +11,10 @@ test("bounded sample path probe guards and ARM drivers", () => {
   assert.ifError(run.error);
   assert.equal(run.status, 0, run.stdout + run.stderr);
 });
+test("the sample swap watcher reads only and reports each load", () => {
+  const run = spawnSync(emuPython(), ["tools/device/test_sample_swap_stats.py"], {
+    cwd: root, encoding: "utf8", timeout: 60000,
+  });
+  assert.ifError(run.error);
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+});

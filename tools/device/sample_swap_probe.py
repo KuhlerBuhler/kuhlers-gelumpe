@@ -348,8 +348,18 @@ def identity_target(link, slot):
     return chain
 
 
+SWAP_MODE = 0xC0188530          # tools/patch/sample_swap.py: STATE + MODE, 1 while the sample swap is on
+
+
+def swap_off(link):
+    """The sample swap keeps its staging buffer and cache in the RAM these tests use as scratch."""
+    if struct.unpack("<I", link.read(SWAP_MODE, 4))[0] == 1:
+        raise RuntimeError("the sample swap is on and owns the RAM above the interrupt stack; nothing written")
+
+
 def run(link, firmware, slot, length, mode):
     link.info()
+    swap_off(link)
     for addr, count in SPANS:
         start = addr - 0xC0000000 + 0x100
         if link.read(addr, count) != firmware[start:start + count]:
