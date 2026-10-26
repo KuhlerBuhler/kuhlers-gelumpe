@@ -3582,12 +3582,25 @@ input[type="checkbox"]:not([role="switch"]) {
   background: var(--color-button-secondary-bg);
   cursor: pointer;
   transition: background var(--speed), border-color var(--speed);
+  position: relative;
 }
 
 input[type="checkbox"]:not([role="switch"]):checked {
   border-color: var(--color-accent-primary);
   background: var(--color-accent-primary);
-  box-shadow: inset 0 0 0 3px var(--color-button-secondary-bg); /* raw-ok: the ring between frame and filling */
+}
+
+/* The tick, two borders of a turned box in the colour of the unchecked box: a filled square alone does not read as checked. */
+input[type="checkbox"]:not([role="switch"]):checked::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 25%;
+  height: 50%;
+  border: solid var(--color-button-secondary-bg);
+  border-width: 0 2px 2px 0; /* raw-ok: the stroke of the tick */
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 input[type="checkbox"]:not([role="switch"]):disabled {

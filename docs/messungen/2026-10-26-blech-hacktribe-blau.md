@@ -41,6 +41,15 @@ Folgen für den Patcher: eine Hacktribe-Datei bekommt den Sampler-Kopf (Hacktrib
 `hacktribe-2.patch` für die blaue den blauen (Korgs blaue läuft). Der Weg zurück zu Korgs blauer: ihre Datei mit
 Sampler-Kopf in `KORG/blechtribe/System/` ([Rettung](../rettung.md)).
 
+## Ein Flash mit den Daten der blauen
+
+Läuft die Kopie auf einem Flash, den Korgs blaue Firmware vorher benutzt hat (Patterns und Einstellungen im Format der
+blauen, wie auf einer echten blauen nach dem Wechsel zu Hacktribe), kommt das erste Bild nach dem Hauptbildschirm
+40 ms später als in derselben Kopie ohne die Aufrufe des Ladebalkens: ohne Karte sind dort 9 statt 5 Bilder leer
+(gemessen, `loadbar_cases.case_off` mit dem `flash-synth.bin` des Dienstes; auf leerem Flash der blauen und auf dem
+benutzten Flash der roten kein Unterschied). Der Ladebalken zeichnet dabei nichts: jedes Bild ist eines der Kopie ohne
+ihn, das letzte dasselbe. `loadbar:no_card_draws_nothing` prüft genau das, statt Bild für Bild an derselben Stelle.
+
 ## Der Kartenordner der blauen
 
 Korgs blaue Firmware liest und schreibt `KORG/electribe/`. Der BLECH-Synth-Satz zieht wie der rote nach `KORG/blechtribe/`

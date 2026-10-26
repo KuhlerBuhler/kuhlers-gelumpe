@@ -83,8 +83,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const native = () => globalThis.__TAURI__?.core?.invoke;
   const licence = el("input", { type: "checkbox", id: "cee-patch-korg-licence" });
   const korgCards = [["red", "Electribe 2 Sampler (rot)"], ["blue", "Electribe 2 (blau)"]].map(([device, name]) => {
-    const out = icon("popout");
-    out.classList.add("cee-device-card-out");
+    const out = el("span", { className: "cee-device-card-out" });
     const say = el("span");
     const a = el("a", { className: "cee-entry-step cee-device-card", id: `cee-patch-korg-${device}`, rel: "noopener noreferrer" }, [
       e2Outline(name), el("span", { className: "cee-device-card-text" }, [el("strong", { textContent: name }), say]), out,
@@ -103,7 +102,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       c.a.href = accepted ? KORG_DOWNLOADS[c.device].file : KORG_DOWNLOADS[c.device].page;
       c.a.target = window.__GELUMPE_APP ? "_self" : "_blank";
       c.say.textContent = !accepted ? "System Updater bei Korg laden" : native() ? "Von Korg laden und übernehmen" : "Zip bei Korg laden, dann hierher ziehen";
-      c.out.hidden = accepted && !!native();
+      // the app loads the zip itself once the licence is accepted: a download, no longer a page outside
+      c.out.replaceChildren(icon(accepted && native() ? "download" : "popout"));
+      c.out.dataset.icon = accepted && native() ? "download" : "popout";
     }
   }
   licence.addEventListener("change", renderKorg);
@@ -136,12 +137,17 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const blueHacktribe = el("p", { className: "muted", id: "cee-patch-blue-hacktribe", hidden: true },
     "Aus der Firmware der blauen geht kein Hacktribe, Hacktribe ist der Code des Samplers. Für BLECH mit Hacktribe auf der blauen nimm in Schritt 1 Korgs Firmware der roten (electribe sampler 2.02) und hacktribe-2.patch und wähle die blaue, oder deine Hacktribe-Datei. Mit dieser Datei wird es BLECH für die blaue, ohne Hacktribe.");
   // A copy with Hacktribe runs on the red and the blue: the user says which, the cable says it too when one is connected.
-  const deviceInputs = [["red", "Rot (electribe sampler)"], ["blue", "Blau (electribe)"]].map(([value, text]) => {
-    const radio = el("input", { type: "radio", name: "cee-patch-device", value });
+  // the Electribes as on the Korg cards of step 1: drawn in lines in the colour of the case
+  const deviceInputs = [["red", "Electribe 2 Sampler (rot)"], ["blue", "Electribe 2 (blau)"]].map(([value, name]) => {
+    const radio = el("input", { type: "radio", name: "cee-patch-device", value, className: "ui-sr-only" });
     radio.addEventListener("change", () => { if (radio.checked) chooseDevice(value); });
-    return { value, radio, label: el("label", { className: "ui-segmented-option" }, [radio, el("span", { textContent: text })]) };
+    const card = el("label", { className: "cee-entry-step cee-device-card cee-patch-device-card" }, [
+      radio, e2Outline(name), el("span", { className: "cee-device-card-text" }, [el("strong", { textContent: name })]),
+    ]);
+    card.dataset.device = value;
+    return { value, radio, label: el("li", {}, [card]) };
   });
-  const deviceGroup = el("div", { className: "ui-segmented", id: "cee-patch-device" }, deviceInputs.map(d => d.label));
+  const deviceGroup = el("ul", { className: "cee-entry-steps", id: "cee-patch-device" }, deviceInputs.map(d => d.label));
   deviceGroup.setAttribute("role", "radiogroup");
   deviceGroup.setAttribute("aria-label", "Für welche Electribe");
   const deviceNote = el("p", { className: "muted", id: "cee-patch-device-note" });
@@ -171,11 +177,14 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("p", { className: "muted", id: "cee-patch-route-note", textContent: "Hacktribe ergänzt Filter für den Synth und zusätzliche Effekte. Den Live-Modus des Editors bringt BLECHTRIBE selbst mit." }),
   ]);
   const patchInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-hacktribe-file" });
+  const patchInfo = el("span", { className: "ui-dropzone-files", id: "cee-patch-hacktribe-info" });
   const patchDrop = el("label", { className: "ui-dropzone" }, [
     patchInput,
     el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: "hacktribe-2.patch hierher ziehen oder " }), "auswählen"]),
     el("span", { className: "ui-dropzone-hint", textContent: "Die Datei, die du von Hacktribe heruntergeladen hast" }),
+    patchInfo,
   ]);
+  let patchName = "";           // the hacktribe-2.patch the original was turned into Hacktribe with, said in its field
   const patchBox = el("div", { className: "cee-patch-needs", id: "cee-patch-needs" }, [
     el("p", {}, ["Dafür braucht es ", el("a", { className: "cee-text-link", id: "cee-patch-hacktribe-link", href: HACKTRIBE_PATCH_URL, target: "_blank", rel: "noopener noreferrer", textContent: "hacktribe-2.patch" }),
       ". Wir können sie nicht mitliefern, ihre Lizenz erlaubt keine Weitergabe. Lade sie bei Hacktribe herunter und zieh sie hierher; sie wird nur in deinem Browser angewendet."]),
@@ -389,14 +398,16 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     for (const d of deviceInputs) { d.radio.checked = d.value === flow.device; d.radio.disabled = can.busy || !choosesDevice(flow); }
     deviceNote.textContent = !flow.origin ? "" : [
       !choosesDevice(flow) ? `Diese Datei geht nur auf die ${flow.device === "blue" ? "blaue" : "rote"} Electribe.` :
-      flow.device === "blue" ? (flow.origin === "stock" ? "Auf der blauen läuft jetzt Korgs Firmware: die Datei bekommt den Kopf der blauen." : "Auf der blauen läuft jetzt Hacktribe: die Datei behält den Kopf des Samplers, den Hacktribes Update nimmt.") : "",
+      flow.device === "blue" ? (flow.origin === "stock" ? "Die Datei bekommt den Kopf der blauen, damit Korgs Update auf der blauen sie annimmt." : "Die Datei behält den Kopf des Samplers, den Hacktribes Update auf der blauen annimmt.") : "",
       cable && cable !== flow.device ? `Achtung: die verbundene Electribe ist die ${cable === "blue" ? "blaue" : "rote"}.` : "",
     ].filter(Boolean).join(" ");
     if (!synthSet.hidden) synthSet.textContent = `Synth-Satz: ${itemsFor(blech, "synth").map(p => p.label).join(", ")}. Den Startbild-Editor am Gerät gibt es auf der blauen noch nicht, das Startbild kommt aus der App.`;
     withHacktribe.checked = flow.route === "hacktribe";
     withHacktribe.disabled = can.busy;
-    patchBox.toggleAttribute("data-disabled", flow.phase !== "needs-patch");
-    patchInput.disabled = can.busy || flow.phase !== "needs-patch";
+    // open on the whole Hacktribe route, so the field shows the file it took and takes another one
+    patchBox.toggleAttribute("data-disabled", flow.route !== "hacktribe");
+    patchInput.disabled = can.busy || flow.route !== "hacktribe";
+    patchInfo.textContent = flow.route === "hacktribe" && flow.phase !== "needs-patch" && patchName ? `${patchName}: umgewandelt` : "";
     run.hidden = view !== 2;
     run.disabled = !can.patch || (!useLatest.checked && !ownPatch) || (testChoice === "none" && !consent.checked);
     run.textContent = flow.phase === "failed" || flow.phase === "passed" || flow.phase === "downloaded" ? "Noch einmal patchen und prüfen" : testChoice === "none" ? "Patchen" : "Patchen und testen";
@@ -528,8 +539,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     const bytes = new Uint8Array(await file.arrayBuffer());
     patchInput.value = "";
     await tick();
+    // another patch file after a conversion starts the route anew
+    if (flow.phase !== "needs-patch") dispatch({ type: "route", route: "hacktribe", input: stockFile.kind });
     const res = await convertStock(stockFile.bytes, bytes);
     if (!res.ok) { dispatch({ type: "convert-failed", message: res.reason }); return; }
+    patchName = file.name;
     input = res.bytes;
     passed = null;
     dispatch({ type: "converted", input: { kind: "hacktribe", size: res.bytes.length, reasons: [], present: [] }, detail: `SHA-256 ${res.sha256.slice(0, 12)}…` });
@@ -537,7 +551,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   patchInput.addEventListener("change", () => {
     const file = patchInput.files?.[0];
-    if (file && flow.phase === "needs-patch") pickPatch(file);
+    if (file && flow.route === "hacktribe" && !allowed(flow).busy) pickPatch(file);
   });
 
   fileInput.addEventListener("change", () => {
