@@ -16,8 +16,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyPatches } from "../src/patch.mjs";
-import { buildOf, sha256 } from "../src/firmware.mjs";
-import { loadBlechSet, BLECH_SET_URL, BLECH_SYNTH_SET_URL, VERIFIED_URL } from "../src/patcher.mjs";
+import { buildOf, hardwareOf, sha256 } from "../src/firmware.mjs";
+import { loadBlechSet, samplerHead, withHead, BLECH_SET_URL, BLECH_SYNTH_SET_URL, VERIFIED_URL } from "../src/patcher.mjs";
 import { pythonEnv } from "./emu/python-env.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -35,8 +35,11 @@ let failed = 0;
 
 try {
   for (const file of files) {
-    const input = readFileSync(resolve(file));
-    const build = buildOf(input);
+    const dropped = readFileSync(resolve(file));
+    const build = buildOf(dropped);
+    // Hacktribe for the blue: the page patches it with the Sampler head and checks it on the blue's flash
+    const blue = build === "hacktribe" && hardwareOf(dropped) === "blue";
+    const input = blue ? samplerHead(dropped) : dropped;
     const set = await loadBlechSet(readJson, build === "synth" ? BLECH_SYNTH_SET_URL : BLECH_SET_URL);
     const res = await applyPatches(input, set.patches);
     if (!res.ok) {
@@ -48,9 +51,10 @@ try {
     const patched = join(work, "patched.vsb");
     writeFileSync(base, input);
     writeFileSync(patched, res.bytes);
-    const args = [join(root, "tools/emu/check.py"), "--base", base, "--patched", patched,
+    const hardware = blue ? ["--hardware", "blue"] : [];
+    const args = [join(root, "tools/emu/check.py"), "--base", base, "--patched", patched, ...hardware,
       ...res.allow.flatMap(s => ["--allow", span(s)]), ...res.allowCode.flatMap(s => ["--allow-code", span(s)])];
-    console.log(`${file}: ${build}, checking ...`);
+    console.log(`${file}: ${build}${blue ? " for the blue" : ""}, checking ...`);
     const run = spawnSync(...command(python, args), { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "inherit"] });
     let report = null;
     try { report = JSON.parse(run.stdout); } catch { /* reported below */ }
@@ -60,9 +64,12 @@ try {
       failed++;
       continue;
     }
-    const entry = { input: await sha256(input), output: await sha256(res.bytes), set: set.id, checks: report.checks.length, date: new Date().toISOString().slice(0, 10) };
+    const entry = { input: await sha256(input), output: await sha256(res.bytes), set: set.id, ...(blue ? { hardware: "blue" } : {}), checks: report.checks.length, date: new Date().toISOString().slice(0, 10) };
     console.log(`${file}: ${entry.checks} checks passed, ${entry.input.slice(0, 8)} -> ${entry.output.slice(0, 8)}`);
     results.push(entry);
+    // Korg's red file with hacktribe-2.patch for the blue is the same copy with the blue head; the emulator runs only what
+    // follows the head, and the header check compares the heads of input and result, so this check stands for it too
+    if (blue) results.push({ ...entry, input: await sha256(dropped), output: await sha256(withHead(res.bytes, "blue")) });
   }
 } finally {
   rmSync(work, { recursive: true, force: true });

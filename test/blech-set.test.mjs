@@ -74,7 +74,7 @@ test("the set applies to Korg's own 2.02 when one is given, and the folder is th
   assert.deepEqual(applied.spans.filter(s => s.patch === "blechtribe").map(s => s.length), [18, 24]);
 });
 
-for (const [label, env, file] of [["Hacktribe", "E2_VSB", "data/patches/blechtribe.json"], ["Korg's own 2.02", "E2_STOCK_VSB", "data/patches/blechtribe-stock.json"]]) {
+for (const [label, env, file] of [["Hacktribe", "E2_VSB", "data/patches/blechtribe.json"], ["Korg's own 2.02", "E2_STOCK_VSB", "data/patches/blechtribe-stock.json"], ["Korg's blue 2.02", "E2_BLUE_VSB", "data/patches/blechtribe-synth.json"]]) {
   test(`${file} is what tools/patch/blechtribe.py builds from your ${label} file`, { skip: process.env[env] && builderAvailable ? false : `set ${env}` }, () => {
     const out = spawnSync(python, ["tools/patch/blechtribe.py", "--vsb", process.env[env]], { cwd: new URL("..", import.meta.url).pathname, encoding: "utf8" });
     assert.equal(out.status, 0, out.stderr);

@@ -5,10 +5,10 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classify, convertStock, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE } from "../src/patcher.mjs";
+import { classify, convertStock, samplerHead, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE } from "../src/patcher.mjs";
 import { applyPatches, splashPatch, patchesPresent, SPLASH_W, SPLASH_H } from "../src/patch.mjs";
 import { sha256 } from "../src/firmware.mjs";
-import { asStock, makeFirmware } from "./helpers.mjs";
+import { asStock, makeFirmware, withHacktribeRun } from "./helpers.mjs";
 import { expected, fixture, oldFile } from "./fixtures/bsdiff/data.mjs";
 
 const FREE = 0x1a2100;
@@ -65,7 +65,7 @@ test("Korg's build: the unchanged original is stock, an edited one is refused, o
 });
 
 test("a file of the wrong size or without the measured layout is refused with the reason", async () => {
-  assert.deepEqual(await classify(new Uint8Array(1000), []), { kind: "wrong-size", size: 1000, reasons: [], present: [] });
+  assert.deepEqual(await classify(new Uint8Array(1000), []), { kind: "wrong-size", size: 1000, sha256: await sha256(new Uint8Array(1000)), reasons: [], present: [] });
   const res = await classify(new Uint8Array(VSB_SIZE), []);
   assert.equal(res.kind, "unknown");
   assert.ok(res.reasons.length > 0);
@@ -364,10 +364,64 @@ test("the blue original selects the synth route and its update directory", async
   assert.equal(cardFolder("synth"), "KORG/electribe/System/");
   const changed = Uint8Array.from(vsb);
   changed[0x1000] = 1;
-  assert.equal((await classify(changed, [patch], STOCK_SHA256, originalHash)).kind, "unknown");
+  const altered = await classify(changed, [patch], STOCK_SHA256, originalHash);
+  assert.equal(altered.kind, "unknown");
+  assert.match(altered.reasons[0], /nicht Korgs unveränderte SYSTEM\.VSB 2\.02 der blauen.*aus Korgs Zip/);
+  assert.equal(altered.sha256, await sha256(changed), "the file's checksum goes with the answer");
+  // the bug report of 1.3.3: a blue file whose run at 0x170100 is neither erased nor Hacktribe's got a Hacktribe fingerprint message
+  const odd = Uint8Array.from(vsb);
+  odd.fill(0x11, 0x170100, 0x170140);
+  const oddKind = await classify(odd, [patch], STOCK_SHA256, originalHash);
+  assert.deepEqual([oddKind.kind, oddKind.reasons.join(" ").includes("Hacktribe")], ["unknown", false]);
+  assert.match(oddKind.reasons[0], /blauen Electribe 2/);
   const patched = await applyPatches(vsb, [patch]);
   assert.equal(patched.ok, true);
   assert.equal((await classify(patched.bytes, [patch], STOCK_SHA256, originalHash)).kind, "blech");
+});
+
+test("Hacktribe with the blue head is Hacktribe for the blue: patched with the Sampler head, checked on the blue, into KORG/hacktribe", async () => {
+  const vsb = withHacktribeRun(await makeFirmware());
+  vsb.set([0x45, 0x32, 0x53], 0x10);
+  vsb[0x2e] = 0x24;
+  const blue = withHead(vsb, "blue");
+  assert.deepEqual([...blue.keys()].filter(i => blue[i] !== vsb[i]), [0x12, 0x2e], "only the two head bytes change");
+  assert.deepEqual(samplerHead(blue), vsb, "the Sampler head is the red file's head");
+  const red = await classify(vsb, await ours(vsb));
+  const kind = await classify(blue, await ours(blue));
+  assert.deepEqual([red.kind, red.hardware, kind.kind, kind.hardware], ["hacktribe", "red", "hacktribe", "blue"]);
+  const flow = step(newFlow(), { type: "input", input: kind });
+  assert.deepEqual([flow.phase, flow.origin, flow.device, choosesDevice(flow)], ["ready", "hacktribe", "blue", true]);
+  assert.equal(headFor(flow), "sampler", "Hacktribe running on the blue takes only the Sampler head");
+  assert.equal(hardwareOfFlow(flow), "blue");
+  assert.equal(folderOf(flow), "KORG/hacktribe/System/", "Hacktribe on the blue reads where it does on the red");
+  assert.deepEqual(step(flow, { type: "patching", patches: [{ id: "x", label: "x" }] }).steps.map(s => s.id), ["read", "head", "patch:x", "check"]);
+  const onRed = step(newFlow(), { type: "input", input: red });
+  assert.deepEqual([onRed.device, headFor(onRed), hardwareOfFlow(onRed)], ["red", null, null], "the red's file as it is");
+  const toBlue = step(onRed, { type: "device", device: "blue" });
+  assert.deepEqual([toBlue.device, hardwareOfFlow(toBlue), folderOf(toBlue)], ["blue", "blue", "KORG/hacktribe/System/"]);
+  assert.match(HACKTRIBE_BLUE_SHA256, /^2b2e1c2f[0-9a-f]{56}$/);
+});
+
+test("Korg's red file with hacktribe-2.patch for the blue gets the blue head and goes to KORG/electribe, the direct route stays red", () => {
+  const stock = { kind: "stock", size: VSB_SIZE, reasons: [], present: [] };
+  let flow = step(newFlow(), { type: "input", input: stock });
+  assert.deepEqual([flow.device, choosesDevice(flow)], ["red", false], "BLECH straight onto Korg's Sampler code runs on the red only");
+  assert.equal(step(flow, { type: "device", device: "blue" }), flow);
+  flow = step(flow, { type: "route", route: "hacktribe", input: stock });
+  flow = step(flow, { type: "device", device: "blue" });
+  assert.deepEqual([flow.phase, flow.device], ["needs-patch", "blue"]);
+  flow = step(flow, { type: "converted", input: { kind: "hacktribe", size: VSB_SIZE, reasons: [], present: [], hardware: "red" } });
+  assert.deepEqual([flow.phase, flow.device, headFor(flow), hardwareOfFlow(flow), folderOf(flow)], ["ready", "blue", "blue", "blue", "KORG/electribe/System/"]);
+  const red = step(flow, { type: "device", device: "red" });
+  assert.deepEqual([headFor(red), folderOf(red)], [null, "KORG/electribe sampler/System/"]);
+  const patching = step(flow, { type: "patching", patches: [{ id: "x", label: "x" }] });
+  assert.deepEqual(patching.steps.map(s => s.id), ["read", "convert", "head", "patch:x", "check"]);
+  assert.equal(step(patching, { type: "device", device: "red" }), patching, "no change while it runs");
+  const passed = step(step(patching, { type: "patch", id: "x", ok: true }), { type: "untested" });
+  const changed = step(passed, { type: "device", device: "red" });
+  assert.deepEqual([changed.phase, changed.steps.map(s => s.id)], ["ready", ["read", "convert"]], "a copy for the other Electribe is made again");
+  const synth = step(newFlow(), { type: "input", input: { kind: "synth", size: VSB_SIZE, reasons: [], present: [] } });
+  assert.deepEqual([synth.device, choosesDevice(synth), hardwareOfFlow(synth)], ["blue", false, null]);
 });
 
 test("a copy that passed before is not checked again, any other copy is", async () => {
@@ -383,6 +437,10 @@ test("a copy that passed before is not checked again, any other copy is", async 
   assert.equal(await verifiedReport(Uint8Array.of(9), output, list), null, "a different input");
   assert.equal(await verifiedReport(input, output, null), null);
   assert.equal(await verifiedReport(input, output, { ...list, format: "x" }), null);
+  assert.equal(await verifiedReport(input, output, list, "blue"), null, "checked on the red, not on the blue");
+  const blue = { ...list, results: [{ ...list.results[0], hardware: "blue" }] };
+  assert.equal((await verifiedReport(input, output, blue, "blue")).ok, true);
+  assert.equal(await verifiedReport(input, output, blue), null, "checked on the blue, not on the red");
 });
 
 test("the list of checked copies holds only hashes", () => {

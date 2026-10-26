@@ -20,7 +20,7 @@ import zlib
 from pathlib import Path
 
 import factorybank
-from firmware import SAMPLER_USER_MARK, identify
+from firmware import HARDWARE_MARKS, SAMPLER_USER_MARK, identify
 from sdcard import IRQ as MMC_IRQ, MMCController
 
 NS_PER_INSN = 5            # assumed: roughly 200 million instructions per second
@@ -88,6 +88,23 @@ def blank_flash(mark=SAMPLER_USER_MARK):
         bank = factorybank.build()
         mem[factorybank.BASE:factorybank.BASE + len(bank)] = bank
     return mem
+
+
+def hardware_of_flash(flash):
+    """"red" or "blue" by the user-data mark of a flash, None when it has neither (erased, or a mark we do not know)."""
+    mark = bytes(flash[USER_MARK:USER_MARK + 12]) if flash else b""
+    return next((name for name, m in HARDWARE_MARKS.items() if m == mark), None)
+
+
+def hardware_flash(hardware):
+    """A blank flash of the red or the blue hardware."""
+    return blank_flash(HARDWARE_MARKS[hardware])
+
+
+def blank_flash_like(flash):
+    """A blank flash of the hardware `flash` belongs to; None (the build decides) for no flash or an unknown mark."""
+    hardware = hardware_of_flash(flash)
+    return hardware_flash(hardware) if hardware else None
 
 
 class SysexReader:
@@ -893,6 +910,8 @@ def main():
     parser.add_argument("--flash", nargs="*", default=[], type=Path,
                         help="own flash dump, one file or parts in address order; "
                              "without it the flash is blank: empty patterns, no samples")
+    parser.add_argument("--hardware", choices=sorted(HARDWARE_MARKS),
+                        help="without --flash: a blank flash of this hardware instead of the one of the build")
     parser.add_argument("--seconds", type=float, default=6.0, help="device time to run")
     parser.add_argument("--hold-power", action="store_true", help="keep the power button pressed")
     parser.add_argument("--held", type=lambda x: int(x, 0), default=0,
@@ -907,7 +926,7 @@ def main():
         raw = args.vsb.read_bytes()
         if len(raw) != 0x200100:
             raise ValueError("VSB must contain a 0x100-byte header and 0x200000-byte payload")
-        flash = load_flash(args.flash) if args.flash else None
+        flash = load_flash(args.flash) if args.flash else bytes(hardware_flash(args.hardware)) if args.hardware else None
         sends = sorted((float(at), bytes.fromhex(msg), "panel") for msg, at in (x.split("@") for x in args.send))
         if any(len(msg) != 5 for _, msg, _ in sends):
             raise ValueError("a panel message has 5 bytes")
@@ -947,7 +966,7 @@ def main():
     report = {
         "schema": 1, "suite": "boot", "unicorn": "2.1.4", "hardware_contact": False,
         "firmware_sha256": hashlib.sha256(raw).hexdigest(), "build": m.profile.build,
-        "flash": bool(args.flash),
+        "flash": bool(args.flash), "hardware": hardware_of_flash(m.flash.mem),
         "device_ms": round(m.time_ns / 1e6), "instructions": m.insns,
         "asserts": m.asserts, "frames": m.frames, "screens": m.screens,
         "display_lit": sum(bin(b).count("1") for row in m.fb for b in row),

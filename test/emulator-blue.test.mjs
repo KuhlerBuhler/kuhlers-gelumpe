@@ -1,10 +1,14 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { run as exec, slots } from "./support/spawn.mjs";
 import { emuPython } from "./support/emu.mjs";
 import { buildOf, identify } from "../src/firmware.mjs";
+import { applyPatches } from "../src/patch.mjs";
+import { loadBlechSet, samplerHead } from "../src/patcher.mjs";
 
 // The blue Electribe 2 (the synth), SYSTEM.VSB from Korg's system update, in the emulator
 // (docs/messungen/2026-10-15-blaue-electribe.md). Needs the user's own file, E2_BLUE_VSB; skipped without it.
@@ -66,5 +70,47 @@ describe("the blue Electribe 2 in the emulator", { concurrency: slots, skip }, (
     const off = await boot(["--seconds", "5", ...at("0601000000", 3), ...at("0600000000", 3.3)]);
     assert.equal(off.powered, false);
     assert.equal(off.display_lit, 0);
+  });
+});
+
+// Hacktribe for the blue: Sampler code on the blue's flash (docs/ideen/65-blech-hacktribe-blau.md). E2_VSB is the user's Hacktribe 2.02.
+const hacktribe = process.env.E2_VSB;
+const blueSkip = !local ? "emulation only runs in test:local or test:emu" : !hacktribe ? "E2_VSB not set" : false;
+
+describe("Hacktribe and BLECH with Hacktribe on the blue Electribe 2's flash", { concurrency: slots, skip: blueSkip }, () => {
+  async function onBlue(bytes) {
+    const dir = mkdtempSync(join(tmpdir(), "gelumpe-blue-"));
+    try {
+      const file = join(dir, "SYSTEM.VSB");
+      writeFileSync(file, bytes);
+      const result = await exec(emuPython(), [machine, "--vsb", file, "--hardware", "blue", "--seconds", "12"], { timeout: 300_000, maxBuffer: 1024 * 1024 });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      return JSON.parse(result.stdout);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test("Hacktribe with the blue head starts to its main screen on the blue's flash", async () => {
+    const bytes = Uint8Array.from(readFileSync(hacktribe));
+    bytes[0x12] = 0x00;
+    bytes[0x2e] = 0x23;
+    assert.equal(buildOf(bytes), "hacktribe");
+    const report = await onBlue(bytes);
+    assert.deepEqual([report.build, report.hardware, report.asserts], ["hacktribe", "blue", []]);
+    assert.ok(report.booted_ms > 0, "main screen");
+  });
+
+  test("the copy the patcher makes of it starts to its main screen on the blue's flash", async () => {
+    const set = await loadBlechSet(async url => JSON.parse(readFileSync(fileURLToPath(new URL(`../${url}`, import.meta.url)), "utf8")));
+    const blueHead = Uint8Array.from(readFileSync(hacktribe));
+    blueHead[0x12] = 0x00;
+    blueHead[0x2e] = 0x23;
+    const res = await applyPatches(samplerHead(blueHead), set.patches);
+    assert.equal(res.ok, true, res.reasons?.join(" "));
+    assert.deepEqual([res.bytes[0x12], res.bytes[0x2e]], [0x53, 0x24], "the Sampler head, what Hacktribe's updater on the blue takes");
+    const report = await onBlue(res.bytes);
+    assert.deepEqual([report.build, report.hardware, report.asserts], ["hacktribe", "blue", []]);
+    assert.ok(report.booted_ms > 0, "main screen");
   });
 });

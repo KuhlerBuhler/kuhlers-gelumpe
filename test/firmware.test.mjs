@@ -1,8 +1,8 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { identify, buildOf, lackOf, FEATURES, STOCK_REASON, SYNTH_REASON } from "../src/firmware.mjs";
-import { makeFirmware } from "./helpers.mjs";
+import { identify, buildOf, hardwareOf, lackOf, FEATURES, STOCK_REASON, SYNTH_REASON } from "../src/firmware.mjs";
+import { withHacktribeRun, makeFirmware } from "./helpers.mjs";
 
 // Korg's own build leaves the run Hacktribe puts its code in erased; the stand-in image has it zeroed.
 const HACKTRIBE_CODE = 0x170100;
@@ -66,9 +66,13 @@ describe("the blue Electribe 2 (synth)", () => {
 
   test("a file head of the synth makes it that build, not Korg's Sampler", async () => {
     assert.equal(buildOf(await asSynth()), "synth");
-    const hacktribeOnBlue = Uint8Array.from(await makeFirmware());
+    const hacktribeOnBlue = withHacktribeRun(await makeFirmware());
     hacktribeOnBlue.set([0x45, 0x32, 0x00], 0x10);
     assert.equal(buildOf(hacktribeOnBlue), "hacktribe", "Hacktribe's code with the synth head is Hacktribe, not Korg's blue");
+    assert.equal(hardwareOf(hacktribeOnBlue), "blue");
+    const alteredBlue = Uint8Array.from(hacktribeOnBlue);
+    alteredBlue[0x170100 + 5] ^= 1;
+    assert.equal(buildOf(alteredBlue), "synth", "a blue file whose run is neither erased nor Hacktribe's is the blue's, not Hacktribe");
     const sampler = Uint8Array.from(await makeFirmware());
     sampler.set([0x45, 0x32, 0x53], 0x10);
     assert.equal(buildOf(sampler), "hacktribe");

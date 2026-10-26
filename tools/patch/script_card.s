@@ -8,6 +8,9 @@
 .equ FS_READ, 0xC009DD74
 .equ FS_WRITE, 0xC009DFB8
 .equ FS_CLOSE, 0xC009E3DC
+.equ FS_MKDIR, 0xC009EB00
+.equ FR_NO_PATH, 5
+.equ CARD_PATH_MAX, 128
 .equ KILL_MASK, 0x2000
 
 @START_WRAPPER@
@@ -262,6 +265,49 @@ card_close:
     ldr r12, =FS_CLOSE
     blx r12
     pop {pc}
+
+; r0 file object, r1 path -> r0 the FatFs result of opening it with FA_CREATE_ALWAYS | FA_WRITE. When a folder of the path
+; is missing (FR_NO_PATH: the blue's card has KORG/electribe, not KORG/blechtribe), every folder on the way is made with
+; f_mkdir (an existing one only answers FR_EXIST) and the open is tried once more.
+card_create:
+    push {r4-r8, lr}
+    mov r4, r0
+    mov r5, r1
+    mov r2, #0x0A
+    ldr r12, =FS_OPEN
+    blx r12
+    cmp r0, #FR_NO_PATH
+    bne card_create_done
+    sub sp, sp, #CARD_PATH_MAX
+    mov r6, sp
+    mov r7, sp
+    mov r8, r5
+card_create_next:
+    ldrb r0, [r8], #1
+    cmp r0, #0
+    beq card_create_again
+    cmp r0, #0x2F               ; '/': the path up to here is a folder
+    bne card_create_keep
+    mov r1, #0
+    strb r1, [r7]
+    mov r0, r6
+    ldr r12, =FS_MKDIR
+    blx r12
+    mov r0, #0x2F
+card_create_keep:
+    strb r0, [r7], #1
+    sub r1, r7, r6
+    cmp r1, #CARD_PATH_MAX - 1
+    blo card_create_next
+card_create_again:
+    add sp, sp, #CARD_PATH_MAX
+    mov r0, r4
+    mov r1, r5
+    mov r2, #0x0A
+    ldr r12, =FS_OPEN
+    blx r12
+card_create_done:
+    pop {r4-r8, pc}
 .pool
 card_path:
     .asciz "SD:KORG/blechtribe/Plugin/e2sPlugin.all"

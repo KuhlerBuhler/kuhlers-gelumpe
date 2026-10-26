@@ -98,6 +98,38 @@ class FlashTest(unittest.TestCase):
         own = self.store.path.with_name("flash-synth.bin")
         self.assertEqual(own.read_bytes()[0x300000:0x300008], b"PERSIST6")
 
+    def test_hacktribe_for_the_blue_runs_on_the_blue_flash(self):
+        def factory(payload, flash):
+            m = FlashMachine(payload, flash)
+            self.machines.append(m)
+            return m
+
+        blue_head = bytearray(VSB_SIZE)
+        blue_head[0x10:0x13] = b"E2\0"
+        emu = Emulator(factory, flash_store=self.store)
+        emu.load_firmware(bytes(blue_head))
+        self.run_a_while(emu)
+        emu.stop()
+        self.assertEqual(bytes(self.machines[0].flash.mem[0x220000:0x22000C]), b"KORGelec2USR", "a blank start has the blue's mark")
+        self.assertFalse(self.store.path.exists(), "the red's flash file is left alone")
+        self.assertEqual(self.store.path.with_name("flash-synth.bin").read_bytes()[0x300000:0x300008], b"PERSIST6")
+
+    def test_the_check_takes_the_flash_of_the_hardware_of_the_original(self):
+        calls = []
+        emu = self.emulator()
+        emu.checker = lambda base, patched, flash, allow, allow_code, progress=None: calls.append(flash) or {"ok": True, "checks": []}
+        blue_head = bytearray(VSB_SIZE)
+        blue_head[0x10:0x13] = b"E2\0"
+        emu.check(bytes(blue_head) * 2, [])
+        emu.check(bytes(VSB_SIZE) * 2, [])
+        self.assertEqual(bytes(calls[0][0x220000:0x22000C]), b"KORGelec2USR")
+        self.assertIsNone(calls[1], "a red original keeps the machine's own blank flash")
+        self.store.other("flash-synth.bin").save(b"\x01" * FLASH_SIZE)
+        emu.check(bytes(blue_head) * 2, [])
+        self.assertEqual(calls[2][:4], b"\x01" * 4, "the blue's own flash file when there is one")
+        emu.check(bytes(VSB_SIZE) * 2, [], hardware="blue")
+        self.assertEqual(calls[3][:4], b"\x01" * 4, "Sampler head on the blue: the page names the hardware")
+
     def test_the_flash_folder_sits_next_to_the_card_folder(self):
         self.assertEqual(default_dir(Path("/a/b/sd")), Path("/a/b/flash"))
 
