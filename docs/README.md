@@ -40,6 +40,7 @@ gelesen), **hergeleitet**, **offen**.
 | [ideen.md](ideen.md) | Ideen, ihr Stand und ihre Detailseiten |
 | [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) | Firmware-Tasks, Haken und Speicher als Grundlage der Plugin-Laufzeit |
 | [hintergrund/virtuelle-sd.md](hintergrund/virtuelle-sd.md) | Datei-Funktionen der Firmware, FatFs, Sample-Lader, die virtuelle Karte |
+| [hintergrund/sample-datei.md](hintergrund/sample-datei.md) | Das Format der `e2sSample.all`, die Seite Samples, was die FILE-Befehle (noch) nicht erreichen |
 | [hintergrund/startbild-editor.md](hintergrund/startbild-editor.md) | Das Startbild im Flash und der Editor dafür |
 | [hintergrund/blech-theme.md](hintergrund/blech-theme.md) | Eigene Schriften und Symbole fürs Display, der Patch `blech-theme` |
 | [hintergrund/dsp-erster-blick.md](hintergrund/dsp-erster-blick.md) | Der DSP (Blackfin): Strom, Filter, Effekt-Einheiten |

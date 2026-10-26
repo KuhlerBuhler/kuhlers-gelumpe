@@ -66,15 +66,19 @@ export function systemOf(nav = globalThis.navigator) {
   return null;
 }
 
-const APP_FILE = { mac: /\.dmg$/i, windows: /(setup\.exe|\.msi)$/i, linux: /\.AppImage$/i };
-const SYSTEM = { mac: "macOS", windows: "Windows", linux: "Linux" };
+// A browser on a Mac says "Intel" on both kinds of Mac, so the Mac gets both files to choose from.
+const APP_FILES = {
+  mac: [[/_aarch64\.dmg$/i, "App für Mac mit Apple-Chip"], [/_x64\.dmg$/i, "App für Intel-Mac"]],
+  windows: [[/(setup\.exe|\.msi)$/i, "App für Windows"]],
+  linux: [[/\.AppImage$/i, "App für Linux"]],
+};
 
-/** The two downloads of a release: the app for this system and BLECH.patch; the rest stays on GitHub. */
+/** The downloads of a release: the app for this system (both on a Mac) and BLECH.patch; the rest stays on GitHub. */
 export function downloads(assets = [], system = systemOf()) {
-  const app = system ? assets.find(a => APP_FILE[system].test(a.name)) : null;
+  const apps = (APP_FILES[system] ?? []).map(([file, label]) => [assets.find(a => file.test(a.name)), label]).filter(([a]) => a);
   const patch = assets.find(a => a.name === "BLECH.patch");
   return [
-    app ? { href: app.browser_download_url, label: `App für ${SYSTEM[system]}` } : null,
+    ...apps.map(([a, label]) => ({ href: a.browser_download_url, label })),
     patch ? { href: patch.browser_download_url, label: "Patch herunterladen" } : null,
   ].filter(Boolean);
 }

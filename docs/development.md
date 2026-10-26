@@ -49,7 +49,9 @@ damit unberührte Bytes auffallen, dazu Backup-Datei und Pattern-Puffer.
 
 Alles außer den letzten drei Zeilen läuft in CI (`.github/workflows/test.yml`): die Einheitstests
 in zwei, die Browsertests in vier Teilen nebeneinander (`--test-shard`), die Prüfungen `unit` und
-`browser` fassen die Teile zusammen.
+`browser` fassen die Teile zusammen. Ändert ein Pull Request nur Markdown oder andere
+Workflows, laufen nur die Einheitstests, die Dokumente lesen, und keine Browsertests (ausgenommen
+`DESIGN.md`, `docs/plugins*.md` und `third_party/`, die die Seite und die Tests lesen).
 
 Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt starten:
 
@@ -172,7 +174,7 @@ außerhalb von `src/node.mjs`, `bin/`, `tools/` und `test/`.
 
 Eine Desktop-App (Tauri v2) um dieselbe Seite. Sie startet den Emulator-Dienst selbst
 (freier Port, frischer Token) und beendet ihn beim Schließen. Karte und Flash bleiben in
-`~/.gelumpe`. Gebaut wird für macOS (Apple Silicon), Windows x64 und Linux x64. Einen Intel-Mac-Build gibt es im Release nicht; selbst bauen geht wie unten beschrieben.
+`~/.gelumpe`. Gebaut wird für macOS (Apple Silicon und Intel), Windows x64 und Linux x64.
 
 Aus den Quellen: einmal `npm run setup:emu` und `cargo install tauri-cli --version "^2" --locked`,
 dann `npm run app:dev` (nimmt das Python der venv, kein gebautes Sidecar nötig). Läuft schon ein
@@ -198,7 +200,7 @@ kommen alle in den Ordner `dist-release/` im Repo auf dem Rechner, der das Relea
 `.gitignore`), von den anderen Systemen per Kopie.
 
 Auf GitHub baut der Workflow "Build apps" (von Hand starten, mit der Version) Windows, Linux und,
-wenn angehakt, macOS Apple Silicon gleichzeitig, daneben laufen `cargo test` und `cargo clippy` je
+wenn angehakt, macOS Apple Silicon und Intel (Runner `macos-15-intel`) gleichzeitig, daneben laufen `cargo test` und `cargo clippy` je
 System. Die Dateien liegen danach als Artefakte am Lauf; schlägt ein Build oder ein Test fehl, löscht der
 letzte Job sie wieder, damit aus einem roten Lauf nichts veröffentlicht wird. Rust-Abhängigkeiten und das eingefrorene
 Sidecar kommen aus dem Cache von GitHub, solange sich ihre Quellen nicht geändert haben; ein Cache, der
@@ -249,7 +251,9 @@ venv (`tools/emu/.venv-x64`) eingefroren und unter Rosetta ausgeführt.
 werden und läuft dort emuliert. Alles x64 installieren: Node, Python (python.org "Windows installer
 (64-bit)"), Visual Studio Build Tools mit "Desktop development with C++" und den x64-Tools, Rust mit
 `rustup default stable-x86_64-pc-windows-msvc`. WebView2 ist in Windows 11 dabei, NSIS lädt Tauri
-selbst. Bleibt der Rust-Host ARM, `--target x86_64-pc-windows-msvc` anhängen, die Datei liegt dann
+selbst. Die `-setup.exe` enthält den Offline-Installer von WebView2 (`webviewInstallMode` in
+`src-tauri/tauri.conf.json`, etwa 130 MB mehr): ohne ihn blieb das Fenster unter Windows 10 ohne
+WebView2 weiß, wenn das Nachladen beim Installieren scheiterte. Bleibt der Rust-Host ARM, `--target x86_64-pc-windows-msvc` anhängen, die Datei liegt dann
 unter `target/x86_64-pc-windows-msvc/release/bundle/nsis/`.
 
 Die App prüft beim Start und alle paar Stunden das neueste Release und zeigt oben "Neue Version
@@ -258,14 +262,32 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 
 ## Release
 
+**Der normale Weg läuft in GitHub** (Workflow "Release", `.github/workflows/release.yml`):
+
+1. Auf `develop` per Pull Request: `node tools/set-version.mjs X.Y.Z` (schreibt die vier Versionsdateien) und die
+   Notizen als `release-notes/X.Y.Z.md`. Sie sind das, was im Release und im Discord steht.
+2. Pull Request `develop` -> `main` mergen.
+3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
+   Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
+   2.02 (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
+   `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
+   `main` endet nach dem ersten Schritt.
+
+Korgs drei 2.02 kommen nie ins Repo. Der Workflow lädt sie über die Links in den Secrets `E2_VSB_URL` (Hacktribe),
+`E2_VSB_STOCK_URL` (rot) und `E2_VSB_SYNTH_URL` (blau) und bricht ab, wenn eine Datei nicht die erwartete SHA-256 hat.
+Fehlt in `data/patches/verified.json` das Paar einer der drei, warnt der Lauf: die App prüft diese Datei dann vor dem
+Patchen selbst im Emulator.
+
+**Von Hand** geht es weiter so, etwa wenn GitHubs Runner ausfallen:
+
 `npm run release` (`tools/release.mjs`). Auf jedem System vor dem Bauen setzt
 `npm run release -- prepare` (oder `node tools/set-version.mjs <Version>` mit der Version vom
 Release-Rechner) die nächste Version in `package.json`, `tauri.conf.json`, `Cargo.toml` und
 `Cargo.lock`: erste Version 1.0.0, danach der letzte Tag `vX.Y.Z` mit Patch plus eins, `--minor` oder
 `--major` hebt stattdessen den Teil (bei `prepare` und beim Release gleich angeben). `prepare`
-verlangt, dass `HEAD` auf `origin/main` steht, und committet nichts.
+verlangt, dass `HEAD` auf `origin/develop` steht, und committet nichts.
 
-Wenn alle fünf Dateien (zwei `.dmg`, Setup-`.exe`, `.AppImage`, `.deb`) in `dist-release/` liegen:
+Wenn alle fünf Dateien (zwei `.dmg` für Apple Silicon und Intel, Setup-`.exe`, `.AppImage`, `.deb`) in `dist-release/` liegen:
 
 ```bash
 npm run release              # Trockenlauf: prüft alles, zeigt die Schritte
@@ -273,10 +295,15 @@ npm run release -- --yes     # wirklich
 ```
 
 Mit `--yes` passiert der Reihe nach: Version in die Dateien schreiben, die vier Dateien als "Release
-vX.Y.Z" committen (nur diese), den Commit nach `origin/main` pushen, das Release anlegen (der Tag liegt
+vX.Y.Z" committen (nur diese), den Commit nach `origin/develop` pushen, das Release anlegen (der Tag liegt
 auf diesem Commit, das Release wird als neuestes markiert) mit den fünf Dateien, dann alle älteren
 Releases samt Dateien löschen, die Tags bleiben. Steht die Version schon in `HEAD`, entfallen Commit und
 Push. Nur das neueste Release liegt also auf GitHub.
+
+`main` ist geschützt, deshalb geht der Versions-Commit nach `develop` und erreicht `main` mit dem einen
+Pull Request `develop` -> `main`, den du danach öffnest (`gh pr create --base main --head develop`). Ein
+eigener Bump-PR ist nicht nötig. Der Workflow "Sync develop" holt den Merge-Commit danach nach `develop`
+zurück.
 
 `--notes=Datei.md` nimmt die Release-Notizen aus der Datei statt GitHubs erzeugter Liste der PRs. Sobald
 das Release veröffentlicht ist, postet der Workflow "Discord release" es über den Webhook im Secret
@@ -285,8 +312,8 @@ Notizen, lange in mehreren Nachrichten, zum Schluss eine Nachricht nur mit dem L
 starten, er postet das Release noch einmal.
 
 Geprüft wird vorher: alle fünf Ziele da, genau eine Datei je Ziel, alle mit der fälligen Version, `gh`
-angemeldet, das Release gibt es noch nicht, `HEAD` ist `origin/main`. Scheitert der Push, liegt der
-Commit lokal: beheben und `git push origin HEAD:main`, dann `npm run release -- --yes` erneut, es läuft
+angemeldet, das Release gibt es noch nicht, `HEAD` ist `origin/develop`. Scheitert der Push, liegt der
+Commit lokal: beheben und `git push origin HEAD:develop`, dann `npm run release -- --yes` erneut, es läuft
 nur noch das Release.
 
 **BLECH-Patch zum Release** (optional): `E2_VSB=<SYSTEM.VSB aus Hacktribes Paket> npm run

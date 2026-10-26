@@ -15,12 +15,15 @@ const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "ut
 const PATCH = read("../data/patches/pattern-switch.json");
 const OTHERS = ["splash-editor", "mfx-switch", "script-runtime", "blechtribe", "blech-theme"].map(id => read(`../data/patches/${id}.json`));
 const CODE = 0x180100;              // file offset of 0xC0180000
-const CODE_END = 0x180d00;          // 0xC0180C00
+const CODE_END = 0x181000;          // 0xC0180F00
 // the replaced words: wheel branch, pad and MIDI first instruction, MENU and EXIT slots (pointers), sequence end call, STOP first instruction, label load,
-// stopped sync, the load's copy, the pad handler's busy check, the command runner's busy clear
+// stopped sync, the load's copy, the pad handler's busy check, the command runner's busy clear, the info line's label flag read
 const WORDS = [[0x6523c, 0xea, 0xc006513c], [0x6eee4, 0xea, 0xc006ede4], [0x6ef00, 0xea, 0xc006ee00], [0xe35b0, null, 0xc00e34b0],
   [0xe35a0, null, 0xc00e34a0], [0x5f2c4, 0xeb, 0xc005f1c4], [0x81c5c, 0xea, 0xc0081b5c], [0x86ec4, 0xeb, 0xc0086dc4], [0x81f18, 0xea, 0xc0081e18],
-  [0x4ad44, 0xeb, 0xc004ac44], [0x44988, 0xea, 0xc0044888], [0x2d91c, 0xeb, 0xc002d81c]];
+  [0x4ad44, 0xeb, 0xc004ac44], [0x44988, 0xea, 0xc0044888], [0x2d91c, 0xeb, 0xc002d81c],
+  [0x79ce0, 0xeb, 0xc0079be0], [0x79d2c, 0xeb, 0xc0079c2c], [0x98d84, 0xeb, 0xc0098c84],
+  [0x79c90, 0xeb, 0xc0079b90], [0x45eac, 0xea, 0xc0045dac],
+  [0x4a828, 0xeb, 0xc004a728], [0x4a8a8, 0xeb, 0xc004a7a8], [0x493f4, 0xeb, 0xc00492f4], [0x5a984, 0xeb, 0xc005a884], [0x8694c, 0xea, 0xc008684c]];
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
 const vsb = process.env.E2_VSB;
@@ -32,7 +35,7 @@ const skip = !vsb ? "E2_VSB not set" : false;
 const skipEmu = skip || (!local ? "emulation only runs in test:local or test:emu" : false);
 const flashArgs = flash.length ? ["--flash", ...flash] : [];
 
-test("the pattern switch has the v1 format, says what it replaces and runs only its stopped sync hook, the load's copy and the command end at start", () => {
+test("the pattern switch declares the observers and pattern load hooks that run at start", () => {
   assert.equal(PATCH.format, PATCH_FORMAT);
   assert.equal(PATCH.version, 1);
   assert.equal(PATCH.id, "pattern-switch");
@@ -41,25 +44,27 @@ test("the pattern switch has the v1 format, says what it replaces and runs only 
     assert.ok(change.note);
     assert.equal(change.copy, undefined, "nothing of the firmware is copied");
   }
-  // the stopped sync observer (0xC0081E18) runs from the start on, and so do the pattern load's copy (0xC004AC44, sync groups) and the
-  // command runner's busy clear after that load (0xC002D81C, kept pad presses); every other hook sits behind the start and the rescue paths
   const symbol = name => PATCH.startPhase.find(s => s.why.startsWith(name));
-  assert.deepEqual(PATCH.startPhase.map(s => s.file).filter(f => f < 0x180100), [0x81f18, 0x4ad44, 0x2d91c]);
-  assert.ok(symbol("sync_hook") && symbol("copy_hook") && symbol("pad_replay"), "the three code spans are declared");
+  assert.deepEqual(PATCH.startPhase.map(s => s.file).filter(f => f < 0x180100), [0x79c90, 0x79ce0, 0x45eac, 0x4a828, 0x4a8a8, 0x493f4, 0x5a984, 0x79d2c, 0x98d84, 0x81f18, 0x4ad44, 0x2d91c, 0x8694c]);
+  assert.ok(PATCH.startPhase.some(s => s.why.includes("sync_hook")) && symbol("copy_hook") && symbol("pad_replay"), "the three code spans are declared (pad_replay and sync_hook as one)");
   assert.ok(PATCH.startPhase.every(s => s.why.length > 20));
 });
 
-test("it is our code plus twelve replaced words, each leading into the code, and every hook is declared", () => {
-  assert.equal(PATCH.changes.length, 1 + WORDS.length);
-  const [code, ...words] = PATCH.changes;
+test("two ARM code areas and twenty-two declared hooks stay within their bounds", () => {
+  assert.equal(PATCH.changes.length, 2 + WORDS.length);
+  const code = PATCH.changes.find(c => c.file === CODE);
+  const tail = PATCH.changes.find(c => c.file === 0x181040);
+  assert.ok(tail && tail.file + fromHex(tail.bytes).length <= 0x181100);
   const n = fromHex(code.bytes).length;
   assert.ok(code.file === CODE && code.file + n <= CODE_END, `${n} bytes`);
-  for (const [i, [file, opcode, address]] of WORDS.entries()) {
-    assert.equal(words[i].file, file);
-    const word = Buffer.from(fromHex(words[i].bytes)).readUInt32LE(0);
+  for (const [file, opcode, address] of WORDS) {
+    const change = PATCH.changes.find(c => c.file === file);
+    assert.ok(change, `hook at 0x${address.toString(16)}`);
+    const word = Buffer.from(fromHex(change.bytes)).readUInt32LE(0);
     const target = opcode === null ? word : address + 8 + (((word & 0xffffff) << 8) >> 8) * 4;
     if (opcode !== null) assert.equal(word >>> 24, opcode, `0x${address.toString(16)} branches${opcode === 0xeb ? " and links" : ""}`);
-    assert.ok(target >= 0xc0180000 && target < 0xc0180000 + n, `0x${address.toString(16)} goes into our code`);
+    assert.ok([code, tail].some(c => target >= 0xc0000000 + c.file - 0x100
+      && target < 0xc0000000 + c.file - 0x100 + fromHex(c.bytes).length), `0x${address.toString(16)} goes into our code`);
   }
   assert.deepEqual(PATCH.hooks.map(h => h.site).sort(), WORDS.map(([, , a]) => `0x${a.toString(16).toUpperCase()}`).sort());
   const res = checkHooks([PATCH]);
@@ -78,6 +83,13 @@ test("the assembler and the patch builder agree with the committed patch", { ski
   assert.ifError(run.error);
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(run.stdout), PATCH, "rebuild with tools/patch/pattern_switch.py --vsb SYSTEM.VSB --out data/patches/pattern-switch.json");
+});
+
+test("the native voice guard scopes preservation to one playing group load on all builds", async () => {
+  const run = await exec(python(), ["-m", "unittest", "discover", "-s", join(dir, "patch"), "-p", "test_sync_voices.py"],
+    { timeout: 60_000 });
+  assert.ifError(run.error);
+  assert.equal(run.status, 0, run.stderr || run.stdout);
 });
 
 test("applied to the own firmware it changes only what it names, alone and with the other patches", { skip }, async () => {

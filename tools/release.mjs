@@ -5,16 +5,20 @@
  *   npm run release -- prepare [--minor|--major]
  *       Work out the next version and put it into the version files
  *       (tools/set-version.mjs). Run it on every build machine before building;
- *       HEAD must be origin/main. Nothing is committed yet.
+ *       HEAD must be origin/develop. Nothing is committed yet.
  *   npm run release -- next [--minor|--major]
  *       Print the next version only.
+ *   npm run release -- [folder] --ci --notes=FILE --yes
+ *       What .github/workflows/release.yml runs on main: the version is the one in
+ *       package.json, HEAD must be origin/main, nothing is committed.
  *   npm run release -- [folder] [--minor|--major] [--yes]
  *       Check the folder (default dist-release/) and publish. Without --yes
  *       nothing is changed, the steps are only printed. With --yes: commit the
- *       version files as "Release vX.Y.Z", push that commit, create the tag on
- *       it and the release on GitHub (gh) with a discussion under Announcements,
+ *       version files as "Release vX.Y.Z", push that commit to develop, create the
+ *       tag on it and the release on GitHub (gh) with a discussion under Announcements,
  *       then delete every older release.
- *       Tags stay. --notes=FILE takes the release notes from FILE (Markdown)
+ *       Tags stay. The commit reaches main with the one develop -> main pull
+ *       request, opened after the release. --notes=FILE takes the release notes from FILE (Markdown)
  *       instead of GitHub's generated list; they are what Discord gets.
  *
  * BLECH.patch and BLECH-for-<sha8>.bsdiff in the folder (npm run build:blech-patch) go up
@@ -28,7 +32,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parsePatchFile } from "../src/patchfile.mjs";
-import { RELEASE_COMMIT, checkFiles, latestVersion, nextVersion, planRelease } from "./release-lib.mjs";
+import { BASE_BRANCH, RELEASE_COMMIT, checkFiles, compareVersions, latestVersion, nextVersion, planRelease } from "./release-lib.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const fail = message => {
@@ -39,12 +43,16 @@ const fail = message => {
 const args = process.argv.slice(2);
 const flags = new Set(args.filter(a => a.startsWith("--")));
 const positional = args.filter(a => !a.startsWith("--"));
-const known = ["--minor", "--major", "--yes", "--dry-run"];
+const known = ["--minor", "--major", "--yes", "--dry-run", "--ci"];
 const notesFlag = [...flags].find(f => f.startsWith("--notes="));
 const unknown = [...flags].filter(f => !known.includes(f) && f !== notesFlag);
 if (unknown.length) fail(`Unbekannte Option: ${unknown.join(", ")}`);
 if (flags.has("--minor") && flags.has("--major")) fail("--minor und --major schließen sich aus.");
 const bump = flags.has("--major") ? "major" : flags.has("--minor") ? "minor" : "patch";
+// The release workflow on main (.github/workflows/release.yml): the version comes from package.json, which the release
+// pull request already set, HEAD is main, and nothing is committed.
+const ci = flags.has("--ci");
+const base = ci ? "main" : BASE_BRANCH;
 const command = ["prepare", "next"].includes(positional[0]) ? positional.shift() : "release";
 const dry = flags.has("--dry-run") || !flags.has("--yes");
 
@@ -66,19 +74,21 @@ function allTags() {
   return tags;
 }
 
-/** A sentence when HEAD is not what origin/main points at, else null. */
+/** A sentence when HEAD is not what origin/<base> points at, else null. */
 function headProblem() {
   try {
     const head = read("git", ["rev-parse", "HEAD"]);
-    const remoteMain = lines(read("git", ["ls-remote", "origin", "refs/heads/main"]))[0]?.split(/\s/)[0];
-    return remoteMain === head ? null : `HEAD (${head.slice(0, 7)}) ist nicht der Stand von origin/main (${remoteMain?.slice(0, 7) ?? "unbekannt"}), erst pullen oder pushen`;
+    const remote = lines(read("git", ["ls-remote", "origin", `refs/heads/${base}`]))[0]?.split(/\s/)[0];
+    return remote === head ? null : `HEAD (${head.slice(0, 7)}) ist nicht der Stand von origin/${base} (${remote?.slice(0, 7) ?? "unbekannt"}), erst pullen oder pushen`;
   } catch (error) {
-    return `origin/main nicht lesbar: ${error.message}`;
+    return `origin/${base} nicht lesbar: ${error.message}`;
   }
 }
 
 const latest = latestVersion(allTags());
-const version = nextVersion(latest, bump);
+const version = ci ? JSON.parse(read("git", ["show", "HEAD:package.json"])).version : nextVersion(latest, bump);
+if (ci && latest && compareVersions(version, latest) <= 0) fail(`package.json sagt ${version}, das ist nicht neuer als v${latest}`);
+if (ci && !notesFlag) fail("--ci braucht --notes=Datei");
 
 if (command === "next") {
   console.log(version);
@@ -166,4 +176,4 @@ for (const s of steps) {
   const r = spawnSync(s.cmd, args, { cwd: root, stdio: "inherit" });
   if (r.status !== 0) fail(`Abgebrochen bei: ${s.what}. Spätere Schritte (auch das Löschen alter Releases) sind nicht gelaufen.`);
 }
-console.log(`\nFertig: ${tag}`);
+console.log(ci ? `\nFertig: ${tag}.` : `\nFertig: ${tag}. Jetzt den Pull Request ${BASE_BRANCH} -> main öffnen und mergen: gh pr create --base main --head ${BASE_BRANCH}`);

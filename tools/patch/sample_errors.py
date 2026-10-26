@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import arm  # noqa: E402
 import ramdecl  # noqa: E402
+import sample_seek  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
@@ -377,6 +378,11 @@ t_other:
 """
 
 
+SOURCE += sample_seek.parser_source(sample_seek.PARSER + 4)
+SOURCE += sample_seek.seek_source(killed='killed')
+SOURCE += '\n.pool\n'
+
+
 def sha(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -403,6 +409,10 @@ def build_patch(vsb):
 
     def was(addr, n=4):
         return vsb[file_offset(addr):file_offset(addr) + n]
+
+    frame = arm.assemble('sub sp, sp, #0x4C0\nsub sp, sp, #12').bytes
+    if was(sample_seek.PARSER + 8, len(frame)) != frame:
+        raise SystemExit('the sample parser stack frame does not match its cursor checkpoint')
 
     def free(addr, n):
         if was(addr, n) != b"\xff" * n:
@@ -437,6 +447,11 @@ def build_patch(vsb):
         (WINDOW_TITLE, "window_title", dict(goes_to=ALLOC), "the call that makes the title object of the error window goes through a stub that gives our code its own title", None),
         (WINDOW_TEXT, "window_text", dict(goes_to=ALLOC), "the call that makes the text object of the error window goes through a stub that gives our code its own line", None),
     ]
+    words.append((sample_seek.PARSER, 'sample_anchor_entry', dict(original=0xE92D4FF0),
+                  'the sample parser keeps a private read cursor checkpoint on its stack', None))
+    words.extend((site, 'sample_anchor_seek', dict(goes_to=sample_seek.LSEEK),
+                  'backward seeks within a sample reuse its cursor checkpoint before FatFs continues', None)
+                 for site in sample_seek.SITES)
     changes = [{"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
                 "note": "sample errors: the stubs, the two lines and their texts"}]
     start = [{"file": file_offset(CODE_AT), "length": len(code),

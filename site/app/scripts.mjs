@@ -86,14 +86,14 @@ const confirmed = async options => (window.ui?.confirm ? window.ui.confirm(optio
 export function scriptsPanel(root, { storage = null, sub = null, session = () => null, onRun = () => {}, trail: setTrail = () => {}, navbar = () => {} } = {}) {
   // The title in the breadcrumb leads to the catalog, the start of the page.
   const trail = parts => setTrail(parts, () => page("catalog"));
-  /** A packed .blech onto the connected device's card; IMPORT PLUGIN in the BLECH menu then lists it. */
+  /** A packed .blech onto the connected device's card; PLUGIN EDIT in the BLECH menu then lists it. */
   async function toDevice(bytes, id, button) {
     const s = session();
     if (!s) { toast("Erst im Bereich Emulator oben „Echtes Gerät“ wählen und die Electribe verbinden.", "error"); return; }
     button.disabled = true;
     try {
       const name = await storePlugin(s, id, bytes);
-      toast(`${name}.blech liegt auf der Karte. Am Gerät Menü -> BLECH -> PLUGINS -> IMPORT PLUGIN, MENU, dann einschalten.`, "ok");
+      toast(`${name}.blech liegt auf der Karte. Am Gerät Menü -> BLECH -> PLUGINS -> PLUGIN EDIT, MENU, dann bei STATE einschalten.`, "ok");
     } catch (e) {
       toast(e.message, "error");
     } finally {
