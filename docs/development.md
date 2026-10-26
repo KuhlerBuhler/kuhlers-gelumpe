@@ -326,11 +326,27 @@ App) passt nur auf genau die Hacktribe-Datei mit diesem sha256-Anfang. Liegen si
 (`-- --version X.Y.Z`). Beide enthalten keine Firmware, nur eigenen Code und Prüfsummen. Format, Beleg
 und Grenzen: [patcher.md](patcher.md), "Patch-Datei und bsdiff".
 
-**Geprüfte Kopien** (vor jedem Release mit geändertem Patch-Satz): `npm run verify:patches -- <Korgs rote 2.02>
-<Korgs blaue 2.02> <Hacktribe 2.02>` patcht jede Datei wie die Seite, lässt `tools/emu/check.py` laufen und schreibt die
-SHA-256 von Eingabe und Ergebnis nach `data/patches/verified.json`, nur wenn alle bestehen. Der Patcher überspringt die
-Prüfung im Emulator für genau diese Kopien, auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei wird
-weiter ganz geprüft; eine Liste von einem alten Patch-Satz trifft nichts mehr und kostet nur die Zeit.
+**Geprüfte Kopien** (vor jedem Release mit geändertem Patch-Satz): `data/patches/verified.json` hält die SHA-256 von
+Eingabe und Ergebnis jeder Kopie, die den ganzen Check im Emulator (`tools/emu/check.py`) bestanden hat. Der Patcher
+überspringt die Prüfung für genau diese Kopien, auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei
+wird weiter ganz geprüft; eine Liste von einem alten Patch-Satz trifft nichts mehr und kostet nur die Zeit.
+
+Neu schreiben lässt man sie in GitHub mit dem Workflow "Verify patches" (`.github/workflows/verify-patches.yml`):
+
+```bash
+gh workflow run verify-patches.yml -f branch=develop
+```
+
+Er prüft den Patch-Satz des Branches auf Korgs drei 2.02 (dieselben Secrets wie das Release), jede Datei in einem
+eigenen Job nebeneinander, und schreibt die drei Einträge in eine `verified.json` (`verify-patches.mjs --results`).
+Hat sich etwas geändert, pusht er den Commit auf den Branch; ist der geschützt oder inzwischen weitergelaufen, öffnet er
+stattdessen einen Pull Request hinein. Stehen alle drei Paare schon drin, bleibt alles, wie es war. Auch der Lauf des
+Release-Workflows hängt seinen frischen Eintrag je Datei als Artefakt `verified-<name>` an.
+
+Lokal: `npm run verify:patches -- <Korgs rote 2.02> <Korgs blaue 2.02> <Hacktribe 2.02>`: patcht jede
+Datei wie die Seite, prüft sie und schreibt die Liste nur, wenn alle bestehen. Ohne Option ersetzt der Lauf die Liste;
+`--merge` behält die Einträge der anderen Eingaben und ersetzt nur die der geprüften Dateien, so kann man eine Datei
+nach der anderen prüfen. Ein Paar, das schon mit demselben Satz drinsteht, behält sein altes Datum.
 
 ## Keine öffentliche Seite
 

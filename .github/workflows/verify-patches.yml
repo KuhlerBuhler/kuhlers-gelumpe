@@ -1,0 +1,134 @@
+# Refreshes data/patches/verified.json without a local machine: the full emulator check (tools/emu/check.py) of the
+# patch set on each of Korg's three 2.02 files runs in its own job, side by side, and a last job writes the three
+# entries into one verified.json (tools/verify-patches.mjs --results). It pushes the change to the branch it checked,
+# or, when the branch is protected or moved on in the meantime, opens a pull request into it. Nothing changes when
+# every pair is already in the file. See docs/development.md, "Release".
+#
+# The 2.02 files are Korg's and never enter the repo: the jobs load them from the links in the secrets E2_VSB_URL
+# (Hacktribe), E2_VSB_STOCK_URL (red) and E2_VSB_SYNTH_URL (blue) and stop when a file is not the expected one.
+name: Verify patches
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch whose patch set is checked and that gets the new verified.json
+        required: true
+        default: develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-patches-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  # The commit all jobs check, so a push to the branch during the hour cannot mix two patch sets.
+  ref:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - id: sha
+        env:
+          BRANCH: ${{ inputs.branch }}
+          REPO: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          sha=$(git ls-remote --exit-code "$REPO" "refs/heads/$BRANCH" | cut -f1)
+          echo "$BRANCH is at $sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: ref
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: hacktribe
+            url: E2_VSB_URL
+            sha256: 7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee
+          - name: red
+            url: E2_VSB_STOCK_URL
+            sha256: 1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646
+          - name: blue
+            url: E2_VSB_SYNTH_URL
+            sha256: 41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8
+    name: verify (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.ref.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - run: |
+          python -m venv tools/emu/.venv
+          tools/emu/.venv/bin/pip install -r tools/emu/requirements.txt
+      - name: Korg's file
+        env:
+          URL: ${{ secrets[matrix.url] }}
+          SHA256: ${{ matrix.sha256 }}
+        run: |
+          [ -n "$URL" ] || { echo "::error::secret ${{ matrix.url }} is not set"; exit 1; }
+          curl -fsSL "$URL" -o "$RUNNER_TEMP/SYSTEM.VSB"
+          echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
+      - run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
+      # Only the entry (hashes, set, number of checks, date), never the firmware.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-${{ matrix.name }}
+          path: data/patches/verified.json
+          retention-days: 30
+
+  join:
+    needs: [ref, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.ref.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: verified-*
+          path: ${{ runner.temp }}/verified
+      - run: node tools/verify-patches.mjs --results "$RUNNER_TEMP"/verified/*/verified.json
+      - name: Commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          { echo '```json'; cat data/patches/verified.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- data/patches/verified.json; then
+            echo "::notice::verified.json on $BRANCH already holds all three pairs, nothing to commit."
+            exit 0
+          fi
+          git diff -- data/patches/verified.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(patches): refresh verified.json" -m "Checked by the workflow Verify patches, run $GITHUB_RUN_ID." -- data/patches/verified.json
+          if git push origin "HEAD:refs/heads/$BRANCH"; then
+            echo "::notice::pushed the new verified.json to $BRANCH."
+            exit 0
+          fi
+          head="verified/$BRANCH-$GITHUB_RUN_ID"
+          git push origin "HEAD:refs/heads/$head"
+          gh pr create --base "$BRANCH" --head "$head" --title "chore(patches): refresh verified.json" \
+            --body "The emulator check of the patch set passed on all three of Korg's 2.02 files (workflow Verify patches, run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). This updates the pairs the app skips its own check for."
