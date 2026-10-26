@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { applyPatches, selectFor } from "../src/patch.mjs";
 import { checkRam, checkRamPlacement, declaredAreas, writtenAreas } from "../src/ramspans.mjs";
 import PROTECTED from "../data/protected.mjs";
-import { FREE_RUNS, SYNTH_FREE_RUNS, RESERVED } from "../data/patch-ram.mjs";
+import { FREE_RUNS, HIGH_RUNS, SYNTH_FREE_RUNS, RESERVED } from "../data/patch-ram.mjs";
 
 const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
 const SET = read("data/patches/blech.json");
@@ -16,14 +16,14 @@ const clone = value => structuredClone(value);
 const hex = n => `0x${n.toString(16).toUpperCase()}`;
 
 const IMAGE = PROTECTED.regions.find(r => r.id === "firmware-image");
-const where = { free: FREE_RUNS, regions: PROTECTED.regions, window: PROTECTED.ram.window, image: IMAGE };
+const where = { free: [...FREE_RUNS, ...HIGH_RUNS], regions: PROTECTED.regions, window: PROTECTED.ram.window, image: IMAGE };
 
 test("all three builds can reuse the released SysEx space without taking the file workspace", () => {
   for (const build of ["hacktribe", "stock", "synth"]) {
     const set = build === "synth" ? read("data/patches/blech-synth.json").patches.map(read) : chosen(build);
     const claim = (at, length) => ({ id: "new-area", changes: [], ram: [{ at: hex(at), length, what: "test", source: "test:capacity" }] });
     assert.deepEqual(checkRam([...set, claim(0xc019a400, 19456)]), [], build);
-    assert.deepEqual(checkRamPlacement([...set, claim(0xc019a400, 19456)], { ...where, free: build === "synth" ? SYNTH_FREE_RUNS : FREE_RUNS }), [], build);
+    assert.deepEqual(checkRamPlacement([...set, claim(0xc019a400, 19456)], { ...where, free: build === "synth" ? SYNTH_FREE_RUNS : where.free }), [], build);
     for (const at of [0xc019a3ff, 0xc019f000]) assert.match(checkRam([...set, claim(at, 1)]).join(), /blech-sysex.*overlaps|overlaps blech-sysex/, build);
   }
 });
@@ -80,7 +80,7 @@ test("every patch of the BLECH set declares its RAM, and every entry names where
     for (const share of shares) assert.ok(patches.some(p => p.id === share.with), `${patch.id}: shares with ${share.with}, not in the set`);
     assert.equal(own.length, patch.ram.length);
   }
-  assert.deepEqual(patches.filter(p => p.ram.length).map(p => p.id).sort(), ["blech-sysex", "blech-sysex", "dice", "doom-loader", "load-bar", "mfx-switch", "note-assistant", "pad-colors", "pattern-switch", "power-off", "preset-tables", "preset-tables", "sample-errors", "script-runtime", "script-runtime", "splash-editor", "tap-motion"]);
+  assert.deepEqual(patches.filter(p => p.ram.length).map(p => p.id).sort(), ["blech-sysex", "blech-sysex", "dice", "doom-loader", "load-bar", "mfx-switch", "note-assistant", "pad-colors", "pattern-switch", "power-off", "preset-tables", "preset-tables", "sample-errors", "sample-swap", "script-runtime", "script-runtime", "splash-editor", "tap-motion"]);
 });
 
 for (const build of BUILDS) {
@@ -103,6 +103,15 @@ test("the free runs lie in the image and touch no protected region but the image
   for (const run of FREE_RUNS) {
     assert.ok(IMAGE.start <= run.start && run.end <= IMAGE.end, `${hex(run.start)} lies in the image`);
     for (const region of PROTECTED.regions.filter(r => r.space === "ram" && r.id !== IMAGE.id)) {
+      assert.ok(run.end <= region.start || region.end <= run.start, `${hex(run.start)}..${hex(run.end)} overlaps ${region.id}`);
+    }
+  }
+});
+
+test("the high runs lie behind the image and the stacks, in the measured RAM window, and touch no protected region", () => {
+  for (const run of HIGH_RUNS) {
+    assert.ok(run.start >= IMAGE.end && run.end <= PROTECTED.ram.window.start + 0x4000000, `${hex(run.start)}..${hex(run.end)}`);
+    for (const region of PROTECTED.regions.filter(r => r.space === "ram")) {
       assert.ok(run.end <= region.start || region.end <= run.start, `${hex(run.start)}..${hex(run.end)} overlaps ${region.id}`);
     }
   }
@@ -173,7 +182,8 @@ test("placement: erased runs of the image, the RAM window and protected regions"
   assert.match(reasons(0xC0D3A940, 16).join(), /protected region work-buffer/);
   assert.match(reasons(0xC0200000, 16).join(), /protected region/, "just behind the image");
   assert.match(reasons(0xC8000000, 16).join(), /outside the RAM window/);
-  assert.match(reasons(0xC2800000, 16).join(), /in no free run/, "RAM nobody has explained stays blocked");
+  assert.deepEqual(reasons(0xC2800000, 16), [], "behind the interrupt stack, measured unused");
+  assert.match(reasons(0xC5000000, 16).join(), /in no free run/, "RAM nobody has explained stays blocked");
 });
 
 test("with your own firmware every declared area in the image is erased in the base", { skip: process.env.E2_VSB ? false : "set E2_VSB" }, () => {

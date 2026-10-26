@@ -30,6 +30,16 @@ export const CHAINS = {
     { id: "parser-entry", sites: [0xC0035B10] },
     { id: "parser-seek", sites: [0xC0035C74, 0xC0035C94, 0xC0035D68, 0xC0035DCC, 0xC0035DFC, 0xC00363C0] },
   ],
+  "sample-swap": [
+    { id: "loader-open", sites: [0xC0036510] },
+    { id: "loader-slot", sites: [0xC00366D8] },
+    { id: "parser-descriptor", sites: [0xC003621C] },
+    { id: "work-buffer", sites: [0xC00369F0] },
+    { id: "ui-frame", sites: [0xC00836F4] },
+    { id: "command-dispatch", sites: [0xC002D684] },
+    { id: "sequence-switch", sites: [0xC005F1D4] },
+    { id: "chain-switch", sites: [0xC0079A74] },
+  ],
   "start-image": [{ id: "early-draw", sites: [0xC002AC38] }],
   "global-screen": [
     { id: "vtable-literal", sites: [0xC0064D3C] },

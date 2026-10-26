@@ -1,6 +1,6 @@
 # Idee 25: Mehr Sample-Speicher
 
-Stand: Idee. Das Limit ist noch nicht gemessen. Zurück zu den [Ideen](../ideen.md).
+Stand: gebaut und im Emulator geprüft, am Gerät noch nicht gemessen ([Bau](../messungen/2026-10-26-sample-swap-bau.md)). Das echte DSP-Limit ist nicht gemessen. Zurück zu den [Ideen](../ideen.md).
 
 Der Sample-Speicher ist vermutlich physisch begrenzt (DSP-SDRAM, Flash). Ein Weg ist Streaming oder Paging von der SD-Karte: die 25 MB als Cache, bei Bedarf laden, alle Samples der Karte anzeigen (lange Samples bedeuten Ladezeit). Kompression hilft dem Speicherplatz auf der Karte, nicht der Menge, die gleichzeitig spielbar ist.
 
@@ -15,10 +15,41 @@ ein Patch tauscht Samples je nach Bedarf zwischen beiden aus.
 |---|---|
 | `0xC274F000` bis `0xC4000000` (24,7 MiB) nutzt die Firmware in keiner gemessenen Phase | gemessen im Emulator (Messung vom 24.10.), am Gerät beim Spielen bestätigt ([RAM frei](../messungen/2026-10-22-ram-frei.md)) |
 | Der DSP spielt aus seinem eigenen Speicher, rund 25 MB | hergeleitet, Grenze nicht gemessen |
-| Wie schnell Samples über den Host-Port in den DSP gehen | offen |
+| Wie schnell Samples über den Host-Port in den DSP gehen | rund 11 MiB/s gestoppt und 10 MiB/s beim Spielen, erste Geräteversuche ([Messung](../messungen/2026-10-25-sample-swap.md)) |
 | Wo und wie der DSP ein Sample ablegt, und ob er weiterspielen kann, während ein anderer Platz beschrieben wird | offen ([Idee 26](26-dsp-erfassen.md), [Idee 52](52-ton-im-emulator.md)) |
 
 Ablauf, als Vorschlag: beim Start lädt die Firmware wie bisher, ein Patch liest den Rest der Datei in den freien RAM.
 Wird ein Sample gebraucht, das nicht im DSP liegt (Pattern-Wechsel, Sync-Gruppe, Auswahl im Part), tauscht der Patch
 es gegen eines, das gerade kein Part benutzt. Ob das mitten im Spielen geht oder nur zwischen Patterns, entscheidet
 das Tempo des Host-Ports.
+
+## Ladepfad und erste Prüfung (25.10.)
+
+Die [Untersuchung zum Sample-Swap](../messungen/2026-10-25-sample-swap.md) beschreibt den Ladepfad,
+den Host-Port und die Platzverwaltung. Im isolierten ARM-Test gibt Löschen nur am Ende DSP-Platz zurück;
+ein Swap braucht eine eigene Verwaltung. Vor dem Bau fehlen Durchsatz und eine Aufnahme unter Wiedergabe
+am Gerät. Das Testwerkzeug dafür ist vorbereitet. Ein nicht mehr ausgewähltes Sample kann noch ausklingen.
+
+## RAM-Besitz und Timeout (25.10.)
+
+Die [Fortsetzung der Untersuchung](../messungen/2026-10-25-sample-swap-timeout.md) zeigt:
+Der untere Teil der beim Spielen unbenutzten rund 47 MiB gehört weiterhin dem Arbeitsbuffer.
+`IMPORT ALL PATTERN` beschreibt ihn bereits im Emulator. Nur der obere Bereich bleibt ein
+Cache-Kandidat; Sampling und Resampling sind dort ohne echten Aufnahmeabschluss nicht freigeprüft.
+Der neue begrenzte DSP-Transfer und das Messwerkzeug aktivieren deshalb noch keinen Sample-Cache.
+
+Für den späteren Bau gilt: keine Größenobergrenze für die Datei auf der Karte, im DSP nur der
+aktive Satz. Vorausgeladen werden das aktuelle Pattern, seine Nachbarn und das Kettenziel.
+Ist der nächste Satz beim Wechsel nicht fertig, spielt das aktuelle Pattern eine Runde weiter.
+Je Pattern sind etwa 10 bis 12 MB vorgesehen. Der Dateikopf liefert die Slot-Offsets; Namen
+stehen in den einzelnen Sample-Metadaten und werden bei Bedarf gelesen. DMA bleibt zunächst aus.
+High Speed mit 50 MHz setzt einen getrennten Test mit einer entbehrlichen microSD voraus.
+
+## Gebaut (26.10.)
+
+Der [Sample-Swap](../messungen/2026-10-26-sample-swap-bau.md) ist im BLECH-Satz für beide roten Builds. Ist
+`e2sSample.all` größer als der Nutzerbereich des DSP, liest der Start nur den Kopf und die Samples des ersten
+Patterns. Im DSP liegen die Samples des laufenden und des kommenden Patterns, der Rest kommt von der Karte. Ein
+Wechsel auf ein Pattern, dessen Samples noch fehlen, wartet eine Runde. Beim Spielen auf dem Hauptbildschirm
+liest der Patch Nachbarn und Kettenziel in freies ARM-RAM vor; jeder andere Bildschirm und jeder Aufruf des
+Arbeitspuffers verwirft diesen Cache. Im Emulator geprüft, am Gerät offen; das Messwerkzeug liegt bereit.
