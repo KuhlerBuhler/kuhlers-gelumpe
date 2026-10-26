@@ -46,6 +46,7 @@ const KEYED = [
   "data/script/properties.mjs",
   "data/script/names.mjs",
   "data/news.mjs",
+  "data/rescue.mjs",
 ];
 const keyed = KEYED.map(f => [f, readFileSync(new URL(`../${f}`, import.meta.url), "utf8")]);
 // A literal like "nav.start" whose first part names a namespace of the table counts as a key, in t() or in a FIELDS label.
@@ -135,6 +136,8 @@ const ALLOWED = {
   "src/pattern.mjs": ["Pattern {} gibt es in dieser Datei nicht", "expected a Pattern"],
   // The names of the firmware builds, the same in every language.
   "src/firmware.mjs": ["Synth", "Sampler", "Bleched Hacktribe", "Hacktribe", "Blechtribe {}"],
+  // Korg's product names, put into a sentence of the table as they are.
+  "data/rescue.mjs": ["Electribe Sampler", "Electribe"],
 };
 
 // The plugin catalog: names of plugins and of their makers stay as they are, and so does the plugin code (it holds korg.).
