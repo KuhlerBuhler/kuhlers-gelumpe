@@ -101,10 +101,10 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
     for (const l of [levels.master, ...levels.parts]) {
       const r = all.get(l.id + l.indices) ?? { before: l.value, after: l.value, delta: 0 };
       const bar = el("span", { className: "cee-level-bar" });
-      meter(bar, r.after, l.label);
+      meter(bar, r.after, t(l.label));
       const text = r.delta === 0 ? String(r.before) : t("levels.change", { before: r.before, after: r.after });
       const row = el("div", { className: "cee-level-row", id: `cee-lv-row-${l.part ?? "pattern"}` }, [
-        el("span", { className: "cee-level-name", textContent: l.id === "pattern.playLevel" ? t("levels.playLevel") : l.label }),
+        el("span", { className: "cee-level-name", textContent: l.id === "pattern.playLevel" ? t("levels.playLevel") : t(l.label) }),
         bar,
         el("span", { className: "cee-level-value", textContent: text }),
         l.muted ? pill("neutral", t("levels.muted")) : null,
@@ -113,7 +113,7 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
       rows.append(row);
     }
     if (p.error) {
-      summary.textContent = p.error;
+      summary.textContent = t(p.error);
       summary.className = "cee-hint";
     } else {
       summary.className = "";

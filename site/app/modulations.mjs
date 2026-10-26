@@ -193,7 +193,7 @@ export function modulationsPage(root, { emulator }) {
     redraw = () => {
       slots.forEach(sl => sl.refreshState());
       const found = hintsOf(i);
-      hints.replaceChildren(...found.map(h => el("li", { className: "ui-row" }, [pill("warn", t("mod.hint")), el("span", { className: "ui-break", textContent: ` ${h.message}` })])));
+      hints.replaceChildren(...found.map(h => el("li", { className: "ui-row" }, [pill("warn", t("mod.hint")), el("span", { className: "ui-break", textContent: ` ${t(h.text)}` })])));
       hintBox.hidden = !found.length;
     };
     const back = el("button", { type: "button", className: "btn sm", id: "cee-mod-reset", textContent: t("mod.reset") });

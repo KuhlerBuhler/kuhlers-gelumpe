@@ -7,6 +7,8 @@
  * do not drown the ones a person set. Without `was` every value counts.
  */
 import { SLOT_COUNT } from "./modtable.mjs";
+import { finding } from "./finding.mjs";
+import { render, text } from "./text.mjs";
 
 /** The waveforms measured: 0 to 6. 7 acts as 4, from 8 on the firmware reads past an eight byte table. */
 export const CURVE_MEASURED = [0, 6];
@@ -23,35 +25,30 @@ export const slotActive = s => s.target !== 0 && s.source <= 1 && !(s.lo === 0 &
 /**
  * @param {ReturnType<import("./modtable.mjs").readModType>} now
  * @param {ReturnType<import("./modtable.mjs").readModType>} [was]
- * @returns {Array<{severity: "warn", code: string, where: string, message: string}>}
+ * @returns {Array<{severity: "warn", code: string, where: string, message: string, text: object}>} `text` is the message as a text (src/text.mjs)
  */
 export function lintModType(now, was) {
   const findings = [];
-  const warn = (code, where, message) => findings.push({ severity: "warn", code, where, message });
+  const warn = (code, where, key, vars) => findings.push(finding({ severity: "warn", code, where: render(where) }, key, vars));
 
   if ((!was || now.curve !== was.curve) && (now.curve < CURVE_MEASURED[0] || now.curve > CURVE_MEASURED[1])) {
-    warn("mod-curve-unmeasured", "Kurve",
-      now.curve === 7
-        ? "Kurve 7 lief im Emulator wie Kurve 4 (Zufall). Gemessen sind 0 bis 6, gehört wurde keine."
-        : `Kurve ${now.curve} liegt hinter den sieben gemessenen Wellenformen (0 bis 6): die Firmware liest dort hinter eine Tabelle von acht Einträgen, im Emulator kam der Sägezahn oder Sample and Hold heraus. Gehört wurde nichts.`);
+    if (now.curve === 7) warn("mod-curve-unmeasured", text("lint.mod.curve"), "lint.mod.curve7");
+    else warn("mod-curve-unmeasured", text("lint.mod.curve"), "lint.mod.curveBeyond", { curve: now.curve });
   }
 
   for (let k = 0; k < SLOT_COUNT; k++) {
     const s = now.slots[k];
     const old = was?.slots[k];
-    const at = `Slot ${k + 1}`;
+    const at = text("lint.mod.slot", { slot: k + 1 });
     const changed = key => !old || !same(s[key], old[key]);
     if (changed("target") && TARGETS_UNCLEAR.includes(s.target)) {
-      warn("mod-target-unclear", at,
-        `${at}: Ziel-Code ${s.target} wirkt im Emulator (Engine-Wert und Pakete zum DSP ändern sich), keine der 72 Arten nutzt ihn. Was er am Klang ändert, ist nicht gemessen.`);
+      warn("mod-target-unclear", at, "lint.mod.targetUnclear", { at, target: s.target });
     }
     if (["source", "target", "lo", "hi"].some(changed) && s.target !== 0 && !slotActive(s)) {
-      warn("mod-slot-silent", at,
-        `${at} hat ein Ziel, tut im Emulator aber nichts: ${s.source > 1 ? "die Quelle ist aus" : "die Stärke ist 0 (von und bis stehen auf 0)"}.`);
+      warn("mod-slot-silent", at, "lint.mod.slotSilent", { at, why: text(s.source > 1 ? "lint.mod.slotSilent.source" : "lint.mod.slotSilent.strength") });
     }
     if ((changed("lo") || changed("hi")) && s.lo < 0 && s.hi > 0) {
-      warn("mod-strength-lo-ignored", at,
-        `${at}: bei "von" unter 0 und "bis" über 0 lief die Stärke im Emulator immer von 0 bis 63, der Wert bei "von" zählte nicht.`);
+      warn("mod-strength-lo-ignored", at, "lint.mod.loIgnored", { at });
     }
   }
 
@@ -60,14 +57,12 @@ export function lintModType(now, was) {
   now.slots.forEach((s, k) => { if (slotActive(s)) targets.set(s.target, [...(targets.get(s.target) ?? []), k]); });
   for (const [target, ks] of targets) {
     if (ks.length > 1 && ks.some(k => changedSlots[k])) {
-      warn("mod-slots-add", `Slot ${ks.map(k => k + 1).join(", ")}`,
-        `Die Slots ${ks.map(k => k + 1).join(" und ")} zielen auf dasselbe Ziel (Code ${target}) und addieren sich: bei Pitch lief die Spitze im Emulator auf das Doppelte.`);
+      warn("mod-slots-add", text("lint.mod.slot", { slot: ks.map(k => k + 1).join(", ") }), "lint.mod.slotsAdd", { slots: ks.map(k => k + 1).join(render(text("lint.mod.and"))), target });
     }
   }
 
   if (was && now.curve !== was.curve && !now.slots.some(s => slotActive(s) && s.source === 1)) {
-    warn("mod-curve-unused", "Kurve",
-      "Die Kurve ist die Wellenform der LFO-Einheit und wirkte im Emulator nur bei Slots mit der Quelle LFO. Kein Slot dieser Art hat sie.");
+    warn("mod-curve-unused", text("lint.mod.curve"), "lint.mod.curveUnused");
   }
   return findings;
 }

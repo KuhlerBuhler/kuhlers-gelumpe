@@ -47,6 +47,13 @@ const KEYED = [
   "data/script/names.mjs",
   "data/news.mjs",
   "data/rescue.mjs",
+  "src/finding.mjs",
+  "src/rules.mjs",
+  "src/gain.mjs",
+  "src/gate.mjs",
+  "src/modtable-rules.mjs",
+  "src/sample-rules.mjs",
+  "src/pattern-rules.mjs",
 ];
 const keyed = KEYED.map(f => [f, readFileSync(new URL(`../${f}`, import.meta.url), "utf8")]);
 // A literal like "nav.start" whose first part names a namespace of the table counts as a key, in t() or in a FIELDS label.

@@ -270,7 +270,7 @@ export function patternToolsPage(root, { device }) {
   /** Findings as a list; true when one of them stops the output. */
   function findingsList(findings) {
     const list = el("ul", { className: "ui-list cee-pt-findings" });
-    for (const f of findings) list.append(el("li", { className: "ui-row" }, [pill(f.severity === "error" ? "error" : "warn", f.severity === "error" ? t("common.error") : t("device.log.warn")), el("span", { textContent: ` ${f.message}` })]));
+    for (const f of findings) list.append(el("li", { className: "ui-row" }, [pill(f.severity === "error" ? "error" : "warn", f.severity === "error" ? t("common.error") : t("device.log.warn")), el("span", { textContent: ` ${t(f.text ?? f.message)}` })]));
     return list;
   }
 

@@ -423,7 +423,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const list = el("ul", { className: "ui-list" });
     for (const f of findings) {
       const [tone, word] = SEVERITY[f.severity];
-      list.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${f.message}` })]));
+      list.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(f.text)}` })]));
     }
     const unknown = unknownChanges(state.original.bytes, state.rec.bytes).length;
     verdict.replaceChildren(
@@ -491,7 +491,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const list = el("ul", { className: "ui-list", id: `${prefix}-blocked` });
     for (const r of reasons) {
       const [tone, word] = SEVERITY[r.severity] ?? ["error", "backup.locked"];
-      list.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${r.message}` })]));
+      list.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(r.text ?? r.message)}` })]));
     }
     verdict.replaceChildren(el("h3", { textContent: t("samples.blocked") }), list);
     device.log?.(t("backup.blocked", { reasons: reasons[0]?.message ?? "" }), "error");
