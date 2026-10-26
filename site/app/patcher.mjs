@@ -9,7 +9,8 @@ import { applyPatchFile, parsePatchFile, patchesFor } from "../../src/patchfile.
 import { NEWS } from "../../data/news.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf, hardwareOf } from "../../src/firmware.mjs";
-import { wayOf, classify, convertStock, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
+import { isZip, unzipEntry } from "../../src/zip.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -77,23 +78,46 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     fileInfo,
   ]);
 
-  // Korg's System Updater holds the SYSTEM.VSB; in the app the link opens in the browser (src-tauri/src/main.rs).
-  const korgCard = (device, name, url) => {
-    const out = icon("popout");
-    out.classList.add("cee-device-card-out");
-    const a = el("a", { className: "cee-entry-step cee-device-card", id: `cee-patch-korg-${device}`, href: url, target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer" }, [
-      e2Outline(name), el("span", { className: "cee-device-card-text" }, [el("strong", { textContent: name }), el("span", { textContent: "System Updater bei Korg laden" })]), out,
+  // Korg's System Updater holds the SYSTEM.VSB. Without the licence accepted a card opens Korg's page (in the app in the
+  // browser, src-tauri/src/main.rs); with it the app loads the zip itself (korg_firmware), the browser links the zip.
+  const native = () => globalThis.__TAURI__?.core?.invoke;
+  const licence = el("input", { type: "checkbox", id: "cee-patch-korg-licence" });
+  const korgCards = [["red", "Electribe 2 Sampler (rot)"], ["blue", "Electribe 2 (blau)"]].map(([device, name]) => {
+    const out = el("span", { className: "cee-device-card-out" });
+    const say = el("span");
+    const a = el("a", { className: "cee-entry-step cee-device-card", id: `cee-patch-korg-${device}`, rel: "noopener noreferrer" }, [
+      e2Outline(name), el("span", { className: "cee-device-card-text" }, [el("strong", { textContent: name }), say]), out,
     ]);
     a.dataset.device = device;
-    return el("li", {}, [a]);
-  };
+    a.addEventListener("click", event => {
+      if (!licence.checked || !native()) return;
+      event.preventDefault();
+      fromKorg(device);
+    });
+    return { device, a, say, out, li: el("li", {}, [a]) };
+  });
+  function renderKorg() {
+    for (const c of korgCards) {
+      const accepted = licence.checked;
+      c.a.href = accepted ? KORG_DOWNLOADS[c.device].file : KORG_DOWNLOADS[c.device].page;
+      c.a.target = window.__GELUMPE_APP ? "_self" : "_blank";
+      c.say.textContent = !accepted ? "System Updater bei Korg laden" : native() ? "Von Korg laden und übernehmen" : "Zip bei Korg laden, dann hierher ziehen";
+      // the app loads the zip itself once the licence is accepted: a download, no longer a page outside
+      c.out.replaceChildren(icon(accepted && native() ? "download" : "popout"));
+      c.out.dataset.icon = accepted && native() ? "download" : "popout";
+    }
+  }
+  licence.addEventListener("change", renderKorg);
   const korg = el("div", { className: "cee-patch-korg", id: "cee-patch-korg" }, [
-    el("p", { className: "cee-patch-lead" }, ["Deine ", el("code", { textContent: "SYSTEM.VSB" }), " liegt auf der SD-Karte der Electribe, im Ordner ", el("code", { textContent: "KORG/…/System/" }), ". Hast du keine, lad Korgs System Updater 2.02, darin steckt sie."]),
-    el("ul", { className: "cee-entry-steps", id: "cee-patch-firmware" }, [
-      korgCard("red", "Electribe 2 Sampler (rot)", "https://www.korg.com/us/support/download/product/0/368/#software"),
-      korgCard("blue", "Electribe 2 (blau)", "https://www.korg.com/us/support/download/product/0/367/#software"),
-    ]),
+    el("p", { className: "cee-patch-lead" }, ["Deine ", el("code", { textContent: "SYSTEM.VSB" }), " liegt auf der SD-Karte der Electribe, im Ordner ", el("code", { textContent: "KORG/…/System/" }), ". Hast du keine, lad Korgs System Updater 2.02, darin steckt sie. Das Zip kannst du direkt hierher ziehen."]),
+    el("ul", { className: "cee-entry-steps", id: "cee-patch-firmware" }, korgCards.map(c => c.li)),
+    el("label", { className: "cee-check", id: "cee-patch-korg-licence-box" }, [licence, el("span", {}, [
+      "Ich habe Korgs ",
+      el("a", { className: "cee-text-link", id: "cee-patch-korg-licence-link", href: KORG_DOWNLOADS.red.page, target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer", textContent: "Lizenzvertrag" }),
+      " gelesen und nehme ihn an. Die Datei kommt direkt von Korg auf deinen Rechner.",
+    ])]),
   ]);
+  renderKorg();
   const usbGet = el("button", { type: "button", className: "btn", id: "cee-patch-usb-get", textContent: "Update auf Gerät" });
   const usbNote = el("p", { className: "muted", id: "cee-patch-usb-note", role: "status", hidden: true });
   const usbBox = el("section", { className: "cee-patch-usb", id: "cee-patch-usb" }, [
@@ -369,9 +393,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     routeBox.hidden = flow.origin !== "stock";
     synthSet.hidden = flow.origin !== "synth";
     blueHacktribe.hidden = flow.origin !== "synth";
-    deviceBox.hidden = !choosesDevice(flow);
-    for (const d of deviceInputs) { d.radio.checked = d.value === flow.device; d.radio.disabled = can.busy; }
-    deviceNote.textContent = !choosesDevice(flow) ? "" : [
+    // shown for every file, so the Electribe the copy is for is in view before anything is written; chosen only with Hacktribe
+    deviceBox.hidden = !flow.origin;
+    for (const d of deviceInputs) { d.radio.checked = d.value === flow.device; d.radio.disabled = can.busy || !choosesDevice(flow); }
+    deviceNote.textContent = !flow.origin ? "" : [
+      !choosesDevice(flow) ? `Diese Datei geht nur auf die ${flow.device === "blue" ? "blaue" : "rote"} Electribe.` :
       flow.device === "blue" ? (flow.origin === "stock" ? "Die Datei bekommt den Kopf der blauen, damit Korgs Update auf der blauen sie annimmt." : "Die Datei behält den Kopf des Samplers, den Hacktribes Update auf der blauen annimmt.") : "",
       cable && cable !== flow.device ? `Achtung: die verbundene Electribe ist die ${cable === "blue" ? "blaue" : "rote"}.` : "",
     ].filter(Boolean).join(" ");
@@ -436,9 +462,36 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   async function pick(file) {
     usb = null;
-    fileName = file.name;
     fileInput.value = "";           // choosing the same path again, after it changed, must still fire
-    await take(new Uint8Array(await file.arrayBuffer()));
+    await takeFile(file.name, new Uint8Array(await file.arrayBuffer()));
+  }
+
+  /** A dropped or downloaded file: a VSB as it is, Korg's zip with the SYSTEM.VSB taken out of it. */
+  async function takeFile(name, bytes) {
+    if (isZip(bytes)) {
+      let entry;
+      try { entry = await unzipEntry(bytes); } catch (e) { toast(`${name}: ${e.message}`, "error"); return; }
+      if (!entry) { toast(`In ${name} ist keine SYSTEM.VSB.`, "error"); return; }
+      fileName = `${name} › SYSTEM.VSB`;
+      await take(entry.bytes);
+      return;
+    }
+    fileName = name;
+    await take(bytes);
+  }
+
+  /** Korg's zip for `device`, loaded by the app itself after the licence was accepted, straight into the field. */
+  async function fromKorg(device) {
+    usb = null;
+    const close = toast("Lade Korgs Firmware …", "info", { stay: true });
+    try {
+      const zip = new Uint8Array(await native()("korg_firmware", { device }));
+      close();
+      await takeFile(device === "red" ? "electribe_sampler_system_v202.zip" : "electribe_system_v202.zip", zip);
+    } catch (e) {
+      close();
+      toast(`Korgs Firmware ließ sich nicht laden: ${e?.message ?? e}`, "error");
+    }
   }
 
   async function take(bytes) {

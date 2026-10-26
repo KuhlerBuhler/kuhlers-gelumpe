@@ -97,6 +97,9 @@ All six apply together. The page applies them in the browser, and the result is 
   device** ([measurement](messungen/2026-10-26-blech-hacktribe-blau.md), German).
 - Korg's blue 2.02 gets the synth set. Hacktribe cannot be made from it (`hacktribe-2.patch` only builds from Korg's red
   file); the page says so and points to the red file.
+- **No file at hand:** tick "Korg's licence accepted" in step 1. The app then loads Korg's zip from Korg's server
+  itself; the browser only links it (Korg's server sends no CORS header). The drop field takes Korg's zip as it is and
+  takes SYSTEM.VSB out of it.
 - Any other file is rejected.
 
 **Why you bring `hacktribe-2.patch` yourself.** Hacktribe's README says that the contents of its `patch`

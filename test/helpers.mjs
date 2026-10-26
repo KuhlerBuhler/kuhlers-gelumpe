@@ -10,6 +10,7 @@ import { FxRecord } from "../src/record.mjs";
 import { VsbImage } from "../src/image.mjs";
 import { writeName } from "../src/bytes.mjs";
 import { readUnits } from "../src/node.mjs";
+import { deflateRawSync } from "node:zlib";
 
 readUnits();
 
@@ -191,6 +192,30 @@ export function asStock(bytes) {
   const out = Uint8Array.from(bytes);
   out.fill(0xff, 0x170100, 0x170140);
   return out;
+}
+
+/** A zip of our own: entries {name, bytes, method}, method 0 stored or 8 deflated. */
+export function makeZip(entries) {
+  const locals = [], central = [];
+  let offset = 0;
+  for (const { name, bytes, method = 8 } of entries) {
+    const packed = method === 8 ? deflateRawSync(bytes) : bytes;
+    const n = Buffer.from(name);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(method, 8);
+    local.writeUInt32LE(packed.length, 18); local.writeUInt32LE(bytes.length, 22); local.writeUInt16LE(n.length, 26);
+    const dir = Buffer.alloc(46);
+    dir.writeUInt32LE(0x02014b50, 0); dir.writeUInt16LE(method, 10);
+    dir.writeUInt32LE(packed.length, 20); dir.writeUInt32LE(bytes.length, 24); dir.writeUInt16LE(n.length, 28); dir.writeUInt32LE(offset, 42);
+    locals.push(local, n, packed);
+    central.push(dir, n);
+    offset += 30 + n.length + packed.length;
+  }
+  const dir = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(dir.length, 12); end.writeUInt32LE(offset, 16);
+  return new Uint8Array(Buffer.concat([...locals, dir, end]));
 }
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
