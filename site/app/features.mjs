@@ -80,7 +80,7 @@ export const FEATURES = [
   { group: "features.group.safe", id: "migrate", title: "features.migrate.title", where: RED,
     text: "features.migrate.text",
     how: "features.migrate.how" },
-  { group: "features.group.safe", id: "usb-update", title: "features.usbUpdate.title", where: RED,
+  { group: "features.group.safe", id: "usb-update", title: "features.usbUpdate.title", where: BOTH,
     text: "features.usbUpdate.text",
     how: "features.usbUpdate.how" },
   ...[

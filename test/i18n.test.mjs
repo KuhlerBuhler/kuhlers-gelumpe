@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import de from "../site/app/i18n-de.mjs";
-import { t, tNodes, setLanguage, language, LANGUAGES } from "../site/app/i18n.mjs";
+import { t, tNodes, setLanguage, language, LANGUAGES, systemLanguage } from "../site/app/i18n.mjs";
 import { literals, looksLikeUiText, htmlText } from "./ui-text.mjs";
 
 const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
@@ -43,7 +43,7 @@ test("t() fills in values, falls back to German and then to the key", () => {
   assert.equal(t("no.such.key"), "no.such.key");
   setLanguage("xx");
   assert.equal(language(), "de");
-  assert.deepEqual(LANGUAGES, [["de", "Deutsch"]]);
+  assert.deepEqual(LANGUAGES.map(([id]) => id), ["de", "en", "fr", "it", "es", "nl", "pt", "pl", "cs", "ru", "uk"]);
 });
 
 test("every file that calls t() or tNodes() imports it, so no page breaks on a missing import", () => {
@@ -96,4 +96,27 @@ test("the scan catches a planted string, a template, an aria-label and a text no
   assert.deepEqual(hardcoded("x.mjs", 'el("div", { className: "cee-a cee-b" }); if (e.key === "Escape") x("data-tone");'), []);
   const page = '<body><p>Hallo Welt</p><p data-i18n="a.b">Schon im Table</p><button aria-label="Schließen"></button><div id="cee-area-emu"><p>Hier nicht</p></div></body>';
   assert.deepEqual(htmlText(page, ["cee-area-emu"]).filter(s => looksLikeUiText(s.value)).map(s => s.value), ["Hallo Welt", "Schließen"]);
+});
+
+test("every language has exactly the German keys, the same {placeholders} and the same markup", async () => {
+  const ph = s => [...String(s).matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort().join(",");
+  const tags = s => [...String(s).matchAll(/<\/?([a-z]+)/g)].map(m => m[1]).sort().join(",");
+  for (const [id] of LANGUAGES.filter(([id]) => id !== "de")) {
+    const table = (await import(`../site/app/i18n-${id}.mjs`)).default;
+    assert.deepEqual(Object.keys(table).filter(k => !(k in de)), [], `${id}: keys German does not have`);
+    assert.deepEqual(Object.keys(de).filter(k => !(k in table)), [], `${id}: missing keys`);
+    for (const k of Object.keys(de)) {
+      assert.ok(typeof table[k] === "string" && table[k].trim(), `${id} ${k}: empty`);
+      assert.equal(ph(table[k]), ph(de[k]), `${id} ${k}: placeholders`);
+      assert.equal(tags(table[k]), tags(de[k]), `${id} ${k}: markup`);
+    }
+  }
+});
+
+test("the start language is the system's when there is a table for it, German otherwise", () => {
+  assert.equal(systemLanguage(["en-US", "de"]), "en");
+  assert.equal(systemLanguage(["uk-UA"]), "uk");
+  assert.equal(systemLanguage(["ja-JP", "fr-CA"]), "fr");
+  assert.equal(systemLanguage(["ja-JP"]), "de");
+  assert.equal(systemLanguage([]), "de");
 });
