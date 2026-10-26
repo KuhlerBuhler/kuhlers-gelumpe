@@ -32,6 +32,8 @@
     const FRAME_MS = 1000 / FPS;
     // A frame this much later than planned counts as late; this many late frames within the window stop drawing.
     const LATE_MS = 250, LATE_COUNT = 3, LATE_WINDOW_MS = 10000;
+    // The page's own start (and a return to it) is busy for a moment: frames that come late then do not count.
+    const SETTLE_MS = 5000;
     const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
     let reduceMotion = motionQuery.matches;
 
@@ -234,12 +236,12 @@
     }
 
     let timer = 0, last = 0, clock = 0, dustClock = 0;
-    let late = [], stalled = false, away = false;
+    let late = [], stalled = false, away = false, since = 0;
     function tick() {
         timer = 0;
         if (document.hidden || reduceMotion || away) return;
         const now = performance.now();
-        if (now - last > FRAME_MS + LATE_MS) {
+        if (now - since >= SETTLE_MS && now - last > FRAME_MS + LATE_MS) {
             late = late.filter(at => now - at < LATE_WINDOW_MS);
             late.push(now);
             if (late.length >= LATE_COUNT) {
@@ -267,7 +269,7 @@
 
     function start() {
         if (timer || document.hidden || reduceMotion || stalled || away) return;
-        last = performance.now();
+        last = since = performance.now();
         timer = setTimeout(tick, FRAME_MS);
     }
 
