@@ -1658,7 +1658,6 @@ export default {
   "script.file.operands": "{op} bei {at} ohne Operanden",
 
   // Errors of the connection to the device and of its files (src/protocol.mjs, sender.mjs, session.mjs and the file modules).
-
   "sysex.status.crc": "Die Prüfsumme stimmt nicht",
   "sysex.status.refused": "Das Gerät verweigert den Zugriff (geschützter Bereich)",
   "sysex.status.range": "Adresse oder Länge liegt außerhalb des erlaubten Bereichs",
