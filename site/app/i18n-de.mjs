@@ -250,7 +250,6 @@ export default {
   "discord.join": "Server beitreten",
   "discord.more": "+{count} weitere",
   "discord.nobody": "Gerade ist niemand online.",
-  "discord.voice": "Sprachkanäle",
   "discord.loading": "Lade den Discord-Server...",
   "discord.offline": "Der Discord-Server ist gerade nicht erreichbar. Versuch es gleich noch einmal.",
 
