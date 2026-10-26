@@ -1,20 +1,26 @@
 /**
  * The settings of this browser: a small list of fields, each saved by itself in localStorage (per viewer, never sent anywhere).
- * A new setting is one entry in FIELDS: its default, a label, and what it does when it applies.
+ * A new setting is one entry in FIELDS: its default, a label, and what it does when it applies. Labels are i18n keys.
  */
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
+import { LANGUAGES, language, setLanguage, t, translate } from "./i18n.mjs";
 
 const KEY = "cee.settings";
 
 const FIELDS = [
+  // Shown once there is more than one language; until then it only keeps the choice.
+  {
+    id: "language", type: "choice", default: "de",
+    label: "settings.language", options: LANGUAGES, raw: true,
+  },
   {
     id: "particles", type: "switch", default: true,
-    label: "Hintergrund mit Partikeln", hint: "Das 1-Bit-Muster hinter der Seite.",
+    label: "settings.particles", hint: "settings.particles.hint",
   },
   {
     id: "motion", type: "choice", default: "system",
-    label: "Bewegung", options: [["system", "Wie das System"], ["reduce", "Reduziert"], ["full", "Normal"]],
+    label: "settings.motion", options: [["system", "settings.motion.system"], ["reduce", "settings.motion.reduce"], ["full", "settings.motion.full"]],
   },
 ];
 
@@ -22,6 +28,9 @@ let values = {};
 try { values = JSON.parse(localStorage.getItem(KEY) ?? "{}") ?? {}; } catch { values = {}; }
 
 export const get = id => values[id] ?? FIELDS.find(f => f.id === id).default;
+
+setLanguage(get("language"));
+let shown = null;
 
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(values)); } catch { /* blocked: the choice holds until the page closes */ }
@@ -35,6 +44,9 @@ export function reducedMotion() {
 
 /** Puts every setting to work on the page. */
 export function apply() {
+  setLanguage(get("language"));
+  // Only on a change: the update entry writes its progress into its own text.
+  if (shown !== language()) { translate(); shown = language(); }
   document.documentElement.dataset.motion = reducedMotion() ? "reduce" : "full";
   // The background script reads the system setting itself and cannot be told otherwise, so an own "reduced" hides it.
   const bg = document.getElementById("bg-canvas");
@@ -57,24 +69,24 @@ export function settingsButton(button, open) {
 /** The settings page in the main content. */
 /** The installed app's version, from the desktop app (src-tauri); a browser has none, and the line stays away. */
 export function settingsPage(root, app = window.__GELUMPE_APP) {
-  const rows = FIELDS.map(field => {
+  const rows = FIELDS.filter(field => field.options?.length !== 1).map(field => {
     if (field.type === "switch") {
       const input = el("input", { type: "checkbox", id: `cee-set-${field.id}`, checked: !!get(field.id) });
       input.setAttribute("role", "switch");
       input.addEventListener("change", () => set(field.id, input.checked));
       const track = el("span", { className: "ui-switch-track" });
       track.setAttribute("aria-hidden", "true");
-      const label = el("label", { className: "ui-switch" }, [input, track, el("span", { className: "ui-switch-text" }, [field.label, field.hint ? el("span", { className: "ui-switch-hint", textContent: field.hint }) : null])]);
+      const label = el("label", { className: "ui-switch" }, [input, track, el("span", { className: "ui-switch-text" }, [t(field.label), field.hint ? el("span", { className: "ui-switch-hint", textContent: t(field.hint) }) : null])]);
       label.setAttribute("data-end", "");
       return label;
     }
-    const select = el("select", { className: "select", id: `cee-set-${field.id}` }, field.options.map(([value, label]) => el("option", { value, textContent: label, selected: get(field.id) === value })));
+    const select = el("select", { className: "select", id: `cee-set-${field.id}` }, field.options.map(([value, label]) => el("option", { value, textContent: field.raw ? label : t(label), selected: get(field.id) === value })));
     select.addEventListener("change", () => set(field.id, select.value));
-    return el("div", { className: "cee-settings-row" }, [el("label", { htmlFor: select.id, textContent: field.label }), select]);
+    return el("div", { className: "cee-settings-row" }, [el("label", { htmlFor: select.id, textContent: t(field.label) }), select]);
   });
   root.replaceChildren(
-    el("h1", { className: "ui-sr-only", id: "cee-settings-title", textContent: "Einstellungen" }),
+    el("h1", { className: "ui-sr-only", id: "cee-settings-title", textContent: t("settings.title") }),
     el("div", { className: "cee-settings" }, rows),
-    ...(app?.version ? [el("p", { className: "muted cee-version", id: "cee-version", textContent: `App-Version ${app.version}` })] : []),
+    ...(app?.version ? [el("p", { className: "muted cee-version", id: "cee-version", textContent: t("settings.version", { version: app.version }) })] : []),
   );
 }
