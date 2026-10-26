@@ -67,12 +67,11 @@ STATE = 0xC0180F00              # run time state, in RAM only; FF there means "n
 STATE_END = 0xC0180F40
 VOICE_CODE = STATE_END
 VOICE_END = 0xC0181000
-S_VOICES = 0x3C                # S_SGNUM is 0x38
+S_VOICES = 0x38
 SG_BUF = 0xC0173000             # the sync group's buffer, in RAM only, in the free run between the SysEx patch's code and its table
 SG_SIZE = 10 + 16 * 47          # 9 values of the pattern (tempo two bytes), 47 bytes of each part
 S_BROWSE, S_ARMED, S_ARMNUM, S_SETTING, S_STOPPED, S_AUTO, S_LOADED, S_LED = 0, 4, 8, 0x10, 0x14, 0x18, 0x1C, 0x20
 S_PADH, S_PADT, S_PADQ, PADQ_SIZE = 0x24, 0x25, 0x28, 4
-S_SGNUM = 0x38
 LED_MGR, LED_MENU, S_LEDWAS = 0xC0345A1C, 7, 0x21
 PS_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off
 
@@ -113,8 +112,8 @@ CMD_BUSY = 0xC002D634           # returns the command runner's busy byte (+0x10 
 CMD_END = 0xC002D81C            # strb r3, [r6, #0x10]: the command runner clears its busy byte (r3 = 0)
 CMD_END_WORD = 0xE5C63010
 VIEW_W = 0xC0173400             # the view's own accessor and state, in RAM only (between SG_BUF and the SysEx patch's table)
-VIEW_SIZE = 0x48
-V_NUM, V_LIDX = 0x40, 0x44
+VIEW_SIZE = 0x4C
+V_NUM, V_LIDX, V_SGNUM = 0x40, 0x44, 0x48
 INFO_HOOK = 0xC008684C          # ldrb r3, [r0, #0x5c]: the first instruction of the info line's builder that reads the label flag
 INFO_WORD = 0xE5D0305C
 INFO_BODY = 0xC0086850
@@ -211,12 +210,12 @@ SOURCE = """
 .equ VIEW_W, @VIEW_W@           ; the view's accessor (copy of the pattern's, pointing into the bank), its state behind it
 .equ V_NUM, 0x40                ; the bank pattern the display shows, FFFFFFFF none (also: nothing ever written)
 .equ V_LIDX, 0x44               ; the info line's index while the label was built
+.equ V_SGNUM, 0x48              ; the bank block (address) a sync group carried into the pattern in RAM (SG_BUF holds what it put there), else not a bank block (FF at start)
 .equ CELL_W, @CELL_W@
 .equ CELL_O, @CELL_O@
 .equ PADS_REFRESH, @PADS_REFRESH@
-.equ S_SGNUM, 0x38               ; the bank block (address) a sync group carried into the pattern in RAM (SG_BUF holds what it put there), else not a bank block (FF at start)
 .equ REPLAYED, 0x80000000       ; in the source argument: a kept press handed on, the gate lets it through                   ; mode 2 toggles every BLINK ticks of the manager's 40 ms tick: 280 ms on, 280 ms off
-.equ S_VOICES, 0x3C
+.equ S_VOICES, 0x38
 .equ VOICE_BEGIN_ORIG, @VOICE_BEGIN_ORIG@
 .equ VOICE_CONT, @VOICE_CONT@
 
@@ -489,7 +488,11 @@ ch_copy:
     str r5, [r12, #S_LOADED]
     cmp r7, #1
     mvnne r5, #0                ; only a carry makes SG_BUF what the pattern in RAM holds (pc_dirty)
-    str r5, [r12, #S_SGNUM]
+    mov r12, #(VIEW_W & 0xFF000000)
+    orr r12, r12, #(VIEW_W & 0x00FF0000)
+    orr r12, r12, #(VIEW_W & 0x0000FF00)
+    orr r12, r12, #(VIEW_W & 0x000000FF)
+    str r5, [r12, #V_SGNUM]
 ch_out:
     pop {r4-r10, pc}
 
@@ -796,8 +799,8 @@ pc_dirty:
     cmp r0, #0
     beq pd_clean
     add r0, r0, #4
-    ldr r3, =STATE
-    ldr r3, [r3, #S_SGNUM]
+    ldr r3, =VIEW_W
+    ldr r3, [r3, #V_SGNUM]
     cmp r3, r2                  ; the carry's bank block is this pattern's place
     beq pd_synced
     add r4, r0, #0x40           ; behind the word of byte 0x3C: of it only the MFX type (0x3D) counts. 0x3C, pad touched, each load sets
