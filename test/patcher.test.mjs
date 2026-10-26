@@ -351,6 +351,7 @@ test("your Korg 2.02 and your hacktribe-2.patch make the known Hacktribe 2.02", 
 test("the blue original selects the synth route and its update directory", async () => {
   const vsb = new Uint8Array(VSB_SIZE);
   vsb.set([0x45, 0x32, 0], 0x10);
+  vsb.fill(0xff, 0x170100, 0x170140); // Korg's blue leaves Hacktribe's code run erased
   const patch = { ...raw("e12fff1e"), builds: ["synth"] };
   patch.changes[0].expect = await sha256(vsb.subarray(FREE, FREE + 4));
   const originalHash = await sha256(vsb);
