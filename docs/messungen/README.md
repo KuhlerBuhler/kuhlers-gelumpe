@@ -76,6 +76,7 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [USB-Sampleimport ohne SD: Offline-Machbarkeit](2026-10-08-usb-sample-import-offline.md)
 - [Sample-Swap: Ladepfad, Platzverwaltung und noch fehlende Gerätetests](2026-10-25-sample-swap.md)
 - [Sample-Swap: RAM-Besitz und ein begrenzter DSP-Transfer](2026-10-25-sample-swap-timeout.md)
+- [Sample-Swap: der Bau](2026-10-26-sample-swap-bau.md)
 - [Ganzer Flash in einem Stand](2026-10-09-flash-dump.md)
 - [Menüzustand im RAM: welcher Bildschirm, welche Seite](2026-10-09-menuezustand.md)
 - [LED-Zustand im RAM: wo die Firmware merkt, was leuchtet](2026-10-14-led-zustand-ram.md)

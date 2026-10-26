@@ -1,6 +1,6 @@
 # Idee 25: Mehr Sample-Speicher
 
-Stand: Forschung und begrenzter DSP-Transfer. Das echte DSP-Limit ist noch nicht gemessen. Zurück zu den [Ideen](../ideen.md).
+Stand: gebaut und im Emulator geprüft, am Gerät noch nicht gemessen ([Bau](../messungen/2026-10-26-sample-swap-bau.md)). Das echte DSP-Limit ist nicht gemessen. Zurück zu den [Ideen](../ideen.md).
 
 Der Sample-Speicher ist vermutlich physisch begrenzt (DSP-SDRAM, Flash). Ein Weg ist Streaming oder Paging von der SD-Karte: die 25 MB als Cache, bei Bedarf laden, alle Samples der Karte anzeigen (lange Samples bedeuten Ladezeit). Kompression hilft dem Speicherplatz auf der Karte, nicht der Menge, die gleichzeitig spielbar ist.
 
@@ -44,3 +44,12 @@ Ist der nächste Satz beim Wechsel nicht fertig, spielt das aktuelle Pattern ein
 Je Pattern sind etwa 10 bis 12 MB vorgesehen. Der Dateikopf liefert die Slot-Offsets; Namen
 stehen in den einzelnen Sample-Metadaten und werden bei Bedarf gelesen. DMA bleibt zunächst aus.
 High Speed mit 50 MHz setzt einen getrennten Test mit einer entbehrlichen microSD voraus.
+
+## Gebaut (26.10.)
+
+Der [Sample-Swap](../messungen/2026-10-26-sample-swap-bau.md) ist im BLECH-Satz für beide roten Builds. Ist
+`e2sSample.all` größer als der Nutzerbereich des DSP, liest der Start nur den Kopf und die Samples des ersten
+Patterns. Im DSP liegen die Samples des laufenden und des kommenden Patterns, der Rest kommt von der Karte. Ein
+Wechsel auf ein Pattern, dessen Samples noch fehlen, wartet eine Runde. Beim Spielen auf dem Hauptbildschirm
+liest der Patch Nachbarn und Kettenziel in freies ARM-RAM vor; jeder andere Bildschirm und jeder Aufruf des
+Arbeitspuffers verwirft diesen Cache. Im Emulator geprüft, am Gerät offen; das Messwerkzeug liegt bereit.

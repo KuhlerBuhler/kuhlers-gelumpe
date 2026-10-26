@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkRam, checkRamPlacement } from "../../src/ramspans.mjs";
 import { selectFor } from "../../src/patch.mjs";
-import { FREE_RUNS } from "../../data/patch-ram.mjs";
+import { FREE_RUNS, HIGH_RUNS } from "../../data/patch-ram.mjs";
 import protectedMap from "../../data/protected.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -38,7 +38,7 @@ export function checkDoomLayout(patches, layout = DOOM_LAYOUT) {
   return [
     ...checkRam([...patches, doom]),
     ...checkRamPlacement([...patches, doom], {
-      free: FREE_RUNS, regions: protectedMap.regions, window: protectedMap.ram.window,
+      free: [...FREE_RUNS, ...HIGH_RUNS], regions: protectedMap.regions, window: protectedMap.ram.window,
       image: protectedMap.regions.find(region => region.id === "firmware-image"),
     }),
   ];

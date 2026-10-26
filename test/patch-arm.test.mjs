@@ -23,6 +23,7 @@ const elsewhere = {
   "script-runtime-card.test.mjs": ["test_script_card"],
   "blech-sysex.test.mjs": ["test_blech_sysex_buffer"],
   "sample-swap-io.test.mjs": ["test_sample_swap_io"],
+  "sample-swap.test.mjs": ["test_sample_swap"],
 };
 const owned = new Set(Object.values(elsewhere).flat().map(name => `${name}.py`));
 const modules = readdirSync(dir).filter(f => /^test_.*\.py$/.test(f) && !owned.has(f)).sort();

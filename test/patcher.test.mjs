@@ -106,7 +106,7 @@ test("itemsFor: the items of a set that apply to a build, one per id", () => {
   const set = { items: [{ id: "a" }, { id: "f" }, { id: "f" }], patches: [{ id: "a", builds: ["hacktribe", "stock"] }, { id: "f", builds: ["hacktribe"] }, { id: "f", builds: ["stock"] }] };
   assert.deepEqual(itemsFor(set, "hacktribe"), [set.items[0], set.items[1]]);
   assert.deepEqual(itemsFor(set, "stock"), [set.items[0], set.items[2]]);
-  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "doom-loader", "blech-sysex"]);
+  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "sample-swap", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "doom-loader", "blech-sysex"]);
   assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 1, "the synth filters are for Korg's build only");
 });
 
@@ -115,7 +115,7 @@ test("BLECH is the set data/patches/blech.json: every patch it lists, in its ord
   const listed = readFile(BLECH_SET_URL).patches;
   assert.deepEqual(BLECH.map(p => p.url), listed);
   assert.ok(BLECH.length > 3, "the whole set, not three of its patches");
-  for (const id of ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "synth-filters", "power-off", "blech-sysex"]) assert.ok(BLECH.some(p => p.id === id), id);
+  for (const id of ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "sample-swap", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "synth-filters", "power-off", "blech-sysex"]) assert.ok(BLECH.some(p => p.id === id), id);
   BLECH.forEach((p, i) => {
     const file = readFile(p.url);
     assert.deepEqual([p.id, p.label], [file.id, file.name]);

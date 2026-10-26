@@ -21,6 +21,16 @@ export const FREE_RUNS = [
   },
 ];
 
+/**
+ * RAM behind the firmware image where a patch may keep buffers of its own. Every measured phase left it untouched: the
+ * device while playing, the emulator over start, play, pattern switch, DATA UTILITY import and export and power off.
+ */
+export const HIGH_RUNS = [{
+  start: 0xc274f000, end: 0xc4000000,
+  what: "RAM über dem Interrupt-Stack bis zum Ende der 64 MiB",
+  evidence: "docs/messungen/2026-10-22-ram-frei.md, docs/messungen/2026-10-25-sample-swap-timeout.md",
+}];
+
 export const SYNTH_FREE_RUNS = [{
   start: 0xc01217f4, end: 0xc01ffff0,
   what: "FF-Block im blauen Original 2.02",
