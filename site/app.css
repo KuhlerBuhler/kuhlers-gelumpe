@@ -1107,7 +1107,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 /* The floor the Blechys walk on: each one is placed by translateX from the left edge. */
 .cee-discord-floor {
   position: relative;
-  height: 200px;
+  height: 150px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1120,11 +1120,58 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   position: absolute;
   bottom: 0;
   left: 0;
-  display: grid;
-  justify-items: center;
-  gap: var(--space-1);
-  max-width: 160px;
+  width: 112px;
   will-change: transform;
+}
+
+.cee-discord-blechy[hidden] {
+  display: none;
+}
+
+/* On the floor a name shows only while the pointer is on its Blechy, so passing names never pile up. */
+.cee-discord-blechy .cee-discord-tag {
+  position: absolute;
+  bottom: calc(100% + var(--space-1));
+  left: 50%;
+  transform: translateX(-50%);
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.cee-discord-blechy:hover {
+  z-index: 1;
+}
+
+.cee-discord-blechy:hover .cee-discord-tag {
+  visibility: visible;
+}
+
+.cee-discord-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-discord-people li {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cee-discord-people li[hidden] {
+  display: none;
+}
+
+.cee-discord-more {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
 }
 
 .cee-discord-blechy-art {
@@ -1137,7 +1184,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  max-width: 160px;
+  max-width: 100%;
   padding: 2px var(--space-2);
   border: 1px solid var(--color-border-muted);
   border-radius: var(--radius-pill);
@@ -1145,15 +1192,20 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   font-size: var(--text-sm);
 }
 
+.cee-discord-tag strong {
+  max-width: 160px;
+}
+
 .cee-discord-tag strong,
 .cee-discord-game {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .cee-discord-game {
-  max-width: 160px;
+  max-width: 120px;
   font-size: var(--text-xs);
 }
 
