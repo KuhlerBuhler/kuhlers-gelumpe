@@ -5,6 +5,7 @@
  */
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
+import { t } from "./i18n.mjs";
 
 export function subnav() {
   let current = null;
@@ -20,7 +21,7 @@ export function subnav() {
     if (hosts.has(tab)) return hosts.get(tab);
     const entry = document.getElementById(`cee-tab-${tab}`);
     const node = el("div", { className: "cee-nav-sub", id: `cee-sub-${tab}`, role: "group", hidden: true });
-    node.setAttribute("aria-label", `Optionen ${entry.textContent}`);
+    node.setAttribute("aria-label", t("nav.options", { area: entry.textContent }));
     node.style.order = String(slot(entry) + 2);
     entry.closest(".cee-nav").append(node);
     hosts.set(tab, node);

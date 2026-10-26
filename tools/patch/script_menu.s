@@ -540,9 +540,7 @@ menu_save_trust_done:
     tst r8, #1
     ldrne r1, =settings_path_b
     mov r0, r6
-    mov r2, #0x0A
-    ldr r12, =FS_OPEN
-    blx r12
+    bl card_create
     cmp r0, #0
     bne menu_save_fail
     mov r0, r6
@@ -2684,9 +2682,7 @@ menu_export_scanned:
     str r0, [r11, #12]
     mov r0, r6
     ldr r1, =export_path
-    mov r2, #0x0A
-    ldr r12, =FS_OPEN
-    blx r12
+    bl card_create
     cmp r0, #0
     bne menu_export_fail
     mov r0, r6

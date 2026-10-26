@@ -5,6 +5,7 @@
  "name": "BLECH für die blaue Electribe 2 (Synth)",
  "patches": [
   "data/patches/blech-sysex-synth.json",
+  "data/patches/blechtribe-synth.json",
   "data/patches/splash-synth.json",
   "data/patches/blech-theme-synth.json",
   "data/patches/power-off-synth.json",
