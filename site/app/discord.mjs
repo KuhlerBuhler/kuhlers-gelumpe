@@ -144,7 +144,7 @@ function floor(members) {
     const loaded = await loadPoses();
     if (!loaded || running) return;
     const ink = getComputedStyle(list).color;
-    const fill = getComputedStyle(list).getPropertyValue("--color-bg-page").trim() || "#0a0a0b";
+    const fill = getComputedStyle(list).getPropertyValue("--color-bg-page").trim();
     const art = Object.fromEntries(Object.entries(loaded).map(([id, pose]) => [id, sprite(pose, ink, fill)]));
     place(list.clientWidth);
     const begin = performance.now();
