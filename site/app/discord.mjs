@@ -42,18 +42,36 @@ const LISTED = 24;
 
 const link = (href, text, className = "cee-text-link") => el("a", { className, href, target: "_blank", rel: "noopener noreferrer", textContent: text });
 
-/** The pixels of a sprite that open space outside cannot reach: his lines and everything they close in. */
+/** Gaps in his outline up to twice this wide count as closed: his head is open at the side, behind the eye. */
+const CLOSE = 3;
+
+/** Every pixel within `r` of a set one, or with `grow` false, only those whose whole square of radius `r` is set. */
+function spread(mask, r, grow) {
+  return mask.map((row, y) => row.map((_, x) => {
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if ((mask[y + dy]?.[x + dx] ?? false) === grow) return grow;
+    return !grow;
+  }));
+}
+
+/**
+ * His whole silhouette, head included: the sprite widened by CLOSE so the gaps in his outline shut, everything the open
+ * space around it cannot reach, narrowed back by CLOSE. The sprite sits in a margin so the space reaches round him.
+ */
 function solid(mask) {
-  const outside = mask.map(row => row.map(() => false));
-  const todo = [];
-  mask.forEach((row, y) => row.forEach((_, x) => { if (y === 0 || x === 0 || y === mask.length - 1 || x === row.length - 1) todo.push([x, y]); }));
+  const pad = CLOSE + 1;
+  const w = mask[0].length + 2 * pad;
+  const framed = Array.from({ length: mask.length + 2 * pad }, (_, y) => Array.from({ length: w }, (_, x) => mask[y - pad]?.[x - pad] ?? false));
+  const wide = spread(framed, CLOSE, true);
+  const outside = wide.map(row => row.map(() => false));
+  const todo = [[0, 0]];
   while (todo.length) {
     const [x, y] = todo.pop();
-    if (outside[y]?.[x] !== false || mask[y][x]) continue;
+    if (outside[y]?.[x] !== false || wide[y][x]) continue;
     outside[y][x] = true;
     todo.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
   }
-  return mask.map((row, y) => row.map((_, x) => !outside[y][x]));
+  const inside = spread(outside.map(row => row.map(o => !o)), CLOSE, false);
+  return mask.map((row, y) => row.map((set, x) => set || inside[y + pad][x + pad]));
 }
 
 let poses;

@@ -92,6 +92,33 @@ for (const [label, viewport] of [["desktop", { width: 1280, height: 800 }], ["wi
   }
 }
 
+test("the head is solid too: across the eyes, every pixel from one side of the head to the other is filled", async () => {
+  const page = await open(5, { width: 1280, height: 800 });
+  // The third and fourth member stand still (away and busy), so their pictures do not change while we look.
+  for (const index of [3, 4]) {
+    await page.waitForFunction(i => {
+      const c = document.querySelectorAll(".cee-discord-blechy-art")[i];
+      return c.getContext("2d").getImageData(0, 0, c.width, c.height).data.some((v, j) => j % 4 === 3 && v);
+    }, index);
+    const holes = await page.locator(".cee-discord-blechy-art").nth(index).evaluate(c => {
+      const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+      const opaque = (x, y) => d[(y * c.width + x) * 4 + 3] === 255;
+      let top = 0;
+      while (![...Array(c.width).keys()].some(x => opaque(x, top))) top++;
+      // Rows 10 to 14 of the sprite, two canvas pixels each: the eyes, well inside the head.
+      const gaps = [];
+      for (let y = top + 20; y < top + 30; y++) {
+        const xs = [...Array(c.width).keys()].filter(x => opaque(x, y));
+        for (let x = xs[0]; x <= xs.at(-1); x++) if (!opaque(x, y)) gaps.push(`${x},${y}`);
+      }
+      return gaps;
+    });
+    assert.deepEqual(holes, [], `Blechy ${index}`);
+  }
+  assert.deepEqual(page.errors, []);
+  await page.context().close();
+});
+
 test("a Blechy shows his name while the pointer is on him, and now and then stops for his dance", async () => {
   const page = await open(40, { width: 1280, height: 800 });
   await page.locator(".cee-discord-blechy[data-move=dance]").first().waitFor({ timeout: 20_000 });
