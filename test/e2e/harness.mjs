@@ -41,7 +41,7 @@ export async function setUp(routes = () => [], { realDevices = false } = {}) {
       return path;
     },
     async page({ device = false } = {}) {
-      const context = await browser.newContext({ acceptDownloads: true });
+      const context = await browser.newContext({ acceptDownloads: true, locale: "de-DE" });
       context.setDefaultTimeout(20_000);
       // The changelog page asks GitHub for the releases; tests never reach the network and see none.
       await context.route("https://api.github.com/**", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
