@@ -5,7 +5,7 @@ import { icon } from "./icons.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { applyPatches } from "../../src/patch.mjs";
-import { applyPatchFile, parsePatchFile } from "../../src/patchfile.mjs";
+import { applyPatchFile, parsePatchFile, patchesFor } from "../../src/patchfile.mjs";
 import { NEWS } from "../../data/news.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf, hardwareOf } from "../../src/firmware.mjs";
@@ -404,7 +404,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   /** What goes on the file: the set of this version for its build, or the patches of the BLECH.patch the user brought. */
   function planItems() {
-    if (ownPatch) return ownPatch.file.patches.map(p => ({ id: p.id, label: p.name ?? p.id }));
+    // one line per patch: the variant for this firmware (a BLECH.patch carries one per build)
+    if (ownPatch) return input ? patchesFor(ownPatch.file, base()).map(p => ({ id: p.id, label: p.name ?? p.id })) : [];
     return blech && input ? itemsFor(blech, buildOf(input)) : [];
   }
 

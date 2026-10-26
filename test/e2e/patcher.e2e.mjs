@@ -8,6 +8,8 @@ import { fakeService, TOKEN } from "./support/fake-emu.mjs";
 import { makeFirmware, withHacktribeRun } from "../helpers.mjs";
 import { applyPatches, splashPatch, SPLASH_W, SPLASH_H } from "../../src/patch.mjs";
 import { sha256 } from "../../src/firmware.mjs";
+import { buildPatchFile } from "../../src/patchfile.mjs";
+import { fixture as patchSet, COPY_TO } from "../support/patch-set.mjs";
 import { field } from "../../src/map/index.mjs";
 import { STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, SYNTH_SHA256 } from "../../src/patcher.mjs";
 import { expected, fakeFirmware, fixture, sha } from "../fixtures/bsdiff/data.mjs";
@@ -483,6 +485,25 @@ test("patcher: the blue original gets its synth set and trials the copy in elect
   } finally {
     fake.hooks.korg = null;
   }
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher: an own BLECH.patch lists each patch once, the variant for the dropped firmware", async () => {
+  const { vsb, patches } = await patchSet();
+  const at = COPY_TO + 0x180;
+  const was = await sha256(vsb.subarray(at, at + 4));
+  const variant = (builds, bytes) => ({ format: "gelumpe-patch", version: 1, id: "folder", name: "Ordner", builds, changes: [{ file: at, bytes, expect: was }] });
+  const set = [...patches.map(p => ({ ...p, builds: ["hacktribe", "stock"] })), variant(["hacktribe"], "11111111"), variant(["stock"], "22222222")];
+  const file = await buildPatchFile(vsb, set, { version: "9.9.9", id: "demo", name: "Demo" });
+  const page = await patcherPage();
+  await drop(page, vsb);
+  await page.click("#cee-patch-next");
+  await page.uncheck("#cee-patch-latest");
+  await page.setInputFiles("#cee-patch-blech-file", h.file("BLECH.patch", file));
+  await page.locator("#cee-patch-blech-info", { hasText: "9.9.9" }).waitFor();
+  const listed = await page.locator("#cee-patch-plan li").allTextContents();
+  assert.equal(listed.filter(t => t === "Ordner").length, 1, "the folder patch once, not once per build");
+  assert.equal(new Set(listed).size, listed.length);
   assert.deepEqual(page.errors, []);
 });
 
