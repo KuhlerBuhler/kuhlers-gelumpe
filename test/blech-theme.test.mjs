@@ -152,6 +152,7 @@ test("every character the firmware prints has an entry in every font", { skip: p
 test("the synth theme uses its own measured font and image tables", async () => {
   const bytes = await makeThemedBase();
   bytes.set([0x45, 0x32, 0], 0x10);
+  bytes.fill(0xff, 0x170100, 0x170140); // Korg's blue leaves Hacktribe's code run erased
   bytes.copyWithin(file(0xC00AD208), file(FONT_TABLE), file(FONT_TABLE) + 16);
   bytes.copyWithin(file(0xC00AC624), file(IMAGE_TABLE), file(IMAGE_TABLE) + 19 * 4);
   bytes.fill(0, file(FONT_TABLE), file(FONT_TABLE) + 16);

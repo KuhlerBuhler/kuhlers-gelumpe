@@ -430,6 +430,7 @@ test("patcher: the hint names the folder the running firmware reads, not a guess
 test("patcher: the blue original gets its synth set and trials the copy in electribe/System", async () => {
   const original = await makeFirmware();
   original.set([0x45, 0x32, 0], 0x10);
+  original.fill(0xff, 0x170100, 0x170140); // Korg's blue leaves Hacktribe's code run erased
   const hash = await sha256(original);
   const page = await h.page();
   await page.route(/\/src\/patcher\.mjs$/, async route => {

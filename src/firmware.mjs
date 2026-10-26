@@ -33,9 +33,11 @@ const isSynth = bytes => bytes.length > 0x12 && bytes[0x10] === 0x45 && bytes[0x
 
 /** @returns {"hacktribe" | "stock" | "synth"} */
 export function buildOf(bytes) {
-  if (isSynth(bytes)) return "synth";
+  // Hacktribe's code decides before the head: Hacktribe on a blue Electribe can carry the synth head (docs/ideen/65-blech-hacktribe-blau.md).
   const run = bytes.subarray(HACKTRIBE_CODE.file, HACKTRIBE_CODE.file + HACKTRIBE_CODE.length);
-  return run.length === HACKTRIBE_CODE.length && run.every(b => b === 0xff) ? "stock" : "hacktribe";
+  const erased = run.length === HACKTRIBE_CODE.length && run.every(b => b === 0xff);
+  if (isSynth(bytes)) return erased ? "synth" : "hacktribe";
+  return erased ? "stock" : "hacktribe";
 }
 
 /**
