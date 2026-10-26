@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import de from "../site/app/i18n-de.mjs";
 import { t, tNodes, setLanguage, language, LANGUAGES } from "../site/app/i18n.mjs";
+import { literals, looksLikeUiText, htmlText } from "./ui-text.mjs";
 
 const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
 const code = readdirSync(new URL("../site/app/", import.meta.url))
@@ -61,3 +62,41 @@ test("tNodes() puts nodes where the text names them", () => {
   assert.deepEqual(tNodes("{a}.", { a: [node, "y"] }), [node, "y", "."]);
 });
 
+// Hard-coded UI text. patcher.mjs and emulator.mjs (and their sections in index.html) follow in a later step.
+const EXCLUDED = ["patcher.mjs", "emulator.mjs"];
+const EXCLUDED_AREAS = ["cee-area-patcher", "cee-area-emu"];
+// Literals that pass the heuristic but are no UI text: KeyboardEvent.key names, HTTP headers, and per file with the reason.
+const KEYS = ["Escape", "Enter", "Home", "End", "Backspace", "Delete", "Content-Type"];
+const ALLOWED = {
+  // The labels printed on the front of the Electribe, drawn as they are on the device.
+  "panel.mjs": ["Volume", "Input Level", "Sample", "Filter", "Modulation", "Insert Fx"],
+  // The default name of a sample as the device writes it.
+  "sampleset.mjs": ["Sample{}"],
+  "samples.mjs": ["Sample{}"],
+  // A name: the BLECHTRIBE mascot.
+  "splash.mjs": ["Blechy"],
+  // A heading of docs/plugins.md, found by its text.
+  "scripts.mjs": ["Namen für Tasten und LEDs"],
+  // The file name of a saved profile picture.
+  "support.mjs": ["Blechy{}"],
+};
+
+const hardcoded = (file, src) => literals(src)
+  .filter(l => looksLikeUiText(l.value) && !KEYS.includes(l.value) && !(ALLOWED[file] ?? []).includes(l.value))
+  .map(l => `${file}:${l.line}: ${l.value}`);
+
+test("site/app has no hard-coded UI text: every German label, message and toast goes through t()", () => {
+  const files = readdirSync(new URL("../site/app/", import.meta.url)).filter(f => f.endsWith(".mjs") && !f.startsWith("i18n") && !EXCLUDED.includes(f));
+  assert.deepEqual(files.flatMap(f => hardcoded(f, readFileSync(new URL(`../site/app/${f}`, import.meta.url), "utf8"))), []);
+});
+
+test("index.html has no hard-coded UI text outside data-i18n, data-i18n-html and data-i18n-label", () => {
+  assert.deepEqual(htmlText(html, EXCLUDED_AREAS).filter(s => looksLikeUiText(s.value)).map(s => `${s.line}: ${s.value}`), []);
+});
+
+test("the scan catches a planted string, a template, an aria-label and a text node", () => {
+  assert.deepEqual(hardcoded("x.mjs", 'toast("Datei gespeichert"); el("b", { textContent: `Noch ${n} Samples frei` }); t("nav.start");').length, 2);
+  assert.deepEqual(hardcoded("x.mjs", 'el("div", { className: "cee-a cee-b" }); if (e.key === "Escape") x("data-tone");'), []);
+  const page = '<body><p>Hallo Welt</p><p data-i18n="a.b">Schon im Table</p><button aria-label="Schließen"></button><div id="cee-area-emu"><p>Hier nicht</p></div></body>';
+  assert.deepEqual(htmlText(page, EXCLUDED_AREAS).filter(s => looksLikeUiText(s.value)).map(s => s.value), ["Hallo Welt", "Schließen"]);
+});
