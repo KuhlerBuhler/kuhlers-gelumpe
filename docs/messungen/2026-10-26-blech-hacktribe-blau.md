@@ -51,6 +51,10 @@ erste Installation geht weiter über `KORG/electribe/System/` (Korgs blaue läuf
 `KORG/blechtribe/System/`. Die Seite sagt, `KORG/electribe/` nach `KORG/blechtribe/` zu kopieren; ein Übernahme-Fenster
 wie auf der roten gibt es auf der blauen noch nicht.
 
+Gemessen mit dem BLECH-Synth-Satz samt Umbenennung (`synth_update_probe.py`, leerer Flash der blauen): Kurzprüfung 21 von 21;
+Korgs blaue schreibt ihn aus `KORG/electribe/System/` (512 Lösch-, 8192 Schreibbefehle), Neustart bis Hauptbild; danach
+erfragt er `SD:KORG/blechtribe/System/SYSTEM.VSB`; Korgs blaue unverändert von dort zurück, Neustart bis Hauptbild.
+
 Wo die Firmware schreibt und ein Ordner fehlt, legt sie die Ordner des Pfads an und versucht es einmal neu
 (`card_create` in `tools/patch/script_card.s`, `make_folders` in `tools/patch/blech_sysex.py`): die Einstellungen, der
 Plugin-Export, der Plugin-Speicher und die Dateien über BLECH SysEx. Auf der roten ist der Ordner nach der Umbenennung da,
