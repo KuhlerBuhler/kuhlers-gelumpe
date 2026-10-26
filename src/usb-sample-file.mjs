@@ -10,14 +10,15 @@ import { BLECH, crc32 } from "./protocol.mjs";
 import { crc32Join } from "./crc-combine.mjs";
 import { prepare } from "./usb-update.mjs";
 import { HEADER, SampleFileError, emptySampleFile, parseRemote, parseSampleFile, planChange } from "./sample-file.mjs";
+import { render, text, TextError } from "./text.mjs";
 
 /** The error of a swap that went wrong after the old file was deleted: the temp file on the card holds the finished file. */
-export class SwapInterrupted extends Error {}
+export class SwapInterrupted extends TextError {}
 
 async function prepareSamples(session) {
   const model = await prepare(session);
   const info = await session.sender.blechInfo(model);
-  if (!(info.flags & BLECH.FLAG_SAMPLE)) throw new Error("Das BLECHTRIBE auf deiner Electribe kann die Sample-Datei noch nicht über USB. Spiel einmal die neue Firmware auf, danach geht es.");
+  if (!(info.flags & BLECH.FLAG_SAMPLE)) throw new TextError("usbsamples.tooOld");
   return { model, sender: session.sender };
 }
 
@@ -58,12 +59,12 @@ export function downloadDeviceSamples(session, onProgress = () => {}, signal) {
     for (const piece of pieces(0, size)) {
       signal?.throwIfAborted();
       const got = await sender.sampleFileRead(piece.at, piece.length, model);
-      if (got.length !== piece.length) throw new SampleFileError(`Die Sample-Datei auf der Karte endet bei ${piece.at + got.length} Byte statt bei ${size}.`);
+      if (got.length !== piece.length) throw new SampleFileError(render(text("usbsamples.download.short", { at: piece.at + got.length, size })));
       bytes.set(got, piece.at);
       onProgress(piece.at + piece.length, size);
     }
     const after = await sender.sampleFileSize(model);
-    if (after !== size) throw new SampleFileError(`Die Sample-Datei auf der Karte ist während des Lesens von ${size} auf ${after} Byte geändert worden.`);
+    if (after !== size) throw new SampleFileError(render(text("usbsamples.download.changed", { size, after })));
     return { bytes, parsed: parseSampleFile(bytes) };
   });
 }
@@ -83,10 +84,10 @@ export function writeDeviceChange(session, parsed, plan, onProgress = () => {}) 
       const total = plan.appends.reduce((n, a) => n + a.bytes.length, 0) + HEADER;
       let done = 0;
       for (const a of plan.appends) {
-        await sender.sampleFileWrite(a.at, a.bytes, model, n => onProgress({ phase: "Sende neue Samples", done: done + n, total }));
+        await sender.sampleFileWrite(a.at, a.bytes, model, n => onProgress({ phase: render(text("usbsamples.phase.send")), done: done + n, total }));
         done += a.bytes.length;
       }
-      await sender.sampleFileWrite(0, plan.header, model, n => onProgress({ phase: "Schreibe den Kopf", done: done + n, total }));
+      await sender.sampleFileWrite(0, plan.header, model, n => onProgress({ phase: render(text("usbsamples.phase.header")), done: done + n, total }));
       return;
     }
     const keptBytes = plan.keeps.reduce((n, k) => n + k.length, 0);
@@ -96,7 +97,7 @@ export function writeDeviceChange(session, parsed, plan, onProgress = () => {}) 
     const report = phase => { onProgress({ phase, done, total }); };
     const parts = [];
     try {
-      report("Baue die neue Datei auf der Karte");
+      report(render(text("usbsamples.phase.build")));
       await sender.sampleFileWrite(0, plan.header, model, null, true);
       parts.push({ crc: crc32(plan.header), length: plan.header.length });
       done += HEADER;
@@ -112,25 +113,25 @@ export function writeDeviceChange(session, parsed, plan, onProgress = () => {}) 
           const crc = await sender.sampleFileCopy({ at: run.from + piece.at }, { at: run.to + piece.at, temp: true }, piece.length, model);
           parts.push({ crc, length: piece.length });
           done += piece.length;
-          report("Baue die neue Datei auf der Karte");
+          report(render(text("usbsamples.phase.build")));
         }
       }
       for (const a of plan.appends) {
         await sender.sampleFileWrite(a.at, a.bytes, model, null, true);
         parts.push({ crc: crc32(a.bytes), length: a.bytes.length });
         done += a.bytes.length;
-        report("Sende neue Samples");
+        report(render(text("usbsamples.phase.send")));
       }
       const expected = crc32Join(parts);
-      if (parts.reduce((n, p) => n + p.length, 0) !== plan.size) throw new SampleFileError("Die Teile der neuen Datei ergeben nicht die geplante Größe.");
-      await checkFile(sender, model, true, plan.size, expected, n => { done += n; report("Prüfe die neue Datei"); });
+      if (parts.reduce((n, p) => n + p.length, 0) !== plan.size) throw new SampleFileError("usbsamples.partsSize");
+      await checkFile(sender, model, true, plan.size, expected, n => { done += n; report(render(text("usbsamples.phase.check"))); });
       // from here on the old file goes: a failure leaves the finished temp file on the card
       try {
         if (parsed.size) await sender.sampleFileDelete(model, false);
-        await copyBack(sender, model, plan.size, expected, n => { done += n; report("Kopiere die neue Datei zurück"); });
+        await copyBack(sender, model, plan.size, expected, n => { done += n; report(render(text("usbsamples.phase.copyBack"))); });
         await sender.sampleFileDelete(model, true);
       } catch (e) {
-        throw new SwapInterrupted(`Die neue Datei liegt fertig als Tauschdatei auf der Karte, das Austauschen ist unterbrochen: ${e.message} Verbinde neu, dann kannst du es abschließen.`, { cause: e });
+        throw new SwapInterrupted("usbsamples.interrupted", { error: e.text ?? e.message }, { cause: e });
       }
     } catch (e) {
       if (!(e instanceof SwapInterrupted)) await sender.sampleFileDelete(model, true).catch(() => {});
@@ -142,13 +143,13 @@ export function writeDeviceChange(session, parsed, plan, onProgress = () => {}) 
 /** The size and the CRC-32 of a file on the card, read by the device itself in pieces; throws when they are not the expected ones. */
 async function checkFile(sender, model, temp, size, expected, onPiece) {
   const have = await sender.sampleFileSize(model, temp);
-  if (have !== size) throw new SampleFileError(`Die ${temp ? "Tauschdatei" : "Sample-Datei"} auf der Karte ist ${have} Byte groß statt ${size}.`);
+  if (have !== size) throw new SampleFileError(temp ? "usbsamples.size.temp" : "usbsamples.size", { have, size });
   const crcs = [];
   for (const piece of pieces(0, size)) {
     crcs.push({ crc: await sender.sampleFileCrc(piece.at, piece.length, model, temp), length: piece.length });
     onPiece?.(piece.length);
   }
-  if (crc32Join(crcs) !== expected) throw new SampleFileError(`Die ${temp ? "Tauschdatei" : "Sample-Datei"} auf der Karte hat nicht die Prüfsumme, die sie haben soll.`);
+  if (crc32Join(crcs) !== expected) throw new SampleFileError(temp ? "usbsamples.crc.temp" : "usbsamples.crc");
 }
 
 /** The temp file copied onto the sample file, which is not there; then the size and the CRC of the result are checked. */
@@ -187,7 +188,7 @@ export function finishTemp(session, onProgress = () => {}) {
     const expected = crc32Join(crcs);
     if (await sender.sampleFileSize(model)) await sender.sampleFileDelete(model, false);
     let done = 0;
-    await copyBack(sender, model, size, expected, n => { done += n; onProgress({ phase: "Kopiere die neue Datei zurück", done, total: size * 2 }); });
+    await copyBack(sender, model, size, expected, n => { done += n; onProgress({ phase: render(text("usbsamples.phase.copyBack")), done, total: size * 2 }); });
     await sender.sampleFileDelete(model, true);
   });
 }

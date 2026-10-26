@@ -22,6 +22,8 @@ import {
 import { unitFor, hex } from "./units.mjs";
 import { profileKey } from "./profile.mjs";
 import { judgeOutput } from "./gain.mjs";
+import { finding } from "./finding.mjs";
+import { text } from "./text.mjs";
 
 export const SEVERITY_ORDER = ["fatal", "silent", "error", "warn", "note"];
 
@@ -33,7 +35,7 @@ const BOTTOM_SOURCES = new Set([0x42, 0x45]);
 
 export function lint(record, { units, profile = null } = {}) {
   const findings = [];
-  const add = (severity, code, message, where) => findings.push({ severity, code, message, where });
+  const add = (severity, code, where, key, vars) => findings.push(finding({ severity, code, where }, key, vars));
 
   checkName(record, add);
   checkFiledCorrectly(record, add);
@@ -52,10 +54,10 @@ export function lint(record, { units, profile = null } = {}) {
 
 function checkName(record, add) {
   const name = record.name;
-  if (!name) add("note", "name-empty", "the preset has no name, the device shows a blank menu entry", "name");
+  if (!name) add("note", "name-empty", "name", "lint.name.empty");
   for (const ch of name) {
     if (ch.charCodeAt(0) < 0x20 || ch.charCodeAt(0) > 0x7e) {
-      add("note", "name-unprintable", `the name contains a character the display cannot show: ${JSON.stringify(ch)}`, "name");
+      add("note", "name-unprintable", "name", "lint.name.unprintable", { char: JSON.stringify(ch) });
       break;
     }
   }
@@ -73,20 +75,13 @@ function checkFiledCorrectly(record, add) {
   const first = record.bytes[REC.stage.ifx1.device];
 
   if (record.kind === "mfx" && !master && first) {
-    add("silent", "wrong-table",
-      `this looks like an insert preset sitting in the master table: the master field is empty ` +
-      `and insert stage 1 holds ${hex(first)}. Copied from the wrong donor, it selects and stays ` +
-      `silent.`, "record");
+    add("silent", "wrong-table", "record", "lint.wrongTable.master", { unit: hex(first) });
   }
   if (record.kind === "ifx" && !first && master && master !== MFX_MUTE) {
-    add("silent", "wrong-table",
-      `this looks like a master preset sitting in the insert table: insert stage 1 is empty and ` +
-      `the master field holds ${hex(master)}.`, "record");
+    add("silent", "wrong-table", "record", "lint.wrongTable.insert", { unit: hex(master) });
   }
   if (record.kind === "ifx" && master && master !== MFX_MUTE) {
-    add("warn", "insert-master-field",
-      `the unused master field holds ${hex(master)}. Across the factory insert presets it is ` +
-      `either ${hex(MFX_MUTE)} (mute) or zero.`, "record");
+    add("warn", "insert-master-field", "record", "lint.insertMasterField", { unit: hex(master), mute: hex(MFX_MUTE) });
   }
 }
 
@@ -102,15 +97,11 @@ function checkStages(record, units, add) {
     stages.set(stage, { device, unit });
 
     if (!unit) {
-      add("warn", "device-unknown",
-        `${stage} holds ${hex(device)}, a unit nothing is known about. Its parameter list is ` +
-        `unknown, so every map entry pointing at it is a guess.`, stage);
+      add("warn", "device-unknown", stage, "lint.deviceUnknown", { stage, unit: hex(device) });
     }
 
     if (record.kind === "ifx" && device >= MFX_DEVICE_RANGE[0] && device <= MFX_DEVICE_RANGE[1]) {
-      add("fatal", "master-unit-in-insert",
-        `${stage} holds ${hex(device)}, which is a master effect unit. A master unit inside an ` +
-        `insert chain hangs the device.`, stage);
+      add("fatal", "master-unit-in-insert", stage, "lint.masterUnitInInsert", { stage, unit: hex(device) });
     }
   }
 
@@ -119,9 +110,7 @@ function checkStages(record, units, add) {
     // record but Korg leaves them at zero in all of its master presets.
     for (const stage of ["ifx1", "ifx2"]) {
       if (record.device(stage)) {
-        add("error", "master-extra-stage",
-          `a master preset carries ${hex(record.device(stage))} in ${stage}. A master slot runs ` +
-          `one unit; the second is ignored at best.`, stage);
+        add("error", "master-extra-stage", stage, "lint.masterExtraStage", { unit: hex(record.device(stage)), stage });
       }
     }
     return stages;
@@ -131,20 +120,18 @@ function checkStages(record, units, add) {
   if (second) {
     const known = STAGE2[second];
     if (!known) {
-      add("warn", "stage2-untested",
-        `${hex(second)} in stage 2 has never been tried. Proven there: ` +
-        `${Object.entries(STAGE2).filter(([, v]) => v.verdict === "ok").map(([k]) => hex(Number(k))).join(", ")}. ` +
-        `Test it over RAM, not from a flashed image.`, "ifx2");
+      add("warn", "stage2-untested", "ifx2", "lint.stage2.untested", {
+        unit: hex(second), proven: Object.entries(STAGE2).filter(([, v]) => v.verdict === "ok").map(([k]) => hex(Number(k))).join(", "),
+      });
     } else if (known.verdict === "fatal") {
-      add("fatal", "stage2-fatal", `${hex(second)} in stage 2: ${known.note}`, "ifx2");
+      add("fatal", "stage2-fatal", "ifx2", "lint.stage2.known", { unit: hex(second), note: known.note });
     } else if (known.verdict === "silent") {
-      add("silent", "stage2-silent", `${hex(second)} in stage 2: ${known.note}`, "ifx2");
+      add("silent", "stage2-silent", "ifx2", "lint.stage2.known", { unit: hex(second), note: known.note });
     }
 
     const solo = STAGE1_NEEDS_SOLO[record.device("ifx1")];
     if (solo) {
-      add(solo.verdict || "fatal", "stage1-needs-solo",
-        `${hex(record.device("ifx1"))} in stage 1 with a second stage behind it: ${solo.note}`, "ifx1");
+      add(solo.verdict || "fatal", "stage1-needs-solo", "ifx1", "lint.stage1NeedsSolo", { unit: hex(record.device("ifx1")), note: solo.note });
     }
   }
 
@@ -159,50 +146,41 @@ function checkMap(record, units, stages, add) {
     const source = SOURCES[row.source];
 
     if (!source) {
-      add("error", "map-source-unknown",
-        `source ${hex(row.source)} is not one the device sends. The row does nothing.`, where);
+      add("error", "map-source-unknown", where, "lint.map.sourceUnknown", { source: hex(row.source) });
     } else if (record.kind === "ifx" && !source.ifx) {
-      add("error", "map-source-unavailable",
-        `"${source.name}" only exists on the touchpad, and the touchpad drives the master effect. ` +
-        `An insert preset is played with the one knob, so this row is dead.`, where);
+      add("error", "map-source-unavailable", where, "lint.map.sourceUnavailable", { name: source.name });
     }
 
     const chain = CHAINS[row.chain];
     if (!chain) {
-      add("error", "map-chain-unknown", `chain ${hex(row.chain)} is not a known target`, where);
+      add("error", "map-chain-unknown", where, "lint.map.chainUnknown", { chain: hex(row.chain) });
       continue;
     }
 
     if (chain.stage) {
       const expected = record.kind === "mfx" ? ["mfx"] : ["ifx1", "ifx2"];
       if (!expected.includes(chain.stage)) {
-        add("error", "map-chain-wrong-kind",
-          `the row points at "${chain.name}", which a ${record.kind} preset does not have`, where);
+        add("error", "map-chain-wrong-kind", where, "lint.map.chainWrongKind", { name: chain.name, kind: record.kind });
         continue;
       }
       const target = stages.get(chain.stage);
       if (!target) {
-        add("error", "map-chain-empty",
-          `the row points at "${chain.name}", but that stage is empty`, where);
+        add("error", "map-chain-empty", where, "lint.map.chainEmpty", { name: chain.name });
         continue;
       }
       if (target.unit && row.param >= target.unit.params.length) {
-        add("error", "map-param-out-of-range",
-          `parameter ${row.param} does not exist on ${target.unit.unit}, which has ` +
-          `${target.unit.params.length}. The map stores a position in the parameter list, not an ` +
-          `address, so this reaches past the end of the list.`, where);
+        add("error", "map-param-out-of-range", where, "lint.map.paramOutOfRange", { param: row.param, unit: target.unit.unit, count: target.unit.params.length });
       }
     }
 
     const key = `${row.source}:${row.chain}:${row.param}`;
     if (seen.has(key)) {
-      add("note", "map-duplicate",
-        `a second row drives the same parameter from the same control; the later one wins`, where);
+      add("note", "map-duplicate", where, "lint.map.duplicate");
     }
     seen.add(key);
 
     if (row.low === row.high) {
-      add("note", "map-flat", `start and end are both ${row.low}, so the control changes nothing`, where);
+      add("note", "map-flat", where, "lint.map.flat", { value: row.low });
     }
   }
 }
@@ -236,11 +214,7 @@ function checkFxOnCrossfade(record, add) {
     (r.source === 0x41 && r.chain === 0x0a));       // switch cross-fades the output
   if (fade) return;
 
-  add("silent", "no-switch-on-fade",
-    `a master preset needs something that keeps it out of the way while it is off: either the ` +
-    `switch cross-fading the output stage, or the input stage opening from zero. All 28 factory ` +
-    `presets that run a unit have one. Without it no sound comes out unless the touchpad is held.`,
-    "map");
+  add("silent", "no-switch-on-fade", "map", "lint.noSwitchOnFade");
 }
 
 /**
@@ -255,12 +229,9 @@ function checkLoudness(record, units, stages, profile, add) {
     for (const p of info.unit.params) {
       const value = record.paramAt(stage, p.index);
       const verdict = judgeOutput(info.device, p.name, value, profile?.params[profileKey(record.kind, info.device, p.name)]);
-      if (verdict) add("warn", verdict.code, `${info.unit.unit}: "${p.name}" is ${value}. ${verdict.message}`, stage);
+      if (verdict) add("warn", verdict.code, stage, "lint.output", { unit: info.unit.unit, param: p.name, value, verdict: verdict.text });
       if (/^(fb_depth|feedback)$/.test(p.name) && value > LOUDNESS.feedbackCeiling) {
-        add("warn", "feedback-runs-away",
-          `${info.unit.unit}: "${p.name}" is ${value}. Above ${LOUDNESS.feedbackCeiling} the ` +
-          `repeats stack up until nothing is recognisable; the factory delays sit around 70. ` +
-          `Deliberate is fine, but put it on a control so it can be backed off.`, stage);
+        add("warn", "feedback-runs-away", stage, "lint.feedbackRunsAway", { unit: info.unit.unit, param: p.name, value, ceiling: LOUDNESS.feedbackCeiling });
       }
     }
   }
@@ -280,9 +251,7 @@ function checkEnums(record, units, stages, profile, add) {
       const value = record.paramAt(stage, p.index);
 
       if (!profile) {
-        add("note", "enum-unchecked",
-          `${info.unit.unit}: "${p.name}" picks from a list whose meanings are unknown. Build a ` +
-          `factory profile so its value can be checked.`, stage);
+        add("note", "enum-unchecked", stage, "lint.enumUnchecked", { unit: info.unit.unit, param: p.name });
       }
     }
   }
@@ -304,11 +273,7 @@ function checkPlayRow(record, units, stages, add) {
       r.source === 0x4a && r.chain === chainForStage && r.param === reset.index);
     if (onPlay) continue;
 
-    add("warn", "no-play-row",
-      `${info.unit.unit}: nothing drives "lfo_reset" from the play button, so the modulator ` +
-      `free-runs and comes in at a different point after every stop and play. All four factory ` +
-      `presets with this unit carry that row. Setting the parameter to 1 instead does not help; ` +
-      `the row is what fires it.`, stage);
+    add("warn", "no-play-row", stage, "lint.noPlayRow", { unit: info.unit.unit });
   }
 }
 
@@ -339,22 +304,17 @@ function checkZeroIsOff(record, units, stages, add) {
 
     const driven = forStage.find(r => r.param === off.index);
 
-    const bipolar = offValue !== 0 ? ` (it is bipolar; ${offValue} is the quiet point, not 0)` : "";
+    const bipolar = offValue !== 0 ? text("lint.bipolar", { off: offValue }) : "";
 
     if (driven) {
       if (driven.low !== offValue) {
-        add("warn", "rest-not-silent",
-          `${info.unit.unit}: "${off.name}" starts at ${driven.low} rather than ${offValue}, so the ` +
-          `effect is already audible before the control is touched${bipolar}`, stage);
+        add("warn", "rest-not-silent", stage, "lint.restNotSilent.driven", { unit: info.unit.unit, param: off.name, low: driven.low, off: offValue, bipolar });
       }
       continue;
     }
 
     if (record.paramAt(stage, off.index) !== offValue) {
-      add("warn", "rest-not-silent",
-        `${info.unit.unit}: nothing drives "${off.name}" and it sits at ` +
-        `${record.paramAt(stage, off.index)}. The effect is on the whole time and the control only ` +
-        `changes how it sounds. Put "${off.name}" on the control instead${bipolar}.`, stage);
+      add("warn", "rest-not-silent", stage, "lint.restNotSilent.fixed", { unit: info.unit.unit, param: off.name, value: record.paramAt(stage, off.index), bipolar });
     }
   }
 }
@@ -374,11 +334,7 @@ function checkAgainstFactory(record, units, stages, profile, add) {
       const value = record.paramAt(stage, p.index);
 
       if (stat.enum && !stat.enum.includes(value)) {
-        add("error", "value-not-in-factory-set",
-          `${info.unit.unit}: "${p.name}" is ${value}; the factory presets only ever use ` +
-          `${stat.enum.join(", ")} across ${stat.samples} presets. This parameter looks like a ` +
-          `list of choices, and an invented choice has taken the device's output down before, ` +
-          `permanently until a restart.`, stage);
+        add("error", "value-not-in-factory-set", stage, "lint.valueNotInFactorySet", { unit: info.unit.unit, param: p.name, value, values: stat.enum.join(", "), samples: stat.samples });
         continue;
       }
 
@@ -390,9 +346,7 @@ function checkAgainstFactory(record, units, stages, profile, add) {
       const constant = stat.min === stat.max;
       const enough = constant ? stat.samples >= 6 : stat.samples >= 3;
       if (!stat.enum && enough && (value < stat.min || value > stat.max)) {
-        add("warn", "value-outside-factory-range",
-          `${info.unit.unit}: "${p.name}" is ${value}; across ${stat.samples} factory presets it ` +
-          `stays between ${stat.min} and ${stat.max}`, stage);
+        add("warn", "value-outside-factory-range", stage, "lint.valueOutsideFactoryRange", { unit: info.unit.unit, param: p.name, value, samples: stat.samples, min: stat.min, max: stat.max });
       }
     }
   }

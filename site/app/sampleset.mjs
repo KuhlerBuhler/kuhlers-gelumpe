@@ -9,6 +9,7 @@ import { saveFile } from "./save-file.mjs";
 import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, FIRST_USER, LAST_USER } from "../../src/sample-file.mjs";
 import { readDeviceSamples, downloadDeviceSamples, writeDeviceChange, needsCompaction, inspectTemp, finishTemp, discardTemp, SwapInterrupted } from "../../src/usb-sample-file.mjs";
 import { t, tNodes } from "./i18n.mjs";
+import { number } from "../../src/text.mjs";
 
 const restart = () => t("sampleset.restart");
 
@@ -18,9 +19,9 @@ const pill = (tone, word) => {
   return p;
 };
 
-const size = bytes => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1).replace(".", ",")} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
-const seconds = s => `${s.frames && s.rate ? (s.frames / s.rate).toFixed(2).replace(".", ",") : "0"} s`;
-const format = s => t("sampleset.format", { rate: s.rate / 1000, bits: s.bits, channels: s.channels === 2 ? t("sampleset.stereo") : t("sampleset.mono") }).replace(".", ",");
+const size = bytes => (bytes >= 1048576 ? `${number(Number((bytes / 1048576).toFixed(1)), { useGrouping: false, minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+const seconds = s => `${s.frames && s.rate ? number(Number((s.frames / s.rate).toFixed(2)), { useGrouping: false, minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0"} s`;
+const format = s => t("sampleset.format", { rate: number(s.rate / 1000, { useGrouping: false }), bits: s.bits, channels: s.channels === 2 ? t("sampleset.stereo") : t("sampleset.mono") });
 
 export function samplesFilePage(root, { device = null } = {}) {
   let source = "file";

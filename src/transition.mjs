@@ -8,7 +8,9 @@
  * blocks.
  */
 import { Pattern, frameProblem, cleanName } from "./pattern.mjs";
+import { render } from "./text.mjs";
 import { lintPattern } from "./pattern-rules.mjs";
+import { number } from "./text.mjs";
 import {
   DEST, MOTION_MFX, MOTION_SLOTS, PARTS, STEPS, NO_SAMPLE, summarize, onSteps, isFree, effectChanges, heavyInserts,
 } from "./pattern-set.mjs";
@@ -129,7 +131,7 @@ export function tailArc(base, steps) {
   return { values: out, span, peak, rest };
 }
 
-const bpm = raw => `${(raw / 10).toLocaleString("de-DE", { maximumFractionDigits: 1 })} BPM`;
+const bpm = raw => `${number(raw / 10, { maximumFractionDigits: 1 })} BPM`;
 const partsText = xs => `${xs.length > 1 ? "Parts" : "Part"} ${xs.map(x => x.index + 1).join(", ")}`;
 const nameOf = (n, p) => (p.name && p.name !== "Init Pattern" ? `${n || ""} ${p.name}`.trim() : `${n || "ohne Nummer"}`);
 
@@ -399,7 +401,7 @@ export function makeTransitions(a, b, o = {}) {
 export function checkTransition(t, a) {
   const out = [];
   const fp = frameProblem(t.bytes);
-  if (fp) out.push({ severity: "error", message: `Rahmen: ${fp}` });
+  if (fp) out.push({ severity: "error", message: `Rahmen: ${render(fp)}` });
   const before = new Set(lintPattern(a.bytes).map(f => f.code));
   for (const f of lintPattern(t.bytes)) if (!before.has(f.code)) out.push({ severity: f.severity, message: f.message });
   const tempo = t.raw("pattern.tempo");

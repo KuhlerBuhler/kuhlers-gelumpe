@@ -24,12 +24,17 @@ import { SimDevice } from "./device.mjs";
 import { VsbImage } from "./image.mjs";
 import { lintPattern } from "./pattern-rules.mjs";
 import { lintSample } from "./sample-rules.mjs";
+import { finding } from "./finding.mjs";
+import { render, text } from "./text.mjs";
 
 const BLOCKING = new Set(["fatal", "silent", "error"]);
 
-const reason = (severity, code, message) => ({ severity, code, message });
+/** A reason the page can show: `text` is its message as a text (src/text.mjs), `message` renders it. */
+const reason = (severity, code, key, vars) => finding({ severity, code }, key, vars);
+/** A message given as it is, from another module that renders its own. */
+const as = message => ["lint.gate.as", { message }];
 /** The refusal text of src/protect.mjs, in the gate's words: it never reaches the simulation. */
-const early = text => `${text.replace(/ Gesperrt\.$/, "")} Gesperrt, bevor die Simulation es sieht.`;
+const early = message => ["lint.gate.early", { message: String(render(message)).replace(/ Gesperrt\.$/, "") }];
 
 /** Edits that go over Korg's own pattern and global messages, which need no Hacktribe and no file. */
 const PATTERN_EDITS = new Set(["patternSend", "patternRestore", "globalSend"]);
@@ -46,27 +51,27 @@ export function recordAddressCheck(edit, ctx) {
   if (!stockRecord(edit)) return [];
   const bytes = ctx.session?.image?.bytes;
   const found = bytes && recordOf(bytes, edit.table, edit.slot);
-  return found?.ram === edit.ram ? [] : [reason("fatal", "record-address", `Der Platz ${edit.slot} liegt laut Zeigerfeld der Firmware-Datei nicht bei 0x${(edit.ram >>> 0).toString(16)}. Gesperrt.`)];
+  return found?.ram === edit.ram ? [] : [reason("fatal", "record-address", "lint.gate.recordAddress", { slot: edit.slot, addr: (edit.ram >>> 0).toString(16) })];
 }
 
 /** Check 1: the things that make a device read-only. */
 export function preconditions(ctx, edit = {}) {
   const out = [];
   const pattern = PATTERN_EDITS.has(edit.kind);
-  if (!ctx.device) out.push(reason("error", "no-device", "Kein Gerät verbunden."));
+  if (!ctx.device) out.push(reason("error", "no-device", "lint.gate.noDevice"));
   else {
-    if (!ctx.device.versionKnown) out.push(reason("error", "unknown-device", `Unbekannter Gerätestand (Gerätesuche meldet ${ctx.device.version.join(".")}). Unbekannt heißt: nur lesen.`));
+    if (!ctx.device.versionKnown) out.push(reason("error", "unknown-device", "lint.gate.unknownDevice", { version: ctx.device.version.join(".") }));
     const ram = ctx.device.ram ?? (ctx.device.hacktribe ? "hacktribe" : null);
-    if (!pattern && !ram) out.push(reason("error", "no-hacktribe", "Das Gerät beantwortet weder BLECHs noch Hacktribes Befehle für das RAM. Live ins RAM geht nur mit BLECH oder Hacktribe."));
-    if (edit.kind === "exec" && !ctx.device.hacktribe && !(ctx.device.blech?.flags & BLECH.FLAG_EXEC)) out.push(reason("error", "exec-needs-hacktribe", "Code ausführen geht nur mit BLECHs EXEC oder Hacktribes Befehl 0x57. Diese Firmware hat keinen von beiden."));
+    if (!pattern && !ram) out.push(reason("error", "no-hacktribe", "lint.gate.noHacktribe"));
+    if (edit.kind === "exec" && !ctx.device.hacktribe && !(ctx.device.blech?.flags & BLECH.FLAG_EXEC)) out.push(reason("error", "exec-needs-hacktribe", "lint.gate.execNeedsHacktribe"));
   }
   if (!pattern) {
-    if (!ctx.firmware) out.push(reason("error", "no-firmware", "Live ins RAM geht nur mit geladener Firmware-Datei: ohne sie fehlt der Simulation das Abbild und dem Prüfer das Werksprofil."));
-    else if (!ctx.firmware.known && !(ctx.device?.build === "stock" && ctx.firmware.build === "stock" && (STOCK_EDITS.has(edit.kind) || stockRecord(edit)))) out.push(reason("error", "unknown-firmware", `Die Firmware-Datei ist nicht die vermessene: ${ctx.firmware.reasons.join(" ")}`));
+    if (!ctx.firmware) out.push(reason("error", "no-firmware", "lint.gate.noFirmware"));
+    else if (!ctx.firmware.known && !(ctx.device?.build === "stock" && ctx.firmware.build === "stock" && (STOCK_EDITS.has(edit.kind) || stockRecord(edit)))) out.push(reason("error", "unknown-firmware", "lint.gate.unknownFirmware", { reasons: ctx.firmware.reasons.map(render).join(" ") }));
   }
-  if (ctx.blocked) out.push(reason("error", "target-blocked", ctx.blocked));
+  if (ctx.blocked) out.push(reason("error", "target-blocked", ...as(ctx.blocked)));
   if (edit.kind === "exec" && !ctx.rehearsed) {
-    out.push(reason("fatal", "exec-needs-emulator", "Code ausführen geht nur über den Emulator: erst läuft er dort, und nur was dort bestanden hat, geht ans Gerät."));
+    out.push(reason("fatal", "exec-needs-emulator", "lint.gate.execNeedsEmulator"));
   }
   return out;
 }
@@ -80,7 +85,7 @@ export function backupFirst(edit, steps) {
   const firstWrite = steps.findIndex(s => s.role === "write");
   const backup = steps.findIndex(s => s.role === "backup" && s.expect.kind === "pattern");
   if (backup === -1 || backup > firstWrite) {
-    return [reason("fatal", "no-pattern-backup", "Der Pattern-Puffer würde ersetzt, ohne vorher gesichert zu werden. Gesperrt.")];
+    return [reason("fatal", "no-pattern-backup", "lint.gate.noPatternBackup")];
   }
   return [];
 }
@@ -95,12 +100,12 @@ export function regionCheck(steps, regions = allowedRegions()) {
   for (const step of steps) {
     const access = accessOf(step.msg);
     if (access?.unknown) {
-      out.push(reason("fatal", "unknown-command", early(UNKNOWN_COMMAND)));
+      out.push(reason("fatal", "unknown-command", ...early(UNKNOWN_COMMAND)));
       continue;
     }
     const refused = access && refusal(access, { declared: regions });
     if (refused) {
-      out.push({ ...reason("fatal", "region", early(refused.message)), protectedRegion: refused.region.id });
+      out.push(finding({ severity: "fatal", code: "region", protectedRegion: refused.region.id }, ...early(refused.text ?? refused.message)));
       continue;
     }
     const d = describeMessage(step.msg);
@@ -108,9 +113,7 @@ export function regionCheck(steps, regions = allowedRegions()) {
     const end = d.addr + d.length;
     const hit = regions.find(r => d.addr >= r.start && end <= r.end);
     if (!hit) {
-      out.push(reason("fatal", "region",
-        `Schreiben bei 0x${d.addr.toString(16)} für ${d.length} Byte liegt in keinem Bereich, den die Gerätekarte erklärt. ` +
-        `Gesperrt, bevor die Simulation es sieht.`));
+      out.push(reason("fatal", "region", "lint.gate.region", { addr: d.addr.toString(16), length: d.length }));
     }
   }
   return out;
@@ -126,15 +129,15 @@ export function executeCheck(steps, executes = allowedExecutes()) {
     const d = describeMessage(step.msg);
     // An execute that does not call itself one is left to the dry run, whose twin refuses to run code at all.
     if (d.kind !== "execute" && step.role === "execute") {
-      out.push(reason("fatal", "execute-label", "Ein Schritt, der sich Ausführen nennt, ist keine Ausführen-Nachricht. Gesperrt."));
+      out.push(reason("fatal", "execute-label", "lint.gate.executeLabel"));
       continue;
     }
     if (d.kind !== "execute" || step.role !== "execute") continue;
     const hit = executes.find(r => d.addr >= r.start && d.addr + 4 <= r.end);
     if (!hit) {
-      out.push(reason("fatal", "execute-region", `Ausführen bei 0x${d.addr.toString(16)} ist nicht erlaubt: erlaubt sind nur der Stub-Puffer und das Leeren des Befehls-Caches. Gesperrt, bevor die Simulation es sieht.`));
+      out.push(reason("fatal", "execute-region", "lint.gate.executeRegion", { addr: d.addr.toString(16) }));
     } else if (hit.stub && !steps.slice(0, i).some(s => s.role === "verify" && s.compare && s.target?.addr === d.addr)) {
-      out.push(reason("fatal", "execute-unverified", `Der Code bei 0x${d.addr.toString(16)} wurde vor dem Start nicht zurückgelesen. Gesperrt.`));
+      out.push(reason("fatal", "execute-unverified", "lint.gate.executeUnverified", { addr: d.addr.toString(16) }));
     }
   }
   return out;
@@ -158,7 +161,7 @@ export async function lintCheck(edit, ctx) {
   if (!factory) return found;
   const had = new Set(lint(before, { units: ctx.units, profile: ctx.profile }).map(f => `${f.code}:${f.where}`));
   return found.map(f => (f.severity === "error" && had.has(`${f.code}:${f.where}`)
-    ? { ...f, severity: "warn", message: `Werkszustand, Wissenslücke: ${f.message}`, baseline: true }
+    ? finding({ ...f, severity: "warn", baseline: true }, "lint.gate.baseline", { message: f.text })
     : f));
 }
 
@@ -179,14 +182,14 @@ export function dryRun(steps, sessionDevice) {
     const reply = scratch.handle(step.msg);
     const faults = scratch.faults.slice(before);
     if (faults.length) {
-      for (const f of faults) out.push(reason("fatal", f.code, `Probelauf, Schritt ${i + 1}: ${f.message}`));
+      for (const f of faults) out.push(reason("fatal", f.code, "lint.gate.dryStep", { step: i + 1, message: f.text ?? f.message }));
       break;
     }
     if (step.expect.kind === "none") continue;
-    if (!reply) { out.push(reason("fatal", "no-reply", `Probelauf, Schritt ${i + 1}: keine Antwort`)); break; }
+    if (!reply) { out.push(reason("fatal", "no-reply", "lint.gate.noReply", { step: i + 1 })); break; }
     if (step.guard) {
       try { checkReadGuard(step, parseReadRam(reply, sessionDevice.channel, step.expect.length)); }
-      catch (e) { out.push(reason("fatal", "unexpected-code", e.message)); break; }
+      catch (e) { out.push(reason("fatal", "unexpected-code", ...as(e.text ?? e.message))); break; }
     }
     if ((step.role === "verify" || step.role === "guard") && step.compare) {
       const got = step.expect.kind === "pattern"
@@ -196,8 +199,8 @@ export function dryRun(steps, sessionDevice) {
       for (const k of ignore) got[k] = step.compare[k];
       if (got.some((b, k) => b !== step.compare[k])) {
         out.push(step.role === "guard"
-          ? reason("fatal", "firmware-code", `Probelauf: Der Code bei 0x${step.target.addr.toString(16)} ist nicht der der geladenen Firmware.`)
-          : reason("fatal", "verify", `Probelauf: Zurückgelesen${step.target ? ` bei 0x${step.target.addr.toString(16)}` : ""} stimmt nicht mit dem Geschriebenen überein.`));
+          ? reason("fatal", "firmware-code", "lint.gate.firmwareCode", { addr: step.target.addr.toString(16) })
+          : reason("fatal", "verify", "lint.gate.verify", { at: step.target ? text("lint.gate.verify.at", { addr: step.target.addr.toString(16) }) : "" }));
         break;
       }
     }
@@ -229,7 +232,7 @@ export async function admit(edit, steps, ctx) {
   }
   const expert = (edit.unknownChanges || []).length;
   if (worst === "warn" || expert) {
-    const extra = expert ? [reason("warn", "unknown-fields", `${expert} Änderungen an Feldern, deren Wirkung niemand kennt. Der Probelauf prüft nur, dass der Befehl ankommt.`)] : [];
+    const extra = expert ? [reason("warn", "unknown-fields", "lint.gate.unknownFields", { count: expert })] : [];
     return { verdict: "confirm", reasons: [...findings.filter(f => f.severity === "warn"), ...extra], findings };
   }
   return { verdict: "clean", reasons: [], findings };

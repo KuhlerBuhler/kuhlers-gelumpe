@@ -10,6 +10,7 @@ import { NEWS } from "../../data/news.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf, hardwareOf } from "../../src/firmware.mjs";
 import { t, tNodes } from "./i18n.mjs";
+import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
 import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
 
@@ -39,7 +40,7 @@ function verdict(flow, items) {
 }
 
 function verdictText(input, items) {
-  const size = input.size.toLocaleString("de-DE");
+  const size = number(input.size);
   switch (input.kind) {
     // A file the page takes says nothing: the user knows what was dropped, the button and the route say what comes next.
     case "hacktribe":
@@ -47,7 +48,7 @@ function verdictText(input, items) {
     case "stock": return null;
     case "blech": return { tone: "ok", word: t("patcher.verdict.blech"), text: t("patcher.verdict.blech.text") };
     case "partial": return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => items.find(p => p.id === id)?.label ?? id).join(", ") }) };
-    case "wrong-size": return { tone: "error", word: t("patcher.verdict.size"), text: t("patcher.verdict.size.text", { size, expected: VSB_SIZE.toLocaleString("de-DE") }) };
+    case "wrong-size": return { tone: "error", word: t("patcher.verdict.size"), text: t("patcher.verdict.size.text", { size, expected: number(VSB_SIZE) }) };
     default: return { tone: "error", word: t("patcher.verdict.unknown"), text: t("patcher.verdict.unknown.text", { reason: input.reasons[0] ?? t("patcher.verdict.unknown.reason") }) };
   }
 }
@@ -316,7 +317,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     window.ui?.setProgress(bar, p ? p.value : null, t("patcher.progress.label"));
     groupList.hidden = !p;
     groupList.replaceChildren(...(p?.groups ?? []).map(g => {
-      const li = el("li", {}, [el("span", { textContent: g.name }), el("span", { className: "cee-patch-group-state", textContent: g.text })]);
+      const li = el("li", {}, [el("span", { textContent: g.name }), el("span", { className: "cee-patch-group-state", textContent: t(g.text) })]);
       li.dataset.state = g.state;
       return li;
     }));
@@ -344,7 +345,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     note.hidden = !can.busy;
     if (flow.phase === "patching") note.textContent = t("patcher.patching");
     // A result is told once, as a toast; the line is only for the run itself.
-    const result = passed_ ? [t("patcher.passed"), "ok"] : can.busy ? null : flow.error ? [flow.error, "error"] : failed ? [failed, "error"] : null;
+    const result = passed_ ? [t("patcher.passed"), "ok"] : can.busy ? null : flow.error ? [t(flow.error), "error"] : failed ? [failed, "error"] : null;
     const key = result ? `${flow.phase}|${result[0]}` : null;
     if (key !== toasted) { toasted = key; if (result) toast(result[0], result[1]); }
   }
@@ -361,7 +362,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     view = Math.min(view, reach());
     way.replaceChildren(...wayOf(flow).map((s, i) => {
       const state = s.state === "error" ? "error" : i === view ? "current" : i < reach() || s.state === "done" ? "done" : "todo";
-      const li = el("li", { className: "cee-patch-way-step" }, [el("span", { className: "cee-patch-way-n", textContent: state === "done" ? "✓" : String(i + 1) }), el("span", { textContent: s.label })]);
+      const li = el("li", { className: "cee-patch-way-step" }, [el("span", { className: "cee-patch-way-n", textContent: state === "done" ? "✓" : String(i + 1) }), el("span", { textContent: t(s.label) })]);
       li.dataset.state = state;
       if (state === "current") li.setAttribute("aria-current", "step");
       return li;
@@ -422,7 +423,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     checksBox.hidden = !checks.length;
     document.getElementById("cee-patch-details-title").textContent = t("patcher.checks", { count: checks.length });
     checkList.replaceChildren(...checks.map(c => el("li", { className: "ui-row" }, [
-      pill(c.ok ? "ok" : "error", c.ok ? t("patcher.check.ok") : t("patcher.check.failed")), el("strong", { textContent: ` ${checkName(c.id)}` }), el("span", { className: "ui-break muted", textContent: ` ${checkDetail(c.detail)}` }),
+      pill(c.ok ? "ok" : "error", c.ok ? t("patcher.check.ok") : t("patcher.check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
     ])));
 
     result.hidden = !can.download;

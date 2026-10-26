@@ -25,6 +25,7 @@ import { assemble } from "./asm.mjs";
 import { verifyParts } from "./verifier.mjs";
 import { binary } from "./alu.mjs";
 import { parse, CompileError } from "./parser.mjs";
+import { text, render } from "../text.mjs";
 
 /** The API versions of the event values a handler takes (EVENT_ARG_SINCE), one per value. */
 const ARG_SINCE = h => EVENTS[h.event].args.slice(0, h.argc).map(name => EVENT_ARG_SINCE[EVENTS[h.event].name]?.[name] ?? 0);
@@ -34,7 +35,7 @@ const BINARY_OPS = {
   "==": "EQ", "===": "EQ", "!=": "NE", "!==": "NE", "<": "LT", "<=": "LE", ">": "GT", ">=": "GE",
 };
 const COMPOUND = { "+=": "ADD", "-=": "SUB", "*=": "MUL", "/=": "DIV", "%=": "MOD", "&=": "AND", "|=": "OR", "^=": "XOR", "<<=": "SHL", ">>=": "SHR" };
-const TYPE_NAME = { int: "eine Zahl", str: "ein Text" };
+const TYPE_NAME = { int: text("compile.type.int"), str: text("compile.type.str") };
 
 const where = n => [n.line, n.col];
 const err = (n, message) => new CompileError(message, ...where(n));
@@ -116,25 +117,25 @@ class Compiler {
   slotsMessage(needed) {
     const kib = n => `${Math.round((n * 4) / 102.4) / 10} KiB`;
     if (this.slotsAvailable <= LIMITS.vars) {
-      return `Das Plugin braucht mindestens ${needed} Variablenplätze (${kib(needed)}). Die Variablen-Vorabprüfung lässt für dieses Plugin noch ${this.slotsAvailable} Plätze zu. Der gemeinsame Plugin-Speicher umfasst ${BUDGET.scriptBytes / 1024} KiB für Blöcke, Variablen und Einträge; die Laufzeit prüft ihn beim Laden. Kleinere Felder oder weniger Variablen nehmen.`;
+      return text("compile.slots.budget", { needed, size: kib(needed), available: this.slotsAvailable, shared: BUDGET.scriptBytes / 1024 });
     }
-    return `Zu viele Variablen und Felder (${needed} Plätze, höchstens ${LIMITS.vars} je Plugin).`;
+    return text("compile.slots.tooMany", { needed, max: LIMITS.vars });
   }
 
   constSlot(value, at) {
     if (!this.constIndex.has(value)) {
-      if (this.consts.length >= LIMITS.consts) throw err(at, `Zu viele verschiedene große oder negative Zahlen (höchstens ${LIMITS.consts}).`);
+      if (this.consts.length >= LIMITS.consts) throw err(at, text("compile.consts.tooMany", { max: LIMITS.consts }));
       this.constIndex.set(value, this.consts.length);
       this.consts.push(value);
     }
     return this.constIndex.get(value);
   }
 
-  stringSlot(text, at) {
-    let i = this.strings.indexOf(text);
+  stringSlot(value, at) {
+    let i = this.strings.indexOf(value);
     if (i < 0) {
-      if (this.strings.length >= LIMITS.strings) throw err(at, `Zu viele verschiedene Texte (höchstens ${LIMITS.strings}).`);
-      i = this.strings.push(text) - 1;
+      if (this.strings.length >= LIMITS.strings) throw err(at, text("compile.strings.tooMany", { max: LIMITS.strings }));
+      i = this.strings.push(value) - 1;
     }
     return i;
   }
@@ -151,7 +152,7 @@ class Compiler {
     for (let i = fn.scopes.length - 1; i >= 0; i--) if (fn.scopes[i].has(name)) return fn.scopes[i].get(name);
     const g = this.globals.get(name);
     if (g) {
-      if (fn.kind === "start" && g.order > this.topIndex) throw err(at, `„${name}“ wird benutzt, bevor es weiter unten deklariert wird.`);
+      if (fn.kind === "start" && g.order > this.topIndex) throw err(at, text("compile.name.early", { name }));
       return g;
     }
     if (this.funcs.has(name)) return { kind: "func", func: this.funcs.get(name) };
@@ -160,13 +161,13 @@ class Compiler {
 
   declareLocal(fn, name, sym, at) {
     const scope = fn.scopes.at(-1);
-    if (scope.has(name)) throw err(at, `„${name}“ ist hier schon deklariert.`);
+    if (scope.has(name)) throw err(at, text("compile.name.twiceHere", { name }));
     this.checkName(name, at);
     scope.set(name, sym);
   }
 
   checkName(name, at) {
-    if (name === "korg") throw err(at, "„korg“ ist der Name der Geräte-Funktionen und lässt sich nicht als Name benutzen.");
+    if (name === "korg") throw err(at, text("compile.name.korg"));
   }
 
   typeOfInit(n) {
@@ -206,7 +207,7 @@ class Compiler {
         const b = this.fold(n.right, fn);
         if (!a || !b || a.type !== "int" || b.type !== "int") return null;
         const r = binary(BINARY_OPS[n.op], a.value, b.value);
-        if (r === null) throw err(n, "Teilen durch null.");
+        if (r === null) throw err(n, text("compile.divZero"));
         return { value: r, type: "int" };
       }
       case "Logical": {
@@ -236,10 +237,10 @@ class Compiler {
     const path = pathOf(n);
     if (path?.[0] !== "korg" || !NAMES[path[1]]) return null;
     const kind = path[1];
-    if (path.length === 2) return `„korg.${kind}“ ist eine Liste von Namen, schreibe zum Beispiel korg.${kind}.${NAMES[kind].keys().next().value}.`;
+    if (path.length === 2) return text("compile.names.list", { kind, example: NAMES[kind].keys().next().value });
     if (path.length !== 3) return null;
     const near = [...NAMES[kind].keys()].filter(k => k.startsWith(path[2].toUpperCase().slice(0, 3)));
-    return `Es gibt keinen Namen „korg.${kind}.${path[2]}“.${near.length ? ` Ähnlich: ${near.slice(0, 4).map(k => `korg.${kind}.${k}`).join(", ")}.` : ""}`;
+    return text("compile.names.unknown", { kind, name: path[2], near: near.length ? text("compile.names.near", { names: near.slice(0, 4).map(k => `korg.${kind}.${k}`).join(", ") }) : "" });
   }
 
   lookupQuiet(name, fn) {
@@ -254,12 +255,12 @@ class Compiler {
     program.body.forEach((st, order) => {
       if (st.type === "Func") {
         this.checkName(st.name, st);
-        if (this.funcs.has(st.name) || this.globals.has(st.name)) throw err(st, `„${st.name}“ ist schon deklariert.`);
+        if (this.funcs.has(st.name) || this.globals.has(st.name)) throw err(st, text("compile.name.twice", { name: st.name }));
         this.funcs.set(st.name, { name: st.name, node: st, key: `f_${st.name}`, params: st.params.length });
       } else if (st.type === "Let") {
         for (const d of st.decls) {
           this.checkName(d.name, d);
-          if (this.globals.has(d.name) || this.funcs.has(d.name)) throw err(d, `„${d.name}“ ist schon deklariert.`);
+          if (this.globals.has(d.name) || this.funcs.has(d.name)) throw err(d, text("compile.name.twice", { name: d.name }));
           this.globals.set(d.name, { ...this.globalSymbol(st, d, probe), order });
         }
       }
@@ -270,7 +271,7 @@ class Compiler {
     const init = d.init;
     if (init?.type === "NewArray" || init?.type === "ArrayLit") {
       const length = init.type === "NewArray" ? this.arraySize(init, probe) : init.items.length;
-      if (length < 1 || length > LIMITS.arrayLength) throw err(init, `Ein Feld hat 1 bis ${LIMITS.arrayLength} Plätze.`);
+      if (length < 1 || length > LIMITS.arrayLength) throw err(init, text("compile.array.length", { max: LIMITS.arrayLength }));
       return { kind: "array", base: this.allocate(length, d), length, init };
     }
     if (st.kind === "const" && init) {
@@ -282,7 +283,7 @@ class Compiler {
 
   arraySize(n, probe) {
     const c = this.fold(n.size, probe);
-    if (!c || c.type !== "int") throw err(n.size, "Die Größe eines Felds muss eine feste Zahl sein, zum Beispiel new Array(16).");
+    if (!c || c.type !== "int") throw err(n.size, text("compile.array.size"));
     return c.value;
   }
 
@@ -290,8 +291,8 @@ class Compiler {
 
   val(n, fn, want = null) {
     const t = this.expr(n, fn);
-    if (t === "void") throw err(n, `„${pathOf(n.callee ?? n)?.join(".")}“ gibt keinen Wert zurück.`);
-    if (want && t !== want) throw err(n, `Hier wird ${TYPE_NAME[want]} erwartet, das ist aber ${TYPE_NAME[t]}.`);
+    if (t === "void") throw err(n, text("compile.void", { name: pathOf(n.callee ?? n)?.join(".") }));
+    if (want && t !== want) throw err(n, text("compile.type.wanted", { want: TYPE_NAME[want], got: TYPE_NAME[t] }));
     return t;
   }
 
@@ -305,9 +306,9 @@ class Compiler {
     switch (n.type) {
       case "Ident": {
         const s = this.lookup(n.name, fn, n);
-        if (!s) throw err(n, `„${n.name}“ ist nicht deklariert.`);
-        if (s.kind === "array") throw err(n, `„${n.name}“ ist ein Feld: schreibe ${n.name}[Index] oder ${n.name}.length.`);
-        if (s.kind === "func") throw err(n, `„${n.name}“ ist eine Funktion: rufe sie mit ${n.name}() auf.`);
+        if (!s) throw err(n, text("compile.name.undeclared", { name: n.name }));
+        if (s.kind === "array") throw err(n, text("compile.name.isArray", { name: n.name }));
+        if (s.kind === "func") throw err(n, text("compile.name.isFunc", { name: n.name }));
         this.emit(fn, "LOAD", s.slot);
         return s.type;
       }
@@ -323,7 +324,7 @@ class Compiler {
       case "Member": {
         const prop = this.propertyOf(n);
         if (prop) return this.readProperty(prop, n, fn);
-        throw err(n, this.panelNameError(n) ?? (n.name === "length" ? "„length“ gibt es nur bei einem Feld." : `„.${n.name}“ gibt es nicht.`));
+        throw err(n, this.panelNameError(n) ?? (n.name === "length" ? text("compile.length") : text("compile.member.unknown", { name: n.name })));
       }
       case "Call": return this.call(n, fn);
       case "Unary": {
@@ -343,8 +344,8 @@ class Compiler {
         const rt = this.val(n.right, fn);
         const eq = op === "EQ" || op === "NE";
         if (lt === "str" || rt === "str") {
-          if (!eq) throw err(n, n.op === "+" ? "Text lässt sich nicht mit + verbinden. Zahlen zeigt korg.display.number, Text korg.display.text." : "Mit Text lässt sich nicht rechnen, nur mit == und != vergleichen.");
-          if (lt !== rt) throw err(n, "Ein Text lässt sich nur mit einem Text vergleichen.");
+          if (!eq) throw err(n, n.op === "+" ? text("compile.text.plus") : text("compile.text.math"));
+          if (lt !== rt) throw err(n, text("compile.text.compare"));
         }
         fn.line = n.line;
         this.emit(fn, op);
@@ -369,13 +370,13 @@ class Compiler {
         this.emit(fn, "JMP", end);
         fn.items.push({ label: other });
         const tb = this.val(n.b, fn);
-        if (ta !== tb) throw err(n, "Beide Zweige von ? : müssen dieselbe Art Wert liefern.");
+        if (ta !== tb) throw err(n, text("compile.cond.types"));
         fn.items.push({ label: end });
         return ta;
       }
-      case "NewArray": case "ArrayLit": throw err(n, "Ein Feld gibt es nur als Deklaration ganz oben im Plugin-Code: const f = new Array(16);");
-      case "FuncExpr": throw err(n, "Eine Funktion als Wert gibt es nur in korg.onEvent(\"…\", () => { … }).");
-      default: throw err(n, "Das lässt sich hier nicht übersetzen.");
+      case "NewArray": case "ArrayLit": throw err(n, text("compile.array.decl"));
+      case "FuncExpr": throw err(n, text("compile.func.value"));
+      default: throw err(n, text("compile.untranslatable"));
     }
   }
 
@@ -391,7 +392,7 @@ class Compiler {
       const prop = path && PROPERTY_BY_PATH.get(`${path}[]`);
       if (prop) return { prop, index: n.index };
       const fields = path ? this.fieldsOf(path) : [];
-      if (fields.length) throw err(n, `„${path}[…]“ ist ein Objekt, schreibe eine Eigenschaft dahinter: ${fields.map(f => `${path}[i].${f}`).join(", ")}.`);
+      if (fields.length) throw err(n, text("compile.prop.object", { path, fields: fields.map(f => `${path}[i].${f}`).join(", ") }));
       return null;
     }
     if (n.type !== "Member") return null;
@@ -401,7 +402,7 @@ class Compiler {
       const prop = PROPERTY_BY_PATH.get(`${path}[].${n.name}`);
       if (prop) return { prop, index: n.object.index };
       const fields = this.fieldsOf(path);
-      if (fields.length) throw err(n, `„${path}[…].${n.name}“ gibt es nicht. Es gibt: ${fields.map(f => "." + f).join(", ")}.`);
+      if (fields.length) throw err(n, text("compile.prop.unknown", { path, name: n.name, fields: fields.map(f => "." + f).join(", ") }));
       return null;
     }
     const path = pathOf(n);
@@ -413,7 +414,7 @@ class Compiler {
     if (path.length === 3 && PROPERTY_BY_PATH.has(path.join("."))) return { prop: PROPERTY_BY_PATH.get(path.join(".")), index: null };
     if (path.length === 3 && path[1] === "knobs") {
       const knob = KNOB_NAMES.find(k => k.name === path[2]);
-      if (!knob) throw err(n, `Es gibt keinen Regler „korg.knobs.${path[2]}“. Es gibt: ${KNOB_NAMES.map(k => k.name).join(", ")}.`);
+      if (!knob) throw err(n, text("compile.knob.unknown", { name: path[2], knobs: KNOB_NAMES.map(k => k.name).join(", ") }));
       return { prop: PROPERTY_BY_PATH.get("korg.knobs[]"), index: num(knob.value) };
     }
     if (asTarget && path.length === 3 && path[1] === "led") {
@@ -434,16 +435,16 @@ class Compiler {
   }
 
   readProperty({ prop, index }, n, fn) {
-    if (!prop.read) throw err(n, `${this.propertyName(prop)} lässt sich nur setzen, nicht lesen.`);
+    if (!prop.read) throw err(n, text("compile.prop.writeOnly", { prop: this.propertyName(prop) }));
     return this.call(callNode(prop.read[0], this.propertyArgs(prop.read[1], index, null, n), n), fn);
   }
 
   writeProperty({ prop, index }, n, fn) {
-    if (!prop.write) throw err(n.target, `${this.propertyName(prop)} lässt sich nur lesen, nicht setzen.`);
+    if (!prop.write) throw err(n.target, text("compile.prop.readOnly", { prop: this.propertyName(prop) }));
     let value = n.value;
     if (n.op !== "=") {
-      if (index && !isPure(index)) throw err(index, "Bei += und ++ darf der Index keinen Funktionsaufruf enthalten, schreibe ihn zuerst in eine Variable.");
-      if (!prop.read) throw err(n.target, `${this.propertyName(prop)} lässt sich nicht lesen, also auch nicht mit ${n.op} ändern.`);
+      if (index && !isPure(index)) throw err(index, text("compile.index.pure"));
+      if (!prop.read) throw err(n.target, text("compile.prop.compound", { prop: this.propertyName(prop), op: n.op }));
       value = { type: "Binary", op: n.op.slice(0, -1), left: n.target, right: n.value, line: n.line, col: n.col };
     }
     this.call(callNode(prop.write[0], this.propertyArgs(prop.write[1], index, value, n), n), fn);
@@ -452,23 +453,23 @@ class Compiler {
   }
 
   arrayOf(n, fn) {
-    if (n.object.type !== "Ident") throw err(n, "Eckige Klammern gehen nur direkt hinter dem Namen eines Felds.");
+    if (n.object.type !== "Ident") throw err(n, text("compile.index.where"));
     const s = this.lookup(n.object.name, fn, n);
-    if (!s) throw err(n.object, `„${n.object.name}“ ist nicht deklariert.`);
-    if (s.kind !== "array") throw err(n.object, `„${n.object.name}“ ist kein Feld.`);
+    if (!s) throw err(n.object, text("compile.name.undeclared", { name: n.object.name }));
+    if (s.kind !== "array") throw err(n.object, text("compile.name.notArray", { name: n.object.name }));
     return s;
   }
 
   call(n, fn) {
     const path = pathOf(n.callee);
-    if (!path) throw err(n, "Aufrufen lässt sich nur eine Funktion mit ihrem Namen.");
+    if (!path) throw err(n, text("compile.call.name"));
     const name = path.join(".");
-    if (name === "korg.onEvent") throw err(n, "korg.onEvent steht als eigene Anweisung ganz oben im Plugin-Code, nicht in einem Block, einer Funktion oder einem Ausdruck.");
-    if (name === "korg.app") throw err(n, "korg.app steht als eigene Anweisung ganz oben im Plugin-Code, nicht in einem Block, einer Funktion oder einem Ausdruck.");
+    if (name === "korg.onEvent") throw err(n, text("compile.onEvent.expression"));
+    if (name === "korg.app") throw err(n, text("compile.app.expression"));
     if (path.length === 1) {
       const f = this.funcs.get(name);
-      if (!f) throw err(n, this.lookupQuiet(name, fn) ? `„${name}“ ist keine Funktion.` : `Die Funktion „${name}“ gibt es nicht.`);
-      if (n.args.length !== f.params) throw err(n, `„${name}“ nimmt ${f.params} Argument${f.params === 1 ? "" : "e"}, hier sind ${n.args.length}.`);
+      if (!f) throw err(n, this.lookupQuiet(name, fn) ? text("compile.call.notFunc", { name }) : text("compile.call.unknown", { name }));
+      if (n.args.length !== f.params) throw err(n, text(f.params === 1 ? "compile.call.argc.one" : "compile.call.argc.many", { name, count: f.params, given: n.args.length }));
       n.args.forEach(a => this.val(a, fn, "int"));
       fn.line = n.line;
       this.emit(fn, "CALL", f.key, n.args.length);
@@ -476,13 +477,13 @@ class Compiler {
       return "int";
     }
     const api = API_BY_NAME.get(name);
-    if (!api) throw err(n, `Die Funktion „${name}“ gibt es nicht.`);
-    if (n.args.length !== api.args.length) throw err(n, `„${name}“ nimmt ${api.args.length} Argument${api.args.length === 1 ? "" : "e"} (${api.args.map(a => a.name).join(", ")}), hier sind ${n.args.length}.`);
+    if (!api) throw err(n, text("compile.call.unknown", { name }));
+    if (n.args.length !== api.args.length) throw err(n, text(api.args.length === 1 ? "compile.api.argc.one" : "compile.api.argc.many", { name, count: api.args.length, list: api.args.map(a => a.name).join(", "), given: n.args.length }));
     n.args.forEach((a, i) => {
       if (api.args[i].kind === "arr") { this.arrayArg(a, api, i, n, fn); return; }
       const t = this.val(a, fn);
       const want = api.args[i].kind;
-      if (t !== want) throw err(a, `Das Argument „${api.args[i].name}“ von ${name} muss ${TYPE_NAME[want]} sein, das ist aber ${TYPE_NAME[t]}.`);
+      if (t !== want) throw err(a, text("compile.api.argType", { arg: api.args[i].name, name, want: TYPE_NAME[want], got: TYPE_NAME[t] }));
     });
     fn.line = n.line;
     this.emit(fn, "CALLAPI", api.id, api.args.length);
@@ -497,11 +498,11 @@ class Compiler {
   arrayArg(a, api, i, call, fn) {
     const spec = api.args[i];
     const s = a.type === "Ident" ? this.lookup(a.name, fn, a) : null;
-    if (!s || s.kind !== "array") throw err(a, `Das Argument „${spec.name}“ von ${api.name} muss ein Feld sein, zum Beispiel ${api.name}(bild, 0, 0, 8) mit const bild = [0, 255, 255, 0, 0, 255, 255, 0];.`);
+    if (!s || s.kind !== "array") throw err(a, text("compile.api.array", { arg: spec.name, name: api.name }));
     const strip = spec.strip ? call.args[api.args.findIndex(x => x.name === spec.strip)] : null;
     const width = strip ? this.fold(strip, fn) : null;
     if (width?.type === "int" && width.value > s.length) {
-      throw err(a, `Das Feld „${a.name}“ hat ${s.length} Plätze, ${api.name} liest es in Streifen zu je ${width.value} (${spec.strip}).`);
+      throw err(a, text("compile.api.strip", { array: a.name, length: s.length, name: api.name, width: width.value, strip: spec.strip }));
     }
     this.pushConst(fn, { value: ARRAY_HANDLE.make(s.base, s.length), type: "int" }, a);
   }
@@ -582,14 +583,14 @@ class Compiler {
       });
       case "Break": case "Continue": {
         const loop = fn.loops.at(-1);
-        if (!loop) throw err(n, `„${n.type === "Break" ? "break" : "continue"}“ gibt es nur in einer Schleife.`);
+        if (!loop) throw err(n, text("compile.loop.only", { word: n.type === "Break" ? "break" : "continue" }));
         this.emit(fn, "JMP", n.type === "Break" ? loop.brk : loop.cont);
         return undefined;
       }
       case "Return": {
-        if (fn.kind === "start") throw err(n, "Im Plugin-Rumpf ganz oben gibt es kein „return“.");
+        if (fn.kind === "start") throw err(n, text("compile.return.start"));
         if (fn.kind === "handler") {
-          if (n.value) throw err(n, "Ein Ereignis-Handler gibt nichts zurück.");
+          if (n.value) throw err(n, text("compile.return.handler"));
           this.emit(fn, "HALT");
         } else {
           if (n.value) this.val(n.value, fn, "int"); else this.pushConst(fn, { value: 0, type: "int" }, n);
@@ -597,8 +598,8 @@ class Compiler {
         }
         return undefined;
       }
-      case "Func": throw err(n, "Funktionen stehen nur ganz oben im Plugin-Code.");
-      default: throw err(n, "Diese Anweisung gibt es nicht.");
+      case "Func": throw err(n, text("compile.func.top"));
+      default: throw err(n, text("compile.statement.unknown"));
     }
   }
 
@@ -610,7 +611,7 @@ class Compiler {
         this.initGlobal(this.globals.get(d.name), d, fn);
         continue;
       }
-      if (d.init?.type === "NewArray" || d.init?.type === "ArrayLit") throw err(d.init, "Felder gibt es nur ganz oben im Plugin-Code, nicht in einem Block oder einer Funktion.");
+      if (d.init?.type === "NewArray" || d.init?.type === "ArrayLit") throw err(d.init, text("compile.array.top"));
       if (n.kind === "const" && d.init) {
         const c = this.fold(d.init, fn);
         if (c) {
@@ -633,7 +634,7 @@ class Compiler {
       if (g.init.type === "ArrayLit") {
         const values = g.init.items.map(item => {
           const c = this.fold(item, fn);
-          if (!c || c.type !== "int") throw err(item, "Die Werte eines Felds müssen feste Zahlen sein.");
+          if (!c || c.type !== "int") throw err(item, text("compile.array.values"));
           return c;
         });
         // values of 0 to 255 (pictures) go into the block's data section as bytes, the loader writes them; no code
@@ -657,7 +658,7 @@ class Compiler {
     }
     if (!d.init) return;
     const t = this.val(d.init, fn);
-    if (t !== g.type) throw err(d.init, `„${d.name}“ ist ${TYPE_NAME[g.type]}, der Wert ist aber ${TYPE_NAME[t]}.`);
+    if (t !== g.type) throw err(d.init, text("compile.type.value", { name: d.name, type: TYPE_NAME[g.type], got: TYPE_NAME[t] }));
     this.emit(fn, "STORE", g.slot);
   }
 
@@ -666,22 +667,22 @@ class Compiler {
     const t = n.target;
     const prop = this.propertyOf(t, true);
     if (prop) return this.writeProperty(prop, n, fn);
-    if (t.type === "Member") throw err(t, this.panelNameError(t) ?? `„${pathOf(t)?.join(".") ?? "." + t.name}“ lässt sich nicht setzen.`);
+    if (t.type === "Member") throw err(t, this.panelNameError(t) ?? text("compile.assign.member", { name: pathOf(t)?.join(".") ?? "." + t.name }));
     if (t.type === "Ident") {
       const s = this.lookup(t.name, fn, t);
-      if (!s) throw err(t, `„${t.name}“ ist nicht deklariert.`);
-      if (s.kind === "array") throw err(t, `„${t.name}“ ist ein Feld und lässt sich nicht neu zuweisen, setze ein Element: ${t.name}[0] = …`);
-      if (s.kind === "func") throw err(t, `„${t.name}“ ist eine Funktion.`);
-      if (s.kind === "const" || !s.mutable) throw err(t, `„${t.name}“ ist const und lässt sich nicht ändern.`);
+      if (!s) throw err(t, text("compile.name.undeclared", { name: t.name }));
+      if (s.kind === "array") throw err(t, text("compile.assign.array", { name: t.name }));
+      if (s.kind === "func") throw err(t, text("compile.assign.func", { name: t.name }));
+      if (s.kind === "const" || !s.mutable) throw err(t, text("compile.assign.const", { name: t.name }));
       if (compound) {
-        if (s.type !== "int") throw err(t, "Mit Text lässt sich nicht rechnen.");
+        if (s.type !== "int") throw err(t, text("compile.text.mathOnly"));
         this.emit(fn, "LOAD", s.slot);
         this.val(n.value, fn, "int");
         fn.line = n.line;
         this.emit(fn, compound);
       } else {
         const vt = this.val(n.value, fn);
-        if (vt !== s.type) throw err(n.value, `„${t.name}“ ist ${TYPE_NAME[s.type]}, der Wert ist aber ${TYPE_NAME[vt]}.`);
+        if (vt !== s.type) throw err(n.value, text("compile.type.value", { name: t.name, type: TYPE_NAME[s.type], got: TYPE_NAME[vt] }));
       }
       this.emit(fn, "STORE", s.slot);
       return undefined;
@@ -689,7 +690,7 @@ class Compiler {
     const a = this.arrayOf(t, fn);
     this.val(t.index, fn, "int");
     if (compound) {
-      if (!isPure(t.index)) throw err(t.index, "Bei += und ++ darf der Index keinen Funktionsaufruf enthalten, schreibe ihn zuerst in eine Variable.");
+      if (!isPure(t.index)) throw err(t.index, text("compile.index.pure"));
       this.val(t.index, fn, "int");
       this.emit(fn, "ALOAD", a.base, a.length);
       this.val(n.value, fn, "int");
@@ -705,14 +706,14 @@ class Compiler {
 
   /** `korg.app("Snake", "GAMES")`: the plugin is an app. Top level, once, with a name and a group as plain texts. */
   registerApp(call, fn) {
-    if (fn.kind !== "start" || fn.blockDepth !== 0) throw err(call, "korg.app steht ganz oben im Plugin-Code, nicht in einem Block oder einer Funktion.");
-    if (call.args.length !== 2) throw err(call, "korg.app(\"Name\", \"GAMES\") nimmt zwei Argumente: den Namen der App und ihre Gruppe.");
-    if (this.app) throw err(call, "Ein Plugin ist höchstens eine App: korg.app steht nur einmal im Plugin-Code.");
+    if (fn.kind !== "start" || fn.blockDepth !== 0) throw err(call, text("compile.app.top"));
+    if (call.args.length !== 2) throw err(call, text("compile.app.args"));
+    if (this.app) throw err(call, text("compile.app.once"));
     const [nameNode, groupNode] = call.args;
-    if (nameNode.type !== "Str") throw err(nameNode, "Der Name der App muss ein Text in Anführungszeichen sein.");
-    if (groupNode.type !== "Str") throw err(groupNode, `Die Gruppe der App muss ein Text in Anführungszeichen sein: ${SCRIPT_APPS.groups.map(g => `„${g}“`).join(" oder ")}.`);
-    if (!/^[ -~]{1,15}$/.test(nameNode.value) || nameNode.value.length > SCRIPT_APPS.nameLength) throw err(nameNode, `Der Name der App ist ASCII und hat 1 bis ${SCRIPT_APPS.nameLength} Zeichen, so steht er im Menü BLECH.`);
-    if (!SCRIPT_APPS.groups.includes(groupNode.value)) throw err(groupNode, `Die Gruppe „${groupNode.value}“ gibt es nicht. Es gibt: ${SCRIPT_APPS.groups.join(", ")}.`);
+    if (nameNode.type !== "Str") throw err(nameNode, text("compile.app.name"));
+    if (groupNode.type !== "Str") throw err(groupNode, text("compile.app.group", { groups: SCRIPT_APPS.groups.map(g => render(text("compile.token.quoted", { token: g }))).join(render(text("compile.or"))) }));
+    if (!/^[ -~]{1,15}$/.test(nameNode.value) || nameNode.value.length > SCRIPT_APPS.nameLength) throw err(nameNode, text("compile.app.nameLength", { max: SCRIPT_APPS.nameLength }));
+    if (!SCRIPT_APPS.groups.includes(groupNode.value)) throw err(groupNode, text("compile.app.groupUnknown", { group: groupNode.value, groups: SCRIPT_APPS.groups.join(", ") }));
     const api = API_BY_NAME.get("korg.app");
     this.pushConst(fn, { type: "str", value: nameNode.value }, nameNode);
     this.pushConst(fn, { type: "str", value: groupNode.value }, groupNode);
@@ -725,14 +726,14 @@ class Compiler {
   }
 
   registerHandler(call, fn) {
-    if (fn.kind !== "start" || fn.blockDepth !== 0) throw err(call, "korg.onEvent steht ganz oben im Plugin-Code, nicht in einem Block oder einer Funktion.");
-    if (call.args.length !== 2) throw err(call, "korg.onEvent(\"Ereignis\", Handler) nimmt zwei Argumente.");
+    if (fn.kind !== "start" || fn.blockDepth !== 0) throw err(call, text("compile.onEvent.top"));
+    if (call.args.length !== 2) throw err(call, text("compile.onEvent.args"));
     const [nameNode, handler] = call.args;
-    if (nameNode.type !== "Str") throw err(nameNode, "Der Name des Ereignisses muss ein Text in Anführungszeichen sein.");
+    if (nameNode.type !== "Str") throw err(nameNode, text("compile.onEvent.name"));
     const ev = EVENT_BY_NAME.get(nameNode.value);
-    if (!ev) throw err(nameNode, `Das Ereignis „${nameNode.value}“ gibt es nicht. Es gibt: ${QUEUED_EVENTS.concat(["ready", "frame"], APP_EVENTS).sort().join(", ")}.`);
-    if (ev.name === "start") throw err(nameNode, "„start“ ist der Plugin-Rumpf selbst: schreibe den Code einfach ganz oben hin.");
-    if (this.handlers.some(h => h.event === ev.id)) throw err(nameNode, `Für „${ev.name}“ gibt es schon einen Handler.`);
+    if (!ev) throw err(nameNode, text("compile.event.unknown", { name: nameNode.value, events: QUEUED_EVENTS.concat(["ready", "frame"], APP_EVENTS).sort().join(", ") }));
+    if (ev.name === "start") throw err(nameNode, text("compile.event.start"));
+    if (this.handlers.some(h => h.event === ev.id)) throw err(nameNode, text("compile.event.twice", { name: ev.name }));
     let params;
     let entry;
     if (handler.type === "FuncExpr") {
@@ -743,14 +744,14 @@ class Compiler {
       const f = this.funcs.get(handler.name);
       params = f.node.params;
       entry = f.key;
-    } else throw err(handler, "Als Handler geht eine Funktion: () => { … } oder der Name einer Funktion.");
-    if (params.length > ev.argc) throw err(handler, `Das Ereignis „${ev.name}“ liefert ${ev.argc} Wert${ev.argc === 1 ? "" : "e"}${ev.argc ? ` (${ev.args.join(", ")})` : ""}, der Handler nimmt ${params.length}.`);
+    } else throw err(handler, text("compile.handler.kind"));
+    if (params.length > ev.argc) throw err(handler, text(ev.argc === 1 ? "compile.handler.argc.one" : "compile.handler.argc.many", { name: ev.name, count: ev.argc, list: ev.argc ? ` (${ev.args.join(", ")})` : "", given: params.length }));
     this.handlers.push({ event: ev.id, argc: params.length, entry, at: handler });
     return undefined;
   }
 
   compileFunction({ kind, key, node, params, event }) {
-    const fn = new Fn(key, key, kind, kind === "handler" ? `Handler „${event.name}“` : key.replace(/^f_/, ""));
+    const fn = new Fn(key, key, kind, kind === "handler" ? text("compile.display.handler", { event: event.name }) : key.replace(/^f_/, ""));
     fn.base = this.nextSlot;
     fn.line = node.line;
     this.fns.push(fn);
@@ -779,10 +780,10 @@ class Compiler {
   // ---- whole program ----
 
   run(source) {
-    if (source.split("\n").length > LIMITS.sourceLines) throw new CompileError(`Das Plugin hat zu viele Zeilen (höchstens ${LIMITS.sourceLines}).`);
+    if (source.split("\n").length > LIMITS.sourceLines) throw new CompileError(text("compile.lines.tooMany", { max: LIMITS.sourceLines }));
     const program = parse(source);
     this.declareGlobals(program);
-    const start = new Fn("start", "start", "start", "das Plugin");
+    const start = new Fn("start", "start", "start", text("compile.display.plugin"));
     start.base = this.nextSlot;
     start.scopes.push(new Map());
     this.fns.push(start);
@@ -814,7 +815,7 @@ class Compiler {
     const dfs = key => {
       state.set(key, 1);
       for (const e of out.get(key) ?? []) {
-        if (state.get(e.to) === 1) throw err(e.at, `Rekursion ist nicht erlaubt: „${this.displayOf(e.from)}“ ruft „${this.displayOf(e.to)}“ auf, und das führt zurück. Alle Variablen haben feste Plätze, deshalb darf sich keine Funktion selbst aufrufen.`);
+        if (state.get(e.to) === 1) throw err(e.at, text("compile.recursion", { from: this.displayOf(e.from), to: this.displayOf(e.to) }));
         if (!state.has(e.to)) dfs(e.to);
       }
       state.set(key, 2);
@@ -829,8 +830,8 @@ class Compiler {
         seen.add(key);
         for (const s of this.apiSites) {
           if (s.fn === key && !(s.api.eventMask >> r.event.id & 1)) {
-            const hint = r.event.name === "start" ? " Beim Start laufen nur Variablen und Registrierung, Ausgaben gehören in „ready“ oder „frame“." : "";
-            throw err(s.at, `„${s.api.name}“ darf im Ereignis „${r.event.name}“ nicht benutzt werden (${this.displayOf(key)}).${hint}`);
+            const hint = r.event.name === "start" ? text("compile.event.api.start") : "";
+            throw err(s.at, text("compile.event.api", { api: s.api.name, event: r.event.name, fn: this.displayOf(key), hint }));
           }
         }
         for (const e of out.get(key) ?? []) visit(e.to);
@@ -843,8 +844,8 @@ class Compiler {
     const order = [this.fns[0], ...this.fns.filter(f => f.kind === "handler"), ...this.fns.filter(f => f.kind === "func")];
     const items = order.flatMap(f => f.items);
     let asm;
-    try { asm = assemble(items); } catch (e) { throw new CompileError(`Intern: ${e.message}`); }
-    if (asm.code.length > LIMITS.code) throw new CompileError(`Das Plugin ist zu groß (${asm.code.length} Byte Code, höchstens ${LIMITS.code}).`);
+    try { asm = assemble(items); } catch (e) { throw new CompileError(text("compile.internal", { message: e.message })); }
+    if (asm.code.length > LIMITS.code) throw new CompileError(text("compile.code.tooBig", { size: asm.code.length, max: LIMITS.code }));
     const handlers = this.handlers.map(h => ({ event: h.event, argc: h.argc, entry: asm.labels.get(h.entry) }));
     const parts = {
       name: this.name.slice(0, LIMITS.nameLength),
@@ -894,7 +895,8 @@ class Compiler {
 /**
  * Compile a script. On success `blob` is the bytes to load or export and
  * `info` describes it (symbols maps global names to their variable slots).
- * On failure `errors` holds one entry: line, column, a German message.
+ * On failure `errors` holds one entry: line, column, the message as a text of
+ * the table (`text`, src/text.mjs) and rendered in the current language (`message`).
  * `slotsAvailable` is a preliminary variable-slot limit, derived by default
  * from the arena byte size. A declaration crossing it is refused. The
  * loader checks the complete arena cost, including the blob and entry.
@@ -904,13 +906,14 @@ export function compile(source, { name = "script", slotsAvailable = BUDGET.varia
   try {
     return new Compiler(name, slotsAvailable).run(source);
   } catch (e) {
-    if (e instanceof CompileError) return { ok: false, errors: [{ line: e.line, column: e.column, message: e.message }] };
+    if (e instanceof CompileError) return { ok: false, errors: [{ line: e.line, column: e.column, text: e.text, get message() { return render(this.text); } }] };
     throw e;
   }
 }
 
+/** "Zeile 3, Spalte 7: ..." in the current language. */
 export function formatError(e) {
-  return `Zeile ${e.line}, Spalte ${e.column}: ${e.message}`;
+  return render(text("compile.at", { line: e.line, column: e.column, message: e.text ?? e.message }));
 }
 
 export { CompileError };

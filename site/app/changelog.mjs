@@ -6,7 +6,7 @@
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
-import { t, tNodes } from "./i18n.mjs";
+import { t, tNodes, locale } from "./i18n.mjs";
 
 const REPO = "KuhlerBuhler/kuhlers-gelumpe";
 const SEEN = "cee.changelog.seen";
@@ -56,7 +56,7 @@ export function notes(md) {
   return out;
 }
 
-const date = iso => new Date(iso).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+const date = iso => new Date(iso).toLocaleDateString(locale(), { day: "numeric", month: "long", year: "numeric" });
 
 /** The system the page runs on, as GitHub's release files name it: "mac", "windows" or "linux"; null when it is none of them. */
 export function systemOf(nav = globalThis.navigator) {
