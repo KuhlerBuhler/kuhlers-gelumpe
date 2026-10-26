@@ -9,7 +9,7 @@ export const NEWS = Object.freeze([
       "BLECH auf der blauen Electribe, mit oder ohne Hacktribe. Auf einer echten blauen noch ungetestet: Rückmeldung im Discord ist willkommen.",
       "Patcher: Korgs Firmware für rot oder blau nach dem Lizenz-Haken direkt laden, oder Korgs Zip ins Feld ziehen.",
       "Blaue Electribe: Einstellungen werden wieder gespeichert. Kopiere einmal KORG/electribe nach KORG/blechtribe.",
-      "Discord: alle Online-Leute als Blechys über die ganze Breite, mit Tanzpausen.",
+      "Discord: alle Online-Leute als Blechys über die ganze Breite, mit Tanzpausen, und die Liste aktualisiert sich jede Minute.",
       "Kommt der animierte Hintergrund nicht hinterher, bleibt er stehen.",
     ]),
   }),
