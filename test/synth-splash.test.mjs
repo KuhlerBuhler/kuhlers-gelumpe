@@ -7,6 +7,7 @@ import { sha256 } from "../src/firmware.mjs";
 test("the synth splash follows descriptor 13 and guards the original bitmap", async () => {
   const bytes = new Uint8Array(0x200100);
   bytes.set([0x45, 0x32, 0], 0x10);
+  bytes.fill(0xff, 0x170100, 0x170140); // Korg's blue leaves Hacktribe's code run erased
   const view = new DataView(bytes.buffer);
   for (let n = 0; n < 17; n++) {
     const desc = 0x100000 + n * 12;
