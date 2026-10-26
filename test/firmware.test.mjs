@@ -60,11 +60,15 @@ describe("the blue Electribe 2 (synth)", () => {
   const asSynth = async () => {
     const out = Uint8Array.from(await makeFirmware());
     out.set([0x45, 0x32, 0x00], 0x10);
+    out.fill(0xff, HACKTRIBE_CODE, HACKTRIBE_CODE + 0x40);
     return out;
   };
 
   test("a file head of the synth makes it that build, not Korg's Sampler", async () => {
     assert.equal(buildOf(await asSynth()), "synth");
+    const hacktribeOnBlue = Uint8Array.from(await makeFirmware());
+    hacktribeOnBlue.set([0x45, 0x32, 0x00], 0x10);
+    assert.equal(buildOf(hacktribeOnBlue), "hacktribe", "Hacktribe's code with the synth head is Hacktribe, not Korg's blue");
     const sampler = Uint8Array.from(await makeFirmware());
     sampler.set([0x45, 0x32, 0x53], 0x10);
     assert.equal(buildOf(sampler), "hacktribe");
