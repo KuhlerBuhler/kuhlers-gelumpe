@@ -215,8 +215,8 @@ npm run build:blech-patch -- --vsb <SYSTEM.VSB> --version 1.0.1
 
 | Datei | Wofür | Anwenden |
 |---|---|---|
-| `BLECH.patch` | der ganze Satz in unserem Format: alle Patches mit Haken, Prüfsummen und Startphase-Ausnahmen. Passt auf jede Hacktribe 2.02, deren Code und feste Daten stimmen, und mit `--stock` auch auf Korgs Original 2.02 (zweiter Fingerabdruck, Ordner-Variante für Korgs Build) | `node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`, oder in `src/patchfile.mjs` (`applyPatchFile`) |
-| `BLECH-for-7cb4825c.bsdiff`, mit `--stock` auch `BLECH-for-1d0f0689.bsdiff` | genau diese Datei zu BLECH als bsdiff 4 (`BSDIFF40`, wie Hacktribes Patch). Der Name trägt den Anfang des sha256 der Eingabe | `bspatch SYSTEM.VSB BLECH.VSB BLECH-for-7cb4825c.bsdiff`, ohne unsere App, nur mit der Datei mit diesem Hash |
+| `BLECH.patch` | der ganze Satz in unserem Format: alle Patches mit Haken, Prüfsummen und Startphase-Ausnahmen. Passt auf jede Hacktribe 2.02, deren Code und feste Daten stimmen, auch mit dem Kopf der blauen; mit `--stock` auf Korgs rote 2.02 und mit `--synth` auf Korgs blaue 2.02 (eigene Fingerabdrücke, die blaue mit ihrem eigenen Satz `blech-synth.json`). Das Release baut sie mit allen drei Dateien | `node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`, oder in `src/patchfile.mjs` (`applyPatchFile`) |
+| `BLECH-for-7cb4825c.bsdiff`, `BLECH-for-2b2e1c2f.bsdiff` (Hacktribe mit blauem Kopf), mit `--stock` `BLECH-for-1d0f0689.bsdiff`, mit `--synth` `BLECH-for-41fc5f1c.bsdiff` | genau diese Datei zu BLECH als bsdiff 4 (`BSDIFF40`, wie Hacktribes Patch). Der Name trägt den Anfang des sha256 der Eingabe. Die für `2b2e1c2f` gibt die Kopie mit dem Kopf des Samplers, den Hacktribe auf der blauen beim Update nimmt | `bspatch SYSTEM.VSB BLECH.VSB BLECH-for-7cb4825c.bsdiff`, ohne unsere App, nur mit der Datei mit diesem Hash |
 
 **Welche VSB passt.** Hacktribes Datei und eine bearbeitete VSB unterscheiden
 sich nur in Daten, die Nutzer ändern. An einer eigenen SYSTEM.VSB gemessen, gegen
@@ -673,8 +673,10 @@ Gebaut und im Emulator geprüft, am Gerät offen. Belege und Zahlen: [BLECH auf 
   erkennt). Beide Texte liegen in beiden Builds an denselben Adressen (`0xC00A5656`, `0xC00A5678`), und kein
   32-Bit-Wort im Abbild zeigt in die Mitte eines Fensters (das Werkzeug prüft es, gemessen an beiden Dateien).
   Die Karte braucht danach `KORG/blechtribe/`, wie bei Hacktribe.
-- **Patch-Datei:** der Kopf von `BLECH.patch` trägt die Fingerabdrücke für Hacktribe 2.02 wie bisher, die für Korgs
-  Original stehen in der Nutzlast unter `alternates.stock` (Format bleibt 2). Gebaut wird sie mit
+- **Patch-Datei:** der Kopf von `BLECH.patch` trägt die Fingerabdrücke für Hacktribe 2.02 wie bisher, die der anderen
+  Firmwares stehen in der Nutzlast unter `alternates` (Format bleibt 2): `stock` für Korgs rote, `hacktribe-blue` für
+  Hacktribe mit dem Kopf der blauen, `synth` für Korgs blaue, dort mit eigener Patchliste. Andere Schlüssel lehnt die
+  Seite ab. Gebaut wird sie mit
   `npm run build:blech-patch -- --stock <SYSTEM.VSB von Korg>` (oder `E2_STOCK_VSB`), dann liegt dazu
   `BLECH-for-1d0f0689.bsdiff` im Ordner. Eine Datei ohne `alternates` lehnt Korgs Original mit eigenem Hinweis ab.
 - **Prüfung:** `check.py` läuft mit Korgs Datei als `--base` und der gepatchten Kopie als `--patched`. Was dort anders
