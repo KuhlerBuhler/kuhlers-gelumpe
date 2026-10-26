@@ -231,6 +231,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Stimmen beim Wechsel innerhalb einer Sync-Gruppe, im Emulator geprüft](2026-10-25-sync-group-stimmen.md)
 - [Sync Group: gestoppt mit ungespeicherten Änderungen ohne Rückfrage](2026-10-25-sync-ungespeichert.md)
 - [Eine Plugin-Liste in PLUGIN EDIT, IMPORT PLUGIN entfällt](2026-10-25-plugin-liste.md)
+- [Plugins schreiben Steps: korg.seq, im Emulator geprüft](2026-10-26-plugin-steps.md)
 - [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
 - [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)

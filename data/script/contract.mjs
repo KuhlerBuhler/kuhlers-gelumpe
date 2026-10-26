@@ -23,7 +23,7 @@
  */
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 8;
+export const API_VERSION = 9;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -301,6 +301,9 @@ const API_LIST = [
   [42, "korg.read.chainMode", [], "int", ALL, 4, 8],
   [43, "korg.read.patternValue", [int("pattern", -1, 249), int("part", -1, 15), int("field", 0, 31)], "int", ALL, 6, 8],
   [44, "korg.remapKey", [int("from", 0, 33), int("to", 0, 33)], "void", MENU_ADD, 20, 8],
+  [45, "korg.seq.setStep", [int("part", 0, 15), int("step", 0, 63), int("note", -1, 127), int("velocity", 0, 127)], "void", UI, 6, 9],
+  [46, "korg.seq.setGate", [int("part", 0, 15), int("step", 0, 63), int("gate", 0, 127)], "void", UI, 4, 9],
+  [47, "korg.seq.clearPart", [int("part", 0, 15)], "void", UI, 30, 9],
   [48, "korg.play", [], "void", UI, 30, 3],
   [49, "korg.stop", [], "void", UI, 30, 3],
   [50, "korg.pattern", [int("index", 0, 249)], "void", UI, 30, 3],
@@ -409,6 +412,15 @@ export const PART_FIELDS = Object.freeze([
 ]);
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
+
+/**
+ * The steps korg.seq.* writes, in a part of the pattern in RAM: `count` records of `stride` bytes from `base` in the part
+ * (data/map/pattern.mjs, step.*). A record holds on, gate (127 a tie), velocity, trigger and four note places, each the
+ * note plus one, 0 for none. setStep writes on, velocity, trigger and the first note place and clears the other three, as
+ * the dice patch does (tools/patch/dice.py), or with note -1 or velocity 0 only the on byte; setGate writes the gate;
+ * clearPart sets every on byte to 0. The pads draw the steps again once at the end of the frame.
+ */
+export const PATTERN_STEPS = Object.freeze({ base: 0x30, stride: 12, count: 64, on: 0, gate: 1, velocity: 2, trigger: 3, notes: 4 });
 
 /** Knob values the input filter keeps for korg.read.knob: one word per knob, raw panel value. */
 export const SCRIPT_KNOBS = 20;

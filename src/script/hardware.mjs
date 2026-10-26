@@ -1,5 +1,5 @@
 /** The sequencer and panel state a script can read, for the simulated device. The values follow the firmware's ranges. */
-import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PATTERN_PARTS } from "../../data/script/contract.mjs";
+import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PATTERN_PARTS, PATTERN_STEPS } from "../../data/script/contract.mjs";
 import { ScriptFault } from "./vm.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
 
@@ -49,7 +49,33 @@ export class SimHardware {
       "korg.backlight": (red, green, blue) => { this.backlight = [red, green, blue]; },
       "korg.ledHold": on => { this.ledHold = on; },
       "korg.mute": (part, muted) => { if (this.mutes[part] !== muted) { this.mutes[part] = muted; this.emit("mute", part, muted); } },
+      "korg.seq.setStep": (part, step, note, velocity) => this.setStep(part, step, note, velocity),
+      "korg.seq.setGate": (part, step, gate) => { this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.gate] = gate; },
+      "korg.seq.clearPart": part => { for (let step = 0; step < PATTERN_STEPS.count; step++) this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.on] = 0; },
     };
+  }
+
+  /** Where a step's record starts in the pattern block. */
+  stepAt(part, step) { return PATTERN_PARTS.base + part * PATTERN_PARTS.stride + PATTERN_STEPS.base + step * PATTERN_STEPS.stride; }
+
+  /** korg.seq.setStep in the pattern in RAM, byte for byte what the ARM runtime writes: a note turns the step on, -1 or velocity 0 off. */
+  setStep(part, step, note, velocity) {
+    const block = this.patternBlock(-1);
+    const at = this.stepAt(part, step);
+    if (note < 0 || velocity < 1) { block[at + PATTERN_STEPS.on] = 0; return; }
+    block[at + PATTERN_STEPS.velocity] = velocity;
+    block.fill(0, at + PATTERN_STEPS.notes, at + PATTERN_STEPS.notes + 4);
+    block[at + PATTERN_STEPS.notes] = note + 1;
+    block[at + PATTERN_STEPS.trigger] = 1;
+    block[at + PATTERN_STEPS.on] = 1;
+  }
+
+  /** A step of the pattern in RAM as korg.seq writes it: on, gate, velocity, trigger and the note (-1 for none) of its first place. */
+  stepValue(part, step) {
+    const block = this.patternBlock(-1);
+    const at = this.stepAt(part, step);
+    return { on: block[at + PATTERN_STEPS.on], gate: block[at + PATTERN_STEPS.gate], velocity: block[at + PATTERN_STEPS.velocity],
+      trigger: block[at + PATTERN_STEPS.trigger], note: block[at + PATTERN_STEPS.notes] - 1 };
   }
 
   /** A named value of a pattern (PATTERN_FIELDS with part -1, PART_FIELDS with part 0 to 15), decoded as the ARM runtime does. */
