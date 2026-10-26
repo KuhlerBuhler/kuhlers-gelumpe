@@ -53,6 +53,15 @@ export const CHAINS = {
   "info-line": [{ id: "label-flag", sites: [0xC008684C] }],
   "stopped-sync": [{ id: "load-chosen", sites: [0xC0081E18] }],
   "pattern-load-copy": [{ id: "copy-into-ram", sites: [0xC004AC44] }],
+  "pattern-load-voices": [
+    { id: "before-copy", sites: [0xC0079B90] },
+    { id: "silence", sites: [0xC0079BE0] },
+    { id: "reset", sites: [0xC0098C84] },
+    { id: "after-copy", sites: [0xC0079C2C] },
+  ],
+  "note-cleanup": [{ id: "held-sources", sites: [0xC0045DAC] }],
+  "note-flush": [{ id: "all-notes", sites: [0xC004A728, 0xC004A7A8, 0xC00492F4] }],
+  "note-capacity": [{ id: "voice-mode", sites: [0xC005A884] }],
   "pad-input": [{ id: "busy-gate", sites: [0xC0044888] }],
   "command-end": [{ id: "busy-clear", sites: [0xC002D81C] }],
   "frame": [
