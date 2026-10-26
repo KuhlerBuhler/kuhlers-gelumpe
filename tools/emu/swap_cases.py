@@ -465,7 +465,7 @@ def steps_on(box, page, steps):
 def flow_task(payload, flash, index):
     name, page, steps, before = FLOWS[index]
     box = Box(payload, flash, small(range(500, 506)), [500], bank={1: [501, 502], 249: [503]}, cap=0x40000,
-              extra={"/imp.wav": plain_wav(20000).hex()})
+              extra={"/imp.wav": plain_wav(20000).hex()} if name == "import sample" else None)
     if before:
         steps_on(box, *before)
     box.key("play", 0.2)
