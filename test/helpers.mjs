@@ -217,3 +217,29 @@ export function makeZip(entries) {
   end.writeUInt32LE(dir.length, 12); end.writeUInt32LE(offset, 16);
   return new Uint8Array(Buffer.concat([...locals, dir, end]));
 }
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+
+/**
+ * The image with a run at 0x170100 that src/firmware.mjs takes for Hacktribe's code: not Hacktribe's bytes, 60 of ours and
+ * four that give the same CRC-32 (a CRC can be steered by four bytes, run backwards through its table).
+ */
+export function withHacktribeRun(bytes, crc = 0x12224d92) {
+  const out = Uint8Array.from(bytes);
+  const run = Uint8Array.from({ length: 64 }, (_, i) => (i * 37 + 11) & 0xff);
+  let state = ~0 >>> 0;
+  for (const b of run.subarray(0, 60)) state = (CRC_TABLE[(state ^ b) & 0xff] ^ (state >>> 8)) >>> 0;
+  let want = ~crc >>> 0;
+  for (let i = 0; i < 4; i++) {
+    const idx = CRC_TABLE.findIndex(t => t >>> 24 === want >>> 24);
+    want = (((want ^ CRC_TABLE[idx]) << 8) | idx) >>> 0;
+  }
+  const tail = (want ^ state) >>> 0;
+  run.set([tail & 0xff, (tail >>> 8) & 0xff, (tail >>> 16) & 0xff, tail >>> 24], 60);
+  out.set(run, 0x170100);
+  return out;
+}
