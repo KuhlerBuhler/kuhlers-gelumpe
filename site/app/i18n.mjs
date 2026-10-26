@@ -23,8 +23,22 @@ export function t(key, vars = {}) {
   return text.replace(/\{(\w+)\}/g, (all, name) => (name in vars ? String(vars[name]) : all));
 }
 
+/** Like t(), but a value may be a DOM node or a list of them: the text comes back as a flat list of strings and nodes, for append(). */
+export function tNodes(key, vars = {}) {
+  const text = TABLES[lang][key] ?? de[key] ?? key;
+  return text.split(/(\{\w+\})/).flatMap(part => {
+    const name = part.match(/^\{(\w+)\}$/)?.[1];
+    return name && name in vars ? vars[name] : part;
+  }).filter(part => part !== "");
+}
+
 /** Puts the texts of the chosen language into every marked element below `root`. */
 export function translate(root = document) {
   for (const node of root.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
+  // Text with links or code in it: the table holds its markup. Set only on a change, so the links keep their listeners.
+  for (const node of root.querySelectorAll("[data-i18n-html]")) {
+    const html = t(node.dataset.i18nHtml);
+    if (node.innerHTML !== html) node.innerHTML = html;
+  }
   for (const node of root.querySelectorAll("[data-i18n-label]")) node.setAttribute("aria-label", t(node.dataset.i18nLabel));
 }

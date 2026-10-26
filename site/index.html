@@ -58,15 +58,15 @@
 
     <div class="cee-right">
       <header class="cee-navbar">
-        <button type="button" class="btn cee-menu" id="cee-menu" aria-expanded="false" aria-controls="cee-sidebar">Menü</button>
-        <strong class="cee-nav-title" id="cee-nav-title">Start</strong>
+        <button type="button" class="btn cee-menu" id="cee-menu" aria-expanded="false" aria-controls="cee-sidebar" data-i18n="nav.menu">Menü</button>
+        <strong class="cee-nav-title" id="cee-nav-title"><span data-i18n="nav.start">Start</span></strong>
         <div class="cee-mode" id="cee-mode" hidden>
           <button type="button" class="cee-mode-button" id="cee-mode-button" aria-haspopup="menu" aria-expanded="false" aria-controls="cee-mode-menu">
-            <span id="cee-mode-label">Emulator</span>
+            <span id="cee-mode-label"><span data-i18n="mode.emu">Emulator</span></span>
           </button>
-          <div class="cee-mode-menu" id="cee-mode-menu" role="menu" aria-label="Emulator oder echtes Gerät" hidden>
-            <button type="button" class="cee-mode-item" role="menuitemradio" aria-checked="true" data-value="emu" tabindex="-1">Emulator</button>
-            <button type="button" class="cee-mode-item" role="menuitemradio" aria-checked="false" data-value="device" tabindex="-1">Echtes Gerät</button>
+          <div class="cee-mode-menu" id="cee-mode-menu" role="menu" aria-label="Emulator oder echtes Gerät" data-i18n-label="mode.menu" hidden>
+            <button type="button" class="cee-mode-item" role="menuitemradio" aria-checked="true" data-value="emu" tabindex="-1" data-i18n="mode.emu">Emulator</button>
+            <button type="button" class="cee-mode-item" role="menuitemradio" aria-checked="false" data-value="device" tabindex="-1" data-i18n="mode.device">Echtes Gerät</button>
           </div>
         </div>
         <div class="cee-nav-state" id="cee-nav-state" aria-live="polite"></div>
@@ -76,69 +76,69 @@
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-start" aria-labelledby="cee-tab-start" tabindex="0" hidden>
         <section class="cee-home" id="cee-start-page" data-no-reveal>
           <div class="cee-sec">
-            <h1 class="cee-home-title">Wat wird'n ditte hier? Korg verkuhlen or wa?</h1>
-            <p>Ich bin Kuhler Buhler, aka Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab, ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.</p>
-            <p>Warum? Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr drin, als Korg jemals rausgeholt hat. Mit BLECHTRIBE hab ich mir praktisch die Electribe 3 gebaut, die es nie gab.</p>
-            <p>Kuhler's GELUMPE ist die App für BLECHTRIBE: Sie patcht deine Firmware, hat eine Electribe als Emulator im Rechner, einen Editor für eigene Effekte und einen Katalog mit Plugins. Alles läuft auf deinem Rechner, deine Dateien verlassen ihn nicht, und Korg-Firmware ist nicht dabei. Gebaut auf Hacktribe (offene Mods für die Electribe, AGPL) und Wissen aus dem Freetribe-Projekt.</p>
-            <p>BLECHTRIBE ist eine neue Firmware für deine Electribe 2, für den roten Sampler und die blaue Synth. Sie kommt als Patch auf deine eigene Firmware, Korgs Original 2.02 oder Hacktribe 2.02, und holt raus, was Korg drin gelassen hat.</p>
+            <h1 class="cee-home-title" data-i18n="start.title">Wat wird'n ditte hier? Korg verkuhlen or wa?</h1>
+            <p data-i18n="start.intro.who">Ich bin Kuhler Buhler, aka Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab, ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.</p>
+            <p data-i18n="start.intro.why">Warum? Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr drin, als Korg jemals rausgeholt hat. Mit BLECHTRIBE hab ich mir praktisch die Electribe 3 gebaut, die es nie gab.</p>
+            <p data-i18n="start.intro.app">Kuhler's GELUMPE ist die App für BLECHTRIBE: Sie patcht deine Firmware, hat eine Electribe als Emulator im Rechner, einen Editor für eigene Effekte und einen Katalog mit Plugins. Alles läuft auf deinem Rechner, deine Dateien verlassen ihn nicht, und Korg-Firmware ist nicht dabei. Gebaut auf Hacktribe (offene Mods für die Electribe, AGPL) und Wissen aus dem Freetribe-Projekt.</p>
+            <p data-i18n="start.intro.blech">BLECHTRIBE ist eine neue Firmware für deine Electribe 2, für den roten Sampler und die blaue Synth. Sie kommt als Patch auf deine eigene Firmware, Korgs Original 2.02 oder Hacktribe 2.02, und holt raus, was Korg drin gelassen hat.</p>
           </div>
 
           <div class="cee-sec" id="cee-start-entry">
-            <h2>Wie installiere ich BLECHTRIBE?</h2>
-            <p>Du brauchst einen Rechner, einen SD-Kartenleser und ein paar Minuten.</p>
+            <h2 data-i18n="start.install.title">Wie installiere ich BLECHTRIBE?</h2>
+            <p data-i18n="start.install.needs">Du brauchst einen Rechner, einen SD-Kartenleser und ein paar Minuten.</p>
             <ol class="cee-install">
               <li>
-                <h3>1. Firmware holen</h3>
-                <p>Deine <code>SYSTEM.VSB</code> liegt auf der SD-Karte der Electribe, im Ordner <code>KORG/…/System/</code>. Hast du keine, findest du im <a class="cee-text-link" href="#patcher" id="cee-start-step-firmware">Firmware Patcher</a> die Links zu Korgs System Updater 2.02, darin steckt sie.</p>
+                <h3 data-i18n="start.install.step1">1. Firmware holen</h3>
+                <p data-i18n-html="start.install.step1.text">Deine <code>SYSTEM.VSB</code> liegt auf der SD-Karte der Electribe, im Ordner <code>KORG/…/System/</code>. Hast du keine, findest du im <a class="cee-text-link" href="#patcher" id="cee-start-step-firmware">Firmware Patcher</a> die Links zu Korgs System Updater 2.02, darin steckt sie.</p>
               </li>
               <li>
-                <h3>2. Im Firmware Patcher patchen</h3>
-                <p>Öffne den <a class="cee-text-link" href="#patcher" id="cee-start-step-patch">Firmware Patcher</a> und zieh deine <code>SYSTEM.VSB</code> rein. Wähl die Patches, die du willst. Dann bootet der Emulator die neue Datei und prüft, ob alles läuft. Das dauert ein paar Minuten, danach speicherst du sie.</p>
+                <h3 data-i18n="start.install.step2">2. Im Firmware Patcher patchen</h3>
+                <p data-i18n-html="start.install.step2.text">Öffne den <a class="cee-text-link" href="#patcher" id="cee-start-step-patch">Firmware Patcher</a> und zieh deine <code>SYSTEM.VSB</code> rein. Wähl die Patches, die du willst. Dann bootet der Emulator die neue Datei und prüft, ob alles läuft. Das dauert ein paar Minuten, danach speicherst du sie.</p>
               </li>
               <li>
-                <h3>3. Aufs Gerät</h3>
-                <p>Die neue Datei kommt auf die SD-Karte, der Patcher sagt dir wohin und welche Tasten am Gerät das Update starten. Ist BLECHTRIBE auf der roten schon drauf, geht jedes weitere Update direkt über USB.</p>
+                <h3 data-i18n="start.install.step3">3. Aufs Gerät</h3>
+                <p data-i18n="start.install.step3.text">Die neue Datei kommt auf die SD-Karte, der Patcher sagt dir wohin und welche Tasten am Gerät das Update starten. Ist BLECHTRIBE auf der roten schon drauf, geht jedes weitere Update direkt über USB.</p>
               </li>
               <li>
-                <h3>4. Loslegen</h3>
-                <p>Unter <a class="cee-text-link" href="#scripts">Plugins</a> holst du dir Erweiterungen und Spiele aufs Gerät, im <a class="cee-text-link" href="#baukasten">Baukasten</a> baust du eigene Effekte und Modulationen. Und läuft BLECHTRIBE erstmal, kannst du dieselbe Firmware auch in den <a class="cee-text-link" href="#emu" id="cee-start-emu">Emulator</a> laden: neue Presets machen, Plugins bauen und testen, ganz ohne Gerät.</p>
+                <h3 data-i18n="start.install.step4">4. Loslegen</h3>
+                <p data-i18n-html="start.install.step4.text">Unter <a class="cee-text-link" href="#scripts">Plugins</a> holst du dir Erweiterungen und Spiele aufs Gerät, im <a class="cee-text-link" href="#baukasten">Baukasten</a> baust du eigene Effekte und Modulationen. Und läuft BLECHTRIBE erstmal, kannst du dieselbe Firmware auch in den <a class="cee-text-link" href="#emu" id="cee-start-emu">Emulator</a> laden: neue Presets machen, Plugins bauen und testen, ganz ohne Gerät.</p>
               </li>
             </ol>
             <div class="actions">
-              <a class="btn cee-primary" href="#patcher" id="cee-start-patch">Zum Firmware Patcher</a>
+              <a class="btn cee-primary" href="#patcher" id="cee-start-patch" data-i18n="start.toPatcher">Zum Firmware Patcher</a>
             </div>
           </div>
 
           <div class="cee-sec" id="cee-start-trouble">
-            <h2>Geht was schief?</h2>
-            <p>Halt beim Einschalten EXIT gedrückt. Dann startet die Electribe ohne die Patches von BLECHTRIBE, fast wie das Original. Hast du Hacktribe drunter, bleiben dessen Funktionen.</p>
-            <p>Zeigt sie nur noch „00“ oder startet gar nicht mehr? Die <a class="cee-text-link" href="#rescue" id="cee-start-rescue">Rettung</a> fragt dich, was du siehst, und führt dich zurück.</p>
+            <h2 data-i18n="start.trouble.title">Geht was schief?</h2>
+            <p data-i18n="start.trouble.exit">Halt beim Einschalten EXIT gedrückt. Dann startet die Electribe ohne die Patches von BLECHTRIBE, fast wie das Original. Hast du Hacktribe drunter, bleiben dessen Funktionen.</p>
+            <p data-i18n-html="start.trouble.rescue">Zeigt sie nur noch „00“ oder startet gar nicht mehr? Die <a class="cee-text-link" href="#rescue" id="cee-start-rescue">Rettung</a> fragt dich, was du siehst, und führt dich zurück.</p>
             <div class="actions">
-              <a class="btn" href="#rescue" id="cee-start-rescue-more">Zur Rettung</a>
+              <a class="btn" href="#rescue" id="cee-start-rescue-more" data-i18n="start.toRescue">Zur Rettung</a>
             </div>
           </div>
 
           <div class="cee-sec">
-            <h2>Was kann BLECHTRIBE?</h2>
-            <p id="cee-start-features">BLECHTRIBE bringt einen ganzen Haufen neuer Funktionen und Verbesserungen auf die Electribe, viele davon hat sich die Community gewünscht. Die volle Liste mit Bildern und wie du drankommst steht unter Features.</p>
+            <h2 data-i18n="start.features.title">Was kann BLECHTRIBE?</h2>
+            <p id="cee-start-features" data-i18n="start.features.text">BLECHTRIBE bringt einen ganzen Haufen neuer Funktionen und Verbesserungen auf die Electribe, viele davon hat sich die Community gewünscht. Die volle Liste mit Bildern und wie du drankommst steht unter Features.</p>
             <div class="actions">
-              <a class="btn" href="#features" id="cee-start-more">Alle Features ansehen</a>
+              <a class="btn" href="#features" id="cee-start-more" data-i18n="start.features.more">Alle Features ansehen</a>
             </div>
           </div>
 
           <div class="cee-sec">
-            <h2>Erkunden</h2>
+            <h2 data-i18n="start.explore.title">Erkunden</h2>
             <ul class="cee-entry-steps" id="cee-start-explore">
-              <li><a class="cee-entry-step" href="#scripts" id="cee-start-plugins"><strong>Plugins ansehen</strong><span>Erweiterungen und Spiele aus dem Katalog, oder bau dein eigenes.</span></a></li>
-              <li><a class="cee-entry-step" href="#baukasten" id="cee-start-presets"><strong>Baukasten öffnen</strong><span>Eigene Effekte und Modulationen bauen, aus fertigen oder aus Bausteinen.</span></a></li>
+              <li><a class="cee-entry-step" href="#scripts" id="cee-start-plugins"><strong data-i18n="start.explore.plugins">Plugins ansehen</strong><span data-i18n="start.explore.plugins.hint">Erweiterungen und Spiele aus dem Katalog, oder bau dein eigenes.</span></a></li>
+              <li><a class="cee-entry-step" href="#baukasten" id="cee-start-presets"><strong data-i18n="start.explore.baukasten">Baukasten öffnen</strong><span data-i18n="start.explore.baukasten.hint">Eigene Effekte und Modulationen bauen, aus fertigen oder aus Bausteinen.</span></a></li>
             </ul>
           </div>
 
           <div class="cee-sec">
-            <h2>Spenden</h2>
-            <p>Kostet nix. Wenn dir das was bringt: <a class="cee-text-link" id="cee-donate-start" href="#support">So kannst du das Projekt unterstützen</a>, mit einer Spende, einem Bug-Report, einem Plugin oder einem Profilbild mit Blechy.</p>
+            <h2 data-i18n="start.donate.title">Spenden</h2>
+            <p data-i18n-html="start.donate.text">Kostet nix. Wenn dir das was bringt: <a class="cee-text-link" id="cee-donate-start" href="#support">So kannst du das Projekt unterstützen</a>, mit einer Spende, einem Bug-Report, einem Plugin oder einem Profilbild mit Blechy.</p>
           </div>
-          <p class="cee-home-foot">Viel Spaß beim Verkuhlen.</p>
+          <p class="cee-home-foot" data-i18n="start.foot">Viel Spaß beim Verkuhlen.</p>
         </section>
       </div>
 
@@ -193,34 +193,34 @@
         <div class="actions cee-pattern-actions">
           <span class="muted" id="cee-changes" aria-live="polite"></span>
           <div class="actions-buttons">
-            <button type="button" class="btn" id="cee-undo" disabled>Rückgängig</button>
-            <button type="button" class="btn cee-primary" id="cee-save" disabled>Speichern</button>
+            <button type="button" class="btn" id="cee-undo" disabled data-i18n="backup.undo">Rückgängig</button>
+            <button type="button" class="btn cee-primary" id="cee-save" disabled data-i18n="backup.save">Speichern</button>
           </div>
         </div>
         <div class="actions cee-pattern-device" id="cee-pattern-device" hidden>
-          <button type="button" class="btn" id="cee-fetch">Vom Gerät holen</button>
-          <button type="button" class="btn" id="cee-send-pattern" disabled>An Gerät senden</button>
-          <button type="button" class="btn" id="cee-pattern-undo" disabled>Senden zurücknehmen</button>
+          <button type="button" class="btn" id="cee-fetch" data-i18n="backup.fetch">Vom Gerät holen</button>
+          <button type="button" class="btn" id="cee-send-pattern" disabled data-i18n="backup.send">An Gerät senden</button>
+          <button type="button" class="btn" id="cee-pattern-undo" disabled data-i18n="backup.sendUndo">Senden zurücknehmen</button>
         </div>
 
         <p class="cee-error" id="cee-error" role="alert" hidden></p>
         <section class="ui-section" id="cee-start">
           <label class="ui-dropzone">
             <input type="file" class="ui-dropzone-input" id="cee-file" accept=".e2sallpat,.e2spat">
-            <span class="ui-dropzone-title"><span class="ui-dropzone-drag">Pattern-Sicherung hierher ziehen oder </span>auswählen</span>
-            <span class="ui-dropzone-hint">.e2sallpat mit allen Patterns oder .e2spat mit einem</span>
+            <span class="ui-dropzone-title"><span class="ui-dropzone-drag" data-i18n="backup.drop.drag">Pattern-Sicherung hierher ziehen oder </span><span data-i18n="common.pick">auswählen</span></span>
+            <span class="ui-dropzone-hint" data-i18n="backup.drop.hint">.e2sallpat mit allen Patterns oder .e2spat mit einem</span>
             <span class="ui-dropzone-files"></span>
           </label>
-          <p class="muted">Gespeichert wird nur, was du änderst. Alles andere bleibt Byte für Byte, wie das Gerät es geschrieben hat.</p>
+          <p class="muted" data-i18n="backup.keeps">Gespeichert wird nur, was du änderst. Alles andere bleibt Byte für Byte, wie das Gerät es geschrieben hat.</p>
         </section>
 
         <div class="ui-split" id="cee-split" hidden>
-          <button type="button" class="btn ui-split-toggle" aria-expanded="false" aria-controls="cee-side">Patterns</button>
+          <button type="button" class="btn ui-split-toggle" aria-expanded="false" aria-controls="cee-side" data-i18n="backup.list">Patterns</button>
           <aside class="ui-split-side" id="cee-side"></aside>
           <div class="ui-split-main">
             <div class="cee-loaded-bar">
               <span class="muted ui-truncate" id="cee-loaded"></span>
-              <label class="btn sm cee-reload">Andere Datei<input type="file" id="cee-reload" accept=".e2sallpat,.e2spat" class="cee-visually-hidden"></label>
+              <label class="btn sm cee-reload"><span data-i18n="backup.other">Andere Datei</span><input type="file" id="cee-reload" accept=".e2sallpat,.e2spat" class="cee-visually-hidden"></label>
             </div>
             <div id="cee-main" data-no-reveal></div>
           </div>
@@ -251,40 +251,40 @@
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-doom" aria-labelledby="cee-tab-doom" tabindex="0" hidden>
         <section class="cee-home" id="cee-doom-page" data-no-reveal>
           <div class="cee-sec">
-            <h1 class="cee-home-title">Doom</h1>
-            <p>Ja, wirklich. Doom läuft auf der roten Electribe mit BLECHTRIBE, gestartet von der SD-Karte. Das Spiel ist Freedoom, die freie Fassung mit eigenen Levels und Grafiken.</p>
+            <h1 class="cee-home-title" data-i18n="doom.title">Doom</h1>
+            <p data-i18n="doom.intro">Ja, wirklich. Doom läuft auf der roten Electribe mit BLECHTRIBE, gestartet von der SD-Karte. Das Spiel ist Freedoom, die freie Fassung mit eigenen Levels und Grafiken.</p>
           </div>
 
           <div class="cee-sec" id="cee-doom-files">
-            <h2>1. Dateien auf die Karte</h2>
-            <p>Lade beide Dateien und leg sie auf der SD-Karte in den Ordner <code>KORG/blechtribe/Doom/</code>. Gibt es den Ordner noch nicht, leg ihn an.</p>
+            <h2 data-i18n="doom.files.title">1. Dateien auf die Karte</h2>
+            <p data-i18n-html="doom.files.text">Lade beide Dateien und leg sie auf der SD-Karte in den Ordner <code>KORG/blechtribe/Doom/</code>. Gibt es den Ordner noch nicht, leg ihn an.</p>
             <div class="actions">
-              <a class="btn cee-primary" id="cee-doom-bin" href="third_party/doom/doom.bin" download="doom.bin">doom.bin laden</a>
-              <a class="btn" id="cee-doom-wad" href="third_party/doom/doom.wad" download="doom.wad">doom.wad laden (28 MB)</a>
+              <a class="btn cee-primary" id="cee-doom-bin" href="third_party/doom/doom.bin" download="doom.bin" data-i18n="doom.files.bin">doom.bin laden</a>
+              <a class="btn" id="cee-doom-wad" href="third_party/doom/doom.wad" download="doom.wad" data-i18n="doom.files.wad">doom.wad laden (28 MB)</a>
             </div>
           </div>
 
           <div class="cee-sec" id="cee-doom-start">
-            <h2>2. Starten</h2>
-            <p>Karte bei ausgeschaltetem Gerät einlegen, SHIFT und TAP gedrückt halten und einschalten. Ohne die beiden Tasten startet die Electribe ganz normal. Doom braucht BLECHTRIBE aus dem <a class="cee-text-link" href="#patcher">Firmware Patcher</a>, auf der blauen Electribe gibt es Doom nicht.</p>
+            <h2 data-i18n="doom.start.title">2. Starten</h2>
+            <p data-i18n-html="doom.start.text">Karte bei ausgeschaltetem Gerät einlegen, SHIFT und TAP gedrückt halten und einschalten. Ohne die beiden Tasten startet die Electribe ganz normal. Doom braucht BLECHTRIBE aus dem <a class="cee-text-link" href="#patcher">Firmware Patcher</a>, auf der blauen Electribe gibt es Doom nicht.</p>
           </div>
 
           <div class="cee-sec" id="cee-doom-keys">
-            <h2>3. Spielen</h2>
-            <p>Gesteuert wird mit den Pads:</p>
+            <h2 data-i18n="doom.keys.title">3. Spielen</h2>
+            <p data-i18n="doom.keys.text">Gesteuert wird mit den Pads:</p>
             <ul>
-              <li>Pad 2 vor, Pad 10 zurück</li>
-              <li>Pad 9 und 11 drehen, Pad 1 und 3 seitwärts</li>
-              <li>Pad 16 schießen, Pad 8 Türen und Schalter</li>
-              <li>Pad 15 rennen, Pad 7 nächste Waffe</li>
+              <li data-i18n="doom.keys.move">Pad 2 vor, Pad 10 zurück</li>
+              <li data-i18n="doom.keys.turn">Pad 9 und 11 drehen, Pad 1 und 3 seitwärts</li>
+              <li data-i18n="doom.keys.fire">Pad 16 schießen, Pad 8 Türen und Schalter</li>
+              <li data-i18n="doom.keys.run">Pad 15 rennen, Pad 7 nächste Waffe</li>
             </ul>
-            <p>Beenden: Am Gerät schaltet Ein/Aus Doom bisher nicht aus, das kommt mit dem nächsten Update. Bis dahin Netzteil ziehen oder Batterien raus, beim nächsten Einschalten ohne SHIFT und TAP startet die Electribe ganz normal.</p>
+            <p data-i18n="doom.keys.quit">Beenden: Am Gerät schaltet Ein/Aus Doom bisher nicht aus, das kommt mit dem nächsten Update. Bis dahin Netzteil ziehen oder Batterien raus, beim nächsten Einschalten ohne SHIFT und TAP startet die Electribe ganz normal.</p>
           </div>
 
           <div class="cee-sec" id="cee-doom-error">
-            <h2>Wenn DOOM ERROR kommt</h2>
-            <p>Dann fehlt eine Datei, sie ist unvollständig oder die Karte ist nicht lesbar. Ausschalten, die Dateien nochmal laden und auf die Karte kopieren, dann neu starten. Mehr dazu unter <a class="cee-text-link" href="#rescue">Rettung</a>.</p>
-            <p><a class="cee-text-link" id="cee-doom-licences" href="third_party/doom/README.md" target="_blank" rel="noopener noreferrer">Quellen und Lizenzen</a></p>
+            <h2 data-i18n="doom.error.title">Wenn DOOM ERROR kommt</h2>
+            <p data-i18n-html="doom.error.text">Dann fehlt eine Datei, sie ist unvollständig oder die Karte ist nicht lesbar. Ausschalten, die Dateien nochmal laden und auf die Karte kopieren, dann neu starten. Mehr dazu unter <a class="cee-text-link" href="#rescue">Rettung</a>.</p>
+            <p><a class="cee-text-link" id="cee-doom-licences" href="third_party/doom/README.md" target="_blank" rel="noopener noreferrer" data-i18n="doom.licences">Quellen und Lizenzen</a></p>
           </div>
         </section>
       </div>
@@ -292,37 +292,37 @@
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-support" aria-labelledby="cee-tab-support" tabindex="0" hidden>
         <section class="cee-home" id="cee-support-page" data-no-reveal>
           <div class="cee-sec">
-            <h1 class="cee-home-title">Unterstütze das Projekt</h1>
-            <p>Kuhler's GELUMPE und BLECHTRIBE kosten nix und bleiben so. Wenn du trotzdem was zurückgeben willst, geht das auf ein paar Wegen.</p>
+            <h1 class="cee-home-title" data-i18n="support.title">Unterstütze das Projekt</h1>
+            <p data-i18n="support.intro">Kuhler's GELUMPE und BLECHTRIBE kosten nix und bleiben so. Wenn du trotzdem was zurückgeben willst, geht das auf ein paar Wegen.</p>
           </div>
 
           <div class="cee-sec" id="cee-support-donate">
-            <h2>Spenden</h2>
-            <p>Da stecken ein paar Monate Abende und Nächte drin. Wenn dir das was bringt, freu ich mich über eine Spende per PayPal.</p>
+            <h2 data-i18n="support.donate.title">Spenden</h2>
+            <p data-i18n="support.donate.text">Da stecken ein paar Monate Abende und Nächte drin. Wenn dir das was bringt, freu ich mich über eine Spende per PayPal.</p>
             <div class="actions">
-              <a class="btn cee-primary" id="cee-support-paypal" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer">Per PayPal spenden</a>
+              <a class="btn cee-primary" id="cee-support-paypal" href="https://www.paypal.me/kuhlerbuhler" target="_blank" rel="noopener noreferrer" data-i18n="support.donate.paypal">Per PayPal spenden</a>
             </div>
           </div>
 
           <div class="cee-sec" id="cee-support-issue">
-            <h2>Bug gefunden oder eine Idee?</h2>
-            <p>Öffne ein Issue auf GitHub. Schreib rein, was du gemacht hast, was passiert ist und was du erwartet hättest, gern mit einem Foto vom Display.</p>
+            <h2 data-i18n="support.issue.title">Bug gefunden oder eine Idee?</h2>
+            <p data-i18n="support.issue.text">Öffne ein Issue auf GitHub. Schreib rein, was du gemacht hast, was passiert ist und was du erwartet hättest, gern mit einem Foto vom Display.</p>
             <div class="actions">
-              <a class="btn" id="cee-support-issues" href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new" target="_blank" rel="noopener noreferrer">Issue auf GitHub öffnen</a>
+              <a class="btn" id="cee-support-issues" href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new" target="_blank" rel="noopener noreferrer" data-i18n="support.issue.open">Issue auf GitHub öffnen</a>
             </div>
           </div>
 
           <div class="cee-sec" id="cee-support-plugin">
-            <h2>Dein Plugin für alle?</h2>
-            <p>Du willst eins deiner Plugins im Katalog für alle bereitstellen? Stell einen Pull Request auf GitHub gegen den Branch <code>develop</code>, mit deinem Plugin als Eintrag in <code>data/script/presets.mjs</code>. Wie so ein Eintrag aussieht, steht in der Doku unter <a class="cee-text-link" href="#scripts">Plugins</a>.</p>
+            <h2 data-i18n="support.plugin.title">Dein Plugin für alle?</h2>
+            <p data-i18n-html="support.plugin.text">Du willst eins deiner Plugins im Katalog für alle bereitstellen? Stell einen Pull Request auf GitHub gegen den Branch <code>develop</code>, mit deinem Plugin als Eintrag in <code>data/script/presets.mjs</code>. Wie so ein Eintrag aussieht, steht in der Doku unter <a class="cee-text-link" href="#scripts">Plugins</a>.</p>
             <div class="actions">
-              <a class="btn" id="cee-support-pr" href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/compare/develop" target="_blank" rel="noopener noreferrer">Pull Request auf GitHub stellen</a>
+              <a class="btn" id="cee-support-pr" href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/compare/develop" target="_blank" rel="noopener noreferrer" data-i18n="support.plugin.pr">Pull Request auf GitHub stellen</a>
             </div>
           </div>
 
           <div class="cee-sec" id="cee-support-share">
-            <h2>Erzähl's weiter</h2>
-            <p>Zeig BLECHTRIBE rum. Hier baust du dir ein Profilbild mit Blechy und deinem Namen und Hintergründe für Rechner und Handy, alles aus den Pixeln vom Display. Wenn du was postest, markier <a class="cee-text-link" id="cee-support-instagram" href="https://www.instagram.com/kuhler_buhler/" target="_blank" rel="noopener noreferrer">@kuhler_buhler</a> auf Instagram.</p>
+            <h2 data-i18n="support.share.title">Erzähl's weiter</h2>
+            <p data-i18n-html="support.share.text">Zeig BLECHTRIBE rum. Hier baust du dir ein Profilbild mit Blechy und deinem Namen und Hintergründe für Rechner und Handy, alles aus den Pixeln vom Display. Wenn du was postest, markier <a class="cee-text-link" id="cee-support-instagram" href="https://www.instagram.com/kuhler_buhler/" target="_blank" rel="noopener noreferrer">@kuhler_buhler</a> auf Instagram.</p>
             <div class="cee-support-part" id="cee-support-avatar"></div>
             <div class="cee-support-part" id="cee-support-wallpaper"></div>
           </div>

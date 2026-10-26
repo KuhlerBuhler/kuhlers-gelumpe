@@ -8,10 +8,11 @@ import { el } from "./fields.mjs";
 import { maskOf } from "./support.mjs";
 import { outlined } from "../../src/blechy-outline.mjs";
 import { reducedMotion } from "./settings.mjs";
+import { t } from "./i18n.mjs";
 
 const GUILD = "1563916590498447370";
 const API = `https://discord.com/api/guilds/${GUILD}/widget.json`;
-const STATUS = { online: "online", idle: "abwesend", dnd: "beschäftigt" };
+const STATUS = { online: "discord.status.online", idle: "discord.status.idle", dnd: "discord.status.dnd" };
 const TONE = { online: "ok", idle: "warn", dnd: "error" };
 /** The pictures of a Blechy: walking swaps idle and walk like his walk on the display. */
 const POSES = { idle: "img/blechy/idle.png", walk: "img/blechy/walk.png", angry: "img/blechy/angry.png", sad: "img/blechy/sad.png" };
@@ -37,7 +38,7 @@ function paint(canvas, mask, ink) {
 
 /** One member as a Blechy with the name above him; `walks` tells the floor whether he moves. */
 function blechy(m) {
-  const status = STATUS[m.status] ?? m.status;
+  const status = STATUS[m.status] ? t(STATUS[m.status]) : m.status;
   const canvas = el("canvas", { className: "cee-discord-blechy-art", width: 56 * SCALE, height: 56 * SCALE });
   const dot = el("span", { className: "cee-discord-dot" });
   dot.setAttribute("data-tone", TONE[m.status] ?? "warn");
@@ -60,7 +61,7 @@ function blechy(m) {
  */
 function floor(members) {
   const figures = members.map(blechy);
-  const list = el("ul", { className: "cee-discord-floor", "aria-label": "Gerade online" }, figures.map(f => f.node));
+  const list = el("ul", { className: "cee-discord-floor", "aria-label": t("discord.online") }, figures.map(f => f.node));
   let running = false;
   async function start() {
     const art = await loadPoses();
@@ -107,15 +108,15 @@ export function serverView(w) {
   const nodes = [
     el("header", { className: "cee-discord-head" }, [
       el("h2", { textContent: w.name }),
-      el("p", { className: "muted", textContent: `${w.presence_count ?? members.length} online. Hier kommen auch die Ankündigungen neuer Versionen an.` }),
-      join ? el("div", { className: "actions" }, [link(join, "Server beitreten", "btn cee-primary")]) : null,
+      el("p", { className: "muted", textContent: t("discord.count", { count: w.presence_count ?? members.length }) }),
+      join ? el("div", { className: "actions" }, [link(join, t("discord.join"), "btn cee-primary")]) : null,
     ]),
     el("section", {}, [
-      el("h3", { textContent: "Gerade online" }),
-      room ? room.list : el("p", { className: "muted", textContent: "Gerade ist niemand online." }),
+      el("h3", { textContent: t("discord.online") }),
+      room ? room.list : el("p", { className: "muted", textContent: t("discord.nobody") }),
     ]),
     channels.length ? el("section", {}, [
-      el("h3", { textContent: "Sprachkanäle" }),
+      el("h3", { textContent: t("discord.voice") }),
       el("ul", { className: "cee-discord-channels" }, channels.map(c => el("li", { textContent: c.name }))),
     ]) : null,
   ].filter(Boolean);
@@ -127,8 +128,8 @@ export function serverView(w) {
  * @returns {{ opened(): void }} loads the server when the page is opened, again at most once a minute
  */
 export function discordPage(root, fetchImpl = globalThis.fetch) {
-  const body = el("div", { className: "cee-discord", "aria-live": "polite" }, [el("p", { className: "muted", textContent: "Lade den Discord-Server..." })]);
-  root.append(el("h1", { className: "ui-sr-only", textContent: "Discord" }), body);
+  const body = el("div", { className: "cee-discord", "aria-live": "polite" }, [el("p", { className: "muted", textContent: t("discord.loading") })]);
+  root.append(el("h1", { className: "ui-sr-only", textContent: t("nav.discord") }), body);
   let loaded = 0;
   let start = () => {};
   async function load() {
@@ -144,7 +145,7 @@ export function discordPage(root, fetchImpl = globalThis.fetch) {
     } catch {
       loaded = 0;
       start = () => {};
-      body.replaceChildren(el("p", { textContent: "Der Discord-Server ist gerade nicht erreichbar. Versuch es gleich noch einmal." }));
+      body.replaceChildren(el("p", { textContent: t("discord.offline") }));
     }
   }
   return { opened: load };
