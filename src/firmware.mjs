@@ -17,6 +17,10 @@ import { tableEntry } from "./map/address.mjs";
 import ORIGINALS from "../data/originals.mjs";
 import { FACTORY_SLOTS } from "./profile.mjs";
 import { locateModTable } from "./modtable.mjs";
+import { render, text as textOf } from "./text.mjs";
+
+/** A reason as finished text in the current language (src/text.mjs): reasons are lists of strings everywhere they go. */
+const say = (key, vars) => render(textOf(key, vars));
 
 const text = (bytes, at, n) => String.fromCharCode(...bytes.subarray(at, at + n));
 
@@ -99,24 +103,23 @@ export function firmwareName(bytes) {
 }
 
 /** The one line for the blue Electribe 2: the emulator runs it, everything of the Sampler editor is not for it. */
-export const SYNTH_REASON = "Das ist die Firmware der blauen Electribe 2 (Synth). Sie läuft im Emulator und hat einen eigenen BLECH-Patch-Satz. Der Effekt-Editor und die Live-Bearbeitung sind für den Sampler.";
+const synthReason = () => say("vsb.synth");
 
-/** The German lines for the page: what Korg's own build does not have. */
-export const STOCK_LACKS = [
-  "Lesen und Schreiben im RAM über MIDI und der Effekt-Editor (Hacktribe-SysEx, Befehle 0x52 bis 0x57)",
-  "Effekt-Presets an den Stellen der Karte (Korgs Build legt sie verstreut ab, über zwei Zeigerfelder: der Editor liest sie darüber, aber nur aus der Datei, nicht live)",
-  "BLECH und die Plugins, solange die Datei nicht gepatcht ist (der Patcher setzt BLECH direkt auf Korgs Build)",
-  "Hacktribes Filter für den Synth und die zusätzlichen Effekte",
-];
+/** The lines for the page, as texts: what Korg's own build does not have. */
+export const STOCK_LACKS = [textOf("vsb.lack.sysex"), textOf("vsb.lack.presets"), textOf("vsb.lack.blech"), textOf("vsb.lack.filters")];
 
-export const STOCK_REASON = `Das ist Korgs Original-Firmware 2.02. Es fehlt: ${STOCK_LACKS.join("; ")}.`;
+const stockReason = () => say("vsb.stock", { lacks: STOCK_LACKS.map(render).join("; ") });
+
+/** The two reasons as Node renders them, German: for tests and tools. The page gets them through lackOf() and identify(). */
+export const SYNTH_REASON = synthReason();
+export const STOCK_REASON = stockReason();
 
 /** Why a function of Hacktribe's is not offered for this build, or null when the build has it. */
 export function lackOf(build, what = "sysex", { blech = false } = {}) {
   if (build === "stock" && what === "sysex" && blech) return null;
-  if (build === "stock") return STOCK_REASON;
-  if (build === "synth") return FEATURES.synth[what] ? null : SYNTH_REASON;
-  return FEATURES[build]?.[what] ? null : "Die Firmware ist nicht erkannt.";
+  if (build === "stock") return stockReason();
+  if (build === "synth") return FEATURES.synth[what] ? null : synthReason();
+  return FEATURES[build]?.[what] ? null : say("vsb.unknown");
 }
 
 /**
@@ -126,7 +129,7 @@ export function lackOf(build, what = "sysex", { blech = false } = {}) {
  */
 export async function identifyBase(bytes) {
   const size = BLOCKS.get("firmware").size;
-  if (bytes.length !== size) return { ok: false, build: null, reasons: [`Die Datei ist ${bytes.length} Byte groß; eine SYSTEM.VSB für 2.02 hat ${size}.`] };
+  if (bytes.length !== size) return { ok: false, build: null, reasons: [say("vsb.size", { got: bytes.length, size })] };
   // The synth is a base for the patches made for it (builds: ["synth"]); each patch still checks the bytes it replaces.
   if (buildOf(bytes) === "synth") return { ok: true, build: "synth", reasons: [] };
   if (buildOf(bytes) === "hacktribe") {
@@ -136,7 +139,7 @@ export async function identifyBase(bytes) {
   const init = tableEntry("table.initPattern", 0).file + offsetOf(field("pattern.magic"));
   return text(bytes, init, 4) === "PTST"
     ? { ok: true, build: "stock", reasons: [] }
-    : { ok: false, build: "stock", reasons: ["Das Init-Pattern liegt nicht an der gemessenen Stelle."] };
+    : { ok: false, build: "stock", reasons: [say("vsb.initPattern")] };
 }
 
 export async function sha256(bytes) {
@@ -162,26 +165,26 @@ export async function identify(bytes) {
   const reasons = [];
   const size = BLOCKS.get("firmware").size;
   if (bytes.length !== size) {
-    return { known: false, build: null, reasons: [`Die Datei ist ${bytes.length} Byte groß; eine SYSTEM.VSB für 2.02 hat ${size}.`], release: null, original: false, changedSlots: null, menus: null };
+    return { known: false, build: null, reasons: [say("vsb.size", { got: bytes.length, size })], release: null, original: false, changedSlots: null, menus: null };
   }
   const build = buildOf(bytes);
-  if (build === "synth") return { known: false, build, reasons: [SYNTH_REASON], release: null, original: false, changedSlots: null, menus: null };
+  if (build === "synth") return { known: false, build, reasons: [synthReason()], release: null, original: false, changedSlots: null, menus: null };
   const init = tableEntry("table.initPattern", 0).file + offsetOf(field("pattern.magic"));
-  if (text(bytes, init, 4) !== "PTST") reasons.push("Das Init-Pattern liegt nicht an der gemessenen Stelle.");
+  if (text(bytes, init, 4) !== "PTST") reasons.push(say("vsb.initPattern"));
   // Korg's own build is a Sampler 2.02 image as well, but the tables the map describes are not in it.
-  if (build === "stock" && !reasons.length) return { known: false, build, reasons: [STOCK_REASON], release: null, original: false, changedSlots: null, menus: null };
+  if (build === "stock" && !reasons.length) return { known: false, build, reasons: [stockReason()], release: null, original: false, changedSlots: null, menus: null };
   const groove = tableEntry("table.groove", 0).file;
-  if (text(bytes, groove + offsetOf(field("groove.magic")), 4) !== "GVST") reasons.push("Die Groove-Tabelle liegt nicht an der gemessenen Stelle.");
+  if (text(bytes, groove + offsetOf(field("groove.magic")), 4) !== "GVST") reasons.push(say("vsb.groove"));
   const mod = locateModTable(bytes);
   if (!mod.ok) reasons.push(...mod.reasons);
   const ifx = readRaw(bytes, field("menu.ifxCount"));
-  if (!ifx.agreed) reasons.push(`Die 13 Stellen der Insert-Menülänge sind sich nicht einig (${ifx.values.join(", ")}).`);
+  if (!ifx.agreed) reasons.push(say("vsb.ifxMenu", { values: ifx.values.join(", ") }));
   const mfx = readRaw(bytes, field("menu.mfxCount"));
   const ins = field("menu.mfxCount");
   try { checkInstruction(bytes.subarray(ins.where.offset, ins.where.offset + 4), ins.instruction, ins.id); }
   catch (error) { reasons.push(error.message); }
   const tables = ["mfx", "ifx"].map(k => TABLES.get(`table.${k}`));
-  if (mfx < FACTORY_SLOTS.mfx || mfx > tables[0].count) reasons.push(`Die Master-Menülänge ${mfx} ist unplausibel.`);
+  if (mfx < FACTORY_SLOTS.mfx || mfx > tables[0].count) reasons.push(say("vsb.mfxMenu", { mfx }));
 
   const menus = { mfx, ifx: ifx.value, ifxAgreed: ifx.agreed };
   if (reasons.length) return { known: false, build, reasons, release: null, original: false, changedSlots: null, menus };
@@ -203,10 +206,10 @@ export async function identify(bytes) {
 
 /** What to tell a beginner when `identify` does not know the file: what it is and what to take instead; the reasons follow. */
 export function firmwareAdvice(id, reasons = id.reasons) {
-  if (!id.build) return "Das ist keine Firmware-Datei. Nimm die SYSTEM.VSB aus dem Ordner KORG › dein Ordner › System auf der SD-Karte.";
-  if (id.build === "synth") return "Das ist die Firmware der blauen Electribe. Das hier geht nur mit der roten Electribe (Sampler) mit Hacktribe 2.02.";
-  if (id.build === "stock") return "Das ist Korgs Original-Firmware. Das hier geht nur mit Hacktribe 2.02.";
-  return `Diese Hacktribe-Version kennt die App nicht. Nimm Hacktribe 2.02. Grund: ${reasons.join(" ")}`;
+  if (!id.build) return say("vsb.advice.none");
+  if (id.build === "synth") return say("vsb.advice.synth");
+  if (id.build === "stock") return say("vsb.advice.stock");
+  return say("vsb.advice.unknown", { reasons: reasons.join(" ") });
 }
 
 /** Whether one factory slot is byte for byte the release, for the baseline rule. */

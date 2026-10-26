@@ -7,16 +7,19 @@
  */
 import { ARCHIVE, SOURCE_TRAILER, DESC_TRAILER, MAGIC, ERROR } from "../../data/script/contract.mjs";
 import { crc32, decodeBlob, fail } from "./blob.mjs";
+import { text as msg, render } from "../text.mjs";
+
+const say = (key, vars) => render(msg(key, vars));
 
 // Returns the decoded parts, or the error when the block cannot be loaded from a file.
 function checkBlock(bytes, label) {
   if (bytes.length > ARCHIVE.maxBlock) {
-    return { ok: false, error: fail(ERROR.LIMITS, `${label}: Block ${bytes.length} Bytes, die Karte nimmt höchstens ${ARCHIVE.maxBlock}`) };
+    return { ok: false, error: fail(ERROR.LIMITS, say("script.file.blockMax", { label, size: bytes.length, max: ARCHIVE.maxBlock })) };
   }
   const parts = decodeBlob(bytes);
   if (!parts.ok) return { ok: false, error: { ...parts.error, message: `${label}: ${parts.error.message}` } };
   if (parts.header.totalSize !== bytes.length) {
-    return { ok: false, error: fail(ERROR.BAD_SIZE, `${label}: Block ${parts.header.totalSize} Bytes, Datei ${bytes.length}`) };
+    return { ok: false, error: fail(ERROR.BAD_SIZE, say("script.file.blockSize", { label, size: parts.header.totalSize, file: bytes.length })) };
   }
   return { ok: true, parts };
 }
@@ -27,14 +30,14 @@ function checkBlock(bytes, label) {
  * @returns {{ ok: true, bytes: Uint8Array } | { ok: false, error: object }}
  */
 export function packAll(blocks) {
-  if (blocks.length > 0xffff) return { ok: false, error: fail(ERROR.LIMITS, `${blocks.length} Plugins, höchstens 65535`) };
+  if (blocks.length > 0xffff) return { ok: false, error: fail(ERROR.LIMITS, say("script.file.count", { count: blocks.length })) };
   const names = new Set();
   let size = ARCHIVE.headerSize;
   for (const [i, block] of blocks.entries()) {
-    const checked = checkBlock(block, `Plugin ${i + 1}`);
+    const checked = checkBlock(block, say("script.file.plugin", { number: i + 1 }));
     if (!checked.ok) return checked;
     const name = checked.parts.header.name;
-    if (names.has(name)) return { ok: false, error: { code: null, name: "DUPLICATE_NAME", message: `der Name "${name}" kommt zweimal vor`, offset: null } };
+    if (names.has(name)) return { ok: false, error: { code: null, name: "DUPLICATE_NAME", message: say("script.file.duplicate", { name }), offset: null } };
     names.add(name);
     size += block.length;
   }
@@ -61,28 +64,28 @@ export function packAll(blocks) {
  */
 export function parseAll(bytes) {
   const bad = (code, detail) => ({ ok: false, error: fail(code, detail) });
-  if (bytes.length < ARCHIVE.headerSize) return bad(ERROR.TRUNCATED, `${bytes.length} Bytes, der Kopf braucht ${ARCHIVE.headerSize}`);
+  if (bytes.length < ARCHIVE.headerSize) return bad(ERROR.TRUNCATED, say("script.file.header", { size: bytes.length, needed: ARCHIVE.headerSize }));
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (dv.getUint32(0, true) !== ARCHIVE.magic) return bad(ERROR.MAGIC, "keine Sammeldatei e2sPlugin.all");
+  if (dv.getUint32(0, true) !== ARCHIVE.magic) return bad(ERROR.MAGIC, say("script.file.notAll"));
   const version = dv.getUint16(4, true);
-  if (version !== ARCHIVE.version) return bad(ERROR.FORMAT_VERSION, `Datei ${version}, diese Laufzeit ${ARCHIVE.version}`);
+  if (version !== ARCHIVE.version) return bad(ERROR.FORMAT_VERSION, say("script.file.fileVersion", { file: version, runtime: ARCHIVE.version }));
   const count = dv.getUint16(6, true);
   const total = dv.getUint32(8, true);
-  if (total < ARCHIVE.headerSize + count * 52) return bad(ERROR.BAD_SIZE, `Kopf nennt ${total} Bytes für ${count} Plugins`);
-  if (bytes.length < total) return bad(ERROR.TRUNCATED, `${bytes.length} von ${total} Bytes`);
+  if (total < ARCHIVE.headerSize + count * 52) return bad(ERROR.BAD_SIZE, say("script.file.headerCount", { size: total, count }));
+  if (bytes.length < total) return bad(ERROR.TRUNCATED, say("script.file.of", { size: bytes.length, total }));
   if (crc32(bytes, ARCHIVE.checksumFrom, total) !== dv.getUint32(12, true)) return bad(ERROR.CHECKSUM);
   const blocks = [];
   let at = ARCHIVE.headerSize;
   for (let i = 0; i < count; i++) {
-    if (at + 52 > total) return bad(ERROR.TRUNCATED, `Plugin ${i + 1} fehlt`);
+    if (at + 52 > total) return bad(ERROR.TRUNCATED, say("script.file.pluginMissing", { number: i + 1 }));
     const size = dv.getUint32(at + 8, true);
-    if (size < 52 || size > ARCHIVE.maxBlock || size % 4 || at + size > total) return bad(ERROR.BAD_SIZE, `Plugin ${i + 1} nennt ${size} Bytes`);
+    if (size < 52 || size > ARCHIVE.maxBlock || size % 4 || at + size > total) return bad(ERROR.BAD_SIZE, say("script.file.pluginSize", { number: i + 1, size }));
     const block = bytes.slice(at, at + size);
-    const checked = checkBlock(block, `Plugin ${i + 1}`);
+    const checked = checkBlock(block, say("script.file.plugin", { number: i + 1 }));
     blocks.push({ name: checked.ok ? checked.parts.header.name : "", offset: at, size, bytes: block, error: checked.ok ? null : checked.error });
     at += size;
   }
-  if (at !== total) return bad(ERROR.BAD_SIZE, `Kopf nennt ${total} Bytes, die Plugins brauchen ${at}`);
+  if (at !== total) return bad(ERROR.BAD_SIZE, say("script.file.headerPlugins", { size: total, needed: at }));
   return { ok: true, blocks };
 }
 
@@ -145,7 +148,7 @@ function trailer(magic, bytes) {
  * @param {string} [source]
  */
 export function packBlech(block, source) {
-  const checked = checkBlock(block, "Plugin");
+  const checked = checkBlock(block, say("script.file.label"));
   if (!checked.ok) return checked;
   const parts = [block];
   if (source !== undefined) {
@@ -168,13 +171,13 @@ export function packBlech(block, source) {
  * @returns {{ ok: true, block: Uint8Array, source: string | null, description: string | null, parts: object } | { ok: false, error: object }}
  */
 export function parseBlech(bytes) {
-  if (bytes.length < 12) return { ok: false, error: fail(ERROR.TRUNCATED, `${bytes.length} Bytes`) };
+  if (bytes.length < 12) return { ok: false, error: fail(ERROR.TRUNCATED, say("script.file.bytes", { size: bytes.length })) };
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (dv.getUint32(0, true) !== MAGIC) return { ok: false, error: fail(ERROR.MAGIC) };
   const size = dv.getUint32(8, true);
-  if (size > bytes.length) return { ok: false, error: fail(ERROR.TRUNCATED, `${bytes.length} von ${size} Bytes`) };
+  if (size > bytes.length) return { ok: false, error: fail(ERROR.TRUNCATED, say("script.file.of", { size: bytes.length, total: size })) };
   const block = bytes.slice(0, size);
-  const checked = checkBlock(block, "Plugin");
+  const checked = checkBlock(block, say("script.file.label"));
   if (!checked.ok) return checked;
   let source = null;
   let description = null;

@@ -1,6 +1,7 @@
 /** The sequencer and panel state a script can read, for the simulated device. The values follow the firmware's ranges. */
 import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PATTERN_PARTS, PATTERN_STEPS } from "../../data/script/contract.mjs";
 import { ScriptFault } from "./vm.mjs";
+import { text, render } from "../text.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
 
 const LENGTH_FIELD = PATTERN_FIELDS.findIndex(f => f.name === "length");
@@ -81,7 +82,7 @@ export class SimHardware {
   /** A named value of a pattern (PATTERN_FIELDS with part -1, PART_FIELDS with part 0 to 15), decoded as the ARM runtime does. */
   patternValue(pattern, part, field) {
     const f = (part < 0 ? PATTERN_FIELDS : PART_FIELDS)[field];
-    if (!f) throw new ScriptFault(ERROR.API_ARG, `korg.read.patternValue: den Wert ${field} gibt es nicht`);
+    if (!f) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.patternValue", { field })));
     const block = this.patternBlocks.get(pattern) ?? new Uint8Array(PATTERN_PARTS.bytes);
     const at = f.offset + (part < 0 ? 0 : PATTERN_PARTS.base + part * PATTERN_PARTS.stride);
     const raw = block[at];

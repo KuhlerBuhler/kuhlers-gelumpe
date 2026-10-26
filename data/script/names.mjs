@@ -5,6 +5,7 @@
  * PART_LEFT and PART_RIGHT, encoders take their printed label, a second LED adds a
  * colour (`PLAY_BLUE`).
  */
+import { text } from "../../src/text.mjs";
 import { BUTTONS, TOUCH_BUTTON, ENCODERS, PADS } from "../panel.mjs";
 import { API_BY_NAME } from "./contract.mjs";
 
@@ -13,26 +14,26 @@ const RENAME = { partDec: "PART_LEFT", partInc: "PART_RIGHT" };
 const fromId = id => RENAME[id] ?? id.replace(/([a-z])([A-Z0-9])/g, "$1_$2").toUpperCase();
 const fromLabel = label => label.replace(/[^A-Za-z0-9]+/g, " ").trim().replace(/ /g, "_").toUpperCase();
 /** The label as it reads in a list: a bare digit is a button called 1 to 4, not a number. */
-const labelOf = b => (/^\d$/.test(b.label) ? `Taste ${b.label}` : b.label);
+const labelOf = b => (/^\d$/.test(b.label) ? text("names.key.digit", { label: b.label }) : b.label);
 
 const entry = (name, value, label, group) => Object.freeze({ name, value, label, group });
 
 /** The key codes, in the order of the panel table. The touchpad counts as a key of its own. */
 export const KEY_NAMES = Object.freeze([
-  ...BUTTONS.map(b => entry(fromId(b.id), b.index, labelOf(b), "Taste")),
-  entry("TOUCHPAD", TOUCH_BUTTON, "Touchpad berührt", "Touchpad"),
+  ...BUTTONS.map(b => entry(fromId(b.id), b.index, labelOf(b), "key")),
+  entry("TOUCHPAD", TOUCH_BUTTON, text("names.touchpad"), "touchpad"),
 ]);
 
 /** The LED numbers: button LEDs, the encoder LEDs, then the red and blue LED of every pad. */
 export const LED_NAMES = Object.freeze([
   ...BUTTONS.flatMap(b => [
-    entry(fromId(b.id), b.led, labelOf(b), "Taste"),
-    ...(b.ledBlue === undefined ? [] : [entry(`${fromId(b.id)}_BLUE`, b.ledBlue, `${labelOf(b)}, blaue LED`, "Taste")]),
+    entry(fromId(b.id), b.led, labelOf(b), "key"),
+    ...(b.ledBlue === undefined ? [] : [entry(`${fromId(b.id)}_BLUE`, b.ledBlue, text("names.led.blue", { label: labelOf(b) }), "key")]),
   ]),
-  ...ENCODERS.map(e => entry(fromLabel(e.label), e.led, e.label, "Encoder")),
+  ...ENCODERS.map(e => entry(fromLabel(e.label), e.led, e.label, "encoder")),
   ...PADS.flatMap(p => [
-    entry(`PAD_${p.label}_RED`, p.ledRed, `Pad ${p.label}, rote LED`, "Pad"),
-    entry(`PAD_${p.label}_BLUE`, p.ledBlue, `Pad ${p.label}, blaue LED (gewählter Part)`, "Pad"),
+    entry(`PAD_${p.label}_RED`, p.ledRed, text("names.pad.red", { pad: p.label }), "pad"),
+    entry(`PAD_${p.label}_BLUE`, p.ledBlue, text("names.pad.blue", { pad: p.label }), "pad"),
   ]),
 ]);
 

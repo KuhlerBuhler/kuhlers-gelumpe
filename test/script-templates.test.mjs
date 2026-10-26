@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { render } from "../src/text.mjs";
 import { TEMPLATES, templateSource } from "../data/script/templates.mjs";
 import { KEY_NAMES } from "../data/script/names.mjs";
 import { ARCHIVE } from "../data/script/contract.mjs";
@@ -15,7 +16,7 @@ const INPUTS = [3, 14, 15, 16, 17, 20].map(frame => ({ frame, event: "buttonPres
 
 test("there is one template for each kind: App in GAMES, App in TOOLS, Hintergrund", () => {
   assert.deepEqual(TEMPLATES.map(t => t.id), ["games", "tools", "background"]);
-  assert.deepEqual(TEMPLATES.map(t => t.label), ["App in GAMES", "App in TOOLS", "Hintergrund"]);
+  assert.deepEqual(TEMPLATES.map(t => render(t.label)), ["App in GAMES", "App in TOOLS", "Hintergrund"]);
   assert.deepEqual(TEMPLATES.map(t => t.group), ["GAMES", "TOOLS", null]);
   assert.throws(() => templateSource("nope", "x"), /Keine Vorlage/);
 });

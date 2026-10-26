@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { classify, convertStock, samplerHead, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE } from "../src/patcher.mjs";
 import { applyPatches, splashPatch, patchesPresent, SPLASH_W, SPLASH_H } from "../src/patch.mjs";
 import { sha256 } from "../src/firmware.mjs";
+import { render } from "../src/text.mjs";
 import { asStock, makeFirmware, withHacktribeRun } from "./helpers.mjs";
 import { expected, fixture, oldFile } from "./fixtures/bsdiff/data.mjs";
 
@@ -57,7 +58,7 @@ test("Korg's build: the unchanged original is stock, an edited one is refused, o
   edited[0x1000] ^= 1;
   const res = await classify(edited, patches);
   assert.equal(res.kind, "unknown");
-  assert.match(res.reasons[0], /nicht die unveränderte Datei/);
+  assert.match(render(res.reasons[0]), /nicht die unveränderte Datei/);
   const done = await applyPatches(stock, patches);
   assert.equal(done.ok, true, done.reasons.join(" "));
   const again = await classify(done.bytes, patches);
@@ -78,11 +79,11 @@ test("the card folder is the one the running firmware reads: Hacktribe's own, or
 });
 
 test("check ids and details come out as words", () => {
-  assert.equal(checkName("boot:normal"), "Start bis zum Hauptbildschirm");
-  assert.equal(checkName("start_mode:00000400"), "Startmodus");
-  assert.equal(checkName("something:new"), "something:new");
-  assert.equal(checkDetail("ok"), "ok");
-  assert.equal(checkDetail({ code: [["0x10", 4]], data: [["0x20", 2]] }), "Geändert in der Startphase: Code an 0x10 (4 Byte), Daten an 0x20 (2 Byte)");
+  assert.equal(render(checkName("boot:normal")), "Start bis zum Hauptbildschirm");
+  assert.equal(render(checkName("start_mode:00000400")), "Startmodus");
+  assert.equal(render(checkName("something:new")), "something:new");
+  assert.equal(render(checkDetail("ok")), "ok");
+  assert.equal(render(checkDetail({ code: [["0x10", 4]], data: [["0x20", 2]] })), "Geändert in der Startphase: Code an 0x10 (4 Byte), Daten an 0x20 (2 Byte)");
 });
 
 test("the card folders: the one the running firmware reads now, and the one BLECH reads after the update", () => {
@@ -137,8 +138,8 @@ const group = (id, name, state, ok = 0, fail = 0) => ({ id, name, total: 1, done
 test("checkProgress: the bar is real work done over total, the groups carry a short state, nothing else", () => {
   const p = checkProgress(snapshot(40, 160, [group("a", "Start", "done", 42, 0), group("b", "Menü", "failed", 3, 2), group("c", "Würfeln", "running"), group("d", "Ladebalken", "waiting")]));
   assert.equal(p.value, 25);
-  assert.equal(p.text, "40 von 160");
-  assert.deepEqual(p.groups.map(g => [g.name, g.state, g.text]), [["Start", "done", "42/42"], ["Menü", "failed", "2 fehlgeschlagen"], ["Würfeln", "running", "läuft"], ["Ladebalken", "waiting", ""]]);
+  assert.equal(render(p.text), "40 von 160");
+  assert.deepEqual(p.groups.map(g => [g.name, g.state, render(g.text)]), [["Start", "done", "42/42"], ["Menü", "failed", "2 fehlgeschlagen"], ["Würfeln", "running", "läuft"], ["Ladebalken", "waiting", ""]]);
 });
 
 test("checkProgress: never 100 before the result, and a snapshot that is not a running one shows nothing", () => {
@@ -218,7 +219,7 @@ test("flow: download and emulator test open only after the emulator check passed
   assert.equal(allowed(flow).download, false);
   flow = step(flow, { type: "checked", report: checks(true) });
   assert.equal(flow.phase, "passed");
-  assert.deepEqual(flow.steps.at(-1), { id: "check", label: "Prüfung im Emulator", status: "ok", detail: "2 von 2 bestanden" });
+  assert.deepEqual({ ...flow.steps.at(-1), label: render(flow.steps.at(-1).label), detail: render(flow.steps.at(-1).detail) }, { id: "check", label: "Prüfung im Emulator", status: "ok", detail: "2 von 2 bestanden" });
   assert.deepEqual(allowed(flow), { patch: false, download: true, test: true, busy: false });
   flow = step(flow, { type: "downloaded" });
   assert.equal(flow.phase, "downloaded");
@@ -241,7 +242,7 @@ test("flow: a failed check or patch blocks the download and can be run again", (
   flow = step(flow, { type: "checked", report: checks(false) });
   assert.equal(flow.phase, "failed");
   assert.equal(flow.steps.at(-1).status, "error");
-  assert.equal(flow.steps.at(-1).detail, "1 von 2 nicht bestanden");
+  assert.equal(render(flow.steps.at(-1).detail), "1 von 2 nicht bestanden");
   assert.equal(allowed(flow).download, false);
   assert.equal(step(flow, { type: "downloaded" }), flow);
 });
@@ -271,17 +272,17 @@ test("convertStock: the original and a bsdiff patch make the file whose hash is 
 test("convertStock: the file has to be the original, the patch a bsdiff patch for a VSB, the result the known Hacktribe file", async () => {
   const other = oldFile();
   other[5] ^= 1;
-  assert.match((await convertStock(other, patchBytes(), fixtureHashes)).reason, /nicht die originale/);
+  assert.match(render((await convertStock(other, patchBytes(), fixtureHashes)).reason), /nicht die originale/);
   const notPatch = patchBytes().slice();
   notPatch[0] = 0x58;
-  assert.match((await convertStock(oldFile(), notPatch, fixtureHashes)).reason, /BSDIFF40/);
-  assert.match((await convertStock(oldFile(), new Uint8Array(2 << 20), fixtureHashes)).reason, /falsche Datei/);
+  assert.match(render((await convertStock(oldFile(), notPatch, fixtureHashes)).reason), /BSDIFF40/);
+  assert.match(render((await convertStock(oldFile(), new Uint8Array(2 << 20), fixtureHashes)).reason), /falsche Datei/);
   const small = new Uint8Array(32);
   small.set(Array.from("BSDIFF40", c => c.charCodeAt(0)));
   small[24] = 5;                                                   // announces a 5-byte result
-  assert.match((await convertStock(oldFile(), small, fixtureHashes)).reason, /nicht hacktribe-2\.patch/);
-  assert.match((await convertStock(oldFile(), patchBytes(), { ...fixtureHashes, targetHash: "0".repeat(64) })).reason, /nicht die bekannte Hacktribe-2\.02-Datei/);
-  assert.match((await convertStock(oldFile(), patchBytes().subarray(0, 100), fixtureHashes)).reason, /abgeschnitten/);
+  assert.match(render((await convertStock(oldFile(), small, fixtureHashes)).reason), /nicht hacktribe-2\.patch/);
+  assert.match(render((await convertStock(oldFile(), patchBytes(), { ...fixtureHashes, targetHash: "0".repeat(64) })).reason), /nicht die bekannte Hacktribe-2\.02-Datei/);
+  assert.match(render((await convertStock(oldFile(), patchBytes().subarray(0, 100), fixtureHashes)).reason), /abgeschnitten/);
 });
 
 test("the known hashes and the link: Hacktribe's file on the web, the patch never shipped", () => {
@@ -366,14 +367,14 @@ test("the blue original selects the synth route and its update directory", async
   changed[0x1000] = 1;
   const altered = await classify(changed, [patch], STOCK_SHA256, originalHash);
   assert.equal(altered.kind, "unknown");
-  assert.match(altered.reasons[0], /nicht Korgs unveränderte SYSTEM\.VSB 2\.02 der blauen.*aus Korgs Zip/);
+  assert.match(render(altered.reasons[0]), /nicht Korgs unveränderte SYSTEM\.VSB 2\.02 der blauen.*aus Korgs Zip/);
   assert.equal(altered.sha256, await sha256(changed), "the file's checksum goes with the answer");
   // the bug report of 1.3.3: a blue file whose run at 0x170100 is neither erased nor Hacktribe's got a Hacktribe fingerprint message
   const odd = Uint8Array.from(vsb);
   odd.fill(0x11, 0x170100, 0x170140);
   const oddKind = await classify(odd, [patch], STOCK_SHA256, originalHash);
-  assert.deepEqual([oddKind.kind, oddKind.reasons.join(" ").includes("Hacktribe")], ["unknown", false]);
-  assert.match(oddKind.reasons[0], /blauen Electribe 2/);
+  assert.deepEqual([oddKind.kind, oddKind.reasons.map(render).join(" ").includes("Hacktribe")], ["unknown", false]);
+  assert.match(render(oddKind.reasons[0]), /blauen Electribe 2/);
   const patched = await applyPatches(vsb, [patch]);
   assert.equal(patched.ok, true);
   assert.equal((await classify(patched.bytes, [patch], STOCK_SHA256, originalHash)).kind, "blech");
@@ -431,8 +432,8 @@ test("a copy that passed before is not checked again, any other copy is", async 
   const report = await verifiedReport(input, output, list);
   assert.equal(report.ok, true);
   assert.deepEqual(report.checks.map(c => [c.id, c.ok]), [["verified", true]]);
-  assert.match(report.checks[0].detail, /87 Prüfungen/);
-  assert.equal(checkName("verified"), "Schon geprüft");
+  assert.match(render(report.checks[0].detail), /87 Prüfungen/);
+  assert.equal(render(checkName("verified")), "Schon geprüft");
   assert.equal(await verifiedReport(input, Uint8Array.of(9), list), null, "a different result");
   assert.equal(await verifiedReport(Uint8Array.of(9), output, list), null, "a different input");
   assert.equal(await verifiedReport(input, output, null), null);
@@ -464,7 +465,7 @@ test("a copy that passed the quick check can be checked thoroughly, and only the
   assert.equal(f.phase, "failed");
   assert.equal(allowed(f).download, false, "a thorough check that fails takes the download away");
   assert.equal(step({ ...newFlow(), phase: "ready" }, { type: "recheck" }).phase, "ready");
-  assert.equal(checkName("quick"), "Kurzprüfung");
+  assert.equal(render(checkName("quick")), "Kurzprüfung");
 });
 
 test("the way the page shows follows the flow: the step it is at is current, the ones before done, a failed check is the error", async () => {

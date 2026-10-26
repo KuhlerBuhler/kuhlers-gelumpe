@@ -12,6 +12,7 @@
  */
 import { syxEnc, syxDec, u32le, readU32le } from "./bytes.mjs";
 import { crc32 } from "./script/blob.mjs";
+import { text, TextError } from "./text.mjs";
 
 export const DEVICE_ID = 0x24;
 export const FUNC = {
@@ -79,7 +80,7 @@ export const BLECH = {
   FILE_OTHER: 0x80000000,
   VERSION: 1,
 };
-const STATUS_TEXT = { 1: "Die Prüfsumme stimmt nicht", 2: "Das Gerät verweigert den Zugriff (geschützter Bereich)", 3: "Adresse oder Länge liegt außerhalb des erlaubten Bereichs", 4: "Die Flash-Funktion der Firmware meldet keinen Erfolg", 5: "Das Zurücklesen nach dem Schreiben weicht ab", 6: "Die Karte meldet einen Fehler (keine Karte, keine Datei oder voll)" };
+const STATUS_TEXT = { 1: "sysex.status.crc", 2: "sysex.status.refused", 3: "sysex.status.range", 4: "sysex.status.flash", 5: "sysex.status.verify", 6: "sysex.status.card" };
 
 export const head = (channel, model = DEVICE_ID) => {
   if (!Number.isInteger(channel) || channel < 0 || channel > 15) throw new RangeError(`channel ${channel}`);
@@ -91,15 +92,15 @@ const frame = body => [0xf0, ...body, 0xf7];
 
 export const search = () => frame([0x42, 0x50, 0x00, 0x00]);
 
-/** A reply problem, with a reason the page can show. */
-export class ReplyError extends Error {
-  constructor(message) { super(message); this.name = "ReplyError"; }
+/** A reply problem, with a reason the page can show (a text, src/text.mjs). */
+export class ReplyError extends TextError {
+  constructor(key, vars) { super(key, vars); this.name = "ReplyError"; }
 }
 
 /** A BLECH answer that is not a plain ok: `status` is the device's, `retry` says that nothing was written and the block may be sent again. */
 export class BlechError extends ReplyError {
   constructor(status, what) {
-    super(`${what}: ${STATUS_TEXT[status] ?? `Status ${status}`}.`);
+    super("sysex.blech", { what, status: STATUS_TEXT[status] ? text(STATUS_TEXT[status]) : text("sysex.status.other", { status }) });
     this.name = "BlechError";
     this.status = status;
     this.retry = status === BLECH.STATUS.BAD_CRC;
@@ -111,7 +112,7 @@ export const isRealtime = data => data.length === 1 && data[0] >= 0xf8;
 
 function checkFrame(msg) {
   const data = Array.from(msg);
-  if (data[0] !== 0xf0 || data[data.length - 1] !== 0xf7) throw new ReplyError("Antwort ist keine vollständige SysEx-Nachricht.");
+  if (data[0] !== 0xf0 || data[data.length - 1] !== 0xf7) throw new ReplyError("sysex.notSysex");
   return data;
 }
 
@@ -124,7 +125,7 @@ function checkFrame(msg) {
  */
 export function parseSearch(msg) {
   const d = checkFrame(msg);
-  if (d.length < 13 || d[1] !== 0x42 || d[2] !== 0x50 || d[3] !== 0x01) throw new ReplyError("Antwort auf die Gerätesuche hat nicht die erwartete Form.");
+  if (d.length < 13 || d[1] !== 0x42 || d[2] !== 0x50 || d[3] !== 0x01) throw new ReplyError("sysex.search");
   return { channel: d[4] & 0x0f, model: d[6], sampler: d[6] === DEVICE_ID, version: [d[10], d[11]] };
 }
 
@@ -146,21 +147,21 @@ export function classify(msg, channel) {
 function checkHead(d, channel, func, model = DEVICE_ID) {
   const h = head(channel, model);
   for (let i = 0; i < h.length; i++) {
-    if (d[1 + i] !== h[i]) throw new ReplyError(`Antwort kommt nicht von einer Electribe Sampler auf Kanal ${channel + 1}.`);
+    if (d[1 + i] !== h[i]) throw new ReplyError("sysex.channel", { channel: channel + 1 });
   }
-  if (d[6] !== func) throw new ReplyError(`Antwort hat Funktion 0x${d[6].toString(16)}, erwartet 0x${func.toString(16)}.`);
+  if (d[6] !== func) throw new ReplyError("sysex.func", { got: d[6].toString(16), want: func.toString(16) });
 }
 
 export function parseAck(msg, channel, func = WRITE_ACK) {
   const data = checkFrame(msg);
   checkHead(data, channel, func);
-  if (data.length !== 8) throw new ReplyError("Schreibbestätigung hat nicht die erwartete Länge.");
+  if (data.length !== 8) throw new ReplyError("sysex.ackLength");
   return data;
 }
 
 function decodeExact(d, from, size, what) {
   const bytes = syxDec(d.slice(from, -1));
-  if (bytes.length !== size) throw new ReplyError(`${what} hat ${bytes.length} Byte statt ${size}.`);
+  if (bytes.length !== size) throw new ReplyError("sysex.size", { what, got: bytes.length, want: size });
   return Uint8Array.from(bytes);
 }
 
@@ -174,7 +175,7 @@ export function patternDump(channel, block) {
 export function parsePatternDump(msg, channel) {
   const d = checkFrame(msg);
   checkHead(d, channel, FUNC.PATTERN_DUMP);
-  return decodeExact(d, 7, PATTERN_SIZE, "Pattern-Dump");
+  return decodeExact(d, 7, PATTERN_SIZE, text("sysex.op.patternDump"));
 }
 
 export const globalRequest = channel => frame([...head(channel), FUNC.GLOBAL_REQUEST]);
@@ -187,7 +188,7 @@ export function globalDump(channel, block) {
 export function parseGlobalDump(msg, channel) {
   const d = checkFrame(msg);
   checkHead(d, channel, FUNC.GLOBAL_DUMP);
-  return decodeExact(d, 7, GLOBAL_SIZE, "Global-Dump");
+  return decodeExact(d, 7, GLOBAL_SIZE, text("sysex.op.globalDump"));
 }
 
 export const readRam = (channel, addr, length) =>
@@ -196,8 +197,8 @@ export const readRam = (channel, addr, length) =>
 export function parseReadRam(msg, channel, length) {
   const d = checkFrame(msg);
   checkHead(d, channel, READ_REPLY);
-  if (d[7] !== READ_ECHO[0] || d[8] !== READ_ECHO[1]) throw new ReplyError("Leseantwort trägt in Byte 7 und 8 nicht das gelesene Kommando.");
-  return decodeExact(d, 9, length, "Lesen");
+  if (d[7] !== READ_ECHO[0] || d[8] !== READ_ECHO[1]) throw new ReplyError("sysex.readEcho");
+  return decodeExact(d, 9, length, text("sysex.op.read"));
 }
 
 /** Read flash, never at or past FLASH_END. */
@@ -211,8 +212,8 @@ export function readFlash(channel, addr, length) {
 export function parseReadFlash(msg, channel, length) {
   const d = checkFrame(msg);
   checkHead(d, channel, READ_REPLY);
-  if (d[7] !== FLASH_ECHO[0] || d[8] !== FLASH_ECHO[1]) throw new ReplyError("Leseantwort trägt in Byte 7 und 8 nicht das Flash-Kommando.");
-  return decodeExact(d, 9, length, "Flash lesen");
+  if (d[7] !== FLASH_ECHO[0] || d[8] !== FLASH_ECHO[1]) throw new ReplyError("sysex.flashEcho");
+  return decodeExact(d, 9, length, text("sysex.op.flashRead"));
 }
 
 export const writeRamAddress = (channel, addr, length) =>
@@ -250,11 +251,23 @@ export function blechPluginBegin(channel, offset, length, crc, name, model = DEV
   return blechFrame(channel, BLECH.PLUGIN_BEGIN, [...words(offset, length, crc), ...raw, ...new Array(BLECH.NAME_MAX - raw.length).fill(0)], model);
 }
 
+/** The names of BLECH's commands in its reply errors. */
+const READ = text("sysex.op.blechRead");
+const FLASH_READ = text("sysex.op.blechFlashRead");
+const EXEC_OP = text("sysex.op.blechExec");
+const FILE_READ = text("sysex.op.fileRead");
+const FILE_WRITE = text("sysex.op.fileWrite");
+const FILE_COPY = text("sysex.op.fileCopy");
+const FILE_DELETE = text("sysex.op.fileDelete");
+const FILE_CHECK = text("sysex.op.fileCheck");
+const WRITE_ADDRESS = text("sysex.op.blechWriteAddress");
+const WRITE_DATA = text("sysex.op.blechWriteData");
+
 function blechWords(msg, channel, func, count, what, model = DEVICE_ID) {
   const d = checkFrame(msg);
   checkHead(d, channel, func, model);
   const payload = syxDec(d.slice(7, -1));
-  if (payload.length < count * 4) throw new ReplyError(`${what}: Antwort ist zu kurz.`);
+  if (payload.length < count * 4) throw new ReplyError("sysex.short", { what });
   return { payload, word: i => readU32le(payload, i * 4) };
 }
 
@@ -267,80 +280,80 @@ export function parseBlechInfo(msg, channel, model = DEVICE_ID) {
 
 /** The bytes of a READ answer, checked against the length asked for and the CRC the device sent. */
 export function parseBlechRead(msg, channel, length, model = DEVICE_ID) {
-  const { payload, word } = blechWords(msg, channel, BLECH.R_READ, 4, "BLECH Lesen", model);
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "BLECH Lesen");
+  const { payload, word } = blechWords(msg, channel, BLECH.R_READ, 4, READ, model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), READ);
   const bytes = Uint8Array.from(payload.slice(16));
-  if (bytes.length !== length || word(2) !== length) throw new ReplyError(`BLECH Lesen hat ${bytes.length} Byte statt ${length}.`);
-  if (crc32(bytes) !== word(3)) throw new BlechError(BLECH.STATUS.BAD_CRC, "BLECH Lesen");
+  if (bytes.length !== length || word(2) !== length) throw new ReplyError("sysex.size", { what: READ, got: bytes.length, want: length });
+  if (crc32(bytes) !== word(3)) throw new BlechError(BLECH.STATUS.BAD_CRC, READ);
   return bytes;
 }
 
 /** The bytes of a FLASH READ answer, checked like a READ. */
 export function parseBlechFlash(msg, channel, length) {
-  const { payload, word } = blechWords(msg, channel, BLECH.R_FLASH, 4, "BLECH Flash lesen");
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "BLECH Flash lesen");
+  const { payload, word } = blechWords(msg, channel, BLECH.R_FLASH, 4, FLASH_READ);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), FLASH_READ);
   const bytes = payload.slice(16, 16 + length);
-  if (word(2) !== length || bytes.length !== length) throw new ReplyError(`BLECH Flash lesen: ${bytes.length} Byte statt ${length}.`);
-  if (crc32(bytes) !== word(3)) throw new BlechError(BLECH.STATUS.BAD_CRC, "BLECH Flash lesen");
+  if (word(2) !== length || bytes.length !== length) throw new ReplyError("sysex.size.colon", { what: FLASH_READ, got: bytes.length, want: length });
+  if (crc32(bytes) !== word(3)) throw new BlechError(BLECH.STATUS.BAD_CRC, FLASH_READ);
   return Uint8Array.from(bytes);
 }
 
 /** What the code EXEC ran returned in r0. */
 export function parseBlechExec(msg, channel) {
-  const { word } = blechWords(msg, channel, BLECH.R_EXEC, 3, "BLECH Ausführen");
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "BLECH Ausführen");
+  const { word } = blechWords(msg, channel, BLECH.R_EXEC, 3, EXEC_OP);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), EXEC_OP);
   return { addr: word(1), result: word(2) };
 }
 
 /** A FILE READ answer: the bytes, checked against the length and the CRC, and the size of the whole file. */
 export function parseBlechFileRead(msg, channel, length, model = DEVICE_ID) {
-  const { payload, word } = blechWords(msg, channel, BLECH.R_FILE_READ, 5, "Datei lesen", model);
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei lesen");
+  const { payload, word } = blechWords(msg, channel, BLECH.R_FILE_READ, 5, FILE_READ, model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), FILE_READ);
   const bytes = Uint8Array.from(payload.slice(20));
-  if (bytes.length !== word(2) || word(2) > length) throw new ReplyError(`Datei lesen hat ${bytes.length} Byte statt ${word(2)}.`);
-  if (crc32(bytes) !== word(3)) throw new BlechError(BLECH.STATUS.BAD_CRC, "Datei lesen");
+  if (bytes.length !== word(2) || word(2) > length) throw new ReplyError("sysex.size", { what: FILE_READ, got: bytes.length, want: word(2) });
+  if (crc32(bytes) !== word(3)) throw new BlechError(BLECH.STATUS.BAD_CRC, FILE_READ);
   return { offset: word(1), bytes, size: word(4) };
 }
 
 /** The answer to FILE BEGIN: ok, or why the write was refused before any byte was sent. */
 export function parseBlechFileBegin(msg, channel, model = DEVICE_ID) {
-  const { word } = blechWords(msg, channel, BLECH.R_FILE_BEGIN, 3, "Datei schreiben", model);
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei schreiben");
+  const { word } = blechWords(msg, channel, BLECH.R_FILE_BEGIN, 3, FILE_WRITE, model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), FILE_WRITE);
   return { offset: word(1), length: word(2) };
 }
 
 /** The answer to FILE COPY: the bytes copied and the CRC-32 of them. */
 export function parseBlechFileCopy(msg, channel, model = DEVICE_ID) {
-  const { word } = blechWords(msg, channel, BLECH.R_FILE_COPY, 3, "Datei kopieren", model);
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei kopieren");
+  const { word } = blechWords(msg, channel, BLECH.R_FILE_COPY, 3, FILE_COPY, model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), FILE_COPY);
   return { copied: word(1), crc: word(2) };
 }
 
 /** The answer to FILE DELETE. */
 export function parseBlechFileDelete(msg, channel, model = DEVICE_ID) {
-  const { word } = blechWords(msg, channel, BLECH.R_FILE_DELETE, 2, "Datei löschen", model);
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei löschen");
+  const { word } = blechWords(msg, channel, BLECH.R_FILE_DELETE, 2, FILE_DELETE, model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), FILE_DELETE);
 }
 
 /** The answer to FILE CRC: the offset, the bytes read and their CRC-32. */
 export function parseBlechFileCrc(msg, channel, model = DEVICE_ID) {
-  const { word } = blechWords(msg, channel, BLECH.R_FILE_CRC, 4, "Datei prüfen", model);
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "Datei prüfen");
+  const { word } = blechWords(msg, channel, BLECH.R_FILE_CRC, 4, FILE_CHECK, model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), FILE_CHECK);
   return { offset: word(1), length: word(2), crc: word(3) };
 }
 
 /** The answer to BEGIN: ok, or the reason the write was refused before any byte was sent. */
 export function parseBlechBegin(msg, channel) {
-  const { word } = blechWords(msg, channel, BLECH.R_BEGIN, 3, "BLECH Schreiben, Adresse");
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "BLECH Schreiben, Adresse");
+  const { word } = blechWords(msg, channel, BLECH.R_BEGIN, 3, WRITE_ADDRESS);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), WRITE_ADDRESS);
   return { addr: word(1), length: word(2) };
 }
 
 /** The answer to DATA: ok with the CRC the device read back, which has to be the one that was sent. */
 export function parseBlechData(msg, channel, crc, model = DEVICE_ID) {
-  const { word } = blechWords(msg, channel, BLECH.R_DATA, 4, "BLECH Schreiben, Daten", model);
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), "BLECH Schreiben, Daten");
-  if (word(3) !== crc) throw new BlechError(BLECH.STATUS.VERIFY, "BLECH Schreiben, Daten");
+  const { word } = blechWords(msg, channel, BLECH.R_DATA, 4, WRITE_DATA, model);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), WRITE_DATA);
+  if (word(3) !== crc) throw new BlechError(BLECH.STATUS.VERIFY, WRITE_DATA);
   return { addr: word(1), length: word(2), crc: word(3) };
 }
 
@@ -357,10 +370,10 @@ export { crc32 };
  */
 export function withChannel(msg, channel) {
   const d = Array.from(msg);
-  if (d[0] !== 0xf0 || d[d.length - 1] !== 0xf7) throw new ReplyError("Keine vollständige SysEx-Nachricht.");
+  if (d[0] !== 0xf0 || d[d.length - 1] !== 0xf7) throw new ReplyError("sysex.incomplete");
   if (d[1] === 0x42 && d[2] === 0x50) return d;
   const h = head(channel);
-  if (d[1] !== h[0] || (d[2] & 0xf0) !== 0x30 || d.slice(3, 6).some((b, i) => b !== h[2 + i])) throw new ReplyError("Die Nachricht hat keinen Kopf der Electribe Sampler.");
+  if (d[1] !== h[0] || (d[2] & 0xf0) !== 0x30 || d.slice(3, 6).some((b, i) => b !== h[2 + i])) throw new ReplyError("sysex.head");
   return [d[0], ...h, ...d.slice(6)];
 }
 

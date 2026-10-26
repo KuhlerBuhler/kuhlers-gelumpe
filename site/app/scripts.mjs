@@ -28,7 +28,7 @@ import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
 import { storePlugin } from "../../src/usb-update.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
-import { t } from "./i18n.mjs";
+import { t, locale } from "./i18n.mjs";
 
 /** 0/1 pixels row by row (splash.mjs) to the display's 1024 bytes: eight rows per byte, bit 0 on top. */
 function displayBytes(pixels) {
@@ -53,10 +53,10 @@ const ask = async (options, fallback) => (window.ui?.prompt ? window.ui.prompt(o
 function askKind() {
   if (!window.ui?.openDialog) return Promise.resolve(TEMPLATES[0].id);
   return new Promise(resolve => {
-    const hint = el("p", { className: "muted", id: "cee-script-kind-hint", textContent: TEMPLATES[0].description });
+    const hint = el("p", { className: "muted", id: "cee-script-kind-hint", textContent: t(TEMPLATES[0].description) });
     hint.setAttribute("aria-live", "polite");
     const radios = TEMPLATES.map((t, i) => el("input", { type: "radio", name: "cee-script-kind", value: t.id, checked: i === 0, autofocus: i === 0 }));
-    const group = el("div", { className: "ui-segmented", id: "cee-script-kind-options", role: "radiogroup" }, TEMPLATES.map((t, i) => el("label", { className: "ui-segmented-option" }, [radios[i], el("span", { textContent: t.label })])));
+    const group = el("div", { className: "ui-segmented", id: "cee-script-kind-options", role: "radiogroup" }, TEMPLATES.map((kind, i) => el("label", { className: "ui-segmented-option" }, [radios[i], el("span", { textContent: t(kind.label) })])));
     group.setAttribute("aria-label", t("plugins.kind.label"));
     const chosen = () => radios.find(r => r.checked)?.value ?? TEMPLATES[0].id;
     const dialog = el("dialog", { className: "ui-dialog ui-dialog-narrow", id: "cee-script-kind" });
@@ -70,7 +70,7 @@ function askKind() {
       ]),
     ]));
     for (const r of radios) {
-      r.addEventListener("change", () => { hint.textContent = TEMPLATES.find(t => t.id === chosen())?.description ?? ""; });
+      r.addEventListener("change", () => { const kind = TEMPLATES.find(k => k.id === chosen()); hint.textContent = kind ? t(kind.description) : ""; });
       // Enter in a radio would press the first submit button, which is Cancel.
       r.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); dialog.close("ok"); } });
     }
@@ -304,12 +304,12 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   function renderNames() {
     const q = namesFilter.value.trim().toLowerCase().replace(/[\s_]+/g, " ");
     const group = (kind, title, list) => {
-      const rows = list.filter(n => !q || `${n.name} ${n.label} ${n.value}`.toLowerCase().replace(/_/g, " ").includes(q));
+      const rows = list.filter(n => !q || `${n.name} ${t(n.label)} ${n.value}`.toLowerCase().replace(/_/g, " ").includes(q));
       if (!rows.length) return null;
       const body = el("tbody", {}, rows.map(n => el("tr", {}, [
         el("td", {}, el("button", { type: "button", className: "cee-names-name", textContent: `korg.${kind}.${n.name}`, title: t("plugins.names.copy"), onclick: () => copyName(`korg.${kind}.${n.name}`) })),
         el("td", { textContent: String(n.value) }),
-        el("td", { textContent: n.label }),
+        el("td", { textContent: t(n.label) }),
       ])));
       return el("table", { className: "cee-names" }, [el("caption", { textContent: title }), el("thead", {}, el("tr", {}, [t("mod.field.name"), t("plugins.names.number"), t("plugins.names.device")].map(h => el("th", { scope: "col", textContent: h })))), body]);
     };
@@ -348,7 +348,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     const preset = PRESETS.find(p => p.id === current?.id);
     if (!preset) return;
     const chosen = workspace.freeName(preset.id);
-    workspace.save({ name: chosen, source: preset.source, meta: { description: preset.description } });
+    workspace.save({ name: chosen, source: preset.source, meta: { description: t(preset.description) } });
     select("own", chosen);
     say(t("plugins.copiedPreset", { name: chosen }), "ok");
   }
@@ -802,17 +802,17 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     canvas.setAttribute("aria-label", t("plugins.display", { name: preset.title }));
     const { get, usb } = packButtons(preset, true);
     const copyOwn = el("button", { type: "button", className: "btn", id: "cee-detail-copy", textContent: t("plugins.copy"), onclick: () => { select("preset", preset.id); copyPreset(); page("editor"); } });
-    const added = new Date(`${preset.added}T12:00:00`).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+    const added = new Date(`${preset.added}T12:00:00`).toLocaleDateString(locale(), { day: "numeric", month: "long", year: "numeric" });
     detailHead.replaceChildren(
       canvas,
       el("div", { className: "cee-detail-text" }, [
         el("h2", { className: "cee-detail-title", id: "cee-detail-title", textContent: preset.title }),
-        el("p", { textContent: preset.description }),
+        el("p", { textContent: t(preset.description) }),
         el("dl", { className: "cee-detail-facts" }, [
-          el("dt", { textContent: t("samples.fact.category") }), el("dd", { textContent: preset.category }),
+          el("dt", { textContent: t("samples.fact.category") }), el("dd", { textContent: t(preset.category) }),
           el("dt", { textContent: t("plugins.by") }), el("dd", {}, creatorName(preset.creator) ?? "?"),
           el("dt", { textContent: t("plugins.added") }), el("dd", {}, el("time", { dateTime: preset.added, textContent: added })),
-          el("dt", { textContent: t("presets.map") }), el("dd", {}, preset.controls.length ? el("ul", { className: "cee-detail-controls" }, preset.controls.map(c => el("li", { textContent: c }))) : t("plugins.noControls")),
+          el("dt", { textContent: t("presets.map") }), el("dd", {}, preset.controls.length ? el("ul", { className: "cee-detail-controls" }, preset.controls.map(c => el("li", { textContent: t(c) }))) : t("plugins.noControls")),
         ]),
         el("div", { className: "actions" }, [get, usb, copyOwn]),
       ]),
@@ -921,8 +921,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     return el("li", { className: "cee-catalog-card", id: `cee-catalog-${preset.id}` }, [
       canvas,
       el("h3", {}, title),
-      el("p", { className: "cee-catalog-category", textContent: preset.category }),
-      el("p", { className: "muted", textContent: preset.description }),
+      el("p", { className: "cee-catalog-category", textContent: t(preset.category) }),
+      el("p", { className: "muted", textContent: t(preset.description) }),
       creatorLine(preset.creator),
     ]);
   }
