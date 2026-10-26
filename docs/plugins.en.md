@@ -288,6 +288,40 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.menu.add(name, min, max, value)` | creates a page in the BLECH menu on the device and returns its number (-1 if all 12 places are taken). `name` at most 15 characters, the page shows `value` (clamped to `min` to `max`, magnitude below 100 million) and the plugin name. When the main dial is turned, the plugin gets `menu`(number, value). The same name from the same plugin is the same page. `min` above `max` is an argument error | body and `ready` only |
 | `korg.ledHold(on)` | 1 stops the firmware from rewriting the panel LEDs (pads, keys and lower RGB LEDs then show what the plugin set), 0 gives them back and makes the firmware resend all LEDs; if the last running plugin fails, the runtime gives them back itself | like `korg.led` |
 | `korg.remapKey(from, to)` | the key `from` reaches the firmware and the plugins as the key `to` (both 0 to 33, best names like `korg.key.PART_ERASE`) while the plugin runs: the input filter rewrites the code in the panel message before the firmware reads it, so the firmware does exactly what it does with `to`. One remap holds for all plugins, the last one counts; the same key twice takes it back. EXIT cannot be remapped. From API version 8 | only in the body and in `ready` |
+| `korg.seq.setStep(part, step, note, velocity)` | writes step `step` (0 to 63) of part `part` (0 to 15) in the pattern that plays: `note` 0 to 127 with `velocity` 1 to 127 turns it on, with that note in the first note place (the other three empty) and the trigger on; `note` -1 or `velocity` 0 turns it off. The gate stays as it is. From API version 9 | like `korg.led` |
+| `korg.seq.setGate(part, step, gate)` | sets the gate of the step, 0 to 127; 96 is a whole step, 127 ties into the next note. From API version 9 | like `korg.led` |
+| `korg.seq.clearPart(part)` | turns all 64 steps of the part off; notes, gates and velocities stay. From API version 9 | like `korg.led` |
+
+**Writing steps** (`tools/patch/script_seq.s`, from API version 9): `korg.seq.*` writes into the pattern in RAM, the
+one that plays or is being edited, just like the dice roll with SHIFT + PART ERASE
+([dice](messungen/2026-10-16-wuerfeln.md), German): the same bytes of the step, no detour through the panel. The sequencer
+plays a written step on its next pass, also while it runs (measured in the emulator, see below). The pattern in RAM then differs
+from its stored place and counts as unsaved, as after an edit by hand: only WRITE stores it, and without WRITE the change is
+gone once another pattern is loaded. Flash and card stay untouched, and SHIFT + EDIT< undoes nothing. The pads show the steps of
+the selected bar section; when a plugin wrote steps in a frame, the runtime tells the firmware once at the end of the frame and
+the pads draw again (on the main screen only, otherwise in the next frame there). A step behind the length of the pattern or
+behind the part's LAST STEP is written but not played. Notes are MIDI notes, as with the dice: 48 is the root C that the
+pattern's key (`korg.current.key`) is added to.
+
+```js
+// TAP writes an arpeggio into the selected part: root, third, fifth and octave
+// in the pattern's key, on every second 16th, as long as the pattern.
+const chord = [0, 4, 7, 12];
+korg.onEvent("buttonPress", (key) => {
+  if (key != korg.key.TAP) return;
+  let part = korg.selectedPart;
+  if (part > 15) return;
+  korg.seq.clearPart(part);
+  for (let step = 0; step < korg.current.length * 16; step += 2) {
+    let note = 48 + korg.current.key + chord[(step / 2) % 4];
+    korg.seq.setStep(part, step, note, step % 8 == 0 ? 110 : 80);
+    korg.seq.setGate(part, step, 40);
+  }
+});
+```
+
+An arpeggiator that follows along writes the step that comes next in the `step` event. A call costs little (`setStep` 6,
+`setGate` 4, `clearPart` 30 units); a whole pattern of 64 steps fits easily into one frame.
 
 **Display on the device:** the runtime keeps its own image of 1024 bytes (8 pages of 128 columns, bit 0 is
 the top row) and draws only into that. Coordinates past the edge are cut off, never wrapped. Only the owner
@@ -873,7 +907,7 @@ All of this ran in the real firmware (2.02 with Hacktribe) in the emulator with 
 Unicorn without firmware, **not on the device**.
 
 - Compiler, checker and reference VM in JavaScript (`src/script/`), the Plugins page with run, probe and
-  export, tests in `test/script-*.test.mjs`. Block format 2, API version 6.
+  export, tests in `test/script-*.test.mjs`. Block format 2, API version 9.
 - ARM VM (`tools/patch/script_vm.s`): all 34 opcodes, 506 comparison cases against the JS VM agree
   ([measurement](messungen/2026-10-14-skript-arm-vm.md)).
 - Input filter and frame hook (`tools/patch/script_hooks.s`): ring of 64 places, 25 Hz, a shared budget of
@@ -888,6 +922,10 @@ Unicorn without firmware, **not on the device**.
   ([measurement](messungen/2026-10-14-skript-karte.md)).
 - Persistent values: a counter survives power off and on through the virtual card
   ([measurement](messungen/2026-10-14-skript-speicher.md)).
+- Writing steps (`tools/patch/script_seq.s`): a plugin writes steps into part 1 while the pattern plays and the sequencer
+  plays them (the emulator's MIDI output: the notes in the order of the steps), the bytes in the pattern are those of the
+  browser model, the pads show the written steps afterwards; not heard on the device
+  ([measurement](messungen/2026-10-26-plugin-steps.md), German).
 - Clock, reading, acting, sequencer events, backlight and LED hold. Finding: the firmware only knows
   toggling for mute, so `korg.mute` reads the state first
   ([measurement](messungen/2026-10-14-skript-hardware.md)).

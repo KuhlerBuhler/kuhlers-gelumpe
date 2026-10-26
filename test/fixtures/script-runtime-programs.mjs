@@ -8,6 +8,24 @@ const build = (name, source) => {
   return { blob: Buffer.from(markProbed(result.blob)).toString("hex"), symbols: result.info.symbols };
 };
 
+/** korg.seq: ready writes part 1, TAP changes two steps, and while it plays step 9 of the first pass after TAP writes step 2. */
+export const SEQ_WRITE = `
+  let written = 0;
+  korg.onEvent("ready", () => {
+    korg.seq.clearPart(0);
+    for (let s = 0; s < 16; s += 2) { korg.seq.setStep(0, s, 60 + s, 100); korg.seq.setGate(0, s, 48); }
+    korg.seq.setStep(0, 1, 40, 100);
+    korg.seq.setStep(0, 1, -1, 100);
+    written = 1;
+  });
+  korg.onEvent("buttonPress", (key) => {
+    if (key == korg.key.TAP) { korg.seq.setStep(0, 5, 65, 90); korg.seq.setGate(0, 5, 48); korg.seq.setStep(0, 0, 60, 0); written = 2; }
+  });
+  korg.onEvent("step", (s) => {
+    if (s == 8 && written == 2) { korg.seq.setStep(0, 1, 50, 90); korg.seq.setGate(0, 1, 48); written = 3; }
+  });
+`;
+
 export function runtimePrograms() {
   return {
     input: build("input", `
@@ -108,6 +126,7 @@ export function runtimePrograms() {
       korg.onEvent("mute", (p, m) => { muteSeen = p * 10 + m; });
       korg.onEvent("save", () => { saves += 1; });
     `),
+    seqwrite: build("seqwrite", SEQ_WRITE),
     lights: build("lights", `
       korg.onEvent("pad", (index, down, velocity) => {
         if (down == 1) {

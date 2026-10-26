@@ -99,7 +99,7 @@ test("LED state and transport budgets share one generated contract", () => {
   ]);
   assert.deepEqual(contract.SCRIPT_LED_VALID, { DESIRED: 1, DELIVERED: 2 });
   assert.equal(API.find(a => a.name === "korg.led").id, 1);
-  assert.equal(API_VERSION, 8);
+  assert.equal(API_VERSION, 9);
   const equ = Object.fromEntries([...asmInclude().matchAll(/^\.equ (\w+), (\w+)$/gm)].map(m => [m[1], Number(m[2])]));
   for (const [name, value] of Object.entries(led).filter(([, value]) => typeof value === "number")) {
     assert.equal(equ[`SCRIPT_LED_${name.replace(/([a-z])([A-Z])/g, "$1_$2").toUpperCase()}`], value);
@@ -163,6 +163,7 @@ test("event ids, API ids and error codes are pinned", () => {
     35: "korg.read.transport", 36: "korg.read.tempo", 37: "korg.read.pattern", 38: "korg.read.part", 39: "korg.read.step",
     40: "korg.read.mute", 41: "korg.read.knob",
     42: "korg.read.chainMode", 43: "korg.read.patternValue", 44: "korg.remapKey",
+    45: "korg.seq.setStep", 46: "korg.seq.setGate", 47: "korg.seq.clearPart",
     48: "korg.play", 49: "korg.stop", 50: "korg.pattern", 51: "korg.tempo", 52: "korg.part", 53: "korg.mute",
     56: "korg.backlight", 57: "korg.ledHold", 58: "korg.menu.add", 59: "korg.app",
     60: "korg.file.frame",
@@ -175,7 +176,7 @@ test("event ids, API ids and error codes are pinned", () => {
   assert.equal(ERROR.STACK, 5);
   assert.equal(ERROR.BAD_JUMP, 6);
   assert.equal(FORMAT_VERSION, 2);
-  assert.equal(API_VERSION, 8);
+  assert.equal(API_VERSION, 9);
   assert.deepEqual(API.filter(a => a.since === 2).map(a => a.name), ["korg.store.get", "korg.store.set", "korg.store.save"]);
   assert.deepEqual(API.filter(a => a.since === 3).map(a => a.name).slice(0, 2), ["korg.read.transport", "korg.read.tempo"]);
   assert.deepEqual(API.filter(a => a.since === 4).map(a => a.name), ["korg.menu.add"]);
