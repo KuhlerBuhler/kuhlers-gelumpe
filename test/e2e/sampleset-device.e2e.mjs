@@ -122,3 +122,42 @@ test("a broken temp file is offered to delete; the sample file beside it is not 
   assert.equal(await cardFile(page, TEMP), null);
   assert.deepEqual(await cardFile(page, SAMPLE), old);
 });
+
+test("Als Datei speichern is off without a device; with one it saves the whole sample file of the card", async () => {
+  const page = await h.page();
+  await page.goto(`${h.url}#sampleset`);
+  assert.equal(await page.locator("#cee-sf-download").isDisabled(), true);
+  const old = file({ 500: "Kick", 501: "Snare", 502: "Hat", 503: "Clap" });
+  const connected = await open({ [SAMPLE]: old });
+  const download = connected.waitForEvent("download");
+  await connected.click("#cee-sf-download");
+  const saved = await download;
+  assert.equal(saved.suggestedFilename(), SAMPLE);
+  const fs = await import("node:fs/promises");
+  assert.deepEqual(new Uint8Array(await fs.readFile(await saved.path())), old);
+  await connected.locator("#cee-sf-job").waitFor({ state: "hidden" });
+  assert.equal(await cardFile(connected, TEMP), null);
+  assert.deepEqual(await cardFile(connected, SAMPLE), old, "nothing on the card changed");
+  assert.deepEqual(connected.errors, []);
+});
+
+test("a download of the sample file can be cancelled while it runs; nothing is saved", async () => {
+  const page = await open({});
+  // a big file made in the page: a header and 16 MB behind it, so the download runs long enough to be cancelled
+  await page.evaluate(head => { const f = new Uint8Array(16 << 20); f.set(head); window.__ceeCard.set("e2sSample.all", f); }, Array.from(file({}).subarray(0, 4096)));
+  let saved = false;
+  page.on("download", () => { saved = true; });
+  await page.click("#cee-sf-download");
+  await page.click("#cee-sf-cancel");
+  await page.locator("#app-toasts .cee-toast", { hasText: "Abgebrochen." }).waitFor();
+  await page.locator("#cee-sf-job").waitFor({ state: "hidden" });
+  assert.equal(await page.locator("#cee-sf-download").isDisabled(), false, "the buttons are free again");
+  assert.equal(saved, false);
+  assert.deepEqual(page.errors, []);
+});
+
+test("a card without a sample file says so instead of saving", async () => {
+  const page = await open({});
+  await page.click("#cee-sf-download");
+  await page.locator("#app-toasts .cee-toast", { hasText: "noch keine Sample-Datei" }).waitFor();
+});
