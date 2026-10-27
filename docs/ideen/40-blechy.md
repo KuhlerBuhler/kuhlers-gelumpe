@@ -1,6 +1,6 @@
 # Idee 40: Haustier „Blechy“
 
-Stand: Charakter und Verhalten festgelegt, ein 1-Bit-Prototyp liegt außerhalb des Repos (Figur, alle Zustände, Beat-Sync, Pads). In BLECH eingebaut (die letzte Seite des Menü-Rings, kein Plugin der Karte), im Emulator geprüft, am Gerät nichts. Das neue Gehen (siehe unten) ist im Browsermodell geprüft, sein Emulatorfall ist geschrieben, aber noch nicht durchgelaufen. Zurück zu den [Ideen](../ideen.md).
+Stand: Charakter und Verhalten festgelegt, ein 1-Bit-Prototyp liegt außerhalb des Repos (Figur, alle Zustände, Beat-Sync, Pads). In BLECH eingebaut (die letzte Seite des Menü-Rings, kein Plugin der Karte), im Emulator geprüft, am Gerät nichts. Das neue Gehen (siehe unten) ist im Browsermodell und im Emulator (rot, Hacktribe) geprüft. Zurück zu den [Ideen](../ideen.md).
 
 Ein Maskottchen auf dem Display, benannt nach dem Patcher „Blech“. Baut auf Idee 37 (Backlight-Strobo) und Idee 45 (Power-Ton und -Screen) auf.
 
@@ -51,7 +51,7 @@ die Sprites in `assets/blechy/sprites/` (Idle, Terror 1 bis 4, dazu aus Idle abg
 
 ## Gehen wie auf der Discord-Seite
 
-Idee 68, gebaut und im Browsermodell geprüft, der Emulatorfall (`tools/emu/blechy_cases.py`, `blechy-gang-*`) ist noch nicht durchgelaufen. Beim Gehen wechseln das ruhige Bild (`calm`) und das Gehbild (`walk`) alle 240 ms,
+Idee 68, gebaut, im Browsermodell und im Emulator geprüft (`tools/emu/blechy_cases.py`, `blechy-gang-*`, rot und Hacktribe am 27.10.). Beim Gehen wechseln das ruhige Bild (`calm`) und das Gehbild (`walk`) alle 240 ms,
 wie auf der Discord-Seite der App (`site/app/discord.mjs`, `STEP_MS`). Geht er nach links, sind es dieselben beiden Bilder
 gespiegelt (`back0`, `back1`), wie die App ihn mit `scaleX(-1)` spiegelt. Stehen, Zucken, Winken, Reaktionen, Reden und Tanz sind
 unverändert. Die gespiegelten Bilder sind keine neue Kunst: `tools/blechy-build.mjs` dreht die Sprites aus `assets/blechy/sprites/`
