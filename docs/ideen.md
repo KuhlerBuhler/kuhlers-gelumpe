@@ -83,3 +83,4 @@ Ein Absturz oder Datenverlust ist akzeptabel. Schäden an Software, Hardware ode
 | 73. **Schrift-Editor in der App:** eigene Schrift pixeln, beim Patchen eingebaut. | untersucht, entschieden: nur beim Patchen, nicht von der Karte | [Idee 73](ideen/73-schrift-editor.md) |
 | 74. **Plugin-API für 1.4 (Feedback):** Parameter lesen und schreiben, Ereignisse verschlucken, mehr Speicher oder Dateien, Doku zu Reglern und Drehgebern. | aufgeschrieben | [Idee 74](ideen/74-plugin-api-feedback.md) |
 | 75. **Wellenform beim Schneiden (rot):** beim Einstellen von Start und Ende zeigt das Display die Wellenform und den Ausschnitt, auf dem Hauptbildschirm und in SAMPLE EDIT. | untersucht, machbar über eine Übersicht je Sample beim Laden | [Idee 75](ideen/75-wellenform.md) |
+| 76. **Letztes Pattern beim Einschalten:** das Gerät merkt sich das angesehene Pattern und öffnet es beim Start statt 001. | aufgeschrieben | [Idee 76](ideen/76-letztes-pattern.md) |
