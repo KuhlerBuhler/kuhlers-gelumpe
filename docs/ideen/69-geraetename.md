@@ -3,7 +3,7 @@
 Wunsch (27.10.): der Rechner zeigt die Electribe als "Electribe 3" statt mit Korgs Namen. Entschieden: der Name ist
 "Electribe 3" (nicht "Blechtribe 3").
 
-Stand 2026-10-27: **nur untersucht, nichts gebaut, am Gerät nichts.** Gelesen in der Firmware (rot, Hacktribe, blau 2.02)
+Stand 2026-10-27: **gebaut, im Emulator geprüft, am Gerät offen.** Gelesen in der Firmware (rot, Hacktribe, blau 2.02)
 und im Code. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 
 ## Befund
@@ -38,6 +38,22 @@ und im Code. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 3. Ein Häkchen pro Patch im Patcher der App (gibt es noch nicht) für diesen Patch, aus per Voreinstellung.
 4. Prüfung im Emulator nur auf Bytes, der Emulator kennt kein USB. Prüfen, ob die Startprüfung des Patchers den Bereich
    als Startphase erklärt haben will.
+
+## Gebaut
+
+- Datenpatch `usb-name`: `data/patches/usb-name.json` (Hacktribe und Korgs rote 2.02, gleiche Adressen und Bytes) und
+  `data/patches/usb-name-synth.json` (blau), gebaut von `tools/patch/usb_name.py` aus der eigenen `SYSTEM.VSB`. Jede
+  Änderung ist ein ganzer Platz: neue Beschreibung, der Rest Nullen wie in der Firmware. Der Builder prüft vorher den
+  Tabelleneintrag und die alten Bytes. (gemessen an den drei Dateien)
+- Plätze: rot Gerätename 40 Byte, Ports 56 und 60; blau 24, 40 und 44. Nach dem jeweils letzten Port folgt direkt die
+  nächste Beschreibung (Typ 6), nach den anderen zwei Byte Nullen. "Electribe 3" füllt den Platz auf der blauen genau. (gemessen)
+- Nicht in den Sätzen `blech.json` und `blech-synth.json`. Im Patcher der App ein Häkchen "Gerätename: Electribe 3" in
+  Schritt 2, aus per Voreinstellung, mit dem Hinweis auf DAW-Zuordnungen und Windows. Es geht auch auf eine mitgebrachte
+  `BLECH.patch`. Von Hand: `apply.mjs --set data/patches/blech.json --patch data/patches/usb-name.json`.
+- Emulator (Kurzprüfung, Start und Rettungswege): besteht allein auf Hacktribe, Korgs roter und der blauen 2.02 und mit
+  dem ganzen BLECH-Satz auf Hacktribe und der blauen. Die Startprüfung will keinen Bereich erklärt haben, die Firmware
+  liest die Strings beim Start nicht. Der Emulator kennt kein USB, die Namen selbst prüfen nur die Tests der Bytes
+  (`test/usb-name.test.mjs`). (gemessen)
 
 ## Am Gerät zu testen (rot und blau)
 
