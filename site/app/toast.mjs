@@ -39,10 +39,11 @@ function raise() {
 /**
  * @param {string} message
  * @param {"ok"|"info"|"error"} [kind]
- * @param {{stay?: boolean}} [options] stay: an info or ok toast that waits to be closed, like an error
+ * @param {{stay?: boolean, action?: {label: string, run: () => void}}} [options] stay: an info or ok toast that waits to be
+ *   closed, like an error; action: a button in the toast that runs and closes it
  * @returns {() => void} closes the toast
  */
-export function toast(message, kind = "info", { stay = false } = {}) {
+export function toast(message, kind = "info", { stay = false, action = null } = {}) {
   if (!message) return () => {};
   mount();
   // The same words again (a background check that fails every few seconds): the open toast stays, its time starts anew.
@@ -51,7 +52,8 @@ export function toast(message, kind = "info", { stay = false } = {}) {
   const host = kind === "error" ? assertive : polite;
   const close = el("button", { type: "button", className: "btn icon cee-toast-close", title: t("common.close") }, [icon("x")]);
   close.setAttribute("aria-label", t("common.close"));
-  const node = el("div", { className: `app-toast cee-toast${kind === "ok" ? " ok" : kind === "error" ? " err" : ""}` }, [el("span", { className: "cee-toast-text", textContent: message }), close]);
+  const act = action ? el("button", { type: "button", className: "btn sm cee-toast-action", textContent: action.label }) : null;
+  const node = el("div", { className: `app-toast cee-toast${kind === "ok" ? " ok" : kind === "error" ? " err" : ""}` }, [el("span", { className: "cee-toast-text", textContent: message }), act, close]);
   node.dataset.kind = kind;
   let timer = null;
   const remove = () => {
@@ -61,6 +63,7 @@ export function toast(message, kind = "info", { stay = false } = {}) {
     setTimeout(() => node.remove(), 250);
   };
   close.addEventListener("click", remove);
+  act?.addEventListener("click", () => { remove(); action.run(); });
   host.append(node);
   raise();
   const open = [...polite.children];

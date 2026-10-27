@@ -51,6 +51,14 @@ export const KORG_DOWNLOADS = {
 /** Where the BLECH set lives, relative to the page: the one list of what BLECH is (docs/patcher.md). */
 export const BLECH_SET_URL = "data/patches/blech.json";
 export const BLECH_SYNTH_SET_URL = "data/patches/blech-synth.json";
+/**
+ * The optional patch "Gerätename: Electribe 3" (docs/ideen/69-geraetename.md), off unless the user picks it: one variant
+ * for the red (Hacktribe and Korg's own) and one for the blue. Not part of a set, so a set alone never renames the device.
+ */
+export const USB_NAME_URLS = ["data/patches/usb-name.json", "data/patches/usb-name-synth.json"];
+
+/** The variant of an optional patch (its variants parsed) for a firmware build, or null when none is made for it. */
+export const optionFor = (variants, build) => variants.find(p => buildsOf(p).includes(build)) ?? null;
 /** Copies that already passed the whole emulator check, as SHA-256 of input and result (tools/verify-patches.mjs). */
 export const VERIFIED_URL = "data/patches/verified.json";
 
@@ -270,6 +278,11 @@ export function step(flow, event) {
       if (!choosesDevice(flow) || RUNNING.has(flow.phase) || !["red", "blue"].includes(event.device) || event.device === flow.device) return flow;
       const done = ["passed", "downloaded", "failed"].includes(flow.phase);
       return { ...flow, device: event.device, ...(done ? { phase: "ready", report: null, error: null, untested: false, steps: flow.steps.filter(s => s.id === "read" || s.id === "convert") } : {}) };
+    }
+    case "options": {
+      // another choice of optional patches is another copy: what was patched or checked goes, as with the device
+      if (RUNNING.has(flow.phase) || !["passed", "downloaded", "failed"].includes(flow.phase)) return flow;
+      return { ...flow, phase: "ready", report: null, error: null, untested: false, steps: flow.steps.filter(s => s.id === "read" || s.id === "convert") };
     }
     case "route": {
       // `event.input` is Korg's original again, whichever route the file was on
