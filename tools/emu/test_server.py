@@ -540,11 +540,12 @@ class CardServiceTest(unittest.TestCase):
             v.delete("/old.txt")
             v.close()
         self.wait_for(lambda: (self.card / "KORG" / "hacktribe" / "Sample" / "501_kick.wav").exists())
+        # The mirror writes the new files first and deletes afterwards; the folder is protected again once it is through.
+        protected = lambda: not os.access(self.card / "KORG" / "hacktribe" / "Sample" / "501_kick.wav", os.W_OK)
+        self.wait_for(protected)
         self.assertEqual((self.card / "KORG" / "hacktribe" / "Sample" / "501_kick.wav").read_bytes(), b"RIFFdata")
         self.assertFalse((self.card / "old.txt").exists())
         self.assertEqual((self.card / "keep.txt").read_text(), "keep")
-        protected = lambda: not os.access(self.card / "KORG" / "hacktribe" / "Sample" / "501_kick.wav", os.W_OK)
-        self.wait_for(protected)
         self.assertIsNone(self.request("GET", "/sd")[1]["error"])
 
     def test_the_card_goes_in_and_out_while_the_device_runs(self):

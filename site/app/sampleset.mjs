@@ -123,10 +123,14 @@ export function samplesFilePage(root, { device = null } = {}) {
     };
   }
 
-  /** Runs `work` with the buttons held; a thrown error becomes a toast, a cancel through `stop` a short note. */
+  /**
+   * Runs `work` with the buttons held; a thrown error becomes a toast, a cancel through `stop` a short note. The session is
+   * reserved meanwhile: the sidebar's LED and display reads keep away, and one that is running is waited for instead of refusing.
+   */
   async function busyWith(name, work, stop) {
     busy = true;
     render();
+    const release = session()?.reserve({ wait: true }) ?? (() => {});
     const p = progress(name, stop && (() => stop.abort()));
     try { return await work(p); }
     catch (e) {
@@ -134,6 +138,7 @@ export function samplesFilePage(root, { device = null } = {}) {
       toast(e instanceof SampleFileError || e instanceof SwapInterrupted ? e.message : `${name}: ${e.message}`, "error");
       return undefined;
     } finally {
+      release();
       p.end();
       busy = false;
       render();
