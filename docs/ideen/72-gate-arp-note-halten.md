@@ -19,12 +19,12 @@ Stand 2026-10-27: **untersucht, im Emulator gemessen (rot und blau), nichts geba
 - Note festhalten durch Auslösen: `0xC004596C(x, y)` aus dem Bild-Hook hält die Note, Y ändert die Länge (blau
   `0xC003FC38`). Kosten: Y hinkt bis zu 40 ms nach. (gemessen)
 
-## Fehlt in der Laufzeit (zusammen mit Idee 70, eine Plugin-API, API 10)
+## Fehlt in der Laufzeit (Plugin-API 10)
 
 - `korg.gateArp(wert)` (0 bis 49), oder ein geprüftes Schreiben eines Pattern-Bytes.
 - `korg.touchLockX(x | -1)`: der Eingangsfilter ersetzt X durch einen festen Wert, Y bleibt echt. Besser als Auslösen, weil
   nichts nachhinkt. (hergeleitet, nicht gemessen)
-- Gemeinsam mit 70: abfangen, auslösen, beim Beenden alles zurückgeben (wie `ledHold`).
+- Beim Beenden alles zurückgeben (wie `ledHold`).
 
 ## Plan
 
