@@ -17,21 +17,13 @@ mod smoke {
         app.exit(if ok { 0 } else { 1 });
     }
 
-    /// On the macOS runner a new CoreMIDI client failed with InitError right after the virtual port test (2 of 149
-    /// runs, never locally), so the client is asked for again for a few seconds and each failure is logged.
+    /// On the macOS runner a new CoreMIDI client now and then fails with InitError right after the virtual port test,
+    /// and keeps failing within the same process. Exit code 75 tells the workflow to start the smoke again.
     fn client<T, E: std::fmt::Debug>(what: &str, make: impl Fn() -> Result<T, E>) -> T {
-        let mut attempt = 1;
-        loop {
-            match make() {
-                Ok(client) => return client,
-                Err(error) if attempt < 10 => {
-                    eprintln!("{what} client, attempt {attempt}: {error:?}");
-                    std::thread::sleep(std::time::Duration::from_millis(500));
-                    attempt += 1;
-                }
-                Err(error) => panic!("{what} client unavailable: {error:?}"),
-            }
-        }
+        make().unwrap_or_else(|error| {
+            eprintln!("{what} client unavailable: {error:?}");
+            std::process::exit(75);
+        })
     }
 
     pub fn run() {

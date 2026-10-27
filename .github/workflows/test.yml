@@ -200,6 +200,15 @@ jobs:
       - name: Own virtual MIDI ports
         if: runner.os == 'macOS'
         run: cargo test --manifest-path src-tauri/Cargo.toml --lib midi::backend::tests::virtual_ports -- --ignored --nocapture
+      # Exit 75: CoreMIDI refused the smoke's client (src-tauri/examples/midi-smoke.rs); a new process is tried, any other failure stops.
       - name: WebKit MIDI bridge
         if: runner.os == 'macOS'
-        run: cargo run --manifest-path src-tauri/Cargo.toml --example midi-smoke
+        run: |
+          for attempt in 1 2 3; do
+            cargo run --manifest-path src-tauri/Cargo.toml --example midi-smoke && exit 0
+            code=$?
+            [ "$code" = 75 ] || exit "$code"
+            echo "CoreMIDI refused the client, attempt $attempt"
+            sleep 10
+          done
+          exit 75
