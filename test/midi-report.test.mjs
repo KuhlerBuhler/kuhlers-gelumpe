@@ -81,3 +81,14 @@ test("native MIDI lists every system port, not only the Electribe ones the trans
   assert.match(text, /^Eingänge \(2\):\n {2}electribe2 sampler\n {2}IAC Driver Bus 1$/m);
   assert.match(text, /^Als Electribe erkannt \(1\):$/m);
 });
+
+test("Korg's own driver on Windows: its jack port names bring a hint to remove it; elsewhere and with Windows' driver none", async () => {
+  const windows = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
+  const hint = /^Hinweis: Die Portnamen kommen von Korgs eigenem USB-MIDI-Treiber\./m;
+  const report = async (made, agent) => midiReport(await collectMidi({ transport: web(made), permissions: granted, agent }));
+  const korg = access([port("i", "electribe2 sampler 1 PAD/KNOB")], [port("o", "electribe2 sampler 1 SOUND")]);
+  assert.match(await report(korg, windows), hint);
+  assert.match(await report(access([port("i", "Electribe 3 PAD/KNOB")], [port("o", "Electribe 3 SOUND")]), windows), hint, "also after the rename");
+  assert.doesNotMatch(await report(access([port("i", "Electribe 3")], [port("o", "Electribe 3")]), windows), /Hinweis/, "Windows' own driver");
+  assert.doesNotMatch(await report(korg, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"), /Hinweis/, "not on a Mac");
+});
