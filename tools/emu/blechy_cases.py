@@ -105,8 +105,10 @@ class Run:
         return {name: self.dev.u32(self.entry + MAX_EVENT_TICKS + i * 4) for i, name in enumerate(EVENTS)}
 
     def land(self):
-        """The way a user gets to his page: EDIT right from Event. Returns the device time of the landing, in ms."""
+        """The way a user gets to his page: EDIT right from Event to the page BLECH, EDIT right again to him (the ring as
+        menu_cases.blechy_ring_cases walks it). Returns the device time of the landing, in ms."""
         menu_cases.go(self.dev, 10)
+        menu_cases.press(self.dev, "edit_next", wait=0.8)
         self.dev.m.send([0, menu_cases.KEYS["edit_next"], 1, 0, 0])
         self.dev.run(0.08)
         self.dev.m.send([0, menu_cases.KEYS["edit_next"], 0, 0, 0])

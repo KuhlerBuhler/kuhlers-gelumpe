@@ -61,9 +61,21 @@ bleiben (Tabelle in `data/script/blechy-art.mjs`). Das Gehbild sitzt eine Zeile 
 (Block höchstens 16384 Byte). Die Gehgeschwindigkeit blieb bei einem Pixel alle 120 ms; die App geht schneller, ihr Schritt ist 240 ms.
 Messung: [Blechy in BLECH eingebaut](../messungen/2026-10-15-blechy.md).
 
+## Seine Seite ist immer dunkel
+
+Am Gerät (mit bloßem Auge, 27.10.) wird ein Bildpunkt schnell dunkel, aber erst in rund 0,3 s wieder hell. Ohne DISPLAY INVERT
+ist Blechy ein dunkler Umriss auf hellem Grund, jeder Bildpunkt, den er beim Gehen verlässt, wird langsam hell: er zieht eine
+Schliere. Mit DISPLAY INVERT ON ist der Grund dunkel und er hell, die verlassenen Bildpunkte werden schnell dunkel, keine Schliere.
+Darum sieht seine Seite jetzt immer so aus wie mit INVERT ON: `script_display_blit` (`tools/patch/script_display.s`) kopiert sein
+Bild bei DISPLAY INVERT OFF umgekehrt über das Bild der Firmware, mit INVERT ON wie bisher. Nur für ihn (sein Block liegt
+außerhalb des Pools), nicht für Plugin-Apps, nicht für die Seite DESCRIPTION, nicht für die Bildschirme der Firmware. Blasen und
+Text auf seiner Seite gehören zu seinem Bild und kommen mit. Das Plugin-API bleibt, wie es ist. Im Emulator geprüft
+(`menu:blechy_page_dark_either_way`, rot und blau), am Gerät noch nicht.
+
 ## Offen
 
 - Gehen und Spiegeln am Gerät ansehen: ob der Wechsel alle 240 ms auf dem trägen LCD gut lesbar ist.
+- Am Gerät ansehen, ob seine Seite bei DISPLAY INVERT OFF dunkel ist und die Schliere weg ist.
 
 - Ein ungenutzter RAM-Fleck für die Stats (hinter dem Image Richtung `0xD0000000`, noch nicht als frei vermessen).
 - Stop-Haken und Zeichnen im Doppelpuffer `0xC031B310`.
