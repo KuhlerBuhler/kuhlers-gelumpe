@@ -64,7 +64,7 @@ export default {
   "settings.midi.pair": "uitgang „{out}” met ingang „{in}”",
   "settings.midi.none": "geen",
   "settings.autoConnect": "Automatisch verbinden",
-  "settings.autoConnect.hint": "Verbindt de Electribe zodra hij is aangesloten en aanstaat, ook na het loskoppelen.",
+  "settings.autoConnect.hint": "In de modus „Echt apparaat” verbindt de app de Electribe zodra hij is aangesloten en aanstaat, ook na het loskoppelen.",
   "device.auto.retry": "Verbinden lukte niet, probeer opnieuw.",
   "device.auto.still": "Nog steeds geen verbinding.",
   "device.auto.gaveUp": "Verbinden is niet gelukt. Kijk in de MIDI-diagnose in de instellingen.",

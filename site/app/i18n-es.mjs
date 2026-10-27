@@ -63,7 +63,7 @@ export default {
   "settings.midi.pair": "salida «{out}» con entrada «{in}»",
   "settings.midi.none": "ninguno",
   "settings.autoConnect": "Conectar automáticamente",
-  "settings.autoConnect.hint": "Conecta la Electribe en cuanto está enchufada y encendida, también tras desenchufarla.",
+  "settings.autoConnect.hint": "En el modo «Dispositivo real», la app conecta la Electribe en cuanto está enchufada y encendida, también tras desenchufarla.",
   "device.auto.retry": "No se pudo conectar, lo intento de nuevo.",
   "device.auto.still": "Sigue sin conexión.",
   "device.auto.gaveUp": "No se pudo conectar. Mira el diagnóstico MIDI en los ajustes.",

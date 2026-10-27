@@ -337,6 +337,8 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     get session() { return session; },
     /** The same as the button in this area: connect to the running emulator. */
     connectEmulator: () => emuButton.click(),
+    /** The mode menu chose the real device. */
+    chosen: () => autoConnect?.chosen(),
     disconnect,
     showDecision,
     log(text, tone = "neutral") {

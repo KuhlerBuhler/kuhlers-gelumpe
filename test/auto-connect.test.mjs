@@ -138,6 +138,18 @@ test("a lost session (connected, then present again) tries again", async () => {
   assert.equal(s.attempts, 2);
 });
 
+test("choosing the real device starts a new series at once, also after giving up", async () => {
+  const s = setUp([]);
+  s.usb.set("present");
+  for (let i = 0; i < 3; i++) await s.timers.fire();
+  assert.deepEqual(s.timers.pending, []);
+  s.auto.chosen();
+  assert.deepEqual(s.timers.pending, [0]);
+  await s.timers.fire();
+  assert.equal(s.attempts, 4);
+  assert.equal(s.toasts.at(-1).text, "Konnte nicht verbinden, versuche es erneut.");
+});
+
 test("skip is no failure, a pull cancels a waiting try, and switched off nothing runs", async () => {
   const s = setUp(["skip"]);
   s.usb.set("present");

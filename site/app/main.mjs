@@ -509,7 +509,16 @@ function boot() {
   const emu = takeLink();
   let areas = null;
   // Picking the mode that is open already changes nothing; ui.tabs would show the empty device panel instead of the drawing.
-  const nav = navbar({ onMode: id => { if (id !== areas?.current) areas?.select(id, { focus: false }); }, onDisconnect: () => device.disconnect() });
+  // The mode picked in the navbar menu, kept across starts: only "Echtes Gerät" connects to a plugged-in Electribe by
+  // itself, with "Emulator" the device on the cable is left alone.
+  let mode = "emu";
+  try { if (localStorage.getItem("cee.mode") === "device") mode = "device"; } catch { /* blocked: the emulator stays the mode */ }
+  const pickMode = id => {
+    mode = id;
+    try { localStorage.setItem("cee.mode", id); } catch { /* blocked: the choice holds until the page closes */ }
+    if (id === "device") device.chosen();
+  };
+  const nav = navbar({ onMode: id => { pickMode(id); if (id !== areas?.current) areas?.select(id, { focus: false }); }, onDisconnect: () => device.disconnect() });
   const drawer = sidebarDrawer();
   const transport = createMidiTransport(window);
   const usb = createUsbWatch({ transport, permissions: navigator.permissions, hidden: () => document.hidden });
@@ -536,7 +545,7 @@ function boot() {
     view: () => emulator,
     probe,
     usb,
-    auto: () => setting("autoConnect"),
+    auto: () => mode === "device" && setting("autoConnect"),
     diagnose: () => { areas?.select("settings"); $("#cee-midi")?.scrollIntoView({ block: "start" }); $("#cee-midi-rescan")?.focus({ preventScroll: true }); },
   });
   // "Echtes Gerät" shows the emulator's Electribe drawing; the connection controls sit above it in that mode only.

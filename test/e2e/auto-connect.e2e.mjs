@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { setUp } from "./harness.mjs";
+import { setUp, go } from "./harness.mjs";
 import { makeFirmware } from "../helpers.mjs";
 
 let h;
@@ -31,13 +31,28 @@ async function plugged() {
       access.outputs.set(output.id, output);
     };
   });
-  await page.goto(`${h.url}#device`);
+  await page.goto(h.url);
   await page.evaluate(() => window.__ceeStubReady);
   return page;
 }
 
+test("with Emulator as the mode a plugged-in Electribe is left alone; Echtes Gerät connects it, also after a fresh start", async () => {
+  const page = await plugged();
+  await waitState(page, "present");
+  await page.waitForTimeout(4000);
+  assert.equal(await page.locator("#cee-usb").getAttribute("data-state"), "present");
+  await go(page, "device");
+  await waitState(page, "connected");
+  await page.reload();
+  await page.evaluate(() => window.__ceeStubReady);
+  await waitState(page, "connected");
+  await go(page, "emu");
+  assert.deepEqual(page.errors, []);
+});
+
 test("a plugged-in Electribe connects by itself, again after a pull, and not after a manual disconnect", async () => {
   const page = await plugged();
+  await go(page, "device");
   await waitState(page, "connected");
   await page.waitForFunction(() => document.querySelector(".cee-device-status")?.textContent.includes("verbunden"));
 
@@ -69,6 +84,7 @@ test("a device that never answers gets three toasts, the last opens the MIDI dia
     navigator.permissions.query = async d => (d.name === "midi" ? { state: "granted" } : query(d));
   });
   await page.goto(h.url);
+  await go(page, "device");
   const toasts = page.locator(".cee-toast .cee-toast-text");
   await toasts.filter({ hasText: "Konnte nicht verbinden, versuche es erneut." }).waitFor();
   await toasts.filter({ hasText: "Immer noch keine Verbindung." }).waitFor();

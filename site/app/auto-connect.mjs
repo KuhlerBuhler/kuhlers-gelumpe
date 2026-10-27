@@ -49,6 +49,8 @@ export function createAutoConnect({ usb, attempt, enabled = () => true, toast, d
     manualConnect() { cancel(); fresh(); held = false; },
     /** The disconnect button: no automatic connect until the cable comes back or the button is clicked. */
     manualDisconnect() { cancel(); held = true; },
+    /** "Echtes Gerät" was chosen: a new series, at once when the Electribe is on the cable. */
+    chosen() { fresh(); if (usb.state === "present") schedule(0); },
     get failures() { return failures; },
   };
 }
