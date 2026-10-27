@@ -223,7 +223,7 @@ test("PLAY: he walks to the middle, says he listens, listens, and dances with th
   device.post("buttonPress", KEY.PLAY);
   const seen = [];
   let listenAt = null;
-  const listen = textRows([["ich hoer", 11], ["mir das", 22], ["kurz an", 33]], 76);
+  const listen = textRows([["ich hör", 11], ["mir das", 22], ["kurz an", 33]], 76);
   for (let ms = 0; ms < 20000 && listenAt === null; ms += FRAME_MS) {
     device.frame();
     seen.push(locate(device, ["walk", "idle"])?.ox);

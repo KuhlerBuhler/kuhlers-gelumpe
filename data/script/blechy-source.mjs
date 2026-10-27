@@ -361,7 +361,7 @@ function drawBubble(kind, side) {
   else tailLeft(l);
   const x = l + 3;
   if (kind == B_LISTEN) {
-    korg.display.text("ich hoer", x, 11);
+    korg.display.text("ich hör", x, 11);
     korg.display.text("mir das", x, 22);
     korg.display.text("kurz an", x, 33);
   } else if (kind == 1) {
@@ -377,7 +377,7 @@ function drawBubble(kind, side) {
     }
   } else if (kind == 3) {
     const t = korg.millis() - (playedOnce ? firstPlayAt : 0);
-    korg.display.text(playedOnce ? "Spielt seit" : "Laeuft seit", x, 12);
+    korg.display.text(playedOnce ? "Spielt seit" : "Läuft seit", x, 12);
     if (t >= 60000) {
       const m = t / 60000;
       korg.display.number(m, x, 26);
