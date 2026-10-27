@@ -9,6 +9,7 @@ gelesen), **hergeleitet**, **offen**.
 
 | Seite | Inhalt |
 |---|---|
+| [fahrplan.md](fahrplan.md) | Welche Version was bekommen soll: 1.3.6, 1.4, 1.5 "The sample update" |
 | [tastenkombinationen.md](tastenkombinationen.md) | SHIFT-, Halte- und Einschalt-Kombinationen der Firmware |
 | [plugins.md](plugins.md) | Plugins: Sprache, Ereignisse, Funktionen, Kartenformat, das Menü BLECH, die Seite im Editor ([English](plugins.en.md)) |
 | [doom-lizenz.md](doom-lizenz.md) | Doom auf der Karte: Teile, Lizenzen, warum AGPL und GPL zusammenpassen, was noch zur Weitergabe fehlt |
