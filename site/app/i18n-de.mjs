@@ -2056,6 +2056,10 @@ export default {
   "names.pad.red": "Pad {pad}, rote LED",
   "names.pad.blue": "Pad {pad}, blaue LED (gewählter Part)",
 
+  "news.v136.1": "Im Modus „Echtes Gerät“ verbindet sich die App selbst, sobald eine Electribe am Kabel hängt. Klappt es nicht, hilft die MIDI-Diagnose in den Einstellungen.",
+  "news.v136.2": "Blechy läuft jetzt mit Schritten, schaut in Laufrichtung, und seine Seite ist immer dunkel.",
+  "news.v136.3": "Patcher: auf Wunsch heißt die Electribe am Rechner „Electribe 3“. Die Patch-Namen stehen in deiner Sprache.",
+  "news.v136.4": "Das Display kann jetzt ä, ö und ü, auch für Plugins.",
   "news.v135.1": "Die App gibt es jetzt in 11 Sprachen. Sie startet in der Sprache deines Systems, umstellen kannst du sie in den Einstellungen.",
 
   "news.v135.2": "Samples übers Kabel: lesen, hinzufügen, rausnehmen und die ganze Sample-Datei auf den Rechner speichern.",
