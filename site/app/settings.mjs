@@ -5,6 +5,8 @@
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
 import { LANGUAGES, language, loadLanguage, setLanguage, systemLanguage, t, translate } from "./i18n.mjs";
+import { collectMidi, midiReport } from "./midi-report.mjs";
+import { toast } from "./toast.mjs";
 
 const KEY = "cee.settings";
 
@@ -70,7 +72,8 @@ export function settingsButton(button, open) {
 
 /** The settings page in the main content. */
 /** The installed app's version, from the desktop app (src-tauri); a browser has none, and the line stays away. */
-export function settingsPage(root, app = window.__GELUMPE_APP) {
+/** `midi`: the transport, the browser's permissions and the USB watch, for the MIDI report; without it the section stays away. */
+export function settingsPage(root, app = window.__GELUMPE_APP, midi = null) {
   const rows = FIELDS.filter(field => field.options?.length !== 1).map(field => {
     if (field.type === "switch") {
       const input = el("input", { type: "checkbox", id: `cee-set-${field.id}`, checked: !!get(field.id) });
@@ -90,5 +93,42 @@ export function settingsPage(root, app = window.__GELUMPE_APP) {
     el("h1", { className: "ui-sr-only", id: "cee-settings-title", textContent: t("settings.title") }),
     el("div", { className: "cee-settings" }, rows),
     ...(app?.version ? [el("p", { className: "muted cee-version", id: "cee-version", textContent: t("settings.version", { version: app.version }) })] : []),
+    ...(midi ? [midiSection(midi, app)] : []),
   );
+}
+
+/** What the app sees of MIDI, to copy into Discord when the Electribe is not found. */
+function midiSection({ transport, permissions, usb }, app) {
+  const text = el("pre", { className: "cee-doc-code cee-midi-report", id: "cee-midi-report", tabIndex: 0 });
+  const rescan = el("button", { type: "button", className: "btn sm", id: "cee-midi-rescan", textContent: t("settings.midi.rescan") });
+  const copy = el("button", { type: "button", className: "btn sm", id: "cee-midi-copy", textContent: t("settings.midi.copy") });
+  let last = null;
+  let turn = 0;
+  const read = async ask => {
+    const mine = ++turn;
+    const report = await collectMidi({ transport, permissions, ask, usb: usb?.state, app, agent: navigator.userAgent });
+    if (mine !== turn) return;
+    last = report;
+    text.textContent = midiReport(report);
+  };
+  rescan.addEventListener("click", () => read(true));
+  copy.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(text.textContent); toast(t("settings.midi.copied"), "ok"); } catch { toast(t("plugins.noClipboard"), "error"); }
+  });
+  // Read only while the section is on screen, so the closed page never asks MIDI. A plug or a pull reads again; an
+  // open session holds the port, so only its line changes then.
+  let shown = false;
+  new IntersectionObserver(([entry]) => { shown = entry.isIntersecting; if (shown) read(false); }).observe(text);
+  usb?.subscribe(state => {
+    if (!last || !shown) return;
+    if (state === "connected") { last = { ...last, usb: state }; text.textContent = midiReport(last); } else read(false);
+  });
+  const section = el("section", { className: "cee-settings cee-midi", id: "cee-midi" }, [
+    el("h2", { id: "cee-midi-title", textContent: t("settings.midi.title") }),
+    el("p", { className: "muted", textContent: t("settings.midi.hint") }),
+    text,
+    el("div", { className: "cee-midi-actions" }, [rescan, copy]),
+  ]);
+  section.setAttribute("aria-labelledby", "cee-midi-title");
+  return section;
 }
