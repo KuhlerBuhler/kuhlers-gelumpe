@@ -7,6 +7,7 @@ import { toast } from "./toast.mjs";
 import { createMidiTransport } from "./midi.mjs";
 import { DeviceSession, electribePorts, newCarry } from "../../src/session.mjs";
 import { t } from "./i18n.mjs";
+import { createAutoConnect } from "./auto-connect.mjs";
 
 const pill = (tone, word) => {
   const p = el("span", { className: "cee-status", textContent: word });
@@ -14,7 +15,8 @@ const pill = (tone, word) => {
   return p;
 };
 
-export function devicePanel(root, { onSession, emulator = () => null, probe, view = () => null }) {
+/** `usb`, `auto` and `diagnose`: the USB watch, whether to connect by itself, and how to open the MIDI report. */
+export function devicePanel(root, { onSession, emulator = () => null, probe, view = () => null, usb = null, auto = () => false, diagnose = () => {} }) {
   let session = null;
   const midi = createMidiTransport(window);
   let connection = 0;
@@ -112,7 +114,8 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     }
   }
 
-  async function connectPort(port) {
+  /** "ok", "failed", or "skip" when another connection came in between. `quiet`: a failure leaves the toast to the caller. */
+  async function connectPort(port, { quiet = false } = {}) {
     const attempt = ++connection;
     const previous = session;
     session = null;
@@ -123,39 +126,42 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
         const closed = await midi.closePort(previous.port);
         if (closed?.state === "quarantined") throw new Error(t("midi.quarantinedShort"));
       }
-      if (attempt !== connection) return;
+      if (attempt !== connection) return "skip";
       if (port === emulator()) {
         candidate = await probe();
       } else {
         await midi.openPort(port);
-        if (attempt !== connection) { await midi.closePort(port); return; }
+        if (attempt !== connection) { await midi.closePort(port); return "skip"; }
         if (!carries.has(port.name)) carries.set(port.name, newCarry());
         candidate = new DeviceSession({ port, carry: carries.get(port.name) });
         await candidate.connect();
       }
-      if (attempt !== connection) { candidate.lost(); await midi.closePort(port); return; }
+      if (attempt !== connection) { candidate.lost(); await midi.closePort(port); return "skip"; }
       session = candidate;
       showDevice(session.device);
       await attachRehearsal();
-      if (attempt !== connection) return;
+      if (attempt !== connection) return "skip";
       showDecision();
       view()?.external(port !== emulator(), !!session.device?.ram);
       onSession(session);
+      return "ok";
     } catch (e) {
       candidate?.lost();
       const closed = port !== emulator() ? await midi.closePort(port, { refresh: false }).catch(() => null) : null;
-      if (attempt !== connection) return;
+      if (attempt !== connection) return "skip";
       view()?.external(false);
-      say("error", t("device.state.noAnswer"), closed?.state === "quarantined"
+      if (!quiet) say("error", t("device.state.noAnswer"), closed?.state === "quarantined"
         ? t("device.noAnswer.quarantined", { error: e.message })
         : t("device.noAnswer", { error: e.message }));
       session = null;
       onSession(null);
+      return "failed";
     }
   }
 
   /** Ends the connection to a real device or to the emulator; always possible, also while a request is in flight. */
   async function disconnect() {
+    autoConnect?.manualDisconnect();
     connection++;
     const lost = session;
     if (!lost) return false;
@@ -179,7 +185,41 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     return true;
   }
 
+  /**
+   * Connects to the one Electribe on the cable without a word on the way; a toast comes only with the session.
+   * Never while a session runs, real or on the emulator, so nothing in flight is cut off; with several devices the
+   * choice stays with the person.
+   */
+  async function connectQuietly() {
+    if ((session && !session.sender.disconnected) || !midi.supported) return "skip";
+    let access;
+    try { access = await midi.requestAccess(); } catch { return "failed"; }
+    if (session && !session.sender.disconnected) return "skip";
+    watchPorts(access);
+    const ports = electribePorts(access);
+    if (ports.length !== 1) return "skip";
+    choose.hidden = true;
+    choose.replaceChildren();
+    return connectPort(ports[0], { quiet: true });
+  }
+
+  /** A port of the session that goes away ends it. */
+  function watchPorts(access) {
+    access.onstatechange = e => {
+      if (session && e.port.state === "disconnected" && (e.port === session.port.out || e.port === session.port.in)) {
+        const lost = session;
+        connection++;
+        lost.lost();
+        midi.closePort(lost.port, { refresh: false }).catch(() => {});
+        onSession(lost);
+        view()?.external(false);
+        say("error", t("device.state.disconnected"), t(e.quarantined ? "device.unplugged.quarantined" : "device.unplugged", { detail: e.message ? ` (${e.message})` : "" }));
+      }
+    };
+  }
+
   async function connect() {
+    autoConnect?.manualConnect();
     if (!midi.supported) {
       say("error", t("device.state.impossible"), t("device.noMidi"));
       return;
@@ -196,17 +236,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     } finally {
       window.ui?.busy(button, false);
     }
-    access.onstatechange = e => {
-      if (session && e.port.state === "disconnected" && (e.port === session.port.out || e.port === session.port.in)) {
-        const lost = session;
-        connection++;
-        lost.lost();
-        midi.closePort(lost.port, { refresh: false }).catch(() => {});
-        onSession(lost);
-        view()?.external(false);
-        say("error", t("device.state.disconnected"), t(e.quarantined ? "device.unplugged.quarantined" : "device.unplugged", { detail: e.message ? ` (${e.message})` : "" }));
-      }
-    };
+    watchPorts(access);
     const ports = electribePorts(access);
     choose.hidden = true;
     choose.replaceChildren();
@@ -265,7 +295,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       const found = electribePorts(await midi.requestAccess()).length > 0;
       if (found === seen || session) return;
       seen = found;
-      if (found) say("neutral", t("device.state.found"), t("device.found"));
+      if (found && !auto()) say("neutral", t("device.state.found"), t("device.found"));
       else clear();
     } catch {}
   }
@@ -291,6 +321,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     };
     connectPort(port);
   });
+  const autoConnect = usb ? createAutoConnect({ usb, attempt: connectQuietly, enabled: auto, toast, diagnose }) : null;
   clear();
   root.replaceChildren(
     el("div", { className: "actions" }, [button, emuButton]),
@@ -306,6 +337,8 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     get session() { return session; },
     /** The same as the button in this area: connect to the running emulator. */
     connectEmulator: () => emuButton.click(),
+    /** The mode menu chose the real device. */
+    chosen: () => autoConnect?.chosen(),
     disconnect,
     showDecision,
     log(text, tone = "neutral") {

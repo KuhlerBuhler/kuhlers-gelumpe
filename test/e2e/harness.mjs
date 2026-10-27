@@ -50,9 +50,16 @@ export async function setUp(routes = () => [], { realDevices = false } = {}) {
       writeFileSync(path, bytes);
       return path;
     },
-    async page({ device = false } = {}) {
+    /** `autoConnect`: the page connects to a plugged-in Electribe by itself; off here, the tests click connect. */
+    async page({ device = false, autoConnect = false } = {}) {
       const context = await browser.newContext({ acceptDownloads: true, locale: "de-DE" });
       open.add(context);
+      if (!autoConnect) await context.addInitScript(() => {
+        try {
+          const saved = JSON.parse(localStorage.getItem("cee.settings") ?? "{}") ?? {};
+          if (!("autoConnect" in saved)) localStorage.setItem("cee.settings", JSON.stringify({ ...saved, autoConnect: false }));
+        } catch { /* blocked storage: the default holds */ }
+      });
       context.setDefaultTimeout(20_000);
       // The changelog page asks GitHub for the releases; tests never reach the network and see none.
       await context.route("https://api.github.com/**", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
