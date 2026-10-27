@@ -12,6 +12,9 @@ import {
   ERROR, LIMITS, OPCODE_BY_CODE, OPCODE_COUNT, API_BY_ID, EVENT_BY_NAME, EVENT_BY_ID, OP, ARRAY_HANDLE,
 } from "../../data/script/contract.mjs";
 import { decodeBlob, fail, lineAt } from "./blob.mjs";
+import { text, render } from "../text.mjs";
+
+const say = (key, vars) => render(text(key, vars));
 import { verifyParts } from "./verifier.mjs";
 import { binary } from "./alu.mjs";
 
@@ -59,11 +62,11 @@ function execute(s, entry, args, eventId, env) {
     return { ok: c === ERROR.OK, code: c, name: e?.name ?? "OK", message: e?.message ?? "", offset: at, line: lineAt(s.lines, at), ops, cost };
   };
   if (env.timeUp?.()) return finish(ERROR.TIME);
-  if (args.length > LIMITS.stack) return finish(ERROR.STACK, "zu viele Ereigniswerte");
+  if (args.length > LIMITS.stack) return finish(ERROR.STACK, say("script.fault.args"));
   for (const a of args) stack[sp++] = a | 0;
 
   for (;;) {
-    if (pc >= code.length) return finish(ERROR.BAD_JUMP, `Adresse ${pc} liegt hinter dem Code`);
+    if (pc >= code.length) return finish(ERROR.BAD_JUMP, say("script.fault.jump", { address: pc }));
     at = pc;
     const op = code[pc];
     if (op >= OPCODE_COUNT) return finish(ERROR.BAD_OPCODE, `0x${op.toString(16)} bei ${pc}`);
@@ -73,8 +76,8 @@ function execute(s, entry, args, eventId, env) {
     if (info.cost > fuel) return finish(ERROR.FUEL);
     const [x, y] = operands(info, code, pc);
     const pop = info.pop === "argc" ? y : info.pop;
-    if (sp < pop) return finish(ERROR.STACK, `${info.name} braucht ${pop} Werte, der Stapel hat ${sp}`);
-    if (sp - pop + info.push > LIMITS.stack) return finish(ERROR.STACK, "Stapel voll");
+    if (sp < pop) return finish(ERROR.STACK, say("script.fault.stackLow", { op: info.name, needed: pop, has: sp }));
+    if (sp - pop + info.push > LIMITS.stack) return finish(ERROR.STACK, say("script.fault.stackFull"));
     fuel -= info.cost;
     cost += info.cost;
     ops += 1;
@@ -85,33 +88,33 @@ function execute(s, entry, args, eventId, env) {
       case OP.HALT: return finish(ERROR.OK);
       case OP.PUSHB: stack[sp++] = x; break;
       case OP.PUSHK:
-        if (x >= consts.length) return finish(ERROR.BAD_CONST, `Konstante ${x}`);
+        if (x >= consts.length) return finish(ERROR.BAD_CONST, say("script.fault.const", { index: x }));
         stack[sp++] = consts[x];
         break;
       case OP.PUSHS:
-        if (x >= strings.length) return finish(ERROR.BAD_STRING, `Text ${x}`);
+        if (x >= strings.length) return finish(ERROR.BAD_STRING, say("script.fault.string", { index: x }));
         stack[sp++] = x;
         break;
       case OP.LOAD:
-        if (x >= vars.length) return finish(ERROR.BAD_VAR, `Variable ${x}`);
+        if (x >= vars.length) return finish(ERROR.BAD_VAR, say("script.fault.var", { index: x }));
         stack[sp++] = vars[x];
         break;
       case OP.STORE:
-        if (x >= vars.length) return finish(ERROR.BAD_VAR, `Variable ${x}`);
+        if (x >= vars.length) return finish(ERROR.BAD_VAR, say("script.fault.var", { index: x }));
         vars[x] = stack[--sp];
         break;
       case OP.ALOAD: {
-        if (y === 0 || x + y > vars.length) return finish(ERROR.BAD_VAR, `Feld ${x}+${y}`);
+        if (y === 0 || x + y > vars.length) return finish(ERROR.BAD_VAR, say("script.fault.array", { base: x, length: y }));
         const i = stack[sp - 1];
-        if (i >>> 0 >= y) return finish(ERROR.BOUNDS, `Index ${i} bei Länge ${y}`);
+        if (i >>> 0 >= y) return finish(ERROR.BOUNDS, say("script.fault.bounds", { index: i, length: y }));
         stack[sp - 1] = vars[x + i];
         break;
       }
       case OP.ASTORE: {
-        if (y === 0 || x + y > vars.length) return finish(ERROR.BAD_VAR, `Feld ${x}+${y}`);
+        if (y === 0 || x + y > vars.length) return finish(ERROR.BAD_VAR, say("script.fault.array", { base: x, length: y }));
         const v = stack[--sp];
         const i = stack[--sp];
-        if (i >>> 0 >= y) return finish(ERROR.BOUNDS, `Index ${i} bei Länge ${y}`);
+        if (i >>> 0 >= y) return finish(ERROR.BOUNDS, say("script.fault.bounds", { index: i, length: y }));
         vars[x + i] = v;
         break;
       }
@@ -134,9 +137,9 @@ function execute(s, entry, args, eventId, env) {
       case OP.CALLAPI: {
         const api = API_BY_ID.get(x);
         if (!api) return finish(ERROR.API_UNKNOWN, `Id ${x}`);
-        if (y !== api.args.length) return finish(ERROR.API_ARGC, `${api.name} nimmt ${api.args.length}, aufgerufen mit ${y}`);
+        if (y !== api.args.length) return finish(ERROR.API_ARGC, say("script.fault.argc", { name: api.name, count: api.args.length, given: y }));
         if (api.since > s.header.apiVersion) return finish(ERROR.API_VERSION, api.name);
-        if (eventId !== undefined && !(api.eventMask >> eventId & 1)) return finish(ERROR.API_EVENT, `${api.name} im Ereignis ${EVENT_BY_ID.get(eventId).name}`);
+        if (eventId !== undefined && !(api.eventMask >> eventId & 1)) return finish(ERROR.API_EVENT, say("script.fault.event", { name: api.name, event: EVENT_BY_ID.get(eventId).name }));
         if (api.cost > fuel) return finish(ERROR.FUEL);
         fuel -= api.cost;
         cost += api.cost;

@@ -3,25 +3,55 @@
  * `data-i18n` / `data-i18n-label`, so the page reads right before the script runs; test/i18n.test.mjs keeps both equal.
  */
 import de from "./i18n-de.mjs";
-
+import { fill, isText, useTexts } from "../../src/text.mjs";
+// Only German loads with the page; another language loads when it is chosen (loadLanguage), so a start reads one
+// table, not eleven. The names are here so the settings can list every language without loading it.
+const NAMES = { de: "Deutsch", en: "English", fr: "Français", it: "Italiano", es: "Español", nl: "Nederlands", pt: "Português", pl: "Polski", cs: "Čeština", ru: "Русский", uk: "Українська" };
 const TABLES = { de };
 /** The languages there are, with their own names for the settings. */
-export const LANGUAGES = Object.keys(TABLES).map(id => [id, TABLES[id]["language.name"]]);
+export const LANGUAGES = Object.entries(NAMES);
+
+/** The language of the system when there is a table for it, else German: the start value until the user picks one. */
+export function systemLanguage(prefs = globalThis.navigator?.languages ?? []) {
+  for (const tag of prefs) {
+    const id = String(tag).toLowerCase().split("-")[0];
+    if (NAMES[id]) return id;
+  }
+  return "de";
+}
 
 let lang = "de";
 
+/** Switches to a language whose table is loaded; any other id means German. */
 export function setLanguage(id) {
   lang = TABLES[id] ? id : "de";
   if (globalThis.document) document.documentElement.lang = lang;
 }
 
+/** Loads the table of `id` (once) and switches to it; an unknown id, or a table that does not load, means German. */
+export async function loadLanguage(id) {
+  if (NAMES[id] && !TABLES[id]) {
+    try { TABLES[id] = (await import(`./i18n-${id}.mjs`)).default; } catch { /* German stays */ }
+  }
+  setLanguage(id);
+}
+
 export const language = () => lang;
 
-/** The text for `key`; `{name}` in it is replaced by `vars.name`. */
+/** The locale numbers and dates follow: the language, German as de-DE. */
+const LOCALES = { de: "de-DE" };
+export const locale = () => LOCALES[lang] ?? lang;
+
+/**
+ * The text for `key`; `{name}` in it is replaced by `vars.name`. `key` may also be a text from src/ or data/
+ * ({key, vars}, src/text.mjs), and so may a value.
+ */
 export function t(key, vars = {}) {
-  const text = TABLES[lang][key] ?? de[key] ?? key;
-  return text.replace(/\{(\w+)\}/g, (all, name) => (name in vars ? String(vars[name]) : all));
+  if (isText(key)) return t(key.key, key.vars);
+  return fill(TABLES[lang][key] ?? de[key] ?? key, vars);
 }
+
+useTexts(t, locale);
 
 /** Like t(), but a value may be a DOM node or a list of them: the text comes back as a flat list of strings and nodes, for append(). */
 export function tNodes(key, vars = {}) {

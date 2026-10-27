@@ -151,7 +151,7 @@ export function samplesPage(root, { device, emulator, probe }) {
     const items = el("ul", { className: "ui-list" });
     for (const f of findings) {
       const [tone, word] = SEVERITY[f.severity];
-      items.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${f.message}` })]));
+      items.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(f.text)}` })]));
     }
     verdict.replaceChildren(el("h3", { textContent: t("samples.gate") }), findings.length ? items : el("p", {}, [pill("ok", t("samples.clean")), ` ${t("samples.noFindings")}`]));
   }
@@ -238,7 +238,7 @@ export function samplesPage(root, { device, emulator, probe }) {
     const items = el("ul", { className: "ui-list", id: "cee-sample-blocked" });
     for (const r of reasons) {
       const [tone, word] = SEVERITY[r.severity] ?? ["error", "backup.locked"];
-      items.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${r.message}` })]));
+      items.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(r.text ?? r.message)}` })]));
     }
     verdict.replaceChildren(el("h3", { textContent: t("samples.blocked") }), items);
     device.log?.(t("backup.blocked", { reasons: reasons[0]?.message ?? "" }), "error");

@@ -10,6 +10,7 @@
 import { BLOCKS, field, readRaw, writeRaw, describe, offsetOf, typeOf } from "./map/index.mjs";
 import { converter } from "./map/convert.mjs";
 import { PATTERN_FILE, SINGLE_PATTERN_FILE } from "./map/address.mjs";
+import { render, text, TextError } from "./text.mjs";
 
 export const BLOCK_SIZE = BLOCKS.get("pattern").size;
 const FRAME_START = "PTST";
@@ -18,20 +19,20 @@ const FRAME_END = "PTED";
 
 const ascii = (bytes, at, n) => String.fromCharCode(...bytes.subarray(at, at + n));
 
-/** A problem with a file, said in a way the page can show as it is. */
-export class FileError extends Error {
-  constructor(message, details = {}) {
-    super(message);
+/** A problem with a file, said in a way the page can show as it is: `key` and `vars` are a text (src/text.mjs). */
+export class FileError extends TextError {
+  constructor(key, vars, details = {}) {
+    super(key, vars);
     this.name = "FileError";
     Object.assign(this, details);
   }
 }
 
-/** Why a block is not a pattern, or null when it is one. */
+/** Why a block is not a pattern (a text), or null when it is one. */
 export function frameProblem(block) {
-  if (block.length !== BLOCK_SIZE) return `ist ${block.length} Byte lang statt ${BLOCK_SIZE}`;
-  if (ascii(block, 0, 4) !== FRAME_START) return "beginnt nicht mit PTST";
-  if (ascii(block, FRAME_END_AT, 4) !== FRAME_END) return "endet nicht mit PTED";
+  if (block.length !== BLOCK_SIZE) return text("patternfile.frame.size", { got: block.length, want: BLOCK_SIZE });
+  if (ascii(block, 0, 4) !== FRAME_START) return text("patternfile.frame.start");
+  if (ascii(block, FRAME_END_AT, 4) !== FRAME_END) return text("patternfile.frame.end");
   return null;
 }
 
@@ -50,7 +51,7 @@ export class Pattern {
   /** @param {Uint8Array} bytes a copy is taken */
   constructor(bytes) {
     const problem = frameProblem(bytes);
-    if (problem) throw new FileError(`Der Pattern-Block ${problem}.`);
+    if (problem) throw new FileError("patternfile.block", { problem });
     this.bytes = Uint8Array.from(bytes);
   }
 
@@ -107,18 +108,18 @@ export class PatternFile {
     const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
     const min = PATTERN_FILE.header + BLOCK_SIZE;
     if (bytes.length < min) {
-      throw new FileError(`Die Datei ist ${bytes.length} Byte groß. Eine Pattern-Sicherung hat mindestens ${min}.`);
+      throw new FileError("patternfile.small", { size: bytes.length, min });
     }
     if (ascii(bytes, 0, 4) !== PATTERN_FILE.magic || ascii(bytes, 0x10, 9) !== PATTERN_FILE.device) {
-      throw new FileError("Das ist keine Pattern-Sicherung einer Electribe Sampler: Kennung KORG / e2sampler fehlt.");
+      throw new FileError("patternfile.notBackup");
     }
     const rest = bytes.length - PATTERN_FILE.header;
     if (rest % BLOCK_SIZE) {
-      throw new FileError(`Die Datei ist abgeschnitten: hinter dem Kopf stehen ${rest} Byte, das ist keine ganze Zahl von Patterns.`);
+      throw new FileError("patternfile.cut", { rest });
     }
     const count = rest / BLOCK_SIZE;
     if (count > PATTERN_FILE.count) {
-      throw new FileError(`Die Datei enthält ${count} Patterns, die Electribe kennt höchstens ${PATTERN_FILE.count}.`);
+      throw new FileError("patternfile.many", { count, max: PATTERN_FILE.count });
     }
     const broken = [];
     const blocks = [];
@@ -130,8 +131,8 @@ export class PatternFile {
       blocks.push(block);
     }
     if (broken.length) {
-      const list = broken.slice(0, 5).map(b => `Pattern ${b.pattern} ${b.problem}`).join(", ");
-      throw new FileError(`${broken.length} Patterns sind beschädigt: ${list}${broken.length > 5 ? " und weitere" : ""}.`, { broken });
+      const list = broken.slice(0, 5).map(b => text("patternfile.brokenOne", { n: b.pattern, problem: b.problem }));
+      throw new FileError(broken.length > 5 ? "patternfile.brokenMore" : "patternfile.broken", { count: broken.length, list: list.map(render).join(", ") }, { broken });
     }
     return new PatternFile(bytes.slice(0, PATTERN_FILE.header), blocks);
   }
@@ -180,7 +181,7 @@ function singlePatternHeader() {
 export function parseSinglePattern(input) {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   if (bytes.length !== SINGLE_PATTERN_FILE.header + BLOCK_SIZE || ascii(bytes, 0, 4) !== "KORG" || ascii(bytes, 0x10, 9) !== "e2sampler") {
-    throw new FileError("Das ist keine einzelne Pattern-Datei einer Electribe Sampler (.e2spat).");
+    throw new FileError("patternfile.notSingle");
   }
   const pattern = new Pattern(bytes.subarray(SINGLE_PATTERN_FILE.header));
   pattern.header = bytes.slice(0, SINGLE_PATTERN_FILE.header);

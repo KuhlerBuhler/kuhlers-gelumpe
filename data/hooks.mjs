@@ -27,6 +27,8 @@ export const CHAINS = {
     { id: "result", sites: [0xC0036700] },
     { id: "done", sites: [0xC0036714] },
     { id: "window", sites: [0xC00630F0, 0xC0063144] },
+    { id: "parser-entry", sites: [0xC0035B10] },
+    { id: "parser-seek", sites: [0xC0035C74, 0xC0035C94, 0xC0035D68, 0xC0035DCC, 0xC0035DFC, 0xC00363C0] },
   ],
   "start-image": [{ id: "early-draw", sites: [0xC002AC38] }],
   "global-screen": [

@@ -265,13 +265,47 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 **Der normale Weg läuft in GitHub** (Workflow "Release", `.github/workflows/release.yml`):
 
 1. Auf `develop` per Pull Request: `node tools/set-version.mjs X.Y.Z` (schreibt die vier Versionsdateien) und die
-   Notizen als `release-notes/X.Y.Z.md`. Sie sind das, was im Release und im Discord steht.
+   Notizen als `release-notes/X.Y.Z.md` (Format unten). Sie sind das, was im Release und im Discord steht.
 2. Pull Request `develop` -> `main` mergen.
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
    Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
    2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
    `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
    `main` endet nach dem ersten Schritt.
+
+**Format der Notizen** (`release-notes/X.Y.Z.md`): eine Datei, erst Deutsch, dann eine Zeile `## English` und darunter
+dieselben Notizen auf Englisch. Die Datei enthält nur die Notizen, keinen Download-Abschnitt und keine "Ohne App
+patchen"-Zeile: `tools/release.mjs` setzt oben in jede Sprache einen Block (ein Link je System, Mac-Chip-Hinweis,
+`xattr`-Zeile, "Die vielen Dateien unter Assets brauchst du nicht", `BLECH.patch`/`.bsdiff`) und baut ihn aus den
+Dateien, die wirklich hochgeladen werden, mit GitHubs Namen (`Kuhlers.GELUMPE_X.Y.Z_x64-setup.exe`, ...). Ein System
+ohne Datei bekommt keinen Link. Der Prüfschritt "due" in `release.yml` (`node tools/release-notes.mjs check Datei`)
+startet kein Release, wenn der deutsche oder der englische Teil fehlt oder leer ist. Das Release und der
+Discord-Post tragen beide Sprachen, Deutsch zuerst; der englische Teil beginnt im Discord eine eigene Nachricht, jede
+Nachricht hat höchstens 4000 Zeichen, der @everyone-Ping steht nur in der ersten. Vorlage:
+
+```markdown
+BLECH X.Y.Z und die App X.Y.Z.
+
+**Neu**
+- ...
+
+**Behoben**
+- ...
+
+Spenden: https://www.paypal.me/kuhlerbuhler
+
+## English
+
+BLECH X.Y.Z and the app X.Y.Z.
+
+**New**
+- ...
+
+**Fixed**
+- ...
+
+Donations: https://www.paypal.me/kuhlerbuhler
+```
 
 Korgs drei 2.02 kommen nie ins Repo. Der Workflow lädt sie über die Links in den Secrets `E2_VSB_URL` (Hacktribe),
 `E2_VSB_STOCK_URL` (rot) und `E2_VSB_SYNTH_URL` (blau) und bricht ab, wenn eine Datei nicht die erwartete SHA-256 hat.
@@ -306,9 +340,14 @@ Pull Request `develop` -> `main`, den du danach öffnest (`gh pr create --base m
 eigener Bump-PR ist nicht nötig. Der Workflow "Sync develop" holt den Merge-Commit danach nach `develop`
 zurück.
 
-`--notes=Datei.md` nimmt die Release-Notizen aus der Datei statt GitHubs erzeugter Liste der PRs. Sobald
+Nach jedem Push auf `develop`, `main` oder einen `release/`-Branch holt der Workflow "Update pull requests"
+diesen Branch in jeden offenen Pull Request, der auf ihm aufbaut und hinterherhängt (GitHubs "Update branch", mit
+`SYNC_TOKEN`, damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein
+Basis-Branch ist; bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
+
+`--notes=Datei.md` nimmt die Release-Notizen aus der Datei (zweisprachig, mit Download-Blöcken, siehe "Format der Notizen") statt GitHubs erzeugter Liste der PRs. Sobald
 das Release veröffentlicht ist, postet der Workflow "Discord release" es über den Webhook im Secret
-`DISCORD_WEBHOOK` (`tools/discord-release.mjs`): Titel "BLECHTRIBE X.Y.Z ist da" mit Link, darunter die
+`DISCORD_WEBHOOK` (`tools/discord-release.mjs`): Titel "BLECHTRIBE X.Y.Z ist da" mit Link und einem Ping an @everyone, darunter die
 Notizen, lange in mehreren Nachrichten, zum Schluss eine Nachricht nur mit dem Link zum Release. Notizen erst danach geändert: den Workflow von Hand mit dem Tag
 starten, er postet das Release noch einmal.
 
@@ -327,12 +366,38 @@ App) passt nur auf genau die Hacktribe-Datei mit diesem sha256-Anfang. Liegen si
 (`-- --version X.Y.Z`). Beide enthalten keine Firmware, nur eigenen Code und Prüfsummen. Format, Beleg
 und Grenzen: [patcher.md](patcher.md), "Patch-Datei und bsdiff".
 
-**Geprüfte Kopien** (vor jedem Release mit geändertem Patch-Satz): `npm run verify:patches -- <Korgs rote 2.02>
-<Korgs blaue 2.02> <Hacktribe 2.02> <Hacktribe 2.02 mit blauem Kopf>` patcht jede Datei wie die Seite, lässt `tools/emu/check.py` laufen und schreibt die
-SHA-256 von Eingabe und Ergebnis nach `data/patches/verified.json`, nur wenn alle bestehen. Der Patcher überspringt die
-Prüfung im Emulator für genau diese Kopien (Hacktribe für die blaue steht mit `"hardware": "blue"` darin, sie läuft
-im Emulator auf dem Flash der blauen), auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei wird
-weiter ganz geprüft; eine Liste von einem alten Patch-Satz trifft nichts mehr und kostet nur die Zeit.
+**Geprüfte Kopien** (vor jedem Release mit geändertem Patch-Satz): `data/patches/verified.json` hält die SHA-256 von
+Eingabe und Ergebnis jeder Kopie, die den ganzen Check im Emulator (`tools/emu/check.py`) bestanden hat. Der Patcher
+überspringt die Prüfung für genau diese Kopien (Hacktribe für die blaue steht mit `"hardware": "blue"` darin, sie läuft
+im Emulator auf dem Flash der blauen), auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei
+wird weiter ganz geprüft; eine Liste von einem alten Patch-Satz trifft nichts mehr und kostet nur die Zeit.
+
+Neu geschrieben wird sie in GitHub vom Workflow "Verify patches" (`.github/workflows/verify-patches.yml`). Er prüft den
+Patch-Satz eines Branches auf Korgs drei 2.02 und auf Hacktribe mit blauem Kopf (dieselben Secrets wie das Release),
+jede Datei in einem eigenen Job nebeneinander, und schreibt die Einträge in eine `verified.json` (`verify-patches.mjs
+--results`). Stehen alle Paare schon drin, bleibt alles, wie es war.
+
+Er läuft von selbst bei jedem Pull Request, der den Patch-Satz (`data/patches/`), etwas, das `verify-patches.mjs` lädt,
+`tools/patch/` oder `tools/emu/` ändert, und committet die neue `verified.json` auf den Branch des Pull Requests.
+Gepusht wird mit `SYNC_TOKEN`, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
+ersten Schritt. Ein neuer Push bricht den laufenden Check ab. Pull Requests aus Forks haben keine Secrets und werden
+übersprungen. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
+
+Von Hand, für einen beliebigen Branch:
+
+```bash
+gh workflow run verify-patches.yml -f branch=release/X.Y.Z
+```
+
+Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push scheitert, öffnet er stattdessen einen
+Pull Request hinein. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
+Release-Workflows hängt seinen frischen Eintrag je Datei als Artefakt `verified-<name>` an.
+
+Lokal: `npm run verify:patches -- <Korgs rote 2.02> <Korgs blaue 2.02> <Hacktribe 2.02> <Hacktribe 2.02 mit blauem
+Kopf>`: patcht jede
+Datei wie die Seite, prüft sie und schreibt die Liste nur, wenn alle bestehen. Ohne Option ersetzt der Lauf die Liste;
+`--merge` behält die Einträge der anderen Eingaben und ersetzt nur die der geprüften Dateien, so kann man eine Datei
+nach der anderen prüfen. Ein Paar, das schon mit demselben Satz drinsteht, behält sein altes Datum.
 
 ## Keine öffentliche Seite
 

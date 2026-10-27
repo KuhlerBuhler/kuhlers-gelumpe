@@ -7,6 +7,7 @@ import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { identify, buildOf, lackOf, hasBlechSysex, firmwareName } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
+import { t } from "./i18n.mjs";
 
 const VSB_SIZE = 0x200100;
 const STORE = "cee.emu";
@@ -35,13 +36,13 @@ const keep = {
 };
 
 const STATE_WORDS = {
-  empty: ["muted", "bereit"],
-  loaded: ["muted", "geladen"],
-  running: ["ok", "läuft"],
-  stopped: ["muted", "angehalten"],
-  crashed: ["error", "abgestürzt"],
-  hung: ["warn", "hängt"],
-  off: ["muted", "aus"],
+  empty: ["muted", "emu.state.empty"],
+  loaded: ["muted", "emu.state.loaded"],
+  running: ["ok", "emu.state.running"],
+  stopped: ["muted", "emu.state.stopped"],
+  crashed: ["error", "emu.state.crashed"],
+  hung: ["warn", "emu.state.hung"],
+  off: ["muted", "emu.state.off"],
 };
 
 const pill = (tone, word) => {
@@ -73,7 +74,7 @@ export async function findLink(taken) {
   if (taken.link && taken.fresh) return taken;
   if (!["127.0.0.1", "localhost"].includes(location.hostname)) return taken;
   try {
-    const res = await fetch("emu.json", { cache: "no-store" });
+    const res = await fetch("./emu.json", { cache: "no-store" });
     if (res.ok) {
       const link = await res.json();
       if (Number.isInteger(link?.port) && typeof link.token === "string") {
@@ -173,7 +174,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   const status = el("p", { className: "cee-emu-status ui-sr-only", id: "cee-emu-status", role: "status" });
   const canvas = el("canvas", { className: "cee-lcd", id: "cee-emu-lcd", width: 128, height: 64 });
   canvas.setAttribute("role", "img");
-  canvas.setAttribute("aria-label", "Display der emulierten Electribe");
+  canvas.setAttribute("aria-label", t("emu.display"));
   // What the device shows, as text: only a screen reader hears it (follow.mjs fills it in).
   const where = el("p", { className: "ui-sr-only", id: "cee-emu-where" });
   canvas.setAttribute("aria-describedby", "cee-emu-where");
@@ -204,7 +205,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       const next = coalesce ? latest.get(coalesce) : cmd;
       if (coalesce) latest.delete(coalesce);
       return api("/input", JSON.stringify(next), "application/json");
-    }).then(s => { if (s?.state && s.state !== lastState) showStatus(s); }, e => say("error", "Fehler", e.message));
+    }).then(s => { if (s?.state && s.state !== lastState) showStatus(s); }, e => say("error", t("common.error"), e.message));
   };
   let lastState = "empty";
   let lastDeviceMs = 0;
@@ -227,7 +228,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       send(data) {
         if (lastState === "running" && !booted) return;
         const body = Uint8Array.from(data);
-        midiQueue = midiQueue.then(() => api("/midi", body)).catch(e => say("error", "Fehler", e.message));
+        midiQueue = midiQueue.then(() => api("/midi", body)).catch(e => say("error", t("common.error"), e.message));
       },
     },
     ondisconnect: null,
@@ -253,9 +254,9 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   // /emu.json. Nobody is asked to run a command: the start button looks for it, and what fails is said in a toast.
   const inApp = !!window.__GELUMPE_APP;
   const START_HINT = inApp
-    ? "Der Emulator der App startet gerade nicht. Die App versucht es weiter; hilft das nicht, schließ sie und öffne sie neu. Was er meldet, steht in ~/.gelumpe/emu.log."
-    : "Der Emulator läuft nicht. In der App GELUMPE startet er von selbst; wer die Seite aus dem Quelltext startet, nimmt npm start.";
-  const startButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-emu-start", textContent: "Emulator starten", hidden: true });
+    ? t("emu.start.app")
+    : t("emu.start.page");
+  const startButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-emu-start", textContent: t("emu.start"), hidden: true });
   /** Looks for the emulator service; false and a toast when there is none. */
   async function start() {
     startButton.disabled = true;
@@ -288,16 +289,19 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   }
   /** The line for the file chooser; Korg's own build is a recognised file, it only is not the measured one. */
   /** A recognised file is said by the display; the line is for screen readers, what went wrong goes to the toast. */
-  const showInfo = (text, wrong = /nicht erkannt/.test(text)) => {
+  const showInfo = (text, wrong = false) => {
     vsbInfo.textContent = text;
     if (wrong) toast(text, "error");
   };
   const describe = (name, id, saved) => {
-    const when = saved ? " (vom letzten Mal)" : "";
-    if (id.build === "synth") return `${name}: Firmware der blauen Electribe 2 (Synth), erkannt${when}. Presets und Modulationen gibt es für sie nicht.`;
-    if (id.build === "stock") return `${name}: Korgs Original-Firmware 2.02, erkannt${when}.`;
-    return id.known ? `${name}: erkannt${when}.` : `${name}: nicht erkannt${when}.${saved ? "" : ` ${id.reasons.join(" ")} Der Emulator ist für die vermessene Firmware gebaut.`}`;
+    const when = saved ? t("emu.file.saved") : "";
+    if (id.build === "synth") return t("emu.file.synth", { name, when });
+    if (id.build === "stock") return t("emu.file.stock", { name, when });
+    if (id.known) return t("emu.file.known", { name, when });
+    return saved ? t("emu.file.unknown", { name, when }) : t("emu.file.unknown.why", { name, reasons: id.reasons.join(" ") });
   };
+  /** A file the emulator is not built for: said in the toast as well. */
+  const unknown = id => id.build !== "synth" && id.build !== "stock" && !id.known;
 
   // A switched-off Electribe takes its firmware on the display: drop the file there or tap it.
   const offerTitle = el("strong", { textContent: "SYSTEM.VSB" });
@@ -309,15 +313,15 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     const held = external && !mirrored;
     offer.hidden = !off && !held;
     if (held) {
-      offerTitle.textContent = "Electribe verbunden";
-      offerText.textContent = "Ihr Display lässt sich nicht zeigen. Antippen, um zu trennen und den Emulator zu starten.";
-      offer.title = "Trennen und den Emulator starten";
+      offerTitle.textContent = t("emu.offer.connected");
+      offerText.textContent = t("emu.offer.noDisplay");
+      offer.title = t("emu.offer.disconnect");
       return;
     }
-    offerTitle.textContent = vsb ? "Firmware geladen" : "SYSTEM.VSB";
-    offerText.textContent = vsb ? firmwareName(vsb) : "Deine Firmware hierher ziehen oder antippen.";
+    offerTitle.textContent = vsb ? t("emu.offer.loaded") : "SYSTEM.VSB";
+    offerText.textContent = vsb ? firmwareName(vsb) : t("emu.offer.drop");
     // Its name is what the display says; what a tap does is the title.
-    offer.title = vsb ? "Antippen für eine andere Datei" : "Firmware-Datei (SYSTEM.VSB) wählen";
+    offer.title = vsb ? t("emu.offer.other") : t("emu.offer.pick");
   }
 
   const api = async (path, body, type = "application/octet-stream") => {
@@ -328,15 +332,16 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
         method: "POST", body, headers: { "Content-Type": type, "X-Emu-Token": link.token },
       });
     } catch {
-      throw new Error(inApp ? `Der Emulator der App antwortet gerade nicht, die App startet ihn neu. Versuch es gleich nochmal; was er meldet, steht in ~/.gelumpe/emu.log.` : `Der Emulator auf Port ${link.port} antwortet nicht. Läuft npm start noch?`);
+      throw new Error(inApp ? t("emu.api.app") : t("emu.api.page", { port: link.port }));
     }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Emulator antwortet mit ${res.status}.`);
+    if (!res.ok) throw new Error(data.error || t("emu.api.status", { status: res.status }));
     return data;
   };
 
   function showStatus(s) {
-    const [tone, word] = STATE_WORDS[s.state] || ["muted", s.state];
+    const [tone, key] = STATE_WORDS[s.state] || ["muted", null];
+    const word = key ? t(key) : s.state;
     const live = state => state === "running" || state === "hung";
     const stopped = live(lastState) && !live(s.state);
     if (typeof s.device_ms === "number") {
@@ -352,7 +357,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       // A service started again holds no firmware and runs none: the power key the person pressed before counts again.
       if (!live(s.state) && vsb) queueMicrotask(boot);
     }
-    say(tone, word, s.error || (s.state === "running" ? "Die Firmware läuft." : s.state === "off" ? "Die Electribe ist aus." : ""), QUIET.has(s.state) && !s.error, null, !!s.error);
+    say(tone, word, s.error || (s.state === "running" ? t("emu.running") : s.state === "off" ? t("emu.off") : ""), QUIET.has(s.state) && !s.error, null, !!s.error);
     if (s.state !== "running") device.showLeds({}, true);
     if (!fake) device.setPower(live(s.state));
     deviceBox.dataset.state = s.state;
@@ -363,7 +368,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     events?.close();
     startButton.hidden = !!link;
     if (!link) {
-      say("muted", "aus", "Der Emulator ist noch nicht gestartet.", true);
+      say("muted", t("emu.state.off"), t("emu.notStarted"), true);
       return;
     }
     events = new EventSource(`http://127.0.0.1:${link.port}/events?token=${encodeURIComponent(link.token)}`);
@@ -395,8 +400,8 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
           showStatus({ state: "stopped" });
           resume = true;
         }
-        const text = inApp ? "Der Emulator antwortet nicht mehr. Die App startet ihn neu, gleich geht es weiter." : "Der Emulator antwortet nicht mehr. Sobald er wieder läuft, geht es hier von selbst weiter. Läuft npm start noch?";
-        say("warn", "getrennt", text);
+        const text = inApp ? t("emu.lost.app") : t("emu.lost.page");
+        say("warn", t("emu.state.lost"), text);
         // A browser that gives up instead of trying again is asked again.
         if (events.readyState === EventSource.CLOSED) setTimeout(() => { if (events?.readyState === EventSource.CLOSED) listen(); }, 2000);
       }
@@ -413,13 +418,13 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     setBuild(null);
     keep.delete("vsb");
     if (bytes.length !== VSB_SIZE) {
-      showInfo(`${file.name}: ${bytes.length} Byte, eine VSB hat ${VSB_SIZE}.`, true);
-      toast(`${file.name} ist keine Firmware-Datei: ${bytes.length} Byte, eine SYSTEM.VSB hat ${VSB_SIZE}.`, "error");
+      showInfo(t("emu.size.info", { file: file.name, size: bytes.length, expected: VSB_SIZE }), true);
+      toast(t("emu.size.toast", { file: file.name, size: bytes.length, expected: VSB_SIZE }), "error");
       showStatus({ state: "empty" });
       return;
     }
     const id = await identify(bytes);
-    showInfo(describe(file.name, id, false));
+    showInfo(describe(file.name, id, false), unknown(id));
     vsb = bytes;
     setBuild(bytes);
     keep.put("vsb", { name: file.name, bytes });
@@ -452,7 +457,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       if (pushed !== vsb) { await api("/firmware", vsb); pushed = vsb; }   // sent again, a restart after SOFTWARE UPDATE would start the old file
       showStatus(await api("/start", "{}", "application/json"));
     } catch (e) {
-      say("error", "Fehler", e.message);
+      say("error", t("common.error"), e.message);
       toast(e.message, "error");
     } finally {
       booting = false;
@@ -480,7 +485,8 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     if (!saved?.bytes || vsb) return;
     vsb = saved.bytes;
     setBuild(vsb);
-    showInfo(describe(saved.name, await identify(vsb), true));
+    const id = await identify(vsb);
+    showInfo(describe(saved.name, id, true), unknown(id));
     if (lastState === "empty") showStatus({ state: "loaded" });
     renderOffer();
   });
@@ -534,7 +540,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       base = null;
       setBuild(running);
       keep.put("vsb", { name: "SYSTEM.VSB", bytes: running });
-      showInfo("SYSTEM.VSB für den Update-Test geladen.");
+      showInfo(t("emu.rehearse"));
       showStatus(await api("/start", "{}", "application/json"));
       return sd.korg;
     },
@@ -545,7 +551,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       base = base ?? vsb;
       vsb = bytes;
       setBuild(bytes);
-      showInfo("Exportierte Kopie geladen.");
+      showInfo(t("emu.export"));
       showStatus(await api("/start", "{}", "application/json"));
     },
     /**
@@ -563,11 +569,11 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     connect(next) { link = next; listen(); },
     /** Switch the Electribe on, as the power key does; says in words what happened (the console's start). */
     async powerOn() {
-      if (lastState === "running" || lastState === "hung") return "Der Emulator läuft schon.";
-      if (!vsb) throw new Error("Erst eine Firmware laden: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen.");
+      if (lastState === "running" || lastState === "hung") return t("emu.power.already");
+      if (!vsb) throw new Error(t("emu.power.noFirmware"));
       await boot();
-      if (lastState !== "running") throw new Error("Der Emulator ist nicht angegangen, siehe die Meldung unten rechts.");
-      return "Der Emulator läuft.";
+      if (lastState !== "running") throw new Error(t("emu.power.failed"));
+      return t("emu.power.on");
     },
     /** Let the drawing show a real device (its display bytes through drawBytes) or give it back to the emulator. */
     external(on, mirrors = true) {

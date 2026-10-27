@@ -305,6 +305,7 @@ def firmware_cases(vsb, flash, request):
           and not led.m.asserts)
 
     card_cases(request, programs, built, patched, stock, flash, check)
+    seq_cases(request, programs, built, patched, flash, check)
     menu_script_cases(programs, built, patched, flash, check)
 
     write_word(faulty, runtime + built.symbols["SCRIPT_CONTROL_ARMED"], 0)
@@ -331,6 +332,66 @@ def firmware_cases(vsb, flash, request):
         check("status-din-" + item["name"], len(received) == 1)
     return dict(ok=all(check["ok"] for check in checks), checks=checks,
                 search=search.hex() if search is not None else None, reads=replies, layout=built.layout)
+
+
+def seq_cases(request, programs, built, patched, flash, check):
+    """korg.seq: the steps a plugin writes land in the pattern in RAM byte for byte as in the browser model, the pads show them,
+    the sequencer plays them, also a step written while it runs, and the pattern then counts as unsaved."""
+    seq = with_card(patched, flash, {CARD_FILE: archive([bytes.fromhex(programs["seqwrite"]["blob"])])})
+    seq.run(2)
+    pattern = seq.u32(0xC033E6A4) + 4                       # the pattern object's pointer; the block starts 4 bytes in
+    records = lambda: [seq.m.uc.mem_read(pattern + 0x800 + 0x30 + 12 * step, 12) for step in range(64)]
+
+    def same(model):
+        """Every on byte as the model has it, and every byte the model wrote for a step that is on."""
+        bad = []
+        for step, (record, (on, gate, velocity, trigger, note)) in enumerate(zip(records(), model)):
+            want = [on] if not on else [on, gate, velocity, trigger, note + 1, 0, 0, 0]
+            if list(record[:len(want)]) != want:
+                bad.append((step, list(record[:8]), want))
+        return bad
+
+    check("seq-schreibt-wie-der-browser", seq.a(0xC06B2798) + 4 == pattern and not same(request["seq"]["ready"]), same(request["seq"]["ready"])[:4])
+    lit = lambda: sorted(n for n in range(16) if seq.m.leds.get(0x2C + 2 * n, 0) > 0)
+    seq.press(0x15, 0.4)                                     # SEQUENCER: the pads show the steps of bar 1
+    before = lit()
+    seq.press(0x03, 0.3)                                     # TAP: the plugin turns step 1 off and step 6 on
+    after = lit()
+    on = lambda model: [step for step in range(16) if model[step][0]]
+    check("seq-tap-wie-der-browser", not same(request["seq"]["tap"]), same(request["seq"]["tap"])[:4])
+    check("seq-pads-zeigen-die-steps", before == on(request["seq"]["ready"]) and after == on(request["seq"]["tap"]) and not seq.m.asserts,
+          dict(before=before, after=after))
+    dirty = seq.read(script_hooks.MENU_STATE - 1, 1)[0]
+    plain = with_card(patched, flash, {})
+    plain.run(2)
+    check("seq-ungespeichert", dirty == 1 and plain.read(script_hooks.MENU_STATE - 1, 1)[0] == 0,
+          dict(written=dirty, untouched=plain.read(script_hooks.MENU_STATE - 1, 1)[0]))
+    seq.m.uc.mem_write(pattern + 37, bytes([0]))            # one bar: the pass comes round every 16 steps
+    seq.press(0x15, 0.3)                                     # back out of SEQUENCER mode
+    mark = len(seq.m.uart[0x01D0C000]["tx"])
+    seq.m.press(2, True)
+    seq.run(0.05)
+    seq.m.press(2, False)
+    seq.run(5.0)
+    seq.m.press(1, True)
+    seq.run(0.05)
+    seq.m.press(1, False)
+    seq.run(0.3)
+    data, played, status, cur = bytes(seq.m.uart[0x01D0C000]["tx"][mark:]), [], None, []
+    for x in data:
+        if x >= 0xF8:
+            continue
+        if x & 0x80:
+            status, cur = x, []
+            continue
+        cur.append(x)
+        if status is not None and len(cur) == 2:
+            if status & 0xF0 == 0x90 and status & 0x0F == 0 and cur[1] > 0:
+                played.append(cur[0])
+            cur = []
+    first = [62, 64, 65, 66, 68, 70, 72, 74]
+    check("seq-spielt-was-geschrieben-ist", played[:8] == first and not seq.m.asserts, played[:20])
+    check("seq-schreibt-waehrend-es-laeuft", played[8:17] == [50] + first and not seq.m.asserts, played[:20])
 
 
 def with_flags(block, flags):
@@ -480,7 +541,7 @@ def menu_script_cases(programs, built, patched, flash, check):
     opened = (menu_cases.state(gone, menu_cases.S_LEVEL), menu_cases.counter(gone), texts(gone), menu_cases.tab(gone))
     menu_cases.press(gone, "exit", wait=0.4)
     left = (menu_cases.state(gone, menu_cases.S_LEVEL), menu_cases.state(gone, menu_cases.S_PAGE), texts(gone))
-    check("plugin-edit-oeffnet-und-exit", edit == ("PLUGIN EDIT", "", menu_cases.PRESS) and opened == (menu_cases.LEVEL_PLUGIN, (0, 3), ("SELECT PLUGIN", "healthy", ""), "Plugins")
+    check("plugin-edit-oeffnet-und-exit", edit == ("PLUGIN EDIT", "", menu_cases.PRESS) and opened == (menu_cases.LEVEL_PLUGIN, (0, 4), ("SELECT PLUGIN", "healthy", ""), "Plugins")
           and left == (2, menu_cases.PLUGIN_EDIT, edit) and not gone.m.asserts, dict(edit=edit, opened=opened, left=left))
     menu_cases.press(gone, "menu", wait=0.4)
     menu_cases.press(gone, "edit_prev", wait=0.4)
@@ -494,14 +555,14 @@ def menu_script_cases(programs, built, patched, flash, check):
     volume.close()
     menu_cases.press(gone, "menu", wait=0.4)
     remaining = texts(gone)
-    check("plugin-loeschen", last == ((2, 3), ("DELETE PLUGIN", "", menu_cases.PRESS)) and asks == ("DELETE PLUGIN", "Enter = delete", "")
+    check("plugin-loeschen", last == ((3, 4), ("DELETE PLUGIN", "", menu_cases.PRESS)) and asks == ("DELETE PLUGIN", "Enter = delete", "")
           and done == (2, menu_cases.PLUGIN_EDIT, ("PLUGIN EDIT", "deleted", ""), 1) and left_on_card == archive(blocks[1:])
           and remaining[:2] == ("SELECT PLUGIN", "fault") and not gone.m.asserts,
           dict(last=last, asks=asks, done=done, card=len(left_on_card), remaining=remaining))
     after = restart(gone)
     check("plugin-geloescht-nach-neustart", [after.u32(runtime + built.symbols["SCRIPT_CONTROL_" + name]) for name in ["CARD_STATUS", "CARD_LOADED"]] == [1, 1]
           and after.u32(menu_cases.STATE + 40) == 1 and not after.m.asserts, dict(loaded=after.u32(menu_cases.STATE + 40)))
-    menu_cases.goto_plugin(gone, 0, 2)
+    menu_cases.goto_plugin(gone, 0, 3)
     menu_cases.press(gone, "menu", wait=0.4)
     menu_cases.press(gone, "menu", wait=0.8)
     volume = fat32.Volume(gone.m.mmc.card.medium.data)
@@ -530,7 +591,7 @@ def menu_add_cases(programs, built, patched, flash, check):
     state = lambda offset: dev.u32(menu_cases.STATE + offset)
     texts = lambda: (menu_cases.text(dev, menu_cases.S_TITLE), menu_cases.text(dev, menu_cases.S_VALUE), menu_cases.text(dev, menu_cases.S_LINE3))
     check("menu-add-seiten-angelegt", state(60) == 2 and state(40) == 1 and dev.u32(entry + 12) == 2 and not dev.m.asserts, dict(items=state(60), plugins=state(40)))
-    menu_cases.goto_plugin(dev, 0, 2)
+    menu_cases.goto_plugin(dev, 0, 3)
     first = texts()
     menu_cases.press(dev, "edit_next")
     second = texts()
@@ -572,8 +633,9 @@ def blech_file(block, description=None, source=b"hello"):
 
 
 def import_cases(programs, built, patched, flash, check):
-    """IMPORT PLUGIN: a list of the plugins in the .blech files by their names, ENTER opens one with its description (the dial
-    scrolls it), ENTER then switches it on (imports it) and off, EXIT goes back to the list and to the page."""
+    """PLUGIN EDIT lists every *.blech of the plugin folder and the loaded plugins in one list (loaded ones first, then the files not
+    loaded, a plugin of both once): the name is SELECT PLUGIN, STATE shows OFF for one not loaded and the dial up or ENTER loads and
+    starts it, DESCRIPTION is a page that shows the description from the file (the dial scrolls it)."""
     import menu_cases
     runtime = built.layout["runtime"]
     sym = built.symbols
@@ -585,8 +647,8 @@ def import_cases(programs, built, patched, flash, check):
     name = lambda block: block[36:52].split(b"\0")[0].decode()
     lines = [f"line {i}" for i in range(8)]
     description = "".join(f"{line}\n" for line in lines).encode()
-    files = {folder + "a.blech": blech_file(healthy_block, description), folder + "b.BLECH": blech_file(foreign_block), folder + "notes.txt": b"text",
-             folder + "short.blech": b"x" * 10, folder + "zero.blech": bytes(200), folder + "c.blech": blech_file(bytes(broken)),
+    files = {folder + "a.blech": blech_file(healthy_block, description), folder + "b.BLECH": blech_file(foreign_block),
+             folder + "notes.txt": b"text", folder + "short.blech": b"x" * 10, folder + "zero.blech": bytes(200), folder + "c.blech": blech_file(bytes(broken)),
              folder + "sub/inner.blech": healthy_block, folder + "._a.blech": b"\0\x05\x16\x07" + bytes(60), folder + "._b.BLECH": b"\0\x05\x16\x07" + bytes(60),
              folder + "store.a.bin": store_file(1, [("elsewhere", 1, 77)])}
     dev = with_card(patched, flash, files)
@@ -597,26 +659,30 @@ def import_cases(programs, built, patched, flash, check):
     picture = lambda: dev.read(runtime + sym["RT_DISPLAY"], 1024)
     shown = lambda: dev.read(sym["SCRIPT_DISPLAY_RAM"], 1024)
     image = lambda: bytes(dev.read(sym["HOOK_INPUT"], 16 + 84))
-    menu_cases.goto_group(dev, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_IMPORT)
+    menu_cases.goto_group(dev, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_EDIT)
     asking = texts()
-    menu_cases.press(dev, "menu", wait=0.4)
-    first = texts()
-    names = [first]
+    menu_cases.press(dev, "menu", wait=0.5)
+    opened = (state(menu_cases.S_LEVEL), menu_cases.counter(dev), menu_cases.tab(dev))
+    names = [texts()]
     for _ in range(2):
         dev.turn(1, wait=0.2)
         names.append(texts())
-    check("import-liste", asking == ("IMPORT PLUGIN", "", menu_cases.PRESS) and state(48) == 3
-          and names == [(name(healthy_block), "OFF", ""), (name(foreign_block), "OFF", ""), (name(broken), "OFF", "")] and state(56) == 1,
-          dict(asking=asking, names=names, count=state(48)))
-    check("import-versteckte-dateien-fehlen", state(48) == 3, dict(count=state(48), why="short, zero, notes and the ._ files are no plugins"))
-    check("import-vor-dem-laden-nichts", plugin_entry(dev, runtime) == 0 and state(40) == 0 and dev.u32(runtime + 96) == 1, dict(plugin=hex(plugin_entry(dev, runtime)), plugins=state(40)))
     dev.turn(1, wait=0.2)
+    last = texts()
+    check("liste-aus-den-dateien", asking == ("PLUGIN EDIT", "", menu_cases.PRESS) and opened == (menu_cases.LEVEL_PLUGIN, (0, 3), "Plugins") and state(48) == 3
+          and names == [("SELECT PLUGIN", name(healthy_block), ""), ("SELECT PLUGIN", name(foreign_block), ""), ("SELECT PLUGIN", name(broken), "")] and last == names[-1]
+          and state(56) == 0, dict(asking=asking, opened=opened, names=names, count=state(48)))
+    check("liste-versteckte-dateien-fehlen", state(48) == 3, dict(count=state(48), why="short, zero, notes and the ._ files are no plugins"))
+    check("liste-vor-dem-laden-nichts", plugin_entry(dev, runtime) == 0 and state(40) == 0 and dev.u32(runtime + 96) == 1, dict(plugin=hex(plugin_entry(dev, runtime)), plugins=state(40)))
+    dev.turn(-9, wait=0.2)
+    menu_cases.press(dev, "edit_next", wait=0.4)
+    not_loaded = (texts(), menu_cases.counter(dev))
     before_image = image()
-    menu_cases.press(dev, "menu", wait=0.5)
+    menu_cases.press(dev, "edit_next", wait=0.5)
     opened = texts()
-    check("import-beschreibung", state(56) == 2 and byte(0xF8) == 8 and byte(0xF9) == 1 and opened == ("", "", "") and shown() == picture()
-          and sum(bin(b).count("1") for b in picture()) > 200 and not dev.m.asserts,
-          dict(listed=state(56), lines=byte(0xF8), on=byte(0xF9), texts=opened, same=shown() == picture()))
+    check("beschreibung-seite", not_loaded == (("STATE", "OFF", ""), (1, 3)) and menu_cases.counter(dev) == (2, 3) and state(56) == 2 and byte(0xF8) == 8 and byte(0xF9) == 1
+          and opened == ("", "", "") and shown() == picture() and sum(bin(b).count("1") for b in picture()) > 200 and not dev.m.asserts,
+          dict(not_loaded=not_loaded, listed=state(56), lines=byte(0xF8), on=byte(0xF9), texts=opened, same=shown() == picture()))
     top = picture()
     dev.turn(1, wait=0.2)
     dev.turn(1, wait=0.2)
@@ -624,71 +690,125 @@ def import_cases(programs, built, patched, flash, check):
     dev.turn(5, wait=0.2)
     end = state(0xF4)
     dev.turn(-9, wait=0.2)
-    check("import-beschreibung-scrollt", scrolled == (2, True) and end == 3 and state(0xF4) == 0, dict(scrolled=scrolled, end=end, back=state(0xF4)))
-    menu_cases.press(dev, "menu", wait=0.8)
+    check("beschreibung-scrollt", scrolled == (2, True) and end == 3 and state(0xF4) == 0, dict(scrolled=scrolled, end=end, back=state(0xF4)))
+    menu_cases.press(dev, "menu", wait=0.4)
+    check("beschreibung-enter-tut-nichts", state(40) == 0 and byte(0xF9) == 1 and not dev.m.asserts, dict(plugins=state(40), on=byte(0xF9)))
+    menu_cases.press(dev, "edit_prev", wait=0.4)
+    shown_off = byte(0xF9)
+    dev.turn(1, wait=0.8)
     head = plugin_entry(dev, runtime)
-    check("import-laedt-und-startet", head not in (0, 0xffffffff) and dev.u32(head + 12) == 2 and state(40) == 1 and state(36) == 0 and state(56) == 2
-          and dev.u32(runtime + 96) == 1 and not dev.m.asserts,
-          dict(state=dev.u32(head + 12) if head not in (0, 0xffffffff) else None, status=hex(state(36)), listed=state(56)))
+    check("stand-oben-laedt-und-startet", shown_off == 0 and head not in (0, 0xffffffff) and dev.u32(head + 12) == 2 and state(40) == 1 and state(36) == 0 and byte(0xFB) == 0
+          and texts() == ("STATE", "ON", "") and menu_cases.counter(dev) == (1, 4) and dev.u32(runtime + 96) == 1 and not dev.m.asserts,
+          dict(state=dev.u32(head + 12) if head not in (0, 0xffffffff) else None, status=hex(state(36)), texts=texts(), counter=menu_cases.counter(dev)))
     kept = store_file(1, [("elsewhere", 1, 77)])
-    check("import-speicherbild-bleibt", image() == kept, dict(why="the file went through the buffer of the store image, which is read back from the card",
-                                                             before=before_image[:24].hex(), after=image()[:24].hex()))
-    menu_cases.press(dev, "menu", wait=0.4)
-    off = dev.u32(head + 12)
-    menu_cases.press(dev, "menu", wait=0.4)
-    check("import-aus-und-an", off == 1 and dev.u32(head + 12) == 2 and state(40) == 1 and not dev.m.asserts, dict(off=off, on=dev.u32(head + 12)))
-    menu_cases.press(dev, "exit", wait=0.4)
-    listed = texts()
-    redraw = (byte(0xF9), state(56))
-    menu_cases.press(dev, "exit", wait=0.4)
-    page = texts()
-    check("import-zurueck-in-die-liste", listed == (name(healthy_block), "ON", "") and redraw == (0, 1) and page == ("IMPORT PLUGIN", "", menu_cases.PRESS),
-          dict(listed=listed, redraw=redraw, page=page))
-    menu_cases.press(dev, "menu", wait=0.4)
-    dev.turn(1, wait=0.2)
-    menu_cases.press(dev, "menu", wait=0.4)
+    check("laden-speicherbild-bleibt", image() == kept, dict(why="the file went through the buffer of the store image, which is read back from the card",
+                                                          before=before_image[:24].hex(), after=image()[:24].hex()))
+    dev.turn(-1, wait=0.4)
+    off = (dev.u32(head + 12), texts())
+    dev.turn(1, wait=0.4)
+    check("stand-aus-und-an", off == (1, ("STATE", "OFF", "")) and dev.u32(head + 12) == 2 and state(40) == 1 and not dev.m.asserts, dict(off=off, on=dev.u32(head + 12)))
+    menu_cases.press(dev, "edit_next", wait=0.5)
+    loaded_desc = (state(56), byte(0xF8), byte(0xF9))
+    menu_cases.press(dev, "edit_prev", wait=0.4)
+    menu_cases.press(dev, "edit_prev", wait=0.4)
+    dev.turn(1, wait=0.3)
+    second = texts()
+    menu_cases.press(dev, "edit_next", wait=0.4)
+    waiting_before = texts()
     menu_cases.press(dev, "menu", wait=0.8)
     foreign = dev.u32(head)
-    menu_cases.press(dev, "exit", wait=0.4)
-    waiting = texts()
-    check("import-fremd-wartet", foreign not in (0, 0xffffffff) and dev.u32(foreign + 12) == 1 and state(40) == 2 and waiting == (name(foreign_block), "ENTER=ALLOW", ""),
-          dict(state=dev.u32(foreign + 12) if foreign not in (0, 0xffffffff) else None, waiting=waiting))
-    menu_cases.press(dev, "menu", wait=0.4)
-    menu_cases.press(dev, "menu", wait=0.8)
-    check("import-fremd-erlaubt", dev.u32(foreign + 12) == 2 and state(44) == 1 and not dev.m.asserts, dict(state=dev.u32(foreign + 12), trusted=state(44)))
-    menu_cases.press(dev, "exit", wait=0.4)
-    dev.turn(1, wait=0.2)
-    menu_cases.press(dev, "menu", wait=0.4)
-    menu_cases.press(dev, "menu", wait=0.8)
-    check("import-abgelehnt", state(36) == 0x34 and state(40) == 2 and state(56) == 2 and not dev.m.asserts, dict(status=hex(state(36)), plugins=state(40)))
-    # the imported script answers input, outside the menu
+    check("fremd-wartet-nach-enter", loaded_desc == (2, 8, 1) and second == ("SELECT PLUGIN", name(foreign_block), "") and waiting_before == ("STATE", "OFF", "")
+          and foreign not in (0, 0xffffffff) and dev.u32(foreign + 12) == 1 and state(40) == 2 and texts() == ("STATE", "WRITE=ALLOW", "") and byte(0xFB) == 1,
+          dict(loaded_desc=loaded_desc, second=second, before=waiting_before, state=dev.u32(foreign + 12) if foreign not in (0, 0xffffffff) else None, texts=texts(), psel=byte(0xFB)))
+    menu_cases.press(dev, "write", wait=0.8)
+    check("fremd-erlaubt-in-der-liste", dev.u32(foreign + 12) == 2 and state(44) == 1 and texts() == ("STATE", "saved", ""),
+          dict(state=dev.u32(foreign + 12), trusted=state(44), texts=texts()))
+    menu_cases.press(dev, "edit_prev", wait=0.4)
+    dev.turn(1, wait=0.3)
+    third = texts()
+    menu_cases.press(dev, "edit_next", wait=0.4)
+    dev.turn(1, wait=0.8)
+    rejected = (state(36), state(40), texts())
+    check("abgelehnt", third == ("SELECT PLUGIN", name(broken), "") and rejected[0] == 0x34 and rejected[1] == 2 and rejected[2][:2] == ("STATE", "rejected") and byte(0xFB) == 2
+          and not dev.m.asserts, dict(third=third, rejected=rejected))
+    menu_cases.press(dev, "edit_next", wait=0.5)
+    menu_cases.press(dev, "exit", wait=0.5)
+    left = (state(menu_cases.S_LEVEL), state(menu_cases.S_PAGE), byte(0xF9), texts())
+    check("beschreibung-verlassen-zeichnet-neu", left == (2, menu_cases.PLUGIN_EDIT, 0, ("PLUGIN EDIT", "", menu_cases.PRESS)), dict(left=left))
+    # the list again: the loaded ones first, the file that is not loaded last, nothing twice
+    menu_cases.press(dev, "menu", wait=0.5)
+    dev.turn(-9, wait=0.2)
+    order = []
+    for _ in range(3):
+        order.append(texts()[1])
+        dev.turn(1, wait=0.2)
+    check("liste-geladene-zuerst-nichts-doppelt", state(48) == 3 and order == [name(healthy_block), name(foreign_block), name(broken)], dict(order=order))
+    # the imported scripts answer input, outside the menu
     leave_menu(dev)
-    check("import-verlassen-zeichnet-neu", byte(0xF9) == 0 and dev.screen()["number"] == 1, dict(on=byte(0xF9), screen=dev.screen()["number"]))
+    check("laden-verlassen", byte(0xF9) == 0 and dev.screen()["number"] == 1, dict(on=byte(0xF9), screen=dev.screen()["number"]))
     healthy = plugin_entry(dev, runtime)
     before = variables(dev, healthy, programs["healthy"])["count"]
     dev.m.send([0, 24, 1, 0, 0])
     dev.run(0.2)
     dev.m.send([0, 24, 0, 0, 0])
     dev.run(0.1)
-    check("import-laeuft", variables(dev, healthy, programs["healthy"])["count"] == before + 1, dict(before=before))
+    check("geladenes-laeuft", variables(dev, healthy, programs["healthy"])["count"] == before + 1, dict(before=before))
 
-    # nothing to import, scripts switched off in the settings
+    # a plugin that is only in e2sPlugin.all (no file) is in the list once, without a description; one with a file takes its description from it
+    both = with_card(patched, flash, {CARD_FILE: archive([healthy_block, foreign_block]), folder + "a.blech": blech_file(healthy_block, description)})
+    both.run(2)
+    shown_both = lambda: both.read(sym["SCRIPT_DISPLAY_RAM"], 1024)
+    both_texts = lambda: (menu_cases.text(both, menu_cases.S_TITLE), menu_cases.text(both, menu_cases.S_VALUE), menu_cases.text(both, menu_cases.S_LINE3))
+    menu_cases.goto_group(both, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_EDIT)
+    menu_cases.press(both, "menu", wait=0.5)
+    total = (both.u32(menu_cases.STATE + 48), both.u32(menu_cases.STATE + 40), menu_cases.state(both, menu_cases.S_PSEL))
+    menu_cases.press(both, "edit_next", wait=0.4)
+    menu_cases.press(both, "edit_next", wait=0.5)
+    with_file = (both.read(menu_cases.STATE + 0xF8, 1)[0], both.read(menu_cases.STATE + 0xF9, 1)[0])
+    menu_cases.press(both, "edit_prev", wait=0.4)
+    menu_cases.press(both, "edit_prev", wait=0.4)
+    both.turn(1, wait=0.3)
+    second = both_texts()
+    menu_cases.press(both, "edit_next", wait=0.4)
+    menu_cases.press(both, "edit_next", wait=0.5)
+    without_file = (both.read(menu_cases.STATE + 0xF8, 1)[0], both.read(menu_cases.STATE + 0xF9, 1)[0])
+    both.turn(1, wait=0.3)
+    check("liste-plugin-ohne-datei", total[:2] == (1, 2) and with_file == (8, 1) and second == ("SELECT PLUGIN", name(foreign_block), "") and without_file == (0, 1)
+          and sum(bin(b).count("1") for b in shown_both()) > 100 and not both.m.asserts, dict(total=total, with_file=with_file, second=second, without_file=without_file))
+
+    # a deleted plugin is in the list again as one not loaded, and loads again
+    again = with_card(patched, flash, {CARD_FILE: archive([healthy_block]), folder + "a.blech": blech_file(healthy_block, description)})
+    again.run(2)
+    menu_cases.goto_group(again, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_EDIT)
+    menu_cases.press(again, "menu", wait=0.5)
+    menu_cases.press(again, "edit_prev", wait=0.4)
+    menu_cases.press(again, "menu", wait=0.4)
+    menu_cases.press(again, "menu", wait=0.8)
+    menu_cases.press(again, "menu", wait=0.5)
+    listed = (again.u32(menu_cases.STATE + 48), again.u32(menu_cases.STATE + 40), menu_cases.texts_of(again))
+    menu_cases.press(again, "edit_next", wait=0.4)
+    off_page = menu_cases.texts_of(again)
+    menu_cases.press(again, "menu", wait=0.8)
+    head = plugin_entry(again, runtime, 1)
+    check("geloeschtes-plugin-laedt-wieder", listed == (1, 0, ("SELECT PLUGIN", name(healthy_block), "")) and off_page == ("STATE", "OFF", "")
+          and head not in (0, 0xffffffff) and again.u32(head + 12) == 2 and again.u32(menu_cases.STATE + 40) == 1 and menu_cases.texts_of(again) == ("STATE", "ON", "")
+          and not again.m.asserts, dict(listed=listed, off=off_page, texts=menu_cases.texts_of(again)))
+
+    # nothing at all, scripts switched off in the settings
     nothing = with_card(patched, flash, {folder + "notes.txt": b"text"})
     nothing.run(2)
-    menu_cases.goto_group(nothing, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_IMPORT)
+    menu_cases.goto_group(nothing, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_EDIT)
     page = menu_cases.texts_of(nothing)
     menu_cases.press(nothing, "menu", wait=0.5)
-    listed = menu_cases.texts_of(nothing)
-    menu_cases.press(nothing, "menu", wait=0.6)
-    check("import-ohne-dateien", page == ("IMPORT PLUGIN", "", menu_cases.PRESS) and listed == ("IMPORT PLUGIN", "no files", "") and menu_cases.texts_of(nothing) == listed,
-          dict(page=page, listed=listed))
+    check("liste-ohne-dateien", page == ("PLUGIN EDIT", "", menu_cases.PRESS) and menu_cases.texts_of(nothing) == ("PLUGIN EDIT", "No Plugin", "")
+          and menu_cases.state(nothing, menu_cases.S_LEVEL) == 2, dict(page=page, listed=menu_cases.texts_of(nothing)))
     off = with_card(patched, flash, {folder + "a.blech": healthy_block, "/KORG/blechtribe/settings.a.bin": menu_cases.settings_file(2, 2)})
     off.run(2)
-    menu_cases.goto_group(off, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_IMPORT)
+    menu_cases.goto_group(off, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_EDIT)
     menu_cases.press(off, "menu", wait=0.5)
-    menu_cases.press(off, "menu", wait=0.5)
-    menu_cases.press(off, "menu", wait=0.6)
-    check("import-bei-ausgeschalteten-skripten", off.u32(menu_cases.STATE + 36) == 0x32 and plugin_entry(off, runtime) == 0 and off.u32(runtime + 96) == 1 and not off.m.asserts,
+    menu_cases.press(off, "edit_next", wait=0.4)
+    off.turn(1, wait=0.6)
+    check("laden-bei-ausgeschalteten-skripten", off.u32(menu_cases.STATE + 36) == 0x32 and plugin_entry(off, runtime) == 0 and off.u32(runtime + 96) == 1 and not off.m.asserts,
           dict(status=hex(off.u32(menu_cases.STATE + 36))))
 
 

@@ -132,8 +132,8 @@ LEVEL_BLECHY = 3                                                      # level 3 
 LEVEL_SYNC = 4                                                        # level 4: the page SYNC GROUP behind him, right before the Pattern menu
 LEVEL_PLUGIN = 5                                                      # level 5: the pages of one plugin, built like the firmware's Sample Edit
 S_PSEL = 0xFB                                                         # byte: the plugin SELECT PLUGIN chose
-PLUGIN_EDIT, PLUGIN_EXPORT, PLUGIN_IMPORT = 1, 2, 3                   # the pages of PLUGINS behind RUNTIME
-PLUGIN_SELECT, PLUGIN_STATE = 0, 1                                    # the first pages of one plugin; the pages it added follow, DELETE PLUGIN is the last
+PLUGIN_EDIT, PLUGIN_EXPORT = 1, 2                                    # the pages of PLUGINS behind RUNTIME
+PLUGIN_SELECT, PLUGIN_STATE, PLUGIN_DESCRIPTION = 0, 1, 2             # the first pages of one plugin; the pages it added follow, DELETE PLUGIN is the last
 PRESS = "press  [ Enter ]"                                            # the third line of every Data Util page
 VALUE_ROWS = range(30, 64)                                           # the pixel rows the value (and the firmware's third line) use
 TAB_ROWS = range(1, 9)                                               # the rows of the tab's text, inside the black bar
@@ -455,7 +455,7 @@ def cases(payload, flash=None, settings=True):
     goto_top(dev, LIST_PLUGINS)
     press(dev, "menu")
     inside = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), counter(dev), texts_of(dev))
-    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 4), ("RUNTIME", "ON", "")) and tab(dev) == "Plugins", str(inside))
+    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 3), ("RUNTIME", "ON", "")) and tab(dev) == "Plugins", str(inside))
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
@@ -471,7 +471,7 @@ def cases(payload, flash=None, settings=True):
     wrapped = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
     press(dev, "edit_next")
     forward = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE), dev.screen()["number"])
-    add("group_pages_wrap_and_count_alone", wrapped == (3, (3, 4), "IMPORT PLUGIN") and forward == (0, (0, 4), "RUNTIME", MENU), f"{wrapped}, {forward}")
+    add("group_pages_wrap_and_count_alone", wrapped == (2, (2, 3), "EXPORT ALL") and forward == (0, (0, 3), "RUNTIME", MENU), f"{wrapped}, {forward}")
     press(dev, "exit")
     up = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
     add("exit_goes_one_level_up", up == (MENU, 1, LIST_PLUGINS, (LIST_PLUGINS, len(LIST_PAGES)), "PLUGINS") and tab(dev) == "BLECH", str(up))
@@ -588,7 +588,7 @@ def read_settings(image):
 
 
 def settings_extras(image):
-    """Byte 5 of each settings file on a card image (bit 0: METER LOUD RAINBOW), valid or not."""
+    """Byte 5 of each settings file on a card image (bit 0: METER LOUD RAINBOW, bit 1: METER STILL OFF), valid or not."""
     volume = fat32.Volume(bytes(image))
     out = {}
     for path in SETTINGS_PATHS:
@@ -620,7 +620,7 @@ def read_settings_look(image):
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
         head = {1: 16, 2: 20}.get(version)
-        if head is None or extras & ~1:      # byte 5: bit 0 is METER LOUD RAINBOW
+        if head is None or extras & ~3:      # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF
             continue
         size = head + 4 * count
         if count > 16 or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -733,8 +733,9 @@ def settings_cases(payload, flash=None):
     press(empty, "edit_prev", wait=0.4)
     edit = texts_of(empty)
     press(empty, "menu", wait=0.4)
-    add("plugin_edit_without_plugins", edit == ("PLUGIN EDIT", "No Plugin", "") and (state(empty, S_LEVEL), state(empty, S_PAGE)) == (2, PLUGIN_EDIT)
-        and not empty.m.asserts, f"{edit}, ENTER stays: level {state(empty, S_LEVEL)}, page {state(empty, S_PAGE)}")
+    add("plugin_edit_without_plugins", edit == ("PLUGIN EDIT", "", PRESS) and texts_of(empty) == ("PLUGIN EDIT", "No Plugin", "")
+        and (state(empty, S_LEVEL), state(empty, S_PAGE)) == (2, PLUGIN_EDIT) and not empty.m.asserts,
+        f"{edit}, ENTER says {texts_of(empty)} and stays: level {state(empty, S_LEVEL)}, page {state(empty, S_PAGE)}")
 
     # one valid and one corrupt file: the valid one is used, a newer corrupt one is ignored
     for name, files, want in [
@@ -781,6 +782,17 @@ def leds(dev):
     return [dev.m.leds.get(i) for i in range(LED_FIRST, LED_FIRST + LED_COUNT)]
 
 
+def steady_leds(dev, tries=20):
+    """The lower LEDs once the firmware has written all four: it sets them one after another, and a colour that moves every
+    frame (RAINBOW at LOUD) can be read between two of them."""
+    for _ in range(tries):
+        now = leds(dev)
+        if now[:3] * (LED_COUNT // 3) == now:
+            return now
+        dev.run(0.005)
+    return now
+
+
 def pins(dev):
     return dev.m.gpio.get(3, 0) & GPIO_PINS
 
@@ -805,29 +817,21 @@ def goto_page(dev, number):
         goto_group(dev, GROUP_DISPLAY, 4)
 
 
-def shown_levels(dev, at):
-    """What the three level pages of a triple (S_LED_R or S_BL_R) show: the stock state, all zero, shows 15 each."""
-    levels = [state(dev, at + 4 * k) for k in range(3)]
-    return levels if any(levels) else [15, 15, 15]
-
-
 def set_look(dev, mode=None, led=None, backlight=None):
-    """Set the look pages through the main dial, from wherever the menu is."""
+    """Set the look: the mode through the main dial, the colours as red, green, blue (0 to 15, 0 0 0 the stock state) in the menu's state,
+    which the pages show as hue, saturation and brightness; a step of the mode page and back makes the menu apply them."""
     if mode is not None:
         goto_page(dev, PAGE_LED_MODE)
         dev.turn(mode - state(dev, S_LED_MODE), wait=0.25)
-    for first, values, at in ((PAGE_LED_R, led, S_LED_R), (PAGE_BL_R, backlight, S_BL_R)):
-        if values is not None and not any(values):
-            values = (15, 15, 15)      # the stock state: 15 15 15 on the pages (0 0 0 cannot be dialled, it would read as stock)
-        order = sorted(range(len(values or ())), key=lambda k: values[k] == 0)      # channels that stay lit first: going through all zero would be the stock state
-        for i in order:
-            value = values[i]
-            goto_page(dev, first + i)
-            shown = shown_levels(dev, at)[i]
-            while value != shown:
-                step = max(-8, min(8, value - shown))              # the dial reports at most a few steps at once
-                dev.turn(step, wait=0.25)
-                shown += step
+    for values, at in ((led, S_LED_R), (backlight, S_BL_R)):
+        if values is not None:
+            dev.m.uc.mem_write(STATE + at, struct.pack("<III", *values))
+    if led is not None or backlight is not None:
+        goto_page(dev, PAGE_LED_MODE)
+        here = state(dev, S_LED_MODE)
+        step = -1 if here else 1
+        dev.turn(step, wait=0.25)
+        dev.turn(-step, wait=0.25)
 
 
 def meter_level(dev, level):
@@ -897,23 +901,46 @@ def look_cases(payload, flash=None):
         goto_page(dev, page)
         texts.append((text(dev, S_TITLE), text(dev, S_VALUE), text(dev, S_LINE3)))
     add("pages", texts == [("BOTTOM LEDS", "METER", ""),
-                           ("LED RED", "15 stock", ""), ("LED GREEN", "15 stock", ""), ("LED BLUE", "15 stock", ""),
-                           ("BACKLIGHT RED", "15 stock", ""), ("BACKLIGHT GREEN", "15 stock", ""), ("BACKLIGHT BLUE", "15 stock", "")], str(texts))
+                           ("LED HUE", "STOCK", ""), ("LED SAT", "STOCK", ""), ("LED BRIGHT", "STOCK", ""),
+                           ("BACKLIGHT HUE", "STOCK", ""), ("BACKLIGHT SAT", "STOCK", ""), ("BACKLIGHT BRIGHT", "STOCK", "")], str(texts))
 
-    # 15 15 15 is the stock state again; 0 0 0 cannot be dialled (it would read as stock), the last channel stays at 1
-    set_look(dev, backlight=(3, 8, 12))
-    set_look(dev, backlight=(15, 15, 15))
-    stock_again = [state(dev, S_BL_R + 4 * k) for k in range(3)]
-    set_look(dev, backlight=(0, 0, 5))
-    goto_page(dev, PAGE_BL_B)
-    dev.turn(-8, wait=0.25)
-    floor = [state(dev, S_BL_R + 4 * k) for k in range(3)]
-    add("stock_at_15", stock_again == [0, 0, 0] and floor == [0, 0, 1], f"15 15 15 stores {stock_again}; 0 0 5 turned down stores {floor}")
+    # the colour pages are hue (0 to 95, 16 to a sector of the wheel), saturation and brightness (0 to 15) of the stored red, green, blue
+    rgb = lambda at: [state(dev, at + 4 * k) for k in range(3)]
+    def shown(first):
+        out = []
+        for k in range(3):
+            goto_page(dev, first + k)
+            out.append(text(dev, S_VALUE))
+        return out
+    def dial(page, steps, at):
+        goto_page(dev, page)
+        dev.turn(steps, wait=0.25)
+        return rgb(at)
     set_look(dev, backlight=(0, 0, 0))
+    from_stock_up = [dial(PAGE_BL_G, 3, S_BL_R), dial(PAGE_BL_B, 3, S_BL_R)]
+    from_stock_down = dial(PAGE_BL_B, -1, S_BL_R)
+    set_look(dev, backlight=(0, 0, 0))
+    first_hue = dial(PAGE_BL_R, 1, S_BL_R)
+    set_look(dev, backlight=(15, 7, 0))
+    orange = shown(PAGE_BL_R)
+    next_sector = dial(PAGE_BL_R, 16, S_BL_R)
+    set_look(dev, backlight=(15, 14, 14))
+    white = dial(PAGE_BL_G, -1, S_BL_R)
+    set_look(dev, backlight=(8, 8, 8))
+    grey = dial(PAGE_BL_R, 1, S_BL_R)
+    set_look(dev, backlight=(0, 0, 1))
+    floor = dial(PAGE_BL_B, -8, S_BL_R)
+    set_look(dev, backlight=(1, 0, 0))
+    skipped = dial(PAGE_BL_R, 1, S_BL_R)
+    set_look(dev, backlight=(0, 0, 0))
+    add("hue_pages", from_stock_up == [[0, 0, 0]] * 2 and from_stock_down == [14, 0, 0] and first_hue == [15, 1, 0] and orange == ["7", "15", "15"]
+        and next_sector == [8, 15, 0] and white == [0, 0, 0] and grey == [8, 8, 8] and floor == [0, 0, 1] and skipped == [1, 1, 0],
+        f"up on SAT and BRIGHT {from_stock_up}, down on BRIGHT {from_stock_down}, HUE up {first_hue}, 15 7 0 shows {orange}, a sector on {next_sector}, "
+        f"15 14 14 less saturated {white}, grey {grey}, brightness floor {floor}, small colour {skipped}")
 
     # DISPLAY, LED and PAD COLOR are rows of CUSTOMIZATION: ENTER opens their pages, EXIT goes back to the row (device 18.10.)
     rows, ins, backs = [], [], []
-    for row, group, title, tag in ((CUSTOM_DISPLAY, GROUP_DISPLAY, "BACKLIGHT RED", "Display"), (CUSTOM_LED, GROUP_LED, "BOTTOM LEDS", "LED")):
+    for row, group, title, tag in ((CUSTOM_DISPLAY, GROUP_DISPLAY, "BACKLIGHT HUE", "Display"), (CUSTOM_LED, GROUP_LED, "BOTTOM LEDS", "LED")):
         goto_group(dev, GROUP_CUSTOM, row)
         rows.append(texts_of(dev))
         press(dev, "menu", 0.4)
@@ -923,7 +950,7 @@ def look_cases(payload, flash=None):
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
     add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
-        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT RED", 5), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 8)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT HUE", 5), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 8)]
         and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
         f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
@@ -1022,9 +1049,9 @@ def look_cases(payload, flash=None):
     loud_rainbow_page = texts_of(dev)
     meter_level(dev, 254)
     dev.run(0.5)
-    l_first = leds(dev)
+    l_first = steady_leds(dev)
     dev.run(0.5)
-    l_second = leds(dev)
+    l_second = steady_leds(dev)
     tempo_at = synthaddr.tr(HW_TEMPO) if synthaddr.is_synth(payload) else HW_TEMPO
     tempo = dev.u32(tempo_at)
     phase = lambda d: int.from_bytes(d.read(STATE - 0x17, 2), "little")
@@ -1053,6 +1080,41 @@ def look_cases(payload, flash=None):
         f"byte 5 {extras}, flags {l_flags:#x}, after a restart the meter bytes {list(l_kept)}")
     goto_group(dev, GROUP_LED, 7)
     dev.turn(-8, wait=0.3)
+
+    # METER STILL OFF: the still meter stays dark, the louder zones keep their colours; WRITE keeps it as bit 1 of byte 5 of the
+    # file, the three bits of STILL stay 0 (and STOCK, the page's first value, lights the still meter)
+    goto_group(dev, GROUP_LED, 4)
+    meter_level(dev, 0)
+    dev.run(0.5)
+    still_stock = leds(dev)
+    dev.turn(9, wait=0.3)
+    off_page = texts_of(dev)
+    dev.run(0.5)
+    off_still = leds(dev)
+    dev.turn(1, wait=0.3)
+    clamp_page = texts_of(dev)
+    meter_level(dev, 254)
+    dev.run(1.0)
+    off_loud = leds(dev)
+    meter_level(dev, 0)
+    press(dev, "write", wait=0.6)
+    image = dev.m.mmc.card.medium.data
+    files = read_settings(image)
+    newest = max(files, key=lambda n: files[n][0]) if files else None
+    off_flags = files[newest][1] if newest else 0
+    off_extras = settings_extras(image).get(newest, 0)
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(image))))
+    again.run(1.5)
+    off_kept = again.read(STATE - 0x1C, 4)
+    add("led_meter_still_off", off_page == ("METER STILL", "OFF", "") and clamp_page == off_page and any(still_stock)
+        and off_still == [0] * 12 and off_loud[0] > 200 and off_extras & 2 == 2 and off_flags >> 16 & 7 == 0 and off_flags >> 30 & 1 == 0
+        and off_kept[0] == 9 and not dev.m.asserts and not again.m.asserts,
+        f"page {off_page}, one more turn {clamp_page}, STOCK still {still_stock[:3]}, OFF still {off_still}, loud {off_loud[:3]}, "
+        f"byte 5 {off_extras}, flags {off_flags:#x}, after a restart the meter bytes {list(off_kept)}")
+    goto_group(dev, GROUP_LED, 4)
+    dev.turn(-9, wait=0.3)
 
     # the firmware's own switches stay: nothing changes while a plugin holds the lock, nothing lights with Global power save
     lock = boot(payload, flash, adapter=True)
@@ -1836,9 +1898,9 @@ def early_run(payload, flash, files, held=0):
 
 
 def default_level_cases(payload, flash=None):
-    """The level pages show 15 for a state in which nothing is set (the device is at full light then): no file, or a file whose look word has
-    zeros, shows 15 each and acts as the firmware does; a file with values shows them; the dial turns down from 15 and the last channel
-    turned down to 0 is that state again."""
+    """The colour pages show STOCK for a state in which nothing is set (the device is at full light then): no file, or a file whose look word has
+    zeros, shows that and acts as the firmware does; a file with values shows them as hue, saturation and brightness; the dial turns down from
+    full brightness and zero stored is that state again."""
     out = []
 
     def add(name, ok, detail):
@@ -1848,22 +1910,23 @@ def default_level_cases(payload, flash=None):
     fresh = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     zero = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0))}, adapter=True)
     mixed = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0, (0, 0, 5), (0, 7, 0)))}, adapter=True)
-    want_stock = [(title, "15 stock") for title in ("LED RED", "LED GREEN", "LED BLUE", "BACKLIGHT RED", "BACKLIGHT GREEN", "BACKLIGHT BLUE")]
+    want_stock = [(title, "STOCK") for title in ("LED HUE", "LED SAT", "LED BRIGHT", "BACKLIGHT HUE", "BACKLIGHT SAT", "BACKLIGHT BRIGHT")]
     add("no_file_shows_15", levels(fresh) == want_stock, f"{levels(fresh)}")
     add("zero_word_shows_15_and_acts_as_before", levels(zero) == want_stock and state(zero, S_LED_EFF) == 0 and state(zero, S_BL_ON) == 0x38 and state(zero, S_BL_PWM) == 0,
         f"{levels(zero)}, LED kind {state(zero, S_LED_EFF)}, light pins {state(zero, S_BL_ON):#x}")
-    add("file_with_values_reads_as_before", levels(mixed) == [("LED RED", "0"), ("LED GREEN", "0"), ("LED BLUE", "5"), ("BACKLIGHT RED", "0"), ("BACKLIGHT GREEN", "7"), ("BACKLIGHT BLUE", "0")]
+    add("file_with_values_reads_as_before", levels(mixed) == [("LED HUE", "64"), ("LED SAT", "15"), ("LED BRIGHT", "5"), ("BACKLIGHT HUE", "32"), ("BACKLIGHT SAT", "15"), ("BACKLIGHT BRIGHT", "7")]
         and state(mixed, S_LED_EFF) == 1, f"{levels(mixed)}, LED kind {state(mixed, S_LED_EFF)}")
 
-    # the dial: up from the state changes nothing, down starts at 15 each, back up to 15 15 15 is the state again
-    goto_page(fresh, PAGE_LED_R)
+    # the dial: up on the brightness from the state changes nothing, down starts at 15 each, zero stored is the state again
+    goto_page(fresh, PAGE_LED_B)
     fresh.turn(3, wait=0.3)
     up = [state(fresh, S_LED_R + 4 * k) for k in range(3)]
     fresh.turn(-1, wait=0.3)
     down = [state(fresh, S_LED_R + 4 * k) for k in range(3)], texts_of(fresh)[:2]
     set_look(fresh, led=(0, 0, 0))
+    goto_page(fresh, PAGE_LED_B)
     back = [state(fresh, S_LED_R + 4 * k) for k in range(3)], texts_of(fresh)[:2], state(fresh, S_LED_EFF)
-    add("dial_from_the_default", up == [0, 0, 0] and down == ([14, 15, 15], ("LED RED", "14")) and back == ([0, 0, 0], ("LED BLUE", "15 stock"), 0), f"up {up}, down {down}, back {back}")
+    add("dial_from_the_default", up == [0, 0, 0] and down == ([14, 0, 0], ("LED BRIGHT", "14")) and back == ([0, 0, 0], ("LED BRIGHT", "STOCK"), 0), f"up {up}, down {down}, back {back}")
     return out
 
 

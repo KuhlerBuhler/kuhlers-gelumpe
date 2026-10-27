@@ -326,6 +326,41 @@ Plugin mit einem Fehler.
 | `korg.menu.add(name, min, max, wert)` | legt eine Seite im Menü BLECH am Gerät an und gibt ihre Nummer zurück (-1, wenn alle 12 Plätze belegt sind). `name` höchstens 15 Zeichen, die Seite zeigt `wert` (in `min` bis `max` geklemmt, Betrag unter 100 Millionen) und den Plugin-Namen. Wird am Hauptrad gedreht, bekommt das Plugin `menu`(nummer, wert). Derselbe Name vom selben Plugin ist dieselbe Seite. `min` über `max` ist ein Argumentfehler | nur im Rumpf und in `ready` |
 | `korg.ledHold(an)` | 1 hält die Firmware davon ab, die Panel LEDs neu zu schreiben (Pads, Tasten, untere RGB LEDs zeigen dann, was das Plugin gesetzt hat), 0 gibt sie zurück und lässt die Firmware alle LEDs neu senden; fällt das letzte laufende Plugin aus, gibt die Laufzeit sie selbst zurück | wie `korg.led` |
 | `korg.remapKey(von, nach)` | die Taste `von` kommt bei der Firmware und bei den Plugins als Taste `nach` an (beide 0 bis 33, am besten Namen wie `korg.key.PART_ERASE`), solange das Plugin läuft: der Eingangsfilter schreibt den Code in der Panel-Nachricht um, bevor die Firmware sie liest, die Firmware tut also genau, was sie mit `nach` tut. Es gilt eine Umlegung für alle Plugins, die letzte zählt; dieselbe Taste zweimal hebt sie auf. EXIT lässt sich nicht umlegen. Ab API Version 8 | nur im Rumpf und in `ready` |
+| `korg.seq.setStep(part, step, note, velocity)` | schreibt Step `step` (0 bis 63) von Part `part` (0 bis 15) im Pattern, das läuft: `note` 0 bis 127 mit `velocity` 1 bis 127 schaltet ihn an, mit dieser Note auf dem ersten Notenplatz (die anderen drei leer) und Trigger an; `note` -1 oder `velocity` 0 schaltet ihn aus. Das Gate bleibt, wie es ist. Ab API Version 9 | wie `korg.led` |
+| `korg.seq.setGate(part, step, gate)` | setzt das Gate des Steps, 0 bis 127; 96 ist ein ganzer Schritt, 127 bindet an die nächste Note (Tie). Ab API Version 9 | wie `korg.led` |
+| `korg.seq.clearPart(part)` | schaltet alle 64 Steps des Parts aus, Noten, Gates und Velocity bleiben stehen. Ab API Version 9 | wie `korg.led` |
+
+**Steps schreiben** (`tools/patch/script_seq.s`, ab API Version 9): `korg.seq.*` schreibt in das Pattern im RAM,
+das gerade läuft oder bearbeitet wird, genau wie das Würfeln mit SHIFT + PART ERASE
+([Würfeln](messungen/2026-10-16-wuerfeln.md)): dieselben Bytes im Step, kein Umweg über die Bedienung. Der Sequencer spielt
+einen geschriebenen Step beim nächsten Durchlauf, auch während er läuft (gemessen im Emulator, siehe unten). Das Pattern im RAM
+weicht danach von seinem gespeicherten Platz ab und zählt wie nach einer Eingabe von Hand als ungespeichert: erst WRITE legt es
+ab, ohne WRITE ist die Änderung nach dem Laden eines anderen Patterns weg. Der Flash und die Karte bleiben unberührt, und
+SHIFT + EDIT< nimmt nichts zurück. Die Pads zeigen die Steps des gewählten Taktabschnitts; hat ein Plugin in
+einem Rahmen Steps geschrieben, sagt die Laufzeit der Firmware am Ende des Rahmens einmal Bescheid, und die Pads zeichnen sich
+neu (nur auf dem Hauptbildschirm, sonst beim nächsten Rahmen dort). Ein Step, der hinter der Länge des Patterns oder hinter
+LAST STEP des Parts liegt, wird geschrieben, aber nicht gespielt. Die Noten sind MIDI-Noten wie beim Würfeln: 48 ist der
+Grundton C, auf dem die Tonart des Patterns aufsetzt (`korg.current.key`).
+
+```js
+// TAP schreibt ein Arpeggio in den gewählten Part: Grundton, Terz, Quinte und Oktave
+// in der Tonart des Patterns, auf jedem zweiten 16tel, so lang wie das Pattern.
+const chord = [0, 4, 7, 12];
+korg.onEvent("buttonPress", (key) => {
+  if (key != korg.key.TAP) return;
+  let part = korg.selectedPart;
+  if (part > 15) return;
+  korg.seq.clearPart(part);
+  for (let step = 0; step < korg.current.length * 16; step += 2) {
+    let note = 48 + korg.current.key + chord[(step / 2) % 4];
+    korg.seq.setStep(part, step, note, step % 8 == 0 ? 110 : 80);
+    korg.seq.setGate(part, step, 40);
+  }
+});
+```
+
+Ein Arpeggiator, der mitläuft, schreibt im Ereignis `step` den Schritt, der als nächster kommt. Ein Aufruf kostet wenig
+(`setStep` 6, `setGate` 4, `clearPart` 30 Einheiten), ein ganzes Pattern von 64 Steps passt bequem in einen Rahmen.
 
 **Display auf dem Gerät** (`tools/patch/script_display.s`): Die Laufzeit hält ein
 eigenes Bild von 1024 Byte (8 Seiten zu 128 Spalten, Bit 0 die oberste Zeile) und
@@ -642,7 +677,7 @@ Plugins kommen nur über die SD-Karte aufs Gerät, nie in die VSB. Der Ordner is
 `KORG/blechtribe/Plugin/` (Einzahl, nicht "Plugins"; bei der roten und der blauen Electribe derselbe), den die
 Firmware nicht selbst anlegt. Mit verbundenem Gerät legt die Seite Plugins
 sie auch über USB dorthin (Knopf "Aufs Gerät", BLECH-SysEx-Befehl `0x67` PLUGIN BEGIN, Name aus Buchstaben,
-Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, IMPORT PLUGIN.
+Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, PLUGINS, PLUGIN EDIT.
 
 - `e2sPlugin.all` ist die Sammeldatei, die das Gerät beim Start liest. Kopf, 16
   Byte, little endian: Kennung `GSAL`, Dateiversion 1 (u16), Anzahl Blöcke
@@ -657,7 +692,7 @@ Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, IMPORT PLU
   in UTF-8. Die Beschreibung sind die `//`-Zeilen ganz oben im Plugin-Code
   (eine leere `//`-Zeile beginnt einen neuen Absatz, Umlaute werden zu ae, oe,
   ue, ss); ohne solche Zeilen fehlt der Anhang `GDSC`. Das Gerät lädt den
-  Block und zeigt die Beschreibung in IMPORT PLUGIN, der Editor liest den
+  Block und zeigt die Beschreibung auf der Seite DESCRIPTION des Plugins, der Editor liest den
   Quelltext, um das Plugin wieder zu öffnen.
 
 Der Lader läuft einmal beim Start direkt nach dem Laden der `e2sSample.all`
@@ -673,7 +708,7 @@ im Kontrollblock der Laufzeit (`cardStatus`, `cardLoaded`, `cardRejected`,
 
 Dateien schreibt der Editor (`src/script/archive.mjs`: `packAll`, `parseAll`,
 `packBlech`, `parseBlech`). Ein Plugin, das nur auf der Karte liegt, läuft erst
-beim nächsten Start; über "IMPORT PLUGIN" am Gerät (siehe unten) läuft es sofort.
+beim nächsten Start; in PLUGIN EDIT am Gerät (siehe unten) steht es als OFF in der Liste und läuft, sobald man es dort einschaltet.
 
 **Das Kennzeichen "geprobt".** Der Kopf eines Blocks hat ein Feld `flags` (Byte 34,
 u16). Bit 0 heißt PROBED: der Editor setzt es beim Export, nachdem er den Text
@@ -768,16 +803,16 @@ Die Seiten der Gruppen:
 | Gruppe, Seite | Wert | Wirkung |
 |---|---|---|
 | PLUGINS, RUNTIME | ON, OFF | die Plugins der Karte an oder aus, gilt ab dem nächsten Start ("OFF, RESTART" zeigt, dass es noch nicht gilt); Blechy ist kein Plugin der Karte und bleibt |
-| PLUGINS, PLUGIN EDIT | `press  [ Enter ]`, "No Plugin" ohne geladene Plugins | aufgebaut wie SAMPLE EDIT der Firmware: ENTER öffnet die Seiten eines Plugins (das Schild bleibt "Plugins", der Zähler zählt sie, EDIT blättert im Kreis), EXIT führt zurück auf PLUGIN EDIT |
-| Plugin, SELECT PLUGIN | sein Name | das Hauptrad wählt das Plugin, um das es auf den folgenden Seiten geht (wie SELECT SAMPLE) |
-| Plugin, STATE | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen, WRITE behält den Stand über einen Neustart (ein ausgeschaltetes Plugin startet dann nicht, beim Einschalten läuft sein Start nach); bei einem Fehler steht der Fehler mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal) |
+| PLUGINS, PLUGIN EDIT | `press  [ Enter ]`, nach ENTER "No Plugin", wenn es nichts zu zeigen gibt | die eine Liste aller Plugins, aufgebaut wie SAMPLE EDIT der Firmware: ENTER liest den Ordner `KORG/blechtribe/Plugin/` (bis 16 Dateien) und öffnet die Seiten der Liste (das Schild bleibt "Plugins", der Zähler zählt sie, EDIT blättert im Kreis), EXIT führt zurück auf PLUGIN EDIT. In der Liste stehen zuerst die geladenen Plugins, dann die der `*.blech`-Dateien, die nicht geladen sind, jedes Plugin einmal (gleicher Name im Kopf der Datei und im geladenen Block heißt: dasselbe Plugin). Ein Plugin, das nur in `e2sPlugin.all` steht und zu dem es keine Datei gibt, steht als geladenes in der Liste und hat keine Beschreibung. Teile der Firmware (Blechy und was BLECH selbst mitbringt) sind keine Plugins und stehen nie hier, ihre Schalter sind unter FEATURES |
+| Plugin, SELECT PLUGIN | sein Name | das Hauptrad wählt das Plugin, um das es auf den folgenden Seiten geht (wie SELECT SAMPLE), von den geladenen bis zu den nicht geladenen |
+| Plugin, STATE | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen, WRITE behält den Stand über einen Neustart (ein ausgeschaltetes Plugin startet dann nicht, beim Einschalten läuft sein Start nach); bei einem Fehler steht der Fehler mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal). Ein Plugin, das nicht geladen ist, zeigt OFF wie ein ausgeschaltetes: das Hauptrad nach oben oder ENTER lädt es aus der Datei und startet es (ein fremdes wartet dann auf WRITE=ALLOW, ein kaputter Block meldet "rejected", ohne Plugins in der Laufzeit RUNTIME "runtime off"), nach unten tut das Rad nichts. Beides heißt OFF, der Unterschied ist die Zahl der Seiten: ein nicht geladenes Plugin hat nur SELECT PLUGIN, STATE und DESCRIPTION, ein geladenes dazu seine eigenen Seiten und DELETE PLUGIN. Ein so geladenes Plugin läuft bis zum Ausschalten; über Neustarts bleibt es erst mit EXPORT ALL, das es in `e2sPlugin.all` aufnimmt |
+| Plugin, DESCRIPTION | der Zustand des Plugins unter der Beschreibung | die Beschreibung aus der `*.blech`-Datei des Plugins (die `//`-Zeilen ganz oben im Code), als Bild über den ganzen Bildschirm: oben der Name, darunter die Zeilen, unten der Stand. Das Hauptrad scrollt zeilenweise, `^` und `v` zeigen, dass es weitergeht; ENTER tut hier nichts. Ohne Datei oder ohne Beschreibung steht "no description" |
 | Plugin, je `korg.menu.add` eine Seite | die Zahl | die Einstellungen dieses Plugins: das Hauptrad ändert sie, das Plugin bekommt `menu` |
-| Plugin, DELETE PLUGIN | `press  [ Enter ]` | ENTER fragt ("Enter = delete"), ein zweites ENTER löscht: das Plugin hält an, `e2sPlugin.all` wird ohne es neu geschrieben (auch leer, wenn es das letzte war), PLUGIN EDIT meldet "deleted"; die `*.blech` im Ordner bleibt, IMPORT PLUGIN kann es wieder laden |
+| Plugin, DELETE PLUGIN | `press  [ Enter ]` | ENTER fragt ("Enter = delete"), ein zweites ENTER löscht: das Plugin hält an, `e2sPlugin.all` wird ohne es neu geschrieben (auch leer, wenn es das letzte war), PLUGIN EDIT meldet "deleted"; die `*.blech` im Ordner bleibt, das Plugin steht beim nächsten ENTER auf PLUGIN EDIT wieder als OFF in der Liste und lässt sich laden |
 | PLUGINS, EXPORT ALL | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
-| PLUGINS, IMPORT PLUGIN | (leer, `press  [ Enter ]`), dann Name und Stand | ENTER zeigt die Plugins der `*.blech` aus `KORG/blechtribe/Plugin/` als Liste (bis 16): oben der Name des Plugins (aus seinem Kopf, nicht der Dateiname), darunter sein Stand (ON, OFF, FAULT, ENTER=ALLOW); das Hauptrad blättert. ENTER öffnet das gewählte Plugin: oben der Name, darunter seine Beschreibung (das Hauptrad scrollt sie zeilenweise, `^` und `v` zeigen, dass es weitergeht), unten der Stand. ENTER schaltet es dann um: ein noch nicht geladenes wird geladen und gestartet, ein laufendes aus, ein ausgeschaltetes wieder an, ein fremdes wird erlaubt; WRITE behält den Stand über einen Neustart wie auf seiner Seite. EXIT geht zurück in die Liste und von dort auf die Seite. Dateien, deren Name mit einem Punkt beginnt (die `._Name.blech` des Mac auf FAT Karten), versteckte oder Systemdateien und Dateien ohne Plugin-Kopf fehlen in der Liste ([Messung](messungen/2026-10-19-plugin-import-liste.md)) |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | öffnet die Seiten des Display-Lichts; EXIT führt zurück auf DISPLAY |
-| DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 bis 15 | Farbe des Display-Lichts, frei gemischt; 15 15 15 heißt das Weiß der Firmware ("15 stock"); gilt sofort |
+| DISPLAY, BACKLIGHT HUE, SAT, BRIGHT | HUE 0 bis 95, SAT und BRIGHT 0 bis 15 | Farbe des Display-Lichts: HUE läuft einmal um den Farbkreis (16 Schritte je Rot, Gelb, Grün, Cyan, Blau, Magenta und der Weg dazwischen), SAT ist die Sättigung, BRIGHT die Helligkeit; gespeichert bleibt Rot, Grün, Blau zu je 0 bis 15, eine ältere Datei liest sich also wie vorher; ohne Einstellung steht STOCK da (das Weiß der Firmware), volle Helligkeit ohne Sättigung ist wieder STOCK; ein Schritt, der dieselbe Farbe ergäbe, springt zum nächsten, der sie ändert; gilt sofort |
 | DISPLAY, INTENSITY | 0 bis 15 | Helligkeit des Display-Lichts über alle drei Farben, die Mischung bleibt; 0 ist kein Licht, 15 die volle Farbe; gilt sofort |
 | DISPLAY, DISPLAY INVERT | OFF, ON | kehrt das Display um: helle Punkte dunkel und dunkle hell (Befehl `0xA7` an den Display-Baustein, `0xA6` stellt zurück); gilt sofort; ON ist die Vorgabe (eine helle Spur auf dunklem Grund schmiert weniger als eine dunkle), eine Einstellungsdatei aus 1.2 ohne das Bit bleibt bei OFF |
 | CUSTOMIZATION, POWER SAVE | ENTER | öffnet die Seiten für den Energiesparmodus (nur auf Batterie); EXIT führt zurück auf POWER SAVE |
@@ -785,8 +820,8 @@ Die Seiten der Gruppen:
 | POWER SAVE, LED DIMMING | 0 bis 100 % | wie stark der Energiesparmodus Pads, Tasten und Regler-LEDs dimmt: 0 % gar nicht, 100 % aus, 75 % (die Vorgabe) ein Viertel der Helligkeit; die Regler-LEDs gehen aus, außer bei 0 %; gilt sofort, WRITE behält es |
 | CUSTOMIZATION, LED | ENTER | öffnet die Seiten der unteren LEDs; EXIT führt zurück auf LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | die vier unteren RGB-LEDs: METER ist die Pegelanzeige, COLOR eine feste Farbe, OFF dunkel; gilt sofort |
-| LED, LED RED, GREEN, BLUE | 0 bis 15 | Farbe der unteren LEDs für COLOR; bei METER bestimmt der Pegel die Helligkeit dieser Farbe, solange keine Meter-Farbe gesetzt ist; 15 15 15 heißt die Farben der Firmware ("15 stock"); gilt sofort |
-| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL und LOUD: RAINBOW) | die Farbe der Pegelanzeige je Zone, aufgeteilt wie in der Firmware: STILL ohne Pegel, LOW, MID, LOUD; STOCK ist die Farbe der Firmware (weiß, blau, grün, rot); STILL und LOUD haben dahinter noch RAINBOW, die Farbe läuft flüssig durch Rot, Grün und Blau: bei STILL in rund 3,5 s einmal rundum, bei LOUD einmal je Takt im Tempo des Patterns (bei 128 BPM rund 1,9 s) |
+| LED, LED HUE, SAT, BRIGHT | HUE 0 bis 95, SAT und BRIGHT 0 bis 15 | Farbe der unteren LEDs für COLOR, eingestellt wie beim Display-Licht; bei METER bestimmt der Pegel die Helligkeit dieser Farbe, solange keine Meter-Farbe gesetzt ist; STOCK heißt die Farben der Firmware; gilt sofort |
+| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL und LOUD: RAINBOW, STILL: zusätzlich OFF) | die Farbe der Pegelanzeige je Zone, aufgeteilt wie in der Firmware: STILL ohne Pegel, LOW, MID, LOUD; STOCK ist die Farbe der Firmware (weiß, blau, grün, rot); STILL und LOUD haben dahinter noch RAINBOW, die Farbe läuft flüssig durch Rot, Grün und Blau: bei STILL in rund 3,5 s einmal rundum, bei LOUD einmal je Takt im Tempo des Patterns (bei 128 BPM rund 1,9 s); STILL OFF lässt die Anzeige ohne Pegel dunkel |
 | CUSTOMIZATION, PAD COLOR | ENTER | öffnet die Seiten der Pad-Farben; nur wo der Satz den Patch pad-colors hat ([Messung](messungen/2026-10-17-pad-farben.md)) |
 | PAD COLOR, PAD COLOR | RED, BLUE, PINK | die Farbe, in der die Pads zeigen, was die Firmware rot zeigt (Part spielt, Pad gedrückt, Schritt); gilt sofort, WRITE behält sie; RED ist die Vorgabe. Im SEQUENCER-Modus zeigt ein Step, der die Note des vorigen per TIE weiterspielt, einen Schweif in Pink, der über die Länge der Note ausläuft; überlappen sich gebundene Noten, addiert sich ihre Helligkeit ([Messung](messungen/2026-10-19-gate-schweif.md)). |
 | PAD COLOR, SELECT COLOR | RED, BLUE, PINK | die Farbe des gewählten Parts, nie die von PAD COLOR; leuchten beide, zeigt das Pad die Farbe von OVERLAP; BLUE ist die Vorgabe |
@@ -805,7 +840,7 @@ Wert der Seite, bis man das Hauptrad dreht oder die Seite wechselt. Die dritte Z
 Firmware (die Einheit hinter einem Wert) beginnt bei jedem Bildschirm in Spalte 28 der
 Wertzeile: jeder Wert, der breiter ist als ein oder zwei Zeichen, läuft hinein. Das Menü
 benutzt sie deshalb nie. Was eine Seite sagt, steht im Wert, der rund 14 Zeichen fasst, der
-Titel rund 18. IMPORT PLUGIN und EXPORT ALL stehen in der Gruppe PLUGINS, nicht in DATA
+Titel rund 18. EXPORT ALL steht in der Gruppe PLUGINS, nicht in DATA
 UTILITY (siehe Stand).
 
 Auf den Seiten RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION und bei der Zustimmung für fremde Plugins
@@ -1057,7 +1092,7 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
 
 - Compiler, Prüfer und Referenz-VM in JavaScript (`src/script/`), die Seite
   Plugins mit Lauf, Probe und Export (`site/app/scripts.mjs`), Tests in
-  `test/script-*.test.mjs`. Blockformat 2, API Version 6
+  `test/script-*.test.mjs`. Blockformat 2, API Version 9
   (`data/script/contract.mjs`).
 - ARM-VM (`tools/patch/script_vm.s`): alle 34 Opcodes, 506 Vergleichsfälle gegen
   die JS-VM stimmen ([Messung](messungen/2026-10-14-skript-arm-vm.md)).
@@ -1078,6 +1113,10 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
 - Dauerhafte Werte (`tools/patch/script_store.s`): ein Zählerstand übersteht Aus-
   und Einschalten über die virtuelle Karte
   ([Messung](messungen/2026-10-14-skript-speicher.md)).
+- Steps schreiben (`tools/patch/script_seq.s`): ein Plugin schreibt Steps in Part 1, während das Pattern läuft, und der
+  Sequencer spielt sie (MIDI-Ausgang des Emulators: die Noten in der Reihenfolge der Steps), die Bytes im Pattern sind die
+  des Browsermodells, die Pads zeigen danach die geschriebenen Steps; am Gerät nicht gehört
+  ([Messung](messungen/2026-10-26-plugin-steps.md)).
 - Uhr, Lesen, Handeln, Sequencer-Ereignisse, Hintergrundlicht und LED-Sperre
   (`tools/patch/script_hw.s`, `tools/patch/script_events.s`). Befund: die Firmware
   kennt für Mute nur Umschalten, `korg.mute` liest darum den Zustand zuerst
@@ -1096,7 +1135,7 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
   ([Messung](messungen/2026-10-15-blechy.md)).
 - Menü BLECH (`tools/patch/script_menu.s`): zwei Ebenen mit Gruppen, Zähler und Schild je
   Gruppe, EXIT geht eine Ebene zurück, WRITE, MENU als ENTER, Einstellungen, Plugin-Seiten,
-  Apps, EXPORT ALL, IMPORT PLUGIN, fremde Plugins, `korg.menu.add`; jede Seite ist ohne dritte
+  Apps, EXPORT ALL, die Liste in PLUGIN EDIT, fremde Plugins, `korg.menu.add`; jede Seite ist ohne dritte
   Zeile gezeichnet, ein Fall prüft alle auf Überlappung
   ([Messung](messungen/2026-10-14-blech-menue.md)).
 - Firmwaredatei: das Patch-Set `data/patches/blech.json` (Startbild-Editor, MFX 2,
@@ -1111,8 +1150,8 @@ der Ladebalken liegen; dort ist am Gerät noch nichts geprüft.
 
 ### Am Gerät
 
-Die Firmwaredatei mit der Laufzeit läuft am eigenen Gerät. Das Menü BLECH, IMPORT PLUGIN,
-EXPORT ALL und `korg.store` haben dort Dateien auf der Karte gelesen und geschrieben
+Die Firmwaredatei mit der Laufzeit läuft am eigenen Gerät. Das Menü BLECH, das Laden aus
+PLUGIN EDIT, EXPORT ALL und `korg.store` haben dort Dateien auf der Karte gelesen und geschrieben
 (`e2sPlugin.all`, `store.a.bin`, `store.b.bin`), die Anpassung, die Seiten von FEATURES und
 SPLASH IMPORT und DRAW sind am Gerät bedient. Die Wünsche aus diesen Tests stehen in den Messungen
 ab dem 18.10. ([Plugin bleibt aus](messungen/2026-10-18-plugin-bleibt-aus.md),
@@ -1143,9 +1182,9 @@ gespielt hat, sagt sie selbst. Die Schrittlisten für einen eigenen Test:
   Meldung, und das Ausschalten der Interrupts setzt einen privilegierten Modus
   voraus ([Messung](messungen/2026-10-14-skript-led.md)).
 - **Menü:** kein Schalter für das Startbild, lange Namen werden abgeschnitten, die Liste
-  von IMPORT PLUGIN zeigt höchstens 16 Plugins
+  von PLUGIN EDIT liest höchstens 16 Dateien
   ([Messung](messungen/2026-10-14-blech-menue.md)).
-- **IMPORT PLUGIN und EXPORT ALL in DATA UTILITY:** nicht gebaut, sie stehen in der Gruppe
+- **PLUGIN EDIT und EXPORT ALL in DATA UTILITY:** nicht gebaut, sie stehen in der Gruppe
   PLUGINS des Menüs BLECH. Die Funktionsliste von DATA UTILITY ist der Bildschirm 15, eine
   Zustandsmaschine mit einer Sprungtabelle von 40 Zuständen in einer einzigen Funktion
   (`0xC0061A24`); zwei Seiten mehr heißen eine Kopie der Klassentabelle, einen Seitenzähler

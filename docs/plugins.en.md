@@ -288,6 +288,40 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.menu.add(name, min, max, value)` | creates a page in the BLECH menu on the device and returns its number (-1 if all 12 places are taken). `name` at most 15 characters, the page shows `value` (clamped to `min` to `max`, magnitude below 100 million) and the plugin name. When the main dial is turned, the plugin gets `menu`(number, value). The same name from the same plugin is the same page. `min` above `max` is an argument error | body and `ready` only |
 | `korg.ledHold(on)` | 1 stops the firmware from rewriting the panel LEDs (pads, keys and lower RGB LEDs then show what the plugin set), 0 gives them back and makes the firmware resend all LEDs; if the last running plugin fails, the runtime gives them back itself | like `korg.led` |
 | `korg.remapKey(from, to)` | the key `from` reaches the firmware and the plugins as the key `to` (both 0 to 33, best names like `korg.key.PART_ERASE`) while the plugin runs: the input filter rewrites the code in the panel message before the firmware reads it, so the firmware does exactly what it does with `to`. One remap holds for all plugins, the last one counts; the same key twice takes it back. EXIT cannot be remapped. From API version 8 | only in the body and in `ready` |
+| `korg.seq.setStep(part, step, note, velocity)` | writes step `step` (0 to 63) of part `part` (0 to 15) in the pattern that plays: `note` 0 to 127 with `velocity` 1 to 127 turns it on, with that note in the first note place (the other three empty) and the trigger on; `note` -1 or `velocity` 0 turns it off. The gate stays as it is. From API version 9 | like `korg.led` |
+| `korg.seq.setGate(part, step, gate)` | sets the gate of the step, 0 to 127; 96 is a whole step, 127 ties into the next note. From API version 9 | like `korg.led` |
+| `korg.seq.clearPart(part)` | turns all 64 steps of the part off; notes, gates and velocities stay. From API version 9 | like `korg.led` |
+
+**Writing steps** (`tools/patch/script_seq.s`, from API version 9): `korg.seq.*` writes into the pattern in RAM, the
+one that plays or is being edited, just like the dice roll with SHIFT + PART ERASE
+([dice](messungen/2026-10-16-wuerfeln.md), German): the same bytes of the step, no detour through the panel. The sequencer
+plays a written step on its next pass, also while it runs (measured in the emulator, see below). The pattern in RAM then differs
+from its stored place and counts as unsaved, as after an edit by hand: only WRITE stores it, and without WRITE the change is
+gone once another pattern is loaded. Flash and card stay untouched, and SHIFT + EDIT< undoes nothing. The pads show the steps of
+the selected bar section; when a plugin wrote steps in a frame, the runtime tells the firmware once at the end of the frame and
+the pads draw again (on the main screen only, otherwise in the next frame there). A step behind the length of the pattern or
+behind the part's LAST STEP is written but not played. Notes are MIDI notes, as with the dice: 48 is the root C that the
+pattern's key (`korg.current.key`) is added to.
+
+```js
+// TAP writes an arpeggio into the selected part: root, third, fifth and octave
+// in the pattern's key, on every second 16th, as long as the pattern.
+const chord = [0, 4, 7, 12];
+korg.onEvent("buttonPress", (key) => {
+  if (key != korg.key.TAP) return;
+  let part = korg.selectedPart;
+  if (part > 15) return;
+  korg.seq.clearPart(part);
+  for (let step = 0; step < korg.current.length * 16; step += 2) {
+    let note = 48 + korg.current.key + chord[(step / 2) % 4];
+    korg.seq.setStep(part, step, note, step % 8 == 0 ? 110 : 80);
+    korg.seq.setGate(part, step, 40);
+  }
+});
+```
+
+An arpeggiator that follows along writes the step that comes next in the `step` event. A call costs little (`setStep` 6,
+`setGate` 4, `clearPart` 30 units); a whole pattern of 64 steps fits easily into one frame.
 
 **Display on the device:** the runtime keeps its own image of 1024 bytes (8 pages of 128 columns, bit 0 is
 the top row) and draws only into that. Coordinates past the edge are cut off, never wrapped. Only the owner
@@ -522,7 +556,7 @@ Plugins reach the device only through the SD card, never inside the VSB. The fol
 `KORG/blechtribe/Plugin/` (singular, not "Plugins"; the same on the red and the blue Electribe), which the
 firmware does not create itself. You create it. With the device connected, the Plugins page also writes a
 plugin there over USB (button "Aufs Gerät", BLECH SysEx command `0x67` PLUGIN BEGIN, a name of letters,
-digits, `_` and `-`, at most 16 characters); then on the device BLECH, IMPORT PLUGIN.
+digits, `_` and `-`, at most 16 characters); then on the device BLECH, PLUGINS, PLUGIN EDIT.
 
 - `e2sPlugin.all` is the collection file that the device reads at start. Header, 16 bytes, little endian:
   the tag `GSAL`, file version 1 (u16), number of blocks (u16), total size (u32), CRC-32 over everything
@@ -533,7 +567,7 @@ digits, `_` and `-`, at most 16 characters); then on the device BLECH, IMPORT PL
   `GDSC`, the length (u32) and the description in ASCII, lines of at most 20 characters ending in `\n` (at most
   2047 bytes); then the tag `GSRC`, the length (u32) and the text in UTF-8. The description is the `//` lines at
   the very top of the plugin code (an empty `//` line starts a new paragraph, umlauts become ae, oe, ue, ss);
-  without such lines there is no `GDSC`. The device loads the block and shows the description in IMPORT PLUGIN,
+  without such lines there is no `GDSC`. The device loads the block and shows the description on the plugin's page DESCRIPTION,
   the editor reads the source to open the plugin again.
 
 The loader runs once at start, right after the device has loaded `e2sSample.all`. With EXIT held at
@@ -545,7 +579,7 @@ screen. What the loader did is in the runtime's control block (`cardStatus`, `ca
 `cardFirstError`).
 
 The editor writes the files (`src/script/archive.mjs`). A plugin that only lies on the card runs at the next
-start; through "IMPORT PLUGIN" on the device (see below) it runs at once.
+start; in PLUGIN EDIT on the device (see below) it is listed as OFF and runs as soon as it is switched on there.
 
 **The "probed" flag.** The header of a block has a `flags` field (byte 34, u16). Bit 0 is PROBED: the editor
 sets it on export, after it has tried the text out (`markProbed` in `src/script/blob.mjs`, the checksum is
@@ -628,16 +662,16 @@ The pages of the groups:
 | Group, page | Value | Effect |
 |---|---|---|
 | PLUGINS, RUNTIME | ON, OFF | the plugins of the card on or off, applies from the next start ("OFF, RESTART" shows that it does not apply yet); Blechy is no plugin of the card and stays |
-| PLUGINS, PLUGIN EDIT | `press  [ Enter ]`, "No Plugin" with none loaded | built like the firmware's SAMPLE EDIT: ENTER opens the pages of one plugin (the tag stays "Plugins", the counter counts them, EDIT pages round in a circle), EXIT goes back to PLUGIN EDIT |
-| Plugin, SELECT PLUGIN | its name | the main dial chooses the plugin the following pages are about (like SELECT SAMPLE) |
-| Plugin, STATE | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume, WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error the error stands with the line; a foreign plugin waits for approval with WRITE=ALLOW (WRITE allows it once) |
+| PLUGINS, PLUGIN EDIT | `press  [ Enter ]`, "No Plugin" after ENTER when there is nothing to show | the one list of all plugins, built like the firmware's SAMPLE EDIT: ENTER reads the folder `KORG/blechtribe/Plugin/` (up to 16 files) and opens the pages of the list (the tag stays "Plugins", the counter counts them, EDIT cycles), EXIT goes back to PLUGIN EDIT. The list holds the loaded plugins first, then those of the `*.blech` files that are not loaded, each plugin once (the same name in the file's header and in the loaded block means the same plugin). A plugin that is only in `e2sPlugin.all` and has no file is in the list as a loaded one and has no description. Parts of the firmware (Blechy and what BLECH brings itself) are no plugins and never appear here, their switches are under FEATURES |
+| Plugin, SELECT PLUGIN | its name | the main dial chooses the plugin the following pages are about (like SELECT SAMPLE), from the loaded ones to those not loaded |
+| Plugin, STATE | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pause and resume, WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error the error shows with its line; a foreign plugin waits with WRITE=ALLOW for the consent (WRITE allows it once). A plugin that is not loaded shows OFF like one switched off: the main dial up or ENTER loads it from the file and starts it (a foreign one then waits for WRITE=ALLOW, a broken block says "rejected", with the plugins switched off in RUNTIME it says "runtime off"), the dial down does nothing. Both read OFF, the difference is the number of pages: a plugin that is not loaded has SELECT PLUGIN, STATE and DESCRIPTION only, a loaded one also its own pages and DELETE PLUGIN. A plugin loaded this way runs until power off; it stays over restarts only with EXPORT ALL, which writes it into `e2sPlugin.all` |
+| Plugin, DESCRIPTION | the plugin's state under the description | the description from the plugin's `*.blech` file (the `//` lines at the very top of the code), as a picture over the whole screen: the name on top, the lines below, the state at the bottom. The main dial scrolls line by line, `^` and `v` show that there is more; ENTER does nothing here. Without a file or without a description it says "no description" |
 | Plugin, one page per `korg.menu.add` | the number | the settings of this plugin: the main dial changes it, the plugin gets `menu` |
-| Plugin, DELETE PLUGIN | `press  [ Enter ]` | ENTER asks ("Enter = delete"), a second ENTER deletes: the plugin stops, `e2sPlugin.all` is written again without it (empty too, when it was the last one), PLUGIN EDIT says "deleted"; the `*.blech` in the folder stays, IMPORT PLUGIN can load it again |
+| Plugin, DELETE PLUGIN | `press  [ Enter ]` | ENTER asks ("Enter = delete"), a second ENTER deletes: the plugin stops, `e2sPlugin.all` is written again without it (empty too, when it was the last one), PLUGIN EDIT says "deleted"; the `*.blech` in the folder stays, the plugin is in the list again as OFF at the next ENTER on PLUGIN EDIT and can be loaded |
 | PLUGINS, EXPORT ALL | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them, then saves the settings too (plugins switched off stay off) |
-| PLUGINS, IMPORT PLUGIN | (empty, `press  [ Enter ]`), then name and state | ENTER lists the plugins of the `*.blech` files in `KORG/blechtribe/Plugin/` (up to 16): on top the plugin's name (from its header, not the file name), below it its state (ON, OFF, FAULT, ENTER=ALLOW); the main dial pages through them. ENTER opens the selected plugin: its name on top, its description below (the main dial scrolls it line by line, `^` and `v` show there is more), its state at the bottom. ENTER then switches it: one not loaded yet is loaded and started, a running one goes off, one switched off on again, a foreign one is allowed; WRITE keeps the state over a restart as on its page. EXIT goes back to the list and from there to the page. Files whose name starts with a dot (the `._Name.blech` files a Mac leaves on FAT cards), hidden or system files and files without a plugin header are not listed |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | opens the pages of the display light; EXIT goes back to DISPLAY |
-| DISPLAY, BACKLIGHT RED, GREEN, BLUE | 0 to 15 | colour of the display light, freely mixed; 15 15 15 means the firmware's white ("15 stock"); applies at once |
+| DISPLAY, BACKLIGHT HUE, SAT, BRIGHT | HUE 0 to 95, SAT and BRIGHT 0 to 15 | colour of the display light: HUE goes once round the colour wheel (16 steps to each of red, yellow, green, cyan, blue, magenta and the way between), SAT is the saturation, BRIGHT the brightness; what is stored stays red, green, blue at 0 to 15 each, so an older file reads as before; with nothing set it shows STOCK (the firmware's white), full brightness without saturation is STOCK again; a step that would give the same colour jumps to the next one that changes it; applies at once |
 | DISPLAY, INTENSITY | 0 to 15 | brightness of the display light over all three colours, the mix stays; 0 is no light, 15 the full colour; applies at once |
 | DISPLAY, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; ON is the default (a light trail on a dark screen smears less than a dark one), a settings file from 1.2 without it keeps OFF |
 | CUSTOMIZATION, POWER SAVE | ENTER | opens the pages for power save (on battery only); EXIT goes back to POWER SAVE |
@@ -645,8 +679,8 @@ The pages of the groups:
 | POWER SAVE, LED DIMMING | 0 to 100 % | how much power save dims the pad, key and knob LEDs: 0 % not at all, 100 % off, 75 % (the default) a quarter of the brightness; the knob LEDs go out except at 0 %; applies at once, WRITE keeps it |
 | CUSTOMIZATION, LED | ENTER | opens the pages of the lower LEDs; EXIT goes back to LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the level meter, COLOR a fixed colour, OFF dark; applies at once |
-| LED, LED RED, GREEN, BLUE | 0 to 15 | colour of the lower LEDs for COLOR; with METER the level sets the brightness of this colour while no meter colour is set; 15 15 15 means the firmware's colours ("15 stock"); applies at once |
-| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL and LOUD: RAINBOW) | the colour of the level meter per zone, split as in the firmware: STILL without level, LOW, MID, LOUD; STOCK is the firmware's colour (white, blue, green, red); STILL and LOUD also have RAINBOW, the colour turns smoothly through red, green and blue: STILL once round in about 3.5 s, LOUD once a bar at the tempo of the pattern (about 1.9 s at 128 BPM) |
+| LED, LED HUE, SAT, BRIGHT | HUE 0 to 95, SAT and BRIGHT 0 to 15 | colour of the lower LEDs for COLOR, set like the display light; with METER the level sets the brightness of this colour while no meter colour is set; STOCK means the firmware's colours; applies at once |
+| LED, METER STILL, LOW, MID, LOUD | STOCK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, PINK (STILL and LOUD: RAINBOW, STILL also OFF) | the colour of the level meter per zone, split as in the firmware: STILL without level, LOW, MID, LOUD; STOCK is the firmware's colour (white, blue, green, red); STILL and LOUD also have RAINBOW, the colour turns smoothly through red, green and blue: STILL once round in about 3.5 s, LOUD once a bar at the tempo of the pattern (about 1.9 s at 128 BPM); STILL OFF keeps the still meter dark |
 | CUSTOMIZATION, PAD COLOR | ENTER | opens the pages of the pad colours; only where the set has the patch pad-colors |
 | PAD COLOR, PAD COLOR | RED, BLUE, PINK | the colour the pads use for what the firmware shows in red (a part plays, a pad is held, a step); applies at once, WRITE keeps it; RED is the default. Only where the set has the patch pad-colors In SEQUENCER mode a step that holds on the note of the step before it through TIE shows a tail in pink that fades out over the length of the note; where tied notes overlap their brightness adds up. |
 | PAD COLOR, SELECT COLOR | RED, BLUE, PINK | the colour of the selected part, never the one of PAD COLOR; when both light, the pad shows the third colour; BLUE is the default |
@@ -664,7 +698,7 @@ Feedback ("saved", "no card", "imported", "2 exported" and so on) replaces the v
 turn the main dial or change the page. The firmware's third line (the unit behind a value) starts in
 column 28 of the value line on every screen, so any value wider than one or two characters runs into it.
 The menu therefore never uses it. What a page says goes into the value, which holds about 14 characters;
-the title holds about 18. IMPORT PLUGIN and EXPORT ALL are in the PLUGINS group, not in DATA UTILITY (see
+the title holds about 18. EXPORT ALL is in the PLUGINS group, not in DATA UTILITY (see
 "Status").
 
 On the page RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
@@ -873,7 +907,7 @@ All of this ran in the real firmware (2.02 with Hacktribe) in the emulator with 
 Unicorn without firmware, **not on the device**.
 
 - Compiler, checker and reference VM in JavaScript (`src/script/`), the Plugins page with run, probe and
-  export, tests in `test/script-*.test.mjs`. Block format 2, API version 6.
+  export, tests in `test/script-*.test.mjs`. Block format 2, API version 9.
 - ARM VM (`tools/patch/script_vm.s`): all 34 opcodes, 506 comparison cases against the JS VM agree
   ([measurement](messungen/2026-10-14-skript-arm-vm.md)).
 - Input filter and frame hook (`tools/patch/script_hooks.s`): ring of 64 places, 25 Hz, a shared budget of
@@ -888,6 +922,10 @@ Unicorn without firmware, **not on the device**.
   ([measurement](messungen/2026-10-14-skript-karte.md)).
 - Persistent values: a counter survives power off and on through the virtual card
   ([measurement](messungen/2026-10-14-skript-speicher.md)).
+- Writing steps (`tools/patch/script_seq.s`): a plugin writes steps into part 1 while the pattern plays and the sequencer
+  plays them (the emulator's MIDI output: the notes in the order of the steps), the bytes in the pattern are those of the
+  browser model, the pads show the written steps afterwards; not heard on the device
+  ([measurement](messungen/2026-10-26-plugin-steps.md), German).
 - Clock, reading, acting, sequencer events, backlight and LED hold. Finding: the firmware only knows
   toggling for mute, so `korg.mute` reads the state first
   ([measurement](messungen/2026-10-14-skript-hardware.md)).
@@ -903,7 +941,7 @@ Unicorn without firmware, **not on the device**.
   away, absent with EXIT held at power-on; the most expensive frame takes 0.28 ms
   ([measurement](messungen/2026-10-15-blechy.md)).
 - BLECH menu: two levels with groups, counter and tag per group, EXIT goes one level back, WRITE, MENU as
-  ENTER, settings, plugin pages, apps, EXPORT ALL, IMPORT PLUGIN, foreign plugins, `korg.menu.add`; every
+  ENTER, settings, plugin pages, apps, EXPORT ALL, the list in PLUGIN EDIT, foreign plugins, `korg.menu.add`; every
   page is drawn without a third line, and one case checks all of them for overlap
   ([measurement](messungen/2026-10-14-blech-menue.md)).
 - Firmware file: the patch set `data/patches/blech.json` (start image editor, MFX 2, plugin runtime with
@@ -912,7 +950,7 @@ Unicorn without firmware, **not on the device**.
 
 ### On the device
 
-The firmware file with the runtime runs on the own device. The BLECH menu, IMPORT PLUGIN, EXPORT ALL and
+The firmware file with the runtime runs on the own device. The BLECH menu, loading from PLUGIN EDIT, EXPORT ALL and
 `korg.store` read and wrote files on the card there (`e2sPlugin.all`, `store.a.bin`, `store.b.bin`); the
 customization, the FEATURES pages and SPLASH IMPORT and DRAW were used on the device. The wishes from
 these tests are in the measurements from 18 October on
@@ -939,9 +977,9 @@ emulator, it says itself. Step lists for an own test: [card test](geraetetests/k
 - **LEDs:** the limit of 400 packets a second holds only at about 25 Hz frame calls, an index that is
   rejected for good blocks the other LEDs without a message, and disabling interrupts presupposes a
   privileged mode ([measurement](messungen/2026-10-14-skript-led.md)).
-- **Menu:** no switch for the splash screen, long names are cut off, the list of IMPORT PLUGIN shows at
-  most 16 plugins ([measurement](messungen/2026-10-14-blech-menue.md)).
-- **IMPORT PLUGIN and EXPORT ALL in DATA UTILITY:** not built, they are in the PLUGINS group of the BLECH
+- **Menu:** no switch for the splash screen, long names are cut off, the list of PLUGIN EDIT reads at
+  most 16 files ([measurement](messungen/2026-10-14-blech-menue.md)).
+- **PLUGIN EDIT and EXPORT ALL in DATA UTILITY:** not built, they are in the PLUGINS group of the BLECH
   menu. Adding two pages to DATA UTILITY would mean copying the class table, a page counter "n/16" and states
   of their own for file choice and execution, a job of its own
   ([measurement](messungen/2026-10-14-blech-menue.md), section "DATA UTILITY").

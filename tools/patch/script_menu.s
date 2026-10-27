@@ -43,6 +43,7 @@
 .equ MX_SAVE_ON, -0x18         ; byte, the backlight pins that light in power save
 .equ MX_PHASE, -0x1D           ; byte, the hue of METER STILL RAINBOW, three steps every 40 ms
 .equ MX_LOUD_PHASE, -0x17      ; 2 bytes (low, high), the hue of METER LOUD RAINBOW in 1/256 steps, a round a bar at the tempo
+.equ METER_OFF, 9              ; METER STILL only: the still meter stays dark (bit 1 of byte 5 of the settings file)
 .equ METER_RAINBOW, 8          ; METER STILL and LOUD: the colours turn round the wheel (STILL bit 30 of the settings flags, LOUD bit 0 of byte 5)
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ M_PC, 0x158              ; the gap between the two settings buffers (M_FILE_A ends at 0x158, M_FILE_B starts at 0x160)
@@ -86,7 +87,7 @@
 .equ M_RAW, 0xE8
 .equ M_TOP, 0xEC
 .equ M_TABW, 0xF0
-.equ M_DESC_TOP, 0xF4           ; IMPORT PLUGIN with a plugin open (M_LISTED 2): the first line of its description on the screen
+.equ M_DESC_TOP, 0xF4           ; DESCRIPTION with the description read (M_LISTED 2): the first line of it on the screen
 .equ M_DESC_N, 0xF8             ; byte: the lines of that description
 .equ M_DESC_ON, 0xF9            ; byte: 1 while the picture of the description is on the display (script_display_blit copies it)
 .equ M_CAL_ON, 0xFA             ; byte: 1 while the calibration picture is on the display (script_calibrate.s)
@@ -267,6 +268,10 @@ menu_load_meter:
     tst r2, #4                  ; bit 30, shifted down with the colours
     movne r3, #METER_RAINBOW
     strbne r3, [r4, #MX_METER]
+    ldrb r3, [r0, #5]           ; bit 1 of byte 5: STILL is OFF (a file from before has 0 there)
+    tst r3, #2
+    movne r2, #METER_OFF
+    strbne r2, [r4, #MX_METER]
     ldrb r3, [r0, #5]           ; bit 0 of byte 5: LOUD is RAINBOW
     tst r3, #1
     movne r3, #METER_RAINBOW
@@ -376,7 +381,7 @@ menu_file_read:
     bne menu_read_fail
     ldrb r0, [r7, #4]
     ldrb r1, [r7, #5]
-    bics r1, r1, #1             ; byte 5: only bit 0 (LOUD RAINBOW) may be set
+    bics r1, r1, #3             ; byte 5: only bit 0 (LOUD RAINBOW) and bit 1 (STILL OFF) may be set
     bne menu_read_fail
     cmp r0, #2
     moveq r2, #SETTINGS_SIZE
@@ -464,6 +469,11 @@ menu_settings_save:
     ldrb r1, [r4, #MX_METER+1]
     orr r2, r1, r2, lsl #3
     ldrb r1, [r4, #MX_METER]
+    cmp r1, #METER_OFF
+    moveq r1, #0                ; OFF: the three bits of STILL stay 0, bit 1 of byte 5 says it
+    ldrbeq r12, [r7, #5]
+    orreq r12, r12, #2
+    strbeq r12, [r7, #5]
     cmp r1, #METER_RAINBOW
     moveq r1, #0                ; RAINBOW: the three bits of STILL stay 0, bit 30 says it
     orr r2, r1, r2, lsl #3
@@ -957,6 +967,9 @@ meter_zone:
     ldrb r2, [r2, r3]
     cmp r2, #METER_RAINBOW
     beq meter_zone_rainbow
+    cmp r2, #METER_OFF
+    moveq r2, #0                ; OFF: the palette's black
+    beq meter_zone_palette
     cmp r2, #0
     bne meter_zone_palette
     ldr r2, =MENU_STATE
@@ -1366,8 +1379,6 @@ menu_texts_clear:
     beq menu_text_script
     cmp r0, #3
     beq menu_text_export
-    cmp r0, #4
-    beq menu_text_import
     cmp r0, #6
     beq menu_text_item
     cmp r0, #15
@@ -1413,6 +1424,8 @@ menu_texts_clear:
     beq menu_text_pdel
     cmp r0, #38
     beq menu_text_pedit
+    cmp r0, #39
+    beq menu_text_pdesc
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1440,7 +1453,7 @@ menu_text_export:
     cmp r1, #0
     bne menu_text_status_value
     b menu_text_press
-; PLUGIN EDIT, built like SAMPLE EDIT: "press [ Enter ]", or "No Plugin" when none is loaded, or what DELETE PLUGIN did
+; PLUGIN EDIT, built like SAMPLE EDIT: "press [ Enter ]", or what ENTER (No Plugin) or DELETE PLUGIN said
 menu_text_pedit:
     add r0, r5, #M_TITLE
     ldr r1, =str_pedit
@@ -1448,25 +1461,31 @@ menu_text_pedit:
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
     bne menu_text_status_value
-    ldr r1, [r5, #M_NSCRIPTS]
-    cmp r1, #0
-    bne menu_text_press
-    ldr r1, =str_noplugin       ; in the value: the menu never uses the third line beside one (as SAMPLE EDIT says "No Sample")
-    b menu_text_app_value
+    b menu_text_press
 ; SELECT PLUGIN: its name; the dial chooses the plugin the next pages are about (as SELECT SAMPLE)
 menu_text_psel:
     add r0, r5, #M_TITLE
     ldr r1, =str_psel
     bl menu_copy
     mov r0, r7
-    bl menu_entry
-    cmp r0, #0
-    ldreq r1, =str_noplugin
-    beq menu_text_app_value
-    ldr r1, [r0, #SCRIPT_ENTRY_BLOB]
-    add r1, r1, #HDR_NAME
+    bl menu_psel_name
     add r0, r5, #M_VALUE
     bl menu_copy16
+    pop {r4, r5, r6, r7, pc}
+; DESCRIPTION: the description of the plugin, from the file behind its block, drawn as a picture (menu_desc_frame); the value line
+; under it is the plugin's state, or what went wrong reading the file. The dial scrolls.
+menu_text_pdesc:
+    ldr r0, [r5, #M_LISTED]
+    cmp r0, #2
+    blne menu_desc_load
+    mov r0, r7
+    bl menu_entry
+    bl menu_state_text
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status
     pop {r4, r5, r6, r7, pc}
 ; DELETE PLUGIN: "press [ Enter ]"; the first ENTER asks, the second deletes (menu_delete)
 menu_text_pdel:
@@ -1489,36 +1508,6 @@ menu_text_item:
     add r0, r5, #M_VALUE
     bl menu_dec
     pop {r4, r5, r6, r7, pc}
-; IMPORT PLUGIN: "press [ Enter ]"; in the list (and with a plugin open) the plugin's name and its state or what was done
-menu_text_import:
-    ldr r0, [r5, #M_LISTED]
-    ldr r2, [r5, #M_IMP_N]
-    cmp r0, #0
-    cmpne r2, #0
-    bne menu_text_import_name
-    add r0, r5, #M_TITLE
-    ldr r1, =str_import
-    bl menu_copy
-    ldr r1, [r5, #M_LISTED]
-    cmp r1, #0
-    ldrne r1, =str_no_files
-    bne menu_text_app_value
-    ldr r1, [r5, #M_STATUS]
-    cmp r1, #0
-    bne menu_text_status_value
-    b menu_text_press
-menu_text_import_name:
-    ldr r1, [r5, #M_IMP_SEL]
-    ldr r3, =HOOK_CARD
-    add r3, r3, #LIST_TITLES
-    add r1, r3, r1, lsl #4
-    add r0, r5, #M_TITLE
-    bl menu_copy16
-    ldr r1, [r5, #M_STATUS]
-    cmp r1, #0
-    bne menu_text_status_value
-    bl menu_listed_state
-    b menu_text_app_value
 menu_text_app:
     ldr r1, =APP_STATE
     add r6, r1, #SCRIPT_APPS_TABLE
@@ -1544,7 +1533,7 @@ menu_text_script:
     mov r0, r7
     bl menu_entry
     movs r6, r0
-    beq menu_text_done
+    beq menu_text_script_off
     mov r0, #0
     bl menu_title_prefix
     ldr r1, =str_state          ; the plugin's name is on SELECT PLUGIN, the page before
@@ -1564,6 +1553,13 @@ menu_text_script_value:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_script_status
+menu_text_script_off:           ; not loaded: OFF, as a plugin that is switched off; the dial up loads and starts it
+    mov r0, #0
+    bl menu_title_prefix
+    ldr r1, =str_state
+    bl menu_copy16
+    ldr r1, =str_off
+    b menu_text_script_value
 menu_text_script_fault:
     ldr r0, [r6, #SCRIPT_ENTRY_FAULT]
     cmp r0, #SCRIPT_ERROR_COUNT
@@ -1606,15 +1602,26 @@ menu_text_look:
     orrs r1, r1, r3
     moveq r7, #1
     movne r7, #0
-    add r2, r5, #M_LED_R
-    ldr r1, [r2, r6, lsl #2]
     cmp r7, #0
-    movne r1, #15
+    beq menu_text_look_hsv
+    add r0, r5, #M_VALUE
+    ldr r1, =str_stock_word
+    bl menu_copy
+    b menu_text_look_line3
+menu_text_look_hsv:             ; the colour as hue (0 to 95), saturation and brightness (0 to 15); the stored values stay red, green, blue
+    cmp r6, #3
+    addlo r0, r5, #M_LED_R
+    addhs r0, r5, #M_BL_R
+    bl look_hsv_get
+    cmp r6, #3
+    subhs r3, r6, #3
+    movlo r3, r6
+    cmp r3, #0
+    moveq r1, r0
+    cmp r3, #2
+    moveq r1, r2
     add r0, r5, #M_VALUE
     bl menu_dec
-    cmp r7, #0
-    ldrne r1, =str_stock
-    blne menu_copy
     b menu_text_look_line3
 ; INTENSITY (26) and SAVE LIGHT (27, 0 is the firmware's dim: STOCK)
 menu_text_intens:
@@ -1879,6 +1886,9 @@ menu_text_status_more:
     beq menu_text_status_go
     cmp r1, #0x37
     ldreq r1, =str_apps_full
+    beq menu_text_status_go
+    cmp r1, #0x38
+    ldreq r1, =str_noplugin
     beq menu_text_status_go
     cmp r1, #0x23
     ldreq r1, =str_nocard
@@ -2211,10 +2221,10 @@ menu_confirm_add:
 ; level. Level 3 (M_LEVEL_BLECHY) is no menu: it is a page of the ring, after Event, on which Blechy, the app built into
 ; BLECH, shows himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP behind
 ; him, right before the Pattern menu: a setting of the pattern in RAM, saved with WRITE as the Pattern menu's pages.
-; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 2 a plugin, 3 export, 4 import, 5 unused, 6 a page a
+; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 2 a plugin, 3 export, 4 and 5 unused, 6 a page a
 ; plugin added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
-; 36 SELECT PLUGIN, 37 DELETE PLUGIN, 38 PLUGIN EDIT), r1 = its index (the plugin, the page, the app's table index,
+; 36 SELECT PLUGIN, 37 DELETE PLUGIN, 38 PLUGIN EDIT, 39 DESCRIPTION), r1 = its index (the plugin, the page, the app's table index,
 ; the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
@@ -2304,16 +2314,15 @@ menu_kind_nth:
     bl app_nth
     mov r0, #15
     b menu_kind_done
-menu_kind_plugins:              ; RUNTIME, PLUGIN EDIT, EXPORT, IMPORT PLUGIN
+menu_kind_plugins:              ; RUNTIME, PLUGIN EDIT, EXPORT
     mov r1, #0
     cmp r5, #1
     movlo r0, #0
     moveq r0, #38
     cmp r5, #2
     moveq r0, #3
-    movhi r0, #4
     b menu_kind_done
-menu_kind_plugin:               ; SELECT PLUGIN, STATE, the pages the plugin added (korg.menu.add), DELETE PLUGIN
+menu_kind_plugin:               ; SELECT PLUGIN, STATE, DESCRIPTION, the pages the plugin added (korg.menu.add), DELETE PLUGIN
     ldrb r0, [r4, #M_PSEL]
     mov r1, r0
     cmp r5, #1
@@ -2321,8 +2330,11 @@ menu_kind_plugin:               ; SELECT PLUGIN, STATE, the pages the plugin add
     blo menu_kind_done
     moveq r0, #2
     beq menu_kind_done
+    cmp r5, #2
+    moveq r0, #39
+    beq menu_kind_done
     bl menu_entry
-    sub r1, r5, #2
+    sub r1, r5, #3
     bl menu_item_nth
     cmp r0, #0
     movge r1, r0
@@ -2396,14 +2408,17 @@ menu_count_apps:
 menu_count_out:
     pop {r4, pc}
 menu_count_plugins:
-    mov r0, #4
+    mov r0, #3
     pop {r4, pc}
-menu_count_plugin:
+menu_count_plugin:              ; a plugin that is not loaded has SELECT PLUGIN, STATE and DESCRIPTION only
     ldrb r0, [r4, #M_PSEL]
     bl menu_entry
+    cmp r0, #0
+    moveq r0, #3
+    popeq {r4, pc}
     mvn r1, #0
     bl menu_item_nth
-    add r0, r1, #3
+    add r0, r1, #4
     pop {r4, pc}
 .pool
 
@@ -2897,6 +2912,9 @@ menu_import_unique:
     cmp r0, #0
     beq menu_import_load
     ldr r1, [r0, #SCRIPT_ENTRY_BLOB]
+    ldrb r2, [r1, #HDR_FLAGS+1]
+    tst r2, #BLOCK_DELETED_HI
+    bne menu_import_next        ; a deleted plugin's block stays in the pool until the next start; its file can be loaded again
     ldr r2, [r1, #HDR_NAME]
     ldr r3, [r9, #HDR_NAME]
     cmp r2, r3
@@ -2956,12 +2974,6 @@ menu_import_armed:
     mov r0, #1
     str r0, [r7, #RT_ARMED]
     bl menu_recount
-    ldr r0, [r4, #M_NSCRIPTS]
-    ldr r1, [r4, #M_ITEMS_N]
-    add r0, r0, r1
-    add r0, r0, #2
-    str r0, [r4, #M_PAGE]           ; the page IMPORT PLUGIN again, behind the page the plugin got
-    str r0, [r4, #M_ENTER]
     ldr r0, [r4, #M_STATUS]
     cmp r0, #0x37
     movne r0, #0
@@ -3061,11 +3073,10 @@ menu_list_title_no:
     mov r0, #0
     pop {r4-r6, pc}
 
-; -> r0 = the loaded plugin (not Blechy) with the name of the one selected in the list, 0 when none. Clobbers r0 to r3 and r12.
-menu_listed_entry:
+; r0 = a file's index in the list -> r0 = the loaded plugin (not Blechy, not a deleted one) with the name of that file, 0 when none.
+; Clobbers r1 to r3 and r12.
+menu_file_entry:
     push {r4, lr}
-    ldr r0, =MENU_STATE
-    ldr r0, [r0, #M_IMP_SEL]
     ldr r4, =HOOK_CARD
     add r4, r4, #LIST_TITLES
     add r4, r4, r0, lsl #4
@@ -3073,33 +3084,35 @@ menu_listed_entry:
     ldr r0, [r0, #RT_HEAD]
     cmn r0, #1
     moveq r0, #0
-menu_listed_loop:
+menu_file_entry_loop:
     cmp r0, #0
     popeq {r4, pc}
     ldr r1, [r0, #SCRIPT_ENTRY_BLOB]
     ldr r2, =HOOK_POOL
     cmp r1, r2
-    blo menu_listed_next
+    blo menu_file_entry_next
+    ldrb r3, [r1, #HDR_FLAGS+1]
+    tst r3, #BLOCK_DELETED_HI
+    bne menu_file_entry_next
     add r1, r1, #HDR_NAME
     mov r2, #0
-menu_listed_cmp:
+menu_file_entry_cmp:
     ldr r3, [r1, r2]
     ldr r12, [r4, r2]
     cmp r3, r12
-    bne menu_listed_next
+    bne menu_file_entry_next
     add r2, r2, #4
     cmp r2, #16
-    blo menu_listed_cmp
+    blo menu_file_entry_cmp
     pop {r4, pc}
-menu_listed_next:
+menu_file_entry_next:
     ldr r0, [r0, #SCRIPT_ENTRY_NEXT]
-    b menu_listed_loop
+    b menu_file_entry_loop
 
-; -> r1 = the state of the plugin selected in the list: ON, OFF (also when it is not loaded), FAULT or ENTER=ALLOW.
+; r0 = a script entry, 0 for a plugin that is not loaded -> r1 = its state: ON, OFF (also not loaded), FAULT or ENTER=ALLOW.
 ; Clobbers r0 to r3 and r12.
-menu_listed_state:
+menu_state_text:
     push {r4, lr}
-    bl menu_listed_entry
     movs r4, r0
     ldreq r1, =str_off
     popeq {r4, pc}
@@ -3110,6 +3123,7 @@ menu_listed_state:
     ldr r1, =str_fault
     cmp r2, #SCRIPT_STATE_DISABLED
     popeq {r4, pc}
+    mov r0, r4
     bl menu_needs_confirm
     cmp r0, #0
     ldrne r1, =str_enter_allow
@@ -3117,8 +3131,141 @@ menu_listed_state:
     pop {r4, pc}
 .pool
 
-; ENTER on a file of the list: reads the description behind its block (DESC_TRAILER) into LIST_DESC and opens the plugin
-; (M_LISTED 2). M_STATUS 0x20 + the FatFs code when the file does not open. Clobbers r0 to r3 and r12.
+; The list of PLUGIN EDIT is the loaded plugins in their order (menu_entry), then the plugins of the listed files that are not loaded,
+; in the order of the files. M_PSEL counts through both.
+; r0 = a plugin's index in it -> r0 = the index of its file in the list of files, -1 when it has none (a plugin only in e2sPlugin.all).
+; Clobbers r1 to r3 and r12.
+menu_psel_file:
+    push {r4-r6, lr}
+    mov r6, r0
+    bl menu_entry
+    mov r5, r0
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_NSCRIPTS]
+    sub r6, r6, r0              ; the place among the plugins that are not loaded, when it is one
+    mov r4, #0
+menu_psel_file_loop:
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_IMP_N]
+    cmp r4, r0
+    bhs menu_psel_file_none
+    mov r0, r4
+    bl menu_file_entry
+    cmp r5, #0
+    beq menu_psel_file_free
+    cmp r0, r5
+    beq menu_psel_file_found
+    b menu_psel_file_next
+menu_psel_file_free:
+    cmp r0, #0
+    bne menu_psel_file_next
+    cmp r6, #0
+    beq menu_psel_file_found
+    sub r6, r6, #1
+menu_psel_file_next:
+    add r4, r4, #1
+    b menu_psel_file_loop
+menu_psel_file_found:
+    mov r0, r4
+    pop {r4-r6, pc}
+menu_psel_file_none:
+    mvn r0, #0
+    pop {r4-r6, pc}
+.pool
+
+; -> r0 = how many plugins the list of PLUGIN EDIT has. Clobbers r1 to r3 and r12.
+menu_psel_total:
+    push {r4, r5, lr}
+    ldr r0, =MENU_STATE
+    ldr r5, [r0, #M_NSCRIPTS]
+    mov r4, #0
+menu_psel_total_loop:
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_IMP_N]
+    cmp r4, r0
+    bhs menu_psel_total_done
+    mov r0, r4
+    bl menu_file_entry
+    cmp r0, #0
+    addeq r5, r5, #1
+    add r4, r4, #1
+    b menu_psel_total_loop
+menu_psel_total_done:
+    mov r0, r5
+    pop {r4, r5, pc}
+.pool
+
+; r0 = a plugin's index in the list of PLUGIN EDIT -> r1 = its name, a zero terminated text: from its block, or from its file when it is
+; not loaded. Clobbers r0 to r3 and r12.
+menu_psel_name:
+    push {r4, lr}
+    mov r4, r0
+    bl menu_entry
+    cmp r0, #0
+    ldrne r1, [r0, #SCRIPT_ENTRY_BLOB]
+    addne r1, r1, #HDR_NAME
+    popne {r4, pc}
+    mov r0, r4
+    bl menu_psel_file
+    cmp r0, #0
+    ldrlt r1, =str_noplugin
+    poplt {r4, pc}
+    ldr r1, =HOOK_CARD
+    add r1, r1, #LIST_TITLES
+    add r1, r1, r0, lsl #4
+    pop {r4, pc}
+.pool
+
+; Loads and starts the plugin SELECT PLUGIN chose when it is not loaded (the dial up on STATE, or ENTER there), from its file. A
+; plugin that loaded takes the next place among the loaded ones, which M_PSEL then points at. M_STATUS says what went wrong.
+; Clobbers r0 to r3 and r12.
+menu_load_psel:
+    push {r4, r5, lr}
+    ldr r4, =MENU_STATE
+    mov r0, #0
+    str r0, [r4, #M_STATUS]
+    ldr r5, [r4, #M_NSCRIPTS]
+    ldrb r0, [r4, #M_PSEL]
+    bl menu_psel_file
+    str r0, [r4, #M_IMP_SEL]
+    cmp r0, #0
+    movlt r0, #0x31
+    strlt r0, [r4, #M_STATUS]
+    poplt {r4, r5, pc}
+    bl menu_import
+    ldr r0, [r4, #M_NSCRIPTS]
+    cmp r0, r5
+    strbhi r5, [r4, #M_PSEL]
+    pop {r4, r5, pc}
+.pool
+
+; The page DESCRIPTION of the plugin SELECT PLUGIN chose: its file (a plugin that is only in e2sPlugin.all has none, its description
+; is empty) is read by menu_desc_open. Clobbers r0 to r3 and r12.
+menu_desc_load:
+    push {r4, lr}
+    ldr r4, =MENU_STATE
+    ldrb r0, [r4, #M_PSEL]
+    bl menu_psel_file
+    str r0, [r4, #M_IMP_SEL]
+    cmp r0, #0
+    bge menu_desc_load_file
+    mov r0, #0
+    ldr r1, =HOOK_CARD
+    add r1, r1, #LIST_DESC
+    strb r0, [r1]
+    strb r0, [r4, #M_DESC_N]
+    str r0, [r4, #M_DESC_TOP]
+    str r0, [r4, #M_STATUS]
+    mov r0, #2
+    str r0, [r4, #M_LISTED]
+    pop {r4, pc}
+menu_desc_load_file:
+    bl menu_desc_open
+    pop {r4, pc}
+.pool
+
+; Reads the description behind the block of the file M_IMP_SEL (DESC_TRAILER) into LIST_DESC and marks it open (M_LISTED 2).
+; M_STATUS 0x20 + the FatFs code when the file does not open. Clobbers r0 to r3 and r12.
 menu_desc_open:
     push {r4-r7, lr}
     ldr r4, =MENU_STATE
@@ -3197,39 +3344,8 @@ menu_desc_status:
     pop {r4-r7, pc}
 .pool
 
-; ENTER with a plugin open: one not loaded is imported and started, a running one switched off, one switched off on again, a
-; foreign one allowed. Clobbers r0 to r3 and r12.
-menu_desc_toggle:
-    push {r4, lr}
-    ldr r0, =MENU_STATE
-    mov r1, #0
-    str r1, [r0, #M_STATUS]
-    bl menu_listed_entry
-    movs r4, r0
-    bne menu_toggle_loaded
-    bl menu_import
-    pop {r4, pc}
-menu_toggle_loaded:
-    ldr r1, [r4, #SCRIPT_ENTRY_STATE]
-    cmp r1, #SCRIPT_STATE_ARMED
-    moveq r1, #SCRIPT_STATE_LOADED
-    streq r1, [r4, #SCRIPT_ENTRY_STATE]
-    popeq {r4, pc}
-    cmp r1, #SCRIPT_STATE_LOADED
-    popne {r4, pc}
-    bl menu_needs_confirm
-    cmp r0, #0
-    mov r0, r4
-    bne menu_toggle_allow
-    bl menu_script_on
-    pop {r4, pc}
-menu_toggle_allow:
-    bl menu_confirm
-    pop {r4, pc}
-.pool
-
-; r5 = MENU_STATE. With a plugin open in IMPORT PLUGIN: its name, its description from M_DESC_TOP and the value line (its state
-; or what was done) go into the runtime's picture, which script_display_blit puts on the display, and the three text lines of
+; r5 = MENU_STATE. On the page DESCRIPTION with the description read: the plugin's name, its description from M_DESC_TOP and the value
+; line (its state or what was done) go into the runtime's picture, which script_display_blit puts on the display, and the three text lines of
 ; the firmware stay empty. When that picture was up and is no more, the firmware draws its whole screen again. Clobbers r0 to
 ; r3 and r12.
 menu_desc_frame:
@@ -3240,13 +3356,12 @@ menu_desc_frame:
     bne menu_desc_frame_off
     ldr r0, [r8, #M_PAGE]
     bl menu_kind
-    cmp r0, #4
+    cmp r0, #39
     bne menu_desc_frame_off
     bl display_clear
-    ldr r4, =HOOK_CARD
-    ldr r0, [r8, #M_IMP_SEL]
-    add r4, r4, #LIST_TITLES
-    add r4, r4, r0, lsl #4
+    ldrb r0, [r8, #M_PSEL]
+    bl menu_psel_name
+    mov r4, r1
     mov r5, #4                  ; 4 pixels from the sides, 2 from top and bottom, as the firmware's menus (device 19.10.)
     mov r6, #2
     bl display_draw_text
@@ -3325,12 +3440,6 @@ menu_desc_frame_line:
     mov r5, #4
     mov r6, #55
     bl display_draw_text
-    ldr r0, [r8, #M_STATUS]
-    cmp r0, #0
-    ldreq r4, =str_enter_key
-    moveq r5, #124-7*6+1
-    moveq r6, #55
-    bleq display_draw_text
     mov r0, #0
     strb r0, [r8, #M_TITLE]
     strb r0, [r8, #M_VALUE]
@@ -3514,6 +3623,8 @@ menu_slot_value:
     cmp r0, #28
     cmpne r0, #31
     moveq r2, #METER_RAINBOW    ; STILL and LOUD have RAINBOW behind the palette
+    cmp r0, #28
+    moveq r2, #METER_OFF        ; STILL has OFF behind RAINBOW
     sub r3, r0, #28
     cmp r3, #3
     subls r3, r3, #-MX_METER
@@ -3526,6 +3637,8 @@ menu_slot_value:
     beq menu_value_ledsave
     cmp r0, #36
     beq menu_value_psel
+    cmp r0, #39
+    beq menu_value_desc
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
@@ -3567,14 +3680,14 @@ menu_value_mg:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
-; SELECT PLUGIN: 0 to the last loaded plugin, no wrap (as SELECT SAMPLE)
+; SELECT PLUGIN: 0 to the last plugin of the list (loaded ones first), no wrap (as SELECT SAMPLE)
 menu_value_psel:
+    bl menu_psel_total
+    subs r2, r0, #1
+    movmi r2, #0
     ldrb r1, [r6, #M_PSEL]
     adds r1, r1, r5
     movmi r1, #0
-    ldr r2, [r6, #M_NSCRIPTS]
-    subs r2, r2, #1
-    movmi r2, #0
     cmp r1, r2
     movgt r1, r2
     strb r1, [r6, #M_PSEL]
@@ -3648,51 +3761,13 @@ menu_value_look:
 menu_value_level:
     cmp r0, #14
     beq menu_value_invert
-    sub r2, r0, #8
-    cmp r2, #3
-    addlo r12, r6, #M_LED_R
-    addhs r12, r6, #M_BL_R
-    ldr r1, [r12]
-    ldr r3, [r12, #4]
-    orr r1, r1, r3
-    ldr r3, [r12, #8]
-    orrs r1, r1, r3
-    bne menu_value_level_set
-    ; all three zero is the stock state, which the page shows as 15 each: up changes nothing, down starts from 15 each; all three
-    ; turned back up to 15 is the stock state again, and the last channel cannot go to 0 while the other two are (that would be stock)
-    cmp r5, #0
-    bge menu_value_look_done
-    mov r1, #15
-    str r1, [r12]
-    str r1, [r12, #4]
-    str r1, [r12, #8]
-menu_value_level_set:
-    add r3, r6, #M_LED_R
-    ldr r1, [r3, r2, lsl #2]
-    add r1, r1, r5
-    cmp r1, #0
-    movlt r1, #0
-    cmp r1, #15
-    movgt r1, #15
-    str r1, [r3, r2, lsl #2]
-    ldr r1, [r12]
-    ldr r0, [r12, #4]
-    and r1, r1, r0
-    ldr r0, [r12, #8]
-    and r1, r1, r0
-    cmp r1, #15                 ; 15 15 15: the stock state
-    moveq r1, #0
-    streq r1, [r12]
-    streq r1, [r12, #4]
-    streq r1, [r12, #8]
-    beq menu_value_look_done
-    ldr r1, [r12]
-    ldr r0, [r12, #4]
-    orr r1, r1, r0
-    ldr r0, [r12, #8]
-    orrs r1, r1, r0             ; 0 0 0 would read as stock: the channel turned down stays at 1
-    moveq r1, #1
-    streq r1, [r3, r2, lsl #2]
+    sub r1, r0, #8              ; 0 to 5: HUE, SAT, BRIGHT of the LEDs, then of the backlight
+    cmp r1, #3
+    addlo r0, r6, #M_LED_R
+    addhs r0, r6, #M_BL_R
+    subhs r1, r1, #3
+    mov r2, r5
+    bl look_hsv_step
     b menu_value_look_done
 menu_value_invert:
     mov r1, #1
@@ -3743,8 +3818,6 @@ menu_value_na:
     str r3, [r6, #M_STATUS]
     b menu_value_done
 menu_value_script:
-    cmp r0, #4
-    beq menu_value_import
     cmp r0, #6
     beq menu_value_item
     cmp r0, #2
@@ -3752,7 +3825,7 @@ menu_value_script:
     mov r0, r1
     bl menu_entry
     cmp r0, #0
-    beq menu_value_done
+    beq menu_value_unloaded
     mov r6, r0
     bl menu_needs_confirm
     cmp r0, #0
@@ -3773,6 +3846,10 @@ menu_value_done:
     mov r0, r4
     bl menu_show
     pop {r4, r5, r6, pc}
+menu_value_unloaded:            ; not loaded: the dial up loads and starts it, down does nothing
+    cmp r5, #0
+    blgt menu_load_psel
+    b menu_value_done
 menu_value_script_on:
     bl menu_script_on
     b menu_value_done
@@ -3818,29 +3895,11 @@ menu_value_item:
     bl script_ring_post
     add sp, sp, #16
     b menu_value_done
-menu_value_import:
+; DESCRIPTION: the dial scrolls it line by line
+menu_value_desc:
     ldr r2, [r6, #M_LISTED]
     cmp r2, #2
-    beq menu_value_desc
-    cmp r2, #0
-    beq menu_value_done
-    ldr r2, [r6, #M_IMP_N]
-    cmp r2, #0
-    beq menu_value_done
-    ldr r3, [r6, #M_IMP_SEL]
-    cmp r5, #0
-    addgt r3, r3, #1
-    suble r3, r3, #1
-    cmp r3, #0
-    addlt r3, r2, r3
-    cmp r3, r2
-    movhs r3, #0
-    str r3, [r6, #M_IMP_SEL]
-    mov r3, #0
-    str r3, [r6, #M_STATUS]
-    b menu_value_done
-; a plugin open: the dial scrolls its description line by line
-menu_value_desc:
+    bne menu_value_done
     ldr r3, [r6, #M_DESC_TOP]
     add r3, r3, r5
     ldrb r2, [r6, #M_DESC_N]
@@ -3854,7 +3913,7 @@ menu_value_desc:
     b menu_value_done
 .pool
 
-; r1 = key, r2 = 1 pressed. MENU (ENTER) goes into a group, opens an app, imports or exports; WRITE does that and saves.
+; r1 = key, r2 = 1 pressed. MENU (ENTER) goes into a group, opens an app or exports; WRITE does that and saves.
 menu_slot_keys:
     cmp r2, #1
     bxne lr
@@ -3875,8 +3934,6 @@ menu_slot_keys:
     beq menu_keys_app
     cmp r0, #3
     beq menu_keys_export
-    cmp r0, #4
-    beq menu_keys_import
     cmp r0, #19
     cmpne r0, #33
     beq menu_keys_done
@@ -3890,6 +3947,11 @@ menu_slot_keys:
     beq menu_keys_pedit
     cmp r0, #37
     beq menu_keys_pdel
+    cmp r0, #39
+    beq menu_keys_done
+    cmp r0, #2
+    cmpeq r6, #0x09
+    beq menu_keys_load
     cmp r6, #0x09
     beq menu_keys_done
     cmp r0, #2
@@ -3908,6 +3970,12 @@ menu_slot_keys:
     mov r0, r5
     bl menu_confirm
     b menu_keys_done
+menu_keys_load:                 ; ENTER on STATE: a plugin that is not loaded is loaded and started
+    mov r0, r1
+    bl menu_entry
+    cmp r0, #0
+    bleq menu_load_psel
+    b menu_keys_done
 menu_keys_group:
     mov r0, r1
     mov r1, r4
@@ -3922,13 +3990,21 @@ menu_keys_app:
     mov r0, #1
     mov r1, #0
     ldr pc, =SWITCH_SCREEN
-; PLUGIN EDIT: ENTER opens the pages of the plugin SELECT PLUGIN chose last (level 5), WRITE saves as on the other pages
+; PLUGIN EDIT: ENTER reads the files of the plugin folder and opens the pages of the plugin SELECT PLUGIN chose last (level 5), "No Plugin"
+; when there is none, WRITE saves as on the other pages
 menu_keys_pedit:
     cmp r6, #0x09
     bne menu_keys_save
+    bl menu_list
     ldr r2, =MENU_STATE
-    ldr r0, [r2, #M_NSCRIPTS]
+    mov r0, #0
+    str r0, [r2, #M_LISTED]
+    str r0, [r2, #M_STATUS]
+    bl menu_psel_total
+    ldr r2, =MENU_STATE
     cmp r0, #0
+    moveq r1, #0x38
+    streq r1, [r2, #M_STATUS]
     beq menu_keys_done
     ldrb r1, [r2, #M_PSEL]
     cmp r1, r0
@@ -3960,27 +4036,6 @@ menu_keys_pdel:
 menu_keys_export:
     mov r0, #0
     bl menu_export
-    b menu_keys_done
-; IMPORT PLUGIN: ENTER lists the files, opens the one in the list, then switches it on or off; WRITE there keeps the state
-menu_keys_import:
-    ldr r0, =MENU_STATE
-    ldr r1, [r0, #M_LISTED]
-    cmp r1, #1
-    beq menu_keys_import_open
-    bhi menu_keys_import_toggle
-    mov r1, #0
-    str r1, [r0, #M_STATUS]
-    bl menu_list
-    b menu_keys_done
-menu_keys_import_open:
-    ldr r1, [r0, #M_IMP_N]
-    cmp r1, #0
-    blne menu_desc_open
-    b menu_keys_done
-menu_keys_import_toggle:
-    cmp r6, #0x0E
-    beq menu_keys_save
-    bl menu_desc_toggle
     b menu_keys_done
 menu_keys_splash_import:
     cmp r6, #0x09
@@ -4016,7 +4071,7 @@ menu_keys_done:
 .pool
 
 ; Slot 2 of the class, the firmware's handler for the keys no other slot takes (this, key, pressed): EXIT calls
-; SWITCH_SCREEN(1, 0) there. Below level 0 EXIT goes one level up (out of the open plugin and the list of IMPORT first); every other key,
+; SWITCH_SCREEN(1, 0) there. Below level 0 EXIT goes one level up (out of the pages of a plugin first); every other key,
 ; and EXIT on level 0, is the firmware's own.
 menu_slot_exit:
     cmp r1, #13
@@ -4037,14 +4092,6 @@ menu_slot_exit:
     ldr r12, [r2, #M_GROUP]
     cmp r12, #5
     bhs menu_exit_sub
-    ldr r12, [r2, #M_LISTED]
-    cmp r12, #0
-    beq menu_exit_up
-    sub r12, r12, #1            ; out of the plugin back to the list, out of the list back to the page
-    str r12, [r2, #M_LISTED]
-    mov r3, #0
-    str r3, [r2, #M_STATUS]
-    b menu_exit_show
 menu_exit_up:
     mov r12, #0
     str r12, [r2, #M_STATUS]
@@ -4071,6 +4118,7 @@ menu_exit_plugin:                ; out of the pages of one plugin: back to PLUGI
     str r12, [r2, #M_ENTER]
     mov r12, #0
     str r12, [r2, #M_STATUS]
+    str r12, [r2, #M_LISTED]
     b menu_exit_show
 menu_exit_sub:                   ; out of DISPLAY, LED, PAD COLOR, POWER SAVE or SPLASH: back to its row in CUSTOMIZATION
     sub r12, r12, #5
@@ -4195,14 +4243,10 @@ str_open_enter:
     .asciz "ENTER=OPEN"
 str_no_files:
     .asciz "no files"
-str_import:
-    .asciz "IMPORT PLUGIN"
 str_enter_allow:
     .asciz "ENTER=ALLOW"
 str_no_desc:
     .asciz "no description"
-str_enter_key:
-    .asciz "[ENTER]"
 str_up:
     .asciz "^"
 str_down:
@@ -4251,24 +4295,22 @@ str_meter:
     .asciz "METER"
 str_color:
     .asciz "COLOR"
-str_stock:
-    .asciz " stock"
 str_custom:
     .asciz "CUSTOMIZATION"
 str_features:
     .asciz "FEATURES"
 str_led_red:
-    .asciz "LED RED"
+    .asciz "LED HUE"
 str_led_green:
-    .asciz "LED GREEN"
+    .asciz "LED SAT"
 str_led_blue:
-    .asciz "LED BLUE"
+    .asciz "LED BRIGHT"
 str_bl_red:
-    .asciz "BACKLIGHT RED"
+    .asciz "BACKLIGHT HUE"
 str_bl_green:
-    .asciz "BACKLIGHT GREEN"
+    .asciz "BACKLIGHT SAT"
 str_bl_blue:
-    .asciz "BACKLIGHT BLUE"
+    .asciz "BACKLIGHT BRIGHT"
 str_invert:
     .asciz "DISPLAY INVERT"
 str_splash_import:
@@ -4320,7 +4362,7 @@ meter_titles:
 over_names:
     .word str_auto, str_c_red, str_c_blue, str_c_pink
 colour_names:
-    .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink, str_c_rainbow
+    .word str_stock_word, str_c_white, str_c_red, str_c_green, str_c_blue, str_c_yellow, str_c_cyan, str_c_pink, str_c_rainbow, str_off
 look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
 str_once:

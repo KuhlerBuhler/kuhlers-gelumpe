@@ -4,14 +4,14 @@
  */
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
-import { LANGUAGES, language, setLanguage, t, translate } from "./i18n.mjs";
+import { LANGUAGES, language, loadLanguage, setLanguage, systemLanguage, t, translate } from "./i18n.mjs";
 
 const KEY = "cee.settings";
 
 const FIELDS = [
-  // Shown once there is more than one language; until then it only keeps the choice.
+  // Starts with the system's language when there is a table for it, German otherwise.
   {
-    id: "language", type: "choice", default: "de",
+    id: "language", type: "choice", default: systemLanguage(),
     label: "settings.language", options: LANGUAGES, raw: true,
   },
   {
@@ -29,7 +29,7 @@ try { values = JSON.parse(localStorage.getItem(KEY) ?? "{}") ?? {}; } catch { va
 
 export const get = id => values[id] ?? FIELDS.find(f => f.id === id).default;
 
-setLanguage(get("language"));
+await loadLanguage(get("language"));
 let shown = null;
 
 function save() {
@@ -57,6 +57,8 @@ export function apply() {
 export function set(id, value) {
   values = { ...values, [id]: value };
   save();
+  // Most pages build their texts once, so a new language takes a fresh start of the page.
+  if (id === "language" && value !== language()) { location.reload(); return; }
   apply();
 }
 

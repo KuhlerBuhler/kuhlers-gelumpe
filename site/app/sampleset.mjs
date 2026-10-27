@@ -1,12 +1,15 @@
 /**
  * The Samples page: the samples on the card (KORG/<folder>/Sample/e2sSample.all), listed, added and removed. The file comes
- * from a card reader. Changes are staged and written in one go; what is removed leaves no gap (src/sample-file.mjs).
+ * from a card reader or from the connected Electribe over USB (src/usb-sample-file.mjs). Changes are staged and written in one
+ * go; what is removed leaves no gap (src/sample-file.mjs).
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, FIRST_USER, LAST_USER } from "../../src/sample-file.mjs";
+import { readDeviceSamples, downloadDeviceSamples, writeDeviceChange, needsCompaction, inspectTemp, finishTemp, discardTemp, SwapInterrupted } from "../../src/usb-sample-file.mjs";
 import { t, tNodes } from "./i18n.mjs";
+import { number } from "../../src/text.mjs";
 
 const restart = () => t("sampleset.restart");
 
@@ -16,11 +19,13 @@ const pill = (tone, word) => {
   return p;
 };
 
-const size = bytes => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1).replace(".", ",")} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
-const seconds = s => `${s.frames && s.rate ? (s.frames / s.rate).toFixed(2).replace(".", ",") : "0"} s`;
-const format = s => t("sampleset.format", { rate: s.rate / 1000, bits: s.bits, channels: s.channels === 2 ? t("sampleset.stereo") : t("sampleset.mono") }).replace(".", ",");
+const size = bytes => (bytes >= 1048576 ? `${number(Number((bytes / 1048576).toFixed(1)), { useGrouping: false, minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+const seconds = s => `${s.frames && s.rate ? number(Number((s.frames / s.rate).toFixed(2)), { useGrouping: false, minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0"} s`;
+const format = s => t("sampleset.format", { rate: number(s.rate / 1000, { useGrouping: false }), bits: s.bits, channels: s.channels === 2 ? t("sampleset.stereo") : t("sampleset.mono") });
 
-export function samplesFilePage(root) {
+export function samplesFilePage(root, { device = null } = {}) {
+  let source = "file";
+  let busy = false;
   let base = null;
   let parsed = null;
   let removed = new Set();
@@ -34,7 +39,10 @@ export function samplesFilePage(root) {
   ]);
   const pick = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-file", accept: ".all,.ALL" });
   const wavs = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-wav", accept: ".wav,.WAV,audio/wav", multiple: true, disabled: true });
+  const fromDevice = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-device", textContent: t("sampleset.device.read"), disabled: true, onclick: () => loadFromDevice() });
+  const download = el("button", { type: "button", className: "btn", id: "cee-sf-download", textContent: t("sampleset.device.download"), disabled: true, onclick: () => downloadFromDevice() });
   const save = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-save", textContent: t("common.save"), disabled: true });
+  const job = el("div", { className: "ui-job", id: "cee-sf-job", hidden: true });
   const reset = el("button", { type: "button", className: "btn", id: "cee-sf-reset", textContent: t("sampleset.reset"), disabled: true });
   const summary = el("p", { className: "muted", id: "cee-sf-summary", role: "status" });
   const list = el("ul", { className: "ui-list cee-sf-list", id: "cee-sf-list", hidden: true });
@@ -43,16 +51,21 @@ export function samplesFilePage(root) {
   ]);
   const wavZone = dropzone(wavs, "sampleset.wav.drag", "sampleset.wav.hint");
   const actions = el("div", { className: "actions" }, [save, reset]);
-  root.replaceChildren(intro, dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), wavZone, summary, list, actions);
+  root.replaceChildren(intro, el("div", { className: "actions" }, [fromDevice, download]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), wavZone, job, summary, list, actions);
 
   const taken = () => new Set([...parsed.samples.filter(s => !removed.has(s.slot)).map(s => s.slot), ...added.map(a => a.slot)]);
   const dirty = () => removed.size > 0 || added.length > 0;
 
+  const session = () => (device?.session && !device.session.sender.disconnected ? device.session : null);
+
   function render() {
     list.replaceChildren();
-    wavs.disabled = !parsed;
+    fromDevice.disabled = download.disabled = busy || !session();
+    pick.disabled = busy;
+    wavs.disabled = !parsed || busy;
     wavZone.hidden = actions.hidden = !parsed;
-    save.disabled = reset.disabled = !dirty();
+    save.textContent = source === "device" ? t("sampleset.device.write") : t("common.save");
+    save.disabled = reset.disabled = !dirty() || busy;
     list.hidden = !parsed?.samples.length && !added.length;
     if (!parsed) { summary.textContent = ""; return; }
     const kept = parsed.samples.filter(s => !removed.has(s.slot));
@@ -63,7 +76,7 @@ export function samplesFilePage(root) {
       ...added.map(a => ({ slot: a.slot, name: a.name, rate: a.rate, bits: a.bits, channels: a.channels, frames: a.frames, length: a.bytes.length, problem: null, state: "new" })),
     ].sort((a, b) => a.slot - b.slot);
     for (const s of rows) {
-      const button = el("button", { type: "button", className: "btn sm", textContent: s.state === "removed" ? t("sampleset.keep") : t("common.remove") });
+      const button = el("button", { type: "button", className: "btn sm", textContent: s.state === "removed" ? t("sampleset.keep") : t("common.remove"), disabled: busy });
       button.dataset.slot = String(s.slot + 1);
       button.addEventListener("click", () => {
         if (s.state === "new") added = added.filter(a => a.slot !== s.slot);
@@ -87,11 +100,107 @@ export function samplesFilePage(root) {
   }
 
   function load(bytes) {
+    source = "file";
     base = bytes;
     parsed = parseSampleFile(bytes);
     removed = new Set();
     added = [];
     render();
+  }
+
+  /** The progress of a running job in the page: its phase and how far it is; `cancel` adds a button that stops it. */
+  function progress(name, cancel) {
+    job.hidden = false;
+    const bar = el("div", { className: "ui-progress", role: "progressbar" }, [el("span", { className: "ui-progress-bar" })]);
+    bar.setAttribute("aria-valuemin", "0");
+    bar.setAttribute("aria-valuemax", "100");
+    const meta = el("span", { className: "ui-job-meta" });
+    const stop = cancel ? el("div", { className: "ui-job-actions" }, el("button", { type: "button", className: "btn", id: "cee-sf-cancel", textContent: t("common.cancel"), onclick: cancel })) : null;
+    job.replaceChildren(el("div", { className: "ui-job-head" }, [el("span", { className: "ui-job-name", textContent: name }), stop]), bar, meta);
+    return {
+      step(phase, done, total) { window.ui?.setProgress(bar, total ? Math.round((done / total) * 100) : 0, name); meta.textContent = phase; },
+      end() { job.hidden = true; job.replaceChildren(); },
+    };
+  }
+
+  /** Runs `work` with the buttons held; a thrown error becomes a toast, a cancel through `stop` a short note. */
+  async function busyWith(name, work, stop) {
+    busy = true;
+    render();
+    const p = progress(name, stop && (() => stop.abort()));
+    try { return await work(p); }
+    catch (e) {
+      if (stop?.signal.aborted) { toast(t("common.aborted"), "info"); return undefined; }
+      toast(e instanceof SampleFileError || e instanceof SwapInterrupted ? e.message : `${name}: ${e.message}`, "error");
+      return undefined;
+    } finally {
+      p.end();
+      busy = false;
+      render();
+    }
+  }
+
+  /** Reads the list from the Electribe. A temp file of an interrupted swap is dealt with first. */
+  async function loadFromDevice() {
+    const s = session();
+    if (!s) return;
+    await busyWith(t("sampleset.device.reading"), async p => {
+      let got = await readDeviceSamples(s, (done, total) => p.step(t("sampleset.device.readStep", { done, total }), done, total));
+      if (got.temp) {
+        const state = await inspectTemp(s);
+        if (state === "finished") {
+          const yes = await window.ui?.confirm({ title: t("sampleset.temp.finished.title"), text: t("sampleset.temp.finished.text"), confirmLabel: t("sampleset.temp.finished.confirm") });
+          if (yes) {
+            await finishTemp(s, q => p.step(q.phase, q.done, q.total));
+            toast(t("sampleset.temp.finishedDone", { restart: restart() }), "ok");
+            got = await readDeviceSamples(s);
+          } else toast(t("sampleset.temp.kept"), "info");
+        } else if (state === "broken") {
+          const yes = await window.ui?.confirm({ title: t("sampleset.temp.broken.title"), text: t("sampleset.temp.broken.text"), confirmLabel: t("sampleset.temp.broken.confirm"), danger: true });
+          if (yes) await discardTemp(s);
+        }
+      }
+      source = "device";
+      base = got.header;
+      parsed = got.parsed;
+      removed = new Set();
+      added = [];
+      toast(t("sampleset.device.read.done", { count: parsed.samples.length }), "ok");
+    });
+  }
+
+  /** The whole sample file of the card as a file on the computer, checked block by block and as a whole before it is saved. */
+  async function downloadFromDevice() {
+    const s = session();
+    if (!s) return;
+    const stop = new AbortController();
+    const got = await busyWith(t("sampleset.device.downloading"), p => downloadDeviceSamples(s, (done, total) => p.step(t("sampleset.device.downloadStep", { done: size(done), total: size(total) }), done, total), stop.signal), stop);
+    if (got === null) { toast(t("sampleset.device.downloadNone"), "info"); return; }
+    if (!got) return;
+    const broken = got.parsed.samples.filter(x => x.problem).length;
+    if (broken) toast(t("sampleset.device.downloadProblems", { count: broken }), "info", { stay: true });
+    saveFile(got.bytes, "e2sSample.all");
+  }
+
+  async function saveToDevice() {
+    const s = session();
+    if (!s) { toast(t("sampleset.device.gone"), "error"); return; }
+    const plan = planChange(base, parsed, { remove: removed, add: added.map(a => ({ slot: a.slot, bytes: a.bytes })) });
+    const rebuild = needsCompaction(parsed, plan);
+    const yes = await window.ui?.confirm({
+      title: t("sampleset.device.confirm.title"),
+      text: t("sampleset.device.confirm.text", { added: added.length, removed: removed.size, rebuild: rebuild ? t("sampleset.device.confirm.rebuild") : "", restart: restart() }),
+      confirmLabel: t("sampleset.device.confirm.label"),
+    });
+    if (!yes) return;
+    const ok = await busyWith(t("sampleset.device.write"), async p => {
+      await writeDeviceChange(s, parsed, plan, q => p.step(q.phase, q.done, q.total));
+      return true;
+    });
+    if (ok) {
+      toast(t("sampleset.device.written", { restart: restart() }), "ok");
+      await loadFromDevice();
+    } else if (session()) await loadFromDevice();
   }
 
   pick.addEventListener("change", async () => {
@@ -126,6 +235,7 @@ export function samplesFilePage(root) {
   });
 
   save.addEventListener("click", () => {
+    if (source === "device") { saveToDevice(); return; }
     const plan = planChange(base, parsed, { remove: removed, add: added.map(a => ({ slot: a.slot, bytes: a.bytes })) });
     const out = applyPlan(base, plan);
     saveFile(out, "e2sSample.all", { note: restart() });
@@ -133,6 +243,7 @@ export function samplesFilePage(root) {
   });
   reset.addEventListener("click", () => { removed = new Set(); added = []; render(); });
   render();
+  return { sessionChanged: render };
 }
 
 /** One entry as a file of its own, so the parser can read its facts. */

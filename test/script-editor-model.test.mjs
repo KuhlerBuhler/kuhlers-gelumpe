@@ -4,6 +4,7 @@ import { API, EVENTS, SCRIPT_APPS } from "../data/script/contract.mjs";
 import { KEY_NAMES, LED_NAMES } from "../data/script/names.mjs";
 import { PROPERTIES, KNOB_NAMES } from "../data/script/properties.mjs";
 import { compile } from "../src/script/compiler.mjs";
+import { render } from "../src/text.mjs";
 import { completionsAt, callAt, hoverAt, errorRange, allowedIn, rangeText } from "../src/script/editor-model.mjs";
 
 /** The text before the caret marker `|`, and the caret. */
@@ -21,7 +22,7 @@ test("korg.disp offers every korg.display entry, each with a description, its pa
   const text = display.find(o => o.label === "korg.display.text");
   assert.equal(text.detail, "(text, x, y)");
   assert.equal(text.type, "function");
-  assert.match(text.info.text, /Text/);
+  assert.match(render(text.info.text), /Text/);
   assert.deepEqual(text.info.params, [{ name: "text", range: "Text, höchstens 31 Zeichen" }, { name: "x", range: "0 bis 127" }, { name: "y", range: "0 bis 63" }]);
   assert.equal(text.info.allowed, "in allen Ereignissen außer dem Rumpf und save");
   assert.equal(text.snippet, "korg.display.text(${1:text}, ${2:x}, ${3:y})");
@@ -35,7 +36,7 @@ test("the completions after korg. cover every property and API entry once, korg.
   assert.deepEqual(result.options.filter(o => o.type === "function").map(o => o.label).filter(l => l !== "korg.onEvent"), API.map(a => a.name));
   assert.ok(labels(result).includes("korg.onEvent"));
   for (const o of result.options) {
-    assert.ok(o.info.text?.trim(), `${o.label} has a description`);
+    assert.ok(render(o.info.text)?.trim(), `${o.label} has a description`);
     assert.ok(o.snippet || o.apply, `${o.label} says what goes in`);
   }
   assert.equal(result.options.find(o => o.label === "korg.menu.add").info.allowed, "nur im Rumpf und in ready");
@@ -51,7 +52,7 @@ test("korg.knobs. offers the knob names, and a property reads differently from t
   const text = "korg.tempo = 1200;\nkorg.tempo(1200);\nlet a = korg.parts[2].step + korg.knobs.LEVEL;";
   assert.equal(hoverAt(text, 3).info.signature, "korg.tempo");
   assert.equal(hoverAt(text, 22).info.signature, "korg.tempo(tenthsBpm)");
-  assert.match(hoverAt(text, text.indexOf("parts") + 1).info.text, /korg\.parts\[i\]\.step: .*korg\.parts\[i\]\.muted: /);
+  assert.match(render(hoverAt(text, text.indexOf("parts") + 1).info.text), /korg\.parts\[i\]\.step: .*korg\.parts\[i\]\.muted: /);
   assert.equal(hoverAt(text, text.indexOf("LEVEL") + 1).info.signature, "korg.knobs.LEVEL");
 });
 
@@ -68,11 +69,11 @@ test("after korg.key. and korg.led. every name is offered with its number and it
   assert.deepEqual(labels(keys), KEY_NAMES.map(n => n.name));
   const tap = keys.options.find(o => o.label === "TAP");
   assert.equal(tap.detail, "3");
-  assert.match(tap.info.text, /Taste TAP, Code 3/);
+  assert.match(render(tap.info.text), /Taste TAP, Code 3/);
   const leds = complete("korg.led(korg.led.PAD_1|");
   assert.equal(leds.from, "korg.led(korg.led.".length);
   assert.deepEqual(labels(leds), LED_NAMES.map(n => n.name));
-  assert.match(leds.options.find(o => o.label === "PAD_1_RED").info.text, /Pad 1, rote LED, Nummer 44/);
+  assert.match(render(leds.options.find(o => o.label === "PAD_1_RED").info.text), /Pad 1, rote LED, Nummer 44/);
 });
 
 test("inside korg.onEvent(\"...\") every event but the body is offered with its handler values, and the handler goes in", () => {
@@ -81,8 +82,8 @@ test("inside korg.onEvent(\"...\") every event but the body is offered with its 
   assert.equal(result.from, `korg.onEvent("`.length);
   const press = result.options.find(o => o.label === "buttonPress");
   assert.equal(press.detail, "(key)");
-  assert.deepEqual(press.info.params, [{ name: "key", range: "Der Tastencode, zum Vergleichen mit einem Namen wie korg.key.TAP." }]);
-  assert.match(press.info.text, /Taste/);
+  assert.deepEqual(press.info.params.map(p => ({ ...p, range: render(p.range) })), [{ name: "key", range: "Der Tastencode, zum Vergleichen mit einem Namen wie korg.key.TAP." }]);
+  assert.match(render(press.info.text), /Taste/);
   assert.equal(press.snippet, 'buttonPress", (key) => {\n  ${}\n});');
   assert.equal(result.options.find(o => o.label === "frame").snippet, 'frame", () => {\n  ${}\n});');
   const closed = complete(`korg.onEvent("fr|", () => {});`);
@@ -132,13 +133,13 @@ test("the hint is silent inside a handler's body and inside brackets", () => {
 test("hovering names the API entry, a key, an LED, an event, a group, a handler value and a code number", () => {
   assert.equal(hover("korg.disp|lay.text(1)").info.signature, "korg.display.text(text, x, y)");
   assert.deepEqual([hover("korg.disp|lay.text(1)").from, hover("korg.disp|lay.text(1)").to], [0, "korg.display.text".length]);
-  assert.match(hover("if (key == korg.key.T|AP)").info.text, /Taste TAP, Code 3/);
-  assert.match(hover("korg.led(korg.l|ed.TAP, 1)").info.text, /LED TAP, Nummer 20/);
+  assert.match(render(hover("if (key == korg.key.T|AP)").info.text), /Taste TAP, Code 3/);
+  assert.match(render(hover("korg.led(korg.l|ed.TAP, 1)").info.text), /LED TAP, Nummer 20/);
   assert.equal(hover("korg.l|ed(20, 1)").info.signature, "korg.led(index, level)");
-  assert.match(hover(`korg.onEvent("butt|onPress", (key) => {})`).info.text, /Taste/);
-  assert.match(hover(`korg.onEvent("buttonPress", (ke|y) => {})`).info.text, /Tastencode/);
-  assert.match(hover(`korg.app("A", "GA|MES");`).info.text, /GAMES/);
-  assert.match(hover("if (key == 1|1) {}").info.text, /11 ist die Taste/);
+  assert.match(render(hover(`korg.onEvent("butt|onPress", (key) => {})`).info.text), /Taste/);
+  assert.match(render(hover(`korg.onEvent("buttonPress", (ke|y) => {})`).info.text), /Tastencode/);
+  assert.match(render(hover(`korg.app("A", "GA|MES");`).info.text), /GAMES/);
+  assert.match(render(hover("if (key == 1|1) {}").info.text), /11 ist die Taste/);
   assert.equal(hover("korg.on|Event(\"x\", y)").info.name, "korg.onEvent");
   assert.equal(hover("let some|thing = 1;"), null);
   assert.equal(hover("// korg.led|"), null);

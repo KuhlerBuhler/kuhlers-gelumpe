@@ -58,6 +58,8 @@ class NativeSysex:
         self.uc = Uc(UC_ARCH_ARM, UC_MODE_ARM)
         self.uc.mem_map(0xc0000000, 0x4000000)
         self.uc.mem_write(self.code_at, self.code)
+        sample_at, sample_code = b.build_sample_code()
+        self.uc.mem_write(sample_at, sample_code)
         self.uc.mem_write(b.TABLE_AT, table if table is not None else protection(build))
         self.build = build
         self.message, self.panel, self.folder_at = 0xc0100000, 0xc0101000, 0xc0102000
@@ -282,7 +284,7 @@ def exercise(machine, sizes=SIZES, ports=(1, 2)):
         machine.port = port
         info = machine.request(b.FUNC_INFO)
         status, version, flags, maximum, _table_crc, flash_maximum = struct.unpack('<6I', info)
-        assert (status, version, flags, maximum, flash_maximum) == (0, 1, 0x7f, 32768, 4096)
+        assert (status, version, flags, maximum, flash_maximum) == (0, 1, 0xff, 32768, 4096)
         for length in sizes:
             machine.reset()
             data = payload(length)

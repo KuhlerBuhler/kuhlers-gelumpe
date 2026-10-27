@@ -39,12 +39,12 @@ function infoDom(info, active = -2) {
   } else sig.textContent = info.signature;
   dom.append(sig);
   if (active === -1) dom.append(node("p", "cee-script-tip-note", t("editor.tooManyArgs")));
-  if (active >= 0) dom.append(node("p", "cee-script-tip-note", `${info.params[active].name}: ${info.params[active].range}`));
+  if (active >= 0) dom.append(node("p", "cee-script-tip-note", `${info.params[active].name}: ${t(info.params[active].range)}`));
   if (active === -2) {
-    dom.append(node("p", "cee-script-tip-text", info.text));
+    dom.append(node("p", "cee-script-tip-text", t(info.text)));
     if (info.params.length) {
       const list = node("ul", "cee-script-tip-params");
-      for (const p of info.params) list.append(node("li", "", `${p.name}: ${p.range}`));
+      for (const p of info.params) list.append(node("li", "", `${p.name}: ${t(p.range)}`));
       dom.append(list);
     }
     const facts = [info.returns ? t("editor.returns", { type: info.returns }) : null, info.allowed ? t("editor.allowed", { values: info.allowed }) : null].filter(Boolean);

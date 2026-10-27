@@ -167,7 +167,12 @@ def case_factory_slots(payload, flash):
     return [entry("werksplaetze-leerer-flash", not b.window() and len(active) == 4, dict(window=b.window(), active=active))]
 
 
-GROUPS = (case_skips, case_reasons, case_clean, case_kill, case_factory_slots, case_slow_card)
+def case_seek_anchor(payload, flash):
+    import sample_seek_cases
+    return sample_seek_cases.cases(payload, flash, folder(payload))
+
+
+GROUPS = (case_skips, case_reasons, case_clean, case_kill, case_factory_slots, case_slow_card, case_seek_anchor)
 
 
 def group_entries(payload, flash, i):

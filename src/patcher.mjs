@@ -2,6 +2,7 @@
 import { hardwareOf, identifyBase, sha256 } from "./firmware.mjs";
 import { buildsOf, patchesPresent, selectFor } from "./patch.mjs";
 import { applyBsdiff, parseBsdiff } from "./bsdiff.mjs";
+import { text, isText, TextError, number } from "./text.mjs";
 
 export const VSB_SIZE = 0x200100;
 /** Korg's electribe sampler 2.02 SYSTEM.VSB, as in hacktribe/scripts/e2-firmware-patch.py and on the user's own copy. */
@@ -61,7 +62,7 @@ export const VERIFIED_URL = "data/patches/verified.json";
 export async function loadBlechSet(fetchJson, setUrl = BLECH_SET_URL) {
   const set = await fetchJson(setUrl);
   if (set?.format !== "gelumpe-patch-set" || set.version !== 1 || !Array.isArray(set.patches) || !set.patches.length) {
-    throw new Error(`${setUrl} ist kein Patch-Set im Format gelumpe-patch-set 1.`);
+    throw new TextError("patcher.reason.noSet", { url: setUrl });
   }
   const patches = await Promise.all(set.patches.map(url => fetchJson(url)));
   const items = patches.map((p, i) => ({ id: p?.id, label: p?.name ?? p?.id, url: set.patches[i] }));
@@ -88,10 +89,10 @@ export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHa
   const mine = selectFor(patches, base.build).patches;
   const present = (await patchesPresent(bytes, mine)).filter(p => p.present).map(p => p.id);
   if (base.build === "synth" && !present.length) {
-    return { ...out, reasons: ["Das ist nicht Korgs unveränderte SYSTEM.VSB 2.02 der blauen Electribe 2. Nimm die aus Korgs Zip, nicht die von der SD-Karte."] };
+    return { ...out, reasons: [text("patcher.reason.synthChanged")] };
   }
   if (base.build === "stock" && !present.length) {
-    return { ...out, reasons: [`Das ist Korgs Original-Firmware 2.02, aber nicht die unveränderte Datei aus dem Systemupdate (sha256 ${stockHash.slice(0, 8)}...).`] };
+    return { ...out, reasons: [text("patcher.reason.stockChanged", { sha: stockHash.slice(0, 8) })] };
   }
   const kind = present.length === 0 ? "hacktribe" : present.length === mine.length ? "blech" : "partial";
   // hardware: the head says which Electribe a Hacktribe file is for (the blue one carries the synth head)
@@ -103,14 +104,14 @@ export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHa
  * before and the result after: {ok, bytes, sha256} or {ok: false, reason}. Hashes are parameters for tests.
  */
 export async function convertStock(stock, patch, { stockHash = STOCK_SHA256, targetHash = HACKTRIBE_SHA256 } = {}) {
-  if (await sha256(stock) !== stockHash) return { ok: false, reason: "Die Datei ist nicht die originale Korg 2.02." };
-  if (patch.length > HACKTRIBE_PATCH_MAX) return { ok: false, reason: `Die Datei ist ${patch.length.toLocaleString("de-DE")} Byte groß, hacktribe-2.patch hat rund 18 KB. Das ist die falsche Datei.` };
+  if (await sha256(stock) !== stockHash) return { ok: false, reason: text("patcher.reason.notStock") };
+  if (patch.length > HACKTRIBE_PATCH_MAX) return { ok: false, reason: text("patcher.reason.patchTooBig", { size: number(patch.length) }) };
   try {
     const { newSize } = parseBsdiff(patch);
-    if (newSize !== VSB_SIZE) return { ok: false, reason: `Der Patch baut eine Datei mit ${newSize.toLocaleString("de-DE")} Byte, eine SYSTEM.VSB hat ${VSB_SIZE.toLocaleString("de-DE")}. Das ist nicht hacktribe-2.patch.` };
+    if (newSize !== VSB_SIZE) return { ok: false, reason: text("patcher.reason.patchSize", { size: number(newSize), expected: number(VSB_SIZE) }) };
     const bytes = applyBsdiff(stock, patch, { maxNewSize: VSB_SIZE });
     const hash = await sha256(bytes);
-    if (hash !== targetHash) return { ok: false, reason: "Das Ergebnis ist nicht die bekannte Hacktribe-2.02-Datei. Lade hacktribe-2.patch noch einmal von Hacktribe herunter." };
+    if (hash !== targetHash) return { ok: false, reason: text("patcher.reason.notHacktribe") };
     return { ok: true, bytes, sha256: hash };
   } catch (e) {
     return { ok: false, reason: e.message };
@@ -150,33 +151,37 @@ export async function verifiedReport(input, output, verified, hardware = null) {
   if (!hit) return null;
   return {
     ok: true, verified: true, changed: [],
-    checks: [{ id: "verified", ok: true, detail: `Genau diese Datei hat am ${hit.date} alle ${hit.checks} Prüfungen im Emulator bestanden.` }],
+    checks: [{ id: "verified", ok: true, detail: text("patcher.checkDetail.verified", { date: hit.date, checks: hit.checks }) }],
   };
 }
 
-/** Names for the checks of tools/emu/check.py. */
+/** Keys of the names for the checks of tools/emu/check.py. */
+const CHECK_NAMES = {
+  header: "patcher.checkName.header",
+  dsp_stream: "patcher.checkName.dspStream",
+  dsp_boot_once: "patcher.checkName.dspBootOnce",
+  "boot:normal": "patcher.checkName.bootNormal",
+  "boot:normal_blank": "patcher.checkName.bootNormalBlank",
+  update_offer: "patcher.checkName.updateOffer",
+  panel_update: "patcher.checkName.panelUpdate",
+  kill_switch: "patcher.checkName.killSwitch",
+  start_phase: "patcher.checkName.startPhase",
+  start_phase_exceptions: "patcher.checkName.startPhaseExceptions",
+  verified: "patcher.checkName.verified",
+  quick: "patcher.checkName.quick",
+};
+
+/** The name of a check as a text; an unknown id stays as it is. */
 export function checkName(id) {
-  if (id.startsWith("start_mode:")) return "Startmodus";
-  return {
-    header: "Kopf der VSB",
-    dsp_stream: "DSP-Programm unverändert",
-    dsp_boot_once: "DSP-Programm wird einmal geladen",
-    "boot:normal": "Start bis zum Hauptbildschirm",
-    "boot:normal_blank": "Start mit leerem Flash",
-    update_offer: "Update-Abfrage",
-    panel_update: "Panel-Update",
-    kill_switch: "Notschalter (EXIT beim Einschalten)",
-    start_phase: "Startphase unverändert",
-    start_phase_exceptions: "Erlaubte Änderungen in der Startphase",
-    verified: "Schon geprüft",
-    quick: "Kurzprüfung",
-  }[id] ?? id;
+  if (id.startsWith("start_mode:")) return text("patcher.checkName.startMode");
+  return CHECK_NAMES[id] ? text(CHECK_NAMES[id]) : id;
 }
 
 export function checkDetail(detail) {
-  if (typeof detail === "string") return detail;
-  const where = (kind, hits) => hits.map(([at, n]) => `${kind} an ${at} (${n} Byte)`);
-  return `Geändert in der Startphase: ${[...where("Code", detail?.code ?? []), ...where("Daten", detail?.data ?? [])].join(", ")}`;
+  if (typeof detail === "string" || isText(detail)) return detail;
+  const where = (kind, hits) => hits.map(([at, n]) => text(kind, { at, n }));
+  const spots = [...where("patcher.checkDetail.code", detail?.code ?? []), ...where("patcher.checkDetail.data", detail?.data ?? [])];
+  return text("patcher.checkDetail.startPhase", { spots: spots.length ? spots.reduce((a, b) => text("patcher.checkDetail.join", { a, b })) : "" });
 }
 
 // ---- progress of the emulator check -------------------------------------------------------------
@@ -192,10 +197,10 @@ export const CHECK_HOLD = 99;
  */
 export function checkProgress(snapshot) {
   if (!snapshot || snapshot.state !== "running" || !(snapshot.total > 0)) return null;
-  const groupText = g => g.state === "done" ? `${g.ok}/${g.ok + g.fail}` : g.state === "failed" ? `${g.fail} fehlgeschlagen` : g.state === "running" ? "läuft" : "";
+  const groupText = g => g.state === "done" ? `${g.ok}/${g.ok + g.fail}` : g.state === "failed" ? text("patcher.group.failed", { count: g.fail }) : g.state === "running" ? text("patcher.group.running") : "";
   return {
     value: Math.min(CHECK_HOLD, Math.round(100 * snapshot.done / snapshot.total)),
-    text: `${snapshot.done} von ${snapshot.total}`,
+    text: text("patcher.progress.count", { done: snapshot.done, total: snapshot.total }),
     groups: snapshot.groups.map(g => ({ id: g.id, name: g.name, state: g.state, text: groupText(g) })),
   };
 }
@@ -216,11 +221,11 @@ export function clock(ms) {
  * steps: the pass list, status todo|ok|error.
  */
 /** The four steps of the way the page shows above everything (firmware, patches, emulator, device), each todo, current, done or error. */
-export const WAY = ["Firmware wählen", "Patches anwenden", "Test", "Aufs Gerät"];
+export const WAY = ["patcher.way.firmware", "patcher.way.patches", "patcher.way.test", "patcher.way.device"];
 export function wayOf(flow) {
   const at = { empty: 0, rejected: 0, "needs-patch": 1, ready: 1, patching: 1, checking: 2, failed: 2, passed: 3, downloaded: 4 }[flow.phase] ?? 0;
   const bad = flow.phase === "rejected" ? 0 : flow.phase === "failed" ? (flow.report ? 2 : 1) : -1;
-  return WAY.map((label, i) => ({ label, state: i === bad ? "error" : i < at ? "done" : i === at ? "current" : "todo" }));
+  return WAY.map((key, i) => ({ label: text(key), state: i === bad ? "error" : i < at ? "done" : i === at ? "current" : "todo" }));
 }
 
 export const newFlow = () => ({ phase: "empty", input: null, origin: null, route: null, device: null, steps: [], report: null, error: null });
@@ -242,7 +247,7 @@ export function headFor(flow) {
 /** The card folder of the firmware that runs on the device when it takes this copy. */
 export const folderOf = flow => cardFolder(flow.origin === "stock" && flow.device === "blue" ? "synth" : flow.origin);
 
-const STOCK_READ = { id: "read", label: "Datei erkannt: originale Korg 2.02", status: "ok", detail: "" };
+const STOCK_READ = { id: "read", label: text("patcher.step.readStock"), status: "ok", detail: "" };
 
 const RUNNING = new Set(["patching", "checking"]);
 const mark = (steps, id, status, detail = "") => steps.map(s => (s.id === id ? { ...s, status, detail } : s));
@@ -255,10 +260,10 @@ export function step(flow, event) {
       if (RUNNING.has(flow.phase)) return flow;
       const { input } = event;
       if (input.kind === "stock") return { ...newFlow(), phase: "ready", input, origin: "stock", route: "direct", device: "red", steps: [STOCK_READ] };
-      if (input.kind === "synth") return { ...newFlow(), phase: "ready", input, origin: "synth", route: "direct", device: "blue", steps: [{ id: "read", label: "Datei erkannt: blaue Electribe 2, Synth 2.02", status: "ok", detail: "" }] };
+      if (input.kind === "synth") return { ...newFlow(), phase: "ready", input, origin: "synth", route: "direct", device: "blue", steps: [{ id: "read", label: text("patcher.step.readSynth"), status: "ok", detail: "" }] };
       if (input.kind !== "hacktribe") return { ...newFlow(), phase: "rejected", input };
       const blue = input.hardware === "blue";
-      return { ...newFlow(), phase: "ready", input, origin: "hacktribe", device: blue ? "blue" : "red", steps: [{ id: "read", label: `Datei erkannt: Hacktribe 2.02${blue ? " für die blaue Electribe" : ""}`, status: "ok", detail: "" }] };
+      return { ...newFlow(), phase: "ready", input, origin: "hacktribe", device: blue ? "blue" : "red", steps: [{ id: "read", label: text(blue ? "patcher.step.readHacktribeBlue" : "patcher.step.readHacktribe"), status: "ok", detail: "" }] };
     }
     case "device": {
       // a copy made for the other Electribe is another copy: what was patched or checked goes
@@ -278,7 +283,7 @@ export function step(flow, event) {
         ...newFlow(), phase: "ready", input: event.input, origin: "stock", route: "hacktribe", device: flow.device ?? "red",
         steps: [
           STOCK_READ,
-          { id: "convert", label: "Mit hacktribe-2.patch zu Hacktribe 2.02 umgewandelt", status: "ok", detail: event.detail ?? "" },
+          { id: "convert", label: text("patcher.step.convert"), status: "ok", detail: event.detail ?? "" },
         ],
       };
     }
@@ -288,10 +293,10 @@ export function step(flow, event) {
       if (!allowed(flow).patch) return flow;
       const base = flow.steps.filter(s => s.id === "read" || s.id === "convert");
       const head = headFor(flow);
-      const headStep = head ? [{ id: "head", label: head === "blue" ? "Kopf der blauen gesetzt, für Korgs Firmware der blauen" : "Kopf des Samplers gesetzt, den Hacktribes Update nimmt", status: "ok", detail: head === "blue" ? "Byte 0x12 = 0x00, 0x2E = 0x23" : "Byte 0x12 = 0x53, 0x2E = 0x24" }] : [];
+      const headStep = head ? [{ id: "head", label: text(head === "blue" ? "patcher.step.headBlue" : "patcher.step.headSampler"), status: "ok", detail: head === "blue" ? "Byte 0x12 = 0x00, 0x2E = 0x23" : "Byte 0x12 = 0x53, 0x2E = 0x24" }] : [];
       return {
         ...flow, phase: "patching", report: null, error: null, untested: false,
-        steps: [...base, ...headStep, ...event.patches.map(p => ({ id: `patch:${p.id}`, label: p.label, status: "todo", detail: "" })), { id: "check", label: "Prüfung im Emulator", status: "todo", detail: "" }],
+        steps: [...base, ...headStep, ...event.patches.map(p => ({ id: `patch:${p.id}`, label: p.label, status: "todo", detail: "" })), { id: "check", label: text("patcher.step.check"), status: "todo", detail: "" }],
       };
     }
     case "patch":
@@ -303,7 +308,7 @@ export function step(flow, event) {
     case "untested":
       // the user chose no test and took on what follows: the copy goes on without a report
       if (flow.phase !== "patching" || flow.steps.some(s => s.id.startsWith("patch:") && s.status !== "ok")) return flow;
-      return { ...flow, phase: "passed", untested: true, steps: mark(flow.steps, "check", "skip", "Kein Test, auf eigene Verantwortung") };
+      return { ...flow, phase: "passed", untested: true, steps: mark(flow.steps, "check", "skip", text("patcher.step.untested")) };
     case "recheck":
       // the thorough check of a copy that passed the quick one
       if (flow.phase !== "passed" && flow.phase !== "downloaded") return flow;
@@ -311,7 +316,7 @@ export function step(flow, event) {
     case "checked": {
       if (flow.phase !== "checking") return flow;
       const bad = event.report.checks.filter(c => !c.ok).length;
-      const detail = bad ? `${bad} von ${event.report.checks.length} nicht bestanden` : `${event.report.checks.length} von ${event.report.checks.length} bestanden`;
+      const detail = text(bad ? "patcher.step.checkFailed" : "patcher.step.checkPassed", { count: bad || event.report.checks.length, total: event.report.checks.length });
       const ok = event.report.ok === true && !bad;
       return { ...flow, phase: ok ? "passed" : "failed", report: event.report, steps: mark(flow.steps, "check", ok ? "ok" : "error", detail) };
     }

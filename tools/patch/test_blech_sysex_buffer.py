@@ -62,7 +62,8 @@ class SysexBufferTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from('<I', failed)[0], b.STATUS_REFUSED)
         self.assertIsNone(m.request(b.FUNC_DATA, b'x'))
         for function in (b.FUNC_READ, b.FUNC_FLASH, b.FUNC_FREAD):
-            for address, length in ((0xfffffff0, 32), (0xc8000000, 1)):
+            # bits 31 and 30 of a FILE offset select the sample file's temp file, whose limit is 256 MiB: 0xf8000000 is past it
+            for address, length in ((0xfffffff0, 32), (0xf8000000 if function == b.FUNC_FREAD else 0xc8000000, 1)):
                 reply = m.words(function, address, length)
                 self.assertEqual(struct.unpack_from('<I', reply)[0], b.STATUS_RANGE)
         m.check_guards()

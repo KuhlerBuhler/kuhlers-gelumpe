@@ -5,8 +5,7 @@ die Sammeldatei auf der Karte überschreiben. Im Emulator geprüft, **am Gerät 
 
 ## Was gebaut ist
 
-- `data/patches/fx-catalog.json` (erzeugt von `node tools/fx-catalog-patch.mjs` aus `data/fx/catalog.mjs`): die 8 Insert- und 8
-  Master-Effekte des Katalogs als .e2fx-v2-Werte, dazu die Parameterlisten ihrer Bausteine aus `data/units.json`. Kein
+- `data/patches/fx-catalog.json` (erzeugt von `node tools/fx-catalog-patch.mjs` aus `data/fx/catalog.mjs`): die Insert- und Master-Effekte (Stand 23.10.: 8 und 8, mit [Slap und Long Delay](2026-10-25-ifx-delays.md): 10 und 8) des Katalogs als .e2fx-v2-Werte, dazu die Parameterlisten ihrer Bausteine aus `data/units.json`. Kein
   Firmwarebyte darin.
 - `src/fx-append.mjs`: Beim Anwenden des BLECH-Satzes hängt `applyPatches` sie hinter das letzte Preset jedes Menüs. Jeder Platz
   bekommt eine Kopie von Preset 1 derselben Firmware, darin der Effekt (`fxToRecord`, wie bei der Sammeldatei). Die
