@@ -22,6 +22,7 @@ from machine import load_flash  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
 
 RUNTIME = 0xC01AE000
+IMAGE = 0xC0000000              # where the firmware image (the VSB after its 0x100 header) lies
 HW_TRANSPORT = 0xC06BC318      # the firmware's transport word, as tools/patch/script_hw.s reads it
 EVENTS = ["start", "ready", "frame", "buttonPress", "buttonRelease", "knob", "encoder", "pad", "touch", "step", "beat",
           "play", "stop", "rec", "patternChange", "partChange", "mute", "tempo", "save", "menu", "open", "close"]
@@ -50,6 +51,10 @@ class Run:
     def var(self, name):
         base = self.dev.u32(self.entry + 8)
         return struct.unpack("<i", self.dev.read(base + self.request["symbols"][name]["slot"] * 4, 4))[0]
+
+    def set(self, name, value):
+        base = self.dev.u32(self.entry + 8)
+        self.dev.m.uc.mem_write(self.dev.a(base + self.request["symbols"][name]["slot"] * 4), struct.pack("<i", value))
 
     def shot(self, name):
         path = self.png_dir / ("blechy-emu-" + name + ".png")
@@ -134,9 +139,13 @@ def run(vsb, flash, request, png_dir):
             and struct.unpack("<I", page)[0] == 1 and dev.u32(RUNTIME + 164) == 2, dict(entry=hex(r.entry), state=dev.u32(r.entry + 12)))
     r.check("blechy-block-liegt-im-abbild-nicht-im-pool", blob == script_hooks.BLECHY_BLOCK and blob < script_hooks.POOL, hex(blob))
     r.check("blechy-nicht-in-den-plugin-seiten", dev.u32(script_hooks.MENU_STATE + 40) == 0, dev.u32(script_hooks.MENU_STATE + 40))
-    stock = menu_cases.boot(vsb[0x100:], flash, held=menu_cases.KILL, card=False, seconds=2)
-    r.check("blechy-zu-zeichnet-nichts", dev.screen()["number"] == 1 and r.var("isOpen") == 0 and dev.fb() == stock.fb() and not dev.m.asserts,
-            dict(screen=dev.screen(), same_display=dev.fb() == stock.fb()))
+    # the same BLECH with his block made unreadable: the runtime starts without him, the BLECH look stays (an EXIT-held boot
+    # is no reference, it also leaves out the BLECH theme of the main screen)
+    payload = bytearray(vsb[0x100:])
+    payload[script_hooks.BLECHY_BLOCK - IMAGE:script_hooks.BLECHY_BLOCK - IMAGE + 4] = bytes(4)
+    without = menu_cases.boot(bytes(payload), flash, card=False, seconds=2)
+    r.check("blechy-zu-zeichnet-nichts", dev.screen()["number"] == 1 and r.var("isOpen") == 0 and without.u32(RUNTIME + 96) == 0
+            and dev.fb() == without.fb() and not dev.m.asserts, dict(screen=dev.screen(), same_display=dev.fb() == without.fb()))
 
     t0 = r.land()
     landed_at = dev.m.time_ns / 1e6
@@ -211,6 +220,11 @@ def run(vsb, flash, request, png_dir):
     # picture when he stands (also right after the turn at an edge). One display of each, taken from the display RAM.
     names = {(1, 0): "rechts-ruhig", (1, WALK): "rechts-gehen", (-1, BACK[0]): "links-ruhig", (-1, BACK[1]): "links-gehen", (-1, 0): "wende"}
     cycle, changes, last, seen_pairs = {}, [], None, set()
+    # no talk while the cycle is taken: a talk keeps the turn picture under a bubble, and once he talks at the right edge the
+    # gaps (TALK_GAP to TALK_GAP + TALK_SPREAD) can keep him talking there every time, so the plain turn never shows.
+    # STOP sets nextTalk again for the talk cases below.
+    r.set("wantTalk", 0)
+    r.set("nextTalk", 0x7FFFFFFF)
     end = dev.m.time_ns + 120e9
     while dev.m.time_ns < end and len(cycle) < len(names):
         dev.run(0.03)
@@ -225,7 +239,7 @@ def run(vsb, flash, request, png_dir):
         key = names.get((way, frame))
         if key and key not in cycle and (key == "wende" and x >= 60 or key != "wende" and 6 <= x <= 60):
             dev.run(0.06)           # the display follows the variable by a frame
-            if (r.frame(), r.var("dir"), r.pos(), r.var("posY")) == (frame, way, x, y):
+            if (r.frame(), r.var("dir"), r.pos(), r.var("posY"), r.bubble()) == (frame, way, x, y, 0):
                 cycle[key] = dict(frame=frame, dir=way, posX=x, posY=y, hex=r.shot("gang-" + key).hex())
     changes.sort()
     r.check("blechy-gang-alle-fuenf-bilder", sorted(cycle) == sorted(names.values()), dict(have=sorted(cycle), seen=sorted(seen_pairs)))
