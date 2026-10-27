@@ -61,6 +61,14 @@ const portLine = port => {
   return `  ${port.name || "?"}${extra.length ? ` [${extra.join(", ")}]` : ""}`;
 };
 
+/**
+ * Korg's own USB-MIDI driver on Windows names the ports after the jacks ("electribe2 sampler 1 PAD/KNOB", with the
+ * rename "Electribe 3 SOUND"), and the device's SysEx replies do not come through it (measured 2026-10-28, driver
+ * 1.15.63). Windows' own driver names them "Electribe 3" and works.
+ */
+const JACK = / (PAD\/KNOB|SOUND)$/;
+export const korgDriver = report => /Windows/.test(report.agent) && [...report.inputs, ...report.outputs].some(port => JACK.test(port.name));
+
 /** The report as plain text, one fact per line. */
 export function midiReport(report) {
   const none = `  ${t("settings.midi.none")}`;
@@ -79,5 +87,6 @@ export function midiReport(report) {
     ...(report.outputs.length ? report.outputs.map(portLine) : [none]),
     t("settings.midi.pairs", { count: report.pairs.length }),
     ...(report.pairs.length ? report.pairs.map(pair => `  ${t("settings.midi.pair", { out: pair.out, in: pair.in })}`) : [none]),
+    ...(korgDriver(report) ? [t("settings.midi.korgDriver")] : []),
   ].join("\n");
 }
