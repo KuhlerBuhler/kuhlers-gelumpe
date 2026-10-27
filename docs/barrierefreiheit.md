@@ -9,7 +9,7 @@ Token-Werten gerechnet), **offen** (nicht geprüft).
 ## Wie geprüft wurde
 
 - **axe-core** über `@axe-core/playwright` (neue Dev-Abhängigkeit, nur für die Tests), Regeln
-  `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`. `test/e2e/a11y.e2e.mjs` scannt jeden Bereich
+  `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`. `test/e2e/support/a11y-suite.mjs` scannt jeden Bereich
   und schlägt bei **serious** und **critical** fehl, Hilfsfunktion `test/e2e/support/axe.mjs`.
 - **Per Hand mit Playwright** gegen den Dienst-Ersatz: Tab-Durchlauf je Bereich (Fokusreihenfolge,
   Fokusanzeige per Pixelvergleich fokussiert gegen unfokussiert), ARIA-Snapshot je Bereich, Überlauf
@@ -21,7 +21,7 @@ Token-Werten gerechnet), **offen** (nicht geprüft).
 
 ## Gefunden und behoben
 
-Je Fund ein Test in `test/e2e/a11y.e2e.mjs` (oder `nav.e2e.mjs`).
+Je Fund ein Test in `test/e2e/support/a11y-suite.mjs` (oder `nav.e2e.mjs`).
 
 | # | WCAG | Schwere | Wo | Beleg | Fix |
 |---|---|---|---|---|---|
