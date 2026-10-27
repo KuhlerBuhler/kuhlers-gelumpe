@@ -11,7 +11,8 @@
  * e.g. https://blech.example) the emulator is proxied below EMU_PATH on this
  * same origin. Then the browser talks to one host and one port only, which is
  * what HTTPS in front of the container needs: the page cannot reach
- * http://127.0.0.1:8740 on the server from the visitor's browser.
+ * http://127.0.0.1:8740 on the server from the visitor's browser. The path takes requests from
+ * that page only, and without the variable it does not exist at all.
  */
 import { createServer, request } from "node:http";
 import { readFile, stat } from "node:fs/promises";
@@ -68,11 +69,24 @@ function knownHost(header, origin) {
   return !!origin && (host === origin.host || name === origin.hostname);
 }
 
+/**
+ * Whether a request may use the proxied emulator: only the page this server serves may, and only
+ * when there is a public origin at all. The emulator's own check cannot see that origin, so this
+ * is where it happens instead of dropping the header.
+ */
+function fromOwnPage(req, origins) {
+  const source = req.headers.origin;
+  if (source) return origins.includes(source);
+  // Same-origin GETs and the display stream carry no Origin; a page on another site does, or says
+  // so in Sec-Fetch-Site where the browser still leaves it out.
+  return req.headers["sec-fetch-site"] !== "cross-site";
+}
+
 /** Hands one request to the emulator service and streams its answer back as it comes. */
 function proxyEmulator(req, res, emu) {
   const rest = req.url.slice(EMU_PATH.length) || "/";
-  // The service only answers its own host name. No Origin either: the browser's origin is the
-  // public one, which the service is not told about and must not need.
+  // The service only answers its own host name, and it is not told the public origin: the check on
+  // the Origin above is the one that counts, since a forward would only fail the service's own.
   const headers = { ...req.headers, host: `127.0.0.1:${emu.port}` };
   delete headers.origin;
   delete headers.referer;
@@ -125,9 +139,17 @@ export function startServer(port = 8737, {
       return;
     }
     if (pathname === EMU_PATH || pathname.startsWith(`${EMU_PATH}/`)) {
-      if (!emu) {
+      // Only there behind a proxy the page is served at under a known name. Without the variable the
+      // path does not exist, and the page talks to the emulator's own port as it always did.
+      if (!emu || !origin || !knownHost(req.headers.host, origin)) {
         res.writeHead(404, { "content-type": "text/plain" });
         res.end("not found");
+        return;
+      }
+      const own = [origin.origin, `http://127.0.0.1:${port}`, `http://localhost:${port}`];
+      if (!fromOwnPage(req, own)) {
+        res.writeHead(403, { "content-type": "application/json", "cache-control": "no-store" });
+        res.end(JSON.stringify({ error: "Diese Seite darf den Emulator nicht steuern." }));
         return;
       }
       proxyEmulator(req, res, emu);

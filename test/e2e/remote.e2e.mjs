@@ -37,3 +37,17 @@ test("behind a reverse proxy the page loads its emulator from its own origin", a
   assert.deepEqual(page.errors, []);
   await page.close();
 });
+
+test("a link that points at another host is dropped: the key stays on this page", async () => {
+  const page = await h.page();
+  const foreign = [];
+  await page.route("https://evil.example/**", route => { foreign.push(route.request().url()); route.abort(); });
+  await page.goto(`${h.url}#emu=//evil.example/x:${TOKEN}`);
+  await page.waitForFunction(() => sessionStorage.getItem("cee.emu") !== null);
+  const link = JSON.parse(await page.evaluate(() => sessionStorage.getItem("cee.emu")));
+  assert.equal(link.path, "/emu-service", "the hostile link was not taken, the page's own link was");
+  assert.deepEqual(foreign, [], "token and firmware never go to the other host");
+  await page.locator("#cee-emu-status", { hasText: "bereit" }).waitFor();
+  assert.doesNotMatch(page.url(), /evil\.example/, "nothing of the bad link stays in the address bar");
+  await page.close();
+});

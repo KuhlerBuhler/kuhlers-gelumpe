@@ -41,8 +41,9 @@ beiden Ports behalten ihre Zahlen, sonst findet die Seite den Emulator nicht.
 Das Abbild setzt `GELUMPE_HOST=0.0.0.0`, weil ein veröffentlichter Port den
 Container an seiner eigenen Adresse erreicht und nie an 127.0.0.1 darin; ohne
 die Variable bleibt es beim bisherigen 127.0.0.1. Karte und Flash des Emulators
-liegen im Volume `gelumpe`, ein neuer Container behält sie. Ohne Docker gilt
-`npm start` wie oben.
+liegen im Volume `gelumpe`, ein neuer Container behält sie. Der Editor hat keine
+Anmeldung, deshalb bleiben beide Ports auf 127.0.0.1. Ohne Docker gilt `npm start`
+wie oben.
 
 ## Hinter einem Proxy
 
@@ -52,13 +53,29 @@ unter der er die Seite ausliefert, etwa `https://blech.example`, und leite dort
 alles an 127.0.0.1:8737 weiter, mit dem `Host`-Kopf der Anfrage. Dann liegt der
 Emulator unter demselben Ursprung wie die Seite, im Pfad `/emu-service`, und der
 Browser braucht nur diesen einen Port. Ohne die Variable spricht die Seite den
-Emulator weiter unter 127.0.0.1:8740 an, was nur auf dem eigenen Rechner geht.
+Emulator weiter unter 127.0.0.1:8740 an, was nur auf dem eigenen Rechner geht,
+und `/emu-service` gibt es nicht.
+
+Der Pfad nimmt nur Anfragen der Seite unter `GELUMPE_PUBLIC_ORIGIN` an: ein
+`Origin` von einer anderen Adresse bekommt 403. Bei Aufrufen, die der Browser
+ohne `Origin` schickt, also den Lesezugriffen und dem Bildschirmstrom, gilt das
+Gleiche für einen Aufruf von einer anderen Website.
+
+Trotzdem gilt: wer die Seite erreicht, bekommt über `/emu.json` den Schlüssel
+und damit den Emulator, denn weder Editor noch Emulator haben eine Anmeldung.
+Ein Passwort oder eine Regel auf Adresse oder Netz im Proxy ist deshalb Pflicht,
+bevor die Seite von außen erreichbar ist.
+
+Läuft der Proxy in einem eigenen Container, gib den Port gar nicht erst nach
+aßen: er landet im gemeinsamen Docker-Netz, erreicht den Dienst dort als
+`gelumpe:8737`, und im Netz bleibt es bei `GELUMPE_HOST=0.0.0.0`. Eine
+Veröffentlichung wie `8737:8737` legt den Editor ohne Anmeldung auf alle
+Schnittstellen.
 
 Die Seite braucht einen sicheren Ursprung, also HTTPS oder localhost. Über
-http://blech.jbugel.xyz:8737 verweigert der Browser `crypto.subtle`, und damit
+`http://blech.example:8737` verweigert der Browser `crypto.subtle`, und damit
 fallen Patcher und Prüfsummen aus. Das Zertifikat für die Adresse besorgt der
-Proxy. Der Editor hat keine Anmeldung, ein Passwort oder eine Zugriffsregel
-gehört deshalb in den Proxy, sobald die Seite von außen erreichbar ist.
+Proxy.
 
 ## Tests
 

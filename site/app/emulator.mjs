@@ -7,7 +7,7 @@ import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { identify, buildOf, lackOf, hasBlechSysex, firmwareName } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
-import { emuBase } from "./emu-link.mjs";
+import { emuBase, parseEmuLink } from "./emu-link.mjs";
 import { t } from "./i18n.mjs";
 
 const VSB_SIZE = 0x200100;
@@ -55,14 +55,17 @@ const pill = (tone, word) => {
 /**
  * Where and with which key from `#emu=port:key`, or `#emu=/path:key` behind a reverse proxy, kept
  * for this tab only and taken out of the address bar. Call before anything else rewrites the address.
+ * A path that leaves this page's origin is no link at all: the key stays here.
  */
 export function takeLink() {
-  const m = location.hash.match(/(?:^#|&)emu=([\w./-]+):([\w-]+)/);
-  if (m) {
-    const link = /^\d+$/.test(m[1]) ? { port: Number(m[1]), token: m[2] } : { path: m[1], token: m[2] };
-    try { sessionStorage.setItem(STORE, JSON.stringify(link)); } catch {}
+  if (/(?:^#|&)emu=/.test(location.hash)) {
+    const link = parseEmuLink(location.hash);
+    if (link) {
+      try { sessionStorage.setItem(STORE, JSON.stringify(link)); } catch {}
+    }
     history.replaceState(null, "", location.pathname + location.search);
-    return { link, fresh: true };
+    // A link that leads elsewhere is forgotten, not followed; the page then looks for its own service.
+    return { link, fresh: !!link };
   }
   try { return { link: JSON.parse(sessionStorage.getItem(STORE)) || null, fresh: false }; } catch { return { link: null, fresh: false }; }
 }

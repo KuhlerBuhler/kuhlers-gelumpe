@@ -25,8 +25,8 @@ const send = (port, method, path, body, headers = {}) => new Promise((ok, fail) 
 });
 
 /** The first chunk of a streaming answer, before the answer ends; the stream is closed right after it. */
-const firstChunk = (port, path) => new Promise((ok, fail) => {
-  const req = httpGet({ host: "127.0.0.1", port, path }, res => {
+const firstChunk = (port, path, headers = {}) => new Promise((ok, fail) => {
+  const req = httpGet({ host: "127.0.0.1", port, path, headers }, res => {
     res.setEncoding("utf8");
     res.once("data", chunk => {
       const seen = { status: res.statusCode, headers: res.headers, chunk };
@@ -107,11 +107,11 @@ test("the page passes the emulator through its own path, with the service's host
   const port = 19910 + Math.floor(Math.random() * 40);
   const server = await startServer(port, {
     emu: { port: upstreamPort, token: "k" },
-    publicOrigin: `http://127.0.0.1:${port}`,
+    publicOrigin: "https://blech.example",
   });
   try {
     const posted = await send(port, "POST", "/emu-service/boot?token=k", "firmware", {
-      origin: "https://blech.example", "x-emu-token": "k", "content-type": "application/octet-stream",
+      host: "blech.example", origin: "https://blech.example", "x-emu-token": "k", "content-type": "application/octet-stream",
     });
     assert.equal(posted.status, 200);
     assert.equal(seen.at(-1).url, "/boot?token=k", "the path below the page is cut off");
@@ -120,7 +120,8 @@ test("the page passes the emulator through its own path, with the service's host
     assert.equal(seen.at(-1).token, "k", "the key goes through");
     assert.deepEqual(JSON.parse(posted.body), { body: "firmware", token: "k" });
 
-    const events = await firstChunk(port, "/emu-service/events?token=k");
+    // A same-origin GET and the display stream carry no Origin at all; they are the page's own.
+    const events = await firstChunk(port, "/emu-service/events?token=k", { host: "blech.example" });
     assert.equal(events.status, 200);
     assert.match(events.headers["content-type"], /text\/event-stream/);
     assert.match(events.chunk, /event: status/, "the display stream comes through before the answer ends");
@@ -133,11 +134,66 @@ test("the page passes the emulator through its own path, with the service's host
   }
 });
 
+/** The page server and a stand-in emulator that counts what reaches it. */
+async function withUpstream(options) {
+  const seen = [];
+  const upstream = createServer((req, res) => {
+    seen.push(req.url);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end("{}");
+  });
+  await new Promise(ok => upstream.listen(0, "127.0.0.1", ok));
+  const port = 19900 + Math.floor(Math.random() * 90);
+  const server = await startServer(port, { emu: { port: upstream.address().port, token: "k" }, ...options });
+  return {
+    seen, port,
+    async close() {
+      server.closeAllConnections?.();
+      server.close();
+      upstream.closeAllConnections?.();
+      upstream.close();
+    },
+  };
+}
+
+test("without a public origin the proxied path does not exist, even with an emulator", async () => {
+  const { seen, port, close } = await withUpstream({});
+  try {
+    const r = await send(port, "GET", `/emu-service/status?token=k`);
+    assert.equal(r.status, 404, "the local page server keeps the emulator's own port");
+    assert.deepEqual(seen, [], "nothing reached the emulator");
+  } finally {
+    await close();
+  }
+});
+
+test("the proxied path takes requests from the page's own origin only", async () => {
+  const { seen, port, close } = await withUpstream({ publicOrigin: "https://blech.example" });
+  try {
+    const own = await send(port, "POST", "/emu-service/step?token=k", "x", { host: "blech.example", origin: "https://blech.example" });
+    assert.equal(own.status, 200, "the page itself gets through");
+
+    const foreign = await send(port, "POST", "/emu-service/step?token=k", "x", { host: "blech.example", origin: "https://evil.example" });
+    assert.equal(foreign.status, 403, "another site's page does not drive the emulator");
+    assert.match(foreign.body, /nicht steuern/);
+
+    const crossSite = await send(port, "GET", "/emu-service/status?token=k", null, { host: "blech.example", "sec-fetch-site": "cross-site" });
+    assert.equal(crossSite.status, 403, "a browser without Origin still names its site");
+
+    const rebound = await send(port, "GET", "/emu-service/status?token=k", null, { host: "attacker.example" });
+    assert.equal(rebound.status, 404, "a name the proxy does not serve is not the proxied path");
+
+    assert.deepEqual(seen, ["/step?token=k"], "only the page's own request reached the emulator");
+  } finally {
+    await close();
+  }
+});
+
 test("without an emulator the proxied path is not there", async () => {
   const port = 19980 + Math.floor(Math.random() * 9);
-  const server = await startServer(port);
+  const server = await startServer(port, { publicOrigin: "https://blech.example" });
   try {
-    const r = await send(port, "GET", "/emu-service/status");
+    const r = await send(port, "GET", "/emu-service/status", null, { host: "blech.example" });
     assert.equal(r.status, 404);
   } finally {
     server.close();
