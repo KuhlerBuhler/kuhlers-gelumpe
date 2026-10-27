@@ -3531,6 +3531,7 @@ menu_prev_blechy:
     str r3, [r2, #M_LEVEL]
     str r3, [r2, #M_PAGE]
     str r3, [r2, #M_ENTER]
+    bl blechy_leave
     mov r0, r4
     bl menu_show
     pop {r4, pc}
@@ -3581,6 +3582,7 @@ menu_next_blechy:
     mov r3, #0
     str r3, [r2, #M_PAGE]
     str r3, [r2, #M_ENTER]
+    bl blechy_leave
     mov r0, r4
     bl menu_show
     pop {r4, pc}

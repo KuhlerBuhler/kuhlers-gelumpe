@@ -2056,6 +2056,16 @@ export default {
   "names.pad.red": "Pad {pad}, rote LED",
   "names.pad.blue": "Pad {pad}, blaue LED (gewählter Part)",
 
+  "news.v135.1": "Die App gibt es jetzt in 11 Sprachen. Sie startet in der Sprache deines Systems, umstellen kannst du sie in den Einstellungen.",
+
+  "news.v135.2": "Samples übers Kabel: lesen, hinzufügen, rausnehmen und die ganze Sample-Datei auf den Rechner speichern.",
+
+  "news.v135.3": "Plugins können Steps in den Sequencer schreiben, zum Beispiel für Arpeggios.",
+
+  "news.v135.4": "PLUGIN EDIT zeigt alle Plugins, auch die auf der Karte. Farben stellst du mit HUE, SAT und BRIGHT ein.",
+
+  "news.v135.5": "Samples laden beim Start etwa 12 Prozent schneller.",
+
   "news.v134.1": "BLECH auf der blauen Electribe, mit oder ohne Hacktribe.",
   "news.v134.2": "Patcher: Korgs Firmware für rot oder blau nach dem Lizenz-Haken direkt laden, oder Korgs Zip ins Feld ziehen.",
   "news.v134.3": "Blaue Electribe: Einstellungen werden wieder gespeichert. Kopiere einmal KORG/electribe nach KORG/blechtribe.",

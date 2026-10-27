@@ -5,6 +5,16 @@
  */
 export const NEWS = Object.freeze([
   Object.freeze({
+    version: "1.3.5",
+    items: Object.freeze([
+      "news.v135.1",
+      "news.v135.2",
+      "news.v135.3",
+      "news.v135.4",
+      "news.v135.5",
+    ]),
+  }),
+  Object.freeze({
     version: "1.3.4",
     items: Object.freeze([
       "news.v134.1",
