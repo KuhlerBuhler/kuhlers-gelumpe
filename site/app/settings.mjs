@@ -21,6 +21,10 @@ const FIELDS = [
     label: "settings.particles", hint: "settings.particles.hint",
   },
   {
+    id: "autoConnect", type: "switch", default: true,
+    label: "settings.autoConnect", hint: "settings.autoConnect.hint",
+  },
+  {
     id: "motion", type: "choice", default: "system",
     label: "settings.motion", options: [["system", "settings.motion.system"], ["reduce", "settings.motion.reduce"], ["full", "settings.motion.full"]],
   },

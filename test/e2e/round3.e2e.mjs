@@ -69,7 +69,7 @@ test("settings: the button opens their page, particles go off and stay off, moti
   assert.deepEqual(await severeViolations(page), [], "settings page");
   await dialog.locator("#cee-set-motion").selectOption("full");
   assert.equal(await page.evaluate(() => document.documentElement.dataset.motion), "full");
-  await dialog.locator("label.ui-switch").click();
+  await dialog.locator("label.ui-switch:has(#cee-set-particles)").click();
   assert.equal(await page.locator("#bg-canvas").isHidden(), true);
   await page.reload();
   assert.equal(await page.locator("#bg-canvas").isHidden(), true, "kept in this browser");
