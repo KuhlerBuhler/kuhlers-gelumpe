@@ -13,9 +13,11 @@ const SUPPORT = new URL("./support/", import.meta.url).pathname;
 
 /**
  * @param {(dir: string) => Array<[string, string]>} [routes] more served paths, built from the scratch directory
- * @param {{realDevices?: boolean}} [options] `realDevices`: the page knows the measured builds by their signatures, for a test against the emulator running the user's own firmware
+ * @param {{realDevices?: boolean, emu?: {port: number, token: string}, publicOrigin?: string | true}} [options]
+ *   `realDevices`: the page knows the measured builds by their signatures, for a test against the emulator running the user's own firmware.
+ *   `emu` and `publicOrigin` put the page behind a reverse proxy: `true` for the origin the page is then served at
  */
-export async function setUp(routes = () => [], { realDevices = false } = {}) {
+export async function setUp(routes = () => [], { realDevices = false, emu = null, publicOrigin = "" } = {}) {
   const dir = tempDir("cee-e2e-");
   const extra = [
     ["/test-support/files/", `${dir}/`],
@@ -28,7 +30,8 @@ export async function setUp(routes = () => [], { realDevices = false } = {}) {
   let server;
   for (let attempt = 0; !server; attempt++) {
     port = 19000 + Math.floor(Math.random() * 20000);
-    try { server = await startServer(port, { extra }); } catch (error) { if (attempt >= 20 || error.code !== "EADDRINUSE") throw error; }
+    const origin = publicOrigin === true ? `http://127.0.0.1:${port}` : publicOrigin;
+    try { server = await startServer(port, { extra, emu, publicOrigin: origin }); } catch (error) { if (attempt >= 20 || error.code !== "EADDRINUSE") throw error; }
   }
   const browser = await chromium.launch({ channel: process.env.E2E_CHANNEL || "chrome" });
   return {

@@ -15,9 +15,10 @@ import { startServer } from "./serve.mjs";
 
 const port = Number(process.env.PORT || 8737);
 const emuPort = Number(process.env.EMU_PORT || 8740);
+const host = process.env.GELUMPE_HOST || "127.0.0.1";
 
 const token = randomBytes(16).toString("base64url");
-const server = await startServer(port, { emu: { port: emuPort, token } });
+const server = await startServer(port, { host, emu: { port: emuPort, token } });
 console.log(`Editor läuft auf http://127.0.0.1:${port}/ (verbindet sich selbst mit dem Emulator)`);
 let stopping = false;
 let emu;

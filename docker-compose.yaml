@@ -1,0 +1,37 @@
+# The editor as a web UI, one command:
+#
+#   docker compose up --build
+#
+# Then open http://localhost:8737/ in Chrome or Edge. The page finds the
+# emulator through port 8740, so both ports belong together and keep their
+# numbers. Both stay on 127.0.0.1: the editor has no login, and the emulator
+# holds a token that only a local page gets.
+#
+# Behind a reverse proxy on this host, set GELUMPE_PUBLIC_ORIGIN to the public
+# address (for example https://blech.example). The proxy then reaches
+# 127.0.0.1:8737 only, the emulator comes through the page's own path, and the
+# browser never needs 8740. A proxy in a container of its own cannot reach
+# 127.0.0.1: change the mapping to "8737:8737" for that case. Give the page a
+# TLS certificate in the proxy: without a secure origin the browser withholds
+# crypto.subtle, and the patcher cannot hash.
+services:
+  gelumpe:
+    build: .
+    image: kuhlers-gelumpe:latest
+    init: true
+    environment:
+      # The address a reverse proxy serves the page at, for example
+      # https://blech.jbugel.xyz. Set, the emulator is reached through the page's
+      # own path and the browser needs only port 8737. Empty, everything stays
+      # local and the page uses the emulator's port 8740.
+      GELUMPE_PUBLIC_ORIGIN: ${GELUMPE_PUBLIC_ORIGIN:-}
+    ports:
+      - "127.0.0.1:8737:8737"
+      - "127.0.0.1:8740:8740"
+    volumes:
+      # The virtual SD card and the flash live here, so a new container keeps them.
+      - gelumpe:/home/node/.gelumpe
+    restart: unless-stopped
+
+volumes:
+  gelumpe:

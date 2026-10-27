@@ -17,6 +17,7 @@
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
+import { emuBase } from "./emu-link.mjs";
 import { t } from "./i18n.mjs";
 
 const STYLE = new URL("./sdcard.css", import.meta.url).href;
@@ -54,7 +55,7 @@ export function sdcardPanel(root, emulator = null, { heading = true, bar = false
     if (!l) throw new Error(window.__GELUMPE_APP ? t("sd.appEmuDown") : t("sd.noLink"));
     let res;
     try {
-      res = await fetch(`http://127.0.0.1:${l.port}${path}`, {
+      res = await fetch(`${emuBase(l)}${path}`, {
         method, body: method === "POST" ? "{}" : undefined, headers: { "X-Emu-Token": l.token, ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
       });
     } catch {
@@ -114,7 +115,7 @@ export function sdcardPanel(root, emulator = null, { heading = true, bar = false
     events?.close();
     const l = link();
     if (!l || typeof EventSource === "undefined") return;
-    events = new EventSource(`http://127.0.0.1:${l.port}/events?token=${encodeURIComponent(l.token)}`);
+    events = new EventSource(`${emuBase(l)}/events?token=${encodeURIComponent(l.token)}`);
     let seen = null;
     events.addEventListener("status", e => {
       const s = JSON.parse(e.data);

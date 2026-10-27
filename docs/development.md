@@ -32,6 +32,34 @@ npm run test:local   # Werksprüfungen mit eigenen Dateien, brauchen E2_VSB und 
 npm run test:all     # Unit- und Browsertests nebeneinander, mit E2_VSB auch Emulator
 ```
 
+## Im Container
+
+`docker compose up --build` baut die Seite und den Emulator in ein Abbild und
+veröffentlicht beide auf der Schleife. Danach liegt der Editor unter
+http://localhost:8737/ und verbindet sich selbst mit dem Emulator auf 8740. Die
+beiden Ports behalten ihre Zahlen, sonst findet die Seite den Emulator nicht.
+Das Abbild setzt `GELUMPE_HOST=0.0.0.0`, weil ein veröffentlichter Port den
+Container an seiner eigenen Adresse erreicht und nie an 127.0.0.1 darin; ohne
+die Variable bleibt es beim bisherigen 127.0.0.1. Karte und Flash des Emulators
+liegen im Volume `gelumpe`, ein neuer Container behält sie. Ohne Docker gilt
+`npm start` wie oben.
+
+## Hinter einem Proxy
+
+Ein Reverse Proxy auf demselben Rechner (Caddy, nginx, Traefik) erreicht den
+Container unter 127.0.0.1:8737. Setz `GELUMPE_PUBLIC_ORIGIN` auf die Adresse,
+unter der er die Seite ausliefert, etwa `https://blech.example`, und leite dort
+alles an 127.0.0.1:8737 weiter, mit dem `Host`-Kopf der Anfrage. Dann liegt der
+Emulator unter demselben Ursprung wie die Seite, im Pfad `/emu-service`, und der
+Browser braucht nur diesen einen Port. Ohne die Variable spricht die Seite den
+Emulator weiter unter 127.0.0.1:8740 an, was nur auf dem eigenen Rechner geht.
+
+Die Seite braucht einen sicheren Ursprung, also HTTPS oder localhost. Über
+http://blech.jbugel.xyz:8737 verweigert der Browser `crypto.subtle`, und damit
+fallen Patcher und Prüfsummen aus. Das Zertifikat für die Adresse besorgt der
+Proxy. Der Editor hat keine Anmeldung, ein Passwort oder eine Zugriffsregel
+gehört deshalb in den Proxy, sobald die Seite von außen erreichbar ist.
+
 ## Tests
 
 Es liegen nie Korg-Daten im Repo. Alle Testdaten werden gebaut (`test/helpers.mjs`):
