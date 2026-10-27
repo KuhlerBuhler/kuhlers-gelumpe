@@ -16,7 +16,7 @@ const SYNTH = read("data/patches/usb-name-synth.json");
 const file = ram => ram - 0xc0000000 + 0x100;
 // per hardware: the descriptor table, and per string 2 to 4 the slot (address, length) and the old and new text
 const LAYOUT = {
-  sampler: { table: 0xc00a40a0, strings: [[0xc00a4120, 40, "electribe2 sampler", "Electribe 3"], [0xc00a4148, 56, "electribe2 sampler _ SOUND", "Electribe 3 _ SOUND"], [0xc00a4180, 60, "electribe2 sampler _ PAD/KNOB", "Electribe 3 _ PAD/KNOB"]] },
+  sampler: { table: 0xc00a40a0, strings: [[0xc00a4120, 40, "electribe2 sampler", "Electribe 3"], [0xc00a4148, 56, "electribe2 sampler _ SOUND", "Electribe 3 SOUND"], [0xc00a4180, 60, "electribe2 sampler _ PAD/KNOB", "Electribe 3 PAD/KNOB"]] },
   synth: { table: 0xc008eb00, strings: [[0xc008eb80, 24, "electribe2", "Electribe 3"], [0xc008eb98, 40, "electribe2 _ SOUND", "Electribe 3 SOUND"], [0xc008ebc0, 44, "electribe2 _ PAD/KNOB", "Electribe 3 PAD/KNOB"]] },
 };
 

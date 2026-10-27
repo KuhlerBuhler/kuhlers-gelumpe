@@ -7,8 +7,8 @@ into the same slot and fills the rest with zeros, the table that points at the s
 ("KORG INC.") and the USB IDs stay as they are.
 
 The red Electribe (Korg's 2.02 and Hacktribe) keeps the strings at the same addresses with the same bytes, so one
-patch serves both; the blue one (synth) has shorter slots and gets shorter port names, since "Electribe 3 _ PAD/KNOB"
-does not fit there. Every name keeps "Electribe": the app finds the ports with /electribe/i (src/session.mjs).
+patch serves both. Both get the port names without the underscore ("Electribe 3 SOUND"), the same on red and blue;
+"Electribe 3 _ PAD/KNOB" would not fit the shorter slots of the blue one (synth). Every name keeps "Electribe": the app finds the ports with /electribe/i (src/session.mjs).
 
 Reads the VSB only to check the old descriptors and for the checksums of the bytes it replaces; no firmware bytes go
 into the patch. The build is read from the VSB.
@@ -31,8 +31,8 @@ SAMPLER = {
     "table": 0xC00A40A0,
     "strings": [
         (2, 0xC00A4120, 40, "electribe2 sampler", "Electribe 3"),
-        (3, 0xC00A4148, 56, "electribe2 sampler _ SOUND", "Electribe 3 _ SOUND"),
-        (4, 0xC00A4180, 60, "electribe2 sampler _ PAD/KNOB", "Electribe 3 _ PAD/KNOB"),
+        (3, 0xC00A4148, 56, "electribe2 sampler _ SOUND", "Electribe 3 SOUND"),
+        (4, 0xC00A4180, 60, "electribe2 sampler _ PAD/KNOB", "Electribe 3 PAD/KNOB"),
     ],
 }
 SYNTH = {

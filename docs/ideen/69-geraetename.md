@@ -33,8 +33,8 @@ und im Code. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 
 1. Patch als Datenpatch: die drei Strings an Ort und Stelle ersetzen, je eine Datei für Sampler (Hacktribe und Korg) und
    Synth. Kein ARM-Code.
-2. Blau: **entschieden (27.10.)**, kürzere Portnamen "Electribe 3 SOUND" und "Electribe 3 PAD/KNOB" an Ort und Stelle. Die
-   rote behält "Electribe 3 _ SOUND" und "Electribe 3 _ PAD/KNOB".
+2. Portnamen: **entschieden (27.10.)**, rot und blau gleich "Electribe 3 SOUND" und "Electribe 3 PAD/KNOB", an Ort und
+   Stelle (auf der blauen passt "Electribe 3 _ PAD/KNOB" nicht).
 3. Ein Häkchen pro Patch im Patcher der App (gibt es noch nicht) für diesen Patch, aus per Voreinstellung.
 4. Prüfung im Emulator nur auf Bytes, der Emulator kennt kein USB. Prüfen, ob die Startprüfung des Patchers den Bereich
    als Startphase erklärt haben will.
