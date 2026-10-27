@@ -90,28 +90,60 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
 
   /** For a real device: an emulator session that tries every edit first (plan 5.1, 5.2). */
   async function attachRehearsal() {
-    if (!session) return;
+    const s = session;
+    if (!s) return;
     const emu = emulator();
-    if (session.port === emu) { rehearseState.textContent = ""; return; }
-    session.requireRehearsal = true;
+    if (s.port === emu) { rehearseState.textContent = ""; return; }
+    s.requireRehearsal = true;
     if (!emu?.running) {
-      session.rehearseOn(null);
-      rehearseState.textContent = t("device.rehearse.off");
-      toast(rehearseState.textContent, "info", { stay: true });
+      s.rehearseOn(null);
+      if (!view()?.firmware) {
+        rehearseState.textContent = t("device.rehearse.noFirmware");
+        toast(rehearseState.textContent, "info", { stay: true });
+        return;
+      }
+      rehearseState.textContent = t("device.rehearse.starting");
+      startRehearsal();
       return;
     }
     try {
       // Its own history: device undo takes back the probe's last edit, never one made on the emulator directly.
       // The terminal rehearses on the same session, so the two never take the port from each other.
       const tries = await probe();
+      if (session !== s) return;    // disconnected meanwhile
       tries.history.length = 0;
-      session.rehearseOn(tries);
+      s.rehearseOn(tries);
       rehearseState.textContent = t("device.rehearse.on");
     } catch (e) {
-      session.rehearseOn(null);
+      if (session !== s) return;
+      s.rehearseOn(null);
       rehearseState.textContent = t("device.rehearse.failed", { error: e.message });
       toast(rehearseState.textContent, "error");
     }
+  }
+
+  /**
+   * Switches the emulator on behind the drawing, which keeps showing the real device, and attaches the probe once
+   * the firmware has booted. Nothing goes to the device until then. Why the start failed, the emulator says itself.
+   */
+  let starting = null;
+  const BOOT_WAIT_MS = 90_000;
+  // One start for whichever real session is there once it has booted, also one that reconnected meanwhile.
+  function startRehearsal() {
+    starting ??= (async () => {
+      try {
+        await view().powerOn();
+        const until = Date.now() + BOOT_WAIT_MS;
+        while (!emulator()?.running && session && Date.now() < until) await new Promise(r => setTimeout(r, 250));
+        if (!emulator()?.running) throw new Error(t("emu.power.failed"));
+      } catch (e) {
+        if (session) rehearseState.textContent = t("device.rehearse.failed", { error: e.message });
+        return;
+      } finally {
+        starting = null;
+      }
+      await attachRehearsal();
+    })();
   }
 
   /** "ok", "failed", or "skip" when another connection came in between. `quiet`: a failure leaves the toast to the caller. */
@@ -341,6 +373,10 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     chosen: () => autoConnect?.chosen(),
     disconnect,
     showDecision,
+    /** A firmware came in: a real device still waiting for its rehearsal gets it now. */
+    firmwareChanged() {
+      if (session && session.port !== emulator() && !session.rehearsal && !emulator()?.running) attachRehearsal();
+    },
     log(text, tone = "neutral") {
       log.prepend(el("li", { className: "ui-row" }, [pill(tone, t({ ok: "device.log.ok", warn: "device.log.warn", error: "common.error", neutral: "device.log.info" }[tone])), el("span", { textContent: ` ${text}` })]));
     },
