@@ -9,6 +9,8 @@ verlinkten Ideen.
 - MIDI-Bericht in den Einstellungen, wenn keine Electribe gefunden wird.
 - Gerätename "Electribe 3" als Häkchen im Patcher ([Idee 69](ideen/69-geraetename.md)).
 - Plugin-Doku: Tabelle der Regler, Drehgeber und Pads.
+- USB-Symbol auf dem Display, solange die Electribe an einem Rechner hängt ([Idee 67](ideen/67-usb-symbol.md)). Vorher am Gerät
+  prüfen, ob das Symbol nach dem Abziehen verschwindet.
 - Blechy läuft auf dem Gerät mit Laufanimation und gespiegelter Figur (Idee 68 in der [Ideenliste](ideen.md)).
 - Weitere kleine Fixes.
 
