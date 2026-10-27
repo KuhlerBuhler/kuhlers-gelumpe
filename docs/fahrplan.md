@@ -9,12 +9,14 @@ verlinkten Ideen.
 - MIDI-Bericht in den Einstellungen, wenn keine Electribe gefunden wird.
 - Gerätename "Electribe 3" als Häkchen im Patcher ([Idee 69](ideen/69-geraetename.md)).
 - Plugin-Doku: Tabelle der Regler, Drehgeber und Pads.
+- Blechy läuft auf dem Gerät mit Laufanimation und gespiegelter Figur (Idee 68 in der [Ideenliste](ideen.md)).
 - Weitere kleine Fixes.
 
 ## 1.4
 
 - Sample Swap.
 - Plugin-API deutlich erweitern, Feedback aus der Community ([Idee 74](ideen/74-plugin-api-feedback.md)).
+- Tasten bei offener App durchlassen, etwa `korg.passKeys(...)` (Idee 66 in der [Ideenliste](ideen.md)).
 
 ## 1.5: "The sample update"
 
