@@ -777,7 +777,7 @@ the whole display is his (the page number is not visible).
   12 s, then every 20 s or 30 s (8 s plus 0 to 8 s of chance after the last, plus the walk to the next edge). The lines come in
   turn: "yo, na du?", the favourite tempo (the most played one, counted per beat; until something was played, the fixed line
   "mein Tempo ist 150 bpm"), how long it has been going ("Spielt seit n min" since the first PLAY, otherwise "Laeuft seit"
-  since power-on, seconds under a minute), "Blech ist mein Ding", "kein Mund, kein Problem", "bisschen mehr Bass?", "nicht so doll
+  since power-on, seconds under a minute), "Blech ist mein Ding", "bisschen mehr Bass?", "nicht so doll
   tippen", "Schranz ist Liebe". All in the own font (5 by 7, ASCII only, hence "hoer" and "Laeuft"). The waits, the walking speed
   and the texts are a choice, not tried on the device.
 - **PLAY.** When you press PLAY he walks briskly (two pixels every 70 ms) to the middle, a little left of it so that there is room

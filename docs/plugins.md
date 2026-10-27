@@ -929,7 +929,7 @@ kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Sei
   danach alle 20 s oder 30 s (8 s plus 0 bis 8 s Zufall nach der letzten, dazu der Weg zum nächsten Rand). Die Zeilen kommen
   der Reihe nach: "yo, na du?", das Lieblingstempo (das am häufigsten gespielte, je Beat gezählt; solange noch nichts
   gespielt wurde, die feste Zeile "mein Tempo ist 150 bpm"), seit wann es läuft ("Spielt seit n min" seit dem ersten PLAY,
-  sonst "Laeuft seit" seit dem Einschalten, unter einer Minute in Sekunden), "Blech ist mein Ding", "kein Mund, kein Problem",
+  sonst "Laeuft seit" seit dem Einschalten, unter einer Minute in Sekunden), "Blech ist mein Ding",
   "bisschen mehr Bass?", "nicht so doll tippen", "Schranz ist Liebe". Alles in der eigenen Schrift (5 mal 7, nur ASCII, darum
   "hoer" und "Laeuft"). Die Wartezeiten, das Tempo des Gehens und die Texte sind eine Wahl, am Gerät nicht erprobt.
 - **PLAY.** Drückt man PLAY, geht er zügig (zwei Pixel alle 70 ms) in die Mitte, ein Stück links davon, damit neben ihm Platz

@@ -161,12 +161,9 @@ function drawBubble(kind, side) {
     korg.display.text("Blech ist", x, 14);
     korg.display.text("mein Ding", x, 26);
   } else if (kind == 5) {
-    korg.display.text("kein Mund,", x, 14);
-    korg.display.text("kein Problem", x, 26);
-  } else if (kind == 6) {
     korg.display.text("bisschen", x, 14);
     korg.display.text("mehr Bass?", x, 26);
-  } else if (kind == 7) {
+  } else if (kind == 6) {
     korg.display.text("nicht so", x, 14);
     korg.display.text("doll tippen", x, 26);
   } else {
@@ -198,7 +195,7 @@ function move(now, target, gap, px) {
 function startTalk(now, side) {
   wantTalk = 0;
   talkSide = side;
-  talkNo = talkNo % 8 + 1;
+  talkNo = talkNo % 7 + 1;
   talkKind = talkNo;
   holdUntil = now + TALK_MS;
   nextTalk = holdUntil + TALK_GAP + rnd() % TALK_SPREAD;

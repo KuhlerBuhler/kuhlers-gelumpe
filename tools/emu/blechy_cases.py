@@ -288,7 +288,7 @@ def run(vsb, flash, request, png_dir):
     end = dev.m.time_ns + 90e9
     while dev.m.time_ns < end and len(talked) < 2:
         dev.run(0.1)
-        if 1 <= r.bubble() <= 8 and (not talked or talked[-1] != r.var("talkNo")):
+        if 1 <= r.bubble() <= 7 and (not talked or talked[-1] != r.var("talkNo")):
             dev.run(0.1)
             talked.append(r.var("talkNo"))
             r.shot("redet-%d" % len(talked))
