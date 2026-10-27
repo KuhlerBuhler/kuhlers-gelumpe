@@ -197,3 +197,26 @@ test("the open page asks again every minute: those who stay keep their place, ne
   assert.deepEqual(page.errors, []);
   await page.context().close();
 });
+
+test("an answer that comes while another page is open still spreads everyone across the floor once it is shown", async () => {
+  const page = await h.page();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  let answer;
+  const asked = new Promise(resolve => { answer = resolve; });
+  await page.route("https://discord.com/**", async route => {
+    await asked;
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(server(12)) });
+  });
+  await page.goto(`${h.url}#discord`);
+  await page.locator("#cee-tab-start").click();
+  answer();
+  await page.locator(".cee-discord-people li").first().waitFor({ state: "attached" });
+  await page.waitForTimeout(500);
+  await page.locator("#cee-tab-discord").click();
+  await page.waitForTimeout(300);
+  const xs = await page.locator(".cee-discord-blechy").evaluateAll(nodes => nodes.map(n => new DOMMatrix(getComputedStyle(n).transform).m41));
+  const room = await page.locator(".cee-discord-floor").evaluate(n => n.clientWidth);
+  assert.ok(Math.max(...xs) - Math.min(...xs) > room / 2, `spread across ${room} px, not piled up: ${xs.map(Math.round).join(" ")}`);
+  assert.deepEqual(page.errors, []);
+  await page.context().close();
+});
