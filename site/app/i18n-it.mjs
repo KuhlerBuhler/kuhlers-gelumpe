@@ -60,6 +60,7 @@ export default {
   "settings.midi.inputs": "Ingressi ({count}):",
   "settings.midi.outputs": "Uscite ({count}):",
   "settings.midi.pairs": "Riconosciuta come Electribe ({count}):",
+  "settings.midi.korgDriver": "Nota: questi nomi di porta vengono dal driver USB-MIDI di Korg. Le risposte dell'Electribe non passano attraverso di esso. Rimuovilo in Gestione dispositivi (Electribe, Disinstalla dispositivo, con il driver) e riavvia Windows; basta il driver di Windows. Se poi KORG Driver Setup Utility propone di reinstallarlo, chiudilo.",
   "settings.midi.pair": "uscita «{out}» con ingresso «{in}»",
   "settings.midi.none": "nessuna",
   "settings.autoConnect": "Connetti automaticamente",
