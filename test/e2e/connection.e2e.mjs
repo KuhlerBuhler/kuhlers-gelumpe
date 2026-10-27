@@ -67,13 +67,42 @@ test("after Trennen the same device connects again", async () => {
   assert.deepEqual(page.errors, []);
 });
 
-test("the emulator not running while connected: the hint says what to do and Trennen still works", async () => {
+test("no firmware while connected: the hint asks for SYSTEM.VSB and Trennen still works", async () => {
   const page = await open();
   await connect(page);
-  await page.locator("#cee-rehearse-state", { hasText: "Emulator läuft nicht" }).waitFor({ state: "attached" });
-  assert.match(await page.locator("#cee-rehearse-state").textContent(), /Electribe wird dabei getrennt/);
+  await page.locator("#cee-rehearse-state", { hasText: "noch keine Firmware" }).waitFor({ state: "attached" });
+  assert.match(await page.locator("#cee-rehearse-state").textContent(), /SYSTEM\.VSB/);
   await page.click("#cee-disconnect");
   await page.locator("#cee-nav-state #cee-connect").waitFor();
+});
+
+test("connected: the drawing shows the real device's display, also with the emulator off", async () => {
+  const page = await open();
+  await connect(page);
+  await go(page, "emu");
+  assert.equal(await page.locator("#cee-emu-lcd").isVisible(), true, "the display is not hidden as a switched-off emulator's");
+  assert.deepEqual(page.errors, []);
+});
+
+test("firmware chosen, emulator off: connecting starts it behind the drawing and the rehearsal goes on, the connection stays", async () => {
+  const page = await open({ emulator: true });
+  await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
+  await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
+  await connect(page);
+  await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ state: "attached", timeout: 15_000 });
+  assert.equal(await connected(page).count(), 1, "the Electribe stays connected");
+  assert.equal(await page.locator("#cee-emu-status", { hasText: "läuft" }).count(), 1);
+  assert.deepEqual(page.errors, []);
+});
+
+test("firmware chosen after connecting: the emulator starts then and the rehearsal goes on", async () => {
+  const page = await open({ emulator: true });
+  await connect(page);
+  await page.locator("#cee-rehearse-state", { hasText: "noch keine Firmware" }).waitFor({ state: "attached" });
+  await page.setInputFiles("#cee-emu-vsb", h.file("system.vsb", firmware));
+  await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ state: "attached", timeout: 15_000 });
+  assert.equal(await connected(page).count(), 1);
+  assert.deepEqual(page.errors, []);
 });
 
 test("the power key while connected asks first; Abbrechen keeps the connection", async () => {
