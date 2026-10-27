@@ -20,7 +20,9 @@
 (function () {
     const bg = document.getElementById('bg-canvas');
     if (!bg) return;
-    const ctx = bg.getContext('2d');
+    // Every frame is written as ImageData, so a software canvas costs nothing; it also reads back the same bytes each
+    // time, where a GPU canvas in Chrome on macOS returns semi-transparent pixels one step off after the first read.
+    const ctx = bg.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     const query = new URLSearchParams(location.search);
