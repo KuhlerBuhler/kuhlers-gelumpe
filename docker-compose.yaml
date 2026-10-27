@@ -34,7 +34,7 @@ services:
       - "127.0.0.1:8740:8740"
     volumes:
       # The virtual SD card and the flash live here, so a new container keeps them.
-      - gelumpe:/home/node/.gelumpe
+      - ./SD:./SD
     # A stop signal reaches the page server, which ends the emulator with it (tools/start.mjs). The
     # emulator saves the card and the flash first and gives up on its own after 10 s, so the
     # container waits past that instead of killing what is left: a stop leaves no emulator running.
