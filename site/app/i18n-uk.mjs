@@ -1443,7 +1443,7 @@ export default {
   "compile.number.letter": "Одразу після числа стоїть літера.",
   "compile.string.open": "Текст не закрито.",
   "compile.string.escape": "У тексті працюють лише \\\\, \\\" і \\'.",
-  "compile.string.ascii": "Дисплей показує лише символи ASCII, без умляутів.",
+  "compile.string.ascii": "Дисплей показує лише символи ASCII та ä, ö, ü.",
   "compile.string.long": "Текст задовгий (символів: {length}, максимум {max}).",
   "compile.string.template": "Шаблонних рядків із ` тут немає, бери текст у лапках.",
   "compile.char": "Символу «{char}» у коді плагіна немає.",

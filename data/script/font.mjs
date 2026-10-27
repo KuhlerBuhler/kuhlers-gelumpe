@@ -1,14 +1,20 @@
 /**
  * The 5 x 7 font of the script display, one row of five column bytes per
- * character from 0x20 to 0x7e (bit 0 is the top row). The ARM runtime and the
- * browser model draw from this one table. A preview-quality font of our own,
- * not the firmware's.
+ * character from 0x20 to 0x7e (bit 0 is the top row), then ä, ö and ü as 0x7f to
+ * 0x81. The ARM runtime and the browser model draw from this one table. A
+ * preview-quality font of our own, not the firmware's.
  */
 export const FONT_FIRST = 0x20;
-export const FONT_LAST = 0x7e;
+export const FONT_LAST = 0x81;
 export const GLYPH_WIDTH = 5;
 export const GLYPH_HEIGHT = 7;
 export const ADVANCE = 6;
+
+/** The umlauts behind "~": in a plugin string each is the one byte here, so a text slot keeps one byte per character. */
+export const UMLAUTS = Object.freeze({ "ä": 0x7f, "ö": 0x80, "ü": 0x81 });
+
+/** The byte a character of a string is stored and drawn as. */
+export const fontByte = char => UMLAUTS[char] ?? char.charCodeAt(0);
 
 const ROWS = [
   "0000000000", "00005f0000", "0007000700", "147f147f14", "242a7f2a12", "2313086462", "3649552250", "0005030000",
@@ -23,6 +29,7 @@ const ROWS = [
   "7f08040478", "00447d4000", "2040443d00", "007f102844", "00417f4000", "7c04180478", "7c08040478", "3844444438",
   "7c14141408", "081414187c", "7c08040408", "4854545420", "043f444020", "3c4040207c", "1c2040201c", "3c4030403c",
   "4428102844", "0c5050503c", "4464544c44", "0008364100", "00007f0000", "0041360800", "1008081008",
+  "2055545578", "3845444538", "3c4140217c",
 ];
 
 export const FONT = Object.freeze(ROWS.map(row => Uint8Array.from(row.match(/../g), pair => parseInt(pair, 16))));

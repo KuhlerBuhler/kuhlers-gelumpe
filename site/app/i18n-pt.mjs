@@ -1443,7 +1443,7 @@ export default {
   "compile.number.letter": "Logo a seguir a um número vem uma letra.",
   "compile.string.open": "O texto não está fechado.",
   "compile.string.escape": "No texto só funcionam \\\\, \\\" e \\'.",
-  "compile.string.ascii": "O ecrã só mostra caracteres ASCII, sem trema nem acentos.",
+  "compile.string.ascii": "O ecrã só mostra caracteres ASCII e ä, ö, ü, sem outros acentos.",
   "compile.string.long": "O texto é demasiado longo ({length} caracteres, no máximo {max}).",
   "compile.string.template": "Modelos de texto com ` não existem, usa um texto entre aspas.",
   "compile.char": "O caractere “{char}” não existe no código do plugin.",

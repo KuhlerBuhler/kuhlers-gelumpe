@@ -1443,7 +1443,7 @@ export default {
   "compile.number.letter": "Direct achter een getal staat een letter.",
   "compile.string.open": "De tekst is niet gesloten.",
   "compile.string.escape": "In tekst werken alleen \\\\, \\\" en \\'.",
-  "compile.string.ascii": "Het display toont alleen ASCII-tekens zonder umlauten.",
+  "compile.string.ascii": "Het display toont alleen ASCII-tekens en ä, ö, ü.",
   "compile.string.long": "De tekst is te lang ({length} tekens, maximaal {max}).",
   "compile.string.template": "Sjabloonteksten met ` bestaan niet, gebruik een tekst tussen aanhalingstekens.",
   "compile.char": "Het teken “{char}” bestaat niet in plugincode.",

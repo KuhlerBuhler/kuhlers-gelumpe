@@ -1443,7 +1443,7 @@ export default {
   "compile.number.letter": "Zaraz po liczbie stoi litera.",
   "compile.string.open": "Tekst nie jest zamknięty.",
   "compile.string.escape": "W tekście działają tylko \\\\, \\\" i \\'.",
-  "compile.string.ascii": "Wyświetlacz pokazuje tylko znaki ASCII, bez polskich liter.",
+  "compile.string.ascii": "Wyświetlacz pokazuje tylko znaki ASCII oraz ä, ö, ü, bez polskich liter.",
   "compile.string.long": "Tekst jest za długi (długość: {length}, najwyżej {max}).",
   "compile.string.template": "Szablonów tekstowych z ` nie ma, użyj tekstu w cudzysłowie.",
   "compile.char": "Znaku „{char}” nie ma w kodzie pluginu.",

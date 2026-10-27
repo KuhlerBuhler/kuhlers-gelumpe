@@ -1443,7 +1443,7 @@ export default {
   "compile.number.letter": "A letter directly follows a number.",
   "compile.string.open": "The text is not closed.",
   "compile.string.escape": "In text, only \\\\, \\\" and \\' are allowed.",
-  "compile.string.ascii": "The display only shows ASCII characters, no umlauts.",
+  "compile.string.ascii": "The display only shows ASCII characters and ä, ö, ü.",
   "compile.string.long": "The text is too long ({length} characters, at most {max}).",
   "compile.string.template": "There are no template strings with `, use text in quotation marks.",
   "compile.char": "The character “{char}” doesn't exist in plugin code.",

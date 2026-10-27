@@ -6,7 +6,7 @@
 import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
 import { outlined } from "../../src/blechy-outline.mjs";
-import { FONT, FONT_FIRST, FONT_LAST, GLYPH_WIDTH, GLYPH_HEIGHT, ADVANCE } from "../../data/script/font.mjs";
+import { FONT, FONT_FIRST, FONT_LAST, GLYPH_WIDTH, GLYPH_HEIGHT, ADVANCE, fontByte } from "../../data/script/font.mjs";
 import { t } from "./i18n.mjs";
 
 /** Background and pixel colour of each look, as tokens: the red sampler, the blue synth, black, and the display. */
@@ -98,7 +98,7 @@ const figureMask = async id => {
 
 /** A line of text in the 5 x 7 font of the display, as a mask like maskOf. */
 function textMask(text) {
-  const chars = [...text].map(c => c.charCodeAt(0)).map(c => (c >= FONT_FIRST && c <= FONT_LAST ? c : 0x3f));
+  const chars = [...text].map(fontByte).map(c => (c >= FONT_FIRST && c <= FONT_LAST ? c : 0x3f));
   const width = Math.max(chars.length * ADVANCE - 1, 0);
   return Array.from({ length: GLYPH_HEIGHT }, (_, y) => Array.from({ length: width }, (_, x) => {
     const col = x % ADVANCE;

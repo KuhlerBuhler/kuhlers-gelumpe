@@ -1442,7 +1442,7 @@ export default {
   "compile.number.letter": "Justo después de un número hay una letra.",
   "compile.string.open": "El texto no está cerrado.",
   "compile.string.escape": "En el texto solo valen \\\\, \\\" y \\'.",
-  "compile.string.ascii": "La pantalla solo muestra caracteres ASCII, sin tildes ni eñes.",
+  "compile.string.ascii": "La pantalla solo muestra caracteres ASCII y ä, ö, ü, sin tildes ni eñes.",
   "compile.string.long": "El texto es demasiado largo ({length} caracteres, como máximo {max}).",
   "compile.string.template": "Las plantillas de texto con ` no existen, usa un texto entre comillas.",
   "compile.char": "El carácter “{char}” no existe en el código del plugin.",

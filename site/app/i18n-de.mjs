@@ -1488,7 +1488,7 @@ export default {
   "compile.number.letter": "Direkt hinter einer Zahl steht ein Buchstabe.",
   "compile.string.open": "Der Text ist nicht geschlossen.",
   "compile.string.escape": "Im Text geht nur \\\\, \\\" und \\'.",
-  "compile.string.ascii": "Das Display zeigt nur ASCII-Zeichen ohne Umlaute.",
+  "compile.string.ascii": "Das Display zeigt nur ASCII-Zeichen und ä, ö, ü.",
   "compile.string.long": "Der Text ist zu lang ({length} Zeichen, höchstens {max}).",
   "compile.string.template": "Textvorlagen mit ` gibt es nicht, nimm einen Text in Anführungszeichen.",
   "compile.char": "Das Zeichen „{char}“ gibt es im Plugin-Code nicht.",

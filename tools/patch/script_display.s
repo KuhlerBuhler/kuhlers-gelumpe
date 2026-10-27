@@ -168,7 +168,7 @@ draw_char:
     cmp r5, #SCRIPT_DISPLAY_WIDTH
     bge draw_done
     sub r7, r7, #32
-    cmp r7, #95
+    cmp r7, #98
     movhs r7, #31
     add r7, r7, r7, lsl #2
     ldr r8, =SCRIPT_FONT
