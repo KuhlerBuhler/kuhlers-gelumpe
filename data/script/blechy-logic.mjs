@@ -21,6 +21,7 @@ korg.app("Blechy", "GAMES");
 const DX_MAX = 127 - WALK_RIGHT;
 const DX_MID = 24;
 const WALK_MS = 120;
+const STEP_MS = 240;
 const BRISK_MS = 70;
 const LISTEN_MS = 2800;
 const TALK_MS = 3500;
@@ -203,13 +204,18 @@ function startTalk(now, side) {
   nextTalk = holdUntil + TALK_GAP + rnd() % TALK_SPREAD;
 }
 
-function walking() {
-  return F_WALK;
+// The walk cycle: the calm and the walk picture in turn every STEP_MS (as on the Discord page), mirrored when he goes left.
+// The walk picture sits one row lower, which makes the step.
+function walking(now) {
+  const pose = (now / STEP_MS) & 1;
+  posY = pose;
+  if (dir < 0) return F_BACK + pose;
+  return pose ? F_WALK : F_IDLE;
 }
 
 // Which picture belongs to the moment, and where he is: a reaction first, then the play states (to the middle,
 // listening, dancing), then the wave (once per landing, WAVE_DELAY_MS after it, the hand swings every WAVE_STEP_MS),
-// then the walk with its stops at the edges, the twitch, standing.
+// then the walk (the pictures alternate, mirrored to the left) with its stops at the edges, the twitch, standing.
 function pick(now) {
   if (!playing) mode = 0;
   else if (mode == 0) {
@@ -231,8 +237,7 @@ function pick(now) {
       talkSide = 0;
       return standing(now);
     }
-    posY = (posX >> 1) & 1;
-    return walking();
+    return walking(now);
   }
   if (mode == 2 && now - listenAt >= LISTEN_MS) mode = 3;
   if (mode == 3) return F_FLAIL + flail;
@@ -251,8 +256,7 @@ function pick(now) {
     dir = 0 - dir;
     return standing(now);
   }
-  posY = (posX >> 1) & 1;
-  return walking();
+  return walking(now);
 }
 
 function bubbleAt(now) {
