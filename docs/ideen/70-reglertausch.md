@@ -3,6 +3,9 @@
 Wunsch: IFX EDIT wird zu Resonance, SHIFT + IFX EDIT zu EG Int, Resonance und EG Int werden zu
 Effektreglern. Als Plugin.
 
+**Verworfen (27.10.).** Die Idee setzte zwei Achsen beim IFX voraus. Der IFX hat pro Part nur einen Wert (`ifxEdit`), damit
+fehlt das Ziel für den zweiten Regler. Der Befund unten bleibt als Grundlage stehen, etwa für Idee 72.
+
 Stand 2026-10-27: **nur untersucht, nichts gebaut, am Gerät nichts.** Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 
 ## Befund
@@ -20,7 +23,7 @@ Stand 2026-10-27: **nur untersucht, nichts gebaut, am Gerät nichts.** Marker: *
 - Resonance und EG Int sind Potis mit fester Stellung: ein umgelegter Regler springt beim ersten Dreh. Abhilfe im Plugin:
   erst übernehmen, wenn der Regler den gespeicherten Wert überfahren hat. (hergeleitet)
 
-## Fehlt in der Laufzeit (zusammen mit Idee 72, eine Plugin-API, API 10)
+## Hätte in der Laufzeit gefehlt
 
 - `korg.captureKnobs(maske)`: einzelne Regler abfangen, 0 gibt frei, beim Beenden automatisch frei. Neue Maske je Regler
   im Eingangsfilter (`tools/patch/script_hooks.s`).
