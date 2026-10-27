@@ -1,0 +1,30 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "usb-name",
+ "name": "Gerätename Electribe 3",
+ "builds": [
+  "synth"
+ ],
+ "changes": [
+  {
+   "file": 584832,
+   "bytes": "180345006c00650063007400720069006200650020003300",
+   "expect": "2d41b9f1ef17ae8775e430483c076efd5fbd263b6da58bae576d71252a0c60c6",
+   "note": "USB string 2, the product name: Electribe 3"
+  },
+  {
+   "file": 584856,
+   "bytes": "240345006c00650063007400720069006200650020003300200053004f0055004e00440000000000",
+   "expect": "e6b318d1b106d0341cad8c89aa816f681596e382d39dc9ea350caf4f6a5d8668",
+   "note": "USB string 3, the name of the SOUND port: Electribe 3 SOUND"
+  },
+  {
+   "file": 584896,
+   "bytes": "2a0345006c0065006300740072006900620065002000330020005000410044002f004b004e004f0042000000",
+   "expect": "c73629e50ee81d6dcc2656cf230ca8e613810daf8dc510fbb19195fa97674ab9",
+   "note": "USB string 4, the name of the PAD/KNOB port: Electribe 3 PAD/KNOB"
+  }
+ ],
+ "ram": []
+}

@@ -1318,6 +1318,8 @@ export default {
   "patcher.blech.drag": "Sleep BLECH.patch hierheen of ",
   "patcher.blech.hint": "Een andere versie van BLECHTRIBE, als patchbestand",
   "patcher.blech.latest": "Gebruik de nieuwste versie van BLECHTRIBE ({version})",
+  "patcher.usbName": "Apparaatnaam: Electribe 3",
+  "patcher.usbName.note": "De computer toont de Electribe dan als Electribe 3. DAW-koppelingen die aan de oude poortnaam hangen, moet je opnieuw koppelen. Windows kan de oude naam houden tot je het apparaat één keer verwijdert in Apparaatbeheer.",
   "patcher.blech.wrong": "{file} is geen BLECH.patch: {error}",
   "patcher.route.hacktribe": "Patch ook Hacktribe",
   "patcher.route.note": "Hacktribe voegt filters voor de synth en extra effecten toe. De livemodus van de editor brengt BLECHTRIBE zelf mee.",
