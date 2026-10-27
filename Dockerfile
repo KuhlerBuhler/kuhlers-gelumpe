@@ -18,6 +18,7 @@ COPY . .
 # venv from the project's setup, the pinned Unicorn included.
 RUN npm run setup:emu \
  && mkdir -p /home/node/.gelumpe \
+ && mkdir SD
  && chown -R node:node /home/node/.gelumpe tools/emu/.venv
 
 # The card and the flash land under HOME, which is the volume below.
