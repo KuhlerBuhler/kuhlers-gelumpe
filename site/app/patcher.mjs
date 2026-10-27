@@ -12,7 +12,7 @@ import { buildOf, hardwareOf } from "../../src/firmware.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
-import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor } from "../../src/patcher.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel } from "../../src/patcher.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -47,7 +47,7 @@ function verdictText(input, items) {
     case "synth":
     case "stock": return null;
     case "blech": return { tone: "ok", word: t("patcher.verdict.blech"), text: t("patcher.verdict.blech.text") };
-    case "partial": return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => items.find(p => p.id === id)?.label ?? id).join(", ") }) };
+    case "partial": return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => t(items.find(p => p.id === id)?.label ?? id)).join(", ") }) };
     case "wrong-size": return { tone: "error", word: t("patcher.verdict.size"), text: t("patcher.verdict.size.text", { size, expected: number(VSB_SIZE) }) };
     default: return { tone: "error", word: t("patcher.verdict.unknown"), text: t("patcher.verdict.unknown.text", { reason: input.reasons[0] ?? t("patcher.verdict.unknown.reason") }) };
   }
@@ -395,7 +395,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     back.disabled = can.busy;
     next.hidden = view === 3 || (view === 2 && reach() < 3);
     next.disabled = can.busy || view >= reach();
-    planList.replaceChildren(...planItems().map(p => el("li", { textContent: p.label })));
+    planList.replaceChildren(...planItems().map(p => el("li", { textContent: t(p.label) })));
     blechInput.disabled = useLatest.checked || can.busy;
     blechDrop.toggleAttribute("data-disabled", useLatest.checked);
     useLatest.disabled = can.busy;
@@ -424,7 +424,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       flow.device === "blue" ? (flow.origin === "stock" ? t("patcher.device.head.stock") : t("patcher.device.head.hacktribe")) : "",
       cable && cable !== flow.device ? (cable === "blue" ? t("patcher.device.cable.blue") : t("patcher.device.cable.red")) : "",
     ].filter(Boolean).join(" ");
-    if (!synthSet.hidden) synthSet.textContent = t("patcher.synthSet", { patches: itemsFor(blech, "synth").map(p => p.label).join(", ") });
+    if (!synthSet.hidden) synthSet.textContent = t("patcher.synthSet", { patches: itemsFor(blech, "synth").map(p => t(p.label)).join(", ") });
     withHacktribe.checked = flow.route === "hacktribe";
     withHacktribe.disabled = can.busy;
     // open on the whole Hacktribe route, so the field shows the file it took and takes another one
@@ -465,7 +465,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   function planItems() {
     // one line per patch: the variant for this firmware (a BLECH.patch carries one per build)
     const extra = usbName.checked && input ? [{ id: "usb-name", label: t("patcher.usbName") }] : [];
-    if (ownPatch) return input ? [...patchesFor(ownPatch.file, base()).map(p => ({ id: p.id, label: p.name ?? p.id })), ...extra] : [];
+    if (ownPatch) return input ? [...patchesFor(ownPatch.file, base()).map(p => ({ id: p.id, label: patchLabel(p) })), ...extra] : [];
     return blech && input ? [...itemsFor(blech, buildOf(input)), ...extra] : [];
   }
 
