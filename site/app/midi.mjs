@@ -74,6 +74,8 @@ export function createMidiTransport(scope = globalThis, { sendTimeout = bytes =>
       }
       return access;
     },
+    /** Native only: every port the system lists, also the ones requestAccess leaves out, for the MIDI report. */
+    async listPorts() { return api().invoke("midi_list"); },
     async openPort(port) {
       if (!native) {
         try { await Promise.all([port.in?.open?.(), port.out.open?.()]); }
