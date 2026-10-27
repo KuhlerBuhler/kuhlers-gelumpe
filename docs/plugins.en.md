@@ -449,6 +449,38 @@ The keys `1` to `4` and `TOUCHPAD` (touching the touchpad, with `touch` for the 
 `buttonPress` like any key. An encoder, a knob or a pad sends no `buttonPress`, but `encoder`, `knob` and
 `pad` with their `index`.
 
+**Knobs** (`index` of `knob`, `korg.read.knob(index)`, `korg.knobs.NAME`):
+
+| Index | Name | Knob |
+|---|---|---|
+| 0 | `korg.knobs.LEVEL` | LEVEL |
+| 1 | `korg.knobs.PAN` | PAN |
+| 2 | `korg.knobs.PITCH` | PITCH / GLIDE |
+| 3 | `korg.knobs.RESONANCE` | RESONANCE |
+| 4 | `korg.knobs.EG_INT` | EG INT. |
+| 5 | `korg.knobs.MOD_DEPTH` | MOD. DEPTH |
+| 6 | `korg.knobs.ATTACK` | ATTACK |
+| 7 | `korg.knobs.IFX_EDIT` | IFX EDIT |
+| 8 | `korg.knobs.DECAY` | DECAY / RELEASE |
+| 9 | `korg.knobs.OSC_EDIT` | OSC EDIT |
+| 10 | `korg.knobs.MOD_SPEED` | MOD. SPEED |
+
+Indices 11 to 19 belong to no knob and stay 0. CUTOFF is not a knob but an encoder.
+
+**Encoders** (`index` of `encoder`):
+
+| Index | Encoder |
+|---|---|
+| 0 | VALUE / PATTERN (the big wheel) |
+| 1 | SAMPLE / OSC |
+| 2 | CUTOFF |
+| 3 | MOD. TYPE |
+| 4 | IFX TYPE |
+
+**Pads** (`index` of `pad`): 0 to 15 are pads 1 to 16.
+
+The numbers come from `data/panel.mjs` (measured on the panel there).
+
 **LEDs** (`korg.led`):
 
 | Name | Number | LED |

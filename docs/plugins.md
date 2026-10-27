@@ -524,6 +524,38 @@ Die Tasten `1` bis `4` und `TOUCHPAD` (das Berühren des Touchpads, mit `touch` 
 Lage) kommen wie jede Taste als `buttonPress`. Ein Drehgeber, ein Regler oder ein Pad
 sendet kein `buttonPress`, sondern `encoder`, `knob` und `pad` mit ihrem `index`.
 
+**Regler** (`index` bei `knob`, `korg.read.knob(index)`, `korg.knobs.NAME`):
+
+| Index | Name | Regler |
+|---|---|---|
+| 0 | `korg.knobs.LEVEL` | LEVEL |
+| 1 | `korg.knobs.PAN` | PAN |
+| 2 | `korg.knobs.PITCH` | PITCH / GLIDE |
+| 3 | `korg.knobs.RESONANCE` | RESONANCE |
+| 4 | `korg.knobs.EG_INT` | EG INT. |
+| 5 | `korg.knobs.MOD_DEPTH` | MOD. DEPTH |
+| 6 | `korg.knobs.ATTACK` | ATTACK |
+| 7 | `korg.knobs.IFX_EDIT` | IFX EDIT |
+| 8 | `korg.knobs.DECAY` | DECAY / RELEASE |
+| 9 | `korg.knobs.OSC_EDIT` | OSC EDIT |
+| 10 | `korg.knobs.MOD_SPEED` | MOD. SPEED |
+
+Die Indizes 11 bis 19 gehören zu keinem Regler, sie bleiben 0. CUTOFF ist kein Regler, sondern ein Drehgeber.
+
+**Drehgeber** (`index` bei `encoder`):
+
+| Index | Drehgeber |
+|---|---|
+| 0 | VALUE / PATTERN (das große Rad) |
+| 1 | SAMPLE / OSC |
+| 2 | CUTOFF |
+| 3 | MOD. TYPE |
+| 4 | IFX TYPE |
+
+**Pads** (`index` bei `pad`): 0 bis 15 sind die Pads 1 bis 16.
+
+Die Nummern kommen aus `data/panel.mjs` (dort gemessen am Panel).
+
 **LEDs** (`korg.led`):
 
 | Name | Nummer | LED |
