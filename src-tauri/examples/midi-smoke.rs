@@ -17,15 +17,31 @@ mod smoke {
         app.exit(if ok { 0 } else { 1 });
     }
 
+    /// On the macOS runner a new CoreMIDI client failed with InitError right after the virtual port test (2 of 149
+    /// runs, never locally), so the client is asked for again for a few seconds and each failure is logged.
+    fn client<T, E: std::fmt::Debug>(what: &str, make: impl Fn() -> Result<T, E>) -> T {
+        let mut attempt = 1;
+        loop {
+            match make() {
+                Ok(client) => return client,
+                Err(error) if attempt < 10 => {
+                    eprintln!("{what} client, attempt {attempt}: {error:?}");
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    attempt += 1;
+                }
+                Err(error) => panic!("{what} client unavailable: {error:?}"),
+            }
+        }
+    }
+
     pub fn run() {
         let name = format!("Electribe GELUMPE smoke {}", std::process::id());
-        let source = MidiOutput::new("GELUMPE own smoke")
-            .unwrap()
+        let source = client("MIDI output", || MidiOutput::new("GELUMPE own smoke"))
             .create_virtual(&name)
             .expect("Own virtual MIDI source unavailable");
         let source = Arc::new(Mutex::new(source));
         let echo = source.clone();
-        let mut input = MidiInput::new("GELUMPE own smoke").unwrap();
+        let mut input = client("MIDI input", || MidiInput::new("GELUMPE own smoke"));
         input.ignore(Ignore::None);
         let sink = input
             .create_virtual(
