@@ -502,7 +502,6 @@ function fileLinks() {
 function boot() {
   applySettings();
   fileLinks();
-  settingsPage($("#cee-settings"));
   const changelog = changelogPage($("#cee-changelog"), $("#cee-tab-changelog"));
   const discord = discordPage($("#cee-discord"));
   settingsButton($("#cee-settings-button"), () => { areas?.select("settings"); drawer.close(); });
@@ -512,8 +511,10 @@ function boot() {
   // Picking the mode that is open already changes nothing; ui.tabs would show the empty device panel instead of the drawing.
   const nav = navbar({ onMode: id => { if (id !== areas?.current) areas?.select(id, { focus: false }); }, onDisconnect: () => device.disconnect() });
   const drawer = sidebarDrawer();
-  const usb = createUsbWatch({ transport: createMidiTransport(window), permissions: navigator.permissions, hidden: () => document.hidden });
+  const transport = createMidiTransport(window);
+  const usb = createUsbWatch({ transport, permissions: navigator.permissions, hidden: () => document.hidden });
   usbIndicator($(".cee-navbar"), usb);
+  settingsPage($("#cee-settings"), window.__GELUMPE_APP, { transport, permissions: navigator.permissions, usb });
   usb.start();
   sidebarFold();
   const options = subnav();

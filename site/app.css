@@ -2532,6 +2532,9 @@ select,
 .cee-settings-button { justify-content: flex-start; gap: var(--space-2); }
 .cee-donate { justify-content: center; text-decoration: none; }
 .cee-settings-button .cee-icon { flex: none; }
+.cee-midi { margin-top: var(--space-6); gap: var(--space-3); }
+.cee-midi-report { white-space: pre-wrap; overflow-wrap: anywhere; }
+.cee-midi-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
 /* Reduced motion: chosen in the settings, or the system setting while that choice stands. */
 html[data-motion="reduce"] *,
