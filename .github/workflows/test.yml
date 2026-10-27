@@ -94,9 +94,7 @@ jobs:
       - run: npm ci
       # The runner image ships Chrome and the tests drive that one (channel "chrome"),
       # so there is no browser download to cache or to limit to Chromium.
-      # A file's tests share one timeout. Shards go by file index, so the heaviest files (a11y, scripts) can land in
-      # one shard and slow each other down; 300 s like the unit tests leaves room for that.
-      - run: node --test --test-timeout=300000 --test-shard=${{ matrix.part }}/4 "test/e2e/*.e2e.mjs"
+      - run: node --test --test-timeout=180000 --test-shard=${{ matrix.part }}/4 "test/e2e/*.e2e.mjs"
 
   browser:
     needs: [changes, browser-part]
