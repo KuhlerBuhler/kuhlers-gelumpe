@@ -42,6 +42,15 @@ const deviceOf = name => name.replace(/^MIDI(?:IN|OUT)\d+\s*\((.*)\)$/i, "$1").r
 const jackRank = name => (/^MIDI(?:IN|OUT)\d+/i.test(name) ? 2 : 0) + (/PAD\/KNOB/i.test(name) ? 1 : 0);
 
 /**
+ * The one input of the output's device, when the names of the two differ only by the jack: Windows MIDI Services names
+ * each port after its jack ("electribe2 sampler 1 SOUND" out, "electribe2 sampler 1 PAD/KNOB" in).
+ */
+const soleIn = (ins, out) => {
+  const mine = ins.filter(i => deviceOf(i.name) === deviceOf(out.name));
+  return mine.length === 1 ? mine[0] : null;
+};
+
+/**
  * Ports that look like an Electribe, paired by name, one pair per device, so the page asks only when there are
  * really several. An Electribe has two jacks per direction (SOUND and PAD/KNOB); a jack without an input of its
  * name never answers and is left out.
@@ -50,7 +59,7 @@ export function electribePorts(access) {
   const outs = [...access.outputs.values()].filter(p => ELECTRIBE.test(p.name));
   const ins = [...access.inputs.values()].filter(p => ELECTRIBE.test(p.name));
   const pairs = outs
-    .map(out => ({ out, in: ins.find(i => i.name === out.name) ?? ins.find(i => pairKey(i.name) === pairKey(out.name)) ?? null, name: out.name }))
+    .map(out => ({ out, in: ins.find(i => i.name === out.name) ?? ins.find(i => pairKey(i.name) === pairKey(out.name)) ?? soleIn(ins, out) ?? null, name: out.name }))
     .filter(p => p.in);
   const best = new Map();
   for (const p of pairs) {
