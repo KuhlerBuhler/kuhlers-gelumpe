@@ -63,6 +63,42 @@ export const optionFor = (variants, build) => variants.find(p => buildsOf(p).inc
 export const VERIFIED_URL = "data/patches/verified.json";
 
 /**
+ * The page's name for each patch it knows, a key of the app's tables, so the plan reads in the user's language; where
+ * the variants of one id say different things, one per build. The JSON `name` stays the build's own label.
+ */
+const PATCH_LABELS = {
+  "splash-editor": "features.splash.title",
+  "mfx-switch": "features.mfx2.title",
+  "pattern-switch": "features.patternSwitch.title",
+  "tap-motion": "features.tapMotion.title",
+  "note-assistant": "features.noteAssist.title",
+  "dice": "features.dice.title",
+  "pad-colors": "features.colors.title",
+  "load-bar": "features.loading.title",
+  "sample-errors": "features.sampleErrors.title",
+  "script-runtime": "features.plugins.title",
+  "splash": "patcher.patch.splash",
+  "blech-theme": "features.theme.title",
+  "preset-tables": "patcher.patch.presetTables",
+  "fx-catalog": "patcher.patch.fxCatalog",
+  "synth-filters": "patcher.patch.synthFilters",
+  "power-off": "features.powerOff.title",
+  "doom-loader": "features.doom.title",
+  "blech-sysex": { synth: "patcher.patch.sysexSynth", other: "patcher.patch.sysex" },
+  "ifx-idle": "patcher.patch.ifxIdle",
+  "usb-name": "patcher.usbName",
+};
+
+/** The label of a parsed patch for the page: a text of the tables, or the file's own name for a patch the page does not know. */
+export function patchLabel(patch) {
+  const build = buildsOf(patch ?? {})[0];
+  if (patch?.id === "blechtribe") return text("patcher.patch.blechtribe", { folder: FOLDER[build] ?? "hacktribe" });
+  const key = PATCH_LABELS[patch?.id];
+  const pick = typeof key === "object" ? key[build] ?? key.other : key;
+  return pick ? text(pick) : patch?.name ?? patch?.id;
+}
+
+/**
  * The BLECH set and its patches, read through `fetchJson(url)` (urls are relative to the page, as the set
  * lists them relative to the repository root). The set is the single source: the page applies exactly what
  * `apply.mjs --set data/patches/blech.json` applies. `items` are {id, label, url} for the page, `patches` the parsed files.
@@ -73,7 +109,7 @@ export async function loadBlechSet(fetchJson, setUrl = BLECH_SET_URL) {
     throw new TextError("patcher.reason.noSet", { url: setUrl });
   }
   const patches = await Promise.all(set.patches.map(url => fetchJson(url)));
-  const items = patches.map((p, i) => ({ id: p?.id, label: p?.name ?? p?.id, url: set.patches[i] }));
+  const items = patches.map((p, i) => ({ id: p?.id, label: patchLabel(p), url: set.patches[i] }));
   return { id: set.id, name: set.name, items, patches };
 }
 
