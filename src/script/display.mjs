@@ -1,4 +1,4 @@
-import { FONT, FONT_FIRST, GLYPH_WIDTH, GLYPH_HEIGHT, ADVANCE } from "../../data/script/font.mjs";
+import { FONT, FONT_FIRST, GLYPH_WIDTH, GLYPH_HEIGHT, ADVANCE, fontByte } from "../../data/script/font.mjs";
 
 /**
  * The 128 x 64 display as korg.display.* draws it, clipped and never wrapped.
@@ -50,7 +50,7 @@ export class Display {
     let cursor = x;
     for (const char of String(text)) {
       if (cursor >= WIDTH) break;
-      const columns = glyph(char.codePointAt(0));
+      const columns = glyph(fontByte(char));
       for (let column = 0; column < GLYPH_WIDTH; column++) {
         for (let row = 0; row < GLYPH_HEIGHT; row++) if ((columns[column] >> row) & 1) this.pixel(cursor + column, y + row, 1);
       }

@@ -1450,7 +1450,7 @@ export default {
   "compile.number.letter": "Subito dopo un numero c'è una lettera.",
   "compile.string.open": "Il testo non è chiuso.",
   "compile.string.escape": "Nel testo vanno solo \\\\, \\\" e \\'.",
-  "compile.string.ascii": "Il display mostra solo caratteri ASCII, senza lettere accentate.",
+  "compile.string.ascii": "Il display mostra solo caratteri ASCII e ä, ö, ü, senza lettere accentate.",
   "compile.string.long": "Il testo è troppo lungo ({length} caratteri, al massimo {max}).",
   "compile.string.template": "I template di testo con ` non esistono, usa un testo tra virgolette.",
   "compile.char": "Il carattere “{char}” non esiste nel codice del plugin.",

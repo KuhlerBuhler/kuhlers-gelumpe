@@ -1451,7 +1451,7 @@ export default {
   "compile.number.letter": "Une lettre suit directement un nombre.",
   "compile.string.open": "Le texte n'est pas fermé.",
   "compile.string.escape": "Dans un texte, seuls \\\\, \\\" et \\' sont possibles.",
-  "compile.string.ascii": "L'écran n'affiche que des caractères ASCII, sans tréma.",
+  "compile.string.ascii": "L'écran n'affiche que des caractères ASCII et ä, ö, ü, sans accents.",
   "compile.string.long": "Le texte est trop long ({length} caractères, {max} au maximum).",
   "compile.string.template": "Les gabarits de texte avec ` n'existent pas, utilise un texte entre guillemets.",
   "compile.char": "Le caractère « {char} » n'existe pas dans le code d'un plugin.",

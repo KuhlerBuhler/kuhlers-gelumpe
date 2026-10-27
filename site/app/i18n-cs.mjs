@@ -1451,7 +1451,7 @@ export default {
   "compile.number.letter": "Hned za číslem stojí písmeno.",
   "compile.string.open": "Text není uzavřen.",
   "compile.string.escape": "V textu fungují jen \\\\, \\\" a \\'.",
-  "compile.string.ascii": "Displej ukazuje jen znaky ASCII, bez diakritiky.",
+  "compile.string.ascii": "Displej ukazuje jen znaky ASCII a ä, ö, ü, jinou diakritiku ne.",
   "compile.string.long": "Text je příliš dlouhý (délka: {length}, nejvýš {max}).",
   "compile.string.template": "Textové šablony s ` neexistují, použij text v uvozovkách.",
   "compile.char": "Znak „{char}“ v kódu pluginu neexistuje.",

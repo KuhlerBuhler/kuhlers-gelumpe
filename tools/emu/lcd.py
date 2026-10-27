@@ -8,8 +8,8 @@ is the liquid crystal: a pixel follows its switching slowly, so text the
 firmware blinks every 280 ms never reaches full contrast. This models that
 response, one first-order lag per pixel, and hands out 16 levels.
 
-The two time constants are assumed, not measured on the device. They are set
-here and nowhere else; the service takes them from `--lcd-tau-on` and
+TAU_ON comes from a slow-motion video, TAU_OFF is the owner's estimate by eye
+(see below), neither is a precise measurement. They are set here and nowhere else; the service takes them from `--lcd-tau-on` and
 `--lcd-tau-off`, else from E2_LCD_TAU_ON and E2_LCD_TAU_OFF (seconds), else
 these defaults."""
 
@@ -18,7 +18,9 @@ import os
 
 LEVELS = 16
 TAU_ON = 0.040      # seconds for a pixel going dark (measured 2026-10-13, slow-motion video)
-TAU_OFF = 0.028     # seconds for a pixel going clear (measured 2026-10-13, slow-motion video)
+TAU_OFF = 0.30      # seconds for a pixel going clear: the owner's estimate from watching the device on 2026-10-27, not a
+                    # measurement. The 0.028 s fitted to the slow-motion video of 2026-10-13 was too low: it took the fast
+                    # first part of the edge and left out the long flat rest; a walking figure drags a smear of about 0.3 s.
 WIDTH, HEIGHT = 128, 64
 
 

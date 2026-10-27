@@ -121,7 +121,7 @@ Ein Plugin, das nur LEDs oder Tasten braucht, nimmt das Display nie.
 
 - **Werte:** ganze 32-Bit-Zahlen (`-2147483648` bis `2147483647`, Hex bis
   `0xFFFFFFFF`) und kurzer Text. `true` ist 1, `false` ist 0.
-- **Text:** nur ein Literal in Anführungszeichen (ASCII, höchstens 31 Zeichen)
+- **Text:** nur ein Literal in Anführungszeichen (ASCII und ä, ö, ü, höchstens 31 Zeichen)
   oder eine Variable, die einen hält. Vergleichen mit `==` und `!=`, an
   `korg.*` übergeben, mehr nicht: kein Verbinden, kein Zerlegen. Zahlen zeigt
   `korg.display.number`.
@@ -929,11 +929,11 @@ kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Sei
   danach alle 20 s oder 30 s (8 s plus 0 bis 8 s Zufall nach der letzten, dazu der Weg zum nächsten Rand). Die Zeilen kommen
   der Reihe nach: "yo, na du?", das Lieblingstempo (das am häufigsten gespielte, je Beat gezählt; solange noch nichts
   gespielt wurde, die feste Zeile "mein Tempo ist 150 bpm"), seit wann es läuft ("Spielt seit n min" seit dem ersten PLAY,
-  sonst "Laeuft seit" seit dem Einschalten, unter einer Minute in Sekunden), "Blech ist mein Ding", "kein Mund, kein Problem",
-  "bisschen mehr Bass?", "nicht so doll tippen", "Schranz ist Liebe". Alles in der eigenen Schrift (5 mal 7, nur ASCII, darum
-  "hoer" und "Laeuft"). Die Wartezeiten, das Tempo des Gehens und die Texte sind eine Wahl, am Gerät nicht erprobt.
+  sonst "Läuft seit" seit dem Einschalten, unter einer Minute in Sekunden), "Blech ist mein Ding",
+  "bisschen mehr Bass?", "nicht so doll tippen", "Schranz ist Liebe". Alles in der eigenen Schrift (5 mal 7, ASCII und ä, ö,
+  ü). Die Wartezeiten, das Tempo des Gehens und die Texte sind eine Wahl, am Gerät nicht erprobt.
 - **PLAY.** Drückt man PLAY, geht er zügig (zwei Pixel alle 70 ms) in die Mitte, ein Stück links davon, damit neben ihm Platz
-  für die Blase bleibt, sagt "ich hoer mir das kurz an" (2,8 s), steht noch und tanzt dann, solange das Pattern spielt, ein Bild
+  für die Blase bleibt, sagt "ich hör mir das kurz an" (2,8 s), steht noch und tanzt dann, solange das Pattern spielt, ein Bild
   je Achtel. Die Wartezeit von 12 s bis zum Tanz gibt es nicht mehr. STOP beendet den Tanz, er geht wieder; die Frage "wat
   machst'n du da atze?" ist weg, sie passte nur auf den Hauptbildschirm.
 - **Sonst wie vorher:** ein Tipp des Touchpads nahe an ihm macht ihn wütend, Streicheln froh. Die Zahlen (Tempo, Spielzeit)

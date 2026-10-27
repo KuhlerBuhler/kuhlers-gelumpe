@@ -9,6 +9,7 @@ import {
   OPCODE_BY_CODE, OPCODE_COUNT, EVENT_BY_ID, BLOCK_FLAGS,
 } from "../../data/script/contract.mjs";
 import { text, render } from "../text.mjs";
+import { FONT_LAST, fontByte } from "../../data/script/font.mjs";
 
 const say = (key, vars) => render(text(key, vars));
 
@@ -91,7 +92,7 @@ export function encodeBlob(p) {
   });
   consts.forEach((v, i) => dv.setInt32(at.consts + i * SECTION.constant, v, true));
   strings.forEach((s, i) => {
-    for (let k = 0; k < s.length && k < LIMITS.stringSlot; k++) out[at.strings + i * SECTION.string + k] = s.charCodeAt(k) & 0xff;
+    for (let k = 0; k < s.length && k < LIMITS.stringSlot; k++) out[at.strings + i * SECTION.string + k] = fontByte(s[k]) & 0xff;
   });
   out.set(code, at.code);
   lines.forEach((l, i) => {
@@ -164,7 +165,7 @@ export function decodeBlob(bytes) {
     const slot = bytes.subarray(from, from + SECTION.string);
     if (slot[SECTION.string - 1] !== 0) return bad(ERROR.BAD_STRING, say("script.file.string.end", { index: i }));
     const end = slot.indexOf(0);
-    for (let k = 0; k < end; k++) if (slot[k] < 0x20 || slot[k] > 0x7e) return bad(ERROR.BAD_STRING, say("script.file.string.char", { index: i }));
+    for (let k = 0; k < end; k++) if (slot[k] < 0x20 || slot[k] > FONT_LAST) return bad(ERROR.BAD_STRING, say("script.file.string.char", { index: i }));
     for (let k = end; k < slot.length; k++) if (slot[k] !== 0) return bad(ERROR.BAD_STRING, say("script.file.string.rest", { index: i }));
     strings.push(String.fromCharCode(...slot.subarray(0, end)));
   }

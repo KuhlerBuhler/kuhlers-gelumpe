@@ -10,6 +10,8 @@ import { BLECHY_SOURCE } from "../data/script/blechy-source.mjs";
 import { compile } from "../src/script/compiler.mjs";
 import { BLECH_SET_URL, loadBlechSet } from "../src/patcher.mjs";
 import { run } from "./support/spawn.mjs";
+import { Display } from "../src/script/display.mjs";
+import { loadFrames } from "../tools/blechy-build.mjs";
 
 // Blechy in the firmware, built into BLECH: the last page of the menu ring, no card needed, the wave after landing, tap, stroke,
 // schranz, STOP with the bubble, EXIT, absent with EXIT held at power-on (tools/emu/blechy_cases.py).
@@ -43,6 +45,16 @@ test("Blechy runs in the firmware: the ring page, the wave, every state shows, t
     const report = JSON.parse(result.stdout);
     assert.deepEqual(report.checks.filter(check => !check.ok), []);
     assert.ok(report.checks.length >= 25);
+    // the walk cycle on the display RAM equals what the generator makes of the sprites, at the place and the row he is at
+    const frames = loadFrames();
+    const named = { "rechts-ruhig": "idle", "rechts-gehen": "walk", wende: "idle", "links-ruhig": "back0", "links-gehen": "back1" };
+    assert.deepEqual(Object.keys(report.cycle).sort(), Object.keys(named).sort());
+    for (const [key, name] of Object.entries(named)) {
+      const shot = report.cycle[key];
+      const want = new Display();
+      frames[name].rows.forEach((row, y) => [...row].forEach((c, x) => { if (c === "#") want.pixel(frames[name].x + x + shot.posX, frames[name].y + y + shot.posY, 1); }));
+      assert.equal(shot.hex, Buffer.from(want.bytes).toString("hex"), `${key} shows ${name} at ${shot.posX}, ${shot.posY}`);
+    }
     assert.ok(report.ms.frame < 5, `${report.ms.frame} ms for the slowest frame`);
   } finally {
     rmSync(dir, { recursive: true, force: true });

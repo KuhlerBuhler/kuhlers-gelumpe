@@ -1451,7 +1451,7 @@ export default {
   "compile.number.letter": "Сразу после числа стоит буква.",
   "compile.string.open": "Текст не закрыт.",
   "compile.string.escape": "В тексте работают только \\\\, \\\" и \\'.",
-  "compile.string.ascii": "Дисплей показывает только символы ASCII, без умляутов.",
+  "compile.string.ascii": "Дисплей показывает только символы ASCII и ä, ö, ü.",
   "compile.string.long": "Текст слишком длинный (символов: {length}, максимум {max}).",
   "compile.string.template": "Шаблонных строк с ` здесь нет, бери текст в кавычках.",
   "compile.char": "Символа «{char}» в коде плагина нет.",

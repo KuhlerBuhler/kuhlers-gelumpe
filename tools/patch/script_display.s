@@ -168,7 +168,7 @@ draw_char:
     cmp r5, #SCRIPT_DISPLAY_WIDTH
     bge draw_done
     sub r7, r7, #32
-    cmp r7, #95
+    cmp r7, #98
     movhs r7, #31
     add r7, r7, r7, lsl #2
     ldr r8, =SCRIPT_FONT
@@ -372,7 +372,12 @@ bitmap_done:
 ; r0 runtime. Copies the picture over the firmware's display RAM while an app is open and the main screen shows, or
 ; while the built-in app is open and its page in the menu ring shows and no window lies over it (the Power Off window
 ; has its own picture: the screen manager's word at +0x24 points at a window, 0 when there is none).
+; Blechy's page is always dark: the LCD turns a pixel dark fast but clear only in about 0.3 s, so a dark figure on a clear
+; field drags a smear wherever he walks. With DISPLAY INVERT OFF his picture goes over complemented (r12 = FFFFFFFF), so
+; the display shows him light on dark as with DISPLAY INVERT ON. Only for him (his block lies outside the pool), never for
+; a plugin app or the page DESCRIPTION.
 script_display_blit:
+    mov r12, #0
     ldr r1, [r0, #SCRIPT_CONTROL_DISPLAY_ACTIVE]
     cmp r1, #1
     bxne lr
@@ -398,9 +403,16 @@ blit_app:
     beq blit_go
     cmp r1, #MENU_SCREEN
     bxne lr
-    ldr r2, [r2, #M_LEVEL]
-    cmp r2, #M_LEVEL_BLECHY
+    ldr r1, [r2, #M_LEVEL]
+    cmp r1, #M_LEVEL_BLECHY
     bxne lr
+    ldr r1, [r2, #M_INV]
+    ldr r2, [r3, #SCRIPT_ENTRY_BLOB]
+    ldr r3, =HOOK_POOL
+    cmp r2, r3
+    bhs blit_menu
+    cmp r1, #0
+    mvneq r12, #0
 blit_menu:
     ldr r1, =SCREEN_MANAGER
     ldr r1, [r1]
@@ -415,6 +427,14 @@ blit_go:
     mov r1, #SCRIPT_DISPLAY_BYTES/32
 blit_loop:
     ldmia r2!, {r4-r11}
+    eor r4, r4, r12
+    eor r5, r5, r12
+    eor r6, r6, r12
+    eor r7, r7, r12
+    eor r8, r8, r12
+    eor r9, r9, r12
+    eor r10, r10, r12
+    eor r11, r11, r12
     stmia r3!, {r4-r11}
     subs r1, r1, #1
     bne blit_loop
