@@ -51,7 +51,7 @@ let taps = 0;
 
 function show() {
   korg.display.clear();
-  korg.display.text("Sekunden", 0, 0);
+  korg.display.text("Seconds", 0, 0);
   korg.display.number(seconds, 0, 12);
   korg.display.text("TAP", 0, 28);
   korg.display.number(taps, 0, 40);

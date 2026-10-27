@@ -472,6 +472,6 @@ fault_name_done:
     add sp, sp, #32
     pop {r4-r11, pc}
 fault_label:
-    .asciz "Zeile"
+    .asciz "Line"
 .align 4
 .pool

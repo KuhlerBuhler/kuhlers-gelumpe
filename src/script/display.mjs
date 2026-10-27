@@ -91,7 +91,7 @@ export class Display {
 export function drawFault(display, script, line, errorName) {
   display.clear();
   display.text(script, 4, 2);
-  display.text("Zeile", 4, 12);
+  display.text("Line", 4, 12);
   display.number(line, 40, 12);
   display.text(errorName, 4, 22);
 }

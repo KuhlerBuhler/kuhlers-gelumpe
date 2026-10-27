@@ -363,7 +363,7 @@ across the whole pad, `y` pointing up; Blechy assumes `x / 8` as the display col
 device.**
 
 **Error message on the display:** if an error switches off the plugin that owns the display (the open app),
-the runtime replaces the image with three lines: the plugin name, `Zeile` (line) with the source line, and
+the runtime replaces the image with three lines: the plugin name, `Line` with the source line, and
 the name of the error (`DIV_ZERO`). The error of any other plugin appears in the BLECH menu on its page
 (`DIV_ZERO L3`), and the display stays untouched. The firmware stays usable and other plugins keep running.
 
