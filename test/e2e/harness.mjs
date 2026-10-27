@@ -3,6 +3,7 @@
  * scratch directory for generated files. Uses the installed Chrome unless
  * E2E_CHANNEL says otherwise, so no browser download is needed.
  */
+import { afterEach } from "node:test";
 import { writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright";
@@ -10,6 +11,15 @@ import { startServer } from "../../tools/serve.mjs";
 import { tempDir } from "../support/lifetime.mjs";
 
 const SUPPORT = new URL("./support/", import.meta.url).pathname;
+
+// A page left open keeps its timers running (the device page reads the LEDs four times a second), so the pages of
+// earlier tests slow the later ones down. No test hands a page on to the next one.
+const open = new Set();
+afterEach(async () => {
+  const contexts = [...open];
+  open.clear();
+  await Promise.all(contexts.map(c => c.close().catch(() => {})));
+});
 
 /**
  * @param {(dir: string) => Array<[string, string]>} [routes] more served paths, built from the scratch directory
@@ -43,6 +53,7 @@ export async function setUp(routes = () => [], { realDevices = false } = {}) {
     /** `autoConnect`: the page connects to a plugged-in Electribe by itself; off here, the tests click connect. */
     async page({ device = false, autoConnect = false } = {}) {
       const context = await browser.newContext({ acceptDownloads: true, locale: "de-DE" });
+      open.add(context);
       if (!autoConnect) await context.addInitScript(() => {
         try {
           const saved = JSON.parse(localStorage.getItem("cee.settings") ?? "{}") ?? {};

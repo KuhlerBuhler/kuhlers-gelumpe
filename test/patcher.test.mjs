@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classify, convertStock, samplerHead, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE } from "../src/patcher.mjs";
+import { classify, convertStock, samplerHead, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE, USB_NAME_URLS, optionFor } from "../src/patcher.mjs";
 import { applyPatches, splashPatch, patchesPresent, SPLASH_W, SPLASH_H } from "../src/patch.mjs";
 import { sha256 } from "../src/firmware.mjs";
 import { render } from "../src/text.mjs";
@@ -503,4 +503,19 @@ test("an untested copy can be patched again, with a test; a tested one cannot", 
   assert.equal(step(untested, { type: "patching", patches: [] }).untested, false);
   const tested = step(step(flow, { type: "checking" }), { type: "checked", report: { ok: true, checks: [{ id: "x", ok: true }] } });
   assert.equal(allowed(tested).patch, false);
+});
+
+test("the optional device name: off the sets, one variant per build, and picking it again makes the copy anew", () => {
+  const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
+  const variants = USB_NAME_URLS.map(read);
+  assert.deepEqual(["hacktribe", "stock", "synth"].map(build => optionFor(variants, build)?.builds), [["hacktribe", "stock"], ["hacktribe", "stock"], ["synth"]]);
+  assert.equal(optionFor(variants, "other"), null);
+  const input = { kind: "hacktribe", size: VSB_SIZE, reasons: [], present: [] };
+  const ready = step(newFlow(), { type: "input", input });
+  assert.equal(step(ready, { type: "options" }), ready, "nothing made yet: nothing to drop");
+  const patching = step(ready, { type: "patching", patches: [{ id: "usb-name", label: "x" }] });
+  assert.equal(step(patching, { type: "options" }), patching, "no change while it runs");
+  const passed = step(step(patching, { type: "patch", id: "usb-name", ok: true }), { type: "untested" });
+  const again = step(passed, { type: "options" });
+  assert.deepEqual([again.phase, again.untested, again.steps.map(s => s.id)], ["ready", false, ["read"]]);
 });

@@ -1324,6 +1324,8 @@ export default {
   "patcher.blech.drag": "Přetáhni sem BLECH.patch nebo ",
   "patcher.blech.hint": "Jiná verze BLECHTRIBE, jako soubor patche",
   "patcher.blech.latest": "Použít nejnovější verzi BLECHTRIBE ({version})",
+  "patcher.usbName": "Název zařízení: Electribe 3",
+  "patcher.usbName.note": "Počítač pak zobrazí Electribe jako Electribe 3. Přiřazení v DAW navázaná na starý název portu musíš propojit znovu. Windows může ponechat starý název, dokud zařízení jednou neodebereš ve Správci zařízení.",
   "patcher.blech.wrong": "{file} není BLECH.patch: {error}",
   "patcher.route.hacktribe": "Patchnout i Hacktribe",
   "patcher.route.note": "Hacktribe přidává filtry pro synth a další efekty. Live režim editoru má BLECHTRIBE už v sobě.",

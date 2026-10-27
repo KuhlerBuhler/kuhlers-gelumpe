@@ -1367,6 +1367,8 @@ export default {
   "patcher.blech.drag": "BLECH.patch hierher ziehen oder ",
   "patcher.blech.hint": "Eine andere Version von BLECHTRIBE, als Patch-Datei",
   "patcher.blech.latest": "Nutze die neueste Version von BLECHTRIBE ({version})",
+  "patcher.usbName": "Gerätename: Electribe 3",
+  "patcher.usbName.note": "Der Rechner zeigt die Electribe dann als Electribe 3. DAW-Zuordnungen, die am alten Portnamen hängen, musst du neu verknüpfen. Windows kann den alten Namen behalten, bis du das Gerät einmal im Geräte-Manager entfernst.",
   "patcher.blech.wrong": "{file} ist keine BLECH.patch: {error}",
   "patcher.route.hacktribe": "Patche auch Hacktribe",
   "patcher.route.note": "Hacktribe ergänzt Filter für den Synth und zusätzliche Effekte. Den Live-Modus des Editors bringt BLECHTRIBE selbst mit.",
