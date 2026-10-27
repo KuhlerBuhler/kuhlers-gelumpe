@@ -81,3 +81,4 @@ Ein Absturz oder Datenverlust ist akzeptabel. Schäden an Software, Hardware ode
 | 71. **Eigene Ladeanimation von der Karte,** ein Bild je Ladefortschritt statt eines einfachen GIFs. | untersucht, Format offen | [Idee 71](ideen/71-ladeanimation-karte.md) |
 | 72. **Plugin Gate Arp:** die Note bleibt fest, X wählt den Gate-Arp-Rhythmus aus dem Menü. | im Emulator gemessen (rot und blau), braucht Plugin-API 10 | [Idee 72](ideen/72-gate-arp-note-halten.md) |
 | 73. **Schrift-Editor in der App:** eigene Schrift pixeln, beim Patchen eingebaut. | untersucht, entschieden: nur beim Patchen, nicht von der Karte | [Idee 73](ideen/73-schrift-editor.md) |
+| 74. **Plugin-API für 1.4 (Feedback):** Parameter lesen und schreiben, Ereignisse verschlucken, mehr Speicher oder Dateien, Doku zu Reglern und Drehgebern. | aufgeschrieben | [Idee 74](ideen/74-plugin-api-feedback.md) |
