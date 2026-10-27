@@ -200,6 +200,39 @@ class NativeDisplayTests(unittest.TestCase):
             m.call('script_display_blit',m.runtime)
             self.assertEqual(bytes(m.uc.mem_read(DISPLAY_RAM,1)),b'\x55')
 
+    def test_blechys_page_is_dark_with_display_invert_off_and_nothing_else_is(self):
+        """The LCD clears a pixel slowly: his picture goes over complemented unless DISPLAY INVERT is ON (the controller
+        then shows set bits light already). A plugin app, the main screen and the page DESCRIPTION stay as they are."""
+        from tools.patch.script_hooks import MENU_STATE, POOL
+        m,built = self.machine()
+        s = built.symbols
+        m.call('script_display_rect_glue',0,0,128,8)
+        m.call('script_display_pixel_glue',64,40,1)
+        picture = bytes(m.uc.mem_read(m.fb,1024))
+        dark = bytes(b ^ 0xFF for b in picture)
+        manager = m.read(0xC03404C0)
+        m.write(manager+0x24,0)
+        m.write(m.runtime+180,1)
+        m.write(MENU_STATE+s['M_LEVEL'],s['M_LEVEL_BLECHY'])
+        m.uc.mem_write(MENU_STATE+s['M_DESC_ON'],b'\x00')
+        blob_at = self.OWNER+s['SCRIPT_ENTRY_BLOB']
+        cases = [   # screen, his block (True: outside the pool), DISPLAY INVERT, description on, what the display RAM gets
+            (s['MENU_SCREEN'],True,0,0,dark),
+            (s['MENU_SCREEN'],True,1,0,picture),
+            (s['MENU_SCREEN'],False,0,0,picture),
+            (s['MENU_SCREEN'],True,0,1,picture),
+            (1,False,0,0,picture),
+            (1,True,0,0,picture),
+        ]
+        for screen,his,invert,desc,want in cases:
+            m.write(manager+0x2c,screen)
+            m.write(blob_at,0x00400000 if his else POOL+0x100)
+            m.write(MENU_STATE+s['M_INV'],invert)
+            m.uc.mem_write(MENU_STATE+s['M_DESC_ON'],bytes([desc]))
+            m.uc.mem_write(DISPLAY_RAM,b'\x55'*1024)
+            m.call('script_display_blit',m.runtime)
+            self.assertEqual(bytes(m.uc.mem_read(DISPLAY_RAM,1024)),want,(screen,his,invert,desc))
+
     def test_a_faulted_script_leaves_its_name_line_and_error_on_the_display(self):
         m,_ = self.machine()
         error,entry = m.load(blob([0,1,5,1,0,13,9,0],vars=1,stack=2,handlers=[(2,0,1)]))

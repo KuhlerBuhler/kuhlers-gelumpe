@@ -12,7 +12,7 @@ import { buildOf, hardwareOf } from "../../src/firmware.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
-import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel } from "../../src/patcher.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -47,7 +47,7 @@ function verdictText(input, items) {
     case "synth":
     case "stock": return null;
     case "blech": return { tone: "ok", word: t("patcher.verdict.blech"), text: t("patcher.verdict.blech.text") };
-    case "partial": return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => items.find(p => p.id === id)?.label ?? id).join(", ") }) };
+    case "partial": return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => t(items.find(p => p.id === id)?.label ?? id)).join(", ") }) };
     case "wrong-size": return { tone: "error", word: t("patcher.verdict.size"), text: t("patcher.verdict.size.text", { size, expected: number(VSB_SIZE) }) };
     default: return { tone: "error", word: t("patcher.verdict.unknown"), text: t("patcher.verdict.unknown.text", { reason: input.reasons[0] ?? t("patcher.verdict.unknown.reason") }) };
   }
@@ -67,6 +67,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let passed = null;            // the patched copy that passed the check
   let blech = null;             // the BLECH set (data/patches/blech.json) with its patches parsed, once loaded
   let ownPatch = null;          // a BLECH.patch the user brought instead of the set of this version: { bytes, file }
+  let usbNames = null;          // the variants of the optional patch usb-name, once loaded
   let hint = null;
   let usb = null;               // the file came over USB: { fromOriginal }; null for a dropped file (then the unpatched one goes to the card too)
 
@@ -166,9 +167,14 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("span", { className: "ui-dropzone-hint", textContent: t("patcher.blech.hint") }),
     blechInfo,
   ]);
+  // Optional, off by default: the computer sees the Electribe as "Electribe 3" (docs/ideen/69-geraetename.md).
+  const usbName = el("input", { type: "checkbox", id: "cee-patch-usb-name" });
+  usbName.addEventListener("change", () => { passed = null; dispatch({ type: "options" }); });
   const blechBox = el("section", { className: "cee-patch-choice", id: "cee-patch-blech" }, [
     el("label", { className: "cee-check" }, [useLatest, el("span", { textContent: t("patcher.blech.latest", { version: release }) })]),
     blechDrop,
+    el("label", { className: "cee-check", id: "cee-patch-usb-name-box" }, [usbName, el("span", { textContent: t("patcher.usbName") })]),
+    el("p", { className: "muted", id: "cee-patch-usb-name-note", textContent: t("patcher.usbName.note") }),
   ]);
   const withHacktribe = el("input", { type: "checkbox", id: "cee-patch-hacktribe-use" });
   withHacktribe.addEventListener("change", () => chooseRoute(withHacktribe.checked ? "hacktribe" : "direct"));
@@ -288,6 +294,23 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     return blech;
   }
 
+  /** The variants of the optional patch usb-name, one per hardware. */
+  async function loadUsbNames() {
+    usbNames ??= await Promise.all(USB_NAME_URLS.map(async url => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(t("patcher.loadFailed", { url }));
+      return res.json();
+    }));
+    return usbNames;
+  }
+
+  /** The optional patches the user picked, in the variant for the input's build. */
+  async function options() {
+    if (!usbName.checked || !input) return [];
+    const patch = optionFor(await loadUsbNames(), buildOf(input));
+    return patch ? [patch] : [];
+  }
+
   /** The list of copies that passed already; without it every copy is checked. */
   async function loadVerified() {
     try {
@@ -372,10 +395,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     back.disabled = can.busy;
     next.hidden = view === 3 || (view === 2 && reach() < 3);
     next.disabled = can.busy || view >= reach();
-    planList.replaceChildren(...planItems().map(p => el("li", { textContent: p.label })));
+    planList.replaceChildren(...planItems().map(p => el("li", { textContent: t(p.label) })));
     blechInput.disabled = useLatest.checked || can.busy;
     blechDrop.toggleAttribute("data-disabled", useLatest.checked);
     useLatest.disabled = can.busy;
+    usbName.disabled = can.busy;
     blechInfo.textContent = ownPatch ? `${ownPatch.file.name} ${ownPatch.file.version}` : "";
     // The field says which file it holds and what it is; pick() empties the input, so ui.js cannot show the name.
     const found = flow.origin === "hacktribe" && flow.input?.hardware === "blue" ? t("patcher.found.hacktribeBlue") : FOUND[flow.origin] && t(FOUND[flow.origin]);
@@ -400,7 +424,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       flow.device === "blue" ? (flow.origin === "stock" ? t("patcher.device.head.stock") : t("patcher.device.head.hacktribe")) : "",
       cable && cable !== flow.device ? (cable === "blue" ? t("patcher.device.cable.blue") : t("patcher.device.cable.red")) : "",
     ].filter(Boolean).join(" ");
-    if (!synthSet.hidden) synthSet.textContent = t("patcher.synthSet", { patches: itemsFor(blech, "synth").map(p => p.label).join(", ") });
+    if (!synthSet.hidden) synthSet.textContent = t("patcher.synthSet", { patches: itemsFor(blech, "synth").map(p => t(p.label)).join(", ") });
     withHacktribe.checked = flow.route === "hacktribe";
     withHacktribe.disabled = can.busy;
     // open on the whole Hacktribe route, so the field shows the file it took and takes another one
@@ -440,8 +464,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   /** What goes on the file: the set of this version for its build, or the patches of the BLECH.patch the user brought. */
   function planItems() {
     // one line per patch: the variant for this firmware (a BLECH.patch carries one per build)
-    if (ownPatch) return input ? patchesFor(ownPatch.file, base()).map(p => ({ id: p.id, label: p.name ?? p.id })) : [];
-    return blech && input ? itemsFor(blech, buildOf(input)) : [];
+    const extra = usbName.checked && input ? [{ id: "usb-name", label: t("patcher.usbName") }] : [];
+    if (ownPatch) return input ? [...patchesFor(ownPatch.file, base()).map(p => ({ id: p.id, label: patchLabel(p) })), ...extra] : [];
+    return blech && input ? [...itemsFor(blech, buildOf(input)), ...extra] : [];
   }
 
   useLatest.addEventListener("change", () => { if (useLatest.checked) ownPatch = null; render(); });
@@ -569,7 +594,13 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       const items = planItems();
       await tick();
       const from = base();
-      const res = ownPatch ? await applyPatchFile(from, ownPatch.bytes) : await applyPatches(from, (await loadPatches()).patches);
+      const extra = await options();
+      let res = ownPatch ? await applyPatchFile(from, ownPatch.bytes) : await applyPatches(from, [...(await loadPatches()).patches, ...extra]);
+      // a BLECH.patch is checked against its own hashes first; the optional patches go on top of its result
+      if (ownPatch && res.ok && extra.length) {
+        const more = await applyPatches(res.bytes, extra);
+        res = more.ok ? { ...more, spans: [...res.spans, ...more.spans], allow: [...res.allow, ...more.allow], allowCode: [...res.allowCode, ...more.allowCode] } : more;
+      }
       if (!res.ok) {
         for (const p of items) {
           const own = res.reasons.filter(r => r.startsWith(`${p.id}:`)).map(r => r.slice(p.id.length + 2));

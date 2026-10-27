@@ -121,7 +121,7 @@ Ein Plugin, das nur LEDs oder Tasten braucht, nimmt das Display nie.
 
 - **Werte:** ganze 32-Bit-Zahlen (`-2147483648` bis `2147483647`, Hex bis
   `0xFFFFFFFF`) und kurzer Text. `true` ist 1, `false` ist 0.
-- **Text:** nur ein Literal in Anführungszeichen (ASCII, höchstens 31 Zeichen)
+- **Text:** nur ein Literal in Anführungszeichen (ASCII und ä, ö, ü, höchstens 31 Zeichen)
   oder eine Variable, die einen hält. Vergleichen mit `==` und `!=`, an
   `korg.*` übergeben, mehr nicht: kein Verbinden, kein Zerlegen. Zahlen zeigt
   `korg.display.number`.
@@ -414,7 +414,7 @@ der Emulator senden 0 bis 1023 über das ganze Pad, `y` nach oben; Blechy rechne
 
 **Fehlermeldung am Display:** Schaltet ein Fehler das Plugin ab, das das Display
 besitzt (die offene App), ersetzt die Laufzeit das Bild durch drei Zeilen: den
-Plugin-Namen, `Zeile` mit der Quellzeile und den Namen des Fehlers (`DIV_ZERO`). Der
+Plugin-Namen, `Line` mit der Quellzeile und den Namen des Fehlers (`DIV_ZERO`). Der
 Fehler jedes anderen Plugins steht im Menü BLECH auf seiner Seite (`DIV_ZERO L3`),
 das Display bleibt unberührt. Die Firmware bleibt bedienbar, andere Plugins laufen
 weiter.
@@ -523,6 +523,38 @@ Laden des Moduls gegen den Bereich von `korg.led`. Woher die Nummern kommen
 Die Tasten `1` bis `4` und `TOUCHPAD` (das Berühren des Touchpads, mit `touch` für die
 Lage) kommen wie jede Taste als `buttonPress`. Ein Drehgeber, ein Regler oder ein Pad
 sendet kein `buttonPress`, sondern `encoder`, `knob` und `pad` mit ihrem `index`.
+
+**Regler** (`index` bei `knob`, `korg.read.knob(index)`, `korg.knobs.NAME`):
+
+| Index | Name | Regler |
+|---|---|---|
+| 0 | `korg.knobs.LEVEL` | LEVEL |
+| 1 | `korg.knobs.PAN` | PAN |
+| 2 | `korg.knobs.PITCH` | PITCH / GLIDE |
+| 3 | `korg.knobs.RESONANCE` | RESONANCE |
+| 4 | `korg.knobs.EG_INT` | EG INT. |
+| 5 | `korg.knobs.MOD_DEPTH` | MOD. DEPTH |
+| 6 | `korg.knobs.ATTACK` | ATTACK |
+| 7 | `korg.knobs.IFX_EDIT` | IFX EDIT |
+| 8 | `korg.knobs.DECAY` | DECAY / RELEASE |
+| 9 | `korg.knobs.OSC_EDIT` | OSC EDIT |
+| 10 | `korg.knobs.MOD_SPEED` | MOD. SPEED |
+
+Die Indizes 11 bis 19 gehören zu keinem Regler, sie bleiben 0. CUTOFF ist kein Regler, sondern ein Drehgeber.
+
+**Drehgeber** (`index` bei `encoder`):
+
+| Index | Drehgeber |
+|---|---|
+| 0 | VALUE / PATTERN (das große Rad) |
+| 1 | SAMPLE / OSC |
+| 2 | CUTOFF |
+| 3 | MOD. TYPE |
+| 4 | IFX TYPE |
+
+**Pads** (`index` bei `pad`): 0 bis 15 sind die Pads 1 bis 16.
+
+Die Nummern kommen aus `data/panel.mjs` (dort gemessen am Panel).
 
 **LEDs** (`korg.led`):
 
@@ -897,11 +929,11 @@ kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Sei
   danach alle 20 s oder 30 s (8 s plus 0 bis 8 s Zufall nach der letzten, dazu der Weg zum nächsten Rand). Die Zeilen kommen
   der Reihe nach: "yo, na du?", das Lieblingstempo (das am häufigsten gespielte, je Beat gezählt; solange noch nichts
   gespielt wurde, die feste Zeile "mein Tempo ist 150 bpm"), seit wann es läuft ("Spielt seit n min" seit dem ersten PLAY,
-  sonst "Laeuft seit" seit dem Einschalten, unter einer Minute in Sekunden), "Blech ist mein Ding", "kein Mund, kein Problem",
-  "bisschen mehr Bass?", "nicht so doll tippen", "Schranz ist Liebe". Alles in der eigenen Schrift (5 mal 7, nur ASCII, darum
-  "hoer" und "Laeuft"). Die Wartezeiten, das Tempo des Gehens und die Texte sind eine Wahl, am Gerät nicht erprobt.
+  sonst "Läuft seit" seit dem Einschalten, unter einer Minute in Sekunden), "Blech ist mein Ding",
+  "bisschen mehr Bass?", "nicht so doll tippen", "Schranz ist Liebe". Alles in der eigenen Schrift (5 mal 7, ASCII und ä, ö,
+  ü). Die Wartezeiten, das Tempo des Gehens und die Texte sind eine Wahl, am Gerät nicht erprobt.
 - **PLAY.** Drückt man PLAY, geht er zügig (zwei Pixel alle 70 ms) in die Mitte, ein Stück links davon, damit neben ihm Platz
-  für die Blase bleibt, sagt "ich hoer mir das kurz an" (2,8 s), steht noch und tanzt dann, solange das Pattern spielt, ein Bild
+  für die Blase bleibt, sagt "ich hör mir das kurz an" (2,8 s), steht noch und tanzt dann, solange das Pattern spielt, ein Bild
   je Achtel. Die Wartezeit von 12 s bis zum Tanz gibt es nicht mehr. STOP beendet den Tanz, er geht wieder; die Frage "wat
   machst'n du da atze?" ist weg, sie passte nur auf den Hauptbildschirm.
 - **Sonst wie vorher:** ein Tipp des Touchpads nahe an ihm macht ihn wütend, Streicheln froh. Die Zahlen (Tempo, Spielzeit)

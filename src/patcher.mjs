@@ -51,8 +51,52 @@ export const KORG_DOWNLOADS = {
 /** Where the BLECH set lives, relative to the page: the one list of what BLECH is (docs/patcher.md). */
 export const BLECH_SET_URL = "data/patches/blech.json";
 export const BLECH_SYNTH_SET_URL = "data/patches/blech-synth.json";
+/**
+ * The optional patch "Gerätename: Electribe 3" (docs/ideen/69-geraetename.md), off unless the user picks it: one variant
+ * for the red (Hacktribe and Korg's own) and one for the blue. Not part of a set, so a set alone never renames the device.
+ */
+export const USB_NAME_URLS = ["data/patches/usb-name.json", "data/patches/usb-name-synth.json"];
+
+/** The variant of an optional patch (its variants parsed) for a firmware build, or null when none is made for it. */
+export const optionFor = (variants, build) => variants.find(p => buildsOf(p).includes(build)) ?? null;
 /** Copies that already passed the whole emulator check, as SHA-256 of input and result (tools/verify-patches.mjs). */
 export const VERIFIED_URL = "data/patches/verified.json";
+
+/**
+ * The page's name for each patch it knows, a key of the app's tables, so the plan reads in the user's language; where
+ * the variants of one id say different things, one per build. The JSON `name` stays the build's own label.
+ */
+const PATCH_LABELS = {
+  "splash-editor": "features.splash.title",
+  "mfx-switch": "features.mfx2.title",
+  "pattern-switch": "features.patternSwitch.title",
+  "tap-motion": "features.tapMotion.title",
+  "note-assistant": "features.noteAssist.title",
+  "dice": "features.dice.title",
+  "pad-colors": "features.colors.title",
+  "load-bar": "features.loading.title",
+  "sample-errors": "features.sampleErrors.title",
+  "script-runtime": "features.plugins.title",
+  "splash": "patcher.patch.splash",
+  "blech-theme": "features.theme.title",
+  "preset-tables": "patcher.patch.presetTables",
+  "fx-catalog": "patcher.patch.fxCatalog",
+  "synth-filters": "patcher.patch.synthFilters",
+  "power-off": "features.powerOff.title",
+  "doom-loader": "features.doom.title",
+  "blech-sysex": { synth: "patcher.patch.sysexSynth", other: "patcher.patch.sysex" },
+  "ifx-idle": "patcher.patch.ifxIdle",
+  "usb-name": "patcher.usbName",
+};
+
+/** The label of a parsed patch for the page: a text of the tables, or the file's own name for a patch the page does not know. */
+export function patchLabel(patch) {
+  const build = buildsOf(patch ?? {})[0];
+  if (patch?.id === "blechtribe") return text("patcher.patch.blechtribe", { folder: FOLDER[build] ?? "hacktribe" });
+  const key = PATCH_LABELS[patch?.id];
+  const pick = typeof key === "object" ? key[build] ?? key.other : key;
+  return pick ? text(pick) : patch?.name ?? patch?.id;
+}
 
 /**
  * The BLECH set and its patches, read through `fetchJson(url)` (urls are relative to the page, as the set
@@ -65,7 +109,7 @@ export async function loadBlechSet(fetchJson, setUrl = BLECH_SET_URL) {
     throw new TextError("patcher.reason.noSet", { url: setUrl });
   }
   const patches = await Promise.all(set.patches.map(url => fetchJson(url)));
-  const items = patches.map((p, i) => ({ id: p?.id, label: p?.name ?? p?.id, url: set.patches[i] }));
+  const items = patches.map((p, i) => ({ id: p?.id, label: patchLabel(p), url: set.patches[i] }));
   return { id: set.id, name: set.name, items, patches };
 }
 
@@ -270,6 +314,11 @@ export function step(flow, event) {
       if (!choosesDevice(flow) || RUNNING.has(flow.phase) || !["red", "blue"].includes(event.device) || event.device === flow.device) return flow;
       const done = ["passed", "downloaded", "failed"].includes(flow.phase);
       return { ...flow, device: event.device, ...(done ? { phase: "ready", report: null, error: null, untested: false, steps: flow.steps.filter(s => s.id === "read" || s.id === "convert") } : {}) };
+    }
+    case "options": {
+      // another choice of optional patches is another copy: what was patched or checked goes, as with the device
+      if (RUNNING.has(flow.phase) || !["passed", "downloaded", "failed"].includes(flow.phase)) return flow;
+      return { ...flow, phase: "ready", report: null, error: null, untested: false, steps: flow.steps.filter(s => s.id === "read" || s.id === "convert") };
     }
     case "route": {
       // `event.input` is Korg's original again, whichever route the file was on

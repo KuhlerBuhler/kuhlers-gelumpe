@@ -113,7 +113,7 @@ takes the display.
 
 - **Values:** whole 32-bit numbers (`-2147483648` to `2147483647`, hex up to `0xFFFFFFFF`) and short text.
   `true` is 1, `false` is 0.
-- **Text:** only a literal in quotes (ASCII, at most 31 characters) or a variable that holds one. You can
+- **Text:** only a literal in quotes (ASCII and ä, ö, ü, at most 31 characters) or a variable that holds one. You can
   compare with `==` and `!=` and pass it to `korg.*`, nothing more: no joining, no splitting. Numbers are
   shown with `korg.display.number`.
 - **Variables:** `let` and `const`. A `const` with a fixed value is a constant and takes no space. Every
@@ -363,7 +363,7 @@ across the whole pad, `y` pointing up; Blechy assumes `x / 8` as the display col
 device.**
 
 **Error message on the display:** if an error switches off the plugin that owns the display (the open app),
-the runtime replaces the image with three lines: the plugin name, `Zeile` (line) with the source line, and
+the runtime replaces the image with three lines: the plugin name, `Line` with the source line, and
 the name of the error (`DIV_ZERO`). The error of any other plugin appears in the BLECH menu on its page
 (`DIV_ZERO L3`), and the display stays untouched. The firmware stays usable and other plugins keep running.
 
@@ -448,6 +448,38 @@ Where the numbers come from (measured, or derived from Freetribe) is noted in `d
 The keys `1` to `4` and `TOUCHPAD` (touching the touchpad, with `touch` for the position) arrive as
 `buttonPress` like any key. An encoder, a knob or a pad sends no `buttonPress`, but `encoder`, `knob` and
 `pad` with their `index`.
+
+**Knobs** (`index` of `knob`, `korg.read.knob(index)`, `korg.knobs.NAME`):
+
+| Index | Name | Knob |
+|---|---|---|
+| 0 | `korg.knobs.LEVEL` | LEVEL |
+| 1 | `korg.knobs.PAN` | PAN |
+| 2 | `korg.knobs.PITCH` | PITCH / GLIDE |
+| 3 | `korg.knobs.RESONANCE` | RESONANCE |
+| 4 | `korg.knobs.EG_INT` | EG INT. |
+| 5 | `korg.knobs.MOD_DEPTH` | MOD. DEPTH |
+| 6 | `korg.knobs.ATTACK` | ATTACK |
+| 7 | `korg.knobs.IFX_EDIT` | IFX EDIT |
+| 8 | `korg.knobs.DECAY` | DECAY / RELEASE |
+| 9 | `korg.knobs.OSC_EDIT` | OSC EDIT |
+| 10 | `korg.knobs.MOD_SPEED` | MOD. SPEED |
+
+Indices 11 to 19 belong to no knob and stay 0. CUTOFF is not a knob but an encoder.
+
+**Encoders** (`index` of `encoder`):
+
+| Index | Encoder |
+|---|---|
+| 0 | VALUE / PATTERN (the big wheel) |
+| 1 | SAMPLE / OSC |
+| 2 | CUTOFF |
+| 3 | MOD. TYPE |
+| 4 | IFX TYPE |
+
+**Pads** (`index` of `pad`): 0 to 15 are pads 1 to 16.
+
+The numbers come from `data/panel.mjs` (measured on the panel there).
 
 **LEDs** (`korg.led`):
 
@@ -744,12 +776,12 @@ the whole display is his (the page number is not visible).
   that has room: at the left edge to his right, at the right edge to his left. The first bubble comes after a little over
   12 s, then every 20 s or 30 s (8 s plus 0 to 8 s of chance after the last, plus the walk to the next edge). The lines come in
   turn: "yo, na du?", the favourite tempo (the most played one, counted per beat; until something was played, the fixed line
-  "mein Tempo ist 150 bpm"), how long it has been going ("Spielt seit n min" since the first PLAY, otherwise "Laeuft seit"
-  since power-on, seconds under a minute), "Blech ist mein Ding", "kein Mund, kein Problem", "bisschen mehr Bass?", "nicht so doll
-  tippen", "Schranz ist Liebe". All in the own font (5 by 7, ASCII only, hence "hoer" and "Laeuft"). The waits, the walking speed
+  "mein Tempo ist 150 bpm"), how long it has been going ("Spielt seit n min" since the first PLAY, otherwise "Läuft seit"
+  since power-on, seconds under a minute), "Blech ist mein Ding", "bisschen mehr Bass?", "nicht so doll
+  tippen", "Schranz ist Liebe". All in the own font (5 by 7, ASCII and ä, ö, ü). The waits, the walking speed
   and the texts are a choice, not tried on the device.
 - **PLAY.** When you press PLAY he walks briskly (two pixels every 70 ms) to the middle, a little left of it so that there is room
-  beside him for the bubble, says "ich hoer mir das kurz an" (2.8 s), stands a moment and then dances as long as the pattern
+  beside him for the bubble, says "ich hör mir das kurz an" (2.8 s), stands a moment and then dances as long as the pattern
   plays, one picture per eighth. The wait of 12 s before the dance is gone. STOP ends the dance and he walks again; the question
   "wat machst'n du da atze?" is gone, it only fitted the main screen.
 - **Otherwise as before:** a tap on the touchpad near him makes him angry, stroking makes him happy. The numbers (tempo, play

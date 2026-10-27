@@ -5,10 +5,10 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classify, convertStock, samplerHead, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE } from "../src/patcher.mjs";
+import { classify, convertStock, samplerHead, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE, USB_NAME_URLS, optionFor, patchLabel } from "../src/patcher.mjs";
 import { applyPatches, splashPatch, patchesPresent, SPLASH_W, SPLASH_H } from "../src/patch.mjs";
 import { sha256 } from "../src/firmware.mjs";
-import { render } from "../src/text.mjs";
+import { render, isText } from "../src/text.mjs";
 import { asStock, makeFirmware, withHacktribeRun } from "./helpers.mjs";
 import { expected, fixture, oldFile } from "./fixtures/bsdiff/data.mjs";
 
@@ -111,7 +111,7 @@ test("itemsFor: the items of a set that apply to a build, one per id", () => {
   assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 1, "the synth filters are for Korg's build only");
 });
 
-test("BLECH is the set data/patches/blech.json: every patch it lists, in its order, with the id and name of the file", async () => {
+test("BLECH is the set data/patches/blech.json: every patch it lists, in its order, with its id and a label from the app's tables", async () => {
   assert.equal(BLECH_SET_URL, "data/patches/blech.json");
   const listed = readFile(BLECH_SET_URL).patches;
   assert.deepEqual(BLECH.map(p => p.url), listed);
@@ -119,7 +119,8 @@ test("BLECH is the set data/patches/blech.json: every patch it lists, in its ord
   for (const id of ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "synth-filters", "power-off", "blech-sysex"]) assert.ok(BLECH.some(p => p.id === id), id);
   BLECH.forEach((p, i) => {
     const file = readFile(p.url);
-    assert.deepEqual([p.id, p.label], [file.id, file.name]);
+    assert.equal(p.id, file.id);
+    assert.ok(isText(p.label), `${p.id} is named in the app's tables, not by the German name in its file`);
     assert.equal(BLECH_SET.patches[i].id, p.id);
   });
 });
@@ -503,4 +504,28 @@ test("an untested copy can be patched again, with a test; a tested one cannot", 
   assert.equal(step(untested, { type: "patching", patches: [] }).untested, false);
   const tested = step(step(flow, { type: "checking" }), { type: "checked", report: { ok: true, checks: [{ id: "x", ok: true }] } });
   assert.equal(allowed(tested).patch, false);
+});
+
+test("the optional device name: off the sets, one variant per build, and picking it again makes the copy anew", () => {
+  const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
+  const variants = USB_NAME_URLS.map(read);
+  assert.deepEqual(["hacktribe", "stock", "synth"].map(build => optionFor(variants, build)?.builds), [["hacktribe", "stock"], ["hacktribe", "stock"], ["synth"]]);
+  assert.equal(optionFor(variants, "other"), null);
+  const input = { kind: "hacktribe", size: VSB_SIZE, reasons: [], present: [] };
+  const ready = step(newFlow(), { type: "input", input });
+  assert.equal(step(ready, { type: "options" }), ready, "nothing made yet: nothing to drop");
+  const patching = step(ready, { type: "patching", patches: [{ id: "usb-name", label: "x" }] });
+  assert.equal(step(patching, { type: "options" }), patching, "no change while it runs");
+  const passed = step(step(patching, { type: "patch", id: "usb-name", ok: true }), { type: "untested" });
+  const again = step(passed, { type: "options" });
+  assert.deepEqual([again.phase, again.untested, again.steps.map(s => s.id)], ["ready", false, ["read"]]);
+});
+
+test("a patch label follows the build where the variants differ, and a patch the page does not know keeps its file's name", () => {
+  assert.equal(render(patchLabel({ id: "blechtribe", builds: ["stock"] })), "Kartenordner blechtribe statt electribe sampler");
+  assert.equal(render(patchLabel({ id: "blechtribe", builds: ["synth"] })), "Kartenordner blechtribe statt electribe");
+  assert.equal(render(patchLabel({ id: "blechtribe" })), "Kartenordner blechtribe statt hacktribe");
+  assert.equal(render(patchLabel({ id: "blech-sysex", builds: ["synth"] })), "BLECH SysEx: RAM und Flash lesen");
+  assert.equal(render(patchLabel({ id: "blech-sysex", builds: ["stock"] })), "BLECH SysEx: RAM lesen und schreiben");
+  assert.equal(patchLabel({ id: "someone-else", name: "Etwas Eigenes" }), "Etwas Eigenes");
 });

@@ -223,10 +223,10 @@ test("PLAY: he walks to the middle, says he listens, listens, and dances with th
   device.post("buttonPress", KEY.PLAY);
   const seen = [];
   let listenAt = null;
-  const listen = textRows([["ich hoer", 11], ["mir das", 22], ["kurz an", 33]], 76);
+  const listen = textRows([["ich hör", 11], ["mir das", 22], ["kurz an", 33]], 76);
   for (let ms = 0; ms < 20000 && listenAt === null; ms += FRAME_MS) {
     device.frame();
-    seen.push(locate(device, ["walk"])?.ox);
+    seen.push(locate(device, ["walk", "idle"])?.ox);
     if (same(region(rowsOf(device), 76, 127), region(listen, 76, 127))) listenAt = ms;
   }
   assert.notEqual(listenAt, null, "the bubble comes");
@@ -260,19 +260,19 @@ test("on stop the dance ends and he walks again, no question", () => {
   const walking = new Set();
   for (let ms = 0; ms < 3000; ms += FRAME_MS) {
     device.frame();
-    const at = locate(device, ["idle", "twitch", "walk"]);
+    const at = locate(device, ["idle", "twitch", "walk", "back0", "back1"]);
     assert.ok(at, `only standing or walking pictures, no bubble, no dance (${ms} ms)`);
-    if (at.name === "walk") walking.add(at.ox);
+    if (at.name === "walk" || at.name.startsWith("back")) walking.add(at.ox);
   }
   assert.ok(walking.size > 5, "he walks on from the middle");
 });
 
-test("idle he walks from the left edge to the right edge and back, slowly, with the walk sprite", () => {
+test("idle he walks from the left edge to the right edge and back, slowly, with the walk cycle", () => {
   const device = opened();
   const xs = [];
   for (let ms = 0; ms < 45000; ms += FRAME_MS) {
     device.frame();
-    const at = locate(device, ["walk", "idle", "twitch", "wave0", "wave1"]);
+    const at = locate(device, ["walk", "idle", "twitch", "wave0", "wave1", "back0", "back1"]);
     if (at) xs.push(at.ox);
   }
   const walking = xs.filter(v => v > 0);
@@ -283,6 +283,48 @@ test("idle he walks from the left edge to the right edge and back, slowly, with 
   assert.ok(walking.length > 200);
   const first = xs.findIndex(v => v > 0);
   assert.ok(first * FRAME_MS > 2500, "not before the wave is over");
+});
+
+test("the walk cycle: the calm and the walk picture in turn every 240 ms, mirrored when he goes left, the calm picture when he stands", () => {
+  const device = opened();
+  const runs = { right: [], left: [] };
+  const standing = [];
+  let last = null;
+  let lastX = -1;
+  for (let ms = 0; ms < 60000; ms += FRAME_MS) {
+    device.frame();
+    const at = locate(device, ["idle", "twitch", "walk", "back0", "back1", "wave0", "wave1"]);
+    if (!at) continue;
+    const moving = lastX >= 0 && at.ox !== lastX;
+    lastX = at.ox;
+    if (!moving) {
+      if (at.name === "idle" || at.name === "twitch") standing.push(at.name);
+      continue;
+    }
+    if (last?.name !== at.name) {
+      if (last) runs[at.name.startsWith("back") ? "left" : "right"].push({ name: at.name, ms: ms - last.ms });
+      last = { name: at.name, ms };
+    }
+  }
+  const names = side => [...new Set(runs[side].map(r => r.name))].sort();
+  assert.deepEqual(names("right"), ["idle", "walk"], "to the right: the calm and the walk picture");
+  assert.deepEqual(names("left"), ["back0", "back1"], "to the left: the same two, mirrored");
+  const lengths = [...runs.right, ...runs.left].map(r => r.ms).sort((a, b) => a - b);
+  const median = lengths[Math.floor(lengths.length / 2)];
+  assert.ok(median >= 200 && median <= 280, `one picture lasts about 240 ms, got ${median}`);
+  assert.ok(standing.length > 20, "he also stands between the walks");
+});
+
+test("the mirrored pictures are the calm and the walk picture flipped left to right inside one box, so the walk limits do not change", () => {
+  const box = rows => rows.reduce((b, r) => (r.includes("#") ? [Math.min(b[0], r.indexOf("#")), Math.max(b[1], r.lastIndexOf("#"))] : b), [999, -1]);
+  const [a0, a1] = box([...frames.idle.rows, ...frames.walk.rows]);
+  assert.deepEqual(box([...frames.back0.rows, ...frames.back1.rows]), [a0, a1]);
+  for (const [back, front] of [["back0", "idle"], ["back1", "walk"]]) {
+    frames[front].rows.forEach((row, y) => [...row].forEach((c, x) => {
+      assert.equal(frames[back].rows[y][a0 + a1 - x] ?? ".", c, `${back} is ${front} flipped (${x}, ${y})`);
+    }));
+    assert.notDeepEqual(frames[back].rows, frames[front].rows);
+  }
 });
 
 test("every now and then he stops at an edge and says something, the bubble on the side with room, and then walks on", () => {

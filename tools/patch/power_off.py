@@ -130,10 +130,10 @@ def read_png(path):
 def read_font():
     """The 5 x 7 font of the script display, {char: five column bytes, bit 0 the top row}."""
     rows = re.findall(r'"([0-9a-f]{10})"', FONT.read_text())
-    if len(rows) != 0x7F - 0x20:
-        raise SystemExit("the font table does not have the characters 0x20 to 0x7e")
-    font = {chr(0x20 + i): bytes.fromhex(r) for i, r in enumerate(rows)}
-    font["ü"] = bytes(b | dot for b, dot in zip(font["u"], (0, 1, 0, 1, 0)))   # "u" with two dots in the top row
+    if len(rows) != 0x82 - 0x20:
+        raise SystemExit("the font table does not have the characters 0x20 to 0x7e and ä, ö, ü")
+    font = {chr(0x20 + i): bytes.fromhex(r) for i, r in enumerate(rows[:0x7F - 0x20])}
+    font.update(zip("äöü", (bytes.fromhex(r) for r in rows[0x7F - 0x20:])))
     return font
 
 

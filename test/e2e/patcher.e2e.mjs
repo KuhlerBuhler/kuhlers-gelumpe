@@ -57,6 +57,10 @@ before(async () => {
       format: "gelumpe-patch-set", version: 1, id: "blech-synth", name: "BLECH Synth",
       patches: ["data/patches/synth-test.json"],
     }));
+    // the optional device name, off the sets: one variant per hardware, at a spot of their own
+    const usbName = { ...patches[1], id: "usb-name", name: "Gerätename Electribe 3", builds: ["hacktribe", "stock"], changes: [{ ...patches[1].changes[0], file: FREE + 0x400, bytes: "45330000" }] };
+    writeFileSync(join(dir, "patches", "usb-name.json"), JSON.stringify(usbName));
+    writeFileSync(join(dir, "patches", "usb-name-synth.json"), JSON.stringify({ ...usbName, builds: ["synth"] }));
     // no copy of these test files has passed before: the check runs (src/patcher.mjs, verifiedReport)
     writeFileSync(join(dir, "patches", "verified.json"), JSON.stringify({ format: "gelumpe-verified", version: 1, results: [] }));
     return [["/data/patches/", `${dir}/patches/`], ["/assets/blechy/", `${dir}/blechy/`]];
@@ -212,6 +216,34 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   assert.match(text, /DATA UTILITY/);
   assert.match(text, /SOFTWARE UPDATE/);
   assert.match(text, /EXIT/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher: the device name Electribe 3 is off by default, goes on when picked, and picking again makes the copy anew", async () => {
+  const page = await patcherPage();
+  const vsb = await makeFirmware();
+  await drop(page, vsb);
+  await page.click("#cee-patch-next");
+  assert.equal(await page.locator("#cee-patch-usb-name").isChecked(), false, "off by default");
+  assert.equal(await page.locator("label:has(#cee-patch-usb-name)").textContent(), "Gerätename: Electribe 3");
+  assert.match(await page.locator("#cee-patch-usb-name-note").textContent(), /DAW-Zuordnungen.*Geräte-Manager/);
+  const plan = () => page.locator("#cee-patch-plan li").allTextContents();
+  assert.ok(!(await plan()).includes("Gerätename: Electribe 3"));
+  await page.check("#cee-patch-usb-name");
+  assert.equal((await plan()).at(-1), "Gerätename: Electribe 3", "picked, it is listed with the patches");
+  await page.click("#cee-patch-next");
+  await page.click("#cee-patch-run");
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
+  const copy = new Uint8Array(fake.seen.check.pair.subarray(0x200100));
+  assert.deepEqual([...copy.subarray(FREE + 0x400, FREE + 0x404)], [0x45, 0x33, 0, 0], "the name went on");
+  await page.click("#cee-patch-back");
+  await page.uncheck("#cee-patch-usb-name");
+  assert.equal(await page.isDisabled("#cee-patch-download"), true, "another choice is another copy: the checked one goes");
+  await page.click("#cee-patch-next");
+  await page.click("#cee-patch-run");
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
+  const without = new Uint8Array(fake.seen.check.pair.subarray(0x200100));
+  assert.deepEqual([...without.subarray(FREE + 0x400, FREE + 0x404)], [0, 0, 0, 0], "off, the name stays");
   assert.deepEqual(page.errors, []);
 });
 

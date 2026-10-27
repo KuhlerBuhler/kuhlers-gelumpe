@@ -1,0 +1,1065 @@
+{
+  "schema": 1,
+  "builds": [
+    {
+      "build": "hacktribe",
+      "firmware_sha256": "96675449af3e5a5f5e728347270034792ec5d2f834d5e19473811fbb08dea1c0",
+      "measured_at": "2026-10-25T16:05:18.578566+00:00",
+      "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+      "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+      "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+      "memory": {
+        "areas": [
+          {
+            "at": "0xc019a400",
+            "length": 8192,
+            "what": "code"
+          },
+          {
+            "at": "0xc019c400",
+            "length": 8192,
+            "what": "events"
+          },
+          {
+            "at": "0xc019e400",
+            "length": 3072,
+            "what": "state"
+          }
+        ],
+        "no_overlap": true,
+        "overlaps": [],
+        "erased": true,
+        "capacity": 512,
+        "buffer_bytes": 8192,
+        "code_bytes": 8192,
+        "ownership_sha256": "746b99948abe2c4670fb167957c1d5ba15b20b4def6129e28aabd25d159d514b",
+        "reservation": "candidate, not yet installed in a firmware patch"
+      },
+      "harness": {
+        "slice": 2000,
+        "ns_per_instruction": 5,
+        "unicorn": "2.1.4",
+        "python": "3.15.0",
+        "timer_irq_count": 1000,
+        "timer_window_ms": 1000.0,
+        "timestamp_uncertainty_us": 10,
+        "time_source": "machine.time_ns; original 1 kHz handler counted"
+      },
+      "input": {
+        "ordered": true,
+        "task": "CsTask",
+        "origin_separated": true,
+        "virtual_exit_source": "GMAC encode/decode in RAM",
+        "messages": 8,
+        "physical_latency_ms": [
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485
+        ],
+        "physical_burst_latency_ms": [
+          0.348485,
+          0.7824850000002385,
+          1.2164850000002385,
+          1.6504850000002385,
+          2.0844850000002384,
+          2.5184850000002386,
+          2.9524850000002383,
+          3.3864850000002384
+        ]
+      },
+      "replay": {
+        "task": "CsTask",
+        "irq_enabled": true,
+        "extra_latency_ms": [
+          0.684275,
+          0.603275,
+          0.551555,
+          0.481275,
+          0.400275,
+          0.319275,
+          0.268275,
+          0.197275,
+          0.126275,
+          0.035275,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1.629275,
+          1.548275,
+          1.806275,
+          1.416275,
+          1.345275,
+          1.264275,
+          1.183275,
+          1.150555,
+          1.061275
+        ],
+        "due_lateness_ms": [
+          1.03276,
+          0.95176,
+          0.90004,
+          0.82976,
+          0.74876,
+          0.66776,
+          0.61676,
+          0.54576,
+          0.47476,
+          0.38376,
+          0.31276,
+          0.26176,
+          0.19076,
+          0.11976,
+          0.02876,
+          1.97776,
+          1.89676,
+          2.15476,
+          1.76476,
+          1.69376,
+          1.61276,
+          1.53176,
+          1.49904,
+          1.40976
+        ],
+        "registers_preserved": true,
+        "stack_bytes": 64,
+        "stack_evidence": "16 saved words per wrapper; original callee usage observed separately",
+        "observed_stack_bytes": {
+          "cs": 740,
+          "periodic": 88
+        },
+        "burst_ordered": true,
+        "burst_max_extra_latency_ms": 0.724275,
+        "burst_due_lateness_ms": [
+          1.07276,
+          1.10276,
+          1.10276,
+          1.10276,
+          1.11404,
+          1.15532,
+          1.15532,
+          1.15532
+        ],
+        "max_messages_per_wake": 8,
+        "unsafe_calls": 0,
+        "wrapper_counts": {
+          "periodic": 690,
+          "periodic_restored": 690,
+          "cs": 76,
+          "cs_restored": 76
+        },
+        "final_pending": 3,
+        "wrapper_tasks": {
+          "periodic": [
+            "PeriodicTask"
+          ],
+          "periodic_restored": [
+            "PeriodicTask"
+          ],
+          "cs": [
+            "CsTask"
+          ],
+          "cs_restored": [
+            "CsTask"
+          ]
+        },
+        "final_timer": 112201884,
+        "final_due": 150000,
+        "normal_transport_calls": 16,
+        "observed_transport_calls": 44,
+        "replay_ui_calls": 10,
+        "transport_transitions": [
+          {
+            "key": 1,
+            "before": 1,
+            "after": 0
+          },
+          {
+            "key": 2,
+            "before": 0,
+            "after": 1
+          },
+          {
+            "key": 1,
+            "before": 1,
+            "after": 0
+          }
+        ],
+        "source": "RAM-only PeriodicTask flag 2 wake, bounded CsTask dispatcher call"
+      },
+      "asserts": [],
+      "tempo": {
+        "internal": true,
+        "stopped": true,
+        "external": true,
+        "internal_reads": [
+          {
+            "requested_tenths": 1200,
+            "display_tenths": 1200,
+            "generator_hundredths": 12000,
+            "period_ps": 217013888,
+            "effective_hundredths": 12000
+          },
+          {
+            "requested_tenths": 1500,
+            "display_tenths": 1500,
+            "generator_hundredths": 15000,
+            "period_ps": 173611111,
+            "effective_hundredths": 15000
+          }
+        ],
+        "external_hundredths": [
+          11899,
+          11904,
+          11905,
+          11911,
+          12000,
+          12500
+        ],
+        "external_last_hundredths": 11905,
+        "after_silence_hundredths": 11905,
+        "external_clock_loss_detected": false,
+        "display_after_external_tenths": 1500,
+        "effective_address": "0xc0340388",
+        "source_unit": "picoseconds per 1/2304 quarter",
+        "cached_generator_hundredths": 15000,
+        "unit": "0.01 BPM",
+        "method": "UI setter and clock-mode callback in emulator; clock bytes through DIN UART",
+        "asserts": []
+      },
+      "event_recorder": {
+        "status": "measured",
+        "cases": [
+          {
+            "case": "baseline",
+            "before": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "after": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "file_bytes": 16848,
+            "changed_bytes": 0,
+            "contains_start_pattern": true,
+            "asserts": []
+          },
+          {
+            "case": "encoder",
+            "before": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "after": {
+              "screen": 1,
+              "osc": 3,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "file_bytes": 16912,
+            "changed_bytes": 111,
+            "contains_start_pattern": true,
+            "asserts": []
+          },
+          {
+            "case": "knob",
+            "before": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "after": {
+              "screen": 1,
+              "osc": 0,
+              "level": 20,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "file_bytes": 16864,
+            "changed_bytes": 61,
+            "contains_start_pattern": true,
+            "asserts": []
+          },
+          {
+            "case": "mode",
+            "before": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "after": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 4,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "file_bytes": 16848,
+            "changed_bytes": 2,
+            "contains_start_pattern": true,
+            "asserts": []
+          },
+          {
+            "case": "menu",
+            "before": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "after": {
+              "screen": 3,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "file_bytes": 16848,
+            "changed_bytes": 2,
+            "contains_start_pattern": true,
+            "asserts": []
+          },
+          {
+            "case": "part",
+            "before": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "after": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 1,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "file_bytes": 16848,
+            "changed_bytes": 1,
+            "contains_start_pattern": true,
+            "asserts": []
+          },
+          {
+            "case": "pattern",
+            "before": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "after": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 1,
+              "playing_pattern": 1,
+              "mute4": 0
+            },
+            "file_bytes": 33248,
+            "changed_bytes": 16428,
+            "contains_start_pattern": true,
+            "asserts": []
+          },
+          {
+            "case": "mute",
+            "before": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 3,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 0
+            },
+            "after": {
+              "screen": 1,
+              "osc": 0,
+              "level": 85,
+              "selected_part": 0,
+              "pad_mode": 0,
+              "selected_pattern": 0,
+              "playing_pattern": 0,
+              "mute4": 1
+            },
+            "file_bytes": 16864,
+            "changed_bytes": 58,
+            "contains_start_pattern": true,
+            "asserts": []
+          }
+        ],
+        "playback": {
+          "before": {
+            "screen": 1,
+            "osc": 20,
+            "level": 85,
+            "selected_part": 0,
+            "pad_mode": 3,
+            "selected_pattern": 0,
+            "playing_pattern": 0,
+            "mute4": 0
+          },
+          "initial": {
+            "screen": 11,
+            "osc": 0,
+            "level": 85,
+            "selected_part": 0,
+            "pad_mode": 3,
+            "selected_pattern": 0,
+            "playing_pattern": 0,
+            "mute4": 0
+          },
+          "final": {
+            "screen": 11,
+            "osc": 20,
+            "level": 85,
+            "selected_part": 0,
+            "pad_mode": 3,
+            "selected_pattern": 0,
+            "playing_pattern": 0,
+            "mute4": 0
+          },
+          "loads_and_restores_snapshot": true,
+          "asserts": []
+        },
+        "valid": true,
+        "comparison_errors": []
+      },
+      "section_sources": {
+        "input": {
+          "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+          "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+          "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+          "measured_at": "2026-10-25T16:05:18.578566+00:00"
+        },
+        "tempo": {
+          "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+          "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+          "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+          "measured_at": "2026-10-25T16:05:18.578566+00:00"
+        },
+        "memory": {
+          "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+          "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+          "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+          "measured_at": "2026-10-25T16:05:18.578566+00:00"
+        },
+        "event": {
+          "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+          "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+          "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+          "measured_at": "2026-10-25T16:05:18.578566+00:00"
+        }
+      },
+      "address_derivations": {}
+    },
+    {
+      "build": "stock",
+      "firmware_sha256": "7cda0a49a3de814f762c7242a3458880532b01bd3321ecd09164114e51917ddf",
+      "measured_at": "2026-10-25T16:05:18.580965+00:00",
+      "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+      "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+      "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+      "memory": {
+        "areas": [
+          {
+            "at": "0xc019a400",
+            "length": 8192,
+            "what": "code"
+          },
+          {
+            "at": "0xc019c400",
+            "length": 8192,
+            "what": "events"
+          },
+          {
+            "at": "0xc019e400",
+            "length": 3072,
+            "what": "state"
+          }
+        ],
+        "no_overlap": true,
+        "overlaps": [],
+        "erased": true,
+        "capacity": 512,
+        "buffer_bytes": 8192,
+        "code_bytes": 8192,
+        "ownership_sha256": "a5e687b4437b8759fad851949a3f8a97b95d1b8095372f41a4dc82c72f7a2750",
+        "reservation": "candidate, not yet installed in a firmware patch"
+      },
+      "harness": {
+        "slice": 2000,
+        "ns_per_instruction": 5,
+        "unicorn": "2.1.4",
+        "python": "3.15.0",
+        "timer_irq_count": 1000,
+        "timer_window_ms": 1000.0,
+        "timestamp_uncertainty_us": 10,
+        "time_source": "machine.time_ns; original 1 kHz handler counted"
+      },
+      "input": {
+        "ordered": true,
+        "task": "CsTask",
+        "origin_separated": true,
+        "virtual_exit_source": "GMAC encode/decode in RAM",
+        "messages": 8,
+        "physical_latency_ms": [
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485
+        ],
+        "physical_burst_latency_ms": [
+          0.348485,
+          0.782485,
+          1.216485,
+          1.650485,
+          2.084485,
+          2.518485,
+          2.962485,
+          3.386485
+        ]
+      },
+      "replay": {
+        "task": "CsTask",
+        "irq_enabled": true,
+        "extra_latency_ms": [
+          1.592995,
+          1.530715,
+          1.469715,
+          1.401715,
+          1.327715,
+          1.236715,
+          1.174595,
+          1.114715,
+          1.073715,
+          0.952715,
+          0.881715,
+          0.830715,
+          0.759715,
+          0.688715,
+          0.597715,
+          0.536715,
+          0.475715,
+          0.404715,
+          0.671715,
+          0.242715,
+          0.181715,
+          0.120715,
+          0.049715,
+          0
+        ],
+        "due_lateness_ms": [
+          1.94148,
+          1.8792,
+          1.8182,
+          1.7502,
+          1.6762,
+          1.5852,
+          1.52308,
+          1.4632,
+          1.4222,
+          1.3012,
+          1.2302,
+          1.1792,
+          1.1082,
+          1.0372,
+          0.9462,
+          0.8852,
+          0.8242,
+          0.7532,
+          1.0202,
+          0.5912,
+          0.5302,
+          0.4692,
+          0.3982,
+          0.3172
+        ],
+        "registers_preserved": true,
+        "stack_bytes": 64,
+        "stack_evidence": "16 saved words per wrapper; original callee usage observed separately",
+        "observed_stack_bytes": {
+          "cs": 740,
+          "periodic": 88
+        },
+        "burst_ordered": true,
+        "burst_max_extra_latency_ms": 1.6117150000014306,
+        "burst_due_lateness_ms": [
+          1.9602000000014306,
+          1.9902000000014306,
+          1.9902000000014306,
+          2.0014800000014303,
+          2.0127600000014305,
+          2.0427600000014303,
+          2.0427600000014303,
+          2.0527600000014306
+        ],
+        "max_messages_per_wake": 8,
+        "unsafe_calls": 0,
+        "wrapper_counts": {
+          "periodic": 689,
+          "periodic_restored": 689,
+          "cs": 76,
+          "cs_restored": 76
+        },
+        "final_pending": 3,
+        "wrapper_tasks": {
+          "periodic": [
+            "PeriodicTask"
+          ],
+          "periodic_restored": [
+            "PeriodicTask"
+          ],
+          "cs": [
+            "CsTask"
+          ],
+          "cs_restored": [
+            "CsTask"
+          ]
+        },
+        "final_timer": 37212383,
+        "final_due": 150000,
+        "normal_transport_calls": 16,
+        "observed_transport_calls": 43,
+        "replay_ui_calls": 10,
+        "transport_transitions": [
+          {
+            "key": 1,
+            "before": 1,
+            "after": 0
+          },
+          {
+            "key": 2,
+            "before": 0,
+            "after": 1
+          },
+          {
+            "key": 1,
+            "before": 1,
+            "after": 0
+          }
+        ],
+        "source": "RAM-only PeriodicTask flag 2 wake, bounded CsTask dispatcher call"
+      },
+      "asserts": [],
+      "tempo": {
+        "internal": true,
+        "stopped": true,
+        "external": true,
+        "internal_reads": [
+          {
+            "requested_tenths": 1200,
+            "display_tenths": 1200,
+            "generator_hundredths": 12000,
+            "period_ps": 217013888,
+            "effective_hundredths": 12000
+          },
+          {
+            "requested_tenths": 1500,
+            "display_tenths": 1500,
+            "generator_hundredths": 15000,
+            "period_ps": 173611111,
+            "effective_hundredths": 15000
+          }
+        ],
+        "external_hundredths": [
+          11899,
+          11904,
+          11905,
+          11911,
+          12000,
+          12500
+        ],
+        "external_last_hundredths": 11905,
+        "after_silence_hundredths": 11905,
+        "external_clock_loss_detected": false,
+        "display_after_external_tenths": 1500,
+        "effective_address": "0xc0340388",
+        "source_unit": "picoseconds per 1/2304 quarter",
+        "cached_generator_hundredths": 15000,
+        "unit": "0.01 BPM",
+        "method": "UI setter and clock-mode callback in emulator; clock bytes through DIN UART",
+        "asserts": []
+      },
+      "section_sources": {
+        "input": {
+          "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+          "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+          "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+          "measured_at": "2026-10-25T16:05:18.580965+00:00"
+        },
+        "tempo": {
+          "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+          "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+          "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+          "measured_at": "2026-10-25T16:05:18.580965+00:00"
+        },
+        "memory": {
+          "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+          "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+          "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+          "measured_at": "2026-10-25T16:05:18.580965+00:00"
+        }
+      },
+      "address_derivations": {},
+      "event_recorder": {
+        "status": "not measured in this run"
+      }
+    },
+    {
+      "build": "synth",
+      "firmware_sha256": "a7088bcfb4b662d558d5f540e5f27082f2922d444e125a4bedafd1fd98ace554",
+      "measured_at": "2026-10-25T16:05:22.130680+00:00",
+      "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+      "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+      "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+      "memory": {
+        "areas": [
+          {
+            "at": "0xc019a400",
+            "length": 8192,
+            "what": "code"
+          },
+          {
+            "at": "0xc019c400",
+            "length": 8192,
+            "what": "events"
+          },
+          {
+            "at": "0xc019e400",
+            "length": 3072,
+            "what": "state"
+          }
+        ],
+        "no_overlap": true,
+        "overlaps": [],
+        "erased": true,
+        "capacity": 512,
+        "buffer_bytes": 8192,
+        "code_bytes": 8192,
+        "ownership_sha256": "6ba2f32db6f782a16f3e9ce4c812cf91bca9aa94304e54261749315d38accc9f",
+        "reservation": "candidate, not yet installed in a firmware patch"
+      },
+      "harness": {
+        "slice": 2000,
+        "ns_per_instruction": 5,
+        "unicorn": "2.1.4",
+        "python": "3.15.0",
+        "timer_irq_count": 1000,
+        "timer_window_ms": 1000.0,
+        "timestamp_uncertainty_us": 10,
+        "time_source": "machine.time_ns; original 1 kHz handler counted"
+      },
+      "input": {
+        "ordered": true,
+        "task": "CsTask",
+        "origin_separated": true,
+        "virtual_exit_source": "GMAC encode/decode in RAM",
+        "messages": 8,
+        "physical_latency_ms": [
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485,
+          0.348485
+        ],
+        "physical_burst_latency_ms": [
+          0.348485,
+          0.782485,
+          1.216485,
+          1.650485,
+          2.084485,
+          2.518485,
+          3.005045,
+          3.386485
+        ]
+      },
+      "replay": {
+        "task": "CsTask",
+        "irq_enabled": true,
+        "extra_latency_ms": [
+          1.622995,
+          1.550715,
+          1.489715,
+          1.418715,
+          1.347715,
+          1.256715,
+          1.185715,
+          1.134715,
+          1.063715,
+          0.972715,
+          0.901715,
+          0.830715,
+          0.779715,
+          0.708715,
+          0.617715,
+          0.546715,
+          0.495715,
+          0.424715,
+          0.353715,
+          0.262715,
+          0.191715,
+          0.140715,
+          0.069715,
+          0
+        ],
+        "due_lateness_ms": [
+          1.97148,
+          1.8992,
+          1.8382,
+          1.7672,
+          1.6962,
+          1.6052,
+          1.5342,
+          1.4832,
+          1.4122,
+          1.3212,
+          1.2502,
+          1.1792,
+          1.1282,
+          1.0572,
+          0.9662,
+          0.8952,
+          0.8442,
+          0.7732,
+          0.7022,
+          0.6112,
+          0.5402,
+          0.4892,
+          0.4182,
+          0.32792
+        ],
+        "registers_preserved": true,
+        "stack_bytes": 64,
+        "stack_evidence": "16 saved words per wrapper; original callee usage observed separately",
+        "observed_stack_bytes": {
+          "cs": 636,
+          "periodic": 88
+        },
+        "burst_ordered": true,
+        "burst_max_extra_latency_ms": 1.6304350000004768,
+        "burst_due_lateness_ms": [
+          1.9789200000004767,
+          2.0089200000004768,
+          2.0089200000004768,
+          2.0089200000004768,
+          2.020200000000477,
+          2.0514800000004767,
+          2.061480000000477,
+          2.061480000000477
+        ],
+        "max_messages_per_wake": 8,
+        "unsafe_calls": 0,
+        "wrapper_counts": {
+          "periodic": 689,
+          "periodic_restored": 689,
+          "cs": 76,
+          "cs_restored": 76
+        },
+        "final_pending": 3,
+        "wrapper_tasks": {
+          "periodic": [
+            "PeriodicTask"
+          ],
+          "periodic_restored": [
+            "PeriodicTask"
+          ],
+          "cs": [
+            "CsTask"
+          ],
+          "cs_restored": [
+            "CsTask"
+          ]
+        },
+        "final_timer": 22211075,
+        "final_due": 150000,
+        "normal_transport_calls": 16,
+        "observed_transport_calls": 44,
+        "replay_ui_calls": 11,
+        "transport_transitions": [
+          {
+            "key": 1,
+            "before": 1,
+            "after": 0
+          },
+          {
+            "key": 2,
+            "before": 0,
+            "after": 1
+          },
+          {
+            "key": 1,
+            "before": 1,
+            "after": 0
+          }
+        ],
+        "source": "RAM-only PeriodicTask flag 2 wake, bounded CsTask dispatcher call"
+      },
+      "asserts": [],
+      "tempo": {
+        "internal": true,
+        "stopped": true,
+        "external": true,
+        "internal_reads": [
+          {
+            "requested_tenths": 1200,
+            "display_tenths": 1200,
+            "generator_hundredths": 12000,
+            "period_ps": 217013888,
+            "effective_hundredths": 12000
+          },
+          {
+            "requested_tenths": 1500,
+            "display_tenths": 1500,
+            "generator_hundredths": 15000,
+            "period_ps": 173611111,
+            "effective_hundredths": 15000
+          }
+        ],
+        "external_hundredths": [
+          11899,
+          11904,
+          11905,
+          11911,
+          12000,
+          12500
+        ],
+        "external_last_hundredths": 11905,
+        "after_silence_hundredths": 11905,
+        "external_clock_loss_detected": false,
+        "display_after_external_tenths": 1500,
+        "effective_address": "0xc0340578",
+        "source_unit": "picoseconds per 1/2304 quarter",
+        "cached_generator_hundredths": 15000,
+        "unit": "0.01 BPM",
+        "method": "UI setter and clock-mode callback in emulator; clock bytes through DIN UART",
+        "asserts": []
+      },
+      "section_sources": {
+        "input": {
+          "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+          "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+          "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+          "measured_at": "2026-10-25T16:05:22.130680+00:00"
+        },
+        "tempo": {
+          "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+          "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+          "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+          "measured_at": "2026-10-25T16:05:22.130680+00:00"
+        },
+        "memory": {
+          "research_source_sha256": "277ccb582997ae262efbdb7773b399dca7e1230387f555ea0eefc02470cf8b62",
+          "contract_source_sha256": "20ebc000f155a68a9d44cd37e2482cf762f3838589532ddd4955d41c9ea00563",
+          "dependencies_sha256": "ae003cd7caeab2c0d3ad474853dae69d802be2038eef16e55ed68db1126fd568",
+          "measured_at": "2026-10-25T16:05:22.130680+00:00"
+        }
+      },
+      "address_derivations": {
+        "0xc00a37a8": {
+          "to": "0xc008e454",
+          "method": "fwmap.at"
+        },
+        "0xc0025798": {
+          "to": "0xc00210c0",
+          "method": "fwmap.same_code"
+        },
+        "0xc0000e9c": {
+          "to": "0xc0000cc4",
+          "method": "fwmap.same_code"
+        },
+        "0xc002a7b8": {
+          "to": "0xc0027a24",
+          "method": "fwmap.same_code"
+        },
+        "0xc002a558": {
+          "to": "0xc00277c8",
+          "method": "fwmap.same_code"
+        },
+        "0xc0340380": {
+          "to": "0xc0340570",
+          "method": "fwmap.at"
+        },
+        "0xc009a860": {
+          "to": "0xc0087794",
+          "method": "fwmap.same_code"
+        }
+      },
+      "event_recorder": {
+        "status": "not measured in this run"
+      }
+    }
+  ]
+}
