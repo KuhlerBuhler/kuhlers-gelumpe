@@ -3,6 +3,8 @@
 Wunsch (27.10.): wenn man auf der roten Start und Ende eines Samples einstellt, zeigt das Display die Wellenform und den
 gerade eingestellten Ausschnitt. Auf dem Hauptbildschirm und im Menü SAMPLE EDIT.
 
+Geplant für 1.5, "The sample update" ([Fahrplan](../fahrplan.md)).
+
 Stand 2026-10-27: **nur untersucht, nichts gebaut, kein Emulator- oder Gerätelauf.** Marker: **gemessen**, **hergeleitet**,
 **ungeprüft**.
 
