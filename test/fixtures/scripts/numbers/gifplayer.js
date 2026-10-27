@@ -13,8 +13,8 @@ let isOpen = 0;
 function info(pause) {
   korg.display.clear();
   korg.display.textNumber("GIF ", file, 4, 14);
-  if (pause == 1) korg.display.text("Pause", 4, 26);
-  else korg.display.text("keine Datei", 4, 26);
+  if (pause == 1) korg.display.text("Paused", 4, 26);
+  else korg.display.text("no file", 4, 26);
   korg.display.textNumber("Tempo % ", speed, 4, 38);
 }
 

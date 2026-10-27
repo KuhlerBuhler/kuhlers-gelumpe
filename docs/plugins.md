@@ -414,7 +414,7 @@ der Emulator senden 0 bis 1023 über das ganze Pad, `y` nach oben; Blechy rechne
 
 **Fehlermeldung am Display:** Schaltet ein Fehler das Plugin ab, das das Display
 besitzt (die offene App), ersetzt die Laufzeit das Bild durch drei Zeilen: den
-Plugin-Namen, `Zeile` mit der Quellzeile und den Namen des Fehlers (`DIV_ZERO`). Der
+Plugin-Namen, `Line` mit der Quellzeile und den Namen des Fehlers (`DIV_ZERO`). Der
 Fehler jedes anderen Plugins steht im Menü BLECH auf seiner Seite (`DIV_ZERO L3`),
 das Display bleibt unberührt. Die Firmware bleibt bedienbar, andere Plugins laufen
 weiter.
