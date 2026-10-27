@@ -38,7 +38,7 @@ import { sharedProbe } from "./probe.mjs";
 import { dropdown } from "./dropdown.mjs";
 import { icon } from "./icons.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
-import { apply as applySettings, settingsButton, settingsPage } from "./settings.mjs";
+import { apply as applySettings, get as setting, settingsButton, settingsPage } from "./settings.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { t } from "./i18n.mjs";
@@ -535,6 +535,9 @@ function boot() {
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,
+    usb,
+    auto: () => setting("autoConnect"),
+    diagnose: () => { areas?.select("settings"); $("#cee-midi")?.scrollIntoView({ block: "start" }); $("#cee-midi-rescan")?.focus({ preventScroll: true }); },
   });
   // "Echtes Gerät" shows the emulator's Electribe drawing; the connection controls sit above it in that mode only.
   $("#cee-emu").before($("#cee-device"));

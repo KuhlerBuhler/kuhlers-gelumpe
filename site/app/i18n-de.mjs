@@ -65,6 +65,12 @@ export default {
   "settings.midi.pairs": "Als Electribe erkannt ({count}):",
   "settings.midi.pair": "Ausgang „{out}“ mit Eingang „{in}“",
   "settings.midi.none": "keine",
+  "settings.autoConnect": "Automatisch verbinden",
+  "settings.autoConnect.hint": "Verbindet die Electribe, sobald sie angesteckt und an ist, auch nach dem Abstecken.",
+  "device.auto.retry": "Konnte nicht verbinden, versuche es erneut.",
+  "device.auto.still": "Immer noch keine Verbindung.",
+  "device.auto.gaveUp": "Verbinden hat nicht geklappt. Schau in die MIDI-Diagnose in den Einstellungen.",
+  "device.auto.diagnose": "MIDI-Diagnose",
 
   "mode.emu": "Emulator",
   "mode.device": "Echtes Gerät",
