@@ -15,9 +15,9 @@ const rows = page => page.locator(".cee-sf-row .cee-sf-name").allTextContents();
 const cardFile = (page, name) => page.evaluate(n => { const f = window.__ceeCard.get(n); return f ? Array.from(f) : null; }, name).then(a => (a ? Uint8Array.from(a) : null));
 
 /** The page with the simulated Electribe attached, its card holding `files`, the Samples tab open. */
-async function open(files = { [SAMPLE]: file({ 500: "Kick", 501: "Snare", 502: "Hat", 503: "Clap" }) }) {
+async function open(files = { [SAMPLE]: file({ 500: "Kick", 501: "Snare", 502: "Hat", 503: "Clap" }) }, query = "card") {
   const page = await h.page({ device: true });
-  await page.goto(`${h.url}?card#device`);
+  await page.goto(`${h.url}?${query}#device`);
   await page.evaluate(() => window.__ceeStubReady);
   for (const [name, bytes] of Object.entries(files)) await page.evaluate(([n, b]) => window.__ceeCard.set(n, Uint8Array.from(b)), [name, Array.from(bytes)]);
   await page.click("#cee-connect");
@@ -43,6 +43,17 @@ test("the samples of the card are listed over USB, the save button says where it
   await page.click("[data-slot='501']");
   assert.equal(await page.locator("#cee-sf-save").textContent(), "Auf die Karte schreiben");
   assert.deepEqual(page.errors, []);
+});
+
+test("a read of the sidebar running at the click is waited for, not refused", async () => {
+  // A slow line makes each LED read of the sidebar long, so the click lands on one that is running.
+  const page = await open(undefined, "card&latency=30");
+  for (let i = 0; i < 3; i++) {
+    await page.click("#cee-sf-device");
+    await page.locator("#cee-sf-job").waitFor({ state: "hidden" });
+  }
+  assert.deepEqual(await rows(page), ["Kick", "Snare", "Hat", "Clap"]);
+  assert.equal(await page.locator("#app-toasts .cee-toast", { hasText: "läuft schon eine Sendung" }).count(), 0);
 });
 
 test("adding a WAV over USB sends it behind the old samples and the header; the list is read again afterwards", async () => {
