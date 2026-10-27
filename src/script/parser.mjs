@@ -4,6 +4,7 @@
  * editor, a text of the table (src/text.mjs). The parser stops at the first one.
  */
 import { LIMITS } from "../../data/script/contract.mjs";
+import { UMLAUTS } from "../../data/script/font.mjs";
 import { TextError, text } from "../text.mjs";
 
 /** `message` is a text (src/text.mjs); a plain string is shown as it is. */
@@ -133,7 +134,7 @@ export function tokenize(src) {
           j += 2;
           continue;
         }
-        if (d < " " || d > "~") throw new CompileError(text("compile.string.ascii"), at.line, at.col + (j - i));
+        if ((d < " " || d > "~") && !(d in UMLAUTS)) throw new CompileError(text("compile.string.ascii"), at.line, at.col + (j - i));
         value += d;
         j += 1;
       }

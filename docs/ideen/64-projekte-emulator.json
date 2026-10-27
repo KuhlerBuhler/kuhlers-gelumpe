@@ -1,0 +1,485 @@
+{
+  "date": "2026-10-25",
+  "scope": "Research only; no project patch or firmware output built; no hardware access.",
+  "probe": "tools/emu/project_probe.py",
+  "static_code_comparison": [
+    {
+      "name": "sample-path",
+      "start": "0xc0035a80",
+      "end_exclusive": "0xc0035ad8",
+      "stock_hacktribe_identical": true,
+      "sha256": "f74e77a4c61211a9f705191ae2b40466eaca8aabff7a13bcd9fb893eab0a680f"
+    },
+    {
+      "name": "sample-loader",
+      "start": "0xc00364f0",
+      "end_exclusive": "0xc0036780",
+      "stock_hacktribe_identical": true,
+      "sha256": "eba787abb2b918cc85543fad6a85902de82a2c9a21140a28b4e94f5049e94808"
+    },
+    {
+      "name": "sample-runtime-command",
+      "start": "0xc0038d80",
+      "end_exclusive": "0xc0038e78",
+      "stock_hacktribe_identical": true,
+      "sha256": "0e470fc208c2ef5ece11e21a3a04868184c3cc5eaa4eeb434e5cd56347725075"
+    },
+    {
+      "name": "pattern-import",
+      "start": "0xc002e41c",
+      "end_exclusive": "0xc002e710",
+      "stock_hacktribe_identical": true,
+      "sha256": "dc51697b9c848606655d843f1019b2ea7ca7cff8e5743420e8eb6e7e87c4cdb6"
+    },
+    {
+      "name": "pattern-bank-store",
+      "start": "0xc004c2e4",
+      "end_exclusive": "0xc004c364",
+      "stock_hacktribe_identical": true,
+      "sha256": "2aaff8825f1432cbd85b39b974de48b28c28e52192d5930273f1876116f618c7"
+    },
+    {
+      "name": "pattern-accessor",
+      "start": "0xc004a350",
+      "end_exclusive": "0xc004a36c",
+      "stock_hacktribe_identical": true,
+      "sha256": "6ffc2c64ed869029fd6af90057c6991157df53a0d116311f05107c1199e9cd09"
+    }
+  ],
+  "runs": [
+    {
+      "build": "stock",
+      "checks": [
+        {
+          "name": "boot-from-project-A",
+          "ok": true,
+          "observed": {
+            "500": "A-501",
+            "501": "A-502"
+          }
+        },
+        {
+          "name": "boot-stat-and-open-redirected",
+          "ok": true,
+          "observed": [
+            {
+              "api": "stat",
+              "original": "SD:KORG/electribe sampler/Sample/e2sSample.all",
+              "selected": "SD:KORG/blechtribe/Projects/A/e2sSample.all"
+            },
+            {
+              "api": "stat",
+              "original": "SD:KORG/electribe sampler/Sample/e2sSample.all",
+              "selected": "SD:KORG/blechtribe/Projects/A/e2sSample.all"
+            },
+            {
+              "api": "open",
+              "original": "SD:KORG/electribe sampler/Sample/e2sSample.all",
+              "selected": "SD:KORG/blechtribe/Projects/A/e2sSample.all"
+            }
+          ]
+        },
+        {
+          "name": "native-sample-command-B live 02",
+          "ok": true,
+          "observed": {
+            "status": 0,
+            "before": {
+              "500": "A-501",
+              "501": "A-502"
+            },
+            "after": {
+              "500": "B-501",
+              "502": "B-503"
+            },
+            "cursor": "0x365fa0"
+          }
+        },
+        {
+          "name": "native-sample-command-A",
+          "ok": true,
+          "observed": {
+            "status": 0,
+            "before": {
+              "500": "B-501",
+              "502": "B-503"
+            },
+            "after": {
+              "500": "A-501",
+              "501": "A-502"
+            },
+            "cursor": "0x365f60"
+          }
+        },
+        {
+          "name": "native-sample-command-missing",
+          "ok": true,
+          "observed": {
+            "status": 4,
+            "before": {
+              "500": "A-501",
+              "501": "A-502"
+            },
+            "after": {},
+            "cursor": "0x365ec0"
+          }
+        },
+        {
+          "name": "missing-sample-file-clears-old-bank",
+          "ok": true,
+          "observed": {}
+        },
+        {
+          "name": "native-fatfs-pattern-path-A",
+          "ok": true,
+          "observed": {
+            "open": 0,
+            "header": 0,
+            "header_matches": true,
+            "records": [
+              {
+                "index": 0,
+                "seek": 0,
+                "read": 0,
+                "matches": true
+              },
+              {
+                "index": 249,
+                "seek": 0,
+                "read": 0,
+                "matches": true
+              }
+            ],
+            "close": 0
+          }
+        },
+        {
+          "name": "native-fatfs-pattern-path-B live 02",
+          "ok": true,
+          "observed": {
+            "open": 0,
+            "header": 0,
+            "header_matches": true,
+            "records": [
+              {
+                "index": 0,
+                "seek": 0,
+                "read": 0,
+                "matches": true
+              },
+              {
+                "index": 249,
+                "seek": 0,
+                "read": 0,
+                "matches": true
+              }
+            ],
+            "close": 0
+          }
+        },
+        {
+          "name": "file-path-does-not-replace-pattern-bank",
+          "ok": true,
+          "observed": "f3d8d156180ab2220c21053e2779d9a6cfb67522fa7cebf8d755d9d57889856f"
+        },
+        {
+          "name": "no-flash-change",
+          "ok": true,
+          "observed": {
+            "sha256": "2c0d28ea9e11b81e45003248dc08d7a746130ee5c358f230eeb23fb5406ea6b5"
+          }
+        },
+        {
+          "name": "no-card-change-after-boot",
+          "ok": true,
+          "observed": {
+            "before": "be8bb4d0de50d16772c5266dc7a765924948b701da2c516a055f9c9251c049c9",
+            "after": "be8bb4d0de50d16772c5266dc7a765924948b701da2c516a055f9c9251c049c9"
+          }
+        },
+        {
+          "name": "no-firmware-assert",
+          "ok": true,
+          "observed": []
+        }
+      ],
+      "operations": [
+        {
+          "phase": "boot",
+          "api": "stat",
+          "path": "SD:KORG/blechtribe/Projects/A/e2sSample.all",
+          "mode": null
+        },
+        {
+          "phase": "boot",
+          "api": "stat",
+          "path": "SD:KORG/blechtribe/Projects/A/e2sSample.all",
+          "mode": null
+        },
+        {
+          "phase": "boot",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/A/e2sSample.all",
+          "mode": 1
+        },
+        {
+          "phase": "sample-command-B live 02",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/B live 02/e2sSample.all",
+          "mode": 1
+        },
+        {
+          "phase": "sample-command-A",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/A/e2sSample.all",
+          "mode": 1
+        },
+        {
+          "phase": "sample-command-missing",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/missing/e2sSample.all",
+          "mode": 1
+        },
+        {
+          "phase": "pattern-file-A",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/A/e2sPattern.all",
+          "mode": 1
+        },
+        {
+          "phase": "pattern-file-B live 02",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/B live 02/e2sPattern.all",
+          "mode": 1
+        }
+      ],
+      "assumptions": [
+        "Boot redirects only FatFs path arguments in emulator RAM.",
+        "Runtime commands use a synthetic command object from the UI tick, not the native command queue.",
+        "Pattern paths use native FatFs reads, not a project loader or native all-pattern import.",
+        "Emulated DSP, synthetic factory bank, no sound or hardware verification."
+      ]
+    },
+    {
+      "build": "hacktribe",
+      "checks": [
+        {
+          "name": "boot-from-project-A",
+          "ok": true,
+          "observed": {
+            "500": "A-501",
+            "501": "A-502"
+          }
+        },
+        {
+          "name": "boot-stat-and-open-redirected",
+          "ok": true,
+          "observed": [
+            {
+              "api": "stat",
+              "original": "SD:KORG/hacktribe/Sample/e2sSample.all",
+              "selected": "SD:KORG/blechtribe/Projects/A/e2sSample.all"
+            },
+            {
+              "api": "stat",
+              "original": "SD:KORG/hacktribe/Sample/e2sSample.all",
+              "selected": "SD:KORG/blechtribe/Projects/A/e2sSample.all"
+            },
+            {
+              "api": "open",
+              "original": "SD:KORG/hacktribe/Sample/e2sSample.all",
+              "selected": "SD:KORG/blechtribe/Projects/A/e2sSample.all"
+            }
+          ]
+        },
+        {
+          "name": "native-sample-command-B live 02",
+          "ok": true,
+          "observed": {
+            "status": 0,
+            "before": {
+              "500": "A-501",
+              "501": "A-502"
+            },
+            "after": {
+              "500": "B-501",
+              "502": "B-503"
+            },
+            "cursor": "0x365fa0"
+          }
+        },
+        {
+          "name": "native-sample-command-A",
+          "ok": true,
+          "observed": {
+            "status": 0,
+            "before": {
+              "500": "B-501",
+              "502": "B-503"
+            },
+            "after": {
+              "500": "A-501",
+              "501": "A-502"
+            },
+            "cursor": "0x365f60"
+          }
+        },
+        {
+          "name": "native-sample-command-missing",
+          "ok": true,
+          "observed": {
+            "status": 4,
+            "before": {
+              "500": "A-501",
+              "501": "A-502"
+            },
+            "after": {},
+            "cursor": "0x365ec0"
+          }
+        },
+        {
+          "name": "missing-sample-file-clears-old-bank",
+          "ok": true,
+          "observed": {}
+        },
+        {
+          "name": "native-fatfs-pattern-path-A",
+          "ok": true,
+          "observed": {
+            "open": 0,
+            "header": 0,
+            "header_matches": true,
+            "records": [
+              {
+                "index": 0,
+                "seek": 0,
+                "read": 0,
+                "matches": true
+              },
+              {
+                "index": 249,
+                "seek": 0,
+                "read": 0,
+                "matches": true
+              }
+            ],
+            "close": 0
+          }
+        },
+        {
+          "name": "native-fatfs-pattern-path-B live 02",
+          "ok": true,
+          "observed": {
+            "open": 0,
+            "header": 0,
+            "header_matches": true,
+            "records": [
+              {
+                "index": 0,
+                "seek": 0,
+                "read": 0,
+                "matches": true
+              },
+              {
+                "index": 249,
+                "seek": 0,
+                "read": 0,
+                "matches": true
+              }
+            ],
+            "close": 0
+          }
+        },
+        {
+          "name": "file-path-does-not-replace-pattern-bank",
+          "ok": true,
+          "observed": "f3d8d156180ab2220c21053e2779d9a6cfb67522fa7cebf8d755d9d57889856f"
+        },
+        {
+          "name": "no-flash-change",
+          "ok": true,
+          "observed": {
+            "sha256": "2c0d28ea9e11b81e45003248dc08d7a746130ee5c358f230eeb23fb5406ea6b5"
+          }
+        },
+        {
+          "name": "no-card-change-after-boot",
+          "ok": true,
+          "observed": {
+            "before": "0ab307eb0b3b33306313b0fea5c7cad3e87ce8ce7b8b91529dabc44dabb05498",
+            "after": "0ab307eb0b3b33306313b0fea5c7cad3e87ce8ce7b8b91529dabc44dabb05498"
+          }
+        },
+        {
+          "name": "no-firmware-assert",
+          "ok": true,
+          "observed": []
+        }
+      ],
+      "operations": [
+        {
+          "phase": "boot",
+          "api": "stat",
+          "path": "SD:KORG/blechtribe/Projects/A/e2sSample.all",
+          "mode": null
+        },
+        {
+          "phase": "boot",
+          "api": "stat",
+          "path": "SD:KORG/blechtribe/Projects/A/e2sSample.all",
+          "mode": null
+        },
+        {
+          "phase": "boot",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/A/e2sSample.all",
+          "mode": 1
+        },
+        {
+          "phase": "sample-command-B live 02",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/B live 02/e2sSample.all",
+          "mode": 1
+        },
+        {
+          "phase": "sample-command-A",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/A/e2sSample.all",
+          "mode": 1
+        },
+        {
+          "phase": "sample-command-missing",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/missing/e2sSample.all",
+          "mode": 1
+        },
+        {
+          "phase": "pattern-file-A",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/A/e2sPattern.all",
+          "mode": 1
+        },
+        {
+          "phase": "pattern-file-B live 02",
+          "api": "open",
+          "path": "SD:KORG/blechtribe/Projects/B live 02/e2sPattern.all",
+          "mode": 1
+        }
+      ],
+      "assumptions": [
+        "Boot redirects only FatFs path arguments in emulator RAM.",
+        "Runtime commands use a synthetic command object from the UI tick, not the native command queue.",
+        "Pattern paths use native FatFs reads, not a project loader or native all-pattern import.",
+        "Emulated DSP, synthetic factory bank, no sound or hardware verification."
+      ]
+    }
+  ],
+  "planning_static_evidence": {
+    "name": "single-pattern-store",
+    "start": "0xc004c28c",
+    "end_exclusive": "0xc004c2e4",
+    "stock_hacktribe_identical": true,
+    "sha256": "696020d26da8f2183eeb8e0b9e42327bfb4c208626f247ff832d4be41acc9042",
+    "runtime_verified": false
+  }
+}

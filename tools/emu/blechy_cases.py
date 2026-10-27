@@ -11,6 +11,7 @@ import argparse
 import json
 import struct
 import sys
+import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -21,15 +22,18 @@ from machine import load_flash  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
 
 RUNTIME = 0xC01AE000
+IMAGE = 0xC0000000              # where the firmware image (the VSB after its 0x100 header) lies
 HW_TRANSPORT = 0xC06BC318      # the firmware's transport word, as tools/patch/script_hw.s reads it
 EVENTS = ["start", "ready", "frame", "buttonPress", "buttonRelease", "knob", "encoder", "pad", "touch", "step", "beat",
           "play", "stop", "rec", "patternChange", "partChange", "mute", "tempo", "save", "menu", "open", "close"]
 MAX_EVENT_TICKS = 44 + len(EVENTS) * 4
 KEY = dict(stop=1, play=2, touchpad=34, exit=13)
 TICKS_PER_MS = 150000
-FRAME_NAMES = ["idle", "twitch", "angry", "happy", "flail0", "flail1", "flail2", "flail3", "wave0", "wave1", "walk"]
+FRAME_NAMES = ["idle", "twitch", "angry", "happy", "flail0", "flail1", "flail2", "flail3", "wave0", "wave1", "walk", "back0", "back1"]
 WAVE = (FRAME_NAMES.index("wave0"), FRAME_NAMES.index("wave1"))
 WALK = FRAME_NAMES.index("walk")
+BACK = (FRAME_NAMES.index("back0"), FRAME_NAMES.index("back1"))
+ON_FOOT = (0, 1, WALK) + BACK        # the pictures of standing and walking
 FLAIL = range(4, 8)
 B_LISTEN = 9
 STATE_STARTED, STATE_ARMED = 1, 2
@@ -48,11 +52,31 @@ class Run:
         base = self.dev.u32(self.entry + 8)
         return struct.unpack("<i", self.dev.read(base + self.request["symbols"][name]["slot"] * 4, 4))[0]
 
+    def set(self, name, value):
+        base = self.dev.u32(self.entry + 8)
+        self.dev.m.uc.mem_write(self.dev.a(base + self.request["symbols"][name]["slot"] * 4), struct.pack("<i", value))
+
     def shot(self, name):
         path = self.png_dir / ("blechy-emu-" + name + ".png")
         self.dev.m.png(path, scale=5)
         self.shots[name] = self.dev.fb().hex()
         return self.dev.fb()
+
+    def strip(self, name, pictures, scale=3, gap=2):
+        """Several displays (1024 bytes each, as fb() returns them) side by side in one PNG, a lit pixel black."""
+        width = (128 + gap) * len(pictures) - gap
+        rows = b""
+        for y in range(64):
+            line = b""
+            for i, fb in enumerate(pictures):
+                line += (b"\x80" * gap if i else b"") + bytes(0 if (fb[(y // 8) * 128 + x] >> (y % 8)) & 1 else 255 for x in range(128))
+            rows += (b"\0" + b"".join(bytes([c]) * scale for c in line)) * scale
+
+        def chunk(t, d):
+            return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+        (self.png_dir / ("blechy-emu-" + name + ".png")).write_bytes(
+            b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width * scale, 64 * scale, 8, 0, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 
     def key(self, code, hold=0.08, wait=0.15):
         self.dev.m.send([0, code, 1, 0, 0])
@@ -86,8 +110,10 @@ class Run:
         return {name: self.dev.u32(self.entry + MAX_EVENT_TICKS + i * 4) for i, name in enumerate(EVENTS)}
 
     def land(self):
-        """The way a user gets to his page: EDIT right from Event. Returns the device time of the landing, in ms."""
+        """The way a user gets to his page: EDIT right from Event to the page BLECH, EDIT right again to him (the ring as
+        menu_cases.blechy_ring_cases walks it). Returns the device time of the landing, in ms."""
         menu_cases.go(self.dev, 10)
+        menu_cases.press(self.dev, "edit_next", wait=0.8)
         self.dev.m.send([0, menu_cases.KEYS["edit_next"], 1, 0, 0])
         self.dev.run(0.08)
         self.dev.m.send([0, menu_cases.KEYS["edit_next"], 0, 0, 0])
@@ -113,9 +139,13 @@ def run(vsb, flash, request, png_dir):
             and struct.unpack("<I", page)[0] == 1 and dev.u32(RUNTIME + 164) == 2, dict(entry=hex(r.entry), state=dev.u32(r.entry + 12)))
     r.check("blechy-block-liegt-im-abbild-nicht-im-pool", blob == script_hooks.BLECHY_BLOCK and blob < script_hooks.POOL, hex(blob))
     r.check("blechy-nicht-in-den-plugin-seiten", dev.u32(script_hooks.MENU_STATE + 40) == 0, dev.u32(script_hooks.MENU_STATE + 40))
-    stock = menu_cases.boot(vsb[0x100:], flash, held=menu_cases.KILL, card=False, seconds=2)
-    r.check("blechy-zu-zeichnet-nichts", dev.screen()["number"] == 1 and r.var("isOpen") == 0 and dev.fb() == stock.fb() and not dev.m.asserts,
-            dict(screen=dev.screen(), same_display=dev.fb() == stock.fb()))
+    # the same BLECH with his block made unreadable: the runtime starts without him, the BLECH look stays (an EXIT-held boot
+    # is no reference, it also leaves out the BLECH theme of the main screen)
+    payload = bytearray(vsb[0x100:])
+    payload[script_hooks.BLECHY_BLOCK - IMAGE:script_hooks.BLECHY_BLOCK - IMAGE + 4] = bytes(4)
+    without = menu_cases.boot(bytes(payload), flash, card=False, seconds=2)
+    r.check("blechy-zu-zeichnet-nichts", dev.screen()["number"] == 1 and r.var("isOpen") == 0 and without.u32(RUNTIME + 96) == 0
+            and dev.fb() == without.fb() and not dev.m.asserts, dict(screen=dev.screen(), same_display=dev.fb() == without.fb()))
 
     t0 = r.land()
     landed_at = dev.m.time_ns / 1e6
@@ -143,7 +173,7 @@ def run(vsb, flash, request, png_dir):
     r.check("blechy-winkt-die-hand-schwingt", end is not None and 1500 <= end - start <= 2100 and 6 <= swings <= 10, dict(duration_ms=None if start is None else end - start, swings=swings))
     wave_a, wave_b = r.shots.get("wave-0"), r.shots.get("wave-1")
     r.check("blechy-wink-bilder-verschieden", wave_a is not None and wave_b is not None and len({idle.hex(), wave_a, wave_b}) == 3)
-    r.check("blechy-steht-danach", r.frame() in (0, 1, WALK), r.frame())
+    r.check("blechy-steht-danach", r.frame() in ON_FOOT, r.frame())
     dev.run(6.0)
     again_waving = 0
     for _ in range(150):
@@ -166,7 +196,7 @@ def run(vsb, flash, request, png_dir):
     r.check("blechy-tippen-wuetend", r.frame() == 2, r.frame())
     angry = r.shot("angry")
     dev.run(1.6)
-    r.check("blechy-wuetend-vorbei", r.frame() in (0, 1, WALK), r.frame())
+    r.check("blechy-wuetend-vorbei", r.frame() in ON_FOOT, r.frame())
 
     x = r.touch_him()
     r.touch([(x, 500), (x + 70, 500), (x + 140, 520), (x + 200, 500)], hold=0.05)
@@ -183,8 +213,41 @@ def run(vsb, flash, request, png_dir):
     for _ in range(100):
         dev.run(0.2)
         xs.append(r.pos())
-    r.check("blechy-geht-langsam", len(set(xs)) >= 10 and all(abs(b - a) <= 3 for a, b in zip(xs, xs[1:])) and r.frame() in (0, 1, WALK), dict(first=xs[:5], last=xs[-5:]))
+    r.check("blechy-geht-langsam", len(set(xs)) >= 10 and all(abs(b - a) <= 3 for a, b in zip(xs, xs[1:])) and r.frame() in ON_FOOT, dict(first=xs[:5], last=xs[-5:]))
     r.shot("geht")
+
+    # the walk cycle: the calm and the walk picture in turn about every 240 ms, mirrored while he goes left, the plain calm
+    # picture when he stands (also right after the turn at an edge). One display of each, taken from the display RAM.
+    names = {(1, 0): "rechts-ruhig", (1, WALK): "rechts-gehen", (-1, BACK[0]): "links-ruhig", (-1, BACK[1]): "links-gehen", (-1, 0): "wende"}
+    cycle, changes, last, seen_pairs = {}, [], None, set()
+    # no talk while the cycle is taken: a talk keeps the turn picture under a bubble, and once he talks at the right edge the
+    # gaps (TALK_GAP to TALK_GAP + TALK_SPREAD) can keep him talking there every time, so the plain turn never shows.
+    # STOP sets nextTalk again for the talk cases below.
+    r.set("wantTalk", 0)
+    r.set("nextTalk", 0x7FFFFFFF)
+    end = dev.m.time_ns + 120e9
+    while dev.m.time_ns < end and len(cycle) < len(names):
+        dev.run(0.03)
+        frame, way, x, y, bubble = r.frame(), r.var("dir"), r.pos(), r.var("posY"), r.bubble()
+        if bubble or frame not in ON_FOOT:
+            continue
+        seen_pairs.add((way, frame, x >= 60))
+        if last and last[0] != frame and last[1] == way and frame != 1 and last[0] != 1:
+            changes.append(dev.m.time_ns / 1e6 - last[2])
+        if not last or last[0] != frame or last[1] != way:
+            last = (frame, way, dev.m.time_ns / 1e6)
+        key = names.get((way, frame))
+        if key and key not in cycle and (key == "wende" and x >= 60 or key != "wende" and 6 <= x <= 60):
+            dev.run(0.06)           # the display follows the variable by a frame
+            if (r.frame(), r.var("dir"), r.pos(), r.var("posY"), r.bubble()) == (frame, way, x, y, 0):
+                cycle[key] = dict(frame=frame, dir=way, posX=x, posY=y, hex=r.shot("gang-" + key).hex())
+    changes.sort()
+    r.check("blechy-gang-alle-fuenf-bilder", sorted(cycle) == sorted(names.values()), dict(have=sorted(cycle), seen=sorted(seen_pairs)))
+    r.check("blechy-gang-wechselt-etwa-alle-240ms", len(changes) >= 8 and 180 <= changes[len(changes) // 2] <= 300, dict(n=len(changes), median=changes[len(changes) // 2] if changes else None))
+    r.check("blechy-gang-gespiegelt-nach-links", all(cycle.get(k, {}).get("dir") == -1 for k in ("links-ruhig", "links-gehen")) and len({cycle[k]["hex"] for k in cycle}) == len(cycle), None)
+    if len(cycle) == len(names):
+        r.strip("gang", [bytes.fromhex(cycle[k]["hex"]) for k in ("rechts-ruhig", "rechts-gehen", "wende", "links-ruhig", "links-gehen")])
+    r.cycle = cycle
 
     # PLAY from the panel reaches the firmware with his page shown (the plugin sees the key too, it passes nothing on itself)
     r.key(KEY["play"])
@@ -218,14 +281,14 @@ def run(vsb, flash, request, png_dir):
     dev.run(0.3)
     r.check("blechy-stop-stoppt-den-sequencer", dev.u32(HW_TRANSPORT) == 0, dev.u32(HW_TRANSPORT))
     dev.run(1.5)
-    r.check("blechy-stop-keine-frage-er-geht-weiter", r.bubble() == 0 and r.frame() in (0, 1, WALK) and r.var("mode") == 0, dict(frame=r.frame(), bubble=r.bubble()))
+    r.check("blechy-stop-keine-frage-er-geht-weiter", r.bubble() == 0 and r.frame() in ON_FOOT and r.var("mode") == 0, dict(frame=r.frame(), bubble=r.bubble()))
 
     # he walks to an edge and says something there; the bubble is on the side that has room
     talked = []
     end = dev.m.time_ns + 90e9
     while dev.m.time_ns < end and len(talked) < 2:
         dev.run(0.1)
-        if 1 <= r.bubble() <= 8 and (not talked or talked[-1] != r.var("talkNo")):
+        if 1 <= r.bubble() <= 7 and (not talked or talked[-1] != r.var("talkNo")):
             dev.run(0.1)
             talked.append(r.var("talkNo"))
             r.shot("redet-%d" % len(talked))
@@ -249,7 +312,8 @@ def run(vsb, flash, request, png_dir):
             dict(head=hex(held.u32(RUNTIME)), armed=hex(held.u32(RUNTIME + 96))))
     return dict(ok=all(c["ok"] for c in r.checks), checks=r.checks,
                 ms={k: round(v / TICKS_PER_MS, 4) for k, v in ticks.items() if v},
-                frames=r.var("lastSig"), shots=sorted(r.shots))
+                frames=r.var("lastSig"), shots=sorted(r.shots),
+                cycle={k: {kk: vv for kk, vv in v.items()} for k, v in getattr(r, "cycle", {}).items()})
 
 
 def main():

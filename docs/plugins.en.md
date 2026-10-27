@@ -113,7 +113,7 @@ takes the display.
 
 - **Values:** whole 32-bit numbers (`-2147483648` to `2147483647`, hex up to `0xFFFFFFFF`) and short text.
   `true` is 1, `false` is 0.
-- **Text:** only a literal in quotes (ASCII, at most 31 characters) or a variable that holds one. You can
+- **Text:** only a literal in quotes (ASCII and ä, ö, ü, at most 31 characters) or a variable that holds one. You can
   compare with `==` and `!=` and pass it to `korg.*`, nothing more: no joining, no splitting. Numbers are
   shown with `korg.display.number`.
 - **Variables:** `let` and `const`. A `const` with a fixed value is a constant and takes no space. Every
@@ -776,12 +776,12 @@ the whole display is his (the page number is not visible).
   that has room: at the left edge to his right, at the right edge to his left. The first bubble comes after a little over
   12 s, then every 20 s or 30 s (8 s plus 0 to 8 s of chance after the last, plus the walk to the next edge). The lines come in
   turn: "yo, na du?", the favourite tempo (the most played one, counted per beat; until something was played, the fixed line
-  "mein Tempo ist 150 bpm"), how long it has been going ("Spielt seit n min" since the first PLAY, otherwise "Laeuft seit"
-  since power-on, seconds under a minute), "Blech ist mein Ding", "kein Mund, kein Problem", "bisschen mehr Bass?", "nicht so doll
-  tippen", "Schranz ist Liebe". All in the own font (5 by 7, ASCII only, hence "hoer" and "Laeuft"). The waits, the walking speed
+  "mein Tempo ist 150 bpm"), how long it has been going ("Spielt seit n min" since the first PLAY, otherwise "Läuft seit"
+  since power-on, seconds under a minute), "Blech ist mein Ding", "bisschen mehr Bass?", "nicht so doll
+  tippen", "Schranz ist Liebe". All in the own font (5 by 7, ASCII and ä, ö, ü). The waits, the walking speed
   and the texts are a choice, not tried on the device.
 - **PLAY.** When you press PLAY he walks briskly (two pixels every 70 ms) to the middle, a little left of it so that there is room
-  beside him for the bubble, says "ich hoer mir das kurz an" (2.8 s), stands a moment and then dances as long as the pattern
+  beside him for the bubble, says "ich hör mir das kurz an" (2.8 s), stands a moment and then dances as long as the pattern
   plays, one picture per eighth. The wait of 12 s before the dance is gone. STOP ends the dance and he walks again; the question
   "wat machst'n du da atze?" is gone, it only fitted the main screen.
 - **Otherwise as before:** a tap on the touchpad near him makes him angry, stroking makes him happy. The numbers (tempo, play

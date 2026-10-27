@@ -222,20 +222,24 @@ function floor() {
       show(f, f.pose);
     }
   }
+  // Everyone in a row across the floor, once its width is known. A page opened behind another one has no width
+  // yet, so this waits until the floor is shown instead of putting them all at 0.
+  function spread() {
+    if (room >= 0 || !list.clientWidth) return;
+    room = list.clientWidth;
+    [...figures.values()].forEach((f, i, all) => {
+      f.x = ((i + 0.5) / all.length) * max();
+      f.dir = i % 2 ? -1 : 1;
+      f.node.style.transform = `translateX(${f.x}px)`;
+    });
+  }
   async function start() {
     const loaded = await loadPoses();
     if (!loaded || running) return;
     const ink = getComputedStyle(list).color;
     const fill = getComputedStyle(list).getPropertyValue("--color-bg-page").trim();
     art ??= Object.fromEntries(Object.entries(loaded).map(([id, pose]) => [id, sprite(pose, ink, fill)]));
-    if (room < 0) {
-      room = list.clientWidth;
-      [...figures.values()].forEach((f, i, all) => {
-        f.x = ((i + 0.5) / all.length) * max();
-        f.dir = i % 2 ? -1 : 1;
-        f.node.style.transform = `translateX(${f.x}px)`;
-      });
-    }
+    spread();
     for (const f of figures.values()) { flip(f); show(f, f.pose); }
     if (reducedMotion()) return;
     running = true;
@@ -245,6 +249,7 @@ function floor() {
       const dt = Math.min(now - last, 100) / 1000;
       last = now;
       if (list.offsetParent === null) return requestAnimationFrame(tick);
+      spread();
       if (list.clientWidth !== room) {
         room = list.clientWidth;
         for (const f of figures.values()) if (!f.move) { f.x = Math.min(f.x, max()); f.node.style.transform = `translateX(${f.x}px)`; }

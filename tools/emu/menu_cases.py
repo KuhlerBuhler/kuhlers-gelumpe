@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])   # the app's frozen service unpacks its data files here
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).parent))
-from tools.patch import script_hooks  # noqa: E402
+from tools.patch import load_bar, script_hooks  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 import fat32  # noqa: E402
@@ -286,6 +286,32 @@ def open_app_entry(dev):
     return dev.u32(apps_open_address())
 
 
+def blechy_dark(dev):
+    """On his page, with DISPLAY INVERT ON and then OFF (the page is left as it was): what the controller RAM holds against his
+    picture ("plain", "complement" or "other") and whether the controller is reversed (0xA7). Either way the panel shows him
+    light on dark, the complement of his picture (the LCD clears a pixel slowly, so a dark figure on a clear field smears)."""
+    app = load_bar.APP_PICTURE
+
+    def look():
+        for _ in range(10):        # his picture and the controller RAM compared after the same frame
+            pic, ram = dev.read(app, 1024), dev.fb()
+            kind = "plain" if ram == pic else "complement" if ram == bytes(b ^ 0xFF for b in pic) else None
+            if kind and dev.m.shown() == bytes(b ^ 0xFF for b in pic):
+                return kind, dev.m.lcd_reverse
+            dev.run(0.02)
+        return "other", dev.m.lcd_reverse
+
+    was = state(dev, S_INVERT)
+    out = {}
+    for name, value in (("on", 1), ("off", 0)):
+        dev.m.uc.mem_write(STATE + S_INVERT, struct.pack("<I", value))
+        dev.run(0.3)
+        out[name] = look()
+    dev.m.uc.mem_write(STATE + S_INVERT, struct.pack("<I", was))
+    dev.run(0.3)
+    return out
+
+
 def blechy_ring_cases(dev):
     """The page of Blechy, the last of the ring: after Event, before the Pattern menu, shown live and gone with EXIT."""
     out = []
@@ -301,6 +327,8 @@ def blechy_ring_cases(dev):
     picture = dev.fb()
     add("blechy_follows_blech", landed == (MENU, LEVEL_BLECHY, (BASE_RING + 1, RING), True) and any(picture) and not dev.m.asserts, f"{landed}")
     add("blechy_page_shows_him_alone", len(lit(picture, range(64))) > 300 and not lit(picture, range(64)) & {(x, y) for y in range(64) for x in range(70, 128)}, f"{len(lit(picture, range(64)))} pixels")
+    dark = blechy_dark(dev)
+    add("blechy_page_dark_either_way", dark["on"] == ("plain", True) and dark["off"] == ("complement", False) and not dev.m.asserts, f"{dark}")
     press(dev, "edit_next", wait=0.8)
     if SYNC_GROUP:
         group = lambda: bytes(dev.read(dev.u32(0xC033E6A4) + 4 + SYNC_GROUP_AT, 2))
