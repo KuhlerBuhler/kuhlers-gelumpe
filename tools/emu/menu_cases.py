@@ -9,6 +9,7 @@ and with EXIT held at power-on the firmware's ring is the stock one.
 """
 import argparse
 import json
+import re
 import struct
 import sys
 import zlib
@@ -22,6 +23,7 @@ from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 import fat32  # noqa: E402
 import synthaddr  # noqa: E402
+import firmware  # noqa: E402
 from splash_cases import Dev, SWITCH_SCREEN  # noqa: E402
 from unicorn import arm_const  # noqa: E402
 
@@ -127,6 +129,20 @@ SYNC_GROUP_AT = 0x3B80                                                # the grou
 INIT_CODE = 0xC014FD00                                               # the patch init-pattern (tools/patch/init_pattern.py); with it FEATURES has INIT PATTERN last
 FEAT_INIT = len(FEATURE_PAGES)
 INIT_PAGE = False                                                     # set by boot(): whether the copy has the patch
+
+
+VERSION_TEXT = 0xC014FCF0                                            # the patch blech-version (tools/patch/blech_version.mjs): the title of VERSION
+LIST_VERSION = len(LIST_PAGES)                                       # VERSION, the last row of the list (behind GAMES and TOOLS where an app is declared)
+LIST_COUNT = LIST_VERSION + 1
+BASE_NAMES = {"hacktribe": "HACKTRIBE", "stock": "KORG RED", "synth": "KORG BLUE"}   # the value of VERSION: the firmware the runtime is built for
+
+
+def version_texts(payload):
+    """(title, value) of BLECH > VERSION for a copy: the version text the set wrote (BLECH where it has no blech-version) and its firmware."""
+    raw = bytes(payload[VERSION_TEXT - IMAGE:VERSION_TEXT - IMAGE + 16])
+    title = "BLECH" if raw[0] == 0xFF else raw.split(b"\0")[0].decode("latin-1")
+    build = "synth" if synthaddr.is_synth(payload) else firmware.build_of(payload)
+    return title, BASE_NAMES[build]
 
 
 def feature_count():
@@ -481,12 +497,23 @@ def cases(payload, flash=None, settings=True):
     goto_ring(dev)
     press(dev, "menu")
     steps = []
-    for _ in range(len(LIST_PAGES)):
+    for _ in range(LIST_COUNT):
         steps.append((dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), texts_of(dev), tab(dev)))
         press(dev, "edit_next")
     wrapped = (dev.screen()["number"], state(dev, S_PAGE))
-    want = [(MENU, 1, page, (page, len(LIST_PAGES)), (title, "", PRESS), "BLECH") for page, title in enumerate(LIST_PAGES)]
+    want = [(MENU, 1, page, (page, LIST_COUNT), (title, "", PRESS), "BLECH") for page, title in enumerate(LIST_PAGES)]
+    want.append((MENU, 1, LIST_VERSION, (LIST_VERSION, LIST_COUNT), (*version_texts(payload), ""), "BLECH"))
     add("enter_opens_the_list_of_groups", steps == want and wrapped == (MENU, 0), f"{steps}, then {wrapped}")
+    # VERSION, the last row: the version of the set this copy was patched with and the firmware it is for; ENTER, WRITE and the dial change nothing
+    goto_top(dev, LIST_VERSION)
+    shown = texts_of(dev)
+    press(dev, "menu", wait=0.4)
+    press(dev, "write", wait=0.4)
+    dev.turn(1, wait=0.2)
+    after = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), texts_of(dev), dev.screen()["window"])
+    title = version_texts(payload)[0]
+    add("version_page", shown == (*version_texts(payload), "") and (title == "BLECH" or re.fullmatch(r"BLECH \d+\.\d+\.\d+", title))
+        and after == (MENU, 1, LIST_VERSION, shown, 0) and not dev.m.asserts, f"{shown}, after ENTER, WRITE and the dial {after}")
     goto_top(dev, LIST_PLUGINS)
     press(dev, "menu")
     inside = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), counter(dev), texts_of(dev))
@@ -509,7 +536,7 @@ def cases(payload, flash=None, settings=True):
     add("group_pages_wrap_and_count_alone", wrapped == (2, (2, 3), "EXPORT ALL") and forward == (0, (0, 3), "RUNTIME", MENU), f"{wrapped}, {forward}")
     press(dev, "exit")
     up = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
-    add("exit_goes_one_level_up", up == (MENU, 1, LIST_PLUGINS, (LIST_PLUGINS, len(LIST_PAGES)), "PLUGINS") and tab(dev) == "BLECH", str(up))
+    add("exit_goes_one_level_up", up == (MENU, 1, LIST_PLUGINS, (LIST_PLUGINS, LIST_COUNT), "PLUGINS") and tab(dev) == "BLECH", str(up))
     goto_top(dev, LIST_CUSTOM)
     press(dev, "menu")
     press(dev, "edit_next")
@@ -547,7 +574,7 @@ def cases(payload, flash=None, settings=True):
     add("all_keys_run", not dev.m.asserts, f"no assertion over 48 keys, screens {sorted(seen_keys)}" if not dev.m.asserts else f"asserts {dev.m.asserts}")
 
     # no page runs its texts together or into the edge, none shows a label that is cut off
-    pages = [("ring", 0)] + [("list", page) for page in range(len(LIST_PAGES))] + [(GROUP_PLUGINS, page) for page in range(4)]
+    pages = [("ring", 0)] + [("list", page) for page in range(LIST_COUNT)] + [(GROUP_PLUGINS, page) for page in range(4)]
     pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8)]
     pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_PSAVE, page) for page in range(2)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
