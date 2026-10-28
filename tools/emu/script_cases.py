@@ -589,9 +589,48 @@ def menu_script_cases(programs, built, patched, flash, check):
     check("letztes-plugin-loeschen", texts(gone) == ("PLUGIN EDIT", "deleted", "") and empty_file == archive([]) and nobody.u32(menu_cases.STATE + 40) == 0
           and not nobody.m.asserts, dict(texts=texts(gone), size=len(empty_file)))
 
+    full_list_case(programs, built, patched, flash, check, restart)
     foreign_cases(programs, built, patched, flash, check)
     import_cases(programs, built, patched, flash, check)
     menu_add_cases(programs, built, patched, flash, check)
+
+
+def renamed(block, name):
+    """A block with another name in its header and the checksum made again."""
+    out = bytearray(block)
+    out[36:52] = name.encode().ljust(16, b"\0")
+    struct.pack_into("<I", out, 12, zlib.crc32(bytes(out[16:struct.unpack_from("<I", out, 8)[0]])))
+    return bytes(out)
+
+
+def full_list_case(programs, built, patched, flash, check, restart):
+    """The settings' checksum list as the red device had it on 28.10. with 13 plugins: two markers of older plugin builds, eleven
+    allowed checksums, the marker of one plugin that is off three times; 16 entries, full. Switching one more plugin off and
+    WRITE still has to keep it off over a restart."""
+    import menu_cases
+    runtime = built.layout["runtime"]
+    blocks = [renamed(bytes.fromhex(programs["healthy"]["blob"]), "plugin%02d" % i) for i in range(13)]
+    checksum = lambda block: struct.unpack_from("<I", block, 12)[0]
+    marker = lambda block: ~checksum(block) & 0xffffffff
+    dev = with_card(patched, flash, {CARD_FILE: archive(blocks)})
+    dev.run(2)
+    menu_cases.goto_plugin(dev, 12)
+    dev.turn(-1, wait=0.2)
+    trust = menu_cases.STATE + 0x1C0
+    listed = [0x11111111, 0x22222222] + [checksum(block) for block in blocks[1:12]] + [marker(blocks[12])] * 3
+    dev.m.uc.mem_write(trust, b"".join(struct.pack("<I", value) for value in listed))
+    dev.m.uc.mem_write(menu_cases.STATE + 44, struct.pack("<I", len(listed)))
+    menu_cases.goto_plugin(dev, 0)
+    dev.turn(-1, wait=0.2)
+    menu_cases.press(dev, "write", wait=0.8)
+    saved = texts(dev)
+    after = [dev.u32(trust + 4 * i) for i in range(dev.u32(menu_cases.STATE + 44))]
+    leave_menu(dev)
+    again = restart(dev)
+    states = [again.u32(plugin_entry(again, runtime, i) + 12) for i in (0, 12)]
+    check("menu-plugin-aus-bei-voller-liste", saved[1] == "saved" and states == [1, 1] and marker(blocks[0]) in after
+          and after.count(marker(blocks[12])) == 1 and all(checksum(block) in after for block in blocks[1:12]) and not again.m.asserts,
+          dict(saved=saved, states=states, listed=[hex(value) for value in after]))
 
 
 def request_errors(programs):
