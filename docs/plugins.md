@@ -755,7 +755,7 @@ Kennung `GGIF`, Version 1 (u16), Zahl der Bilder (u16), dann je Bild die Dauer i
 Byte Displayspeicher (Byte `(y / 8) * 128 + x`, Bit `y % 8`). `tools/gif/gif2e2g.py` macht so eine Datei aus einem GIF
 (Pillow), `src/script/gif.mjs` liest sie im Browser. Ein Aufruf öffnet die Datei, springt zum Bild, liest es und schließt
 sie wieder, über die FatFs-Funktionen der Firmware (auch `f_lseek`, `0xC009E404`, in Blau `0xC008AF5C`) und mit dem
-Dateiobjekt des Kartenladers. Er liest nur bei offenem Hauptbildschirm, wie das Speichern von `korg.store`. Wie lange das
+Dateiobjekt des Kartenladers. Er liest nur bei offenem Hauptbildschirm. Wie lange das
 Lesen von 1 KiB am Gerät dauert, ist nicht gemessen; die 5 ms des Rahmens bleiben die Grenze.
 
 ### Dauerhafte Werte
@@ -779,7 +779,8 @@ der Karte liegen, bleiben beim Schreiben erhalten (höchstens 194 Einträge).
 `src/script/store.mjs` baut und liest die Datei im Browser.
 
 Geschrieben wird frühestens 50 Rahmen (2 Sekunden) nach dem letzten Schreiben und
-nur, solange der Hauptbildschirm offen ist; ein weiterer `save()` davor bleibt
+nur, solange der Hauptbildschirm oder das Menü BLECH offen ist (dort liegen die Seiten von
+`korg.menu.add`); ein weiterer `save()` davor bleibt
 vorgemerkt. Ein Fehlschlag (keine Karte, Karte voll) zählt im Kontrollblock
 (`storeErrors`) und wiederholt sich nicht von selbst. Im Lauf im Browser halten die
 Werte bis zum Neuladen der Seite.
