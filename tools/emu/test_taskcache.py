@@ -32,6 +32,19 @@ def cases_task():
 TOY_C = '''
 def cases_task():
     raise RuntimeError("broken")
+
+
+class Stubborn(Exception):
+    def __init__(self, errno):              # like Unicorn's UcError: no args kept, so a pickle cannot build it again
+        super().__init__()
+        self.errno = errno
+
+    def __str__(self):
+        return f"code {self.errno}"
+
+
+def raise_task():
+    raise Stubborn(7)
 '''
 
 
@@ -123,6 +136,11 @@ class TaskCacheTest(unittest.TestCase):
             out = parallel.run_tasks(tasks, self.data, 1, cache="test")
             self.assertFalse(out[0][0]["ok"])
         self.assertFalse((self.folder / "cache" / "task").exists() and any((self.folder / "cache" / "task").iterdir()))
+
+    def test_an_exception_a_pickle_cannot_rebuild_still_reaches_the_caller(self):
+        tasks = [("toy_c", "raise_task", ()), ("toy_a", "cases_task", (1,))]
+        with self.assertRaisesRegex(RuntimeError, r"Stubborn: code 7"):
+            parallel.run_tasks(tasks, self.data, 2)
 
     def test_the_card_clock_stands_while_a_task_runs(self):
         _, out = self.nonces(jobs=1)

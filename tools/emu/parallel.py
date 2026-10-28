@@ -85,6 +85,15 @@ def crashed(module, name, args, error):
             "detail": f"the cases of {module}{group} stopped with {type(error).__name__}: {error} (at {where}); the others ran"}
 
 
+def _picklable(error):
+    import pickle
+    try:
+        pickle.loads(pickle.dumps(error))
+        return True
+    except Exception:
+        return False
+
+
 def _run(module, name, args):
     """(result, finished): finished is False when an exception became a failed entry."""
     import fat32
@@ -99,6 +108,9 @@ def _run(module, name, args):
             return [crashed(module, name, args, error)], False
         if name in ENTRY_ONE:
             return crashed(module, name, args, error), False
+        if multiprocessing.parent_process() is not None and not _picklable(error):
+            # Unicorn's UcError cannot be rebuilt from a pickle: the pool would only report a broken process
+            raise RuntimeError(f"{type(error).__name__}: {error}") from error
         raise
     finally:
         fat32.clock = clock
