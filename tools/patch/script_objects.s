@@ -1,6 +1,6 @@
 ; The object tree of the plugin API (data/script/objects.mjs): korg.get and korg.set reach every leaf through one table,
 ; a value outside its range is clamped and counted, and the stored ones are checked once the menu has read its settings.
-; Fourth code area, MORE3_START. A row (OBJ_ROW_SIZE bytes): offset, min, max, factory (words), base, type, apply, flags.
+; In the code area at MORE3_START. A row (OBJ_ROW_SIZE bytes): offset, min, max, factory (words), base, type, apply, flags.
 .align 4
 ; korg.get(leaf, index) -> r0 = the value; no such leaf: API_ARG
 script_object_get_glue:
