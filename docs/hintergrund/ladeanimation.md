@@ -120,10 +120,12 @@ stehen in `tools/emu/loadbar_cases.py` (`case_smooth`, `case_custom`).
 
 ## In der App
 
-`Gerät -> Design`, Abschnitt Ladeanimation: ein GIF oder mehrere Einzelbilder (sortiert nach Namen), gewandelt wie das
-Startbild (`pixelsOf` in `site/app/splash.mjs`, gleiche Schwelle). Je Bild die Rolle Fortschritt oder Warte-Schleife,
-dazu "Schleife bei Stillstand" oder "ab Prozent". Die Größe steht als "x von 16 KB"; zu groß heißt abgelehnt, mit den
-drei teuersten Bildern im Hinweis und dem Knopf Ausdünnen. Übernommen wird die Datei im Browser gespeichert.
+`Gerät -> Design`, Tab Ladeanimation: ein GIF oder mehrere Einzelbilder (sortiert nach Namen), gewandelt wie das
+Startbild (`pixelsOf` in `site/app/splash.mjs`, gleiche Schwelle, unter "Umwandlung"). Die Vorschau spielt 0 bis 100 % ab
+(bei reduzierter Bewegung erst auf Knopfdruck), der Regler und die Bilderleiste springen. "Warte-Schleife ab Bild n"
+teilt die Bilder: davor Fortschritt, ab n Schleife, dazu "wenn der Fortschritt steht" oder "ab Prozent". Die Größe steht
+als "x von 16 KB"; zu groß heißt gesperrt, mit den drei teuersten Bildern im Hinweis und dem Knopf Ausdünnen.
+Gespeichert wird die Datei im Browser; bis dahin steht "Nicht gespeichert".
 
 Der Firmware Patcher schreibt sie als Patch `loading-anim` in das Kartenfeld `loadingAnim` (der Slot ab `0xC01A6000`,
 Rest `FF`), in einem eigenen Durchgang nach dem Set und nur, wenn `load-bar` mit drauf ging: `load-bar` meldet den Slot
