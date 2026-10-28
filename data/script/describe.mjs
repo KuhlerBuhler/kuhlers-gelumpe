@@ -45,6 +45,8 @@ export const API_DOCS = Object.freeze({
   "korg.menu.add": text("api.korg.menu.add"),
   "korg.app": text("api.korg.app"),
   "korg.file.frame": text("api.korg.file.frame"),
+  "korg.get": text("api.korg.get"),
+  "korg.set": text("api.korg.set"),
 });
 
 /** korg.onEvent is no API entry, the compiler reads it as a statement. */

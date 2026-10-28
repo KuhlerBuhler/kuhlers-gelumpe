@@ -179,6 +179,7 @@ menu_arm_load:
     popeq {pc}
     bl menu_arm
     bl menu_settings_load
+    bl objects_repair
     pop {pc}
 .pool
 menu_arm_load_end:

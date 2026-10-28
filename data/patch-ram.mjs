@@ -15,6 +15,11 @@ export const FREE_RUNS = [
     evidence: "docs/hintergrund/startbild-editor.md, Abschnitt Platz",
   },
   {
+    start: 0xc015027c, end: 0xc0170000,
+    what: "FF im Abbild vor dem Loader der Firmware ab 0xC0170000, die vierte Code-Fläche der Plugin-Laufzeit",
+    evidence: "tools/patch/script_hooks.py, MORE3_START (gemessen 2026-10-28 in allen drei Builds)",
+  },
+  {
     start: largest.start, end: largest.end,
     what: "größter FF-Block im Abbild",
     evidence: "docs/speicherbereiche.md, docs/patcher.md Speicherorte",

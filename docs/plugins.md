@@ -283,6 +283,40 @@ korg.onEvent("buttonPress", (key) => {
 Die Aufrufe in der Tabelle unten bleiben gültig, ältere Plugins laufen unverändert weiter. Was eine
 Handlung ist, bleibt ein Aufruf: zeichnen, PLAY drücken, eine App anmelden, speichern.
 
+### Die Electribe als Objektbaum (API 10, BLECHTRIBE 1.3.8)
+
+Ab API 10 hängen die Einstellungen der Electribe und des Menüs BLECH an langen Pfaden. Ein Pfad liest und
+setzt sich wie eine Eigenschaft oben, der Übersetzer macht daraus `korg.get` oder `korg.set` mit der Nummer
+des Blatts, lange Namen kosten am Gerät also nichts. Ein Plugin, das einen Pfad nutzt, braucht API 10 und
+läuft auf älterer Firmware nicht (sie lehnt den Block ab).
+
+Ein Wert außerhalb des Bereichs wird auf die nächste Grenze geklemmt und gezählt (`korg.system.repairs`),
+das Plugin läuft weiter. Steht der Wert schon beim Übersetzen fest, meldet der Übersetzer ihn als Fehler.
+Ein falsch geschriebener Pfad ist ein Fehler beim Übersetzen, die Meldung nennt, was es an der Stelle gibt.
+Gespeicherte Werte prüft die Laufzeit beim Start, egal woher ein ungültiger Wert kommt, und klemmt oder
+setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
+
+| Pfad | Lesen | Setzen | Bereich |
+|---|---|---|---|
+| `korg.menu.blech.customizations.display.intensity` | Helligkeit des Display-Lichts wie die Seite INTENSITY | ja, wirkt sofort; WRITE im Menü behält sie | 0 (aus) bis 15 (voll) |
+| `korg.system.repairs` | wie viele Werte seit dem Start geklemmt oder zurückgesetzt wurden | nein | 0 bis 2147483647 |
+
+```js
+// Licht aus, solange die App offen ist, danach wieder wie vorher.
+let light = 15;
+korg.app("Dunkel", "TOOLS");
+korg.onEvent("open", () => {
+  light = korg.menu.blech.customizations.display.intensity;
+  korg.menu.blech.customizations.display.intensity = 0;
+});
+korg.onEvent("close", () => {
+  korg.menu.blech.customizations.display.intensity = light;
+});
+```
+
+Weitere Zweige (`korg.global`, `korg.patterns`, `korg.parts`, die übrigen Seiten von BLECH) kommen mit den
+nächsten Versionen; die alten Namen bleiben gültig.
+
 ### Funktionen der Electribe
 
 Alle Namen beginnen mit `korg.`. Zahlen außerhalb des Bereichs beenden das

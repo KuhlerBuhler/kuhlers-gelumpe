@@ -19,6 +19,7 @@ import {
   BLOCK_FLAGS, SCRIPT_CONTROL, SCRIPT_PHASE, SCRIPT_EVENT_RECORD, SCRIPT_LED, SCRIPT_LED_VALID, SCRIPT_DISPLAY, SCRIPT_GIF, SCRIPT_KNOBS, SCRIPT_APPS, PATTERN_FIELDS, PART_FIELDS, PATTERN_FIELD_KINDS, PATTERN_PARTS, PATTERN_STEPS, STORE, ARCHIVE, DESC_TRAILER, CARD_STATUS,
 } from "../../data/script/contract.mjs";
 import { FONT } from "../../data/script/font.mjs";
+import { OBJECTS, OBJECT_BASES, OBJECT_TYPES, OBJECT_APPLY, OBJECT_ROW_SIZE, objectFlags } from "../../data/script/objects.mjs";
 
 export const OPCODE_SLOTS = 64;
 const ERROR_NAME_SIZE = 16;
@@ -149,6 +150,14 @@ export function asmInclude() {
   for (const e of ERRORS) eq(`ERR_${e.name}`, e.code);
   for (const e of EVENTS) eq(`EV_${sym(e.name)}`, e.id);
   for (const a of API) eq(`API_${sym(a.name)}`, a.id);
+  // the object tree, one row of OBJ_<id>_* each; tools/patch/script_hooks.py builds the table of script_objects.s from them
+  eq("OBJ_COUNT", OBJECTS.length);
+  eq("OBJ_ROW_SIZE", OBJECT_ROW_SIZE);
+  for (const o of OBJECTS) {
+    eq(`OBJ_${o.id}_OFFSET`, o.offset); eq(`OBJ_${o.id}_MIN`, o.min); eq(`OBJ_${o.id}_MAX`, o.max); eq(`OBJ_${o.id}_FACTORY`, o.factory);
+    eq(`OBJ_${o.id}_BASE`, OBJECT_BASES.indexOf(o.base)); eq(`OBJ_${o.id}_TYPE`, OBJECT_TYPES.indexOf(o.type));
+    eq(`OBJ_${o.id}_APPLY`, OBJECT_APPLY.indexOf(o.apply)); eq(`OBJ_${o.id}_FLAGS`, objectFlags(o));
+  }
   out.push(".align 4");
   out.push("script_dispatch:");
   for (let i = 0; i < OPCODE_SLOTS; i += 8) {

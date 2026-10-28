@@ -20,6 +20,7 @@ import {
 } from "../../data/script/contract.mjs";
 import { NAMES } from "../../data/script/names.mjs";
 import { PROPERTY_BY_PATH, KNOB_NAMES } from "../../data/script/properties.mjs";
+import { objectChildren, isObjectBranch } from "../../data/script/objects.mjs";
 import { encodeBlob, decodeBlob, lineAt } from "./blob.mjs";
 import { assemble } from "./asm.mjs";
 import { verifyParts } from "./verifier.mjs";
@@ -54,6 +55,9 @@ function callNode(name, args, at) {
   const callee = name.split(".").reduce((object, part) => (object ? { type: "Member", object, name: part, line: at.line, col: at.col } : { type: "Ident", name: part, line: at.line, col: at.col }), null);
   return { type: "Call", callee, args, line: at.line, col: at.col };
 }
+
+/** The number a literal (or a negated literal) stands for, else null. */
+const constValue = n => (n.type === "Num" ? n.value : n.type === "Unary" && n.op === "-" && n.arg.type === "Num" ? -n.arg.value : null);
 
 const isPure = n => {
   if (!n || typeof n !== "object") return true;
@@ -412,6 +416,7 @@ class Compiler {
       return prop ? { prop, index: null } : null;
     }
     if (path.length === 3 && PROPERTY_BY_PATH.has(path.join("."))) return { prop: PROPERTY_BY_PATH.get(path.join(".")), index: null };
+    if (path.length > 3 && PROPERTY_BY_PATH.has(path.join("."))) return { prop: PROPERTY_BY_PATH.get(path.join(".")), index: null };
     if (path.length === 3 && path[1] === "knobs") {
       const knob = KNOB_NAMES.find(k => k.name === path[2]);
       if (!knob) throw err(n, text("compile.knob.unknown", { name: path[2], knobs: KNOB_NAMES.map(k => k.name).join(", ") }));
@@ -420,6 +425,10 @@ class Compiler {
     if (asTarget && path.length === 3 && path[1] === "led") {
       const led = this.panelName(n);
       if (led) return { prop: PROPERTY_BY_PATH.get("korg.leds[]"), index: num(led.value) };
+    }
+    for (let i = path.length - 1; i > 1; i--) {
+      const branch = path.slice(0, i).join(".");
+      if (isObjectBranch(branch)) throw err(n, text("compile.object.unknown", { path: path.join("."), branch, names: objectChildren(branch).join(", ") }));
     }
     return null;
   }
@@ -442,6 +451,10 @@ class Compiler {
   writeProperty({ prop, index }, n, fn) {
     if (!prop.write) throw err(n.target, text("compile.prop.readOnly", { prop: this.propertyName(prop) }));
     let value = n.value;
+    const [min, max] = prop.range ?? [];
+    if (prop.range && n.op === "=" && constValue(value) !== null && (constValue(value) < min || constValue(value) > max)) {
+      throw err(n.value, text("compile.object.range", { prop: this.propertyName(prop), value: constValue(value), min, max }));
+    }
     if (n.op !== "=") {
       if (index && !isPure(index)) throw err(index, text("compile.index.pure"));
       if (!prop.read) throw err(n.target, text("compile.prop.compound", { prop: this.propertyName(prop), op: n.op }));

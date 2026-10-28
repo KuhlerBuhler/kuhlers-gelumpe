@@ -44,6 +44,7 @@ const KEYED = [
   "data/script/contract.mjs",
   "data/script/templates.mjs",
   "data/script/properties.mjs",
+  "data/script/objects.mjs",
   "data/script/names.mjs",
   "data/news.mjs",
   "data/rescue.mjs",
