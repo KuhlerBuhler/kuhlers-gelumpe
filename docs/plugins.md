@@ -843,8 +843,9 @@ Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
 - Solange der Bildschirm offen ist, sehen die Plugins keine Eingaben, damit ein Plugin,
   das Tasten abfängt, das Menü nicht sperren kann.
 
-Die Liste der ersten Ebene besteht nur aus Gruppen, in dieser Reihenfolge: erst die eingebauten Schalter, dann
-die Anpassung, dann die Plugins, zuletzt die Gruppen, die Plugins selbst anmelden (`korg.app`):
+Die Liste der ersten Ebene besteht aus Gruppen, in dieser Reihenfolge: erst die eingebauten Schalter, dann
+die Anpassung, dann die Plugins, dann die Gruppen, die Plugins selbst anmelden (`korg.app`), und als letzte Seite
+VERSION, die keine Gruppe ist:
 
 | Eintrag | Was dahinter liegt |
 |---|---|
@@ -853,6 +854,7 @@ die Anpassung, dann die Plugins, zuletzt die Gruppen, die Plugins selbst anmelde
 | PLUGINS | Gruppe, siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
 | TOOLS | wie GAMES |
+| VERSION | keine Gruppe: oben die Version des Satzes, mit dem die Firmware gepatcht wurde (`BLECH 1.3.7`, aus dem Patch `blech-version`), darunter die Firmware, für die das Menü gebaut ist (HACKTRIBE, KORG RED, KORG BLUE). ENTER, WRITE und das Rad ändern nichts |
 
 Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem Wert ON oder OFF, das Hauptrad ändert ihn:
 

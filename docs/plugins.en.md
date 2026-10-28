@@ -701,8 +701,9 @@ line `press  [ Enter ]`.
   main screen. MENU on the main screen returns to where you left the menu, also into a group.
 - While the screen is open, plugins see no inputs, so that a plugin that catches keys cannot lock the menu.
 
-The list of the first level holds groups only, in this order: the built-in switches first, then the
-customization, then the plugins, last the groups that plugins register themselves (`korg.app`):
+The list of the first level holds groups, in this order: the built-in switches first, then the
+customization, then the plugins, then the groups that plugins register themselves (`korg.app`), and as the last
+page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
@@ -711,6 +712,7 @@ customization, then the plugins, last the groups that plugins register themselve
 | PLUGINS | a group, see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
 | TOOLS | like GAMES |
+| VERSION | no group: on top the version of the set the firmware was patched with (`BLECH 1.3.7`, from the patch `blech-version`), below it the firmware the menu is built for (HACKTRIBE, KORG RED, KORG BLUE). ENTER, WRITE and the dial change nothing |
 
 The pages of FEATURES (the tag names the group "Feature"), each with the value ON or OFF, the main dial changes it:
 

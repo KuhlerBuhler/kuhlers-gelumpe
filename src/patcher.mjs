@@ -85,6 +85,7 @@ const PATCH_LABELS = {
   "power-off": "features.powerOff.title",
   "last-pattern": "features.lastPattern.title",
   "init-pattern": "features.initPattern.title",
+  "blech-version": "patcher.patch.version",
   "doom-loader": "features.doom.title",
   "blech-sysex": { synth: "patcher.patch.sysexSynth", other: "patcher.patch.sysex" },
   "ifx-idle": "patcher.patch.ifxIdle",

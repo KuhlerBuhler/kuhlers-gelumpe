@@ -432,10 +432,10 @@ def menu_script_cases(programs, built, patched, flash, check):
           dict(first=first, second=second))
     menu_cases.goto_top(dev, menu_cases.LIST_FEATURES)
     titles = []
-    for _ in range(len(menu_cases.LIST_PAGES)):
+    for _ in range(menu_cases.LIST_COUNT):
         titles.append(menu_cases.text(dev, menu_cases.S_TITLE))
         menu_cases.press(dev, "edit_next")
-    check("menu-liste-ohne-about", titles == menu_cases.LIST_PAGES and "ABOUT" not in titles and menu_cases.text(dev, menu_cases.S_TITLE) == "FEATURES", titles)
+    check("menu-liste-ohne-about", titles == menu_cases.LIST_PAGES + [menu_cases.version_texts(patched)[0]] and "ABOUT" not in titles and menu_cases.text(dev, menu_cases.S_TITLE) == "FEATURES", titles)
     check("menu-blechy-keine-plugin-seite", dev.u32(menu_cases.STATE + 40) == 2 and plugin_entry(dev, runtime, 2) == 0, dict(count=dev.u32(menu_cases.STATE + 40)))
     menu_cases.goto_plugin(dev, 0)
 
@@ -905,11 +905,11 @@ def app_cases(programs, built, patched, flash, check, reference, displays):
         pages[label] = (menu_cases.texts_of(apps), menu_cases.tab(apps), menu_cases.counter(apps), menu_cases.page_overlap(apps))
     menu_cases.goto_top(apps, menu_cases.LIST_FEATURES)
     top = []
-    for _ in range(5):
+    for _ in range(6):
         top.append(menu_cases.text(apps, menu_cases.S_TITLE))
         menu_cases.press(apps, "edit_next")
     check("app-gruppen-im-menue", pages["games"] == (("Snake", "", menu_cases.PRESS), "Games", (0, 1), None) and pages["tools"] == (("Klicker", "", menu_cases.PRESS), "Tools", (0, 1), None)
-          and top == ["FEATURES", "CUSTOMIZATION", "PLUGINS", "GAMES", "TOOLS"], dict(pages=pages, top=top))
+          and top == ["FEATURES", "CUSTOMIZATION", "PLUGINS", "GAMES", "TOOLS", menu_cases.version_texts(patched)[0]], dict(pages=pages, top=top))
 
     open_app(apps, menu_cases.GROUP_TOOLS)
     check("app-oeffnet-aus-dem-menue", apps.screen()["number"] == 1 and shows(apps, "klickerReady") and control(apps, "READY") == 1 and not apps.m.asserts,
