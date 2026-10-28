@@ -23,6 +23,8 @@ import { sdcardPanel } from "./sdcard.mjs";
 import { patcherPage } from "./patcher.mjs";
 import { patternToolsPage } from "./pattern-tools.mjs";
 import { rescuePage } from "./rescue.mjs";
+import { checkVerdict } from "../../data/rescue.mjs";
+import { collectMidi, midiVerdict } from "./midi-report.mjs";
 import { supportPage } from "./support.mjs";
 import { changelogPage } from "./changelog.mjs";
 import { discordPage } from "./discord.mjs";
@@ -668,8 +670,20 @@ function boot() {
   sd = sdcardPanel(cardBar(nav), emulator, { bar: true });
   popout = emulatorWindow(emulator, { place: node => nav.emu(node) });
   popout.realDevice(areas?.current === "device");
-  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null });
-  rescuePage($("#cee-rescue"));
+  // The folder the patcher named for its last copy, for the Rettung page; it lasts until the app closes.
+  let target = null;
+  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null, onTarget: folder => { target = folder; } });
+  // A session on the emulator's port is no Electribe, so the Rettung page only asks one on a cable.
+  const cabled = () => (device.session && device.session.port !== emulator?.port && !device.session.sender.disconnected ? device.session : null);
+  rescuePage($("#cee-rescue"), {
+    hardware: () => cabled()?.hardware?.() ?? null,
+    firmware: () => (cabled()?.device?.blech ? "blech" : null),
+    target: () => target,
+    read: {
+      midi: async () => midiVerdict(await collectMidi({ transport, permissions: navigator.permissions, usb: usb.state, app: window.__GELUMPE_APP, agent: navigator.userAgent }), mode),
+      version: () => checkVerdict(window.__GELUMPE_APP?.version),
+    },
+  });
   supportPage({ avatar: $("#cee-support-avatar"), wallpaper: $("#cee-support-wallpaper") });
   featuresPage($("#cee-features"));
   splashPage($("#cee-splash"));
