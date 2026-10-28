@@ -22,6 +22,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+STAMP = "source-hash.txt"
 _memory = {}
 _source = None
 
@@ -39,6 +40,12 @@ def source_hash(*folders):
     """Hash of the Python source of the emulator (and of the given sibling folders of tools/): a change
     to the model makes every file derived from it unreachable."""
     global _source
+    if getattr(sys, "frozen", False):
+        # Frozen (the app's sidecar), the modules sit in PyInstaller's archive and HERE holds no .py file:
+        # build-sidecar.mjs stamps the hash of the source of tools/emu and tools/patch into the bundle.
+        if _source is None:
+            _source = (None, (HERE / STAMP).read_text().strip())
+        return _source[1]
     names = [HERE] + [HERE.parent / f for f in folders]
     key = tuple(map(str, names))
     if _source is None or _source[0] != key:
