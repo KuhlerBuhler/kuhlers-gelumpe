@@ -21,3 +21,23 @@ test("a release offers the app for this system and the patch, nothing else; a Ma
   assert.deepEqual(downloads(files, null).map(d => d.label), ["Patch herunterladen"], "no app to guess on an unknown system");
   assert.deepEqual(downloads([], "mac"), []);
 });
+
+test("the carried notes fill in the versions GitHub no longer has, newest first; GitHub's own release wins", async () => {
+  const { entries } = await import("../site/app/changelog.mjs");
+  const carried = [{ version: "1.3.6", de: "a", en: "b" }, { version: "1.3.5", de: "c", en: "d" }, { version: "1.3.10", de: "e", en: null }];
+  const list = entries([{ tag_name: "v1.3.6", body: "x" }], carried);
+  assert.deepEqual(list.map(e => [e.version, e.r ? "github" : "carried"]), [["1.3.10", "carried"], ["v1.3.6", "github"], ["1.3.5", "carried"]]);
+  assert.deepEqual(entries([], carried).map(e => e.version), ["1.3.10", "1.3.6", "1.3.5"]);
+});
+
+test("data/release-notes.mjs is built from release-notes/ (node tools/release-notes.mjs build)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { notesModule, NOTES_MODULE } = await import("../tools/release-notes.mjs");
+  assert.equal(readFileSync(NOTES_MODULE, "utf8"), notesModule(), "run: node tools/release-notes.mjs build");
+});
+
+test("the app keeps what was new and what was fixed, not the downloads, install hints or donation link", async () => {
+  const { appNotes } = await import("../tools/release-lib.mjs");
+  const md = "BLECH 1.3.4.\n\n**Herunterladen**\n- [App](https://example.invalid/x.dmg)\n\nAuf dem Mac einmal xattr.\n\n**Neu**\n- eins\n\n**Behoben**\n- zwei\n\n**Ohne App patchen**\n- BLECH.patch\n\nSpenden: https://example.invalid";
+  assert.equal(appNotes(md), "BLECH 1.3.4.\n\n**Neu**\n- eins\n\n**Behoben**\n- zwei");
+});

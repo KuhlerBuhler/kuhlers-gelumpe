@@ -272,8 +272,10 @@ test("changelogs: a new release puts a ! on the entry, opening it shows the rele
   await page.goto(h.url);
   await page.locator("#cee-tab-changelog .cee-nav-badge").waitFor();
   await page.click("#cee-tab-changelog");
-  const release = page.locator("#cee-changelog .cee-release");
+  // GitHub's release links its heading; the versions it lacks come from the notes the app carries, without a link.
+  const release = page.locator("#cee-changelog .cee-release").filter({ has: page.locator("h2 a") });
   assert.equal(await release.count(), 1);
+  assert.ok(await page.locator("#cee-changelog .cee-release").count() > 1, "the carried notes stand beside it");
   assert.equal(await release.locator("h2 a").textContent(), "v1.3.0", "the version is the heading and the link to GitHub");
   assert.equal(await release.locator(".cee-status").count(), 0, "no Aktuell: the newest stands on top anyway");
   const buttons = await release.locator(".cee-release-get a").allTextContents();

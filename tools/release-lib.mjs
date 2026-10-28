@@ -109,6 +109,18 @@ export function parseNotes(text) {
   return { de: source.slice(0, m.index).trim(), en: source.slice(m.index + m[0].length).trim() };
 }
 
+// The sections of a release that still hold once its downloads are gone; the app shows only these.
+const KEPT = /^\*\*(Neu|Geändert|Behoben|New|Changed|Fixed)\*\*$/;
+
+/**
+ * One language part of a notes file for the app's Changelogs: the first line and the sections under KEPT. Downloads,
+ * install hints and donation links go, their release may be gone from GitHub.
+ */
+export function appNotes(part) {
+  const blocks = String(part ?? "").trim().split(/\n[ \t]*\n/);
+  return [blocks[0], ...blocks.slice(1).filter(b => KEPT.test(b.split("\n")[0].trim()))].filter(Boolean).join("\n\n");
+}
+
 /** What is wrong with a notes file, in words; empty when both languages are there. */
 export function checkNotes(text) {
   const { de, en } = parseNotes(text);
