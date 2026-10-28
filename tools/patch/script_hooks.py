@@ -279,7 +279,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     more = ['script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s']
     if build != 'synth':
         more.append('fx_card.s')
-    more2 = ['script_hsv.s','script_seq.s']
+    more2 = ['script_hsv.s','script_seq.s','script_init.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
     source = constants+f'\n.equ MORE_START, {MORE_START}\n.equ MORE2_START, {MORE2_START}\n'+read(files)+'\n.org MORE_START\n'+read(more)+'\n.org MORE2_START\n'+read(more2)
     if build == 'synth':

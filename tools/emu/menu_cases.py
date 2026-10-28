@@ -66,7 +66,9 @@ def card_image(files=None):
 
 def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2):
     """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state)."""
+    global INIT_PAGE
     for_build(payload)
+    INIT_PAGE = payload[INIT_CODE - 0xC0000000:INIT_CODE - 0xC0000000 + 4] != b"\xff" * 4
     dev = Dev(payload, flash, held)
     dev.m.adapter = adapter
     if card:
@@ -122,9 +124,14 @@ SYNC_GROUP = True
 SYNC_GROUP_AT = 0x3B80                                                # the group in a pattern block, u16 little endian
 
 
+INIT_CODE = 0xC014FD00                                               # the patch init-pattern (tools/patch/init_pattern.py); with it FEATURES has INIT PATTERN last
+FEAT_INIT = len(FEATURE_PAGES)
+INIT_PAGE = False                                                     # set by boot(): whether the copy has the patch
+
+
 def feature_count():
-    """The pages of FEATURES: the switches (SYNC GROUP is a page of the ring, LEVEL_SYNC)."""
-    return len(FEATURE_PAGES)
+    """The pages of FEATURES: the switches (SYNC GROUP is a page of the ring, LEVEL_SYNC), and INIT PATTERN where the set has it."""
+    return len(FEATURE_PAGES) + INIT_PAGE
 TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads", "Power", "Splash", "Pattern"]
 RING = 32                                                             # the total of the page counter with the page BLECH, the page of Blechy and SYNC GROUP in the ring
 BASE_RING = 29
@@ -462,7 +469,7 @@ def cases(payload, flash=None, settings=True):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, "ON") for title in FEATURE_PAGES]
+    want = [(title, "ON") for title in FEATURE_PAGES] + [("INIT PATTERN", "FACTORY")] * INIT_PAGE
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
@@ -1820,7 +1827,7 @@ def note_assist_menu_cases(payload, flash=None):
     press(dev, "edit_next", wait=0.4)
     wrapped = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    after = ("MFX 2", (0, feature_count()))
+    after = ("INIT PATTERN", (FEAT_INIT, feature_count())) if INIT_PAGE else ("MFX 2", (0, feature_count()))
     add("page_is_last", wrapped == after and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word

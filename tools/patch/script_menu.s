@@ -79,6 +79,10 @@
 .equ PC_CODE, 0xC018B000        ; the patch pad-colors (tools/patch/pad_colors.py), FF where the set does not have it; its entries:
                                 ; +0 (look word) takes the colours from it, +4 -> its bits for them, +8 (kind, steps) the next colour,
                                 ; +12 (kind) -> title, r1 = value text; each sends the pads again where the colours change
+; INIT PATTERN: the patch init-pattern (tools/patch/init_pattern.py), FF where the set does not have it; the page writes Global byte 247
+.equ INIT_CODE, 0xC014FD00
+.equ GLOBALS_PTR, 0xC0691324
+.equ IP_SLOT, 247
 .equ SPLASH_IMPORT, 0xC01A2500  ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
 .equ SPLASH_RESET, 0xC01A2508
@@ -1426,6 +1430,8 @@ menu_texts_clear:
     beq menu_text_pedit
     cmp r0, #39
     beq menu_text_pdesc
+    cmp r0, #40
+    beq menu_text_ip
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -2296,6 +2302,8 @@ menu_kind_sub:
 menu_kind_features:
     mov r0, #21
     mov r1, #0
+    cmp r5, #4
+    moveq r0, #40
     cmp r5, #2
     moveq r0, #20
     cmp r5, #1
@@ -2400,7 +2408,11 @@ menu_count_features:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #4                  ; FEATURES: the four switches
+    mov r0, #4                  ; FEATURES: the four switches, and INIT PATTERN where the set has the patch init-pattern
+    ldr r1, =INIT_CODE
+    ldr r1, [r1]
+    cmn r1, #1
+    addne r0, r0, #1
     b menu_count_out
 menu_count_apps:
     sub r0, r1, #1
@@ -3637,6 +3649,8 @@ menu_slot_value:
     beq menu_value_psel
     cmp r0, #39
     beq menu_value_desc
+    cmp r0, #40
+    beq menu_value_ip
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
