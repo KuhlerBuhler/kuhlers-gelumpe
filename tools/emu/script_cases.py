@@ -530,6 +530,23 @@ def menu_script_cases(programs, built, patched, flash, check):
     entry = plugin_entry(back, runtime)
     check("menu-plugin-an-mit-write-gespeichert", back.u32(entry + 12) == 2 and taps(back, entry) == 1 and not back.m.asserts,
           dict(saved=saved, state=back.u32(entry + 12)))
+    # the list keeps every other checksum when a save takes a marker out (device 28.10.: Lauflicht off, WRITE, EXPORT ALL,
+    # restart, on again: the shift dropped entries behind the removed marker, also the one just added for Lauflicht)
+    checksum = lambda block: struct.unpack_from("<I", block, 12)[0]
+    trust = menu_cases.STATE + 0x1C0
+    others = [0x11111111, 0x22222222]
+    back.m.uc.mem_write(trust, b"".join(struct.pack("<I", value) for value in [~checksum(blocks[1]) & 0xffffffff] + others))
+    back.m.uc.mem_write(menu_cases.STATE + 44, struct.pack("<I", 3))
+    menu_cases.goto_plugin(back, 0)
+    back.turn(-1, wait=0.2)
+    menu_cases.press(back, "write", wait=0.8)
+    listed = sorted(back.u32(trust + 4 * i) for i in range(back.u32(menu_cases.STATE + 44)))
+    leave_menu(back)
+    kept_off = restart(back)
+    entry = plugin_entry(kept_off, runtime)
+    check("menu-plugin-aus-liste-behaelt-die-anderen", listed == sorted(others + [~checksum(blocks[0]) & 0xffffffff])
+          and kept_off.u32(entry + 12) == 1 and not kept_off.m.asserts,
+          dict(listed=[hex(value) for value in listed], state=kept_off.u32(entry + 12)))
 
     # PLUGIN EDIT, built like the firmware's Sample Edit: ENTER opens the pages of one plugin, which wrap; DELETE PLUGIN asks once,
     # then writes e2sPlugin.all without it and goes back to PLUGIN EDIT; EXIT from the pages goes back there too
