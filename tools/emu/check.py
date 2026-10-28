@@ -28,11 +28,12 @@ from pathlib import Path
 import bootcache
 import parallel
 import progress as progress_lib
+import taskcache
 from bootmap import IMAGE, KILL_SWITCH, START_MODES, combine, scenario_names
 from loadbar_cases import GROUPS as LOADBAR_GROUPS, has_hooks as has_loadbar
 from machine import hardware_flash, load_flash
 from firmware import HARDWARE_MARKS, is_synth
-from menu_cases import has_menu
+from menu_cases import LOOK_PARTS, has_menu
 from mfx_cases import has_key_hook
 from pswitch_cases import GROUPS as PSWITCH_GROUPS, has_hooks as has_pswitch
 from power_off_cases import cases_tasks as power_off_tasks, has_hook as has_power_off_hook
@@ -100,12 +101,17 @@ def overlaps(runs, ranges, allow=()):
 def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progress=None, quick=False):
     """base and patched are whole VSB files. Returns {ok, checks, changed}.
 
-    The boots it needs do not depend on each other and run side by side (parallel.py). The result is kept
-    for the same files and the same emulator source (bootcache.py), so an unchanged copy is not checked twice (then
-    `progress` hears nothing). `progress(snapshot)` is called when the run starts and after every finished task
+    The boots it needs do not depend on each other and run side by side (parallel.py). Each task's result is kept with
+    the files it used (taskcache.py), so an unchanged copy is not checked twice and a change runs only the tasks it
+    touches; where that cache is off (the app's frozen service) the whole result is kept for the same files and the same
+    emulator source (bootcache.py), and then `progress` hears nothing. `progress(snapshot)` is called when the run starts and after every finished task
     (progress.py)."""
     if len(base) != HEADER + PAYLOAD or len(patched) != HEADER + PAYLOAD:
         raise ValueError("a VSB has a 0x100-byte header and a 0x200000-byte payload")
+    if taskcache.enabled():
+        # each task is kept with the files it used (taskcache.py), data files included, which a key over the .py files
+        # of tools/ misses; the rest of the check is quick
+        return _check(base, patched, flash, allow, allow_code, jobs, progress, quick)
     return bootcache.cached_result(
         "check-quick" if quick else "check", (bytes(base), bytes(patched), bytes(flash) if flash else b"", sorted(map(tuple, allow)), sorted(map(tuple, allow_code))),
         lambda: _check(base, patched, flash, allow, allow_code, jobs, progress, quick))
@@ -134,7 +140,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     if want(has_start_hook):
         tasks += [("splash_cases", "boot_case_task", (i,)) for i in range(BOOT_CASES)]
     if want(has_menu):
-        tasks += [("menu_cases", "cases_task", ()), ("menu_cases", "settings_cases_task", ()), ("menu_cases", "look_cases_task", ())]
+        tasks += [("menu_cases", "cases_task", ()), ("menu_cases", "settings_cases_task", ())]
+        tasks += [("menu_cases", "look_cases_task", (i,)) for i in range(LOOK_PARTS)]
     if want(has_pswitch):
         tasks += [("pswitch_cases", "cases_task", (i,)) for i in range(len(PSWITCH_GROUPS))]
     if want(has_tapmotion):
@@ -172,10 +179,12 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     names = scenario_names(flash)
     tasks += [("bootmap", "scenario_task", (name,)) for name in names]
     tracker = progress_lib.Tracker(tasks, parallel.workers(len(tasks)) if jobs is None else jobs, progress) if progress else None
-    done = parallel.run_tasks(tasks, {"payload": payload, "flash": flash, "base": base[HEADER:]}, jobs, tracker.done if tracker else None)
+    # Each task's result is kept with the files it used (taskcache.py): a change to one case module runs only its tasks again
+    done = parallel.run_tasks(tasks, {"payload": payload, "flash": flash, "base": base[HEADER:]}, jobs, tracker.done if tracker else None, cache="check",
+                              on_queue=tracker.queued if tracker else None)
     mfx = done.pop(0) if want(has_key_hook) else []
     splash = [done.pop(0) for _ in range(BOOT_CASES)] if want(has_start_hook) else []
-    menu = [c for _ in range(3 if want(has_menu) else 0) for c in done.pop(0)]
+    menu = [c for _ in range(2 + LOOK_PARTS if want(has_menu) else 0) for c in done.pop(0)]
     pswitch = [c for _ in range(len(PSWITCH_GROUPS) if want(has_pswitch) else 0) for c in done.pop(0)]
     tapmotion = [c for _ in range(len(TAPMOTION_GROUPS) if want(has_tapmotion) else 0) for c in done.pop(0)]
     noteassist = [c for _ in range(len(NOTEASSIST_GROUPS) if want(has_noteassist) else 0) for c in done.pop(0)]
