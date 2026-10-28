@@ -168,8 +168,10 @@ def build_patch(vsb):
         "startPhase": [
             {"file": file_offset(BOOT_SITE), "length": 4,
              "why": "the start function loads its first pattern here and now asks lp_boot for the number"},
+            {"file": file_offset(SELECT_SITE), "length": 4,
+             "why": "the start selects its first pattern through the selection, which now notes the number and takes the kept one"},
             {"file": file_offset(CODE_AT), "length": len(code),
-             "why": "lp_boot runs with that call; it reads the held keys and Global byte 248"},
+             "why": "lp_boot and lp_select run with those calls; they read the held keys and Global bytes 248 and 249"},
         ],
         "ram": [],
     }

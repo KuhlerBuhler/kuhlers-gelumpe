@@ -42,7 +42,7 @@ test("two hooked words call into our code, which fits its free run", () => {
     const to = target(change, at);
     assert.ok(to >= 0xc014fe00 && to < 0xc014ff00, `${at.toString(16)} calls ${to.toString(16)}`);
   }
-  assert.deepEqual(PATCH.startPhase.map(s => s.file), [BOOT_SITE, CODE], "only the start function's first pattern runs at start");
+  assert.deepEqual(PATCH.startPhase.map(s => s.file), [BOOT_SITE, SELECT_SITE, CODE], "the first pattern and its selection run at start");
 });
 
 test("its hooks are in the register and the BLECH set carries it", () => {
