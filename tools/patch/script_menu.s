@@ -83,7 +83,8 @@
 .equ INIT_CODE, 0xC014FD00
 .equ GLOBALS_PTR, 0xC0691324
 .equ IP_SLOT, 247
-.equ SPLASH_IMPORT, 0xC01A2500  ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
+.equ VERSION_TEXT, 0xC014FCF0   ; the patch blech-version (tools/patch/blech_version.mjs): "BLECH 1.3.7", NUL padded, FF where the set does not have it
+.equ SPLASH_IMPORT, 0xC01A2500 ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
 .equ SPLASH_RESET, 0xC01A2508
 .equ M_LEVEL, 0xE0
@@ -1433,8 +1434,23 @@ menu_texts_clear:
     beq menu_text_pdesc
     cmp r0, #40
     beq menu_text_ip
+    cmp r0, #41
+    beq menu_text_version
     cmp r0, #7
     bhs menu_text_look
+    pop {r4, r5, r6, r7, pc}
+; VERSION: the set's version text (the patch blech-version) as the title, the firmware this runtime is built for as the value
+menu_text_version:
+    add r0, r5, #M_TITLE
+    ldr r1, =VERSION_TEXT
+    ldrb r2, [r1]
+    cmp r2, #0xFF
+    ldreq r1, =str_blech
+    bl menu_copy16
+    ldr r1, =base_names
+    ldr r1, [r1, #BUILD_BASE]
+    add r0, r5, #M_VALUE
+    bl menu_copy
     pop {r4, r5, r6, r7, pc}
 ; the page BLECH in the ring and the groups of the list look like Data Util: the name as the title, "press  [ Enter ]" under it
 menu_text_ring:
@@ -2220,7 +2236,8 @@ menu_confirm_add:
 
 ; The menu has three levels, the way Data Util has two. Level 0 is the one page BLECH in the ring of the firmware, between Global and
 ; Data Util ("press [ Enter ]"); ENTER opens level 1, the list of the groups FEATURES, CUSTOMIZATION and PLUGINS, and behind them the
-; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it. Each is again
+; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it, and last the page
+; VERSION (the set's version and the firmware it is built for, no group). Each group is again
 ; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
 ; 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR, 8 POWER SAVE, 9 SPLASH). Those five are rows of CUSTOMIZATION that open their pages;
 ; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
@@ -2231,7 +2248,7 @@ menu_confirm_add:
 ; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 2 a plugin, 3 export, 4 and 5 unused, 6 a page a
 ; plugin added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
-; 36 SELECT PLUGIN, 37 DELETE PLUGIN, 38 PLUGIN EDIT, 39 DESCRIPTION), r1 = its index (the plugin, the page, the app's table index,
+; 36 SELECT PLUGIN, 37 DELETE PLUGIN, 38 PLUGIN EDIT, 39 DESCRIPTION, 40 INIT PATTERN, 41 VERSION), r1 = its index (the plugin, the page, the app's table index,
 ; the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
@@ -2262,6 +2279,12 @@ menu_kind:
     moveq r1, #3
     beq menu_kind_done
     cmp r5, #2
+    moveq r1, #0
+    beq menu_kind_done
+    bl menu_page_count          ; VERSION is the last row of the list
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #41
     moveq r1, #0
     beq menu_kind_done
     sub r5, r5, #3
@@ -2371,7 +2394,7 @@ menu_page_count:
 menu_count_level1:
     cmp r1, #1
     bne menu_count_group
-    mov r4, #3
+    mov r4, #4                  ; FEATURES, CUSTOMIZATION, PLUGINS, VERSION, and GAMES and TOOLS where an app is declared in them
     mov r0, #0
     bl app_count
     cmp r0, #0
@@ -3963,6 +3986,7 @@ menu_slot_keys:
     cmp r0, #37
     beq menu_keys_pdel
     cmp r0, #39
+    cmpne r0, #41
     beq menu_keys_done
     cmp r0, #2
     cmpeq r6, #0x09
@@ -4350,7 +4374,15 @@ str_na:
     .asciz "NOTE ASSIST"
 str_mg:
     .asciz "SYNC GROUP"
+str_base_hacktribe:
+    .asciz "HACKTRIBE"
+str_base_red:
+    .asciz "KORG RED"
+str_base_blue:
+    .asciz "KORG BLUE"
 .align 4
+base_names:                     ; the value of VERSION, by BUILD_BASE (tools/patch/script_hooks.py): Hacktribe, Korg's red, Korg's blue
+    .word str_base_hacktribe, str_base_red, str_base_blue
 tab_names:
     .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads, str_tab_psave, str_tab_splash
 group_names:
