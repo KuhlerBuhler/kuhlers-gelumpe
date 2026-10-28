@@ -7,6 +7,7 @@ import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { identify, buildOf, lackOf, hasBlechSysex, firmwareName } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
+import { emuBase, parseEmuLink } from "./emu-link.mjs";
 import { t } from "./i18n.mjs";
 
 const VSB_SIZE = 0x200100;
@@ -52,16 +53,19 @@ const pill = (tone, word) => {
 };
 
 /**
- * Port and key from `#emu=port:key`, kept for this tab only and taken out of
- * the address bar. Call before anything else rewrites the address.
+ * Where and with which key from `#emu=port:key`, or `#emu=/path:key` behind a reverse proxy, kept
+ * for this tab only and taken out of the address bar. Call before anything else rewrites the address.
+ * A path that leaves this page's origin is no link at all: the key stays here.
  */
 export function takeLink() {
-  const m = location.hash.match(/(?:^#|&)emu=(\d+):([\w-]+)/);
-  if (m) {
-    const link = { port: Number(m[1]), token: m[2] };
-    try { sessionStorage.setItem(STORE, JSON.stringify(link)); } catch {}
+  if (/(?:^#|&)emu=/.test(location.hash)) {
+    const link = parseEmuLink(location.hash);
+    if (link) {
+      try { sessionStorage.setItem(STORE, JSON.stringify(link)); } catch {}
+    }
     history.replaceState(null, "", location.pathname + location.search);
-    return { link, fresh: true };
+    // A link that leads elsewhere is forgotten, not followed; the page then looks for its own service.
+    return { link, fresh: !!link };
   }
   try { return { link: JSON.parse(sessionStorage.getItem(STORE)) || null, fresh: false }; } catch { return { link: null, fresh: false }; }
 }
@@ -72,7 +76,8 @@ export function takeLink() {
  */
 export async function findLink(taken) {
   if (taken.link && taken.fresh) return taken;
-  if (!["127.0.0.1", "localhost"].includes(location.hostname)) return taken;
+  // Any host may ask: the page server answers only its own loopback names and the origin a reverse
+  // proxy serves it at (tools/serve.mjs), so a rebound name gets nothing.
   try {
     const res = await fetch("./emu.json", { cache: "no-store" });
     if (res.ok) {
@@ -328,7 +333,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     if (!link) throw new Error(START_HINT);
     let res;
     try {
-      res = await fetch(`http://127.0.0.1:${link.port}${path}`, {
+      res = await fetch(`${emuBase(link)}${path}`, {
         method: "POST", body, headers: { "Content-Type": type, "X-Emu-Token": link.token },
       });
     } catch {
@@ -372,7 +377,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       say("muted", t("emu.state.off"), t("emu.notStarted"), true);
       return;
     }
-    events = new EventSource(`http://127.0.0.1:${link.port}/events?token=${encodeURIComponent(link.token)}`);
+    events = new EventSource(`${emuBase(link)}/events?token=${encodeURIComponent(link.token)}`);
     events.addEventListener("status", e => showStatus(JSON.parse(e.data)));
     // The service sends the on/off display and, besides it, the levels the LCD shows while it
     // follows a switched pixel; once levels come, they are what is drawn.
@@ -520,7 +525,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
           await new Promise(r => setTimeout(r, 1000));
           if (over) break;
           try {
-            const res = await fetch(`http://127.0.0.1:${link.port}/check/progress?token=${encodeURIComponent(link.token)}`);
+            const res = await fetch(`${emuBase(link)}/check/progress?token=${encodeURIComponent(link.token)}`);
             if (res.ok) {
               const snapshot = await res.json();
               if (!over) onProgress(snapshot);

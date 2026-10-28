@@ -155,6 +155,36 @@ jobs:
               - '.github/workflows/test.yml'
 
   # native-midi is not a required check; a pull request that touches nothing it builds or runs skips it.
+  # The container of docker-compose.yaml starts, serves the page and its emulator, and keeps the card in ./SD.
+  docker:
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.suites == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # The runner's user is not UID 1000, the container's node user is: the folder has to let it write.
+      - run: mkdir SD && chmod 777 SD
+      - run: docker compose up --build --detach
+      - name: page, emulator and card answer
+        run: |
+          for i in $(seq 1 90); do curl -fsS http://127.0.0.1:8737/ >/dev/null && break; sleep 2; done
+          curl -fsS http://127.0.0.1:8737/ | grep -qi "<html"
+          # The page names its emulator once that answers; until then /emu.json is null.
+          for i in $(seq 1 60); do
+            port=$(curl -fsS http://127.0.0.1:8737/emu.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)?.port ?? ""))')
+            [ "$port" = 8740 ] && break; sleep 2
+          done
+          [ "$port" = 8740 ]
+          curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8740/ | grep -qv "^000$"
+          for i in $(seq 1 60); do [ -d SD/card ] && break; sleep 2; done
+          ls -la SD
+          [ -d SD/card ]
+      - if: failure()
+        run: docker compose logs
+      # A stop has to end the emulator inside the grace period, not by a kill.
+      - run: docker compose down --timeout 20
+
   native-midi:
     needs: changes
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.native == 'true') }}

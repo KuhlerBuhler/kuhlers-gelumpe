@@ -8,6 +8,7 @@ import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { icon } from "./icons.mjs";
 import { emulatorPanel, takeLink } from "./emulator.mjs";
+import { emuHash } from "./emu-link.mjs";
 import { t } from "./i18n.mjs";
 
 const CHANNEL = "cee.emu.window";
@@ -58,7 +59,7 @@ export function emulatorWindow(emulator, { place }) {
   open.addEventListener("click", () => {
     const url = new URL("emulator.html", location.href);
     const link = emulator.link;
-    url.hash = link ? `emu=${link.port}:${link.token}` : "";
+    url.hash = link ? `emu=${emuHash(link)}` : "";
     win = window.open(url.href, "cee-emulator", "popup,width=1180,height=620");
     if (!win && !inApp()) { toast(t("popout.blocked"), "error"); return; }
     seen = Date.now() + START_MS;
