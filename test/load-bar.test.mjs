@@ -109,9 +109,12 @@ test("applied to the own firmware it changes only what it names, alone and with 
   assert.equal(all.ok, true, all.reasons.join(" "));
 });
 
+// The cases expect the BLECH set around the overlay, as the release check runs them: DISPLAY INVERT comes from the BLECH menu, and
+// after a card error the main screen only comes once the rest of the set has started (alone, the overlay ends with it at once).
+const SET = read("../data/patches/blech.json").patches.map(p => read(`../${p}`));
 describe("the loading bar in the emulator", { concurrency: slots }, () => {
   test("emulate:2026-10-15/ladebalken, the animation, the percent, the finale, the stock cases and the rescue paths", { skip: skipEmu }, async () => {
-    const patched = await patchedCopy([PATCH, SPLASH_DATA]);
+    const patched = await patchedCopy(SET);
     try {
       const run = await exec(python(), [join(dir, "emu/loadbar_cases.py"), "cases", "--patched", patched.path, ...flashArgs], { timeout: 1_800_000, maxBuffer: 4 * 1024 * 1024 });
       assert.ifError(run.error);
@@ -119,7 +122,7 @@ describe("the loading bar in the emulator", { concurrency: slots }, () => {
       assert.deepEqual(report.filter(c => !c.ok), []);
       for (const id of ["overlay_frames_are_the_animation", "percent_counts_up", "finale_from_95", "at_most_20_pictures_a_second", "display_stays_dark",
         "loader_is_no_slower", "main_screen_is_clean", "no_card_is_stock", "exit_held_is_stock", "no_sample_file_is_stock", "panel_update_untouched",
-        "start_mode_1_untouched", "own_image_then_the_animation", "look_needs_the_menu", "percent_never_above_the_read", "percent_size_is_the_file",
+        "start_mode_1_untouched", "own_image_then_the_animation", "look_main_screen", "percent_never_above_the_read", "percent_size_is_the_file",
         "smooth_no_jump", "smooth_never_above_the_read", "smooth_finale_from_95", "custom_at_the_limit", "custom_wrong_magic_shows_the_default",
         "custom_run_past_1023_shows_the_default", "custom_list_cut_off_shows_the_default", "custom_loop_while_waiting"]) {
         assert.ok(report.some(c => c.id === `loadbar:${id}`), id);
@@ -131,16 +134,16 @@ describe("the loading bar in the emulator", { concurrency: slots }, () => {
   });
 
   test("emulate:2026-10-15/ladebalken, the export check passes with the start spans the patch names", { skip: skipEmu }, async () => {
-    const patched = await patchedCopy([PATCH, SPLASH_DATA]);
+    const patched = await patchedCopy(SET);
     try {
-      const args = ["--base", vsb, "--patched", patched.path, ...flashArgs, "--allow", "0xf9954:1024", ...patched.allowCode.flatMap(([at, n]) => ["--allow-code", `0x${at.toString(16)}:${n}`])];
-      const run = await exec(python(), [join(dir, "emu/check.py"), ...args], { timeout: 1_800_000, maxBuffer: 8 * 1024 * 1024 });
+      const args = ["--base", vsb, "--patched", patched.path, ...flashArgs, ...patched.allow.flatMap(([at, n]) => ["--allow", `0x${at.toString(16)}:${n}`]), ...patched.allowCode.flatMap(([at, n]) => ["--allow-code", `0x${at.toString(16)}:${n}`])];
+      const run = await exec(python(), [join(dir, "emu/check.py"), ...args], { timeout: 3_600_000, maxBuffer: 8 * 1024 * 1024 });
       assert.ifError(run.error);
       const report = JSON.parse(run.stdout);
       assert.deepEqual(report.checks.filter(c => !c.ok), []);
       assert.ok(report.checks.some(c => c.id === "loadbar:overlay_frames_are_the_animation"), "the patch's own cases ran");
       assert.equal(run.status, 0);
-      const bare = await exec(python(), [join(dir, "emu/check.py"), "--base", vsb, "--patched", patched.path, ...flashArgs, "--allow", "0xf9954:1024"], { timeout: 1_800_000, maxBuffer: 8 * 1024 * 1024 });
+      const bare = await exec(python(), [join(dir, "emu/check.py"), "--base", vsb, "--patched", patched.path, ...flashArgs, ...patched.allow.flatMap(([at, n]) => ["--allow", `0x${at.toString(16)}:${n}`])], { timeout: 3_600_000, maxBuffer: 8 * 1024 * 1024 });
       assert.equal(bare.status, 1, "without the spans the hooks are changes in the start code");
     } finally {
       patched.remove();
@@ -155,6 +158,6 @@ function patchedCopy(patches) {
   return applyPatches(original, patches).then(res => {
     assert.equal(res.ok, true, res.reasons.join(" "));
     writeFileSync(path, res.bytes);
-    return { path, allowCode: res.allowCode, remove: () => rmSync(directory, { recursive: true, force: true }) };
+    return { path, allow: res.allow, allowCode: res.allowCode, remove: () => rmSync(directory, { recursive: true, force: true }) };
   });
 }
