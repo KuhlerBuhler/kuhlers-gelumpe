@@ -770,7 +770,7 @@ the title holds about 18. EXPORT ALL is in the PLUGINS group, not in DATA UTILIT
 
 On the page RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
-number (24 to 88 bytes, tag `GSET`, version 2, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
+number (24 to 88 bytes, tag `GSET`, version 2, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 16 entries; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches; when the list is full, the oldest entry that belongs to no loaded plugin drops out first (a plugin no longer on the card, or an older build of one), otherwise an approval drops the oldest entry of all; a marker that finds no room is missing and the plugin runs again after a restart).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at
 the firmware's values). The page reports "saved", "no card", "card protected", "folder missing" or "write
 error". Nothing is written to the flash.
