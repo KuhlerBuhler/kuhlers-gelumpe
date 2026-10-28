@@ -24,6 +24,7 @@
   "data/patches/fx-catalog.json",
   "data/patches/synth-filters.json",
   "data/patches/power-off.json",
+  "data/patches/last-pattern.json",
   "data/patches/doom-loader.json",
   "data/patches/blech-sysex.json",
   "data/patches/blech-sysex-stock.json"
