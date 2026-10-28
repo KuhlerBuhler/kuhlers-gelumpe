@@ -221,6 +221,68 @@ export function frameToPixels(frame) {
 
 export { SPLASH_W, SPLASH_H };
 
+/**
+ * The app edits an animation as 100 slots, slot n for n percent: the firmware shows progress picture
+ * progressIndex(100, permille), so with 100 progress pictures slot n is on screen from about n percent on.
+ * An empty slot keeps the picture before it (its list is empty, 2 bytes); an empty slot 0 is a blank display.
+ */
+export const SLOTS = 100;
+const LOOP_DEFAULT = 95;
+
+/**
+ * Which of `k` imported pictures slot `slot` takes, or -1 for an empty slot.
+ *   stretch: the pictures spread evenly over the slots, the first at slot 0; with more than 100 every slot takes the
+ *            picture at its share of the run, so some are left out.
+ *   repeat:  slot n takes picture n % k, the run repeats from 0 to 100 percent (more than 100 pictures: stretch).
+ */
+export function slotSource(slot, k, mode = "stretch") {
+  if (k <= 0) return -1;
+  if (k > SLOTS) return Math.floor(slot * k / SLOTS);
+  if (mode === "repeat") return slot % k;
+  const j = Math.ceil(slot * k / SLOTS);
+  return j < k && Math.floor(j * SLOTS / k) === slot ? j : -1;
+}
+
+/**
+ * The 100 slots (a picture or null each) to the frames the encoder takes. `loopFrom` 1 to 99 makes the filled slots
+ * from there on the loop pictures, which play over the progress while it stands from that percent on; the progress
+ * holds the picture before. `invert` turns every picture, the blank one too; the slots stay as they are.
+ */
+export function slotsToAnimation(slots, { loopFrom = 0, invert = false } = {}) {
+  const turn = f => (invert ? f.map(b => b ^ 0xff) : f);
+  const cut = loopFrom > 0 && loopFrom < SLOTS ? loopFrom : SLOTS;
+  const loop = slots.slice(cut, SLOTS).filter(Boolean).map(turn);
+  const progress = [];
+  let shown = turn(new Uint8Array(FRAME_BYTES).fill(0xff));
+  for (let s = 0; s < SLOTS; s++) {
+    if (s < cut && slots[s]) shown = turn(slots[s]);
+    progress.push(shown);
+  }
+  return { progress, loop, loopFrom: loop.length ? cut : 0 };
+}
+
+const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * A file's frames back to slots: a picture where it changes, null where it repeats the one before (or is blank at
+ * slot 0). Other progress counts than 100 (older files) spread over the slots; a loop on a stall (0) gets 95 percent.
+ */
+export function animationToSlots({ progress, loop = [], loopFrom = 0 }) {
+  const n = progress.length;
+  const slots = Array(SLOTS).fill(null);
+  const from = loop.length ? Math.min(SLOTS - 1, loopFrom || LOOP_DEFAULT) : 0;
+  const blank = new Uint8Array(FRAME_BYTES).fill(0xff);
+  let prev = blank;
+  for (let s = 0; s < (from || SLOTS); s++) {
+    const j = n === SLOTS ? s : slotSource(s, n, "stretch");
+    if (j < 0) continue;
+    if (!same(progress[j], prev)) slots[s] = progress[j].slice();
+    prev = progress[j];
+  }
+  loop.slice(0, SLOTS - from).forEach((f, j) => { slots[from + j] = f.slice(); });
+  return { slots, loopFrom: from };
+}
+
 export const LOADING_ANIM_ID = "loading-anim";
 
 /**

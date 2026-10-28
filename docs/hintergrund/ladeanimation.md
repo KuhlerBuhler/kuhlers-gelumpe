@@ -120,14 +120,22 @@ stehen in `tools/emu/loadbar_cases.py` (`case_smooth`, `case_custom`).
 
 ## In der App
 
-`Gerät -> Design`, Tab Ladeanimation: ein GIF oder mehrere Einzelbilder (sortiert nach Namen), gewandelt wie das
-Startbild (`pixelsOf` in `site/app/splash.mjs`, gleiche Schwelle, unter "Umwandlung"). Die Vorschau spielt 0 bis 100 % ab
-(bei reduzierter Bewegung erst auf Knopfdruck), der Regler und die Bilderleiste springen. "Warte-Schleife ab Bild n"
-teilt die Bilder: davor Fortschritt, ab n Schleife, dazu ein Feld "Schleife ab ... %" (1 bis 100, Standard 95), das immer
-als Byte 5 geschrieben wird. Die Wahl "wenn der Fortschritt steht" gibt es in der App nicht mehr, weil der Fortschritt
-jetzt nach Bytes gleichmäßig läuft; eine ältere Datei mit 0 dort zeigt das Feld mit 95 und wird beim nächsten Speichern
-mit 95 geschrieben. Die Größe steht als "x von 16 KB"; zu groß heißt gesperrt, mit den drei teuersten Bildern im Hinweis
-und dem Knopf Ausdünnen. Gespeichert wird die Datei im Browser. Der Speichern-Knopf ist nur aktiv, solange etwas nicht
+`Gerät -> Design`, Tab Ladeanimation: eine Galerie mit 100 Plätzen, Platz n für n % (die App schreibt immer 100
+Fortschrittsbilder, `progressIndex(100, ...)`), immer ein Platz zu sehen, mit Pfeilen, Regler und Abspielen. Ein GIF oder
+mehrere Einzelbilder (sortiert nach Namen) oben ersetzen die Galerie, nach einer Rückfrage, wenn schon Bilder drin sind.
+Weniger als 100 Bilder: "Strecken" verteilt sie gleichmäßig (Bild j auf Platz floor(j * 100 / k), die Plätze dazwischen
+bleiben leer), "Wiederholen" gibt Platz n das Bild n % k. Mehr als 100 werden gleichmäßig ausgedünnt (`slotSource` in
+`src/loading-anim.mjs`). Ein leerer Platz zeigt ein Plus, nimmt ein einzelnes Bild per Ziehen oder Auswahl und kostet in
+der Datei nur seine leere Liste, weil er das Bild davor stehen lässt; Platz 0 leer heißt leeres Display. Der Stift oben
+rechts öffnet einen Editor mit Stift und Radierer auf den 128 x 64 Pixeln des Platzes. Gewandelt wird wie das Startbild
+(`pixelsOf` in `site/app/splash.mjs`, Schwelle und Rastern unter "Umwandlung"); "Umkehren" gilt für die ganze Animation.
+Darunter läuft die Vorschau ständig im Display-Look des Emulators (`drawDisplay`, gesetzte Bits hell), bei reduzierter
+Bewegung zeigt sie den Platz der Galerie. "Warte-Schleife" mit "Schleife ab ... %" (1 bis 99, Standard 95) macht die
+belegten Plätze ab da zu Schleifenbildern, der Fortschritt hält dort das Bild davor (`slotsToAnimation`); geladen kommen
+die Schleifenbilder ohne Lücken ab dem Prozent zurück (`animationToSlots`). Eine ältere Datei mit 0 in Byte 5 zeigt 95 und
+wird mit 95 geschrieben, eine mit anderer Bildzahl wird auf die Plätze gestreckt. Die Größe steht als "x von 16 KB"; zu
+groß heißt gesperrt, mit den drei teuersten Bildern im Hinweis und dem Knopf Ausdünnen (leert jedes zweite belegte Bild
+vor der Schleife). Gespeichert wird die Datei im Browser. Der Speichern-Knopf ist nur aktiv, solange etwas nicht
 gespeichert ist; eine Hilfezeile darunter sagt, was der Patcher nimmt, ob die Änderungen gespeichert sind, und verlinkt
 den Firmware Patcher.
 

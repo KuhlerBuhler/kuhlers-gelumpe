@@ -87,21 +87,59 @@
   border-radius: var(--radius-xs);
 }
 
-/* The loading animation (loading-anim.mjs): one flow from top to bottom, Laden, Ansehen, Bilder, Warte-Schleife,
-   Umwandlung, Speichern. The section's gap spaces the blocks; the work part takes part in it with display: contents. */
+/* The loading animation (loading-anim.mjs): one flow from top to bottom, Laden, Galerie, Vorschau, Warte-Schleife,
+   Umwandlung, Speichern. The section's gap spaces the blocks. */
 .cee-anim [hidden] {
   display: none;
 }
 
-.cee-anim-work {
-  display: contents;
-}
-
-.cee-anim-view {
+/* The gallery: one slot at a time between two arrows, its line below, then slider and play. */
+.cee-anim-gallery {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-width: calc(128px * 3);
+  max-width: 36rem;
+}
+
+.cee-anim-stage {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cee-anim-slot {
+  position: relative;
+  aspect-ratio: 2 / 1;
+}
+
+.cee-anim-slot > .cee-anim-slot-picture {
+  display: block;
+  max-width: none;
+  height: 100%;
+}
+
+/* an empty slot: the drop field fills the picture's place */
+.cee-anim-slot > .cee-anim-slot-drop {
+  box-sizing: border-box;
+  height: 100%;
+  justify-content: center;
+}
+
+.cee-anim-slot > [hidden] {
+  display: none;
+}
+
+.cee-anim-slot-tools {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  gap: var(--space-1);
+}
+
+.cee-anim-slot-tools > .btn {
+  background: var(--color-bg-popover);
 }
 
 .cee-anim-player {
@@ -114,71 +152,23 @@
   flex: 1 1 auto;
 }
 
-/* The strip: one small button per picture, the shown one marked, a status word where the loop starts. */
-.cee-anim-frames {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
-  gap: var(--space-2);
+/* the preview in the emulator's display frame, as the device shows it */
+.cee-anim-lcd {
+  width: min(100%, 24rem);
   margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
-.cee-anim-frames > li {
-  display: flex;
-  min-width: 0;
-}
-
-.cee-anim-split {
-  align-items: center;
-  justify-content: center;
-}
-
-.cee-anim-thumb {
+.cee-anim-loop {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  width: 100%;
-  padding: var(--space-1);
-  border: 1px solid var(--color-border-muted);
-  border-radius: var(--radius-xs);
-  background: var(--color-surface-panel-alt);
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  cursor: pointer;
+  gap: var(--space-2);
 }
 
-.cee-anim-thumb:hover {
-  border-color: var(--color-border-strong);
+.cee-anim-loop > * {
+  margin: 0;
 }
 
-.cee-anim-thumb:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
-}
-
-.cee-anim-thumb[data-loop] {
-  border-style: dashed;
-}
-
-.cee-anim-thumb[aria-current="true"] {
-  border-color: var(--color-border-accent);
-  box-shadow: inset 0 0 0 1px var(--color-border-accent);
-  color: var(--color-text-accent);
-}
-
-/* until it scrolls into view and is drawn, a picture holds its place as a quiet surface */
-.cee-anim-thumb .cee-splash-thumb {
-  border-radius: var(--radius-xs);
-  background: var(--color-surface-item-muted);
-}
-
-.cee-anim-loop-at {
-  max-width: 20rem;
-}
-
-/* the design system stretches a field's input to the full width; a percent needs no more than the select above */
+/* the design system stretches a field's input to the full width; a percent needs no more */
 .cee-anim-percent {
   max-width: 7rem;
 }
@@ -204,4 +194,21 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* The editor: the pixels as large as the dialog allows, drawn with the pointer. */
+.cee-anim-editor .ui-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cee-anim-editor .ui-dialog-body > * {
+  margin: 0;
+}
+
+.cee-anim-board {
+  max-width: none;
+  touch-action: none;
+  cursor: crosshair;
 }
