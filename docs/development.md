@@ -49,6 +49,13 @@ hineinschreiben. Der Editor hat keine
 Anmeldung, deshalb bleiben beide Ports auf 127.0.0.1. Ohne Docker gilt `npm start`
 wie oben.
 
+Ein Release legt dasselbe Abbild auch in GitHubs Paketregister ab, für linux/amd64
+und linux/arm64 (`.github/workflows/docker-image.yml`, von `release.yml`
+aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Wer
+nicht selbst bauen will, trägt den Namen in `docker-compose.yaml` bei `image` ein
+und entfernt `build: .`; `docker compose up` zieht das Abbild dann. Der Ordner
+`SD` bleibt nötig, denn die Karte liegt in keinem Abbild.
+
 ## Hinter einem Proxy
 
 Ein Reverse Proxy auf demselben Rechner (Caddy, nginx, Traefik) erreicht den

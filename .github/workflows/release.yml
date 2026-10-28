@@ -1,6 +1,6 @@
 # The release, started by the merge of the release pull request into main (docs/development.md, "Release"): when
 # package.json names a version without a tag and release-notes/<version>.md exists with a German and an English part, it builds the apps, checks the BLECH
-# set on Korg's three 2.02 files in the emulator, builds BLECH.patch, publishes the release and posts it to Discord.
+# set on Korg's three 2.02 files in the emulator, builds BLECH.patch, publishes the release, the container image and the Discord post.
 # Any other push to main ends after the first job.
 #
 # The 2.02 files are Korg's and never enter the repo: the job loads them from the links in the secrets E2_VSB_URL
@@ -173,6 +173,18 @@ jobs:
       - run: node tools/release.mjs dist-release --ci "--notes=release-notes/$VERSION.md" --yes
         env:
           GH_TOKEN: ${{ github.token }}
+
+  # The container image under the same version, so docker-compose.yaml can pull what the release carries
+  # instead of building it (docker-image.yml). The release is published by now; a failing push leaves it
+  # without an image and turns this run red.
+  container:
+    needs: [due, release]
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      tag: v${{ needs.due.outputs.version }}
+    permissions:
+      contents: read
+      packages: write
 
   discord:
     needs: [due, release]
