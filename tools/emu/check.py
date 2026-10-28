@@ -6,10 +6,12 @@ Only the patched copy is booted. A changed byte that affects the start is
 itself executed or read on the way, so it shows up in the start phase of the
 patched copy; one that is never reached cannot change the start.
 
-    tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched NEW.VSB [--flash dump.bin | --hardware blue] [--allow 0xF9954:1024] [--allow-code 0x2AEAC:4]
+    tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched NEW.VSB [--flash dump.bin | --hardware blue] [--boot-flash dump.bin] [--allow 0xF9954:1024] [--allow-code 0x2AEAC:4]
 
 --hardware blue runs every boot on a blank flash of the blue Electribe 2 (its user-data mark), for Sampler code
-that runs there (Hacktribe for the blue, docs/ideen/65-blech-hacktribe-blau.md).
+that runs there (Hacktribe for the blue, docs/ideen/65-blech-hacktribe-blau.md). --boot-flash is a user's own flash for the
+start scenarios only; the cases of the patches still run on the --flash/--hardware one, since they expect the Init patterns
+of a blank flash (one bar, no chain), not what a user saved (the app's check does this, server.py).
 
 --allow is data of the map's formats that is read at start. --allow-code is an
 explicit exception to rule 2 of docs/patcher.md: start-phase code a patch
@@ -98,8 +100,9 @@ def overlaps(runs, ranges, allow=()):
     return hits
 
 
-def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progress=None, quick=False):
-    """base and patched are whole VSB files. Returns {ok, checks, changed}.
+def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progress=None, quick=False, boot_flash=None):
+    """base and patched are whole VSB files. Returns {ok, checks, changed}. `boot_flash` is the flash the start scenarios
+    boot from (default `flash`); the cases of the patches run on `flash`.
 
     The boots it needs do not depend on each other and run side by side (parallel.py). Each task's result is kept with
     the files it used (taskcache.py), so an unchanged copy is not checked twice and a change runs only the tasks it
@@ -111,13 +114,14 @@ def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progres
     if taskcache.enabled():
         # each task is kept with the files it used (taskcache.py), data files included, which a key over the .py files
         # of tools/ misses; the rest of the check is quick
-        return _check(base, patched, flash, allow, allow_code, jobs, progress, quick)
+        return _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash)
     return bootcache.cached_result(
-        "check-quick" if quick else "check", (bytes(base), bytes(patched), bytes(flash) if flash else b"", sorted(map(tuple, allow)), sorted(map(tuple, allow_code))),
-        lambda: _check(base, patched, flash, allow, allow_code, jobs, progress, quick))
+        "check-quick" if quick else "check", (bytes(base), bytes(patched), bytes(flash) if flash else b"", sorted(map(tuple, allow)), sorted(map(tuple, allow_code)))
+        + ((bytes(boot_flash),) if boot_flash is not None else ()),
+        lambda: _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash))
 
 
-def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=False):
+def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=False, boot_flash=None):
     """base and patched are whole VSB files. Returns {ok, checks, changed}. `quick` runs only what keeps the device safe:
     the start scenarios (normal start, update offer, panel update, start modes, EXIT, DSP once, start phase), not the
     cases of the patches, which test the patches' own code, the same in every file."""
@@ -176,12 +180,14 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     tasks += power_off
     if want(has_presets):
         tasks.append(("preset_cases", "cases_task", ()))
-    names = scenario_names(flash)
+    boot = flash if boot_flash is None else boot_flash
+    names = scenario_names(boot)
     tasks += [("bootmap", "scenario_task", (name,)) for name in names]
     tracker = progress_lib.Tracker(tasks, parallel.workers(len(tasks)) if jobs is None else jobs, progress) if progress else None
-    # Each task's result is kept with the files it used (taskcache.py): a change to one case module runs only its tasks again
-    done = parallel.run_tasks(tasks, {"payload": payload, "flash": flash, "base": base[HEADER:]}, jobs, tracker.done if tracker else None, cache="check",
-                              on_queue=tracker.queued if tracker else None)
+    # Each task's result is kept with the files it used (taskcache.py): a change to one case module runs only its tasks again.
+    # Both flashes are shared data and so part of every task's key.
+    done = parallel.run_tasks(tasks, {"payload": payload, "flash": flash, "boot_flash": boot, "base": base[HEADER:]}, jobs, tracker.done if tracker else None,
+                              cache="check", on_queue=tracker.queued if tracker else None)
     mfx = done.pop(0) if want(has_key_hook) else []
     splash = [done.pop(0) for _ in range(BOOT_CASES)] if want(has_start_hook) else []
     menu = [c for _ in range(2 + LOOK_PARTS if want(has_menu) else 0) for c in done.pop(0)]
@@ -212,7 +218,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         if name in report:
             r, _, clean = state(name)
             add(f"boot:{name}", clean and "screen_1" in r["events_ms"],
-                "bootet bis zum Hauptbildschirm" + (" mit dem eigenen Flash" if name == "normal" and flash else ""))
+                "bootet bis zum Hauptbildschirm" + (" mit dem eigenen Flash" if name == "normal" and boot else ""))
     r, p, clean = state("update_offer")
     add("update_offer", clean and p.get("mode") == 10, "ohne Kennung bei Flash 0x220000 kommt die Update-Abfrage")
     r, p, clean = state("panel_update")
@@ -280,13 +286,14 @@ def main():
     p.add_argument("--allow", action="append", default=[], type=span, metavar="FILE:LEN",
                    help="data the map knows and that may be read at start, e.g. the start image 0xF9954:1024")
     p.add_argument("--hardware", choices=sorted(HARDWARE_MARKS), help="without --flash: a blank flash of this hardware")
+    p.add_argument("--boot-flash", nargs="*", default=[], type=Path, help="own flash for the start scenarios only, not the cases")
     p.add_argument("--quick", action="store_true", help="only the start scenarios, not the cases of the patches")
     p.add_argument("--allow-code", action="append", default=[], type=span, metavar="FILE:LEN",
                    help="start-phase code a patch replaces on purpose (docs/patcher.md rule 2), e.g. 0x2AEAC:4")
     a = p.parse_args()
     flash = load_flash(a.flash) if a.flash else bytes(hardware_flash(a.hardware)) if a.hardware else None
     result = check(a.base.read_bytes(), a.patched.read_bytes(), flash, a.allow, a.allow_code,
-                   progress=progress_lib.to_stderr, quick=a.quick)
+                   progress=progress_lib.to_stderr, quick=a.quick, boot_flash=load_flash(a.boot_flash) if a.boot_flash else None)
     print(json.dumps(result, indent=1, ensure_ascii=False))
     return 0 if result["ok"] else 1
 

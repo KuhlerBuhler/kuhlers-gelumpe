@@ -118,9 +118,9 @@ def real_machine(payload, flash):
     return Machine(payload, flash)
 
 
-def real_check(base, patched, flash, allow, allow_code=(), progress=None, quick=False):
+def real_check(base, patched, flash, allow, allow_code=(), boot_flash=None, progress=None, quick=False):
     from check import check
-    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick)
+    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick, boot_flash=boot_flash)
 
 
 class Emulator:
@@ -440,15 +440,19 @@ class Emulator:
         self.inputs.put(held)
 
     def check(self, pair, allow, allow_code=(), quick=False, hardware=None):
-        """Export check (check.py) of the original VSB and its patched copy, sent one after the other, with the flash
-        of the hardware the original runs on (by its head, or `hardware`). One check at a time; `quick` only the start scenarios."""
+        """Export check (check.py) of the original VSB and its patched copy, sent one after the other. The start scenarios
+        boot from the flash of the hardware the original runs on (by its head, or `hardware`), the user's own; the cases of
+        the patches run on a blank flash of that hardware, as in CI: they expect Init patterns, not the user's.
+        One check at a time; `quick` only the start scenarios."""
         if len(pair) != 2 * VSB_SIZE:
             raise ValueError(f"Die Prüfung braucht Original und Kopie, je {VSB_SIZE} Byte.")
         if not self.checking.acquire(blocking=False):
             raise ValueError("Es läuft schon eine Prüfung.")
         self.check_progress = {"state": "running"}
         try:
-            result = self.checker(bytes(pair[:VSB_SIZE]), bytes(pair[VSB_SIZE:]), self.current_flash(hardware or hardware_of(pair[:VSB_SIZE]), bytes(pair[0x100:VSB_SIZE])), allow, allow_code,
+            hardware, payload = hardware or hardware_of(pair[:VSB_SIZE]), bytes(pair[0x100:VSB_SIZE])
+            result = self.checker(bytes(pair[:VSB_SIZE]), bytes(pair[VSB_SIZE:]), blank_for(hardware, payload), allow, allow_code,
+                                  boot_flash=self.current_flash(hardware, payload),
                                   progress=lambda snapshot: setattr(self, "check_progress", {"state": "running", **snapshot}),
                                   **({"quick": True} if quick else {}))
             self.check_progress = {**self.check_progress, "state": "done"}
