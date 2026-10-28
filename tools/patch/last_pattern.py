@@ -28,6 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import arm  # noqa: E402
+import synthaddr  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
@@ -45,6 +46,18 @@ PENDING = 249                   # Global byte: 1 from boot() until the first sel
 PANEL = 0xC033E6F8              # pointer to the panel object, +0x18 held keys
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13)
 PATTERNS = 250
+SEL_OBJ = 0                     # synth only: the selection's object (+0x318 the number), set at start as no selection runs there
+SEL_OBJ_SYNTH = 0xC0583668      # r0 of the synth's selection 0xC006C740 (Emulator, Korg blue 2.02); the red's selection sets it itself
+
+
+FIRMWARE_PLACES = ["BOOT_SITE", "SELECT_SITE", "GLOBALS", "PANEL"]
+
+
+def use_build(build):
+    """For the synth (the blue Electribe 2) the firmware's places have their own addresses (data/synth-map/); the code stays where it is."""
+    global SEL_OBJ
+    synthaddr.use(globals(), FIRMWARE_PLACES, build)
+    SEL_OBJ = SEL_OBJ_SYNTH if build == "synth" else 0
 
 
 def source():
@@ -55,6 +68,7 @@ def source():
 .equ SLOT, {SLOT}
 .equ PENDING, {PENDING}
 .equ PATTERNS, {PATTERNS}
+.equ SEL_OBJ, {SEL_OBJ}
 .org {CODE_AT:#x}
 
 ; replaces mov r1, #0 in the start function: r1 = the kept pattern, or 0. Clobbers r0 and r12.
@@ -78,6 +92,9 @@ lp_boot:
     sub r1, r1, #1
     mov r0, #1
     strb r0, [r12, #PENDING]
+    ldr r0, =SEL_OBJ
+    cmp r0, #0
+    strne r1, [r0, #0x318]
     bx lr
 lb_none:
     mov r1, #0
@@ -133,7 +150,7 @@ def bl_word(at, target):
     return 0xEB000000 | (((target - (at + 8)) >> 2) & 0xFFFFFF)
 
 
-def build_patch(vsb):
+def build_patch(vsb, build="hacktribe"):
     """The patch as a dict; `vsb` is the user's file, read for the hashes of the replaced bytes."""
     at, code, symbols = build_code()
     if at != CODE_AT or at + len(code) > CODE_END:
@@ -150,7 +167,7 @@ def build_patch(vsb):
     return {
         "format": "gelumpe-patch", "version": 1, "id": "last-pattern",
         "name": "Letztes Pattern beim Einschalten",
-        "builds": ["hacktribe", "stock"],
+        "builds": ["synth"] if build == "synth" else ["hacktribe", "stock"],
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": sha(was(CODE_AT, len(code))),
              "note": "last pattern: the start function and the first selection take the kept number, every selection notes it in Global byte 248"},
@@ -180,12 +197,14 @@ def build_patch(vsb):
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)
+    p.add_argument("--build", choices=["hacktribe", "synth"], default="hacktribe", help="synth: the blue Electribe 2's file, with the places of data/synth-map/")
     p.add_argument("--out", type=Path)
     a = p.parse_args()
+    use_build(a.build)
     raw = a.vsb.read_bytes()
     if len(raw) != 0x200100:
         raise SystemExit("a VSB has 0x200100 bytes")
-    text = json.dumps(build_patch(raw), indent=1) + "\n"
+    text = json.dumps(build_patch(raw, a.build), indent=1) + "\n"
     if a.out:
         a.out.write_text(text)
     else:

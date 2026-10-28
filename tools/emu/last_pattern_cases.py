@@ -16,18 +16,24 @@ sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import last_pattern as spec  # noqa: E402
+import synthaddr  # noqa: E402
 import menu_cases  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
 
 IMAGE = 0xC0000000
-SELECTED = 0xC06C4230 + 0x318   # the pattern the selection stored last (the object of 0xC0079DB4, measured at power-on)
 POWER_KEY = [6, 1, 0, 0, 0]
+
+
+def for_build(payload):
+    """The patch module's places for the build of this image (the synth has its own, data/synth-map/)."""
+    spec.use_build("synth" if synthaddr.is_synth(payload) else "hacktribe")
 
 
 def has_hooks(payload):
     """True when the start function's pattern goes through our code."""
+    for_build(payload)
     word = struct.unpack_from("<I", payload, spec.BOOT_SITE - IMAGE)[0]
     if word >> 24 != 0xEB:
         return False
@@ -40,7 +46,15 @@ def entry(name, ok, detail):
 
 
 def boot(payload, flash, held=0):
+    """Booted to the main screen; every pattern selection's number is kept in dev.chosen (r5 two words behind the hooked site, where
+    the selection passes it on as mov r1, r5)."""
+    import unicorn
+    from unicorn import arm_const
+    for_build(payload)
     dev = Dev(payload, flash, held)
+    dev.chosen = []
+    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: dev.chosen.append(uc.reg_read(arm_const.UC_ARM_REG_R5)),
+                      begin=spec.SELECT_SITE + 8, end=spec.SELECT_SITE + 8)
     dev.m.adapter = False
     dev.m.insert_card(SDCard(MemoryMedium(menu_cases.card_image(menu_cases.CARD_FOLDER))))
     dev.run(2.0)
@@ -48,7 +62,9 @@ def boot(payload, flash, held=0):
 
 
 def selected(dev):
-    return dev.u32(SELECTED)
+    """The pattern the firmware selected last, 0 to 249: r5 at the selection's mov r1, r5, behind the patch's code, which may have
+    swapped in the kept number."""
+    return dev.chosen[-1] if dev.chosen else 0
 
 
 def switch_off(dev):

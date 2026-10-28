@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import init_pattern as spec  # noqa: E402
+import synthaddr  # noqa: E402
 import menu_cases  # noqa: E402
 from machine import load_flash  # noqa: E402
 
@@ -25,8 +26,15 @@ PATTERN_IN_RAM = 0xC033E6A4          # pointer to the pattern in RAM, its block 
 MARK_NAME = b"TEMPLATE SEVEN\0\0"      # put into the bank block of pattern 7, so the copy shows on the display
 
 
+def for_build(payload):
+    spec.use_build("synth" if synthaddr.is_synth(payload) else "hacktribe")
+    global PATTERN_IN_RAM
+    PATTERN_IN_RAM = synthaddr.tr(0xC033E6A4) if synthaddr.is_synth(payload) else 0xC033E6A4
+
+
 def has_hooks(payload):
     """True when INITIALIZE PATTERN calls our code."""
+    for_build(payload)
     word = struct.unpack_from("<I", payload, spec.INIT_CALL - IMAGE)[0]
     if word >> 24 != 0xEB:
         return False
@@ -56,6 +64,7 @@ def initialize(dev):
 
 
 def case_page(payload, flash):
+    for_build(payload)
     out = []
     dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True)
     menu_cases.goto_group(dev, menu_cases.GROUP_FEATURES, menu_cases.FEAT_INIT)
@@ -76,6 +85,7 @@ def case_page(payload, flash):
 
 
 def case_init(payload, flash):
+    for_build(payload)
     out = []
     for name, value, held, want in (("template", 7, 0, "TEMPLATE SEVEN"), ("factory", 0, 0, "Init Pattern"),
                                     ("exit", 7, spec.KILL_SWITCH, "Init Pattern")):

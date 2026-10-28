@@ -42,5 +42,5 @@ die Globals im RAM. Zu [Idee 76](../ideen/76-letztes-pattern.md), Patch `data/pa
 ## Offen
 
 - Am Gerät nicht geprüft.
-- Blaue Electribe (Synth): Adressen noch nicht gesucht, der Patch ist nur für rot.
+- Blaue Electribe (Synth): gebaut (`data/patches/last-pattern-synth.json`). Die blaue lädt beim Start Pattern 0 bei `0xC0028104` und ruft danach von sich aus keine Patternwahl auf; ihre Nummer steht in `0xC0583668 + 0x318` (r0 der Wahl `0xC006C740`, Emulator). `lp_boot` trägt die gemerkte Nummer dort ein, darauf wählt die Firmware sie selbst, und der Merker gibt der Wahl die Nummer. Die fünf Fälle grün mit Korgs blauem 2.02.
 - Ein Menüpunkt zum Abschalten gibt es nicht; wer 001 will, hält EXIT oder nimmt den Patch im Patcher raus.

@@ -37,5 +37,5 @@ BLECH > FEATURES. Am Gerät nicht geprüft.
 ## Offen
 
 - Am Gerät nicht geprüft.
-- Blau: nicht gebaut.
+- Blau: gebaut (`data/patches/init-pattern-synth.json`, Stellen in `data/synth-map/last-pattern.json`), die sechs Fälle grün im Emulator mit Korgs blauem 2.02.
 - Welche Felder eines geleerten Patterns 0 nicht vertragen, ist nicht untersucht; wer ein eigenes leeres Pattern nimmt, nimmt es so, wie er es gespeichert hat.
