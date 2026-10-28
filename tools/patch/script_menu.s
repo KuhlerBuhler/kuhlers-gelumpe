@@ -2158,7 +2158,7 @@ menu_off_shift:
     add r12, r3, #1
     ldr r12, [r2, r12, lsl #2]
     str r12, [r2, r3, lsl #2]
-    add r3, r3, #3
+    add r3, r3, #1
     b menu_off_shift
 menu_off_keep:
     ldr r0, [r5, #SCRIPT_ENTRY_STATE]
