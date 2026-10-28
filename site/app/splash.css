@@ -212,3 +212,14 @@
   touch-action: none;
   cursor: crosshair;
 }
+
+/* the preview's pause button beside the percent it shows */
+.cee-anim-preview-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cee-anim-preview-row > .ui-field-help {
+  margin: 0;
+}

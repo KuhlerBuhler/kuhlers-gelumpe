@@ -164,11 +164,13 @@ export function loadingAnimSection() {
   lcd.setAttribute("role", "img");
   lcd.setAttribute("aria-label", t("splash.anim.preview"));
   const lcdAt = el("span", { className: "muted", id: "cee-anim-preview-at" });
+  // the running preview can be stopped (WCAG 2.2.2); stopped, it follows the gallery as with reduced motion
+  const previewToggle = el("button", { type: "button", className: "btn icon", id: "cee-anim-preview-toggle" });
   const invert = switchOf("cee-anim-invert", t("splash.invert"));
   invert.input.addEventListener("change", () => update());
   const preview = field(el("span", { className: "ui-field-label", textContent: t("splash.anim.preview.title") }), [
     el("div", { className: "cee-lcd-frame cee-anim-lcd" }, [lcd]),
-    el("p", { className: "ui-field-help" }, [lcdAt]),
+    el("div", { className: "cee-anim-preview-row" }, [previewToggle, el("p", { className: "ui-field-help" }, [lcdAt])]),
     invert.node,
   ], { id: "cee-anim-preview-field" });
 
@@ -331,7 +333,8 @@ export function loadingAnimSection() {
   play.addEventListener("click", () => (playing ? pause() : start()));
 
   // --- preview: the run from 0 to 100 % at FRAME_MS a slot, a pause at 100 % with the loop, and again ---
-  const previewMoving = () => !reducedMotion();
+  let previewOn = true;
+  const previewMoving = () => previewOn && !reducedMotion();
   let raf = 0;
   let runStart = 0;
   let loopSince = null;
@@ -366,6 +369,21 @@ export function loadingAnimSection() {
     runStart = performance.now();
     raf = requestAnimationFrame(tick);
   };
+  function showPreviewToggle() {
+    previewToggle.hidden = reducedMotion();
+    previewToggle.replaceChildren(icon(previewOn ? "pause" : "play"));
+    previewToggle.setAttribute("aria-label", t(previewOn ? "splash.anim.preview.pause" : "splash.anim.preview.play"));
+  }
+  previewToggle.addEventListener("click", () => {
+    previewOn = !previewOn;
+    showPreviewToggle();
+    if (previewOn) { runPreview(); return; }
+    cancelAnimationFrame(raf);
+    raf = 0;
+    loopSince = null;
+    drawnKey = "";
+    showSlot();
+  });
   // the preview runs while it is on screen and starts again when it comes back (the tab, a scroll)
   const seen = typeof IntersectionObserver === "function" ? new IntersectionObserver(entries => {
     if (entries.some(e => e.isIntersecting)) runPreview();
@@ -456,6 +474,7 @@ export function loadingAnimSection() {
       dirty = tooBig || toBase64(encodeAnimation(anim).bytes) !== readStored();
     }
     showSave();
+    showPreviewToggle();
     showSlot();
     runPreview();
   }

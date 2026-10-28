@@ -453,6 +453,8 @@ export default {
   "splash.anim.editor.help": "La penna mette pixel, la gomma li toglie. Un'immagine vuota parte da ciò che il display mostra lì.",
   "splash.anim.editor.apply": "Applica",
   "splash.anim.preview.title": "Sul display",
+  "splash.anim.preview.pause": "Metti in pausa l'anteprima",
+  "splash.anim.preview.play": "Riproduci l'anteprima",
   "steps.title": "Step",
   "steps.range": "da {from} a {to}",
   "steps.cell.off": ", Step {n}, spento",

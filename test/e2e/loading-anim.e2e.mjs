@@ -207,6 +207,23 @@ test("Design: with reduced motion the preview shows the slot of the gallery", as
   assert.notEqual(await lcdShot(page), first);
   await toSlot(page, 0);
   assert.equal(await lcdShot(page), first);
+  assert.equal(await page.locator("#cee-anim-preview-toggle").isHidden(), true, "nothing runs, nothing to stop");
+  assert.deepEqual(page.errors, []);
+});
+
+test("Design: the running preview can be stopped, then it shows the slot of the gallery", async () => {
+  const page = await designPage({ reduce: false });
+  await page.setInputFiles("#cee-anim-file", GIF);
+  await page.locator("#cee-anim-slot-picture:not([hidden])").waitFor();
+  assert.equal(await page.getAttribute("#cee-anim-preview-toggle", "aria-label"), "Vorschau anhalten");
+  await page.click("#cee-anim-preview-toggle");
+  assert.equal(await page.getAttribute("#cee-anim-preview-toggle", "aria-label"), "Vorschau abspielen");
+  await toSlot(page, 66);
+  assert.equal(await page.locator("#cee-anim-preview-at").textContent(), "66 %");
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator("#cee-anim-preview-at").textContent(), "66 %", "stands");
+  await page.click("#cee-anim-preview-toggle");
+  await page.waitForFunction(() => document.getElementById("cee-anim-preview-at").textContent !== "66 %");
   assert.deepEqual(page.errors, []);
 });
 

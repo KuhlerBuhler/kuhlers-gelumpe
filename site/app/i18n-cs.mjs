@@ -454,6 +454,8 @@ export default {
   "splash.anim.editor.help": "Pero kreslí pixely, guma je maže. Prázdný obrázek začíná tím, co tam ukazuje displej.",
   "splash.anim.editor.apply": "Použít",
   "splash.anim.preview.title": "Na displeji",
+  "splash.anim.preview.pause": "Pozastavit náhled",
+  "splash.anim.preview.play": "Přehrát náhled",
   "steps.title": "Stepy",
   "steps.range": "{from} až {to}",
   "steps.cell.off": ", step {n}, vypnutý",

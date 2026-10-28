@@ -454,6 +454,8 @@ export default {
   "splash.anim.editor.help": "Le crayon pose des pixels, la gomme les enlève. Une image vide commence avec ce que l'écran affiche à cet endroit.",
   "splash.anim.editor.apply": "Appliquer",
   "splash.anim.preview.title": "Sur l'écran",
+  "splash.anim.preview.pause": "Mettre l'aperçu en pause",
+  "splash.anim.preview.play": "Lire l'aperçu",
   "steps.title": "Steps",
   "steps.range": "{from} à {to}",
   "steps.cell.off": ", Step {n}, éteint",

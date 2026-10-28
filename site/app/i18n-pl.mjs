@@ -454,6 +454,8 @@ export default {
   "splash.anim.editor.help": "Pióro stawia piksele, gumka je usuwa. Pusty obraz zaczyna od tego, co tam pokazuje wyświetlacz.",
   "splash.anim.editor.apply": "Zastosuj",
   "splash.anim.preview.title": "Na wyświetlaczu",
+  "splash.anim.preview.pause": "Wstrzymaj podgląd",
+  "splash.anim.preview.play": "Odtwórz podgląd",
   "steps.title": "Stepy",
   "steps.range": "{from} do {to}",
   "steps.cell.off": ", step {n}, wyłączony",

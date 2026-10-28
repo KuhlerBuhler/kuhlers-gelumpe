@@ -454,6 +454,8 @@ export default {
   "splash.anim.editor.help": "De pen zet pixels, de gum haalt ze weg. Een lege afbeelding begint met wat het display daar toont.",
   "splash.anim.editor.apply": "Toepassen",
   "splash.anim.preview.title": "Op het display",
+  "splash.anim.preview.pause": "Voorbeeld pauzeren",
+  "splash.anim.preview.play": "Voorbeeld afspelen",
   "steps.title": "Steps",
   "steps.range": "{from} tot {to}",
   "steps.cell.off": ", Step {n}, uit",

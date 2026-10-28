@@ -454,6 +454,8 @@ export default {
   "splash.anim.editor.help": "A caneta põe píxeis, a borracha tira-os. Uma imagem vazia começa com o que o ecrã mostra aí.",
   "splash.anim.editor.apply": "Aplicar",
   "splash.anim.preview.title": "No ecrã",
+  "splash.anim.preview.pause": "Pausar a pré-visualização",
+  "splash.anim.preview.play": "Reproduzir a pré-visualização",
   "steps.title": "Steps",
   "steps.range": "{from} a {to}",
   "steps.cell.off": ", Step {n}, desligado",

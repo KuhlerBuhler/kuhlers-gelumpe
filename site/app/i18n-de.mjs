@@ -478,6 +478,8 @@ export default {
   "splash.anim.editor.help": "Der Stift setzt Pixel, der Radierer nimmt sie weg. Ein leeres Bild beginnt mit dem, was das Display dort zeigt.",
   "splash.anim.editor.apply": "Übernehmen",
   "splash.anim.preview.title": "Auf dem Display",
+  "splash.anim.preview.pause": "Vorschau anhalten",
+  "splash.anim.preview.play": "Vorschau abspielen",
 
   "steps.title": "Steps",
   "steps.range": "{from} bis {to}",

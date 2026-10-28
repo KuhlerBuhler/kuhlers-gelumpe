@@ -454,6 +454,8 @@ export default {
   "splash.anim.editor.help": "Карандаш ставит пиксели, ластик их убирает. Пустая картинка начинается с того, что там показывает дисплей.",
   "splash.anim.editor.apply": "Применить",
   "splash.anim.preview.title": "На дисплее",
+  "splash.anim.preview.pause": "Остановить предпросмотр",
+  "splash.anim.preview.play": "Воспроизвести предпросмотр",
   "steps.title": "Steps",
   "steps.range": "{from} - {to}",
   "steps.cell.off": ", Step {n}, выкл",

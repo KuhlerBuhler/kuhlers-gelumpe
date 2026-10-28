@@ -454,6 +454,8 @@ export default {
   "splash.anim.editor.help": "The pen sets pixels, the eraser takes them away. An empty picture starts with what the display shows there.",
   "splash.anim.editor.apply": "Apply",
   "splash.anim.preview.title": "On the display",
+  "splash.anim.preview.pause": "Pause the preview",
+  "splash.anim.preview.play": "Play the preview",
   "steps.title": "Steps",
   "steps.range": "{from} to {to}",
   "steps.cell.off": ", Step {n}, off",

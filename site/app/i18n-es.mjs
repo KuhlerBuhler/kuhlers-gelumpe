@@ -453,6 +453,8 @@ export default {
   "splash.anim.editor.help": "El lápiz pone píxeles, la goma los quita. Una imagen vacía empieza con lo que la pantalla muestra ahí.",
   "splash.anim.editor.apply": "Aplicar",
   "splash.anim.preview.title": "En la pantalla",
+  "splash.anim.preview.pause": "Pausar la vista previa",
+  "splash.anim.preview.play": "Reproducir la vista previa",
   "steps.title": "Steps",
   "steps.range": "{from} a {to}",
   "steps.cell.off": ", Step {n}, apagado",

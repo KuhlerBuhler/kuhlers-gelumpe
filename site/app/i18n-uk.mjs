@@ -454,6 +454,8 @@ export default {
   "splash.anim.editor.help": "Олівець ставить пікселі, гумка їх прибирає. Порожня картинка починається з того, що там показує дисплей.",
   "splash.anim.editor.apply": "Застосувати",
   "splash.anim.preview.title": "На дисплеї",
+  "splash.anim.preview.pause": "Зупинити попередній перегляд",
+  "splash.anim.preview.play": "Відтворити попередній перегляд",
   "steps.title": "Steps",
   "steps.range": "{from} - {to}",
   "steps.cell.off": ", Step {n}, вимк",
