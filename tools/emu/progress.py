@@ -9,7 +9,7 @@ finishes (parallel.run_tasks, on_done) and passes a snapshot to `emit` each time
 
 `total` and `done` count tasks (one boot or one case group each), `ok` and `fail` count the check entries
 they returned, so ok + fail is not the same number as done. A task counts as running while it is among the first
-`jobs` that have not finished: the pool hands tasks out in order.
+`jobs` that have not finished: the pool hands tasks out in order, the order run_tasks says (`queued`).
 """
 
 import json
@@ -61,7 +61,12 @@ class Tracker:
         self.ok = {}
         self.fail = {}
         self.order = list(dict.fromkeys(self.modules))
+        self.queue = range(len(tasks))
         self.send()
+
+    def queued(self, order):
+        """The pool takes the tasks in this order of their indices (parallel.run_tasks puts the longest first)."""
+        self.queue = list(order)
 
     def done(self, index, result):
         if self.finished[index]:
@@ -74,7 +79,7 @@ class Tracker:
         self.send()
 
     def snapshot(self):
-        pending = [m for m, f in zip(self.modules, self.finished) if not f]
+        pending = [self.modules[i] for i in self.queue if not self.finished[i]]
         running = set(pending[:self.jobs])
         groups = []
         for module in self.order:
