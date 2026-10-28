@@ -10,10 +10,10 @@ import { encodeAnimation, decodeAnimation, validateAnimation, thinAnimation, cos
 
 const KEY = "cee.loading.anim";
 const LOOP_MS = 96;     // the firmware's loop picture time (tools/patch/load_bar.py)
-const STALL_MS = 500;   // load_bar.STALL_MS: the loop of a stalled progress starts after this
 const FRAME_MS = 50;    // load_bar.FRAME_MS: at most one new picture every 50 ms
 const PLAY_MS = 4000;   // one run of the preview from 0 to 100 %, longer when the pictures need more at FRAME_MS each
 const PAGE = 24;        // pictures shown at once in the strip, the rest on request
+const LOOP_FROM = 95;   // the loop's start percent when none is set, also for older files with 0 (loop on a stall)
 
 const readStored = () => { try { return localStorage.getItem(KEY) || ""; } catch { return ""; } };
 const toBase64 = bytes => btoa(String.fromCharCode(...bytes));
@@ -70,10 +70,10 @@ export function loadingAnimSection() {
   let playing = false;
   let raf = 0;
   let playStart = 0;
-  let movedAt = 0;      // when the progress last changed, for the loop on a stall
   let loopSince = null;
   let drawnKey = "";
   let dirty = false;
+  let tooBig = false;
 
   // (a) Laden
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-anim-file", accept: "image/*", multiple: true });
@@ -117,21 +117,11 @@ export function loadingAnimSection() {
   // (d) Warte-Schleife
   const loopAtSelect = el("select", { className: "select cee-anim-loop-at", id: "cee-anim-loop-at" });
   loopAtSelect.setAttribute("aria-describedby", "cee-anim-loop-at-help");
-  const modes = [["stall", t("splash.anim.loop.stall")], ["percent", t("splash.anim.loop.from")]].map(([value, text], i) => {
-    const input = el("input", { type: "radio", name: "cee-anim-loop-from", id: `cee-anim-loop-from-${value}`, value, checked: i === 0 });
-    input.addEventListener("change", () => update({ list: false }));
-    return { input, node: el("label", { className: "ui-segmented-option" }, [input, el("span", { textContent: text })]) };
-  });
-  const mode = el("div", { className: "ui-segmented", id: "cee-anim-loop-from" }, modes.map(m => m.node));
-  mode.setAttribute("role", "radiogroup");
-  mode.setAttribute("aria-label", t("splash.anim.loop"));
-  const percent = el("input", { type: "number", id: "cee-anim-loop-percent", min: 1, max: 100, value: 95 });
-  percent.setAttribute("aria-label", t("splash.anim.loop.percent"));
+  const percent = el("input", { type: "number", id: "cee-anim-loop-percent", min: 1, max: 100, value: LOOP_FROM });
   percent.addEventListener("change", () => update({ list: false }));
-  const percentBox = el("div", { className: "ui-input cee-anim-percent", hidden: true }, [percent, el("span", { className: "ui-input-suffix", textContent: "%" })]);
-  const loopMode = field(el("span", { className: "ui-field-label", textContent: t("splash.anim.loop") }), [el("div", { className: "cee-anim-loop-row" }, [mode, percentBox])], { id: "cee-anim-loop-mode", hidden: true });
-  const fromPercent = () => modes[1].input.checked;
-  const loopFrom = () => (fromPercent() ? Math.min(100, Math.max(1, Math.round(Number(percent.value)) || 95)) : 0);
+  const percentBox = el("div", { className: "ui-input cee-anim-percent" }, [percent, el("span", { className: "ui-input-suffix", textContent: "%" })]);
+  const loopMode = field(el("label", { className: "ui-field-label", htmlFor: "cee-anim-loop-percent", textContent: t("splash.anim.loop.percent") }), [percentBox], { id: "cee-anim-loop-mode", hidden: true });
+  const loopFrom = () => Math.min(100, Math.max(1, Math.round(Number(percent.value)) || LOOP_FROM));
 
   // (e) Umwandlung
   const threshold = el("input", { type: "range", className: "ui-range", id: "cee-anim-threshold", min: 1, max: 254, value: 128 });
@@ -175,16 +165,13 @@ export function loadingAnimSection() {
   ]);
 
   const use = el("button", { type: "button", className: "btn cee-primary", id: "cee-anim-use", textContent: t("splash.anim.use"), hidden: true });
-  const dirtyMark = el("span", { className: "cee-status", id: "cee-anim-dirty", textContent: t("splash.anim.dirty"), hidden: true });
-  dirtyMark.dataset.tone = "warn";
   const reset = el("button", { type: "button", className: "btn", id: "cee-anim-reset", textContent: t("splash.anim.reset"), hidden: true });
-  const state = el("p", { className: "ui-field-help", id: "cee-anim-state" });
-  state.setAttribute("aria-live", "polite");
-  const useHelp = el("p", { className: "ui-field-help", id: "cee-anim-use-help", hidden: true }, [
-    t("splash.anim.use.help"), " ",
-    el("a", { className: "cee-text-link", id: "cee-anim-patcher-link", href: "#patcher", textContent: t("splash.anim.toPatcher") }),
-  ]);
-  const save = el("div", { className: "cee-anim-save" }, [el("div", { className: "cee-anim-actions" }, [use, dirtyMark, reset]), state, useHelp]);
+  // one plain line: what the Patcher takes, whether the changes are saved, and the way to the Patcher
+  const stateText = el("span", { id: "cee-anim-state-text" });
+  stateText.setAttribute("aria-live", "polite");
+  const patcherLink = el("a", { className: "cee-text-link", id: "cee-anim-patcher-link", href: "#patcher", textContent: t("splash.anim.toPatcher") });
+  const state = el("p", { className: "ui-field-help", id: "cee-anim-state" }, [stateText, " ", patcherLink]);
+  const save = el("div", { className: "cee-anim-save" }, [el("div", { className: "cee-anim-actions" }, [use, reset]), state]);
 
   /** The pixels of a frame with the page's conversion, the same as the start image's. */
   const options = () => ({ threshold: Number(threshold.value), dither: dither.input.checked, invert: invert.input.checked });
@@ -212,7 +199,7 @@ export function loadingAnimSection() {
     const i = shownIndex(pct);
     const loops = anim.loop.length > 0;
     const byPercent = loops && anim.loopFrom > 0 && pct >= anim.loopFrom;
-    const active = playing && loops && (anim.loopFrom > 0 ? byPercent : now - movedAt >= STALL_MS);
+    const active = playing && byPercent;
     if (!active) loopSince = null; else loopSince ??= now;
     let j = pinned;
     if (j === null && active) j = Math.floor((now - loopSince) / LOOP_MS) % anim.loop.length;
@@ -241,7 +228,7 @@ export function loadingAnimSection() {
     const pct = Number(progress.value);
     if (pct < 100) {
       const next = Math.min(100, Math.floor((now - playStart) * 100 / playMs()));
-      if (next !== pct) { progress.value = String(next); sync(); movedAt = now; }
+      if (next !== pct) { progress.value = String(next); sync(); }
     } else if (!anim.loop.length) { pause(); return; }
     draw(now);
     raf = requestAnimationFrame(tick);
@@ -258,7 +245,6 @@ export function loadingAnimSection() {
     playing = true;
     pinned = null;
     playStart = now - Number(progress.value) * playMs() / 100;
-    movedAt = now;
     showPlay();
     raf ||= requestAnimationFrame(tick);
   }
@@ -270,7 +256,7 @@ export function loadingAnimSection() {
     draw();
   }
   play.addEventListener("click", () => (playing ? pause() : start()));
-  progress.addEventListener("input", () => { pinned = null; movedAt = performance.now(); pause(); });
+  progress.addEventListener("input", () => { pinned = null; pause(); });
 
   /** Jumps to picture k of the strip: a progress picture by its percent, a loop picture standing over the current one. */
   function jump(k) {
@@ -293,7 +279,7 @@ export function loadingAnimSection() {
     const items = [];
     frames.slice(0, shownCount).forEach((f, k) => {
       if (loopAt && k === loopAt) {
-        const split = el("li", { className: "cee-anim-split" }, [el("span", { className: "cee-status", textContent: t("splash.anim.loop.tag") })]);
+        const split = el("li", { className: "cee-anim-split" }, [el("span", { className: "muted", textContent: t("splash.anim.loop.tag") })]);
         split.firstChild.dataset.tone = "info";
         split.setAttribute("aria-hidden", "true");
         items.push(split);
@@ -334,6 +320,7 @@ export function loadingAnimSection() {
     if (!frames.length) {
       anim = null;
       dirty = false;
+      tooBig = false;
       pause();
       showSave();
       return;
@@ -341,18 +328,16 @@ export function loadingAnimSection() {
     if (loopAt >= frames.length) loopAt = 0;
     build();
     loopMode.hidden = !anim.loop.length;
-    percentBox.hidden = !fromPercent();
     if (redraw) {
       if (refill) fillLoopAt();
       drawList();
     }
     const costs = costPerFrame(anim);
     const bytes = HEADER_BYTES + costs.reduce((s, c) => s + c.bytes, 0);
-    const tooBig = bytes > MAX_BYTES;
+    tooBig = bytes > MAX_BYTES;
     sizeText.textContent = t("splash.anim.size", { size: kb(bytes), max: MAX_KB });
     window.ui?.setMeter?.(meter, Math.min(100, bytes * 100 / MAX_BYTES), { label: t("splash.anim.size.label"), valueText: sizeText.textContent, tone: tooBig ? "error" : undefined, warnAt: 90 });
-    use.disabled = tooBig;
-    use.setAttribute("aria-describedby", tooBig ? "cee-anim-too-big cee-anim-use-help" : "cee-anim-use-help");
+    use.setAttribute("aria-describedby", tooBig ? "cee-anim-too-big cee-anim-state" : "cee-anim-state");
     thin.hidden = !tooBig || anim.progress.length < 3;
     tooBigText.hidden = !tooBig;
     if (tooBig) {
@@ -367,11 +352,12 @@ export function loadingAnimSection() {
 
   function showSave() {
     const kept = storedAnimation();
-    state.textContent = kept ? t("splash.anim.state.own", { size: kb(kept.length) }) : t("splash.anim.state.default");
+    const inPatcher = kept ? t("splash.anim.state.own", { size: kb(kept.length) }) : t("splash.anim.state.default");
+    stateText.textContent = frames.length ? `${inPatcher} ${t(dirty ? "splash.anim.unsaved" : "splash.anim.saved")}` : inPatcher;
     reset.hidden = !kept;
     use.hidden = !frames.length;
-    useHelp.hidden = !frames.length;
-    dirtyMark.hidden = !dirty;
+    // saving is only offered for something new that fits
+    use.disabled = tooBig || !dirty;
   }
 
   thin.addEventListener("click", () => {
@@ -459,7 +445,7 @@ export function loadingAnimSection() {
     const stored = decodeAnimation(kept);
     frames = [...stored.progress, ...stored.loop].map((f, i) => ({ name: t("splash.anim.frame", { n: i + 1 }), pixels: frameToPixels(f) }));
     loopAt = stored.loop.length ? stored.progress.length : 0;
-    modes[stored.loopFrom ? 1 : 0].input.checked = true;
+    // an older file has 0 there, the loop on a stall: the field shows the default, saved again it is a percent
     if (stored.loopFrom) percent.value = String(stored.loopFrom);
   }
   showPlay();

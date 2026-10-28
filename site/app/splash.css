@@ -178,15 +178,9 @@
   max-width: 20rem;
 }
 
-.cee-anim-loop-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
+/* the design system stretches a field's input to the full width; a percent needs no more than the select above */
 .cee-anim-percent {
-  width: 7rem;
+  max-width: 7rem;
 }
 
 .cee-anim-meter-row {

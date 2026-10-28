@@ -123,9 +123,13 @@ stehen in `tools/emu/loadbar_cases.py` (`case_smooth`, `case_custom`).
 `Gerät -> Design`, Tab Ladeanimation: ein GIF oder mehrere Einzelbilder (sortiert nach Namen), gewandelt wie das
 Startbild (`pixelsOf` in `site/app/splash.mjs`, gleiche Schwelle, unter "Umwandlung"). Die Vorschau spielt 0 bis 100 % ab
 (bei reduzierter Bewegung erst auf Knopfdruck), der Regler und die Bilderleiste springen. "Warte-Schleife ab Bild n"
-teilt die Bilder: davor Fortschritt, ab n Schleife, dazu "wenn der Fortschritt steht" oder "ab Prozent". Die Größe steht
-als "x von 16 KB"; zu groß heißt gesperrt, mit den drei teuersten Bildern im Hinweis und dem Knopf Ausdünnen.
-Gespeichert wird die Datei im Browser; bis dahin steht "Nicht gespeichert".
+teilt die Bilder: davor Fortschritt, ab n Schleife, dazu ein Feld "Schleife ab ... %" (1 bis 100, Standard 95), das immer
+als Byte 5 geschrieben wird. Die Wahl "wenn der Fortschritt steht" gibt es in der App nicht mehr, weil der Fortschritt
+jetzt nach Bytes gleichmäßig läuft; eine ältere Datei mit 0 dort zeigt das Feld mit 95 und wird beim nächsten Speichern
+mit 95 geschrieben. Die Größe steht als "x von 16 KB"; zu groß heißt gesperrt, mit den drei teuersten Bildern im Hinweis
+und dem Knopf Ausdünnen. Gespeichert wird die Datei im Browser. Der Speichern-Knopf ist nur aktiv, solange etwas nicht
+gespeichert ist; eine Hilfezeile darunter sagt, was der Patcher nimmt, ob die Änderungen gespeichert sind, und verlinkt
+den Firmware Patcher.
 
 Der Firmware Patcher schreibt sie als Patch `loading-anim` in das Kartenfeld `loadingAnim` (der Slot ab `0xC01A6000`,
 Rest `FF`), in einem eigenen Durchgang nach dem Set und nur, wenn `load-bar` mit drauf ging: `load-bar` meldet den Slot

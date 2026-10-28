@@ -2,7 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { setUp, go } from "./harness.mjs";
-import { decodeAnimation, validateAnimation, MAX_BYTES } from "../../src/loading-anim.mjs";
+import { decodeAnimation, encodeAnimation, validateAnimation, MAX_BYTES, FRAME_BYTES } from "../../src/loading-anim.mjs";
 
 let h;
 before(async () => { h = await setUp(); });
@@ -66,6 +66,10 @@ test("Design: two tabs, Startbild and Ladeanimation, each its own section", asyn
   assert.deepEqual(page.errors, []);
 });
 
+/** The state line under the save button: what the Patcher takes and whether the changes are saved. */
+const stateText = page => page.locator("#cee-anim-state").textContent();
+const canSave = async page => (await page.locator("#cee-anim-use").isVisible()) && !(await page.locator("#cee-anim-use").isDisabled());
+
 test("Design: a GIF becomes the animation with its size, the preview follows the slider, saving clears the dirty state", async () => {
   const page = await designPage();
   assert.equal(await page.locator("#cee-tab-splash").textContent(), "Design");
@@ -77,7 +81,10 @@ test("Design: a GIF becomes the animation with its size, the preview follows the
   assert.equal(await page.locator("#cee-anim-loop-at").inputValue(), "", "no loop by default");
   assert.equal(await page.locator("#cee-anim-loop-mode").isHidden(), true, "no loop settings without loop pictures");
   assert.match(await page.locator("#cee-anim-size-text").textContent(), /^\d+,\d von 16 KB$/);
-  assert.equal(await page.locator("#cee-anim-dirty").isVisible(), true, "a new animation is not saved yet");
+  assert.match(await stateText(page), /Änderungen noch nicht gespeichert/, "a new animation is not saved yet");
+  assert.equal(await canSave(page), true, "a new animation can be saved");
+  assert.equal(await page.locator("#cee-anim .cee-anim-save .cee-status").count(), 0, "no status chip at saving, only the plain help line");
+  assert.equal(await page.locator("#cee-anim-state").getAttribute("class"), "ui-field-help");
   const shot = () => page.locator("#cee-anim-preview").evaluate(c => c.toDataURL());
   await page.locator("#cee-anim-progress").fill("0");
   const start = await shot();
@@ -93,18 +100,21 @@ test("Design: a GIF becomes the animation with its size, the preview follows the
   const bytes = Uint8Array.from(await stored(page));
   assert.equal(validateAnimation(bytes), null);
   assert.equal(decodeAnimation(bytes).progress.length, 3);
-  assert.match(await page.locator("#cee-anim-state").textContent(), /deine Animation/);
-  assert.equal(await page.locator("#cee-anim-dirty").isVisible(), false, "saved");
+  assert.match(await stateText(page), /deine Animation.*Gespeichert\. Gilt ab dem nächsten Patchen in diesem Browser\./);
+  assert.doesNotMatch(await stateText(page), /nicht gespeichert/, "saved");
+  assert.equal(await canSave(page), false, "nothing to save after saving");
   await page.locator("#cee-anim-convert summary").click();
   await page.locator("#cee-anim-invert").setChecked(true, { force: true });
-  assert.equal(await page.locator("#cee-anim-dirty").isVisible(), true, "a change after saving is not saved");
+  assert.match(await stateText(page), /Änderungen noch nicht gespeichert/, "a change after saving is not saved");
+  assert.equal(await canSave(page), true);
   await page.locator("#cee-anim-invert").setChecked(false, { force: true });
-  assert.equal(await page.locator("#cee-anim-dirty").isVisible(), false, "back to what is saved");
-  assert.equal(await page.locator("#cee-anim-patcher-link").getAttribute("href"), "#patcher");
+  assert.match(await stateText(page), /Gespeichert\./, "back to what is saved");
+  assert.equal(await canSave(page), false);
+  assert.equal(await page.locator("#cee-anim-state #cee-anim-patcher-link").getAttribute("href"), "#patcher", "the link sits in the state line");
   assert.deepEqual(page.errors, []);
 });
 
-test("Design: single pictures in the order of their names, the split makes the rest the loop, from a percent on", async () => {
+test("Design: single pictures in the order of their names, the split makes the rest the loop from a percent on", async () => {
   const page = await designPage();
   await dropPictures(page, [["b-2.png", 64], ["b-10.png", "black"], ["b-1.png", 32]]);
   assert.deepEqual(await thumbs(page).evaluateAll(b => b.map(x => x.title)), ["b-1", "b-2", "b-10"]);
@@ -114,9 +124,10 @@ test("Design: single pictures in the order of their names, the split makes the r
   assert.equal(await page.locator("#cee-anim-frames .cee-anim-split").count(), 1, "a divider before the loop");
   assert.equal(await page.locator("#cee-anim-frames > li.cee-anim-split + li .cee-anim-thumb").getAttribute("title"), "b-10", "the divider stands before picture 3");
   assert.deepEqual(await thumbs(page).evaluateAll(b => b.map(x => "loop" in x.dataset)), [false, false, true], "the loop pictures are marked");
-  assert.equal(await page.locator("#cee-anim-loop-percent").isVisible(), false, "no percent while the loop plays on a stall");
-  await page.locator("#cee-anim-loop-from-percent").check();
-  assert.equal(await page.locator("#cee-anim-loop-percent").isVisible(), true);
+  assert.equal(await page.locator("#cee-anim-loop-from").count(), 0, "no choice between a stall and a percent");
+  assert.equal(await page.locator("#cee-anim-loop-percent").isVisible(), true, "only the percent");
+  assert.equal(await page.locator("#cee-anim-loop-percent").inputValue(), "95", "95 % by default");
+  assert.equal((await page.locator("label[for=cee-anim-loop-percent]").textContent()).trim(), "Schleife ab");
   await page.locator("#cee-anim-loop-percent").fill("80");
   await page.locator("#cee-anim-loop-percent").dispatchEvent("change");
   await page.click("#cee-anim-use");
@@ -137,6 +148,22 @@ test("Design: single pictures in the order of their names, the split makes the r
   await page.locator("#cee-anim-loop-at").selectOption("");
   assert.equal(await page.locator("#cee-anim-loop-mode").isHidden(), true);
   assert.equal(await page.locator("#cee-anim-frames .cee-anim-split").count(), 0);
+  assert.deepEqual(page.errors, []);
+});
+
+test("Design: an older file with the loop on a stall (byte 5 = 0) shows 95 % and is saved with it", async () => {
+  const page = await designPage();
+  const frame = fill => new Uint8Array(FRAME_BYTES).fill(fill);
+  const old = encodeAnimation({ progress: [frame(0), frame(0x0f)], loop: [frame(0xff)], loopFrom: 0 }).bytes;
+  await page.evaluate(([key, text]) => localStorage.setItem(key, text), [KEY, Buffer.from(old).toString("base64")]);
+  await page.reload();
+  await go(page, "splash");
+  await page.locator("#cee-anim-work:not([hidden])").waitFor();
+  assert.equal(await page.locator("#cee-anim-loop-at").inputValue(), "2");
+  assert.equal(await page.locator("#cee-anim-loop-percent").inputValue(), "95");
+  assert.equal(await page.locator("#cee-anim .ui-field-error:not([hidden])").count(), 0, "no notice about the old value");
+  await page.click("#cee-anim-use");
+  assert.equal(decodeAnimation(Uint8Array.from(await stored(page))).loopFrom, 95);
   assert.deepEqual(page.errors, []);
 });
 
