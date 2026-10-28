@@ -128,10 +128,11 @@ def flash_for(kind, own):
 
 
 def scenario_task(name):
-    """One scenario in a worker (parallel.py): what start_phase takes from it. Picklable."""
+    """One scenario in a worker (parallel.py): what start_phase takes from it. Picklable. The own flash is `boot_flash`
+    when the run has one (check.py: the cases there run on a blank flash), else `flash`."""
     import parallel
     opts = dict(dict(scenarios())[name])
-    m = run(parallel.shared["payload"], flash_for(opts.pop("flash"), parallel.shared["flash"]), **opts)
+    m = run(parallel.shared["payload"], flash_for(opts.pop("flash"), parallel.shared.get("boot_flash", parallel.shared["flash"])), **opts)
     return {"blocks": m.blocks, "image_read": bytes(m.image_read), "events_ms": m.events, "panel": m.panel_state(),
             "asserts": m.asserts, "dsp_uploads_ms": m.dsp_uploads}
 
