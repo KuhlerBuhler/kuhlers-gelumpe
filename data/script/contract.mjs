@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 9;
+export const API_VERSION = 10;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -316,6 +316,9 @@ const API_LIST = [
   [58, "korg.menu.add", [str("label"), int("min", -1000000, 1000000), int("max", -1000000, 1000000), int("value", -1000000, 1000000)], "int", MENU_ADD, 60, 4],
   [59, "korg.app", [str("name"), str("group")], "int", APP_ONLY, 60, 5],
   [60, "korg.file.frame", [arr("array"), int("file", 0, 99), int("index", 0, 65535)], "int", UI, 250, 7],
+  // the object tree (data/script/objects.mjs): the compiler calls these for the paths, index -1 for a leaf without brackets
+  [61, "korg.get", [int("leaf", 0, 255), int("index", -1, 255)], "int", ALL, 6, 10],
+  [62, "korg.set", [int("leaf", 0, 255), int("index", -1, 255), int("value")], "void", UI, 60, 10],
 ];
 
 /**

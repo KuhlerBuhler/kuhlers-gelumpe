@@ -245,6 +245,40 @@ korg.onEvent("buttonPress", (key) => {
 The calls in the table below stay valid, older plugins keep running unchanged. What is an action stays
 a call: drawing, pressing PLAY, registering an app, saving.
 
+### The Electribe as an object tree (API 10, BLECHTRIBE 1.3.8)
+
+From API 10 on, the settings of the Electribe and of the BLECH menu hang on long paths. A path reads and sets
+like a property above; the compiler turns it into `korg.get` or `korg.set` with the number of the leaf, so long
+names cost nothing on the device. A plugin that uses a path needs API 10 and does not run on older firmware
+(it refuses the block).
+
+A value outside the range is clamped to the nearest limit and counted (`korg.system.repairs`), the plugin keeps
+running. When the value is known at compile time, the compiler reports it as an error. A misspelled path is a
+compile error, the message names what exists at that point. The runtime checks the stored values at start,
+wherever an invalid value comes from, and clamps it or resets it to the factory value; that counts in
+`korg.system.repairs` as well.
+
+| Path | Read | Set | Range |
+|---|---|---|---|
+| `korg.menu.blech.customizations.display.intensity` | brightness of the display light, like the page INTENSITY | yes, at once; WRITE in the menu keeps it | 0 (off) to 15 (full) |
+| `korg.system.repairs` | how many values were clamped or reset since start | no | 0 to 2147483647 |
+
+```js
+// Light off while the app is open, back as it was afterwards.
+let light = 15;
+korg.app("Dark", "TOOLS");
+korg.onEvent("open", () => {
+  light = korg.menu.blech.customizations.display.intensity;
+  korg.menu.blech.customizations.display.intensity = 0;
+});
+korg.onEvent("close", () => {
+  korg.menu.blech.customizations.display.intensity = light;
+});
+```
+
+More branches (`korg.global`, `korg.patterns`, `korg.parts`, the other pages of BLECH) come with the next
+versions; the old names stay valid.
+
 ### Functions of the Electribe
 
 All names begin with `korg.`. Numbers outside the range end the plugin with an error. "Allowed in" names

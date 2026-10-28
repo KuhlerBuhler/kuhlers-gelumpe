@@ -210,7 +210,7 @@ class NativeRuntimeTests(unittest.TestCase):
         from tools.patch.script_vm import build
         for version in [257,65535]:
             with self.subTest(version=version):
-                include = re.sub(r'\.equ SCRIPT_API_VERSION, \d+\n',f'.equ SCRIPT_API_VERSION, {version}\n',contract_data()['include'])
+                include = re.sub(r'\.equ SCRIPT_API_VERSION, \S+\n',f'.equ SCRIPT_API_VERSION, {version}\n',contract_data()['include'])
                 native = build(include)
                 machine = BareMachine(native)
                 data = bytearray(blob([33,2,0,9,0],stack=1))

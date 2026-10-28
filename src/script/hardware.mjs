@@ -3,11 +3,13 @@ import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PATTERN_PARTS, PATTER
 import { ScriptFault } from "./vm.mjs";
 import { text, render } from "../text.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
+import { OBJECTS } from "../../data/script/objects.mjs";
 
 const LENGTH_FIELD = PATTERN_FIELDS.findIndex(f => f.name === "length");
 const KEY_TOUCHPAD = KEY_NAMES.find(n => n.name === "TOUCHPAD").value;
 const KEY_PLAY = KEY_NAMES.find(n => n.name === "PLAY").value;
 const KEY_STOP = KEY_NAMES.find(n => n.name === "STOP").value;
+const REPAIRS = OBJECTS.find(o => o.path === "korg.system.repairs").id;
 
 export class SimHardware {
   /** @param {(event: string, ...args: number[]) => void} [emit] where hardware events go, in the page the runtime's ring */
@@ -26,6 +28,8 @@ export class SimHardware {
     this.patternBlocks = new Map();
     this.backlight = [1, 1, 1];
     this.ledHold = 0;
+    /** The leaves of the object tree by id (data/script/objects.mjs), at their factory values; `repairs` is korg.system.repairs. */
+    this.objects = OBJECTS.map(o => o.factory);
     /** 0 finger up, 1 the press came and the first position has not, 2 the first position is out. */
     this.touch = 0;
   }
@@ -52,8 +56,26 @@ export class SimHardware {
       "korg.mute": (part, muted) => { if (this.mutes[part] !== muted) { this.mutes[part] = muted; this.emit("mute", part, muted); } },
       "korg.seq.setStep": (part, step, note, velocity) => this.setStep(part, step, note, velocity),
       "korg.seq.setGate": (part, step, gate) => { this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.gate] = gate; },
+      "korg.get": leaf => this.objectGet(leaf),
+      "korg.set": (leaf, index, value) => this.objectSet(leaf, value),
       "korg.seq.clearPart": part => { for (let step = 0; step < PATTERN_STEPS.count; step++) this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.on] = 0; },
     };
+  }
+
+  /** korg.get: the value of a leaf, as the runtime's table reads it. */
+  objectGet(leaf) {
+    if (!OBJECTS[leaf]) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectLeaf", { leaf })));
+    return this.objects[leaf];
+  }
+
+  /** korg.set: clamped to the leaf's range, one more repair when it was outside, as script_objects.s does. */
+  objectSet(leaf, value) {
+    const o = OBJECTS[leaf];
+    if (!o) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectLeaf", { leaf })));
+    if (!o.write) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectReadOnly", { path: o.path })));
+    const clamped = Math.min(o.max, Math.max(o.min, value));
+    if (clamped !== value) this.objects[REPAIRS] += 1;
+    this.objects[leaf] = clamped;
   }
 
   /** Where a step's record starts in the pattern block. */
