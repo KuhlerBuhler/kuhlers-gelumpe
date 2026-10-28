@@ -90,7 +90,7 @@ class CheckEmitsTest(unittest.TestCase):
         original = (p.run_tasks, bootcache.cached_result)
         try:
             bootcache.cached_result = lambda kind, key, fn: fn()
-            p.run_tasks = lambda tasks, data, jobs=None, on_done=None: [on_done(i, {"asserts": []}) or {"asserts": [], "blocks": {}, "image_read": b"", "events_ms": {}, "panel": {}, "dsp_uploads_ms": []} for i, _ in enumerate(tasks)]
+            p.run_tasks = lambda tasks, data, jobs=None, on_done=None, cache=None, on_queue=None: [on_done(i, {"asserts": []}) or {"asserts": [], "blocks": {}, "image_read": b"", "events_ms": {}, "panel": {}, "dsp_uploads_ms": []} for i, _ in enumerate(tasks)]
             snapshots = []
             try:
                 check.check(bytes(0x200100), bytes(0x200100), progress=snapshots.append)

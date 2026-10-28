@@ -10,7 +10,7 @@
  * for an external binary. No firmware goes in: the binary is only the code.
  */
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { pythonEnv, targetTriple } from "./python-env.mjs";
 import { clearCfgInFile } from "./pe-flags.mjs";
@@ -39,6 +39,15 @@ if (!triple) {
 
 const work = path("../../build/sidecar");
 rmSync(work, { recursive: true, force: true });
+mkdirSync(work, { recursive: true });
+// The frozen bundle holds no .py file to hash, so the boot and result caches get the source's hash from this stamp (bootcache.py).
+const [cmd, args] = command(python, ["-c", "import bootcache; print(bootcache.source_hash('patch'))"]);
+const stamp = spawnSync(cmd, args, { cwd: path("."), encoding: "utf8" });
+if (stamp.error || stamp.status !== 0 || !/^[0-9a-f]{64}$/.test(stamp.stdout.trim())) {
+  console.error(`Quellhash fehlgeschlagen: ${stamp.stderr || stamp.error?.message || stamp.stdout}`);
+  process.exit(1);
+}
+writeFileSync(`${work}/source-hash.txt`, stamp.stdout.trim());
 run(...command(python, [
   "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile",
   "--name", "gelumpe-emu",
@@ -54,6 +63,7 @@ run(...command(python, [
   "--add-data", `${path("../../data/script/blechy-block.hex")}${sep}data/script`,
   "--add-data", `${path("../../assets/blechy/splash.bin")}${sep}assets/blechy`,
   "--add-data", `${path("../../assets/blechy/loading.blla")}${sep}assets/blechy`,
+  "--add-data", `${work}/source-hash.txt${sep}.`,
   // Blechy's sprites and the display font: the power-off and card-error pictures are drawn from them when a check builds them.
   "--add-data", `${path("../../assets/blechy/sprites")}${sep}assets/blechy/sprites`,
   "--add-data", `${path("../../data/script/font.mjs")}${sep}data/script`,

@@ -155,21 +155,35 @@ gemessen auf einem Rechner mit 10 Kernen, ohne Gerätezugriff. Die Maßnahmen:
   kam in den Tests immer wieder vor. `Machine.snapshot` und `from_snapshot`
   (`tools/emu/bootcache.py`) halten CPU-Kontext, nicht leere RAM-Seiten und Modellzustand.
   Der Schlüssel besteht aus Firmware, Flash, gehaltenen Tasten, Gerätezeit und dem Quelltext
-  des Emulators. Wiederherstellen kostet 0,06 s statt 2,1 s, das Verhalten ist bit-identisch
-  (`test_snapshot.py` vergleicht CPU, die 128 MB RAM, Flash, Tabellen und Display mit einem
-  durchgelaufenen Gerät). Mit Karte im Schlitz gibt es keinen Snapshot.
+  des Modells (`machine.py` und was es importiert, nicht die Fälle). Wiederherstellen kostet
+  0,06 s statt 2,1 s, das Verhalten ist bit-identisch (`test_snapshot.py` vergleicht CPU, die
+  128 MB RAM, Flash, Tabellen, Display und Karte mit einem durchgelaufenen Gerät).
+- **Snapshot mit Karte.** Fast jeder Fall baut ein Gerät, steckt eine Karte ein und lässt es
+  laufen (`Dev.run` in `splash_cases.py`). `bootcache.power_on` merkt sich diesen ersten Lauf
+  ab dem Einschalten samt Karte, Netzteil und allem, was der Fall vorher gesetzt hat, und
+  startet jeden gleichen Lauf danach aus ihm: 0,2 s statt 2,1 s. Ein Fall, der vorher einen
+  Haken setzt oder eine Methode umhängt, läuft frisch. Damit eine Karte bei jedem Lauf gleich
+  aussieht, steht die Uhr, mit der `fat32` Dateien und Volume-ID datiert, während eines Tasks
+  auf dem 1. Januar 2026 (`parallel.CARD_CLOCK`).
 - **Nebeneinander.** `tools/emu/parallel.py` verteilt unabhängige Boots auf Prozesse.
   Standard: Kerne minus einer (mindestens 1), 2 bei einem Lastmittel über der Kernzahl, 1
   bei über der doppelten Kernzahl. `GELUMPE_JOBS` überschreibt das, im eingefrorenen Dienst
   läuft ein Prozess. Die Emulator-Tests starten ihre Python-Läufe über
   `test/support/spawn.mjs`, ohne den Event-Loop zu blockieren.
-- **Gemerkte Ergebnisse.** `check.py`, `mfx_cases.py` und `splash_cases.py` merken sich ihr
-  Ergebnis je Eingabedateien und Emulator-Quelltext. **Das ändert, was ein grüner Lauf
-  bedeutet:** bei unveränderten Dateien und Quelltext wird die Antwort des letzten echten
-  Laufs wiederverwendet. Jede Änderung an einer `.py`-Datei in `tools/emu` oder `tools/patch`
-  macht den Schlüssel ungültig. Die Dateien liegen in `~/.cache/gelumpe`
-  (`GELUMPE_CACHE_DIR`), sie enthalten Firmware-RAM und nie im Repo. `GELUMPE_CACHE=off`
-  lässt alles frisch laufen.
+- **Gemerkte Ergebnisse je Task.** `check.py` und `menu_cases.py cases` merken sich das
+  Ergebnis jedes Tasks (eine Gruppe von Fällen oder ein Boot) mit den Dateien, die er benutzt
+  hat (`tools/emu/taskcache.py`): den Quelltext jedes geladenen Moduls und jede geöffnete
+  Datei, auch `data/synth-map/*.json`. Ein späterer Lauf nimmt es nur bei gleicher Firmware,
+  gleichem Flash und gleicher Basis und solange jede dieser Dateien noch denselben Inhalt hat.
+  Nach einem Merge von `develop`, der nur `pswitch_cases.py` ändert, laufen nur die Fälle des
+  Pattern-Schalters neu. Eine geänderte Firmware ist eine andere Eingabe, dann läuft alles.
+  Jeder Task, der läuft, bekommt dafür einen eigenen Prozess, und die längsten starten zuerst
+  (Dauer vom letzten Lauf). **Das ändert, was ein grüner Lauf bedeutet:** für unveränderte
+  Eingaben und Dateien wird die Antwort des letzten echten Laufs wiederverwendet.
+  `mfx_cases.py` und `splash_cases.py` merken sich ihr Ergebnis wie bisher je Eingabedateien
+  und Quelltext aller `.py`-Dateien in `tools/emu` und `tools/patch`. Die Dateien liegen in
+  `~/.cache/gelumpe` (`GELUMPE_CACHE_DIR`), sie enthalten Firmware-RAM und nie im Repo.
+  **Alles frisch:** `GELUMPE_CACHE=off` schaltet Snapshots und gemerkte Ergebnisse ab.
 - **Dienst ohne Echtzeit-Bremse** nur für Tests (`server.py --unthrottled`). Die Tests warten
   in Gerätezeit statt in Wanduhrzeit (`settle(ms)` in `test/support/emu.mjs`).
 - **Browsertests** laufen als je drei dünne Dateien um dieselbe Suite nebeneinander.
@@ -183,6 +197,30 @@ gemessen auf einem Rechner mit 10 Kernen, ohne Gerätezugriff. Die Maßnahmen:
 Der kalte Lauf bleibt bei etwa 6 Minuten. Flaschenhälse sind dann die Kette der
 Startbild-Fälle (30 Schritte) und die Startwege in `check.py` (Probe-Haken auf jedem
 Lesezugriff).
+
+Der volle Check einer BLECH-Kopie (`check.py` ohne `--quick`, 553 Prüfungen) und die
+Menüfälle (`menu_cases.py cases`, 164 Fälle), gemessen am 28.10.2026 mit Hacktribe,
+`GELUMPE_JOBS=6`, auf einem Rechner mit 10 Kernen und Last von anderen Läufen (Lastmittel 8
+bis 24, die Zeiten schwanken entsprechend):
+
+| Lauf | vorher | nachher |
+|---|---|---|
+| `check.py`, erster Lauf ohne Cache | 1192 s | 792 s |
+| `check.py`, Firmware geändert, Laufzeiten vom letzten Lauf bekannt | 1192 s | 485 s |
+| `check.py`, nur `pswitch_cases.py` geändert | 1192 s | 158 s |
+| `check.py`, nichts geändert | gemerkt (nicht gemessen) | 3 s |
+| `menu_cases.py cases`, ohne Cache | 794 s | 368 s |
+| `menu_cases.py cases`, nichts geändert | 794 s (merkte sich nichts) | 0,2 s |
+| `check.py --quick` ohne Cache, Hacktribe / Korg rot / Korg blau | 32 / 187 / 162 s | 63 / 161 / 146 s |
+| `check.py --quick`, nichts geändert | wie ohne Cache | 5 / 3 / 2 s |
+
+Der erste `--quick`-Lauf legt die Snapshots erst an und startet jeden Task in einem eigenen
+Prozess, bei Hacktribe kostet das mehr als es spart. Ab dem zweiten Lauf zählt nur noch, was
+sich geändert hat.
+
+"Vorher" galt für `check.py` nach jeder Änderung an irgendeiner `.py`-Datei in `tools/`, also
+nach jedem Merge von `develop`. Die längste Gruppe ist dann `sysex_cases` mit den Dateien und
+Samples über die DIN-Leitung (rund 430 s, Gerätezeit bei 3,1 KB/s).
 
 ## Emulator
 

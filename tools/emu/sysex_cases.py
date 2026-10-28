@@ -772,10 +772,6 @@ def sample_cases(payload, flash):
     return out
 
 
-def case_files(payload, flash):
-    return file_cases(payload, flash) + sample_cases(payload, flash)
-
-
 def case_flash(payload, flash):
     """FLASH READ, on the flash the check was given (blank, or the user's own dump)."""
     dev, lk = boot(payload, flash)
@@ -823,7 +819,7 @@ def case_stream(payload, flash):
     return out
 
 
-GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, case_files, case_stream)
+GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, file_cases, sample_cases, case_stream)   # each its own task in check.py
 
 
 def synth_cases(payload, flash):

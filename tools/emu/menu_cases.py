@@ -890,7 +890,7 @@ def duty(dev, seconds):
     return {name: round(on[bit] / (end - at), 3) for name, bit in zip("RGB", on)}, len(dev.pin_log)
 
 
-def look_cases(payload, flash=None):
+def look_cases(payload, flash=None, rest=True):
     """The options of the group CUSTOMIZATION: bottom LEDs (METER, COLOR, OFF, a colour), backlight colour mixed from three levels,
     the file, a missing card, EXIT at power-on, the firmware's own switches (the lock a plugin holds, power save)."""
     out = []
@@ -1228,12 +1228,9 @@ def look_cases(payload, flash=None):
     kept = duty(held, 1.0)
     add("exit_held_is_stock", state(held, S_ON) != 1 and leds(held) == [120] * 12 and kept[0] == {"R": 1.0, "G": 1.0, "B": 1.0} and kept[1] == 0 and not held.m.asserts,
         f"on={state(held, S_ON):#x}, LEDs {leds(held)}, light {kept}")
-    out.extend(invert_cases(payload, flash))
-    out.extend(confirm_cases(payload, flash))
-    out.extend(tap_motion_cases(payload, flash))
-    out.extend(note_assist_menu_cases(payload, flash))
-    out.extend(default_level_cases(payload, flash))
-    out.extend(early_look_cases(payload, flash))
+    if rest:                                   # the suites after it; check.py runs each as a task of its own (LOOK_PARTS)
+        for suite in look_rest():
+            out.extend(suite(payload, flash))
     return out
 
 
@@ -2003,13 +2000,26 @@ def synth_start_cases(payload, flash=None):
     ]
 
 
-def look_cases_task():
-    """The look cases in a worker (parallel.py)."""
-    import parallel
+def look_rest():
+    """The suites look_cases runs after its own cases, in that order."""
+    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, default_level_cases, early_look_cases)
+
+
+def look_parts():
+    """What look_cases_task(i) runs: the look cases themselves, the suites after them, then the splash, pad colour and
+    calibration cases. Each boots devices of its own, so they run side by side."""
     from calibrate_cases import cases as calibration_cases
-    return (look_cases(parallel.shared["payload"], parallel.shared["flash"]) + splash_menu_cases(parallel.shared["payload"], parallel.shared["flash"])
-            + pad_colour_cases(parallel.shared["payload"], parallel.shared["flash"])
-            + calibration_cases(parallel.shared["payload"], parallel.shared["flash"]))
+    return ((lambda payload, flash: look_cases(payload, flash, rest=False)), *look_rest(), splash_menu_cases, pad_colour_cases,
+            calibration_cases)
+
+
+LOOK_PARTS = 10
+
+
+def look_cases_task(i):
+    """Part `i` of the look cases in a worker (parallel.py, look_parts)."""
+    import parallel
+    return look_parts()[i](parallel.shared["payload"], parallel.shared["flash"])
 
 
 def settings_cases_task():
@@ -2027,7 +2037,12 @@ def main():
     args = parser.parse_args()
     payload = Path(args.patched).read_bytes()[HEADER:]
     flash = load_flash(args.flash) if args.flash else None
-    result = cases(payload, flash) + look_cases(payload, flash) + splash_menu_cases(payload, flash) + pad_colour_cases(payload, flash)
+    # The same tasks as in check.py (without the calibration), side by side and kept as there (taskcache.py)
+    import parallel
+    tasks = [("menu_cases", "cases_task", ()), ("menu_cases", "settings_cases_task", ())]
+    tasks += [("menu_cases", "look_cases_task", (i,)) for i in range(LOOK_PARTS - 1)]
+    data = {"payload": payload, "flash": flash, "base": Path(args.base).read_bytes()[HEADER:]}
+    result = [c for part in parallel.run_tasks(tasks, data, cache="check") for c in part]
     print(json.dumps(result, indent=1))
     return 0 if all(c["ok"] for c in result) else 1
 

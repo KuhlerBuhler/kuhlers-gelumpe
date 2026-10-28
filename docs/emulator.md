@@ -332,11 +332,15 @@ braucht rund das Vierfache (der Emulator kennt keinen Cache). Der Grundwert blei
 Ein Boot bis zum Hauptbild kostet rund zwei CPU-Sekunden; `bootcache.py` bootet je
 Firmware, Flash, gehaltene Tasten und Gerätezeit einmal und startet danach aus einem
 Snapshot (`Machine.snapshot`, bit-identisch zum durchgelaufenen Gerät, `test_snapshot.py`).
+Das gilt auch mit Karte im Schlitz, wenn sie ein Abbild im Speicher ist: der erste Lauf eines
+Falls ab dem Einschalten wird samt Karte gemerkt (`bootcache.power_on`, `Dev.run`).
 Die Dateien liegen in `~/.cache/gelumpe` (`GELUMPE_CACHE_DIR`), enthalten Firmware-RAM und
 gehören nicht ins Repository. `check.py`, `mfx_cases.py` und `splash_cases.py` verteilen
 unabhängige Boots auf Prozesse (`GELUMPE_JOBS`, Standard: Kerne minus einer, 2 bei
-1-Minuten-Load über der Kernzahl, 1 bei Load über der doppelten Kernzahl) und merken sich ein
-beendetes Ergebnis je Eingabedateien und Emulator-Quelltext. `GELUMPE_CACHE=off` schaltet
+1-Minuten-Load über der Kernzahl, 1 bei Load über der doppelten Kernzahl). `check.py` merkt
+sich das Ergebnis jedes Tasks mit den Dateien, die er benutzt hat (`taskcache.py`), so läuft
+nach einer Änderung nur neu, was sie berührt; `mfx_cases.py` und `splash_cases.py` merken sich
+ein beendetes Ergebnis je Eingabedateien und Emulator-Quelltext. `GELUMPE_CACHE=off` schaltet
 Snapshots und gemerkte Ergebnisse ab, wenn alles frisch laufen soll. `server.py --unthrottled`
 (nur für Tests) läuft ohne Echtzeit-Bremse und meldet die Gerätezeit alle 20 ms.
 Die Testlaufzeit steht in [development.md](development.md#tests).
