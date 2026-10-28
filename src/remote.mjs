@@ -9,8 +9,11 @@
  */
 import { ramToFile } from "./map/address.mjs";
 
-/** The runtime's second code area, where script_remote.s puts its signature: "REMT", then the command word's address. */
-const CODE = { from: 0xc018d000, to: 0xc018ff00 };
+/**
+ * Where script_remote.s puts its signature, "REMT", then the command word's address: the runtime's code area
+ * (tools/patch/script_hooks.py, MORE3_START), and the second code area that held it up to 1.3.7.
+ */
+const CODES = [{ from: 0xc0150300, to: 0xc0170000 }, { from: 0xc018d000, to: 0xc018ff00 }];
 const SIGN = 0x544d4552;
 const MARK = 0xa5000000;
 export const KEY = 1;
@@ -22,12 +25,14 @@ const TRIES = 50;
 
 /** The address of the command word in a VSB with the runtime's keys, or null. */
 export function remoteMailbox(bytes) {
-  const from = ramToFile(CODE.from);
-  const to = Math.min(ramToFile(CODE.to), bytes.length - 8);
-  if (from < 0 || to <= from) return null;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
-  for (let at = from; at < to; at += 4) {
-    if (view.getUint32(at, true) === SIGN) return view.getUint32(at + 4, true);
+  for (const code of CODES) {
+    const from = ramToFile(code.from);
+    const to = Math.min(ramToFile(code.to), bytes.length - 8);
+    if (from < 0 || to <= from) continue;
+    for (let at = from; at < to; at += 4) {
+      if (view.getUint32(at, true) === SIGN) return view.getUint32(at + 4, true);
+    }
   }
   return null;
 }

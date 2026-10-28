@@ -22,7 +22,8 @@ from led_show import Device, emulator_ask, mido_ask, ICACHE_INVALIDATE, EXPECTED
 from screen_check import MANAGER_PTR, EDIT_PTR, PATTERN_PTR, DISPLAY, state
 
 STUB_AT = 0xC1000000
-CODE = (0xC018D000, 0xC018FF00)          # the runtime's second code area, where its signature lies
+CODES = ((0xC0150300, 0xC0170000),       # the runtime's code area, where its signature lies (MORE3_START),
+         (0xC018D000, 0xC018FF00))       # and the second code area that held it up to 1.3.7
 SIGN = 0x544D4552                        # "REMT", then the address of the command word
 MARK, KEY, ENCODER = 0xA5000000, 1, 2
 OS_WAIT = 0xC0000B78
@@ -53,9 +54,13 @@ def command(step, names):
 
 
 def mailbox_of(dev):
-    code = b"".join(dev.read(at, min(0x1000, CODE[1] - at)) for at in range(CODE[0], CODE[1], 0x1000))
-    at = next((i for i in range(0, len(code) - 8, 4) if struct.unpack_from("<I", code, i)[0] == SIGN), None)
-    return None if at is None else struct.unpack_from("<I", code, at + 4)[0]
+    for start, end in CODES:
+        for page in range(start, end, 0xFF8):      # pages overlap by the 8 bytes of the signature
+            code = dev.read(page, min(0x1000, end - page))
+            at = next((i for i in range(0, len(code) - 7, 4) if struct.unpack_from("<I", code, i)[0] == SIGN), None)
+            if at is not None:
+                return struct.unpack_from("<I", code, at + 4)[0]
+    return None
 
 
 def where(dev):
