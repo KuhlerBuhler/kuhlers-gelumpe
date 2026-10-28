@@ -2072,6 +2072,10 @@ export default {
   "names.pad.red": "Pad {pad}, rote LED",
   "names.pad.blue": "Pad {pad}, blaue LED (gewählter Part)",
 
+  "news.v137.1": "Der volle Test im Patcher klappt jetzt auch, wenn im Emulator Patterns gespeichert sind, etwa nach einem Import.",
+  "news.v137.2": "Die Electribe startet mit dem Pattern, das zuletzt gewählt war. Unter BLECH > FEATURES > INIT PATTERN wählst du deine eigene Vorlage für neue Patterns.",
+  "news.v137.3": "Windows: die Electribe wird öfter gefunden, und die MIDI-Diagnose sagt dir, wenn der Treiber von Korg im Weg ist.",
+  "news.v137.4": "Unter Changelogs stehen jetzt auch ältere Versionen, auch ohne Internet.",
   "news.v136.1": "Im Modus „Echtes Gerät“ verbindet sich die App selbst, sobald eine Electribe am Kabel hängt. Klappt es nicht, hilft die MIDI-Diagnose in den Einstellungen.",
   "news.v136.2": "Blechy läuft jetzt mit Schritten, schaut in Laufrichtung, und seine Seite ist immer dunkel.",
   "news.v136.3": "Patcher: auf Wunsch heißt die Electribe am Rechner „Electribe 3“. Die Patch-Namen stehen in deiner Sprache.",
