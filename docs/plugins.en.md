@@ -624,7 +624,7 @@ version 1 (u16), number of frames (u16), then per frame its delay in ms (u16), t
 memory (byte `(y / 8) * 128 + x`, bit `y % 8`). `tools/gif/gif2e2g.py` makes one from a GIF (Pillow), `src/script/gif.mjs`
 reads it in the browser. A call opens the file, seeks to the frame, reads it and closes the file again, through the
 firmware's FatFs functions (also `f_lseek`, `0xC009E404`, on blue `0xC008AF5C`) with the card loader's file object. It
-reads only while the main screen is open, like the save of `korg.store`. How long 1 KiB takes on the device is not
+reads only while the main screen is open. How long 1 KiB takes on the device is not
 measured; the 5 ms of a frame stay the limit.
 
 ### Persistent values
@@ -642,7 +642,7 @@ then 84 bytes per plugin (name, mask of used slots, 16 values), at most 194 entr
 that are not on the card at the moment are kept when writing ([German page](plugins.md#dauerhafte-werte)).
 
 Writing happens at the earliest 50 frames (2 seconds) after the last write and only while the main screen
-is open; another `save()` before that stays queued. A failure (no card, card full) is counted in the control
+or the BLECH menu is open (where the pages of `korg.menu.add` are); another `save()` before that stays queued. A failure (no card, card full) is counted in the control
 block (`storeErrors`) and is not repeated on its own. When running in the browser, the values last until the
 page is reloaded.
 

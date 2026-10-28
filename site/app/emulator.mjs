@@ -163,7 +163,7 @@ export function textScreen(lines, scale = 2) {
 /** States the device itself shows well enough: the status line says nothing, only a screen reader hears it. */
 const QUIET = new Set(["empty", "loaded", "running", "stopped", "off"]);
 
-export function emulatorPanel(root, link = null, { deviceArea = null, onConnect = () => {}, onBlocked = () => {} } = {}) {
+export function emulatorPanel(root, link = null, { deviceArea = null, onConnect = () => {}, onBlocked = () => {}, onFirmware = () => {} } = {}) {
   let events = null;
   let vsb = null;
   let base = null;
@@ -359,7 +359,8 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     }
     say(tone, word, s.error || (s.state === "running" ? t("emu.running") : s.state === "off" ? t("emu.off") : ""), QUIET.has(s.state) && !s.error, null, !!s.error);
     if (s.state !== "running") device.showLeds({}, true);
-    if (!fake) device.setPower(live(s.state));
+    // A real device on the drawing is switched on; its display shows whatever the emulator does.
+    if (!fake && !external) device.setPower(live(s.state));
     deviceBox.dataset.state = s.state;
     renderOffer();
   }
@@ -430,6 +431,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     keep.put("vsb", { name: file.name, bytes });
     if (lastState !== "running" && lastState !== "hung") showStatus({ state: "loaded" });
     renderOffer();
+    onFirmware();
   });
 
   let booting = false;
@@ -489,6 +491,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     showInfo(describe(saved.name, id, true), unknown(id));
     if (lastState === "empty") showStatus({ state: "loaded" });
     renderOffer();
+    onFirmware();
   });
   return {
     port, where, bar,
@@ -581,6 +584,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       external = on;
       mirrored = mirrors;
       renderOffer();
+      if (!fake) device.setPower(on || lastState === "running" || lastState === "hung");
       if (on || was) device.showLeds({}, true);
       if (!on && lastShade) drawShade(canvas, lastShade);
     },

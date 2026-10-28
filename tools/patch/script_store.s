@@ -224,7 +224,7 @@ store_load_done:
     pop {r1, r4-r11, pc}
 .pool
 
-; r0 runtime. Writes the image when a script asked to save, the main screen is open and the pause since the last write is over.
+; r0 runtime. Writes the image when a script asked to save, the main screen or BLECH is open and the pause since the last write is over.
 script_store_flush:
     push {r4-r11, lr}
     mov r4, r0
@@ -239,6 +239,7 @@ script_store_flush:
     beq store_flush_return
     ldr r1, [r1, #0x2c]
     cmp r1, #1
+    cmpne r1, #MENU_SCREEN      ; a plugin page in BLECH saves there, its menu runs in this task too
     bne store_flush_return
     ldr r2, [r4, #SCRIPT_CONTROL_STORE_FRAME]
     cmp r2, #0
