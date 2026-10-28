@@ -446,6 +446,12 @@
    "length": 32752,
    "what": "block buffer for file reads, the two store images lie in it",
    "source": "tools/patch/script_hooks.py:INPUT"
+  },
+  {
+   "at": "0xC015085C",
+   "length": 128932,
+   "what": "the rest of the fourth code area, kept free for the code of the plugin API to grow into",
+   "source": "tools/patch/script_hooks.py:MORE3_END"
   }
  ],
  "shares": [
