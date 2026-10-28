@@ -103,7 +103,8 @@ def used():
             continue
     deps = {}
     for real in files:
-        if real.startswith(outside) or real.endswith(".pyc") or os.path.isdir(real):
+        # __pycache__: an import writes its .pyc through a temporary file that is renamed at once
+        if real.startswith(outside) or f"{os.sep}__pycache__{os.sep}" in real or os.path.isdir(real):
             continue
         sha = file_hash(real)
         if sha is None:

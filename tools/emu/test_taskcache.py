@@ -44,9 +44,10 @@ class TaskCacheTest(unittest.TestCase):
             (self.code / f"{name}.py").write_text(textwrap.dedent(text))
         (self.code / "toy_data.txt").write_text("one")
         sys.path.insert(0, str(self.code))
-        self.env = {k: os.environ.get(k) for k in ("GELUMPE_CACHE_DIR", "GELUMPE_CACHE")}
+        self.env = {k: os.environ.get(k) for k in ("GELUMPE_CACHE_DIR", "GELUMPE_CACHE", "PYTHONDONTWRITEBYTECODE")}
         os.environ["GELUMPE_CACHE_DIR"] = str(self.folder / "cache")
         os.environ.pop("GELUMPE_CACHE", None)
+        os.environ.pop("PYTHONDONTWRITEBYTECODE", None)     # the workers write .pyc files, as they do on CI
         self.data = {"payload": b"firmware", "flash": None, "base": b"base"}
         self.tasks = [("toy_a", "cases_task", (1,)), ("toy_b", "cases_task", ())]
 
