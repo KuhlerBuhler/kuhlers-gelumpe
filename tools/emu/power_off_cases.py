@@ -42,8 +42,10 @@ RUNS = ["plain", "plain_stock", "edit", "edit_stock", "exit", "exit_stock", "mai
 
 
 def for_build(payload):
-    """Put the patch module's places to the build of this image (the synth has its own addresses, data/synth-map/)."""
+    """Put the patch module's places to the build of this image (the synth has its own addresses, data/synth-map/),
+    and the menu's screen numbers too: the runs build their own Dev instead of menu_cases.boot, which sets them."""
     spec.use_build("synth" if synthaddr.is_synth(payload) else "hacktribe")
+    menu_cases.for_build(payload)
 
 
 def has_hook(payload):
