@@ -4,6 +4,7 @@ import { saveFile } from "./save-file.mjs";
 import { toast } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 import { t, tNodes } from "./i18n.mjs";
+import { loadingAnimSection } from "./loading-anim.mjs";
 
 const STYLE = new URL("./splash.css", import.meta.url).href;
 
@@ -43,7 +44,7 @@ export function pixelsOf(picture, { cover = false, threshold = 128, dither = fal
 }
 
 /** Draws 0/1 pixels in the colours of the emulator's display. */
-function paint(canvas, pixels) {
+export function paint(canvas, pixels) {
   const style = getComputedStyle(canvas);
   const c = canvas.getContext("2d");
   c.fillStyle = style.getPropertyValue("--cee-splash-paper").trim() || "white";
@@ -59,7 +60,7 @@ const loadImage = src => new Promise((resolve, reject) => {
   img.src = src;
 });
 
-function switchOf(id, text) {
+export function switchOf(id, text) {
   const input = el("input", { type: "checkbox", role: "switch", id });
   return { input, node: el("label", { className: "ui-switch" }, [input, el("span", { className: "ui-switch-track", ariaHidden: "true" }), text]) };
 }
@@ -182,6 +183,7 @@ export function splashPage(root) {
       el("li", { textContent: t("splash.step.import") }),
       el("li", { textContent: t("splash.step.see") }),
     ]),
+    ...loadingAnimSection(),
   ]));
 
   /** Puts a picture into the editor: a dropped file or one of the gallery. */

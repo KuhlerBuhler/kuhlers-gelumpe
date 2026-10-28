@@ -3,7 +3,7 @@
 Stand 28.10.2026, [Idee 71](../ideen/71-ladeanimation-karte.md). Gebaut sind Kodieren, Dekodieren, Prüfen
 (`src/loading-anim.mjs`), der Dekoder in Python für die Emulator-Fälle (`tools/patch/loading_anim.py`), ein GIF-Dekoder für
 den Import (`src/gif.mjs`) und das Abspielen in der Firmware (`tools/patch/load_bar.py`, Hacktribe und rot). Die App
-schreibt noch keine eigene Datei, am Gerät ist nichts geprüft.
+macht die Datei im Bereich Design und schreibt sie beim Patchen in den Slot (siehe unten), am Gerät ist nichts geprüft.
 
 ## Bilder
 
@@ -117,3 +117,16 @@ beginnt transparent (wie im Browser). Geprüft gegen das bekannte 10 x 10 Beispi
 `test/loading-anim.test.mjs`, `test/gif.test.mjs`, `tools/patch/test_loading_anim.py` (Python gegen eine Datei aus dem
 JS-Encoder, braucht node; dazu Standard-Blechy Bild für Bild gegen `load_bar.compose_reference`). Die Emulator-Fälle
 stehen in `tools/emu/loadbar_cases.py` (`case_smooth`, `case_custom`).
+
+## In der App
+
+`Gerät -> Design`, Abschnitt Ladeanimation: ein GIF oder mehrere Einzelbilder (sortiert nach Namen), gewandelt wie das
+Startbild (`pixelsOf` in `site/app/splash.mjs`, gleiche Schwelle). Je Bild die Rolle Fortschritt oder Warte-Schleife,
+dazu "Schleife bei Stillstand" oder "ab Prozent". Die Größe steht als "x von 16 KB"; zu groß heißt abgelehnt, mit den
+drei teuersten Bildern im Hinweis und dem Knopf Ausdünnen. Übernommen wird die Datei im Browser gespeichert.
+
+Der Firmware Patcher schreibt sie als Patch `loading-anim` in das Kartenfeld `loadingAnim` (der Slot ab `0xC01A6000`,
+Rest `FF`), in einem eigenen Durchgang nach dem Set und nur, wenn `load-bar` mit drauf ging: `load-bar` meldet den Slot
+als seinen RAM, in einer Liste mit ihm würde der Patch abgelehnt. Vorher prüft `loadingAnimPatch` die Datei mit
+`validateAnimation`. "Standard wiederherstellen" löscht die gespeicherte Datei, dann bleibt der Slot `FF` und die Firmware
+zeigt Blechy. Tests: `test/loading-anim-patch.test.mjs`, `test/e2e/loading-anim.e2e.mjs`.

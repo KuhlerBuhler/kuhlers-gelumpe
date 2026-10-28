@@ -11,6 +11,7 @@ reference for "as it was" is the same copy with EXIT held at power-on, where no 
 
     tools/emu/.venv/bin/python tools/emu/loadbar_cases.py cases --patched NEW.VSB [--flash dump.bin]
     tools/emu/.venv/bin/python tools/emu/loadbar_cases.py shots --patched NEW.VSB --png-dir DIR [--flash dump.bin]
+    tools/emu/.venv/bin/python tools/emu/loadbar_cases.py app --patched NEW.VSB --expect expect.json [--flash dump.bin]
 """
 
 import argparse
@@ -687,6 +688,48 @@ def case_custom(payload, flash):
     return out
 
 
+def app_file(payload, flash, expect):
+    """A copy the app made with an animation of its own (test/emulator-loading-anim.test.mjs): `expect` holds the file
+    (src/loading-anim.mjs:encodeAnimation) and every picture as the app computes it (shownPicture, "index,loop", loop -1 for
+    none). The slot holds the file, the overlay plays it and not Blechy, every look is one of its pictures, the app's
+    pictures are the firmware's, the progress counts up and the loop plays from its percent on."""
+    blob = bytes.fromhex(expect["anim"])
+    at = spec.ANIM_SLOT - IMAGE
+    slot = payload[at:at + len(blob)]
+    out = [entry("app_slot_is_the_file", slot == blob and loading_anim.validate(blob) is None and set(payload[at + len(blob):spec.ANIM_SLOT_END - IMAGE]) <= {0xFF},
+                 f"the app wrote its file of {len(blob)} bytes at {spec.ANIM_SLOT:#x}, FF behind it, and it passes the firmware's checks")]
+    run = Run(payload, flash)
+    frames, first, bad = mismatches(run)
+    keys = [st[7] for _, _, st, _, _ in frames]
+    seen = sorted({k & 0xFFFFFF for k in keys})
+    out.append(entry("app_file_is_played", run.state()[A_FILE] == spec.ANIM_SLOT and len(frames) >= 30 and first is not None and not bad
+                     and not run.m.asserts and run.main_at is not None,
+                     f"the animation is {run.state()[A_FILE]:#x} (the slot {spec.ANIM_SLOT:#x}); {len(frames)} looks from {first and round(first)} ms, each a picture "
+                     f"of the file for the key in the state" + (f"; frames that differ at {bad[:5]} ms" if bad else "")))
+    named = lambda k: f"{index(k)},{loop_of(k) - 1 if loop_of(k) else -1}"
+    n, m, _ = loading_anim._lists(blob)
+    differ = [named(k) for k in seen if index(k) >= n or loop_of(k) > m or expect["pictures"].get(named(k)) != pictures(blob, k)[0].hex()]
+    out.append(entry("app_pictures_are_the_firmwares", seen and not differ,
+                     f"for each of the {len(seen)} keys shown ({[named(k) for k in seen]}) the app's picture equals what the overlay draws"
+                     + (f"; differ: {differ[:5]}" if differ else "")))
+    default = run.payload[spec.ANIM_DEFAULT - IMAGE:spec.ANIM_DEFAULT_END - IMAGE]
+    n_def, m_def, _ = loading_anim._lists(default)
+    blechy = {loading_anim.picture(default, k, j) for k in range(n_def) for j in (None, *range(m_def))}
+    blechy |= {bytes(b ^ 0xFF for b in p) for p in blechy}
+    as_blechy = [round(t) for t, fb, _, _, _ in frames if bytes(fb) in blechy]
+    out.append(entry("app_not_blechy", frames and not as_blechy,
+                     f"none of the {len(frames)} looks is one of Blechy's {len(blechy) // 2} pictures" + (f"; Blechy at {as_blechy[:5]} ms" if as_blechy else "")))
+    loop_from = loading_anim.loop_from(blob)
+    shown = [index(k) for k in keys]
+    loops = [(st[P_SHOWN], loop_of(st[7])) for _, _, st, _, _ in frames if loop_of(st[7])]
+    early = [p for p, _ in loops if loop_from and p < 10 * loop_from]
+    out.append(entry("app_progress_and_loop", shown == sorted(shown) and len(set(shown)) >= 3 and len({j for _, j in loops}) >= 2 and not early,
+                     f"progress pictures {sorted(set(shown))} in order; loop pictures {sorted({j - 1 for _, j in loops})} from "
+                     f"{min((p for p, _ in loops), default=None)} permille (the file loops from {loop_from} percent)"
+                     + (f"; loop too early at {early[:3]}" if early else "")))
+    return out
+
+
 GROUPS = (case_bar, case_off, case_rescue, case_custom_image, case_card_error, case_look, case_power_while_loading, case_smooth, case_custom)
 
 
@@ -725,7 +768,8 @@ def main():
     import lifetime
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("what", choices=("cases", "shots"))
+    p.add_argument("what", choices=("cases", "shots", "app"))
+    p.add_argument("--expect", type=Path, help="app: the app's file and pictures (app_file)")
     p.add_argument("--png-dir", type=Path)
     p.add_argument("--patched", required=True, type=Path)
     p.add_argument("--flash", nargs="*", default=[], type=Path)
@@ -738,6 +782,12 @@ def main():
             p.error("shots needs --png-dir")
         print(json.dumps(shots(payload, flash, a.png_dir), indent=1))
         return 0
+    if a.what == "app":
+        if not a.expect:
+            p.error("app needs --expect")
+        entries = app_file(payload, flash, json.loads(a.expect.read_text()))
+        print(json.dumps(entries, indent=1))
+        return 0 if all(e["ok"] for e in entries) else 1
     entries = group_entries(payload, flash, a.only) if a.only is not None else cases(payload, flash)
     print(json.dumps(entries, indent=1))
     return 0 if all(e["ok"] for e in entries) else 1

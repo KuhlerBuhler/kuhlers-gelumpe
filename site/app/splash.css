@@ -96,3 +96,38 @@
   image-rendering: pixelated;
   border-radius: var(--radius-xs);
 }
+
+/* The loading animation (loading-anim.mjs): what the Patcher writes now, and the pictures with their role. */
+.cee-anim-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.cee-anim-frames {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cee-anim-frames[hidden] {
+  display: none;
+}
+
+.cee-anim-frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-anim-frame-name {
+  overflow-wrap: anywhere;
+}

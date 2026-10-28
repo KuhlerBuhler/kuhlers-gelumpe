@@ -19,7 +19,7 @@
  * when it plays from a percent on) and never chain, so the loop needs no buffer of its own and leaves the progress
  * picture untouched.
  */
-import { pixelsToSplash, splashToPixels, SPLASH_W, SPLASH_H } from "./patch.mjs";
+import { pixelsToSplash, splashToPixels, toHex, PATCH_FORMAT, SPLASH_W, SPLASH_H } from "./patch.mjs";
 
 export const MAGIC = "BLLA";
 export const VERSION = 1;
@@ -161,6 +161,27 @@ export function decodeAnimation(bytes) {
   return { progress, loop, loopFrom };
 }
 
+/**
+ * What the overlay draws (before the complement): progress picture `index` with loop list `loop` written over it, or the
+ * progress picture alone without one (tools/patch/loading_anim.py:picture, load_bar.py draw).
+ */
+export function shownPicture(bytes, index, loop = null) {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const n = v.getUint16(6, true), table = v.getUint16(10, true);
+  const list = i => v.getUint16(table + 2 * i, true);
+  const frame = bytes.slice(HEADER_BYTES, HEADER_BYTES + FRAME_BYTES);
+  for (let k = 1; k <= index; k++) apply(frame, bytes, list(k - 1));
+  return loop === null ? frame : apply(frame, bytes, list(n - 1 + loop));
+}
+
+/**
+ * The same from the pictures, without a file: loop picture `loop`, as the encoder lists it against `base`, written over
+ * the progress picture `shown`. The runs also write the bytes they bridge, so those come from the base, as on the device.
+ */
+export function loopPicture(shown, base, loop) {
+  return apply(shown.slice(), listBytes(diffRuns(base, loop)), 0);
+}
+
 /** Every second progress picture dropped (0, 2, 4 ... stay, the last one always), the loop kept. */
 export function thinAnimation({ progress, loop = [], loopFrom = 0 }) {
   return { progress: progress.filter((_, i) => i % 2 === 0 || i === progress.length - 1), loop, loopFrom };
@@ -199,3 +220,21 @@ export function frameToPixels(frame) {
 }
 
 export { SPLASH_W, SPLASH_H };
+
+export const LOADING_ANIM_ID = "loading-anim";
+
+/**
+ * A custom animation as a patch, the way the start image is one (splashPatch): the map field `loadingAnim` is the slot
+ * load-bar reads (tools/patch/load_bar.py:ANIM_SLOT), the file at its start, FF behind it. Made for load-bar's builds;
+ * only worth applying on top of load-bar (src/patcher.mjs, withLoadingAnim). Throws on a file the firmware would reject.
+ */
+export function loadingAnimPatch(bytes, name = "Eigene Ladeanimation") {
+  const bad = validateAnimation(bytes);
+  if (bad) throw new Error(`loading animation: ${bad}`);
+  const slot = new Uint8Array(MAX_BYTES).fill(0xff);
+  slot.set(bytes.subarray(0, new DataView(bytes.buffer, bytes.byteOffset).getUint32(12, true)));
+  return {
+    format: PATCH_FORMAT, version: 1, id: LOADING_ANIM_ID, name, builds: ["hacktribe", "stock"],
+    changes: [{ field: "loadingAnim", bytes: toHex(slot) }],
+  };
+}

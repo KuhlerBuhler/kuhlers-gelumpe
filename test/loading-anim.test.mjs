@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   encodeAnimation, decodeAnimation, validateAnimation, thinAnimation, costPerFrame, pixelsToFrame, frameToPixels,
-  progressIndex, MAX_BYTES, FRAME_BYTES,
+  progressIndex, shownPicture, loopPicture, MAX_BYTES, FRAME_BYTES,
 } from "../src/loading-anim.mjs";
 
 // A block 16 columns wide and all 8 pages high, at a place that never overlaps the one before.
@@ -173,4 +173,32 @@ test("loop from above 100 percent is refused and rejected", () => {
   const b = good();
   b[5] = 101;
   assert.equal(validateAnimation(b), "loop from 101 percent");
+});
+
+test("the picture on screen: the progress picture with the loop list written over it, as the firmware draws it", () => {
+  // the loop changes bytes 9 and 11 against its base (picture 0); the encoder bridges byte 10, which it writes from the base
+  const progress = [new Uint8Array(FRAME_BYTES), new Uint8Array(FRAME_BYTES)];
+  progress[1][10] = 0x11;
+  const loop = new Uint8Array(FRAME_BYTES);
+  loop[9] = 0xaa; loop[11] = 0xaa;
+  const { bytes } = encodeAnimation({ progress, loop: [loop] });
+  const device = shownPicture(bytes, 1, 0);
+  assert.deepEqual([...device.subarray(9, 12)], [0xaa, 0x00, 0xaa], "byte 10 from the base, not the progress picture");
+  assert.deepEqual(shownPicture(bytes, 1), progress[1]);
+  assert.deepEqual(shownPicture(bytes, 0, 0), loop);
+  // the preview's picture from the pictures alone is the firmware's, also where a byte-by-byte overlay is not
+  assert.deepEqual(loopPicture(progress[1], progress[0], loop), device);
+  const bytewise = progress[1].map((b, i) => (loop[i] !== progress[0][i] ? loop[i] : b));
+  assert.notDeepEqual(bytewise, device);
+});
+
+test("the preview's loop picture equals the file's for every progress picture and loop picture", () => {
+  const frames = { progress: Array.from({ length: 6 }, (_, k) => sprite(k)), loop: [0, 1, 2].map(spinner), loopFrom: 40 };
+  const { bytes } = encodeAnimation(frames);
+  const { progress } = decodeAnimation(bytes);
+  const base = progress[progressIndex(6, 400)];
+  for (let k = 0; k < 6; k++) {
+    assert.deepEqual(shownPicture(bytes, k), progress[k]);
+    frames.loop.forEach((l, j) => assert.deepEqual(loopPicture(progress[k], base, l), shownPicture(bytes, k, j), `progress ${k}, loop ${j}`));
+  }
 });
