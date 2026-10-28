@@ -50,6 +50,7 @@ from migrate_cases import GROUPS as MIGRATE_GROUPS, has_hooks as has_migrate
 from fx_card_cases import GROUPS as FXCARD_GROUPS, has_hooks as has_fxcard
 from remote_cases import GROUPS as REMOTE_GROUPS, has_hooks as has_remote
 from last_pattern_cases import GROUPS as LASTPATTERN_GROUPS, has_hooks as has_lastpattern
+from init_pattern_cases import GROUPS as INITPATTERN_GROUPS, has_hooks as has_initpattern
 
 HEADER = 0x100
 PAYLOAD = 0x200000
@@ -162,6 +163,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("sysex_cases", "cases_task", (i,)) for i in range(len(SYSEX_GROUPS))]
     if want(has_lastpattern):
         tasks += [("last_pattern_cases", "cases_task", (i,)) for i in range(len(LASTPATTERN_GROUPS))]
+    if want(has_initpattern):
+        tasks += [("init_pattern_cases", "cases_task", (i,)) for i in range(len(INITPATTERN_GROUPS))]
     power_off, combine_power_off = power_off_tasks(payload) if want(has_power_off_hook) else ([], None)
     tasks += power_off
     if want(has_presets):
@@ -187,6 +190,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     synth = [c for _ in range(len(SYNTH_GROUPS) if want(has_synth) else 0) for c in done.pop(0)]
     sysex = [c for _ in range(len(SYSEX_GROUPS) if want(has_sysex) else 0) for c in done.pop(0)]
     lastpattern = [c for _ in range(len(LASTPATTERN_GROUPS) if want(has_lastpattern) else 0) for c in done.pop(0)]
+    initpattern = [c for _ in range(len(INITPATTERN_GROUPS) if want(has_initpattern) else 0) for c in done.pop(0)]
     power_off_done = [done.pop(0) for _ in power_off]
     presets = done.pop(0) if want(has_presets) else []
     ranges, report = combine(dict(zip(names, done)))
@@ -242,6 +246,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(synth)
     checks.extend(sysex)
     checks.extend(lastpattern)
+    checks.extend(initpattern)
     if power_off:
         checks.extend(combine_power_off(power_off_done))
     checks.extend(presets)

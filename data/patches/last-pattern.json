@@ -10,8 +10,8 @@
  "changes": [
   {
    "file": 1376000,
-   "bytes": "acc09fe500c09ce500005ce30f00000a18109ce5020a11e30c00001a94c09fe500c09ce500005ce30800000af810dce5000051e30500000afa0051e30300008a011041e20100a0e3f900cce51eff2fe10010a0e31eff2fe10040a0e150c09fe500c09ce500005ce30f00000a18c09ce5020a1ce30c00001a38c09fe500c09ce500005ce31eff2f01f900dce5000050e30300000a0000a0e3f900cce5f850dce5015045e2010085e2f800cce50400a0e11eff2fe1f8e633c0241369c0",
-   "expect": "129a47b49a3e1a06af4cc9cab579d3a6a6c7f6ab5a17a3f75dd1b09eb9be85e1",
+   "bytes": "b8c09fe500c09ce500005ce31200000a18109ce5020a11e30f00001aa0c09fe500c09ce500005ce30b00000af810dce5000051e30800000afa0051e30600008a011041e20100a0e3f900cce574009fe5000050e3181380151eff2fe10010a0e31eff2fe10040a0e150c09fe500c09ce500005ce30f00000a18c09ce5020a1ce30c00001a38c09fe500c09ce500005ce31eff2f01f900dce5000050e30300000a0000a0e3f900cce5f850dce5015045e2010085e2f800cce50400a0e11eff2fe1f8e633c0241369c000000000",
+   "expect": "dc6c9c43af3a1e4a3102286e5784afbd26f393dabf9b59b4cf3b74e9b6dce2ee",
    "note": "last pattern: the start function and the first selection take the kept number, every selection notes it in Global byte 248"
   },
   {
@@ -22,7 +22,7 @@
   },
   {
    "file": 499400,
-   "bytes": "225803eb",
+   "bytes": "255803eb",
    "expect": "57d3d243cf42496cc7747b91e991c67cbffe9f6f2bf2e0a198f5f0f1d443bd35",
    "note": "the pattern selection notes its number (and takes the kept one once after power-on)"
   }
@@ -58,7 +58,7 @@
   },
   {
    "file": 1376000,
-   "length": 188,
+   "length": 204,
    "why": "lp_boot and lp_select run with those calls; they read the held keys and Global bytes 248 and 249"
   }
  ],

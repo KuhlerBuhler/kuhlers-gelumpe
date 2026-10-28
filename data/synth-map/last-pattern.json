@@ -1,0 +1,9 @@
+{
+ "entries": [
+  {"from": "0xC002AF40", "to": "0xC0028104", "kind": "code", "why": "mov r1, #0 of the start function before the pattern resolver: fwmap same code (16 words equal)"},
+  {"from": "0xC0079DC8", "to": "0xC006C754", "kind": "code", "why": "mov r4, r0 in the pattern selection behind the clamp to 0xF9: fwmap same code"},
+  {"from": "0xC0036BEC", "to": "0xC0032C00", "kind": "code", "why": "the init function that copies the init template (0x4000 bytes): fwmap same code"},
+  {"from": "0xC0036A34", "to": "0xC0032A48", "kind": "code", "why": "INITIALIZE PATTERN's bl to the init function, read in both: the same sequence (alloc 4, bl, str r5 [r4,#0x1c], mov r1, sp, bl init); fwmap places it, the 16 words differ by the call targets only"},
+  {"from": "0xC000985C", "to": "0xC0005814", "kind": "code", "why": "memcpy(dst, src, n) the init function calls: fwmap same code"}
+ ]
+}

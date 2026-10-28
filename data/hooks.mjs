@@ -49,6 +49,7 @@ export const CHAINS = {
     { id: "set-number", sites: [0xC0081F50] },
   ],
   "pattern-select": [{ id: "clamp", sites: [0xC0079DC8] }],
+  "pattern-init": [{ id: "data-utility-init", sites: [0xC0036A34] }],
   "sequence-end": [{ id: "pattern-number", sites: [0xC005F1C4] }],
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],

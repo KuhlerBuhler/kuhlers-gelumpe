@@ -33,6 +33,7 @@ NAMES = {
     "sysex_cases": "SysEx",
     "power_off_cases": "Ausschalten",
     "last_pattern_cases": "Letztes Pattern",
+    "init_pattern_cases": "Init-Pattern",
     "preset_cases": "Presets",
 }
 
