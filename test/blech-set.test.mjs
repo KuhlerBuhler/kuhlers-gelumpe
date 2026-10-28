@@ -15,11 +15,11 @@ const builderAvailable = existsSync(python);
 test("the BLECH set lists patch files that exist, with unique ids per build, and the hook register accepts them together", () => {
   assert.equal(SET.format, "gelumpe-patch-set");
   assert.equal(SET.version, 1);
-  assert.deepEqual(patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "script-runtime", "blechtribe", "blechtribe", "splash", "blech-theme", "preset-tables", "preset-tables", "fx-catalog", "synth-filters", "power-off", "doom-loader", "blech-sysex", "blech-sysex"]);
+  assert.deepEqual(patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "script-runtime", "blechtribe", "blechtribe", "splash", "blech-theme", "preset-tables", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "doom-loader", "blech-sysex", "blech-sysex"]);
   for (const build of ["hacktribe", "stock"]) {
     const chosen = selectFor(patches, build);
     assert.deepEqual(chosen.reasons, [], build);
-    assert.deepEqual(chosen.patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", ...(build === "stock" ? ["synth-filters"] : []), "power-off", "doom-loader", "blech-sysex"], build);
+    assert.deepEqual(chosen.patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", ...(build === "stock" ? ["synth-filters"] : []), "power-off", "last-pattern", "doom-loader", "blech-sysex"], build);
     const registered = checkHooks(chosen.patches);
     assert.equal(registered.ok, true, registered.reasons.join(" "));
   }

@@ -32,6 +32,7 @@ NAMES = {
     "synth_filter_cases": "Synth-Filter",
     "sysex_cases": "SysEx",
     "power_off_cases": "Ausschalten",
+    "last_pattern_cases": "Letztes Pattern",
     "preset_cases": "Presets",
 }
 
