@@ -1210,7 +1210,7 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
   Plugin-Laufzeit mit Menü, Kartenordner `blechtribe`, Blech-Startbild) ist gebaut
   und im Emulator geprüft ([Gerätedatei](geraetetests/blech-datei.md)).
 
-Der Platz im Abbild: VM und Haken ab `0xC01A6000`, Laufzeit ab `0xC01AE000`, Pool
+Der Platz im Abbild: VM und aller Code der Laufzeit ab `0xC0150300`, Laufzeit ab `0xC01AE000`, Pool
 `0xC01D7000` bis `0xC01F7000`, alles in dem Bereich, der in den eigenen Abbildern
 FF ist (offline gemessen). Der Block von Blechy liegt außerhalb davon bei `0xC0184000`
 (12668 Byte), im FF-Lauf `0xC01720B0` bis `0xC01A0000`, in dem auch der Patternwechsel und

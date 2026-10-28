@@ -31,17 +31,8 @@ class HookTests(unittest.TestCase):
         machine = BareMachine(built.vm)
         machine.runtime = built.layout['runtime']
         machine.arena = built.layout['pool']
-        from tools.patch.script_hooks import BLECHY_BLOCK,BLECHY_BLOCK_END
-        machine.uc.mem_map(BLECHY_BLOCK,BLECHY_BLOCK_END-BLECHY_BLOCK)    # where the image holds the block of Blechy
-        from tools.patch.script_hooks import MORE_START,MORE_END
-        machine.uc.mem_map(MORE_START,(MORE_END-MORE_START+0xFFF)&~0xFFF)  # the second code area (display, store, hardware, events, apps)
-        from tools.patch.script_hooks import MORE2_START,MORE2_END
-        machine.uc.mem_map(MORE2_START&~0xFFF,((MORE2_END+0xFFF)&~0xFFF)-(MORE2_START&~0xFFF))  # the third code area (colour maths)
-        from tools.patch.script_hooks import MORE3_START,MORE3_END
-        machine.uc.mem_map(MORE3_START&~0xFFF,((MORE3_END+0xFFF)&~0xFFF)-(MORE3_START&~0xFFF))  # the fourth code area (object tree)
-        from tools.patch.script_hooks import runtime_profile
-        work = runtime_profile('hacktribe').actions['MG_WORK']
-        machine.uc.mem_map(work&~0xFFF,((work+0xF00+0xFFF)&~0xFFF)-(work&~0xFFF))  # the folder copy's work area, read by every input
+        # the code area (VM and all our code, from MORE3_START) is mapped with 1 MiB by BareMachine, which also holds
+        # the block of Blechy (0xC0184000) and the folder copy's work area (MG_WORK), read by every input
         for address,data in built.sections[len(built.vm.sections):]:
             machine.uc.mem_write(address,data)
         machine.symbols.update(built.symbols)

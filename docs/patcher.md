@@ -400,6 +400,7 @@ sind kein RAM und stehen auch nicht hier.
 
 | Bereich | Patch | Inhalt | Größe aus |
 |---|---|---|---|
+| Ende des Codes bis `0xC0170000` | script-runtime | Rest der Code-Fläche ab `0xC0150300`, in der die VM und aller eigene Code liegen (das Ende hängt vom Build ab), frei für den Code der Plugin-API | `script_hooks.py:MORE3_END` |
 | `0xC0174000` + 0x3950, `0xC0178000` + 0x3950 | preset-tables | Platz für je 28 weitere Preset-Records (Insert, Master), vom Editor beschrieben | `preset_tables.py:RES_IFX`, `RES_MFX` |
 | `0xC017C400` + 0x800 | preset-tables | Reglergedächtnis des Insert-Effekts, 16 Parts zu 128 Byte, die Firmware füllt es beim Start | `preset_tables.py:EDIT_TABLE` |
 | `0xC0180F00` + 0x40 | pattern-switch | Zustand, darin `PS_SETTING` bei +0x10 | `pattern_switch.py:STATE` |
@@ -408,14 +409,17 @@ sind kein RAM und stehen auch nicht hier.
 | `0xC0181F00` + 0x40 | load-bar | Zustand | `load_bar.py:STATE` |
 | `0xC0182000` bis `0xC0183000` | splash-editor | Zustand 0x100, Datensatz 0x420, zwei Bilder zu 0x400, FatFs-Datei 0x2E0 | `splash_editor.py`, fünf Einträge |
 | `0xC0183800` + 0x100 | sample-errors | Zustand (Zähler, erstes übersprungenes Sample, Grund) und die zwei Zeilen des Fensters bei +0x40 und +0x60 (der Code liegt bei `0xC0183000`, 852 Byte, als geänderte Bytes) | `sample_errors.py:STATE` |
+| `0xC0188A00` bis `0xC0188F00` | script-runtime | Reserve: die dritte Code-Fläche der Laufzeit bis 1.3.7, leer seit dem Umzug in die Code-Fläche ab `0xC0150300` | `script_hooks.py:MORE2_START` |
 | `0xC0188F00` + 0x40 | tap-motion | Zustand, darin `TM_SETTING` bei +0, die Lampe, die Patternnummer, der gemerkte Modus je Part und für Master FX (der Code liegt bei `0xC0188000`, 0x2B0 Byte, als geänderte Bytes) | `tap_motion.py:STATE` |
 | `0xC0189F00` + 0x40 | note-assistant | Zustand, darin `NA_SETTING` bei +0, die Takte seit der letzten Note, Note und Pad, die Pads der zuletzt gespielten Note bei +0x1C (der Code liegt bei `0xC0189000`, 0x754 Byte, als geänderte Bytes) | `note_assist.py:STATE` |
 | `0xC018AF00` + 0x40 | dice | Zustand, darin `DC_SETTING` bei +0, der Zustand des Zufallszahlengebers, die Töne der Tonleiter (der Code liegt bei `0xC018A000`, 0x4A4 Byte, als geänderte Bytes) | `dice.py:STATE` |
 | `0xC018C400` + 0x400, `0xC018C800` + 0x400, `0xC018CC00` + 0x280 | load-bar | der Look: das Bild der Firmware, das Bild mit Look, aus dem die Display-Sendung ihre Seiten nimmt, Reiter, bis zu 12 Kästen und die Quelle der Sendung (der Code liegt bei `0xC0183900`, als geänderte Bytes) | `load_bar.py:LOOK_BACK`, `LOOK_OUT`, `LOOK_NBOX` |
 | `0xC018CF00` + 0x40 | ifx-idle | Zustand: je Part die stummen Takte und ob er Punch vom Patch hat (der Code liegt bei `0xC018C000`, 0x1E4 Byte, als geänderte Bytes) | `ifx_idle.py:STATE` |
+| `0xC018D000` bis `0xC018FF00` | script-runtime | Reserve: die zweite Code-Fläche der Laufzeit bis 1.3.7, leer seit dem Umzug | `script_hooks.py:MORE_START` |
 | `0xC0191000` + 0x100 | blech-sysex | Zustand: das erklärte Schreiben, die decodierte Anfrage, Antworten, die kurz sind | `blech_sysex.py:STATE` |
 | `0xC0191100` bis `0xC01A0000` | blech-sysex | Puffer für Nachrichten und Antworten, bis 32768 Byte Nutzdaten, die Antwort wird von hinten im selben Puffer gepackt | `blech_sysex.py:BUF` |
 | `0xC01A5C00` + 0x40, `0xC01A5D00` + 0x120 | mfx-switch | Zustand, Datensatz der Tabelle | `mfx_switch.py:STATE`, `RECBUF` |
+| `0xC01A6000` bis `0xC01ADF00` | script-runtime | Reserve: die erste Code-Fläche der Laufzeit (VM und Haken) bis 1.3.7, leer seit dem Umzug; dahinter bleiben die Kopien der Bildschirmtabelle und der Menüklasse (`MENU_TABLE`) | `script_hooks.py:CODE_START` |
 | `0xC01AE000` + 166864 | script-runtime | Laufzeit: Kontrollblock, Ring, LED, Display, Regler, Apps | `script_hooks.py:RUNTIME`, `SCRIPT_RUNTIME_SIZE` |
 | `0xC01D6C00` + 480, `0xC01D6E00` + 0x200 | script-runtime | Menüeinträge, Menüzustand mit den Einstellungspuffern | `script_hooks.py:MENU_ITEMS`, `MENU_STATE` |
 | `0xC01D7000` + 131072 | script-runtime | Plugin-Pool | `script_hooks.py:POOL` |
