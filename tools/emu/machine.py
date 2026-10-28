@@ -65,6 +65,43 @@ SNAP_SKIP = frozenset(("A", "uc", "_reg_read", "_uch", "_reg_buf", "_reg_ref", "
 SNAP_CHUNK = 0x100000
 PAGE = 0x1000
 ZERO_PAGE = bytes(PAGE)
+ZERO_CHUNK = bytes(SNAP_CHUNK)
+
+
+def card_in_memory(card):
+    """A card whose image is a bytearray in memory (sdcard.MemoryMedium), which a snapshot can hold."""
+    from sdcard import MemoryMedium
+    return type(card.medium) is MemoryMedium and isinstance(card.medium.data, bytearray)
+
+
+def _card_pages(data, base):
+    """The pages of a card image that differ from `base` (an empty card without one), as an index and the pages."""
+    index, pages = [], bytearray()
+    for chunk in range(0, len(data), SNAP_CHUNK):
+        have = bytes(data[chunk:chunk + SNAP_CHUNK])
+        if have == (bytes(base[chunk:chunk + SNAP_CHUNK]) if base is not None else ZERO_CHUNK[:len(have)]):
+            continue                    # a whole chunk at once; only a changed one is looked at page by page
+        for off in range(0, len(have), PAGE):
+            page = have[off:off + PAGE]
+            if page != (bytes(base[chunk + off:chunk + off + PAGE]) if base is not None else ZERO_PAGE[:len(page)]):
+                index.append(chunk + off)
+                pages += page
+    return {"index": index, "pages": zlib.compress(bytes(pages), 1)}
+
+
+def _put(owner, name, value):
+    """owner[name] = value, but a dict, list, set, deque or bytearray that is already there is filled in place."""
+    held = owner.get(name)
+    if type(held) is type(value) and isinstance(held, (dict, set)):
+        held.clear()
+        held.update(value)
+    elif type(held) is type(value) and isinstance(held, (list, bytearray)):
+        held[:] = value
+    elif type(held) is type(value) and isinstance(held, collections.deque) and held.maxlen == value.maxlen:
+        held.clear()
+        held.extend(value)
+    else:
+        owner[name] = value
 
 BOOT_STEPS = (1.0, 2.0, 3.0)   # device times a run can start from a kept boot (bootcache.py)
 
@@ -234,6 +271,8 @@ class Machine:
         self.powered = True        # false once the firmware lets go of the power hold
         self.report_power = False
         self.flash = Flash(flash, p.user_mark)
+        self.image_size = len(payload)     # restore() clears what the payload wrote
+        self.image_sha = hashlib.sha256(payload).digest()
         # The device runs what its flash holds there, so the flash holds the image this machine runs; an
         # update then shows as a change of that region, and a restart can boot from it (server.py).
         self.flash.mem[FIRMWARE_AT:FIRMWARE_AT + len(payload)] = payload
@@ -313,56 +352,99 @@ class Machine:
         self.inputs[pin(4, 1)] = 1
 
     # ---- snapshots ---------------------------------------------------------
-    def snapshot(self):
+    def snapshot(self, card_base=None):
         """Everything this machine has built up so far, as bytes: the CPU, the RAM pages that are not
-        zero, the model's own state. `from_snapshot` gives a machine that goes on exactly as this one
-        would. Without a card (a card is a file the host owns) and without instance methods that
-        someone wrapped around the model (their owner puts them back after restoring)."""
-        if self.mmc.card is not None:
-            raise ValueError("a machine with a card in the slot cannot be snapshotted")
-        state = {k: v for k, v in self.__dict__.items()
-                 if k not in SNAP_SKIP and not isinstance(v, (types.FunctionType, types.MethodType))}
-        flash = state.pop("flash")
-        state["flash"] = {k: v for k, v in flash.__dict__.items() if k != "mem"}
-        pages = bytearray()
-        index = []
-        for base, size in SNAP_REGIONS:
-            for chunk in range(0, size, SNAP_CHUNK):
-                data = bytes(self.uc.mem_read(base + chunk, min(SNAP_CHUNK, size - chunk)))
-                for off in range(0, len(data), PAGE):
-                    page = data[off:off + PAGE]
-                    if page != ZERO_PAGE:
-                        index.append(base + chunk + off)
-                        pages += page
-        blob = {
-            "ctx": self.uc.context_save(), "state": state,
-            "flash_sha": hashlib.sha256(flash.mem).digest(),
-            "flash_mem": zlib.compress(bytes(flash.mem), 1) if flash.dirty else None,
-            "index": index, "pages": zlib.compress(bytes(pages), 1),
-        }
-        return pickle.dumps(blob, pickle.HIGHEST_PROTOCOL)
+        zero, the model's own state and a card in the slot. `from_snapshot` gives a machine that goes on exactly
+        as this one would. A card is kept when it is an image in memory (sdcard.MemoryMedium), as its pages that
+        differ from `card_base` (the image as it was when the machine started, bootcache.py) or, without it, from
+        an empty card. A card on a folder of the host (cardstore.py) is the host's and cannot be kept. Without
+        instance methods that someone wrapped around the model (their owner puts them back after restoring)."""
+        card = self.mmc.card
+        if card is not None and not card_in_memory(card):
+            raise ValueError("a card on a folder of the host cannot be snapshotted")
+        image = card.medium.data if card is not None else None
+        if card is not None:
+            card.medium.data = b""              # its pages are kept next to the RAM's
+        try:
+            state = {k: v for k, v in self.__dict__.items()
+                     if k not in SNAP_SKIP and not isinstance(v, (types.FunctionType, types.MethodType))}
+            flash = state.pop("flash")
+            state["flash"] = {k: v for k, v in flash.__dict__.items() if k != "mem"}
+            pages = bytearray()
+            index = []
+            for base, size in SNAP_REGIONS:
+                for chunk in range(0, size, SNAP_CHUNK):
+                    data = bytes(self.uc.mem_read(base + chunk, min(SNAP_CHUNK, size - chunk)))
+                    if data == ZERO_CHUNK[:len(data)]:
+                        continue
+                    for off in range(0, len(data), PAGE):
+                        page = data[off:off + PAGE]
+                        if page != ZERO_PAGE:
+                            index.append(base + chunk + off)
+                            pages += page
+            blob = {
+                "ctx": self.uc.context_save(), "state": state,
+                "flash_sha": hashlib.sha256(flash.mem).digest(),
+                "flash_mem": zlib.compress(bytes(flash.mem), 1) if flash.dirty else None,
+                "index": index, "pages": zlib.compress(bytes(pages), 1),
+                "card": None if card is None else {"size": len(image), **_card_pages(image, card_base)},
+            }
+            return pickle.dumps(blob, pickle.HIGHEST_PROTOCOL)
+        finally:
+            if card is not None:
+                card.medium.data = image
 
     @classmethod
     def from_snapshot(cls, snap, payload, flash=None):
         """A machine in the state `snapshot` was taken in. `payload` and `flash` are what the original was
-        made with (the snapshot holds only what changed since)."""
-        blob = pickle.loads(snap)
+        made with (the snapshot holds only what changed since); a kept card comes into the slot as well, from an
+        empty card (a snapshot with `card_base` needs that card: `restore`)."""
         m = cls(payload, flash)
-        uc = m.uc
+        card = pickle.loads(snap).get("card")
+        if card is not None:
+            from sdcard import MemoryMedium, SDCard
+            m.insert_card(SDCard(MemoryMedium(bytearray(card["size"]))))
+        m.restore(snap)
+        return m
+
+    def restore(self, snap):
+        """Put this machine into the state `snapshot` was taken in. It has to be made with the same payload and
+        flash and not have run, and a card in its slot has to be the image the snapshot's `card_base` was (an empty
+        one without). The objects the caller may hold stay the same: the machine, its flash, the card and its
+        image, and the dicts, lists and sets of the model."""
+        blob = pickle.loads(snap)
+        uc = self.uc
         if blob["flash_mem"] is not None:
-            m.flash.mem[:] = zlib.decompress(blob["flash_mem"])
-        elif hashlib.sha256(m.flash.mem).digest() != blob["flash_sha"]:
+            self.flash.mem[:] = zlib.decompress(blob["flash_mem"])
+        elif hashlib.sha256(self.flash.mem).digest() != blob["flash_sha"]:
             raise ValueError("the snapshot was taken with another flash")
-        uc.mem_write(0xC0000000, bytes(len(payload)))      # what the machine was built with and the RAM then changed
+        held_card = self.mmc.card
+        if (blob.get("card") is None) != (held_card is None):
+            raise ValueError("the snapshot and this machine differ in the card in the slot")
+        if held_card is not None and (not card_in_memory(held_card) or len(held_card.medium.data) != blob["card"]["size"]):
+            raise ValueError("the card in the slot is not the snapshot's")
+        uc.mem_write(0xC0000000, bytes(self.image_size))  # what the machine was built with and the RAM then changed
         uc.mem_write(0, bytes(0x1000))
         pages = zlib.decompress(blob["pages"])
         for i, at in enumerate(blob["index"]):
             uc.mem_write(at, pages[i * PAGE:(i + 1) * PAGE])
         uc.context_restore(blob["ctx"])
-        flash_state = blob["state"].pop("flash")
-        m.__dict__.update(blob["state"])
-        m.flash.__dict__.update(flash_state)
-        return m
+        state = blob["state"]
+        flash_state = state.pop("flash")
+        mmc = state.pop("mmc")
+        for k, v in state.items():
+            _put(self.__dict__, k, v)
+        self.flash.__dict__.update(flash_state)
+        kept_card, mmc.card = mmc.card, held_card
+        held_mmc = self.mmc
+        held_mmc.__dict__.update(mmc.__dict__)
+        if held_card is not None:
+            medium, data = held_card.medium, held_card.medium.data
+            held_card.__dict__.update({**kept_card.__dict__, "medium": medium})
+            medium.__dict__.update({**kept_card.medium.__dict__, "data": data})
+            changed = zlib.decompress(blob["card"]["pages"])
+            for i, at in enumerate(blob["card"]["index"]):
+                data[at:at + PAGE] = changed[i * PAGE:(i + 1) * PAGE]
 
     # ---- register access ---------------------------------------------------
     def _rd(self, uc, off, size, base):
