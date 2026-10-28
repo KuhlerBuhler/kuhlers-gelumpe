@@ -109,6 +109,8 @@ function proxyEmulator(req, res, emu) {
     res.writeHead(502, { "content-type": "application/json", "cache-control": "no-store" });
     res.end(JSON.stringify({ error: `Der Emulator antwortet nicht: ${error.code || error.message}` }));
   });
+  // A browser that drops the stream (reload, a new EventSource) would leave the service writing to nobody.
+  res.on("close", () => upstream.destroy());
   req.pipe(upstream);
 }
 

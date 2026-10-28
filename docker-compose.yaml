@@ -33,8 +33,10 @@ services:
       - "127.0.0.1:8737:8737"
       - "127.0.0.1:8740:8740"
     volumes:
-      # The virtual SD card and the flash live here, so a new container keeps them.
-      - ./SD:./SD
+      # The virtual SD card, in ./SD next to this file (its files under SD/card/KORG/...).
+      - ./SD:/SD
+      # The flash, so a new container keeps it.
+      - gelumpe:/home/node/.gelumpe
     # A stop signal reaches the page server, which ends the emulator with it (tools/start.mjs). The
     # emulator saves the card and the flash first and gives up on its own after 10 s, so the
     # container waits past that instead of killing what is left: a stop leaves no emulator running.

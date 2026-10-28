@@ -40,8 +40,12 @@ http://localhost:8737/ und verbindet sich selbst mit dem Emulator auf 8740. Die
 beiden Ports behalten ihre Zahlen, sonst findet die Seite den Emulator nicht.
 Das Abbild setzt `GELUMPE_HOST=0.0.0.0`, weil ein veröffentlichter Port den
 Container an seiner eigenen Adresse erreicht und nie an 127.0.0.1 darin; ohne
-die Variable bleibt es beim bisherigen 127.0.0.1. Karte und Flash des Emulators
-liegen im Volume `gelumpe`, ein neuer Container behält sie. Der Editor hat keine
+die Variable bleibt es beim bisherigen 127.0.0.1. Die Karte des Emulators liegt
+im Ordner `SD` neben `docker-compose.yaml` (im Container `/SD`, die Dateien unter
+`SD/card/KORG/...`), der Flash im Volume `gelumpe`; ein neuer Container behält beide.
+Den Ordner vor dem ersten Start selbst anlegen (`mkdir SD`): legt ihn Docker an,
+gehört er root, und der Emulator im Container (Nutzer `node`, UID 1000) kann nicht
+hineinschreiben. Der Editor hat keine
 Anmeldung, deshalb bleiben beide Ports auf 127.0.0.1. Ohne Docker gilt `npm start`
 wie oben.
 
@@ -67,7 +71,7 @@ Ein Passwort oder eine Regel auf Adresse oder Netz im Proxy ist deshalb Pflicht,
 bevor die Seite von außen erreichbar ist.
 
 Läuft der Proxy in einem eigenen Container, gib den Port gar nicht erst nach
-aßen: er landet im gemeinsamen Docker-Netz, erreicht den Dienst dort als
+außen: er landet im gemeinsamen Docker-Netz, erreicht den Dienst dort als
 `gelumpe:8737`, und im Netz bleibt es bei `GELUMPE_HOST=0.0.0.0`. Eine
 Veröffentlichung wie `8737:8737` legt den Editor ohne Anmeldung auf alle
 Schnittstellen.

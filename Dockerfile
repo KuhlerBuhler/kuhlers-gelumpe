@@ -17,12 +17,14 @@ COPY . .
 # The page is plain files, so no npm ci is needed. The emulator gets its own
 # venv from the project's setup, the pinned Unicorn included.
 RUN npm run setup:emu \
- && mkdir -p /home/node/.gelumpe \
- && mkdir SD
- && chown -R node:node /home/node/.gelumpe tools/emu/.venv
+ && mkdir -p /home/node/.gelumpe /SD \
+ && chown -R node:node /home/node/.gelumpe /SD tools/emu/.venv
 
-# The card and the flash land under HOME, which is the volume below.
+# The card sits in /SD, a folder the host can open (docker-compose.yaml binds ./SD there);
+# the flash stays under HOME.
 ENV HOME=/home/node
+ENV GELUMPE_SD_DIR=/SD
+ENV GELUMPE_FLASH_DIR=/home/node/.gelumpe/flash
 USER node
 
 EXPOSE 8737 8740
