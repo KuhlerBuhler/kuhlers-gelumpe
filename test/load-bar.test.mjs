@@ -19,10 +19,15 @@ const CODE = 0x181100;               // file offset of 0xC0181000
 const CODE_END = 0x182000;           // 0xC0181F00, where the run time state begins
 const LOOK = 0x183a00;               // file offset of 0xC0183900: the rest of the look's code
 const LOOK_END = 0x184100;           // 0xC0184000
-const ART = 0x1a3e00;                // file offset of 0xC01A3D00: assets/blechy/loading.bin
-const ART_BYTES = readFileSync(new URL("../assets/blechy/loading.bin", import.meta.url));
-// the replaced words: the stat call, the loader's text update, the loader call, the frame function's flush, the display send's page compare
-const WORDS = [[0x2af60, 0xeb, 0xc002ae60], [0x367d4, 0xeb, 0xc00366d4], [0x38e60, 0xeb, 0xc0038d60], [0x8380c, 0xea, 0xc008370c], [0x16184, 0xeb, 0xc0016084]];
+const CARD = 0x1a3e00;               // file offset of 0xC01A3D00: the card pictures
+const DEFAULT = 0x1aa100;            // file offset of 0xC01AA000: assets/blechy/loading.blla, the default animation
+const DEFAULT_BYTES = readFileSync(new URL("../assets/blechy/loading.blla", import.meta.url));
+const ANIM = 0x1ac100;               // file offset of 0xC01AC000: the animation's code
+const ANIM_END = 0x1ac900;           // 0xC01AC800, where its state begins
+// the replaced words: the stat call, the loader's text update, the parser's two PCM reads, the loader call, the frame
+// function's flush, the display send's page compare
+const WORDS = [[0x2af60, 0xeb, 0xc002ae60], [0x367d4, 0xeb, 0xc00366d4], [0x363fc, 0xeb, 0xc00362fc], [0x3645c, 0xeb, 0xc003635c],
+  [0x38e60, 0xeb, 0xc0038d60], [0x8380c, 0xea, 0xc008370c], [0x16184, 0xeb, 0xc0016084]];
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
 const vsb = process.env.E2_VSB;
@@ -43,22 +48,23 @@ test("the loading bar has the v1 format, says what it replaces and names what ru
     assert.ok(change.note);
     assert.equal(change.copy, undefined, "nothing of the firmware is copied");
   }
-  assert.equal(PATCH.startPhase.length, 7);
+  assert.equal(PATCH.startPhase.length, 10);
   for (const span of PATCH.startPhase) {
     assert.ok(span.why.length > 20);
     assert.ok(PATCH.changes.some(c => span.file >= c.file && span.file + span.length <= c.file + c.bytes.length / 2), `0x${span.file.toString(16)} is not written by the patch`);
   }
 });
 
-test("it is our code in two places, the animation's pictures, the card picture and five replaced words, each a branch into the code, and every hook is declared", () => {
-  assert.equal(PATCH.changes.length, 4 + WORDS.length);
-  const [code, art, card, look, ...words] = PATCH.changes;
-  const n = fromHex(code.bytes).length;
+test("it is our code in three places, the default animation, the card picture and seven replaced words, each a branch into the code, and every hook is declared", () => {
+  assert.equal(PATCH.changes.length, 5 + WORDS.length);
+  const [code, anim, card, look, animCode, ...words] = PATCH.changes;
+  const n = fromHex(code.bytes).length, m = fromHex(animCode.bytes).length;
   assert.ok(code.file === CODE && code.file + n <= CODE_END, `${n} bytes`);
   assert.ok(look.file === LOOK && look.file + fromHex(look.bytes).length <= LOOK_END, "the look's code");
-  assert.equal(art.file, ART);
-  assert.deepEqual(Buffer.from(fromHex(art.bytes)), ART_BYTES, "assets/blechy/loading.bin as it is");
-  assert.equal(card.file, (ART + ART_BYTES.length + 3) & ~3, "the card picture right behind the animation's pictures");
+  assert.ok(animCode.file === ANIM && animCode.file + m <= ANIM_END, `the animation's code, ${m} bytes`);
+  assert.equal(anim.file, DEFAULT);
+  assert.deepEqual(Buffer.from(fromHex(anim.bytes)), DEFAULT_BYTES, "assets/blechy/loading.blla as it is");
+  assert.equal(card.file, CARD, "the card pictures where the old pictures were");
   const runs = fromHex(card.bytes);
   let size = 0;
   for (let i = 0; i < runs.length; i += 2) size += runs[i];
@@ -68,7 +74,7 @@ test("it is our code in two places, the animation's pictures, the card picture a
     const word = Buffer.from(fromHex(words[i].bytes)).readUInt32LE(0);
     assert.equal(word >>> 24, opcode, `0x${address.toString(16)} branches${opcode === 0xeb ? " and links" : ""}`);
     const target = address + 8 + (((word & 0xffffff) << 8) >> 8) * 4;
-    assert.ok(target >= 0xc0181000 && target < 0xc0181000 + n, `0x${address.toString(16)} goes into our code`);
+    assert.ok((target >= 0xc0181000 && target < 0xc0181000 + n) || (target >= 0xc01ac000 && target < 0xc01ac000 + m), `0x${address.toString(16)} goes into our code`);
   }
   assert.deepEqual(PATCH.hooks.map(h => h.site).sort(), WORDS.map(([, , a]) => `0x${a.toString(16).toUpperCase()}`).sort());
   const res = checkHooks([PATCH]);
@@ -98,7 +104,7 @@ test("applied to the own firmware it changes only what it names, alone and with 
   for (let i = 0; i < original.length; i++) {
     if (original[i] !== res.bytes[i]) assert.ok(named.some(([at, n]) => i >= at && i < at + n), `0x${i.toString(16)} changed without being named`);
   }
-  assert.equal(res.allowCode.length, 7, "the spans the patch asks to run at start");
+  assert.equal(res.allowCode.length, 10, "the spans the patch asks to run at start");
   const all = await applyPatches(original, [...OTHERS, PATCH, SPLASH_DATA]);
   assert.equal(all.ok, true, all.reasons.join(" "));
 });
@@ -113,7 +119,9 @@ describe("the loading bar in the emulator", { concurrency: slots }, () => {
       assert.deepEqual(report.filter(c => !c.ok), []);
       for (const id of ["overlay_frames_are_the_animation", "percent_counts_up", "finale_from_95", "at_most_20_pictures_a_second", "display_stays_dark",
         "loader_is_no_slower", "main_screen_is_clean", "no_card_is_stock", "exit_held_is_stock", "no_sample_file_is_stock", "panel_update_untouched",
-        "start_mode_1_untouched", "own_image_then_the_animation", "look_needs_the_menu"]) {
+        "start_mode_1_untouched", "own_image_then_the_animation", "look_needs_the_menu", "percent_never_above_the_read", "percent_size_is_the_file",
+        "smooth_no_jump", "smooth_never_above_the_read", "smooth_finale_from_95", "custom_at_the_limit", "custom_wrong_magic_shows_the_default",
+        "custom_run_past_1023_shows_the_default", "custom_list_cut_off_shows_the_default", "custom_loop_while_waiting"]) {
         assert.ok(report.some(c => c.id === `loadbar:${id}`), id);
       }
       assert.equal(run.status, 0);
