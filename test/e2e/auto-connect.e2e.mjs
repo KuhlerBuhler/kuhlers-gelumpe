@@ -30,6 +30,12 @@ async function plugged() {
       access.inputs.set(input.id, input);
       access.outputs.set(output.id, output);
     };
+    // Whether the page ever said "connected" while the navbar still offered to connect.
+    window.__gap = false;
+    new MutationObserver(() => {
+      const ok = document.querySelector(".cee-device-status .cee-status[data-tone=ok]");
+      if (ok && !document.querySelector("#cee-nav-state #cee-disconnect")) window.__gap = true;
+    }).observe(document, { subtree: true, childList: true, characterData: true });
   });
   await page.goto(h.url);
   await page.evaluate(() => window.__ceeStubReady);
@@ -50,26 +56,68 @@ test("with Emulator as the mode a plugged-in Electribe is left alone; Echtes Ger
   assert.deepEqual(page.errors, []);
 });
 
-test("a plugged-in Electribe connects by itself, again after a pull, and not after a manual disconnect", async () => {
+const autoSetting = page => page.evaluate(() => JSON.parse(localStorage.getItem("cee.settings") ?? "{}").autoConnect);
+const pullAndPlug = async page => {
+  await page.evaluate(() => window.__pull());
+  await waitState(page, "absent");
+  await page.evaluate(() => window.__plug());
+};
+
+test("a plugged-in Electribe connects by itself and again after a pull; the navbar button disconnects at once", async () => {
   const page = await plugged();
   await go(page, "device");
   await waitState(page, "connected");
   await page.waitForFunction(() => document.querySelector(".cee-device-status")?.textContent.includes("verbunden"));
+  const button = page.locator("#cee-nav-state #cee-disconnect");
+  assert.equal(await button.textContent(), "Trennen", "while connected the button disconnects");
+  assert.equal(await page.locator("#cee-nav-state #cee-connect").count(), 0, "no connect button while connected");
+  assert.equal(await page.evaluate(() => window.__gap), false, "the button turns with the session, not later");
 
-  await page.evaluate(() => window.__pull());
-  await waitState(page, "absent");
-  await page.evaluate(() => window.__plug());
+  await pullAndPlug(page);
+  await waitState(page, "connected");
+  await page.locator("#cee-nav-state #cee-disconnect").waitFor();
+  assert.deepEqual(page.errors, []);
+});
+
+test("the disconnect button switches Automatisch verbinden off until the next connect", async () => {
+  const page = await plugged();
+  await go(page, "device");
   await waitState(page, "connected");
 
   await page.click("#cee-nav-state #cee-disconnect");
   await waitState(page, "present");
-  await page.waitForTimeout(4000);
-  assert.equal(await page.locator("#cee-usb").getAttribute("data-state"), "present", "the manual disconnect holds");
+  const connect = page.locator("#cee-nav-state #cee-connect");
+  assert.equal(await connect.textContent(), "Mit Electribe verbinden");
+  assert.equal(await autoSetting(page), false, "the setting is off");
+  await page.locator(".cee-toast .cee-toast-text", { hasText: "„Automatisch verbinden“ ist aus, bis du wieder verbindest." }).waitFor();
+  assert.equal(await page.locator("#cee-set-autoConnect").isChecked(), false, "the settings page shows it off");
 
-  await page.evaluate(() => window.__pull());
-  await waitState(page, "absent");
-  await page.evaluate(() => window.__plug());
+  await pullAndPlug(page);
+  await waitState(page, "present");
+  await page.waitForTimeout(4000);
+  assert.equal(await page.locator("#cee-usb").getAttribute("data-state"), "present", "no automatic connect, also after a pull");
+
+  await connect.click();
   await waitState(page, "connected");
+  assert.equal(await autoSetting(page), true, "connecting by hand switches it back on");
+  assert.equal(await page.locator("#cee-set-autoConnect").isChecked(), true);
+  await pullAndPlug(page);
+  await waitState(page, "connected");
+  assert.deepEqual(page.errors, []);
+});
+
+test("a switch turned off in the settings stays off after connecting by hand", async () => {
+  const page = await plugged();
+  await go(page, "device");
+  await waitState(page, "connected");
+  await page.click("#cee-nav-state #cee-disconnect");
+  await waitState(page, "present");
+  // The person's own choice on the settings page: on, then off again.
+  await page.evaluate(() => { const box = document.querySelector("#cee-set-autoConnect"); box.click(); box.click(); });
+  assert.equal(await autoSetting(page), false);
+  await page.click("#cee-nav-state #cee-connect");
+  await waitState(page, "connected");
+  assert.equal(await autoSetting(page), false, "the button only gives back what it switched off");
   assert.deepEqual(page.errors, []);
 });
 
