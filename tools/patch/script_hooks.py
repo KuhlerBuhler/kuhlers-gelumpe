@@ -52,6 +52,12 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC00161A4,0xE51B3010,'lcd_invert_hook'),
          (0xC0064430,0xE92D4038,'menu_event_right'),
          (0xC0067754,0xE3A0000A,'menu_pattern_left'),
+         (0xC0067720,0xE3A00007,'menu_pattern_right'),
+         (0xC0065B8C,0xE3A00003,'menu_part_left'),
+         (0xC0064C20,0xE3E01000,'menu_global_prev'),
+         (0xC0064C28,0xE3A01001,'menu_global_next'),
+         (0xC00623C0,0xE92D4010,'menu_du_prev'),
+         (0xC0062448,0xE92D4010,'menu_du_next'),
          (0xC0038D34,0xE3A03000,'script_early_hook'),
          (0xC00289D8,0xE3500F49,'boot_light_hook'))
 # Words that change to a plain value instead of a branch: the screen factory's bound and its table literal.
@@ -95,7 +101,9 @@ def runtime_profile(build):
                                               MG_VRAM=0xC031B310, MG_MARK=0xC001531C, MG_BLUE=0, MG_LCD=0, MG_FLUSH=0, SYNC_GROUP_AT=0x3B80,
                                               # the collection on the card (fx_card.s): which build it is for, and the modulation table this build reads
                                               FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
-                                              BUILD_BASE=4 if build == 'stock' else 0))   # the value of BLECH > VERSION, an offset into base_names
+                                              BUILD_BASE=4 if build == 'stock' else 0,
+                                              # DATA UTILITY's list: its functions (counter "n/14"), and the bits of our pages there the build has (script_menu.s, menu_du_mask)
+                                              DU_PAGES=14, DU_BUILT=7))   # the value of BLECH > VERSION, an offset into base_names
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
@@ -121,7 +129,7 @@ def runtime_profile(build):
         # functions, 16 masked words equal (fwmap); the frame buffer has the same address; MG_FLUSH (MG_LCD, 2 or 3, 0) sends the
         # frame buffer, as Korg's PCM loader does for its bar (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)
         MG_WORK=0xC0190100, MG_MKDIR=0xC008B510, MG_GETFREE=0xC008B3B4, MG_ALLOC=0xC0026240, MG_FREE=0xC0026248,
-        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
@@ -196,7 +204,8 @@ class BuiltHooks:
         menu_hooks=[dict(site=f'{address:#010X}'.replace('0X','0x'),kind='instruction',chain=chain,position='before',swallow=swallow)
             for address,chain,swallow in [
             (0xC006E8D8,'menu-top-level',False),(0xC006F094,'menu-write',True),(0xC008A83C,'menu-counter',False),(0xC008A8A8,'menu-counter',False),
-            (0xC0064430,'menu-ring',False),(0xC0067754,'menu-ring',False)]]
+            (0xC0064430,'menu-ring',False),(0xC0067754,'menu-ring',False),(0xC0067720,'menu-ring',False),(0xC0065B8C,'menu-ring',False),
+            (0xC0064C20,'global-screen',False),(0xC0064C28,'global-screen',False),(0xC00623C0,'data-util-screen',False),(0xC0062448,'data-util-screen',False)]]
         menu_hooks+=[dict(site='0xC0088284',kind='instruction',chain='led-meter',position='before',swallow=True)]
         menu_hooks+=[dict(site=f'0x{address:08X}',kind='instruction',chain='backlight',position='before',swallow=False)
             for address in (0xC0016C98,0xC0016CE0,0xC0016D28,0xC00289F4)]
@@ -303,6 +312,8 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
              'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s']
     if build != 'synth':
         files.append('fx_card.s')
+    else:
+        files.append('script_fx_none.s')
     files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_led.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
     source = constants+'\n'+read(files)

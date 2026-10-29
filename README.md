@@ -257,7 +257,7 @@ Mit einem Plugin bringst du der Electribe was Neues bei. Es kommt über die SD-K
 `KORG/blechtribe/Plugin/`. Der Ordner heißt `Plugin`, Einzahl, nicht "Plugins", und er ist bei der roten
 und der blauen Electribe derselbe. Die Firmware legt ihn nicht selbst an, du erstellst ihn. Ist das Gerät
 verbunden, geht es auch ohne Karte: im Bereich Plugins schreibt der Knopf "Aufs Gerät" das Plugin per USB
-dorthin, danach am Gerät Menü -> BLECH -> PLUGINS -> PLUGIN EDIT. Geschrieben wird in einer abgespeckten Form von JavaScript, der Editor
+dorthin, danach am Gerät Menü -> BLECH -> PLUGINS -> MANAGE PLUGINS. Geschrieben wird in einer abgespeckten Form von JavaScript, der Editor
 übersetzt das in Bytecode für eine kleine VM in der Firmware. Wenn ein Plugin einen Fehler hat, wird
 nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
 [docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
