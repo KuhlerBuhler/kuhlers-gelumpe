@@ -7,7 +7,7 @@ then do what the same keys do on the panel, the counter counts every command onc
 taken (the area is FF at power-on). A whole panel message (knob, encoder, pad press and release, touchpad, a key held)
 reaches the firmware's dispatcher byte for byte as from the panel and leaves the device where the panel leaves it. What the
 computer holds down is let go on the release command, and by the device itself after 10 s without a command (a dropped
-link). The test mode's cases (testmode_cases.py) run as a group of their own.
+link). The test mode's cases (testmode_cases.py) and the plugin timers' (timer_cases.py) run as groups of their own.
 
     tools/emu/.venv/bin/python tools/emu/remote_cases.py cases --patched NEW.VSB [--flash dump.bin]
 """
@@ -173,7 +173,12 @@ def testmode_group(payload, flash=None):
     return testmode_cases.cases(bytes(0x100) + payload, flash)
 
 
-GROUPS = (cases, message_cases, release_cases, testmode_group)
+def timer_group(payload, flash=None):
+    import timer_cases
+    return timer_cases.cases(bytes(0x100) + payload, flash)
+
+
+GROUPS = (cases, message_cases, release_cases, testmode_group, timer_group)
 
 
 def cases_task(i):
