@@ -68,7 +68,7 @@ Gemessen mit Hacktribe 2.02 und Korgs roter 2.02 mit BLECH, Einstellungsdatei mi
 | Karte ohne Einstellungsdatei: Rot beim Startbild, Weiß, sobald das Menü scharf ist | ja |
 | Grün gewählt, WRITE: das Byte wird `0x90` | ja |
 
-`tools/emu/check.py --quick` (Start, Rettungswege, Startphase) für alle drei Builds: siehe unten.
+**Gemessen:** `tools/emu/check.py --quick` (Start, Rettungswege, Startphase) ist für Hacktribe, Korgs rote und Korgs blaue 2.02 mit BLECH grün.
 
 ## Blau ausgelassen
 
