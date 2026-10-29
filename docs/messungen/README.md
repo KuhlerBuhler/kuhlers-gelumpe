@@ -81,6 +81,8 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Sample-Swap: Fehlerpfade für 1.4](2026-10-27-sample-swap-1-4.md)
 - [Sample-Swap: Stimmen, Part-Auswahl und Moduswechsel](2026-10-28-sample-swap-stimmen.md)
 - [Sample-Sammlung: einen Slot dauerhaft speichern](2026-10-27-sample-store.md)
+- [Sample-Swap: Veröffentlichung und Cache-Deskriptor korrigiert](2026-10-29-sample-swap-korrektur.md), gezielte Fehlerfälle vor und nach der Korrektur.
+- [Sample-Swap: Prüfung des Feature-Diffs](2026-10-29-sample-swap-review.md), drei hohe und drei mittlere Befunde, Freigabe offen.
 - [Sample-Datei: Leserabschluss und exklusiver Dateibesitz](2026-10-29-sample-dateibesitz.md)
 - [Ganzer Flash in einem Stand](2026-10-09-flash-dump.md)
 - [Menüzustand im RAM: welcher Bildschirm, welche Seite](2026-10-09-menuezustand.md)

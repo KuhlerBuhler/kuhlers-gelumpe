@@ -887,6 +887,50 @@ class CacheJob(unittest.TestCase):
         self.assertEqual(s.state("GEN"), 8)
         self.assertEqual(s.state("J_STATE"), 0)
 
+    def test_native_publication_defers_ui_preemption_and_restores_irqs(self):
+        s = self.job(cached=True)
+        s.slot(601, base=F["DSP_MIN"], length=32)
+        s.uc.mem_write(F["CURSOR"], word(F["DSP_MIN"] + 0x100))
+        publication_masks, transfer_masks = [], []
+
+        def preempt(uc, *_):
+            masked = bool(uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80)
+            publication_masks.append(masked)
+            if not masked:
+                s.set_state("GEN", 8)
+                uc.mem_write(MANAGER + 0x2C, word(37))
+
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, preempt, begin=F["RESERVE"], end=F["RESERVE"])
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: transfer_masks.append(bool(uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80)),
+                      begin=p.TRANSPORT, end=p.TRANSPORT)
+        self.assertEqual(s.read_call("chunk"), 1)
+        self.assertEqual(publication_masks, [True])
+        self.assertEqual(transfer_masks, [False])
+        self.assertEqual(s.state("GEN"), 7)
+        self.assertEqual(s.state("STAT_COUNT"), 1)
+        self.assertEqual(s.u32(F["CURSOR"]), F["DSP_MIN"] + 0x100)
+        self.assertEqual(s.uc.reg_read(R.UC_ARM_REG_CPSR) & 255, 0x13)
+
+    def test_cached_descriptor_corruption_is_refused_before_native_publication(self):
+        for offset, data in ((2, b"BAD!"), (44, word(8000000)), (48, word(8000000)), (60, word(8000000))):
+            for during_copy in (False, True):
+                with self.subTest(offset=offset, during_copy=during_copy):
+                    s = self.job(cached=True)
+                    s.slot(601, active=False)
+                    def corrupt(uc, *_):
+                        if uc.reg_read(R.UC_ARM_REG_R0) == p.DESC2:
+                            uc.mem_write(p.ARENA_U + offset, data)
+                    if during_copy:
+                        s.uc.hook_add(unicorn.UC_HOOK_CODE, corrupt, begin=s.sym["copy32"], end=s.sym["copy32"])
+                    else:
+                        s.uc.mem_write(p.ARENA_U + offset, data)
+                    self.assertEqual(s.read_call("chunk"), 1)
+                    self.assertEqual(s.calls, [])
+                    self.assertEqual(s.state("GEN"), 8)
+                    self.assertEqual(s.state("J_STATE"), 0)
+                    self.assertEqual(s.state("STAT_COUNT"), 0)
+                    self.assertEqual(s.u32(p.STATE + p.FAILED + 4 * (601 >> 5)) & (1 << (601 & 31)), 0)
+
     def test_a_mode_change_during_transfer_or_descriptor_copy_prevents_publication(self):
         for hook in (p.TRANSPORT, "copy32"):
             with self.subTest(hook=hook):
@@ -937,6 +981,51 @@ class CacheJob(unittest.TestCase):
         self.assertEqual(s.read_call("chunk"), 1)
         self.assertEqual(s.calls, [])
         self.assertEqual(s.state("J_STATE"), 0)
+
+
+class Publication(unittest.TestCase):
+    def setup_publication(self):
+        s = CacheJob().job(cached=True)
+        s.uc.mem_write(F["CURSOR"], word(F["DSP_MIN"] + 0x100))
+        return s
+
+    def test_every_exit_preserves_the_original_irq_mask_and_cursor(self):
+        for control in (0x13, 0x93):
+            for outcome in ("success", "stale", "context", "refusal"):
+                with self.subTest(control=control, outcome=outcome):
+                    s = self.setup_publication()
+                    if outcome == "stale":
+                        s.set_state("GEN", 8)
+                    elif outcome == "context":
+                        s.uc.mem_write(MANAGER + 0x2C, word(37))
+                    elif outcome == "refusal":
+                        s.uc.mem_write(F["RESERVE"], arm.assemble("mov r0, #0\nbx lr", origin=F["RESERVE"]).bytes)
+                    self.assertEqual(s.call("publish", regs={R.UC_ARM_REG_CPSR: control}),
+                                     dict(success=0, stale=1, context=2, refusal=3)[outcome])
+                    self.assertEqual(s.uc.reg_read(R.UC_ARM_REG_CPSR) & 255, control)
+                    self.assertEqual(s.u32(F["CURSOR"]), F["DSP_MIN"] + 0x100)
+                    self.assertEqual(len(s.calls), int(outcome in ("success", "refusal")))
+
+    def test_cache_checksum_includes_the_original_descriptor_and_pcm(self):
+        s = CacheJob().job()
+        descriptor = bytes((i * 3) % 256 for i in range(0x4A0))
+        pcm = bytes(range(32))
+        s.uc.mem_write(p.DESC, descriptor)
+        for name, value in dict(J_STATE=0, P_LEN=32, P_BITS=16, CPTR=p.ARENA_U, CGEN=7).items():
+            s.set_state(name, value)
+        s.uc.mem_write(s.sym["parse"], arm.assemble("mov r0, #0\nbx lr", origin=s.sym["parse"]).bytes)
+        s.read_call("start_prepare", 601)
+        descriptor_sum = sum(struct.unpack("<296I", descriptor)) & 0xFFFFFFFF
+        self.assertEqual(s.state("J_SUM"), descriptor_sum)
+
+        def read(uc, *_):
+            uc.mem_write(p.STAGE, pcm)
+            s.set_state("GOT", len(pcm))
+
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, read, begin=F["F_READ"], end=F["F_READ"])
+        self.assertEqual(s.read_call("chunk"), 1)
+        self.assertEqual(s.u32(p.DIR + 601 * 16 + 8),
+                         (descriptor_sum + sum(struct.unpack("<8I", pcm))) & 0xFFFFFFFF)
 
 
 class Encoding(unittest.TestCase):

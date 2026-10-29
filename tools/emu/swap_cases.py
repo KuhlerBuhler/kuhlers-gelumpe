@@ -680,10 +680,15 @@ def case_file_owner(payload, flash):
     return [entry(f'file_owner:{i}', row['ok'], row) for i, row in enumerate(reader_lifecycle_cases.cases(payload))]
 
 
+def case_integrity(payload, flash):
+    import swap_integrity_cases
+    return [entry(row['id'], row['ok'], row) for row in swap_integrity_cases.cases(payload, flash)]
+
+
 GROUPS = (case_start, case_long_set, case_gate, case_chain, case_eviction, case_part_change, case_cache, case_checksum,
           case_equal, *[(lambda i: lambda payload, flash: flow_task(payload, flash, i))(i) for i in range(len(FLOWS))],
           case_failure_gates, case_full_session, case_prefetch_targets, case_alias_eviction, case_voice_residency, case_store,
-          case_file_owner)
+          case_file_owner, case_integrity)
 
 
 def group_entries(payload, flash, i):

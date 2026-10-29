@@ -1578,9 +1578,19 @@ job_common:
     str r0, [r11, #J_BITS]
     mov r0, #0
     str r0, [r11, #J_DONE]
-    str r0, [r11, #J_SUM]
     str r0, [r11, #J_STAGED]
     str r0, [r11, #J_TICKS]
+    ldr r0, [r11, #J_DST]
+    cmp r0, #1
+    bne jc_zero
+    ldr r0, =DESC
+    mov r1, #0x4A0
+    bl sum32
+    b jc_sum
+jc_zero:
+    mov r0, #0
+jc_sum:
+    str r0, [r11, #J_SUM]
     mov r0, #1
     str r0, [r11, #J_STATE]
     pop {r4-r8, pc}
@@ -1828,19 +1838,6 @@ ck_enter:
     ldr r0, [r11, #J_SRC]
     cmp r0, #1
     bne ck_desc_card
-    ldr r0, =DIR
-    add r0, r0, r6, lsl #4
-    ldr r0, [r0, #8]
-    ldr r1, [r11, #J_SUM]
-    cmp r0, r1
-    beq ck_desc_cache
-    ldr r0, [r11, #GEN]
-    add r0, r0, #1
-    str r0, [r11, #GEN]
-    mov r0, #0
-    str r0, [r11, #SESSION]
-    str r0, [r11, #CFILL]
-    b ck_end
 ck_desc_cache:
     ldr r1, [r11, #J_ENTRY]
     b ck_desc
@@ -1854,22 +1851,27 @@ ck_desc:
     ldr r1, [r11, #GEN]
     cmp r0, r1
     bne ck_end
-    bl job_ok
-    cmp r0, #0
-    beq ck_defer
-    ldr r2, =CURSOR
-    ldr r7, [r2]
-    ldr r0, [r11, #J_BASE]
-    str r0, [r2]
+    ldr r0, [r11, #J_SRC]
+    cmp r0, #1
+    bne ck_publish
     ldr r0, =DESC2
-    bl RESERVE
-    mov r8, r0
-    ldr r2, =CURSOR
-    ldr r3, [r2]
-    cmp r7, r3
-    strhi r7, [r2]
-    cmp r8, #0
-    beq ck_fail
+    mov r1, #0x4A0
+    bl sum32
+    ldr r1, [r11, #J_SUM]
+    add r0, r0, r1
+    ldr r1, =DIR
+    add r1, r1, r6, lsl #4
+    ldr r1, [r1, #8]
+    cmp r0, r1
+    bne ck_cache_bad
+ck_publish:
+    bl publish
+    cmp r0, #1
+    beq ck_end
+    cmp r0, #2
+    beq ck_defer
+    cmp r0, #0
+    bne ck_fail
     mov r0, r6
     bl resident
     cmp r0, #0
@@ -1884,6 +1886,14 @@ ck_desc:
     str r0, [r11, #STAT_TICKS]
     ldr r0, [r11, #J_SRC]
     str r0, [r11, #STAT_SRC]
+    b ck_end
+ck_cache_bad:
+    ldr r0, [r11, #GEN]
+    add r0, r0, #1
+    str r0, [r11, #GEN]
+    mov r0, #0
+    str r0, [r11, #SESSION]
+    str r0, [r11, #CFILL]
     b ck_end
 ck_defer:
     mov r0, #2
@@ -1903,10 +1913,47 @@ ck_end:
 """
 
 
+PUBLISH = r"""
+; r11 state. Returns 0 committed, 1 stale, 2 paused, 3 native refusal.
+publish:
+    push {r4-r6, lr}
+    .word 0xE10F4000
+    orr r0, r4, #0x80
+    .word 0xE121F000
+    ldr r0, [r11, #J_GEN]
+    ldr r1, [r11, #GEN]
+    cmp r0, r1
+    movne r0, #1
+    bne pub_out
+    bl job_ok
+    cmp r0, #0
+    moveq r0, #2
+    beq pub_out
+    ldr r2, =CURSOR
+    ldr r5, [r2]
+    ldr r0, [r11, #J_BASE]
+    str r0, [r2]
+    ldr r0, =DESC2
+    bl RESERVE
+    mov r6, r0
+    ldr r2, =CURSOR
+    ldr r3, [r2]
+    cmp r5, r3
+    strhi r5, [r2]
+    cmp r6, #0
+    moveq r0, #3
+    movne r0, #0
+pub_out:
+    .word 0xE121F004
+    pop {r4-r6, pc}
+.pool
+"""
+
+
 def source(screens):
     importer = sample_import.source(state=STATE, file=FIL, descriptor=DESC, normalizer=FIL + 0x240,
                                     prep=OFF["PREP"], bits=OFF["P_BITS"], file_bytes=OFF["P_FBYTES"])
-    body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer + sample_owner.source(FILE_OWNER)
+    body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer + sample_owner.source(FILE_OWNER) + PUBLISH
     return halfword(equs(screens) + f".equ transfer, {TRANSPORT:#x}\n" + body)
 
 
