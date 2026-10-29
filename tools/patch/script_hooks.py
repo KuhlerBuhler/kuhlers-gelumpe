@@ -92,7 +92,7 @@ def runtime_profile(build):
                                               SC_LEDMGR=0xC0345A1C, SC_PLAYER=0xC002FAFC, SC_PATPTR=0xC033E6A4,
                                               SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84, SC_LEDSEND=0xC00875F4,
                                               MG_WORK=0xC0190100, MG_MKDIR=0xC009EB00, MG_GETFREE=0xC009E85C, MG_ALLOC=0xC0028DCC, MG_FREE=0xC0028DD4,
-                                              MG_VRAM=0xC031B310, MG_MARK=0xC001531C, SYNC_GROUP_AT=0x3B80,
+                                              MG_VRAM=0xC031B310, MG_MARK=0xC001531C, MG_BLUE=0, MG_LCD=0, MG_FLUSH=0, SYNC_GROUP_AT=0x3B80,
                                               # the collection on the card (fx_card.s): which build it is for, and the modulation table this build reads
                                               FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
                                               BUILD_BASE=4 if build == 'stock' else 0))   # the value of BLECH > VERSION, an offset into base_names
@@ -117,7 +117,11 @@ def runtime_profile(build):
         POWER_HOLD_MASK=0, SHORTCUTS=1, REMOTE=0, HW_ENCODER=0,
         SC_LEDMGR=synthaddr.tr(0xC0345A1C), SC_PLAYER=synthaddr.tr(0xC002FAFC), SC_PATPTR=synthaddr.tr(0xC033E6A4),
         SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_LEDSEND=synthaddr.tr(0xC00875F4),
-        MG_WORK=0, MG_MKDIR=0, MG_GETFREE=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        # the folder copy of the first start: f_mkdir, f_getfree, new, delete and the mark of a changed region are the Sampler's
+        # functions, 16 masked words equal (fwmap); the frame buffer has the same address; MG_FLUSH (MG_LCD, 2 or 3, 0) sends the
+        # frame buffer, as Korg's PCM loader does for its bar (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)
+        MG_WORK=0xC0190100, MG_MKDIR=0xC008B510, MG_GETFREE=0xC008B3B4, MG_ALLOC=0xC0026240, MG_FREE=0xC0026248,
+        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
@@ -183,7 +187,7 @@ class BuiltHooks:
             ('led_meter_hook','look_hooks_end','Die Haken der Anpassung (untere LEDs, Hintergrundlicht, Software-PWM, Display umkehren) geben die Firmware sofort zurück, wenn das Menü nicht scharf ist oder die Firmware das Licht für Power Save dimmt.'),
             ('shortcut_input','shortcut_tick','Die EXIT-Shortcuts im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und lassen jede Meldung durch, solange EXIT nicht auf dem Hauptbildschirm gehalten wird.'),
             ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts.'),
-            ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel, EXIT und die Ordner der Karte; nur wenn es keinen blechtribe-Ordner, aber einen hacktribe- oder electribe-sampler-Ordner gibt, fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU.'),
+            ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel, EXIT und die Ordner der Karte; nur wenn es keinen blechtribe-Ordner, aber einen hacktribe- oder electribe-sampler-Ordner gibt (auf der blauen: keinen blechtribe-Ordner, aber einen electribe-Ordner), fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU.'),
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
         ]:
