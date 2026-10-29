@@ -1077,6 +1077,11 @@ led_meter_pass:
 ; calls them with 1 wherever its normal light is due (start, back from power save), here a channel the settings keep dark
 ; stays off. Each starts with `push {fp, lr}`.
 bl_set_red:
+    ldr r2, =objects_test_mode
+    ldrb r3, [r2]
+    cmp r3, #0
+    movne r1, #0
+    bne bl_red_go
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
@@ -1093,6 +1098,11 @@ bl_red_go:
     ldr pc, =0xC0016C9C
 .pool
 bl_set_green:
+    ldr r2, =objects_test_mode
+    ldrb r3, [r2]
+    cmp r3, #0
+    movne r1, #0
+    bne bl_green_go
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
@@ -1109,6 +1119,11 @@ bl_green_go:
     ldr pc, =0xC0016CE4
 .pool
 bl_set_blue:
+    ldr r2, =objects_test_mode
+    ldrb r3, [r2]
+    cmp r3, #0
+    movne r1, #0
+    bne bl_blue_go
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
@@ -1129,6 +1144,10 @@ bl_blue_go:
 ; lit channels go on, the pin of a channel goes off at the tick that equals its level (M_BL_CLR). Levels 0 and 15 and
 ; the stock white need no PWM (M_BL_PWM is 0, nothing here runs). Not while the firmware dims.
 bl_pwm_hook:
+    ldr r2, =objects_test_mode      ; the test mode keeps the light off: no dimming, no PWM
+    ldrb r3, [r2]
+    cmp r3, #0
+    bxne lr
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
@@ -1190,6 +1209,30 @@ bl_pwm_pass:
 ; Nothing else is ever sent: with the menu not armed (EXIT at power-on) the hook does nothing, otherwise it only compares
 ; two words once the polarity is sent (the default is ON, so the first page write after the arm sends 0xA7). The firmware never sends either command itself.
 lcd_invert_hook:
+    ldr r2, =objects_test_mode      ; the test mode switches the display off (0xAE) and back on (0xAF), once each
+    ldrb r3, [r2]
+    ldr r2, =HOOK_CARD+RM_LCD_AT
+    ldr r1, [r2]
+    cmp r3, #0
+    ldr r3, =RM_LCD_OFF
+    beq lcd_test_back
+    cmp r1, r3
+    beq lcd_test_done
+    str r3, [r2]
+    mov r1, #0xAE
+    b lcd_test_send
+lcd_test_back:
+    cmp r1, r3
+    bne lcd_test_done
+    mov r3, #0
+    str r3, [r2]
+    mov r1, #0xAF
+lcd_test_send:
+    push {r4, lr}
+    ldr r0, [fp, #-0x10]
+    bl LCD_SEND
+    pop {r4, lr}
+lcd_test_done:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1

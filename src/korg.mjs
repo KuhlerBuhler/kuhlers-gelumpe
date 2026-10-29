@@ -4,7 +4,7 @@
  * real Electribe is refused. The real device only ever gets what a script
  * did here, replayed by the terminal after it passed (src/rehearsal.mjs).
  */
-import { BUTTONS } from "../data/panel.mjs";
+import { BUTTONS, ENCODERS, KNOBS, KNOB_MAX, PADS, TOUCH_BUTTON, TOUCHPAD_MAX } from "../data/panel.mjs";
 import EXEC from "../data/exec.mjs";
 import { u32le } from "./bytes.mjs";
 import { tableEntry, ramToFile } from "./map/address.mjs";
@@ -12,7 +12,7 @@ import { field, readRaw } from "./map/index.mjs";
 import { plan } from "./plan.mjs";
 import { identify } from "./firmware.mjs";
 import { ramTools } from "./ramsearch.mjs";
-import { remoteMailbox, command, stub, KEY, ENCODER } from "./remote.mjs";
+import { remoteInfo, command, stub, messageStub, panel, KEY, ENCODER, TEST } from "./remote.mjs";
 
 export const SCREEN_W = 128;
 export const SCREEN_H = 64;
@@ -48,7 +48,12 @@ export const HELP = [
   "KORG.screen.get()         das Display als 64 Textzeilen",
   "KORG.screen.state()       welcher Bildschirm, welche Seite, welcher Part",
   "KORG.press(name)          eine Taste drücken und loslassen, etwa \"menu\", \"exit\", \"play\"; mit dem BLECH-Satz auch am Gerät",
-  "KORG.turn(n)              das Hauptrad um n Rasten drehen (negativ nach links), nur mit dem BLECH-Satz",
+  "KORG.turn(n, rad)         das Hauptrad (oder einen Drehgeber, etwa \"cutoff\") um n Rasten drehen (negativ nach links), nur mit dem BLECH-Satz",
+  "KORG.knob(name, wert)     einen Regler auf 0 bis 255 stellen, etwa \"level\"; ab BLECHTRIBE 1.3.8, auch am Gerät",
+  "KORG.pad(n, {velocity, hold})  Pad 1 bis 16 anschlagen (hold: true lässt es gedrückt, velocity 0 lässt los); ab 1.3.8",
+  "KORG.touch(x, y)          das Touchpad bei x, y (0 bis 1023) berühren und loslassen; ab 1.3.8",
+  "KORG.hold(name, unten)    eine Taste nur drücken (true) oder nur loslassen (false), etwa für SHIFT; ab 1.3.8",
+  "KORG.testMode(an)         Test-Modus: Display, Licht und LEDs aus, Auto Power Off angehalten (true), oder zurück (false); ab 1.3.8",
   "KORG.buttons              die Namen aller Tasten",
   "KORG.ram.read(adr, n)     n Byte aus dem RAM",
   "KORG.ram.snapshot({from, to})  einen RAM-Bereich festhalten; was die Gerätekarte und die Speicherkarte erklären, wird nicht gelesen ({mask: false} liest alles, {show: [\"image\"]} holt eine Gruppe zurück)",
@@ -121,15 +126,28 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
     return readRaw(await readRam(e.ram, e.size), field("fx.name"));
   };
   const buttons = Object.fromEntries(BUTTONS.map(b => [b.id, b.index]));
+  const encoders = Object.fromEntries(ENCODERS.map(e => [e.id, e.index]));
+  const knobs = Object.fromEntries(KNOBS.map(k => [k.id, k.index]));
+  const named = (table, name, what) => {
+    const index = typeof name === "number" ? name : table[name];
+    if (index === undefined) throw new Error(`Kein ${what} „${name}“. Namen: ${Object.keys(table).join(", ")}`);
+    return index;
+  };
   // With the BLECH runtime a key goes through KORG.exec, so it can be sent to the device too; without it the emulator's panel.
-  const remote = async word => {
+  // `message` (a panel message) needs a runtime that takes whole messages (1.3.8): remoteInfo().message.
+  const remote = async (word, message = null) => {
     if (!emulator.baseFirmware) return false;
     const s = await withFirmware();
-    const mailbox = remoteMailbox(s.firmwareBytes);
-    if (mailbox === null) return false;
-    const res = await s.apply({ kind: "exec", code: toCode(stub(mailbox, word)), at: EXEC.stubAt, guards: guardsOf(s, [[EXEC.icache.addr, EXEC.icache.length]]), invalidate: true }, { confirmed: true });
+    const info = remoteInfo(s.firmwareBytes);
+    if (info === null) return false;
+    if (message && info.message === null) throw new Error("Diese Firmware nimmt nur Tasten und das Hauptrad an, Regler, Pads und Touchpad brauchen BLECHTRIBE 1.3.8.");
+    const code = message ? messageStub(info.mailbox, info.message, message) : stub(info.mailbox, word);
+    const res = await s.apply({ kind: "exec", code: toCode(code), at: EXEC.stubAt, guards: guardsOf(s, [[EXEC.icache.addr, EXEC.icache.length]]), invalidate: true }, { confirmed: true });
     if (!res.ok) throw new Error(res.error?.message ?? res.gate?.reasons?.map(r => r.message).join(" ") ?? "abgelehnt");
     return true;
+  };
+  const send = async message => {
+    if (!(await remote(null, message))) throw new Error("Das geht nur mit einer Firmware mit dem BLECH-Satz (die Laufzeit nimmt den Befehl an).");
   };
 
   return {
@@ -164,9 +182,38 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
       return `${name} gedrückt`;
     },
     async turn(delta, encoder = 0) {
-      const word = command(ENCODER, encoder, delta);
+      const word = command(ENCODER, named(encoders, encoder, "Drehgeber"), delta);
       if (!(await remote(word))) throw new Error("Drehen geht nur mit einer Firmware mit dem BLECH-Satz (die Laufzeit nimmt den Befehl an).");
       return `um ${delta} gedreht`;
+    },
+    async knob(name, value) {
+      if (!Number.isInteger(value) || value < 0 || value > KNOB_MAX) throw new RangeError(`Reglerwert 0 bis ${KNOB_MAX}`);
+      await send(panel.knob(named(knobs, name, "Regler"), value));
+      return `${name} auf ${value}`;
+    },
+    async pad(n, { velocity = 100, hold = false } = {}) {
+      if (!Number.isInteger(n) || n < 1 || n > PADS.length) throw new RangeError(`Pad 1 bis ${PADS.length}`);
+      if (!Number.isInteger(velocity) || velocity < 0 || velocity > 127) throw new RangeError("Anschlag 0 bis 127");
+      await send(panel.pad(n - 1, velocity));
+      if (velocity && !hold) await send(panel.pad(n - 1, 0));
+      return velocity ? `Pad ${n} ${hold ? "gedrückt" : "angeschlagen"}` : `Pad ${n} losgelassen`;
+    },
+    async touch(x, y) {
+      for (const v of [x, y]) if (!Number.isInteger(v) || v < 0 || v > TOUCHPAD_MAX) throw new RangeError(`Touchpad 0 bis ${TOUCHPAD_MAX}`);
+      await send(panel.key(TOUCH_BUTTON, true));
+      await send(panel.touch(x, y));
+      await send(panel.key(TOUCH_BUTTON, false));
+      return `Touchpad bei ${x}, ${y} berührt`;
+    },
+    async hold(name, down = true) {
+      await send(panel.key(named(buttons, name, "Taste"), down));
+      return `${name} ${down ? "gedrückt" : "losgelassen"}`;
+    },
+    async testMode(on = true) {
+      const s = await withFirmware();
+      if (remoteInfo(s.firmwareBytes)?.testMode == null) throw new Error("Den Test-Modus gibt es ab BLECHTRIBE 1.3.8.");
+      await remote(command(TEST, 0, on ? 1 : 0));
+      return on ? "Test-Modus an: das Gerät sieht aus wie aus" : "Test-Modus aus";
     },
     ram: { read: readRam, ...ram },
     fx: { mfx: n => slotName("mfx", n), ifx: n => slotName("ifx", n) },

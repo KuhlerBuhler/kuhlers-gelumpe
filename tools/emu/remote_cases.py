@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""Emulator checks for the keys from the computer (tools/patch/script_remote.s, KORG.press against the device).
+"""Emulator checks for the device from the computer (tools/patch/script_remote.s, KORG.press against the device).
 
-check.py runs `cases` on every patched sampler copy that carries the BLECH menu. A command word in the card work area, as
-KORG.exec leaves it, goes through the frame hook to the firmware's key and encoder handlers: MENU, the main dial and EXIT
+check.py runs the groups on every patched copy that carries the BLECH menu, red and blue. A command word in the card work
+area, as KORG.exec leaves it, goes through the frame hook into the queue of panel messages: MENU, the main dial and EXIT
 then do what the same keys do on the panel, the counter counts every command once, and a word without the mark is not
-taken (the area is FF at power-on).
+taken (the area is FF at power-on). A whole panel message (knob, encoder, pad press and release, touchpad, a key held)
+reaches the firmware's dispatcher byte for byte as from the panel and leaves the device where the panel leaves it. The
+test mode's cases (testmode_cases.py) run as a group of their own.
 
     tools/emu/.venv/bin/python tools/emu/remote_cases.py cases --patched NEW.VSB [--flash dump.bin]
 """
@@ -21,19 +23,28 @@ sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import menu_cases  # noqa: E402
-import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
 
 MAILBOX = script_hooks.CARD + 0xFC0     # RM_AT in script_remote.s
+MESSAGE_AT = script_hooks.CARD + 0xFA0  # RM_MSG_AT
 CMD, DONE = 0, 8
 MARK = 0xA5000000
-KEY, ENCODER = 1, 2
-MENU, EDIT_NEXT, EXIT = 0x09, 0x0C, 0x0D
+KEY, ENCODER, MESSAGE = 1, 2, 3
+MENU, EDIT_NEXT, EXIT, SHIFT, TOUCH = 0x09, 0x0C, 0x0D, 0x0A, 0x22
+DISPATCH = 0xC002837C                   # the firmware's dispatcher of panel messages (msg + 0xC: type, four data bytes)
+# (what it is, the panel messages): a knob, an encoder that is not the main dial, a pad pressed and let go, a touch, a key held
+MESSAGES = [
+    ("knob LEVEL", [[2, 0, 0, 200, 0]]),
+    ("encoder CUTOFF -3", [[1, 2, 0, 0xFD, 0]]),
+    ("pad 5", [[4, 4, 0, 100, 1], [4, 4, 0, 0, 0]]),
+    ("touchpad", [[0, TOUCH, 1, 0, 0], [5, 1, 144, 1, 144], [5, 2, 88, 0, 200], [0, TOUCH, 0, 0, 0]]),
+    ("SHIFT held, Edit ►", [[0, SHIFT, 1, 0, 0], [0, EDIT_NEXT, 1, 0, 0], [0, EDIT_NEXT, 0, 0, 0], [0, SHIFT, 0, 0, 0]]),
+]
 
 
 def has_hooks(payload):
-    return menu_cases.has_menu(payload) and not synthaddr.is_synth(payload)
+    return menu_cases.has_menu(payload)
 
 
 def entry(name, ok, detail):
@@ -101,7 +112,40 @@ def cases(payload, flash=None):
     return out
 
 
-GROUPS = (cases,)
+def watch_dispatch(dev):
+    """Every message the dispatcher gets from now on, as its five bytes, in dev.dispatched."""
+    import unicorn
+    dev.dispatched = []
+    hook = lambda uc, address, size, data: dev.dispatched.append(list(uc.mem_read(uc.reg_read(unicorn.arm_const.UC_ARM_REG_R0) + 0xC, 5)))
+    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, hook, begin=dev.a(DISPATCH), end=dev.a(DISPATCH))
+    dev.m.uc.ctl_flush_tb()
+
+
+def message_cases(payload, flash=None):
+    out = []
+    for name, messages in MESSAGES:
+        panel_dev, dev = menu_cases.boot(payload, flash), menu_cases.boot(payload, flash)
+        watch_dispatch(dev)
+        first = done(dev)
+        for message in messages:
+            panel_dev.m.send(message)
+            panel_dev.run(0.3)
+            dev.m.uc.mem_write(MESSAGE_AT, bytes(message).ljust(8, b"\0"))
+            send(dev, command(MESSAGE, 0), wait=0.3)
+        got, want = where(dev), where(panel_dev)
+        counted = (done(dev) - first) & 0xFFFFFFFF
+        out.append(entry(f"message:{name}", dev.dispatched == messages and got == want and counted == len(messages)
+                         and not dev.m.asserts and not panel_dev.m.asserts,
+                         f"dispatched {dev.dispatched}, sent {messages}; remote {got}, panel {want}; {counted} counted"))
+    return out
+
+
+def testmode_group(payload, flash=None):
+    import testmode_cases
+    return testmode_cases.cases(bytes(0x100) + payload, flash)
+
+
+GROUPS = (cases, message_cases, testmode_group)
 
 
 def cases_task(i):
@@ -121,9 +165,9 @@ def main():
     payload = a.patched.read_bytes()[0x100:]
     flash = load_flash(a.flash) if a.flash else None
     if not has_hooks(payload):
-        print(json.dumps([entry("present", False, "the copy has no BLECH menu on a sampler")], indent=1))
+        print(json.dumps([entry("present", False, "the copy has no BLECH menu")], indent=1))
         return 1
-    out = cases(payload, flash)
+    out = [e for group in GROUPS for e in group(payload, flash)]
     print(json.dumps(out, indent=1))
     return 0 if all(e["ok"] for e in out) else 1
 

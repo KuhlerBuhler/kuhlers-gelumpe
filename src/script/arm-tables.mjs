@@ -158,6 +158,7 @@ export function asmInclude() {
     eq(`OBJ_${o.id}_BASE`, OBJECT_BASES.indexOf(o.base)); eq(`OBJ_${o.id}_TYPE`, OBJECT_TYPES.indexOf(o.type));
     eq(`OBJ_${o.id}_APPLY`, OBJECT_APPLY.indexOf(o.apply)); eq(`OBJ_${o.id}_FLAGS`, objectFlags(o));
   }
+  eq("OBJ_TEST_MODE", OBJECTS.find(o => o.path === "korg.system.testMode").id);
   out.push(".align 4");
   out.push("script_dispatch:");
   for (let i = 0; i < OPCODE_SLOTS; i += 8) {

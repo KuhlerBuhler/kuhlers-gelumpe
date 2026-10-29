@@ -1,0 +1,40 @@
+{
+ "entries": [
+  {
+   "from": "0xC033E57C",
+   "to": "0xC033E57C",
+   "kind": "same",
+   "why": "the queue of panel messages: the literal the CsTask loop takes it with, sampler 0xC002A594, synth 0xC0027804 (before the call of the dispatcher 0xC00257E8)"
+  },
+  {
+   "from": "0xC0024AFC",
+   "to": "0xC0020424",
+   "kind": "code",
+   "why": "queue put: the reader of the panel calls it with the queue above (sampler 0xC00252C0); the same 24 bytes once in the synth"
+  },
+  {
+   "from": "0xC0000E9C",
+   "to": "0xC0000CC4",
+   "kind": "code",
+   "why": "event set for the context outside a task (task number 0 at 0xC06A2894, as in the frame hook): the same 92 bytes once in the synth"
+  },
+  {
+   "from": "0xC0000050",
+   "to": "0xC0000050",
+   "kind": "same",
+   "why": "interrupt state restore, the partner of 0xC0000040: the same bytes at the same address"
+  },
+  {
+   "from": "0xC033E6B4",
+   "to": "0xC033E6B4",
+   "kind": "same",
+   "why": "the pointer to the Auto Power Off timer object (0x1C bytes, counter at +0x18): the synth allocates it the same way and stores it at the same address (0xC0027BB4, sampler 0xC002A950)"
+  },
+  {
+   "from": "0xC031B710",
+   "to": "0xC031B710",
+   "kind": "same",
+   "why": "the copy of the display buffer as last sent: the page compare of the display send loads the same literal (synth 0xC0011350, sampler 0xC0015A94)"
+  }
+ ]
+}

@@ -30,9 +30,14 @@ const run = source => {
 };
 const stored = (device, slot) => device.runtime.scripts[0].store.values[slot];
 
-test("ids are unique and dense, every leaf is a property with its range", () => {
+test("ids are unique and dense, every leaf is a property with its range, an action is none", () => {
   assert.deepEqual(OBJECTS.map(o => o.id), OBJECTS.map((_, i) => i));
   for (const o of OBJECTS) {
+    if (o.action) {
+      assert.equal(PROPERTY_BY_PATH.get(o.path), undefined, o.path);
+      assert.ok(o.write, o.path);
+      continue;
+    }
     const prop = PROPERTY_BY_PATH.get(o.path);
     assert.ok(prop, o.path);
     assert.deepEqual(prop.read, ["korg.get", [o.id, -1]]);
@@ -93,9 +98,29 @@ test("both plugin docs list every leaf with its range", () => {
   for (const [file, to] of [["docs/plugins.md", "bis"], ["docs/plugins.en.md", "to"]]) {
     const doc = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
     for (const o of OBJECTS) {
-      const row = doc.split("\n").find(l => l.startsWith(`| \`${o.path}\``));
+      const row = doc.split("\n").find(l => l.startsWith(`| \`${o.path}${o.action ? "()" : ""}\``));
       assert.ok(row, `${file}: ${o.path}`);
+      if (o.action) continue;
       assert.match(row, new RegExp(`${o.min}( \\([^)]*\\))? ${to} ${o.max}`), `${file}: ${o.path}`);
     }
   }
+});
+
+test("korg.system.keepAwake() is a call that sets its leaf to 1, and it takes no values", () => {
+  const device = run(`korg.onEvent("ready", () => { korg.system.keepAwake(); korg.system.testMode = 1; korg.store.set(0, korg.system.testMode); korg.system.testMode = 0; korg.store.set(1, korg.system.testMode); });`);
+  assert.equal(device.hardware.objects[OBJECT_BY_PATH.get("korg.system.keepAwake").id], 1);
+  assert.deepEqual([stored(device, 0), stored(device, 1)], [1, 0]);
+  assert.match(refused(`korg.onEvent("ready", () => { korg.system.keepAwake(1); });`), /korg\.system\.keepAwake/);
+  assert.match(refused(`korg.onEvent("ready", () => { let x = korg.system.keepAwake; });`), /keepAwake/);
+  assert.match(refused(`korg.onEvent("ready", () => { korg.system.testMode = 2; });`), /0.*1.*2/);
+});
+
+test("the remote runtime switches the test mode through the leaf it names", () => {
+  const remote = readFileSync(new URL("../tools/patch/script_remote.s", import.meta.url), "utf8");
+  assert.match(remote, /mov r0, #OBJ_TEST_MODE/);
+  const equ = Object.fromEntries([...asmInclude().matchAll(/^\.equ (OBJ_\w+), (\S+)$/gm)].map(m => [m[1], Number(m[2])]));
+  assert.equal(equ.OBJ_TEST_MODE, OBJECT_BY_PATH.get("korg.system.testMode").id);
+  const objects = readFileSync(new URL("../tools/patch/script_objects.s", import.meta.url), "utf8");
+  const state = objects.slice(objects.indexOf("objects_state:"));
+  assert.ok(state.indexOf("objects_test_mode:") > 0 && OBJECT_BY_PATH.get("korg.system.testMode").offset === 4);
 });
