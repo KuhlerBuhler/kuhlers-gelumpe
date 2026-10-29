@@ -1951,6 +1951,8 @@ export default {
   "api.korg.set": "Ustawia liść drzewa obiektów, przycięty do jego zakresu; kompilator wywołuje to przy przypisaniu do ścieżki.",
   "api.object.display.intensity": "Jasność podświetlenia wyświetlacza, od 0 (wyłączone) do 15 (pełne), jak strona INTENSITY; WRITE w menu ją zapisuje.",
   "api.object.system.repairs": "Ile wartości od startu było poza zakresem i zostało przyciętych lub przywróconych.",
+  "api.object.system.testMode": "Czy tryb testowy jest włączony (1): wyświetlacz, podświetlenie i wszystkie diody wygaszone, Auto Power Off wstrzymane. Przełączany tylko przez USB.",
+  "api.object.system.keepAwake": "Uruchamia od nowa 4 godziny Auto Power Off, jak przycisk na urządzeniu.",
   "script.fault.objectLeaf": "brak liścia {leaf} w drzewie obiektów",
   "script.fault.objectReadOnly": "{path} można tylko odczytać",
   "compile.object.unknown": "{path} nie istnieje. {branch} ma: {names}.",
