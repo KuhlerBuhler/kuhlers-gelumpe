@@ -46,7 +46,7 @@
 .equ METER_OFF, 9              ; METER STILL only: the still meter stays dark (bit 1 of byte 5 of the settings file)
 .equ METER_RAINBOW, 8          ; METER STILL and LOUD: the colours turn round the wheel (STILL bit 30 of the settings flags, LOUD bit 0 of byte 5)
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
-.equ M_PC, 0x158              ; the gap between the two settings buffers (M_FILE_A ends at 0x158, M_FILE_B starts at 0x160)
+.equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
 .equ M_TM, 0x15C              ; the other word of that gap: the page TAP MOTION, 1 on (the default), 0 off, 2 once
 .equ TM_SETTING, 0xC0188F00   ; the setting word of the patch tap-motion: never written (FFFFFFFF) or 1 is on, 0 is off, 2 is once
@@ -59,21 +59,20 @@
 .equ POWER_HOLD_STEP_MS, 50   ; the power key during the start: read every 50 ms,
 .equ POWER_HOLD_STEPS, 100    ; held for 100 reads (5 s) switches off
 .equ BL_DIM_FLAG, 0xC00F9310
-.equ M_TRUST, 0x1C0
 .equ M_INV, 0x1B8
 .equ M_INV_HW, 0x1BC
 .equ LCD_PAGE_HOOK_BACK, 0xC00161A8
 .equ LCD_SEND, 0xC00160C4
-.equ MENU_MAX_TRUST, 16
+.equ MENU_MAX_TRUST, 64        ; the checksum list at MENU_TRUST (tools/patch/script_hooks.py:SETTINGS_RAM), 16 up to 1.3.7
+.equ MENU_MAX_TRUST_V2, 16     ; the most a file of version 1 or 2 holds
 .equ M_TITLE, 0x40
 .equ M_VALUE, 0x60
 .equ M_LINE3, 0x80
-.equ M_FILE_A, 0x100
-.equ M_FILE_B, 0x160
 .equ SETTINGS_MAGIC, 0x54455347
 .equ SETTINGS_SIZE, 24
 .equ SETTINGS_SIZE_V1, 20
-.equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST
+.equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST    ; the size of each settings buffer, MENU_FILE_A and MENU_FILE_B
+.equ SETTINGS_VERSION, 3
 .equ M_STATE_WORDS, 128
 .equ SWITCH_SCREEN, 0xC0083D28
 .equ PC_CODE, 0xC018B000        ; the patch pad-colors (tools/patch/pad_colors.py), FF where the set does not have it; its entries:
@@ -195,11 +194,12 @@ menu_arm_load:
 menu_arm_load_end:
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
-; magic, version u16 (1 or 2), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
-; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON), version 2 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
+; magic, version u16 (1, 2 or 3), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
+; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON), version 2 and 3 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
-; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes. Always written as version 2, version 1 is still read.
+; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes (both up to 16 checksums), version 3 24 to 280 bytes (up to
+; 64, MENU_MAX_TRUST). Always written as version 3, versions 1 and 2 are still read; a BLECH up to 1.3.7 does not read version 3.
 ; Called from the card hook wrapper after menu_arm, before the script loader reads M_EFF_RUN.
 menu_settings_load:
     push {r4-r8, lr}
@@ -210,27 +210,28 @@ menu_settings_load:
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
     ldr r0, =settings_path_a
-    add r1, r4, #M_FILE_A
+    ldr r1, =MENU_FILE_A
     bl menu_file_read
     mov r7, r0
     ldr r0, =settings_path_b
-    add r1, r4, #M_FILE_B
+    ldr r1, =MENU_FILE_B
     bl menu_file_read
     mov r8, r0
-    add r0, r4, #M_FILE_A
+    ldr r0, =MENU_FILE_A
     cmp r7, #0
     beq menu_load_b
     cmp r8, #0
     beq menu_load_apply
-    ldr r1, [r4, #M_FILE_A+8]
-    ldr r2, [r4, #M_FILE_B+8]
+    ldr r1, [r0, #8]
+    ldr r3, =MENU_FILE_B
+    ldr r2, [r3, #8]
     cmp r2, r1
-    addhi r0, r4, #M_FILE_B
+    movhi r0, r3
     b menu_load_apply
 menu_load_b:
     cmp r8, #0
     beq menu_load_none
-    add r0, r4, #M_FILE_B
+    ldr r0, =MENU_FILE_B
 menu_load_apply:
     ldr r1, [r0, #8]
     str r1, [r4, #M_GEN]
@@ -297,12 +298,12 @@ menu_load_meter:
     and r0, r0, #3
     mov r1, #16
     bl menu_pc_call
-    ldr r0, [sp]                ; LED DIMMING (POWER SAVE): bits 6 and 7 and 31 of these flags, bit 31 of the look word (version 2)
+    ldr r0, [sp]                ; LED DIMMING (POWER SAVE): bits 6 and 7 and 31 of these flags, bit 31 of the look word (version 2 and 3)
     ldr r1, [r0, #12]
     ldrb r3, [r0, #4]
-    cmp r3, #2
-    ldreq r2, [r0, #16]
-    movne r2, #0
+    cmp r3, #1
+    ldrne r2, [r0, #16]
+    moveq r2, #0
     mov r0, r1, lsr #6
     and r0, r0, #3
     tst r1, #0x80000000
@@ -314,11 +315,11 @@ menu_load_meter:
     pop {r0-r3}
     ldrb r1, [r0, #6]
     str r1, [r4, #M_TRUST_N]
-    add r2, r4, #M_TRUST
+    ldr r2, =MENU_TRUST
     ldrb r3, [r0, #4]
-    cmp r3, #2
-    addne r0, r0, #16
-    bne menu_load_trust
+    cmp r3, #1
+    addeq r0, r0, #16
+    beq menu_load_trust
     ldr r3, [r0, #16]
     and r12, r3, #3
     cmp r12, #2
@@ -369,7 +370,7 @@ menu_load_out:
     pop {r4-r8, pc}
 .pool
 
-; r0 = path, r1 = buffer of SETTINGS_SIZE bytes, r5 = card scratch, r6 = file object -> r0 = 1 when the file is a valid settings file
+; r0 = path, r1 = buffer of SETTINGS_MAX bytes, r5 = card scratch, r6 = file object -> r0 = 1 when the file is a valid settings file
 menu_file_read:
     push {r4, r7, lr}
     mov r7, r1
@@ -403,15 +404,19 @@ menu_file_read:
     ldrb r1, [r7, #5]
     bics r1, r1, #3             ; byte 5: only bit 0 (LOUD RAINBOW) and bit 1 (STILL OFF) may be set
     bne menu_read_fail
-    cmp r0, #2
-    moveq r2, #SETTINGS_SIZE
-    movne r2, #SETTINGS_SIZE_V1
-    cmpne r0, #1
-    bne menu_read_fail
+    sub r0, r0, #1              ; version 1, 2 or 3
+    cmp r0, #SETTINGS_VERSION-1
+    bhi menu_read_fail
+    cmp r0, #0
+    moveq r2, #SETTINGS_SIZE_V1
+    movne r2, #SETTINGS_SIZE
+    cmp r0, #SETTINGS_VERSION-1
+    moveq r3, #MENU_MAX_TRUST
+    movne r3, #MENU_MAX_TRUST_V2
     ldrb r0, [r7, #6]
     ldrb r1, [r7, #7]
     orr r0, r0, r1, lsl #8
-    cmp r0, #MENU_MAX_TRUST
+    cmp r0, r3
     bhi menu_read_fail
     mov r1, r0, lsl #2
     add r1, r1, r2
@@ -448,10 +453,10 @@ menu_settings_write:
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
-    add r7, r4, #M_FILE_A
+    ldr r7, =MENU_FILE_A
     ldr r0, =SETTINGS_MAGIC
     str r0, [r7]
-    mov r0, #2
+    mov r0, #SETTINGS_VERSION
     strb r0, [r7, #4]
     mov r0, #0
     strb r0, [r7, #5]
@@ -543,7 +548,7 @@ menu_settings_write:
     orrne r10, r10, #0x80000000
     str r10, [r7, #16]
     add r0, r7, #20
-    add r1, r4, #M_TRUST
+    ldr r1, =MENU_TRUST
     mov r2, r9
 menu_save_trust:
     cmp r2, #0
@@ -2248,7 +2253,7 @@ menu_needs_confirm:
     bxne lr
     ldr r1, [r1, #HDR_CHECKSUM]
     ldr r3, [r2, #M_TRUST_N]
-    add r2, r2, #M_TRUST
+    ldr r2, =MENU_TRUST
 menu_needs_loop:
     cmp r3, #0
     moveq r0, #1
@@ -2275,7 +2280,7 @@ menu_is_off:
     movne r0, #0
     bxne lr
     ldr r3, [r2, #M_TRUST_N]
-    add r2, r2, #M_TRUST
+    ldr r2, =MENU_TRUST
 menu_off_loop:
     cmp r3, #0
     moveq r0, #0
@@ -2304,7 +2309,7 @@ menu_off_entry:
     ldr r7, [r6, #HDR_CHECKSUM]
     mvn r7, r7
     ldr r1, [r4, #M_TRUST_N]
-    add r2, r4, #M_TRUST
+    ldr r2, =MENU_TRUST
     mov r3, #0
 menu_off_find:
     cmp r3, r1
@@ -2336,7 +2341,7 @@ menu_off_keep:
     cmp r0, #0
     beq menu_off_next
     ldr r1, [r4, #M_TRUST_N]
-    add r2, r4, #M_TRUST
+    ldr r2, =MENU_TRUST
     str r7, [r2, r1, lsl #2]
     add r1, r1, #1
     str r1, [r4, #M_TRUST_N]
@@ -2356,7 +2361,7 @@ menu_trust_room:
     cmp r1, #MENU_MAX_TRUST
     movlo r0, #1
     poplo {r4-r8, pc}
-    add r6, r4, #M_TRUST
+    ldr r6, =MENU_TRUST
     mov r7, #0
 menu_room_scan:
     cmp r7, r1
@@ -2406,7 +2411,7 @@ menu_confirm:
     blo menu_confirm_add
     mov r2, #0
 menu_confirm_shift:
-    add r0, r5, #M_TRUST
+    ldr r0, =MENU_TRUST
     ldr r3, [r0, r2, lsl #2]
     sub r12, r2, #1
     cmp r2, #0
@@ -2416,7 +2421,7 @@ menu_confirm_shift:
     blo menu_confirm_shift
     mov r2, #MENU_MAX_TRUST-1
 menu_confirm_add:
-    add r0, r5, #M_TRUST
+    ldr r0, =MENU_TRUST
     str r1, [r0, r2, lsl #2]
     add r2, r2, #1
     str r2, [r5, #M_TRUST_N]
@@ -2960,7 +2965,7 @@ menu_export_scanned:
     cmpeq r11, #0
     moveq r0, #0x30
     beq menu_export_status
-    add r11, r4, #M_FILE_A
+    ldr r11, =MENU_FILE_A
     ldr r0, =ARCHIVE_MAGIC
     str r0, [r11]
     mov r0, #ARCHIVE_VERSION
