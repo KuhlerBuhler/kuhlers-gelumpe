@@ -246,5 +246,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [BLECH mit Hacktribe auf der blauen: Start, Update-Wege, Kartenordner](2026-10-26-blech-hacktribe-blau.md)
 - [Letztes Pattern beim Einschalten: wo die Firmware 001 nimmt, wo die Nummer bleibt](2026-10-28-letztes-pattern.md)
 - [Eigenes Init-Pattern: wie INITIALIZE PATTERN die Vorlage nimmt](2026-10-28-init-pattern.md)
+- [Farbe des Hintergrundlichts schon beim Einschalten, vor dem Startbild](2026-10-29-hintergrundlicht-beim-start.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)
