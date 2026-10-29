@@ -117,7 +117,7 @@ def run_case(payload, flash, name):
     if kind == "edit":      # a changed Global setting that only the switch-off saves, and the BLECH settings written to the card before
         settings = dev.u32(GLOBALS) + POWER_SAVE
         dev.m.uc.mem_write(settings, bytes([(dev.read(settings, 1)[0] + 1) % 3]))
-        menu_cases.goto_group(dev, menu_cases.GROUP_PLUGINS, 0)
+        menu_cases.goto_global(dev)
         dev.turn(-1, wait=0.2)
         dev.press("write", wait=0.6)
         menu_cases.go(dev, 1)

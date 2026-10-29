@@ -198,7 +198,7 @@ A plugin gives the Electribe a new function. You put it on the device through th
 `KORG/blechtribe/Plugin/`. The folder is called `Plugin`, singular, not "Plugins", and it is the same on the
 red and the blue Electribe. The firmware does not create it, you do. With the device connected you can skip
 the card: in the Plugins area the button "Aufs Gerät" writes the plugin there over USB, then on the device
-Menü -> BLECH -> PLUGINS -> PLUGIN EDIT. The code is a subset of JavaScript, the editor compiles it to bytecode for a
+Menü -> BLECH -> PLUGINS -> MANAGE PLUGINS. The code is a subset of JavaScript, the editor compiles it to bytecode for a
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
