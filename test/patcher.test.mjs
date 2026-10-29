@@ -107,7 +107,7 @@ test("itemsFor: the items of a set that apply to a build, one per id", () => {
   const set = { items: [{ id: "a" }, { id: "f" }, { id: "f" }], patches: [{ id: "a", builds: ["hacktribe", "stock"] }, { id: "f", builds: ["hacktribe"] }, { id: "f", builds: ["stock"] }] };
   assert.deepEqual(itemsFor(set, "hacktribe"), [set.items[0], set.items[1]]);
   assert.deepEqual(itemsFor(set, "stock"), [set.items[0], set.items[2]]);
-  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "blech-version", "doom-loader", "blech-sysex"]);
+  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "beat-eighth", "blech-version", "doom-loader", "blech-sysex"]);
   assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 1, "the synth filters are for Korg's build only");
 });
 

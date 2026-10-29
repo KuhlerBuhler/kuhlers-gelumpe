@@ -69,6 +69,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Edit effects freely in the app | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | 128 slots for custom effects | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Second master effect (MFX 2) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| BEAT 8: eighth-note steps, patterns twice as long | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Plugins and games (Snake, Tetris, ...) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Pad and LED colours | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Confirm before changing patterns | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
