@@ -18,15 +18,37 @@ def case(payload, close_error=False, short_header=False):
     origin = (end + 15) & ~15
     assembled = c.spec.arm.assemble(f'''
 read_header:
-    push {{r11, lr}}
+    push {{r4, r10, r11, lr}}
     ldr r11, ={c.spec.STATE}
+    mov r0, #{c.spec.sample_owner.READ}
+    bl {box.sym['owner_acquire']}
+    cmp r0, #0
+    popne {{r4, r10, r11, pc}}
+    mov r10, r1
     bl {box.sym['ensure_file']}
-    pop {{r11, pc}}
+    mov r4, r0
+    mov r0, r10
+    bl {box.sym['owner_release']}
+    mov r0, r4
+    pop {{r4, r10, r11, pc}}
 close_header:
-    push {{r11, lr}}
+    push {{r4, r10, r11, lr}}
     ldr r11, ={c.spec.STATE}
+    ldr r0, ={c.spec.FILE_OWNER + 8}
+    ldr r0, [r0]
+    cmp r0, #0
+    moveq r0, #{c.spec.sample_owner.READ}
+    movne r0, #{c.spec.sample_owner.RECOVER}
+    bl {box.sym['owner_acquire']}
+    cmp r0, #0
+    popne {{r4, r10, r11, pc}}
+    mov r10, r1
     bl {box.sym['close_reader']}
-    pop {{r11, pc}}
+    mov r4, r0
+    mov r0, r10
+    bl {box.sym['owner_release']}
+    mov r0, r4
+    pop {{r4, r10, r11, pc}}
 .pool
 ''', origin=origin)
     if origin + len(assembled.bytes) > c.spec.STORE_CODE_END:
@@ -70,18 +92,50 @@ close_header:
     finally:
         volume.close()
     unchanged = bytes(uc.mem_read(c.META, len(before))) == before
+    owner = struct.unpack('<4I', uc.mem_read(c.spec.FILE_OWNER, 16))
     ok = (warm == 0 and (result != 0) == (close_error or short_header)
           and file_state == expected_file and observed['opens'] == expected_opens
           and mode == (2 if close_error or short_header else 0)
           and cleanup == 0 and box.state('FILE') == 0 and unchanged
-          and library == c.sampleset.build(samples) and not box.m.asserts)
+          and library == c.sampleset.build(samples) and owner[0] == 0
+          and owner[2] == int(close_error or short_header)
+          and not box.m.asserts)
     return dict(ok=ok, close_error=close_error, short_header=short_header, result=result,
                 file_state_before_cleanup=file_state, file_state_after_cleanup=box.state('FILE'),
-                mode=mode, cleanup=cleanup, metadata_unchanged=unchanged, **observed, asserts=box.m.asserts)
+                mode=mode, cleanup=cleanup, metadata_unchanged=unchanged, owner=owner,
+                **observed, asserts=box.m.asserts)
+
+
+def competing_owner(payload):
+    box = c.Box(payload, None, c.small(range(500, 510)), [500], cap=0x40000)
+    uc, owner = box.m.uc, c.spec.sample_owner
+    acquired = box.dev.call(box.sym['owner_acquire'], owner.WRITE)
+    token = box.u32(c.spec.FILE_OWNER)
+    before = bytes(uc.mem_read(c.META, c.spec.SAMPLE_COUNT * 0x45C))
+    generation = box.state('GEN')
+    calls = []
+    hooks = [uc.hook_add(c.unicorn.UC_HOOK_CODE, lambda machine, at, *args: calls.append(at), begin=address, end=address)
+             for address in (c.spec.FIRMWARE['F_OPEN'], c.spec.FIRMWARE['F_READ'], c.spec.FIRMWARE['F_CLOSE'])]
+    box.dev.call(box.sym['ss_step'])
+    reload_result = box.dev.call(0xC00364F0, 0)
+    held = box.u32(c.spec.FILE_OWNER) == token
+    unchanged = bytes(uc.mem_read(c.META, len(before))) == before and box.state('GEN') == generation
+    released = box.dev.call(box.sym['owner_release'], token)
+    box.dev.call(box.sym['ss_step'])
+    blocked = box.dev.call(box.sym['owner_acquire'], owner.READ)
+    for hook in hooks:
+        uc.hook_del(hook)
+    state = struct.unpack('<4I', uc.mem_read(c.spec.FILE_OWNER, 16))
+    ok = (acquired == 0 and token != 0 and reload_result == 4 and held and unchanged and not calls
+          and released == 0 and blocked == owner.NEEDS_RECOVERY and state[0] == 0
+          and state[2] == 1 and not box.m.asserts)
+    return dict(ok=ok, competing_owner=True, acquired=acquired, reload_result=reload_result,
+                lease_retained=held, metadata_and_generation_unchanged=unchanged, card_calls=calls,
+                released=released, subsequent_reader=blocked, owner=state, asserts=box.m.asserts)
 
 
 def cases(payload):
-    return [case(payload, close_error, short_header) for close_error in (False, True) for short_header in (False, True)]
+    return [case(payload, close_error, short_header) for close_error in (False, True) for short_header in (False, True)] + [competing_owner(payload)]
 
 
 def main():

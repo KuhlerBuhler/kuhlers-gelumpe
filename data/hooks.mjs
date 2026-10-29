@@ -33,6 +33,8 @@ export const CHAINS = {
   "sample-swap": [
     { id: "loader-body", sites: [0xC00364F4] },
     { id: "loader-open", sites: [0xC0036510] },
+    { id: "loader-close", sites: [0xC0036748] },
+    { id: "loader-finish", sites: [0xC0036760] },
     { id: "loader-slot", sites: [0xC00366D8] },
     { id: "parser-descriptor", sites: [0xC003621C] },
     { id: "work-buffer", sites: [0xC00369F0] },

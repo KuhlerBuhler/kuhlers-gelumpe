@@ -76,7 +76,7 @@
         {
           "id": "2.0",
           "name": "Gemeinsamen geräteseitigen Dateibesitz vor dem ersten Menühaken anschließen; Ladeaufträge, Leser, Puffer und erneutes Indexlesen koordinieren.",
-          "status": "pending"
+          "status": "in-progress"
         },
         {
           "id": "2.1",

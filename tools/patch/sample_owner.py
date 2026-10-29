@@ -40,31 +40,31 @@ owner_acquire:
     mov r5, r0
     mov r6, #0
     cmp r5, #FO_READ
-    blo fo_invalid_context
+    blo own_invalid_context
     cmp r5, #FO_RECOVER
-    bhi fo_invalid_context
-    b fo_context
+    bhi own_invalid_context
+    b own_context
 
 ; r0 token. Releasing a writer never implicitly resolves its catalogue.
 owner_release:
     push {r4-r8, lr}
     mov r5, r0
     mov r6, #1
-    b fo_context
+    b own_context
 
 ; r0 token, after successful journal recovery and catalogue readback.
 owner_resolve:
     push {r4-r8, lr}
     mov r5, r0
     mov r6, #2
-    b fo_context
+    b own_context
 
 ; r0 token, after a read or close failure whose catalogue is not trusted.
 owner_uncertain:
     push {r4-r8, lr}
     mov r5, r0
     mov r6, #3
-    b fo_context
+    b own_context
 
 ; r0 token. Only the current reader of a checked catalogue may load samples.
 owner_readable:
@@ -72,45 +72,45 @@ owner_readable:
     mov r5, r0
     mov r6, #4
 
-fo_context:
+own_context:
     .word 0xE10F4000
     and r0, r4, #31
     cmp r0, #0x13
     cmpne r0, #0x1f
-    bne fo_bad_context
+    bne own_bad_context
     cmp r6, #0
-    bne fo_depth
+    bne own_depth
     tst r4, #0x80
-    bne fo_bad_context
-fo_depth:
+    bne own_bad_context
+own_depth:
     ldr r0, =FO_IRQ_DEPTH
     ldr r0, [r0]
     cmp r0, #0
-    bne fo_bad_context
+    bne own_bad_context
     ldr r0, =FO_STARTED
     ldr r0, [r0]
     cmp r0, #0
-    beq fo_bad_context
+    beq own_bad_context
     ldr r7, =FO_STATE
     orr r3, r4, #0x80
     .word 0xE121F003
     mov r1, #0
     cmp r6, #0
-    bne fo_owned
+    bne own_owned
     ldr r0, [r7]
     cmp r0, #0
-    bne fo_busy
+    bne own_busy
     ldr r0, [r7, #8]
     cmp r0, #1
-    bhi fo_invalid
+    bhi own_invalid
     cmp r5, #FO_RECOVER
-    beq fo_next
+    beq own_next
     cmp r0, #0
-    bne fo_recovery
-fo_next:
+    bne own_recovery
+own_next:
     ldr r0, [r7, #4]
     cmn r0, #1
-    beq fo_exhausted
+    beq own_exhausted
     add r1, r0, #1
     str r1, [r7, #4]
     str r1, [r7]
@@ -119,67 +119,67 @@ fo_next:
     movne r0, #1
     strne r0, [r7, #8]
     mov r0, #FO_OK
-    b fo_done
+    b own_done
 
-fo_owned:
+own_owned:
     cmp r5, #0
-    beq fo_invalid
+    beq own_invalid
     ldr r0, [r7]
     cmp r0, r5
-    bne fo_invalid
+    bne own_invalid
     ldr r0, [r7, #12]
     cmp r0, #FO_READ
-    blo fo_invalid
+    blo own_invalid
     cmp r0, #FO_RECOVER
-    bhi fo_invalid
+    bhi own_invalid
     cmp r6, #1
-    beq fo_release
+    beq own_release
     cmp r6, #3
     moveq r0, #1
     streq r0, [r7, #8]
     moveq r0, #0
-    beq fo_done
+    beq own_done
     cmp r6, #4
-    beq fo_readable
+    beq own_readable
     cmp r0, #FO_READ
-    beq fo_invalid
+    beq own_invalid
     ldr r0, [r7, #8]
     cmp r0, #1
-    bhi fo_invalid
+    bhi own_invalid
     mov r0, #0
     str r0, [r7, #8]
-    b fo_done
-fo_readable:
+    b own_done
+own_readable:
     cmp r0, #FO_READ
-    bne fo_invalid
+    bne own_invalid
     ldr r0, [r7, #8]
     cmp r0, #0
-    bne fo_recovery
-    b fo_done
-fo_release:
+    bne own_recovery
+    b own_done
+own_release:
     mov r0, #0
     str r0, [r7]
     str r0, [r7, #12]
-    b fo_done
-fo_busy:
+    b own_done
+own_busy:
     mov r0, #FO_BUSY
-    b fo_done
-fo_recovery:
+    b own_done
+own_recovery:
     mov r0, #FO_NEEDS_RECOVERY
-    b fo_done
-fo_exhausted:
+    b own_done
+own_exhausted:
     mov r0, #FO_EXHAUSTED
-    b fo_done
-fo_invalid:
+    b own_done
+own_invalid:
     mov r0, #FO_INVALID
-fo_done:
+own_done:
     .word 0xE121F004
     pop {r4-r8, pc}
-fo_invalid_context:
+own_invalid_context:
     mov r0, #FO_INVALID
     mov r1, #0
     pop {r4-r8, pc}
-fo_bad_context:
+own_bad_context:
     mov r0, #FO_CONTEXT
     mov r1, #0
     pop {r4-r8, pc}

@@ -4,7 +4,7 @@ revision: 2
 
 # Samples dauerhaft auf der Karte speichern
 
-Stand: 28.10.2026. Der Speicherweg ist abgestimmt. Ergänzung zum
+Stand: 29.10.2026. Der Speicherweg ist abgestimmt. Ergänzung zum
 [Sample-Swap für 1.4](2026-10-27-sample-swap-1-4.md).
 
 ## Ziel und Umfang
@@ -122,9 +122,11 @@ Dabei bleiben die bisherigen DSP-Tabellen erhalten; ein neuer Aufruf des
 nativen Gesamtlades zum Aktualisieren wäre dafür ungeeignet.
 
 Der [Besitzerbaustein und der Leserabschluss](../messungen/2026-10-29-sample-dateibesitz.md)
-sind getrennt geprüft. Die Leserbereinigung ist im gebauten Patch enthalten.
-Der Besitzer ist noch an die gemeinsamen Aufrufer anzuschließen; dieser
-Arbeitspunkt bleibt deshalb offen.
+sind geprüft und im gebauten Patch an Boot-Lader und Swap-Ladeschritte
+angeschlossen. Bei konkurrierendem Besitz bleiben Tabellen und Generation
+erhalten; ein ungeklärter Katalog sperrt weitere Leser. Native Menüs,
+dauerhafte Slot-Schreiber, USB und das erneute Indexlesen nach Änderungen
+sind noch anzuschließen. Dieser Arbeitspunkt bleibt deshalb offen.
 
 Die DSP-Belegung braucht zusätzlich eine Bindung an die gespeicherte
 Slot-Version. Eine aktive Metadatenzeile allein beweist nicht, dass sie

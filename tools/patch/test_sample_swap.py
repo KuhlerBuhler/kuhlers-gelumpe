@@ -42,6 +42,9 @@ class Swap:
         self.calls = []
         self.uc.hook_add(unicorn.UC_HOOK_CODE, self.note, begin=F["SWITCH"], end=F["SWITCH"])
         self.uc.hook_add(unicorn.UC_HOOK_CODE, self.note, begin=F["DELETE"], end=F["DELETE"])
+        self.uc.reg_write(R.UC_ARM_REG_CPSR, 0x13)
+        self.uc.mem_write(p.sample_owner.STARTED, word(1))
+        self.uc.mem_write(p.FILE_OWNER, bytes(20))
         self.set_state("MODE", 1)
         self.set_state("GEN", 7)
         self.uc.mem_write(p.STATE + p.FAILED, bytes(128))
@@ -71,6 +74,17 @@ class Swap:
         self.uc.emu_start(self.sym[name] if isinstance(name, str) else name, TRAP, count=5_000_000)
         assert self.uc.reg_read(R.UC_ARM_REG_SP) == STACK, f"{name} left the stack moved"
         return self.uc.reg_read(R.UC_ARM_REG_R0)
+
+    def owner(self):
+        return struct.unpack("<4I", self.uc.mem_read(p.FILE_OWNER, 16))
+
+    def read_call(self, name, *args, regs=None):
+        assert self.call("owner_acquire", p.sample_owner.READ) == 0
+        token = self.uc.reg_read(R.UC_ARM_REG_R1)
+        try:
+            return self.call(name, *args, regs={**(regs or {}), R.UC_ARM_REG_R10: token})
+        finally:
+            assert self.call("owner_release", token) == 0
 
     def slot(self, slot, active=True, base=0, length=0, in_file=True):
         """Identity mappings for a slot, as the firmware has them for a sample of an exported file."""
@@ -114,7 +128,7 @@ class AllocationBounds(unittest.TestCase):
                 writes = []
                 s.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, lambda uc, access, at, size, value, data: writes.append(at),
                               begin=p.ARENA_U, end=p.ARENA_U + 0x49F)
-                s.call("start_prepare", 601)
+                s.read_call("start_prepare", 601)
                 self.assertEqual(s.state("J_STATE"), 0)
                 self.assertEqual(writes, [])
 
@@ -129,7 +143,7 @@ class AllocationBounds(unittest.TestCase):
                 entered = []
                 s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: entered.append(True),
                               begin=s.sym["place"], end=s.sym["place"])
-                s.call("start_install", 601)
+                s.read_call("start_install", 601)
                 self.assertEqual(s.state("J_STATE"), 0)
                 self.assertEqual(entered, [])
 
@@ -138,7 +152,7 @@ class AllocationBounds(unittest.TestCase):
         s.uc.mem_write(p.DIR + 601 * 16, struct.pack("<4I", p.ARENA_U, 0xFFFFFFF0, 0, 7))
         s.uc.mem_write(s.sym["place"], arm.assemble(f"ldr r0, ={F['DSP_MIN']}\nbx lr\n.pool",
                                                    origin=s.sym["place"]).bytes)
-        s.call("start_install", 601)
+        s.read_call("start_install", 601)
         self.assertEqual(s.state("J_STATE"), 0)
 
     def test_cache_cursor_below_the_arena_cannot_start_a_copy(self):
@@ -147,20 +161,20 @@ class AllocationBounds(unittest.TestCase):
                 s = self.prepared(32)
                 s.uc.mem_map(0, 0x1000)
                 s.set_state("CPTR", pointer)
-                s.call("start_prepare", 601)
+                s.read_call("start_prepare", 601)
                 self.assertEqual(s.state("J_STATE"), 0)
 
     def test_temporary_space_shortage_can_be_retried_without_a_failed_slot(self):
         s = self.prepared(32)
         at = s.sym["place"]
         s.uc.mem_write(at, arm.assemble("mov r0, #0\nbx lr", origin=at).bytes)
-        s.call("start_install", 601)
+        s.read_call("start_install", 601)
         failed_word = p.STATE + p.FAILED + (601 >> 5) * 4
         self.assertEqual(s.state("J_STATE"), 0)
         self.assertEqual(s.u32(failed_word) & (1 << (601 & 31)), 0)
         s.uc.mem_write(at, arm.assemble(f"ldr r0, ={F['DSP_MIN']}\nbx lr\n.pool", origin=at).bytes)
         s.uc.ctl_flush_tb()
-        s.call("start_install", 601)
+        s.read_call("start_install", 601)
         self.assertEqual(s.state("J_STATE"), 1)
 
     def test_sampling_started_during_placement_cannot_reserve_a_dsp_job(self):
@@ -170,7 +184,7 @@ class AllocationBounds(unittest.TestCase):
         s.uc.mem_write(at, arm.assemble(source, origin=at).bytes)
         cursor = s.u32(F["CURSOR"])
         s.uc.reg_write(R.UC_ARM_REG_CPSR, 0x13)
-        s.call("start_install", 601)
+        s.read_call("start_install", 601)
         self.assertEqual(s.state("J_STATE"), 0)
         self.assertEqual(s.u32(F["CURSOR"]), cursor)
         self.assertEqual(s.uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80, 0)
@@ -193,6 +207,34 @@ class StepContext(unittest.TestCase):
             s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, at, size, label: s.entered.append(label),
                           name, begin=address, end=address)
         return s
+
+    def test_a_writer_defers_the_whole_step_without_invalidating_its_job(self):
+        s = self.setup_step()
+        self.assertEqual(s.call("owner_acquire", p.sample_owner.WRITE), 0)
+        before = s.owner()
+        s.call("ss_step")
+        self.assertEqual(s.entered, [])
+        self.assertEqual(s.owner(), before)
+        self.assertEqual(s.state("J_STAGED"), 32)
+        self.assertEqual(s.state("GEN"), 7)
+
+    def test_a_step_releases_its_reader_after_the_last_chunk(self):
+        s = self.setup_step()
+        s.call("ss_step")
+        self.assertEqual(s.entered, ["player", "chunk"])
+        self.assertEqual(s.owner(), (0, 1, 0, 0))
+
+    def test_a_card_error_blocks_another_step_until_checked_recovery(self):
+        s = self.setup_step()
+        s.uc.mem_write(s.sym["chunk"], arm.assemble(
+            f"mov r0, #2\nstr r0, [r11, #{p.OFF['MODE']}]\nbx lr",
+            origin=s.sym["chunk"]).bytes)
+        s.call("ss_step")
+        self.assertEqual(s.owner(), (0, 1, 1, 0))
+        s.set_state("MODE", 1)
+        s.entered.clear()
+        s.call("ss_step")
+        self.assertEqual(s.entered, [])
 
     def test_other_modes_cancel_staged_work_before_any_dsp_or_card_step(self):
         for values in (dict(screen=37), dict(window=1), dict(transport=11), dict(transport=1, sampling=1)):
@@ -236,6 +278,62 @@ class StepContext(unittest.TestCase):
                 s.call("ss_step")
                 self.assertEqual(s.entered, ["player", "chunk"])
                 self.assertEqual(s.state("GEN"), 7)
+
+
+class BootOwnership(unittest.TestCase):
+    def library(self, result=0, *, checked=False, close_status=None):
+        s = Swap()
+        s.uc.mem_write(p.FILE_OWNER, p.sample_owner.INITIAL + bytes(4))
+        entry = 0xC100F000
+        s.uc.mem_write(entry, arm.assemble(
+            f"push {{r4-r11, lr}}\nb {s.sym['ss_library']}", origin=entry).bytes)
+        body = 0xC00364F8
+        code = f"sub sp, sp, #4\nmov r4, #{result}\n"
+        if checked:
+            code += f"ldr r0, ={p.BOOT_LEASE}\nldr r0, [r0]\nbl {s.sym['owner_resolve']}\n"
+        if close_status is not None:
+            s.uc.mem_write(F["F_CLOSE"], arm.assemble(
+                f"mov r0, #{close_status}\nbx lr", origin=F["F_CLOSE"]).bytes)
+            code += f"bl {s.sym['ss_library_close']}\ncmp r0, #0\nmovne r4, #4\n"
+        code += f"b {s.sym['ss_library_finish']}\n.pool"
+        s.uc.mem_write(body, arm.assemble(code, origin=body).bytes)
+        tail = 0xC0036764
+        s.uc.mem_write(tail, arm.assemble(
+            "add sp, sp, #0x840\nadd sp, sp, #4\npop {r4-r11, pc}", origin=tail).bytes)
+        return s, entry
+
+    def test_boot_releases_a_checked_catalogue(self):
+        s, entry = self.library()
+        self.assertEqual(s.call(entry), 0)
+        self.assertEqual(s.owner(), (0, 1, 0, 0))
+        self.assertEqual(s.u32(p.BOOT_LEASE), 0)
+
+    def test_failed_boot_leaves_the_catalogue_uncertain(self):
+        s, entry = self.library(4)
+        self.assertEqual(s.call(entry), 4)
+        self.assertEqual(s.owner(), (0, 1, 1, 0))
+        self.assertEqual(s.u32(p.BOOT_LEASE), 0)
+
+    def test_an_isolated_bad_record_does_not_reject_a_checked_catalogue(self):
+        s, entry = self.library(4, checked=True)
+        self.assertEqual(s.call(entry), 4)
+        self.assertEqual(s.owner(), (0, 1, 0, 0))
+
+    def test_a_failed_native_close_invalidates_a_previously_checked_catalogue(self):
+        s, entry = self.library(checked=True, close_status=1)
+        self.assertEqual(s.call(entry), 4)
+        self.assertEqual(s.owner(), (0, 1, 1, 0))
+        self.assertEqual(s.u32(p.BOOT_LEASE), 0)
+
+    def test_a_competing_recovery_cannot_enter_the_native_loader(self):
+        s, entry = self.library()
+        self.assertEqual(s.call("owner_acquire", p.sample_owner.RECOVER), 0)
+        before = s.owner()
+        entered = []
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: entered.append(True), begin=0xC00364F8, end=0xC00364F8)
+        self.assertEqual(s.call(entry), 4)
+        self.assertEqual(s.owner(), before)
+        self.assertEqual(entered, [])
 
 
 class PartPublication(unittest.TestCase):
@@ -671,6 +769,18 @@ class CacheJob(unittest.TestCase):
         s.uc.hook_add(unicorn.UC_HOOK_CODE, s.note, begin=F["RESERVE"], end=F["RESERVE"])
         return s
 
+    def test_card_read_errors_and_short_chunks_invalidate_the_catalogue(self):
+        for status, got in ((1, 32), (0, 30)):
+            with self.subTest(status=status, got=got):
+                s = self.job()
+                s.uc.mem_write(F["F_READ"], arm.assemble(
+                    f"mov r0, #{status}\nbx lr", origin=F["F_READ"]).bytes)
+                s.set_state("GOT", got)
+                self.assertEqual(s.read_call("chunk"), 1)
+                self.assertEqual(s.state("MODE"), 2)
+                self.assertEqual(s.state("J_STATE"), 0)
+                self.assertEqual(s.calls, [])
+
     def test_install_does_not_adopt_a_new_generation_during_placement(self):
         s = self.job(cached=True)
         s.set_state("J_STATE", 0)
@@ -678,7 +788,7 @@ class CacheJob(unittest.TestCase):
         s.uc.mem_write(p.DIR + 601 * 16, word(p.ARENA_L) + word(32) + word(0) + word(7))
         s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: s.set_state("GEN", 8),
                       begin=s.sym["place"], end=s.sym["place"])
-        s.call("start_install", 601)
+        s.read_call("start_install", 601)
         self.assertEqual(s.state("J_STATE"), 0, "old cache data must not start a new-generation job")
         self.assertEqual(s.state("J_GEN"), 7)
         self.assertEqual(s.calls, [])
@@ -700,10 +810,19 @@ class CacheJob(unittest.TestCase):
         s.uc.hook_add(unicorn.UC_HOOK_CODE, parsed, begin=F["PARSER"], end=F["PARSER"])
         s.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, lambda uc, access, at, size, value, data: writes.append(at),
                       begin=p.ARENA_U, end=p.ARENA_U + 0x49F)
-        s.call("start_prepare", 601)
+        s.read_call("start_prepare", 601)
         self.assertEqual(writes, [])
         self.assertEqual(s.state("J_STATE"), 0)
         self.assertEqual(s.state("J_GEN"), 7)
+
+    def test_the_private_reader_refuses_a_call_without_a_reader_token(self):
+        s = self.job()
+        entered = []
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: entered.append(True),
+                      begin=F["F_OPEN"], end=F["F_OPEN"])
+        self.assertNotEqual(s.call("ensure_file", regs={R.UC_ARM_REG_R10: 0}), 0)
+        self.assertEqual(entered, [])
+        self.assertEqual(s.owner(), (0, 0, 0, 0))
 
     def test_header_invalidation_does_not_relabel_an_open_file(self):
         s = self.job()
@@ -718,10 +837,10 @@ class CacheJob(unittest.TestCase):
             s.set_state("GEN", 8)
 
         s.uc.hook_add(unicorn.UC_HOOK_CODE, header, begin=F["F_READ"], end=F["F_READ"])
-        self.assertNotEqual(s.call("ensure_file"), 0)
+        self.assertNotEqual(s.read_call("ensure_file"), 0)
         self.assertEqual(s.state("MODE"), 1)
         self.assertEqual(s.state("FILEGEN"), 7)
-        self.assertEqual(s.call("ensure_file"), 0)
+        self.assertEqual(s.read_call("ensure_file"), 0)
         self.assertEqual(s.state("FILEGEN"), 8)
         self.assertEqual(len(opened), 2, "a new generation must reopen the previous file")
 
@@ -732,7 +851,7 @@ class CacheJob(unittest.TestCase):
         s.uc.mem_write(F["F_CLOSE"], arm.assemble('mov r0, #1\nbx lr', origin=F["F_CLOSE"]).bytes)
         opened = []
         s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: opened.append(True), begin=F["F_OPEN"], end=F["F_OPEN"])
-        self.assertNotEqual(s.call("ensure_file"), 0)
+        self.assertNotEqual(s.read_call("ensure_file"), 0)
         self.assertEqual(opened, [])
         self.assertEqual((s.state("FILE"), s.state("MODE")), (2, 2))
 
@@ -746,7 +865,7 @@ class CacheJob(unittest.TestCase):
                 closed = []
                 s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: closed.append(True), begin=F["F_CLOSE"], end=F["F_CLOSE"])
                 s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: s.set_state("GOT", 4092), begin=F["F_READ"], end=F["F_READ"])
-                self.assertNotEqual(s.call("ensure_file"), 0)
+                self.assertNotEqual(s.read_call("ensure_file"), 0)
                 self.assertEqual(closed, [True])
                 self.assertEqual(s.state("FILE"), 2 if close_status else 0)
                 self.assertEqual(s.state("MODE"), 2)
@@ -763,7 +882,7 @@ class CacheJob(unittest.TestCase):
         s.uc.hook_add(unicorn.UC_HOOK_CODE, read, begin=F["F_READ"], end=F["F_READ"])
         s.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, lambda uc, access, at, size, value, data: writes.append(at),
                       begin=p.ARENA_L, end=p.ARENA_L + 0x4BF)
-        self.assertEqual(s.call("chunk"), 2)
+        self.assertEqual(s.read_call("chunk"), 2)
         self.assertEqual(writes, [])
         self.assertEqual(s.state("GEN"), 8)
         self.assertEqual(s.state("J_STATE"), 0)
@@ -775,7 +894,7 @@ class CacheJob(unittest.TestCase):
                 address = s.sym[hook] if isinstance(hook, str) else hook
                 s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *args: uc.mem_write(TRANSPORT_OBJECT + 0x308, word(11)),
                               begin=address, end=address)
-                self.assertEqual(s.call("chunk"), 2)
+                self.assertEqual(s.read_call("chunk"), 2)
                 self.assertEqual(s.calls, [])
                 self.assertEqual(s.state("GEN"), 8)
                 self.assertEqual(s.state("J_STATE"), 0)
@@ -792,7 +911,7 @@ class CacheJob(unittest.TestCase):
         s.uc.hook_add(unicorn.UC_HOOK_CODE, read, begin=F["F_READ"], end=F["F_READ"])
         s.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, lambda uc, access, at, size, value, data: writes.append(at),
                       begin=p.ARENA_L, end=p.ARENA_L + 0x4BF)
-        self.assertEqual(s.call("chunk"), 1)
+        self.assertEqual(s.read_call("chunk"), 1)
         self.assertEqual(writes, [], "an invalidated job cannot write into the borrowed buffer")
         self.assertEqual(s.u32(p.DIR + 601 * 16), 0)
         self.assertEqual(s.state("J_STATE"), 0)
@@ -802,7 +921,7 @@ class CacheJob(unittest.TestCase):
         s = self.job(cached=True)
         s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: s.set_state("GEN", 8),
                       begin=p.TRANSPORT, end=p.TRANSPORT)
-        self.assertEqual(s.call("chunk"), 1)
+        self.assertEqual(s.read_call("chunk"), 1)
         self.assertEqual(s.calls, [], "an old job must not reserve a playable slot")
         self.assertEqual(s.state("J_STATE"), 0)
         self.assertEqual(s.state("STAT_COUNT"), 0)
@@ -815,7 +934,7 @@ class CacheJob(unittest.TestCase):
                 s.set_state("GEN", 8)
 
         s.uc.hook_add(unicorn.UC_HOOK_CODE, copied, begin=s.sym["copy32"], end=s.sym["copy32"])
-        self.assertEqual(s.call("chunk"), 1)
+        self.assertEqual(s.read_call("chunk"), 1)
         self.assertEqual(s.calls, [])
         self.assertEqual(s.state("J_STATE"), 0)
 

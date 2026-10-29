@@ -47,6 +47,7 @@ import ramdecl  # noqa: E402
 import sample_swap_io  # noqa: E402
 import sample_store  # noqa: E402
 import sample_import  # noqa: E402
+import sample_owner  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
@@ -58,6 +59,7 @@ CODE3, CODE3_END = 0xC0189760, 0xC0189F00
 TRANSPORT, TRANSPORT_END = 0xC018BF40, 0xC018C400
 STORE_CODE, STORE_CODE_END = 0xC019A400, 0xC019C400
 STATE, STATE_END = 0xC0188530, 0xC0188730
+FILE_OWNER, BOOT_LEASE = STATE + 0x1E4, STATE + 0x1F4
 # RAM above the interrupt stack, never touched by the firmware in any measured phase (docs/messungen/2026-10-22-ram-frei.md).
 HIGH, HIGH_END = 0xC274F000, 0xC4000000
 STAGE = HIGH                    # 96 KiB of file bytes for one chunk, then 16-bit PCM
@@ -109,6 +111,10 @@ SITES = [
      "a latched DSP fault refuses a library load before the native metadata reset"),
     (0xC0036510, None, 0xC009DB60, "ss_fopen", True, True,
      "the loader's f_open goes through the hook, which turns the swap on for a file larger than the user bank"),
+    (0xC0036748, None, 0xC009E3DC, "ss_library_close", True, True,
+     "a failed native collection close leaves the catalogue uncertain"),
+    (0xC0036760, 0xE1A00004, None, "ss_library_finish", False, True,
+     "the collection loader resolves and releases its file lease after returning"),
     (0xC00366D8, 0xE28D001C, None, "ss_skip", False, True,
      "the loader skips a slot the current pattern does not use while the swap is on"),
     (0xC003621C, 0xE59D1008, None, "ss_parse", False, True,
@@ -170,7 +176,8 @@ def equs(screens):
              "ARENA_L_END": ARENA_L_END, "CHUNK": CHUNK, "BUDGET": BUDGET, "MSG": MSG, "MAIN": MAIN, "KILL": KILL,
              "FAILED": FAILED, "PROT": PROT, "PATH": PATH, "STATE_WORDS": len(FIELDS),
              "LAST_USER": LAST_USER, "SAMPLE_COUNT": SAMPLE_COUNT, "CAP_DEFAULT": CAP_DEFAULT,
-             "BUSY": sample_swap_io.BUSY, **OFF}
+             "BUSY": sample_swap_io.BUSY, "FILE_OWNER": FILE_OWNER, "BOOT_LEASE": BOOT_LEASE,
+             "FILE_READ": sample_owner.READ, "FILE_RECOVER": sample_owner.RECOVER, **OFF}
     return "".join(f".equ {k}, {v:#x}\n" for k, v in names.items())
 
 
@@ -181,14 +188,71 @@ ss_cap:
 
 ; ------------------------------------------------------------- the loader at start (command task)
 ss_library:
+    push {r0-r4, r12, lr}
     ldr r12, =ST
     ldr r12, [r12, #TSTATE]
     cmn r12, #1
     cmpne r12, #0
-    movne r0, #4
-    popne {r4-r11, pc}
+    bne sl_refuse
+    mov r0, #FILE_RECOVER
+    bl owner_acquire
+    cmp r0, #0
+    bne sl_refuse
+    ldr r12, =BOOT_LEASE
+    str r1, [r12]
+    pop {r0-r4, r12, lr}
     sub sp, sp, #0x840
     b 0xC00364F8
+sl_refuse:
+    pop {r0-r4, r12, lr}
+    mov r0, #4
+    pop {r4-r11, pc}
+
+ss_library_close:
+    push {r4, lr}
+    bl F_CLOSE
+    mov r4, r0
+    cmp r4, #0
+    beq slc_done
+    ldr r0, =BOOT_LEASE
+    ldr r0, [r0]
+    cmp r0, #0
+    blne owner_uncertain
+slc_done:
+    mov r0, r4
+    pop {r4, pc}
+
+ss_library_finish:
+    push {r1-r3, r5, r12, lr}
+    mov r5, r4
+    ldr r0, =BOOT_LEASE
+    ldr r0, [r0]
+    cmp r0, #0
+    beq slf_done
+    ldr r12, =ST
+    ldr r12, [r12, #TSTATE]
+    cmn r12, #1
+    cmpne r12, #0
+    bne slf_fault
+    cmp r5, #0
+    bleq owner_resolve
+    b slf_release
+slf_fault:
+    bl owner_uncertain
+    mov r5, #4
+slf_release:
+    ldr r0, =BOOT_LEASE
+    ldr r0, [r0]
+    bl owner_release
+    cmp r0, #0
+    movne r5, #4
+    ldreq r12, =BOOT_LEASE
+    moveq r0, #0
+    streq r0, [r12]
+slf_done:
+    mov r0, r5
+    pop {r1-r3, r5, r12, lr}
+    b 0xC0036764
 
 ; Replaces the loader's bl f_open (r0 file object, r1 path, r2 mode). Off unless the file is larger than the user bank.
 ss_fopen:
@@ -290,6 +354,15 @@ fo_out:
 ; the current pattern does not use is skipped. The header is kept for the swap.
 ss_skip:
     push {r0-r3, r12, lr}
+    ldr r12, =FILE_OWNER + 8
+    ldr r0, [r12]
+    cmp r0, #0
+    beq sk_owner_ready
+    ldr r12, =BOOT_LEASE
+    ldr r0, [r12]
+    cmp r0, #0
+    blne owner_resolve
+sk_owner_ready:
     ldr r12, =ST
     ldr r0, [r12, #MODE]
     cmp r0, #1
@@ -479,6 +552,11 @@ ready:
     cmp r0, #250
     movhs r0, #1
     pophs {r4-r6, pc}
+    ldr r1, =FILE_OWNER + 8
+    ldr r1, [r1]
+    cmp r1, #0
+    movne r0, #0
+    popne {r4-r6, pc}
     ldr r4, =BANK + 0x808
     add r4, r4, r0, lsl #14
     mov r5, #16
@@ -829,6 +907,7 @@ ss_cmd:
 
 ss_step:
     push {r3-r11, lr}
+    mov r10, #0
     ldr r11, =ST
     mov r0, #0
     str r0, [r11, #POSTED]
@@ -846,6 +925,11 @@ ss_step:
     bl pause_jobs
     b st_ret
 st_context:
+    mov r0, #FILE_READ
+    bl owner_acquire
+    cmp r0, #0
+    bne st_ret
+    mov r10, r1
     bl PLAYER
     ldr r0, [r0, #0x318]
     ldr r1, [r11, #LASTRUN]
@@ -867,6 +951,9 @@ st_same:
     ldr r0, [r0, #0x10]
     str r0, [r11, #T0]
 st_loop:
+    ldr r0, [r11, #MODE]
+    cmp r0, #1
+    bne st_ret
     bl swap_ok
     cmp r0, #0
     bne st_work
@@ -891,6 +978,18 @@ st_budget:
     cmp r0, r1
     blo st_loop
 st_ret:
+    cmp r10, #0
+    beq st_leave
+    ldr r0, [r11, #MODE]
+    cmp r0, #2
+    moveq r0, r10
+    bleq owner_uncertain
+    mov r0, r10
+    bl owner_release
+    cmp r0, #0
+    movne r0, #2
+    strne r0, [r11, #MODE]
+st_leave:
     pop {r3-r11, pc}
 
 ; r0 = an earlier reading of timer 3: ticks since then.
@@ -1223,6 +1322,11 @@ cr_closed:
 ; header. r0 = 0 when it is open.
 ensure_file:
     push {r4, lr}
+    mov r0, r10
+    bl owner_readable
+    cmp r0, #0
+    movne r0, #1
+    popne {r4, pc}
     ldr r4, [r11, #GEN]
     ldr r0, [r11, #FILE]
     cmp r0, #1
@@ -1265,6 +1369,8 @@ ef_open:
 ef_read_fail:
     bl close_reader
 ef_fail:
+    mov r0, r10
+    bl owner_uncertain
     mov r0, #2
     str r0, [r11, #MODE]
     mov r0, #1
@@ -1285,7 +1391,7 @@ parse:
     ldr r0, =FIL
     bl F_LSEEK
     cmp r0, #0
-    bne pa_fail
+    bne pa_card_fail
     mov r0, #1
     str r0, [r11, #PREP]
     ldr r0, =FIL
@@ -1302,6 +1408,9 @@ parse:
     beq pa_fail
     mov r0, #0
     pop {r4, pc}
+pa_card_fail:
+    mov r0, #2
+    str r0, [r11, #MODE]
 pa_fail:
     mov r0, #1
     pop {r4, pc}
@@ -1596,10 +1705,10 @@ chunk:
     add r3, r11, #GOT
     bl F_READ
     cmp r0, #0
-    bne ck_fail
+    bne ck_card_fail
     ldr r0, [r11, #GOT]
     cmp r0, r8
-    bne ck_fail
+    bne ck_card_fail
     ldr r0, [r11, #J_BITS]
     cmp r0, #24
     bne ck_pad
@@ -1779,6 +1888,9 @@ ck_desc:
 ck_defer:
     mov r0, #2
     pop {r4-r10, pc}
+ck_card_fail:
+    mov r0, #2
+    str r0, [r11, #MODE]
 ck_fail:
     ldr r0, [r11, #J_SLOT]
     bl set_failed
@@ -1794,7 +1906,7 @@ ck_end:
 def source(screens):
     importer = sample_import.source(state=STATE, file=FIL, descriptor=DESC, normalizer=FIL + 0x240,
                                     prep=OFF["PREP"], bits=OFF["P_BITS"], file_bytes=OFF["P_FBYTES"])
-    body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer
+    body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer + sample_owner.source(FILE_OWNER)
     return halfword(equs(screens) + f".equ transfer, {TRANSPORT:#x}\n" + body)
 
 
@@ -1874,8 +1986,16 @@ def build_patch(vsb, build=None):
             start.append({"file": file_offset(site), "length": 4, "why": "runs before the main screen and passes on at once while the swap is off"})
         hooks.append({"site": f"0x{site:08X}", "kind": "instruction", "chain": "sample-swap", "position": "before",
                       "swallow": stub in ("ss_skip", "ss_parse", "ss_cmd", "ss_gate_chain"), "note": note})
-    ram = [ramdecl.area(STATE, STATE_END - STATE, "run time state of the sample swap: mode, cache generation, the running job, failed slots, the file's path", "tools/patch/sample_swap.py:STATE"),
-           ramdecl.area(HIGH, HIGH_END - HIGH, "staging buffer, file object, descriptors, header, cache index and the upper cache of the sample swap", "tools/patch/sample_swap.py:HIGH")]
+    initial = sample_owner.INITIAL + bytes(4)
+    if was(FILE_OWNER, len(initial)) != bytes([255]) * len(initial):
+        raise SystemExit('the file ownership state is not free in this VSB')
+    changes.append(dict(file=file_offset(FILE_OWNER), bytes=initial.hex(), expect=sha(was(FILE_OWNER, len(initial))),
+                        note='sample collection ownership and unresolved boot catalogue'))
+    start.append(dict(file=file_offset(FILE_OWNER), length=len(initial),
+                      why='file ownership exists before the early collection loader begins recovery'))
+    ram = [ramdecl.area(STATE, FILE_OWNER - STATE, "run time state of the sample swap: mode, cache generation, the running job, failed slots, the file's path", "tools/patch/sample_swap.py:STATE"),
+           ramdecl.area(HIGH, HIGH_END - HIGH, "staging buffer, file object, descriptors, header, cache index and the upper cache of the sample swap", "tools/patch/sample_swap.py:HIGH"),
+           ramdecl.area(BOOT_LEASE + 4, STATE_END - BOOT_LEASE - 4, "unused sample state room", "tools/patch/sample_swap.py:STATE_END")]
     for lo, hi, name in AREAS:
         end = max(at + len(data) for at, data in sections if lo <= at < hi)
         if end < hi:

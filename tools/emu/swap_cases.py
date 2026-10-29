@@ -675,9 +675,15 @@ def case_store(payload, flash):
             for c in checks]
 
 
+def case_file_owner(payload, flash):
+    import reader_lifecycle_cases
+    return [entry(f'file_owner:{i}', row['ok'], row) for i, row in enumerate(reader_lifecycle_cases.cases(payload))]
+
+
 GROUPS = (case_start, case_long_set, case_gate, case_chain, case_eviction, case_part_change, case_cache, case_checksum,
           case_equal, *[(lambda i: lambda payload, flash: flow_task(payload, flash, i))(i) for i in range(len(FLOWS))],
-          case_failure_gates, case_full_session, case_prefetch_targets, case_alias_eviction, case_voice_residency, case_store)
+          case_failure_gates, case_full_session, case_prefetch_targets, case_alias_eviction, case_voice_residency, case_store,
+          case_file_owner)
 
 
 def group_entries(payload, flash, i):
