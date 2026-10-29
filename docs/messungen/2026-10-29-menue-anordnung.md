@@ -26,7 +26,13 @@ Das Part Menü zählt mit `Seite + 15`, also beginnt es mit SYNC GROUP bei 17.
   die erste Pattern-Seite; blau 16/31, 30/31, 31/31.
 - GLOBAL PARAMETERS: erste Seite EDIT links auf PLUGIN RUNTIME (21/21), EDIT rechts wieder 1/21, letzte Seite (20/21) EDIT
   rechts auf PLUGIN RUNTIME, WRITE öffnet kein Fenster, EXIT auf Bildschirm 8.
-- DATA UTILITY: erste Funktion EDIT links auf SET INIT PATTERN (16/16, blau 13/13), weiter EXPORT ALL PLUGINS, dann
-  SOFTWARE UPDATE (14/16), EXIT auf Bildschirm 14. Das Schild "Data Util" ist Pixel für Pixel das der Firmware.
+- DATA UTILITY: erste Funktion EDIT links auf SET INIT PATTERN (18/18, blau 14/14), weiter EXPORT ALL EFFECTS (nur rot),
+  EXPORT ALL PLUGINS, EXPORT ALL CUSTOM, dann SOFTWARE UPDATE (14/18), EXIT auf Bildschirm 14. Das Schild "Data Util" ist Pixel für Pixel das der Firmware.
 - Mit EXIT beim Einschalten: Part links geht auf CHAIN REPEAT (15/29), Global und Data Util blättern im Kreis wie im Original.
-- Alle 45 Menüfälle grün auf Hacktribe, rot und blau.
+- EXPORT ALL CUSTOMIZATIONS (`menu_cases.custom_export_cases`): `e2sCustom.all` ist der Einstellungssatz ohne Prüfsummen
+  (CRC stimmt, die Einstellungsdateien bleiben); als `settings.a.bin` auf eine andere Karte gelegt, kommt die Anpassung zurück.
+- EXPORT ALL EFFECTS (`fx_card_cases.case_export`, `test/emulator-fxcard.test.mjs`): ein im RAM geänderter Datensatz steht danach
+  in der Datei, jeder Text bleibt, ein Eintrag ohne Text bleibt unverändert, die Prüfsumme stimmt; der nächste Start lädt sie,
+  und `parseCollection` des Editors liest dieselben Einträge mit ihren Texten. Ohne geladene Datei und mit einer seit dem Start
+  anderen Datei wird nichts geschrieben.
+- Alle Menüfälle grün auf Hacktribe, rot und blau.

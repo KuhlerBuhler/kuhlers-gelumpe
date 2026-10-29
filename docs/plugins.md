@@ -833,8 +833,9 @@ Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
   EDIT links und rechts blättern durch den Ring. Mit EXIT beim Einschalten ist der Bildschirm nicht da und der Ring ist der
   der Firmware.
 - **In GLOBAL PARAMETERS** steht hinter der letzten Seite der Firmware (XY CALIBRATION) die Seite PLUGIN RUNTIME
-  ("Global 21/21"), **in DATA UTILITY** stehen hinter der letzten Funktion (SOFTWARE UPDATE) EXPORT ALL PLUGINS und
-  SET INIT PATTERN ("Data Util 15/16" und "16/16"; auf der blauen, die 11 Funktionen hat, 12/13 und 13/13). Sie sehen aus wie
+  ("Global 21/21"), **in DATA UTILITY** stehen hinter der letzten Funktion (SOFTWARE UPDATE) EXPORT ALL CUSTOMIZATIONS,
+  EXPORT ALL PLUGINS, EXPORT ALL EFFECTS und SET INIT PATTERN ("Data Util 15/18" bis "18/18"; auf der blauen, die 11 Funktionen
+  und keine Sammeldatei hat, ohne EXPORT ALL EFFECTS: 12/14 bis 14/14). Sie sehen aus wie
   die Seiten der Firmware und gehören zum Bildschirm BLECH: EDIT blättert zwischen ihnen und den Seiten der Firmware in
   beide Richtungen, EXIT geht dorthin, wohin es von den Seiten der Firmware geht (Global, Data Util), die Zähler der
   Firmware zählen sie mit. Seiten in den Menüs der Firmware selbst anzulegen, hieße deren Tabellen und Zustandsmaschinen
@@ -886,6 +887,8 @@ Die Seiten der Gruppen:
 | Plugin, DESCRIPTION | der Zustand des Plugins unter der Beschreibung | die Beschreibung aus der `*.blech`-Datei des Plugins (die `//`-Zeilen ganz oben im Code), als Bild über den ganzen Bildschirm: oben der Name, darunter die Zeilen, unten der Stand. Das Hauptrad scrollt zeilenweise, `^` und `v` zeigen, dass es weitergeht; ENTER tut hier nichts. Ohne Datei oder ohne Beschreibung steht "no description" |
 | Plugin, je `korg.menu.add` eine Seite | die Zahl | die Einstellungen dieses Plugins: das Hauptrad ändert sie, das Plugin bekommt `menu` |
 | Plugin, REMOVE | `press  [ Enter ]` | ENTER fragt ("Enter = remove"), ein zweites ENTER entfernt es: das Plugin hält an, `e2sPlugin.all` wird ohne es neu geschrieben (auch leer, wenn es das letzte war), MANAGE PLUGINS meldet "removed"; die `*.blech` im Ordner bleibt, das Plugin steht beim nächsten ENTER auf MANAGE PLUGINS wieder als OFF in der Liste und lässt sich laden |
+| DATA UTILITY, EXPORT ALL CUSTOMIZATIONS | (leer, `press  [ Enter ]`; der Titel heißt "EXPORT ALL CUSTOM", der ganze Name passt nicht in die Zeile) | ENTER oder WRITE schreibt die Anpassung als `KORG/blechtribe/e2sCustom.all`: derselbe Satz wie die Einstellungsdatei, ohne die Liste der Prüfsummen der Plugins, und meldet "exported". Beim Start liest noch nichts diese Datei; kopiert über `settings.a.bin` liest sie der Einstellungslader, und die Anpassung ist zurück |
+| DATA UTILITY, EXPORT ALL EFFECTS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt die Presets und Modulationstypen, wie die Firmware sie gerade im RAM hält, zurück in die Sammeldatei `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX und Modulation aus dem Baukasten): jeder Eintrag bleibt an seinem Platz, mit seinem `.e2fx`-Text, den der Editor zurückliest; ein Eintrag ohne Text bleibt, wie er ist; die Prüfsumme wird neu. Nur die Datei, die beim Einschalten geladen wurde: "no e2sFx.all" ohne geladene Datei, "bad e2sFx.all", wenn sie seitdem eine andere ist, dann wird nichts geschrieben. Nur auf der roten (die blaue hat keine Sammeldatei) |
 | DATA UTILITY, EXPORT ALL PLUGINS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | öffnet die Seiten des Display-Lichts; EXIT führt zurück auf DISPLAY |
@@ -1270,7 +1273,7 @@ gespielt hat, sagt sie selbst. Die Schrittlisten für einen eigenen Test:
   von DATA UTILITY selbst ist eine Zustandsmaschine mit einer Sprungtabelle von 40 Zuständen in einer einzigen Funktion
   (`0xC0061A24`); Seiten darin wären eigene Zustände, ein eigener Auftrag
   ([Messung](messungen/2026-10-14-blech-menue.md), Abschnitt "DATA UTILITY").
-  EXPORT ALL CUSTOMIZATIONS und EXPORT ALL EFFECTS (Entscheidung vom 29.10.) sind nicht gebaut: was sie schreiben sollen, ist offen.
+  `e2sCustom.all` von EXPORT ALL CUSTOMIZATIONS liest beim Start noch nichts; einen Lader dafür gibt es nicht.
 - **Apps am Gerät:** das Öffnen und Schließen, der Neuzeichner des Hauptbildschirms
   (Byte `0xC06C226C`) und die Tasten der offenen App sind nur im Emulator gespielt.
 - **Format 2:** der Aufschlag der 16-Bit-Operanden ist hergeleitet (Abschnitt

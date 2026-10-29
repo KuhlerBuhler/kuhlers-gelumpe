@@ -216,8 +216,10 @@ probieren, Ausgabe und Display notieren.
    Auf der blauen: SYNC GROUP 16/31, BLECH 30/31, Blechy 31/31.
    In Global (MENU auf "Global") auf der ersten Seite EDIT links: PLUGIN RUNTIME ("Global 21/21"), EDIT rechts wieder die
    erste Seite (TRIGGER MODE, "1/21"). In Data Util (MENU auf "Data Util") auf der ersten Funktion EDIT links:
-   SET INIT PATTERN ("Data Util 16/16", auf der blauen 13/13), noch einmal EDIT links EXPORT ALL PLUGINS (15/16), noch
-   einmal SOFTWARE UPDATE (14/16). EXIT auf diesen Seiten geht auf "Global" bzw. "Data Util" zurück.
+   SET INIT PATTERN ("Data Util 18/18", auf der blauen 14/14), mit EDIT links weiter EXPORT ALL EFFECTS (17/18, nur rot),
+   EXPORT ALL PLUGINS (16/18), EXPORT ALL CUSTOM (15/18), dann SOFTWARE UPDATE (14/18). EXPORT ALL CUSTOM schreibt
+   `KORG/blechtribe/e2sCustom.all`, EXPORT ALL EFFECTS schreibt `KORG/blechtribe/Presets/e2sFx.all` neu (der Editor liest
+   sie danach mit allen Einträgen und Texten). EXIT auf diesen Seiten geht auf "Global" bzw. "Data Util" zurück.
    Zurück auf BLECH: ENTER (die Taste MENU) öffnet die Liste der Gruppen: "BLECH 1/4" FEATURES, dann mit
    EDIT rechts PLUGINS, CUSTOMIZATION (GAMES und TOOLS kommen dazu, wenn eine App der Gruppe geladen ist, die Zähler zählen dann
    bis 6), zuletzt VERSION,
@@ -433,7 +435,7 @@ Alle Angaben ohne Gerät sind im Emulator gemessen, mit der echten Firmware und 
 | Menü BLECH mit drei Ebenen (Ring, Gruppen ohne ABOUT, Seiten, Optik von Data Util, Schilder ganz, versteckte Dateien fehlen in der Importliste): Ring und Zähler, ENTER, EXIT, WRITE, MENU, 48 Tasten, EXIT beim Einschalten, Einstellungen, Plugin-Seiten, EXPORT ALL, IMPORT PLUGIN, fremde Plugins, `korg.menu.add`; keine Seite zeichnet Text über Text | im Emulator gemessen, am Gerät offen | 15.10., [Menü](../messungen/2026-10-14-blech-menue.md) |
 | Apps: Laden zeichnet nichts, öffnen aus dem Menü, EXIT, der Hauptbildschirm kommt Pixel für Pixel zurück, EXIT lässt sich nicht abfangen, `korg.display.take()` | im Emulator gemessen, am Gerät offen | 15.10., [Apps](../messungen/2026-10-14-plugin-apps.md) |
 | EXPORT ALL PLUGINS und SET INIT PATTERN in DATA UTILITY, PLUGIN RUNTIME in GLOBAL PARAMETERS, SYNC GROUP hinter CHAIN REPEAT, BLECH und Blechy am Ende des Rings, MANAGE PLUGINS | im Emulator gemessen, am Gerät offen | 29.10., [Plugins](../plugins.md) |
-| EXPORT ALL CUSTOMIZATIONS und EXPORT ALL EFFECTS in DATA UTILITY | nicht gebaut | [Plugins](../plugins.md), "Offen" |
+| EXPORT ALL CUSTOMIZATIONS (`e2sCustom.all`, beim Start noch ungelesen) und EXPORT ALL EFFECTS (`e2sFx.all`, lädt beim nächsten Start) in DATA UTILITY | im Emulator gemessen, am Gerät offen | 29.10., [Plugins](../plugins.md) |
 | Kartenlader für `e2sPlugin.all` (Datei, Block mit falscher Prüfsumme, falsche Kennung, halbierte Datei, EXIT) | im Emulator gemessen, am Gerät offen | 14.10., [Messung](../messungen/2026-10-14-skript-karte.md) |
 | Update-Datei der laufenden BLECH unter `KORG/blechtribe/System/SYSTEM.VSB`, unter dem alten Pfad "Error, No File" | im Emulator gemessen; die Datei im Ordner `blechtribe` nahm eine laufende BLECH am 15.10. am Gerät als Update | [Hintergrund](../hintergrund/virtuelle-sd.md) |
 | Karte ohne `KORG/blechtribe/`: Slot leer, Karte bleibt unverändert, Samples sind weg bis der Ordner kopiert ist | im Emulator gemessen, am Gerät offen | [Hintergrund](../hintergrund/virtuelle-sd.md) |

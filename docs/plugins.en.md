@@ -694,8 +694,9 @@ line `press  [ Enter ]`.
   Sample menu). EDIT left and right page through the ring. With EXIT held at power-on the screen is not there and the
   ring is the firmware's own.
 - **In GLOBAL PARAMETERS** the page PLUGIN RUNTIME ("Global 21/21") follows the firmware's last page (XY CALIBRATION);
-  **in DATA UTILITY** EXPORT ALL PLUGINS and SET INIT PATTERN follow the last function (SOFTWARE UPDATE) ("Data Util
-  15/16" and "16/16"; on the blue one, which has 11 functions, 12/13 and 13/13). They look like the firmware's pages and
+  **in DATA UTILITY** EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS, EXPORT ALL EFFECTS and SET INIT PATTERN follow the
+  last function (SOFTWARE UPDATE) ("Data Util 15/18" to "18/18"; on the blue one, which has 11 functions and no collection
+  file, without EXPORT ALL EFFECTS: 12/14 to 14/14). They look like the firmware's pages and
   belong to the BLECH screen: EDIT pages between them and the firmware's pages both ways, EXIT goes where it goes from the
   firmware's pages (Global, Data Util), and the firmware's counters count them. Adding pages inside the firmware's menus
   would mean changing their tables and state machines; this way both stay untouched (decided on 29 October).
@@ -743,6 +744,8 @@ The pages of the groups:
 | Plugin, DESCRIPTION | the plugin's state under the description | the description from the plugin's `*.blech` file (the `//` lines at the very top of the code), as a picture over the whole screen: the name on top, the lines below, the state at the bottom. The main dial scrolls line by line, `^` and `v` show that there is more; ENTER does nothing here. Without a file or without a description it says "no description" |
 | Plugin, one page per `korg.menu.add` | the number | the settings of this plugin: the main dial changes it, the plugin gets `menu` |
 | Plugin, REMOVE | `press  [ Enter ]` | ENTER asks ("Enter = remove"), a second ENTER removes it: the plugin stops, `e2sPlugin.all` is written again without it (also empty when it was the last one), MANAGE PLUGINS reports "removed"; the `*.blech` in the folder stays, and the plugin is listed as OFF again at the next ENTER on MANAGE PLUGINS and can be loaded |
+| DATA UTILITY, EXPORT ALL CUSTOMIZATIONS | (empty, `press  [ Enter ]`; the title reads "EXPORT ALL CUSTOM", the whole name does not fit the row) | ENTER or WRITE writes the customization as `KORG/blechtribe/e2sCustom.all`: the same record as the settings file, without the list of plugin checksums, and reports "exported". Nothing reads this file at start yet; copied over `settings.a.bin` the settings loader reads it and the customization is back |
+| DATA UTILITY, EXPORT ALL EFFECTS | (empty, `press  [ Enter ]`) | ENTER or WRITE writes the presets and modulation types as the firmware holds them in RAM now back into the collection `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX and modulation from the Baukasten): every entry stays in its place with its `.e2fx` text, which the editor reads back; an entry without text stays as it is; the checksum is made new. Only the file loaded at power-on: "no e2sFx.all" without a loaded file, "bad e2sFx.all" when it is another one since, and then nothing is written. Red only (the blue one has no collection file) |
 | DATA UTILITY, EXPORT ALL PLUGINS | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them, then saves the settings too (plugins switched off stay off) |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | opens the pages of the display light; EXIT goes back to DISPLAY |
@@ -1061,7 +1064,7 @@ emulator, it says itself. Step lists for an own test: [card test](geraetetests/k
   the firmware's pages (hooks on the EDIT left and right slots of screens 9 and 15). DATA UTILITY's function list itself is
   a state machine with a jump table of 40 states in a single function (`0xC0061A24`); pages inside it would be states of
   their own, a job of its own ([measurement](messungen/2026-10-14-blech-menue.md), section "DATA UTILITY").
-  EXPORT ALL CUSTOMIZATIONS and EXPORT ALL EFFECTS (decided on 29 October) are not built: what they should write is open.
+  Nothing reads the `e2sCustom.all` of EXPORT ALL CUSTOMIZATIONS at start yet; there is no loader for it.
 - **Apps on the device:** opening and closing, the redraw of the main screen and the keys of the open app
   were played only in the emulator.
 - **Format 2:** the extra cost of the 16-bit operands is derived, not measured separately.
