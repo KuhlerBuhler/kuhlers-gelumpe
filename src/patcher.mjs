@@ -100,6 +100,7 @@ const PATCH_LABELS = {
   "last-pattern": "features.lastPattern.title",
   "init-pattern": "features.initPattern.title",
   "stereo-pad": "features.stereoPad.title",
+  "beat-eighth": "features.beatEighth.title",
   "blech-version": "patcher.patch.version",
   "doom-loader": "features.doom.title",
   "blech-sysex": { synth: "patcher.patch.sysexSynth", other: "patcher.patch.sysex" },

@@ -605,6 +605,9 @@ export default {
   "features.stereoPad.title": "Stereo auf einem Pad",
   "features.stereoPad.text": "Ein Stereo-Sample belegt nur sein eigenes Pad. Die Electribe spielt es dort auf einer Stimme, das Pad daneben bleibt frei und spielt sein eigenes Sample.",
   "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD: ON (Vorgabe) oder OFF, OFF gibt das Paar der Firmware zurück. Gilt sofort, WRITE behält es.",
+  "features.beatEighth.title": "BEAT 8: Pattern doppelt so lang",
+  "features.beatEighth.text": "Ein fünfter Wert 8 auf der Seite BEAT macht jeden Step zur Achtel: das Pattern läuft doppelt so lang, bei 160 BPM wie bei 80, MIDI Clock und Sync bleiben beim echten Tempo.",
+  "features.beatEighth.how": "Pattern Menü > BEAT: 8 wählen, WRITE speichert es mit dem Pattern. Auf Korgs Firmware ohne BLECH läuft so ein Pattern viel zu schnell.",
   "features.polyPink.title": "Akkorde in Pink",
   "features.polyPink.text": "Im SEQUENCER-Modus zeigt ein Poly-Part Steps mit mehreren Noten in Pink.",
   "features.polyPink.how": "SEQUENCER-Modus, Poly-Part.",
@@ -2056,7 +2059,7 @@ export default {
   "api.event.touch.first": "1 bei der ersten Stelle einer Berührung, also dort, wo der Finger aufsetzt, sonst 0.",
   "api.event.step": "Der Sequencer ist einen Schritt (16tel) weitergelaufen.",
   "api.event.step.step": "Der Schritt von Part 0, 0 bis 63.",
-  "api.event.beat": "Ein Viertel ist vorbei, bei jedem vierten Schritt.",
+  "api.event.beat": "Ein Viertel ist vorbei, bei jedem vierten Schritt; mit BEAT 8 eine halbe Note.",
   "api.event.play": "Der Transport läuft an.",
   "api.event.stop": "Der Transport steht.",
   "api.event.rec": "Die Aufnahme beginnt.",
@@ -2082,7 +2085,7 @@ export default {
   "api.pattern.tempo": "Tempo in Zehntel BPM, 1280 ist 128,0.",
   "api.pattern.swing": "Swing, -48 bis 48.",
   "api.pattern.length": "Länge in Takten, 1 bis 4.",
-  "api.pattern.beat": "Beat: 0 16tel, 1 32tel, 2 8tel-Triolen, 3 16tel-Triolen.",
+  "api.pattern.beat": "Beat: 0 16tel, 1 32tel, 2 8tel-Triolen, 3 16tel-Triolen, 4 8tel (nur mit BLECH).",
   "api.pattern.key": "Tonart, 0 C bis 11 H.",
   "api.pattern.scale": "Tonleiter, 0 bis 34 in der Reihenfolge des Pattern-Menüs.",
   "api.pattern.chordSet": "Chord Set, 0 bis 4.",
@@ -2165,6 +2168,24 @@ export default {
   "names.led.blue": "{label}, blaue LED",
   "names.pad.red": "Pad {pad}, rote LED",
   "names.pad.blue": "Pad {pad}, blaue LED (gewählter Part)",
+
+  "news.v137.1": "Der volle Test im Patcher klappt jetzt auch, wenn im Emulator Patterns gespeichert sind, etwa nach einem Import.",
+  "news.v137.2": "Die Electribe startet mit dem Pattern, das zuletzt gewählt war. Unter BLECH > FEATURES > INIT PATTERN wählst du deine eigene Vorlage für neue Patterns.",
+  "news.v137.3": "Windows: die Electribe wird öfter gefunden, und die MIDI-Diagnose sagt dir, wenn der Treiber von Korg im Weg ist.",
+  "news.v137.4": "Unter Changelogs stehen jetzt auch ältere Versionen, auch ohne Internet.",
+  "news.v136.1": "Im Modus „Echtes Gerät“ verbindet sich die App selbst, sobald eine Electribe am Kabel hängt. Klappt es nicht, hilft die MIDI-Diagnose in den Einstellungen.",
+  "news.v136.2": "Blechy läuft jetzt mit Schritten, schaut in Laufrichtung, und seine Seite ist immer dunkel.",
+  "news.v136.3": "Patcher: auf Wunsch heißt die Electribe am Rechner „Electribe 3“. Die Patch-Namen stehen in deiner Sprache.",
+  "news.v136.4": "Das Display kann jetzt ä, ö und ü, auch für Plugins.",
+  "news.v135.1": "Die App gibt es jetzt in 11 Sprachen. Sie startet in der Sprache deines Systems, umstellen kannst du sie in den Einstellungen.",
+
+  "news.v135.2": "Samples übers Kabel: lesen, hinzufügen, rausnehmen und die ganze Sample-Datei auf den Rechner speichern.",
+
+  "news.v135.3": "Plugins können Steps in den Sequencer schreiben, zum Beispiel für Arpeggios.",
+
+  "news.v135.4": "PLUGIN EDIT zeigt alle Plugins, auch die auf der Karte. Farben stellst du mit HUE, SAT und BRIGHT ein.",
+
+  "news.v135.5": "Samples laden beim Start etwa 12 Prozent schneller.",
 
   "news.v134.1": "BLECH auf der blauen Electribe, mit oder ohne Hacktribe.",
   "news.v134.2": "Patcher: Korgs Firmware für rot oder blau nach dem Lizenz-Haken direkt laden, oder Korgs Zip ins Feld ziehen.",
