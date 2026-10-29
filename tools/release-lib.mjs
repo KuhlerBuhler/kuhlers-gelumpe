@@ -230,13 +230,13 @@ export function releaseBody(notesText, version, names) {
  */
 export const BASE_BRANCH = "develop";
 export const RELEASE_COMMIT = "@release-commit";
-export const VERSION_FILES = ["package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock"];
+export const VERSION_FILES = ["package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock", "data/patches/blech-version.json", "data/patches/blech-version-synth.json"];
 
 export function planRelease({ tag, sha, assets, older, repo, bump = false, notes = null }) {
   const steps = [];
   if (bump) {
     steps.push({
-      what: `Version ${tag.slice(1)} in die Dateien schreiben (package.json, tauri.conf.json, Cargo.toml, Cargo.lock)`,
+      what: `Version ${tag.slice(1)} in die Dateien schreiben (package.json, tauri.conf.json, Cargo.toml, Cargo.lock, blech-version.json)`,
       cmd: "node",
       args: ["tools/set-version.mjs", tag],
     }, {
