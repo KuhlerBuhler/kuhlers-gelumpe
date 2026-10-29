@@ -15,6 +15,7 @@ import argparse
 import json
 import struct
 import sys
+import zlib
 from pathlib import Path
 
 ROOT = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])
@@ -220,6 +221,34 @@ def case_page(payload, flash):
     return out
 
 
+def case_page_rainbow(payload, flash):
+    """STEREO 1 PAD OFF next to METER LOUD RAINBOW (bit 0 of the same byte 5): WRITE keeps both bits, the next start reads OFF."""
+    if not has_menu_page(payload):
+        return [entry("menu-seite-rainbow", True, "no BLECH menu in this copy: nothing to check")]
+    raw = bytearray(mc.settings_file_v2(5, 3, mc.look_word()))
+    raw[5] = 1 | 4
+    raw[-4:] = struct.pack("<I", zlib.crc32(bytes(raw[:-4])) & 0xFFFFFFFF)
+    files = {f"/KORG/{folder(payload)}/e2sSample.all": bank(), mc.SETTINGS_PATHS[0]: bytes(raw), **mc.CARD_FOLDER}
+    dev = mc.boot(payload, flash, files=files, adapter=True, seconds=10)
+    page = mc.feature_count() - 1
+    mc.goto_group(dev, mc.GROUP_FEATURES, page)
+    before = mc.texts_of(dev), dev.u32(spec.SETTING)
+    mc.press(dev, "write", wait=0.6)
+    volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
+    raws = [volume.read(path) for path in mc.SETTINGS_PATHS if _exists(volume, path)]
+    newest = max(raws, key=lambda r: struct.unpack_from("<I", r, 8)[0])
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
+    again.run(10)
+    mc.goto_group(again, mc.GROUP_FEATURES, page)
+    after = mc.texts_of(again), again.u32(spec.SETTING)
+    off = (("STEREO 1 PAD", "OFF", ""), 0)
+    return [entry("rainbow-start-liest-aus", before == off, f"{before}"),
+            entry("rainbow-write-byte-5", newest[5] & 5 == 5, f"byte 5 of the newest settings file: {newest[5]:#x}"),
+            entry("rainbow-neustart-aus", after == off and not again.m.asserts, f"{after}")]
+
+
 def _exists(volume, path):
     try:
         volume.stat(path)
@@ -228,7 +257,7 @@ def _exists(volume, path):
         return False
 
 
-GROUPS = (case_one_pad, case_exit, case_page)
+GROUPS = (case_one_pad, case_exit, case_page, case_page_rainbow)
 
 
 def group_entries(payload, flash, i):

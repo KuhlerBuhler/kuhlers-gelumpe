@@ -520,7 +520,8 @@ menu_save_sp_done:
     ldrb r2, [r4, #MX_METER+3]  ; the meter's colours, colour n at bits 16 + 3n
     cmp r2, #METER_RAINBOW      ; LOUD RAINBOW: its three bits stay 0, bit 0 of byte 5 says it
     moveq r2, #0
-    moveq r1, #1
+    ldrbeq r1, [r7, #5]
+    orreq r1, r1, #1
     strbeq r1, [r7, #5]
     ldrb r1, [r4, #MX_METER+2]
     orr r2, r1, r2, lsl #3

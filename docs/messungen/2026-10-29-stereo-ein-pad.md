@@ -56,6 +56,7 @@ Karte mit Mono (501), Stereo (502, `esli[65] = 1`) und Mono (503), Part 1 bekomm
 | Seite STEREO 1 PAD ohne Einstellungsdatei | | ON, Wort `FFFFFFFF` |
 | Rad nach links | | OFF, Wort 0, Part 1 und 2 paaren wieder (Modus 1, zwei Stimmen) |
 | WRITE, dann neuer Start von derselben Karte | | Byte 5 der Datei `0x04`, die Seite zeigt OFF, Wort 0 |
+| Start mit METER LOUD RAINBOW und STEREO 1 PAD OFF (Byte 5 `0x05`), WRITE, neuer Start | | Byte 5 bleibt `0x05`, die Seite zeigt OFF (vorher schrieb RAINBOW Byte 5 ganz und löschte Bit 2) |
 
 Beide Builds (BLECH-Satz auf Korgs roter 2.02 und auf Hacktribe 2.02) bestehen alle Fälle, das Original fällt bei fünf der
 Fälle ohne Menü durch.
