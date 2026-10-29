@@ -288,6 +288,61 @@ set meanwhile shows that plugin's value.
 More branches (`korg.global`, `korg.patterns`, `korg.parts`, the other pages of BLECH) come with the next
 versions; the old names stay valid.
 
+### Timers (API 11, BLECHTRIBE 1.3.8)
+
+A plugin cannot wait: all handlers of a frame have 5 ms together, a `wait(ms)` would stop the device. Timers do it
+instead. You hand over a function, the runtime calls it later:
+
+| Call | Effect |
+|---|---|
+| `korg.after(ms, fn)` | calls `fn` once, as soon as `ms` milliseconds have passed (0 to 86400000) |
+| `korg.every(ms, fn)` | calls `fn` every `ms` milliseconds (1 to 86400000) until `korg.cancel` stops the timer |
+| `korg.afterSteps(n, fn)` | calls `fn` once when the sequencer is `n` steps (16ths, 1 to 65535) further |
+| `korg.cancel(number)` | stops the timer with this number |
+
+`fn` is the name of a function without parameters or an arrow without values, `() => { ... }`. Like every function it
+sees the global variables only, not the local ones of the place that set the timer. The three calls return the number
+of the timer, which `korg.cancel` takes. Each plugin has 8 slots; when all are taken, -1 comes back and nothing
+happens. A one-off timer frees its slot as soon as it ran. An old number whose timer already ran does not stop the timer
+that has the slot by now, and `korg.cancel(-1)` does nothing, so the -1 of a full `korg.after` can be passed on safely.
+
+The runtime checks the timers at the start of each frame, every 40 ms. A timer runs after `ms` at the earliest and one
+frame later at the latest: `korg.after(1000, fn)` comes after 1000 to 1040 ms. `korg.every` keeps its grid, a late frame
+does not move the next time. Setting `korg.after` again inside `fn` counts from the frame `fn` ran in instead, and moves
+by up to 40 ms each round. Timers run for a closed app too, and they go only to the plugin that set them. They are
+allowed everywhere except in `save`, the body included.
+
+`korg.afterSteps` counts the `step` events while the sequencer runs: on STOP the count stands, on PLAY it goes on, and it
+follows the tempo. The timer runs in the same frame as the `step` event that sets it off, right after it. When two steps
+come in one frame at a very high tempo, the runtime sees only one (at 300 BPM steps are 50 ms apart, frames 40 ms).
+
+```js
+// The TAP LED blinks every 500 ms, after 2 seconds the display shows a message.
+let on = 0;
+function blink() {
+  on = 1 - on;
+  korg.led(korg.led.TAP, on * 255);
+}
+korg.onEvent("ready", () => {
+  korg.every(500, blink);
+  korg.after(2000, () => { korg.display.take(); korg.display.text("HELLO", 0, 0); });
+});
+```
+
+```js
+// One bar (16 steps) after PLAY part 1 goes mute; STOP before that and nothing happens.
+let timer = -1;
+korg.onEvent("play", () => { timer = korg.afterSteps(16, () => { korg.mute(0, 1); }); });
+korg.onEvent("stop", () => { korg.cancel(timer); });
+```
+
+The clock behind the timers and `korg.millis()` is Timer3 (150 MHz), which the firmware lets wrap every second. The
+runtime brings it up to date every frame; whole seconds lost between two calls (before the first frame after power-on)
+it takes from the operating system's tick count, one per millisecond. Measured in the emulator
+([measurement](messungen/2026-10-29-plugin-timer.md), German): after the start a frame comes every 40 ms, 46 ms at most,
+also across a pattern change; the firmware loads the samples before the first frame, and a plugin on the card starts
+only after that, so a timer from the body comes on time. Not yet checked on the device.
+
 ### Functions of the Electribe
 
 All names begin with `korg.`. Numbers outside the range end the plugin with an error. "Allowed in" names
@@ -296,7 +351,8 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | Call | Effect | Allowed in |
 |---|---|---|
 | `korg.led(index, level)` | queue an LED job, `index` 0 to 87 (best a name such as `korg.led.TAP`), `level` 0 to 255 | all events except the body and `save` |
-| `korg.millis()` | milliseconds since the first call, from Timer3 (150 MHz), which wraps every 150 million ticks | everywhere |
+| `korg.millis()` | milliseconds since the first call, from Timer3 (150 MHz), which wraps every 150 million ticks; whole seconds between two calls from the operating system's tick count | everywhere |
+| `korg.after(ms, fn)`, `korg.every(ms, fn)`, `korg.afterSteps(n, fn)`, `korg.cancel(number)` | timers, see above. From API version 11 | everywhere except `save` |
 | `korg.app(name, group)` | registers the plugin as an app: `name` 1 to 15 characters, `group` `"GAMES"` or `"TOOLS"`. Returns the number of the app, -1 if all 8 places are taken. As a statement of its own at the top, once per plugin (the compiler checks this) | body only |
 | `korg.file.frame(array, file, index)` | reads frame `index` (0 to 65535) of the file `GIFnn.E2G` (`file` 0 to 99 is nn) in `KORG/blechtribe/Gif/` into the array, one byte to a slot, which is exactly what `korg.display.bitmap(array, 0, 0, 128)` draws. The array needs at least 1024 slots. Returns the frame's delay in ms (at least 1), 0 past the last frame, -1 without a file, for a wrong or cut file and outside the main screen; after -1 the device may have changed the last quarter of the array. From API version 7 | like `korg.led` |
 | `korg.display.take()` | take the display (way 2, see above); 1 on success, 0 if not (an app, another owner, not the main screen) | like `korg.led` |

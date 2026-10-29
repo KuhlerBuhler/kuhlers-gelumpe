@@ -44,6 +44,7 @@ export const TABLE = [
   [/^tools\/emu\/mfx_cases\.py$/, MFX_USERS],
   ...CASE_MODULES.map(m => [new RegExp(`^tools/emu/${m}\\.py$`), [m]]),
   [/^tools\/emu\/testmode_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
+  [/^tools\/emu\/timer_cases\.py$/, ["remote_cases"]],         // runs as a group of remote_cases
 
   // the patches and the code they build, to the cases that test them (check.py's docstring, each has_hooks)
   [/^tools\/patch\/mfx_switch\.py$|^data\/patches\/mfx-switch[^/]*\.json$/, MFX_USERS],

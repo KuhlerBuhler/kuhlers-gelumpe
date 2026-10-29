@@ -12,11 +12,14 @@
  * - The top-level statements are the script body (event `start`). The
  *   handlers are registered by `korg.onEvent("name", handler)` at the top
  *   level and become active when the body has run without a fault.
+ * - Timers take a function, not a value: `korg.after(500, blink)` passes the number of `blink` in the list of timer
+ *   callbacks, and the compiler adds the handler of the internal event `timer` that calls the function with that number.
+ *   A callback is a declared function or an arrow without parameters; it sees the globals only, like any function.
  * - A plugin with a screen of its own is an app: `korg.app("Name", "GAMES")` at the
  *   top level, once. Only an open app draws on the display (see docs/plugins.md).
  */
 import {
-  LIMITS, BUDGET, EVENT_BY_NAME, EVENTS, API_BY_NAME, QUEUED_EVENTS, APP_EVENTS, SCRIPT_APPS, ARRAY_HANDLE, EVENT_ARG_SINCE,
+  LIMITS, BUDGET, EVENT_BY_NAME, EVENTS, API_BY_NAME, QUEUED_EVENTS, APP_EVENTS, INTERNAL_EVENTS, SCRIPT_APPS, ARRAY_HANDLE, EVENT_ARG_SINCE,
 } from "../../data/script/contract.mjs";
 import { NAMES } from "../../data/script/names.mjs";
 import { PROPERTY_BY_PATH, KNOB_NAMES } from "../../data/script/properties.mjs";
@@ -58,6 +61,9 @@ function callNode(name, args, at) {
 
 /** The number a literal (or a negated literal) stands for, else null. */
 const constValue = n => (n.type === "Num" ? n.value : n.type === "Unary" && n.op === "-" && n.arg.type === "Num" ? -n.arg.value : null);
+
+/** The calls that take a callback as their last argument. */
+const TIMER_CALLS = new Set(["korg.after", "korg.every", "korg.afterSteps"]);
 
 const isPure = n => {
   if (!n || typeof n !== "object") return true;
@@ -101,6 +107,9 @@ class Compiler {
     this.topIndex = 0;
     this.app = null;
     this.data = [];
+    /** Timer callbacks by number: the key of the function each stands for. */
+    this.timerCallbacks = [];
+    this.arrowCallbacks = new Map();
   }
 
   newLabel(prefix) { return `${prefix}${this.labelCount++}`; }
@@ -497,6 +506,7 @@ class Compiler {
     }
     const api = API_BY_NAME.get(name);
     if (!api) throw err(n, text("compile.call.unknown", { name }));
+    if (TIMER_CALLS.has(name) && n.args.length === api.args.length) return this.timerCall(n, api, fn);
     if (n.args.length !== api.args.length) throw err(n, text(api.args.length === 1 ? "compile.api.argc.one" : "compile.api.argc.many", { name, count: api.args.length, list: api.args.map(a => a.name).join(", "), given: n.args.length }));
     n.args.forEach((a, i) => {
       if (api.args[i].kind === "arr") { this.arrayArg(a, api, i, n, fn); return; }
@@ -508,6 +518,71 @@ class Compiler {
     this.emit(fn, "CALLAPI", api.id, api.args.length);
     this.apiSites.push({ fn: fn.key, api, at: n });
     return api.returns === "void" ? "void" : "int";
+  }
+
+  /** `korg.after(ms, fn)` and its kin: the first value as usual, the function as its callback number. */
+  timerCall(n, api, fn) {
+    const [count, callback] = n.args;
+    const t = this.val(count, fn);
+    if (t !== "int") throw err(count, text("compile.api.argType", { arg: api.args[0].name, name: api.name, want: TYPE_NAME.int, got: TYPE_NAME[t] }));
+    const range = api.args[0];
+    const value = constValue(count);
+    if (value !== null && (value < range.min || value > range.max)) throw err(count, text("compile.timer.range", { name: api.name, arg: range.name, value, min: range.min, max: range.max }));
+    this.pushConst(fn, { value: this.timerCallback(callback, api), type: "int" }, callback);
+    fn.line = n.line;
+    this.emit(fn, "CALLAPI", api.id, api.args.length);
+    this.apiSites.push({ fn: fn.key, api, at: n });
+    return "int";
+  }
+
+  /** The number of a timer callback: a declared function or an arrow, both without parameters. */
+  timerCallback(node, api) {
+    let key;
+    if (node.type === "Ident" && this.funcs.has(node.name)) {
+      const f = this.funcs.get(node.name);
+      if (f.params) throw err(node, text("compile.timer.params", { name: api.name }));
+      key = f.key;
+    } else if (node.type === "FuncExpr") {
+      if (node.params.length) throw err(node, text("compile.timer.params", { name: api.name }));
+      key = this.arrowCallbacks.get(node);
+      if (!key) {
+        key = `t_${this.arrowCallbacks.size}`;
+        this.arrowCallbacks.set(node, key);
+        this.pending.push({ kind: "func", key, node, display: text("compile.display.timer", { name: api.name }) });
+      }
+    } else throw err(node, text("compile.timer.callback", { name: api.name }));
+    let number = this.timerCallbacks.indexOf(key);
+    if (number < 0) {
+      if (this.timerCallbacks.length > API_BY_NAME.get("korg.after").args[1].max) throw err(node, text("compile.timer.tooMany", { max: this.timerCallbacks.length }));
+      number = this.timerCallbacks.push(key) - 1;
+    }
+    return number;
+  }
+
+  /** The handler of the event timer: it calls the callback whose number came with the event. */
+  timerHandler() {
+    const event = EVENT_BY_NAME.get("timer");
+    const fn = new Fn("h_timer", "h_timer", "handler", text("compile.display.handler", { event: event.name }));
+    fn.base = this.nextSlot;
+    fn.scopes.push(new Map());
+    this.fns.push(fn);
+    const slot = this.allocate(1, { line: 1, col: 1 }, fn);
+    this.emit(fn, "STORE", slot);
+    this.timerCallbacks.forEach((key, number) => {
+      const next = this.newLabel("L");
+      this.emit(fn, "LOAD", slot);
+      this.pushConst(fn, { value: number, type: "int" }, { line: 1, col: 1 });
+      this.emit(fn, "EQ");
+      this.emit(fn, "JZ", next);
+      this.emit(fn, "CALL", key, 0);
+      this.emit(fn, "DROP");
+      this.emit(fn, "HALT");
+      fn.items.push({ label: next });
+      this.edges.push({ from: fn.key, to: key, at: { line: 1, col: 1 } });
+    });
+    this.emit(fn, "HALT");
+    this.nextSlot = fn.base + fn.max;
+    this.handlers.push({ event: event.id, argc: 1, entry: fn.key, at: { line: 1, col: 1 } });
   }
 
   /**
@@ -749,7 +824,7 @@ class Compiler {
     if (call.args.length !== 2) throw err(call, text("compile.onEvent.args"));
     const [nameNode, handler] = call.args;
     if (nameNode.type !== "Str") throw err(nameNode, text("compile.onEvent.name"));
-    const ev = EVENT_BY_NAME.get(nameNode.value);
+    const ev = INTERNAL_EVENTS.includes(nameNode.value) ? null : EVENT_BY_NAME.get(nameNode.value);
     if (!ev) throw err(nameNode, text("compile.event.unknown", { name: nameNode.value, events: QUEUED_EVENTS.concat(["ready", "frame"], APP_EVENTS).sort().join(", ") }));
     if (ev.name === "start") throw err(nameNode, text("compile.event.start"));
     if (this.handlers.some(h => h.event === ev.id)) throw err(nameNode, text("compile.event.twice", { name: ev.name }));
@@ -769,8 +844,8 @@ class Compiler {
     return undefined;
   }
 
-  compileFunction({ kind, key, node, params, event }) {
-    const fn = new Fn(key, key, kind, kind === "handler" ? text("compile.display.handler", { event: event.name }) : key.replace(/^f_/, ""));
+  compileFunction({ kind, key, node, params, event, display }) {
+    const fn = new Fn(key, key, kind, display ?? (kind === "handler" ? text("compile.display.handler", { event: event.name }) : key.replace(/^f_/, "")));
     fn.base = this.nextSlot;
     fn.line = node.line;
     this.fns.push(fn);
@@ -817,6 +892,9 @@ class Compiler {
     const queue = [...this.pending.splice(0)];
     for (const f of this.funcs.values()) queue.push({ kind: "func", key: f.key, node: f.node });
     for (const item of queue) this.compileFunction(item);
+    // arrows handed to a timer inside a function or handler show up while those compile
+    while (this.pending.length) this.compileFunction(this.pending.shift());
+    if (this.timerCallbacks.length) this.timerHandler();
 
     this.checkCalls();
     return this.assembleAll();
