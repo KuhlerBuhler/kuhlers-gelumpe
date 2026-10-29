@@ -1018,8 +1018,110 @@ def case_view(payload, flash):
     return out
 
 
+def case_view_pads(payload, flash):
+    """While a pattern is viewed its pads are the viewed pattern's (decision 29.10.): the playing pattern's mutes and steps cannot be
+    switched, PART MUTE switches the viewed pattern's mutes, the switch to it takes them, and its pads have their own colour."""
+    out = []
+    MUTE, STEP = 0x800 + 1, 0x800 + 0x30
+    live = lambda b: b.u32(0xC033E6A4) + 4
+
+    def mutes(b, base):
+        return [b.dev.read(base + MUTE + 0x330 * p, 1)[0] for p in range(16)]
+
+    def red(b):
+        return [b.m.leds.get(0x2C + 2 * n, 0) for n in range(16)]
+
+    def blue(b):
+        return [b.m.leds.get(0x2D + 2 * n, 0) for n in range(16)]
+
+    def pad(b, n):
+        b.m.send([4, n, 0, 100, 1])
+        b.run(0.1)
+        b.m.send([4, n, 0, 0, 0])
+        b.run(0.4)
+
+    def viewing(b):
+        """Part mute mode, pattern 1 plays, pattern 2 (parts 2 and 3 muted in the bank) is browsed."""
+        bank = b.slots + 0x4000
+        for part in (1, 2):
+            b.m.uc.mem_write(bank + MUTE + 0x330 * part, bytes([1]))
+        b.key("part_mute")
+        play(b)
+        b.run(0.3)
+        before = (red(b), blue(b))
+        b.turn(1)
+        b.run(0.5)
+        return bank, before
+
+    box = Box(payload, flash)
+    bank, before = viewing(box)
+    shown = (red(box), blue(box))
+    pad(box, 0)
+    pad(box, 1)
+    toggled = (mutes(box, live(box))[:3], mutes(box, bank)[:3], red(box)[:3])
+    out.append(entry("view_pads_switch_the_viewed_mutes_not_the_playing_ones",
+                     box.view() == (0, 1, 1) and toggled == ([0, 0, 0], [0, 1, 1], [0, 255, 0]) and not box.m.asserts,
+                     f"PART MUTE, pattern 2 viewed: pads 1 and 2 pressed; mutes in RAM {toggled[0]}, in the bank {toggled[1]}, pads 1 to 3 red {toggled[2]}"))
+    out.append(entry("view_pads_have_their_own_colour",
+                     before == ([255] * 16, [255] + [0] * 15) and shown[0][1:3] == [0, 0] and shown[0][3:] == [255] * 13 and shown[1][3:] == [255] * 13
+                     and shown[0][0] == 255 and shown[1][0] == 0,
+                     f"playing pattern: red {before[0]}, blue {before[1]}; viewed: red {shown[0]}, blue {shown[1]} (lit pads red and blue, the "
+                     f"selected part in the colour left)"))
+    box.key("menu", 0.6)
+    box.until_change()
+    box.run(0.8)
+    after = (box.running(), mutes(box, live(box))[:4], mutes(box, bank)[:4], red(box), blue(box)[1:])
+    out.append(entry("view_switch_takes_the_mutes_set_on_the_pads",
+                     after[0] == 1 and after[1] == [1, 0, 1, 0] and after[2] == [0, 1, 1, 0] and after[3][:4] == [0, 255, 0, 255]
+                     and after[4] == [0] * 15 and not box.m.asserts,
+                     f"after MENU and the switch: running {after[0]}, mutes in RAM {after[1]} (bank {after[2]}), red {after[3][:4]}, "
+                     f"blue of pads 2 to 16 {after[4][:4]}... (the playing pattern's colours again)"))
+
+    back = Box(payload, flash)
+    bank, _ = viewing(back)
+    pad(back, 0)
+    back.key("exit")
+    back.run(0.5)
+    dropped = (mutes(back, live(back))[:3], red(back)[:3])
+    back.turn(1)
+    back.run(0.5)
+    again = red(back)[:3]
+    out.append(entry("view_exit_drops_the_mutes_set_on_the_pads",
+                     dropped == ([0, 0, 0], [255, 255, 255]) and again == [255, 0, 0] and not back.m.asserts,
+                     f"pad 1 pressed while viewing, EXIT: mutes in RAM {dropped[0]}, pads {dropped[1]}; viewed again: pads {again} (the bank's)"))
+
+    seq = Box(payload, flash)
+    seq.m.uc.mem_write(live(seq) + STEP, bytes([1]))
+    seq.dev.press(0x15, 0.4)
+    play(seq)
+    seq.run(0.3)
+    seq.turn(1)
+    seq.run(0.5)
+    pad(seq, 0)
+    pad(seq, 1)
+    steps = [seq.dev.read(live(seq) + STEP + 12 * n, 1)[0] for n in range(2)]
+    seq.key("exit")
+    seq.run(0.5)
+    pad(seq, 1)
+    plain = seq.dev.read(live(seq) + STEP + 12, 1)[0]
+    out.append(entry("view_sequencer_pads_leave_the_playing_steps",
+                     steps == [1, 0] and plain == 1 and not seq.m.asserts,
+                     f"SEQUENCER, pattern 2 viewed, pads 1 and 2 pressed: steps 1 and 2 in RAM {steps}; after EXIT pad 2 sets step 2: {plain}"))
+
+    ref = Box(payload, flash, KILL)
+    ref.key("part_mute")
+    play(ref)
+    ref.run(0.3)
+    ref.turn(1)
+    ref.run(0.5)
+    pad(ref, 0)
+    out.append(entry("view_pads_kill_switch_is_stock", mutes(ref, live(ref))[0] == 1 and not ref.m.asserts,
+                     f"EXIT at power-on: pad 1 mutes part 1 of the pattern in RAM: {mutes(ref, live(ref))[0]}"))
+    return out
+
+
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
-          case_sync_group, case_sync_voices, case_sync_unsaved, case_view)
+          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads)
 
 
 def group_entries(payload, flash, i):

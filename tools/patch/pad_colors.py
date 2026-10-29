@@ -19,6 +19,10 @@ eighth of the brightness, so the trigger stands out and the tail shows how far t
 the pads behind it go out again where their tail changed (a tie set on one step changes the next pad, which the firmware does not
 send). Sampler only, with the chords.
 
+The viewed pattern (decision 29.10., docs/messungen/2026-10-29-vorschau-pads.md): while the pattern switch shows another pattern
+on the pads (its display cell is not the pattern in RAM's accessor), every pad of PART MUTE and SEQUENCER takes the chords' colour,
+the cursor over a lit pad the colour that is left, so the pads of the viewed pattern differ from the playing one's.
+
 The firmware's own values stay as they are (the LED manager's first table and its copy); only what goes to the panel changes, at
 the one place every LED message passes (0xC00876A8, the end of 0xC00875F4, branch to the sender 0xC0087578). When one LED of a pad
 changes, the other may have to change too (it takes the overlap colour or gives it back), so the hook sends that one as well.
@@ -371,6 +375,8 @@ pc_map:
     ldrb r1, [r12, #LED_VALUE + 8]
     pop {r6, r7, pc}
 pm_chord:                               ; a chord: pink as the PART colour, or the colour left when PART or SELECT is pink
+    cmp r7, #2                          ; a pad of the viewed pattern: the same colour, the cursor over a lit pad in the
+    beq pm_chord_part                   ; overlap colour, so the selected part still shows whether it is lit
     add r12, r4, r8, lsl #3             ; the cursor on a chord shows in the SELECT colour: the overlap of the chord's PART
     ldrb r3, [r12, #LED_VALUE + 8]      ; colour is the usual PART colour, the cursor vanished there (device 20.10.)
     cmp r3, #0
@@ -447,6 +453,9 @@ pm_lit:
 ; (r0 - 2) / 256 of the firmware's, the sum over those notes of how much of each one is still to come (a note held over L steps
 ; gives its k-th step behind the trigger (L - k) / L), so a tail fades out over its length and two notes that overlap add up;
 ; else 0. A note is tied from the step before when both steps are on, that one's gate is TIE (127) and both hold the note.
+; While another pattern is viewed (tools/patch/pattern_switch.py: the display's accessor is not the one of the pattern in RAM)
+; every pad of PART MUTE and SEQUENCER shows that pattern: r0 = 2, the chord's colour, so its pads differ from the playing
+; pattern's (Pascal's decision 29.10.).
 ; Clobbers r0 to r3 and r12. Reads memory only.
 pc_chord:
     mov r0, #CHORD
@@ -454,6 +463,23 @@ pc_chord:
     bxeq lr
     push {r4-r11, lr}
 @CHORD_STACK@
+    ldr r0, [r4, #MODE_AT]
+    cmp r0, #0
+    cmpne r0, #4
+    bne pch_no
+    ldr r2, =CHORD_PATTERN
+    ldr r2, [r2]
+    ldr r3, =VIEW_CELL
+    ldr r3, [r3]
+    cmp r2, #0
+    cmpne r3, #0
+    beq pch_live
+    add r2, r2, #0x4000         ; the accessor inside the pattern in RAM
+    add r2, r2, #0xC
+    cmp r2, r3
+    movne r0, #2
+    bne pch_out
+pch_live:
     ldr r0, [r4, #MODE_AT]
     cmp r0, #4
     bne pch_no
