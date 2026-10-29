@@ -126,7 +126,7 @@ class PadGeometryTests(unittest.TestCase):
             for i in range(64):
                 self.assertEqual(m.run(i)[0], geometry(steps,case%4,i), (case,i))
 
-    def test_the_viewed_pattern_gives_the_steps_while_the_display_points_at_it(self):
+    def test_the_viewed_pattern_takes_its_own_colour_while_the_display_points_at_it(self):
         m = PadMachine()
         viewed, accessor = 0xC0330000, 0xC0340000
         live = [[1,127,100,1,61,65,68,73,0,0,0,0] for _ in range(64)]
@@ -137,7 +137,7 @@ class PadGeometryTests(unittest.TestCase):
         m.uc.mem_write(viewed + 0x806, bytes([2]))
         m.uc.mem_write(viewed + 0x834, b''.join(bytes(step) for step in other))
         m.write(0xC0691388, accessor)
-        self.assertEqual(m.run(16)[0], geometry(other, 2, 16))
+        self.assertEqual(m.run(16)[0], 2)           # every pad of the viewed pattern: its own colour (decision 29.10.)
         m.write(0xC0691388, 0)
         self.assertEqual(m.run(16)[0], geometry(live, 2, 16))
 
