@@ -58,6 +58,6 @@ test("the Verify patches workflow runs on a pull request that changes anything v
   const loaded = [...imports(`${root}tools/verify-patches.mjs`)].map(f => relative(root, f));
   assert.ok(loaded.includes("src/patch.mjs"));
   assert.deepEqual(loaded.filter(f => !runs(f) && !TEXT_ONLY.includes(f)), []);
-  for (const f of ["data/patches/blech.json", "tools/emu/check.py", "tools/patch/pad_colors.py"]) assert.ok(runs(f), f);
+  for (const f of ["data/patches/blech.json", "tools/emu/check.py", "tools/patch/pad_colors.py", "data/synth-map/dice.json", "tools/ci/verify-scope.mjs"]) assert.ok(runs(f), f);
   assert.ok(!runs("data/patches/verified.json"), "its own commit must not start it again");
 });
