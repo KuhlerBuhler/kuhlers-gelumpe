@@ -22,6 +22,7 @@ Steps (names from data/panel.mjs, with "_" for camel case: edit_next is editRigh
     touch=400,300               the touchpad touched at x, y (0 to 1023) and let go
     shift:down, shift:up        a key only pressed or only let go
     testmode=on, testmode=off   the test mode
+    release                     let go of every key and pad the computer holds (the device does it itself after 10 s)
 Knobs, pads, the touchpad, a key held and the test mode need BLECHTRIBE 1.3.8; keys and the main dial also run on 1.3.7.
 """
 import argparse
@@ -39,7 +40,7 @@ STUB_AT = 0xC1000000
 CODES = ((0xC0150300, 0xC0170000),       # the runtime's code area, where its signature lies (MORE3_START),
          (0xC018D000, 0xC018FF00))       # and the second code area that held it up to 1.3.7
 SIGN, SIGN2 = 0x544D4552, 0x32544D52     # "REMT", the address of the command word; "RMT2", the message and the test mode
-MARK, KEY, ENCODER, MESSAGE, TEST = 0xA5000000, 1, 2, 3, 4
+MARK, KEY, ENCODER, MESSAGE, TEST, RELEASE = 0xA5000000, 1, 2, 3, 4, 5
 TOUCH = 0x22
 OS_WAIT = 0xC0000B78
 INFO, READ, WRITE_BEGIN, WRITE_DATA, EXEC = 0x60, 0x61, 0x62, 0x63, 0x6F
@@ -122,20 +123,22 @@ def camel(name):
     return re.sub(r"_([a-z0-9])", lambda m: m.group(1).upper(), name)
 
 
-def stub(mailbox, word):
-    """The same words as stub() in src/remote.mjs."""
-    words = [0xE92D4070, 0xE59F4034, 0xE5945008, 0xE59F0030, 0xE5840000, 0xE3A06032, 0xE3A0000A, 0xE59FC024,
-             0xE12FFF3C, 0xE5940008, 0xE1500005, 0x1A000001, 0xE2566001, 0x1AFFFFF7, 0xE3A00001, 0xE8BD8070,
-             mailbox, word, OS_WAIT]
+WAIT = [0xE3A06032, 0xE3A0000A, None, 0xE12FFF3C, 0xE5940008, 0xE1500005, 0x1A000004, 0xE2566001, 0x1AFFFFF7, 0xE3A00000,
+        0xE5840000, 0xE8BD8070, 0xE3A00001, 0xE8BD8070]
+
+
+def stub(mailbox, word, os_wait=OS_WAIT):
+    """The same words as stub() in src/remote.mjs: 1 when the runtime took the command, else 0 with the word taken back."""
+    words = [0xE92D4070, 0xE59F4040, 0xE5945008, 0xE59F003C, 0xE5840000, *(w or 0xE59FC030 for w in WAIT),
+             mailbox, word, os_wait]
     return b"".join(struct.pack("<I", w) for w in words)
 
 
-def message_stub(mailbox, at, message):
+def message_stub(mailbox, at, message, os_wait=OS_WAIT):
     """The same words as messageStub() in src/remote.mjs."""
     first, second = struct.unpack("<2I", bytes(message).ljust(8, b"\0"))
-    words = [0xE92D4070, 0xE59F4044, 0xE5945008, 0xE59F1040, 0xE59F2040, 0xE59F3040, 0xE881000C, 0xE59F003C,
-             0xE5840000, 0xE3A06032, 0xE3A0000A, 0xE59FC030, 0xE12FFF3C, 0xE5940008, 0xE1500005, 0x1A000001,
-             0xE2566001, 0x1AFFFFF7, 0xE3A00001, 0xE8BD8070, mailbox, at, first, second, MARK | MESSAGE, OS_WAIT]
+    words = [0xE92D4070, 0xE59F4050, 0xE5945008, 0xE59F104C, 0xE59F204C, 0xE59F304C, 0xE881000C, 0xE59F0048,
+             0xE5840000, *(w or 0xE59FC03C for w in WAIT), mailbox, at, first, second, MARK | MESSAGE, os_wait]
     return b"".join(struct.pack("<I", w) for w in words)
 
 
@@ -151,10 +154,17 @@ def command(step, names):
             raise SystemExit(f"unknown {what} {name!r}; {what}s: {', '.join(sorted(names[table]))}")
         return names[table][key]
 
+    def delta(text):
+        if not -128 <= int(text) <= 127:
+            raise SystemExit(f"turn by -128 to 127, not {text}")
+        return int(text)
+
+    if step == "release":
+        return [(step, word(RELEASE), None)]
     if re.fullmatch(r"[+-]\d+", step):
-        return [(f"Rad {step}", word(ENCODER, 0, int(step)), None)]
+        return [(f"Rad {step}", word(ENCODER, 0, delta(step)), None)]
     if m := re.fullmatch(r"([a-z_]+)([+-]\d+)", step):
-        return [(step, word(ENCODER, named("encoders", m[1], "encoder"), int(m[2])), None)]
+        return [(step, word(ENCODER, named("encoders", m[1], "encoder"), delta(m[2])), None)]
     if m := re.fullmatch(r"testmode=(on|off)", step):
         return [(step, word(TEST, 0, 1 if m[1] == "on" else 0), None)]
     if m := re.fullmatch(r"touch=(\d+),(\d+)", step):
@@ -186,16 +196,18 @@ def command(step, names):
 
 
 def remote_of(dev):
-    """(command word, message, korg.system.testMode) addresses; the last two None for a runtime up to 1.3.7; None without."""
+    """(command word, message, korg.system.testMode, the build's sleep); message and test mode None for a runtime up to 1.3.7."""
     for start, end in CODES:
-        for page in range(start, end, 0xFEC):      # pages overlap by the 20 bytes of the signature
+        for page in range(start, end, 0xFE8):      # pages overlap by the 24 bytes of the signature
             code = dev.read(page, min(0x1000, end - page))
             for i in range(0, len(code) - 7, 4):
                 if struct.unpack_from("<I", code, i)[0] != SIGN:
                     continue
-                full = i + 20 <= len(code) and struct.unpack_from("<I", code, i + 8)[0] == SIGN2
-                a, _, b, c = struct.unpack_from("<4I", code, i + 4) if full else (struct.unpack_from("<I", code, i + 4)[0], 0, None, None)
-                return a, b, c
+                full = i + 24 <= len(code) and struct.unpack_from("<I", code, i + 8)[0] == SIGN2
+                if full:
+                    a, _, b, c, wait = struct.unpack_from("<5I", code, i + 4)
+                    return a, b, c, wait
+                return struct.unpack_from("<I", code, i + 4)[0], None, None, OS_WAIT
     return None
 
 
@@ -234,8 +246,8 @@ def main():
         found = remote_of(dev)
         if found is None:
             raise SystemExit("no BLECH runtime with the keys from the computer on this device; nothing written")
-        mailbox, message_at, test_at = found
-        if message_at is None and any(m is not None or w & 0xFF == TEST for _, w, m in steps):
+        mailbox, message_at, test_at, os_wait = found
+        if message_at is None and any(m is not None or w & 0xFF in (TEST, RELEASE) for _, w, m in steps):
             raise SystemExit("this runtime takes keys and the main dial only (knobs, pads, touchpad and test mode need 1.3.8); nothing written")
         done = lambda: struct.unpack("<I", dev.read(mailbox + 8, 4))[0]
         original = dev.read(STUB_AT, len(message_stub(0, 0, [0] * 5)))
@@ -243,16 +255,25 @@ def main():
         if a.dry_run:
             print("dry run: nothing written")
             return 0
+        def run(w, message=None):
+            before = done()
+            dev.write(STUB_AT, message_stub(mailbox, message_at, message, os_wait) if message else stub(mailbox, w, os_wait), verify=False)
+            return dev.execute(STUB_AT) == 1 and (done() - before) & 0xFFFFFFFF == 1
+
+        finished = False
         try:
             for label, w, message in steps:
-                before = done()
-                dev.write(STUB_AT, message_stub(mailbox, message_at, message) if message else stub(mailbox, w), verify=False)
-                dev.execute(STUB_AT)
-                ok = (done() - before) & 0xFFFFFFFF == 1
+                ok = run(w, message)
                 print(f"{label:12} {'ok' if ok else 'NICHT ausgeführt'} | {where(dev)}")
                 if not ok:
                     return 1
+            finished = True
         finally:
+            if not finished and message_at is not None:      # nothing the steps pressed stays down
+                try:
+                    print("alles losgelassen" if run(word(RELEASE)) else "Loslassen NICHT ausgeführt (das Gerät lässt nach 10 s selbst los)")
+                except SystemExit as failure:
+                    print(f"Loslassen fehlgeschlagen ({failure}); das Gerät lässt nach 10 s selbst los")
             dev.write(STUB_AT, original)
             print("Originalbytes im Stub-Puffer zurück")
     found = found or remote_of(dev)
