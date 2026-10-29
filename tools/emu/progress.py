@@ -35,6 +35,7 @@ NAMES = {
     "last_pattern_cases": "Letztes Pattern",
     "init_pattern_cases": "Init-Pattern",
     "stereo_pad_cases": "Stereo auf einem Pad",
+    "doom_loader_cases": "Doom-Lader",
     "preset_cases": "Presets",
 }
 

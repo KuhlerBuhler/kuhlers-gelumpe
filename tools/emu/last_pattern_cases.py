@@ -1,6 +1,7 @@
 """Emulator cases of the last-pattern patch (tools/patch/last_pattern.py): the pattern selected before switching off is the
 one the device opens at the next power-on; without a kept number it opens 001; with EXIT held at power-on it opens 001 and
-keeps the number for the next start.
+keeps the number for the next start; with BLECH > FEATURES > LAST PATTERN OFF in the settings file it opens 001 and keeps the number
+for a start with ON.
 
     python3 tools/emu/last_pattern_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 """
@@ -45,7 +46,7 @@ def entry(name, ok, detail):
     return {"id": f"lastpattern:{name}", "ok": bool(ok), "detail": str(detail)}
 
 
-def boot(payload, flash, held=0):
+def boot(payload, flash, held=0, files=None):
     """Booted to the main screen; every pattern selection's number is kept in dev.chosen (r5 two words behind the hooked site, where
     the selection passes it on as mov r1, r5)."""
     import unicorn
@@ -56,7 +57,7 @@ def boot(payload, flash, held=0):
     dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: dev.chosen.append(uc.reg_read(arm_const.UC_ARM_REG_R5)),
                       begin=spec.SELECT_SITE + 8, end=spec.SELECT_SITE + 8)
     dev.m.adapter = False
-    dev.m.insert_card(SDCard(MemoryMedium(menu_cases.card_image(menu_cases.CARD_FOLDER))))
+    dev.m.insert_card(SDCard(MemoryMedium(menu_cases.card_image({**menu_cases.CARD_FOLDER, **(files or {})}))))
     dev.run(2.0)
     return dev
 
@@ -108,7 +109,38 @@ def case_kept(payload, flash):
     return out
 
 
-GROUPS = (case_kept,)
+def settings(off):
+    """A settings file on the card: LAST PATTERN OFF (bit 3 of byte 5) or ON (the bit clear, METER LOUD RAINBOW set beside it)."""
+    path = menu_cases.SETTINGS_PATHS[0]
+    return {path: menu_cases.settings_file_v3(2, 3, menu_cases.look_word(), extras=menu_cases.LP_OFF if off else 1)}
+
+
+def case_switch(payload, flash):
+    """The wheel to 004, off; on with LAST PATTERN OFF in the settings file: 001, the setting word 0; off, on with ON in the file: 004."""
+    out = []
+    dev = boot(payload, flash)
+    dev.turn(3, wait=1.0)
+    chosen = selected(dev)
+    kept = switch_off(dev)
+    if kept is None:
+        out.append(entry("switch_off", False, "the switch-off did not end"))
+        return out
+    dev = boot(payload, kept, files=settings(True))
+    word = dev.u32(menu_cases.LP_SETTING)
+    out.append(entry("switch_off", selected(dev) == 0 and word == 0 and chosen > 0 and not dev.m.asserts,
+                     f"LAST PATTERN OFF: the start opens {selected(dev) + 1}, kept was {chosen + 1}, setting word {word:#x}"))
+    kept = switch_off(dev)
+    if kept is None:
+        out.append(entry("switch_on", False, "the switch-off after the OFF start did not end"))
+        return out
+    dev = boot(payload, kept, files=settings(False))
+    word = dev.u32(menu_cases.LP_SETTING)
+    out.append(entry("switch_on", selected(dev) == chosen and word == 1,
+                     f"LAST PATTERN ON again: the start opens {selected(dev) + 1}, kept was {chosen + 1}, setting word {word:#x}"))
+    return out
+
+
+GROUPS = (case_kept, case_switch)
 
 
 def group_entries(payload, flash, i):

@@ -82,6 +82,9 @@
 .equ INIT_CODE, 0xC014FD00
 .equ GLOBALS_PTR, 0xC0691324
 .equ IP_SLOT, 247
+; LAST PATTERN: the patch last-pattern (tools/patch/last_pattern.py), FF where the set does not have it; the page writes its setting word
+.equ LP_CODE, 0xC014FE00
+.equ LP_SETTING, 0xC014FEFC     ; FFFFFFFF (never written) or 1 is on, 0 is off; bit 3 of byte 5 of the settings file is OFF
 ; STEREO 1 PAD: the patch stereo-pad (tools/patch/stereo_pad.py), FF where the set does not have it; the page writes its setting word
 .equ SP_CODE, 0xC014FF00
 .equ SP_SETTING, 0xC014FFFC     ; FFFFFFFF (never written) or 1 is on, 0 is off; bit 2 of byte 5 of the settings file is OFF
@@ -198,7 +201,7 @@ menu_arm_load_end:
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
 ; magic, version u16 (1, 2 or 3), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
-; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON), version 2 and 3 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
+; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON; byte 5: bit 0 METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 3 LAST PATTERN OFF), version 2 and 3 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes (both up to 16 checksums), version 3 24 to 280 bytes (up to
@@ -268,6 +271,17 @@ menu_load_apply:
     str r2, [r4, #M_NA]
     ldr r12, =NA_SETTING
     str r2, [r12]
+    ldr r12, =LP_CODE
+    ldr r12, [r12]
+    cmn r12, #1
+    beq menu_load_lp_done
+    ldrb r2, [r0, #5]           ; bit 3 of byte 5: LAST PATTERN is OFF
+    mov r2, r2, lsr #3
+    and r2, r2, #1
+    eor r2, r2, #1
+    ldr r12, =LP_SETTING
+    str r2, [r12]
+menu_load_lp_done:
     ldr r12, =SP_CODE
     ldr r12, [r12]
     cmn r12, #1
@@ -416,7 +430,7 @@ menu_file_read:
     bne menu_read_fail
     ldrb r0, [r7, #4]
     ldrb r1, [r7, #5]
-    bics r1, r1, #7             ; byte 5: only bit 0 (LOUD RAINBOW), bit 1 (STILL OFF) and bit 2 (STEREO 1 PAD OFF) may be set
+    bics r1, r1, #0xF           ; byte 5: only bit 0 (LOUD RAINBOW), bit 1 (STILL OFF), bit 2 (STEREO 1 PAD OFF) and bit 3 (LAST PATTERN OFF) may be set
     bne menu_read_fail
     sub r0, r0, #1              ; version 1, 2 or 3
     cmp r0, #SETTINGS_VERSION-1
@@ -549,6 +563,17 @@ menu_save_sp_done:
     tst r0, #4
     orrne r10, r10, #0x80000000
     str r10, [r7, #12]
+    ldr r1, =LP_CODE            ; LAST PATTERN OFF: bit 3 of byte 5
+    ldr r1, [r1]
+    cmn r1, #1
+    beq menu_save_lp_done
+    ldr r1, =LP_SETTING
+    ldr r1, [r1]
+    cmp r1, #0
+    ldrbeq r1, [r7, #5]
+    orreq r1, r1, #8
+    strbeq r1, [r7, #5]
+menu_save_lp_done:
     ldr r0, [r4, #M_LED_MODE]
     ldr r1, [r4, #M_LED_R]
     orr r0, r0, r1, lsl #4
@@ -1657,6 +1682,8 @@ menu_texts_clear:
     beq menu_text_export
     cmp r0, #43
     beq menu_text_export
+    cmp r0, #45
+    beq menu_text_lp
     cmp r0, #44
     beq menu_text_sp
     cmp r0, #7
@@ -2027,6 +2054,20 @@ menu_text_sp:
     ldr r1, =str_sp
     bl menu_copy
     ldr r2, =SP_SETTING
+    ldr r2, [r2]
+    ldr r1, =str_off
+    cmp r2, #0
+    ldrne r1, =str_on
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; LAST PATTERN: whether the device opens the pattern selected last at power-on (the patch last-pattern reads the word LP_SETTING)
+menu_text_lp:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_lp
+    bl menu_copy
+    ldr r2, =LP_SETTING
     ldr r2, [r2]
     ldr r1, =str_off
     cmp r2, #0
@@ -2526,8 +2567,8 @@ menu_confirm_add:
 ; set's version and the firmware it is built for, no group). Each group is again "press [ Enter ]". ENTER on a group opens level 2,
 ; the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION, 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR, 8 POWER
 ; SAVE, 9 SPLASH). Those five are rows of CUSTOMIZATION that open their pages; EXIT there goes back to that row. FEATURES holds the
-; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and STEREO 1 PAD (the main dial changes them, WRITE keeps
-; them). PLUGINS holds MANAGE PLUGINS: ENTER opens level 5 (M_LEVEL_PLUGIN), one page a plugin with its name and its state, the dial
+; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST, LAST PATTERN and STEREO 1 PAD (the main dial
+; changes them, WRITE keeps them). PLUGINS holds MANAGE PLUGINS: ENTER opens level 5 (M_LEVEL_PLUGIN), one page a plugin with its name and its state, the dial
 ; switches it on and off; ENTER there opens level 6 (M_LEVEL_PSUB), the pages of that plugin: DESCRIPTION, the pages it added
 ; (korg.menu.add) and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
 ; Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, behind BLECH, on which Blechy, the app built into BLECH, shows
@@ -2539,7 +2580,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -2629,6 +2670,13 @@ menu_kind_sub:
 menu_kind_features:
     mov r0, #21
     cmp r5, #4
+    moveq r0, #45               ; LAST PATTERN where the set has it, STEREO 1 PAD behind it (or at 4 without LAST PATTERN)
+    ldr r12, =LP_CODE
+    ldr r12, [r12]
+    cmn r12, #1
+    addeq r12, r5, #1
+    movne r12, r5
+    cmp r12, #5
     moveq r0, #44
     cmp r5, #2
     moveq r0, #20
@@ -2777,7 +2825,11 @@ menu_count_features:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #4                  ; FEATURES: the four switches, and STEREO 1 PAD where the set has the patch stereo-pad
+    mov r0, #4                  ; FEATURES: the four switches, LAST PATTERN and STEREO 1 PAD where the set has their patches
+    ldr r1, =LP_CODE
+    ldr r1, [r1]
+    cmn r1, #1
+    addne r0, r0, #1
     ldr r1, =SP_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -4026,6 +4078,8 @@ menu_slot_value:
     beq menu_value_tm
     cmp r0, #21
     beq menu_value_na
+    cmp r0, #45
+    beq menu_value_lp
     cmp r0, #44
     beq menu_value_sp
     cmp r0, #24
@@ -4231,6 +4285,16 @@ menu_value_sp:
     cmp r5, #0
     movle r1, #0
     ldr r2, =SP_SETTING
+    str r1, [r2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; LAST PATTERN acts at once as well (for the next power-on): the word of the patch last-pattern follows, WRITE keeps it
+menu_value_lp:
+    mov r1, #1
+    cmp r5, #0
+    movle r1, #0
+    ldr r2, =LP_SETTING
     str r1, [r2]
     mov r3, #0
     str r3, [r6, #M_STATUS]
@@ -4807,6 +4871,8 @@ str_na:
     .asciz "NOTE ASSIST"
 str_sp:
     .asciz "STEREO 1 PAD"
+str_lp:
+    .asciz "LAST PATTERN"
 str_mg:
     .asciz "SYNC GROUP"
 str_base_hacktribe:

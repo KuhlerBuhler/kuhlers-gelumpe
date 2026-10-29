@@ -222,17 +222,29 @@ def case_page(payload, flash):
 
 
 def case_page_rainbow(payload, flash):
-    """STEREO 1 PAD OFF next to METER LOUD RAINBOW (bit 0 of the same byte 5): WRITE keeps both bits, the next start reads OFF."""
+    """STEREO 1 PAD OFF next to METER LOUD RAINBOW (bit 0 of the same byte 5) and, where the set has it, LAST PATTERN OFF (bit 3):
+    WRITE keeps every bit, the next start reads both pages OFF."""
     if not has_menu_page(payload):
         return [entry("menu-seite-rainbow", True, "no BLECH menu in this copy: nothing to check")]
     raw = bytearray(mc.settings_file_v2(5, 3, mc.look_word()))
-    raw[5] = 1 | 4
+    last = payload[mc.LAST_CODE - 0xC0000000:mc.LAST_CODE - 0xC0000000 + 4] != b"\xff" * 4
+    bits = 1 | 4 | (8 if last else 0)
+    raw[5] = bits
     raw[-4:] = struct.pack("<I", zlib.crc32(bytes(raw[:-4])) & 0xFFFFFFFF)
     files = {f"/KORG/{folder(payload)}/e2sSample.all": bank(), mc.SETTINGS_PATHS[0]: bytes(raw), **mc.CARD_FOLDER}
     dev = mc.boot(payload, flash, files=files, adapter=True, seconds=10)
     page = mc.feature_count() - 1
-    mc.goto_group(dev, mc.GROUP_FEATURES, page)
-    before = mc.texts_of(dev), dev.u32(spec.SETTING)
+
+    def pages(d):
+        mc.goto_group(d, mc.GROUP_FEATURES, page)
+        out = [(mc.texts_of(d), d.u32(spec.SETTING))]
+        if last:
+            mc.goto_group(d, mc.GROUP_FEATURES, page - 1)
+            out.append(mc.texts_of(d))
+        return out
+
+    want = [(("STEREO 1 PAD", "OFF", ""), 0)] + [("LAST PATTERN", "OFF", "")] * last
+    before = pages(dev)
     mc.press(dev, "write", wait=0.6)
     volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
     raws = [volume.read(path) for path in mc.SETTINGS_PATHS if _exists(volume, path)]
@@ -241,12 +253,10 @@ def case_page_rainbow(payload, flash):
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(dev.m.mmc.card.medium.data))))
     again.run(10)
-    mc.goto_group(again, mc.GROUP_FEATURES, page)
-    after = mc.texts_of(again), again.u32(spec.SETTING)
-    off = (("STEREO 1 PAD", "OFF", ""), 0)
-    return [entry("rainbow-start-liest-aus", before == off, f"{before}"),
-            entry("rainbow-write-byte-5", newest[5] & 5 == 5, f"byte 5 of the newest settings file: {newest[5]:#x}"),
-            entry("rainbow-neustart-aus", after == off and not again.m.asserts, f"{after}")]
+    after = pages(again)
+    return [entry("rainbow-start-liest-aus", before == want, f"{before}"),
+            entry("rainbow-write-byte-5", newest[5] & bits == bits, f"byte 5 of the newest settings file: {newest[5]:#x}, wanted {bits:#x}"),
+            entry("rainbow-neustart-aus", after == want and not again.m.asserts, f"{after}")]
 
 
 def _exists(volume, path):

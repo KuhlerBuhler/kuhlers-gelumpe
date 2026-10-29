@@ -70,9 +70,10 @@ def card_image(files=None):
 
 def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2):
     """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state)."""
-    global INIT_PAGE, STEREO_PAGE
+    global INIT_PAGE, LAST_PAGE, STEREO_PAGE
     for_build(payload)
     INIT_PAGE = payload[INIT_CODE - 0xC0000000:INIT_CODE - 0xC0000000 + 4] != b"\xff" * 4
+    LAST_PAGE = payload[LAST_CODE - 0xC0000000:LAST_CODE - 0xC0000000 + 4] != b"\xff" * 4
     STEREO_PAGE = payload[STEREO_CODE - 0xC0000000:STEREO_CODE - 0xC0000000 + 4] != b"\xff" * 4
     dev = Dev(payload, flash, held)
     dev.m.adapter = adapter
@@ -131,6 +132,8 @@ SYNC_GROUP_AT = 0x3B80                                                # the grou
 
 INIT_CODE = 0xC014FD00                                               # the patch init-pattern (tools/patch/init_pattern.py); with it our pages of DATA UTILITY end with SET INIT PATTERN
 INIT_PAGE = False                                                     # set by boot(): whether the copy has the patch
+LAST_CODE = 0xC014FE00                                               # the patch last-pattern (tools/patch/last_pattern.py); with it FEATURES has LAST PATTERN
+LAST_PAGE = False                                                     # set by boot(): whether the copy has the patch
 STEREO_CODE = 0xC014FF00                                             # the patch stereo-pad (tools/patch/stereo_pad.py); with it FEATURES ends with STEREO 1 PAD
 STEREO_PAGE = False                                                   # set by boot(): whether the copy has the patch
 
@@ -150,9 +153,9 @@ def version_texts(payload):
 
 
 def feature_pages():
-    """The pages of FEATURES: the switches, STEREO 1 PAD where the set has the patch (SYNC GROUP is a page of the ring, LEVEL_SYNC;
-    SET INIT PATTERN is in DATA UTILITY)."""
-    return FEATURE_PAGES + ["STEREO 1 PAD"] * STEREO_PAGE
+    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches (SYNC GROUP is a page of the
+    ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE
 
 
 def feature_count():
@@ -837,7 +840,7 @@ def read_settings_look(image):
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
         head = {1: 16, 2: 20, 3: 20}.get(version)
-        if head is None or extras & ~7:      # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF
+        if head is None or extras & ~0xF:    # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF
             continue
         size = head + 4 * count
         if count > (64 if version == 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -2064,7 +2067,7 @@ def note_assist_menu_cases(payload, flash=None):
     add("page", page == (("NOTE ASSIST", "ON", ""), (FEAT_NA, feature_count()), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("NOTE ASSIST", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("NOTE ASSIST", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
-    # EDIT next goes to the next page of FEATURES (STEREO 1 PAD where the set has it, else it wraps to the first), EDIT previous comes back
+    # EDIT next goes to the next page of FEATURES (LAST PATTERN or STEREO 1 PAD where the set has them, else it wraps to the first), EDIT previous comes back
     press(dev, "edit_next", wait=0.4)
     wrapped = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
@@ -2105,6 +2108,79 @@ def note_assist_menu_cases(payload, flash=None):
     held.run(0.5)
     add("exit_held_is_stock", state(held, S_ON) != 1 and held.u32(NA_SETTING) == 0xFFFFFFFF and not held.m.asserts, f"on={state(held, S_ON):#x}, word {held.u32(NA_SETTING):#x}")
     return out
+
+LP_SETTING = 0xC014FEFC               # the word of the patch last-pattern: FFFFFFFF never written, 1 on, 0 off
+LP_OFF = 8                            # bit 3 of byte 5 of the settings file: LAST PATTERN is off
+
+
+def settings_file_v3(generation, flags, look, extras=0):
+    """A version 3 settings file without plugin checksums, `extras` its byte 5."""
+    head = struct.pack("<IBBHIII", 0x54455347, 3, extras, 0, generation, flags, look)
+    return head + struct.pack("<I", zlib.crc32(head) & 0xFFFFFFFF)
+
+
+def last_pattern_menu_cases(payload, flash=None):
+    """The page LAST PATTERN, the last of FEATURES where the set has the patch last-pattern: ON is the default and writes nothing to the
+    patch's word, the dial changes the word at once, WRITE keeps OFF as bit 3 of byte 5 of the settings file (next to the meter's bits),
+    the next start reads it, EXIT at power-on leaves the word alone."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:last_pattern_{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    if not LAST_PAGE:
+        add("no_page_without_patch", "LAST PATTERN" not in feature_pages(), "the set has no last-pattern")
+        return out
+    word = lambda d: d.u32(LP_SETTING)
+    bare = boot(payload, flash, adapter=True, card=False)
+    plain = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(2, 3, look_word(), extras=1)}, adapter=True)
+    add("default_on", word(dev) == 0xFFFFFFFF and word(bare) == 0xFFFFFFFF and word(plain) == 1,
+        f"card {word(dev):#x}, no card {word(bare):#x}, file without the bit {word(plain):#x}")
+
+    page_at = feature_count() - 1
+    goto_group(dev, GROUP_FEATURES, page_at)
+    page = texts_of(dev), counter(dev), tab(dev)
+    dev.turn(-1, wait=0.3)
+    off = texts_of(dev), word(dev)
+    dev.turn(1, wait=0.3)
+    back = texts_of(dev), word(dev)
+    add("page", page == (("LAST PATTERN", "ON", ""), (page_at, feature_count()), "Feature"), f"{page}")
+    add("dial_acts_at_once", off == (("LAST PATTERN", "OFF", ""), 0) and back == (("LAST PATTERN", "ON", ""), 1) and not dev.m.asserts,
+        f"{off}, back {back}")
+
+    # WRITE keeps OFF in byte 5 next to METER LOUD RAINBOW, which writes the byte whole
+    keep = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(2, 3, look_word(), extras=1)}, adapter=True)
+    goto_group(keep, GROUP_FEATURES, page_at)
+    keep.turn(-1, wait=0.3)
+    press(keep, "write", wait=0.6)
+    image = keep.m.mmc.card.medium.data
+    files = read_settings_look(image)
+    extras = settings_extras(image).get("b", 0)
+    add("file_holds_off", "b" in files and extras == 1 | LP_OFF, f"byte 5 {extras:#x}, {files}")
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(image))))
+    again.run(2.0)
+    goto_group(again, GROUP_FEATURES, page_at)
+    add("start_reads_off", word(again) == 0 and texts_of(again) == ("LAST PATTERN", "OFF", "") and not again.m.asserts,
+        f"{word(again):#x}, {texts_of(again)}")
+
+    # ON written again clears the bit and leaves the meter's
+    goto_group(again, GROUP_FEATURES, page_at)
+    again.turn(1, wait=0.3)
+    press(again, "write", wait=0.6)
+    newest = max(read_settings_look(again.m.mmc.card.medium.data).items(), key=lambda kv: kv[1][0])[0]
+    extras = settings_extras(again.m.mmc.card.medium.data).get(newest, 0)
+    add("file_holds_on", word(again) == 1 and extras == 1, f"{word(again):#x}, byte 5 {extras:#x}")
+
+    # EXIT at power-on: the menu stays unarmed, the word is never written
+    held = boot(payload, flash, held=KILL, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(4, 3, 0, extras=LP_OFF)}, adapter=True)
+    held.run(0.5)
+    add("exit_held_is_stock", state(held, S_ON) != 1 and word(held) == 0xFFFFFFFF and not held.m.asserts,
+        f"on={state(held, S_ON):#x}, word {word(held):#x}")
+    return out
+
 
 EARLY_SITE = 0xC0038D34               # the first instruction of the command that loads e2sSample.all: the early hook of the menu
 SAMPLE_LOADER = 0xC00364F0            # the sample loader itself, called from that command
@@ -2323,7 +2399,7 @@ def synth_start_cases(payload, flash=None):
 
 def look_rest():
     """The suites look_cases runs after its own cases, in that order."""
-    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, default_level_cases, early_look_cases)
+    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, default_level_cases, early_look_cases)
 
 
 def look_parts():
@@ -2334,7 +2410,7 @@ def look_parts():
             calibration_cases)
 
 
-LOOK_PARTS = 10
+LOOK_PARTS = 11
 
 
 def look_cases_task(i):
