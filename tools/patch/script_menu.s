@@ -2700,12 +2700,14 @@ menu_count_plugin:              ; a plugin that is not loaded has DESCRIPTION on
     pop {r4, pc}
 .pool
 
-; Called by the constructor: the page M_ENTER (-1 is the last one) within the current level becomes M_PAGE. Clobbers r0 to r3.
+; Called by the constructor: the page M_ENTER (-1 is the last one) within the current level becomes M_PAGE. What an earlier ENTER
+; said (M_STATUS) is cleared, the screen opens on "press [ Enter ]". Clobbers r0 to r3.
 menu_enter_page:
     push {lr}
     ldr r3, =MENU_STATE
     mov r0, #0
     str r0, [r3, #M_LISTED]
+    str r0, [r3, #M_STATUS]
     bl menu_page_count
     ldr r3, =MENU_STATE
     ldr r1, [r3, #M_ENTER]
