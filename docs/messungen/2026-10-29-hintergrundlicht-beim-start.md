@@ -5,7 +5,8 @@ Satz BLECH, Karte im Speicher, Netzteil. Zeiten sind Emulatorzeit ab dem Einspru
 geprüft.** Markierungen: **gemessen**, **offline** (Code gelesen), **hergeleitet**, **offen**.
 
 Wunsch: das Display soll beim Einschalten schon in der eigenen Farbe leuchten, bevor das Startbild kommt, nicht erst, wenn
-BLECH seine Einstellungen von der Karte liest.
+BLECH seine Einstellungen von der Karte liest. Auf der blauen geht das nicht vor dem Startbild, dort kommt die Farbe etwas später,
+solange das Startbild noch steht (Abschnitt Blau).
 
 ## Zeitlinie rot (gemessen, Hacktribe und Korgs Original gleich)
 
@@ -41,12 +42,12 @@ BLECH seine Einstellungen von der Karte liest.
   (`0x08` rot, `0x10` grün, `0x20` blau), jeder andere Wert heißt Weiß der Firmware. Kein eigener Schreibweg in den Flash:
   BLECH setzt nur das Byte im RAM, die Firmware speichert es mit den Globals.
 
-## Der Patch (nur rot)
+## Der Patch
 
 - **Gesetzt:** wenn das Menü die Einstellungen liest und wenn WRITE im Menü BLECH sie auf die Karte schreibt, also genau die
   Farbe, die auch in der Datei steht. Eine Änderung ohne WRITE ändert das Byte nicht.
 - **Start:** ein Haken bei `0xC00289D8` (`cmp r0, #0x124`, hinter dem ersten Lesen des Flash, nur auf dem Weg des normalen
-  Starts, die Startmodi zweigen vorher ab) prüft Panel, EXIT und Panel-Update, liest 12 Byte ab `0x2300F4` über die
+  Starts, die Startmodi zweigen vorher ab; auf der blauen `0xC0025E48`, Abschnitt Blau) prüft Panel, EXIT und Panel-Update, liest 12 Byte ab `0x2300F4` über die
   Lesefunktion der Firmware (`0xC0029A74`), prüft `GLED` und das Byte und setzt nur die drei Pins.
 - **Bis zum Scharfschalten:** die Haken der drei Lichtfunktionen lassen einen Kanal, den die Farbe dunkel hält, auch bei den
   Einschaltaufrufen der Firmware (143 und 304 ms) aus.
@@ -57,7 +58,9 @@ BLECH seine Einstellungen von der Karte liest.
 
 ## Fälle (`tools/emu/menu_cases.py`, `boot_light_cases`, Teil von `early_look_cases`)
 
-Gemessen mit Hacktribe 2.02 und Korgs roter 2.02 mit BLECH, Einstellungsdatei mit Rot (15, 0, 0):
+Gemessen mit Hacktribe 2.02, Korgs roter und Korgs blauer 2.02 mit BLECH, Einstellungsdatei mit Rot (15, 0, 0). Auf der blauen
+steht statt des zweiten Falls `colour_while_the_start_image` (Abschnitt Blau), Karte ohne Einstellungsdatei heißt dort Rot ab
+64,78 ms statt beim Startbild:
 
 | Fall | Ergebnis |
 |---|---|
@@ -70,15 +73,26 @@ Gemessen mit Hacktribe 2.02 und Korgs roter 2.02 mit BLECH, Einstellungsdatei mi
 
 **Gemessen:** `tools/emu/check.py --quick` (Start, Rettungswege, Startphase) ist für Hacktribe, Korgs rote und Korgs blaue 2.02 mit BLECH grün.
 
-## Blau ausgelassen
+## Blau
 
-- **Gemessen** (Korgs blaue 2.02 mit BLECH): Licht an bei 44,72 ms, das Startbild zeichnet die Firmware bei 45,15 ms selbst,
-  das Flash-Objekt entsteht erst bei 61,59 ms, das erste Lesen bei 64,61 ms. Vor dem Startbild ist der Flash auf der blauen
-  also nicht lesbar. Auf der blauen bleibt alles wie bisher; die Haken der Lichtfunktionen und das Speichern sind dort leer.
+- **Gemessen** (Korgs blaue 2.02 mit BLECH): Licht an (Weiß) bei 44,72 ms, das Startbild zeichnet die Firmware bei 45,15 ms selbst,
+  das Flash-Objekt entsteht erst bei 61,59 ms, das erste Lesen bei 64,61 ms (`0xC00270BC` aus `0xC0025E40`, dieselbe Stelle wie
+  `0xC00289D4` auf der roten). Vor dem Startbild ist der Flash auf der blauen also nicht lesbar.
+- **Gemessen:** Das Startbild steht lange genug: am Display (was über SPI ankommt, in 1-ms-Schritten) ist es ab 59 ms zu sehen und
+  bleibt bis 396 ms, dann wird das Display leer, bei 516 ms kommt der Hauptbildschirm. Zwischen 92 und 94 ms ändern sich nur
+  wenige Pixel.
+- **Gemessen:** Die Firmware der blauen lässt Global-Byte 250 auch in Ruhe: Vorgabe 0 im RAM, nach dem Ausschalten 0 im Flash bei
+  `0x2300F6`, `GLED` bei `0x2300FC` wie auf der roten.
+- **Der Haken:** `0xC0025E48` (`cmp r0, r3`, hinter dem ersten Lesen des Flash, `r3` ist die Kennung `0x123`) ruft dieselbe
+  Funktion wie der Haken der roten (`boot_light_set` in `tools/patch/script_boot_light.s`, mit den Flash-Funktionen der blauen
+  `0xC0026DAC` und `0xC0026DE0`). Die Haken der Lichtfunktionen und das Speichern sind auf beiden gleich.
+- **Gemessen** (`boot_light_cases`): Rot ab 64,78 ms, Startbild am Display von 60 bis 396 ms, Rot bleibt bis zum scharfen Menü,
+  EXIT bleibt Weiß, ohne Einstellungsdatei Weiß ab 306,71 ms, WRITE von Grün macht das Byte `0x90`.
+- **Hergeleitet:** Auf der blauen leuchtet das Startbild rund 5 ms Emulatorzeit weiß (59 bis 64,8 ms), dann in der Farbe.
 
 ## Offen
 
 - Am Gerät nicht geprüft: ob die rund 7 ms Weiß vor der Farbe (52,5 bis 59,2 ms Emulatorzeit) zu sehen sind.
 - Wird das Gerät ohne Ausschalten vom Strom getrennt, speichert die Firmware die Globals nicht; der nächste Start zeigt dann
   die Farbe vom letzten Ausschalten.
-- Die Farbe beim Start auf der blauen bräuchte einen anderen Weg als den Flash.
+- Am Gerät nicht geprüft: ob die rund 5 ms Weiß des Startbilds auf der blauen zu sehen sind.

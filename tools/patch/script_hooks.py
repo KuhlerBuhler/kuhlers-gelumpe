@@ -109,9 +109,11 @@ def runtime_profile(build):
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
-        if name in ('script_early_hook', 'boot_light_hook'):
+        if name == 'script_early_hook':
             continue
-        if name == 'script_card_hook':
+        if name == 'boot_light_hook':
+            address, expected = 0xC0025E48, 0xE1500003
+        elif name == 'script_card_hook':
             address, expected = 0xC0028170, 0xE5D43004
         elif name == 'menu_toplevel':
             address, expected = 0xC0061DDC, 0xE594301C
@@ -326,7 +328,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
         source = synthaddr.source(source, own=[(synthaddr.FREE_FROM,0xC0200000)], keep=[0xC07FFC00,0xC07FFFF8])
     variant = 'synth' if build == 'synth' else 'sampler'
     source = source.replace('@OBJECT_ROWS@', object_rows(constants))
-    source = source.replace('@START_WRAPPER@', Path(__file__).with_name(f'script_start_{variant}.s').read_text())
+    source = source.replace('@START_WRAPPER@', read([f'script_start_{variant}.s', 'script_boot_light.s']))
     source = source.replace('@MENU_TOPLEVEL@', Path(__file__).with_name(f'script_toplevel_{variant}.s').read_text())
     actions = '\n'.join(f'.equ {name}, {value}' for name, value in profile.actions.items())
     hooks=assemble(actions+'\n'+source,origin=origin)

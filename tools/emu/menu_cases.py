@@ -2263,7 +2263,7 @@ def early_look_cases(payload, flash=None):
     reads its settings from a hook on the loading command, before the loader. Compared with the same copy without that hook (the
     instruction put back), which arms behind the loader, and with the main screen's time, which must not get later."""
     if synthaddr.is_synth(payload):
-        return synth_start_cases(payload, flash)
+        return synth_start_cases(payload, flash) + boot_light_cases(payload, flash)
     out = []
 
     def add(name, ok, detail):
@@ -2285,6 +2285,7 @@ def early_look_cases(payload, flash=None):
 
 
 BOOT_LIGHT_SITE = 0xC00289D8          # behind the firmware's first flash read in the start: the hook that sets the colour at power-on
+BOOT_LIGHT_SYNTH = 0xC0025E48         # the same place on the blue (`cmp r0, r3`)
 BOOT_SLOT = 250                       # *GLOBALS + 250, Global byte 250 (byte 246 of the block in the flash): 0x80 plus the pins of the colour
 BOOT_FLASH = 0x2300F6                 # that byte in the flash
 DRAW_IMAGE = 0xC003F650               # the firmware's picture function; its first call in the start draws the start image
@@ -2292,8 +2293,10 @@ DRAW_IMAGE = 0xC003F650               # the firmware's picture function; its fir
 
 def boot_light_run(payload, flash, files, held=0):
     """Boots on mains power and notes every change of the backlight pins and the time of the first picture (the start image).
-    Returns (dev, pin changes [(ms, pins)], ms of the start image, pins at that moment)."""
+    Returns (dev, pin changes [(ms, pins)], ms of the start image, pins at that moment). dev.image_shown is (first, last ms) the
+    display shows a full picture (more than 2000 pixels lit) in the first 0.5 s, in 2 ms steps: the start image."""
     import unicorn
+    draw = synthaddr.tr(DRAW_IMAGE) if synthaddr.is_synth(payload) else DRAW_IMAGE
     dev = Dev(payload, flash, held)
     dev.m.adapter = True
     dev.m.insert_card(SDCard(MemoryMedium(card_image(files))))
@@ -2303,8 +2306,16 @@ def boot_light_run(payload, flash, files, held=0):
     def at_draw(uc, address, size, user):
         if "ms" not in seen:
             seen.update(ms=dev.m.time_ns / 1e6, pins=pins(dev))
-    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, at_draw, begin=DRAW_IMAGE, end=DRAW_IMAGE)
+    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, at_draw, begin=draw, end=draw)
     dev.m.uc.ctl_flush_tb()
+    shown = []
+    for step in range(1, 251):
+        dev.m.run_until(step * 0.002)
+        if sum(bin(b).count("1") for row in dev.m.fb for b in row) > 2000:
+            shown.append(step * 2)
+        elif shown:
+            break
+    dev.image_shown = (shown[0], shown[-1]) if shown else None
     dev.m.run_until(1.2)
     return dev, [(round(t / 1e6, 2), v) for t, v in dev.pin_log], seen.get("ms"), seen.get("pins")
 
@@ -2321,7 +2332,9 @@ def boot_light_cases(payload, flash=None):
     keeps them through the firmware's own light calls until the menu is armed. EXIT at power-on stays stock white, a card without a
     settings file goes back to white once the menu is armed, WRITE of another colour updates the byte."""
     import last_pattern_cases
-    if struct.unpack_from("<I", payload, BOOT_LIGHT_SITE - IMAGE)[0] == 0xE3500F49:
+    synth = synthaddr.is_synth(payload)
+    site, word = (BOOT_LIGHT_SYNTH, 0xE1500003) if synth else (BOOT_LIGHT_SITE, 0xE3500F49)
+    if struct.unpack_from("<I", payload, site - IMAGE)[0] == word:
         return []
     out = []
 
@@ -2330,7 +2343,7 @@ def boot_light_cases(payload, flash=None):
 
     red = {**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0, (0, 0, 0), (15, 0, 0)))}
     dev = boot(payload, flash, files=red)
-    globals_at = dev.u32(POWER_SAVE_OBJECT)
+    globals_at = dev.u32(synthaddr.tr(POWER_SAVE_OBJECT) if synth else POWER_SAVE_OBJECT)
     slot = dev.read(globals_at + BOOT_SLOT, 1)[0] if globals_at else None
     kept = last_pattern_cases.switch_off(dev)
     add("kept_at_switch_off", slot == 0x88 and kept is not None and kept[BOOT_FLASH] == 0x88,
@@ -2340,16 +2353,22 @@ def boot_light_cases(payload, flash=None):
     dev, changes, image_ms, image_pins = boot_light_run(payload, kept, red)
     white = after_white(changes)                # the firmware lights red, green, blue one after the other at about 52 ms
     first_red = next((t for t, v in white if v == 0x08), None)
-    add("colour_before_the_start_image", image_ms is not None and image_pins == 0x08 and first_red is not None and first_red < image_ms,
-        f"red from {first_red} ms, start image at {image_ms} ms with pins {image_pins}, changes {changes[:6]}")
+    if synth:                                   # the blue draws its start image before the flash answers: the colour comes while it is shown
+        shown = dev.image_shown
+        add("colour_while_the_start_image", shown is not None and first_red is not None and shown[0] <= first_red < shown[1],
+            f"red from {first_red} ms, start image drawn at {image_ms} ms, on the display from {shown and shown[0]} to {shown and shown[1]} ms, changes {changes[:6]}")
+    else:
+        add("colour_before_the_start_image", image_ms is not None and image_pins == 0x08 and first_red is not None and first_red < image_ms,
+            f"red from {first_red} ms, start image at {image_ms} ms with pins {image_pins}, changes {changes[:6]}")
     add("colour_until_armed", first_red is not None and all(v == 0x08 for t, v in white if t >= first_red) and pins(dev) == 0x08 and state(dev, S_ON) == 1
         and not dev.m.asserts, f"pin changes after the white {white[:6]}, pins now {pins(dev):#x}")
     held, changes, image_ms, image_pins = boot_light_run(payload, kept, red, held=KILL)
     add("exit_held_stays_white", image_pins == GPIO_PINS and after_white(changes) == [] and pins(held) == GPIO_PINS and state(held, S_ON) != 1,
         f"start image pins {image_pins}, changes {changes[:6]}, pins now {pins(held):#x}")
     bare, changes, image_ms, image_pins = boot_light_run(payload, kept, CARD_FOLDER)
-    add("no_settings_file_back_to_white", image_pins == 0x08 and pins(bare) == GPIO_PINS and state(bare, S_ON) == 1,
-        f"start image pins {image_pins}, pins once armed {pins(bare):#x}")
+    lit = (0x08 in [v for _, v in after_white(changes)]) if synth else image_pins == 0x08
+    add("no_settings_file_back_to_white", lit and pins(bare) == GPIO_PINS and state(bare, S_ON) == 1,
+        f"start image pins {image_pins}, changes after the white {after_white(changes)[:4]}, pins once armed {pins(bare):#x}")
     dev = boot(payload, kept, files=red, adapter=True)
     set_look(dev, backlight=(0, 15, 0))
     before = dev.read(globals_at + BOOT_SLOT, 1)[0]
