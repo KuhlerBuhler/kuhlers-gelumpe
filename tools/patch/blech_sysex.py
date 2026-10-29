@@ -21,7 +21,7 @@ EXEC runs code the editor wrote before (KORG.exec, src/korg.mjs): only at a word
 allows no writes. It drains the write buffer and clears the instruction cache itself, then calls the address with the
 argument in r0; the code follows the ARM calling convention. Status 2 for an address it refuses.
 
-PLUGIN BEGIN writes a plugin file, SD:KORG/blechtribe/Plugin/<name>.blech, where PLUGIN EDIT of the BLECH menu lists it
+PLUGIN BEGIN writes a plugin file, SD:KORG/blechtribe/Plugin/<name>.blech, where MANAGE PLUGINS of the BLECH menu lists it
 (tools/patch/script_menu.s). The name is 1 to 16 letters, digits, "_" or "-", zero bytes after it; anything else is refused
 with status 3, so no path can be built from it. Otherwise it works like FILE BEGIN (offset 0 makes the file anew, the block is
 read back from the card for the CRC).
@@ -30,8 +30,8 @@ The two FILE commands reach exactly two files of the card, chosen by bit 31 of t
 KORG/<folder>/System/SYSTEM.VSB (bit clear) and beside it ORIGINAL.BIN (bit set), where the editor keeps the unpatched file the
 next update starts from (a patched file cannot be patched again; not .VSB, so no updater takes it). The path is built
 with the firmware's own function the update uses (0xC0035720, "KORG/blechtribe/" on the Sampler with BLECH, "KORG/electribe/"
-on the synth), so the file lands where Korg's update looks for it. A FILE BEGIN at offset 0 makes the file anew, every other
-writes into the existing one; every block is read back from the card and its CRC sent. Offset plus length never passes
+on the synth), so the file lands where Korg's update looks for it. A FILE BEGIN at offset 0 makes the file anew (and the folders of its path
+when one is missing, as on the blue's card), every other writes into the existing one; every block is read back from the card and its CRC sent. Offset plus length never passes
 0x200100, the size of a VSB. Status 6 is a card error (no card, no file, card full). The firmware's update writes the flash
 from that file when the user starts it; nothing here writes the flash.
 
@@ -145,6 +145,7 @@ FLASH_OBJ = 0xC0029A40          # returns the flash object (the one the MFX 2 pa
 FLASH_READ = 0xC0029A74         # (object, destination, flash address, length): takes the firmware's lock, calls the driver, 1 on success
 FS_OPEN, FS_READ, FS_WRITE, FS_CLOSE, FS_LSEEK = 0xC009DB60, 0xC009DD74, 0xC009DFB8, 0xC009E3DC, 0xC009E404   # FatFs (docs/hintergrund/virtuelle-sd.md)
 FS_UNLINK = 0xC009E9B8          # f_unlink(path); the image has no f_truncate and no f_rename (docs/hintergrund/sample-datei.md)
+FS_MKDIR = 0xC009EB00           # FatFs f_mkdir: the blue's card has no KORG/blechtribe until something makes it
 FOLDER = 0xC0035720             # (string object, id): the card folder the update reads from, "KORG/blechtribe/" with BLECH (measured)
 FOLDER_ID = 0x124               # the id the update passes (0x123 in the synth)
 STRING_FREE = 0xC00A21D4        # frees such a string object, as the update does after reading it
@@ -195,6 +196,7 @@ def source():
 .equ FS_WRITE, {FS_WRITE:#x}
 .equ FS_CLOSE, {FS_CLOSE:#x}
 .equ FS_LSEEK, {FS_LSEEK:#x}
+.equ FS_MKDIR, {FS_MKDIR:#x}
 .equ FOLDER, {FOLDER:#x}
 .equ FOLDER_ID, {FOLDER_ID:#x}
 .equ STRING_FREE, {STRING_FREE:#x}
@@ -674,7 +676,18 @@ data_file:
     moveq r2, #0x13             ; the sample file: opened or made, never cut by a block at offset 0 (that one is its header)
     bl FS_OPEN
     cmp r0, #0
+    beq data_file_open
+    cmp r0, #5                  ; FR_NO_PATH on the first block: make the folders of the path, then once more
+    cmpeq r8, #0
     bne data_file_error
+    bl make_folders
+    ldr r0, =FILE_FIL
+    ldr r1, =FILE_PATH
+    mov r2, #0x0A
+    bl FS_OPEN
+    cmp r0, #0
+    bne data_file_error
+data_file_open:
     ldr r0, =FILE_FIL
     mov r1, r8
     bl FS_LSEEK
@@ -1001,6 +1014,23 @@ pp_suffix:
     cmp r3, #0
     bne pp_suffix
     bx lr
+; f_mkdir of every folder on the way to the file in FILE_PATH, cut at each "/" in place; an existing one answers FR_EXIST.
+make_folders:
+    push {{r4, lr}}
+    ldr r4, =FILE_PATH
+mf_next:
+    ldrb r0, [r4], #1
+    cmp r0, #0
+    popeq {{r4, pc}}
+    cmp r0, #0x2F
+    bne mf_next
+    mov r0, #0
+    strb r0, [r4, #-1]
+    ldr r0, =FILE_PATH
+    bl FS_MKDIR
+    mov r0, #0x2F
+    strb r0, [r4, #-1]
+    b mf_next
 plugin_prefix:
     .asciz "SD:KORG/blechtribe/Plugin/"
 plugin_suffix:
@@ -1563,7 +1593,7 @@ fs_unlink:
 
 FIRMWARE_PLACES = ["CLASSIFY_HOOK", "CLASSIFY_BACK", "PROCESS_HOOK", "PROCESS_BACK", "PANEL", "DESC", "FLAG", "CHANNEL", "PORT_OF",
                    "TX_BEGIN", "TX_SEND", "TX_END", "FLASH_OBJ", "FLASH_READ", "FS_OPEN", "FS_READ", "FS_WRITE", "FS_CLOSE", "FS_LSEEK",
-                   "FOLDER", "STRING_FREE"]
+                   "FS_MKDIR", "FOLDER", "STRING_FREE"]
 CODE_PLACES = ["CLASSIFY_HOOK", "PROCESS_HOOK", "TX_BEGIN", "TX_SEND", "TX_END", "FLASH_READ"]   # their 16 words must equal the Sampler's
 
 

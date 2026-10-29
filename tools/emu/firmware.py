@@ -75,6 +75,15 @@ SYNTH_SITES = tuple(replace(s, at=SYNTH_AT[s.name], sig=SYNTH_SIG.get(s.name, s.
 # What the firmware looks for at USER_MARK in flash before it accepts the user data.
 SAMPLER_USER_MARK = b"KORGele2sUSR"
 USER_MARKS = {"synth": b"KORGelec2USR"}
+# The hardware a flash belongs to is its user-data mark: the Sampler code of Hacktribe runs on a blue Electribe 2 and
+# finds the blue mark there (docs/ideen/65-blech-hacktribe-blau.md), so the mark is chosen by hardware, not by build.
+HARDWARE_MARKS = {"red": SAMPLER_USER_MARK, "blue": USER_MARKS["synth"]}
+
+
+def hardware_of_head(vsb):
+    """"blue" when the head of a whole VSB names the blue Electribe 2 (file type "E2", the Sampler's is "E2S"), else
+    "red". Hacktribe for the blue carries that head (src/firmware.mjs, isSynth)."""
+    return "blue" if len(vsb) > 0x12 and vsb[0x10:0x12] == b"E2" and vsb[0x12] == 0 else "red"
 
 
 def words(payload):

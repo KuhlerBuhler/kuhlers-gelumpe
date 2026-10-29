@@ -284,7 +284,7 @@ korg.onEvent("ready", () => {
   add("unterminated text", mutate(textBlob, b => b.fill(65, textAt, textAt + LIMITS.stringSlot)));
   add("text after terminator", mutate(textBlob, b => { b[textAt + 4] = 1; }));
   add("text below display character range", mutate(textBlob, b => { b[textAt] = 31; }));
-  add("text above display character range", mutate(textBlob, b => { b[textAt] = 127; }));
+  add("text above display character range", mutate(textBlob, b => { b[textAt] = 0x82; }));
 
   for (const [name, items] of [
     ["stack underflow", [["DROP"], ["HALT"]]],

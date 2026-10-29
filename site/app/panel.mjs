@@ -10,6 +10,7 @@ import {
   Accumulator, WheelGovernor, DETENT_DEG, DRAG_PX_PER_DETENT, DRAG_PX_FULL_RANGE, WHEEL_PX_PER_DETENT, WHEEL_PX_FULL_RANGE,
   FREE_MAX, FREE_CENTER, CLICK_MAX_MS, CLICK_MAX_PX, clamp, wheelPixels, rawOf, withCatch, angleOfValue,
 } from "./dials.mjs";
+import { t } from "./i18n.mjs";
 
 const byId = list => Object.fromEntries(list.map(c => [c.id, c]));
 const B = byId(BUTTONS);
@@ -193,8 +194,8 @@ function valuePopup(pre) {
       if (owner?.dial === dial) { close(true); return; }
       owner = { dial, set: setValue };
       title.textContent = label;
-      node.setAttribute("aria-label", `${label} einstellen`);
-      range.setAttribute("aria-label", `${label}, Regler`);
+      node.setAttribute("aria-label", t("panel.set", { label }));
+      range.setAttribute("aria-label", t("panel.slider", { label }));
       number.value = String(value);
       range.value = String(value);
       node.hidden = false;
@@ -241,11 +242,11 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
   const lightButton = (node, label) => v => {
     node.style.setProperty("--cee-e2-glow", String(v));
     node.dataset.lit = v >= 0.5 ? "on" : v > LIT ? "dim" : "off";
-    node.setAttribute("aria-label", v > LIT ? `${label}, leuchtet` : label);
+    node.setAttribute("aria-label", v > LIT ? t("panel.lit", { label }) : label);
   };
 
   // The transport keys carry the symbol printed on the device; the name is for the pointer and the screen reader.
-  const SYMBOLS = { rec: ["rec", "REC (Aufnahme)"], stop: ["stop", "STOP"], play: ["play", "PLAY (Wiedergabe)"] };
+  const SYMBOLS = { rec: ["rec", t("panel.rec")], stop: ["stop", "STOP"], play: ["play", t("panel.play")] };
   const button = c => {
     const symbol = SYMBOLS[c.id];
     const b = el("button", { type: "button", className: "cee-e2-btn", id: `${pre}-${c.id}` }, [
@@ -280,7 +281,7 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
       onLed(c.ledBlue, v => { blue.style.setProperty("--cee-e2-glow", String(v)); light(Math.max(v, Number(red.style.getPropertyValue("--cee-e2-glow")) || 0)); });
     }
     if (c.id === "shift") {
-      b.title = "SHIFT: kurz klicken rastet ein, noch einmal klicken löst. Gedrückt halten wirkt wie am Gerät.";
+      b.title = t("panel.shift");
       return shiftKey(b, down => send({ kind: "button", index: c.index, down }));
     }
     return holdable(b, down => send({ kind: "button", index: c.index, down }));
@@ -289,7 +290,7 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
   /** Endless encoder with clicks: 24 per turn, one message per click. */
   const encoder = c => {
     const dial = set(el("div", { className: "cee-e2-dial cee-e2-encoder cee-e2-endless", id: `${pre}-${c.id}`, tabIndex: 0 }, [el("span", { className: "cee-e2-mark" })]), {
-      role: "spinbutton", "aria-label": c.label, "aria-valuetext": "endlos, Pfeiltasten drehen",
+      role: "spinbutton", "aria-label": c.label, "aria-valuetext": t("panel.endless"),
     });
     let turned = 0;
     const click = direction => {
@@ -395,7 +396,7 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
     const b = el("button", { type: "button", className: "cee-e2-pad", id: `${pre}-${p.id}` }, [
       el("span", { className: "cee-e2-label", textContent: p.label, ariaHidden: "true" }),
     ]);
-    const face = { node: b, red: 0, blue: 0, name: `Pad ${p.label}` };
+    const face = { node: b, red: 0, blue: 0, name: t("panel.pad", { label: p.label }) };
     padFace.push(face);
     b.dataset.index = String(p.index);
     paintPad(face);
@@ -416,13 +417,13 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
     face.node.style.setProperty("--cee-e2-glow", String(Math.max(red, face.blue)));
     face.node.style.setProperty("--cee-e2-red", String(red));
     face.node.style.setProperty("--cee-e2-blue", String(face.blue));
-    const state = { off: "", red: pressed ? ", gedrückt" : ", leuchtet rot", blue: ", leuchtet blau", purple: pressed ? ", gedrückt, leuchtet blau" : ", leuchtet rot und blau" }[tone];
-    face.node.setAttribute("aria-label", `${face.name}${state}`);
+    const state = { off: null, red: pressed ? "panel.pad.pressed" : "panel.pad.red", blue: "panel.pad.blue", purple: pressed ? "panel.pad.pressedBlue" : "panel.pad.redBlue" }[tone];
+    face.node.setAttribute("aria-label", state ? t(state, { name: face.name }) : face.name);
   }
 
   const touchpad = () => {
     const area = set(el("div", { className: "cee-e2-touchpad", id: `${pre}-touchpad`, tabIndex: 0 }, [el("span", { className: "cee-e2-touchpoint" })]), {
-      role: "application", "aria-label": "Touchpad: drücken und ziehen, oder Leertaste halten und Pfeiltasten",
+      role: "application", "aria-label": t("panel.touchpad"),
     });
     let touching = false;
     let x = TOUCHPAD_MAX / 2, y = TOUCHPAD_MAX / 2;
@@ -472,8 +473,8 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
   };
 
   // The real device has no power switch on its front, so this one sits in the drawing, left of the Volume knob.
-  const power = holdable(el("button", { type: "button", className: "btn icon cee-e2-power", id: `${pre}-power`, title: "Ein/Aus: halten wie am Gerät, nach 2 Sekunden schaltet die Electribe ab oder an" }), down => send({ kind: "power", down }));
-  power.setAttribute("aria-label", "Ein/Aus");
+  const power = holdable(el("button", { type: "button", className: "btn icon cee-e2-power", id: `${pre}-power`, title: t("panel.power.hint") }), down => send({ kind: "power", down }));
+  power.setAttribute("aria-label", t("panel.power"));
 
   // Positions in a 1200 x 700 space, the layout of the device front
   // (from the prototype accepted on 2026-10-09). CSS scales the space.
@@ -493,7 +494,7 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
 
   return {
     build(lcd) {
-      const root = set(el("div", { className: "cee-e2", id: pre, "data-power": "off" }), { role: "group", "aria-label": "Electribe, bedienbar" });
+      const root = set(el("div", { className: "cee-e2", id: pre, "data-power": "off" }), { role: "group", "aria-label": t("panel.device") });
       const pads = PADS.map(pad);
       pads.forEach((node, n) => at(node, PAD_SLOTS[n % 8], n < 8 ? 433 : 520, 76, 75));
       const body = el("div", { className: "cee-e2-body" }, [

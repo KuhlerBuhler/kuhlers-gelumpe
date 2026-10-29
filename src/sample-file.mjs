@@ -4,6 +4,7 @@
  * Parsing, adding and removing work on bytes only, so the page can run them on a file from a card reader and the editor
  * can run the same plan on the card through the device.
  */
+import { render, text, TextError } from "./text.mjs";
 
 export const SLOTS = 1020;
 export const HEADER = 4096;
@@ -14,7 +15,8 @@ export const NAME_MAX = 15;
 const MAGIC = "e2s sample all\x1a\0";
 const WAV_FORMATS = new Set([16, 24]);
 
-export class SampleFileError extends Error {}
+/** A problem with the sample file or a WAV; `key` and `vars` are a text (src/text.mjs). */
+export class SampleFileError extends TextError {}
 
 const u16 = (b, i) => b[i] | (b[i + 1] << 8);
 const u32 = (b, i) => (b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)) >>> 0;
@@ -25,7 +27,7 @@ const ascii = (b, i, n) => { let s = ""; for (let k = i; k < i + n && b[k]; k++)
 
 /** Walks the chunks of one RIFF/WAVE: { fmt, data, korg } as { at, size } where `at` is the start of the chunk's body. */
 export function wavChunks(bytes, start = 0, limit = bytes.length) {
-  if (limit - start < 12 || tag(bytes, start) !== "RIFF" || tag(bytes, start + 8) !== "WAVE") throw new SampleFileError("keine WAV-Datei (RIFF/WAVE fehlt)");
+  if (limit - start < 12 || tag(bytes, start) !== "RIFF" || tag(bytes, start + 8) !== "WAVE") throw new SampleFileError("samplefile.noWav");
   const found = {};
   const end = Math.min(limit, start + 8 + u32(bytes, start + 4));
   for (let at = start + 12; at + 8 <= end;) {
@@ -39,7 +41,7 @@ export function wavChunks(bytes, start = 0, limit = bytes.length) {
 
 function describe(bytes, start, limit) {
   const c = wavChunks(bytes, start, limit);
-  if (!c.fmt || c.fmt.size < 16 || !c.data) throw new SampleFileError("fmt oder data fehlt");
+  if (!c.fmt || c.fmt.size < 16 || !c.data) throw new SampleFileError("samplefile.chunks");
   const tagNo = u16(bytes, c.fmt.at);
   const channels = u16(bytes, c.fmt.at + 2);
   const rate = u32(bytes, c.fmt.at + 4);
@@ -51,12 +53,12 @@ function describe(bytes, start, limit) {
 }
 
 /**
- * The samples of a sample file, in slot order.
+ * The samples of a sample file, in slot order. `problem` is finished text in the page's language.
  * @returns {{ size: number, samples: { slot: number, offset: number, length: number, name: string, rate: number, channels: number, bits: number, frames: number, problem: string|null }[] }}
  */
 export function parseSampleFile(bytes) {
   if (bytes.length < HEADER || ascii(bytes, 0, 14) !== "e2s sample all" || bytes[14] !== 0x1a) {
-    throw new SampleFileError("Das ist keine e2sSample.all: der Kopf „e2s sample all“ fehlt.");
+    throw new SampleFileError("samplefile.notAll");
   }
   const entries = [];
   for (let slot = 0; slot < SLOTS; slot++) {
@@ -67,10 +69,10 @@ export function parseSampleFile(bytes) {
   const samples = entries.map(e => {
     const next = byOffset.find(o => o.offset > e.offset)?.offset ?? bytes.length;
     const base = { slot: e.slot, offset: e.offset, length: 0, name: "", rate: 0, channels: 0, bits: 0, frames: 0, problem: null };
-    if (e.offset < HEADER || e.offset + 12 > bytes.length) return { ...base, problem: "Der Eintrag liegt außerhalb der Datei." };
+    if (e.offset < HEADER || e.offset + 12 > bytes.length) return { ...base, problem: render(text("samplefile.outside")) };
     try {
       const length = 8 + u32(bytes, e.offset + 4);
-      if (e.offset + length > bytes.length) return { ...base, length: bytes.length - e.offset, problem: "Der Eintrag ist abgeschnitten." };
+      if (e.offset + length > bytes.length) return { ...base, length: bytes.length - e.offset, problem: render(text("samplefile.cut")) };
       const d = describe(bytes, e.offset, e.offset + length);
       return { ...base, length: Math.min(length, next - e.offset), name: d.name, rate: d.rate, channels: d.channels, bits: d.bits, frames: d.frames, problem: null };
     } catch (error) { return { ...base, length: Math.max(0, next - e.offset), problem: error.message }; }
@@ -94,10 +96,10 @@ export function emptySampleFile() {
  * @param {(done: number, total: number) => void} [onProgress]
  */
 export async function parseRemote(read, size, onProgress) {
-  if (size < HEADER) throw new SampleFileError("Die Datei auf der Karte ist kürzer als ein Kopf.");
+  if (size < HEADER) throw new SampleFileError("samplefile.short");
   const header = await read(0, HEADER);
   if (header.length < HEADER || ascii(header, 0, 14) !== "e2s sample all" || header[14] !== 0x1a) {
-    throw new SampleFileError("Das ist keine e2sSample.all: der Kopf „e2s sample all“ fehlt.");
+    throw new SampleFileError("samplefile.notAll");
   }
   const entries = [];
   for (let slot = 0; slot < SLOTS; slot++) {
@@ -108,13 +110,13 @@ export async function parseRemote(read, size, onProgress) {
   for (const [i, e] of entries.entries()) {
     onProgress?.(i, entries.length);
     const base = { slot: e.slot, offset: e.offset, length: 0, name: "", rate: 0, channels: 0, bits: 0, frames: 0, problem: null };
-    if (e.offset < HEADER || e.offset + 12 > size) { samples.push({ ...base, problem: "Der Eintrag liegt außerhalb der Datei." }); continue; }
+    if (e.offset < HEADER || e.offset + 12 > size) { samples.push({ ...base, problem: render(text("samplefile.outside")) }); continue; }
     const head = await read(e.offset, 44);
-    if (head.length < 12 || tag(head, 0) !== "RIFF" || tag(head, 8) !== "WAVE") { samples.push({ ...base, problem: "keine WAV-Datei (RIFF/WAVE fehlt)" }); continue; }
+    if (head.length < 12 || tag(head, 0) !== "RIFF" || tag(head, 8) !== "WAVE") { samples.push({ ...base, problem: render(text("samplefile.noWav")) }); continue; }
     const length = 8 + u32(head, 4);
-    if (e.offset + length > size) { samples.push({ ...base, length: size - e.offset, problem: "Der Eintrag ist abgeschnitten." }); continue; }
+    if (e.offset + length > size) { samples.push({ ...base, length: size - e.offset, problem: render(text("samplefile.cut")) }); continue; }
     const layout = head.length >= 44 && tag(head, 12) === "fmt " && u32(head, 16) === 16 && tag(head, 36) === "data";
-    if (!layout) { samples.push({ ...base, length, problem: "Aufbau nicht erkannt" }); continue; }
+    if (!layout) { samples.push({ ...base, length, problem: render(text("samplefile.layout")) }); continue; }
     const channels = u16(head, 22);
     const bits = u16(head, 34);
     const dataSize = u32(head, 40);
@@ -146,12 +148,12 @@ export const cleanSampleName = text => text.replace(/[^\x20-\x7e]/g, "").trim().
  */
 export function entryFromWav(wav, slot, name) {
   const c = wavChunks(wav);
-  if (!c.fmt || c.fmt.size < 16 || !c.data) throw new SampleFileError("fmt oder data fehlt");
+  if (!c.fmt || c.fmt.size < 16 || !c.data) throw new SampleFileError("samplefile.chunks");
   const d = describe(wav, 0, wav.length);
-  if (d.tagNo !== 1) throw new SampleFileError(`Das ist kein PCM (Formatnummer ${d.tagNo}). Die Electribe nimmt nur PCM.`);
-  if (!WAV_FORMATS.has(d.bits)) throw new SampleFileError(`${d.bits} Bit geht nicht, die Electribe nimmt 16 oder 24 Bit.`);
-  if (d.channels < 1 || d.channels > 2) throw new SampleFileError(`${d.channels} Kanäle gehen nicht, die Electribe nimmt 1 oder 2.`);
-  if (!d.frames) throw new SampleFileError("Die Datei enthält kein Audio.");
+  if (d.tagNo !== 1) throw new SampleFileError("samplefile.notPcm", { format: d.tagNo });
+  if (!WAV_FORMATS.has(d.bits)) throw new SampleFileError("samplefile.bits", { bits: d.bits });
+  if (d.channels < 1 || d.channels > 2) throw new SampleFileError("samplefile.channels", { channels: d.channels });
+  if (!d.frames) throw new SampleFileError("samplefile.noAudio");
   const pcm = wav.subarray(c.data.at, c.data.at + c.data.size);
   const record = new Uint8Array(ESLI);
   const kept = d.esli !== null && c.korg.size >= 8 + ESLI;
@@ -203,8 +205,8 @@ export function planChange(header, parsed, { remove = [], add = [] } = {}) {
   const gone = new Set(remove);
   const slots = new Set(parsed.samples.map(s => s.slot).filter(s => !gone.has(s)));
   for (const a of add) {
-    if (slots.has(a.slot)) throw new SampleFileError(`Platz ${a.slot + 1} ist belegt.`);
-    if (a.slot < FIRST_USER || a.slot > LAST_USER) throw new SampleFileError(`Platz ${a.slot + 1} gibt es für eigene Samples nicht (501 bis 999).`);
+    if (slots.has(a.slot)) throw new SampleFileError("samplefile.slotTaken", { slot: a.slot + 1 });
+    if (a.slot < FIRST_USER || a.slot > LAST_USER) throw new SampleFileError("samplefile.slotRange", { slot: a.slot + 1 });
     slots.add(a.slot);
   }
   const out = new Uint8Array(HEADER);

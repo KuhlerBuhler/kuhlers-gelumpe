@@ -3,6 +3,7 @@
  * scratch directory for generated files. Uses the installed Chrome unless
  * E2E_CHANNEL says otherwise, so no browser download is needed.
  */
+import { afterEach } from "node:test";
 import { writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright";
@@ -11,11 +12,22 @@ import { tempDir } from "../support/lifetime.mjs";
 
 const SUPPORT = new URL("./support/", import.meta.url).pathname;
 
+// A page left open keeps its timers running (the device page reads the LEDs four times a second), so the pages of
+// earlier tests slow the later ones down. No test hands a page on to the next one.
+const open = new Set();
+afterEach(async () => {
+  const contexts = [...open];
+  open.clear();
+  await Promise.all(contexts.map(c => c.close().catch(() => {})));
+});
+
 /**
  * @param {(dir: string) => Array<[string, string]>} [routes] more served paths, built from the scratch directory
- * @param {{realDevices?: boolean}} [options] `realDevices`: the page knows the measured builds by their signatures, for a test against the emulator running the user's own firmware
+ * @param {{realDevices?: boolean, emu?: {port: number, token: string}, publicOrigin?: string | true}} [options]
+ *   `realDevices`: the page knows the measured builds by their signatures, for a test against the emulator running the user's own firmware.
+ *   `emu` and `publicOrigin` put the page behind a reverse proxy: `true` for the origin the page is then served at
  */
-export async function setUp(routes = () => [], { realDevices = false } = {}) {
+export async function setUp(routes = () => [], { realDevices = false, emu = null, publicOrigin = "" } = {}) {
   const dir = tempDir("cee-e2e-");
   const extra = [
     ["/test-support/files/", `${dir}/`],
@@ -28,7 +40,8 @@ export async function setUp(routes = () => [], { realDevices = false } = {}) {
   let server;
   for (let attempt = 0; !server; attempt++) {
     port = 19000 + Math.floor(Math.random() * 20000);
-    try { server = await startServer(port, { extra }); } catch (error) { if (attempt >= 20 || error.code !== "EADDRINUSE") throw error; }
+    const origin = publicOrigin === true ? `http://127.0.0.1:${port}` : publicOrigin;
+    try { server = await startServer(port, { extra, emu, publicOrigin: origin }); } catch (error) { if (attempt >= 20 || error.code !== "EADDRINUSE") throw error; }
   }
   let browser;
   try {
@@ -46,8 +59,16 @@ export async function setUp(routes = () => [], { realDevices = false } = {}) {
       writeFileSync(path, bytes);
       return path;
     },
-    async page({ device = false } = {}) {
-      const context = await browser.newContext({ acceptDownloads: true });
+    /** `autoConnect`: the page connects to a plugged-in Electribe by itself; off here, the tests click connect. */
+    async page({ device = false, autoConnect = false } = {}) {
+      const context = await browser.newContext({ acceptDownloads: true, locale: "de-DE" });
+      open.add(context);
+      if (!autoConnect) await context.addInitScript(() => {
+        try {
+          const saved = JSON.parse(localStorage.getItem("cee.settings") ?? "{}") ?? {};
+          if (!("autoConnect" in saved)) localStorage.setItem("cee.settings", JSON.stringify({ ...saved, autoConnect: false }));
+        } catch { /* blocked storage: the default holds */ }
+      });
       context.setDefaultTimeout(20_000);
       // The changelog page asks GitHub for the releases; tests never reach the network and see none.
       await context.route("https://api.github.com/**", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));

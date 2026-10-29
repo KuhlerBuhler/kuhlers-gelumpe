@@ -7,21 +7,22 @@
  * update starts from that.
  */
 import { BLECH } from "./protocol.mjs";
+import { text, TextError } from "./text.mjs";
 
-/** Why the connected device cannot do it, in the page's words; null when it can. */
+/** Why the connected device cannot do it, as a text (src/text.mjs); null when it can. */
 export function unsupported(info) {
-  if (!info) return "Auf der Electribe ist noch kein BLECHTRIBE. Das erste Mal geht nur mit der SD-Karte: Karte in den Rechner, Datei patchen, zurück auf die Karte. Danach geht es über USB.";
-  if (!(info.flags & BLECH.FLAG_FILE)) return "Das BLECHTRIBE auf deiner Electribe ist zu alt für Updates über USB. Mach dieses eine Update noch mit der SD-Karte, danach geht es über USB.";
+  if (!info) return text("usbupdate.noBlech");
+  if (!(info.flags & BLECH.FLAG_FILE)) return text("usbupdate.tooOld");
   return null;
 }
 
 /** The device's BLECH INFO for its own model byte, and the block size set on the sender. */
 export async function prepare(session) {
   const model = session.device?.model;
-  if (model == null) throw new Error("Die Electribe ist nicht verbunden. Steck sie per USB an und schalte sie ein. Dann im Bereich Emulator oben „Echtes Gerät“ wählen und auf „Mit Electribe verbinden“ klicken.");
+  if (model == null) throw new TextError("usbupdate.notConnected");
   const info = await session.sender.blechInfo(model);
   const why = unsupported(info);
-  if (why) throw new Error(why);
+  if (why) throw new TextError(why.key);
   if (!session.sender.blech) session.sender.blech = { maxBlock: info.maxBlock };
   return model;
 }
@@ -36,7 +37,7 @@ export function fetchUpdateFile(session, onProgress) {
     const kept = await session.sender.fileSize(model, true);
     if (kept) return { bytes: await session.sender.fileRead(kept, model, onProgress, true), fromOriginal: true };
     const size = await session.sender.fileSize(model);
-    if (!size) throw new Error("Auf der SD-Karte fehlt die Datei SYSTEM.VSB im Ordner KORG › dein Ordner › System. Leg deine Firmware-Datei einmal dorthin, dann nochmal versuchen.");
+    if (!size) throw new TextError("usbupdate.noVsb");
     return { bytes: await session.sender.fileRead(size, model, onProgress), fromOriginal: false };
   });
 }
@@ -58,18 +59,18 @@ export function pluginFileName(id) {
   return name || "plugin";
 }
 
-/** A .blech onto the card of the connected device, as KORG/blechtribe/Plugin/<name>.blech; PLUGIN EDIT in the BLECH menu lists it. */
+/** A .blech onto the card of the connected device, as KORG/blechtribe/Plugin/<name>.blech; MANAGE PLUGINS in the BLECH menu lists it. */
 export function storePlugin(session, id, bytes, onProgress) {
   return session.exclusive(async () => {
     const model = await prepare(session);
     const info = await session.sender.blechInfo(model);
-    if (!(info.flags & BLECH.FLAG_PLUGIN)) throw new Error("Das BLECHTRIBE auf deiner Electribe ist zu alt für Plugins über USB. Spiel einmal die neue Firmware auf, danach geht es.");
+    if (!(info.flags & BLECH.FLAG_PLUGIN)) throw new TextError("usbupdate.pluginsTooOld");
     const name = pluginFileName(id);
     try {
       await session.sender.pluginWrite(bytes, name, model, onProgress);
     } catch (e) {
       // the firmware does not make the folder itself (docs/plugins.md); a card error at the first block is most likely that
-      if (e.status === BLECH.STATUS.FILE) throw new Error("Die SD-Karte nimmt die Datei nicht. Leg auf der Karte den Ordner KORG › blechtribe › Plugin an (die Electribe macht das nicht selbst) und versuch es nochmal.");
+      if (e.status === BLECH.STATUS.FILE) throw new TextError("usbupdate.noPluginFolder");
       throw e;
     }
     return name;

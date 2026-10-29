@@ -17,6 +17,7 @@ import * as P from "./protocol.mjs";
 import { refuseSteps } from "./protect.mjs";
 import { syxDec } from "./bytes.mjs";
 import EXEC from "../data/exec.mjs";
+import { isText, text, TextError } from "./text.mjs";
 
 /**
  * Waiting times in milliseconds. Measured over USB on Linux
@@ -38,9 +39,14 @@ const LINE_MS_PER_BYTE = 0.4;
 /** How often a block whose CRC did not match is sent again before the run fails. Nothing is ever sent again after a timeout. */
 export const BLECH_RETRIES = 2;
 
-export class SendError extends Error {
+/** What a failure says: an error's text, or its message when it has none (an error of the port or the browser). */
+export const textOf = e => e?.text ?? e?.message ?? String(e);
+
+/** `message` is a text (src/text.mjs), or a string that comes from elsewhere and is shown as it is. */
+export class SendError extends TextError {
   constructor(kind, message, details = {}) {
-    super(message);
+    super(...(isText(message) ? [message.key, message.vars] : [String(message)]));
+    if (!isText(message)) this.text = message;
     this.name = "SendError";
     this.kind = kind;
     Object.assign(this, details);
@@ -91,12 +97,12 @@ export class Sender {
   /** The port went away. Whatever is waiting fails now instead of at its timeout. */
   disconnect() {
     this.disconnected = true;
-    this.waiting?.finish(new SendError("disconnected", "Gerät während der Sendung abgezogen."));
+    this.waiting?.finish(new SendError("disconnected", text("sender.unplugged")));
   }
 
   async exchange(step) {
-    if (this.disconnected) throw new SendError("disconnected", "Kein Gerät verbunden.");
-    if (this.waiting) throw new SendError("busy", "Es läuft schon eine Sendung.");
+    if (this.disconnected) throw new SendError("disconnected", text("sender.noDevice"));
+    if (this.waiting) throw new SendError("busy", text("sender.busy"));
     return new Promise((resolve, reject) => {
       const w = { step, phase: "quiet", reply: null, timer: null, finish: (error, reply) => {
         if (this.waiting !== w) return;
@@ -109,7 +115,7 @@ export class Sender {
       const failed = error => {
         if (this.waiting !== w) return;
         this.unsynced = true;
-        w.finish(new SendError("send", error?.message ?? String(error)));
+        w.finish(new SendError("send", textOf(error)));
       };
       const sent = () => {
         if (this.waiting !== w) return;
@@ -122,7 +128,7 @@ export class Sender {
         w.timer = setTimeout(() => {
           if (this.waiting !== w) return;
           this.unsynced = true;
-          w.finish(new SendError("timeout", `Keine Antwort innerhalb von ${ms} ms. Auf dem Gerät heißt Schweigen jede Art von Nein.`));
+          w.finish(new SendError("timeout", text("sender.timeout", { ms })));
         }, ms);
       };
       const send = () => {
@@ -132,7 +138,7 @@ export class Sender {
           if (this.waiting !== w) return;
           this.unsynced = true;
           this.disconnected = true;
-          w.finish(new SendError("send-timeout", `Versand nach ${ms} ms nicht abgeschlossen. Verbindung neu öffnen.`));
+          w.finish(new SendError("send-timeout", text("sender.sendTimeout", { ms })));
         }, ms);
         try { Promise.resolve(this.send(step.msg)).then(sent, failed); }
         catch (error) { failed(error); }
@@ -184,7 +190,7 @@ export class Sender {
   blechFailure(e, what) {
     if (!(e instanceof P.BlechError)) return e;
     const refused = e.status === P.BLECH.STATUS.REFUSED || e.status === P.BLECH.STATUS.RANGE;
-    return new SendError(refused ? "protected" : e.retry ? "crc" : "verify", e.message, { status: e.status, what });
+    return new SendError(refused ? "protected" : e.retry ? "crc" : "verify", e.text, { status: e.status, what });
   }
 
   /** Whole attempts with a CRC that did not fit are repeated, the first other failure ends it. */
@@ -194,7 +200,7 @@ export class Sender {
       catch (e) {
         if (!(e instanceof P.BlechError) || !e.retry || n >= BLECH_RETRIES) {
           const error = this.blechFailure(e, what);
-          if (error.kind === "crc") error.message = `${e.message} ${n + 1} Versuche, jeder mit anderer Prüfsumme als gesendet. Nichts wurde geschrieben, die Verbindung ist unsicher.`;
+          if (error.kind === "crc") error.text = text("sender.crcTries", { error: e.text, tries: n + 1 });
           throw error;
         }
       }
@@ -245,7 +251,7 @@ export class Sender {
   async blechExecute(addr) {
     if (addr === EXEC.icache.addr) return P.ackFor(this.channel);
     const { result } = await this.blechAttempts("execute", async () => P.parseBlechExec(await this.blechExchange(P.blechExec(this.channel, addr), "blech-exec"), this.channel));
-    if (result !== 1) throw new SendError("reply", `Der Code bei 0x${addr.toString(16)} meldet ${result} statt 1.`);
+    if (result !== 1) throw new SendError("reply", text("sender.execResult", { addr: addr.toString(16), result }));
     return P.ackFor(this.channel);
   }
 
@@ -276,7 +282,7 @@ export class Sender {
       const n = Math.min(max, size - at);
       const r = await this.blechAttempts("read", async () =>
         P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, (other ? P.BLECH.FILE_OTHER : 0) | at, n, model), "blech-file-read", n), this.channel, n, model));
-      if (r.offset !== at || r.bytes.length !== n) throw new SendError("reply", `Datei lesen: ${r.bytes.length} Byte bei ${r.offset} statt ${n} bei ${at}.`);
+      if (r.offset !== at || r.bytes.length !== n) throw new SendError("reply", text("sender.fileRead", { got: r.bytes.length, offset: r.offset, want: n, at }));
       out.set(r.bytes, at);
       onProgress?.(at + n, size);
     }
@@ -364,7 +370,7 @@ export class Sender {
   async sampleFileCopy(from, to, length, model) {
     const r = await this.blechAttempts("write", async () =>
       P.parseBlechFileCopy(await this.blechExchange(P.blechFileCopy(this.channel, this.sampleSelector(from.temp, from.at), this.sampleSelector(to.temp, to.at), length, model), "blech-file-copy", length / 4), this.channel, model));
-    if (r.copied !== length) throw new SendError("reply", `Datei kopieren: ${r.copied} Byte statt ${length}.`);
+    if (r.copied !== length) throw new SendError("reply", text("sender.fileCopy", { got: r.copied, want: length }));
     return r.crc;
   }
 
@@ -377,7 +383,7 @@ export class Sender {
   async sampleFileCrc(at, length, model, temp = false) {
     const r = await this.blechAttempts("read", async () =>
       P.parseBlechFileCrc(await this.blechExchange(P.blechFileCrc(this.channel, this.sampleSelector(temp, at), length, model), "blech-file-crc", length / 4), this.channel, model));
-    if (r.length !== length) throw new SendError("reply", `Datei prüfen: ${r.length} Byte statt ${length}.`);
+    if (r.length !== length) throw new SendError("reply", text("sender.fileCheck", { got: r.length, want: length }));
     return r.crc;
   }
 
@@ -400,7 +406,7 @@ export class Sender {
           // A Hacktribe write is two steps, address and data; BLECH sends them as one block with its CRC.
           const next = steps[i + 1];
           const data = next && P.describeMessage(next.msg);
-          if (data?.kind !== "write-data") throw new SendError("reply", "Eine Schreib-Adresse ohne Daten dahinter.");
+          if (data?.kind !== "write-data") throw new SendError("reply", text("sender.addressOnly"));
           const bytes = Uint8Array.from(syxDec(next.msg.slice(7, -1))).subarray(0, sent.length);
           value = await this.blechWrite(sent.addr, bytes);
           results.push({ step, value }, { step: next, value });
@@ -412,7 +418,7 @@ export class Sender {
         value = blech ? await blech : this.decode(step, await this.exchange(step));
         checkReadGuard(step, value);
       } catch (e) {
-        const error = e instanceof SendError ? e : new SendError(step.guard ? "unexpected-code" : "reply", e.message);
+        const error = e instanceof SendError ? e : new SendError(step.guard ? "unexpected-code" : "reply", textOf(e));
         return { ok: false, results, failedAt: i, error };
       }
       if ((step.role === "verify" || step.role === "guard") && step.compare) {
@@ -421,8 +427,8 @@ export class Sender {
         for (let k = 0; k < step.compare.length; k++) if (!ignore.has(k) && value[k] !== step.compare[k]) bad.push(k);
         if (bad.length) {
           const what = step.role === "guard"
-            ? `Der Code im Gerät bei 0x${step.target.addr.toString(16)} ist nicht der der geladenen Firmware: ${bad.length} Byte weichen ab.`
-            : `Zurückgelesen passt nicht: ${bad.length} Byte weichen ab, das erste bei Versatz ${bad[0]}.`;
+            ? text("sender.guardMismatch", { addr: step.target.addr.toString(16), count: bad.length })
+            : text("sender.verifyMismatch", { count: bad.length, first: bad[0] });
           return { ok: false, results, failedAt: i, error: new SendError("mismatch", what, { bad, got: value }) };
         }
       }

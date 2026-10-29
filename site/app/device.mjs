@@ -6,6 +6,8 @@ import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { createMidiTransport } from "./midi.mjs";
 import { DeviceSession, electribePorts, newCarry } from "../../src/session.mjs";
+import { t } from "./i18n.mjs";
+import { createAutoConnect } from "./auto-connect.mjs";
 
 const pill = (tone, word) => {
   const p = el("span", { className: "cee-status", textContent: word });
@@ -13,7 +15,12 @@ const pill = (tone, word) => {
   return p;
 };
 
-export function devicePanel(root, { onSession, emulator = () => null, probe, view = () => null }) {
+/**
+ * `usb`, `auto` and `diagnose`: the USB watch, whether to connect by itself, and how to open the MIDI report.
+ * `onLink`: whether a session runs, at once when that changes. `autoOff` and `autoOn`: the button's disconnect switches
+ * connecting by itself off (true when it did), its connect back on.
+ */
+export function devicePanel(root, { onSession, emulator = () => null, probe, view = () => null, usb = null, auto = () => false, diagnose = () => {}, onLink = () => {}, autoOff = () => false, autoOn = () => {} }) {
   let session = null;
   const midi = createMidiTransport(window);
   let connection = 0;
@@ -24,8 +31,8 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   const decide = el("div", { className: "cee-decide", id: "cee-decide", role: "alert", hidden: true });
   const facts = el("dl", { className: "cee-facts" });
   const choose = el("div", { className: "ui-field", hidden: true });
-  const button = el("button", { type: "button", className: "btn cee-primary", id: "cee-connect", textContent: "Mit Electribe verbinden" });
-  const emuButton = el("button", { type: "button", className: "btn", id: "cee-connect-emu", textContent: "Mit Emulator verbinden", hidden: true });
+  const button = el("button", { type: "button", className: "btn cee-primary", id: "cee-connect", textContent: t("device.connect") });
+  const emuButton = el("button", { type: "button", className: "btn", id: "cee-connect-emu", textContent: t("device.connectEmu"), hidden: true });
   const rehearseState = el("p", { className: "ui-sr-only", id: "cee-rehearse-state", "aria-live": "polite" });
   const ledNote = el("p", { className: "ui-sr-only", id: "cee-led-note", "aria-live": "polite" });
   const log = el("ul", { className: "ui-list cee-log" });
@@ -37,39 +44,49 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   };
   const clear = () => { status.hidden = true; status.replaceChildren(); };
 
+  /** One button: connect while no session runs, disconnect while one does. */
+  const linked = () => !!session && !session.sender.disconnected;
+  function sync() {
+    const on = linked();
+    button.id = on ? "cee-disconnect" : "cee-connect";
+    button.textContent = t(on ? "app.disconnect" : "device.connect");
+    button.classList.toggle("cee-primary", !on);
+    onLink(on);
+  }
+
   function fact(term, value) {
     facts.append(el("dt", { textContent: term }), el("dd", {}, value));
   }
 
   function showDevice(d) {
     facts.replaceChildren();
-    fact("Globaler Kanal", String(d.channel + 1));
-    fact("Gerätesuche, Byte 10 und 11", `${d.version[0]}.${d.version[1]}`);
-    fact("Stand", d.versionKnown ? pill("ok", "bekannt") : pill("warn", "unbekannt, nur lesen"));
-    fact("RAM über MIDI", d.ram === "blech" ? pill("ok", `BLECHTRIBE, Blöcke bis ${d.blech.maxBlock} Byte`) : d.ram === "hacktribe" ? pill("ok", "Hacktribe") : pill("error", "antwortet nicht"));
+    fact(t("device.fact.channel"), String(d.channel + 1));
+    fact(t("device.fact.version"), `${d.version[0]}.${d.version[1]}`);
+    fact(t("device.fact.state"), d.versionKnown ? pill("ok", t("device.fact.known")) : pill("warn", t("device.fact.unknown")));
+    fact(t("device.fact.ram"), d.ram === "blech" ? pill("ok", t("device.fact.ram.blech", { max: d.blech.maxBlock })) : d.ram === "hacktribe" ? pill("ok", t("device.fact.ram.hacktribe")) : pill("error", t("device.fact.ram.none")));
     if (d.sampler && !d.ram) {
-      say("warn", "eingeschränkt", "Auf der Electribe ist weder BLECHTRIBE noch Hacktribe. Patterns und Einstellungen gehen. Für alles andere brauchst du BLECHTRIBE: links auf Firmware Patcher.");
+      say("warn", t("device.state.limited"), t("device.say.noPatch"));
     } else if (!d.versionKnown) {
-      say("warn", "nur lesen", "Diese Firmware-Version kennt die App noch nicht genau. Deshalb ändert sie nichts am Gerät, du kannst nur lesen.");
+      say("warn", t("device.state.readOnly"), t("device.say.unknownVersion"));
     } else if (d.build === "stock") {
-      say("ok", "verbunden", "Korgs Original mit BLECHTRIBE. Alles geht, nur die Effekt-Presets nicht.");
+      say("ok", t("device.state.connected"), t("device.say.stock"));
     } else if (!d.ram) {
-      say("warn", "eingeschränkt", "Ohne BLECHTRIBE gehen nur Patterns und Einstellungen. Für alles andere: links auf Firmware Patcher.");
+      say("warn", t("device.state.limited"), t("device.say.noRam"));
     } else {
-      say("ok", "verbunden", "Bereit.");
+      say("ok", t("device.state.connected"), t("device.say.ready"));
     }
   }
 
   function showDecision() {
     const p = session?.pending;
     if (!session?.blocked) { decide.hidden = true; decide.replaceChildren(); return; }
-    const restore = el("button", { type: "button", className: "btn cee-primary", id: "cee-decide-restore", textContent: "Sicherung zurückspielen", disabled: !p });
-    const keep = el("button", { type: "button", className: "btn", id: "cee-decide-keep", textContent: "So lassen" });
+    const restore = el("button", { type: "button", className: "btn cee-primary", id: "cee-decide-restore", textContent: t("device.decide.restore"), disabled: !p });
+    const keep = el("button", { type: "button", className: "btn", id: "cee-decide-keep", textContent: t("device.decide.keep") });
     const act = async choice => {
       restore.disabled = keep.disabled = true;
       try {
         const res = await session.resolve(choice);
-        toast(res.ok ? (choice === "restore" ? "Sicherung zurückgespielt." : "Entschieden: so gelassen.") : `Das hat nicht geklappt: ${res.error.message}`, res.ok ? "ok" : "error");
+        toast(res.ok ? (choice === "restore" ? t("device.decide.restored") : t("device.decide.kept")) : t("device.decide.failed", { error: res.error.message }), res.ok ? "ok" : "error");
       } catch (e) { toast(e.message, "error"); }
       restore.disabled = keep.disabled = false;
       if (!session.blocked) setTimeout(showDecision, 0);
@@ -77,9 +94,9 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     restore.addEventListener("click", () => act("restore"));
     keep.addEventListener("click", () => act("keep"));
     decide.replaceChildren(
-      el("h3", { textContent: "Entscheidung nötig" }),
+      el("h3", { textContent: t("device.decide.title") }),
       el("p", { className: "ui-break", textContent: session.blocked }),
-      p?.now ? el("p", {}, [pill("warn", "zurückgelesen"), ` ${p.now.text}`]) : null,
+      p?.now ? el("p", {}, [pill("warn", t("device.decide.readBack")), ` ${p.now.text}`]) : null,
       el("div", { className: "actions" }, [restore, keep]),
     );
     decide.hidden = false;
@@ -87,74 +104,114 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
 
   /** For a real device: an emulator session that tries every edit first (plan 5.1, 5.2). */
   async function attachRehearsal() {
-    if (!session) return;
+    const s = session;
+    if (!s) return;
     const emu = emulator();
-    if (session.port === emu) { rehearseState.textContent = ""; return; }
-    session.requireRehearsal = true;
+    if (s.port === emu) { rehearseState.textContent = ""; return; }
+    s.requireRehearsal = true;
     if (!emu?.running) {
-      session.rehearseOn(null);
-      rehearseState.textContent = "Probe im Emulator: Emulator läuft nicht. Starte ihn im Bereich Emulator (die Electribe wird dabei getrennt) und verbinde danach neu; bis dahin geht nichts ans Gerät.";
-      toast(rehearseState.textContent, "info", { stay: true });
+      s.rehearseOn(null);
+      if (!view()?.firmware) {
+        rehearseState.textContent = t("device.rehearse.noFirmware");
+        toast(rehearseState.textContent, "info", { stay: true });
+        return;
+      }
+      rehearseState.textContent = t("device.rehearse.starting");
+      startRehearsal();
       return;
     }
     try {
       // Its own history: device undo takes back the probe's last edit, never one made on the emulator directly.
       // The terminal rehearses on the same session, so the two never take the port from each other.
       const tries = await probe();
+      if (session !== s) return;    // disconnected meanwhile
       tries.history.length = 0;
-      session.rehearseOn(tries);
-      rehearseState.textContent = "Probe im Emulator: an. Jede Änderung läuft erst dort; nur wenn sie zurückgelesen stimmt und die Firmware weiterläuft, geht sie ans Gerät.";
+      s.rehearseOn(tries);
+      rehearseState.textContent = t("device.rehearse.on");
     } catch (e) {
-      session.rehearseOn(null);
-      rehearseState.textContent = `Probe im Emulator: nicht möglich (${e.message}). Nichts geht ans Gerät.`;
+      if (session !== s) return;
+      s.rehearseOn(null);
+      rehearseState.textContent = t("device.rehearse.failed", { error: e.message });
       toast(rehearseState.textContent, "error");
     }
   }
 
-  async function connectPort(port) {
+  /**
+   * Switches the emulator on behind the drawing, which keeps showing the real device, and attaches the probe once
+   * the firmware has booted. Nothing goes to the device until then. Why the start failed, the emulator says itself.
+   */
+  let starting = null;
+  const BOOT_WAIT_MS = 90_000;
+  // One start for whichever real session is there once it has booted, also one that reconnected meanwhile.
+  function startRehearsal() {
+    starting ??= (async () => {
+      try {
+        await view().powerOn();
+        const until = Date.now() + BOOT_WAIT_MS;
+        while (!emulator()?.running && session && Date.now() < until) await new Promise(r => setTimeout(r, 250));
+        if (!emulator()?.running) throw new Error(t("emu.power.failed"));
+      } catch (e) {
+        if (session) rehearseState.textContent = t("device.rehearse.failed", { error: e.message });
+        return;
+      } finally {
+        starting = null;
+      }
+      await attachRehearsal();
+    })();
+  }
+
+  /** "ok", "failed", or "skip" when another connection came in between. `quiet`: a failure leaves the toast to the caller. */
+  async function connectPort(port, { quiet = false } = {}) {
     const attempt = ++connection;
     const previous = session;
     session = null;
     if (previous && previous.port !== emulator()) previous.lost();
+    if (previous) sync();
     let candidate;
     try {
       if (previous && previous.port !== emulator()) {
         const closed = await midi.closePort(previous.port);
-        if (closed?.state === "quarantined") throw new Error("Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest.");
+        if (closed?.state === "quarantined") throw new Error(t("midi.quarantinedShort"));
       }
-      if (attempt !== connection) return;
+      if (attempt !== connection) return "skip";
       if (port === emulator()) {
         candidate = await probe();
       } else {
         await midi.openPort(port);
-        if (attempt !== connection) { await midi.closePort(port); return; }
+        if (attempt !== connection) { await midi.closePort(port); return "skip"; }
         if (!carries.has(port.name)) carries.set(port.name, newCarry());
         candidate = new DeviceSession({ port, carry: carries.get(port.name) });
         await candidate.connect();
       }
-      if (attempt !== connection) { candidate.lost(); await midi.closePort(port); return; }
+      if (attempt !== connection) { candidate.lost(); await midi.closePort(port); return "skip"; }
       session = candidate;
+      // The button turns now, not once the rehearsal is attached, which can take as long as the emulator boots.
+      sync();
       showDevice(session.device);
       await attachRehearsal();
-      if (attempt !== connection) return;
+      if (attempt !== connection) return "skip";
       showDecision();
       view()?.external(port !== emulator(), !!session.device?.ram);
       onSession(session);
+      return "ok";
     } catch (e) {
       candidate?.lost();
       const closed = port !== emulator() ? await midi.closePort(port, { refresh: false }).catch(() => null) : null;
-      if (attempt !== connection) return;
+      if (attempt !== connection) return "skip";
       view()?.external(false);
-      say("error", "keine Antwort", closed?.state === "quarantined"
-        ? `Die MIDI-Verbindung ist unterbrochen. Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest. Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen. (${e.message})`
-        : `Die Electribe antwortet nicht. Ist sie eingeschaltet und per USB angesteckt? Dann nochmal verbinden. (${e.message})`);
+      if (!quiet) say("error", t("device.state.noAnswer"), closed?.state === "quarantined"
+        ? t("device.noAnswer.quarantined", { error: e.message })
+        : t("device.noAnswer", { error: e.message }));
       session = null;
+      sync();
       onSession(null);
+      return "failed";
     }
   }
 
-  /** Ends the connection to a real device or to the emulator; always possible, also while a request is in flight. */
-  async function disconnect() {
+  /** Ends the connection to a real device or to the emulator; always possible, also while a request is in flight. `note` follows the message. */
+  async function disconnect({ note = "" } = {}) {
+    autoConnect?.manualDisconnect();
     connection++;
     const lost = session;
     if (!lost) return false;
@@ -171,16 +228,53 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     decide.replaceChildren();
     facts.replaceChildren();
     seen = false;
+    sync();
     onSession(null);
-    say("neutral", "getrennt", closed?.state === "quarantined"
-      ? "Getrennt. Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest."
-      : real ? "Die Electribe ist getrennt." : "Der Emulator ist nicht mehr verbunden.");
+    const text = closed?.state === "quarantined"
+      ? t("device.disconnected.quarantined")
+      : real ? t("device.disconnected") : t("device.disconnected.emu");
+    say("neutral", t("device.state.disconnected"), note ? `${text} ${note}` : text);
     return true;
   }
 
+  /**
+   * Connects to the one Electribe on the cable without a word on the way; a toast comes only with the session.
+   * Never while a session runs, real or on the emulator, so nothing in flight is cut off; with several devices the
+   * choice stays with the person.
+   */
+  async function connectQuietly() {
+    if ((session && !session.sender.disconnected) || !midi.supported) return "skip";
+    let access;
+    try { access = await midi.requestAccess(); } catch { return "failed"; }
+    if (session && !session.sender.disconnected) return "skip";
+    watchPorts(access);
+    const ports = electribePorts(access);
+    if (ports.length !== 1) return "skip";
+    choose.hidden = true;
+    choose.replaceChildren();
+    return connectPort(ports[0], { quiet: true });
+  }
+
+  /** A port of the session that goes away ends it. */
+  function watchPorts(access) {
+    access.onstatechange = e => {
+      if (session && e.port.state === "disconnected" && (e.port === session.port.out || e.port === session.port.in)) {
+        const lost = session;
+        connection++;
+        lost.lost();
+        midi.closePort(lost.port, { refresh: false }).catch(() => {});
+        sync();
+        onSession(lost);
+        view()?.external(false);
+        say("error", t("device.state.disconnected"), t(e.quarantined ? "device.unplugged.quarantined" : "device.unplugged", { detail: e.message ? ` (${e.message})` : "" }));
+      }
+    };
+  }
+
   async function connect() {
+    autoConnect?.manualConnect();
     if (!midi.supported) {
-      say("error", "nicht möglich", "Dieser Browser kann nicht mit der Electribe reden. Nimm die App oder Chrome oder Edge am Rechner. Safari geht nicht.");
+      say("error", t("device.state.impossible"), t("device.noMidi"));
       return;
     }
     let access;
@@ -188,37 +282,27 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       window.ui?.busy(button, true);
       access = await midi.requestAccess();
     } catch (e) {
-      say("error", "nicht möglich", midi.native
-        ? `Die MIDI-Verbindung konnte nicht geöffnet werden. ${e.message ?? e}`
-        : "Der Zugriff auf MIDI wurde abgelehnt. Ohne ihn erreicht die App die Electribe nicht. Lade die Seite neu und klick bei der Frage auf Erlauben.");
+      say("error", t("device.state.impossible"), midi.native
+        ? t("device.midiFailed", { error: e.message ?? e })
+        : t("device.midiDenied"));
       return;
     } finally {
       window.ui?.busy(button, false);
     }
-    access.onstatechange = e => {
-      if (session && e.port.state === "disconnected" && (e.port === session.port.out || e.port === session.port.in)) {
-        const lost = session;
-        connection++;
-        lost.lost();
-        midi.closePort(lost.port, { refresh: false }).catch(() => {});
-        onSession(lost);
-        view()?.external(false);
-        say("error", "getrennt", `Die Electribe wurde abgesteckt oder die MIDI-Verbindung ist unterbrochen. ${e.quarantined ? "Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest." : "Verbinde neu."} Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen.${e.message ? ` (${e.message})` : ""}`);
-      }
-    };
+    watchPorts(access);
     const ports = electribePorts(access);
     choose.hidden = true;
     choose.replaceChildren();
     if (!ports.length) {
-      say("warn", "nicht gefunden", "Keine Electribe gefunden. Steck sie per USB an und schalte sie ein.");
+      say("warn", t("device.state.notFound"), t("device.notFound"));
       return;
     }
     if (ports.length > 1) {
       const select = el("select", { className: "select", id: "cee-port" });
-      select.append(el("option", { value: "", textContent: "Electribe auswählen", disabled: true, selected: true }));
+      select.append(el("option", { value: "", textContent: t("device.pick"), disabled: true, selected: true }));
       ports.forEach((p, i) => select.append(el("option", { value: String(i), textContent: p.name })));
       select.addEventListener("change", () => connectPort(ports[Number(select.value)]));
-      choose.replaceChildren(el("label", { className: "ui-field-label", htmlFor: "cee-port", textContent: "Mehrere Electribes gefunden, welche?" }), select);
+      choose.replaceChildren(el("label", { className: "ui-field-label", htmlFor: "cee-port", textContent: t("device.several") }), select);
       choose.hidden = false;
       return;
     }
@@ -248,7 +332,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     } catch (e) {
       if (++ledFails === 3) {
         ledsOffFor = s;
-        ledNote.textContent = `LEDs: nicht lesbar, die Anzeige bleibt dunkel. ${e.message}`;
+        ledNote.textContent = t("device.ledsFailed", { error: e.message });
         toast(ledNote.textContent, "error");
       }
     } finally { lighting = false; }
@@ -264,23 +348,32 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       const found = electribePorts(await midi.requestAccess()).length > 0;
       if (found === seen || session) return;
       seen = found;
-      if (found) say("neutral", "erkannt", "Eine Electribe ist angesteckt. Klick auf „Mit Electribe verbinden“.");
+      if (found && !auto()) say("neutral", t("device.state.found"), t("device.found"));
       else clear();
     } catch {}
   }
   setInterval(detect, 4000);
 
-  button.addEventListener("click", connect);
+  button.addEventListener("click", async () => {
+    if (!linked()) {
+      autoOn();
+      await connect();
+      return;
+    }
+    const off = session.port !== emulator() && autoOff();
+    await disconnect({ note: off ? t("device.autoOff") : "" });
+  });
   emuButton.addEventListener("click", () => {
     const port = emulator();
     if (!port?.running) {
-      say("warn", "Emulator läuft nicht", "Starte zuerst links den Emulator, dann hier verbinden.");
+      say("warn", t("device.state.emuOff"), t("device.emuOff"));
       return;
     }
     port.ondisconnect = () => {
       if (session?.port !== port) return;
       session.lost();
-      say("error", "getrennt", "Der Emulator läuft nicht mehr. Sobald er wieder läuft, verbindet sich das hier von selbst. Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen.");
+      sync();
+      say("error", t("device.state.disconnected"), t("device.emuGone"));
       // Once the emulator runs again, the same port connects again, unless another connection came in between.
       const lost = session;
       const back = setInterval(() => {
@@ -290,7 +383,9 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     };
     connectPort(port);
   });
+  const autoConnect = usb ? createAutoConnect({ usb, attempt: connectQuietly, enabled: auto, toast, diagnose }) : null;
   clear();
+  sync();
   root.replaceChildren(
     el("div", { className: "actions" }, [button, emuButton]),
     rehearseState,
@@ -303,12 +398,20 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
 
   return {
     get session() { return session; },
+    /** Connect or disconnect; the navbar shows it on the device page. */
+    button,
     /** The same as the button in this area: connect to the running emulator. */
     connectEmulator: () => emuButton.click(),
+    /** The mode menu chose the real device. */
+    chosen: () => autoConnect?.chosen(),
     disconnect,
     showDecision,
+    /** A firmware came in: a real device still waiting for its rehearsal gets it now. */
+    firmwareChanged() {
+      if (session && session.port !== emulator() && !session.rehearsal && !emulator()?.running) attachRehearsal();
+    },
     log(text, tone = "neutral") {
-      log.prepend(el("li", { className: "ui-row" }, [pill(tone, { ok: "ok", warn: "Warnung", error: "Fehler", neutral: "Info" }[tone]), el("span", { textContent: ` ${text}` })]));
+      log.prepend(el("li", { className: "ui-row" }, [pill(tone, t({ ok: "device.log.ok", warn: "device.log.warn", error: "common.error", neutral: "device.log.info" }[tone])), el("span", { textContent: ` ${text}` })]));
     },
   };
 }

@@ -15,11 +15,11 @@ const builderAvailable = existsSync(python);
 test("the BLECH set lists patch files that exist, with unique ids per build, and the hook register accepts them together", () => {
   assert.equal(SET.format, "gelumpe-patch-set");
   assert.equal(SET.version, 1);
-  assert.deepEqual(patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "sample-swap", "script-runtime", "script-runtime", "blechtribe", "blechtribe", "splash", "blech-theme", "preset-tables", "preset-tables", "fx-catalog", "synth-filters", "power-off", "doom-loader", "blech-sysex", "blech-sysex"]);
+  assert.deepEqual(patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "sample-swap", "script-runtime", "script-runtime", "blechtribe", "blechtribe", "splash", "blech-theme", "preset-tables", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "blech-version", "doom-loader", "blech-sysex", "blech-sysex"]);
   for (const build of ["hacktribe", "stock"]) {
     const chosen = selectFor(patches, build);
     assert.deepEqual(chosen.reasons, [], build);
-    assert.deepEqual(chosen.patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "sample-swap", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", ...(build === "stock" ? ["synth-filters"] : []), "power-off", "doom-loader", "blech-sysex"], build);
+    assert.deepEqual(chosen.patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "sample-swap", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", ...(build === "stock" ? ["synth-filters"] : []), "power-off", "last-pattern", "init-pattern", "blech-version", "doom-loader", "blech-sysex"], build);
     const registered = checkHooks(chosen.patches);
     assert.equal(registered.ok, true, registered.reasons.join(" "));
   }
@@ -74,7 +74,7 @@ test("the set applies to Korg's own 2.02 when one is given, and the folder is th
   assert.deepEqual(applied.spans.filter(s => s.patch === "blechtribe").map(s => s.length), [18, 24]);
 });
 
-for (const [label, env, file] of [["Hacktribe", "E2_VSB", "data/patches/blechtribe.json"], ["Korg's own 2.02", "E2_STOCK_VSB", "data/patches/blechtribe-stock.json"]]) {
+for (const [label, env, file] of [["Hacktribe", "E2_VSB", "data/patches/blechtribe.json"], ["Korg's own 2.02", "E2_STOCK_VSB", "data/patches/blechtribe-stock.json"], ["Korg's blue 2.02", "E2_BLUE_VSB", "data/patches/blechtribe-synth.json"]]) {
   test(`${file} is what tools/patch/blechtribe.py builds from your ${label} file`, { skip: process.env[env] && builderAvailable ? false : `set ${env}` }, () => {
     const out = spawnSync(python, ["tools/patch/blechtribe.py", "--vsb", process.env[env]], { cwd: new URL("..", import.meta.url).pathname, encoding: "utf8" });
     assert.equal(out.status, 0, out.stderr);

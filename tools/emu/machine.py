@@ -20,7 +20,7 @@ import zlib
 from pathlib import Path
 
 import factorybank
-from firmware import SAMPLER_USER_MARK, identify
+from firmware import HARDWARE_MARKS, SAMPLER_USER_MARK, identify
 from sdcard import IRQ as MMC_IRQ, MMCController
 
 NS_PER_INSN = 5            # assumed: roughly 200 million instructions per second
@@ -65,6 +65,43 @@ SNAP_SKIP = frozenset(("A", "uc", "_reg_read", "_uch", "_reg_buf", "_reg_ref", "
 SNAP_CHUNK = 0x100000
 PAGE = 0x1000
 ZERO_PAGE = bytes(PAGE)
+ZERO_CHUNK = bytes(SNAP_CHUNK)
+
+
+def card_in_memory(card):
+    """A card whose image is a bytearray in memory (sdcard.MemoryMedium), which a snapshot can hold."""
+    from sdcard import MemoryMedium
+    return type(card.medium) is MemoryMedium and isinstance(card.medium.data, bytearray)
+
+
+def _card_pages(data, base):
+    """The pages of a card image that differ from `base` (an empty card without one), as an index and the pages."""
+    index, pages = [], bytearray()
+    for chunk in range(0, len(data), SNAP_CHUNK):
+        have = bytes(data[chunk:chunk + SNAP_CHUNK])
+        if have == (bytes(base[chunk:chunk + SNAP_CHUNK]) if base is not None else ZERO_CHUNK[:len(have)]):
+            continue                    # a whole chunk at once; only a changed one is looked at page by page
+        for off in range(0, len(have), PAGE):
+            page = have[off:off + PAGE]
+            if page != (bytes(base[chunk + off:chunk + off + PAGE]) if base is not None else ZERO_PAGE[:len(page)]):
+                index.append(chunk + off)
+                pages += page
+    return {"index": index, "pages": zlib.compress(bytes(pages), 1)}
+
+
+def _put(owner, name, value):
+    """owner[name] = value, but a dict, list, set, deque or bytearray that is already there is filled in place."""
+    held = owner.get(name)
+    if type(held) is type(value) and isinstance(held, (dict, set)):
+        held.clear()
+        held.update(value)
+    elif type(held) is type(value) and isinstance(held, (list, bytearray)):
+        held[:] = value
+    elif type(held) is type(value) and isinstance(held, collections.deque) and held.maxlen == value.maxlen:
+        held.clear()
+        held.extend(value)
+    else:
+        owner[name] = value
 
 BOOT_STEPS = (1.0, 2.0, 3.0)   # device times a run can start from a kept boot (bootcache.py)
 
@@ -88,6 +125,23 @@ def blank_flash(mark=SAMPLER_USER_MARK):
         bank = factorybank.build()
         mem[factorybank.BASE:factorybank.BASE + len(bank)] = bank
     return mem
+
+
+def hardware_of_flash(flash):
+    """"red" or "blue" by the user-data mark of a flash, None when it has neither (erased, or a mark we do not know)."""
+    mark = bytes(flash[USER_MARK:USER_MARK + 12]) if flash else b""
+    return next((name for name, m in HARDWARE_MARKS.items() if m == mark), None)
+
+
+def hardware_flash(hardware):
+    """A blank flash of the red or the blue hardware."""
+    return blank_flash(HARDWARE_MARKS[hardware])
+
+
+def blank_flash_like(flash):
+    """A blank flash of the hardware `flash` belongs to; None (the build decides) for no flash or an unknown mark."""
+    hardware = hardware_of_flash(flash)
+    return hardware_flash(hardware) if hardware else None
 
 
 class SysexReader:
@@ -217,6 +271,8 @@ class Machine:
         self.powered = True        # false once the firmware lets go of the power hold
         self.report_power = False
         self.flash = Flash(flash, p.user_mark)
+        self.image_size = len(payload)     # restore() clears what the payload wrote
+        self.image_sha = hashlib.sha256(payload).digest()
         # The device runs what its flash holds there, so the flash holds the image this machine runs; an
         # update then shows as a change of that region, and a restart can boot from it (server.py).
         self.flash.mem[FIRMWARE_AT:FIRMWARE_AT + len(payload)] = payload
@@ -233,6 +289,7 @@ class Machine:
         self.lcd_page = self.lcd_col = 0
         self.lcd_reverse_sent = 0  # how many 0xA6 or 0xA7 the controller has been sent
         self.lcd_reverse = False   # 0xA7 sent: the controller shows every pixel the other way round, 0xA6 normal
+        self.lcd_on = True         # 0xAE switches the controller's display off (all pixels clear, RAM kept), 0xAF on again
         self.frames = 0
         self.screens = 0           # display changes, sampled every 100 ms of device time
         self._seen = None
@@ -296,56 +353,99 @@ class Machine:
         self.inputs[pin(4, 1)] = 1
 
     # ---- snapshots ---------------------------------------------------------
-    def snapshot(self):
+    def snapshot(self, card_base=None):
         """Everything this machine has built up so far, as bytes: the CPU, the RAM pages that are not
-        zero, the model's own state. `from_snapshot` gives a machine that goes on exactly as this one
-        would. Without a card (a card is a file the host owns) and without instance methods that
-        someone wrapped around the model (their owner puts them back after restoring)."""
-        if self.mmc.card is not None:
-            raise ValueError("a machine with a card in the slot cannot be snapshotted")
-        state = {k: v for k, v in self.__dict__.items()
-                 if k not in SNAP_SKIP and not isinstance(v, (types.FunctionType, types.MethodType))}
-        flash = state.pop("flash")
-        state["flash"] = {k: v for k, v in flash.__dict__.items() if k != "mem"}
-        pages = bytearray()
-        index = []
-        for base, size in SNAP_REGIONS:
-            for chunk in range(0, size, SNAP_CHUNK):
-                data = bytes(self.uc.mem_read(base + chunk, min(SNAP_CHUNK, size - chunk)))
-                for off in range(0, len(data), PAGE):
-                    page = data[off:off + PAGE]
-                    if page != ZERO_PAGE:
-                        index.append(base + chunk + off)
-                        pages += page
-        blob = {
-            "ctx": self.uc.context_save(), "state": state,
-            "flash_sha": hashlib.sha256(flash.mem).digest(),
-            "flash_mem": zlib.compress(bytes(flash.mem), 1) if flash.dirty else None,
-            "index": index, "pages": zlib.compress(bytes(pages), 1),
-        }
-        return pickle.dumps(blob, pickle.HIGHEST_PROTOCOL)
+        zero, the model's own state and a card in the slot. `from_snapshot` gives a machine that goes on exactly
+        as this one would. A card is kept when it is an image in memory (sdcard.MemoryMedium), as its pages that
+        differ from `card_base` (the image as it was when the machine started, bootcache.py) or, without it, from
+        an empty card. A card on a folder of the host (cardstore.py) is the host's and cannot be kept. Without
+        instance methods that someone wrapped around the model (their owner puts them back after restoring)."""
+        card = self.mmc.card
+        if card is not None and not card_in_memory(card):
+            raise ValueError("a card on a folder of the host cannot be snapshotted")
+        image = card.medium.data if card is not None else None
+        if card is not None:
+            card.medium.data = b""              # its pages are kept next to the RAM's
+        try:
+            state = {k: v for k, v in self.__dict__.items()
+                     if k not in SNAP_SKIP and not isinstance(v, (types.FunctionType, types.MethodType))}
+            flash = state.pop("flash")
+            state["flash"] = {k: v for k, v in flash.__dict__.items() if k != "mem"}
+            pages = bytearray()
+            index = []
+            for base, size in SNAP_REGIONS:
+                for chunk in range(0, size, SNAP_CHUNK):
+                    data = bytes(self.uc.mem_read(base + chunk, min(SNAP_CHUNK, size - chunk)))
+                    if data == ZERO_CHUNK[:len(data)]:
+                        continue
+                    for off in range(0, len(data), PAGE):
+                        page = data[off:off + PAGE]
+                        if page != ZERO_PAGE:
+                            index.append(base + chunk + off)
+                            pages += page
+            blob = {
+                "ctx": self.uc.context_save(), "state": state,
+                "flash_sha": hashlib.sha256(flash.mem).digest(),
+                "flash_mem": zlib.compress(bytes(flash.mem), 1) if flash.dirty else None,
+                "index": index, "pages": zlib.compress(bytes(pages), 1),
+                "card": None if card is None else {"size": len(image), **_card_pages(image, card_base)},
+            }
+            return pickle.dumps(blob, pickle.HIGHEST_PROTOCOL)
+        finally:
+            if card is not None:
+                card.medium.data = image
 
     @classmethod
     def from_snapshot(cls, snap, payload, flash=None):
         """A machine in the state `snapshot` was taken in. `payload` and `flash` are what the original was
-        made with (the snapshot holds only what changed since)."""
-        blob = pickle.loads(snap)
+        made with (the snapshot holds only what changed since); a kept card comes into the slot as well, from an
+        empty card (a snapshot with `card_base` needs that card: `restore`)."""
         m = cls(payload, flash)
-        uc = m.uc
+        card = pickle.loads(snap).get("card")
+        if card is not None:
+            from sdcard import MemoryMedium, SDCard
+            m.insert_card(SDCard(MemoryMedium(bytearray(card["size"]))))
+        m.restore(snap)
+        return m
+
+    def restore(self, snap):
+        """Put this machine into the state `snapshot` was taken in. It has to be made with the same payload and
+        flash and not have run, and a card in its slot has to be the image the snapshot's `card_base` was (an empty
+        one without). The objects the caller may hold stay the same: the machine, its flash, the card and its
+        image, and the dicts, lists and sets of the model."""
+        blob = pickle.loads(snap)
+        uc = self.uc
         if blob["flash_mem"] is not None:
-            m.flash.mem[:] = zlib.decompress(blob["flash_mem"])
-        elif hashlib.sha256(m.flash.mem).digest() != blob["flash_sha"]:
+            self.flash.mem[:] = zlib.decompress(blob["flash_mem"])
+        elif hashlib.sha256(self.flash.mem).digest() != blob["flash_sha"]:
             raise ValueError("the snapshot was taken with another flash")
-        uc.mem_write(0xC0000000, bytes(len(payload)))      # what the machine was built with and the RAM then changed
+        held_card = self.mmc.card
+        if (blob.get("card") is None) != (held_card is None):
+            raise ValueError("the snapshot and this machine differ in the card in the slot")
+        if held_card is not None and (not card_in_memory(held_card) or len(held_card.medium.data) != blob["card"]["size"]):
+            raise ValueError("the card in the slot is not the snapshot's")
+        uc.mem_write(0xC0000000, bytes(self.image_size))  # what the machine was built with and the RAM then changed
         uc.mem_write(0, bytes(0x1000))
         pages = zlib.decompress(blob["pages"])
         for i, at in enumerate(blob["index"]):
             uc.mem_write(at, pages[i * PAGE:(i + 1) * PAGE])
         uc.context_restore(blob["ctx"])
-        flash_state = blob["state"].pop("flash")
-        m.__dict__.update(blob["state"])
-        m.flash.__dict__.update(flash_state)
-        return m
+        state = blob["state"]
+        flash_state = state.pop("flash")
+        mmc = state.pop("mmc")
+        for k, v in state.items():
+            _put(self.__dict__, k, v)
+        self.flash.__dict__.update(flash_state)
+        kept_card, mmc.card = mmc.card, held_card
+        held_mmc = self.mmc
+        held_mmc.__dict__.update(mmc.__dict__)
+        if held_card is not None:
+            medium, data = held_card.medium, held_card.medium.data
+            held_card.__dict__.update({**kept_card.__dict__, "medium": medium})
+            medium.__dict__.update({**kept_card.medium.__dict__, "data": data})
+            changed = zlib.decompress(blob["card"]["pages"])
+            for i, at in enumerate(blob["card"]["index"]):
+                data[at:at + PAGE] = changed[i * PAGE:(i + 1) * PAGE]
 
     # ---- register access ---------------------------------------------------
     def _rd(self, uc, off, size, base):
@@ -520,6 +620,7 @@ class Machine:
             self.powered = False
             self.fb = [[0] * 128 for _ in range(8)]
             self.lcd_reverse = False
+            self.lcd_on = True
             self.uc.emu_stop()
 
     def gpio_out(self, bank, number):
@@ -617,10 +718,14 @@ class Machine:
         elif b in (0xA6, 0xA7):
             self.lcd_reverse = b == 0xA7
             self.lcd_reverse_sent += 1
+        elif b in (0xAE, 0xAF):
+            self.lcd_on = b == 0xAF
 
     def shown(self):
         """The display as the panel shows it, page-major bytes with a set bit for a dark pixel: the controller RAM, or its
-        complement after 0xA7 (reverse display)."""
+        complement after 0xA7 (reverse display); nothing after 0xAE (display off)."""
+        if not self.lcd_on:
+            return bytes(1024)
         flat = bytes(b for row in self.fb for b in row)
         return bytes(b ^ 0xFF for b in flat) if self.lcd_reverse else flat
 
@@ -893,6 +998,8 @@ def main():
     parser.add_argument("--flash", nargs="*", default=[], type=Path,
                         help="own flash dump, one file or parts in address order; "
                              "without it the flash is blank: empty patterns, no samples")
+    parser.add_argument("--hardware", choices=sorted(HARDWARE_MARKS),
+                        help="without --flash: a blank flash of this hardware instead of the one of the build")
     parser.add_argument("--seconds", type=float, default=6.0, help="device time to run")
     parser.add_argument("--hold-power", action="store_true", help="keep the power button pressed")
     parser.add_argument("--held", type=lambda x: int(x, 0), default=0,
@@ -907,7 +1014,7 @@ def main():
         raw = args.vsb.read_bytes()
         if len(raw) != 0x200100:
             raise ValueError("VSB must contain a 0x100-byte header and 0x200000-byte payload")
-        flash = load_flash(args.flash) if args.flash else None
+        flash = load_flash(args.flash) if args.flash else bytes(hardware_flash(args.hardware)) if args.hardware else None
         sends = sorted((float(at), bytes.fromhex(msg), "panel") for msg, at in (x.split("@") for x in args.send))
         if any(len(msg) != 5 for _, msg, _ in sends):
             raise ValueError("a panel message has 5 bytes")
@@ -947,7 +1054,7 @@ def main():
     report = {
         "schema": 1, "suite": "boot", "unicorn": "2.1.4", "hardware_contact": False,
         "firmware_sha256": hashlib.sha256(raw).hexdigest(), "build": m.profile.build,
-        "flash": bool(args.flash),
+        "flash": bool(args.flash), "hardware": hardware_of_flash(m.flash.mem),
         "device_ms": round(m.time_ns / 1e6), "instructions": m.insns,
         "asserts": m.asserts, "frames": m.frames, "screens": m.screens,
         "display_lit": sum(bin(b).count("1") for row in m.fb for b in row),

@@ -38,7 +38,16 @@ export function loadFrames() {
   // The sprites are filled; on the display he is drawn as the loading animation draws him, the body as its outline.
   const rowsOf = name => (sprites[name] ??= outlined(readPng(readFileSync(root + SPRITE_DIR + `blechy-${name}.png`)).map(r => [...r].map(c => c === "#")))
     .map(r => r.map(lit => (lit ? "#" : ".")).join("")));
-  return Object.fromEntries(FRAME_ORDER.map(name => [name, { ...FRAMES[name], rows: rowsOf(FRAMES[name].sprite) }]));
+  /** The rows flipped left to right about the middle of the box around the lit pixels of all the named sprites. */
+  const flipped = (name, axis) => {
+    const lit = axis.flatMap(n => rowsOf(n).flatMap(r => [...r].flatMap((c, x) => (c === "#" ? [x] : []))));
+    const sum = Math.min(...lit) + Math.max(...lit);
+    return rowsOf(name).map(r => [...r].map((_, x) => r[sum - x] ?? ".").join(""));
+  };
+  return Object.fromEntries(FRAME_ORDER.map(name => {
+    const f = FRAMES[name];
+    return [name, { ...f, rows: f.mirror ? flipped(f.sprite, f.mirror) : rowsOf(f.sprite) }];
+  }));
 }
 
 /** A frame on the whole display, rows of "#" and ".", clipped at the edges. */

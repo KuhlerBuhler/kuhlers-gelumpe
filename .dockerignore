@@ -1,0 +1,18 @@
+.git
+.github
+.e2
+node_modules
+dist
+dist-release
+tools/emu/.venv
+tools/emu/.venv-x64
+
+# Korg data never goes into an image either, not even when a working copy happens to lie in the folder.
+*.VSB
+*.vsb
+*.syx
+*.e2sallpat
+*.e2spat
+e2sSample.all
+flash_*.bin
+*.img

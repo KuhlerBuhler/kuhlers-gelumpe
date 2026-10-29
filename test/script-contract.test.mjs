@@ -15,11 +15,11 @@ test("the shared script pool and entry layout are one declarative contract", () 
   assert.equal(BUDGET.variableSlots, BUDGET.scriptBytes / 4);
   assert.deepEqual(contract.SCRIPT_ENTRY.fields.map(f => [f.name, f.offset]), [
     ["next", 0], ["blob", 4], ["vars", 8], ["state", 12], ["fault", 16], ["offset", 20],
-    ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 132], ["readySent", 220],
-    ["storeMask", 224], ["store", 228],
+    ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 136], ["readySent", 228],
+    ["storeMask", 232], ["store", 236], ["timers", 300],
   ]);
-  assert.equal(contract.SCRIPT_ENTRY.size, 48 + EVENTS.length * 8 + 4 + contract.STORE.slots * 4);
-  assert.equal(contract.SCRIPT_ENTRY.size, 292);
+  assert.equal(contract.SCRIPT_ENTRY.size, 48 + EVENTS.length * 8 + 4 + contract.STORE.slots * 4 + contract.TIMERS.slots * contract.TIMERS.recordSize);
+  assert.equal(contract.SCRIPT_ENTRY.size, 396);
   let offset = 0;
   for (const field of contract.SCRIPT_ENTRY.fields) {
     assert.equal(field.offset, offset);
@@ -99,7 +99,7 @@ test("LED state and transport budgets share one generated contract", () => {
   ]);
   assert.deepEqual(contract.SCRIPT_LED_VALID, { DESIRED: 1, DELIVERED: 2 });
   assert.equal(API.find(a => a.name === "korg.led").id, 1);
-  assert.equal(API_VERSION, 8);
+  assert.equal(API_VERSION, 11);
   const equ = Object.fromEntries([...asmInclude().matchAll(/^\.equ (\w+), (\w+)$/gm)].map(m => [m[1], Number(m[2])]));
   for (const [name, value] of Object.entries(led).filter(([, value]) => typeof value === "number")) {
     assert.equal(equ[`SCRIPT_LED_${name.replace(/([a-z])([A-Z])/g, "$1_$2").toUpperCase()}`], value);
@@ -154,7 +154,7 @@ test("opcode numbers are pinned: they are in every blob ever exported", () => {
 });
 
 test("event ids, API ids and error codes are pinned", () => {
-  assert.deepEqual(EVENTS.map(e => e.name), ["start", "ready", "frame", "buttonPress", "buttonRelease", "knob", "encoder", "pad", "touch", "step", "beat", "play", "stop", "rec", "patternChange", "partChange", "mute", "tempo", "save", "menu", "open", "close"]);
+  assert.deepEqual(EVENTS.map(e => e.name), ["start", "ready", "frame", "buttonPress", "buttonRelease", "knob", "encoder", "pad", "touch", "step", "beat", "play", "stop", "rec", "patternChange", "partChange", "mute", "tempo", "save", "menu", "open", "close", "timer"]);
   assert.deepEqual(Object.fromEntries(API.map(a => [a.id, a.name])), {
     1: "korg.led", 2: "korg.millis", 16: "korg.display.clear", 17: "korg.display.text", 18: "korg.display.number",
     19: "korg.display.pixel", 20: "korg.display.rect", 21: "korg.display.clearRect",
@@ -163,9 +163,11 @@ test("event ids, API ids and error codes are pinned", () => {
     35: "korg.read.transport", 36: "korg.read.tempo", 37: "korg.read.pattern", 38: "korg.read.part", 39: "korg.read.step",
     40: "korg.read.mute", 41: "korg.read.knob",
     42: "korg.read.chainMode", 43: "korg.read.patternValue", 44: "korg.remapKey",
+    45: "korg.seq.setStep", 46: "korg.seq.setGate", 47: "korg.seq.clearPart",
     48: "korg.play", 49: "korg.stop", 50: "korg.pattern", 51: "korg.tempo", 52: "korg.part", 53: "korg.mute",
     56: "korg.backlight", 57: "korg.ledHold", 58: "korg.menu.add", 59: "korg.app",
-    60: "korg.file.frame",
+    60: "korg.file.frame", 61: "korg.get", 62: "korg.set",
+    63: "korg.after", 64: "korg.every", 65: "korg.afterSteps", 66: "korg.cancel",
   });
   assert.deepEqual(ERRORS.map(e => e.code), ERRORS.map((_, i) => i));
   assert.equal(ERROR.FUEL, 1);
@@ -175,7 +177,7 @@ test("event ids, API ids and error codes are pinned", () => {
   assert.equal(ERROR.STACK, 5);
   assert.equal(ERROR.BAD_JUMP, 6);
   assert.equal(FORMAT_VERSION, 2);
-  assert.equal(API_VERSION, 8);
+  assert.equal(API_VERSION, 11);
   assert.deepEqual(API.filter(a => a.since === 2).map(a => a.name), ["korg.store.get", "korg.store.set", "korg.store.save"]);
   assert.deepEqual(API.filter(a => a.since === 3).map(a => a.name).slice(0, 2), ["korg.read.transport", "korg.read.tempo"]);
   assert.deepEqual(API.filter(a => a.since === 4).map(a => a.name), ["korg.menu.add"]);

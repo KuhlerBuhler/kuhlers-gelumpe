@@ -7,9 +7,11 @@ import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, FIRST_USER, LAST_USER } from "../../src/sample-file.mjs";
-import { readDeviceSamples, writeDeviceChange, needsCompaction, inspectTemp, finishTemp, discardTemp, SwapInterrupted } from "../../src/usb-sample-file.mjs";
+import { readDeviceSamples, downloadDeviceSamples, writeDeviceChange, needsCompaction, inspectTemp, finishTemp, discardTemp, SwapInterrupted } from "../../src/usb-sample-file.mjs";
+import { t, tNodes } from "./i18n.mjs";
+import { number } from "../../src/text.mjs";
 
-const RESTART = "Die Electribe lädt Samples nur beim Start: nach dem Kopieren auf die Karte neu starten.";
+const restart = () => t("sampleset.restart");
 
 const pill = (tone, word) => {
   const p = el("span", { className: "cee-status", textContent: word });
@@ -17,9 +19,9 @@ const pill = (tone, word) => {
   return p;
 };
 
-const size = bytes => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1).replace(".", ",")} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
-const seconds = s => `${s.frames && s.rate ? (s.frames / s.rate).toFixed(2).replace(".", ",") : "0"} s`;
-const format = s => `${s.rate / 1000} kHz, ${s.bits} Bit, ${s.channels === 2 ? "Stereo" : "Mono"}`.replace(".", ",");
+const size = bytes => (bytes >= 1048576 ? `${number(Number((bytes / 1048576).toFixed(1)), { useGrouping: false, minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+const seconds = s => `${s.frames && s.rate ? number(Number((s.frames / s.rate).toFixed(2)), { useGrouping: false, minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0"} s`;
+const format = s => t("sampleset.format", { rate: number(s.rate / 1000, { useGrouping: false }), bits: s.bits, channels: s.channels === 2 ? t("sampleset.stereo") : t("sampleset.mono") });
 
 export function samplesFilePage(root, { device = null } = {}) {
   let source = "file";
@@ -28,24 +30,28 @@ export function samplesFilePage(root, { device = null } = {}) {
   let parsed = null;
   let removed = new Set();
   let added = [];
-  const pick = el("input", { type: "file", className: "ui-sr-only", id: "cee-sf-file", accept: ".all,.ALL", tabIndex: -1 });
-  const wavs = el("input", { type: "file", className: "ui-sr-only", id: "cee-sf-wav", accept: ".wav,.WAV,audio/wav", multiple: true, tabIndex: -1 });
-  for (const input of [pick, wavs]) input.setAttribute("aria-hidden", "true");
-  const open = el("button", { type: "button", className: "btn", id: "cee-sf-open", textContent: "e2sSample.all öffnen", onclick: () => pick.click() });
-  const fromDevice = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-device", textContent: "Von der Electribe lesen", disabled: true, onclick: () => loadFromDevice() });
-  const add = el("button", { type: "button", className: "btn", id: "cee-sf-add", textContent: "WAV hinzufügen", disabled: true, onclick: () => wavs.click() });
-  const save = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-save", textContent: "Speichern", disabled: true });
-  const job = el("div", { className: "ui-job", id: "cee-sf-job", hidden: true });
-  const reset = el("button", { type: "button", className: "btn", id: "cee-sf-reset", textContent: "Änderungen verwerfen", disabled: true });
-  const summary = el("p", { className: "muted", id: "cee-sf-summary", role: "status" });
-  const list = el("ul", { className: "ui-list cee-sf-list", id: "cee-sf-list" });
-  const intro = el("p", { className: "cee-sample-intro" }, [
-    "Hier siehst du die Samples auf der SD-Karte, in ",
-    el("code", { textContent: "KORG/…/Sample/e2sSample.all" }),
-    ". Du kannst welche hinzufügen oder rausnehmen. Entweder liest du sie von der angesteckten Electribe (dazu muss sie verbunden sein) und schreibst die Änderung dorthin zurück, oder du öffnest die Datei von der Karte aus dem Kartenleser, speicherst sie und kopierst sie zurück. ",
-    RESTART,
+  // Both files come in through the design's upload field (ui-dropzone): click to pick or drop on it.
+  const dropzone = (input, drag, hint) => el("label", { className: "ui-dropzone" }, [
+    input,
+    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t(drag) }), t("common.pick")]),
+    el("span", { className: "ui-dropzone-hint", textContent: t(hint) }),
+    el("span", { className: "ui-dropzone-files" }),
   ]);
-  root.replaceChildren(intro, el("div", { className: "actions" }, [fromDevice, open, add, save, reset, pick, wavs]), job, summary, list);
+  const pick = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-file", accept: ".all,.ALL" });
+  const wavs = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-wav", accept: ".wav,.WAV,audio/wav", multiple: true, disabled: true });
+  const fromDevice = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-device", textContent: t("sampleset.device.read"), disabled: true, onclick: () => loadFromDevice() });
+  const download = el("button", { type: "button", className: "btn", id: "cee-sf-download", textContent: t("sampleset.device.download"), disabled: true, onclick: () => downloadFromDevice() });
+  const save = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-save", textContent: t("common.save"), disabled: true });
+  const job = el("div", { className: "ui-job", id: "cee-sf-job", hidden: true });
+  const reset = el("button", { type: "button", className: "btn", id: "cee-sf-reset", textContent: t("sampleset.reset"), disabled: true });
+  const summary = el("p", { className: "muted", id: "cee-sf-summary", role: "status" });
+  const list = el("ul", { className: "ui-list cee-sf-list", id: "cee-sf-list", hidden: true });
+  const intro = el("p", { className: "cee-sf-intro" }, [
+    ...tNodes("sampleset.intro", { path: el("code", { textContent: "KORG/…/Sample/e2sSample.all" }), restart: restart() }),
+  ]);
+  const wavZone = dropzone(wavs, "sampleset.wav.drag", "sampleset.wav.hint");
+  const actions = el("div", { className: "actions" }, [save, reset]);
+  root.replaceChildren(intro, el("div", { className: "actions" }, [fromDevice, download]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), wavZone, job, summary, list, actions);
 
   const taken = () => new Set([...parsed.samples.filter(s => !removed.has(s.slot)).map(s => s.slot), ...added.map(a => a.slot)]);
   const dirty = () => removed.size > 0 || added.length > 0;
@@ -54,21 +60,23 @@ export function samplesFilePage(root, { device = null } = {}) {
 
   function render() {
     list.replaceChildren();
-    fromDevice.disabled = busy || !session();
-    open.disabled = busy;
-    add.disabled = !parsed || busy;
-    save.textContent = source === "device" ? "Auf die Karte schreiben" : "Speichern";
+    fromDevice.disabled = download.disabled = busy || !session();
+    pick.disabled = busy;
+    wavs.disabled = !parsed || busy;
+    wavZone.hidden = actions.hidden = !parsed;
+    save.textContent = source === "device" ? t("sampleset.device.write") : t("common.save");
     save.disabled = reset.disabled = !dirty() || busy;
+    list.hidden = !parsed?.samples.length && !added.length;
     if (!parsed) { summary.textContent = ""; return; }
     const kept = parsed.samples.filter(s => !removed.has(s.slot));
     const plan = planChange(base, parsed, { remove: removed, add: added.map(a => ({ slot: a.slot, bytes: a.bytes })) });
-    summary.textContent = `${kept.length + added.length} Samples, ${size(plan.size)}${dirty() ? ` (vorher ${size(parsed.size)})` : ""}`;
+    summary.textContent = (dirty() ? t("sampleset.summary.changed", { count: kept.length + added.length, size: size(plan.size), before: size(parsed.size) }) : t("sampleset.summary", { count: kept.length + added.length, size: size(plan.size) }));
     const rows = [
       ...parsed.samples.map(s => ({ ...s, state: removed.has(s.slot) ? "removed" : "kept" })),
       ...added.map(a => ({ slot: a.slot, name: a.name, rate: a.rate, bits: a.bits, channels: a.channels, frames: a.frames, length: a.bytes.length, problem: null, state: "new" })),
     ].sort((a, b) => a.slot - b.slot);
     for (const s of rows) {
-      const button = el("button", { type: "button", className: "btn sm", textContent: s.state === "removed" ? "Doch behalten" : "Entfernen", disabled: busy });
+      const button = el("button", { type: "button", className: "btn sm", textContent: s.state === "removed" ? t("sampleset.keep") : t("common.remove"), disabled: busy });
       button.dataset.slot = String(s.slot + 1);
       button.addEventListener("click", () => {
         if (s.state === "new") added = added.filter(a => a.slot !== s.slot);
@@ -76,11 +84,15 @@ export function samplesFilePage(root, { device = null } = {}) {
         render();
       });
       const row = el("li", { className: "ui-row cee-sf-row" }, [
-        el("span", { className: "cee-sf-nr", textContent: String(s.slot + 1) }),
-        el("span", { className: "cee-sf-name", textContent: s.name || "(ohne Namen)" }),
-        el("span", { className: "muted", textContent: s.problem ? "" : `${format(s)}, ${seconds(s)}, ${size(s.length)}` }),
-        s.problem ? pill("error", s.problem) : s.state === "new" ? pill("ok", "neu") : s.state === "removed" ? pill("warn", "wird entfernt") : null,
-        button,
+        el("span", { className: "ui-row-icon cee-sf-nr", textContent: String(s.slot + 1) }),
+        el("span", { className: "ui-row-text" }, [
+          el("span", { className: "ui-row-title cee-sf-name", textContent: s.name || t("sampleset.noName") }),
+          s.problem ? null : el("span", { className: "ui-row-meta", textContent: `${format(s)}, ${seconds(s)}, ${size(s.length)}` }),
+        ]),
+        el("div", { className: "ui-row-actions" }, [
+          s.problem ? pill("error", s.problem) : s.state === "new" ? pill("ok", t("sampleset.new")) : s.state === "removed" ? pill("warn", t("sampleset.removing")) : null,
+          button,
+        ]),
       ]);
       row.dataset.state = s.state;
       list.append(row);
@@ -96,30 +108,37 @@ export function samplesFilePage(root, { device = null } = {}) {
     render();
   }
 
-  /** The progress of a running job in the page: its phase and how far it is. */
-  function progress(name) {
+  /** The progress of a running job in the page: its phase and how far it is; `cancel` adds a button that stops it. */
+  function progress(name, cancel) {
     job.hidden = false;
     const bar = el("div", { className: "ui-progress", role: "progressbar" }, [el("span", { className: "ui-progress-bar" })]);
     bar.setAttribute("aria-valuemin", "0");
     bar.setAttribute("aria-valuemax", "100");
     const meta = el("span", { className: "ui-job-meta" });
-    job.replaceChildren(el("div", { className: "ui-job-head" }, [el("span", { className: "ui-job-name", textContent: name })]), bar, meta);
+    const stop = cancel ? el("div", { className: "ui-job-actions" }, el("button", { type: "button", className: "btn", id: "cee-sf-cancel", textContent: t("common.cancel"), onclick: cancel })) : null;
+    job.replaceChildren(el("div", { className: "ui-job-head" }, [el("span", { className: "ui-job-name", textContent: name }), stop]), bar, meta);
     return {
       step(phase, done, total) { window.ui?.setProgress(bar, total ? Math.round((done / total) * 100) : 0, name); meta.textContent = phase; },
       end() { job.hidden = true; job.replaceChildren(); },
     };
   }
 
-  /** Runs `work` with the buttons held; a thrown error becomes a toast. */
-  async function busyWith(name, work) {
+  /**
+   * Runs `work` with the buttons held; a thrown error becomes a toast, a cancel through `stop` a short note. The session is
+   * reserved meanwhile: the sidebar's LED and display reads keep away, and one that is running is waited for instead of refusing.
+   */
+  async function busyWith(name, work, stop) {
     busy = true;
     render();
-    const p = progress(name);
+    const release = session()?.reserve({ wait: true }) ?? (() => {});
+    const p = progress(name, stop && (() => stop.abort()));
     try { return await work(p); }
     catch (e) {
+      if (stop?.signal.aborted) { toast(t("common.aborted"), "info"); return undefined; }
       toast(e instanceof SampleFileError || e instanceof SwapInterrupted ? e.message : `${name}: ${e.message}`, "error");
       return undefined;
     } finally {
+      release();
       p.end();
       busy = false;
       render();
@@ -130,19 +149,19 @@ export function samplesFilePage(root, { device = null } = {}) {
   async function loadFromDevice() {
     const s = session();
     if (!s) return;
-    await busyWith("Samples von der Electribe lesen", async p => {
-      let got = await readDeviceSamples(s, (done, total) => p.step(`Lese Sample ${done} von ${total}`, done, total));
+    await busyWith(t("sampleset.device.reading"), async p => {
+      let got = await readDeviceSamples(s, (done, total) => p.step(t("sampleset.device.readStep", { done, total }), done, total));
       if (got.temp) {
         const state = await inspectTemp(s);
         if (state === "finished") {
-          const yes = await window.ui?.confirm({ title: "Ein Austausch auf der Karte ist unterbrochen", text: "Auf der Karte liegt die fertige neue Sample-Datei als Tauschdatei, der Austausch wurde nicht zu Ende gebracht. Jetzt fertigstellen?", confirmLabel: "Fertigstellen" });
+          const yes = await window.ui?.confirm({ title: t("sampleset.temp.finished.title"), text: t("sampleset.temp.finished.text"), confirmLabel: t("sampleset.temp.finished.confirm") });
           if (yes) {
             await finishTemp(s, q => p.step(q.phase, q.done, q.total));
-            toast("Der Austausch ist fertig. " + RESTART, "ok");
+            toast(t("sampleset.temp.finishedDone", { restart: restart() }), "ok");
             got = await readDeviceSamples(s);
-          } else toast("Die Tauschdatei bleibt auf der Karte, bis du sie fertigstellst oder verwirfst.", "info");
+          } else toast(t("sampleset.temp.kept"), "info");
         } else if (state === "broken") {
-          const yes = await window.ui?.confirm({ title: "Eine unbrauchbare Tauschdatei liegt auf der Karte", text: "Der Rest eines unterbrochenen Vorgangs, ihr Inhalt ist nicht vollständig. Die Sample-Datei daneben ist unberührt. Tauschdatei löschen?", confirmLabel: "Löschen", danger: true });
+          const yes = await window.ui?.confirm({ title: t("sampleset.temp.broken.title"), text: t("sampleset.temp.broken.text"), confirmLabel: t("sampleset.temp.broken.confirm"), danger: true });
           if (yes) await discardTemp(s);
         }
       }
@@ -151,27 +170,40 @@ export function samplesFilePage(root, { device = null } = {}) {
       parsed = got.parsed;
       removed = new Set();
       added = [];
-      toast(`Von der Electribe gelesen: ${parsed.samples.length} Samples.`, "ok");
+      toast(t("sampleset.device.read.done", { count: parsed.samples.length }), "ok");
     });
+  }
+
+  /** The whole sample file of the card as a file on the computer, checked block by block and as a whole before it is saved. */
+  async function downloadFromDevice() {
+    const s = session();
+    if (!s) return;
+    const stop = new AbortController();
+    const got = await busyWith(t("sampleset.device.downloading"), p => downloadDeviceSamples(s, (done, total) => p.step(t("sampleset.device.downloadStep", { done: size(done), total: size(total) }), done, total), stop.signal), stop);
+    if (got === null) { toast(t("sampleset.device.downloadNone"), "info"); return; }
+    if (!got) return;
+    const broken = got.parsed.samples.filter(x => x.problem).length;
+    if (broken) toast(t("sampleset.device.downloadProblems", { count: broken }), "info", { stay: true });
+    saveFile(got.bytes, "e2sSample.all");
   }
 
   async function saveToDevice() {
     const s = session();
-    if (!s) { toast("Die Electribe ist nicht mehr verbunden. Verbinde sie neu und lies die Samples nochmal.", "error"); return; }
+    if (!s) { toast(t("sampleset.device.gone"), "error"); return; }
     const plan = planChange(base, parsed, { remove: removed, add: added.map(a => ({ slot: a.slot, bytes: a.bytes })) });
     const rebuild = needsCompaction(parsed, plan);
     const yes = await window.ui?.confirm({
-      title: "Änderung auf die Karte der Electribe schreiben?",
-      text: `${added.length} neu, ${removed.size} entfernt. ${rebuild ? "Beim Entfernen baut die Electribe die Datei auf der Karte neu auf: erst als Tauschdatei, geprüft, dann ausgetauscht. Das dauert je nach Größe eine Weile, die Electribe nicht ausschalten und das Kabel nicht ziehen. " : ""}Eine Sicherung der Karte vorher schadet nicht. ${RESTART}`,
-      confirmLabel: "Schreiben",
+      title: t("sampleset.device.confirm.title"),
+      text: t("sampleset.device.confirm.text", { added: added.length, removed: removed.size, rebuild: rebuild ? t("sampleset.device.confirm.rebuild") : "", restart: restart() }),
+      confirmLabel: t("sampleset.device.confirm.label"),
     });
     if (!yes) return;
-    const ok = await busyWith("Auf die Karte schreiben", async p => {
+    const ok = await busyWith(t("sampleset.device.write"), async p => {
       await writeDeviceChange(s, parsed, plan, q => p.step(q.phase, q.done, q.total));
       return true;
     });
     if (ok) {
-      toast(`Auf die Karte geschrieben. ${RESTART}`, "ok");
+      toast(t("sampleset.device.written", { restart: restart() }), "ok");
       await loadFromDevice();
     } else if (session()) await loadFromDevice();
   }
@@ -182,9 +214,9 @@ export function samplesFilePage(root, { device = null } = {}) {
     if (!file) return;
     try {
       load(new Uint8Array(await file.arrayBuffer()));
-      toast(`„${file.name}“ gelesen: ${parsed.samples.length} Samples.`, "ok");
+      toast(t("sampleset.read", { name: file.name, count: parsed.samples.length }), "ok");
     } catch (e) {
-      toast(e instanceof SampleFileError ? e.message : `Die Datei ließ sich nicht lesen: ${e.message}`, "error");
+      toast(e instanceof SampleFileError ? e.message : t("sampleset.unreadable", { error: e.message }), "error");
     }
   });
 
@@ -193,15 +225,15 @@ export function samplesFilePage(root, { device = null } = {}) {
     wavs.value = "";
     for (const file of files) {
       const slot = freeSlot(new Set([...taken(), ...added.map(a => a.slot)]));
-      if (slot === null) { toast(`Alle Plätze von ${FIRST_USER + 1} bis ${LAST_USER + 1} sind belegt.`, "error"); break; }
+      if (slot === null) { toast(t("sampleset.full", { first: FIRST_USER + 1, last: LAST_USER + 1 }), "error"); break; }
       try {
         const name = cleanSampleName(file.name.replace(/\.wav$/i, "")) || `Sample${slot + 1}`;
         const bytes = entryFromWav(new Uint8Array(await file.arrayBuffer()), slot, name);
         const probe = parseSampleFile(entryAsFile(bytes, slot)).samples[0];
         added.push({ slot, name, bytes, rate: probe.rate, bits: probe.bits, channels: probe.channels, frames: probe.frames });
-        if (probe.bits === 24 || probe.channels === 2) toast(`„${file.name}“: ${probe.bits} Bit oder Stereo lädt die Electribe laut Messung im Emulator, am Gerät ist es nicht geprüft.`, "info");
+        if (probe.bits === 24 || probe.channels === 2) toast(t("sampleset.unchecked", { name: file.name, bits: probe.bits }), "info");
       } catch (e) {
-        toast(`„${file.name}“ geht nicht: ${e instanceof SampleFileError ? e.message : e.message}`, "error");
+        toast(t("sampleset.rejected", { name: file.name, error: e instanceof SampleFileError ? e.message : e.message }), "error");
       }
     }
     render();
@@ -211,7 +243,7 @@ export function samplesFilePage(root, { device = null } = {}) {
     if (source === "device") { saveToDevice(); return; }
     const plan = planChange(base, parsed, { remove: removed, add: added.map(a => ({ slot: a.slot, bytes: a.bytes })) });
     const out = applyPlan(base, plan);
-    saveFile(out, "e2sSample.all", { note: RESTART });
+    saveFile(out, "e2sSample.all", { note: restart() });
     load(out);
   });
   reset.addEventListener("click", () => { removed = new Set(); added = []; render(); });

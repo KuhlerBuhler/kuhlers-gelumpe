@@ -32,6 +32,64 @@ npm run test:local   # Werksprüfungen mit eigenen Dateien, brauchen E2_VSB und 
 npm run test:all     # Unit- und Browsertests nebeneinander, mit E2_VSB auch Emulator
 ```
 
+## Im Container
+
+`docker compose up --build` baut die Seite und den Emulator in ein Abbild und
+veröffentlicht beide auf der Schleife. Danach liegt der Editor unter
+http://localhost:8737/ und verbindet sich selbst mit dem Emulator auf 8740. Die
+beiden Ports behalten ihre Zahlen, sonst findet die Seite den Emulator nicht.
+Das Abbild setzt `GELUMPE_HOST=0.0.0.0`, weil ein veröffentlichter Port den
+Container an seiner eigenen Adresse erreicht und nie an 127.0.0.1 darin; ohne
+die Variable bleibt es beim bisherigen 127.0.0.1. Die Karte des Emulators liegt
+im Ordner `SD` neben `docker-compose.yaml` (im Container `/SD`, die Dateien unter
+`SD/card/KORG/...`), der Flash im Volume `gelumpe`; ein neuer Container behält beide.
+Den Ordner vor dem ersten Start selbst anlegen (`mkdir SD`): legt ihn Docker an,
+gehört er root, und der Emulator im Container (Nutzer `node`, UID 1000) kann nicht
+hineinschreiben. Der Editor hat keine
+Anmeldung, deshalb bleiben beide Ports auf 127.0.0.1. Ohne Docker gilt `npm start`
+wie oben.
+
+Ein Release legt dasselbe Abbild auch in GitHubs Paketregister ab, für linux/amd64
+und linux/arm64 (`.github/workflows/docker-image.yml`, von `release.yml`
+aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Wer
+nicht selbst bauen will, trägt den Namen in `docker-compose.yaml` bei `image` ein
+und entfernt `build: .`; `docker compose up` zieht das Abbild dann. Der Ordner
+`SD` bleibt nötig, denn die Karte liegt in keinem Abbild.
+Von Hand (Actions, "Container image", mit einem Tag) lässt sich ein Abbild neu bauen;
+`:latest` wandert dabei nur mit, wenn "latest" angehakt ist.
+
+## Hinter einem Proxy
+
+Ein Reverse Proxy auf demselben Rechner (Caddy, nginx, Traefik) erreicht den
+Container unter 127.0.0.1:8737. Setz `GELUMPE_PUBLIC_ORIGIN` auf die Adresse,
+unter der er die Seite ausliefert, etwa `https://blech.example`, und leite dort
+alles an 127.0.0.1:8737 weiter, mit dem `Host`-Kopf der Anfrage. Dann liegt der
+Emulator unter demselben Ursprung wie die Seite, im Pfad `/emu-service`, und der
+Browser braucht nur diesen einen Port. Ohne die Variable spricht die Seite den
+Emulator weiter unter 127.0.0.1:8740 an, was nur auf dem eigenen Rechner geht,
+und `/emu-service` gibt es nicht.
+
+Der Pfad nimmt nur Anfragen der Seite unter `GELUMPE_PUBLIC_ORIGIN` an: ein
+`Origin` von einer anderen Adresse bekommt 403. Bei Aufrufen, die der Browser
+ohne `Origin` schickt, also den Lesezugriffen und dem Bildschirmstrom, gilt das
+Gleiche für einen Aufruf von einer anderen Website.
+
+Trotzdem gilt: wer die Seite erreicht, bekommt über `/emu.json` den Schlüssel
+und damit den Emulator, denn weder Editor noch Emulator haben eine Anmeldung.
+Ein Passwort oder eine Regel auf Adresse oder Netz im Proxy ist deshalb Pflicht,
+bevor die Seite von außen erreichbar ist.
+
+Läuft der Proxy in einem eigenen Container, gib den Port gar nicht erst nach
+außen: er landet im gemeinsamen Docker-Netz, erreicht den Dienst dort als
+`gelumpe:8737`, und im Netz bleibt es bei `GELUMPE_HOST=0.0.0.0`. Eine
+Veröffentlichung wie `8737:8737` legt den Editor ohne Anmeldung auf alle
+Schnittstellen.
+
+Die Seite braucht einen sicheren Ursprung, also HTTPS oder localhost. Über
+`http://blech.example:8737` verweigert der Browser `crypto.subtle`, und damit
+fallen Patcher und Prüfsummen aus. Das Zertifikat für die Adresse besorgt der
+Proxy.
+
 ## Tests
 
 Es liegen nie Korg-Daten im Repo. Alle Testdaten werden gebaut (`test/helpers.mjs`):
@@ -108,21 +166,35 @@ gemessen auf einem Rechner mit 10 Kernen, ohne Gerätezugriff. Die Maßnahmen:
   kam in den Tests immer wieder vor. `Machine.snapshot` und `from_snapshot`
   (`tools/emu/bootcache.py`) halten CPU-Kontext, nicht leere RAM-Seiten und Modellzustand.
   Der Schlüssel besteht aus Firmware, Flash, gehaltenen Tasten, Gerätezeit und dem Quelltext
-  des Emulators. Wiederherstellen kostet 0,06 s statt 2,1 s, das Verhalten ist bit-identisch
-  (`test_snapshot.py` vergleicht CPU, die 128 MB RAM, Flash, Tabellen und Display mit einem
-  durchgelaufenen Gerät). Mit Karte im Schlitz gibt es keinen Snapshot.
+  des Modells (`machine.py` und was es importiert, nicht die Fälle). Wiederherstellen kostet
+  0,06 s statt 2,1 s, das Verhalten ist bit-identisch (`test_snapshot.py` vergleicht CPU, die
+  128 MB RAM, Flash, Tabellen, Display und Karte mit einem durchgelaufenen Gerät).
+- **Snapshot mit Karte.** Fast jeder Fall baut ein Gerät, steckt eine Karte ein und lässt es
+  laufen (`Dev.run` in `splash_cases.py`). `bootcache.power_on` merkt sich diesen ersten Lauf
+  ab dem Einschalten samt Karte, Netzteil und allem, was der Fall vorher gesetzt hat, und
+  startet jeden gleichen Lauf danach aus ihm: 0,2 s statt 2,1 s. Ein Fall, der vorher einen
+  Haken setzt oder eine Methode umhängt, läuft frisch. Damit eine Karte bei jedem Lauf gleich
+  aussieht, steht die Uhr, mit der `fat32` Dateien und Volume-ID datiert, während eines Tasks
+  auf dem 1. Januar 2026 (`parallel.CARD_CLOCK`).
 - **Nebeneinander.** `tools/emu/parallel.py` verteilt unabhängige Boots auf Prozesse.
   Standard: Kerne minus einer (mindestens 1), 2 bei einem Lastmittel über der Kernzahl, 1
   bei über der doppelten Kernzahl. `GELUMPE_JOBS` überschreibt das, im eingefrorenen Dienst
   läuft ein Prozess. Die Emulator-Tests starten ihre Python-Läufe über
   `test/support/spawn.mjs`, ohne den Event-Loop zu blockieren.
-- **Gemerkte Ergebnisse.** `check.py`, `mfx_cases.py` und `splash_cases.py` merken sich ihr
-  Ergebnis je Eingabedateien und Emulator-Quelltext. **Das ändert, was ein grüner Lauf
-  bedeutet:** bei unveränderten Dateien und Quelltext wird die Antwort des letzten echten
-  Laufs wiederverwendet. Jede Änderung an einer `.py`-Datei in `tools/emu` oder `tools/patch`
-  macht den Schlüssel ungültig. Die Dateien liegen in `~/.cache/gelumpe`
-  (`GELUMPE_CACHE_DIR`), sie enthalten Firmware-RAM und nie im Repo. `GELUMPE_CACHE=off`
-  lässt alles frisch laufen.
+- **Gemerkte Ergebnisse je Task.** `check.py` und `menu_cases.py cases` merken sich das
+  Ergebnis jedes Tasks (eine Gruppe von Fällen oder ein Boot) mit den Dateien, die er benutzt
+  hat (`tools/emu/taskcache.py`): den Quelltext jedes geladenen Moduls und jede geöffnete
+  Datei, auch `data/synth-map/*.json`. Ein späterer Lauf nimmt es nur bei gleicher Firmware,
+  gleichem Flash und gleicher Basis und solange jede dieser Dateien noch denselben Inhalt hat.
+  Nach einem Merge von `develop`, der nur `pswitch_cases.py` ändert, laufen nur die Fälle des
+  Pattern-Schalters neu. Eine geänderte Firmware ist eine andere Eingabe, dann läuft alles.
+  Jeder Task, der läuft, bekommt dafür einen eigenen Prozess, und die längsten starten zuerst
+  (Dauer vom letzten Lauf). **Das ändert, was ein grüner Lauf bedeutet:** für unveränderte
+  Eingaben und Dateien wird die Antwort des letzten echten Laufs wiederverwendet.
+  `mfx_cases.py` und `splash_cases.py` merken sich ihr Ergebnis wie bisher je Eingabedateien
+  und Quelltext aller `.py`-Dateien in `tools/emu` und `tools/patch`. Die Dateien liegen in
+  `~/.cache/gelumpe` (`GELUMPE_CACHE_DIR`), sie enthalten Firmware-RAM und nie im Repo.
+  **Alles frisch:** `GELUMPE_CACHE=off` schaltet Snapshots und gemerkte Ergebnisse ab.
 - **Dienst ohne Echtzeit-Bremse** nur für Tests (`server.py --unthrottled`). Die Tests warten
   in Gerätezeit statt in Wanduhrzeit (`settle(ms)` in `test/support/emu.mjs`).
 - **Browsertests** laufen als je drei dünne Dateien um dieselbe Suite nebeneinander.
@@ -136,6 +208,30 @@ gemessen auf einem Rechner mit 10 Kernen, ohne Gerätezugriff. Die Maßnahmen:
 Der kalte Lauf bleibt bei etwa 6 Minuten. Flaschenhälse sind dann die Kette der
 Startbild-Fälle (30 Schritte) und die Startwege in `check.py` (Probe-Haken auf jedem
 Lesezugriff).
+
+Der volle Check einer BLECH-Kopie (`check.py` ohne `--quick`, 553 Prüfungen) und die
+Menüfälle (`menu_cases.py cases`, 164 Fälle), gemessen am 28.10.2026 mit Hacktribe,
+`GELUMPE_JOBS=6`, auf einem Rechner mit 10 Kernen und Last von anderen Läufen (Lastmittel 8
+bis 24, die Zeiten schwanken entsprechend):
+
+| Lauf | vorher | nachher |
+|---|---|---|
+| `check.py`, erster Lauf ohne Cache | 1192 s | 792 s |
+| `check.py`, Firmware geändert, Laufzeiten vom letzten Lauf bekannt | 1192 s | 485 s |
+| `check.py`, nur `pswitch_cases.py` geändert | 1192 s | 158 s |
+| `check.py`, nichts geändert | gemerkt (nicht gemessen) | 3 s |
+| `menu_cases.py cases`, ohne Cache | 794 s | 368 s |
+| `menu_cases.py cases`, nichts geändert | 794 s (merkte sich nichts) | 0,2 s |
+| `check.py --quick` ohne Cache, Hacktribe / Korg rot / Korg blau | 32 / 187 / 162 s | 63 / 161 / 146 s |
+| `check.py --quick`, nichts geändert | wie ohne Cache | 5 / 3 / 2 s |
+
+Der erste `--quick`-Lauf legt die Snapshots erst an und startet jeden Task in einem eigenen
+Prozess, bei Hacktribe kostet das mehr als es spart. Ab dem zweiten Lauf zählt nur noch, was
+sich geändert hat.
+
+"Vorher" galt für `check.py` nach jeder Änderung an irgendeiner `.py`-Datei in `tools/`, also
+nach jedem Merge von `develop`. Die längste Gruppe ist dann `sysex_cases` mit den Dateien und
+Samples über die DIN-Leitung (rund 430 s, Gerätezeit bei 3,1 KB/s).
 
 ## Emulator
 
@@ -266,26 +362,66 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 
 **Der normale Weg läuft in GitHub** (Workflow "Release", `.github/workflows/release.yml`):
 
-1. Auf `develop` per Pull Request: `node tools/set-version.mjs X.Y.Z` (schreibt die vier Versionsdateien) und die
-   Notizen als `release-notes/X.Y.Z.md`. Sie sind das, was im Release und im Discord steht.
-2. Pull Request `develop` -> `main` mergen.
+1. Auf `develop` per Pull Request: `node tools/set-version.mjs X.Y.Z` (schreibt die vier Versionsdateien und die
+   zwei Dateien des Patches `blech-version`, aus denen das Gerät unter BLECH > VERSION die Version zeigt) und die
+   Notizen als `release-notes/X.Y.Z.md` (Format unten). Sie sind das, was im Release und im Discord steht. Danach
+   `node tools/release-notes.mjs build`: es schreibt `data/release-notes.mjs`, daraus zeigt die App unter Changelogs
+   auch die Versionen, deren Release auf GitHub schon gelöscht ist (ohne Downloads, nur Neu, Geändert, Behoben). Ein
+   Test schlägt fehl, wenn die Datei nicht zu `release-notes/` passt.
+2. Pull Request `develop` -> `main` mergen. Den Release-PR `release/X.Y.Z` -> `main` merged der Workflow "Release
+   merge" selbst, sobald jemand mit Schreibrecht ihn freigegeben hat und alle Checks grün sind (siehe unten).
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
    Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
-   2.02 (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
+   2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
    `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
    `main` endet nach dem ersten Schritt.
 
+**Format der Notizen** (`release-notes/X.Y.Z.md`): eine Datei, erst Deutsch, dann eine Zeile `## English` und darunter
+dieselben Notizen auf Englisch. Die Datei enthält nur die Notizen, keinen Download-Abschnitt und keine "Ohne App
+patchen"-Zeile: `tools/release.mjs` setzt oben in jede Sprache einen Block (ein Link je System, Mac-Chip-Hinweis,
+`xattr`-Zeile, "Die vielen Dateien unter Assets brauchst du nicht", `BLECH.patch`/`.bsdiff`) und baut ihn aus den
+Dateien, die wirklich hochgeladen werden, mit GitHubs Namen (`Kuhlers.GELUMPE_X.Y.Z_x64-setup.exe`, ...). Ein System
+ohne Datei bekommt keinen Link. Der Prüfschritt "due" in `release.yml` (`node tools/release-notes.mjs check Datei`)
+startet kein Release, wenn der deutsche oder der englische Teil fehlt oder leer ist. Das Release und der
+Discord-Post tragen beide Sprachen, Deutsch zuerst; der englische Teil beginnt im Discord eine eigene Nachricht, jede
+Nachricht hat höchstens 4000 Zeichen, der @everyone-Ping steht nur in der ersten. Vorlage:
+
+```markdown
+BLECH X.Y.Z und die App X.Y.Z.
+
+**Neu**
+- ...
+
+**Behoben**
+- ...
+
+Spenden: https://www.paypal.me/kuhlerbuhler
+
+## English
+
+BLECH X.Y.Z and the app X.Y.Z.
+
+**New**
+- ...
+
+**Fixed**
+- ...
+
+Donations: https://www.paypal.me/kuhlerbuhler
+```
+
 Korgs drei 2.02 kommen nie ins Repo. Der Workflow lädt sie über die Links in den Secrets `E2_VSB_URL` (Hacktribe),
 `E2_VSB_STOCK_URL` (rot) und `E2_VSB_SYNTH_URL` (blau) und bricht ab, wenn eine Datei nicht die erwartete SHA-256 hat.
-Fehlt in `data/patches/verified.json` das Paar einer der drei, warnt der Lauf: die App prüft diese Datei dann vor dem
+Hacktribe für die blaue macht er selbst aus der Hacktribe-Datei: Byte `0x12` auf `0x00`, `0x2E` auf `0x23`, danach
+SHA-256 `2b2e1c2f…`. Fehlt in `data/patches/verified.json` das Paar einer der vier, warnt der Lauf: die App prüft diese Datei dann vor dem
 Patchen selbst im Emulator.
 
 **Von Hand** geht es weiter so, etwa wenn GitHubs Runner ausfallen:
 
 `npm run release` (`tools/release.mjs`). Auf jedem System vor dem Bauen setzt
 `npm run release -- prepare` (oder `node tools/set-version.mjs <Version>` mit der Version vom
-Release-Rechner) die nächste Version in `package.json`, `tauri.conf.json`, `Cargo.toml` und
-`Cargo.lock`: erste Version 1.0.0, danach der letzte Tag `vX.Y.Z` mit Patch plus eins, `--minor` oder
+Release-Rechner) die nächste Version in `package.json`, `tauri.conf.json`, `Cargo.toml`,
+`Cargo.lock` und die zwei Dateien von `blech-version`: erste Version 1.0.0, danach der letzte Tag `vX.Y.Z` mit Patch plus eins, `--minor` oder
 `--major` hebt stattdessen den Teil (bei `prepare` und beim Release gleich angeben). `prepare`
 verlangt, dass `HEAD` auf `origin/develop` steht, und committet nichts.
 
@@ -312,7 +448,27 @@ diesen Branch in jeden offenen Pull Request, der auf ihm aufbaut und hinterherh�
 `SYNC_TOKEN`, damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein
 Basis-Branch ist; bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
 
-`--notes=Datei.md` nimmt die Release-Notizen aus der Datei statt GitHubs erzeugter Liste der PRs. Sobald
+**Release-PR mergt sich selbst** (Workflow "Release merge", `.github/workflows/release-merge.yml`,
+`tools/release-merge.mjs`): ein offener PR `release/X.Y.Z` -> `main` aus diesem Repo wird gemerged, wenn alles
+zutrifft:
+
+- kein Entwurf (Draft). Als Draft markieren hält den Merge an;
+- jemand mit Schreibrecht hat ihn freigegeben (Approve), und seit dem freigegebenen Commit hat sich nur
+  `data/patches/verified.json` geändert (der Commit von "Verify patches"). Jeder andere neue Commit braucht eine
+  neue Freigabe. Steht bei jemandem mit Schreibrecht als letztes "Changes requested", wird nicht gemerged;
+- jeder Workflow-Lauf auf dem Kopf-Commit ist fertig, der neueste Lauf jedes Workflows und jeder Check sind grün
+  (oder übersprungen), `unit`, `browser` und `guard` sind dabei. Läuft noch etwas, etwa ein `verify (*)`, das
+  danach eine neue `verified.json` pusht, wird gewartet: der Push startet neue Checks, und erst wenn die auch durch
+  sind, wird gemerged.
+
+Geprüft wird jedes Mal, wenn ein Workflow eines PRs fertig wird oder ein Review kommt; von Hand mit
+`gh workflow run release-merge.yml`. Gemerged wird mit `SYNC_TOKEN` und `--match-head-commit`, also nur der Commit,
+der geprüft wurde; mit dem eigenen Token des Workflows würde der Merge kein Release starten. Ohne das Secret wird
+nichts gemerged. Was fehlt, steht im Log des Laufs. Lokal ohne Merge: `GITHUB_REPOSITORY=KuhlerBuhler/kuhlers-gelumpe
+node tools/release-merge.mjs --dry-run`. Der Auslöser `workflow_run` nimmt die Datei, wie sie auf `main` liegt: der
+Workflow merged also erst ab dem Release, das ihn nach `main` bringt.
+
+`--notes=Datei.md` nimmt die Release-Notizen aus der Datei (zweisprachig, mit Download-Blöcken, siehe "Format der Notizen") statt GitHubs erzeugter Liste der PRs. Sobald
 das Release veröffentlicht ist, postet der Workflow "Discord release" es über den Webhook im Secret
 `DISCORD_WEBHOOK` (`tools/discord-release.mjs`): Titel "BLECHTRIBE X.Y.Z ist da" mit Link und einem Ping an @everyone, darunter die
 Notizen, lange in mehreren Nachrichten, zum Schluss eine Nachricht nur mit dem Link zum Release. Notizen erst danach geändert: den Workflow von Hand mit dem Tag
@@ -335,16 +491,30 @@ und Grenzen: [patcher.md](patcher.md), "Patch-Datei und bsdiff".
 
 **Geprüfte Kopien** (vor jedem Release mit geändertem Patch-Satz): `data/patches/verified.json` hält die SHA-256 von
 Eingabe und Ergebnis jeder Kopie, die den ganzen Check im Emulator (`tools/emu/check.py`) bestanden hat. Der Patcher
-überspringt die Prüfung für genau diese Kopien, auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei
+überspringt die Prüfung für genau diese Kopien (Hacktribe für die blaue steht mit `"hardware": "blue"` darin, sie läuft
+im Emulator auf dem Flash der blauen), auf langsamen Rechnern dauert sie über eine Stunde. Jede andere Datei
 wird weiter ganz geprüft; eine Liste von einem alten Patch-Satz trifft nichts mehr und kostet nur die Zeit.
 
 Neu geschrieben wird sie in GitHub vom Workflow "Verify patches" (`.github/workflows/verify-patches.yml`). Er prüft den
-Patch-Satz eines Branches auf Korgs drei 2.02 (dieselben Secrets wie das Release), jede Datei in einem eigenen Job
-nebeneinander, und schreibt die drei Einträge in eine `verified.json` (`verify-patches.mjs --results`). Stehen alle drei
-Paare schon drin, bleibt alles, wie es war.
+Patch-Satz eines Branches auf Korgs drei 2.02 und auf Hacktribe mit blauem Kopf (dieselben Secrets wie das Release),
+jede Datei in einem eigenen Job nebeneinander, und schreibt die Einträge in eine `verified.json` (`verify-patches.mjs
+--results`). Stehen alle Paare schon drin, bleibt alles, wie es war.
 
 Er läuft von selbst bei jedem Pull Request, der den Patch-Satz (`data/patches/`), etwas, das `verify-patches.mjs` lädt,
-`tools/patch/` oder `tools/emu/` ändert, und committet die neue `verified.json` auf den Branch des Pull Requests.
+`tools/patch/` oder `tools/emu/` ändert. Was dann läuft, hängt von der Basis ab:
+
+- **Pull Request nach `develop`** (Feature-Branches): auf allen vier Dateien nur die Startszenarien (`check.py --quick`)
+  und die Case-Module, die zu den geänderten Dateien gehören (`verify-patches.mjs --cases`, an `check.py --cases`
+  weitergereicht). Welche das sind, sagt `tools/ci/verify-scope.mjs` mit einer festen Tabelle: `tools/emu/<x>_cases.py`
+  ist `<x>_cases` (plus die Module, die daraus importieren), Assembler und Patch-JSON gehen an die Cases, die sie
+  testen (etwa `script_remote.s` an `remote_cases`, `data/patches/dice*.json` an `dice_cases`). Der gemeinsame Kern
+  (`script_vm.s`, `script_hooks.s`, `src/patch.mjs`, `src/hooks.mjs`, `machine.py`, `bootmap.py`, `check.py`) und jede
+  Datei, die nicht in der Tabelle steht, heißt alle Case-Module. Geschrieben oder committet wird dabei nichts: ein
+  Eintrag in `verified.json` heißt immer "ganz geprüft". Der Preis: bricht ein Case außerhalb der zugeordneten Module,
+  sieht man das erst am Release-PR. Die Tabelle hält `test/verify-scope.test.mjs` mit `check.py` in Einklang.
+- **Pull Request nach `main`** (der Release-PR aus `release/X.Y.Z` oder `develop`) und jede andere Basis: der ganze
+  Check, danach committet der letzte Job die neue `verified.json` auf den Branch des Pull Requests.
+
 Gepusht wird mit `SYNC_TOKEN`, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
 ersten Schritt. Ein neuer Push bricht den laufenden Check ab. Pull Requests aus Forks haben keine Secrets und werden
 übersprungen. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
@@ -359,10 +529,13 @@ Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push s
 Pull Request hinein. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
 Release-Workflows hängt seinen frischen Eintrag je Datei als Artefakt `verified-<name>` an.
 
-Lokal: `npm run verify:patches -- <Korgs rote 2.02> <Korgs blaue 2.02> <Hacktribe 2.02>`: patcht jede
+Lokal: `npm run verify:patches -- <Korgs rote 2.02> <Korgs blaue 2.02> <Hacktribe 2.02> <Hacktribe 2.02 mit blauem
+Kopf>`: patcht jede
 Datei wie die Seite, prüft sie und schreibt die Liste nur, wenn alle bestehen. Ohne Option ersetzt der Lauf die Liste;
 `--merge` behält die Einträge der anderen Eingaben und ersetzt nur die der geprüften Dateien, so kann man eine Datei
-nach der anderen prüfen. Ein Paar, das schon mit demselben Satz drinsteht, behält sein altes Datum.
+nach der anderen prüfen. Ein Paar, das schon mit demselben Satz drinsteht, behält sein altes Datum. `--cases
+menu_cases,remote_cases` prüft nur die Startszenarien und diese Case-Module (leer: nur die Startszenarien, `all`: alle)
+und schreibt nichts.
 
 ## Keine öffentliche Seite
 

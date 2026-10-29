@@ -17,7 +17,7 @@ import struct
 import sys
 from pathlib import Path
 
-from machine import FLASH_SIZE, STOCK_BOOT_LIMIT_S, Machine, load_flash
+from machine import FLASH_SIZE, STOCK_BOOT_LIMIT_S, Machine, blank_flash_like, load_flash
 
 # The panel object (pointer found by firmware.py): +0x18 held buttons (64 bit), +0x20 start mode.
 # The user-data check (a place of firmware.py) looks at the mark at flash 0x220000.
@@ -105,7 +105,7 @@ def run(payload, flash, held=0, panel_version=None, seconds=1.5):
 
 def scenarios():
     """(name, options) of every way to start. `flash` in the options is which flash it starts from:
-    "own" (the one given, or a blank one without), "blank", "erased" (no user-data mark)."""
+    "own" (the one given, or a blank one without), "blank" (of the hardware of the own one), "erased" (no user-data mark)."""
     yield "normal", dict(flash="own")
     yield "normal_blank", dict(flash="blank")
     yield "update_offer", dict(flash="erased")
@@ -121,14 +121,18 @@ def scenario_names(flash):
 
 
 def flash_for(kind, own):
-    return {"own": own, "blank": None, "erased": b"\xff" * FLASH_SIZE}[kind]
+    if kind == "blank":
+        blank = blank_flash_like(own)
+        return bytes(blank) if blank is not None else None
+    return {"own": own, "erased": b"\xff" * FLASH_SIZE}[kind]
 
 
 def scenario_task(name):
-    """One scenario in a worker (parallel.py): what start_phase takes from it. Picklable."""
+    """One scenario in a worker (parallel.py): what start_phase takes from it. Picklable. The own flash is `boot_flash`
+    when the run has one (check.py: the cases there run on a blank flash), else `flash`."""
     import parallel
     opts = dict(dict(scenarios())[name])
-    m = run(parallel.shared["payload"], flash_for(opts.pop("flash"), parallel.shared["flash"]), **opts)
+    m = run(parallel.shared["payload"], flash_for(opts.pop("flash"), parallel.shared.get("boot_flash", parallel.shared["flash"])), **opts)
     return {"blocks": m.blocks, "image_read": bytes(m.image_read), "events_ms": m.events, "panel": m.panel_state(),
             "asserts": m.asserts, "dsp_uploads_ms": m.dsp_uploads}
 

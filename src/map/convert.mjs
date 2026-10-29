@@ -18,6 +18,7 @@
  */
 import FX from "../../data/map/fx.mjs";
 import FX_RANGES from "../../data/map/fx-ranges.mjs";
+import { number as localNumber } from "../text.mjs";
 
 const round = (v, digits = 0) => Number(v.toFixed(digits));
 
@@ -112,7 +113,7 @@ const RESO_POINTS = [[0, 0], [8, 1.9], [64, 12.5], [112, 24.1], [126, 27.0]];
 /** measure:2026-09-17/mod-speed-depth, one note value per eight bytes from 32 */
 const MOD_SPEEDS = ["1/2", "3/8", "1/3", "1/4", "3/16", "1/6", "1/8", "1/12", "1/16", "1/24", "1/32", "1/64"];
 
-const ms = v => v >= 1000 ? `${round(v / 1000, 1).toLocaleString("de-DE")} s` : `${Math.round(v)} ms`;
+const ms = v => v >= 1000 ? `${localNumber(round(v / 1000, 1))} s` : `${Math.round(v)} ms`;
 
 /** korg-spec: Parameter Guide, Scale List. 35 names, numbered from 0. */
 const SCALES = [
@@ -195,13 +196,13 @@ export const CONVERTERS = {
   cutoffHz: numeric({
     name: "cutoffHz", unit: "Hz", domain: [0, 127],
     fromRaw: r => round(654 * 2 ** ((r - 64) / 12.09), 1),
-    format: (r, v) => (v >= 1000 ? `${round(v / 1000, 2).toLocaleString("de-DE")} kHz` : `${Math.round(v)} Hz`),
+    format: (r, v) => (v >= 1000 ? `${localNumber(round(v / 1000, 2))} kHz` : `${Math.round(v)} Hz`),
   }),
 
   resonanceDb: numeric({
     name: "resonanceDb", unit: "dB", domain: [0, 127],
     fromRaw: r => (r === 127 ? 33.6 : round(interpolate(RESO_POINTS, r, false), 1)),
-    format: (r, v) => (r === 127 ? "Selbstoszillation" : `+${v.toLocaleString("de-DE")} dB`),
+    format: (r, v) => (r === 127 ? "Selbstoszillation" : `+${localNumber(v)} dB`),
   }),
 
   oscPitchCents: numeric({
@@ -273,7 +274,7 @@ export const CONVERTERS = {
 
   tempoBpm: numeric({
     name: "tempoBpm", unit: "BPM", domain: [200, 3000],
-    fromRaw: r => r / 10, format: (r, v) => `${v.toLocaleString("de-DE")} BPM`,
+    fromRaw: r => r / 10, format: (r, v) => `${localNumber(v)} BPM`,
   }),
 
   /** Korg's spec: 0 to 96, 127 is a tie. 255 is common and unexplained. */

@@ -115,7 +115,9 @@ der WAV bei `0xC003646C`, der Parseraufruf bei `0xC00364B4`. Der vorhandene
 Haken `0xC003621C` liegt vor DSP-Reservierung und PCM-Schreiben.
 
 Dateibesitz ist Voraussetzung für den Menühaken, nicht erst für die spätere
-USB-Anbindung. Ein fehlgeschlagener Abschluss kann bereits einen neuen
+USB-Anbindung. Beim künftigen Projektladen wird Cache-RAM dynamisch und
+exklusiv ausgeliehen. Die tatsächliche Übergabe und Rückgabe sind vor der
+Projekt-Anbindung zu bauen; der Cache wird nicht dauerhaft verkleinert. Ein fehlgeschlagener Abschluss kann bereits einen neuen
 Index hinterlassen. Deshalb bleiben Nachladen und Veröffentlichung
 gesperrt, bis Wiederherstellung und Rücklesen den Kartenstand klären.
 Dabei bleiben die bisherigen DSP-Tabellen erhalten; ein neuer Aufruf des

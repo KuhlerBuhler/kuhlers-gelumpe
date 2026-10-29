@@ -3,11 +3,13 @@
  * loaded and started one by one, events queue in a ring, and a cycle runs
  * ready, a queue snapshot and frame. Each frame call has one deadline;
  * pending handlers survive an overrun. Only the faulty script is switched off.
+ * Timers (korg.after, korg.every, korg.afterSteps) are checked at the start of each frame, as the frame hook does.
  */
-import { BUDGET, LIMITS, ERROR, QUEUED_EVENTS, SCRIPT_ENTRY, SCRIPT_PHASE, EVENT_BY_NAME, STORE, SCRIPT_APPS } from "../../data/script/contract.mjs";
+import { BUDGET, LIMITS, ERROR, QUEUED_EVENTS, SCRIPT_ENTRY, SCRIPT_PHASE, EVENT_BY_NAME, STORE, SCRIPT_APPS, TIMERS } from "../../data/script/contract.mjs";
 import { Script, ScriptFault } from "./vm.mjs";
 import { decodeBlob, fail } from "./blob.mjs";
 import { verifyParts } from "./verifier.mjs";
+import { text, render } from "../text.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
 
 const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
@@ -27,8 +29,9 @@ export class ScriptRuntime {
    * @param {number} [o.scriptBytes] bytes for blobs, variables and script entries together, at most BUDGET.scriptBytes
    * @param {{ load: (name: string) => { mask: number, values: ArrayLike<number> } | null, save: (records: { name: string, mask: number, values: Int32Array }[]) => void } | null} [o.storage]
    *   persistent values: `load` is asked when a script is added, `save` gets every script's record once `flushStore` runs
+   * @param {() => number} [o.clock] milliseconds of the device clock the timers count in, by default korg.millis of `api`
    */
-  constructor({ api = {}, now = () => performance.now(), frameMs = BUDGET.frameMs, handlerWarnMs = BUDGET.handlerWarnMs, fuel = LIMITS.fuel, varSlots = BUDGET.variableSlots, scriptBytes = BUDGET.scriptBytes, storage = null } = {}) {
+  constructor({ api = {}, now = () => performance.now(), frameMs = BUDGET.frameMs, handlerWarnMs = BUDGET.handlerWarnMs, fuel = LIMITS.fuel, varSlots = BUDGET.variableSlots, scriptBytes = BUDGET.scriptBytes, storage = null, clock = null } = {}) {
     if (!Number.isInteger(scriptBytes) || scriptBytes < 0 || scriptBytes > BUDGET.scriptBytes) throw new RangeError(`scriptBytes must be between 0 and ${BUDGET.scriptBytes}`);
     this.api = api;
     this.storage = storage;
@@ -44,6 +47,7 @@ export class ScriptRuntime {
     /** Called with the entry when it becomes the owner of the display: the host clears the picture for it. */
     this.onOwn = null;
     this.now = now;
+    this.clock = clock ?? (() => Math.floor(this.api["korg.millis"]?.() ?? now()));
     this.frameMs = frameMs;
     this.handlerWarnMs = handlerWarnMs;
     this.fuel = fuel;
@@ -72,15 +76,16 @@ export class ScriptRuntime {
     const poolBytes = Math.ceil(parts.header.totalSize / 4) * 4 + parts.header.varCount * 4 + SCRIPT_ENTRY.size;
     const bytesFree = this.scriptBytes - this.bytesUsed;
     if (poolBytes > bytesFree) {
-      return { ok: false, error: fail(ERROR.POOL_BUDGET, `„${parts.header.name}“ braucht ${poolBytes} Bytes für Block, Variablen und Eintrag, frei sind noch ${bytesFree} von ${this.scriptBytes} Bytes`) };
+      return { ok: false, error: fail(ERROR.POOL_BUDGET, render(text("script.load.bytes", { name: parts.header.name, needed: poolBytes, free: bytesFree, total: this.scriptBytes }))) };
     }
     const free = this.varSlots - this.slotsUsed;
     if (parts.header.varCount > free) {
       const kib = n => `${Math.round((n * 4) / 102.4) / 10} KiB`;
-      return { ok: false, error: fail(ERROR.VARS_BUDGET, `„${parts.header.name}“ braucht ${parts.header.varCount} Variablenplätze (${kib(parts.header.varCount)}), frei sind noch ${free} von ${this.varSlots} (${kib(this.varSlots)})`) };
+      return { ok: false, error: fail(ERROR.VARS_BUDGET, render(text("script.load.slots", { name: parts.header.name, needed: parts.header.varCount, size: kib(parts.header.varCount), free, total: this.varSlots, totalSize: kib(this.varSlots) }))) };
     }
     const script = new Script(parts, verified.info);
-    const entry = { script, poolBytes, readySent: false, onStep, maxCost: {}, maxMs: {}, warnings: 0, slowest: { event: null, ms: 0 }, store: { mask: 0, values: new Int32Array(STORE.slots) } };
+    const entry = { script, poolBytes, readySent: false, onStep, maxCost: {}, maxMs: {}, warnings: 0, slowest: { event: null, ms: 0 }, store: { mask: 0, values: new Int32Array(STORE.slots) },
+      timers: Array.from({ length: TIMERS.slots }, () => ({ kind: TIMERS.KIND.FREE, due: 0, period: 0, callback: 0, generation: 0 })) };
     const saved = this.storage?.load(parts.header.name);
     if (saved) { entry.store.mask = saved.mask >>> 0; entry.store.values.set(Array.from(saved.values).slice(0, STORE.slots)); }
     entry.api = this.#apiFor(entry);
@@ -95,7 +100,7 @@ export class ScriptRuntime {
     api["korg.store.set"] = (slot, value) => { entry.store.values[slot] = value | 0; entry.store.mask = (entry.store.mask | (1 << slot)) >>> 0; return 0; };
     api["korg.store.save"] = () => { this.storePending = true; return 0; };
     api["korg.menu.add"] = (label, min, max, value) => {
-      if (min > max) throw new ScriptFault(ERROR.API_ARG, "menu: min liegt über max");
+      if (min > max) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.menuRange")));
       const name = String(label).slice(0, LIMITS.nameLength);
       const known = this.menus.findIndex(m => m.entry === entry && m.label === name);
       if (known >= 0) return known;
@@ -103,17 +108,25 @@ export class ScriptRuntime {
       this.menus.push({ entry, script: entry.script.name, label: name, min, max, value: Math.min(max, Math.max(min, value)) });
       return this.menus.length - 1;
     };
+    api["korg.after"] = (ms, callback) => this.#timerStart(entry, TIMERS.KIND.MS, (this.clock() + ms) | 0, 0, callback);
+    api["korg.every"] = (ms, callback) => this.#timerStart(entry, TIMERS.KIND.MS, (this.clock() + ms) | 0, ms, callback);
+    api["korg.afterSteps"] = (steps, callback) => this.#timerStart(entry, TIMERS.KIND.STEPS, steps, 0, callback);
+    api["korg.cancel"] = id => {
+      const t = id < 0 ? null : entry.timers[id % TIMERS.slots];
+      if (t && t.kind !== TIMERS.KIND.FREE && t.generation === Math.floor(id / TIMERS.slots)) t.kind = TIMERS.KIND.FREE;
+      return 0;
+    };
     api["korg.remapKey"] = (from, to) => {
-      if (from === KEY_EXIT || to === KEY_EXIT) throw new ScriptFault(ERROR.API_ARG, "remapKey: EXIT lässt sich nicht umlegen");
+      if (from === KEY_EXIT || to === KEY_EXIT) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.remapExit")));
       this.remap = from === to ? null : { entry, from, to };
       return 0;
     };
     api["korg.app"] = (name, group) => {
       const known = this.apps.findIndex(a => a.entry === entry);
       if (known >= 0) return known;
-      if (!SCRIPT_APPS.groups.includes(group)) throw new ScriptFault(ERROR.API_ARG, "app: die Gruppe gibt es nicht");
+      if (!SCRIPT_APPS.groups.includes(group)) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.appGroup")));
       const label = String(name).slice(0, SCRIPT_APPS.nameLength);
-      if (!label) throw new ScriptFault(ERROR.API_ARG, "app: der Name ist leer");
+      if (!label) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.appName")));
       if (this.apps.length >= SCRIPT_APPS.max) return -1;
       this.apps.push({ entry, script: entry.script.name, name: label, group });
       return this.apps.length - 1;
@@ -134,6 +147,49 @@ export class ScriptRuntime {
       return 0;
     };
     return api;
+  }
+
+  /** Takes a free timer slot of the script: its number (slot plus 8 times the slot's generation), or -1 when all are taken. */
+  #timerStart(entry, kind, due, period, callback) {
+    const slot = entry.timers.findIndex(t => t.kind === TIMERS.KIND.FREE);
+    if (slot < 0) return -1;
+    const t = entry.timers[slot];
+    Object.assign(t, { kind, due, period, callback, generation: (t.generation + 1) % 32 });
+    return slot + TIMERS.slots * t.generation;
+  }
+
+  /** The clock timers that are due go into the ring for their script; a full ring leaves them due for the next frame. */
+  #timersDue() {
+    if (!this.scripts.some(e => e.timers.some(t => t.kind === TIMERS.KIND.MS))) return;
+    const now = this.clock();
+    for (const entry of this.scripts) {
+      if (entry.script.state !== "armed") continue;
+      for (const t of entry.timers) {
+        if (t.kind !== TIMERS.KIND.MS || ((now - t.due) | 0) < 0) continue;
+        if (!this.#postTimer(entry, t)) return;
+        if (!t.period) { t.kind = TIMERS.KIND.FREE; continue; }
+        t.due = (t.due + t.period) | 0;
+        if (((now - t.due) | 0) >= 0) t.due = (now + t.period) | 0;
+      }
+    }
+  }
+
+  /** A step came: every step timer counts it, and the ones that reach 0 go into the ring. */
+  #timersStep() {
+    for (const entry of this.scripts) {
+      if (entry.script.state !== "armed") continue;
+      for (const t of entry.timers) {
+        if (t.kind !== TIMERS.KIND.STEPS || --t.due > 0) continue;
+        if (this.#postTimer(entry, t)) t.kind = TIMERS.KIND.FREE;
+        else t.due = 1;
+      }
+    }
+  }
+
+  #postTimer(entry, t) {
+    if (this.queue.length >= BUDGET.ring) { this.overflows += 1; return false; }
+    this.queue.push({ name: "timer", args: [t.callback], target: entry });
+    return true;
   }
 
   /** The apps in the order of the BLECH menu: GAMES first, then TOOLS, each in the order they were declared. */
@@ -203,6 +259,7 @@ export class ScriptRuntime {
     if (name === "knob" && last?.name === "knob" && last.args[0] === args[0]) { last.args = args; return true; }
     if (this.queue.length >= BUDGET.ring) { this.overflows += 1; return false; }
     this.queue.push({ name, args });
+    if (name === "step") this.#timersStep();
     return true;
   }
 
@@ -211,6 +268,7 @@ export class ScriptRuntime {
     this.frames += 1;
     this.ready ||= ready;
     if (!this.ready) return { handled: 0, faults: [], ms: 0, queued: 0 };
+    this.#timersDue();
     const t0 = this.now();
     const deadline = t0 + this.frameMs;
     const faults = [];

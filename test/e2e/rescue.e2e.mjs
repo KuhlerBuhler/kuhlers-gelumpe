@@ -1,13 +1,20 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { setUp, go } from "./harness.mjs";
-import { FLOW, BUTTONS, CASES, FOLDERS, DEVICES } from "../../data/rescue.mjs";
+import { makeFirmware } from "../helpers.mjs";
+import * as rescue from "../../data/rescue.mjs";
+import { t } from "../../site/app/i18n.mjs";
+
+// The data holds keys of the table; the page shows their German text.
+const CASES = rescue.CASES.map(c => ({ ...c, label: t(c.label), hint: t(c.hint) }));
+const FOLDERS = rescue.FOLDERS.map(f => ({ ...f, title: t(f.title) }));
+const DEVICES = Object.fromEntries(Object.entries(rescue.DEVICES).map(([key, d]) => [key, { ...d, title: t(d.title) }]));
 
 // axe is a dev dependency; without it only the checks that axe would add are skipped.
 const axe = await import("./support/axe.mjs").catch(() => null);
 
 let h;
-before(async () => { h = await setUp(); });
+before(async () => { h = await setUp(); h.file("system.vsb", await makeFirmware([])); });
 after(async () => { await h.tearDown(); });
 
 async function open(viewport) {
@@ -42,7 +49,7 @@ test("Rettung is an entry of the sidebar, and the navbar names the page", async 
   assert.deepEqual(page.errors, []);
 });
 
-test("Blechy asks first what the device shows; the four cases are the answers", async () => {
+test("Blechy asks first what the device shows; the cases are the answers", async () => {
   const page = await open();
   assert.equal(await page.locator("#cee-rescue-chat > li").count(), 1);
   assert.match(await said(page), /Was siehst du/);
@@ -210,4 +217,146 @@ test("the page text has no em or en dash and no absolute personal path", async (
     assert.doesNotMatch(text, /[–—]/);
     assert.doesNotMatch(text, /\/Users\//);
   }
+});
+
+/** The page with Web MIDI that lists these ports (granted, no Electribe answers) and the given system in the user agent. */
+async function withPorts(names, agent) {
+  const page = await h.page();
+  await page.addInitScript(([names, agent]) => {
+    const port = name => ({ name, manufacturer: "KORG INC.", state: "connected", connection: "closed" });
+    const access = new EventTarget();
+    access.inputs = new Map(names.map((n, i) => [`i${i}`, port(n)]));
+    access.outputs = new Map(names.map((n, i) => [`o${i}`, port(n)]));
+    navigator.requestMIDIAccess = async () => access;
+    const query = navigator.permissions.query.bind(navigator.permissions);
+    navigator.permissions.query = async d => (d.name === "midi" ? { state: "granted" } : query(d));
+    if (agent) Object.defineProperty(navigator, "userAgent", { get: () => agent });
+  }, [names, agent]);
+  await page.goto(`${h.url}#rescue`);
+  await page.locator("#cee-rescue .cee-rescue").waitFor();
+  return page;
+}
+const notFound = async page => { await answer(page, CASES.find(c => c.id === "app").label); await answer(page, "Die App findet meine Electribe nicht"); return said(page); };
+
+test("Invalid File at the start on a blue that once had Hacktribe: Korg's Sampler file into the Sampler's folder", async () => {
+  const page = await open();
+  await answer(page, CASES.find(c => c.id === "invalid").label);
+  assert.match(await said(page), /Wann kommt die Meldung/);
+  await answer(page, "Beim Einschalten, nach press ENTER");
+  assert.match(await said(page), /Welche Farbe/);
+  await answer(page, DEVICES.blue.title);
+  assert.match(await said(page), /jemals Hacktribe/);
+  await answer(page, "Ja, Hacktribe war mal drauf");
+  assert.match(await said(page), /Electribe Sampler/, "the download of the red's firmware follows by itself");
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-say a", { hasText: "Korgs Download-Seite" }).last().getAttribute("href"), "https://www.korg.com/us/support/download/product/0/368/#software");
+  await answer(page, "Hab ich");
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "KORG/electribe sampler/System/SYSTEM.VSB");
+  assert.match(await page.locator("#cee-rescue-chat").textContent(), /SYSTEM \(1\)\.VSB/, "the card step names the file name");
+  assert.deepEqual(page.errors, []);
+});
+
+test("Invalid File in the menu with Hacktribe on the blue ends at Kuhler Buhler, not at a guess", async () => {
+  const page = await open();
+  await answer(page, CASES.find(c => c.id === "invalid").label);
+  await answer(page, "Im Menü bei SOFTWARE UPDATE");
+  await answer(page, "Korgs Original-Firmware");
+  await answer(page, "Blau, mit Hacktribe");
+  await settle(page);
+  const chat = await page.locator("#cee-rescue-chat").textContent();
+  assert.match(chat, /zwei Bytes/);
+  assert.match(chat, /GitHub Issue/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("No File in the menu: name, folder System, no renamed folder, the patcher's Electribe, then the folder of the running firmware", async () => {
+  const page = await open();
+  await answer(page, CASES.find(c => c.id === "nofile").label);
+  await answer(page, "Im Menü bei SOFTWARE UPDATE");
+  await settle(page);
+  const chat = await page.locator("#cee-rescue-chat").textContent();
+  for (const words of [/SYSTEM \(1\)\.VSB/, /Unterordner System/, /Benenn keinen Ordner um/, /richtige Electribe gewählt/]) assert.match(chat, words);
+  assert.match(await said(page), /Welche Firmware läuft jetzt/);
+  assert.deepEqual(await page.locator("#cee-rescue-answers .cee-rescue-answer").allTextContents(), FOLDERS.map(f => f.title));
+  assert.equal(await page.locator("#cee-rescue-answers [data-known]").count(), 0, "nothing connected, nothing patched: nothing is marked");
+  await answer(page, FOLDERS[2].title);
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), FOLDERS[2].path);
+  await answer(page, "Liegt drauf");
+  await answer(page, "Das Update ist durchgelaufen");
+  assert.match(await said(page), /Update ist drauf/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("the app does not find the Electribe: Korg's jack names on Windows lead to removing the driver", async () => {
+  const page = await withPorts(["electribe2 sampler 1 PAD/KNOB", "electribe2 sampler 1 SOUND"], "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0");
+  assert.match(await notFound(page), /Geräte-Manager/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("the same jack names on a Mac: no cause is claimed, the report goes to the team", async () => {
+  const page = await withPorts(["electribe2 sampler PAD/KNOB", "electribe2 sampler SOUND"], "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/130.0");
+  await notFound(page);
+  await settle(page);
+  const chat = await page.locator("#cee-rescue-chat").textContent();
+  assert.match(chat, /wissen wir noch nicht/);
+  assert.doesNotMatch(chat, /Geräte-Manager/);
+  assert.match(chat, /MIDI-Bericht/);
+  assert.equal(await page.locator("#cee-rescue-chat a", { hasText: "Einstellungen" }).last().getAttribute("target"), null, "the settings open in the app");
+  assert.deepEqual(page.errors, []);
+});
+
+test("an Electribe on MIDI while the app is in the emulator mode: choose Echtes Gerät", async () => {
+  const page = await withPorts(["Electribe 3"]);
+  assert.match(await notFound(page), /Echtes Gerät/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("without MIDI to read, Blechy asks for the mode himself", async () => {
+  const page = await open();
+  assert.match(await notFound(page), /Emulator oder Echtes Gerät/);
+  await answer(page, "Echtes Gerät");
+  assert.match(await said(page), /MIDI-Bericht/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("old patterns after an export: WRITE first, the folder KORG/blechtribe, the date of the device", async () => {
+  const page = await open();
+  await answer(page, CASES.find(c => c.id === "app").label);
+  await answer(page, "Export oder Import zeigt alte Patterns");
+  const text = await said(page);
+  assert.match(text, /erst WRITE, dann EXPORT PATTERN/);
+  assert.match(text, /01\.01\.2014/);
+  assert.match(text, /KORG\/electribe/);
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "KORG/blechtribe/");
+  assert.deepEqual(page.errors, []);
+});
+
+test("a red full check in the browser: the flash.bin of older apps, then the log", async () => {
+  const page = await open();
+  await answer(page, CASES.find(c => c.id === "app").label);
+  await answer(page, "Die volle Prüfung im Patcher wird rot");
+  assert.match(await said(page), /Ab Version 1\.3\.7/, "the browser has no app version, so both cases are named");
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "~/.gelumpe/flash/flash.bin");
+  await answer(page, "Immer noch rot");
+  await settle(page);
+  assert.match(await page.locator("#cee-rescue-chat").textContent(), /~\/\.gelumpe\/emu\.log/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("a connected BLECHTRIBE is named, and its folder is marked among the answers", async () => {
+  const page = await h.page({ device: true });
+  await page.goto(`${h.url}?card#emu`);
+  await page.evaluate(() => window.__ceeStubReady);
+  await go(page, "device");
+  await page.click("#cee-connect");
+  await page.locator("#cee-nav-state #cee-disconnect").waitFor();
+  await go(page, "rescue");
+  await page.click("#cee-rescue-again");
+  await answer(page, CASES[0].label);
+  await answer(page, "Hilft nicht");
+  await answer(page, "Ja, hab ich");
+  await page.locator("#cee-rescue-answers [data-known]").waitFor();
+  assert.match(await said(page), /läuft BLECHTRIBE/);
+  assert.match(await page.locator("#cee-rescue-answers [data-known] .cee-rescue-answer").textContent(), new RegExp(FOLDERS[3].title.replace(/[()+]/g, "\\$&")));
+  assert.equal(await page.locator("#cee-rescue-answers [data-known] .cee-rescue-known").textContent(), "Sagt die App");
+  assert.deepEqual(page.errors, []);
 });

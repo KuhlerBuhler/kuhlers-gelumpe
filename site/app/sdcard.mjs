@@ -17,18 +17,20 @@
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
+import { emuBase } from "./emu-link.mjs";
+import { t } from "./i18n.mjs";
 
 const STYLE = new URL("./sdcard.css", import.meta.url).href;
 
 /** What the panel shows for a state answered by GET /sd; a pure function so it can be tested. */
 export function cardView(state) {
-  if (!state?.available) return { available: false, checked: false, canOpen: false, line: "Nicht verbunden", busy: false, error: "" };
+  if (!state?.available) return { available: false, checked: false, canOpen: false, line: t("sd.notConnected"), busy: false, error: "" };
   const busy = !!state.busy;
   return {
     available: true,
     checked: !!state.inserted,
     canOpen: true,
-    line: busy ? "Schreibt" : state.inserted ? "Eingelegt, schreibgeschützt" : "Nicht eingelegt",
+    line: busy ? t("sd.writing") : state.inserted ? t("sd.inserted") : t("sd.notInserted"),
     busy,
     error: state.error || "",
   };
@@ -50,17 +52,17 @@ export function sdcardPanel(root, emulator = null, { heading = true, bar = false
 
   const api = async (method, path) => {
     const l = link();
-    if (!l) throw new Error(window.__GELUMPE_APP ? "Der Emulator der App läuft nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log." : "Nicht verbunden. Starte npm run emu und öffne den Link, den es ausgibt.");
+    if (!l) throw new Error(window.__GELUMPE_APP ? t("sd.appEmuDown") : t("sd.noLink"));
     let res;
     try {
-      res = await fetch(`http://127.0.0.1:${l.port}${path}`, {
+      res = await fetch(`${emuBase(l)}${path}`, {
         method, body: method === "POST" ? "{}" : undefined, headers: { "X-Emu-Token": l.token, ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
       });
     } catch {
-      throw new Error(window.__GELUMPE_APP ? "Der Emulator der App antwortet nicht. Starte die App neu; was er meldet, steht in ~/.gelumpe/emu.log." : `Der Emulator auf Port ${l.port} antwortet nicht. Läuft npm start noch?`);
+      throw new Error(window.__GELUMPE_APP ? t("sd.appEmuSilent") : t("sd.emuSilent", { port: l.port }));
     }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(data.error || `Emulator antwortet mit ${res.status}.`), { status: res.status });
+    if (!res.ok) throw Object.assign(new Error(data.error || t("sd.emuStatus", { status: res.status })), { status: res.status });
     return data;
   };
 
@@ -68,7 +70,7 @@ export function sdcardPanel(root, emulator = null, { heading = true, bar = false
   const status = el("p", { className: "muted", id: "cee-sd-status", role: "status", ariaLive: "polite" });
   const inserted = el("input", { type: "checkbox", id: "cee-sd-inserted" });
   inserted.setAttribute("role", "switch");
-  const open = el("button", { type: "button", className: bar ? "btn sm" : "btn", id: "cee-sd-open", textContent: bar ? "SD-Karte öffnen" : "Öffnen" });
+  const open = el("button", { type: "button", className: bar ? "btn sm" : "btn", id: "cee-sd-open", textContent: bar ? t("sd.openCard") : t("common.open") });
   let shownError = "";                       // the card's own error, toasted once when it comes up
 
   // What goes wrong in the background goes to a toast that goes away again; the line only says the state of the card.
@@ -113,7 +115,7 @@ export function sdcardPanel(root, emulator = null, { heading = true, bar = false
     events?.close();
     const l = link();
     if (!l || typeof EventSource === "undefined") return;
-    events = new EventSource(`http://127.0.0.1:${l.port}/events?token=${encodeURIComponent(l.token)}`);
+    events = new EventSource(`${emuBase(l)}/events?token=${encodeURIComponent(l.token)}`);
     let seen = null;
     events.addEventListener("status", e => {
       const s = JSON.parse(e.data);
@@ -145,14 +147,14 @@ export function sdcardPanel(root, emulator = null, { heading = true, bar = false
   if (bar) {
     status.className = "ui-sr-only";
     root.replaceChildren(
-      el("label", { className: "ui-switch cee-sd-switch" }, [inserted, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Karte eingelegt"]),
+      el("label", { className: "ui-switch cee-sd-switch" }, [inserted, el("span", { className: "ui-switch-track", ariaHidden: "true" }), t("sd.cardIn")]),
       open,
       status,
     );
   } else root.replaceChildren(...[
-    heading ? el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: "SD-Karte" })]) : null,
+    heading ? el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("sd.title") })]) : null,
     el("div", { className: "actions cee-sd-actions" }, [
-      el("label", { className: "ui-switch" }, [inserted, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Karte einlegen"]),
+      el("label", { className: "ui-switch" }, [inserted, el("span", { className: "ui-switch-track", ariaHidden: "true" }), t("sd.insert")]),
       open,
     ]),
     status,

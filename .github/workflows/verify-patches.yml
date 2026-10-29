@@ -1,13 +1,19 @@
 # Refreshes data/patches/verified.json without a local machine: the full emulator check (tools/emu/check.py) of the
-# patch set on each of Korg's three 2.02 files runs in its own job, side by side, and a last job writes the three
-# entries into one verified.json (tools/verify-patches.mjs --results). Nothing is committed when every pair is already in
-# the file. See docs/development.md, "Release".
+# patch set on each of Korg's three 2.02 files and on Hacktribe with the blue head runs in its own job, side by side, and
+# a last job writes the entries into one verified.json (tools/verify-patches.mjs --results). Nothing is committed when
+# every pair is already in the file. See docs/development.md, "Release".
 #
 # It runs on a pull request that changes what the patched copies or the check are made of (the paths below: the patch
-# set, everything tools/verify-patches.mjs imports, tools/patch and tools/emu; test/verify-patches.test.mjs keeps the
-# list complete) and commits the new verified.json to the pull request's branch. A pull request from a fork has no
-# secrets and is skipped. Started by hand it checks the branch it is given and pushes there, except to main and
-# develop, which get a pull request instead.
+# set, everything tools/verify-patches.mjs imports, tools/patch and tools/emu, the blue Electribe's places in
+# data/synth-map that tools/patch reads, and the scope table; test/verify-patches.test.mjs keeps the list complete). A pull request from a fork has no secrets and is skipped. What runs depends on the base:
+#
+# - into develop (feature pull requests): on each of the four files only the start scenarios and the case modules of
+#   what the pull request changes (tools/ci/verify-scope.mjs maps the changed files; a file it does not know, or the
+#   shared core, means every case module). Nothing is written or committed: verified.json holds only full checks. A
+#   case that breaks outside the mapped modules shows up first on the release pull request.
+# - into any other base, main included (the release pull request from release/X.Y.Z), and started by hand: the full
+#   check, and the last job commits the new verified.json to the pull request's branch. Started by hand it checks the
+#   branch it is given and pushes there, except to main and develop, which get a pull request instead.
 #
 # The push uses SYNC_TOKEN when it is set: a push with the workflow's own token starts no workflow, so the new commit
 # would have no Test run and the pull request would wait for its required checks. The new commit only changes
@@ -28,15 +34,18 @@ on:
       - "data/synth-sites.mjs"
       - "data/map/**"
       - "data/script/**"
+      - "data/synth-map/**"
       - "src/bsdiff.mjs"
       - "src/bytes.mjs"
       - "src/bzip2.mjs"
       - "src/firmware.mjs"
       - "src/fx-append.mjs"
+      - "src/fx-collection.mjs"
       - "src/fx-v2.mjs"
       - "src/guards.mjs"
       - "src/hooks.mjs"
       - "src/layout.mjs"
+      - "src/loading-anim.mjs"
       - "src/map/**"
       - "src/modtable.mjs"
       - "src/patch.mjs"
@@ -48,6 +57,7 @@ on:
       - "src/record.mjs"
       - "src/script/**"
       - "src/units.mjs"
+      - "tools/ci/verify-scope.mjs"
       - "tools/emu/**"
       - "tools/patch/**"
       - "tools/verify-patches.mjs"
@@ -72,6 +82,11 @@ jobs:
       sha: ${{ steps.sha.outputs.sha }}
       branch: ${{ steps.sha.outputs.branch }}
       run: ${{ steps.own.outputs.run || 'true' }}
+      full: ${{ steps.scope.outputs.full || 'true' }}
+      cases: ${{ steps.scope.outputs.cases }}
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - id: sha
         env:
@@ -96,6 +111,19 @@ jobs:
             echo "::notice::the last commit only changes verified.json, nothing to check."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
+      # A pull request into develop runs the start scenarios and the case modules of its changed files, and writes nothing.
+      - id: scope
+        if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"
+          # the API lists at most 3000 files
+          if [ "$(wc -l < "$RUNNER_TEMP/changed.txt")" -ge 3000 ]; then cases=all; else cases=$(node tools/ci/verify-scope.mjs < "$RUNNER_TEMP/changed.txt"); fi
+          echo "::notice::pull request into develop: start scenarios and cases '${cases:-none}', verified.json stays as it is."
+          echo "full=false" >> "$GITHUB_OUTPUT"
+          echo "cases=$cases" >> "$GITHUB_OUTPUT"
 
   verify:
     needs: ref
@@ -118,6 +146,11 @@ jobs:
           - name: blue
             url: E2_VSB_SYNTH_URL
             sha256: 41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8
+          # Hacktribe for the blue: the Hacktribe file with the blue head (bytes 0x12 and 0x2E), as Hacktribe's -e makes it
+          - name: hacktribe-blue
+            url: E2_VSB_URL
+            sha256: 7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee
+            blue_head: 2b2e1c2f928c1faf4cc2a6580292763a5282a37f19eb9165c1bdd05db832ddbe
     name: verify (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -136,6 +169,24 @@ jobs:
       - run: |
           python -m venv tools/emu/.venv
           tools/emu/.venv/bin/pip install -r tools/emu/requirements.txt
+      # Pull requests into develop only: the task results of the last run of this matrix entry (tools/emu/taskcache.py),
+      # so a push that changes one case module runs only the tasks it touches. A result is taken only for the same
+      # firmware, flash and base, Python and Unicorn, and while every file the task used has the same content, so a
+      # stale hit cannot happen; the key only names the newest run to restore. Only ~/.cache/gelumpe/task and
+      # task-time go in: verdicts, ids, details, hashes, the addresses of the code that ran at start and a 0/1 mask
+      # of which bytes it read, no firmware bytes. The boot
+      # and power-on snapshots hold Korg's RAM and stay out (Actions caches are readable with repo access). The full
+      # check (release pull request, started by hand) restores nothing and keeps nothing, so verified.json only gets
+      # results of a fresh run. A pull request can restore only its own caches and those of develop and main.
+      - name: Kept task results
+        if: needs.ref.outputs.full != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v1-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: verify-tasks-v1-${{ matrix.name }}-
       - name: Korg's file
         env:
           URL: ${{ secrets[matrix.url] }}
@@ -144,9 +195,41 @@ jobs:
           [ -n "$URL" ] || { echo "::error::secret ${{ matrix.url }} is not set"; exit 1; }
           curl -fsSL "$URL" -o "$RUNNER_TEMP/SYSTEM.VSB"
           echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
-      - run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
+      - name: The blue head
+        if: matrix.blue_head
+        env:
+          SHA256: ${{ matrix.blue_head }}
+        run: |
+          printf '\000' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=18 conv=notrunc status=none
+          printf '\043' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=46 conv=notrunc status=none
+          echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
+      - if: needs.ref.outputs.full == 'true'
+        run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
+      - if: needs.ref.outputs.full != 'true'
+        env:
+          CASES: ${{ needs.ref.outputs.cases }}
+        run: npm run -s verify:patches -- --cases "$CASES" "$RUNNER_TEMP/SYSTEM.VSB"
+      # The collection on the card end to end with the editor's own writer (src/fx-collection.mjs), on the red builds
+      # that carry the loader, whenever the fx_card cases run: the cases above build the file in Python.
+      - name: The editor's e2sFx.all in the emulator
+        if: (matrix.name == 'hacktribe' || matrix.name == 'red') && (needs.ref.outputs.full == 'true' || needs.ref.outputs.cases == 'all' || contains(format(',{0},', needs.ref.outputs.cases), ',fx_card_cases,'))
+        env:
+          E2_EMU_REQUIRED: "1"
+          E2_VSB: ${{ runner.temp }}/SYSTEM.VSB
+        run: node --test test/emulator-fxcard.test.mjs
+      # Also after a failed check: a failed case is a result like a passed one. Results not written for two weeks go.
+      - if: always() && needs.ref.outputs.full != 'true'
+        run: find ~/.cache/gelumpe/task -type f -mtime +14 -delete 2>/dev/null || true
+      - if: always() && needs.ref.outputs.full != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v1-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
       # Only the entry (hashes, set, number of checks, date), never the firmware.
-      - uses: actions/upload-artifact@v4
+      - if: needs.ref.outputs.full == 'true'
+        uses: actions/upload-artifact@v4
         with:
           name: verified-${{ matrix.name }}
           path: data/patches/verified.json
@@ -154,6 +237,7 @@ jobs:
 
   join:
     needs: [ref, verify]
+    if: needs.ref.outputs.full == 'true'
     concurrency:
       group: verify-patches-${{ needs.ref.outputs.branch }}-join
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -192,7 +276,7 @@ jobs:
         run: |
           { echo '```json'; cat data/patches/verified.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           if git diff --quiet -- data/patches/verified.json; then
-            echo "::notice::verified.json on $BRANCH already holds all three pairs, nothing to commit."
+            echo "::notice::verified.json on $BRANCH already holds all pairs, nothing to commit."
             exit 0
           fi
           git diff -- data/patches/verified.json

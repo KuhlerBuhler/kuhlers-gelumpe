@@ -35,6 +35,7 @@ FILE_LIMIT = (1 << 32) - 1
 DEFAULT_FOLDER = "hacktribe"
 LAYOUT = ("Sample", "System")  # folders the firmware keeps below KORG/<name>/; System is where SOFTWARE UPDATE looks
 FOLDER_OK = re.compile(r"(?=.{1,32}\Z)[A-Za-z0-9_.-]+(?: [A-Za-z0-9_.-]+)*")   # a folder name below KORG/, single spaces inside
+SYNTH_FOLDER_WORD = 0x325B4       # payload offset of the synth's pool word for the path of device type 0x123
 FOLDER_NAME = re.compile(rb"KORG/([A-Za-z0-9_. -]{1,32})/\x00")   # Korg's own build keeps its files in "electribe sampler", with a space
 
 
@@ -51,8 +52,11 @@ def card_folder(firmware):
     data = bytes(firmware)
     payload = data[0x100:] if len(data) == 0x200100 else data
     if is_synth(payload):
-        found = FOLDER_NAME.match(payload, 0x904D4)
-        if not found or found[1] != b"electribe":
+        # the path function of the synth takes its folder from this pool word (tools/patch/blechtribe.py): KORG/electribe/,
+        # or KORG/blechtribe/ with BLECH
+        at = int.from_bytes(payload[SYNTH_FOLDER_WORD:SYNTH_FOLDER_WORD + 4], "little") - 0xC0000000
+        found = FOLDER_NAME.match(payload, at) if 0 <= at < len(payload) else None
+        if not found or found[1] not in (b"electribe", b"blechtribe"):
             raise CardError("Der gemessene Kartenordner der blauen Firmware fehlt.")
         return found[1].decode("ascii")
     end = data.find(b"e2sSample.all\x00")

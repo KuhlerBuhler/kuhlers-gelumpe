@@ -23,10 +23,11 @@ import { presetFile, presetFileName, readPresetFile, PRESET_EXT } from "../../sr
 import { checkName, checkDetail } from "../../src/patcher.mjs";
 import { GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import { suggestionsFor, applySuggestion } from "../../src/suggestions.mjs";
+import { t } from "./i18n.mjs";
 
 const SEVERITY = {
-  fatal: ["error", "tödlich"], silent: ["error", "stumm"], error: ["error", "Fehler"],
-  warn: ["warn", "Warnung"], note: ["neutral", "Hinweis"],
+  fatal: ["error", "samples.severity.fatal"], silent: ["error", "levels.muted"], error: ["error", "common.error"],
+  warn: ["warn", "device.log.warn"], note: ["neutral", "mod.hint"],
 };
 const META = BLOCKS.get("fxRecord").meta;
 const STAGE_INDEX = { ifx1: 0, ifx2: 1, mfx: 2 };
@@ -68,8 +69,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: `${prefix}-vsb`, accept: ".VSB,.vsb" });
   const drop = el("label", { className: "ui-dropzone" }, [
     fileInput,
-    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: "SYSTEM.VSB hierher ziehen oder " }), "auswählen"]),
-    el("span", { className: "ui-dropzone-hint", textContent: "Deine eigene Firmware-Datei. Sie bleibt auf deinem Rechner, der Editor schreibt nicht hinein." }),
+    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t("presets.drop") }), t("common.pick")]),
+    el("span", { className: "ui-dropzone-hint", textContent: t("presets.drop.hint") }),
     el("span", { className: "ui-dropzone-files" }),
   ]);
   const identity = el("p", { className: "cee-identity", id: `${prefix}-vsb-identity` });
@@ -78,23 +79,23 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   const verdict = el("div", { className: "cee-verdict", id: `${prefix}-verdict`, ariaLive: "polite" });
   const job = el("div", { className: "ui-job cee-job", hidden: true, role: "status" });
   const actions = el("div", { className: "actions", hidden: true });
-  const sendButton = el("button", { type: "button", className: "btn cee-primary", id: `${prefix}-send`, textContent: "Live ins RAM" });
-  const undoButton = el("button", { type: "button", className: "btn", id: `${prefix}-live-undo`, textContent: "Live zurücknehmen", disabled: true });
+  const sendButton = el("button", { type: "button", className: "btn cee-primary", id: `${prefix}-send`, textContent: t("samples.send") });
+  const undoButton = el("button", { type: "button", className: "btn", id: `${prefix}-live-undo`, textContent: t("presets.liveUndo"), disabled: true });
   actions.append(sendButton, undoButton);
-  const limits = el("p", { className: "muted", textContent: "Der Türsteher prüft Form, nicht Klang. Ob ein Preset gut klingt, oder auf echter Hardware überhaupt, sagt nur das Ohr." });
+  const limits = el("p", { className: "muted", textContent: t("presets.limits") });
 
   // Into a copy of the firmware file: presets added as copies of existing ones, edits written in, the copy tested in the emulator.
   const room = el("p", { className: "muted cee-small", id: `${prefix}-fx-room` });
-  const addButton = el("button", { type: "button", className: "btn", id: `${prefix}-add`, textContent: "Preset hinzufügen (Kopie des gewählten)" });
-  const exportButton = el("button", { type: "button", className: "btn cee-primary", id: `${prefix}-export`, textContent: "Firmware-Kopie prüfen" });
-  const downloadButton = el("button", { type: "button", className: "btn", id: `${prefix}-download`, textContent: "Firmware-Kopie laden", hidden: true });
-  const saveButton = el("button", { type: "button", className: "btn", id: `${prefix}-preset-save`, textContent: "Preset als Datei speichern" });
+  const addButton = el("button", { type: "button", className: "btn", id: `${prefix}-add`, textContent: t("presets.add") });
+  const exportButton = el("button", { type: "button", className: "btn cee-primary", id: `${prefix}-export`, textContent: t("presets.export") });
+  const downloadButton = el("button", { type: "button", className: "btn", id: `${prefix}-download`, textContent: t("presets.download"), hidden: true });
+  const saveButton = el("button", { type: "button", className: "btn", id: `${prefix}-preset-save`, textContent: t("presets.save") });
   const presetInput = el("input", { type: "file", className: "cee-visually-hidden", id: `${prefix}-preset-open`, accept: PRESET_EXT });
-  const loadLabel = el("label", { className: "btn", htmlFor: `${prefix}-preset-open` }, ["Preset-Datei laden"]);
+  const loadLabel = el("label", { className: "btn", htmlFor: `${prefix}-preset-open` }, [t("presets.load")]);
   const exportNote = el("p", { className: "cee-hint", id: `${prefix}-export-note`, hidden: true, role: "status" });
   const exportChecks = el("ul", { className: "ui-list", id: `${prefix}-export-checks`, hidden: true });
   const fileGroup = el("div", { className: "cee-group", id: `${prefix}-file-group`, hidden: true }, [
-    el("h3", { textContent: "In die Firmware-Datei" }),
+    el("h3", { textContent: t("presets.file") }),
     room,
     el("div", { className: "actions" }, [addButton, saveButton, loadLabel, presetInput, exportButton, downloadButton]),
     exportNote, exportChecks,
@@ -114,8 +115,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     // Korg's own build is not "known" (its presets are not Hacktribe's), but its presets are read through the pointer arrays all the same
     const stock = id.build === "stock" && !!locatePresets(bytes);
     if (!id.known && !stock) {
-      identity.replaceChildren(...(id.build === "stock" ? [] : [pill("error", "unbekannt"), ` ${id.reasons.join(" ")}`]));
-      if (!embedded) window.ui?.rejectFile(fileInput, "Nicht die vermessene Firmware.");
+      identity.replaceChildren(...(id.build === "stock" ? [] : [pill("error", t("presets.unknown")), ` ${id.reasons.join(" ")}`]));
+      if (!embedded) window.ui?.rejectFile(fileInput, t("presets.notMeasured"));
       picker.hidden = true;
       return false;
     }
@@ -149,8 +150,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   function renderPicker() {
     const kinds = el("div", { className: "ui-segmented" });
     kinds.setAttribute("role", "radiogroup");
-    kinds.setAttribute("aria-label", "Art");
-    for (const [kind, label] of [["ifx", "Insert"], ["mfx", "Master"]]) {
+    kinds.setAttribute("aria-label", t("levels.kind"));
+    for (const [kind, label] of [["ifx", t("presets.kind.ifx")], ["mfx", t("presets.kind.mfx")]]) {
       const input = el("input", { type: "radio", name: `${prefix}-fx-kind`, value: kind, checked: state.kind === kind });
       input.addEventListener("change", () => { state.kind = kind; state.slot = null; renderPicker(); });
       kinds.append(el("label", { className: "ui-segmented-option" }, [input, el("span", { textContent: label })]));
@@ -159,7 +160,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const list = state.image.list(state.kind);
     for (const { slot, name } of list) select.append(el("option", { value: String(slot), textContent: `${slot} ${name}` }));
     select.addEventListener("change", () => openSlot(Number(select.value)));
-    picker.replaceChildren(kinds, el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: `${prefix}-fx-slot`, textContent: "Preset" }), select]), ...(pickerExtra ? [pickerExtra] : []));
+    picker.replaceChildren(kinds, el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: `${prefix}-fx-slot`, textContent: t("presets.preset") }), select]), ...(pickerExtra ? [pickerExtra] : []));
     picker.hidden = false;
     if (list.length) openSlot(state.slot ?? list[0].slot);
     if (state.slot) select.value = String(state.slot);
@@ -178,7 +179,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   /** Korg's records are found through the pointer arrays, so live access needs BLECH on Korg's build, running the file's arrays. */
   async function stockReady(s) {
     if (s.device?.build !== "stock" || s.device.ram !== "blech") {
-      state.why = "Das verbundene Gerät läuft nicht auf Korgs Original mit BLECHTRIBE; Korgs Records lassen sich nur mit BLECHTRIBEs Befehlen lesen und schreiben.";
+      state.why = t("presets.why.stock");
       return false;
     }
     if (state.matched?.session !== s || state.matched.bytes !== state.base) {
@@ -188,7 +189,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       if (ok === null) return false;
       state.matched = { session: s, bytes: state.base, ok };
     }
-    if (!state.matched.ok) state.why = "Die Zeigerfelder im Gerät sind nicht die der geladenen Firmware-Datei; geschrieben wird nur, wo die Datei die Records weiß.";
+    if (!state.matched.ok) state.why = t("presets.why.pointers");
     return state.matched.ok;
   }
 
@@ -205,17 +206,17 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     // A refresh gives way to an open that is under way; counting it would drop that open while the refresh itself gives up on the busy session.
     const mine = refresh ? opening : ++opening;
     state.slot = slot;
-    let from = "Stand aus der Firmware-Datei.";
+    let from = t("presets.from.file");
     const session = await pick();
-    if (!session && state.why) from = `${state.why} Stand aus der Firmware-Datei.`;
+    if (!session && state.why) from = t("presets.from.fileWhy", { why: state.why });
     if (refresh && (state.dirty || session?.busy || session?.reserved)) return;
     if (session && !session.reserved && !state.added.has(`${state.kind}:${slot}`)) {
       try {
         const entry = state.stock ? { ram: recordOf(state.base, state.kind, slot).ram, size: RECORD } : tableEntry(`table.${state.kind}`, slot - 1);
         state.image.bytes.set(await whenIdle(session, () => session.readRamBlock(entry.ram, entry.size)), state.image.slotOffset(state.kind, slot));
-        from = session.port.emulator ? "Gelesen aus dem laufenden Emulator." : "Gelesen aus dem Gerät, nur lesend.";
+        from = session.port.emulator ? t("presets.from.emu") : t("presets.from.device");
       } catch (e) {
-        from = `Nicht gelesen (${e.message}); Stand aus der Firmware-Datei.`;
+        from = t("presets.from.failed", { error: e.message });
       }
     }
     if (mine !== opening || (refresh && (state.dirty || session?.reserved))) return;
@@ -246,7 +247,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const device = state.rec.device(stage);
     const kind = stage === "mfx" ? "mfx" : "ifx";
     const unit = unitFor(state.units, kind, device);
-    if (!unit) return [el("p", { className: "muted", textContent: `Baustein ${hex(device)} ist unbekannt; seine Parameter kennt niemand.` })];
+    if (!unit) return [el("p", { className: "muted", textContent: t("presets.unknownUnit", { unit: hex(device) }) })];
     const ix = stage === "mfx" ? [] : [STAGE_INDEX[stage]];
     const byGroup = new Map(GROUPS.map(g => [g.id, []]));
     for (const p of unit.params) {
@@ -272,19 +273,19 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
         const set = (id, v) => { writeRaw(state.rec.bytes, field(id), ix, v); edited(); };
         const select = (id, options, current, label) => {
           const s = el("select", { className: "select" });
-          s.setAttribute("aria-label", `${label}, Zeile ${row.index + 1}`);
+          s.setAttribute("aria-label", t("presets.map.row", { label, row: row.index + 1 }));
           for (const o of options) s.append(el("option", { value: String(o.raw), textContent: o.label }));
-          if (!options.some(o => o.raw === current)) s.append(el("option", { value: String(current), textContent: `unbekannt (${current})` }));
+          if (!options.some(o => o.raw === current)) s.append(el("option", { value: String(current), textContent: t("presets.map.unknownValue", { value: current }) }));
           s.value = String(current);
           s.addEventListener("change", () => { set(id, Number(s.value)); if (id !== "fx.map.param") draw(); });
           return s;
         };
         const chain = META.chains.find(c => c.raw === row.chain);
         const unit = chain?.stage ? unitFor(state.units, chain.stage === "mfx" ? "mfx" : "ifx", state.rec.device(chain.stage)) : null;
-        const params = unit ? unit.params.map(p => ({ raw: p.index, label: labelFor(p.name).de })) : [{ raw: row.param, label: `Parameter ${row.param}` }];
+        const params = unit ? unit.params.map(p => ({ raw: p.index, label: labelFor(p.name).de })) : [{ raw: row.param, label: t("presets.map.param", { n: row.param }) }];
         const number = (id, word) => {
           const input = el("input", { type: "number", className: "input cee-num", min: 0, max: 127, step: 1, value: String(row[id === "fx.map.low" ? "low" : "high"]) });
-          input.setAttribute("aria-label", `${word}, Zeile ${row.index + 1}`);
+          input.setAttribute("aria-label", t("presets.map.row", { label: word, row: row.index + 1 }));
           input.addEventListener("change", () => {
             const v = Math.max(0, Math.min(127, Math.round(Number(input.value) || 0)));
             input.value = String(v);
@@ -301,25 +302,25 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
           bar.firstChild.style.width = `${(Math.abs(hi - lo) / 127) * 100}%`;
         };
         span();
-        const remove = el("button", { type: "button", className: "btn sm", textContent: "Entfernen" });
-        remove.setAttribute("aria-label", `Zeile ${row.index + 1} entfernen`);
+        const remove = el("button", { type: "button", className: "btn sm", textContent: t("common.remove") });
+        remove.setAttribute("aria-label", t("presets.map.remove", { row: row.index + 1 }));
         remove.addEventListener("click", () => { writeRaw(state.rec.bytes, field("fx.map.source"), ix, 0); edited(); draw(); });
         rows.append(el("div", { className: "cee-fxmap-row" }, [
           el("div", { className: "cee-sentence" }, [
-            select("fx.map.source", sources.map(s => ({ raw: s.raw, label: who(s) })), row.source, "Quelle"),
-            el("span", { textContent: "steuert" }),
-            select("fx.map.chain", chains.map(c => ({ raw: c.raw, label: c.label })), row.chain, "Ziel"),
-            ...(chain?.stage ? [el("span", { textContent: ">" }), select("fx.map.param", params, row.param, "Parameter")] : []),
-            el("span", { textContent: "von" }),
-            number("fx.map.low", "Von"),
-            el("span", { textContent: "bis" }),
-            number("fx.map.high", "Bis"),
+            select("fx.map.source", sources.map(s => ({ raw: s.raw, label: who(s) })), row.source, t("mod.slot.source")),
+            el("span", { textContent: t("presets.map.steers") }),
+            select("fx.map.chain", chains.map(c => ({ raw: c.raw, label: c.label })), row.chain, t("mod.slot.target")),
+            ...(chain?.stage ? [el("span", { textContent: ">" }), select("fx.map.param", params, row.param, t("presets.map.parameter"))] : []),
+            el("span", { textContent: t("presets.map.from") }),
+            number("fx.map.low", t("presets.map.low")),
+            el("span", { textContent: t("presets.map.to") }),
+            number("fx.map.high", t("presets.map.high")),
             remove,
           ]),
           bar,
         ]));
       }
-      const add = el("button", { type: "button", className: "btn sm", textContent: "Steuerung hinzufügen" });
+      const add = el("button", { type: "button", className: "btn sm", textContent: t("presets.map.add") });
       add.addEventListener("click", addRow);
       rows.append(el("div", { className: "actions" }, [add]));
     };
@@ -330,7 +331,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       const used = state.rec.map;
       const free = Array.from({ length: field("fx.map.source").repeat[0].count }, (_, i) => i).find(i => b[base + i * size] === 0);
       if (free === undefined || !used.length) {
-        toast("Das geht hier nicht: Es ist kein Platz mehr frei, oder dieser Effekt lässt sich nicht kopieren.", "error");
+        toast(t("presets.map.full"), "error");
         return;
       }
       const donor = used[used.length - 1].index;
@@ -344,9 +345,9 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
 
   function expertSection() {
     const details = el("details", { className: "ui-details", id: `${prefix}-expert` });
-    details.append(el("summary", { textContent: "Expertenmodus: unbekannte Bytes" }));
+    details.append(el("summary", { textContent: t("presets.expert") }));
     const body = el("div", { className: "ui-details-body" });
-    body.append(el("p", { className: "cee-hint", textContent: "Was diese Bytes bewirken, weiß niemand. Der Probelauf prüft nur, dass der Befehl ankommt. Änderungen gehen nur live ins RAM." }));
+    body.append(el("p", { className: "cee-hint", textContent: t("presets.expert.hint") }));
     for (const f of UNKNOWN) {
       const levels = f.repeat ? f.repeat[0].count : 1;
       for (let i = 0; i < levels; i++) {
@@ -356,7 +357,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
         const inputs = [];
         for (let k = a; k < bEnd; k++) {
           const input = el("input", { type: "number", className: "input cee-byte", min: 0, max: 255, value: String(state.rec.bytes[k]) });
-          input.setAttribute("aria-label", `${f.label.de} ${i + 1}, Byte ${k - a + 1}`);
+          input.setAttribute("aria-label", t("presets.expert.byte", { label: f.label.de, n: i + 1, byte: k - a + 1 }));
           input.addEventListener("change", () => {
             const v = Math.max(0, Math.min(255, Math.round(Number(input.value) || 0)));
             state.rec.bytes[k] = v;
@@ -379,13 +380,13 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       .filter(({ suggestion: s }) => state.rec.device("ifx1") === s.unit || state.rec.device("ifx2") === s.unit)
       .map(({ suggestion: s, refusal }) => {
         const id = `${prefix}-suggest-${s.id}`;
-        const apply = el("button", { type: "button", className: "btn", id: `${id}-apply`, textContent: "Werte übernehmen" });
+        const apply = el("button", { type: "button", className: "btn", id: `${id}-apply`, textContent: t("presets.suggest.apply") });
         apply.addEventListener("click", () => { applySuggestion(state.rec, s, state.units); edited(); renderEditor(); });
         const values = Object.entries(s.params).map(([name, v]) => `${labelFor(name).de} ${v}`).join(", ");
         return el("div", { className: "cee-group", id }, [
-          el("h3", { textContent: `Vorschlag: ${s.label.de}` }),
-          el("p", {}, [pill("warn", "am Gerät ungetestet"), ` ${s.hint}`]),
-          el("p", { className: "muted cee-small", textContent: `Setzt: ${values}. Alles andere im Preset bleibt, wie es ist.` }),
+          el("h3", { textContent: t("presets.suggest.title", { label: s.label.de }) }),
+          el("p", {}, [pill("warn", t("presets.suggest.untested")), ` ${s.hint}`]),
+          el("p", { className: "muted cee-small", textContent: t("presets.suggest.sets", { values }) }),
           refusal ? el("p", { className: "cee-hint", id: `${id}-refusal`, textContent: refusal }) : apply,
         ]);
       });
@@ -397,7 +398,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const stageBlocks = stages.map(stage => {
       const unit = unitFor(state.units, stage === "mfx" ? "mfx" : "ifx", state.rec.device(stage));
       return el("div", { className: "cee-group" }, [
-        el("h3", { textContent: `${stage === "mfx" ? "Master" : `Stufe ${STAGE_INDEX[stage] + 1}`}: ${unit ? unit.unit : hex(state.rec.device(stage))}` }),
+        el("h3", { textContent: t(stage === "mfx" ? "presets.stage.master" : "presets.stage", { n: STAGE_INDEX[stage] + 1, unit: unit ? unit.unit : hex(state.rec.device(stage)) }) }),
         ...paramSections(stage),
       ]);
     });
@@ -406,10 +407,10 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     toggle.addEventListener("change", () => { state.expert = toggle.checked; renderEditor(); });
     editor.replaceChildren(
       el("p", { className: "muted cee-small", id: `${prefix}-fx-source`, textContent: state.from ?? "" }),
-      el("div", { className: "cee-group cee-fxhead" }, [name.node, el("label", { className: "ui-switch" }, [toggle, el("span", { className: "ui-switch-track", ariaHidden: "true" }), "Experte"])]),
+      el("div", { className: "cee-group cee-fxhead" }, [name.node, el("label", { className: "ui-switch" }, [toggle, el("span", { className: "ui-switch-track", ariaHidden: "true" }), t("presets.expertToggle")])]),
       ...stageBlocks,
       ...suggestionBlocks(),
-      el("div", { className: "cee-group" }, [el("h3", { textContent: "Steuerung" }), mapRows()]),
+      el("div", { className: "cee-group" }, [el("h3", { textContent: t("presets.map") }), mapRows()]),
       ...(state.expert ? [expertSection()] : []),
     );
     actions.hidden = false;
@@ -422,13 +423,13 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const list = el("ul", { className: "ui-list" });
     for (const f of findings) {
       const [tone, word] = SEVERITY[f.severity];
-      list.append(el("li", { className: "ui-row" }, [pill(tone, word), el("span", { className: "ui-break", textContent: ` ${f.message}` })]));
+      list.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(f.text)}` })]));
     }
     const unknown = unknownChanges(state.original.bytes, state.rec.bytes).length;
     verdict.replaceChildren(
-      el("h3", { textContent: "Türsteher" }),
-      findings.length ? list : el("p", {}, [pill("ok", "sauber"), " Keine Befunde."]),
-      unknown ? el("p", { className: "cee-hint", textContent: `${unknown} Byte in unbekannten Feldern geändert.` }) : "",
+      el("h3", { textContent: t("samples.gate") }),
+      findings.length ? list : el("p", {}, [pill("ok", t("samples.clean")), ` ${t("samples.noFindings")}`]),
+      unknown ? el("p", { className: "cee-hint", textContent: t("presets.unknownBytes", { count: unknown }) }) : "",
     );
   }
 
@@ -437,17 +438,17 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const bar = el("div", { className: "ui-progress", role: "progressbar" }, [el("span", { className: "ui-progress-bar" })]);
     bar.setAttribute("aria-valuemin", "0");
     bar.setAttribute("aria-valuemax", "100");
-    const state = el("span", { className: "cee-status", textContent: "Läuft" });
+    const state = el("span", { className: "cee-status", textContent: t("samples.job.running") });
     state.dataset.tone = "running";
     const meta = el("span", { className: "ui-job-meta" });
     job.replaceChildren(el("div", { className: "ui-job-head" }, [el("span", { className: "ui-job-name", textContent: name }), state]), bar, meta);
     return {
-      step(n, total) { window.ui?.setProgress(bar, Math.round((n / total) * 100), name); meta.textContent = `Schritt ${n} von ${total}`; },
+      step(n, total) { window.ui?.setProgress(bar, Math.round((n / total) * 100), name); meta.textContent = t("samples.job.step", { n, total }); },
       done(ok, text) {
-        state.textContent = ok ? "Fertig" : "Fehlgeschlagen";
+        state.textContent = ok ? t("samples.job.done") : t("samples.job.failed");
         state.dataset.tone = ok ? "ok" : "error";
         bar.dataset.tone = ok ? "ok" : "error";
-        window.ui?.setProgress(bar, 100, name, ok ? undefined : { valueText: "Fehlgeschlagen" });
+        window.ui?.setProgress(bar, 100, name, ok ? undefined : { valueText: t("samples.job.failed") });
         meta.textContent = text;
       },
     };
@@ -455,7 +456,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
 
   async function send() {
     const session = await pick();
-    if (!session) { verdict.prepend(el("p", { className: "cee-error", textContent: state.why ?? "Weder Emulator noch Gerät verbunden. Schalte den Emulator ein." })); return; }
+    if (!session) { verdict.prepend(el("p", { className: "cee-error", textContent: state.why ?? t("presets.noSession") })); return; }
     const edit = { kind: "fxRecord", table: state.kind, slot: state.slot, bytes: Uint8Array.from(state.rec.bytes), before: state.original.bytes, unknownChanges: unknownChanges(state.original.bytes, state.rec.bytes) };
     if (state.stock) edit.ram = recordOf(state.base, state.kind, state.slot)?.ram;
     sendButton.disabled = undoButton.disabled = true;
@@ -466,15 +467,15 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       const checked = await session.check(edit);
       if (checked.verdict === "blocked") { showBlocked(checked.reasons); return; }
       if (checked.verdict === "confirm") {
-        const text = checked.reasons.map(r => `${SEVERITY[r.severity]?.[1] ?? r.severity}: ${r.message}`).join("\n");
-        const yes = await window.ui.confirm({ title: "Trotz Warnungen senden?", text, confirmLabel: "Senden", danger: false });
+        const text = checked.reasons.map(r => `${SEVERITY[r.severity] ? t(SEVERITY[r.severity][1]) : r.severity}: ${r.message}`).join("\n");
+        const yes = await window.ui.confirm({ title: t("samples.confirm.title"), text, confirmLabel: t("backup.send.confirm"), danger: false });
         if (!yes) return;
       }
-      p = progress(`${state.kind === "ifx" ? "IFX" : "MFX"} ${state.slot} ins RAM`);
+      p = progress(t("presets.job", { target: `${state.kind === "ifx" ? "IFX" : "MFX"} ${state.slot}` }));
       // The yes covers exactly what was shown; a different verdict asks again.
       const result = await whenIdle(session, () => session.apply(edit, { confirmed: checked.token, onStep: p.step }));
-      if (result.needsConfirmation) { p.done(false, "Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden."); return; }
-      if (result.gate?.verdict === "blocked") { p.done(false, "Gesperrt vom Türsteher."); showBlocked(result.gate.reasons); return; }
+      if (result.needsConfirmation) { p.done(false, t("backup.changed")); return; }
+      if (result.gate?.verdict === "blocked") { p.done(false, t("samples.blockedByGate")); showBlocked(result.gate.reasons); return; }
       finish(result, p);
     } catch (e) {
       if (p) p.done(false, e.message);
@@ -489,27 +490,27 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   function showBlocked(reasons) {
     const list = el("ul", { className: "ui-list", id: `${prefix}-blocked` });
     for (const r of reasons) {
-      const [tone, word] = SEVERITY[r.severity] ?? ["error", "gesperrt"];
-      list.append(el("li", { className: "ui-row" }, [pill(tone, word), el("span", { className: "ui-break", textContent: ` ${r.message}` })]));
+      const [tone, word] = SEVERITY[r.severity] ?? ["error", "backup.locked"];
+      list.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(r.text ?? r.message)}` })]));
     }
-    verdict.replaceChildren(el("h3", { textContent: "Gesperrt" }), list);
-    device.log?.(`Gesperrt: ${reasons[0]?.message ?? ""}`, "error");
+    verdict.replaceChildren(el("h3", { textContent: t("samples.blocked") }), list);
+    device.log?.(t("backup.blocked", { reasons: reasons[0]?.message ?? "" }), "error");
   }
 
   function finish(result, p) {
     const target = `${state.kind === "ifx" ? "IFX" : "MFX"} ${state.slot}`;
     if (result.ok) {
-      p?.done(true, "Gesendet und zurückgelesen, stimmt überein.");
-      device.log?.(`${target} live geschrieben.`, "ok");
+      p?.done(true, t("presets.sent"));
+      device.log?.(t("presets.sentLog", { target }), "ok");
       undoButton.disabled = false;
       onSent?.({ kind: state.kind, slot: state.slot });
       return;
     }
-    const text = result.error ? `${result.error.message}${result.pending?.now ? ` ${result.pending.now.text}` : ""}` : "abgebrochen";
+    const text = result.error ? `${result.error.message}${result.pending?.now ? ` ${result.pending.now.text}` : ""}` : t("samples.aborted");
     p?.done(false, text);
-    device.log?.(`${target}: ${text}`, "error");
+    device.log?.(t("presets.failedLog", { target, error: text }), "error");
     if (device.session?.blocked) {
-      showBlocked([{ severity: "error", code: "target-blocked", message: `${device.session.blocked} Entscheide im Bereich Emulator unter „Echtes Gerät“.` }]);
+      showBlocked([{ severity: "error", code: "target-blocked", message: t("samples.decide", { reason: device.session.blocked }) }]);
       device.showDecision?.();
     }
   }
@@ -519,7 +520,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     if (!session) return;
     const release = session.reserve();
     undoButton.disabled = true;
-    const p = progress("Zurücknehmen");
+    const p = progress(t("samples.undo"));
     let res;
     try {
       res = await whenIdle(session, () => session.undo({ onStep: p.step }));
@@ -528,19 +529,19 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     } finally {
       release();
     }
-    p.done(res.ok, res.ok ? "Alter Stand ist wieder im RAM." : res.error.message);
-    device.log?.(res.ok ? "Letzte Änderung zurückgenommen." : `Zurücknehmen hat nicht geklappt: ${res.error.message}`, res.ok ? "ok" : "error");
+    p.done(res.ok, res.ok ? t("samples.undone") : res.error.message);
+    device.log?.(res.ok ? t("samples.undoneLog") : t("backup.undoFailed", { error: res.error.message }), res.ok ? "ok" : "error");
     undoButton.disabled = !session.history.length;
   }
 
-  const kindWord = kind => (kind === "ifx" ? "Insert" : "Master");
+  const kindWord = kind => t(kind === "ifx" ? "presets.kind.ifx" : "presets.kind.mfx");
 
   function renderRoom() {
     const info = state.image ? presetRoom(state.image.bytes, state.kind) : null;
     fileGroup.hidden = !info;
     if (!info) return;
-    const more = info.patched ? "" : ` Die Firmware kennt nur ${info.capacity}; mit dem BLECHTRIBE-Patch preset-tables sind es 128.`;
-    room.textContent = `${kindWord(state.kind)}: ${info.count} von ${info.capacity} Plätzen im Menü.${more}`;
+    const more = info.patched ? "" : ` ${t("presets.room.more", { capacity: info.capacity })}`;
+    room.textContent = t("presets.room", { kind: kindWord(state.kind), count: info.count, capacity: info.capacity, more });
     addButton.disabled = info.count >= info.capacity || !state.rec;
     saveButton.disabled = !state.rec;
     exportButton.disabled = !state.fileDirty && !state.dirty;
@@ -573,7 +574,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     state.fileDirty = true;
     state.passed = null;
     downloadButton.hidden = true;
-    note(`${kindWord(state.kind)} ${added.slot} ist eine Kopie von ${state.slot}. Ändere sie hier und prüfe die Kopie der Firmware.`, "ok");
+    note(t("presets.copied", { kind: kindWord(state.kind), slot: added.slot, from: state.slot }), "ok");
     state.dirty = false;
     state.slot = added.slot;
     renderPicker();
@@ -591,7 +592,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   async function loadPreset(file) {
     const got = readPresetFile(await file.text());
     if (!got.ok) { note(got.reason, "error"); return; }
-    if (!state.image) { note("Erst eine Firmware laden, dann kommt das Preset hinein.", "error"); return; }
+    if (!state.image) { note(t("presets.loadFirst"), "error"); return; }
     commit();
     const added = addPreset(state.image.bytes, got.kind, 1);
     if (!added.ok) { note(added.reasons.join(" "), "error"); return; }
@@ -604,7 +605,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     state.kind = got.kind;
     state.slot = added.slot;
     state.dirty = false;
-    note(`${kindWord(got.kind)} ${added.slot}: „${got.name}“ aus der Datei. Prüf die Kopie der Firmware, dann kommt es aufs Gerät.`, "ok");
+    note(t("presets.loaded", { kind: kindWord(got.kind), slot: added.slot, name: got.name }), "ok");
     renderPicker();
   }
 
@@ -619,16 +620,16 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       const res = await exportPresets(state.base, state.image.bytes);
       if (!res.ok) throw new Error(res.reasons.join(" "));
       const emu = emulator?.();
-      if (!emu) throw new Error("Wähle im Bereich Emulator die Firmware (VSB): dort wird die Kopie geprüft, bevor du sie bekommst.");
-      exportNote.textContent = "Der Emulator startet die Kopie auf allen Startwegen und prüft die Presets, das dauert ein paar Minuten.";
+      if (!emu) throw new Error(t("presets.noEmu"));
+      exportNote.textContent = t("presets.checking");
       const report = await emu.check(state.base, res.bytes, res.allow, res.allowCode);
       exportChecks.replaceChildren(...report.checks.map(c => el("li", { className: "ui-row" }, [
-        pill(c.ok ? "ok" : "error", c.ok ? "bestanden" : "nicht bestanden"), el("strong", { textContent: ` ${checkName(c.id)}` }), el("span", { className: "ui-break muted", textContent: ` ${checkDetail(c.detail)}` }),
+        pill(c.ok ? "ok" : "error", c.ok ? t("check.passed") : t("check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
       ])));
       exportChecks.hidden = false;
       const good = report.checks.filter(c => c.ok).length;
-      if (report.ok) note("Geprüft, alles in Ordnung. Du kannst die Datei jetzt speichern.", "ok");
-      else note(`Die Prüfung hat ${report.checks.length - good} Fehler gefunden. Diese Änderung lässt sich so nicht speichern. Schick uns bitte einen Screenshot.`, "error");
+      if (report.ok) note(t("mod.checked.ok"), "ok");
+      else note(t("mod.checked.failed", { count: report.checks.length - good }), "error");
       if (report.ok) { state.passed = res.bytes; downloadButton.hidden = false; }
     } catch (e) {
       note(e.message, "error");
@@ -640,7 +641,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   function downloadCopy() {
     if (!state.passed) return;
     saveFile(state.passed, "SYSTEM.VSB");
-    note("Kopiere die Datei wie im Bereich Firmware Patcher beschrieben auf die SD-Karte und starte am Gerät Menü -> DATA UTILITY -> SOFTWARE UPDATE.", "ok");
+    note(t("presets.copyNote"), "ok");
   }
 
   addButton.addEventListener("click", addCopy);
@@ -684,11 +685,11 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
      * @returns {Promise<{ok: true} | {ok: false, reason: string}>}
      */
     async writeRecord(kind, slot, make) {
-      if (!state.image) return { ok: false, reason: "Dafür braucht die Seite deine Firmware: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen." };
+      if (!state.image) return { ok: false, reason: t("presets.needsFirmware") };
       const session = await pick();
       if (!session) {
         const off = emulator?.()?.firmware && !emulator().port?.running;
-        return { ok: false, reason: state.why ?? (off ? "Die Firmware ist geladen, aber der Emulator ist aus. Halte im Bereich Emulator die Power-Taste 2 Sekunden, dann noch einmal laden." : "Weder Emulator noch Gerät verbunden. Schalte den Emulator ein oder verbinde die Electribe.") };
+        return { ok: false, reason: state.why ?? (off ? t("presets.emuOff") : t("presets.noSessionDevice")) };
       }
       const before = Uint8Array.from(state.image.read(kind, slot).bytes);
       const made = make(before, state.image.list(kind).map(x => Uint8Array.from(x.record.bytes)));
@@ -699,17 +700,17 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       try {
         await session.idle();
         const checked = await session.check(edit);
-        if (checked.verdict === "blocked") return { ok: false, reason: `Gesperrt: ${checked.reasons[0]?.message ?? ""}` };
+        if (checked.verdict === "blocked") return { ok: false, reason: t("backup.blocked", { reasons: checked.reasons[0]?.message ?? "" }) };
         if (checked.verdict === "confirm") {
-          const text = checked.reasons.map(r => `${SEVERITY[r.severity]?.[1] ?? r.severity}: ${r.message}`).join("\n");
-          if (!(await window.ui.confirm({ title: "Trotz Warnungen senden?", text, confirmLabel: "Senden", danger: false }))) return { ok: false, reason: "" };
+          const text = checked.reasons.map(r => `${SEVERITY[r.severity] ? t(SEVERITY[r.severity][1]) : r.severity}: ${r.message}`).join("\n");
+          if (!(await window.ui.confirm({ title: t("samples.confirm.title"), text, confirmLabel: t("backup.send.confirm"), danger: false }))) return { ok: false, reason: "" };
         }
         const result = await whenIdle(session, () => session.apply(edit, { confirmed: checked.token }));
-        if (result.needsConfirmation) return { ok: false, reason: "Am Gerät hat sich inzwischen etwas geändert. Klick bitte nochmal auf Senden." };
-        if (result.gate?.verdict === "blocked") return { ok: false, reason: `Gesperrt: ${result.gate.reasons[0]?.message ?? ""}` };
-        if (!result.ok) return { ok: false, reason: result.error?.message ?? "abgebrochen" };
+        if (result.needsConfirmation) return { ok: false, reason: t("backup.changed") };
+        if (result.gate?.verdict === "blocked") return { ok: false, reason: t("backup.blocked", { reasons: result.gate.reasons[0]?.message ?? "" }) };
+        if (!result.ok) return { ok: false, reason: result.error?.message ?? t("samples.aborted") };
         state.image.write(kind, slot, new FxRecord(made.record, kind));
-        device.log?.(`${kind === "ifx" ? "IFX" : "MFX"} ${slot} live geschrieben (Baukasten).`, "ok");
+        device.log?.(t("presets.sentLogBaukasten", { target: `${kind === "ifx" ? "IFX" : "MFX"} ${slot}` }), "ok");
         onSent?.({ kind, slot });
         renderPicker();
         if (state.kind === kind && state.slot === slot && !state.dirty) openSlot(slot, { refresh: true });

@@ -21,9 +21,10 @@
  * variable and array operands to 16 bits and moves the variable count to a
  * 32-bit header field.
  */
+import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 8;
+export const API_VERSION = 11;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -180,6 +181,7 @@ const EVENT_LIST = [
   ["menu", ["id", "value"]],
   ["open", []],
   ["close", []],
+  ["timer", ["callback"]],
 ];
 
 /**
@@ -203,7 +205,14 @@ export const EVENT_BY_ID = new Map(EVENTS.map(e => [e.id, e]));
  */
 export const APP_EVENTS = Object.freeze(["open", "close"]);
 /** Events a script may post from outside the VM: everything the frame hook feeds from the ring, except the app events. */
-export const QUEUED_EVENTS = Object.freeze(EVENTS.filter(e => e.id >= 3 && !APP_EVENTS.includes(e.name)).map(e => e.name));
+/**
+ * Events only the runtime posts and no plugin registers a handler for: `timer` goes to the one script whose korg.after,
+ * korg.every or korg.afterSteps is due, with the callback number the compiler gave the function; the compiler builds the
+ * handler that calls it.
+ */
+export const INTERNAL_EVENTS = Object.freeze(["timer"]);
+/** Events a script may post from outside the VM: everything the frame hook feeds from the ring, except the app and internal events. */
+export const QUEUED_EVENTS = Object.freeze(EVENTS.filter(e => e.id >= 3 && !APP_EVENTS.includes(e.name) && !INTERNAL_EVENTS.includes(e.name)).map(e => e.name));
 
 /** Word-aligned per-script metadata; maxima arrays have one word per event. */
 /** Persistent values of one script: 16 integer slots and a mask of the slots that hold a saved value. */
@@ -225,13 +234,31 @@ export const STORE = Object.freeze({
   ]),
 });
 
+/**
+ * The timers of one script (korg.after, korg.every, korg.afterSteps), `slots` records of `recordSize` bytes in its script
+ * entry. A record: `due` (the millisecond count of the runtime clock it is due at, or the steps still to come), `period` (the
+ * milliseconds of korg.every, 0 once), `callback` (u8, the number the compiler gave the function), `kind` (u8, KIND),
+ * `generation` (u8, counts up each time the slot is taken), one byte unused. A timer's number is its slot plus 8 times the generation (0 to
+ * 255), so korg.cancel with the number of a timer that already ran does not stop the one that took its slot since.
+ * The frame hook checks the clock timers every frame (40 ms): one runs at the earliest `ms` after the call, at the latest a
+ * frame later. A step timer counts the step events while the sequencer plays.
+ */
+export const TIMERS = Object.freeze({
+  slots: 8,
+  recordSize: 12,
+  maxMs: 86400000,
+  maxSteps: 65535,
+  KIND: Object.freeze({ FREE: 0, MS: 1, STEPS: 2 }),
+  fields: Object.freeze([["due", 0], ["period", 4], ["callback", 8], ["kind", 9], ["generation", 10]].map(([name, offset]) => Object.freeze({ name, offset }))),
+});
+
 export const SCRIPT_ENTRY = Object.freeze({
-  size: 48 + EVENTS.length * 8 + 4 + STORE.slots * 4,
+  size: 48 + EVENTS.length * 8 + 4 + STORE.slots * 4 + TIMERS.slots * TIMERS.recordSize,
   fields: Object.freeze([
     ["next", 0], ["blob", 4], ["vars", 8], ["state", 12], ["fault", 16], ["offset", 20],
     ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 44 + EVENTS.length * 4], ["readySent", 44 + EVENTS.length * 8],
-    ["storeMask", 48 + EVENTS.length * 8], ["store", 52 + EVENTS.length * 8],
-  ].map(([name, offset]) => Object.freeze({ name, offset, words: name === "maxCost" || name === "maxEventTicks" ? EVENTS.length : name === "store" ? STORE.slots : 1 }))),
+    ["storeMask", 48 + EVENTS.length * 8], ["store", 52 + EVENTS.length * 8], ["timers", 52 + EVENTS.length * 8 + STORE.slots * 4],
+  ].map(([name, offset]) => Object.freeze({ name, offset, words: name === "maxCost" || name === "maxEventTicks" ? EVENTS.length : name === "store" ? STORE.slots : name === "timers" ? TIMERS.slots * TIMERS.recordSize / 4 : 1 }))),
 });
 export const SCRIPT_STATE = Object.freeze({ LOADED: 1, ARMED: 2, DISABLED: 3 });
 
@@ -264,6 +291,8 @@ const ALL = EVENTS.map(e => e.name);
 const UI = EVENTS.filter(e => e.name !== "start" && e.name !== "save").map(e => e.name);
 const MENU_ADD = ["start", "ready"];
 const APP_ONLY = ["start"];
+/** The timer calls work everywhere but in `save`, which runs in another task than the frame hook that reads the timers. */
+const TIMER_USE = ALL.filter(n => n !== "save");
 
 const int = (name, min = -2147483648, max = 2147483647) => ({ name, kind: "int", min, max });
 const str = name => ({ name, kind: "str" });
@@ -301,6 +330,9 @@ const API_LIST = [
   [42, "korg.read.chainMode", [], "int", ALL, 4, 8],
   [43, "korg.read.patternValue", [int("pattern", -1, 249), int("part", -1, 15), int("field", 0, 31)], "int", ALL, 6, 8],
   [44, "korg.remapKey", [int("from", 0, 33), int("to", 0, 33)], "void", MENU_ADD, 20, 8],
+  [45, "korg.seq.setStep", [int("part", 0, 15), int("step", 0, 63), int("note", -1, 127), int("velocity", 0, 127)], "void", UI, 6, 9],
+  [46, "korg.seq.setGate", [int("part", 0, 15), int("step", 0, 63), int("gate", 0, 127)], "void", UI, 4, 9],
+  [47, "korg.seq.clearPart", [int("part", 0, 15)], "void", UI, 30, 9],
   [48, "korg.play", [], "void", UI, 30, 3],
   [49, "korg.stop", [], "void", UI, 30, 3],
   [50, "korg.pattern", [int("index", 0, 249)], "void", UI, 30, 3],
@@ -312,6 +344,14 @@ const API_LIST = [
   [58, "korg.menu.add", [str("label"), int("min", -1000000, 1000000), int("max", -1000000, 1000000), int("value", -1000000, 1000000)], "int", MENU_ADD, 60, 4],
   [59, "korg.app", [str("name"), str("group")], "int", APP_ONLY, 60, 5],
   [60, "korg.file.frame", [arr("array"), int("file", 0, 99), int("index", 0, 65535)], "int", UI, 250, 7],
+  // the object tree (data/script/objects.mjs): the compiler calls these for the paths, index -1 for a leaf without brackets
+  [61, "korg.get", [int("leaf", 0, 255), int("index", -1, 255)], "int", ALL, 6, 10],
+  [62, "korg.set", [int("leaf", 0, 255), int("index", -1, 255), int("value")], "void", UI, 60, 10],
+  // timers (TIMERS): the compiler passes the function as its callback number and builds the handler of the event timer
+  [63, "korg.after", [int("ms", 0, TIMERS.maxMs), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
+  [64, "korg.every", [int("ms", 1, TIMERS.maxMs), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
+  [65, "korg.afterSteps", [int("steps", 1, TIMERS.maxSteps), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
+  [66, "korg.cancel", [int("timer", -1, TIMERS.slots * 32 - 1)], "void", TIMER_USE, 6, 11],
 ];
 
 /**
@@ -373,42 +413,51 @@ export const SCRIPT_LED_VALID = Object.freeze({ DESIRED: 1, DELIVERED: 2 });
 export const PATTERN_FIELD_KINDS = Object.freeze(["u8", "s8", "u16", "bars", "chain", "atLeast1"]);
 const field = (name, offset, kind, text) => Object.freeze({ name, offset, kind, text });
 export const PATTERN_FIELDS = Object.freeze([
-  field("tempo", 34, "u16", "Tempo in Zehntel BPM, 1280 ist 128,0."),
-  field("swing", 36, "s8", "Swing, -48 bis 48."),
-  field("length", 37, "bars", "Länge in Takten, 1 bis 4."),
-  field("beat", 38, "u8", "Beat: 0 16tel, 1 32tel, 2 8tel-Triolen, 3 16tel-Triolen."),
-  field("key", 39, "u8", "Tonart, 0 C bis 11 H."),
-  field("scale", 40, "u8", "Tonleiter, 0 bis 34 in der Reihenfolge des Pattern-Menüs."),
-  field("chordSet", 41, "u8", "Chord Set, 0 bis 4."),
-  field("level", 42, "u8", "Lautstärke des Patterns, 0 bis 127."),
-  field("mfxType", 61, "u8", "Master-Effekt, sein Platz im Master-Menü."),
-  field("chainTo", 15104, "chain", "Chain To: das nächste Pattern, 0 bis 249, -1 ohne Kette."),
-  field("chainRepeat", 15106, "atLeast1", "Chain Repeat: wie oft das Pattern spielt, bevor die Kette weitergeht, mindestens 1."),
+  field("tempo", 34, "u16", text("api.pattern.tempo")),
+  field("swing", 36, "s8", text("api.pattern.swing")),
+  field("length", 37, "bars", text("api.pattern.length")),
+  field("beat", 38, "u8", text("api.pattern.beat")),
+  field("key", 39, "u8", text("api.pattern.key")),
+  field("scale", 40, "u8", text("api.pattern.scale")),
+  field("chordSet", 41, "u8", text("api.pattern.chordSet")),
+  field("level", 42, "u8", text("api.pattern.level")),
+  field("mfxType", 61, "u8", text("api.pattern.mfxType")),
+  field("chainTo", 15104, "chain", text("api.pattern.chainTo")),
+  field("chainRepeat", 15106, "atLeast1", text("api.pattern.chainRepeat")),
 ]);
 export const PART_FIELDS = Object.freeze([
-  field("sample", 8, "u16", "Sample, die Slot-Nummer."),
-  field("filterType", 12, "u8", "Filtertyp, 0 bis 16."),
-  field("cutoff", 13, "u8", "Cutoff, 0 bis 127."),
-  field("resonance", 14, "u8", "Resonanz, 0 bis 127."),
-  field("egInt", 15, "s8", "Filter EG Int, -63 bis 63."),
-  field("modType", 16, "u8", "Modulation, ihr Platz in der Liste."),
-  field("modSpeed", 17, "u8", "Mod Speed, 0 bis 127."),
-  field("modDepth", 18, "u8", "Mod Depth, 0 bis 127."),
-  field("attack", 20, "u8", "Attack, 0 bis 127."),
-  field("decay", 21, "u8", "Decay/Release, 0 bis 127."),
-  field("level", 24, "u8", "Amp Level, 0 bis 127."),
-  field("pan", 25, "s8", "Panorama, -63 links bis 63 rechts."),
-  field("ifxOn", 32, "u8", "1, wenn der Insert-Effekt an ist."),
-  field("ifxType", 33, "u8", "Insert-Effekt, sein Platz im Insert-Menü."),
-  field("ifxEdit", 34, "u8", "IFX Edit, 0 bis 127."),
-  field("pitch", 36, "s8", "Osc Pitch, -63 bis 63."),
-  field("glide", 37, "u8", "Glide, 0 bis 127."),
-  field("voiceAssign", 2, "u8", "Voice Assign, 0 bis 3."),
-  field("oscEdit", 11, "u8", "Osc Edit, 0 bis 127."),
-  field("mfxSend", 27, "u8", "1, wenn der Part an den Master-Effekt geht."),
+  field("sample", 8, "u16", text("api.part.sample")),
+  field("filterType", 12, "u8", text("api.part.filterType")),
+  field("cutoff", 13, "u8", text("api.part.cutoff")),
+  field("resonance", 14, "u8", text("api.part.resonance")),
+  field("egInt", 15, "s8", text("api.part.egInt")),
+  field("modType", 16, "u8", text("api.part.modType")),
+  field("modSpeed", 17, "u8", text("api.part.modSpeed")),
+  field("modDepth", 18, "u8", text("api.part.modDepth")),
+  field("attack", 20, "u8", text("api.part.attack")),
+  field("decay", 21, "u8", text("api.part.decay")),
+  field("level", 24, "u8", text("api.part.level")),
+  field("pan", 25, "s8", text("api.part.pan")),
+  field("ifxOn", 32, "u8", text("api.part.ifxOn")),
+  field("ifxType", 33, "u8", text("api.part.ifxType")),
+  field("ifxEdit", 34, "u8", text("api.part.ifxEdit")),
+  field("pitch", 36, "s8", text("api.part.pitch")),
+  field("glide", 37, "u8", text("api.part.glide")),
+  field("voiceAssign", 2, "u8", text("api.part.voiceAssign")),
+  field("oscEdit", 11, "u8", text("api.part.oscEdit")),
+  field("mfxSend", 27, "u8", text("api.part.mfxSend")),
 ]);
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
+
+/**
+ * The steps korg.seq.* writes, in a part of the pattern in RAM: `count` records of `stride` bytes from `base` in the part
+ * (data/map/pattern.mjs, step.*). A record holds on, gate (127 a tie), velocity, trigger and four note places, each the
+ * note plus one, 0 for none. setStep writes on, velocity, trigger and the first note place and clears the other three, as
+ * the dice patch does (tools/patch/dice.py), or with note -1 or velocity 0 only the on byte; setGate writes the gate;
+ * clearPart sets every on byte to 0. The pads draw the steps again once at the end of the frame.
+ */
+export const PATTERN_STEPS = Object.freeze({ base: 0x30, stride: 12, count: 64, on: 0, gate: 1, velocity: 2, trigger: 3, notes: 4 });
 
 /** Knob values the input filter keeps for korg.read.knob: one word per knob, raw panel value. */
 export const SCRIPT_KNOBS = 20;
@@ -497,35 +546,35 @@ export const CARD_STATUS = Object.freeze({
 
 const ERROR_LIST = [
   // code, name, phase (load, run or both), message
-  [0, "OK", "both", "kein Fehler"],
-  [1, "FUEL", "run", "Rechenbudget aufgebraucht (Endlosschleife?)"],
-  [2, "BAD_OPCODE", "both", "ungültiger Befehl"],
-  [3, "BOUNDS", "run", "Feldindex außerhalb des Feldes"],
-  [4, "DIV_ZERO", "run", "Division durch null"],
-  [5, "STACK", "both", "Stapel läuft über oder unter"],
-  [6, "BAD_JUMP", "both", "Sprungziel ungültig"],
-  [7, "TIME", "run", "Zeitbudget überschritten"],
-  [8, "CALL_DEPTH", "both", "Aufrufe zu tief verschachtelt"],
-  [9, "BAD_CONST", "both", "Konstante außerhalb der Tabelle"],
-  [10, "BAD_STRING", "both", "Text außerhalb der Tabelle oder fehlerhaft"],
-  [11, "BAD_VAR", "both", "Variable außerhalb des Variablenfelds"],
-  [12, "API_UNKNOWN", "both", "unbekannte Funktion"],
-  [13, "API_ARGC", "both", "falsche Argumentzahl"],
-  [14, "API_EVENT", "both", "Funktion in diesem Ereignis nicht erlaubt"],
-  [15, "API_ARG", "run", "Argument außerhalb des erlaubten Bereichs"],
-  [16, "TRUNCATED", "both", "Block abgeschnitten"],
-  [17, "MAGIC", "load", "keine Plugin-Kennung"],
-  [18, "FORMAT_VERSION", "load", "Formatversion nicht unterstützt"],
-  [19, "API_VERSION", "both", "Funktionstabelle zu neu für diese Firmware"],
-  [20, "CHECKSUM", "load", "Prüfsumme falsch"],
-  [21, "LIMITS", "load", "Größen über den Grenzen"],
-  [22, "STACK_MISMATCH", "load", "Stapelhöhe passt nicht"],
-  [23, "BAD_HANDLER", "load", "Ereignistabelle fehlerhaft"],
-  [24, "BAD_LINES", "load", "Zeilentabelle fehlerhaft"],
-  [25, "RECURSION", "load", "Rekursion ist nicht erlaubt"],
-  [26, "BAD_SIZE", "load", "Größenangaben im Block passen nicht zusammen"],
-  [27, "VARS_BUDGET", "load", "Variablenbudget aller Plugins reicht nicht"],
-  [28, "POOL_BUDGET", "load", "Plugin-Budget aller Plugins reicht nicht"],
+  [0, "OK", "both", text("api.error.ok")],
+  [1, "FUEL", "run", text("api.error.fuel")],
+  [2, "BAD_OPCODE", "both", text("api.error.badOpcode")],
+  [3, "BOUNDS", "run", text("api.error.bounds")],
+  [4, "DIV_ZERO", "run", text("api.error.divZero")],
+  [5, "STACK", "both", text("api.error.stack")],
+  [6, "BAD_JUMP", "both", text("api.error.badJump")],
+  [7, "TIME", "run", text("api.error.time")],
+  [8, "CALL_DEPTH", "both", text("api.error.callDepth")],
+  [9, "BAD_CONST", "both", text("api.error.badConst")],
+  [10, "BAD_STRING", "both", text("api.error.badString")],
+  [11, "BAD_VAR", "both", text("api.error.badVar")],
+  [12, "API_UNKNOWN", "both", text("api.error.apiUnknown")],
+  [13, "API_ARGC", "both", text("api.error.apiArgc")],
+  [14, "API_EVENT", "both", text("api.error.apiEvent")],
+  [15, "API_ARG", "run", text("api.error.apiArg")],
+  [16, "TRUNCATED", "both", text("api.error.truncated")],
+  [17, "MAGIC", "load", text("api.error.magic")],
+  [18, "FORMAT_VERSION", "load", text("api.error.formatVersion")],
+  [19, "API_VERSION", "both", text("api.error.apiVersion")],
+  [20, "CHECKSUM", "load", text("api.error.checksum")],
+  [21, "LIMITS", "load", text("api.error.limits")],
+  [22, "STACK_MISMATCH", "load", text("api.error.stackMismatch")],
+  [23, "BAD_HANDLER", "load", text("api.error.badHandler")],
+  [24, "BAD_LINES", "load", text("api.error.badLines")],
+  [25, "RECURSION", "load", text("api.error.recursion")],
+  [26, "BAD_SIZE", "load", text("api.error.badSize")],
+  [27, "VARS_BUDGET", "load", text("api.error.varsBudget")],
+  [28, "POOL_BUDGET", "load", text("api.error.poolBudget")],
 ];
 
 export const ERRORS = Object.freeze(ERROR_LIST.map(([code, name, phase, message]) => Object.freeze({ code, name, phase, message })));

@@ -634,6 +634,11 @@ def file_cases(payload, flash):
                      and all(r and r["status"] == RANGE for r in bad) and on_card(dev) == short and not dev.m.asserts,
                      f"PLUGIN BEGIN writes {plugin} ({on_card(dev, plugin) == blob}), read back with its CRC; a name with a slash, dots, nothing, a zero inside, "
                      f"a dot or a letter beyond ASCII is refused: {[r and r['status'] for r in bad]}"))
+    bare, lk4 = device({f"KORG/{folder}/System/keep.txt": b"x"})
+    made = "KORG/blechtribe/Plugin/Made-Folder.blech"
+    nb, nd = lk4.plugin_write("Made-Folder", blob[:300])
+    out.append(entry("file_plugin_makes_folders", nb and nb["status"] == OK and nd and nd["status"] == OK and on_card(bare, made) == blob[:300] and not bare.m.asserts,
+                     f"a card without KORG/blechtribe (the blue's has only KORG/electribe): PLUGIN BEGIN makes the folders and writes {made} ({on_card(bare, made) == blob[:300]})"))
     nocard, lk2 = device(card=False)
     r = lk2.file_read(0, 0)
     out.append(entry("file_no_card", r and r["status"] == spec.STATUS_FILE and not nocard.m.asserts, f"without a card: status {r and r['status']}"))
@@ -643,7 +648,7 @@ def file_cases(payload, flash):
     return out
 
 
-def sample_cases(payload, flash):
+def sample_cases(payload, flash, held_only=False):
     """The sample file Sample/e2sSample.all and its temp file beside it (bit 30 of a FILE offset, bit 31 for the temp file): read, written
     in place without cutting the file, FILE COPY between the two, FILE CRC, FILE DELETE, and the whole way the editor takes to compact the
     file: the temp file complete and checked, the old file deleted, the temp file copied back, deleted. The card image is read back with the
@@ -682,6 +687,12 @@ def sample_cases(payload, flash):
     blob = lambda n: bytes(rng.getrandbits(8) for _ in range(n))
     old = blob(40000)
     system = blob(3000)
+    if held_only:
+        held, lk3 = device({sample: old}, held=KILL)
+        answers = [lk3.file_read(ALL | 0, 0), lk3.file_copy(ALL | 0, TMP | 0, 10), lk3.file_delete(ALL), lk3.file_crc(ALL | 0, 10)]
+        out.append(entry("sample_kill_switch_silent", all(a is None for a in answers) and on_card(held, sample) == old,
+                         "with EXIT held at power-on READ, COPY, DELETE and CRC get no answer and the file is still there"))
+        return out
     dev, lk = device({sample: old, vsb: system, f"KORG/{folder}/Sample/keep.txt": b"x"})
     size = lk.file_read(ALL | 0, 0)
     head = lk.file_read(ALL | 100, 500)
@@ -760,15 +771,7 @@ def sample_cases(payload, flash):
     dl = lk2.file_delete(ALL)
     out.append(entry("sample_no_card", r and c and dl and r["status"] == spec.STATUS_FILE and c["status"] == spec.STATUS_FILE and dl["status"] == spec.STATUS_FILE and not nocard.m.asserts,
                      f"without a card READ, COPY and DELETE say 6: {[x and x['status'] for x in (r, c, dl)]}"))
-    held, lk3 = device({sample: old}, held=KILL)
-    answers = [lk3.file_read(ALL | 0, 0), lk3.file_copy(ALL | 0, TMP | 0, 10), lk3.file_delete(ALL), lk3.file_crc(ALL | 0, 10)]
-    out.append(entry("sample_kill_switch_silent", all(a is None for a in answers) and on_card(held, sample) == old,
-                     "with EXIT held at power-on READ, COPY, DELETE and CRC get no answer and the file is still there"))
     return out
-
-
-def case_files(payload, flash):
-    return file_cases(payload, flash) + sample_cases(payload, flash)
 
 
 def case_flash(payload, flash):
@@ -818,7 +821,13 @@ def case_stream(payload, flash):
     return out
 
 
-GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, case_files, case_stream)
+def sample_kill_switch_cases(payload, flash):
+    """sample_cases with EXIT held at power-on, a group of its own: each of its four requests waits 120 s for no answer."""
+    return sample_cases(payload, flash, held_only=True)
+
+
+GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, file_cases, sample_cases, sample_kill_switch_cases,
+          case_stream)   # each its own task in check.py
 
 
 def synth_cases(payload, flash):

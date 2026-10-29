@@ -275,7 +275,7 @@ text_char:
     bne text_tail
     cmp r0, #32
     blo l_bad_string
-    cmp r0, #126
+    cmp r0, #0x81                        ; "~" and then ä, ö, ü (data/script/font.mjs)
     bhi l_bad_string
     b text_next
 text_tail:

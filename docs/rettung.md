@@ -1,6 +1,6 @@
 # Rettung
 
-Stand: 22. Oktober 2026. Die Seite "Rettung" im Editor führt durch den Weg zurück, wenn das
+Stand: 28. Oktober 2026. Die Seite "Rettung" im Editor führt durch den Weg zurück, wenn das
 Gerät nach einem Update oder Patch nicht mehr richtig startet. Blechy fragt in Sprechblasen, was das
 Gerät zeigt, die Antworten sind Knöpfe; jeder Fall läuft Schritt für Schritt, das Stoppschild steht
 bei dem Fall, der es braucht. Sie sagt nur, was die Messungen und
@@ -26,6 +26,14 @@ Die Datei heißt immer `SYSTEM.VSB`.
 | BLECH | `KORG/blechtribe/System/SYSTEM.VSB` | gemessen: am 15.10. nahm eine laufende BLECH am Gerät ihr Update aus dieser Datei ([Gerätetest](geraetetests/blech-datei.md)) |
 | Korgs Original (Sampler) | `KORG/electribe sampler/System/SYSTEM.VSB` | Pfad laut Hacktribe-Doku, am Gerät nicht geübt |
 | Korgs Original (Electribe 2) | `KORG/electribe/System/SYSTEM.VSB` | Pfad laut Hacktribe-Doku, am Gerät nicht geübt |
+| BLECH auf der blauen (Synth-Satz oder mit Hacktribe) | `KORG/blechtribe/System/SYSTEM.VSB` | im Emulator gemessen ([Messung](messungen/2026-10-26-blech-hacktribe-blau.md)), am Gerät offen |
+
+**Hacktribe oder BLECH mit Hacktribe auf der blauen, zurück zu Korgs Original:** Korgs blaue 2.02 nehmen und im Kopf zwei
+Bytes ändern: Byte `0x12` auf `0x53`, Byte `0x2E` auf `0x24` (das macht Hacktribes `e2-header.py DATEI sampler`). Die Datei
+als `SYSTEM.VSB` in den Ordner der laufenden Firmware legen (`KORG/hacktribe/System/` oder `KORG/blechtribe/System/`), dort
+nur diese Datei, dann SOFTWARE UPDATE. Unverändert sagt das Gerät "Error / Invalid File" und schreibt nichts. Im Emulator
+gemessen ([Messung](messungen/2026-10-26-blech-hacktribe-blau.md)), am Gerät offen. Korgs BLECH-Synth-Satz (ohne Hacktribe)
+nimmt die unveränderte blaue Datei in `KORG/blechtribe/System/`.
 
 Diese Tabelle gilt für DATA UTILITY, SOFTWARE UPDATE in einer laufenden Firmware. Die Abfrage beim
 Einschalten (Fall 2) sucht woanders: sie richtet sich nach der Kennung des Geräts im Flash
@@ -108,6 +116,75 @@ Bei 2 und 3 fragt die Seite nach der Farbe: für die blaue Electribe liegt Korgs
 `KORG/electribe/System/SYSTEM.VSB` (zweite Tabelle oben). Bei 00 lässt sie erst warten und geht den Weg über die
 Karte nur, wenn "00" stehen bleibt, so wie am Gerät am 23.10.; endet er nicht, nennt sie das Kabel. Ohne gesicherte
 Original-Datei nimmt Fall 1 ebenfalls Korgs Datei von Korgs Download-Seite.
+
+## Meldungen beim Update und Ärger mit der App
+
+Neben den vier Fällen fragt die Seite nach "Error, Invalid File", "Error, No File" und nach Ärger mit der App. Die
+Fälle kommen aus dem Discord (25. bis 28.10.); dort ist auch der erste Gerätefall zu "Invalid File" beschrieben.
+
+**Error, Invalid File.** Die Firmware hat eine Datei gefunden, die nicht passt, und schreibt nichts (offline, Emulator,
+siehe oben). Die Seite fragt, wann die Meldung kommt:
+
+- **Beim Einschalten, nach press ENTER:** Farbe, bei der blauen dann "War jemals Hacktribe drauf?". Nein oder weiß
+  nicht: Korgs blaue Datei unter `KORG/electribe/System/SYSTEM.VSB`. Ja: Korgs Datei für die rote (Sampler) unter
+  `KORG/electribe sampler/System/SYSTEM.VSB`. Grund (hergeleitet): Die Startabfrage folgt der Kennung im Flash, und
+  eine blaue, auf der Hacktribe lief, kann die Sampler-Kennung tragen; dann gilt Zeile 1 der zweiten Tabelle oben.
+  Am Gerät: eine blaue, vorher Hacktribe, zurück auf Korgs Synth-Firmware, dann BLECH, hing in der Schleife
+  "SOFTWARE UPDATE / press ENTER", ENTER, "Error / Invalid File" mit Korgs blauer Datei unter `KORG/electribe/`
+  (gemessen, Videos im Discord, 28.10.). Mit einer Sampler-Datei bzw. einem anderen Ordner ging es weiter; welcher der
+  beiden Wege es war, ist offen. Dass Korgs Sampler-Firmware danach auf der blauen normal läuft, ist hergeleitet.
+- **Im Menü bei SOFTWARE UPDATE:** Datei aus dem Patcher: meist für die andere Electribe gepatcht (Discord, 27.10.,
+  rote mit Korgs Original, im Patcher die blaue gewählt); neu patchen mit der richtigen Farbe, der Patcher nennt die
+  Farbe selbst, wenn die Electribe angesteckt ist (`patcher.device.cable.*`, offline, Code). Korgs Datei: rot und blau
+  ohne Hacktribe gehen den Weg über den Ordner der laufenden Firmware; blau mit Hacktribe braucht die zwei Kopf-Bytes
+  aus dem Absatz oben. Das macht die App nicht, die Seite führt dann zum Kontakt.
+
+**Error, No File.** Dort, wo die Firmware sucht, liegt keine Datei mit genau diesem Namen. Beim Einschalten geht die
+Seite den Weg über die Farbe wie bei "Invalid File". Im Menü nennt sie die Stellen, an denen es im Discord hing
+(gemessen, Chat und Fotos, vier Fälle):
+
+- Der Name ist genau `SYSTEM.VSB`. Der Patcher speichert über einen Download mit diesem Namen
+  (`site/app/save-file.mjs`); liegt im Download-Ordner schon eine, nennt der Browser die neue `SYSTEM (1).VSB`
+  (gemessen, Foto). Dass genau das "No File" auslöste, ist hergeleitet, im Fall fehlte auch der Ordner `System`.
+- Die Datei liegt im Unterordner `System`, fehlt er, wird er angelegt.
+- Kein Ordner wird umbenannt. `KORG/blechtribe/` nimmt die Firmware erst, wenn BLECH läuft; vor dem ersten Update gehört
+  die Datei in den Ordner der laufenden Firmware (Tabelle oben). Ein Ordner, der vor dem ersten Flash in `blechtribe`
+  umbenannt wurde, führte zu "No File" (gemessen, Discord).
+- Im Patcher die richtige Electribe: für die rote und die blaue nennt er verschiedene Ordner (`folderOf`, offline, Code).
+
+Danach fragt die Seite, welche Firmware läuft, und legt die Datei in deren Ordner.
+
+**Die App findet die Electribe nicht.** Die Seite liest den MIDI-Bericht der App selbst (`midiVerdict` in
+`site/app/midi-report.mjs`, ohne den Browser zu fragen) und den Modus oben in der App:
+
+| Bericht | Die Seite sagt | Stand |
+|---|---|---|
+| Ports, die auf ` PAD/KNOB` oder ` SOUND` enden, unter Windows | Korgs USB-MIDI-Treiber entfernen, Windows' eigener reicht (Wortlaut wie `settings.midi.korgDriver`) | gemessen (Windows, 28.10.) |
+| dieselben Ports auf einem anderen System | noch nicht geprüft, MIDI-Bericht ins Discord, keine Ursache genannt | offen (Mac) |
+| eine Electribe erkannt, Modus Emulator | oben "Echtes Gerät" wählen; nur dort verbindet die App, auch automatisch | offline (Code), Fall im Discord gelöst |
+| eine Electribe erkannt, Modus Echtes Gerät | "Mit Electribe verbinden", automatisches Verbinden in den Einstellungen | offline (Code) |
+| ein Port mit "electribe", aber kein Paar | MIDI-Bericht ins Discord | offen |
+| kein Port mit "electribe" | einschalten, Datenkabel, anderer USB-Anschluss | hergeleitet |
+| Zugriff abgelehnt oder kein Web MIDI | Zugriff erlauben, bzw. die App oder ein Browser mit Web MIDI | offline (Code) |
+
+Kann die Seite nichts lesen (Web MIDI noch nicht erlaubt), fragt sie nach dem Modus und nach den Namen im Bericht.
+
+**Export oder Import zeigt alte Patterns.** Kein Fehler in BLECH ([Messung](messungen/2026-10-28-pattern-export.md)):
+EXPORT PATTERN schreibt das gespeicherte Pattern, also erst WRITE; Exporte liegen in `KORG/blechtribe/`, der alte Ordner
+bleibt nach der Übernahme mit den alten Kopien stehen, auf der blauen gibt es keine Übernahme und `KORG/electribe/`
+bleibt; Gerätedateien tragen immer den 01.01.2014.
+
+**Die volle Prüfung im Patcher wird rot.** Auf das Gerät kommt dann nichts. Vor App 1.3.7 scheitern die Fälle der Patches
+an Patterns, die im Emulator gespeichert sind; ab 1.3.7 laufen sie auf einem leeren Flash (`tools/emu/check.py`,
+`test/emulator-check-flash.test.mjs`). Die Seite liest die Version der App: darunter, oder im Browser ohne Version,
+nennt sie `~/.gelumpe/flash/flash.bin` zum Umbenennen; sonst und danach bittet sie um `~/.gelumpe/emu.log`.
+
+**Was die Seite aus der App liest.** Nur, was die App ohnehin hat, nichts wird am Gerät neu gelesen oder geraten:
+die Farbe der angesteckten Electribe (`Session.hardware()`, wie im Patcher), ob dort BLECH läuft (BLECH INFO beim
+Verbinden), den Ordner der letzten Datei aus dem Patcher (bis die App geschlossen wird), den MIDI-Bericht und die
+Version der App. Bei Farbe und Ordner sagt Blechy, was die App weiß, und markiert die passende Antwort mit "Sagt die
+App"; wählen muss die Person selbst. Die Farbe aus `hardware()` folgt der Kennung im Flash; ob eine blaue mit Hacktribe
+sich dort als rote meldet, ist offen.
 
 Die Seite spricht mit Leuten, die das Gerät kaum kennen und gerade Angst um es haben: Blechy erklärt
 in Alltagssprache, nur die Antworten. Belege stehen hier in der Doku, auf der Seite steht nur eine offizielle Quelle, wo es eine gibt (Debrick-Anleitung von Hacktribe). Was nur zu lesen ist,

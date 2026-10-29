@@ -292,9 +292,10 @@ Die Firmware schaltet jeden Bildpunkt nur an oder aus; es gibt keinen Grau-Befeh
 und kein Wechseln zwischen zwei Bildern. Was am Gerät gedimmt aussieht (etwa der
 Name des wartenden Patterns, den die Firmware alle 280 ms ein- und ausblendet),
 ist die Trägheit der Flüssigkristalle. `lcd.py` bildet sie nach, ein Verzögerungsglied
-je Bildpunkt, getrennt für das Dunkelwerden (`TAU_ON`, 0,040 s) und das Hellwerden
-(`TAU_OFF`, 0,028 s); **gemessen am Gerät** aus einem Zeitlupenvideo
-([LCD-Helligkeit](messungen/2026-10-12-lcd-helligkeit.md)). Die Werte stehen nur in
+je Bildpunkt, getrennt für das Dunkelwerden (`TAU_ON`, 0,040 s, aus einem Zeitlupenvideo)
+und das Hellwerden (`TAU_OFF`, 0,30 s, **geschätzt**: mit bloßem Auge am Gerät am 27.10.,
+keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
+[LCD-Helligkeit](messungen/2026-10-12-lcd-helligkeit.md)). Die Werte stehen nur in
 `lcd.py`.
 
 Überschreiben: `--lcd-tau-on SEKUNDEN` und `--lcd-tau-off SEKUNDEN` am Dienst
@@ -331,11 +332,15 @@ braucht rund das Vierfache (der Emulator kennt keinen Cache). Der Grundwert blei
 Ein Boot bis zum Hauptbild kostet rund zwei CPU-Sekunden; `bootcache.py` bootet je
 Firmware, Flash, gehaltene Tasten und Gerätezeit einmal und startet danach aus einem
 Snapshot (`Machine.snapshot`, bit-identisch zum durchgelaufenen Gerät, `test_snapshot.py`).
+Das gilt auch mit Karte im Schlitz, wenn sie ein Abbild im Speicher ist: der erste Lauf eines
+Falls ab dem Einschalten wird samt Karte gemerkt (`bootcache.power_on`, `Dev.run`).
 Die Dateien liegen in `~/.cache/gelumpe` (`GELUMPE_CACHE_DIR`), enthalten Firmware-RAM und
 gehören nicht ins Repository. `check.py`, `mfx_cases.py` und `splash_cases.py` verteilen
 unabhängige Boots auf Prozesse (`GELUMPE_JOBS`, Standard: Kerne minus einer, 2 bei
-1-Minuten-Load über der Kernzahl, 1 bei Load über der doppelten Kernzahl) und merken sich ein
-beendetes Ergebnis je Eingabedateien und Emulator-Quelltext. `GELUMPE_CACHE=off` schaltet
+1-Minuten-Load über der Kernzahl, 1 bei Load über der doppelten Kernzahl). `check.py` merkt
+sich das Ergebnis jedes Tasks mit den Dateien, die er benutzt hat (`taskcache.py`), so läuft
+nach einer Änderung nur neu, was sie berührt; `mfx_cases.py` und `splash_cases.py` merken sich
+ein beendetes Ergebnis je Eingabedateien und Emulator-Quelltext. `GELUMPE_CACHE=off` schaltet
 Snapshots und gemerkte Ergebnisse ab, wenn alles frisch laufen soll. `server.py --unthrottled`
 (nur für Tests) läuft ohne Echtzeit-Bremse und meldet die Gerätezeit alle 20 ms.
 Die Testlaufzeit steht in [development.md](development.md#tests).
@@ -667,6 +672,21 @@ ist nur verschoben. Messung und Belege:
   zu Oszillatoren machen könnte, steht in [Samples auf der blauen Electribe 2](messungen/2026-10-15-synth-samples.md). Ein Flash mit der PCM-Bank aus den WAV-Dateien der blauen Electribe baut `tools/emu/synth_pcm_flash.py` (lokal, nie ins Repository; [Messung](messungen/2026-10-15-synth-pcm-flash.md)).
   `tools/emu/synth_probe.py` ist das Werkzeug dazu (Bank lesen, Oszillator-Tabelle, Start mit einer selbstgebauten Bank,
   Stimmennachrichten, Kartenfunktionen); seine Tests laufen mit `E2_BLUE_VSB` in `npm run test:emu`.
+
+### Hacktribe auf der blauen
+
+Hacktribe für die blaue ist Sampler-Code auf der blauen Hardware ([Idee 65](ideen/65-blech-hacktribe-blau.md)). Welche
+Hardware der Emulator spielt, steht in der Kennung im Flash: die blaue `KORGelec2USR`, die rote `KORGele2sUSR`
+(`firmware.HARDWARE_MARKS`).
+
+- `machine.py --hardware blue` und `check.py --hardware blue` starten ohne `--flash` von einem leeren Flash der blauen,
+  mit ihrer Kennung und ohne Sample-Bank. Der Fall `normal_blank` von `check.py` nimmt die Hardware des gegebenen Flashs.
+- Der Dienst liest die Hardware aus dem Kopf der VSB (`E2` statt `E2S`): auch Hacktribe mit blauem Kopf läuft auf
+  `flash-synth.bin` und, solange die fehlt, auf einem leeren Flash der blauen. Eine Prüfung (`POST /check`) nimmt den Flash
+  der Hardware des Originals; `?hardware=blue` sagt es für eine Datei mit Sampler-Kopf, die auf der blauen laufen soll.
+- `tools/emu/hacktribe_blue_probe.py` geht jeden Update-Weg auf der blauen durch (Korgs blaue, Hacktribe, BLECH mit
+  Hacktribe, der Weg zurück), mit beiden Köpfen; Messung:
+  [BLECH mit Hacktribe auf der blauen](messungen/2026-10-26-blech-hacktribe-blau.md).
 
 ## Check und Tests
 

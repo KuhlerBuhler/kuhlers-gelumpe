@@ -7,6 +7,8 @@ import { field } from "./map/index.mjs";
 import { converter } from "./map/convert.mjs";
 import { LOUDNESS, GAIN_STAGING } from "./layout.mjs";
 import { unitFor } from "./units.mjs";
+import { finding } from "./finding.mjs";
+import { text } from "./text.mjs";
 
 export const LEVEL_MAX = 127;
 export const OUTPUT_PARAM = /^(output_level|output_gain)$/;
@@ -17,7 +19,7 @@ export const OUTPUT_PARAM = /^(output_level|output_gain)$/;
  * (`factory`, its entry of the factory profile) is left alone. Between the
  * playable range and the ceiling nothing was heard, which is said as untested.
  *
- * @returns {{code: string, message: string, measured: boolean} | null}
+ * @returns {{code: string, message: string, text: object, measured: boolean} | null} `message` renders `text` (src/finding.mjs)
  */
 export function judgeOutput(device, param, value, factory = null) {
   if (!OUTPUT_PARAM.test(param)) return null;
@@ -26,23 +28,13 @@ export function judgeOutput(device, param, value, factory = null) {
   const [lo, hi] = GAIN_STAGING.usable;
   const heard = GAIN_STAGING.unplayable.find(u => u.param === param && u.unit === device && value >= u.value);
   if (heard) {
-    return {
-      code: "output-too-loud", measured: true,
-      message: `Heard on hardware: ${heard.note}. This preset sits at ${value}; the levels that played well were ${lo} to ${hi}.`,
-    };
+    return finding({ code: "output-too-loud", measured: true }, "lint.output.heard", { note: heard.note, value, lo, hi });
   }
   if (value > LOUDNESS.outputCeiling) {
-    return {
-      code: "output-too-loud", measured: false,
-      message: `Korg stays around ${LOUDNESS.outputTypical.join(" to ")}; anything near the top is unplayable next to the other presets.`,
-    };
+    return finding({ code: "output-too-loud", measured: false }, "lint.output.korg", { typical: LOUDNESS.outputTypical.join(" to ") });
   }
   if (value > hi) {
-    return {
-      code: "output-above-usable", measured: false,
-      message: `Untested: the levels that played well were ${lo} to ${hi}, and ${LOUDNESS.outputCeiling} is where it was too loud. ` +
-        `${value} lies between and has not been heard.`,
-    };
+    return finding({ code: "output-above-usable", measured: false }, "lint.output.untested", { lo, hi, ceiling: LOUDNESS.outputCeiling, value });
   }
   return null;
 }
@@ -76,9 +68,9 @@ const read = (pattern, id, indices = []) => {
  */
 export function readLevels(pattern) {
   return {
-    master: { id: "pattern.playLevel", indices: [], label: "Pattern", value: read(pattern, "pattern.playLevel") },
+    master: { id: "pattern.playLevel", indices: [], label: text("levels.label.pattern"), value: read(pattern, "pattern.playLevel") },
     parts: Array.from({ length: 16 }, (_, part) => ({
-      id: "part.level", indices: [part], part, label: `Part ${part + 1}`,
+      id: "part.level", indices: [part], part, label: text("levels.label.part", { part: part + 1 }),
       value: read(pattern, "part.level", [part]),
       muted: pattern.raw("part.mute", [part]) === 1,
       ifx: pattern.raw("part.ifxOn", [part]) === 1 ? pattern.raw("part.ifxType", [part]) + 1 : null,
@@ -101,10 +93,10 @@ export function planScale(levels, { mode = "factor", value, master = false } = {
   const peak = Math.max(...taking.map(l => l.value));
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) {
-    return { error: mode === "target" ? "Der Zielwert muss größer als 0 sein." : "Der Faktor muss größer als 0 sein." };
+    return { error: mode === "target" ? text("levels.error.target") : text("levels.error.factor") };
   }
-  if (mode === "target" && number > LEVEL_MAX) return { error: `Der Zielwert geht bis ${LEVEL_MAX}.` };
-  if (mode === "target" && peak === 0) return { error: "Alle Pegel stehen auf 0, daraus lässt sich kein Faktor ableiten." };
+  if (mode === "target" && number > LEVEL_MAX) return { error: text("levels.error.targetMax", { max: LEVEL_MAX }) };
+  if (mode === "target" && peak === 0) return { error: text("levels.error.allZero") };
 
   const requested = mode === "target" ? number / peak : number;
   const limited = peak > 0 && peak * requested > LEVEL_MAX;

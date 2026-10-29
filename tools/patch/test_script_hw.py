@@ -11,6 +11,7 @@ from tools.patch.test_script_vm import contract_data, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
 
 CLOCK_INIT, CLOCK_LAST, CLOCK_REM, CLOCK_MS = 208, 212, 216, 220
+OS_TICKS = 0xC06A292C
 TICKS_PER_MS = 150000
 PERIOD = 150_000_000
 
@@ -50,6 +51,19 @@ class NativeHardwareTests(unittest.TestCase):
         m.call('script_clock_update',m.runtime)
         self.timer(m,5 + 400 * TICKS_PER_MS)
         self.assertEqual(m.call('script_clock_update',m.runtime)[0],400)
+
+    def test_whole_seconds_timer3_did_not_see_come_from_the_os_tick_count(self):
+        m,_ = self.machine()
+        self.timer(m,5); m.write(OS_TICKS,1000)
+        start = m.call('script_clock_update',m.runtime)[0]
+        # 2.4 s later: Timer3 wrapped twice and shows 400 ms, the tick count the whole of it
+        self.timer(m,5 + 400 * TICKS_PER_MS); m.write(OS_TICKS,3400)
+        self.assertEqual(m.call('script_clock_update',m.runtime)[0] - start,2400)
+        # a tick count that lags a little (it stands still for a moment while the device starts) changes nothing
+        self.timer(m,5 + 800 * TICKS_PER_MS); m.write(OS_TICKS,3700)
+        self.assertEqual(m.call('script_clock_update',m.runtime)[0] - start,2800)
+        self.timer(m,5 + 900 * TICKS_PER_MS); m.write(OS_TICKS,4200)
+        self.assertEqual(m.call('script_clock_update',m.runtime)[0] - start,2900,'400 ms more ticks than Timer3 shows is no whole second')
 
     def test_reads_return_the_firmware_state_words(self):
         m,_ = self.machine()
@@ -95,7 +109,6 @@ class NativeHardwareTests(unittest.TestCase):
 
     def test_chain_mode_is_the_global_switch(self):
         m,_ = self.machine()
-        m.uc.mem_map(0xC06A2000,0x1000)
         for byte,want in [(0,0),(1,1),(7,1)]:
             m.uc.mem_write(0xC06A2A94 + 31,bytes([byte]))
             self.assertEqual(m.call('script_read_chain_mode_glue'),(want,0))
@@ -162,6 +175,53 @@ class NativeHardwareTests(unittest.TestCase):
         self.assertEqual(m.call('script_part_glue',15),(0,0))
         self.assertEqual(calls,[('part',0xC06B2108,15,calls[0][3])])
         self.assertEqual(m.call('script_part_glue',16),(0,error))
+
+    def test_seq_writes_steps_of_the_pattern_in_ram_and_the_pads_hear_of_it_once_a_frame(self):
+        m,built = self.machine()
+        from unicorn import UC_HOOK_CODE
+        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_LR, UC_ARM_REG_PC
+        m.uc.mem_map(0xC0070000,0x1000)
+        m.uc.mem_write(0xC0070688,struct.pack('<I',0xE12FFF1E))
+        told = []
+        def notify(uc,address,size,_):
+            told.append((uc.reg_read(UC_ARM_REG_R0),struct.unpack('<II',bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R1),8)))))
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
+        m.uc.hook_add(UC_HOOK_CODE,notify,begin=0xC0070688,end=0xC0070688)
+        error = contract_data()['error']['API_ARG']
+        step = lambda part,index: 0xC06B2798 + 4 + 0x800 + 0x330 * part + 0x30 + 12 * index
+        record = lambda part,index: bytes(m.uc.mem_read(step(part,index),12))
+        flag = built.layout['card'] + built.symbols['SQ_AT']
+        m.write(flag,0xFFFFFFFF)
+        m.call('script_seq_flush')
+        self.assertEqual(told,[],'the card area is FF at power-on: no message without a write')
+        m.uc.mem_write(step(3,17),bytes([0,77,9,0,5,6,7,8,1,2,3,4]))
+        self.assertEqual(m.call('script_seq_set_step_glue',3,17,60,100),(0,0))
+        self.assertEqual(record(3,17),bytes([1,77,100,1,61,0,0,0,1,2,3,4]),'on, velocity, trigger and the note; the gate and bytes 8 to 11 stay')
+        self.assertEqual(m.call('script_seq_set_gate_glue',3,17,127),(0,0))
+        self.assertEqual(record(3,17)[1],127)
+        self.assertEqual(m.call('script_seq_set_step_glue',3,17,0xFFFFFFFF,100),(0,0))
+        self.assertEqual(record(3,17),bytes([0,127,100,1,61,0,0,0,1,2,3,4]),'note -1 turns only the step off')
+        m.call('script_seq_set_step_glue',3,17,0,90)
+        self.assertEqual(m.call('script_seq_set_step_glue',3,17,64,0),(0,0))
+        self.assertEqual(record(3,17)[:5],bytes([0,127,90,1,1]),'velocity 0 turns it off as well')
+        self.assertEqual(m.call('script_seq_set_step_glue',15,63,127,1),(0,0))
+        self.assertEqual(record(15,63)[:5],bytes([1,0,1,1,128]))
+        for part in (2,4):
+            for index in range(64): m.uc.mem_write(step(part,index),bytes([1,50,60,1,61,0,0,0]))
+        m.write(0xC06B2108 + 0x344,2)
+        m.call('script_seq_clear_part_glue',2)
+        self.assertTrue(all(record(2,index)[:8] == bytes([0,50,60,1,61,0,0,0]) for index in range(64)),'clearPart turns every step off and leaves the rest')
+        self.assertTrue(all(record(4,index)[0] == 1 for index in range(64)),'the next part stays')
+        self.assertEqual(m.call('script_seq_set_step_glue',16,0,60,100),(0,error))
+        self.assertEqual(m.call('script_seq_set_gate_glue',0,64,10),(0,error))
+        self.assertEqual(m.call('script_seq_clear_part_glue',16),(0,error))
+        m.write(m.input+0x202C,5)
+        m.call('script_seq_flush')
+        self.assertEqual(told,[],'another screen: the message waits')
+        m.write(m.input+0x202C,1)
+        m.call('script_seq_flush')
+        m.call('script_seq_flush')
+        self.assertEqual(told,[(0xC06B2108 + 4,(0x0B | 2 << 8,0))],'one message: the section that is shown, to the model\'s observers')
 
     def test_mute_presses_the_pad_only_when_the_part_is_not_in_the_wanted_state(self):
         m,_ = self.machine()

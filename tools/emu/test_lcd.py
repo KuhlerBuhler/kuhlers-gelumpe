@@ -60,26 +60,27 @@ class LcdResponseTest(unittest.TestCase):
         self.assertEqual(clear[-1], 0)
         self.assertEqual(clear, sorted(clear, reverse=True))
 
-    def test_darkening_is_slower_than_clearing(self):
-        """Measured on the device (slow-motion video, 2026-10-13): 10-90 % dark in about 90 ms, clear in about 60 ms."""
+    def test_clearing_is_slower_than_darkening(self):
+        """The owner's estimate by eye (2026-10-27): a pixel turns dark fast, clear only in about 0.3 s (a walking figure
+        drags a smear). The slow-motion video of 2026-10-13 had it the other way round, its clearing value was too low."""
         lcd = LcdResponse()
         lcd.update(display(), 0)
-        on = run(lcd, display(True), 0.03)[-1]
+        on = run(lcd, display(True), 0.06)[-1]
         lcd = LcdResponse()
         lcd.update(display(True), 0)
-        off = TOP - run(lcd, display(), 0.03)[-1]
-        self.assertLess(on, off)
+        off = TOP - run(lcd, display(), 0.06)[-1]
+        self.assertGreater(on, off)
 
     def test_text_blinking_every_280_ms_fades_in_and_out(self):
         """What the firmware does to the pattern name while the next pattern waits: 280 ms dark, 280 ms clear.
-        On the device the name reaches full dark and full clear, with soft edges of about 100 ms."""
+        It reaches full dark; with clearing as slow as estimated (TAU_OFF) it does not get fully clear in 280 ms."""
         lcd = LcdResponse()
         lcd.update(display(), 0)
         for cycle in range(4):
             dark = run(lcd, display(True), 0.28)
             clear = run(lcd, display(), 0.28)
         self.assertEqual(dark[-1], TOP, "fully dark before the next switch")
-        self.assertEqual(clear[-1], 0, "fully clear before the next switch")
+        self.assertTrue(0 < clear[-1] < TOP, "not fully clear before the next switch")
         self.assertTrue(any(0 < v < TOP for v in dark), "the edge is a fade, not a jump")
         self.assertTrue(any(0 < v < TOP for v in clear))
 

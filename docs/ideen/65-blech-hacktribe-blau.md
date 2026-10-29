@@ -12,6 +12,11 @@ Korg blau `41fc5f1c`). Keine Firmware-Bytes im Repository.
 Marker: **gemessen** (ausgeführt, Befehl genannt), **hergeleitet** (aus gelesenem Code oder Wiki geschlossen, nicht laufen
 gesehen), **ungeprüft** (nicht angesehen oder nur am Gerät zu klären).
 
+**Stand 2026-10-26: gebaut, im Emulator geprüft, am Gerät offen.** Der Patcher macht BLECH mit Hacktribe für die blaue aus
+einer Hacktribe-Datei (Sampler-Kopf) oder aus Korgs roter 2.02 mit `hacktribe-2.patch` (blauer Kopf, Wahl "Für welche
+Electribe"); der Emulator hat die blaue Hardware (`--hardware blue`); alle Update-Wege und der Kartenordner der blauen:
+[Messung](../messungen/2026-10-26-blech-hacktribe-blau.md), [Patcher](../patcher.md).
+
 ## Kurzfassung
 
 1. **Hacktribe erkennt die Hardware nicht. Es macht die blaue zur roten.** Zwischen Korgs Sampler und Hacktribe

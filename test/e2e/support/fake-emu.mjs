@@ -53,7 +53,7 @@ export function fakeService(origin, { sdDir = "" } = {}) {
       }
       let status = { state: "loaded" };
       if (url.pathname === "/check") {
-        seen.check = { length: body.length, allow: url.searchParams.get("allow"), allowCode: url.searchParams.get("allowCode"), quick: url.searchParams.get("quick"), pair: body };
+        seen.check = { length: body.length, allow: url.searchParams.get("allow"), allowCode: url.searchParams.get("allowCode"), quick: url.searchParams.get("quick"), hardware: url.searchParams.get("hardware"), pair: body };
         status = { ok: hooks.checkOk, checks: [{ id: "boot:normal", ok: true, detail: "bootet bis zum Hauptbildschirm" }, { id: "kill_switch", ok: hooks.checkOk, detail: "Taste im RAM lesbar" }], changed: [] };
       }
       if (url.pathname.startsWith("/sd")) {

@@ -61,7 +61,7 @@ test("the stars drift", async () => {
 });
 
 test("prefers-reduced-motion draws one static frame without eyes", async () => {
-  const context = await h.browser.newContext({ reducedMotion: "reduce" });
+  const context = await h.browser.newContext({ reducedMotion: "reduce", locale: "de-DE" });
   const page = await context.newPage();
   await page.addInitScript(() => {
     window.backgroundFrames = 0;
@@ -85,18 +85,20 @@ test("prefers-reduced-motion draws one static frame without eyes", async () => {
 test("the eyes blink up out of the dither, and can be turned off", async () => {
   const page = await h.page();
   await page.setViewportSize({ width: 1400, height: 900 });
+  await stillClock(page);
   await page.goto(`${h.url}?bg-eyes=now`);
-  await page.waitForFunction(() => {
-    const c = document.getElementById("bg-canvas");
-    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
-    for (let i = 0; i < d.length; i += 4) if (d[i] > 240 && d[i + 1] > 240 && d[i + 3]) return true;
-    return false;
-  }, null, { timeout: 8000, polling: 100 });
+  let seen = false;
+  for (let ms = 0; ms < 8000 && !seen; ms += 100) {
+    await page.clock.runFor(100);
+    seen = (await frame(page)).eye > 0;
+  }
+  assert.ok(seen, "the eyes came up");
 
   const off = await h.page();
   await off.setViewportSize({ width: 1400, height: 900 });
+  await stillClock(off);
   await off.goto(`${h.url}?bg-eyes=off`);
-  await off.waitForTimeout(3500);
+  await off.clock.runFor(3500);
   assert.equal((await frame(off)).eye, 0);
 });
 
@@ -111,4 +113,61 @@ test("the variants: bands has no clouds, off hides the canvas", async () => {
   assert.ok(bands.lit < dust.lit, "dust adds pixels");
   await page.goto(`${h.url}?bg=off`);
   assert.equal(await page.locator("#bg-canvas").isHidden(), true);
+});
+
+// The page's clock is Playwright's here and stands still between the steps, so frame timing does not depend on how busy
+// the machine is: runFor() lets frames come on time, fastForward() jumps ahead so the next frame comes late once. The first
+// 5 s after the start do not count, so each test lets those pass first.
+async function stillClock(page) {
+  const now = Date.now();
+  await page.clock.install({ time: now });
+  await page.clock.pauseAt(now + 1000);
+}
+
+test("frames that come late again and again leave a still background", async () => {
+  const page = await h.page();
+  await stillClock(page);
+  await page.goto(`${h.url}?bg-eyes=off`);
+  await page.clock.runFor(5300);
+  for (let i = 0; i < 3; i++) { await page.clock.fastForward(500); await page.clock.runFor(200); }
+  assert.equal(await page.locator("#bg-canvas").getAttribute("data-still"), "stalled");
+  const a = await frame(page);
+  await page.clock.runFor(1500);
+  assert.deepEqual(await frame(page), a, "nothing moves any more");
+  assert.ok(a.lit > 500, "the still frame is drawn, not blank");
+});
+
+test("one late frame alone does not stop the background", async () => {
+  const page = await h.page();
+  await stillClock(page);
+  await page.goto(h.url);
+  await page.clock.runFor(5300);
+  await page.clock.fastForward(500);
+  await page.clock.runFor(300);
+  assert.equal(await page.locator("#bg-canvas").getAttribute("data-still"), null);
+  const a = await frame(page);
+  await page.clock.runFor(1500);
+  assert.notEqual((await frame(page)).sum, a.sum, "still drifting");
+});
+
+test("the background rests while the window is in the background and goes on when it comes back", async () => {
+  const page = await h.page();
+  await stillClock(page);
+  await page.goto(`${h.url}?bg-eyes=off`);
+  await page.clock.runFor(300);
+  await page.evaluate(() => dispatchEvent(new Event("blur")));
+  const a = await frame(page);
+  await page.clock.runFor(1200);
+  assert.deepEqual(await frame(page), a, "nothing drawn while away");
+  await page.evaluate(() => dispatchEvent(new Event("focus")));
+  await page.clock.runFor(1500);
+  assert.notEqual((await frame(page)).sum, a.sum, "drawing again");
+});
+
+test("frames that come late while the page starts do not count", async () => {
+  const page = await h.page();
+  await stillClock(page);
+  await page.goto(`${h.url}?bg-eyes=off`);
+  for (let i = 0; i < 3; i++) { await page.clock.fastForward(500); await page.clock.runFor(200); }
+  assert.equal(await page.locator("#bg-canvas").getAttribute("data-still"), null);
 });

@@ -127,6 +127,14 @@ events_step:
     mov r2, r9
     mov r3, #0
     bl events_post
+    ; korg.afterSteps counts the steps while the sequencer runs; the jump back to 0 at STOP is no step
+    cmp r5, #0
+    cmpne r5, #2
+    beq events_step_counted
+    mov r0, r4
+    mov r1, #TIMER_KIND_STEPS
+    bl script_timers_poll
+events_step_counted:
     tst r9, #3
     bne events_store
     mov r0, r4

@@ -6,6 +6,7 @@
  * It needs Hacktribe's SysEx commands; `unsupported()` gives the reason when the loaded firmware lacks them.
  */
 import { DeviceSession, newCarry } from "../../src/session.mjs";
+import { t } from "./i18n.mjs";
 
 // Over emulated DIN a pattern takes about 6 s of device time; wall time can be more.
 const TIMEOUTS = { read: 8000, ack: 8000, pattern: 30000 };
@@ -20,7 +21,7 @@ export function sharedProbe(port, unsupported = () => null) {
   let seen = null;
   const get = () => {
     const emu = port();
-    if (!emu?.running) return Promise.reject(new Error("Der Emulator läuft nicht. Starte ihn im Bereich Emulator."));
+    if (!emu?.running) return Promise.reject(new Error(t("probe.emuOff")));
     const lack = unsupported();
     if (lack) return Promise.reject(new Error(lack));
     if (probe && probe.port === emu && seen === emu.generation && !probe.sender.disconnected) {

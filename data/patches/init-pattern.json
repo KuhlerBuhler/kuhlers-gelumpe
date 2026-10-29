@@ -1,0 +1,35 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "init-pattern",
+ "name": "Eigenes Init-Pattern",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 1375744,
+   "bytes": "f0412de90150a0e1b79bfbeb0060a0e18cc09fe500c09ce500005ce31e00000a18009ce5020a10e31b00001a74c09fe500c09ce500005ce31700000af700dce5000050e31400000afa0050e31200008a010040e250409fe5004784e0000094e548109fe5010050e10b00001a0c70d5e50d80d5e50ec0d5e500102de90500a0e10410a0e10129a0e3b3e6faeb0010bde80c70c5e50d80c5e50ec0c5e50600a0e1f081bde8f8e633c0241369c040298bc050545354",
+   "expect": "e08c7a0233fe3424e06449f8b19133016749482cba857f59774d4b29267990e0",
+   "note": "init pattern: INITIALIZE PATTERN copies the pattern Global byte 247 names over the firmware's template"
+  },
+  {
+   "file": 224052,
+   "bytes": "b16404eb",
+   "expect": "0a2aa59c314eab011dec79e0b38a4e3fbb33935d5104c97dfb585186958b6a96",
+   "note": "INITIALIZE PATTERN calls ip_init, which calls the firmware's init function first"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC0036A34",
+   "kind": "call",
+   "chain": "pattern-init",
+   "position": "after",
+   "swallow": false,
+   "note": "the firmware's init runs first; then the chosen pattern is copied over it, three settings bytes kept"
+  }
+ ],
+ "ram": []
+}

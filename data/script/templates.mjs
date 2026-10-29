@@ -3,6 +3,7 @@
  * user chose becomes the name of the app, so the menu on the device shows what the list shows.
  * test/script-templates.test.mjs compiles and probes every kind.
  */
+import { text, TextError } from "../../src/text.mjs";
 import { SCRIPT_APPS } from "./contract.mjs";
 
 const games = name => `// App in GAMES: steht im Menü BLECH unter GAMES, ENTER öffnet sie, EXIT schließt sie.
@@ -50,7 +51,7 @@ let taps = 0;
 
 function show() {
   korg.display.clear();
-  korg.display.text("Sekunden", 0, 0);
+  korg.display.text("Seconds", 0, 0);
   korg.display.number(seconds, 0, 12);
   korg.display.text("TAP", 0, 28);
   korg.display.number(taps, 0, 40);
@@ -105,14 +106,14 @@ korg.onEvent("frame", () => {
 `;
 
 export const TEMPLATES = Object.freeze([
-  Object.freeze({ id: "games", label: "App in GAMES", description: "Eine App im Menü BLECH unter GAMES, mit eigenem Bildschirm: open, frame und buttonPress.", app: true, group: SCRIPT_APPS.groups[0], source: games }),
-  Object.freeze({ id: "tools", label: "App in TOOLS", description: "Eine App im Menü BLECH unter TOOLS, mit eigenem Bildschirm: open, frame und buttonPress.", app: true, group: SCRIPT_APPS.groups[1], source: tools }),
-  Object.freeze({ id: "background", label: "Hintergrund", description: "Läuft ohne Display und ohne Menüeintrag, zum Beispiel für LEDs: ready, frame und buttonPress.", app: false, group: null, source: background }),
+  Object.freeze({ id: "games", label: text("templates.games.label"), description: text("templates.games.description"), app: true, group: SCRIPT_APPS.groups[0], source: games }),
+  Object.freeze({ id: "tools", label: text("templates.tools.label"), description: text("templates.tools.description"), app: true, group: SCRIPT_APPS.groups[1], source: tools }),
+  Object.freeze({ id: "background", label: text("templates.background.label"), description: text("templates.background.description"), app: false, group: null, source: background }),
 ]);
 
 /** The starting text for kind `id` and a plugin called `name` (the name only matters for apps). */
 export function templateSource(id, name) {
   const kind = TEMPLATES.find(t => t.id === id);
-  if (!kind) throw new RangeError(`Keine Vorlage „${id}“`);
+  if (!kind) throw new TextError("templates.unknown", { id });
   return kind.source(name);
 }

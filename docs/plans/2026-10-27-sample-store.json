@@ -2,7 +2,7 @@
   "planId": "2026-10-27-sample-store",
   "planPath": "docs/plans/2026-10-27-sample-store.md",
   "createdAt": "2026-10-27T19:53:36.740192+00:00",
-  "updatedAt": "2026-10-28T18:33:55.559087+00:00",
+  "updatedAt": "2026-10-29T14:02:37.266818+00:00",
   "revision": 2,
   "phases": [
     {
@@ -75,7 +75,7 @@
       "tasks": [
         {
           "id": "2.0",
-          "name": "Gemeinsamen geräteseitigen Dateibesitz vor dem ersten Menühaken anschließen; Ladeaufträge, Leser, Puffer und erneutes Indexlesen koordinieren.",
+          "name": "Gemeinsamen geräteseitigen Dateibesitz vor dem ersten Menühaken anschließen; Ladeaufträge, Leser, Puffer und erneutes Indexlesen koordinieren. Projektladen benötigt eine dynamische exklusive Cache-Ausleihe vor seiner Anbindung.",
           "status": "in-progress"
         },
         {

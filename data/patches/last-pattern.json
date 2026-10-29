@@ -1,0 +1,66 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "last-pattern",
+ "name": "Letztes Pattern beim Einschalten",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 1376000,
+   "bytes": "b8c09fe500c09ce500005ce31200000a18109ce5020a11e30f00001aa0c09fe500c09ce500005ce30b00000af810dce5000051e30800000afa0051e30600008a011041e20100a0e3f900cce574009fe5000050e3181380151eff2fe10010a0e31eff2fe10040a0e150c09fe500c09ce500005ce30f00000a18c09ce5020a1ce30c00001a38c09fe500c09ce500005ce31eff2f01f900dce5000050e30300000a0000a0e3f900cce5f850dce5015045e2010085e2f800cce50400a0e11eff2fe1f8e633c0241369c000000000",
+   "expect": "dc6c9c43af3a1e4a3102286e5784afbd26f393dabf9b59b4cf3b74e9b6dce2ee",
+   "note": "last pattern: the start function and the first selection take the kept number, every selection notes it in Global byte 248"
+  },
+  {
+   "file": 176192,
+   "bytes": "ae9304eb",
+   "expect": "41155ab06f4c06851335c4f7a2e38d6c1a5fc7ad518c5d7dc2857a60baba1acd",
+   "note": "the pattern the start function loads comes from lp_boot instead of 0"
+  },
+  {
+   "file": 499400,
+   "bytes": "255803eb",
+   "expect": "57d3d243cf42496cc7747b91e991c67cbffe9f6f2bf2e0a198f5f0f1d443bd35",
+   "note": "the pattern selection notes its number (and takes the kept one once after power-on)"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC002AF40",
+   "kind": "instruction",
+   "chain": "start",
+   "position": "replace",
+   "swallow": false,
+   "note": "r1 = the kept pattern instead of 0; with EXIT held at power-on it stays 0"
+  },
+  {
+   "site": "0xC0079DC8",
+   "kind": "instruction",
+   "chain": "pattern-select",
+   "position": "replace",
+   "swallow": false,
+   "note": "does the replaced mov r4, r0, notes the number, and once after power-on swaps in the kept one"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 176192,
+   "length": 4,
+   "why": "the start function loads its first pattern here and now asks lp_boot for the number"
+  },
+  {
+   "file": 499400,
+   "length": 4,
+   "why": "the start selects its first pattern through the selection, which now notes the number and takes the kept one"
+  },
+  {
+   "file": 1376000,
+   "length": 204,
+   "why": "lp_boot and lp_select run with those calls; they read the held keys and Global bytes 248 and 249"
+  }
+ ],
+ "ram": []
+}

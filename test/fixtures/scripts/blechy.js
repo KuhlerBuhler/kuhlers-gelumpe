@@ -19,6 +19,7 @@ const F_HAPPY = 3;
 const F_FLAIL = 4;
 const F_WAVE = 8;
 const F_WALK = 10;
+const F_BACK = 11;
 const FIG_LEFT = 5;
 const FIG_RIGHT = 45;
 const WALK_RIGHT = 48;
@@ -218,9 +219,38 @@ function frameFlail3(ox, oy) {
   korg.display.bitmap(P_FLAIL3, ox + 11, oy + 5, 40);
 }
 
+const P_BACK0 = [
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 224, 176, 144, 152, 136, 8, 8, 24, 16, 48, 224, 128, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 225, 25, 9, 229, 229, 230, 10, 26, 226, 0, 0, 0, 224, 24, 8, 229, 229, 229, 11, 30, 228, 12, 57, 255, 248, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 128, 224, 48, 24, 12, 14, 56, 107, 82, 228, 164, 164, 82, 43, 0, 0, 0, 0, 0, 43, 82, 164, 164, 164, 210, 107, 64, 96, 56, 255, 131, 0, 0, 0, 0, 0,
+  128, 64, 64, 32, 16, 63, 224, 128, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 2, 2, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0, 128, 224, 63, 32, 32, 64, 128, 0,
+  0, 0, 0, 0, 0, 0, 0, 3, 14, 56, 224, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 224, 56, 14, 3, 0, 0, 0, 0, 0, 0, 1,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 14, 248, 16, 16, 16, 16, 16, 16, 16, 16, 24, 8, 8, 252, 6, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 48, 48, 62, 49, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 49, 62, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+];
+
+function frameBack0(ox, oy) {
+  korg.display.bitmap(P_BACK0, ox + 5, oy + 4, 41);
+}
+
+const P_BACK1 = [
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 224, 176, 144, 152, 136, 8, 8, 24, 16, 48, 96, 192, 128, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 225, 25, 9, 229, 229, 230, 10, 26, 226, 0, 0, 0, 224, 24, 8, 229, 229, 229, 11, 30, 228, 12, 56, 255, 248, 0, 0, 0,
+  0, 0, 0, 0, 0, 128, 224, 48, 24, 12, 14, 56, 107, 82, 228, 164, 164, 82, 43, 0, 0, 0, 0, 0, 43, 82, 164, 164, 164, 210, 107, 64, 96, 56, 255, 131, 0, 0, 0,
+  16, 16, 8, 8, 8, 63, 224, 128, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 2, 2, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0, 128, 224, 63, 16, 32, 64,
+  0, 0, 0, 0, 0, 0, 0, 3, 14, 56, 224, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 224, 56, 14, 3, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 193, 35, 30, 16, 16, 16, 16, 16, 16, 16, 16, 16, 24, 8, 12, 4, 30, 35, 193, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 48, 48, 48, 60, 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 60, 48, 48, 48, 48, 0, 0, 0
+];
+
+function frameBack1(ox, oy) {
+  korg.display.bitmap(P_BACK1, ox + 5, oy + 4, 39);
+}
+
 const DX_MAX = 127 - WALK_RIGHT;
 const DX_MID = 24;
 const WALK_MS = 120;
+const STEP_MS = 240;
 const BRISK_MS = 70;
 const LISTEN_MS = 2800;
 const TALK_MS = 3500;
@@ -330,7 +360,7 @@ function drawBubble(kind, side) {
   else tailLeft(l);
   const x = l + 3;
   if (kind == B_LISTEN) {
-    korg.display.text("ich hoer", x, 11);
+    korg.display.text("ich hör", x, 11);
     korg.display.text("mir das", x, 22);
     korg.display.text("kurz an", x, 33);
   } else if (kind == 1) {
@@ -346,7 +376,7 @@ function drawBubble(kind, side) {
     }
   } else if (kind == 3) {
     const t = korg.millis() - (playedOnce ? firstPlayAt : 0);
-    korg.display.text(playedOnce ? "Spielt seit" : "Laeuft seit", x, 12);
+    korg.display.text(playedOnce ? "Spielt seit" : "Läuft seit", x, 12);
     if (t >= 60000) {
       const m = t / 60000;
       korg.display.number(m, x, 26);
@@ -360,12 +390,9 @@ function drawBubble(kind, side) {
     korg.display.text("Blech ist", x, 14);
     korg.display.text("mein Ding", x, 26);
   } else if (kind == 5) {
-    korg.display.text("kein Mund,", x, 14);
-    korg.display.text("kein Problem", x, 26);
-  } else if (kind == 6) {
     korg.display.text("bisschen", x, 14);
     korg.display.text("mehr Bass?", x, 26);
-  } else if (kind == 7) {
+  } else if (kind == 6) {
     korg.display.text("nicht so", x, 14);
     korg.display.text("doll tippen", x, 26);
   } else {
@@ -402,6 +429,10 @@ function drawFrame(f, last, ox, oy) {
     else if (f == 5) frameFlail1(ox, oy);
     else if (f == 6) frameFlail2(ox, oy);
     else if (f == 7) frameFlail3(ox, oy);
+  } else {
+    korg.display.clear();
+    if (f == 11) frameBack0(ox, oy);
+    else if (f == 12) frameBack1(ox, oy);
   }
 }
 
@@ -424,19 +455,24 @@ function move(now, target, gap, px) {
 function startTalk(now, side) {
   wantTalk = 0;
   talkSide = side;
-  talkNo = talkNo % 8 + 1;
+  talkNo = talkNo % 7 + 1;
   talkKind = talkNo;
   holdUntil = now + TALK_MS;
   nextTalk = holdUntil + TALK_GAP + rnd() % TALK_SPREAD;
 }
 
-function walking() {
-  return F_WALK;
+// The walk cycle: the calm and the walk picture in turn every STEP_MS (as on the Discord page), mirrored when he goes left.
+// The walk picture sits one row lower, which makes the step.
+function walking(now) {
+  const pose = (now / STEP_MS) & 1;
+  posY = pose;
+  if (dir < 0) return F_BACK + pose;
+  return pose ? F_WALK : F_IDLE;
 }
 
 // Which picture belongs to the moment, and where he is: a reaction first, then the play states (to the middle,
 // listening, dancing), then the wave (once per landing, WAVE_DELAY_MS after it, the hand swings every WAVE_STEP_MS),
-// then the walk with its stops at the edges, the twitch, standing.
+// then the walk (the pictures alternate, mirrored to the left) with its stops at the edges, the twitch, standing.
 function pick(now) {
   if (!playing) mode = 0;
   else if (mode == 0) {
@@ -458,8 +494,7 @@ function pick(now) {
       talkSide = 0;
       return standing(now);
     }
-    posY = (posX >> 1) & 1;
-    return walking();
+    return walking(now);
   }
   if (mode == 2 && now - listenAt >= LISTEN_MS) mode = 3;
   if (mode == 3) return F_FLAIL + flail;
@@ -478,8 +513,7 @@ function pick(now) {
     dir = 0 - dir;
     return standing(now);
   }
-  posY = (posX >> 1) & 1;
-  return walking();
+  return walking(now);
 }
 
 function bubbleAt(now) {

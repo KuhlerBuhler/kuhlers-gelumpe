@@ -31,15 +31,8 @@ class HookTests(unittest.TestCase):
         machine = BareMachine(built.vm)
         machine.runtime = built.layout['runtime']
         machine.arena = built.layout['pool']
-        from tools.patch.script_hooks import BLECHY_BLOCK,BLECHY_BLOCK_END
-        machine.uc.mem_map(BLECHY_BLOCK,BLECHY_BLOCK_END-BLECHY_BLOCK)    # where the image holds the block of Blechy
-        from tools.patch.script_hooks import MORE_START,MORE_END
-        machine.uc.mem_map(MORE_START,(MORE_END-MORE_START+0xFFF)&~0xFFF)  # the second code area (display, store, hardware, events, apps)
-        from tools.patch.script_hooks import MORE2_START,MORE2_END
-        machine.uc.mem_map(MORE2_START&~0xFFF,((MORE2_END+0xFFF)&~0xFFF)-(MORE2_START&~0xFFF))  # the third code area (colour maths)
-        from tools.patch.script_hooks import runtime_profile
-        work = runtime_profile('hacktribe').actions['MG_WORK']
-        machine.uc.mem_map(work&~0xFFF,((work+0xF00+0xFFF)&~0xFFF)-(work&~0xFFF))  # the folder copy's work area, read by every input
+        # the code area (VM and all our code, from MORE3_START) is mapped with 1 MiB by BareMachine, which also holds
+        # the block of Blechy (0xC0184000) and the folder copy's work area (MG_WORK), read by every input
         for address,data in built.sections[len(built.vm.sections):]:
             machine.uc.mem_write(address,data)
         machine.symbols.update(built.symbols)
@@ -53,7 +46,7 @@ class HookTests(unittest.TestCase):
         machine.uc.mem_map(0xC0340000,4096)
         machine.uc.mem_map(0xC0345000,4096)    # the LED manager's pointer (0xC0345A1C), 0: the unsaved WRITE LED stays out
         machine.uc.mem_map(0xC0310000,0x10000)
-        for at,size in [(0xC0690000,0x2000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)
+        for at,size in [(0xC0690000,0x2000),(0xC06A2000,0x1000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)   # 0xC06A292C the OS tick count the clock reads
         machine.write(0xC033E6F8,machine.input+0x1000)
         machine.write(0xC03404C0,machine.input+0x2000)
         machine.write(machine.input+0x202C,1)
@@ -214,7 +207,7 @@ class HookTests(unittest.TestCase):
         machine.write(machine.input+0x202C,1)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(entry),[1,7,1])
-        self.assertEqual(machine.read(entry+220),1)
+        self.assertEqual(machine.read(entry+228),1)
         machine.write(machine.input+0x202C,4)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(entry),[1,7,2])
@@ -343,10 +336,10 @@ class HookTests(unittest.TestCase):
         advancing[0]=False
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(imported),[0,0,0])
-        self.assertEqual(machine.read(imported+220),0)
+        self.assertEqual(machine.read(imported+228),0)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(imported),[1,0,1])
-        self.assertEqual(machine.read(imported+220),1)
+        self.assertEqual(machine.read(imported+228),1)
 
     def test_fuel_fault_does_not_stop_other_scripts(self):
         machine,_=self.machine()
@@ -557,20 +550,20 @@ class HookTests(unittest.TestCase):
             self.assertEqual(change['file'],address-RAM_BASE+0x100)
             self.assertEqual(change['expect'],hashlib.sha256(struct.pack('<I',word)).hexdigest())
             self.assertEqual(int.from_bytes(bytes.fromhex(change['bytes']),'little')>>24,0xea)
-        self.assertEqual(len(patch['hooks']),19)
+        self.assertEqual(len(patch['hooks']),26)
         self.assertEqual((patch['hooks'][3]['site'],patch['hooks'][3]['chain']),('0xC004C1B4','save'))
         self.assertEqual(patch['hooks'][0]['chain'],['key-dispatch','pattern-set'])
         self.assertEqual(patch['hooks'][0]['swallow'],True)
         self.assertEqual(patch['hooks'][1]['chain'],'frame')
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
-        card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
-        self.assertEqual(len(patch['startPhase']),47)
+        card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
+        self.assertEqual(len(patch['startPhase']),56)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]
         pairs+=[('blechy_boot','blechy_boot_end'),('menu_arm','menu_arm_end'),('menu_arm_load','menu_arm_load_end'),('menu_settings_load','menu_settings_end'),('menu_needs_confirm','menu_confirm'),('menu_recount','menu_recount_end'),('menu_event_right','menu_hooks_end'),('led_meter_hook','look_hooks_end'),
-            ('shortcut_input','shortcut_tick'),('shortcut_pool','shortcut_end'),('migrate_start','migrate_end'),('fx_card_load','fx_card_load_end'),('remap_input','events_post')]
+            ('shortcut_input','shortcut_tick'),('shortcut_pool','shortcut_end'),('migrate_start','migrate_end'),('fx_card_load','fx_card_load_end'),('remap_input','events_post'),('objects_row','objects_end')]
         spans=sum(built.symbols[end]-built.symbols[start] for start,end in pairs)
         self.assertEqual(sum(span['length'] for span in patch['startPhase']),spans+len(SITES)*4+len(WORDS)*4+184+card+len(built.sections[-1][1])+len(built.sections[0][1]))
         size=lambda change: len(change['bytes'])//2 if 'bytes' in change else change['copy']['length']
@@ -787,11 +780,11 @@ class MenuSettingsTests(unittest.TestCase):
                     uc.reg_write(UC_ARM_REG_R2, 0xa5a5a5a5)
                     uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
                 elif address == symbols['FS_OPEN']:
-                    opened.append(bytes(uc.mem_read(state + symbols['M_FILE_A'], 24)))
+                    opened.append(bytes(uc.mem_read(symbols['MENU_FILE_A'], 24)))
                     uc.reg_write(UC_ARM_REG_PC, machine.stop)
-            fs_page = symbols['FS_OPEN'] & ~4095
-            if not any(a <= fs_page <= b for a, b, _ in machine.uc.mem_regions()):
-                machine.uc.mem_map(fs_page, 4096)
+            for page in (symbols['FS_OPEN'] & ~4095, symbols['MENU_FILE_A'] & ~4095):
+                if not any(a <= page <= b for a, b, _ in machine.uc.mem_regions()):
+                    machine.uc.mem_map(page, 4096)
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['menu_pc_call'], end=symbols['menu_pc_call'])
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['FS_OPEN'], end=symbols['FS_OPEN'])
             machine.write(symbols['HOOK_RUNTIME'] + symbols['RT_HEAD'], 0)

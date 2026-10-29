@@ -4,9 +4,9 @@
 The page uploads the user's own VSB, starts
 the firmware and receives the display as a stream of server-sent events.
 Only the Python standard library is used. The service listens on 127.0.0.1
-and answers only requests that carry the token printed at start and come
-from an allowed origin, because any web page in the browser can reach
-127.0.0.1.
+(GELUMPE_HOST or --host, a container needs 0.0.0.0) and answers only requests
+that carry the token printed at start and come from an allowed origin, because
+any web page in the browser can reach 127.0.0.1.
 """
 
 import _thread
@@ -31,7 +31,7 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from cardstore import CardError, CardStore, card_folder, default_dir  # noqa: E402
-from firmware import ProfileError, identify, is_synth  # noqa: E402
+from firmware import ProfileError, hardware_of_head, identify, is_synth  # noqa: E402
 from flashstore import FlashError, FlashStore, default_dir as default_flash_dir  # noqa: E402
 import lifetime  # noqa: E402
 from lcd import LcdResponse, taus  # noqa: E402
@@ -39,8 +39,7 @@ from sdcard import SDCard  # noqa: E402
 
 MISSING_UNICORN = "Unicorn fehlt in diesem Python. Einmal npm run setup:emu ausführen, dann npm start neu starten."
 VSB_SIZE = 0x200100
-SYNTH_FLASH_FILE = "flash-synth.bin"   # the blue Electribe's user data, kept apart from flash.bin
-SYNTH_CARD_FOLDER = "electribe"        # the literal KORG/electribe/ is in the image; derived, not measured
+SYNTH_FLASH_FILE = "flash-synth.bin"   # the blue Electribe's user data, kept apart from flash.bin; Hacktribe for the blue uses it too
 FLASH_SIZE = 0x1000000
 FIRMWARE_AT = 0x20000       # where the flash holds the firmware image (machine.FIRMWARE_AT)
 STEP_S = 0.02               # device time run between display checks
@@ -53,9 +52,23 @@ MIDI_LIMIT = 0x10000        # a pattern dump is 18733 bytes, the whole MFX table
 HANG_S = 2.0
 
 
+def hardware_of(vsb):
+    """"blue" or "red": the Electribe a VSB runs on. The head says it, also for Hacktribe for the blue (Sampler code)."""
+    return "blue" if is_synth(vsb[0x100:]) or hardware_of_head(vsb) == "blue" else "red"
+
+
+def blank_for(hardware, payload):
+    """The flash a firmware starts from when there is none yet: None lets the machine choose by build, which is right
+    except for Sampler code on the blue, which needs the blue's user-data mark (docs/ideen/65-blech-hacktribe-blau.md)."""
+    if hardware != "blue" or payload is None or is_synth(payload):
+        return None
+    from machine import hardware_flash
+    return bytes(hardware_flash("blue"))
+
+
 def folder_of(vsb):
     """The folder below KORG/ the firmware in this VSB (header and payload) keeps its files in."""
-    return SYNTH_CARD_FOLDER if is_synth(vsb[0x100:]) else card_folder(vsb)
+    return card_folder(vsb)
 
 
 class Conflict(Exception):
@@ -105,9 +118,9 @@ def real_machine(payload, flash):
     return Machine(payload, flash)
 
 
-def real_check(base, patched, flash, allow, allow_code=(), progress=None, quick=False):
+def real_check(base, patched, flash, allow, allow_code=(), boot_flash=None, progress=None, quick=False):
     from check import check
-    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick)
+    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick, boot_flash=boot_flash)
 
 
 class Emulator:
@@ -283,9 +296,15 @@ class Emulator:
         return {"build": self.build, "folder": self.card_folder, "reason": self.build_reason,
                 "sha256": hashlib.sha256(self.firmware[0x100:]).hexdigest()}
 
-    def flash_file(self):
-        """The flash file of the loaded build: the synth keeps its user data apart from the Sampler's."""
-        if self.flash_store is None or self.build != "synth":
+    def hardware(self):
+        """"blue" or "red": the Electribe the loaded firmware runs on."""
+        if self.firmware is None:
+            return "red"
+        return "blue" if self.build == "synth" or hardware_of(self.firmware) == "blue" else "red"
+
+    def flash_file(self, hardware=None):
+        """The flash file of the hardware (default: the loaded firmware's): the blue keeps its user data apart from the red's."""
+        if self.flash_store is None or (hardware or self.hardware()) != "blue":
             return self.flash_store
         return self.flash_store.other(SYNTH_FLASH_FILE)
 
@@ -300,14 +319,20 @@ class Emulator:
             self.flash = bytes(data)
         self.publish("flash", {"loaded": True})
 
-    def current_flash(self):
-        """What the device boots from: the flash file, else an uploaded image, else None (erased)."""
+    def current_flash(self, hardware=None, payload=None):
+        """What the device boots from: the flash file, else an uploaded image, else None (erased). `hardware` and
+        `payload` instead of the loaded firmware's: for a check of another file."""
+        hardware = hardware or self.hardware()
         if self.flash_store is None:
-            return self.flash
-        try:
-            return self.flash_file().load()
-        except FlashError as error:
-            raise ValueError(str(error)) from None
+            data = self.flash
+        else:
+            try:
+                data = self.flash_file(hardware).load()
+            except FlashError as error:
+                raise ValueError(str(error)) from None
+        if payload is None and self.firmware is not None:
+            payload = self.firmware[0x100:]
+        return data if data is not None else blank_for(hardware, payload)
 
     def save_flash(self, m):
         """Write the flash file back if the firmware changed the flash."""
@@ -414,16 +439,20 @@ class Emulator:
             self.inputs.put(panel_message({"kind": "adapter", "plugged": False})[0])
         self.inputs.put(held)
 
-    def check(self, pair, allow, allow_code=(), quick=False):
-        """Export check (check.py) of the original VSB and its patched copy, sent
-        one after the other, with the loaded flash. One check at a time; `quick` only the start scenarios."""
+    def check(self, pair, allow, allow_code=(), quick=False, hardware=None):
+        """Export check (check.py) of the original VSB and its patched copy, sent one after the other. The start scenarios
+        boot from the flash of the hardware the original runs on (by its head, or `hardware`), the user's own; the cases of
+        the patches run on a blank flash of that hardware, as in CI: they expect Init patterns, not the user's.
+        One check at a time; `quick` only the start scenarios."""
         if len(pair) != 2 * VSB_SIZE:
             raise ValueError(f"Die Prüfung braucht Original und Kopie, je {VSB_SIZE} Byte.")
         if not self.checking.acquire(blocking=False):
             raise ValueError("Es läuft schon eine Prüfung.")
         self.check_progress = {"state": "running"}
         try:
-            result = self.checker(bytes(pair[:VSB_SIZE]), bytes(pair[VSB_SIZE:]), self.current_flash(), allow, allow_code,
+            hardware, payload = hardware or hardware_of(pair[:VSB_SIZE]), bytes(pair[0x100:VSB_SIZE])
+            result = self.checker(bytes(pair[:VSB_SIZE]), bytes(pair[VSB_SIZE:]), blank_for(hardware, payload), allow, allow_code,
+                                  boot_flash=self.current_flash(hardware, payload),
                                   progress=lambda snapshot: setattr(self, "check_progress", {"state": "running", **snapshot}),
                                   **({"quick": True} if quick else {}))
             self.check_progress = {**self.check_progress, "state": "done"}
@@ -677,7 +706,10 @@ def make_handler(emu, token, origins):
                              for key in ("allow", "allowCode")}
                     if any(len(a) != 2 for lst in spans.values() for a in lst):
                         raise ValueError("allow und allowCode sind Listen aus Stelle:Länge.")
-                    return self._send(200, emu.check(body, spans["allow"], spans["allowCode"], quick=query.get("quick", [""])[0] == "1"))
+                    hardware = query.get("hardware", [None])[0]
+                    if hardware not in (None, "red", "blue"):
+                        raise ValueError("hardware ist red oder blue.")
+                    return self._send(200, emu.check(body, spans["allow"], spans["allowCode"], quick=query.get("quick", [""])[0] == "1", hardware=hardware))
                 elif path == "/input":
                     body = self._body(1024)
                     if body is None: return
@@ -721,10 +753,10 @@ def make_handler(emu, token, origins):
     return Handler
 
 
-def serve(port=8740, token=None, origins=(), emulator=None):
+def serve(port=8740, token=None, origins=(), emulator=None, host="127.0.0.1"):
     token = token or secrets.token_urlsafe(16)
     emu = emulator or Emulator()
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(emu, token, set(origins)))
+    server = ThreadingHTTPServer((host, port), make_handler(emu, token, set(origins)))
     server.daemon_threads = True
     return server, token, emu
 
@@ -751,6 +783,9 @@ def inside_temp(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8740)
+    parser.add_argument("--host", default=os.environ.get("GELUMPE_HOST", "127.0.0.1"),
+                        help="address to listen on; 0.0.0.0 in a container, whose published port reaches "
+                             "this address and not 127.0.0.1. Default GELUMPE_HOST, else 127.0.0.1")
     parser.add_argument("--page", default="http://127.0.0.1:8737",
                         help="origin of the editor page allowed to use the emulator")
     parser.add_argument("--allow-origin", action="append", default=[])
@@ -790,7 +825,7 @@ def main():
     except (CardError, OSError) as error:
         print(f"Kartenordner: {error}", file=sys.stderr)
         return 1
-    server, token, emu = serve(args.port, token=os.environ.get("E2_EMU_TOKEN"), origins=origins, emulator=Emulator(cards=store, lcd_tau=lcd_tau, flash_store=FlashStore(args.flash_dir or (store.root / "flash" if args.ephemeral else default_flash_dir(store.root))), pace=not args.unthrottled))
+    server, token, emu = serve(args.port, token=os.environ.get("E2_EMU_TOKEN"), origins=origins, host=args.host, emulator=Emulator(cards=store, lcd_tau=lcd_tau, flash_store=FlashStore(args.flash_dir or (store.root / "flash" if args.ephemeral else default_flash_dir(store.root))), pace=not args.unthrottled))
 
     def leave(*_):
         # If the way out below hangs (a stuck machine thread), do not stay behind as a process nobody owns.
@@ -804,7 +839,8 @@ def main():
             signal.signal(getattr(signal, name), leave)
     if args.parent_pid:
         watch_parent(args.parent_pid)
-    print(f"Emulator läuft auf http://127.0.0.1:{args.port}")
+    shown = args.host if args.host not in ("0.0.0.0", "::") else "127.0.0.1"
+    print(f"Emulator läuft auf http://{shown}:{args.port}")
     print(f"Die Karte ist der Ordner {store.dir}")
     print(f"Der Flash ist die Datei {emu.flash_store.path}")
     print(f"Display-Trägheit: dunkel {lcd_tau[0]:g} s, hell {lcd_tau[1]:g} s")

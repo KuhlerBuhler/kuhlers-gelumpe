@@ -81,6 +81,7 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Sample-Swap: Fehlerpfade für 1.4](2026-10-27-sample-swap-1-4.md)
 - [Sample-Swap: Stimmen, Part-Auswahl und Moduswechsel](2026-10-28-sample-swap-stimmen.md)
 - [Sample-Sammlung: einen Slot dauerhaft speichern](2026-10-27-sample-store.md)
+- [Sample-Swap: Abgleich mit develop und dynamischer Projekt-RAM](2026-10-29-sample-swap-develop.md), getrennte Besitzplanung und zusammengeführte Prüfgruppen.
 - [Sample-Swap: Veröffentlichung und Cache-Deskriptor korrigiert](2026-10-29-sample-swap-korrektur.md), gezielte Fehlerfälle vor und nach der Korrektur.
 - [Sample-Swap: Prüfung des Feature-Diffs](2026-10-29-sample-swap-review.md), drei hohe und drei mittlere Befunde, Freigabe offen.
 - [Sample-Datei: Leserabschluss und exklusiver Dateibesitz](2026-10-29-sample-dateibesitz.md)
@@ -241,8 +242,11 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Stimmen beim Wechsel innerhalb einer Sync-Gruppe, im Emulator geprüft](2026-10-25-sync-group-stimmen.md)
 - [Sync Group: gestoppt mit ungespeicherten Änderungen ohne Rückfrage](2026-10-25-sync-ungespeichert.md)
 - [Eine Plugin-Liste in PLUGIN EDIT, IMPORT PLUGIN entfällt](2026-10-25-plugin-liste.md)
+- [Plugins schreiben Steps: korg.seq, im Emulator geprüft](2026-10-26-plugin-steps.md)
 - [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
+- [Test-Modus und Fernbedienung aller Bedienelemente über die Warteschlange des Panels](2026-10-29-test-modus-fernsteuerung.md)
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
+- [Grundlagen für native Bedienmakros](2026-10-25-makro-grundlagen.md)
 - [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
 - [Meter: RAINBOW auch bei LOUD, im Tempo](2026-10-24-meter-loud-rainbow.md)
 - [Effekte aus dem Katalog fest in der Firmware](2026-10-23-fx-katalog-fest.md)
@@ -251,5 +255,14 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Der Stack bei 0xC274E000 und wer den RAM darüber nutzt](2026-10-24-ram-task-stack.md)
 - [USB: was das Gerät anbietet und was eine zweite Schnittstelle bräuchte](2026-10-24-usb.md)
 - [Hacktribes Flash-Schreibbefehl gesperrt, Pattern-Schreibvorgänge nach 0x53 bis 0x56](2026-10-24-hacktribe-flash.md)
+- [BLECH mit Hacktribe auf der blauen: Start, Update-Wege, Kartenordner](2026-10-26-blech-hacktribe-blau.md)
+- [Letztes Pattern beim Einschalten: wo die Firmware 001 nimmt, wo die Nummer bleibt](2026-10-28-letztes-pattern.md)
+- [Eigenes Init-Pattern: wie INITIALIZE PATTERN die Vorlage nimmt](2026-10-28-init-pattern.md)
+- [Farbe des Hintergrundlichts schon beim Einschalten, vor dem Startbild](2026-10-29-hintergrundlicht-beim-start.md)
+- [Pattern-Export unter BLECH: wohin, und was in der Datei steht](2026-10-28-pattern-export.md)
+- [Menü-Anordnung 1.3.8: SYNC GROUP hinter CHAIN REPEAT, Seiten in GLOBAL PARAMETERS und DATA UTILITY](2026-10-29-menue-anordnung.md)
+- [Alten Kartenordner beim ersten Start übernehmen, blaue Electribe](2026-10-29-blau-ordner-uebernehmen.md)
+- [Uhr und Timer der Plugin-Laufzeit: Rahmen, Tick-Zähler, korg.after und korg.afterSteps](2026-10-29-plugin-timer.md)
+- [Vorschau: die Pads gehören dem angesehenen Pattern, Mutes gehen beim Wechsel mit](2026-10-29-vorschau-pads.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

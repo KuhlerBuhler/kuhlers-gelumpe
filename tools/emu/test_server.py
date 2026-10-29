@@ -139,7 +139,7 @@ class ServiceTest(unittest.TestCase):
 
     def test_the_export_check_gets_original_copy_flash_and_the_allowed_spans(self):
         calls = []
-        self.emu.checker = lambda base, patched, flash, allow, allow_code, progress=None: calls.append((base, patched, flash, allow, allow_code)) or {"ok": True, "checks": []}
+        self.emu.checker = lambda base, patched, flash, allow, allow_code, boot_flash=None, progress=None: calls.append((base, patched, flash, allow, allow_code)) or {"ok": True, "checks": []}
         r, body = self.request("POST", "/check", body=bytes(VSB_SIZE))
         self.assertEqual(r.status, 400)
         self.assertIn("Original und Kopie", body["error"])
@@ -160,7 +160,7 @@ class ServiceTest(unittest.TestCase):
         seen = []
         snapshot = {"total": 2, "done": 1, "ok": 1, "fail": 0, "groups": [{"id": "menu_cases", "name": "Menü", "total": 2, "done": 1, "state": "running", "ok": 1, "fail": 0}]}
 
-        def checker(base, patched, flash, allow, allow_code, progress=None):
+        def checker(base, patched, flash, allow, allow_code, boot_flash=None, progress=None):
             progress(snapshot)
             seen.append(self.request("GET", "/check/progress")[1])
             return {"ok": True, "checks": []}
@@ -170,7 +170,7 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(seen, [{"state": "running", **snapshot}], "a client polling during the run gets the latest snapshot")
         self.assertEqual(self.request("GET", "/check/progress")[1], {"state": "done", **snapshot})
 
-        def broken(*args, progress=None):
+        def broken(*args, boot_flash=None, progress=None):
             raise RuntimeError("boom")
 
         self.emu.checker = broken
@@ -540,11 +540,12 @@ class CardServiceTest(unittest.TestCase):
             v.delete("/old.txt")
             v.close()
         self.wait_for(lambda: (self.card / "KORG" / "hacktribe" / "Sample" / "501_kick.wav").exists())
+        # The mirror writes the new files first and deletes afterwards; the folder is protected again once it is through.
+        protected = lambda: not os.access(self.card / "KORG" / "hacktribe" / "Sample" / "501_kick.wav", os.W_OK)
+        self.wait_for(protected)
         self.assertEqual((self.card / "KORG" / "hacktribe" / "Sample" / "501_kick.wav").read_bytes(), b"RIFFdata")
         self.assertFalse((self.card / "old.txt").exists())
         self.assertEqual((self.card / "keep.txt").read_text(), "keep")
-        protected = lambda: not os.access(self.card / "KORG" / "hacktribe" / "Sample" / "501_kick.wav", os.W_OK)
-        self.wait_for(protected)
         self.assertIsNone(self.request("GET", "/sd")[1]["error"])
 
     def test_the_card_goes_in_and_out_while_the_device_runs(self):

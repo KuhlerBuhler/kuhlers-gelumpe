@@ -6,10 +6,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { applyPatches, toHex } from "../src/patch.mjs";
-import { PATCH_FILE_HEADER, applyPatchFile, buildPatchFile, fingerprint, isPatchFile, parsePatchFile, userDataRanges } from "../src/patchfile.mjs";
+import { PATCH_FILE_HEADER, applyPatchFile, patchesFor, buildPatchFile, fingerprint, isPatchFile, parsePatchFile, userDataRanges } from "../src/patchfile.mjs";
 import { TABLES, POINTER_TABLES } from "../src/map/index.mjs";
 import { CODE, COPY_FROM, COPY_TO, fixture } from "./support/patch-set.mjs";
-import { asStock } from "./helpers.mjs";
+import { asStock, withHacktribeRun } from "./helpers.mjs";
 
 const APPLY = new URL("../tools/patch/apply.mjs", import.meta.url).pathname;
 
@@ -208,6 +208,29 @@ test("the BLECH set as one file takes Hacktribe's and Korg's own firmware, each 
   assert.equal(Buffer.from((await applyPatchFile(stock, file)).bytes.subarray(at, at + 17)).toString("latin1"), "KORG/blechtribe/\0");
 });
 
+test("the BLECH set as one file takes all four firmwares, gives each what its set gives, and lists each patch once", { skip: process.env.E2_VSB && process.env.E2_STOCK_VSB && process.env.E2_BLUE_VSB ? false : "set E2_VSB, E2_STOCK_VSB and E2_BLUE_VSB" }, async () => {
+  const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
+  const patches = read("data/patches/blech.json").patches.map(read);
+  const synthPatches = read("data/patches/blech-synth.json").patches.map(read);
+  const vsb = new Uint8Array(readFileSync(process.env.E2_VSB));
+  const stock = new Uint8Array(readFileSync(process.env.E2_STOCK_VSB));
+  const synth = new Uint8Array(readFileSync(process.env.E2_BLUE_VSB));
+  const blue = Uint8Array.from(vsb);
+  blue[0x12] = 0x00;
+  blue[0x2e] = 0x23;
+  const file = await buildPatchFile(vsb, patches, { version: "1.0.0", id: "blech", name: "BLECH", stock, synth, synthPatches });
+  const parsed = await parsePatchFile(file);
+  for (const [input, list] of [[vsb, patches], [blue, patches], [stock, patches], [synth, synthPatches]]) {
+    const direct = await applyPatches(input, list);
+    const viaFile = await applyPatchFile(input, file);
+    assert.equal(viaFile.ok, true, viaFile.reasons.join(" "));
+    assert.deepEqual(viaFile.bytes, direct.bytes);
+    const ids = patchesFor(parsed, input).map(p => p.id);
+    assert.equal(new Set(ids).size, ids.length, "each patch once in the list");
+    assert.ok(ids.length < parsed.patches.length || input === synth, "variants of the other builds are left out");
+  }
+});
+
 test("a patch file for both builds: Hacktribe's fingerprints in the head, Korg's in the payload, each base gets its own variant", async () => {
   const { vsb, patches } = await fixture();
   const stock = asStock(vsb);
@@ -217,7 +240,7 @@ test("a patch file for both builds: Hacktribe's fingerprints in the head, Korg's
   const set = [...patches.map(p => ({ ...p, builds: ["hacktribe", "stock"] })), variant(["hacktribe"], "11111111"), variant(["stock"], "22222222")];
   const file = await buildPatchFile(vsb, set, { version: "1.0.0", id: "demo", stock });
   const parsed = await parsePatchFile(file);
-  assert.deepEqual(Object.keys(parsed.alternates), ["stock"]);
+  assert.deepEqual(Object.keys(parsed.alternates), ["hacktribe-blue", "stock"]);
   const ranges = parsed.userData.map(([from, length]) => [from, from + length]);
   assert.equal(parsed.input, await fingerprint(vsb, ranges));
   assert.equal(parsed.alternates.stock.input, await fingerprint(stock, ranges));
@@ -239,21 +262,21 @@ test("a patch file built for Hacktribe alone refuses Korg's own 2.02", async () 
   const stock = asStock(vsb);
   const marked = patches.map(p => ({ ...p, builds: ["hacktribe", "stock"] }));
   const file = await buildPatchFile(vsb, marked, { version: "1.0.0", id: "demo" });
-  assert.deepEqual((await parsePatchFile(file)).alternates, {});
+  assert.deepEqual(Object.keys((await parsePatchFile(file)).alternates), ["hacktribe-blue"], "Hacktribe with the blue head comes from the same file");
   const refused = await applyPatchFile(stock, file);
   assert.equal(refused.ok, false);
-  assert.match(refused.reasons[0], /nicht für Korgs Original-Firmware 2\.02 gebaut/);
+  assert.match(refused.reasons[0], /nicht für Korgs Original 2\.02 gebaut/);
   await assert.rejects(buildPatchFile(stock, marked, { version: "1.0.0" }), /Hacktribe 2\.02/);
   await assert.rejects(buildPatchFile(vsb, marked, { version: "1.0.0", stock: vsb }), /not Korg's own/);
   await assert.rejects(buildPatchFile(vsb, patches, { version: "1.0.0", stock }), /does not apply to Korg's own 2\.02/);
 });
 
-test("alternates in a patch file name only stock, with two sha256", async () => {
+test("alternates in a patch file name only the known firmwares, with two sha256, the synth with its own patches", async () => {
   const { vsb, patches } = await fixture();
   const marked = patches.map(p => ({ ...p, builds: ["hacktribe", "stock"] }));
   const file = await buildPatchFile(vsb, marked, { version: "1.0.0", id: "demo", stock: asStock(vsb) });
   const body = JSON.parse(new TextDecoder().decode(file.subarray(PATCH_FILE_HEADER)));
-  for (const bad of [{ synth: body.alternates.stock }, { stock: { input: "00" } }, []]) {
+  for (const bad of [{ synth: body.alternates.stock }, { stock: { input: "00" } }, [], { red: body.alternates.stock }, { stock: { ...body.alternates.stock, patches: body.patches } }]) {
     const payload = new TextEncoder().encode(JSON.stringify({ ...body, alternates: bad }));
     const out = new Uint8Array(PATCH_FILE_HEADER + payload.length);
     out.set(file.subarray(0, PATCH_FILE_HEADER));
@@ -262,4 +285,33 @@ test("alternates in a patch file name only stock, with two sha256", async () => 
     out.set(createHash("sha256").update(payload).digest(), 96);
     await assert.rejects(parsePatchFile(out), /alternates/);
   }
+});
+
+test("a patch file for Hacktribe, Hacktribe with the blue head and the blue's own firmware: each gets its own fingerprints and list", async () => {
+  const { vsb: plain, patches } = await fixture();
+  const vsb = withHacktribeRun(plain);
+  vsb.set([0x45, 0x32, 0x53], 0x10);
+  vsb[0x2e] = 0x24;
+  const blue = Uint8Array.from(vsb);
+  blue[0x12] = 0x00;
+  blue[0x2e] = 0x23;
+  const synth = asStock(plain);
+  synth.set([0x45, 0x32, 0x00], 0x10);
+  const at = COPY_TO + 0x180;
+  const was = createHash("sha256").update(vsb.subarray(at, at + 4)).digest("hex");
+  const synthPatches = [{ format: "gelumpe-patch", version: 1, id: "folder", builds: ["synth"], changes: [{ file: at, bytes: "33333333", expect: was }] }];
+  const file = await buildPatchFile(vsb, patches, { version: "1.0.0", id: "demo", synth, synthPatches });
+  const parsed = await parsePatchFile(file);
+  assert.deepEqual(Object.keys(parsed.alternates).sort(), ["hacktribe-blue", "synth"]);
+  assert.deepEqual(parsed.alternates.synth.patches, synthPatches);
+  const onBlue = await applyPatchFile(blue, file);
+  const onSynth = await applyPatchFile(synth, file);
+  assert.equal(onBlue.ok, true, onBlue.reasons.join(" "));
+  assert.equal(onSynth.ok, true, onSynth.reasons.join(" "));
+  assert.deepEqual(onBlue.bytes, (await applyPatches(blue, patches)).bytes, "the blue head gets the set as it is");
+  assert.equal(toHex(onSynth.bytes.subarray(at, at + 4)), "33333333", "the blue's own firmware gets its own list");
+  assert.deepEqual(patchesFor(parsed, synth).map(p => p.id), ["folder"]);
+  assert.deepEqual(patchesFor(parsed, vsb).map(p => p.id), patches.map(p => p.id));
+  const refused = await applyPatchFile(asStock(plain), file);
+  assert.match(refused.reasons[0], /nicht für Korgs Original 2\.02 gebaut/);
 });

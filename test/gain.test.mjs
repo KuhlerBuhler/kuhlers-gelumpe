@@ -1,3 +1,4 @@
+import { render } from "../src/text.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makePattern, makeRecord } from "./helpers.mjs";
@@ -74,7 +75,7 @@ test("nonsense is refused with a reason, nothing is planned", () => {
   const levels = readLevels(pattern([100]));
   for (const value of [0, -1, NaN, "abc"]) assert.ok(planScale(levels, { value }).error, String(value));
   assert.ok(planScale(levels, { mode: "target", value: 200 }).error);
-  assert.match(planScale(readLevels(pattern([])), { mode: "target", value: 50 }).error, /0/);
+  assert.equal(render(planScale(readLevels(pattern([])), { mode: "target", value: 50 }).error), "Alle Pegel stehen auf 0, daraus lässt sich kein Faktor ableiten.");
 });
 
 test("applying a plan writes the levels and nothing else, and undo puts every byte back", () => {

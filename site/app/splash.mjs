@@ -3,15 +3,18 @@ import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
 import { toast } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
+import { t, tNodes } from "./i18n.mjs";
+import { loadingAnimSection } from "./loading-anim.mjs";
+import { icon } from "./icons.mjs";
 
 const STYLE = new URL("./splash.css", import.meta.url).href;
 
 /** The pictures that come with the app; the first is the one BLECHTRIBE brings, to get it back after SPLASH RESET. */
 export const GALLERY = [
-  { id: "blechtribe", title: "BLECHTRIBE", note: "Standard", src: "img/splash/blechtribe.png" },
+  { id: "blechtribe", title: "BLECHTRIBE", note: "splash.gallery.default", src: "img/splash/blechtribe.png" },
   { id: "blech", title: "BLECH", src: "img/splash/blech.png" },
   { id: "blechy", title: "Blechy", src: "img/splash/blechy.png" },
-  { id: "blechy-winkt", title: "Blechy winkt", src: "img/splash/blechy-winkt.png" },
+  { id: "blechy-winkt", get title() { return t("splash.gallery.wave"); }, src: "img/splash/blechy-winkt.png" },
 ];
 const OWN = "cee.splash.own";
 
@@ -42,7 +45,7 @@ export function pixelsOf(picture, { cover = false, threshold = 128, dither = fal
 }
 
 /** Draws 0/1 pixels in the colours of the emulator's display. */
-function paint(canvas, pixels) {
+export function paint(canvas, pixels) {
   const style = getComputedStyle(canvas);
   const c = canvas.getContext("2d");
   c.fillStyle = style.getPropertyValue("--cee-splash-paper").trim() || "white";
@@ -54,11 +57,11 @@ function paint(canvas, pixels) {
 const loadImage = src => new Promise((resolve, reject) => {
   const img = new Image();
   img.onload = () => resolve(img);
-  img.onerror = () => reject(new Error(`${src} ließ sich nicht laden.`));
+  img.onerror = () => reject(new Error(t("splash.loadFailed", { src })));
   img.src = src;
 });
 
-function switchOf(id, text) {
+export function switchOf(id, text) {
   const input = el("input", { type: "checkbox", role: "switch", id });
   return { input, node: el("label", { className: "ui-switch" }, [input, el("span", { className: "ui-switch-track", ariaHidden: "true" }), text]) };
 }
@@ -76,42 +79,43 @@ export function splashPage(root) {
   const files = el("span", { className: "ui-dropzone-files" });
   const drop = el("label", { className: "ui-dropzone" }, [
     fileInput,
-    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: "Bild hierher ziehen oder " }), "auswählen"]),
-    el("span", { className: "ui-dropzone-hint", textContent: "PNG, JPG, GIF oder WebP" }),
+    icon("image"),
+    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t("splash.drop.drag") }), t("common.pick")]),
+    el("span", { className: "ui-dropzone-hint", textContent: t("splash.drop.hint") }),
     files,
   ]);
 
   const canvas = el("canvas", { className: "cee-splash-preview", id: "cee-splash-preview", width: SPLASH_W, height: SPLASH_H });
   canvas.setAttribute("role", "img");
-  canvas.setAttribute("aria-label", "Vorschau des Startbilds, 128 mal 64 Pixel");
+  canvas.setAttribute("aria-label", t("splash.preview"));
 
   const fitName = "cee-splash-fit";
-  const fits = [["contain", "Einpassen"], ["cover", "Füllen"]].map(([value, text], i) => {
+  const fits = [["contain", t("splash.fit.contain")], ["cover", t("splash.fit.cover")]].map(([value, text], i) => {
     const input = el("input", { type: "radio", name: fitName, value, checked: i === 0 });
     input.addEventListener("change", render);
     return { input, node: el("label", { className: "ui-segmented-option" }, [input, el("span", { textContent: text })]) };
   });
   const fit = el("div", { className: "ui-segmented", id: "cee-splash-fit" }, fits.map(f => f.node));
   fit.setAttribute("role", "radiogroup");
-  fit.setAttribute("aria-label", "Ausschnitt");
+  fit.setAttribute("aria-label", t("splash.fit"));
 
   const threshold = el("input", { type: "range", className: "ui-range", id: "cee-splash-threshold", min: 1, max: 254, value: 128 });
   const thresholdOut = el("output", { className: "ui-range-value", htmlFor: "cee-splash-threshold", textContent: "128" });
   threshold.addEventListener("input", render);
-  const dither = switchOf("cee-splash-dither", "Rastern");
-  const invert = switchOf("cee-splash-invert", "Umkehren");
+  const dither = switchOf("cee-splash-dither", t("splash.dither"));
+  const invert = switchOf("cee-splash-invert", t("splash.invert"));
   dither.input.addEventListener("change", render);
   invert.input.addEventListener("change", render);
 
-  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-splash-download", textContent: `${SPLASH_FILE} herunterladen`, disabled: true });
+  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-splash-download", textContent: t("common.download", { file: SPLASH_FILE }), disabled: true });
   download.addEventListener("click", () => { if (pixels) saveBmp(pixels); });
-  const keep = el("button", { type: "button", className: "btn", id: "cee-splash-keep", textContent: "In der Galerie speichern", disabled: true });
+  const keep = el("button", { type: "button", className: "btn", id: "cee-splash-keep", textContent: t("splash.keep"), disabled: true });
   let pictureName = "";
   keep.addEventListener("click", () => {
     if (!pixels) return;
     const list = readOwn();
-    list.push({ id: `own-${Date.now()}`, title: pictureName || "Eigenes Bild", bits: packBits(pixels) });
-    if (!writeOwn(list)) { toast("Dieser Browser lässt die Seite nichts speichern.", "error"); return; }
+    list.push({ id: `own-${Date.now()}`, title: pictureName || t("splash.ownPicture"), bits: packBits(pixels) });
+    if (!writeOwn(list)) { toast(t("splash.noStorage"), "error"); return; }
     drawGallery();
     document.getElementById("cee-splash-gallery").lastElementChild?.scrollIntoView?.({ block: "nearest" });
   });
@@ -124,14 +128,14 @@ export function splashPage(root) {
   function card(item, own) {
     const canvas = el("canvas", { className: "cee-splash-thumb", width: SPLASH_W, height: SPLASH_H });
     canvas.setAttribute("role", "img");
-    canvas.setAttribute("aria-label", `Startbild ${item.title}`);
+    canvas.setAttribute("aria-label", t("splash.thumb", { title: item.title }));
     let bits = own ? unpackBits(item.bits) : null;
     const ready = async () => bits ??= pixelsOf(await loadImage(item.src));
     canvas.draw = () => ready().then(p => paint(canvas, p)).catch(() => {});
     const get = el("button", { type: "button", className: "btn sm", textContent: SPLASH_FILE });
-    get.setAttribute("aria-label", `${item.title} als ${SPLASH_FILE} herunterladen`);
+    get.setAttribute("aria-label", t("splash.downloadAs", { title: item.title, file: SPLASH_FILE }));
     get.addEventListener("click", async () => saveBmp(await ready()));
-    const edit = el("button", { type: "button", className: "btn sm", textContent: "Bearbeiten" });
+    const edit = el("button", { type: "button", className: "btn sm", textContent: t("common.edit") });
     edit.addEventListener("click", async () => {
       const p = await ready();
       const c = el("canvas", { width: SPLASH_W, height: SPLASH_H });
@@ -143,13 +147,13 @@ export function splashPage(root) {
     });
     const actions = [get, edit];
     if (own) {
-      const remove = el("button", { type: "button", className: "btn sm", textContent: "Entfernen" });
+      const remove = el("button", { type: "button", className: "btn sm", textContent: t("common.remove") });
       remove.addEventListener("click", () => { writeOwn(readOwn().filter(o => o.id !== item.id)); drawGallery(); });
       actions.push(remove);
     }
     const li = el("li", { className: "cee-splash-item", id: `cee-splash-item-${item.id}` }, [
       canvas,
-      el("p", { className: "cee-splash-item-title" }, [el("strong", { textContent: item.title }), item.note ? el("span", { className: "muted", textContent: ` ${item.note}` }) : own ? el("span", { className: "muted", textContent: " Eigenes" }) : null]),
+      el("p", { className: "cee-splash-item-title" }, [el("strong", { textContent: item.title }), item.note ? el("span", { className: "muted", textContent: ` ${t(item.note)}` }) : own ? el("span", { className: "muted", textContent: ` ${t("splash.ownTag")}` }) : null]),
       el("div", { className: "actions" }, actions),
     ]);
     if (later) later.observe(canvas); else canvas.draw();
@@ -159,29 +163,50 @@ export function splashPage(root) {
     gallery.replaceChildren(...GALLERY.map(item => card(item, false)), ...readOwn().map(item => card(item, true)));
   }
 
-  root.replaceChildren(el("div", { className: "cee-splash" }, [
-    el("h1", { className: "cee-splash-title ui-sr-only", textContent: "Startbildschirm" }),
-    el("p", { className: "cee-splash-lead", textContent: "Macht aus einem Bild das Startbild für die Electribe: 128 mal 64 Pixel, schwarz und weiß. Schwarz leuchtet am Gerät dunkel." }),
-    el("h2", { className: "cee-splash-head", textContent: "Galerie" }),
+  // Two tabs, each its own section: the start image for the card, and the loading animation for the Patcher.
+  const tabs = el("div", { className: "ui-tabs", id: "cee-design-tabs" });
+  tabs.setAttribute("role", "tablist");
+  tabs.setAttribute("aria-label", t("nav.splash"));
+  const panels = [["splash", t("splash.title")], ["anim", t("splash.anim.title")]].map(([id, text], i) => {
+    const tab = el("button", { type: "button", className: "ui-tab", id: `cee-design-tab-${id}`, textContent: text });
+    tab.setAttribute("role", "tab");
+    tab.dataset.tab = id;
+    tab.setAttribute("aria-controls", `cee-design-panel-${id}`);
+    tab.setAttribute("aria-selected", String(i === 0));
+    if (i) tab.tabIndex = -1;
+    tabs.append(tab);
+    const panel = el("div", { className: "ui-tabpanel", id: `cee-design-panel-${id}`, tabIndex: 0, hidden: i > 0 });
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", tab.id);
+    return panel;
+  });
+
+  panels[0].append(el("section", { className: "ui-section", id: "cee-splash-section" }, [
+    el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("splash.title") })]),
+    el("p", { className: "cee-splash-lead", textContent: t("splash.lead") }),
+    el("h3", { className: "cee-splash-head", textContent: t("splash.gallery") }),
     gallery,
-    el("h2", { className: "cee-splash-head", textContent: "Eigenes Bild" }),
+    el("h3", { className: "cee-splash-head", textContent: t("splash.ownPicture") }),
     drop,
     el("div", { className: "cee-splash-work", hidden: true, id: "cee-splash-work" }, [
       canvas,
       el("div", { className: "cee-splash-controls" }, [
-        el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: "Ausschnitt" }), fit]),
-        el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-splash-threshold" }, ["Schwelle ", thresholdOut]), threshold]),
+        el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: t("splash.fit") }), fit]),
+        el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-splash-threshold" }, tNodes("splash.threshold", { value: thresholdOut })), threshold]),
         dither.node,
         invert.node,
         el("div", { className: "actions" }, [download, keep]),
       ]),
     ]),
     el("ol", { className: "cee-splash-steps", id: "cee-splash-steps" }, [
-      el("li", {}, ["Lege ", el("code", { textContent: SPLASH_FILE }), " auf der Karte nach ", el("code", { textContent: SPLASH_FOLDER }), "."]),
-      el("li", { textContent: "Am Gerät: Menü -> BLECH -> CUSTOMIZATION -> SPLASH -> SPLASH IMPORT, dann MENU." }),
-      el("li", { textContent: "Ab dem nächsten Start ist es zu sehen. Ändern lässt es sich unter SPLASH DRAW." }),
+      el("li", {}, tNodes("splash.step.copy", { file: el("code", { textContent: SPLASH_FILE }), folder: el("code", { textContent: SPLASH_FOLDER }) })),
+      el("li", { textContent: t("splash.step.import") }),
+      el("li", { textContent: t("splash.step.see") }),
     ]),
   ]));
+  panels[1].append(loadingAnimSection());
+  root.replaceChildren(el("h1", { className: "ui-sr-only", textContent: t("nav.splash") }), tabs, ...panels);
+  window.ui?.tabs?.(tabs, { persist: "cee.design.tab", hash: false });
 
   /** Puts a picture into the editor: a dropped file or one of the gallery. */
   function open(img, name) {
@@ -207,7 +232,7 @@ export function splashPage(root) {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      toast(`${file.name} ist kein Bild, das der Browser lesen kann.`, "error");
+      toast(t("splash.notImage", { name: file.name }), "error");
     };
     img.src = url;
   });

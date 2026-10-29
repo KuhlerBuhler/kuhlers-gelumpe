@@ -2,10 +2,14 @@
  * Changelogs: the GitHub releases of the repository, newest first, laid out like
  * GitHub's releases page. A release newer than the last one opened here puts a "!"
  * on the tab. While the repository is private the API answers 404 and the page
- * says so with a link.
+ * says so with a link. Versions GitHub no longer has, or all of them when it cannot
+ * be reached, come from the notes the app carries (data/release-notes.mjs).
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
+import { t, tNodes, locale, language } from "./i18n.mjs";
+import { isNewer } from "./update.mjs";
+import { RELEASE_NOTES } from "../../data/release-notes.mjs";
 
 const REPO = "KuhlerBuhler/kuhlers-gelumpe";
 const SEEN = "cee.changelog.seen";
@@ -55,7 +59,7 @@ export function notes(md) {
   return out;
 }
 
-const date = iso => new Date(iso).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+const date = iso => new Date(iso).toLocaleDateString(locale(), { day: "numeric", month: "long", year: "numeric" });
 
 /** The system the page runs on, as GitHub's release files name it: "mac", "windows" or "linux"; null when it is none of them. */
 export function systemOf(nav = globalThis.navigator) {
@@ -68,9 +72,9 @@ export function systemOf(nav = globalThis.navigator) {
 
 // A browser on a Mac says "Intel" on both kinds of Mac, so the Mac gets both files to choose from.
 const APP_FILES = {
-  mac: [[/_aarch64\.dmg$/i, "App für Mac mit Apple-Chip"], [/_x64\.dmg$/i, "App für Intel-Mac"]],
-  windows: [[/(setup\.exe|\.msi)$/i, "App für Windows"]],
-  linux: [[/\.AppImage$/i, "App für Linux"]],
+  mac: [[/_aarch64\.dmg$/i, "changelog.app.macArm"], [/_x64\.dmg$/i, "changelog.app.macIntel"]],
+  windows: [[/(setup\.exe|\.msi)$/i, "changelog.app.windows"]],
+  linux: [[/\.AppImage$/i, "changelog.app.linux"]],
 };
 
 /** The downloads of a release: the app for this system (both on a Mac) and BLECH.patch; the rest stays on GitHub. */
@@ -78,8 +82,8 @@ export function downloads(assets = [], system = systemOf()) {
   const apps = (APP_FILES[system] ?? []).map(([file, label]) => [assets.find(a => file.test(a.name)), label]).filter(([a]) => a);
   const patch = assets.find(a => a.name === "BLECH.patch");
   return [
-    ...apps.map(([a, label]) => ({ href: a.browser_download_url, label })),
-    patch ? { href: patch.browser_download_url, label: "Patch herunterladen" } : null,
+    ...apps.map(([a, label]) => ({ href: a.browser_download_url, label: t(label) })),
+    patch ? { href: patch.browser_download_url, label: t("changelog.patch") } : null,
   ].filter(Boolean);
 }
 
@@ -88,7 +92,7 @@ function release(r) {
   const side = el("header", { className: "cee-release-side" }, [
     el("h2", {}, [el("a", { className: "cee-text-link", href: r.html_url, target: "_blank", rel: "noopener noreferrer", textContent: r.tag_name })]),
     el("time", { dateTime: r.published_at, textContent: date(r.published_at) }),
-    r.prerelease ? el("span", { className: "cee-status", textContent: "Vorabversion" }) : null,
+    r.prerelease ? el("span", { className: "cee-status", textContent: t("changelog.prerelease") }) : null,
   ]);
   side.querySelector(".cee-status")?.setAttribute("data-tone", "warn");
   const get = downloads(r.assets);
@@ -102,17 +106,35 @@ function release(r) {
   ]);
 }
 
+/** A version from the notes the app carries: in German for German, else in English when there is an English part. */
+function carried(n) {
+  const body = language() === "de" ? n.de : n.en ?? n.de;
+  return el("article", { className: "cee-release" }, [
+    el("header", { className: "cee-release-side" }, [el("h2", { textContent: `v${n.version}` })]),
+    el("div", { className: "cee-release-body" }, notes(body)),
+  ]);
+}
+
+/** GitHub's releases and, for the versions it does not have, the carried notes; newest first. */
+export function entries(releases = [], carriedNotes = RELEASE_NOTES) {
+  const tags = new Set(releases.map(r => r.tag_name.replace(/^v/, "")));
+  const all = [...releases.map(r => ({ version: r.tag_name, r })), ...carriedNotes.filter(n => !tags.has(n.version)).map(n => ({ version: n.version, n }))];
+  return all.sort((a, b) => (isNewer(a.version, b.version) ? -1 : isNewer(b.version, a.version) ? 1 : 0));
+}
+
+const show = e => (e.r ? release(e.r) : carried(e.n));
+
 /**
  * @param {HTMLElement} root the page
  * @param {HTMLElement} tab the nav entry that gets the "!"
  * @returns {{ opened(): void }}
  */
 export function changelogPage(root, tab, fetchImpl = globalThis.fetch) {
-  const list = el("div", { className: "cee-releases", "aria-live": "polite" }, [el("p", { className: "muted", textContent: "Lade Releases..." })]);
-  root.append(el("h1", { className: "ui-sr-only", textContent: "Changelogs" }), list);
+  const list = el("div", { className: "cee-releases", "aria-live": "polite" }, [el("p", { className: "muted", textContent: t("changelog.loading") })]);
+  root.append(el("h1", { className: "ui-sr-only", textContent: t("nav.changelog") }), list);
   let latest = null;
-  const badge = el("span", { className: "cee-nav-badge", textContent: "!", title: "Neues Release" });
-  badge.setAttribute("aria-label", "Neues Release");
+  const badge = el("span", { className: "cee-nav-badge", textContent: "!", title: t("changelog.new") });
+  badge.setAttribute("aria-label", t("changelog.new"));
   const mark = () => {
     if (latest && latest !== read()) tab.append(badge);
     else badge.remove();
@@ -127,14 +149,14 @@ export function changelogPage(root, tab, fetchImpl = globalThis.fetch) {
     } catch {}
     if (!releases?.length) {
       offline = true;
-      list.replaceChildren(el("p", {}, ["Alle Releases stehen auch auf ", el("a", { className: "cee-text-link", href: PAGE, target: "_blank", rel: "noopener noreferrer", textContent: "GitHub" }), "."]));
+      list.replaceChildren(el("p", {}, tNodes("changelog.alsoOn", { github: el("a", { className: "cee-text-link", href: PAGE, target: "_blank", rel: "noopener noreferrer", textContent: "GitHub" }) })), ...entries().map(show));
       return;
     }
     const top = releases.find(r => !r.prerelease) ?? releases[0];
     latest = top.tag_name;
-    list.replaceChildren(...releases.map(r => release(r)));
+    list.replaceChildren(...entries(releases).map(show));
     if (!root.closest("[hidden]")) keep(latest);
     mark();
   })();
-  return { opened() { if (offline) toast("Die Releases sind gerade nicht erreichbar.", "info"); if (latest) keep(latest); mark(); } };
+  return { opened() { if (offline) toast(t("changelog.offline"), "info"); if (latest) keep(latest); mark(); } };
 }

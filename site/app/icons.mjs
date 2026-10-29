@@ -2,7 +2,7 @@
 const NS = "http://www.w3.org/2000/svg";
 
 /** Transport symbols are filled shapes, as printed on the device. */
-const SOLID = new Set(["rec", "stop", "play"]);
+const SOLID = new Set(["rec", "stop", "play", "pause"]);
 
 const PATHS = {
   chevronDown: ["m6 9 6 6 6-6"],
@@ -20,11 +20,18 @@ const PATHS = {
   rec: ["M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z"],
   stop: ["M7 7h10v10H7Z"],
   play: ["M8 5v14l11-7Z"],
+  pause: ["M6 5h4v14H6Z", "M14 5h4v14h-4Z"],
   trash: ["M3 6h18", "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6", "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"],
   grip: ["M9 5h.01", "M9 12h.01", "M9 19h.01", "M15 5h.01", "M15 12h.01", "M15 19h.01"],
   folder: ["M3 6a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"],
   pencil: ["M21.2 6.8a1 1 0 0 0-4-4L3.8 16.2a2 2 0 0 0-.5.8l-1.3 4.4a.5.5 0 0 0 .6.6l4.4-1.3a2 2 0 0 0 .8-.5Z", "m15 5 4 4"],
   swap: ["m8 3-4 4 4 4", "M4 7h16", "m16 21 4-4-4-4", "M20 17H4"],
+  image: ["M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M9 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z", "m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"],
+  film: ["M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M7 3v18", "M17 3v18", "M3 7.5h4", "M3 12h18", "M3 16.5h4", "M17 7.5h4", "M17 16.5h4"],
+  plus: ["M12 5v14", "M5 12h14"],
+  chevronLeft: ["m15 18-6-6 6-6"],
+  chevronRight: ["m9 18 6-6-6-6"],
+  eraser: ["m7 21-4.3-4.3a1 1 0 0 1 0-1.4l10-10a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L13 21", "M22 21H7", "m5 11 9 9"],
   sliders: ["M4 21v-7", "M4 10V3", "M12 21v-9", "M12 8V3", "M20 21v-5", "M20 12V3", "M2 14h4", "M10 8h4", "M18 16h4"],
 };
 

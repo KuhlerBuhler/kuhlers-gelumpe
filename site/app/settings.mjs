@@ -4,19 +4,25 @@
  */
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
-import { LANGUAGES, language, setLanguage, t, translate } from "./i18n.mjs";
+import { LANGUAGES, language, loadLanguage, setLanguage, systemLanguage, t, translate } from "./i18n.mjs";
+import { collectMidi, midiReport } from "./midi-report.mjs";
+import { toast } from "./toast.mjs";
 
 const KEY = "cee.settings";
 
 const FIELDS = [
-  // Shown once there is more than one language; until then it only keeps the choice.
+  // Starts with the system's language when there is a table for it, German otherwise.
   {
-    id: "language", type: "choice", default: "de",
+    id: "language", type: "choice", default: systemLanguage(),
     label: "settings.language", options: LANGUAGES, raw: true,
   },
   {
     id: "particles", type: "switch", default: true,
     label: "settings.particles", hint: "settings.particles.hint",
+  },
+  {
+    id: "autoConnect", type: "switch", default: true,
+    label: "settings.autoConnect", hint: "settings.autoConnect.hint",
   },
   {
     id: "motion", type: "choice", default: "system",
@@ -29,7 +35,7 @@ try { values = JSON.parse(localStorage.getItem(KEY) ?? "{}") ?? {}; } catch { va
 
 export const get = id => values[id] ?? FIELDS.find(f => f.id === id).default;
 
-setLanguage(get("language"));
+await loadLanguage(get("language"));
 let shown = null;
 
 function save() {
@@ -57,7 +63,32 @@ export function apply() {
 export function set(id, value) {
   values = { ...values, [id]: value };
   save();
+  // A switch set from elsewhere (the disconnect button) shows the new value on the settings page.
+  const box = document.getElementById(`cee-set-${id}`);
+  if (box?.type === "checkbox") box.checked = !!value;
+  // Most pages build their texts once, so a new language takes a fresh start of the page.
+  if (id === "language" && value !== language()) { location.reload(); return; }
   apply();
+}
+
+/**
+ * The disconnect button switches "Automatisch verbinden" off; connecting by hand switches it back on, but only when the
+ * button was what switched it off, so a choice made on the settings page stays. True when it switched it off.
+ */
+export function holdAutoConnect() {
+  if (!get("autoConnect")) return false;
+  set("autoConnect", false);
+  values = { ...values, autoConnectHeld: true };
+  save();
+  return true;
+}
+
+const unhold = () => { const { autoConnectHeld, ...rest } = values; values = rest; };
+
+export function releaseAutoConnect() {
+  if (!values.autoConnectHeld) return;
+  unhold();
+  set("autoConnect", true);
 }
 
 /** The settings button in the sidebar footer: it opens the settings page like any other area. */
@@ -68,12 +99,17 @@ export function settingsButton(button, open) {
 
 /** The settings page in the main content. */
 /** The installed app's version, from the desktop app (src-tauri); a browser has none, and the line stays away. */
-export function settingsPage(root, app = window.__GELUMPE_APP) {
+/** `midi`: the transport, the browser's permissions and the USB watch, for the MIDI report; without it the section stays away. */
+export function settingsPage(root, app = window.__GELUMPE_APP, midi = null) {
   const rows = FIELDS.filter(field => field.options?.length !== 1).map(field => {
     if (field.type === "switch") {
       const input = el("input", { type: "checkbox", id: `cee-set-${field.id}`, checked: !!get(field.id) });
       input.setAttribute("role", "switch");
-      input.addEventListener("change", () => set(field.id, input.checked));
+      input.addEventListener("change", () => {
+        // A choice made here is the person's own: the disconnect button no longer holds this switch.
+        if (field.id === "autoConnect") unhold();
+        set(field.id, input.checked);
+      });
       const track = el("span", { className: "ui-switch-track" });
       track.setAttribute("aria-hidden", "true");
       const label = el("label", { className: "ui-switch" }, [input, track, el("span", { className: "ui-switch-text" }, [t(field.label), field.hint ? el("span", { className: "ui-switch-hint", textContent: t(field.hint) }) : null])]);
@@ -88,5 +124,42 @@ export function settingsPage(root, app = window.__GELUMPE_APP) {
     el("h1", { className: "ui-sr-only", id: "cee-settings-title", textContent: t("settings.title") }),
     el("div", { className: "cee-settings" }, rows),
     ...(app?.version ? [el("p", { className: "muted cee-version", id: "cee-version", textContent: t("settings.version", { version: app.version }) })] : []),
+    ...(midi ? [midiSection(midi, app)] : []),
   );
+}
+
+/** What the app sees of MIDI, to copy into Discord when the Electribe is not found. */
+function midiSection({ transport, permissions, usb }, app) {
+  const text = el("pre", { className: "cee-doc-code cee-midi-report", id: "cee-midi-report", tabIndex: 0 });
+  const rescan = el("button", { type: "button", className: "btn sm", id: "cee-midi-rescan", textContent: t("settings.midi.rescan") });
+  const copy = el("button", { type: "button", className: "btn sm", id: "cee-midi-copy", textContent: t("settings.midi.copy") });
+  let last = null;
+  let turn = 0;
+  const read = async ask => {
+    const mine = ++turn;
+    const report = await collectMidi({ transport, permissions, ask, usb: usb?.state, app, agent: navigator.userAgent });
+    if (mine !== turn) return;
+    last = report;
+    text.textContent = midiReport(report);
+  };
+  rescan.addEventListener("click", () => read(true));
+  copy.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(text.textContent); toast(t("settings.midi.copied"), "ok"); } catch { toast(t("plugins.noClipboard"), "error"); }
+  });
+  // Read only while the section is on screen, so the closed page never asks MIDI. A plug or a pull reads again; an
+  // open session holds the port, so only its line changes then.
+  let shown = false;
+  new IntersectionObserver(([entry]) => { shown = entry.isIntersecting; if (shown) read(false); }).observe(text);
+  usb?.subscribe(state => {
+    if (!last || !shown) return;
+    if (state === "connected") { last = { ...last, usb: state }; text.textContent = midiReport(last); } else read(false);
+  });
+  const section = el("section", { className: "cee-settings cee-midi", id: "cee-midi" }, [
+    el("h2", { id: "cee-midi-title", textContent: t("settings.midi.title") }),
+    el("p", { className: "muted", textContent: t("settings.midi.hint") }),
+    text,
+    el("div", { className: "cee-midi-actions" }, [rescan, copy]),
+  ]);
+  section.setAttribute("aria-labelledby", "cee-midi-title");
+  return section;
 }

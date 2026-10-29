@@ -14,6 +14,7 @@ import {
 } from "../vendor/codemirror.mjs";
 import { completionsAt, callAt, hoverAt, errorRange } from "../../src/script/editor-model.mjs";
 import { scriptStream } from "../../src/script/highlight.mjs";
+import { t } from "./i18n.mjs";
 
 const node = (tag, className, text) => {
   const n = document.createElement(tag);
@@ -37,16 +38,16 @@ function infoDom(info, active = -2) {
     sig.append(")");
   } else sig.textContent = info.signature;
   dom.append(sig);
-  if (active === -1) dom.append(node("p", "cee-script-tip-note", "Mehr Argumente, als der Aufruf nimmt."));
-  if (active >= 0) dom.append(node("p", "cee-script-tip-note", `${info.params[active].name}: ${info.params[active].range}`));
+  if (active === -1) dom.append(node("p", "cee-script-tip-note", t("editor.tooManyArgs")));
+  if (active >= 0) dom.append(node("p", "cee-script-tip-note", `${info.params[active].name}: ${t(info.params[active].range)}`));
   if (active === -2) {
-    dom.append(node("p", "cee-script-tip-text", info.text));
+    dom.append(node("p", "cee-script-tip-text", t(info.text)));
     if (info.params.length) {
       const list = node("ul", "cee-script-tip-params");
-      for (const p of info.params) list.append(node("li", "", `${p.name}: ${p.range}`));
+      for (const p of info.params) list.append(node("li", "", `${p.name}: ${t(p.range)}`));
       dom.append(list);
     }
-    const facts = [info.returns ? `Gibt ${info.returns} zurück.` : null, info.allowed ? `Erlaubt: ${info.allowed}.` : null].filter(Boolean);
+    const facts = [info.returns ? t("editor.returns", { type: info.returns }) : null, info.allowed ? t("editor.allowed", { values: info.allowed }) : null].filter(Boolean);
     if (facts.length) dom.append(node("p", "cee-script-tip-note", facts.join(" ")));
   }
   return dom;

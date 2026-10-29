@@ -97,6 +97,128 @@ export function checkFiles(names, expectedVersion) {
   return { files, optional, ignored, problems };
 }
 
+/** The heading that starts the English part of release-notes/<version>.md. */
+export const ENGLISH_HEADING = "## English";
+const ENGLISH_LINE = /^## English[ \t]*$/m;
+
+/** The notes file in its two parts: the German text and the English text under "## English" (without the heading). `en` is null when there is no such heading. */
+export function parseNotes(text) {
+  const source = String(text ?? "").replace(/\r\n/g, "\n");
+  const m = ENGLISH_LINE.exec(source);
+  if (!m) return { de: source.trim(), en: null };
+  return { de: source.slice(0, m.index).trim(), en: source.slice(m.index + m[0].length).trim() };
+}
+
+// The sections of a release that still hold once its downloads are gone; the app shows only these.
+const KEPT = /^\*\*(Neu|Geändert|Behoben|New|Changed|Fixed)\*\*$/;
+
+/**
+ * One language part of a notes file for the app's Changelogs: the first line and the sections under KEPT. Downloads,
+ * install hints and donation links go, their release may be gone from GitHub.
+ */
+export function appNotes(part) {
+  const blocks = String(part ?? "").trim().split(/\n[ \t]*\n/);
+  return [blocks[0], ...blocks.slice(1).filter(b => KEPT.test(b.split("\n")[0].trim()))].filter(Boolean).join("\n\n");
+}
+
+/** What is wrong with a notes file, in words; empty when both languages are there. */
+export function checkNotes(text) {
+  const { de, en } = parseNotes(text);
+  const problems = [];
+  if (!de) problems.push("der deutsche Teil ist leer");
+  if (en === null) problems.push(`der englische Teil fehlt: eine Zeile "${ENGLISH_HEADING}" und darunter die englischen Notizen`);
+  else if (!en) problems.push(`der englische Teil unter "${ENGLISH_HEADING}" ist leer`);
+  return problems;
+}
+
+const DOWNLOAD_URL = "https://github.com/KuhlerBuhler/kuhlers-gelumpe/releases/download";
+
+const BLOCK_TEXT = {
+  de: {
+    head: "**Herunterladen: nimm den Link für dein System, mehr brauchst du nicht**",
+    windows: "Kuhlers GELUMPE für Windows",
+    windowsHint: " Warnt SmartScreen: \"Weitere Informationen\", dann \"Trotzdem ausführen\".",
+    macArm: "**Mac mit Apple-Chip** (Apfel-Menü -> Über diesen Mac zeigt \"Apple M…\")",
+    macArmLink: "Kuhlers GELUMPE für Mac (Apple-Chip)",
+    macIntel: "**Mac mit Intel**",
+    macIntelLink: "Kuhlers GELUMPE für Mac (Intel)",
+    or: "oder",
+    xattr: "Auf dem Mac nach dem Reinziehen in Programme einmal im Terminal",
+    xattrNote: "(die App ist nicht signiert)",
+    assets: "Die vielen Dateien weiter unten unter \"Assets\" brauchst du nicht, die Links oben zeigen schon auf die richtige.",
+    patch: "**Ohne App patchen**",
+    patchFile: "`BLECH.patch`",
+    patchBoth: "`BLECH.patch`, oder die `.bsdiff` passend zur Prüfsumme deiner `SYSTEM.VSB` (unten unter Assets)",
+  },
+  en: {
+    head: "**Download: take the link for your system, that is all you need**",
+    windows: "Kuhlers GELUMPE for Windows",
+    windowsHint: " If SmartScreen warns you: \"More info\", then \"Run anyway\".",
+    macArm: "**Mac with Apple chip** (Apple menu -> About This Mac shows \"Apple M…\")",
+    macArmLink: "Kuhlers GELUMPE for Mac (Apple chip)",
+    macIntel: "**Mac with Intel**",
+    macIntelLink: "Kuhlers GELUMPE for Mac (Intel)",
+    or: "or",
+    xattr: "On the Mac, after dragging the app into Applications, run this once in Terminal",
+    xattrNote: "(the app is not signed)",
+    assets: "You do not need the many files further down under \"Assets\", the links above already point to the right one.",
+    patch: "**Patch without the app**",
+    patchFile: "`BLECH.patch`",
+    patchBoth: "`BLECH.patch`, or the `.bsdiff` that matches the checksum of your `SYSTEM.VSB` (below under Assets)",
+  },
+};
+
+/**
+ * The download block at the top of a release in one language ("de" or "en"): one link per system, built from the
+ * asset names that are really uploaded, so a system without a file gets no link. GitHub turns the spaces of a
+ * file name into dots, so the links do too.
+ */
+export function downloadBlock(version, names, lang = "de") {
+  const t = BLOCK_TEXT[lang];
+  if (!t) throw new Error(`Unbekannte Sprache: ${lang}`);
+  const link = (label, name) => `[${label}](${DOWNLOAD_URL}/v${version}/${name.replaceAll(" ", ".")})`;
+  const byTarget = new Map();
+  for (const name of names) {
+    const hit = classifyFile(name);
+    if (hit && !byTarget.has(hit.target.id)) byTarget.set(hit.target.id, name);
+  }
+  const windows = byTarget.get("windows-x64");
+  const macArm = byTarget.get("macos-arm64");
+  const macIntel = byTarget.get("macos-x64");
+  const appImage = byTarget.get("linux-appimage");
+  const deb = byTarget.get("linux-deb");
+
+  const items = [];
+  if (windows) items.push(`- **Windows:** ${link(t.windows, windows)}.${t.windowsHint}`);
+  if (macArm) items.push(`- ${t.macArm}: ${link(t.macArmLink, macArm)}`);
+  if (macIntel) items.push(`- ${t.macIntel}: ${link(t.macIntelLink, macIntel)}`);
+  const linux = [appImage && link("AppImage", appImage), deb && link(".deb", deb)].filter(Boolean);
+  if (linux.length) items.push(`- **Linux:** ${linux.join(` ${t.or} `)}`);
+
+  const out = [];
+  if (items.length) {
+    out.push(t.head, items.join("\n"));
+    if (macArm || macIntel) out.push(`${t.xattr}: \`xattr -dr com.apple.quarantine "/Applications/Kuhlers GELUMPE.app"\` ${t.xattrNote}.`);
+    out.push(t.assets);
+  }
+  const patch = names.includes("BLECH.patch");
+  const bsdiff = names.some(n => /^BLECH-for-[0-9a-f]{8}\.bsdiff$/.test(n));
+  if (patch) out.push(`${t.patch}\n- ${bsdiff ? t.patchBoth : t.patchFile}`);
+  return out.join("\n\n");
+}
+
+/**
+ * The body of the published release: the German block and notes, then "## English" with the English block and
+ * notes. The notes file carries the notes only, no download section.
+ */
+export function releaseBody(notesText, version, names) {
+  const { de, en } = parseNotes(notesText);
+  const part = (block, text) => [block, text].filter(Boolean).join("\n\n");
+  const german = part(downloadBlock(version, names, "de"), de);
+  if (en === null) return `${german}\n`;
+  return `${german}\n\n${ENGLISH_HEADING}\n\n${part(downloadBlock(version, names, "en"), en)}\n`;
+}
+
 /**
  * The steps of a release, in order. Each step is a description and a command;
  * the CLI prints them or runs them. Older releases are deleted without
@@ -108,13 +230,13 @@ export function checkFiles(names, expectedVersion) {
  */
 export const BASE_BRANCH = "develop";
 export const RELEASE_COMMIT = "@release-commit";
-export const VERSION_FILES = ["package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock"];
+export const VERSION_FILES = ["package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock", "data/patches/blech-version.json", "data/patches/blech-version-synth.json"];
 
 export function planRelease({ tag, sha, assets, older, repo, bump = false, notes = null }) {
   const steps = [];
   if (bump) {
     steps.push({
-      what: `Version ${tag.slice(1)} in die Dateien schreiben (package.json, tauri.conf.json, Cargo.toml, Cargo.lock)`,
+      what: `Version ${tag.slice(1)} in die Dateien schreiben (package.json, tauri.conf.json, Cargo.toml, Cargo.lock, blech-version.json)`,
       cmd: "node",
       args: ["tools/set-version.mjs", tag],
     }, {
