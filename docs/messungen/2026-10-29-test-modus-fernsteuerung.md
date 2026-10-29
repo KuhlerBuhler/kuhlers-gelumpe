@@ -27,6 +27,8 @@ Beschreibung für Nutzer: [Test-Modus](../test-modus.md).
 | MENU, Edit ►, Rad +1, +1, -1, EXIT: Bildschirm, Seitenzähler, Display wie mit dem Panel | ja | ja | ja |
 | Regler LEVEL, Drehgeber CUTOFF -3, Pad 5 an und aus, Touchpad mit zwei Lagen, SHIFT gehalten mit Edit ►: der Verteiler bekommt jede Nachricht Byte für Byte wie vom Panel, Display gleich | ja | ja | ja |
 | Jeder Befehl genau einmal gezählt, Wort ohne Kennung nicht genommen | ja | ja | ja |
+| SHIFT und Pad 3 gehalten, dann der Befehl zum Loslassen: der Verteiler bekommt SHIFT los und Pad 3 aus | ja | ja | ja |
+| Pad 5 gehalten, kein Befehl mehr: nach 9 s noch gedrückt, nach 10,5 s vom Gerät losgelassen | ja | ja | ja |
 | `remote_press.py --emu` über BLECHs SysEx (WRITE, EXEC): Tasten, Rad, Drehgeber, Regler, Pads, Touchpad, SHIFT gehalten, Test-Modus, Display gelesen | ja | nicht gelaufen | nein (EXEC gesperrt) |
 
 Über die Warteschlange braucht es keinen eigenen Handler je Bauteil, auch auf der blauen nicht.
@@ -39,11 +41,22 @@ Beschreibung für Nutzer: [Test-Modus](../test-modus.md).
 | Dabei PLAY, Regler, STOP: bleibt dunkel | ja | ja | ja |
 | Aus: Display, Licht und LEDs wie bei einem zweiten Gerät mit denselben Schritten ohne Test-Modus | ja | ja | ja |
 | Auto Power Off 1 s vor Ablauf gesetzt: ohne Test-Modus aus, mit Test-Modus nach 2,5 s an und Zähler wieder bei 4 Stunden; danach zählt er wieder | ja | ja | ja |
-| Plugin setzt `korg.system.testMode = 1`, ruft `korg.system.keepAwake()` und danach jedes Bild `korg.backlight(1, 1, 1)`, `korg.led(9, 255)`, `korg.ledHold(0)`: bleibt dunkel; nach `= 0` hell, LED 9 mit dem Wert des Plugins | ja | ja | ja |
+| Ein Plugin, das `korg.system.testMode = 1` setzt, übersetzt nicht (nur lesbar) | ja | ja | ja |
+| Test-Modus über USB, ein Plugin ruft dabei jedes Bild `korg.backlight(1, 1, 1)`, `korg.led(9, 255)`, `korg.ledHold(0)`, `korg.system.keepAwake()`: bleibt dunkel; nach dem Ausschalten hell, LED 9 mit dem Wert des Plugins | ja | ja | ja |
+| Mit EXIT eingeschaltet: Test-Modus und MENU über das Befehlswort ändern nichts, nichts gezählt | ja | ja | ja |
 
 Die Firmware sendet eine Seite des Displays nur, wenn sie sich gegenüber der Kopie bei `0xC031B710` (rot und blau) geändert
 hat. Beim Umschalten ändert die Laufzeit in jeder Seite der Kopie ein Byte, damit alle acht Seiten neu gehen und mit der
 ersten der Befehl `0xAE` oder `0xAF` (**gemessen**: ohne das kam er erst mit der nächsten Änderung des Bildes).
+
+## Was der Rechner prüft
+
+- Der Schnipsel im EXEC-Puffer gibt 1 nur zurück, wenn die Laufzeit den Befehl gezählt hat; sonst nimmt er das Befehlswort
+  nach 500 ms zurück und gibt 0, und EXEC meldet das als Fehler (Konsole und `remote_press.py`).
+- Die Laufzeit nennt im Kennungsblock die Adresse ihres Schlafaufrufs (`0xC0000B78`, blau `0xC00009A0`), der Schnipsel
+  nimmt sie von dort.
+- Ein Befehl gilt erst als ausgeführt, wenn seine Nachricht in der Warteschlange liegt; ist sie voll, bleibt er ungezählt
+  (das Loslassen einer Taste versucht die Laufzeit im nächsten Bild wieder).
 
 ## Offen am Gerät
 

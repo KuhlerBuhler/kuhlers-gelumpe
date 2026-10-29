@@ -262,7 +262,7 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 |---|---|---|---|
 | `korg.menu.blech.customizations.display.intensity` | brightness of the display light, like the page INTENSITY | yes, at once; WRITE in the menu keeps it | 0 (off) to 15 (full) |
 | `korg.system.repairs` | how many values were clamped or reset since start | no | 0 to 2147483647 |
-| `korg.system.testMode` | whether the test mode is on | yes: 1 darkens the display, the light and every LED and holds Auto Power Off, 0 puts everything back; RAM only, off after a restart | 0 (off) to 1 (on) |
+| `korg.system.testMode` | whether the test mode is on: display, light and every LED dark, Auto Power Off held | no, over USB only; RAM only, off after a restart | 0 (off) to 1 (on) |
 | `korg.system.keepAwake()` | (a call, not a value) | starts the 4 hours of Auto Power Off again, as a key on the device does | |
 
 ```js
@@ -280,9 +280,10 @@ korg.onEvent("close", () => {
 
 The test mode makes the device look switched off while it runs: display off, display light off, every LED at 0,
 also when the firmware, Blechy or another plugin sets them, and Auto Power Off does not switch it off. The device
-still takes keys, knobs and pads, and its picture can be read over USB. A plugin switches it with
-`korg.system.testMode`, the computer over USB ([test mode](test-modus.md), German). When it ends, the light and the
-LEDs come back as they would be without the test mode; an LED a plugin set meanwhile shows that plugin's value.
+still takes keys, knobs and pads, and its picture can be read over USB. Only the computer switches it, over USB
+([test mode](test-modus.md), German); a plugin only reads `korg.system.testMode`, so none can leave the device dark at
+every start. When it ends, the light and the LEDs come back as they would be without the test mode; an LED a plugin
+set meanwhile shows that plugin's value.
 
 More branches (`korg.global`, `korg.patterns`, `korg.parts`, the other pages of BLECH) come with the next
 versions; the old names stay valid.

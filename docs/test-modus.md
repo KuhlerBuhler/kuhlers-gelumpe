@@ -25,10 +25,13 @@ zeigt dessen Wert. Der Test-Modus lebt nur im RAM, nach einem Neustart ist er au
 
 ## Ein und aus
 
-- **Über USB** mit `tools/device/remote_press.py`: `testmode=on` und `testmode=off`.
-- **In der Konsole** des Editors: `KORG.testMode(true)` und `KORG.testMode(false)`.
-- **Am Gerät** mit der App `Menü -> BLECH -> TOOLS -> Test Mode` aus dem Katalog (`BLECHTRIBE -> Plugins`), EXIT beendet sie.
-- **Aus einem Plugin** über den Objektbaum: `korg.system.testMode = 1` und `= 0` ([Plugins](plugins.md)).
+Nur über USB:
+
+- mit `tools/device/remote_press.py`: `testmode=on` und `testmode=off`,
+- in der Konsole des Editors: `KORG.testMode(true)` und `KORG.testMode(false)`.
+
+Ein Plugin liest den Zustand über `korg.system.testMode` ([Plugins](plugins.md)), setzen kann es ihn nicht: ein Plugin,
+das ihn beim Start einschaltet, ließe das Gerät bei jedem Einschalten dunkel.
 
 ## Fernbedienung
 
@@ -56,11 +59,18 @@ python3 tools/device/remote_press.py testmode=off
 | `touch=400,300` | Touchpad bei x, y (0 bis 1023) berühren und loslassen |
 | `shift:down`, `shift:up` | eine Taste nur drücken oder nur loslassen, etwa SHIFT für Kombinationen |
 | `testmode=on`, `testmode=off` | Test-Modus |
+| `release` | alles loslassen, was der Rechner gedrückt hält |
 | `--screen` | danach das Display als Text (auch im Test-Modus) |
 
 Nach jedem Schritt steht, wo das Gerät ist (Bildschirm, Seite, Part). Die Konsole des Editors hat dieselben Wege:
 `KORG.press`, `KORG.turn(n, "cutoff")`, `KORG.knob("level", 200)`, `KORG.pad(5)`, `KORG.touch(400, 300)`,
-`KORG.hold("shift", true)`, `KORG.testMode(true)`.
+`KORG.hold("shift", true)`, `KORG.release()`, `KORG.testMode(true)`.
+
+Ein Befehl gilt erst als ausgeführt, wenn die Laufzeit ihn genommen hat. Nimmt sie ihn nicht binnen 500 ms (mit EXIT
+eingeschaltet, Warteschlange voll), meldet das Werkzeug einen Fehler, und das Gerät führt ihn auch später nicht aus.
+Was der Rechner gedrückt hält (eine Taste mit `:down`, ein Pad mit `:down`), lässt das Werkzeug bei einem Fehler los;
+reißt die Verbindung ab, lässt das Gerät es nach 10 s ohne Befehl selbst los. Tasten, Drehgeber, Pads und Werte außerhalb
+ihres Bereichs lehnen Werkzeug und Konsole ab, bevor etwas ans Gerät geht.
 
 ## Grenzen
 
