@@ -3,6 +3,8 @@
 Stand: 25.10.2026. Fortsetzung der [ersten Untersuchung](2026-10-25-sample-swap.md).
 Beleg: `measure:2026-10-25/sample-swap-timeout`.
 
+Fortsetzung am Gerät: [Begrenzter Transfer am 27.10.](2026-10-27-sample-swap-transfer.md).
+
 Umfang dieser Runde: Forschung und Timeout. Ein Sample-Cache und eine neue
 Pattern-Umschaltung werden noch nicht aktiviert. **Gemessen** unterscheidet
 Abbild, Emulator und Gerät; **hergeleitet** bezeichnet Schlussfolgerungen aus

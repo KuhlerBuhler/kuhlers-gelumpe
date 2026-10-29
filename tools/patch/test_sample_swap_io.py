@@ -96,6 +96,69 @@ class Machine:
 
 
 class TransportTests(unittest.TestCase):
+    def test_read_accepts_halfword_aligned_capture_spans_and_drains_the_last_group(self):
+        for count in (1, 15, 16, 17, 31, 32):
+            with self.subTest(count=count):
+                m = Machine()
+                ptr, offset = 0xc274f002, p.DSP_MIN + 2
+                m.uc.mem_write(ptr - 2, b'LO' + b'\xcc' * (count * 2) + b'KEEP')
+                self.assertEqual(m.run(op=0, ptr=ptr, offset=offset, count=count), (p.OK, count))
+                rounded = (count + 15) & ~15
+                self.assertEqual(m.header, [0xa9, offset & 0xffff, offset >> 16, rounded, 2, 0, 0])
+                self.assertEqual(m.reads, rounded)
+                self.assertEqual(bytes(m.uc.mem_read(ptr, count * 2)),
+                                 struct.pack(f'<{count}H', *range(0x1001, 0x1001 + count)))
+                self.assertEqual(bytes(m.uc.mem_read(ptr - 2, 2)), b'LO')
+                self.assertEqual(bytes(m.uc.mem_read(ptr + count * 2, 4)), b'KEEP')
+                self.assertEqual(m.released, 1)
+
+    def test_read_tail_at_the_bank_end_uses_an_overlapping_in_bounds_block(self):
+        for count in (1, 15, 17, 31):
+            for gap in (0, 2):
+                with self.subTest(count=count, gap=gap):
+                    m = Machine()
+                    ptr, offset = 0xc274f002, p.DSP_END - count * 2 - gap
+                    m.uc.mem_write(p.CURSOR, word(p.DSP_END - gap))
+                    m.uc.mem_write(ptr - 2, b'LO' + b'\xcc' * (count * 2) + b'KEEP')
+                    self.assertEqual(m.run(op=0, ptr=ptr, offset=offset, count=count), (p.OK, count))
+                    rounded = (count + 15) & ~15
+                    start = p.DSP_END - rounded * 2
+                    skipped = (offset - start) // 2
+                    self.assertEqual(m.header, [0xa9, start & 0xffff, start >> 16, rounded, 2, 0, 0])
+                    self.assertEqual(m.reads, rounded)
+                    self.assertEqual(bytes(m.uc.mem_read(ptr, count * 2)),
+                                     struct.pack(f'<{count}H', *range(0x1001 + skipped, 0x1001 + skipped + count)))
+                    self.assertEqual(bytes(m.uc.mem_read(ptr - 2, 2)), b'LO')
+                    self.assertEqual(bytes(m.uc.mem_read(ptr + count * 2, 4)), b'KEEP')
+                    self.assertEqual(m.released, 1)
+
+    def test_write_still_requires_a_full_aligned_group(self):
+        for offset, count in ((p.DSP_MIN + 2, 16), (p.DSP_MIN, 1), (p.DSP_MIN, 17)):
+            with self.subTest(offset=offset, count=count):
+                m = Machine()
+                self.assertEqual(m.run(op=1, offset=offset, count=count), (p.INVALID, 0))
+                self.assertEqual(m.ports, [])
+
+    def test_partial_read_timeout_reports_only_copied_words_and_latches(self):
+        m = Machine(stuck='group')
+        ptr = 0xc274f000
+        m.uc.mem_write(ptr, b'\xcc' * 34 + b'KEEP')
+        self.assertEqual(m.run(op=0, count=17), (p.TIMEOUT, 16))
+        self.assertEqual(m.reads, 16)
+        self.assertEqual(bytes(m.uc.mem_read(ptr + 32, 6)), b'\xcc\xccKEEP')
+        self.assertEqual(m.released, 1)
+        ports = list(m.ports)
+        self.assertEqual(m.run(op=0, count=17), (p.FAULT, 0))
+        self.assertEqual(m.ports, ports)
+
+    def test_read_checks_logical_allocation_and_halfword_alignment(self):
+        for kw in ({'offset': p.DSP_MIN + 1}, {'count': 32769}, {'ptr': 0xc274f001},
+                   {'offset': p.DSP_MIN + 0x10000 - 2, 'count': 2}):
+            with self.subTest(**kw):
+                m = Machine()
+                self.assertEqual(m.run(op=0, **kw), (p.INVALID, 0))
+                self.assertEqual(m.ports, [])
+
     def test_write_and_read_are_actual_halfword_transfers(self):
         for op in (0,1):
             m=Machine()

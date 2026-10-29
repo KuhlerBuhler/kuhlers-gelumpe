@@ -102,6 +102,15 @@ def source_of(base, new, kind, n0, slot):
     return None
 
 
+def knob_memory_kept(base_rows, base_width, base_count, rows, count):
+    keep = min(base_count, count)
+    if any(value != 64 for p in range(16) for value in rows[p * count + keep:(p + 1) * count]):
+        return False
+    if base_width != base_count:
+        return 255 not in rows
+    return all(rows[p * count:p * count + keep] == base_rows[p * base_count:p * base_count + keep] for p in range(16))
+
+
 def judge(base_payload, patched_payload, flash):
     checks = []
 
@@ -125,13 +134,9 @@ def judge(base_payload, patched_payload, flash):
     table, rows = new.knob_rows(n)
     base_table, base_rows = base.knob_rows(n0["ifx"])
     keep = min(n0["ifx"], n)
-    kept = all(rows[p * n:p * n + keep] == base_rows[p * n0["ifx"]:p * n0["ifx"] + keep] and set(rows[p * n + keep:(p + 1) * n]) <= {64} for p in range(16))
-    # A base whose row length differs from its menu length (a menu length set without the row length, docs/messungen/2026-10-15-preset-tabellen.md)
-    # leaves part of its table unset, so it is no yardstick: then every byte of the copy's table has to be set.
     base_row = base_payload[0x98084]
-    inconsistent = base_row != n0["ifx"] and not patch_mode
-    if inconsistent:
-        kept = 255 not in rows
+    inconsistent = base_row != n0["ifx"]
+    kept = knob_memory_kept(base_rows, base_row, n0["ifx"], rows, n)
     add("knob_memory", table == spec.EDIT_TABLE and (table != base_table or not patch_mode) and kept,
         f"the knob memory of the insert effect is at {table:#x} (the patch's table, the firmware's own was at {base_table:#x}), 16 rows of {n} bytes: "
         + (f"the base's row length is {base_row} for a menu of {n0['ifx']}, so no byte of the copy's table is left unset"

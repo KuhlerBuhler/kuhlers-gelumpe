@@ -63,14 +63,22 @@ test("the stars drift", async () => {
 test("prefers-reduced-motion draws one static frame without eyes", async () => {
   const context = await h.browser.newContext({ reducedMotion: "reduce" });
   const page = await context.newPage();
+  await page.addInitScript(() => {
+    window.backgroundFrames = 0;
+    const draw = CanvasRenderingContext2D.prototype.putImageData;
+    CanvasRenderingContext2D.prototype.putImageData = function (...args) {
+      if (this.canvas.id === "bg-canvas") window.backgroundFrames++;
+      return Reflect.apply(draw, this, args);
+    };
+  });
   await page.goto(`${h.url}?bg-eyes=now`);
   await page.waitForTimeout(300);
   const a = await frame(page);
+  assert.equal(await page.evaluate(() => window.backgroundFrames), 1);
   await page.waitForTimeout(2500);
-  const b = await frame(page);
   assert.ok(a.lit > 500);
-  assert.deepEqual(a, b);
-  assert.equal(b.eye, 0);
+  assert.equal(await page.evaluate(() => window.backgroundFrames), 1);
+  assert.equal(a.eye, 0);
   await context.close();
 });
 

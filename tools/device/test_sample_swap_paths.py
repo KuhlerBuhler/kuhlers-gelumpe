@@ -29,6 +29,15 @@ class Guards(unittest.TestCase):
         with self.assertRaises(RuntimeError): p.io_ok(dict(status=5, completed=16), 32)
         p.io_ok(dict(status=0, completed=16), 32)
 
+    def test_aligned_span_stays_inside_an_unaligned_loaded_sample(self):
+        meta=bytearray(0x45c); meta[11]=1
+        struct.pack_into('<II',meta,0,0x365ec2,2048)
+        self.assertEqual(p.target_span(meta,0x3666c2,1024),(0x365ee0,30))
+        with self.assertRaises(ValueError): p.target_span(meta,0x3666c2,2048)
+        with self.assertRaises(ValueError): p.target_span(meta,0x3666c0,1024)
+        struct.pack_into('<II',meta,0,0x365ec1,2048)
+        with self.assertRaises(ValueError): p.target_span(meta,0x3666c1,1024)
+
     def test_riff_parser_obeys_chunk_lengths(self):
         pcm = b'\x11\x22' * 1024
         wave = b'RIFF' + struct.pack('<I', 36 + len(pcm)) + b'WAVEfmt ' + struct.pack('<IHHIIHH', 16, 1, 1, 48000, 96000, 2, 16) + b'data' + struct.pack('<I', len(pcm)) + pcm
@@ -85,7 +94,67 @@ class Guards(unittest.TestCase):
         self.assertEqual([a[0] for a in link.actions], ['write','write','exec'])
 
 
+class BusyRetry(unittest.TestCase):
+    def result(self,status=2,completed=0):
+        words=[0]*16
+        words[p.R_IO]=status
+        words[p.R_OPEN]=1
+        words[p.R_GOT]=1024
+        words[p.R_CLOCK]=words[p.R_CLOCK_AFTER]=0x102
+        return dict(status=status,completed=completed,words=words)
+
+    def test_io_retries_only_confirmed_zero_word_busy(self):
+        driver=p.Driver(None,p.IO_CODE)
+        with patch.object(driver,'call',side_effect=[self.result(),self.result(0,512)])as call,patch.object(p.time,'sleep')as sleep:
+            driver.io(0,p.BACKUP,0x365ec0,1024)
+            self.assertEqual(call.call_count,2)
+            self.assertEqual(driver.busy_retries,1)
+            sleep.assert_called_once_with(0.01)
+
+    def test_busy_retry_is_finite_and_does_not_retry_faults_or_unknown_exec(self):
+        for result,count in ((self.result(),8),(self.result(5,16),1),(self.result(2,1),1)):
+            driver=p.Driver(None,p.IO_CODE)
+            with patch.object(driver,'call',return_value=result)as call,patch.object(p.time,'sleep'),self.assertRaises(RuntimeError):
+                driver.io(1,p.VERIFY,0x365ec0,1024)
+            self.assertEqual(call.call_count,count)
+        driver=p.Driver(None,p.IO_CODE)
+        with patch.object(driver,'call',side_effect=RuntimeError('EXEC completion unconfirmed'))as call,patch.object(p.time,'sleep')as sleep,self.assertRaisesRegex(RuntimeError,'unconfirmed'):
+            driver.io(0,p.BACKUP,0x365ec0,1024)
+        self.assertEqual(call.call_count,1)
+        sleep.assert_not_called()
+
+    def test_card_retry_requires_completed_read_close_and_restored_clock(self):
+        driver=p.Driver(None,p.IO_CODE)
+        with patch.object(driver,'call',side_effect=[self.result(),self.result(0,512)])as call,patch.object(p.time,'sleep'):
+            driver.card(4096,1024,True,25,0x365ec0)
+            self.assertEqual(call.call_count,2)
+        for field in (p.R_OPEN,p.R_SEEK,p.R_READ,p.R_CLOSE,p.R_FILE,p.R_IO,p.R_CLOCK_AFTER,p.R_GOT):
+            result=self.result();result['words'][field]^=1
+            driver=p.Driver(None,p.IO_CODE)
+            with patch.object(driver,'call',return_value=result)as call,patch.object(p.time,'sleep'),self.assertRaises(RuntimeError):
+                driver.card(4096,1024,True,25,0x365ec0)
+            self.assertEqual(call.call_count,1)
+
+
 class MappingGuards(unittest.TestCase):
+    def test_active_swap_owns_scratch_and_refuses_before_upload(self):
+        import sample_swap_io
+        for mode,kind in ((mode,kind) for mode in (1,2) for kind in ('scan','probe')):
+            link=self.link()
+            link.seed(0xc0188530,struct.pack('<I',mode))
+            with patch.object(sample_swap_io,'validate_firmware'),self.assertRaisesRegex(RuntimeError,'owns the RAM'):
+                if kind=='scan': p.scan_usage(link,bytes(0x200100))
+                else:p.run(link,bytes(0x200100),p.arguments(['--slot','645','--kib','1','--stopped-confirmed']))
+            self.assertEqual(link.writes,[])
+
+    def test_changed_native_mapping_pointer_is_refused_before_upload(self):
+        import sample_swap_io
+        link=self.link()
+        link.seed(0xc004edc4,struct.pack('<I',0xc0357390))
+        with patch.object(sample_swap_io,'validate_firmware'),self.assertRaisesRegex(ValueError,'native routine differs'):
+            p.validate_device(link,bytes(0x200100))
+        self.assertEqual(link.writes,[])
+
     def link(self):
         class Memory:
             def __init__(self): self.memory={}; self.writes=[]
@@ -153,9 +222,21 @@ class MappingGuards(unittest.TestCase):
 
     def test_unresolvable_used_import_number_refuses_proof(self):
         link=self.link()
-        link.seed(p.old.NAMES+700*32+30,bytes(2))
+        link.seed(p.old.NAMES+700*32+30,struct.pack('<H',1050))
         with self.assertRaisesRegex(ValueError,'cannot be resolved'):
             p.assert_unused(link,645,{700})
+
+    def test_builtin_import_numbers_do_not_enter_sample_mapping_tables(self):
+        for number in (0,49):
+            link=self.link()
+            link.seed(p.old.NAMES+30,struct.pack('<H',number))
+            p.assert_unused(link,645,{0})
+        link=self.link()
+        link.seed(p.old.NAMES+30,struct.pack('<H',50))
+        base,stride,field=p.MAPPING_TABLES[-1]
+        link.seed(base+field,struct.pack('<H',644))
+        with self.assertRaisesRegex(ValueError,'referenced'):
+            p.assert_unused(link,645,{0})
 
 
 class ArmDrivers(unittest.TestCase):
@@ -234,6 +315,22 @@ class ArmDrivers(unittest.TestCase):
         self.assertEqual(calls[-1],p.FS_CLOSE)
         self.assertNotEqual(result[p.R_STATUS],0)
         self.assertEqual(struct.unpack('<I',m.mem_read(p.MMC_CLK,4))[0],0x105)
+
+    def test_real_card_driver_busy_result_is_retryable_after_close(self):
+        blob=p.card_driver(4096,1024,123,write=True,offset=0x365ec0,clock_mhz=25)
+        _,calls,words=self.machine(blob,io_status=2)
+        self.assertEqual(words[p.R_OPEN],1)
+        self.assertEqual(words[p.R_STATUS],2)
+        self.assertEqual(words[p.R_COMPLETED],0)
+        self.assertEqual(words[p.R_IO],2)
+        self.assertEqual(calls[-1],p.FS_CLOSE)
+        self.assertEqual(words[p.R_CLOCK],words[p.R_CLOCK_AFTER])
+        busy=dict(status=words[p.R_STATUS],completed=words[p.R_COMPLETED],words=list(words))
+        success=BusyRetry().result(0,512)
+        driver=p.Driver(None,p.IO_CODE)
+        with patch.object(driver,'call',side_effect=[busy,success])as call,patch.object(p.time,'sleep'):
+            driver.card(4096,1024,True,25,0x365ec0)
+        self.assertEqual(call.call_count,2)
 
     def test_disabled_timer_does_not_open_the_card(self):
         _,calls,result=self.machine(p.card_driver(4096,1024,123),enabled=False)
@@ -327,21 +424,32 @@ class HostPipeline(unittest.TestCase):
     def test_both_paths_really_change_pcm_and_restore_all_cpu_scratch(self):
         self.exercise()
 
+    def test_unaligned_sample_uses_the_same_interior_pcm_span_on_both_paths(self):
+        self.exercise(offset_delta=2)
+
     def test_corrupt_readback_runs_bounded_verified_restoration(self):
         self.exercise(corrupt=True)
 
     def test_bad_measurement_time_rejects_throughput_after_verified_restoration(self):
         self.exercise(invalid_time=True)
 
-    def exercise(self,corrupt=False,invalid_time=False):
+    def exercise(self,corrupt=False,invalid_time=False,offset_delta=0):
         link,a,module=self.fixture()
+        if offset_delta:
+            at=p.old.META+644*0x45c
+            meta=bytearray(link.read(at,0x45c))
+            struct.pack_into('<I',meta,0,0x365ec0+offset_delta)
+            link.seed(at,meta)
+            link.seed(p.old.CURSOR,struct.pack('<I',0x3666c0+offset_delta))
         before={at:link.read(at,n) for at,n in p.REGIONS}
-        pcm=b'\x11\x22'*1024
+        pcm=bytes((i*37+i//257)&255 for i in range(2048))
+        skip=(-(0x365ec0+offset_delta))%32
+        expected=pcm[skip:skip+1024]
         wave=b'RIFF'+struct.pack('<I',36+len(pcm))+b'WAVEfmt '+struct.pack('<IHHIIHH',16,1,1,48000,96000,2,16)+b'data'+struct.pack('<I',len(pcm))+pcm
         header=bytearray(4096); header[:16]=b'e2s sample all\x1a\0'
         struct.pack_into('<I',header,16+644*4,4096)
         card=bytes(header)+wave
-        dsps=[pcm[:1024]]
+        dsps=[expected]
         changed=[]
         corrupt_once=[corrupt]
         class Driver:
@@ -359,7 +467,7 @@ class HostPipeline(unittest.TestCase):
             def card(self,offset,length,write=False,clock_mhz=None,dsp_offset=0):
                 self.link.seed(p.VERIFY,card[offset:offset+length])
                 if write:
-                    if dsps[0]==pcm[:length]: raise AssertionError('card test did not replace changed data')
+                    if dsps[0]==expected: raise AssertionError('card test did not replace changed data')
                     dsps[0]=card[offset:offset+length]
                 words=[0]*16; words[p.R_GOT]=length
                 return dict(status=0,completed=length//2,ticks=150000,milliseconds=1,words=words)
@@ -367,19 +475,21 @@ class HostPipeline(unittest.TestCase):
             if corrupt:
                 with self.assertRaisesRegex(RuntimeError,'original DSP bytes restored and verified'):
                     p.run(link,bytes(0x200100),a)
-                self.assertEqual(dsps[0],pcm[:1024])
+                self.assertEqual(dsps[0],expected)
                 self.assertEqual(struct.unpack('<II',link.read(p.MARKER,8)),(p.MARK,0))
                 return
             if invalid_time:
                 with self.assertRaisesRegex(RuntimeError,'no throughput reported; original DSP bytes and CPU scratch restored and verified'):
                     p.run(link,bytes(0x200100),a)
-                self.assertEqual(dsps[0],pcm[:1024])
+                self.assertEqual(dsps[0],expected)
                 for at,data in before.items(): self.assertEqual(link.read(at,len(data)),data)
                 return
             result=p.run(link,bytes(0x200100),a)
         self.assertTrue(result['dsp_restored'])
-        self.assertEqual(dsps[0],pcm[:1024])
-        self.assertTrue(any(data!=pcm[:1024] for data in changed))
+        self.assertEqual(dsps[0],expected)
+        self.assertEqual(result['sample_pcm_skip'],skip)
+        self.assertEqual(result['card_offset'],4096+44+skip)
+        self.assertTrue(any(data!=expected for data in changed))
         for at,data in before.items(): self.assertEqual(link.read(at,len(data)),data)
 
 

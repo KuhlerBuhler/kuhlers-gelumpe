@@ -4,6 +4,10 @@ Stand: 26.10.2026. Dritter Teil zu [Mehr Sample-Speicher](../ideen/25-mehr-sampl
 [Ladepfad](2026-10-25-sample-swap.md) und dem [RAM-Besitz](2026-10-25-sample-swap-timeout.md).
 Beleg: `measure:2026-10-26/sample-swap-bau`.
 
+Nachtrag vom 27.10.: Die [Fehlerpfade für 1.4](2026-10-27-sample-swap-1-4.md)
+korrigieren die unten beschriebenen Wechsel trotz Platz- oder Ladefehlern
+und sichern die Cache-Generation über laufende Aufträge hinweg ab.
+
 **Gemessen** heißt hier im ARM-Emulator mit eigenen Firmwaredateien (Hacktribe und Korgs Original, 2.02) und
 selbst erzeugten Samples, oder in Unicorn mit selbst gebauten Tabellen. **Hergeleitet** heißt aus dem gelesenen
 ARM-Code geschlossen. **Offen** heißt: am Gerät nicht versucht. Kein Gerät wurde angesprochen.

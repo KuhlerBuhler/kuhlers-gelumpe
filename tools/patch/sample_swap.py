@@ -18,6 +18,7 @@ The patch is on only when the file is larger than the user bank and EXIT was not
 on at once and the firmware loads as before. The blue Synth is refused: its RAM places are not mapped.
 
 Hooks (the same addresses in both builds, checked byte for byte):
+  0xC00364F4  after the library loader's prologue: a latched DSP fault refuses the load before clearing sample metadata
   0xC0036510  the loader's f_open: the file's size decides whether the swap is on, the path is kept
   0xC00366D8  the loader's loop, before the seek of a slot: samples the current pattern does not use are skipped
   0xC003621C  the sample parser after the format checks: for the swap's own reads it returns with the slot's descriptor
@@ -27,7 +28,8 @@ Hooks (the same addresses in both builds, checked byte for byte):
   0xC002D684  the command task's dispatch: the posted step runs there, where the firmware does all its card work
   0xC005F1D4  the sequence end's switch: a pattern whose samples are not ready is not switched to
   0xC0079A74  the chain's switch: the same for the chain target, with the repeat counter kept at its last round
-Nothing of the firmware is copied and nothing is written to flash or to the card.
+Boot recovery precedes the collection's open. The slot writer appends verified records and commits their index through a
+recovery journal; its import service is not yet bound to the normal controls. Nothing of the firmware is copied or written to flash.
 """
 
 import argparse
@@ -43,6 +45,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 import arm  # noqa: E402
 import ramdecl  # noqa: E402
 import sample_swap_io  # noqa: E402
+import sample_store  # noqa: E402
+import sample_import  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
@@ -52,6 +56,7 @@ CODE1, CODE1_END = 0xC01A2FD0, 0xC01A3C00
 CODE2, CODE2_END = 0xC018A4C0, 0xC018AF00
 CODE3, CODE3_END = 0xC0189760, 0xC0189F00
 TRANSPORT, TRANSPORT_END = 0xC018BF40, 0xC018C400
+STORE_CODE, STORE_CODE_END = 0xC019A400, 0xC019C400
 STATE, STATE_END = 0xC0188530, 0xC0188730
 # RAM above the interrupt stack, never touched by the firmware in any measured phase (docs/messungen/2026-10-22-ram-frei.md).
 HIGH, HIGH_END = 0xC274F000, 0xC4000000
@@ -64,7 +69,7 @@ DIR = 0xC2769000                # per slot 16 bytes: cache entry, PCM bytes, sum
 LIST = 0xC276D000               # active DSP extents while a place is searched
 ARENA_U, ARENA_U_END = 0xC276F000, HIGH_END
 # The firmware's work buffer (giver 0xC00369F0): borrowed only while the cache is valid.
-ARENA_L, ARENA_L_END = 0xC0D3A940, 0xC273AA40
+ARENA_L, ARENA_L_END = 0xC1010000, 0xC273AA40
 
 CAP_DEFAULT = 0x1900000         # the DSP user bank above the factory samples, 0x365EC0 to 0x1C65EC0
 CHUNK = 0x10000                 # DSP bytes per chunk, the transport's largest call
@@ -84,11 +89,14 @@ PATH = 0x160                    # the file's path as the loader opened it, 128 b
 assert 4 * len(FIELDS) <= FAILED and PATH + 128 <= STATE_END - STATE
 
 FIRST_USER, LAST_USER = 500, 998
+SAMPLE_COUNT = LAST_USER + 1
+SAMPLE_COUNT_AT = 0xC004E3C4
 
 FIRMWARE = dict(
     F_OPEN=0xC009DB60, F_READ=0xC009DD74, F_LSEEK=0xC009E404, F_CLOSE=0xC009E3DC,
     PARSER=0xC0035B10, RESERVE=0xC004EDF0, DELETE=0xC004E558, POST=0xC002D5D8,
     PLAYER=0xC002FAFC, PSEL=0xC00431F0, TRANSPORT=0xC0030D28, REPEATS=0xC004A3D8,
+    PART=0xC009AF20, PART_UPDATE=0xC0099FFC, VOICE_USED=0xC009115C, VOICES=0xC06916A0,
     PATPTR=0xC033E6A4, BANK=0xC08B2940, PANEL=0xC033E6F8,
     NAMES=0xC047B080, META=0xC036AD88, MAP_A=0xC035738C, MAP_B=0xC035F06C, MAP_C=0xC0350644,
     CURSOR=0xC00F9C80, DSP_MIN=0x365EC0, DSP_END=0x1C65EC0, TIMER=0x01F0D000,
@@ -97,6 +105,8 @@ FIRMWARE = dict(
 
 # (site, original word or None for a bl whose target must be `calls`, calls, stub, link, start phase, note)
 SITES = [
+    (0xC00364F4, 0xE24DDD21, None, "ss_library", False, True,
+     "a latched DSP fault refuses a library load before the native metadata reset"),
     (0xC0036510, None, 0xC009DB60, "ss_fopen", True, True,
      "the loader's f_open goes through the hook, which turns the swap on for a file larger than the user bank"),
     (0xC00366D8, 0xE28D001C, None, "ss_skip", False, True,
@@ -113,14 +123,28 @@ SITES = [
      "the sequence end does not switch to a pattern whose samples are not loaded yet"),
     (0xC0079A74, 0xE5840318, None, "ss_gate_chain", False, False,
      "the chain does not switch to a target whose samples are not loaded yet; its counter stays at the last round"),
+    (0xC0099FFC, 0xE92D4038, None, "ss_part_update", False, True,
+     "the part update keeps its actual sample until the requested PCM is resident"),
+    (0xC0099D88, 0xE5903008, None, "ss_part_bind", False, True,
+     "direct part binding waits for an indexed sample to finish loading"),
 ]
 
-# Firmware routines the code calls, compared byte for byte with the measured Hacktribe 2.02 (the same in Korg's build).
+# Native calls and the layouts they read, compared byte for byte in both red builds.
 CALLED = (
     (0xC00369F0, 0x10, "giver"),
     (0xC004A3D8, 0x0C, "chain repeat count"),
     (0xC0079768, 0x10, "chain counter reset"),
     (0xC003B7FC, 0x1C, "event builder of the command post"),
+    (0xC009DB60, 0xB00, "FatFs open, read, write, close and seek"),
+    (0xC009E9B8, 0x148, "FatFs unlink"),
+    (0xC004E1F4, 0x14, "sample descriptor initializer"),
+    (0xC009115C, 0x34, "voice allocation state"),
+    (0xC009AF20, 0x38, "part table getter"),
+    (0xC00998B4, 0x90, "voice sample binding"),
+    (0xC0091F5C, 0xD0, "voice pool layout"),
+    (0xC004E558, 0x68, "CPU-only sample deletion"),
+    (0xC004E2F0, 0x34, "physical sample lookup"),
+    (0xC0099D88, 0x320, "part sample binding and update"),
 )
 
 
@@ -140,10 +164,12 @@ def halfword(source):
 
 
 def equs(screens):
-    names = {**FIRMWARE, "SCREENS": screens, "ST": STATE, "CODE1": CODE1, "CODE2": CODE2, "CODE3": CODE3, "STAGE": STAGE, "FIL": FIL, "DESC": DESC, "DESC2": DESC2,
+    names = {**FIRMWARE, "SCREENS": screens, "ST": STATE, "CODE1": CODE1, "CODE2": CODE2, "CODE3": CODE3,
+             "STORE_CODE": STORE_CODE, "STAGE": STAGE, "FIL": FIL, "DESC": DESC, "DESC2": DESC2,
              "HDR": HDR, "DIR": DIR, "LIST": LIST, "ARENA_U": ARENA_U, "ARENA_U_END": ARENA_U_END, "ARENA_L": ARENA_L,
              "ARENA_L_END": ARENA_L_END, "CHUNK": CHUNK, "BUDGET": BUDGET, "MSG": MSG, "MAIN": MAIN, "KILL": KILL,
-             "FAILED": FAILED, "PROT": PROT, "PATH": PATH, "LAST_USER": LAST_USER, "CAP_DEFAULT": CAP_DEFAULT,
+             "FAILED": FAILED, "PROT": PROT, "PATH": PATH, "STATE_WORDS": len(FIELDS),
+             "LAST_USER": LAST_USER, "SAMPLE_COUNT": SAMPLE_COUNT, "CAP_DEFAULT": CAP_DEFAULT,
              "BUSY": sample_swap_io.BUSY, **OFF}
     return "".join(f".equ {k}, {v:#x}\n" for k, v in names.items())
 
@@ -154,68 +180,111 @@ ss_cap:
     .word CAP_DEFAULT
 
 ; ------------------------------------------------------------- the loader at start (command task)
+ss_library:
+    ldr r12, =ST
+    ldr r12, [r12, #TSTATE]
+    cmn r12, #1
+    cmpne r12, #0
+    movne r0, #4
+    popne {r4-r11, pc}
+    sub sp, sp, #0x840
+    b 0xC00364F8
+
 ; Replaces the loader's bl f_open (r0 file object, r1 path, r2 mode). Off unless the file is larger than the user bank.
 ss_fopen:
-    push {r4-r7, r11, lr}
+    push {r3-r11, lr}
     mov r4, r0
     mov r5, r1
-    bl F_OPEN
-    mov r6, r0
-    ldr r12, =ST
+    mov r7, r2
+    ldr r11, =ST
+    ldr r8, [r11, #MODE]
+    cmp r8, #1
+    cmpne r8, #2
+    moveq r0, #2
+    movne r0, #0
+    str r0, [r11, #MODE]
+    ldr r9, [r11, #TSTATE]
+    ldr r10, [r11, #GEN]
+    add r10, r10, #1
+    str r10, [r11, #GEN]
+    cmn r9, #1
+    moveq r9, #0
+    str r9, [r11, #TSTATE]
     mov r0, #0
-    str r0, [r12, #MODE]
-    cmp r6, #0
-    bne fo_out
-    ldr r0, =PANEL
-    ldr r0, [r0]
+    add r1, r11, #8
+    mov r2, #STATE_WORDS - 2
+fo_reset:
+    sub r3, r1, r11
+    cmp r3, #TSTATE
+    cmpne r3, #FILE
+    strne r0, [r1]
+    add r1, r1, #4
+    subs r2, r2, #1
+    bne fo_reset
+    mvn r0, #0
+    str r0, [r11, #REQ]
+    str r0, [r11, #LASTRUN]
+    str r0, [r11, #FILEGEN]
+    bl clear_failed
+    bl cache_reset
+    bl close_reader
     cmp r0, #0
-    beq fo_out
-    ldr r0, [r0, #0x18]
-    tst r0, #KILL
-    bne fo_out
-    ldr r0, [r4, #0xc]
-    ldr r1, =ss_cap
-    ldr r1, [r1]
-    add r1, r1, #0x1000
-    cmp r0, r1
-    bls fo_out
-    add r1, r12, #PATH
+    bne fo_fault
+fo_transport:
+    cmp r9, #0
+    bne fo_fault
+    cmp r5, #0
+    beq fo_fault
+    add r1, r11, #PATH
     mov r2, #0
 fo_copy:
     ldrb r3, [r5, r2]
     strb r3, [r1, r2]
     cmp r3, #0
-    beq fo_init
+    beq fo_recover
     add r2, r2, #1
     cmp r2, #127
     blo fo_copy
-    mov r3, #0
-    strb r3, [r1, r2]
-fo_init:
     mov r0, #0
-    str r0, [r12, #SESSION]
-    str r0, [r12, #WASPLAY]
-    str r0, [r12, #POSTED]
-    str r0, [r12, #FILE]
-    str r0, [r12, #PREP]
-    str r0, [r12, #J_STATE]
-    str r0, [r12, #CFILL]
-    str r0, [r12, #PFULL]
-    str r0, [r12, #HDRFOR]
-    str r0, [r12, #TSTATE]
-    str r0, [r12, #STAT_COUNT]
-    mvn r0, #0
-    str r0, [r12, #REQ]
-    str r0, [r12, #LASTRUN]
-    str r0, [r12, #FILEGEN]
-    str r0, [r12, #CGEN]
-    mov r11, r12
-    bl clear_failed
-    mov r0, #1
-    str r0, [r12, #MODE]
+    strb r0, [r1]
+    b fo_fault
+fo_recover:
+    mov r0, r5
+    bl store_recover
+    cmp r0, #0
+    bne fo_fault
+    mov r0, r4
+    mov r1, r5
+    mov r2, r7
+    bl F_OPEN
+    mov r6, r0
+    cmp r6, #0
+    bne fo_out
+    mov r8, #0
+    ldr r0, =PANEL
+    ldr r0, [r0]
+    cmp r0, #0
+    beq fo_mode
+    ldr r0, [r0, #0x18]
+    tst r0, #KILL
+    bne fo_mode
+    ldr r0, [r4, #0xc]
+    ldr r1, =ss_cap
+    ldr r1, [r1]
+    add r1, r1, #0x1000
+    cmp r0, r1
+    bls fo_mode
+    mov r8, #1
+fo_mode:
+    str r8, [r11, #MODE]
+    b fo_out
+fo_fault:
+    mov r0, #2
+    str r0, [r11, #MODE]
+    mov r6, #1
 fo_out:
     mov r0, r6
-    pop {r4-r7, r11, pc}
+    pop {r3-r11, pc}
 
 ; Replaces add r0, sp, #0x1c in the loader's loop (r5 the header, r8 behind the slot's offset): with the swap on, a slot
 ; the current pattern does not use is skipped. The header is kept for the swap.
@@ -360,6 +429,7 @@ ss_gate_seq:
     ldr r4, =ST
     ldr r3, [r4, #MODE]
     cmp r3, #1
+    cmpne r3, #2
     bne gs_go
     ldr r3, [r0, #0x318]
     cmp r1, r3
@@ -383,6 +453,7 @@ ss_gate_chain:
     ldr r12, =ST
     ldr r1, [r12, #MODE]
     cmp r1, #1
+    cmpne r1, #2
     bne gc_ok
     bl ready
     cmp r0, #0
@@ -402,7 +473,7 @@ gc_ok:
     str r0, [r4, #0x318]
     b 0xC0079A78
 
-; r0 = pattern: 1 when every sample of its bank block that can be loaded is in the DSP. Reads only.
+; r0 = pattern: 1 when every user sample of its bank block is in the DSP. Reads only.
 ready:
     push {r4-r6, lr}
     cmp r0, #250
@@ -413,10 +484,15 @@ ready:
     mov r5, #16
 rd_part:
     ldrh r0, [r4]
-    bl needs
+    cmp r0, #500
+    blo rd_next
+    ldr r1, =LAST_USER
+    cmp r0, r1
+    bhi rd_next
+    bl resident
     cmp r0, #0
-    movne r0, #0
-    popne {r4-r6, pc}
+    popeq {r4-r6, pc}
+rd_next:
     add r4, r4, #0x330
     subs r5, r5, #1
     bne rd_part
@@ -435,66 +511,310 @@ needs:
     eor r0, r0, #1
     pop {r4, pc}
 
-; r0 = slot: 1 for a user slot with an offset in the header that is not marked as failed. Clobbers r1-r3, r12.
-loadable:
+; r0 = slot: 1 for a user slot with an offset in the header. Clobbers r1.
+indexed:
     cmp r0, #500
-    blo lo_no
+    blo ix_no
     ldr r1, =LAST_USER
     cmp r0, r1
-    bhi lo_no
+    bhi ix_no
     ldr r1, =HDR + 16
     ldr r1, [r1, r0, lsl #2]
     cmp r1, #0
-    beq lo_no
+    movne r0, #1
+    bxne lr
+ix_no:
+    mov r0, #0
+    bx lr
+
+; r0 = slot: 1 for an indexed user slot that is not marked as failed. Clobbers r1-r3, r12.
+loadable:
+    push {r4, lr}
+    mov r4, r0
+    bl indexed
+    cmp r0, #0
+    popeq {r4, pc}
     ldr r1, =ST + FAILED
-    mov r2, r0, lsr #5
+    mov r2, r4, lsr #5
     ldr r1, [r1, r2, lsl #2]
-    and r2, r0, #31
+    and r2, r4, #31
     mov r3, #1
     tst r1, r3, lsl r2
     bne lo_no
     mov r0, #1
-    bx lr
+    pop {r4, pc}
 lo_no:
     mov r0, #0
-    bx lr
+    pop {r4, pc}
 
 ; r0 = slot: 1 when the firmware's tables say its sample is in the DSP. Clobbers r1-r3.
 resident:
-    cmp r0, #1000
+    push {r12, lr}
+    bl physical
+    ldr r1, =SAMPLE_COUNT
+    cmp r0, r1
+    movhs r0, #0
+    pophs {r12, pc}
+    ldr r1, =0x45C
+    mul r2, r0, r1
+    ldr r3, =META + 11
+    ldrb r0, [r3, r2]
+    cmp r0, #1
+    movne r0, #0
+    pop {r12, pc}
+
+; r0 PCM bytes: rounded user-bank size, or zero for an invalid sample. Clobbers r1.
+pcm_size:
+    cmp r0, #0
+    bxeq lr
+    tst r0, #1
+    movne r0, #0
+    bxne lr
+    ldr r1, =CAP_DEFAULT
+    cmp r0, r1
+    movhi r0, #0
+    bxhi lr
+    add r0, r0, #31
+    bic r0, r0, #31
+    bx lr
+
+; r0 visible slot: physical metadata index, or -1 when its mapping is invalid. Clobbers r1-r3.
+physical:
+    ldr r3, =SAMPLE_COUNT
+    cmp r0, r3
     bhs re_no
     ldr r1, =NAMES
     add r1, r1, r0, lsl #5
-    ldrh r1, [r1, #30]
-    subs r1, r1, #50
+    ldrh r0, [r1, #30]
+; r0 cached import number: physical metadata index, or -1.
+physical_import:
+    ldr r3, =SAMPLE_COUNT
+    subs r1, r0, #50
     bmi re_no
-    cmp r1, #1000
+    cmp r1, r3
     bhs re_no
+    mov r0, r3
     ldr r2, =MAP_A
     add r2, r2, r1, lsl #5
     ldrh r2, [r2, #16]
-    cmp r2, #1024
+    cmp r2, r0
     bhs re_no
     ldr r3, =MAP_B
     add r3, r3, r2, lsl #4
     ldrh r3, [r3, #8]
-    cmp r3, #1024
+    cmp r3, r0
     bhs re_no
     ldr r2, =MAP_C
     add r2, r2, r3, lsl #3
     ldrh r2, [r2, #2]
-    cmp r2, #1000
+    cmp r2, r0
     bhs re_no
-    ldr r3, =0x45C
-    mul r1, r2, r3
-    ldr r3, =META + 11
-    ldrb r0, [r3, r1]
-    cmp r0, #1
-    movne r0, #0
+    mov r0, r2
     bx lr
 re_no:
-    mov r0, #0
+    mvn r0, #0
     bx lr
+
+; r0 user slot: 1 when neither patterns, actual parts nor allocated voices use its physical sample.
+can_evict:
+    push {r4-r8, lr}
+    mov r4, r0
+    cmp r4, #500
+    blo ce_no
+    ldr r1, =LAST_USER
+    cmp r4, r1
+    bhi ce_no
+    bl resident
+    cmp r0, #0
+    beq ce_no
+    mov r0, r4
+    bl physical
+    mov r5, r0
+    cmp r5, #500
+    blo ce_no
+    ldr r0, =0x45C
+    mul r1, r5, r0
+    ldr r0, =META
+    ldr r0, [r0, r1]
+    ldr r1, =DSP_MIN
+    cmp r0, r1
+    blo ce_no
+    ldr r1, =DSP_END
+    cmp r0, r1
+    bhs ce_no
+    add r6, r11, #PROT
+    mov r7, #32
+ce_pattern:
+    ldrh r0, [r6]
+    add r6, r6, #2
+    cmp r0, r4
+    beq ce_no
+    bl physical
+    cmp r0, r5
+    beq ce_no
+    subs r7, r7, #1
+    bne ce_pattern
+    mov r6, #0
+ce_part:
+    mov r0, r6
+    bl PART
+    ldrh r0, [r0, #0x34]
+    bl physical
+    cmp r0, r5
+    beq ce_no
+    add r6, r6, #1
+    cmp r6, #16
+    blo ce_part
+    ldr r6, =VOICES
+    mov r7, #0
+ce_voice:
+    mov r0, r7
+    bl VOICE_USED
+    cmp r0, #0
+    beq ce_next_voice
+    ldr r0, [r6, #4]
+    cmp r0, #0
+    beq ce_no
+    ldrh r0, [r6, #0x40]
+    cmp r0, #50
+    blo ce_next_voice
+    bl physical_import
+    cmn r0, #1
+    beq ce_no
+    cmp r0, r5
+    beq ce_no
+ce_next_voice:
+    add r6, r6, #0x48
+    add r7, r7, #1
+    cmp r7, #24
+    blo ce_voice
+    mov r0, #1
+    pop {r4-r8, pc}
+ce_no:
+    mov r0, #0
+    pop {r4-r8, pc}
+
+; A snapshot candidate, rechecked by evict_unused before any metadata changes.
+victim:
+    push {r4, lr}
+    mov r4, #500
+vi_slot:
+    mov r0, r4
+    bl can_evict
+    cmp r0, #0
+    movne r0, r4
+    popne {r4, pc}
+    add r4, r4, #1
+    ldr r0, =LAST_USER
+    cmp r4, r0
+    bls vi_slot
+    mov r0, #0
+    pop {r4, pc}
+
+; r0 candidate slot: IRQs stay masked only across its final check and the CPU-only delete.
+evict_unused:
+    push {r4, r5, r8, lr}
+    mov r4, r0
+    .word 0xE10F8000
+    orr r1, r8, #0x80
+    .word 0xE121F001
+    bl swap_ok
+    cmp r0, #0
+    moveq r4, #0
+    beq eu_done
+    mov r0, r4
+    bl can_evict
+    cmp r0, #0
+    moveq r4, #0
+    beq eu_done
+    ldr r1, =NAMES
+    add r1, r1, r4, lsl #5
+    ldrh r0, [r1, #30]
+    sub r0, r0, #50
+    bl DELETE
+    mov r4, r0
+eu_done:
+    .word 0xE121F008
+    mov r0, r4
+    pop {r4, r5, r8, pc}
+
+ss_part_update:
+    push {r0-r4, r11, r12, lr}
+    ldr r11, =ST
+    bl part_ready
+    cmp r0, #0
+    popeq {r0-r4, r11, r12, pc}
+    pop {r0-r4, r11, r12, lr}
+    push {r3, r4, r5, lr}
+    b 0xC009A000
+
+ss_part_bind:
+    push {r0-r4, r11, r12, lr}
+    ldr r11, =ST
+    bl part_ready
+    cmp r0, #0
+    popeq {r0-r4, r11, r12, pc}
+    pop {r0-r4, r11, r12, lr}
+    ldr r3, [r0, #8]
+    b 0xC0099D8C
+
+; r0 part: indexed user samples may bind only after their PCM is resident.
+part_ready:
+    push {r4, lr}
+    mov r4, r0
+    ldr r0, [r11, #MODE]
+    cmp r0, #2
+    beq pr_no
+    cmp r0, #1
+    bne pr_yes
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #0
+    bne pr_no
+    ldr r0, [r4, #8]
+    cmp r0, #0
+    beq pr_no
+    ldrh r4, [r0, #8]
+    cmp r4, #500
+    blo pr_yes
+    ldr r0, =LAST_USER
+    cmp r4, r0
+    bhi pr_yes
+    ldr r0, =HDR + 16
+    ldr r0, [r0, r4, lsl #2]
+    cmp r0, #0
+    beq pr_yes
+    mov r0, r4
+    bl resident
+    pop {r4, pc}
+pr_yes:
+    mov r0, #1
+    pop {r4, pc}
+pr_no:
+    mov r0, #0
+    pop {r4, pc}
+
+; Refresh only parts that requested the sample whose transfer just completed.
+apply_ready_parts:
+    push {r4-r6, lr}
+    mov r5, r0
+    mov r4, #0
+arp_part:
+    mov r0, r4
+    bl PART
+    mov r6, r0
+    ldr r1, [r0, #8]
+    cmp r1, #0
+    beq arp_next
+    ldrh r1, [r1, #8]
+    cmp r1, r5
+    bne arp_next
+    mov r0, r6
+    bl PART_UPDATE
+arp_next:
+    add r4, r4, #1
+    cmp r4, #16
+    blo arp_part
+    pop {r4-r6, pc}
 .pool
 
 .org CODE2
@@ -520,6 +840,12 @@ ss_step:
     movne r0, #2
     strne r0, [r11, #MODE]
     bne st_ret
+    bl swap_ok
+    cmp r0, #0
+    bne st_context
+    bl pause_jobs
+    b st_ret
+st_context:
     bl PLAYER
     ldr r0, [r0, #0x318]
     ldr r1, [r11, #LASTRUN]
@@ -541,6 +867,12 @@ st_same:
     ldr r0, [r0, #0x10]
     str r0, [r11, #T0]
 st_loop:
+    bl swap_ok
+    cmp r0, #0
+    bne st_work
+    bl pause_jobs
+    b st_ret
+st_work:
     ldr r0, [r11, #J_STATE]
     cmp r0, #1
     beq st_chunk
@@ -643,6 +975,7 @@ pk_none:
 pk_install:
     ldrh r0, [r6]
     bl start_install
+    pop {r4-r8, pc}
 pk_done:
     mov r0, #1
     pop {r4-r8, pc}
@@ -709,16 +1042,9 @@ fill_ok:
     ldr r0, [r11, #SESSION]
     cmp r0, #1
     bne fk_no
-    ldr r0, =SCREENS
-    ldr r0, [r0]
+    bl swap_ok
     cmp r0, #0
     beq fk_no
-    ldr r1, [r0, #0x24]
-    cmp r1, #0
-    bne fk_no
-    ldr r0, [r0, #0x2c]
-    cmp r0, #MAIN
-    bne fk_no
     bl TRANSPORT
     ldr r0, [r0, #0x308]
     cmp r0, #1
@@ -728,6 +1054,59 @@ fill_ok:
 fk_no:
     mov r0, #0
     pop {r4, pc}
+
+; Only the unobscured main screen in a sequencer state may use the swap buffers or DSP allocator.
+swap_ok:
+    push {r4, lr}
+    ldr r0, =SCREENS
+    ldr r0, [r0]
+    cmp r0, #0
+    beq so_no
+    ldr r1, [r0, #0x24]
+    cmp r1, #0
+    bne so_no
+    ldr r0, [r0, #0x2c]
+    cmp r0, #MAIN
+    bne so_no
+    bl TRANSPORT
+    cmp r0, #0
+    beq so_no
+    ldr r1, [r0, #0x308]
+    cmp r1, #5
+    bhi so_no
+    ldrb r0, [r0, #0x312]
+    cmp r0, #0
+    bne so_no
+    mov r0, #1
+    pop {r4, pc}
+so_no:
+    mov r0, #0
+    pop {r4, pc}
+
+job_ok:
+    push {r4, lr}
+    bl swap_ok
+    cmp r0, #0
+    bleq pause_jobs
+    pop {r4, pc}
+
+pause_jobs:
+    ldr r0, [r11, #J_STATE]
+    ldr r1, [r11, #J_STAGED]
+    orr r0, r0, r1
+    ldr r1, [r11, #SESSION]
+    orr r0, r0, r1
+    ldr r1, [r11, #CFILL]
+    orrs r0, r0, r1
+    ldrne r0, [r11, #GEN]
+    addne r0, r0, #1
+    strne r0, [r11, #GEN]
+    mov r0, #0
+    str r0, [r11, #J_STATE]
+    str r0, [r11, #J_STAGED]
+    str r0, [r11, #SESSION]
+    str r0, [r11, #CFILL]
+    bx lr
 
 ; r0 = the first part's sample in a pattern block, r1 = 16 half words to fill.
 parts16:
@@ -815,24 +1194,47 @@ s32:
     bx lr
 .pool
 
-.org CODE3
 ; ------------------------------------------------------------- the card
+; r11 state. FILE is 0 when closed, 1 when open, 2 until an uncertain close succeeds.
+close_reader:
+    push {r4, lr}
+    ldr r0, [r11, #FILE]
+    cmp r0, #1
+    cmpne r0, #2
+    bne cr_closed
+    mov r0, #2
+    str r0, [r11, #FILE]
+    mvn r0, #0
+    str r0, [r11, #FILEGEN]
+    ldr r0, =FIL
+    bl F_CLOSE
+    cmp r0, #0
+    movne r0, #1
+    popne {r4, pc}
+cr_closed:
+    mov r0, #0
+    str r0, [r11, #FILE]
+    mvn r1, #0
+    str r1, [r11, #FILEGEN]
+    pop {r4, pc}
+.pool
+
 ; Opens the file again when nothing is open or the cache generation moved on (the file may have changed), and reads its
 ; header. r0 = 0 when it is open.
 ensure_file:
     push {r4, lr}
+    ldr r4, [r11, #GEN]
     ldr r0, [r11, #FILE]
     cmp r0, #1
-    bne ef_open
+    bne ef_close
     ldr r0, [r11, #FILEGEN]
-    ldr r1, [r11, #GEN]
-    cmp r0, r1
+    cmp r0, r4
     moveq r0, #0
     popeq {r4, pc}
-    ldr r0, =FIL
-    bl F_CLOSE
-    mov r0, #0
-    str r0, [r11, #FILE]
+ef_close:
+    bl close_reader
+    cmp r0, #0
+    bne ef_fail
 ef_open:
     ldr r0, =FIL
     add r1, r11, #PATH
@@ -840,28 +1242,36 @@ ef_open:
     bl F_OPEN
     cmp r0, #0
     bne ef_fail
+    mov r0, #1
+    str r0, [r11, #FILE]
     ldr r0, =FIL
     ldr r1, =HDR
     mov r2, #0x1000
     add r3, r11, #GOT
     bl F_READ
     cmp r0, #0
-    bne ef_fail
+    bne ef_read_fail
     ldr r0, [r11, #GOT]
     cmp r0, #0x1000
-    bne ef_fail
+    bne ef_read_fail
     mov r0, #1
     str r0, [r11, #FILE]
-    ldr r0, [r11, #GEN]
-    str r0, [r11, #FILEGEN]
-    mov r0, #0
+    str r4, [r11, #FILEGEN]
+    ldr r1, [r11, #GEN]
+    cmp r4, r1
+    moveq r0, #0
+    movne r0, #1
     pop {r4, pc}
+ef_read_fail:
+    bl close_reader
 ef_fail:
     mov r0, #2
     str r0, [r11, #MODE]
     mov r0, #1
     pop {r4, pc}
+.pool
 
+.org CODE3
 ; r0 = slot: the firmware's parser reads its metadata into DESC and stops before the slot or the DSP change; the file is
 ; then at the slot's audio. r0 = 0 when it went through.
 parse:
@@ -896,10 +1306,12 @@ pa_fail:
     mov r0, #1
     pop {r4, pc}
 
-; r0 = slot: starts copying it into the DSP, from the cache when it holds the slot, else from the card.
+; r0 slot: starts a DSP copy from RAM or card. Returns 0 for a deferred attempt, 1 for a started job or bad source.
 start_install:
     push {r4-r8, lr}
     mov r4, r0
+    ldr r1, [r11, #GEN]
+    str r1, [r11, #J_GEN]
     bl cached
     cmp r0, #0
     beq si_card
@@ -914,17 +1326,41 @@ start_install:
 si_card:
     mov r0, r4
     bl parse
+    ldr r1, [r11, #J_GEN]
+    ldr r2, [r11, #GEN]
+    cmp r1, r2
+    movne r0, #0
+    popne {r4-r8, pc}
     cmp r0, #0
     bne si_fail
     ldr r7, [r11, #P_LEN]
     mov r6, #0
     mov r8, #0
 si_place:
-    add r0, r7, #31
-    bic r0, r0, #31
-    bl place
+    mov r0, r7
+    bl pcm_size
     cmp r0, #0
     beq si_fail
+    bl place
+    ldr r1, [r11, #J_GEN]
+    ldr r2, [r11, #GEN]
+    cmp r1, r2
+    movne r0, #0
+    popne {r4-r8, pc}
+    cmp r0, #0
+    beq si_wait
+    .word 0xE10F5000
+    orr r1, r5, #0x80
+    .word 0xE121F001
+    push {r0, r5}
+    bl swap_ok
+    cmp r0, #0
+    beq si_reserve_stop
+    ldr r1, [r11, #J_GEN]
+    ldr r2, [r11, #GEN]
+    cmp r1, r2
+    bne si_reserve_stop
+    ldr r0, [sp]
     add r1, r7, #31
     bic r1, r1, #31
     add r1, r0, r1
@@ -933,41 +1369,63 @@ si_place:
     cmp r1, r3
     strhi r1, [r2]
     str r0, [r11, #J_BASE]
+    pop {r0, r5}
+    .word 0xE121F005
     mov r0, #0
     str r0, [r11, #J_DST]
     b job_common
+si_reserve_stop:
+    pop {r0, r5}
+    .word 0xE121F005
+    mov r0, #0
+    b si_wait
 si_fail:
     mov r0, r4
     bl set_failed
+    mov r0, #1
+si_wait:
     pop {r4-r8, pc}
 
 ; r0 = slot: starts reading it from the card into the cache.
 start_prepare:
     push {r4-r8, lr}
     mov r4, r0
+    ldr r1, [r11, #GEN]
+    str r1, [r11, #J_GEN]
     bl parse
+    ldr r1, [r11, #J_GEN]
+    ldr r2, [r11, #GEN]
+    cmp r1, r2
+    popne {r4-r8, pc}
     cmp r0, #0
     bne sp_fail
     ldr r7, [r11, #P_LEN]
+    mov r0, r7
+    bl pcm_size
+    cmp r0, #0
+    beq sp_fail
+    add r5, r0, #0x4A0
     ldr r0, [r11, #CGEN]
     ldr r1, [r11, #GEN]
     cmp r0, r1
     beq sp_have
     bl cache_reset
 sp_have:
-    add r5, r7, #31
-    bic r5, r5, #31
-    add r5, r5, #0x4A0
     ldr r6, [r11, #CPTR]
     ldr r0, =ARENA_U
     cmp r6, r0
     blo sp_lower
     ldr r1, =ARENA_U_END
+    cmp r6, r1
+    bhi sp_fail
     add r2, r6, r5
     cmp r2, r1
     bls sp_ok
     ldr r6, =ARENA_L
 sp_lower:
+    ldr r0, =ARENA_L
+    cmp r6, r0
+    blo sp_fail
     ldr r1, =ARENA_L_END
     add r2, r6, r5
     cmp r2, r1
@@ -976,6 +1434,11 @@ sp_lower:
     str r0, [r11, #PFULL]
     pop {r4-r8, pc}
 sp_ok:
+    ldr r0, [r11, #J_GEN]
+    ldr r1, [r11, #GEN]
+    cmp r0, r1
+    movne r0, #0
+    popne {r4-r8, pc}
     str r6, [r11, #CPTR]
     mov r0, r6
     ldr r1, =DESC
@@ -993,6 +1456,11 @@ sp_fail:
 
 ; r4 slot, r6 cache entry (source or target), r7 PCM bytes, r8 source (0 card, 1 cache); returns for the two starters.
 job_common:
+    ldr r0, [r11, #J_GEN]
+    ldr r1, [r11, #GEN]
+    cmp r0, r1
+    movne r0, #0
+    popne {r4-r8, pc}
     str r4, [r11, #J_SLOT]
     str r8, [r11, #J_SRC]
     str r6, [r11, #J_ENTRY]
@@ -1004,8 +1472,6 @@ job_common:
     str r0, [r11, #J_SUM]
     str r0, [r11, #J_STAGED]
     str r0, [r11, #J_TICKS]
-    ldr r0, [r11, #GEN]
-    str r0, [r11, #J_GEN]
     mov r0, #1
     str r0, [r11, #J_STATE]
     pop {r4-r8, pc}
@@ -1026,41 +1492,11 @@ pl_try:
     bl victim
     cmp r0, #0
     beq pl_none
-    ldr r1, =NAMES
-    add r0, r1, r0, lsl #5
-    ldrh r0, [r0, #30]
-    sub r0, r0, #50
-    bl DELETE
+    bl evict_unused
+    cmp r0, #0
+    beq pl_none
     b pl_try
 pl_none:
-    mov r0, #0
-    pop {r4-r6, pc}
-
-; A slot in the DSP that the live pattern and the target do not use, 0 none.
-victim:
-    push {r4-r6, lr}
-    mov r4, #500
-vi_slot:
-    mov r0, r4
-    bl resident
-    cmp r0, #0
-    beq vi_next
-    add r0, r11, #PROT
-    mov r1, #32
-vi_prot:
-    ldrh r2, [r0]
-    cmp r2, r4
-    beq vi_next
-    add r0, r0, #2
-    subs r1, r1, #1
-    bne vi_prot
-    mov r0, r4
-    pop {r4-r6, pc}
-vi_next:
-    add r4, r4, #1
-    ldr r0, =LAST_USER
-    cmp r4, r0
-    bls vi_slot
     mov r0, #0
     pop {r4-r6, pc}
 
@@ -1087,7 +1523,8 @@ ff_next:
     ldr r0, =0x45C
     add r7, r7, r0
     add r8, r8, #1
-    cmp r8, #1000
+    ldr r0, =SAMPLE_COUNT
+    cmp r8, r0
     blo ff_scan
     ldr r9, =ss_cap
     ldr r9, [r9]
@@ -1203,6 +1640,13 @@ ck_sum:
     str r1, [r11, #J_SUM]
     str r6, [r11, #J_STAGED]
 ck_out:
+    ldr r0, [r11, #J_GEN]
+    ldr r1, [r11, #GEN]
+    cmp r0, r1
+    bne ck_end
+    bl job_ok
+    cmp r0, #0
+    beq ck_defer
     ldr r0, [r11, #J_DST]
     cmp r0, #1
     beq ck_tocache
@@ -1231,6 +1675,13 @@ ck_tocache:
     mov r2, r7
     bl copy32
 ck_moved:
+    ldr r0, [r11, #J_GEN]
+    ldr r1, [r11, #GEN]
+    cmp r0, r1
+    bne ck_end
+    bl job_ok
+    cmp r0, #0
+    beq ck_defer
     add r5, r5, r6
     str r5, [r11, #J_DONE]
     mov r0, #0
@@ -1251,7 +1702,7 @@ ck_moved:
     add r0, r0, r6, lsl #4
     ldr r1, [r11, #J_BASE]
     ldr r2, [r11, #J_SUM]
-    ldr r3, [r11, #GEN]
+    ldr r3, [r11, #J_GEN]
     str r1, [r0]
     str r4, [r0, #4]
     str r2, [r0, #8]
@@ -1290,6 +1741,13 @@ ck_desc:
     ldr r0, =DESC2
     mov r2, #0x4A0
     bl copy32
+    ldr r0, [r11, #J_GEN]
+    ldr r1, [r11, #GEN]
+    cmp r0, r1
+    bne ck_end
+    bl job_ok
+    cmp r0, #0
+    beq ck_defer
     ldr r2, =CURSOR
     ldr r7, [r2]
     ldr r0, [r11, #J_BASE]
@@ -1307,6 +1765,8 @@ ck_desc:
     bl resident
     cmp r0, #0
     beq ck_fail
+    mov r0, r6
+    bl apply_ready_parts
     ldr r0, [r11, #STAT_COUNT]
     add r0, r0, #1
     str r0, [r11, #STAT_COUNT]
@@ -1316,6 +1776,9 @@ ck_desc:
     ldr r0, [r11, #J_SRC]
     str r0, [r11, #STAT_SRC]
     b ck_end
+ck_defer:
+    mov r0, #2
+    pop {r4-r10, pc}
 ck_fail:
     ldr r0, [r11, #J_SLOT]
     bl set_failed
@@ -1329,7 +1792,10 @@ ck_end:
 
 
 def source(screens):
-    return halfword(equs(screens) + f".equ transfer, {TRANSPORT:#x}\n" + SOURCE)
+    importer = sample_import.source(state=STATE, file=FIL, descriptor=DESC, normalizer=FIL + 0x240,
+                                    prep=OFF["PREP"], bits=OFF["P_BITS"], file_bytes=OFF["P_FBYTES"])
+    body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer
+    return halfword(equs(screens) + f".equ transfer, {TRANSPORT:#x}\n" + body)
 
 
 def file_offset(addr):
@@ -1347,11 +1813,12 @@ def screens_of(vsb):
 
 
 AREAS = ((CODE1, CODE1_END, "CODE1_END"), (CODE2, CODE2_END, "CODE2_END"), (CODE3, CODE3_END, "CODE3_END"),
+         (STORE_CODE, STORE_CODE_END, "STORE_CODE_END"),
          (TRANSPORT, TRANSPORT_END, "TRANSPORT_END"))
 
 
 def build_code(screens):
-    """(sections [(address, bytes)], symbols): the swap's code in three areas, the bounded transport in a fourth."""
+    """(sections [(address, bytes)], symbols): swap, storage and bounded transport code."""
     code = arm.assemble(source(screens), origin=CODE1)
     io, _ = sample_swap_io.build_code(origin=TRANSPORT, state=STATE + OFF["TSTATE"])
     sections = [*code.sections, (TRANSPORT, io)]
@@ -1372,6 +1839,8 @@ def build_patch(vsb, build=None):
     actual = sample_swap_io.validate_firmware(vsb)
     if build not in (None, actual) or actual not in ("stock", "hacktribe"):
         raise SystemExit("only the mapped red Sampler builds, Korg's and Hacktribe, are supported")
+    if struct.unpack_from("<I", vsb, file_offset(SAMPLE_COUNT_AT))[0] != SAMPLE_COUNT:
+        raise SystemExit("the native sample table count is not the mapped count")
     screens = screens_of(vsb)
     sections, symbols = build_code(screens)
 
@@ -1427,6 +1896,16 @@ CALLED_SHA = {
     0xC004A3D8: "f0c285da7e342df0813bc2e614de39930ac11479aabcb5448e660a23d6431093",
     0xC0079768: "e8014e3bdef321b0885d7e7224608407c1f094f089a270441413b68f72928204",
     0xC003B7FC: "fd8f006c9e0687d555e18f66b74e990a56c3cf53a7b1239bf8919b320b3c6237",
+    0xC009DB60: "1fee2e34672d676636cc44dfeaf6fffb0085766fe43b513f2250c023df11c2cf",
+    0xC009E9B8: "c780e1a223851dc1480a08a7038091cfa03672277490b6167311edf40ad5c1c8",
+    0xC004E1F4: "3c697676bad05a608c6dc09d8dde53321fe6ab01eeb6ef94055c5fb8409f32ac",
+    0xC009115C: "09fe21fa4fbda3f46cb888c38bfc24ae3752427cd7b02f600b91596189ad5bb1",
+    0xC009AF20: "5d6e8fdc70e16ac964ebe6353d8fded9f1d4068684f426825c0628d1198988ed",
+    0xC00998B4: "827982f7904668b6486154341fd2d0bcf490d89d4c17de404abc671765bc272f",
+    0xC0091F5C: "7fcc3f9b41ebdd6daa9229bdec96f133a8453d91d60a958573a748c003ef424f",
+    0xC004E558: "dbf2300087233dba96787b8a3f74659ae678fffe2f61d538ea12df6a87185ddf",
+    0xC004E2F0: "675b2a102036631fc0d01634272bfb9fbf536b8f9ece00d30423b6d1a3a0fcd1",
+    0xC0099D88: "9ce2ec5c3423766f300330cb1ae2e0b18713d17a29761e718a3ff3d7cf7b2556",
 }
 
 

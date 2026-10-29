@@ -16,8 +16,9 @@ import { run } from "./support/spawn.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const PATCH = read("../data/patches/sample-swap.json");
-const SITES = [0xC0036510, 0xC00366D8, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74];
-const AREAS = [[0xC01A2FD0, 0xC01A3C00], [0xC018A4C0, 0xC018AF00], [0xC0189760, 0xC0189F00], [0xC018BF40, 0xC018C400]];
+const SITES = [0xC00364F4, 0xC0036510, 0xC00366D8, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74, 0xC0099FFC, 0xC0099D88];
+const AREAS = [[0xC01A2FD0, 0xC01A3C00], [0xC018A4C0, 0xC018AF00], [0xC0189760, 0xC0189F00],
+  [0xC019A400, 0xC019C400], [0xC018BF40, 0xC018C400]];
 const file = address => address - 0xC0000000 + 0x100;
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
@@ -43,7 +44,7 @@ test("the patch has the v1 format, is for both red builds and copies nothing of 
   }
 });
 
-test("it is code in four free areas plus a branch at each of its eight sites into that code", () => {
+test("it is code in five free areas plus a branch at each of its eleven sites into that code", () => {
   const code = PATCH.changes.slice(0, AREAS.length);
   for (const [i, [lo, hi]] of AREAS.entries()) {
     assert.equal(code[i].file, file(lo));

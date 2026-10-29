@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseRemote, parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, HEADER, ESLI } from "../src/sample-file.mjs";
+import { parseRemote, parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, HEADER, ESLI, wavChunks } from "../src/sample-file.mjs";
 import { wav, file, put32 } from "./support/sample-file.mjs";
 
 test("parses the slots, names and formats of a file", () => {
@@ -56,6 +56,18 @@ test("an occupied or a factory slot is refused", () => {
   const bytes = entryFromWav(wav(), 500, "X");
   assert.throws(() => planChange(old, parseSampleFile(old), { add: [{ slot: 500, bytes }] }), /Platz 501 ist belegt/);
   assert.throws(() => planChange(old, parseSampleFile(old), { add: [{ slot: 10, bytes }] }), /501 bis 999/);
+});
+
+test("new stereo records reserve both channels and end on the final complete DSP frame", () => {
+  for (const bits of [16, 24]) {
+    const entry = entryFromWav(wav({ frames: 100, channels: 2, bits }), 612, "Stereo");
+    const record = wavChunks(entry).korg.at + 8;
+    const view = new DataView(entry.buffer);
+    assert.equal(entry[record + 65], 1);
+    assert.equal(view.getUint32(record + 60, true), 400);
+    assert.equal(view.getUint32(record + 44, true), 396);
+    assert.equal(view.getUint32(record + 48, true), 396);
+  }
 });
 
 test("a WAV becomes an entry the loader takes: PCM 16 or 24 bit, 1 or 2 channels, the slot and the name in the record", () => {

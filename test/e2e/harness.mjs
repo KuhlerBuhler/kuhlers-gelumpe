@@ -30,7 +30,13 @@ export async function setUp(routes = () => [], { realDevices = false } = {}) {
     port = 19000 + Math.floor(Math.random() * 20000);
     try { server = await startServer(port, { extra }); } catch (error) { if (attempt >= 20 || error.code !== "EADDRINUSE") throw error; }
   }
-  const browser = await chromium.launch({ channel: process.env.E2E_CHANNEL || "chrome" });
+  let browser;
+  try {
+    browser = await chromium.launch({ channel: process.env.E2E_CHANNEL || "chrome" });
+  } catch (error) {
+    server.close();
+    throw error;
+  }
   return {
     url: `http://127.0.0.1:${port}/`,
     browser,

@@ -35,6 +35,7 @@ from splash_cases import SWITCH_SCREEN, Dev  # noqa: E402
 IMAGE, HEADER = 0xC0000000, 0x100
 NAMES, PLAYBACK, META = 0xC047B080, 0xC0362EE8, 0xC036AD88
 CURSOR, DSP_MIN = 0xC00F9C80, 0x365EC0
+WORK_BUFFER = 0xC0D3A940
 PATPTR, BANK = 0xC033E6A4, 0xC08B2940
 PLAYER_PTR, PSEL_PTR = 0xC034029C, 0xC03487E8
 SET_NUMBER = 0xC0081F50
@@ -238,7 +239,7 @@ class Box:
     def no_overlap(self):
         """Active user samples in the DSP: none overlaps another, all lie in the user bank."""
         rows = []
-        for i in range(1000):
+        for i in range(spec.SAMPLE_COUNT):
             at = META + i * 0x45C
             if self.m.uc.mem_read(at + 11, 1)[0] == 1:
                 base, length = self.u32(at), self.u32(at + 4)
@@ -279,8 +280,8 @@ def case_start(payload, flash):
 
 
 def case_long_set(payload, flash):
-    """The real budget and a file larger than the DSP's user bank: nine samples of 3 MiB nobody uses, four small ones."""
-    samples = {**small(range(500, 504)), **{s: (f"big{s}", 1_572_864) for s in range(510, 519)}}
+    """The real budget and a file over 50 MB: sixteen unused samples of 3 MiB and four small ones."""
+    samples = {**small(range(500, 504)), **{s: (f"big{s}", 1_572_864) for s in range(510, 526)}}
     box = Box(payload, flash, samples, [500], bank={1: [501, 502]})
     size = len(sampleset.build({int(k): tuple(v) for k, v in samples.items()}))
     started = box.state("MODE") == 1 and box.residents() == [500]
@@ -289,7 +290,7 @@ def case_long_set(payload, flash):
     switched = box.until(lambda: box.running() == 1, 12.0)
     after = box.residents()
     return [entry("a_set_larger_than_the_dsp_starts_and_switches",
-                  size > 0x1900000 and started and switched and after[:3] == [500, 501, 502] and not any(s >= 510 for s in after)
+                  size >= 50_000_000 and started and switched and after[:3] == [500, 501, 502] and not any(s >= 510 for s in after)
                   and not box.m.asserts,
                   f"Datei {size} Byte, Start mit {[500] if started else 'falsch'}, gewechselt {switched}, im DSP {after}")]
 
@@ -332,30 +333,80 @@ def case_chain(payload, flash):
 
 def case_eviction(payload, flash):
     cap = 0x80000
-    bank = {1: [502, 503], 2: [504, 505], 3: [506, 507]}
-    box = Box(payload, flash, small(range(500, 510)), [500, 501], bank=bank, cap=cap)
+    bank = {0: [500, 501], 1: [502, 503], 2: [504, 505], 3: [506, 507]}
+    box = Box(payload, flash, small(range(500, 510)), [500, 501], bank=bank, cap=cap, record_dsp=True)
     box.key("play", 0.2)
     rows = []
     ok = True
-    for n in (1, 2, 3):
+    evicted = False
+    for n in (1, 2, 3, 0, 1, 2, 3, 0):
         box.choose(n)
         hit = box.until(lambda: box.running() == n, 20.0)
         box.run(0.5)
         live = all(box.resident(s) for s in bank[n])
+        pcm = live and all(box.dsp_bytes(*box.extent(s)) == wav_pcm(s, FRAMES) for s in bank[n])
+        if n == 3:
+            evicted |= not box.resident(500) and not box.resident(501)
         clean, extents = box.no_overlap()
         top = max((e for _, e in extents), default=DSP_MIN)
-        rows.append(dict(pattern=n, switched=hit, live=live, resident=box.residents(), top=hex(top)))
-        ok = ok and hit and live and clean and top <= DSP_MIN + cap
-    return [entry("the_dsp_holds_only_the_active_set", ok and not box.m.asserts, rows)]
+        rows.append(dict(pattern=n, switched=hit, live=live, pcm_equal=pcm, resident=box.residents(), top=hex(top)))
+        ok = ok and hit and live and pcm and clean and top <= DSP_MIN + cap
+    return [entry("the_dsp_holds_only_the_active_set", ok and evicted and not box.m.asserts, rows)]
 
 
 def case_part_change(payload, flash):
     box = Box(payload, flash, small(range(500, 506)), [500], cap=0x40000)
+    part = box.dev.call(spec.FIRMWARE["PART"], 0)
     before = box.resident(505)
-    box.set_parts(box.u32(PATPTR) + 4, [500, 505])
+    box.set_parts(box.u32(PATPTR) + 4, [505])
+    box.m.uc.mem_write(box.u32(part + 8) + 8, struct.pack("<H", 505))
+    box.dev.call(0xC0099FFC, part)
+    held = box.u16(part + 0x34) == 500 and box.m.uc.mem_read(part + 0x39, 1)[0] != 0xFF
     loaded = box.until(lambda: box.resident(505), 5.0)
-    return [entry("a_part_that_gets_another_sample_loads_it",
-                  not before and loaded and not box.m.asserts, f"vorher {before}, danach geladen {loaded}, im DSP {box.residents()}")]
+    published = box.u16(part + 0x34) == 505 and box.m.uc.mem_read(part + 0x39, 1)[0] != 0xFF
+    return [entry("a_part_waits_for_pcm_before_publishing_its_new_sample",
+                  not before and held and loaded and published and not box.m.asserts,
+                  f"vorher geladen {before}, alter Part gehalten {held}, danach geladen {loaded}, Part veröffentlicht {published}")]
+
+
+def case_voice_residency(payload, flash):
+    from sample_residency_probe import probe
+    result = probe(payload, check_eviction=True)
+    return [entry("old_native_voices_pin_their_import_until_cpu_cleanup", result["ok"], result)]
+
+
+def case_alias_eviction(payload, flash):
+    box = Box(payload, flash, {500: ("first", 1000), 501: ("second", 1000)}, [500, 501],
+              cap=4096, record_dsp=True)
+    number = bytes(box.m.uc.mem_read(NAMES + 500 * 32 + 30, 2))
+    box.m.uc.mem_write(NAMES + 602 * 32 + 30, number)
+    box.set_parts(box.u32(PATPTR) + 4, [602])
+    box.set_parts(BANK, [602])
+    for index in (0, 1):
+        part = box.dev.call(spec.FIRMWARE["PART"], index)
+        box.m.uc.mem_write(box.u32(part + 8) + 8, struct.pack("<H", 602))
+        box.dev.call(spec.FIRMWARE["PART_UPDATE"], part)
+    box.m.uc.mem_write(spec.STATE + spec.PROT, struct.pack("<32H", 602, *([0xFFFF] * 31)))
+    before = box.dsp_bytes(*box.extent(500))
+    wrapper = 0xC1000000
+    box.m.uc.mem_write(wrapper, spec.arm.assemble(f"""
+        push {{r11, lr}}
+        ldr r11, ={spec.STATE}
+        bl {box.sym['place']}
+        pop {{r11, pc}}
+        .pool
+    """, origin=wrapper).bytes)
+    chosen = box.dev.call(wrapper, 1000)
+    kept = box.resident(500) and box.resident(602) and box.dsp_bytes(*box.extent(500)) == before
+    other_removed = not box.resident(501)
+    refused = box.dev.call(wrapper, 3000)
+    protected = box.resident(500) and box.resident(602) and box.dsp_bytes(*box.extent(500)) == before
+    return [entry("a_live_alias_protects_its_physical_dsp_sample",
+                  chosen != 0 and kept and other_removed and not box.m.asserts,
+                  dict(address=hex(chosen), alias_kept=kept, unused_slot_removed=other_removed)),
+            entry("a_protected_physical_sample_is_not_evicted_to_make_room",
+                  refused == 0 and protected and not box.m.asserts,
+                  dict(address=hex(refused), alias_kept=protected))]
 
 
 # ------------------------------------------------------------------ cache
@@ -422,7 +473,10 @@ def case_equal(payload, flash):
         pcm_box = box.dsp_bytes(*box.extent(s))
         for t in (pm, bm, pp, bp):
             t[0:4] = b"\0\0\0\0"
-        same = (pm == bm and pp == bp and pcm_plain == pcm_box and len(pcm_box) > 0
+        kind = samples[s][3] if len(samples[s]) > 3 else 'pcm16'
+        expected = wav_pcm(s, samples[s][1], kind)
+        same = (pm == bm and pp == bp and pcm_plain == pcm_box == expected
+                and pm[9] == int(kind == 'stereo16')
                 and plain.m.uc.mem_read(NAMES + s * 32, 32) == box.m.uc.mem_read(NAMES + s * 32, 32))
         rows.append(dict(slot=s, same=same, pcm=len(pcm_box)))
         ok = ok and same
@@ -462,9 +516,27 @@ def steps_on(box, page, steps):
     return found
 
 
-def flow_task(payload, flash, index):
+def perform_flow(box, page, steps):
+    if page:
+        return steps_on(box, page, steps)
+    box.m.press(KEYS["shift"], True)
+    box.run(0.1)
+    box.tap("rec", 0.2)
+    box.m.press(KEYS["shift"], False)
+    box.run(1.0)
+    for _ in range(3):
+        box.tap("right", 0.5)
+    box.tap("rec", 2.0)
+    box.tap("rec", 2.0)
+    box.run(5.0)
+    box.tap("stop", 1.0)
+    box.tap("exit", 1.0)
+    return True
+
+
+def flow_task(payload, flash, index, *, box_type=Box):
     name, page, steps, before = FLOWS[index]
-    box = Box(payload, flash, small(range(500, 506)), [500], bank={1: [501, 502], 249: [503]}, cap=0x40000,
+    box = box_type(payload, flash, small(range(500, 506)), [500], bank={1: [501, 502], 249: [503]}, cap=0x40000,
               extra={"/imp.wav": plain_wav(20000).hex()} if name == "import sample" else None)
     if before:
         steps_on(box, *before)
@@ -480,24 +552,9 @@ def flow_task(payload, flash, index):
         if not any(lo <= pc < hi for lo, hi in ours):
             writes.append((hex(pc), hex(addr), box.state("GEN") != gen))
     handles = [box.m.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, write, begin=lo, end=hi - 1)
-               for lo, hi in ((spec.ARENA_L, spec.ARENA_L_END), (spec.ARENA_U, spec.ARENA_U_END))]
+               for lo, hi in ((WORK_BUFFER, spec.ARENA_L_END), (spec.ARENA_U, spec.ARENA_U_END))]
     box.m.uc.ctl_flush_tb()
-    found = True
-    if page:
-        found = steps_on(box, page, steps)
-    else:
-        box.m.press(KEYS["shift"], True)
-        box.run(0.1)
-        box.tap("rec", 0.2)
-        box.m.press(KEYS["shift"], False)
-        box.run(1.0)
-        for _ in range(3):
-            box.tap("right", 0.5)
-        box.tap("rec", 2.0)
-        box.tap("rec", 2.0)
-        box.run(5.0)
-        box.tap("stop", 1.0)
-        box.tap("exit", 1.0)
+    found = perform_flow(box, page, steps)
     for h in handles:
         box.m.uc.hook_del(h)
     box.to_main()
@@ -506,15 +563,121 @@ def flow_task(payload, flash, index):
                   filled and found and box.state("GEN") != gen and not early and not box.m.asserts
                   and (writes or name not in WRITERS),
                   f"Cache gefüllt {filled}, Seite gefunden {found}, verworfen {box.state('GEN') != gen}, "
-                  f"fremde Schreibzugriffe {len(writes)}, davon vor dem Verwerfen {early[:3]}")]
+                  f"fremde Schreibzugriffe im Arbeitspuffer {len(writes)}, davon vor dem Verwerfen {early[:3]}")]
 
 
 def case_flows(payload, flash):
     return [e for i in range(len(FLOWS)) for e in flow_task(payload, flash, i)]
 
 
+def case_failure_gates(payload, flash):
+    box = Box(payload, flash, small(range(500, 506)), [500], bank={1: [501], 2: [502]}, cap=0x20000)
+    box.key("play", 0.2)
+    box.choose(1)
+    box.run(6.0)
+    failed = bool(box.u32(spec.STATE + spec.FAILED + 4 * (501 >> 5)) & (1 << (501 & 31)))
+    out = [entry("a_temporarily_full_dsp_keeps_the_running_pattern",
+                 not failed and box.state("MODE") == 1 and box.state("REQ") == 1 and box.running() == 0 and box.resident(500) and not box.resident(501) and not box.m.asserts,
+                 f"Platz gescheitert {failed}, laufendes Pattern {box.running()}, Ziel geladen {box.resident(501)}")]
+    box.m.uc.mem_write(spec.STATE + spec.OFF["TSTATE"], struct.pack("<I", 1))
+    box.choose(2)
+    box.run(6.0)
+    out.append(entry("a_latched_transport_fault_keeps_the_running_pattern",
+                     box.state("MODE") == 2 and box.running() == 0 and box.state("REQ") == 2
+                     and not box.resident(502) and not box.m.asserts,
+                     f"Modus {box.state('MODE')}, laufendes Pattern {box.running()}, angefordert {box.state('REQ')}"))
+    return out
+
+
+def case_full_session(payload, flash, *, box_type=Box):
+    box = box_type(payload, flash, small(range(500, 506)), [500], bank={1: [501, 502], 249: [503]}, cap=0x40000,
+              extra={"/imp.wav": plain_wav(20000).hex()})
+    ours = [(lo, hi) for lo, hi, _ in spec.AREAS]
+    state = dict(generation=None, writes=0, cache_writes=0, early=[])
+
+    def write(uc, access, addr, size, value, _):
+        pc = uc.reg_read(box.m.A.UC_ARM_REG_PC)
+        if not any(lo <= pc < hi for lo, hi in ours):
+            state["writes"] += 1
+            if spec.ARENA_L <= addr < spec.ARENA_L_END or spec.ARENA_U <= addr < spec.ARENA_U_END:
+                state["cache_writes"] += 1
+            if box.state("GEN") == state["generation"] and len(state["early"]) < 3:
+                state["early"].append((hex(pc), hex(addr)))
+
+    handles = [box.m.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, write, begin=lo, end=hi - 1)
+               for lo, hi in ((WORK_BUFFER, spec.ARENA_L_END), (spec.ARENA_U, spec.ARENA_U_END))]
+    box.m.uc.ctl_flush_tb()
+    rows = []
+    try:
+        for index in (4, 2, 3, 0, 1):
+            name, page, steps, _ = FLOWS[index]
+            box.to_main()
+            box.key("stop", 0.3)
+            box.key("play", 0.2)
+            filled = box.until(lambda: box.cached(503), 10.0)
+            box.key("stop", 0.5)
+            gen = box.state("GEN")
+            state["generation"] = gen if filled else None
+            before = state["writes"]
+            before_cache = state["cache_writes"]
+            if index == 0:
+                # IMPORT ALL PATTERN leaves the browser two folders below the card root, on Upper Folder.
+                steps = [("menu", 1), ("menu", 1), *steps]
+            found = perform_flow(box, page, steps)
+            box.to_main()
+            rows.append(dict(mode=name, filled=filled, found=found, dropped=box.state("GEN") != gen,
+                             writes=state["writes"] - before, cache_writes=state["cache_writes"] - before_cache))
+            if index == 1:
+                volume = fat32.Volume(bytes(box.m.mmc.card.medium.data))
+                exported = volume.read(f"KORG/{cardstore.card_folder(payload)}/Sample/e2sSample.all")
+                volume.close()
+                rows[-1]["source_bytes_after_export"] = len(exported)
+                rows[-1]["source_slots_after_export"] = (sum(offset != 0 for offset in struct.unpack_from("<1000I", exported, 16))
+                                                         if len(exported) >= 4096 else None)
+    finally:
+        for handle in handles:
+            box.m.uc.hook_del(handle)
+    ok = all(r["filled"] and r["found"] and r["dropped"] and (r["writes"] or r["mode"] not in WRITERS)
+             and r.get("source_slots_after_export", 0) is not None for r in rows)
+    return [entry("one_session_drops_each_cache_before_foreign_writes",
+                  ok and not state["early"] and not box.m.asserts,
+                  dict(modes=rows, writes=state["writes"], early=state["early"]))]
+
+
+def case_prefetch_targets(payload, flash):
+    box = Box(payload, flash, small(range(500, 507)), [500],
+              bank={1: [500, 501], 249: [500, 502], 3: [500, 503], 2: [500, 504]},
+              cap=0x40000, record_dsp=True)
+    box.chain(3, 255)
+    box.key("play", 0.2)
+    filled = box.until(lambda: box.resident(503) and box.cached(501) and box.cached(502), 10.0)
+    outside = not box.cached(504) and not box.resident(504)
+    box.choose(1)
+    box.choose(2)
+    switched = box.until(lambda: box.running() == 2, 15.0)
+    intact = box.dsp_bytes(*box.extent(500)) == wav_pcm(500, FRAMES)
+    target = box.dsp_bytes(*box.extent(504)) == wav_pcm(504, FRAMES)
+    clean, _ = box.no_overlap()
+    return [entry("both_neighbours_and_the_chain_target_survive_a_new_choice",
+                  filled and outside and switched and intact and target and clean and not box.m.asserts,
+                  dict(prefetched=filled, distant_not_prefetched=outside, switched=switched,
+                       shared_pcm_intact=intact, target_pcm_equal=target, no_overlap=clean))]
+
+
+def case_store(payload, flash):
+    at = spec.STORE_CODE - IMAGE
+    if payload[at:at + 4] == b"\xff" * 4:
+        return []
+    import sample_persistence_cases
+    import sample_store_cases
+    checks = sample_persistence_cases.cases(payload) + sample_store_cases.cases(payload)
+    return [entry("store:" + c["id"], c["ok"], {k: v for k, v in c.items() if k not in ("id", "ok")})
+            for c in checks]
+
+
 GROUPS = (case_start, case_long_set, case_gate, case_chain, case_eviction, case_part_change, case_cache, case_checksum,
-          case_equal, *[(lambda i: lambda payload, flash: flow_task(payload, flash, i))(i) for i in range(len(FLOWS))])
+          case_equal, *[(lambda i: lambda payload, flash: flow_task(payload, flash, i))(i) for i in range(len(FLOWS))],
+          case_failure_gates, case_full_session, case_prefetch_targets, case_alias_eviction, case_voice_residency, case_store)
 
 
 def group_entries(payload, flash, i):

@@ -53,6 +53,8 @@ in zwei, die Browsertests in vier Teilen nebeneinander (`--test-shard`), die Pr�
 Workflows, laufen nur die Einheitstests, die Dokumente lesen, und keine Browsertests (ausgenommen
 `DESIGN.md`, `docs/plugins*.md` und `third_party/`, die die Seite und die Tests lesen).
 
+`npm run test:e2e` startet die Testdateien nacheinander, damit nicht
+für jeden CPU-Kern eine eigene Chrome-Instanz um denselben Rechner konkurriert.
 Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt starten:
 
 ```bash

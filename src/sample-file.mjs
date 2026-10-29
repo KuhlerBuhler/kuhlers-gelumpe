@@ -157,14 +157,15 @@ export function entryFromWav(wav, slot, name) {
   const kept = d.esli !== null && c.korg.size >= 8 + ESLI;
   if (kept) record.set(wav.subarray(d.esli, d.esli + ESLI));
   else {
-    const bytesOf16 = d.frames * 2;
+    const frameBytes = d.channels * 2;
+    const bytesOf16 = d.frames * frameBytes;
     put16(record, 18, 2);
     put16(record, 20, 0x226 + slot % 100);
     record[25] = 0x7f; record[27] = 1;
     put16(record, 34, 0x42e6);
     put16(record, 36, 0xffff);
-    put32(record, 44, Math.max(bytesOf16 - 2, 0));
-    put32(record, 48, Math.max(bytesOf16 - 2, 0));
+    put32(record, 44, Math.max(bytesOf16 - frameBytes, 0));
+    put32(record, 48, Math.max(bytesOf16 - frameBytes, 0));
     record[52] = 1;
     put32(record, 60, bytesOf16);
     record[64] = 1; record[67] = 1;

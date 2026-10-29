@@ -4,6 +4,8 @@ transfer(op, ARM pointer, DSP byte offset, halfword count) returns status in r0
 and completed halfwords in r1. r4-r11 are preserved. State is one word: zero
 is ready; every other value refuses traffic. A partial protocol timeout latches
 one until cold boot. This module installs no hooks into native void functions.
+Writes require complete 32-byte groups. Reads accept halfword-aligned spans,
+drain a padded final group, and copy only the requested halfwords to ARM RAM.
 """
 import argparse
 import hashlib
@@ -43,11 +45,13 @@ safe_{lo:x}:
     source = f'''
 transfer:
     push {{r4-r12, lr}}
+    sub sp, sp, #8
     mov r7, r0
     mov r4, r1
     mov r5, r2
     mov r6, r3
     mov r8, #0
+    str r8, [sp]
     mov r0, #{INVALID}
     cmp r7, #1
     bhi done
@@ -56,6 +60,7 @@ transfer:
     cmp r6, #32768
     bhi done
     tst r6, #15
+    cmpne r7, #0
     bne done
     tst r4, #1
     bne done
@@ -68,8 +73,13 @@ transfer:
     cmp r1, r2
     bhi done
 {protected}
+    tst r5, #1
+    bne done
+    cmp r7, #0
+    beq read_address
     tst r5, #31
     bne done
+read_address:
     ldr r1, ={DSP_MIN}
     cmp r5, r1
     blo done
@@ -82,6 +92,21 @@ transfer:
     ldr r1, ={DSP_END}
     cmp r2, r1
     bhi done
+    cmp r7, #0
+    bne checked_range
+    add r2, r6, #15
+    bic r2, r2, #15
+    add r2, r5, r2, lsl #1
+    cmp r2, r1
+    bls checked_range
+    sub r2, r2, r1
+    sub r5, r5, r2
+    mov r2, r2, lsr #1
+    str r2, [sp]
+    ldr r1, ={DSP_MIN}
+    cmp r5, r1
+    blo done
+checked_range:
     .word 0xe10f0000
     tst r0, #0x80
     bne context
@@ -150,7 +175,9 @@ acquired:
     .word 0xe1c950b2 ; strh r5, [r9, #2]
     mov r0, r5, lsr #16
     .word 0xe1c900b2 ; strh r0, [r9, #2]
-    .word 0xe1c960b2 ; strh r6, [r9, #2]
+    add r0, r6, #15
+    bic r0, r0, #15
+    .word 0xe1c900b2 ; strh r0, [r9, #2]
     mov r0, #2
     .word 0xe1c900b2 ; strh r0, [r9, #2]
     mov r0, #0
@@ -166,14 +193,27 @@ next_group:
     mov r3, #16
 next_word:
     cmp r7, #0
-    .word 0x01d900b0 ; ldrheq r0, [r9]
-    .word 0x00c400b2 ; strheq r0, [r4], #2
-    .word 0x10d400b2 ; ldrhne r0, [r4], #2
-    .word 0x11c900b0 ; strhne r0, [r9]
+    bne write_word
+    .word 0xe1d900b0 ; ldrh r0, [r9]
+    ldr r1, [sp]
+    cmp r1, #0
+    subne r1, r1, #1
+    strne r1, [sp]
+    bne word_done
+    cmp r6, #0
+    .word 0x80c400b2 ; strhhi r0, [r4], #2
+    subhi r6, r6, #1
+    addhi r8, r8, #1
+    b word_done
+write_word:
+    .word 0xe0d400b2 ; ldrh r0, [r4], #2
+    .word 0xe1c900b0 ; strh r0, [r9]
     add r8, r8, #1
+    sub r6, r6, #1
+word_done:
     subs r3, r3, #1
     bne next_word
-    subs r6, r6, #16
+    cmp r6, #0
     bne next_group
     mov r0, #0
     ldr r1, ={state}
@@ -200,6 +240,7 @@ bad_timer:
     mov r0, #{BAD_TIMER}
 done:
     mov r1, r8
+    add sp, sp, #8
     pop {{r4-r12, pc}}
 
 ; r0 selects GPIO set, status ready, header acknowledgement, or GPIO clear.

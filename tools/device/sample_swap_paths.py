@@ -31,12 +31,14 @@ FS_OPEN, FS_READ, FS_CLOSE, FS_SEEK = 0xC009DB60, 0xC009DD74, 0xC009E3DC, 0xC009
 BANK, LIVE_PTR = 0xC08B2940, 0xC033E6A4
 MAPPING_TABLES = ((0xC035738C,32,16),(0xC035F06C,16,8),(0xC0350644,8,2))
 MARK = 0x42535750
+BUSY_ATTEMPTS, BUSY_DELAY = 8, 0.01
 R_STATUS, R_COMPLETED, R_BEFORE, R_AFTER, R_PERIOD = 2, 3, 4, 5, 6
 R_FILE, R_GOT, R_OPEN, R_CLOSE, R_CLOCK, R_CLOCK_AFTER, R_SEEK, R_READ, R_IO = range(7,16)
 REGIONS = ((STUB, 0x400), (IO_CODE, 0x2000), (MARKER, 8), (FIL, 0x1000),
            (PATH, 0x100), (GOT, 4), (BACKUP, 65536), (VERIFY, 65536))
 SPANS = ((0xC0000CA8, 0x190), (FS_OPEN, FS_READ-FS_OPEN),
-         (FS_READ, 0x244), (FS_CLOSE, FS_SEEK-FS_CLOSE), (FS_SEEK, 0x100))
+         (FS_READ, 0x244), (FS_CLOSE, FS_SEEK-FS_CLOSE), (FS_SEEK, 0x100),
+         (0xC004EBD4, 0x208))
 
 
 def check_regions():
@@ -326,7 +328,9 @@ clock_restored:
 
 
 class Driver:
-    def __init__(self,link,entry): self.link,self.entry=link,entry
+    def __init__(self,link,entry):
+        self.link,self.entry=link,entry
+        self.busy_retries=0
 
     def call(self,blob,token):
         self.link.write_at(RESULT,bytes(64))
@@ -355,17 +359,34 @@ class Driver:
             raise RuntimeError('pattern usage scan incomplete; no DSP access attempted')
         return used_ids(self.link.read(VERIFY,128))
 
+    def _retry_busy(self,make_blob,is_busy):
+        for attempt in range(BUSY_ATTEMPTS):
+            token=secrets.randbits(31)|1
+            result=self.call(make_blob(token),token)
+            if not is_busy(result) or attempt==BUSY_ATTEMPTS-1:
+                result['busy_retries']=attempt
+                return result
+            self.busy_retries+=1
+            time.sleep(BUSY_DELAY)
+
     def io(self,operation,buffer,offset,length):
-        token=secrets.randbits(31)|1
-        result=self.call(io_driver(operation,buffer,offset,length,token,self.entry),token)
+        result=self._retry_busy(
+            lambda token:io_driver(operation,buffer,offset,length,token,self.entry),
+            lambda r:r['status']==2 and r['completed']==0)
         io_ok(result,length)
         return result
 
     def card(self,offset,length,write=False,clock_mhz=None,dsp_offset=0):
-        token=secrets.randbits(31)|1
-        result=self.call(card_driver(offset,length,token,write,clock_mhz,dsp_offset,self.entry),token)
+        def retryable(r):
+            w=r['words']
+            return (write and r['status']==2 and r['completed']==0 and w[R_IO]==2
+                    and w[R_OPEN]==1 and w[R_GOT]==length
+                    and all(w[i]==0 for i in (R_SEEK,R_READ,R_FILE,R_CLOSE))
+                    and w[R_CLOCK]==w[R_CLOCK_AFTER])
+        result=self._retry_busy(
+            lambda token:card_driver(offset,length,token,write,clock_mhz,dsp_offset,self.entry),retryable)
         if result['status']:
-            raise RuntimeError(f"card path failed: status {result['status']}, native status {result['words'][R_FILE]}; no retry or cleanup sent")
+            raise RuntimeError(f"card path failed: status {result['status']}, native status {result['words'][R_FILE]}; no further retry or cleanup sent")
         if write: io_ok(result,length)
         elif result['words'][R_GOT]!=length: raise RuntimeError('short card read')
         return result
@@ -373,7 +394,7 @@ class Driver:
 
 def io_ok(result,length):
     if result['status'] or result['completed']!=length//2:
-        raise RuntimeError(f"bounded DSP operation failed: status {result['status']}, completed {result['completed']} words; no retry or cleanup sent; power cycle the device")
+        raise RuntimeError(f"bounded DSP operation failed: status {result['status']}, completed {result['completed']} words; no further retry or cleanup sent; power cycle the device")
 
 
 def card_pcm(read,slot,length):
@@ -454,6 +475,7 @@ def identity_target(link,slot):
 def resolve_index(snapshot,index):
     names,tables=snapshot
     key=struct.unpack_from('<H',names,index*32+30)[0]-50
+    if key<0: return None
     keys=[key]
     for table,(_,stride,field) in zip(tables,MAPPING_TABLES):
         if not 0<=key<1000: raise ValueError('mapping key is outside the measured tables')
@@ -468,23 +490,39 @@ def assert_unused(link,slot,used):
     tables=[link.read(base,1000*stride) for base,stride,_ in MAPPING_TABLES]
     snapshot=(names,tables)
     index=slot-1
-    if any(key!=index for key in resolve_index(snapshot,index)):
+    keys=resolve_index(snapshot,index)
+    if keys is None or any(key!=index for key in keys):
         raise ValueError('target sample mapping no longer has identity at every step')
     for raw_id in sorted(used):
         candidates={i for i in (raw_id-2,raw_id-1,raw_id) if 0<=i<1000}
         if not candidates: raise ValueError(f'raw sample ID {raw_id} cannot be resolved conservatively')
         for visible_index in candidates:
-            try: final=resolve_index(snapshot,visible_index)[-1]
+            try: keys=resolve_index(snapshot,visible_index)
             except ValueError as error:
                 raise ValueError(f'raw sample ID {raw_id} cannot be resolved conservatively') from error
-            if final==index:
+            if keys is not None and keys[-1]==index:
                 raise ValueError(f'target is referenced by raw sample ID {raw_id} through the sample mappings')
+
+
+def target_span(meta,cursor,length):
+    if len(meta)!=0x45c or meta[11]!=1:
+        raise ValueError('target slot is not loaded')
+    offset,size=struct.unpack_from('<II',meta)
+    if offset&1 or not 0x365ec0<=offset<cursor<=0x1c65ec0 or offset+size>cursor:
+        raise ValueError('target is outside the current DSP allocation or not halfword aligned')
+    skip=(-offset)%32
+    if size<skip+length:
+        raise ValueError('target is too short for the aligned PCM span')
+    span=bytearray(meta)
+    struct.pack_into('<II',span,0,offset+skip,size-skip)
+    return old.target(span,cursor,length),skip
 
 
 def validate_device(link,firmware):
     import sample_swap_io
     sample_swap_io.validate_firmware(firmware)
     link.info()
+    old.swap_off(link)
     spans=set(SPANS) | {(address,count) for address,count,_ in sample_swap_io.NATIVE_SPANS}
     for address,count in sorted(spans):
         start=address-0xC0000000+0x100
@@ -519,7 +557,7 @@ def run(link,firmware,a):
     table_ranges=((old.META+index*0x45C,0x45C),(old.PLAYBACK+index*16,16),
                   (old.NAMES+index*32,32),(old.CURSOR,4))
     tables=[link.read(at,n) for at,n in table_ranges]
-    dsp_offset=old.target(tables[0],struct.unpack('<I',tables[3])[0],length)
+    dsp_offset,pcm_skip=target_span(tables[0],struct.unpack('<I',tables[3])[0],length)
     code,symbols=sample_swap_io.build_code(origin=IO_CODE,state=IO_STATE)
     if len(code)>0x2000: raise ValueError('bounded I/O exceeds its declared region')
     preserved=[(at,link.read(at,n)) for at,n in REGIONS]
@@ -542,7 +580,8 @@ def run(link,firmware,a):
     def card_read(offset,n):
         driver.card(offset,n,clock_mhz=a.clock_mhz)
         return link.read(VERIFY,n)
-    pcm_offset,pcm_length=card_pcm(card_read,a.slot,length)
+    pcm_offset,pcm_length=card_pcm(card_read,a.slot,length+pcm_skip)
+    pcm_offset+=pcm_skip
     if card_read(pcm_offset,length)!=backup:
         raise RuntimeError('card PCM differs from loaded DSP span; no DSP writes attempted')
     def restore_and_stop(reason):
@@ -575,10 +614,12 @@ def run(link,firmware,a):
     for address,data in reversed(preserved): link.write_at(address,data)
     if not ram.get('timing_valid',True) or not card.get('timing_valid',True):
         raise RuntimeError('timing interval is ambiguous; no throughput reported; original DSP bytes and CPU scratch restored and verified')
-    describe=lambda r: dict(milliseconds=r['milliseconds'],kib_per_second=length/1024*TIMER_HZ/r['ticks'])
+    describe=lambda r: dict(milliseconds=r['milliseconds'],kib_per_second=length/1024*TIMER_HZ/r['ticks'],busy_retries=r.get('busy_retries',0))
     return dict(bytes=length,slot=a.slot,mode='playing' if a.playback_confirmed else 'stopped',
                 clock_mhz=a.clock_mhz or 'unchanged',ram_to_dsp=describe(ram),card_to_dsp=describe(card),
                 card_open_seek_excluded=True,card_read_after_verification=True,card_pcm_bytes=pcm_length,card_offset=pcm_offset,
+                sample_pcm_skip=pcm_skip,dsp_offset=dsp_offset,
+                host_busy_retries=getattr(driver,'busy_retries',0),
                 card_status=card['words'][R_FILE],card_close_status=card['words'][R_CLOSE],
                 clock_before=card['words'][R_CLOCK],clock_after=card['words'][R_CLOCK_AFTER],
                 dsp_restored=True,tables_equal=True,cpu_scratch_restored=True,
