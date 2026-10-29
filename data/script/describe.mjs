@@ -42,6 +42,7 @@ export const API_DOCS = Object.freeze({
   "korg.seq.clearPart": text("api.korg.seq.clearPart"),
   "korg.backlight": text("api.korg.backlight"),
   "korg.ledHold": text("api.korg.ledHold"),
+  "korg.padHold": text("api.korg.padHold"),
   "korg.menu.add": text("api.korg.menu.add"),
   "korg.app": text("api.korg.app"),
   "korg.file.frame": text("api.korg.file.frame"),
