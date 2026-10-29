@@ -12,7 +12,8 @@ from .script_vm import build as build_vm
 BLECHY_BLOCK = 0xC0184000
 BLECHY_BLOCK_END = 0xC0188000
 BLECHY_FILE = Path(getattr(sys, '_MEIPASS', '') or Path(__file__).resolve().parents[2]) / 'data' / 'script' / 'blechy-block.hex'   # frozen: unpacked next to the code
-CODE_START = 0xC01A6000         # the first code area, now a reserve: only the menu copies at its end (MENU_TABLE) are written
+CODE_START = 0xC01A6000         # the first code area, now a reserve: only the menu copies at its end (MENU_TABLE) are written; on
+                                # the Sampler the loading animation (tools/patch/load_bar.py:ANIM_SLOT) uses it up to MENU_TABLE
 CODE_AT = CODE_START
 INPUT = 0xC01F8000
 CARD = 0xC01F7000
@@ -224,7 +225,8 @@ class BuiltHooks:
             area(layout['card'],layout['input']-layout['card'],'work area of the card loader: file object, state, plugin list of the import page, the key commands of KORG.press, the record of korg.remapKey and the word korg.seq marks a written frame with','tools/patch/script_hooks.py:CARD'),
             area(layout['input'],END-layout['input'],'block buffer for file reads, the two store images lie in it','tools/patch/script_hooks.py:INPUT'),
             area(layout['codeEnd'],MORE3_END-layout['codeEnd'],'the rest of the code area, kept free for the code of the plugin API to grow into','tools/patch/script_hooks.py:MORE3_END'),
-            area(CODE_START,MENU_TABLE-CODE_START,'the first code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:CODE_START'),
+            *([area(CODE_START,MENU_TABLE-CODE_START,'the first code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:CODE_START')]
+              if self.profile.build == 'synth' else []),
             area(MORE_START,MORE_END-MORE_START,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:MORE_START'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(SETTINGS_RAM_END,MORE2_END-SETTINGS_RAM_END,'the rest of the third code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:SETTINGS_RAM_END')]+(
@@ -246,7 +248,7 @@ class BuiltHooks:
             offset=address-RAM_BASE+0x100
             if offset+4>len(output) or struct.unpack_from('<I',output,offset)[0]!=expected:
                 raise ValueError(f'original hook instruction differs at {address:#x}')
-        for start,end in [(CODE_START,CODE_END),(MORE_START,MORE_END),(MORE2_START,MORE2_END),(MORE3_START,self.layout['codeEnd']),(RUNTIME,self.layout['runtimeEnd']),(self.layout['runtimeEnd'],POOL),(POOL,self.layout['poolEnd']),(CARD,END),(BLECHY_BLOCK,BLECHY_BLOCK+len(self.sections[-1][1]))]:
+        for start,end in [(MENU_TABLE,CODE_END),(MORE_START,MORE_END),(MORE2_START,MORE2_END),(MORE3_START,self.layout['codeEnd']),(RUNTIME,self.layout['runtimeEnd']),(self.layout['runtimeEnd'],POOL),(POOL,self.layout['poolEnd']),(CARD,END),(BLECHY_BLOCK,BLECHY_BLOCK+len(self.sections[-1][1]))]:
             offset=start-RAM_BASE+0x100
             if offset<0 or offset+end-start>len(output) or any(value!=255 for value in output[offset:offset+end-start]):
                 raise ValueError(f'script area is not FF at {start:#x}')

@@ -3,17 +3,21 @@ with Hacktribe.
 
 While the start loads the samples (e2sSample.all), the firmware shows a window "Loading nnn%". With this patch Blechy
 draws a line instead: the line is the bar, he stands where the tip of his tube has eaten it, the percent counts up at the
-bottom right, and from 95 percent the finale plays (eyes torn open, shaking). The pictures are assets/blechy/loading.bin,
-made by the same renderer as the previews; the overlay puts them together (compose_reference is the same in Python).
-At most one new picture every 50 ms. The start image (assets/blechy/splash.json) is seen from power-on until the load begins.
+bottom right, and from 95 percent the finale plays (eyes torn open, shaking). The pictures are a loading animation file
+(docs/hintergrund/ladeanimation.md): a custom one the app writes into ANIM_SLOT when it passes the checks, else the default
+assets/blechy/loading.blla, made from the parts in assets/blechy/loading.bin by the renderer of the previews
+(compose_reference is the same in Python). The picture follows the bytes the loader has read of e2sSample.all, smoothed
+within a read. At most one new picture every 50 ms. The start image (assets/blechy/splash.json) is seen from power-on
+until the load begins.
 
     python3 tools/patch/load_bar.py --vsb SYSTEM.VSB [--out data/patches/load-bar.json]
 
-Four hooks:
+Five hooks:
   stat      the call that asks whether e2sSample.all exists, 0xC002AE60, in the start task right after the rescue
             paths (the panel update and the start modes never get there): remembers "a load is coming"
   progress  the call that updates the text "Loading nnn%" in the loader, 0xC00366D4: remembers where the loader is
             and, while the overlay draws, leaves the update out (nobody sees the window, and its redraws cost time)
+  read      the two calls of f_read in the sample parser's PCM loop, 0xC00362FC and 0xC003635C: count the bytes read
   load      the call of the loader, 0xC0038D60: remembers that it is done
   frame     the tail call that sends the frame to the display, 0xC008370C: while a load is expected it puts the
             image over the frame before it goes out, so the window never reaches the display
@@ -41,6 +45,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import arm  # noqa: E402
+import loading_anim  # noqa: E402
 import ramdecl  # noqa: E402
 
 HEADER = 0x100
@@ -49,8 +54,20 @@ ART = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2]) 
 
 CODE_AT = 0xC0181000            # free (FF) in the image, behind the pattern switch
 CODE_END = 0xC0181F00
-LOAD_AT = 0xC01A3D00            # assets/blechy/loading.bin, written by the patch (free behind the start image editor's vtable)
+LOAD_AT = 0xC01A3D00            # the card pictures, written by the patch (free behind the start image editor's vtable)
 LOAD_END = 0xC01A4A00
+# The first code area of the plugin runtime until 1.3.7 (tools/patch/script_hooks.py:CODE_START), a reserve since; free (FF)
+# in all three images. The loading animation lives here.
+ANIM_SLOT = 0xC01A6000          # a custom loading animation, written by the app; FF without one
+ANIM_SLOT_END = 0xC01AA000      # MAX_BYTES of tools/patch/loading_anim.py
+ANIM_DEFAULT = 0xC01AA000       # assets/blechy/loading.blla, written by the patch: shown when the slot holds no good file
+ANIM_DEFAULT_END = 0xC01AC000
+ANIM_CODE = 0xC01AC000          # the code that plays it and counts the loader's reads
+ANIM_CODE_END = 0xC01AC800
+ANIM_VARS = 0xC01AC800          # its run time state, in RAM only
+ANIM_VARS_END = 0xC01AC840
+ANIM_BUF = 0xC01ACC00           # the progress picture on screen, in RAM only
+ANIM_BUF_END = 0xC01AD000
 STATE = 0xC0181F00              # run time state, in RAM only
 STATE_END = 0xC0181F40
 
@@ -67,6 +84,12 @@ LOAD_CALL = 0xC0038D60          # bl 0xC00364F0, the loader
 LOAD_FUNC = 0xC00364F0
 FLUSH = 0xC008370C              # b 0xC0015DD0, the frame function's tail call
 FLUSH_FUNC = 0xC0015DD0
+READ_CALLS = (0xC00362FC, 0xC003635C)   # bl 0xC009DD74 in the sample parser's PCM loop (16 and 24 bit): r0 the file, r2 the bytes
+READ_FUNC = 0xC009DD74          # FatFs f_read (file, buffer, bytes, &read); the file's position at +8, its size at +12
+UDIV = 0xC00021FC               # the firmware's unsigned division: r0 = r0 / r1
+UDIV_WORD = 0xE2512001          # its first instruction, subs r2, r1, #1
+UDIVMOD = 0xC00022F0            # the same with the remainder in r1
+UDIVMOD_WORD = 0xE3510000       # cmp r1, #0
 
 
 
@@ -75,14 +98,15 @@ FLUSH_FUNC = 0xC0015DD0
 # renderer as the previews. Everything is in the order of the frame buffer (bit 0 the top row of a page) with a set bit lit
 # on the reversed display (DISPLAY INVERT ON); the overlay complements its picture when the display is not reversed.
 LOAD_ART = ART.parent / "loading.bin"
+LOAD_ANIM = ART.parent / "loading.blla"
 LINE_X, LINE_Y, SWEEP = 49, 54, 48      # the line: x 49 to 97 on row 54, lumps above it
 SPRITE_PAGE, SPRITE_PAGES = 2, 5        # Blechy lives in pages 2 to 6 (rows 16 to 55)
 FINALE_AT = 95                          # from 95 percent the finale plays while the count runs on
 TICKS = 0xC06A292C              # the operating system's tick count, one per millisecond (tools/patch/power_off.py)
 MENU_STATE = 0xC01D6E00         # tools/patch/script_hooks.py:MENU_STATE
-TICK_MS = 96                    # the finale's pictures change every 96 ms; 64 ms was too fast for the LCD, the eyes only flickered
-TICK_MUL = -(-0x10000 // TICK_MS)  # ms * TICK_MUL >> 16 is ms // TICK_MS without a division (exact enough for the first hour of uptime)
+TICK_MS = 96                    # the loop's pictures change every 96 ms; 64 ms was too fast for the LCD, Blechy's eyes only flickered
 TICKS_N, FRAME_MS = 8, 50               # the finale's 8 pictures; at most one new picture every 50 ms (20 per second)
+STALL_MS = 500                  # an animation that loops while waiting starts its loop when the progress stood this long
 PCT_RIGHT, PCT_Y = 123, 58              # the percent, right-aligned, in the 3 x 5 font
 GLYPHS = "0123456789%"
 
@@ -347,13 +371,13 @@ SOURCE = """
 .equ STATE, @STATE@
 .equ FRAME_CAP, @CAP@
 .equ S_EXPECT, 0               ; 1 while a load is expected and the overlay draws, 2 when it is over, FFFFFFFF never started
-.equ S_CUR, 4                  ; the loader's file offset
-.equ S_MAX, 8                  ; the largest offset in the file
+.equ S_CUR, 4                  ; the loader's file offset: where the sample it is about to load begins
+.equ S_MAX, 8                  ; the size of the file
 .equ S_DONE, 12                ; 1 when the loader has returned without an error
 .equ S_FRAME, 16               ; frames drawn
 .equ S_MODE, 20                ; 1: the BLECH image (kept for the readers of the state; there is no other any more)
 .equ S_DRAWN, 24               ; 1 once the whole frame buffer has been marked as changed
-.equ S_KEY, 28                 ; the picture drawn: percent | done << 8 | the finale's picture << 16
+.equ S_KEY, 28                 ; the picture drawn: the progress picture | the loop's picture + 1 << 16 (0 no loop) | done << 24
 .equ S_LAST, 32                ; TICKS when that key was taken
 .equ S_PWR, 36                 ; TICKS when the power key was first seen held while the samples load (bit 0 set), 0 not held
 .equ GPIO_IN67, 0x01E26098      ; GPIO IN_DATA67; bit 31 (GPIO 7.15) is low while the power key is held
@@ -365,30 +389,32 @@ SOURCE = """
 .equ MENU_STATE, @MENU_STATE@   ; the BLECH menu (script runtime): M_ON 1 when armed, M_INV 1 with DISPLAY INVERT ON
 .equ M_ON, 0
 .equ M_INV, 0x1B8
-.equ ART, @ART@
-.equ ART_FOOT, @ART_FOOT@
-.equ ART_LUMPS, @ART_LUMPS@
-.equ ART_DIGITS, @ART_DIGITS@
-.equ ART_FIG, @ART_FIG@
-.equ ART_FIN, @ART_FIN@
-.equ ART_TICKS, @ART_TICKS@
-.equ FIG_X, @FIG_X@
-.equ FIG_W, @FIG_W@
-.equ FIG_W2, @FIG_W2@
-.equ FIN_X, @FIN_X@
-.equ FIN_W, @FIN_W@
-.equ SPRITE_OFF, @SPRITE_OFF@
-.equ SPRITE_PAGES, @SPRITE_PAGES@
-.equ LINE_X, @LINE_X@
-.equ LINE_END, @LINE_END@
-.equ LINE_Y, @LINE_Y@
-.equ SWEEP, @SWEEP@
-.equ FINALE_AT, @FINALE_AT@
-.equ TICKS_MASK, @TICKS_MASK@
-.equ TICK_MUL, @TICK_MUL@
 .equ FRAME_MS, @FRAME_MS@
-.equ PCT_X0, @PCT_X0@
-.equ PCT_Y, @PCT_Y@
+.equ SLOT, @SLOT@               ; a custom loading animation (docs/hintergrund/ladeanimation.md), FF without one
+.equ DEFAULT, @DEFAULT@         ; assets/blechy/loading.blla
+.equ MAX_BYTES, @MAX_BYTES@
+.equ MAGIC, 0x414C4C42         ; "BLLA"
+.equ HEAD_FRAME, 1040          ; the header and picture 0: the list table starts here or later
+.equ PBUF, @PBUF@               ; the progress picture on screen, 1024 bytes
+.equ VARS, @VARS@
+.equ LOOP_MS, @LOOP_MS@         ; a new loop picture every LOOP_MS
+.equ STALL_MS, @STALL_MS@
+.equ F_READ, @F_READ@
+.equ UDIV, @UDIV@               ; r0 = r0 / r1
+.equ UDIVMOD, @UDIVMOD@         ; r1 = r0 % r1
+.equ A_FILE, 0                 ; the animation shown: SLOT when it passed the checks, else DEFAULT
+.equ A_N, 4                    ; its progress pictures
+.equ A_M, 8                    ; its loop pictures
+.equ A_TABLE, 12               ; where its list table is
+.equ A_FROM, 16                ; the percent its loop plays from, 0 while the progress stands
+.equ A_SHOWN, 20               ; the progress picture in PBUF
+.equ R_POS, 24                 ; bytes of the file read so far
+.equ R_NEXT, 28                ; where the read under way ends (R_POS when none is)
+.equ R_T, 32                   ; TICKS when it began
+.equ R_BYTES, 36               ; bytes read in the PCM loop, all reads of this load
+.equ R_MS, 40                  ; TICKS they took
+.equ P_SHOWN, 44               ; the progress shown, permille
+.equ P_T, 48                   ; TICKS when it last went up
 .equ LOOK_BACK, @LOOK_BACK@
 .equ LOOK_OUT, @LOOK_OUT@
 .equ SHADOW, @SHADOW@          ; the firmware's copy of what the display shows, 8 pages of 128 bytes
@@ -470,6 +496,7 @@ ls_have:
     ldr r1, [r1, #0x18]
     tst r1, #KILL
     bne ls_out
+    bl anim_start
     ldr r1, =STATE
     mov r2, #0
     str r2, [r1, #S_CUR]
@@ -488,12 +515,15 @@ ls_out:
     pop {r4, r5, r6, pc}
 
 ; ===================================================== loader
-; Replaces the loader's call of the text update (r0, r1 are its arguments): the loader's file offset is in r4, the largest in r7.
-; While the overlay draws, the update is left out: the window it would redraw is never seen.
+; Replaces the loader's call of the text update (r0, r1 are its arguments): the loader's file offset is in r4; its file
+; object is at sp + 0x1C, the size of the file 12 bytes into it (r7 is only the largest offset in the loader's table, so the
+; whole last sample would have shown 100 percent). While the overlay draws, the update is left out: the window it would
+; redraw is never seen.
 lb_progress:
     ldr r12, =STATE
     str r4, [r12, #S_CUR]
-    str r7, [r12, #S_MAX]
+    ldr r2, [sp, #0x28]
+    str r2, [r12, #S_MAX]
     ldr r12, [r12, #S_EXPECT]
     cmp r12, #1
     moveq r0, #1
@@ -711,313 +741,6 @@ lb_power:
     blx r12
 lb_power_wait:
     b lb_power_wait
-
-; r0 = the percent: 100 when the loader is done, else the loader's share of the file, at most 99.
-pct_now:
-    push {r4, lr}
-    ldr r4, =STATE
-    mov r2, #100
-    ldr r1, [r4, #S_DONE]
-    cmp r1, #1
-    moveq r0, r2
-    popeq {r4, pc}
-    ldr r0, [r4, #S_CUR]
-    ldr r1, [r4, #S_MAX]
-    cmp r1, #0
-    moveq r0, #0
-    popeq {r4, pc}
-fp_scale:
-    cmp r1, #0x10000
-    blo fp_scaled
-    mov r0, r0, lsr #1
-    mov r1, r1, lsr #1
-    b fp_scale
-fp_scaled:
-    mul r3, r0, r2
-    mov r0, #0
-fp_loop:
-    cmp r3, r1
-    blo fp_out
-    cmp r0, #99
-    bhs fp_out
-    sub r3, r3, r1
-    add r0, r0, #1
-    b fp_loop
-fp_out:
-    pop {r4, pc}
-
-; r0 = buffer, r1 = x, r2 = y, r3 = 1 lit or 0 dark. Bit 0 of a byte is the top row of its page, 128 bytes per page.
-; Clobbers r1, r2 and r12.
-set_px:
-    mov r12, r2, lsr #3
-    add r12, r1, r12, lsl #7
-    and r2, r2, #7
-    mov r1, #1
-    mov r1, r1, lsl r2
-    ldrb r2, [r0, r12]
-    cmp r3, #0
-    biceq r2, r2, r1
-    orrne r2, r2, r1
-    strb r2, [r0, r12]
-    bx lr
-
-; Picks the picture and draws it. The key (percent, done, the finale's picture) changes at most every FRAME_MS; until then
-; the last one is drawn again, every frame, over whatever the firmware put into the buffer. Only a new key is marked as changed.
-compose:
-    push {r4, r5, r6, r7, r8, r9, r10, lr}
-    ldr r4, =STATE
-    ldr r7, =VRAM
-    bl pct_now
-    mov r5, r0                   ; percent
-    ldr r6, [r4, #S_DONE]
-    cmp r6, #1
-    movne r6, #0
-    ldr r0, =TICKS
-    ldr r8, [r0]                 ; now, ms
-    mov r9, #0                   ; the finale's picture
-    cmp r6, #1
-    cmpne r5, #FINALE_AT
-    blo cp_key
-    ldr r0, =TICK_MUL            ; a new finale picture every TICK_MS
-    mul r0, r8, r0
-    mov r0, r0, lsr #16
-    and r9, r0, #TICKS_MASK
-cp_key:
-    orr r10, r5, r6, lsl #8
-    orr r10, r10, r9, lsl #16
-    ldr r0, [r4, #S_DRAWN]
-    cmp r0, #0
-    beq cp_take
-    ldr r0, [r4, #S_KEY]
-    cmp r0, r10
-    beq cp_same
-    ldr r1, [r4, #S_LAST]
-    sub r1, r8, r1
-    cmp r1, #FRAME_MS
-    bhs cp_take
-cp_same:
-    ldr r10, [r4, #S_KEY]
-    mov r0, r10
-    bl draw_key
-    b cp_done
-cp_take:
-    str r10, [r4, #S_KEY]
-    str r8, [r4, #S_LAST]
-    mov r0, r10
-    bl draw_key
-    ldr r0, [r4, #S_DRAWN]
-    cmp r0, #0
-    mov r0, #1
-    str r0, [r4, #S_DRAWN]
-    mov r0, #0
-    moveq r1, #0                 ; the first picture: all of it
-    movne r1, #16                ; then rows 16 to 63, the wordmark never changes
-    mov r2, #128
-    mov r3, #64
-    bl MARK
-cp_done:
-    pop {r4, r5, r6, r7, r8, r9, r10, pc}
-
-; r0 = key: the picture into the frame buffer (VRAM), complemented when the display is not reversed.
-draw_key:
-    push {r4, r5, r6, r7, r8, r9, r10, r11, lr}
-    and r4, r0, #0xFF            ; percent
-    mov r5, r0, lsr #8
-    and r5, r5, #1               ; done
-    mov r6, r0, lsr #16          ; the finale's picture
-    ldr r7, =VRAM
-    ldr r1, =ART
-    mov r0, r7
-    mov r2, #1024
-dk_base:
-    ldr r3, [r1], #4
-    str r3, [r0], #4
-    subs r2, r2, #4
-    bne dk_base
-    cmp r5, #0
-    beq dk_foot
-    ldr r1, =ART_FOOT
-    add r0, r7, #896
-    mov r2, #128
-dk_done:
-    ldr r3, [r1], #4
-    str r3, [r0], #4
-    subs r2, r2, #4
-    bne dk_done
-dk_foot:
-    cmp r5, #0
-    cmpeq r4, #FINALE_AT
-    bhs dk_finale
-; the line from the tip of the tube to its end, then Blechy over it
-    mov r0, #SWEEP
-    mul r1, r4, r0
-    add r1, r1, #50
-    ldr r0, =1311                ; / 100: exact for these values (at most 94 * 48 + 50)
-    mul r2, r1, r0
-    mov r8, r2, lsr #17          ; shift
-    add r9, r8, #LINE_X          ; x
-dk_line:
-    cmp r9, #LINE_END
-    bhi dk_fig
-    ldr r0, =ART_LUMPS
-    sub r1, r9, #LINE_X
-    ldrb r10, [r0, r1]
-    mov r11, #LINE_Y
-dk_lump:
-    mov r0, r7
-    mov r1, r9
-    mov r2, r11
-    mov r3, #1
-    bl set_px
-    sub r11, r11, #1
-    subs r10, r10, #1
-    bpl dk_lump
-    add r9, r9, #1
-    b dk_line
-dk_fig:
-    ldr r10, =ART_FIG
-    add r11, r7, #SPRITE_OFF
-    add r11, r11, #FIG_X
-    add r11, r11, r8
-    mov r9, #SPRITE_PAGES
-dk_fig_page:
-    mov r8, #0
-dk_fig_col:
-    ldrb r0, [r11, r8]
-    add r1, r10, #FIG_W
-    ldrb r1, [r1, r8]
-    bic r0, r0, r1
-    ldrb r1, [r10, r8]
-    orr r0, r0, r1
-    strb r0, [r11, r8]
-    add r8, r8, #1
-    cmp r8, #FIG_W
-    blo dk_fig_col
-    add r10, r10, #FIG_W2
-    add r11, r11, #128
-    subs r9, r9, #1
-    bne dk_fig_page
-    b dk_pct
-; the finale: its first picture, then the bytes that differ in this one
-dk_finale:
-    ldr r10, =ART_FIN
-    add r11, r7, #SPRITE_OFF
-    add r11, r11, #FIN_X
-    mov r9, #SPRITE_PAGES
-dk_fin_page:
-    mov r8, #0
-dk_fin_col:
-    ldrb r0, [r10, r8]
-    strb r0, [r11, r8]
-    add r8, r8, #1
-    cmp r8, #FIN_W
-    blo dk_fin_col
-    add r10, r10, #FIN_W
-    add r11, r11, #128
-    subs r9, r9, #1
-    bne dk_fin_page
-    ldr r10, =ART_TICKS          ; halfwords as two bytes: the assembler has no ldrh
-    add r1, r10, r6, lsl #1
-    ldrb r0, [r1]
-    ldrb r2, [r1, #1]
-    orr r0, r0, r2, lsl #8
-    add r10, r10, r0
-    ldrb r9, [r10]
-    ldrb r2, [r10, #1]
-    orr r9, r9, r2, lsl #8
-    add r10, r10, #4
-dk_tick:
-    subs r9, r9, #1
-    bmi dk_pct
-    ldrb r0, [r10]
-    ldrb r2, [r10, #1]
-    orr r0, r0, r2, lsl #8
-    ldrb r1, [r10, #2]
-    strb r1, [r7, r0]
-    add r10, r10, #4
-    b dk_tick
-; the percent, right-aligned at PCT_RIGHT: one to three digits and %
-dk_pct:
-    mov r8, #1
-    cmp r4, #10
-    movhs r8, #2
-    cmp r4, #100
-    movhs r8, #3                 ; r8 = digits
-    add r0, r8, #1
-    mov r0, r0, lsl #2
-    rsb r9, r0, #PCT_X0          ; x of the first: PCT_RIGHT + 1 - (4 * (digits + 1) - 1)
-    mov r10, #100
-    cmp r8, #3
-    movlo r10, #10
-    cmp r8, #2
-    movlo r10, #1                ; r10 = place value of the first digit
-dk_digit:
-    mov r0, #0
-dk_div:
-    cmp r4, r10
-    blo dk_got
-    sub r4, r4, r10
-    add r0, r0, #1
-    b dk_div
-dk_got:
-    bl glyph
-    add r9, r9, #4
-    cmp r10, #1
-    beq dk_percent
-    cmp r10, #100
-    moveq r10, #10
-    movne r10, #1
-    b dk_digit
-dk_percent:
-    mov r0, #10
-    bl glyph
-; complemented unless the BLECH menu is armed with DISPLAY INVERT ON (then the controller shows set bits light)
-    ldr r0, =MENU_STATE
-    ldr r1, [r0, #M_ON]
-    cmp r1, #1
-    bne dk_flip
-    ldr r1, [r0, #M_INV]
-    cmp r1, #0
-    bne dk_out
-dk_flip:
-    mov r0, r7
-    mov r2, #1024
-dk_flip_loop:
-    ldr r3, [r0]
-    mvn r3, r3
-    str r3, [r0], #4
-    subs r2, r2, #4
-    bne dk_flip_loop
-dk_out:
-    pop {r4, r5, r6, r7, r8, r9, r10, r11, pc}
-
-; r0 = glyph (0 to 9, 10 is %), r9 = x, r7 = VRAM: three columns of five rows at PCT_Y. Keeps r4 to r11.
-glyph:
-    push {r4, r5, r6, r8, lr}
-    ldr r1, =ART_DIGITS
-    add r0, r0, r0, lsl #1
-    add r4, r1, r0
-    mov r5, #0
-gl_col:
-    ldrb r6, [r4, r5]
-    mov r8, #0
-gl_row:
-    tst r6, #1
-    beq gl_next
-    mov r0, r7
-    add r1, r9, r5
-    add r2, r8, #PCT_Y
-    mov r3, #1
-    bl set_px
-gl_next:
-    mov r6, r6, lsr #1
-    add r8, r8, #1
-    cmp r8, #5
-    blo gl_row
-    add r5, r5, #1
-    cmp r5, #3
-    blo gl_col
-    pop {r4, r5, r6, r8, pc}
 
 ; ===================================================== the look
 ; restyle_reference in Python is the same, rule for rule. The frame is copied to LOOK_BACK and LOOK_OUT, read from LOOK_BACK
@@ -1864,13 +1587,454 @@ cw_no:
 .align 4
 lit_pool:
 .pool
+
+.org @ANIM_CODE@
+; ===================================================== the animation (docs/hintergrund/ladeanimation.md)
+; loading_anim.validate and loading_anim.picture in Python are the same, check for check and list for list.
+
+; Picks the animation (the custom one in SLOT when it passes validate, else DEFAULT), puts its picture 0 into PBUF and
+; clears the counts of the loader's reads. Runs in lb_stat before the overlay is switched on. Keeps r4 to r11.
+anim_start:
+    push {r4, r5, r6, lr}
+    ldr r4, =VARS
+    ldr r0, =SLOT
+    bl validate
+    cmp r0, #0
+    ldrne r5, =SLOT
+    ldreq r5, =DEFAULT
+    str r5, [r4, #A_FILE]
+    add r0, r5, #6
+    bl u16
+    str r0, [r4, #A_N]
+    add r0, r5, #8
+    bl u16
+    str r0, [r4, #A_M]
+    add r0, r5, #10
+    bl u16
+    add r0, r5, r0
+    str r0, [r4, #A_TABLE]
+    ldrb r0, [r5, #5]
+    str r0, [r4, #A_FROM]
+    mov r0, #0
+    str r0, [r4, #A_SHOWN]
+    str r0, [r4, #R_POS]
+    str r0, [r4, #R_NEXT]
+    str r0, [r4, #R_T]
+    str r0, [r4, #R_BYTES]
+    str r0, [r4, #R_MS]
+    str r0, [r4, #P_SHOWN]
+    ldr r0, =TICKS
+    ldr r0, [r0]
+    str r0, [r4, #P_T]
+    add r1, r5, #16
+    ldr r0, =PBUF
+    mov r2, #1024
+as_copy:
+    ldr r3, [r1], #4
+    str r3, [r0], #4
+    subs r2, r2, #4
+    bne as_copy
+    pop {r4, r5, r6, pc}
+
+; r0 = a file (word aligned): r0 = 1 when it may be played, else 0. Magic, version, the loop's percent, the size at most
+; MAX_BYTES, at least one progress picture, the list table behind picture 0 and inside the file, every list and every run
+; inside the file and no run past byte 1023. Keeps r4 to r11.
+validate:
+    push {r4, r5, r6, r7, r8, r9, r10, lr}
+    mov r4, r0
+    ldr r1, [r4]
+    ldr r2, =MAGIC
+    cmp r1, r2
+    bne va_bad
+    ldrb r1, [r4, #4]
+    cmp r1, #1
+    bne va_bad
+    ldrb r1, [r4, #5]
+    cmp r1, #100
+    bhi va_bad
+    ldr r5, [r4, #12]            ; the size
+    ldr r1, =MAX_BYTES
+    cmp r5, r1
+    bhi va_bad
+    add r0, r4, #6
+    bl u16
+    subs r6, r0, #1              ; N - 1
+    bmi va_bad
+    add r0, r4, #8
+    bl u16
+    add r6, r6, r0               ; the lists: N - 1 + M
+    add r0, r4, #10
+    bl u16
+    mov r7, r0                   ; where the table is
+    ldr r1, =HEAD_FRAME
+    cmp r7, r1
+    blo va_bad
+    add r1, r7, r6, lsl #1
+    cmp r1, r5
+    bhi va_bad
+va_list:
+    subs r6, r6, #1
+    bmi va_good
+    add r0, r4, r7
+    bl u16
+    add r7, r7, #2
+    mov r8, r0                   ; where the list is
+    add r1, r8, #2
+    cmp r1, r5
+    bhi va_bad
+    add r0, r4, r8
+    bl u16
+    mov r9, r0                   ; its runs
+    add r8, r8, #2
+va_run:
+    subs r9, r9, #1
+    bmi va_list
+    add r1, r8, #2
+    cmp r1, r5
+    bhi va_bad
+    add r0, r4, r8
+    bl u16
+    mov r1, r0, lsr #10
+    add r1, r1, #1               ; length
+    bic r0, r0, #0xFC00          ; offset in the picture
+    add r0, r0, r1
+    cmp r0, #1024
+    bhi va_bad
+    add r8, r8, #2
+    add r8, r8, r1
+    cmp r8, r5
+    bhi va_bad
+    b va_run
+va_good:
+    mov r0, #1
+    pop {r4, r5, r6, r7, r8, r9, r10, pc}
+va_bad:
+    mov r0, #0
+    pop {r4, r5, r6, r7, r8, r9, r10, pc}
+
+; r0 = an address: r0 = the halfword there, little endian, byte by byte (the file has no alignment; the assembler has no
+; ldrh). Clobbers r1.
+u16:
+    ldrb r1, [r0, #1]
+    ldrb r0, [r0]
+    orr r0, r0, r1, lsl #8
+    bx lr
+
+; r0 = a list, r1 = a picture: the list's runs written over the picture. Keeps r4 to r11.
+apply:
+    push {r4, r5, r6, lr}
+    mov r4, r0
+    mov r5, r1
+    bl u16
+    mov r6, r0                   ; runs
+    add r4, r4, #2
+ap_run:
+    subs r6, r6, #1
+    bmi ap_out
+    mov r0, r4
+    bl u16
+    mov r2, r0, lsr #10          ; length - 1
+    bic r0, r0, #0xFC00
+    add r0, r5, r0
+    add r4, r4, #2
+ap_byte:
+    ldrb r1, [r4], #1
+    strb r1, [r0], #1
+    subs r2, r2, #1
+    bpl ap_byte
+    b ap_run
+ap_out:
+    pop {r4, r5, r6, pc}
+
+; r0 = list number: r0 = the list (table entry, an offset from the start of the file). Keeps r4 to r11.
+list_at:
+    push {r4, lr}
+    ldr r4, =VARS
+    ldr r1, [r4, #A_TABLE]
+    add r0, r1, r0, lsl #1
+    bl u16
+    ldr r1, [r4, #A_FILE]
+    add r0, r1, r0
+    pop {r4, pc}
+
+; r0 = the progress picture wanted: the lists from the one in PBUF up to it are written over PBUF one after the other,
+; only forward. Keeps r4 to r11.
+advance:
+    push {r4, r5, r6, lr}
+    ldr r4, =VARS
+    mov r5, r0
+    ldr r6, [r4, #A_SHOWN]
+ad_next:
+    cmp r6, r5
+    bhs ad_out
+    mov r0, r6                   ; list k + 1 makes picture k + 1, it is entry k of the table
+    add r6, r6, #1
+    bl list_at
+    ldr r1, =PBUF
+    bl apply
+    b ad_next
+ad_out:
+    str r6, [r4, #A_SHOWN]
+    pop {r4, r5, r6, pc}
+
+; r0 = the progress in permille: 1000 when the loader is done, else the share of the file read so far, at most 999. While a
+; read is under way it runs on at the rate of this load's reads so far (bytes per tick), never past the end of that read,
+; and it never goes back. Keeps r4 to r11.
+permille:
+    push {r4, r5, r6, r7, r8, lr}
+    ldr r4, =STATE
+    ldr r5, =VARS
+    ldr r0, [r4, #S_DONE]
+    cmp r0, #1
+    moveq r0, #1000
+    beq pm_keep
+    ldr r6, [r4, #S_CUR]
+    ldr r0, [r5, #R_POS]
+    cmp r0, r6
+    movhi r6, r0                 ; read so far
+    ldr r7, [r5, #R_NEXT]
+    cmp r7, r6
+    bls pm_scale                 ; no read under way
+    ldr r1, [r5, #R_MS]
+    cmp r1, #0
+    beq pm_scale                 ; no rate yet
+    ldr r0, [r5, #R_BYTES]
+    bl UDIV
+    ldr r1, =0xFFFF
+    cmp r0, r1
+    movhi r0, r1                 ; bytes per tick
+    ldr r3, [r5, #R_T]           ; before the clock: a read that begins in between gives no negative time
+    ldr r2, =TICKS
+    ldr r2, [r2]
+    sub r2, r2, r3
+    cmp r2, r1
+    movhi r2, r1                 ; ticks since the read began
+    mul r3, r0, r2
+    sub r2, r7, r6
+    cmp r3, r2
+    movhs r6, r7
+    addlo r6, r6, r3
+pm_scale:
+    ldr r1, [r4, #S_MAX]
+    cmp r1, #0
+    moveq r0, #0
+    beq pm_keep
+pm_shift:
+    cmp r1, #0x400000
+    blo pm_div
+    mov r6, r6, lsr #1
+    mov r1, r1, lsr #1
+    b pm_shift
+pm_div:
+    mov r0, #1000
+    mul r2, r6, r0
+    mov r0, r2
+    bl UDIV
+    ldr r1, =999
+    cmp r0, r1
+    movhi r0, r1
+pm_keep:
+    ldr r1, [r5, #P_SHOWN]
+    cmp r0, r1
+    movls r0, r1
+    bls pm_out
+    str r0, [r5, #P_SHOWN]
+    ldr r1, =TICKS
+    ldr r1, [r1]
+    str r1, [r5, #P_T]
+pm_out:
+    pop {r4, r5, r6, r7, r8, pc}
+
+; Picks the picture and draws it. The key (the progress picture, the loop's picture, done) changes at most every FRAME_MS;
+; until then the last one is drawn again, every frame, over whatever the firmware put into the buffer. Only a new key is
+; marked as changed.
+compose:
+    push {r4, r5, r6, r7, r8, r9, r10, lr}
+    ldr r4, =STATE
+    ldr r5, =VARS
+    bl permille
+    mov r6, r0                   ; permille
+    ldr r0, =TICKS
+    ldr r8, [r0]                 ; now, ms
+    ldr r1, [r5, #A_N]
+    sub r1, r1, #1
+    mul r0, r6, r1
+    ldr r1, =1000
+    bl UDIV
+    mov r7, r0                   ; the progress picture: permille * (N - 1) / 1000
+    mov r9, #0                   ; the loop's picture + 1, 0 none
+    ldr r0, [r5, #A_M]
+    cmp r0, #0
+    beq cp_key
+    ldr r1, [r5, #A_FROM]
+    cmp r1, #0
+    beq cp_stall
+    mov r0, #10
+    mul r2, r1, r0
+    cmp r6, r2
+    blo cp_key                   ; before the loop's percent
+    b cp_loop
+cp_stall:
+    ldr r1, [r5, #P_T]
+    sub r1, r8, r1
+    ldr r2, =STALL_MS
+    cmp r1, r2
+    blo cp_key                   ; the progress has not stood long enough
+cp_loop:
+    mov r0, r8
+    ldr r1, =LOOP_MS
+    bl UDIV
+    ldr r1, [r5, #A_M]
+    bl UDIVMOD
+    add r9, r1, #1
+cp_key:
+    orr r10, r7, r9, lsl #16
+    ldr r0, [r4, #S_DONE]
+    cmp r0, #1
+    orreq r10, r10, #0x1000000
+    ldr r0, [r4, #S_DRAWN]
+    cmp r0, #0
+    beq cp_take
+    ldr r0, [r4, #S_KEY]
+    cmp r0, r10
+    beq cp_same
+    ldr r1, [r4, #S_LAST]
+    sub r1, r8, r1
+    cmp r1, #FRAME_MS
+    bhs cp_take
+cp_same:
+    ldr r0, [r4, #S_KEY]
+    bl draw
+    b cp_done
+cp_take:
+    str r10, [r4, #S_KEY]
+    str r8, [r4, #S_LAST]
+    mov r0, r7
+    bl advance
+    mov r0, r10
+    bl draw
+    mov r0, #1
+    str r0, [r4, #S_DRAWN]
+    mov r0, #0
+    mov r1, #0
+    mov r2, #128
+    mov r3, #64
+    bl MARK
+cp_done:
+    pop {r4, r5, r6, r7, r8, r9, r10, pc}
+
+; r0 = key: PBUF into the frame buffer (VRAM), the loop's list over it, complemented when the display is not reversed.
+draw:
+    push {r4, r5, r6, lr}
+    mov r4, r0
+    ldr r0, =VRAM
+    ldr r1, =PBUF
+    mov r2, #1024
+dr_copy:
+    ldr r3, [r1], #4
+    str r3, [r0], #4
+    subs r2, r2, #4
+    bne dr_copy
+    mov r0, r4, lsr #16
+    ands r0, r0, #0xFF
+    beq dr_flip
+    ldr r5, =VARS
+    ldr r1, [r5, #A_N]
+    add r0, r0, r1
+    sub r0, r0, #2               ; table entry N - 1 + loop
+    bl list_at
+    ldr r1, =VRAM
+    bl apply
+; complemented unless the BLECH menu is armed with DISPLAY INVERT ON (then the controller shows set bits light)
+dr_flip:
+    ldr r0, =MENU_STATE
+    ldr r1, [r0, #M_ON]
+    cmp r1, #1
+    bne dr_not
+    ldr r1, [r0, #M_INV]
+    cmp r1, #0
+    bne dr_out
+dr_not:
+    ldr r0, =VRAM
+    mov r2, #1024
+dr_not_loop:
+    ldr r3, [r0]
+    mvn r3, r3
+    str r3, [r0], #4
+    subs r2, r2, #4
+    bne dr_not_loop
+dr_out:
+    pop {r4, r5, r6, pc}
+
+; ===================================================== read
+; Replaces the two calls of f_read in the sample parser's PCM loop (r0 the file object, r1 the buffer, r2 the bytes, r3
+; where the count goes). While the overlay draws it notes where the read ends and when it began, reads, then adds the bytes
+; and ticks to this load's totals and notes the file's position and size. Otherwise it is the plain call.
+lb_read:
+    ldr r12, =STATE
+    ldr r12, [r12, #S_EXPECT]
+    cmp r12, #1
+    ldrne r12, =F_READ
+    bxne r12
+    push {r4, r5, r6, r7, r8, lr}
+    mov r4, r0
+    mov r5, r1
+    mov r6, r2
+    mov r7, r3
+    ldr r8, =VARS
+    ldr r0, =TICKS
+    ldr r0, [r0]
+    str r0, [r8, #R_T]           ; first the time, then the end: the frame never sees a new end with an old time
+    ldr r0, [r4, #8]
+    add r0, r0, r6
+    ldr r1, [r4, #12]
+    cmp r0, r1
+    movhi r0, r1
+    str r0, [r8, #R_NEXT]
+    mov r0, r4
+    mov r1, r5
+    mov r2, r6
+    mov r3, r7
+    bl F_READ
+    mov r5, r0                   ; its result
+    ldr r0, =TICKS
+    ldr r0, [r0]
+    ldr r1, [r8, #R_T]
+    sub r0, r0, r1
+    ldr r1, [r8, #R_MS]
+    add r1, r1, r0
+    str r1, [r8, #R_MS]
+    ldr r0, [r7]
+    ldr r1, [r8, #R_BYTES]
+    add r1, r1, r0
+    str r1, [r8, #R_BYTES]
+    ldr r0, [r4, #8]
+    ldr r1, [r8, #R_POS]
+    cmp r0, r1
+    movhi r1, r0
+    str r1, [r8, #R_POS]
+    str r1, [r8, #R_NEXT]
+    ldr r0, [r4, #12]
+    ldr r1, =STATE
+    str r0, [r1, #S_MAX]
+    mov r0, r5
+    pop {r4, r5, r6, r7, r8, pc}
+
+.align 4
+.pool
 """
 
 
 def art():
-    data = LOAD_ART.read_bytes()
-    if len(data) > LOAD_END - LOAD_AT:
-        raise SystemExit(f"{LOAD_ART} has {len(data)} bytes, room for {LOAD_END - LOAD_AT}")
+    return LOAD_ART.read_bytes()
+
+
+def anim():
+    """The default loading animation, assets/blechy/loading.blla."""
+    data = LOAD_ANIM.read_bytes()
+    bad = loading_anim.validate(data)
+    if bad or len(data) > ANIM_DEFAULT_END - ANIM_DEFAULT:
+        raise SystemExit(f"{LOAD_ANIM}: {bad or f'{len(data)} bytes, room for {ANIM_DEFAULT_END - ANIM_DEFAULT}'}")
     return data
 
 
@@ -1900,23 +2064,18 @@ def card_picture():
 
 
 def card_at():
-    return (LOAD_AT + len(art()) + 3) & ~3
+    return LOAD_AT
 
 
 def source():
-    a = parse_loading(art())
     text = SOURCE
     for key, value in {
         "STAT_FUNC": f"{STAT_FUNC:#x}", "LOAD_FUNC": f"{LOAD_FUNC:#x}", "PROGRESS_FUNC": f"{PROGRESS_FUNC:#x}", "FLUSH_FUNC": f"{FLUSH_FUNC:#x}",
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CAP": str(FRAME_CAP), "RETRIES": str(RETRIES), "RETRY_MS": str(RETRY_MS),
-        "CODE_AT": f"{CODE_AT:#x}", "TICKS": f"{TICKS:#x}", "MENU_STATE": f"{MENU_STATE:#x}",
-        "ART": f"{LOAD_AT:#x}", "ART_FOOT": f"{LOAD_AT + 1024:#x}", "ART_LUMPS": f"{LOAD_AT + 1152:#x}",
-        "ART_DIGITS": f"{LOAD_AT + 1204:#x}", "ART_FIG": f"{LOAD_AT + a['fig_at']:#x}", "ART_FIN": f"{LOAD_AT + a['fin_at']:#x}",
-        "ART_TICKS": f"{LOAD_AT + a['table_at']:#x}", "FIG_X": str(a["fig_x"]), "FIG_W": str(a["fig_w"]), "FIG_W2": str(2 * a["fig_w"]),
-        "FIN_X": str(a["fin_x"]), "FIN_W": str(a["fin_w"]), "SPRITE_OFF": str(SPRITE_PAGE * 128), "SPRITE_PAGES": str(SPRITE_PAGES),
-        "LINE_X": str(LINE_X), "LINE_END": str(LINE_X + SWEEP), "LINE_Y": str(LINE_Y), "SWEEP": str(SWEEP),
-        "FINALE_AT": str(FINALE_AT), "TICKS_MASK": str(TICKS_N - 1), "TICK_MUL": str(TICK_MUL), "FRAME_MS": str(FRAME_MS),
-        "PCT_X0": str(PCT_RIGHT + 2), "PCT_Y": str(PCT_Y),
+        "CODE_AT": f"{CODE_AT:#x}", "TICKS": f"{TICKS:#x}", "MENU_STATE": f"{MENU_STATE:#x}", "FRAME_MS": str(FRAME_MS),
+        "SLOT": f"{ANIM_SLOT:#x}", "DEFAULT": f"{ANIM_DEFAULT:#x}", "MAX_BYTES": str(loading_anim.MAX_BYTES), "PBUF": f"{ANIM_BUF:#x}",
+        "VARS": f"{ANIM_VARS:#x}", "LOOP_MS": str(TICK_MS), "STALL_MS": str(STALL_MS), "F_READ": f"{READ_FUNC:#x}",
+        "UDIV": f"{UDIV:#x}", "UDIVMOD": f"{UDIVMOD:#x}", "ANIM_CODE": f"{ANIM_CODE:#x}",
         "LOOK_CODE": f"{LOOK_CODE:#x}", "LOOK_BACK": f"{LOOK_BACK:#x}", "LOOK_OUT": f"{LOOK_OUT:#x}", "SHADOW": f"{SHADOW:#x}", "LOOK_VARS": f"{LOOK_VARS:#x}", "LOOK_BOXES": f"{LOOK_BOXES:#x}", "LOOK_BOX": str(LOOK_BOX),
         "LOOK_NBOX": str(LOOK_NBOX), "APP_PICTURE": f"{APP_PICTURE:#x}", "OFF_ACTIVE": f"{OFF_ACTIVE:#x}",
         "EDITOR_MODE": f"{EDITOR_MODE:#x}", "ERR_CODE": f"{ERR_CODE:#x}", "CARD_ART": f"{card_at():#x}", "CARD_ART4": f"{card_at() + len(rle(card_frame(2))):#x}", "DITHER_WORD": f"{int.from_bytes(bytes(DITHER), 'little'):#x}",
@@ -1926,10 +2085,10 @@ def source():
 
 
 def build_code():
-    """(code at, its bytes, symbols, the look's code at, its bytes)."""
+    """(code at, its bytes, symbols, the look's code at, its bytes, the animation's code at, its bytes)."""
     code = arm.assemble(source())
-    (at, data), (look_at, look) = code.sections
-    return at, data, code.symbols, look_at, look
+    (at, data), (look_at, look), (anim_at, anim_code) = code.sections
+    return at, data, code.symbols, look_at, look, anim_at, anim_code
 
 
 def file_offset(addr):
@@ -1946,11 +2105,13 @@ def word_of(at, target, link):
 
 def build_patch(vsb):
     """The patch as a dict; `vsb` is the user's file, read for the hashes of the replaced bytes."""
-    at, code, symbols, look_at, look = build_code()
+    at, code, symbols, look_at, look, anim_at, anim_code = build_code()
     if at != CODE_AT or at + len(code) > CODE_END:
         raise SystemExit(f"code is {len(code):#x} bytes, room for {CODE_END - CODE_AT:#x}")
     if look_at != LOOK_CODE or look_at + len(look) > LOOK_CODE_END:
         raise SystemExit(f"the look's code is {len(look):#x} bytes, room for {LOOK_CODE_END - LOOK_CODE:#x}")
+    if anim_at != ANIM_CODE or anim_at + len(anim_code) > ANIM_CODE_END:
+        raise SystemExit(f"the animation's code is {len(anim_code):#x} bytes, room for {ANIM_CODE_END - ANIM_CODE:#x}")
 
     def was(addr, n):
         return vsb[file_offset(addr):file_offset(addr) + n]
@@ -1972,6 +2133,9 @@ def build_patch(vsb):
         (0xC0015A94, SHADOW, "the display's copy is not where the patch expects it"),
         (0xC0015B4C, 0xC031B310, "the page compare does not read the frame buffer the patch expects"),
         (ERR_CODE_LIT, ERR_CODE, "the error box does not keep its code where the patch expects it"),
+        *((site, word_of(site, READ_FUNC, True), "the sample parser does not read its PCM data where the patch expects it") for site in READ_CALLS),
+        (UDIV, UDIV_WORD, "the firmware's division is not where the patch expects it"),
+        (UDIVMOD, UDIVMOD_WORD, "the firmware's division with remainder is not where the patch expects it"),
     )
     for addr, want, why in expected:
         if word(addr) != want:
@@ -1981,6 +2145,9 @@ def build_patch(vsb):
         raise SystemExit(f"the card picture has {len(card)} bytes, room for {LOAD_END - card_at()}")
     free(STATE, STATE_END - STATE)
     free(LOOK_BACK, LOOK_END - LOOK_BACK)
+    free(ANIM_SLOT, ANIM_SLOT_END - ANIM_SLOT)
+    free(ANIM_VARS, ANIM_VARS_END - ANIM_VARS)
+    free(ANIM_BUF, ANIM_BUF_END - ANIM_BUF)
 
     def hook(addr, name, link, note):
         return {"file": file_offset(addr), "bytes": branch(addr, symbols[name], link).hex(), "expect": sha(was(addr, 4)), "note": note}
@@ -1994,14 +2161,17 @@ def build_patch(vsb):
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
              "note": "loading bar: the BLECH image while e2sSample.all loads, the underline is the bar, the eyes look around"},
-            {"file": file_offset(LOAD_AT), "bytes": art().hex(), "expect": free(LOAD_AT, len(art())),
-             "note": "the pictures of the loading animation (assets/blechy/loading.bin)"},
+            {"file": file_offset(ANIM_DEFAULT), "bytes": anim().hex(), "expect": free(ANIM_DEFAULT, len(anim())),
+             "note": "the default loading animation (assets/blechy/loading.blla), shown when no custom one passes the checks"},
             {"file": file_offset(card_at()), "bytes": card.hex(), "expect": free(card_at(), len(card)),
              "note": "the pictures while the firmware's error box says 'No Card.' or 'Card Error' (Blechy in terror, run-length coded)"},
             {"file": file_offset(LOOK_CODE), "bytes": look.hex(), "expect": free(LOOK_CODE, len(look)),
              "note": "the look: tab corner, box corners and shadows, the dithered rim, drawn over every frame with DISPLAY INVERT ON"},
+            {"file": file_offset(ANIM_CODE), "bytes": anim_code.hex(), "expect": free(ANIM_CODE, len(anim_code)),
+             "note": "the animation: checks the file, picks the picture by the bytes read, counts the loader's reads"},
             hook(STAT_CALL, "lb_stat", True, "the question whether e2sSample.all exists goes through the hook"),
             hook(PROGRESS_CALL, "lb_progress", True, "the loader's text update goes through the hook"),
+            *(hook(site, "lb_read", True, "the sample parser's read of PCM data goes through the hook") for site in READ_CALLS),
             hook(LOAD_CALL, "lb_load", True, "the call of the loader goes through the hook"),
             hook(FLUSH, "lb_frame", False, "the frame function's flush goes through the hook"),
             hook(PAGE_CALL, "lb_page", True, "the display send's page compare goes through the hook"),
@@ -2009,6 +2179,8 @@ def build_patch(vsb):
         "hooks": [
             declare(STAT_CALL, "call", "start", "after", False, "after the original asks whether e2sSample.all exists, the hook remembers that a load is coming"),
             declare(PROGRESS_CALL, "call", "start", "before", False, "the hook notes the loader's position; while the overlay draws the text update is left out, otherwise it runs"),
+            *(declare(site, "call", "start", "before", False, "while the overlay draws the hook notes where the read ends and when it began, then counts the bytes read; otherwise it is the plain read")
+              for site in READ_CALLS),
             declare(LOAD_CALL, "call", "start", "after", False, "the loader runs, then the hook notes that it is done"),
             declare(FLUSH, "instruction", "frame", "before", False, "while a load is expected the hook puts the image over the frame, then the original flush runs"),
             declare(PAGE_CALL, "call", "display-send", "replace", False, "compares and copies the page as the firmware does, from the frame with the look when DISPLAY INVERT is ON"),
@@ -2016,6 +2188,9 @@ def build_patch(vsb):
         "startPhase": [
             {"file": file_offset(STAT_CALL), "length": 4, "why": "the start task asks whether e2sSample.all exists, about 75 ms in, after the panel update and the start modes, and now calls lb_stat"},
             {"file": file_offset(PROGRESS_CALL), "length": 4, "why": "the loader updates its text for every sample and now calls lb_progress"},
+            *({"file": file_offset(site), "length": 4, "why": "the sample parser reads the PCM data of every sample in chunks up to 64 KiB and now calls lb_read"}
+              for site in READ_CALLS),
+            {"file": file_offset(ANIM_CODE), "length": len(anim_code), "why": "lb_read and the animation: they count reads and draw only while a load is expected"},
             {"file": file_offset(LOAD_CALL), "length": 4, "why": "the start task calls the loader and now calls lb_load"},
             {"file": file_offset(FLUSH), "length": 4, "why": "every frame of the user interface task ends in this flush; from the first frame (about 170 ms) it calls lb_frame"},
             {"file": file_offset(CODE_AT), "length": len(code), "why": "the hooks and what they call: they note a load only when the file exists and EXIT was not held, and draw only then"},
@@ -2027,6 +2202,9 @@ def build_patch(vsb):
             ramdecl.area(LOOK_BACK, 1024, "the frame as the firmware drew it, read by the look", "tools/patch/load_bar.py:LOOK_BACK"),
             ramdecl.area(LOOK_OUT, 1024, "the frame with the look, the display send takes its pages from it", "tools/patch/load_bar.py:LOOK_OUT"),
             ramdecl.area(LOOK_VARS, LOOK_END - LOOK_VARS, "the look's tab, boxes and the send's source", "tools/patch/load_bar.py:LOOK_NBOX"),
+            ramdecl.area(ANIM_SLOT, ANIM_SLOT_END - ANIM_SLOT, "a custom loading animation, written by the app, FF without one", "tools/patch/load_bar.py:ANIM_SLOT"),
+            ramdecl.area(ANIM_VARS, ANIM_VARS_END - ANIM_VARS, "the animation shown, the loader's reads, the progress shown", "tools/patch/load_bar.py:ANIM_VARS"),
+            ramdecl.area(ANIM_BUF, ANIM_BUF_END - ANIM_BUF, "the progress picture on screen", "tools/patch/load_bar.py:ANIM_BUF"),
         ],
         "shares": [
             ramdecl.share(MENU_STATE, 4, "script-runtime", "read only: is the BLECH menu armed (M_ON)", "tools/patch/load_bar.py:MENU_STATE"),
@@ -2049,8 +2227,9 @@ def main():
         raise SystemExit("a VSB has 0x200100 bytes")
     patch = build_patch(raw)
     if a.listing:
-        at, code, symbols, look_at, look = build_code()
-        print(f"section {at:#x} + {len(code):#x} bytes, look {look_at:#x} + {len(look):#x}, pictures {LOAD_AT:#x}, state {STATE:#x}")
+        at, code, symbols, look_at, look, anim_at, anim_code = build_code()
+        print(f"section {at:#x} + {len(code):#x} bytes, look {look_at:#x} + {len(look):#x}, animation {anim_at:#x} + {len(anim_code):#x}, "
+              f"default {ANIM_DEFAULT:#x} + {len(anim()):#x}, card pictures {LOAD_AT:#x}, state {STATE:#x}")
         for name, addr in sorted(symbols.items(), key=lambda kv: kv[1]):
             print(f"  {addr:#010x} {name}")
     text = json.dumps(patch, indent=1) + "\n"

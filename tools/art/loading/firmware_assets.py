@@ -3,14 +3,18 @@
 
     splash.bin, splash.png, splash.json   the fixed start image (Blechy tipping the tube), as the display shows it
                                           before DISPLAY INVERT is sent: a set bit is dark
-    loading.bin                           the pictures of the loading animation for tools/patch/load_bar.py
+    loading.bin                           the parts of the loading animation (base, line, figure, digits, finale)
+    loading.blla                          the loading animation in the firmware's format (docs/hintergrund/ladeanimation.md),
+                                          made from those parts: the default the patch writes (tools/patch/load_bar.py)
 
     python3 tools/art/loading/firmware_assets.py
 
 Every picture comes from anim.py, the renderer of the previews. Before writing, the overlay's way of putting a frame
-together (load_bar.compose_reference) is checked against the renderer for every percent and every finale picture.
+together (load_bar.compose_reference) is checked against the renderer for every percent and every finale picture, and
+so is every picture of loading.blla. Encoding goes through src/loading-anim.mjs, so node is needed.
 """
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,6 +26,7 @@ import render as r
 ROOT = anim.ROOT
 sys.path.insert(0, str(ROOT / "tools" / "patch"))
 import load_bar as lb  # noqa: E402
+import loading_anim  # noqa: E402
 
 ASSETS = ROOT / "assets" / "blechy"
 
@@ -84,6 +89,17 @@ def digits():
     return out
 
 
+def animation(art):
+    """loading.blla: a progress picture per percent 0 to 99 and the one when done, the finale's 8 pictures as the loop
+    from FINALE_AT on, its lists taken against the picture of FINALE_AT (the percent stays as it is under them)."""
+    key = lambda pct, done=False, tick=0: lb.compose_reference(art, lb.loading_key(pct, done, tick)).hex()
+    frames = {"progress": [key(pct) for pct in range(100)] + [key(100, True)],
+              "loop": [key(lb.FINALE_AT, tick=t) for t in range(lb.TICKS_N)], "loopFrom": lb.FINALE_AT}
+    out = subprocess.run(["node", str(ROOT / "tools" / "art" / "loading" / "encode_blla.mjs")], input=json.dumps(frames),
+                         capture_output=True, text=True, check=True).stdout
+    return bytes.fromhex(out.strip())
+
+
 def main():
     base = lit(base_image())
     done_page = anim.blank()
@@ -102,7 +118,17 @@ def main():
             bad.append(("done", tick))
     if bad:
         raise SystemExit(f"the overlay's composition differs from the renderer at {bad[:8]}")
+    blla = animation(art)
+    n = len(loading_anim.decode(blla)[0])
+    for permille in range(1001):
+        pct, done = permille // 10, permille == 1000
+        for tick in (range(lb.TICKS_N) if done or pct >= lb.FINALE_AT else (None,)):
+            if loading_anim.picture(blla, loading_anim.progress_index(n, permille), tick) != lit(frame(pct, done, tick or 0)):
+                bad.append((permille, tick))
+    if bad:
+        raise SystemExit(f"loading.blla differs from the renderer at {bad[:8]}")
     (ASSETS / "loading.bin").write_bytes(blob)
+    (ASSETS / "loading.blla").write_bytes(blla)
 
     still = anim.still_splash()
     splash = anim.pack_frame(still, bit_order="msb", controller_inverted=False)
@@ -112,7 +138,8 @@ def main():
     patch["changes"][0]["bytes"] = splash.hex()
     (ASSETS / "splash.json").write_text(json.dumps(patch, indent=1) + "\n")
     print(f"loading.bin {len(blob)} bytes (figure {fig[1]} columns at x {fig[0]}, finale {fin[1]} columns at x {fin[0]}, "
-          f"finale changes {[len(t) for t in ticks]}), splash.bin 1024 bytes; composition equals the renderer for all 108 pictures")
+          f"finale changes {[len(t) for t in ticks]}), loading.blla {len(blla)} bytes, splash.bin 1024 bytes; "
+          f"composition and loading.blla equal the renderer for all 108 pictures")
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ export const CHAINS = {
     { id: "doom-select", sites: [0xC002AE64] },
     { id: "first-pattern", sites: [0xC002AF40] },
     { id: "before-sample-load", sites: [0xC0038D34] },
-    { id: "sample-load", sites: [0xC0038D60, 0xC00366D4] },
+    { id: "sample-load", sites: [0xC0038D60, 0xC00366D4, 0xC00362FC, 0xC003635C] },
     { id: "after-sample-load", sites: [0xC0038D68] },
     { id: "after-native-initialization", sites: [0xC0028170] },
   ],
