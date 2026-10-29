@@ -31,7 +31,7 @@ class SynthStartupTests(unittest.TestCase):
         from unicorn import arm_const as arm
 
         built = build(contract_data()['include'], build='synth')
-        startup = ['menu_arm_load', 'blechy_boot', 'script_card_load', 'menu_recount']
+        startup = ['menu_arm_load', 'migrate_start', 'blechy_boot', 'script_card_load', 'menu_recount']
         registers = [getattr(arm, f'UC_ARM_REG_R{i}') for i in range(13)] + [arm.UC_ARM_REG_SP, arm.UC_ARM_REG_CPSR]
         for name, pointer, held, mode, updating, active in [
             ('normal', 0xC0204000, 0, 0, 0, True),
