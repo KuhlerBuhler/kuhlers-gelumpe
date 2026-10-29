@@ -52,7 +52,8 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC00161A4,0xE51B3010,'lcd_invert_hook'),
          (0xC0064430,0xE92D4038,'menu_event_right'),
          (0xC0067754,0xE3A0000A,'menu_pattern_left'),
-         (0xC0038D34,0xE3A03000,'script_early_hook'))
+         (0xC0038D34,0xE3A03000,'script_early_hook'),
+         (0xC00289D8,0xE3500F49,'boot_light_hook'))
 # Words that change to a plain value instead of a branch: the screen factory's bound and its table literal.
 WORDS = ((0xC006E664,0xE350002C,0xE350002D),
          (0xC006E68C,0xC00F9CD8,MENU_TABLE))
@@ -98,7 +99,7 @@ def runtime_profile(build):
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
-        if name == 'script_early_hook':
+        if name in ('script_early_hook', 'boot_light_hook'):
             continue
         if name == 'script_card_hook':
             address, expected = 0xC0028170, 0xE5D43004
@@ -168,6 +169,7 @@ class BuiltHooks:
             ('frame_return','script_frame_return_end','Rahmenrückweg samt eigenen Literalen im beobachteten Startblock.'),
             ('script_save_hook','script_save_hook_end','Speicher-Haken erhält Register, meldet das Ereignis und führt den verdrängten Befehl aus.'),
             ('script_early_hook','script_early_end','Der Haken vor dem Sample-Lader (erster Befehl des Ladebefehls) erhält Register und Flags, schaltet das Menü scharf und liest die Einstellungen, damit das Aussehen schon beim Laden gilt, und führt den verdrängten Befehl aus.'),
+            ('boot_light_hook','boot_light_end','Die Farbe des Hintergrundlichts beim Einschalten: hinter dem ersten Lesen des Flash prüft der Haken Panel, EXIT und Panel-Update, liest 12 Byte der Globals im Flash (Marke GLED) und setzt nur die drei Pins des Lichts; die Haken der Lichtfunktionen lassen sie bis zum Scharfschalten so.'),
             ('script_card_hook','script_card_wrapper_end','Start-Wrapper erhält Register und Flags, prüft den Notschalter vor Menü und Plugins und führt den verdrängten nativen Befehl aus.'),
             ('script_card_load','script_card_load_end','Kartenlader prüft Panel und EXIT, öffnet die Plugin-Datei und kehrt ohne Karte oder Datei zurück.'),
             ('fx_card_load','fx_card_load_end','Der Lader der Sammeldatei e2sFx.all prüft Panel und EXIT, liest die Datei erst ganz zur Prüfung und schreibt nur dann Presets und Modulationen ins RAM; ohne Karte, Datei oder bei einem Fehler kehrt er zurück, ohne etwas zu schreiben.'),
@@ -198,6 +200,7 @@ class BuiltHooks:
         menu_hooks+=[dict(site='0xC006E664',kind='instruction',chain='menu-ring',position='replace',swallow=False),
             dict(site='0xC006E68C',kind='literal',chain='menu-ring',position='replace',swallow=False)]
         menu_hooks+=[dict(site='0xC0038D34',kind='instruction',chain='start',position='before',swallow=False)]
+        menu_hooks+=[dict(site='0xC00289D8',kind='instruction',chain='start',position='before',swallow=False)]
         return dict(format='gelumpe-patch',version=1,id='script-runtime',
             name='Plugin-Laufzeit mit Eingangsfilter und Rahmenhaken',builds=[self.profile.build],changes=changes,
             startPhase=[dict(file=start-RAM_BASE+0x100,length=end-start,why=why) for start,end,why in spans],
