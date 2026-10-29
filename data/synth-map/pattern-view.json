@@ -29,6 +29,18 @@
    "to": "0xC0078F9C",
    "kind": "code",
    "why": "the firmware's own pad refresh after a pattern load (LED manager, mode 4 draws the steps): the 16 words around it equal in both images (fwmap same code)"
+  },
+  {
+   "from": "0xC0048CFC",
+   "to": "0xC0042ED8",
+   "kind": "code",
+   "why": "the part mute getter (ldr r3, [r0, #4]; mla with 0x330; ldrb [r1, #0x805]), the pad LEDs' mute loop 0xC0087D9C / 0xC0077EF0 calls it: the 16 words around it equal in both images (fwmap same code)"
+  },
+  {
+   "from": "0xC0048D00",
+   "to": "0xC0042EDC",
+   "kind": "code",
+   "why": "the instruction after the getter's first, where the hook goes on"
   }
  ]
 }
