@@ -55,7 +55,7 @@ function verdictText(input, items) {
   }
 }
 
-export function patcherPage(root, { emulator, show = () => {}, session = () => null }) {
+export function patcherPage(root, { emulator, show = () => {}, session = () => null, onTarget = () => {} }) {
   if (!document.querySelector("link[data-cee-patcher]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-patcher", "");
@@ -638,6 +638,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   function buildDone() {
     const folder = folderOf(flow);
+    onTarget(folder);
     const old = sampleFolder(flow.origin);
     // Korg's firmware of the blue keeps the synth's files, which the Sampler code cannot read: nothing to copy then
     const moves = blech?.items.some(p => p.id === "blechtribe") && !(flow.origin === "stock" && flow.device === "blue");

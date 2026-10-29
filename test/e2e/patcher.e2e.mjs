@@ -208,6 +208,7 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   assert.match(text, /KORG\/hacktribe\/System\//);
   assert.match(await guide.locator("#cee-patch-guide-copy").textContent(), /Kopiere auf der Karte den Ordner KORG\/hacktribe\/ nach KORG\/blechtribe\/\. Kopieren, nicht umbenennen/);
   assert.match(await guide.locator("#cee-patch-guide-vsb").textContent(), /nach KORG\/hacktribe\/System\/, also in den Ordner der Firmware, die jetzt auf dem Gerät läuft, nicht nach blechtribe/);
+  assert.match(await guide.locator("#cee-patch-guide-vsb").textContent(), /genau SYSTEM\.VSB heißen: Hat dein Browser sie SYSTEM \(1\)\.VSB genannt, benenn sie um\. Fehlt der Ordner System, leg ihn an, aber benenn keinen Ordner um/, "the exact file name and the folder System");
   const doom = guide.locator("#cee-patch-guide-doom");
   assert.match(await doom.textContent(), /Für Doom \(SHIFT \+ TAP beim Einschalten\): doom\.bin und doom\.wad laden und auf der Karte nach KORG\/blechtribe\/Doom\/ legen\./);
   assert.deepEqual(await doom.locator("a[download]").evaluateAll(links => links.map(a => [a.getAttribute("href"), a.getAttribute("download")])), [["third_party/doom/doom.bin", "doom.bin"], ["third_party/doom/doom.wad", "doom.wad"]]);
@@ -216,6 +217,15 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   assert.match(text, /DATA UTILITY/);
   assert.match(text, /SOFTWARE UPDATE/);
   assert.match(text, /EXIT/);
+
+  // The Rettung page knows the folder of this copy when the Electribe says No File.
+  await page.goto(`${page.url().split("#")[0]}#rescue`);
+  const rescueAnswer = label => page.locator("#cee-rescue-answers:not([data-waiting]) button", { hasText: label }).first().click();
+  await rescueAnswer("Da steht Error und No File");
+  await rescueAnswer("Im Menü bei SOFTWARE UPDATE");
+  await page.locator("#cee-rescue-answers [data-known]").waitFor();
+  assert.match(await page.locator("#cee-rescue-answers [data-known]").textContent(), /Hacktribe/);
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "KORG/hacktribe/System/SYSTEM.VSB");
   assert.deepEqual(page.errors, []);
 });
 

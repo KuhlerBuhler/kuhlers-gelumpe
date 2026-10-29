@@ -67,7 +67,22 @@ const portLine = port => {
  * 1.15.63). Windows' own driver names them "Electribe 3" and works.
  */
 const JACK = / (PAD\/KNOB|SOUND)$/;
-export const korgDriver = report => /Windows/.test(report.agent) && [...report.inputs, ...report.outputs].some(port => JACK.test(port.name));
+const jackNames = report => [...report.inputs, ...report.outputs].some(port => JACK.test(port.name));
+export const korgDriver = report => /Windows/.test(report.agent) && jackNames(report);
+
+/**
+ * What the Rettung page says to "the app does not find my Electribe", from a report and the mode picked in the navbar
+ * ("emu" or "device"); null when the report shows nothing to go by. The same port names on another system than Windows
+ * are not measured yet, so they only lead to the report, not to a cause.
+ */
+export function midiVerdict(report, mode) {
+  if (report.access === "unsupported" || report.access === "denied") return report.access;
+  const ports = [...report.inputs, ...report.outputs];
+  if (report.access !== "granted" && !ports.length) return null;
+  if (jackNames(report)) return /Windows/.test(report.agent) ? "korgWindows" : "korgOther";
+  if (!report.pairs.length) return ports.some(port => /electribe/i.test(port.name)) ? "unpaired" : "none";
+  return mode === "device" ? "paired" : "emu";
+}
 
 /** The report as plain text, one fact per line. */
 export function midiReport(report) {
