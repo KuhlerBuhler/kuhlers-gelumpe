@@ -902,6 +902,8 @@ def settings_cases(payload, flash=None):
 
     # no BLECH folder on the card, as on the blue, which keeps KORG/electribe: the save makes KORG/blechtribe, the next start reads it
     nofolder = boot(payload, flash, files={"/KORG/electribe/Sample/placeholder": b"1"})
+    if nofolder.u32(0xC0190100) == 1:          # the blue asks to copy KORG/electribe first (migrate_cases.py); EXIT starts without
+        press(nofolder, "exit", wait=0.6)
     goto_group(nofolder, GROUP_FEATURES, FEAT_MFX)
     nofolder.turn(-1, wait=0.2)
     press(nofolder, "write", wait=0.6)

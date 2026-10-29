@@ -18,6 +18,7 @@ script_card_hook:
     cmp r1, #0
     bne synth_start_native
     bl menu_arm_load
+    bl migrate_start
     ldr r0, =HOOK_RUNTIME
     bl blechy_boot
     ldr r0, =HOOK_RUNTIME
