@@ -574,7 +574,7 @@ export default {
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: вибери патерн (FACTORY — шаблон прошивки). Діє одразу й зберігається після вимкнення.",
   "features.stereoPad.title": "Стерео на одному педі",
   "features.stereoPad.text": "Стереосемпл займає лише свій пед. Electribe грає його там одним голосом, сусідній пед лишається вільним і грає свій семпл.",
-  "features.stereoPad.how": "Працює завжди: поклади стереосемпл на пед, наступний пед лишається вільним. EXIT під час увімкнення повертає пару прошивки.",
+  "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD: ON (типово) або OFF, OFF повертає пару прошивки. Діє одразу, WRITE зберігає.",
   "features.polyPink.title": "Акорди рожевим",
   "features.polyPink.text": "У режимі SEQUENCER полі-парт показує кроки з кількома нотами рожевим.",
   "features.polyPink.how": "Режим SEQUENCER, полі-парт.",

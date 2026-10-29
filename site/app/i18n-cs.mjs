@@ -574,7 +574,7 @@ export default {
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: vyber pattern (FACTORY je šablona firmwaru). Platí hned a zůstane i po vypnutí.",
   "features.stereoPad.title": "Stereo na jednom padu",
   "features.stereoPad.text": "Stereo sampl zabere jen svůj vlastní pad. Electribe ho tam hraje jedním hlasem, vedlejší pad zůstane volný a hraje svůj vlastní sampl.",
-  "features.stereoPad.how": "Funguje samo: dej stereo sampl na pad, další pad zůstane volný. EXIT podržený při zapnutí vrátí párování firmwaru.",
+  "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD: ON (výchozí) nebo OFF, OFF vrátí párování firmwaru. Platí hned, WRITE ho uloží.",
   "features.polyPink.title": "Akordy růžově",
   "features.polyPink.text": "V režimu SEQUENCER ukazuje poly part stepy s více notami růžově.",
   "features.polyPink.how": "Režim SEQUENCER, poly part.",

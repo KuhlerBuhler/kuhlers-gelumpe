@@ -573,7 +573,7 @@ export default {
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: scegli un pattern (FACTORY è il modello del firmware). Vale subito e resta dopo lo spegnimento.",
   "features.stereoPad.title": "Stereo su un pad",
   "features.stereoPad.text": "Un campione stereo occupa solo il proprio pad. La Electribe lo suona lì con una voce, il pad accanto resta libero e suona il proprio campione.",
-  "features.stereoPad.how": "Sempre attivo: metti un campione stereo su un pad, il pad successivo resta libero. EXIT tenuto all'accensione ripristina la coppia del firmware.",
+  "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD: ON (predefinito) o OFF, OFF ripristina la coppia del firmware. Vale subito, WRITE lo conserva.",
   "features.polyPink.title": "Accordi in rosa",
   "features.polyPink.text": "In modalità SEQUENCER un Part poly mostra in rosa gli step con più note.",
   "features.polyPink.how": "Modalità SEQUENCER, Part poly.",

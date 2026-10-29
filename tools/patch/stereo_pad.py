@@ -11,7 +11,9 @@ plays a stereo sample the way an even part does. Three places decide the pairing
 - 0xC0099E2C in the voice setup (0xC0099D88): mode 3 (two voices, type 2) on an even part, mode 4 (one voice, type 4) on an odd one.
 
 The pattern format does not change; a pattern keeps its bytes. The live input's pairing (oscillator 0x11 and 0x2D) stays
-the firmware's. With EXIT held at power-on all three places do what the firmware does (docs/patcher.md, "Notschalter").
+the firmware's. The page STEREO 1 PAD in BLECH > FEATURES writes the setting word SETTING (never written, FFFFFFFF, or 1 is on, 0 is
+off, kept as bit 2 of byte 5 of the settings file). With the setting off, or EXIT held at power-on (docs/patcher.md,
+"Notschalter"), all three places do what the firmware does.
 
     python3 tools/patch/stereo_pad.py --vsb SYSTEM.VSB [--out data/patches/stereo-pad.json]
 """
@@ -26,12 +28,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import arm  # noqa: E402
+import ramdecl  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
 
 CODE_AT = 0xC014FF00            # FF in all three builds, behind the last-pattern code, the end of the run 0xC0148880..0xC0150000
-CODE_END = 0xC0150000
+CODE_END = 0xC014FFFC
+SETTING = 0xC014FFFC            # the last word of the run, FF in the file: the BLECH menu's page STEREO 1 PAD writes it
 
 MODE_SITE = 0xC007DE08          # bne 0xC007DDF8: a stereo sample's part pairs when it is even (r5 the part, r0 1)
 MODE_WAS = 0x1AFFFFFA
@@ -46,23 +50,30 @@ KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13)
 
 def source():
     return f"""
+.equ SETTING, {SETTING:#x}
 .equ PANEL, {PANEL:#x}
 .equ KILL, {KILL_SWITCH:#x}
 .equ CLAIM_SKIP, {CLAIM_SKIP:#x}
 .org {CODE_AT:#x}
 
-; Z set when the firmware's pairing applies (EXIT held at power-on); r12 and the flags change
+; Z set when the patch applies: the setting is not 0 and EXIT was not held at power-on; r12 and the flags change
 sp_killed:
+    ldr r12, =SETTING
+    ldr r12, [r12]
+    cmp r12, #0
+    beq sp_firmware
     ldr r12, =PANEL
     ldr r12, [r12]
     cmp r12, #0
     beq sp_on
     ldr r12, [r12, #0x18]
     tst r12, #KILL
-    bxne lr                     ; Z clear: killed
+    bxne lr
 sp_on:
-    cmp r12, r12                ; Z set: the patch applies
-    eor r12, r12, r12
+    cmp r12, r12
+    bx lr
+sp_firmware:
+    movs r12, #1
     bx lr
 
 ; replaces bne 0xC007DDF8 after cmp r0, #0: returns 0 (no pair) instead of "the part is even"; the caller pops pc next
@@ -152,7 +163,11 @@ def build_patch(vsb):
             {"site": f"0x{VOICE_SITE:08X}", "kind": "instruction", "chain": "stereo-pair", "position": "replace", "swallow": False,
              "note": "the voice setup takes mode 4 (one voice) on an even part too"},
         ],
-        "ram": [],
+        "startPhase": [
+            {"file": file_offset(MODE_SITE), "length": 4, "why": "the start loads a pattern and asks each part's stereo mode, which now calls sp_mode"},
+            {"file": file_offset(CODE_AT), "length": len(code), "why": "sp_mode runs with that call; it reads the setting word and the held keys"},
+        ],
+        "ram": [ramdecl.area(SETTING, 4, "the setting word of STEREO 1 PAD: FFFFFFFF or 1 on, 0 off; the BLECH menu writes it", "tools/patch/stereo_pad.py:SETTING")],
     }
 
 

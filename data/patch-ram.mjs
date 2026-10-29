@@ -20,6 +20,11 @@ export const FREE_RUNS = [
     evidence: "tools/patch/script_hooks.py, MORE3_START (gemessen 2026-10-28 in allen drei Builds)",
   },
   {
+    start: 0xc014ff00, end: 0xc0150000,
+    what: "FF im Abbild hinter dem Code von last-pattern (0xC014FE00), das Ende des Laufs 0xC0148880 bis 0xC0150000",
+    evidence: "docs/messungen/2026-10-29-stereo-ein-pad.md (gemessen 2026-10-29 in allen drei Builds)",
+  },
+  {
     start: largest.start, end: largest.end,
     what: "größter FF-Block im Abbild",
     evidence: "docs/speicherbereiche.md, docs/patcher.md Speicherorte",

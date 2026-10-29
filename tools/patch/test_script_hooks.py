@@ -782,9 +782,10 @@ class MenuSettingsTests(unittest.TestCase):
                 elif address == symbols['FS_OPEN']:
                     opened.append(bytes(uc.mem_read(symbols['MENU_FILE_A'], 24)))
                     uc.reg_write(UC_ARM_REG_PC, machine.stop)
-            for page in (symbols['FS_OPEN'] & ~4095, symbols['MENU_FILE_A'] & ~4095):
+            for page in (symbols['FS_OPEN'] & ~4095, symbols['MENU_FILE_A'] & ~4095, symbols['SP_CODE'] & ~4095):
                 if not any(a <= page <= b for a, b, _ in machine.uc.mem_regions()):
                     machine.uc.mem_map(page, 4096)
+            machine.write(symbols['SP_CODE'], 0xFFFFFFFF)       # a set without the patch stereo-pad
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['menu_pc_call'], end=symbols['menu_pc_call'])
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['FS_OPEN'], end=symbols['FS_OPEN'])
             machine.write(symbols['HOOK_RUNTIME'] + symbols['RT_HEAD'], 0)
@@ -806,5 +807,15 @@ class MenuSettingsTests(unittest.TestCase):
                     self.assertEqual(struct.unpack_from('<I', data, 12)[0], expected)
                     self.assertEqual(struct.unpack_from('<I', data, 16)[0], 0x80000120)
                     self.assertEqual(struct.unpack_from('<I', data, 20)[0], zlib.crc32(data[:20]))
+                    self.assertEqual(data[5], 0)
+            # with the patch stereo-pad, STEREO 1 PAD OFF is bit 2 of byte 5; byte 7 (the count's high byte) stays 0
+            for setting, byte5 in ((0, 4), (1, 0), (0xFFFFFFFF, 0)):
+                with self.subTest(build=build_name, stereo=setting):
+                    machine.write(symbols['SP_CODE'], 0xE59FC08C)
+                    machine.write(symbols['SP_SETTING'], setting)
+                    opened.clear()
+                    machine.call('menu_settings_save')
+                    self.assertEqual((opened[0][5], opened[0][7]), (byte5, 0))
+            machine.write(symbols['SP_CODE'], 0xFFFFFFFF)
 
 if __name__=='__main__': unittest.main()

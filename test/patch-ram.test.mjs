@@ -80,7 +80,7 @@ test("every patch of the BLECH set declares its RAM, and every entry names where
     for (const share of shares) assert.ok(patches.some(p => p.id === share.with), `${patch.id}: shares with ${share.with}, not in the set`);
     assert.equal(own.length, patch.ram.length);
   }
-  assert.deepEqual(patches.filter(p => p.ram.length).map(p => p.id).sort(), ["blech-sysex", "blech-sysex", "dice", "doom-loader", "load-bar", "mfx-switch", "note-assistant", "pad-colors", "pattern-switch", "power-off", "preset-tables", "preset-tables", "sample-errors", "script-runtime", "script-runtime", "splash-editor", "tap-motion"]);
+  assert.deepEqual(patches.filter(p => p.ram.length).map(p => p.id).sort(), ["blech-sysex", "blech-sysex", "dice", "doom-loader", "load-bar", "mfx-switch", "note-assistant", "pad-colors", "pattern-switch", "power-off", "preset-tables", "preset-tables", "sample-errors", "script-runtime", "script-runtime", "splash-editor", "stereo-pad", "tap-motion"]);
 });
 
 for (const build of BUILDS) {

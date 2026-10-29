@@ -9,16 +9,16 @@ const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.u
 const PATCH = read("data/patches/stereo-pad.json");
 const SET = read("data/patches/blech.json");
 const CODE = 0x150000;               // file offset of 0xC014FF00, behind the last-pattern code
-const CODE_END = 0x150100;           // 0xC0150000
+const CODE_END = 0x1500fc;           // 0xC014FFFC, the setting word
 const SITES = [[0x7df08, 0xe], [0x414ec, 0xe], [0x99f2c, 0x0]];   // 0xC007DE08, 0xC00413EC, 0xC0099E2C and the condition of their call
 
-test("the stereo-pad patch has the v1 format, copies nothing of the firmware and runs nothing at start", () => {
+test("the stereo-pad patch has the v1 format, copies nothing of the firmware and declares its start-phase code", () => {
   assert.equal(PATCH.format, PATCH_FORMAT);
   assert.equal(PATCH.id, "stereo-pad");
   assert.deepEqual(PATCH.builds, ["hacktribe", "stock"]);
   for (const change of PATCH.changes) assert.equal(change.copy, undefined);
-  assert.equal(PATCH.startPhase, undefined);
-  assert.deepEqual(PATCH.ram, []);
+  assert.deepEqual(PATCH.startPhase.map(s => s.file), [0x7df08, CODE]);
+  assert.deepEqual(PATCH.ram.map(r => [r.at, r.length]), [["0xC014FFFC", 4]]);
 });
 
 test("three instructions call into our code, which ends where the run of free bytes ends", () => {
@@ -32,7 +32,7 @@ test("three instructions call into our code, which ends where the run of free by
     assert.equal((word >>> 24) & 0xf, 0xb);
     const site = 0xc0000000 + call.file - 0x100;
     const to = site + 8 + (((word & 0xffffff) << 8) >> 8) * 4;
-    assert.ok(to >= 0xc014ff00 && to < 0xc0150000, `${site.toString(16)} calls ${to.toString(16)}`);
+    assert.ok(to >= 0xc014ff00 && to < 0xc014fffc, `${site.toString(16)} calls ${to.toString(16)}`);
   }
 });
 

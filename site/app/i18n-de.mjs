@@ -604,7 +604,7 @@ export default {
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: Pattern wählen (FACTORY ist die Vorlage der Firmware). Gilt sofort und bleibt über das Ausschalten.",
   "features.stereoPad.title": "Stereo auf einem Pad",
   "features.stereoPad.text": "Ein Stereo-Sample belegt nur sein eigenes Pad. Die Electribe spielt es dort auf einer Stimme, das Pad daneben bleibt frei und spielt sein eigenes Sample.",
-  "features.stereoPad.how": "Läuft von selbst: Stereo-Sample auf ein Pad legen, das nächste Pad bleibt frei. EXIT beim Einschalten gibt das Paar der Firmware zurück.",
+  "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD: ON (Vorgabe) oder OFF, OFF gibt das Paar der Firmware zurück. Gilt sofort, WRITE behält es.",
   "features.polyPink.title": "Akkorde in Pink",
   "features.polyPink.text": "Im SEQUENCER-Modus zeigt ein Poly-Part Steps mit mehreren Noten in Pink.",
   "features.polyPink.how": "SEQUENCER-Modus, Poly-Part.",

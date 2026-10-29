@@ -70,9 +70,10 @@ def card_image(files=None):
 
 def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2):
     """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state)."""
-    global INIT_PAGE
+    global INIT_PAGE, STEREO_PAGE
     for_build(payload)
     INIT_PAGE = payload[INIT_CODE - 0xC0000000:INIT_CODE - 0xC0000000 + 4] != b"\xff" * 4
+    STEREO_PAGE = payload[STEREO_CODE - 0xC0000000:STEREO_CODE - 0xC0000000 + 4] != b"\xff" * 4
     dev = Dev(payload, flash, held)
     dev.m.adapter = adapter
     if card:
@@ -130,6 +131,8 @@ SYNC_GROUP_AT = 0x3B80                                                # the grou
 
 INIT_CODE = 0xC014FD00                                               # the patch init-pattern (tools/patch/init_pattern.py); with it our pages of DATA UTILITY end with SET INIT PATTERN
 INIT_PAGE = False                                                     # set by boot(): whether the copy has the patch
+STEREO_CODE = 0xC014FF00                                             # the patch stereo-pad (tools/patch/stereo_pad.py); with it FEATURES ends with STEREO 1 PAD
+STEREO_PAGE = False                                                   # set by boot(): whether the copy has the patch
 
 
 VERSION_TEXT = 0xC014FCF0                                            # the patch blech-version (tools/patch/blech_version.mjs): the title of VERSION
@@ -146,9 +149,14 @@ def version_texts(payload):
     return title, BASE_NAMES[build]
 
 
+def feature_pages():
+    """The pages of FEATURES: the switches, STEREO 1 PAD where the set has the patch (SYNC GROUP is a page of the ring, LEVEL_SYNC;
+    SET INIT PATTERN is in DATA UTILITY)."""
+    return FEATURE_PAGES + ["STEREO 1 PAD"] * STEREO_PAGE
+
+
 def feature_count():
-    """The pages of FEATURES: the switches (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
-    return len(FEATURE_PAGES)
+    return len(feature_pages())
 
 
 FX_EXPORT = True
@@ -611,7 +619,7 @@ def list_cases(payload, flash=None):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, "ON") for title in FEATURE_PAGES]
+    want = [(title, "ON") for title in feature_pages()]
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
@@ -623,8 +631,8 @@ def list_cases(payload, flash=None):
     wrapped = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
     press(dev, "edit_next")
     forward = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE), dev.screen()["number"])
-    last = len(FEATURE_PAGES) - 1
-    add("group_pages_wrap_and_count_alone", wrapped == (last, (last, last + 1), FEATURE_PAGES[last]) and forward == (0, (0, last + 1), FEATURE_PAGES[0], MENU),
+    last = feature_count() - 1
+    add("group_pages_wrap_and_count_alone", wrapped == (last, (last, last + 1), feature_pages()[last]) and forward == (0, (0, last + 1), FEATURE_PAGES[0], MENU),
         f"{wrapped}, {forward}")
     press(dev, "exit")
     up = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
@@ -829,7 +837,7 @@ def read_settings_look(image):
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
         head = {1: 16, 2: 20, 3: 20}.get(version)
-        if head is None or extras & ~3:      # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF
+        if head is None or extras & ~7:      # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF
             continue
         size = head + 4 * count
         if count > (64 if version == 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -2056,11 +2064,12 @@ def note_assist_menu_cases(payload, flash=None):
     add("page", page == (("NOTE ASSIST", "ON", ""), (FEAT_NA, feature_count()), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("NOTE ASSIST", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("NOTE ASSIST", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
-    # the page is the last of the group FEATURES: EDIT next wraps to the first, EDIT previous from there comes back
+    # EDIT next goes to the next page of FEATURES (STEREO 1 PAD where the set has it, else it wraps to the first), EDIT previous comes back
     press(dev, "edit_next", wait=0.4)
     wrapped = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    after = ("MFX 2", (0, feature_count()))
+    nxt = (FEAT_NA + 1) % feature_count()
+    after = (feature_pages()[nxt], (nxt, feature_count()))
     add("page_is_last", wrapped == after and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word

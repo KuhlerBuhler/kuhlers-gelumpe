@@ -574,7 +574,7 @@ export default {
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN : choisis un pattern (FACTORY est le modèle du firmware). Effet immédiat, conservé après l’extinction.",
   "features.stereoPad.title": "Stéréo sur un pad",
   "features.stereoPad.text": "Un échantillon stéréo n'occupe que son propre pad. L'Electribe le joue là sur une voix, le pad voisin reste libre et joue son propre échantillon.",
-  "features.stereoPad.how": "Toujours actif : mets un échantillon stéréo sur un pad, le pad suivant reste libre. EXIT maintenu à l'allumage rétablit la paire du firmware.",
+  "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD : ON (par défaut) ou OFF, OFF rétablit la paire du firmware. S'applique tout de suite, WRITE le garde.",
   "features.polyPink.title": "Accords en rose",
   "features.polyPink.text": "En mode SEQUENCER, une part poly montre en rose les steps avec plusieurs notes.",
   "features.polyPink.how": "Mode SEQUENCER, part poly.",

@@ -21,7 +21,8 @@ Stereo-Sample auf Pad 1 belegt nur Pad 1, Pad 2 bleibt frei. Patch `data/patches
 ## Der Patch
 
 Jeder Part spielt ein Stereo-Sample so, wie die Firmware es auf einem geraden Part tut. Drei Befehle rufen Code bei `0xC014FF00`
-(hinter dem Code von last-pattern, bis `0xC0150000` frei in allen drei Builds):
+(hinter dem Code von last-pattern; `0xC014FF00` bis `0xC0150000` ist `FF` in Korgs roter und blauer 2.02 und in Hacktribe 2.02,
+gemessen am 29.10. in den drei Dateien):
 
 | Stelle | Vorher | Mit dem Patch |
 |---|---|---|
@@ -29,8 +30,13 @@ Jeder Part spielt ein Stereo-Sample so, wie die Firmware es auf einem geraden Pa
 | `0xC00413EC` im Oszillatorwechsel | `bne` überspringt das Belegen nur auf ungeraden Parts | jeder Part überspringt es |
 | `0xC0099E2C` im Modus der Stimme | `moveq r3, #3` | Modus 4 |
 
-Mit EXIT beim Einschalten tun alle drei, was die Firmware tut. Geschnittene Samples (Modus 2) und der Live-Eingang bleiben,
-wie sie sind. Das Pattern-Format ändert sich nicht.
+Der Schalter ist die Seite STEREO 1 PAD in BLECH > FEATURES, die letzte der Gruppe, nur wo der Satz den Patch hat (erstes Wort
+bei `0xC014FF00` nicht `FF`, also nicht auf der blauen). Sie schreibt das Wort `0xC014FFFC` (im Abbild `FF`, das heißt an): 1 an,
+0 aus, sofort wirksam. WRITE behält AUS als Bit 2 von Byte 5 der Einstellungsdatei; ohne Datei oder ohne das Bit ist es an. Ein
+BLECH bis 1.3.7 liest die Datei mit dem Bit nicht (es liest auch Version 3 nicht). Ist der Schalter aus oder war EXIT beim
+Einschalten gehalten, tun alle drei Stellen, was die Firmware tut. Der Stereo-Modus läuft schon beim Laden des ersten Patterns
+in der Startphase, deshalb nennt der Patch die Stelle und seinen Code als `startPhase`. Geschnittene Samples (Modus 2) und der
+Live-Eingang bleiben, wie sie sind. Das Pattern-Format ändert sich nicht.
 
 Folge für alte Patterns: Ein Pattern mit Stereo-Sample auf Part 1 spielte Part 2 nicht. Mit dem Patch spielt Part 1 das Sample
 auf einer Stimme, und Part 2 spielt, was in ihm steht (sein Sample, seine Steps).
@@ -47,8 +53,12 @@ Karte mit Mono (501), Stereo (502, `esli[65] = 1`) und Mono (503), Part 1 bekomm
 | Pad 2 | keine eigene Stimme | 1 Stimme, Typ 0, Audio von 503 |
 | Bytes des Patterns nach den zwei Wechseln | Samples von Part 1 und 3 (PART > landet auf Part 3) | nur die Samples von Part 1 und 2 |
 | mit EXIT beim Einschalten | | wie das Original |
+| Seite STEREO 1 PAD ohne Einstellungsdatei | | ON, Wort `FFFFFFFF` |
+| Rad nach links | | OFF, Wort 0, Part 1 und 2 paaren wieder (Modus 1, zwei Stimmen) |
+| WRITE, dann neuer Start von derselben Karte | | Byte 5 der Datei `0x04`, die Seite zeigt OFF, Wort 0 |
 
-Beide Builds bestehen alle Fälle mit dem Patch, das Original fällt bei fünf durch.
+Beide Builds (BLECH-Satz auf Korgs roter 2.02 und auf Hacktribe 2.02) bestehen alle Fälle, das Original fällt bei fünf der
+Fälle ohne Menü durch.
 
 ## Offen
 

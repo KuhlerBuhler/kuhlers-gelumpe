@@ -26,7 +26,7 @@ export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
 const MENU_USERS = ["menu_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
-  "last_pattern_cases", "init_pattern_cases", "power_off_cases"];
+  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "stereo_pad_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
   "synth_filter_cases"];
 const MFX_USERS = ["mfx_cases", "ifx_idle_cases", "preset_cases", "stereo_pad_cases"];
@@ -48,7 +48,7 @@ export const TABLE = [
   // the patches and the code they build, to the cases that test them (check.py's docstring, each has_hooks)
   [/^tools\/patch\/mfx_switch\.py$|^data\/patches\/mfx-switch[^/]*\.json$/, MFX_USERS],
   [/^tools\/patch\/(splash_editor\.py|splash_synth\.mjs)$|^data\/patches\/splash-(editor|synth)[^/]*\.json$/, ["splash_cases"]],
-  [/^tools\/patch\/script_menu\.s$/, ["menu_cases", "shortcut_cases", "migrate_cases", "init_pattern_cases"]],
+  [/^tools\/patch\/script_menu\.s$/, ["menu_cases", "shortcut_cases", "migrate_cases", "init_pattern_cases", "stereo_pad_cases"]],
   [/^tools\/patch\/blech_version\.mjs$|^data\/patches\/blech-version[^/]*\.json$/, ["menu_cases"]],
   [/^tools\/patch\/script_shortcuts\.s$/, ["shortcut_cases"]],
   [/^tools\/patch\/script_migrate\.s$/, ["migrate_cases"]],

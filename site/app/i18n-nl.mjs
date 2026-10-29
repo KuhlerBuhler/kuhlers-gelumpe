@@ -574,7 +574,7 @@ export default {
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: kies een pattern (FACTORY is het sjabloon van de firmware). Geldt meteen en blijft na het uitschakelen.",
   "features.stereoPad.title": "Stereo op één pad",
   "features.stereoPad.text": "Een stereosample neemt alleen zijn eigen pad in. De Electribe speelt hem daar met één stem, de pad ernaast blijft vrij en speelt zijn eigen sample.",
-  "features.stereoPad.how": "Altijd aan: zet een stereosample op een pad, de volgende pad blijft vrij. EXIT ingedrukt bij het aanzetten brengt het paar van de firmware terug.",
+  "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD: ON (standaard) of OFF, OFF brengt het paar van de firmware terug. Werkt meteen, WRITE bewaart het.",
   "features.polyPink.title": "Akkoorden in roze",
   "features.polyPink.text": "In de SEQUENCER-modus toont een poly-part steps met meerdere noten in roze.",
   "features.polyPink.how": "SEQUENCER-modus, poly-part.",
