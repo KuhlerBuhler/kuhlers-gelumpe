@@ -4,8 +4,8 @@
 # every pair is already in the file. See docs/development.md, "Release".
 #
 # It runs on a pull request that changes what the patched copies or the check are made of (the paths below: the patch
-# set, everything tools/verify-patches.mjs imports, tools/patch and tools/emu; test/verify-patches.test.mjs keeps the
-# list complete). A pull request from a fork has no secrets and is skipped. What runs depends on the base:
+# set, everything tools/verify-patches.mjs imports, tools/patch and tools/emu, the blue Electribe's places in
+# data/synth-map that tools/patch reads, and the scope table; test/verify-patches.test.mjs keeps the list complete). A pull request from a fork has no secrets and is skipped. What runs depends on the base:
 #
 # - into develop (feature pull requests): on each of the four files only the start scenarios and the case modules of
 #   what the pull request changes (tools/ci/verify-scope.mjs maps the changed files; a file it does not know, or the
@@ -34,6 +34,7 @@ on:
       - "data/synth-sites.mjs"
       - "data/map/**"
       - "data/script/**"
+      - "data/synth-map/**"
       - "src/bsdiff.mjs"
       - "src/bytes.mjs"
       - "src/bzip2.mjs"
@@ -56,6 +57,7 @@ on:
       - "src/record.mjs"
       - "src/script/**"
       - "src/units.mjs"
+      - "tools/ci/verify-scope.mjs"
       - "tools/emu/**"
       - "tools/patch/**"
       - "tools/verify-patches.mjs"
