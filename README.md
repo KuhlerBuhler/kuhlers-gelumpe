@@ -228,6 +228,17 @@ Ohne Emulator reicht `npm run serve`, dann entfällt `setup:emu`. Für die Kommu
 brauchst du Chrome oder Edge auf einem Desktopcomputer, die Seite nutzt Web MIDI mit SysEx, das Safari
 nicht kann.
 
+**Im Container.** Ohne Node und Python auf dem Rechner läuft dasselbe Paar in Docker:
+
+```bash
+mkdir SD
+docker compose up --build
+```
+
+Danach http://localhost:8737/ öffnen. Die Karte des Emulators liegt im Ordner `SD`, ein neuer Container
+behält sie. Wie du das Abbild nimmst, das ein Release veröffentlicht hat, statt selbst zu bauen, steht in
+[Entwicklung](docs/development.md#im-container).
+
 Die Desktop-App spricht auf macOS und Linux nativ mit den MIDI-Ports. Dafür braucht sie
 keinen zusätzlichen Browser und keinen separat installierten MIDI-Helfer. Unter Windows
 bleibt die App vorerst bei Web MIDI.
