@@ -29,13 +29,13 @@ test("the last-pattern patch has the v1 format and copies nothing of the firmwar
     assert.match(change.expect, /^[0-9a-f]{64}$/);
     assert.equal(change.copy, undefined);
   }
-  assert.deepEqual(PATCH.ram, [], "the number lives in the Globals, which the firmware saves itself");
+  assert.deepEqual(PATCH.ram.map(r => [r.at, r.length]), [["0xC014FEFC", 4]], "the number lives in the Globals, which the firmware saves itself; only the setting word of LAST PATTERN is RAM of its own");
 });
 
 test("two hooked words call into our code, which fits its free run", () => {
   const [code, boot, select] = PATCH.changes;
   assert.equal(code.file, CODE);
-  assert.ok(code.file + fromHex(code.bytes).length <= CODE_END);
+  assert.ok(code.file + fromHex(code.bytes).length <= CODE_END - 4, "the last word is the setting word of LAST PATTERN");
   assert.equal(boot.file, BOOT_SITE);
   assert.equal(select.file, SELECT_SITE);
   for (const [change, at] of [[boot, 0xc002af40], [select, 0xc0079dc8]]) {

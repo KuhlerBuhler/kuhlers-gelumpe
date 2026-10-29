@@ -568,7 +568,7 @@ export default {
   "features.powerOff.how": "Вимкни.",
   "features.lastPattern.title": "Останній патерн під час увімкнення",
   "features.lastPattern.text": "Під час увімкнення Electribe відкриває патерн, вибраний перед вимкненням, а не 001.",
-  "features.lastPattern.how": "Вибери патерн, вимкни й знову увімкни. Із затиснутою EXIT вона стартує як зазвичай з 001.",
+  "features.lastPattern.how": "Вибери патерн, вимкни й знову увімкни. Із затиснутою EXIT вона стартує як зазвичай з 001. BLECH > FEATURES > LAST PATTERN: OFF завжди стартує з 001, WRITE зберігає це.",
   "features.initPattern.title": "Власний init-патерн",
   "features.initPattern.text": "DATA UTILITY > INITIALIZE PATTERN бере вибраний тобою патерн замість шаблону прошивки, наприклад зовсім порожній.",
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: вибери патерн (FACTORY — шаблон прошивки). Діє одразу й зберігається після вимкнення.",

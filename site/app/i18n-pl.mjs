@@ -568,7 +568,7 @@ export default {
   "features.powerOff.how": "Wyłącz urządzenie.",
   "features.lastPattern.title": "Ostatni pattern po włączeniu",
   "features.lastPattern.text": "Po włączeniu Electribe otwiera pattern wybrany przed wyłączeniem, zamiast 001.",
-  "features.lastPattern.how": "Wybierz pattern, wyłącz i włącz ponownie. Z przytrzymanym EXIT startuje jak zwykle od 001.",
+  "features.lastPattern.how": "Wybierz pattern, wyłącz i włącz ponownie. Z przytrzymanym EXIT startuje jak zwykle od 001. BLECH > FEATURES > LAST PATTERN: OFF zawsze startuje od 001, WRITE to zapisuje.",
   "features.initPattern.title": "Własny pattern init",
   "features.initPattern.text": "DATA UTILITY > INITIALIZE PATTERN bierze wybrany pattern zamiast szablonu firmware, na przykład całkiem pusty.",
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: wybierz pattern (FACTORY to szablon firmware). Działa od razu i zostaje po wyłączeniu.",
