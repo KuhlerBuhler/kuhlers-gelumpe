@@ -1340,6 +1340,7 @@ export default {
   "patcher.patch.sysex": "BLECH SysEx: read and write RAM",
   "patcher.patch.sysexSynth": "BLECH SysEx: read RAM and flash",
   "patcher.patch.ifxIdle": "Idle insert effect",
+  "patcher.patch.version": "BLECH version in the menu (BLECH > VERSION)",
   "patcher.usbName": "Device name: Electribe 3",
   "patcher.usbName.note": "Your computer then shows the Electribe as Electribe 3. DAW mappings tied to the old port name have to be linked again. Windows may keep the old name until you remove the device once in Device Manager.",
   "patcher.blech.wrong": "{file} isn't a BLECH.patch: {error}",

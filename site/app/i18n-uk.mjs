@@ -1340,6 +1340,7 @@ export default {
   "patcher.patch.sysex": "BLECH SysEx: читання і запис RAM",
   "patcher.patch.sysexSynth": "BLECH SysEx: читання RAM і flash",
   "patcher.patch.ifxIdle": "Insert-ефект у спокої",
+  "patcher.patch.version": "Версія BLECH у меню (BLECH > VERSION)",
   "patcher.usbName": "Назва пристрою: Electribe 3",
   "patcher.usbName.note": "Комп'ютер показуватиме Electribe як Electribe 3. Призначення в DAW, прив'язані до старої назви порту, доведеться зв'язати заново. Windows може зберігати стару назву, доки ти один раз не видалиш пристрій у Диспетчері пристроїв.",
   "patcher.blech.wrong": "{file} - не BLECH.patch: {error}",

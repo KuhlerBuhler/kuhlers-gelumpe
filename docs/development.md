@@ -351,7 +351,8 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 
 **Der normale Weg läuft in GitHub** (Workflow "Release", `.github/workflows/release.yml`):
 
-1. Auf `develop` per Pull Request: `node tools/set-version.mjs X.Y.Z` (schreibt die vier Versionsdateien) und die
+1. Auf `develop` per Pull Request: `node tools/set-version.mjs X.Y.Z` (schreibt die vier Versionsdateien und die
+   zwei Dateien des Patches `blech-version`, aus denen das Gerät unter BLECH > VERSION die Version zeigt) und die
    Notizen als `release-notes/X.Y.Z.md` (Format unten). Sie sind das, was im Release und im Discord steht. Danach
    `node tools/release-notes.mjs build`: es schreibt `data/release-notes.mjs`, daraus zeigt die App unter Changelogs
    auch die Versionen, deren Release auf GitHub schon gelöscht ist (ohne Downloads, nur Neu, Geändert, Behoben). Ein
@@ -407,8 +408,8 @@ Patchen selbst im Emulator.
 
 `npm run release` (`tools/release.mjs`). Auf jedem System vor dem Bauen setzt
 `npm run release -- prepare` (oder `node tools/set-version.mjs <Version>` mit der Version vom
-Release-Rechner) die nächste Version in `package.json`, `tauri.conf.json`, `Cargo.toml` und
-`Cargo.lock`: erste Version 1.0.0, danach der letzte Tag `vX.Y.Z` mit Patch plus eins, `--minor` oder
+Release-Rechner) die nächste Version in `package.json`, `tauri.conf.json`, `Cargo.toml`,
+`Cargo.lock` und die zwei Dateien von `blech-version`: erste Version 1.0.0, danach der letzte Tag `vX.Y.Z` mit Patch plus eins, `--minor` oder
 `--major` hebt stattdessen den Teil (bei `prepare` und beim Release gleich angeben). `prepare`
 verlangt, dass `HEAD` auf `origin/develop` steht, und committet nichts.
 

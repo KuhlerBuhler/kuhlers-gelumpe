@@ -843,8 +843,9 @@ Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
 - Solange der Bildschirm offen ist, sehen die Plugins keine Eingaben, damit ein Plugin,
   das Tasten abfängt, das Menü nicht sperren kann.
 
-Die Liste der ersten Ebene besteht nur aus Gruppen, in dieser Reihenfolge: erst die eingebauten Schalter, dann
-die Anpassung, dann die Plugins, zuletzt die Gruppen, die Plugins selbst anmelden (`korg.app`):
+Die Liste der ersten Ebene besteht aus Gruppen, in dieser Reihenfolge: erst die eingebauten Schalter, dann
+die Anpassung, dann die Plugins, dann die Gruppen, die Plugins selbst anmelden (`korg.app`), und als letzte Seite
+VERSION, die keine Gruppe ist:
 
 | Eintrag | Was dahinter liegt |
 |---|---|
@@ -853,6 +854,7 @@ die Anpassung, dann die Plugins, zuletzt die Gruppen, die Plugins selbst anmelde
 | PLUGINS | Gruppe, siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
 | TOOLS | wie GAMES |
+| VERSION | keine Gruppe: oben die Version des Satzes, mit dem die Firmware gepatcht wurde (`BLECH 1.3.7`, aus dem Patch `blech-version`), darunter die Firmware, für die das Menü gebaut ist (HACKTRIBE, KORG RED, KORG BLUE). ENTER, WRITE und das Rad ändern nichts |
 
 Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem Wert ON oder OFF, das Hauptrad ändert ihn:
 
@@ -915,9 +917,11 @@ Auf den Seiten RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION un
 speichert WRITE die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
 sich mit einer Generationsnummer abwechseln (24 bis 88 Byte: Kennung `GSET`, Version 2, ein Byte mit METER LOUD RAINBOW in Bit 0 (ein BLECH vor 1.3 verwirft eine Datei, in der es gesetzt ist), Anzahl
 erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
-erlaubten fremden Blöcke, CRC-32; höchstens 16 erlaubte Blöcke, danach fliegt die älteste raus;
+erlaubten fremden Blöcke, CRC-32; höchstens 16 Einträge;
 in derselben Liste steht für jedes ausgeschaltete Plugin seine Prüfsumme invertiert, ein älteres BLECH liest sie als
-Prüfsumme, die nie passt, [Messung](messungen/2026-10-18-plugin-bleibt-aus.md);
+Prüfsumme, die nie passt, [Messung](messungen/2026-10-18-plugin-bleibt-aus.md); ist die Liste voll, fliegt zuerst der
+älteste Eintrag raus, der zu keinem geladenen Plugin gehört (ein Plugin, das nicht mehr auf der Karte liegt, oder eine ältere
+Fassung davon), sonst bei einer Zustimmung der älteste überhaupt; eine Markierung, für die dann kein Platz bleibt, fehlt, und das Plugin läuft nach dem Neustart wieder;
 Dateien der Version 1 ohne das Wort werden weiter gelesen). Ohne Datei, Karte oder bei
 beschädigter Datei gelten die Voreinstellungen (alles an, die Anpassung auf den Werten der
 Firmware). Die Seite meldet "saved", "no card", "card protected", "folder missing" oder "write error".

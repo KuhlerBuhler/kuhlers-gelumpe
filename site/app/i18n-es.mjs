@@ -1339,6 +1339,7 @@ export default {
   "patcher.patch.sysex": "BLECH SysEx: leer y escribir la RAM",
   "patcher.patch.sysexSynth": "BLECH SysEx: leer RAM y flash",
   "patcher.patch.ifxIdle": "Efecto de inserción en reposo",
+  "patcher.patch.version": "Versión de BLECH en el menú (BLECH > VERSION)",
   "patcher.usbName": "Nombre del dispositivo: Electribe 3",
   "patcher.usbName.note": "El ordenador mostrará la Electribe como Electribe 3. Las asignaciones del DAW ligadas al nombre de puerto anterior hay que volver a enlazarlas. Windows puede conservar el nombre anterior hasta que quites el dispositivo una vez en el Administrador de dispositivos.",
   "patcher.blech.wrong": "{file} no es una BLECH.patch: {error}",
