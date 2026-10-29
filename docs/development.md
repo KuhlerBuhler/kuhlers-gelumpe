@@ -535,9 +535,10 @@ dann läuft, hängt von der Basis ab:
 - **Pull Request nach `main`** (der Release-PR aus `release/X.Y.Z` oder `develop`) und jede andere Basis: der ganze
   Check, danach committet der letzte Job die neue `verified.json` auf den Branch des Pull Requests.
 - **Push auf `develop`** (ein gemergter PR, der die Pfade ändert): alle Case-Module auf allen vier Dateien mit den
-  gespeicherten Task-Ergebnissen, geschrieben wird nichts. Der Lauf hält den Task-Cache von `develop` aktuell; ein
-  neuer PR lädt ihn bei seinem ersten Lauf, statt kalt zu starten, und rechnet nur die Tasks, deren Dateien er
-  ändert. Läufe auf `develop` brechen einander nicht ab, der neueste wartet.
+  gespeicherten Task-Ergebnissen, geschrieben wird nichts. Der Lauf hält den Task-Cache von `develop` aktuell. Jeder
+  PR-Lauf lädt den neuesten Cache von `develop` und seinen eigenen und nimmt beide zusammen: ein neuer PR startet
+  nicht kalt, und nach einem Merge von `develop` in den PR fehlen die neuen Ergebnisse von `develop` nicht. Gerechnet
+  werden nur die Tasks, deren Dateien sich geändert haben. Läufe auf `develop` brechen einander nicht ab, der neueste wartet.
 
 Gepusht wird mit `SYNC_TOKEN`, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
 ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Pull Requests aus Forks haben keine Secrets:

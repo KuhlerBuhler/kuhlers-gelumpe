@@ -205,15 +205,41 @@ jobs:
       # check (release pull request, started by hand) restores nothing and keeps nothing, so verified.json only gets
       # results of a fresh run. A pull request can restore only its own caches and those of develop and main; its first
       # run takes the newest one of develop, which every push to develop saves.
-      - name: Kept task results
+      # Two caches: develop's newest and the pull request's own newest. A restore takes one cache and prefers the
+      # pull request's own, so after develop was merged in, develop's newer results would be missing. A result is a file
+      # named by its key, so the union of both is safe; the own task-time wins. The paths of a restore have to be the
+      # paths of the save, so develop's lands first and moves aside.
+      - name: Kept task results of develop
         if: needs.ref.outputs.full != 'true'
         uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/gelumpe/task
             ~/.cache/gelumpe/task-time
-          key: verify-tasks-v1-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: verify-tasks-v1-${{ matrix.name }}-
+          key: verify-tasks-v2-${{ matrix.name }}.develop.${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: verify-tasks-v2-${{ matrix.name }}.develop.
+      - if: needs.ref.outputs.full != 'true' && github.event_name == 'pull_request'
+        run: |
+          mkdir -p "$RUNNER_TEMP/develop" ~/.cache/gelumpe
+          for d in task task-time; do [ -e ~/.cache/gelumpe/$d ] && mv ~/.cache/gelumpe/$d "$RUNNER_TEMP/develop/"; done
+          true
+      - name: Kept task results of the pull request
+        if: needs.ref.outputs.full != 'true' && github.event_name == 'pull_request'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v2-${{ matrix.name }}.pr.${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: verify-tasks-v2-${{ matrix.name }}.pr.
+      - if: needs.ref.outputs.full != 'true' && github.event_name == 'pull_request'
+        run: |
+          for d in task task-time; do
+            [ -e "$RUNNER_TEMP/develop/$d" ] || continue
+            mkdir -p ~/.cache/gelumpe/$d
+            cp -Rpn "$RUNNER_TEMP/develop/$d/." ~/.cache/gelumpe/$d/
+          done
+          echo "task results: $(find ~/.cache/gelumpe/task -type f 2>/dev/null | wc -l)"
       - name: Korg's file
         env:
           URL: ${{ secrets[matrix.url] }}
@@ -253,7 +279,7 @@ jobs:
           path: |
             ~/.cache/gelumpe/task
             ~/.cache/gelumpe/task-time
-          key: verify-tasks-v1-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: verify-tasks-v2-${{ matrix.name }}.${{ github.event_name == 'push' && 'develop' || 'pr' }}.${{ github.run_id }}-${{ github.run_attempt }}
       # Only the entry (hashes, set, number of checks, date), never the firmware.
       - if: needs.ref.outputs.full == 'true'
         uses: actions/upload-artifact@v4
