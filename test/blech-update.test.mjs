@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { applyPatches } from "../src/patch.mjs";
 import { addRelease, emptyKnown, recogniseBlech, KNOWN_FORMAT } from "../src/blech-update.mjs";
 import { sha256 } from "../src/firmware.mjs";
+import { encodeAnimation, loadingAnimPatch, FRAME_BYTES } from "../src/loading-anim.mjs";
+import { field } from "../src/map/index.mjs";
 import { asStock, makeFirmware } from "./helpers.mjs";
 
 // Releases of our own standing in for BLECH's: a hook site (a word of "Korg's code" that is rewritten) and two free areas.
@@ -86,6 +88,43 @@ test("a file that holds anything else in a region is not touched: edited hook, e
   assert.deepEqual(await recogniseBlech(patched, null), { ok: false, why: "build" });
 });
 
+const SLOT = field("loadingAnim").where.offset;
+const animation = seed => {
+  const frame = k => Uint8Array.from({ length: FRAME_BYTES }, (_, i) => ((i * seed + k) % 7 === 0 ? 0xff : 0));
+  return encodeAnimation({ progress: [frame(0), frame(1), frame(2)], loop: [], loopFrom: 0 }).bytes;
+};
+
+test("the loading animation in its slot is the user's: kept, replaced when one is chosen, never taken for release bytes", async () => {
+  const base = await original();
+  // an older release kept code where the slot is now; the current one does not write there
+  const old = [await raw(base, "runtime-code", SLOT, hex(0xe3a00001, 0xe12fff1e)), await raw(base, "runtime", HOOK, hex(0xea000100))];
+  const now = [await raw(base, "runtime", HOOK, hex(0xea000200)), await raw(base, "code", AREA_A, hex(0xe3a00001))];
+  const known = emptyKnown();
+  await addRelease(known, "1.0", "hacktribe", base, old);
+  await addRelease(known, "1.1", "hacktribe", base, now);
+  const [mine, other] = [animation(3), animation(5)];
+  const withAnimation = async (bytes, a) => (a ? (await applyPatches(bytes, [loadingAnimPatch(a)])).bytes : bytes);
+  const direct = async a => withAnimation((await applyPatches(base, now)).bytes, a);
+  const file = await direct(mine);
+  const rec = await recogniseBlech(file, known);
+  assert.equal(rec.ok, true, "a file of the current release with an animation is known");
+  const update = async a => withAnimation((await applyPatches(rec.bytes, now, rec.options)).bytes, a);
+  assert.deepEqual(await update(mine), await direct(mine), "the same animation again");
+  assert.deepEqual(await update(other), await direct(other), "another animation replaces it");
+  const kept = await update(null);
+  assert.deepEqual(kept, file, "no choice keeps it, everything else as it was");
+  // without an animation the slot of an older file is code, and goes back to FF
+  const older = await recogniseBlech((await applyPatches(base, old)).bytes, known);
+  assert.equal(older.ok, true);
+  assert.equal(older.bytes[SLOT], 0);
+  // bytes in the slot that are no animation are not user data
+  const junk = Uint8Array.from(file);
+  junk[SLOT + 20] ^= 0xff;
+  junk[SLOT + 4] ^= 1;
+  assert.deepEqual(await recogniseBlech(junk, known), { ok: false, why: "region" });
+  for (const regions of Object.values(known.builds)) assert.ok(!regions.some(r => r[2] === "loading-anim"));
+});
+
 test("data/known-releases.json holds only hashes and offsets, for the three builds and the releases from 1.3.4 on", () => {
   const known = JSON.parse(readFileSync(new URL("../data/known-releases.json", import.meta.url), "utf8"));
   assert.equal(known.format, KNOWN_FORMAT);
@@ -97,6 +136,7 @@ test("data/known-releases.json holds only hashes and offsets, for the three buil
       assert.equal(typeof id, "string");
       assert.ok([-1, 0, 0xff].includes(fill));
       for (const hash of [original, ...written]) assert.match(hash, /^[0-9a-f]{16}$/);
+      assert.notEqual(id, "loading-anim");
     }
   }
   assert.ok(readFileSync(new URL("../data/known-releases.json", import.meta.url)).length < 200_000, "stays small");

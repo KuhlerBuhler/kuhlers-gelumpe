@@ -9,6 +9,8 @@
 import { applyPatches } from "./patch.mjs";
 import { APPEND_FORMAT, appendedRecords } from "./fx-append.mjs";
 import { buildOf, sha256 } from "./firmware.mjs";
+import { field } from "./map/index.mjs";
+import { MAX_BYTES, validateAnimation } from "./loading-anim.mjs";
 
 export const KNOWN_FORMAT = "gelumpe-known-releases";
 /** Hashes of regions are kept as their first 16 hex digits. */
@@ -59,10 +61,22 @@ export async function addRelease(known, release, build, base, patches) {
 }
 
 /**
+ * The bytes of the user's own loading animation in its slot (the map field loadingAnim), as [from, to), or null. The slot
+ * is user data: FF without an animation, a file the firmware accepts with one. Earlier releases kept code there, which
+ * is not an animation and so not user data.
+ */
+function animationAt(bytes) {
+  const from = field("loadingAnim").where.offset;
+  const slot = bytes.subarray(from, from + MAX_BYTES);
+  if (validateAnimation(slot) !== null) return null;
+  return [from, from + new DataView(slot.buffer, slot.byteOffset).getUint32(12, true)];
+}
+
+/**
  * Whether `bytes` is a file one of the known releases patched, and what the current set needs to go over it.
  * Every region any known release writes must hold the original bytes or what a release wrote there. A region of a
  * release with another outline than the one that patched the file passes when its bytes are covered by regions that
- * hold written content and are otherwise fill. Any other content, or no trace of BLECH at all, is a refusal.
+ * hold written content and are otherwise fill; the user's loading animation is neither checked nor reset. Any other content, or no trace of BLECH at all, is a refusal.
  * @returns {Promise<{ok: true, bytes: Uint8Array, present: string[], options: object} | {ok: false, why: string}>}
  *   `bytes` is the file with the free areas reset to their fill, `present` the patch ids whose hook sites are in it,
  *   `options` goes to applyPatches: the hook sites the file holds count as expected, and an effect preset an older
@@ -78,6 +92,8 @@ export async function recogniseBlech(bytes, known) {
     states.push(hash === original ? "original" : written.includes(hash) ? "new" : "other");
   }
   const covered = new Uint8Array(bytes.length);
+  const own = animationAt(bytes);
+  if (own) covered.fill(1, own[0], own[1]);
   regions.forEach(([file, length], i) => { if (states[i] === "new") covered.fill(1, file, file + length); });
   for (let i = 0; i < regions.length; i++) {
     const [file, length, , fill] = regions[i];
@@ -89,8 +105,13 @@ export async function recogniseBlech(bytes, known) {
   const present = new Set();
   regions.forEach(([file, length, id, fill], i) => {
     if (states[i] === "original" || (states[i] === "other" && fill < 0)) return;
-    if (fill >= 0) cleaned.fill(fill, file, file + length);
-    else present.add(id);
+    if (fill < 0) { present.add(id); return; }
+    const end = file + length;
+    if (!own || end <= own[0] || file >= own[1]) cleaned.fill(fill, file, end);
+    else {
+      if (file < own[0]) cleaned.fill(fill, file, own[0]);
+      if (end > own[1]) cleaned.fill(fill, own[1], end);
+    }
   });
   const byKey = new Map(regions.map(r => [`${r[0]}+${r[1]}`, r[5]]));
   const catalog = known.catalog?.[build] ?? {};
