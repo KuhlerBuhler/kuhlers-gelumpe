@@ -58,6 +58,7 @@ from fx_card_cases import GROUPS as FXCARD_GROUPS, has_hooks as has_fxcard
 from remote_cases import GROUPS as REMOTE_GROUPS, has_hooks as has_remote
 from last_pattern_cases import GROUPS as LASTPATTERN_GROUPS, has_hooks as has_lastpattern
 from init_pattern_cases import GROUPS as INITPATTERN_GROUPS, has_hooks as has_initpattern
+from doom_loader_cases import GROUPS as DOOM_GROUPS, has_hooks as has_doom
 
 HEADER = 0x100
 PAYLOAD = 0x200000
@@ -185,6 +186,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("last_pattern_cases", "cases_task", (i,)) for i in range(len(LASTPATTERN_GROUPS))]
     if want(has_initpattern):
         tasks += [("init_pattern_cases", "cases_task", (i,)) for i in range(len(INITPATTERN_GROUPS))]
+    if want(has_doom):
+        tasks += [("doom_loader_cases", "cases_task", (i,)) for i in range(len(DOOM_GROUPS))]
     power_off, combine_power_off = power_off_tasks(payload) if want(has_power_off_hook) else ([], None)
     tasks += power_off
     if want(has_presets):
@@ -215,6 +218,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     sysex = [c for _ in range(len(SYSEX_GROUPS) if want(has_sysex) else 0) for c in done.pop(0)]
     lastpattern = [c for _ in range(len(LASTPATTERN_GROUPS) if want(has_lastpattern) else 0) for c in done.pop(0)]
     initpattern = [c for _ in range(len(INITPATTERN_GROUPS) if want(has_initpattern) else 0) for c in done.pop(0)]
+    doom = [c for _ in range(len(DOOM_GROUPS) if want(has_doom) else 0) for c in done.pop(0)]
     power_off_done = [done.pop(0) for _ in power_off]
     presets = done.pop(0) if want(has_presets) else []
     ranges, report = combine(dict(zip(names, done)))
@@ -271,6 +275,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(sysex)
     checks.extend(lastpattern)
     checks.extend(initpattern)
+    checks.extend(doom)
     if power_off:
         checks.extend(combine_power_off(power_off_done))
     checks.extend(presets)
@@ -286,7 +291,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
 CASE_MODULES = ("mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases", "note_assist_cases",
                 "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
                 "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-                "init_pattern_cases", "power_off_cases", "preset_cases")
+                "init_pattern_cases", "power_off_cases", "preset_cases", "doom_loader_cases")
 
 
 def case_list(text):
