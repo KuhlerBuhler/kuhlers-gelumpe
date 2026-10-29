@@ -114,10 +114,19 @@
 .equ MENU_MAX_SCRIPTS, 40
 .equ BLOCK_PROBED, 1
 .equ M_LEVEL_BLECHY, 3        ; level 3 of the screen is not a menu: it is the page of Blechy at the end of the ring
-.equ M_LEVEL_SYNC, 4          ; level 4: the page SYNC GROUP, behind Blechy and right before the Pattern menu, where the build has sync groups
+.equ M_LEVEL_SYNC, 4          ; level 4: the page SYNC GROUP, between the Pattern menu (behind CHAIN REPEAT) and the Part menu, where the build has sync groups
 .equ HAS_SYNC, SYNC_GROUP_AT != 0
-.equ M_LEVEL_PLUGIN, 5        ; level 5: the pages of one plugin, opened by ENTER on PLUGIN EDIT, built like the firmware's Sample Edit
-.equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy (and SYNC GROUP) come after the last page of the firmware's ring (Event)
+.equ M_LEVEL_PLUGIN, 5        ; level 5: MANAGE PLUGINS, one page a plugin (M_PAGE is its place in the list, M_PSEL follows it)
+.equ M_LEVEL_PSUB, 6          ; level 6: the pages of one plugin, opened by ENTER on its page of MANAGE PLUGINS: DESCRIPTION, its own pages, REMOVE
+.equ M_LEVEL_GLOBAL, 7        ; level 7: the page PLUGIN RUNTIME, shown as the last page of the firmware's GLOBAL PARAMETERS (screen 9)
+.equ M_LEVEL_DU, 8            ; level 8: our pages of DATA UTILITY, shown behind the firmware's last function (screen 15)
+.equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy and SYNC GROUP are pages the firmware's ring does not have (BLECH is M_COUNT)
+.equ MENU_SYNC_AT, 15         ; the counter's index of SYNC GROUP: behind the 15 pages of the Pattern menu, the Part menu's pages move up by one
+.equ GLOBAL_PAGES, 20         ; the pages of GLOBAL PARAMETERS (screen 9) and its counter "n/20"; PLUGIN RUNTIME is one more
+.equ GLOBAL_PARAM, 0xC0691240 ; -> the Global parameter object; 0xC007B084(object, page) sets the page screen 9 opens on
+.equ DU_LAST_AT, 0xC0691228   ; the function DATA UTILITY's list (screen 15) opens on
+.equ PATTERN_PAGE_OBJ, 0xC0691260   ; -> the object that keeps the Pattern menu's page, 0xC007D3C0(object, page) sets it
+.equ PART_PAGE_OBJ, 0xC03487E4      ; -> the object that keeps the Part menu's page (0 before the Part menu was built), 0xC007BFD0(object, page)
 
 ; ---- start: arm the menu (called from the card hook wrapper, registers saved there)
 menu_arm:
@@ -424,7 +433,12 @@ menu_read_fail:
 ; Writes the edited settings as the next generation, in one write, to the file the newer one is not in.
 ; Sets M_STATUS: 1 written, 0x20 + code of the failing FatFs call otherwise.
 menu_settings_save:
-    push {r4-r10, lr}
+    mov r0, #0
+; r0 = 1: EXPORT ALL CUSTOMIZATIONS, the same record without the plugin checksums as KORG/blechtribe/e2sCustom.all; the
+; generation stays, M_STATUS 0x53 when written. Nothing reads that file yet: copied over settings.a.bin it is read as settings.
+menu_settings_write:
+    push {r4-r11, lr}
+    mov r11, r0
     bl menu_off_sync
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
@@ -437,10 +451,13 @@ menu_settings_save:
     mov r0, #0
     strb r0, [r7, #5]
     ldr r9, [r4, #M_TRUST_N]
+    cmp r11, #0
+    movne r9, #0
     strb r9, [r7, #6]
     strb r0, [r7, #7]
     ldr r8, [r4, #M_GEN]
-    add r8, r8, #1
+    cmp r11, #0
+    addeq r8, r8, #1
     str r8, [r7, #8]
     mov r0, #0
     ldr r1, [r4, #M_SET_RUN]
@@ -545,6 +562,8 @@ menu_save_trust_done:
     ldr r1, =settings_path_a
     tst r8, #1
     ldrne r1, =settings_path_b
+    cmp r11, #0
+    ldrne r1, =custom_path
     mov r0, r6
     bl card_create
     cmp r0, #0
@@ -565,16 +584,20 @@ menu_save_trust_done:
     cmp r0, r10
     movne r9, #2
     bne menu_save_fail_r9
+    cmp r11, #0
+    movne r0, #0x53
+    bne menu_save_status
     str r8, [r4, #M_GEN]
     mov r0, #1
+menu_save_status:
     str r0, [r4, #M_STATUS]
-    pop {r4-r10, pc}
+    pop {r4-r11, pc}
 menu_save_fail:
     mov r9, r0
 menu_save_fail_r9:
     add r0, r9, #0x20
     str r0, [r4, #M_STATUS]
-    pop {r4-r10, pc}
+    pop {r4-r11, pc}
 ; Works out what the settings of the group CUSTOMIZATION do and puts them to work: the kind and the brightness of the
 ; bottom LEDs (M_LED_EFF: 0 the stock meter, 1 the meter in our colour, 2 a fixed colour; M_LED_V: red, green, blue as 0 to 255)
 ; and the backlight (pins that may light, the tables of the software PWM), then sets the backlight now.
@@ -727,14 +750,16 @@ settings_path_a:
     .asciz "SD:KORG/blechtribe/settings.a.bin"
 settings_path_b:
     .asciz "SD:KORG/blechtribe/settings.b.bin"
+custom_path:
+    .asciz "SD:KORG/blechtribe/e2sCustom.all"
 .align 4
 .pool
 menu_settings_end:
 
 ; ---- hooks into the firmware: each returns to the word behind the one it replaced
 ; 0xC0064430, the Event menu's EDIT right: `push {r3, r4, r5, lr}` (it prepares the Pattern menu and switches to it). With the menu armed
-; the ring goes on to the page BLECH first, level 0 of our screen, then Blechy (level 3), then the Pattern menu: BLECH is the last
-; menu of the ring, behind Event (device 18.10.: it sat between Global and Data Util).
+; the ring goes on to the page BLECH first, level 0 of our screen, then Blechy (level 3), then the Pattern menu: BLECH and Blechy are the
+; last two pages of the ring, behind Event (device 18.10.: BLECH sat between Global and Data Util; 29.10.: BLECH 31, Blechy 32).
 menu_event_right:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
@@ -751,20 +776,125 @@ menu_event_right_go:
     ldr pc, =0xC0064434
 .pool
 ; 0xC0067754, the Pattern menu's EDIT left on its first page: `mov r0, #10` (Event), then it switches screens. With the menu armed
-; the ring goes back to the page SYNC GROUP first (the page of Blechy where the build has no sync groups).
+; the ring goes back to the page of Blechy first.
 menu_pattern_left:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
     movne r0, #10
     bne menu_pattern_left_go
-    mov r3, #M_LEVEL_BLECHY+HAS_SYNC
+    mov r3, #M_LEVEL_BLECHY
     str r3, [r2, #M_LEVEL]
     mov r3, #0
     str r3, [r2, #M_ENTER]
     mov r0, #MENU_SCREEN
 menu_pattern_left_go:
     ldr pc, =0xC0067758
+.pool
+; 0xC0067720, the Pattern menu's EDIT right on its last page (CHAIN REPEAT): `mov r0, #7` (Part), then it switches screens. With the
+; menu armed the page SYNC GROUP (level 4) comes first, where the build has sync groups.
+menu_pattern_right:
+    mov r0, #7
+    ldr r2, =MENU_STATE
+    ldr r3, [r2, #M_ON]
+    mov r1, #HAS_SYNC
+    cmp r3, #1
+    cmpeq r1, #1
+    moveq r3, #M_LEVEL_SYNC
+    streq r3, [r2, #M_LEVEL]
+    moveq r3, #0
+    streq r3, [r2, #M_ENTER]
+    moveq r0, #MENU_SCREEN
+    ldr pc, =0xC0067724
+.pool
+; 0xC0065B8C, the Part menu's EDIT left on its first page: `mov r0, #3` (the Pattern menu, whose last page the code before has set).
+; With the menu armed the page SYNC GROUP comes first.
+menu_part_left:
+    mov r0, #3
+    ldr r2, =MENU_STATE
+    ldr r3, [r2, #M_ON]
+    mov r1, #HAS_SYNC
+    cmp r3, #1
+    cmpeq r1, #1
+    moveq r3, #M_LEVEL_SYNC
+    streq r3, [r2, #M_LEVEL]
+    moveq r3, #0
+    streq r3, [r2, #M_ENTER]
+    moveq r0, #MENU_SCREEN
+    ldr pc, =0xC0065B90
+.pool
+; 0xC0064C20 and 0xC0064C28, slots 4 and 5 (EDIT left and right) of GLOBAL PARAMETERS (screen 9): `mvn r1, #0` and `mov r1, #1`,
+; then its step. With the menu armed EDIT left on the first page and EDIT right on the last go to PLUGIN RUNTIME (level 7), which
+; shows itself as page 21 of 21. The splash editor's page (20) never comes here with EDIT left, its own slot takes that.
+menu_global_prev:
+    mov r1, #0
+    b menu_global_edge
+menu_global_next:
+    mov r1, #GLOBAL_PAGES-1
+menu_global_edge:
+    ldr r2, =MENU_STATE
+    ldr r3, [r2, #M_ON]
+    cmp r3, #1
+    ldreq r3, [r0, #0x2C]
+    cmpeq r3, r1
+    beq menu_global_out
+    cmp r1, #0
+    mvneq r1, #0
+    movne r1, #1
+    ldr pc, =0xC0064BD4
+menu_global_out:
+    mov r3, #M_LEVEL_GLOBAL
+    str r3, [r2, #M_LEVEL]
+    mov r3, #0
+    str r3, [r2, #M_ENTER]
+    mov r0, #MENU_SCREEN
+    mov r1, #0
+    ldr pc, =SWITCH_SCREEN
+.pool
+; 0xC00623C0 and 0xC0062448, slots 4 and 5 of DATA UTILITY's list of functions (screen 15): both start with `push {r4, lr}` and ask
+; 0xC00623A8 whether the list may move now. With the menu armed and the whole list (byte 0x25; without it the firmware shows three
+; functions only), EDIT left on the first function and EDIT right on the last go to our pages (level 8), on the last and the first.
+menu_du_prev:
+    push {r4, lr}
+    mov r4, r0
+    bl 0xC00623A8
+    cmp r0, #0
+    popeq {r4, pc}
+    mov r0, #0
+    bl menu_du_edge
+    ldr pc, =0xC00623D4
+menu_du_next:
+    push {r4, lr}
+    mov r4, r0
+    bl 0xC00623A8
+    cmp r0, #0
+    popeq {r4, pc}
+    mov r0, #DU_PAGES-1
+    bl menu_du_edge
+    ldr pc, =0xC006245C
+; r4 = the list, r0 = the function at the edge the key leaves from: returns when the list keeps the key, else switches to our
+; screen and returns from the slot (its frame {r4, lr} is dropped here).
+menu_du_edge:
+    ldr r2, =MENU_STATE
+    ldr r3, [r2, #M_ON]
+    cmp r3, #1
+    bxne lr
+    ldrb r3, [r4, #0x25]
+    cmp r3, #0
+    bxeq lr
+    ldr r3, [r4, #0x20]
+    cmp r3, r0
+    bxne lr
+    cmp r0, #0
+    mvneq r0, #0                ; EDIT left from the first function: our last page
+    movne r0, #0
+    str r0, [r2, #M_ENTER]
+    mov r3, #M_LEVEL_DU
+    str r3, [r2, #M_LEVEL]
+    pop {r4, lr}
+    mov r0, #MENU_SCREEN
+    mov r1, #0
+    ldr pc, =SWITCH_SCREEN
 .pool
 ; BLECH stays a top-level screen for MENU navigation.
 @MENU_TOPLEVEL@
@@ -782,49 +912,52 @@ menu_write_go:
     push {r3, r4, r5, lr}
     ldr pc, =0xC006F098
 .pool
-; 0xC008A83C and 0xC008A8A8, the page counter "n/29": the total grows by the page BLECH and the page of Blechy while the menu is
-; armed (both sit behind Event, the last of the firmware's: BLECH is 30/31, Blechy 31/31).
+; 0xC008A83C and 0xC008A8A8, the page counters, r1 = index, r2 = total. While the menu is armed:
+; - the ring's "n/29": the total grows by the page BLECH, the page of Blechy and SYNC GROUP; SYNC GROUP sits at 16 behind CHAIN
+;   REPEAT, so every page from the Part menu on moves up by one (BLECH is 31/32, Blechy 32/32);
+; - GLOBAL PARAMETERS' "n/20" grows by PLUGIN RUNTIME, DATA UTILITY's "n/14" (the blue: "n/11") by our pages there. Only those two
+;   screens and the windows of their functions count to 20 and 14 (11 on the blue).
 menu_counter_new:
-    ldr r3, =MENU_STATE
-    ldr r3, [r3, #M_RAW]
-    cmp r3, #0
-    bne menu_counter_new_go
-    cmp r2, #MENU_RING_TOTAL
-    bne menu_counter_new_go
-    ldr r3, =MENU_STATE
-    ldr r3, [r3, #M_ON]
-    cmp r3, #1
-    bne menu_counter_new_go
-    ldr r3, =MENU_STATE
-    ldr r3, [r3, #M_COUNT]
-    add r2, r2, r3
-    add r2, r2, #MENU_RING_TAIL
-    cmp r1, #MENU_RING_FIRST
-    addge r1, r1, r3
-menu_counter_new_go:
+    push {r0, lr}
+    bl menu_counter_fix
+    pop {r0, lr}
     mov r3, #0
     ldr pc, =0xC008A840
 .pool
 menu_counter_set:
     push {r4, lr}
-    ldr r3, =MENU_STATE
-    ldr r3, [r3, #M_RAW]
-    cmp r3, #0
-    bne menu_counter_set_go
-    cmp r2, #MENU_RING_TOTAL
-    bne menu_counter_set_go
-    ldr r3, =MENU_STATE
-    ldr r3, [r3, #M_ON]
-    cmp r3, #1
-    bne menu_counter_set_go
-    ldr r3, =MENU_STATE
-    ldr r3, [r3, #M_COUNT]
-    add r2, r2, r3
-    add r2, r2, #MENU_RING_TAIL
-    cmp r1, #MENU_RING_FIRST
-    addge r1, r1, r3
-menu_counter_set_go:
+    push {r0}
+    bl menu_counter_fix
+    pop {r0}
     ldr pc, =0xC008A8AC
+.pool
+; r1, r2 as above -> r1, r2 as the counter shows them. Clobbers r0, r3 and r12.
+menu_counter_fix:
+    ldr r3, =MENU_STATE
+    ldr r0, [r3, #M_RAW]
+    cmp r0, #0
+    bxne lr
+    ldr r0, [r3, #M_ON]
+    cmp r0, #1
+    bxne lr
+    cmp r2, #GLOBAL_PAGES
+    addeq r2, r2, #1
+    bxeq lr
+    cmp r2, #DU_PAGES
+    beq menu_counter_du
+    cmp r2, #MENU_RING_TOTAL
+    bxne lr
+    ldr r0, [r3, #M_COUNT]
+    add r2, r2, r0
+    add r2, r2, #MENU_RING_TAIL
+    cmp r1, #MENU_SYNC_AT
+    addge r1, r1, #HAS_SYNC
+    bx lr
+menu_counter_du:
+    push {r1, lr}
+    bl menu_du_count
+    add r2, r0, #DU_PAGES
+    pop {r1, pc}
 .pool
 menu_hooks_end:
 
@@ -1399,8 +1532,13 @@ menu_tab_go:
     addeq r3, r3, #1
     ldr r1, =tab_names
     ldr r1, [r1, r3, lsl #2]
-    cmp r2, #M_LEVEL_PLUGIN     ; the pages of one plugin stay under Plugins
+    cmp r2, #M_LEVEL_PLUGIN     ; MANAGE PLUGINS and the pages of one plugin stay under Plugins
+    cmpne r2, #M_LEVEL_PSUB
     ldreq r1, =str_tab_plugins
+    cmp r2, #M_LEVEL_GLOBAL     ; PLUGIN RUNTIME and our pages of DATA UTILITY carry the tabs of those screens
+    ldreq r1, =str_tab_global
+    cmp r2, #M_LEVEL_DU
+    ldreq r1, =str_tab_du
     cmp r2, #M_LEVEL_SYNC       ; SYNC GROUP is a page of the pattern: its tab says so
     ldreq r1, =str_tab_pattern
     ldr r0, [r5, #M_TABW]
@@ -1424,8 +1562,6 @@ menu_texts_clear:
     beq menu_text_run
     cmp r0, #1
     beq menu_text_mfx
-    cmp r0, #2
-    beq menu_text_script
     cmp r0, #3
     beq menu_text_export
     cmp r0, #6
@@ -1468,7 +1604,7 @@ menu_texts_clear:
     cmp r0, #35
     beq menu_text_splash
     cmp r0, #36
-    beq menu_text_psel
+    beq menu_text_prow
     cmp r0, #37
     beq menu_text_pdel
     cmp r0, #38
@@ -1479,6 +1615,10 @@ menu_texts_clear:
     beq menu_text_ip
     cmp r0, #41
     beq menu_text_version
+    cmp r0, #42
+    beq menu_text_export
+    cmp r0, #43
+    beq menu_text_export
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -1511,15 +1651,20 @@ menu_text_press:
     ldr r1, =str_press
     bl menu_copy
     pop {r4, r5, r6, r7, pc}
+; EXPORT ALL CUSTOMIZATIONS, PLUGINS or EFFECTS (kind 42, 3, 43), "press  [ Enter ]" or what ENTER did
 menu_text_export:
-    add r0, r5, #M_TITLE
     ldr r1, =str_export
+    cmp r0, #42
+    ldreq r1, =str_export_custom
+    cmp r0, #43
+    ldreq r1, =str_export_fx
+    add r0, r5, #M_TITLE
     bl menu_copy
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
     bne menu_text_status_value
     b menu_text_press
-; PLUGIN EDIT, built like SAMPLE EDIT: "press [ Enter ]", or what ENTER (No Plugin) or DELETE PLUGIN said
+; MANAGE PLUGINS: "press [ Enter ]", or what ENTER (No Plugin) or REMOVE said
 menu_text_pedit:
     add r0, r5, #M_TITLE
     ldr r1, =str_pedit
@@ -1528,16 +1673,6 @@ menu_text_pedit:
     cmp r1, #0
     bne menu_text_status_value
     b menu_text_press
-; SELECT PLUGIN: its name; the dial chooses the plugin the next pages are about (as SELECT SAMPLE)
-menu_text_psel:
-    add r0, r5, #M_TITLE
-    ldr r1, =str_psel
-    bl menu_copy
-    mov r0, r7
-    bl menu_psel_name
-    add r0, r5, #M_VALUE
-    bl menu_copy16
-    pop {r4, r5, r6, r7, pc}
 ; DESCRIPTION: the description of the plugin, from the file behind its block, drawn as a picture (menu_desc_frame); the value line
 ; under it is the plugin's state, or what went wrong reading the file. The dial scrolls.
 menu_text_pdesc:
@@ -1553,7 +1688,7 @@ menu_text_pdesc:
     cmp r1, #0
     bne menu_text_status
     pop {r4, r5, r6, r7, pc}
-; DELETE PLUGIN: "press [ Enter ]"; the first ENTER asks, the second deletes (menu_delete)
+; REMOVE: "press [ Enter ]"; the first ENTER asks, the second removes (menu_delete)
 menu_text_pdel:
     add r0, r5, #M_TITLE
     ldr r1, =str_pdel
@@ -1595,15 +1730,18 @@ menu_text_app_value:
     add r0, r5, #M_VALUE
     bl menu_copy
     pop {r4, r5, r6, r7, pc}
-menu_text_script:
+; a plugin of MANAGE PLUGINS, r7 = its place in the list: its name, and its state under it (ON, OFF, ENTER=ALLOW or the fault and
+; its line); the dial switches it, ENTER opens its pages
+menu_text_prow:
+    mov r0, r7
+    bl menu_psel_name
+    add r0, r5, #M_TITLE
+    bl menu_copy16
     mov r0, r7
     bl menu_entry
     movs r6, r0
-    beq menu_text_script_off
-    mov r0, #0
-    bl menu_title_prefix
-    ldr r1, =str_state          ; the plugin's name is on SELECT PLUGIN, the page before
-    bl menu_copy16
+    ldreq r1, =str_off          ; not loaded: OFF, as a plugin that is switched off; the dial up loads and starts it
+    beq menu_text_script_value
     ldr r2, [r6, #SCRIPT_ENTRY_STATE]
     cmp r2, #SCRIPT_STATE_DISABLED
     beq menu_text_script_fault
@@ -1619,13 +1757,6 @@ menu_text_script_value:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_script_status
-menu_text_script_off:           ; not loaded: OFF, as a plugin that is switched off; the dial up loads and starts it
-    mov r0, #0
-    bl menu_title_prefix
-    ldr r1, =str_state
-    bl menu_copy16
-    ldr r1, =str_off
-    b menu_text_script_value
 menu_text_script_fault:
     ldr r0, [r6, #SCRIPT_ENTRY_FAULT]
     cmp r0, #SCRIPT_ERROR_COUNT
@@ -1992,6 +2123,15 @@ menu_text_status_more:
     cmp r1, #0x51
     ldreq r1, =str_pdeleted
     beq menu_text_status_go
+    cmp r1, #0x53
+    ldreq r1, =str_fx_exported
+    beq menu_text_status_go
+    cmp r1, #0x52
+    ldreq r1, =str_fx_nofile
+    beq menu_text_status_go
+    cmp r1, #0x54
+    ldreq r1, =str_fx_bad
+    beq menu_text_status_go
     ldr r1, =str_writeerr
 menu_text_status_go:
     bl menu_copy
@@ -2326,40 +2466,52 @@ menu_confirm_add:
     pop {r4, r5, pc}
 .pool
 
-; The menu has three levels, the way Data Util has two. Level 0 is the one page BLECH in the ring of the firmware, between Global and
-; Data Util ("press [ Enter ]"); ENTER opens level 1, the list of the groups FEATURES, CUSTOMIZATION and PLUGINS, and behind them the
-; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it, and last the page
-; VERSION (the set's version and the firmware it is built for, no group). Each group is again
-; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
-; 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR, 8 POWER SAVE, 9 SPLASH). Those five are rows of CUSTOMIZATION that open their pages;
-; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
-; main dial changes them, WRITE keeps them). EXIT goes one level up. M_PAGE counts within the level, the counter shows only that
-; level. Level 3 (M_LEVEL_BLECHY) is no menu: it is a page of the ring, after Event, on which Blechy, the app built into
-; BLECH, shows himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP behind
-; him, right before the Pattern menu: a setting of the pattern in RAM, saved with WRITE as the Pattern menu's pages.
-; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 2 a plugin, 3 export, 4 and 5 unused, 6 a page a
-; plugin added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
+; The menu has three levels, the way Data Util has two. Level 0 is the one page BLECH in the ring of the firmware, behind Event
+; ("press [ Enter ]"); ENTER opens level 1, the list of the groups FEATURES, PLUGINS and CUSTOMIZATION, and behind them the groups
+; plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it, and last the page VERSION (the
+; set's version and the firmware it is built for, no group). Each group is again "press [ Enter ]". ENTER on a group opens level 2,
+; the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION, 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR, 8 POWER
+; SAVE, 9 SPLASH). Those five are rows of CUSTOMIZATION that open their pages; EXIT there goes back to that row. FEATURES holds the
+; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the main dial changes them, WRITE keeps
+; them). PLUGINS holds MANAGE PLUGINS: ENTER opens level 5 (M_LEVEL_PLUGIN), one page a plugin with its name and its state, the dial
+; switches it on and off; ENTER there opens level 6 (M_LEVEL_PSUB), the pages of that plugin: DESCRIPTION, the pages it added
+; (korg.menu.add) and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
+; Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, behind BLECH, on which Blechy, the app built into BLECH, shows
+; himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP between the Pattern and
+; the Part menu: a setting of the pattern in RAM, saved with WRITE as the Pattern menu's pages. Levels 7 (M_LEVEL_GLOBAL, PLUGIN
+; RUNTIME) and 8 (M_LEVEL_DU, the exports and SET INIT PATTERN) look like pages of GLOBAL PARAMETERS and DATA UTILITY: EDIT moves
+; between them and the firmware's pages, EXIT goes where the firmware's EXIT goes there.
+; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 3 EXPORT ALL PLUGINS, 2, 4 and 5 unused, 6 a page a plugin
+; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
-; 36 SELECT PLUGIN, 37 DELETE PLUGIN, 38 PLUGIN EDIT, 39 DESCRIPTION, 40 INIT PATTERN, 41 VERSION), r1 = its index (the plugin, the page, the app's table index,
-; the group). Keeps r4 to r8.
+; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
     ldr r2, [r4, #M_LEVEL]
     mov r5, r0
+    mov r1, #0
     cmp r2, #M_LEVEL_BLECHY
     moveq r0, #19
-    moveq r1, #0
     beq menu_kind_done
     cmp r2, #M_LEVEL_SYNC
     moveq r0, #33
-    moveq r1, #0
     beq menu_kind_done
+    cmp r2, #M_LEVEL_GLOBAL
+    moveq r0, #0
+    beq menu_kind_done
+    cmp r2, #M_LEVEL_DU
+    beq menu_kind_du
     cmp r2, #M_LEVEL_PLUGIN
+    moveq r0, #36
+    moveq r1, r5
+    strbeq r5, [r4, #M_PSEL]   ; the plugin this page shows is the one DESCRIPTION, REMOVE and loading are about
+    beq menu_kind_done
+    cmp r2, #M_LEVEL_PSUB
     beq menu_kind_plugin
     cmp r2, #0
     moveq r0, #17
-    moveq r1, #0
     beq menu_kind_done
     cmp r2, #1
     bne menu_kind_group
@@ -2368,10 +2520,10 @@ menu_kind:
     moveq r1, #4
     beq menu_kind_done
     cmp r5, #1
-    moveq r1, #3
+    moveq r1, #0
     beq menu_kind_done
     cmp r5, #2
-    moveq r1, #0
+    moveq r1, #3
     beq menu_kind_done
     bl menu_page_count          ; VERSION is the last row of the list
     sub r0, r0, #1
@@ -2392,10 +2544,15 @@ menu_kind_no_games:
     mov r0, #16
     mov r1, #2
     b menu_kind_done
+menu_kind_du:
+    bl menu_du_kind
+    mov r1, #0
+    b menu_kind_done
 menu_kind_group:
     ldr r3, [r4, #M_GROUP]
     cmp r3, #0
-    beq menu_kind_plugins
+    moveq r0, #38               ; PLUGINS: MANAGE PLUGINS
+    beq menu_kind_done
     cmp r3, #4
     beq menu_kind_features
     cmp r3, #5                  ; DISPLAY, LED, PAD COLOR, POWER SAVE, SPLASH (5 to 9) and CUSTOMIZATION (3): the kinds of their pages from tables
@@ -2417,9 +2574,6 @@ menu_kind_sub:
     b menu_kind_done
 menu_kind_features:
     mov r0, #21
-    mov r1, #0
-    cmp r5, #4
-    moveq r0, #40
     cmp r5, #2
     moveq r0, #20
     cmp r5, #1
@@ -2438,27 +2592,14 @@ menu_kind_nth:
     bl app_nth
     mov r0, #15
     b menu_kind_done
-menu_kind_plugins:              ; RUNTIME, PLUGIN EDIT, EXPORT
-    mov r1, #0
-    cmp r5, #1
-    movlo r0, #0
-    moveq r0, #38
-    cmp r5, #2
-    moveq r0, #3
-    b menu_kind_done
-menu_kind_plugin:               ; SELECT PLUGIN, STATE, DESCRIPTION, the pages the plugin added (korg.menu.add), DELETE PLUGIN
-    ldrb r0, [r4, #M_PSEL]
-    mov r1, r0
-    cmp r5, #1
-    movlo r0, #36
-    blo menu_kind_done
-    moveq r0, #2
-    beq menu_kind_done
-    cmp r5, #2
+menu_kind_plugin:               ; DESCRIPTION, the pages the plugin added (korg.menu.add), REMOVE
+    ldrb r1, [r4, #M_PSEL]
+    cmp r5, #0
     moveq r0, #39
     beq menu_kind_done
+    mov r0, r1
     bl menu_entry
-    sub r1, r5, #3
+    sub r1, r5, #1
     bl menu_item_nth
     cmp r0, #0
     movge r1, r0
@@ -2470,23 +2611,79 @@ menu_kind_done:
     pop {r4, r5, pc}
 .pool
 
+; Our pages of DATA UTILITY, in this order where the build has them: EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS, EXPORT ALL
+; EFFECTS (the Sampler builds, they have the effect collection), SET INIT PATTERN (where the set has the patch init-pattern).
+; -> r0 = a mask, bit n set when the page of du_kinds[n] is there. Clobbers r1.
+menu_du_mask:
+    mov r0, #DU_BUILT
+    ldr r1, =INIT_CODE
+    ldr r1, [r1]
+    cmn r1, #1
+    orrne r0, r0, #8
+    bx lr
+; -> r0 = how many of our pages DATA UTILITY has. Clobbers r1 and r2.
+menu_du_count:
+    push {lr}
+    bl menu_du_mask
+    mov r1, r0
+    mov r0, #0
+menu_du_count_loop:
+    movs r1, r1, lsr #1
+    addcs r0, r0, #1
+    bne menu_du_count_loop
+    pop {pc}
+; r0 = page of level 8 -> r0 = its kind. Clobbers r1 to r3.
+menu_du_kind:
+    push {r4, lr}
+    mov r4, r0
+    bl menu_du_mask
+    mov r1, r0
+    mov r0, #3
+    ldr r2, =du_kinds
+menu_du_kind_loop:
+    cmp r1, #0
+    popeq {r4, pc}
+    tst r1, #1
+    beq menu_du_kind_next
+    subs r4, r4, #1
+    ldrbmi r0, [r2]
+    popmi {r4, pc}
+menu_du_kind_next:
+    mov r1, r1, lsr #1
+    add r2, r2, #1
+    b menu_du_kind_loop
+.pool
+
 ; -> r0 = how many pages the current level has. Keeps r4 to r8.
 menu_page_count:
     push {r4, lr}
     ldr r4, =MENU_STATE
     ldr r1, [r4, #M_LEVEL]
-    cmp r1, #M_LEVEL_PLUGIN
+    cmp r1, #M_LEVEL_PSUB
     beq menu_count_plugin
+    cmp r1, #M_LEVEL_PLUGIN
+    beq menu_count_list_plugins
+    cmp r1, #M_LEVEL_DU
+    beq menu_count_du
     cmp r1, #M_LEVEL_BLECHY
     cmpne r1, #M_LEVEL_SYNC
+    cmpne r1, #M_LEVEL_GLOBAL
     cmpne r1, #0
     bne menu_count_level1
     mov r0, #1
     pop {r4, pc}
+menu_count_du:
+    bl menu_du_count
+    pop {r4, pc}
+menu_count_list_plugins:        ; one page a plugin; never none, ENTER on MANAGE PLUGINS does not open an empty list
+    bl menu_psel_total
+    cmp r0, #1
+    movlo r0, #1
+    pop {r4, pc}
 menu_count_level1:
     cmp r1, #1
     bne menu_count_group
-    mov r4, #4                  ; FEATURES, CUSTOMIZATION, PLUGINS, VERSION, and GAMES and TOOLS where an app is declared in them
+    mov r4, #4                  ; FEATURES, PLUGINS, CUSTOMIZATION, VERSION, and GAMES and TOOLS where an app is declared in them
     mov r0, #0
     bl app_count
     cmp r0, #0
@@ -2524,38 +2721,36 @@ menu_count_features:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #4                  ; FEATURES: the four switches, and INIT PATTERN where the set has the patch init-pattern
-    ldr r1, =INIT_CODE
-    ldr r1, [r1]
-    cmn r1, #1
-    addne r0, r0, #1
+    mov r0, #4                  ; FEATURES: the four switches
     b menu_count_out
 menu_count_apps:
     sub r0, r1, #1
     bl app_count
 menu_count_out:
     pop {r4, pc}
-menu_count_plugins:
-    mov r0, #3
+menu_count_plugins:             ; MANAGE PLUGINS
+    mov r0, #1
     pop {r4, pc}
-menu_count_plugin:              ; a plugin that is not loaded has SELECT PLUGIN, STATE and DESCRIPTION only
+menu_count_plugin:              ; a plugin that is not loaded has DESCRIPTION only, a loaded one its pages and REMOVE as well
     ldrb r0, [r4, #M_PSEL]
     bl menu_entry
     cmp r0, #0
-    moveq r0, #3
+    moveq r0, #1
     popeq {r4, pc}
     mvn r1, #0
     bl menu_item_nth
-    add r0, r1, #4
+    add r0, r1, #2
     pop {r4, pc}
 .pool
 
-; Called by the constructor: the page M_ENTER (-1 is the last one) within the current level becomes M_PAGE. Clobbers r0 to r3.
+; Called by the constructor: the page M_ENTER (-1 is the last one) within the current level becomes M_PAGE. What an earlier ENTER
+; said (M_STATUS) is cleared, the screen opens on "press [ Enter ]". Clobbers r0 to r3.
 menu_enter_page:
     push {lr}
     ldr r3, =MENU_STATE
     mov r0, #0
     str r0, [r3, #M_LISTED]
+    str r0, [r3, #M_STATUS]
     bl menu_page_count
     ldr r3, =MENU_STATE
     ldr r1, [r3, #M_ENTER]
@@ -2568,30 +2763,38 @@ menu_enter_page:
     pop {pc}
 .pool
 
-; -> r1 = the counter's index, r2 = its total, for the page counter. On level 0 it is the place in the ring of the firmware (27 of
-; 31, the counter shows the index plus one), on levels 3 (Blechy) and 4 (SYNC GROUP) the places behind it, the last ones, below it
-; the page within the level. Sets M_RAW so the counter hooks leave the
-; numbers alone. Clobbers r0 to r3.
+; -> r1 = the counter's index, r2 = its total, for the page counter. On level 0 it is the place in the ring of the firmware (31 of
+; 32, the counter shows the index plus one), on level 3 (Blechy) the last place, on level 4 (SYNC GROUP) the place behind CHAIN REPEAT,
+; on levels 7 and 8 the places behind GLOBAL PARAMETERS' and DATA UTILITY's own pages; below it the page within the level. Sets M_RAW
+; so the counter hooks leave the numbers alone. Clobbers r0 to r3.
 menu_counter_args:
     push {lr}
     ldr r3, =MENU_STATE
     mov r1, #1
     str r1, [r3, #M_RAW]
     ldr r1, [r3, #M_LEVEL]
+    ldr r2, [r3, #M_COUNT]
+    add r2, r2, #MENU_RING_TOTAL+MENU_RING_TAIL
+    cmp r1, #M_LEVEL_SYNC
+    moveq r1, #MENU_SYNC_AT
+    popeq {pc}
     cmp r1, #M_LEVEL_BLECHY
-    cmpne r1, #M_LEVEL_SYNC
-    beq menu_counter_last
+    subeq r1, r2, #1
+    popeq {pc}
     cmp r1, #0
+    subeq r1, r2, #2
+    popeq {pc}
+    cmp r1, #M_LEVEL_GLOBAL
+    moveq r1, #GLOBAL_PAGES
+    moveq r2, #GLOBAL_PAGES+1
+    popeq {pc}
+    cmp r1, #M_LEVEL_DU
     bne menu_counter_level
-    ldr r2, [r3, #M_COUNT]
-    add r2, r2, #MENU_RING_TOTAL+MENU_RING_TAIL
-    mov r1, #MENU_RING_FIRST
-    pop {pc}
-menu_counter_last:
-    ldr r2, [r3, #M_COUNT]
-    add r2, r2, #MENU_RING_TOTAL+MENU_RING_TAIL
-    sub r1, r1, #M_LEVEL_BLECHY+MENU_RING_TAIL
-    add r1, r2, r1
+    bl menu_du_count
+    add r2, r0, #DU_PAGES
+    ldr r3, =MENU_STATE
+    ldr r1, [r3, #M_PAGE]
+    add r1, r1, #DU_PAGES
     pop {pc}
 menu_counter_level:
     bl menu_page_count
@@ -2691,7 +2894,7 @@ menu_item_nth_done:
 
 ; r0 = script entry: DELETE PLUGIN. A plugin that runs stops (as with STATE OFF), its block is marked in RAM so the lists and EXPORT
 ; leave it out, and e2sPlugin.all is written again without it, also when none is left; the block stays in the pool until the next
-; start. Back on PLUGIN EDIT, which shows the result. Clobbers r0 to r3 and r12.
+; start. Back on MANAGE PLUGINS, which shows the result. Clobbers r0 to r3 and r12.
 menu_delete:
     push {r4, lr}
     ldr r1, [r0, #SCRIPT_ENTRY_STATE]
@@ -2712,11 +2915,10 @@ menu_delete:
     str r0, [r4, #M_STATUS]
     mov r0, #0
     strb r0, [r4, #M_PSEL]
-    mov r0, #2
-    str r0, [r4, #M_LEVEL]
-    mov r0, #1
     str r0, [r4, #M_PAGE]
     str r0, [r4, #M_ENTER]
+    mov r0, #2
+    str r0, [r4, #M_LEVEL]
     pop {r4, pc}
 .pool
 
@@ -3254,7 +3456,7 @@ menu_state_text:
     mov r0, r4
     bl menu_needs_confirm
     cmp r0, #0
-    ldrne r1, =str_enter_allow
+    ldrne r1, =str_allow
     ldreq r1, =str_off
     pop {r4, pc}
 .pool
@@ -3608,6 +3810,10 @@ menu_copy_end:
     strb r2, [r0]
     bx lr
 
+menu_export_custom:
+    mov r0, #1
+    b menu_settings_write
+
 ; ---- slots of the class, this = r0
 menu_slot_prev:
     push {r4, lr}
@@ -3621,6 +3827,10 @@ menu_slot_prev:
     beq menu_prev_blechy
     cmp r3, #M_LEVEL_SYNC
     beq menu_prev_sync
+    cmp r3, #M_LEVEL_GLOBAL
+    beq menu_prev_global
+    cmp r3, #M_LEVEL_DU
+    beq menu_prev_du
     cmp r3, #0
     bne menu_prev_wrap
     pop {r4, lr}
@@ -3643,16 +3853,36 @@ menu_leave_left:
     mov r0, #10                 ; the page BLECH, EDIT left: back to Event
     mov r1, #0
     ldr pc, =SWITCH_SCREEN
-; the page SYNC GROUP, EDIT left: back to the page of Blechy (level 3 of the same screen)
+; the page SYNC GROUP, EDIT left: back to the Pattern menu on its last page (CHAIN REPEAT), as the Part menu goes there
 menu_prev_sync:
-    mov r3, #M_LEVEL_BLECHY
-    str r3, [r2, #M_LEVEL]
-    mov r3, #0
-    str r3, [r2, #M_PAGE]
-    str r3, [r2, #M_ENTER]
-    mov r0, r4
-    bl menu_show
-    pop {r4, pc}
+    ldr r0, =PATTERN_PAGE_OBJ
+    ldr r0, [r0]
+    cmp r0, #0
+    movne r1, #14
+    blne 0xC007D3C0
+    mov r0, #3
+    b menu_leave
+; PLUGIN RUNTIME, EDIT left: the last page of GLOBAL PARAMETERS
+menu_prev_global:
+    mov r1, #GLOBAL_PAGES-1
+menu_global_page:
+    ldr r0, =GLOBAL_PARAM
+    ldr r0, [r0]
+    cmp r0, #0
+    blne 0xC007B084
+    mov r0, #9
+    b menu_leave
+; the first of our pages of DATA UTILITY, EDIT left: the firmware's last function
+menu_prev_du:
+    mov r1, #DU_PAGES-1
+menu_du_function:
+    ldr r0, =DU_LAST_AT
+    str r1, [r0]
+    mov r0, #15
+menu_leave:                     ; r0 = the screen to switch to; this one goes
+    pop {r4, lr}
+    mov r1, #0
+    ldr pc, =SWITCH_SCREEN
 ; the page of Blechy, EDIT left: back to the page BLECH (level 0 of the same screen)
 menu_prev_blechy:
     mov r3, #0
@@ -3675,9 +3905,15 @@ menu_slot_next:
     blo menu_next_step
     ldr r3, [r2, #M_LEVEL]
     cmp r3, #M_LEVEL_SYNC
-    beq menu_next_pattern
+    beq menu_next_sync
     cmp r3, #M_LEVEL_BLECHY
-    beq menu_next_blechy
+    beq menu_next_pattern
+    cmp r3, #M_LEVEL_GLOBAL
+    moveq r1, #0
+    beq menu_global_page
+    cmp r3, #M_LEVEL_DU
+    moveq r1, #0
+    beq menu_du_function
     cmp r3, #0
     beq menu_next_leave
     mov r1, #0
@@ -3699,21 +3935,17 @@ menu_next_leave:               ; the page BLECH, EDIT right: the page of Blechy 
     mov r0, r4
     bl menu_show
     pop {r4, pc}
-; the page of Blechy, EDIT right: the page SYNC GROUP (level 4), or the Pattern menu where the build has no sync groups
-menu_next_blechy:
-    mov r3, #HAS_SYNC
-    cmp r3, #0
-    beq menu_next_pattern
-    mov r3, #M_LEVEL_SYNC
-    str r3, [r2, #M_LEVEL]
-    mov r3, #0
-    str r3, [r2, #M_PAGE]
-    str r3, [r2, #M_ENTER]
-    mov r0, r4
-    bl menu_show
-    pop {r4, pc}
-; the last page of the ring, EDIT right: on to the Pattern menu, the way the firmware's Event menu does it (its slot 0xC0064430 is
-; hooked, so the displaced first instruction runs here and the rest of it from the second word)
+; the page SYNC GROUP, EDIT right: the Part menu on its first page, as the Pattern menu goes there
+menu_next_sync:
+    ldr r0, =PART_PAGE_OBJ
+    ldr r0, [r0]
+    cmp r0, #0
+    movne r1, #0
+    blne 0xC007BFD0
+    mov r0, #7
+    b menu_leave
+; the page of Blechy, the last of the ring, EDIT right: on to the Pattern menu, the way the firmware's Event menu does it (its slot
+; 0xC0064430 is hooked, so the displaced first instruction runs here and the rest of it from the second word)
 menu_next_pattern:
     pop {r4, lr}
     push {r3, r4, r5, lr}
@@ -3762,7 +3994,7 @@ menu_slot_value:
     cmp r0, #34
     beq menu_value_ledsave
     cmp r0, #36
-    beq menu_value_psel
+    beq menu_value_script
     cmp r0, #39
     beq menu_value_desc
     cmp r0, #40
@@ -3805,20 +4037,6 @@ menu_value_mg:
     strb r3, [r2]
     mov r3, r3, lsr #8
     strb r3, [r2, #1]
-    mov r3, #0
-    str r3, [r6, #M_STATUS]
-    b menu_value_done
-; SELECT PLUGIN: 0 to the last plugin of the list (loaded ones first), no wrap (as SELECT SAMPLE)
-menu_value_psel:
-    bl menu_psel_total
-    subs r2, r0, #1
-    movmi r2, #0
-    ldrb r1, [r6, #M_PSEL]
-    adds r1, r1, r5
-    movmi r1, #0
-    cmp r1, r2
-    movgt r1, r2
-    strb r1, [r6, #M_PSEL]
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
@@ -3945,10 +4163,12 @@ menu_value_na:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
+; a plugin of MANAGE PLUGINS (kind 36, r1 its place): the dial up switches it on (loads it when it is not loaded), down off; a
+; plugin from elsewhere that waits for the user's yes gets it with WRITE only (WRITE=ALLOW), the dial leaves it waiting
 menu_value_script:
     cmp r0, #6
     beq menu_value_item
-    cmp r0, #2
+    cmp r0, #36
     bne menu_value_done
     mov r0, r1
     bl menu_entry
@@ -3974,9 +4194,13 @@ menu_value_done:
     mov r0, r4
     bl menu_show
     pop {r4, r5, r6, pc}
-menu_value_unloaded:            ; not loaded: the dial up loads and starts it, down does nothing
+menu_value_unloaded:            ; not loaded: the dial up loads and starts it, down does nothing; the page follows it to its new place
     cmp r5, #0
-    blgt menu_load_psel
+    ble menu_value_done
+    bl menu_load_psel
+    ldrb r0, [r6, #M_PSEL]
+    str r0, [r6, #M_PAGE]
+    str r0, [r6, #M_ENTER]
     b menu_value_done
 menu_value_script_on:
     bl menu_script_on
@@ -4075,17 +4299,20 @@ menu_slot_keys:
     beq menu_keys_pedit
     cmp r0, #37
     beq menu_keys_pdel
+    cmp r0, #42
+    cmpne r0, #43
+    beq menu_keys_export
     cmp r0, #39
     cmpne r0, #41
     beq menu_keys_done
-    cmp r0, #2
+    cmp r0, #36
     cmpeq r6, #0x09
-    beq menu_keys_load
+    beq menu_keys_psub
     cmp r6, #0x09
     beq menu_keys_done
-    cmp r0, #2
+    cmp r0, #36
     bne menu_keys_save
-    mov r0, r1
+    mov r0, r1                  ; WRITE on a plugin that waits to be allowed allows it, on every other plugin it saves
     bl menu_entry
     cmp r0, #0
     beq menu_keys_done
@@ -4099,11 +4326,15 @@ menu_slot_keys:
     mov r0, r5
     bl menu_confirm
     b menu_keys_done
-menu_keys_load:                 ; ENTER on STATE: a plugin that is not loaded is loaded and started
-    mov r0, r1
-    bl menu_entry
-    cmp r0, #0
-    bleq menu_load_psel
+menu_keys_psub:                 ; ENTER on a plugin of MANAGE PLUGINS: its pages (level 6), DESCRIPTION first
+    ldr r2, =MENU_STATE
+    mov r0, #M_LEVEL_PSUB
+    str r0, [r2, #M_LEVEL]
+    mov r0, #0
+    str r0, [r2, #M_PAGE]
+    str r0, [r2, #M_ENTER]
+    str r0, [r2, #M_STATUS]
+    str r0, [r2, #M_LISTED]
     b menu_keys_done
 menu_keys_group:
     mov r0, r1
@@ -4119,8 +4350,8 @@ menu_keys_app:
     mov r0, #1
     mov r1, #0
     ldr pc, =SWITCH_SCREEN
-; PLUGIN EDIT: ENTER reads the files of the plugin folder and opens the pages of the plugin SELECT PLUGIN chose last (level 5), "No Plugin"
-; when there is none, WRITE saves as on the other pages
+; MANAGE PLUGINS: ENTER reads the files of the plugin folder and opens the list of the plugins (level 5) on the one shown last,
+; "No Plugin" when there is none, WRITE saves as on the other pages
 menu_keys_pedit:
     cmp r6, #0x09
     bne menu_keys_save
@@ -4139,14 +4370,14 @@ menu_keys_pedit:
     cmp r1, r0
     movhs r1, #0
     strb r1, [r2, #M_PSEL]
+    str r1, [r2, #M_PAGE]
+    str r1, [r2, #M_ENTER]
     mov r0, #M_LEVEL_PLUGIN
     str r0, [r2, #M_LEVEL]
     mov r0, #0
-    str r0, [r2, #M_PAGE]
-    str r0, [r2, #M_ENTER]
     str r0, [r2, #M_STATUS]
     b menu_keys_done
-; DELETE PLUGIN: the first ENTER asks, the second deletes; WRITE does nothing here
+; REMOVE: the first ENTER asks, the second removes; WRITE does nothing here
 menu_keys_pdel:
     cmp r6, #0x09
     bne menu_keys_done
@@ -4162,9 +4393,19 @@ menu_keys_pdel:
     beq menu_keys_done
     bl menu_delete
     b menu_keys_done
-menu_keys_export:
+menu_keys_export:               ; r0 = kind: EXPORT ALL PLUGINS (3), CUSTOMIZATIONS (42), EFFECTS (43), with ENTER or WRITE
+    cmp r0, #42
+    beq menu_keys_export_custom
+    cmp r0, #43
+    beq menu_keys_export_fx
     mov r0, #0
     bl menu_export
+    b menu_keys_done
+menu_keys_export_custom:
+    bl menu_export_custom
+    b menu_keys_done
+menu_keys_export_fx:
+    bl menu_export_fx
     b menu_keys_done
 menu_keys_splash_import:
     cmp r6, #0x09
@@ -4200,8 +4441,9 @@ menu_keys_done:
 .pool
 
 ; Slot 2 of the class, the firmware's handler for the keys no other slot takes (this, key, pressed): EXIT calls
-; SWITCH_SCREEN(1, 0) there. Below level 0 EXIT goes one level up (out of the pages of a plugin first); every other key,
-; and EXIT on level 0, is the firmware's own.
+; SWITCH_SCREEN(1, 0) there. Below level 0 EXIT goes one level up (out of the pages of a plugin first); on PLUGIN RUNTIME and our
+; pages of DATA UTILITY it goes where the firmware's EXIT goes from GLOBAL PARAMETERS (screen 8) and from DATA UTILITY's list (14);
+; every other key, and EXIT on level 0, is the firmware's own.
 menu_slot_exit:
     cmp r1, #13
     cmpeq r2, #1
@@ -4214,6 +4456,14 @@ menu_slot_exit:
     cmpne r3, #M_LEVEL_SYNC
     beq menu_exit_stock_pop
     mov r4, r0
+    cmp r3, #M_LEVEL_GLOBAL
+    moveq r0, #8
+    beq menu_exit_screen
+    cmp r3, #M_LEVEL_DU
+    moveq r0, #14
+    beq menu_exit_screen
+    cmp r3, #M_LEVEL_PSUB
+    beq menu_exit_psub
     cmp r3, #M_LEVEL_PLUGIN
     beq menu_exit_plugin
     cmp r3, #2
@@ -4239,16 +4489,29 @@ menu_exit_show:
     mov r0, r4
     bl menu_show
     pop {r1, r2, r4, pc}
-menu_exit_plugin:                ; out of the pages of one plugin: back to PLUGIN EDIT
+menu_exit_plugin:                ; out of the list of the plugins: back to MANAGE PLUGINS
     mov r12, #2
     str r12, [r2, #M_LEVEL]
-    mov r12, #1
+    mov r12, #0
+    str r12, [r2, #M_PAGE]
+    str r12, [r2, #M_ENTER]
+    str r12, [r2, #M_STATUS]
+    str r12, [r2, #M_LISTED]
+    b menu_exit_show
+menu_exit_psub:                  ; out of the pages of one plugin: back to its page in the list
+    mov r12, #M_LEVEL_PLUGIN
+    str r12, [r2, #M_LEVEL]
+    ldrb r12, [r2, #M_PSEL]
     str r12, [r2, #M_PAGE]
     str r12, [r2, #M_ENTER]
     mov r12, #0
     str r12, [r2, #M_STATUS]
     str r12, [r2, #M_LISTED]
     b menu_exit_show
+menu_exit_screen:                ; r0 = the firmware's screen EXIT goes to from there
+    pop {r1, r2, r4, lr}
+    mov r1, #0
+    ldr pc, =SWITCH_SCREEN
 menu_exit_sub:                   ; out of DISPLAY, LED, PAD COLOR, POWER SAVE or SPLASH: back to its row in CUSTOMIZATION
     sub r12, r12, #5
     str r12, [r2, #M_PAGE]
@@ -4293,19 +4556,15 @@ str_tab_features:
 str_tab_pattern:
     .asciz "Pattern"
 str_pedit:
-    .asciz "PLUGIN EDIT"
-str_psel:
-    .asciz "SELECT PLUGIN"
+    .asciz "MANAGE PLUGINS"
 str_pdel:
-    .asciz "DELETE PLUGIN"
-str_state:
-    .asciz "STATE"
+    .asciz "REMOVE"
 str_noplugin:
     .asciz "No Plugin"
 str_pdel_sure:
-    .asciz "Enter = delete"
+    .asciz "Enter = remove"
 str_pdeleted:
-    .asciz "deleted"
+    .asciz "removed"
 str_meter_still:
     .asciz "METER STILL"
 str_meter_low:
@@ -4365,15 +4624,13 @@ str_pads:
 str_press:
     .asciz "press  [ Enter ]"
 str_runtime:
-    .asciz "RUNTIME"
+    .asciz "PLUGIN RUNTIME"
 str_enter:
     .asciz "ENTER"
 str_open_enter:
     .asciz "ENTER=OPEN"
 str_no_files:
     .asciz "no files"
-str_enter_allow:
-    .asciz "ENTER=ALLOW"
 str_no_desc:
     .asciz "no description"
 str_up:
@@ -4411,7 +4668,21 @@ str_protected:
 str_nofolder:
     .asciz "folder missing"
 str_export:
-    .asciz "EXPORT ALL"
+    .asciz "EXPORT ALL PLUGINS"
+str_export_custom:              ; EXPORT ALL CUSTOMIZATIONS does not fit the title row (about 18 characters)
+    .asciz "EXPORT ALL CUSTOM"
+str_export_fx:
+    .asciz "EXPORT ALL EFFECTS"
+str_fx_exported:                ; EXPORT ALL CUSTOMIZATIONS and EFFECTS
+    .asciz "exported"
+str_fx_nofile:
+    .asciz "no e2sFx.all"
+str_fx_bad:
+    .asciz "bad e2sFx.all"
+str_tab_global:
+    .asciz "Global"
+str_tab_du:
+    .asciz "Data Util"
 str_exported:
     .asciz " exported"
 str_nothing:
@@ -4477,6 +4748,8 @@ tab_names:
     .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads, str_tab_psave, str_tab_splash
 group_names:
     .word str_scripts, str_group_games, str_group_tools, str_custom, str_features, str_display, str_tab_led, str_pads, str_psave, str_splash
+du_kinds:                       ; our pages of DATA UTILITY (menu_du_mask): EXPORT ALL CUSTOMIZATIONS, PLUGINS, EFFECTS, SET INIT PATTERN
+    .byte 42, 3, 43, 40
 custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD COLOR, POWER SAVE, SPLASH (groups 5 to 9)
     .byte 16, 16, 16, 16, 16
 .align 4

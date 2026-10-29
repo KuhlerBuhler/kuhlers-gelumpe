@@ -4,8 +4,8 @@
 # every pair is already in the file. See docs/development.md, "Release".
 #
 # It runs on a pull request that changes what the patched copies or the check are made of (the paths below: the patch
-# set, everything tools/verify-patches.mjs imports, tools/patch and tools/emu; test/verify-patches.test.mjs keeps the
-# list complete). A pull request from a fork has no secrets and is skipped. What runs depends on the base:
+# set, everything tools/verify-patches.mjs imports, tools/patch and tools/emu, the blue Electribe's places in
+# data/synth-map that tools/patch reads, and the scope table; test/verify-patches.test.mjs keeps the list complete). A pull request from a fork has no secrets and is skipped. What runs depends on the base:
 #
 # - into develop (feature pull requests): on each of the four files only the start scenarios and the case modules of
 #   what the pull request changes (tools/ci/verify-scope.mjs maps the changed files; a file it does not know, or the
@@ -34,11 +34,13 @@ on:
       - "data/synth-sites.mjs"
       - "data/map/**"
       - "data/script/**"
+      - "data/synth-map/**"
       - "src/bsdiff.mjs"
       - "src/bytes.mjs"
       - "src/bzip2.mjs"
       - "src/firmware.mjs"
       - "src/fx-append.mjs"
+      - "src/fx-collection.mjs"
       - "src/fx-v2.mjs"
       - "src/guards.mjs"
       - "src/hooks.mjs"
@@ -55,6 +57,7 @@ on:
       - "src/record.mjs"
       - "src/script/**"
       - "src/units.mjs"
+      - "tools/ci/verify-scope.mjs"
       - "tools/emu/**"
       - "tools/patch/**"
       - "tools/verify-patches.mjs"
@@ -188,6 +191,14 @@ jobs:
         env:
           CASES: ${{ needs.ref.outputs.cases }}
         run: npm run -s verify:patches -- --cases "$CASES" "$RUNNER_TEMP/SYSTEM.VSB"
+      # The collection on the card end to end with the editor's own writer (src/fx-collection.mjs), on the red builds
+      # that carry the loader, whenever the fx_card cases run: the cases above build the file in Python.
+      - name: The editor's e2sFx.all in the emulator
+        if: (matrix.name == 'hacktribe' || matrix.name == 'red') && (needs.ref.outputs.full == 'true' || needs.ref.outputs.cases == 'all' || contains(format(',{0},', needs.ref.outputs.cases), ',fx_card_cases,'))
+        env:
+          E2_EMU_REQUIRED: "1"
+          E2_VSB: ${{ runner.temp }}/SYSTEM.VSB
+        run: node --test test/emulator-fxcard.test.mjs
       # Only the entry (hashes, set, number of checks, date), never the firmware.
       - if: needs.ref.outputs.full == 'true'
         uses: actions/upload-artifact@v4

@@ -1,4 +1,4 @@
-"""Emulator cases of the init-pattern patch (tools/patch/init_pattern.py) and its page INIT PATTERN in the BLECH menu's FEATURES:
+"""Emulator cases of the init-pattern patch (tools/patch/init_pattern.py) and its page SET INIT PATTERN in DATA UTILITY (behind the firmware's functions):
 the page shows FACTORY, the dial sets Global byte 247, and DATA UTILITY's INITIALIZE PATTERN then copies that pattern; with
 FACTORY, or EXIT held at power-on, it is the firmware's template.
 
@@ -67,19 +67,19 @@ def case_page(payload, flash):
     for_build(payload)
     out = []
     dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True)
-    menu_cases.goto_group(dev, menu_cases.GROUP_FEATURES, menu_cases.FEAT_INIT)
+    menu_cases.goto_du(dev, menu_cases.du_pages().index("SET INIT PATTERN"))
     first = menu_cases.texts_of(dev)[:2], slot(dev)
-    out.append(entry("page_factory", first == (("INIT PATTERN", "FACTORY"), 0), first))
+    out.append(entry("page_factory", first == (("SET INIT PATTERN", "FACTORY"), 0), first))
     dev.turn(7, wait=0.4)
     seven = menu_cases.texts_of(dev)[:2], slot(dev)
-    out.append(entry("dial_sets_the_slot", seven == (("INIT PATTERN", "7"), 7), seven))
+    out.append(entry("dial_sets_the_slot", seven == (("SET INIT PATTERN", "7"), 7), seven))
     dev.turn(-20, wait=0.4)
     low = menu_cases.texts_of(dev)[:2], slot(dev)
     dev.turn(127, wait=0.2)
     dev.turn(127, wait=0.2)
     dev.turn(10, wait=0.4)
     high = menu_cases.texts_of(dev)[:2], slot(dev)
-    out.append(entry("dial_stops_at_the_ends", low == (("INIT PATTERN", "FACTORY"), 0) and high == (("INIT PATTERN", "250"), 250),
+    out.append(entry("dial_stops_at_the_ends", low == (("SET INIT PATTERN", "FACTORY"), 0) and high == (("SET INIT PATTERN", "250"), 250),
                      f"down {low}, up {high}"))
     return out
 
