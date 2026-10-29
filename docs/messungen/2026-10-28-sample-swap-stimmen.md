@@ -458,9 +458,50 @@ Antwort und keinen Schreibzugriff. PLAY, STOP oder Pads werden nicht gesendet.
 Das bestätigt die lesbare Ausgangslage auf dem Gerät. Es misst keine
 Stimmenlaufzeit und keine Freigabe unter Wiedergabe.
 
+### Gemessen am Gerät am 29.10.: PLAY, STOP und Einzelanschlag
+
+Suche, INFO und die drei Code-Fingerabdrücke bestehen erneut. Die
+Beobachtung sendet ausschließlich diese lesenden Befehle. Es gibt weder
+EXEC noch WRITE, keinen Firmwarewechsel und keine Aufnahme der Audioausgabe.
+
+Ein erster zweiminütiger Ausgangslauf bei fünf Beobachtungen pro Sekunde
+liefert 600 stabile Doppelproben mit ausschließlich freien Stimmen. Ein
+PLAY-Abschnitt war diesem Lauf nicht zugeordnet; er gilt deshalb nicht
+als Wiedergabeprüfung.
+
+Beim anschließend bestätigten PLAY erfasst ein 90-Sekunden-Lauf 450
+Beobachtungen, davon 294 mit identischen Doppelproben. In 416 Beobachtungen
+sind Stimmen belegt, höchstens sieben gleichzeitig. Die gelesenen
+Part-Slotwerte betreffen acht User-Slots. Nach dem bestätigten STOP enden
+die Belegungsflags wieder auf frei. Die letzten zehn Beobachtungen zeigen
+keine belegte Stimme. Neun freie Einträge behalten dabei einen Part-Zeiger.
+Ein nicht genullter Zeiger allein ist somit auch am Gerät kein Beleg für
+eine weiterhin belegte Stimme.
+
+Bei stehendem Sequencer folgt ein einziger bestätigter Pad-Anschlag eines
+nicht geloopten User-Samples. Der 60-Sekunden-Lauf liefert 300 stabile
+Doppelproben. Genau eine Stimme zu internem Slot 743, angezeigt als 744,
+ist in 33 aufeinanderfolgenden Beobachtungen belegt. Diese Proben reichen
+von etwa 9,41 bis 15,85 Sekunden des Laufs, also über eine beobachtete
+Spanne von rund 6,4 Sekunden. Anschließend ist die Stimme wieder frei.
+Das Ende des hörbaren Ausklangs wurde am Gerät bestätigt. Der Eingang
+dieser Bestätigung ist kein präziser Zeitstempel des akustischen Endes.
+
+Alle drei Läufe enden ohne CRC- oder Protokollfehler. Die unterschiedlichen
+Doppelproben im laufenden Pattern bleiben ausdrücklich instabil, sie
+werden nicht nachträglich zu atomaren Momentaufnahmen erklärt. Die
+Rohberichte bleiben außerhalb des Repos.
+
+Hergeleitet: Die native Belegungsabfrage ist für diese geprüften Abläufe
+brauchbar und unterscheidet freie Einträge von zurückgebliebenen Zeigern.
+Offen bleibt, ob bei jeder Spielart die letzte DSP-Nutzung der PCM exakt
+mit der Freigabe zusammenfällt, insbesondere bei Release, Loop, geänderter
+Tonhöhe und Stereo-Wechsel. Die Beobachtung ersetzt keinen hörbaren
+Sample-Tausch mit diesen Randfällen.
+
 ## Offen vor 1.4
 
-- Echte Stimmenfreigabe, Release-Ausklang und hörbarer Wechsel am Gerät.
+- Letzte DSP-Nutzung bei Release, Loop und Stereo-Wechsel sowie hörbarer Tausch.
 - DMA bei Sampling und Resampling sowie konkurrierende Unterbrechungen.
 - Gemeinsamer Dateibesitz für Import, Bearbeitung, Aufnahme und USB.
 - Getrennte Versionsbindung bei dauerhaftem Ersetzen eines bereits geladenen Slots.
