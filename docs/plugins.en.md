@@ -701,8 +701,9 @@ line `press  [ Enter ]`.
   main screen. MENU on the main screen returns to where you left the menu, also into a group.
 - While the screen is open, plugins see no inputs, so that a plugin that catches keys cannot lock the menu.
 
-The list of the first level holds groups only, in this order: the built-in switches first, then the
-customization, then the plugins, last the groups that plugins register themselves (`korg.app`):
+The list of the first level holds groups, in this order: the built-in switches first, then the
+customization, then the plugins, then the groups that plugins register themselves (`korg.app`), and as the last
+page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
@@ -711,6 +712,7 @@ customization, then the plugins, last the groups that plugins register themselve
 | PLUGINS | a group, see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
 | TOOLS | like GAMES |
+| VERSION | no group: on top the version of the set the firmware was patched with (`BLECH 1.3.7`, from the patch `blech-version`), below it the firmware the menu is built for (HACKTRIBE, KORG RED, KORG BLUE). ENTER, WRITE and the dial change nothing |
 
 The pages of FEATURES (the tag names the group "Feature"), each with the value ON or OFF, the main dial changes it:
 
@@ -770,7 +772,7 @@ the title holds about 18. EXPORT ALL is in the PLUGINS group, not in DATA UTILIT
 
 On the page RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
-number (24 to 88 bytes, tag `GSET`, version 2, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
+number (24 to 88 bytes, tag `GSET`, version 2, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 16 entries; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches; when the list is full, the oldest entry that belongs to no loaded plugin drops out first (a plugin no longer on the card, or an older build of one), otherwise an approval drops the oldest entry of all; a marker that finds no room is missing and the plugin runs again after a restart).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at
 the firmware's values). The page reports "saved", "no card", "card protected", "folder missing" or "write
 error". Nothing is written to the flash.

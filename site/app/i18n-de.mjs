@@ -1446,6 +1446,7 @@ export default {
   "patcher.patch.sysexSynth": "BLECH SysEx: RAM und Flash lesen",
   "patcher.patch.ifxIdle": "Ruhender Insert-Effekt",
   "patcher.patch.loadingAnim": "Eigene Ladeanimation",
+  "patcher.patch.version": "BLECH-Version im Menü (BLECH > VERSION)",
   "patcher.usbName": "Gerätename: Electribe 3",
   "patcher.usbName.note": "Der Rechner zeigt die Electribe dann als Electribe 3. DAW-Zuordnungen, die am alten Portnamen hängen, musst du neu verknüpfen. Windows kann den alten Namen behalten, bis du das Gerät einmal im Geräte-Manager entfernst.",
   "patcher.blech.wrong": "{file} ist keine BLECH.patch: {error}",

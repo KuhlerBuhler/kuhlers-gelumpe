@@ -1403,6 +1403,7 @@ export default {
   "patcher.patch.sysexSynth": "BLECH SysEx: RAM en flash lezen",
   "patcher.patch.ifxIdle": "Rustend inserteffect",
   "patcher.patch.loadingAnim": "Eigen laadanimatie",
+  "patcher.patch.version": "BLECH-versie in het menu (BLECH > VERSION)",
   "patcher.usbName": "Apparaatnaam: Electribe 3",
   "patcher.usbName.note": "De computer toont de Electribe dan als Electribe 3. DAW-koppelingen die aan de oude poortnaam hangen, moet je opnieuw koppelen. Windows kan de oude naam houden tot je het apparaat één keer verwijdert in Apparaatbeheer.",
   "patcher.blech.wrong": "{file} is geen BLECH.patch: {error}",
