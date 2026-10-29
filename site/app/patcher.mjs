@@ -12,7 +12,7 @@ import { buildOf, hardwareOf } from "../../src/firmware.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
-import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim } from "../../src/patcher.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim, restoreOriginal, canRestore } from "../../src/patcher.mjs";
 import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
 import { storedAnimation } from "./loading-anim.mjs";
 
@@ -33,23 +33,24 @@ const tick = () => new Promise(r => setTimeout(r, 0));
 /** What the dropped file was taken for, after its name in the field. */
 const FOUND = { hacktribe: "patcher.found.hacktribe", stock: "patcher.found.stock", synth: "patcher.found.synth" };
 
-function verdict(flow, items) {
+function verdict(flow, items, waiting = false) {
   const { input } = flow;
   if (!input) return null;
-  const v = verdictText(input, items);
+  const v = verdictText(input, items, waiting);
   // every "not this file" names the file by its checksum, so a screenshot tells support what was dropped
   return v && input.sha256 ? { ...v, text: t("patcher.verdict.sha", { text: v.text, sha: input.sha256.slice(0, 8) }) } : v;
 }
 
-function verdictText(input, items) {
+function verdictText(input, items, waiting) {
   const size = number(input.size);
   switch (input.kind) {
     // A file the page takes says nothing: the user knows what was dropped, the button and the route say what comes next.
     case "hacktribe":
     case "synth":
     case "stock": return null;
-    case "blech": return { tone: "ok", word: t("patcher.verdict.blech"), text: t("patcher.verdict.blech.text") };
-    case "partial": return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => t(items.find(p => p.id === id)?.label ?? id)).join(", ") }) };
+    case "blech": return { tone: "ok", word: t("patcher.verdict.blech"), text: t(waiting ? "patcher.restore.needKorg" : "patcher.verdict.blech.text") };
+    case "partial": if (waiting) return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.restore.needKorg") };
+      return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => t(items.find(p => p.id === id)?.label ?? id)).join(", ") }) };
     case "wrong-size": return { tone: "error", word: t("patcher.verdict.size"), text: t("patcher.verdict.size.text", { size, expected: number(VSB_SIZE) }) };
     default: return { tone: "error", word: t("patcher.verdict.unknown"), text: t("patcher.verdict.unknown.text", { reason: input.reasons[0] ?? t("patcher.verdict.unknown.reason") }) };
   }
@@ -71,6 +72,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let ownPatch = null;          // a BLECH.patch the user brought instead of the set of this version: { bytes, file }
   let usbNames = null;          // the variants of the optional patch usb-name, once loaded
   let hint = null;
+  let pending = null;           // a file with BLECH on it, waiting for Korg's own to rebuild the original from: { bytes, usb }
   let usb = null;               // the file came over USB: { fromOriginal }; null for a dropped file (then the unpatched one goes to the card too)
 
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-file", accept: ".VSB,.vsb" });
@@ -113,6 +115,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     }
   }
   licence.addEventListener("change", renderKorg);
+  licence.addEventListener("change", () => {
+    if (!licence.checked || !pending || !native()) return;
+    const waiting = pending;
+    usb = waiting.usb;
+    take(waiting.bytes);
+  });
   const korg = el("div", { className: "cee-patch-korg", id: "cee-patch-korg" }, [
     el("p", { className: "cee-patch-lead" }, tNodes("patcher.korg.lead", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: "KORG/…/System/" }) })),
     el("ul", { className: "cee-entry-steps", id: "cee-patch-firmware" }, korgCards.map(c => c.li)),
@@ -409,7 +417,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     drop.toggleAttribute("data-selected", true);
     drop.toggleAttribute("data-filled", !!held && !!flow.origin);
     fileInfo.textContent = held;
-    const v = verdict(flow, blech?.items ?? []);
+    const v = verdict(flow, blech?.items ?? [], !!pending);
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
     // A new file brings a new verdict: the toast of the old one goes, so two verdicts never stand side by side.
@@ -522,12 +530,56 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     }
   }
 
-  async function take(bytes) {
-    let kind;
+  async function classifyFile(bytes) {
     try {
-      kind = await classify(bytes, (await loadPatches(buildOf(bytes))).patches);
+      return await classify(bytes, (await loadPatches(buildOf(bytes))).patches);
     } catch (e) {
-      kind = { kind: "unknown", size: bytes.length, reasons: [e.message], present: [] };
+      return { kind: "unknown", size: bytes.length, reasons: [e.message], present: [] };
+    }
+  }
+
+  /** The unpatched original of `patched`, rebuilt from Korg's file `korgBytes`; null when it is not made from it. */
+  async function restoreWith(patched, korgBytes) {
+    try {
+      const res = await restoreOriginal(patched, korgBytes, (await loadPatches(buildOf(korgBytes))).patches);
+      return res.ok ? res.bytes : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Without the accepted licence (or the app) the file waits in `pending` and the verdict asks for Korg's file. */
+  async function restoreFromKorg(patched) {
+    if (!licence.checked || !native()) { pending = { bytes: patched, usb }; return null; }
+    const close = toast(t("patcher.korg.loading"), "info", { stay: true });
+    try {
+      const zip = new Uint8Array(await native()("korg_firmware", { device: hardwareOf(patched) }));
+      const entry = isZip(zip) ? await unzipEntry(zip) : null;
+      close();
+      return entry ? await restoreWith(patched, entry.bytes) : null;
+    } catch (e) {
+      close();
+      toast(t("patcher.korg.failed", { error: e?.message ?? e }), "error");
+      pending = { bytes: patched, usb };
+      return null;
+    }
+  }
+
+  async function take(bytes) {
+    const waiting = pending;
+    pending = null;
+    let kind = await classifyFile(bytes);
+    let restored = null;
+    if (waiting && (kind.kind === "stock" || kind.kind === "synth")) {
+      restored = await restoreWith(waiting.bytes, bytes);
+      if (restored) usb = waiting.usb;
+    } else if ((kind.kind === "blech" || kind.kind === "partial") && canRestore(bytes)) {
+      restored = await restoreFromKorg(bytes);
+    }
+    if (restored) {
+      bytes = restored;
+      kind = await classifyFile(bytes);
+      toast(t("patcher.restore.done"), "ok");
     }
     input = bytes;
     original = bytes;
@@ -674,7 +726,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     await take(got.bytes);
     if (flow.input?.kind === "blech") {
       usbNote.hidden = true;
-      toast(t("patcher.usb.blech"), "info", { stay: true });
+      if (!pending) toast(t("patcher.usb.blech"), "info", { stay: true });
       return false;
     }
     return true;
