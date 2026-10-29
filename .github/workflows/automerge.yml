@@ -1,0 +1,71 @@
+# Merges a pull request into develop by itself once it carries the label "automerge" and every check on its head commit
+# passed, so nobody has to wait for CI and merge by hand. A pull request without the label (one that waits for a test on
+# the device, say) stays open. Draft pull requests and pull requests from forks are left alone.
+#
+# The checks it needs are unit, browser and guard (Test, Korg data guard) and patches (Verify patches, which reports on
+# every pull request); every other check on the head commit has to pass or be skipped too. A failed check ends the wait
+# without a merge; the next push or label starts it again. It does not merge develop in first: a pull request that merges
+# cleanly goes in as it is, and the runs on develop catch what two pull requests break only together.
+#
+# The merge uses SYNC_TOKEN (a token of an admin, like Sync develop) with --admin and --match-head-commit, so only the
+# commit whose checks passed goes in. Without the secret nothing is merged.
+name: Automerge
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, reopened, synchronize, labeled, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+# A new push or label starts the wait again; the old one would wait for checks of a commit that is gone.
+concurrency:
+  group: automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  automerge:
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'automerge') &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    # Verify patches takes up to 90 minutes cold.
+    timeout-minutes: 150
+    steps:
+      - name: Wait for the checks, then merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          N: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$SYNC_TOKEN" ]; then
+            echo "no SYNC_TOKEN: pull request #$N stays open"; exit 0
+          fi
+          need="unit browser guard patches"
+          while :; do
+            # every check run on the head commit but this job's own, newest run per name
+            gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name != "automerge")] | group_by(.name) | map(max_by(.started_at)) | .[] | [.name, .status, (.conclusion // "")] | @tsv' \
+              > "$RUNNER_TEMP/checks.tsv"
+            failed=$(awk -F'\t' '$2 == "completed" && $3 != "success" && $3 != "skipped" && $3 != "neutral" {print $1 " (" $3 ")"}' "$RUNNER_TEMP/checks.tsv")
+            if [ -n "$failed" ]; then
+              echo "::warning::#$N is not merged, a check did not pass:"; echo "$failed"; exit 1
+            fi
+            pending=$(awk -F'\t' '$2 != "completed" {print $1}' "$RUNNER_TEMP/checks.tsv")
+            missing=""
+            for c in $need; do cut -f1 "$RUNNER_TEMP/checks.tsv" | grep -qx "$c" || missing="$missing $c"; done
+            if [ -z "$pending" ] && [ -z "$missing" ]; then break; fi
+            echo "waiting:$missing" "${pending//$'\n'/ }"
+            sleep 60
+          done
+          # The label may have been taken off during the wait.
+          if ! gh pr view "$N" -R "$REPO" --json labels --jq '.labels[].name' | grep -qx automerge; then
+            echo "#$N lost the label automerge, not merged"; exit 0
+          fi
+          GH_TOKEN="$SYNC_TOKEN" gh pr merge "$N" -R "$REPO" --merge --admin --match-head-commit "$SHA"

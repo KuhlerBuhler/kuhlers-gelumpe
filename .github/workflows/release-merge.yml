@@ -12,7 +12,7 @@ name: Release merge
 
 on:
   workflow_run:
-    workflows: [Test, Verify patches, Korg data guard, Build apps, Update pull requests]
+    workflows: [Test, Verify patches, Korg data guard, Build apps, Update pull requests, Automerge]
     types: [completed]
   pull_request_review:
     types: [submitted]
