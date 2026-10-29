@@ -57,8 +57,8 @@ um (`data/patches/blechtribe-synth.json`): `blechtribe` passt nicht in die Fenst
 in die von `electribe sampler` (18 und 24 Byte), die die blaue nie erfragt (Typ `0x124`). Der Patch schreibt dort
 `blechtribe` hinein und lässt die zwei Poolwörter von Typ `0x123` (`0xC0032568`, `0xC00325B4`) darauf zeigen. Die
 erste Installation geht weiter über `KORG/electribe/System/` (Korgs blaue läuft dann), jedes spätere Update über
-`KORG/blechtribe/System/`. Die Seite sagt, `KORG/electribe/` nach `KORG/blechtribe/` zu kopieren; ein Übernahme-Fenster
-wie auf der roten gibt es auf der blauen noch nicht.
+`KORG/blechtribe/System/`. Die Seite sagt, `KORG/electribe/` nach `KORG/blechtribe/` zu kopieren; beim ersten Start bietet BLECH die Kopie auch
+selbst an ([Messung](2026-10-29-blau-ordner-uebernehmen.md)).
 
 Gemessen mit dem BLECH-Synth-Satz samt Umbenennung (`synth_update_probe.py`, leerer Flash der blauen): Kurzprüfung 21 von 21;
 Korgs blaue schreibt ihn aus `KORG/electribe/System/` (512 Lösch-, 8192 Schreibbefehle), Neustart bis Hauptbild; danach
