@@ -2140,9 +2140,9 @@ menu_off_loop:
     sub r3, r3, #1
     b menu_off_loop
 
-; Before a save: for every loaded plugin the marker goes, and comes back when the plugin is off (loaded, allowed and not
-; armed), as long as the list has room. Markers of plugins no longer on the card stay, like their allowed checksums. Blechy
-; is always armed, so he never gets one.
+; Before a save: for every loaded plugin the marker goes (every copy of it), and comes back when the plugin is off (loaded,
+; allowed and not armed). Markers of plugins no longer on the card stay, like their allowed checksums, until the list is full:
+; then the oldest of them makes room (menu_trust_room). Blechy is always armed, so he never gets one.
 menu_off_sync:
     push {r4-r7, lr}
     ldr r4, =MENU_STATE
@@ -2170,11 +2170,12 @@ menu_off_find:
     str r1, [r4, #M_TRUST_N]
 menu_off_shift:
     cmp r3, r1
-    bhs menu_off_keep
+    movhs r3, #0
+    bhs menu_off_find
     add r12, r3, #1
     ldr r12, [r2, r12, lsl #2]
     str r12, [r2, r3, lsl #2]
-    add r3, r3, #3
+    add r3, r3, #1
     b menu_off_shift
 menu_off_keep:
     ldr r0, [r5, #SCRIPT_ENTRY_STATE]
@@ -2184,9 +2185,10 @@ menu_off_keep:
     bl menu_needs_confirm
     cmp r0, #0
     bne menu_off_next
+    bl menu_trust_room
+    cmp r0, #0
+    beq menu_off_next
     ldr r1, [r4, #M_TRUST_N]
-    cmp r1, #MENU_MAX_TRUST
-    bhs menu_off_next
     add r2, r4, #M_TRUST
     str r7, [r2, r1, lsl #2]
     add r1, r1, #1
@@ -2198,11 +2200,58 @@ menu_off_done:
     pop {r4-r7, pc}
 .pool
 
+; A full list drops its oldest entry that no loaded plugin uses (neither its checksum nor its marker): a plugin removed from
+; the card, or an older build of one. -> r0 = 1 when the list has room for one more entry. Keeps r4 to r8.
+menu_trust_room:
+    push {r4-r8, lr}
+    ldr r4, =MENU_STATE
+    ldr r1, [r4, #M_TRUST_N]
+    cmp r1, #MENU_MAX_TRUST
+    movlo r0, #1
+    poplo {r4-r8, pc}
+    add r6, r4, #M_TRUST
+    mov r7, #0
+menu_room_scan:
+    cmp r7, r1
+    movhs r0, #0
+    pophs {r4-r8, pc}
+    ldr r8, [r6, r7, lsl #2]
+    ldr r5, =HOOK_RUNTIME
+    ldr r5, [r5, #RT_HEAD]
+    cmn r5, #1
+    moveq r5, #0
+menu_room_live:
+    cmp r5, #0
+    beq menu_room_drop
+    ldr r0, [r5, #SCRIPT_ENTRY_BLOB]
+    ldr r0, [r0, #HDR_CHECKSUM]
+    cmp r0, r8
+    mvnne r0, r0
+    cmpne r0, r8
+    addeq r7, r7, #1
+    beq menu_room_scan
+    ldr r5, [r5, #SCRIPT_ENTRY_NEXT]
+    b menu_room_live
+menu_room_drop:
+    sub r1, r1, #1
+    str r1, [r4, #M_TRUST_N]
+menu_room_shift:
+    cmp r7, r1
+    movhs r0, #1
+    pophs {r4-r8, pc}
+    add r12, r7, #1
+    ldr r12, [r6, r12, lsl #2]
+    str r12, [r6, r7, lsl #2]
+    add r7, r7, #1
+    b menu_room_shift
+.pool
+
 ; r0 = script entry waiting for its confirmation: remember its checksum, run its start body, save the settings
 menu_confirm:
     push {r4, r5, lr}
     mov r4, r0
     ldr r5, =MENU_STATE
+    bl menu_trust_room
     ldr r1, [r4, #SCRIPT_ENTRY_BLOB]
     ldr r1, [r1, #HDR_CHECKSUM]
     ldr r2, [r5, #M_TRUST_N]
