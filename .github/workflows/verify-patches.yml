@@ -37,6 +37,7 @@ on:
       - "src/guards.mjs"
       - "src/hooks.mjs"
       - "src/layout.mjs"
+      - "src/loading-anim.mjs"
       - "src/map/**"
       - "src/modtable.mjs"
       - "src/patch.mjs"
