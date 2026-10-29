@@ -40,13 +40,15 @@ Damit ist die Frage für die eigenen Records egal.
 | 3/64 Delay | `fb_depth`, `wet_level`, Regler rechts | 80, 90, bis 88 | 25, 120 | 45, 70, bis 70 |
 | Slap Delay | `fb_depth` | 35 | 25 bis 30 | 20 |
 | Long Delay | `fb_depth` | 70 | 25 | 40 |
-| Short Delay (`M_mod_delay`) | `dry_wet`, `input_trim`, `delay_lag` | 122, 95, 30 | 100, 80 bis 109, 0 bis 17 | 100, 80, 17 |
-| Short Delay | Y auf `fb_depth` | 0 bis 127 | Mod Delay 44 bis 123 | 0 bis 90 |
-| Short Delay | Touchpad auf `dry_wet` | 45 bis 122 | | 45 bis 100 |
+| Short Delay (`M_mod_delay`) | `dry_wet`, `input_trim`, `delay_lag` | 122, 95, 30 | 100, 80 bis 109, 0 bis 17 | 111, 95, 30 |
+| Short Delay | Y auf `fb_depth` | 0 bis 127 | Mod Delay 44 bis 123 | 0 bis 127 |
+| Short Delay | Touchpad auf `dry_wet` | 45 bis 122 | | 45 bis 122 |
 | Tri Ping Pong (`M_mod_delay`) | Touchpad auf Eingangspegel | 0 bis 127 | Mod Delay 0 bis 88 | 0 bis 88 |
 | Dub Echo (`M_tape_echo`) | `feedback`, `saturation` | 85, 80 | 70, 47 | 70, 55 |
 | Dub Echo | Y auf `feedback` | 50 bis 88 | Tape Delay 29 bis 72 | 40 bis 72 |
 | Master Pumper (`M_level_mod`) | `output_gain_adjust` | 30 | 24 (Slicer, Auto Pan) | 24 |
+
+Der Short Delay ist ein eigener, am Gerät eingestellter Effekt. Er bleibt, wie er war, nur `dry_wet` geht von 122 auf 111.
 
 Unverändert, weil im Werksbereich oder ohne Werkspreset: Tremolo 1/8, Wah 1/8 (wie Touch Wah bis auf Sync und Tempo),
 Small Plate, Master Limiter (`output_gain` 54, Vorgabe der Einheit 72). Die Notenwerte der Delays bleiben, sie machen nichts
@@ -70,6 +72,6 @@ wurde, steht dort nicht.
 - Der Linter meldet für alte und neue Katalogwerte dieselben Warnungen (Notenwerte, `low_damp`, Effekt schon vor dem
   Regler hörbar), keine zum Pegel.
 - `test/fx-v2.test.mjs` hält die Pegelgrenzen fest: kein Katalogeffekt steht oder fährt über den Werkswert seiner Einheit
-  (Short Delay Rückkopplung höchstens 90, siehe oben).
+  (ohne den Mod Delay, siehe Short Delay oben).
 
-Nicht geprüft: Klang und Lautstärke am Gerät. Die Hörliste steht im Pull Request.
+Nicht geprüft: Klang und Lautstärke am Gerät.

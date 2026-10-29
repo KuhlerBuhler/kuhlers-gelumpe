@@ -14,9 +14,9 @@ export const FX_CATALOG = Object.freeze([
     "unit": 59,
     "unitName": "M_mod_delay",
     "params": {
-     "dry_wet": 100,
+     "dry_wet": 111,
      "wet_spread": 100,
-     "input_trim": 80,
+     "input_trim": 95,
      "pre_leq_gain": 36,
      "pre_leq_frequency": 20,
      "pre_heq_gain": 36,
@@ -36,7 +36,7 @@ export const FX_CATALOG = Object.freeze([
      "mod_wave": 0,
      "mod_freq": 34,
      "mod_rch_degree": 18,
-     "delay_lag": 17
+     "delay_lag": 30
     }
    }
   ],
@@ -46,7 +46,7 @@ export const FX_CATALOG = Object.freeze([
     "chain": 2,
     "param": 0,
     "low": 45,
-    "high": 100
+    "high": 122
    },
    {
     "source": 65,
@@ -74,7 +74,7 @@ export const FX_CATALOG = Object.freeze([
     "chain": 2,
     "param": 15,
     "low": 0,
-    "high": 90
+    "high": 127
    }
   ],
   "creator": "Kuhler Buhler"

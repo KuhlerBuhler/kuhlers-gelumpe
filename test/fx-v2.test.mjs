@@ -238,10 +238,10 @@ test("a map row gets its from/to pair in all six copies, the donor's old range d
 });
 
 // The level parameters of Korg's presets of the same unit, read in both 2.02 firmwares (docs/messungen/2026-10-29-fx-katalog-pegel.md).
-// A catalog effect stays at most this loud; the feedback of the short delay stays below the stacking reported in 2026-09-21-loudness.md.
+// A catalog effect stays at most this loud. The mod delay has no cap: the Short Delay keeps its own values, set on the device.
 const LEVEL_CAPS = {
   ifx: { 0x0f: { output_level: 16 }, 0x10: { output_level: 65 }, 0x18: { fb_depth: 45, wet_level: 120 } },
-  mfx: { 0x3b: { fb_depth: 90, input_trim: 109, dry_wet: 100 }, 0x3c: { feedback: 72, output_level: 53 }, 0x35: { output_gain_adjust: 24 } },
+  mfx: { 0x3c: { feedback: 72, output_level: 53 }, 0x35: { output_gain_adjust: 24 } },
 };
 
 test("no catalog effect is set or mapped louder than Korg's presets of its unit", () => {
