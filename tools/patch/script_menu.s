@@ -230,7 +230,7 @@ menu_settings_load:
     b menu_load_apply
 menu_load_b:
     cmp r8, #0
-    beq menu_load_out
+    beq menu_load_none
     ldr r0, =MENU_FILE_B
 menu_load_apply:
     ldr r1, [r0, #8]
@@ -361,6 +361,11 @@ menu_load_trust:
     b menu_load_trust
 menu_load_look:
     bl menu_look_apply
+    ldr r0, [r4, #M_BL_ON]
+    bl boot_light_save
+    b menu_load_out
+menu_load_none:                 ; no settings file: the stock white, whatever colour the start took from Global byte 250
+    bl boot_light_settle
 menu_load_out:
     pop {r4-r8, pc}
 .pool
@@ -593,6 +598,8 @@ menu_save_trust_done:
     movne r0, #0x53
     bne menu_save_status
     str r8, [r4, #M_GEN]
+    ldr r0, [r4, #M_BL_ON]      ; the colour the file now holds is the one the next start shows (Global byte 250)
+    bl boot_light_save
     mov r0, #1
 menu_save_status:
     str r0, [r4, #M_STATUS]
@@ -1223,7 +1230,7 @@ bl_set_red:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
-    bne bl_red_go
+    bne bl_red_boot
     ldr r3, =BL_DIM_FLAG
     ldrb r3, [r3]
     cmp r3, #0
@@ -1244,7 +1251,7 @@ bl_set_green:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
-    bne bl_green_go
+    bne bl_green_boot
     ldr r3, =BL_DIM_FLAG
     ldrb r3, [r3]
     cmp r3, #0
@@ -1265,7 +1272,7 @@ bl_set_blue:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
-    bne bl_blue_go
+    bne bl_blue_boot
     ldr r3, =BL_DIM_FLAG
     ldrb r3, [r3]
     cmp r3, #0
