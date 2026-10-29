@@ -35,6 +35,7 @@
 - **Does it work on the blue Electribe?** Yes, with fewer features. See the table below.
 - **Do I keep Hacktribe?** Yes, when you start with a Hacktribe firmware file. BLECHTRIBE adds its features on top. Patching Korg's original firmware does not add Hacktribe's features.
 - **How do I make my own effects?** Open the **Baukasten** in the app. Take a ready effect or build one from blocks, with names and real units. The export puts them on the SD card, single ones also go live over USB. This works on the red sampler with BLECHTRIBE. An `.e2fx` file opens under BLECHTRIBE -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", or with a loaded firmware under BLECHTRIBE -> Presets -> "Preset-Datei laden".
+- **Windows: the app does not find my Electribe, although its MIDI ports are listed.** Korg's own USB-MIDI driver is probably installed; the Electribe's replies do not come through it. Remove it in Device Manager (the Electribe, "Uninstall device", with the driver) and restart Windows. Windows' own driver is enough. If the KORG Driver Setup Utility then offers to reinstall it, close it. The MIDI report in the settings says so too.
 - **I have an idea for the app or firmware.** [Write it down here](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). You need a GitHub account.
 
 ## Install BLECHTRIBE on your Electribe

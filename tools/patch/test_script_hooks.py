@@ -31,15 +31,8 @@ class HookTests(unittest.TestCase):
         machine = BareMachine(built.vm)
         machine.runtime = built.layout['runtime']
         machine.arena = built.layout['pool']
-        from tools.patch.script_hooks import BLECHY_BLOCK,BLECHY_BLOCK_END
-        machine.uc.mem_map(BLECHY_BLOCK,BLECHY_BLOCK_END-BLECHY_BLOCK)    # where the image holds the block of Blechy
-        from tools.patch.script_hooks import MORE_START,MORE_END
-        machine.uc.mem_map(MORE_START,(MORE_END-MORE_START+0xFFF)&~0xFFF)  # the second code area (display, store, hardware, events, apps)
-        from tools.patch.script_hooks import MORE2_START,MORE2_END
-        machine.uc.mem_map(MORE2_START&~0xFFF,((MORE2_END+0xFFF)&~0xFFF)-(MORE2_START&~0xFFF))  # the third code area (colour maths)
-        from tools.patch.script_hooks import runtime_profile
-        work = runtime_profile('hacktribe').actions['MG_WORK']
-        machine.uc.mem_map(work&~0xFFF,((work+0xF00+0xFFF)&~0xFFF)-(work&~0xFFF))  # the folder copy's work area, read by every input
+        # the code area (VM and all our code, from MORE3_START) is mapped with 1 MiB by BareMachine, which also holds
+        # the block of Blechy (0xC0184000) and the folder copy's work area (MG_WORK), read by every input
         for address,data in built.sections[len(built.vm.sections):]:
             machine.uc.mem_write(address,data)
         machine.symbols.update(built.symbols)
@@ -565,12 +558,12 @@ class HookTests(unittest.TestCase):
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
         card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
-        self.assertEqual(len(patch['startPhase']),47)
+        self.assertEqual(len(patch['startPhase']),48)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]
         pairs+=[('blechy_boot','blechy_boot_end'),('menu_arm','menu_arm_end'),('menu_arm_load','menu_arm_load_end'),('menu_settings_load','menu_settings_end'),('menu_needs_confirm','menu_confirm'),('menu_recount','menu_recount_end'),('menu_event_right','menu_hooks_end'),('led_meter_hook','look_hooks_end'),
-            ('shortcut_input','shortcut_tick'),('shortcut_pool','shortcut_end'),('migrate_start','migrate_end'),('fx_card_load','fx_card_load_end'),('remap_input','events_post')]
+            ('shortcut_input','shortcut_tick'),('shortcut_pool','shortcut_end'),('migrate_start','migrate_end'),('fx_card_load','fx_card_load_end'),('remap_input','events_post'),('objects_row','objects_end')]
         spans=sum(built.symbols[end]-built.symbols[start] for start,end in pairs)
         self.assertEqual(sum(span['length'] for span in patch['startPhase']),spans+len(SITES)*4+len(WORDS)*4+184+card+len(built.sections[-1][1])+len(built.sections[0][1]))
         size=lambda change: len(change['bytes'])//2 if 'bytes' in change else change['copy']['length']

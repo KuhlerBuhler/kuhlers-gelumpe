@@ -1,0 +1,47 @@
+# The editor as a web UI, one command:
+#
+#   docker compose up --build
+#
+# Then open http://localhost:8737/ in Chrome or Edge. The page finds the
+# emulator through port 8740, so both ports belong together and keep their
+# numbers. Both stay on 127.0.0.1: the editor has no login, and whoever reaches
+# it gets the emulator's key through /emu.json.
+#
+# Behind a reverse proxy on this host, set GELUMPE_PUBLIC_ORIGIN to the public
+# address (for example https://blech.example). The proxy then reaches
+# 127.0.0.1:8737 only, the emulator comes through the page's own path, and the
+# browser never needs 8740. Give the page a TLS certificate in the proxy:
+# without a secure origin the browser withholds crypto.subtle, and the patcher
+# cannot hash. Put an access rule in the proxy before the page is reachable
+# from outside: neither the editor nor the emulator asks for a password.
+#
+# A proxy in a container of its own joins this network and reaches the service
+# as "gelumpe:8737"; do not publish the port then. A mapping like "8737:8737"
+# would put the editor on every interface without a login.
+services:
+  gelumpe:
+    build: .
+    image: kuhlers-gelumpe:latest
+    init: true
+    environment:
+      # The address a reverse proxy serves the page at, for example
+      # https://blech.example. Set, the emulator is reached through the page's
+      # own path and the browser needs only port 8737. Empty, everything stays
+      # local and the page uses the emulator's port 8740.
+      GELUMPE_PUBLIC_ORIGIN: ${GELUMPE_PUBLIC_ORIGIN:-}
+    ports:
+      - "127.0.0.1:8737:8737"
+      - "127.0.0.1:8740:8740"
+    volumes:
+      # The virtual SD card, in ./SD next to this file (its files under SD/card/KORG/...).
+      - ./SD:/SD
+      # The flash, so a new container keeps it.
+      - gelumpe:/home/node/.gelumpe
+    # A stop signal reaches the page server, which ends the emulator with it (tools/start.mjs). The
+    # emulator saves the card and the flash first and gives up on its own after 10 s, so the
+    # container waits past that instead of killing what is left: a stop leaves no emulator running.
+    stop_grace_period: 20s
+    restart: unless-stopped
+
+volumes:
+  gelumpe:

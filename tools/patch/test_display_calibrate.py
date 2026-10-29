@@ -27,7 +27,7 @@ class DisplayCalibrationTests(unittest.TestCase):
 .equ UI_REDRAW, 0xC0307100
 .equ SCRIPT_FONT, {cls.vm.symbols['script_font']}
 '''
-        cls.code = assemble(constants + (ROOT/'tools/patch/script_calibrate.s').read_text(), origin=0xC018D000)
+        cls.code = assemble(constants + (ROOT/'tools/patch/script_calibrate.s').read_text(), origin=0xC0150300)
 
     def setUp(self):
         from unicorn import Uc, UC_ARCH_ARM, UC_MODE_ARM

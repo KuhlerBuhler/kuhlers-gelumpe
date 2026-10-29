@@ -104,6 +104,9 @@ class Dev:
         return synthaddr.table().get(addr, addr) if self.synth else addr
 
     def run(self, seconds):
+        if not self.m.time_ns:
+            bootcache.power_on(self.m, seconds)     # the first run from power-on: from a kept one of the same kind, if there is one
+            return
         self.m.finish_boot()          # Korg's own build first loads its user data; a no-op once the main screen is up
         self.m.run_until(self.m.time_ns / 1e9 + seconds)
 

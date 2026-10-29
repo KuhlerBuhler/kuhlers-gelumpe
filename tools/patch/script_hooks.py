@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 import struct
 import hashlib
+import re
 from .arm import assemble
 from .ramdecl import area, share
 from .script_vm import build as build_vm
@@ -11,15 +12,17 @@ from .script_vm import build as build_vm
 BLECHY_BLOCK = 0xC0184000
 BLECHY_BLOCK_END = 0xC0188000
 BLECHY_FILE = Path(getattr(sys, '_MEIPASS', '') or Path(__file__).resolve().parents[2]) / 'data' / 'script' / 'blechy-block.hex'   # frozen: unpacked next to the code
-CODE_START = 0xC01A6000
+CODE_START = 0xC01A6000         # the first code area, now a reserve: only the menu copies at its end (MENU_TABLE) are written
 CODE_AT = CODE_START
 INPUT = 0xC01F8000
 CARD = 0xC01F7000
 CODE_END = 0xC01AE000
-MORE_START = 0xC018D000          # a second code area for the runtime: display, store, hardware, events and apps go here, so the
-MORE_END = 0xC018FF00            # menu has room in the first; free (FF) in all three images, behind the idle insert effect
-MORE2_START = 0xC0188A00         # a third code area: the colour maths of the menu's colour pages and korg.seq; free (FF) in all three images, in the unused
-MORE2_END = 0xC0188F00           # end of the page of the tap motion patch (its code ends at 0xC018852C, its state sits at 0xC0188F00)
+MORE_START = 0xC018D000          # the second code area, now a reserve; free (FF) in all three images, behind the idle insert effect
+MORE_END = 0xC018FF00
+MORE2_START = 0xC0188A00         # the third code area, now a reserve; free (FF) in all three images, in the unused end of the page
+MORE2_END = 0xC0188F00           # of the tap motion patch (its code ends at 0xC018852C, its state sits at 0xC0188F00)
+MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
+MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 RUNTIME = 0xC01AE000
 POOL = 0xC01D7000
 END = 0xC01FFFF0
@@ -89,7 +92,8 @@ def runtime_profile(build):
                                               MG_WORK=0xC0190100, MG_MKDIR=0xC009EB00, MG_GETFREE=0xC009E85C, MG_ALLOC=0xC0028DCC, MG_FREE=0xC0028DD4,
                                               MG_VRAM=0xC031B310, MG_MARK=0xC001531C, SYNC_GROUP_AT=0x3B80,
                                               # the collection on the card (fx_card.s): which build it is for, and the modulation table this build reads
-                                              FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC))
+                                              FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
+                                              BUILD_BASE=4 if build == 'stock' else 0))   # the value of BLECH > VERSION, an offset into base_names
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
@@ -111,7 +115,7 @@ def runtime_profile(build):
         POWER_HOLD_MASK=0, SHORTCUTS=1, REMOTE=0, HW_ENCODER=0,
         SC_LEDMGR=synthaddr.tr(0xC0345A1C), SC_PLAYER=synthaddr.tr(0xC002FAFC), SC_PATPTR=synthaddr.tr(0xC033E6A4),
         SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_LEDSEND=synthaddr.tr(0xC00875F4),
-        MG_WORK=0, MG_MKDIR=0, MG_GETFREE=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0, SYNC_GROUP_AT=0x3B80))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        MG_WORK=0, MG_MKDIR=0, MG_GETFREE=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
@@ -169,6 +173,7 @@ class BuiltHooks:
             ('menu_arm','menu_arm_end','Das Menü prüft Panel, EXIT und Panel-Update, bevor es seinen Zustand initialisiert und sich scharf schaltet.'),
             ('menu_arm_load','menu_arm_load_end','Schaltet das Menü scharf und liest die Einstellungen genau einmal.'),
             ('menu_settings_load','menu_settings_end','Die Einstellungsdatei wird vor den Plugins gelesen; fehlt sie oder ist sie beschädigt, gelten die Voreinstellungen.'),
+            ('objects_row','objects_end','Nach den Einstellungen prüft der Objektbaum jeden gespeicherten Wert gegen seinen Bereich und klemmt oder setzt ihn zurück (Tabelle, Zähler).'),
             ('blechy_boot','blechy_boot_end','Blechy, die eingebaute App, wird vor dem Kartenlader geladen, startet und schaltet die Laufzeit scharf, auch ohne Karte; mit EXIT beim Einschalten ist das Menü unscharf und die Funktion kehrt sofort zurück.'),
             ('menu_needs_confirm','menu_confirm','Der Kartenlader fragt für jedes geladene Plugin, ob es erst auf eine Zustimmung wartet; ohne Plugins läuft das nicht.'),
             ('menu_recount','menu_recount_end','Nach dem Laden zählt das Menü die Plugins und stellt die Seitenzahl ein.'),
@@ -215,7 +220,11 @@ class BuiltHooks:
             area(MENU_STATE,0x200,'state of the BLECH menu and its two settings file buffers','tools/patch/script_hooks.py:MENU_STATE'),
             area(layout['pool'],layout['poolEnd']-layout['pool'],'plugin pool, SCRIPT_POOL_BYTES','tools/patch/script_hooks.py:POOL'),
             area(layout['card'],layout['input']-layout['card'],'work area of the card loader: file object, state, plugin list of the import page, the key commands of KORG.press, the record of korg.remapKey and the word korg.seq marks a written frame with','tools/patch/script_hooks.py:CARD'),
-            area(layout['input'],END-layout['input'],'block buffer for file reads, the two store images lie in it','tools/patch/script_hooks.py:INPUT')]+(
+            area(layout['input'],END-layout['input'],'block buffer for file reads, the two store images lie in it','tools/patch/script_hooks.py:INPUT'),
+            area(layout['codeEnd'],MORE3_END-layout['codeEnd'],'the rest of the code area, kept free for the code of the plugin API to grow into','tools/patch/script_hooks.py:MORE3_END'),
+            area(CODE_START,MENU_TABLE-CODE_START,'the first code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:CODE_START'),
+            area(MORE_START,MORE_END-MORE_START,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:MORE_START'),
+            area(MORE2_START,MORE2_END-MORE2_START,'the third code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:MORE2_START')]+(
             [area(self.profile.actions['MG_WORK'],0xF00,'work area of the folder copy at the first start: state, file and folder objects, paths','tools/patch/script_migrate.s:MG_ACTIVE')]
             if self.profile.actions.get('MG_WORK') else [])
 
@@ -234,7 +243,7 @@ class BuiltHooks:
             offset=address-RAM_BASE+0x100
             if offset+4>len(output) or struct.unpack_from('<I',output,offset)[0]!=expected:
                 raise ValueError(f'original hook instruction differs at {address:#x}')
-        for start,end in [(CODE_START,CODE_END),(MORE_START,self.layout['moreEnd']),(MORE2_START,self.layout['more2End']),(RUNTIME,self.layout['runtimeEnd']),(self.layout['runtimeEnd'],POOL),(POOL,self.layout['poolEnd']),(CARD,END),(BLECHY_BLOCK,BLECHY_BLOCK+len(self.sections[-1][1]))]:
+        for start,end in [(CODE_START,CODE_END),(MORE_START,MORE_END),(MORE2_START,MORE2_END),(MORE3_START,self.layout['codeEnd']),(RUNTIME,self.layout['runtimeEnd']),(self.layout['runtimeEnd'],POOL),(POOL,self.layout['poolEnd']),(CARD,END),(BLECHY_BLOCK,BLECHY_BLOCK+len(self.sections[-1][1]))]:
             offset=start-RAM_BASE+0x100
             if offset<0 or offset+end-start>len(output) or any(value!=255 for value in output[offset:offset+end-start]):
                 raise ValueError(f'script area is not FF at {start:#x}')
@@ -260,13 +269,19 @@ class BuiltHooks:
         output[offset:offset+vt_len]=vtable
         return bytes(output)
 
+def object_rows(constants):
+    """The rows of the object table in script_objects.s, from the OBJ_ constants the include carries (data/script/objects.mjs)."""
+    count=int(re.search(r'^\.equ OBJ_COUNT, (\S+)',constants,re.M).group(1),0)
+    row=lambda i: f'    .word OBJ_{i}_OFFSET, OBJ_{i}_MIN, OBJ_{i}_MAX, OBJ_{i}_FACTORY\n    .byte OBJ_{i}_BASE, OBJ_{i}_TYPE, OBJ_{i}_APPLY, OBJ_{i}_FLAGS'
+    return '\n'.join(row(i) for i in range(count))
+
 def build(include, glue=None, blechy=None, build='hacktribe'):
     profile = runtime_profile(build)
     block=blechy_block() if blechy is None else blechy
     if len(block)%4 or BLECHY_BLOCK+len(block)>BLECHY_BLOCK_END:
         raise ValueError('the block of Blechy does not fit its place in the image')
-    vm=build_vm(include,origin=CODE_START,glue=glue)
-    origin=(CODE_START+len(vm.bytes)+31)&~31
+    vm=build_vm(include,origin=MORE3_START,glue=glue)
+    origin=(MORE3_START+len(vm.bytes)+31)&~31
     constants=include.split('.align 4',1)[0]
     constants += '\n'+ '\n'.join(f'.equ {key}, {value}' for key,value in vm.symbols.items() if key.startswith('RT_'))
     constants += '\n'+ '\n'.join(f'.equ VM_{name.upper()}, {vm.symbols[name]}' for name in ['script_run_event','script_runtime_init','script_load_block','script_load_block_ex'])
@@ -275,34 +290,33 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
-    files = ['script_hooks.s','script_led.s','script_card.s','script_builtin.s','script_menu.s']
-    more = ['script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s']
+    files = ['script_hooks.s','script_card.s','script_builtin.s','script_menu.s',
+             'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s']
     if build != 'synth':
-        more.append('fx_card.s')
-    more2 = ['script_hsv.s','script_seq.s']
+        files.append('fx_card.s')
+    files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_led.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
-    source = constants+f'\n.equ MORE_START, {MORE_START}\n.equ MORE2_START, {MORE2_START}\n'+read(files)+'\n.org MORE_START\n'+read(more)+'\n.org MORE2_START\n'+read(more2)
+    source = constants+'\n'+read(files)
     if build == 'synth':
         from . import synthaddr
         source = '\n'.join(line for line in source.splitlines() if not line.lstrip().startswith(';'))
         source = synthaddr.source(source, own=[(synthaddr.FREE_FROM,0xC0200000)], keep=[0xC07FFC00,0xC07FFFF8])
     variant = 'synth' if build == 'synth' else 'sampler'
+    source = source.replace('@OBJECT_ROWS@', object_rows(constants))
     source = source.replace('@START_WRAPPER@', Path(__file__).with_name(f'script_start_{variant}.s').read_text())
     source = source.replace('@MENU_TOPLEVEL@', Path(__file__).with_name(f'script_toplevel_{variant}.s').read_text())
     actions = '\n'.join(f'.equ {name}, {value}' for name, value in profile.actions.items())
     hooks=assemble(actions+'\n'+source,origin=origin)
-    linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_glue'],**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},'API_KORG_READ_CHAIN_MODE':hooks.symbols['script_read_chain_mode_glue'],'API_KORG_READ_PATTERN_VALUE':hooks.symbols['script_read_pattern_value_glue'],'API_KORG_REMAP_KEY':hooks.symbols['script_remap_key_glue'],**{f'API_KORG_SEQ_{name}':hooks.symbols[f'script_seq_{name.lower()}_glue'] for name in ['SET_STEP','SET_GATE','CLEAR_PART']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
+    linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_glue'],'API_KORG_GET':hooks.symbols['script_object_get_glue'],'API_KORG_SET':hooks.symbols['script_object_set_glue'],**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},'API_KORG_READ_CHAIN_MODE':hooks.symbols['script_read_chain_mode_glue'],'API_KORG_READ_PATTERN_VALUE':hooks.symbols['script_read_pattern_value_glue'],'API_KORG_REMAP_KEY':hooks.symbols['script_remap_key_glue'],**{f'API_KORG_SEQ_{name}':hooks.symbols[f'script_seq_{name.lower()}_glue'] for name in ['SET_STEP','SET_GATE','CLEAR_PART']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
         for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number')]}}
-    vm=build_vm(include,origin=CODE_START,glue=linked_glue)
+    vm=build_vm(include,origin=MORE3_START,glue=linked_glue)
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
     pool_end=POOL+vm.symbols['SCRIPT_POOL_BYTES']
-    (first_at,first),(more_at,more_code),(more2_at,more2_code)=hooks.sections
-    if first_at!=origin or more_at!=MORE_START or more_at+len(more_code)>MORE_END:
-        raise ValueError(f'the second code area runs over: {more_at:#x} + {len(more_code):#x} (limit {MORE_END:#x})')
-    if more2_at!=MORE2_START or more2_at+len(more2_code)>MORE2_END:
-        raise ValueError(f'the third code area runs over: {more2_at:#x} + {len(more2_code):#x} (limit {MORE2_END:#x})')
-    if origin+len(first)>MENU_TABLE or runtime_end>MENU_ITEMS or MENU_ITEMS_END>MENU_STATE or MENU_STATE+0x200>POOL or pool_end>CARD:
-        raise ValueError(f'script code, runtime or pool exceeds its reserved area: hooks end {origin+len(first):#x} (limit {MENU_TABLE:#x}), runtime end {runtime_end:#x} (limit {MENU_ITEMS:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
+    (first_at,first),=hooks.sections
+    if first_at!=origin or origin+len(first)>MORE3_END:
+        raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {MORE3_END:#x})')
+    if runtime_end>MENU_ITEMS or MENU_ITEMS_END>MENU_STATE or MENU_STATE+0x200>POOL or pool_end>CARD:
+        raise ValueError(f'script code, runtime or pool exceeds its reserved area: runtime end {runtime_end:#x} (limit {MENU_ITEMS:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
     if s['STORE_IMAGE']+s['STORE_CAPACITY']>s['STORE_OTHER'] or s['STORE_OTHER']+s['STORE_CAPACITY']>END:
         raise ValueError('the store images run over the block buffer')
@@ -310,7 +324,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
             or s['LIST_DESC']+s['DESC_MAX_BYTES']+1>s['RM_AT'] or s['RM_AT']+s['RM_SIZE']>s['RP_AT'] or s['RP_AT']+s['RP_SIZE']>s['SQ_AT'] or s['SQ_AT']+s['SQ_SIZE']>s.get('FX_STATE_AT',INPUT-CARD)):
         raise ValueError('the plugin list of the import page runs over the card work area')
     symbols={**vm.symbols,**hooks.symbols}
-    layout=dict(code=CODE_START,codeEnd=origin+len(first),more=MORE_START,moreEnd=MORE_START+len(more_code),more2=MORE2_START,more2End=MORE2_START+len(more2_code),runtime=RUNTIME,
+    layout=dict(code=MORE3_START,codeEnd=origin+len(first),runtime=RUNTIME,
         runtimeEnd=runtime_end,runtimeSize=vm.symbols['SCRIPT_RUNTIME_SIZE'],pool=POOL,poolEnd=pool_end,card=CARD,input=INPUT)
     return BuiltHooks(vm,vm.sections+hooks.sections+[(BLECHY_BLOCK,block)],symbols,layout,profile)
 

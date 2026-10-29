@@ -44,7 +44,7 @@ Stand 2026-10-27: **nur untersucht, nichts gebaut, kein Emulator- oder Gerätela
 
 ## Risiken
 
-- Codeplatz ist knapp, neuer Code in den dritten Bereich ab `0xC0188A00`.
+- Neuer Code der Laufzeit kommt in die Code-Fläche ab `0xC0150300` (bis `0xC0170000`).
 - Der 128-KB-Puffer darf sich nicht mit den Puffern von Sample Swap ab `0xC274F000` überschneiden.
 - Der Start wird durch die Spitzenberechnung etwas langsamer.
 - 24-Bit-WAVs werden im Puffer vor dem Schreiben auf 16 Bit gewandelt, die Spitzen erst danach nehmen.

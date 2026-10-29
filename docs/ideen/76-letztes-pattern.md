@@ -1,7 +1,8 @@
 # 76. Beim Einschalten das zuletzt angesehene Pattern öffnen
 
 Idee (27.10.): Das Gerät merkt sich das Pattern, das gerade angesehen wird. Beim Einschalten öffnet es dieses Pattern
-statt 001. Stand 2026-10-27: **aufgeschrieben, nicht untersucht, nichts gebaut.**
+statt 001. Stand 2026-10-28: **für rot und blau gebaut, im Emulator geprüft, am Gerät offen** ([Messung](../messungen/2026-10-28-letztes-pattern.md)).
+Die Nummer liegt in Global-Byte 248, die Firmware speichert sie beim Ausschalten mit; Notschalter EXIT beim Einschalten.
 
 ## Was es schon gibt
 

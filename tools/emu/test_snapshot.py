@@ -27,7 +27,26 @@ def digest(m):
     h.update(bytes(b for row in m.fb for b in row))
     h.update(bytes(m.uc.mem_read(0xC0000000, 0x08000000)))
     h.update(bytes(m.flash.mem))
+    card = m.mmc.card
+    if card is not None:
+        h.update(repr((card.sectors_read, card.sectors_written, sorted(card.commands.items()), card.state, sorted(m.mmc.regs.items()))).encode())
+        h.update(bytes(card.medium.data))
     return h.hexdigest()
+
+
+def card(files=None):
+    import fat32
+    import sdcard
+    clock, fat32.clock = fat32.clock, lambda: 1767225600.0     # the same image every time
+    try:
+        img = fat32.format_image(64 * 1024 * 1024)
+        volume = fat32.Volume(img)
+        for path, data in (files or {}).items():
+            volume.write(path, data)
+        volume.close()
+    finally:
+        fat32.clock = clock
+    return sdcard.SDCard(sdcard.MemoryMedium(img))
 
 
 class SnapshotTest(unittest.TestCase):
@@ -94,10 +113,88 @@ class SnapshotTest(unittest.TestCase):
                 if old_switch is not None:
                     os.environ["GELUMPE_CACHE"] = old_switch
 
-    def test_a_card_in_the_slot_cannot_be_snapshotted(self):
+    def test_a_card_in_the_slot_is_kept_and_goes_on_as_the_original(self):
+        files = {"/KORG/blechtribe/Sample/placeholder": b"1"}
+
+        def started():
+            m = machine.Machine(self.payload, self.flash)
+            m.adapter = True
+            m.insert_card(card(files))
+            return m
+
+        straight = started()
+        straight.run_until(BOOT + MORE)
+        m = started()
+        before = bytes(m.mmc.card.medium.data)
+        m.run_until(BOOT)
+        for base in (None, before):
+            with self.subTest(card_base=base is not None):
+                snap = m.snapshot(card_base=base)
+                if base is None:
+                    restored = machine.Machine.from_snapshot(snap, self.payload, self.flash)
+                else:
+                    restored = started()
+                    held = restored.mmc.card
+                    restored.restore(snap)
+                    self.assertIs(restored.mmc.card, held, "the card the caller put in stays the object in the slot")
+                restored.run_until(BOOT + MORE)
+                self.assertEqual(digest(restored), digest(straight))
+
+    def test_power_on_gives_the_machine_a_run_from_power_on_gives(self):
+        import bootcache
+        files = {"/KORG/blechtribe/Sample/placeholder": b"1"}
+
+        def started():
+            m = machine.Machine(self.payload, self.flash)
+            m.adapter = True
+            m.insert_card(card(files))
+            return m
+
+        straight = started()
+        straight.finish_boot()           # Korg's builds load their user data first; the run counts from there
+        straight.run_until(straight.time_ns / 1e9 + BOOT)
+        with tempfile.TemporaryDirectory() as folder:
+            old = os.environ.get("GELUMPE_CACHE_DIR")
+            old_switch = os.environ.pop("GELUMPE_CACHE", None)
+            os.environ["GELUMPE_CACHE_DIR"] = folder
+            try:
+                bootcache._memory.clear()
+                first = started()
+                bootcache.power_on(first, BOOT)
+                self.assertTrue(list((Path(folder) / "power-on").iterdir()), "the run was kept in a file")
+                bootcache._memory.clear()
+                second = started()
+                bootcache.power_on(second, BOOT)       # from the file
+                third = started()
+                bootcache.power_on(third, BOOT)        # from memory
+                for m in (first, second, third):
+                    self.assertEqual(digest(m), digest(straight))
+                for m in (second, straight):
+                    m.press(0x09, True)
+                    m.run_until(m.time_ns / 1e9 + 0.05)
+                    m.press(0x09, False)
+                    m.run_until(m.time_ns / 1e9 + MORE)
+                self.assertEqual(digest(second), digest(straight))
+                watched = started()
+                watched.uc.hook_add(__import__("unicorn").UC_HOOK_CODE, lambda *a: None, begin=0, end=0)
+                self.assertIsNone(bootcache._power_on_key(watched, "1.5"), "a hook someone added has to see the run")
+            finally:
+                bootcache._memory.clear()
+                if old is None:
+                    os.environ.pop("GELUMPE_CACHE_DIR")
+                else:
+                    os.environ["GELUMPE_CACHE_DIR"] = old
+                if old_switch is not None:
+                    os.environ["GELUMPE_CACHE"] = old_switch
+
+    def test_a_card_on_a_folder_of_the_host_cannot_be_snapshotted(self):
         import sdcard
+
+        class Folder(sdcard.MemoryMedium):
+            pass
+
         m = machine.Machine(self.payload, self.flash)
-        m.insert_card(sdcard.SDCard(sdcard.MemoryMedium(bytearray(512 * 64))))
+        m.insert_card(sdcard.SDCard(Folder(bytearray(512 * 64))))
         with self.assertRaises(ValueError):
             m.snapshot()
 

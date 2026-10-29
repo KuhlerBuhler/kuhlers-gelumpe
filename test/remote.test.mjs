@@ -11,12 +11,12 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const MAILBOX = 0xc01f7fc0;
 
 /** A firmware file long enough for the runtime's code area, with the signature of tools/patch/script_remote.s or without. */
-function image(signed) {
+function image(signed, at = 0xc0157b18) {
   const bytes = new Uint8Array(ramToFile(0xc0190000)).fill(0xff);
   if (signed) {
     const view = new DataView(bytes.buffer);
-    view.setUint32(ramToFile(0xc018eb18), 0x544d4552, true);
-    view.setUint32(ramToFile(0xc018eb1c), MAILBOX, true);
+    view.setUint32(ramToFile(at), 0x544d4552, true);
+    view.setUint32(ramToFile(at + 4), MAILBOX, true);
   }
   return bytes;
 }
@@ -31,6 +31,7 @@ test("a key and a turn of the dial become marked command words, and bad values a
 
 test("the console finds the command word only in a firmware with the runtime's keys", () => {
   assert.equal(remoteMailbox(image(true)), MAILBOX);
+  assert.equal(remoteMailbox(image(true, 0xc018eb18)), MAILBOX, "the second code area of a firmware up to 1.3.7");
   assert.equal(remoteMailbox(image(false)), null);
   assert.equal(remoteMailbox(new Uint8Array(0x1000)), null);
 });

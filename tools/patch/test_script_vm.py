@@ -210,7 +210,7 @@ class NativeRuntimeTests(unittest.TestCase):
         from tools.patch.script_vm import build
         for version in [257,65535]:
             with self.subTest(version=version):
-                include = re.sub(r'\.equ SCRIPT_API_VERSION, \d+\n',f'.equ SCRIPT_API_VERSION, {version}\n',contract_data()['include'])
+                include = re.sub(r'\.equ SCRIPT_API_VERSION, \S+\n',f'.equ SCRIPT_API_VERSION, {version}\n',contract_data()['include'])
                 native = build(include)
                 machine = BareMachine(native)
                 data = bytearray(blob([33,2,0,9,0],stack=1))
@@ -271,7 +271,7 @@ class BareMachine:
         self.stop = 0x600000
         self.timer = 0x01F0D010
         self.symbols = code.symbols
-        for address, size in [(self.origin,0x100000),(self.runtime,0x100000),(self.arena,0x100000),(self.input,0x100000),(self.stack,0x100000),(self.stop,0x1000),(self.timer & ~4095,4096)]:
+        for address, size in [(self.origin&~0xFFF,0x100000),(self.runtime,0x100000),(self.arena,0x100000),(self.input,0x100000),(self.stack,0x100000),(self.stop,0x1000),(self.timer & ~4095,4096)]:
             self.uc.mem_map(address,size)
         self.uc.mem_write(self.origin,code.bytes)
         self.calls = []

@@ -283,6 +283,40 @@ korg.onEvent("buttonPress", (key) => {
 Die Aufrufe in der Tabelle unten bleiben gültig, ältere Plugins laufen unverändert weiter. Was eine
 Handlung ist, bleibt ein Aufruf: zeichnen, PLAY drücken, eine App anmelden, speichern.
 
+### Die Electribe als Objektbaum (API 10, BLECHTRIBE 1.3.8)
+
+Ab API 10 hängen die Einstellungen der Electribe und des Menüs BLECH an langen Pfaden. Ein Pfad liest und
+setzt sich wie eine Eigenschaft oben, der Übersetzer macht daraus `korg.get` oder `korg.set` mit der Nummer
+des Blatts, lange Namen kosten am Gerät also nichts. Ein Plugin, das einen Pfad nutzt, braucht API 10 und
+läuft auf älterer Firmware nicht (sie lehnt den Block ab).
+
+Ein Wert außerhalb des Bereichs wird auf die nächste Grenze geklemmt und gezählt (`korg.system.repairs`),
+das Plugin läuft weiter. Steht der Wert schon beim Übersetzen fest, meldet der Übersetzer ihn als Fehler.
+Ein falsch geschriebener Pfad ist ein Fehler beim Übersetzen, die Meldung nennt, was es an der Stelle gibt.
+Gespeicherte Werte prüft die Laufzeit beim Start, egal woher ein ungültiger Wert kommt, und klemmt oder
+setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
+
+| Pfad | Lesen | Setzen | Bereich |
+|---|---|---|---|
+| `korg.menu.blech.customizations.display.intensity` | Helligkeit des Display-Lichts wie die Seite INTENSITY | ja, wirkt sofort; WRITE im Menü behält sie | 0 (aus) bis 15 (voll) |
+| `korg.system.repairs` | wie viele Werte seit dem Start geklemmt oder zurückgesetzt wurden | nein | 0 bis 2147483647 |
+
+```js
+// Licht aus, solange die App offen ist, danach wieder wie vorher.
+let light = 15;
+korg.app("Dunkel", "TOOLS");
+korg.onEvent("open", () => {
+  light = korg.menu.blech.customizations.display.intensity;
+  korg.menu.blech.customizations.display.intensity = 0;
+});
+korg.onEvent("close", () => {
+  korg.menu.blech.customizations.display.intensity = light;
+});
+```
+
+Weitere Zweige (`korg.global`, `korg.patterns`, `korg.parts`, die übrigen Seiten von BLECH) kommen mit den
+nächsten Versionen; die alten Namen bleiben gültig.
+
 ### Funktionen der Electribe
 
 Alle Namen beginnen mit `korg.`. Zahlen außerhalb des Bereichs beenden das
@@ -755,7 +789,7 @@ Kennung `GGIF`, Version 1 (u16), Zahl der Bilder (u16), dann je Bild die Dauer i
 Byte Displayspeicher (Byte `(y / 8) * 128 + x`, Bit `y % 8`). `tools/gif/gif2e2g.py` macht so eine Datei aus einem GIF
 (Pillow), `src/script/gif.mjs` liest sie im Browser. Ein Aufruf öffnet die Datei, springt zum Bild, liest es und schließt
 sie wieder, über die FatFs-Funktionen der Firmware (auch `f_lseek`, `0xC009E404`, in Blau `0xC008AF5C`) und mit dem
-Dateiobjekt des Kartenladers. Er liest nur bei offenem Hauptbildschirm, wie das Speichern von `korg.store`. Wie lange das
+Dateiobjekt des Kartenladers. Er liest nur bei offenem Hauptbildschirm. Wie lange das
 Lesen von 1 KiB am Gerät dauert, ist nicht gemessen; die 5 ms des Rahmens bleiben die Grenze.
 
 ### Dauerhafte Werte
@@ -779,7 +813,8 @@ der Karte liegen, bleiben beim Schreiben erhalten (höchstens 194 Einträge).
 `src/script/store.mjs` baut und liest die Datei im Browser.
 
 Geschrieben wird frühestens 50 Rahmen (2 Sekunden) nach dem letzten Schreiben und
-nur, solange der Hauptbildschirm offen ist; ein weiterer `save()` davor bleibt
+nur, solange der Hauptbildschirm oder das Menü BLECH offen ist (dort liegen die Seiten von
+`korg.menu.add`); ein weiterer `save()` davor bleibt
 vorgemerkt. Ein Fehlschlag (keine Karte, Karte voll) zählt im Kontrollblock
 (`storeErrors`) und wiederholt sich nicht von selbst. Im Lauf im Browser halten die
 Werte bis zum Neuladen der Seite.
@@ -808,8 +843,9 @@ Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
 - Solange der Bildschirm offen ist, sehen die Plugins keine Eingaben, damit ein Plugin,
   das Tasten abfängt, das Menü nicht sperren kann.
 
-Die Liste der ersten Ebene besteht nur aus Gruppen, in dieser Reihenfolge: erst die eingebauten Schalter, dann
-die Anpassung, dann die Plugins, zuletzt die Gruppen, die Plugins selbst anmelden (`korg.app`):
+Die Liste der ersten Ebene besteht aus Gruppen, in dieser Reihenfolge: erst die eingebauten Schalter, dann
+die Anpassung, dann die Plugins, dann die Gruppen, die Plugins selbst anmelden (`korg.app`), und als letzte Seite
+VERSION, die keine Gruppe ist:
 
 | Eintrag | Was dahinter liegt |
 |---|---|
@@ -818,6 +854,7 @@ die Anpassung, dann die Plugins, zuletzt die Gruppen, die Plugins selbst anmelde
 | PLUGINS | Gruppe, siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
 | TOOLS | wie GAMES |
+| VERSION | keine Gruppe: oben die Version des Satzes, mit dem die Firmware gepatcht wurde (`BLECH 1.3.7`, aus dem Patch `blech-version`), darunter die Firmware, für die das Menü gebaut ist (HACKTRIBE, KORG RED, KORG BLUE). ENTER, WRITE und das Rad ändern nichts |
 
 Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem Wert ON oder OFF, das Hauptrad ändert ihn:
 
@@ -866,6 +903,7 @@ Die Seiten der Gruppen:
 | Ring, SYNC GROUP | OFF, 1 bis 999 | eine eigene Seite im Ring, gleich vor der ersten Seite des Pattern Menüs (EDIT links von dort, EDIT rechts von Blechy; das Schild sagt "Pattern"), auf beiden Electribes (auf der blauen seit 24.10., [Messung](messungen/2026-10-24-blau-sync-group.md)): die Sync Group des Patterns im RAM; das Hauptrad ändert sie, WRITE öffnet das Speichern des Patterns wie auf den Seiten des Pattern Menüs, gespeichert wird sie mit dem Pattern. Läuft ein Pattern, startet ein anderes Pattern derselben Gruppe am Rad ohne MENU am Sequenzende (unten NEXT:), eines außerhalb der Gruppe wartet wie immer auf MENU; gestoppt lädt das Rad ein Pattern der Gruppe auch dann sofort, wenn das Pattern ungespeicherte Änderungen hat ([Messung](messungen/2026-10-25-sync-ungespeichert.md)); beim Wechsel zwischen zwei Patterns einer Gruppe geht der Stand des Patterns mit, das gespielt hat, verändert oder nicht: Part-Mutes und Klang der Parts (Sample, Filter, Modulation, Pitch, Amp, IFX und die übrigen Part-Werte), Tempo, Swing, Lautstärke, das MFX-Pad mit HOLD, auch zurück; die Effekttypen MFX 1 und MFX 2 bleiben die des neuen Patterns; die Patterns einer Gruppe spielen wie eines (nur im RAM). Steps, Motion, Länge, Beat, Tonart, Tonleiter und Chord Set bleiben die des neuen Patterns. OFF (0) heißt keine Gruppe, kein Abgleich ([Messung](messungen/2026-10-19-sync-groups.md), [Stand vom 22.10.](messungen/2026-10-22-sync-und-menues.md)) |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus (Idee 39), TAP länger als 0,3 s gehalten schaltet nur, solange es gehalten ist, beim Loslassen zurück; OFF: TAP ist wieder das Tap-Tempo der Firmware; ONCE (Wert 2 des Einstellungsworts): eine mit TAP eingeschaltete Bewegung spielt bis zum Ende des Patterns und geht dann aus; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3, ONCE als Bit 5 der Flags in der Einstellungsdatei (Bit 3 gewinnt) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Note die Pads der passenden Noten rosa, je besser sie passen, desto heller (Prim und Quinte, dann Terzen, Quarte und ein Tonleiterschritt, dann Sexten); gestoppt oder pausiert bleiben sie stehen, beim Spielen blenden sie aus, die schwachen zuerst; im CHORD-Modus (Skalen mit sieben Tönen) zeigen die Pads ebenso, welche Akkorde gut folgen ([Messung](messungen/2026-10-15-note-assistant.md), [Helligkeit und Ausblenden](messungen/2026-10-19-notenassistent-helligkeit.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
+| FEATURES, INIT PATTERN | FACTORY, 1 bis 250 | das Pattern, das DATA UTILITY > INITIALIZE PATTERN als Vorlage nimmt; FACTORY ist die Vorlage der Firmware; gilt sofort und bleibt über das Ausschalten (Global-Byte 247, kein WRITE nötig); nur wo der Satz den Patch init-pattern hat (rot) ([Messung](messungen/2026-10-28-init-pattern.md)) |
 
 Rückmeldungen ("saved", "no card", "imported", "2 exported" und so weiter) ersetzen den
 Wert der Seite, bis man das Hauptrad dreht oder die Seite wechselt. Die dritte Zeile der
@@ -879,9 +917,11 @@ Auf den Seiten RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION un
 speichert WRITE die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
 sich mit einer Generationsnummer abwechseln (24 bis 88 Byte: Kennung `GSET`, Version 2, ein Byte mit METER LOUD RAINBOW in Bit 0 (ein BLECH vor 1.3 verwirft eine Datei, in der es gesetzt ist), Anzahl
 erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
-erlaubten fremden Blöcke, CRC-32; höchstens 16 erlaubte Blöcke, danach fliegt die älteste raus;
+erlaubten fremden Blöcke, CRC-32; höchstens 16 Einträge;
 in derselben Liste steht für jedes ausgeschaltete Plugin seine Prüfsumme invertiert, ein älteres BLECH liest sie als
-Prüfsumme, die nie passt, [Messung](messungen/2026-10-18-plugin-bleibt-aus.md);
+Prüfsumme, die nie passt, [Messung](messungen/2026-10-18-plugin-bleibt-aus.md); ist die Liste voll, fliegt zuerst der
+älteste Eintrag raus, der zu keinem geladenen Plugin gehört (ein Plugin, das nicht mehr auf der Karte liegt, oder eine ältere
+Fassung davon), sonst bei einer Zustimmung der älteste überhaupt; eine Markierung, für die dann kein Platz bleibt, fehlt, und das Plugin läuft nach dem Neustart wieder;
 Dateien der Version 1 ohne das Wort werden weiter gelesen). Ohne Datei, Karte oder bei
 beschädigter Datei gelten die Voreinstellungen (alles an, die Anpassung auf den Werten der
 Firmware). Die Seite meldet "saved", "no card", "card protected", "folder missing" oder "write error".
@@ -1174,7 +1214,7 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
   Plugin-Laufzeit mit Menü, Kartenordner `blechtribe`, Blech-Startbild) ist gebaut
   und im Emulator geprüft ([Gerätedatei](geraetetests/blech-datei.md)).
 
-Der Platz im Abbild: VM und Haken ab `0xC01A6000`, Laufzeit ab `0xC01AE000`, Pool
+Der Platz im Abbild: VM und aller Code der Laufzeit ab `0xC0150300`, Laufzeit ab `0xC01AE000`, Pool
 `0xC01D7000` bis `0xC01F7000`, alles in dem Bereich, der in den eigenen Abbildern
 FF ist (offline gemessen). Der Block von Blechy liegt außerhalb davon bei `0xC0184000`
 (12668 Byte), im FF-Lauf `0xC01720B0` bis `0xC01A0000`, in dem auch der Patternwechsel und

@@ -2,11 +2,14 @@
  * Changelogs: the GitHub releases of the repository, newest first, laid out like
  * GitHub's releases page. A release newer than the last one opened here puts a "!"
  * on the tab. While the repository is private the API answers 404 and the page
- * says so with a link.
+ * says so with a link. Versions GitHub no longer has, or all of them when it cannot
+ * be reached, come from the notes the app carries (data/release-notes.mjs).
  */
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
-import { t, tNodes, locale } from "./i18n.mjs";
+import { t, tNodes, locale, language } from "./i18n.mjs";
+import { isNewer } from "./update.mjs";
+import { RELEASE_NOTES } from "../../data/release-notes.mjs";
 
 const REPO = "KuhlerBuhler/kuhlers-gelumpe";
 const SEEN = "cee.changelog.seen";
@@ -103,6 +106,24 @@ function release(r) {
   ]);
 }
 
+/** A version from the notes the app carries: in German for German, else in English when there is an English part. */
+function carried(n) {
+  const body = language() === "de" ? n.de : n.en ?? n.de;
+  return el("article", { className: "cee-release" }, [
+    el("header", { className: "cee-release-side" }, [el("h2", { textContent: `v${n.version}` })]),
+    el("div", { className: "cee-release-body" }, notes(body)),
+  ]);
+}
+
+/** GitHub's releases and, for the versions it does not have, the carried notes; newest first. */
+export function entries(releases = [], carriedNotes = RELEASE_NOTES) {
+  const tags = new Set(releases.map(r => r.tag_name.replace(/^v/, "")));
+  const all = [...releases.map(r => ({ version: r.tag_name, r })), ...carriedNotes.filter(n => !tags.has(n.version)).map(n => ({ version: n.version, n }))];
+  return all.sort((a, b) => (isNewer(a.version, b.version) ? -1 : isNewer(b.version, a.version) ? 1 : 0));
+}
+
+const show = e => (e.r ? release(e.r) : carried(e.n));
+
 /**
  * @param {HTMLElement} root the page
  * @param {HTMLElement} tab the nav entry that gets the "!"
@@ -128,12 +149,12 @@ export function changelogPage(root, tab, fetchImpl = globalThis.fetch) {
     } catch {}
     if (!releases?.length) {
       offline = true;
-      list.replaceChildren(el("p", {}, tNodes("changelog.alsoOn", { github: el("a", { className: "cee-text-link", href: PAGE, target: "_blank", rel: "noopener noreferrer", textContent: "GitHub" }) })));
+      list.replaceChildren(el("p", {}, tNodes("changelog.alsoOn", { github: el("a", { className: "cee-text-link", href: PAGE, target: "_blank", rel: "noopener noreferrer", textContent: "GitHub" }) })), ...entries().map(show));
       return;
     }
     const top = releases.find(r => !r.prerelease) ?? releases[0];
     latest = top.tag_name;
-    list.replaceChildren(...releases.map(r => release(r)));
+    list.replaceChildren(...entries(releases).map(show));
     if (!root.closest("[hidden]")) keep(latest);
     mark();
   })();

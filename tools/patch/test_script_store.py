@@ -203,6 +203,15 @@ class NativeStoreTests(unittest.TestCase):
         self.frame(m, 60)
         self.assertEqual(m.read(m.runtime + STORE_ERRORS), 1)
 
+    def test_a_save_from_a_plugin_page_is_written_while_the_blech_menu_is_open(self):
+        m = self.counter_machine()
+        self.frame(m)
+        manager = m.read(0xC03404C0)
+        m.write(manager + 0x2c, 45)
+        self.press(m); self.frame(m)
+        self.assertEqual((m.read(m.runtime + STORE_WRITES), m.read(m.runtime + STORE_PENDING)), (1, 0))
+        self.assertIn('store.b.bin', m.fat.files)
+
     def test_the_built_in_app_gets_no_record_and_the_card_loads_behind_him(self):
         blocks = node(compile=[['klicker', KLICKER]])['blocks']
         m = self.machine({'e2sPlugin.all': archive([bytes.fromhex(blocks[0])])}, builtin=True)

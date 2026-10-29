@@ -79,7 +79,12 @@
 .equ PC_CODE, 0xC018B000        ; the patch pad-colors (tools/patch/pad_colors.py), FF where the set does not have it; its entries:
                                 ; +0 (look word) takes the colours from it, +4 -> its bits for them, +8 (kind, steps) the next colour,
                                 ; +12 (kind) -> title, r1 = value text; each sends the pads again where the colours change
-.equ SPLASH_IMPORT, 0xC01A2500  ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
+; INIT PATTERN: the patch init-pattern (tools/patch/init_pattern.py), FF where the set does not have it; the page writes Global byte 247
+.equ INIT_CODE, 0xC014FD00
+.equ GLOBALS_PTR, 0xC0691324
+.equ IP_SLOT, 247
+.equ VERSION_TEXT, 0xC014FCF0   ; the patch blech-version (tools/patch/blech_version.mjs): "BLECH 1.3.7", NUL padded, FF where the set does not have it
+.equ SPLASH_IMPORT, 0xC01A2500 ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
 .equ SPLASH_RESET, 0xC01A2508
 .equ M_LEVEL, 0xE0
@@ -175,6 +180,7 @@ menu_arm_load:
     popeq {pc}
     bl menu_arm
     bl menu_settings_load
+    bl objects_repair
     pop {pc}
 .pool
 menu_arm_load_end:
@@ -1426,8 +1432,25 @@ menu_texts_clear:
     beq menu_text_pedit
     cmp r0, #39
     beq menu_text_pdesc
+    cmp r0, #40
+    beq menu_text_ip
+    cmp r0, #41
+    beq menu_text_version
     cmp r0, #7
     bhs menu_text_look
+    pop {r4, r5, r6, r7, pc}
+; VERSION: the set's version text (the patch blech-version) as the title, the firmware this runtime is built for as the value
+menu_text_version:
+    add r0, r5, #M_TITLE
+    ldr r1, =VERSION_TEXT
+    ldrb r2, [r1]
+    cmp r2, #0xFF
+    ldreq r1, =str_blech
+    bl menu_copy16
+    ldr r1, =base_names
+    ldr r1, [r1, #BUILD_BASE]
+    add r0, r5, #M_VALUE
+    bl menu_copy
     pop {r4, r5, r6, r7, pc}
 ; the page BLECH in the ring and the groups of the list look like Data Util: the name as the title, "press  [ Enter ]" under it
 menu_text_ring:
@@ -2117,9 +2140,9 @@ menu_off_loop:
     sub r3, r3, #1
     b menu_off_loop
 
-; Before a save: for every loaded plugin the marker goes, and comes back when the plugin is off (loaded, allowed and not
-; armed), as long as the list has room. Markers of plugins no longer on the card stay, like their allowed checksums. Blechy
-; is always armed, so he never gets one.
+; Before a save: for every loaded plugin the marker goes (every copy of it), and comes back when the plugin is off (loaded,
+; allowed and not armed). Markers of plugins no longer on the card stay, like their allowed checksums, until the list is full:
+; then the oldest of them makes room (menu_trust_room). Blechy is always armed, so he never gets one.
 menu_off_sync:
     push {r4-r7, lr}
     ldr r4, =MENU_STATE
@@ -2147,11 +2170,12 @@ menu_off_find:
     str r1, [r4, #M_TRUST_N]
 menu_off_shift:
     cmp r3, r1
-    bhs menu_off_keep
+    movhs r3, #0
+    bhs menu_off_find
     add r12, r3, #1
     ldr r12, [r2, r12, lsl #2]
     str r12, [r2, r3, lsl #2]
-    add r3, r3, #3
+    add r3, r3, #1
     b menu_off_shift
 menu_off_keep:
     ldr r0, [r5, #SCRIPT_ENTRY_STATE]
@@ -2161,9 +2185,10 @@ menu_off_keep:
     bl menu_needs_confirm
     cmp r0, #0
     bne menu_off_next
+    bl menu_trust_room
+    cmp r0, #0
+    beq menu_off_next
     ldr r1, [r4, #M_TRUST_N]
-    cmp r1, #MENU_MAX_TRUST
-    bhs menu_off_next
     add r2, r4, #M_TRUST
     str r7, [r2, r1, lsl #2]
     add r1, r1, #1
@@ -2175,11 +2200,58 @@ menu_off_done:
     pop {r4-r7, pc}
 .pool
 
+; A full list drops its oldest entry that no loaded plugin uses (neither its checksum nor its marker): a plugin removed from
+; the card, or an older build of one. -> r0 = 1 when the list has room for one more entry. Keeps r4 to r8.
+menu_trust_room:
+    push {r4-r8, lr}
+    ldr r4, =MENU_STATE
+    ldr r1, [r4, #M_TRUST_N]
+    cmp r1, #MENU_MAX_TRUST
+    movlo r0, #1
+    poplo {r4-r8, pc}
+    add r6, r4, #M_TRUST
+    mov r7, #0
+menu_room_scan:
+    cmp r7, r1
+    movhs r0, #0
+    pophs {r4-r8, pc}
+    ldr r8, [r6, r7, lsl #2]
+    ldr r5, =HOOK_RUNTIME
+    ldr r5, [r5, #RT_HEAD]
+    cmn r5, #1
+    moveq r5, #0
+menu_room_live:
+    cmp r5, #0
+    beq menu_room_drop
+    ldr r0, [r5, #SCRIPT_ENTRY_BLOB]
+    ldr r0, [r0, #HDR_CHECKSUM]
+    cmp r0, r8
+    mvnne r0, r0
+    cmpne r0, r8
+    addeq r7, r7, #1
+    beq menu_room_scan
+    ldr r5, [r5, #SCRIPT_ENTRY_NEXT]
+    b menu_room_live
+menu_room_drop:
+    sub r1, r1, #1
+    str r1, [r4, #M_TRUST_N]
+menu_room_shift:
+    cmp r7, r1
+    movhs r0, #1
+    pophs {r4-r8, pc}
+    add r12, r7, #1
+    ldr r12, [r6, r12, lsl #2]
+    str r12, [r6, r7, lsl #2]
+    add r7, r7, #1
+    b menu_room_shift
+.pool
+
 ; r0 = script entry waiting for its confirmation: remember its checksum, run its start body, save the settings
 menu_confirm:
     push {r4, r5, lr}
     mov r4, r0
     ldr r5, =MENU_STATE
+    bl menu_trust_room
     ldr r1, [r4, #SCRIPT_ENTRY_BLOB]
     ldr r1, [r1, #HDR_CHECKSUM]
     ldr r2, [r5, #M_TRUST_N]
@@ -2213,7 +2285,8 @@ menu_confirm_add:
 
 ; The menu has three levels, the way Data Util has two. Level 0 is the one page BLECH in the ring of the firmware, between Global and
 ; Data Util ("press [ Enter ]"); ENTER opens level 1, the list of the groups FEATURES, CUSTOMIZATION and PLUGINS, and behind them the
-; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it. Each is again
+; groups plugins add by declaring an app (korg.app): GAMES and TOOLS, each only when an app is declared in it, and last the page
+; VERSION (the set's version and the firmware it is built for, no group). Each group is again
 ; "press [ Enter ]". ENTER on a group opens level 2, the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION,
 ; 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR, 8 POWER SAVE, 9 SPLASH). Those five are rows of CUSTOMIZATION that open their pages;
 ; EXIT there goes back to that row. FEATURES holds the built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST (the
@@ -2224,7 +2297,7 @@ menu_confirm_add:
 ; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 2 a plugin, 3 export, 4 and 5 unused, 6 a page a
 ; plugin added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
-; 36 SELECT PLUGIN, 37 DELETE PLUGIN, 38 PLUGIN EDIT, 39 DESCRIPTION), r1 = its index (the plugin, the page, the app's table index,
+; 36 SELECT PLUGIN, 37 DELETE PLUGIN, 38 PLUGIN EDIT, 39 DESCRIPTION, 40 INIT PATTERN, 41 VERSION), r1 = its index (the plugin, the page, the app's table index,
 ; the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
@@ -2255,6 +2328,12 @@ menu_kind:
     moveq r1, #3
     beq menu_kind_done
     cmp r5, #2
+    moveq r1, #0
+    beq menu_kind_done
+    bl menu_page_count          ; VERSION is the last row of the list
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #41
     moveq r1, #0
     beq menu_kind_done
     sub r5, r5, #3
@@ -2296,6 +2375,8 @@ menu_kind_sub:
 menu_kind_features:
     mov r0, #21
     mov r1, #0
+    cmp r5, #4
+    moveq r0, #40
     cmp r5, #2
     moveq r0, #20
     cmp r5, #1
@@ -2362,7 +2443,7 @@ menu_page_count:
 menu_count_level1:
     cmp r1, #1
     bne menu_count_group
-    mov r4, #3
+    mov r4, #4                  ; FEATURES, CUSTOMIZATION, PLUGINS, VERSION, and GAMES and TOOLS where an app is declared in them
     mov r0, #0
     bl app_count
     cmp r0, #0
@@ -2400,7 +2481,11 @@ menu_count_features:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #4                  ; FEATURES: the four switches
+    mov r0, #4                  ; FEATURES: the four switches, and INIT PATTERN where the set has the patch init-pattern
+    ldr r1, =INIT_CODE
+    ldr r1, [r1]
+    cmn r1, #1
+    addne r0, r0, #1
     b menu_count_out
 menu_count_apps:
     sub r0, r1, #1
@@ -3639,6 +3724,8 @@ menu_slot_value:
     beq menu_value_psel
     cmp r0, #39
     beq menu_value_desc
+    cmp r0, #40
+    beq menu_value_ip
     cmp r0, #15
     bhs menu_value_done
     cmp r0, #7
@@ -3948,6 +4035,7 @@ menu_slot_keys:
     cmp r0, #37
     beq menu_keys_pdel
     cmp r0, #39
+    cmpne r0, #41
     beq menu_keys_done
     cmp r0, #2
     cmpeq r6, #0x09
@@ -4335,7 +4423,15 @@ str_na:
     .asciz "NOTE ASSIST"
 str_mg:
     .asciz "SYNC GROUP"
+str_base_hacktribe:
+    .asciz "HACKTRIBE"
+str_base_red:
+    .asciz "KORG RED"
+str_base_blue:
+    .asciz "KORG BLUE"
 .align 4
+base_names:                     ; the value of VERSION, by BUILD_BASE (tools/patch/script_hooks.py): Hacktribe, Korg's red, Korg's blue
+    .word str_base_hacktribe, str_base_red, str_base_blue
 tab_names:
     .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads, str_tab_psave, str_tab_splash
 group_names:

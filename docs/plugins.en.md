@@ -245,6 +245,40 @@ korg.onEvent("buttonPress", (key) => {
 The calls in the table below stay valid, older plugins keep running unchanged. What is an action stays
 a call: drawing, pressing PLAY, registering an app, saving.
 
+### The Electribe as an object tree (API 10, BLECHTRIBE 1.3.8)
+
+From API 10 on, the settings of the Electribe and of the BLECH menu hang on long paths. A path reads and sets
+like a property above; the compiler turns it into `korg.get` or `korg.set` with the number of the leaf, so long
+names cost nothing on the device. A plugin that uses a path needs API 10 and does not run on older firmware
+(it refuses the block).
+
+A value outside the range is clamped to the nearest limit and counted (`korg.system.repairs`), the plugin keeps
+running. When the value is known at compile time, the compiler reports it as an error. A misspelled path is a
+compile error, the message names what exists at that point. The runtime checks the stored values at start,
+wherever an invalid value comes from, and clamps it or resets it to the factory value; that counts in
+`korg.system.repairs` as well.
+
+| Path | Read | Set | Range |
+|---|---|---|---|
+| `korg.menu.blech.customizations.display.intensity` | brightness of the display light, like the page INTENSITY | yes, at once; WRITE in the menu keeps it | 0 (off) to 15 (full) |
+| `korg.system.repairs` | how many values were clamped or reset since start | no | 0 to 2147483647 |
+
+```js
+// Light off while the app is open, back as it was afterwards.
+let light = 15;
+korg.app("Dark", "TOOLS");
+korg.onEvent("open", () => {
+  light = korg.menu.blech.customizations.display.intensity;
+  korg.menu.blech.customizations.display.intensity = 0;
+});
+korg.onEvent("close", () => {
+  korg.menu.blech.customizations.display.intensity = light;
+});
+```
+
+More branches (`korg.global`, `korg.patterns`, `korg.parts`, the other pages of BLECH) come with the next
+versions; the old names stay valid.
+
 ### Functions of the Electribe
 
 All names begin with `korg.`. Numbers outside the range end the plugin with an error. "Allowed in" names
@@ -624,7 +658,7 @@ version 1 (u16), number of frames (u16), then per frame its delay in ms (u16), t
 memory (byte `(y / 8) * 128 + x`, bit `y % 8`). `tools/gif/gif2e2g.py` makes one from a GIF (Pillow), `src/script/gif.mjs`
 reads it in the browser. A call opens the file, seeks to the frame, reads it and closes the file again, through the
 firmware's FatFs functions (also `f_lseek`, `0xC009E404`, on blue `0xC008AF5C`) with the card loader's file object. It
-reads only while the main screen is open, like the save of `korg.store`. How long 1 KiB takes on the device is not
+reads only while the main screen is open. How long 1 KiB takes on the device is not
 measured; the 5 ms of a frame stay the limit.
 
 ### Persistent values
@@ -642,7 +676,7 @@ then 84 bytes per plugin (name, mask of used slots, 16 values), at most 194 entr
 that are not on the card at the moment are kept when writing ([German page](plugins.md#dauerhafte-werte)).
 
 Writing happens at the earliest 50 frames (2 seconds) after the last write and only while the main screen
-is open; another `save()` before that stays queued. A failure (no card, card full) is counted in the control
+or the BLECH menu is open (where the pages of `korg.menu.add` are); another `save()` before that stays queued. A failure (no card, card full) is counted in the control
 block (`storeErrors`) and is not repeated on its own. When running in the browser, the values last until the
 page is reloaded.
 
@@ -667,8 +701,9 @@ line `press  [ Enter ]`.
   main screen. MENU on the main screen returns to where you left the menu, also into a group.
 - While the screen is open, plugins see no inputs, so that a plugin that catches keys cannot lock the menu.
 
-The list of the first level holds groups only, in this order: the built-in switches first, then the
-customization, then the plugins, last the groups that plugins register themselves (`korg.app`):
+The list of the first level holds groups, in this order: the built-in switches first, then the
+customization, then the plugins, then the groups that plugins register themselves (`korg.app`), and as the last
+page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
@@ -677,6 +712,7 @@ customization, then the plugins, last the groups that plugins register themselve
 | PLUGINS | a group, see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
 | TOOLS | like GAMES |
+| VERSION | no group: on top the version of the set the firmware was patched with (`BLECH 1.3.7`, from the patch `blech-version`), below it the firmware the menu is built for (HACKTRIBE, KORG RED, KORG BLUE). ENTER, WRITE and the dial change nothing |
 
 The pages of FEATURES (the tag names the group "Feature"), each with the value ON or OFF, the main dial changes it:
 
@@ -725,6 +761,7 @@ The pages of the groups:
 | Ring, SYNC GROUP | OFF, 1 to 999 | a page of its own in the ring, right before the first page of the Pattern menu (EDIT left from there, EDIT right from Blechy; the tag says "Pattern"), on both Electribes (on the blue one since 24.10., [measurement](messungen/2026-10-24-blau-sync-group.md)): the sync group of the pattern in RAM; the main dial changes it, WRITE opens the pattern write as on the Pattern menu's pages, it is saved with the pattern. While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; stopped, the dial loads a pattern of the group at once even when the pattern has unsaved changes ([measurement](messungen/2026-10-25-sync-ungespeichert.md)); switching between two patterns of one group carries the state of the pattern that played, changed or not: part mutes and part sound (sample, filter, modulation, pitch, amp, IFX and the other part values), tempo, swing, level, the MFX pad with HOLD, also back; the effect types MFX 1 and MFX 2 stay the new pattern's; the patterns of a group play as one (in RAM only). Steps, motion, length, beat, key, scale and chord set stay the new pattern's. OFF (0) is no group, nothing carried |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off, TAP held longer than 0.3 s switches only while held and back on letting go; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
+| FEATURES, INIT PATTERN | FACTORY, 1 to 250 | the pattern DATA UTILITY > INITIALIZE PATTERN takes as its template; FACTORY is the firmware's template; applies at once and stays after switching off (Global byte 247, no WRITE needed); only where the set has the patch init-pattern (red) ([measurement](messungen/2026-10-28-init-pattern.md)) |
 
 Feedback ("saved", "no card", "imported", "2 exported" and so on) replaces the value of the page until you
 turn the main dial or change the page. The firmware's third line (the unit behind a value) starts in
@@ -735,7 +772,7 @@ the title holds about 18. EXPORT ALL is in the PLUGINS group, not in DATA UTILIT
 
 On the page RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
-number (24 to 88 bytes, tag `GSET`, version 2, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 16 approved blocks are remembered, then the oldest drops out; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches).
+number (24 to 88 bytes, tag `GSET`, version 2, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 16 entries; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches; when the list is full, the oldest entry that belongs to no loaded plugin drops out first (a plugin no longer on the card, or an older build of one), otherwise an approval drops the oldest entry of all; a marker that finds no room is missing and the plugin runs again after a restart).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at
 the firmware's values). The page reports "saved", "no card", "card protected", "folder missing" or "write
 error". Nothing is written to the flash.

@@ -109,6 +109,18 @@ export function parseNotes(text) {
   return { de: source.slice(0, m.index).trim(), en: source.slice(m.index + m[0].length).trim() };
 }
 
+// The sections of a release that still hold once its downloads are gone; the app shows only these.
+const KEPT = /^\*\*(Neu|Geändert|Behoben|New|Changed|Fixed)( für Entwickler| for developers)?\*\*$/;
+
+/**
+ * One language part of a notes file for the app's Changelogs: the first line and the sections under KEPT. Downloads,
+ * install hints and donation links go, their release may be gone from GitHub.
+ */
+export function appNotes(part) {
+  const blocks = String(part ?? "").trim().split(/\n[ \t]*\n/);
+  return [blocks[0], ...blocks.slice(1).filter(b => KEPT.test(b.split("\n")[0].trim()))].filter(Boolean).join("\n\n");
+}
+
 /** What is wrong with a notes file, in words; empty when both languages are there. */
 export function checkNotes(text) {
   const { de, en } = parseNotes(text);
@@ -218,13 +230,13 @@ export function releaseBody(notesText, version, names) {
  */
 export const BASE_BRANCH = "develop";
 export const RELEASE_COMMIT = "@release-commit";
-export const VERSION_FILES = ["package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock"];
+export const VERSION_FILES = ["package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock", "data/patches/blech-version.json", "data/patches/blech-version-synth.json"];
 
 export function planRelease({ tag, sha, assets, older, repo, bump = false, notes = null }) {
   const steps = [];
   if (bump) {
     steps.push({
-      what: `Version ${tag.slice(1)} in die Dateien schreiben (package.json, tauri.conf.json, Cargo.toml, Cargo.lock)`,
+      what: `Version ${tag.slice(1)} in die Dateien schreiben (package.json, tauri.conf.json, Cargo.toml, Cargo.lock, blech-version.json)`,
       cmd: "node",
       args: ["tools/set-version.mjs", tag],
     }, {

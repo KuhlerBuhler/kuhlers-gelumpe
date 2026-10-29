@@ -4,9 +4,9 @@
 The page uploads the user's own VSB, starts
 the firmware and receives the display as a stream of server-sent events.
 Only the Python standard library is used. The service listens on 127.0.0.1
-and answers only requests that carry the token printed at start and come
-from an allowed origin, because any web page in the browser can reach
-127.0.0.1.
+(GELUMPE_HOST or --host, a container needs 0.0.0.0) and answers only requests
+that carry the token printed at start and come from an allowed origin, because
+any web page in the browser can reach 127.0.0.1.
 """
 
 import _thread
@@ -118,9 +118,9 @@ def real_machine(payload, flash):
     return Machine(payload, flash)
 
 
-def real_check(base, patched, flash, allow, allow_code=(), progress=None, quick=False):
+def real_check(base, patched, flash, allow, allow_code=(), boot_flash=None, progress=None, quick=False):
     from check import check
-    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick)
+    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick, boot_flash=boot_flash)
 
 
 class Emulator:
@@ -440,15 +440,19 @@ class Emulator:
         self.inputs.put(held)
 
     def check(self, pair, allow, allow_code=(), quick=False, hardware=None):
-        """Export check (check.py) of the original VSB and its patched copy, sent one after the other, with the flash
-        of the hardware the original runs on (by its head, or `hardware`). One check at a time; `quick` only the start scenarios."""
+        """Export check (check.py) of the original VSB and its patched copy, sent one after the other. The start scenarios
+        boot from the flash of the hardware the original runs on (by its head, or `hardware`), the user's own; the cases of
+        the patches run on a blank flash of that hardware, as in CI: they expect Init patterns, not the user's.
+        One check at a time; `quick` only the start scenarios."""
         if len(pair) != 2 * VSB_SIZE:
             raise ValueError(f"Die Prüfung braucht Original und Kopie, je {VSB_SIZE} Byte.")
         if not self.checking.acquire(blocking=False):
             raise ValueError("Es läuft schon eine Prüfung.")
         self.check_progress = {"state": "running"}
         try:
-            result = self.checker(bytes(pair[:VSB_SIZE]), bytes(pair[VSB_SIZE:]), self.current_flash(hardware or hardware_of(pair[:VSB_SIZE]), bytes(pair[0x100:VSB_SIZE])), allow, allow_code,
+            hardware, payload = hardware or hardware_of(pair[:VSB_SIZE]), bytes(pair[0x100:VSB_SIZE])
+            result = self.checker(bytes(pair[:VSB_SIZE]), bytes(pair[VSB_SIZE:]), blank_for(hardware, payload), allow, allow_code,
+                                  boot_flash=self.current_flash(hardware, payload),
                                   progress=lambda snapshot: setattr(self, "check_progress", {"state": "running", **snapshot}),
                                   **({"quick": True} if quick else {}))
             self.check_progress = {**self.check_progress, "state": "done"}
@@ -749,10 +753,10 @@ def make_handler(emu, token, origins):
     return Handler
 
 
-def serve(port=8740, token=None, origins=(), emulator=None):
+def serve(port=8740, token=None, origins=(), emulator=None, host="127.0.0.1"):
     token = token or secrets.token_urlsafe(16)
     emu = emulator or Emulator()
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(emu, token, set(origins)))
+    server = ThreadingHTTPServer((host, port), make_handler(emu, token, set(origins)))
     server.daemon_threads = True
     return server, token, emu
 
@@ -779,6 +783,9 @@ def inside_temp(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8740)
+    parser.add_argument("--host", default=os.environ.get("GELUMPE_HOST", "127.0.0.1"),
+                        help="address to listen on; 0.0.0.0 in a container, whose published port reaches "
+                             "this address and not 127.0.0.1. Default GELUMPE_HOST, else 127.0.0.1")
     parser.add_argument("--page", default="http://127.0.0.1:8737",
                         help="origin of the editor page allowed to use the emulator")
     parser.add_argument("--allow-origin", action="append", default=[])
@@ -818,7 +825,7 @@ def main():
     except (CardError, OSError) as error:
         print(f"Kartenordner: {error}", file=sys.stderr)
         return 1
-    server, token, emu = serve(args.port, token=os.environ.get("E2_EMU_TOKEN"), origins=origins, emulator=Emulator(cards=store, lcd_tau=lcd_tau, flash_store=FlashStore(args.flash_dir or (store.root / "flash" if args.ephemeral else default_flash_dir(store.root))), pace=not args.unthrottled))
+    server, token, emu = serve(args.port, token=os.environ.get("E2_EMU_TOKEN"), origins=origins, host=args.host, emulator=Emulator(cards=store, lcd_tau=lcd_tau, flash_store=FlashStore(args.flash_dir or (store.root / "flash" if args.ephemeral else default_flash_dir(store.root))), pace=not args.unthrottled))
 
     def leave(*_):
         # If the way out below hangs (a stuck machine thread), do not stay behind as a process nobody owns.
@@ -832,7 +839,8 @@ def main():
             signal.signal(getattr(signal, name), leave)
     if args.parent_pid:
         watch_parent(args.parent_pid)
-    print(f"Emulator läuft auf http://127.0.0.1:{args.port}")
+    shown = args.host if args.host not in ("0.0.0.0", "::") else "127.0.0.1"
+    print(f"Emulator läuft auf http://{shown}:{args.port}")
     print(f"Die Karte ist der Ordner {store.dir}")
     print(f"Der Flash ist die Datei {emu.flash_store.path}")
     print(f"Display-Trägheit: dunkel {lcd_tau[0]:g} s, hell {lcd_tau[1]:g} s")
