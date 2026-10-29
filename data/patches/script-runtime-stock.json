@@ -519,12 +519,6 @@
    "source": "tools/patch/script_hooks.py:MORE3_END"
   },
   {
-   "at": "0xC01A6000",
-   "length": 32512,
-   "what": "the first code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve",
-   "source": "tools/patch/script_hooks.py:CODE_START"
-  },
-  {
    "at": "0xC018D000",
    "length": 12032,
    "what": "the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve",
