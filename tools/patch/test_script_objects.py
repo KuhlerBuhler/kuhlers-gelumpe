@@ -8,7 +8,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
 
-INTENSITY, REPAIRS, NO_LEAF = 0, 1, 2      # data/script/objects.mjs
+INTENSITY, REPAIRS, NO_LEAF = 0, 1, 4      # data/script/objects.mjs (2 and 3 are the test mode and keepAwake)
 ERR_OK, ERR_API_ARG = 0, 15
 
 @unittest.skipUnless(UNICORN_AVAILABLE,'Unicorn is required for native object tests')

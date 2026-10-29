@@ -344,6 +344,10 @@ hw_pop_bad_arg:
 ; r0 red, r1 green, r2 blue: 1 lights that colour of the display light, 0 darkens it. Not held against the dimming on battery.
 script_backlight_glue:
     push {r4-r6, lr}
+    ldr r3, =objects_test_mode
+    ldrb r3, [r3]
+    cmp r3, #0
+    bne backlight_done
     mov r4, r0
     mov r5, r1
     mov r6, r2
@@ -365,6 +369,7 @@ script_backlight_glue:
     mov r3, #0x20
     ldr r12, =HW_GPIO_WRITE
     blx r12
+backlight_done:
     mov r0, #0
     mov r1, #ERR_OK
     pop {r4-r6, pc}
@@ -385,6 +390,10 @@ script_led_hold_glue:
     cmp r0, r4
     beq led_hold_done
     str r4, [r6, #SCRIPT_CONTROL_LED_HOLD]
+    ldr r0, =objects_test_mode      ; the test mode holds the LEDs itself and gives them to this choice when it ends
+    ldrb r0, [r0]
+    cmp r0, #0
+    bne led_hold_done
     strb r4, [r5, #HW_LED_HOLD_BYTE]
     cmp r4, #0
     bne led_hold_done

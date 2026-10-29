@@ -1951,6 +1951,8 @@ export default {
   "api.korg.set": "Задаёт лист дерева объектов, ограничивая его диапазоном; компилятор вызывает его при присваивании пути.",
   "api.object.display.intensity": "Яркость подсветки дисплея, от 0 (выкл.) до 15 (полная), как страница INTENSITY; WRITE в меню сохраняет её.",
   "api.object.system.repairs": "Сколько значений с момента запуска были вне диапазона и были ограничены или сброшены.",
+  "api.object.system.testMode": "Включён ли тестовый режим (1): дисплей, подсветка и все светодиоды погашены, Auto Power Off удерживается. Переключается только по USB.",
+  "api.object.system.keepAwake": "Запускает 4 часа Auto Power Off заново, как кнопка на устройстве.",
   "script.fault.objectLeaf": "в дереве объектов нет листа {leaf}",
   "script.fault.objectReadOnly": "{path} можно только читать",
   "compile.object.unknown": "{path} не существует. В {branch} есть: {names}.",
