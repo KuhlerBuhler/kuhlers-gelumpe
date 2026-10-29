@@ -1131,7 +1131,7 @@ Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokument
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer und GIF Player unter TOOLS, dazu Lauflicht und Pulsieren, Quelle
+und Mandelbrot unter GAMES, Set-Timer und GIF Player unter TOOLS, dazu Lauflicht, Pulsieren und Takt-Blinker, Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
@@ -1177,15 +1177,21 @@ die Lizenztexte liegen in `site/vendor/codemirror.LICENSE.txt`, siehe NOTICE). E
   setzt den Aufruf mit seinen Parametern als Felder ein, Tab springt zum nächsten. Nach
   `korg.key.` und `korg.led.` kommen alle Namen mit Nummer und Bezeichnung, in
   `korg.onEvent("` alle Ereignisse mit den Werten ihres Handlers (Enter setzt den
-  Handler gleich mit ein), im zweiten Argument von `korg.app` die Gruppen. Strg+Leertaste ruft die
-  Liste von Hand, Escape schließt sie.
+  Handler gleich mit ein), im zweiten Argument von `korg.app` die Gruppen. Im Objektbaum kommen nach
+  jedem Punkt die Namen, die dort weitergehen: nach `korg.menu.blech.` die Zweige darunter, an einem Blatt
+  sein Bereich, ob es sich setzen lässt und ab welcher API-Version es da ist. Die Timer (`korg.after`,
+  `korg.every`, `korg.afterSteps`) setzen gleich einen Pfeil `() => { }` ein, in den man schreibt.
+  Strg+Leertaste ruft die Liste von Hand, Escape schließt sie.
 - **Parameterhinweis und Hover:** steht der Cursor in einem Aufruf, zeigt ein Hinweis über
   dem Cursor die Schreibweise und den Parameter, den man gerade tippt, mit seinem Bereich.
   Fährt man mit der Maus über einen Namen, eine Ereignisbezeichnung oder einen Handler-Wert,
   steht dort dieselbe Beschreibung; über einer Zahl, die nach Taste oder LED aussieht,
   steht ihr Name.
 - **Fehler im Text:** der Fehler des Übersetzers wird im Text unterstrichen (Zeile und Spalte
-  des Fehlers), unter dem Editor steht er weiter als Liste, ein Klick setzt den Cursor hin.
+  des Fehlers), unter dem Editor steht er weiter als Liste, ein Klick setzt den Cursor hin. Das gilt
+  beim Tippen auch für den Objektbaum: ein falsch geschriebener Pfad, ein Blatt, das sich nicht setzen
+  lässt, und ein fester Wert außerhalb des Bereichs (`...display.intensity = 300`) sind rot, mit derselben
+  Meldung wie beim Übersetzen.
 - **Tastatur:** Tab verlässt den Editor (er fängt Tab nicht ab, damit niemand darin
   stecken bleibt), eingerückt wird mit Strg+] und Strg+[ (am Mac Cmd statt Strg), rückgängig mit Strg+Z. Der Editor
   hat die Beschriftung „Plugin-Code“, die Vervollständigung ist eine Liste, die Hilfsmittel
@@ -1193,11 +1199,12 @@ die Lizenztexte liegen in `site/vendor/codemirror.LICENSE.txt`, siehe NOTICE). E
 
 **Woher die Texte kommen:** die Funktionen, Ereignisse und Werte stehen in
 `data/script/contract.mjs`, ihre deutschen Beschreibungen in `data/script/describe.mjs`,
-die Namen der Tasten und LEDs in `data/script/names.mjs`. `src/script/editor-model.mjs` macht daraus
+die Namen der Tasten und LEDs in `data/script/names.mjs`, der Objektbaum in `data/script/objects.mjs`. `src/script/editor-model.mjs` macht daraus
 Vervollständigung, Hinweis und Hover als reine Funktionen von Text und Cursor
 (`test/script-editor-model.test.mjs`). `test/script-describe.test.mjs` schlägt fehl, wenn
 eine Funktion oder ein Ereignis des Vertrags keine Beschreibung hat: wer einen Eintrag
-in den Vertrag aufnimmt, schreibt den Satz dazu.
+in den Vertrag aufnimmt, schreibt den Satz dazu. Ein neues Blatt des Objektbaums steht ohne weiteres in der
+Vervollständigung; ein Test geht jedes Blatt Punkt für Punkt ab.
 
 **Vorschau** (`src/script/sim.mjs`): ein simuliertes Gerät auf der Referenz-VM mit
 Display (128 mal 64, Vorschau-Schrift, nicht die der Firmware), LED-Buch und

@@ -9,6 +9,7 @@ import { API, API_BY_NAME, EVENTS, EVENT_BY_NAME, SCRIPT_APPS, LIMITS } from "..
 import { API_DOCS, ON_EVENT_DOC, EVENT_DOCS, GROUP_DOCS, NAME_FAMILY_DOCS } from "../../data/script/describe.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
 import { PROPERTIES, KNOB_NAMES } from "../../data/script/properties.mjs";
+import { OBJECTS, OBJECT_BY_PATH, objectChildren, isObjectBranch } from "../../data/script/objects.mjs";
 import { hintAt } from "./names.mjs";
 import { text as msg, render } from "../text.mjs";
 
@@ -34,16 +35,27 @@ export function rangeText(arg) {
 const list = (items, last = say("script.editor.and")) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} ${last} ${items.at(-1)}`);
 const sameSet = (a, b) => a.length === b.length && a.every(n => b.includes(n));
 
+/** The calls that take a function as their last argument (korg.after, korg.every, korg.afterSteps). */
+const TIMER_CALLS = new Set(["korg.after", "korg.every", "korg.afterSteps"]);
+
+/** How an argument of an API entry reads in a hint: a timer's callback and number say what they are, not their numbers. */
+function argRange(entry, arg) {
+  if (TIMER_CALLS.has(entry.name) && arg.name === "callback") return say("script.editor.callback");
+  if (entry.name === "korg.cancel") return say("script.editor.timerNumber");
+  return rangeText(arg);
+}
+
 /** Where an API entry may be called, from the events its contract entry lists. */
 export function allowedIn(entry) {
   if (sameSet(entry.events, ALL_EVENTS)) return say("script.editor.allowed.everywhere");
   if (sameSet(entry.events, ALL_EVENTS.filter(n => n !== "start" && n !== "save"))) return say("script.editor.allowed.events");
+  if (sameSet(entry.events, ALL_EVENTS.filter(n => n !== "save"))) return say("script.editor.allowed.notSave");
   return say("script.editor.allowed.only", { list: list(entry.events.map(n => (n === "start" ? say("script.editor.allowed.body") : say("script.editor.allowed.event", { event: n })))) });
 }
 
 /** The facts the editor shows about an API entry. */
 function apiInfo(entry) {
-  const params = entry.args.map(a => ({ name: a.name, get range() { return rangeText(a); } }));
+  const params = entry.args.map(a => ({ name: a.name, get range() { return argRange(entry, a); } }));
   return {
     name: entry.name,
     signature: `${entry.name}(${params.map(p => p.name).join(", ")})`,
@@ -95,8 +107,42 @@ function objectInfo(name) {
   return { name, signature: `${name}[i]`, text: props.map(p => `${shown(p)}: ${render(p.text)}`).join(" "), params: [], returns: null, allowed: null };
 }
 
+/** What a leaf of the object tree is: its range, whether it is read or set and where, and the API version it came with. */
+function leafInfo(leaf) {
+  if (leaf.action) {
+    const set = API_BY_NAME.get("korg.set");
+    return { name: leaf.path, signature: `${leaf.path}()`, text: leaf.text, params: [], returns: null,
+      get allowed() { return [say("script.editor.action"), allowedIn(set), say("script.editor.since", { since: leaf.since })].join("; "); } };
+  }
+  const read = API_BY_NAME.get("korg.get");
+  const write = API_BY_NAME.get("korg.set");
+  return {
+    name: leaf.path, signature: leaf.path, text: leaf.text, params: [],
+    get returns() { return say("script.editor.returns.int"); },
+    get allowed() {
+      return [say("script.editor.range.span", { min: leaf.min, max: leaf.max }), say("script.editor.read", { where: allowedIn(read) }),
+        leaf.write ? say("script.editor.write", { where: allowedIn(write) }) : say("script.editor.readOnly"), say("script.editor.since", { since: leaf.since })].join("; ");
+    },
+  };
+}
+
+/** The names that follow a branch of the object tree: its children, and the API calls under the same name (korg.menu.add). */
+function branchNames(path) {
+  const depth = path.split(".").length;
+  const calls = API.filter(a => a.name.startsWith(`${path}.`) && a.name.split(".").length === depth + 1).map(a => a.name.split(".").at(-1));
+  return [...objectChildren(path), ...calls.filter(c => !objectChildren(path).includes(c))];
+}
+
+function branchInfo(path) {
+  return { name: path, signature: `${path}.`, get text() { return say("script.editor.branch.text", { list: list(branchNames(path)) }); }, params: [], returns: null, allowed: null };
+}
+
+/** A path of the object tree: a leaf, or a branch that has leaves below it. */
+const treeInfo = path => (OBJECT_BY_PATH.has(path) ? leafInfo(OBJECT_BY_PATH.get(path)) : isObjectBranch(path) ? branchInfo(path) : null);
+
 /** An API entry by its name; `korg.tempo` without a bracket behind it is the property. */
 const infoFor = (name, called = true) => (name === ON_EVENT_DOC.name ? ON_EVENT_INFO
+  : treeInfo(name) ? treeInfo(name)
   : called && API_BY_NAME.has(name) ? apiInfo(API_BY_NAME.get(name))
     : objectInfo(name) ?? (API_BY_NAME.has(name) ? apiInfo(API_BY_NAME.get(name)) : null));
 
@@ -140,11 +186,41 @@ const restOfLine = (text, pos) => text.slice(pos, text.indexOf("\n", pos) < 0 ? 
 
 const handlerParams = event => `(${event.args.join(", ")})`;
 
+/** The text an API call goes in as: its arguments as fields, a timer's function as an arrow to write into. */
+function callSnippet(entry, label = entry.name) {
+  if (TIMER_CALLS.has(entry.name)) return `${label}(\${1:${entry.args[0].name}}, () => {\n  \${2}\n})`;
+  return `${label}(${entry.args.map((a, i) => `\${${i + 1}:${a.name}}`).join(", ")})`;
+}
+
 function apiOption(entry) {
   const info = apiInfo(entry);
-  const fields = entry.args.map((a, i) => `\${${i + 1}:${a.name}}`).join(", ");
-  return { label: entry.name, type: "function", detail: `(${info.params.map(p => p.name).join(", ")})`, info, snippet: `${entry.name}(${fields})` };
+  return { label: entry.name, type: "function", detail: `(${info.params.map(p => p.name).join(", ")})`, info, snippet: callSnippet(entry) };
 }
+
+/** A leaf as the option after its branch: the last name only, with its range and whether it is set. */
+function leafOption(leaf, label = leaf.path.split(".").at(-1)) {
+  const info = leafInfo(leaf);
+  if (leaf.action) return { label, type: "function", get detail() { return say("script.editor.action"); }, info, snippet: `${label}()` };
+  return { label, type: "property", get detail() { return `${say("script.editor.range.span", { min: leaf.min, max: leaf.max })}, ${say(leaf.write ? "script.editor.readWrite" : "script.editor.readOnly")}`; }, info };
+}
+
+/** What may follow `path.`: the children of a branch of the object tree, and the API calls below the same name. */
+function treeOptions(path) {
+  return branchNames(path).map(name => {
+    const full = `${path}.${name}`;
+    if (OBJECT_BY_PATH.has(full)) return leafOption(OBJECT_BY_PATH.get(full));
+    if (API_BY_NAME.has(full)) {
+      const entry = API_BY_NAME.get(full);
+      return { label: name, type: "function", detail: `(${entry.args.map(a => a.name).join(", ")})`, info: apiInfo(entry), snippet: callSnippet(entry, name) };
+    }
+    return { label: name, type: "namespace", get detail() { return say("script.editor.branch"); }, info: branchInfo(full), apply: `${name}.`, retrigger: true };
+  });
+}
+
+/** The first branches of the object tree, offered after `korg.` beside the flat names: `korg.menu`, `korg.system`. */
+const TREE_ROOTS = [...new Set(OBJECTS.map(o => o.path.split(".").slice(0, 2).join(".")))].map(path => ({
+  label: path, type: "namespace", get detail() { return say("script.editor.branch"); }, info: branchInfo(path), apply: `${path}.`, retrigger: true,
+}));
 
 const NAMESPACE_OPTION = Object.freeze({ label: "korg.key", type: "namespace", get detail() { return say("script.editor.keys"); }, info: { name: "korg.key", signature: "korg.key.NAME", text: NAME_FAMILY_DOCS.key, params: [], returns: null, allowed: null }, apply: "korg.key.", retrigger: true });
 const ON_EVENT_OPTION = Object.freeze({ label: ON_EVENT_DOC.name, type: "function", detail: "(ereignis, handler)", info: ON_EVENT_INFO, snippet: `korg.onEvent("\${1:ereignis}", (\${2}) => {\n  \${3}\n});` });
@@ -155,7 +231,8 @@ function propertyOption(prop) {
 }
 
 /** The options for every name a plugin may write after `korg.`, with `korg` itself for the first letters. */
-const KORG_OPTIONS = Object.freeze([...PROPERTIES.map(propertyOption), ...API.map(apiOption), ON_EVENT_OPTION, NAMESPACE_OPTION]);
+const KORG_OPTIONS = Object.freeze([...PROPERTIES.map(propertyOption), ...API.map(apiOption), ...OBJECTS.filter(o => o.action).map(o => leafOption(o, o.path)),
+  ON_EVENT_OPTION, NAMESPACE_OPTION, ...TREE_ROOTS]);
 
 const KNOB_OPTIONS = Object.freeze(KNOB_NAMES.map(k => ({
   label: k.name, type: "constant", detail: String(k.value),
@@ -206,6 +283,7 @@ export function completionsAt(text, pos) {
     return { from: pos - parts[2].length, options: nameOptions(parts[1]) };
   }
   if (parts[0] === "korg" && parts.length === 3 && parts[1] === "knobs") return { from: pos - parts[2].length, options: KNOB_OPTIONS };
+  if (parts[0] === "korg" && parts.length > 2 && isObjectBranch(parts.slice(0, -1).join("."))) return { from: pos - parts.at(-1).length, options: treeOptions(parts.slice(0, -1).join(".")) };
   if (parts[0] === "korg" && parts.length > 1) return { from: pos - token.length, options: KORG_OPTIONS };
   if (parts.length === 1 && token.length >= 2 && "korg".startsWith(token)) {
     return { from: pos - token.length, options: [{ label: "korg", type: "keyword", detail: say("script.editor.korg"), info: { name: "korg", signature: "korg", text: say("script.editor.korg.text"), params: [], returns: null, allowed: null }, apply: "korg.", retrigger: true }] };

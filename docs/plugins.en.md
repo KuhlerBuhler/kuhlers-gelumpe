@@ -962,7 +962,7 @@ The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins),
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer and GIF Player under TOOLS, plus Lauflicht and Pulsieren; source
+and Mandelbrot under GAMES, Set-Timer and GIF Player under TOOLS, plus Lauflicht, Pulsieren and Takt-Blinker; source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
@@ -999,21 +999,28 @@ rebuild it: `npm install`, then `npm run build:codemirror`. It offers:
   parameters, a sentence (in German), the allowed ranges and where it may be called. Enter inserts the call
   with its parameters as fields, Tab jumps to the next. After `korg.key.` and `korg.led.` it offers all
   names with number and label, inside `korg.onEvent("` all events with the values of their handler (Enter
-  inserts the handler too), and in the second argument of `korg.app` the groups. Ctrl+Space opens the list by
-  hand, Escape closes it.
+  inserts the handler too), and in the second argument of `korg.app` the groups. In the object tree each dot
+  offers the names that go on there: after `korg.menu.blech.` the branches below, at a leaf its range, whether
+  it can be set and from which API version it exists. The timers (`korg.after`, `korg.every`,
+  `korg.afterSteps`) insert an arrow `() => { }` to write into. Ctrl+Space opens the list by hand, Escape
+  closes it.
 - **Parameter hint and hover:** with the cursor inside a call, a hint above the cursor shows the syntax and
   the parameter you are typing, with its range. Hovering over a name, an event name or a handler value
   shows the same description; over a number that looks like a key or an LED it shows its name.
 - **Errors in the text:** the compiler's error is underlined in the text (line and column), and below the
-  editor it stays as a list; a click puts the cursor there.
+  editor it stays as a list; a click puts the cursor there. While typing this holds for the object tree too:
+  a misspelt path, a leaf that cannot be set and a fixed value out of range (`...display.intensity = 300`)
+  are red, with the same message as on compiling.
 - **Keyboard:** Tab leaves the editor (it does not trap Tab, so nobody gets stuck in it), indent with Ctrl+]
   and Ctrl+[ (Cmd instead of Ctrl on a Mac), undo with Ctrl+Z. The editor is labelled "Plugin-Code", and the
   completion is a list that screen readers read out.
 
 **Where the texts come from:** the functions, events and values are in `data/script/contract.mjs`, their
-descriptions in `data/script/describe.mjs` (German), the names of keys and LEDs in `data/script/names.mjs`.
+descriptions in `data/script/describe.mjs` (German), the names of keys and LEDs in `data/script/names.mjs`, the
+object tree in `data/script/objects.mjs`.
 `src/script/editor-model.mjs` turns them into completion, hint and hover. A test fails if a function or an
-event of the contract has no description.
+event of the contract has no description. A new leaf of the object tree is in the completion without more
+work; a test walks every leaf dot by dot.
 
 **Preview** ("Vorschau", `src/script/sim.mjs`): a simulated device on the reference VM with a display (128 by 64,
 preview font, not the firmware's), an LED book and a millisecond clock, one frame every 40 ms. Keys, pads,
