@@ -550,15 +550,15 @@ class HookTests(unittest.TestCase):
             self.assertEqual(change['file'],address-RAM_BASE+0x100)
             self.assertEqual(change['expect'],hashlib.sha256(struct.pack('<I',word)).hexdigest())
             self.assertEqual(int.from_bytes(bytes.fromhex(change['bytes']),'little')>>24,0xea)
-        self.assertEqual(len(patch['hooks']),25)
+        self.assertEqual(len(patch['hooks']),26)
         self.assertEqual((patch['hooks'][3]['site'],patch['hooks'][3]['chain']),('0xC004C1B4','save'))
         self.assertEqual(patch['hooks'][0]['chain'],['key-dispatch','pattern-set'])
         self.assertEqual(patch['hooks'][0]['swallow'],True)
         self.assertEqual(patch['hooks'][1]['chain'],'frame')
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
-        card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
-        self.assertEqual(len(patch['startPhase']),54)
+        card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
+        self.assertEqual(len(patch['startPhase']),56)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]

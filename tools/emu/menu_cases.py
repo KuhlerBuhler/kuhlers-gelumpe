@@ -2196,6 +2196,82 @@ def early_look_cases(payload, flash=None):
     add("main_screen_not_later", early["main_ms"] <= late["main_ms"] + 15 and not early["asserts"], f"main screen at {early['main_ms']:.1f} ms with the hook, {late['main_ms']:.1f} ms without")
     held = early_run(payload, flash, files, held=KILL)
     add("exit_held_stays_stock", held.get("on") != 1 and held.get("pins") == GPIO_PINS and not held["asserts"], f"armed {held.get('on'):#x}, light pins {held.get('pins'):#x}")
+    return out + boot_light_cases(payload, flash)
+
+
+BOOT_LIGHT_SITE = 0xC00289D8          # behind the firmware's first flash read in the start: the hook that sets the colour at power-on
+BOOT_SLOT = 250                       # *GLOBALS + 250, Global byte 250 (byte 246 of the block in the flash): 0x80 plus the pins of the colour
+BOOT_FLASH = 0x2300F6                 # that byte in the flash
+DRAW_IMAGE = 0xC003F650               # the firmware's picture function; its first call in the start draws the start image
+
+
+def boot_light_run(payload, flash, files, held=0):
+    """Boots on mains power and notes every change of the backlight pins and the time of the first picture (the start image).
+    Returns (dev, pin changes [(ms, pins)], ms of the start image, pins at that moment)."""
+    import unicorn
+    dev = Dev(payload, flash, held)
+    dev.m.adapter = True
+    dev.m.insert_card(SDCard(MemoryMedium(card_image(files))))
+    watch_pins(dev)
+    seen = {}
+
+    def at_draw(uc, address, size, user):
+        if "ms" not in seen:
+            seen.update(ms=dev.m.time_ns / 1e6, pins=pins(dev))
+    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, at_draw, begin=DRAW_IMAGE, end=DRAW_IMAGE)
+    dev.m.uc.ctl_flush_tb()
+    dev.m.run_until(1.2)
+    return dev, [(round(t / 1e6, 2), v) for t, v in dev.pin_log], seen.get("ms"), seen.get("pins")
+
+
+def after_white(changes):
+    """The pin changes behind the first time all three pins were on."""
+    first = next((i for i, (_, v) in enumerate(changes) if v == GPIO_PINS), len(changes))
+    return changes[first + 1:]
+
+
+def boot_light_cases(payload, flash=None):
+    """The backlight colour at power-on: the colour the settings file holds goes into Global byte 250 when the menu reads it, the
+    firmware saves the Globals at switch-off, and the next start sets the pins of that colour before the start image is drawn, then
+    keeps them through the firmware's own light calls until the menu is armed. EXIT at power-on stays stock white, a card without a
+    settings file goes back to white once the menu is armed, WRITE of another colour updates the byte."""
+    import last_pattern_cases
+    if struct.unpack_from("<I", payload, BOOT_LIGHT_SITE - IMAGE)[0] == 0xE3500F49:
+        return []
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:boot_light_{name}", "ok": bool(ok), "detail": detail})
+
+    red = {**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0, (0, 0, 0), (15, 0, 0)))}
+    dev = boot(payload, flash, files=red)
+    globals_at = dev.u32(POWER_SAVE_OBJECT)
+    slot = dev.read(globals_at + BOOT_SLOT, 1)[0] if globals_at else None
+    kept = last_pattern_cases.switch_off(dev)
+    add("kept_at_switch_off", slot == 0x88 and kept is not None and kept[BOOT_FLASH] == 0x88,
+        f"Global byte 250 after the settings {slot}, in the flash after switch-off {kept[BOOT_FLASH] if kept else 'no switch-off'}")
+    if kept is None:
+        return out
+    dev, changes, image_ms, image_pins = boot_light_run(payload, kept, red)
+    white = after_white(changes)                # the firmware lights red, green, blue one after the other at about 52 ms
+    first_red = next((t for t, v in white if v == 0x08), None)
+    add("colour_before_the_start_image", image_ms is not None and image_pins == 0x08 and first_red is not None and first_red < image_ms,
+        f"red from {first_red} ms, start image at {image_ms} ms with pins {image_pins}, changes {changes[:6]}")
+    add("colour_until_armed", first_red is not None and all(v == 0x08 for t, v in white if t >= first_red) and pins(dev) == 0x08 and state(dev, S_ON) == 1
+        and not dev.m.asserts, f"pin changes after the white {white[:6]}, pins now {pins(dev):#x}")
+    held, changes, image_ms, image_pins = boot_light_run(payload, kept, red, held=KILL)
+    add("exit_held_stays_white", image_pins == GPIO_PINS and after_white(changes) == [] and pins(held) == GPIO_PINS and state(held, S_ON) != 1,
+        f"start image pins {image_pins}, changes {changes[:6]}, pins now {pins(held):#x}")
+    bare, changes, image_ms, image_pins = boot_light_run(payload, kept, CARD_FOLDER)
+    add("no_settings_file_back_to_white", image_pins == 0x08 and pins(bare) == GPIO_PINS and state(bare, S_ON) == 1,
+        f"start image pins {image_pins}, pins once armed {pins(bare):#x}")
+    dev = boot(payload, kept, files=red, adapter=True)
+    set_look(dev, backlight=(0, 15, 0))
+    before = dev.read(globals_at + BOOT_SLOT, 1)[0]
+    press(dev, "write", wait=0.6)
+    after = dev.read(globals_at + BOOT_SLOT, 1)[0]
+    add("write_updates_the_byte", before == 0x88 and after == 0x90 and state(dev, S_STATUS) == 1,
+        f"Global byte 250 after the change {before:#x}, after WRITE {after:#x}, status {state(dev, S_STATUS)}")
     return out
 
 
