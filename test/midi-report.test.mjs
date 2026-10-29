@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { collectMidi, midiReport } from "../site/app/midi-report.mjs";
+import { collectMidi, midiReport, midiVerdict } from "../site/app/midi-report.mjs";
 
 const port = (id, name, extra = {}) => [id, { id, name, manufacturer: "KORG INC.", state: "connected", connection: "closed", ...extra }];
 const access = (inputs, outputs) => ({ inputs: new Map(inputs), outputs: new Map(outputs) });
@@ -91,4 +91,20 @@ test("Korg's own driver on Windows: its jack port names bring a hint to remove i
   assert.match(await report(access([port("i", "Electribe 3 PAD/KNOB")], [port("o", "Electribe 3 SOUND")]), windows), hint, "also after the rename");
   assert.doesNotMatch(await report(access([port("i", "Electribe 3")], [port("o", "Electribe 3")]), windows), /Hinweis/, "Windows' own driver");
   assert.doesNotMatch(await report(korg, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"), /Hinweis/, "not on a Mac");
+});
+
+test("what the Rettung page says to a report: Korg's jack names first, then the mode, then no Electribe at all", () => {
+  const named = (...names) => names.map(name => ({ name }));
+  const report = (over = {}) => ({ access: "granted", inputs: [], outputs: [], pairs: [], agent: "", ...over });
+  const jacks = { inputs: named("electribe2 sampler PAD/KNOB"), outputs: named("electribe2 sampler SOUND"), pairs: [{ out: "electribe2 sampler SOUND", in: "electribe2 sampler PAD/KNOB" }] };
+  assert.equal(midiVerdict(report({ ...jacks, agent: "Mozilla/5.0 (Windows NT 10.0)" }), "device"), "korgWindows");
+  assert.equal(midiVerdict(report({ ...jacks, agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" }), "device"), "korgOther", "the same names on a Mac: not measured, no cause claimed");
+  const pair = { inputs: named("Electribe 3"), outputs: named("Electribe 3"), pairs: [{ out: "Electribe 3", in: "Electribe 3" }] };
+  assert.equal(midiVerdict(report(pair), "emu"), "emu");
+  assert.equal(midiVerdict(report(pair), "device"), "paired");
+  assert.equal(midiVerdict(report({ inputs: named("MIDIIN2 (electribe2 sampler)") }), "device"), "unpaired");
+  assert.equal(midiVerdict(report({ inputs: named("KORG USB-MIDI Device") }), "device"), "none");
+  assert.equal(midiVerdict(report({ access: "denied" }), "device"), "denied");
+  assert.equal(midiVerdict(report({ access: "unsupported" }), "device"), "unsupported");
+  assert.equal(midiVerdict(report({ access: "prompt" }), "device"), null, "nothing read: Blechy asks instead");
 });
