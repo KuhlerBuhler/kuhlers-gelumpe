@@ -26,6 +26,7 @@
   "data/patches/power-off.json",
   "data/patches/last-pattern.json",
   "data/patches/init-pattern.json",
+  "data/patches/stereo-pad.json",
   "data/patches/blech-version.json",
   "data/patches/doom-loader.json",
   "data/patches/blech-sysex.json",
