@@ -51,6 +51,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [Alte offene Fragen, mit Emulator und DSP-Tabellen nachgeprüft](2026-10-14-offene-fragen.md)
 - [Modulationsarten, Stufe 2: was die übrigen Bytes eines Eintrags tun, im Emulator gemessen](2026-10-15-modulation-stufe2.md)
 - [FX-Katalog neu: Notenwerte der Delays, unbenutzte Bausteine, laute Distortion](2026-10-22-fx-katalog-neu.md)
+- [FX-Katalog: Pegel gegen die Werkspresets, sechs Kopien pro Steuerzeile](2026-10-29-fx-katalog-pegel.md)
 
 
 ## SysEx und Transport
@@ -248,6 +249,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Letztes Pattern beim Einschalten: wo die Firmware 001 nimmt, wo die Nummer bleibt](2026-10-28-letztes-pattern.md)
 - [Schalter LAST PATTERN, Doom ohne Dateien startet den Sampler](2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md)
 - [Eigenes Init-Pattern: wie INITIALIZE PATTERN die Vorlage nimmt](2026-10-28-init-pattern.md)
+- [Stereo auf einem Pad: wie die Firmware Parts für Stereo-Samples paart](2026-10-29-stereo-ein-pad.md)
 - [Farbe des Hintergrundlichts schon beim Einschalten, vor dem Startbild](2026-10-29-hintergrundlicht-beim-start.md)
 - [Pattern-Export unter BLECH: wohin, und was in der Datei steht](2026-10-28-pattern-export.md)
 - [Menü-Anordnung 1.3.8: SYNC GROUP hinter CHAIN REPEAT, Seiten in GLOBAL PARAMETERS und DATA UTILITY](2026-10-29-menue-anordnung.md)
