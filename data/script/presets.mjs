@@ -1639,6 +1639,27 @@ korg.onEvent("buttonPress", (key) => {
 `,
   }),
   Object.freeze({
+    id: "testmode",
+    title: "Test Mode",
+    description: text("catalog.testmode.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-10-29",
+    controls: [text("catalog.testmode.control1")],
+    source: `// Test Mode, an app under TOOLS: the device looks switched off while it keeps running (display, light and every LED
+// off, Auto Power Off held), so it can be tested over USB with nobody at it. EXIT closes the app and puts everything back.
+korg.app("Test Mode", "TOOLS");
+
+korg.onEvent("open", () => {
+  korg.system.testMode = 1;
+});
+
+korg.onEvent("close", () => {
+  korg.system.testMode = 0;
+});
+`,
+  }),
+  Object.freeze({
     id: "bpmglide",
     title: "BPM Glide",
     description: text("catalog.bpmglide.description"),
@@ -1733,27 +1754,6 @@ korg.onEvent("frame", () => {
     pos = (pos + 1) % 16;
     korg.led(FIRST_RED_PAD + pos * 2, 255);
   }
-});
-`,
-  }),
-  Object.freeze({
-    id: "testmode",
-    title: "Test Mode",
-    description: text("catalog.testmode.description"),
-    category: text("catalog.category.tools"),
-    creator: "Kuhler Buhler",
-    added: "2026-10-29",
-    controls: [text("catalog.testmode.control1")],
-    source: `// Test Mode, an app under TOOLS: the device looks switched off while it keeps running (display, light and every LED
-// off, Auto Power Off held), so it can be tested over USB with nobody at it. EXIT closes the app and puts everything back.
-korg.app("Test Mode", "TOOLS");
-
-korg.onEvent("open", () => {
-  korg.system.testMode = 1;
-});
-
-korg.onEvent("close", () => {
-  korg.system.testMode = 0;
 });
 `,
   }),
