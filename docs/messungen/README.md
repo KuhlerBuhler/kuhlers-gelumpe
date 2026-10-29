@@ -247,5 +247,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Letztes Pattern beim Einschalten: wo die Firmware 001 nimmt, wo die Nummer bleibt](2026-10-28-letztes-pattern.md)
 - [Eigenes Init-Pattern: wie INITIALIZE PATTERN die Vorlage nimmt](2026-10-28-init-pattern.md)
 - [Pattern-Export unter BLECH: wohin, und was in der Datei steht](2026-10-28-pattern-export.md)
+- [Alten Kartenordner beim ersten Start übernehmen, blaue Electribe](2026-10-29-blau-ordner-uebernehmen.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)
