@@ -781,7 +781,7 @@ page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
-| FEATURES | four pages with the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (table below) |
+| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD (table below) |
 | PLUGINS | one page, MANAGE PLUGINS; see below |
 | CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
@@ -796,6 +796,8 @@ The pages of FEATURES (the tag names the group "Feature"), each with the value O
 | PATTERN CONFIRM | ON, OFF (see below) |
 | TAP MOTION | OFF, ON, ONCE (see below) |
 | NOTE ASSIST | ON, OFF (see below) |
+| LAST PATTERN | ON, OFF (see below) |
+| STEREO 1 PAD | ON, OFF (see below, red only) |
 
 There is no ABOUT group any more: it only showed the number of loaded plugins and confused people.
 
@@ -836,6 +838,8 @@ The pages of the groups:
 | Ring, SYNC GROUP | OFF, 1 to 999 | a page of its own in the ring (16/32), right behind CHAIN REPEAT, the last page of the Pattern menu, and before the Part menu (EDIT right from there, EDIT left from the first page of the Part menu; the tag says "Pattern"), on both Electribes (on the blue one since 24.10., [measurement](messungen/2026-10-24-blau-sync-group.md)): the sync group of the pattern in RAM; the main dial changes it, WRITE opens the pattern write as on the Pattern menu's pages, it is saved with the pattern. While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; stopped, the dial loads a pattern of the group at once even when the pattern has unsaved changes ([measurement](messungen/2026-10-25-sync-ungespeichert.md)); switching between two patterns of one group carries the state of the pattern that played, changed or not: part mutes and part sound (sample, filter, modulation, pitch, amp, IFX and the other part values), tempo, swing, level, the MFX pad with HOLD, also back; the effect types MFX 1 and MFX 2 stay the new pattern's; the patterns of a group play as one (in RAM only). Steps, motion, length, beat, key, scale and chord set stay the new pattern's. OFF (0) is no group, nothing carried |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off, TAP held longer than 0.3 s switches only while held and back on letting go; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
+| FEATURES, LAST PATTERN | ON, OFF | ON: at power-on the Electribe opens the pattern that was selected before switching off; OFF: it starts with 001 as in the firmware, the kept number stays for a start with ON; applies from the next power-on, WRITE keeps it (bit 3 of byte 5 of the settings file means OFF); without a file ON; EXIT at power-on: 001; red and blue, where the set has the patch last-pattern |
+| FEATURES, STEREO 1 PAD | ON, OFF | ON: a stereo sample takes only its own pad and plays there on one voice, the pad next to it plays its own sample; OFF: as in the firmware, a stereo sample on pad 1, 3, ... also takes the next pad; applies at once, WRITE keeps it (bit 2 of byte 5 of the settings file means OFF); ON without a file; EXIT held at power-on: as in the firmware; only where the set has the patch stereo-pad (red) ([measurement](messungen/2026-10-29-stereo-ein-pad.md)) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 to 250 | the pattern DATA UTILITY > INITIALIZE PATTERN takes as its template; FACTORY is the firmware's template; applies at once and stays after switching off (Global byte 247, no WRITE needed); only where the set has the patch init-pattern (red) ([measurement](messungen/2026-10-28-init-pattern.md)) |
 
 Feedback ("saved", "no card", "imported", "2 exported" and so on) replaces the value of the page until you
@@ -962,7 +966,7 @@ The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins),
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer and GIF Player under TOOLS, plus Lauflicht and Pulsieren; source
+and Mandelbrot under GAMES, Set-Timer and GIF Player under TOOLS, plus Lauflicht, Pulsieren and Takt-Blinker; source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
@@ -999,21 +1003,28 @@ rebuild it: `npm install`, then `npm run build:codemirror`. It offers:
   parameters, a sentence (in German), the allowed ranges and where it may be called. Enter inserts the call
   with its parameters as fields, Tab jumps to the next. After `korg.key.` and `korg.led.` it offers all
   names with number and label, inside `korg.onEvent("` all events with the values of their handler (Enter
-  inserts the handler too), and in the second argument of `korg.app` the groups. Ctrl+Space opens the list by
-  hand, Escape closes it.
+  inserts the handler too), and in the second argument of `korg.app` the groups. In the object tree each dot
+  offers the names that go on there: after `korg.menu.blech.` the branches below, at a leaf its range, whether
+  it can be set and from which API version it exists. The timers (`korg.after`, `korg.every`,
+  `korg.afterSteps`) insert an arrow `() => { }` to write into. Ctrl+Space opens the list by hand, Escape
+  closes it.
 - **Parameter hint and hover:** with the cursor inside a call, a hint above the cursor shows the syntax and
   the parameter you are typing, with its range. Hovering over a name, an event name or a handler value
   shows the same description; over a number that looks like a key or an LED it shows its name.
 - **Errors in the text:** the compiler's error is underlined in the text (line and column), and below the
-  editor it stays as a list; a click puts the cursor there.
+  editor it stays as a list; a click puts the cursor there. While typing this holds for the object tree too:
+  a misspelt path, a leaf that cannot be set and a fixed value out of range (`...display.intensity = 300`)
+  are red, with the same message as on compiling.
 - **Keyboard:** Tab leaves the editor (it does not trap Tab, so nobody gets stuck in it), indent with Ctrl+]
   and Ctrl+[ (Cmd instead of Ctrl on a Mac), undo with Ctrl+Z. The editor is labelled "Plugin-Code", and the
   completion is a list that screen readers read out.
 
 **Where the texts come from:** the functions, events and values are in `data/script/contract.mjs`, their
-descriptions in `data/script/describe.mjs` (German), the names of keys and LEDs in `data/script/names.mjs`.
+descriptions in `data/script/describe.mjs` (German), the names of keys and LEDs in `data/script/names.mjs`, the
+object tree in `data/script/objects.mjs`.
 `src/script/editor-model.mjs` turns them into completion, hint and hover. A test fails if a function or an
-event of the contract has no description.
+event of the contract has no description. A new leaf of the object tree is in the completion without more
+work; a test walks every leaf dot by dot.
 
 **Preview** ("Vorschau", `src/script/sim.mjs`): a simulated device on the reference VM with a display (128 by 64,
 preview font, not the firmware's), an LED book and a millisecond clock, one frame every 40 ms. Keys, pads,

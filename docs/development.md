@@ -443,10 +443,30 @@ Pull Request `develop` -> `main`, den du danach öffnest (`gh pr create --base m
 eigener Bump-PR ist nicht nötig. Der Workflow "Sync develop" holt den Merge-Commit danach nach `develop`
 zurück.
 
-Nach jedem Push auf `develop`, `main` oder einen `release/`-Branch holt der Workflow "Update pull requests"
-diesen Branch in jeden offenen Pull Request, der auf ihm aufbaut und hinterherhängt (GitHubs "Update branch", mit
-`SYNC_TOKEN`, damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein
-Basis-Branch ist; bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
+Nach jedem Push auf `main` oder einen `release/`-Branch holt der Workflow "Update pull requests" diesen Branch in
+jeden offenen Pull Request, der auf ihm aufbaut und hinterherhängt (GitHubs "Update branch", mit `SYNC_TOKEN`,
+damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein Basis-Branch ist;
+bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
+
+Bei `develop` fasst derselbe Workflow nur PRs an, die mit `develop` kollidieren. Liegen alle Konflikte in den
+Runtime-Patches (`data/patches/script-runtime*.json`), merged er `develop` hinein, baut die drei aus den
+gemergten Quellen neu (`node tools/patch/script_runtime.mjs --build ...`) und pusht. Jeder andere Konflikt bleibt
+für einen Menschen, der Lauf zeigt eine Warnung. Ein PR, der sauber mergt, bleibt, wie er ist: er muss nicht auf
+dem Stand von `develop` sein, sonst liefen nach jedem Merge die Checks aller offenen PRs neu. Was zwei PRs erst
+zusammen kaputt machen, zeigen die Läufe auf `develop` selbst ("Test" und "Verify patches" laufen nach jedem Merge).
+
+**Feature-PRs mergen sich selbst** (Workflow "Automerge", `.github/workflows/automerge.yml`): ein PR nach `develop`
+mit dem Label `automerge` wird gemerged, sobald auf seinem Kopf-Commit `unit`, `browser`, `guard` und `patches` da
+und grün sind und kein anderer Check fehlgeschlagen ist. Der Job wartet bis dahin (bis 150 Minuten), ein neuer Push
+oder ein neues Label startet ihn neu, ein roter Check beendet ihn ohne Merge. Gemerged wird mit `SYNC_TOKEN`,
+`--admin` und `--match-head-commit`. Ohne Label bleibt der PR offen, etwa wenn er auf einen Test am Gerät wartet;
+Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
+Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
+
+**Firmware-PRs nacheinander.** Mehrere offene PRs, die dieselben Patches ändern (`data/patches/`,
+`tools/patch/`, `tools/emu/*_cases.py`), kollidieren bei jedem Merge miteinander und laufen dann kalt neu. Die
+Runtime-Patches löst der Workflow oben selbst, alles andere nicht. Deshalb: App-Themen dürfen parallel laufen,
+Firmware-Themen, die dieselben Patches anfassen, kommen nacheinander oder als ein PR.
 
 **Release-PR mergt sich selbst** (Workflow "Release merge", `.github/workflows/release-merge.yml`,
 `tools/release-merge.mjs`): ein offener PR `release/X.Y.Z` -> `main` aus diesem Repo wird gemerged, wenn alles
@@ -500,8 +520,10 @@ Patch-Satz eines Branches auf Korgs drei 2.02 und auf Hacktribe mit blauem Kopf 
 jede Datei in einem eigenen Job nebeneinander, und schreibt die Einträge in eine `verified.json` (`verify-patches.mjs
 --results`). Stehen alle Paare schon drin, bleibt alles, wie es war.
 
-Er läuft von selbst bei jedem Pull Request, der den Patch-Satz (`data/patches/`), etwas, das `verify-patches.mjs` lädt,
-`tools/patch/` oder `tools/emu/` ändert. Was dann läuft, hängt von der Basis ab:
+Er startet bei jedem Pull Request, damit der Check `patches` immer erscheint und "Automerge" auf ihn warten kann.
+Geprüft wird nur, wenn der PR den Patch-Satz (`data/patches/`), etwas, das `verify-patches.mjs` lädt, `tools/patch/`
+oder `tools/emu/` ändert (die Pfade unter `push:` im Workflow); sonst ist `patches` nach dem ersten Job grün. Was
+dann läuft, hängt von der Basis ab:
 
 - **Pull Request nach `develop`** (Feature-Branches): auf allen vier Dateien nur die Startszenarien (`check.py --quick`)
   und die Case-Module, die zu den geänderten Dateien gehören (`verify-patches.mjs --cases`, an `check.py --cases`
@@ -514,10 +536,15 @@ Er läuft von selbst bei jedem Pull Request, der den Patch-Satz (`data/patches/`
   sieht man das erst am Release-PR. Die Tabelle hält `test/verify-scope.test.mjs` mit `check.py` in Einklang.
 - **Pull Request nach `main`** (der Release-PR aus `release/X.Y.Z` oder `develop`) und jede andere Basis: der ganze
   Check, danach committet der letzte Job die neue `verified.json` auf den Branch des Pull Requests.
+- **Push auf `develop`** (ein gemergter PR, der die Pfade ändert): alle Case-Module auf allen vier Dateien mit den
+  gespeicherten Task-Ergebnissen, geschrieben wird nichts. Der Lauf hält den Task-Cache von `develop` aktuell. Jeder
+  PR-Lauf lädt den neuesten Cache von `develop` und seinen eigenen und nimmt beide zusammen: ein neuer PR startet
+  nicht kalt, und nach einem Merge von `develop` in den PR fehlen die neuen Ergebnisse von `develop` nicht. Gerechnet
+  werden nur die Tasks, deren Dateien sich geändert haben. Läufe auf `develop` brechen einander nicht ab, der neueste wartet.
 
 Gepusht wird mit `SYNC_TOKEN`, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
-ersten Schritt. Ein neuer Push bricht den laufenden Check ab. Pull Requests aus Forks haben keine Secrets und werden
-übersprungen. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
+ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Pull Requests aus Forks haben keine Secrets:
+`patches` wird dort rot, ein Mensch merged sie. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
 
 Von Hand, für einen beliebigen Branch:
 

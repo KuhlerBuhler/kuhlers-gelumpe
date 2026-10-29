@@ -10,8 +10,8 @@
  "changes": [
   {
    "file": 1376000,
-   "bytes": "b8c09fe500c09ce500005ce31200000a18109ce5020a11e30f00001aa0c09fe500c09ce500005ce30b00000af810dce5000051e30800000afa0051e30600008a011041e20100a0e3f900cce574009fe5000050e3181380151eff2fe10010a0e31eff2fe10040a0e150c09fe500c09ce500005ce30f00000a18c09ce5020a1ce30c00001a38c09fe500c09ce500005ce31eff2f01f900dce5000050e30300000a0000a0e3f900cce5f850dce5015045e2010085e2f800cce50400a0e11eff2fe1f8e633c0241369c000000000",
-   "expect": "dc6c9c43af3a1e4a3102286e5784afbd26f393dabf9b59b4cf3b74e9b6dce2ee",
+   "bytes": "ccc09fe500c09ce500005ce31200000a18109ce5020a11e30f00001ab4c09fe500c09ce500005ce30b00000af810dce5000051e30800000afa0051e30600008a011041e20100a0e3f900cce588009fe5000050e3181380151eff2fe10010a0e31eff2fe10040a0e164c09fe500c09ce500005ce31400000a18c09ce5020a1ce31100001a4cc09fe500c09ce500005ce31eff2f01f900dce5000050e30800000a0000a0e3f900cce530009fe5000090e5000050e30050a0030300000af850dce5015045e2010085e2f800cce50400a0e11eff2fe1f8e633c0241369c000000000fcfe14c0",
+   "expect": "51dfb9f85859cf70e17b9950249dd65ad033e12d05710abb421af77b4e5b7edf",
    "note": "last pattern: the start function and the first selection take the kept number, every selection notes it in Global byte 248"
   },
   {
@@ -42,7 +42,7 @@
    "chain": "pattern-select",
    "position": "replace",
    "swallow": false,
-   "note": "does the replaced mov r4, r0, notes the number, and once after power-on swaps in the kept one"
+   "note": "does the replaced mov r4, r0, notes the number, and once after power-on swaps in the kept one (0 with LAST PATTERN OFF)"
   }
  ],
  "startPhase": [
@@ -58,9 +58,16 @@
   },
   {
    "file": 1376000,
-   "length": 204,
-   "why": "lp_boot and lp_select run with those calls; they read the held keys and Global bytes 248 and 249"
+   "length": 228,
+   "why": "lp_boot and lp_select run with those calls; they read the held keys, Global bytes 248 and 249 and the setting word"
   }
  ],
- "ram": []
+ "ram": [
+  {
+   "at": "0xC014FEFC",
+   "length": 4,
+   "what": "the setting word of LAST PATTERN: FFFFFFFF or 1 on, 0 off; the BLECH menu writes it",
+   "source": "tools/patch/last_pattern.py:SETTING"
+  }
+ ]
 }

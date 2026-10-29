@@ -2,7 +2,7 @@
 
 Stand: 29.10.2026. Beleg: `measure:2026-10-29/sample-swap-develop`.
 Fortsetzung der [Korrektur von Veröffentlichung und Cache-Deskriptor](2026-10-29-sample-swap-korrektur.md).
-Die Integration verwendet den festen develop-Stand `4749d9f`.
+Der erste Abgleich verwendet den festen develop-Stand `4749d9f`.
 
 ## Hergeleitet: Risiko beim Zusammenführen
 
@@ -82,3 +82,51 @@ Gesamtexport, Pufferübergabe, EXIT vor zusätzlichen Kartenzugriffen,
 kontrollierter Abbruch unerfüllbarer Wechselziele und die übrigen Punkte
 im [Korrekturbericht](2026-10-29-sample-swap-korrektur.md) bleiben offen.
 Für die Integration wird nichts an das Gerät gesendet und nichts geflasht.
+
+## Weiterer Abgleich mit develop
+
+Der zweite Abgleich verwendet den festen Stand `ba5d348`. Die fünf
+Textkonflikte betreffen die Patchsatzprüfungen, die RAM-Prüfung sowie
+die Prüflisten von Emulator und CI. Sample-Swap bleibt neben den neuen
+Prüfgruppen für Stereo-Pad und Doom registriert. Die gezielte Prüfung
+besteht mit 62 bestandenen und zwölf übersprungenen Tests.
+
+Hergeleitet: Der Stereo-Pad-Hook bei `0xC0099E2C` liegt hinter dem
+Swap-Bereitschaftsschutz bei `0xC0099D88`. Seine Code- und
+Einstellungsbereiche überschneiden sich nicht mit Sample-Swap. Das ist
+kein Nachweis für unterbrechungsfreien Klang oder DMA-Zugriffe.
+
+Der vollständige Unit-Lauf dieses Abgleichs besteht auf einem getrennten
+Linux-Testrechner mit 1359 bestandenen und 159 übersprungenen Tests.
+Drei Zeitlimitfehler auf dem stark belasteten Entwicklungsrechner werden
+nicht als bestandene Prüfung gewertet. Der erste Linux-Lauf findet zwei
+fehlende Voraussetzungen der Quellkopie: Ohne Git-Metadaten können weder
+die Liste der versionierten Dateien noch der Schutz gegen Testdateien im
+Repo geprüft werden. Nach Ergänzung des Index besteht der vollständige
+Lauf mit unveränderten Prüfgrenzen und unverändertem Firmwarecode.
+
+Der vollständige Browserlauf auf Linux besteht mit 285 bestandenen und
+einem übersprungenen Test. Beide Prozesse enden mit Status null.
+
+Ein Zwischenlauf der Firmwareprüfung meldet zwei abgebrochene
+Fernsteuerungsgruppen: Der externe Compiler kann Node im Suchpfad des
+Starters nicht finden. Derselbe Compileraufruf besteht mit ergänztem
+Suchpfad. Der vollständige Wiederholungslauf verwendet bei unverändertem
+Quellstand und denselben Abbildern den vorhandenen Aufgabencache. Abgebrochene
+Aufgaben werden darin nicht als bestandene Ergebnisse übernommen.
+
+Die vollständigen Firmwareprüfungen bestehen für diesen zweiten Abgleich
+mit 712 Checks für Stock, 687 für Hacktribe und 494 für Synth. Alle drei
+Prozesse enden mit Status null. Der vollständige Quellstand der
+Linux-Prüfung umfasst 1424 versionierte Dateien. Vor und nach den Läufen
+werden seine Hashwerte geprüft. Die drei dort erzeugten Firmwaredateien
+stimmen mit den lokal erzeugten Abbildern überein.
+
+Vor dem Schreiben der Prüfdaten wird der aktuelle lokale Patchsatz erneut
+auf dieselben Originaldateien angewendet und mit den geprüften Abbildern
+verglichen. Der normale Prüfdaten-Schreiber übernimmt danach genau diese
+drei bestandenen vollständigen Ergebnisse.
+
+Offen: Die dynamische Projekt-Ausleihe bleibt eine Modellanforderung;
+eine native Speicherübergabe wird hier nicht ergänzt. Die oben genannten
+Speicherblocker sowie Geräte-, Klang- und DMA-Nachweise bleiben offen.

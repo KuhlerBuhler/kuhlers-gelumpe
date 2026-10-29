@@ -5,8 +5,9 @@ SHIFT + TAP held at power-on starts Doom from the card, everything else starts t
 knob table, and runs after the sample-file query (it replaces mov r4, r0 at 0xC002AE64, behind the query
 call at 0xC002AE60), so the start is the firmware's own until the keys say Doom. Then it reads, on the firmware's own registered
 volume, KORG/blechtribe/Doom/doom.bin, checks the exact length and the SHA-256 built into it (the file in third_party/doom) and only then
-jumps into the program. A wrong or missing file stops with DOOM ERROR and a code, never in the sampler's way: without SHIFT + TAP
-nothing of it runs but the key check. EXIT held at power-on is not SHIFT + TAP, so it keeps the patch out like every other.
+jumps into the program. Without doom.bin or doom.wad on the card, or without a card, it returns before it changes anything and the
+sampler starts; a wrong file or an unreadable card stops with DOOM ERROR and a code. Without SHIFT + TAP nothing of it runs but the
+key check. EXIT held at power-on is not SHIFT + TAP, so it keeps the patch out like every other.
 
     python3 tools/patch/doom_loader.py --vsb SYSTEM.VSB --toolchain ARM_GNU_14_2 [--out data/patches/doom-loader.json]
 

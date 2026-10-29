@@ -202,7 +202,7 @@ Menü -> BLECH -> PLUGINS -> MANAGE PLUGINS. The code is a subset of JavaScript,
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
-Mandelbrot, GIF Player, Lauflicht and Pulsieren.
+Mandelbrot, GIF Player, Lauflicht, Pulsieren and Takt-Blinker.
 
 ## The emulator
 
