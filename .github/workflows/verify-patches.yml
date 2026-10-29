@@ -5,9 +5,15 @@
 #
 # It runs on a pull request that changes what the patched copies or the check are made of (the paths below: the patch
 # set, everything tools/verify-patches.mjs imports, tools/patch and tools/emu; test/verify-patches.test.mjs keeps the
-# list complete) and commits the new verified.json to the pull request's branch. A pull request from a fork has no
-# secrets and is skipped. Started by hand it checks the branch it is given and pushes there, except to main and
-# develop, which get a pull request instead.
+# list complete). A pull request from a fork has no secrets and is skipped. What runs depends on the base:
+#
+# - into develop (feature pull requests): on each of the four files only the start scenarios and the case modules of
+#   what the pull request changes (tools/ci/verify-scope.mjs maps the changed files; a file it does not know, or the
+#   shared core, means every case module). Nothing is written or committed: verified.json holds only full checks. A
+#   case that breaks outside the mapped modules shows up first on the release pull request.
+# - into any other base, main included (the release pull request from release/X.Y.Z), and started by hand: the full
+#   check, and the last job commits the new verified.json to the pull request's branch. Started by hand it checks the
+#   branch it is given and pushes there, except to main and develop, which get a pull request instead.
 #
 # The push uses SYNC_TOKEN when it is set: a push with the workflow's own token starts no workflow, so the new commit
 # would have no Test run and the pull request would wait for its required checks. The new commit only changes
@@ -73,6 +79,11 @@ jobs:
       sha: ${{ steps.sha.outputs.sha }}
       branch: ${{ steps.sha.outputs.branch }}
       run: ${{ steps.own.outputs.run || 'true' }}
+      full: ${{ steps.scope.outputs.full || 'true' }}
+      cases: ${{ steps.scope.outputs.cases }}
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - id: sha
         env:
@@ -97,6 +108,19 @@ jobs:
             echo "::notice::the last commit only changes verified.json, nothing to check."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
+      # A pull request into develop runs the start scenarios and the case modules of its changed files, and writes nothing.
+      - id: scope
+        if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"
+          # the API lists at most 3000 files
+          if [ "$(wc -l < "$RUNNER_TEMP/changed.txt")" -ge 3000 ]; then cases=all; else cases=$(node tools/ci/verify-scope.mjs < "$RUNNER_TEMP/changed.txt"); fi
+          echo "::notice::pull request into develop: start scenarios and cases '${cases:-none}', verified.json stays as it is."
+          echo "full=false" >> "$GITHUB_OUTPUT"
+          echo "cases=$cases" >> "$GITHUB_OUTPUT"
 
   verify:
     needs: ref
@@ -158,9 +182,15 @@ jobs:
           printf '\000' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=18 conv=notrunc status=none
           printf '\043' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=46 conv=notrunc status=none
           echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
-      - run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
+      - if: needs.ref.outputs.full == 'true'
+        run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
+      - if: needs.ref.outputs.full != 'true'
+        env:
+          CASES: ${{ needs.ref.outputs.cases }}
+        run: npm run -s verify:patches -- --cases "$CASES" "$RUNNER_TEMP/SYSTEM.VSB"
       # Only the entry (hashes, set, number of checks, date), never the firmware.
-      - uses: actions/upload-artifact@v4
+      - if: needs.ref.outputs.full == 'true'
+        uses: actions/upload-artifact@v4
         with:
           name: verified-${{ matrix.name }}
           path: data/patches/verified.json
@@ -168,6 +198,7 @@ jobs:
 
   join:
     needs: [ref, verify]
+    if: needs.ref.outputs.full == 'true'
     concurrency:
       group: verify-patches-${{ needs.ref.outputs.branch }}-join
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}

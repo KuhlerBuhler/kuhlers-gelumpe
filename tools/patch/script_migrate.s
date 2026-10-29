@@ -6,12 +6,17 @@
 ; every file that is already in KORG/blechtribe as it is, then the firmware loads the samples from the new folder.
 ;
 ; migrate_start runs in the early hook in front of the sample loader and waits there: the input hook gives it the keys
-; (migrate_input), the frame hook draws the question and the progress (migrate_frame). Not with EXIT held at power-on, not on the
-; synth (MG_WORK 0). Firmware addresses that come with the build (script_hooks.py): MG_WORK (the work area, RAM only), MG_MKDIR
-; (f_mkdir), MG_GETFREE (f_getfree), MG_ALLOC and MG_FREE (the firmware's operator new and delete).
+; (migrate_input), the frame hook draws the question and the progress (migrate_frame). Not with EXIT held at power-on. Firmware
+; addresses that come with the build (script_hooks.py): MG_WORK (the work area, RAM only), MG_MKDIR (f_mkdir), MG_GETFREE
+; (f_getfree), MG_ALLOC and MG_FREE (the firmware's operator new and delete).
+;
+; The blue Electribe (MG_BLUE 1) has no samples and Korg's synth keeps its files in KORG/electribe: there the card hook calls
+; migrate_start, and the question comes when KORG/blechtribe is not there at all while KORG/electribe is (choice 2, one folder).
+; That hook runs in the start before the scheduler, where the OS sleep never returns: it only sets the question up and goes on.
+; The frame hook (UI task) then draws it and takes EXIT or MENU (mg_blue_key); the copy runs there.
 .equ MG_ACTIVE, 0               ; 1 while the question or the copy is up (the input and frame hooks act only then)
-.equ MG_CHOICE, 4               ; 0 hacktribe, 1 electribe sampler
-.equ MG_HAVE, 8                 ; bit 0: KORG/hacktribe is there, bit 1: KORG/electribe sampler
+.equ MG_CHOICE, 4               ; 0 hacktribe, 1 electribe sampler, 2 electribe (blue)
+.equ MG_HAVE, 8                 ; bit 0: KORG/hacktribe is there, bit 1: KORG/electribe sampler, bit 2: KORG/electribe (blue)
 .equ MG_KEY, 12                 ; set by the input hook: 1 EXIT, 2 MENU, 3 the other folder
 .equ MG_PHASE, 16               ; 0 the question, 1 copying, 2 done, 3 failed, 4 not room enough on the card
 .equ MG_BYTES, 20               ; bytes copied
@@ -54,6 +59,9 @@ migrate_start:
     bne mg_out
     mov r0, #0
     str r0, [r4, #MG_ACTIVE]
+    mov r0, #MG_BLUE
+    cmp r0, #0
+    bne mg_blue
     ldr r1, =mg_new_samples
     bl mg_exists
     cmp r0, #0
@@ -69,10 +77,11 @@ migrate_start:
     orrne r5, r5, #2
     cmp r5, #0
     beq mg_out
-    str r5, [r4, #MG_HAVE]
     tst r5, #1
     moveq r0, #1
     movne r0, #0
+mg_have:
+    str r5, [r4, #MG_HAVE]
     str r0, [r4, #MG_CHOICE]
     mov r0, #0
     str r0, [r4, #MG_KEY]
@@ -80,6 +89,9 @@ migrate_start:
     str r0, [r4, #MG_BYTES]
     mov r0, #1
     str r0, [r4, #MG_ACTIVE]
+    mov r0, #MG_BLUE
+    cmp r0, #0
+    bne mg_out                  ; the blue: the frame hook takes the keys (mg_blue_key)
 mg_ask:
     mov r0, #20
     ldr r12, =OS_WAIT
@@ -100,6 +112,30 @@ mg_ask:
 mg_ask_menu:
     cmp r0, #2
     bne mg_ask
+    bl mg_run
+    b mg_out
+mg_done:
+    mov r0, #0
+    str r0, [r4, #MG_ACTIVE]
+mg_out:
+    pop {r4-r11, pc}
+mg_blue:
+    ldr r1, =mg_new_folder
+    bl mg_dir_exists
+    cmp r0, #0
+    bne mg_out
+    ldr r1, =mg_blue_folder
+    bl mg_dir_exists
+    cmp r0, #0
+    beq mg_out
+    mov r5, #4
+    mov r0, #2
+    b mg_have
+
+; MENU: checks the room, copies, shows how it went for 1.5 s and takes the question away. r4 = the work area. Clobbers r0 to r3
+; and r12.
+mg_run:
+    push {lr}
     mov r0, #1
     str r0, [r4, #MG_PHASE]
     bl mg_room                  ; room on the card for all of it? (device wish 19.10.: no half copied folder)
@@ -114,14 +150,65 @@ mg_ask_menu:
     movne r0, #3
 mg_phase:
     str r0, [r4, #MG_PHASE]
+    bl mg_draw
     ldr r0, =1500
     ldr r12, =OS_WAIT
     blx r12
-mg_done:
     mov r0, #0
     str r0, [r4, #MG_ACTIVE]
-mg_out:
-    pop {r4-r11, pc}
+    pop {pc}
+
+; The blue: EXIT or MENU from the input hook, taken in the UI task after the start. r8 = the work area. Clobbers r0 to r3 and r12.
+mg_blue_key:
+    push {r4, lr}
+    mov r4, r8
+    ldr r0, [r4, #MG_KEY]
+    mov r1, #0
+    str r1, [r4, #MG_KEY]
+    cmp r0, #1
+    streq r1, [r4, #MG_ACTIVE]
+    cmp r0, #2
+    bleq mg_run
+    ldr r0, [r4, #MG_ACTIVE]
+    cmp r0, #0
+    ldreq r1, =UI_REDRAW        ; the firmware draws its own screen again
+    moveq r2, #1
+    strbeq r2, [r1]
+    pop {r4, pc}
+
+; The blue: the copy blocks the UI task, so the progress goes to the display here (MG_LCD, MG_FLUSH). Clobbers r0 to r3 and r12.
+mg_draw:
+    mov r0, #MG_BLUE
+    cmp r0, #0
+    bxeq lr
+    push {r4, lr}
+    bl migrate_frame
+    ldr r0, =MG_LCD
+    mov r1, #2
+    mov r2, #0
+    ldr r12, =MG_FLUSH
+    blx r12
+    ldr r0, =MG_LCD
+    mov r1, #3
+    mov r2, #0
+    ldr r12, =MG_FLUSH
+    blx r12
+    pop {r4, pc}
+
+; r1 = path, r4 = the work area -> r0 = 1 when the folder can be opened. Clobbers r0 to r3 and r12.
+mg_dir_exists:
+    push {lr}
+    add r0, r4, #MG_DIRS
+    ldr r12, =FS_OPENDIR
+    blx r12
+    cmp r0, #0
+    movne r0, #0
+    popne {pc}
+    add r0, r4, #MG_DIRS
+    ldr r12, =FS_CLOSEDIR
+    blx r12
+    mov r0, #1
+    pop {pc}
 
 ; r1 = path, r4 = the work area -> r0 = 1 when the file can be opened for reading. Clobbers r0 to r3 and r12.
 mg_exists:
@@ -176,9 +263,10 @@ mg_copy_paths:
     add r0, r4, #MG_SRC
     mov r1, #0
     ldr r2, [r4, #MG_CHOICE]
-    cmp r2, #0
-    ldreq r2, =mg_hack_folder
-    ldrne r2, =mg_sampler_folder
+    cmp r2, #1
+    ldrlo r2, =mg_hack_folder
+    ldreq r2, =mg_sampler_folder
+    ldrhi r2, =mg_blue_folder
     bl mg_append
     str r0, [r4, #MG_SLEN]
     add r0, r4, #MG_DST
@@ -257,6 +345,7 @@ mg_copy_next:
     bne mg_copy_count
     mov r0, r9
     bl mg_show_name
+    bl mg_draw
     bl mg_copy_file
     cmp r0, #0
     bne mg_copy_fail_open
@@ -521,6 +610,12 @@ migrate_frame:
     bxne lr
     push {r4-r8, lr}
     mov r8, r1
+    mov r0, #MG_BLUE
+    cmp r0, #0
+    blne mg_blue_key
+    ldr r0, [r8, #MG_ACTIVE]
+    cmp r0, #1
+    bne mg_frame_out
     bl display_clear
     ldr r7, [r8, #MG_PHASE]
     cmp r7, #0
@@ -529,14 +624,18 @@ migrate_frame:
     mov r5, #4                  ; 4 pixels from the sides, 2 from top and bottom, as the firmware's menus
     mov r6, #2
     bl display_draw_text
-    ldr r4, =mg_t_copy
+    ldr r0, [r8, #MG_CHOICE]
+    cmp r0, #2
+    ldrlo r4, =mg_t_copy
+    ldrhs r4, =mg_t_files
     mov r5, #4
     mov r6, #13
     bl display_draw_text
     ldr r0, [r8, #MG_CHOICE]
-    cmp r0, #0
-    ldreq r4, =mg_t_hack
-    ldrne r4, =mg_t_sampler
+    cmp r0, #1
+    ldrlo r4, =mg_t_hack
+    ldreq r4, =mg_t_sampler
+    ldrhi r4, =mg_t_blue
     mov r5, #14
     mov r6, #27
     bl display_draw_text
@@ -598,6 +697,7 @@ mg_frame_copy_fb:
     mov r3, #63
     ldr r12, =MG_MARK
     blx r12
+mg_frame_out:
     pop {r4-r8, pc}
 .align 4
 .pool
@@ -613,12 +713,18 @@ mg_hack_folder:
     .asciz "SD:KORG/hacktribe"
 mg_sampler_folder:
     .asciz "SD:KORG/electribe sampler"
+mg_blue_folder:
+    .asciz "SD:KORG/electribe"
 mg_slash:
     .asciz "/"
 mg_t_title:
     .asciz "NEW: BLECHTRIBE"
 mg_t_copy:
     .asciz "COPY YOUR SAMPLES?"
+mg_t_files:
+    .asciz "COPY YOUR FILES?"
+mg_t_blue:
+    .asciz "ELECTRIBE"
 mg_t_hack:
     .asciz "HACKTRIBE"
 mg_t_sampler:

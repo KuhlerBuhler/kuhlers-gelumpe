@@ -499,7 +499,20 @@ jede Datei in einem eigenen Job nebeneinander, und schreibt die Einträge in ein
 --results`). Stehen alle Paare schon drin, bleibt alles, wie es war.
 
 Er läuft von selbst bei jedem Pull Request, der den Patch-Satz (`data/patches/`), etwas, das `verify-patches.mjs` lädt,
-`tools/patch/` oder `tools/emu/` ändert, und committet die neue `verified.json` auf den Branch des Pull Requests.
+`tools/patch/` oder `tools/emu/` ändert. Was dann läuft, hängt von der Basis ab:
+
+- **Pull Request nach `develop`** (Feature-Branches): auf allen vier Dateien nur die Startszenarien (`check.py --quick`)
+  und die Case-Module, die zu den geänderten Dateien gehören (`verify-patches.mjs --cases`, an `check.py --cases`
+  weitergereicht). Welche das sind, sagt `tools/ci/verify-scope.mjs` mit einer festen Tabelle: `tools/emu/<x>_cases.py`
+  ist `<x>_cases` (plus die Module, die daraus importieren), Assembler und Patch-JSON gehen an die Cases, die sie
+  testen (etwa `script_remote.s` an `remote_cases`, `data/patches/dice*.json` an `dice_cases`). Der gemeinsame Kern
+  (`script_vm.s`, `script_hooks.s`, `src/patch.mjs`, `src/hooks.mjs`, `machine.py`, `bootmap.py`, `check.py`) und jede
+  Datei, die nicht in der Tabelle steht, heißt alle Case-Module. Geschrieben oder committet wird dabei nichts: ein
+  Eintrag in `verified.json` heißt immer "ganz geprüft". Der Preis: bricht ein Case außerhalb der zugeordneten Module,
+  sieht man das erst am Release-PR. Die Tabelle hält `test/verify-scope.test.mjs` mit `check.py` in Einklang.
+- **Pull Request nach `main`** (der Release-PR aus `release/X.Y.Z` oder `develop`) und jede andere Basis: der ganze
+  Check, danach committet der letzte Job die neue `verified.json` auf den Branch des Pull Requests.
+
 Gepusht wird mit `SYNC_TOKEN`, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
 ersten Schritt. Ein neuer Push bricht den laufenden Check ab. Pull Requests aus Forks haben keine Secrets und werden
 übersprungen. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
@@ -518,7 +531,9 @@ Lokal: `npm run verify:patches -- <Korgs rote 2.02> <Korgs blaue 2.02> <Hacktrib
 Kopf>`: patcht jede
 Datei wie die Seite, prüft sie und schreibt die Liste nur, wenn alle bestehen. Ohne Option ersetzt der Lauf die Liste;
 `--merge` behält die Einträge der anderen Eingaben und ersetzt nur die der geprüften Dateien, so kann man eine Datei
-nach der anderen prüfen. Ein Paar, das schon mit demselben Satz drinsteht, behält sein altes Datum.
+nach der anderen prüfen. Ein Paar, das schon mit demselben Satz drinsteht, behält sein altes Datum. `--cases
+menu_cases,remote_cases` prüft nur die Startszenarien und diese Case-Module (leer: nur die Startszenarien, `all`: alle)
+und schreibt nichts.
 
 ## Keine öffentliche Seite
 
