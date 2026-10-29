@@ -36,7 +36,7 @@ also solange `S_BROWSE` oder `S_ARMED` gilt (auch gestoppt mit ungespeicherten �
 | Frage | Entscheidung |
 |---|---|
 | Die untere Zeile ist entweder das Etikett oder die Info-Zeile | das Etikett bleibt, bis EDIT gedrückt wird; erst dann zeigt die Zeile die Info-Texte des angesehenen Patterns. Beide Zeilen gleichzeitig gibt es nicht |
-| Wer ändert während der Ansicht Werte (Regler, Pad-Druck im SEQUENCER) | das Pattern im RAM, das spielt; angezeigt wird weiter das nächste Pattern. Ein Step, den man in der Ansicht per Pad schaltet, ändert also das laufende Pattern, nicht die Anzeige |
+| Wer ändert während der Ansicht Werte (Regler, Pad-Druck im SEQUENCER) | Regler: das Pattern im RAM, das spielt; angezeigt wird weiter das nächste Pattern. Pads: seit 29.10. die des angesehenen Patterns, PART MUTE schaltet dessen Mutes, SEQUENCER verwirft den Druck ([Vorschau-Pads](2026-10-29-vorschau-pads.md)) |
 | Andere Leser des Patterns im RAM, die zur Anzeige gehören | der Part, der als blaues Pad leuchtet, kommt aus dem Muster im RAM (`0xC0088AA4`), nicht gemessen wie sichtbar. TAP Motion und der Vergleich für ungespeicherte Änderungen lesen weiter das Pattern im RAM, sie sind keine Anzeige |
 | Ende der Ansicht beim Wechsel | die Zellen gehen zurück, wenn das Ende der Sequenz die Bestätigung verbraucht; bis das neue Pattern geladen ist (Zehntel Sekunden, geschätzt), zeigt die Anzeige das Pattern, das noch im RAM liegt |
 | Mit EXIT beim Einschalten, Einstellung OFF | nichts ändert sich, die Zellen bleiben, wie die Firmware sie setzt |
