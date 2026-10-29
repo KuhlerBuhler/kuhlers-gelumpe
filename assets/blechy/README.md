@@ -31,8 +31,9 @@ bevor die Datei aufs Gerät kommt.
 
 ## Startbild und Ladeanimation
 
-`splash.bin` (Blechy kippt das Röhrchen) und `loading.bin` (die Bilder der Ladeanimation für
-`data/patches/load-bar.json`) kommen aus dem Renderer in `tools/art/loading/anim.py`:
+`splash.bin` (Blechy kippt das Röhrchen), `loading.bin` (die Teile der Ladeanimation) und `loading.blla` (die
+Ladeanimation im Format der Firmware, [Ladeanimation](../../docs/hintergrund/ladeanimation.md), aus den Teilen gebaut, für
+`data/patches/load-bar.json`) kommen aus dem Renderer in `tools/art/loading/anim.py` (braucht node für das Kodieren):
 
 ```bash
 python3 tools/art/loading/firmware_assets.py
