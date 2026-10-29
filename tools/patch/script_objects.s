@@ -82,8 +82,6 @@ objects_apply:
     cmp r0, #1
     beq menu_look_apply
     cmp r0, #2
-    beq testmode_apply
-    cmp r0, #3
     beq testmode_keep_awake
     bx lr
 
@@ -130,7 +128,7 @@ objects_state:
 objects_repairs:
     .word 0                         ; values clamped or reset since start (korg.system.repairs)
 objects_test_mode:
-    .byte 0                         ; korg.system.testMode, 0 at power-on (script_remote.s)
+    .byte 0                         ; korg.system.testMode, 0 at power-on; set over USB only (script_remote.s, RM_TEST)
 objects_keep_awake:
     .byte 0, 0, 0                   ; korg.system.keepAwake() writes 1 here
 objects_table:

@@ -323,7 +323,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     if s['STORE_IMAGE']+s['STORE_CAPACITY']>s['STORE_OTHER'] or s['STORE_OTHER']+s['STORE_CAPACITY']>END:
         raise ValueError('the store images run over the block buffer')
     if (s['LIST_NAMES']+s['LIST_MAX']*s['LIST_NAME_SIZE']>s['LIST_TITLES'] or s['LIST_TITLES']+s['LIST_MAX']*16>s['LIST_DESC']
-            or s['LIST_DESC']+s['DESC_MAX_BYTES']+1>s['RM_MSG_AT'] or s['RM_LCD_AT']+4>s['RM_AT'] or s['RM_AT']+s['RM_SIZE']>s['RP_AT'] or s['RP_AT']+s['RP_SIZE']>s['SQ_AT'] or s['SQ_AT']+s['SQ_SIZE']>s.get('FX_STATE_AT',INPUT-CARD)):
+            or s['LIST_DESC']+s['DESC_MAX_BYTES']+1>s['RM_MSG_AT'] or s['RM_INIT_AT']+4>s['RM_AT'] or s['RM_AT']+s['RM_SIZE']>s['RP_AT'] or s['RP_AT']+s['RP_SIZE']>s['SQ_AT'] or s['SQ_AT']+s['SQ_SIZE']>s.get('FX_STATE_AT',INPUT-CARD)):
         raise ValueError('the plugin list of the import page runs over the card work area')
     symbols={**vm.symbols,**hooks.symbols}
     layout=dict(code=MORE3_START,codeEnd=origin+len(first),runtime=RUNTIME,

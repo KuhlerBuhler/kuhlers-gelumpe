@@ -107,19 +107,18 @@ test("both plugin docs list every leaf with its range", () => {
 });
 
 test("korg.system.keepAwake() is a call that sets its leaf to 1, and it takes no values", () => {
-  const device = run(`korg.onEvent("ready", () => { korg.system.keepAwake(); korg.system.testMode = 1; korg.store.set(0, korg.system.testMode); korg.system.testMode = 0; korg.store.set(1, korg.system.testMode); });`);
+  const device = run(`korg.onEvent("ready", () => { korg.system.keepAwake(); korg.store.set(0, korg.system.testMode); });`);
   assert.equal(device.hardware.objects[OBJECT_BY_PATH.get("korg.system.keepAwake").id], 1);
-  assert.deepEqual([stored(device, 0), stored(device, 1)], [1, 0]);
+  assert.equal(stored(device, 0), 0);
   assert.match(refused(`korg.onEvent("ready", () => { korg.system.keepAwake(1); });`), /korg\.system\.keepAwake/);
   assert.match(refused(`korg.onEvent("ready", () => { let x = korg.system.keepAwake; });`), /keepAwake/);
-  assert.match(refused(`korg.onEvent("ready", () => { korg.system.testMode = 2; });`), /0.*1.*2/);
 });
 
-test("the remote runtime switches the test mode through the leaf it names", () => {
+test("a plugin reads the test mode but cannot switch it; the remote runtime writes the byte the leaf reads", () => {
+  assert.match(refused(`korg.onEvent("ready", () => { korg.system.testMode = 1; });`), /korg\.system\.testMode/);
+  assert.equal(OBJECT_BY_PATH.get("korg.system.testMode").write, false);
   const remote = readFileSync(new URL("../tools/patch/script_remote.s", import.meta.url), "utf8");
-  assert.match(remote, /mov r0, #OBJ_TEST_MODE/);
-  const equ = Object.fromEntries([...asmInclude().matchAll(/^\.equ (OBJ_\w+), (\S+)$/gm)].map(m => [m[1], Number(m[2])]));
-  assert.equal(equ.OBJ_TEST_MODE, OBJECT_BY_PATH.get("korg.system.testMode").id);
+  assert.match(remote, /ldr r0, =objects_test_mode\n    strb r2, \[r0\]\n    bl testmode_apply/);
   const objects = readFileSync(new URL("../tools/patch/script_objects.s", import.meta.url), "utf8");
   const state = objects.slice(objects.indexOf("objects_state:"));
   assert.ok(state.indexOf("objects_test_mode:") > 0 && OBJECT_BY_PATH.get("korg.system.testMode").offset === 4);

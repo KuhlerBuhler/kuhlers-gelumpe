@@ -5,8 +5,9 @@ check.py runs the groups on every patched copy that carries the BLECH menu, red 
 area, as KORG.exec leaves it, goes through the frame hook into the queue of panel messages: MENU, the main dial and EXIT
 then do what the same keys do on the panel, the counter counts every command once, and a word without the mark is not
 taken (the area is FF at power-on). A whole panel message (knob, encoder, pad press and release, touchpad, a key held)
-reaches the firmware's dispatcher byte for byte as from the panel and leaves the device where the panel leaves it. The
-test mode's cases (testmode_cases.py) run as a group of their own.
+reaches the firmware's dispatcher byte for byte as from the panel and leaves the device where the panel leaves it. What the
+computer holds down is let go on the release command, and by the device itself after 10 s without a command (a dropped
+link). The test mode's cases (testmode_cases.py) run as a group of their own.
 
     tools/emu/.venv/bin/python tools/emu/remote_cases.py cases --patched NEW.VSB [--flash dump.bin]
 """
@@ -30,7 +31,7 @@ MAILBOX = script_hooks.CARD + 0xFC0     # RM_AT in script_remote.s
 MESSAGE_AT = script_hooks.CARD + 0xFA0  # RM_MSG_AT
 CMD, DONE = 0, 8
 MARK = 0xA5000000
-KEY, ENCODER, MESSAGE = 1, 2, 3
+KEY, ENCODER, MESSAGE, RELEASE = 1, 2, 3, 5
 MENU, EDIT_NEXT, EXIT, SHIFT, TOUCH = 0x09, 0x0C, 0x0D, 0x0A, 0x22
 DISPATCH = 0xC002837C                   # the firmware's dispatcher of panel messages (msg + 0xC: type, four data bytes)
 # (what it is, the panel messages): a knob, an encoder that is not the main dial, a pad pressed and let go, a touch, a key held
@@ -140,12 +141,39 @@ def message_cases(payload, flash=None):
     return out
 
 
+def message(dev, data, wait=0.3):
+    dev.m.uc.mem_write(MESSAGE_AT, bytes(data).ljust(8, b"\0"))
+    send(dev, command(MESSAGE, 0), wait=wait)
+
+
+def release_cases(payload, flash=None):
+    held = [[0, SHIFT, 1, 0, 0], [4, 2, 0, 90, 1]]
+    dev = menu_cases.boot(payload, flash)
+    watch_dispatch(dev)
+    for data in held:
+        message(dev, data)
+    first = done(dev)
+    send(dev, command(RELEASE, 0), wait=0.3)
+    released = dev.dispatched[len(held):]
+    out = [entry("release_all", released == [[0, SHIFT, 0, 0, 0], [4, 2, 0, 0, 0]] and (done(dev) - first) & 0xFFFFFFFF == 1,
+                 f"after holding {held}: {released}")]
+    dev = menu_cases.boot(payload, flash)
+    watch_dispatch(dev)
+    message(dev, [4, 4, 0, 100, 1])
+    dev.run(9.0)
+    early = list(dev.dispatched)
+    dev.run(1.5)
+    out.append(entry("released_after_10s", early == [[4, 4, 0, 100, 1]] and dev.dispatched[1:] == [[4, 4, 0, 0, 0]] and not dev.m.asserts,
+                     f"after 9 s {early}, after 10.5 s {dev.dispatched}"))
+    return out
+
+
 def testmode_group(payload, flash=None):
     import testmode_cases
     return testmode_cases.cases(bytes(0x100) + payload, flash)
 
 
-GROUPS = (cases, message_cases, testmode_group)
+GROUPS = (cases, message_cases, release_cases, testmode_group)
 
 
 def cases_task(i):
