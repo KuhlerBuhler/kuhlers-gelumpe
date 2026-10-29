@@ -99,7 +99,7 @@ function requiredGroups(patches, build) {
     "last-pattern": "last_pattern_cases", "init-pattern": "init_pattern_cases" };
   const groups = ["bootmap", ...patches.map(p => byId[p.id]).filter(Boolean)];
   if (patches.some(p => p.id === "script-runtime")) groups.push("shortcut_cases");
-  if (build !== "synth" && patches.some(p => p.id === "script-runtime")) groups.push("migrate_cases");
+  if (patches.some(p => p.id === "script-runtime")) groups.push("migrate_cases");
   return [...new Set(groups)];
 }
 
