@@ -532,7 +532,7 @@ def menu_script_cases(programs, built, patched, flash, check):
     # the list keeps every other checksum when a save takes a marker out (device 28.10.: Lauflicht off, WRITE, EXPORT ALL,
     # restart, on again: the shift dropped entries behind the removed marker, also the one just added for Lauflicht)
     checksum = lambda block: struct.unpack_from("<I", block, 12)[0]
-    trust = menu_cases.STATE + 0x1C0
+    trust = built.symbols["MENU_TRUST"]
     others = [0x11111111, 0x22222222]
     back.m.uc.mem_write(trust, b"".join(struct.pack("<I", value) for value in [~checksum(blocks[1]) & 0xffffffff] + others))
     back.m.uc.mem_write(menu_cases.STATE + 44, struct.pack("<I", 3))
@@ -595,6 +595,7 @@ def menu_script_cases(programs, built, patched, flash, check):
           and not nobody.m.asserts, dict(texts=texts(gone), size=len(empty_file)))
 
     full_list_case(programs, built, patched, flash, check, restart)
+    settings_v3_cases(programs, built, patched, flash, check, restart)
     foreign_cases(programs, built, patched, flash, check)
     import_cases(programs, built, patched, flash, check)
     menu_add_cases(programs, built, patched, flash, check)
@@ -610,8 +611,9 @@ def renamed(block, name):
 
 def full_list_case(programs, built, patched, flash, check, restart):
     """The settings' checksum list as the red device had it on 28.10. with 13 plugins: two markers of older plugin builds, eleven
-    allowed checksums, the marker of one plugin that is off three times; 16 entries, full. Switching one more plugin off and
-    WRITE still has to keep it off over a restart."""
+    allowed checksums, the marker of one plugin that is off three times; 16 entries, full up to 1.3.7. Since 1.3.8 the list
+    holds 64: 48 more checksums of older builds fill it. Switching one more plugin off and WRITE still has to keep it off over
+    a restart."""
     import menu_cases
     runtime = built.layout["runtime"]
     blocks = [renamed(bytes.fromhex(programs["healthy"]["blob"]), "plugin%02d" % i) for i in range(13)]
@@ -621,8 +623,8 @@ def full_list_case(programs, built, patched, flash, check, restart):
     dev.run(2)
     menu_cases.goto_plugin(dev, 12)
     dev.turn(-1, wait=0.2)
-    trust = menu_cases.STATE + 0x1C0
-    listed = [0x11111111, 0x22222222] + [checksum(block) for block in blocks[1:12]] + [marker(blocks[12])] * 3
+    trust = built.symbols["MENU_TRUST"]
+    listed = [0x30000000 + i for i in range(48)] + [0x11111111, 0x22222222] + [checksum(block) for block in blocks[1:12]] + [marker(blocks[12])] * 3
     dev.m.uc.mem_write(trust, b"".join(struct.pack("<I", value) for value in listed))
     dev.m.uc.mem_write(menu_cases.STATE + 44, struct.pack("<I", len(listed)))
     menu_cases.goto_plugin(dev, 0)
@@ -636,6 +638,67 @@ def full_list_case(programs, built, patched, flash, check, restart):
     check("menu-plugin-aus-bei-voller-liste", saved[1] == "saved" and states == [1, 1] and marker(blocks[0]) in after
           and after.count(marker(blocks[12])) == 1 and all(checksum(block) in after for block in blocks[1:12]) and not again.m.asserts,
           dict(saved=saved, states=states, listed=[hex(value) for value in after]))
+
+
+def settings_v3_cases(programs, built, patched, flash, check, restart):
+    """Settings file version 3 (1.3.8): version 2 with up to 64 checksums. A version 2 file with 16 entries is read and written
+    again as version 3, 40 plugins switched off stay off over WRITE and a restart, and a version 1 file is still read."""
+    import menu_cases
+    runtime = built.layout["runtime"]
+    trust = built.symbols["MENU_TRUST"]
+    listed = lambda dev: [dev.u32(trust + 4 * i) for i in range(dev.u32(menu_cases.STATE + 44))]
+    healthy = bytes.fromhex(programs["healthy"]["blob"])
+
+    def on_card(dev):
+        """{path: (version, count, generation)} of the settings files on the card."""
+        out = {}
+        for path in menu_cases.SETTINGS_PATHS:
+            try:
+                raw = volume_read(dev.m.mmc.card.medium.data, path)
+            except fat32.FatError:
+                continue
+            out[path] = (raw[4], *struct.unpack_from("<HI", raw, 6))
+        return out
+
+    old = [0x50000000 + i for i in range(16)]
+    dev = with_card(patched, flash, {CARD_FILE: archive([healthy]), menu_cases.SETTINGS_PATHS[0]: menu_cases.settings_file_v2(5, 3, menu_cases.look_word(), trusted=old)})
+    dev.run(2)
+    read = listed(dev)
+    menu_cases.goto_plugin(dev, 0)
+    menu_cases.press(dev, "write", wait=0.8)
+    saved = texts(dev)
+    files = on_card(dev)
+    written = menu_cases.read_settings_full(dev.m.mmc.card.medium.data).get("a")
+    leave_menu(dev)
+    again = restart(dev)
+    check("menu-einstellungen-v2-wird-v3", read == old and saved[1] == "saved" and files.get(menu_cases.SETTINGS_PATHS[0]) == (3, 16, 6)
+          and written == (6, 3, old) and listed(again) == old and again.u32(plugin_entry(again, runtime) + 12) == 2 and not again.m.asserts,
+          dict(read=len(read), saved=saved, files=files, again=len(listed(again))))
+    # 40 plugins, all off: 40 markers, more than the 16 a file held up to 1.3.7
+    blocks = [renamed(healthy, "plugin%02d" % i) for i in range(40)]
+    many = with_card(patched, flash, {CARD_FILE: archive(blocks)})
+    many.run(3)
+    entries = [plugin_entry(many, runtime, i) for i in range(40)]
+    for entry in entries:
+        write_word(many, entry + 12, 1)
+    menu_cases.goto_plugin(many, 0)
+    menu_cases.press(many, "write", wait=1.0)
+    saved = texts(many)
+    files = on_card(many)
+    leave_menu(many)
+    back = restart(many)
+    states = [back.u32(plugin_entry(back, runtime, i) + 12) for i in range(40)]
+    markers = sorted(~struct.unpack_from("<I", block, 12)[0] & 0xffffffff for block in blocks)
+    check("menu-40-plugins-aus-nach-neustart", all(entries) and saved[1] == "saved" and files.get(menu_cases.SETTINGS_PATHS[1], (0, 0))[:2] == (3, 40)
+          and states == [1] * 40 and sorted(listed(back)) == markers and not back.m.asserts,
+          dict(entries=sum(1 for entry in entries if entry), saved=saved, files=files, states=states, listed=len(listed(back))))
+    # a version 1 file (BLECH before 1.2) is still read: its checksums, its generation and its flags
+    first = [0x60000000 + i for i in range(5)]
+    v1 = with_card(patched, flash, {CARD_FILE: archive([healthy]), menu_cases.SETTINGS_PATHS[1]: menu_cases.settings_file(4, 3, trusted=first)})
+    v1.run(2)
+    check("menu-einstellungen-v1-gelesen", listed(v1) == first and v1.u32(menu_cases.STATE + 32) == 4 and v1.u32(menu_cases.STATE + 16) == 1
+          and v1.u32(plugin_entry(v1, runtime) + 12) == 2 and not v1.m.asserts,
+          dict(listed=[hex(value) for value in listed(v1)], generation=v1.u32(menu_cases.STATE + 32)))
 
 
 def request_errors(programs):
@@ -900,17 +963,18 @@ def foreign_cases(programs, built, patched, flash, check):
     again.run(2)
     head = plugin_entry(again, runtime)
     check("fremd-fragt-nicht-wieder", again.u32(head + 12) == 2 and again.u32(again.u32(head) + 12) == 2, dict(healthy=again.u32(head + 12), foreign=again.u32(again.u32(head) + 12)))
-    # the list holds 16 checksums: a 17th allowed block pushes the oldest out
+    # the list holds 64 checksums (16 up to 1.3.7): a 65th allowed block pushes the oldest out
+    most = built.symbols["MENU_MAX_TRUST"]
     full = with_card(patched, flash, {CARD_FILE: archive([foreign_block])})
     full.run(2)
     entry = plugin_entry(full, runtime)
-    base = menu_cases.STATE + 0x1C0
-    full.m.uc.mem_write(base, b"".join(struct.pack("<I", 100 + i) for i in range(16)))
-    full.m.uc.mem_write(menu_cases.STATE + 44, struct.pack("<I", 16))
+    base = built.symbols["MENU_TRUST"]
+    full.m.uc.mem_write(base, b"".join(struct.pack("<I", 100 + i) for i in range(most)))
+    full.m.uc.mem_write(menu_cases.STATE + 44, struct.pack("<I", most))
     full.call(built.symbols["menu_confirm"], entry)
-    listed = [full.u32(base + 4 * i) for i in range(16)]
-    check("fremd-liste-voll-schiebt", full.u32(menu_cases.STATE + 44) == 16 and listed[:15] == [101 + i for i in range(15)]
-          and listed[15] == struct.unpack_from("<I", foreign_block, 12)[0], dict(listed=listed[-3:]))
+    listed = [full.u32(base + 4 * i) for i in range(most)]
+    check("fremd-liste-voll-schiebt", most == 64 and full.u32(menu_cases.STATE + 44) == most and listed[:most - 1] == [101 + i for i in range(most - 1)]
+          and listed[most - 1] == struct.unpack_from("<I", foreign_block, 12)[0], dict(listed=listed[-3:]))
 
 
 def volume_read(image, path):
