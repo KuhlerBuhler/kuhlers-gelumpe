@@ -73,6 +73,7 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Effekte frei bearbeiten (App) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | 128 Plätze für eigene Effekte | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Zweiter Master-Effekt (MFX 2) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| BEAT 8: Steps als Achtel, Pattern doppelt so lang | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Plugins und Spiele (Snake, Tetris, ...) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Pad-Farben und LED-Farben | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Patternwechsel erst nach Bestätigung | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |

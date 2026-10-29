@@ -1,0 +1,23 @@
+{
+ "entries": [
+  {"from": "0xC00E2DDC", "to": "0xC00C95B4", "kind": "data", "why": "the tick divider per BEAT, 06 03 08 04 followed by four zeros and a pointer table; the four sequencer places load it (0xC0054360 and three more), read in both"},
+  {"from": "0xC007D13C", "to": "0xC006F728", "kind": "code", "why": "cmp r1, #3 behind the BEAT getter (0xC0044478, ldrb r0, [r0, #0x2a]) in the value change of the page BEAT, the setter 0xC00445F8 follows; read in both, same sequence"},
+  {"from": "0xC007D140", "to": "0xC006F72C", "kind": "code", "why": "movge r1, #3 right after the clamp's cmp, read in both"},
+  {"from": "0xC0080F1C", "to": "0xC0071A20", "kind": "code", "why": "ldr r1, = \"?\" (0xC00908DD) behind the jump table that loads \\16, \\32, \\\\8 Tri, \\16 Tri for the page BEAT; read in both"},
+  {"from": "0xC0080F20", "to": "0xC0071A24", "kind": "code", "why": "mov r2, sp right behind the text loads of the page BEAT, r1 holds the text; read in both"},
+  {"from": "0xC002ED08", "to": "0xC002BBC4", "kind": "code", "why": "the export length of a part (push, ldr sb, bl pattern, bl BEAT getter, BEAT - 1 against the two tables); read in both, same sequence"},
+  {"from": "0xC06900A0", "to": "0xC056A380", "kind": "ram", "why": "the tick divider the sequencer took at PLAY: the four places that load the divider table store it here (0xC0054368 on the synth)"},
+  {"from": "0xC002ED28", "to": "0xC002BBE4", "kind": "code", "why": "cmp r3, #2 on BEAT - 1 in the export length (48 kHz samples) per part, the function the 16 part loop of the export calls; read in both, same sequence"},
+  {"from": "0xC002ED2C", "to": "0xC002BBE8", "kind": "code", "why": "ldrls r2, = steps per quarter (08 03 06) after that cmp"},
+  {"from": "0xC002ED38", "to": "0xC002BBF4", "kind": "code", "why": "ldrls r2, = steps per bar (10 0C 0C) after that cmp"},
+  {"from": "0xC00327E8", "to": "0xC002F644", "kind": "code", "why": "cmp r3, #2 on the cached BEAT - 1 ([r6, #0x10]) in the second export length, read in both, same sequence"},
+  {"from": "0xC00327EC", "to": "0xC002F648", "kind": "code", "why": "ldrls r2, = steps per quarter after that cmp"},
+  {"from": "0xC00327F8", "to": "0xC002F654", "kind": "code", "why": "ldrls r2, = steps per bar after that cmp"},
+  {"from": "0xC00334C8", "to": "0xC0030328", "kind": "code", "why": "cmp r3, #2 on BEAT - 1 read from a pattern block (+0x26) in the third export length, read in both, same sequence"},
+  {"from": "0xC00334CC", "to": "0xC003032C", "kind": "code", "why": "ldrls r2, = steps per quarter after that cmp"},
+  {"from": "0xC00334DC", "to": "0xC003033C", "kind": "code", "why": "ldrls r2, = steps per bar after that cmp"},
+  {"from": "0xC003371C", "to": "0xC003057C", "kind": "code", "why": "cmp r3, #2 on BEAT - 1 read from a pattern block (+0x26) in the fourth export length, read in both, same sequence"},
+  {"from": "0xC0033720", "to": "0xC0030580", "kind": "code", "why": "ldrls r2, = steps per quarter after that cmp"},
+  {"from": "0xC0033734", "to": "0xC0030594", "kind": "code", "why": "ldrls r2, = steps per bar after that cmp"}
+ ]
+}
