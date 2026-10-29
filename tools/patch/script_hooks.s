@@ -425,6 +425,9 @@ frame_app_ok:
     bl script_led_begin_frame
     mov r0, r4
     bl script_events_poll
+    mov r0, r4
+    mov r1, #TIMER_KIND_MS
+    bl script_timers_poll
     ldr r6, [r4, #RT_CURSOR_PHASE]
     cmp r6, #SCRIPT_PHASE_IDLE
     bne frame_loop
@@ -462,6 +465,8 @@ frame_armed:
     cmp r2, #EV_OPEN
     cmpne r2, #EV_CLOSE
     beq frame_app_event
+    cmp r2, #EV_TIMER
+    beq frame_timer_event
     cmp r2, #EV_FRAME
     bne frame_candidate
     mov r0, r5
@@ -471,6 +476,11 @@ frame_armed:
     b frame_candidate
 frame_app_event:
     ldr r1, [r4, #RT_CURSOR_ARGS]
+    cmp r1, r5
+    bne frame_next_entry
+    b frame_candidate
+frame_timer_event:
+    ldr r1, [r4, #RT_CURSOR_ARGS+8]
     cmp r1, r5
     bne frame_next_entry
     b frame_candidate
