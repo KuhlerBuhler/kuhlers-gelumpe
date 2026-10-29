@@ -49,8 +49,9 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS
+    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT
     synth = synthaddr.is_synth(payload)
+    FX_EXPORT = not synth              # EXPORT ALL EFFECTS: only the Sampler builds have the collection on the card
     DU_FUNCS = 11 if synth else 14     # the functions of DATA UTILITY's list (screen 15), the blue has no sample functions
     SYNC_GROUP = True                  # the page SYNC GROUP is in the ring on both (the synth since 24.10.)
     MENU = 37 if synth else 45
@@ -150,9 +151,13 @@ def feature_count():
     return len(FEATURE_PAGES)
 
 
+FX_EXPORT = True
+
+
 def du_pages():
-    """Our pages of DATA UTILITY, behind the firmware's functions: EXPORT ALL PLUGINS, and SET INIT PATTERN where the set has the patch."""
-    return ["EXPORT ALL PLUGINS"] + ["SET INIT PATTERN"] * INIT_PAGE
+    """Our pages of DATA UTILITY, behind the firmware's functions: EXPORT ALL CUSTOMIZATIONS (its title is cut to fit), EXPORT ALL
+    PLUGINS, EXPORT ALL EFFECTS on the Sampler builds, and SET INIT PATTERN where the set has the patch."""
+    return ["EXPORT ALL CUSTOM", "EXPORT ALL PLUGINS"] + ["EXPORT ALL EFFECTS"] * FX_EXPORT + ["SET INIT PATTERN"] * INIT_PAGE
 TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads", "Power", "Splash", "Pattern", "Global"]
 FIRMWARE_TAB = "Data Util"                                            # the firmware's own label, already at the edge of its box: ours has to look the same, not have room to spare
 RING = 32                                                             # the total of the page counter with the page BLECH, the page of Blechy and SYNC GROUP in the ring
@@ -791,8 +796,43 @@ def read_settings_look(image):
     return out
 
 
-def settings_cases(payload, flash=None):
+def custom_export_cases(payload, flash=None):
+    """EXPORT ALL CUSTOMIZATIONS (DATA UTILITY) writes KORG/blechtribe/e2sCustom.all: the settings record without the plugin
+    checksums. Nothing reads that file at start; copied over settings.a.bin the settings loader takes it, and the look is back."""
     out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    set_look(dev, led=(15, 7, 0), backlight=(3, 9, 12))
+    look = [state(dev, at) for at in (S_LED_MODE, S_LED_R, S_LED_G, S_LED_B, S_BL_R, S_BL_G, S_BL_B, S_INVERT)]
+    dev.m.uc.mem_write(STATE + 44, struct.pack("<I", 1))              # one allowed checksum: the export leaves it out
+    dev.m.uc.mem_write(STATE + 0x1C0, struct.pack("<I", 0x12345678))
+    goto_du(dev, du_pages().index("EXPORT ALL CUSTOM"))
+    page = texts_of(dev)
+    before = read_settings(dev.m.mmc.card.medium.data)
+    press(dev, "menu", wait=0.8)
+    shown = texts_of(dev)[:2]
+    volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
+    try:
+        written = volume.read("/KORG/blechtribe/e2sCustom.all")
+    except fat32.FatError:
+        written = None
+    volume.close()
+    ok_file = written is not None and written[:4] == b"GSET" and struct.unpack_from("<H", written, 6)[0] == 0 \
+        and struct.unpack_from("<I", written, len(written) - 4)[0] == zlib.crc32(written[:-4]) & 0xFFFFFFFF
+    add("export_custom_writes_the_file", page == ("EXPORT ALL CUSTOM", "", PRESS) and shown == ("EXPORT ALL CUSTOM", "exported") and ok_file
+        and read_settings(dev.m.mmc.card.medium.data) == before and not dev.m.asserts,
+        f"{page}, then {shown}, file {len(written or b'')} bytes, settings files untouched {read_settings(dev.m.mmc.card.medium.data) == before}")
+    again = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: written or b""}, adapter=True)
+    back = [state(again, at) for at in (S_LED_MODE, S_LED_R, S_LED_G, S_LED_B, S_BL_R, S_BL_G, S_BL_B, S_INVERT)]
+    add("export_custom_reads_back_as_settings", back == look and state(again, 44) == 0 and not again.m.asserts, f"look {back}, wanted {look}, checksums {state(again, 44)}")
+    return out
+
+
+def settings_cases(payload, flash=None):
+    out = custom_export_cases(payload, flash)
 
     def add(name, ok, detail):
         out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})

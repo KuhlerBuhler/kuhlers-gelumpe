@@ -433,7 +433,12 @@ menu_read_fail:
 ; Writes the edited settings as the next generation, in one write, to the file the newer one is not in.
 ; Sets M_STATUS: 1 written, 0x20 + code of the failing FatFs call otherwise.
 menu_settings_save:
-    push {r4-r10, lr}
+    mov r0, #0
+; r0 = 1: EXPORT ALL CUSTOMIZATIONS, the same record without the plugin checksums as KORG/blechtribe/e2sCustom.all; the
+; generation stays, M_STATUS 0x53 when written. Nothing reads that file yet: copied over settings.a.bin it is read as settings.
+menu_settings_write:
+    push {r4-r11, lr}
+    mov r11, r0
     bl menu_off_sync
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
@@ -446,10 +451,13 @@ menu_settings_save:
     mov r0, #0
     strb r0, [r7, #5]
     ldr r9, [r4, #M_TRUST_N]
+    cmp r11, #0
+    movne r9, #0
     strb r9, [r7, #6]
     strb r0, [r7, #7]
     ldr r8, [r4, #M_GEN]
-    add r8, r8, #1
+    cmp r11, #0
+    addeq r8, r8, #1
     str r8, [r7, #8]
     mov r0, #0
     ldr r1, [r4, #M_SET_RUN]
@@ -554,6 +562,8 @@ menu_save_trust_done:
     ldr r1, =settings_path_a
     tst r8, #1
     ldrne r1, =settings_path_b
+    cmp r11, #0
+    ldrne r1, =custom_path
     mov r0, r6
     bl card_create
     cmp r0, #0
@@ -574,16 +584,20 @@ menu_save_trust_done:
     cmp r0, r10
     movne r9, #2
     bne menu_save_fail_r9
+    cmp r11, #0
+    movne r0, #0x53
+    bne menu_save_status
     str r8, [r4, #M_GEN]
     mov r0, #1
+menu_save_status:
     str r0, [r4, #M_STATUS]
-    pop {r4-r10, pc}
+    pop {r4-r11, pc}
 menu_save_fail:
     mov r9, r0
 menu_save_fail_r9:
     add r0, r9, #0x20
     str r0, [r4, #M_STATUS]
-    pop {r4-r10, pc}
+    pop {r4-r11, pc}
 ; Works out what the settings of the group CUSTOMIZATION do and puts them to work: the kind and the brightness of the
 ; bottom LEDs (M_LED_EFF: 0 the stock meter, 1 the meter in our colour, 2 a fixed colour; M_LED_V: red, green, blue as 0 to 255)
 ; and the backlight (pins that may light, the tables of the software PWM), then sets the backlight now.
@@ -736,6 +750,8 @@ settings_path_a:
     .asciz "SD:KORG/blechtribe/settings.a.bin"
 settings_path_b:
     .asciz "SD:KORG/blechtribe/settings.b.bin"
+custom_path:
+    .asciz "SD:KORG/blechtribe/e2sCustom.all"
 .align 4
 .pool
 menu_settings_end:
@@ -2063,6 +2079,15 @@ menu_text_status_more:
     beq menu_text_status_go
     cmp r1, #0x51
     ldreq r1, =str_pdeleted
+    beq menu_text_status_go
+    cmp r1, #0x53
+    ldreq r1, =str_fx_exported
+    beq menu_text_status_go
+    cmp r1, #0x52
+    ldreq r1, =str_fx_nofile
+    beq menu_text_status_go
+    cmp r1, #0x54
+    ldreq r1, =str_fx_bad
     beq menu_text_status_go
     ldr r1, =str_writeerr
 menu_text_status_go:
@@ -3740,10 +3765,9 @@ menu_copy_end:
     strb r2, [r0]
     bx lr
 
-; EXPORT ALL CUSTOMIZATIONS and EXPORT ALL EFFECTS: no writer yet, DU_BUILT leaves their pages out (tools/patch/script_hooks.py)
 menu_export_custom:
-menu_export_fx:
-    bx lr
+    mov r0, #1
+    b menu_settings_write
 
 ; ---- slots of the class, this = r0
 menu_slot_prev:
@@ -4604,6 +4628,12 @@ str_export_custom:              ; EXPORT ALL CUSTOMIZATIONS does not fit the tit
     .asciz "EXPORT ALL CUSTOM"
 str_export_fx:
     .asciz "EXPORT ALL EFFECTS"
+str_fx_exported:                ; EXPORT ALL CUSTOMIZATIONS and EFFECTS
+    .asciz "exported"
+str_fx_nofile:
+    .asciz "no e2sFx.all"
+str_fx_bad:
+    .asciz "bad e2sFx.all"
 str_tab_global:
     .asciz "Global"
 str_tab_du:
