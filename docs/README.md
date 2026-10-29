@@ -44,6 +44,7 @@ gelesen), **hergeleitet**, **offen**.
 | [hintergrund/virtuelle-sd.md](hintergrund/virtuelle-sd.md) | Datei-Funktionen der Firmware, FatFs, Sample-Lader, die virtuelle Karte |
 | [hintergrund/sample-datei.md](hintergrund/sample-datei.md) | Das Format der `e2sSample.all`, die Seite Samples, der Weg über USB mit Tauschdatei |
 | [hintergrund/startbild-editor.md](hintergrund/startbild-editor.md) | Das Startbild im Flash und der Editor dafür |
+| [hintergrund/ladeanimation.md](hintergrund/ladeanimation.md) | Das Dateiformat der eigenen Ladeanimation, der GIF-Import |
 | [hintergrund/blech-theme.md](hintergrund/blech-theme.md) | Eigene Schriften und Symbole fürs Display, der Patch `blech-theme` |
 | [hintergrund/dsp-erster-blick.md](hintergrund/dsp-erster-blick.md) | Der DSP (Blackfin): Strom, Filter, Effekt-Einheiten |
 | [hintergrund/panel-controller.md](hintergrund/panel-controller.md) | Der Mikrocontroller im Bedienfeld: Abbild, Update, Auflösung von Reglern und Touchpad, LEDs |
