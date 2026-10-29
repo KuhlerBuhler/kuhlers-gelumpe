@@ -645,7 +645,8 @@ def read_settings_full(image):
 
 
 def read_settings_look(image):
-    """The valid settings files as {name: (generation, flags, trusted checksums, look)}, look None for version 1."""
+    """The valid settings files as {name: (generation, flags, trusted checksums, look)}, look None for version 1. Version 3 (BLECH
+    1.3.8) is version 2 with up to 64 checksums instead of 16."""
     volume = fat32.Volume(bytes(image))
     out = {}
     for path in SETTINGS_PATHS:
@@ -656,13 +657,13 @@ def read_settings_look(image):
         if len(raw) < 20 or raw[:4] != b"GSET":
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
-        head = {1: 16, 2: 20}.get(version)
+        head = {1: 16, 2: 20, 3: 20}.get(version)
         if head is None or extras & ~3:      # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF
             continue
         size = head + 4 * count
-        if count > 16 or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
+        if count > (64 if version == 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
             continue
-        look = struct.unpack_from("<I", raw, 16)[0] if version == 2 else None
+        look = struct.unpack_from("<I", raw, 16)[0] if version >= 2 else None
         out[path.rsplit(".", 2)[1]] = (*struct.unpack_from("<II", raw, 8), list(struct.unpack_from(f"<{count}I", raw, head)), look)
     volume.close()
     return out
