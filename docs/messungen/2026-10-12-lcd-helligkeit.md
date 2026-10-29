@@ -39,7 +39,7 @@ Emulator blinkt hart.
 - **Geschätzt** (am Gerät mit bloßem Auge, 2026-10-27, keine Messung): beim Hellwerden rund
   0,30 s (`TAU_OFF`). Ein Bildpunkt wird schnell dunkel, aber nur langsam wieder hell: läuft
   Blechy dunkel auf hellem Grund, zieht er eine Schliere. Die 0,028 s aus dem Video (unten)
-  waren zu niedrig.
+  waren zu niedrig. Im Emulator steht `TAU_OFF` seit 2026-10-29 auf 0,20 s (siehe Nachtrag unten).
 
 ## Wie es dargestellt wird
 
@@ -67,7 +67,7 @@ Emulator blinkt hart.
   Firmware-Bildschirmtexte).
 - Die Konstanten sind einstellbar: `--lcd-tau-on` und `--lcd-tau-off` am Dienst, sonst
   `E2_LCD_TAU_ON` und `E2_LCD_TAU_OFF` (Sekunden), sonst die Vorgaben in `lcd.py`
-  (`TAU_ON` 0,040 s, `TAU_OFF` 0,30 s geschätzt). Mit der Reihenfolge Option, Umgebung, Vorgabe.
+  (`TAU_ON` 0,040 s, `TAU_OFF` 0,20 s geschätzt). Mit der Reihenfolge Option, Umgebung, Vorgabe.
   Beispiel: `E2_LCD_TAU_ON=0.12 E2_LCD_TAU_OFF=0.30 npm start`.
 - Tests: `tools/emu/test_lcd.py` (Verlauf, Blinken mit 280 ms bleibt zwischen 3 und 5 und
   13 und 14, Schrittweite, nur geänderte Bildpunkte), `tools/emu/test_server.py`
@@ -173,6 +173,8 @@ Abgleich nach dem Eintragen: dieselbe Aufnahme gegen den Emulator ansehen; `H` u
   Auge am Gerät (keine Messung) braucht ein Bildpunkt rund 0,3 s, bis er hell ist; ein laufender
   Blechy zieht so lange eine Schliere. `lcd.py` nimmt seitdem `TAU_OFF` 0,30 s als Schätzung.
   Hellwerden ist also langsamer als Dunkelwerden, nicht schneller.
+- **Nachtrag 2026-10-29:** Im Emulator wirkte 0,30 s zu träge. `TAU_OFF` steht jetzt auf 0,20 s,
+  weiter eine Schätzung, keine Messung.
 - **Offen:** Beim Dunkelwerden gibt es nach etwa 40 % eine kurze Stufe von rund 35 ms;
   das Modell erster Ordnung bildet sie nicht ab. Ob das am LCD liegt oder an
   Hintergrundlicht und Kamera, ist offen.
