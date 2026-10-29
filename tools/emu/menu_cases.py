@@ -520,8 +520,8 @@ def blechy_ring_cases(dev):
     return out
 
 
-def cases(payload, flash=None, settings=True):
-    """The menu cases as check.py entries [{id, ok, detail}]; the settings cases (settings_cases) come last unless `settings` is False."""
+def ring_cases(payload, flash=None):
+    """The ring, the firmware's menus with our pages and the list that remembers its group, on one device."""
     out = []
 
     def add(name, ok, detail):
@@ -571,8 +571,17 @@ def cases(payload, flash=None, settings=True):
     press(dev, "menu", wait=0.4)
     back = (state(dev, S_LEVEL), state(dev, S_PAGE), texts_of(dev)[0])
     add("list_remembers_the_group", inside == (2, GROUP_PLUGINS) and back == (1, LIST_PLUGINS, LIST_PAGES[LIST_PLUGINS]), f"in {inside}, back {back}")
-    out.extend(blechy_ring_cases(dev))
+    return out
 
+
+def list_cases(payload, flash=None):
+    """The list of the groups, its pages, EXIT, WRITE, the value and every key, on a device of its own."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash)
     # ENTER opens the list of the groups, ENTER on a group its pages, EXIT goes up one level each time and leaves at the ring
     dev.m.uc.mem_write(STATE + S_TOP, struct.pack("<I", 0))     # the list as after power-on, on its first group
     goto_ring(dev)
@@ -655,7 +664,17 @@ def cases(payload, flash=None, settings=True):
         if dev.m.asserts:
             break
     add("all_keys_run", not dev.m.asserts, f"no assertion over 48 keys, screens {sorted(seen_keys)}" if not dev.m.asserts else f"asserts {dev.m.asserts}")
+    return out
 
+
+def page_cases(payload, flash=None):
+    """No page is crowded or shows a cut-off label, on a device of its own."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash)
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0), ("global", 0)] + [("du", page) for page in range(len(du_pages()))] + [("list", page) for page in range(LIST_COUNT)] + [(GROUP_PLUGINS, 0)]
     pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8)]
@@ -681,6 +700,15 @@ def cases(payload, flash=None, settings=True):
     goto_ring(dev)
     clipped =[problem for label in TAB_LABELS for problem in [label_problem(dev, label, 38, 40)] if problem]
     add("tab_labels_fit", not clipped, f"{len(TAB_LABELS)} labels beside the widest counter (39/40): {clipped}")
+    return out
+
+
+def exit_held_cases(payload, flash=None):
+    """With EXIT held at power-on the firmware's menus stay stock."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})
 
     stock = boot(payload, flash, held=KILL)
     go(stock, 8)
@@ -716,6 +744,21 @@ def cases(payload, flash=None, settings=True):
     du_left = (stock.screen()["number"], counter(stock))
     add("exit_held_firmware_menus_are_stock", part_left == (3, (14, BASE_RING)) and chain_right == (7, (15, BASE_RING)) and global_left == (9, (GLOBAL_PAGES - 1, GLOBAL_PAGES))
         and du_left == (15, (DU_FUNCS - 1, DU_FUNCS)) and not stock.m.asserts, f"Part left {part_left}, then right {chain_right}, Global left {global_left}, Data Util left {du_left}")
+    return out
+
+
+def blechy_ring_part(payload, flash=None):
+    """blechy_ring_cases on a device of its own."""
+    return blechy_ring_cases(boot(payload, flash))
+
+
+# What cases_task(i) runs, in the order of cases(). Each boots its own device, so they run side by side.
+CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases)
+
+
+def cases(payload, flash=None, settings=True):
+    """The menu cases as check.py entries [{id, ok, detail}]; the settings cases (settings_cases) come last unless `settings` is False."""
+    out = [entry for part in CASES_PARTS for entry in part(payload, flash)]
     if settings:
         out.extend(settings_cases(payload, flash))
     return out
@@ -1427,10 +1470,10 @@ def look_cases(payload, flash=None, rest=True):
     return out
 
 
-def cases_task():
-    """The screen cases in a worker (parallel.py)."""
+def cases_task(i):
+    """Part `i` of the screen cases in a worker (parallel.py, CASES_PARTS)."""
     import parallel
-    return cases(parallel.shared["payload"], parallel.shared["flash"], settings=False)
+    return CASES_PARTS[i](parallel.shared["payload"], parallel.shared["flash"])
 
 
 def splash_menu_cases(payload, flash=None):
@@ -2232,7 +2275,7 @@ def main():
     flash = load_flash(args.flash) if args.flash else None
     # The same tasks as in check.py (without the calibration), side by side and kept as there (taskcache.py)
     import parallel
-    tasks = [("menu_cases", "cases_task", ()), ("menu_cases", "settings_cases_task", ())]
+    tasks = [("menu_cases", "cases_task", (i,)) for i in range(len(CASES_PARTS))] + [("menu_cases", "settings_cases_task", ())]
     tasks += [("menu_cases", "look_cases_task", (i,)) for i in range(LOOK_PARTS - 1)]
     data = {"payload": payload, "flash": flash, "base": Path(args.base).read_bytes()[HEADER:]}
     result = [c for part in parallel.run_tasks(tasks, data, cache="check") for c in part]

@@ -57,6 +57,8 @@ jobs:
       actions: write
 
   # The full emulator check (tools/emu/check.py) of the set on each of Korg's 2.02 files, side by side with the build.
+  # It starts with no kept task results (no actions/cache, unlike the develop pull requests in verify-patches.yml), so
+  # every case of the release runs.
   verify:
     needs: due
     if: needs.due.outputs.release == 'true'
