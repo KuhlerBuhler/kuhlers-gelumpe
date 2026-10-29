@@ -926,7 +926,7 @@ VERSION, die keine Gruppe ist:
 
 | Eintrag | Was dahinter liegt |
 |---|---|
-| FEATURES | vier Seiten mit den Schaltern der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (Tabelle unten) |
+| FEATURES | die Schalter der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST und, wo der Satz den Patch last-pattern hat, LAST PATTERN (Tabelle unten) |
 | PLUGINS | eine Seite, MANAGE PLUGINS; siehe unten |
 | CUSTOMIZATION | DISPLAY, LED, dazu PAD COLOR, POWER SAVE und SPLASH, wo der Satz sie hat; siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
@@ -941,6 +941,7 @@ Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem We
 | PATTERN CONFIRM | ON, OFF (siehe unten) |
 | TAP MOTION | OFF, ON, ONCE (siehe unten) |
 | NOTE ASSIST | ON, OFF (siehe unten) |
+| LAST PATTERN | ON, OFF (siehe unten) |
 
 Eine Gruppe ABOUT gibt es nicht mehr: sie zeigte nur die Zahl der geladenen Plugins und verwirrte.
 
@@ -981,6 +982,7 @@ Die Seiten der Gruppen:
 | Ring, SYNC GROUP | OFF, 1 bis 999 | eine eigene Seite im Ring (16/32), gleich hinter CHAIN REPEAT, der letzten Seite des Pattern Menüs, und vor dem Part Menü (EDIT rechts von dort, EDIT links von der ersten Seite des Part Menüs; das Schild sagt "Pattern"), auf beiden Electribes (auf der blauen seit 24.10., [Messung](messungen/2026-10-24-blau-sync-group.md)): die Sync Group des Patterns im RAM; das Hauptrad ändert sie, WRITE öffnet das Speichern des Patterns wie auf den Seiten des Pattern Menüs, gespeichert wird sie mit dem Pattern. Läuft ein Pattern, startet ein anderes Pattern derselben Gruppe am Rad ohne MENU am Sequenzende (unten NEXT:), eines außerhalb der Gruppe wartet wie immer auf MENU; gestoppt lädt das Rad ein Pattern der Gruppe auch dann sofort, wenn das Pattern ungespeicherte Änderungen hat ([Messung](messungen/2026-10-25-sync-ungespeichert.md)); beim Wechsel zwischen zwei Patterns einer Gruppe geht der Stand des Patterns mit, das gespielt hat, verändert oder nicht: Part-Mutes und Klang der Parts (Sample, Filter, Modulation, Pitch, Amp, IFX und die übrigen Part-Werte), Tempo, Swing, Lautstärke, das MFX-Pad mit HOLD, auch zurück; die Effekttypen MFX 1 und MFX 2 bleiben die des neuen Patterns; die Patterns einer Gruppe spielen wie eines (nur im RAM). Steps, Motion, Länge, Beat, Tonart, Tonleiter und Chord Set bleiben die des neuen Patterns. OFF (0) heißt keine Gruppe, kein Abgleich ([Messung](messungen/2026-10-19-sync-groups.md), [Stand vom 22.10.](messungen/2026-10-22-sync-und-menues.md)) |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus (Idee 39), TAP länger als 0,3 s gehalten schaltet nur, solange es gehalten ist, beim Loslassen zurück; OFF: TAP ist wieder das Tap-Tempo der Firmware; ONCE (Wert 2 des Einstellungsworts): eine mit TAP eingeschaltete Bewegung spielt bis zum Ende des Patterns und geht dann aus; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3, ONCE als Bit 5 der Flags in der Einstellungsdatei (Bit 3 gewinnt) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Note die Pads der passenden Noten rosa, je besser sie passen, desto heller (Prim und Quinte, dann Terzen, Quarte und ein Tonleiterschritt, dann Sexten); gestoppt oder pausiert bleiben sie stehen, beim Spielen blenden sie aus, die schwachen zuerst; im CHORD-Modus (Skalen mit sieben Tönen) zeigen die Pads ebenso, welche Akkorde gut folgen ([Messung](messungen/2026-10-15-note-assistant.md), [Helligkeit und Ausblenden](messungen/2026-10-19-notenassistent-helligkeit.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
+| FEATURES, LAST PATTERN | ON, OFF | ON: beim Einschalten öffnet die Electribe das Pattern, das vor dem Ausschalten gewählt war ([Idee 76](ideen/76-letztes-pattern.md)); OFF: sie startet wie in der Firmware mit 001, die gemerkte Nummer bleibt für einen Start mit ON; gilt ab dem nächsten Einschalten, WRITE behält es (Bit 3 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; EXIT beim Einschalten: 001; rot und blau, wo der Satz den Patch last-pattern hat ([Messung](messungen/2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md)) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 bis 250 | das Pattern, das DATA UTILITY > INITIALIZE PATTERN als Vorlage nimmt; FACTORY ist die Vorlage der Firmware; gilt sofort und bleibt über das Ausschalten (Global-Byte 247, kein WRITE nötig); nur wo der Satz den Patch init-pattern hat (rot) ([Messung](messungen/2026-10-28-init-pattern.md)) |
 
 Rückmeldungen ("saved", "no card", "imported", "2 exported" und so weiter) ersetzen den
@@ -1131,7 +1133,7 @@ Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokument
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer und GIF Player unter TOOLS, dazu Lauflicht und Pulsieren, Quelle
+und Mandelbrot unter GAMES, Set-Timer und GIF Player unter TOOLS, dazu Lauflicht, Pulsieren und Takt-Blinker, Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
@@ -1177,15 +1179,21 @@ die Lizenztexte liegen in `site/vendor/codemirror.LICENSE.txt`, siehe NOTICE). E
   setzt den Aufruf mit seinen Parametern als Felder ein, Tab springt zum nächsten. Nach
   `korg.key.` und `korg.led.` kommen alle Namen mit Nummer und Bezeichnung, in
   `korg.onEvent("` alle Ereignisse mit den Werten ihres Handlers (Enter setzt den
-  Handler gleich mit ein), im zweiten Argument von `korg.app` die Gruppen. Strg+Leertaste ruft die
-  Liste von Hand, Escape schließt sie.
+  Handler gleich mit ein), im zweiten Argument von `korg.app` die Gruppen. Im Objektbaum kommen nach
+  jedem Punkt die Namen, die dort weitergehen: nach `korg.menu.blech.` die Zweige darunter, an einem Blatt
+  sein Bereich, ob es sich setzen lässt und ab welcher API-Version es da ist. Die Timer (`korg.after`,
+  `korg.every`, `korg.afterSteps`) setzen gleich einen Pfeil `() => { }` ein, in den man schreibt.
+  Strg+Leertaste ruft die Liste von Hand, Escape schließt sie.
 - **Parameterhinweis und Hover:** steht der Cursor in einem Aufruf, zeigt ein Hinweis über
   dem Cursor die Schreibweise und den Parameter, den man gerade tippt, mit seinem Bereich.
   Fährt man mit der Maus über einen Namen, eine Ereignisbezeichnung oder einen Handler-Wert,
   steht dort dieselbe Beschreibung; über einer Zahl, die nach Taste oder LED aussieht,
   steht ihr Name.
 - **Fehler im Text:** der Fehler des Übersetzers wird im Text unterstrichen (Zeile und Spalte
-  des Fehlers), unter dem Editor steht er weiter als Liste, ein Klick setzt den Cursor hin.
+  des Fehlers), unter dem Editor steht er weiter als Liste, ein Klick setzt den Cursor hin. Das gilt
+  beim Tippen auch für den Objektbaum: ein falsch geschriebener Pfad, ein Blatt, das sich nicht setzen
+  lässt, und ein fester Wert außerhalb des Bereichs (`...display.intensity = 300`) sind rot, mit derselben
+  Meldung wie beim Übersetzen.
 - **Tastatur:** Tab verlässt den Editor (er fängt Tab nicht ab, damit niemand darin
   stecken bleibt), eingerückt wird mit Strg+] und Strg+[ (am Mac Cmd statt Strg), rückgängig mit Strg+Z. Der Editor
   hat die Beschriftung „Plugin-Code“, die Vervollständigung ist eine Liste, die Hilfsmittel
@@ -1193,11 +1201,12 @@ die Lizenztexte liegen in `site/vendor/codemirror.LICENSE.txt`, siehe NOTICE). E
 
 **Woher die Texte kommen:** die Funktionen, Ereignisse und Werte stehen in
 `data/script/contract.mjs`, ihre deutschen Beschreibungen in `data/script/describe.mjs`,
-die Namen der Tasten und LEDs in `data/script/names.mjs`. `src/script/editor-model.mjs` macht daraus
+die Namen der Tasten und LEDs in `data/script/names.mjs`, der Objektbaum in `data/script/objects.mjs`. `src/script/editor-model.mjs` macht daraus
 Vervollständigung, Hinweis und Hover als reine Funktionen von Text und Cursor
 (`test/script-editor-model.test.mjs`). `test/script-describe.test.mjs` schlägt fehl, wenn
 eine Funktion oder ein Ereignis des Vertrags keine Beschreibung hat: wer einen Eintrag
-in den Vertrag aufnimmt, schreibt den Satz dazu.
+in den Vertrag aufnimmt, schreibt den Satz dazu. Ein neues Blatt des Objektbaums steht ohne weiteres in der
+Vervollständigung; ein Test geht jedes Blatt Punkt für Punkt ab.
 
 **Vorschau** (`src/script/sim.mjs`): ein simuliertes Gerät auf der Referenz-VM mit
 Display (128 mal 64, Vorschau-Schrift, nicht die der Firmware), LED-Buch und

@@ -63,7 +63,9 @@ und mit `doom.bin` unter `KORG/blechtribe/Doom/`). Der Rückweg ist kurz und lie
 - **Ohne SHIFT + TAP** startet der normale Sampler. Das ist im Emulator geprüft, am Gerät nicht.
 - **EXIT beim Einschalten** hält alle Patches heraus, auch den Lader: der Lader springt nur bei genau
   SHIFT + TAP an. Im Emulator geprüft ([Doom auf BLECH v21](messungen/2026-10-15-doom-v21.md)), am Gerät nicht.
-- **`DOOM ERROR` mit Code** (fehlende Datei, falsche Länge oder Prüfsumme, Karte nicht lesbar), **`DOOM STOP`** nach
+- **Ohne `doom.bin` und `doom.wad` auf der Karte** (oder ohne Karte) startet mit SHIFT + TAP der normale Sampler. Im
+  Emulator geprüft, am Gerät nicht.
+- **`DOOM ERROR` mit Code** (falsche Länge oder Prüfsumme, Karte nicht lesbar), **`DOOM STOP`** nach
   QUIT DOOM und das laufende Spiel: Ein/Aus schaltet in Doom am Gerät bisher nicht aus (25.10.: 30 s gehalten, sie blieb
   an). Netzteil ziehen oder Batterien raus, wieder einschalten ohne SHIFT + TAP. Die Karte nicht während des Zugriffs ziehen.
 - Der Bootloader und die Update-Wege bleiben unberührt. Das Update der Firmware geht wie sonst über den
