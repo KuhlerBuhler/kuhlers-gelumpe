@@ -527,6 +527,42 @@ def blechy_ring_cases(dev):
             bad.append(key)
             break
     add("blechy_all_keys_run", not bad, f"no assertion over 48 keys on his page" if not bad else f"assertion at key {bad}")
+    # EDIT off his page: no frame shows a pixel of him that the next page does not have (Discord 26.10., blue with BLECH 1.3.3: his head
+    # and feet stayed on SYNC GROUP; the page drew only its widgets over his last picture for 35 ms before the full redraw came). Here EDIT
+    # right goes on to the Pattern menu and EDIT left back to the page BLECH.
+    bits = lambda fb: {(i, k) for i, b in enumerate(fb) for k in range(8) if b >> k & 1}
+
+    def sending(before, look, after):
+        """Whether `look` caught the controller in the middle of one transfer: its first bytes are already those of the next look,
+        the rest still those of the one before (a full frame goes in in order and can straddle a 5 ms look)."""
+        if after is None or look == after:
+            return False
+        cut = next(j for j in range(len(look)) if look[j] != after[j])
+        return look[cut:] == before[cut:]
+
+    left = []
+    for key in ("edit_next", "edit_prev"):
+        goto_blechy(dev)
+        dev.run(1.0)
+        last = (frame(dev), dev.fb())
+        dev.m.press(KEYS[key], True)
+        looks = []
+        for k in range(40):
+            dev.run(0.005)
+            if k == 10:
+                dev.m.press(KEYS[key], False)
+            looks.append((frame(dev), dev.fb()))
+        dev.run(0.5)
+        settled = (frame(dev), dev.fb())
+        for i, kind in enumerate(("frame", "display")):
+            his = bits(last[i]) - bits(settled[i])
+            seq = [last[i]] + [look[i] for look in looks] + [None]
+            stale = [5 * k for k in range(1, len(seq) - 1) if seq[k] != last[i] and bits(seq[k]) & his and not sending(seq[k - 1], seq[k], seq[k + 1])]
+            if stale:
+                left.append(f"{key} {kind} at {stale[:4]} ms")
+    add("blechy_leaves_no_trace", not left and not dev.m.asserts,
+        "EDIT right and left off his page: every look every 5 ms is his last picture or has none of his pixels the next page lacks"
+        + (f"; his pixels on the next page: {left}" if left else ""))
     go(dev, 8)
     return out
 
