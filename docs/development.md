@@ -55,6 +55,8 @@ aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. We
 nicht selbst bauen will, trägt den Namen in `docker-compose.yaml` bei `image` ein
 und entfernt `build: .`; `docker compose up` zieht das Abbild dann. Der Ordner
 `SD` bleibt nötig, denn die Karte liegt in keinem Abbild.
+Von Hand (Actions, "Container image", mit einem Tag) lässt sich ein Abbild neu bauen;
+`:latest` wandert dabei nur mit, wenn "latest" angehakt ist.
 
 ## Hinter einem Proxy
 
