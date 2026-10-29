@@ -63,9 +63,32 @@ export function apply() {
 export function set(id, value) {
   values = { ...values, [id]: value };
   save();
+  // A switch set from elsewhere (the disconnect button) shows the new value on the settings page.
+  const box = document.getElementById(`cee-set-${id}`);
+  if (box?.type === "checkbox") box.checked = !!value;
   // Most pages build their texts once, so a new language takes a fresh start of the page.
   if (id === "language" && value !== language()) { location.reload(); return; }
   apply();
+}
+
+/**
+ * The disconnect button switches "Automatisch verbinden" off; connecting by hand switches it back on, but only when the
+ * button was what switched it off, so a choice made on the settings page stays. True when it switched it off.
+ */
+export function holdAutoConnect() {
+  if (!get("autoConnect")) return false;
+  set("autoConnect", false);
+  values = { ...values, autoConnectHeld: true };
+  save();
+  return true;
+}
+
+const unhold = () => { const { autoConnectHeld, ...rest } = values; values = rest; };
+
+export function releaseAutoConnect() {
+  if (!values.autoConnectHeld) return;
+  unhold();
+  set("autoConnect", true);
 }
 
 /** The settings button in the sidebar footer: it opens the settings page like any other area. */
@@ -82,7 +105,11 @@ export function settingsPage(root, app = window.__GELUMPE_APP, midi = null) {
     if (field.type === "switch") {
       const input = el("input", { type: "checkbox", id: `cee-set-${field.id}`, checked: !!get(field.id) });
       input.setAttribute("role", "switch");
-      input.addEventListener("change", () => set(field.id, input.checked));
+      input.addEventListener("change", () => {
+        // A choice made here is the person's own: the disconnect button no longer holds this switch.
+        if (field.id === "autoConnect") unhold();
+        set(field.id, input.checked);
+      });
       const track = el("span", { className: "ui-switch-track" });
       track.setAttribute("aria-hidden", "true");
       const label = el("label", { className: "ui-switch" }, [input, track, el("span", { className: "ui-switch-text" }, [t(field.label), field.hint ? el("span", { className: "ui-switch-hint", textContent: t(field.hint) }) : null])]);
