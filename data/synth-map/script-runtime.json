@@ -15,6 +15,23 @@
   {"from":"0xC06B2F9D","to":"0xC05847F5","kind":"ram","why":"mute byte of part 0: current pattern object plus 805 in both builds; native mute getter C0042ED8 and setter C00434F0 operate on the same pattern layout"},
   {"from":"0xC06BC318","to":"0xC0583C98","kind":"ram","why":"transport word: the native object pointer C03405BC maps to C0340774 and holds C06BC010/C0583990 after startup; the transport word is object +308 in the equal native mode accessors"},
   {"from":"0xC06C2220","to":"0xC0593370","kind":"ram","why":"UI manager tick argument: native hooks at C006F178/C00623F0 observe these r0 values in three successive frames; each is the screen-manager singleton plus 10"},
-  {"from":"0xC06C226C","to":"0xC05933BC","kind":"ram","why":"redraw byte: the measured UI manager tick argument plus 4C in both builds; the equal tick code consumes it before redrawing widgets"}
+  {"from":"0xC06C226C","to":"0xC05933BC","kind":"ram","why":"redraw byte: the measured UI manager tick argument plus 4C in both builds; the equal tick code consumes it before redrawing widgets"},
+  {"from":"0xC0067720","to":"0xC005D900","kind":"code","why":"Pattern menu EDIT right on its last page, `mov r0, #7` before the switch to Part: the step function (Pattern slot 5 at 0xC005D990 -> 0xC005D898) reads the same, read in both"},
+  {"from":"0xC0067724","to":"0xC005D904","kind":"code","why":"return behind it, `b` to the switch call; the same step function, read in both"},
+  {"from":"0xC0065B8C","to":"0xC005BE04","kind":"code","why":"Part menu EDIT left on its first page, `mov r0, #3` after setting the Pattern menu's page to 14: Part slot 4 (0xC005BF3C) -> step 0xC005BD60, read in both, the same offsets from the step's start"},
+  {"from":"0xC0065B90","to":"0xC005BE08","kind":"code","why":"return behind it, `mov r1, #0` before the switch call; read in both"},
+  {"from":"0xC0064C20","to":"0xC005B0BC","kind":"code","why":"GLOBAL PARAMETERS (screen 9) vtable slot 4, `mvn r1, #0; b step`: slot 4 of the class the synth's factory entry 9 builds, read in both"},
+  {"from":"0xC0064C28","to":"0xC005B0C4","kind":"code","why":"GLOBAL PARAMETERS slot 5, `mov r1, #1; b step`, read in both"},
+  {"from":"0xC0064BD4","to":"0xC005B070","kind":"code","why":"the step of GLOBAL PARAMETERS both slots branch to: page from the parameter object, wrap at 20, read in both"},
+  {"from":"0xC00623C0","to":"0xC0058B78","kind":"code","why":"DATA UTILITY function list (screen 15) slot 4, `push {r4, lr}`: slot 4 of the class the synth's factory entry 15 builds, read in both (the synth wraps at 11 functions)"},
+  {"from":"0xC0062448","to":"0xC0058BF8","kind":"code","why":"DATA UTILITY function list slot 5, `push {r4, lr}`, read in both"},
+  {"from":"0xC00623A8","to":"0xC0058B60","kind":"code","why":"the list's check whether it may move now (0 while a function runs), called first by both slots, read in both"},
+  {"from":"0xC00623D4","to":"0xC0058B8C","kind":"code","why":"slot 4 after that check, `ldr r3, [r4, #0x20]` (the function shown), read in both"},
+  {"from":"0xC006245C","to":"0xC0058C0C","kind":"code","why":"slot 5 after that check, `ldr r3, [r4, #0x20]`, read in both"},
+  {"from":"0xC007D3C0","to":"0xC006FCF4","kind":"code","why":"sets the page of the Pattern menu's page object: the Pattern step calls it with the new page, read in both"},
+  {"from":"0xC007BFD0","to":"0xC006E954","kind":"code","why":"sets the page of the Part menu's page object: the Pattern menu's EDIT right on its last page calls it with 0, read in both"},
+  {"from":"0xC0691228","to":"0xC056B508","kind":"ram","why":"the function DATA UTILITY's list opens on: its constructor loads it into +0x20, read in both"},
+  {"from":"0xC0691260","to":"0xC056B540","kind":"ram","why":"-> the Pattern menu's page object, loaded by the Pattern step, read in both"},
+  {"from":"0xC03487E4","to":"0xC03484F8","kind":"ram","why":"-> the Part menu's page object (built on first use), loaded by the Pattern menu's EDIT right on its last page, read in both"}
  ]
 }

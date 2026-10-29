@@ -12,7 +12,7 @@ import { readUnits } from "../src/node.mjs";
 import { recordOf, RECORD } from "../src/presets.mjs";
 import { locateModTable, readModType } from "../src/modtable.mjs";
 import { fxFromRecord, modFromType } from "../src/fx-v2.mjs";
-import { buildCollection, collectionEntry } from "../src/fx-collection.mjs";
+import { buildCollection, collectionEntry, parseCollection } from "../src/fx-collection.mjs";
 import { run } from "./support/spawn.mjs";
 
 // The collection on the card, end to end: the editor builds e2sFx.all for the user's firmware, BLECHTRIBE loads it at
@@ -55,6 +55,15 @@ test("a collection the editor built loads into RAM at power-on; broken ones and 
     assert.equal(report.asserts, 0);
     const hex = bytes => Buffer.from(bytes).toString("hex");
     assert.deepEqual(report.records.map(r => r.ram), [hex(fx.entry.data), hex(mod.entry.data)], "the RAM holds the records of the file");
+    // EXPORT ALL EFFECTS (DATA UTILITY) writes the collection back from RAM; the editor reads it as it built it, every text kept
+    const exported = join(dir, "exported.all");
+    const written = await run(python, ["tools/emu/fx_card_cases.py", "export", "--patched", firmware, "--file", file, "--out", exported], { cwd: root, timeout: 300_000 });
+    assert.equal(written.status, 0, written.stdout + written.stderr);
+    assert.equal(JSON.parse(written.stdout).value, "exported");
+    const back = parseCollection(new Uint8Array(readFileSync(exported)));
+    assert.equal(back.ok, true, back.reason);
+    assert.equal(back.build, buildOf(base));
+    assert.deepEqual(back.entries.map(e => [e.kind, e.index, hex(e.data), e.text]), [fx.entry, mod.entry].map(e => [e.kind, e.index, hex(e.data), e.text]));
     const cases = await run(python, ["tools/emu/fx_card_cases.py", "cases", "--patched", firmware], { cwd: root, timeout: 900_000 });
     assert.equal(cases.status, 0, cases.stdout.slice(-3000) + cases.stderr.slice(-3000));
     assert.deepEqual(JSON.parse(cases.stdout).filter(c => !c.ok), []);
