@@ -40,6 +40,7 @@ on:
       - "src/bzip2.mjs"
       - "src/firmware.mjs"
       - "src/fx-append.mjs"
+      - "src/fx-collection.mjs"
       - "src/fx-v2.mjs"
       - "src/guards.mjs"
       - "src/hooks.mjs"
@@ -190,6 +191,14 @@ jobs:
         env:
           CASES: ${{ needs.ref.outputs.cases }}
         run: npm run -s verify:patches -- --cases "$CASES" "$RUNNER_TEMP/SYSTEM.VSB"
+      # The collection on the card end to end with the editor's own writer (src/fx-collection.mjs), on the red builds
+      # that carry the loader, whenever the fx_card cases run: the cases above build the file in Python.
+      - name: The editor's e2sFx.all in the emulator
+        if: (matrix.name == 'hacktribe' || matrix.name == 'red') && (needs.ref.outputs.full == 'true' || needs.ref.outputs.cases == 'all' || contains(format(',{0},', needs.ref.outputs.cases), ',fx_card_cases,'))
+        env:
+          E2_EMU_REQUIRED: "1"
+          E2_VSB: ${{ runner.temp }}/SYSTEM.VSB
+        run: node --test test/emulator-fxcard.test.mjs
       # Only the entry (hashes, set, number of checks, date), never the firmware.
       - if: needs.ref.outputs.full == 'true'
         uses: actions/upload-artifact@v4
