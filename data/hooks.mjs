@@ -35,6 +35,7 @@ export const CHAINS = {
   "global-screen": [
     { id: "vtable-literal", sites: [0xC0064D3C] },
     { id: "page-count", sites: [0xC0064980, 0xC0064D04] },
+    { id: "edit-slots", sites: [0xC0064C20, 0xC0064C28] },
   ],
   "key-dispatch": [
     { id: "input-filter", sites: [0xC002837C] },
@@ -87,8 +88,9 @@ export const CHAINS = {
   "rec": [{ id: "rec-ready", sites: [0xC0082944] }],
   "menu-ring": [
     { id: "factory", sites: [0xC006E664, 0xC006E68C, 0xC0061B68, 0xC0061B90] },
-    { id: "neighbours", sites: [0xC0064D84, 0xC0061880, 0xC0064430, 0xC0067754] },
+    { id: "neighbours", sites: [0xC0064D84, 0xC0061880, 0xC0064430, 0xC0067754, 0xC0067720, 0xC0065B8C] },
   ],
+  "data-util-screen": [{ id: "edit-slots", sites: [0xC00623C0, 0xC0062448] }],
   "menu-top-level": [{ id: "screen-switch", sites: [0xC006E8D8, 0xC0061DDC] }],
   "menu-write": [{ id: "write-key", sites: [0xC006F094] }],
   "menu-counter": [{ id: "page-counter", sites: [0xC008A83C, 0xC008A8A8] }],

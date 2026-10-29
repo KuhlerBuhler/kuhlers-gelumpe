@@ -51,6 +51,12 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC00161A4,0xE51B3010,'lcd_invert_hook'),
          (0xC0064430,0xE92D4038,'menu_event_right'),
          (0xC0067754,0xE3A0000A,'menu_pattern_left'),
+         (0xC0067720,0xE3A00007,'menu_pattern_right'),
+         (0xC0065B8C,0xE3A00003,'menu_part_left'),
+         (0xC0064C20,0xE3E01000,'menu_global_prev'),
+         (0xC0064C28,0xE3A01001,'menu_global_next'),
+         (0xC00623C0,0xE92D4010,'menu_du_prev'),
+         (0xC0062448,0xE92D4010,'menu_du_next'),
          (0xC0038D34,0xE3A03000,'script_early_hook'))
 # Words that change to a plain value instead of a branch: the screen factory's bound and its table literal.
 WORDS = ((0xC006E664,0xE350002C,0xE350002D),
@@ -93,7 +99,9 @@ def runtime_profile(build):
                                               MG_VRAM=0xC031B310, MG_MARK=0xC001531C, SYNC_GROUP_AT=0x3B80,
                                               # the collection on the card (fx_card.s): which build it is for, and the modulation table this build reads
                                               FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
-                                              BUILD_BASE=4 if build == 'stock' else 0))   # the value of BLECH > VERSION, an offset into base_names
+                                              BUILD_BASE=4 if build == 'stock' else 0,
+                                              # DATA UTILITY's list: its functions (counter "n/14"), and the bits of our pages there the build has (script_menu.s, menu_du_mask)
+                                              DU_PAGES=14, DU_BUILT=2))   # the value of BLECH > VERSION, an offset into base_names
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
@@ -115,7 +123,7 @@ def runtime_profile(build):
         POWER_HOLD_MASK=0, SHORTCUTS=1, REMOTE=0, HW_ENCODER=0,
         SC_LEDMGR=synthaddr.tr(0xC0345A1C), SC_PLAYER=synthaddr.tr(0xC002FAFC), SC_PATPTR=synthaddr.tr(0xC033E6A4),
         SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_LEDSEND=synthaddr.tr(0xC00875F4),
-        MG_WORK=0, MG_MKDIR=0, MG_GETFREE=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        MG_WORK=0, MG_MKDIR=0, MG_GETFREE=0, MG_ALLOC=0, MG_FREE=0, MG_VRAM=0, MG_MARK=0, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=2))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
@@ -189,7 +197,8 @@ class BuiltHooks:
         menu_hooks=[dict(site=f'{address:#010X}'.replace('0X','0x'),kind='instruction',chain=chain,position='before',swallow=swallow)
             for address,chain,swallow in [
             (0xC006E8D8,'menu-top-level',False),(0xC006F094,'menu-write',True),(0xC008A83C,'menu-counter',False),(0xC008A8A8,'menu-counter',False),
-            (0xC0064430,'menu-ring',False),(0xC0067754,'menu-ring',False)]]
+            (0xC0064430,'menu-ring',False),(0xC0067754,'menu-ring',False),(0xC0067720,'menu-ring',False),(0xC0065B8C,'menu-ring',False),
+            (0xC0064C20,'global-screen',False),(0xC0064C28,'global-screen',False),(0xC00623C0,'data-util-screen',False),(0xC0062448,'data-util-screen',False)]]
         menu_hooks+=[dict(site='0xC0088284',kind='instruction',chain='led-meter',position='before',swallow=True)]
         menu_hooks+=[dict(site=f'0x{address:08X}',kind='instruction',chain='backlight',position='before',swallow=False)
             for address in (0xC0016C98,0xC0016CE0,0xC0016D28,0xC00289F4)]
