@@ -15,7 +15,7 @@
  *   +16 i32 min x4, +32 i32 max x4.
  */
 import {
-  FORMAT_VERSION, API_VERSION, MAGIC, LIMITS, HEADER, SECTION, OPCODES, OPCODE_COUNT, EVENTS, API, ERRORS, BUDGET, SCRIPT_ENTRY, SCRIPT_STATE, TIMER3,
+  FORMAT_VERSION, API_VERSION, MAGIC, LIMITS, HEADER, SECTION, OPCODES, OPCODE_COUNT, EVENTS, API, ERRORS, BUDGET, SCRIPT_ENTRY, SCRIPT_STATE, TIMER3, TIMERS,
   BLOCK_FLAGS, SCRIPT_CONTROL, SCRIPT_PHASE, SCRIPT_EVENT_RECORD, SCRIPT_LED, SCRIPT_LED_VALID, SCRIPT_DISPLAY, SCRIPT_GIF, SCRIPT_KNOBS, SCRIPT_APPS, PATTERN_FIELDS, PART_FIELDS, PATTERN_FIELD_KINDS, PATTERN_PARTS, PATTERN_STEPS, STORE, ARCHIVE, DESC_TRAILER, CARD_STATUS,
 } from "../../data/script/contract.mjs";
 import { FONT } from "../../data/script/font.mjs";
@@ -134,6 +134,9 @@ export function asmInclude() {
   for (const f of SCRIPT_APPS.recordFields) eq(`SCRIPT_APP_${sym(f.name)}`, f.offset);
   SCRIPT_APPS.groups.forEach((g, i) => eq(`SCRIPT_APP_GROUP_${g}`, i));
   for (const [name, value] of Object.entries(STORE)) if (typeof value === "number") eq(`STORE_${sym(name)}`, value);
+  for (const [name, value] of Object.entries(TIMERS)) if (typeof value === "number") eq(`TIMERS_${sym(name)}`, value);
+  for (const [name, value] of Object.entries(TIMERS.KIND)) eq(`TIMER_KIND_${name}`, value);
+  for (const f of TIMERS.fields) eq(`TIMER_${sym(f.name)}`, f.offset);
   for (const [name, value] of Object.entries(ARCHIVE)) if (typeof value === "number") eq(`ARCHIVE_${sym(name)}`, value);
   for (const f of ARCHIVE.fields) eq(`ARCHIVE_AT_${sym(f.name)}`, f.offset);
   for (const [name, value] of Object.entries(DESC_TRAILER)) eq(`DESC_${sym(name)}`, value);
