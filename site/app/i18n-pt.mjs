@@ -568,7 +568,7 @@ export default {
   "features.powerOff.how": "Desligar.",
   "features.lastPattern.title": "Último pattern ao ligar",
   "features.lastPattern.text": "Ao ligar, a Electribe abre o pattern que estava selecionado antes de desligar, em vez de 001.",
-  "features.lastPattern.how": "Escolhe um pattern, desliga e volta a ligar. Com EXIT premido começa como sempre em 001.",
+  "features.lastPattern.how": "Escolhe um pattern, desliga e volta a ligar. Com EXIT premido começa como sempre em 001. BLECH > FEATURES > LAST PATTERN: OFF começa sempre em 001, WRITE guarda-o.",
   "features.initPattern.title": "Pattern de init próprio",
   "features.initPattern.text": "DATA UTILITY > INITIALIZE PATTERN usa um pattern à tua escolha em vez do modelo do firmware, por exemplo um totalmente vazio.",
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: escolhe um pattern (FACTORY é o modelo do firmware). Vale logo e mantém-se ao desligar.",

@@ -568,7 +568,7 @@ export default {
   "features.powerOff.how": "Uitzetten.",
   "features.lastPattern.title": "Laatste pattern bij inschakelen",
   "features.lastPattern.text": "Bij het inschakelen opent de Electribe het pattern dat voor het uitschakelen gekozen was, in plaats van 001.",
-  "features.lastPattern.how": "Kies een pattern, schakel uit en weer in. Met EXIT ingedrukt start hij zoals altijd met 001.",
+  "features.lastPattern.how": "Kies een pattern, schakel uit en weer in. Met EXIT ingedrukt start hij zoals altijd met 001. BLECH > FEATURES > LAST PATTERN: OFF start altijd met 001, WRITE bewaart het.",
   "features.initPattern.title": "Eigen init-pattern",
   "features.initPattern.text": "DATA UTILITY > INITIALIZE PATTERN neemt een pattern naar keuze in plaats van het sjabloon van de firmware, bijvoorbeeld een helemaal leeg pattern.",
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: kies een pattern (FACTORY is het sjabloon van de firmware). Geldt meteen en blijft na het uitschakelen.",

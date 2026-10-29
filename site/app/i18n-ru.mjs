@@ -568,7 +568,7 @@ export default {
   "features.powerOff.how": "Выключи.",
   "features.lastPattern.title": "Последний паттерн при включении",
   "features.lastPattern.text": "При включении Electribe открывает паттерн, выбранный перед выключением, а не 001.",
-  "features.lastPattern.how": "Выбери паттерн, выключи и снова включи. С зажатой EXIT она стартует как обычно с 001.",
+  "features.lastPattern.how": "Выбери паттерн, выключи и снова включи. С зажатой EXIT она стартует как обычно с 001. BLECH > FEATURES > LAST PATTERN: OFF всегда стартует с 001, WRITE сохраняет это.",
   "features.initPattern.title": "Свой init-паттерн",
   "features.initPattern.text": "DATA UTILITY > INITIALIZE PATTERN берёт выбранный тобой паттерн вместо шаблона прошивки, например совсем пустой.",
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: выбери паттерн (FACTORY — шаблон прошивки). Действует сразу и сохраняется после выключения.",

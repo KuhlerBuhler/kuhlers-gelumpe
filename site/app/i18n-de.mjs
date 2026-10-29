@@ -598,7 +598,7 @@ export default {
   "features.powerOff.how": "Ausschalten.",
   "features.lastPattern.title": "Letztes Pattern beim Einschalten",
   "features.lastPattern.text": "Beim Einschalten öffnet die Electribe das Pattern, das vor dem Ausschalten gewählt war, statt 001.",
-  "features.lastPattern.how": "Pattern wählen, ausschalten, wieder einschalten. Mit EXIT gehalten startet sie wie gewohnt mit 001.",
+  "features.lastPattern.how": "Pattern wählen, ausschalten, wieder einschalten. Mit EXIT gehalten startet sie wie gewohnt mit 001. BLECH > FEATURES > LAST PATTERN: OFF startet immer mit 001, WRITE behält es.",
   "features.initPattern.title": "Eigenes Init-Pattern",
   "features.initPattern.text": "DATA UTILITY > INITIALIZE PATTERN übernimmt ein Pattern deiner Wahl statt der Vorlage der Firmware, etwa ein ganz leeres.",
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: Pattern wählen (FACTORY ist die Vorlage der Firmware). Gilt sofort und bleibt über das Ausschalten.",

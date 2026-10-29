@@ -725,7 +725,7 @@ page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
-| FEATURES | four pages with the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (table below) |
+| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN (table below) |
 | PLUGINS | one page, MANAGE PLUGINS; see below |
 | CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
@@ -740,6 +740,7 @@ The pages of FEATURES (the tag names the group "Feature"), each with the value O
 | PATTERN CONFIRM | ON, OFF (see below) |
 | TAP MOTION | OFF, ON, ONCE (see below) |
 | NOTE ASSIST | ON, OFF (see below) |
+| LAST PATTERN | ON, OFF (see below) |
 
 There is no ABOUT group any more: it only showed the number of loaded plugins and confused people.
 
@@ -780,6 +781,7 @@ The pages of the groups:
 | Ring, SYNC GROUP | OFF, 1 to 999 | a page of its own in the ring (16/32), right behind CHAIN REPEAT, the last page of the Pattern menu, and before the Part menu (EDIT right from there, EDIT left from the first page of the Part menu; the tag says "Pattern"), on both Electribes (on the blue one since 24.10., [measurement](messungen/2026-10-24-blau-sync-group.md)): the sync group of the pattern in RAM; the main dial changes it, WRITE opens the pattern write as on the Pattern menu's pages, it is saved with the pattern. While a pattern plays, another pattern of the same group chosen with the dial starts at the end of the sequence without MENU (NEXT: below), one outside the group waits for MENU as always; stopped, the dial loads a pattern of the group at once even when the pattern has unsaved changes ([measurement](messungen/2026-10-25-sync-ungespeichert.md)); switching between two patterns of one group carries the state of the pattern that played, changed or not: part mutes and part sound (sample, filter, modulation, pitch, amp, IFX and the other part values), tempo, swing, level, the MFX pad with HOLD, also back; the effect types MFX 1 and MFX 2 stay the new pattern's; the patterns of a group play as one (in RAM only). Steps, motion, length, beat, key, scale and chord set stay the new pattern's. OFF (0) is no group, nothing carried |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off, TAP held longer than 0.3 s switches only while held and back on letting go; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
+| FEATURES, LAST PATTERN | ON, OFF | ON: at power-on the Electribe opens the pattern that was selected before switching off; OFF: it starts with 001 as in the firmware, the kept number stays for a start with ON; applies from the next power-on, WRITE keeps it (bit 3 of byte 5 of the settings file means OFF); without a file ON; EXIT at power-on: 001; red and blue, where the set has the patch last-pattern |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 to 250 | the pattern DATA UTILITY > INITIALIZE PATTERN takes as its template; FACTORY is the firmware's template; applies at once and stays after switching off (Global byte 247, no WRITE needed); only where the set has the patch init-pattern (red) ([measurement](messungen/2026-10-28-init-pattern.md)) |
 
 Feedback ("saved", "no card", "imported", "2 exported" and so on) replaces the value of the page until you

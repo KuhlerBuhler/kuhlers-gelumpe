@@ -568,7 +568,7 @@ export default {
   "features.powerOff.how": "Vypni zařízení.",
   "features.lastPattern.title": "Poslední pattern při zapnutí",
   "features.lastPattern.text": "Po zapnutí Electribe otevře pattern, který byl vybraný před vypnutím, místo 001.",
-  "features.lastPattern.how": "Vyber pattern, vypni, znovu zapni. S drženým EXIT začne jako obvykle na 001.",
+  "features.lastPattern.how": "Vyber pattern, vypni, znovu zapni. S drženým EXIT začne jako obvykle na 001. BLECH > FEATURES > LAST PATTERN: OFF začne vždy na 001, WRITE to uloží.",
   "features.initPattern.title": "Vlastní init pattern",
   "features.initPattern.text": "DATA UTILITY > INITIALIZE PATTERN převezme pattern podle tvé volby místo šablony firmwaru, třeba úplně prázdný.",
   "features.initPattern.how": "DATA UTILITY > SET INIT PATTERN: vyber pattern (FACTORY je šablona firmwaru). Platí hned a zůstane i po vypnutí.",

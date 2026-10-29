@@ -868,7 +868,7 @@ VERSION, die keine Gruppe ist:
 
 | Eintrag | Was dahinter liegt |
 |---|---|
-| FEATURES | vier Seiten mit den Schaltern der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (Tabelle unten) |
+| FEATURES | die Schalter der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST und, wo der Satz den Patch last-pattern hat, LAST PATTERN (Tabelle unten) |
 | PLUGINS | eine Seite, MANAGE PLUGINS; siehe unten |
 | CUSTOMIZATION | DISPLAY, LED, dazu PAD COLOR, POWER SAVE und SPLASH, wo der Satz sie hat; siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
@@ -883,6 +883,7 @@ Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem We
 | PATTERN CONFIRM | ON, OFF (siehe unten) |
 | TAP MOTION | OFF, ON, ONCE (siehe unten) |
 | NOTE ASSIST | ON, OFF (siehe unten) |
+| LAST PATTERN | ON, OFF (siehe unten) |
 
 Eine Gruppe ABOUT gibt es nicht mehr: sie zeigte nur die Zahl der geladenen Plugins und verwirrte.
 
@@ -923,6 +924,7 @@ Die Seiten der Gruppen:
 | Ring, SYNC GROUP | OFF, 1 bis 999 | eine eigene Seite im Ring (16/32), gleich hinter CHAIN REPEAT, der letzten Seite des Pattern Menüs, und vor dem Part Menü (EDIT rechts von dort, EDIT links von der ersten Seite des Part Menüs; das Schild sagt "Pattern"), auf beiden Electribes (auf der blauen seit 24.10., [Messung](messungen/2026-10-24-blau-sync-group.md)): die Sync Group des Patterns im RAM; das Hauptrad ändert sie, WRITE öffnet das Speichern des Patterns wie auf den Seiten des Pattern Menüs, gespeichert wird sie mit dem Pattern. Läuft ein Pattern, startet ein anderes Pattern derselben Gruppe am Rad ohne MENU am Sequenzende (unten NEXT:), eines außerhalb der Gruppe wartet wie immer auf MENU; gestoppt lädt das Rad ein Pattern der Gruppe auch dann sofort, wenn das Pattern ungespeicherte Änderungen hat ([Messung](messungen/2026-10-25-sync-ungespeichert.md)); beim Wechsel zwischen zwei Patterns einer Gruppe geht der Stand des Patterns mit, das gespielt hat, verändert oder nicht: Part-Mutes und Klang der Parts (Sample, Filter, Modulation, Pitch, Amp, IFX und die übrigen Part-Werte), Tempo, Swing, Lautstärke, das MFX-Pad mit HOLD, auch zurück; die Effekttypen MFX 1 und MFX 2 bleiben die des neuen Patterns; die Patterns einer Gruppe spielen wie eines (nur im RAM). Steps, Motion, Länge, Beat, Tonart, Tonleiter und Chord Set bleiben die des neuen Patterns. OFF (0) heißt keine Gruppe, kein Abgleich ([Messung](messungen/2026-10-19-sync-groups.md), [Stand vom 22.10.](messungen/2026-10-22-sync-und-menues.md)) |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus (Idee 39), TAP länger als 0,3 s gehalten schaltet nur, solange es gehalten ist, beim Loslassen zurück; OFF: TAP ist wieder das Tap-Tempo der Firmware; ONCE (Wert 2 des Einstellungsworts): eine mit TAP eingeschaltete Bewegung spielt bis zum Ende des Patterns und geht dann aus; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3, ONCE als Bit 5 der Flags in der Einstellungsdatei (Bit 3 gewinnt) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Note die Pads der passenden Noten rosa, je besser sie passen, desto heller (Prim und Quinte, dann Terzen, Quarte und ein Tonleiterschritt, dann Sexten); gestoppt oder pausiert bleiben sie stehen, beim Spielen blenden sie aus, die schwachen zuerst; im CHORD-Modus (Skalen mit sieben Tönen) zeigen die Pads ebenso, welche Akkorde gut folgen ([Messung](messungen/2026-10-15-note-assistant.md), [Helligkeit und Ausblenden](messungen/2026-10-19-notenassistent-helligkeit.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
+| FEATURES, LAST PATTERN | ON, OFF | ON: beim Einschalten öffnet die Electribe das Pattern, das vor dem Ausschalten gewählt war ([Idee 76](ideen/76-letztes-pattern.md)); OFF: sie startet wie in der Firmware mit 001, die gemerkte Nummer bleibt für einen Start mit ON; gilt ab dem nächsten Einschalten, WRITE behält es (Bit 3 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; EXIT beim Einschalten: 001; rot und blau, wo der Satz den Patch last-pattern hat ([Messung](messungen/2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md)) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 bis 250 | das Pattern, das DATA UTILITY > INITIALIZE PATTERN als Vorlage nimmt; FACTORY ist die Vorlage der Firmware; gilt sofort und bleibt über das Ausschalten (Global-Byte 247, kein WRITE nötig); nur wo der Satz den Patch init-pattern hat (rot) ([Messung](messungen/2026-10-28-init-pattern.md)) |
 
 Rückmeldungen ("saved", "no card", "imported", "2 exported" und so weiter) ersetzen den
