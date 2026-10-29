@@ -743,7 +743,7 @@ Plugins kommen nur über die SD-Karte aufs Gerät, nie in die VSB. Der Ordner is
 `KORG/blechtribe/Plugin/` (Einzahl, nicht "Plugins"; bei der roten und der blauen Electribe derselbe), den die
 Firmware nicht selbst anlegt. Mit verbundenem Gerät legt die Seite Plugins
 sie auch über USB dorthin (Knopf "Aufs Gerät", BLECH-SysEx-Befehl `0x67` PLUGIN BEGIN, Name aus Buchstaben,
-Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, PLUGINS, PLUGIN EDIT.
+Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, PLUGINS, MANAGE PLUGINS.
 
 - `e2sPlugin.all` ist die Sammeldatei, die das Gerät beim Start liest. Kopf, 16
   Byte, little endian: Kennung `GSAL`, Dateiversion 1 (u16), Anzahl Blöcke
@@ -774,7 +774,7 @@ im Kontrollblock der Laufzeit (`cardStatus`, `cardLoaded`, `cardRejected`,
 
 Dateien schreibt der Editor (`src/script/archive.mjs`: `packAll`, `parseAll`,
 `packBlech`, `parseBlech`). Ein Plugin, das nur auf der Karte liegt, läuft erst
-beim nächsten Start; in PLUGIN EDIT am Gerät (siehe unten) steht es als OFF in der Liste und läuft, sobald man es dort einschaltet.
+beim nächsten Start; in MANAGE PLUGINS am Gerät (siehe unten) steht es als OFF in der Liste und läuft, sobald man es dort einschaltet.
 
 **Das Kennzeichen "geprobt".** Der Kopf eines Blocks hat ein Feld `flags` (Byte 34,
 u16). Bit 0 heißt PROBED: der Editor setzt es beim Export, nachdem er den Text
@@ -825,11 +825,21 @@ Mit dem BLECH Patch hat die Electribe einen eigenen Bildschirm "BLECH", am Ende 
 hinter Event (Bildschirm 0x2D). Er hat drei Ebenen und sieht aus wie
 Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
 
-- **Im Ring** ist BLECH eine einzige Seite ("BLECH 30/32") hinter Event, danach kommen zwei
-  Seiten des Patches: [Blechy](#blechy-die-letzte-seite-des-rings) (31/32) und SYNC GROUP (32/32, eine Einstellung des
-  Patterns, siehe unten), dann das Pattern Menü. Deshalb zählt der Ring bis 32 statt bis 29; auf der blauen bis 31 statt bis 28
-  (Blechy 29/31, SYNC GROUP 30/31). EDIT links und rechts blättern durch den Ring. Mit EXIT
-  beim Einschalten ist der Bildschirm nicht da und der Ring ist der der Firmware.
+- **Im Ring** ist BLECH eine einzige Seite ("BLECH 31/32") hinter Event, danach kommt als letzte Seite
+  [Blechy](#blechy-die-letzte-seite-des-rings) (32/32), dann wieder das Pattern Menü. Eine dritte Seite des Patches steht
+  mitten im Ring: SYNC GROUP (16/32, eine Einstellung des Patterns, siehe unten) gleich hinter CHAIN REPEAT, der letzten Seite
+  des Pattern Menüs, und vor der ersten Seite des Part Menüs, das damit bei 17 beginnt. Deshalb zählt der Ring bis 32 statt
+  bis 29; auf der blauen bis 31 statt bis 28 (SYNC GROUP 16/31, BLECH 30/31, Blechy 31/31, die blaue hat kein Sample Menü).
+  EDIT links und rechts blättern durch den Ring. Mit EXIT beim Einschalten ist der Bildschirm nicht da und der Ring ist der
+  der Firmware.
+- **In GLOBAL PARAMETERS** steht hinter der letzten Seite der Firmware (XY CALIBRATION) die Seite PLUGIN RUNTIME
+  ("Global 21/21"), **in DATA UTILITY** stehen hinter der letzten Funktion (SOFTWARE UPDATE) EXPORT ALL CUSTOMIZATIONS,
+  EXPORT ALL PLUGINS, EXPORT ALL EFFECTS und SET INIT PATTERN ("Data Util 15/18" bis "18/18"; auf der blauen, die 11 Funktionen
+  und keine Sammeldatei hat, ohne EXPORT ALL EFFECTS: 12/14 bis 14/14). Sie sehen aus wie
+  die Seiten der Firmware und gehören zum Bildschirm BLECH: EDIT blättert zwischen ihnen und den Seiten der Firmware in
+  beide Richtungen, EXIT geht dorthin, wohin es von den Seiten der Firmware geht (Global, Data Util), die Zähler der
+  Firmware zählen sie mit. Seiten in den Menüs der Firmware selbst anzulegen, hieße deren Tabellen und Zustandsmaschinen
+  zu ändern; so bleiben beide unberührt (Entscheidung vom 29.10., [Messung](messungen/2026-10-29-menue-anordnung.md)).
 - **ENTER auf der Seite BLECH** öffnet die Liste auf der Gruppe, aus der man zuletzt herauskam, auch nach
   einem Umweg durch die anderen Menüs.
 - **ENTER**, die Taste MENU, öffnet die Liste der Gruppen. Das Schild oben links nennt
@@ -844,14 +854,14 @@ Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
   das Tasten abfängt, das Menü nicht sperren kann.
 
 Die Liste der ersten Ebene besteht aus Gruppen, in dieser Reihenfolge: erst die eingebauten Schalter, dann
-die Anpassung, dann die Plugins, dann die Gruppen, die Plugins selbst anmelden (`korg.app`), und als letzte Seite
+die Plugins, dann die Anpassung, dann die Gruppen, die Plugins selbst anmelden (`korg.app`), und als letzte Seite
 VERSION, die keine Gruppe ist:
 
 | Eintrag | Was dahinter liegt |
 |---|---|
 | FEATURES | vier Seiten mit den Schaltern der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST (Tabelle unten) |
+| PLUGINS | eine Seite, MANAGE PLUGINS; siehe unten |
 | CUSTOMIZATION | DISPLAY, LED, dazu PAD COLOR, POWER SAVE und SPLASH, wo der Satz sie hat; siehe unten |
-| PLUGINS | Gruppe, siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
 | TOOLS | wie GAMES |
 | VERSION | keine Gruppe: oben die Version des Satzes, mit dem die Firmware gepatcht wurde (`BLECH 1.3.7`, aus dem Patch `blech-version`), darunter die Firmware, für die das Menü gebaut ist (HACKTRIBE, KORG RED, KORG BLUE). ENTER, WRITE und das Rad ändern nichts |
@@ -871,14 +881,15 @@ Die Seiten der Gruppen:
 
 | Gruppe, Seite | Wert | Wirkung |
 |---|---|---|
-| PLUGINS, RUNTIME | ON, OFF | die Plugins der Karte an oder aus, gilt ab dem nächsten Start ("OFF, RESTART" zeigt, dass es noch nicht gilt); Blechy ist kein Plugin der Karte und bleibt |
-| PLUGINS, PLUGIN EDIT | `press  [ Enter ]`, nach ENTER "No Plugin", wenn es nichts zu zeigen gibt | die eine Liste aller Plugins, aufgebaut wie SAMPLE EDIT der Firmware: ENTER liest den Ordner `KORG/blechtribe/Plugin/` (bis 16 Dateien) und öffnet die Seiten der Liste (das Schild bleibt "Plugins", der Zähler zählt sie, EDIT blättert im Kreis), EXIT führt zurück auf PLUGIN EDIT. In der Liste stehen zuerst die geladenen Plugins, dann die der `*.blech`-Dateien, die nicht geladen sind, jedes Plugin einmal (gleicher Name im Kopf der Datei und im geladenen Block heißt: dasselbe Plugin). Ein Plugin, das nur in `e2sPlugin.all` steht und zu dem es keine Datei gibt, steht als geladenes in der Liste und hat keine Beschreibung. Teile der Firmware (Blechy und was BLECH selbst mitbringt) sind keine Plugins und stehen nie hier, ihre Schalter sind unter FEATURES |
-| Plugin, SELECT PLUGIN | sein Name | das Hauptrad wählt das Plugin, um das es auf den folgenden Seiten geht (wie SELECT SAMPLE), von den geladenen bis zu den nicht geladenen |
-| Plugin, STATE | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | pausieren und fortsetzen, WRITE behält den Stand über einen Neustart (ein ausgeschaltetes Plugin startet dann nicht, beim Einschalten läuft sein Start nach); bei einem Fehler steht der Fehler mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (WRITE erlaubt es einmal). Ein Plugin, das nicht geladen ist, zeigt OFF wie ein ausgeschaltetes: das Hauptrad nach oben oder ENTER lädt es aus der Datei und startet es (ein fremdes wartet dann auf WRITE=ALLOW, ein kaputter Block meldet "rejected", ohne Plugins in der Laufzeit RUNTIME "runtime off"), nach unten tut das Rad nichts. Beides heißt OFF, der Unterschied ist die Zahl der Seiten: ein nicht geladenes Plugin hat nur SELECT PLUGIN, STATE und DESCRIPTION, ein geladenes dazu seine eigenen Seiten und DELETE PLUGIN. Ein so geladenes Plugin läuft bis zum Ausschalten; über Neustarts bleibt es erst mit EXPORT ALL, das es in `e2sPlugin.all` aufnimmt |
+| GLOBAL PARAMETERS, PLUGIN RUNTIME | ON, OFF | die Plugins der Karte an oder aus, gilt ab dem nächsten Start ("OFF, RESTART" zeigt, dass es noch nicht gilt); Blechy ist kein Plugin der Karte und bleibt. Die Seite 21/21 von GLOBAL PARAMETERS, WRITE speichert die Einstellungen des Menüs BLECH |
+| PLUGINS, MANAGE PLUGINS | `press  [ Enter ]`, nach ENTER "No Plugin", wenn es nichts zu zeigen gibt | ENTER liest den Ordner `KORG/blechtribe/Plugin/` (bis 16 Dateien) und öffnet die Liste aller Plugins, eine Seite je Plugin (das Schild bleibt "Plugins", der Zähler zählt sie, EDIT blättert im Kreis wie in jedem anderen Menü), auf dem Plugin, das man zuletzt gesehen hat; EXIT führt zurück auf MANAGE PLUGINS. In der Liste stehen zuerst die geladenen Plugins, dann die der `*.blech`-Dateien, die nicht geladen sind, jedes Plugin einmal (gleicher Name im Kopf der Datei und im geladenen Block heißt: dasselbe Plugin). Ein Plugin, das nur in `e2sPlugin.all` steht und zu dem es keine Datei gibt, steht als geladenes in der Liste und hat keine Beschreibung. Teile der Firmware (Blechy und was BLECH selbst mitbringt) sind keine Plugins und stehen nie hier, ihre Schalter sind unter FEATURES |
+| ein Plugin der Liste | oben sein Name, darunter ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW | das Hauptrad schaltet es: nach unten pausiert es, nach oben läuft es weiter; WRITE behält den Stand über einen Neustart (ein ausgeschaltetes Plugin startet dann nicht, beim Einschalten läuft sein Start nach); bei einem Fehler steht der Fehler mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (nur WRITE erlaubt es, das Rad nicht). Ein Plugin, das nicht geladen ist, zeigt OFF wie ein ausgeschaltetes: das Hauptrad nach oben lädt es aus der Datei und startet es (ein fremdes wartet dann auf WRITE=ALLOW, ein kaputter Block meldet "rejected", ohne Plugins in der Laufzeit "runtime off"), nach unten tut das Rad nichts. Ein so geladenes Plugin läuft bis zum Ausschalten; über Neustarts bleibt es erst mit EXPORT ALL PLUGINS, das es in `e2sPlugin.all` aufnimmt. ENTER öffnet die Seiten des Plugins: DESCRIPTION, seine eigenen Seiten und REMOVE (ein nicht geladenes hat nur DESCRIPTION); EXIT führt zurück auf das Plugin in der Liste |
 | Plugin, DESCRIPTION | der Zustand des Plugins unter der Beschreibung | die Beschreibung aus der `*.blech`-Datei des Plugins (die `//`-Zeilen ganz oben im Code), als Bild über den ganzen Bildschirm: oben der Name, darunter die Zeilen, unten der Stand. Das Hauptrad scrollt zeilenweise, `^` und `v` zeigen, dass es weitergeht; ENTER tut hier nichts. Ohne Datei oder ohne Beschreibung steht "no description" |
 | Plugin, je `korg.menu.add` eine Seite | die Zahl | die Einstellungen dieses Plugins: das Hauptrad ändert sie, das Plugin bekommt `menu` |
-| Plugin, DELETE PLUGIN | `press  [ Enter ]` | ENTER fragt ("Enter = delete"), ein zweites ENTER löscht: das Plugin hält an, `e2sPlugin.all` wird ohne es neu geschrieben (auch leer, wenn es das letzte war), PLUGIN EDIT meldet "deleted"; die `*.blech` im Ordner bleibt, das Plugin steht beim nächsten ENTER auf PLUGIN EDIT wieder als OFF in der Liste und lässt sich laden |
-| PLUGINS, EXPORT ALL | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
+| Plugin, REMOVE | `press  [ Enter ]` | ENTER fragt ("Enter = remove"), ein zweites ENTER entfernt es: das Plugin hält an, `e2sPlugin.all` wird ohne es neu geschrieben (auch leer, wenn es das letzte war), MANAGE PLUGINS meldet "removed"; die `*.blech` im Ordner bleibt, das Plugin steht beim nächsten ENTER auf MANAGE PLUGINS wieder als OFF in der Liste und lässt sich laden |
+| DATA UTILITY, EXPORT ALL CUSTOMIZATIONS | (leer, `press  [ Enter ]`; der Titel heißt "EXPORT ALL CUSTOM", der ganze Name passt nicht in die Zeile) | ENTER oder WRITE schreibt die Anpassung als `KORG/blechtribe/e2sCustom.all`: derselbe Satz wie die Einstellungsdatei, ohne die Liste der Prüfsummen der Plugins, und meldet "exported". Beim Start liest noch nichts diese Datei; kopiert über `settings.a.bin` liest sie der Einstellungslader, und die Anpassung ist zurück |
+| DATA UTILITY, EXPORT ALL EFFECTS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt die Presets und Modulationstypen, wie die Firmware sie gerade im RAM hält, zurück in die Sammeldatei `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX und Modulation aus dem Baukasten): jeder Eintrag bleibt an seinem Platz, mit seinem `.e2fx`-Text, den der Editor zurückliest; ein Eintrag ohne Text bleibt, wie er ist; die Prüfsumme wird neu. Nur die Datei, die beim Einschalten geladen wurde: "no e2sFx.all" ohne geladene Datei, "bad e2sFx.all", wenn sie seitdem eine andere ist, dann wird nichts geschrieben. Nur auf der roten (die blaue hat keine Sammeldatei) |
+| DATA UTILITY, EXPORT ALL PLUGINS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | öffnet die Seiten des Display-Lichts; EXIT führt zurück auf DISPLAY |
 | DISPLAY, BACKLIGHT HUE, SAT, BRIGHT | HUE 0 bis 95, SAT und BRIGHT 0 bis 15 | Farbe des Display-Lichts: HUE läuft einmal um den Farbkreis (16 Schritte je Rot, Gelb, Grün, Cyan, Blau, Magenta und der Weg dazwischen), SAT ist die Sättigung, BRIGHT die Helligkeit; gespeichert bleibt Rot, Grün, Blau zu je 0 bis 15, eine ältere Datei liest sich also wie vorher; ohne Einstellung steht STOCK da (das Weiß der Firmware), volle Helligkeit ohne Sättigung ist wieder STOCK; ein Schritt, der dieselbe Farbe ergäbe, springt zum nächsten, der sie ändert; gilt sofort |
@@ -900,20 +911,19 @@ Die Seiten der Gruppen:
 | SPLASH, SPLASH DRAW | ENTER | öffnet den Startbild-Editor (eine Seite des Global-Bildschirms, die nur von hier aus erreichbar ist): Rad bewegt den Cursor nach links und rechts, mit gehaltenem SHIFT hoch und runter, MENU kippt das Pixel, gehalten malt es dessen neue Farbe überall hin, wo der Cursor langläuft, WRITE speichert, EXIT verlässt den Editor. Nur wo der Satz den Startbild-Editor hat |
 | SPLASH, SPLASH RESET | ENTER | verwirft das gespeicherte Startbild (Import oder Editor), ab sofort und bei jedem weiteren Start kommt wieder das Startbild der Firmware; die Seite sagt "original back". Nur wo der Satz den Startbild-Editor hat |
 | FEATURES, PATTERN CONFIRM | ON, OFF | ON: ein anderes Pattern, das am Rad gewählt wird, wartet beim Spielen auf MENU (ENTER) und startet am Sequenzende; OFF: die Firmware wie ohne den Patch Patternwechsel; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 2 der Flags in der Einstellungsdatei Die Taste MENU zeigt, wo man drücken muss: sie blinkt, solange ein Pattern nur angesehen ist (VIEW:, auch gestoppt mit ungespeicherten Änderungen), und leuchtet, sobald es bestätigt ist (NEXT:), bis zum Wechsel; danach ist sie wieder so, wie die Firmware sie hatte. Dabei zeigen die Pads und, nach EDIT, die Info-Texte (OSC, Pitch und so weiter) das Pattern, das angesehen oder bestätigt ist ([Messung](messungen/2026-10-25-pattern-ansicht.md)). |
-| Ring, SYNC GROUP | OFF, 1 bis 999 | eine eigene Seite im Ring, gleich vor der ersten Seite des Pattern Menüs (EDIT links von dort, EDIT rechts von Blechy; das Schild sagt "Pattern"), auf beiden Electribes (auf der blauen seit 24.10., [Messung](messungen/2026-10-24-blau-sync-group.md)): die Sync Group des Patterns im RAM; das Hauptrad ändert sie, WRITE öffnet das Speichern des Patterns wie auf den Seiten des Pattern Menüs, gespeichert wird sie mit dem Pattern. Läuft ein Pattern, startet ein anderes Pattern derselben Gruppe am Rad ohne MENU am Sequenzende (unten NEXT:), eines außerhalb der Gruppe wartet wie immer auf MENU; gestoppt lädt das Rad ein Pattern der Gruppe auch dann sofort, wenn das Pattern ungespeicherte Änderungen hat ([Messung](messungen/2026-10-25-sync-ungespeichert.md)); beim Wechsel zwischen zwei Patterns einer Gruppe geht der Stand des Patterns mit, das gespielt hat, verändert oder nicht: Part-Mutes und Klang der Parts (Sample, Filter, Modulation, Pitch, Amp, IFX und die übrigen Part-Werte), Tempo, Swing, Lautstärke, das MFX-Pad mit HOLD, auch zurück; die Effekttypen MFX 1 und MFX 2 bleiben die des neuen Patterns; die Patterns einer Gruppe spielen wie eines (nur im RAM). Steps, Motion, Länge, Beat, Tonart, Tonleiter und Chord Set bleiben die des neuen Patterns. OFF (0) heißt keine Gruppe, kein Abgleich ([Messung](messungen/2026-10-19-sync-groups.md), [Stand vom 22.10.](messungen/2026-10-22-sync-und-menues.md)) |
+| Ring, SYNC GROUP | OFF, 1 bis 999 | eine eigene Seite im Ring (16/32), gleich hinter CHAIN REPEAT, der letzten Seite des Pattern Menüs, und vor dem Part Menü (EDIT rechts von dort, EDIT links von der ersten Seite des Part Menüs; das Schild sagt "Pattern"), auf beiden Electribes (auf der blauen seit 24.10., [Messung](messungen/2026-10-24-blau-sync-group.md)): die Sync Group des Patterns im RAM; das Hauptrad ändert sie, WRITE öffnet das Speichern des Patterns wie auf den Seiten des Pattern Menüs, gespeichert wird sie mit dem Pattern. Läuft ein Pattern, startet ein anderes Pattern derselben Gruppe am Rad ohne MENU am Sequenzende (unten NEXT:), eines außerhalb der Gruppe wartet wie immer auf MENU; gestoppt lädt das Rad ein Pattern der Gruppe auch dann sofort, wenn das Pattern ungespeicherte Änderungen hat ([Messung](messungen/2026-10-25-sync-ungespeichert.md)); beim Wechsel zwischen zwei Patterns einer Gruppe geht der Stand des Patterns mit, das gespielt hat, verändert oder nicht: Part-Mutes und Klang der Parts (Sample, Filter, Modulation, Pitch, Amp, IFX und die übrigen Part-Werte), Tempo, Swing, Lautstärke, das MFX-Pad mit HOLD, auch zurück; die Effekttypen MFX 1 und MFX 2 bleiben die des neuen Patterns; die Patterns einer Gruppe spielen wie eines (nur im RAM). Steps, Motion, Länge, Beat, Tonart, Tonleiter und Chord Set bleiben die des neuen Patterns. OFF (0) heißt keine Gruppe, kein Abgleich ([Messung](messungen/2026-10-19-sync-groups.md), [Stand vom 22.10.](messungen/2026-10-22-sync-und-menues.md)) |
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus (Idee 39), TAP länger als 0,3 s gehalten schaltet nur, solange es gehalten ist, beim Loslassen zurück; OFF: TAP ist wieder das Tap-Tempo der Firmware; ONCE (Wert 2 des Einstellungsworts): eine mit TAP eingeschaltete Bewegung spielt bis zum Ende des Patterns und geht dann aus; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3, ONCE als Bit 5 der Flags in der Einstellungsdatei (Bit 3 gewinnt) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Note die Pads der passenden Noten rosa, je besser sie passen, desto heller (Prim und Quinte, dann Terzen, Quarte und ein Tonleiterschritt, dann Sexten); gestoppt oder pausiert bleiben sie stehen, beim Spielen blenden sie aus, die schwachen zuerst; im CHORD-Modus (Skalen mit sieben Tönen) zeigen die Pads ebenso, welche Akkorde gut folgen ([Messung](messungen/2026-10-15-note-assistant.md), [Helligkeit und Ausblenden](messungen/2026-10-19-notenassistent-helligkeit.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
-| FEATURES, INIT PATTERN | FACTORY, 1 bis 250 | das Pattern, das DATA UTILITY > INITIALIZE PATTERN als Vorlage nimmt; FACTORY ist die Vorlage der Firmware; gilt sofort und bleibt über das Ausschalten (Global-Byte 247, kein WRITE nötig); nur wo der Satz den Patch init-pattern hat (rot) ([Messung](messungen/2026-10-28-init-pattern.md)) |
+| DATA UTILITY, SET INIT PATTERN | FACTORY, 1 bis 250 | das Pattern, das DATA UTILITY > INITIALIZE PATTERN als Vorlage nimmt; FACTORY ist die Vorlage der Firmware; gilt sofort und bleibt über das Ausschalten (Global-Byte 247, kein WRITE nötig); nur wo der Satz den Patch init-pattern hat (rot) ([Messung](messungen/2026-10-28-init-pattern.md)) |
 
 Rückmeldungen ("saved", "no card", "imported", "2 exported" und so weiter) ersetzen den
 Wert der Seite, bis man das Hauptrad dreht oder die Seite wechselt. Die dritte Zeile der
 Firmware (die Einheit hinter einem Wert) beginnt bei jedem Bildschirm in Spalte 28 der
 Wertzeile: jeder Wert, der breiter ist als ein oder zwei Zeichen, läuft hinein. Das Menü
 benutzt sie deshalb nie. Was eine Seite sagt, steht im Wert, der rund 14 Zeichen fasst, der
-Titel rund 18. EXPORT ALL steht in der Gruppe PLUGINS, nicht in DATA
-UTILITY (siehe Stand).
+Titel rund 18.
 
-Auf den Seiten RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION und bei der Zustimmung für fremde Plugins
+Auf den Seiten PLUGIN RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION und bei der Zustimmung für fremde Plugins
 speichert WRITE die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
 sich mit einer Generationsnummer abwechseln (24 bis 88 Byte: Kennung `GSET`, Version 2, ein Byte mit METER LOUD RAINBOW in Bit 0 (ein BLECH vor 1.3 verwirft eine Datei, in der es gesetzt ist), Anzahl
 erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
@@ -946,11 +956,11 @@ die Karte lesbar ist, eine Einstellung von der Karte kann es nicht mehr ändern.
 ## Blechy, die letzte Seite des Rings
 
 Blechy, das heruntergekommene Nasenwesen, ist kein Plugin. Er ist in BLECH eingebaut und hat die
-**vorletzte Seite im EDIT Ring** der Firmware: hinter Event, vor SYNC GROUP und dem Pattern Menü ("31/32"; auf der
-blauen "29/31"). Vom Pattern Menü aus erreicht man ihn mit EDIT links auf dessen erster Seite und noch einmal EDIT links. Auf der Seite steht er sofort da, live:
+**letzte Seite im EDIT Ring** der Firmware: hinter Event und BLECH, vor dem Pattern Menü ("32/32"; auf der
+blauen "31/31"). Vom Pattern Menü aus erreicht man ihn mit EDIT links auf dessen erster Seite. Auf der Seite steht er sofort da, live:
 kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Seitenzahl ist dabei nicht zu sehen).
 
-- **Wie jede Seite des Rings:** EDIT links geht zu BLECH, EDIT rechts zu SYNC GROUP, EXIT zum
+- **Wie jede Seite des Rings:** EDIT links geht zu BLECH, EDIT rechts zum Pattern Menü, EXIT zum
   Hauptbildschirm. Das Hauptrad, MENU und WRITE ändern auf seiner Seite nichts (das Hauptrad blättert auf den
   Ringseiten der Firmware auch nicht). Gemessen im Emulator ([Messung](messungen/2026-10-15-blechy.md)).
 - **Er winkt.** Landet man auf der Seite, steht er da. Etwa eine Sekunde später winkt er einmal: die Hand schwingt
@@ -978,9 +988,9 @@ kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Sei
   machst'n du da atze?" ist weg, sie passte nur auf den Hauptbildschirm.
 - **Sonst wie vorher:** ein Tipp des Touchpads nahe an ihm macht ihn wütend, Streicheln froh. Die Zahlen (Tempo, Spielzeit)
   leben nur im RAM und beginnen mit jedem Start neu.
-- **Kein Plugin der Karte:** er steht weder unter GAMES noch unter PLUGINS, wird nicht gezählt, nicht von EXPORT ALL
+- **Kein Plugin der Karte:** er steht weder unter GAMES noch unter PLUGINS, wird nicht gezählt, nicht von EXPORT ALL PLUGINS
   geschrieben und lässt sich nicht ausschalten. Er braucht keine Karte und keine Datei `e2sPlugin.all` und läuft auch mit
-  der Einstellung RUNTIME auf OFF. Mit EXIT beim Einschalten fehlt er (und mit ihm die Seite): der Ring ist der der Firmware.
+  der Einstellung PLUGIN RUNTIME auf OFF. Mit EXIT beim Einschalten fehlt er (und mit ihm die Seite): der Ring ist der der Firmware.
 - **Eingaben:** auf seiner Seite sehen die Plugins der Karte nur das Touchpad (die Taste und die Lage), alles andere geht
   allein an die Firmware, und ein Plugin kann dort keine Taste abfangen: EDIT und EXIT funktionieren immer.
 - **Eingebaut heißt:** sein Block (15476 Byte, ein ganz normaler Plugin-Block der API 6, vom Editor übersetzt und im
@@ -1207,7 +1217,8 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
   ([Messung](messungen/2026-10-15-blechy.md)).
 - Menü BLECH (`tools/patch/script_menu.s`): zwei Ebenen mit Gruppen, Zähler und Schild je
   Gruppe, EXIT geht eine Ebene zurück, WRITE, MENU als ENTER, Einstellungen, Plugin-Seiten,
-  Apps, EXPORT ALL, die Liste in PLUGIN EDIT, fremde Plugins, `korg.menu.add`; jede Seite ist ohne dritte
+  Apps, EXPORT ALL PLUGINS und SET INIT PATTERN in DATA UTILITY, PLUGIN RUNTIME in GLOBAL PARAMETERS, SYNC GROUP
+  hinter CHAIN REPEAT, die Liste in MANAGE PLUGINS, fremde Plugins, `korg.menu.add`; jede Seite ist ohne dritte
   Zeile gezeichnet, ein Fall prüft alle auf Überlappung
   ([Messung](messungen/2026-10-14-blech-menue.md)).
 - Firmwaredatei: das Patch-Set `data/patches/blech.json` (Startbild-Editor, MFX 2,
@@ -1223,7 +1234,8 @@ der Ladebalken liegen; dort ist am Gerät noch nichts geprüft.
 ### Am Gerät
 
 Die Firmwaredatei mit der Laufzeit läuft am eigenen Gerät. Das Menü BLECH, das Laden aus
-PLUGIN EDIT, EXPORT ALL und `korg.store` haben dort Dateien auf der Karte gelesen und geschrieben
+PLUGIN EDIT, EXPORT ALL (bis 1.3.7 so benannt und unter PLUGINS, seit 1.3.8 MANAGE PLUGINS und EXPORT ALL PLUGINS
+in DATA UTILITY; die neue Anordnung ist am Gerät noch nicht bedient) und `korg.store` haben dort Dateien auf der Karte gelesen und geschrieben
 (`e2sPlugin.all`, `store.a.bin`, `store.b.bin`), die Anpassung, die Seiten von FEATURES und
 SPLASH IMPORT und DRAW sind am Gerät bedient. Die Wünsche aus diesen Tests stehen in den Messungen
 ab dem 18.10. ([Plugin bleibt aus](messungen/2026-10-18-plugin-bleibt-aus.md),
@@ -1254,14 +1266,14 @@ gespielt hat, sagt sie selbst. Die Schrittlisten für einen eigenen Test:
   Meldung, und das Ausschalten der Interrupts setzt einen privilegierten Modus
   voraus ([Messung](messungen/2026-10-14-skript-led.md)).
 - **Menü:** kein Schalter für das Startbild, lange Namen werden abgeschnitten, die Liste
-  von PLUGIN EDIT liest höchstens 16 Dateien
+  von MANAGE PLUGINS liest höchstens 16 Dateien
   ([Messung](messungen/2026-10-14-blech-menue.md)).
-- **PLUGIN EDIT und EXPORT ALL in DATA UTILITY:** nicht gebaut, sie stehen in der Gruppe
-  PLUGINS des Menüs BLECH. Die Funktionsliste von DATA UTILITY ist der Bildschirm 15, eine
-  Zustandsmaschine mit einer Sprungtabelle von 40 Zuständen in einer einzigen Funktion
-  (`0xC0061A24`); zwei Seiten mehr heißen eine Kopie der Klassentabelle, einen Seitenzähler
-  "n/16" und eigene Zustände für Dateiauswahl und Ausführung, ein eigener Auftrag
+- **Seiten in GLOBAL PARAMETERS und DATA UTILITY:** sie sind Seiten des Bildschirms BLECH, die EDIT an den Rändern
+  der Firmware-Seiten erreicht (Haken auf die Slots EDIT links und rechts von Bildschirm 9 und 15). Die Funktionsliste
+  von DATA UTILITY selbst ist eine Zustandsmaschine mit einer Sprungtabelle von 40 Zuständen in einer einzigen Funktion
+  (`0xC0061A24`); Seiten darin wären eigene Zustände, ein eigener Auftrag
   ([Messung](messungen/2026-10-14-blech-menue.md), Abschnitt "DATA UTILITY").
+  `e2sCustom.all` von EXPORT ALL CUSTOMIZATIONS liest beim Start noch nichts; einen Lader dafür gibt es nicht.
 - **Apps am Gerät:** das Öffnen und Schließen, der Neuzeichner des Hauptbildschirms
   (Byte `0xC06C226C`) und die Tasten der offenen App sind nur im Emulator gespielt.
 - **Format 2:** der Aufschlag der 16-Bit-Operanden ist hergeleitet (Abschnitt

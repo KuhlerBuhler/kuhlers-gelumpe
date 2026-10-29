@@ -159,8 +159,9 @@ controller. FatFs has no lock, so everything the runtime writes follows these ru
 
 1. Read only at start, after `e2sSample.all` has loaded and with EXIT not held. Write only in the frame hook
    with the main screen open, so never during DATA UTILITY or sample loading. The BLECH menu is the exception:
-   it writes only on the user's WRITE and reads the file list when the page PLUGIN EDIT opens and the description of a plugin when its page DESCRIPTION opens, always with
-   the menu screen open.
+   it writes only on the user's WRITE and reads the file list when the list of MANAGE PLUGINS opens and the description of a plugin when its page DESCRIPTION opens, always with
+   the menu screen open. The BLECH pages that sit in DATA UTILITY (EXPORT ALL PLUGINS) are that menu screen; the firmware's
+   function list is closed then.
 2. Write only on an explicit request (`korg.store.save()`), with at least 50 frames (2 seconds) between two
    writes.
 3. A file is written whole in one go and never replaced in place: two files take turns with a generation

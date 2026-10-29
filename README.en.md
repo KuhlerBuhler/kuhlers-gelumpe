@@ -33,6 +33,7 @@
 - **Do I need a computer?** Yes, once to patch the file. You can use the Electribe without the computer afterwards.
 - **Are samples included?** No. BLECHTRIBE contains no samples. Your own samples stay on your card. On the first start, the Electribe offers to take over your existing sample folder.
 - **Does it work on the blue Electribe?** Yes, with fewer features. See the table below.
+- **Blue Electribe: where are my exports?** In `KORG/blechtribe/`, no longer in `KORG/electribe/`. On the first start, the Electribe offers to copy `KORG/electribe/` there.
 - **Do I keep Hacktribe?** Yes, when you start with a Hacktribe firmware file. BLECHTRIBE adds its features on top. Patching Korg's original firmware does not add Hacktribe's features.
 - **How do I make my own effects?** Open the **Baukasten** in the app. Take a ready effect or build one from blocks, with names and real units. The export puts them on the SD card, single ones also go live over USB. This works on the red sampler with BLECHTRIBE. An `.e2fx` file opens under BLECHTRIBE -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", or with a loaded firmware under BLECHTRIBE -> Presets -> "Preset-Datei laden".
 - **Windows: the app does not find my Electribe, although its MIDI ports are listed.** Korg's own USB-MIDI driver is probably installed; the Electribe's replies do not come through it. Remove it in Device Manager (the Electribe, "Uninstall device", with the driver) and restart Windows. Windows' own driver is enough. If the KORG Driver Setup Utility then offers to reinstall it, close it. The MIDI report in the settings says so too.
@@ -197,7 +198,7 @@ A plugin gives the Electribe a new function. You put it on the device through th
 `KORG/blechtribe/Plugin/`. The folder is called `Plugin`, singular, not "Plugins", and it is the same on the
 red and the blue Electribe. The firmware does not create it, you do. With the device connected you can skip
 the card: in the Plugins area the button "Aufs Gerät" writes the plugin there over USB, then on the device
-Menü -> BLECH -> PLUGINS -> PLUGIN EDIT. The code is a subset of JavaScript, the editor compiles it to bytecode for a
+Menü -> BLECH -> PLUGINS -> MANAGE PLUGINS. The code is a subset of JavaScript, the editor compiles it to bytecode for a
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,

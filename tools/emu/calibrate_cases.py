@@ -64,7 +64,8 @@ def cases(payload,flash=None):
     ref=boot(payload,flash,held=KILL)
     contrast_page(ref)
     ref.press(0x0C,wait=0.3)
-    leftover=[i for i,(a,b) in enumerate(zip(left[128:896],picture(ref)[128:896])) if a!=b]
+    # rows 8 and 9 (blue) hold the foot of the tab with the counter: 14/21 with PLUGIN RUNTIME, 14/20 without the runtime
+    leftover=[i for i,(a,b) in enumerate(zip(left[128:896],picture(ref)[128:896])) if (a^b)&(0xFC if i<128 else 0xFF)]
     add('next_page_clean',dev.screen()['page']==13 and ref.screen()['page']==13 and not leftover and not dev.m.asserts,
         f'EDIT to the next page draws it whole, as the firmware alone does (bytes of pages 1 to 6 that differ: {leftover[:8]})')
     contrast_page(dev)

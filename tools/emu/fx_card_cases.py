@@ -165,7 +165,67 @@ def case_exit(payload, flash):
     return [result("exit_held", status in (0, 4) and unchanged, f"status {STATUS.get(status, status)}, records unchanged {unchanged}")]
 
 
-GROUPS = (case_good, case_refused, case_exit)
+def export(dev):
+    """DATA UTILITY, our page EXPORT ALL EFFECTS, ENTER: the value it shows after, and the collection on the card then."""
+    menu_cases.INIT_PAGE = dev.read(menu_cases.INIT_CODE, 4) != b"\xff" * 4
+    menu_cases.FX_EXPORT = True
+    menu_cases.goto_du(dev, menu_cases.du_pages().index("EXPORT ALL EFFECTS"))
+    title = menu_cases.text(dev, menu_cases.S_TITLE)
+    menu_cases.press(dev, "menu", wait=1.0)
+    volume = fat32.Volume(dev.m.mmc.card.medium.data)
+    try:
+        written = volume.read(CARD_FILE)
+    except Exception:
+        written = None
+    volume.close()
+    return title, menu_cases.text(dev, menu_cases.S_VALUE), written
+
+
+def entries_of(data):
+    """(kind, index, data, text) of each entry of a collection, and whether its CRC-32 is right."""
+    count, total, crc = struct.unpack_from("<HII", data, 6)
+    at, out = 24, []
+    for _ in range(count):
+        kind, index, text, size = struct.unpack_from("<BBHH", data, at)
+        out.append((kind, index, data[at + 8:at + 8 + size], data[at + 8 + size:at + 8 + size + text]))
+        at += (8 + size + text + 3) & ~3
+    return out, total == len(data) and crc == zlib.crc32(data[24:])
+
+
+def case_export(payload, flash):
+    """EXPORT ALL EFFECTS writes the records in RAM into the collection that was loaded, each text as it was, an entry without
+    text untouched, the CRC new; the next start loads it. Without a file, or with a file changed since the start, it writes nothing."""
+    base, before, want, good = plan(payload, flash)
+    build = 2 if build_of(payload) == "stock" else 1
+    bare = named(before["ifx2"], NAME, 15, "NO TEXT")
+    original = collection(build, good + [entry("ifx", 2, bare, text=b"")])
+    dev = boot(payload, flash, {CARD_FILE: original})
+    edited = named(want["ifx"], NAME, 15, "EXPORTED IFX")
+    dev.m.uc.mem_write(dev.call(GET["ifx"], 1), edited)
+    dev.m.uc.mem_write(dev.call(GET["ifx"], 2), named(bare, NAME, 15, "CHANGED"))
+    title, value, written = export(dev)
+    was, _ = entries_of(original)
+    now, crc_ok = entries_of(written or original)
+    texts = [e[3] for e in now] == [e[3] for e in was]
+    datas = [e[2] for e in now] == [edited, want["mfx"], want["mod"], bare]
+    again = boot(payload, flash, {CARD_FILE: written or b""})
+    status, loaded = state(again)
+    out = [result("export_writes_ram_keeps_text", title == "EXPORT ALL EFFECTS" and value == "exported" and written is not None and len(written) == len(original)
+                  and crc_ok and texts and datas and not dev.m.asserts,
+                  f"{title!r} {value!r}, {len(written or b'')} of {len(original)} bytes, CRC {crc_ok}, texts kept {texts}, records {datas}"),
+           result("export_loads_again", status == 2 and loaded == 4 and records(again, payload)["ifx"] == edited,
+                  f"status {STATUS.get(status, status)}, {loaded} entries, insert 1 is the exported one: {records(again, payload)['ifx'] == edited}")]
+    empty = boot(payload, flash, {})
+    _, value, written = export(empty)
+    out.append(result("export_without_file", value == "no e2sFx.all" and written is None and not empty.m.asserts, f"{value!r}, file {written is not None}"))
+    changed = boot(payload, flash, {CARD_FILE: original})
+    changed.m.uc.mem_write(STATE + 12, b"\x5a" * 4)    # FX_WANT: the CRC the loader read; another one stands for a file written since the start
+    _, value, written = export(changed)
+    out.append(result("export_refuses_a_changed_file", value == "bad e2sFx.all" and written == original and not changed.m.asserts, f"{value!r}, file kept {written == original}"))
+    return out
+
+
+GROUPS = (case_good, case_refused, case_exit, case_export)
 
 
 def group_entries(payload, flash, i):
@@ -185,11 +245,12 @@ def main():
     import lifetime
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("what", choices=("cases", "load"))
+    p.add_argument("what", choices=("cases", "load", "export"))
     p.add_argument("--patched", required=True, type=Path)
     p.add_argument("--flash", nargs="*", default=[], type=Path)
     p.add_argument("--only", type=int, help="run one group")
-    p.add_argument("--file", type=Path, help="load: boot with this e2sFx.all on the card")
+    p.add_argument("--file", type=Path, help="load, export: boot with this e2sFx.all on the card")
+    p.add_argument("--out", type=Path, help="export: where the collection goes after EXPORT ALL EFFECTS")
     a = p.parse_args()
     payload = a.patched.read_bytes()[0x100:]
     flash = load_flash(a.flash) if a.flash else None
@@ -209,6 +270,13 @@ def main():
             records.append({"kind": kind, "index": index, "ram": read(kind, index).hex()})
             at += (8 + size + text + 3) & ~3
         print(json.dumps({"status": STATUS.get(status, status), "loaded": loaded, "records": records, "asserts": len(dev.m.asserts)}))
+        return 0
+    if a.what == "export":
+        dev = boot(payload, flash, {CARD_FILE: a.file.read_bytes()})
+        title, value, written = export(dev)
+        if written is not None:
+            a.out.write_bytes(written)
+        print(json.dumps({"title": title, "value": value, "written": written is not None, "asserts": len(dev.m.asserts)}))
         return 0
     entries = group_entries(payload, flash, a.only) if a.only is not None else cases(payload, flash)
     print(json.dumps(entries, indent=1))

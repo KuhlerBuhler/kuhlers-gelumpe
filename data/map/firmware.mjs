@@ -48,6 +48,12 @@ const firmware = {
       note: "8 Seiten zu 128 Spalten, Bit 7 oben; gezeichnet vor allen Rettungswegen",
     },
     {
+      id: "loadingAnim", label: l("Eigene Ladeanimation", "Custom loading animation"), area: "splash",
+      where: { offset: 0x1a6100 }, type: "bytes:16384", transport: ["firmware"], firmware: FIRMWARE,
+      edit: "expert", source: "derived", evidence: "derived:tools/patch/load_bar.py:ANIM_SLOT",
+      note: "BLLA-Datei (docs/hintergrund/ladeanimation.md), FF ohne; gelesen nur mit dem Patch load-bar",
+    },
+    {
       id: "crc16", label: l("CRC16-Tabelle", "CRC16 table"), area: "firmware",
       where: { offset: 0xa7850 }, type: "bytes:512", transport: [], firmware: FIRMWARE,
       edit: "readonly", source: "derived", evidence: LAYOUT,

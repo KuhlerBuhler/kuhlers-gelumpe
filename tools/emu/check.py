@@ -13,13 +13,17 @@ that runs there (Hacktribe for the blue, docs/ideen/65-blech-hacktribe-blau.md).
 start scenarios only; the cases of the patches still run on the --flash/--hardware one, since they expect the Init patterns
 of a blank flash (one bar, no chain), not what a user saved (the app's check does this, server.py).
 
+--quick runs only the start scenarios; --cases menu_cases,remote_cases runs them and the cases of the named modules
+(CASE_MODULES), an empty --cases is --quick. The pull requests into develop use it (.github/workflows/verify-patches.yml);
+a quick or partial result is never a full check and goes into no verified.json.
+
 --allow is data of the map's formats that is read at start. --allow-code is an
 explicit exception to rule 2 of docs/patcher.md: start-phase code a patch
 replaces on purpose, with its reason in the patch (`startPhase`). Every
 exception is listed in the result. While it runs, check.py writes one JSON line {"progress": ...} per finished task to stderr (progress.py); stdout is only the result. A copy that carries the splash editor's start
 hook also has to pass its storage and kill switch cases (splash_cases.py); one with the MFX 2
 switch's key hook has to pass its switch, DSP and kill switch cases (mfx_cases.py); one with the BLECH menu has to pass the menu, settings and look
-cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py), a sampler copy also the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py) and the cases of the keys from the computer (remote_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py).
+cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py), a sampler copy also the cases of the keys from the computer (remote_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py).
 """
 
 import argparse
@@ -100,9 +104,10 @@ def overlaps(runs, ranges, allow=()):
     return hits
 
 
-def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progress=None, quick=False, boot_flash=None):
+def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progress=None, quick=False, boot_flash=None, cases=None):
     """base and patched are whole VSB files. Returns {ok, checks, changed}. `boot_flash` is the flash the start scenarios
-    boot from (default `flash`); the cases of the patches run on `flash`.
+    boot from (default `flash`); the cases of the patches run on `flash`. `cases` (names of case modules) runs only the
+    cases of these modules; an empty list is the same as `quick`.
 
     The boots it needs do not depend on each other and run side by side (parallel.py). Each task's result is kept with
     the files it used (taskcache.py), so an unchanged copy is not checked twice and a change runs only the tasks it
@@ -114,17 +119,21 @@ def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progres
     if taskcache.enabled():
         # each task is kept with the files it used (taskcache.py), data files included, which a key over the .py files
         # of tools/ misses; the rest of the check is quick
-        return _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash)
+        return _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash, cases)
+    kind = "check-quick" if quick or cases == [] else "check" if cases is None else "check-cases:" + ",".join(sorted(cases))
     return bootcache.cached_result(
-        "check-quick" if quick else "check", (bytes(base), bytes(patched), bytes(flash) if flash else b"", sorted(map(tuple, allow)), sorted(map(tuple, allow_code)))
+        kind, (bytes(base), bytes(patched), bytes(flash) if flash else b"", sorted(map(tuple, allow)), sorted(map(tuple, allow_code)))
         + ((bytes(boot_flash),) if boot_flash is not None else ()),
-        lambda: _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash))
+        lambda: _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash, cases))
 
 
-def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=False, boot_flash=None):
+def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=False, boot_flash=None, cases=None):
     """base and patched are whole VSB files. Returns {ok, checks, changed}. `quick` runs only what keeps the device safe:
     the start scenarios (normal start, update offer, panel update, start modes, EXIT, DSP once, start phase), not the
-    cases of the patches, which test the patches' own code, the same in every file."""
+    cases of the patches, which test the patches' own code, the same in every file. `cases` limits the cases to these
+    modules (CASE_MODULES); an empty list is `quick`."""
+    if cases is not None and not cases:
+        quick = True
     checks = []
 
     def add(name, ok, detail):
@@ -136,7 +145,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     add("dsp_stream", same_dsp_program(base, patched), "der DSP-Strom des Firmware-Builds ist unverändert")
     runs = changed_runs(base[HEADER:], patched[HEADER:])
     payload = patched[HEADER:]
-    want = lambda has: not quick and has(payload)
+    want = lambda has: not quick and (cases is None or has.__module__ in cases) and has(payload)
     # longest first: the cases of the patches, then the start scenarios (about a boot each)
     tasks = []
     if want(has_key_hook):
@@ -265,10 +274,27 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     if power_off:
         checks.extend(combine_power_off(power_off_done))
     checks.extend(presets)
+    if cases and not quick:
+        add("partial", True, "Teilprüfung: Start und Rettungswege, Tests nur aus " + ", ".join(sorted(cases)))
     if quick:
         add("quick", True, "Kurzprüfung: Start und Rettungswege; die Tests der einzelnen Funktionen liefen nicht")
     return {"ok": all(c["ok"] for c in checks), "checks": checks,
             "changed": [[f"0x{a:x}", n] for a, n in runs]}
+
+
+# The modules whose cases _check runs, one has_* test each; its __module__ is the name --cases takes.
+CASE_MODULES = ("mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases", "note_assist_cases",
+                "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
+                "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
+                "init_pattern_cases", "power_off_cases", "preset_cases")
+
+
+def case_list(text):
+    names = [n.strip() for n in text.split(",") if n.strip()]
+    unknown = [n for n in names if n not in CASE_MODULES]
+    if unknown:
+        raise argparse.ArgumentTypeError(f"unknown case module(s): {', '.join(unknown)}; known: {', '.join(CASE_MODULES)}")
+    return names
 
 
 def span(text):
@@ -288,12 +314,15 @@ def main():
     p.add_argument("--hardware", choices=sorted(HARDWARE_MARKS), help="without --flash: a blank flash of this hardware")
     p.add_argument("--boot-flash", nargs="*", default=[], type=Path, help="own flash for the start scenarios only, not the cases")
     p.add_argument("--quick", action="store_true", help="only the start scenarios, not the cases of the patches")
+    p.add_argument("--cases", type=case_list, metavar="MODULE,...",
+                   help="the start scenarios and only the cases of these modules, e.g. menu_cases,remote_cases; empty = --quick")
     p.add_argument("--allow-code", action="append", default=[], type=span, metavar="FILE:LEN",
                    help="start-phase code a patch replaces on purpose (docs/patcher.md rule 2), e.g. 0x2AEAC:4")
     a = p.parse_args()
     flash = load_flash(a.flash) if a.flash else bytes(hardware_flash(a.hardware)) if a.hardware else None
     result = check(a.base.read_bytes(), a.patched.read_bytes(), flash, a.allow, a.allow_code,
-                   progress=progress_lib.to_stderr, quick=a.quick, boot_flash=load_flash(a.boot_flash) if a.boot_flash else None)
+                   progress=progress_lib.to_stderr, quick=a.quick, boot_flash=load_flash(a.boot_flash) if a.boot_flash else None,
+                   cases=a.cases)
     print(json.dumps(result, indent=1, ensure_ascii=False))
     return 0 if result["ok"] else 1
 
