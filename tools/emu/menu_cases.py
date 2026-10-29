@@ -2120,7 +2120,7 @@ def settings_file_v3(generation, flags, look, extras=0):
 
 
 def last_pattern_menu_cases(payload, flash=None):
-    """The page LAST PATTERN, the last of FEATURES where the set has the patch last-pattern: ON is the default and writes nothing to the
+    """The page LAST PATTERN of FEATURES where the set has the patch last-pattern: ON is the default and writes nothing to the
     patch's word, the dial changes the word at once, WRITE keeps OFF as bit 3 of byte 5 of the settings file (next to the meter's bits),
     the next start reads it, EXIT at power-on leaves the word alone."""
     out = []
@@ -2138,7 +2138,7 @@ def last_pattern_menu_cases(payload, flash=None):
     add("default_on", word(dev) == 0xFFFFFFFF and word(bare) == 0xFFFFFFFF and word(plain) == 1,
         f"card {word(dev):#x}, no card {word(bare):#x}, file without the bit {word(plain):#x}")
 
-    page_at = feature_count() - 1
+    page_at = feature_pages().index("LAST PATTERN")
     goto_group(dev, GROUP_FEATURES, page_at)
     page = texts_of(dev), counter(dev), tab(dev)
     dev.turn(-1, wait=0.3)
