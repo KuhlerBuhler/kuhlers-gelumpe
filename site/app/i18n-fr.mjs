@@ -1963,6 +1963,7 @@ export default {
   "api.korg.seq.clearPart": "Coupe les 64 steps d'une part dans le pattern en cours.",
   "api.korg.backlight": "Allume (1) ou éteint (0) les trois couleurs du rétroéclairage de l'écran.",
   "api.korg.ledHold": "1 empêche le firmware de réécrire les LED du panneau, 0 les lui rend.",
+  "api.korg.padHold": "1 empêche les frappes de pad d'atteindre le firmware (pas de son, pas de modification de pas), le plugin reçoit toujours pad, 0 rend les pads.",
   "api.korg.menu.add": "Crée une page dans le menu BLECH et renvoie son numéro, -1 si tous les emplacements sont pris. Quand l'utilisateur la tourne, l'événement menu arrive.",
   "api.korg.app": "Déclare le plugin comme app dans le menu BLECH et renvoie son numéro. S'écrit une fois tout en haut du code, name fait 15 caractères au maximum.",
   "api.korg.file.frame": "Lit l'image index du fichier GIFnn.E2G (nn = file) depuis la carte dans le tableau, un octet par emplacement. Renvoie la durée en ms, 0 après la dernière image, -1 sans fichier.",

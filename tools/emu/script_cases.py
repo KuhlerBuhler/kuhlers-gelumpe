@@ -306,6 +306,7 @@ def firmware_cases(vsb, flash, request):
 
     card_cases(request, programs, built, patched, stock, flash, check)
     seq_cases(request, programs, built, patched, flash, check)
+    pad_hold_cases(programs, built, patched, flash, check)
     menu_script_cases(programs, built, patched, flash, check)
 
     write_word(faulty, runtime + built.symbols["SCRIPT_CONTROL_ARMED"], 0)
@@ -332,6 +333,42 @@ def firmware_cases(vsb, flash, request):
         check("status-din-" + item["name"], len(received) == 1)
     return dict(ok=all(check["ok"] for check in checks), checks=checks,
                 search=search.hex() if search is not None else None, reads=replies, layout=built.layout)
+
+
+def pad_hold_cases(programs, built, patched, flash, check):
+    """korg.padHold: while it holds, a pad press reaches the plugin but not the firmware, so the firmware does not select the pad's
+    part (0xC06B2428); padHold(0) and closing the app give the pads back. The app holds them from `open`, pad 15 lets go, pad 14
+    holds again. Pad 14's press went through before the hold, so its release has to as well: otherwise the firmware keeps the pad
+    down and no later pad selects a part (pad 8 after EXIT)."""
+    import menu_cases
+    dev = with_card(patched, flash, {CARD_FILE: archive([bytes.fromhex(programs["padhold"]["blob"])])})
+    dev.run(2)
+    entry = plugin_entry(dev, built.layout["runtime"])
+    mask = lambda: dev.u32(built.layout["runtime"] + built.symbols["SCRIPT_CONTROL_CAPTURE_MASK"])
+    pads = lambda: variables(dev, entry, programs["padhold"])["pads"]
+
+    def pad(index):
+        dev.m.send([4, index, 0, 100, 1])
+        dev.run(0.15)
+        dev.m.send([4, index, 0, 0, 0])
+        dev.run(0.1)
+        return dev.u32(0xC06B2428)
+
+    free = pad(3)
+    check("pad-halten-ohne-halten-waehlt-die-firmware", free == 3 and pads() == 1 and mask() & 0x10 == 0, dict(part=free, pads=pads(), mask=mask()))
+    open_app(dev, menu_cases.GROUP_TOOLS)
+    dev.run(0.2)
+    held = pad(5)
+    check("pad-halten-firmware-bekommt-kein-pad", held == 3 and pads() == 2 and mask() & 0x10, dict(part=held, pads=pads(), mask=mask()))
+    pad(15)
+    released = pad(6)
+    check("pad-halten-0-gibt-die-pads-zurueck", released == 6 and pads() == 4 and mask() & 0x10 == 0, dict(part=released, pads=pads(), mask=mask()))
+    pad(14)
+    again = pad(7)
+    dev.press("exit", 0.5)
+    closed = pad(8)
+    check("pad-halten-endet-mit-der-app", again == 14 and closed == 8 and pads() == 7 and mask() & 0x10 == 0 and dev.screen()["number"] == 1 and not dev.m.asserts,
+          dict(held=again, closed=closed, pads=pads(), mask=mask(), screen=dev.screen()))
 
 
 def seq_cases(request, programs, built, patched, flash, check):

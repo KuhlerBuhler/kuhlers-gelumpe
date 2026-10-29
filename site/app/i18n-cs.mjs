@@ -1963,6 +1963,7 @@ export default {
   "api.korg.seq.clearPart": "Vypne všech 64 stepů partu v hrajícím patternu.",
   "api.korg.backlight": "Zapne (1) nebo vypne (0) tři barvy světla displeje.",
   "api.korg.ledHold": "1 brání firmwaru znovu přepisovat LED panelu, 0 je vrací.",
+  "api.korg.padHold": "1 drží stisky padů mimo firmware (žádný zvuk, žádná změna kroku), plugin dál dostává pad, 0 pady vrací.",
   "api.korg.menu.add": "Založí stránku v menu BLECH a vrátí její číslo, -1 pokud jsou všechna místa obsazená. Když jí uživatel otočí, přijde událost menu.",
   "api.korg.app": "Přihlásí plugin jako aplikaci v menu BLECH a vrátí její číslo. Stojí jednou úplně nahoře v kódu, name má nejvýš 15 znaků.",
   "api.korg.file.frame": "Načte obrázek index ze souboru GIFnn.E2G (nn = file) z karty do pole, jeden bajt na místo. Vrací dobu trvání v ms, 0 za posledním obrázkem, -1 bez souboru.",

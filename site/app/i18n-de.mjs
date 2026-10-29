@@ -2011,6 +2011,7 @@ export default {
   "api.korg.seq.clearPart": "Schaltet alle 64 Steps eines Parts im Pattern, das läuft, aus.",
   "api.korg.backlight": "Schaltet die drei Farben des Display-Lichts ein (1) oder aus (0).",
   "api.korg.ledHold": "1 hält die Firmware davon ab, die Panel-LEDs neu zu schreiben, 0 gibt sie zurück.",
+  "api.korg.padHold": "1 hält Pad-Anschläge von der Firmware fern (kein Klang, keine Step-Änderung), das Plugin bekommt pad weiter, 0 gibt die Pads zurück.",
   "api.korg.menu.add": "Legt eine Seite im Menü BLECH an und gibt ihre Nummer zurück, -1 wenn alle Plätze belegt sind. Dreht der Nutzer daran, kommt das Ereignis menu.",
   "api.korg.app": "Meldet das Plugin als App im Menü BLECH an und gibt ihre Nummer zurück. Steht einmal ganz oben im Code, name hat höchstens 15 Zeichen.",
   "api.korg.file.frame": "Liest Bild index der Datei GIFnn.E2G (nn = file) von der Karte ins Feld, ein Byte je Platz. Gibt die Dauer in ms zurück, 0 hinter dem letzten Bild, -1 ohne Datei.",

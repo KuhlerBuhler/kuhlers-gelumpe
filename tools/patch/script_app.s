@@ -213,6 +213,9 @@ script_app_close:
     beq app_close_done
     mov r0, #0
     str r0, [r4, #SCRIPT_APPS_OPEN]
+    mov r4, r1                      ; the pads go back to the firmware with the app (korg.padHold)
+    bl pad_hold_set
+    mov r1, r4
     ldr r2, =UI_REDRAW
     mov r3, #1
     strb r3, [r2]

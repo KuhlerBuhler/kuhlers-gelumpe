@@ -1963,6 +1963,7 @@ export default {
   "api.korg.seq.clearPart": "Turns off all 64 steps of a part in the playing pattern.",
   "api.korg.backlight": "Switches the three colors of the display light on (1) or off (0).",
   "api.korg.ledHold": "1 stops the firmware from rewriting the panel LEDs, 0 gives them back.",
+  "api.korg.padHold": "1 keeps pad presses from the firmware (no sound, no step edit) while the plugin still gets pad, 0 gives the pads back.",
   "api.korg.menu.add": "Adds a page to the BLECH menu and returns its number, -1 if all slots are taken. When the user turns it, the event menu arrives.",
   "api.korg.app": "Registers the plugin as an app in the BLECH menu and returns its number. Goes once at the very top of the code, name has at most 15 characters.",
   "api.korg.file.frame": "Reads image index of the file GIFnn.E2G (nn = file) from the card into the array, one byte per slot. Returns the duration in ms, 0 after the last image, -1 without a file.",
