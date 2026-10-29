@@ -39,7 +39,7 @@ from bootmap import IMAGE, KILL_SWITCH, START_MODES, combine, scenario_names
 from loadbar_cases import GROUPS as LOADBAR_GROUPS, has_hooks as has_loadbar
 from machine import hardware_flash, load_flash
 from firmware import HARDWARE_MARKS, is_synth
-from menu_cases import LOOK_PARTS, has_menu
+from menu_cases import CASES_PARTS, LOOK_PARTS, has_menu
 from mfx_cases import has_key_hook
 from pswitch_cases import GROUPS as PSWITCH_GROUPS, has_hooks as has_pswitch
 from power_off_cases import cases_tasks as power_off_tasks, has_hook as has_power_off_hook
@@ -153,7 +153,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     if want(has_start_hook):
         tasks += [("splash_cases", "boot_case_task", (i,)) for i in range(BOOT_CASES)]
     if want(has_menu):
-        tasks += [("menu_cases", "cases_task", ()), ("menu_cases", "settings_cases_task", ())]
+        tasks += [("menu_cases", "cases_task", (i,)) for i in range(len(CASES_PARTS))] + [("menu_cases", "settings_cases_task", ())]
         tasks += [("menu_cases", "look_cases_task", (i,)) for i in range(LOOK_PARTS)]
     if want(has_pswitch):
         tasks += [("pswitch_cases", "cases_task", (i,)) for i in range(len(PSWITCH_GROUPS))]
@@ -199,7 +199,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
                               cache="check", on_queue=tracker.queued if tracker else None)
     mfx = done.pop(0) if want(has_key_hook) else []
     splash = [done.pop(0) for _ in range(BOOT_CASES)] if want(has_start_hook) else []
-    menu = [c for _ in range(2 + LOOK_PARTS if want(has_menu) else 0) for c in done.pop(0)]
+    menu = [c for _ in range(len(CASES_PARTS) + 1 + LOOK_PARTS if want(has_menu) else 0) for c in done.pop(0)]
     pswitch = [c for _ in range(len(PSWITCH_GROUPS) if want(has_pswitch) else 0) for c in done.pop(0)]
     tapmotion = [c for _ in range(len(TAPMOTION_GROUPS) if want(has_tapmotion) else 0) for c in done.pop(0)]
     noteassist = [c for _ in range(len(NOTEASSIST_GROUPS) if want(has_noteassist) else 0) for c in done.pop(0)]
