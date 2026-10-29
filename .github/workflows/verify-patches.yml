@@ -7,8 +7,8 @@
 # tools/verify-patches.mjs imports, tools/patch and tools/emu, the blue Electribe's places in data/synth-map that
 # tools/patch reads, and the scope table; test/verify-patches.test.mjs keeps the list complete). It starts on every pull
 # request, so the check "patches" always reports and can be waited for (automerge.yml); a pull request that changes none
-# of the paths passes it after the first job. A pull request from a fork has no secrets and fails "patches": a person
-# merges it. What runs depends on the base:
+# of the paths passes it after the first job, a fork's included. A pull request from a fork that changes one of the
+# paths has no secrets for the check and fails "patches": a person checks and merges it. What runs depends on the base:
 #
 # - into develop (feature pull requests): on each of the four files only the start scenarios and the case modules of
 #   what the pull request changes (tools/ci/verify-scope.mjs maps the changed files; a file it does not know, or the
@@ -84,7 +84,6 @@ permissions:
 jobs:
   # The commit all jobs check, so a push to the branch during the hour cannot mix two patch sets.
   ref:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -153,7 +152,10 @@ jobs:
 
   verify:
     needs: ref
-    if: needs.ref.outputs.run == 'true'
+    # a fork's pull request has no secrets to load the 2.02 files with
+    if: >-
+      needs.ref.outputs.run == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     # A newer push to a pull request makes its running check pointless; a run started by hand is never cancelled. The
     # groups are per job, so a run that skips (after this workflow's own commit) cancels nothing.
     concurrency:
@@ -289,7 +291,7 @@ jobs:
           retention-days: 30
 
   # One check for the four firmware jobs, which automerge.yml waits for: the check passed, or there was nothing to
-  # check. No run on a fork's pull request (no secrets) fails it.
+  # check. A fork's pull request that needs the check (no secrets to run it) fails it.
   patches:
     needs: [ref, verify]
     if: ${{ !cancelled() }}
@@ -300,8 +302,9 @@ jobs:
           RUN: ${{ needs.ref.outputs.run }}
           VERIFY: ${{ needs.verify.result }}
         run: |
-          [ "$REF" = success ] || { echo "::error::no check ran (a pull request from a fork has no secrets): a person merges it."; exit 1; }
+          [ "$REF" = success ] || { echo "::error::the first job did not pass"; exit 1; }
           if [ "$RUN" = false ]; then echo "nothing to check"; exit 0; fi
+          [ "$VERIFY" != skipped ] || { echo "::error::no check ran (a pull request from a fork has no secrets): a person checks and merges it."; exit 1; }
           [ "$VERIFY" = success ]
 
   join:
