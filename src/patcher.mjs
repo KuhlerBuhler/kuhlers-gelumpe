@@ -1,6 +1,7 @@
 /** The Patcher page's logic without the page: what a dropped SYSTEM.VSB is, the BLECH patches, the state from drop to download. */
 import { hardwareOf, identifyBase, sha256 } from "./firmware.mjs";
-import { buildsOf, patchesPresent, selectFor } from "./patch.mjs";
+import { applyPatches, buildsOf, patchesPresent, selectFor } from "./patch.mjs";
+import { loadingAnimPatch, LOADING_ANIM_ID } from "./loading-anim.mjs";
 import { applyBsdiff, parseBsdiff } from "./bsdiff.mjs";
 import { text, isText, TextError, number } from "./text.mjs";
 
@@ -57,6 +58,18 @@ export const BLECH_SYNTH_SET_URL = "data/patches/blech-synth.json";
  */
 export const USB_NAME_URLS = ["data/patches/usb-name.json", "data/patches/usb-name-synth.json"];
 
+/**
+ * A patched copy with the user's own loading animation on top, in a pass of its own: load-bar declares the slot as its
+ * RAM, so in one list with load-bar the patch would collide with it. Written only when load-bar went on, since nothing
+ * else reads the slot; no file (null) keeps the default Blechy. Throws on a file the firmware would reject.
+ */
+export async function withLoadingAnim(res, anim) {
+  if (!res.ok || !anim || !res.spans.some(s => s.patch === "load-bar")) return res;
+  const more = await applyPatches(res.bytes, [loadingAnimPatch(anim)]);
+  if (!more.ok) return { ...more, dependencies: res.dependencies };
+  return { ...more, dependencies: res.dependencies, spans: [...res.spans, ...more.spans], allow: [...res.allow, ...more.allow], allowCode: [...res.allowCode, ...more.allowCode] };
+}
+
 /** The variant of an optional patch (its variants parsed) for a firmware build, or null when none is made for it. */
 export const optionFor = (variants, build) => variants.find(p => buildsOf(p).includes(build)) ?? null;
 /** Copies that already passed the whole emulator check, as SHA-256 of input and result (tools/verify-patches.mjs). */
@@ -75,6 +88,7 @@ const PATCH_LABELS = {
   "dice": "features.dice.title",
   "pad-colors": "features.colors.title",
   "load-bar": "features.loading.title",
+  [LOADING_ANIM_ID]: "patcher.patch.loadingAnim",
   "sample-errors": "features.sampleErrors.title",
   "script-runtime": "features.plugins.title",
   "splash": "patcher.patch.splash",

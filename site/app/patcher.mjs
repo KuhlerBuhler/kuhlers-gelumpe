@@ -12,7 +12,9 @@ import { buildOf, hardwareOf } from "../../src/firmware.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
-import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel } from "../../src/patcher.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim } from "../../src/patcher.mjs";
+import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
+import { storedAnimation } from "./loading-anim.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -465,8 +467,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   function planItems() {
     // one line per patch: the variant for this firmware (a BLECH.patch carries one per build)
     const extra = usbName.checked && input ? [{ id: "usb-name", label: t("patcher.usbName") }] : [];
-    if (ownPatch) return input ? [...patchesFor(ownPatch.file, base()).map(p => ({ id: p.id, label: patchLabel(p) })), ...extra] : [];
-    return blech && input ? [...itemsFor(blech, buildOf(input)), ...extra] : [];
+    // the own loading animation from the Design page goes on only where load-bar does, which reads it
+    const withAnim = items => (storedAnimation() && items.some(p => p.id === "load-bar") ? [...items, { id: LOADING_ANIM_ID, label: t("patcher.patch.loadingAnim") }] : items);
+    if (ownPatch) return input ? [...withAnim(patchesFor(ownPatch.file, base()).map(p => ({ id: p.id, label: patchLabel(p) }))), ...extra] : [];
+    return blech && input ? [...withAnim(itemsFor(blech, buildOf(input))), ...extra] : [];
   }
 
   useLatest.addEventListener("change", () => { if (useLatest.checked) ownPatch = null; render(); });
@@ -601,6 +605,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         const more = await applyPatches(res.bytes, extra);
         res = more.ok ? { ...more, spans: [...res.spans, ...more.spans], allow: [...res.allow, ...more.allow], allowCode: [...res.allowCode, ...more.allowCode] } : more;
       }
+      res = await withLoadingAnim(res, items.some(p => p.id === LOADING_ANIM_ID) ? storedAnimation() : null);
       if (!res.ok) {
         for (const p of items) {
           const own = res.reasons.filter(r => r.startsWith(`${p.id}:`)).map(r => r.slice(p.id.length + 2));
