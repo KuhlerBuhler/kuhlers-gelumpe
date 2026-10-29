@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 10;
+export const API_VERSION = 11;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -181,6 +181,7 @@ const EVENT_LIST = [
   ["menu", ["id", "value"]],
   ["open", []],
   ["close", []],
+  ["timer", ["callback"]],
 ];
 
 /**
@@ -204,7 +205,14 @@ export const EVENT_BY_ID = new Map(EVENTS.map(e => [e.id, e]));
  */
 export const APP_EVENTS = Object.freeze(["open", "close"]);
 /** Events a script may post from outside the VM: everything the frame hook feeds from the ring, except the app events. */
-export const QUEUED_EVENTS = Object.freeze(EVENTS.filter(e => e.id >= 3 && !APP_EVENTS.includes(e.name)).map(e => e.name));
+/**
+ * Events only the runtime posts and no plugin registers a handler for: `timer` goes to the one script whose korg.after,
+ * korg.every or korg.afterSteps is due, with the callback number the compiler gave the function; the compiler builds the
+ * handler that calls it.
+ */
+export const INTERNAL_EVENTS = Object.freeze(["timer"]);
+/** Events a script may post from outside the VM: everything the frame hook feeds from the ring, except the app and internal events. */
+export const QUEUED_EVENTS = Object.freeze(EVENTS.filter(e => e.id >= 3 && !APP_EVENTS.includes(e.name) && !INTERNAL_EVENTS.includes(e.name)).map(e => e.name));
 
 /** Word-aligned per-script metadata; maxima arrays have one word per event. */
 /** Persistent values of one script: 16 integer slots and a mask of the slots that hold a saved value. */
@@ -226,13 +234,31 @@ export const STORE = Object.freeze({
   ]),
 });
 
+/**
+ * The timers of one script (korg.after, korg.every, korg.afterSteps), `slots` records of `recordSize` bytes in its script
+ * entry. A record: `due` (the millisecond count of the runtime clock it is due at, or the steps still to come), `period` (the
+ * milliseconds of korg.every, 0 once), `callback` (u8, the number the compiler gave the function), `kind` (u8, KIND),
+ * `generation` (u8, counts up each time the slot is taken), one byte unused. A timer's number is its slot plus 8 times the generation (0 to
+ * 255), so korg.cancel with the number of a timer that already ran does not stop the one that took its slot since.
+ * The frame hook checks the clock timers every frame (40 ms): one runs at the earliest `ms` after the call, at the latest a
+ * frame later. A step timer counts the step events while the sequencer plays.
+ */
+export const TIMERS = Object.freeze({
+  slots: 8,
+  recordSize: 12,
+  maxMs: 86400000,
+  maxSteps: 65535,
+  KIND: Object.freeze({ FREE: 0, MS: 1, STEPS: 2 }),
+  fields: Object.freeze([["due", 0], ["period", 4], ["callback", 8], ["kind", 9], ["generation", 10]].map(([name, offset]) => Object.freeze({ name, offset }))),
+});
+
 export const SCRIPT_ENTRY = Object.freeze({
-  size: 48 + EVENTS.length * 8 + 4 + STORE.slots * 4,
+  size: 48 + EVENTS.length * 8 + 4 + STORE.slots * 4 + TIMERS.slots * TIMERS.recordSize,
   fields: Object.freeze([
     ["next", 0], ["blob", 4], ["vars", 8], ["state", 12], ["fault", 16], ["offset", 20],
     ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 44 + EVENTS.length * 4], ["readySent", 44 + EVENTS.length * 8],
-    ["storeMask", 48 + EVENTS.length * 8], ["store", 52 + EVENTS.length * 8],
-  ].map(([name, offset]) => Object.freeze({ name, offset, words: name === "maxCost" || name === "maxEventTicks" ? EVENTS.length : name === "store" ? STORE.slots : 1 }))),
+    ["storeMask", 48 + EVENTS.length * 8], ["store", 52 + EVENTS.length * 8], ["timers", 52 + EVENTS.length * 8 + STORE.slots * 4],
+  ].map(([name, offset]) => Object.freeze({ name, offset, words: name === "maxCost" || name === "maxEventTicks" ? EVENTS.length : name === "store" ? STORE.slots : name === "timers" ? TIMERS.slots * TIMERS.recordSize / 4 : 1 }))),
 });
 export const SCRIPT_STATE = Object.freeze({ LOADED: 1, ARMED: 2, DISABLED: 3 });
 
@@ -265,6 +291,8 @@ const ALL = EVENTS.map(e => e.name);
 const UI = EVENTS.filter(e => e.name !== "start" && e.name !== "save").map(e => e.name);
 const MENU_ADD = ["start", "ready"];
 const APP_ONLY = ["start"];
+/** The timer calls work everywhere but in `save`, which runs in another task than the frame hook that reads the timers. */
+const TIMER_USE = ALL.filter(n => n !== "save");
 
 const int = (name, min = -2147483648, max = 2147483647) => ({ name, kind: "int", min, max });
 const str = name => ({ name, kind: "str" });
@@ -319,6 +347,11 @@ const API_LIST = [
   // the object tree (data/script/objects.mjs): the compiler calls these for the paths, index -1 for a leaf without brackets
   [61, "korg.get", [int("leaf", 0, 255), int("index", -1, 255)], "int", ALL, 6, 10],
   [62, "korg.set", [int("leaf", 0, 255), int("index", -1, 255), int("value")], "void", UI, 60, 10],
+  // timers (TIMERS): the compiler passes the function as its callback number and builds the handler of the event timer
+  [63, "korg.after", [int("ms", 0, TIMERS.maxMs), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
+  [64, "korg.every", [int("ms", 1, TIMERS.maxMs), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
+  [65, "korg.afterSteps", [int("steps", 1, TIMERS.maxSteps), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
+  [66, "korg.cancel", [int("timer", -1, TIMERS.slots * 32 - 1)], "void", TIMER_USE, 6, 11],
 ];
 
 /**
