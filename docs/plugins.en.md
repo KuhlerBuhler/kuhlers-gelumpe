@@ -781,7 +781,7 @@ page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
-| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN (table below) |
+| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD (table below) |
 | PLUGINS | one page, MANAGE PLUGINS; see below |
 | CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
@@ -797,6 +797,7 @@ The pages of FEATURES (the tag names the group "Feature"), each with the value O
 | TAP MOTION | OFF, ON, ONCE (see below) |
 | NOTE ASSIST | ON, OFF (see below) |
 | LAST PATTERN | ON, OFF (see below) |
+| STEREO 1 PAD | ON, OFF (see below, red only) |
 
 There is no ABOUT group any more: it only showed the number of loaded plugins and confused people.
 
@@ -815,7 +816,7 @@ The pages of the groups:
 | DATA UTILITY, EXPORT ALL PLUGINS | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them, then saves the settings too (plugins switched off stay off) |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | opens the pages of the display light; EXIT goes back to DISPLAY |
-| DISPLAY, BACKLIGHT HUE, SAT, BRIGHT | HUE 0 to 95, SAT and BRIGHT 0 to 15 | colour of the display light: HUE goes once round the colour wheel (16 steps to each of red, yellow, green, cyan, blue, magenta and the way between), SAT is the saturation, BRIGHT the brightness; what is stored stays red, green, blue at 0 to 15 each, so an older file reads as before; with nothing set it shows STOCK (the firmware's white), full brightness without saturation is STOCK again; a step that would give the same colour jumps to the next one that changes it; applies at once; after WRITE the red unit lights in the channels of the colour already at power-on, before the start image, the steps in between once the menu has loaded ([measurement](messungen/2026-10-29-hintergrundlicht-beim-start.md)) |
+| DISPLAY, BACKLIGHT HUE, SAT, BRIGHT | HUE 0 to 95, SAT and BRIGHT 0 to 15 | colour of the display light: HUE goes once round the colour wheel (16 steps to each of red, yellow, green, cyan, blue, magenta and the way between), SAT is the saturation, BRIGHT the brightness; what is stored stays red, green, blue at 0 to 15 each, so an older file reads as before; with nothing set it shows STOCK (the firmware's white), full brightness without saturation is STOCK again; a step that would give the same colour jumps to the next one that changes it; applies at once; after WRITE the display lights in the channels of the colour at power-on, on the red unit before the start image, on the blue one shortly after it appears, the steps in between once the menu has loaded ([measurement](messungen/2026-10-29-hintergrundlicht-beim-start.md)) |
 | DISPLAY, INTENSITY | 0 to 15 | brightness of the display light over all three colours, the mix stays; 0 is no light, 15 the full colour; applies at once |
 | DISPLAY, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; ON is the default (a light trail on a dark screen smears less than a dark one), a settings file from 1.2 without it keeps OFF |
 | CUSTOMIZATION, POWER SAVE | ENTER | opens the pages for power save (on battery only); EXIT goes back to POWER SAVE |
@@ -839,6 +840,7 @@ The pages of the groups:
 | FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP switches the recorded motion sequence of the selected part on and off, TAP held longer than 0.3 s switches only while held and back on letting go; ONCE: a motion TAP switched on plays to the end of the pattern and goes off; OFF: TAP is the firmware's tap tempo again; applies at once, ON is the default (also without a file); OFF is bit 3, ONCE bit 5 of the flags in the settings file (bit 3 wins) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 | FEATURES, LAST PATTERN | ON, OFF | ON: at power-on the Electribe opens the pattern that was selected before switching off; OFF: it starts with 001 as in the firmware, the kept number stays for a start with ON; applies from the next power-on, WRITE keeps it (bit 3 of byte 5 of the settings file means OFF); without a file ON; EXIT at power-on: 001; red and blue, where the set has the patch last-pattern |
+| FEATURES, STEREO 1 PAD | ON, OFF | ON: a stereo sample takes only its own pad and plays there on one voice, the pad next to it plays its own sample; OFF: as in the firmware, a stereo sample on pad 1, 3, ... also takes the next pad; applies at once, WRITE keeps it (bit 2 of byte 5 of the settings file means OFF); ON without a file; EXIT held at power-on: as in the firmware; only where the set has the patch stereo-pad (red) ([measurement](messungen/2026-10-29-stereo-ein-pad.md)) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 to 250 | the pattern DATA UTILITY > INITIALIZE PATTERN takes as its template; FACTORY is the firmware's template; applies at once and stays after switching off (Global byte 247, no WRITE needed); only where the set has the patch init-pattern (red) ([measurement](messungen/2026-10-28-init-pattern.md)) |
 
 Feedback ("saved", "no card", "imported", "2 exported" and so on) replaces the value of the page until you

@@ -293,8 +293,8 @@ und kein Wechseln zwischen zwei Bildern. Was am Gerät gedimmt aussieht (etwa de
 Name des wartenden Patterns, den die Firmware alle 280 ms ein- und ausblendet),
 ist die Trägheit der Flüssigkristalle. `lcd.py` bildet sie nach, ein Verzögerungsglied
 je Bildpunkt, getrennt für das Dunkelwerden (`TAU_ON`, 0,040 s, aus einem Zeitlupenvideo)
-und das Hellwerden (`TAU_OFF`, 0,30 s, **geschätzt**: mit bloßem Auge am Gerät am 27.10.,
-keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
+und das Hellwerden (`TAU_OFF`, 0,20 s, **geschätzt**: mit bloßem Auge am Gerät am 27.10.,
+am 29.10. von 0,30 auf 0,20 s gesenkt, weil es im Emulator zu träge wirkte; keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
 [LCD-Helligkeit](messungen/2026-10-12-lcd-helligkeit.md)). Die Werte stehen nur in
 `lcd.py`.
 

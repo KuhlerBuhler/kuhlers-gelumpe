@@ -171,6 +171,17 @@ npm start           # page and emulator together
 the emulator `npm run serve` is enough and `setup:emu` is not needed. To talk to the device you need
 Chrome or Edge on a desktop computer: the page uses Web MIDI with SysEx, which Safari does not have.
 
+**In a container.** Without Node and Python on the machine the same pair runs in Docker:
+
+```bash
+mkdir SD
+docker compose up --build
+```
+
+Then open http://localhost:8737/. The emulator's card lives in the folder `SD`, and a new container keeps
+it. How to take the image a release published instead of building one:
+[development](docs/development.md#im-container) (German).
+
 The desktop app uses native MIDI ports on macOS and Linux. It needs no additional browser
 or separately installed MIDI helper. On Windows the app keeps its existing Web MIDI path.
 

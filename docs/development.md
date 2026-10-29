@@ -49,14 +49,29 @@ hineinschreiben. Der Editor hat keine
 Anmeldung, deshalb bleiben beide Ports auf 127.0.0.1. Ohne Docker gilt `npm start`
 wie oben.
 
+Den Zustand zeigt `docker compose ps`: das Abbild hat einen Healthcheck auf die
+Seite (`Dockerfile`), gesund heißt also, dass die Seite unter Port 8737 antwortet.
+Der Emulator gehört nicht dazu, er läuft erst, wenn jemand am Editor das Gerät
+einschaltet.
+
 Ein Release legt dasselbe Abbild auch in GitHubs Paketregister ab, für linux/amd64
 und linux/arm64 (`.github/workflows/docker-image.yml`, von `release.yml`
-aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Wer
-nicht selbst bauen will, trägt den Namen in `docker-compose.yaml` bei `image` ein
-und entfernt `build: .`; `docker compose up` zieht das Abbild dann. Der Ordner
-`SD` bleibt nötig, denn die Karte liegt in keinem Abbild.
-Von Hand (Actions, "Container image", mit einem Tag) lässt sich ein Abbild neu bauen;
-`:latest` wandert dabei nur mit, wenn "latest" angehakt ist.
+aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Den
+Namen trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
+`docker compose pull` und danach `docker compose up`, ohne dass du selbst baust.
+Bis zum ersten Release mit diesem Workflow gibt es das Paket noch nicht, bis
+dahin führt `docker compose pull` zu einem Fehler und `docker compose up --build`
+bleibt der Weg. `docker compose up --build` baut auch dann aus diesem Ordner, wenn
+das Abbild schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres
+`pull` ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
+keinem Abbild.
+
+Eine bestimmte Version statt `:latest` nimmt `GELUMPE_IMAGE`, etwa
+`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.3.7 docker compose pull`. Die
+Variable gilt für `pull` und `up`; in einer `.env` neben `docker-compose.yaml`
+steht sie für beide. Von Hand (Actions, "Container image", mit einem Tag) lässt
+sich ein Abbild neu bauen; `:latest` wandert dabei nur mit, wenn "latest"
+angehakt ist.
 
 ## Hinter einem Proxy
 

@@ -1,0 +1,82 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "stereo-pad",
+ "name": "Stereo auf einem Pad",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 1376256,
+   "bytes": "8cc09fe500c09ce500005ce30800000a80c09fe500c09ce500005ce30200000a18c09ce5020a1ce31eff2f110c005ce11eff2fe101c0b0e31eff2fe1000050e31eff2f0100402de9ecffffeb0040bde80000a0031eff2f01010005e2010020e21eff2fe10300001a00402de9e3ffffeb0040bde81eff2f111ce09fe51eff2fe100502de9ddffffeb0330a0130430a0030090bde8fcff14c0f8e633c0e41404c0",
+   "expect": "0052516839b94ee314a4e3b398c8036de3790d672194987a394ee60323848539",
+   "note": "stereo pad: a stereo sample plays on one voice on every part, as on an even part"
+  },
+  {
+   "file": 515848,
+   "bytes": "4b4803eb",
+   "expect": "6703f04eb5054659e3ffd7c6154f0ce648fc19f767495e2d57e8fec494f837ee",
+   "note": "the part's stereo mode calls sp_mode: 0 for a stereo sample on every part"
+  },
+  {
+   "file": 267500,
+   "bytes": "dc3a04eb",
+   "expect": "e5e7d7c80dff452a18125e4da4ace43b35661d6c861914ab34b0d6dfa37088ec",
+   "note": "the oscillator change calls sp_claim: no part claims the next one"
+  },
+  {
+   "file": 630572,
+   "bytes": "53d8020b",
+   "expect": "cc474da738a30e6345111046aebef374da2184dd468ccd4b8f10498e5ab216ba",
+   "note": "the voice setup calls sp_voice on an even part: mode 4, one voice"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC007DE08",
+   "kind": "instruction",
+   "chain": "stereo-pair",
+   "position": "replace",
+   "swallow": false,
+   "note": "a stereo sample never pairs its part with the next one"
+  },
+  {
+   "site": "0xC00413EC",
+   "kind": "instruction",
+   "chain": "stereo-pair",
+   "position": "replace",
+   "swallow": false,
+   "note": "the oscillator change leaves the next part alone"
+  },
+  {
+   "site": "0xC0099E2C",
+   "kind": "instruction",
+   "chain": "stereo-pair",
+   "position": "replace",
+   "swallow": false,
+   "note": "the voice setup takes mode 4 (one voice) on an even part too"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 515848,
+   "length": 4,
+   "why": "the start loads a pattern and asks each part's stereo mode, which now calls sp_mode"
+  },
+  {
+   "file": 1376256,
+   "length": 160,
+   "why": "sp_mode runs with that call; it reads the setting word and the held keys"
+  }
+ ],
+ "ram": [
+  {
+   "at": "0xC014FFFC",
+   "length": 4,
+   "what": "the setting word of STEREO 1 PAD: FFFFFFFF or 1 on, 0 off; the BLECH menu writes it",
+   "source": "tools/patch/stereo_pad.py:SETTING"
+  }
+ ]
+}

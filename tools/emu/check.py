@@ -58,6 +58,7 @@ from fx_card_cases import GROUPS as FXCARD_GROUPS, has_hooks as has_fxcard
 from remote_cases import GROUPS as REMOTE_GROUPS, has_hooks as has_remote
 from last_pattern_cases import GROUPS as LASTPATTERN_GROUPS, has_hooks as has_lastpattern
 from init_pattern_cases import GROUPS as INITPATTERN_GROUPS, has_hooks as has_initpattern
+from stereo_pad_cases import GROUPS as STEREOPAD_GROUPS, has_hooks as has_stereopad
 from beat_eighth_cases import GROUPS as BEATEIGHTH_GROUPS, has_hooks as has_beateighth
 from doom_loader_cases import GROUPS as DOOM_GROUPS, has_hooks as has_doom
 
@@ -187,6 +188,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("last_pattern_cases", "cases_task", (i,)) for i in range(len(LASTPATTERN_GROUPS))]
     if want(has_initpattern):
         tasks += [("init_pattern_cases", "cases_task", (i,)) for i in range(len(INITPATTERN_GROUPS))]
+    if want(has_stereopad):
+        tasks += [("stereo_pad_cases", "cases_task", (i,)) for i in range(len(STEREOPAD_GROUPS))]
     if want(has_beateighth):
         tasks += [("beat_eighth_cases", "cases_task", (i,)) for i in range(len(BEATEIGHTH_GROUPS))]
     if want(has_doom):
@@ -221,6 +224,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     sysex = [c for _ in range(len(SYSEX_GROUPS) if want(has_sysex) else 0) for c in done.pop(0)]
     lastpattern = [c for _ in range(len(LASTPATTERN_GROUPS) if want(has_lastpattern) else 0) for c in done.pop(0)]
     initpattern = [c for _ in range(len(INITPATTERN_GROUPS) if want(has_initpattern) else 0) for c in done.pop(0)]
+    stereopad = [c for _ in range(len(STEREOPAD_GROUPS) if want(has_stereopad) else 0) for c in done.pop(0)]
     beateighth = [c for _ in range(len(BEATEIGHTH_GROUPS) if want(has_beateighth) else 0) for c in done.pop(0)]
     doom = [c for _ in range(len(DOOM_GROUPS) if want(has_doom) else 0) for c in done.pop(0)]
     power_off_done = [done.pop(0) for _ in power_off]
@@ -279,6 +283,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(sysex)
     checks.extend(lastpattern)
     checks.extend(initpattern)
+    checks.extend(stereopad)
     checks.extend(beateighth)
     checks.extend(doom)
     if power_off:
@@ -296,7 +301,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
 CASE_MODULES = ("mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases", "note_assist_cases",
                 "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
                 "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-                "init_pattern_cases", "beat_eighth_cases", "power_off_cases", "preset_cases", "doom_loader_cases")
+                "init_pattern_cases", "stereo_pad_cases", "beat_eighth_cases", "power_off_cases", "preset_cases", "doom_loader_cases")
 
 
 def case_list(text):
