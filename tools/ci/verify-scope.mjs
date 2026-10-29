@@ -53,7 +53,7 @@ export const TABLE = [
   [/^tools\/patch\/script_shortcuts\.s$/, ["shortcut_cases"]],
   [/^tools\/patch\/script_migrate\.s$/, ["migrate_cases"]],
   [/^tools\/patch\/script_remote\.s$/, ["remote_cases"]],
-  [/^tools\/patch\/fx_card\.s$/, ["fx_card_cases"]],
+  [/^tools\/patch\/fx_card\.s$|^src\/fx-collection\.mjs$/, ["fx_card_cases"]],
   [/^tools\/patch\/pattern_switch\.py$|^data\/patches\/pattern-switch[^/]*\.json$/, ["pswitch_cases"]],
   [/^tools\/patch\/tap_motion\.py$|^data\/patches\/tap-motion[^/]*\.json$/, ["tap_motion_cases"]],
   [/^tools\/patch\/note_assist\.py$|^data\/patches\/note-assistant[^/]*\.json$/, ["note_assist_cases"]],
