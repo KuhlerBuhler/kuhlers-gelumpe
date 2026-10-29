@@ -169,6 +169,24 @@ jobs:
       - run: |
           python -m venv tools/emu/.venv
           tools/emu/.venv/bin/pip install -r tools/emu/requirements.txt
+      # Pull requests into develop only: the task results of the last run of this matrix entry (tools/emu/taskcache.py),
+      # so a push that changes one case module runs only the tasks it touches. A result is taken only for the same
+      # firmware, flash and base, Python and Unicorn, and while every file the task used has the same content, so a
+      # stale hit cannot happen; the key only names the newest run to restore. Only ~/.cache/gelumpe/task and
+      # task-time go in: verdicts, ids, details, hashes, the addresses of the code that ran at start and a 0/1 mask
+      # of which bytes it read, no firmware bytes. The boot
+      # and power-on snapshots hold Korg's RAM and stay out (Actions caches are readable with repo access). The full
+      # check (release pull request, started by hand) restores nothing and keeps nothing, so verified.json only gets
+      # results of a fresh run. A pull request can restore only its own caches and those of develop and main.
+      - name: Kept task results
+        if: needs.ref.outputs.full != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v1-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: verify-tasks-v1-${{ matrix.name }}-
       - name: Korg's file
         env:
           URL: ${{ secrets[matrix.url] }}
@@ -199,6 +217,16 @@ jobs:
           E2_EMU_REQUIRED: "1"
           E2_VSB: ${{ runner.temp }}/SYSTEM.VSB
         run: node --test test/emulator-fxcard.test.mjs
+      # Also after a failed check: a failed case is a result like a passed one. Results not written for two weeks go.
+      - if: always() && needs.ref.outputs.full != 'true'
+        run: find ~/.cache/gelumpe/task -type f -mtime +14 -delete 2>/dev/null || true
+      - if: always() && needs.ref.outputs.full != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v1-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
       # Only the entry (hashes, set, number of checks, date), never the firmware.
       - if: needs.ref.outputs.full == 'true'
         uses: actions/upload-artifact@v4
