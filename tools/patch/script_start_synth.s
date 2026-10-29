@@ -32,3 +32,18 @@ synth_start_native:
     ldr pc, =0xC0028174
 .pool
 script_card_wrapper_end:
+
+; the blue Electribe draws its start image before the flash can be read (docs/messungen/2026-10-29-hintergrundlicht-beim-start.md):
+; no colour at power-on, the light calls and the settings go their way (the labels around are the start phase span)
+boot_light_hook:
+bl_red_boot:
+    b bl_red_go
+bl_green_boot:
+    b bl_green_go
+bl_blue_boot:
+    b bl_blue_go
+boot_light_save:
+    bx lr
+boot_light_settle:
+    bx lr
+boot_light_end:
