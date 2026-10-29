@@ -838,7 +838,7 @@ Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
   die Seiten der Firmware und gehören zum Bildschirm BLECH: EDIT blättert zwischen ihnen und den Seiten der Firmware in
   beide Richtungen, EXIT geht dorthin, wohin es von den Seiten der Firmware geht (Global, Data Util), die Zähler der
   Firmware zählen sie mit. Seiten in den Menüs der Firmware selbst anzulegen, hieße deren Tabellen und Zustandsmaschinen
-  zu ändern; so bleiben beide unberührt (Entscheidung vom 29.10.).
+  zu ändern; so bleiben beide unberührt (Entscheidung vom 29.10., [Messung](messungen/2026-10-29-menue-anordnung.md)).
 - **ENTER auf der Seite BLECH** öffnet die Liste auf der Gruppe, aus der man zuletzt herauskam, auch nach
   einem Umweg durch die anderen Menüs.
 - **ENTER**, die Taste MENU, öffnet die Liste der Gruppen. Das Schild oben links nennt
