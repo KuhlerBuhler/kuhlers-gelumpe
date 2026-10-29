@@ -314,6 +314,11 @@
    "why": "Speicher-Haken erhält Register, meldet das Ereignis und führt den verdrängten Befehl aus."
   },
   {
+   "file": 1391476,
+   "length": 20,
+   "why": "Die Farbe des Hintergrundlichts beim Einschalten: hinter dem ersten Lesen des Flash prüft der Haken Panel, EXIT und Panel-Update, liest 12 Byte der Globals im Flash (Marke GLED) und setzt nur die drei Pins des Lichts; die Haken der Lichtfunktionen lassen sie bis zum Scharfschalten so."
+  },
+  {
    "file": 1391348,
    "length": 128,
    "why": "Start-Wrapper erhält Register und Flags, prüft den Notschalter vor Menü und Plugins und führt den verdrängten nativen Befehl aus."
