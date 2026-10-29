@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classify, convertStock, samplerHead, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE, USB_NAME_URLS, optionFor, patchLabel } from "../src/patcher.mjs";
+import { classify, convertStock, samplerHead, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE, USB_NAME_URLS, optionFor, patchLabel, restoreOriginal, canRestore, KNOWN_ORIGINALS } from "../src/patcher.mjs";
 import { applyPatches, splashPatch, patchesPresent, SPLASH_W, SPLASH_H } from "../src/patch.mjs";
 import { sha256 } from "../src/firmware.mjs";
 import { render, isText } from "../src/text.mjs";
@@ -528,4 +528,68 @@ test("a patch label follows the build where the variants differ, and a patch the
   assert.equal(render(patchLabel({ id: "blech-sysex", builds: ["synth"] })), "BLECH SysEx: RAM und Flash lesen");
   assert.equal(render(patchLabel({ id: "blech-sysex", builds: ["stock"] })), "BLECH SysEx: RAM lesen und schreiben");
   assert.equal(patchLabel({ id: "someone-else", name: "Etwas Eigenes" }), "Etwas Eigenes");
+});
+
+// ---- the original of a file BLECH was copied onto by hand (restoreOriginal) ---------------------------
+
+/** The patch `raw` made for one build: the same change, with the hash of the bytes that build has there. */
+async function rawFor(vsb, builds, bytes = "e12fff1e") {
+  return { ...raw(bytes), builds, changes: [{ file: FREE, bytes, expect: await sha256(vsb.subarray(FREE, FREE + 4)) }] };
+}
+
+/** A stand-in for Korg's file: our image with the run Hacktribe fills erased and some bytes of its own here and there. */
+async function korgLike() {
+  const korg = asStock(await makeFirmware());
+  for (let i = 0; i < 64; i++) korg[0x3000 + i] = (i * 7 + 1) & 0xff;
+  korg[FREE] = 0x5a;
+  return korg;
+}
+
+test("the original is rebuilt from Korg's file when BLECH was put on that build, with all patches or only some", async () => {
+  const korg = await korgLike();
+  const patches = [{ ...splashPatch(pixels(1)), builds: ["hacktribe", "stock"] }, await rawFor(korg, ["stock"])];
+  const hashes = [await sha256(korg)];
+  const all = await applyPatches(korg, patches);
+  assert.equal(all.ok, true, all.reasons.join(" "));
+  assert.notDeepEqual(all.bytes, korg);
+  const got = await restoreOriginal(all.bytes, korg, patches, { hashes });
+  assert.equal(got.ok, true);
+  assert.deepEqual(got.bytes, korg);
+  assert.equal(got.sha256, hashes[0]);
+  const some = await applyPatches(korg, [patches[1]]);
+  assert.equal((await restoreOriginal(some.bytes, korg, patches, { hashes })).ok, true);
+  // the patched input stays as it was
+  assert.notDeepEqual(all.bytes, korg);
+});
+
+test("a result that is not a known original is not used: another file, or Hacktribe's own bytes in BLECH's places", async () => {
+  const korg = await korgLike();
+  const patches = [await rawFor(korg, ["stock"])];
+  const hashes = [await sha256(korg)];
+  const patched = (await applyPatches(korg, patches)).bytes;
+  // a byte outside every patch that Korg's file does not have: the file is not made from this one
+  const other = Uint8Array.from(patched);
+  other[0x3010] ^= 1;
+  assert.deepEqual(await restoreOriginal(other, korg, patches, { hashes }), { ok: false, why: "mismatch" });
+  // Hacktribe: its own bytes where BLECH writes (an overlap, like the hooks in Hacktribe 2.02) cannot come from Korg's file
+  const hack = await makeFirmware();
+  hack[FREE] = 0x77;
+  const both = [await rawFor(hack, ["hacktribe"]), await rawFor(korg, ["stock"])];
+  const patchedHack = (await applyPatches(hack, both)).bytes;
+  assert.equal(canRestore(hack), false);
+  assert.deepEqual(await restoreOriginal(patchedHack, korg, both, { hashes: [await sha256(hack)] }), { ok: false, why: "mismatch" });
+  // the hash list is the patcher's own by default, and none of these files is in it
+  assert.deepEqual(await restoreOriginal(patched, korg, patches), { ok: false, why: "mismatch" });
+  assert.equal(KNOWN_ORIGINALS.length, 4);
+});
+
+test("a file of the wrong size, or patches that do not fit Korg's file, give no original", async () => {
+  const korg = await korgLike();
+  const patches = [await rawFor(korg, ["stock"])];
+  assert.deepEqual(await restoreOriginal(new Uint8Array(100), korg, patches), { ok: false, why: "size" });
+  const patched = (await applyPatches(korg, patches)).bytes;
+  const changed = Uint8Array.from(korg);
+  changed[FREE] ^= 1;
+  assert.deepEqual(await restoreOriginal(patched, changed, patches), { ok: false, why: "patches" });
+  assert.equal(canRestore(korg), true);
 });
