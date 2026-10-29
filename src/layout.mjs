@@ -100,6 +100,9 @@ export const STAGE_BLOCK_SIZE = REC.stage.ifx2.device - REC.stage.ifx1.device;
 export const MAP = Object.fromEntries(["source", "chain", "param", "low", "high"]
   .map(k => [k, field(`fx.map.${k}`).where.offset - mapRow.where.offset]));
 
+/** The from/to pair of a map row and where its copies sit (data/map/fx.mjs). */
+export const MAP_PAIRS = { count: FX_META.mapPairCopies, stride: FX_META.mapPairStride };
+
 export const SOURCES = Object.fromEntries(FX_META.sources.map(x => [x.raw, { name: x.name, ifx: x.ifx, mfx: x.mfx }]));
 
 export const CHAINS = Object.fromEntries(FX_META.chains.map(x => [x.raw, { name: x.name, stage: x.stage }]));
