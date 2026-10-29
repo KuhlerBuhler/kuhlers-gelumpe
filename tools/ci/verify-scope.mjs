@@ -21,7 +21,7 @@ export const ALL = "all";
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
   "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-  "init_pattern_cases", "power_off_cases", "preset_cases"];
+  "init_pattern_cases", "stereo_pad_cases", "power_off_cases", "preset_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
@@ -29,7 +29,7 @@ const MENU_USERS = ["menu_cases", "shortcut_cases", "migrate_cases", "fx_card_ca
   "last_pattern_cases", "init_pattern_cases", "power_off_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
   "synth_filter_cases"];
-const MFX_USERS = ["mfx_cases", "ifx_idle_cases", "preset_cases"];
+const MFX_USERS = ["mfx_cases", "ifx_idle_cases", "preset_cases", "stereo_pad_cases"];
 
 /** [pattern, modules or ALL], first match wins. Patterns are anchored; `[^/]*` stays inside one folder. */
 export const TABLE = [
@@ -65,6 +65,7 @@ export const TABLE = [
   [/^tools\/patch\/blech_sysex\.(py|mjs)$|^data\/patches\/blech-sysex[^/]*\.json$/, ["sysex_cases"]],
   [/^tools\/patch\/last_pattern\.py$|^data\/patches\/last-pattern[^/]*\.json$/, ["last_pattern_cases"]],
   [/^tools\/patch\/init_pattern\.py$|^data\/patches\/init-pattern[^/]*\.json$/, ["init_pattern_cases"]],
+  [/^tools\/patch\/stereo_pad\.py$|^data\/patches\/stereo-pad[^/]*\.json$/, ["stereo_pad_cases"]],
   [/^tools\/patch\/power_off\.py$|^data\/patches\/power-off[^/]*\.json$/, ["power_off_cases"]],
   [/^tools\/patch\/preset_tables\.py$|^data\/patches\/preset-tables[^/]*\.json$/, ["preset_cases"]],
 
