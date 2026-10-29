@@ -222,8 +222,9 @@ def emulator_ask(vsb):
         while m.time_ns < deadline:
             m.run_until(m.time_ns / 1e9 + 0.01)
             out = [b for b in tx[start:] if b < 0xF8]
-            if out and out[-1] == 0xF7 and 0xF0 in out:
-                return out[out.index(0xF0):]
+            if 0xF0 in out and 0xF7 in out[out.index(0xF0):]:     # other MIDI (a knob's CC) may follow the reply
+                begin = out.index(0xF0)
+                return out[begin:out.index(0xF7, begin) + 1]
             if m.asserts:
                 raise SystemExit(f"emulator: firmware assertion {m.asserts[0]}")
         raise SystemExit("emulator: no answer")

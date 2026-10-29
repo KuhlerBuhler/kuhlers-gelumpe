@@ -30,8 +30,8 @@ export const PROPERTIES = Object.freeze([
   ...PATTERN_FIELDS.map((f, i) => p(`korg.current.${f.name}`, ["korg.read.patternValue", [-1, -1, i]], null, text("api.property.current", { field: f.text }))),
   ...PATTERN_FIELDS.map((f, i) => p(`korg.patterns[].${f.name}`, ["korg.read.patternValue", ["index", -1, i]], null, text("api.property.patterns", { field: f.text }))),
   ...PART_FIELDS.map((f, i) => p(`korg.parts[].${f.name}`, ["korg.read.patternValue", [-1, "index", i]], null, text("api.property.parts", { field: f.text }))),
-  // the object tree (data/script/objects.mjs): one call each way with the leaf's id, the runtime checks the range
-  ...OBJECTS.map(o => p(o.path, ["korg.get", [o.id, -1]], o.write ? ["korg.set", [o.id, -1, "value"]] : null, o.text, [o.min, o.max])),
+  // the object tree (data/script/objects.mjs): one call each way with the leaf's id, the runtime checks the range; actions are calls
+  ...OBJECTS.filter(o => !o.action).map(o => p(o.path, ["korg.get", [o.id, -1]], o.write ? ["korg.set", [o.id, -1, "value"]] : null, o.text, [o.min, o.max])),
 ]);
 
 export const PROPERTY_BY_PATH = new Map(PROPERTIES.map(x => [x.path, x]));

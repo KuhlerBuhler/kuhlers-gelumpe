@@ -1950,6 +1950,8 @@ export default {
   "api.korg.set": "Fija una hoja del árbol de objetos, limitada a su rango; el compilador la llama al asignar una ruta.",
   "api.object.display.intensity": "Brillo de la luz de la pantalla, 0 (apagada) a 15 (máximo), como la página INTENSITY; WRITE en el menú lo guarda.",
   "api.object.system.repairs": "Cuántos valores estaban fuera de su rango desde el arranque y se limitaron o restablecieron.",
+  "api.object.system.testMode": "Si el modo de prueba está activo (1): pantalla, luz y todos los LED apagados, apagado automático detenido. Solo se cambia por USB.",
+  "api.object.system.keepAwake": "Reinicia las 4 horas del apagado automático, como una tecla del aparato.",
   "script.fault.objectLeaf": "no hay hoja {leaf} en el árbol de objetos",
   "script.fault.objectReadOnly": "{path} solo se puede leer",
   "compile.object.unknown": "{path} no existe. {branch} tiene: {names}.",

@@ -1951,6 +1951,8 @@ export default {
   "api.korg.set": "Définit une feuille de l'arbre d'objets, bornée à sa plage ; le compilateur l'appelle quand on affecte un chemin.",
   "api.object.display.intensity": "Luminosité de l'éclairage de l'écran, 0 (éteint) à 15 (plein), comme la page INTENSITY ; WRITE dans le menu la garde.",
   "api.object.system.repairs": "Combien de valeurs étaient hors de leur plage depuis le démarrage et ont été bornées ou réinitialisées.",
+  "api.object.system.testMode": "Indique si le mode test est actif (1) : écran, lumière et toutes les LED éteints, arrêt automatique retenu. Commuté par USB uniquement.",
+  "api.object.system.keepAwake": "Relance les 4 heures de l'arrêt automatique, comme une touche de l'appareil.",
   "script.fault.objectLeaf": "pas de feuille {leaf} dans l'arbre d'objets",
   "script.fault.objectReadOnly": "{path} ne peut qu'être lu",
   "compile.object.unknown": "{path} n'existe pas. {branch} contient : {names}.",

@@ -1951,6 +1951,8 @@ export default {
   "api.korg.set": "Nastaví list stromu objektů, oříznutý na jeho rozsah; překladač ho volá při přiřazení do cesty.",
   "api.object.display.intensity": "Jas podsvícení displeje, 0 (vypnuto) až 15 (plný), jako stránka INTENSITY; WRITE v menu ho uloží.",
   "api.object.system.repairs": "Kolik hodnot bylo od startu mimo svůj rozsah a bylo oříznuto nebo vráceno.",
+  "api.object.system.testMode": "Zda je testovací režim zapnutý (1): displej, podsvícení a všechny LED zhasnuté, Auto Power Off zadržené. Přepíná se jen přes USB.",
+  "api.object.system.keepAwake": "Spustí 4 hodiny Auto Power Off znovu, jako tlačítko na přístroji.",
   "script.fault.objectLeaf": "ve stromu objektů není list {leaf}",
   "script.fault.objectReadOnly": "{path} lze jen číst",
   "compile.object.unknown": "{path} neexistuje. {branch} má: {names}.",
