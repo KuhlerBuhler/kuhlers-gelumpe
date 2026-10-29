@@ -17,6 +17,11 @@ sie zurück, ohne die Karte umzustecken.
 - **ORIGINAL.BIN:** Eine schon gepatchte Datei kann der Patcher nicht noch einmal patchen. Beim ersten Update über USB legt
   GELUMPE die unveränderte Datei als `ORIGINAL.BIN` neben die neue `SYSTEM.VSB`; jedes weitere Update startet von ihr. Keine
   Endung `.VSB`, damit kein Updater sie nimmt (der blaue liest auch `BOOT.VSB`, `USER.VSB`, `PCM.VSB`).
+  Wer BLECH früher von Hand per SD-Karte aufgespielt hat, hat keine `ORIGINAL.BIN`. Ist die Datei von einer Version ab 1.3.4,
+  geht der aktuelle Satz direkt darüber (`recogniseBlech` in `src/blech-update.mjs`), ohne Original und ohne `ORIGINAL.BIN`.
+  Sonst baut die App bei Korgs Build das Original aus Korgs System Updater nach (`restoreOriginal` in `src/patcher.mjs`,
+  nur bei Treffer auf einen bekannten SHA-256). Für Hacktribe geht das nicht (gemessen: 107 geänderte Abschnitte von
+  Hacktribe 2.02 gegenüber Korg rot liegen in BLECH-Bereichen), dort fragt die App nach einer unveränderten Datei.
 - **App:** Patcher-Seite, Abschnitt "Update direkt über USB" mit dem Knopf "Update auf Gerät" (20.10.: holt, patcht, prüft und schreibt in einem Zug; vorher zwei Knöpfe), und nach bestandener Prüfung weiter "Über USB aufs Gerät schreiben"
   (`src/usb-update.mjs`, `src/sender.mjs`, `src/protocol.mjs`). Auch eine hineingezogene Datei kann so aufs Gerät; dann kommt
   sie selbst als `ORIGINAL.BIN` mit.

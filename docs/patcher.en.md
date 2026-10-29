@@ -102,6 +102,21 @@ All six apply together. The page applies them in the browser, and the result is 
   takes SYSTEM.VSB out of it.
 - Any other file is rejected.
 
+### A file that already has BLECH
+
+A file with BLECH of release 1.3.4 or later (over USB or dropped) gets the current set straight over it, no original
+needed, for Korg red, Korg blue and Hacktribe (red and blue head). `data/known-releases.json` (made by
+`tools/known-releases.mjs`, hashes and offsets only) lists every region those releases wrote. Each region must hold
+the original bytes or what a release wrote there, otherwise the file counts as unknown and nothing is patched. Free
+areas the current set no longer uses go back to FF, hook sites stay and are rewritten, effect presets of the catalog
+are written again (a preset of your own with the same name stays). Features whose hook sites are in the file cannot be
+removed this way (the device name option is locked). Run `tools/known-releases.mjs` with the tag of every release so
+its files can be updated later.
+
+Only when that refuses the file: on Korg's build the app rebuilds the original from Korg's System Updater (the bytes
+the patches write are copied from Korg's file, used only on a hash match). Hacktribe has no such fallback, its own
+changes overlap BLECH's places, so the unchanged file is needed.
+
 **Why you bring `hacktribe-2.patch` yourself.** Hacktribe's README says that the contents of its `patch`
 directory are not open source and not covered by the GPL (checked 2026-10-14). The file is therefore neither
 in this repository nor on the page, and the page does not fetch it. You download it from Hacktribe (the page

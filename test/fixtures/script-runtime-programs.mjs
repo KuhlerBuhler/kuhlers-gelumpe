@@ -136,6 +136,18 @@ export function runtimePrograms() {
         }
       });
     `),
+    padhold: build("padhold", `
+      korg.app("Pads", "TOOLS");
+      let pads = 0;
+      korg.onEvent("open", () => { korg.padHold(1); });
+      korg.onEvent("pad", (index, down, velocity) => {
+        if (down == 1) {
+          pads += 1;
+          if (index == 15) korg.padHold(0);
+          if (index == 14) korg.padHold(1);
+        }
+      });
+    `),
     drawer: build("drawer", `
       korg.onEvent("frame", () => { korg.display.clear(); korg.display.rect(0, 0, 128, 64); });
     `),
