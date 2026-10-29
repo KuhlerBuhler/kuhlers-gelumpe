@@ -38,10 +38,10 @@ test("the native runtime patch declares its actual hooks and composes with splas
   assert.equal(runtime.id, "script-runtime");
   assert.deepEqual(runtime.hooks.map(hook => hook.site), [
     "0xC002837C", "0xC00836FC", "0xC0038D68", "0xC004C1B4",
-    "0xC006E8D8", "0xC006F094", "0xC008A83C", "0xC008A8A8", "0xC0064430", "0xC0067754", "0xC0088284", "0xC0016C98", "0xC0016CE0", "0xC0016D28", "0xC00289F4", "0xC00161A4", "0xC006E664", "0xC006E68C", "0xC0038D34",
+    "0xC006E8D8", "0xC006F094", "0xC008A83C", "0xC008A8A8", "0xC0064430", "0xC0067754", "0xC0067720", "0xC0065B8C", "0xC0064C20", "0xC0064C28", "0xC00623C0", "0xC0062448", "0xC0088284", "0xC0016C98", "0xC0016CE0", "0xC0016D28", "0xC00289F4", "0xC00161A4", "0xC006E664", "0xC006E68C", "0xC0038D34",
   ]);
-  // two code sections (the VM, then all our code behind it, from MORE3_START) and the block of Blechy, seventeen branches, two words, and the menu's table (copy plus its extra entry) and class table (copy)
-  assert.equal(runtime.changes.length, 25);
+  // two code sections (the VM, then all our code behind it, from MORE3_START) and the block of Blechy, twenty-three branches, two words, and the menu's table (copy plus its extra entry) and class table (copy)
+  assert.equal(runtime.changes.length, 31);
   const copies = runtime.changes.filter(change => change.copy !== undefined);
   assert.equal(copies.length, 2, "the menu copies the firmware's screen table and class table when applied, nothing of them is in the patch");
   for (const change of runtime.changes) assert.match(change.expect, /^[a-f0-9]{64}$/);
@@ -49,8 +49,10 @@ test("the native runtime patch declares its actual hooks and composes with splas
   const patches = [load("splash-editor"), load("mfx-switch"), runtime];
   const registered = checkHooks(patches);
   assert.equal(registered.ok, true, registered.reasons.join(" "));
-  assert.equal(registered.dependencies.length, 1);
-  assert.match(registered.dependencies[0], /mfx-switch.*script-runtime.*0xC002837C/);
+  // the splash editor's class of GLOBAL PARAMETERS keeps EDIT while its editor is open; only what it passes on reaches PLUGIN RUNTIME's edges
+  assert.equal(registered.dependencies.length, 3);
+  assert.equal(registered.dependencies.filter(text => /mfx-switch.*script-runtime.*0xC002837C/.test(text)).length, 1);
+  assert.equal(registered.dependencies.filter(text => /script-runtime.*0xC0064C2[08].*splash-editor.*0xC0064D3C/.test(text)).length, 2);
   if (process.env.E2_VSB) {
     const applied = await applyPatches(new Uint8Array(readFileSync(process.env.E2_VSB)), patches);
     assert.equal(applied.ok, true, applied.reasons.join(" "));
@@ -173,9 +175,9 @@ test("fault-status: native script hooks in firmware leave control usable and exp
     "snake-aus-dem-menue-in-der-firmware", "snake-part-tasten-aendern-die-part-nicht", "app-offen-play-stop-erreichen-die-firmware", "app-offen-sieht-play-stop-auch", "app-offen-andere-tasten-bleiben-bei-der-app", "part-tasten-nach-exit-wieder-der-firmware", "snake-exit", "snake-faengt-bei-open-neu-an", "app-fehler-auf-dem-eigenen-bildschirm", "fehler-ohne-app-zeichnet-nichts", "fehler-seite-im-menue",
     "exit-oeffnet-die-falle-nicht-zu", "exit-schliesst-trotz-fallen-app", "take-zeigt-das-bild", "exit-beendet-take", "laden-allein-zeichnet-nie", "bitmap-und-text-mit-zahl-wie-im-browser",
     "seq-schreibt-wie-der-browser", "seq-tap-wie-der-browser", "seq-pads-zeigen-die-steps", "seq-spielt-was-geschrieben-ist", "seq-schreibt-waehrend-es-laeuft", "seq-ungespeichert",
-    "hw-lesen-ruhezustand", "hw-lesen-play", "hw-lesen-regler", "hw-uhr", "hw-handeln-tempo", "hw-handeln-pattern", "hw-handeln-part", "hw-handeln-mute", "hw-handeln-play-stop", "ereignis-play-schritte", "ereignis-stop", "ereignis-tempo-pattern-part-mute", "ereignis-save-haken-eingehaengt", "hw-backlight", "hw-led-halten-flag", "hw-led-halten-sperrt-firmware-leds", "hw-led-halten-loesen", "speicher-ohne-save-keine-datei", "speicher-schreibt-datei", "speicher-pause-zwischen-schreibvorgaengen", "speicher-neustart-zaehler", "speicher-defekte-datei-faellt-zurueck", "menu-skripte-gezaehlt", "menu-skriptseiten", "menu-eingaben-erreichen-skripte-nicht", "menu-skripte-laufen-wieder", "menu-skript-aus", "menu-skript-wieder-an", "menu-fehlerskript-bleibt-aus", "menu-export-seite", "menu-export-gleich-dem-browser-bauer", "menu-export-wird-wieder-geladen", "menu-plugin-bleibt-aus-nach-neustart", "menu-plugin-an-mit-write-gespeichert", "menu-plugin-aus-liste-behaelt-die-anderen", "menu-plugin-aus-bei-voller-liste",
+    "hw-lesen-ruhezustand", "hw-lesen-play", "hw-lesen-regler", "hw-uhr", "hw-handeln-tempo", "hw-handeln-pattern", "hw-handeln-part", "hw-handeln-mute", "hw-handeln-play-stop", "ereignis-play-schritte", "ereignis-stop", "ereignis-tempo-pattern-part-mute", "ereignis-save-haken-eingehaengt", "hw-backlight", "hw-led-halten-flag", "hw-led-halten-sperrt-firmware-leds", "hw-led-halten-loesen", "speicher-ohne-save-keine-datei", "speicher-schreibt-datei", "speicher-pause-zwischen-schreibvorgaengen", "speicher-neustart-zaehler", "speicher-defekte-datei-faellt-zurueck", "menu-skripte-gezaehlt", "menu-skriptseiten", "menu-eingaben-erreichen-skripte-nicht", "menu-skripte-laufen-wieder", "menu-skript-aus", "menu-skript-wieder-an", "menu-fehlerskript-bleibt-aus", "menu-export-seite", "menu-export-gleich-dem-browser-bauer", "menu-export-wird-wieder-geladen", "menu-plugin-bleibt-aus-nach-neustart", "menu-plugin-an-mit-write-gespeichert", "menu-plugin-aus-liste-behaelt-die-anderen", "menu-plugin-aus-bei-voller-liste", "plugin-verwalten-oeffnet-und-exit", "plugin-entfernen", "letztes-plugin-entfernen",
     "fremd-wartet", "fremd-fragt", "fremd-erlaubt", "fremd-bekommt-ready-nach-ja", "fremd-lauft-nach-ja-ereignisse", "fremd-fragt-nicht-wieder", "fremd-liste-voll-schiebt",
-    "liste-aus-den-dateien", "liste-versteckte-dateien-fehlen", "menu-liste-ohne-about", "menu-blechy-keine-plugin-seite", "liste-vor-dem-laden-nichts", "beschreibung-seite", "beschreibung-scrollt", "beschreibung-enter-tut-nichts", "stand-oben-laedt-und-startet", "laden-speicherbild-bleibt", "stand-aus-und-an", "fremd-wartet-nach-enter", "fremd-erlaubt-in-der-liste", "abgelehnt", "beschreibung-verlassen-zeichnet-neu", "liste-geladene-zuerst-nichts-doppelt", "laden-verlassen", "geladenes-laeuft", "liste-plugin-ohne-datei", "geloeschtes-plugin-laedt-wieder", "liste-ohne-dateien", "laden-bei-ausgeschalteten-skripten",
+    "liste-aus-den-dateien", "liste-versteckte-dateien-fehlen", "menu-liste-ohne-about", "menu-blechy-keine-plugin-seite", "liste-vor-dem-laden-nichts", "beschreibung-seite", "beschreibung-scrollt", "beschreibung-enter-tut-nichts", "dial-oben-laedt-und-startet", "laden-speicherbild-bleibt", "stand-aus-und-an", "fremd-wartet-nach-dem-laden", "fremd-erlaubt-in-der-liste", "abgelehnt", "beschreibung-verlassen-zeichnet-neu", "liste-geladene-zuerst-nichts-doppelt", "laden-verlassen", "geladenes-laeuft", "liste-plugin-ohne-datei", "entferntes-plugin-laedt-wieder", "liste-ohne-dateien", "laden-bei-ausgeschalteten-skripten",
     "menu-add-seiten-angelegt", "menu-add-seitentexte", "menu-add-werte-und-grenzen", "menu-add-ereignisse-erreichen-das-skript", "menu-add-keine-doppelten-seiten", "menu-add-zwoelf-seiten", "menu-add-bereich-verkehrt"]) {
     assert.ok(report.checks.some(check => check.id === id && check.ok), id);
   }
