@@ -9,6 +9,7 @@ import { makeFirmware, makeZip, withHacktribeRun } from "../helpers.mjs";
 import { applyPatches, splashPatch, SPLASH_W, SPLASH_H } from "../../src/patch.mjs";
 import { sha256 } from "../../src/firmware.mjs";
 import { buildPatchFile } from "../../src/patchfile.mjs";
+import { addRelease, emptyKnown } from "../../src/blech-update.mjs";
 import { fixture as patchSet, COPY_TO } from "../support/patch-set.mjs";
 import { field } from "../../src/map/index.mjs";
 import { NEWS } from "../../data/news.mjs";
@@ -168,6 +169,28 @@ test("patcher: a file that already carries the patches reads as BLECH and is not
   await page.locator("#app-toasts .cee-toast", { hasText: "BLECHTRIBE schon drauf" }).waitFor();
   assert.equal(await page.isDisabled("#cee-patch-next"), true);
   assert.equal(await page.locator("#cee-patch-download").isVisible(), false);
+});
+
+test("patcher: a file with BLECH of an older release is updated straight over, no original needed", async () => {
+  const base = await makeFirmware();
+  const old = patches.map(p => (p.id === "mfx-switch" ? { ...p, changes: [{ ...p.changes[0], bytes: "e3a00099" }] } : p));
+  const known = emptyKnown();
+  await addRelease(known, "old", "hacktribe", base, old);
+  await addRelease(known, "current", "hacktribe", base, patches);
+  const page = await h.page();
+  await page.route("**/data/known-releases.json", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(known) }));
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-patcher");
+  await page.locator(".cee-patch-title").waitFor();
+  const older = await applyPatches(base, old);
+  assert.equal(older.ok, true, older.reasons.join(" "));
+  await drop(page, older.bytes);
+  await page.locator("#app-toasts .cee-toast", { hasText: "Die App legt die aktuelle Fassung direkt darüber" }).waitFor();
+  await page.click("#cee-patch-next");
+  await page.click("#cee-patch-next");
+  await page.click("#cee-patch-run");
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
+  assert.deepEqual(page.errors, []);
 });
 
 test("patcher: patching, the emulator check, then the download and the guide", async () => {
@@ -565,7 +588,8 @@ test("patcher: Korg's zip goes into the field as it is, and the app loads it fro
   await app.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await app.click("#cee-tab-patcher");
   await app.locator(".cee-patch-title").waitFor();
-  assert.equal(await app.getAttribute("#cee-patch-korg-red", "href"), KORG_DOWNLOADS.red.page, "before the licence is accepted the card only opens Korg's page");
+  assert.equal(await app.getAttribute("#cee-patch-korg-red", "href"), null, "in the app the card has no link to Korg's site, only the app's own download");
+  assert.match(await app.locator("#cee-patch-korg-red").textContent(), /Nimm zuerst unten Korgs Lizenz an/);
   await app.check("#cee-patch-korg-licence");
   assert.match(await app.locator("#cee-patch-korg-red").textContent(), /Von Korg laden und übernehmen/);
   assert.equal(await app.getAttribute("#cee-patch-korg-red .cee-device-card-out", "data-icon"), "download", "the card shows a download, not a page outside");

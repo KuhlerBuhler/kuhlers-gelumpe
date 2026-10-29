@@ -614,11 +614,26 @@ benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige F
   kopiert den Ordner selbst im Dateimanager ("Öffnen" im Feld SD-Karte). Früher kopierte der Dienst selbst und bot
   einen Knopf "Ordner für BLECH übernehmen" an; beides ist entfernt.
 
+### Eine Datei, auf der schon BLECH ist
+
+Eine Datei mit BLECH ab Version 1.3.4 (über USB oder hineingezogen) bekommt den aktuellen Satz direkt darüber, ohne
+Original, für Korg rot, Korg blau und Hacktribe (roter und blauer Kopf). `data/known-releases.json` (gemacht von
+`tools/known-releases.mjs`, nur Hashes und Offsets) nennt jede Stelle, die diese Versionen geschrieben haben. Jede
+Stelle muss die Originalbytes oder die Bytes einer Version halten, sonst gilt die Datei als unbekannt und es wird
+nichts gepatcht. Freie Bereiche, die der aktuelle Satz nicht mehr nutzt, gehen auf FF zurück, Einhaken-Stellen bleiben
+und werden neu geschrieben, Effekt-Presets aus dem Katalog werden neu geschrieben (ein eigenes Preset mit gleichem Namen
+bleibt). Funktionen, deren Einhaken-Stellen in der Datei sind, lassen sich so nicht entfernen (die Option Gerätename ist
+gesperrt). `tools/known-releases.mjs` läuft mit dem Tag jeder Version, damit sich ihre Dateien später aktualisieren lassen.
+
+Nur wenn das die Datei ablehnt: bei Korgs Build baut die App das Original aus Korgs System Updater nach (die Bytes, die die
+Patches schreiben, kommen aus Korgs Datei, genutzt nur bei Treffer auf den Hash). Hacktribe hat diesen Rückfall nicht, seine
+eigenen Änderungen überschneiden BLECHs Stellen, dort braucht es die unveränderte Datei.
+
 ### Korgs Firmware laden
 
 Wer keine `SYSTEM.VSB` hat, bekommt sie in Schritt 1 von Korg: erst den Haken "Ich habe Korgs Lizenzvertrag gelesen und
-nehme ihn an" (Korgs Downloadseite zeigt den Vertrag und sagt, man soll nur nach Annahme laden). Ohne Haken öffnen die
-Karten nur Korgs Seite.
+nehme ihn an" (Korgs Downloadseite zeigt den Vertrag und sagt, man soll nur nach Annahme laden). Ohne Haken haben die
+Karten in der App keinen Link; im Browser öffnen sie Korgs Seite.
 
 - **App:** mit Haken lädt die App Korgs Zip selbst von Korgs Server (`korg_firmware`, `src-tauri/src/korg.rs`) und legt
   es ins Feld. Nichts geht über einen Server von uns, nichts wird gespeichert.
