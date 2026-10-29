@@ -780,11 +780,11 @@ class MenuSettingsTests(unittest.TestCase):
                     uc.reg_write(UC_ARM_REG_R2, 0xa5a5a5a5)
                     uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
                 elif address == symbols['FS_OPEN']:
-                    opened.append(bytes(uc.mem_read(state + symbols['M_FILE_A'], 24)))
+                    opened.append(bytes(uc.mem_read(symbols['MENU_FILE_A'], 24)))
                     uc.reg_write(UC_ARM_REG_PC, machine.stop)
-            fs_page = symbols['FS_OPEN'] & ~4095
-            if not any(a <= fs_page <= b for a, b, _ in machine.uc.mem_regions()):
-                machine.uc.mem_map(fs_page, 4096)
+            for page in (symbols['FS_OPEN'] & ~4095, symbols['MENU_FILE_A'] & ~4095):
+                if not any(a <= page <= b for a, b, _ in machine.uc.mem_regions()):
+                    machine.uc.mem_map(page, 4096)
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['menu_pc_call'], end=symbols['menu_pc_call'])
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['FS_OPEN'], end=symbols['FS_OPEN'])
             machine.write(symbols['HOOK_RUNTIME'] + symbols['RT_HEAD'], 0)
