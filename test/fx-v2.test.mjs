@@ -8,7 +8,7 @@ import { buildCollection, parseCollection, collectionEntry, factoryEntry, firmwa
 import { locateModTable, readModType } from "../src/modtable.mjs";
 import { recordOf, RECORD } from "../src/presets.mjs";
 import { makeRecord, makeFirmwareWithArrays } from "./helpers.mjs";
-import { REC } from "../src/layout.mjs";
+import { REC, MAP, MAP_PAIRS } from "../src/layout.mjs";
 import { FX_CATALOG } from "../data/fx/catalog.mjs";
 
 const units = readUnits();
@@ -222,4 +222,44 @@ test("a preset can say what it does and who made it, with an https link; a file 
   const sneaky = JSON.parse(fxText({ ...told, creatorUrl: "https://x.example/" }));
   sneaky.creatorUrl = "javascript:alert(1)";
   assert.match(readFx(JSON.stringify(sneaky), units).reason, /https/, "a link that is not https is refused");
+});
+
+test("a map row gets its from/to pair in all six copies, the donor's old range does not survive", () => {
+  const rec = makeRecord("mfx", { devices: { mfx: MOD_DELAY } });
+  const at = REC.map;
+  for (let k = 0; k < MAP_PAIRS.count; k++) {
+    rec.bytes[at + MAP.low + k * MAP_PAIRS.stride] = 44;
+    rec.bytes[at + MAP.high + k * MAP_PAIRS.stride] = 123;
+  }
+  rec.map = [{ source: 67, chain: 2, param: 15, low: 0, high: 90 }];
+  for (let k = 0; k < MAP_PAIRS.count; k++) {
+    assert.deepEqual([rec.bytes[at + MAP.low + k * MAP_PAIRS.stride], rec.bytes[at + MAP.high + k * MAP_PAIRS.stride]], [0, 90], `copy ${k}`);
+  }
+});
+
+// The level parameters of Korg's presets of the same unit, read in both 2.02 firmwares (docs/messungen/2026-10-29-fx-katalog-pegel.md).
+// A catalog effect stays at most this loud; the feedback of the short delay stays below the stacking reported in 2026-09-21-loudness.md.
+const LEVEL_CAPS = {
+  ifx: { 0x0f: { output_level: 16 }, 0x10: { output_level: 65 }, 0x18: { fb_depth: 45, wet_level: 120 } },
+  mfx: { 0x3b: { fb_depth: 90, input_trim: 109, dry_wet: 100 }, 0x3c: { feedback: 72, output_level: 53 }, 0x35: { output_gain_adjust: 24 } },
+};
+
+test("no catalog effect is set or mapped louder than Korg's presets of its unit", () => {
+  for (const item of FX_CATALOG) {
+    for (const s of item.stages) {
+      const caps = LEVEL_CAPS[item.kind][s.unit] ?? {};
+      for (const [name, cap] of Object.entries(caps)) {
+        if (name in s.params) assert.ok(s.params[name] <= cap, `${item.name}: ${name} ${s.params[name]} above ${cap}`);
+      }
+    }
+    for (const row of item.map) {
+      const stage = item.stages.find(s => ({ 0: "ifx1", 1: "ifx2", 2: "mfx" })[row.chain] === s.stage);
+      if (!stage) continue;
+      const caps = LEVEL_CAPS[item.kind][stage.unit] ?? {};
+      const name = Object.keys(stage.params)[row.param];
+      if (name in caps && !(item.kind === "ifx" && stage.unit === 0x18 && name === "fb_depth")) {
+        assert.ok(Math.max(row.low, row.high) <= caps[name], `${item.name}: the map drives ${name} to ${Math.max(row.low, row.high)}`);
+      }
+    }
+  }
 });
