@@ -74,6 +74,7 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | 128 Plätze für eigene Effekte | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Zweiter Master-Effekt (MFX 2) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | BEAT 8: Steps als Achtel, Pattern doppelt so lang | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| TOUCH SCALE RANGE 0: X spielt fest den Grundton | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Plugins und Spiele (Snake, Tetris, ...) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Pad-Farben und LED-Farben | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Patternwechsel erst nach Bestätigung | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
