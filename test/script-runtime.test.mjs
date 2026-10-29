@@ -63,6 +63,7 @@ test("the Synth runtime uses its own startup and preserves the native instructio
   const patch = JSON.parse(buildRuntimePatch("synth"));
   assert.deepEqual(patch.builds, ["synth"]);
   assert.ok(patch.hooks.some(hook => hook.site === "0xC0028170"));
+  assert.ok(patch.hooks.some(hook => hook.site === "0xC0025E48"));
   assert.ok(!patch.hooks.some(hook => ["0xC0038D34", "0xC0038D68", "0xC00289D8"].includes(hook.site)));
   const registered = checkHooks([patch]);
   assert.equal(registered.ok, true, registered.reasons.join(" "));
