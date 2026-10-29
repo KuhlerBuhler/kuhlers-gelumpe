@@ -104,7 +104,8 @@ add AI attribution lines.
 - A pull request that may go in once CI is green gets the label `automerge` (`gh pr create ... --label automerge`):
   the workflow Automerge merges it then. Do not poll CI or merge by hand. Leave the label off when the change waits
   for a device or listening test.
-- Do not merge develop into your branch to keep it current, and do not resolve a conflict that is only in
-  `data/patches/script-runtime*.json`: the workflow Update pull requests rebuilds those after each merge to develop.
+- A branch does not have to be current with develop to be merged; merge develop in only when you need its changes.
+  Leave a conflict that is only in `data/patches/script-runtime*.json` alone: the workflow Update pull requests
+  rebuilds those after each merge to develop.
 - Firmware changes that touch the same patches (`data/patches/`, `tools/patch/`, `tools/emu/*_cases.py`) go one
   after the other or in one pull request, not in parallel. App changes may run in parallel.
