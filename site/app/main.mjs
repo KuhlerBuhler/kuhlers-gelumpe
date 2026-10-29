@@ -40,7 +40,7 @@ import { sharedProbe } from "./probe.mjs";
 import { dropdown } from "./dropdown.mjs";
 import { icon } from "./icons.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
-import { apply as applySettings, get as setting, settingsButton, settingsPage } from "./settings.mjs";
+import { apply as applySettings, get as setting, holdAutoConnect, releaseAutoConnect, settingsButton, settingsPage } from "./settings.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { t } from "./i18n.mjs";
@@ -378,8 +378,7 @@ async function startAfterDisconnect(device, emulator) {
 const MODES = { emu: "mode.emu", device: "mode.device" };
 
 /** Navbar: the title of the open page, and whether a device is connected, as words. */
-function navbar({ onMode, onDisconnect }) {
-  const disconnectButton = el("button", { type: "button", className: "btn", id: "cee-disconnect", textContent: t("app.disconnect"), onclick: onDisconnect });
+function navbar({ onMode }) {
   let page = "start";
   let connectButton = null;
   let device = false;
@@ -412,15 +411,17 @@ function navbar({ onMode, onDisconnect }) {
           : el("span", { className: "cee-crumb", textContent: text });
       }));
     }
-    // On the device page the navbar carries the connect button while no device is attached (it moves there from
-    // the page, so its handlers stay), and the words "Gerät verbunden" once one is.
-    connectButton ??= $("#cee-connect");
-    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page === "baukasten" ? baukastenActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: t("app.connected") }), disconnectButton] : connectButton ? [connectButton] : [];
+    // On the device page the navbar carries the device panel's button (it moves there from the page, so its handlers
+    // stay): connect while no device is attached, disconnect with the words "Gerät verbunden" once one is.
+    const link = connectButton ? [connectButton] : [];
+    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page === "baukasten" ? baukastenActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: t("app.connected") }), ...link] : link;
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
     page(id) { menu.close(); page = id; render(); },
     device(on) { device = on; render(); },
+    /** The device panel's connect and disconnect button. */
+    connect(node) { connectButton = node; render(); },
     /** A control the emulator page puts into the navbar (the button for its own window). */
     emu(node) { emuAction = node; render(); },
     /** The emulator's SD card: its switch and the button that opens its folder. */
@@ -520,7 +521,7 @@ function boot() {
     try { localStorage.setItem("cee.mode", id); } catch { /* blocked: the choice holds until the page closes */ }
     if (id === "device") device.chosen();
   };
-  const nav = navbar({ onMode: id => { pickMode(id); if (id !== areas?.current) areas?.select(id, { focus: false }); }, onDisconnect: () => device.disconnect() });
+  const nav = navbar({ onMode: id => { pickMode(id); if (id !== areas?.current) areas?.select(id, { focus: false }); } });
   const drawer = sidebarDrawer();
   const transport = createMidiTransport(window);
   const usb = createUsbWatch({ transport, permissions: navigator.permissions, hidden: () => document.hidden });
@@ -542,14 +543,18 @@ function boot() {
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
   const device = devicePanel($("#cee-device"), {
-    onSession: () => { sampleset?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); nav.device(!!device?.session && !device.session.sender.disconnected); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
+    onSession: () => { sampleset?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,
     usb,
     auto: () => mode === "device" && setting("autoConnect"),
     diagnose: () => { areas?.select("settings"); $("#cee-midi")?.scrollIntoView({ block: "start" }); $("#cee-midi-rescan")?.focus({ preventScroll: true }); },
+    onLink: on => nav.device(on),
+    autoOff: holdAutoConnect,
+    autoOn: releaseAutoConnect,
   });
+  nav.connect(device.button);
   // "Echtes Gerät" shows the emulator's Electribe drawing; the connection controls sit above it in that mode only.
   $("#cee-emu").before($("#cee-device"));
   $("#cee-device").hidden = true;
