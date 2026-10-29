@@ -14,7 +14,11 @@ kept number (byte 248 is 0, or above 250 when the byte was ever set otherwise) b
     python3 tools/patch/last_pattern.py --vsb SYSTEM.VSB [--out data/patches/last-pattern.json]
 
 With EXIT held at power-on boot() keeps pattern 0 and no selection notes its number, as in every patch (docs/patcher.md,
-"Notschalter"): the kept number waits for the next start without EXIT. Every address is a RAM address of the measured build; the file offset in the
+"Notschalter"): the kept number waits for the next start without EXIT. The page LAST PATTERN in BLECH > FEATURES writes the
+setting word SETTING (never written, FFFFFFFF, or 1 is on, 0 is off; bit 3 of byte 5 of the settings file is OFF). The settings
+file is read from the card after the start function has loaded its pattern and before the first selection (measured, Emulator), so
+boot() cannot see the setting yet: with OFF the first selection takes pattern 0 instead of the kept one, which loads 001 as the
+firmware does, and the number stays kept for a start with ON. Every address is a RAM address of the measured build; the file offset in the
 VSB is address - 0xC0000000 + 0x100.
 """
 
@@ -28,6 +32,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import arm  # noqa: E402
+import ramdecl  # noqa: E402
 import synthaddr  # noqa: E402
 
 HEADER = 0x100
@@ -35,6 +40,7 @@ RAM = 0xC0000000
 
 CODE_AT = 0xC014FE00            # FF in all three builds, the end of the run 0xC0148880..0xC0150000 (docs/patcher.md), not written at run time
 CODE_END = 0xC014FF00
+SETTING = 0xC014FEFC            # the last word of the code area, FF in the file: the BLECH menu's page LAST PATTERN writes it
 
 BOOT_SITE = 0xC002AF40          # mov r1, #0: the pattern the start function loads into the edit buffer
 BOOT_WAS = 0xE3A01000
@@ -69,6 +75,7 @@ def source():
 .equ PENDING, {PENDING}
 .equ PATTERNS, {PATTERNS}
 .equ SEL_OBJ, {SEL_OBJ}
+.equ SETTING, {SETTING:#x}
 .org {CODE_AT:#x}
 
 ; replaces mov r1, #0 in the start function: r1 = the kept pattern, or 0. Clobbers r0 and r12.
@@ -100,8 +107,8 @@ lb_none:
     mov r1, #0
     bx lr
 
-; replaces mov r4, r0 in the selection, r5 = the clamped number: the first selection after boot() takes the kept one,
-; every selection notes its number; with EXIT held at power-on none does. Clobbers r12.
+; replaces mov r4, r0 in the selection, r5 = the clamped number: the first selection after boot() takes the kept one (pattern 0
+; when LAST PATTERN is OFF), every selection notes its number; with EXIT held at power-on none does. Clobbers r12.
 lp_select:
     mov r4, r0
     ldr r12, =PANEL
@@ -120,6 +127,11 @@ lp_select:
     beq ls_note
     mov r0, #0
     strb r0, [r12, #PENDING]
+    ldr r0, =SETTING
+    ldr r0, [r0]
+    cmp r0, #0
+    moveq r5, #0
+    beq ls_out
     ldrb r5, [r12, #SLOT]
     sub r5, r5, #1
 ls_note:
@@ -153,14 +165,14 @@ def bl_word(at, target):
 def build_patch(vsb, build="hacktribe"):
     """The patch as a dict; `vsb` is the user's file, read for the hashes of the replaced bytes."""
     at, code, symbols = build_code()
-    if at != CODE_AT or at + len(code) > CODE_END:
-        raise SystemExit(f"code is {len(code):#x} bytes, room for {CODE_END - CODE_AT:#x}")
+    if at != CODE_AT or at + len(code) > SETTING:
+        raise SystemExit(f"code is {len(code):#x} bytes, room for {SETTING - CODE_AT:#x}")
 
     def was(addr, n):
         return vsb[file_offset(addr):file_offset(addr) + n]
 
-    if was(CODE_AT, len(code)) != b"\xff" * len(code):
-        raise SystemExit(f"{CODE_AT:#x}..{CODE_AT + len(code):#x} is not free in this VSB")
+    if was(CODE_AT, CODE_END - CODE_AT) != b"\xff" * (CODE_END - CODE_AT):
+        raise SystemExit(f"{CODE_AT:#x}..{CODE_END:#x} is not free in this VSB")
     for site, word in ((BOOT_SITE, BOOT_WAS), (SELECT_SITE, SELECT_WAS)):
         if struct.unpack("<I", was(site, 4))[0] != word:
             raise SystemExit(f"{site:#x} does not hold the instruction the patch replaces in this VSB")
@@ -180,7 +192,7 @@ def build_patch(vsb, build="hacktribe"):
             {"site": f"0x{BOOT_SITE:08X}", "kind": "instruction", "chain": "start", "position": "replace", "swallow": False,
              "note": "r1 = the kept pattern instead of 0; with EXIT held at power-on it stays 0"},
             {"site": f"0x{SELECT_SITE:08X}", "kind": "instruction", "chain": "pattern-select", "position": "replace", "swallow": False,
-             "note": "does the replaced mov r4, r0, notes the number, and once after power-on swaps in the kept one"},
+             "note": "does the replaced mov r4, r0, notes the number, and once after power-on swaps in the kept one (0 with LAST PATTERN OFF)"},
         ],
         "startPhase": [
             {"file": file_offset(BOOT_SITE), "length": 4,
@@ -188,9 +200,10 @@ def build_patch(vsb, build="hacktribe"):
             {"file": file_offset(SELECT_SITE), "length": 4,
              "why": "the start selects its first pattern through the selection, which now notes the number and takes the kept one"},
             {"file": file_offset(CODE_AT), "length": len(code),
-             "why": "lp_boot and lp_select run with those calls; they read the held keys and Global bytes 248 and 249"},
+             "why": "lp_boot and lp_select run with those calls; they read the held keys, Global bytes 248 and 249 and the setting word"},
         ],
-        "ram": [],
+        "ram": [ramdecl.area(SETTING, 4, "the setting word of LAST PATTERN: FFFFFFFF or 1 on, 0 off; the BLECH menu writes it",
+                             "tools/patch/last_pattern.py:SETTING")],
     }
 
 

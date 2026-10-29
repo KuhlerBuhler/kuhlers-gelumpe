@@ -34,6 +34,7 @@ NAMES = {
     "power_off_cases": "Ausschalten",
     "last_pattern_cases": "Letztes Pattern",
     "init_pattern_cases": "Init-Pattern",
+    "doom_loader_cases": "Doom-Lader",
     "preset_cases": "Presets",
 }
 

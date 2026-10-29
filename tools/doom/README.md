@@ -127,7 +127,8 @@ mit Punktmustern nachbilden. Mandelbrot hat keine höhere Displayauflösung.
 
 Der Port sendet beide Displayhälften. Gegner sind aktiv; Ton und Speichern
 sind abgeschaltet. SD-Dateien werden nur gelesen. Quit zeigt `DOOM STOP`,
-Fehler zeigen `DOOM ERROR` mit Code. Ein/Aus bleibt in diesen Zuständen
+Fehlen `doom.bin` oder `doom.wad`, startet der Sampler wie ohne SHIFT + TAP.
+Andere Fehler zeigen `DOOM ERROR` mit Code. Ein/Aus bleibt in diesen Zuständen
 bedienbar. Nach erneutem Einschalten ohne SHIFT + TAP ist der normale
 Sampler der Rückweg. Der vorherige Bildstand startet laut Rückmeldung am
 Gerät, war aber zu dunkel und schwer zu bedienen. Die hellere Ausgabe,
