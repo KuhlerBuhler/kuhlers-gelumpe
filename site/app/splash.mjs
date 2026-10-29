@@ -4,6 +4,8 @@ import { saveFile } from "./save-file.mjs";
 import { toast } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 import { t, tNodes } from "./i18n.mjs";
+import { loadingAnimSection } from "./loading-anim.mjs";
+import { icon } from "./icons.mjs";
 
 const STYLE = new URL("./splash.css", import.meta.url).href;
 
@@ -43,7 +45,7 @@ export function pixelsOf(picture, { cover = false, threshold = 128, dither = fal
 }
 
 /** Draws 0/1 pixels in the colours of the emulator's display. */
-function paint(canvas, pixels) {
+export function paint(canvas, pixels) {
   const style = getComputedStyle(canvas);
   const c = canvas.getContext("2d");
   c.fillStyle = style.getPropertyValue("--cee-splash-paper").trim() || "white";
@@ -59,7 +61,7 @@ const loadImage = src => new Promise((resolve, reject) => {
   img.src = src;
 });
 
-function switchOf(id, text) {
+export function switchOf(id, text) {
   const input = el("input", { type: "checkbox", role: "switch", id });
   return { input, node: el("label", { className: "ui-switch" }, [input, el("span", { className: "ui-switch-track", ariaHidden: "true" }), text]) };
 }
@@ -77,6 +79,7 @@ export function splashPage(root) {
   const files = el("span", { className: "ui-dropzone-files" });
   const drop = el("label", { className: "ui-dropzone" }, [
     fileInput,
+    icon("image"),
     el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t("splash.drop.drag") }), t("common.pick")]),
     el("span", { className: "ui-dropzone-hint", textContent: t("splash.drop.hint") }),
     files,
@@ -160,12 +163,30 @@ export function splashPage(root) {
     gallery.replaceChildren(...GALLERY.map(item => card(item, false)), ...readOwn().map(item => card(item, true)));
   }
 
-  root.replaceChildren(el("div", { className: "cee-splash" }, [
-    el("h1", { className: "cee-splash-title ui-sr-only", textContent: t("nav.splash") }),
+  // Two tabs, each its own section: the start image for the card, and the loading animation for the Patcher.
+  const tabs = el("div", { className: "ui-tabs", id: "cee-design-tabs" });
+  tabs.setAttribute("role", "tablist");
+  tabs.setAttribute("aria-label", t("nav.splash"));
+  const panels = [["splash", t("splash.title")], ["anim", t("splash.anim.title")]].map(([id, text], i) => {
+    const tab = el("button", { type: "button", className: "ui-tab", id: `cee-design-tab-${id}`, textContent: text });
+    tab.setAttribute("role", "tab");
+    tab.dataset.tab = id;
+    tab.setAttribute("aria-controls", `cee-design-panel-${id}`);
+    tab.setAttribute("aria-selected", String(i === 0));
+    if (i) tab.tabIndex = -1;
+    tabs.append(tab);
+    const panel = el("div", { className: "ui-tabpanel", id: `cee-design-panel-${id}`, tabIndex: 0, hidden: i > 0 });
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", tab.id);
+    return panel;
+  });
+
+  panels[0].append(el("section", { className: "ui-section", id: "cee-splash-section" }, [
+    el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("splash.title") })]),
     el("p", { className: "cee-splash-lead", textContent: t("splash.lead") }),
-    el("h2", { className: "cee-splash-head", textContent: t("splash.gallery") }),
+    el("h3", { className: "cee-splash-head", textContent: t("splash.gallery") }),
     gallery,
-    el("h2", { className: "cee-splash-head", textContent: t("splash.ownPicture") }),
+    el("h3", { className: "cee-splash-head", textContent: t("splash.ownPicture") }),
     drop,
     el("div", { className: "cee-splash-work", hidden: true, id: "cee-splash-work" }, [
       canvas,
@@ -183,6 +204,9 @@ export function splashPage(root) {
       el("li", { textContent: t("splash.step.see") }),
     ]),
   ]));
+  panels[1].append(loadingAnimSection());
+  root.replaceChildren(el("h1", { className: "ui-sr-only", textContent: t("nav.splash") }), tabs, ...panels);
+  window.ui?.tabs?.(tabs, { persist: "cee.design.tab", hash: false });
 
   /** Puts a picture into the editor: a dropped file or one of the gallery. */
   function open(img, name) {
