@@ -57,6 +57,8 @@ export class SimDevice {
       },
     });
     this.runtime.onOwn = () => this.display.clear();
+    // the firmware clears the pad hold when an app closes (script_app_close)
+    this.runtime.onClose = () => { this.hardware.padHold = 0; };
   }
 
   /** Load a block and run its body; the body runs inside add(), before the script object exists, so its steps are held back for the coverage. */
