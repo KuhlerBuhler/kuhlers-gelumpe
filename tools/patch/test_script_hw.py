@@ -11,6 +11,7 @@ from tools.patch.test_script_vm import contract_data, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
 
 CLOCK_INIT, CLOCK_LAST, CLOCK_REM, CLOCK_MS = 208, 212, 216, 220
+OS_TICKS = 0xC06A292C
 TICKS_PER_MS = 150000
 PERIOD = 150_000_000
 
@@ -50,6 +51,19 @@ class NativeHardwareTests(unittest.TestCase):
         m.call('script_clock_update',m.runtime)
         self.timer(m,5 + 400 * TICKS_PER_MS)
         self.assertEqual(m.call('script_clock_update',m.runtime)[0],400)
+
+    def test_whole_seconds_timer3_did_not_see_come_from_the_os_tick_count(self):
+        m,_ = self.machine()
+        self.timer(m,5); m.write(OS_TICKS,1000)
+        start = m.call('script_clock_update',m.runtime)[0]
+        # 2.4 s later: Timer3 wrapped twice and shows 400 ms, the tick count the whole of it
+        self.timer(m,5 + 400 * TICKS_PER_MS); m.write(OS_TICKS,3400)
+        self.assertEqual(m.call('script_clock_update',m.runtime)[0] - start,2400)
+        # a tick count that lags a little (it stands still for a moment while the device starts) changes nothing
+        self.timer(m,5 + 800 * TICKS_PER_MS); m.write(OS_TICKS,3700)
+        self.assertEqual(m.call('script_clock_update',m.runtime)[0] - start,2800)
+        self.timer(m,5 + 900 * TICKS_PER_MS); m.write(OS_TICKS,4200)
+        self.assertEqual(m.call('script_clock_update',m.runtime)[0] - start,2900,'400 ms more ticks than Timer3 shows is no whole second')
 
     def test_reads_return_the_firmware_state_words(self):
         m,_ = self.machine()
@@ -95,7 +109,6 @@ class NativeHardwareTests(unittest.TestCase):
 
     def test_chain_mode_is_the_global_switch(self):
         m,_ = self.machine()
-        m.uc.mem_map(0xC06A2000,0x1000)
         for byte,want in [(0,0),(1,1),(7,1)]:
             m.uc.mem_write(0xC06A2A94 + 31,bytes([byte]))
             self.assertEqual(m.call('script_read_chain_mode_glue'),(want,0))

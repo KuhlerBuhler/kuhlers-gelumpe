@@ -7,20 +7,30 @@
 .equ HW_STEP, 0xC06904B0
 .equ HW_MUTE, 0xC06B2F9D
 
-; r0 runtime. Adds the Timer3 ticks since the last call to the millisecond count and returns it. The counter wraps at SCRIPT_TIMER_PERIOD.
+.equ OS_TICKS, 0xC06A292C
+
+; r0 runtime. Adds the Timer3 ticks since the last call to the millisecond count and returns it. Timer3 wraps every second
+; (SCRIPT_TIMER_PERIOD), so a gap of more than a second between two calls (the start with its sample load, before the first
+; frame) would lose whole seconds: the OS tick count, one per millisecond, tells how many, Timer3 the rest. Preserves r4 to r11.
 script_clock_update:
+    push {r4, r5}
     ldr r1, =SCRIPT_TIMER_ADDRESS
     ldr r1, [r1]
+    ldr r4, =OS_TICKS
+    ldr r4, [r4]
+    ldr r5, =clock_ticks_last
     ldr r2, [r0, #SCRIPT_CONTROL_CLOCK_INIT]
     cmp r2, #0
     bne clock_running
     mov r2, #1
     str r2, [r0, #SCRIPT_CONTROL_CLOCK_INIT]
     str r1, [r0, #SCRIPT_CONTROL_CLOCK_LAST]
+    str r4, [r5]
     mov r2, #0
     str r2, [r0, #SCRIPT_CONTROL_CLOCK_REM]
     str r2, [r0, #SCRIPT_CONTROL_CLOCK_MS]
     mov r0, #0
+    pop {r4, r5}
     bx lr
 clock_running:
     ldr r2, [r0, #SCRIPT_CONTROL_CLOCK_LAST]
@@ -31,16 +41,29 @@ clock_running:
     str r1, [r0, #SCRIPT_CONTROL_CLOCK_LAST]
     ldr r3, [r0, #SCRIPT_CONTROL_CLOCK_REM]
     add r3, r3, r2
+    ldr r2, [r5]
+    str r4, [r5]
+    sub r4, r4, r2
     ldr r2, [r0, #SCRIPT_CONTROL_CLOCK_MS]
+    add r4, r4, r2
     ldr r1, =SCRIPT_TIMER_TICKS_PER_MS
 clock_carry:
     cmp r3, r1
     subhs r3, r3, r1
     addhs r2, r2, #1
     bhs clock_carry
+    sub r4, r4, r2
+clock_seconds:
+    cmp r4, #500
+    blt clock_store
+    add r2, r2, #1000
+    sub r4, r4, #1000
+    b clock_seconds
+clock_store:
     str r3, [r0, #SCRIPT_CONTROL_CLOCK_REM]
     str r2, [r0, #SCRIPT_CONTROL_CLOCK_MS]
     mov r0, r2
+    pop {r4, r5}
     bx lr
 .pool
 

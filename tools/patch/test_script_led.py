@@ -15,7 +15,8 @@ if UNICORN_AVAILABLE:
 class NativeLedTests(unittest.TestCase):
     def machine(self):
         m,built=hooks_tests.HookTests().machine()
-        for at in [0xC0025000,0xC06A0000,0xC06B0000,0x01C42000]:m.uc.mem_map(at,0x1000 if at!=0xC06A0000 else 0x10000)
+        # 0xC06A2000 is the hook machine's already (the OS tick count)
+        for at,size in [(0xC0025000,0x1000),(0xC06A0000,0x2000),(0xC06A3000,0xD000),(0xC06B0000,0x1000),(0x01C42000,0x1000)]:m.uc.mem_map(at,size)
         m.uc.mem_write(0xC002548C,struct.pack('<I',0xE12FFF1E))
         m.write(0xC033E6FC,0xC06B0000)
         m.write(0xC033E644,0x01C42000)
