@@ -56,6 +56,7 @@ export const CHAINS = {
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
   "info-line": [{ id: "label-flag", sites: [0xC008684C] }],
+  "part-mute-get": [{ id: "getter-entry", sites: [0xC0048CFC] }],
   "stopped-sync": [{ id: "load-chosen", sites: [0xC0081E18] }],
   "pattern-load-copy": [{ id: "copy-into-ram", sites: [0xC004AC44] }],
   "pattern-load-voices": [
