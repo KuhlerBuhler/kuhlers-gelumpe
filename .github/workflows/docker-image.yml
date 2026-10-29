@@ -1,0 +1,79 @@
+# The container image on GitHub's registry: the page and the emulator that docker-compose.yaml builds,
+# ready to pull (docs/development.md, "Im Container"). Started by the release workflow (release.yml)
+# with the tag it has just published, or by hand with a tag when an image has to be built again.
+#
+# It does not hang on the release event alone: a release created with the workflow's own token starts no
+# other workflow, and release.yml creates it that way (the same reason discord-release.yml has a
+# workflow_call).
+#
+# The image is not tested here: test.yml builds and starts the container from this Dockerfile on every
+# pull request. A push that fails leaves the release without an image and shows as a red run.
+name: Container image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag of the release to publish, e.g. v1.3.6"
+        required: true
+      latest:
+        description: "Also move :latest to this tag (only for the newest release)"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
+      # The registry takes only lowercase names, and the repository is KuhlerBuhler/kuhlers-gelumpe.
+      - name: Name and version
+        id: image
+        env:
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+          # A rebuild by hand of an older tag must not move :latest back; a release always moves it.
+          LATEST: ${{ github.event_name != 'workflow_dispatch' || inputs.latest }}
+        run: |
+          name="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          {
+            echo "name=$name"
+            echo "version=${TAG#v}"
+            echo "tags<<EOF"
+            echo "$name:${TAG#v}"
+            [ "$LATEST" = true ] && echo "$name:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Both systems the app ships for. The emulator's Unicorn comes as a wheel for each, so the
+      # second system is built under QEMU without compiling anything.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.image.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=Kuhlers GELUMPE
+            org.opencontainers.image.version=${{ steps.image.outputs.version }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

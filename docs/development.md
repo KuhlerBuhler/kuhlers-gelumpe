@@ -49,6 +49,15 @@ hineinschreiben. Der Editor hat keine
 Anmeldung, deshalb bleiben beide Ports auf 127.0.0.1. Ohne Docker gilt `npm start`
 wie oben.
 
+Ein Release legt dasselbe Abbild auch in GitHubs Paketregister ab, für linux/amd64
+und linux/arm64 (`.github/workflows/docker-image.yml`, von `release.yml`
+aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Wer
+nicht selbst bauen will, trägt den Namen in `docker-compose.yaml` bei `image` ein
+und entfernt `build: .`; `docker compose up` zieht das Abbild dann. Der Ordner
+`SD` bleibt nötig, denn die Karte liegt in keinem Abbild.
+Von Hand (Actions, "Container image", mit einem Tag) lässt sich ein Abbild neu bauen;
+`:latest` wandert dabei nur mit, wenn "latest" angehakt ist.
+
 ## Hinter einem Proxy
 
 Ein Reverse Proxy auf demselben Rechner (Caddy, nginx, Traefik) erreicht den
@@ -357,7 +366,8 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
    `node tools/release-notes.mjs build`: es schreibt `data/release-notes.mjs`, daraus zeigt die App unter Changelogs
    auch die Versionen, deren Release auf GitHub schon gelöscht ist (ohne Downloads, nur Neu, Geändert, Behoben). Ein
    Test schlägt fehl, wenn die Datei nicht zu `release-notes/` passt.
-2. Pull Request `develop` -> `main` mergen.
+2. Pull Request `develop` -> `main` mergen. Den Release-PR `release/X.Y.Z` -> `main` merged der Workflow "Release
+   merge" selbst, sobald jemand mit Schreibrecht ihn freigegeben hat und alle Checks grün sind (siehe unten).
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
    Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
    2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
@@ -435,6 +445,26 @@ Nach jedem Push auf `develop`, `main` oder einen `release/`-Branch holt der Work
 diesen Branch in jeden offenen Pull Request, der auf ihm aufbaut und hinterherhängt (GitHubs "Update branch", mit
 `SYNC_TOKEN`, damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein
 Basis-Branch ist; bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
+
+**Release-PR mergt sich selbst** (Workflow "Release merge", `.github/workflows/release-merge.yml`,
+`tools/release-merge.mjs`): ein offener PR `release/X.Y.Z` -> `main` aus diesem Repo wird gemerged, wenn alles
+zutrifft:
+
+- kein Entwurf (Draft). Als Draft markieren hält den Merge an;
+- jemand mit Schreibrecht hat ihn freigegeben (Approve), und seit dem freigegebenen Commit hat sich nur
+  `data/patches/verified.json` geändert (der Commit von "Verify patches"). Jeder andere neue Commit braucht eine
+  neue Freigabe. Steht bei jemandem mit Schreibrecht als letztes "Changes requested", wird nicht gemerged;
+- jeder Workflow-Lauf auf dem Kopf-Commit ist fertig, der neueste Lauf jedes Workflows und jeder Check sind grün
+  (oder übersprungen), `unit`, `browser` und `guard` sind dabei. Läuft noch etwas, etwa ein `verify (*)`, das
+  danach eine neue `verified.json` pusht, wird gewartet: der Push startet neue Checks, und erst wenn die auch durch
+  sind, wird gemerged.
+
+Geprüft wird jedes Mal, wenn ein Workflow eines PRs fertig wird oder ein Review kommt; von Hand mit
+`gh workflow run release-merge.yml`. Gemerged wird mit `SYNC_TOKEN` und `--match-head-commit`, also nur der Commit,
+der geprüft wurde; mit dem eigenen Token des Workflows würde der Merge kein Release starten. Ohne das Secret wird
+nichts gemerged. Was fehlt, steht im Log des Laufs. Lokal ohne Merge: `GITHUB_REPOSITORY=KuhlerBuhler/kuhlers-gelumpe
+node tools/release-merge.mjs --dry-run`. Der Auslöser `workflow_run` nimmt die Datei, wie sie auf `main` liegt: der
+Workflow merged also erst ab dem Release, das ihn nach `main` bringt.
 
 `--notes=Datei.md` nimmt die Release-Notizen aus der Datei (zweisprachig, mit Download-Blöcken, siehe "Format der Notizen") statt GitHubs erzeugter Liste der PRs. Sobald
 das Release veröffentlicht ist, postet der Workflow "Discord release" es über den Webhook im Secret
