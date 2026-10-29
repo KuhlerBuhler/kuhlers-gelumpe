@@ -39,6 +39,7 @@ on:
       - "src/bzip2.mjs"
       - "src/firmware.mjs"
       - "src/fx-append.mjs"
+      - "src/fx-collection.mjs"
       - "src/fx-v2.mjs"
       - "src/guards.mjs"
       - "src/hooks.mjs"
