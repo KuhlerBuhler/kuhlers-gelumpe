@@ -1951,6 +1951,8 @@ export default {
   "api.korg.set": "Zet een blad van de objectboom, begrensd tot zijn bereik; de compiler roept het aan als aan een pad iets wordt toegewezen.",
   "api.object.display.intensity": "Helderheid van het displaylicht, 0 (uit) tot 15 (vol), zoals de pagina INTENSITY; WRITE in het menu bewaart het.",
   "api.object.system.repairs": "Hoeveel waarden sinds de start buiten hun bereik lagen en begrensd of teruggezet zijn.",
+  "api.object.system.testMode": "Of de testmodus aan is (1): display, licht en alle leds donker, Auto Power Off tegengehouden. Alleen via USB te schakelen.",
+  "api.object.system.keepAwake": "Start de 4 uur van Auto Power Off opnieuw, zoals een toets op het apparaat.",
   "script.fault.objectLeaf": "geen blad {leaf} in de objectboom",
   "script.fault.objectReadOnly": "{path} kan alleen gelezen worden",
   "compile.object.unknown": "{path} bestaat niet. {branch} heeft: {names}.",

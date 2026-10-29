@@ -1951,6 +1951,8 @@ export default {
   "api.korg.set": "Define uma folha da árvore de objetos, limitada ao seu intervalo; o compilador chama-a quando se atribui um caminho.",
   "api.object.display.intensity": "Brilho da luz do ecrã, 0 (desligada) a 15 (máximo), como a página INTENSITY; WRITE no menu guarda-o.",
   "api.object.system.repairs": "Quantos valores estiveram fora do intervalo desde o arranque e foram limitados ou repostos.",
+  "api.object.system.testMode": "Se o modo de teste está ativo (1): ecrã, luz e todos os LED apagados, desligamento automático suspenso. Só se muda por USB.",
+  "api.object.system.keepAwake": "Reinicia as 4 horas do desligamento automático, como uma tecla do aparelho.",
   "script.fault.objectLeaf": "não há folha {leaf} na árvore de objetos",
   "script.fault.objectReadOnly": "{path} só pode ser lido",
   "compile.object.unknown": "{path} não existe. {branch} tem: {names}.",
