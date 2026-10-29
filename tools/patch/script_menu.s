@@ -4001,6 +4001,7 @@ menu_prev_blechy:
     str r3, [r2, #M_LEVEL]
     str r3, [r2, #M_PAGE]
     str r3, [r2, #M_ENTER]
+    bl blechy_leave
     mov r0, r4
     bl menu_show
     pop {r4, pc}
@@ -4019,7 +4020,7 @@ menu_slot_next:
     cmp r3, #M_LEVEL_SYNC
     beq menu_next_sync
     cmp r3, #M_LEVEL_BLECHY
-    beq menu_next_pattern
+    beq menu_next_blechy
     cmp r3, #M_LEVEL_GLOBAL
     moveq r1, #0
     beq menu_global_page
@@ -4056,8 +4057,13 @@ menu_next_sync:
     blne 0xC007BFD0
     mov r0, #7
     b menu_leave
-; the page of Blechy, the last of the ring, EDIT right: on to the Pattern menu, the way the firmware's Event menu does it (its slot
-; 0xC0064430 is hooked, so the displaced first instruction runs here and the rest of it from the second word)
+; the page of Blechy, the last of the ring, EDIT right: close him before the Pattern menu draws (blechy_leave), then on to the Pattern
+; menu, the way the firmware's Event menu does it (its slot 0xC0064430 is hooked, so the displaced first instruction runs here and the
+; rest of it from the second word)
+menu_next_blechy:
+    push {r0, r1, r2, r3}
+    bl blechy_leave
+    pop {r0, r1, r2, r3}
 menu_next_pattern:
     pop {r4, lr}
     push {r3, r4, r5, lr}
