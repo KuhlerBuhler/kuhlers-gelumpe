@@ -1951,6 +1951,8 @@ export default {
   "api.korg.set": "Sets a leaf of the object tree, clamped to its range; the compiler calls it when a path is assigned.",
   "api.object.display.intensity": "Brightness of the display light, 0 (off) to 15 (full), like the page INTENSITY; WRITE in the menu keeps it.",
   "api.object.system.repairs": "How many values were outside their range since start and were clamped or reset.",
+  "api.object.system.testMode": "Whether the test mode is on (1): display, light and every LED dark, Auto Power Off held. Switched over USB only.",
+  "api.object.system.keepAwake": "Starts the 4 hours of Auto Power Off again, as a key on the device does.",
   "script.fault.objectLeaf": "no leaf {leaf} in the object tree",
   "script.fault.objectReadOnly": "{path} can only be read",
   "compile.object.unknown": "{path} does not exist. {branch} has: {names}.",

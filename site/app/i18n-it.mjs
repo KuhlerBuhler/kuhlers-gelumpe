@@ -1950,6 +1950,8 @@ export default {
   "api.korg.set": "Imposta una foglia dell'albero degli oggetti, limitata al suo intervallo; il compilatore la chiama quando si assegna un percorso.",
   "api.object.display.intensity": "Luminosità della luce del display, da 0 (spenta) a 15 (piena), come la pagina INTENSITY; WRITE nel menu la conserva.",
   "api.object.system.repairs": "Quanti valori erano fuori intervallo dall'avvio e sono stati limitati o ripristinati.",
+  "api.object.system.testMode": "Se la modalità test è attiva (1): display, luce e tutti i LED spenti, spegnimento automatico trattenuto. Si cambia solo via USB.",
+  "api.object.system.keepAwake": "Fa ripartire le 4 ore dello spegnimento automatico, come un tasto dello strumento.",
   "script.fault.objectLeaf": "nessuna foglia {leaf} nell'albero degli oggetti",
   "script.fault.objectReadOnly": "{path} si può solo leggere",
   "compile.object.unknown": "{path} non esiste. {branch} ha: {names}.",

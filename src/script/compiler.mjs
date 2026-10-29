@@ -20,7 +20,7 @@ import {
 } from "../../data/script/contract.mjs";
 import { NAMES } from "../../data/script/names.mjs";
 import { PROPERTY_BY_PATH, KNOB_NAMES } from "../../data/script/properties.mjs";
-import { objectChildren, isObjectBranch } from "../../data/script/objects.mjs";
+import { objectChildren, isObjectBranch, OBJECT_BY_PATH } from "../../data/script/objects.mjs";
 import { encodeBlob, decodeBlob, lineAt } from "./blob.mjs";
 import { assemble } from "./asm.mjs";
 import { verifyParts } from "./verifier.mjs";
@@ -488,6 +488,12 @@ class Compiler {
       this.emit(fn, "CALL", f.key, n.args.length);
       this.edges.push({ from: fn.key, to: f.key, at: n });
       return "int";
+    }
+    const action = OBJECT_BY_PATH.get(name);
+    if (action?.action) {
+      if (n.args.length) throw err(n, text("compile.api.argc.many", { name, count: 0, list: "", given: n.args.length }));
+      const num = value => ({ type: "Num", value, line: n.line, col: n.col });
+      return this.call(callNode("korg.set", [num(action.id), num(-1), num(1)], n), fn);
     }
     const api = API_BY_NAME.get(name);
     if (!api) throw err(n, text("compile.call.unknown", { name }));

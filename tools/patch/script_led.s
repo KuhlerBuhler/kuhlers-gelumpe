@@ -126,6 +126,10 @@ script_led_try_send:
     sub sp, sp, #4
     mov r4, r0
     mov r5, r1
+    ldr r0, =objects_test_mode      ; the test mode keeps every LED dark, whatever a plugin set
+    ldrb r0, [r0]
+    cmp r0, #0
+    movne r5, #0
     .word 0xE10F6000 ; mrs r6, cpsr
     tst r6, #0x80
     bne led_send_reject
