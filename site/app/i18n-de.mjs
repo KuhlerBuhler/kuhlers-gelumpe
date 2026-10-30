@@ -312,6 +312,7 @@ export default {
   "midi.quarantinedShort": "Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest.",
 
   "probe.emuOff": "Der Emulator läuft nicht. Starte ihn im Bereich Emulator.",
+  "probe.unsupported": "Der Emulator läuft mit Korgs Original-Firmware. Patche sie zuerst, dann geht die Probe.",
 
   "rescue.source": "Quelle: {source}",
   "rescue.issue.title": "Rettung: {answer}",
@@ -1506,6 +1507,7 @@ export default {
   "patcher.done.title": "Viel Spaß beim BLECHEN",
   "patcher.done.backup": "Sichere die SD-Karte, am besten komplett auf den Rechner kopieren.",
   "patcher.done.copy": "Kopiere auf der Karte den Ordner {from} nach {to}. Kopieren, nicht umbenennen: Nach dem Update liest BLECHTRIBE seine Dateien aus {reads}, deine Samples und Patterns findet es nur dort. Der alte Ordner bleibt, wie er ist.",
+  "patcher.done.copy.asks": "Kopieren musst du nichts: Beim ersten Start nach dem Update fragt BLECHTRIBE, ob es deinen Ordner {from} nach {to} übernehmen soll. MENU kopiert, EXIT startet ohne. Der alte Ordner bleibt, wie er ist.",
   "patcher.done.doom": "Für Doom (SHIFT + TAP beim Einschalten): {files} laden und auf der Karte nach {folder} legen. {licences}.",
   "patcher.done.doom.and": " und ",
   "patcher.done.doom.licences": "Quellen und Lizenzen",

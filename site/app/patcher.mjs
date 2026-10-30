@@ -724,13 +724,16 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     const old = sampleFolder(flow.origin);
     // Korg's firmware of the blue keeps the synth's files, which the Sampler code cannot read: nothing to copy then
     const moves = blech?.items.some(p => p.id === "blechtribe") && !(flow.origin === "stock" && flow.device === "blue");
+    // with the runtime the device asks at the first start and copies the folder itself (script_migrate.s)
+    const asks = moves && blech.items.some(p => p.id === "script-runtime");
+    const copy = (key) => el("li", { id: "cee-patch-guide-copy" }, tNodes(key, {
+      from: el("code", { textContent: old }), to: el("code", { textContent: `KORG/${BLECH_FOLDER}/` }), reads: el("code", { textContent: `KORG/${BLECH_FOLDER}/` }),
+    }));
     done.replaceChildren(
       el("h2", { textContent: t("patcher.done.title") }),
       el("ol", { className: "cee-patch-guide" }, [
         el("li", { textContent: t("patcher.done.backup") }),
-        moves ? el("li", { id: "cee-patch-guide-copy" }, tNodes("patcher.done.copy", {
-          from: el("code", { textContent: old }), to: el("code", { textContent: `KORG/${BLECH_FOLDER}/` }), reads: el("code", { textContent: `KORG/${BLECH_FOLDER}/` }),
-        })) : null,
+        moves && !asks ? copy("patcher.done.copy") : null,
         blech && hasDoom(blech) ? el("li", { id: "cee-patch-guide-doom" }, tNodes("patcher.done.doom", {
           files: DOOM_FILES.flatMap((file, i) => [i ? t("patcher.done.doom.and") : "", el("a", { className: "cee-text-link", href: file, download: file.split("/").pop(), textContent: file.split("/").pop() })]),
           folder: el("code", { textContent: DOOM_FOLDER }),
@@ -741,6 +744,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         folder === "KORG/electribe/System/" ? el("li", { textContent: t("patcher.done.only") }) : null,
         el("li", { textContent: t("patcher.done.update") }),
         el("li", { textContent: t("patcher.done.power") }),
+        asks ? copy("patcher.done.copy.asks") : null,
       ].filter(Boolean)),
       el("p", { className: "cee-patch-exit" }, [el("strong", { textContent: t("patcher.done.exit.title") }), ...tNodes("patcher.done.exit", { rescue: el("a", { href: "#rescue", textContent: t("nav.rescue") }) })]),
     );

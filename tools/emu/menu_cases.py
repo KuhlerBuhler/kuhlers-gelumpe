@@ -2412,6 +2412,37 @@ def boot_light_cases(payload, flash=None):
     after = dev.read(globals_at + BOOT_SLOT, 1)[0]
     add("write_updates_the_byte", before == 0x88 and after == 0x90 and state(dev, S_STATUS) == 1,
         f"Global byte 250 after the change {before:#x}, after WRITE {after:#x}, status {state(dev, S_STATUS)}")
+    # Device report 30.10.: HUE 15, SAT 13, BRIGHT 14 (stored 14, 13, 2) and DISPLAY INVERT on kept the start white, because all three
+    # levels are above 0. The start only has on and off per channel: a channel stays on when it is at least half of the strongest.
+    set_look(dev, backlight=(0, 0, 0))
+    goto_page(dev, PAGE_BL_R)
+    dev.turn(15, wait=0.25)
+    goto_page(dev, PAGE_BL_G)
+    dev.turn(-2, wait=0.25)
+    goto_page(dev, PAGE_BL_B)
+    dev.turn(-1, wait=0.25)
+    levels = [state(dev, S_BL_R + 4 * k) for k in range(3)]
+    press(dev, "write", wait=0.6)
+    after = dev.read(globals_at + BOOT_SLOT, 1)[0]
+    add("hsv_15_13_14_byte", levels == [14, 13, 2] and after == 0x98 and state(dev, S_BL_ON) == 0x38 and state(dev, S_STATUS) == 1,
+        f"HUE 15, SAT 13, BRIGHT 14 stores {levels}, Global byte 250 after WRITE {after:#x} (red and green), pins of the menu {state(dev, S_BL_ON):#x}")
+    rule = []
+    for colour, want in (((15, 7, 0), 0x88), ((15, 8, 0), 0x98), ((8, 8, 8), 0xB8), ((0, 0, 1), 0xA0), ((15, 1, 14), 0xA8), ((1, 15, 1), 0x90)):
+        set_look(dev, backlight=colour)
+        press(dev, "write", wait=0.6)
+        rule.append((colour, dev.read(globals_at + BOOT_SLOT, 1)[0], want))
+    add("pins_follow_the_strongest", all(got == want for _, got, want in rule), f"colour, byte, wanted: {[(c, hex(g), hex(w)) for c, g, w in rule]}")
+    his = {**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0, (0, 0, 0), (14, 13, 2), invert=1))}
+    mine = boot(payload, kept, files=his)
+    kept_his = last_pattern_cases.switch_off(mine)
+    if kept_his is None:
+        add("his_colour_starts_yellow", False, "no switch-off")
+        return out
+    mine, changes, image_ms, image_pins = boot_light_run(payload, kept_his, his)
+    lit = [v for t, v in after_white(changes) if v]
+    first = image_pins if not synth else (lit[0] if lit else None)
+    add("his_colour_starts_yellow", kept_his[BOOT_FLASH] == 0x98 and first == 0x18,
+        f"flash byte {kept_his[BOOT_FLASH]:#x} after the settings 14, 13, 2 with INVERT on, start image pins {image_pins}, first lit pins {first}, changes {changes[:6]}")
     return out
 
 
