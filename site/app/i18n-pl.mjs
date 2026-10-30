@@ -1464,6 +1464,7 @@ export default {
   "patcher.done.title": "Miłego BLECHOWANIA",
   "patcher.done.backup": "Zrób kopię karty SD, najlepiej skopiuj ją w całości na komputer.",
   "patcher.done.copy": "Skopiuj na karcie folder {from} do {to}. Kopiuj, nie zmieniaj nazwy: po aktualizacji BLECHTRIBE czyta swoje pliki z {reads}, twoje sample i patterny znajdzie tylko tam. Stary folder zostaje, jak jest.",
+  "patcher.done.copy.asks": "Nie musisz nic kopiować: przy pierwszym starcie po aktualizacji BLECHTRIBE zapyta, czy przejąć twój folder {from} do {to}. MENU kopiuje, EXIT startuje bez. Stary folder zostaje bez zmian.",
   "patcher.done.doom": "Dla Dooma (SHIFT + TAP przy włączaniu): pobierz {files} i wrzuć na kartę do {folder}. {licences}.",
   "patcher.done.doom.and": " i ",
   "patcher.done.doom.licences": "Źródła i licencje",

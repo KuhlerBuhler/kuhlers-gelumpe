@@ -1464,6 +1464,7 @@ export default {
   "patcher.done.title": "Have fun BLECH-ing",
   "patcher.done.backup": "Back up the SD card, best by copying all of it to your computer.",
   "patcher.done.copy": "On the card, copy the folder {from} to {to}. Copy, don't rename: after the update BLECHTRIBE reads its files from {reads}, it only finds your samples and patterns there. The old folder stays as it is.",
+  "patcher.done.copy.asks": "You don't need to copy anything: on the first start after the update, BLECHTRIBE asks whether to take over your folder {from} into {to}. MENU copies, EXIT starts without. The old folder stays as it is.",
   "patcher.done.doom": "For Doom (SHIFT + TAP when switching on): download {files} and put them on the card in {folder}. {licences}.",
   "patcher.done.doom.and": " and ",
   "patcher.done.doom.licences": "Sources and licenses",

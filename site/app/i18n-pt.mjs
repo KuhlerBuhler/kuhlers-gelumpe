@@ -1464,6 +1464,7 @@ export default {
   "patcher.done.title": "Diverte-te a BLECHAR",
   "patcher.done.backup": "Faz uma cópia de segurança do cartão SD, o melhor é copiá-lo todo para o computador.",
   "patcher.done.copy": "Copia no cartão a pasta {from} para {to}. Copiar, não mudar o nome: depois da atualização o BLECHTRIBE lê os seus ficheiros de {reads}, os teus samples e patterns só os encontra aí. A pasta antiga fica como está.",
+  "patcher.done.copy.asks": "Não precisas de copiar nada: no primeiro arranque depois da atualização, o BLECHTRIBE pergunta se deve importar a tua pasta {from} para {to}. MENU copia, EXIT arranca sem copiar. A pasta antiga fica como está.",
   "patcher.done.doom": "Para o Doom (SHIFT + TAP ao ligar): descarrega {files} e põe-nos no cartão em {folder}. {licences}.",
   "patcher.done.doom.and": " e ",
   "patcher.done.doom.licences": "Fontes e licenças",
