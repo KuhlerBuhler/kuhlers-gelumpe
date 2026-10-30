@@ -145,6 +145,104 @@ class Machine:
         self.uc.emu_start(entry, TRAP, count=100_000)
 
 
+class Startup(unittest.TestCase):
+    def initialize(self, m):
+        self.assertIn('native_scope_init', m.symbols)
+        m.uc.reg_write(R.UC_ARM_REG_CPSR, m.control)
+        for register, value in m.initial.items():
+            m.uc.reg_write(register, value)
+        m.uc.reg_write(R.UC_ARM_REG_SP, STACK)
+        m.uc.reg_write(R.UC_ARM_REG_LR, TRAP)
+        m.uc.emu_start(m.symbols['native_scope_init'], TRAP, count=10000)
+        self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_PC), TRAP)
+        self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_SP), STACK)
+        self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_CPSR) & 255, m.control)
+        for register, value in m.initial.items():
+            self.assertEqual(m.uc.reg_read(register), value)
+
+    def test_initialization_is_atomic_and_preserves_the_original_irq_state(self):
+        for irq in (False, True):
+            with self.subTest(irq=irq):
+                m = Machine(irq=irq)
+                m.put(SCOPE, 0xFFFFFFFF)
+                m.put(FAULT, 0xFFFFFFFF)
+                writes = []
+                m.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE,
+                             lambda uc, access, at, size, value, _: writes.append(
+                                 (at, bool(uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80))),
+                             begin=SCOPE, end=FAULT + 3)
+                self.initialize(m)
+                self.assertEqual((m.u32(SCOPE), m.u32(FAULT), m.u32(MODE), m.u32(GEN)), (0, 0, 1, 7))
+                self.assertEqual({at for at, _ in writes}, {SCOPE, FAULT})
+                self.assertTrue(all(masked for _, masked in writes))
+
+    def test_initialization_preserves_a_live_scope_and_any_latched_fault(self):
+        for pointer, fault in ((0, 0), (0, 1), (STATE + 0x500, 0), (STATE + 0x500, 1), (0xFFFFFFFF, 1)):
+            with self.subTest(pointer=pointer, fault=fault):
+                m = Machine()
+                m.put(SCOPE, pointer)
+                m.put(FAULT, fault)
+                self.initialize(m)
+                self.assertEqual(m.u32(SCOPE), 0 if pointer == 0xFFFFFFFF else pointer)
+                self.assertEqual(m.u32(FAULT), fault)
+                self.assertEqual((m.u32(MODE), m.u32(GEN)), (1, 7))
+
+    def test_native_transactions_keep_original_behavior_before_initialization(self):
+        m = Machine()
+        for address in (SCOPE, FAULT, MODE, GEN):
+            m.put(address, 0xFFFFFFFF)
+        m.put(SEMA, 1)
+        m.run(native=True)
+        self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_PC), TRAP)
+        self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_SP), STACK)
+        self.assertEqual(m.u32(SUCCESS), 1)
+        self.assertEqual([m.u32(address) for address in (SCOPE, FAULT, MODE, GEN)], [0xFFFFFFFF] * 4)
+        self.assertEqual(m.u32(SEMA), 1)
+        self.assertEqual(m.acquires, [(1, 0)])
+        self.assertEqual(m.releases, [dict(index=1, scope=0xFFFFFFFF, control=m.control)])
+
+
+class PollDriver(unittest.TestCase):
+    def machine(self):
+        m = Machine()
+        self.assertTrue(hasattr(p, 'build_driver_code'))
+        code, m.symbols = p.build_driver_code(CODE, scope=SCOPE, fault=FAULT, mode=MODE,
+                                             generation=GEN, release=RELEASE, acquire=ACQUIRE)
+        m.uc.mem_write(CODE, code)
+        return m
+
+    def call(self, m, label, arguments):
+        m.uc.reg_write(R.UC_ARM_REG_CPSR, m.control)
+        for register, value in arguments.items():
+            m.uc.reg_write(register, value)
+        m.uc.reg_write(R.UC_ARM_REG_SP, STACK)
+        m.uc.reg_write(R.UC_ARM_REG_LR, TRAP)
+        m.uc.emu_start(m.symbols[label], TRAP, count=10000)
+        self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_PC), TRAP)
+        self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_SP), STACK)
+        self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_CPSR) & 255, m.control)
+
+    def test_control_poll_reads_the_native_halfword_and_preserves_live_registers(self):
+        m = self.machine()
+        m.uc.mem_map(0x60000000, 4096)
+        m.uc.mem_write(0x60000002, struct.pack('<H', 0x85))
+        registers = {R.UC_ARM_REG_R0 + i: 0x12340000 + i for i in range(13)}
+        registers[R.UC_ARM_REG_R3] = 0x60000002
+        self.call(m, 'native_scope_control', registers)
+        for register, value in registers.items():
+            self.assertEqual(m.uc.reg_read(register), 0x85 if register == R.UC_ARM_REG_R3 else value)
+        self.assertEqual(m.releases, [])
+
+    def test_gpio_poll_keeps_the_native_call_and_its_result(self):
+        m = self.machine()
+        m.uc.mem_write(0xC00145F0, arm.assemble('mov r0, #1\nbx lr', origin=0xC00145F0).bytes)
+        registers = {R.UC_ARM_REG_R0 + i: 0x12340000 + i for i in range(13)}
+        self.call(m, 'native_scope_gpio', registers)
+        for register, value in registers.items():
+            self.assertEqual(m.uc.reg_read(register), 1 if register == R.UC_ARM_REG_R0 else value)
+        self.assertEqual(m.releases, [])
+
+
 class Recovery(unittest.TestCase):
     def overwrite_released_context(self, machine):
         observed = dict(context=0, overwritten=False)

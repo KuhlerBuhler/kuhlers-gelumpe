@@ -46,6 +46,36 @@ export const CHAINS = {
     { id: "chain-switch", sites: [0xC0079A74] },
     { id: "part-update", sites: [0xC0099FFC] },
     { id: "part-bind", sites: [0xC0099D88] },
+    { id: "osc-choice", sites: [0xC0040DB4] },
+  ],
+  "sample-swap-native-dsp": [
+    { id: "resource-acquire", sites: [
+      0xC0012794, 0xC0012800, 0xC0012884, 0xC0012908, 0xC001298C, 0xC0012A0C,
+      0xC0012A94, 0xC0012B14, 0xC0012B98, 0xC0012C10, 0xC0012C90, 0xC0012D18,
+      0xC0012D9C, 0xC0012E20, 0xC0012EA4, 0xC0012F28, 0xC0012FAC, 0xC001302C,
+      0xC001315C, 0xC001328C, 0xC0013310, 0xC0013544, 0xC0013778, 0xC00137FC,
+      0xC00139B8, 0xC0013A38, 0xC0013ABC, 0xC0013B44, 0xC0013D50, 0xC0013DE8,
+      0xC0014248, 0xC00142D4, 0xC0014348, 0xC00143B0, 0xC0014420,
+    ] },
+    { id: "native-polling", sites: [
+      0xC0014650, 0xC0014710, 0xC00147C0, 0xC0014920, 0xC00149E0, 0xC00146F8,
+      0xC00147A8, 0xC0014810, 0xC0014908, 0xC00149C8, 0xC0014A30,
+    ] },
+    { id: "resource-release", sites: [
+      0xC00127A4, 0xC0012820, 0xC00128A8, 0xC0012928, 0xC00129AC, 0xC0012A30,
+      0xC0012AB4, 0xC0012B38, 0xC0012BB4, 0xC0012C2C, 0xC0012CB8, 0xC0012D38,
+      0xC0012DBC, 0xC0012E40, 0xC0012EC8, 0xC0012F48, 0xC0012FCC, 0xC00130F0,
+      0xC0013220, 0xC00132AC, 0xC00134D8, 0xC001370C, 0xC0013794, 0xC0013948,
+      0xC00139D8, 0xC0013A58, 0xC0013AE0, 0xC0013C98, 0xC0013D84, 0xC0013EE8,
+      0xC0014274, 0xC00142F8, 0xC0014358, 0xC00143D4, 0xC0014438,
+    ] },
+  ],
+  "sample-swap-native-sample": [
+    { id: "capture-entry", sites: [0xC0082F1C, 0xC004F20C] },
+    { id: "capture-stop", sites: [0xC0082DA8, 0xC0082DD8, 0xC0082E5C] },
+    { id: "capture-finish", sites: [0xC004F128, 0xC004F15C] },
+    { id: "export-entry", sites: [0xC0039CC4] },
+    { id: "export-write", sites: [0xC0039B2C, 0xC0039C30] },
   ],
   "start-image": [{ id: "early-draw", sites: [0xC002AC38] }],
   "global-screen": [
@@ -64,6 +94,7 @@ export const CHAINS = {
     // wheel, pad and MIDI all end in set_number: the entries are one stage, set_number the next
     { id: "select", sites: [0xC006513C, 0xC006EDE4, 0xC006EE00] },
     { id: "set-number", sites: [0xC0081F50] },
+    { id: "accepted-choice", sites: [0xC008205C] },
   ],
   "pattern-select": [{ id: "clamp", sites: [0xC0079DC8] }],
   "pattern-init": [{ id: "data-utility-init", sites: [0xC0036A34] }],

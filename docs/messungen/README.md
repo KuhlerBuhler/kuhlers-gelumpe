@@ -84,8 +84,15 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Sample-Sammlung: einen Slot dauerhaft speichern](2026-10-27-sample-store.md)
 - [Sample-Swap: Abgleich mit develop und dynamischer Projekt-RAM](2026-10-29-sample-swap-develop.md), getrennte Besitzplanung und zusammengeführte Prüfgruppen.
 - [Sample-Swap: Veröffentlichung und Cache-Deskriptor korrigiert](2026-10-29-sample-swap-korrektur.md), gezielte Fehlerfälle vor und nach der Korrektur.
+- [Sample-Swap: Alte Kopien nach einer Pufferübergabe stoppen](2026-10-29-sample-swap-puffer.md), Übergaben vor und während PCM- und Deskriptorkopien.
+- [Sample-Swap: EXIT und Part-Auswahl bei Fehlern](2026-10-29-sample-swap-exit-parts.md), festgehaltener EXIT-Rückweg und sichere Auswahl im Kartenfehlermodus.
+- [Sample-Swap: native Wartepfade und erneute Ladeaufträge](2026-10-29-sample-swap-wartepfade.md), eingebaute Timeouts, Fehlerweitergabe, verlorene Benachrichtigung und neue Zielwahl.
+- [Sample-Swap: belegten Code im SysEx-Prüfaufbau erhalten](2026-10-30-sample-swap-sysex-pruefpuffer.md), Kontrollmuster nur im freien Rest und Schreibschutz des laufenden Codes.
 - [Sample-Swap: Prüfung des Feature-Diffs](2026-10-29-sample-swap-review.md), drei hohe und drei mittlere Befunde, Freigabe offen.
 - [Sample-Datei: Leserabschluss und exklusiver Dateibesitz](2026-10-29-sample-dateibesitz.md)
+- [Sample-Speicherung: native Bestätigungen und Tabellen](2026-10-30-sample-speichergrenzen.md), Sample-WRITE, Aufnahmebestätigung, Import ohne Kartenschreiben und alter NOR-Spiegel.
+- [Einzelnes Sample aus dem DSP dauerhaft speichern](2026-10-30-sample-snapshot.md), linearer Mono-/Stereo-Rückleser und unveränderte Einträge ohne erneutes Anhängen.
+- [Sample-Swap: ungeladene Samples am OSC-Drehgeber wählen](2026-10-30-sample-swap-oszillator.md), echter Encoder-Auftrag statt direkt gesetzter Auswahl.
 - [Ganzer Flash in einem Stand](2026-10-09-flash-dump.md)
 - [Menüzustand im RAM: welcher Bildschirm, welche Seite](2026-10-09-menuezustand.md)
 - [LED-Zustand im RAM: wo die Firmware merkt, was leuchtet](2026-10-14-led-zustand-ram.md)

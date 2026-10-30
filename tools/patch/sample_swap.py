@@ -14,8 +14,10 @@ the sample is entered into its slot, so a cache written by someone else is never
 
     python3 tools/patch/sample_swap.py --vsb SYSTEM.VSB [--out data/patches/sample-swap.json]
 
-The patch is on only when the file is larger than the user bank and EXIT was not held at power-on; otherwise every hook passes
-on at once and the firmware loads as before. The blue Synth is refused: its RAM places are not mapped.
+Swapping is on when the file is larger than the user bank and EXIT did not select the native loader. Native DSP transaction
+guards initialize at library entry unless cold-start EXIT selects the native path, and remain active for small libraries too.
+Earlier calls keep their native behavior.
+The blue Synth is refused: its RAM places are not mapped.
 
 Hooks (the same addresses in both builds, checked byte for byte):
   0xC00364F4  after the library loader's prologue: a latched DSP fault refuses the load before clearing sample metadata
@@ -48,6 +50,9 @@ import sample_swap_io  # noqa: E402
 import sample_store  # noqa: E402
 import sample_import  # noqa: E402
 import sample_owner  # noqa: E402
+import native_dsp_scope  # noqa: E402
+import capture_fault  # noqa: E402
+import sample_export_fault  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
@@ -88,7 +93,9 @@ OFF = {name: 4 * i for i, name in enumerate(FIELDS)}
 FAILED = 0xA0                   # 1024 bits, a slot that cannot be loaded
 PROT = 0x120                    # 32 half words: the live pattern's and the target's samples
 PATH = 0x160                    # the file's path as the loader opened it, 128 bytes
+NATIVE_SCOPE = STATE + PATH + 128
 assert 4 * len(FIELDS) <= FAILED and PATH + 128 <= STATE_END - STATE
+assert NATIVE_SCOPE + 4 == FILE_OWNER
 
 FIRST_USER, LAST_USER = 500, 998
 SAMPLE_COUNT = LAST_USER + 1
@@ -99,6 +106,7 @@ FIRMWARE = dict(
     PARSER=0xC0035B10, RESERVE=0xC004EDF0, DELETE=0xC004E558, POST=0xC002D5D8,
     PLAYER=0xC002FAFC, PSEL=0xC00431F0, TRANSPORT=0xC0030D28, REPEATS=0xC004A3D8,
     PART=0xC009AF20, PART_UPDATE=0xC0099FFC, VOICE_USED=0xC009115C, VOICES=0xC06916A0,
+    SAMPLE_LOADED=0xC004E3CC,
     PATPTR=0xC033E6A4, BANK=0xC08B2940, PANEL=0xC033E6F8,
     NAMES=0xC047B080, META=0xC036AD88, MAP_A=0xC035738C, MAP_B=0xC035F06C, MAP_C=0xC0350644,
     CURSOR=0xC00F9C80, DSP_MIN=0x365EC0, DSP_END=0x1C65EC0, TIMER=0x01F0D000,
@@ -133,10 +141,22 @@ SITES = [
      "the part update keeps its actual sample until the requested PCM is resident"),
     (0xC0099D88, 0xE5903008, None, "ss_part_bind", False, True,
      "direct part binding waits for an indexed sample to finish loading"),
+    (0xC008205C, 0xE1A0100D, None, "ss_selection", False, True,
+     "an accepted pattern choice releases a previously deferred swap target"),
+    (0xC0040DB4, None, 0xC004E3CC, "ss_choice", True, True,
+     "the OSC iterator includes indexed user samples before their PCM is loaded"),
 ]
+SITES += [(site, original, calls, label, True, True, f"bounded native DSP transaction: {label}")
+          for site, original, calls, label in native_dsp_scope.HOOKS]
+SITES += [(site, capture_fault.ORIGINALS.get(site), 0xC004EF94 if site == 0xC0082DA8 else None,
+           label, False, True, f"native capture fault propagation: {label}") for site, label in capture_fault.HOOKS]
+SITES += [(site, sample_export_fault.ORIGINALS[site], None, label, False, True,
+           f"native sample export fault propagation: {label}") for site, label in sample_export_fault.HOOKS]
 
 # Native calls and the layouts they read, compared byte for byte in both red builds.
 CALLED = (
+    (0xC0040D50, 0x90, "logical sample iterator through its eligibility gate"),
+    (0xC004E3CC, 0x28, "native physical sample loaded predicate"),
     (0xC00369F0, 0x10, "giver"),
     (0xC004A3D8, 0x0C, "chain repeat count"),
     (0xC0079768, 0x10, "chain counter reset"),
@@ -151,6 +171,7 @@ CALLED = (
     (0xC004E558, 0x68, "CPU-only sample deletion"),
     (0xC004E2F0, 0x34, "physical sample lookup"),
     (0xC0099D88, 0x320, "part sample binding and update"),
+    (0xC0081F50, 0x11C, "accepted pattern selection"),
 )
 
 
@@ -194,6 +215,16 @@ ss_library:
     cmn r12, #1
     cmpne r12, #0
     bne sl_refuse
+    ldr r12, =PANEL
+    ldr r12, [r12]
+    cmp r12, #0
+    beq sl_init
+    ldr r12, [r12, #0x18]
+    tst r12, #KILL
+    bne sl_owner
+sl_init:
+    bl native_scope_init
+sl_owner:
     mov r0, #FILE_RECOVER
     bl owner_acquire
     cmp r0, #0
@@ -313,10 +344,21 @@ fo_copy:
     strb r0, [r1]
     b fo_fault
 fo_recover:
+    mov r8, #0
+    ldr r0, =PANEL
+    ldr r0, [r0]
+    cmp r0, #0
+    beq fo_journal
+    ldr r0, [r0, #0x18]
+    tst r0, #KILL
+    movne r8, #1
+    bne fo_open
+fo_journal:
     mov r0, r5
     bl store_recover
     cmp r0, #0
     bne fo_fault
+fo_open:
     mov r0, r4
     mov r1, r5
     mov r2, r7
@@ -324,7 +366,9 @@ fo_recover:
     mov r6, r0
     cmp r6, #0
     bne fo_out
+    cmp r8, #1
     mov r8, #0
+    beq fo_mode
     ldr r0, =PANEL
     ldr r0, [r0]
     cmp r0, #0
@@ -482,9 +526,11 @@ fr_main:
     strne r0, [r12, #SESSION]
 fr_post:
     ldr r0, [r12, #POSTED]
-    cmp r0, #0
-    bne fr_out
-    mov r0, #1
+    cmp r0, #1
+    subhi r0, r0, #1
+    strhi r0, [r12, #POSTED]
+    bhi fr_out
+    mov r0, #50
     str r0, [r12, #POSTED]
     mov r0, #MSG
     mov r1, #0
@@ -494,6 +540,30 @@ fr_out:
     pop {r0-r3, r12, lr}
     mov r0, r4
     bx lr
+
+; The accepted selector event supersedes an earlier deferred request.
+ss_selection:
+    push {r0-r3, r10-r12, lr}
+    .word 0xE10FA000
+    orr r0, r10, #0x80
+    .word 0xE121F000
+    ldr r11, =ST
+    ldr r0, [r11, #MODE]
+    cmp r0, #1
+    bne sel_out
+    cmp r5, #250
+    bhs sel_out
+    ldr r0, [r11, #REQ]
+    cmp r0, #250
+    bhs sel_out
+    mvn r0, #0
+    str r0, [r11, #REQ]
+    bl clear_failed
+sel_out:
+    .word 0xE121F00A
+    pop {r0-r3, r10-r12, lr}
+    mov r1, sp
+    b 0xC0082060
 
 ; ------------------------------------------------------------- sequencer task: the two switches
 ; Replaces bl 0xC0079AA8 at the sequence end (r0 the player, r1 the number to start, r2 0).
@@ -552,6 +622,11 @@ ready:
     cmp r0, #250
     movhs r0, #1
     pophs {r4-r6, pc}
+    ldr r1, =ST + TSTATE
+    ldr r1, [r1]
+    cmp r1, #0
+    movne r0, #0
+    popne {r4-r6, pc}
     ldr r1, =FILE_OWNER + 8
     ldr r1, [r1]
     cmp r1, #0
@@ -816,6 +891,29 @@ eu_done:
     mov r0, r4
     pop {r4, r5, r8, pc}
 
+; The OSC iterator retains its logical candidate in r4; r0 is its native import key.
+ss_choice:
+    push {r1-r3, r5, r12, lr}
+    bl SAMPLE_LOADED
+    cmp r0, #0
+    bne choice_out
+    ldr r12, =ST
+    ldr r1, [r12, #MODE]
+    cmp r1, #1
+    bne choice_out
+    cmp r4, #500
+    blo choice_out
+    ldr r1, =LAST_USER
+    cmp r4, r1
+    bhi choice_out
+    ldr r1, =HDR + 16
+    ldr r1, [r1, r4, lsl #2]
+    cmp r1, #0
+    movne r0, #1
+choice_out:
+    pop {r1-r3, r5, r12, pc}
+.pool
+
 ss_part_update:
     push {r0-r4, r11, r12, lr}
     ldr r11, =ST
@@ -841,9 +939,8 @@ part_ready:
     push {r4, lr}
     mov r4, r0
     ldr r0, [r11, #MODE]
-    cmp r0, #2
-    beq pr_no
     cmp r0, #1
+    cmpne r0, #2
     bne pr_yes
     ldr r0, [r11, #TSTATE]
     cmp r0, #0
@@ -1270,16 +1367,26 @@ cr_loop:
     str r0, [r11, #CGEN]
     bx lr
 
-; r0 dst, r1 src, r2 bytes (a multiple of 32).
+; r0 dst, r1 src, r2 bytes (a multiple of 32). Each write shares the generation check's IRQ mask.
 copy32:
-    push {r4-r10}
+    push {r4-r10, lr}
 c32:
+    .word 0xE10FE000
+    orr r3, lr, #0x80
+    .word 0xE121F003
+    ldr r3, [r11, #J_GEN]
+    ldr r4, [r11, #GEN]
+    cmp r3, r4
+    bne c32_stale
     ldmia r1!, {r3-r10}
     stmia r0!, {r3-r10}
+    .word 0xE121F00E
     subs r2, r2, #32
     bne c32
-    pop {r4-r10}
-    bx lr
+    pop {r4-r10, pc}
+c32_stale:
+    .word 0xE121F00E
+    pop {r4-r10, pc}
 
 ; r0 buffer, r1 bytes (a multiple of 4): r0 = their sum as words.
 sum32:
@@ -1953,7 +2060,10 @@ pub_out:
 def source(screens):
     importer = sample_import.source(state=STATE, file=FIL, descriptor=DESC, normalizer=FIL + 0x240,
                                     prep=OFF["PREP"], bits=OFF["P_BITS"], file_bytes=OFF["P_FBYTES"])
-    body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer + sample_owner.source(FILE_OWNER) + PUBLISH
+    native = native_dsp_scope.driver_source(scope=NATIVE_SCOPE, fault=STATE + OFF["TSTATE"],
+                                           mode=STATE + OFF["MODE"], generation=STATE + OFF["GEN"])
+    guards = capture_fault.source(STATE + OFF["TSTATE"]) + sample_export_fault.source(STATE + OFF["TSTATE"])
+    body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer + sample_owner.source(FILE_OWNER) + PUBLISH + native + guards
     return halfword(equs(screens) + f".equ transfer, {TRANSPORT:#x}\n" + body)
 
 
@@ -1995,11 +2105,15 @@ def redirect(word, at, target):
 def build_patch(vsb, build=None):
     if len(vsb) != 0x200100:
         raise SystemExit("a VSB has 0x200100 bytes")
-    actual = sample_swap_io.validate_firmware(vsb)
+    actual = native_dsp_scope.validate_firmware(vsb)
+    capture_fault.validate_firmware(vsb)
+    sample_export_fault.validate_firmware(vsb)
     if build not in (None, actual) or actual not in ("stock", "hacktribe"):
         raise SystemExit("only the mapped red Sampler builds, Korg's and Hacktribe, are supported")
     if struct.unpack_from("<I", vsb, file_offset(SAMPLE_COUNT_AT))[0] != SAMPLE_COUNT:
         raise SystemExit("the native sample table count is not the mapped count")
+    if vsb[file_offset(NATIVE_SCOPE):file_offset(NATIVE_SCOPE) + 4] != bytes([255]) * 4:
+        raise SystemExit("the native DSP recovery pointer is not free in this VSB")
     screens = screens_of(vsb)
     sections, symbols = build_code(screens)
 
@@ -2029,10 +2143,16 @@ def build_patch(vsb, build=None):
             raise SystemExit(f"the instruction at {site:#x} is not where the patch expects it in this VSB")
         new = redirect(0xEB000000 if link else 0xEA000000, site, symbols[stub])
         changes.append({"file": file_offset(site), "bytes": struct.pack("<I", new).hex(), "expect": sha(was(site)), "note": note})
+        native = stub.startswith("native_scope_")
+        guard = stub.startswith(("capture_", "export_"))
         if boot:
-            start.append({"file": file_offset(site), "length": 4, "why": "runs before the main screen and passes on at once while the swap is off"})
-        hooks.append({"site": f"0x{site:08X}", "kind": "instruction", "chain": "sample-swap", "position": "before",
-                      "swallow": stub in ("ss_skip", "ss_parse", "ss_cmd", "ss_gate_chain"), "note": note})
+            start.append({"file": file_offset(site), "length": 4,
+                          "why": "native DSP calls run during boot; uninitialized transactions retain their original behavior" if native
+                          else "runs before the main screen and passes on at once while the swap is off"})
+        selection = stub == 'ss_selection'
+        chain = "sample-swap-native-dsp" if native else "sample-swap-native-sample" if guard else "pattern-set" if selection else "sample-swap"
+        hooks.append({"site": f"0x{site:08X}", "kind": "instruction", "chain": chain, "position": "after" if selection else "before",
+                      "swallow": native or guard or stub in ("ss_skip", "ss_parse", "ss_cmd", "ss_gate_chain"), "note": note})
     initial = sample_owner.INITIAL + bytes(4)
     if was(FILE_OWNER, len(initial)) != bytes([255]) * len(initial):
         raise SystemExit('the file ownership state is not free in this VSB')
@@ -2059,6 +2179,8 @@ def build_patch(vsb, build=None):
 
 
 CALLED_SHA = {
+    0xC0040D50: "2d9a97a5b5b36c713d880df09fe4d93524d9c5b80ceec907ba993356c62c52f6",
+    0xC004E3CC: "c10ad0c6f7f6a269e7e8957073a340981e9ef70097015ad7ff9e70cb2962af6b",
     0xC00369F0: "a7d23f74586936ec6866a848f54213f688dd8ce3dce2d848dfd0fa2fa72ac7d3",
     0xC004A3D8: "f0c285da7e342df0813bc2e614de39930ac11479aabcb5448e660a23d6431093",
     0xC0079768: "e8014e3bdef321b0885d7e7224608407c1f094f089a270441413b68f72928204",
@@ -2073,6 +2195,7 @@ CALLED_SHA = {
     0xC004E558: "dbf2300087233dba96787b8a3f74659ae678fffe2f61d538ea12df6a87185ddf",
     0xC004E2F0: "675b2a102036631fc0d01634272bfb9fbf536b8f9ece00d30423b6d1a3a0fcd1",
     0xC0099D88: "9ce2ec5c3423766f300330cb1ae2e0b18713d17a29761e718a3ff3d7cf7b2556",
+    0xC0081F50: "23bad452aa63f8f3f1e16b4e055bef0de6aee7a82db9ad13e29a45912796f11e",
 }
 
 

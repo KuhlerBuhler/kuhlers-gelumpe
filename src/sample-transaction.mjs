@@ -137,6 +137,20 @@ export class SampleStore {
     return { state: complete ? "new" : "old", slot: record.slot };
   }
 
+  async #unchanged(header, size, slot, source) {
+    const offset = u32(header, 16 + slot * 4);
+    if (!offset || offset + source.size > size) return false;
+    const head = await this.#read("library", offset, 8);
+    if (tag(head, 0) !== "RIFF" || u32(head, 4) + 8 !== source.size) return false;
+    for (let done = 0; done < source.size; done += BLOCK) {
+      const n = Math.min(BLOCK, source.size - done);
+      const bytes = await source.read(done, n);
+      if (!(bytes instanceof Uint8Array) || bytes.length !== n) throw new SampleStoreError("Das neue Sample wurde beim Lesen abgeschnitten.");
+      if (!equal(await this.#read("library", offset + done, n), bytes)) return false;
+    }
+    return true;
+  }
+
   async #change(slot, source) {
     slotNumber(slot);
     if (source !== null) await this.#source(source, slot);
@@ -150,6 +164,7 @@ export class SampleStore {
     }
     const header = await this.#read("library", 0, HEADER);
     headerValid(header, oldSize);
+    if (source !== null && await this.#unchanged(header, oldSize, slot, source)) return { slot, size: oldSize };
     const length = source?.size ?? 0;
     const size = oldSize + length;
     fileSize(size);

@@ -1,5 +1,5 @@
 ---
-revision: 2
+revision: 3
 ---
 
 # Samples dauerhaft auf der Karte speichern
@@ -22,6 +22,32 @@ FAT32 und das Format begrenzen die einzelne Datei technisch auf höchstens
 4294967295 Byte. Die normalen Nutzerplätze bleiben 501 bis 999.
 Eine spätere gemeinsame Projektdatei bekommt in diesem Schritt kein
 neues, vorweggenommenes Containerformat.
+
+## Festgelegte Speicher-Auslöser
+
+Eine Sample-Datei wird nur durch eine bestätigte Sample-Änderung verändert.
+Der Swap selbst ist kein Speicherauftrag.
+
+| Aktion | Speicherung auf der Karte |
+|---|---|
+| Sample in SAMPLE EDIT bearbeiten | Zunächst ungesicherte Bearbeitung; WRITE speichert den betroffenen geänderten Slot |
+| Sample importieren | Der erfolgreiche Import speichert den gewählten Slot direkt in der Sammlung |
+| Sample löschen | Das bestätigte Löschen entfernt den betroffenen Indexeintrag dauerhaft |
+| Neue Aufnahme oder Resampling | Der bestätigte Abschluss speichert den neuen oder ersetzten Slot |
+| Abspielen, Sample-Auswahl, Patternwechsel und Swap | Keine Änderung der gespeicherten Samples |
+| WRITE ohne geänderten Sample-Inhalt oder geänderte Metadaten | Kein erneutes Anhängen desselben Samples |
+
+Name, Loop, Slice und destruktive Bearbeitungen werden beim Sample-WRITE
+zusammen gespeichert. Ein einzelner Drehgeberschritt oder das bloße
+Verlassen der Bearbeitung löst keine Speicherung aus. Das normale
+Pattern-WRITE ist davon getrennt und schreibt keine Sample-Bibliothek.
+
+Sample-WRITE, Import und Löschen melden erst Erfolg, wenn der gemeinsame
+Schreibweg den neuen Kartenstand geprüft hat. Bei einem Fehler bleibt
+der Zustand als ungesichert oder ungeklärt erkennbar. Ein bloß im DSP
+geänderter Slot darf nicht als dauerhaft gespeichert gelten.
+`EXPORT ALL SAMPLE` wird erst nach Anschluss und Prüfung dieser Wege
+samt Aufnahme und Resampling entfernt.
 
 ## Schreibfolge
 
@@ -145,9 +171,9 @@ der Kartenslots verursachen.
 - [x] Begrenztes DSP-Rücklesen für nicht auf 32 Byte ausgerichtete Aufnahmegrenzen
   und den letzten Block der DSP-Bank im ARM-Modell prüfen; die tatsächliche
   Firmware mit erzeugter Aufnahme-PCM in beiden roten Builds prüfen.
-- [ ] Bestehende Abschlussstellen für Name, Loop, Slice und destruktive
-  Bearbeitung erfassen. Zusammengehörige Eingaben bilden eine Änderung,
-  statt jeden einzelnen Drehgeberschritt auf die Karte zu schreiben.
+- [ ] Sample-WRITE für Name, Loop, Slice und destruktive Bearbeitung erfassen
+  und den betroffenen geänderten Slot gemeinsam speichern; weder einzelne
+  Drehgeberschritte noch das Verlassen der Bearbeitung speichern automatisch.
 - [ ] Metadaten und Audio eines geänderten Slots vollständig erhalten.
 - [ ] Sample-Löschen am Gerät an denselben Index-Schreibweg anschließen.
 - [ ] Neue Aufnahmen und Resampling nach dem bestätigten Abschluss speichern.
@@ -155,6 +181,9 @@ der Kartenslots verursachen.
   einen fertigen Slot noch eine gesicherte Aufnahme melden.
 - [ ] Fehlgeschlagene Speicherung sichtbar machen und eine noch nicht
   gesicherte Aufnahme nicht still verwerfen.
+- [ ] Ohne Änderung, beim Abspielen, bei Sample-Auswahl, Patternwechsel und
+  Swap keine Sample-Schreibaufträge erzeugen; Sample-WRITE ohne Änderungen
+  hängt keinen unveränderten Block an.
 
 ## Phase 4: USB und laufender Swap benutzen denselben Besitzer
 
@@ -235,6 +264,13 @@ Behandlung von nicht auf 32 Byte ausgerichteten Aufnahmegrenzen.
 - [Bisherige Swap-Prüfungen](../messungen/2026-10-27-sample-swap-1-4.md)
 - [Dateiformat](../hintergrund/sample-datei.md)
 
+## Umsetzungsverlauf
+
+Revision 3: Sample-Edits werden mit WRITE gesichert. Import, bestätigtes
+Löschen und abgeschlossene Aufnahme bleiben direkte Speicheraufträge.
+Abspielen und Swap verändern die Datei nicht; unverändertes Sample-WRITE
+hängt keinen Block an. Die Anbindung dieser Auslöser ist weiterhin offen.
+
 ## Zwischenstand: Schutz der laufenden Wiedergabe
 
 Der [Stimmen- und Part-Versuch](../messungen/2026-10-28-sample-swap-stimmen.md)
@@ -245,9 +281,49 @@ indizierte Auswahl erst nach vollständigem Nachladen. Das ersetzt noch
 keinen gemeinsamen Dateibesitzer und keine Versionsverwaltung beim
 Speichern. Die offenen Aufgaben der Phase 2 bleiben deshalb offen.
 
-Ein getrennter Abbruchbaustein prüft inzwischen den Stack und den Besitz
+Der eingebaute Abbruchbaustein prüft inzwischen den Stack und den Besitz
 der DSP-Sperre für native Aufträge. Die native Part-Aktualisierung schreibt
 selbst über den Host-Port; sie darf nicht als reiner Tabellenzugriff in den
-IRQ-geschützten Namenswechsel übernommen werden. Der Baustein ist noch
-nicht im Laufzeitpatch eingebunden. Die Begrenzung aller nativen
-Aufnahme- und Speicherpfade bleibt offen.
+IRQ-geschützten Namenswechsel übernommen werden. Status- und GPIO-Warten
+sind begrenzt; Aufnahme und Einzelexport geben einen DSP-Fehler weiter.
+Die [vollständige Prüfung beider roter Builds](../messungen/2026-10-29-sample-swap-wartepfade.md)
+besteht. Das verbindet die bestätigten Sample-Menüs noch nicht mit dem
+journalisierten Kartenschreiber.
+
+Der [vollständige DSP-Rückleser](../messungen/2026-10-30-sample-snapshot.md)
+ist inzwischen als eigener Adapter gebaut und mit nativen Snapshots,
+Mono-/Stereo-PCM, FatFs und Neustart geprüft. Der gemeinsame Schreiber
+vergleicht vorhandene Einträge vor dem Anhängen; ein unveränderter
+Eintrag schreibt weder Sample noch Journal noch Index. Die bestätigten
+Bedienelemente und die Versionszuordnung sind weiterhin nicht angebunden.
+
+## Nächste Anbindung im bestehenden Schreibweg
+
+1. Den Speicherzustand auch ohne vorhandene Sammlung vorbereiten.
+   `0xC0035A80` erzeugt den nativen Standardpfad unabhängig von der Datei;
+   der Boot-Aufruf liegt bei `0xC002AE58`. Ein bloßer Aufruf des normalen
+   Bibliotheksladers reicht nicht, weil er ohne Datei ganz entfällt.
+   Die frühe EXIT-Entscheidung muss dabei erhalten bleiben.
+2. Geladene physische Zeilen an den tatsächlich gelesenen Dateioffset
+   binden. Der erfolgreiche native Slotabschluss liegt bei `0xC0036700`,
+   unmittelbar nach dem Parseraufruf. Nur Status null darf eine Bindung
+   veröffentlichen; nach einem Parserfehler kann der Deskriptor noch den
+   vorherigen Slot enthalten. Der tatsächliche Deskriptor-Slot und der
+   Header-Slot dürfen nicht ungeprüft gleichgesetzt werden.
+3. Einen bestätigten Import vor der nativen DSP-Platzvergabe über
+   `store_import` speichern. Danach den geprüften Index übernehmen und
+   die neue Version nachladen. Eine alte noch gespielte Version bleibt
+   bis zum fertigen Wechsel über ihren bisherigen Importschlüssel erhalten.
+   Freie Schlüssel werden reserviert; ein sichtbarer Nutzerplatz ist
+   kein dauerhaft beiseitegelegter Ersatzplatz.
+4. Erst danach Sample-WRITE, bestätigtes Löschen und die Bestätigung einer
+   Aufnahme mit demselben Besitzer verbinden. Cache, offener Leser,
+   laufender Ladeauftrag und Wiederherstellung werden vor jedem Schreiber
+   gemeinsam behandelt. Erst nach geprüftem Kartenstand darf der native
+   Erfolgsabschluss laufen. Die Freigabe des Gesamtexports folgt erst
+   nach diesen Anschlüssen und deren Abbruchprüfungen.
+
+Diese Schritte ändern die festgelegten Auslöser und das Dateiformat
+nicht. Sie sind noch keine implementierten Menühaken. Die getrennte
+Kategorie-Navigation und die tatsächlichen DMA-Zugriffe bleiben ebenfalls
+offen.

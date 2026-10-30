@@ -29,6 +29,8 @@ import blech_sysex as spec  # noqa: E402
 import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+from swap_cases import has_hooks as has_swap  # noqa: E402
+import sample_swap as swap  # noqa: E402
 
 IMAGE = 0xC0000000
 KILL = spec.KILL_SWITCH
@@ -102,15 +104,46 @@ class Link:
         self.dev, self.m, self.step = dev, dev.m, step
         self.channel = 0
         self.log = []                # (what, device ms, wall seconds, bytes on the wire)
+        self.read_permission = None
         import unicorn
-        self.guard_start = spec.BUF_END
-        self.guard = b'\xd3' * (spec.FILE_AREA - self.guard_start)
-        self.m.uc.mem_write(self.guard_start, self.guard)
-        self.m.uc.hook_add(unicorn.UC_HOOK_MEM_READ | unicorn.UC_HOOK_MEM_WRITE, self.guard_access,
-                           begin=self.guard_start, end=spec.FILE_AREA - 1)
+        free = [(spec.BUF_END, spec.FILE_AREA)]
+        self.owned = []
+        if has_swap(bytes(self.m.uc.mem_read(IMAGE, 0x200000))):
+            lo, hi = swap.STORE_CODE, swap.STORE_CODE_END
+            self.owned.append((lo, bytes(self.m.uc.mem_read(lo, hi - lo))))
+            self.m.uc.hook_add(unicorn.UC_HOOK_MEM_READ, self.owned_read, begin=lo, end=hi - 1)
+            self.m.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, self.owned_write, begin=lo, end=hi - 1)
+            free = [(start, end) for a, b in free for start, end in ((a, min(b, lo)), (max(a, hi), b)) if start < end]
+        self.guards = [(lo, b'\xd3' * (hi - lo)) for lo, hi in free]
+        for lo, guard in self.guards:
+            self.m.uc.mem_write(lo, guard)
+            self.m.uc.hook_add(unicorn.UC_HOOK_MEM_READ | unicorn.UC_HOOK_MEM_WRITE, self.guard_access,
+                               begin=lo, end=lo + len(guard) - 1)
 
     def guard_access(self, _uc, _access, address, size, _value, _data):
         raise AssertionError(f'SysEx released RAM accessed at {address:#x}+{size}')
+
+    def owned_write(self, _uc, _access, address, size, _value, _data):
+        raise AssertionError(f'live swap code overwritten at {address:#x}+{size}')
+
+    def owned_read(self, uc, _access, address, size, _value, _data):
+        from unicorn.arm_const import UC_ARM_REG_PC
+        pc = uc.reg_read(UC_ARM_REG_PC)
+        if any(lo <= pc < hi for lo, hi, _ in swap.AREAS):
+            return
+        if self.read_permission is not None:
+            lo, hi = self.read_permission
+            if lo <= address and address + size <= hi:
+                return
+        raise AssertionError(f'undeclared read of live swap code at {address:#x}+{size} from {pc:#x}')
+
+    def check_guards(self):
+        for lo, guard in self.guards:
+            if bytes(self.m.uc.mem_read(lo, len(guard))) != guard:
+                raise AssertionError('SysEx changed released RAM')
+        for lo, code in self.owned:
+            if bytes(self.m.uc.mem_read(lo, len(code))) != code:
+                raise AssertionError('live swap code changed')
 
     def exchange(self, msg, wait=60.0, quiet=0.2, fragments=None):
         """Send one message, collect what comes back until the line is quiet for `quiet` s after the first reply (or `wait` s pass)."""
@@ -139,8 +172,7 @@ class Link:
                 first = m.time_ns
             if first is not None and not pending and not got and (m.time_ns - first) / 1e9 >= quiet:
                 break
-        if bytes(m.uc.mem_read(self.guard_start, len(self.guard))) != self.guard:
-            raise AssertionError('SysEx changed released RAM')
+        self.check_guards()
         done = first if first is not None else m.time_ns
         self.log.append((msg[6] if len(msg) > 6 else 0,(done - t0) / 1e6, time.time() - wall, len(msg) + sum(map(len, replies))))
         return replies, (done - t0) / 1e6
@@ -152,7 +184,16 @@ class Link:
 
     def ask(self, func, words=b"", reply=None, wait=60.0):
         """The payload words of the reply to a message of ours, None when none came; and the device time it took."""
-        replies, ms = self.exchange(frame(self.channel, func, words), wait=wait)
+        previous = self.read_permission
+        self.read_permission = None
+        if func == spec.FUNC_READ and len(words) == 8:
+            address, length = struct.unpack('<II', words)
+            if 0 < length <= spec.MAX_BLOCK and address + length <= 0x100000000:
+                self.read_permission = (address, address + length)
+        try:
+            replies, ms = self.exchange(frame(self.channel, func, words), wait=wait)
+        finally:
+            self.read_permission = previous
         ours = [r for r in replies if len(r) > 7 and r[6] == (reply or func + 8)]
         if not ours:
             return None, ms

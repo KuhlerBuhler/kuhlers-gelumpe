@@ -16,7 +16,7 @@ import { run } from "./support/spawn.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const PATCH = read("../data/patches/sample-swap.json");
-const SITES = [0xC00364F4, 0xC0036510, 0xC0036748, 0xC0036760, 0xC00366D8, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74, 0xC0099FFC, 0xC0099D88];
+const SITES = [0xC00364F4, 0xC0036510, 0xC0036748, 0xC0036760, 0xC00366D8, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74, 0xC0099FFC, 0xC0099D88, 0xC0040DB4];
 const AREAS = [[0xC01A2FD0, 0xC01A3C00], [0xC018A4C0, 0xC018AF00], [0xC0189760, 0xC0189F00],
   [0xC019A400, 0xC019C400], [0xC018BF40, 0xC018C400]];
 const file = address => address - 0xC0000000 + 0x100;
@@ -50,16 +50,27 @@ test("its five code areas and loader state fit the declared space and its hooks 
     assert.equal(code[i].file, file(lo));
     assert.ok(code[i].file + code[i].bytes.length / 2 <= file(hi));
   }
-  const words = PATCH.changes.slice(AREAS.length, AREAS.length + SITES.length);
-  assert.deepEqual(words.map(w => w.file), SITES.map(file));
-  for (const [i, site] of SITES.entries()) {
+  const core = PATCH.hooks.filter(h => h.chain === "sample-swap");
+  const native = PATCH.hooks.filter(h => h.chain === "sample-swap-native-dsp");
+  assert.deepEqual(core.map(h => Number(h.site)), SITES);
+  assert.deepEqual(PATCH.hooks.filter(h => h.chain === "pattern-set").map(h => [Number(h.site), h.position, h.swallow]),
+    [[0xC008205C, "after", false]]);
+  assert.equal(native.length, 35 * 2 + 11, "all mapped resource pairs and polling sites are guarded");
+  assert.ok(native.every(h => h.swallow && Number(h.site) >= 0xC0011000 && Number(h.site) < 0xC0015000));
+  const guards = PATCH.hooks.filter(h => h.chain === "sample-swap-native-sample");
+  assert.deepEqual(guards.map(h => Number(h.site)), [0xC004F128, 0xC004F15C, 0xC0082DA8, 0xC0082DD8, 0xC0082E5C,
+    0xC004F20C, 0xC0082F1C, 0xC0039CC4, 0xC0039B2C, 0xC0039C30]);
+  assert.ok(guards.every(h => h.swallow));
+  const sites = PATCH.hooks.map(h => Number(h.site));
+  const words = PATCH.changes.slice(AREAS.length, AREAS.length + sites.length);
+  assert.deepEqual(words.map(w => w.file), sites.map(file));
+  for (const [i, site] of sites.entries()) {
     const word = Buffer.from(fromHex(words[i].bytes)).readUInt32LE(0);
     assert.equal((word >>> 24) & 0x0E, 0x0A, `0x${site.toString(16)} is a branch`);
     const target = site + 8 + (((word & 0xffffff) << 8) >> 8) * 4;
     assert.ok(AREAS.some(([lo, hi]) => target >= lo && target < hi), `0x${site.toString(16)} goes into the swap's code`);
   }
-  assert.deepEqual(PATCH.hooks.map(h => h.site), SITES.map(a => `0x${a.toString(16).toUpperCase()}`));
-  const state = PATCH.changes.slice(AREAS.length + SITES.length);
+  const state = PATCH.changes.slice(AREAS.length + sites.length);
   assert.equal(state.length, 1);
   assert.equal(state[0].file, file(0xC0188714));
   assert.equal(state[0].bytes, "0000000000000000010000000000000000000000");

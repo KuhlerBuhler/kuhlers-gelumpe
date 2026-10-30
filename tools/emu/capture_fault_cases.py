@@ -1,4 +1,4 @@
-"""Capture completion after DSP faults, with emulator-only recovery hooks."""
+"""Capture completion after DSP faults, using installed or emulator-only guards."""
 import argparse
 import json
 import struct
@@ -13,13 +13,16 @@ CODE, CALL = 0xC100D000, native.CALL
 
 def case(payload, failure, guarded=True):
     native.validate(payload)
-    capture_fault.validate_firmware(bytes(256) + payload)
+    capture_fault.validate_firmware(native.validation_image(payload))
     box = c.Box(payload, None, {500: ('Own before capture', 2001)}, [500], record_dsp=True)
     uc = box.m.uc
     transport = box.dev.call(0xC0030D28)
     cursor = box.u32(c.CURSOR)
     native.install(box)
-    if guarded:
+    installed = native.runtime_symbols(payload) is not None
+    if installed and not guarded:
+        raise ValueError('the installed capture guards cannot be disabled by this probe')
+    if guarded and not installed:
         code, symbols = capture_fault.build_code(CODE, fault=c.spec.STATE + c.spec.OFF['TSTATE'])
         uc.mem_write(CODE, code)
         for site, label in capture_fault.HOOKS:
@@ -98,7 +101,7 @@ def case(payload, failure, guarded=True):
           and box.state('TSTATE') == expected_fault and box.u32(native.POINTER) == 0 and box.u32(native.io.SEMA) == 1
           and box.state('GEN') == before_generation + int(failure in ('stop', 'end'))
           and (refused and recording == 11 and restart == 0 if expected_fault else completed and recording == 12))
-    return dict(ok=ok, failure=failure, guarded=guarded, completed=completed, refused=refused,
+    return dict(ok=ok, failure=failure, guarded=guarded, runtime_guards=installed, completed=completed, refused=refused,
                 tables_unchanged=unchanged, old_sample_kept=old_kept, frame_restored=restored,
                 recording=recording, restart=restart, cursor=box.u32(c.CURSOR), target_extent=box.extent(501),
                 fault=box.state('TSTATE'), writes_after_fault=len(writes_after_fault), asserts=box.m.asserts)

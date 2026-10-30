@@ -6,6 +6,7 @@ import sample_swap_io
 
 HOOKS = ((0xC0039CC4, 'export_sample_entry'), (0xC0039B2C, 'export_writer_entry'),
          (0xC0039C30, 'export_sample_read'))
+ORIGINALS = {0xC0039CC4: 0xE92D47F0, 0xC0039B2C: 0xE92D4FF0, 0xC0039C30: 0xE1A00006}
 SPANS = ((0x39B2C, 408, '186292ed68eca1a25178fbb29f8510615873d9d0f98cab90952ec34f37d21f36'),
          (0x39CC4, 396, 'fdb619cfee251d51a995c783ba38fa9ce92250065990b5aa6ffe6bd73077ed46'),
          (0x35428, 48, '397f0cfbf4f9c6ab6e3700d98ee334faa4e7f2ef4357cf381b99b6330e63f638'))
@@ -21,8 +22,12 @@ def validate_firmware(vsb):
 def build_code(origin, *, fault):
     if origin & 3 or fault & 3:
         raise ValueError('word aligned export code and fault required')
-    result = arm.assemble(f'.equ EF_FAULT, {fault:#x}\n' + SOURCE, origin=origin)
+    result = arm.assemble(source(fault), origin=origin)
     return result.bytes, result.symbols
+
+
+def source(fault):
+    return f'.equ EF_FAULT, {fault:#x}\n' + SOURCE
 
 
 SOURCE = r'''

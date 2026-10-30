@@ -14,11 +14,14 @@ CODE = 0xC100D000
 def case(payload, failure, guarded=True):
     if failure not in ('none', 'preexisting', 'read'):
         raise ValueError('unknown export failure')
-    sample_export_fault.validate_firmware(bytes(256) + payload)
+    sample_export_fault.validate_firmware(native.validation_image(payload))
     box = c.Box(payload, None, {500: ('Own export fault', 2001)}, [500], record_dsp=True)
     box.m.dsp_mem.update(box.dsp)
     native.install(box, poll_budget=native.io.POLL_BUDGET)
-    if guarded:
+    installed = native.runtime_symbols(payload) is not None
+    if installed and not guarded:
+        raise ValueError('the installed export guards cannot be disabled by this probe')
+    if guarded and not installed:
         code, labels = sample_export_fault.build_code(CODE, fault=c.spec.STATE + c.spec.OFF['TSTATE'])
         box.m.uc.mem_write(CODE, code)
         for site, label in sample_export_fault.HOOKS:
@@ -65,7 +68,7 @@ def case(payload, failure, guarded=True):
           and box.u32(native.POINTER) == 0 and box.u32(native.io.SEMA) == 1 and not box.m.asserts
           and observed['releases'] == observed['closes'] == int(failure != 'preexisting')
           and observed['writes_after_fault'] == 0)
-    return dict(ok=ok, failure=failure, guarded=guarded, result=result, fault=box.state('TSTATE'),
+    return dict(ok=ok, failure=failure, guarded=guarded, runtime_guards=installed, result=result, fault=box.state('TSTATE'),
                 files=rows, generation=[generation, box.state('GEN')], cursor=[cursor, box.u32(c.CURSOR)],
                 extent=[extent, box.extent(500)], scope=box.u32(native.POINTER), semaphore=box.u32(native.io.SEMA),
                 **observed, asserts=box.m.asserts)

@@ -242,6 +242,49 @@ class Recovery(unittest.TestCase):
 
 
 class Store(unittest.TestCase):
+    def test_unchanged_entry_never_appends_or_rewrites_the_index(self):
+        old = sampleset.build({500: ('same', 70000), 501: ('other', 100)})
+        machine = Machine(old)
+        machine.source = sampleset.wav(500, 'same', 70000)
+        self.assertEqual(machine.call('store_put', machine.path, machine.descriptor, 500, len(machine.source)), 0)
+        self.assertEqual(machine.files[LIBRARY], old)
+        self.assertEqual(machine.writes, [])
+        self.assertNotIn(JOURNAL, machine.files)
+
+    def test_equal_length_with_a_late_pcm_or_metadata_change_is_saved(self):
+        old = sampleset.build({500: ('same', 70000), 501: ('other', 100)})
+        for at in (44 + 139999, 44 + 140000 + 16 + 2):
+            machine = Machine(old)
+            data = bytearray(sampleset.wav(500, 'same', 70000))
+            data[at] ^= 1
+            machine.source = bytes(data)
+            self.assertEqual(machine.call('store_put', machine.path, machine.descriptor, 500, len(data)), 0)
+            self.assertEqual(machine.files[LIBRARY][len(old):], data)
+            self.assertEqual(machine.files[LIBRARY][4096:len(old)], old[4096:])
+
+    def test_failed_comparison_read_never_starts_an_append(self):
+        old = sampleset.build({500: ('same', 70000)})
+        machine = Machine(old)
+        machine.source = sampleset.wav(500, 'same', 70000)
+        machine.read_error = True
+        self.assertNotEqual(machine.call('store_put', machine.path, machine.descriptor, 500, len(machine.source)), 0)
+        self.assertEqual(machine.files[LIBRARY], old)
+        self.assertEqual(machine.writes, [])
+
+    def test_equal_entry_at_the_maximum_file_size_needs_no_append_capacity(self):
+        entry = sampleset.wav(500, 'same', 100)
+        size = 0xFFFFFFFF
+        offset = size - len(entry)
+        head = header()
+        struct.pack_into('<I', head, 16 + 500 * 4, offset)
+        old = SparseFile(head, size)
+        old[offset:size] = entry
+        machine = Machine(old)
+        machine.source = entry
+        self.assertEqual(machine.call('store_put', machine.path, machine.descriptor, 500, len(entry)), 0)
+        self.assertEqual(len(machine.files[LIBRARY]), size)
+        self.assertEqual(machine.writes, [])
+
     def test_automatic_slot_selection_uses_the_card_index(self):
         old = sampleset.build({500: ("on card", 100), 501: ("also on card", 200)})
         machine = Machine(old)

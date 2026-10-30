@@ -57,6 +57,52 @@ const source = bytes => ({ size: bytes.length, read: async (at, length) => bytes
 const entry = () => entryFromWav(wav({ frames: 80000 }), 500, "Replacement");
 const names = card => parseSampleFile(card.files.get("library")).samples.map(s => [s.slot, s.name]);
 
+test("saving an unchanged canonical entry writes neither sample nor journal nor index", async () => {
+  const card = new Card();
+  const store = new SampleStore(card);
+  const record = entry();
+  await store.put(500, source(record));
+  const before = card.files.get("library").slice();
+  card.events.length = 0;
+  await store.put(500, source(record));
+  assert.equal(card.files.get("library").length, before.length);
+  assert.deepEqual(card.files.get("library"), before);
+  assert.deepEqual(card.events, []);
+  assert.equal(card.files.has("journal"), false);
+});
+
+test("an equal-sized entry with a late PCM or metadata change still appends", async () => {
+  for (const at of [44 + 159999, 44 + 160000 + 16 + 2]) {
+    const card = new Card();
+    const store = new SampleStore(card);
+    const record = entry();
+    await store.put(500, source(record));
+    const size = card.files.get("library").length;
+    record[at] ^= 1;
+    await store.put(500, source(record));
+    assert.equal(card.files.get("library").length, size + record.length);
+    assert.deepEqual(card.files.get("library").subarray(size), record);
+  }
+});
+
+test("a failed equality read leaves the saved slot and index untouched", async () => {
+  const card = new Card();
+  const store = new SampleStore(card);
+  const record = entry();
+  await store.put(500, source(record));
+  const before = card.files.get("library").slice();
+  card.events.length = 0;
+  const read = card.read.bind(card);
+  card.read = async (role, at, length) => {
+    if (role === "library" && at >= before.length - record.length) throw new Error("card read failed");
+    return read(role, at, length);
+  };
+  await assert.rejects(store.put(500, source(record)), /card read failed/);
+  assert.equal(card.files.get("library").length, before.length);
+  assert.deepEqual(card.files.get("library"), before);
+  assert.deepEqual(card.events, []);
+});
+
 test("replacing one slot appends only that sample and updates its index without copying other samples", async () => {
   const card = new Card();
   const original = card.files.get("library").slice();
@@ -270,5 +316,9 @@ test("slot writes use full unsigned offsets beyond the old USB limits", async ()
     assert.equal(new DataView(head.buffer).getUint32(16 + 500 * 4, true), size);
     assert.equal(await io.size("library"), size + record.length);
     assert.deepEqual(await io.read("library", size, record.length), record);
+    const writes = ranges.get("library").length;
+    await new SampleStore(io).put(500, source(record));
+    assert.equal(await io.size("library"), size + record.length);
+    assert.equal(ranges.get("library").length, writes);
   }
 });

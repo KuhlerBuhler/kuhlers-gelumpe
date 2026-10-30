@@ -655,8 +655,6 @@ sp_empty:
 sp_have_file:
     cmp r8, #4096
     blo sp_close_error
-    adds r0, r8, r7
-    bcs sp_close_error
     ldr r0, =FIL
     mov r1, #0
     bl FS_SEEK
@@ -667,6 +665,24 @@ sp_have_file:
     bl store_read
     cmp r0, #0
     bne sp_close_error
+    ldr r0, =JOURNAL + 64
+    mov r1, r8
+    bl store_header_valid
+    cmp r0, #0
+    bne sp_close_error
+    cmp r5, #0
+    beq sp_changed
+    bl store_same_source
+    cmp r0, #2
+    beq sp_close_error
+    cmp r0, #1
+    bne sp_changed
+    mov r0, #0
+    bl store_close
+    pop {r3-r11, pc}
+sp_changed:
+    adds r0, r8, r7
+    bcs sp_close_error
     ldr r4, =JOURNAL
     mov r0, #0
     mov r1, r4
@@ -887,6 +903,84 @@ store_source:
     moveq r0, #0
     movne r0, #1
     pop {r4, r6, r12, pc}
+
+; r5 source, r6 slot, r7 length, r8 file size. Returns 0 different, 1 equal, 2 failed.
+store_same_source:
+    push {r4, r6-r11, lr}
+    ldr r0, =JOURNAL + 80
+    ldr r4, [r0, r6, lsl #2]
+    cmp r4, #0
+    beq same_different
+    adds r0, r4, r7
+    bcs same_different
+    cmp r0, r8
+    bhi same_different
+    ldr r0, =FIL
+    mov r1, r4
+    bl FS_SEEK
+    cmp r0, #0
+    bne same_error
+    ldr r1, =HEAD
+    mov r2, #8
+    bl store_read
+    cmp r0, #0
+    bne same_error
+    ldr r0, =HEAD
+    ldr r1, [r0]
+    ldr r2, =0x46464952
+    cmp r1, r2
+    bne same_different
+    ldr r0, [r0, #4]
+    adds r0, r0, #8
+    bcs same_different
+    cmp r0, r7
+    bne same_different
+    mov r9, #0
+same_block:
+    sub r10, r7, r9
+    cmp r10, #0
+    beq same_equal
+    cmp r10, #4096
+    movhi r10, #4096
+    ldr r0, =FIL
+    add r1, r4, r9
+    bl FS_SEEK
+    cmp r0, #0
+    bne same_error
+    ldr r1, =HEAD
+    mov r2, r10
+    bl store_read
+    cmp r0, #0
+    bne same_error
+    mov r0, r9
+    ldr r1, =BUFFER
+    mov r2, r10
+    bl store_source
+    cmp r0, #0
+    bne same_error
+    ldr r0, =HEAD
+    ldr r1, =BUFFER
+    mov r12, r10
+same_byte:
+    ldrb r2, [r0], #1
+    ldrb r3, [r1], #1
+    cmp r2, r3
+    bne same_different
+    subs r12, r12, #1
+    bne same_byte
+    add r9, r9, r10
+    b same_block
+same_equal:
+    mov r0, #1
+    b same_return
+same_different:
+    mov r0, #0
+    b same_return
+same_error:
+    mov r0, #2
+same_return:
+    pop {r4, r6-r11, pc}
+.pool
 
 store_validate_source:
     push {r4, lr}

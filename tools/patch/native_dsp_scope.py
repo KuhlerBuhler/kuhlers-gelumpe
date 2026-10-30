@@ -9,14 +9,53 @@ Borrowed resources remain with their outer caller on success and failure.
 Refused acquisition aborts without releasing a resource.
 Active scopes must be serialized; borrowing a lease does not nest scopes.
 This module installs no firmware hooks.
+Before initialization, native acquisition and release retain their original
+behavior. Initialization preserves an active scope and any latched fault.
 The kernel release runs with IRQs enabled; abort restores the caller's
 interrupt control before returning.
 """
+import hashlib
+
 import arm
-from sample_swap_io import TIMER, TIMER_HZ, DEADLINE_TICKS, POLL_BUDGET, RELEASE
+from sample_swap_io import TIMER, TIMER_HZ, DEADLINE_TICKS, POLL_BUDGET, RELEASE, validate_firmware as validate_transport
 
 CONTEXT_BYTES = 96
 ACQUIRE = 0xC0000D80
+RESOURCE_SITES = (
+    (0xc0012794, 0xc00127a4), (0xc0012800, 0xc0012820),
+    (0xc0012884, 0xc00128a8), (0xc0012908, 0xc0012928),
+    (0xc001298c, 0xc00129ac), (0xc0012a0c, 0xc0012a30),
+    (0xc0012a94, 0xc0012ab4), (0xc0012b14, 0xc0012b38),
+    (0xc0012b98, 0xc0012bb4), (0xc0012c10, 0xc0012c2c),
+    (0xc0012c90, 0xc0012cb8), (0xc0012d18, 0xc0012d38),
+    (0xc0012d9c, 0xc0012dbc), (0xc0012e20, 0xc0012e40),
+    (0xc0012ea4, 0xc0012ec8), (0xc0012f28, 0xc0012f48),
+    (0xc0012fac, 0xc0012fcc), (0xc001302c, 0xc00130f0),
+    (0xc001315c, 0xc0013220), (0xc001328c, 0xc00132ac),
+    (0xc0013310, 0xc00134d8), (0xc0013544, 0xc001370c),
+    (0xc0013778, 0xc0013794), (0xc00137fc, 0xc0013948),
+    (0xc00139b8, 0xc00139d8), (0xc0013a38, 0xc0013a58),
+    (0xc0013abc, 0xc0013ae0), (0xc0013b44, 0xc0013c98),
+    (0xc0013d50, 0xc0013d84), (0xc0013de8, 0xc0013ee8),
+    (0xc0014248, 0xc0014274), (0xc00142d4, 0xc00142f8),
+    (0xc0014348, 0xc0014358), (0xc00143b0, 0xc00143d4),
+    (0xc0014420, 0xc0014438),
+)
+CONTROL_SITES = (0xC0014650, 0xC0014710, 0xC00147C0, 0xC0014920, 0xC00149E0)
+GPIO_SITES = (0xC00146F8, 0xC00147A8, 0xC0014810, 0xC0014908, 0xC00149C8, 0xC0014A30)
+HOOKS = tuple(hook for acquire, release in RESOURCE_SITES for hook in (
+    (acquire, None, ACQUIRE, 'native_scope_take'),
+    (release, None, RELEASE, 'native_scope_close'),
+)) + tuple((site, 0xE1D330B0, None, 'native_scope_control') for site in CONTROL_SITES) + tuple(
+    (site, None, 0xC00145F0, 'native_scope_gpio') for site in GPIO_SITES)
+
+
+def validate_firmware(vsb):
+    build = validate_transport(vsb)
+    start = 0xC0011000 - 0xC0000000 + 0x100
+    if hashlib.sha256(vsb[start:start + 0x362C]).hexdigest() != 'b5e36f35f65d015dfafd8205dee0a8f57daeaf7a696bb76f6b5ed8c289520169':
+        raise ValueError('unmapped native DSP resource wrappers')
+    return build
 
 
 def source(*, scope, fault, mode, generation, release=RELEASE, acquire=ACQUIRE,
@@ -36,10 +75,46 @@ def build_code(origin, **kwargs):
     return result.bytes, result.symbols
 
 
+def driver_source(**kwargs):
+    return source(**kwargs) + DRIVER
+
+
+def build_driver_code(origin, **kwargs):
+    result = arm.assemble(driver_source(**kwargs), origin=origin)
+    return result.bytes, result.symbols
+
+
 SOURCE = r'''
+native_scope_init:
+    push {r0-r3, lr}
+    .word 0xE10F3000
+    orr r2, r3, #0x80
+    .word 0xE121F002
+    ldr r0, =NS_SCOPE
+    ldr r1, [r0]
+    cmn r1, #1
+    bne ns_init_out
+    ldr r1, =NS_FAULT
+    ldr r2, [r1]
+    cmn r2, #1
+    moveq r2, #0
+    streq r2, [r1]
+    mov r2, #0
+    str r2, [r0]
+ns_init_out:
+    .word 0xE121F003
+    pop {r0-r3, pc}
+
 native_scope_take:
+    push {r12, lr}
+    ldr r12, =NS_SCOPE
+    ldr r12, [r12]
+    cmn r12, #1
+    pop {r12, lr}
+    beq NS_ACQUIRE
     push {r4, lr}
     bl NS_ACQUIRE
+native_scope_acquired:
     pop {r4, lr}
     cmp r0, #0
     bne native_scope_refused
@@ -223,4 +298,21 @@ ns_return:
     mov r0, #0
     bx r2
 .pool
+'''
+
+DRIVER = r'''
+native_scope_control:
+    push {r0-r3, r12, lr}
+    bl native_scope_tick
+    pop {r0-r3, r12, lr}
+    .word 0xE1D330B0
+    bx lr
+
+native_scope_gpio:
+    push {r0-r3, r12, lr}
+    bl native_scope_tick
+    pop {r0-r3, r12, lr}
+    b 0xC00145F0
+.pool
+native_scope_driver_end:
 '''

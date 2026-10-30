@@ -1,7 +1,6 @@
-"""Probe transaction recovery in native code, using emulator-only hooks."""
+"""Probe native transaction recovery in the installed runtime or with emulator-only hooks."""
 import argparse
 from collections import deque
-import hashlib
 import json
 import struct
 import sys
@@ -12,59 +11,65 @@ import native_dsp_scope as scope
 import sample_swap_io as io
 
 CODE, CALL = 0xC1005000, 0xC100A000
-POINTER = c.spec.STATE + 0x1E0
-RESOURCE_SITES = (
-    (0xc0012794, 0xc00127a4), (0xc0012800, 0xc0012820),
-    (0xc0012884, 0xc00128a8), (0xc0012908, 0xc0012928),
-    (0xc001298c, 0xc00129ac), (0xc0012a0c, 0xc0012a30),
-    (0xc0012a94, 0xc0012ab4), (0xc0012b14, 0xc0012b38),
-    (0xc0012b98, 0xc0012bb4), (0xc0012c10, 0xc0012c2c),
-    (0xc0012c90, 0xc0012cb8), (0xc0012d18, 0xc0012d38),
-    (0xc0012d9c, 0xc0012dbc), (0xc0012e20, 0xc0012e40),
-    (0xc0012ea4, 0xc0012ec8), (0xc0012f28, 0xc0012f48),
-    (0xc0012fac, 0xc0012fcc), (0xc001302c, 0xc00130f0),
-    (0xc001315c, 0xc0013220), (0xc001328c, 0xc00132ac),
-    (0xc0013310, 0xc00134d8), (0xc0013544, 0xc001370c),
-    (0xc0013778, 0xc0013794), (0xc00137fc, 0xc0013948),
-    (0xc00139b8, 0xc00139d8), (0xc0013a38, 0xc0013a58),
-    (0xc0013abc, 0xc0013ae0), (0xc0013b44, 0xc0013c98),
-    (0xc0013d50, 0xc0013d84), (0xc0013de8, 0xc0013ee8),
-    (0xc0014248, 0xc0014274), (0xc00142d4, 0xc00142f8),
-    (0xc0014348, 0xc0014358), (0xc00143b0, 0xc00143d4),
-    (0xc0014420, 0xc0014438),
-)
+POINTER = c.spec.NATIVE_SCOPE
+RESOURCE_SITES = scope.RESOURCE_SITES
 TARGETS = dict(command=c.spec.FIRMWARE['PART_UPDATE'], stereo=c.spec.FIRMWARE['PART_UPDATE'],
                read=0xC00141F8, write=0xC0014284,
                **{'0xc0012758': 0xC0012758, '0xc001430c': 0xC001430C, '0xc00143e4': 0xC00143E4})
 
 
+def runtime_symbols(payload):
+    sections, symbols = c.spec.build_code(c.firmware.identify(payload).screens)
+    original, installed = [], []
+    for site, word, target, label in scope.HOOKS:
+        actual = struct.unpack_from('<I', payload, site - c.IMAGE)[0]
+        original.append(actual == (word if word is not None else c.spec.redirect(0xEB000000, site, target)))
+        installed.append(actual == c.spec.redirect(0xEB000000, site, symbols[label]))
+    if all(original):
+        return None
+    if not all(installed):
+        raise ValueError('mixed or unknown native DSP hooks')
+    for at, data in sections:
+        skip = 4 if at == c.spec.CODE1 else 0
+        if payload[at - c.IMAGE + skip:at - c.IMAGE + len(data)] != data[skip:]:
+            raise ValueError('native DSP runtime differs from the current builder')
+    for site, _, _, label, link, _, _ in c.spec.SITES:
+        expected = c.spec.redirect(0xEB000000 if link else 0xEA000000, site, symbols[label])
+        if struct.unpack_from('<I', payload, site - c.IMAGE)[0] != expected:
+            raise ValueError('sample runtime hook differs from the current builder')
+    return symbols
+
+
+def validation_image(payload):
+    symbols = runtime_symbols(payload)
+    reference = bytearray(payload)
+    if symbols is not None:
+        for site, original, target, _, _, _, _ in c.spec.SITES:
+            word = original if original is not None else c.spec.redirect(0xEB000000, site, target)
+            struct.pack_into('<I', reference, site - c.IMAGE, word)
+    image = bytes(256) + reference
+    scope.validate_firmware(image)
+    return image
+
+
 def validate(payload):
-    io.validate_firmware(bytes(256) + payload)
-    if hashlib.sha256(payload[0x11000:0x1462C]).hexdigest() != 'b5e36f35f65d015dfafd8205dee0a8f57daeaf7a696bb76f6b5ed8c289520169':
-        raise ValueError('unmapped native DSP resource wrappers')
+    validation_image(payload)
 
 
 def install(box, *, origin=CODE, poll_budget=128):
-    """Install the bounded driver in a paused emulator; never writes a VSB."""
+    """Use the verified runtime driver or install it into a paused emulator."""
     payload = box.payload
     validate(payload)
+    installed = runtime_symbols(payload)
+    if installed is not None:
+        return installed
     uc = box.m.uc
-    control, gpio = origin + 0x300, origin + 0x340
-    code, symbols = scope.build_code(origin, scope=POINTER,
+    code, symbols = scope.build_driver_code(origin, scope=POINTER,
                                     fault=c.spec.STATE + c.spec.OFF['TSTATE'],
                                     mode=c.spec.STATE + c.spec.OFF['MODE'],
                                     generation=c.spec.STATE + c.spec.OFF['GEN'], poll_budget=poll_budget)
-    if len(code) > 0x300:
-        raise ValueError('native recovery overlaps its poll hooks')
     uc.mem_write(origin, code)
     uc.mem_write(POINTER, struct.pack('<I', 0))
-    pieces = {
-        control: f"push {{r0-r3, r12, lr}}\nbl {symbols['native_scope_tick']}\npop {{r0-r3, r12, lr}}\n.word 0xE1D330B0\nbx lr",
-        gpio: f"push {{r0-r3, r12, lr}}\nbl {symbols['native_scope_tick']}\npop {{r0-r3, r12, lr}}\nb 0xC00145F0",
-    }
-    for address, assembly in pieces.items():
-        assembled = c.spec.arm.assemble(assembly, origin=address)
-        uc.mem_write(address, assembled.bytes)
     for acquire, release in RESOURCE_SITES:
         for site, native, replacement in ((acquire, scope.ACQUIRE, symbols['native_scope_take']),
                                            (release, io.RELEASE, symbols['native_scope_close'])):
@@ -72,10 +77,9 @@ def install(box, *, origin=CODE, poll_budget=128):
             if struct.unpack_from('<I', payload, site - 0xC0000000)[0] != expected:
                 raise ValueError('native DSP resource call differs')
             uc.mem_write(site, struct.pack('<I', c.spec.redirect(0xEB000000, site, replacement)))
-    for site, target, link in (
-                               *((site, control, True) for site in (0xC0014650, 0xC0014710, 0xC00147C0, 0xC0014920, 0xC00149E0)),
-                               *((site, gpio, True) for site in (0xC00146F8, 0xC00147A8, 0xC0014810, 0xC0014908, 0xC00149C8, 0xC0014A30))):
-        uc.mem_write(site, struct.pack('<I', c.spec.redirect(0xEB000000 if link else 0xEA000000, site, target)))
+    for sites, label in ((scope.CONTROL_SITES, 'native_scope_control'), (scope.GPIO_SITES, 'native_scope_gpio')):
+        for site in sites:
+            uc.mem_write(site, struct.pack('<I', c.spec.redirect(0xEB000000, site, symbols[label])))
     return symbols
 
 
@@ -92,7 +96,7 @@ def watch_resource(box, symbols):
             link, stack = machine.reg_read(regs.UC_ARM_REG_LR), machine.reg_read(regs.UC_ARM_REG_SP)
             row = dict(kind=kind, link=link, stack=stack, counter=box.u32(io.SEMA),
                        control=machine.reg_read(regs.UC_ARM_REG_CPSR) & 255,
-                       caller=box.u32(stack + 4) if link == symbols['native_scope_take'] + 8 else link)
+                       caller=box.u32(stack + 4) if link == symbols['native_scope_acquired'] else link)
             pending[link, stack] = row
             recent.append(dict(stage='enter', **row))
         return record
@@ -124,21 +128,30 @@ def session(payload, flow=None, trace_resource=False):
     class ScopedBox(c.Box):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            capture_fault.validate_firmware(bytes(256) + self.payload)
+            capture_fault.validate_firmware(validation_image(self.payload))
             sections, _ = c.spec.build_code(c.firmware.identify(self.payload).screens)
             last = max(at + len(data) for at, data in sections if c.spec.STORE_CODE <= at < c.spec.STORE_CODE_END)
-            start = (last + 15) & ~15
-            finish, end = start + 0x380, start + 0x480
-            if end > c.spec.STORE_CODE_END or any(value != 255 for value in self.payload[start - c.IMAGE:end - c.IMAGE]):
-                raise ValueError('no unused owned code space for the session')
-            symbols = install(self, origin=start, poll_budget=io.POLL_BUDGET)
+            if runtime_symbols(self.payload) is not None:
+                start, end = c.spec.STORE_CODE, last
+                symbols = install(self)
+            else:
+                start = (last + 15) & ~15
+                code, _ = scope.build_driver_code(start, scope=POINTER,
+                                              fault=c.spec.STATE + c.spec.OFF['TSTATE'],
+                                              mode=c.spec.STATE + c.spec.OFF['MODE'],
+                                              generation=c.spec.STATE + c.spec.OFF['GEN'])
+                finish = (start + len(code) + 15) & ~15
+                end = finish + 0x100
+                if end > c.spec.STORE_CODE_END or any(value != 255 for value in self.payload[start - c.IMAGE:end - c.IMAGE]):
+                    raise ValueError('no unused owned code space for the session')
+                symbols = install(self, origin=start, poll_budget=io.POLL_BUDGET)
+                code, labels = capture_fault.build_code(finish, fault=c.spec.STATE + c.spec.OFF['TSTATE'])
+                if finish + len(code) > end:
+                    raise ValueError('capture guards exceed the session code space')
+                self.m.uc.mem_write(finish, code)
+                for site, label in capture_fault.HOOKS:
+                    self.m.uc.mem_write(site, struct.pack('<I', c.spec.redirect(0xEA000000, site, labels[label])))
             resource = watch_resource(self, symbols) if trace_resource else lambda: None
-            code, labels = capture_fault.build_code(finish, fault=c.spec.STATE + c.spec.OFF['TSTATE'])
-            if finish + len(code) > end:
-                raise ValueError('capture guards exceed the session code space')
-            self.m.uc.mem_write(finish, code)
-            for site, label in capture_fault.HOOKS:
-                self.m.uc.mem_write(site, struct.pack('<I', c.spec.redirect(0xEA000000, site, labels[label])))
             expected = bytes(self.m.uc.mem_read(start, end - start))
             observed = dict(transactions=0, refused=0, faults=0, failures=[], origin=start, bytes=end - start)
             observations.append((self, observed, expected, resource))
@@ -178,6 +191,7 @@ def probe(payload, stall=None, transaction='command', masked=False):
     samples = {500: ('Own', 100), 501: ('Own stereo', 100, 48000, 'stereo16')} if stereo else {500: ('Own', 100)}
     box = c.Box(payload, None, samples, [500, 500, 500] if stereo else [500], record_dsp=True)
     symbols = install(box)
+    runtime = runtime_symbols(payload) is not None
     uc = box.m.uc
     target = TARGETS[transaction]
     assembly = (f"push {{r4, lr}}\n.word 0xe10f4000\norr r12, r4, #0x80\n.word 0xe121f00c\nbl {target}\n.word 0xe121f004\ncall_return:\npop {{r4, pc}}" if masked
@@ -283,13 +297,62 @@ def probe(payload, stall=None, transaction='command', masked=False):
         transition.update(after=box.u16(transition['part'] + 0x34),
                           kind=uc.mem_read(transition['part'] + 0x39, 1)[0])
         if not expected_fault:
-            ok = ok and transition['before'] == 500 and transition['after'] == 501 and transition['kind'] == 3 and len(enters) == 11
-    return dict(ok=ok, stall=stall, transaction=transaction, masked=masked, refused=refused,
+            import stereo_pad_cases
+            kind, transactions = (4, 10) if stereo_pad_cases.has_hooks(payload) else (3, 11)
+            ok = (ok and transition['before'] == 500 and transition['after'] == 501
+                  and transition['kind'] == kind and len(enters) == transactions)
+    return dict(ok=ok, stall=stall, transaction=transaction, masked=masked, refused=refused, runtime_driver=runtime,
                 transition=transition if stereo else None,
                 pcm_matches=pcm_matches, frame_restored=frame_restored,
                 before=before, after=after, transactions=len(enters),
                 releases=len(releases), acquire_results=enters, port_writes=len(writes),
                 writes_after_fault=len(writes_after_fault), asserts=box.m.asserts)
+
+
+def large_transfer(payload, flash=None):
+    length = 2 * 1024 * 1024
+    box = c.Box(payload, flash, {500: ('Own large probe', 100)}, [500], record_dsp=True)
+    install(box, poll_budget=io.POLL_BUDGET)
+    source = c.spec.ARENA_U
+    pcm = bytes((i * 17) % 256 for i in range(length))
+    box.m.uc.mem_write(source, pcm)
+    call = c.spec.arm.assemble('push {r4, lr}\nbl 0xC0014284\npop {r4, pc}', origin=CALL)
+    box.m.uc.mem_write(CALL, call.bytes)
+    start, done, calls = box.m.time_ns, 0, 0
+    while done < length and box.state('TSTATE') == 0:
+        count = min(length - done, 0xFFF0 * 2)
+        box.dev.call(CALL, io.DSP_MIN + done, source + done, count // 2, 2)
+        done += count
+        calls += 1
+    equal = done == length and box.dsp_bytes(io.DSP_MIN, length) == pcm
+    ok = equal and box.state('TSTATE') == 0 and box.u32(POINTER) == 0 and box.u32(io.SEMA) == 1 and not box.m.asserts
+    return dict(id='native_large_transfer_uses_bounded_u16_calls', ok=bool(ok), pcm_equal=equal,
+                bytes=length, native_calls=calls, maximum_halfwords=0xFFF0, fault=box.state('TSTATE'),
+                elapsed_emulator_ms=(box.m.time_ns - start) / 1000000,
+                runtime_driver=runtime_symbols(payload) is not None, asserts=box.m.asserts)
+
+
+def cold_state(payload, flash=None, *, held=False):
+    box = c.Box(payload, flash, {500: ('Own cold probe', 100)}, [500], held=c.spec.KILL if held else 0)
+    pointer = box.u32(POINTER)
+    return dict(id='native_cold_exit_passthrough' if held else 'native_cold_library_initialization',
+                ok=pointer == (0xFFFFFFFF if held else 0) and box.state('TSTATE') == 0 and not box.m.asserts,
+                scope=pointer, fault=box.state('TSTATE'), asserts=box.m.asserts)
+
+
+def runtime_cases(payload, flash=None):
+    if runtime_symbols(payload) is None:
+        raise ValueError('native DSP runtime hooks are not installed')
+    rows = [cold_state(payload, flash), cold_state(payload, flash, held=True), large_transfer(payload, flash)]
+    choices = [(None, name, False) for name in ('command', 'stereo', 'read', 'write')]
+    choices += [('status', name, False) for name in ('command', 'read', 'write')]
+    choices += [('busy-status', 'command', False), ('gpio', 'write', False),
+                ('data-gpio', 'write', False), (None, 'command', True)]
+    for stall, transaction, masked in choices:
+        row = probe(payload, stall, transaction, masked)
+        row['id'] = f'native_{transaction}_{stall or "ready"}_' + ('masked' if masked else 'unmasked')
+        rows.append(row)
+    return rows
 
 
 def main():

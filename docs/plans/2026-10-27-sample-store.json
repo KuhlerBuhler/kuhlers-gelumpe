@@ -2,8 +2,8 @@
   "planId": "2026-10-27-sample-store",
   "planPath": "docs/plans/2026-10-27-sample-store.md",
   "createdAt": "2026-10-27T19:53:36.740192+00:00",
-  "updatedAt": "2026-10-29T14:02:37.266818+00:00",
-  "revision": 2,
+  "updatedAt": "2026-10-29T19:52:17.213234+00:00",
+  "revision": 3,
   "phases": [
     {
       "id": "phase-1",
@@ -118,12 +118,12 @@
       "tasks": [
         {
           "id": "3.6",
-          "name": "Begrenztes DSP-Rücklesen für Aufnahmegrenzen und DSP-Ende im ARM-Modell und mit erzeugter Aufnahme in beiden roten Builds prüfen.",
+          "name": "Begrenztes DSP-Rücklesen für nicht auf 32 Byte ausgerichtete Aufnahmegrenzen und den letzten Block der DSP-Bank im ARM-Modell prüfen; die tatsächliche Firmware mit erzeugter Aufnahme-PCM in beiden roten Builds prüfen.",
           "status": "passed"
         },
         {
           "id": "3.1",
-          "name": "Bestehende Abschlussstellen für Name, Loop, Slice und destruktive Bearbeitung erfassen. Zusammengehörige Eingaben bilden eine Änderung, statt jeden einzelnen Drehgeberschritt auf die Karte zu schreiben.",
+          "name": "Sample-WRITE für Name, Loop, Slice und destruktive Bearbeitung erfassen und den betroffenen geänderten Slot gemeinsam speichern; weder einzelne Drehgeberschritte noch das Verlassen der Bearbeitung speichern automatisch.",
           "status": "pending"
         },
         {
@@ -142,14 +142,19 @@
           "status": "pending"
         },
         {
+          "id": "3.7",
+          "name": "Auch Aufnahme-Stop und DSP-Endzeigerlesen begrenzen; bei Fehler weder einen fertigen Slot noch eine gesicherte Aufnahme melden.",
+          "status": "in-progress"
+        },
+        {
           "id": "3.5",
           "name": "Fehlgeschlagene Speicherung sichtbar machen und eine noch nicht gesicherte Aufnahme nicht still verwerfen.",
           "status": "pending"
         },
         {
-          "id": "3.7",
-          "name": "Aufnahme-Stop und DSP-Endzeigerlesen begrenzen; Fehler nicht als fertigen oder gesicherten Slot veröffentlichen.",
-          "status": "in-progress"
+          "id": "3.8",
+          "name": "Ohne Änderung, beim Abspielen, bei Sample-Auswahl, Patternwechsel und Swap keine Sample-Schreibaufträge erzeugen; Sample-WRITE ohne Änderungen hängt keinen unveränderten Block an.",
+          "status": "pending"
         }
       ],
       "criteria": []

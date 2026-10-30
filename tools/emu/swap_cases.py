@@ -97,7 +97,8 @@ class Box:
     """A booted copy with our samples and patterns. `live` are the part samples of the pattern in RAM at start,
     `bank` {pattern: part samples} the bank blocks."""
 
-    def __init__(self, payload, flash, samples, live, bank=None, cap=None, held=0, record_dsp=False, extra=None):
+    def __init__(self, payload, flash, samples, live, bank=None, cap=None, held=0, record_dsp=False, extra=None,
+                 before_boot=None):
         self.payload = with_cap(payload, cap)
         self.m = Machine(self.payload, flash)
         self.m.insert_card(card(payload, samples, extra))
@@ -124,6 +125,8 @@ class Box:
         self.m.uc.hook_add(unicorn.UC_HOOK_CODE, patterns, begin=0xC00364F0, end=0xC00364F0)
         self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: setattr(self, "parses", self.parses + 1),
                            begin=spec.FIRMWARE["PARSER"], end=spec.FIRMWARE["PARSER"])
+        if before_boot is not None:
+            before_boot(self)
         self.dev = Dev(self.payload, flash, held=held, machine=self.m)
         self.dev.run(1.0)
 
@@ -367,6 +370,54 @@ def case_part_change(payload, flash):
     return [entry("a_part_waits_for_pcm_before_publishing_its_new_sample",
                   not before and held and loaded and published and not box.m.asserts,
                   f"vorher geladen {before}, alter Part gehalten {held}, danach geladen {loaded}, Part veröffentlicht {published}")]
+
+
+def case_osc_choice(payload, flash):
+    samples = small([500, 501, 503, 504, 505])
+    box = Box(payload, flash, samples, [500], cap=0x40000, record_dsp=True)
+    part = box.dev.call(spec.FIRMWARE['PART'], 0)
+    record = box.u32(part + 8)
+    selections, premature = [], []
+
+    def desired(uc, access, at, size, value, _):
+        target = value & 0xFFFF
+        selections.append(dict(target=target, actual=box.u16(part + 0x34), loaded=box.resident(target)))
+
+    def actual(uc, access, at, size, value, _):
+        target = value & 0xFFFF
+        if target in (501, 503) and not box.resident(target):
+            premature.append(target)
+
+    hooks = [box.m.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, desired, begin=record + 8, end=record + 9),
+             box.m.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, actual, begin=part + 0x34, end=part + 0x35)]
+    rows = []
+    try:
+        for target, delta in ((501, 1), (503, 1), (501, -1)):
+            previous = box.u16(part + 0x34)
+            start = len(selections)
+            box.m.send([1, 1, 0, delta & 255, 0])
+            settled = box.until(lambda: box.u16(record + 8) == target and box.u16(part + 0x34) == target,
+                                3.0)
+            trace = selections[start:]
+            accepted = any(item['target'] == target and item['actual'] == previous for item in trace)
+            pcm = settled and box.dsp_bytes(*box.extent(target)) == wav_pcm(target, FRAMES)
+            name = bytes(box.m.uc.mem_read(NAMES + target * 32 + 12, 16)).split(b'\0', 1)[0]
+            rows.append(dict(target=target, delta=delta, selected=accepted, settled=settled,
+                             pcm_equal=pcm, name_equal=name == samples[target][0].encode()))
+    finally:
+        for hook in hooks:
+            box.m.uc.hook_del(hook)
+    volume = fat32.Volume(bytes(box.m.mmc.card.medium.data))
+    try:
+        unchanged = volume.read(f'KORG/{cardstore.card_folder(payload)}/Sample/e2sSample.all') == sampleset.build(samples)
+    finally:
+        volume.close()
+    return [entry('osc_selects_indexed_unloaded_samples_and_skips_empty_slots',
+                  all(row['selected'] and row['settled'] and row['pcm_equal'] and row['name_equal'] for row in rows)
+                  and unchanged and not box.m.asserts, dict(steps=rows, library_unchanged=unchanged)),
+            entry('osc_keeps_the_previous_part_until_pcm_is_ready',
+                  not premature and any(row['settled'] for row in rows) and not box.m.asserts,
+                  dict(premature=premature, selections=selections))]
 
 
 def case_voice_residency(payload, flash):
@@ -685,10 +736,25 @@ def case_integrity(payload, flash):
     return [entry(row['id'], row['ok'], row) for row in swap_integrity_cases.cases(payload, flash)]
 
 
+def case_native_dsp(payload, flash):
+    import native_dsp_scope_cases
+    return [entry(row['id'], row['ok'], row) for row in native_dsp_scope_cases.runtime_cases(payload, flash)]
+
+
+def case_native_sample_faults(payload, flash):
+    import capture_fault_cases
+    import sample_export_fault_cases
+    rows = [('capture', failure, capture_fault_cases.case(payload, failure))
+            for failure in ('none', 'preexisting', 'stop', 'end')]
+    rows += [('export', failure, sample_export_fault_cases.case(payload, failure))
+             for failure in ('none', 'preexisting', 'read')]
+    return [entry(f'native_{kind}_{failure}', row['ok'], row) for kind, failure, row in rows]
+
+
 GROUPS = (case_start, case_long_set, case_gate, case_chain, case_eviction, case_part_change, case_cache, case_checksum,
           case_equal, *[(lambda i: lambda payload, flash: flow_task(payload, flash, i))(i) for i in range(len(FLOWS))],
           case_failure_gates, case_full_session, case_prefetch_targets, case_alias_eviction, case_voice_residency, case_store,
-          case_file_owner, case_integrity)
+          case_file_owner, case_integrity, case_native_dsp, case_native_sample_faults, case_osc_choice)
 
 
 def group_entries(payload, flash, i):

@@ -29,6 +29,8 @@ const elsewhere = {
   "capture-fault.test.mjs": ["test_capture_fault"],
   "sample-export-fault.test.mjs": ["test_sample_export_fault"],
   "sample-owner.test.mjs": ["test_sample_owner"],
+  "sample-snapshot.test.mjs": ["test_sample_snapshot"],
+  "sample-versions.test.mjs": ["test_sample_versions"],
 };
 const owned = new Set(Object.values(elsewhere).flat().map(name => `${name}.py`));
 const modules = readdirSync(dir).filter(f => /^test_.*\.py$/.test(f) && !owned.has(f)).sort();
