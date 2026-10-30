@@ -2443,6 +2443,18 @@ def boot_light_cases(payload, flash=None):
     first = image_pins if not synth else (lit[0] if lit else None)
     add("his_colour_starts_yellow", kept_his[BOOT_FLASH] == 0x98 and first == 0x18,
         f"flash byte {kept_his[BOOT_FLASH]:#x} after the settings 14, 13, 2 with INVERT on, start image pins {image_pins}, first lit pins {first}, changes {changes[:6]}")
+    # Device 30.10.: the flash still holds 0xB8 from the build before the pin rule. The first start is white (the card cannot be read
+    # before the start image), the menu then rewrites the byte, the next switch-off saves it and the start after that is yellow.
+    old = bytearray(kept_his)
+    old[BOOT_FLASH] = 0xB8
+    stale, changes, image_ms, first_pins = boot_light_run(payload, bytes(old), his)
+    stale_lit = [v for t, v in after_white(changes) if v]
+    stale_first = first_pins if not synth else (stale_lit[0] if stale_lit else None)
+    again = boot(payload, bytes(old), files=his)
+    healed = last_pattern_cases.switch_off(again)
+    byte_now = healed[BOOT_FLASH] if healed else None
+    add("old_byte_heals_after_one_switch_off", stale_first == 0x38 and byte_now == 0x98,
+        f"flash byte 0xb8 starts with pins {stale_first}, after one switch-off the flash holds {byte_now}")
     return out
 
 

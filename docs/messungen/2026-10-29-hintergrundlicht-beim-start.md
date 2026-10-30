@@ -103,6 +103,9 @@ Startbild weiß, auch nach WRITE auf Global und im BLECH-Menü und nach dem Auss
   und INVERT oder Version 2 der Datei ändern nichts; der Haken läuft auf dem Stand (c). Ursache ist (a): drei Kanäle an sind Weiß.
 - **Behoben:** die Regel für die Pins oben. 14, 13, 2 startet als Rot und Grün (Gelb, Pins `0x18`, Byte `0x98`).
   Fälle `hsv_15_13_14_byte`, `pins_follow_the_strongest`, `his_colour_starts_yellow` in `boot_light_cases`.
+- **Gemessen:** steht im Flash noch `0xB8` vom Stand vor der Regel, startet das Gerät einmal weiß (die Karte ist vor dem Startbild
+  nicht lesbar, der Haken hat nur das Byte). Das Menü schreibt beim Lesen der Einstellungen `0x98` ins RAM, das nächste Ausschalten oder
+  WRITE auf Global speichert es, der Start danach ist gelb. Fall `old_byte_heals_after_one_switch_off`.
 - **Offen:** am Gerät nicht geprüft.
 
 ## Offen
