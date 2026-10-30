@@ -47,6 +47,7 @@ export const CHAINS = {
     { id: "part-update", sites: [0xC0099FFC] },
     { id: "part-bind", sites: [0xC0099D88] },
     { id: "osc-choice", sites: [0xC0040DB4] },
+    { id: "export-all-open", sites: [0xC0039FB0] },
   ],
   "sample-swap-native-dsp": [
     { id: "resource-acquire", sites: [

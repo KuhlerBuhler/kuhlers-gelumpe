@@ -78,6 +78,8 @@ def case(payload, failure, guarded=True):
         return write(address, value)
 
     box.m.read, box.m.write = stalled, written
+    if failure in ('stop', 'end'):
+        native.as_swap_step(box)
     restart = None
     try:
         box.dev.call(CALL, transport)

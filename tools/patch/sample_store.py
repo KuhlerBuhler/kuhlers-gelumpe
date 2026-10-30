@@ -49,7 +49,8 @@ def build_code(origin, state):
 
 
 SOURCE = r"""
-; r0 library path ending in .all. Returns 0 for no journal or completed recovery, 1 on a refused or failed recovery.
+; r0 library path ending in .all. Returns 0 for no journal or completed recovery, 1 when the journal was refused before
+; anything was written (the index is as it was), 3 when writing the recovered index failed.
 store_recover:
     push {r3-r11, lr}
     ldr r11, =CTX
@@ -112,19 +113,22 @@ sr_copy:
 sr_write:
     bl store_write_header
     cmp r0, #0
-    bne sr_bad
+    bne sr_failed
     bl store_verify_header
     cmp r0, #0
-    bne sr_bad
+    bne sr_failed
     ldr r0, =TXN_PATH
     bl FS_UNLINK
     cmp r0, #0
-    bne sr_bad
+    bne sr_failed
 sr_ok:
     mov r0, #0
     pop {r3-r11, pc}
 sr_bad:
     mov r0, #1
+    pop {r3-r11, pc}
+sr_failed:
+    mov r0, #3
     pop {r3-r11, pc}
 .pool
 

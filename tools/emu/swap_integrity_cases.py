@@ -262,7 +262,8 @@ def part_faults(payload, flash=None):
             uc.mem_write(c.spec.STATE + c.spec.OFF['MODE'], struct.pack('<I', 2))
             uc.mem_write(c.spec.STATE + c.spec.OFF['TSTATE'], struct.pack('<I', fault))
             uc.mem_write(record + 8, struct.pack('<H', target))
-            allowed = fault == 0 and target != 501
+            # a latched DSP fault holds back indexed user samples only, a factory sample still binds
+            allowed = target != 501 and (fault == 0 or not 500 <= target <= c.spec.LAST_USER)
             ready = box.dev.call(origin, part)
             entered.clear()
             writes.clear()

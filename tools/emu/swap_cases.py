@@ -553,7 +553,7 @@ def plain_wav(frames):
             + b"data" + struct.pack("<I", len(data)) + data)
 
 
-WRITERS = ("import sample", "export all sample", "import all pattern")   # flows that measurably write the work buffer
+WRITERS = ("import sample", "import all pattern")   # flows that measurably write the work buffer; EXPORT ALL SAMPLE is refused
 
 
 def steps_on(box, page, steps):
@@ -641,7 +641,9 @@ def case_failure_gates(payload, flash):
 
 
 def case_full_session(payload, flash, *, box_type=Box):
-    box = box_type(payload, flash, small(range(500, 506)), [500], bank={1: [501, 502], 249: [503]}, cap=0x40000,
+    samples = small(range(500, 506))
+    source = sampleset.build({int(k): tuple(v) for k, v in samples.items()})
+    box = box_type(payload, flash, samples, [500], bank={1: [501, 502], 249: [503]}, cap=0x40000,
               extra={"/imp.wav": plain_wav(20000).hex()})
     ours = [(lo, hi) for lo, hi, _ in spec.AREAS]
     state = dict(generation=None, writes=0, cache_writes=0, early=[])
@@ -685,11 +687,14 @@ def case_full_session(payload, flash, *, box_type=Box):
                 rows[-1]["source_bytes_after_export"] = len(exported)
                 rows[-1]["source_slots_after_export"] = (sum(offset != 0 for offset in struct.unpack_from("<1000I", exported, 16))
                                                          if len(exported) >= 4096 else None)
+                # the swap holds only part of the file in the DSP: EXPORT ALL SAMPLE must leave the file as it was
+                rows[-1]["source_unchanged_after_export"] = exported == source
     finally:
         for handle in handles:
             box.m.uc.hook_del(handle)
     ok = all(r["filled"] and r["found"] and r["dropped"] and (r["writes"] or r["mode"] not in WRITERS)
-             and r.get("source_slots_after_export", 0) is not None for r in rows)
+             and r.get("source_slots_after_export", len(samples)) == len(samples)
+             and r.get("source_unchanged_after_export", True) for r in rows)
     return [entry("one_session_drops_each_cache_before_foreign_writes",
                   ok and not state["early"] and not box.m.asserts,
                   dict(modes=rows, writes=state["writes"], early=state["early"]))]
@@ -736,6 +741,64 @@ def case_integrity(payload, flash):
     return [entry(row['id'], row['ok'], row) for row in swap_integrity_cases.cases(payload, flash)]
 
 
+# ------------------------------------------------------------------ what only the DSP holds
+def case_import_kept(payload, flash):
+    """IMPORT SAMPLE writes only the DSP. The imported row must outlive later pattern switches: the file has no copy."""
+    bank = {0: [500], 1: [501, 502], 2: [503, 504], 3: [505]}
+    box = Box(payload, flash, small(range(500, 506)), [500], bank=bank, cap=0x60000,
+              extra={"/imp.wav": plain_wav(20000).hex()})
+    name, page, steps, _ = FLOWS[0]
+    found = steps_on(box, page, steps)
+    imported = bytes(box.m.uc.mem_read(NAMES + 500 * 32 + 12, 4)) == b"imp\0"
+    length = box.extent(500)[1]
+    box.key("play", 0.2)
+    rows = []
+    for n in (1, 2, 3, 0):
+        box.choose(n)
+        hit = box.until(lambda: box.running() == n, 20.0)
+        box.run(0.5)
+        rows.append(dict(pattern=n, switched=hit, resident=box.residents(),
+                         name=bytes(box.m.uc.mem_read(NAMES + 500 * 32 + 12, 4)).rstrip(b"\0").decode(errors="replace"),
+                         length=box.extent(500)[1] if box.resident(500) else None))
+    kept = all(r["switched"] and 500 in r["resident"] and r["name"] == "imp" and r["length"] == length for r in rows)
+    moved = any(r["switched"] and len(r["resident"]) < 6 for r in rows)
+    return [entry("an_imported_sample_survives_pattern_switches",
+                  found and imported and length == 40000 and kept and moved and not box.m.asserts,
+                  dict(found=found, imported=imported, length=length, switches=rows))]
+
+
+def case_factory_after_fault(payload, flash):
+    """A latched DSP fault holds back indexed user samples only; a part still switches to a factory sample."""
+    box = Box(payload, flash, small(range(500, 506)), [500], cap=0x40000)
+    part = box.dev.call(spec.FIRMWARE["PART"], 0)
+    box.m.uc.mem_write(spec.STATE + spec.OFF["TSTATE"], struct.pack("<I", 1))
+    box.m.uc.mem_write(box.u32(part + 8) + 8, struct.pack("<H", 10))
+    box.dev.call(0xC0099FFC, part)
+    factory = box.u16(part + 0x34)
+    box.m.uc.mem_write(box.u32(part + 8) + 8, struct.pack("<H", 505))
+    box.dev.call(0xC0099FFC, part)
+    held = box.u16(part + 0x34)
+    return [entry("a_latched_fault_still_lets_a_part_take_a_factory_sample",
+                  factory == 10 and held == 10 and not box.resident(505) and not box.m.asserts,
+                  f"Fehler gesetzt, Werkssample gewählt: Part {factory}; danach Nutzersample 505 (nicht geladen): Part {held}")]
+
+
+def case_bad_journal(payload, flash):
+    """A recovery file that cannot be used must not keep the collection from loading."""
+    folder = cardstore.card_folder(bytes(payload))
+    garbage = bytes((i * 37 + 11) % 256 for i in range(4160))
+    out = []
+    for cap, name in ((0x40000, "swap"), (None, "native")):
+        box = Box(payload, flash, small(range(500, 504)), [500, 501], cap=cap,
+                  extra={f"KORG/{folder}/Sample/e2sSample.txn": garbage.hex()})
+        mode, residents = box.state("MODE"), box.residents()
+        expected = [500, 501] if cap else [500, 501, 502, 503]
+        out.append(entry(f"a_broken_journal_does_not_block_the_{name}_load",
+                         mode == (1 if cap else 0) and residents == expected and not box.m.asserts,
+                         f"Modus {mode}, im DSP {residents}"))
+    return out
+
+
 def case_native_dsp(payload, flash):
     import native_dsp_scope_cases
     return [entry(row['id'], row['ok'], row) for row in native_dsp_scope_cases.runtime_cases(payload, flash)]
@@ -754,7 +817,8 @@ def case_native_sample_faults(payload, flash):
 GROUPS = (case_start, case_long_set, case_gate, case_chain, case_eviction, case_part_change, case_cache, case_checksum,
           case_equal, *[(lambda i: lambda payload, flash: flow_task(payload, flash, i))(i) for i in range(len(FLOWS))],
           case_failure_gates, case_full_session, case_prefetch_targets, case_alias_eviction, case_voice_residency, case_store,
-          case_file_owner, case_integrity, case_native_dsp, case_native_sample_faults, case_osc_choice)
+          case_file_owner, case_integrity, case_native_dsp, case_native_sample_faults, case_osc_choice,
+          case_import_kept, case_factory_after_fault, case_bad_journal)
 
 
 def group_entries(payload, flash, i):

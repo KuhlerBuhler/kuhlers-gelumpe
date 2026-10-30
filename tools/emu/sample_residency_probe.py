@@ -192,6 +192,9 @@ def probe(payload, check_eviction=False, native_publication=False, kind="pcm16",
             record = box.u32(address + 8)
             put16(record + 8, 600)
         uc.mem_write(spec.STATE + spec.PROT, struct.pack("<32H", *([600] * 16 + [0xFFFF] * 16)))
+        if "mark_clean" in box.sym:
+            # this box starts without the swap, so its start recorded no rows: slot 500 is still as the file loaded it
+            box.dev.call(box.sym["mark_clean"], 500)
         wrapper = 0xC1002000
         source = f"push {{r4, r11, r12, lr}}\nldr r11, ={spec.STATE}\nbl {box.sym['victim']}\npop {{r4, r11, r12, pc}}\n.pool"
         uc.mem_write(wrapper, spec.arm.assemble(source, origin=wrapper).bytes)

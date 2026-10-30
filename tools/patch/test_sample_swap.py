@@ -25,6 +25,7 @@ class Swap:
         self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
         self.uc.mem_map(0xC0000000, 0x02000000)
         self.uc.mem_map(0xC2700000, 0x00200000)
+        self.uc.mem_map(p.SIG, 0x1000)
         sections, self.sym = p.build_code(SCREENS)
         for at, data in sections:
             self.uc.mem_write(at, data)
@@ -97,6 +98,8 @@ class Swap:
         self.uc.mem_write(meta, word(base) + word(length))
         self.uc.mem_write(meta + 11, bytes([1 if active else 0]))
         self.uc.mem_write(p.HDR + 16 + 4 * slot, word(0x1000 + slot if in_file else 0))
+        if active and in_file:
+            self.call("mark_clean", slot)     # the row as the loader or the swap put it there
 
     def parts(self, pattern, samples):
         for i in range(16):
@@ -408,12 +411,15 @@ class LibraryBypass(unittest.TestCase):
         self.assertEqual(s.state("MODE"), 0)
 
     def test_normal_boot_recovers_before_open_and_refuses_a_recovery_error(self):
-        for error in (0, 1):
+        # 1: the journal was refused before anything was written, the index is untouched and the file loads as it is.
+        # 3: writing the recovered index failed, the index is uncertain and the load is refused.
+        for error in (0, 1, 3):
             with self.subTest(error=error):
                 s, result, events = self.loader(recovery_error=error)
-                self.assertEqual(result, error)
-                self.assertEqual(events, ["recover"] if error else ["recover", "open"])
-                self.assertEqual(s.state("MODE"), 2 if error else 1)
+                refused = error > 1
+                self.assertEqual(result, 1 if refused else 0)
+                self.assertEqual(events, ["recover"] if refused else ["recover", "open"])
+                self.assertEqual(s.state("MODE"), 2 if refused else 1)
 
     def test_exit_does_not_clear_a_transport_fault(self):
         s, result, events = self.loader(held=True, fault=1)
@@ -519,7 +525,9 @@ class PartPublication(unittest.TestCase):
                             s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: entered.append(True),
                                           begin=continuation, end=continuation)
                             s.call(name, PART_BASE)
-                            self.assertEqual(bool(entered), fault == 0 and target != 601)
+                            # a latched fault holds back indexed user samples only: factory and empty choices still bind
+                            indexed = 500 <= target <= p.LAST_USER
+                            self.assertEqual(bool(entered), target != 601 and (fault == 0 or not indexed))
 
     def test_successful_publication_refreshes_only_parts_requesting_that_slot(self):
         s, record = self.setup_part()
@@ -550,6 +558,7 @@ class Resident(unittest.TestCase):
         s.slot(600, base=F["DSP_MIN"], length=0x100)
         s.slot(601, base=F["DSP_MIN"] + 0x100, length=0x100)
         self.alias(s, 602, 650 - 50, 600)
+        s.call("mark_clean", 602)            # the alias as the file loaded it
         s.uc.mem_write(F["NAMES"] + 600 * 32 + 30, struct.pack("<H", 651))
         s.uc.mem_write(p.STATE + p.PROT, struct.pack("<32H", 601, *([0xFFFF] * 31)))
         s.uc.mem_write(PART_BASE + 0x34, struct.pack("<H", 601))
@@ -1388,6 +1397,89 @@ class Encoding(unittest.TestCase):
         for at, data in sections:
             area = next(a for a in p.AREAS if a[0] <= at < a[1])
             self.assertLessEqual(at + len(data), area[1])
+
+
+class ChangedRows(unittest.TestCase):
+    """Rows the user changed since the start (import, sampling, a sample edit) are never moved out."""
+
+    def test_an_edited_row_stays_until_its_signature_is_back(self):
+        s = Swap()
+        s.slot(600, base=F["DSP_MIN"], length=0x100)
+        self.assertEqual(s.call("victim"), 600)
+        meta = F["META"] + 600 * 0x45C
+        s.uc.mem_write(meta + 0x30, word(0x1234))          # e.g. a loop point changed in SAMPLE EDIT
+        self.assertEqual(s.call("victim"), 0)
+        self.assertEqual(s.call("can_evict", 600), 0)
+        s.uc.mem_write(meta + 0x30, word(0))
+        self.assertEqual(s.call("victim"), 600)
+
+    def test_a_renamed_or_reimported_slot_stays(self):
+        s = Swap()
+        s.slot(600, base=F["DSP_MIN"], length=0x100)
+        s.uc.mem_write(F["NAMES"] + 600 * 32, b"imported")
+        self.assertEqual(s.call("victim"), 0)
+
+    def test_a_row_the_loader_never_recorded_stays(self):
+        s = Swap()
+        s.slot(600, base=F["DSP_MIN"], length=0x100)
+        s.uc.mem_write(p.SIG + 600 * 4, word(0))
+        self.assertEqual(s.call("victim"), 0)
+
+    def test_the_start_records_loaded_rows_only_with_the_swap_on(self):
+        for mode in (0, 1, 2):
+            with self.subTest(mode=mode):
+                s = Swap()
+                s.slot(600, base=F["DSP_MIN"], length=0x100)
+                s.slot(601, active=False)
+                s.uc.mem_write(p.SIG + 600 * 4, word(0))
+                s.uc.mem_write(p.SIG + 601 * 4, word(0x55))
+                s.set_state("MODE", mode)
+                s.call("finish_pins")
+                self.assertEqual(s.u32(p.SIG + 600 * 4) != 0, mode == 1)
+                self.assertEqual(s.u32(p.SIG + 601 * 4), 0 if mode == 1 else 0x55)
+                s.set_state("MODE", 1)
+                self.assertEqual(s.call("victim"), 600 if mode == 1 else 0)
+
+
+class ExportAll(unittest.TestCase):
+    def test_export_all_is_refused_while_the_dsp_holds_part_of_the_file(self):
+        for mode, refused in ((0, False), (1, True), (2, True), (0xFFFFFFFF, False)):
+            with self.subTest(mode=mode):
+                s = Swap()
+                s.set_state("MODE", mode)
+                opened = []
+                s.uc.mem_write(F["F_OPEN"], arm.assemble("mov r0, #0\nbx lr", origin=F["F_OPEN"]).bytes)
+                s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: opened.append(1), begin=F["F_OPEN"], end=F["F_OPEN"])
+                result = s.call("ss_export_open", 0xC1000000, 0xC1000100, 0x0A)
+                self.assertEqual(bool(opened), not refused)
+                self.assertEqual(result, 10 if refused else 0)
+
+
+class NativeGate(unittest.TestCase):
+    """The native DSP deadline bounds a transaction only while the swap's own step runs."""
+
+    def taken(self, mode, step):
+        s = Swap()
+        s.uc.mem_write(p.NATIVE_SCOPE, word(0))
+        s.set_state("MODE", mode)
+        s.set_state("INSTEP", step)
+        acquire = 0xC0000D80
+        s.uc.mem_write(acquire, arm.assemble("mov r0, #0\nbx lr", origin=acquire).bytes)
+        bounded = []
+
+        def stop(uc, *_):
+            bounded.append(1)
+            uc.reg_write(R.UC_ARM_REG_PC, TRAP)
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, stop, begin=s.sym["native_scope_enter"], end=s.sym["native_scope_enter"])
+        s.uc.reg_write(R.UC_ARM_REG_SP, STACK)
+        s.uc.reg_write(R.UC_ARM_REG_LR, TRAP)
+        s.uc.emu_start(s.sym["native_scope_take"], TRAP, count=10_000)
+        return bool(bounded)
+
+    def test_only_the_swaps_step_is_bounded(self):
+        for mode, step, bounded in ((1, 1, True), (1, 0, False), (0, 1, False), (2, 1, False), (0, 0, False)):
+            with self.subTest(mode=mode, step=step):
+                self.assertEqual(self.taken(mode, step), bounded)
 
 
 if __name__ == "__main__":
