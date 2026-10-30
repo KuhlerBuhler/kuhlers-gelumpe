@@ -19,6 +19,15 @@ Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 - Ein zweiter Druck auf einen schon geholten Part schaltet ihn im laufenden Pattern stumm, ein dritter wieder an, wie ein Pad ohne
   Vorschau. Die Ansicht zeigt dabei dasselbe Mute.
 - Beim Wechsel lädt B ganz normal, mit den Mutes, die auf den Pads standen.
+- Dazu (30.10.): SHIFT + PART MUTE schaltet in der Vorschau um, wem die Pads gehören. Die Vorschau beginnt bei B wie oben. Nach
+  SHIFT + PART MUTE zeigen und schalten die Pads die Mutes des laufenden Patterns A, wie ohne Vorschau, in den normalen Farben,
+  nichts wird kopiert. Noch einmal SHIFT + PART MUTE: zurück zu B. Jede neue Vorschau beginnt bei B.
+- Selbst festgelegt: das Rad innerhalb der Vorschau behält die Seite. Wer auf A die Mutes spielt und dabei weiterblättert, behält
+  seine Pads. Endet die Vorschau (EXIT, Wechsel, Rad zurück auf das laufende Pattern), ist beim nächsten Mal wieder B dran.
+- Zurück auf B holt der erste Druck einen Part wieder, auch wenn er vorher schon geholt war. Was auf A am Mute geändert wurde, soll
+  nicht gegen die Anzeige von B laufen. Die Mutes, die auf B gesetzt waren, bleiben für den Wechsel.
+- SHIFT + PART MUTE hebt in der Firmware alle Mutes auf einmal auf (gemessen, [Tastenkombinationen](../tastenkombinationen.md)). In der
+  Vorschau tut es das mit dem Patch nicht mehr, ohne Vorschau weiter wie immer.
 
 ## Wie es geht
 
@@ -28,6 +37,9 @@ Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 - Copy Part nimmt die Quelle aus dem Pattern im RAM, wenn sie die gewählte Nummer ist. In der Ansicht ist das B, darum steht für den
   Aufruf die laufende Nummer dort. (gemessen)
 - EXIT beim Einschalten: wie die Firmware, das Pad schaltet das Mute im laufenden Pattern. (gemessen)
+- SHIFT + PART MUTE: der Patch hängt an der Stelle, an der die Funktion der Modustasten bei PART MUTE fragt, ob SHIFT gehalten ist
+  (`0xC007042C`, blau `0xC0063480`). Mit Vorschau kippt er die Seite und lässt die Pad-LEDs je nach Seite das Pattern im RAM oder die
+  Ansicht lesen, ohne Vorschau läuft die Firmware weiter. (gemessen, [Messung](../messungen/2026-10-30-vorschau-part-reinholen.md))
 
 ## Grenzen
 
@@ -48,3 +60,6 @@ Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 4. EXIT: der Part bleibt. Danach MENU auf B: B lädt, mit den Mutes der Pads.
 5. Mit Sync Group, mit einem Stereo-Sample, mit Motion im Quell-Part.
 6. Blaue Electribe: dasselbe.
+7. In der Vorschau SHIFT + PART MUTE: normale Farben, die Pads schalten A, nichts wird kopiert. Noch einmal: Vorschaufarbe, der erste
+   Druck holt den Part. Rad weiter: die Seite bleibt. EXIT, neu ansehen: wieder B.
+8. Ohne Vorschau hebt SHIFT + PART MUTE weiter alle Mutes auf.

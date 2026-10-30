@@ -43,6 +43,45 @@ Part im RAM gleicht dem der Bank Byte für Byte, beide Banken unverändert. Das 
 - Jede neue Ansicht und ihr Ende ohne Wechsel löschen `V_PEND` und `V_COPY`. Der kopierte Part bleibt im laufenden Pattern bis zum
   nächsten Laden. Nichts geht in die Bank, auf die Karte oder ins Flash.
 
+## SHIFT + PART MUTE: die Pads zwischen B und A umschalten (30.10.)
+
+Entschieden am 30.10.: in der Vorschau schaltet SHIFT + PART MUTE, wem die Pads gehören. Die Vorschau beginnt beim angesehenen
+Pattern B (alles oben). Nach SHIFT + PART MUTE zeigen und schalten die Pads die Mutes des laufenden Patterns A, wie ohne Vorschau.
+Noch einmal, und sie gehören wieder B.
+
+Was die Firmware damit tut (gemessen, Emulator, alle drei Builds, Fälle unten): SHIFT + PART MUTE hebt die Stummschaltung aller
+16 Parts im laufenden Pattern auf, auch während eine Vorschau offen ist (mit EXIT beim Einschalten gemessen). Das steht schon in den
+[Tastenkombinationen](../tastenkombinationen.md). In der Vorschau ersetzt der Patch diese Bedeutung, ohne Vorschau bleibt sie.
+
+| Sampler (Hacktribe, rot) | blau | Was | Wie gefunden |
+|---|---|---|---|
+| `0xC007042C` | `0xC0063480` | in der Funktion der Modustasten bei PART MUTE gedrückt: `ldr r3, [r0, #0x358]` liest am Objekt von `0xC0040F04` (blau `0xC003BA4C`), ob SHIFT gehalten ist; mit SHIFT ruft eine Schleife über 16 Parts den Setter des Mutes mit 0 | gelesen in beiden; rot gleich Hacktribe (0x1B0 Byte ab `0xC00703E0` gleich); gemessen: alle Mutes 0 |
+| `0xC0070430` | `0xC0063484` | die Anweisung danach (`cmp r3, #0`), dort geht der Haken weiter | gelesen in beiden |
+| `0xC0070558` | `0xC0063584` | hier enden beide Wege von PART MUTE, die Taste geht weiter an den Bildschirm | gelesen in beiden |
+
+Was der Patch tut:
+
+- `view_shift` am Lesen von SHIFT: ohne SHIFT oder ohne Vorschau weiter wie die Firmware. Mit SHIFT und Vorschau kippt er `V_SIDE`
+  (hinter `VIEW_W`, `+0x64`, 1 heißt Seite A), löscht `V_PEND` und `V_COPY`, setzt den Zeiger der Pad-LEDs (`0xC0691388`) auf das
+  Pattern im RAM (Seite A) oder auf die Ansicht (Seite B), zeichnet die Pads neu und springt dorthin, wo beide Wege der Firmware enden.
+  Die Mutes aufheben fällt in der Vorschau also weg.
+- Seite A: `view_pad` gibt jeden Druck an die Firmware, wie ohne Vorschau (auch im SEQUENCER, dann schalten die Pads die Steps von A).
+  Die Farbe der Pads ist die normale, weil der Zeiger auf das Pattern im RAM zeigt. Die Infotexte der Edit-Zeile bleiben bei B.
+- Zurück auf B: weil `V_COPY` leer ist, holt der erste Druck einen Part wieder, auch einen, der vorher schon geholt war. Die auf B
+  gesetzten Mutes bleiben und gehen beim Wechsel mit.
+- Das Rad innerhalb der Vorschau behält die Seite (`pc_view_cells` lässt auf Seite A den Zeiger der Pads beim Pattern im RAM). Endet
+  die Vorschau, auch wenn das Rad auf das laufende Pattern zurückgeht, setzt `view_new` die Seite auf B.
+- Neuer Zustand: `VIEW_W` hat jetzt 0x68 Byte. Der Code liegt weiter zwischen `0xC0173480` und `0xC0173800`.
+
+| Fall (`case_view_side`) | Hacktribe | rot | blau |
+|---|---|---|---|
+| `view_shift_part_mute_turns_the_pads_to_the_playing_pattern`: Pattern 1 spielt (Part 6 stumm), Pattern 2 angesehen (Parts 2 und 3 stumm), Pads 1 bis 3 rot `[255, 0, 0]`; SHIFT + PART MUTE: Pads rot wie A (nur Pad 6 aus), blau nur der gewählte Part, Part 6 bleibt stumm (kein Aufheben aller), Ansicht bleibt | ja | ja | ja |
+| `view_playing_side_pad_switches_the_playing_mute_without_copy`: Pad 2 auf Seite A: Mute von Part 2 im RAM 1, Step 1 von Part 2 bleibt 0 (nichts kopiert), `V_COPY` 0, Banken gleich | ja | ja | ja |
+| `view_shift_part_mute_again_brings_parts_in`: noch einmal SHIFT + PART MUTE: Pads 1 bis 3 rot `[255, 0, 0]`, Pads 4 bis 6 in der Farbe der Ansicht; Pad 2: der Part gleicht Pattern 2 bis auf Byte 1, Mute 0, Pad 2 an | ja | ja | ja |
+| `view_wheel_keeps_the_side_a_new_preview_starts_on_the_viewed_pattern`: Seite A, Rad auf Pattern 3: Pads bleiben bei A; EXIT, Pattern 2 neu angesehen: Seite B | ja | ja | ja |
+| `shift_part_mute_without_preview_is_stock`: ohne Vorschau, Parts 1 und 6 stumm, SHIFT + PART MUTE: alle Mutes 0 | ja | ja | ja |
+| `view_shift_part_mute_kill_switch_is_stock`: EXIT beim Einschalten, Pattern 2 angesehen, SHIFT + PART MUTE: alle Mutes 0 | ja | ja | ja |
+
 ## Gemessen (`tools/emu/pswitch_cases.py`, `case_view_copy`)
 
 Pattern 1 spielt im Modus PART MUTE, Part 2 hat dort keine Steps. In Pattern 2 ist Part 2 in der Bank stumm, hat auf allen 64 Steps
@@ -66,6 +105,10 @@ Nebenbei gemessen: ein Part, dessen Steps nur im ersten Takt stehen, klingt nach
 Das ist kein Warten der Kopie, mit Steps in allen Takten kommen die Stimmen sofort.
 
 ## Offen
+
+- Gerät: SHIFT + PART MUTE in der Vorschau, besonders ob die Farben beim Umschalten sofort folgen. (ungeprüft)
+- Ein Druck auf B, dessen Kopie noch wartet, während SHIFT + PART MUTE kommt: die Kopie fällt weg, die Firmware schaltet dann nur das
+  Mute in A. Im Emulator nicht nachgestellt, das Fenster ist ein paar Millisekunden. (hergeleitet)
 
 - Gerät: alles oben, besonders ob man beim Kopieren einen Knacks oder eine Lücke hört. Copy Part ruft vor und nach der Kopie
   `0xC009B5E0` und `0xC009B5EC` mit dem Part (blau `0xC00881CC`, `0xC00881D4`), was die genau tun, ist nicht gelesen.

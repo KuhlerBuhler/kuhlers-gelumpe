@@ -64,7 +64,7 @@ steht, gilt die Zeile in allen diesen Zuständen.
 | SHIFT + EXIT | wie EXIT | gemessen |
 | SHIFT + WRITE | Namenseingabe "enter NAME" (Pattern unter neuem Namen speichern). Im Zielwahl-Fenster "select DESTINATION" springt es ebenfalls auf die Namenseingabe. | gemessen, Handbuch OM S.5 und S.12, PG S.11, offline `0xC006F15C` |
 | SHIFT + Part< / Part> | nichts Besonderes, der Part wechselt wie ohne SHIFT | gemessen |
-| SHIFT + PART MUTE | Hebt die Stummschaltung **aller 16 Parts** auf (im Pattern-Puffer gehen die 16 Stumm-Bytes auf 0, alle Pad-LEDs rot). Der Modus selbst schaltet nicht um. | gemessen, Handbuch PG S.11, offline `0xC007042C` (Schleife über 16 Parts) |
+| SHIFT + PART MUTE | Hebt die Stummschaltung **aller 16 Parts** auf (im Pattern-Puffer gehen die 16 Stumm-Bytes auf 0, alle Pad-LEDs rot). Der Modus selbst schaltet nicht um. Mit BLECH in der Vorschau (`VIEW:`, `NEXT:`) schaltet es stattdessen die Pads zwischen angesehenem und laufendem Pattern um ([Messung](messungen/2026-10-30-vorschau-part-reinholen.md)) | gemessen, Handbuch PG S.11, offline `0xC007042C` (Schleife über 16 Parts) |
 | SHIFT + PART ERASE | wie PART ERASE allein: der Modus PART ERASE geht an (LED `0x21` auf 255), Display und Pattern bleiben, wie sie sind. Mit dem Patch Würfeln würfelt die Kombination eine Melodie und der Modus bleibt aus | gemessen, 2026-10-16 ([Messung](messungen/2026-10-16-wuerfeln.md)) |
 | SHIFT + TRIGGER, SEQUENCER, KEYBOARD, STEP JUMP, PATTERN SET, MFX SEND | wie ohne SHIFT | gemessen, offline: die Modus-Tasten lesen SHIFT (`0xC006FF60`), reagieren aber nur bei CHORD |
 | SHIFT + CHORD | Pattern-Seite 9 CHORD SET. Der Chord-Modus schaltet trotzdem um. | gemessen, Handbuch PG S.11, offline `0xC006FF60` (SHIFT und Taste 0x18) |
