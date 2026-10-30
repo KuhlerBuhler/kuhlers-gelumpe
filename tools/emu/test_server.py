@@ -2,8 +2,10 @@
 """The local emulator service, run against a stand-in machine (no firmware, no Unicorn)."""
 
 import base64
+import contextlib
 import hashlib
 import http.client
+import io
 import json
 import os
 import sys
@@ -221,12 +223,24 @@ class ServiceTest(unittest.TestCase):
 
     def test_a_missing_unicorn_is_named_instead_of_dropping_the_request(self):
         def missing(payload, flash):
-            raise ImportError("No module named 'unicorn'")
+            raise ModuleNotFoundError("No module named 'unicorn'", name="unicorn")
         self.emu.factory = missing
         self.request("POST", "/firmware", body=bytes(VSB_SIZE))
         r, body = self.request("POST", "/start", body=b"{}")
         self.assertEqual(r.status, 500)
         self.assertIn("npm run setup:emu", body["error"])
+
+    def test_another_missing_module_is_named_not_taken_for_unicorn(self):
+        def missing(payload, flash):
+            raise ModuleNotFoundError("No module named 'build_bootstrap'", name="build_bootstrap")
+        self.emu.factory = missing
+        self.request("POST", "/firmware", body=bytes(VSB_SIZE))
+        with contextlib.redirect_stderr(io.StringIO()) as log:
+            r, body = self.request("POST", "/start", body=b"{}")
+        self.assertEqual(r.status, 500)
+        self.assertIn("build_bootstrap", body["error"])
+        self.assertNotIn("npm run setup:emu", body["error"])
+        self.assertIn("ModuleNotFoundError", log.getvalue(), "the traceback goes to the log")
 
     def wait_for(self, check, timeout=3):
         deadline = time.monotonic() + timeout
