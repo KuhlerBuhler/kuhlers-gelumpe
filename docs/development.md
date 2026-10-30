@@ -61,7 +61,10 @@ Namen trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
 `docker compose pull` und danach `docker compose up`, ohne dass du selbst baust.
 Bis zum ersten Release mit diesem Workflow gibt es das Paket noch nicht, bis
 dahin führt `docker compose pull` zu einem Fehler und `docker compose up --build`
-bleibt der Weg. `docker compose up --build` baut auch dann aus diesem Ordner, wenn
+bleibt der Weg. Ein Release startet nur Workflows, wie sie auf `main` liegen,
+und `docker-image.yml` kam über `develop`; das Paket entsteht also mit dem ersten
+Release, das diesen Stand nach `main` bringt. `docker compose up --build` baut auch
+dann aus diesem Ordner, wenn
 das Abbild schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres
 `pull` ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
 keinem Abbild.
@@ -70,8 +73,9 @@ Eine bestimmte Version statt `:latest` nimmt `GELUMPE_IMAGE`, etwa
 `GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.3.7 docker compose pull`. Die
 Variable gilt für `pull` und `up`; in einer `.env` neben `docker-compose.yaml`
 steht sie für beide. Von Hand (Actions, "Container image", mit einem Tag) lässt
-sich ein Abbild neu bauen; `:latest` wandert dabei nur mit, wenn "latest"
-angehakt ist.
+sich ein Abbild neu bauen, sobald der Workflow auf `main` liegt; vorher steht er
+nicht in der Liste, und ein Release startet ihn nicht. `:latest` wandert dabei nur
+mit, wenn "latest" angehakt ist.
 
 ## Hinter einem Proxy
 
@@ -478,6 +482,13 @@ oder ein neues Label startet ihn neu, ein roter Check beendet ihn ohne Merge. Ge
 `--admin` und `--match-head-commit`. Ohne Label bleibt der PR offen, etwa wenn er auf einen Test am Gerät wartet;
 Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
 Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
+
+**Gemergte Branches verschwinden** (Workflow "Delete merged branch", `.github/workflows/branch-autodelete.yml`): nach
+dem Merge eines PRs aus diesem Repo löscht der Workflow dessen Branch. Nie gelöscht werden `main`, `develop`,
+`release/*` und ein Branch, auf den noch ein offener PR zielt (etwa `feature/sample-swap`, solange PRs darauf offen
+sind); über die API gelöscht würde GitHub diese PRs schließen statt umzuhängen. Ein ohne Merge geschlossener PR behält
+seinen Branch. Der Auslöser nimmt die Datei vom Ziel-Branch des PRs: für PRs nach `main` gilt er erst ab dem Release,
+das ihn dorthin bringt.
 
 **Firmware-PRs nacheinander.** Mehrere offene PRs, die dieselben Patches ändern (`data/patches/`,
 `tools/patch/`, `tools/emu/*_cases.py`), kollidieren bei jedem Merge miteinander und laufen dann kalt neu. Die

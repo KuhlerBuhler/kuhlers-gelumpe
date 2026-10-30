@@ -755,7 +755,7 @@ def make_handler(emu, token, origins):
                         chunk = ": keep-alive\n\n"
                     self.wfile.write(chunk.encode())
                     self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError):
+            except ConnectionError:           # the page went away: a broken pipe, a reset, or on Windows an abort
                 pass
             finally:
                 emu.unsubscribe(q)
