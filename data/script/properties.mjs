@@ -20,7 +20,6 @@ export const PROPERTIES = Object.freeze([
   p("korg.transport", ["korg.read.transport", []], null, text("api.property.transport")),
   p("korg.selectedPattern", ["korg.read.pattern", []], ["korg.pattern", ["value"]], text("api.property.selectedPattern")),
   p("korg.selectedPart", ["korg.read.part", []], ["korg.part", ["value"]], text("api.property.selectedPart")),
-  p("korg.millis", ["korg.millis", []], null, text("api.property.millis")),
   p("korg.parts[].step", ["korg.read.step", ["index"]], null, text("api.property.parts.step")),
   p("korg.parts[].muted", ["korg.read.mute", ["index"]], ["korg.mute", ["index", "value"]], text("api.property.parts.muted")),
   p("korg.knobs[]", ["korg.read.knob", ["index"]], null, text("api.property.knobs")),
