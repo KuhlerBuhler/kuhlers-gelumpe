@@ -232,6 +232,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Stimmen beim Wechsel innerhalb einer Sync-Gruppe, im Emulator geprüft](2026-10-25-sync-group-stimmen.md)
 - [Sync Group: gestoppt mit ungespeicherten Änderungen ohne Rückfrage](2026-10-25-sync-ungespeichert.md)
 - [Eine Plugin-Liste in PLUGIN EDIT, IMPORT PLUGIN entfällt](2026-10-25-plugin-liste.md)
+- [MANAGE PLUGINS: 64 Dateien statt 16, REMOVE löscht die Datei, OFF behält sie](2026-10-30-plugin-liste-64-entfernen.md)
 - [Plugins schreiben Steps: korg.seq, im Emulator geprüft](2026-10-26-plugin-steps.md)
 - [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
 - [Test-Modus und Fernbedienung aller Bedienelemente über die Warteschlange des Panels](2026-10-29-test-modus-fernsteuerung.md)

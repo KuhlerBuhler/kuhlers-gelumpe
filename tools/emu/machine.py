@@ -279,7 +279,8 @@ class Machine:
         self.sysex, self.midi_seen = SysexReader(), 0
         self.tx_waiting = False
         self.mmc = MMCController()  # no card until insert_card()
-        self.mmc_cell = -1         # the MMC_IRQ_NS interval in which the card interrupt was last looked at
+        self.mmc_irq_ns = MMC_IRQ_NS   # a check may look at the card interrupt more often (migrate_cases.py)
+        self.mmc_cell = -1         # the mmc_irq_ns interval in which the card interrupt was last looked at
         self.dsp_ctl, self.dsp_xfer = [], None
         self.dsp_uploads = []      # device time in ms of every DSP program upload, i.e. every DSP boot
         self.dsp_mem = {INPUT_LEVEL: 0, INPUT_LEVEL + 2: 0}     # nothing plugged into the input
@@ -830,11 +831,12 @@ class Machine:
             if n != self.timer_last.get(base, n):
                 self.raw.add(event)
             self.timer_last[base] = n
-        cell = self.time_ns // MMC_IRQ_NS
+        cell = self.time_ns // self.mmc_irq_ns
         if cell != self.mmc_cell:
             self.mmc_cell = cell
             if self.mmc.irq():
                 self.raw.add(MMC_IRQ)
+                self.mmc.raised()
 
     def irq(self):
         uc, A = self.uc, self.A
