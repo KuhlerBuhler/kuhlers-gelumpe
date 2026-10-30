@@ -41,6 +41,24 @@
    "to": "0xC0042EDC",
    "kind": "code",
    "why": "the instruction after the getter's first, where the hook goes on"
+  },
+  {
+   "from": "0xC0049330",
+   "to": "0xC00434F0",
+   "kind": "code",
+   "why": "the part mute setter (accessor, part, mute, notify): strb of the mute at +0x805 of the part, the main screen's PART MUTE pad calls it: the 16 words around it equal in both images (fwmap same code)"
+  },
+  {
+   "from": "0xC0060D34",
+   "to": "0xC00577A4",
+   "kind": "code",
+   "why": "the main screen's PART MUTE pad calls the mute setter with the inverted mute it read through the getter (bl getter; rsbs r2, r0, #1; movlo r2, #0; mov r0, r5; bl setter), read in both images; measured: the press reaches it (docs/messungen/2026-10-30-vorschau-part-reinholen.md)"
+  },
+  {
+   "from": "0xC00667D4",
+   "to": "0xC005C49C",
+   "kind": "code",
+   "why": "Copy Part (Part Util 1/4): the object's +0x40 source pattern and +0x41 source part, PSEL and the chosen number, the source from the pattern in RAM or the bank, memcpy of 0x330 bytes into the target part, the setters, the motion copy; the synth takes the target part in r1 (no stereo pairs). Read in both images; measured: the memcpy into the part is called from 0xC0066904 / 0xC005C548 when MENU and the pads run Copy Part (docs/messungen/2026-10-30-vorschau-part-reinholen.md)"
   }
  ]
 }

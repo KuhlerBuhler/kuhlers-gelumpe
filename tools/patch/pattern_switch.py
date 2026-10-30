@@ -112,14 +112,20 @@ CMD_BUSY = 0xC002D634           # returns the command runner's busy byte (+0x10 
 CMD_END = 0xC002D81C            # strb r3, [r6, #0x10]: the command runner clears its busy byte (r3 = 0)
 CMD_END_WORD = 0xE5C63010
 VIEW_W = 0xC0173400             # the view's own accessor and state, in RAM only (between SG_BUF and the SysEx patch's table)
-VIEW_SIZE = 0x5C
+VIEW_SIZE = 0x64
 V_NUM, V_LIDX, V_SGNUM = 0x40, 0x44, 0x48
 V_MNUM, V_MTOUCH, V_MUTE, V_TAKE = 0x4C, 0x50, 0x54, 0x58
+V_PEND, V_COPY = 0x5C, 0x60
 VIEW_CODE = 0xC0173480          # the view's pads (docs/messungen/2026-10-29-vorschau-pads.md), behind VIEW_W, up to the SysEx patch's table
 VIEW_CODE_END = 0xC0173800
 MUTE_GET = 0xC0048CFC           # ldr r3, [r0, #4]: the part mute getter (accessor, part), the pad LEDs read the mutes through it
 MUTE_GET_WORD = 0xE5903004
 MUTE_GET_BODY = 0xC0048D00
+MUTE_SET = 0xC0049330           # the part mute setter (accessor, part, mute, notify): writes byte 1 of the part and tells the engine
+MUTE_SET_CALL = 0xC0060D34      # bl MUTE_SET: the main screen's PART MUTE pad (UI task) sets the mute it read, inverted
+COPY_PART = 0xC00667D4          # the firmware's Copy Part (Part Util 1/4): (object, part); +0x40 source pattern, +0x41 source part, +0x42 target part
+COPY_PART_WORD = 0xE92D4FF0     # push {r4 to r11, lr}
+SYNTH_COPY_PART_WORD = 0xE92D47F3   # push {r0, r1, r4 to r10, lr}: the synth's takes the target part in r1
 INFO_HOOK = 0xC008684C          # ldrb r3, [r0, #0x5c]: the first instruction of the info line's builder that reads the label flag
 INFO_WORD = 0xE5D0305C
 INFO_BODY = 0xC0086850
@@ -153,20 +159,23 @@ FIRMWARE_PLACES = ["WHEEL_HOOK", "SELECT", "PAD_HOOK", "PAD_BODY", "MIDI_HOOK", 
                    "CMD_BUSY", "CMD_END", "INFO_HOOK", "INFO_BODY", "CELL_W", "CELL_O", "PADS_REFRESH", "VOICE_BEGIN_CALL", "VOICE_END_CALL", "VOICE_RESET_CALL",
                    "VOICE_BEGIN_ORIG", "VOICE_END_ORIG", "VOICE_RESET_ORIG", "VOICE_CONT", "VOICE_SILENCE_CALL", "VOICE_SILENCE_ORIG",
                    "NOTE_CLEAR_HOOK", "NOTE_CLEAR_BODY", "NOTE_FLUSH_ORIG", "NOTE_FLUSH_KEY", "NOTE_FLUSH_SCALE", "NOTE_FLUSH_VOICE",
-                   "NOTE_ASSIGN_CALL", "NOTE_ASSIGN_ORIG", "MUTE_GET", "MUTE_GET_BODY"]
+                   "NOTE_ASSIGN_CALL", "NOTE_ASSIGN_ORIG", "MUTE_GET", "MUTE_GET_BODY",
+                   "MUTE_SET", "MUTE_SET_CALL", "COPY_PART"]
 SYNTH = False
 SYNTH_LABEL_WORD = 0xE59F10FC   # ldr r1, [pc, #0xfc]: the synth's builder is laid out a little differently
 
 
 def use_build(build):
     """For the synth the firmware's places have their own addresses (data/synth-map/); the code and the state stay where they are."""
-    global SYNTH, LABEL_WORD
+    global SYNTH, LABEL_WORD, COPY_PART_WORD
     SYNTH = build == "synth"
     synthaddr.use(globals(), FIRMWARE_PLACES, build)
     LABEL_WORD = SYNTH_LABEL_WORD if SYNTH else _SAMPLER_LABEL_WORD
+    COPY_PART_WORD = SYNTH_COPY_PART_WORD if SYNTH else _SAMPLER_COPY_PART_WORD
 
 
 _SAMPLER_LABEL_WORD = LABEL_WORD
+_SAMPLER_COPY_PART_WORD = COPY_PART_WORD
 
 
 def sha(data):
@@ -1220,14 +1229,14 @@ pad_gate:
     bl pc_active
     cmp r0, #0
     beq pdg_firmware
+    tst r9, #REPLAYED           ; a kept press handed on went through VIEW_PAD when it came
+    bicne r9, r9, #REPLAYED
+    bne @PGATE_CONT@
     mov r0, r7                  ; while a pattern is viewed its pads take the presses (VIEW_PAD)
     mov r1, r4
     bl VIEW_PAD
     cmp r0, #0
     bne @PGATE_SKIP@
-    tst r9, #REPLAYED
-    bicne r9, r9, #REPLAYED
-    bne @PGATE_CONT@
     ldr r3, =STATE
     ldrb r0, [r3, #S_PADH]
     ldrb r1, [r3, #S_PADT]
@@ -1454,6 +1463,10 @@ voice_end:
 # pattern takes those mutes when it is switched to. The mutes live beside VIEW_W (V_MUTE, V_MTOUCH: one bit per part, only the
 # parts touched count) and reach the display through the firmware's part mute getter: called with the view's accessor (only the
 # display passes it, through the cell) it answers from them. docs/messungen/2026-10-29-vorschau-pads.md
+# Unmuting a part on the pads brings it into the playing pattern at once (decision 30.10., docs/ideen/82-vorschau-part-reinholen.md):
+# the press goes on to the firmware, and where the main screen sets the mute (UI task) view_copy runs the firmware's own Copy Part
+# from the viewed pattern's bank block and sets the part unmuted. From then on the pad of that part mutes and unmutes it in both.
+# docs/messungen/2026-10-30-vorschau-part-reinholen.md
 VIEW_SOURCE = """
 .equ VIEW_W, @VIEW_W@
 .equ V_NUM, 0x40                ; the bank pattern the display shows, FFFFFFFF none
@@ -1461,6 +1474,12 @@ VIEW_SOURCE = """
 .equ V_MTOUCH, 0x50             ; one bit per part: muted or unmuted on the pads while viewed
 .equ V_MUTE, 0x54               ; one bit per part: 1 muted (the firmware's part byte 1)
 .equ V_TAKE, 0x58               ; 1 from the switch to the viewed pattern until its load (copy_hook): the mutes go along
+.equ V_PEND, 0x5C               ; one bit per part: unmuted on the pads, its copy waits for the main screen (view_copy)
+.equ V_COPY, 0x60               ; one bit per part: brought into the playing pattern while this pattern is viewed
+.equ PSEL, 0xC00431F0           ; returns the pattern selection object: +0x318 the chosen number
+.equ PLAYER, 0xC002FAFC         ; returns the player: +0x318 the number that runs
+.equ MUTE_SET, @MUTE_SET@
+.equ COPY_PART, @COPY_PART@
 .equ BANK, 0xC08B2940
 .equ LED_MGR, 0xC0345A1C
 .equ LED_SEND, 0xC00875F4       ; (manager, led, force)
@@ -1475,6 +1494,7 @@ VIEW_SOURCE = """
     b view_apply                ; +12 the pattern load's copy (r4 = the pattern in RAM, r5 = the source)
     b view_refresh              ; +16 (manager) the pads drawn again
     b view_pads                 ; +20 the pads sent again
+    b view_copy                 ; +24 the main screen's mute setter call
 
 ; The firmware's part mute getter (r0 = accessor, r1 = part) -> r0 = the part's mute byte. The engine and everything else pass
 ; the pattern's own accessor; only the display, through the cell, passes VIEW_W: then a part touched on the pads answers with
@@ -1560,6 +1580,8 @@ vn_clear:
     mov r1, #0
     str r1, [r12, #V_MTOUCH]
     str r1, [r12, #V_TAKE]
+    str r1, [r12, #V_PEND]
+    str r1, [r12, #V_COPY]
     bx lr
 vn_end:
     ldr r1, [r12, #V_TAKE]
@@ -1576,10 +1598,11 @@ view_take:
     pop {r0}
     bx lr
 
-; From the pad gate (r0 = pad, r1 = pressed) -> r0 = 1 when the press is the view's. While a pattern is viewed, in PART MUTE a
-; press mutes or unmutes that part of the viewed pattern (the first press starts from its mute in the bank), in SEQUENCER it is
-; dropped: the pads show the viewed pattern, so they never change the one that plays. Releases and other modes pass.
-; Clobbers r0 to r3 and r12.
+; From the pad gate (r0 = pad, r1 = pressed) -> r0 = 1 when the press is the view's alone. While a pattern is viewed, in PART MUTE
+; a press mutes or unmutes that part of the viewed pattern (the first press starts from its mute in the bank). Muting stays in the
+; view. Unmuting brings the part into the playing pattern: the press goes on to the firmware, marked in V_PEND, and view_copy
+; copies it there. A part brought in goes on with every press, so the playing pattern mutes and unmutes it like the view. In
+; SEQUENCER the press is dropped. Releases and other modes pass. Clobbers r0 to r3 and r12.
 view_pad:
     push {r4, lr}
     cmp r1, #0
@@ -1620,15 +1643,68 @@ vp_flip:
     ldr r2, [r12, #V_MUTE]
     eor r2, r2, r3
     str r2, [r12, #V_MUTE]
+    mov r4, #0                  ; goes on to the firmware
+    ldr r1, [r12, #V_COPY]
+    tst r1, r3
+    bne vp_draw                 ; brought in already: the playing pattern's mute follows
+    tst r2, r3
+    movne r4, #1                ; muted: the view's alone
+    bne vp_draw
+    orr r1, r1, r3              ; unmuted: brought in when the main screen takes the press
+    str r1, [r12, #V_COPY]
+    ldr r1, [r12, #V_PEND]
+    orr r1, r1, r3
+    str r1, [r12, #V_PEND]
+vp_draw:
     ldr r0, =LED_MGR
     ldr r0, [r0]
     bl view_refresh
+    mov r0, r4
+    pop {r4, pc}
 vp_took:
     mov r0, #1
     pop {r4, pc}
 vp_no:
     mov r0, #0
     pop {r4, pc}
+
+; Replaces the main screen's call of the mute setter (r0 = the pattern's accessor, r1 = the part, r2 = the mute it sets, r3 = 1),
+; UI task as the firmware's own Copy Part. A part unmuted on the pads of the viewed pattern (V_PEND, the pad's part or, for a
+; stereo pair, the one right of it) is copied from the viewed pattern's bank block into the playing pattern first, sound, steps and
+; motion, and set unmuted. Copy Part reads its source from the pattern in RAM when the source is the chosen number, which is the
+; viewed one here: for the copy the chosen number is the one that runs, then it is given back. Every other call sets as it did.
+view_copy:
+    push {r0, r1, r2, r3, r4, r5, r6, lr}
+    ldr r12, =VIEW_W
+    ldr r4, [r12, #V_NUM]
+    cmp r4, #249
+    bhi vc_set
+    ldr r5, [r12, #V_PEND]
+    mov r6, #3
+    ands r6, r5, r6, lsl r1
+    beq vc_set
+    bic r5, r5, r6
+    str r5, [r12, #V_PEND]
+    sub sp, sp, #0x48           ; Copy Part's object: only +0x40 to +0x42 are read (and +0x41 written)
+    strb r4, [sp, #0x40]
+    strb r1, [sp, #0x41]
+    strb r1, [sp, #0x42]
+    bl PSEL
+    mov r5, r0
+    ldr r6, [r5, #0x318]
+    bl PLAYER
+    ldr r0, [r0, #0x318]
+    str r0, [r5, #0x318]
+    mov r0, sp
+    ldrb r1, [sp, #0x42]
+    bl COPY_PART
+    str r6, [r5, #0x318]
+    add sp, sp, #0x48
+    mov r0, #0
+    str r0, [sp, #8]            ; r2: unmuted
+vc_set:
+    pop {r0, r1, r2, r3, r4, r5, r6, lr}
+    b MUTE_SET
 
 ; r0 = the LED manager: the pads of the current mode drawn again, then every pad sent again, so the pad colours follow the view.
 view_refresh:
@@ -1668,7 +1744,7 @@ def build_view_code():
     if SYNTH:
         text = synthaddr.source(text, own=[(VIEW_CODE, VIEW_CODE_END)])
     for key, value in {"VIEW_W": f"{VIEW_W:#x}", "VIEW_CODE": f"{VIEW_CODE:#x}", "PADS_REFRESH": f"{PADS_REFRESH:#x}",
-                       "MUTE_GET_BODY": f"{MUTE_GET_BODY:#x}"}.items():
+                       "MUTE_GET_BODY": f"{MUTE_GET_BODY:#x}", "MUTE_SET": f"{MUTE_SET:#x}", "COPY_PART": f"{COPY_PART:#x}"}.items():
         text = text.replace(f"@{key}@", value)
     return arm.assemble(text)
 
@@ -1740,7 +1816,9 @@ def build_patch(vsb, build="hacktribe"):
          (NOTE_FLUSH_SCALE, bl_word(NOTE_FLUSH_SCALE, NOTE_FLUSH_ORIG), "the scale setter's note-off call differs"),
          (NOTE_FLUSH_VOICE, bl_word(NOTE_FLUSH_VOICE, NOTE_FLUSH_ORIG), "the voice setter's note-off call differs"),
          (NOTE_ASSIGN_CALL, bl_word(NOTE_ASSIGN_CALL, NOTE_ASSIGN_ORIG), "voice mode does not reinitialize the note slots where expected"),
-         (MUTE_GET, MUTE_GET_WORD, "the part mute getter does not start with ldr r3, [r0, #4]"))
+         (MUTE_GET, MUTE_GET_WORD, "the part mute getter does not start with ldr r3, [r0, #4]"),
+         (MUTE_SET_CALL, bl_word(MUTE_SET_CALL, MUTE_SET), "the main screen's PART MUTE pad does not call the mute setter where the patch expects it"),
+         (COPY_PART, COPY_PART_WORD, "Copy Part does not start as the patch expects"))
     for addr, want, why in expected:
         if word(addr) != want:
             raise SystemExit(f"{why} in this VSB")
@@ -1773,6 +1851,7 @@ def build_patch(vsb, build="hacktribe"):
             {"file": file_offset(VIEW_CODE), "bytes": view_code.hex(), "expect": free(VIEW_CODE, len(view_code)),
              "note": "view: the viewed pattern's pads take the part mute presses, its mutes go along at the switch"},
             hook(MUTE_GET, "view_mute", False, "first instruction of the part mute getter jumps to the view (the display's mutes of the viewed pattern)"),
+            hook(MUTE_SET_CALL, "view_copy", True, "the main screen's PART MUTE pad: a part unmuted on the viewed pattern's pads is copied into the playing pattern (Copy Part) first"),
             hook(VOICE_BEGIN_CALL, "voice_begin", True, "same-group playing loads keep their sounding voices"),
             hook(VOICE_SILENCE_CALL, "voice_silence", True, "keep the voices of a protected group load"),
             hook(NOTE_CLEAR_HOOK, "voice_clear", False, "keep held-note ownership during a protected group load"),
@@ -1820,6 +1899,7 @@ def build_patch(vsb, build="hacktribe"):
             declare(CMD_END, "instruction", "command-end", "after", False, "after the busy byte is cleared the kept pad presses go to the pad handler"),
             declare(INFO_HOOK, "instruction", "info-line", "before", False, "while the lower line says VIEW: or NEXT:, the Edit key still shows the info texts of the pattern that is viewed"),
             declare(MUTE_GET, "instruction", "part-mute-get", "before", False, "called with the view's accessor (only the display passes it) the mutes set on the viewed pattern's pads answer"),
+            declare(MUTE_SET_CALL, "call", "part-mute-pad", "replace", False, "a part unmuted on the viewed pattern's pads is first copied from its bank block into the playing pattern with the firmware's Copy Part, then set unmuted; every other press sets the mute as before"),
         ],
         "startPhase": [
             {"file": file_offset(VOICE_BEGIN_CALL), "length": 4, "why": "the first pattern load goes through the voice guard; stopped, the original initializer runs"},
@@ -1845,7 +1925,7 @@ def build_patch(vsb, build="hacktribe"):
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C, MENU's LED at +0x20, the kept pad presses at +0x24, the voice-load guard at +0x38", "tools/patch/pattern_switch.py:STATE"),
             ramdecl.area(SG_BUF, SG_SIZE, "sync group: the values carried into the new pattern during one pattern load", "tools/patch/pattern_switch.py:SG_BUF"),
-            ramdecl.area(VIEW_W, VIEW_SIZE, "view: the accessor the display reads the browsed or confirmed pattern through, the number shown, the info line's index, the bank block of a sync group's carry, and the part mutes set on the viewed pattern's pads (pattern, touched, muted, taken at the switch)", "tools/patch/pattern_switch.py:VIEW_W"),
+            ramdecl.area(VIEW_W, VIEW_SIZE, "view: the accessor the display reads the browsed or confirmed pattern through, the number shown, the info line's index, the bank block of a sync group's carry, and the part mutes set on the viewed pattern's pads (pattern, touched, muted, taken at the switch, copy waiting, brought into the playing pattern)", "tools/patch/pattern_switch.py:VIEW_W"),
         ],
     }
 
