@@ -413,7 +413,9 @@ sind kein RAM und stehen auch nicht hier.
 | `0xC0181F00` + 0x40 | load-bar | Zustand | `load_bar.py:STATE` |
 | `0xC0182000` bis `0xC0183000` | splash-editor | Zustand 0x100, Datensatz 0x420, zwei Bilder zu 0x400, FatFs-Datei 0x2E0 | `splash_editor.py`, fünf Einträge |
 | `0xC0183800` + 0x100 | sample-errors | Zustand (Zähler, erstes übersprungenes Sample, Grund) und die zwei Zeilen des Fensters bei +0x40 und +0x60 (der Code liegt bei `0xC0183000`, 852 Byte, als geänderte Bytes) | `sample_errors.py:STATE` |
-| `0xC0188A00` bis `0xC0188F00` | script-runtime | Reserve: die dritte Code-Fläche der Laufzeit bis 1.3.7, leer seit dem Umzug in die Code-Fläche ab `0xC0150300` | `script_hooks.py:MORE2_START` |
+| `0xC0188A00` + 0x340 | script-runtime | die beiden Puffer der Einstellungsdatei des BLECH-Menüs und seine Prüfsummenliste (64 Einträge), in der dritten Code-Fläche der Laufzeit bis 1.3.7 | `script_hooks.py:SETTINGS_RAM` |
+| `0xC0188D40` + 0x150 | script-runtime | Arbeitsbereich der Liste von MANAGE PLUGINS: Ordnerobjekt, Dateiinfo, langer Name, Pfad, die Stelle jeder gelisteten Datei im Ordner, das Zeichen für LIST FULL ([Messung](messungen/2026-10-30-plugin-liste-64-entfernen.md)) | `script_menu.s:LIST_WORK` |
+| `0xC0188E90` bis `0xC0188F00` | script-runtime | Reserve: der Rest der dritten Code-Fläche, leer seit dem Umzug in die Code-Fläche ab `0xC0150300` | `script_hooks.py:LIST_WORK_END` |
 | `0xC0188F00` + 0x40 | tap-motion | Zustand, darin `TM_SETTING` bei +0, die Lampe, die Patternnummer, der gemerkte Modus je Part und für Master FX (der Code liegt bei `0xC0188000`, 0x2B0 Byte, als geänderte Bytes) | `tap_motion.py:STATE` |
 | `0xC0189F00` + 0x40 | note-assistant | Zustand, darin `NA_SETTING` bei +0, die Takte seit der letzten Note, Note und Pad, die Pads der zuletzt gespielten Note bei +0x1C (der Code liegt bei `0xC0189000`, 0x754 Byte, als geänderte Bytes) | `note_assist.py:STATE` |
 | `0xC018AF00` + 0x40 | dice | Zustand, darin `DC_SETTING` bei +0, der Zustand des Zufallszahlengebers, die Töne der Tonleiter (der Code liegt bei `0xC018A000`, 0x4A4 Byte, als geänderte Bytes) | `dice.py:STATE` |

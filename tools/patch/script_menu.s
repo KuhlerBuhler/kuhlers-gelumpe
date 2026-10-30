@@ -107,14 +107,16 @@
 .equ FS_OPENDIR, 0xC009E660
 .equ FS_READDIR, 0xC009E740
 .equ FS_CLOSEDIR, 0xC009E728
-.equ LIST_DIR, 0x300
-.equ LIST_INFO, 0x340
-.equ LIST_LFN, 0x380
-.equ LIST_PATH, 0x3C0
-.equ LIST_NAMES, 0x400
-.equ LIST_MAX, 16
-.equ LIST_NAME_SIZE, 32
-.equ LIST_TITLES, 0x600         ; the plugin name in the header of each listed file, 16 bytes each
+.equ LIST_DIR, LIST_WORK      ; the folder object, the file info, the long name and the path of the list live in LIST_WORK
+.equ LIST_INFO, LIST_WORK+0x40  ; (tools/patch/script_hooks.py, behind the settings in MORE2), absolute addresses
+.equ LIST_LFN, LIST_WORK+0x80
+.equ LIST_PATH, LIST_WORK+0xC0
+.equ LIST_ORD, LIST_WORK+0x100  ; byte per listed file: its place among the names menu_dir_next passes, in the order of the folder
+.equ LIST_MORE, LIST_WORK+0x140 ; byte: 1 when the folder has more plugin files than LIST_MAX (the list says so on a last page); FF until read
+.equ LIST_WORK_SIZE, 0x144
+.equ LIST_MAX, 64               ; as many as the settings' checksum list holds (MENU_MAX_TRUST)
+.equ LIST_ORD_MAX, 255          ; a file behind 255 names that look like plugins is not listed (LIST_MORE)
+.equ LIST_TITLES, 0x300         ; in HOOK_CARD: the plugin name in the header of each listed file, 16 bytes each, up to LIST_DESC
 .equ LIST_DESC, 0x700           ; the description of the plugin open in the list (DESC_MAX_BYTES and a zero); the list reads headers here
 .equ MENU_MAX_SCRIPTS, 40
 .equ BLOCK_PROBED, 1
@@ -122,7 +124,7 @@
 .equ M_LEVEL_SYNC, 4          ; level 4: the page SYNC GROUP, between the Pattern menu (behind CHAIN REPEAT) and the Part menu, where the build has sync groups
 .equ HAS_SYNC, SYNC_GROUP_AT != 0
 .equ M_LEVEL_PLUGIN, 5        ; level 5: MANAGE PLUGINS, one page a plugin (M_PAGE is its place in the list, M_PSEL follows it)
-.equ M_LEVEL_PSUB, 6          ; level 6: the pages of one plugin, opened by ENTER on its page of MANAGE PLUGINS: DESCRIPTION, its own pages, REMOVE
+.equ M_LEVEL_PSUB, 6          ; level 6: the pages of one plugin, opened by ENTER on its page of MANAGE PLUGINS: DESCRIPTION, its own pages, OFF, REMOVE
 .equ M_LEVEL_GLOBAL, 7        ; level 7: the page PLUGIN RUNTIME, shown as the last page of the firmware's GLOBAL PARAMETERS (screen 9)
 .equ M_LEVEL_DU, 8            ; level 8: our pages of DATA UTILITY, shown behind the firmware's last function (screen 15)
 .equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy and SYNC GROUP are pages the firmware's ring does not have (BLECH is M_COUNT)
@@ -1670,6 +1672,10 @@ menu_texts_clear:
     beq menu_text_prow
     cmp r0, #37
     beq menu_text_pdel
+    cmp r0, #46
+    beq menu_text_poff
+    cmp r0, #47
+    beq menu_text_full
     cmp r0, #38
     beq menu_text_pedit
     cmp r0, #39
@@ -1755,11 +1761,27 @@ menu_text_pdesc:
     cmp r1, #0
     bne menu_text_status
     pop {r4, r5, r6, r7, pc}
-; REMOVE: "press [ Enter ]"; the first ENTER asks, the second removes (menu_delete)
+; LIST FULL, the last page of the list when the folder has more plugin files than it holds: says how many it shows
+menu_text_full:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_list_full
+    bl menu_copy
+    add r0, r5, #M_VALUE
+    ldr r1, =str_list_max
+    bl menu_copy
+    pop {r4, r5, r6, r7, pc}
+; OFF: "press [ Enter ]"; the first ENTER asks, the second takes the plugin out of e2sPlugin.all and keeps its file (menu_delete)
+menu_text_poff:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_poff
+    bl menu_copy
+    b menu_text_pdel_value
+; REMOVE: "press [ Enter ]"; the first ENTER asks, the second removes the plugin and its file (menu_remove)
 menu_text_pdel:
     add r0, r5, #M_TITLE
     ldr r1, =str_pdel
     bl menu_copy
+menu_text_pdel_value:
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
     bne menu_text_status_value
@@ -2218,6 +2240,18 @@ menu_text_status_more:
     cmp r1, #0x51
     ldreq r1, =str_pdeleted
     beq menu_text_status_go
+    cmp r1, #0x55
+    ldreq r1, =str_poffed
+    beq menu_text_status_go
+    cmp r1, #0x56
+    ldreq r1, =str_file_stays
+    beq menu_text_status_go
+    cmp r1, #0x57
+    ldreq r1, =str_file_moved
+    beq menu_text_status_go
+    cmp r1, #0x58
+    ldreq r1, =str_poff_sure
+    beq menu_text_status_go
     cmp r1, #0x53
     ldreq r1, =str_fx_exported
     beq menu_text_status_go
@@ -2570,7 +2604,7 @@ menu_confirm_add:
 ; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST, LAST PATTERN and STEREO 1 PAD (the main dial
 ; changes them, WRITE keeps them). PLUGINS holds MANAGE PLUGINS: ENTER opens level 5 (M_LEVEL_PLUGIN), one page a plugin with its name and its state, the dial
 ; switches it on and off; ENTER there opens level 6 (M_LEVEL_PSUB), the pages of that plugin: DESCRIPTION, the pages it added
-; (korg.menu.add) and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
+; (korg.menu.add), OFF and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
 ; Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, behind BLECH, on which Blechy, the app built into BLECH, shows
 ; himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP between the Pattern and
 ; the Part menu: a setting of the pattern in RAM, saved with WRITE as the Pattern menu's pages. Levels 7 (M_LEVEL_GLOBAL, PLUGIN
@@ -2580,7 +2614,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 46 OFF, 47 LIST FULL), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -2599,10 +2633,7 @@ menu_kind:
     cmp r2, #M_LEVEL_DU
     beq menu_kind_du
     cmp r2, #M_LEVEL_PLUGIN
-    moveq r0, #36
-    moveq r1, r5
-    strbeq r5, [r4, #M_PSEL]   ; the plugin this page shows is the one DESCRIPTION, REMOVE and loading are about
-    beq menu_kind_done
+    beq menu_kind_list
     cmp r2, #M_LEVEL_PSUB
     beq menu_kind_plugin
     cmp r2, #0
@@ -2696,21 +2727,37 @@ menu_kind_nth:
     bl app_nth
     mov r0, #15
     b menu_kind_done
-menu_kind_plugin:               ; DESCRIPTION, the pages the plugin added (korg.menu.add), REMOVE
+menu_kind_list:                 ; a plugin, and behind the last one LIST FULL when the folder has more files than the list holds
+    bl menu_psel_total
+    cmp r5, r0
+    movhs r0, #47
+    bhs menu_kind_done
+    mov r0, #36
+    mov r1, r5
+    strb r5, [r4, #M_PSEL]      ; the plugin this page shows is the one DESCRIPTION, OFF, REMOVE and loading are about
+    b menu_kind_done
+menu_kind_plugin:               ; DESCRIPTION, the pages the plugin added (korg.menu.add), OFF, REMOVE; not loaded: DESCRIPTION, REMOVE
     ldrb r1, [r4, #M_PSEL]
     cmp r5, #0
     moveq r0, #39
     beq menu_kind_done
     mov r0, r1
     bl menu_entry
+    cmp r0, #0
+    moveq r0, #37
+    beq menu_kind_psel
     sub r1, r5, #1
     bl menu_item_nth
     cmp r0, #0
     movge r1, r0
     movge r0, #6
     bge menu_kind_done
+    add r1, r1, #1              ; r1 = the pages it added: OFF behind them, then REMOVE
+    cmp r5, r1
+    moveq r0, #46
+    movne r0, #37
+menu_kind_psel:
     ldrb r1, [r4, #M_PSEL]
-    mov r0, #37
 menu_kind_done:
     pop {r4, r5, pc}
 .pool
@@ -2779,8 +2826,12 @@ menu_page_count:
 menu_count_du:
     bl menu_du_count
     pop {r4, pc}
-menu_count_list_plugins:        ; one page a plugin; never none, ENTER on MANAGE PLUGINS does not open an empty list
+menu_count_list_plugins:        ; one page a plugin, LIST FULL behind them; never none, ENTER on MANAGE PLUGINS does not open an empty list
     bl menu_psel_total
+    ldr r1, =LIST_MORE
+    ldrb r1, [r1]
+    cmp r1, #1                  ; LIST_WORK is FF at power-on until the list is read once
+    addeq r0, r0, #1
     cmp r0, #1
     movlo r0, #1
     pop {r4, pc}
@@ -2843,15 +2894,15 @@ menu_count_out:
 menu_count_plugins:             ; MANAGE PLUGINS
     mov r0, #1
     pop {r4, pc}
-menu_count_plugin:              ; a plugin that is not loaded has DESCRIPTION only, a loaded one its pages and REMOVE as well
+menu_count_plugin:              ; a plugin that is not loaded has DESCRIPTION and REMOVE, a loaded one its pages and OFF as well
     ldrb r0, [r4, #M_PSEL]
     bl menu_entry
     cmp r0, #0
-    moveq r0, #1
+    moveq r0, #2
     popeq {r4, pc}
     mvn r1, #0
     bl menu_item_nth
-    add r0, r1, #2
+    add r0, r1, #3
     pop {r4, pc}
 .pool
 
@@ -3004,11 +3055,12 @@ menu_item_nth_done:
     bx lr
 .pool
 
-; r0 = script entry: DELETE PLUGIN. A plugin that runs stops (as with STATE OFF), its block is marked in RAM so the lists and EXPORT
-; leave it out, and e2sPlugin.all is written again without it, also when none is left; the block stays in the pool until the next
-; start. Back on MANAGE PLUGINS, which shows the result. Clobbers r0 to r3 and r12.
+; r0 = script entry, r1 = the status when done: OFF (0x55) and REMOVE (0x51). A plugin that runs stops (as with STATE OFF), its block is
+; marked in RAM so the lists and EXPORT leave it out, and e2sPlugin.all is written again without it, also when none is left; the block
+; stays in the pool until the next start. Back on MANAGE PLUGINS, which shows the result. Clobbers r0 to r3 and r12.
 menu_delete:
-    push {r4, lr}
+    push {r4, r5, lr}
+    mov r5, r1
     ldr r1, [r0, #SCRIPT_ENTRY_STATE]
     cmp r1, #SCRIPT_STATE_ARMED
     moveq r1, #SCRIPT_STATE_LOADED
@@ -3023,15 +3075,67 @@ menu_delete:
     ldr r4, =MENU_STATE
     ldr r0, [r4, #M_STATUS]
     cmp r0, #2
-    moveq r0, #0x51
+    moveq r0, r5
     str r0, [r4, #M_STATUS]
+    bl menu_to_manage
+    pop {r4, r5, pc}
+.pool
+
+; Back on the page MANAGE PLUGINS (level 2 of PLUGINS), the list on its first plugin the next time. Clobbers r0 and r1.
+menu_to_manage:
+    ldr r1, =MENU_STATE
     mov r0, #0
-    strb r0, [r4, #M_PSEL]
-    str r0, [r4, #M_PAGE]
-    str r0, [r4, #M_ENTER]
+    strb r0, [r1, #M_PSEL]
+    str r0, [r1, #M_PAGE]
+    str r0, [r1, #M_ENTER]
     mov r0, #2
-    str r0, [r4, #M_LEVEL]
-    pop {r4, pc}
+    str r0, [r1, #M_LEVEL]
+    bx lr
+.pool
+
+; REMOVE of the plugin SELECT PLUGIN chose: a loaded one goes as with OFF (menu_delete), then its file is deleted from the card (f_unlink
+; of the firmware), so it is no longer in the list; a plugin that is only a file loses the file. M_STATUS: 0x51 removed, 0x56 the file
+; stays (the blue Electribe 2's FatFs has no f_unlink), 0x57 the folder changed since the list was read, 0x20 + the FatFs code when the
+; card refuses; when e2sPlugin.all could not be written, that error and the file stays. Clobbers r0 to r3 and r12.
+menu_remove:
+    push {r4-r6, lr}
+    ldr r4, =MENU_STATE
+    ldrb r0, [r4, #M_PSEL]
+    bl menu_psel_file           ; before menu_delete: the file is found by the name of the loaded block
+    mov r5, r0
+    ldrb r0, [r4, #M_PSEL]
+    bl menu_entry
+    cmp r0, #0
+    beq menu_remove_file
+    mov r1, #0x51
+    bl menu_delete
+    ldr r0, [r4, #M_STATUS]
+    cmp r0, #0x51
+    popne {r4-r6, pc}
+    b menu_remove_unlink
+menu_remove_file:
+    bl menu_to_manage
+menu_remove_unlink:
+    mov r0, #0x51
+    cmp r5, #0
+    blt menu_remove_status      ; a plugin only in e2sPlugin.all has no file
+    ldr r6, =FS_UNLINK          ; 0 where the build has none (tools/patch/script_hooks.py)
+    cmp r6, #0
+    moveq r0, #0x56
+    beq menu_remove_status
+    mov r0, r5
+    bl menu_find_listed
+    cmp r0, #0
+    moveq r0, #0x57
+    beq menu_remove_status
+    ldr r0, =LIST_PATH
+    blx r6
+    cmp r0, #0
+    addne r0, r0, #0x20
+    moveq r0, #0x51
+menu_remove_status:
+    str r0, [r4, #M_STATUS]
+    pop {r4-r6, pc}
 .pool
 
 ; Counts the loaded scripts (not Blechy, whose block lies outside the pool, nor a deleted one) and sets the number of pages. Runs after the loader and after an import.
@@ -3193,96 +3297,58 @@ export_path:
 .pool
 menu_export_end:
 
-; Lists the *.blech files of KORG/blechtribe/Plugin that start with a plugin header into the name table (up to LIST_MAX names of
-; at most 31 characters) and their plugin names into LIST_TITLES.
+; Lists the *.blech files of KORG/blechtribe/Plugin that start with a plugin header: their plugin names go to LIST_TITLES and their
+; places among the names menu_dir_next passes to LIST_ORD, up to LIST_MAX files. The file names are not kept: menu_find_listed reads
+; the folder again to the place. A folder with more plugin files than that sets LIST_MORE.
 menu_list:
-    push {r4-r10, lr}
+    push {r4-r6, lr}
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
     mov r0, #0
     str r0, [r4, #M_IMP_N]
     str r0, [r4, #M_IMP_SEL]
+    ldr r1, =LIST_MORE
+    strb r0, [r1]
     mov r0, #1
     str r0, [r4, #M_LISTED]
-    add r6, r5, #LIST_DIR
-    add r7, r5, #LIST_INFO
-    add r8, r5, #LIST_LFN
-    mov r0, r6
-    ldr r1, =import_folder
-    ldr r12, =FS_OPENDIR
-    blx r12
+    bl menu_dir_open
     cmp r0, #0
     bne menu_list_out
-    str r8, [r7, #0x18]
-    mov r0, #63
-    str r0, [r7, #0x1C]
+    mov r6, #0
 menu_list_next:
-    mov r0, #0
-    strb r0, [r8]
-    mov r0, r6
-    mov r1, r7
-    ldr r12, =FS_READDIR
-    blx r12
-    cmp r0, #0
-    bne menu_list_done
-    ldrb r0, [r7, #9]
+    bl menu_dir_next
     cmp r0, #0
     beq menu_list_done
-    ldrb r0, [r7, #8]
-    tst r0, #0x10
-    bne menu_list_next
-    ldrb r0, [r7, #8]
-    tst r0, #0x06
-    bne menu_list_next
-    ldrb r0, [r8]
-    cmp r0, #0
-    addeq r9, r7, #9
-    movne r9, r8
-    ldrb r0, [r9]
-    cmp r0, #0x2E
-    beq menu_list_next
-    mov r10, #0
-menu_list_len:
-    ldrb r0, [r9, r10]
-    cmp r0, #0
-    addne r10, r10, #1
-    bne menu_list_len
-    cmp r10, #7
-    blo menu_list_next
-    cmp r10, #31
-    bhi menu_list_next
-    sub r2, r10, #6
-    add r2, r9, r2
-    ldr r1, =str_suffix
-    mov r3, #6
-menu_list_suffix:
-    ldrb r0, [r2], #1
-    orr r0, r0, #0x20
-    ldrb r12, [r1], #1
-    cmp r0, r12
-    bne menu_list_next
-    subs r3, r3, #1
-    bne menu_list_suffix
-    ldr r0, [r4, #M_IMP_N]
-    cmp r0, #LIST_MAX
-    bhs menu_list_done
-    add r1, r5, #LIST_NAMES
-    add r0, r1, r0, lsl #5
-    mov r1, r9
-    bl menu_copy
+    mov r1, r0
     bl menu_list_title
     cmp r0, #0
-    beq menu_list_next
+    beq menu_list_skip
+    ldr r0, [r4, #M_IMP_N]
+    cmp r0, #LIST_MAX
+    bhs menu_list_full
+    cmp r6, #LIST_ORD_MAX
+    bhi menu_list_full
+    ldr r1, =LIST_ORD
+    strb r6, [r1, r0]
+    add r1, r5, #LIST_TITLES
+    add r0, r1, r0, lsl #4
+    bl menu_title_copy
     ldr r0, [r4, #M_IMP_N]
     add r0, r0, #1
     str r0, [r4, #M_IMP_N]
+menu_list_skip:
+    add r6, r6, #1
     b menu_list_next
+menu_list_full:
+    mov r0, #1
+    ldr r1, =LIST_MORE
+    strb r0, [r1]
 menu_list_done:
-    mov r0, r6
+    ldr r0, =LIST_DIR
     ldr r12, =FS_CLOSEDIR
     blx r12
 menu_list_out:
-    pop {r4-r10, pc}
+    pop {r4-r6, pc}
 str_suffix:
     .asciz ".blech"
 import_folder:
@@ -3290,6 +3356,125 @@ import_folder:
 import_prefix:
     .asciz "SD:KORG/blechtribe/Plugin/"
 .align 4
+.pool
+
+; -> r0 = the FatFs result of opening KORG/blechtribe/Plugin at LIST_DIR, long names into LIST_LFN. Clobbers r1 to r3 and r12.
+menu_dir_open:
+    push {lr}
+    ldr r1, =LIST_INFO
+    ldr r0, =LIST_LFN
+    str r0, [r1, #0x18]
+    mov r0, #63
+    str r0, [r1, #0x1C]
+    ldr r0, =LIST_DIR
+    ldr r1, =import_folder
+    ldr r12, =FS_OPENDIR
+    blx r12
+    pop {pc}
+
+; The next entry of the folder open at LIST_DIR whose name may be a plugin's: no folder, not hidden or system, not starting with a dot,
+; 7 to 31 characters that end in ".blech" (any case). -> r0 = that name (LIST_LFN, or the short name in LIST_INFO), 0 at the end of the
+; folder or when it cannot be read. Clobbers r1 to r3 and r12.
+menu_dir_next:
+    push {r4-r6, lr}
+    ldr r4, =LIST_INFO
+menu_dir_next_entry:
+    ldr r6, =LIST_LFN
+    mov r0, #0
+    strb r0, [r6]
+    ldr r0, =LIST_DIR
+    mov r1, r4
+    ldr r12, =FS_READDIR
+    blx r12
+    cmp r0, #0
+    bne menu_dir_next_end
+    ldrb r0, [r4, #9]
+    cmp r0, #0
+    beq menu_dir_next_end
+    ldrb r0, [r4, #8]
+    tst r0, #0x16
+    bne menu_dir_next_entry
+    ldrb r0, [r6]
+    cmp r0, #0
+    addeq r6, r4, #9
+    ldrb r0, [r6]
+    cmp r0, #0x2E
+    beq menu_dir_next_entry
+    mov r5, #0
+menu_dir_next_len:
+    ldrb r0, [r6, r5]
+    cmp r0, #0
+    addne r5, r5, #1
+    bne menu_dir_next_len
+    cmp r5, #7
+    blo menu_dir_next_entry
+    cmp r5, #31
+    bhi menu_dir_next_entry
+    sub r2, r5, #6
+    add r2, r6, r2
+    ldr r1, =str_suffix
+    mov r3, #6
+menu_dir_next_suffix:
+    ldrb r0, [r2], #1
+    orr r0, r0, #0x20
+    ldrb r12, [r1], #1
+    cmp r0, r12
+    bne menu_dir_next_entry
+    subs r3, r3, #1
+    bne menu_dir_next_suffix
+    mov r0, r6
+    pop {r4-r6, pc}
+menu_dir_next_end:
+    mov r0, #0
+    pop {r4-r6, pc}
+.pool
+
+; r0 = a file's index in the list -> r0 = its name, read again from the folder at its place (LIST_ORD), with LIST_PATH its path; 0 when
+; the folder has changed since the list was read and that place holds no file with the same plugin name. Uses LIST_DESC for the header.
+; Clobbers r1 to r3 and r12.
+menu_find_listed:
+    push {r4-r6, lr}
+    mov r4, r0
+    ldr r1, =LIST_ORD
+    ldrb r5, [r1, r4]
+    bl menu_dir_open
+    cmp r0, #0
+    movne r0, #0
+    popne {r4-r6, pc}
+menu_find_listed_next:
+    bl menu_dir_next
+    movs r6, r0
+    beq menu_find_listed_close
+    subs r5, r5, #1
+    bpl menu_find_listed_next
+menu_find_listed_close:
+    ldr r0, =LIST_DIR
+    ldr r12, =FS_CLOSEDIR
+    blx r12
+    cmp r6, #0
+    beq menu_find_listed_out
+    mov r1, r6
+    bl menu_list_title
+    cmp r0, #0
+    moveq r6, #0
+    beq menu_find_listed_out
+    ldr r0, =HOOK_CARD
+    add r1, r0, #LIST_DESC
+    add r1, r1, #HDR_NAME
+    add r0, r0, #LIST_TITLES
+    add r0, r0, r4, lsl #4
+    mov r2, #15
+menu_find_listed_same:
+    ldrb r3, [r0], #1
+    ldrb r12, [r1], #1
+    cmp r3, r12
+    movne r6, #0
+    bne menu_find_listed_out
+    subs r2, r2, #1
+    bne menu_find_listed_same
+menu_find_listed_out:
+    mov r0, r6
+    pop {r4-r6, pc}
 .pool
 
 ; Reads the selected .blech file, loads its block, and starts it unless it waits for the user's yes. The file goes through the
@@ -3311,9 +3496,11 @@ menu_import:
     cmp r0, #0
     moveq r0, #0x32
     beq menu_import_status
-    ldr r1, [r4, #M_IMP_SEL]
-    add r2, r5, #LIST_NAMES
-    add r1, r2, r1, lsl #5
+    ldr r0, [r4, #M_IMP_SEL]
+    bl menu_find_listed
+    movs r1, r0
+    moveq r0, #0x57
+    beq menu_import_status
     bl menu_open_listed
     cmp r0, #0
     bne menu_import_fail
@@ -3437,14 +3624,13 @@ menu_import_status:
 menu_open_listed:
     push {r4, lr}
     mov r4, r1
-    ldr r0, =HOOK_CARD
-    add r0, r0, #LIST_PATH
+    ldr r0, =LIST_PATH
     ldr r1, =import_prefix
     bl menu_copy
     mov r1, r4
     bl menu_copy
     ldr r0, =HOOK_CARD
-    add r1, r0, #LIST_PATH
+    ldr r1, =LIST_PATH
     add r0, r0, #CARD_FIL
     mov r2, #1
     ldr r12, =FS_OPEN
@@ -3475,15 +3661,11 @@ menu_close_listed:
     ldr r12, =FS_CLOSE
     bx r12
 
-; The file just put at LIST_NAMES + M_IMP_N -> r0 = 1 when it starts with a plugin header, whose name then goes to LIST_TITLES.
-; Clobbers r0 to r3 and r12.
+; r1 = the name of a file in KORG/blechtribe/Plugin -> r0 = 1 when it starts with a plugin header, which is then at LIST_DESC.
+; Clobbers r1 to r3 and r12.
 menu_list_title:
-    push {r4-r6, lr}
+    push {r4, r5, lr}
     ldr r5, =HOOK_CARD
-    ldr r6, =MENU_STATE
-    ldr r6, [r6, #M_IMP_N]
-    add r1, r5, #LIST_NAMES
-    add r1, r1, r6, lsl #5
     bl menu_open_listed
     cmp r0, #0
     bne menu_list_title_no
@@ -3498,22 +3680,26 @@ menu_list_title:
     ldr r1, =SCRIPT_MAGIC
     cmp r0, r1
     bne menu_list_title_no
-    add r0, r5, #LIST_TITLES
-    add r0, r0, r6, lsl #4
-    add r1, r5, #LIST_DESC
+    mov r0, #1
+    pop {r4, r5, pc}
+menu_list_title_no:
+    mov r0, #0
+    pop {r4, r5, pc}
+
+; r0 = destination: the plugin name of the header at LIST_DESC, 15 characters and a zero. Clobbers r0 to r3.
+menu_title_copy:
+    ldr r1, =HOOK_CARD
+    add r1, r1, #LIST_DESC
     add r1, r1, #HDR_NAME
     mov r2, #15
-menu_list_title_copy:
+menu_title_copy_loop:
     ldrb r3, [r1], #1
     strb r3, [r0], #1
     subs r2, r2, #1
-    bne menu_list_title_copy
+    bne menu_title_copy_loop
     strb r2, [r0]
-    mov r0, #1
-    pop {r4-r6, pc}
-menu_list_title_no:
-    mov r0, #0
-    pop {r4-r6, pc}
+    bx lr
+.pool
 
 ; r0 = a file's index in the list -> r0 = the loaded plugin (not Blechy, not a deleted one) with the name of that file, 0 when none.
 ; Clobbers r1 to r3 and r12.
@@ -3713,11 +3899,13 @@ menu_desc_open:
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
     add r6, r5, #LIST_DESC
+    ldr r0, [r4, #M_IMP_SEL]
+    bl menu_find_listed
+    movs r1, r0
     mov r0, #0
     strb r0, [r6]
-    ldr r1, [r4, #M_IMP_SEL]
-    add r1, r5, r1, lsl #5
-    add r1, r1, #LIST_NAMES
+    moveq r7, #0x57
+    beq menu_desc_count
     bl menu_open_listed
     cmp r0, #0
     addne r0, r0, #0x20
@@ -3766,6 +3954,7 @@ menu_desc_none:
     strb r0, [r6]
 menu_desc_close:
     bl menu_close_listed
+    mov r7, #0
     mov r0, #0
 menu_desc_count:
     ldrb r1, [r6], #1
@@ -3780,7 +3969,7 @@ menu_desc_count:
     str r0, [r4, #M_DESC_TOP]
     mov r0, #2
     str r0, [r4, #M_LISTED]
-    mov r0, #0
+    mov r0, r7                  ; 0, or 0x57 when the file is no longer where the list found it (no description)
 menu_desc_status:
     str r0, [r4, #M_STATUS]
     pop {r4-r7, pc}
@@ -4441,6 +4630,8 @@ menu_slot_keys:
     beq menu_keys_pedit
     cmp r0, #37
     beq menu_keys_pdel
+    cmp r0, #46
+    beq menu_keys_poff
     cmp r0, #42
     cmpne r0, #43
     beq menu_keys_export
@@ -4519,7 +4710,7 @@ menu_keys_pedit:
     mov r0, #0
     str r0, [r2, #M_STATUS]
     b menu_keys_done
-; REMOVE: the first ENTER asks, the second removes; WRITE does nothing here
+; REMOVE: the first ENTER asks, the second removes the plugin and its file; WRITE does nothing here
 menu_keys_pdel:
     cmp r6, #0x09
     bne menu_keys_done
@@ -4529,10 +4720,23 @@ menu_keys_pdel:
     movne r0, #0x50
     strne r0, [r2, #M_STATUS]
     bne menu_keys_done
+    bl menu_remove
+    b menu_keys_done
+; OFF: the first ENTER asks, the second takes the plugin out of e2sPlugin.all, its file stays; WRITE does nothing here
+menu_keys_poff:
+    cmp r6, #0x09
+    bne menu_keys_done
+    ldr r2, =MENU_STATE
+    ldr r0, [r2, #M_STATUS]
+    cmp r0, #0x58
+    movne r0, #0x58
+    strne r0, [r2, #M_STATUS]
+    bne menu_keys_done
     ldrb r0, [r2, #M_PSEL]
     bl menu_entry
     cmp r0, #0
     beq menu_keys_done
+    mov r1, #0x55
     bl menu_delete
     b menu_keys_done
 menu_keys_export:               ; r0 = kind: EXPORT ALL PLUGINS (3), CUSTOMIZATIONS (42), EFFECTS (43), with ENTER or WRITE
@@ -4707,6 +4911,20 @@ str_pdel_sure:
     .asciz "Enter = remove"
 str_pdeleted:
     .asciz "removed"
+str_poff:
+    .asciz "OFF"
+str_poff_sure:
+    .asciz "Enter = off"
+str_poffed:
+    .asciz "off, file kept"
+str_file_stays:
+    .asciz "file stays on card"
+str_file_moved:
+    .asciz "folder changed"
+str_list_full:
+    .asciz "LIST FULL"
+str_list_max:
+    .asciz "64 files shown"
 str_meter_still:
     .asciz "METER STILL"
 str_meter_low:
