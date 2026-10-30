@@ -1,4 +1,4 @@
-# 82. TOUCH SCALE RANGE 0: X spielt nur den Grundton
+# 84. TOUCH SCALE RANGE 0: X spielt nur den Grundton
 
 Wunsch (30.10.): Global > TOUCH SCALE RANGE bekommt einen Wert 0. Dann gibt es keinen Umfang mehr, X auf dem Touchpad spielt
 überall den Grundton des Patterns (Vorgabe C4). Die Oktave der Tastatur (KEYBOARD + 1 und 4) verschiebt ihn, Y bleibt wie es ist,
