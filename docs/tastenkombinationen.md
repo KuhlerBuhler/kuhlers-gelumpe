@@ -155,7 +155,7 @@ Pattern-Daten und (bei Pad und Touchpad als zweitem Element) der MIDI-Ausgang es
 | Kombination | Wirkung | Beleg |
 |---|---|---|
 | EXIT **halten** + WRITE | speichert das Pattern sofort an seinen eigenen Platz (ohne das Zielwahl-Fenster zu bestätigen) | gemessen, `docs/messungen/2026-10-19-exit-shortcuts.md` |
-| EXIT **halten** + Pad | setzt den Klang eines Parts auf die gespeicherten Werte zurück, die Steps bleiben; TRIGGER: der Part des Pads, sonst der gewählte Part | gemessen, ebenda |
+| EXIT **halten** + Pad | setzt den Klang eines Parts auf die gespeicherten Werte zurück, die Steps bleiben; SEQUENCER und STEP JUMP: der gewählte Part, sonst der Part des Pads | gemessen, ebenda |
 
 Die Modus-Tasten (TRIGGER, SEQUENCER, KEYBOARD, CHORD, PART MUTE, PART ERASE, STEP JUMP,
 PATTERN SET) bleiben nach dem Loslassen an. Sie müssen nicht gehalten werden, nur die ersten

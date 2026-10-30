@@ -26,6 +26,7 @@ from pswitch_cases import Box, play  # noqa: E402
 PATPTR = 0xC033E6A4
 LEDMGR = 0xC0345A1C
 EXIT, WRITE, TRIGGER, SEQUENCER = 0x0D, 0x0E, 0x13, 0x15
+PART_MUTE, PART_ERASE, KEYBOARD, CHORD, STEP_JUMP, PATTERN_SET = 0x10, 0x11, 0x17, 0x18, 0x19, 0x1B
 WRITE_LED = 0x0B
 WINDOW = 18                     # the firmware's Write window
 PART, STRIDE, SOUND = 0x800, 0x330, range(2, 0x30)
@@ -165,6 +166,36 @@ def case_reset(payload, flash):
     return out
 
 
+MODES = ((PART_MUTE, "PART MUTE", True), (KEYBOARD, "KEYBOARD", True), (PART_ERASE, "PART ERASE", True), (CHORD, "CHORD", True),
+         (PATTERN_SET, "PATTERN SET", True), (STEP_JUMP, "STEP JUMP", False))
+
+
+def case_reset_modes(payload, flash):
+    """EXIT + pad 6 in the other pad modes: the pad's part where a pad stands for a part, a note, a chord or a pattern; the
+    selected part where it stands for a step (STEP JUMP, like SEQUENCER in case_reset). The selected part stays 1."""
+    out = []
+    for key, name, pads_part in MODES:
+        box = SBox(payload, flash)
+        saved = box.saved()
+        box.dev.press(key, 0.3)
+        six = edit(box, 5)
+        one = edit(box, 0)
+        box.exit_held(True)
+        box.pad(5)
+        box.exit_held(False)
+        live = box.live()
+        six_back = all(live[a] == saved[a] for a in six)
+        one_back = all(live[a] == saved[a] for a in one)
+        want = (True, False) if pads_part else (False, True)
+        slug = name.lower().replace(" ", "_")
+        what = "part 6 (the pad's)" if pads_part else "part 1 (the selected)"
+        out.append(entry(f"exit_pad_in_{slug}_resets_{'the_pads_part' if pads_part else 'the_selected_part'}",
+                         (six_back, one_back) == want and box.selected() == 0 and box.screen() == 1 and not box.m.asserts,
+                         f"{name}, parts 1 and 6 edited, EXIT + pad 6: wants {what} back; part 6 back {six_back}, part 1 back {one_back}, "
+                         f"selected part {box.selected()}, screen {box.screen()}"))
+    return out
+
+
 def case_kill(payload, flash):
     box = SBox(payload, flash, held=KILL)
     nudge(box)
@@ -229,7 +260,7 @@ def case_pad_state(payload, flash):
             entry("pad_xy_is_not_an_edit", touched == {0} and not box.m.asserts, f"pad X and Y changed in RAM: WRITE LED {sorted(touched)}")]
 
 
-GROUPS = (case_save, case_reset, case_kill, case_unsaved, case_pad_state)
+GROUPS = (case_save, case_reset, case_reset_modes, case_kill, case_unsaved, case_pad_state)
 
 
 def group_entries(payload, flash, i):
