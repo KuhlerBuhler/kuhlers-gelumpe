@@ -584,8 +584,8 @@ def menu_script_cases(programs, built, patched, flash, check):
           and kept_off.u32(entry + 12) == 1 and not kept_off.m.asserts,
           dict(listed=[hex(value) for value in listed], state=kept_off.u32(entry + 12)))
 
-    # MANAGE PLUGINS: ENTER opens the list of the plugins, ENTER on one its pages (DESCRIPTION, its own, REMOVE), which wrap; REMOVE
-    # asks once, then writes e2sPlugin.all without it and goes back to MANAGE PLUGINS; EXIT goes up one level each time
+    # MANAGE PLUGINS: ENTER opens the list of the plugins, ENTER on one its pages (DESCRIPTION, its own, OFF, REMOVE), which wrap; REMOVE
+    # asks once, then writes e2sPlugin.all without it (no file to delete here) and goes back to MANAGE PLUGINS; EXIT goes up one level each time
     gone = with_card(patched, flash, {CARD_FILE: archive(blocks)})
     gone.run(2)
     menu_cases.goto_group(gone, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_MANAGE)
@@ -599,7 +599,7 @@ def menu_script_cases(programs, built, patched, flash, check):
     menu_cases.press(gone, "exit", wait=0.4)
     left = (menu_cases.state(gone, menu_cases.S_LEVEL), menu_cases.state(gone, menu_cases.S_PAGE), texts(gone))
     check("plugin-verwalten-oeffnet-und-exit", edit == ("MANAGE PLUGINS", "", menu_cases.PRESS) and opened == (menu_cases.LEVEL_PLUGIN, (0, 2), ("healthy", "ON", ""), "Plugins")
-          and inside == (menu_cases.LEVEL_PSUB, (0, 2), "Plugins") and up == (menu_cases.LEVEL_PLUGIN, 0, ("healthy", "ON", ""))
+          and inside == (menu_cases.LEVEL_PSUB, (0, 3), "Plugins") and up == (menu_cases.LEVEL_PLUGIN, 0, ("healthy", "ON", ""))
           and left == (2, menu_cases.PLUGIN_MANAGE, edit) and not gone.m.asserts, dict(edit=edit, opened=opened, inside=inside, up=up, left=left))
     menu_cases.press(gone, "menu", wait=0.4)
     menu_cases.press(gone, "menu", wait=0.4)
@@ -614,14 +614,14 @@ def menu_script_cases(programs, built, patched, flash, check):
     volume.close()
     menu_cases.press(gone, "menu", wait=0.4)
     remaining = texts(gone)
-    check("plugin-entfernen", last == ((1, 2), ("REMOVE", "", menu_cases.PRESS)) and asks == ("REMOVE", "Enter = remove", "")
+    check("plugin-entfernen", last == ((2, 3), ("REMOVE", "", menu_cases.PRESS)) and asks == ("REMOVE", "Enter = remove", "")
           and done == (2, menu_cases.PLUGIN_MANAGE, ("MANAGE PLUGINS", "removed", ""), 1) and left_on_card == archive(blocks[1:])
           and remaining[0] == "fault" and not gone.m.asserts,
           dict(last=last, asks=asks, done=done, card=len(left_on_card), remaining=remaining))
     after = restart(gone)
     check("plugin-geloescht-nach-neustart", [after.u32(runtime + built.symbols["SCRIPT_CONTROL_" + name]) for name in ["CARD_STATUS", "CARD_LOADED"]] == [1, 1]
           and after.u32(menu_cases.STATE + 40) == 1 and not after.m.asserts, dict(loaded=after.u32(menu_cases.STATE + 40)))
-    menu_cases.goto_plugin(gone, 0, 1)
+    menu_cases.goto_plugin(gone, 0, 2)
     menu_cases.press(gone, "menu", wait=0.4)
     menu_cases.press(gone, "menu", wait=0.8)
     volume = fat32.Volume(gone.m.mmc.card.medium.data)
@@ -635,6 +635,7 @@ def menu_script_cases(programs, built, patched, flash, check):
     settings_v3_cases(programs, built, patched, flash, check, restart)
     foreign_cases(programs, built, patched, flash, check)
     import_cases(programs, built, patched, flash, check)
+    manage_cases(programs, built, patched, flash, check)
     menu_add_cases(programs, built, patched, flash, check)
 
 
@@ -839,7 +840,7 @@ def import_cases(programs, built, patched, flash, check):
     before_image = image()
     menu_cases.press(dev, "menu", wait=0.5)
     opened = texts()
-    check("beschreibung-seite", not_loaded == ((name(healthy_block), "OFF", ""), (0, 3)) and menu_cases.counter(dev) == (0, 1) and state(56) == 2 and byte(0xF8) == 8
+    check("beschreibung-seite", not_loaded == ((name(healthy_block), "OFF", ""), (0, 3)) and menu_cases.counter(dev) == (0, 2) and state(56) == 2 and byte(0xF8) == 8
           and byte(0xF9) == 1 and opened == ("", "", "") and shown() == picture() and sum(bin(b).count("1") for b in picture()) > 200 and not dev.m.asserts,
           dict(not_loaded=not_loaded, listed=state(56), lines=byte(0xF8), on=byte(0xF9), texts=opened, same=shown() == picture()))
     top = picture()
@@ -873,7 +874,7 @@ def import_cases(programs, built, patched, flash, check):
     second = texts()
     dev.turn(1, wait=0.8)
     foreign = dev.u32(head)
-    check("fremd-wartet-nach-dem-laden", loaded_desc == (2, 8, 1, (0, 2)) and second == (name(foreign_block), "OFF", "")
+    check("fremd-wartet-nach-dem-laden", loaded_desc == (2, 8, 1, (0, 3)) and second == (name(foreign_block), "OFF", "")
           and foreign not in (0, 0xffffffff) and dev.u32(foreign + 12) == 1 and state(40) == 2 and texts() == (name(foreign_block), "WRITE=ALLOW", "") and byte(0xFB) == 1,
           dict(loaded_desc=loaded_desc, second=second, state=dev.u32(foreign + 12) if foreign not in (0, 0xffffffff) else None, texts=texts(), psel=byte(0xFB)))
     menu_cases.press(dev, "write", wait=0.8)
@@ -930,15 +931,26 @@ def import_cases(programs, built, patched, flash, check):
     check("liste-plugin-ohne-datei", total[:2] == (1, 2) and with_file == (8, 1) and second[0] == name(foreign_block) and without_file == (0, 1)
           and sum(bin(b).count("1") for b in shown_both()) > 100 and not both.m.asserts, dict(total=total, with_file=with_file, second=second, without_file=without_file))
 
-    # a removed plugin is in the list again as one not loaded, and loads again
+    # OFF (the page before REMOVE) takes a plugin out of e2sPlugin.all and keeps its file: it is in the list again as one not loaded,
+    # and loads again
     again = with_card(patched, flash, {CARD_FILE: archive([healthy_block]), folder + "a.blech": blech_file(healthy_block, description)})
     again.run(2)
     menu_cases.goto_group(again, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_MANAGE)
     menu_cases.press(again, "menu", wait=0.5)
     menu_cases.press(again, "menu", wait=0.5)
     menu_cases.press(again, "edit_prev", wait=0.4)
+    menu_cases.press(again, "edit_prev", wait=0.4)
+    off_page = (menu_cases.counter(again), menu_cases.texts_of(again))
     menu_cases.press(again, "menu", wait=0.4)
+    off_asks = menu_cases.texts_of(again)
     menu_cases.press(again, "menu", wait=0.8)
+    off_done = menu_cases.texts_of(again)
+    volume = fat32.Volume(again.m.mmc.card.medium.data)
+    off_card = (volume.read(CARD_FILE), volume.read(folder + "a.blech"))
+    volume.close()
+    check("plugin-aus-behaelt-datei", off_page == ((1, 3), ("OFF", "", menu_cases.PRESS)) and off_asks == ("OFF", "Enter = off", "")
+          and off_done == ("MANAGE PLUGINS", "off, file kept", "") and off_card == (archive([]), blech_file(healthy_block, description)) and not again.m.asserts,
+          dict(off_page=off_page, off_asks=off_asks, off_done=off_done, sizes=[len(part) for part in off_card]))
     menu_cases.press(again, "menu", wait=0.5)
     listed = (again.u32(menu_cases.STATE + 48), again.u32(menu_cases.STATE + 40), menu_cases.texts_of(again))
     again.turn(1, wait=0.8)
@@ -962,6 +974,116 @@ def import_cases(programs, built, patched, flash, check):
     off.turn(1, wait=0.6)
     check("laden-bei-ausgeschalteten-skripten", off.u32(menu_cases.STATE + 36) == 0x32 and plugin_entry(off, runtime) == 0 and off.u32(runtime + 96) == 1 and not off.m.asserts,
           dict(status=hex(off.u32(menu_cases.STATE + 36))))
+
+
+def manage_cases(programs, built, patched, flash, check):
+    """MANAGE PLUGINS with many files and REMOVE that deletes the file (device 30.10.: with 16 files and more a new one did not show,
+    and REMOVE left the file, so the plugin came back as OFF). The list holds 64 files, as many as the settings' checksum list, and
+    says so on a last page LIST FULL when the folder has more; REMOVE deletes the .blech of the plugin with f_unlink of the firmware,
+    which the blue Electribe 2's image does not have (there the file stays and the menu says so)."""
+    import menu_cases
+    runtime = built.layout["runtime"]
+    sym = built.symbols
+    folder = "/KORG/blechtribe/Plugin/"
+    blue = built.profile.build == "synth"
+    healthy_block = bytes.fromhex(programs["healthy"]["blob"])
+    foreign_block = with_flags(bytes.fromhex(programs["input"]["blob"]), 0)
+    name = lambda block: block[36:52].split(b"\0")[0].decode()
+    state = lambda dev, offset: dev.u32(menu_cases.STATE + offset)
+    title_at = lambda dev, index: dev.read(script_hooks.CARD + sym["LIST_TITLES"] + 16 * index, 16).split(b"\0")[0].decode()
+
+    def on_card(dev, path):
+        volume = fat32.Volume(dev.m.mmc.card.medium.data)
+        try:
+            return volume.read(path)
+        except fat32.NotFound:
+            return None
+        finally:
+            volume.close()
+
+    # 70 plugin files: the list holds the first 64 in the order of the folder and a last page LIST FULL; the 64th loads from its file
+    many = {folder + "p%02d.blech" % i: blech_file(renamed(healthy_block, "p%02d" % i)) for i in range(70)}
+    dev = with_card(patched, flash, many)
+    dev.run(2)
+    menu_cases.goto_group(dev, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_MANAGE)
+    menu_cases.press(dev, "menu", wait=1.5)
+    opened = (state(dev, 48), dev.read(sym["LIST_MORE"], 1)[0], menu_cases.counter(dev), menu_cases.texts_of(dev))
+    titles = [title_at(dev, i) for i in range(64)]
+    menu_cases.press(dev, "edit_prev", wait=0.4)
+    full = (menu_cases.counter(dev), menu_cases.texts_of(dev))
+    menu_cases.press(dev, "menu", wait=0.4)
+    full_enter = (state(dev, menu_cases.S_LEVEL), menu_cases.texts_of(dev))
+    menu_cases.press(dev, "edit_prev", wait=0.4)
+    last = (menu_cases.counter(dev), menu_cases.texts_of(dev))
+    dev.turn(1, wait=1.0)
+    head = plugin_entry(dev, runtime)
+    check("liste-mehr-als-16-dateien", opened == (64, 1, (0, 65), ("p00", "OFF", "")) and titles == ["p%02d" % i for i in range(64)]
+          and full == ((64, 65), ("LIST FULL", "64 files shown", "")) and full_enter == (menu_cases.LEVEL_PLUGIN, full[1])
+          and last == ((63, 65), ("p63", "OFF", "")) and not dev.m.asserts,
+          dict(opened=opened, titles=titles[:3] + titles[-3:], full=full, full_enter=full_enter, last=last))
+    check("liste-datei-64-laedt", head not in (0, 0xffffffff) and dev.read(dev.u32(head + 4) + 36, 3) == b"p63" and dev.u32(head + 12) == 2
+          and state(dev, 40) == 1 and menu_cases.texts_of(dev) == ("p63", "ON", "") and not dev.m.asserts,
+          dict(status=hex(state(dev, 36)), texts=menu_cases.texts_of(dev)))
+    # 20 files: all of them, no LIST FULL
+    twenty = with_card(patched, flash, {path: data for path, data in list(many.items())[:20]})
+    twenty.run(2)
+    menu_cases.goto_group(twenty, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_MANAGE)
+    menu_cases.press(twenty, "menu", wait=1.0)
+    menu_cases.press(twenty, "edit_prev", wait=0.4)
+    check("liste-20-dateien-alle", (state(twenty, 48), twenty.read(sym["LIST_MORE"], 1)[0], menu_cases.counter(twenty), menu_cases.texts_of(twenty))
+          == (20, 0, (19, 20), ("p19", "OFF", "")), dict(count=state(twenty, 48), counter=menu_cases.counter(twenty), texts=menu_cases.texts_of(twenty)))
+
+    # REMOVE of a loaded plugin with a file: out of e2sPlugin.all and the file deleted, the other file stays; the list no longer has it
+    files = {CARD_FILE: archive([healthy_block]), folder + "a.blech": blech_file(healthy_block), folder + "b.blech": blech_file(foreign_block)}
+    gone = with_card(patched, flash, files)
+    gone.run(2)
+    menu_cases.goto_group(gone, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_MANAGE)
+    menu_cases.press(gone, "menu", wait=0.6)
+    listed = (state(gone, 48), menu_cases.counter(gone), menu_cases.texts_of(gone))
+    menu_cases.press(gone, "menu", wait=0.4)
+    menu_cases.press(gone, "edit_prev", wait=0.4)
+    menu_cases.press(gone, "menu", wait=0.4)
+    asks = menu_cases.texts_of(gone)
+    menu_cases.press(gone, "menu", wait=1.0)
+    done = (state(gone, menu_cases.S_LEVEL), menu_cases.texts_of(gone), state(gone, 40))
+    card = (on_card(gone, CARD_FILE), on_card(gone, folder + "a.blech"), on_card(gone, folder + "b.blech"))
+    menu_cases.press(gone, "menu", wait=0.6)
+    after = (state(gone, 48), menu_cases.counter(gone), menu_cases.texts_of(gone))
+    if blue:
+        check("plugin-entfernen-blau-datei-bleibt", listed == (2, (0, 2), (name(healthy_block), "ON", "")) and asks == ("REMOVE", "Enter = remove", "")
+              and done == (2, ("MANAGE PLUGINS", "file stays on card", ""), 0) and card == (archive([]), files[folder + "a.blech"], files[folder + "b.blech"])
+              and after == (2, (0, 2), (name(healthy_block), "OFF", "")) and not gone.m.asserts,
+              dict(listed=listed, asks=asks, done=done, card=[part and len(part) for part in card], after=after))
+        return
+    check("plugin-entfernen-loescht-datei", listed == (2, (0, 2), (name(healthy_block), "ON", "")) and asks == ("REMOVE", "Enter = remove", "")
+          and done == (2, ("MANAGE PLUGINS", "removed", ""), 0) and card == (archive([]), None, files[folder + "b.blech"])
+          and after == (1, (0, 1), (name(foreign_block), "OFF", "")) and not gone.m.asserts,
+          dict(listed=listed, asks=asks, done=done, card=[part and len(part) for part in card], after=after))
+    # REMOVE of a plugin that is only a file: DESCRIPTION and REMOVE, the file goes, the list is empty
+    menu_cases.press(gone, "menu", wait=0.4)
+    pages = menu_cases.counter(gone)
+    menu_cases.press(gone, "edit_next", wait=0.4)
+    page = menu_cases.texts_of(gone)
+    menu_cases.press(gone, "menu", wait=0.4)
+    menu_cases.press(gone, "menu", wait=1.0)
+    only_file = (menu_cases.texts_of(gone), on_card(gone, folder + "b.blech"))
+    menu_cases.press(gone, "menu", wait=0.6)
+    check("plugin-entfernen-nur-datei", pages == (0, 2) and page == ("REMOVE", "", menu_cases.PRESS) and only_file == (("MANAGE PLUGINS", "removed", ""), None)
+          and menu_cases.texts_of(gone) == ("MANAGE PLUGINS", "No Plugin", "") and not gone.m.asserts,
+          dict(pages=pages, page=page, only_file=(only_file[0], only_file[1] and len(only_file[1])), now=menu_cases.texts_of(gone)))
+    # the folder changed after the list was read: the place of the file holds another plugin, REMOVE deletes nothing and says so
+    changed = with_card(patched, flash, {folder + "a.blech": blech_file(healthy_block), folder + "b.blech": blech_file(foreign_block)})
+    changed.run(2)
+    menu_cases.goto_group(changed, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_MANAGE)
+    menu_cases.press(changed, "menu", wait=0.6)
+    changed.m.uc.mem_write(sym["LIST_ORD"], bytes([1]))
+    menu_cases.press(changed, "menu", wait=0.4)
+    menu_cases.press(changed, "edit_prev", wait=0.4)
+    menu_cases.press(changed, "menu", wait=0.4)
+    menu_cases.press(changed, "menu", wait=1.0)
+    check("plugin-entfernen-ordner-geaendert", menu_cases.texts_of(changed) == ("MANAGE PLUGINS", "folder changed", "")
+          and on_card(changed, folder + "a.blech") is not None and on_card(changed, folder + "b.blech") is not None and not changed.m.asserts,
+          dict(texts=menu_cases.texts_of(changed)))
 
 
 def foreign_cases(programs, built, patched, flash, check):
