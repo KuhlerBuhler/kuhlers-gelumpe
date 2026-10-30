@@ -1,6 +1,7 @@
-# 83. Plugin: Werte eines Parts setzen
+# 83. Plugin: Werte eines Parts setzen, Steps lesen
 
-Wunsch (Community, 30.10.): ein Plugin setzt einen Wert eines Parts, etwa Pitch oder Resonanz, auf eine bestimmte Zahl.
+Wunsch (Community, 30.10.): ein Plugin setzt einen Wert eines Parts, etwa Pitch oder Resonanz, auf eine bestimmte Zahl,
+und liest die Steps eines Parts (Note, Gate, Velocity).
 Heute lassen sich die Werte nur lesen (`korg.parts[i].pitch`, seit API 8). Geplant für 1.3.9. Stand 2026-10-30:
 **aufgeschrieben, nichts gebaut, am Gerät nichts.** Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 
@@ -32,3 +33,17 @@ Heute lassen sich die Werte nur lesen (`korg.parts[i].pitch`, seit API 8). Gepla
   (**ungeprüft**)
 - Die Anzeige: zeigt die Edit-Zeile den neuen Wert, oder erst nach einem Wechsel des Parts? (**ungeprüft**)
 - Motion: spielt eine Motion-Spur den Wert, überschreibt sie das Setzen beim nächsten Schritt. (hergeleitet)
+
+## Steps lesen
+
+Heute gibt es nur `korg.read.step(part)`, den Schrittzähler (0 bis 63). Note, Gate und Velocity eines Steps lassen sich
+schreiben (`korg.seq.setStep`, `korg.seq.setGate`, ab API 9), aber nicht lesen. (gemessen, `data/script/contract.mjs`)
+
+- Die Bytes liegen im Pattern im RAM: Steps ab `0x800 + 0x330 * Part + 0x30`, je Step 12 Byte; +0 an, +1 Gate, +2
+  Velocity, +3 Trigger, +4 bis +7 die vier Notenplätze (`data/map/pattern.mjs`). (gemessen)
+- Vorschlag: `korg.seq.getNote(part, step, platz)` (Platz 0 bis 3, -1 wenn leer), `korg.seq.getVelocity(part, step)`,
+  `korg.seq.getGate(part, step)` und `korg.seq.isOn(part, step)`, gelesen aus dem laufenden Pattern mit den ungespeicherten
+  Änderungen, wie `korg.read.patternValue`. Dazu als Eigenschaft `korg.parts[i].steps[s].note` und so weiter, nur lesbar.
+- Nur Lesen, kein Eingriff in die Engine: das ist der kleinere Teil der Idee und kann zuerst kommen.
+- Offen: was Gate 255 bedeutet (kommt oft vor, `data/map/pattern.mjs`), und ob das Plugin den Wert vor oder nach einer
+  Motion-Spur sehen soll. (**ungeprüft**)
