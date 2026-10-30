@@ -294,6 +294,7 @@ export default {
   "midi.closedOnOpen": "La connessione MIDI è stata interrotta durante l'apertura.",
   "midi.quarantinedShort": "La porta MIDI viene ancora rilasciata. Aspetta un attimo prima di ricollegare.",
   "probe.emuOff": "L'emulatore non è in esecuzione. Avvialo nell'area Emulatore.",
+  "probe.unsupported": "L'emulatore usa il firmware originale Korg. Applica prima la patch, poi la prova funziona.",
   "rescue.source": "Fonte: {source}",
   "rescue.issue.title": "Soccorso: {answer}",
   "rescue.issue.body": "Le mie risposte in Soccorso:\n{answers}\n\nCosa fa l'Electribe all'accensione e cosa ho fatto per ultimo:\n\n(se il display mostra qualcosa: trascina qui una foto)\n",

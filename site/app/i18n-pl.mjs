@@ -295,6 +295,7 @@ export default {
   "midi.closedOnOpen": "Połączenie MIDI zostało rozłączone przy otwieraniu.",
   "midi.quarantinedShort": "Port MIDI jest jeszcze zwalniany. Poczekaj chwilę, zanim połączysz ponownie.",
   "probe.emuOff": "Emulator nie działa. Uruchom go w sekcji Emulator.",
+  "probe.unsupported": "Emulator działa na oryginalnym firmware Korga. Najpierw go spatchuj, wtedy próba zadziała.",
   "rescue.source": "Źródło: {source}",
   "rescue.issue.title": "Ratunek: {answer}",
   "rescue.issue.body": "Moje odpowiedzi w Ratunku:\n{answers}\n\nCo robi Electribe po włączeniu i co robiłem ostatnio:\n\n(jeśli wyświetlacz coś pokazuje: przeciągnij tu zdjęcie)\n",

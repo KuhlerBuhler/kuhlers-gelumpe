@@ -295,6 +295,7 @@ export default {
   "midi.closedOnOpen": "The MIDI connection was lost while opening.",
   "midi.quarantinedShort": "The MIDI port is still being released. Wait a moment before reconnecting.",
   "probe.emuOff": "The emulator isn't running. Start it in the Emulator area.",
+  "probe.unsupported": "The emulator runs Korg's original firmware. Patch it first, then the test run works.",
   "rescue.source": "Source: {source}",
   "rescue.issue.title": "Rescue: {answer}",
   "rescue.issue.body": "My answers in the Rescue:\n{answers}\n\nWhat the Electribe does when switched on and what I did last:\n\n(if the display shows something: drag a photo in here)\n",

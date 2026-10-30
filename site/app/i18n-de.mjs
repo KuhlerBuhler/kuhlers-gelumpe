@@ -312,6 +312,7 @@ export default {
   "midi.quarantinedShort": "Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest.",
 
   "probe.emuOff": "Der Emulator läuft nicht. Starte ihn im Bereich Emulator.",
+  "probe.unsupported": "Der Emulator läuft mit Korgs Original-Firmware. Patche sie zuerst, dann geht die Probe.",
 
   "rescue.source": "Quelle: {source}",
   "rescue.issue.title": "Rettung: {answer}",

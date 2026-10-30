@@ -295,6 +295,7 @@ export default {
   "midi.closedOnOpen": "De MIDI-verbinding werd bij het openen verbroken.",
   "midi.quarantinedShort": "De MIDI-poort wordt nog vrijgegeven. Wacht even voordat je opnieuw verbindt.",
   "probe.emuOff": "De emulator draait niet. Start hem bij Emulator.",
+  "probe.unsupported": "De emulator draait de originele Korg-firmware. Patch hem eerst, dan werkt de proef.",
   "rescue.source": "Bron: {source}",
   "rescue.issue.title": "Redding: {answer}",
   "rescue.issue.body": "Mijn antwoorden in de Redding:\n{answers}\n\nWat de Electribe doet bij het aanzetten en wat ik als laatste heb gedaan:\n\n(toont het display iets: sleep een foto hierheen)\n",

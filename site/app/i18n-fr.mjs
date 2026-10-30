@@ -295,6 +295,7 @@ export default {
   "midi.closedOnOpen": "La connexion MIDI a été coupée à l'ouverture.",
   "midi.quarantinedShort": "Le port MIDI est encore en cours de libération. Attends un moment avant de te reconnecter.",
   "probe.emuOff": "L'émulateur ne tourne pas. Lance-le dans la section Émulateur.",
+  "probe.unsupported": "L'émulateur tourne avec le firmware original de Korg. Patche-le d'abord, puis l'essai marchera.",
   "rescue.source": "Source : {source}",
   "rescue.issue.title": "Secours : {answer}",
   "rescue.issue.body": "Mes réponses dans le Secours :\n{answers}\n\nCe que fait l'Electribe à l'allumage et ce que j'ai fait en dernier :\n\n(si l'écran affiche quelque chose : glisse une photo ici)\n",
