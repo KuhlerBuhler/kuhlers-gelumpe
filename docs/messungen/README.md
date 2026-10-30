@@ -93,6 +93,7 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Sample-Speicherung: native Bestätigungen und Tabellen](2026-10-30-sample-speichergrenzen.md), Sample-WRITE, Aufnahmebestätigung, Import ohne Kartenschreiben und alter NOR-Spiegel.
 - [Einzelnes Sample aus dem DSP dauerhaft speichern](2026-10-30-sample-snapshot.md), linearer Mono-/Stereo-Rückleser und unveränderte Einträge ohne erneutes Anhängen.
 - [Sample-Swap: ungeladene Samples am OSC-Drehgeber wählen](2026-10-30-sample-swap-oszillator.md), echter Encoder-Auftrag statt direkt gesetzter Auswahl.
+- [Sample-Swap: Schutz der Daten im DSP und auf der Karte](2026-10-30-sample-swap-schutz.md), Gesamtexport, geänderte Samples, Frist der DSP-Aufrufe und defektes Journal, jeweils vor und nach der Korrektur.
 - [Ganzer Flash in einem Stand](2026-10-09-flash-dump.md)
 - [Menüzustand im RAM: welcher Bildschirm, welche Seite](2026-10-09-menuezustand.md)
 - [LED-Zustand im RAM: wo die Firmware merkt, was leuchtet](2026-10-14-led-zustand-ram.md)
