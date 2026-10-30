@@ -1060,7 +1060,7 @@ def case_view_pads(payload, flash):
     pad(box, 1)
     toggled = (mutes(box, live(box))[:3], mutes(box, bank)[:3], red(box)[:3])
     out.append(entry("view_pads_switch_the_viewed_mutes_not_the_playing_ones",
-                     box.view() == (0, 1, 1) and toggled == ([0, 0, 0], [0, 1, 1], [0, 255, 0]) and not box.m.asserts,
+                     box.view() == (0, 1, 1) and toggled == ([0, 0, 0], [0, 1, 1], [255, 255, 0]) and not box.m.asserts,
                      f"PART MUTE, pattern 2 viewed: pads 1 and 2 pressed; mutes in RAM {toggled[0]}, in the bank {toggled[1]}, pads 1 to 3 red {toggled[2]}"))
     out.append(entry("view_pads_have_their_own_colour",
                      before == ([255] * 16, [255] + [0] * 15) and shown[0][1:3] == [0, 0] and shown[0][3:] == [255] * 13 and shown[1][3:] == [255] * 13
@@ -1072,7 +1072,7 @@ def case_view_pads(payload, flash):
     box.run(0.8)
     after = (box.running(), mutes(box, live(box))[:4], mutes(box, bank)[:4], red(box), blue(box)[1:])
     out.append(entry("view_switch_takes_the_mutes_set_on_the_pads",
-                     after[0] == 1 and after[1] == [1, 0, 1, 0] and after[2] == [0, 1, 1, 0] and after[3][:4] == [0, 255, 0, 255]
+                     after[0] == 1 and after[1] == [0, 0, 1, 0] and after[2] == [0, 1, 1, 0] and after[3][:4] == [255, 255, 0, 255]
                      and after[4] == [0] * 15 and not box.m.asserts,
                      f"after MENU and the switch: running {after[0]}, mutes in RAM {after[1]} (bank {after[2]}), red {after[3][:4]}, "
                      f"blue of pads 2 to 16 {after[4][:4]}... (the playing pattern's colours again)"))
@@ -1144,14 +1144,14 @@ def case_view_copy(payload, flash):
             seen |= b.u32(b.part2 + 4)
         return seen
 
-    def viewing(b):
-        """Part mute mode, pattern 1 plays with part 2 silent (no steps), pattern 2 has part 2 muted in the bank, with steps on every
+    def viewing(b, muted=True):
+        """Part mute mode, pattern 1 plays with part 2 silent (no steps), pattern 2 has part 2 muted in the bank (or not), with steps on every
         sixteenth of its four bars and the sound of part 5; pattern 2 is browsed."""
         bank = b.slots + 0x4000
         uc = b.m.uc
         sound = bytes(uc.mem_read(live(b) + 0x800 + 0x330 * OTHER + 2, 0x2E))
         at = bank + 0x800 + 0x330 * P
-        uc.mem_write(at + 1, b"\x01")
+        uc.mem_write(at + 1, b"\x01" if muted else b"\x00")
         uc.mem_write(at + 2, sound)
         for s in range(64):                 # four bars of 16 steps, 12 bytes each
             uc.mem_write(at + 0x30 + 12 * s, STEP_ON)
@@ -1207,6 +1207,17 @@ def case_view_copy(payload, flash):
                      kept[0] == (0, 0, 0) and kept[1] == ["0x1"] and kept[2] == 0 and kept[3] != 0 and kept[4] and not back.m.asserts,
                      f"pad 2, then EXIT: view {kept[0]}, bytes that differ from pattern 2's part 2 {kept[1]}, mute {kept[2]}, voices within 1 s "
                      f"{kept[3]:#x}, both bank blocks unchanged {kept[4]}"))
+
+    lit = Box(payload, flash)
+    bank = viewing(lit, muted=False)
+    shown = lit.m.leds.get(0x2C + 2 * P, 0)
+    pad(lit, P)
+    got, want = part(lit, live(lit)), part(lit, bank)
+    on = (shown, [hex(i) for i in range(0x330) if got[i] != want[i]], got[1], lit.m.leds.get(0x2C + 2 * P, 0), voices(lit, 1.0), lit.view())
+    out.append(entry("view_press_on_a_lit_part_brings_it_in",
+                     on[0] == 255 and on[1] == [] and on[2] == 0 and on[3] == 255 and on[4] != 0 and on[5] == (0, 1, 1) and not lit.m.asserts,
+                     f"part 2 unmuted in pattern 2 and in the playing pattern, pad 2 lit ({on[0]}): pad 2 pressed: bytes that differ from pattern 2's part 2 "
+                     f"{on[1]}, mute {on[2]}, pad 2 red {on[3]}, voices within 1 s {on[4]:#x}, view {on[5]}"))
 
     ref = Box(payload, flash, KILL)
     viewing(ref)

@@ -1463,7 +1463,7 @@ voice_end:
 # pattern takes those mutes when it is switched to. The mutes live beside VIEW_W (V_MUTE, V_MTOUCH: one bit per part, only the
 # parts touched count) and reach the display through the firmware's part mute getter: called with the view's accessor (only the
 # display passes it, through the cell) it answers from them. docs/messungen/2026-10-29-vorschau-pads.md
-# Unmuting a part on the pads brings it into the playing pattern at once (decision 30.10., docs/ideen/82-vorschau-part-reinholen.md):
+# The first press on a part's pad brings it into the playing pattern at once, unmuted (decision 30.10., docs/ideen/82-vorschau-part-reinholen.md):
 # the press goes on to the firmware, and where the main screen sets the mute (UI task) view_copy runs the firmware's own Copy Part
 # from the viewed pattern's bank block and sets the part unmuted. From then on the pad of that part mutes and unmutes it in both.
 # docs/messungen/2026-10-30-vorschau-part-reinholen.md
@@ -1599,10 +1599,10 @@ view_take:
     bx lr
 
 ; From the pad gate (r0 = pad, r1 = pressed) -> r0 = 1 when the press is the view's alone. While a pattern is viewed, in PART MUTE
-; a press mutes or unmutes that part of the viewed pattern (the first press starts from its mute in the bank). Muting stays in the
-; view. Unmuting brings the part into the playing pattern: the press goes on to the firmware, marked in V_PEND, and view_copy
-; copies it there. A part brought in goes on with every press, so the playing pattern mutes and unmutes it like the view. In
-; SEQUENCER the press is dropped. Releases and other modes pass. Clobbers r0 to r3 and r12.
+; the first press on a part brings it into the playing pattern, unmuted, muted in the bank or not (decision 30.10.): the press goes
+; on to the firmware, marked in V_PEND, and view_copy copies it there. Every later press on it goes on as well, so the playing
+; pattern mutes and unmutes it like the view. In SEQUENCER the press is dropped. Releases and other modes pass.
+; Clobbers r0 to r3 and r12.
 view_pad:
     push {r4, lr}
     cmp r1, #0
@@ -1624,42 +1624,30 @@ view_pad:
     bhs vp_no
     mov r3, #1
     mov r3, r3, lsl r0
-    ldr r1, [r12, #V_MTOUCH]
-    tst r1, r3
-    bne vp_flip
-    orr r1, r1, r3
-    str r1, [r12, #V_MTOUCH]
-    ldr r1, =BANK
-    add r1, r1, r4, lsl #14
-    mov r2, #0x330
-    mla r1, r2, r0, r1
-    ldrb r1, [r1, #0x801]
-    ldr r2, [r12, #V_MUTE]
-    cmp r1, #1
-    orreq r2, r2, r3
-    bicne r2, r2, r3
-    str r2, [r12, #V_MUTE]
-vp_flip:
-    ldr r2, [r12, #V_MUTE]
-    eor r2, r2, r3
-    str r2, [r12, #V_MUTE]
-    mov r4, #0                  ; goes on to the firmware
     ldr r1, [r12, #V_COPY]
     tst r1, r3
-    bne vp_draw                 ; brought in already: the playing pattern's mute follows
-    tst r2, r3
-    movne r4, #1                ; muted: the view's alone
-    bne vp_draw
-    orr r1, r1, r3              ; unmuted: brought in when the main screen takes the press
+    bne vp_flip                 ; brought in already: the playing pattern's mute follows the view's
+    orr r1, r1, r3              ; the first press brings the part in, unmuted, whatever its mute in the bank
     str r1, [r12, #V_COPY]
     ldr r1, [r12, #V_PEND]
     orr r1, r1, r3
     str r1, [r12, #V_PEND]
+    ldr r1, [r12, #V_MTOUCH]
+    orr r1, r1, r3
+    str r1, [r12, #V_MTOUCH]
+    ldr r2, [r12, #V_MUTE]
+    bic r2, r2, r3
+    str r2, [r12, #V_MUTE]
+    b vp_draw
+vp_flip:
+    ldr r2, [r12, #V_MUTE]
+    eor r2, r2, r3
+    str r2, [r12, #V_MUTE]
 vp_draw:
     ldr r0, =LED_MGR
     ldr r0, [r0]
     bl view_refresh
-    mov r0, r4
+    mov r0, #0                  ; goes on to the firmware: view_copy or the firmware's own mute
     pop {r4, pc}
 vp_took:
     mov r0, #1
@@ -1669,7 +1657,7 @@ vp_no:
     pop {r4, pc}
 
 ; Replaces the main screen's call of the mute setter (r0 = the pattern's accessor, r1 = the part, r2 = the mute it sets, r3 = 1),
-; UI task as the firmware's own Copy Part. A part unmuted on the pads of the viewed pattern (V_PEND, the pad's part or, for a
+; UI task as the firmware's own Copy Part. A part pressed first on the pads of the viewed pattern (V_PEND, the pad's part or, for a
 ; stereo pair, the one right of it) is copied from the viewed pattern's bank block into the playing pattern first, sound, steps and
 ; motion, and set unmuted. Copy Part reads its source from the pattern in RAM when the source is the chosen number, which is the
 ; viewed one here: for the copy the chosen number is the one that runs, then it is given back. Every other call sets as it did.
