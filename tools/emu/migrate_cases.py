@@ -34,6 +34,7 @@ KILL = menu_cases.KILL
 SAMPLE = sampleset.build(sampleset.sized(3, 48000))
 KICK = bytes(range(256)) * 300
 OTHER = sampleset.build(sampleset.sized(2, 24000))
+FINE_CARD_NS = 2000             # the card interrupt looked at every 2 us instead of every 100 us (case_card_interrupt)
 
 
 def has_hooks(payload):
@@ -308,7 +309,23 @@ def case_existing(payload, flash):
     return out
 
 
-GROUPS = (case_copy, case_choose, case_none, case_full, case_existing)
+def case_card_interrupt(payload, flash):
+    """The copy with the card interrupt looked at every 2 us: the controller raises it once per 64-byte chunk. Raised again for
+    a chunk the firmware is still taking, the interrupt came after the stop command (CMD12) that follows the last chunk, and the
+    handler, which reads MMCST0, took the command's answer away: assertion AM180xMMSDCardController.cpp line 228, seen in the
+    app on SOFTWARE UPDATE. Every 100 us that is rare, every 2 us it comes within the first second of the copy."""
+    files = korg_blue() if blue(payload) else old("hacktribe")
+    dev = boot(payload, files)
+    dev.m.mmc_irq_ns = FINE_CARD_NS          # after the kept boot, which restores the machine's own value
+    dev.press(MENU, 0.5)
+    took = wait(dev)
+    copied = blue_files(dev, "blechtribe") if blue(payload) else files_of(dev, "blechtribe")
+    want = len(files) - 1                    # all but the dot file
+    return [entry("copy_with_the_card_interrupt_every_2_us", state(dev)[4] == 2 and len(copied) == want and not dev.m.asserts,
+                  f"after MENU {took} s: phase {state(dev)[4]}, copied {len(copied)} of {want} files, asserts {dev.m.asserts}")]
+
+
+GROUPS = (case_copy, case_choose, case_none, case_full, case_existing, case_card_interrupt)
 
 
 def group_entries(payload, flash, i):
