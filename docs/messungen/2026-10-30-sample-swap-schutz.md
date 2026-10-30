@@ -84,6 +84,11 @@ Eine Wiederherstellung, die abgelehnt wird, bevor sie etwas schreibt, lässt den
 Dann lädt die Sammlung normal und die Datei bleibt liegen. Scheitert erst das Schreiben des
 wiederhergestellten Index, bleibt das Laden gesperrt wie bisher.
 
+Antwortet die Karte schon beim Öffnen des Journals nicht, ist das kein abgelehntes Journal, sondern
+ein Kartenfehler: das Laden endet sofort damit. Als abgelehnt gezählt öffnete der Lader die Sammlung
+danach noch einmal und wartete ein zweites Mal auf die Karte (`loadbar_cases`,
+`card_error_keeps_the_overlay`: Kartenfehler nach 12,5 s statt 8,5 s Gerätezeit, gemessen im Emulator).
+
 ## Offen
 
 - Die 100-ms-Frist und echte Übertragungszeiten am Gerät.

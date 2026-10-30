@@ -50,7 +50,8 @@ def build_code(origin, state):
 
 SOURCE = r"""
 ; r0 library path ending in .all. Returns 0 for no journal or completed recovery, 1 when the journal was refused before
-; anything was written (the index is as it was), 3 when writing the recovered index failed.
+; anything was written (the index is as it was), 3 when the card did not answer the journal's open or writing the recovered
+; index failed.
 store_recover:
     push {r3-r11, lr}
     ldr r11, =CTX
@@ -85,6 +86,8 @@ sr_suffix:
     bl store_read_journal
     cmp r0, #2
     beq sr_ok
+    cmp r0, #3
+    beq sr_failed
     cmp r0, #0
     bne sr_bad
     bl store_validate
@@ -241,6 +244,7 @@ store_header_bad:
     pop {r4-r6, pc}
 .pool
 
+; Returns 0 with the journal read, 2 for no journal, 1 for a journal that cannot be used, 3 when the card did not answer.
 store_read_journal:
     push {r4, lr}
     ldr r0, =FIL
@@ -252,7 +256,7 @@ store_read_journal:
     moveq r0, #2
     popeq {r4, pc}
     cmp r0, #0
-    movne r0, #1
+    movne r0, #3
     popne {r4, pc}
     ldr r0, =FIL
     ldr r0, [r0, #12]
