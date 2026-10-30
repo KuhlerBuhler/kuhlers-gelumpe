@@ -94,6 +94,8 @@ test("the workflow starts on every workflow that runs on a pull request and call
   const listed = yml.match(/workflows: \[(.*)\]/)[1].split(",").map(s => s.trim());
   const onPr = readdirSync(dir).map(f => readFileSync(new URL(f, dir), "utf8"))
     .filter(t => /^ {2}(pull_request|pull_request_target):/m.test(t) || /branches: \[.*"release\/\*\*"/.test(t))
+    // a workflow that only runs once a pull request is closed is no check on an open one (Delete merged branch)
+    .filter(t => !/^ {2}pull_request:\n {4}types: \[closed\]\n\n/m.test(t))
     .map(t => t.match(/^name: (.*)$/m)[1]).filter(n => n !== SELF);
   assert.deepEqual(onPr.filter(n => !listed.includes(n)), []);
   for (const n of listed) assert.ok(readdirSync(dir).some(f => readFileSync(new URL(f, dir), "utf8").includes(`name: ${n}\n`)), n);
