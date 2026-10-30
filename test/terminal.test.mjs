@@ -412,3 +412,10 @@ test("the emulator probe is one session per port, takes the port back, and meets
   assert.equal(reconnected.carry, carry, "the port keeps its history and pending state");
   assert.equal(reconnected.sender.disconnected, false);
 });
+
+test("the probe refuses a firmware without Hacktribe's commands with one plain sentence, marked as unsupported", async () => {
+  const { sharedProbe } = await import("../site/app/probe.mjs");
+  const emu = await simPort({ bytes: await makeFirmware(), channel: 9, name: "Emulator", emulator: true });
+  const get = sharedProbe(() => emu.port, () => "Das ist Korgs Original-Firmware 2.02. Es fehlt: A; B; C.");
+  await assert.rejects(get(), e => e.unsupported === true && !e.message.includes("Es fehlt") && !e.message.includes(";") && e.message.split(/[.!?]/).filter(Boolean).length <= 2);
+});

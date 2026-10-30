@@ -295,6 +295,7 @@ export default {
   "midi.closedOnOpen": "Spojení MIDI bylo při otevírání odpojeno.",
   "midi.quarantinedShort": "Port MIDI se ještě uvolňuje. Chvíli počkej, než se připojíš znovu.",
   "probe.emuOff": "Emulátor neběží. Spusť ho v sekci Emulátor.",
+  "probe.unsupported": "Emulátor běží s originálním firmwarem Korgu. Nejdřív ho patchni, pak zkouška půjde.",
   "rescue.source": "Zdroj: {source}",
   "rescue.issue.title": "Záchrana: {answer}",
   "rescue.issue.body": "Moje odpovědi v Záchraně:\n{answers}\n\nCo dělá Electribe po zapnutí a co jsem naposled dělal:\n\n(pokud displej něco ukazuje: přetáhni sem fotku)\n",

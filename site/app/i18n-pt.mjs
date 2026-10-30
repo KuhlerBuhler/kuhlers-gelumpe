@@ -295,6 +295,7 @@ export default {
   "midi.closedOnOpen": "A ligação MIDI foi cortada ao abrir.",
   "midi.quarantinedShort": "A porta MIDI ainda está a ser libertada. Espera um pouco antes de voltares a ligar.",
   "probe.emuOff": "O emulador não está a correr. Inicia-o na área Emulador.",
+  "probe.unsupported": "O emulador corre o firmware original da Korg. Aplica primeiro o patch, depois o ensaio funciona.",
   "rescue.source": "Fonte: {source}",
   "rescue.issue.title": "Resgate: {answer}",
   "rescue.issue.body": "As minhas respostas no Resgate:\n{answers}\n\nO que a Electribe faz ao ligar e o que fiz por último:\n\n(se o display mostrar algo: arrasta uma foto para aqui)\n",
