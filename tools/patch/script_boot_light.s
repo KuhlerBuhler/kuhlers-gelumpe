@@ -1,8 +1,8 @@
 ; ---- the backlight colour at power-on (docs/messungen/2026-10-29-hintergrundlicht-beim-start.md)
 ; The pins the colour lights (M_BL_ON) are kept in Global byte 250 (BOOT_SLOT, the numbering of bytes 247 and 248; in the flash it is byte 246 of the block): 0x80 plus the pins, 0 (or any other
 ; value) is the stock white. The firmware saves the Globals itself (switch-off, WRITE on Global); BLECH only sets the byte in RAM, when
-; the settings are read and when they are written. A colour between the levels needs the PWM of the armed menu: until then the pins
-; of the colour light fully.
+; the settings are read and when they are written. A colour between the levels needs the PWM of the armed menu: until then each channel
+; is on or off (on if it is at least half of the strongest, see boot_light_save).
 .equ BOOT_SLOT, 250             ; *GLOBALS_PTR + 250 is byte 246 of the block in the flash (the object has a word in front)
 .equ BOOT_FLASH, 0x2300F4       ; Global bytes 244 to 255 in the flash, the last word is the mark GLED
 .equ BOOT_GLED, 0x44454C47
@@ -122,13 +122,35 @@ boot_light_settle:
     bxeq lr
     b menu_backlight_now
 
-; r0 = the pins the backlight colour lights (M_BL_ON): into Global byte 250. Clobbers r0, r1.
+; r0 = the pins the backlight colour lights (M_BL_ON), r4 = the menu state: into Global byte 250. The start can only switch a pin on or off,
+; so a channel is kept only if its level is at least half of the strongest one (2 * level >= the maximum): HUE 15 SAT 13 BRIGHT 14 is
+; 14, 13, 2 and starts as red and green (yellow), not as white. The strongest channel stays on, a colour that is lit never starts dark.
+; Clobbers r0 to r3, r12.
 boot_light_save:
     ldr r1, =GLOBALS_PTR
     ldr r1, [r1]
     cmp r1, #0
     bxeq lr
     and r0, r0, #0x38
+    ldr r2, [r4, #M_BL_R]
+    ldr r3, [r4, #M_BL_G]
+    ldr r12, [r4, #M_BL_B]
+    push {r5}
+    mov r5, r2
+    cmp r3, r5
+    movhi r5, r3
+    cmp r12, r5
+    movhi r5, r12
+    cmp r5, #0                  ; 0 0 0 is the stock white: all three
+    beq boot_light_save_go
+    cmp r5, r2, lsl #1
+    bichi r0, r0, #0x08
+    cmp r5, r3, lsl #1
+    bichi r0, r0, #0x10
+    cmp r5, r12, lsl #1
+    bichi r0, r0, #0x20
+boot_light_save_go:
+    pop {r5}
     orr r0, r0, #0x80
     strb r0, [r1, #BOOT_SLOT]
     bx lr

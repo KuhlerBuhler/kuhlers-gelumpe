@@ -39,6 +39,7 @@ before(async () => {
     await raw("blechtribe", "Kartenordner blechtribe", FREE + 0x200, "626c6563", true),
     { ...splashPatch(checker), name: "Blech-Startbild" },
     await raw("doom-loader", "Doom-Lader", FREE + 0x300, "e3a00001"),
+    await raw("script-runtime", "Plugin-Laufzeit", FREE + 0x500, "e3a00002"),
   ];
   h = await setUp(dir => {
     mkdirSync(join(dir, "patches"));
@@ -48,9 +49,10 @@ before(async () => {
     writeFileSync(join(dir, "patches", "blechtribe.json"), JSON.stringify(patches[2]));
     writeFileSync(join(dir, "blechy", "splash.json"), JSON.stringify(patches[3]));
     writeFileSync(join(dir, "patches", "doom-loader.json"), JSON.stringify(patches[4]));
+    writeFileSync(join(dir, "patches", "script-runtime.json"), JSON.stringify(patches[5]));
     writeFileSync(join(dir, "patches", "blech.json"), JSON.stringify({
       format: "gelumpe-patch-set", version: 1, id: "blech", name: "BLECH",
-      patches: ["data/patches/splash-editor.json", "data/patches/mfx-switch.json", "data/patches/blechtribe.json", "assets/blechy/splash.json", "data/patches/doom-loader.json"],
+      patches: ["data/patches/splash-editor.json", "data/patches/mfx-switch.json", "data/patches/blechtribe.json", "assets/blechy/splash.json", "data/patches/doom-loader.json", "data/patches/script-runtime.json"],
     }));
     const synthPatch = { ...patches[1], id: "synth-test", name: "Synth-Testpatch", builds: ["synth"] };
     writeFileSync(join(dir, "patches", "synth-test.json"), JSON.stringify(synthPatch));
@@ -222,21 +224,21 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   assert.deepEqual(bytes, new Uint8Array(pair.subarray(0x200100)), "the download is the copy that was checked");
   const changed = [];
   for (let i = 0; i < bytes.length; i++) if (bytes[i] !== vsb[i]) changed.push(i);
-  assert.ok(changed.length > 0 && changed.every(i => (i >= SPLASH && i < SPLASH + 1024) || (i >= FREE && i < FREE + 4) || (i >= FREE + 0x100 && i < FREE + 0x104) || (i >= FREE + 0x200 && i < FREE + 0x204) || (i >= FREE + 0x300 && i < FREE + 0x304)));
+  assert.ok(changed.length > 0 && changed.every(i => (i >= SPLASH && i < SPLASH + 1024) || (i >= FREE && i < FREE + 4) || (i >= FREE + 0x100 && i < FREE + 0x104) || (i >= FREE + 0x200 && i < FREE + 0x204) || (i >= FREE + 0x300 && i < FREE + 0x304) || (i >= FREE + 0x500 && i < FREE + 0x504)));
 
   const guide = page.locator("#cee-patch-done");
   await guide.waitFor();
   assert.equal(await guide.locator("h2").textContent(), "Viel Spaß beim BLECHEN");
   const text = await guide.textContent();
   assert.match(text, /KORG\/hacktribe\/System\//);
-  assert.match(await guide.locator("#cee-patch-guide-copy").textContent(), /Kopiere auf der Karte den Ordner KORG\/hacktribe\/ nach KORG\/blechtribe\/\. Kopieren, nicht umbenennen/);
+  assert.match(await guide.locator("#cee-patch-guide-copy").textContent(), /Kopieren musst du nichts: Beim ersten Start nach dem Update fragt BLECHTRIBE, ob es deinen Ordner KORG\/hacktribe\/ nach KORG\/blechtribe\/ übernehmen soll\. MENU kopiert, EXIT startet ohne/);
   assert.match(await guide.locator("#cee-patch-guide-vsb").textContent(), /nach KORG\/hacktribe\/System\/, also in den Ordner der Firmware, die jetzt auf dem Gerät läuft, nicht nach blechtribe/);
   assert.match(await guide.locator("#cee-patch-guide-vsb").textContent(), /genau SYSTEM\.VSB heißen: Hat dein Browser sie SYSTEM \(1\)\.VSB genannt, benenn sie um\. Fehlt der Ordner System, leg ihn an, aber benenn keinen Ordner um/, "the exact file name and the folder System");
   const doom = guide.locator("#cee-patch-guide-doom");
   assert.match(await doom.textContent(), /Für Doom \(SHIFT \+ TAP beim Einschalten\): doom\.bin und doom\.wad laden und auf der Karte nach KORG\/blechtribe\/Doom\/ legen\./);
   assert.deepEqual(await doom.locator("a[download]").evaluateAll(links => links.map(a => [a.getAttribute("href"), a.getAttribute("download")])), [["third_party/doom/doom.bin", "doom.bin"], ["third_party/doom/doom.wad", "doom.wad"]]);
   assert.match(text, /Sichere die SD-Karte/);
-  assert.ok(text.indexOf("Sichere die SD-Karte") < text.indexOf("Kopiere auf der Karte den Ordner") && text.indexOf("Kopiere auf der Karte den Ordner") < text.indexOf("SYSTEM.VSB"), "backup, then the folder copy, then the file");
+  assert.ok(text.indexOf("Sichere die SD-Karte") < text.indexOf("SYSTEM.VSB") && text.indexOf("DATA UTILITY") < text.indexOf("Kopieren musst du nichts"), "backup, then the file and the update, then the question at the first start");
   assert.match(text, /DATA UTILITY/);
   assert.match(text, /SOFTWARE UPDATE/);
   assert.match(text, /EXIT/);
@@ -369,7 +371,7 @@ test("patcher: Korg's original asks for the user's own hacktribe-2.patch, conver
   await guide.waitFor();
   assert.match(await guide.textContent(), /KORG\/electribe sampler\/System\//);
   assert.doesNotMatch(await guide.textContent(), /KORG\/hacktribe\/System\//);
-  assert.match(await guide.locator("#cee-patch-guide-copy").textContent(), /den Ordner KORG\/electribe sampler\/ nach KORG\/blechtribe\//, "the samples of the stock firmware move too");
+  assert.match(await guide.locator("#cee-patch-guide-copy").textContent(), /deinen Ordner KORG\/electribe sampler\/ nach KORG\/blechtribe\/ übernehmen/, "the samples of the stock firmware move too");
   assert.deepEqual(requests.filter(u => /github\.com|hacktribe-2\.patch/.test(u)), [], "the page never fetches the patch");
 
   // The same for the blue: Korg's firmware runs there, so the copy gets the blue's head and goes to KORG/electribe.
@@ -426,7 +428,7 @@ test("patcher: Korg's original takes BLECH directly, with no hacktribe-2.patch, 
   await guide.waitFor();
   assert.match(await guide.textContent(), /KORG\/electribe sampler\/System\//);
   assert.doesNotMatch(await guide.textContent(), /KORG\/hacktribe\/System\//);
-  assert.match(await guide.locator("#cee-patch-guide-copy").textContent(), /den Ordner KORG\/electribe sampler\/ nach KORG\/blechtribe\//);
+  assert.match(await guide.locator("#cee-patch-guide-copy").textContent(), /deinen Ordner KORG\/electribe sampler\/ nach KORG\/blechtribe\/ übernehmen/);
   assert.deepEqual(requests.filter(u => /github\.com|hacktribe-2\.patch/.test(u)), [], "the page fetches nothing of Hacktribe's");
   assert.deepEqual(page.errors, []);
 });

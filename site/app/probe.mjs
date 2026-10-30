@@ -23,7 +23,12 @@ export function sharedProbe(port, unsupported = () => null) {
     const emu = port();
     if (!emu?.running) return Promise.reject(new Error(t("probe.emuOff")));
     const lack = unsupported();
-    if (lack) return Promise.reject(new Error(lack));
+    if (lack) {
+      // The long list of what the build lacks stays on the emulator page; a caller gets one plain sentence.
+      const err = new Error(t("probe.unsupported"));
+      err.unsupported = true;
+      return Promise.reject(err);
+    }
     if (probe && probe.port === emu && seen === emu.generation && !probe.sender.disconnected) {
       if (!probe.listening) probe.listen();
       return Promise.resolve(probe);
