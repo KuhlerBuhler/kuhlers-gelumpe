@@ -33,6 +33,12 @@ Markierungen: **gemessen**, **hergeleitet**, **offen**.
 - **Behoben:** `MMC_IRQ_NS`: der Karten-Interrupt wird nur einmal je 100 µs Gerätezeit angesehen
   (`lines`), wie vorher an jedem Scheibenende. Das ist ein Modell, kein Befund vom Gerät:
   **offen**, wie die Firmware am Gerät die Antwort zwischen Handler und Abfrage aufteilt.
+- **Ursache, gemessen 2026-10-30:** Das Modell hob den Interrupt bei jedem Blick erneut, solange noch Daten im FIFO
+  lagen, auch für ein Stück, dessen Interrupt schon kam und das die Task gerade abholte. Dieser zweite Interrupt blieb im
+  AINTC stehen und kam erst nach CMD12; der Handler (`0xC001DB60`) las ST0 und nahm die Antwort. Jetzt kommt er einmal je
+  64-Byte-Stück (`sdcard.py`, `raised`). Mit einem Blick alle 2 µs kam die Assertion vorher in der ersten Sekunde der
+  Ordnerkopie, jetzt nicht mehr (`migrate_cases.py`, `case_card_interrupt`). Bei 100 µs selten, in der App einmal beim
+  SOFTWARE UPDATE gesehen.
 - **Gemessen:** Der Ablauf von `test/emulator-card.test.mjs` (IMPORT SAMPLE, EXPORT SAMPLE, EXPORT ALL
   PATTERN) bringt dieselben Sektorzahlen wie vorher (144 gelesen, 8365 geschrieben) und braucht
   120 s statt 283 s Wanduhrzeit (eigener Python-Lauf `flow.py`, nicht im Repo).

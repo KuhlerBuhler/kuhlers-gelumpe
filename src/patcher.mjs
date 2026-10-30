@@ -1,5 +1,5 @@
 /** The Patcher page's logic without the page: what a dropped SYSTEM.VSB is, the BLECH patches, the state from drop to download. */
-import { hardwareOf, identifyBase, sha256 } from "./firmware.mjs";
+import { buildOf, hardwareOf, identifyBase, sha256 } from "./firmware.mjs";
 import { applyPatches, buildsOf, patchesPresent, selectFor } from "./patch.mjs";
 import { loadingAnimPatch, LOADING_ANIM_ID } from "./loading-anim.mjs";
 import { applyBsdiff, parseBsdiff } from "./bsdiff.mjs";
@@ -101,6 +101,7 @@ const PATCH_LABELS = {
   "last-pattern": "features.lastPattern.title",
   "init-pattern": "features.initPattern.title",
   "stereo-pad": "features.stereoPad.title",
+  "beat-eighth": "features.beatEighth.title",
   "blech-version": "patcher.patch.version",
   "doom-loader": "features.doom.title",
   "blech-sysex": { synth: "patcher.patch.sysexSynth", other: "patcher.patch.sysex" },
@@ -179,6 +180,40 @@ export async function convertStock(stock, patch, { stockHash = STOCK_SHA256, tar
   } catch (e) {
     return { ok: false, reason: e.message };
   }
+}
+
+/** The files the patcher takes as an original: Korg's 2.02 of the red and the blue, Hacktribe's 2.02 and its copy with the blue head. */
+export const KNOWN_ORIGINALS = [STOCK_SHA256, SYNTH_SHA256, HACKTRIBE_SHA256, HACKTRIBE_BLUE_SHA256];
+
+/**
+ * Whether the original of a file with BLECH on it can be rebuilt from Korg's System Updater: only for Korg's own build.
+ * Hacktribe changes bytes inside the places BLECH writes to as well (107 of its changed runs overlap the BLECH
+ * patches, measured on Hacktribe 2.02 against Korg's red 2.02), and those bytes are in no file the app can load.
+ */
+export const canRestore = bytes => buildOf(bytes) !== "hacktribe";
+
+/**
+ * The unpatched original of `patched` (a file BLECH was put on before, for example by copying it to the card), rebuilt
+ * from Korg's own 2.02 of the same Electribe: `patches` go on `korg` to learn which bytes they write (their spans and
+ * whatever else they change, such as appended effect presets), and those bytes are copied from `korg` into the copy of
+ * `patched`. The result counts only when its hash is one of `hashes` (the files the patcher takes as an original).
+ * {ok: true, bytes, sha256}, or {ok: false, why: "size" | "patches" | "mismatch"}; nothing is guessed.
+ */
+export async function restoreOriginal(patched, korg, patches, { hashes = KNOWN_ORIGINALS } = {}) {
+  if (patched.length !== VSB_SIZE || korg.length !== VSB_SIZE) return { ok: false, why: "size" };
+  const applied = await applyPatches(korg, patches);
+  if (!applied.ok) return { ok: false, why: "patches" };
+  const out = Uint8Array.from(patched);
+  const restore = (from, to) => out.set(korg.subarray(from, to), from);
+  for (const s of applied.spans) restore(s.file, s.file + s.length);
+  let from = -1;
+  for (let i = 0; i <= VSB_SIZE; i++) {
+    const differs = i < VSB_SIZE && applied.bytes[i] !== korg[i];
+    if (differs && from < 0) from = i;
+    else if (!differs && from >= 0) { restore(from, i); from = -1; }
+  }
+  const hash = await sha256(out);
+  return hashes.includes(hash) ? { ok: true, bytes: out, sha256: hash } : { ok: false, why: "mismatch" };
 }
 
 /** The folder below KORG/ the firmware of this kind keeps its files in (the stock firmware's has a space). Hacktribe on the blue reads KORG/hacktribe like on the red. */

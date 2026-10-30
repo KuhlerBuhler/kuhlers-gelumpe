@@ -16,7 +16,7 @@ import { run } from "./support/spawn.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const PATCH = read("../data/patches/sample-swap.json");
-const SITES = [0xC00364F4, 0xC0036510, 0xC0036748, 0xC0036760, 0xC00366D8, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74, 0xC0099FFC, 0xC0099D88, 0xC0040DB4];
+const SITES = [0xC00364F4, 0xC0036510, 0xC0036748, 0xC0036760, 0xC00366D8, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74, 0xC0099FFC, 0xC0099D88, 0xC0040DB4, 0xC0039FB0];
 const AREAS = [[0xC01A2FD0, 0xC01A3C00], [0xC018A4C0, 0xC018AF00], [0xC0189760, 0xC0189F00],
   [0xC019A400, 0xC019C400], [0xC018BF40, 0xC018C400]];
 const file = address => address - 0xC0000000 + 0x100;

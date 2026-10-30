@@ -93,6 +93,7 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Sample-Speicherung: native Bestätigungen und Tabellen](2026-10-30-sample-speichergrenzen.md), Sample-WRITE, Aufnahmebestätigung, Import ohne Kartenschreiben und alter NOR-Spiegel.
 - [Einzelnes Sample aus dem DSP dauerhaft speichern](2026-10-30-sample-snapshot.md), linearer Mono-/Stereo-Rückleser und unveränderte Einträge ohne erneutes Anhängen.
 - [Sample-Swap: ungeladene Samples am OSC-Drehgeber wählen](2026-10-30-sample-swap-oszillator.md), echter Encoder-Auftrag statt direkt gesetzter Auswahl.
+- [Sample-Swap: Schutz der Daten im DSP und auf der Karte](2026-10-30-sample-swap-schutz.md), Gesamtexport, geänderte Samples, Frist der DSP-Aufrufe und defektes Journal, jeweils vor und nach der Korrektur.
 - [Ganzer Flash in einem Stand](2026-10-09-flash-dump.md)
 - [Menüzustand im RAM: welcher Bildschirm, welche Seite](2026-10-09-menuezustand.md)
 - [LED-Zustand im RAM: wo die Firmware merkt, was leuchtet](2026-10-14-led-zustand-ram.md)
@@ -250,6 +251,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Stimmen beim Wechsel innerhalb einer Sync-Gruppe, im Emulator geprüft](2026-10-25-sync-group-stimmen.md)
 - [Sync Group: gestoppt mit ungespeicherten Änderungen ohne Rückfrage](2026-10-25-sync-ungespeichert.md)
 - [Eine Plugin-Liste in PLUGIN EDIT, IMPORT PLUGIN entfällt](2026-10-25-plugin-liste.md)
+- [MANAGE PLUGINS: 64 Dateien statt 16, REMOVE löscht die Datei, OFF behält sie](2026-10-30-plugin-liste-64-entfernen.md)
 - [Plugins schreiben Steps: korg.seq, im Emulator geprüft](2026-10-26-plugin-steps.md)
 - [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
 - [Test-Modus und Fernbedienung aller Bedienelemente über die Warteschlange des Panels](2026-10-29-test-modus-fernsteuerung.md)
@@ -268,6 +270,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Schalter LAST PATTERN, Doom ohne Dateien startet den Sampler](2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md)
 - [Eigenes Init-Pattern: wie INITIALIZE PATTERN die Vorlage nimmt](2026-10-28-init-pattern.md)
 - [Stereo auf einem Pad: wie die Firmware Parts für Stereo-Samples paart](2026-10-29-stereo-ein-pad.md)
+- [BEAT 8: Steps als Achtel, ein Pattern doppelt so lang](2026-10-29-beat-achtel.md)
 - [Farbe des Hintergrundlichts schon beim Einschalten, vor dem Startbild](2026-10-29-hintergrundlicht-beim-start.md)
 - [Pattern-Export unter BLECH: wohin, und was in der Datei steht](2026-10-28-pattern-export.md)
 - [Menü-Anordnung 1.3.8: SYNC GROUP hinter CHAIN REPEAT, Seiten in GLOBAL PARAMETERS und DATA UTILITY](2026-10-29-menue-anordnung.md)

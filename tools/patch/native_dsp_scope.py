@@ -59,15 +59,20 @@ def validate_firmware(vsb):
 
 
 def source(*, scope, fault, mode, generation, release=RELEASE, acquire=ACQUIRE,
-           timer=TIMER, poll_budget=POLL_BUDGET):
+           timer=TIMER, poll_budget=POLL_BUDGET, gate=None):
+    """`gate`, a word: when given, a transaction is bounded only while the mode word is 1 and the gate word is not 0;
+    every other acquisition keeps its native, unbounded behavior."""
     values = dict(NS_SCOPE=scope, NS_FAULT=fault, NS_MODE=mode, NS_GEN=generation,
                   NS_RELEASE=release, NS_ACQUIRE=acquire, NS_TIMER=timer, NS_HZ=TIMER_HZ,
                   NS_DEADLINE=DEADLINE_TICKS, NS_POLLS=poll_budget)
-    if any(value & 3 for value in (scope, fault, mode, generation, release, acquire, timer)):
+    if gate is not None:
+        values['NS_GATE'] = gate
+    if any(value & 3 for value in (scope, fault, mode, generation, release, acquire, timer, gate or 0)):
         raise ValueError('scope addresses must be word aligned')
     if not 0 < poll_budget <= 0xFFFFFFFF:
         raise ValueError('positive 32-bit poll budget required')
-    return ''.join(f'.equ {name}, {value:#x}\n' for name, value in values.items()) + SOURCE
+    take = GATED_TAKE if gate is not None else TAKE
+    return ''.join(f'.equ {name}, {value:#x}\n' for name, value in values.items()) + SOURCE.replace('@TAKE@', take)
 
 
 def build_code(origin, **kwargs):
@@ -106,12 +111,7 @@ ns_init_out:
     pop {r0-r3, pc}
 
 native_scope_take:
-    push {r12, lr}
-    ldr r12, =NS_SCOPE
-    ldr r12, [r12]
-    cmn r12, #1
-    pop {r12, lr}
-    beq NS_ACQUIRE
+@TAKE@
     push {r4, lr}
     bl NS_ACQUIRE
 native_scope_acquired:
@@ -299,6 +299,33 @@ ns_return:
     bx r2
 .pool
 '''
+
+TAKE = r'''    push {r12, lr}
+    ldr r12, =NS_SCOPE
+    ldr r12, [r12]
+    cmn r12, #1
+    pop {r12, lr}
+    beq NS_ACQUIRE'''
+
+GATED_TAKE = r'''    push {r12, lr}
+    ldr r12, =NS_SCOPE
+    ldr r12, [r12]
+    cmn r12, #1
+    beq ns_take_native
+    ldr r12, =NS_MODE
+    ldr r12, [r12]
+    cmp r12, #1
+    bne ns_take_native
+    ldr r12, =NS_GATE
+    ldr r12, [r12]
+    cmp r12, #0
+    beq ns_take_native
+    pop {r12, lr}
+    b ns_take_bounded
+ns_take_native:
+    pop {r12, lr}
+    b NS_ACQUIRE
+ns_take_bounded:'''
 
 DRIVER = r'''
 native_scope_control:

@@ -15,8 +15,11 @@ the sample is entered into its slot, so a cache written by someone else is never
     python3 tools/patch/sample_swap.py --vsb SYSTEM.VSB [--out data/patches/sample-swap.json]
 
 Swapping is on when the file is larger than the user bank and EXIT did not select the native loader. Native DSP transaction
-guards initialize at library entry unless cold-start EXIT selects the native path, and remain active for small libraries too.
-Earlier calls keep their native behavior.
+guards initialize at library entry unless cold-start EXIT selects the native path. They bound a native transaction only while
+the swap's own step runs (MODE 1 and INSTEP); every other native DSP call keeps Korg's behavior, without a deadline.
+A row the user changed since the start (import, sampling, resampling, a sample edit) is never evicted: the loader's and the
+swap's rows keep a signature (SIG), and only a row that still matches it may leave the DSP. EXPORT ALL SAMPLE is refused
+while the swap is on or failed, since the DSP then holds only part of the file.
 The blue Synth is refused: its RAM places are not mapped.
 
 Hooks (the same addresses in both builds, checked byte for byte):
@@ -30,6 +33,7 @@ Hooks (the same addresses in both builds, checked byte for byte):
   0xC002D684  the command task's dispatch: the posted step runs there, where the firmware does all its card work
   0xC005F1D4  the sequence end's switch: a pattern whose samples are not ready is not switched to
   0xC0079A74  the chain's switch: the same for the chain target, with the repeat counter kept at its last round
+  0xC0039FB0  EXPORT ALL SAMPLE's f_open: refused with FatFs' write protection while the DSP holds part of the file
 Boot recovery precedes the collection's open. The slot writer appends verified records and commits their index through a
 recovery journal; its import service is not yet bound to the normal controls. Nothing of the firmware is copied or written to flash.
 """
@@ -74,7 +78,8 @@ DESC2 = 0xC2767900              # the copy the firmware's slot entry may change
 HDR = 0xC2768000                # the file's 4096-byte header: 16 bytes of name, then the slot offsets
 DIR = 0xC2769000                # per slot 16 bytes: cache entry, PCM bytes, sum, generation
 LIST = 0xC276D000               # active DSP extents while a place is searched
-ARENA_U, ARENA_U_END = 0xC276F000, HIGH_END
+SIG = HIGH_END - 0x1000         # per slot one word: the signature of the row as the file loaded it, 0 for none
+ARENA_U, ARENA_U_END = 0xC276F000, SIG
 # The firmware's work buffer (giver 0xC00369F0): borrowed only while the cache is valid.
 ARENA_L, ARENA_L_END = 0xC1010000, 0xC273AA40
 
@@ -88,7 +93,7 @@ KILL = 0x2000                   # EXIT held at power-on
 # State words (STATE + offset). FF at power-on; the loader's f_open hook sets them when the swap goes on.
 FIELDS = """MODE GEN SESSION WASPLAY POSTED REQ FILE FILEGEN PREP P_LEN P_BITS P_FBYTES J_STATE J_SLOT J_SRC J_DST
 J_LEN J_DONE J_BITS J_BASE J_ENTRY J_SUM J_GEN J_STAGED J_TICKS CPTR CGEN CFILL PFULL LASTRUN T0 GOT HDRFOR
-TSTATE STAT_COUNT STAT_BYTES STAT_TICKS STAT_SRC""".split()
+TSTATE STAT_COUNT STAT_BYTES STAT_TICKS STAT_SRC INSTEP""".split()
 OFF = {name: 4 * i for i, name in enumerate(FIELDS)}
 FAILED = 0xA0                   # 1024 bits, a slot that cannot be loaded
 PROT = 0x120                    # 32 half words: the live pattern's and the target's samples
@@ -145,6 +150,8 @@ SITES = [
      "an accepted pattern choice releases a previously deferred swap target"),
     (0xC0040DB4, None, 0xC004E3CC, "ss_choice", True, True,
      "the OSC iterator includes indexed user samples before their PCM is loaded"),
+    (0xC0039FB0, None, 0xC009DB60, "ss_export_open", True, False,
+     "EXPORT ALL SAMPLE does not rewrite e2sSample.all while the DSP holds only part of it"),
 ]
 SITES += [(site, original, calls, label, True, True, f"bounded native DSP transaction: {label}")
           for site, original, calls, label in native_dsp_scope.HOOKS]
@@ -172,6 +179,7 @@ CALLED = (
     (0xC004E2F0, 0x34, "physical sample lookup"),
     (0xC0099D88, 0x320, "part sample binding and update"),
     (0xC0081F50, 0x11C, "accepted pattern selection"),
+    (0xC0039FA0, 0x2C, "full sample export: default path, f_open and its error return"),
 )
 
 
@@ -193,7 +201,7 @@ def halfword(source):
 def equs(screens):
     names = {**FIRMWARE, "SCREENS": screens, "ST": STATE, "CODE1": CODE1, "CODE2": CODE2, "CODE3": CODE3,
              "STORE_CODE": STORE_CODE, "STAGE": STAGE, "FIL": FIL, "DESC": DESC, "DESC2": DESC2,
-             "HDR": HDR, "DIR": DIR, "LIST": LIST, "ARENA_U": ARENA_U, "ARENA_U_END": ARENA_U_END, "ARENA_L": ARENA_L,
+             "HDR": HDR, "DIR": DIR, "LIST": LIST, "SIG": SIG, "ARENA_U": ARENA_U, "ARENA_U_END": ARENA_U_END, "ARENA_L": ARENA_L,
              "ARENA_L_END": ARENA_L_END, "CHUNK": CHUNK, "BUDGET": BUDGET, "MSG": MSG, "MAIN": MAIN, "KILL": KILL,
              "FAILED": FAILED, "PROT": PROT, "PATH": PATH, "STATE_WORDS": len(FIELDS),
              "LAST_USER": LAST_USER, "SAMPLE_COUNT": SAMPLE_COUNT, "CAP_DEFAULT": CAP_DEFAULT,
@@ -256,6 +264,7 @@ slc_done:
 ss_library_finish:
     push {r1-r3, r5, r12, lr}
     mov r5, r4
+    bl finish_pins
     ldr r0, =BOOT_LEASE
     ldr r0, [r0]
     cmp r0, #0
@@ -356,8 +365,8 @@ fo_recover:
 fo_journal:
     mov r0, r5
     bl store_recover
-    cmp r0, #0
-    bne fo_fault
+    cmp r0, #1
+    bhi fo_fault
 fo_open:
     mov r0, r4
     mov r1, r5
@@ -841,6 +850,10 @@ ce_next_voice:
     add r7, r7, #1
     cmp r7, #24
     blo ce_voice
+    mov r0, r4
+    bl slot_clean
+    cmp r0, #0
+    beq ce_no
     mov r0, #1
     pop {r4-r8, pc}
 ce_no:
@@ -942,9 +955,6 @@ part_ready:
     cmp r0, #1
     cmpne r0, #2
     bne pr_yes
-    ldr r0, [r11, #TSTATE]
-    cmp r0, #0
-    bne pr_no
     ldr r0, [r4, #8]
     cmp r0, #0
     beq pr_no
@@ -958,6 +968,9 @@ part_ready:
     ldr r0, [r0, r4, lsl #2]
     cmp r0, #0
     beq pr_yes
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #0
+    bne pr_no
     mov r0, r4
     bl resident
     pop {r4, pc}
@@ -968,10 +981,11 @@ pr_no:
     mov r0, #0
     pop {r4, pc}
 
-; Refresh only parts that requested the sample whose transfer just completed.
+; Refresh only parts that requested the sample whose transfer just completed; first note its row as published.
 apply_ready_parts:
     push {r4-r6, lr}
     mov r5, r0
+    bl mark_clean
     mov r4, #0
 arp_part:
     mov r0, r4
@@ -1011,6 +1025,7 @@ ss_step:
     ldr r0, [r11, #MODE]
     cmp r0, #1
     bne st_ret
+    str r0, [r11, #INSTEP]
     ldr r0, [r11, #TSTATE]
     cmp r0, #0
     movne r0, #2
@@ -1087,6 +1102,8 @@ st_ret:
     movne r0, #2
     strne r0, [r11, #MODE]
 st_leave:
+    mov r1, #0
+    str r1, [r11, #INSTEP]
     pop {r3-r11, pc}
 
 ; r0 = an earlier reading of timer 3: ticks since then.
@@ -1482,6 +1499,102 @@ ef_fail:
     str r0, [r11, #MODE]
     mov r0, #1
     pop {r4, pc}
+.pool
+
+; ------------------------------------------------------------- rows the user changed stay in the DSP
+; A row the loader or the swap put into the DSP keeps the signature it had then. Import, sampling, resampling and a sample
+; edit (WRITE or not yet) change the row or give the slot another one, so its signature no longer matches and the swap
+; never evicts it until the next start. The file has no copy of such a row.
+
+; r0 logical slot: a signature of its metadata row and its name, never 0; 0 when the slot has no row.
+slot_sig:
+    push {r4-r6, lr}
+    mov r4, r0
+    bl physical
+    ldr r1, =SAMPLE_COUNT
+    cmp r0, r1
+    movhs r0, #0
+    pophs {r4-r6, pc}
+    ldr r1, =0x45C
+    mul r2, r0, r1
+    ldr r1, =META
+    add r1, r1, r2
+    ldr r2, =0x45C / 4
+    mov r6, #0
+sg_meta:
+    ldr r3, [r1], #4
+    eor r6, r3, r6, ror #27
+    add r6, r6, r3
+    subs r2, r2, #1
+    bne sg_meta
+    ldr r1, =NAMES
+    add r1, r1, r4, lsl #5
+    mov r2, #8
+sg_name:
+    ldr r3, [r1], #4
+    eor r6, r3, r6, ror #27
+    add r6, r6, r3
+    subs r2, r2, #1
+    bne sg_name
+    orr r0, r6, #1
+    pop {r4-r6, pc}
+
+; r0 logical slot: 1 when its row is still the one the loader or the swap put there.
+slot_clean:
+    push {r4, lr}
+    mov r4, r0
+    bl slot_sig
+    cmp r0, #0
+    popeq {r4, pc}
+    ldr r1, =SIG
+    ldr r1, [r1, r4, lsl #2]
+    cmp r0, r1
+    movne r0, #0
+    moveq r0, #1
+    pop {r4, pc}
+
+; r0 logical slot: its row as the swap just published it.
+mark_clean:
+    push {r4, lr}
+    mov r4, r0
+    bl slot_sig
+    ldr r1, =SIG
+    str r0, [r1, r4, lsl #2]
+    pop {r4, pc}
+
+; After the loader at start, with the swap on: every loaded user row as it came from the file.
+finish_pins:
+    push {r4, lr}
+    ldr r0, =ST
+    ldr r0, [r0, #MODE]
+    cmp r0, #1
+    popne {r4, pc}
+    mov r4, #500
+fp_slot:
+    mov r0, r4
+    bl resident
+    cmp r0, #0
+    movne r0, r4
+    blne slot_sig
+    ldr r1, =SIG
+    str r0, [r1, r4, lsl #2]
+    add r4, r4, #1
+    ldr r0, =LAST_USER
+    cmp r4, r0
+    bls fp_slot
+    pop {r4, pc}
+
+; Replaces the bl f_open of EXPORT ALL SAMPLE (mode create and write). While the swap is on or failed, the DSP holds only
+; part of the file: the export would cut the collection down to it. It returns FatFs' write protection instead, and the
+; firmware leaves with its own error before the file is touched.
+ss_export_open:
+    ldr r12, =ST
+    ldr r12, [r12, #MODE]
+    cmp r12, #1
+    cmpne r12, #2
+    bne F_OPEN
+    mov r0, #10
+    bx lr
 .pool
 
 .org CODE3
@@ -2061,7 +2174,8 @@ def source(screens):
     importer = sample_import.source(state=STATE, file=FIL, descriptor=DESC, normalizer=FIL + 0x240,
                                     prep=OFF["PREP"], bits=OFF["P_BITS"], file_bytes=OFF["P_FBYTES"])
     native = native_dsp_scope.driver_source(scope=NATIVE_SCOPE, fault=STATE + OFF["TSTATE"],
-                                           mode=STATE + OFF["MODE"], generation=STATE + OFF["GEN"])
+                                           mode=STATE + OFF["MODE"], generation=STATE + OFF["GEN"],
+                                           gate=STATE + OFF["INSTEP"])
     guards = capture_fault.source(STATE + OFF["TSTATE"]) + sample_export_fault.source(STATE + OFF["TSTATE"])
     body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer + sample_owner.source(FILE_OWNER) + PUBLISH + native + guards
     return halfword(equs(screens) + f".equ transfer, {TRANSPORT:#x}\n" + body)
@@ -2196,6 +2310,7 @@ CALLED_SHA = {
     0xC004E2F0: "675b2a102036631fc0d01634272bfb9fbf536b8f9ece00d30423b6d1a3a0fcd1",
     0xC0099D88: "9ce2ec5c3423766f300330cb1ae2e0b18713d17a29761e718a3ff3d7cf7b2556",
     0xC0081F50: "23bad452aa63f8f3f1e16b4e055bef0de6aee7a82db9ad13e29a45912796f11e",
+    0xC0039FA0: "68ef62c99f868a959b7e10e1e499c0e156dbf05af0596caa805038b250a141bd",
 }
 
 

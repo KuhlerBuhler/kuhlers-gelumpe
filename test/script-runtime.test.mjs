@@ -63,6 +63,7 @@ test("the Synth runtime uses its own startup and preserves the native instructio
   const patch = JSON.parse(buildRuntimePatch("synth"));
   assert.deepEqual(patch.builds, ["synth"]);
   assert.ok(patch.hooks.some(hook => hook.site === "0xC0028170"));
+  assert.ok(patch.hooks.some(hook => hook.site === "0xC0025E48"));
   assert.ok(!patch.hooks.some(hook => ["0xC0038D34", "0xC0038D68", "0xC00289D8"].includes(hook.site)));
   const registered = checkHooks([patch]);
   assert.equal(registered.ok, true, registered.reasons.join(" "));
@@ -175,13 +176,19 @@ test("fault-status: native script hooks in firmware leave control usable and exp
     "snake-aus-dem-menue-in-der-firmware", "snake-part-tasten-aendern-die-part-nicht", "app-offen-play-stop-erreichen-die-firmware", "app-offen-sieht-play-stop-auch", "app-offen-andere-tasten-bleiben-bei-der-app", "part-tasten-nach-exit-wieder-der-firmware", "snake-exit", "snake-faengt-bei-open-neu-an", "app-fehler-auf-dem-eigenen-bildschirm", "fehler-ohne-app-zeichnet-nichts", "fehler-seite-im-menue",
     "exit-oeffnet-die-falle-nicht-zu", "exit-schliesst-trotz-fallen-app", "take-zeigt-das-bild", "exit-beendet-take", "laden-allein-zeichnet-nie", "bitmap-und-text-mit-zahl-wie-im-browser",
     "seq-schreibt-wie-der-browser", "seq-tap-wie-der-browser", "seq-pads-zeigen-die-steps", "seq-spielt-was-geschrieben-ist", "seq-schreibt-waehrend-es-laeuft", "seq-ungespeichert",
+    "pad-halten-ohne-halten-waehlt-die-firmware", "pad-halten-firmware-bekommt-kein-pad", "pad-halten-0-gibt-die-pads-zurueck", "pad-halten-endet-mit-der-app",
     "hw-lesen-ruhezustand", "hw-lesen-play", "hw-lesen-regler", "hw-uhr", "hw-handeln-tempo", "hw-handeln-pattern", "hw-handeln-part", "hw-handeln-mute", "hw-handeln-play-stop", "ereignis-play-schritte", "ereignis-stop", "ereignis-tempo-pattern-part-mute", "ereignis-save-haken-eingehaengt", "hw-backlight", "hw-led-halten-flag", "hw-led-halten-sperrt-firmware-leds", "hw-led-halten-loesen", "speicher-ohne-save-keine-datei", "speicher-schreibt-datei", "speicher-pause-zwischen-schreibvorgaengen", "speicher-neustart-zaehler", "speicher-defekte-datei-faellt-zurueck", "menu-skripte-gezaehlt", "menu-skriptseiten", "menu-eingaben-erreichen-skripte-nicht", "menu-skripte-laufen-wieder", "menu-skript-aus", "menu-skript-wieder-an", "menu-fehlerskript-bleibt-aus", "menu-export-seite", "menu-export-gleich-dem-browser-bauer", "menu-export-wird-wieder-geladen", "menu-plugin-bleibt-aus-nach-neustart", "menu-plugin-an-mit-write-gespeichert", "menu-plugin-aus-liste-behaelt-die-anderen", "menu-plugin-aus-bei-voller-liste", "plugin-verwalten-oeffnet-und-exit", "plugin-entfernen", "letztes-plugin-entfernen",
     "menu-einstellungen-v2-wird-v3", "menu-40-plugins-aus-nach-neustart", "menu-einstellungen-v1-gelesen",
     "fremd-wartet", "fremd-fragt", "fremd-erlaubt", "fremd-bekommt-ready-nach-ja", "fremd-lauft-nach-ja-ereignisse", "fremd-fragt-nicht-wieder", "fremd-liste-voll-schiebt",
-    "liste-aus-den-dateien", "liste-versteckte-dateien-fehlen", "menu-liste-ohne-about", "menu-blechy-keine-plugin-seite", "liste-vor-dem-laden-nichts", "beschreibung-seite", "beschreibung-scrollt", "beschreibung-enter-tut-nichts", "dial-oben-laedt-und-startet", "laden-speicherbild-bleibt", "stand-aus-und-an", "fremd-wartet-nach-dem-laden", "fremd-erlaubt-in-der-liste", "abgelehnt", "beschreibung-verlassen-zeichnet-neu", "liste-geladene-zuerst-nichts-doppelt", "laden-verlassen", "geladenes-laeuft", "liste-plugin-ohne-datei", "entferntes-plugin-laedt-wieder", "liste-ohne-dateien", "laden-bei-ausgeschalteten-skripten",
+    "liste-aus-den-dateien", "liste-versteckte-dateien-fehlen", "menu-liste-ohne-about", "menu-blechy-keine-plugin-seite", "liste-vor-dem-laden-nichts", "beschreibung-seite", "beschreibung-scrollt", "beschreibung-enter-tut-nichts", "dial-oben-laedt-und-startet", "laden-speicherbild-bleibt", "stand-aus-und-an", "fremd-wartet-nach-dem-laden", "fremd-erlaubt-in-der-liste", "abgelehnt", "beschreibung-verlassen-zeichnet-neu", "liste-geladene-zuerst-nichts-doppelt", "laden-verlassen", "geladenes-laeuft", "liste-plugin-ohne-datei", "plugin-aus-behaelt-datei", "entferntes-plugin-laedt-wieder", "liste-ohne-dateien", "laden-bei-ausgeschalteten-skripten",
+    "liste-mehr-als-16-dateien", "liste-datei-64-laedt", "liste-20-dateien-alle",
     "menu-add-seiten-angelegt", "menu-add-seitentexte", "menu-add-werte-und-grenzen", "menu-add-ereignisse-erreichen-das-skript", "menu-add-keine-doppelten-seiten", "menu-add-zwoelf-seiten", "menu-add-bereich-verkehrt"]) {
     assert.ok(report.checks.some(check => check.id === id && check.ok), id);
   }
+  // REMOVE deletes the file with the firmware's f_unlink; the blue Electribe 2's image has none, there the file stays and the menu says so
+  const removeIds = model === 0x23 ? ["plugin-entfernen-blau-datei-bleibt"]
+    : ["plugin-entfernen-loescht-datei", "plugin-entfernen-nur-datei", "plugin-entfernen-ordner-geaendert"];
+  for (const id of removeIds) assert.ok(report.checks.some(check => check.id === id && check.ok), id);
   for (const id of ["led-ready-nullwert", "led-tap-255", "led-tap-0", "led-88-pakete", "led-rahmen-fortgesetzt"]) {
     assert.ok(report.checks.some(check => check.id === id && check.ok), id);
   }

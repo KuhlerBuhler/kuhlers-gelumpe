@@ -12,7 +12,7 @@
  */
 export const CHAINS = {
   "start": [
-    { id: "after-flash-mark", sites: [0xC00289D8] },
+    { id: "after-flash-mark", sites: [0xC00289D8, 0xC0025E48] },   // the second is the synth build's
     { id: "after-rescue-paths", sites: [0xC002ADAC] },
     { id: "card-mount", sites: [0xC002AE60] },
     { id: "doom-select", sites: [0xC002AE64] },
@@ -47,6 +47,7 @@ export const CHAINS = {
     { id: "part-update", sites: [0xC0099FFC] },
     { id: "part-bind", sites: [0xC0099D88] },
     { id: "osc-choice", sites: [0xC0040DB4] },
+    { id: "export-all-open", sites: [0xC0039FB0] },
   ],
   "sample-swap-native-dsp": [
     { id: "resource-acquire", sites: [

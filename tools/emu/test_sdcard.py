@@ -119,6 +119,39 @@ class CardTest(unittest.TestCase):
         self.ctl.read(ST0, 4)
         self.assertFalse(self.ctl.irq(), "block taken")
 
+    def test_a_read_chunk_raises_the_interrupt_once(self):
+        """Raised again while the firmware still takes a chunk, the interrupt can come after the stop command, and the
+        handler's MMCST0 read takes that command's answer (assertion AM180xMMSDCardController.cpp line 228)."""
+        self.d.init()
+        self.ctl.write(NBLK, 1, 4)
+        self.ctl.write(IM, 0x600, 4)
+        self.d.cmd(18, 0, extra=0x12000)
+        for chunk in range(8):
+            self.assertTrue(self.ctl.irq(), f"chunk {chunk} ready")
+            self.ctl.raised()
+            self.assertFalse(self.ctl.irq(), f"chunk {chunk} has had its interrupt")
+            for _ in range(16):
+                self.ctl.read(DRR, 4)
+        self.assertTrue(self.ctl.read(ST0, 4) & sdcard.ST0_DATDNE)
+        self.ctl.write(ARG, 0, 4)
+        self.ctl.write(CMD, 12 | (1 << 9) | (1 << 8), 4)
+        self.assertFalse(self.ctl.irq(), "nothing left to raise it after the stop")
+        self.assertTrue(self.ctl.read(ST0, 4) & sdcard.ST0_RSPDNE, "the stop's answer is still there")
+
+    def test_room_for_a_write_chunk_raises_the_interrupt_once(self):
+        self.d.init()
+        self.ctl.write(NBLK, 1, 4)
+        self.ctl.write(IM, 0x600, 4)
+        self.d.cmd(25, 100, extra=0x12000)
+        for chunk in range(8):
+            self.assertTrue(self.ctl.irq(), f"room for chunk {chunk}")
+            self.ctl.raised()
+            self.assertFalse(self.ctl.irq())
+            for _ in range(16):
+                self.ctl.write(DXR, chunk, 4)
+        self.assertFalse(self.ctl.irq(), "block written, no more room asked for")
+        self.assertEqual(self.card.sectors_written, 1)
+
     def test_a_write_reaches_the_image_one_block_at_a_time(self):
         self.d.init()
         self.ctl.write(BLEN, 512, 4)

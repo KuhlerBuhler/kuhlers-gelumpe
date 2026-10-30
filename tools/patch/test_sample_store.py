@@ -80,6 +80,7 @@ class Machine:
             self.files[JOURNAL] = bytearray(journal)
         self.handles, self.calls, self.writes = {}, [], []
         self.read_error = False
+        self.open_error = None
         self.short_write = False
         self.close_error_at = None
         self.close_error_status = 1
@@ -109,7 +110,9 @@ class Machine:
                 self.files[path] = bytearray()
             elif path not in self.files and r[2] & 16:
                 self.files[path] = bytearray()
-            if path not in self.files:
+            if self.open_error is not None:
+                result = self.open_error
+            elif path not in self.files:
                 result = 4
             else:
                 self.handles[r[0]] = [path, 0, r[2]]
@@ -239,6 +242,17 @@ class Recovery(unittest.TestCase):
             setattr(machine, problem, True)
             self.assertNotEqual(machine.recover(), 0)
             self.assertIn(JOURNAL, machine.files)
+
+    def test_a_card_that_does_not_answer_is_a_failure_not_a_refused_journal(self):
+        # FatFs disk error and not ready: the loader must stop with the card error at once, not open the file again
+        # and wait for the card a second time (loadbar_cases card_error_keeps_the_overlay).
+        old = self.original()
+        for status in (1, 3):
+            with self.subTest(status=status):
+                machine = Machine(old)
+                machine.open_error = status
+                self.assertEqual(machine.recover(), 3)
+                self.assertEqual(machine.writes, [])
 
 
 class Store(unittest.TestCase):
