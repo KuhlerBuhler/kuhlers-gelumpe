@@ -479,6 +479,13 @@ oder ein neues Label startet ihn neu, ein roter Check beendet ihn ohne Merge. Ge
 Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
 Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
 
+**Gemergte Branches verschwinden** (Workflow "Delete merged branch", `.github/workflows/branch-autodelete.yml`): nach
+dem Merge eines PRs aus diesem Repo löscht der Workflow dessen Branch. Nie gelöscht werden `main`, `develop`,
+`release/*` und ein Branch, auf den noch ein offener PR zielt (etwa `feature/sample-swap`, solange PRs darauf offen
+sind); über die API gelöscht würde GitHub diese PRs schließen statt umzuhängen. Ein ohne Merge geschlossener PR behält
+seinen Branch. Der Auslöser nimmt die Datei vom Ziel-Branch des PRs: für PRs nach `main` gilt er erst ab dem Release,
+das ihn dorthin bringt.
+
 **Firmware-PRs nacheinander.** Mehrere offene PRs, die dieselben Patches ändern (`data/patches/`,
 `tools/patch/`, `tools/emu/*_cases.py`), kollidieren bei jedem Merge miteinander und laufen dann kalt neu. Die
 Runtime-Patches löst der Workflow oben selbst, alles andere nicht. Deshalb: App-Themen dürfen parallel laufen,
