@@ -1463,6 +1463,7 @@ export default {
   "patcher.done.title": "Que disfrutes con BLECH",
   "patcher.done.backup": "Haz una copia de la tarjeta SD, lo mejor copiándola entera al ordenador.",
   "patcher.done.copy": "En la tarjeta copia la carpeta {from} a {to}. Copiar, no renombrar: tras la actualización BLECHTRIBE lee sus archivos de {reads}, tus samples y patterns solo los encuentra allí. La carpeta antigua se queda como está.",
+  "patcher.done.copy.asks": "No tienes que copiar nada: en el primer arranque tras la actualización, BLECHTRIBE pregunta si quieres importar tu carpeta {from} a {to}. MENU copia, EXIT arranca sin copiar. La carpeta antigua queda como está.",
   "patcher.done.doom": "Para Doom (SHIFT + TAP al encender): descarga {files} y ponlos en la tarjeta en {folder}. {licences}.",
   "patcher.done.doom.and": " y ",
   "patcher.done.doom.licences": "Fuentes y licencias",

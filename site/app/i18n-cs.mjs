@@ -1464,6 +1464,7 @@ export default {
   "patcher.done.title": "Příjemné BLECHOVÁNÍ",
   "patcher.done.backup": "Zazálohuj SD kartu, nejlépe ji celou zkopíruj do počítače.",
   "patcher.done.copy": "Zkopíruj na kartě složku {from} do {to}. Kopíruj, nepřejmenovávej: po aktualizaci čte BLECHTRIBE své soubory z {reads}, tvoje samply a patterny najde jen tam. Stará složka zůstane, jak je.",
+  "patcher.done.copy.asks": "Nic kopírovat nemusíš: při prvním startu po aktualizaci se BLECHTRIBE zeptá, jestli má převzít tvoji složku {from} do {to}. MENU zkopíruje, EXIT nastartuje bez. Stará složka zůstane, jak je.",
   "patcher.done.doom": "Pro Doom (SHIFT + TAP při zapnutí): stáhni {files} a dej na kartu do {folder}. {licences}.",
   "patcher.done.doom.and": " a ",
   "patcher.done.doom.licences": "Zdroje a licence",

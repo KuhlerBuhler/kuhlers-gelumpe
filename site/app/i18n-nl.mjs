@@ -1464,6 +1464,7 @@ export default {
   "patcher.done.title": "Veel plezier met BLECHEN",
   "patcher.done.backup": "Maak een back-up van de SD-kaart, het best door hem helemaal naar je computer te kopiëren.",
   "patcher.done.copy": "Kopieer op de kaart de map {from} naar {to}. Kopiëren, niet hernoemen: na de update leest BLECHTRIBE zijn bestanden uit {reads}, je samples en patterns vindt hij alleen daar. De oude map blijft zoals hij is.",
+  "patcher.done.copy.asks": "Je hoeft niets te kopiëren: bij de eerste start na de update vraagt BLECHTRIBE of je map {from} naar {to} overgenomen moet worden. MENU kopieert, EXIT start zonder. De oude map blijft zoals hij is.",
   "patcher.done.doom": "Voor Doom (SHIFT + TAP bij het aanzetten): download {files} en zet ze op de kaart in {folder}. {licences}.",
   "patcher.done.doom.and": " en ",
   "patcher.done.doom.licences": "Bronnen en licenties",
