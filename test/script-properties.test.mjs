@@ -27,7 +27,6 @@ const SAME = [
   ["korg.selectedPattern = korg.selectedPattern + 1;", "korg.pattern(korg.read.pattern() + 1);"],
   ["korg.selectedPart = 3;", "korg.part(3);"],
   ["let t = korg.selectedPart;", "let t = korg.read.part();"],
-  ["let t = korg.millis;", "let t = korg.millis();"],
   ["let t = korg.parts[2].step;", "let t = korg.read.step(2);"],
   ["let t = korg.parts[2].muted;", "let t = korg.read.mute(2);"],
   ["korg.parts[5].muted = 1;", "korg.mute(5, 1);"],
@@ -63,7 +62,7 @@ test("what a property cannot do is said in words", () => {
   assert.match(error("let t = korg.parts[1].volume;"), /gibt es nicht\. Es gibt: \.step, \.muted, \.sample/);
   assert.match(error("let t = korg.knobs.CUTOFF;"), /keinen Regler.*LEVEL/);
   assert.match(error("korg.parts[korg.read.part()].muted += 1;"), /Index keinen Funktionsaufruf/);
-  assert.match(error("korg.millis = 3;"), /lässt sich nur lesen/);
+  assert.match(error("let t = korg.millis;"), /„korg\.millis“ ist eine Funktion, schreib „korg\.millis\(\)“/);
   assert.match(error("korg.foo = 3;"), /lässt sich nicht setzen/);
 });
 

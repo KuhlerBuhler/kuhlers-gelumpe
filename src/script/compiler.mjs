@@ -337,6 +337,8 @@ class Compiler {
       case "Member": {
         const prop = this.propertyOf(n);
         if (prop) return this.readProperty(prop, n, fn);
+        const call = pathOf(n)?.join(".");
+        if (call && API_BY_NAME.has(call)) throw err(n, text("compile.member.isCall", { name: call }));
         throw err(n, this.panelNameError(n) ?? (n.name === "length" ? text("compile.length") : text("compile.member.unknown", { name: n.name })));
       }
       case "Call": return this.call(n, fn);
