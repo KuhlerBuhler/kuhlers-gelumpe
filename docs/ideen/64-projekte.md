@@ -1,15 +1,16 @@
 # 64. Projekte: Patterns und Samples zusammen laden
 
-Stand: 25. Oktober 2026. **Recherchiert und teilweise im Emulator geprüft, nicht gebaut.**
-Am Gerät ist nichts geprüft. Es gibt noch keinen Projekt-Import und keinen neuen Firmware-Patch.
-Die Umsetzung beginnt erst nach Zustimmung.
+Stand: 29. Oktober 2026. **Aufbau festgelegt, bisherige Ladewege teilweise im Emulator geprüft,
+gemeinsame Projektdatei nicht gebaut.** Am Gerät ist der Projektwechsel nicht geprüft.
+Es gibt noch keinen gemeinsamen Projekt-Import und keinen dafür eingebauten Firmware-Patch.
 
 ## Gewünscht
 
 Mehrere Projekte liegen nebeneinander auf der Karte. Ein Projekt besteht aus einem kompletten
-Pattern-Satz und dem dazu passenden Sample-Satz. Der Wechsel lädt beides ohne Neustart.
-Die Dateien bleiben in ihrem Ordner; sie werden nicht erst in den bisherigen Sample-Ordner kopiert.
-Das Laden in den Arbeits- und Sample-Speicher ist davon unabhängig und weiterhin nötig.
+Pattern-Satz und dem dazu passenden Sample-Satz in einer einzigen Datei. Der Wechsel aktiviert
+beides ohne Neustart. Der Lader liest die benötigten Bereiche direkt aus dieser Datei, ohne sie
+vorher in zwei Dateien oder den bisherigen Sample-Ordner zu entpacken. Das Laden in den
+Arbeits- und Sample-Speicher ist davon unabhängig und weiterhin nötig.
 
 **Festgelegt:** Ohne Karte startet das Gerät normal ohne Projektimport. Die vorhandenen Patterns
 liegen im Flash und werden von dort geladen. Beim Projektladen werden die Projekt-Patterns mit
@@ -20,18 +21,93 @@ anderen neuen Flash-Schreibwege.
 
 ```text
 KORG/blechtribe/Projects/
-  Live A/
-    e2sPattern.all
-    e2sSample.all
-  Live B/
-    e2sPattern.all
-    e2sSample.all
+  Live A.<Projektendung>
+  Live B.<Projektendung>
 ```
 
-Am Gerät ersetzt `IMPORT PROJECT` die bisherigen Import-Einstiege für Samples und Patterns.
-Dazu gehören `IMPORT SAMPLE`, `IMPORT PATTERN` und `IMPORT ALL PATTERN` unter `Menü -> DATA UTILITY`.
-Die Auswahl zeigt Projektordner statt einzelner Dateien. Ein Projekt ist erst aktiv, wenn beide
-Sätze vollständig geladen sind. Das ist der gewünschte Ablauf, noch keine vorhandene Bedienung.
+Die endgültige Dateiendung ist noch offen; `<Projektendung>` ist hier nur ein Platzhalter.
+Am Gerät wählt `IMPORT PROJECT` eine gemeinsame Projektdatei. Einzeln importierte Samples
+bleiben möglich und werden im aktiven Projekt dauerhaft gespeichert. Die bisherigen Gesamtimporte
+dürfen Patterns und Sample-Zuordnung nicht unabhängig voneinander ersetzen. Ihre genaue
+Menüeinbindung unter `Menü -> DATA UTILITY` bleibt Teil der Umsetzung.
+Ein Projekt ist erst aktiv, wenn Pattern-Bank und Sample-Index geprüft und die Samples des
+gewählten Startpatterns im DSP bereit sind. Die ganze Sample-Bibliothek wird dabei nicht geladen.
+Das ist der gewünschte Ablauf, noch keine vorhandene Bedienung.
+
+## Festgelegt am 29.10.: Eine Datei mit drei Bereichen
+
+**Festgelegt, noch nicht umgesetzt:** Die Projektdatei ist ein unkomprimierter Container.
+Sie braucht kein Archivformat. Zwei unveränderte Ausgangsdateien bilden zunächst die Nutzdaten;
+ein eigener kleiner Kopf beschreibt ihre Lage innerhalb der gemeinsamen Datei.
+
+```text
+Projektdatei
+  Dateikopf: Kennung, Version, Bereichspositionen und gültige Längen
+  Patternbereich: Inhalt der bisherigen vollständigen Pattern-Datei
+  Samplebereich: Kopf und Slot-Index der .all, danach Sampleblöcke
+                und später angehängte neue Sampleblöcke
+```
+
+Der Patternbereich liegt vor dem Samplebereich. Neue Sampleblöcke können dadurch am Dateiende
+hinzukommen, ohne die Pattern-Bank oder vorhandene Samples zu verschieben. Bestehende Pattern-
+und Sample-Datensätze bleiben erhalten und werden gezielt bearbeitet, nicht aus bekannten Feldern
+neu aufgebaut. Die Globals des Patternbereichs bleiben enthalten, werden aber nicht automatisch
+als Geräteeinstellungen übernommen.
+
+**Hergeleitet:** Die bisherigen Dateizugriffe brauchen einen begrenzten Blick auf den jeweiligen
+Bereich. Eine Position innerhalb der bisherigen Datei wird zur Bereichsposition im Container
+addiert. Jeder Zugriff muss gegen die gültige Bereichslänge und die tatsächliche Dateigröße
+geprüft werden, einschließlich Überlauf und Überschneidung. Relative Sample-Offsets bleiben auf
+den Beginn des Samplebereichs bezogen. Ein anderer Dateiname allein passt die nativen Lader nicht
+an; ihre Zugriffe und Längenprüfungen müssen diesen Bezug durchgängig verwenden.
+
+### Laden und Vorausladen
+
+Beim Start werden der Containerkopf, der Sample-Index und die für die Pattern-Auswahl nötigen
+Pattern-Daten gelesen. Beim Projektwechsel wird die Pattern-Bank geprüft und wie oben beschrieben
+übernommen. Für den DSP lädt der Swap zunächst nur die Samples des tatsächlich gewählten
+Startpatterns. Dieses Pattern ist dynamisch, nicht fest Pattern 1.
+Samples der Nachbarpatterns und des Kettenziels werden vorausgeladen, bevorzugt in den ARM-Cache.
+Weitere Samples kommen nach Bedarf aus dem Samplebereich derselben Projektdatei.
+
+Ein Patternwechsel wartet auf seine vollständigen benötigten Samples. Sind sie noch nicht bereit,
+läuft das bisherige Pattern noch einmal. Die Projektdatei bekommt keine künstliche Grenze durch
+die etwa 25 MiB des DSP. Grenzen von Dateisystem, Slot-Anzahl und darstellbaren Offsets bleiben
+zu prüfen; unbegrenzt große Einzeldateien sind damit nicht zugesagt.
+
+### Einzelne Änderungen dauerhaft speichern
+
+Import, Sample-Bearbeitung, Löschen, Aufnahme und Resampling schreiben durch denselben
+abgesicherten Speicherweg in den Samplebereich des aktiven Projekts.
+Änderungen in SAMPLE EDIT werden erst mit WRITE gesichert; Import, bestätigtes Löschen sowie
+bestätigt abgeschlossene Aufnahme und Resampling speichern direkt. Abspielen, Auswahl,
+Patternwechsel und Swap verändern die gespeicherten Samples nicht. Sample-WRITE ohne Änderung
+hängt keinen unveränderten Block an. Neue oder ersetzte Sample-Inhalte werden hinten angehängt.
+Erst nach geprüftem Schreiben dürfen Slot-Index und gültige
+Längen auf den neuen Stand wechseln. Löschen ändert den betroffenen Indexeintrag; die bisherigen
+Blöcke müssen dafür nicht verschoben werden. Unveränderte Samples werden nicht neu geschrieben.
+Ein Gesamtexport ist danach kein erforderlicher Speicherschritt mehr. `EXPORT ALL SAMPLE` entfällt
+erst, wenn alle genannten Änderungswege dauerhaft speichern.
+
+Vor Änderungen am Index oder an den gültigen Längen wird das vereinbarte Wiederherstellungsjournal
+gesichert. Es gehört eindeutig zum Projekt und muss beim Öffnen vor der Nutzung ausgewertet werden.
+Die Projektdatei ist die einzige dauerhafte Inhaltsdatei; während eines Schreibvorgangs oder nach
+einem Abbruch kann zusätzlich eine kleine Journaldatei bestehen. Nach nachgewiesenem Abschluss
+oder vollständiger Wiederherstellung kann sie entfernt werden. Es gibt keine automatische
+Verdichtung und kein vollständiges Neuschreiben bei jedem Speichern.
+Nicht mehr referenzierte Sampleblöcke belegen deshalb weiterhin Kartenplatz. Eine spätere
+gesonderte Verdichtung wäre ein eigener Speichervorgang.
+
+Das Journal schützt die Veröffentlichung einer Änderung auf der Karte. Die vorübergehenden
+RAM-Sicherungskopien weiter unten schützen einen fehlgeschlagenen Projektwechsel. Beides ist
+unabhängig von einem möglichen Undo einzelner Bearbeitungen, für das die vorherigen Feldwerte
+genügen können. Die Zuordnung des normalen Pattern-WRITE zur Projektdatei ist noch festzulegen;
+sein bisheriges Verhalten wird durch diesen Dateiaufbau nicht verändert.
+
+**Offen:** Die genauen Bytefelder und Feldbreiten des Containerkopfs, Erkennung beschädigter
+oder veralteter Versionen, Schutz und Reihenfolge der Index- und Längenänderungen sowie die
+Prüfung auf Stromausfall und Kartenfehler. Das Journal muss nach einem Abbruch einen eindeutigen
+gültigen Stand herstellen. Diese Eigenschaften sind noch weder implementiert noch gemessen.
 
 ## Ergebnis
 
@@ -40,7 +116,8 @@ Sätze vollständig geladen sind. Das ist der gewünschte Ablauf, noch keine vor
   zum vorherigen Satz gehören, bleiben nicht aktiv. Ein Neustart ist dafür nicht erforderlich.
 - **Offline im Emulator gemessen:** Der originale Dateizugriff liest beide Dateinamen direkt aus
   Projekt-Unterordnern, auch aus `B live 02` mit Leerzeichen. Während der Laufzeitversuche bleibt
-  das vollständige Kartenabbild unverändert. Es entstehen keine Dateikopien.
+  das vollständige Kartenabbild unverändert. Es entstehen keine Dateikopien. Dieser Versuch
+  benutzt noch zwei getrennte Dateien und prüft den gemeinsamen Container nicht.
 - **Aus dem ARM-Code hergeleitet:** Der vorhandene Gesamtimport für Patterns schreibt zusätzlich
   Globals und die ganze Pattern-Bank in den Flash. Er ist deshalb kein unverändert nutzbarer
   Projektlader: Gewünscht sind nur die geänderten Patterns, keine Übernahme von Globals und kein
@@ -62,11 +139,12 @@ deshalb einen ausdrücklich geprüften Rückweg.
 | Sample-Satz beim Start | `SD:KORG/electribe sampler/Sample/e2sSample.all`, bei Hacktribe unter `KORG/hacktribe/` |
 | Sample-Satz mit dem vorhandenen BLECH-Ordnerpatch | `SD:KORG/blechtribe/Sample/e2sSample.all` |
 | Pattern-Gesamtexport | `electribe_sampler_allpattern.e2sallpat` im jeweiligen Geräteordner |
-| Vorgeschlagene Projektdatei | `e2sPattern.all`, gleicher Inhalt wie eine `.e2sallpat`, neuer Name für BLECH |
+| Name im bisherigen Pfadversuch | `e2sPattern.all`, gleicher Inhalt wie eine `.e2sallpat`, kein nativer Dateiname |
 
-`e2sPattern.all` ist keine gefundene Firmware-Zeichenkette. Der native Pattern-Dateibrowser filtert
-nach `.e2sallpat`. Ein Projektlader muss die vereinbarten Dateinamen selbst auswählen und den Inhalt
-prüfen; bloßes Umbenennen macht die Datei nicht im bisherigen Importbrowser auswählbar.
+`e2sPattern.all` ist keine gefundene Firmware-Zeichenkette und kein künftig separat erforderlicher
+Projektbestandteil. Der native Pattern-Dateibrowser filtert nach `.e2sallpat`. Ein Projektlader
+muss die neue Projektendung selbst auswählen und den Container prüfen; bloßes Umbenennen macht
+die Datei nicht im bisherigen Importbrowser auswählbar.
 
 Eine vollständige Sampler-Pattern-Datei hat einen Kopf von `0x100` Byte, danach `0x10000` Byte für
 Globals und ab `0x10100` die 250 Pattern-Blöcke mit je `0x4000` Byte. Gesamtlänge: `0x3F8100` Byte.
@@ -164,7 +242,7 @@ verwendet bei ausgeschalteter Kopieroption den vorhandenen RAM-Slot und speicher
 Aufrufkontext, Rückgabe, bestehende WRITE-Hooks und tatsächliche Lösch-/Schreibgrenzen müssen
 noch gemessen werden.
 
-**Noch nicht ausgeführt:** Ein eigener Ladevorgang, der die vollständige Datei prüft, die
+**Noch nicht ausgeführt:** Ein eigener Ladevorgang, der den Container und seinen Patternbereich prüft, die
 Pattern-Bank im RAM ersetzt, nur gegenüber dem Flash geänderte Patterns nativ speichert und das
 aktuelle Pattern neu lädt. Die Vergleichsprüfung gehört zum Pattern-Speicherweg. Der native
 Gesamtimport darf nicht durch global unterdrückte Flash-Aufrufe passend gemacht werden.
@@ -177,6 +255,8 @@ Pattern-Dateien. Keine Firmwaredatei, kein Werkspattern und keine Aufnahme sind 
 Die Ergebnisse und die beobachteten Dateiaufrufe stehen in
 [64-projekte-emulator.json](64-projekte-emulator.json).
 Auf Korgs rotem Sampler 2.02 und Hacktribe bestehen jeweils zwölf Prüfungen.
+Die Versuche stammen aus dem Entwurf mit zwei Dateien. Sie sind kein Nachweis für das Lesen
+aus einem gemeinsamen Container oder dessen sicheres Speichern.
 
 ```bash
 tools/emu/.venv/bin/python tools/emu/project_probe.py \
@@ -213,26 +293,32 @@ Prüfungen. [Grenzen des Emulators](../emulator.md).
 1. **Projektumfang:** Patterns und Samples gehören zusammen. Globale Einstellungen aus dem
    Pattern-Dateiformat werden nicht automatisch übernommen. Speicherfunktionen wie WRITE und
    Export brauchen eine eigene Betrachtung; aus einem funktionierenden Import folgt keine
-   Speicherung zurück in den Projektordner.
-2. **Fehler und Rückweg:** Beide Dateien und alle erforderlichen Grenzen vor dem ersten
+   Speicherung zurück in die Projektdatei.
+2. **Fehler und Rückweg:** Containerkopf, beide Bereiche, ein vorhandenes Journal und alle
+   erforderlichen Grenzen vor dem ersten
    zustandsändernden Schritt prüfen. Das reicht bei einem späteren Kartenlesefehler allein nicht.
    Ein Abbruch nach begonnenem Sample-Laden braucht einen nachgewiesenen Wiederherstellungsweg;
    der alte Sample-Satz bleibt im nativen Import nicht erhalten.
 3. **Ausführung:** Laden bei gestopptem Sequencer, serialisiert gegen andere Datei- und
    Sample-Aktionen, im passenden Firmware-Befehlskontext. Ein gemeinsamer Erfolg wird erst nach
-   beiden Ladevorgängen gemeldet. Ungespeicherte Änderungen und wiederholtes MENU dürfen keinen
+   Übernahme der Pattern-Bank und Bereitstellung des aktiven Sample-Satzes gemeldet.
+   Ungespeicherte Änderungen und wiederholtes MENU dürfen keinen
    zweiten Wechsel auslösen oder unbemerkt verloren gehen.
 4. **Aktives Projekt:** Ohne Karte ist der normale Start ohne Projektimport festgelegt.
    Ob bei vorhandener Karte das zuletzt gewählte Projekt wieder geladen wird und wo dessen Name
-   liegt, ist noch festzulegen. Ein Flash-Schreiben ist dafür nicht vorgesehen. Fehlender
-   Projektordner beim Start braucht einen klaren Rückfall.
+   liegt, ist noch festzulegen. Ein Flash-Schreiben ist dafür nicht vorgesehen. Eine fehlende
+   Projektdatei beim Start braucht einen klaren Rückfall.
 5. **Builds und Gerät:** Die gemeinsame Funktion erst für Sampler und Hacktribe im Emulator
    prüfen. Die blaue Firmware hat keinen entsprechenden nativen Sample-Import; aus den
    vorhandenen Pattern-Adressübersetzungen folgt keine Projektunterstützung mit Samples.
    Am Gerät erst nach separater Zustimmung und mit eigenem Kartenbackup prüfen.
 
 Die nächste sinnvolle Arbeit nach Zustimmung ist ein konkreter Umsetzungsplan für den
-gemeinsamen Import, zuerst mit einem belegten Fehler- und Wiederherstellungsablauf. Bis dahin
+Container und den gemeinsamen Import, zuerst mit einem belegten Fehler- und Wiederherstellungsablauf.
+Dazu gehören künstlich erzeugte Testdaten für beschädigte Bereichsgrenzen, abgebrochene
+Sample-Schreibvorgänge, Journal-Wiederherstellung und selektives Lesen ohne Vollimport.
+Ein späterer Emulatorfall muss das Lesen und Speichern innerhalb der Containerbereiche prüfen;
+die bisherigen Pfadversuche decken das nicht ab. Bis dahin
 bleiben Firmware-Patches, Menü und Gerätezugriffe unverändert.
 
 ## Festgelegt am 29.10.: RAM während des Projektladens ausleihen
