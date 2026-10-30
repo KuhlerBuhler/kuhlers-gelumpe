@@ -52,9 +52,10 @@ solange das Startbild noch steht (Abschnitt Blau).
 - **Bis zum Scharfschalten:** die Haken der drei Lichtfunktionen lassen einen Kanal, den die Farbe dunkel hält, auch bei den
   Einschaltaufrufen der Firmware (143 und 304 ms) aus.
 - **Ohne Einstellungsdatei:** scharf geschaltet geht das Licht zurück auf Weiß, wie es das Menü dann zeigt.
-- **Grenze:** vor dem Scharfschalten gibt es nur an und aus je Kanal. Eine Farbe mit Zwischenstufen (Orange, gedimmtes Weiß)
-  leuchtet bis etwa 350 ms in den Kanälen, die sie überhaupt hat (Orange als Gelb, gedimmtes Weiß als volles Weiß), danach
-  übernimmt die Software-PWM des Menüs.
+- **Grenze:** vor dem Scharfschalten gibt es nur an und aus je Kanal, danach übernimmt die Software-PWM des Menüs (bis etwa 350 ms).
+- **Regel für die Pins** (`boot_light_save`, Stand 2026-10-30): ein Kanal ist an, wenn sein Pegel mindestens halb so groß ist wie der
+  des stärksten (`2 * Pegel >= Maximum`), der stärkste ist immer an, eine Farbe 0 0 0 ist das Weiß der Firmware. Vorher waren alle
+  Kanäle mit Pegel über 0 an, eine Farbe mit drei von null verschiedenen Pegeln startete also weiß (siehe Abschnitt Gerätebericht).
 
 ## Fälle (`tools/emu/menu_cases.py`, `boot_light_cases`, Teil von `early_look_cases`)
 
@@ -89,6 +90,20 @@ steht statt des zweiten Falls `colour_while_the_start_image` (Abschnitt Blau), K
 - **Gemessen** (`boot_light_cases`): Rot ab 64,78 ms, Startbild am Display von 60 bis 396 ms, Rot bleibt bis zum scharfen Menü,
   EXIT bleibt Weiß, ohne Einstellungsdatei Weiß ab 306,71 ms, WRITE von Grün macht das Byte `0x90`.
 - **Hergeleitet:** Auf der blauen leuchtet das Startbild rund 5 ms Emulatorzeit weiß (59 bis 64,8 ms), dann in der Farbe.
+
+## Gerätebericht 2026-10-30: Start blieb weiß
+
+Rote Electribe, Hacktribe, Entwicklungsstand 1.3.8: HUE 15, SAT 13, BRIGHT 14, INTENSITY 15, DISPLAY INVERT an; das Licht blieb beim
+Startbild weiß, auch nach WRITE auf Global und im BLECH-Menü und nach dem Ausschalten.
+
+- **Gemessen** (Emulator, Hacktribe 2.02 mit BLECH): die Seiten HUE 15, SAT 13, BRIGHT 14 speichern Rot, Grün, Blau = 14, 13, 2
+  (über die Seiten gedreht). Alle drei sind über 0, `M_BL_ON` ist `0x38`.
+- **Gemessen:** mit genau diesen Werten (und INVERT an) in der Einstellungsdatei: Global-Byte 250 ist `0xB8` (alle drei Pins), nach
+  dem Ausschalten steht `0xB8` im Flash, der Haken läuft (59,44 ms Startbild mit Pins `0x38`). Also kein Fehler im Schreibweg (b),
+  und INVERT oder Version 2 der Datei ändern nichts; der Haken läuft auf dem Stand (c). Ursache ist (a): drei Kanäle an sind Weiß.
+- **Behoben:** die Regel für die Pins oben. 14, 13, 2 startet als Rot und Grün (Gelb, Pins `0x18`, Byte `0x98`).
+  Fälle `hsv_15_13_14_byte`, `pins_follow_the_strongest`, `his_colour_starts_yellow` in `boot_light_cases`.
+- **Offen:** am Gerät nicht geprüft.
 
 ## Offen
 
