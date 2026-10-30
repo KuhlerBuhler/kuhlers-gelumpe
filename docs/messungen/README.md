@@ -258,6 +258,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Alten Kartenordner beim ersten Start übernehmen, blaue Electribe](2026-10-29-blau-ordner-uebernehmen.md)
 - [Uhr und Timer der Plugin-Laufzeit: Rahmen, Tick-Zähler, korg.after und korg.afterSteps](2026-10-29-plugin-timer.md)
 - [Vorschau: die Pads gehören dem angesehenen Pattern, Mutes gehen beim Wechsel mit](2026-10-29-vorschau-pads.md)
-- [Vorschau: ein entstummter Part kommt mit Copy Part ins laufende Pattern](2026-10-30-vorschau-part-reinholen.md)
+- [Vorschau: ein gedrückter Part kommt mit Copy Part ins laufende Pattern](2026-10-30-vorschau-part-reinholen.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

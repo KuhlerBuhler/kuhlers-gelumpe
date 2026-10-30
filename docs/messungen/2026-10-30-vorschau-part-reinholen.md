@@ -1,7 +1,8 @@
-# Vorschau: ein entstummter Part kommt ins laufende Pattern (30.10.)
+# Vorschau: ein gedrückter Part kommt ins laufende Pattern (30.10.)
 
 Entschieden am 30.10. ([Idee 82](../ideen/82-vorschau-part-reinholen.md)): Wird in der Vorschau (`VIEW:` oder `NEXT:`,
-[Vorschau-Pads](2026-10-29-vorschau-pads.md)) ein Part im Modus PART MUTE entstummt, kopiert die Firmware-eigene Funktion Copy
+[Vorschau-Pads](2026-10-29-vorschau-pads.md)) ein Pad im Modus PART MUTE zum ersten Mal gedrückt (seit dem Test am Gerät
+am 30.10. auch bei einem Part, der in B nicht stumm ist), kopiert die Firmware-eigene Funktion Copy
 Part diesen Part des angesehenen Patterns in das laufende Pattern, und er spielt sofort, ohne Patternwechsel.
 
 Gebaut in `tools/patch/pattern_switch.py`, im Emulator geprüft mit Hacktribe, Korgs Original rot und blau. Am Gerät noch nicht
@@ -28,10 +29,12 @@ Part im RAM gleicht dem der Bank Byte für Byte, beide Banken unverändert. Das 
 
 ## Was der Patch tut
 
-- `view_pad` (Pad-Handler): ein Druck, der in der Ansicht einen Part entstummt, setzt wie bisher das Mute der Ansicht, merkt den Part
-  in `V_PEND` und `V_COPY` (hinter `VIEW_W`, `+0x5C` und `+0x60`, je Part ein Bit) und geht weiter an die Firmware. Stummschalten
-  bleibt in der Ansicht, wie bisher. Ein Part in `V_COPY` geht mit jedem Druck weiter: die Firmware schaltet sein Mute im laufenden
+- `view_pad` (Pad-Handler): der erste Druck auf einen Part in der Ansicht setzt dessen Mute in der Ansicht auf "an", merkt den Part
+  in `V_PEND` und `V_COPY` (hinter `VIEW_W`, `+0x5C` und `+0x60`, je Part ein Bit) und geht weiter an die Firmware, egal ob der Part
+  in der Bank stumm ist. Ein Part in `V_COPY` geht mit jedem weiteren Druck weiter: die Firmware schaltet sein Mute im laufenden
   Pattern, die Ansicht kippt ihres mit, beide bleiben gleich.
+- Bis zum Test am Gerät (30.10.) schaltete der erste Druck auf einen Part, der in B nicht stumm ist, ihn nur in der Ansicht stumm, das
+  Pad ging aus. Gemeldet als Fehler: ein leuchtender Part in B soll beim Druck auch im laufenden Pattern angehen.
 - `view_copy` am Aufruf des Setters (`0xC0060D34`): steht der Part (oder bei einem Stereo-Paar der rechts daneben) in `V_PEND`, ruft
   der Patch Copy Part mit Quelle angesehenes Pattern und Part, Ziel derselbe Part, dann den Setter mit "nicht stumm". Copy Part liest
   die Quelle aus dem RAM, wenn sie die gewählte Nummer ist, und das ist in der Ansicht die angesehene: für den Aufruf steht dort die
@@ -52,10 +55,12 @@ eine Note und den Klang von Part 5. Das Rad zeigt Pattern 2. "Stimmen" ist die M
 | `view_second_press_mutes_the_brought_part`: Pad 2 noch einmal: Mute 1, Stimmen 0, Pad 2 aus | ja | ja | ja |
 | `view_switch_after_bringing_in_loads_the_viewed_pattern`: Pad 2 ein drittes Mal, MENU: Pattern 2 spielt, Part 2 wie in der Bank, Mute 0 (wie auf den Pads) | ja | ja | ja |
 | `view_exit_keeps_the_brought_part`: Pad 2, EXIT: Ansicht zu, der Part bleibt, Mute 0, Stimmen ungleich 0, Banken gleich | ja | ja | ja |
+| `view_press_on_a_lit_part_brings_it_in`: Part 2 in Pattern 2 und im laufenden nicht stumm, Pad 2 an; Pad 2: der Part gleicht Pattern 2 ganz, Mute 0, Pad 2 an, Stimmen ungleich 0, Ansicht bleibt | ja | ja | ja |
 | `view_copy_kill_switch_is_stock`: EXIT beim Einschalten: Pad 2 schaltet das Mute im RAM wie die Firmware, nichts kopiert | ja | ja | ja |
 
-Die Fälle von [Vorschau-Pads](2026-10-29-vorschau-pads.md) (`case_view_pads`) und der Ansicht (`case_view`) bestehen unverändert auf
-allen drei.
+Die Fälle der Ansicht (`case_view`) bestehen unverändert auf allen drei. In `case_view_pads` holt Pad 1 (in der Bank nicht stumm)
+jetzt Part 1, statt ihn in der Ansicht stumm zu schalten: Pads rot `[255, 255, 0]`, nach dem Wechsel im RAM `[0, 0, 1, 0]`, auf allen
+drei so gemessen.
 
 Nebenbei gemessen: ein Part, dessen Steps nur im ersten Takt stehen, klingt nach der Kopie erst, wenn das Pattern wieder dort ist.
 Das ist kein Warten der Kopie, mit Steps in allen Takten kommen die Stimmen sofort.
