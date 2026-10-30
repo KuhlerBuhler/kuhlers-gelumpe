@@ -295,6 +295,9 @@ Emulator auf `~/.gelumpe/sd`, weigert sich der zweite.
 friert den Dienst per PyInstaller zu einem Sidecar ein (`npm run build:sidecar` allein geht auch)
 und packt die App nach `src-tauri/target/release/bundle/`. PyInstaller kann nicht quer bauen: jedes
 Ziel wird auf seinem eigenen System gebaut, mit der Version aus `npm run release -- prepare`.
+`node tools/emu/sidecar-smoke.mjs` startet das gebaute Sidecar und schickt ihm eine Kurzprüfung mit
+zwei leeren Dateien: eine 400 heißt, `check.py` und alle Fälle sind mit eingefroren, eine 500 nennt das
+fehlende Modul. CI macht das nach jedem Sidecar-Build.
 
 Einmalig überall: Node 20+, Rust (`rustup`), `cargo install tauri-cli --version "^2" --locked`,
 Python 3.10+ (die venv und PyInstaller legt der Build selbst an).
