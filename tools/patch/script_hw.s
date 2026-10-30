@@ -461,6 +461,60 @@ led_guard_release:
     pop {pc}
 .pool
 
+; korg.padHold: pad presses stop reaching the firmware (no sound, no step edit) while the plugins still get `pad`. It is the
+; pad bit of the capture mask the input filter reads (input_mask_pad in script_hooks.s). The hold ends with padHold(0), when
+; an app closes (script_app_close) and when no plugin is left to run (script_pad_hold_guard).
+
+; r0 1 to keep the pad presses from the firmware, 0 to give them back.
+script_pad_hold_glue:
+    push {lr}
+    bl pad_hold_set
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {pc}
+
+; r0 1 sets, 0 clears the pad bit of the capture mask, with the interrupts off: the input filter writes the same word.
+; Clobbers r0 to r3.
+pad_hold_set:
+    ldr r2, =HOOK_RUNTIME
+    .word 0xE10F3000 ; mrs r3, cpsr
+    orr r1, r3, #0x80
+    .word 0xE121F001 ; msr cpsr_c, r1
+    ldr r1, [r2, #SCRIPT_CONTROL_CAPTURE_MASK]
+    cmp r0, #0
+    orrne r1, r1, #INPUT_PAD_BIT
+    biceq r1, r1, #INPUT_PAD_BIT
+    str r1, [r2, #SCRIPT_CONTROL_CAPTURE_MASK]
+    .word 0xE121F003 ; msr cpsr_c, r3
+    bx lr
+
+; r0 runtime. Gives the pads back when a script held them and none is left to run, as script_led_hold_guard does the LEDs.
+; Clobbers r0 to r3 and r12.
+script_pad_hold_guard:
+    ldr r1, [r0, #SCRIPT_CONTROL_CAPTURE_MASK]
+    tst r1, #INPUT_PAD_BIT
+    bxeq lr
+    ldr r2, [r0, #RT_HEAD]
+pad_guard_entry:
+    cmp r2, #0
+    beq pad_guard_release
+    ldr r3, [r2, #SCRIPT_ENTRY_STATE]
+    cmp r3, #SCRIPT_STATE_ARMED
+    bne pad_guard_next
+    ldr r3, [r2, #SCRIPT_ENTRY_BLOB]
+    ldr r12, =HOOK_POOL
+    cmp r3, r12
+    bxhs lr
+pad_guard_next:
+    ldr r2, [r2, #SCRIPT_ENTRY_NEXT]
+    b pad_guard_entry
+pad_guard_release:
+    push {lr}
+    mov r0, #0
+    bl pad_hold_set
+    pop {pc}
+.pool
+
 ; korg.remapKey: one key the panel sends reaches the firmware and the plugins as another, while the plugin that asked for it
 ; is armed. The record lies in the card loader's work area, between RM_AT and FX_STATE_AT: the plugin's entry, the checksum
 ; of its block (an entry address a later load reuses holds another block) and the two key codes (from in bits 0 to 7, to in

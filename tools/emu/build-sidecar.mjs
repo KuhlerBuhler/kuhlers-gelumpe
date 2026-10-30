@@ -52,7 +52,9 @@ run(...command(python, [
   "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile",
   "--name", "gelumpe-emu",
   "--distpath", `${work}/dist`, "--workpath", `${work}/work`, "--specpath", work,
-  "--paths", path("."), "--paths", path("../patch"),
+  // Every folder a case module puts on sys.path (test/sidecar-build.test.mjs holds that): doom_loader_cases imports tools/doom,
+  // sample_store_probe_cases tools/device.
+  "--paths", path("."), "--paths", path("../patch"), "--paths", path("../doom"), "--paths", path("../device"),
   "--hidden-import", "machine", "--hidden-import", "check",
   // The check workers import their case modules by name at run time (parallel.py), where PyInstaller sees no import.
   ...readdirSync(path(".")).filter(f => /_cases\.py$/.test(f)).flatMap(f => ["--hidden-import", f.slice(0, -3)]),
@@ -64,6 +66,8 @@ run(...command(python, [
   "--add-data", `${path("../../assets/blechy/splash.bin")}${sep}assets/blechy`,
   "--add-data", `${path("../../assets/blechy/loading.blla")}${sep}assets/blechy`,
   "--add-data", `${work}/source-hash.txt${sep}.`,
+  // build_bootstrap reads its layout next to itself; frozen, that is the bundle's root.
+  "--add-data", `${path("../doom/layout.json")}${sep}.`,
   // Blechy's sprites and the display font: the power-off and card-error pictures are drawn from them when a check builds them.
   "--add-data", `${path("../../assets/blechy/sprites")}${sep}assets/blechy/sprites`,
   "--add-data", `${path("../../data/script/font.mjs")}${sep}data/script`,

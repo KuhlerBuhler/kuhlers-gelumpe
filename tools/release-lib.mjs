@@ -110,7 +110,7 @@ export function parseNotes(text) {
 }
 
 // The sections of a release that still hold once its downloads are gone; the app shows only these.
-const KEPT = /^\*\*(Neu|Geändert|Behoben|New|Changed|Fixed)\*\*$/;
+const KEPT = /^\*\*(Neu|Geändert|Behoben|New|Changed|Fixed)( für Entwickler| for developers)?\*\*$/;
 
 /**
  * One language part of a notes file for the app's Changelogs: the first line and the sections under KEPT. Downloads,

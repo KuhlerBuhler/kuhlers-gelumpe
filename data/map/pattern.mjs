@@ -42,7 +42,7 @@ export default {
     f("pattern.tempo", l("Tempo"), 34, { area: "pattern", type: "u16le", convert: "tempoBpm", unit: "BPM", range: [200, 3000], source: "measured", evidence: PATTERN_DIFF }),
     f("pattern.swing", l("Swing"), 36, { area: "pattern", type: "s8", convert: "signed63", range: [-48, 48], source: "korg-spec", evidence: SPEC }),
     f("pattern.length", l("Länge", "Length"), 37, { area: "pattern", convert: "patternLength", range: [0, 3], source: "korg-spec", evidence: SPEC }),
-    f("pattern.beat", l("Beat"), 38, { area: "pattern", convert: "beat", range: [0, 3], source: "korg-spec", evidence: SPEC }),
+    f("pattern.beat", l("Beat"), 38, { area: "pattern", convert: "beat", range: [0, 4], source: "measured", evidence: "measure:2026-10-29/beat-achtel", note: "4 (8tel) nur mit BLECH; Korgs Firmware kennt 0 bis 3 und spielt 4 mit einem Step alle 2 ms" }),
     f("pattern.key", l("Tonart", "Key"), 39, { area: "pattern", convert: "key", range: [0, 11], source: "korg-spec", evidence: SPEC }),
     f("pattern.scale", l("Tonleiter", "Scale"), 40, { area: "pattern", convert: "scale", range: [0, 34], source: "korg-spec", evidence: SPEC }),
     f("pattern.chordset", l("Chord Set"), 41, { area: "pattern", convert: "plain", range: [0, 4], source: "korg-spec", evidence: SPEC }),
