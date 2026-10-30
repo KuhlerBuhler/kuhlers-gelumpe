@@ -2453,7 +2453,8 @@ def boot_light_cases(payload, flash=None):
     again = boot(payload, bytes(old), files=his)
     healed = last_pattern_cases.switch_off(again)
     byte_now = healed[BOOT_FLASH] if healed else None
-    add("old_byte_heals_after_one_switch_off", stale_first == 0x38 and byte_now == 0x98,
+    # the blue reads its first lit pins only after the white phase (see first above), so only the Sampler builds show the stale white
+    add("old_byte_heals_after_one_switch_off", (synth or stale_first == 0x38) and byte_now == 0x98,
         f"flash byte 0xb8 starts with pins {stale_first}, after one switch-off the flash holds {byte_now}")
     return out
 
