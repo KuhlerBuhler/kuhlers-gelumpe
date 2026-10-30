@@ -1228,8 +1228,133 @@ def case_view_copy(payload, flash):
     return out
 
 
+def case_view_side(payload, flash):
+    """SHIFT + PART MUTE in the preview turns the pads between the viewed pattern and the playing one (decision 30.10.): on the playing
+    side they show and switch its mutes as without a preview, nothing is copied; again, and they are the viewed pattern's, the first press
+    brings the part in. The wheel within the preview keeps the side, every new preview starts on the viewed pattern. Without a preview,
+    and with EXIT held at power-on, SHIFT + PART MUTE unmutes all parts as the firmware does. docs/messungen/2026-10-30-vorschau-part-reinholen.md"""
+    out = []
+    P, OTHER, A_MUTED = 1, 4, 5             # part 2 is brought in (sound of part 5 in pattern 2); part 6 is muted in the playing pattern
+    STEP_ON = bytes([1, 0x48, 0x60, 0, 0x3D])
+    CELL_W = 0xC0691388                     # the Sampler's address, the device translates it for the synth
+    live = lambda b: b.u32(0xC033E6A4) + 4
+    part = lambda b, base: bytes(b.m.uc.mem_read(base + 0x800 + 0x330 * P, 0x330))
+    mutes = lambda b, base: [b.dev.read(base + 0x801 + 0x330 * p, 1)[0] for p in range(16)]
+    red = lambda b: [b.m.leds.get(0x2C + 2 * n, 0) for n in range(16)]
+    blue = lambda b: [b.m.leds.get(0x2D + 2 * n, 0) for n in range(16)]
+    plain_colours = [255] + [0] * 15        # the playing pattern's pads: blue only on the selected part
+
+    def pad(b, n):
+        b.m.send([4, n, 0, 100, 1])
+        b.run(0.1)
+        b.m.send([4, n, 0, 0, 0])
+        b.run(0.4)
+
+    def shift_part_mute(b):
+        b.dev.m.press(KEYS["shift"], True)
+        b.run(0.2)
+        b.key("part_mute")
+        b.dev.m.press(KEYS["shift"], False)
+        b.run(0.4)
+
+    def viewing(b):
+        """Part mute mode, pattern 1 plays (part 2 without steps, part 6 muted), pattern 2 is browsed: there parts 2 and 3 are muted in the
+        bank, part 2 has steps on every sixteenth and the sound of part 5."""
+        bank = b.slots + 0x4000
+        uc = b.m.uc
+        sound = bytes(uc.mem_read(live(b) + 0x800 + 0x330 * OTHER + 2, 0x2E))
+        at = bank + 0x800 + 0x330 * P
+        uc.mem_write(at + 1, b"\x01")
+        uc.mem_write(at + 2, sound)
+        uc.mem_write(bank + 0x801 + 0x330 * 2, b"\x01")
+        uc.mem_write(live(b) + 0x801 + 0x330 * A_MUTED, b"\x01")
+        for s in range(64):
+            uc.mem_write(at + 0x30 + 12 * s, STEP_ON)
+            uc.mem_write(live(b) + 0x800 + 0x330 * P + 0x30 + 12 * s, b"\x00")
+        b.banks = bytes(uc.mem_read(b.slots, 3 * 0x4000))
+        b.key("part_mute")
+        play(b)
+        b.run(0.3)
+        b.turn(1)
+        b.run(0.5)
+        return bank
+
+    box = Box(payload, flash)
+    bank = viewing(box)
+    on_b = (red(box)[:3], box.u32(CELL_W) == spec.VIEW_W)
+    shift_part_mute(box)
+    on_a = (red(box), blue(box), box.u32(CELL_W) != spec.VIEW_W, mutes(box, live(box)), box.view())
+    pad(box, P)
+    got = part(box, live(box))
+    pressed = (mutes(box, live(box))[:7], got[0x30], red(box)[P], box.u32(spec.VIEW_W + spec.V_COPY), box.view(),
+               bytes(box.m.uc.mem_read(box.slots, 3 * 0x4000)) == box.banks)
+    a_red = [255] * 16
+    a_red[A_MUTED] = 0
+    out.append(entry("view_shift_part_mute_turns_the_pads_to_the_playing_pattern",
+                     on_b == ([255, 0, 0], True) and on_a[0] == a_red and on_a[1] == plain_colours and on_a[2] and on_a[3][A_MUTED] == 1
+                     and on_a[4] == (0, 1, 1) and not box.m.asserts,
+                     f"pattern 2 viewed: pads 1 to 3 red {on_b[0]}, cell on the view {on_b[1]}; SHIFT + PART MUTE: red {on_a[0]}, blue {on_a[1]}, cell off the "
+                     f"view {on_a[2]}, part 6 still muted in RAM {on_a[3][A_MUTED]} (no unmute of all), view {on_a[4]}"))
+    out.append(entry("view_playing_side_pad_switches_the_playing_mute_without_copy",
+                     pressed[0] == [0, 1, 0, 0, 0, 1, 0] and pressed[1] == 0 and pressed[2] == 0 and pressed[3] == 0 and pressed[4] == (0, 1, 1)
+                     and pressed[5] and not box.m.asserts,
+                     f"pad 2 on the playing side: mutes in RAM {pressed[0]}, step 1 of part 2 {pressed[1]} (nothing copied), pad 2 red {pressed[2]}, "
+                     f"copied parts {pressed[3]:#x}, view {pressed[4]}, banks unchanged {pressed[5]}"))
+    shift_part_mute(box)
+    back = (red(box)[:3], blue(box)[3:6], box.u32(CELL_W) == spec.VIEW_W)
+    pad(box, P)
+    got, want = part(box, live(box)), part(box, bank)
+    copied = ([hex(i) for i in range(0x330) if got[i] != want[i]], got[1], red(box)[P], box.view(),
+              bytes(box.m.uc.mem_read(box.slots, 3 * 0x4000)) == box.banks)
+    out.append(entry("view_shift_part_mute_again_brings_parts_in",
+                     back == ([255, 0, 0], [255, 255, 255], True) and copied[0] == ["0x1"] and copied[1] == 0 and copied[2] == 255
+                     and copied[3] == (0, 1, 1) and copied[4] and not box.m.asserts,
+                     f"SHIFT + PART MUTE again: pads 1 to 3 red {back[0]}, blue of pads 4 to 6 {back[1]} (the view's colour), cell on the view {back[2]}; "
+                     f"pad 2: bytes of part 2 that differ from pattern 2's {copied[0]}, mute {copied[1]}, pad 2 red {copied[2]}, view {copied[3]}, "
+                     f"banks unchanged {copied[4]}"))
+
+    turn = Box(payload, flash)
+    viewing(turn)
+    shift_part_mute(turn)
+    turn.turn(1)
+    turn.run(0.5)
+    wheel = (turn.view(), turn.u32(CELL_W) != spec.VIEW_W, blue(turn), red(turn)[A_MUTED])
+    turn.key("exit")
+    turn.run(0.5)
+    ended = (turn.view(), turn.u32(CELL_W) != spec.VIEW_W)
+    turn.turn(1)
+    turn.run(0.5)
+    again = (turn.view(), turn.u32(CELL_W) == spec.VIEW_W, red(turn)[:3], blue(turn)[3:6])
+    out.append(entry("view_wheel_keeps_the_side_a_new_preview_starts_on_the_viewed_pattern",
+                     wheel[0] == (0, 2, 1) and wheel[1] and wheel[2] == plain_colours and wheel[3] == 0 and ended == ((0, 0, 0), True)
+                     and again == ((0, 1, 1), True, [255, 0, 0], [255, 255, 255]) and not turn.m.asserts,
+                     f"playing side, the wheel on to pattern 3: view {wheel[0]}, cell off the view {wheel[1]}, blue {wheel[2]}, pad 6 red {wheel[3]}; "
+                     f"EXIT: view {ended[0]}; pattern 2 viewed again: view {again[0]}, cell on the view {again[1]}, pads 1 to 3 red {again[2]}, "
+                     f"blue of pads 4 to 6 {again[3]}"))
+
+    plain = Box(payload, flash)
+    plain.m.uc.mem_write(live(plain) + 0x801 + 0x330 * A_MUTED, b"\x01")
+    plain.key("part_mute")
+    play(plain)
+    plain.run(0.3)
+    pad(plain, 0)
+    was = mutes(plain, live(plain))[:7]
+    shift_part_mute(plain)
+    out.append(entry("shift_part_mute_without_preview_is_stock", was == [1, 0, 0, 0, 0, 1, 0] and mutes(plain, live(plain)) == [0] * 16
+                     and plain.view() == (0, 0, 0) and not plain.m.asserts,
+                     f"no preview, parts 1 and 6 muted {was}; SHIFT + PART MUTE: mutes in RAM {mutes(plain, live(plain))}"))
+
+    ref = Box(payload, flash, KILL)
+    viewing(ref)
+    was = mutes(ref, live(ref))[A_MUTED]
+    shift_part_mute(ref)
+    out.append(entry("view_shift_part_mute_kill_switch_is_stock", was == 1 and mutes(ref, live(ref)) == [0] * 16 and not ref.m.asserts,
+                     f"EXIT at power-on, pattern 2 browsed: part 6 muted {was}; SHIFT + PART MUTE: mutes in RAM {mutes(ref, live(ref))} (the firmware's unmute of all)"))
+    return out
+
+
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
-          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy)
+          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side)
 
 
 def group_entries(payload, flash, i):

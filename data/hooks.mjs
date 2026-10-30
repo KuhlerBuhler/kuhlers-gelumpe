@@ -63,6 +63,7 @@ export const CHAINS = {
   "info-line": [{ id: "label-flag", sites: [0xC008684C] }],
   "part-mute-get": [{ id: "getter-entry", sites: [0xC0048CFC] }],
   "part-mute-pad": [{ id: "setter-call", sites: [0xC0060D34] }],
+  "part-mute-shift": [{ id: "shift-read", sites: [0xC007042C] }],
   "stopped-sync": [{ id: "load-chosen", sites: [0xC0081E18] }],
   "pattern-load-copy": [{ id: "copy-into-ram", sites: [0xC004AC44] }],
   "pattern-load-voices": [
