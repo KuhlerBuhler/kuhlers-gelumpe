@@ -581,6 +581,12 @@ keinen Ablauf.
 Gebaut in `site/app/patcher.mjs`, die Logik ohne Seite in `src/patcher.mjs`. Wer die Seite
 benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige Firmware.
 
+- **Start:** zwei Fragen vor den vier Schritten. Erst "Welche Electribe hast du?" mit vier Karten: blau, rot, blau mit
+  Hacktribe, rot mit Hacktribe. Dann "Was willst du?": BLECH, BLECH + Hacktribe oder Nur Update; wer Hacktribe schon
+  hat, bekommt nur BLECH und Update. Danach zeigt Schritt 1 nur, was dieser Weg braucht: beim Update das Lesen über
+  USB und das Feld für die Datei von der Karte, sonst Korgs Datei für die passende Electribe (für Hacktribe immer die
+  rote) und das Feld. Die Wahl setzt den Weg beim Korg-Original und die Electribe für den Kopf; ein Gerät am Kabel
+  geht vor. Wer gleich eine Datei ablegt, überspringt die Fragen und sieht alles wie bisher. Jeder Schritt hat Zurück.
 - **Erkennung:** Original Korg 2.02 an der SHA-256 (`1d0f0689…`, derselbe Wert, den Hacktribes
   Patch-Skript prüft; gemessen an der eigenen Datei). Eine andere Datei von Korgs Build wird abgelehnt, solange sie
   nicht schon BLECH trägt. Hacktribe 2.02 über `identify`. Ob schon BLECH drin ist, sagt `patchesPresent`
@@ -726,8 +732,12 @@ Gebaut (`convertStock` in `src/patcher.mjs`, `src/bsdiff.mjs`, `src/bzip2.mjs`).
 `scripts/e2-firmware-patch.py` mit `patch/hacktribe-2.patch` (bsdiff4, 17,6 KB, bzip2 darin). Die README
 von `bangcorrupt/hacktribe` (geprüft 2026-10-14) sagt: "Contents of `patch` directory is not open source
 and is not covered by the GPL." Alles andere ist AGPL-3.0. Die Patch-Datei liegt deshalb weder in diesem
-Repository noch auf der Seite, und die Seite lädt sie auch nicht selbst: wer die Seite benutzt, holt sie bei Hacktribe
-(die Seite verlinkt die Datei direkt) und zieht sie auf die Seite.
+Repository noch auf der Seite. Unter dem Lizenz-Haken steht ein zweiter: "Lade zusätzlich hacktribe-2.patch direkt von Hacktribe". Er
+ist gesetzt, wenn das Ziel Hacktribe braucht, und lädt die Datei direkt aus Hacktribes Repository
+(`HACKTRIBE_PATCH_RAW`, raw.githubusercontent.com, das CORS erlaubt) auf den Rechner des Nutzers; das Ergebnis prüft
+`convertStock` wie bei einer abgelegten Datei. Ohne Netz sagt ein Hinweis das, und das Feld für die eigene Datei
+bleibt. Ohne Haken lädt die Seite nichts: wer will, holt die Datei bei Hacktribe (die Seite verlinkt sie) und zieht
+sie auf die Seite.
 
 Ablauf: die originale Korg 2.02 wird abgelegt, die Seite erkennt sie am Hash. Wer "BLECH mit Hacktribe" wählt,
 wird nach `hacktribe-2.patch` gefragt (mit Link und dem Grund, warum sie fehlt). Dann, alles im Browser:

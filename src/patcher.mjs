@@ -12,8 +12,13 @@ export const SYNTH_SHA256 = "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a9
 
 /** Hacktribe 2.02 as hacktribe/scripts/e2-firmware-patch.py builds it: hash/hacked-SYSTEM.VSB.sha, and the same on the user's own copy. */
 export const HACKTRIBE_SHA256 = "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee";
-/** hacktribe-2.patch is not open source (README of bangcorrupt/hacktribe), so it is linked, never shipped or fetched by the page. */
+/**
+ * hacktribe-2.patch is not open source (README of bangcorrupt/hacktribe), so it is never shipped. The page links it, and
+ * when the user ticks the box under Korg's licence it loads the file straight from Hacktribe's repository onto the user's
+ * computer (docs/ideen/86-patcher-startseite.md). The raw address sends a CORS header, the github.com one redirects without.
+ */
 export const HACKTRIBE_PATCH_URL = "https://github.com/bangcorrupt/hacktribe/raw/main/patch/hacktribe-2.patch";
+export const HACKTRIBE_PATCH_RAW = "https://raw.githubusercontent.com/bangcorrupt/hacktribe/main/patch/hacktribe-2.patch";
 /** The real file is 17.6 KB; anything near a megabyte is not it. */
 export const HACKTRIBE_PATCH_MAX = 1 << 20;
 
