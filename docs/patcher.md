@@ -626,7 +626,7 @@ benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige F
 
 ### Eine Datei, auf der schon BLECH ist
 
-Eine Datei mit BLECH ab Version 1.3.4 (über USB oder hineingezogen) bekommt den aktuellen Satz direkt darüber, ohne
+Eine Datei mit BLECH ab Version 1.3.3 (über USB oder hineingezogen) bekommt den aktuellen Satz direkt darüber, ohne
 Original, für Korg rot, Korg blau und Hacktribe (roter und blauer Kopf). `data/known-releases.json` (gemacht von
 `tools/known-releases.mjs`, nur Hashes und Offsets) nennt jede Stelle, die diese Versionen geschrieben haben. Jede
 Stelle muss die Originalbytes oder die Bytes einer Version halten, sonst gilt die Datei als unbekannt und es wird
@@ -637,7 +637,11 @@ gesperrt). `tools/known-releases.mjs` läuft mit dem Tag jeder Version, damit si
 
 Nur wenn das die Datei ablehnt: bei Korgs Build baut die App das Original aus Korgs System Updater nach (die Bytes, die die
 Patches schreiben, kommen aus Korgs Datei, genutzt nur bei Treffer auf den Hash). Hacktribe hat diesen Rückfall nicht, seine
-eigenen Änderungen überschneiden BLECHs Stellen, dort braucht es die unveränderte Datei.
+eigenen Änderungen überschneiden BLECHs Stellen, dort braucht es die unveränderte Datei. Eine teils gepatchte
+Hacktribe-Datei, die keine bekannte Version trägt, nennt deshalb die zwei Wege dahin: die Sicherung der eigenen
+Hacktribe-Datei (SHA-256 `7cb4825c…`) oder Korgs 2.02 mit `hacktribe-2.patch`. Versionen vor 1.3.3 fehlen in
+`known-releases.json` mit Absicht: mit ihren Stellen wäre eine Datei von 1.3.7 nicht mehr eindeutig (gemessen an
+Hacktribe 2.02 mit den Sets von 1.2.0 bis 1.3.7).
 
 ### Korgs Firmware laden
 

@@ -13,7 +13,7 @@ import { recogniseBlech } from "../../src/blech-update.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
-import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim, restoreOriginal, canRestore } from "../../src/patcher.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim, restoreOriginal, canRestore } from "../../src/patcher.mjs";
 import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
 import { storedAnimation } from "./loading-anim.mjs";
 
@@ -51,6 +51,8 @@ function verdictText(input, items, waiting) {
     case "stock": return null;
     case "blech": return { tone: "ok", word: t("patcher.verdict.blech"), text: t(waiting ? "patcher.restore.needKorg" : "patcher.verdict.blech.text") };
     case "partial": if (waiting) return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.restore.needKorg") };
+      // an older BLECH on Hacktribe: the app cannot rebuild Hacktribe's original, the user's backup or Korg's file can
+      if (input.oldOnHacktribe) return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.oldHacktribe", { sha: HACKTRIBE_SHA256.slice(0, 8) }) };
       return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => t(items.find(p => p.id === id)?.label ?? id)).join(", ") }) };
     case "wrong-size": return { tone: "error", word: t("patcher.verdict.size"), text: t("patcher.verdict.size.text", { size, expected: number(VSB_SIZE) }) };
     default: return { tone: "error", word: t("patcher.verdict.unknown"), text: t("patcher.verdict.unknown.text", { reason: input.reasons[0] ?? t("patcher.verdict.unknown.reason") }) };
@@ -729,6 +731,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         toast(t("patcher.update.found"), "info");
       } else if (canRestore(bytes)) {
         restored = await restoreFromKorg(bytes);
+      } else if (kind.kind === "partial") {
+        // Hacktribe's original is in no file the app can load: the user's backup, or Korg's 2.02 with hacktribe-2.patch
+        kind = { ...kind, oldOnHacktribe: true };
       }
     }
     if (kind.changed && !waiting) {

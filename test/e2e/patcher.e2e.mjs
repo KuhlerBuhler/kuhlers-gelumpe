@@ -204,6 +204,18 @@ test("patcher: a file with BLECH of an older release is updated straight over, n
   assert.deepEqual(page.errors, []);
 });
 
+test("patcher: an older BLECH on Hacktribe that the app does not know names the backup and Korg's file with hacktribe-2.patch", async () => {
+  const page = await patcherPage();
+  const some = await applyPatches(await makeFirmware(), patches.slice(0, 3));
+  assert.equal(some.ok, true, some.reasons.join(" "));
+  await drop(page, some.bytes);
+  const toast = page.locator("#app-toasts .cee-toast", { hasText: "BLECH vor 1.3.3 auf Hacktribe lässt sich nicht aktualisieren" });
+  await toast.waitFor();
+  assert.match(await toast.textContent(), /SHA-256 beginnt mit 7cb4825c\b.*hacktribe-2\.patch/);
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "nothing is patched over it");
+  assert.deepEqual(page.errors, []);
+});
+
 test("patcher: patching, the emulator check, then the download and the guide", async () => {
   const page = await patcherPage();
   const vsb = await makeFirmware();
@@ -827,7 +839,9 @@ test("patcher: without network the Hacktribe download says so and the field for 
   await wizard(page, "red", "blechHt");
   await drop(page, original);
   await page.locator("#app-toasts .cee-toast", { hasText: "hacktribe-2.patch ließ sich nicht laden" }).waitFor();
+  // the error toast stays until closed and lies over the buttons
   for (const close of await page.locator("#app-toasts .cee-toast-close").all()) await close.click();
+  await page.waitForFunction(() => !document.querySelector("#app-toasts .cee-toast.visible"));
   await page.click("#cee-patch-next");
   assert.equal(await page.isDisabled("#cee-patch-hacktribe-file"), false, "the own file can still be dropped");
   assert.deepEqual(page.errors.filter(e => !e.includes("ERR_INTERNET_DISCONNECTED")), [], "only the blocked request itself");

@@ -1400,6 +1400,7 @@ export default {
   "patcher.verdict.blech.text": "Auf dieser Datei ist BLECHTRIBE schon drauf, aber die App kennt diese Fassung nicht und konnte das Original daraus nicht herstellen. Nimm eine SYSTEM.VSB, die nie verändert wurde.",
   "patcher.verdict.partial": "Teils gepatcht",
   "patcher.verdict.partial.text": "Diese Datei wurde schon teilweise verändert ({patches}), aber die App kennt diese Fassung nicht und konnte das Original daraus nicht herstellen. Nimm eine SYSTEM.VSB, die nie verändert wurde.",
+  "patcher.verdict.oldHacktribe": "BLECH vor 1.3.3 auf Hacktribe lässt sich nicht aktualisieren. Nimm die Sicherung deiner Hacktribe-Datei (SHA-256 beginnt mit {sha}) oder Korgs 2.02 mit hacktribe-2.patch.",
   "patcher.verdict.size": "Keine Firmware",
   "patcher.verdict.size.text": "Das ist keine Firmware-Datei ({size} statt {expected} Byte). Nimm die SYSTEM.VSB aus dem Ordner KORG/dein Ordner/System auf der SD-Karte.",
   "patcher.verdict.unknown": "Nicht erkannt",
@@ -1961,7 +1962,7 @@ export default {
   "vsb.advice.none": "Das ist keine Firmware-Datei. Nimm die SYSTEM.VSB aus dem Ordner KORG › dein Ordner › System auf der SD-Karte.",
   "vsb.advice.synth": "Das ist die Firmware der blauen Electribe. Das hier geht nur mit der roten Electribe (Sampler) mit Hacktribe 2.02.",
   "vsb.advice.stock": "Das ist Korgs Original-Firmware. Das hier geht nur mit Hacktribe 2.02.",
-  "vsb.advice.unknown": "Diese Hacktribe-Version kennt die App nicht. Nimm Hacktribe 2.02. Grund: {reasons}",
+  "vsb.advice.unknown": "Diese Hacktribe-Version kennt die App nicht. Nimm Hacktribe 2.02 (SHA-256 beginnt mit 7cb4825c). Grund: {reasons}",
 
   "catalog.blechclicker.description": "App in GAMES: ein Kristall in der Mitte, jeder Pad-Druck zählt eins hoch, der Stand bleibt über das Ausschalten.",
   "catalog.category.games": "Spiele",
