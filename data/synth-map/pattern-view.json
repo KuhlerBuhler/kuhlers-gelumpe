@@ -41,6 +41,42 @@
    "to": "0xC0042EDC",
    "kind": "code",
    "why": "the instruction after the getter's first, where the hook goes on"
+  },
+  {
+   "from": "0xC0049330",
+   "to": "0xC00434F0",
+   "kind": "code",
+   "why": "the part mute setter (accessor, part, mute, notify): strb of the mute at +0x805 of the part, the main screen's PART MUTE pad calls it: the 16 words around it equal in both images (fwmap same code)"
+  },
+  {
+   "from": "0xC0060D34",
+   "to": "0xC00577A4",
+   "kind": "code",
+   "why": "the main screen's PART MUTE pad calls the mute setter with the inverted mute it read through the getter (bl getter; rsbs r2, r0, #1; movlo r2, #0; mov r0, r5; bl setter), read in both images; measured: the press reaches it (docs/messungen/2026-10-30-vorschau-part-reinholen.md)"
+  },
+  {
+   "from": "0xC00667D4",
+   "to": "0xC005C49C",
+   "kind": "code",
+   "why": "Copy Part (Part Util 1/4): the object's +0x40 source pattern and +0x41 source part, PSEL and the chosen number, the source from the pattern in RAM or the bank, memcpy of 0x330 bytes into the target part, the setters, the motion copy; the synth takes the target part in r1 (no stereo pairs). Read in both images; measured: the memcpy into the part is called from 0xC0066904 / 0xC005C548 when MENU and the pads run Copy Part (docs/messungen/2026-10-30-vorschau-part-reinholen.md)"
+  },
+  {
+   "from": "0xC007042C",
+   "to": "0xC0063480",
+   "kind": "code",
+   "why": "the mode keys' function at PART MUTE (key 0x10) pressed: bl to the SHIFT object (red 0xC0040F04, synth 0xC003BA4C), then ldr r3, [r0, #0x358] (E5903358), cmp, beq to the plain PART MUTE way; with SHIFT a loop over 16 parts calls the mute setter (red 0xC0049330, synth 0xC00434F0) with 0. Read in both images; measured: SHIFT + PART MUTE unmutes all parts (docs/messungen/2026-10-30-vorschau-part-reinholen.md)"
+  },
+  {
+   "from": "0xC0070430",
+   "to": "0xC0063484",
+   "kind": "code",
+   "why": "the instruction after that read (cmp r3, #0), where the hook goes on; read in both images"
+  },
+  {
+   "from": "0xC0070558",
+   "to": "0xC0063584",
+   "kind": "code",
+   "why": "where both ways of PART MUTE end (ldr r0, [r5, #4], the key handed on to the screen's handler at +0xC); read in both images"
   }
  ]
 }
