@@ -335,7 +335,7 @@ export const CONVERTERS = {
   batteryMode: choices("batteryMode", ["Ni-MH", "Alkali"]),
   autoPowerOff: choices("autoPowerOff", ["Aus", "nach 4 Stunden"]),
   powerSave: choices("powerSave", ["Aus", "Auto", "An"]),
-  octaves: choices("octaves", ["1 Oktave", "2 Oktaven", "3 Oktaven", "4 Oktaven"], { first: 1 }),
+  octaves: choices("octaves", ["0 (nur Grundton, BLECH)", "1 Oktave", "2 Oktaven", "3 Oktaven", "4 Oktaven"]),
   clockMode: choices("clockMode", ["Intern", "Auto", "Extern USB", "Extern MIDI", "Extern Sync"]),
   midiFilter: choices("midiFilter", ["Aus", "Short", "Short + Program"]),
 

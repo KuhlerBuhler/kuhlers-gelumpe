@@ -253,6 +253,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Eigenes Init-Pattern: wie INITIALIZE PATTERN die Vorlage nimmt](2026-10-28-init-pattern.md)
 - [Stereo auf einem Pad: wie die Firmware Parts für Stereo-Samples paart](2026-10-29-stereo-ein-pad.md)
 - [BEAT 8: Steps als Achtel, ein Pattern doppelt so lang](2026-10-29-beat-achtel.md)
+- [TOUCH SCALE RANGE 0: X spielt nur den Grundton](2026-10-30-touch-scale-null.md)
 - [Farbe des Hintergrundlichts schon beim Einschalten, vor dem Startbild](2026-10-29-hintergrundlicht-beim-start.md)
 - [Pattern-Export unter BLECH: wohin, und was in der Datei steht](2026-10-28-pattern-export.md)
 - [Menü-Anordnung 1.3.8: SYNC GROUP hinter CHAIN REPEAT, Seiten in GLOBAL PARAMETERS und DATA UTILITY](2026-10-29-menue-anordnung.md)
