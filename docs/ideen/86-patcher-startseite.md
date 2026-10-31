@@ -15,8 +15,10 @@ Wunsch (31.10.), geplant für 1.3.9. Stand 2026-10-31: **aufgeschrieben, nichts 
 - Startseite neu: ein klarer Weg von oben nach unten, das Update über USB als ein Weg unter mehreren, nicht als einziger
   Knopf.
 - Hacktribe mit in die erste Auswahl: wer Hacktribe will, hakt es an und klickt einen Knopf, statt auf der folgenden Seite
-  noch ein Feld zu wählen. Die Datei `hacktribe-2.patch` dürfen wir nicht mitliefern; ob die App sie auf dem Rechner des
-  Nutzers direkt bei Hacktribe laden darf, ist eine Frage der Lizenz. (**ungeprüft**, vorher klären)
+  noch ein Feld zu wählen. Die Datei `hacktribe-2.patch` liefern wir nicht mit. Die App lädt sie auf dem Rechner des
+  Nutzers direkt aus dem Hacktribe-Repository (`HACKTRIBE_PATCH_URL`), so wie sie Korgs Firmware bei Korg lädt
+  (`korg_firmware`). Das Ergebnis prüft `convertStock` wie heute gegen den SHA-256, den Hacktribes eigenes Skript ergibt.
+  Ohne Netz bleibt das Feld zum Wählen der Datei. (entschieden 31.10.)
 - Als letzter Schritt das Laufwerk der SD-Karte wählen. Gibt es dort `KORG/hacktribe` oder `KORG/electribe sampler`
   (blau: `KORG/electribe`), legt die App die Datei je nach Firmware in den richtigen Ordner. Sonst wählt man den Ordner
   selbst im Dateidialog, nicht im Downloads-Ordner.
