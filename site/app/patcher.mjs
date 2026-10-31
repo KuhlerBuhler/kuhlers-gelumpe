@@ -574,6 +574,30 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     }
   }
 
+  /**
+   * A file of Korg's 2.02 that is not byte-identical to the one in Korg's zip (`kind.changed`, "stock" or "synth"): the app
+   * loads Korg's own file for that Electribe and goes on with it. Hacktribe is never loaded. null without the app or the
+   * licence (the file then waits in `pending` for the licence), or when what came is not Korg's original.
+   */
+  async function fetchOriginal(changed, dropped) {
+    if (!native()) return null;
+    if (!licence.checked) { pending = { bytes: dropped, usb }; return null; }
+    const device = changed === "synth" ? "blue" : "red";
+    const close = toast(t("patcher.korg.loading"), "info", { stay: true });
+    try {
+      const zip = new Uint8Array(await native()("korg_firmware", { device }));
+      const entry = isZip(zip) ? await unzipEntry(zip) : null;
+      close();
+      const kind = entry ? await classifyFile(entry.bytes) : null;
+      if (kind?.kind === changed) return { bytes: entry.bytes, kind };
+      toast(t("patcher.korg.failed", { error: t("patcher.korg.notOriginal") }), "error");
+    } catch (e) {
+      close();
+      toast(t("patcher.korg.failed", { error: e?.message ?? e }), "error");
+    }
+    return null;
+  }
+
   async function loadKnown() {
     if (knownReleases === undefined) {
       try {
@@ -604,6 +628,16 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         toast(t("patcher.update.found"), "info");
       } else if (canRestore(bytes)) {
         restored = await restoreFromKorg(bytes);
+      }
+    }
+    if (kind.changed && !waiting) {
+      const fetched = await fetchOriginal(kind.changed, bytes);
+      if (fetched) {
+        bytes = fetched.bytes;
+        kind = fetched.kind;
+        toast(t("patcher.korg.fetched"), "ok");
+      } else if (!native() || !licence.checked) {
+        kind = { ...kind, reasons: [t("patcher.reason.withFetch", { reason: kind.reasons[0] })] };
       }
     }
     if (restored) {

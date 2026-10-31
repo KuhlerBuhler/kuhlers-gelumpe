@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { setUp } from "./harness.mjs";
 import { tempDir } from "../support/lifetime.mjs";
 import { fakeService, TOKEN } from "./support/fake-emu.mjs";
-import { makeFirmware, makeZip, withHacktribeRun } from "../helpers.mjs";
+import { makeFirmware, makeZip, withHacktribeRun, asStock } from "../helpers.mjs";
 import { applyPatches, splashPatch, SPLASH_W, SPLASH_H } from "../../src/patch.mjs";
 import { sha256 } from "../../src/firmware.mjs";
 import { buildPatchFile } from "../../src/patchfile.mjs";
@@ -601,6 +601,58 @@ test("patcher: Korg's zip goes into the field as it is, and the app loads it fro
   await app.click("#cee-patch-next");
   assert.equal(await app.locator("#cee-patch-device-box").isVisible(), true, "the Electribe is in view in step 2");
   assert.deepEqual(app.errors, []);
+});
+
+/** Korg's red 2.02 as the page knows it (its hash swapped for the test file's) and a copy of it with one byte changed, as from an SD card. */
+async function changedStock() {
+  const original = asStock(await makeFirmware());
+  const changed = Uint8Array.from(original);
+  changed[0x1000] ^= 1;
+  return { original, changed, zip: makeZip([{ name: "electribe_sampler_system_v202/SYSTEM.VSB", bytes: original }]) };
+}
+
+async function stockPage(original, init) {
+  const hash = await sha256(original);
+  const page = await h.page();
+  await page.route(/\/src\/patcher\.mjs$/, async route => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replace(STOCK_SHA256, hash) });
+  });
+  if (init) await page.addInitScript(init.script, init.args);
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-patcher");
+  await page.locator(".cee-patch-title").waitFor();
+  return page;
+}
+
+test("patcher: in the app with the licence a changed Korg file is replaced by Korg's own original", async () => {
+  const { original, changed, zip } = await changedStock();
+  const page = await stockPage(original, {
+    script: ([bytes]) => {
+      window.__GELUMPE_APP = { version: "0.0.0" };
+      window.__korgAsked = [];
+      window.__TAURI__ = { core: { invoke: async (command, args) => { window.__korgAsked.push([command, args]); return new Uint8Array(bytes).buffer; } } };
+    },
+    args: [[...zip]],
+  });
+  await page.check("#cee-patch-korg-licence");
+  await drop(page, changed);
+  await page.locator("#app-toasts .cee-toast", { hasText: "Korgs Original wurde geladen" }).waitFor();
+  assert.deepEqual(await page.evaluate(() => window.__korgAsked), [["korg_firmware", { device: "red" }]]);
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
+  await page.click("#cee-patch-next");
+  await page.locator("#cee-patch-route").waitFor();
+  assert.equal(await page.locator("#app-toasts .cee-toast", { hasText: "Die App kann Korgs Original" }).count(), 0);
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher: without the app a changed Korg file keeps the error and names the app's download", async () => {
+  const { original, changed } = await changedStock();
+  const page = await stockPage(original);
+  await drop(page, changed);
+  await page.locator("#cee-patch-verdict", { hasText: "Die App kann Korgs Original automatisch für dich laden" }).waitFor({ state: "attached" });
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the changed file is not taken");
+  assert.deepEqual(page.errors, []);
 });
 
 test("patcher: an own BLECH.patch lists each patch once, the variant for the dropped firmware", async () => {
