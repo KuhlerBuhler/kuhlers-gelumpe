@@ -326,6 +326,17 @@
   line-height: 1.25;
 }
 
+/* Four devices: two per row, one per row on a narrow window. */
+#cee-patch-wiz-devices {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  #cee-patch-wiz-devices {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* A choice of the wizard is a button with the look of an entry card; no popout icon, so no room kept for one. */
 .cee-patch-pick {
   width: 100%;
