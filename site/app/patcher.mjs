@@ -83,10 +83,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-file", accept: ".VSB,.vsb" });
   const fileInfo = el("span", { className: "ui-dropzone-files", id: "cee-patch-file-info" });
   let fileName = "";            // the name of the file the page holds, said in the field
+  const dropHint = el("span", { className: "ui-dropzone-hint" });
   const drop = el("label", { className: "ui-dropzone" }, [
     fileInput,
     el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t("patcher.drop.drag") }), t("common.pick")]),
-    el("span", { className: "ui-dropzone-hint", textContent: t("patcher.drop.hint") }),
+    dropHint,
     fileInfo,
   ]);
 
@@ -506,6 +507,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     orLine.hidden = usbBox.hidden;
     orLine.textContent = t(goal === "update" ? "patcher.or.update" : "patcher.or");
     korg.hidden = goal === "update" && !pending;
+    // from Korg's original the field takes the one file that fits: blue's own, or red's for any Hacktribe
+    dropHint.textContent = patching() && !hasHt()
+      ? t("patcher.drop.hint.korg", { device: t(needsHt() ? "patcher.device.red" : `patcher.device.${hwOf()}`) })
+      : t("patcher.drop.hint");
     for (const c of korgCards) c.li.hidden = patching() && c.device !== (needsHt() ? "red" : hwOf());
     fetchHtBox.hidden = !patching() || !needsHt();
     korgLead.replaceChildren(...(patching()

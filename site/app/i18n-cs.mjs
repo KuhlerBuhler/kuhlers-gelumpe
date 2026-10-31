@@ -1365,6 +1365,7 @@ export default {
   "patcher.verdict.unknown.reason": "neznámý",
   "patcher.drop.drag": "Přetáhni sem SYSTEM.VSB nebo ",
   "patcher.drop.hint": "Tvůj soubor Hacktribe (červená nebo modrá) nebo originál od Korgu 2.02 pro electribe sampler nebo electribe (modrá)",
+  "patcher.drop.hint.korg": "Originál Korg 2.02 pro {device}, pokud ho už máš",
   "patcher.device.red": "Electribe 2 Sampler (červená)",
   "patcher.device.blue": "Electribe 2 (modrá)",
   "patcher.device.label": "Pro kterou Electribe",

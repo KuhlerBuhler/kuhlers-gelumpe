@@ -1365,6 +1365,7 @@ export default {
   "patcher.verdict.unknown.reason": "невідомо",
   "patcher.drop.drag": "Перетягни сюди SYSTEM.VSB або ",
   "patcher.drop.hint": "Твій файл Hacktribe (червоний або синій) або оригінал Korg 2.02 для electribe sampler чи electribe (синя)",
+  "patcher.drop.hint.korg": "Оригінал Korg 2.02 для {device}, якщо він у тебе вже є",
   "patcher.device.red": "Electribe 2 Sampler (червона)",
   "patcher.device.blue": "Electribe 2 (синя)",
   "patcher.device.label": "Для якої Electribe",

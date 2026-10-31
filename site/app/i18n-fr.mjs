@@ -1365,6 +1365,7 @@ export default {
   "patcher.verdict.unknown.reason": "inconnu",
   "patcher.drop.drag": "Glisse SYSTEM.VSB ici ou ",
   "patcher.drop.hint": "Ton fichier Hacktribe (rouge ou bleu) ou l'original Korg 2.02 pour electribe sampler ou electribe (bleue)",
+  "patcher.drop.hint.korg": "L'original Korg 2.02 pour {device}, si tu l'as déjà",
   "patcher.device.red": "Electribe 2 Sampler (rouge)",
   "patcher.device.blue": "Electribe 2 (bleue)",
   "patcher.device.label": "Pour quelle Electribe",
