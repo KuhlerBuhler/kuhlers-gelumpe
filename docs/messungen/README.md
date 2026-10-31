@@ -103,6 +103,7 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 - [Display-Helligkeit: die Firmware schaltet nur an und aus](2026-10-12-lcd-helligkeit.md)
 - [Emulator-Tempo: Zeit je Gerätesekunde](2026-10-13-emulator-tempo.md)
 - [LED-Inventur am eigenen Gerät](2026-10-13-led-inventur.md)
+- [Emulator-LEDs: nur was die Firmware schickt, ein Druck allein leuchtet nicht](2026-10-31-emulator-leds.md)
 - [Korgs Original-Firmware 2.02 im Emulator](2026-10-14-stock-emulator.md)
 - [Voller Samplespeicher: schreibt die Firmware in BLECHs RAM?](2026-10-14-sample-speicher-voll.md)
 - [BLECH auf Korgs Original 2.02: Ordner, Startbild, Ladezeit, Prüfung](2026-10-14-stock-blech.md)
