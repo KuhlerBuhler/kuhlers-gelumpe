@@ -2,11 +2,12 @@
 """Emulator checks for the folder copy at the first start (tools/patch/script_migrate.s,
 docs/messungen/2026-10-19-ordner-uebernehmen.md).
 
-check.py runs `cases` on every patched sampler copy that carries the BLECH menu. A card with samples in a hacktribe folder and
+check.py runs `cases` on every patched copy that carries the BLECH menu. A card with samples in a hacktribe folder and
 none in KORG/blechtribe gets the question before the samples load; MENU copies every file and folder (dot files left out) to
 KORG/blechtribe, leaves files already there as they are, and the start goes on with the copied samples; EXIT writes nothing;
 with both old folders the wheel chooses; a card that already has samples in KORG/blechtribe, and EXIT held at power-on, never
-see the question.
+see the question. On the blue Electribe (synth build) the question comes over the main screen when KORG/electribe is there and
+KORG/blechtribe is not (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md); each group has its blue variant.
 
     tools/emu/.venv/bin/python tools/emu/migrate_cases.py cases --patched NEW.VSB [--only N]
 """
@@ -33,10 +34,11 @@ KILL = menu_cases.KILL
 SAMPLE = sampleset.build(sampleset.sized(3, 48000))
 KICK = bytes(range(256)) * 300
 OTHER = sampleset.build(sampleset.sized(2, 24000))
+FINE_CARD_NS = 2000             # the card interrupt looked at every 2 us instead of every 100 us (case_card_interrupt)
 
 
 def has_hooks(payload):
-    return menu_cases.has_menu(payload) and not synthaddr.is_synth(payload)
+    return menu_cases.has_menu(payload)
 
 
 def entry(name, ok, detail):
@@ -94,7 +96,119 @@ def files_of(dev, folder):
     return out
 
 
+def blue(payload):
+    return synthaddr.is_synth(payload)
+
+
+def korg_blue(leave_out=()):
+    """What Korg's synth leaves in KORG/electribe: a pattern set, an audio export, its update file and a dot file of a Mac."""
+    files = {"KORG/electribe/PatternSet/all.e2allpat": b"P" * 5000, "KORG/electribe/Audio/Take One.wav": KICK,
+             "KORG/electribe/System/SYSTEM.VSB": b"S" * 3000, "KORG/electribe/._junk": b"mac"}
+    return {k: v for k, v in files.items() if k not in leave_out}
+
+
+BLUE_NAMES = ("PatternSet/all.e2allpat", "Audio/Take One.wav", "System/SYSTEM.VSB", "._junk")
+
+
+def blue_files(dev, folder):
+    volume = fat32.Volume(bytes(dev.card.medium.data))
+    out = {}
+    for name in BLUE_NAMES:
+        try:
+            out[name] = volume.read(f"KORG/{folder}/{name}")
+        except fat32.FatError:
+            pass
+    volume.close()
+    return out
+
+
+def title_shown(dev):
+    """Pixels of the question's first line (NEW: BLECHTRIBE, rows 2 to 8 from x 4) on the display."""
+    return sum(dev.px(x, y) for y in range(2, 9) for x in range(4, 94))
+
+
+def blue_copy(payload):
+    out = []
+    files = korg_blue()
+    dev = boot(payload, files)
+    asked, shown, fb = state(dev), title_shown(dev), dev.fb()
+    dev.press(MENU, 0.5)
+    took = wait(dev)
+    copied = blue_files(dev, "blechtribe")
+    want = {k.split("/", 2)[2]: v for k, v in files.items() if not k.endswith("._junk")}
+    out.append(entry("blue_menu_copies_the_folder", asked[:3] == (1, 2, 4) and shown and copied == want and state(dev)[0] == 0
+                     and state(dev)[4] == 2 and dev.screen()["number"] == 1 and dev.fb() != fb
+                     and blue_files(dev, "electribe").keys() == {*want, "._junk"} and not dev.m.asserts,
+                     f"asked {asked[:3]} over screen {dev.screen()['number']}, {shown} pixels of the title; after MENU {took} s: copied "
+                     f"{sorted(copied)}, phase {state(dev)[4]}, {state(dev)[5]} bytes, the firmware's screen back {dev.fb() != fb}; "
+                     f"the old folder kept"))
+    skip = boot(payload, files)
+    fb = skip.fb()
+    skip.press(EXIT, 0.5)
+    wait(skip)
+    out.append(entry("blue_exit_writes_nothing", blue_files(skip, "blechtribe") == {} and state(skip)[0] == 0 and skip.fb() != fb
+                     and skip.screen()["number"] == 1 and not skip.m.asserts,
+                     f"after EXIT: blechtribe {sorted(blue_files(skip, 'blechtribe'))}, state {state(skip)[0]}, the firmware's screen "
+                     f"back {skip.fb() != fb}"))
+    return out
+
+
+def blue_keys(payload):
+    """The wheel and the other keys do nothing while the question is up."""
+    dev = boot(payload, korg_blue())
+    dev.turn(1, wait=0.3)
+    dev.press("write", 0.3)
+    after = state(dev)
+    dev.press(EXIT, 0.5)
+    wait(dev)
+    return [entry("blue_other_keys_taken", after[:3] == (1, 2, 4) and after[4] == 0 and blue_files(dev, "blechtribe") == {}
+                  and state(dev)[0] == 0 and not dev.m.asserts, f"after a turn and WRITE: {after[:5]}, after EXIT {state(dev)[:1]}")]
+
+
+def blue_none(payload):
+    out = []
+    there = boot(payload, {**korg_blue(), "KORG/blechtribe/Plugin/e2sPlugin.all": b"plugins"})
+    out.append(entry("blue_blechtribe_there_no_question", state(there)[0] != 1 and not there.m.asserts, f"state {state(there)}"))
+    held = boot(payload, korg_blue(), held=KILL)
+    out.append(entry("blue_exit_held_no_question", state(held)[0] != 1 and blue_files(held, "blechtribe") == {} and not held.m.asserts,
+                     f"EXIT held at power-on: state {state(held)}"))
+    empty = boot(payload, {})
+    out.append(entry("blue_no_old_folder_no_question", state(empty)[0] != 1 and not empty.m.asserts, f"state {state(empty)}"))
+    return out
+
+
+def blue_full(payload):
+    out = []
+    full = boot(payload, korg_blue(), leave=64 * 1024)
+    full.press(MENU, 0.5)
+    wait(full)
+    out.append(entry("blue_card_full_copies_nothing", state(full)[4] == 4 and blue_files(full, "blechtribe") == {}
+                     and full.screen()["number"] == 1 and not full.m.asserts,
+                     f"64 KiB free: phase {state(full)[4]} (4 card full), blechtribe {sorted(blue_files(full, 'blechtribe'))}"))
+    room = boot(payload, korg_blue(), leave=1024 * 1024)
+    room.press(MENU, 0.5)
+    wait(room)
+    out.append(entry("blue_enough_room_copies", state(room)[4] == 2 and len(blue_files(room, "blechtribe")) == 3 and not room.m.asserts,
+                     f"1 MiB free: phase {state(room)[4]}, copied {sorted(blue_files(room, 'blechtribe'))}"))
+    return out
+
+
+def blue_update_only(payload):
+    """Nothing but Korg's update file in KORG/electribe (the way BLECH came onto the blue) asks too: the copy brings
+    System/SYSTEM.VSB to KORG/blechtribe, where BLECH's own update looks."""
+    dev = boot(payload, korg_blue(leave_out=("KORG/electribe/PatternSet/all.e2allpat", "KORG/electribe/Audio/Take One.wav",
+                                             "KORG/electribe/._junk")))
+    asked = state(dev)[:3]
+    dev.press(MENU, 0.5)
+    wait(dev)
+    copied = blue_files(dev, "blechtribe")
+    return [entry("blue_update_file_only_asks_and_copies", asked == (1, 2, 4) and copied == {"System/SYSTEM.VSB": b"S" * 3000}
+                  and not dev.m.asserts, f"asked {asked}, copied {sorted(copied)}")]
+
+
 def case_copy(payload, flash):
+    if blue(payload):
+        return blue_copy(payload)
     out = []
     dev = boot(payload, old("hacktribe"))
     asked, screen = state(dev), dev.screen()["number"]
@@ -115,6 +229,8 @@ def case_copy(payload, flash):
 
 
 def case_choose(payload, flash):
+    if blue(payload):
+        return blue_keys(payload)
     out = []
     both = {**old("hacktribe"), "KORG/electribe sampler/Sample/e2sSample.all": OTHER}
     dev = boot(payload, both)
@@ -132,6 +248,8 @@ def case_choose(payload, flash):
 
 
 def case_none(payload, flash):
+    if blue(payload):
+        return blue_none(payload)
     out = []
     has = boot(payload, {**old("hacktribe"), "KORG/blechtribe/Sample/e2sSample.all": SAMPLE})
     out.append(entry("blechtribe_there_no_question", state(has)[0] != 1 and not has.m.asserts, f"state {state(has)}"))
@@ -145,6 +263,8 @@ def case_none(payload, flash):
 
 def case_full(payload, flash):
     """Not room enough for the old folder: CARD FULL, nothing written, the start goes on; with just enough room it copies."""
+    if blue(payload):
+        return blue_full(payload)
     out = []
     full = boot(payload, old("hacktribe"), leave=64 * 1024)
     full.press(MENU, 0.5)
@@ -163,6 +283,8 @@ def case_full(payload, flash):
 def case_existing(payload, flash):
     """KORG/blechtribe already there with a plugin and a file of the same name, but without samples: the question comes, the copy
     goes into the folder and leaves both files as they were. An old folder without samples asks nothing."""
+    if blue(payload):
+        return blue_update_only(payload)
     out = []
     mine = b"my own kick"
     there = {**old("hacktribe"), "KORG/blechtribe/Plugin/e2sPlugin.all": b"plugins", "KORG/blechtribe/Import/Kick One.wav": mine}
@@ -187,7 +309,23 @@ def case_existing(payload, flash):
     return out
 
 
-GROUPS = (case_copy, case_choose, case_none, case_full, case_existing)
+def case_card_interrupt(payload, flash):
+    """The copy with the card interrupt looked at every 2 us: the controller raises it once per 64-byte chunk. Raised again for
+    a chunk the firmware is still taking, the interrupt came after the stop command (CMD12) that follows the last chunk, and the
+    handler, which reads MMCST0, took the command's answer away: assertion AM180xMMSDCardController.cpp line 228, seen in the
+    app on SOFTWARE UPDATE. Every 100 us that is rare, every 2 us it comes within the first second of the copy."""
+    files = korg_blue() if blue(payload) else old("hacktribe")
+    dev = boot(payload, files)
+    dev.m.mmc_irq_ns = FINE_CARD_NS          # after the kept boot, which restores the machine's own value
+    dev.press(MENU, 0.5)
+    took = wait(dev)
+    copied = blue_files(dev, "blechtribe") if blue(payload) else files_of(dev, "blechtribe")
+    want = len(files) - 1                    # all but the dot file
+    return [entry("copy_with_the_card_interrupt_every_2_us", state(dev)[4] == 2 and len(copied) == want and not dev.m.asserts,
+                  f"after MENU {took} s: phase {state(dev)[4]}, copied {len(copied)} of {want} files, asserts {dev.m.asserts}")]
+
+
+GROUPS = (case_copy, case_choose, case_none, case_full, case_existing, case_card_interrupt)
 
 
 def group_entries(payload, flash, i):

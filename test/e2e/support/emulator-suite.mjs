@@ -317,7 +317,7 @@ export function emulatorSuite(index, parts) {
     await name.press("Enter");
     fake.seen.inputs.length = 0;
     await page.click("#cee-send");
-    const ok = page.locator("dialog button[value=ok]");
+    const ok = page.locator("dialog[open] button[value=ok]");
     const job = page.locator("#cee-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
     await Promise.race([ok.waitFor().then(() => ok.click(), () => {}), job.waitFor()]);   // a gate warning asks first
     await job.waitFor({ timeout: 15_000 });
@@ -360,7 +360,7 @@ export function emulatorSuite(index, parts) {
     await slider.press("ArrowRight");
     fake.seen.midi.length = 0;
     await page.click("#cee-send");
-    const ok = page.locator("dialog button[value=ok]");
+    const ok = page.locator("dialog[open] button[value=ok]");
     const job = page.locator("#cee-area-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
     await Promise.race([ok.waitFor().then(() => ok.click(), () => {}), job.waitFor()]);
     await job.waitFor({ timeout: 15_000 });
@@ -539,7 +539,7 @@ export function emulatorSuite(index, parts) {
     assert.equal(await page.getAttribute("#cee-e2-shift", "data-latched"), "false");
   });
 
-  test("emulator: whole buttons and pads light, a pressed pad is red, a pressed blue pad is purple", async () => {
+  test("emulator: buttons and pads show only the firmware's LEDs, a press alone lights nothing", async () => {
     const page = await runningPage();
     fake.broadcast("leds", { 0x0b: 255, 0x2d: 255 });         // WRITE, blue LED of pad 1
     await page.waitForFunction(() => document.querySelector("#cee-e2-write").dataset.lit === "on");
@@ -550,19 +550,38 @@ export function emulatorSuite(index, parts) {
     assert.match(await page.getAttribute("#cee-e2-write", "aria-label"), /leuchtet/, "lit is also said in words");
     assert.equal(await page.getAttribute("#cee-e2-pad1", "data-tone"), "blue");
 
+    // WRITE breathes while the pattern is unsaved: the key follows every brightness the firmware sends.
+    // The server always sends the whole set; an LED it leaves out is dark.
+    fake.broadcast("leds", { 0x0b: 64, 0x2d: 255 });
+    await page.waitForFunction(() => document.querySelector("#cee-e2-write").dataset.lit === "dim");
+    assert.equal(Number(await page.locator("#cee-e2-write").evaluate(n => n.style.getPropertyValue("--cee-e2-glow"))), 64 / 255);
+
+    // A press goes to the firmware; whether the pad lights is up to it (korg.padHold swallows the press on the device).
     const press = async sel => { const b = await page.locator(sel).boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); };
     await press("#cee-e2-pad2");
-    assert.equal(await page.getAttribute("#cee-e2-pad2", "data-tone"), "red");
+    assert.equal(await page.getAttribute("#cee-e2-pad2", "data-down"), "true");
+    await settle(200);
+    assert.equal(await page.getAttribute("#cee-e2-pad2", "data-tone"), "off", "no firmware LED, no light");
+    assert.equal(await page.locator("#cee-e2-pad2").evaluate(n => n.style.getPropertyValue("--cee-e2-glow")), "0");
+    fake.broadcast("leds", { 0x0b: 64, 0x2d: 255, 0x2e: 255 }); // the firmware lights the red LED of pad 2
+    await page.waitForFunction(() => document.querySelector("#cee-e2-pad2").dataset.tone === "red");
     await page.mouse.up();
-    assert.equal(await page.getAttribute("#cee-e2-pad2", "data-tone"), "off", "letting go leaves the colour to the LEDs");
+    assert.equal(await page.getAttribute("#cee-e2-pad2", "data-tone"), "red", "letting go changes no LED either");
+    fake.broadcast("leds", { 0x0b: 64, 0x2d: 255 });
+    await page.waitForFunction(() => document.querySelector("#cee-e2-pad2").dataset.tone === "off");
+
     await press("#cee-e2-pad1");
-    assert.equal(await page.getAttribute("#cee-e2-pad1", "data-tone"), "purple");
+    await settle(200);
+    assert.equal(await page.getAttribute("#cee-e2-pad1", "data-tone"), "blue", "a pressed blue pad stays blue");
+    fake.broadcast("leds", { 0x0b: 64, 0x2c: 255, 0x2d: 255 }); // red joins blue: purple
+    await page.waitForFunction(() => document.querySelector("#cee-e2-pad1").dataset.tone === "purple");
     await settle(400);
     const purple = await dots("#cee-e2-pad1");
-    await page.mouse.up();
-    assert.equal(await page.getAttribute("#cee-e2-pad1", "data-tone"), "blue");
+    fake.broadcast("leds", { 0x0b: 64, 0x2d: 255 });
+    await page.waitForFunction(() => document.querySelector("#cee-e2-pad1").dataset.tone === "blue");
     await settle(400);
-    assert.notDeepEqual(purple, await dots("#cee-e2-pad1"), "the glow turns from purple to blue when the press ends");
+    assert.notDeepEqual(purple, await dots("#cee-e2-pad1"), "the glow turns from purple to blue when the red LED goes");
+    await page.mouse.up();
 
     fake.broadcast("leds", { [0x2c + 2 * 5]: 255 });            // part mute mode: the firmware lights pad 6 and switches it off again
     await page.waitForFunction(() => document.querySelector("#cee-e2-pad6").dataset.tone === "red");

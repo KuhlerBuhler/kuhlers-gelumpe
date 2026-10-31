@@ -1755,4 +1755,38 @@ korg.onEvent("frame", () => {
 });
 `,
   }),
+  Object.freeze({
+    id: "taktblinker",
+    title: "Takt-Blinker",
+    description: text("catalog.taktblinker.description"),
+    category: text("catalog.category.light"),
+    creator: "Kuhler Buhler",
+    added: "2026-10-29",
+    controls: [],
+    source: `// Takt-Blinker: zeigt die Timer der Plugin-API (API 11). Die TAP-LED blinkt alle 500 ms, ohne dass das Plugin
+// Rahmen zählt; bei PLAY leuchtet Pad 1 auf jeden vierten Schritt kurz auf: korg.afterSteps zählt die Schritte,
+// korg.after macht das Licht nach 100 ms wieder aus. STOP hält die Schritte an, korg.cancel räumt auf.
+let on = 0;
+let beat = -1;
+
+function blink() {
+  on = 1 - on;
+  korg.led(korg.led.TAP, on * 255);
+}
+
+function padOff() {
+  korg.led(korg.led.PAD_1_RED, 0);
+}
+
+function nextBeat() {
+  korg.led(korg.led.PAD_1_RED, 255);
+  korg.after(100, padOff);
+  beat = korg.afterSteps(4, nextBeat);
+}
+
+korg.onEvent("ready", () => { korg.every(500, blink); });
+korg.onEvent("play", () => { korg.cancel(beat); beat = korg.afterSteps(4, nextBeat); });
+korg.onEvent("stop", () => { korg.cancel(beat); padOff(); });
+`,
+  }),
 ]);

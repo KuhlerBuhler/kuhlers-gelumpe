@@ -293,8 +293,8 @@ und kein Wechseln zwischen zwei Bildern. Was am Gerät gedimmt aussieht (etwa de
 Name des wartenden Patterns, den die Firmware alle 280 ms ein- und ausblendet),
 ist die Trägheit der Flüssigkristalle. `lcd.py` bildet sie nach, ein Verzögerungsglied
 je Bildpunkt, getrennt für das Dunkelwerden (`TAU_ON`, 0,040 s, aus einem Zeitlupenvideo)
-und das Hellwerden (`TAU_OFF`, 0,30 s, **geschätzt**: mit bloßem Auge am Gerät am 27.10.,
-keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
+und das Hellwerden (`TAU_OFF`, 0,20 s, **geschätzt**: mit bloßem Auge am Gerät am 27.10.,
+am 29.10. von 0,30 auf 0,20 s gesenkt, weil es im Emulator zu träge wirkte; keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
 [LCD-Helligkeit](messungen/2026-10-12-lcd-helligkeit.md)). Die Werte stehen nur in
 `lcd.py`.
 
@@ -317,8 +317,11 @@ dorthin (`run_slice`); die Firmware bekommt so 1000 Timer-Interrupts und
 25 Bildschirm-Takte je Sekunde Gerätezeit, egal wie lang `SLICE` ist.
 `test_timer.py` prüft das (`E2_VSB`, ohne sie übersprungen, mit
 `E2_EMU_REQUIRED=1` ein Fehler). Der Karten-Interrupt wird nur einmal je 100 µs
-Gerätezeit angesehen (`MMC_IRQ_NS`), sonst nimmt der Handler der Abfrageschleife
-die Antwort weg (ST0 löscht beim Lesen). Messung:
+Gerätezeit angesehen (`MMC_IRQ_NS`), und er kommt einmal je 64-Byte-Stück, wie der
+FIFO ihn auslöst: kam er für ein Stück, das die Firmware gerade noch abholt, ein
+zweites Mal, dann landete er hinter dem nächsten Befehl, und der Handler nahm der
+Abfrageschleife die Antwort weg (ST0 löscht beim Lesen, Assertion Zeile 228).
+`migrate_cases.py` prüft das mit einem Blick alle 2 µs. Messung:
 [Emulator-Takt](messungen/2026-10-12-emulator-takt.md).
 
 Gegen das Gerät verglichen ([Emulator-Zeit gegen Gerätezeit](messungen/2026-10-16-emulator-timing.md),

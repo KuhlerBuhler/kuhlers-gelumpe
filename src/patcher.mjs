@@ -1,6 +1,7 @@
 /** The Patcher page's logic without the page: what a dropped SYSTEM.VSB is, the BLECH patches, the state from drop to download. */
-import { hardwareOf, identifyBase, sha256 } from "./firmware.mjs";
-import { buildsOf, patchesPresent, selectFor } from "./patch.mjs";
+import { buildOf, hardwareOf, identifyBase, sha256 } from "./firmware.mjs";
+import { applyPatches, buildsOf, patchesPresent, selectFor } from "./patch.mjs";
+import { loadingAnimPatch, LOADING_ANIM_ID } from "./loading-anim.mjs";
 import { applyBsdiff, parseBsdiff } from "./bsdiff.mjs";
 import { text, isText, TextError, number } from "./text.mjs";
 
@@ -11,8 +12,13 @@ export const SYNTH_SHA256 = "41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a9
 
 /** Hacktribe 2.02 as hacktribe/scripts/e2-firmware-patch.py builds it: hash/hacked-SYSTEM.VSB.sha, and the same on the user's own copy. */
 export const HACKTRIBE_SHA256 = "7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee";
-/** hacktribe-2.patch is not open source (README of bangcorrupt/hacktribe), so it is linked, never shipped or fetched by the page. */
+/**
+ * hacktribe-2.patch is not open source (README of bangcorrupt/hacktribe), so it is never shipped. The page links it, and
+ * when the user ticks the box under Korg's licence it loads the file straight from Hacktribe's repository onto the user's
+ * computer (docs/ideen/86-patcher-startseite.md). The raw address sends a CORS header, the github.com one redirects without.
+ */
 export const HACKTRIBE_PATCH_URL = "https://github.com/bangcorrupt/hacktribe/raw/main/patch/hacktribe-2.patch";
+export const HACKTRIBE_PATCH_RAW = "https://raw.githubusercontent.com/bangcorrupt/hacktribe/main/patch/hacktribe-2.patch";
 /** The real file is 17.6 KB; anything near a megabyte is not it. */
 export const HACKTRIBE_PATCH_MAX = 1 << 20;
 
@@ -57,6 +63,18 @@ export const BLECH_SYNTH_SET_URL = "data/patches/blech-synth.json";
  */
 export const USB_NAME_URLS = ["data/patches/usb-name.json", "data/patches/usb-name-synth.json"];
 
+/**
+ * A patched copy with the user's own loading animation on top, in a pass of its own: load-bar declares the slot as its
+ * RAM, so in one list with load-bar the patch would collide with it. Written only when load-bar went on, since nothing
+ * else reads the slot; no file (null) keeps the default Blechy. Throws on a file the firmware would reject.
+ */
+export async function withLoadingAnim(res, anim) {
+  if (!res.ok || !anim || !res.spans.some(s => s.patch === "load-bar")) return res;
+  const more = await applyPatches(res.bytes, [loadingAnimPatch(anim)]);
+  if (!more.ok) return { ...more, dependencies: res.dependencies };
+  return { ...more, dependencies: res.dependencies, spans: [...res.spans, ...more.spans], allow: [...res.allow, ...more.allow], allowCode: [...res.allowCode, ...more.allowCode] };
+}
+
 /** The variant of an optional patch (its variants parsed) for a firmware build, or null when none is made for it. */
 export const optionFor = (variants, build) => variants.find(p => buildsOf(p).includes(build)) ?? null;
 /** Copies that already passed the whole emulator check, as SHA-256 of input and result (tools/verify-patches.mjs). */
@@ -75,6 +93,7 @@ const PATCH_LABELS = {
   "dice": "features.dice.title",
   "pad-colors": "features.colors.title",
   "load-bar": "features.loading.title",
+  [LOADING_ANIM_ID]: "patcher.patch.loadingAnim",
   "sample-errors": "features.sampleErrors.title",
   "script-runtime": "features.plugins.title",
   "splash": "patcher.patch.splash",
@@ -85,6 +104,9 @@ const PATCH_LABELS = {
   "power-off": "features.powerOff.title",
   "last-pattern": "features.lastPattern.title",
   "init-pattern": "features.initPattern.title",
+  "stereo-pad": "features.stereoPad.title",
+  "beat-eighth": "features.beatEighth.title",
+  "touch-scale-zero": "features.touchScaleZero.title",
   "blech-version": "patcher.patch.version",
   "doom-loader": "features.doom.title",
   "blech-sysex": { synth: "patcher.patch.sysexSynth", other: "patcher.patch.sysex" },
@@ -121,7 +143,8 @@ export const itemsFor = (blech, build) => blech.items.filter((_, i) => buildsOf(
 
 /**
  * kind: wrong-size, stock (Korg's unchanged 2.02), hacktribe, blech (every patch is in already), partial (some are),
- * unknown; `present` lists the patch ids found. A file of Korg's build is only accepted as the unchanged original
+ * unknown; `present` lists the patch ids found. An unknown file of Korg's build that is not Korg's unchanged file
+ * carries `changed` ("stock" or "synth"): the original of that Electribe is the one to take instead. A file of Korg's build is only accepted as the unchanged original
  * or when it already carries the BLECH patches made for it.
  */
 export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHash = SYNTH_SHA256) {
@@ -136,10 +159,10 @@ export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHa
   const mine = selectFor(patches, base.build).patches;
   const present = (await patchesPresent(bytes, mine)).filter(p => p.present).map(p => p.id);
   if (base.build === "synth" && !present.length) {
-    return { ...out, reasons: [text("patcher.reason.synthChanged")] };
+    return { ...out, changed: "synth", reasons: [text("patcher.reason.synthChanged")] };
   }
   if (base.build === "stock" && !present.length) {
-    return { ...out, reasons: [text("patcher.reason.stockChanged", { sha: stockHash.slice(0, 8) })] };
+    return { ...out, changed: "stock", reasons: [text("patcher.reason.stockChanged", { sha: stockHash.slice(0, 8) })] };
   }
   const kind = present.length === 0 ? "hacktribe" : present.length === mine.length ? "blech" : "partial";
   // hardware: the head says which Electribe a Hacktribe file is for (the blue one carries the synth head)
@@ -163,6 +186,40 @@ export async function convertStock(stock, patch, { stockHash = STOCK_SHA256, tar
   } catch (e) {
     return { ok: false, reason: e.message };
   }
+}
+
+/** The files the patcher takes as an original: Korg's 2.02 of the red and the blue, Hacktribe's 2.02 and its copy with the blue head. */
+export const KNOWN_ORIGINALS = [STOCK_SHA256, SYNTH_SHA256, HACKTRIBE_SHA256, HACKTRIBE_BLUE_SHA256];
+
+/**
+ * Whether the original of a file with BLECH on it can be rebuilt from Korg's System Updater: only for Korg's own build.
+ * Hacktribe changes bytes inside the places BLECH writes to as well (107 of its changed runs overlap the BLECH
+ * patches, measured on Hacktribe 2.02 against Korg's red 2.02), and those bytes are in no file the app can load.
+ */
+export const canRestore = bytes => buildOf(bytes) !== "hacktribe";
+
+/**
+ * The unpatched original of `patched` (a file BLECH was put on before, for example by copying it to the card), rebuilt
+ * from Korg's own 2.02 of the same Electribe: `patches` go on `korg` to learn which bytes they write (their spans and
+ * whatever else they change, such as appended effect presets), and those bytes are copied from `korg` into the copy of
+ * `patched`. The result counts only when its hash is one of `hashes` (the files the patcher takes as an original).
+ * {ok: true, bytes, sha256}, or {ok: false, why: "size" | "patches" | "mismatch"}; nothing is guessed.
+ */
+export async function restoreOriginal(patched, korg, patches, { hashes = KNOWN_ORIGINALS } = {}) {
+  if (patched.length !== VSB_SIZE || korg.length !== VSB_SIZE) return { ok: false, why: "size" };
+  const applied = await applyPatches(korg, patches);
+  if (!applied.ok) return { ok: false, why: "patches" };
+  const out = Uint8Array.from(patched);
+  const restore = (from, to) => out.set(korg.subarray(from, to), from);
+  for (const s of applied.spans) restore(s.file, s.file + s.length);
+  let from = -1;
+  for (let i = 0; i <= VSB_SIZE; i++) {
+    const differs = i < VSB_SIZE && applied.bytes[i] !== korg[i];
+    if (differs && from < 0) from = i;
+    else if (!differs && from >= 0) { restore(from, i); from = -1; }
+  }
+  const hash = await sha256(out);
+  return hashes.includes(hash) ? { ok: true, bytes: out, sha256: hash } : { ok: false, why: "mismatch" };
 }
 
 /** The folder below KORG/ the firmware of this kind keeps its files in (the stock firmware's has a space). Hacktribe on the blue reads KORG/hacktribe like on the red. */

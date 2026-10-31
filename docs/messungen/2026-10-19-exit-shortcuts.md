@@ -14,7 +14,8 @@ das ein Pad auf seine ursprünglichen Werte zurücksetzt. EXIT hat auf dem Haupt
   eigenen Kopie als Quelle wendet sie das Pattern im RAM auf sich selbst an.
 - Regler ändern nur die Bytes im Pattern, der DSP bekommt dabei nichts (6 Regler, 0 Übertragungen); das Laden schickt die
   Effekte neu.
-- Pad-Modus beim LED-Manager `[0xC0345A1C] + 0xB58`: 3 TRIGGER, 4 SEQUENCER, 5 KEYBOARD; `+0xB60` der gewählte Part.
+- Pad-Modus beim LED-Manager `[0xC0345A1C] + 0xB58`: 0 PART MUTE, 2 PART ERASE, 3 TRIGGER, 4 SEQUENCER, 5 KEYBOARD, 6 CHORD,
+  7 STEP JUMP, 9 PATTERN SET (gemessen nach dem Druck auf die Taste, 30.10.); `+0xB60` der gewählte Part.
 
 ## Der Patch (`tools/patch/script_shortcuts.s`, Laufzeit des BLECH-Menüs)
 
@@ -24,8 +25,10 @@ das ein Pad auf seine ursprünglichen Werte zurücksetzt. EXIT hat auf dem Haupt
   höchstens 1 s auf das Fenster.
 - **EXIT + Pad** auf dem Hauptbildschirm: das Pad geht nicht an die Firmware (klingt nicht, setzt keinen Schritt). Der
   nächste Takt kopiert die Bytes 2 bis 0x2F des Parts (alles außer Last Step und Stumm, die Steps bleiben) aus dem
-  gespeicherten Pattern in der Bank ins Pattern im RAM und ruft `0xC004AB84(Pattern, Pattern + 4, 1)`. TRIGGER: der Part des
-  Pads; die anderen Modi: der gewählte Part.
+  gespeicherten Pattern in der Bank ins Pattern im RAM und ruft `0xC004AB84(Pattern, Pattern + 4, 1)`. Welcher Part: in
+  SEQUENCER und STEP JUMP der gewählte, dort steht ein Pad für einen Step. In allen anderen Modi (PART MUTE, PART ERASE, TRIGGER,
+  KEYBOARD, CHORD, PATTERN SET) der Part des Pads, Pad 6 setzt Part 6 zurück. Der gewählte Part bleibt in jedem Modus, wie er war.
+  Bis 30.10. nahm nur TRIGGER den Part des Pads, in PART MUTE und KEYBOARD setzte Pad 6 den gewählten Part zurück (gemessen).
 - Nicht mit EXIT beim Einschalten, nicht auf der blauen (dort nicht gemessen, `SHORTCUTS 0`). Drei Bytes vor `MENU_STATE`.
 
 ## Ungespeichert anzeigen (19.10., Vorschlag 1)
@@ -52,6 +55,8 @@ hätte. Geprüft: `shortcut:pad_state_is_not_an_edit` und `pswitch:pad_state_sav
 | TRIGGER, Part 1 und 6 bearbeitet, EXIT + Pad 1 | Klang von Part 1 zurück, sein Schritt bleibt geändert, Part 6 bleibt bearbeitet, gewählter Part bleibt 1 |
 | EXIT + Pad 6 | Part 6 zurück, gewählter Part bleibt 1 |
 | SEQUENCER, EXIT + Pad 10 | der gewählte Part zurück, Schritt 10 nicht gesetzt |
+| PART MUTE, KEYBOARD, PART ERASE, CHORD, PATTERN SET, Part 1 und 6 bearbeitet, EXIT + Pad 6 | Part 6 zurück, Part 1 bleibt bearbeitet, gewählter Part bleibt 1 (30.10.) |
+| STEP JUMP, ebenso | Part 1 (der gewählte) zurück, Part 6 bleibt bearbeitet (30.10.) |
 | beim Abspielen EXIT + Pad 3 | Part 3 zurück, spielt weiter, gleiches Pattern |
 | EXIT beim Einschalten | Fenster bleibt offen, nichts gespeichert, Pad setzt nichts zurück |
 

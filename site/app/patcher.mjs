@@ -9,10 +9,13 @@ import { applyPatchFile, parsePatchFile, patchesFor } from "../../src/patchfile.
 import { NEWS } from "../../data/news.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf, hardwareOf } from "../../src/firmware.mjs";
+import { recogniseBlech } from "../../src/blech-update.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
-import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel } from "../../src/patcher.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim, restoreOriginal, canRestore } from "../../src/patcher.mjs";
+import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
+import { storedAnimation } from "./loading-anim.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -31,29 +34,32 @@ const tick = () => new Promise(r => setTimeout(r, 0));
 /** What the dropped file was taken for, after its name in the field. */
 const FOUND = { hacktribe: "patcher.found.hacktribe", stock: "patcher.found.stock", synth: "patcher.found.synth" };
 
-function verdict(flow, items) {
+function verdict(flow, items, waiting = false) {
   const { input } = flow;
   if (!input) return null;
-  const v = verdictText(input, items);
+  const v = verdictText(input, items, waiting);
   // every "not this file" names the file by its checksum, so a screenshot tells support what was dropped
   return v && input.sha256 ? { ...v, text: t("patcher.verdict.sha", { text: v.text, sha: input.sha256.slice(0, 8) }) } : v;
 }
 
-function verdictText(input, items) {
+function verdictText(input, items, waiting) {
   const size = number(input.size);
   switch (input.kind) {
     // A file the page takes says nothing: the user knows what was dropped, the button and the route say what comes next.
     case "hacktribe":
     case "synth":
     case "stock": return null;
-    case "blech": return { tone: "ok", word: t("patcher.verdict.blech"), text: t("patcher.verdict.blech.text") };
-    case "partial": return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => t(items.find(p => p.id === id)?.label ?? id)).join(", ") }) };
+    case "blech": return { tone: "ok", word: t("patcher.verdict.blech"), text: t(waiting ? "patcher.restore.needKorg" : "patcher.verdict.blech.text") };
+    case "partial": if (waiting) return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.restore.needKorg") };
+      // an older BLECH on Hacktribe: the app cannot rebuild Hacktribe's original, the user's backup or Korg's file can
+      if (input.oldOnHacktribe) return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.oldHacktribe", { sha: HACKTRIBE_SHA256.slice(0, 8) }) };
+      return { tone: "warn", word: t("patcher.verdict.partial"), text: t("patcher.verdict.partial.text", { patches: input.present.map(id => t(items.find(p => p.id === id)?.label ?? id)).join(", ") }) };
     case "wrong-size": return { tone: "error", word: t("patcher.verdict.size"), text: t("patcher.verdict.size.text", { size, expected: number(VSB_SIZE) }) };
     default: return { tone: "error", word: t("patcher.verdict.unknown"), text: t("patcher.verdict.unknown.text", { reason: input.reasons[0] ?? t("patcher.verdict.unknown.reason") }) };
   }
 }
 
-export function patcherPage(root, { emulator, show = () => {}, session = () => null }) {
+export function patcherPage(root, { emulator, show = () => {}, session = () => null, onTarget = () => {} }) {
   if (!document.querySelector("link[data-cee-patcher]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-patcher", "");
@@ -69,15 +75,19 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let ownPatch = null;          // a BLECH.patch the user brought instead of the set of this version: { bytes, file }
   let usbNames = null;          // the variants of the optional patch usb-name, once loaded
   let hint = null;
+  let updating = null;          // the file already carries BLECH of a known release: { present, options }, the set goes over it (src/blech-update.mjs)
+  let knownReleases;            // data/known-releases.json, loaded when a file with BLECH is taken; null when it cannot be had
+  let pending = null;          // a file with BLECH on it, waiting for Korg's own to rebuild the original from: { bytes, usb }
   let usb = null;               // the file came over USB: { fromOriginal }; null for a dropped file (then the unpatched one goes to the card too)
 
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-file", accept: ".VSB,.vsb" });
   const fileInfo = el("span", { className: "ui-dropzone-files", id: "cee-patch-file-info" });
   let fileName = "";            // the name of the file the page holds, said in the field
+  const dropHint = el("span", { className: "ui-dropzone-hint" });
   const drop = el("label", { className: "ui-dropzone" }, [
     fileInput,
     el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t("patcher.drop.drag") }), t("common.pick")]),
-    el("span", { className: "ui-dropzone-hint", textContent: t("patcher.drop.hint") }),
+    dropHint,
     fileInfo,
   ]);
 
@@ -102,21 +112,36 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   function renderKorg() {
     for (const c of korgCards) {
       const accepted = licence.checked;
-      c.a.href = accepted ? KORG_DOWNLOADS[c.device].file : KORG_DOWNLOADS[c.device].page;
+      // in the app Korg's file comes only through the app's own download, so without the licence the card has no link at all
+      if (native() && !accepted) c.a.removeAttribute("href");
+      else c.a.href = accepted ? KORG_DOWNLOADS[c.device].file : KORG_DOWNLOADS[c.device].page;
       c.a.target = window.__GELUMPE_APP ? "_self" : "_blank";
-      c.say.textContent = !accepted ? t("patcher.korg.page") : native() ? t("patcher.korg.native") : t("patcher.korg.zip");
+      c.a.toggleAttribute("aria-disabled", !!native() && !accepted);
+      c.say.textContent = native() && !accepted ? t("patcher.korg.needLicence") : !accepted ? t("patcher.korg.page") : native() ? t("patcher.korg.native") : t("patcher.korg.zip");
       // the app loads the zip itself once the licence is accepted: a download, no longer a page outside
-      c.out.replaceChildren(icon(accepted && native() ? "download" : "popout"));
-      c.out.dataset.icon = accepted && native() ? "download" : "popout";
+      c.out.replaceChildren(icon(native() ? "download" : "popout"));
+      c.out.dataset.icon = native() ? "download" : "popout";
     }
   }
   licence.addEventListener("change", renderKorg);
+  licence.addEventListener("change", () => {
+    if (!licence.checked || !pending || !native()) return;
+    const waiting = pending;
+    usb = waiting.usb;
+    take(waiting.bytes);
+  });
+  // Opt-in, under Korg's licence: hacktribe-2.patch straight from Hacktribe's repository, ticked when the wizard's target
+  // needs Hacktribe (docs/ideen/86-patcher-startseite.md). convertStock still checks the result against Hacktribe's hash.
+  const fetchHt = el("input", { type: "checkbox", id: "cee-patch-hacktribe-fetch" });
+  const fetchHtBox = el("label", { className: "cee-check", id: "cee-patch-hacktribe-fetch-box", hidden: true }, [fetchHt, el("span", {}, tNodes("patcher.korg.hacktribe", { file: el("code", { textContent: "hacktribe-2.patch" }) }))]);
+  const korgLead = el("p", { className: "cee-patch-lead", id: "cee-patch-korg-lead" });
   const korg = el("div", { className: "cee-patch-korg", id: "cee-patch-korg" }, [
-    el("p", { className: "cee-patch-lead" }, tNodes("patcher.korg.lead", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: "KORG/…/System/" }) })),
+    korgLead,
     el("ul", { className: "cee-entry-steps", id: "cee-patch-firmware" }, korgCards.map(c => c.li)),
     el("label", { className: "cee-check", id: "cee-patch-korg-licence-box" }, [licence, el("span", {}, tNodes("patcher.korg.licence", {
       link: el("a", { className: "cee-text-link", id: "cee-patch-korg-licence-link", href: KORG_DOWNLOADS.red.page, target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer", textContent: t("patcher.korg.licence.link") }),
     }))]),
+    fetchHtBox,
   ]);
   renderKorg();
   const usbGet = el("button", { type: "button", className: "btn", id: "cee-patch-usb-get", textContent: t("patcher.usb.get") });
@@ -170,11 +195,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   // Optional, off by default: the computer sees the Electribe as "Electribe 3" (docs/ideen/69-geraetename.md).
   const usbName = el("input", { type: "checkbox", id: "cee-patch-usb-name" });
   usbName.addEventListener("change", () => { passed = null; dispatch({ type: "options" }); });
+  const usbNameNote = el("p", { className: "muted", id: "cee-patch-usb-name-note", textContent: t("patcher.usbName.note") });
   const blechBox = el("section", { className: "cee-patch-choice", id: "cee-patch-blech" }, [
     el("label", { className: "cee-check" }, [useLatest, el("span", { textContent: t("patcher.blech.latest", { version: release }) })]),
     blechDrop,
     el("label", { className: "cee-check", id: "cee-patch-usb-name-box" }, [usbName, el("span", { textContent: t("patcher.usbName") })]),
-    el("p", { className: "muted", id: "cee-patch-usb-name-note", textContent: t("patcher.usbName.note") }),
+    usbNameNote,
   ]);
   const withHacktribe = el("input", { type: "checkbox", id: "cee-patch-hacktribe-use" });
   withHacktribe.addEventListener("change", () => chooseRoute(withHacktribe.checked ? "hacktribe" : "direct"));
@@ -240,15 +266,64 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const target = el("div", { className: "cee-patch-target", id: "cee-patch-target" }, [
     el("p", { className: "cee-patch-lead", textContent: t("patcher.target") }),
     targetPath,
+    el("p", { className: "muted", id: "cee-patch-target-not", textContent: t("patcher.target.not") }),
     after,
   ]);
   const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: t("patcher.afraid"), disabled: true });
   const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [usbPut, download, afraid]);
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
 
+  // The wizard in front of the way: which Electribe, then what to do. Its answers pick what step 1 shows and set the
+  // route and the device the existing flow needs; a file dropped anywhere skips it.
+  const wiz = { step: 0, device: null, goal: null };
+  const WIZ_DEVICES = [
+    ["blue", "blue", "patcher.device.blue", "patcher.wiz.korg"],
+    ["red", "red", "patcher.device.red", "patcher.wiz.korg"],
+    ["blueHt", "blue", "patcher.wiz.blueHt", "patcher.wiz.htBlue"],
+    ["redHt", "red", "patcher.wiz.redHt", "patcher.wiz.ht"],
+  ];
+  const hwOf = () => (wiz.device?.startsWith("blue") ? "blue" : "red");
+  const hasHt = () => !!wiz.device?.endsWith("Ht");
+  const needsHt = () => hasHt() || wiz.goal === "blechHt";
+  const patching = () => wiz.goal === "blech" || wiz.goal === "blechHt";
+  const pickList = (id, label, items) => {
+    const ul = el("ul", { className: "cee-entry-steps", id }, items);
+    ul.setAttribute("aria-label", label);
+    return ul;
+  };
+  const wizDevices = pickList("cee-patch-wiz-devices", t("patcher.wiz.device"), WIZ_DEVICES.map(([id, tone, name, sub]) => {
+    const b = el("button", { type: "button", className: "cee-entry-step cee-device-card cee-patch-pick", id: `cee-patch-wiz-${id}` }, [
+      e2Outline(t(name)), el("span", { className: "cee-device-card-text" }, [el("strong", { textContent: t(name) }), el("span", { textContent: t(sub) })]),
+    ]);
+    b.dataset.device = tone;
+    b.addEventListener("click", () => { wiz.device = id; wiz.goal = null; wizGo(1); });
+    return el("li", {}, [b]);
+  }));
+  const wizGoals = pickList("cee-patch-wiz-goals", t("patcher.wiz.goal"), []);
+  const GOALS = {
+    blech: ["patcher.wiz.blech", () => (hasHt() ? "patcher.wiz.becomes.ht" : "patcher.wiz.becomes")],
+    blechHt: ["patcher.wiz.blechHt", () => "patcher.wiz.becomes.ht"],
+    update: ["patcher.wiz.update", () => "patcher.wiz.update.note"],
+  };
+  function renderGoals() {
+    // Hacktribe on top of Hacktribe is the same file: a device that has it gets BLECH and the update only
+    const ids = hasHt() ? ["blech", "update"] : ["blech", "blechHt", "update"];
+    wizGoals.replaceChildren(...ids.map(id => {
+      const [name, sub] = GOALS[id];
+      const b = el("button", { type: "button", className: "cee-entry-step cee-patch-pick", id: `cee-patch-wiz-${id}` }, [el("strong", { textContent: t(name) }), el("span", { textContent: t(sub()) })]);
+      b.addEventListener("click", () => pickGoal(id));
+      return el("li", {}, [b]);
+    }));
+  }
+  const wizPanels = [
+    [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.device") }), wizDevices, el("p", { className: "muted", id: "cee-patch-wiz-card", textContent: t("patcher.wiz.card") })],
+    [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.goal") }), wizGoals, el("p", { className: "muted", id: "cee-patch-wiz-keeps", textContent: t("patcher.wiz.keeps") })],
+  ].map((children, i) => el("div", { className: "cee-patch-panel", id: `cee-patch-wiz-${i + 1}`, tabIndex: -1, hidden: i > 0 }, children));
+  const orLine = el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: t("patcher.or") });
+
   // One panel per step of the way; Zurück and Weiter move between them, the flow decides how far Weiter may go.
   const panels = [
-    [usbBox, el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: t("patcher.or") }), drop, verdictBox, korg],
+    [usbBox, orLine, korg, drop, verdictBox],
     [blechBox, routeBox, deviceBox, plan, synthSet, blueHacktribe],
     [testBox, bar, note, groupList, checksBox],
     [target, result, done],
@@ -261,6 +336,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("h1", { className: "cee-patch-title ui-sr-only", textContent: t("nav.patcher") }),
     way,
     usbNote,
+    ...wizPanels,
     ...panels,
     el("div", { className: "cee-patch-nav", id: "cee-patch-nav" }, [back, next, run]),
   ]));
@@ -280,8 +356,39 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     panels[view].focus({ preventScroll: true });
     panels[view].scrollIntoView?.({ block: "nearest" });
   }
-  back.addEventListener("click", () => { if (view > 0 && !allowed(flow).busy) go(view - 1); });
-  next.addEventListener("click", () => { if (view < reach() && !allowed(flow).busy) go(view + 1); });
+  function wizGo(to) {
+    wiz.step = to;
+    if (to === 1) renderGoals();
+    if (to === 2) view = 0;
+    render();
+    const panel = to < 2 ? wizPanels[to] : panels[view];
+    panel.focus({ preventScroll: true });
+    panel.scrollIntoView?.({ block: "nearest" });
+  }
+
+  /** The goal sets what step 1 offers, ticks the Hacktribe download when the target needs it and fits a file already taken. */
+  function pickGoal(goal) {
+    wiz.goal = goal;
+    fetchHt.checked = needsHt();
+    wizGo(2);
+    fitFlow();
+    if (fetchHt.checked) fetchHacktribe();
+  }
+
+  /** Korg's original on the route the wizard asked for, a copy with Hacktribe for the Electribe it named. */
+  function fitFlow() {
+    if (!patching()) return;
+    if (stockFile && flow.origin === "stock") chooseRoute(needsHt() ? "hacktribe" : "direct");
+    if (choosesDevice(flow) && !cable) chooseDevice(hwOf());
+  }
+
+  back.addEventListener("click", () => {
+    if (allowed(flow).busy) return;
+    if (wiz.step < 2) { if (wiz.step > 0) wizGo(wiz.step - 1); return; }
+    if (view > 0) go(view - 1);
+    else wizGo(wiz.goal ? 1 : 0);
+  });
+  next.addEventListener("click", () => { if (wiz.step === 2 && view < reach() && !allowed(flow).busy) go(view + 1); });
 
   async function loadPatches(build = input ? buildOf(input) : "hacktribe") {
     const setUrl = build === "synth" ? BLECH_SYNTH_SET_URL : BLECH_SET_URL;
@@ -390,16 +497,36 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       if (state === "current") li.setAttribute("aria-current", "step");
       return li;
     }));
-    panels.forEach((p, i) => { p.hidden = i !== view; });
-    back.hidden = view === 0;
+    const inWiz = wiz.step < 2;
+    wizPanels.forEach((p, i) => { p.hidden = wiz.step !== i; });
+    way.hidden = inWiz;
+    panels.forEach((p, i) => { p.hidden = inWiz || i !== view; });
+    // step 1 shows what the goal needs; without one (a file dropped on the first page) it shows everything
+    const goal = wiz.goal;
+    usbBox.hidden = !!goal && goal !== "update";
+    orLine.hidden = usbBox.hidden;
+    orLine.textContent = t(goal === "update" ? "patcher.or.update" : "patcher.or");
+    korg.hidden = goal === "update" && !pending;
+    // from Korg's original the field takes the one file that fits: blue's own, or red's for any Hacktribe
+    dropHint.textContent = patching() && !hasHt()
+      ? t("patcher.drop.hint.korg", { device: t(needsHt() ? "patcher.device.red" : `patcher.device.${hwOf()}`) })
+      : t("patcher.drop.hint");
+    for (const c of korgCards) c.li.hidden = patching() && c.device !== (needsHt() ? "red" : hwOf());
+    fetchHtBox.hidden = !patching() || !needsHt();
+    korgLead.replaceChildren(...(patching()
+      ? tNodes(needsHt() ? "patcher.start.lead.hacktribe" : "patcher.start.lead", { file: el("code", { textContent: "SYSTEM.VSB" }) })
+      : tNodes("patcher.korg.lead", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: "KORG/…/System/" }) })));
+    back.hidden = wiz.step === 0;
     back.disabled = can.busy;
-    next.hidden = view === 3 || (view === 2 && reach() < 3);
+    next.hidden = inWiz || view === 3 || (view === 2 && reach() < 3);
     next.disabled = can.busy || view >= reach();
     planList.replaceChildren(...planItems().map(p => el("li", { textContent: t(p.label) })));
     blechInput.disabled = useLatest.checked || can.busy;
     blechDrop.toggleAttribute("data-disabled", useLatest.checked);
     useLatest.disabled = can.busy;
-    usbName.disabled = can.busy;
+    const locked = !!updating?.present.includes("usb-name");
+    usbName.disabled = can.busy || locked;
+    usbNameNote.textContent = t(locked ? "patcher.update.locked" : "patcher.usbName.note");
     blechInfo.textContent = ownPatch ? `${ownPatch.file.name} ${ownPatch.file.version}` : "";
     // The field says which file it holds and what it is; pick() empties the input, so ui.js cannot show the name.
     const found = flow.origin === "hacktribe" && flow.input?.hardware === "blue" ? t("patcher.found.hacktribeBlue") : FOUND[flow.origin] && t(FOUND[flow.origin]);
@@ -407,13 +534,13 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     drop.toggleAttribute("data-selected", true);
     drop.toggleAttribute("data-filled", !!held && !!flow.origin);
     fileInfo.textContent = held;
-    const v = verdict(flow, blech?.items ?? []);
+    const v = verdict(flow, blech?.items ?? [], !!pending);
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
     // A new file brings a new verdict: the toast of the old one goes, so two verdicts never stand side by side.
     if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true }) : () => {}; }
     toldVerdict = v?.text ?? "";
-    routeBox.hidden = flow.origin !== "stock";
+    routeBox.hidden = flow.origin !== "stock" || !!updating;
     synthSet.hidden = flow.origin !== "synth";
     blueHacktribe.hidden = flow.origin !== "synth";
     // shown for every file, so the Electribe the copy is for is in view before anything is written; chosen only with Hacktribe
@@ -431,7 +558,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     patchBox.toggleAttribute("data-disabled", flow.route !== "hacktribe");
     patchInput.disabled = can.busy || flow.route !== "hacktribe";
     patchInfo.textContent = flow.route === "hacktribe" && flow.phase !== "needs-patch" && patchName ? t("patcher.hacktribe.converted", { file: patchName }) : "";
-    run.hidden = view !== 2;
+    run.hidden = inWiz || view !== 2;
     run.disabled = !can.patch || (!useLatest.checked && !ownPatch) || (testChoice === "none" && !consent.checked);
     run.textContent = flow.phase === "failed" || flow.phase === "passed" || flow.phase === "downloaded" ? t("patcher.run.again") : testChoice === "none" ? t("patcher.run.untested") : t("patcher.run");
     for (const input of testInputs) { input.radio.checked = input.value === testChoice; input.radio.disabled = can.busy; }
@@ -465,8 +592,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   function planItems() {
     // one line per patch: the variant for this firmware (a BLECH.patch carries one per build)
     const extra = usbName.checked && input ? [{ id: "usb-name", label: t("patcher.usbName") }] : [];
-    if (ownPatch) return input ? [...patchesFor(ownPatch.file, base()).map(p => ({ id: p.id, label: patchLabel(p) })), ...extra] : [];
-    return blech && input ? [...itemsFor(blech, buildOf(input)), ...extra] : [];
+    // the own loading animation from the Design page goes on only where load-bar does, which reads it
+    const withAnim = items => (storedAnimation() && items.some(p => p.id === "load-bar") ? [...items, { id: LOADING_ANIM_ID, label: t("patcher.patch.loadingAnim") }] : items);
+    if (ownPatch) return input ? [...withAnim(patchesFor(ownPatch.file, base()).map(p => ({ id: p.id, label: patchLabel(p) }))), ...extra] : [];
+    return blech && input ? [...withAnim(itemsFor(blech, buildOf(input))), ...extra] : [];
   }
 
   useLatest.addEventListener("change", () => { if (useLatest.checked) ownPatch = null; render(); });
@@ -518,18 +647,122 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     }
   }
 
-  async function take(bytes) {
-    let kind;
+  async function classifyFile(bytes) {
     try {
-      kind = await classify(bytes, (await loadPatches(buildOf(bytes))).patches);
+      return await classify(bytes, (await loadPatches(buildOf(bytes))).patches);
     } catch (e) {
-      kind = { kind: "unknown", size: bytes.length, reasons: [e.message], present: [] };
+      return { kind: "unknown", size: bytes.length, reasons: [e.message], present: [] };
+    }
+  }
+
+  /** The unpatched original of `patched`, rebuilt from Korg's file `korgBytes`; null when it is not made from it. */
+  async function restoreWith(patched, korgBytes) {
+    try {
+      const res = await restoreOriginal(patched, korgBytes, (await loadPatches(buildOf(korgBytes))).patches);
+      return res.ok ? res.bytes : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Without the accepted licence (or the app) the file waits in `pending` and the verdict asks for Korg's file. */
+  async function restoreFromKorg(patched) {
+    if (!licence.checked || !native()) { pending = { bytes: patched, usb }; return null; }
+    const close = toast(t("patcher.korg.loading"), "info", { stay: true });
+    try {
+      const zip = new Uint8Array(await native()("korg_firmware", { device: hardwareOf(patched) }));
+      const entry = isZip(zip) ? await unzipEntry(zip) : null;
+      close();
+      return entry ? await restoreWith(patched, entry.bytes) : null;
+    } catch (e) {
+      close();
+      toast(t("patcher.korg.failed", { error: e?.message ?? e }), "error");
+      pending = { bytes: patched, usb };
+      return null;
+    }
+  }
+
+  /**
+   * A file of Korg's 2.02 that is not byte-identical to the one in Korg's zip (`kind.changed`, "stock" or "synth"): the app
+   * loads Korg's own file for that Electribe and goes on with it. Hacktribe is never loaded. null without the app or the
+   * licence (the file then waits in `pending` for the licence), or when what came is not Korg's original.
+   */
+  async function fetchOriginal(changed, dropped) {
+    if (!native()) return null;
+    if (!licence.checked) { pending = { bytes: dropped, usb }; return null; }
+    const device = changed === "synth" ? "blue" : "red";
+    const close = toast(t("patcher.korg.loading"), "info", { stay: true });
+    try {
+      const zip = new Uint8Array(await native()("korg_firmware", { device }));
+      const entry = isZip(zip) ? await unzipEntry(zip) : null;
+      close();
+      const kind = entry ? await classifyFile(entry.bytes) : null;
+      if (kind?.kind === changed) return { bytes: entry.bytes, kind };
+      toast(t("patcher.korg.failed", { error: t("patcher.korg.notOriginal") }), "error");
+    } catch (e) {
+      close();
+      toast(t("patcher.korg.failed", { error: e?.message ?? e }), "error");
+    }
+    return null;
+  }
+
+  async function loadKnown() {
+    if (knownReleases === undefined) {
+      try {
+        const res = await fetch("data/known-releases.json");
+        knownReleases = res.ok ? await res.json() : null;
+      } catch { knownReleases = null; }
+    }
+    return knownReleases;
+  }
+
+  async function take(bytes) {
+    const waiting = pending;
+    pending = null;
+    updating = null;
+    let kind = await classifyFile(bytes);
+    let restored = null;
+    if (waiting && (kind.kind === "stock" || kind.kind === "synth")) {
+      restored = await restoreWith(waiting.bytes, bytes);
+      if (restored) usb = waiting.usb;
+    } else if (kind.kind === "blech" || kind.kind === "partial") {
+      const known = await recogniseBlech(bytes, await loadKnown());
+      if (known.ok) {
+        updating = known;
+        bytes = known.bytes;
+        kind = { kind: buildOf(bytes), size: bytes.length, sha256: kind.sha256, reasons: [], present: [], hardware: hardwareOf(bytes) };
+        if (usb) usb = { fromOriginal: true };
+        usbName.checked = usbName.checked || known.present.includes("usb-name");
+        toast(t("patcher.update.found"), "info");
+      } else if (canRestore(bytes)) {
+        restored = await restoreFromKorg(bytes);
+      } else if (kind.kind === "partial") {
+        // Hacktribe's original is in no file the app can load: the user's backup, or Korg's 2.02 with hacktribe-2.patch
+        kind = { ...kind, oldOnHacktribe: true };
+      }
+    }
+    if (kind.changed && !waiting) {
+      const fetched = await fetchOriginal(kind.changed, bytes);
+      if (fetched) {
+        bytes = fetched.bytes;
+        kind = fetched.kind;
+        toast(t("patcher.korg.fetched"), "ok");
+      } else if (!native() || !licence.checked) {
+        kind = { ...kind, reasons: [t("patcher.reason.withFetch", { reason: kind.reasons[0] })] };
+      }
+    }
+    if (restored) {
+      bytes = restored;
+      kind = await classifyFile(bytes);
+      toast(t("patcher.restore.done"), "ok");
     }
     input = bytes;
     original = bytes;
-    stockFile = kind.kind === "stock" ? { bytes, kind } : null;
+    stockFile = kind.kind === "stock" && !updating ? { bytes, kind } : null;
     passed = null;
+    wiz.step = 2;
     dispatch({ type: "input", input: kind });
+    fitFlow();
     await askCable();
   }
 
@@ -537,7 +770,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   async function askCable() {
     const s = session();
     try { cable = s?.hardware ? await s.hardware() : null; } catch { cable = null; }
-    if (cable && choosesDevice(flow)) dispatch({ type: "device", device: cable });
+    // the cable knows best; without one the Electribe named on the wizard's first page
+    const want = cable ?? (patching() ? hwOf() : null);
+    if (want && choosesDevice(flow) && want !== flow.device) dispatch({ type: "device", device: want });
     else render();
   }
 
@@ -557,17 +792,44 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     input = stockFile.bytes;
     passed = null;
     dispatch({ type: "route", route, input: stockFile.kind });
+    if (route === "hacktribe" && fetchHt.checked) fetchHacktribe();
   }
+
+  /** hacktribe-2.patch straight from Hacktribe's repository onto this computer; without network the field in step 2 stays. */
+  let fetchingHt = false;
+  async function fetchHacktribe() {
+    if (fetchingHt || flow.phase !== "needs-patch") return;
+    fetchingHt = true;
+    const close = toast(t("patcher.hacktribe.loading"), "info", { stay: true });
+    try {
+      const res = await fetch(HACKTRIBE_PATCH_RAW);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      close();
+      if (flow.route === "hacktribe" && !allowed(flow).busy) await convertWith("hacktribe-2.patch", bytes);
+    } catch (e) {
+      close();
+      toast(t("patcher.hacktribe.failed", { error: e?.message ?? e }), "error");
+    } finally {
+      fetchingHt = false;
+    }
+  }
+  fetchHt.addEventListener("change", () => { if (fetchHt.checked) fetchHacktribe(); });
 
   async function pickPatch(file) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     patchInput.value = "";
+    await convertWith(file.name, bytes);
+  }
+
+  /** Korg's original and a hacktribe-2.patch (dropped or loaded) to Hacktribe, checked against Hacktribe's hash. */
+  async function convertWith(name, bytes) {
     await tick();
     // another patch file after a conversion starts the route anew
     if (flow.phase !== "needs-patch") dispatch({ type: "route", route: "hacktribe", input: stockFile.kind });
     const res = await convertStock(stockFile.bytes, bytes);
     if (!res.ok) { dispatch({ type: "convert-failed", message: res.reason }); return; }
-    patchName = file.name;
+    patchName = name;
     input = res.bytes;
     passed = null;
     dispatch({ type: "converted", input: { kind: "hacktribe", size: res.bytes.length, reasons: [], present: [] }, detail: `SHA-256 ${res.sha256.slice(0, 12)}…` });
@@ -595,12 +857,13 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       await tick();
       const from = base();
       const extra = await options();
-      let res = ownPatch ? await applyPatchFile(from, ownPatch.bytes) : await applyPatches(from, [...(await loadPatches()).patches, ...extra]);
+      let res = ownPatch ? await applyPatchFile(from, ownPatch.bytes) : await applyPatches(from, [...(await loadPatches()).patches, ...extra], updating?.options);
       // a BLECH.patch is checked against its own hashes first; the optional patches go on top of its result
       if (ownPatch && res.ok && extra.length) {
         const more = await applyPatches(res.bytes, extra);
         res = more.ok ? { ...more, spans: [...res.spans, ...more.spans], allow: [...res.allow, ...more.allow], allowCode: [...res.allowCode, ...more.allowCode] } : more;
       }
+      res = await withLoadingAnim(res, items.some(p => p.id === LOADING_ANIM_ID) ? storedAnimation() : null);
       if (!res.ok) {
         for (const p of items) {
           const own = res.reasons.filter(r => r.startsWith(`${p.id}:`)).map(r => r.slice(p.id.length + 2));
@@ -633,16 +896,20 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   function buildDone() {
     const folder = folderOf(flow);
+    onTarget(folder);
     const old = sampleFolder(flow.origin);
     // Korg's firmware of the blue keeps the synth's files, which the Sampler code cannot read: nothing to copy then
     const moves = blech?.items.some(p => p.id === "blechtribe") && !(flow.origin === "stock" && flow.device === "blue");
+    // with the runtime the device asks at the first start and copies the folder itself (script_migrate.s)
+    const asks = moves && blech.items.some(p => p.id === "script-runtime");
+    const copy = (key) => el("li", { id: "cee-patch-guide-copy" }, tNodes(key, {
+      from: el("code", { textContent: old }), to: el("code", { textContent: `KORG/${BLECH_FOLDER}/` }), reads: el("code", { textContent: `KORG/${BLECH_FOLDER}/` }),
+    }));
     done.replaceChildren(
       el("h2", { textContent: t("patcher.done.title") }),
       el("ol", { className: "cee-patch-guide" }, [
         el("li", { textContent: t("patcher.done.backup") }),
-        moves ? el("li", { id: "cee-patch-guide-copy" }, tNodes("patcher.done.copy", {
-          from: el("code", { textContent: old }), to: el("code", { textContent: `KORG/${BLECH_FOLDER}/` }), reads: el("code", { textContent: `KORG/${BLECH_FOLDER}/` }),
-        })) : null,
+        moves && !asks ? copy("patcher.done.copy") : null,
         blech && hasDoom(blech) ? el("li", { id: "cee-patch-guide-doom" }, tNodes("patcher.done.doom", {
           files: DOOM_FILES.flatMap((file, i) => [i ? t("patcher.done.doom.and") : "", el("a", { className: "cee-text-link", href: file, download: file.split("/").pop(), textContent: file.split("/").pop() })]),
           folder: el("code", { textContent: DOOM_FOLDER }),
@@ -653,6 +920,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         folder === "KORG/electribe/System/" ? el("li", { textContent: t("patcher.done.only") }) : null,
         el("li", { textContent: t("patcher.done.update") }),
         el("li", { textContent: t("patcher.done.power") }),
+        asks ? copy("patcher.done.copy.asks") : null,
       ].filter(Boolean)),
       el("p", { className: "cee-patch-exit" }, [el("strong", { textContent: t("patcher.done.exit.title") }), ...tNodes("patcher.done.exit", { rescue: el("a", { href: "#rescue", textContent: t("nav.rescue") }) })]),
     );
@@ -668,7 +936,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     await take(got.bytes);
     if (flow.input?.kind === "blech") {
       usbNote.hidden = true;
-      toast(t("patcher.usb.blech"), "info", { stay: true });
+      if (!pending) toast(t("patcher.usb.blech"), "info", { stay: true });
       return false;
     }
     return true;

@@ -7,20 +7,30 @@
 .equ HW_STEP, 0xC06904B0
 .equ HW_MUTE, 0xC06B2F9D
 
-; r0 runtime. Adds the Timer3 ticks since the last call to the millisecond count and returns it. The counter wraps at SCRIPT_TIMER_PERIOD.
+.equ OS_TICKS, 0xC06A292C
+
+; r0 runtime. Adds the Timer3 ticks since the last call to the millisecond count and returns it. Timer3 wraps every second
+; (SCRIPT_TIMER_PERIOD), so a gap of more than a second between two calls (the start with its sample load, before the first
+; frame) would lose whole seconds: the OS tick count, one per millisecond, tells how many, Timer3 the rest. Preserves r4 to r11.
 script_clock_update:
+    push {r4, r5}
     ldr r1, =SCRIPT_TIMER_ADDRESS
     ldr r1, [r1]
+    ldr r4, =OS_TICKS
+    ldr r4, [r4]
+    ldr r5, =clock_ticks_last
     ldr r2, [r0, #SCRIPT_CONTROL_CLOCK_INIT]
     cmp r2, #0
     bne clock_running
     mov r2, #1
     str r2, [r0, #SCRIPT_CONTROL_CLOCK_INIT]
     str r1, [r0, #SCRIPT_CONTROL_CLOCK_LAST]
+    str r4, [r5]
     mov r2, #0
     str r2, [r0, #SCRIPT_CONTROL_CLOCK_REM]
     str r2, [r0, #SCRIPT_CONTROL_CLOCK_MS]
     mov r0, #0
+    pop {r4, r5}
     bx lr
 clock_running:
     ldr r2, [r0, #SCRIPT_CONTROL_CLOCK_LAST]
@@ -31,16 +41,29 @@ clock_running:
     str r1, [r0, #SCRIPT_CONTROL_CLOCK_LAST]
     ldr r3, [r0, #SCRIPT_CONTROL_CLOCK_REM]
     add r3, r3, r2
+    ldr r2, [r5]
+    str r4, [r5]
+    sub r4, r4, r2
     ldr r2, [r0, #SCRIPT_CONTROL_CLOCK_MS]
+    add r4, r4, r2
     ldr r1, =SCRIPT_TIMER_TICKS_PER_MS
 clock_carry:
     cmp r3, r1
     subhs r3, r3, r1
     addhs r2, r2, #1
     bhs clock_carry
+    sub r4, r4, r2
+clock_seconds:
+    cmp r4, #500
+    blt clock_store
+    add r2, r2, #1000
+    sub r4, r4, #1000
+    b clock_seconds
+clock_store:
     str r3, [r0, #SCRIPT_CONTROL_CLOCK_REM]
     str r2, [r0, #SCRIPT_CONTROL_CLOCK_MS]
     mov r0, r2
+    pop {r4, r5}
     bx lr
 .pool
 
@@ -344,6 +367,10 @@ hw_pop_bad_arg:
 ; r0 red, r1 green, r2 blue: 1 lights that colour of the display light, 0 darkens it. Not held against the dimming on battery.
 script_backlight_glue:
     push {r4-r6, lr}
+    ldr r3, =objects_test_mode
+    ldrb r3, [r3]
+    cmp r3, #0
+    bne backlight_done
     mov r4, r0
     mov r5, r1
     mov r6, r2
@@ -365,6 +392,7 @@ script_backlight_glue:
     mov r3, #0x20
     ldr r12, =HW_GPIO_WRITE
     blx r12
+backlight_done:
     mov r0, #0
     mov r1, #ERR_OK
     pop {r4-r6, pc}
@@ -385,6 +413,10 @@ script_led_hold_glue:
     cmp r0, r4
     beq led_hold_done
     str r4, [r6, #SCRIPT_CONTROL_LED_HOLD]
+    ldr r0, =objects_test_mode      ; the test mode holds the LEDs itself and gives them to this choice when it ends
+    ldrb r0, [r0]
+    cmp r0, #0
+    bne led_hold_done
     strb r4, [r5, #HW_LED_HOLD_BYTE]
     cmp r4, #0
     bne led_hold_done
@@ -426,6 +458,60 @@ led_guard_release:
     push {lr}
     mov r0, #0
     bl script_led_hold_glue
+    pop {pc}
+.pool
+
+; korg.padHold: pad presses stop reaching the firmware (no sound, no step edit) while the plugins still get `pad`. It is the
+; pad bit of the capture mask the input filter reads (input_mask_pad in script_hooks.s). The hold ends with padHold(0), when
+; an app closes (script_app_close) and when no plugin is left to run (script_pad_hold_guard).
+
+; r0 1 to keep the pad presses from the firmware, 0 to give them back.
+script_pad_hold_glue:
+    push {lr}
+    bl pad_hold_set
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {pc}
+
+; r0 1 sets, 0 clears the pad bit of the capture mask, with the interrupts off: the input filter writes the same word.
+; Clobbers r0 to r3.
+pad_hold_set:
+    ldr r2, =HOOK_RUNTIME
+    .word 0xE10F3000 ; mrs r3, cpsr
+    orr r1, r3, #0x80
+    .word 0xE121F001 ; msr cpsr_c, r1
+    ldr r1, [r2, #SCRIPT_CONTROL_CAPTURE_MASK]
+    cmp r0, #0
+    orrne r1, r1, #INPUT_PAD_BIT
+    biceq r1, r1, #INPUT_PAD_BIT
+    str r1, [r2, #SCRIPT_CONTROL_CAPTURE_MASK]
+    .word 0xE121F003 ; msr cpsr_c, r3
+    bx lr
+
+; r0 runtime. Gives the pads back when a script held them and none is left to run, as script_led_hold_guard does the LEDs.
+; Clobbers r0 to r3 and r12.
+script_pad_hold_guard:
+    ldr r1, [r0, #SCRIPT_CONTROL_CAPTURE_MASK]
+    tst r1, #INPUT_PAD_BIT
+    bxeq lr
+    ldr r2, [r0, #RT_HEAD]
+pad_guard_entry:
+    cmp r2, #0
+    beq pad_guard_release
+    ldr r3, [r2, #SCRIPT_ENTRY_STATE]
+    cmp r3, #SCRIPT_STATE_ARMED
+    bne pad_guard_next
+    ldr r3, [r2, #SCRIPT_ENTRY_BLOB]
+    ldr r12, =HOOK_POOL
+    cmp r3, r12
+    bxhs lr
+pad_guard_next:
+    ldr r2, [r2, #SCRIPT_ENTRY_NEXT]
+    b pad_guard_entry
+pad_guard_release:
+    push {lr}
+    mov r0, #0
+    bl pad_hold_set
     pop {pc}
 .pool
 

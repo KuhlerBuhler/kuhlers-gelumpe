@@ -34,6 +34,7 @@
 - **Brauch ich einen PC?** Ja, einmal zum Umbauen der Datei. Danach nicht mehr.
 - **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen Samples bleiben erhalten. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
 - **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
+- **Blaue Electribe: wo sind meine Exporte?** In `KORG/blechtribe/`, nicht mehr in `KORG/electribe/`. Beim ersten Start bietet die Electribe an, `KORG/electribe/` dorthin zu kopieren.
 - **Hab ich mit BLECHTRIBE noch Hacktribe?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf. Auf Korgs Original schaltet es die Hacktribe-Funktionen nicht frei.
 - **Wie kann ich eigene Effekte machen?** In der App im **Baukasten**. Da nimmst du einen fertigen Effekt oder baust einen aus Bausteinen, mit Namen und echten Einheiten. Über den Export kommen sie auf die SD-Karte, einzelne auch live per USB. Das geht auf der roten Electribe mit BLECHTRIBE.
 - **Windows: Die App findet meine Electribe nicht, obwohl die MIDI-Ports da sind.** Dann ist wohl Korgs eigener USB-MIDI-Treiber drauf, über den kommen die Antworten der Electribe nicht an. Nimm ihn im Geräte-Manager raus (die Electribe, "Gerät deinstallieren", mit Treiber) und starte Windows neu, Windows' eigener Treiber reicht. Will das KORG Driver Setup Utility ihn danach wieder installieren, mach es einfach zu. Der MIDI-Bericht in den Einstellungen sagt das auch.
@@ -72,6 +73,8 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Effekte frei bearbeiten (App) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | 128 Plätze für eigene Effekte | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Zweiter Master-Effekt (MFX 2) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| BEAT 8: Steps als Achtel, Pattern doppelt so lang | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| TOUCH SCALE RANGE 0: X spielt fest den Grundton | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Plugins und Spiele (Snake, Tetris, ...) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Pad-Farben und LED-Farben | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Patternwechsel erst nach Bestätigung | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -227,6 +230,17 @@ Ohne Emulator reicht `npm run serve`, dann entfällt `setup:emu`. Für die Kommu
 brauchst du Chrome oder Edge auf einem Desktopcomputer, die Seite nutzt Web MIDI mit SysEx, das Safari
 nicht kann.
 
+**Im Container.** Ohne Node und Python auf dem Rechner läuft dasselbe Paar in Docker:
+
+```bash
+mkdir SD
+docker compose up --build
+```
+
+Danach http://localhost:8737/ öffnen. Die Karte des Emulators liegt im Ordner `SD`, ein neuer Container
+behält sie. Wie du das Abbild nimmst, das ein Release veröffentlicht hat, statt selbst zu bauen, steht in
+[Entwicklung](docs/development.md#im-container).
+
 Die Desktop-App spricht auf macOS und Linux nativ mit den MIDI-Ports. Dafür braucht sie
 keinen zusätzlichen Browser und keinen separat installierten MIDI-Helfer. Unter Windows
 bleibt die App vorerst bei Web MIDI.
@@ -256,11 +270,11 @@ Mit einem Plugin bringst du der Electribe was Neues bei. Es kommt über die SD-K
 `KORG/blechtribe/Plugin/`. Der Ordner heißt `Plugin`, Einzahl, nicht "Plugins", und er ist bei der roten
 und der blauen Electribe derselbe. Die Firmware legt ihn nicht selbst an, du erstellst ihn. Ist das Gerät
 verbunden, geht es auch ohne Karte: im Bereich Plugins schreibt der Knopf "Aufs Gerät" das Plugin per USB
-dorthin, danach am Gerät Menü -> BLECH -> PLUGINS -> PLUGIN EDIT. Geschrieben wird in einer abgespeckten Form von JavaScript, der Editor
+dorthin, danach am Gerät Menü -> BLECH -> PLUGINS -> MANAGE PLUGINS. Geschrieben wird in einer abgespeckten Form von JavaScript, der Editor
 übersetzt das in Bytecode für eine kleine VM in der Firmware. Wenn ein Plugin einen Fehler hat, wird
 nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
 [docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
-Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Lauflicht und Pulsieren.
+Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Lauflicht, Pulsieren und Takt-Blinker.
 
 ## Der Emulator
 

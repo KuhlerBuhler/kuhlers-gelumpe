@@ -2,9 +2,11 @@
 name: Test
 
 on:
-  # A pull request is tested by its own run; a push to its branch would be the same run twice.
+  # A pull request is tested by its own run; a push to its branch would be the same run twice. develop is tested after
+  # each merge as well: a pull request does not have to be up to date with develop to be merged (automerge.yml), so
+  # what two pull requests break only together shows up here.
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 permissions:
@@ -224,6 +226,7 @@ jobs:
       - run: npm run setup:emu
       - run: npm run build:site
       - run: npm run build:sidecar
+      - run: node tools/emu/sidecar-smoke.mjs
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings

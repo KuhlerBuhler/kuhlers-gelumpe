@@ -64,7 +64,7 @@ steht, gilt die Zeile in allen diesen Zuständen.
 | SHIFT + EXIT | wie EXIT | gemessen |
 | SHIFT + WRITE | Namenseingabe "enter NAME" (Pattern unter neuem Namen speichern). Im Zielwahl-Fenster "select DESTINATION" springt es ebenfalls auf die Namenseingabe. | gemessen, Handbuch OM S.5 und S.12, PG S.11, offline `0xC006F15C` |
 | SHIFT + Part< / Part> | nichts Besonderes, der Part wechselt wie ohne SHIFT | gemessen |
-| SHIFT + PART MUTE | Hebt die Stummschaltung **aller 16 Parts** auf (im Pattern-Puffer gehen die 16 Stumm-Bytes auf 0, alle Pad-LEDs rot). Der Modus selbst schaltet nicht um. | gemessen, Handbuch PG S.11, offline `0xC007042C` (Schleife über 16 Parts) |
+| SHIFT + PART MUTE | Hebt die Stummschaltung **aller 16 Parts** auf (im Pattern-Puffer gehen die 16 Stumm-Bytes auf 0, alle Pad-LEDs rot). Der Modus selbst schaltet nicht um. Mit BLECH in der Vorschau (`VIEW:`, `NEXT:`) schaltet es stattdessen die Pads zwischen angesehenem und laufendem Pattern um ([Messung](messungen/2026-10-30-vorschau-part-reinholen.md)) | gemessen, Handbuch PG S.11, offline `0xC007042C` (Schleife über 16 Parts) |
 | SHIFT + PART ERASE | wie PART ERASE allein: der Modus PART ERASE geht an (LED `0x21` auf 255), Display und Pattern bleiben, wie sie sind. Mit dem Patch Würfeln würfelt die Kombination eine Melodie und der Modus bleibt aus | gemessen, 2026-10-16 ([Messung](messungen/2026-10-16-wuerfeln.md)) |
 | SHIFT + TRIGGER, SEQUENCER, KEYBOARD, STEP JUMP, PATTERN SET, MFX SEND | wie ohne SHIFT | gemessen, offline: die Modus-Tasten lesen SHIFT (`0xC006FF60`), reagieren aber nur bei CHORD |
 | SHIFT + CHORD | Pattern-Seite 9 CHORD SET. Der Chord-Modus schaltet trotzdem um. | gemessen, Handbuch PG S.11, offline `0xC006FF60` (SHIFT und Taste 0x18) |
@@ -155,7 +155,7 @@ Pattern-Daten und (bei Pad und Touchpad als zweitem Element) der MIDI-Ausgang es
 | Kombination | Wirkung | Beleg |
 |---|---|---|
 | EXIT **halten** + WRITE | speichert das Pattern sofort an seinen eigenen Platz (ohne das Zielwahl-Fenster zu bestätigen) | gemessen, `docs/messungen/2026-10-19-exit-shortcuts.md` |
-| EXIT **halten** + Pad | setzt den Klang eines Parts auf die gespeicherten Werte zurück, die Steps bleiben; TRIGGER: der Part des Pads, sonst der gewählte Part | gemessen, ebenda |
+| EXIT **halten** + Pad | setzt den Klang eines Parts auf die gespeicherten Werte zurück, die Steps bleiben; SEQUENCER und STEP JUMP: der gewählte Part, sonst der Part des Pads | gemessen, ebenda |
 
 Die Modus-Tasten (TRIGGER, SEQUENCER, KEYBOARD, CHORD, PART MUTE, PART ERASE, STEP JUMP,
 PATTERN SET) bleiben nach dem Loslassen an. Sie müssen nicht gehalten werden, nur die ersten

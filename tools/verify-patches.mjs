@@ -13,6 +13,9 @@
  *   --merge             keep the entries of other inputs in the file, replace only those of the files checked now
  *   --results FILE...   take the entries from verified.json files of earlier runs instead of checking (the workflow
  *                       .github/workflows/verify-patches.yml joins its three jobs this way)
+ *   --cases LIST        check only, write nothing: the start scenarios and the cases of the named modules (check.py
+ *                       --cases, comma-separated, empty = --quick, "all" = every case); the workflow's runs on pull
+ *                       requests into develop. Entries in verified.json always mean the full check.
  *
  * A pair that is already in the file with the same set and checks keeps its old date, so a run that changes nothing
  * leaves the file byte for byte as it was.
@@ -57,7 +60,7 @@ export function readResults(text, name = "verified.json") {
   return data.results;
 }
 
-async function check(files) {
+async function check(files, cases = null) {
   const { python, command } = pythonEnv();
   const readJson = url => JSON.parse(readFileSync(join(root, url), "utf8"));
   const span = ([at, n]) => `0x${at.toString(16)}:${n}`;
@@ -84,8 +87,9 @@ async function check(files) {
       writeFileSync(patched, res.bytes);
       const hardware = blue ? ["--hardware", "blue"] : [];
       const args = [join(root, "tools/emu/check.py"), "--base", base, "--patched", patched, ...hardware,
-        ...res.allow.flatMap(s => ["--allow", span(s)]), ...res.allowCode.flatMap(s => ["--allow-code", span(s)])];
-      console.log(`${file}: ${build}${blue ? " for the blue" : ""}, checking ...`);
+        ...res.allow.flatMap(s => ["--allow", span(s)]), ...res.allowCode.flatMap(s => ["--allow-code", span(s)]),
+        ...(cases === null || cases === "all" ? [] : ["--cases", cases])];
+      console.log(`${file}: ${build}${blue ? " for the blue" : ""}, checking${cases === null ? "" : ` (cases: ${cases || "none"})`} ...`);
       const run = spawnSync(...command(python, args), { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "inherit"] });
       let report = null;
       try { report = JSON.parse(run.stdout); } catch { /* reported below */ }
@@ -109,12 +113,24 @@ async function check(files) {
 }
 
 async function main(argv) {
+  const at = argv.indexOf("--cases");
+  const cases = at < 0 ? null : argv[at + 1];
+  if (at >= 0) argv = argv.filter((_, i) => i !== at && i !== at + 1);
   const merge = argv.includes("--merge");
   const fromResults = argv.includes("--results");
   const files = argv.filter(a => a !== "--merge" && a !== "--results");
-  if (!files.length) {
-    console.error("usage: verify-patches.mjs [--merge] SYSTEM.VSB [SYSTEM.VSB ...]\n       verify-patches.mjs [--merge] --results verified.json [verified.json ...]");
+  if (!files.length || cases === undefined || (cases !== null && fromResults)) {
+    console.error("usage: verify-patches.mjs [--merge] SYSTEM.VSB [SYSTEM.VSB ...]\n       verify-patches.mjs [--merge] --results verified.json [verified.json ...]\n       verify-patches.mjs --cases LIST SYSTEM.VSB [SYSTEM.VSB ...]");
     process.exit(2);
+  }
+  if (cases !== null) {
+    const { failed } = await check(files, cases);
+    if (failed) {
+      console.error(`${failed} file(s) did not pass.`);
+      process.exit(1);
+    }
+    console.log(`all passed; a check with --cases writes nothing to ${VERIFIED_URL}`);
+    return;
   }
   const { results, failed } = fromResults
     ? { results: files.flatMap(f => readResults(readFileSync(resolve(f), "utf8"), f)), failed: 0 }

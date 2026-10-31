@@ -317,7 +317,7 @@ export const CONVERTERS = {
   }),
 
   patternLength: choices("patternLength", ["1 Takt", "2 Takte", "3 Takte", "4 Takte"]),
-  beat: choices("beat", ["16tel", "32tel", "8tel-Triolen", "16tel-Triolen"]),
+  beat: choices("beat", ["16tel", "32tel", "8tel-Triolen", "16tel-Triolen", "8tel"]),
   key: choices("key", NOTE),
   scale: choices("scale", SCALES),
   voiceAssign: choices("voiceAssign", ["Mono 1", "Mono 2", "Poly 1", "Poly 2"]),
@@ -335,7 +335,7 @@ export const CONVERTERS = {
   batteryMode: choices("batteryMode", ["Ni-MH", "Alkali"]),
   autoPowerOff: choices("autoPowerOff", ["Aus", "nach 4 Stunden"]),
   powerSave: choices("powerSave", ["Aus", "Auto", "An"]),
-  octaves: choices("octaves", ["1 Oktave", "2 Oktaven", "3 Oktaven", "4 Oktaven"], { first: 1 }),
+  octaves: choices("octaves", ["0 (nur Grundton, BLECH)", "1 Oktave", "2 Oktaven", "3 Oktaven", "4 Oktaven"]),
   clockMode: choices("clockMode", ["Intern", "Auto", "Extern USB", "Extern MIDI", "Extern Sync"]),
   midiFilter: choices("midiFilter", ["Aus", "Short", "Short + Program"]),
 

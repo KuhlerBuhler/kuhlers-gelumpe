@@ -4,7 +4,7 @@
  * The flash is written by Korg's own update afterwards, started on the device; nothing here writes the flash.
  *
  * A patched file cannot be patched again, so the unpatched one is kept beside it as ORIGINAL.BIN the first time; every later
- * update starts from that.
+ * update starts from that. A file that already has BLECH is updated in place (src/blech-update.mjs) or its original rebuilt (restoreOriginal in src/patcher.mjs).
  */
 import { BLECH } from "./protocol.mjs";
 import { text, TextError } from "./text.mjs";
@@ -59,7 +59,7 @@ export function pluginFileName(id) {
   return name || "plugin";
 }
 
-/** A .blech onto the card of the connected device, as KORG/blechtribe/Plugin/<name>.blech; PLUGIN EDIT in the BLECH menu lists it. */
+/** A .blech onto the card of the connected device, as KORG/blechtribe/Plugin/<name>.blech; MANAGE PLUGINS in the BLECH menu lists it. */
 export function storePlugin(session, id, bytes, onProgress) {
   return session.exclusive(async () => {
     const model = await prepare(session);

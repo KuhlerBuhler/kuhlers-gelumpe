@@ -3,11 +3,23 @@
 # a last job writes the entries into one verified.json (tools/verify-patches.mjs --results). Nothing is committed when
 # every pair is already in the file. See docs/development.md, "Release".
 #
-# It runs on a pull request that changes what the patched copies or the check are made of (the paths below: the patch
-# set, everything tools/verify-patches.mjs imports, tools/patch and tools/emu; test/verify-patches.test.mjs keeps the
-# list complete) and commits the new verified.json to the pull request's branch. A pull request from a fork has no
-# secrets and is skipped. Started by hand it checks the branch it is given and pushes there, except to main and
-# develop, which get a pull request instead.
+# It checks what the patched copies or the check are made of (the paths below: the patch set, everything
+# tools/verify-patches.mjs imports, tools/patch and tools/emu, the blue Electribe's places in data/synth-map that
+# tools/patch reads, and the scope table; test/verify-patches.test.mjs keeps the list complete). It starts on every pull
+# request, so the check "patches" always reports and can be waited for (automerge.yml); a pull request that changes none
+# of the paths passes it after the first job, a fork's included. A pull request from a fork that changes one of the
+# paths has no secrets for the check and fails "patches": a person checks and merges it. What runs depends on the base:
+#
+# - into develop (feature pull requests): on each of the four files only the start scenarios and the case modules of
+#   what the pull request changes (tools/ci/verify-scope.mjs maps the changed files; a file it does not know, or the
+#   shared core, means every case module). Nothing is written or committed: verified.json holds only full checks. A
+#   case that breaks outside the mapped modules shows up first on the release pull request.
+# - into any other base, main included (the release pull request from release/X.Y.Z), and started by hand: the full
+#   check, and the last job commits the new verified.json to the pull request's branch. Started by hand it checks the
+#   branch it is given and pushes there, except to main and develop, which get a pull request instead.
+# - a push to develop (a merged pull request) that changes one of the paths: every case module on the four files with
+#   the kept task results, writing nothing. It keeps develop's task cache current, and a new pull request starts from
+#   that cache instead of cold; it also catches a case two pull requests break only together.
 #
 # The push uses SYNC_TOKEN when it is set: a push with the workflow's own token starts no workflow, so the new commit
 # would have no Test run and the pull request would wait for its required checks. The new commit only changes
@@ -19,6 +31,9 @@ name: Verify patches
 
 on:
   pull_request:
+  push:
+    branches: [develop]
+    # tools/ci/verify-scope.mjs reads this list too (workflowPaths): a pull request outside it skips the check
     paths:
       - "data/patches/**"
       - "!data/patches/verified.json"
@@ -28,15 +43,18 @@ on:
       - "data/synth-sites.mjs"
       - "data/map/**"
       - "data/script/**"
+      - "data/synth-map/**"
       - "src/bsdiff.mjs"
       - "src/bytes.mjs"
       - "src/bzip2.mjs"
       - "src/firmware.mjs"
       - "src/fx-append.mjs"
+      - "src/fx-collection.mjs"
       - "src/fx-v2.mjs"
       - "src/guards.mjs"
       - "src/hooks.mjs"
       - "src/layout.mjs"
+      - "src/loading-anim.mjs"
       - "src/map/**"
       - "src/modtable.mjs"
       - "src/patch.mjs"
@@ -48,6 +66,7 @@ on:
       - "src/record.mjs"
       - "src/script/**"
       - "src/units.mjs"
+      - "tools/ci/verify-scope.mjs"
       - "tools/emu/**"
       - "tools/patch/**"
       - "tools/verify-patches.mjs"
@@ -65,18 +84,22 @@ permissions:
 jobs:
   # The commit all jobs check, so a push to the branch during the hour cannot mix two patch sets.
   ref:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
       branch: ${{ steps.sha.outputs.branch }}
-      run: ${{ steps.own.outputs.run || 'true' }}
+      run: ${{ steps.own.outputs.run || steps.paths.outputs.run || 'true' }}
+      full: ${{ steps.scope.outputs.full || steps.push.outputs.full || 'true' }}
+      cases: ${{ steps.scope.outputs.cases || steps.push.outputs.cases }}
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - id: sha
         env:
-          BRANCH: ${{ inputs.branch || github.head_ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BRANCH: ${{ inputs.branch || github.head_ref || github.ref_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.after }}
           REPO: ${{ github.server_url }}/${{ github.repository }}
         run: |
           sha=${HEAD_SHA:-$(git ls-remote --exit-code "$REPO" "refs/heads/$BRANCH" | cut -f1)}
@@ -96,10 +119,43 @@ jobs:
             echo "::notice::the last commit only changes verified.json, nothing to check."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
+      # A pull request that changes none of the paths above has nothing to check; "patches" passes without a check.
+      - id: paths
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"
+          # the API lists at most 3000 files
+          [ "$(wc -l < "$RUNNER_TEMP/changed.txt")" -ge 3000 ] && exit 0
+          n=$(node --input-type=module -e 'import { readFileSync } from "node:fs"; import { workflowPaths } from "./tools/ci/verify-scope.mjs"; console.log(readFileSync(0, "utf8").split("\n").filter(Boolean).filter(workflowPaths()).length)' < "$RUNNER_TEMP/changed.txt")
+          if [ "$n" = 0 ]; then
+            echo "::notice::the pull request changes nothing the check is made of, nothing to check."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      # A pull request into develop runs the start scenarios and the case modules of its changed files, and writes nothing.
+      - id: scope
+        if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+        run: |
+          if [ "$(wc -l < "$RUNNER_TEMP/changed.txt")" -ge 3000 ]; then cases=all; else cases=$(node tools/ci/verify-scope.mjs < "$RUNNER_TEMP/changed.txt"); fi
+          echo "::notice::pull request into develop: start scenarios and cases '${cases:-none}', verified.json stays as it is."
+          echo "full=false" >> "$GITHUB_OUTPUT"
+          echo "cases=$cases" >> "$GITHUB_OUTPUT"
+      # A push to develop runs every case module with the kept task results, so develop's cache stays current.
+      - id: push
+        if: github.event_name == 'push'
+        run: |
+          echo "::notice::push to $GITHUB_REF_NAME: every case module with the kept task results, verified.json stays as it is."
+          echo "full=false" >> "$GITHUB_OUTPUT"
+          echo "cases=all" >> "$GITHUB_OUTPUT"
 
   verify:
     needs: ref
-    if: needs.ref.outputs.run == 'true'
+    # a fork's pull request has no secrets to load the 2.02 files with
+    if: >-
+      needs.ref.outputs.run == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     # A newer push to a pull request makes its running check pointless; a run started by hand is never cancelled. The
     # groups are per job, so a run that skips (after this workflow's own commit) cancels nothing.
     concurrency:
@@ -141,6 +197,51 @@ jobs:
       - run: |
           python -m venv tools/emu/.venv
           tools/emu/.venv/bin/pip install -r tools/emu/requirements.txt
+      # Pull requests into develop and pushes to develop only: the task results of the last run of this matrix entry (tools/emu/taskcache.py),
+      # so a push that changes one case module runs only the tasks it touches. A result is taken only for the same
+      # firmware, flash and base, Python and Unicorn, and while every file the task used has the same content, so a
+      # stale hit cannot happen; the key only names the newest run to restore. Only ~/.cache/gelumpe/task and
+      # task-time go in: verdicts, ids, details, hashes, the addresses of the code that ran at start and a 0/1 mask
+      # of which bytes it read, no firmware bytes. The boot
+      # and power-on snapshots hold Korg's RAM and stay out (Actions caches are readable with repo access). The full
+      # check (release pull request, started by hand) restores nothing and keeps nothing, so verified.json only gets
+      # results of a fresh run. A pull request can restore only its own caches and those of develop and main; its first
+      # run takes the newest one of develop, which every push to develop saves.
+      # Two caches: develop's newest and the pull request's own newest. A restore takes one cache and prefers the
+      # pull request's own, so after develop was merged in, develop's newer results would be missing. A result is a file
+      # named by its key, so the union of both is safe; the own task-time wins. The paths of a restore have to be the
+      # paths of the save, so develop's lands first and moves aside.
+      - name: Kept task results of develop
+        if: needs.ref.outputs.full != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v2-${{ matrix.name }}.develop.${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: verify-tasks-v2-${{ matrix.name }}.develop.
+      - if: needs.ref.outputs.full != 'true' && github.event_name == 'pull_request'
+        run: |
+          mkdir -p "$RUNNER_TEMP/develop" ~/.cache/gelumpe
+          for d in task task-time; do [ -e ~/.cache/gelumpe/$d ] && mv ~/.cache/gelumpe/$d "$RUNNER_TEMP/develop/"; done
+          true
+      - name: Kept task results of the pull request
+        if: needs.ref.outputs.full != 'true' && github.event_name == 'pull_request'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v2-${{ matrix.name }}.pr.${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: verify-tasks-v2-${{ matrix.name }}.pr.
+      - if: needs.ref.outputs.full != 'true' && github.event_name == 'pull_request'
+        run: |
+          for d in task task-time; do
+            [ -e "$RUNNER_TEMP/develop/$d" ] || continue
+            mkdir -p ~/.cache/gelumpe/$d
+            cp -Rpn "$RUNNER_TEMP/develop/$d/." ~/.cache/gelumpe/$d/
+          done
+          echo "task results: $(find ~/.cache/gelumpe/task -type f 2>/dev/null | wc -l)"
       - name: Korg's file
         env:
           URL: ${{ secrets[matrix.url] }}
@@ -157,16 +258,58 @@ jobs:
           printf '\000' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=18 conv=notrunc status=none
           printf '\043' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=46 conv=notrunc status=none
           echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
-      - run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
+      - if: needs.ref.outputs.full == 'true'
+        run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
+      - if: needs.ref.outputs.full != 'true'
+        env:
+          CASES: ${{ needs.ref.outputs.cases }}
+        run: npm run -s verify:patches -- --cases "$CASES" "$RUNNER_TEMP/SYSTEM.VSB"
+      # The collection on the card end to end with the editor's own writer (src/fx-collection.mjs), on the red builds
+      # that carry the loader, whenever the fx_card cases run: the cases above build the file in Python.
+      - name: The editor's e2sFx.all in the emulator
+        if: (matrix.name == 'hacktribe' || matrix.name == 'red') && (needs.ref.outputs.full == 'true' || needs.ref.outputs.cases == 'all' || contains(format(',{0},', needs.ref.outputs.cases), ',fx_card_cases,'))
+        env:
+          E2_EMU_REQUIRED: "1"
+          E2_VSB: ${{ runner.temp }}/SYSTEM.VSB
+        run: node --test test/emulator-fxcard.test.mjs
+      # Also after a failed check: a failed case is a result like a passed one. Results not written for two weeks go.
+      - if: always() && needs.ref.outputs.full != 'true'
+        run: find ~/.cache/gelumpe/task -type f -mtime +14 -delete 2>/dev/null || true
+      - if: always() && needs.ref.outputs.full != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v2-${{ matrix.name }}.${{ github.event_name == 'push' && 'develop' || 'pr' }}.${{ github.run_id }}-${{ github.run_attempt }}
       # Only the entry (hashes, set, number of checks, date), never the firmware.
-      - uses: actions/upload-artifact@v4
+      - if: needs.ref.outputs.full == 'true'
+        uses: actions/upload-artifact@v4
         with:
           name: verified-${{ matrix.name }}
           path: data/patches/verified.json
           retention-days: 30
 
+  # One check for the four firmware jobs, which automerge.yml waits for: the check passed, or there was nothing to
+  # check. A fork's pull request that needs the check (no secrets to run it) fails it.
+  patches:
+    needs: [ref, verify]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          REF: ${{ needs.ref.result }}
+          RUN: ${{ needs.ref.outputs.run }}
+          VERIFY: ${{ needs.verify.result }}
+        run: |
+          [ "$REF" = success ] || { echo "::error::the first job did not pass"; exit 1; }
+          if [ "$RUN" = false ]; then echo "nothing to check"; exit 0; fi
+          [ "$VERIFY" != skipped ] || { echo "::error::no check ran (a pull request from a fork has no secrets): a person checks and merges it."; exit 1; }
+          [ "$VERIFY" = success ]
+
   join:
     needs: [ref, verify]
+    if: needs.ref.outputs.full == 'true'
     concurrency:
       group: verify-patches-${{ needs.ref.outputs.branch }}-join
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}

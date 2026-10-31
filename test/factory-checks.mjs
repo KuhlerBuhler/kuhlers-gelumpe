@@ -15,7 +15,7 @@ import { tableEntry, patternInBackup, PATTERN_FILE } from "../src/map/address.mj
 import { locateModTable } from "../src/modtable.mjs";
 import FINDINGS from "../data/findings.mjs";
 import FX_RANGES from "../data/map/fx-ranges.mjs";
-import { GAIN_STAGING, REC, STAGE_BLOCK_SIZE } from "../src/layout.mjs";
+import { GAIN_STAGING, REC, MAP, MAP_PAIRS, STAGE_BLOCK_SIZE } from "../src/layout.mjs";
 
 // Addresses come from the map, so a wrong map entry fails the check that is its evidence.
 const at = (tableId, index, fieldId, indices = []) => tableEntry(tableId, index).file + offsetOf(field(fieldId), indices);
@@ -130,6 +130,26 @@ export const VSB_CHECKS = {
       }
     }
     return `one stage block per position apart from device, the byte after it and the parameters: ${seen.join(", ")}`;
+  },
+
+  "map-row-copies"({ image }) {
+    let rows = 0, copied = 0;
+    for (const kind of ["mfx", "ifx"]) {
+      for (const { slot, record } of factory(image, kind)) {
+        for (const row of record.map) {
+          const at = REC.map + row.index * REC.mapEntrySize;
+          const pairs = Array.from({ length: MAP_PAIRS.count }, (_, k) => [MAP.low, MAP.high].map(o => record.bytes[at + o + k * MAP_PAIRS.stride]).join("/"));
+          const rest = new Set(pairs.slice(1));
+          rows++;
+          if (rest.size === 1 && pairs[1] === pairs[0]) copied++;
+          else assert(rest.size === 1 && pairs[1] === "0/0", `${kind} ${slot} row ${row.index}: the pair copies are ${pairs.join(" ")}`);
+          for (let k = 0; k < MAP_PAIRS.count; k++) {
+            assert(!record.bytes[at + MAP.low + 1 + k * MAP_PAIRS.stride] && !record.bytes[at + MAP.high + 1 + k * MAP_PAIRS.stride], `${kind} ${slot} row ${row.index}: a byte between the pairs is set`);
+          }
+        }
+      }
+    }
+    return `${rows} map rows: ${copied} repeat their from/to pair in all ${MAP_PAIRS.count} copies, ${rows - copied} leave the copies at zero`;
   },
 
   "stage2-factory-chains"({ image }) {

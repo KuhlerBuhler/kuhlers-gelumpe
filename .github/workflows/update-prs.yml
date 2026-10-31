@@ -1,8 +1,17 @@
-# After every push to a base branch (develop, main, a release branch), each open pull request into that branch that is
-# behind it gets the branch merged in (GitHub's "Update branch"), so its checks run against what it will be merged into.
-# The update uses SYNC_TOKEN: a push with the workflow's own token starts no workflow, so the pull request would get no
-# new checks. A pull request from a fork, one whose head is itself a base branch (the sync main -> develop) and one that
-# conflicts are left alone; a conflict is only logged, it needs a person.
+# After every push to a base branch, the open pull requests into that branch that are behind it:
+#
+# - main and release branches: each one gets the branch merged in (GitHub's "Update branch"), so its checks run against
+#   what it will be merged into.
+# - develop: only a pull request that conflicts with develop is touched. When every conflict is in the runtime patches
+#   (data/patches/script-runtime*.json), which tools/patch/script_runtime.mjs builds from the sources, the job merges
+#   develop in, builds the three again from the merged sources and pushes. Any other conflict is only logged, it needs a
+#   person. A pull request that merges cleanly stays as it is: it does not have to be up to date with develop, and
+#   merging develop into every open pull request after each merge would start all their checks again. What two pull
+#   requests break only together shows up in the runs on develop (Test, Verify patches).
+#
+# The pushes use SYNC_TOKEN: a push with the workflow's own token starts no workflow, so the pull request would get no
+# new checks. A pull request from a fork and one whose head is itself a base branch (the sync main -> develop) are left
+# alone.
 name: Update pull requests
 
 on:
@@ -24,6 +33,7 @@ concurrency:
 
 jobs:
   update:
+    if: (inputs.base || github.ref_name) != 'develop'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -53,3 +63,87 @@ jobs:
               echo "::warning::#$n ($head) is $behind commits behind $BASE and could not be updated: $out"
             fi
           done
+
+  develop:
+    if: (inputs.base || github.ref_name) == 'develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HAS_TOKEN: ${{ secrets.SYNC_TOKEN != '' }}
+    steps:
+      - if: env.HAS_TOKEN != 'true'
+        run: echo "no SYNC_TOKEN, nothing is updated"
+      - if: env.HAS_TOKEN == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN }}
+      # script_runtime.mjs assembles with the emulator's Python (tools/emu/requirements.txt) and Node.
+      - if: env.HAS_TOKEN == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - if: env.HAS_TOKEN == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - if: env.HAS_TOKEN == 'true'
+        run: |
+          python -m venv tools/emu/.venv
+          tools/emu/.venv/bin/pip install -r tools/emu/requirements.txt
+      - name: Rebuild the runtime patches of conflicting pull requests
+        if: env.HAS_TOKEN == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          generated='^data/patches/script-runtime(-stock|-synth)?\.json$'
+          gh pr list -R "$REPO" --base develop --state open --limit 100 \
+            --json number,headRefName,headRefOid,isCrossRepository \
+            --jq '.[] | select(.isCrossRepository | not) | [.number, .headRefName, .headRefOid] | @tsv' > "$RUNNER_TEMP/prs.tsv"
+          while IFS=$'\t' read -r n head sha; do
+            case "$head" in
+              main|develop|release/*) echo "#$n: head $head is a base branch, skipped"; continue ;;
+            esac
+            git fetch -q origin "refs/heads/$head"
+            if git merge-base --is-ancestor origin/develop "$sha"; then
+              echo "#$n: up to date"; continue
+            fi
+            git checkout -q --detach "$sha"
+            clean=1
+            if ! git merge -q --no-edit origin/develop >/dev/null 2>&1; then
+              clean=0
+              conflicts=$(git diff --name-only --diff-filter=U)
+              if [ -z "$conflicts" ] || echo "$conflicts" | grep -Evq "$generated"; then
+                git merge --abort || true
+                echo "::warning::#$n ($head) conflicts with develop beyond the runtime patches, it needs a person:"
+                echo "$conflicts"; continue
+              fi
+            fi
+            # Also after a clean merge: two text merges of a built file can give a file no build makes.
+            if ! (for build in hacktribe stock synth; do node tools/patch/script_runtime.mjs --build "$build" >/dev/null || exit 1; done); then
+              [ "$clean" = 1 ] || git merge --abort || true
+              echo "::warning::#$n ($head): the runtime patches do not build from the merged sources, it needs a person."; continue
+            fi
+            if [ "$clean" = 1 ]; then
+              if git diff --quiet -- "data/patches/script-runtime*.json"; then
+                echo "#$n: merges cleanly, left as it is"; continue
+              fi
+              git add -- "data/patches/script-runtime*.json"
+              git commit -q --amend --no-edit
+              echo "#$n: merges cleanly, but the merged runtime patches were not what the sources build"
+            else
+              git add -- "data/patches/script-runtime*.json"
+              git commit -q --no-edit
+            fi
+            git commit -q --amend -m "Merge develop into $head" -m "The runtime patches were built again from the merged sources (node tools/patch/script_runtime.mjs) by the workflow Update pull requests."
+            if git push -q origin "HEAD:refs/heads/$head"; then
+              echo "#$n: develop merged in, runtime patches built again"
+            else
+              echo "::warning::#$n ($head) moved on during the merge, the next push to develop tries again."
+            fi
+          done < "$RUNNER_TEMP/prs.tsv"
+          git checkout -q develop

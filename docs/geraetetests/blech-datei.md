@@ -209,11 +209,20 @@ probieren, Ausgabe und Display notieren.
    Das Blech Startbild erscheint trotzdem. Im Emulator gemessen, am Gerät offen für den ganzen Satz.
    Melden: ok, sonst was das Display zeigt.
 
-8. **Das Menü ansehen.** Hauptbildschirm, MENU, mit EDIT rechts nach Global ("27/31"), EDIT rechts:
-   eine einzige Seite "BLECH 28/31" mit dem Titel BLECH und der Zeile "press  [ Enter ]", so wie danach Data Util
-   ("29/31"). Zurück mit EDIT links. ENTER (die Taste MENU) öffnet die Liste der Gruppen: "BLECH 1/3" FEATURES, dann mit
-   EDIT rechts CUSTOMIZATION, PLUGINS (GAMES und TOOLS kommen dazu, wenn eine App der Gruppe geladen ist, die Zähler zählen dann
-   bis 5; eine Gruppe ABOUT gibt es nicht),
+8. **Das Menü ansehen.** Hauptbildschirm, MENU, mit EDIT rechts bis Event ("30/32"), EDIT rechts:
+   eine einzige Seite "BLECH 31/32" mit dem Titel BLECH und der Zeile "press  [ Enter ]", so wie Data Util,
+   EDIT rechts: Blechy (32/32), EDIT rechts: die erste Seite des Pattern Menüs. Im Pattern Menü bis CHAIN REPEAT ("15/32"),
+   EDIT rechts: SYNC GROUP ("Pattern 16/32"), EDIT rechts: die erste Seite des Part Menüs ("17/32"), und zurück.
+   Auf der blauen: SYNC GROUP 16/31, BLECH 30/31, Blechy 31/31.
+   In Global (MENU auf "Global") auf der ersten Seite EDIT links: PLUGIN RUNTIME ("Global 21/21"), EDIT rechts wieder die
+   erste Seite (TRIGGER MODE, "1/21"). In Data Util (MENU auf "Data Util") auf der ersten Funktion EDIT links:
+   SET INIT PATTERN ("Data Util 18/18", auf der blauen 14/14), mit EDIT links weiter EXPORT ALL EFFECTS (17/18, nur rot),
+   EXPORT ALL PLUGINS (16/18), EXPORT ALL CUSTOM (15/18), dann SOFTWARE UPDATE (14/18). EXPORT ALL CUSTOM schreibt
+   `KORG/blechtribe/e2sCustom.all`, EXPORT ALL EFFECTS schreibt `KORG/blechtribe/Presets/e2sFx.all` neu (der Editor liest
+   sie danach mit allen Einträgen und Texten). EXIT auf diesen Seiten geht auf "Global" bzw. "Data Util" zurück.
+   Zurück auf BLECH: ENTER (die Taste MENU) öffnet die Liste der Gruppen: "BLECH 1/4" FEATURES, dann mit
+   EDIT rechts PLUGINS, CUSTOMIZATION (GAMES und TOOLS kommen dazu, wenn eine App der Gruppe geladen ist, die Zähler zählen dann
+   bis 6), zuletzt VERSION,
    jede mit "press  [ Enter ]". ENTER auf FEATURES zeigt die vier Schalter MFX 2, PATTERN CONFIRM, TAP MOTION und NOTE ASSIST
    mit Wert (ON) statt "press  [ Enter ]" (Schild "Feature"). ENTER auf einer Gruppe zeigt ihre Seiten: das Schild oben links nennt sie ("Plugins 1/5"),
    der Zähler zählt nur ihre Seiten, EDIT blättert im Kreis. EXIT geht immer eine Ebene zurück (Seiten, Liste, Ring,
@@ -278,19 +287,31 @@ probieren, Ausgabe und Display notieren.
     Erwartet: kein Knacken und kein Stocken des Sequencers, nach Gehör; EXIT geht jederzeit.
     Melden: ok, sonst was zu hören ist und bei welcher Tätigkeit.
 
-14. **EXPORT ALL.** Menü, Gruppe PLUGINS, Seite EXPORT ALL (sieht aus wie IMPORT SAMPLE: Titel, "press  [ Enter ]"), ENTER oder WRITE.
+14. **EXPORT ALL PLUGINS.** Data Util, auf der ersten Funktion zweimal EDIT links (auf der blauen ebenso): Seite
+    EXPORT ALL PLUGINS (sieht aus wie IMPORT SAMPLE: Titel, "press  [ Enter ]"), ENTER oder WRITE.
     Erwartet: "1 exported" (oder die Zahl der Plugins) als Wert der Seite. Auf der Karte am Rechner ist `e2sPlugin.all`
     gleich groß und gleich dem, was vorher drauf war.
     Melden: ok, sonst die Meldung des Geräts und die Größen.
 
 15. **Plugin laden.** Ein `.blech` aus dem Editor ("Als .blech speichern") nach
     `KORG/blechtribe/Plugin/` legen (auf einem Mac liegen dort oft auch `._Name.blech` Dateien), am Gerät im Menü, Gruppe
-    PLUGINS, auf PLUGIN EDIT ENTER drücken. Das Hauptrad wählt auf SELECT PLUGIN durch die Liste, EDIT blättert zu STATE
-    und DESCRIPTION. Auf STATE zeigt das Plugin OFF; das Hauptrad nach oben oder ENTER lädt es, WRITE behält den Stand.
+    PLUGINS, auf MANAGE PLUGINS ENTER drücken. EDIT blättert durch die Liste, je Plugin eine Seite: oben der Name, darunter
+    der Stand. Ein nicht geladenes zeigt OFF; das Hauptrad nach oben lädt es, WRITE behält den Stand. ENTER auf einem
+    Plugin öffnet seine Seiten: DESCRIPTION, seine eigenen Seiten, OFF, REMOVE; EXIT führt zurück auf das Plugin in der Liste.
     Erwartet: nur echte Plugin Dateien stehen in der Liste (keine mit Punkt am Anfang), ein Plugin kommt nur einmal vor,
-    DESCRIPTION zeigt die Beschreibung (das Hauptrad scrollt sie), STATE zeigt nach dem Laden ON, das Plugin läuft sofort,
-    es hat nun mehr Seiten (hat es eine App, steht sie unter GAMES oder TOOLS).
+    DESCRIPTION zeigt die Beschreibung (das Hauptrad scrollt sie), unter dem Namen steht nach dem Laden ON, das Plugin läuft
+    sofort, es hat nun mehr Seiten hinter ENTER (hat es eine App, steht sie unter GAMES oder TOOLS). Das Hauptrad nach unten
+    pausiert es (OFF), nach oben läuft es weiter. OFF fragt ("Enter = off"), ein zweites ENTER nimmt es aus
+    `e2sPlugin.all` ("off, file kept"), die Datei bleibt und das Plugin steht wieder als OFF in der Liste. REMOVE fragt
+    ("Enter = remove"), ein zweites ENTER nimmt es heraus und löscht seine `.blech` ("removed"); es steht nicht mehr in der
+    Liste, am Rechner fehlt die Datei. Auf der blauen bleibt die Datei ("file stays on card").
     Melden: ok, sonst Meldung und Anzeige.
+
+15a. **Viele Plugins.** 70 `.blech` (mit verschiedenen Namen im Kopf) nach `KORG/blechtribe/Plugin/` legen, MANAGE PLUGINS,
+    ENTER.
+    Erwartet: die Liste zählt 65 Seiten, die letzte heißt LIST FULL mit "64 files shown"; das Öffnen dauert nicht so lange,
+    dass das Gerät hängt (im Emulator 0,9 s). Ein Plugin weit hinten lässt sich mit dem Hauptrad laden.
+    Melden: ok, sonst Zahl der Seiten und wie lange das Öffnen dauert.
 
 16. **Fremdes Plugin.** Das Flag "geprobt" entfernen:
     `node tools/patch/probe-flag.mjs --clear eingabe.blech ausgabe.blech`, die Ausgabe nach
@@ -421,7 +442,8 @@ Alle Angaben ohne Gerät sind im Emulator gemessen, mit der echten Firmware und 
 | Prüfungen im Emulator: 191 von 191 mit Flash-Dump, alle Startwege, Menüfälle mit der Anpassung und der Seite von Blechy, Startbild Editor, MFX 2, Power-Off-Bild auch von seiner Seite aus (Datei v18b, SHA-256 beginnt mit b0f1f5f0) | im Emulator gemessen, am Gerät offen | 15.10., [Menü](../messungen/2026-10-14-blech-menue.md), `tools/emu/check.py` |
 | Menü BLECH mit drei Ebenen (Ring, Gruppen ohne ABOUT, Seiten, Optik von Data Util, Schilder ganz, versteckte Dateien fehlen in der Importliste): Ring und Zähler, ENTER, EXIT, WRITE, MENU, 48 Tasten, EXIT beim Einschalten, Einstellungen, Plugin-Seiten, EXPORT ALL, IMPORT PLUGIN, fremde Plugins, `korg.menu.add`; keine Seite zeichnet Text über Text | im Emulator gemessen, am Gerät offen | 15.10., [Menü](../messungen/2026-10-14-blech-menue.md) |
 | Apps: Laden zeichnet nichts, öffnen aus dem Menü, EXIT, der Hauptbildschirm kommt Pixel für Pixel zurück, EXIT lässt sich nicht abfangen, `korg.display.take()` | im Emulator gemessen, am Gerät offen | 15.10., [Apps](../messungen/2026-10-14-plugin-apps.md) |
-| PLUGIN EDIT und EXPORT ALL unter DATA UTILITY | nicht gebaut | [Plugins](../plugins.md), "Stand" |
+| EXPORT ALL PLUGINS und SET INIT PATTERN in DATA UTILITY, PLUGIN RUNTIME in GLOBAL PARAMETERS, SYNC GROUP hinter CHAIN REPEAT, BLECH und Blechy am Ende des Rings, MANAGE PLUGINS | im Emulator gemessen, am Gerät offen | 29.10., [Plugins](../plugins.md) |
+| EXPORT ALL CUSTOMIZATIONS (`e2sCustom.all`, beim Start noch ungelesen) und EXPORT ALL EFFECTS (`e2sFx.all`, lädt beim nächsten Start) in DATA UTILITY | im Emulator gemessen, am Gerät offen | 29.10., [Plugins](../plugins.md) |
 | Kartenlader für `e2sPlugin.all` (Datei, Block mit falscher Prüfsumme, falsche Kennung, halbierte Datei, EXIT) | im Emulator gemessen, am Gerät offen | 14.10., [Messung](../messungen/2026-10-14-skript-karte.md) |
 | Update-Datei der laufenden BLECH unter `KORG/blechtribe/System/SYSTEM.VSB`, unter dem alten Pfad "Error, No File" | im Emulator gemessen; die Datei im Ordner `blechtribe` nahm eine laufende BLECH am 15.10. am Gerät als Update | [Hintergrund](../hintergrund/virtuelle-sd.md) |
 | Karte ohne `KORG/blechtribe/`: Slot leer, Karte bleibt unverändert, Samples sind weg bis der Ordner kopiert ist | im Emulator gemessen, am Gerät offen | [Hintergrund](../hintergrund/virtuelle-sd.md) |

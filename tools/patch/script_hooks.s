@@ -1,3 +1,8 @@
+; korg.padHold: the pad class bit of the capture mask (a pad message is class 4). Bits 16 to 31 of the mask mark a pad whose
+; press was kept from the firmware: its release is kept from it as well, even when the hold ended in between, and a release
+; whose press went through goes through, so the firmware never sees a pad held that is up, nor the other way round.
+.equ INPUT_PAD_BIT, 1 << 4
+
 script_input_hook:
     push {r0-r12, lr}
     .word 0xE10FC000 ; mrs r12, cpsr
@@ -223,6 +228,9 @@ input_mask:
 input_mask_app:
     orr r1, r1, #1
 input_mask_go:
+    cmp r6, #4
+    beq input_mask_pad
+input_mask_bit:
     mov r2, #1
     mov r2, r2, lsl r6
     tst r1, r2
@@ -232,6 +240,31 @@ input_drop:
     .word 0xE12FF00C ; msr cpsr_cxsf, r12
     pop {r0-r12, lr}
     bx lr
+input_mask_pad:
+    ldrb r2, [r5, #0x0d]
+    cmp r2, #16
+    bhs input_mask_bit
+    add r2, r2, #16
+    mov r3, #1
+    mov r3, r3, lsl r2
+    .word 0xE10F7000 ; mrs r7, cpsr
+    orr r12, r7, #0x80
+    .word 0xE121F00C ; msr cpsr_c, r12
+    ldr r0, [r4, #RT_CAPTURE_MASK]
+    ldrb r2, [r5, #0x10]
+    cmp r2, #0
+    beq input_pad_release
+    tst r0, #INPUT_PAD_BIT
+    orrne r0, r0, r3
+    biceq r0, r0, r3
+    b input_pad_store
+input_pad_release:
+    tst r0, r3
+    bic r0, r0, r3
+input_pad_store:
+    str r0, [r4, #RT_CAPTURE_MASK]
+    .word 0xE121F007 ; msr cpsr_c, r7
+    bne input_drop
 input_pass:
     pop {r12, lr}
     .word 0xE12FF00C ; msr cpsr_cxsf, r12
@@ -425,6 +458,9 @@ frame_app_ok:
     bl script_led_begin_frame
     mov r0, r4
     bl script_events_poll
+    mov r0, r4
+    mov r1, #TIMER_KIND_MS
+    bl script_timers_poll
     ldr r6, [r4, #RT_CURSOR_PHASE]
     cmp r6, #SCRIPT_PHASE_IDLE
     bne frame_loop
@@ -462,6 +498,8 @@ frame_armed:
     cmp r2, #EV_OPEN
     cmpne r2, #EV_CLOSE
     beq frame_app_event
+    cmp r2, #EV_TIMER
+    beq frame_timer_event
     cmp r2, #EV_FRAME
     bne frame_candidate
     mov r0, r5
@@ -471,6 +509,11 @@ frame_armed:
     b frame_candidate
 frame_app_event:
     ldr r1, [r4, #RT_CURSOR_ARGS]
+    cmp r1, r5
+    bne frame_next_entry
+    b frame_candidate
+frame_timer_event:
+    ldr r1, [r4, #RT_CURSOR_ARGS+8]
     cmp r1, r5
     bne frame_next_entry
     b frame_candidate
@@ -576,6 +619,8 @@ frame_finish:
     bl script_clock_update
     mov r0, r4
     bl script_led_hold_guard
+    mov r0, r4
+    bl script_pad_hold_guard
     mov r0, r4
     bl script_display_blit
     bl display_calibrate

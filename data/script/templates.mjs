@@ -59,7 +59,7 @@ function show() {
 
 // open: die App wurde geöffnet, ab jetzt gehört ihr das Display.
 korg.onEvent("open", () => {
-  opened = korg.millis;
+  opened = korg.millis();
   seconds = 0;
   show();
 });
@@ -75,7 +75,7 @@ korg.onEvent("buttonPress", (key) => {
 
 // frame: 25 Mal je Sekunde, solange die App offen ist. Neu zeichnen nur, wenn eine Sekunde dazukam.
 korg.onEvent("frame", () => {
-  const now = (korg.millis - opened) / 1000;
+  const now = (korg.millis() - opened) / 1000;
   if (now != seconds) {
     seconds = now;
     show();

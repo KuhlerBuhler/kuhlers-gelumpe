@@ -100,3 +100,12 @@ Mark facts as measured, derived or open, and keep measurement files at their pat
 Pull requests go to `develop`, `main` only takes merges from `develop`. English commit messages and PR
 descriptions. State what changed and why, and what was tested on a real device and what not. Do not
 add AI attribution lines.
+
+- A pull request that may go in once CI is green gets the label `automerge` (`gh pr create ... --label automerge`):
+  the workflow Automerge merges it then. Do not poll CI or merge by hand. Leave the label off when the change waits
+  for a device or listening test.
+- A branch does not have to be current with develop to be merged; merge develop in only when you need its changes.
+  Leave a conflict that is only in `data/patches/script-runtime*.json` alone: the workflow Update pull requests
+  rebuilds those after each merge to develop.
+- Firmware changes that touch the same patches (`data/patches/`, `tools/patch/`, `tools/emu/*_cases.py`) go one
+  after the other or in one pull request, not in parallel. App changes may run in parallel.

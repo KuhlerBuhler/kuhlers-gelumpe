@@ -15,8 +15,12 @@ const pill = (tone, word) => {
   return p;
 };
 
-/** `usb`, `auto` and `diagnose`: the USB watch, whether to connect by itself, and how to open the MIDI report. */
-export function devicePanel(root, { onSession, emulator = () => null, probe, view = () => null, usb = null, auto = () => false, diagnose = () => {} }) {
+/**
+ * `usb`, `auto` and `diagnose`: the USB watch, whether to connect by itself, and how to open the MIDI report.
+ * `onLink`: whether a session runs, at once when that changes. `autoOff` and `autoOn`: the button's disconnect switches
+ * connecting by itself off (true when it did), its connect back on.
+ */
+export function devicePanel(root, { onSession, emulator = () => null, probe, view = () => null, usb = null, auto = () => false, diagnose = () => {}, onLink = () => {}, autoOff = () => false, autoOn = () => {} }) {
   let session = null;
   const midi = createMidiTransport(window);
   let connection = 0;
@@ -39,6 +43,16 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     toast(text, tone === "error" ? "error" : tone === "ok" ? "ok" : "info", { stay: tone === "warn" });
   };
   const clear = () => { status.hidden = true; status.replaceChildren(); };
+
+  /** One button: connect while no session runs, disconnect while one does. */
+  const linked = () => !!session && !session.sender.disconnected;
+  function sync() {
+    const on = linked();
+    button.id = on ? "cee-disconnect" : "cee-connect";
+    button.textContent = t(on ? "app.disconnect" : "device.connect");
+    button.classList.toggle("cee-primary", !on);
+    onLink(on);
+  }
 
   function fact(term, value) {
     facts.append(el("dt", { textContent: term }), el("dd", {}, value));
@@ -117,6 +131,8 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     } catch (e) {
       if (session !== s) return;
       s.rehearseOn(null);
+      // Korg's original firmware in the emulator is a normal state: nobody asked for a probe here, so no toast.
+      if (e.unsupported) { rehearseState.textContent = e.message; return; }
       rehearseState.textContent = t("device.rehearse.failed", { error: e.message });
       toast(rehearseState.textContent, "error");
     }
@@ -152,6 +168,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     const previous = session;
     session = null;
     if (previous && previous.port !== emulator()) previous.lost();
+    if (previous) sync();
     let candidate;
     try {
       if (previous && previous.port !== emulator()) {
@@ -170,6 +187,8 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       }
       if (attempt !== connection) { candidate.lost(); await midi.closePort(port); return "skip"; }
       session = candidate;
+      // The button turns now, not once the rehearsal is attached, which can take as long as the emulator boots.
+      sync();
       showDevice(session.device);
       await attachRehearsal();
       if (attempt !== connection) return "skip";
@@ -186,13 +205,14 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
         ? t("device.noAnswer.quarantined", { error: e.message })
         : t("device.noAnswer", { error: e.message }));
       session = null;
+      sync();
       onSession(null);
       return "failed";
     }
   }
 
-  /** Ends the connection to a real device or to the emulator; always possible, also while a request is in flight. */
-  async function disconnect() {
+  /** Ends the connection to a real device or to the emulator; always possible, also while a request is in flight. `note` follows the message. */
+  async function disconnect({ note = "" } = {}) {
     autoConnect?.manualDisconnect();
     connection++;
     const lost = session;
@@ -210,10 +230,12 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     decide.replaceChildren();
     facts.replaceChildren();
     seen = false;
+    sync();
     onSession(null);
-    say("neutral", t("device.state.disconnected"), closed?.state === "quarantined"
+    const text = closed?.state === "quarantined"
       ? t("device.disconnected.quarantined")
-      : real ? t("device.disconnected") : t("device.disconnected.emu"));
+      : real ? t("device.disconnected") : t("device.disconnected.emu");
+    say("neutral", t("device.state.disconnected"), note ? `${text} ${note}` : text);
     return true;
   }
 
@@ -243,6 +265,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
         connection++;
         lost.lost();
         midi.closePort(lost.port, { refresh: false }).catch(() => {});
+        sync();
         onSession(lost);
         view()?.external(false);
         say("error", t("device.state.disconnected"), t(e.quarantined ? "device.unplugged.quarantined" : "device.unplugged", { detail: e.message ? ` (${e.message})` : "" }));
@@ -333,7 +356,15 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   }
   setInterval(detect, 4000);
 
-  button.addEventListener("click", connect);
+  button.addEventListener("click", async () => {
+    if (!linked()) {
+      autoOn();
+      await connect();
+      return;
+    }
+    const off = session.port !== emulator() && autoOff();
+    await disconnect({ note: off ? t("device.autoOff") : "" });
+  });
   emuButton.addEventListener("click", () => {
     const port = emulator();
     if (!port?.running) {
@@ -343,6 +374,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     port.ondisconnect = () => {
       if (session?.port !== port) return;
       session.lost();
+      sync();
       say("error", t("device.state.disconnected"), t("device.emuGone"));
       // Once the emulator runs again, the same port connects again, unless another connection came in between.
       const lost = session;
@@ -355,6 +387,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   });
   const autoConnect = usb ? createAutoConnect({ usb, attempt: connectQuietly, enabled: auto, toast, diagnose }) : null;
   clear();
+  sync();
   root.replaceChildren(
     el("div", { className: "actions" }, [button, emuButton]),
     rehearseState,
@@ -367,6 +400,8 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
 
   return {
     get session() { return session; },
+    /** Connect or disconnect; the navbar shows it on the device page. */
+    button,
     /** The same as the button in this area: connect to the running emulator. */
     connectEmulator: () => emuButton.click(),
     /** The mode menu chose the real device. */

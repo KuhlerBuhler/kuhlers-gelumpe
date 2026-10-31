@@ -20,11 +20,12 @@ PANEL, STACK, RETURN = 0xC0300000, 0xC0200000, 0xC00FFFF0
 class EntryTests(unittest.TestCase):
     def entry(self, held, mode=0, update=0):
         uc = Uc(UC_ARCH_ARM, UC_MODE_ARM)
-        uc.mem_map(0xC0000000, 0x400000)
+        uc.mem_map(0xC0000000, 0x800000)
         uc.mem_write(BASE, CODE)
         uc.mem_write(0xC033E6F8, struct.pack('<I', PANEL))
         uc.mem_write(PANEL + 0x18, struct.pack('<Q', held))
         uc.mem_write(PANEL + 0x20, bytes([mode, 0, update]))
+        uc.mem_write(0xC06A010C, struct.pack('<I', PANEL + 0x100))   # a registered volume: the loader goes on to open the files
         regs = [getattr(A, 'UC_ARM_REG_R' + str(i)) for i in range(13)]
         before = [0x12340000 + i for i in range(13)]
         uc.reg_write(A.UC_ARM_REG_CPSR, 0xA0000053)
@@ -113,11 +114,26 @@ class LoaderTests(unittest.TestCase):
             stopped.append('engine')
             machine.emu_stop()
         uc.hook_add(UC_HOOK_CODE, engine, begin=0xC1000000, end=0xC1000000)
+
+        def start(machine, at, size, data):
+            stopped.append('start')
+            machine.emu_stop()
+        uc.hook_add(UC_HOOK_CODE, start, begin=RETURN, end=RETURN)
         uc.emu_start(BASE, 0, count=100_000_000)
-        self.assertTrue(stopped, 'loader must reach the engine or its error idle')
+        self.assertTrue(stopped, 'loader must reach the engine, its error idle or the normal start')
         self.assertTrue(all(sp % 8 == 0 for _, sp in stacks), stacks)
         values = struct.unpack('<4I', uc.mem_read(shared, 16))
+        self.drivers = [at for at, _ in stacks if at in (0xC0025754, 0xC00005A0, 0xC0025A14, 0xC003FD20)]
+        self.closed = sum(at == 0xC009E3DC for at, _ in stacks)
         return values, opened, offsets[0], frames, stopped
+
+    def test_missing_files_return_to_the_normal_start_before_any_driver_call(self):
+        for errors, opens, closes in [((4,), 1, 0), ((5,), 1, 0), ((13,), 1, 0), ((0, 4), 2, 1), ((0, 5), 2, 1)]:
+            with self.subTest(errors=errors):
+                values, opened, read, frames, stopped = self.load(errors)
+                self.assertEqual(stopped, ['start'])
+                self.assertEqual(values, (0, 0, 0, 0))
+                self.assertEqual((len(opened), self.closed, read, frames, self.drivers), (opens, closes, 0, [], []))
 
     def test_lazy_mount_and_slow_card_reach_the_pinned_engine_with_visible_progress(self):
         values, opened, read, frames, stopped = self.load((3, 3))
@@ -129,9 +145,9 @@ class LoaderTests(unittest.TestCase):
         self.assertTrue(all(any(frame) for frame in frames))
 
     def test_exhausted_card_retries_show_an_error_without_entering_the_engine(self):
-        values, opened, read, frames, stopped = self.load((3,) * 6)
+        values, opened, read, frames, stopped = self.load((3,) * 7)
         self.assertEqual(values, (0x4D4F4F44, 1, 0x80000000, 0x103))
-        self.assertEqual(len(opened), 6)
+        self.assertEqual(len(opened), 7, 'doom.wad once before the drivers, doom.bin six times after')
         self.assertEqual(read, 0)
         self.assertEqual(stopped, ['error'])
         self.assertEqual(len(set(frames)), 2)

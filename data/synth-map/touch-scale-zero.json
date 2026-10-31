@@ -1,0 +1,7 @@
+{
+ "entries": [
+  {"from": "0xC0060654", "to": "0xC005710C", "kind": "code", "why": "ldr r7, [r4, #0x14] (the range) at the start of the X to scale step mapping of the touch pad, behind the call that returns the steps of the scale; the 44 bytes from here are equal in both"},
+  {"from": "0xC007A940", "to": "0xC006D2C4", "kind": "code", "why": "movle r1, #1 in the value change of the page TOUCH SCALE RANGE (getter, add, clamp 1 to 4, setter); the 36 bytes from 0xC007A938 are equal in both"},
+  {"from": "0xC06911E4", "to": "0xC056B4C4", "kind": "ram", "why": "the touch scale object: r4 at the mapping above, +0x14 the range, +0x18 the octave of the keyboard; read out of the running firmware in the emulator"}
+ ]
+}

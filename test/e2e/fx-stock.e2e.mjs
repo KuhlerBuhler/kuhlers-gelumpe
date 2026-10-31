@@ -64,7 +64,7 @@ test("effect editor on Korg's original with BLECH: a name is written into the ru
   await name.press("Tab");
 
   await page.click("#cee-send");
-  const ok = page.locator("dialog button[value=ok]");
+  const ok = page.locator("dialog[open] button[value=ok]");
   const job = page.locator("#cee-area-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
   await Promise.race([ok.waitFor().then(() => ok.click(), () => {}), job.waitFor()]);
   await job.waitFor({ timeout: 60_000 });

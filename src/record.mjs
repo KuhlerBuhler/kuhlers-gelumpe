@@ -8,7 +8,7 @@
  * record that came off the hardware or out of a firmware image, never a fresh
  * allocation. This class enforces that by only ever wrapping existing bytes.
  */
-import { REC, RECORD_SIZE, MAP, STAGE_BLOCK_SIZE } from "./layout.mjs";
+import { REC, RECORD_SIZE, MAP, MAP_PAIRS, STAGE_BLOCK_SIZE } from "./layout.mjs";
 import { readName, writeName } from "./bytes.mjs";
 import { unitFor } from "./units.mjs";
 
@@ -131,8 +131,11 @@ export class FxRecord {
       this.bytes[at + MAP.source] = r.source & 0xff;
       this.bytes[at + MAP.chain] = r.chain & 0xff;
       this.bytes[at + MAP.param] = r.param & 0xff;
-      this.bytes[at + MAP.low] = r.low & 0xff;
-      this.bytes[at + MAP.high] = r.high & 0xff;
+      // Korg's presets repeat the pair in every copy; a copied row would otherwise keep its donor's range there.
+      for (let k = 0; k < MAP_PAIRS.count; k++) {
+        this.bytes[at + MAP.low + k * MAP_PAIRS.stride] = r.low & 0xff;
+        this.bytes[at + MAP.high + k * MAP_PAIRS.stride] = r.high & 0xff;
+      }
     }
   }
 

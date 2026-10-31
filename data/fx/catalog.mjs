@@ -14,7 +14,7 @@ export const FX_CATALOG = Object.freeze([
     "unit": 59,
     "unitName": "M_mod_delay",
     "params": {
-     "dry_wet": 122,
+     "dry_wet": 114,
      "wet_spread": 100,
      "input_trim": 95,
      "pre_leq_gain": 36,
@@ -97,7 +97,7 @@ export const FX_CATALOG = Object.freeze([
      "off_delay_time": 24,
      "on_time_ratio": 35,
      "on_syncnote": 6,
-     "fb_depth": 70,
+     "fb_depth": 30,
      "high_damp": 60,
      "low_damp": 15,
      "delay_lag": 15
@@ -122,14 +122,14 @@ export const FX_CATALOG = Object.freeze([
     "source": 69,
     "chain": 0,
     "param": 8,
-    "low": 70,
+    "low": 30,
     "high": 10
    },
    {
     "source": 68,
     "chain": 0,
     "param": 8,
-    "low": 70,
+    "low": 30,
     "high": 88
    }
   ],
@@ -153,7 +153,7 @@ export const FX_CATALOG = Object.freeze([
      "off_delay_time": 24,
      "on_time_ratio": 35,
      "on_syncnote": 2,
-     "fb_depth": 60,
+     "fb_depth": 30,
      "high_damp": 40,
      "low_damp": 15,
      "delay_lag": 15
@@ -178,14 +178,14 @@ export const FX_CATALOG = Object.freeze([
     "source": 69,
     "chain": 0,
     "param": 8,
-    "low": 60,
+    "low": 30,
     "high": 10
    },
    {
     "source": 68,
     "chain": 0,
     "param": 8,
-    "low": 60,
+    "low": 30,
     "high": 88
    }
   ],
@@ -209,7 +209,7 @@ export const FX_CATALOG = Object.freeze([
      "off_delay_time": 24,
      "on_time_ratio": 8,
      "on_syncnote": 5,
-     "fb_depth": 65,
+     "fb_depth": 30,
      "high_damp": 60,
      "low_damp": 15,
      "delay_lag": 15
@@ -234,14 +234,14 @@ export const FX_CATALOG = Object.freeze([
     "source": 69,
     "chain": 0,
     "param": 8,
-    "low": 65,
+    "low": 30,
     "high": 10
    },
    {
     "source": 68,
     "chain": 0,
     "param": 8,
-    "low": 65,
+    "low": 30,
     "high": 88
    }
   ],
@@ -258,14 +258,14 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "I_short_delay",
     "params": {
      "dry_level": 127,
-     "wet_level": 90,
+     "wet_level": 70,
      "input_trim": 127,
      "tempo_sync": 1,
      "off_time_ratio": 65,
      "off_delay_time": 24,
      "on_time_ratio": 62,
      "on_syncnote": 1,
-     "fb_depth": 80,
+     "fb_depth": 45,
      "high_damp": 60,
      "low_damp": 15,
      "delay_lag": 15
@@ -290,15 +290,15 @@ export const FX_CATALOG = Object.freeze([
     "source": 69,
     "chain": 0,
     "param": 8,
-    "low": 80,
+    "low": 45,
     "high": 10
    },
    {
     "source": 68,
     "chain": 0,
     "param": 8,
-    "low": 80,
-    "high": 88
+    "low": 45,
+    "high": 70
    }
   ],
   "creator": "Kuhler Buhler"
@@ -321,7 +321,7 @@ export const FX_CATALOG = Object.freeze([
      "off_delay_time": 24,
      "on_time_ratio": 35,
      "on_syncnote": 1,
-     "fb_depth": 35,
+     "fb_depth": 20,
      "high_damp": 60,
      "low_damp": 15,
      "delay_lag": 15
@@ -346,14 +346,14 @@ export const FX_CATALOG = Object.freeze([
     "source": 69,
     "chain": 0,
     "param": 8,
-    "low": 35,
+    "low": 20,
     "high": 10
    },
    {
     "source": 68,
     "chain": 0,
     "param": 8,
-    "low": 35,
+    "low": 20,
     "high": 88
    }
   ],
@@ -377,7 +377,7 @@ export const FX_CATALOG = Object.freeze([
      "off_delay_time": 24,
      "on_time_ratio": 35,
      "on_syncnote": 10,
-     "fb_depth": 70,
+     "fb_depth": 40,
      "high_damp": 50,
      "low_damp": 25,
      "delay_lag": 15
@@ -402,14 +402,14 @@ export const FX_CATALOG = Object.freeze([
     "source": 69,
     "chain": 0,
     "param": 8,
-    "low": 70,
+    "low": 40,
     "high": 10
    },
    {
     "source": 68,
     "chain": 0,
     "param": 8,
-    "low": 70,
+    "low": 40,
     "high": 88
    }
   ],
@@ -418,7 +418,7 @@ export const FX_CATALOG = Object.freeze([
  {
   "kind": "ifx",
   "name": "Loud Distortion",
-  "description": "Die Distortion so laut wie der trockene Klang. Das Werkspreset steht auf Ausgangspegel 11, hier 40, die Verzerrung wie ab Werk. Der Regler dreht die Verzerrung.",
+  "description": "Weniger Verzerrung als das Werkspreset (Gain 64 statt 100), der Ausgangspegel knapp darüber (18 statt 11). Der Regler dreht die Verzerrung.",
   "stages": [
    {
     "stage": "ifx1",
@@ -439,7 +439,7 @@ export const FX_CATALOG = Object.freeze([
      "post_eq3_frequency": 53,
      "post_eq3_q": 5,
      "post_eq3_gain": 25,
-     "output_level": 40
+     "output_level": 18
     }
    },
    {
@@ -484,7 +484,7 @@ export const FX_CATALOG = Object.freeze([
      "post_eq3_frequency": 53,
      "post_eq3_q": 5,
      "post_eq3_gain": 20,
-     "output_level": 30
+     "output_level": 15
     }
    },
    {
@@ -529,7 +529,7 @@ export const FX_CATALOG = Object.freeze([
      "post_eq3_frequency": 53,
      "post_eq3_q": 5,
      "post_eq3_gain": 30,
-     "output_level": 35
+     "output_level": 20
     }
    },
    {
@@ -553,7 +553,7 @@ export const FX_CATALOG = Object.freeze([
  {
   "kind": "ifx",
   "name": "Hot Overdrive",
-  "description": "Der Overdrive weiter aufgedreht, der Pegel wie ab Werk. Der Regler dreht den Drive.",
+  "description": "Der Overdrive weiter aufgedreht. Der Regler dreht den Drive und nimmt dabei den Pegel zurück, wie Korgs Overdrive.",
   "stages": [
    {
     "stage": "ifx1",
@@ -561,7 +561,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "I_acid_driver",
     "params": {
      "drive": 70,
-     "output_level": 40
+     "output_level": 27
     }
    },
    {
@@ -578,6 +578,13 @@ export const FX_CATALOG = Object.freeze([
     "param": 0,
     "low": 30,
     "high": 100
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 1,
+    "low": 39,
+    "high": 19
    }
   ],
   "creator": "Kuhler Buhler"
@@ -624,7 +631,7 @@ export const FX_CATALOG = Object.freeze([
     "chain": 7,
     "param": 5,
     "low": 0,
-    "high": 127
+    "high": 98
    },
    {
     "source": 66,
@@ -664,11 +671,11 @@ export const FX_CATALOG = Object.freeze([
      "output_level": 53,
      "tap1_level": 88,
      "tap2_level": 88,
-     "feedback": 85,
+     "feedback": 70,
      "hi_damp": 55,
      "lo_damp": 60,
      "trim": 80,
-     "saturation": 80,
+     "saturation": 55,
      "gain": 55,
      "gainshift": 5,
      "lfo_wave": 2,
@@ -699,8 +706,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 67,
     "chain": 2,
     "param": 11,
-    "low": 50,
-    "high": 88
+    "low": 40,
+    "high": 72
    }
   ],
   "creator": "Kuhler Buhler"
@@ -716,7 +723,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "M_level_mod",
     "params": {
      "amp_level": 127,
-     "output_gain_adjust": 30,
+     "output_gain_adjust": 26,
      "level_mod_source": 4,
      "level_mod_int": 126,
      "level_mod_type": 0,

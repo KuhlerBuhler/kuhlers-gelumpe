@@ -1,0 +1,45 @@
+# Merges the release pull request release/X.Y.Z -> main by itself once a person with write access approved it and every
+# workflow and check on its head commit passed (tools/release-merge.mjs, docs/development.md, "Release"). That merge
+# starts the public release and the Discord post (release.yml), so a run that is still going, a failed check, a missing
+# approval or a draft means no merge. A Verify patches run that may still push a new verified.json is such a run; its
+# commit is the only one that may come after the approval.
+#
+# It decides again whenever a workflow on a pull request finishes and whenever a review comes in. workflow_run uses this
+# file as it is on main, so it only starts once the file is in main; the review event uses it from the release branch.
+# The merge uses SYNC_TOKEN (a token of an admin): a merge with the workflow's own token would start no Release run.
+# Without the secret nothing is merged.
+name: Release merge
+
+on:
+  workflow_run:
+    workflows: [Test, Verify patches, Korg data guard, Build apps, Update pull requests, Automerge]
+    types: [completed]
+  pull_request_review:
+    types: [submitted]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: github.event_name != 'pull_request_review' || startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Merge a ready release pull request
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "no SYNC_TOKEN: nothing is merged"; exit 0
+          fi
+          node tools/release-merge.mjs

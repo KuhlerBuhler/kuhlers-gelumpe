@@ -12,12 +12,13 @@
  */
 export const CHAINS = {
   "start": [
+    { id: "after-flash-mark", sites: [0xC00289D8, 0xC0025E48] },   // the second is the synth build's
     { id: "after-rescue-paths", sites: [0xC002ADAC] },
     { id: "card-mount", sites: [0xC002AE60] },
     { id: "doom-select", sites: [0xC002AE64] },
     { id: "first-pattern", sites: [0xC002AF40] },
     { id: "before-sample-load", sites: [0xC0038D34] },
-    { id: "sample-load", sites: [0xC0038D60, 0xC00366D4] },
+    { id: "sample-load", sites: [0xC0038D60, 0xC00366D4, 0xC00362FC, 0xC003635C] },
     { id: "after-sample-load", sites: [0xC0038D68] },
     { id: "after-native-initialization", sites: [0xC0028170] },
   ],
@@ -35,6 +36,7 @@ export const CHAINS = {
   "global-screen": [
     { id: "vtable-literal", sites: [0xC0064D3C] },
     { id: "page-count", sites: [0xC0064980, 0xC0064D04] },
+    { id: "edit-slots", sites: [0xC0064C20, 0xC0064C28] },
   ],
   "key-dispatch": [
     { id: "input-filter", sites: [0xC002837C] },
@@ -50,10 +52,18 @@ export const CHAINS = {
   ],
   "pattern-select": [{ id: "clamp", sites: [0xC0079DC8] }],
   "pattern-init": [{ id: "data-utility-init", sites: [0xC0036A34] }],
+  "stereo-pair": [
+    { id: "osc-change", sites: [0xC00413EC] },
+    { id: "part-mode", sites: [0xC007DE08] },
+    { id: "voice-mode", sites: [0xC0099E2C] },
+  ],
   "sequence-end": [{ id: "pattern-number", sites: [0xC005F1C4] }],
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
   "info-line": [{ id: "label-flag", sites: [0xC008684C] }],
+  "part-mute-get": [{ id: "getter-entry", sites: [0xC0048CFC] }],
+  "part-mute-pad": [{ id: "setter-call", sites: [0xC0060D34] }],
+  "part-mute-shift": [{ id: "shift-read", sites: [0xC007042C] }],
   "stopped-sync": [{ id: "load-chosen", sites: [0xC0081E18] }],
   "pattern-load-copy": [{ id: "copy-into-ram", sites: [0xC004AC44] }],
   "pattern-load-voices": [
@@ -87,8 +97,9 @@ export const CHAINS = {
   "rec": [{ id: "rec-ready", sites: [0xC0082944] }],
   "menu-ring": [
     { id: "factory", sites: [0xC006E664, 0xC006E68C, 0xC0061B68, 0xC0061B90] },
-    { id: "neighbours", sites: [0xC0064D84, 0xC0061880, 0xC0064430, 0xC0067754] },
+    { id: "neighbours", sites: [0xC0064D84, 0xC0061880, 0xC0064430, 0xC0067754, 0xC0067720, 0xC0065B8C] },
   ],
+  "data-util-screen": [{ id: "edit-slots", sites: [0xC00623C0, 0xC0062448] }],
   "menu-top-level": [{ id: "screen-switch", sites: [0xC006E8D8, 0xC0061DDC] }],
   "menu-write": [{ id: "write-key", sites: [0xC006F094] }],
   "menu-counter": [{ id: "page-counter", sites: [0xC008A83C, 0xC008A8A8] }],
