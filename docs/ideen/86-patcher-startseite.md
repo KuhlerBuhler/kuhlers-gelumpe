@@ -19,6 +19,13 @@ Wunsch (31.10.), geplant für 1.3.9. Stand 2026-10-31: **aufgeschrieben, nichts 
   Nutzers direkt aus dem Hacktribe-Repository (`HACKTRIBE_PATCH_URL`), so wie sie Korgs Firmware bei Korg lädt
   (`korg_firmware`). Das Ergebnis prüft `convertStock` wie heute gegen den SHA-256, den Hacktribes eigenes Skript ergibt.
   Ohne Netz bleibt das Feld zum Wählen der Datei. (entschieden 31.10.)
+  - Optional, als eigener Haken direkt unter dem Haken für Korgs Lizenz (`patcher.korg.licence`). Text etwa: "Lädt
+    zusätzlich `hacktribe-2.patch` direkt von Hacktribe, falls du Hacktribe brauchst." Die Datei kommt wie bei Korg
+    direkt von deren Server auf den Rechner des Nutzers.
+  - Vorbelegung nach der geladenen Datei: angehakt bei einer Hacktribe-Firmware (dann muss nach Korgs Original wieder
+    Hacktribe daraus werden), nicht angehakt bei Korgs Original. Der Nutzer kann es in beide Richtungen ändern.
+  - Eine Lizenz zum Zustimmen gibt es bei Hacktribe nicht: der Ordner `patch` ist laut README nicht Open Source und
+    steht nicht unter der GPL, ohne weitere Bedingungen. Der Haken sagt deshalb nur, woher die Datei kommt.
 - Als letzter Schritt das Laufwerk der SD-Karte wählen. Gibt es dort `KORG/hacktribe` oder `KORG/electribe sampler`
   (blau: `KORG/electribe`), legt die App die Datei je nach Firmware in den richtigen Ordner. Sonst wählt man den Ordner
   selbst im Dateidialog, nicht im Downloads-Ordner.
