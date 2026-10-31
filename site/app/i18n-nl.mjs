@@ -1365,6 +1365,7 @@ export default {
   "patcher.verdict.unknown.reason": "onbekend",
   "patcher.drop.drag": "Sleep SYSTEM.VSB hierheen of ",
   "patcher.drop.hint": "Je Hacktribe-bestand (rood of blauw) of Korgs origineel 2.02 voor electribe sampler of electribe (blauw)",
+  "patcher.drop.hint.korg": "Korgs origineel 2.02 voor {device}, als je het al hebt",
   "patcher.device.red": "Electribe 2 Sampler (rood)",
   "patcher.device.blue": "Electribe 2 (blauw)",
   "patcher.device.label": "Voor welke Electribe",
