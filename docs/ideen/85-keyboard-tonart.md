@@ -1,6 +1,6 @@
 # 85. KEYBOARD + Pad wählt den KEY
 
-Wunsch (Pascal, 31.10.): wie Transpose auf den alten Electribes (EA-1 mkII: TRANSPOSE gehalten, Step-Tasten wählen den
+Wunsch (31.10.): wie Transpose auf den alten Electribes (EA-1 mkII: TRANSPOSE gehalten, Step-Tasten wählen den
 Wert), aber über den KEY der Electribe 2. KEYBOARD gehalten, ein Pad gedrückt: der KEY des Patterns springt auf den Ton
 des Pads. Kein eigenes Verschieben der Noten, die Firmware macht mit dem neuen KEY, was sie am Menü auch macht.
 Stand 2026-10-31: **aufgeschrieben, nichts gebaut, am Gerät nichts.** Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
