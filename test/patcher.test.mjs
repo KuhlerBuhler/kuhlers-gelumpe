@@ -59,6 +59,7 @@ test("Korg's build: the unchanged original is stock, an edited one is refused, o
   const res = await classify(edited, patches);
   assert.equal(res.kind, "unknown");
   assert.match(render(res.reasons[0]), /nicht die unveränderte Datei/);
+  assert.equal(res.changed, "stock", "the app loads Korg's red original for this");
   const done = await applyPatches(stock, patches);
   assert.equal(done.ok, true, done.reasons.join(" "));
   const again = await classify(done.bytes, patches);
@@ -368,6 +369,7 @@ test("the blue original selects the synth route and its update directory", async
   changed[0x1000] = 1;
   const altered = await classify(changed, [patch], STOCK_SHA256, originalHash);
   assert.equal(altered.kind, "unknown");
+  assert.equal(altered.changed, "synth", "the app loads Korg's blue original for this");
   assert.match(render(altered.reasons[0]), /nicht Korgs unveränderte SYSTEM\.VSB 2\.02 der blauen.*aus Korgs Zip/);
   assert.equal(altered.sha256, await sha256(changed), "the file's checksum goes with the answer");
   // the bug report of 1.3.3: a blue file whose run at 0x170100 is neither erased nor Hacktribe's got a Hacktribe fingerprint message

@@ -138,7 +138,8 @@ export const itemsFor = (blech, build) => blech.items.filter((_, i) => buildsOf(
 
 /**
  * kind: wrong-size, stock (Korg's unchanged 2.02), hacktribe, blech (every patch is in already), partial (some are),
- * unknown; `present` lists the patch ids found. A file of Korg's build is only accepted as the unchanged original
+ * unknown; `present` lists the patch ids found. An unknown file of Korg's build that is not Korg's unchanged file
+ * carries `changed` ("stock" or "synth"): the original of that Electribe is the one to take instead. A file of Korg's build is only accepted as the unchanged original
  * or when it already carries the BLECH patches made for it.
  */
 export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHash = SYNTH_SHA256) {
@@ -153,10 +154,10 @@ export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHa
   const mine = selectFor(patches, base.build).patches;
   const present = (await patchesPresent(bytes, mine)).filter(p => p.present).map(p => p.id);
   if (base.build === "synth" && !present.length) {
-    return { ...out, reasons: [text("patcher.reason.synthChanged")] };
+    return { ...out, changed: "synth", reasons: [text("patcher.reason.synthChanged")] };
   }
   if (base.build === "stock" && !present.length) {
-    return { ...out, reasons: [text("patcher.reason.stockChanged", { sha: stockHash.slice(0, 8) })] };
+    return { ...out, changed: "stock", reasons: [text("patcher.reason.stockChanged", { sha: stockHash.slice(0, 8) })] };
   }
   const kind = present.length === 0 ? "hacktribe" : present.length === mine.length ? "blech" : "partial";
   // hardware: the head says which Electribe a Hacktribe file is for (the blue one carries the synth head)
