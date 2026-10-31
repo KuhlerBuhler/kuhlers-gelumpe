@@ -6,6 +6,7 @@ import { PROPERTIES, KNOB_NAMES } from "../data/script/properties.mjs";
 import { compile } from "../src/script/compiler.mjs";
 import { render } from "../src/text.mjs";
 import { completionsAt, callAt, hoverAt, errorRange, allowedIn, rangeText } from "../src/script/editor-model.mjs";
+import { OBJECTS, OBJECT_BY_PATH, objectChildren } from "../data/script/objects.mjs";
 
 /** The text before the caret marker `|`, and the caret. */
 const at = source => ({ text: source.replace("|", ""), pos: source.indexOf("|") });
@@ -33,7 +34,7 @@ test("the completions after korg. cover every property and API entry once, korg.
   const result = complete("korg.|");
   const props = result.options.filter(o => o.type === "property");
   assert.deepEqual(props.map(o => o.label), PROPERTIES.map(p => p.path.replace("[]", "[i]")));
-  assert.deepEqual(result.options.filter(o => o.type === "function").map(o => o.label).filter(l => l !== "korg.onEvent"), API.map(a => a.name));
+  assert.deepEqual(result.options.filter(o => o.type === "function").map(o => o.label).filter(l => l !== "korg.onEvent" && !OBJECT_BY_PATH.has(l)), API.map(a => a.name));
   assert.ok(labels(result).includes("korg.onEvent"));
   for (const o of result.options) {
     assert.ok(render(o.info.text)?.trim(), `${o.label} has a description`);
@@ -162,4 +163,74 @@ test("how a range and a place read", () => {
   assert.equal(rangeText({ kind: "int", min: 0, max: 87 }), "0 bis 87");
   assert.equal(rangeText({ kind: "int", min: -2147483648, max: 2147483647 }), "ganze Zahl");
   assert.equal(allowedIn(API.find(a => a.name === "korg.store.get")), "überall");
+});
+
+test("every leaf of the object tree shows up in the completions, from korg. down one name after each dot", () => {
+  const top = labels(complete("korg.|"));
+  for (const leaf of OBJECTS) {
+    const names = leaf.path.split(".");
+    assert.ok(top.includes(leaf.path) || top.includes(names.slice(0, 2).join(".")), `${leaf.path} after korg.`);
+    for (let i = 2; i < names.length; i++) {
+      const prefix = names.slice(0, i).join(".");
+      const result = complete(`${prefix}.|`);
+      assert.ok(labels(result).includes(names[i]), `${names[i]} after ${prefix}.`);
+      assert.equal(result.from, prefix.length + 1);
+    }
+    const option = complete(`${names.slice(0, -1).join(".")}.|`).options.find(o => o.label === names.at(-1));
+    assert.match(option.info.allowed, new RegExp(`ab API ${leaf.since}`), `${leaf.path} says its version`);
+    if (!leaf.action) assert.match(option.detail, new RegExp(`${leaf.min} bis ${leaf.max}, (lesen und setzen|nur lesen)`));
+  }
+});
+
+test("after a branch the editor offers its children and the calls of the same name, with what each one is", () => {
+  assert.deepEqual(labels(complete("korg.menu.blech.|")), objectChildren("korg.menu.blech"));
+  assert.ok(labels(complete("korg.menu.blech.|")).includes("customizations"));
+  assert.deepEqual(labels(complete("korg.menu.|")), ["blech", "add"]);
+  const add = complete("korg.menu.|").options.find(o => o.label === "add");
+  assert.equal(add.snippet, "add(${1:label}, ${2:min}, ${3:max}, ${4:value})");
+  const intensity = complete("korg.menu.blech.customizations.display.in|");
+  assert.equal(intensity.from, "korg.menu.blech.customizations.display.".length);
+  assert.equal(intensity.options[0].detail, "0 bis 15, lesen und setzen");
+  assert.equal(complete("korg.system.|").options.find(o => o.label === "keepAwake").snippet, "keepAwake()");
+  assert.equal(complete("korg.system.|").options.find(o => o.label === "testMode").detail, "0 bis 1, nur lesen");
+  const blech = complete("korg.menu.|").options.find(o => o.label === "blech");
+  assert.equal(blech.apply, "blech.");
+  assert.equal(blech.retrigger, true);
+});
+
+test("hovering a name of the tree says what it is: a leaf its range and where it is read and set, a branch its children", () => {
+  const text = "korg.menu.blech.customizations.display.intensity = 3;\nlet r = korg.system.repairs;\nkorg.menu.blech.custom";
+  const leaf = hoverAt(text, 20).info;
+  assert.equal(leaf.signature, "korg.menu.blech.customizations.display.intensity");
+  assert.match(render(leaf.text), /INTENSITY/);
+  assert.equal(leaf.allowed, "0 bis 15; lesen überall; setzen in allen Ereignissen außer dem Rumpf und save; ab API 10");
+  assert.match(hoverAt(text, text.indexOf("repairs") + 1).info.allowed, /nur lesen/);
+  const branch = hoverAt(text, text.lastIndexOf("blech") + 1);
+  assert.equal(branch.info.signature, "korg.menu.blech.");
+  assert.match(render(branch.info.text), /customizations/);
+});
+
+test("the timers complete with an arrow to write into and say that the function is no number", () => {
+  const after = complete("korg.af|").options.find(o => o.label === "korg.after");
+  assert.equal(after.snippet, "korg.after(${1:ms}, () => {\n  ${2}\n})");
+  assert.deepEqual(after.info.params.map(p => p.range), ["0 bis 86400000", "eine Funktion ohne Parameter: ihr Name oder () => { … }"]);
+  assert.equal(after.info.allowed, "überall außer in save");
+  for (const name of ["korg.every", "korg.afterSteps", "korg.cancel"]) assert.ok(labels(complete("korg.|")).includes(name), name);
+  assert.match(call("korg.cancel(|").info.params[0].range, /korg\.after/);
+  assert.equal(call("korg.every(500, |").index, 1);
+});
+
+test("while typing, a wrong path, a leaf that is not set and a value out of range are marked with the compiler's own message", () => {
+  const marks = source => {
+    const r = compile(source);
+    assert.equal(r.ok, false, source);
+    const e = r.errors[0];
+    return { message: e.message, text: source.slice(errorRange(source, e).from, errorRange(source, e).to) };
+  };
+  const range = marks("korg.onEvent(\"frame\", () => { korg.menu.blech.customizations.display.intensity = 300; });");
+  assert.equal(range.text, "300");
+  assert.match(range.message, /0 bis 15, 300 liegt außerhalb/);
+  assert.match(marks("korg.onEvent(\"frame\", () => { korg.menu.blech.customizatons.display.intensity = 3; });").message, /customizations/);
+  assert.match(marks("korg.onEvent(\"frame\", () => { korg.system.repairs = 0; });").message, /korg\.system\.repairs/);
+  assert.match(marks("function f(x) { return x; }\nkorg.after(100, f);").message, /korg\.after/);
 });

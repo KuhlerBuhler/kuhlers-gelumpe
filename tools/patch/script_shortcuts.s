@@ -2,7 +2,9 @@
 ;   EXIT + WRITE  the pattern is saved into its own place at once: WRITE opens the firmware's Write window as always, and the next
 ;                 tick gives the window its second WRITE, which saves into the place the window starts on (the running pattern).
 ;   EXIT + pad    the sound of a part goes back to the values saved in the pattern bank: bytes 2 to 0x2F of the part (everything
-;                 but last step and mute; the steps stay). TRIGGER mode resets the pad's part, the other modes the selected part.
+;                 but last step and mute; the steps stay). Which part: the pad's, where a pad stands for a part, a note, a chord or a
+;                 pattern (PART MUTE, PART ERASE, TRIGGER, KEYBOARD, CHORD, PATTERN SET); the selected part where it stands for a
+;                 step (SEQUENCER, STEP JUMP).
 ;                 The firmware's pattern load (0xC004AB84) then applies the pattern in RAM onto itself, as after a pattern change.
 ; Not with EXIT held at power-on. On the synth too, with its places from data/synth-map/ (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md). The firmware addresses SC_LEDMGR (LED manager:
 ; +0xB58 pad mode, +0xB60 selected part), SC_PLAYER (returns the player, +0x318 the running number), SC_PATPTR (the pattern in RAM,
@@ -16,7 +18,8 @@
 .equ SC_KEY_WRITE, 0x0E
 .equ SC_WINDOW, 18              ; the firmware's Write window (screen 0x12)
 .equ SC_WAIT, 25                ; one second
-.equ SC_TRIGGER, 3              ; pad mode TRIGGER (4 SEQUENCER, 5 KEYBOARD)
+.equ SC_SEQUENCER, 4            ; pad modes where a pad is a step (0 PART MUTE, 2 PART ERASE, 3 TRIGGER, 5 KEYBOARD, 6 CHORD,
+.equ SC_STEP_JUMP, 7            ; 9 PATTERN SET: a pad is its part)
 .equ SC_PART_AT, 0x800          ; part 0 in a pattern file
 .equ SC_PART_SIZE, 0x330
 .equ SC_SOUND, 0x2E             ; bytes 2 to 0x2F
@@ -77,8 +80,9 @@ sc_pad:
     cmnne r2, #1
     beq sc_pad_part
     ldr r0, [r2, #0xB58]
-    cmp r0, #SC_TRIGGER
-    ldrne r1, [r2, #0xB60]
+    cmp r0, #SC_SEQUENCER
+    cmpne r0, #SC_STEP_JUMP
+    ldreq r1, [r2, #0xB60]
 sc_pad_part:
     cmp r1, #16
     bhs sc_drop

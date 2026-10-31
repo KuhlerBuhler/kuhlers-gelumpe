@@ -5,7 +5,8 @@
 .section .text.entry,"ax"
 .global doom_boot
 @ Called from 0xC002AE64 after the sample-file query, replacing mov r4, r0.
-@ Does that instruction and returns with every other register and the flags as they were, unless exactly SHIFT + TAP is held.
+@ Does that instruction and returns with every other register and the flags as they were, unless exactly SHIFT + TAP is held and
+@ doom.bin and doom.wad are on the card (doom_load returns 0 without them).
 doom_boot:
     mov r4, r0
     push {r0-r3, r12, lr}
@@ -26,7 +27,7 @@ doom_boot:
     ldrb r1, [r0, #0x22]
     cmp r1, #0
     bne normal
-    b doom_load
+    bl doom_load
 normal:
     pop {r4, r12}
     msr cpsr_f, r12

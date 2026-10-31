@@ -26,6 +26,9 @@ export default {
     // Unit parameters start this many bytes behind their stage's device byte, at stride 2.
     paramsFromDevice: 0x0b,
     paramStride: 2,
+    // A map row holds its from/to pair six times, 4 bytes apart from fx.map.low on (factory-check:map-row-copies).
+    mapPairCopies: 6,
+    mapPairStride: 4,
     // What drives a control map row; insert presets have no touchpad, so no Y.
     // `who` is the name for a sentence per effect kind: the insert effect has a knob where the master has the touchpad (a reading of Korg's "X / knob", not measured).
     sources: [

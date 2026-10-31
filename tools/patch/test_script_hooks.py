@@ -46,7 +46,7 @@ class HookTests(unittest.TestCase):
         machine.uc.mem_map(0xC0340000,4096)
         machine.uc.mem_map(0xC0345000,4096)    # the LED manager's pointer (0xC0345A1C), 0: the unsaved WRITE LED stays out
         machine.uc.mem_map(0xC0310000,0x10000)
-        for at,size in [(0xC0690000,0x2000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)
+        for at,size in [(0xC0690000,0x2000),(0xC06A2000,0x1000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)   # 0xC06A292C the OS tick count the clock reads
         machine.write(0xC033E6F8,machine.input+0x1000)
         machine.write(0xC03404C0,machine.input+0x2000)
         machine.write(machine.input+0x202C,1)
@@ -207,7 +207,7 @@ class HookTests(unittest.TestCase):
         machine.write(machine.input+0x202C,1)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(entry),[1,7,1])
-        self.assertEqual(machine.read(entry+220),1)
+        self.assertEqual(machine.read(entry+228),1)
         machine.write(machine.input+0x202C,4)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(entry),[1,7,2])
@@ -336,10 +336,10 @@ class HookTests(unittest.TestCase):
         advancing[0]=False
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(imported),[0,0,0])
-        self.assertEqual(machine.read(imported+220),0)
+        self.assertEqual(machine.read(imported+228),0)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(imported),[1,0,1])
-        self.assertEqual(machine.read(imported+220),1)
+        self.assertEqual(machine.read(imported+228),1)
 
     def test_fuel_fault_does_not_stop_other_scripts(self):
         machine,_=self.machine()
@@ -447,6 +447,51 @@ class HookTests(unittest.TestCase):
         machine.call('script_app_close',machine.runtime)
         self.assertEqual(self.drain(machine),[],'closing nothing says nothing')
 
+    def test_pad_hold_keeps_pads_from_the_firmware_and_ends_with_the_app_or_the_last_plugin(self):
+        machine,built=self.machine()
+        entry=self.app_script(machine)
+        self.declare(machine,built,[entry])
+        machine.write(entry+12,2)
+        machine.write(machine.runtime+148,0x2)
+        mask=lambda: machine.read(machine.runtime+148)
+        press,release=[4,6,0,100,1],[4,6,0,0,0]
+        self.assertEqual(self.input(machine,press),0xC0028380,'without the hold the pad reaches the firmware')
+        self.assertEqual(self.input(machine,release),0xC0028380)
+        self.assertEqual([e[0] for e in self.drain(machine)],[7,7])
+        self.assertEqual(machine.call('script_pad_hold_glue',1),(0,0))
+        self.assertEqual(mask(),0x12,'the pad bit, the other bits stay')
+        self.assertEqual(self.input(machine,press),machine.stop,'held: the firmware does not get the pad')
+        self.assertEqual(mask(),0x12|1<<22,'the pad is marked: its release stays away from the firmware too')
+        self.assertEqual(self.input(machine,release),machine.stop)
+        self.assertEqual(mask(),0x12)
+        self.assertEqual([e[0] for e in self.drain(machine)],[7,7],'the plugin still gets both')
+        self.assertEqual(self.input(machine,[0,24,1,0,0]),0xC0028380,'keys are not held')
+        self.drain(machine)
+        # the hold ends while the pad is down: its release still stays away, the next press goes through
+        self.assertEqual(self.input(machine,press),machine.stop)
+        self.assertEqual(machine.call('script_pad_hold_glue',0),(0,0))
+        self.assertEqual(mask(),0x2|1<<22)
+        self.assertEqual(self.input(machine,release),machine.stop)
+        self.assertEqual(mask(),0x2)
+        self.assertEqual(self.input(machine,press),0xC0028380)
+        # the hold starts while the pad is down: its release reaches the firmware that saw the press
+        machine.call('script_pad_hold_glue',1)
+        self.assertEqual(self.input(machine,release),0xC0028380)
+        self.assertEqual(mask(),0x12)
+        self.drain(machine)
+        self.assertEqual(machine.call('script_app_open',0)[0],1)
+        machine.call('script_app_close',machine.runtime)
+        self.assertEqual(mask(),0x2,'closing the app gives the pads back')
+        self.assertEqual([e[0] for e in self.drain(machine)],[20,21],'the app got open and close')
+        self.assertEqual(self.input(machine,press),0xC0028380)
+        self.assertEqual(self.input(machine,release),0xC0028380)
+        machine.call('script_pad_hold_glue',1)
+        machine.call('script_pad_hold_guard',machine.runtime)
+        self.assertEqual(mask(),0x12,'an armed plugin keeps the hold')
+        machine.write(entry+12,3)
+        machine.call('script_pad_hold_guard',machine.runtime)
+        self.assertEqual(mask(),0x2,'a plugin that faulted lets the pads go')
+
     def test_the_app_closes_when_the_main_screen_is_gone(self):
         machine,built=self.machine()
         entry=self.app_script(machine)
@@ -550,15 +595,15 @@ class HookTests(unittest.TestCase):
             self.assertEqual(change['file'],address-RAM_BASE+0x100)
             self.assertEqual(change['expect'],hashlib.sha256(struct.pack('<I',word)).hexdigest())
             self.assertEqual(int.from_bytes(bytes.fromhex(change['bytes']),'little')>>24,0xea)
-        self.assertEqual(len(patch['hooks']),19)
+        self.assertEqual(len(patch['hooks']),26)
         self.assertEqual((patch['hooks'][3]['site'],patch['hooks'][3]['chain']),('0xC004C1B4','save'))
         self.assertEqual(patch['hooks'][0]['chain'],['key-dispatch','pattern-set'])
         self.assertEqual(patch['hooks'][0]['swallow'],True)
         self.assertEqual(patch['hooks'][1]['chain'],'frame')
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
-        card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
-        self.assertEqual(len(patch['startPhase']),48)
+        card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
+        self.assertEqual(len(patch['startPhase']),56)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]
@@ -780,11 +825,13 @@ class MenuSettingsTests(unittest.TestCase):
                     uc.reg_write(UC_ARM_REG_R2, 0xa5a5a5a5)
                     uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
                 elif address == symbols['FS_OPEN']:
-                    opened.append(bytes(uc.mem_read(state + symbols['M_FILE_A'], 24)))
+                    opened.append(bytes(uc.mem_read(symbols['MENU_FILE_A'], 24)))
                     uc.reg_write(UC_ARM_REG_PC, machine.stop)
-            fs_page = symbols['FS_OPEN'] & ~4095
-            if not any(a <= fs_page <= b for a, b, _ in machine.uc.mem_regions()):
-                machine.uc.mem_map(fs_page, 4096)
+            for page in (symbols['FS_OPEN'] & ~4095, symbols['MENU_FILE_A'] & ~4095, symbols['LP_CODE'] & ~4095):
+                if not any(a <= page <= b for a, b, _ in machine.uc.mem_regions()):
+                    machine.uc.mem_map(page, 4096)
+            machine.write(symbols['LP_CODE'], 0xFFFFFFFF)       # a set without the patch last-pattern
+            machine.write(symbols['SP_CODE'], 0xFFFFFFFF)       # a set without the patch stereo-pad
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['menu_pc_call'], end=symbols['menu_pc_call'])
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['FS_OPEN'], end=symbols['FS_OPEN'])
             machine.write(symbols['HOOK_RUNTIME'] + symbols['RT_HEAD'], 0)
@@ -806,5 +853,36 @@ class MenuSettingsTests(unittest.TestCase):
                     self.assertEqual(struct.unpack_from('<I', data, 12)[0], expected)
                     self.assertEqual(struct.unpack_from('<I', data, 16)[0], 0x80000120)
                     self.assertEqual(struct.unpack_from('<I', data, 20)[0], zlib.crc32(data[:20]))
+                    self.assertEqual(data[5], 0)
+            # with the patch stereo-pad, STEREO 1 PAD OFF is bit 2 of byte 5; byte 7 (the count's high byte) stays 0
+            for setting, byte5 in ((0, 4), (1, 0), (0xFFFFFFFF, 0)):
+                with self.subTest(build=build_name, stereo=setting):
+                    machine.write(symbols['SP_CODE'], 0xE59FC08C)
+                    machine.write(symbols['SP_SETTING'], setting)
+                    opened.clear()
+                    machine.call('menu_settings_save')
+                    self.assertEqual((opened[0][5], opened[0][7]), (byte5, 0))
+            machine.write(symbols['SP_CODE'], 0xFFFFFFFF)
+            # with the patch last-pattern, LAST PATTERN OFF is bit 3 of byte 5, next to METER LOUD RAINBOW (bit 0)
+            for setting, loud, byte5 in ((0, 0, 8), (0, 8, 9), (1, 8, 1), (0xFFFFFFFF, 0, 0)):
+                with self.subTest(build=build_name, last=setting, loud=loud):
+                    machine.write(symbols['LP_CODE'], 0xE1A04000)
+                    machine.write(symbols['LP_SETTING'], setting)
+                    machine.uc.mem_write((state + symbols['MX_METER']) & 0xffffffff, bytes([1, 2, 3, loud]))
+                    opened.clear()
+                    machine.call('menu_settings_save')
+                    self.assertEqual((opened[0][5], opened[0][7]), (byte5, 0))
+            machine.write(symbols['LP_CODE'], 0xFFFFFFFF)
+            # both patches: STEREO 1 PAD OFF (bit 2) and LAST PATTERN OFF (bit 3) stay next to METER LOUD RAINBOW (bit 0)
+            machine.write(symbols['SP_CODE'], 0xE59FC08C)
+            machine.write(symbols['SP_SETTING'], 0)
+            machine.write(symbols['LP_CODE'], 0xE1A04000)
+            machine.write(symbols['LP_SETTING'], 0)
+            machine.uc.mem_write((state + symbols['MX_METER']) & 0xffffffff, bytes([1, 2, 3, 8]))
+            opened.clear()
+            machine.call('menu_settings_save')
+            self.assertEqual((opened[0][5], opened[0][7]), (0xD, 0))
+            machine.write(symbols['SP_CODE'], 0xFFFFFFFF)
+            machine.write(symbols['LP_CODE'], 0xFFFFFFFF)
 
 if __name__=='__main__': unittest.main()

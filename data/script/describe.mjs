@@ -42,11 +42,16 @@ export const API_DOCS = Object.freeze({
   "korg.seq.clearPart": text("api.korg.seq.clearPart"),
   "korg.backlight": text("api.korg.backlight"),
   "korg.ledHold": text("api.korg.ledHold"),
+  "korg.padHold": text("api.korg.padHold"),
   "korg.menu.add": text("api.korg.menu.add"),
   "korg.app": text("api.korg.app"),
   "korg.file.frame": text("api.korg.file.frame"),
   "korg.get": text("api.korg.get"),
   "korg.set": text("api.korg.set"),
+  "korg.after": text("api.korg.after"),
+  "korg.every": text("api.korg.every"),
+  "korg.afterSteps": text("api.korg.afterSteps"),
+  "korg.cancel": text("api.korg.cancel"),
 });
 
 /** korg.onEvent is no API entry, the compiler reads it as a statement. */
@@ -78,6 +83,7 @@ export const EVENT_DOCS = Object.freeze({
   save: { text: text("api.event.save"), args: {} },
   menu: { text: text("api.event.menu"), args: { id: text("api.event.menu.id"), value: text("api.event.menu.value") } },
   open: { text: text("api.event.open"), args: {} },
+  timer: { text: text("api.event.timer"), args: { callback: text("api.event.timer.callback") } },
   close: { text: text("api.event.close"), args: {} },
 });
 

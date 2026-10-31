@@ -248,6 +248,8 @@ Entscheidungen dabei:
   probierbar und nicht sendbar.
 - **Tastendrücke** (`KORG.press`, `KORG.turn`) gehen mit dem BLECH-Satz über `KORG.exec` und damit auch ans
   Gerät ([Messung](messungen/2026-10-22-tasten-vom-rechner.md)); ohne ihn drückt `KORG.press` nur im Emulator.
+  Ab 1.3.8 gehen so auch Regler, Pads, Touchpad, gehaltene Tasten und der Test-Modus (`KORG.knob`, `KORG.pad`,
+  `KORG.touch`, `KORG.hold`, `KORG.testMode`, [Test-Modus](test-modus.md)).
 - **Zurückschreiben** nach Code nimmt die Bytes, die das Gerät vorher hatte, nicht
   die des Emulators.
 - **Firmware.** Das Gerät muss bestätigt sein, dieselbe Version melden wie der

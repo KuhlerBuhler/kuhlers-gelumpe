@@ -49,8 +49,10 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING, SYNC_GROUP
+    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT
     synth = synthaddr.is_synth(payload)
+    FX_EXPORT = not synth              # EXPORT ALL EFFECTS: only the Sampler builds have the collection on the card
+    DU_FUNCS = 11 if synth else 14     # the functions of DATA UTILITY's list (screen 15), the blue has no sample functions
     SYNC_GROUP = True                  # the page SYNC GROUP is in the ring on both (the synth since 24.10.)
     MENU = 37 if synth else 45
     BASE_RING = 28 if synth else 29
@@ -68,9 +70,11 @@ def card_image(files=None):
 
 def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2):
     """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state)."""
-    global INIT_PAGE
+    global INIT_PAGE, LAST_PAGE, STEREO_PAGE
     for_build(payload)
     INIT_PAGE = payload[INIT_CODE - 0xC0000000:INIT_CODE - 0xC0000000 + 4] != b"\xff" * 4
+    LAST_PAGE = payload[LAST_CODE - 0xC0000000:LAST_CODE - 0xC0000000 + 4] != b"\xff" * 4
+    STEREO_PAGE = payload[STEREO_CODE - 0xC0000000:STEREO_CODE - 0xC0000000 + 4] != b"\xff" * 4
     dev = Dev(payload, flash, held)
     dev.m.adapter = adapter
     if card:
@@ -117,18 +121,21 @@ GROUP_PLUGINS, GROUP_GAMES, GROUP_TOOLS, GROUP_CUSTOM, GROUP_FEATURES, GROUP_DIS
 CUSTOM_DISPLAY, CUSTOM_LED, CUSTOM_PADS, CUSTOM_PSAVE, CUSTOM_SPLASH = 0, 1, 2, 3, 4   # the rows of CUSTOMIZATION, each a group; SPLASH holds IMPORT, DRAW and RESET
 S_LEVEL, S_GROUP, S_RAW, S_TOP, S_TABW = 0xE0, 0xE4, 0xE8, 0xEC, 0xF0
 TAB_TEXT_POINTER = 0x38                                               # the tab widget keeps a pointer to its text at this offset
-LIST_PAGES = ["FEATURES", "CUSTOMIZATION", "PLUGINS"]                 # the groups of level 1 of a menu without apps, in this order; GAMES and TOOLS follow when an app is declared in them
+LIST_PAGES = ["FEATURES", "PLUGINS", "CUSTOMIZATION"]                 # the groups of level 1 of a menu without apps, in this order; GAMES and TOOLS follow when an app is declared in them
 LIST_GROUPS = LIST_PAGES
-LIST_FEATURES, LIST_CUSTOM, LIST_PLUGINS = range(3)                   # their places in that list
+LIST_FEATURES, LIST_PLUGINS, LIST_CUSTOM = range(3)                   # their places in that list
 FEATURE_PAGES = ["MFX 2", "PATTERN CONFIRM", "TAP MOTION", "NOTE ASSIST"]   # the pages of the group FEATURES, each with an ON/OFF value
 FEAT_MFX, FEAT_PC, FEAT_TM, FEAT_NA = range(len(FEATURE_PAGES))
 SYNC_GROUP = True
 SYNC_GROUP_AT = 0x3B80                                                # the group in a pattern block, u16 little endian
 
 
-INIT_CODE = 0xC014FD00                                               # the patch init-pattern (tools/patch/init_pattern.py); with it FEATURES has INIT PATTERN last
-FEAT_INIT = len(FEATURE_PAGES)
+INIT_CODE = 0xC014FD00                                               # the patch init-pattern (tools/patch/init_pattern.py); with it our pages of DATA UTILITY end with SET INIT PATTERN
 INIT_PAGE = False                                                     # set by boot(): whether the copy has the patch
+LAST_CODE = 0xC014FE00                                               # the patch last-pattern (tools/patch/last_pattern.py); with it FEATURES has LAST PATTERN
+LAST_PAGE = False                                                     # set by boot(): whether the copy has the patch
+STEREO_CODE = 0xC014FF00                                             # the patch stereo-pad (tools/patch/stereo_pad.py); with it FEATURES ends with STEREO 1 PAD
+STEREO_PAGE = False                                                   # set by boot(): whether the copy has the patch
 
 
 VERSION_TEXT = 0xC014FCF0                                            # the patch blech-version (tools/patch/blech_version.mjs): the title of VERSION
@@ -145,18 +152,38 @@ def version_texts(payload):
     return title, BASE_NAMES[build]
 
 
+def feature_pages():
+    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches (SYNC GROUP is a page of the
+    ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE
+
+
 def feature_count():
-    """The pages of FEATURES: the switches (SYNC GROUP is a page of the ring, LEVEL_SYNC), and INIT PATTERN where the set has it."""
-    return len(FEATURE_PAGES) + INIT_PAGE
-TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads", "Power", "Splash", "Pattern"]
+    return len(feature_pages())
+
+
+FX_EXPORT = True
+
+
+def du_pages():
+    """Our pages of DATA UTILITY, behind the firmware's functions: EXPORT ALL CUSTOMIZATIONS (its title is cut to fit), EXPORT ALL
+    PLUGINS, EXPORT ALL EFFECTS on the Sampler builds, and SET INIT PATTERN where the set has the patch."""
+    return ["EXPORT ALL CUSTOM", "EXPORT ALL PLUGINS"] + ["EXPORT ALL EFFECTS"] * FX_EXPORT + ["SET INIT PATTERN"] * INIT_PAGE
+TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads", "Power", "Splash", "Pattern", "Global"]
+FIRMWARE_TAB = "Data Util"                                            # the firmware's own label, already at the edge of its box: ours has to look the same, not have room to spare
 RING = 32                                                             # the total of the page counter with the page BLECH, the page of Blechy and SYNC GROUP in the ring
 BASE_RING = 29
-LEVEL_BLECHY = 3                                                      # level 3 of the screen: the page of Blechy at the end of the ring
-LEVEL_SYNC = 4                                                        # level 4: the page SYNC GROUP behind him, right before the Pattern menu
-LEVEL_PLUGIN = 5                                                      # level 5: the pages of one plugin, built like the firmware's Sample Edit
-S_PSEL = 0xFB                                                         # byte: the plugin SELECT PLUGIN chose
-PLUGIN_EDIT, PLUGIN_EXPORT = 1, 2                                    # the pages of PLUGINS behind RUNTIME
-PLUGIN_SELECT, PLUGIN_STATE, PLUGIN_DESCRIPTION = 0, 1, 2             # the first pages of one plugin; the pages it added follow, DELETE PLUGIN is the last
+SYNC_AT = 15                                                          # the counter's index of SYNC GROUP (16/32): behind CHAIN REPEAT, the Part menu moves up by one
+LEVEL_BLECHY = 3                                                      # level 3 of the screen: the page of Blechy, the last of the ring
+LEVEL_SYNC = 4                                                        # level 4: the page SYNC GROUP between the Pattern menu and the Part menu
+LEVEL_PLUGIN = 5                                                      # level 5: MANAGE PLUGINS, one page a plugin
+LEVEL_PSUB = 6                                                        # level 6: the pages of one plugin: DESCRIPTION, the pages it added, OFF, REMOVE
+LEVEL_GLOBAL = 7                                                      # level 7: PLUGIN RUNTIME, the last page of GLOBAL PARAMETERS (21/21)
+LEVEL_DU = 8                                                          # level 8: our pages of DATA UTILITY, behind the firmware's functions
+GLOBAL_PAGES = 20                                                     # the firmware's pages of GLOBAL PARAMETERS (screen 9)
+S_PSEL = 0xFB                                                         # byte: the plugin the pages of level 6 are about (the page of level 5 it was opened from)
+PLUGIN_MANAGE = 0                                                     # the one page of PLUGINS: MANAGE PLUGINS
+PLUGIN_DESCRIPTION = 0                                                # the first page of one plugin; the pages it added follow, then OFF, REMOVE is the last
 PRESS = "press  [ Enter ]"                                            # the third line of every Data Util page
 VALUE_ROWS = range(30, 64)                                           # the pixel rows the value (and the firmware's third line) use
 TAB_ROWS = range(1, 9)                                               # the rows of the tab's text, inside the black bar
@@ -192,11 +219,24 @@ def goto_group(dev, group, page=0):
 
 
 def goto_plugin(dev, plugin=0, page=None):
-    """The pages of one plugin (level 5, what ENTER on PLUGIN EDIT opens) at `page` (STATE when not given), `plugin` counted as
-    SELECT PLUGIN counts, entered fresh."""
+    """The page of a plugin in MANAGE PLUGINS (level 5: its name, its state, the dial switches it), or with `page` that page of its
+    own pages (level 6: DESCRIPTION, the pages it added, OFF, REMOVE); `plugin` counted as the list counts (loaded ones first), entered fresh."""
     go(dev, 8)
     dev.m.uc.mem_write(STATE + S_PSEL, bytes([plugin]))
-    _enter(dev, LEVEL_PLUGIN, 0, PLUGIN_STATE if page is None else page)
+    if page is None:
+        _enter(dev, LEVEL_PLUGIN, 0, plugin)
+    else:
+        _enter(dev, LEVEL_PSUB, 0, page)
+
+
+def goto_global(dev):
+    """PLUGIN RUNTIME, the page of GLOBAL PARAMETERS behind the firmware's last (level 7), entered fresh."""
+    _enter(dev, LEVEL_GLOBAL)
+
+
+def goto_du(dev, page=0):
+    """Our page `page` of DATA UTILITY (level 8, du_pages()), entered fresh."""
+    _enter(dev, LEVEL_DU, 0, page)
 
 
 def tab(dev):
@@ -289,7 +329,7 @@ def page_overlap(dev):
         xs = [x for x, _ in (lit(shown, rows) if name != "line" else only_line)]
         if xs and (min(xs) < 2 or max(xs) > 125):
             wrong.append(f"{name} reaches the edge: columns {min(xs)} to {max(xs)}")
-    problem = label_problem(dev, tab(dev))
+    problem = label_problem(dev, tab(dev)) if tab(dev) != FIRMWARE_TAB else None
     if problem:
         wrong.append(problem)
     return wrong or None
@@ -335,6 +375,70 @@ def blechy_dark(dev):
     return out
 
 
+DU_FUNCS = 14
+
+
+def firmware_menu_cases(dev):
+    """PLUGIN RUNTIME as the last page of GLOBAL PARAMETERS and our pages behind DATA UTILITY's functions (Pascal 29.10.): EDIT goes
+    through them and the firmware's pages both ways, the counters count them, EXIT goes where the firmware's EXIT goes."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})
+
+    here = lambda: (dev.screen()["number"], state(dev, S_LEVEL) if dev.screen()["number"] == MENU else None, counter(dev),
+                    texts_of(dev)[:2] if dev.screen()["number"] == MENU else None, tab(dev) if dev.screen()["number"] == MENU else None)
+    total = GLOBAL_PAGES + 1
+    go(dev, 8)
+    press(dev, "menu", wait=0.5)
+    first = here()
+    press(dev, "edit_prev", wait=0.6)
+    ours = here()
+    press(dev, "edit_next", wait=0.6)
+    wrapped = here()
+    press(dev, "edit_prev", wait=0.6)
+    press(dev, "edit_prev", wait=0.6)
+    last = here()
+    press(dev, "edit_next", wait=0.6)
+    again = here()
+    press(dev, "write", wait=0.6)
+    window = dev.screen()["window"]
+    press(dev, "exit", wait=0.6)
+    left = dev.screen()["number"]
+    want = (MENU, LEVEL_GLOBAL, (GLOBAL_PAGES, total), ("PLUGIN RUNTIME", "ON"), "Global")
+    add("global_has_plugin_runtime_last", first == (9, None, (0, total), None, None) and ours == want and wrapped == first
+        and last == (9, None, (GLOBAL_PAGES - 1, total), None, None) and again == want and window == 0 and left == 8 and not dev.m.asserts,
+        f"first {first}, left {ours}, right {wrapped}, left twice {last}, right {again}, WRITE window {window}, EXIT to {left}")
+
+    pages = du_pages()
+    total = DU_FUNCS + len(pages)
+    go(dev, 14)
+    press(dev, "menu", wait=0.5)
+    first = here()
+    firmware_tab = dark(frame(dev), TAB_ROWS, 0, 39)
+    press(dev, "edit_prev", wait=0.6)
+    seen = [here()]
+    our_tab = dark(frame(dev), TAB_ROWS, 0, 39)
+    for _ in pages:
+        press(dev, "edit_prev", wait=0.6)
+        seen.append(here())
+    for _ in pages:
+        press(dev, "edit_next", wait=0.6)
+    press(dev, "edit_next", wait=0.6)
+    round_trip = here()
+    press(dev, "edit_prev", wait=0.6)
+    press(dev, "exit", wait=0.6)
+    left = dev.screen()["number"]
+    want = [(MENU, LEVEL_DU, (DU_FUNCS + i, total), None, "Data Util") for i in reversed(range(len(pages)))] + [(15, None, (DU_FUNCS - 1, total), None, None)]
+    shown = [(x[0], x[1], x[2], None, x[4]) for x in seen]
+    titles = [x[3][0] for x in seen[:-1]]
+    add("data_util_tab_as_the_firmware", our_tab == firmware_tab and len(our_tab) > 20, f"{len(our_tab)} label pixels, the firmware's {len(firmware_tab)}, "
+        f"differ {len(our_tab ^ firmware_tab)}")
+    add("data_util_has_our_pages_last", first == (15, None, (0, total), None, None) and shown == want and titles == list(reversed(pages))
+        and round_trip == first and left == 14 and not dev.m.asserts, f"first {first}, left through {seen}, back {round_trip}, EXIT to {left}")
+    return out
+
+
 def blechy_ring_cases(dev):
     """The page of Blechy, the last of the ring: after Event, before the Pattern menu, shown live and gone with EXIT."""
     out = []
@@ -348,15 +452,23 @@ def blechy_ring_cases(dev):
     press(dev, "edit_next", wait=0.8)
     landed = here()
     picture = dev.fb()
-    add("blechy_follows_blech", landed == (MENU, LEVEL_BLECHY, (BASE_RING + 1, RING), True) and any(picture) and not dev.m.asserts, f"{landed}")
+    add("blechy_follows_blech", landed == (MENU, LEVEL_BLECHY, (BASE_RING + 2, RING), True) and any(picture) and not dev.m.asserts, f"{landed}")
     add("blechy_page_shows_him_alone", len(lit(picture, range(64))) > 300 and not lit(picture, range(64)) & {(x, y) for y in range(64) for x in range(70, 128)}, f"{len(lit(picture, range(64)))} pixels")
     dark = blechy_dark(dev)
     add("blechy_page_dark_either_way", dark["on"] == ("plain", True) and dark["off"] == ("complement", False) and not dev.m.asserts, f"{dark}")
     press(dev, "edit_next", wait=0.8)
+    pattern = (dev.screen()["number"], counter(dev), open_app_entry(dev))
+    add("blechy_right_goes_to_pattern", pattern == (3, (0, RING), 0), f"{pattern}")
     if SYNC_GROUP:
+        # SYNC GROUP sits between CHAIN REPEAT, the Pattern menu's last page (15), and the Part menu (17): 16 of the ring (Pascal 29.10.)
         group = lambda: bytes(dev.read(dev.u32(0xC033E6A4) + 4 + SYNC_GROUP_AT, 2))
+        for _ in range(SYNC_AT - 1):
+            press(dev, "edit_next", wait=0.3)
+        chain = (dev.screen()["number"], counter(dev))
+        press(dev, "edit_next", wait=0.8)
         sync = (dev.screen()["number"], state(dev, S_LEVEL), counter(dev), open_app_entry(dev), texts_of(dev)[:2], tab(dev))
-        add("sync_group_follows_blechy", sync == (MENU, LEVEL_SYNC, (BASE_RING + 2, RING), 0, ("SYNC GROUP", "OFF"), "Pattern") and not dev.m.asserts, f"{sync}")
+        add("sync_group_follows_chain_repeat", chain == (3, (SYNC_AT - 1, RING)) and sync == (MENU, LEVEL_SYNC, (SYNC_AT, RING), 0, ("SYNC GROUP", "OFF"), "Pattern")
+            and not dev.m.asserts, f"{chain}, then {sync}")
         dev.turn(3, wait=0.3)
         three = (texts_of(dev)[:2], group())
         dev.turn(-10, wait=0.3)
@@ -364,11 +476,14 @@ def blechy_ring_cases(dev):
         add("sync_group_page_sets_the_pattern", three == (("SYNC GROUP", "3"), b"\x03\x00") and off == (("SYNC GROUP", "OFF"), b"\x00\x00")
             and not dev.m.asserts, f"turned +3: {three}, then -10: {off}")
         press(dev, "edit_next", wait=0.8)
-    pattern = (dev.screen()["number"], counter(dev), open_app_entry(dev))
-    add("blechy_right_goes_to_pattern", pattern == (3, (0, RING), 0), f"{pattern}")
-    press(dev, "edit_prev", wait=0.8)
-    if SYNC_GROUP:
-        add("pattern_left_comes_to_sync_group", (dev.screen()["number"], state(dev, S_LEVEL)) == (MENU, LEVEL_SYNC), f"{dev.screen()['number']}, level {state(dev, S_LEVEL)}")
+        part = (dev.screen()["number"], counter(dev))
+        press(dev, "edit_prev", wait=0.8)
+        back_sync = (dev.screen()["number"], state(dev, S_LEVEL), counter(dev))
+        press(dev, "edit_prev", wait=0.8)
+        back_chain = (dev.screen()["number"], counter(dev))
+        add("sync_group_between_pattern_and_part", part == (7, (SYNC_AT + 1, RING)) and back_sync == (MENU, LEVEL_SYNC, (SYNC_AT, RING))
+            and back_chain == (3, (SYNC_AT - 1, RING)) and not dev.m.asserts, f"right {part}, left {back_sync}, left {back_chain}")
+        press(dev, "edit_next", wait=0.8)
         dev.turn(2, wait=0.3)
         press(dev, "write", wait=0.6)
         window = dev.screen()["number"]
@@ -378,14 +493,15 @@ def blechy_ring_cases(dev):
         press(dev, "exit", wait=0.8)
         main = dev.screen()["number"]
         add("sync_group_exit_goes_to_main", main == 1 and not dev.m.asserts, f"screen {main}")
-        go(dev, 3)
-        press(dev, "edit_prev", wait=0.8)
-        press(dev, "edit_prev", wait=0.8)
+    go(dev, 10)
+    for _ in range(3):                  # BLECH, Blechy, the Pattern menu on its first page (Event's EDIT right sets it)
+        press(dev, "edit_next", wait=0.8)
+    press(dev, "edit_prev", wait=0.8)
     back = here()
     add("blechy_pattern_left_comes_back", back == landed, f"{back}")
     press(dev, "edit_prev", wait=0.8)
     blech = (dev.screen()["number"], state(dev, S_LEVEL), counter(dev), open_app_entry(dev))
-    add("blechy_left_goes_to_blech", blech == (MENU, 0, (BASE_RING, RING), 0), f"{blech}")
+    add("blechy_left_goes_to_blech", blech == (MENU, 0, (BASE_RING + 1, RING), 0), f"{blech}")
     goto_blechy(dev)
     dev.run(0.5)
     before = bytes(dev.m.mmc.card.medium.data) if dev.m.mmc.card else b""
@@ -412,8 +528,18 @@ def blechy_ring_cases(dev):
             break
     add("blechy_all_keys_run", not bad, f"no assertion over 48 keys on his page" if not bad else f"assertion at key {bad}")
     # EDIT off his page: no frame shows a pixel of him that the next page does not have (Discord 26.10., blue with BLECH 1.3.3: his head
-    # and feet stayed on SYNC GROUP; the page drew only its widgets over his last picture for 35 ms before the full redraw came)
+    # and feet stayed on SYNC GROUP; the page drew only its widgets over his last picture for 35 ms before the full redraw came). Here EDIT
+    # right goes on to the Pattern menu and EDIT left back to the page BLECH.
     bits = lambda fb: {(i, k) for i, b in enumerate(fb) for k in range(8) if b >> k & 1}
+
+    def sending(before, look, after):
+        """Whether `look` caught the controller in the middle of one transfer: its first bytes are already those of the next look,
+        the rest still those of the one before (a full frame goes in in order and can straddle a 5 ms look)."""
+        if after is None or look == after:
+            return False
+        cut = next(j for j in range(len(look)) if look[j] != after[j])
+        return look[cut:] == before[cut:]
+
     left = []
     for key in ("edit_next", "edit_prev"):
         goto_blechy(dev)
@@ -430,7 +556,8 @@ def blechy_ring_cases(dev):
         settled = (frame(dev), dev.fb())
         for i, kind in enumerate(("frame", "display")):
             his = bits(last[i]) - bits(settled[i])
-            stale = [5 * (k + 1) for k, look in enumerate(looks) if look[i] != last[i] and bits(look[i]) & his]
+            seq = [last[i]] + [look[i] for look in looks] + [None]
+            stale = [5 * k for k in range(1, len(seq) - 1) if seq[k] != last[i] and bits(seq[k]) & his and not sending(seq[k - 1], seq[k], seq[k + 1])]
             if stale:
                 left.append(f"{key} {kind} at {stale[:4]} ms")
     add("blechy_leaves_no_trace", not left and not dev.m.asserts,
@@ -440,8 +567,8 @@ def blechy_ring_cases(dev):
     return out
 
 
-def cases(payload, flash=None, settings=True):
-    """The menu cases as check.py entries [{id, ok, detail}]; the settings cases (settings_cases) come last unless `settings` is False."""
+def ring_cases(payload, flash=None):
+    """The ring, the firmware's menus with our pages and the list that remembers its group, on one device."""
     out = []
 
     def add(name, ok, detail):
@@ -460,7 +587,7 @@ def cases(payload, flash=None, settings=True):
     press(dev, "edit_prev")
     again = here()
     press(dev, "edit_prev")
-    add("ring_forward", page == (MENU, 0, 0, (BASE_RING, RING), ("BLECH", "", PRESS), "BLECH") and after == (MENU, LEVEL_BLECHY), f"{page}, then {after}")
+    add("ring_forward", page == (MENU, 0, 0, (BASE_RING + 1, RING), ("BLECH", "", PRESS), "BLECH") and after == (MENU, LEVEL_BLECHY), f"{page}, then {after}")
     add("ring_backward", again == page and dev.screen()["number"] == 10, f"{again}, then screen {dev.screen()['number']}")
     go(dev, 8)
     press(dev, "edit_next")
@@ -469,11 +596,12 @@ def cases(payload, flash=None, settings=True):
     add("global_and_data_util_are_neighbours", right == 14 and dev.screen()["number"] == 8, f"Global right {right}, then left {dev.screen()['number']}")
 
     go(dev, 14)
-    add("neighbour_counters", counter(dev) == (BASE_RING - 2, RING), f"Data Util {counter(dev)}")
+    add("neighbour_counters", counter(dev) == (BASE_RING - 1, RING), f"Data Util {counter(dev)}")
     go(dev, 8)
-    add("global_counter", counter(dev) == (BASE_RING - 3, RING), f"Global {counter(dev)}")
+    add("global_counter", counter(dev) == (BASE_RING - 2, RING), f"Global {counter(dev)}")
     go(dev, 10)
-    add("event_counter", counter(dev) == (BASE_RING - 1, RING), f"Event {counter(dev)}")
+    add("event_counter", counter(dev) == (BASE_RING, RING), f"Event {counter(dev)}")
+    out.extend(firmware_menu_cases(dev))
 
     # the list opens on the group it was last left from, also after a trip through the other menus (device 18.10.)
     goto_ring(dev)
@@ -490,8 +618,17 @@ def cases(payload, flash=None, settings=True):
     press(dev, "menu", wait=0.4)
     back = (state(dev, S_LEVEL), state(dev, S_PAGE), texts_of(dev)[0])
     add("list_remembers_the_group", inside == (2, GROUP_PLUGINS) and back == (1, LIST_PLUGINS, LIST_PAGES[LIST_PLUGINS]), f"in {inside}, back {back}")
-    out.extend(blechy_ring_cases(dev))
+    return out
 
+
+def list_cases(payload, flash=None):
+    """The list of the groups, its pages, EXIT, WRITE, the value and every key, on a device of its own."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash)
     # ENTER opens the list of the groups, ENTER on a group its pages, EXIT goes up one level each time and leaves at the ring
     dev.m.uc.mem_write(STATE + S_TOP, struct.pack("<I", 0))     # the list as after power-on, on its first group
     goto_ring(dev)
@@ -517,26 +654,28 @@ def cases(payload, flash=None, settings=True):
     goto_top(dev, LIST_PLUGINS)
     press(dev, "menu")
     inside = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), counter(dev), texts_of(dev))
-    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 3), ("RUNTIME", "ON", "")) and tab(dev) == "Plugins", str(inside))
+    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 1), ("MANAGE PLUGINS", "", PRESS)) and tab(dev) == "Plugins", str(inside))
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, "ON") for title in FEATURE_PAGES] + [("INIT PATTERN", "FACTORY")] * INIT_PAGE
+    want = [(title, "ON") for title in feature_pages()]
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
     add("features_group_lists_the_switches", features[:4] == (2, GROUP_FEATURES, (0, len(want)), "Feature")
         and features[4] == want and state(dev, S_PAGE) == 0, str(features))
-    goto_top(dev, LIST_PLUGINS)
+    goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     press(dev, "edit_prev")
     wrapped = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
     press(dev, "edit_next")
     forward = (state(dev, S_PAGE), counter(dev), text(dev, S_TITLE), dev.screen()["number"])
-    add("group_pages_wrap_and_count_alone", wrapped == (2, (2, 3), "EXPORT ALL") and forward == (0, (0, 3), "RUNTIME", MENU), f"{wrapped}, {forward}")
+    last = feature_count() - 1
+    add("group_pages_wrap_and_count_alone", wrapped == (last, (last, last + 1), feature_pages()[last]) and forward == (0, (0, last + 1), FEATURE_PAGES[0], MENU),
+        f"{wrapped}, {forward}")
     press(dev, "exit")
     up = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_PAGE), counter(dev), text(dev, S_TITLE))
-    add("exit_goes_one_level_up", up == (MENU, 1, LIST_PLUGINS, (LIST_PLUGINS, LIST_COUNT), "PLUGINS") and tab(dev) == "BLECH", str(up))
+    add("exit_goes_one_level_up", up == (MENU, 1, LIST_FEATURES, (LIST_FEATURES, LIST_COUNT), "FEATURES") and tab(dev) == "BLECH", str(up))
     goto_top(dev, LIST_CUSTOM)
     press(dev, "menu")
     press(dev, "edit_next")
@@ -556,11 +695,11 @@ def cases(payload, flash=None, settings=True):
     window = dev.screen()
     add("write_opens_nothing", first["number"] == MENU and window["number"] == MENU and window["window"] == 0 and not dev.m.asserts,
         f"screen {window['number']}, window {window['window']}")
-    goto_group(dev, GROUP_PLUGINS, 0)
+    goto_global(dev)
     dev.turn(1, wait=0.2)
     dev.turn(-1, wait=0.2)
     turned = (state(dev, S_RUN), text(dev, S_TITLE), text(dev, S_VALUE))
-    add("value_turns_the_first_page", turned == (0, "RUNTIME", "OFF, RESTART"), str(turned))
+    add("value_turns_plugin_runtime", turned == (0, "PLUGIN RUNTIME", "OFF, RESTART"), str(turned))
     seen_keys = set()
     for key in range(0x30):
         go(dev, MENU)
@@ -572,15 +711,29 @@ def cases(payload, flash=None, settings=True):
         if dev.m.asserts:
             break
     add("all_keys_run", not dev.m.asserts, f"no assertion over 48 keys, screens {sorted(seen_keys)}" if not dev.m.asserts else f"asserts {dev.m.asserts}")
+    return out
 
+
+def page_cases(payload, flash=None):
+    """No page is crowded or shows a cut-off label, on a device of its own."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash)
     # no page runs its texts together or into the edge, none shows a label that is cut off
-    pages = [("ring", 0)] + [("list", page) for page in range(LIST_COUNT)] + [(GROUP_PLUGINS, page) for page in range(4)]
+    pages = [("ring", 0), ("global", 0)] + [("du", page) for page in range(len(du_pages()))] + [("list", page) for page in range(LIST_COUNT)] + [(GROUP_PLUGINS, 0)]
     pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8)]
     pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_PSAVE, page) for page in range(2)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
     for group, page in pages:
         if group == "ring":
             goto_ring(dev)
+        elif group == "global":
+            goto_global(dev)
+        elif group == "du":
+            goto_du(dev, page)
         elif group == "list":
             goto_top(dev, page)
         else:
@@ -594,6 +747,15 @@ def cases(payload, flash=None, settings=True):
     goto_ring(dev)
     clipped =[problem for label in TAB_LABELS for problem in [label_problem(dev, label, 38, 40)] if problem]
     add("tab_labels_fit", not clipped, f"{len(TAB_LABELS)} labels beside the widest counter (39/40): {clipped}")
+    return out
+
+
+def exit_held_cases(payload, flash=None):
+    """With EXIT held at power-on the firmware's menus stay stock."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})
 
     stock = boot(payload, flash, held=KILL)
     go(stock, 8)
@@ -613,6 +775,37 @@ def cases(payload, flash=None, settings=True):
     on_left = (stock.screen()["number"], counter(stock))
     add("exit_held_has_no_blechy_page", on_right == (3, (0, BASE_RING)) and on_left == (10, (BASE_RING - 1, BASE_RING)) and state(stock, S_ON) != 1 and not stock.m.asserts,
         f"Event right {on_right}, Pattern left {on_left}")
+    # CHAIN REPEAT goes straight on to the Part menu, GLOBAL PARAMETERS and DATA UTILITY wrap round their own pages
+    go(stock, 7)
+    press(stock, "edit_prev", wait=0.5)
+    part_left = (stock.screen()["number"], counter(stock))
+    press(stock, "edit_next", wait=0.5)
+    chain_right = (stock.screen()["number"], counter(stock))
+    go(stock, 8)
+    press(stock, "menu", wait=0.5)
+    press(stock, "edit_prev", wait=0.5)
+    global_left = (stock.screen()["number"], counter(stock))
+    go(stock, 14)
+    press(stock, "menu", wait=0.5)
+    press(stock, "edit_prev", wait=0.5)
+    du_left = (stock.screen()["number"], counter(stock))
+    add("exit_held_firmware_menus_are_stock", part_left == (3, (14, BASE_RING)) and chain_right == (7, (15, BASE_RING)) and global_left == (9, (GLOBAL_PAGES - 1, GLOBAL_PAGES))
+        and du_left == (15, (DU_FUNCS - 1, DU_FUNCS)) and not stock.m.asserts, f"Part left {part_left}, then right {chain_right}, Global left {global_left}, Data Util left {du_left}")
+    return out
+
+
+def blechy_ring_part(payload, flash=None):
+    """blechy_ring_cases on a device of its own."""
+    return blechy_ring_cases(boot(payload, flash))
+
+
+# What cases_task(i) runs, in the order of cases(). Each boots its own device, so they run side by side.
+CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases)
+
+
+def cases(payload, flash=None, settings=True):
+    """The menu cases as check.py entries [{id, ok, detail}]; the settings cases (settings_cases) come last unless `settings` is False."""
+    out = [entry for part in CASES_PARTS for entry in part(payload, flash)]
     if settings:
         out.extend(settings_cases(payload, flash))
     return out
@@ -670,7 +863,8 @@ def read_settings_full(image):
 
 
 def read_settings_look(image):
-    """The valid settings files as {name: (generation, flags, trusted checksums, look)}, look None for version 1."""
+    """The valid settings files as {name: (generation, flags, trusted checksums, look)}, look None for version 1. Version 3 (BLECH
+    1.3.8) is version 2 with up to 64 checksums instead of 16."""
     volume = fat32.Volume(bytes(image))
     out = {}
     for path in SETTINGS_PATHS:
@@ -681,20 +875,55 @@ def read_settings_look(image):
         if len(raw) < 20 or raw[:4] != b"GSET":
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
-        head = {1: 16, 2: 20}.get(version)
-        if head is None or extras & ~3:      # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF
+        head = {1: 16, 2: 20, 3: 20}.get(version)
+        if head is None or extras & ~0xF:    # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF
             continue
         size = head + 4 * count
-        if count > 16 or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
+        if count > (64 if version == 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
             continue
-        look = struct.unpack_from("<I", raw, 16)[0] if version == 2 else None
+        look = struct.unpack_from("<I", raw, 16)[0] if version >= 2 else None
         out[path.rsplit(".", 2)[1]] = (*struct.unpack_from("<II", raw, 8), list(struct.unpack_from(f"<{count}I", raw, head)), look)
     volume.close()
     return out
 
 
-def settings_cases(payload, flash=None):
+def custom_export_cases(payload, flash=None):
+    """EXPORT ALL CUSTOMIZATIONS (DATA UTILITY) writes KORG/blechtribe/e2sCustom.all: the settings record without the plugin
+    checksums. Nothing reads that file at start; copied over settings.a.bin the settings loader takes it, and the look is back."""
     out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    set_look(dev, led=(15, 7, 0), backlight=(3, 9, 12))
+    look = [state(dev, at) for at in (S_LED_MODE, S_LED_R, S_LED_G, S_LED_B, S_BL_R, S_BL_G, S_BL_B, S_INVERT)]
+    dev.m.uc.mem_write(STATE + 44, struct.pack("<I", 1))              # one allowed checksum: the export leaves it out
+    dev.m.uc.mem_write(STATE + 0x1C0, struct.pack("<I", 0x12345678))
+    goto_du(dev, du_pages().index("EXPORT ALL CUSTOM"))
+    page = texts_of(dev)
+    before = read_settings(dev.m.mmc.card.medium.data)
+    press(dev, "menu", wait=0.8)
+    shown = texts_of(dev)[:2]
+    volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
+    try:
+        written = volume.read("/KORG/blechtribe/e2sCustom.all")
+    except fat32.FatError:
+        written = None
+    volume.close()
+    ok_file = written is not None and written[:4] == b"GSET" and struct.unpack_from("<H", written, 6)[0] == 0 \
+        and struct.unpack_from("<I", written, len(written) - 4)[0] == zlib.crc32(written[:-4]) & 0xFFFFFFFF
+    add("export_custom_writes_the_file", page == ("EXPORT ALL CUSTOM", "", PRESS) and shown == ("EXPORT ALL CUSTOM", "exported") and ok_file
+        and read_settings(dev.m.mmc.card.medium.data) == before and not dev.m.asserts,
+        f"{page}, then {shown}, file {len(written or b'')} bytes, settings files untouched {read_settings(dev.m.mmc.card.medium.data) == before}")
+    again = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: written or b""}, adapter=True)
+    back = [state(again, at) for at in (S_LED_MODE, S_LED_R, S_LED_G, S_LED_B, S_BL_R, S_BL_G, S_BL_B, S_INVERT)]
+    add("export_custom_reads_back_as_settings", back == look and state(again, 44) == 0 and not again.m.asserts, f"look {back}, wanted {look}, checksums {state(again, 44)}")
+    return out
+
+
+def settings_cases(payload, flash=None):
+    out = custom_export_cases(payload, flash)
 
     def add(name, ok, detail):
         out.append({"id": f"menu:{name}", "ok": bool(ok), "detail": detail})
@@ -706,7 +935,7 @@ def settings_cases(payload, flash=None):
         f"set {state(dev, S_SET_RUN)}/{state(dev, S_SET_MFX)}, effective {state(dev, S_EFF_RUN)}/{state(dev, S_EFF_MFX)}, card status {dev.u32(RUNTIME + CARD_STATUS)}")
 
     # edit, show the hint, save: generation 1 goes to settings.b.bin, nothing else on the card changes
-    goto_group(dev, GROUP_PLUGINS, 0)
+    goto_global(dev)
     dev.turn(-1, wait=0.2)
     first = (text(dev, S_TITLE), text(dev, S_VALUE), text(dev, S_LINE3))
     goto_group(dev, GROUP_FEATURES, FEAT_MFX)
@@ -717,7 +946,7 @@ def settings_cases(payload, flash=None):
     saved = text(dev, S_VALUE), state(dev, S_STATUS)
     card = bytes(dev.m.mmc.card.medium.data)
     files = read_settings(card)
-    add("settings_edit_and_save", first == ("RUNTIME", "OFF, RESTART", "") and second == ("MFX 2", "OFF, RESTART", "")
+    add("settings_edit_and_save", first == ("PLUGIN RUNTIME", "OFF, RESTART", "") and second == ("MFX 2", "OFF, RESTART", "")
         and saved == ("saved", 1) and files == {"b": (1, 0)} and state(dev, S_EFF_RUN) == 1 and state(dev, S_GEN) == 1 and card != before,
         f"{first}, {second}, after WRITE {saved}, files {files}")
     press(dev, "write", wait=0.6)
@@ -764,6 +993,8 @@ def settings_cases(payload, flash=None):
 
     # no BLECH folder on the card, as on the blue, which keeps KORG/electribe: the save makes KORG/blechtribe, the next start reads it
     nofolder = boot(payload, flash, files={"/KORG/electribe/Sample/placeholder": b"1"})
+    if nofolder.u32(0xC0190100) == 1:          # the blue asks to copy KORG/electribe first (migrate_cases.py); EXIT starts without
+        press(nofolder, "exit", wait=0.6)
     goto_group(nofolder, GROUP_FEATURES, FEAT_MFX)
     nofolder.turn(-1, wait=0.2)
     press(nofolder, "write", wait=0.6)
@@ -787,16 +1018,16 @@ def settings_cases(payload, flash=None):
     # export with nothing loaded says so and writes nothing
     empty = boot(payload, flash, files=CARD_FOLDER)
     before = bytes(empty.m.mmc.card.medium.data)
-    goto_group(empty, GROUP_PLUGINS, PLUGIN_EXPORT)
+    goto_du(empty, du_pages().index("EXPORT ALL PLUGINS"))
     page = text(empty, S_TITLE), text(empty, S_VALUE)
     press(empty, "write", wait=0.6)
-    add("export_without_scripts", page == ("EXPORT ALL", "") and text(empty, S_VALUE) == "no plugins" and bytes(empty.m.mmc.card.medium.data) == before,
+    add("export_without_scripts", page == ("EXPORT ALL PLUGINS", "") and text(empty, S_VALUE) == "no plugins" and bytes(empty.m.mmc.card.medium.data) == before,
         f"{page}, then {text(empty, S_VALUE)!r}")
-    press(empty, "edit_prev", wait=0.4)
+    goto_group(empty, GROUP_PLUGINS, PLUGIN_MANAGE)
     edit = texts_of(empty)
     press(empty, "menu", wait=0.4)
-    add("plugin_edit_without_plugins", edit == ("PLUGIN EDIT", "", PRESS) and texts_of(empty) == ("PLUGIN EDIT", "No Plugin", "")
-        and (state(empty, S_LEVEL), state(empty, S_PAGE)) == (2, PLUGIN_EDIT) and not empty.m.asserts,
+    add("manage_plugins_without_plugins", edit == ("MANAGE PLUGINS", "", PRESS) and texts_of(empty) == ("MANAGE PLUGINS", "No Plugin", "")
+        and (state(empty, S_LEVEL), state(empty, S_PAGE)) == (2, PLUGIN_MANAGE) and not empty.m.asserts,
         f"{edit}, ENTER says {texts_of(empty)} and stays: level {state(empty, S_LEVEL)}, page {state(empty, S_PAGE)}")
 
     # one valid and one corrupt file: the valid one is used, a newer corrupt one is ignored
@@ -1286,10 +1517,10 @@ def look_cases(payload, flash=None, rest=True):
     return out
 
 
-def cases_task():
-    """The screen cases in a worker (parallel.py)."""
+def cases_task(i):
+    """Part `i` of the screen cases in a worker (parallel.py, CASES_PARTS)."""
     import parallel
-    return cases(parallel.shared["payload"], parallel.shared["flash"], settings=False)
+    return CASES_PARTS[i](parallel.shared["payload"], parallel.shared["flash"])
 
 
 def splash_menu_cases(payload, flash=None):
@@ -1872,11 +2103,12 @@ def note_assist_menu_cases(payload, flash=None):
     add("page", page == (("NOTE ASSIST", "ON", ""), (FEAT_NA, feature_count()), "Feature"), f"{page}")
     add("dial_acts_at_once", off == (("NOTE ASSIST", "OFF", ""), (0, 0)) and still == (0, 0) and back == (("NOTE ASSIST", "ON", ""), (1, 1)) and not dev.m.asserts, f"{off}, again {still}, back {back}")
 
-    # the page is the last of the group FEATURES: EDIT next wraps to the first, EDIT previous from there comes back
+    # EDIT next goes to the next page of FEATURES (LAST PATTERN or STEREO 1 PAD where the set has them, else it wraps to the first), EDIT previous comes back
     press(dev, "edit_next", wait=0.4)
     wrapped = texts_of(dev)[0], counter(dev)
     press(dev, "edit_prev", wait=0.4)
-    after = ("INIT PATTERN", (FEAT_INIT, feature_count())) if INIT_PAGE else ("MFX 2", (0, feature_count()))
+    nxt = (FEAT_NA + 1) % feature_count()
+    after = (feature_pages()[nxt], (nxt, feature_count()))
     add("page_is_last", wrapped == after and texts_of(dev)[0] == "NOTE ASSIST", f"after EDIT next {wrapped}, after EDIT previous {texts_of(dev)}")
 
     # WRITE keeps OFF in the flags, next to the other bits and the look word
@@ -1912,6 +2144,79 @@ def note_assist_menu_cases(payload, flash=None):
     held.run(0.5)
     add("exit_held_is_stock", state(held, S_ON) != 1 and held.u32(NA_SETTING) == 0xFFFFFFFF and not held.m.asserts, f"on={state(held, S_ON):#x}, word {held.u32(NA_SETTING):#x}")
     return out
+
+LP_SETTING = 0xC014FEFC               # the word of the patch last-pattern: FFFFFFFF never written, 1 on, 0 off
+LP_OFF = 8                            # bit 3 of byte 5 of the settings file: LAST PATTERN is off
+
+
+def settings_file_v3(generation, flags, look, extras=0):
+    """A version 3 settings file without plugin checksums, `extras` its byte 5."""
+    head = struct.pack("<IBBHIII", 0x54455347, 3, extras, 0, generation, flags, look)
+    return head + struct.pack("<I", zlib.crc32(head) & 0xFFFFFFFF)
+
+
+def last_pattern_menu_cases(payload, flash=None):
+    """The page LAST PATTERN of FEATURES where the set has the patch last-pattern: ON is the default and writes nothing to the
+    patch's word, the dial changes the word at once, WRITE keeps OFF as bit 3 of byte 5 of the settings file (next to the meter's bits),
+    the next start reads it, EXIT at power-on leaves the word alone."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:last_pattern_{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    if not LAST_PAGE:
+        add("no_page_without_patch", "LAST PATTERN" not in feature_pages(), "the set has no last-pattern")
+        return out
+    word = lambda d: d.u32(LP_SETTING)
+    bare = boot(payload, flash, adapter=True, card=False)
+    plain = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(2, 3, look_word(), extras=1)}, adapter=True)
+    add("default_on", word(dev) == 0xFFFFFFFF and word(bare) == 0xFFFFFFFF and word(plain) == 1,
+        f"card {word(dev):#x}, no card {word(bare):#x}, file without the bit {word(plain):#x}")
+
+    page_at = feature_pages().index("LAST PATTERN")
+    goto_group(dev, GROUP_FEATURES, page_at)
+    page = texts_of(dev), counter(dev), tab(dev)
+    dev.turn(-1, wait=0.3)
+    off = texts_of(dev), word(dev)
+    dev.turn(1, wait=0.3)
+    back = texts_of(dev), word(dev)
+    add("page", page == (("LAST PATTERN", "ON", ""), (page_at, feature_count()), "Feature"), f"{page}")
+    add("dial_acts_at_once", off == (("LAST PATTERN", "OFF", ""), 0) and back == (("LAST PATTERN", "ON", ""), 1) and not dev.m.asserts,
+        f"{off}, back {back}")
+
+    # WRITE keeps OFF in byte 5 next to METER LOUD RAINBOW, which writes the byte whole
+    keep = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(2, 3, look_word(), extras=1)}, adapter=True)
+    goto_group(keep, GROUP_FEATURES, page_at)
+    keep.turn(-1, wait=0.3)
+    press(keep, "write", wait=0.6)
+    image = keep.m.mmc.card.medium.data
+    files = read_settings_look(image)
+    extras = settings_extras(image).get("b", 0)
+    add("file_holds_off", "b" in files and extras == 1 | LP_OFF, f"byte 5 {extras:#x}, {files}")
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(image))))
+    again.run(2.0)
+    goto_group(again, GROUP_FEATURES, page_at)
+    add("start_reads_off", word(again) == 0 and texts_of(again) == ("LAST PATTERN", "OFF", "") and not again.m.asserts,
+        f"{word(again):#x}, {texts_of(again)}")
+
+    # ON written again clears the bit and leaves the meter's
+    goto_group(again, GROUP_FEATURES, page_at)
+    again.turn(1, wait=0.3)
+    press(again, "write", wait=0.6)
+    newest = max(read_settings_look(again.m.mmc.card.medium.data).items(), key=lambda kv: kv[1][0])[0]
+    extras = settings_extras(again.m.mmc.card.medium.data).get(newest, 0)
+    add("file_holds_on", word(again) == 1 and extras == 1, f"{word(again):#x}, byte 5 {extras:#x}")
+
+    # EXIT at power-on: the menu stays unarmed, the word is never written
+    held = boot(payload, flash, held=KILL, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(4, 3, 0, extras=LP_OFF)}, adapter=True)
+    held.run(0.5)
+    add("exit_held_is_stock", state(held, S_ON) != 1 and word(held) == 0xFFFFFFFF and not held.m.asserts,
+        f"on={state(held, S_ON):#x}, word {word(held):#x}")
+    return out
+
 
 EARLY_SITE = 0xC0038D34               # the first instruction of the command that loads e2sSample.all: the early hook of the menu
 SAMPLE_LOADER = 0xC00364F0            # the sample loader itself, called from that command
@@ -1994,7 +2299,7 @@ def early_look_cases(payload, flash=None):
     reads its settings from a hook on the loading command, before the loader. Compared with the same copy without that hook (the
     instruction put back), which arms behind the loader, and with the main screen's time, which must not get later."""
     if synthaddr.is_synth(payload):
-        return synth_start_cases(payload, flash)
+        return synth_start_cases(payload, flash) + boot_light_cases(payload, flash)
     out = []
 
     def add(name, ok, detail):
@@ -2012,6 +2317,145 @@ def early_look_cases(payload, flash=None):
     add("main_screen_not_later", early["main_ms"] <= late["main_ms"] + 15 and not early["asserts"], f"main screen at {early['main_ms']:.1f} ms with the hook, {late['main_ms']:.1f} ms without")
     held = early_run(payload, flash, files, held=KILL)
     add("exit_held_stays_stock", held.get("on") != 1 and held.get("pins") == GPIO_PINS and not held["asserts"], f"armed {held.get('on'):#x}, light pins {held.get('pins'):#x}")
+    return out + boot_light_cases(payload, flash)
+
+
+BOOT_LIGHT_SITE = 0xC00289D8          # behind the firmware's first flash read in the start: the hook that sets the colour at power-on
+BOOT_LIGHT_SYNTH = 0xC0025E48         # the same place on the blue (`cmp r0, r3`)
+BOOT_SLOT = 250                       # *GLOBALS + 250, Global byte 250 (byte 246 of the block in the flash): 0x80 plus the pins of the colour
+BOOT_FLASH = 0x2300F6                 # that byte in the flash
+DRAW_IMAGE = 0xC003F650               # the firmware's picture function; its first call in the start draws the start image
+
+
+def boot_light_run(payload, flash, files, held=0):
+    """Boots on mains power and notes every change of the backlight pins and the time of the first picture (the start image).
+    Returns (dev, pin changes [(ms, pins)], ms of the start image, pins at that moment). dev.image_shown is (first, last ms) the
+    display shows a full picture (more than 2000 pixels lit) in the first 0.5 s, in 2 ms steps: the start image."""
+    import unicorn
+    draw = synthaddr.tr(DRAW_IMAGE) if synthaddr.is_synth(payload) else DRAW_IMAGE
+    dev = Dev(payload, flash, held)
+    dev.m.adapter = True
+    dev.m.insert_card(SDCard(MemoryMedium(card_image(files))))
+    watch_pins(dev)
+    seen = {}
+
+    def at_draw(uc, address, size, user):
+        if "ms" not in seen:
+            seen.update(ms=dev.m.time_ns / 1e6, pins=pins(dev))
+    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, at_draw, begin=draw, end=draw)
+    dev.m.uc.ctl_flush_tb()
+    shown = []
+    for step in range(1, 251):
+        dev.m.run_until(step * 0.002)
+        if sum(bin(b).count("1") for row in dev.m.fb for b in row) > 2000:
+            shown.append(step * 2)
+        elif shown:
+            break
+    dev.image_shown = (shown[0], shown[-1]) if shown else None
+    dev.m.run_until(1.2)
+    return dev, [(round(t / 1e6, 2), v) for t, v in dev.pin_log], seen.get("ms"), seen.get("pins")
+
+
+def after_white(changes):
+    """The pin changes behind the first time all three pins were on."""
+    first = next((i for i, (_, v) in enumerate(changes) if v == GPIO_PINS), len(changes))
+    return changes[first + 1:]
+
+
+def boot_light_cases(payload, flash=None):
+    """The backlight colour at power-on: the colour the settings file holds goes into Global byte 250 when the menu reads it, the
+    firmware saves the Globals at switch-off, and the next start sets the pins of that colour before the start image is drawn, then
+    keeps them through the firmware's own light calls until the menu is armed. EXIT at power-on stays stock white, a card without a
+    settings file goes back to white once the menu is armed, WRITE of another colour updates the byte."""
+    import last_pattern_cases
+    synth = synthaddr.is_synth(payload)
+    site, word = (BOOT_LIGHT_SYNTH, 0xE1500003) if synth else (BOOT_LIGHT_SITE, 0xE3500F49)
+    if struct.unpack_from("<I", payload, site - IMAGE)[0] == word:
+        return []
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:boot_light_{name}", "ok": bool(ok), "detail": detail})
+
+    red = {**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0, (0, 0, 0), (15, 0, 0)))}
+    dev = boot(payload, flash, files=red)
+    globals_at = dev.u32(synthaddr.tr(POWER_SAVE_OBJECT) if synth else POWER_SAVE_OBJECT)
+    slot = dev.read(globals_at + BOOT_SLOT, 1)[0] if globals_at else None
+    kept = last_pattern_cases.switch_off(dev)
+    add("kept_at_switch_off", slot == 0x88 and kept is not None and kept[BOOT_FLASH] == 0x88,
+        f"Global byte 250 after the settings {slot}, in the flash after switch-off {kept[BOOT_FLASH] if kept else 'no switch-off'}")
+    if kept is None:
+        return out
+    dev, changes, image_ms, image_pins = boot_light_run(payload, kept, red)
+    white = after_white(changes)                # the firmware lights red, green, blue one after the other at about 52 ms
+    first_red = next((t for t, v in white if v == 0x08), None)
+    if synth:                                   # the blue draws its start image before the flash answers: the colour comes while it is shown
+        shown = dev.image_shown
+        add("colour_while_the_start_image", shown is not None and first_red is not None and shown[0] <= first_red < shown[1],
+            f"red from {first_red} ms, start image drawn at {image_ms} ms, on the display from {shown and shown[0]} to {shown and shown[1]} ms, changes {changes[:6]}")
+    else:
+        add("colour_before_the_start_image", image_ms is not None and image_pins == 0x08 and first_red is not None and first_red < image_ms,
+            f"red from {first_red} ms, start image at {image_ms} ms with pins {image_pins}, changes {changes[:6]}")
+    add("colour_until_armed", first_red is not None and all(v == 0x08 for t, v in white if t >= first_red) and pins(dev) == 0x08 and state(dev, S_ON) == 1
+        and not dev.m.asserts, f"pin changes after the white {white[:6]}, pins now {pins(dev):#x}")
+    held, changes, image_ms, image_pins = boot_light_run(payload, kept, red, held=KILL)
+    add("exit_held_stays_white", image_pins == GPIO_PINS and after_white(changes) == [] and pins(held) == GPIO_PINS and state(held, S_ON) != 1,
+        f"start image pins {image_pins}, changes {changes[:6]}, pins now {pins(held):#x}")
+    bare, changes, image_ms, image_pins = boot_light_run(payload, kept, CARD_FOLDER)
+    lit = (0x08 in [v for _, v in after_white(changes)]) if synth else image_pins == 0x08
+    add("no_settings_file_back_to_white", lit and pins(bare) == GPIO_PINS and state(bare, S_ON) == 1,
+        f"start image pins {image_pins}, changes after the white {after_white(changes)[:4]}, pins once armed {pins(bare):#x}")
+    dev = boot(payload, kept, files=red, adapter=True)
+    set_look(dev, backlight=(0, 15, 0))
+    before = dev.read(globals_at + BOOT_SLOT, 1)[0]
+    press(dev, "write", wait=0.6)
+    after = dev.read(globals_at + BOOT_SLOT, 1)[0]
+    add("write_updates_the_byte", before == 0x88 and after == 0x90 and state(dev, S_STATUS) == 1,
+        f"Global byte 250 after the change {before:#x}, after WRITE {after:#x}, status {state(dev, S_STATUS)}")
+    # Device report 30.10.: HUE 15, SAT 13, BRIGHT 14 (stored 14, 13, 2) and DISPLAY INVERT on kept the start white, because all three
+    # levels are above 0. The start only has on and off per channel: a channel stays on when it is at least half of the strongest.
+    set_look(dev, backlight=(0, 0, 0))
+    goto_page(dev, PAGE_BL_R)
+    dev.turn(15, wait=0.25)
+    goto_page(dev, PAGE_BL_G)
+    dev.turn(-2, wait=0.25)
+    goto_page(dev, PAGE_BL_B)
+    dev.turn(-1, wait=0.25)
+    levels = [state(dev, S_BL_R + 4 * k) for k in range(3)]
+    press(dev, "write", wait=0.6)
+    after = dev.read(globals_at + BOOT_SLOT, 1)[0]
+    add("hsv_15_13_14_byte", levels == [14, 13, 2] and after == 0x98 and state(dev, S_BL_ON) == 0x38 and state(dev, S_STATUS) == 1,
+        f"HUE 15, SAT 13, BRIGHT 14 stores {levels}, Global byte 250 after WRITE {after:#x} (red and green), pins of the menu {state(dev, S_BL_ON):#x}")
+    rule = []
+    for colour, want in (((15, 7, 0), 0x88), ((15, 8, 0), 0x98), ((8, 8, 8), 0xB8), ((0, 0, 1), 0xA0), ((15, 1, 14), 0xA8), ((1, 15, 1), 0x90)):
+        set_look(dev, backlight=colour)
+        press(dev, "write", wait=0.6)
+        rule.append((colour, dev.read(globals_at + BOOT_SLOT, 1)[0], want))
+    add("pins_follow_the_strongest", all(got == want for _, got, want in rule), f"colour, byte, wanted: {[(c, hex(g), hex(w)) for c, g, w in rule]}")
+    his = {**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0, (0, 0, 0), (14, 13, 2), invert=1))}
+    mine = boot(payload, kept, files=his)
+    kept_his = last_pattern_cases.switch_off(mine)
+    if kept_his is None:
+        add("his_colour_starts_yellow", False, "no switch-off")
+        return out
+    mine, changes, image_ms, image_pins = boot_light_run(payload, kept_his, his)
+    lit = [v for t, v in after_white(changes) if v]
+    first = image_pins if not synth else (lit[0] if lit else None)
+    add("his_colour_starts_yellow", kept_his[BOOT_FLASH] == 0x98 and first == 0x18,
+        f"flash byte {kept_his[BOOT_FLASH]:#x} after the settings 14, 13, 2 with INVERT on, start image pins {image_pins}, first lit pins {first}, changes {changes[:6]}")
+    # Device 30.10.: the flash still holds 0xB8 from the build before the pin rule. The first start is white (the card cannot be read
+    # before the start image), the menu then rewrites the byte, the next switch-off saves it and the start after that is yellow.
+    old = bytearray(kept_his)
+    old[BOOT_FLASH] = 0xB8
+    stale, changes, image_ms, first_pins = boot_light_run(payload, bytes(old), his)
+    stale_lit = [v for t, v in after_white(changes) if v]
+    stale_first = first_pins if not synth else (stale_lit[0] if stale_lit else None)
+    again = boot(payload, bytes(old), files=his)
+    healed = last_pattern_cases.switch_off(again)
+    byte_now = healed[BOOT_FLASH] if healed else None
+    # the blue reads its first lit pins only after the white phase (see first above), so only the Sampler builds show the stale white
+    add("old_byte_heals_after_one_switch_off", (synth or stale_first == 0x38) and byte_now == 0x98,
+        f"flash byte 0xb8 starts with pins {stale_first}, after one switch-off the flash holds {byte_now}")
     return out
 
 
@@ -2054,7 +2498,7 @@ def synth_start_cases(payload, flash=None):
 
 def look_rest():
     """The suites look_cases runs after its own cases, in that order."""
-    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, default_level_cases, early_look_cases)
+    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, default_level_cases, early_look_cases)
 
 
 def look_parts():
@@ -2065,7 +2509,7 @@ def look_parts():
             calibration_cases)
 
 
-LOOK_PARTS = 10
+LOOK_PARTS = 11
 
 
 def look_cases_task(i):
@@ -2091,7 +2535,7 @@ def main():
     flash = load_flash(args.flash) if args.flash else None
     # The same tasks as in check.py (without the calibration), side by side and kept as there (taskcache.py)
     import parallel
-    tasks = [("menu_cases", "cases_task", ()), ("menu_cases", "settings_cases_task", ())]
+    tasks = [("menu_cases", "cases_task", (i,)) for i in range(len(CASES_PARTS))] + [("menu_cases", "settings_cases_task", ())]
     tasks += [("menu_cases", "look_cases_task", (i,)) for i in range(LOOK_PARTS - 1)]
     data = {"payload": payload, "flash": flash, "base": Path(args.base).read_bytes()[HEADER:]}
     result = [c for part in parallel.run_tasks(tasks, data, cache="check") for c in part]

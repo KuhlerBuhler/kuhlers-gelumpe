@@ -15,8 +15,11 @@ than each needs, which only means a task runs again more often than it would hav
 its packages are not listed: the Python and Unicorn versions are part of the key instead. So are the variables E2_*
 and GELUMPE_* of the environment that can change what a task does.
 
-The files live in $GELUMPE_CACHE_DIR/task (bootcache.py). They hold results only, no firmware, but they are made from
-it, so they stay on this machine like the boot snapshots. GELUMPE_CACHE=off runs every task.
+The files live in $GELUMPE_CACHE_DIR/task (bootcache.py). They hold results only, no firmware: check entries, hashes,
+and for the start scenarios (bootmap.scenario_task) the addresses of the code that ran and a 0/1 mask of the bytes read.
+That is why .github/workflows/verify-patches.yml may keep this folder between the runs of a pull request, unlike the
+boot snapshots, which hold the firmware's RAM. A result that holds firmware bytes must not go into a task's result.
+GELUMPE_CACHE=off runs every task.
 """
 
 import hashlib

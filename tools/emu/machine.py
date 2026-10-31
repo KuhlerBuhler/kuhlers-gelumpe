@@ -279,7 +279,8 @@ class Machine:
         self.sysex, self.midi_seen = SysexReader(), 0
         self.tx_waiting = False
         self.mmc = MMCController()  # no card until insert_card()
-        self.mmc_cell = -1         # the MMC_IRQ_NS interval in which the card interrupt was last looked at
+        self.mmc_irq_ns = MMC_IRQ_NS   # a check may look at the card interrupt more often (migrate_cases.py)
+        self.mmc_cell = -1         # the mmc_irq_ns interval in which the card interrupt was last looked at
         self.dsp_ctl, self.dsp_xfer = [], None
         self.dsp_uploads = []      # device time in ms of every DSP program upload, i.e. every DSP boot
         self.dsp_mem = {INPUT_LEVEL: 0, INPUT_LEVEL + 2: 0}     # nothing plugged into the input
@@ -289,6 +290,7 @@ class Machine:
         self.lcd_page = self.lcd_col = 0
         self.lcd_reverse_sent = 0  # how many 0xA6 or 0xA7 the controller has been sent
         self.lcd_reverse = False   # 0xA7 sent: the controller shows every pixel the other way round, 0xA6 normal
+        self.lcd_on = True         # 0xAE switches the controller's display off (all pixels clear, RAM kept), 0xAF on again
         self.frames = 0
         self.screens = 0           # display changes, sampled every 100 ms of device time
         self._seen = None
@@ -619,6 +621,7 @@ class Machine:
             self.powered = False
             self.fb = [[0] * 128 for _ in range(8)]
             self.lcd_reverse = False
+            self.lcd_on = True
             self.uc.emu_stop()
 
     def gpio_out(self, bank, number):
@@ -716,10 +719,14 @@ class Machine:
         elif b in (0xA6, 0xA7):
             self.lcd_reverse = b == 0xA7
             self.lcd_reverse_sent += 1
+        elif b in (0xAE, 0xAF):
+            self.lcd_on = b == 0xAF
 
     def shown(self):
         """The display as the panel shows it, page-major bytes with a set bit for a dark pixel: the controller RAM, or its
-        complement after 0xA7 (reverse display)."""
+        complement after 0xA7 (reverse display); nothing after 0xAE (display off)."""
+        if not self.lcd_on:
+            return bytes(1024)
         flat = bytes(b for row in self.fb for b in row)
         return bytes(b ^ 0xFF for b in flat) if self.lcd_reverse else flat
 
@@ -824,11 +831,12 @@ class Machine:
             if n != self.timer_last.get(base, n):
                 self.raw.add(event)
             self.timer_last[base] = n
-        cell = self.time_ns // MMC_IRQ_NS
+        cell = self.time_ns // self.mmc_irq_ns
         if cell != self.mmc_cell:
             self.mmc_cell = cell
             if self.mmc.irq():
                 self.raw.add(MMC_IRQ)
+                self.mmc.raised()
 
     def irq(self):
         uc, A = self.uc, self.A

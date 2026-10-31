@@ -87,7 +87,7 @@ const confirmed = async options => (window.ui?.confirm ? window.ui.confirm(optio
 export function scriptsPanel(root, { storage = null, sub = null, session = () => null, onRun = () => {}, trail: setTrail = () => {}, navbar = () => {} } = {}) {
   // The title in the breadcrumb leads to the catalog, the start of the page.
   const trail = parts => setTrail(parts, () => page("catalog"));
-  /** A packed .blech onto the connected device's card; PLUGIN EDIT in the BLECH menu then lists it. */
+  /** A packed .blech onto the connected device's card; MANAGE PLUGINS in the BLECH menu then lists it. */
   async function toDevice(bytes, id, button) {
     const s = session();
     if (!s) { toast(t("console.forwardFirst"), "error"); return; }

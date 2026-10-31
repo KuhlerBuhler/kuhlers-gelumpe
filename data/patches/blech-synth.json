@@ -11,6 +11,8 @@
   "data/patches/power-off-synth.json",
   "data/patches/last-pattern-synth.json",
   "data/patches/init-pattern-synth.json",
+  "data/patches/beat-eighth-synth.json",
+  "data/patches/touch-scale-zero-synth.json",
   "data/patches/blech-version-synth.json",
   "data/patches/pattern-switch-synth.json",
   "data/patches/tap-motion-synth.json",

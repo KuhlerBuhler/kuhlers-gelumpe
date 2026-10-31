@@ -49,6 +49,34 @@ hineinschreiben. Der Editor hat keine
 Anmeldung, deshalb bleiben beide Ports auf 127.0.0.1. Ohne Docker gilt `npm start`
 wie oben.
 
+Den Zustand zeigt `docker compose ps`: das Abbild hat einen Healthcheck auf die
+Seite (`Dockerfile`), gesund heißt also, dass die Seite unter Port 8737 antwortet.
+Der Emulator gehört nicht dazu, er läuft erst, wenn jemand am Editor das Gerät
+einschaltet.
+
+Ein Release legt dasselbe Abbild auch in GitHubs Paketregister ab, für linux/amd64
+und linux/arm64 (`.github/workflows/docker-image.yml`, von `release.yml`
+aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Den
+Namen trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
+`docker compose pull` und danach `docker compose up`, ohne dass du selbst baust.
+Bis zum ersten Release mit diesem Workflow gibt es das Paket noch nicht, bis
+dahin führt `docker compose pull` zu einem Fehler und `docker compose up --build`
+bleibt der Weg. Ein Release startet nur Workflows, wie sie auf `main` liegen,
+und `docker-image.yml` kam über `develop`; das Paket entsteht also mit dem ersten
+Release, das diesen Stand nach `main` bringt. `docker compose up --build` baut auch
+dann aus diesem Ordner, wenn
+das Abbild schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres
+`pull` ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
+keinem Abbild.
+
+Eine bestimmte Version statt `:latest` nimmt `GELUMPE_IMAGE`, etwa
+`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.3.7 docker compose pull`. Die
+Variable gilt für `pull` und `up`; in einer `.env` neben `docker-compose.yaml`
+steht sie für beide. Von Hand (Actions, "Container image", mit einem Tag) lässt
+sich ein Abbild neu bauen, sobald der Workflow auf `main` liegt; vorher steht er
+nicht in der Liste, und ein Release startet ihn nicht. `:latest` wandert dabei nur
+mit, wenn "latest" angehakt ist.
+
 ## Hinter einem Proxy
 
 Ein Reverse Proxy auf demselben Rechner (Caddy, nginx, Traefik) erreicht den
@@ -271,6 +299,9 @@ Emulator auf `~/.gelumpe/sd`, weigert sich der zweite.
 friert den Dienst per PyInstaller zu einem Sidecar ein (`npm run build:sidecar` allein geht auch)
 und packt die App nach `src-tauri/target/release/bundle/`. PyInstaller kann nicht quer bauen: jedes
 Ziel wird auf seinem eigenen System gebaut, mit der Version aus `npm run release -- prepare`.
+`node tools/emu/sidecar-smoke.mjs` startet das gebaute Sidecar und schickt ihm eine Kurzprüfung mit
+zwei leeren Dateien: eine 400 heißt, `check.py` und alle Fälle sind mit eingefroren, eine 500 nennt das
+fehlende Modul. CI macht das nach jedem Sidecar-Build.
 
 Einmalig überall: Node 20+, Rust (`rustup`), `cargo install tauri-cli --version "^2" --locked`,
 Python 3.10+ (die venv und PyInstaller legt der Build selbst an).
@@ -357,7 +388,8 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
    `node tools/release-notes.mjs build`: es schreibt `data/release-notes.mjs`, daraus zeigt die App unter Changelogs
    auch die Versionen, deren Release auf GitHub schon gelöscht ist (ohne Downloads, nur Neu, Geändert, Behoben). Ein
    Test schlägt fehl, wenn die Datei nicht zu `release-notes/` passt.
-2. Pull Request `develop` -> `main` mergen.
+2. Pull Request `develop` -> `main` mergen. Den Release-PR `release/X.Y.Z` -> `main` merged der Workflow "Release
+   merge" selbst, sobald jemand mit Schreibrecht ihn freigegeben hat und alle Checks grün sind (siehe unten).
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
    Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
    2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
@@ -431,10 +463,57 @@ Pull Request `develop` -> `main`, den du danach öffnest (`gh pr create --base m
 eigener Bump-PR ist nicht nötig. Der Workflow "Sync develop" holt den Merge-Commit danach nach `develop`
 zurück.
 
-Nach jedem Push auf `develop`, `main` oder einen `release/`-Branch holt der Workflow "Update pull requests"
-diesen Branch in jeden offenen Pull Request, der auf ihm aufbaut und hinterherhängt (GitHubs "Update branch", mit
-`SYNC_TOKEN`, damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein
-Basis-Branch ist; bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
+Nach jedem Push auf `main` oder einen `release/`-Branch holt der Workflow "Update pull requests" diesen Branch in
+jeden offenen Pull Request, der auf ihm aufbaut und hinterherhängt (GitHubs "Update branch", mit `SYNC_TOKEN`,
+damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein Basis-Branch ist;
+bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
+
+Bei `develop` fasst derselbe Workflow nur PRs an, die mit `develop` kollidieren. Liegen alle Konflikte in den
+Runtime-Patches (`data/patches/script-runtime*.json`), merged er `develop` hinein, baut die drei aus den
+gemergten Quellen neu (`node tools/patch/script_runtime.mjs --build ...`) und pusht. Jeder andere Konflikt bleibt
+für einen Menschen, der Lauf zeigt eine Warnung. Ein PR, der sauber mergt, bleibt, wie er ist: er muss nicht auf
+dem Stand von `develop` sein, sonst liefen nach jedem Merge die Checks aller offenen PRs neu. Was zwei PRs erst
+zusammen kaputt machen, zeigen die Läufe auf `develop` selbst ("Test" und "Verify patches" laufen nach jedem Merge).
+
+**Feature-PRs mergen sich selbst** (Workflow "Automerge", `.github/workflows/automerge.yml`): ein PR nach `develop`
+mit dem Label `automerge` wird gemerged, sobald auf seinem Kopf-Commit `unit`, `browser`, `guard` und `patches` da
+und grün sind und kein anderer Check fehlgeschlagen ist. Der Job wartet bis dahin (bis 150 Minuten), ein neuer Push
+oder ein neues Label startet ihn neu, ein roter Check beendet ihn ohne Merge. Gemerged wird mit `SYNC_TOKEN`,
+`--admin` und `--match-head-commit`. Ohne Label bleibt der PR offen, etwa wenn er auf einen Test am Gerät wartet;
+Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
+Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
+
+**Gemergte Branches verschwinden** (Workflow "Delete merged branch", `.github/workflows/branch-autodelete.yml`): nach
+dem Merge eines PRs aus diesem Repo löscht der Workflow dessen Branch. Nie gelöscht werden `main`, `develop`,
+`release/*` und ein Branch, auf den noch ein offener PR zielt (etwa `feature/sample-swap`, solange PRs darauf offen
+sind); über die API gelöscht würde GitHub diese PRs schließen statt umzuhängen. Ein ohne Merge geschlossener PR behält
+seinen Branch. Der Auslöser nimmt die Datei vom Ziel-Branch des PRs: für PRs nach `main` gilt er erst ab dem Release,
+das ihn dorthin bringt.
+
+**Firmware-PRs nacheinander.** Mehrere offene PRs, die dieselben Patches ändern (`data/patches/`,
+`tools/patch/`, `tools/emu/*_cases.py`), kollidieren bei jedem Merge miteinander und laufen dann kalt neu. Die
+Runtime-Patches löst der Workflow oben selbst, alles andere nicht. Deshalb: App-Themen dürfen parallel laufen,
+Firmware-Themen, die dieselben Patches anfassen, kommen nacheinander oder als ein PR.
+
+**Release-PR mergt sich selbst** (Workflow "Release merge", `.github/workflows/release-merge.yml`,
+`tools/release-merge.mjs`): ein offener PR `release/X.Y.Z` -> `main` aus diesem Repo wird gemerged, wenn alles
+zutrifft:
+
+- kein Entwurf (Draft). Als Draft markieren hält den Merge an;
+- jemand mit Schreibrecht hat ihn freigegeben (Approve), und seit dem freigegebenen Commit hat sich nur
+  `data/patches/verified.json` geändert (der Commit von "Verify patches"). Jeder andere neue Commit braucht eine
+  neue Freigabe. Steht bei jemandem mit Schreibrecht als letztes "Changes requested", wird nicht gemerged;
+- jeder Workflow-Lauf auf dem Kopf-Commit ist fertig, der neueste Lauf jedes Workflows und jeder Check sind grün
+  (oder übersprungen), `unit`, `browser` und `guard` sind dabei. Läuft noch etwas, etwa ein `verify (*)`, das
+  danach eine neue `verified.json` pusht, wird gewartet: der Push startet neue Checks, und erst wenn die auch durch
+  sind, wird gemerged.
+
+Geprüft wird jedes Mal, wenn ein Workflow eines PRs fertig wird oder ein Review kommt; von Hand mit
+`gh workflow run release-merge.yml`. Gemerged wird mit `SYNC_TOKEN` und `--match-head-commit`, also nur der Commit,
+der geprüft wurde; mit dem eigenen Token des Workflows würde der Merge kein Release starten. Ohne das Secret wird
+nichts gemerged. Was fehlt, steht im Log des Laufs. Lokal ohne Merge: `GITHUB_REPOSITORY=KuhlerBuhler/kuhlers-gelumpe
+node tools/release-merge.mjs --dry-run`. Der Auslöser `workflow_run` nimmt die Datei, wie sie auf `main` liegt: der
+Workflow merged also erst ab dem Release, das ihn nach `main` bringt.
 
 `--notes=Datei.md` nimmt die Release-Notizen aus der Datei (zweisprachig, mit Download-Blöcken, siehe "Format der Notizen") statt GitHubs erzeugter Liste der PRs. Sobald
 das Release veröffentlicht ist, postet der Workflow "Discord release" es über den Webhook im Secret
@@ -468,11 +547,31 @@ Patch-Satz eines Branches auf Korgs drei 2.02 und auf Hacktribe mit blauem Kopf 
 jede Datei in einem eigenen Job nebeneinander, und schreibt die Einträge in eine `verified.json` (`verify-patches.mjs
 --results`). Stehen alle Paare schon drin, bleibt alles, wie es war.
 
-Er läuft von selbst bei jedem Pull Request, der den Patch-Satz (`data/patches/`), etwas, das `verify-patches.mjs` lädt,
-`tools/patch/` oder `tools/emu/` ändert, und committet die neue `verified.json` auf den Branch des Pull Requests.
+Er startet bei jedem Pull Request, damit der Check `patches` immer erscheint und "Automerge" auf ihn warten kann.
+Geprüft wird nur, wenn der PR den Patch-Satz (`data/patches/`), etwas, das `verify-patches.mjs` lädt, `tools/patch/`
+oder `tools/emu/` ändert (die Pfade unter `push:` im Workflow); sonst ist `patches` nach dem ersten Job grün. Was
+dann läuft, hängt von der Basis ab:
+
+- **Pull Request nach `develop`** (Feature-Branches): auf allen vier Dateien nur die Startszenarien (`check.py --quick`)
+  und die Case-Module, die zu den geänderten Dateien gehören (`verify-patches.mjs --cases`, an `check.py --cases`
+  weitergereicht). Welche das sind, sagt `tools/ci/verify-scope.mjs` mit einer festen Tabelle: `tools/emu/<x>_cases.py`
+  ist `<x>_cases` (plus die Module, die daraus importieren), Assembler und Patch-JSON gehen an die Cases, die sie
+  testen (etwa `script_remote.s` an `remote_cases`, `data/patches/dice*.json` an `dice_cases`). Der gemeinsame Kern
+  (`script_vm.s`, `script_hooks.s`, `src/patch.mjs`, `src/hooks.mjs`, `machine.py`, `bootmap.py`, `check.py`) und jede
+  Datei, die nicht in der Tabelle steht, heißt alle Case-Module. Geschrieben oder committet wird dabei nichts: ein
+  Eintrag in `verified.json` heißt immer "ganz geprüft". Der Preis: bricht ein Case außerhalb der zugeordneten Module,
+  sieht man das erst am Release-PR. Die Tabelle hält `test/verify-scope.test.mjs` mit `check.py` in Einklang.
+- **Pull Request nach `main`** (der Release-PR aus `release/X.Y.Z` oder `develop`) und jede andere Basis: der ganze
+  Check, danach committet der letzte Job die neue `verified.json` auf den Branch des Pull Requests.
+- **Push auf `develop`** (ein gemergter PR, der die Pfade ändert): alle Case-Module auf allen vier Dateien mit den
+  gespeicherten Task-Ergebnissen, geschrieben wird nichts. Der Lauf hält den Task-Cache von `develop` aktuell. Jeder
+  PR-Lauf lädt den neuesten Cache von `develop` und seinen eigenen und nimmt beide zusammen: ein neuer PR startet
+  nicht kalt, und nach einem Merge von `develop` in den PR fehlen die neuen Ergebnisse von `develop` nicht. Gerechnet
+  werden nur die Tasks, deren Dateien sich geändert haben. Läufe auf `develop` brechen einander nicht ab, der neueste wartet.
+
 Gepusht wird mit `SYNC_TOKEN`, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
-ersten Schritt. Ein neuer Push bricht den laufenden Check ab. Pull Requests aus Forks haben keine Secrets und werden
-übersprungen. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
+ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Pull Requests aus Forks haben keine Secrets:
+`patches` wird dort rot, ein Mensch merged sie. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
 
 Von Hand, für einen beliebigen Branch:
 
@@ -488,7 +587,9 @@ Lokal: `npm run verify:patches -- <Korgs rote 2.02> <Korgs blaue 2.02> <Hacktrib
 Kopf>`: patcht jede
 Datei wie die Seite, prüft sie und schreibt die Liste nur, wenn alle bestehen. Ohne Option ersetzt der Lauf die Liste;
 `--merge` behält die Einträge der anderen Eingaben und ersetzt nur die der geprüften Dateien, so kann man eine Datei
-nach der anderen prüfen. Ein Paar, das schon mit demselben Satz drinsteht, behält sein altes Datum.
+nach der anderen prüfen. Ein Paar, das schon mit demselben Satz drinsteht, behält sein altes Datum. `--cases
+menu_cases,remote_cases` prüft nur die Startszenarien und diese Case-Module (leer: nur die Startszenarien, `all`: alle)
+und schreibt nichts.
 
 ## Keine öffentliche Seite
 

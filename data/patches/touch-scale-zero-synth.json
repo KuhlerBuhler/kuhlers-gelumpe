@@ -1,0 +1,24 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "touch-scale-zero",
+ "name": "TOUCH SCALE RANGE 0",
+ "builds": [
+  "synth"
+ ],
+ "changes": [
+  {
+   "file": 447428,
+   "bytes": "0010a0d3",
+   "expect": "3988e8bb30cf03902e75285af2315edc9d0714801903b70d28c40749a823a208",
+   "note": "the page TOUCH SCALE RANGE goes down to 0 (movle r1, #0)"
+  },
+  {
+   "file": 356876,
+   "bytes": "147094e5b033d4e1900717e0ff5000e2017087e2ff7007e2930707e0a773a0e10570a0010510a0e10700a0e1",
+   "expect": "bce733e6a9afb8d511bdb20fd746de2a1fe3e0acd8cf4bd84f4fe4110eb790d1",
+   "note": "touch scale: range 0 plays the key note in the keyboard's octave (muls sets Z, moveq r7, r5); ranges 1 to 4 as before"
+  }
+ ],
+ "ram": []
+}

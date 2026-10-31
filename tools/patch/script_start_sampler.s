@@ -40,3 +40,18 @@ script_card_hook:
 .pool
 script_card_wrapper_end:
 
+
+; ---- the backlight colour at power-on: the hook of this build, the rest is script_boot_light.s
+.equ FLASH_GET, 0xC0029A40      ; the flash object (it exists from about 56 ms)
+.equ FLASH_READ, 0xC0029A74     ; (object, destination, address, length)
+
+; 0xC00289D8 in the start, `cmp r0, #0x124`: right behind the firmware's first flash read (the mark at 0x220000, about 59 ms) on the
+; way of the normal start (the start modes branch off before). The held keys are known and the flash answers; the start image is not
+; drawn yet (59.3 ms). With EXIT held, a panel update or no valid Globals in the flash nothing happens.
+boot_light_hook:
+    push {lr}
+    bl boot_light_set
+    pop {lr}
+    cmp r0, #0x124
+    ldr pc, =0xC00289DC
+.pool
