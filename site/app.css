@@ -651,7 +651,8 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   filter: brightness(1.12);
 }
 
-.cee-e2-btn[data-down="true"] {
+.cee-e2-btn[data-down="true"],
+.cee-e2-pad[data-down="true"] {
   border-color: var(--color-accent-primary);
 }
 
