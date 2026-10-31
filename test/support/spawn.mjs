@@ -1,8 +1,10 @@
 /**
- * spawnSync that does not block: the same fields (status, stdout, stderr, error), so the
+ * spawnSync that does not block: the same fields (status, stdout, stderr, error) plus `signal`, so the
  * checks around a call stay as they were, but the tests of one file can run side by side
  * (describe with concurrency). A run that outlives `timeout` is killed and comes back with
- * error.code ETIMEDOUT, as spawnSync reports it.
+ * error.code ETIMEDOUT, as spawnSync reports it. A run killed from outside (the memory killer, a
+ * segfault) has no exit status at all, so `signal` says what ended it: without it a failure reads
+ * "status null" and the reason is lost.
  */
 import { spawn } from "node:child_process";
 import { availableParallelism } from "node:os";
@@ -26,7 +28,7 @@ export function run(command, args, { timeout = 0, cwd, env, maxBuffer = 4 * 1024
     };
     child.stdout.setEncoding("utf8").on("data", d => take("out", d));
     child.stderr.setEncoding("utf8").on("data", d => take("err", d));
-    child.on("error", e => { clearTimeout(timer); resolve({ status: null, stdout, stderr, error: e }); });
-    child.on("close", status => { clearTimeout(timer); resolve({ status, stdout, stderr, error }); });
+    child.on("error", e => { clearTimeout(timer); resolve({ status: null, signal: null, stdout, stderr, error: e }); });
+    child.on("close", (status, signal) => { clearTimeout(timer); resolve({ status, signal, stdout, stderr, error }); });
   });
 }
