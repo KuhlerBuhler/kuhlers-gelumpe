@@ -14,7 +14,7 @@ export const FX_CATALOG = Object.freeze([
     "unit": 59,
     "unitName": "M_mod_delay",
     "params": {
-     "dry_wet": 111,
+     "dry_wet": 114,
      "wet_spread": 100,
      "input_trim": 95,
      "pre_leq_gain": 36,
@@ -418,7 +418,7 @@ export const FX_CATALOG = Object.freeze([
  {
   "kind": "ifx",
   "name": "Loud Distortion",
-  "description": "Weniger Verzerrung als das Werkspreset (Gain 64 statt 100), der Ausgangspegel knapp darüber (14 statt 11). Der Regler dreht die Verzerrung.",
+  "description": "Weniger Verzerrung als das Werkspreset (Gain 64 statt 100), der Ausgangspegel knapp darüber (18 statt 11). Der Regler dreht die Verzerrung.",
   "stages": [
    {
     "stage": "ifx1",
@@ -439,7 +439,7 @@ export const FX_CATALOG = Object.freeze([
      "post_eq3_frequency": 53,
      "post_eq3_q": 5,
      "post_eq3_gain": 25,
-     "output_level": 14
+     "output_level": 18
     }
    },
    {
@@ -484,7 +484,7 @@ export const FX_CATALOG = Object.freeze([
      "post_eq3_frequency": 53,
      "post_eq3_q": 5,
      "post_eq3_gain": 20,
-     "output_level": 12
+     "output_level": 15
     }
    },
    {
@@ -529,7 +529,7 @@ export const FX_CATALOG = Object.freeze([
      "post_eq3_frequency": 53,
      "post_eq3_q": 5,
      "post_eq3_gain": 30,
-     "output_level": 16
+     "output_level": 20
     }
    },
    {
@@ -561,7 +561,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "I_acid_driver",
     "params": {
      "drive": 70,
-     "output_level": 22
+     "output_level": 27
     }
    },
    {
@@ -583,8 +583,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 0,
     "param": 1,
-    "low": 34,
-    "high": 14
+    "low": 39,
+    "high": 19
    }
   ],
   "creator": "Kuhler Buhler"
@@ -631,7 +631,7 @@ export const FX_CATALOG = Object.freeze([
     "chain": 7,
     "param": 5,
     "low": 0,
-    "high": 88
+    "high": 98
    },
    {
     "source": 66,
@@ -723,7 +723,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "M_level_mod",
     "params": {
      "amp_level": 127,
-     "output_gain_adjust": 24,
+     "output_gain_adjust": 26,
      "level_mod_source": 4,
      "level_mod_int": 126,
      "level_mod_type": 0,
