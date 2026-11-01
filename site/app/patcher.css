@@ -32,6 +32,10 @@
 
 .cee-patch-needs[hidden],
 .cee-patch-route[hidden],
+.cee-patch-way[hidden],
+.cee-patch-usb[hidden],
+.cee-patch-korg[hidden],
+.cee-check[hidden],
 .cee-patch-verdict[hidden],
 .cee-patch-bar[hidden],
 .cee-patch-groups[hidden],
@@ -312,4 +316,42 @@
 .cee-patch-device-card:has(input:focus-visible) {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
+}
+
+/* The wizard in front of the way: one question, big choices. */
+.cee-patch-ask {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: 1.25;
+}
+
+/* Four devices: two per row, one per row on a narrow window. */
+#cee-patch-wiz-devices {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  #cee-patch-wiz-devices {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* A choice of the wizard is a button with the look of an entry card; no popout icon, so no room kept for one. */
+.cee-patch-pick {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+.cee-patch-pick.cee-device-card {
+  align-items: center;
+  padding-right: var(--space-4);
+}
+
+.cee-patch-pick strong {
+  font-size: var(--text-lg);
 }

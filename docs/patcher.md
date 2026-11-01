@@ -67,6 +67,7 @@ Warum die übrigen Ports abgelehnt wurden und welche Prüfungen bestehen, steht 
 | Eigenes Init-Pattern (Set Init Pattern): DATA UTILITY > INITIALIZE PATTERN kopiert das Pattern, das DATA UTILITY > SET INIT PATTERN nennt (Global-Byte 247, FACTORY ist die Vorlage der Firmware); Code bei `0xC014FD00`, Haken auf den Aufruf `0xC0036A34`, ohne Startphase; die Seite im Menü nur mit dem Patch; rot und blau | `data/patches/init-pattern.json`, `tools/patch/init_pattern.py`, `tools/patch/script_init.s`, `tools/emu/init_pattern_cases.py`, `test/init-pattern.test.mjs`, [Messung](messungen/2026-10-28-init-pattern.md) |
 | Stereo auf einem Pad: ein Stereo-Sample belegt nur seinen Part, auf jedem Part spielt es auf einer Stimme mit dem Stimmtyp, den die Firmware sonst nur auf geraden Parts nimmt (Typ 4), der nächste Part bleibt frei; drei Befehle (`0xC007DE08` Stereo-Modus, `0xC00413EC` Oszillatorwechsel, `0xC0099E2C` Modus der Stimme) rufen Code bei `0xC014FF00`, der Stereo-Modus läuft schon in der Startphase; Schalter BLECH > FEATURES > STEREO 1 PAD (Wort `0xC014FFFC`, Vorgabe ON, Bit 2 von Byte 5 der Einstellungsdatei heißt OFF), OFF oder EXIT beim Einschalten geben das Paar der Firmware; Pattern-Format unverändert; nur rot | `data/patches/stereo-pad.json`, `tools/patch/stereo_pad.py`, `tools/patch/script_menu.s`, `tools/emu/stereo_pad_cases.py`, `test/stereo-pad.test.mjs`, [Messung](messungen/2026-10-29-stereo-ein-pad.md) |
 | BEAT 8: die Seite BEAT im Pattern Menü hat einen fünften Wert `8`, Steps als Achtel (Teiler 12 in der Tabelle `0xC00E2DDC`, im freien Byte dahinter); die Klemme der Seite bis 4, Text `\\8` statt "?", die vier Exportlängen und (rot) die Step-Zuordnung geslicter Samples kennen den Wert; Daten bei `0xC014FC00`, kein eigener Code, keine Startphase; rot und blau | `data/patches/beat-eighth.json`, `data/patches/beat-eighth-synth.json`, `tools/patch/beat_eighth.py`, `tools/emu/beat_eighth_cases.py`, `test/beat-eighth.test.mjs`, [Messung](messungen/2026-10-29-beat-achtel.md) |
+| TOUCH SCALE RANGE 0: die Seite TOUCH SCALE RANGE im Global-Menü geht bis 0 (Klemme `0xC007A940`, die Anzeige `0 Oct` bleibt die der Firmware); mit 0 spielt X überall den Grundton des Patterns in der Oktave der Tastatur (die Abbildung X auf Tonleiterstufe bei `0xC0060654` setzt bei Umfang 0 die Stufe auf eine volle Oktave, 11 Worte am Platz, Umfang 1 bis 4 unverändert); kein eigener Code, keine Startphase; rot und blau | `data/patches/touch-scale-zero.json`, `data/patches/touch-scale-zero-synth.json`, `tools/patch/touch_scale_zero.py`, `tools/emu/touch_scale_zero_cases.py`, `test/touch-scale-zero.test.mjs`, [Messung](messungen/2026-10-30-touch-scale-null.md) |
 | Version im Menü: BLECH > VERSION, die letzte Seite der Liste, zeigt die Version des Satzes (`BLECH 1.3.7`) und darunter die Firmware, für die das Menü gebaut ist; der Text steht als 16 Byte bei `0xC014FCF0` (FF in allen drei Builds, vor dem Init-Pattern-Code), nur Daten, ohne Haken und ohne Startphase; `node tools/set-version.mjs` baut beide Dateien mit jeder Version neu; rot und blau | `data/patches/blech-version.json`, `data/patches/blech-version-synth.json`, `tools/patch/blech_version.mjs`, `tools/patch/script_menu.s`, `tools/emu/menu_cases.py` (`version_page`), `test/blech-version.test.mjs` |
 | BLECH SysEx: eigene Befehle `0x60` bis `0x63` zum Lesen und Schreiben des RAM in Blöcken bis 32 KiB (dazu `0x64` Flash lesen, `0x65`/`0x66` die Update-Datei und `0x67` eine Plugin-Datei in `KORG/blechtribe/Plugin/`, mit Bit 30 im Offset die Sample-Datei `Sample/e2sSample.all` und ihre Tauschdatei, dazu `0x71` kopieren, `0x72` löschen und `0x73` CRC lesen auf diesen zwei Dateien, siehe [sample-datei.md](hintergrund/sample-datei.md)), je Block mit CRC-32 und einer Antwort mit Status, auf Hacktribe und auf Korgs Original; die Schutzliste von `data/protected.mjs` prüft die Firmware selbst (Tabelle aus `src/sysex-table.mjs`, nie von Hand), kein Flash-Schreib-Befehl, Ausführen (`0x6F`) nur im Stub-Puffer; Hacktribes `0x52` bis `0x57` verworfen, mit EXIT beim Einschalten gehen sie außer `0x56` wieder; zwei Haken (Funktionsbyte `0xC0026A8C`, Ausführer `0xC0026418`), ohne Startphase, mit EXIT beim Einschalten stumm. Die Seite nimmt sie, wenn das Gerät INFO beantwortet, sonst Hacktribes `0x52` bis `0x57` | `data/patches/blech-sysex.json`, `tools/patch/blech_sysex.py`, `tools/patch/blech_sysex.mjs`, `src/sysex-table.mjs`, `tools/emu/sysex_cases.py`, `test/blech-sysex.test.mjs`, `test/blech-session.test.mjs`, `test/emulator-sysex.test.mjs`, `test/emulator-blech-session.test.mjs`, [Messung](messungen/2026-10-15-blech-sysex.md) |
 | Anpassung im BLECH-Menü: untere LEDs (METER, COLOR, OFF, Farbe) und Display-Licht (frei gemischt, Software-PWM), Einstellungen nur auf der Karte; auf der roten gilt die Farbe des Lichts schon vor dem Startbild, auf der blauen kurz danach, solange es noch steht: die Kanäle der Farbe (an, wenn mindestens halb so stark wie der stärkste) stehen in Global-Byte 250, das die Firmware mit den Globals speichert, ein Haken hinter dem ersten Lesen des Flash (`0xC00289D8`, auf der blauen `0xC0025E48`, Startphase) setzt sie, mit EXIT beim Einschalten Weiß | `tools/patch/script_menu.s`, `tools/patch/script_boot_light.s`, `tools/patch/script_start_sampler.s`, `tools/patch/script_start_synth.s`, `tools/emu/menu_cases.py` (`look_cases`, `boot_light_cases`), [Messung](messungen/2026-10-14-blech-anpassung.md), [beim Start](messungen/2026-10-29-hintergrundlicht-beim-start.md) |
@@ -409,7 +410,7 @@ sind kein RAM und stehen auch nicht hier.
 | `0xC017C400` + 0x800 | preset-tables | Reglergedächtnis des Insert-Effekts, 16 Parts zu 128 Byte, die Firmware füllt es beim Start | `preset_tables.py:EDIT_TABLE` |
 | `0xC0180F00` + 0x40 | pattern-switch | Zustand, darin `PS_SETTING` bei +0x10 | `pattern_switch.py:STATE` |
 | `0xC0173000` + 762 | pattern-switch | Puffer der Sync Group: die Werte, die ein Patternwechsel in der Gruppe mitnimmt | `pattern_switch.py:SG_BUF` |
-| `0xC0173400` + 0x5C | pattern-switch | die Ansicht: Kopie des Zugriffsobjekts, dessen Pattern der Block der Bank ist, die angezeigte Nummer, der Index der Info-Zeile, der Bank-Platz, den die Sync Group ins Pattern gebracht hat, und die Mutes, die auf den Pads des angesehenen Patterns geschaltet wurden ([Messung](messungen/2026-10-29-vorschau-pads.md); der Code dazu liegt bei `0xC0173480`, als geänderte Bytes) | `pattern_switch.py:VIEW_W` |
+| `0xC0173400` + 0x64 | pattern-switch | die Ansicht: Kopie des Zugriffsobjekts, dessen Pattern der Block der Bank ist, die angezeigte Nummer, der Index der Info-Zeile, der Bank-Platz, den die Sync Group ins Pattern gebracht hat, die Mutes, die auf den Pads des angesehenen Patterns geschaltet wurden ([Messung](messungen/2026-10-29-vorschau-pads.md)), und die Parts, die von dort ins laufende Pattern geholt werden ([Messung](messungen/2026-10-30-vorschau-part-reinholen.md); der Code dazu liegt bei `0xC0173480`, als geänderte Bytes) | `pattern_switch.py:VIEW_W` |
 | `0xC0181F00` + 0x40 | load-bar | Zustand | `load_bar.py:STATE` |
 | `0xC0182000` bis `0xC0183000` | splash-editor | Zustand 0x100, Datensatz 0x420, zwei Bilder zu 0x400, FatFs-Datei 0x2E0 | `splash_editor.py`, fünf Einträge |
 | `0xC0183800` + 0x100 | sample-errors | Zustand (Zähler, erstes übersprungenes Sample, Grund) und die zwei Zeilen des Fensters bei +0x40 und +0x60 (der Code liegt bei `0xC0183000`, 852 Byte, als geänderte Bytes) | `sample_errors.py:STATE` |
@@ -580,6 +581,12 @@ keinen Ablauf.
 Gebaut in `site/app/patcher.mjs`, die Logik ohne Seite in `src/patcher.mjs`. Wer die Seite
 benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige Firmware.
 
+- **Start:** zwei Fragen vor den vier Schritten. Erst "Welche Electribe hast du?" mit vier Karten: blau, rot, blau mit
+  Hacktribe, rot mit Hacktribe. Dann "Was willst du?": BLECH, BLECH + Hacktribe oder Nur Update; wer Hacktribe schon
+  hat, bekommt nur BLECH und Update. Danach zeigt Schritt 1 nur, was dieser Weg braucht: beim Update das Lesen über
+  USB und das Feld für die Datei von der Karte, sonst Korgs Datei für die passende Electribe (für Hacktribe immer die
+  rote) und das Feld. Die Wahl setzt den Weg beim Korg-Original und die Electribe für den Kopf; ein Gerät am Kabel
+  geht vor. Wer gleich eine Datei ablegt, überspringt die Fragen und sieht alles wie bisher. Jeder Schritt hat Zurück.
 - **Erkennung:** Original Korg 2.02 an der SHA-256 (`1d0f0689…`, derselbe Wert, den Hacktribes
   Patch-Skript prüft; gemessen an der eigenen Datei). Eine andere Datei von Korgs Build wird abgelehnt, solange sie
   nicht schon BLECH trägt. Hacktribe 2.02 über `identify`. Ob schon BLECH drin ist, sagt `patchesPresent`
@@ -619,7 +626,7 @@ benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige F
 
 ### Eine Datei, auf der schon BLECH ist
 
-Eine Datei mit BLECH ab Version 1.3.4 (über USB oder hineingezogen) bekommt den aktuellen Satz direkt darüber, ohne
+Eine Datei mit BLECH ab Version 1.3.3 (über USB oder hineingezogen) bekommt den aktuellen Satz direkt darüber, ohne
 Original, für Korg rot, Korg blau und Hacktribe (roter und blauer Kopf). `data/known-releases.json` (gemacht von
 `tools/known-releases.mjs`, nur Hashes und Offsets) nennt jede Stelle, die diese Versionen geschrieben haben. Jede
 Stelle muss die Originalbytes oder die Bytes einer Version halten, sonst gilt die Datei als unbekannt und es wird
@@ -630,7 +637,11 @@ gesperrt). `tools/known-releases.mjs` läuft mit dem Tag jeder Version, damit si
 
 Nur wenn das die Datei ablehnt: bei Korgs Build baut die App das Original aus Korgs System Updater nach (die Bytes, die die
 Patches schreiben, kommen aus Korgs Datei, genutzt nur bei Treffer auf den Hash). Hacktribe hat diesen Rückfall nicht, seine
-eigenen Änderungen überschneiden BLECHs Stellen, dort braucht es die unveränderte Datei.
+eigenen Änderungen überschneiden BLECHs Stellen, dort braucht es die unveränderte Datei. Eine teils gepatchte
+Hacktribe-Datei, die keine bekannte Version trägt, nennt deshalb die zwei Wege dahin: die Sicherung der eigenen
+Hacktribe-Datei (SHA-256 `7cb4825c…`) oder Korgs 2.02 mit `hacktribe-2.patch`. Versionen vor 1.3.3 fehlen in
+`known-releases.json` mit Absicht: mit ihren Stellen wäre eine Datei von 1.3.7 nicht mehr eindeutig (gemessen an
+Hacktribe 2.02 mit den Sets von 1.2.0 bis 1.3.7).
 
 ### Korgs Firmware laden
 
@@ -725,8 +736,12 @@ Gebaut (`convertStock` in `src/patcher.mjs`, `src/bsdiff.mjs`, `src/bzip2.mjs`).
 `scripts/e2-firmware-patch.py` mit `patch/hacktribe-2.patch` (bsdiff4, 17,6 KB, bzip2 darin). Die README
 von `bangcorrupt/hacktribe` (geprüft 2026-10-14) sagt: "Contents of `patch` directory is not open source
 and is not covered by the GPL." Alles andere ist AGPL-3.0. Die Patch-Datei liegt deshalb weder in diesem
-Repository noch auf der Seite, und die Seite lädt sie auch nicht selbst: wer die Seite benutzt, holt sie bei Hacktribe
-(die Seite verlinkt die Datei direkt) und zieht sie auf die Seite.
+Repository noch auf der Seite. Unter dem Lizenz-Haken steht ein zweiter: "Lade zusätzlich hacktribe-2.patch direkt von Hacktribe". Er
+ist gesetzt, wenn das Ziel Hacktribe braucht, und lädt die Datei direkt aus Hacktribes Repository
+(`HACKTRIBE_PATCH_RAW`, raw.githubusercontent.com, das CORS erlaubt) auf den Rechner des Nutzers; das Ergebnis prüft
+`convertStock` wie bei einer abgelegten Datei. Ohne Netz sagt ein Hinweis das, und das Feld für die eigene Datei
+bleibt. Ohne Haken lädt die Seite nichts: wer will, holt die Datei bei Hacktribe (die Seite verlinkt sie) und zieht
+sie auf die Seite.
 
 Ablauf: die originale Korg 2.02 wird abgelegt, die Seite erkennt sie am Hash. Wer "BLECH mit Hacktribe" wählt,
 wird nach `hacktribe-2.patch` gefragt (mit Link und dem Grund, warum sie fehlt). Dann, alles im Browser:

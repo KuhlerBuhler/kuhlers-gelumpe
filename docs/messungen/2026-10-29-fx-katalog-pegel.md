@@ -75,3 +75,24 @@ wurde, steht dort nicht.
   (ohne den Mod Delay, siehe Short Delay oben).
 
 Nicht geprüft: Klang und Lautstärke am Gerät.
+
+## 4. Nach dem Hörtest am Gerät (31.10.)
+
+Rückmeldung nach dem Hörtest am Gerät: die gesenkten Effekte sind jetzt "ein bisschen zu leise". Darum etwas angehoben,
+etwa ein Viertel des Wegs von neu zurück zu bisher, höchstens aber 25 % vom neuen Wert, auf ganze Zahlen gerundet.
+Rückkopplung und Wiederholungen bleiben, das ist keine Lautstärke. **Nach dem Hörtest am Gerät 31.10.: etwas angehoben,
+nicht nachgehört.**
+
+| Effekt | Parameter | bisher (1.3.7) | Werk | gesenkt (29.10.) | jetzt |
+|---|---|---|---|---|---|
+| Loud Distortion | `output_level` | 40 | 11 | 14 | 18 |
+| Fuzz | `output_level` | 30 | 11 | 12 | 15 |
+| Crunch | `output_level` | 35 | 11 | 16 | 20 |
+| Hot Overdrive | `output_level` | 40 | 22 bei Drive 91 | 22 | 27 |
+| Hot Overdrive | Regler auf `output_level` | fest 40 | | 34 bis 14 | 39 bis 19 |
+| Master Pumper | `output_gain_adjust` | 30 | 24 | 24 | 26 |
+| Tri Ping Pong | Touchpad auf Eingangspegel, bis | 127 | 88 | 88 | 98 |
+| Short Delay (MFX) | `dry_wet` | 122 | 100 | 111 | 114 |
+
+Die Pegelgrenzen in `test/fx-v2.test.mjs` liegen dafür für die Distortion (20) und den Master Pumper (26) knapp über
+Werk. Die Reglerzeile des Hot Overdrive bleibt unter der Grenze der Einheit (65), der Mod Delay hat keine Grenze.

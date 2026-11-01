@@ -36,6 +36,7 @@ NAMES = {
     "init_pattern_cases": "Init-Pattern",
     "stereo_pad_cases": "Stereo auf einem Pad",
     "beat_eighth_cases": "BEAT 8",
+    "touch_scale_zero_cases": "Touch Scale 0",
     "doom_loader_cases": "Doom-Lader",
     "preset_cases": "Presets",
 }
