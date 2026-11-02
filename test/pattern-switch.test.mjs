@@ -27,7 +27,7 @@ const WORDS = [[0x6523c, 0xea, 0xc006513c], [0x6eee4, 0xea, 0xc006ede4], [0x6ef0
   [0x4a828, 0xeb, 0xc004a728], [0x4a8a8, 0xeb, 0xc004a7a8], [0x493f4, 0xeb, 0xc00492f4], [0x5a984, 0xeb, 0xc005a884], [0x8694c, 0xea, 0xc008684c],
   [0x48dfc, 0xea, 0xc0048cfc], [0x60e34, 0xeb, 0xc0060d34], [0x7052c, 0xea, 0xc007042c], [0x8784c, 0xeb, 0xc008774c]];
 const VIEW_CODE = 0x173580;         // file offset of 0xC0173480, the view's pads, up to the SysEx table at 0xC0173800
-const BLINK_CODE = 0x177b00;        // file offset of 0xC0177A00, the blink of the view's pads, up to 0xC0177C00
+const BLINK_CODE = 0x177b00;        // file offset of 0xC0177A00, the blink of the view's pads, up to 0xC0177E00
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
 const vsb = process.env.E2_VSB;
@@ -59,7 +59,7 @@ test("four ARM code areas and twenty-six declared hooks stay within their bounds
   const view = PATCH.changes.find(c => c.file === VIEW_CODE);
   assert.ok(view && view.file + fromHex(view.bytes).length <= 0x173900);
   const blink = PATCH.changes.find(c => c.file === BLINK_CODE);
-  assert.ok(blink && blink.file + fromHex(blink.bytes).length <= 0x177d00);
+  assert.ok(blink && blink.file + fromHex(blink.bytes).length <= 0x177f00);
   const code = PATCH.changes.find(c => c.file === CODE);
   const tail = PATCH.changes.find(c => c.file === 0x181040);
   assert.ok(tail && tail.file + fromHex(tail.bytes).length <= 0x181100);

@@ -1526,8 +1526,121 @@ def case_view_blink(payload, flash):
     return out
 
 
+def case_view_back(payload, flash):
+    """A part brought in stays marked across SHIFT + PART MUTE (decision 02.11.): on the playing side its pad blinks and the first press
+    gives the playing pattern its own part back from its bank block, unmuted; back on the viewed side its pad blinks again, as a part
+    that is on and not brought in. Turned to and fro without a press it stays brought in, its pad lit, the press mutes it. In SEQUENCER
+    the playing side's pads are the firmware's steps. docs/ideen/82-vorschau-part-reinholen.md"""
+    out = []
+    P, OTHER = 1, 4                         # part 2 is brought in (sound of part 5 in pattern 2)
+    STEP_ON = bytes([1, 0x48, 0x60, 0, 0x3D])
+    live = lambda b: b.u32(0xC033E6A4) + 4
+    part = lambda b, base: bytes(b.m.uc.mem_read(base + 0x800 + 0x330 * P, 0x330))
+    mute = lambda b: b.dev.read(live(b) + 0x801 + 0x330 * P, 1)[0]
+    red = lambda b: [b.m.leds.get(0x2C + 2 * n, 0) for n in range(16)]
+    word = lambda b, w: b.u32(spec.VIEW_W + w)
+
+    def pad(b, n):
+        b.m.send([4, n, 0, 100, 1])
+        b.run(0.1)
+        b.m.send([4, n, 0, 0, 0])
+        b.run(0.4)
+
+    def shift_part_mute(b):
+        b.dev.m.press(KEYS["shift"], True)
+        b.run(0.2)
+        b.key("part_mute")
+        b.dev.m.press(KEYS["shift"], False)
+        b.run(0.4)
+
+    def values(b, n, seconds=1.0):
+        seen = set()
+        for _ in range(int(round(seconds / 0.01))):
+            b.run(0.01)
+            seen.add(red(b)[n])
+        return sorted(seen)
+
+    def viewing(b):
+        """Part mute mode, pattern 1 plays (part 2 without steps in RAM, unsaved), pattern 2 is browsed: there part 2 is muted in the bank,
+        has steps on every sixteenth and the sound of part 5."""
+        bank = b.slots + 0x4000
+        uc = b.m.uc
+        sound = bytes(uc.mem_read(live(b) + 0x800 + 0x330 * OTHER + 2, 0x2E))
+        at = bank + 0x800 + 0x330 * P
+        uc.mem_write(at + 1, b"\x01")
+        uc.mem_write(at + 2, sound)
+        for s in range(64):
+            uc.mem_write(at + 0x30 + 12 * s, STEP_ON)
+            uc.mem_write(live(b) + 0x800 + 0x330 * P + 0x30 + 12 * s, b"\x00")
+        b.banks = bytes(uc.mem_read(b.slots, 3 * 0x4000))
+        b.key("part_mute")
+        play(b)
+        b.run(0.3)
+        b.turn(1)
+        b.run(0.5)
+        return bank
+
+    box = Box(payload, flash)
+    bank = viewing(box)
+    own = part(box, box.slots)                      # pattern 1's part 2 in its bank block
+    pad(box, P)
+    brought = [hex(i) for i in range(0x330) if part(box, live(box))[i] != part(box, bank)[i]]
+    shift_part_mute(box)
+    a_side = (values(box, P), values(box, OTHER), word(box, spec.V_COPY))
+    out.append(entry("view_playing_side_blinks_the_parts_brought_in",
+                     brought == ["0x1"] and a_side[0] == [0, 255] and a_side[1] == [255] and a_side[2] == 1 << P and not box.m.asserts,
+                     f"pad 2 on the viewed side (bytes that differ from pattern 2's part 2 {brought}), SHIFT + PART MUTE: pad 2 red {a_side[0]}, "
+                     f"pad 5 {a_side[1]}, brought in {a_side[2]:#x}"))
+    pad(box, P)
+    got = part(box, live(box))
+    back = ([hex(i) for i in range(0x330) if got[i] != own[i]], got[1], word(box, spec.V_COPY), word(box, spec.V_BACK), values(box, P),
+            box.view(), bytes(box.m.uc.mem_read(box.slots, 3 * 0x4000)) == box.banks)
+    out.append(entry("view_playing_side_press_gives_the_own_part_back",
+                     set(back[0]) <= {"0x1"} and back[1] == 0 and back[2] == 0 and back[3] == 0 and back[4] == [255] and back[5] == (0, 1, 1)
+                     and back[6] and not box.m.asserts,
+                     f"pad 2 on the playing side: bytes of part 2 that differ from pattern 1's bank part {back[0]}, mute {back[1]}, brought in "
+                     f"{back[2]:#x}, waiting {back[3]:#x}, pad 2 red {back[4]}, view {back[5]}, banks unchanged {back[6]}"))
+    pad(box, P)
+    got = part(box, live(box))
+    again = (mute(box), [hex(i) for i in range(0x330) if got[i] != own[i]])
+    out.append(entry("view_playing_side_next_press_is_the_firmwares",
+                     again[0] == 1 and set(again[1]) <= {"0x1"} and not box.m.asserts,
+                     f"pad 2 again: mute in RAM {again[0]}, bytes that differ from pattern 1's bank part {again[1]} (nothing copied)"))
+    shift_part_mute(box)
+    b_side = (values(box, P), word(box, spec.V_COPY))
+    out.append(entry("view_viewed_side_blinks_a_part_given_back",
+                     b_side[0] == [0, 255] and b_side[1] == 0 and not box.m.asserts,
+                     f"SHIFT + PART MUTE again: pad 2 red {b_side[0]} (on in the view, not brought in), brought in {b_side[1]:#x}"))
+
+    turn = Box(payload, flash)
+    bank = viewing(turn)
+    pad(turn, P)
+    shift_part_mute(turn)
+    shift_part_mute(turn)
+    kept = (values(turn, P), word(turn, spec.V_COPY))
+    pad(turn, P)
+    got, want = part(turn, live(turn)), part(turn, bank)
+    pressed = (mute(turn), [hex(i) for i in range(0x330) if got[i] != want[i]])
+    out.append(entry("view_turned_to_and_fro_keeps_the_part_brought_in",
+                     kept == ([255], 1 << P) and pressed == (1, []) and not turn.m.asserts,
+                     f"pad 2, SHIFT + PART MUTE twice: pad 2 red {kept[0]}, brought in {kept[1]:#x}; pad 2: mute in RAM {pressed[0]}, bytes that "
+                     f"differ from pattern 2's part 2 {pressed[1]} (muted in its bank as well, nothing copied again)"))
+
+    seq = Box(payload, flash)
+    viewing(seq)
+    shift_part_mute(seq)
+    seq.dev.press(0x15, 0.4)
+    step = lambda: seq.dev.read(live(seq) + 0x800 + 0x30 + 12 * OTHER, 1)[0]
+    was = step()
+    pad(seq, OTHER)
+    out.append(entry("view_playing_side_sequencer_pads_are_the_firmwares",
+                     step() != was and seq.view()[1:] == (1, 1) and not seq.m.asserts,
+                     f"playing side, SEQUENCER, pad 5: step 5 of part 1 {was} then {step()}, view {seq.view()}"))
+    return out
+
+
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
-          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side, case_view_blink)
+          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side, case_view_blink, case_view_back)
 
 
 def group_entries(payload, flash, i):
