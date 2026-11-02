@@ -218,13 +218,9 @@ input_mask:
     beq input_mask_go
     cmp r6, #0
     bne input_mask_app
-    ldrb r2, [r5, #0x0d]
-    cmp r2, #0
-    beq input_mask_go
-    cmp r2, #1
-    beq input_mask_go
-    cmp r2, #2
-    beq input_mask_go
+    bl script_key_pass
+    cmp r0, #0
+    bne input_mask_go
 input_mask_app:
     orr r1, r1, #1
 input_mask_go:

@@ -316,6 +316,64 @@ test("the knob hold and the knob value a plugin gives the firmware are state in 
   assert.equal(sim.hardware.knobHold, 0);
 });
 
+test("korg.passKeys chooses the keys that reach the firmware while the app is open, the app's close resets them", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("keys", `
+    korg.app("Keys", "TOOLS");
+    korg.onEvent("open", () => { korg.passKeys(korg.key.SHIFT, 1); korg.passKeys(korg.key.PLAY, 0); });
+  `)).ok);
+  sim.frame();
+  assert.deepEqual([sim.hardware.keyPasses(10), sim.hardware.keyPasses(2)], [0, 1], "SHIFT is kept, PLAY passes by default");
+  assert.ok(sim.openApp(0));
+  sim.frame();
+  assert.deepEqual([sim.hardware.keyPasses(10), sim.hardware.keyPasses(2)], [1, 0]);
+  sim.post("buttonPress", 2);
+  sim.frame();
+  assert.equal(sim.hardware.transport, 0, "PLAY kept from the firmware does not start the sequencer");
+  sim.post("buttonPress", 13);
+  sim.frame();
+  assert.deepEqual([sim.hardware.keyPasses(10), sim.hardware.keyPasses(2)], [0, 1], "EXIT closes the app and the keys are back to their defaults");
+});
+
+test("korg.seq.setPartValue writes a part value clamped to its range, read-only values are an argument error", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("parts", `
+    korg.onEvent("ready", () => { korg.parts[3].pitch = -100; korg.parts[3].cutoff = 64; korg.seq.setPartValue(0, 10, 300); });
+    korg.onEvent("buttonPress", () => { korg.seq.setPartValue(1, 0, 2); });
+  `)).ok);
+  sim.frame();
+  const at = (part, offset) => sim.hardware.patternBlock(-1)[0x800 + part * 0x330 + offset];
+  assert.deepEqual([at(3, 36), at(3, 13), at(0, 24)], [0xC1, 64, 127], "pitch -63 as a signed byte, level clamped to 127");
+  assert.equal(sim.hardware.patternValue(-1, 3, 15), -63);
+  sim.post("buttonPress", 3);
+  const faults = sim.run(1);
+  assert.equal(faults[0]?.name, "API_ARG", "the sample is read-only");
+});
+
+test("korg.read.patternBytes and korg.seq.writeSteps copy the steps of a part from a stored pattern into the one that plays", () => {
+  const sim = new SimDevice();
+  const stored = sim.hardware.patternBlock(5);
+  const step = (block, part, s) => 0x800 + part * 0x330 + 0x30 + s * 12;
+  stored.set([1, 96, 100, 1, 61, 65, 0, 0, 9, 9, 9, 9], step(stored, 2, 0));
+  stored.set([1, 50, 80, 1, 49, 0, 0, 0], step(stored, 2, 1));
+  assert.ok(sim.load(build("copy", `
+    const steps = new Array(768);
+    let read = 0; let wrote = 0; let tail = 0;
+    korg.onEvent("ready", () => {
+      read = korg.read.patternBytes(steps, 5, 0x800 + 2 * 0x330 + 0x30);
+      steps[13] = 200; steps[14] = 0; steps[12] = 7;
+      wrote = korg.seq.writeSteps(steps, 7, 0);
+      tail = korg.read.patternBytes(steps, -1, 0x3FFF);
+    });
+  `)).ok);
+  sim.frame();
+  const vars = Array.from(sim.runtime.scripts[0].script.vars);
+  assert.deepEqual(vars.slice(768, 771), [768, 64, 1], "768 bytes read, 64 steps written, one byte left at the end of the block");
+  const live = sim.hardware.patternBlock(-1);
+  assert.deepEqual(Array.from(live.subarray(step(live, 7, 0), step(live, 7, 0) + 12)), [1, 96, 100, 1, 61, 65, 0, 0, 0, 0, 0, 0], "bytes 8 to 11 are not written");
+  assert.deepEqual(Array.from(live.subarray(step(live, 7, 1), step(live, 7, 1) + 5)), [1, 127, 1, 1, 49], "on, gate and velocity clamped to their ranges");
+});
+
 test("korg.menu.add puts a page in the device menu, the user's change reaches the script as a menu event", () => {
   const device = new SimDevice();
   const loaded = device.load(build("menus", `

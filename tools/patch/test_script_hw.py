@@ -223,6 +223,78 @@ class NativeHardwareTests(unittest.TestCase):
         m.call('script_seq_flush')
         self.assertEqual(told,[(0xC06B2108 + 4,(0x0B | 2 << 8,0))],'one message: the section that is shown, to the model\'s observers')
 
+    def array(self,m,built,values,base=4):
+        """The running script's variables at m.input+0x6800, the array from slot `base` -> its handle."""
+        entry,vars_at = m.input + 0x6000,m.input + 0x6800
+        m.write(entry + built.symbols['SCRIPT_ENTRY_VARS'],vars_at)
+        m.write(m.runtime + built.symbols['RT_ENTRY'],entry)
+        for i,v in enumerate(values): m.write(vars_at + 4 * (base + i),v & 0xffffffff)
+        return base | len(values) << 16,lambda: [struct.unpack('<i',struct.pack('<I',m.read(vars_at + 4 * (base + i))))[0] for i in range(len(values))]
+
+    def test_pattern_bytes_reads_a_block_into_an_array_and_write_steps_writes_whole_records_back(self):
+        m,built = self.machine()
+        block, bank = 0xC06B2798 + 4, 0xC08B2940
+        m.uc.mem_map(bank & ~0xFFF,((bank + 250 * 0x4000 + 0xFFF) & ~0xFFF) - (bank & ~0xFFF))
+        error = contract_data()['error']['API_ARG']
+        m.uc.mem_write(bank + 7 * 0x4000 + 0x100,bytes(range(200,216)))
+        handle,slots = self.array(m,built,[-1] * 16)
+        self.assertEqual(m.call('script_read_pattern_bytes_glue',handle,7,0x100),(16,0))
+        self.assertEqual(slots(),list(range(200,216)))
+        m.uc.mem_write(block + 0x3FFE,bytes([3,4]))
+        self.assertEqual(m.call('script_read_pattern_bytes_glue',handle,0xFFFFFFFF,0x3FFE),(2,0),'only as far as the block goes')
+        self.assertEqual(slots()[:3],[3,4,202])
+        self.assertEqual(m.call('script_read_pattern_bytes_glue',handle,250,0)[1],error)
+        self.assertEqual(m.call('script_read_pattern_bytes_glue',handle,0,0x4000)[1],error)
+        step = lambda part,index: block + 0x800 + 0x330 * part + 0x30 + 12 * index
+        flag = built.layout['card'] + built.symbols['SQ_AT']
+        m.write(flag,0xFFFFFFFF)
+        m.uc.mem_write(step(5,62),bytes([9] * 36))
+        handle,_ = self.array(m,built,[1,96,100,1,61,65,0,0,7,7,7,7, 5,300,0,-2,-1,129,128,0,7,7,7,7, 0,0,0,0,0,0,0,0,0,0,0,0, 1])
+        self.assertEqual(m.call('script_seq_write_steps_glue',handle,5,62),(2,0),'whole records, as far as the 64 steps go')
+        self.assertEqual(bytes(m.uc.mem_read(step(5,62),24)),bytes([1,96,100,1,61,65,0,0,9,9,9,9, 1,127,1,0,0,128,128,0,9,9,9,9]),
+                         'each value clamped to its range, bytes 8 to 11 stay')
+        self.assertEqual(m.read(flag),flag,'the pads draw the steps again at the end of the frame')
+        handle,_ = self.array(m,built,[1] * 11)
+        self.assertEqual(m.call('script_seq_write_steps_glue',handle,0,0),(0,0),'less than a record writes nothing')
+        self.assertEqual(m.call('script_seq_write_steps_glue',handle,16,0)[1],error)
+        self.assertEqual(m.call('script_seq_write_steps_glue',handle,0,64)[1],error)
+
+    def test_set_part_value_goes_through_the_part_edit_and_opens_the_parameter_window_for_the_selected_part(self):
+        m,built = self.machine()
+        from unicorn import UC_HOOK_CODE
+        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
+        for page in (0xC0048000,0xC0070000): m.uc.mem_map(page,0x1000)
+        m.uc.mem_map(0xC0348000,0x1000)
+        m.write(0xC034886C,0xC0348100)
+        m.write(0xC03487EC,0xC0348200)
+        calls = []
+        def edit(uc,address,size,_):
+            sp = uc.reg_read(UC_ARM_REG_SP)
+            calls.append(('edit',uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1),uc.reg_read(UC_ARM_REG_R2),uc.reg_read(UC_ARM_REG_R3),
+                          *struct.unpack('<II',bytes(uc.mem_read(sp,8)))))
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
+        def notify(uc,address,size,_):
+            calls.append(('window',uc.reg_read(UC_ARM_REG_R0),*struct.unpack('<II',bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R1),8)))))
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
+        m.uc.hook_add(UC_HOOK_CODE,edit,begin=0xC0048460,end=0xC0048460)
+        m.uc.hook_add(UC_HOOK_CODE,notify,begin=0xC0070688,end=0xC0070688)
+        error = contract_data()['error']['API_ARG']
+        m.write(0xC06B2428,3)
+        self.assertEqual(m.call('script_seq_set_part_value_glue',3,15,0xFFFFFF9C),(0,0))
+        self.assertEqual(calls,[('edit',0xC0348100,0x13,0,28,0xC1,0),('window',0xC0348204,15,0xC1)],
+                         'pitch -100 is clamped to -63, set as its byte; the window shows it like the knob')
+        calls.clear()
+        self.assertEqual(m.call('script_seq_set_part_value_glue',7,10,300),(0,0))
+        self.assertEqual(calls,[('edit',0xC0348100,0x17,0,19,127,0)],'another part than the selected one: no window')
+        calls.clear()
+        self.assertEqual(m.call('script_seq_set_part_value_glue',0,1,0xFFFFFFFF),(0,0))
+        self.assertEqual(calls[0][4:6],(10,0),'filter type at least 0')
+        calls.clear()
+        for field in (0,12,13,17,19,20):
+            self.assertEqual(m.call('script_seq_set_part_value_glue',0,field,1)[1],error,field)
+        self.assertEqual(m.call('script_seq_set_part_value_glue',16,1,1)[1],error)
+        self.assertEqual(calls,[],'a read-only field is not written')
+
     def test_mute_presses_the_pad_only_when_the_part_is_not_in_the_wanted_state(self):
         m,_ = self.machine()
         calls = self.stubs(m)

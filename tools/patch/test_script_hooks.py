@@ -39,6 +39,8 @@ class HookTests(unittest.TestCase):
         machine.call('script_runtime_init',machine.runtime,machine.arena,131072)
         from tools.patch.script_hooks import MENU_STATE
         machine.uc.mem_write(MENU_STATE,b'\xff'*0x200)    # an unarmed menu reads FF, as in the image
+        from tools.patch.script_hooks import KEY_PASS,KEY_PASS_END
+        machine.uc.mem_write(KEY_PASS,b'\xff'*(KEY_PASS_END-KEY_PASS))    # FF as in the image: the keys at their defaults
         machine.uc.mem_map(0xC0028000,4096)
         machine.uc.mem_map(0xC0083000,4096)
         machine.write(0xC0083710,0xC031BB2C)
@@ -533,6 +535,39 @@ class HookTests(unittest.TestCase):
         machine.uc.hook_add(UC_HOOK_CODE,lambda uc,*_:seen.append((uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1))),begin=0xC0040A50,end=0xC0040A50)
         self.assertEqual(machine.call('script_knob_glue',9,136),(0,0))
         self.assertEqual(seen,[(9,136)])
+
+    def test_pass_keys_lets_chosen_keys_reach_the_firmware_while_an_app_is_open(self):
+        machine,built=self.machine()
+        entry=self.app_script(machine)
+        self.declare(machine,built,[entry])
+        machine.write(entry+12,2)
+        from tools.patch.script_hooks import KEY_PASS as record
+        key=lambda code,down: [0,code,down,0,0]
+        firmware=0xC0028380
+        self.assertEqual(self.input(machine,key(10,1)),firmware,'no app open: every key reaches the firmware')
+        self.assertEqual(self.input(machine,key(10,0)),firmware)
+        self.assertEqual(machine.call('script_app_open',0)[0],1)
+        self.assertEqual(self.input(machine,key(10,1)),machine.stop,'an open app keeps SHIFT')
+        self.assertEqual(self.input(machine,key(10,0)),machine.stop)
+        self.assertEqual(self.input(machine,key(2,1)),firmware,'PLAY passes by default')
+        self.assertEqual(self.input(machine,key(2,0)),firmware)
+        self.assertEqual(machine.call('script_pass_keys_glue',10,1),(0,0))
+        self.assertEqual(machine.call('script_pass_keys_glue',2,0),(0,0))
+        self.assertEqual(machine.call('script_pass_keys_glue',33,1),(0,0))
+        self.assertEqual(self.input(machine,key(10,1)),firmware,'passed on: SHIFT reaches the firmware')
+        self.assertEqual(self.input(machine,key(2,1)),machine.stop,'kept: PLAY stays with the app')
+        self.assertEqual(self.input(machine,key(33,1)),firmware,'a key of the second word')
+        self.assertEqual(self.input(machine,key(32,1)),machine.stop)
+        # the plugin changes its mind while the key is down: the release follows its press
+        machine.call('script_pass_keys_glue',10,0)
+        self.assertEqual(self.input(machine,key(10,0)),firmware,'the firmware saw the press, so it gets the release')
+        self.assertEqual(self.input(machine,key(10,1)),machine.stop)
+        self.assertEqual(self.input(machine,key(10,0)),machine.stop)
+        machine.call('script_pass_keys_glue',2,1)
+        self.assertEqual(self.input(machine,key(2,0)),firmware,'a key that passes now passes its release')
+        self.assertEqual(self.input(machine,key(13,1)),firmware,'EXIT still closes the app')
+        self.assertEqual([machine.read(record),machine.read(record+4)],[0xFFFFFFFF,0xFFFFFFFF],'closing the app resets the keys')
+        self.drain(machine)
 
     def test_the_app_closes_when_the_main_screen_is_gone(self):
         machine,built=self.machine()

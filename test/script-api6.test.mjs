@@ -84,7 +84,10 @@ test("the compiler passes a global array by its first slot and length and refuse
 });
 
 test("the API version of a block follows what it uses", () => {
-  assert.equal(API_VERSION, 13);
+  assert.equal(API_VERSION, 14);
+  assert.equal(apiVersionOf("korg.onEvent(\"open\", () => { korg.passKeys(korg.key.SHIFT, 1); });"), 14, "passing keys on needs API 14");
+  assert.equal(apiVersionOf("korg.onEvent(\"frame\", () => { korg.parts[0].pitch = 3; });"), 14, "writing a part value needs API 14");
+  assert.equal(apiVersionOf("const a = new Array(12); korg.onEvent(\"frame\", () => { korg.read.patternBytes(a, -1, 0); korg.seq.writeSteps(a, 0, 0); });"), 14, "pattern bytes need API 14");
   assert.equal(apiVersionOf("korg.onEvent(\"knob\", (index, value) => { korg.knobHold(9, 1); korg.knob(9, value); });"), 13, "the knob hold needs API 13");
   assert.equal(apiVersionOf("korg.onEvent(\"pad\", () => { korg.padHold(1); });"), 12, "the pad hold needs API 12");
   assert.equal(apiVersionOf("korg.after(100, () => { });"), 11, "a timer needs API 11");

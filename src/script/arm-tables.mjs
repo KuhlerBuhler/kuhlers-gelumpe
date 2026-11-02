@@ -16,7 +16,7 @@
  */
 import {
   FORMAT_VERSION, API_VERSION, MAGIC, LIMITS, HEADER, SECTION, OPCODES, OPCODE_COUNT, EVENTS, API, ERRORS, BUDGET, SCRIPT_ENTRY, SCRIPT_STATE, TIMER3, TIMERS,
-  BLOCK_FLAGS, SCRIPT_CONTROL, SCRIPT_PHASE, SCRIPT_EVENT_RECORD, SCRIPT_LED, SCRIPT_LED_VALID, SCRIPT_DISPLAY, SCRIPT_GIF, SCRIPT_KNOBS, SCRIPT_APPS, PATTERN_FIELDS, PART_FIELDS, PATTERN_FIELD_KINDS, PATTERN_PARTS, PATTERN_STEPS, STORE, ARCHIVE, DESC_TRAILER, CARD_STATUS,
+  BLOCK_FLAGS, SCRIPT_CONTROL, SCRIPT_PHASE, SCRIPT_EVENT_RECORD, SCRIPT_LED, SCRIPT_LED_VALID, SCRIPT_DISPLAY, SCRIPT_GIF, SCRIPT_KNOBS, SCRIPT_APPS, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PATTERN_FIELD_KINDS, PATTERN_PARTS, PATTERN_STEPS, STORE, ARCHIVE, DESC_TRAILER, CARD_STATUS,
 } from "../../data/script/contract.mjs";
 import { FONT } from "../../data/script/font.mjs";
 import { OBJECTS, OBJECT_BASES, OBJECT_TYPES, OBJECT_APPLY, OBJECT_ROW_SIZE, objectFlags } from "../../data/script/objects.mjs";
@@ -104,6 +104,11 @@ export function asmInclude() {
   eq("SCRIPT_PART_FIELD_COUNT", PART_FIELDS.length);
   PATTERN_FIELDS.forEach((f, i) => eq(`SCRIPT_PATTERN_FIELD_${i}`, f.offset | (PATTERN_FIELD_KINDS.indexOf(f.kind) << 16)));
   PART_FIELDS.forEach((f, i) => eq(`SCRIPT_PART_FIELD_${i}`, f.offset | (PATTERN_FIELD_KINDS.indexOf(f.kind) << 16)));
+  // korg.seq.setPartValue: parameter number, window code, minimum and maximum as bytes; 0 for a read-only field
+  PART_FIELDS.forEach((f, i) => {
+    const w = PART_WRITES[f.name];
+    eq(`SCRIPT_PART_WRITE_${i}`, w ? (w[0] | w[1] << 8 | (w[2] & 255) << 16 | (w[3] & 255) << 24) >>> 0 : 0);
+  });
   eq("SCRIPT_PART_BASE", PATTERN_PARTS.base);
   eq("SCRIPT_PART_STRIDE", PATTERN_PARTS.stride);
   for (const [name, value] of Object.entries(PATTERN_STEPS)) eq(`SCRIPT_STEP_${sym(name)}`, value);
