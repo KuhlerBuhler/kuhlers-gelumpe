@@ -585,6 +585,84 @@ knob_guard_release:
     bx lr
 .pool
 
+; korg.passKeys: while an app is open, the input filter keeps the keys from the firmware but REC, STOP, PLAY and EXIT
+; (input_mask in script_hooks.s); a plugin picks the keys that reach the firmware as well. The record at KEY_PASS holds a
+; word for keys 0 to 31 and one for 32 and 33, each bit the key's pass bit XOR its default (1 for REC, STOP and PLAY) and
+; inverted, so the FF of the power-on is the defaults; then two words with a bit clear for a key whose press reached the
+; firmware while an app was open, so its release follows. The app's close puts the defaults back (script_app_close).
+.equ KP_PASS, 0
+.equ KP_HELD, 8
+.equ KP_DEFAULT, 7
+
+; r0 key (0 to 33), r1 1 to let it reach the firmware, 0 to keep it. Only the VM writes the pass words, the input filter reads them.
+script_pass_keys_glue:
+    ldr r2, =KEY_PASS
+    mov r12, #KP_DEFAULT
+    cmp r0, #32
+    addhs r2, r2, #4
+    subhs r0, r0, #32
+    movhs r12, #0
+    mov r3, #1
+    mov r0, r3, lsl r0
+    tst r12, r0
+    moveq r12, #0
+    movne r12, #1
+    ldr r3, [r2, #KP_PASS]
+    cmp r1, r12
+    orreq r3, r3, r0
+    bicne r3, r3, r0
+    str r3, [r2, #KP_PASS]
+    mov r0, #0
+    mov r1, #ERR_OK
+    bx lr
+
+; r5 the panel message of a key while an app is open -> r0 nonzero when it reaches the firmware: a press when its key passes,
+; a release when its key passes or its press reached the firmware. Clobbers r2, r3 and r12.
+script_key_pass:
+    push {r1, r4}
+    ldrb r2, [r5, #0x0d]
+    mov r0, #0
+    cmp r2, #34
+    bhs key_pass_done
+    ldr r12, =KEY_PASS
+    mov r4, #KP_DEFAULT
+    cmp r2, #32
+    addhs r12, r12, #4
+    subhs r2, r2, #32
+    movhs r4, #0
+    ldr r0, [r12, #KP_PASS]
+    eor r0, r0, r4
+    mvn r0, r0
+    mov r3, #1
+    mov r3, r3, lsl r2
+    and r0, r0, r3
+    ldr r1, [r12, #KP_HELD]
+    ldrb r4, [r5, #0x0e]
+    cmp r4, #0
+    beq key_pass_release
+    cmp r0, #0
+    bicne r1, r1, r3
+    orreq r1, r1, r3
+    b key_pass_store
+key_pass_release:
+    tst r1, r3
+    orreq r0, r0, r3
+    orr r1, r1, r3
+key_pass_store:
+    str r1, [r12, #KP_HELD]
+key_pass_done:
+    pop {r1, r4}
+    bx lr
+
+; Puts the keys back to their defaults when an app closes. Clobbers r0 and r2.
+key_pass_reset:
+    ldr r2, =KEY_PASS
+    mvn r0, #0
+    str r0, [r2, #KP_PASS]
+    str r0, [r2, #KP_PASS+4]
+    bx lr
+.pool
+
 ; korg.remapKey: one key the panel sends reaches the firmware and the plugins as another, while the plugin that asked for it
 ; is armed. The record lies in the card loader's work area, between RM_AT and FX_STATE_AT: the plugin's entry, the checksum
 ; of its block (an entry address a later load reuses holds another block) and the two key codes (from in bits 0 to 7, to in

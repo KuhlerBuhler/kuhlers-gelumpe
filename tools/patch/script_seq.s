@@ -64,6 +64,201 @@ seq_clear_loop:
     bne seq_clear_loop
     b seq_done
 
+; r0 array, r1 part, r2 first step: whole records of 12 slots (PATTERN_STEPS: on, gate, velocity, trigger, four note places,
+; four more the runtime leaves alone) from step `first`, as far as the slots and the 64 steps go -> r0 the steps written.
+; Each value is clamped to its range; the on byte goes last, so the sequencer never plays a step that is half written.
+script_seq_write_steps_glue:
+    cmp r1, #16
+    cmplo r2, #SCRIPT_STEP_COUNT
+    bhs hw_bad_arg
+    push {r4-r8, lr}
+    ldr r3, =HOOK_RUNTIME
+    ldr r3, [r3, #RT_ENTRY]
+    ldr r3, [r3, #SCRIPT_ENTRY_VARS]
+    mov r12, r0, lsl #16
+    add r4, r3, r12, lsr #14
+    mov r5, r0, lsr #16
+    rsb r7, r2, #SCRIPT_STEP_COUNT
+    mov r6, #0
+steps_count:
+    cmp r5, #SCRIPT_STEP_STRIDE
+    blo steps_counted
+    cmp r6, r7
+    bhs steps_counted
+    sub r5, r5, #SCRIPT_STEP_STRIDE
+    add r6, r6, #1
+    b steps_count
+steps_counted:
+    movs r7, r6
+    beq steps_done
+    mov r0, r1
+    mov r1, r2
+    bl seq_record
+    mov r8, r12
+steps_record:
+    ldr r0, [r4, #4]
+    mov r1, #0
+    mov r2, #127
+    bl steps_clamp
+    strb r0, [r8, #SCRIPT_STEP_GATE]
+    ldr r0, [r4, #8]
+    mov r1, #1
+    bl steps_clamp
+    strb r0, [r8, #SCRIPT_STEP_VELOCITY]
+    ldr r0, [r4, #12]
+    mov r1, #0
+    mov r2, #1
+    bl steps_clamp
+    strb r0, [r8, #SCRIPT_STEP_TRIGGER]
+    mov r2, #128
+    mov r3, #0
+steps_note:
+    add r12, r4, r3, lsl #2
+    ldr r0, [r12, #16]
+    bl steps_clamp
+    add r12, r8, r3
+    strb r0, [r12, #SCRIPT_STEP_NOTES]
+    add r3, r3, #1
+    cmp r3, #4
+    blo steps_note
+    ldr r0, [r4]
+    mov r2, #1
+    bl steps_clamp
+    strb r0, [r8, #SCRIPT_STEP_ON]
+    add r4, r4, #SCRIPT_STEP_STRIDE*4
+    add r8, r8, #SCRIPT_STEP_STRIDE
+    subs r7, r7, #1
+    bne steps_record
+steps_done:
+    mov r0, r6
+    mov r1, #ERR_OK
+    pop {r4-r8, pc}
+
+; r0 value, r1 minimum, r2 maximum -> r0 clamped.
+steps_clamp:
+    cmp r0, r1
+    movlt r0, r1
+    cmp r0, r2
+    movgt r0, r2
+    bx lr
+
+; r0 part, r1 field (PART_FIELDS), r2 value: through the firmware's part edit, the setter the knobs go through, which writes
+; the pattern in RAM and the sound engine's copy. The value is clamped to the field's range first, the setter does not check
+; it. For the selected part the parameter window opens as a knob opens it. A build without the setter (HW_PART_EDIT 0) writes
+; nothing.
+script_seq_set_part_value_glue:
+    cmp r0, #16
+    cmplo r1, #SCRIPT_PART_FIELD_COUNT
+    bhs hw_bad_arg
+    ldr r3, =part_writes
+    ldr r3, [r3, r1, lsl #2]
+    cmp r3, #0
+    beq hw_bad_arg
+    ldr r12, =HW_PART_EDIT
+    cmp r12, #0
+    beq part_value_return
+    push {r4-r6, lr}
+    sub sp, sp, #16
+    mov r12, r3, lsl #8
+    mov r12, r12, asr #24
+    cmp r2, r12
+    movlt r2, r12
+    mov r12, r3, asr #24
+    cmp r2, r12
+    movgt r2, r12
+    and r5, r2, #255
+    mov r4, r0
+    mov r6, r3
+    str r5, [sp]
+    mov r12, #0
+    str r12, [sp, #4]
+    ldr r12, =HW_PART_EDITOR
+    ldr r0, [r12]
+    orr r1, r4, #0x10
+    mov r2, #0
+    and r3, r6, #255
+    ldr r12, =HW_PART_EDIT
+    blx r12
+    ldr r0, =HW_PART
+    ldr r0, [r0]
+    cmp r0, r4
+    bne part_value_done
+    mov r0, r6, lsr #8
+    and r0, r0, #255
+    str r0, [sp, #8]
+    str r5, [sp, #12]
+    ldr r0, =HW_PARAM_WINDOW
+    ldr r0, [r0]
+    add r0, r0, #4
+    add r1, sp, #8
+    ldr r12, =SEQ_NOTIFY
+    blx r12
+part_value_done:
+    add sp, sp, #16
+    pop {r4-r6, lr}
+part_value_return:
+    mov r0, #0
+    mov r1, #ERR_OK
+    bx lr
+
+; r0 array, r1 pattern (-1 the one in RAM, 0 to 249 the bank), r2 offset in its block: one byte per slot, as far as the block
+; goes -> r0 the bytes read.
+script_read_pattern_bytes_glue:
+    cmn r1, #1
+    blt hw_bad_arg
+    cmp r1, #250
+    bge hw_bad_arg
+    cmp r2, #0x4000
+    bhs hw_bad_arg
+    ldr r3, =HOOK_RUNTIME
+    ldr r3, [r3, #RT_ENTRY]
+    ldr r3, [r3, #SCRIPT_ENTRY_VARS]
+    mov r12, r0, lsl #16
+    add r3, r3, r12, lsr #14
+    mov r0, r0, lsr #16
+    rsb r12, r2, #0x4000
+    cmp r0, r12
+    movhi r0, r12
+    cmn r1, #1
+    ldreq r12, =HW_PATTERN_OBJECT+4
+    ldrne r12, =SC_BANK
+    addne r12, r12, r1, lsl #14
+    add r12, r12, r2
+    mov r1, #0
+pattern_bytes_loop:
+    cmp r1, r0
+    beq pattern_bytes_done
+    ldrb r2, [r12, r1]
+    str r2, [r3, r1, lsl #2]
+    add r1, r1, #1
+    b pattern_bytes_loop
+pattern_bytes_done:
+    mov r1, #ERR_OK
+    bx lr
+.pool
+
+part_writes:
+    .word SCRIPT_PART_WRITE_0
+    .word SCRIPT_PART_WRITE_1
+    .word SCRIPT_PART_WRITE_2
+    .word SCRIPT_PART_WRITE_3
+    .word SCRIPT_PART_WRITE_4
+    .word SCRIPT_PART_WRITE_5
+    .word SCRIPT_PART_WRITE_6
+    .word SCRIPT_PART_WRITE_7
+    .word SCRIPT_PART_WRITE_8
+    .word SCRIPT_PART_WRITE_9
+    .word SCRIPT_PART_WRITE_10
+    .word SCRIPT_PART_WRITE_11
+    .word SCRIPT_PART_WRITE_12
+    .word SCRIPT_PART_WRITE_13
+    .word SCRIPT_PART_WRITE_14
+    .word SCRIPT_PART_WRITE_15
+    .word SCRIPT_PART_WRITE_16
+    .word SCRIPT_PART_WRITE_17
+    .word SCRIPT_PART_WRITE_18
+    .word SCRIPT_PART_WRITE_19
+
 ; r0 part, r1 step -> r12 the step's record. Marks the frame as one that wrote steps (SQ_AT holds its own address). Clobbers r1.
 seq_record:
     ldr r12, =SCRIPT_PART_STRIDE
