@@ -191,6 +191,16 @@ def entry(name, ok, detail):
     return {"id": f"pswitch:{name}", "ok": bool(ok), "detail": str(detail)}
 
 
+def lit_half(box, limit=1.0):
+    """Runs in steps of 10 ms until the preview's blinking pads are in their lit half (V_BLINK phase 1, V_DARK empty), so a look
+    at the pads sees their colours and mutes without the blink. Returns at once when the blink never started (FF)."""
+    for _ in range(int(round(limit / 0.01))):
+        word = box.u32(spec.VIEW_W + spec.V_BLINK)
+        if word == 0xFFFFFFFF or ((word >> 8) & 0xFF == 1 and box.u32(spec.VIEW_W + spec.V_DARK) == 0):
+            return
+        box.run(0.01)
+
+
 # ---------------------------------------------------------------------------------------- the cases
 def case_browse(payload, flash):
     """The wheel browses while a pattern plays; nothing starts, no MIDI goes out, the lower line says VIEW:, MENU confirms."""
@@ -968,6 +978,7 @@ def case_view(payload, flash):
     mutes.m.uc.mem_write(mutes.slots + 0x4000 + 0x800 + 1, bytes([mutes.dev.read(live(mutes) + 0x800 + 1, 1)[0] ^ 1]))
     mutes.turn(1)
     mutes.run(0.5)
+    lit_half(mutes)
     other = lit(mutes)
     mutes.key("exit")
     mutes.run(0.5)
@@ -1055,6 +1066,7 @@ def case_view_pads(payload, flash):
 
     box = Box(payload, flash)
     bank, before = viewing(box)
+    lit_half(box)
     shown = (red(box), blue(box))
     pad(box, 0)
     pad(box, 1)
@@ -1085,6 +1097,7 @@ def case_view_pads(payload, flash):
     dropped = (mutes(back, live(back))[:3], red(back)[:3])
     back.turn(1)
     back.run(0.5)
+    lit_half(back)
     again = red(back)[:3]
     out.append(entry("view_exit_drops_the_mutes_set_on_the_pads",
                      dropped == ([0, 0, 0], [255, 255, 255]) and again == [255, 0, 0] and not back.m.asserts,
@@ -1210,6 +1223,7 @@ def case_view_copy(payload, flash):
 
     lit = Box(payload, flash)
     bank = viewing(lit, muted=False)
+    lit_half(lit)
     shown = lit.m.leds.get(0x2C + 2 * P, 0)
     pad(lit, P)
     got, want = part(lit, live(lit)), part(lit, bank)
@@ -1281,6 +1295,7 @@ def case_view_side(payload, flash):
 
     box = Box(payload, flash)
     bank = viewing(box)
+    lit_half(box)
     on_b = (red(box)[:3], box.u32(CELL_W) == spec.VIEW_W)
     shift_part_mute(box)
     on_a = (red(box), blue(box), box.u32(CELL_W) != spec.VIEW_W, mutes(box, live(box)), box.view())
@@ -1301,6 +1316,7 @@ def case_view_side(payload, flash):
                      f"pad 2 on the playing side: mutes in RAM {pressed[0]}, step 1 of part 2 {pressed[1]} (nothing copied), pad 2 red {pressed[2]}, "
                      f"copied parts {pressed[3]:#x}, view {pressed[4]}, banks unchanged {pressed[5]}"))
     shift_part_mute(box)
+    lit_half(box)
     back = (red(box)[:3], blue(box)[3:6], box.u32(CELL_W) == spec.VIEW_W)
     pad(box, P)
     got, want = part(box, live(box)), part(box, bank)
@@ -1324,6 +1340,7 @@ def case_view_side(payload, flash):
     ended = (turn.view(), turn.u32(CELL_W) != spec.VIEW_W)
     turn.turn(1)
     turn.run(0.5)
+    lit_half(turn)
     again = (turn.view(), turn.u32(CELL_W) == spec.VIEW_W, red(turn)[:3], blue(turn)[3:6])
     out.append(entry("view_wheel_keeps_the_side_a_new_preview_starts_on_the_viewed_pattern",
                      wheel[0] == (0, 2, 1) and wheel[1] and wheel[2] == plain_colours and wheel[3] == 0 and ended == ((0, 0, 0), True)
@@ -1353,8 +1370,161 @@ def case_view_side(payload, flash):
     return out
 
 
+def case_view_blink(payload, flash):
+    """In the preview the pads of the parts that are on in the viewed pattern blink (decision 02.11.): a press brings the part in and its
+    pad is lit steadily, the next press mutes it; a part muted in the viewed pattern stays dark until pressed. While MENU's LED blinks
+    (VIEW:) the pads blink with it, while it is lit (NEXT:) at the same rate on their own. On the playing side, in SEQUENCER, after EXIT,
+    after the switch and with EXIT held at power-on no pad blinks."""
+    out = []
+    P, MUTED, OTHER = 3, 1, 4                   # pad 4 is pressed (on in pattern 2), part 2 is muted in pattern 2, pad 5 is watched
+    BLINKING = [n for n in range(16) if n != MUTED]
+    live = lambda b: b.u32(0xC033E6A4) + 4
+    mute = lambda b, base, p: b.dev.read(base + 0x801 + 0x330 * p, 1)[0]
+    red = lambda b: [b.m.leds.get(0x2C + 2 * n, 0) for n in range(16)]
+
+    def pad(b, n):
+        b.m.send([4, n, 0, 100, 1])
+        b.run(0.1)
+        b.m.send([4, n, 0, 0, 0])
+        b.run(0.4)
+
+    def shift_part_mute(b):
+        b.dev.m.press(KEYS["shift"], True)
+        b.run(0.2)
+        b.key("part_mute")
+        b.dev.m.press(KEYS["shift"], False)
+        b.run(0.4)
+
+    def watch(b, seconds, confirmed=False):
+        """The red of every pad and MENU's LED, every 10 ms of device time; with `confirmed` only as long as the switch waits."""
+        rows = []
+        for _ in range(int(round(seconds / 0.01))):
+            b.run(0.01)
+            if confirmed and b.flags()[1] != 1:
+                break
+            rows.append((red(b), b.m.leds.get(spec.LED_MENU, 0)))
+        return rows
+
+    def values(rows, n):
+        return sorted({r[0][n] for r in rows})
+
+    def gaps(rows, n):
+        """Seconds between the changes of pad n's red (the first and last stretch left out, they are cut by the window)."""
+        at = [i for i in range(1, len(rows)) if rows[i][0][n] != rows[i - 1][0][n]]
+        return [round((b - a) * 0.01, 2) for a, b in zip(at, at[1:])]
+
+    def steady(rows):
+        return all(r[0] == rows[0][0] for r in rows)
+
+    def viewing(b):
+        """PART MUTE, pattern 1 plays, pattern 2 (part 2 muted in the bank) is browsed (VIEW:)."""
+        bank = b.slots + 0x4000
+        b.m.uc.mem_write(bank + 0x801 + 0x330 * MUTED, b"\x01")
+        b.key("part_mute")
+        play(b)
+        b.run(0.3)
+        b.turn(1)
+        b.run(0.3)
+        return bank
+
+    box = Box(payload, flash)
+    bank = viewing(box)
+    rows = watch(box, 1.5)
+    together = sum(all(r[0][n] == r[0][OTHER] for n in BLINKING) for r in rows) / len(rows)   # the 16 sends of one half can straddle a sample
+    with_menu = sum((r[0][OTHER] > 0) == (r[1] > 0) for r in rows) / len(rows)
+    rate = gaps(rows, OTHER)
+    out.append(entry("view_pads_of_parts_that_are_on_blink",
+                     all(values(rows, n) == [0, 255] for n in BLINKING) and values(rows, MUTED) == [0] and together >= 0.95
+                     and rate and all(0.24 <= g <= 0.32 for g in rate) and with_menu >= 0.95 and not box.m.asserts,
+                     f"pattern 2 viewed: red of pad 5 {values(rows, OTHER)}, pad 2 (muted in pattern 2) {values(rows, MUTED)}, all blinking pads together "
+                     f"{together:.2f}, seconds between changes {rate}, in step with MENU's LED {with_menu:.2f}"))
+    pad(box, P)
+    rows = watch(box, 1.0)
+    out.append(entry("view_press_brings_the_part_in_and_stops_its_blink",
+                     values(rows, P) == [255] and values(rows, OTHER) == [0, 255] and mute(box, live(box), P) == 0
+                     and box.u32(spec.VIEW_W + spec.V_COPY) & (1 << P) and not box.m.asserts,
+                     f"pad 4 pressed: its red {values(rows, P)}, pad 5 {values(rows, OTHER)}, part 4 muted in RAM {mute(box, live(box), P)}, "
+                     f"brought in {box.u32(spec.VIEW_W + spec.V_COPY):#x}"))
+    pad(box, P)
+    rows = watch(box, 1.0)
+    out.append(entry("view_second_press_turns_the_brought_part_off",
+                     values(rows, P) == [0] and mute(box, live(box), P) == 1 and values(rows, OTHER) == [0, 255] and not box.m.asserts,
+                     f"pad 4 again: its red {values(rows, P)}, part 4 muted in RAM {mute(box, live(box), P)}, pad 5 {values(rows, OTHER)}"))
+    pad(box, MUTED)
+    rows = watch(box, 1.0)
+    out.append(entry("view_muted_part_stays_dark_until_pressed_then_lit",
+                     values(rows, MUTED) == [255] and mute(box, live(box), MUTED) == 0 and not box.m.asserts,
+                     f"pad 2 (muted in pattern 2, dark while viewed) pressed: its red {values(rows, MUTED)}, part 2 muted in RAM {mute(box, live(box), MUTED)}"))
+    box.key("menu", 0.6)
+
+    nxt = Box(payload, flash)                   # a box of its own: 6 s of the one above end on a bar line, MENU there switches at once
+    viewing(nxt)
+    pad(nxt, P)
+    pad(nxt, P)
+    nxt.key("menu", 0.6)
+    confirmed = nxt.flags()[1]
+    rows = watch(nxt, 1.5, confirmed=True)
+    rate = gaps(rows, OTHER)
+    out.append(entry("view_confirmed_pads_blink_at_the_same_rate",
+                     confirmed == 1 and len(rows) >= 60 and {r[1] for r in rows} == {255} and values(rows, OTHER) == [0, 255]
+                     and rate and all(0.24 <= g <= 0.32 for g in rate) and values(rows, P) == [0] and not nxt.m.asserts,
+                     f"MENU (NEXT:): confirmed {confirmed}, {len(rows) * 0.01:.2f} s watched until the switch, MENU's LED {sorted({r[1] for r in rows})}, "
+                     f"pad 5 {values(rows, OTHER)}, seconds between changes {rate}, pad 4 (muted after being brought in) {values(rows, P)}"))
+    box.until_change()
+    box.run(0.5)
+    rows = watch(box, 1.0)
+    out.append(entry("view_switch_ends_the_blink",
+                     box.running() == 1 and steady(rows) and rows[0][0][OTHER] == 255 and not box.m.asserts,
+                     f"after the switch: running {box.running()}, pads steady {steady(rows)}, red {rows[0][0]}"))
+
+    side = Box(payload, flash)
+    viewing(side)
+    shift_part_mute(side)
+    a_rows = watch(side, 1.0)
+    shift_part_mute(side)
+    b_rows = watch(side, 1.0)
+    out.append(entry("view_playing_side_does_not_blink",
+                     steady(a_rows) and a_rows[0][0] == [255] * 16 and values(b_rows, OTHER) == [0, 255] and values(b_rows, MUTED) == [0]
+                     and not side.m.asserts,
+                     f"SHIFT + PART MUTE (the playing pattern's pads): steady {steady(a_rows)}, red {a_rows[0][0]}; again (the viewed pattern's): "
+                     f"pad 5 {values(b_rows, OTHER)}, pad 2 {values(b_rows, MUTED)}"))
+
+    leave = Box(payload, flash)
+    viewing(leave)
+    for _ in range(100):                        # EXIT while the blinking pads are dark: they come back lit
+        if red(leave)[OTHER] == 0:
+            break
+        leave.run(0.01)
+    dark = red(leave)[OTHER]
+    leave.key("exit")
+    rows = watch(leave, 1.0)
+    out.append(entry("view_exit_in_the_dark_half_lights_the_pads_again",
+                     dark == 0 and leave.view() == (0, 0, 0) and steady(rows) and rows[0][0] == [255] * 16 and not leave.m.asserts,
+                     f"EXIT with pad 5 dark ({dark}): view {leave.view()}, pads steady {steady(rows)}, red {rows[0][0]}"))
+
+    seq = Box(payload, flash)
+    seq.m.uc.mem_write(live(seq) + 0x800 + 0x30, b"\x01")     # an unsaved step: stopped, the wheel browses (VIEW:) as while playing
+    seq.dev.press(0x15, 0.4)
+    seq.turn(1)
+    seq.run(0.3)
+    s_rows = watch(seq, 1.0)
+    seq.key("part_mute")
+    m_rows = watch(seq, 1.0)
+    out.append(entry("view_sequencer_does_not_blink",
+                     seq.view()[1:] == (1, 1) and steady(s_rows) and values(m_rows, OTHER) == [0, 255] and not seq.m.asserts,
+                     f"stopped with an unsaved step, SEQUENCER, pattern 2 viewed: view {seq.view()}, pads steady {steady(s_rows)}; "
+                     f"PART MUTE: pad 5 {values(m_rows, OTHER)}"))
+
+    ref = Box(payload, flash, KILL)
+    viewing(ref)
+    rows = watch(ref, 1.0)
+    out.append(entry("view_blink_kill_switch_is_stock", steady(rows) and not ref.m.asserts,
+                     f"EXIT at power-on, pattern 2 browsed: pads steady {steady(rows)}, red {rows[0][0]}"))
+    return out
+
+
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
-          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side)
+          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side, case_view_blink)
 
 
 def group_entries(payload, flash, i):

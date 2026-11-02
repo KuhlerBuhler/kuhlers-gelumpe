@@ -77,6 +77,12 @@
    "to": "0xC0063584",
    "kind": "code",
    "why": "where both ways of PART MUTE end (ldr r0, [r5, #4], the key handed on to the screen's handler at +0xC); read in both images"
+  },
+  {
+   "from": "0xC008774C",
+   "to": "0xC0077808",
+   "kind": "code",
+   "why": "the LED tick's counter clear before its loop (mov r5, #0), +0xC of the tick 0xC0087740 / 0xC00777FC: the words around it equal in both images (fwmap same code)"
   }
  ]
 }
