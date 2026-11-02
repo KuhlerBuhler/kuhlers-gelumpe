@@ -381,7 +381,8 @@ test("patcher: Korg's original asks for the user's own hacktribe-2.patch, conver
   await page.click("#cee-patch-next");
   assert.equal(await needs.isVisible(), false);
   assert.equal(await page.locator("#app-toasts .cee-toast[data-kind=error]").count(), 2, "the two wrong files told their error, the conversion adds none");
-  for (const close of await page.locator("#app-toasts .cee-toast-close").all()) await close.click();
+  const open = page.locator("#app-toasts .cee-toast:not([data-closing]) .cee-toast-close");
+  while (await open.count()) await open.first().click();
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
   assert.deepEqual(new Uint8Array(fake.seen.check.pair.subarray(0, 0x200100)), hacktribe, "the check gets the converted Hacktribe file as the original");
@@ -840,7 +841,9 @@ test("patcher: without network the Hacktribe download says so and the field for 
   await drop(page, original);
   await page.locator("#app-toasts .cee-toast", { hasText: "hacktribe-2.patch ließ sich nicht laden" }).waitFor();
   // the error toast stays until closed and lies over the buttons
-  for (const close of await page.locator("#app-toasts .cee-toast-close").all()) await close.click();
+  // the loading toast is still in the DOM for 250 ms after its close, a snapshot of all close buttons can point at a removed one
+  const open = page.locator("#app-toasts .cee-toast:not([data-closing]) .cee-toast-close");
+  while (await open.count()) await open.first().click();
   await page.waitForFunction(() => !document.querySelector("#app-toasts .cee-toast.visible"));
   await page.click("#cee-patch-next");
   assert.equal(await page.isDisabled("#cee-patch-hacktribe-file"), false, "the own file can still be dropped");
