@@ -1,5 +1,5 @@
 /** The sequencer and panel state a script can read, for the simulated device. The values follow the firmware's ranges. */
-import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PATTERN_PARTS, PATTERN_STEPS } from "../../data/script/contract.mjs";
+import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PATTERN_PARTS, PATTERN_STEPS } from "../../data/script/contract.mjs";
 import { ScriptFault } from "./vm.mjs";
 import { text, render } from "../text.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
@@ -30,6 +30,14 @@ export class SimHardware {
     this.ledHold = 0;
     /** korg.padHold: 1 while pad presses reach the plugins only, not the firmware. An app's close gives the pads back. */
     this.padHold = 0;
+    /** korg.knobHold: one bit per knob whose moves reach the plugins only; korg.knob: the last value a plugin gave the firmware per knob. */
+    this.knobHold = 0;
+    this.firmwareKnobs = new Int32Array(11);
+    /** korg.passKeys: per key 1 when it reaches the firmware while an app is open. REC, STOP and PLAY do by default; an app's close resets them. */
+    this.keyPass = new Uint8Array(34);
+    this.resetKeyPass();
+    /** Set by the device before each input: whether an app is open, so the keys an app keeps do not reach the firmware. */
+    this.appOpen = false;
     /** The leaves of the object tree by id (data/script/objects.mjs), at their factory values; `repairs` is korg.system.repairs. */
     this.objects = OBJECTS.map(o => o.factory);
     /** 0 finger up, 1 the press came and the first position has not, 2 the first position is out. */
@@ -56,6 +64,12 @@ export class SimHardware {
       "korg.backlight": (red, green, blue) => { this.backlight = [red, green, blue]; },
       "korg.ledHold": on => { this.ledHold = on; },
       "korg.padHold": on => { this.padHold = on; },
+      "korg.knobHold": (index, on) => { this.knobHold = on ? this.knobHold | 1 << index : this.knobHold & ~(1 << index); },
+      "korg.knob": (index, value) => { this.firmwareKnobs[index] = value; },
+      "korg.passKeys": (key, on) => { this.keyPass[key] = on; },
+      "korg.seq.setPartValue": (part, field, value) => this.setPartValue(part, field, value),
+      "korg.read.patternBytes": (slots, pattern, offset) => this.patternBytes(slots, pattern, offset),
+      "korg.seq.writeSteps": (slots, part, first) => this.writeSteps(slots, part, first),
       "korg.mute": (part, muted) => { if (this.mutes[part] !== muted) { this.mutes[part] = muted; this.emit("mute", part, muted); } },
       "korg.seq.setStep": (part, step, note, velocity) => this.setStep(part, step, note, velocity),
       "korg.seq.setGate": (part, step, gate) => { this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.gate] = gate; },
@@ -79,6 +93,49 @@ export class SimHardware {
     const clamped = Math.min(o.max, Math.max(o.min, value));
     if (clamped !== value) this.objects[REPAIRS] += 1;
     this.objects[leaf] = clamped;
+  }
+
+  /** The keys that reach the firmware while an app is open, as at power-on and after an app's close: REC, STOP and PLAY. */
+  resetKeyPass() { this.keyPass.fill(0); this.keyPass.fill(1, 0, 3); }
+
+  /** korg.passKeys as the input filter reads it: 1 when the key reaches the firmware while an app is open. */
+  keyPasses(key) { return this.keyPass[key]; }
+
+  /** korg.seq.setPartValue in the pattern in RAM: the value clamped to the field's range, a signed one as its byte. */
+  setPartValue(part, field, value) {
+    const f = PART_FIELDS[field];
+    const w = f && PART_WRITES[f.name];
+    if (!w) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectReadOnly", { path: `korg.parts[${part}].${f?.name ?? field}` })));
+    this.patternBlock(-1)[PATTERN_PARTS.base + part * PATTERN_PARTS.stride + f.offset] = Math.min(w[3], Math.max(w[2], value)) & 255;
+  }
+
+  /** korg.read.patternBytes: one byte of the block per slot from `offset`, as far as the block goes; returns how many. */
+  patternBytes(slots, pattern, offset) {
+    const block = this.patternBlocks.get(pattern) ?? new Uint8Array(PATTERN_PARTS.bytes);
+    const count = Math.min(slots.length, PATTERN_PARTS.bytes - offset);
+    for (let i = 0; i < count; i++) slots[i] = block[offset + i];
+    return count;
+  }
+
+  /**
+   * korg.seq.writeSteps: whole step records of 12 slots each into part `part` of the pattern in RAM from step `first`, as far
+   * as the slots and the 64 steps go; returns how many. Each value is clamped to its range (on and trigger 0 to 1, gate 0 to
+   * 127, velocity 1 to 127, the note places 0 to 128); slots 8 to 11 of a record are not written.
+   */
+  writeSteps(slots, part, first) {
+    const block = this.patternBlock(-1);
+    const count = Math.min(Math.floor(slots.length / PATTERN_STEPS.stride), PATTERN_STEPS.count - first);
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    for (let i = 0; i < count; i++) {
+      const at = this.stepAt(part, first + i);
+      const r = slots.subarray(i * PATTERN_STEPS.stride, (i + 1) * PATTERN_STEPS.stride);
+      block[at + PATTERN_STEPS.on] = clamp(r[0], 0, 1);
+      block[at + PATTERN_STEPS.gate] = clamp(r[1], 0, 127);
+      block[at + PATTERN_STEPS.velocity] = clamp(r[2], 1, 127);
+      block[at + PATTERN_STEPS.trigger] = clamp(r[3], 0, 1);
+      for (let n = 0; n < 4; n++) block[at + PATTERN_STEPS.notes + n] = clamp(r[4 + n], 0, 128);
+    }
+    return count;
   }
 
   /** Where a step's record starts in the pattern block. */
@@ -149,9 +206,10 @@ export class SimHardware {
    */
   input(event, ...args) {
     if (event === "knob" && args[0] >= 0 && args[0] < SCRIPT_KNOBS) this.knobs[args[0]] = args[1] | 0;
-    // PLAY and STOP reach the firmware even while an app is open, and the app sees the key as well
-    if (event === "buttonPress" && args[0] === KEY_PLAY) this.api()["korg.play"]();
-    if (event === "buttonPress" && args[0] === KEY_STOP) this.api()["korg.stop"]();
+    // PLAY and STOP reach the firmware even while an app is open unless it keeps them (korg.passKeys), and the app sees the key as well
+    const firmware = !this.appOpen || this.keyPass[args[0]];
+    if (event === "buttonPress" && args[0] === KEY_PLAY && firmware) this.api()["korg.play"]();
+    if (event === "buttonPress" && args[0] === KEY_STOP && firmware) this.api()["korg.stop"]();
     if (event === "buttonPress" && args[0] === KEY_TOUCHPAD) this.touch = 1;
     if (event === "buttonRelease" && args[0] === KEY_TOUCHPAD) this.touch = 0;
     if (event === "touch") {

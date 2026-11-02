@@ -1,7 +1,7 @@
 # 82. Vorschau: einen Part ins laufende Pattern holen
 
 Wunsch (30.10.): in der Vorschau (`VIEW:` oder `NEXT:`) ein Pad im Modus PART MUTE drücken, und der Part fängt an zu spielen,
-ohne dass das Pattern gewechselt wird. Stand 2026-10-30: **gebaut, im Emulator geprüft (Hacktribe, rot, blau), am Gerät nichts.**
+ohne dass das Pattern gewechselt wird. Stand 2026-11-02: **gebaut, im Emulator geprüft (Hacktribe, rot, blau), am Gerät nichts.**
 Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 
 ## Entschieden (30.10.)
@@ -28,6 +28,16 @@ Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
   nicht gegen die Anzeige von B laufen. Die Mutes, die auf B gesetzt waren, bleiben für den Wechsel.
 - SHIFT + PART MUTE hebt in der Firmware alle Mutes auf einmal auf (gemessen, [Tastenkombinationen](../tastenkombinationen.md)). In der
   Vorschau tut es das mit dem Patch nicht mehr, ohne Vorschau weiter wie immer.
+
+## Entschieden (02.11.): die Pads blinken
+
+- In der Vorschau blinken im Modus PART MUTE die Pads der Parts, die in B an sind. Man sieht so, welche Parts B mitbringt und
+  welche schon geholt sind.
+- Ein Druck holt den Part wie oben, sein Pad hört auf zu blinken und leuchtet. Der nächste Druck schaltet ihn aus.
+- Parts, die in B stumm sind, bleiben dunkel, ein Druck holt sie, dann leuchtet das Pad.
+- Takt wie MENU: 280 ms an, 280 ms aus. Blinkt MENU (`VIEW:`), blinken die Pads mit, bei `NEXT:` im selben Takt für sich.
+- Auf der Seite von A (SHIFT + PART MUTE), im SEQUENCER und mit EXIT beim Einschalten blinkt nichts.
+- Gebaut, im Emulator geprüft (Hacktribe, rot, blau), am Gerät nichts. ([Messung](../messungen/2026-11-02-vorschau-pads-blinken.md))
 
 ## Wie es geht
 
@@ -63,3 +73,7 @@ Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 7. In der Vorschau SHIFT + PART MUTE: normale Farben, die Pads schalten A, nichts wird kopiert. Noch einmal: Vorschaufarbe, der erste
    Druck holt den Part. Rad weiter: die Seite bleibt. EXIT, neu ansehen: wieder B.
 8. Ohne Vorschau hebt SHIFT + PART MUTE weiter alle Mutes auf.
+9. Blinken: in der Vorschau blinken die Pads der Parts, die in B an sind, im Takt von MENU, auch nach MENU (`NEXT:`). Ein Druck: das
+   Pad leuchtet fest, der Part spielt. Noch ein Druck: dunkel. Die Pads der in B stummen Parts bleiben dunkel bis zum Druck.
+10. Blinken: flackert ein Pad kurz auf, wenn man ein anderes drückt? Wie sieht es mit eigenen Pad-Farben aus (nur die rote LED blinkt)?
+11. Blinken: nach EXIT, nach dem Wechsel und mit SHIFT + PART MUTE leuchten alle Pads wieder normal, keins bleibt dunkel.

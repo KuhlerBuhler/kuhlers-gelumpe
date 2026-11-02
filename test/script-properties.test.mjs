@@ -80,6 +80,11 @@ test("the values of a pattern have names: the pattern that plays, every stored p
     ["let t = korg.parts[2].cutoff;", "let t = korg.read.patternValue(-1, 2, 2);"],
     ["let t = korg.chainMode;", "let t = korg.read.chainMode();"],
   ]) assert.equal(blob(named), blob(call), named);
+  for (const [named, call] of [
+    ["korg.parts[2].cutoff = 64;", "korg.seq.setPartValue(2, 2, 64);"],
+    ["korg.parts[0].pitch += 1;", "korg.seq.setPartValue(0, 15, korg.read.patternValue(-1, 0, 15) + 1);"],
+  ]) assert.equal(blob(named), blob(call), named);
+  assert.match(error("korg.parts[1].sample = 3;"), /nur lesen/);
   assert.match(error("korg.current.tempo = 1200;"), /nur lesen/);
   assert.match(error("let t = korg.patterns[1].nope;"), /gibt es nicht/);
 
