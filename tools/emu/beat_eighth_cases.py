@@ -375,7 +375,10 @@ def groups_for(payload):
 def group_entries(payload, flash, i):
     for_build(payload)
     groups = groups_for(payload)
-    return groups[i](payload, flash) if i < len(groups) else []
+    if i >= len(groups):
+        return []
+    with probe.fine_slices():          # the timing of steps and clocks is measured with the probe's slices
+        return groups[i](payload, flash)
 
 
 def cases_task(i):
