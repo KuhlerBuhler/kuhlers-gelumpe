@@ -515,6 +515,76 @@ pad_guard_release:
     pop {pc}
 .pool
 
+; korg.knobHold and korg.knob: a plugin keeps a knob's moves from the firmware and sets the knob's value itself, to filter a
+; knob that jumps. The record at KNOB_HOLD holds a bit per knob that still reaches the firmware (the input filter reads it,
+; input_mask_knob in script_hooks.s), then the plugin that held the last knob and the checksum of its block, as korg.remapKey
+; keeps its owner. The bits count the free knobs, so the FF of the power-on is all knobs free. The hold ends with knobHold(i, 0)
+; and when that plugin no longer runs (script_knob_hold_guard), not when an app closes: a filter runs without an app.
+.equ KH_FREE, 0
+.equ KH_OWNER, 4
+.equ KH_CRC, 8
+
+; r0 knob (0 to 10), r1 1 to hold, 0 to let go. Only the VM writes the record, the input filter reads one word.
+script_knob_hold_glue:
+    ldr r2, =KNOB_HOLD
+    ldr r3, [r2, #KH_FREE]
+    mov r12, #1
+    cmp r1, #0
+    orreq r3, r3, r12, lsl r0
+    bicne r3, r3, r12, lsl r0
+    str r3, [r2, #KH_FREE]
+    beq knob_hold_done
+    ldr r3, =HOOK_RUNTIME
+    ldr r3, [r3, #RT_ENTRY]
+    str r3, [r2, #KH_OWNER]
+    ldr r3, [r3, #SCRIPT_ENTRY_BLOB]
+    ldr r3, [r3, #12]
+    str r3, [r2, #KH_CRC]
+knob_hold_done:
+    mov r0, #0
+    mov r1, #ERR_OK
+    bx lr
+
+; r0 knob (0 to 10), r1 value (0 to 255): the firmware's knob handler, as if the knob had sent it.
+script_knob_glue:
+    push {lr}
+    ldr r12, =HW_KNOB
+    blx r12
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {pc}
+
+; r0 runtime. Lets the knobs go when the plugin that holds them is gone from the list, no longer armed or holds another block.
+; Clobbers r1 to r3 and r12.
+script_knob_hold_guard:
+    ldr r1, =KNOB_HOLD
+    ldr r2, [r1, #KH_FREE]
+    cmn r2, #1
+    bxeq lr
+    ldr r2, [r1, #KH_OWNER]
+    ldr r3, [r0, #RT_HEAD]
+knob_guard_find:
+    cmp r3, #0
+    beq knob_guard_release
+    cmp r3, r2
+    beq knob_guard_owner
+    ldr r3, [r3, #SCRIPT_ENTRY_NEXT]
+    b knob_guard_find
+knob_guard_owner:
+    ldr r3, [r2, #SCRIPT_ENTRY_STATE]
+    cmp r3, #SCRIPT_STATE_ARMED
+    bne knob_guard_release
+    ldr r3, [r2, #SCRIPT_ENTRY_BLOB]
+    ldr r3, [r3, #12]
+    ldr r12, [r1, #KH_CRC]
+    cmp r3, r12
+    bxeq lr
+knob_guard_release:
+    mvn r2, #0
+    str r2, [r1, #KH_FREE]
+    bx lr
+.pool
+
 ; korg.remapKey: one key the panel sends reaches the firmware and the plugins as another, while the plugin that asked for it
 ; is armed. The record lies in the card loader's work area, between RM_AT and FX_STATE_AT: the plugin's entry, the checksum
 ; of its block (an entry address a later load reuses holds another block) and the two key codes (from in bits 0 to 7, to in

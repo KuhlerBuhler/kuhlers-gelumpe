@@ -1995,6 +1995,8 @@ export default {
   "api.korg.backlight": "Zet de drie kleuren van de displayverlichting aan (1) of uit (0).",
   "api.korg.ledHold": "1 houdt de firmware ervan af de paneel-LED's opnieuw te schrijven, 0 geeft ze terug.",
   "api.korg.padHold": "1 houdt padaanslagen weg van de firmware (geen geluid, geen stapwijziging), de plugin krijgt nog steeds pad, 0 geeft de pads terug.",
+  "api.korg.knobHold": "1 houdt de bewegingen van knop index weg van de firmware, de plugin krijgt nog steeds knob, 0 geeft hem terug.",
+  "api.korg.knob": "Geeft de firmware de waarde 0 tot 255 alsof knop index (0 tot 10) hem had gestuurd.",
   "api.korg.menu.add": "Maakt een pagina in het menu BLECH aan en geeft het nummer terug, -1 als alle plekken bezet zijn. Draait de gebruiker eraan, dan komt het event menu.",
   "api.korg.app": "Meldt de plugin als app aan in het menu BLECH en geeft het nummer terug. Staat één keer helemaal bovenaan in de code, name heeft maximaal 15 tekens.",
   "api.korg.file.frame": "Leest beeld index van het bestand GIFnn.E2G (nn = file) van de kaart in de array, één byte per plek. Geeft de duur in ms terug, 0 na het laatste beeld, -1 zonder bestand.",

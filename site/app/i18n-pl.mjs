@@ -1995,6 +1995,8 @@ export default {
   "api.korg.backlight": "Włącza (1) albo wyłącza (0) trzy kolory światła wyświetlacza.",
   "api.korg.ledHold": "1 powstrzymuje firmware przed ponownym zapisywaniem diod LED panelu, 0 oddaje je z powrotem.",
   "api.korg.padHold": "1 zatrzymuje uderzenia padów przed firmware (bez dźwięku, bez zmiany kroku), plugin nadal dostaje pad, 0 oddaje pady.",
+  "api.korg.knobHold": "1 zatrzymuje ruchy pokrętła index przed firmware, plugin nadal dostaje knob, 0 je oddaje.",
+  "api.korg.knob": "Przekazuje firmware wartość od 0 do 255, jakby wysłało ją pokrętło index (od 0 do 10).",
   "api.korg.menu.add": "Zakłada stronę w menu BLECH i zwraca jej numer, -1 jeśli wszystkie miejsca są zajęte. Gdy użytkownik nią kręci, przychodzi zdarzenie menu.",
   "api.korg.app": "Zgłasza plugin jako aplikację w menu BLECH i zwraca jej numer. Stoi raz na samej górze kodu, name ma najwyżej 15 znaków.",
   "api.korg.file.frame": "Wczytuje obraz index z pliku GIFnn.E2G (nn = file) z karty do tablicy, jeden bajt na miejsce. Zwraca czas trwania w ms, 0 za ostatnim obrazem, -1 bez pliku.",

@@ -30,6 +30,9 @@ export class SimHardware {
     this.ledHold = 0;
     /** korg.padHold: 1 while pad presses reach the plugins only, not the firmware. An app's close gives the pads back. */
     this.padHold = 0;
+    /** korg.knobHold: one bit per knob whose moves reach the plugins only; korg.knob: the last value a plugin gave the firmware per knob. */
+    this.knobHold = 0;
+    this.firmwareKnobs = new Int32Array(11);
     /** The leaves of the object tree by id (data/script/objects.mjs), at their factory values; `repairs` is korg.system.repairs. */
     this.objects = OBJECTS.map(o => o.factory);
     /** 0 finger up, 1 the press came and the first position has not, 2 the first position is out. */
@@ -56,6 +59,8 @@ export class SimHardware {
       "korg.backlight": (red, green, blue) => { this.backlight = [red, green, blue]; },
       "korg.ledHold": on => { this.ledHold = on; },
       "korg.padHold": on => { this.padHold = on; },
+      "korg.knobHold": (index, on) => { this.knobHold = on ? this.knobHold | 1 << index : this.knobHold & ~(1 << index); },
+      "korg.knob": (index, value) => { this.firmwareKnobs[index] = value; },
       "korg.mute": (part, muted) => { if (this.mutes[part] !== muted) { this.mutes[part] = muted; this.emit("mute", part, muted); } },
       "korg.seq.setStep": (part, step, note, velocity) => this.setStep(part, step, note, velocity),
       "korg.seq.setGate": (part, step, gate) => { this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.gate] = gate; },

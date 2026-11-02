@@ -299,6 +299,23 @@ test("the pad hold is state in the simulated hardware and ends when the app clos
   assert.equal(sim.hardware.padHold, 0, "EXIT closes the app and gives the pads back");
 });
 
+test("the knob hold and the knob value a plugin gives the firmware are state in the simulated hardware", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("filter", `
+    korg.onEvent("ready", () => { korg.knobHold(9, 1); });
+    korg.onEvent("knob", (index, value) => { if (index == 9) korg.knob(9, value); if (index == 0) korg.knobHold(9, 0); });
+  `)).ok);
+  sim.frame();
+  assert.equal(sim.hardware.knobHold, 1 << 9);
+  sim.post("knob", 9, 136);
+  sim.frame();
+  assert.equal(sim.hardware.firmwareKnobs[9], 136);
+  assert.equal(sim.hardware.knobs[9], 136, "korg.read.knob keeps the panel's value");
+  sim.post("knob", 0, 5);
+  sim.frame();
+  assert.equal(sim.hardware.knobHold, 0);
+});
+
 test("korg.menu.add puts a page in the device menu, the user's change reaches the script as a menu event", () => {
   const device = new SimDevice();
   const loaded = device.load(build("menus", `

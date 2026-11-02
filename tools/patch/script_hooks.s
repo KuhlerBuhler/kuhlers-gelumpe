@@ -230,6 +230,8 @@ input_mask_app:
 input_mask_go:
     cmp r6, #4
     beq input_mask_pad
+    cmp r6, #2
+    beq input_mask_knob
 input_mask_bit:
     mov r2, #1
     mov r2, r2, lsl r6
@@ -240,6 +242,17 @@ input_drop:
     .word 0xE12FF00C ; msr cpsr_cxsf, r12
     pop {r0-r12, lr}
     bx lr
+; korg.knobHold: a knob whose bit is clear in KNOB_HOLD stays away from the firmware (script_knob_hold_glue).
+input_mask_knob:
+    ldrb r2, [r5, #0x0d]
+    cmp r2, #SCRIPT_KNOBS
+    bhs input_mask_bit
+    ldr r3, =KNOB_HOLD
+    ldr r3, [r3]
+    mov r0, #1
+    tst r3, r0, lsl r2
+    beq input_drop
+    b input_mask_bit
 input_mask_pad:
     ldrb r2, [r5, #0x0d]
     cmp r2, #16
@@ -621,6 +634,8 @@ frame_finish:
     bl script_led_hold_guard
     mov r0, r4
     bl script_pad_hold_guard
+    mov r0, r4
+    bl script_knob_hold_guard
     mov r0, r4
     bl script_display_blit
     bl display_calibrate

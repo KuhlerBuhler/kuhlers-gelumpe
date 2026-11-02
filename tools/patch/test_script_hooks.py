@@ -492,6 +492,48 @@ class HookTests(unittest.TestCase):
         machine.call('script_pad_hold_guard',machine.runtime)
         self.assertEqual(mask(),0x2,'a plugin that faulted lets the pads go')
 
+    def test_knob_hold_keeps_a_knob_from_the_firmware_and_knob_gives_it_a_value(self):
+        machine,built=self.machine()
+        entry=self.app_script(machine)
+        self.declare(machine,built,[entry])
+        machine.write(entry+12,2)
+        from tools.patch.script_hooks import KNOB_HOLD as hold
+        machine.write(hold,0xFFFFFFFF)    # FF at power-on: every knob free
+        osc,level=[2,9,0,136,0],[2,0,0,40,0]
+        self.assertEqual(self.input(machine,osc),0xC0028380,'without the hold the knob reaches the firmware')
+        self.drain(machine)
+        self.assertEqual(machine.call('script_knob_hold_glue',9,1),(0,0))
+        self.assertEqual(machine.read(hold),0xFFFFFFFF^1<<9)
+        self.assertEqual(machine.read(hold+4),entry,'the plugin that holds it')
+        self.assertEqual(self.input(machine,osc),machine.stop,'held: the firmware does not get the knob')
+        self.assertEqual(self.input(machine,level),0xC0028380,'the other knobs go through')
+        self.assertEqual([e[:3] for e in self.drain(machine)],[(5,9,136),(5,0,40)],'the plugin still gets the held knob')
+        self.assertEqual(machine.read(machine.runtime+built.symbols['RT_KNOBS']+9*4),136)
+        machine.call('script_app_close',machine.runtime)
+        self.assertEqual(machine.read(hold),0xFFFFFFFF^1<<9,'closing an app keeps the hold')
+        machine.call('script_knob_hold_guard',machine.runtime)
+        self.assertEqual(machine.read(hold),0xFFFFFFFF^1<<9,'an armed owner keeps the hold')
+        self.assertEqual(machine.call('script_knob_hold_glue',9,0),(0,0))
+        self.assertEqual(machine.read(hold),0xFFFFFFFF)
+        self.assertEqual(self.input(machine,osc),0xC0028380)
+        machine.call('script_knob_hold_glue',9,1)
+        machine.write(entry+12,3)
+        machine.call('script_knob_hold_guard',machine.runtime)
+        self.assertEqual(machine.read(hold),0xFFFFFFFF,'a plugin that faulted lets the knobs go')
+        machine.write(entry+12,2)
+        machine.call('script_knob_hold_glue',9,1)
+        blob=machine.read(entry+built.symbols['SCRIPT_ENTRY_BLOB'])
+        machine.write(blob+12,machine.read(blob+12)^1)
+        machine.call('script_knob_hold_guard',machine.runtime)
+        self.assertEqual(machine.read(hold),0xFFFFFFFF,'another block at the same entry is not the owner')
+        # korg.knob calls the firmware's knob handler with the index and the value
+        machine.uc.mem_map(0xC0040000,4096)
+        machine.uc.mem_write(0xC0040A50,struct.pack('<I',0xE12FFF1E))
+        seen=[]
+        machine.uc.hook_add(UC_HOOK_CODE,lambda uc,*_:seen.append((uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1))),begin=0xC0040A50,end=0xC0040A50)
+        self.assertEqual(machine.call('script_knob_glue',9,136),(0,0))
+        self.assertEqual(seen,[(9,136)])
+
     def test_the_app_closes_when_the_main_screen_is_gone(self):
         machine,built=self.machine()
         entry=self.app_script(machine)
