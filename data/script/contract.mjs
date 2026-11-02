@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 12;
+export const API_VERSION = 14;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -353,6 +353,12 @@ const API_LIST = [
   [65, "korg.afterSteps", [int("steps", 1, TIMERS.maxSteps), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
   [66, "korg.cancel", [int("timer", -1, TIMERS.slots * 32 - 1)], "void", TIMER_USE, 6, 11],
   [67, "korg.padHold", [int("on", 0, 1)], "void", UI, 20, 12],
+  [68, "korg.knobHold", [int("index", 0, 10), int("on", 0, 1)], "void", UI, 20, 13],
+  [69, "korg.knob", [int("index", 0, 10), int("value", 0, 255)], "void", UI, 30, 13],
+  [70, "korg.passKeys", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 14],
+  [71, "korg.seq.setPartValue", [int("part", 0, 15), int("field", 0, 19), int("value")], "void", UI, 60, 14],
+  [72, "korg.read.patternBytes", [arr("array"), int("pattern", -1, 249), int("offset", 0, 16383)], "int", UI, 6, 14, 1],
+  [73, "korg.seq.writeSteps", [arr("array"), int("part", 0, 15), int("first", 0, 63)], "int", UI, 10, 14, 1],
 ];
 
 /**
@@ -448,6 +454,17 @@ export const PART_FIELDS = Object.freeze([
   field("oscEdit", 11, "u8", text("api.part.oscEdit")),
   field("mfxSend", 27, "u8", text("api.part.mfxSend")),
 ]);
+/**
+ * The PART_FIELDS korg.seq.setPartValue writes, by name: the firmware's parameter number of its part edit (the setter the
+ * knobs go through, which writes the pattern and the sound engine's copy), the code of the parameter window a knob opens,
+ * and the range the value is clamped to. Fields not listed (sample, IFX on and type, voice assign, MFX send) stay read-only.
+ */
+export const PART_WRITES = Object.freeze({
+  filterType: [10, 10, 0, 16], cutoff: [11, 3, 0, 127], resonance: [12, 4, 0, 127], egInt: [13, 5, -63, 63],
+  modType: [14, 13, 0, 71], modSpeed: [15, 12, 0, 127], modDepth: [16, 11, 0, 127], attack: [17, 9, 0, 127],
+  decay: [18, 8, 0, 127], level: [19, 6, 0, 127], pan: [20, 7, -63, 63], ifxEdit: [27, 14, 0, 127],
+  pitch: [28, 15, -63, 63], glide: [29, 16, 0, 127], oscEdit: [6, 1, 0, 127],
+});
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
 
