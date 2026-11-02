@@ -1994,6 +1994,8 @@ export default {
   "api.korg.backlight": "Enciende (1) o apaga (0) los tres colores de la luz de la pantalla.",
   "api.korg.ledHold": "1 impide que el firmware reescriba los LED del panel, 0 se los devuelve.",
   "api.korg.padHold": "1 impide que los golpes de pad lleguen al firmware (sin sonido, sin cambio de paso) mientras el plugin sigue recibiendo pad, 0 devuelve los pads.",
+  "api.korg.knobHold": "1 impide que los movimientos del potenciómetro index lleguen al firmware mientras el plugin sigue recibiendo knob, 0 lo devuelve.",
+  "api.korg.knob": "Da al firmware el valor 0 a 255 como si lo hubiera enviado el potenciómetro index (0 a 10).",
   "api.korg.menu.add": "Crea una página en el menú BLECH y devuelve su número, -1 si todos los huecos están ocupados. Cuando el usuario la gira, llega el evento menu.",
   "api.korg.app": "Registra el plugin como app en el menú BLECH y devuelve su número. Va una vez arriba del todo en el código, name tiene como máximo 15 caracteres.",
   "api.korg.file.frame": "Lee la imagen index del archivo GIFnn.E2G (nn = file) de la tarjeta al array, un byte por hueco. Devuelve la duración en ms, 0 tras la última imagen, -1 sin archivo.",
