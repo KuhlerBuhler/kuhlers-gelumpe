@@ -193,10 +193,13 @@ def entry(name, ok, detail):
 
 def lit_half(box, limit=1.0):
     """Runs in steps of 10 ms until the preview's blinking pads are in their lit half (V_BLINK phase 1, V_DARK empty), so a look
-    at the pads sees their colours and mutes without the blink. Returns at once when the blink never started (FF)."""
-    for _ in range(int(round(limit / 0.01))):
+    at the pads sees their colours and mutes without the blink. Returns at once when the blink never started (FF). After waiting
+    through a dark half it runs 30 ms more: the state turns before the 16 LED messages have reached the panel."""
+    for i in range(int(round(limit / 0.01))):
         word = box.u32(spec.VIEW_W + spec.V_BLINK)
         if word == 0xFFFFFFFF or ((word >> 8) & 0xFF == 1 and box.u32(spec.VIEW_W + spec.V_DARK) == 0):
+            if i:
+                box.run(0.03)
             return
         box.run(0.01)
 
