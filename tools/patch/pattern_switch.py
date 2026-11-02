@@ -112,10 +112,14 @@ CMD_BUSY = 0xC002D634           # returns the command runner's busy byte (+0x10 
 CMD_END = 0xC002D81C            # strb r3, [r6, #0x10]: the command runner clears its busy byte (r3 = 0)
 CMD_END_WORD = 0xE5C63010
 VIEW_W = 0xC0173400             # the view's own accessor and state, in RAM only (between SG_BUF and the SysEx patch's table)
-VIEW_SIZE = 0x68
+VIEW_SIZE = 0x70
 V_NUM, V_LIDX, V_SGNUM = 0x40, 0x44, 0x48
 V_MNUM, V_MTOUCH, V_MUTE, V_TAKE = 0x4C, 0x50, 0x54, 0x58
-V_PEND, V_COPY, V_SIDE = 0x5C, 0x60, 0x64
+V_PEND, V_COPY, V_SIDE, V_BLINK, V_DARK = 0x5C, 0x60, 0x64, 0x68, 0x6C
+BLINK_CODE = 0xC0177A00         # the blink of the view's pads, in the FF run behind the insert records of preset-tables (FF in all three builds)
+BLINK_CODE_END = 0xC0177C00
+TICK_HOOK = 0xC008774C          # mov r5, #0 in the LED manager's 40 ms tick 0xC0087740, after r4 and r6 took the manager
+TICK_WORD = 0xE3A05000
 VIEW_CODE = 0xC0173480          # the view's pads (docs/messungen/2026-10-29-vorschau-pads.md), behind VIEW_W, up to the SysEx patch's table
 VIEW_CODE_END = 0xC0173800
 MUTE_GET = 0xC0048CFC           # ldr r3, [r0, #4]: the part mute getter (accessor, part), the pad LEDs read the mutes through it
@@ -164,7 +168,7 @@ FIRMWARE_PLACES = ["WHEEL_HOOK", "SELECT", "PAD_HOOK", "PAD_BODY", "MIDI_HOOK", 
                    "VOICE_BEGIN_ORIG", "VOICE_END_ORIG", "VOICE_RESET_ORIG", "VOICE_CONT", "VOICE_SILENCE_CALL", "VOICE_SILENCE_ORIG",
                    "NOTE_CLEAR_HOOK", "NOTE_CLEAR_BODY", "NOTE_FLUSH_ORIG", "NOTE_FLUSH_KEY", "NOTE_FLUSH_SCALE", "NOTE_FLUSH_VOICE",
                    "NOTE_ASSIGN_CALL", "NOTE_ASSIGN_ORIG", "MUTE_GET", "MUTE_GET_BODY",
-                   "MUTE_SET", "MUTE_SET_CALL", "COPY_PART", "MUTE_ALL_HOOK", "MUTE_ALL_BODY", "KEY_TAIL"]
+                   "MUTE_SET", "MUTE_SET_CALL", "COPY_PART", "MUTE_ALL_HOOK", "MUTE_ALL_BODY", "KEY_TAIL", "TICK_HOOK"]
 SYNTH = False
 SYNTH_LABEL_WORD = 0xE59F10FC   # ldr r1, [pc, #0xfc]: the synth's builder is laid out a little differently
 
@@ -1503,6 +1507,7 @@ VIEW_SOURCE = """
 .equ LED_PAD_FIRST, 0x2C        ; the pads' LEDs, red and blue of each, 32 in all
 .equ PADS_REFRESH, @PADS_REFRESH@
 .equ MUTE_BODY, @MUTE_GET_BODY@
+.equ BLINK_DRAW, @BLINK_CODE@ + 4  ; (manager) the blinking pads in the half the blink is in (build_blink_code), keeps r0
 .org @VIEW_CODE@
     b view_new                  ; +0  r4 = the pattern the view shows now (FFFFFFFF none)
     b view_pad                  ; +4  (pad, pressed) -> r0 = 1 when the view took it
@@ -1754,12 +1759,14 @@ vs_cell:
     blne view_refresh
     b KEY_TAIL
 
-; r0 = the LED manager: the pads of the current mode drawn again, then every pad sent again, so the pad colours follow the view.
+; r0 = the LED manager: the pads of the current mode drawn again, in the blink's half, then every pad sent again, so the pad colours
+; follow the view.
 view_refresh:
     push {r4, lr}
     mov r4, r0
     bl PADS_REFRESH
     mov r0, r4
+    bl BLINK_DRAW
     pop {r4, lr}
     b vpd_mgr
 
@@ -1793,7 +1800,173 @@ def build_view_code():
         text = synthaddr.source(text, own=[(VIEW_CODE, VIEW_CODE_END)])
     for key, value in {"VIEW_W": f"{VIEW_W:#x}", "VIEW_CODE": f"{VIEW_CODE:#x}", "PADS_REFRESH": f"{PADS_REFRESH:#x}",
                        "MUTE_GET_BODY": f"{MUTE_GET_BODY:#x}", "MUTE_SET": f"{MUTE_SET:#x}", "COPY_PART": f"{COPY_PART:#x}",
-                       "CELL_W": f"{CELL_W:#x}", "MUTE_ALL_BODY": f"{MUTE_ALL_BODY:#x}", "KEY_TAIL": f"{KEY_TAIL:#x}"}.items():
+                       "CELL_W": f"{CELL_W:#x}", "MUTE_ALL_BODY": f"{MUTE_ALL_BODY:#x}", "KEY_TAIL": f"{KEY_TAIL:#x}",
+                       "BLINK_CODE": f"{BLINK_CODE:#x}"}.items():
+        text = text.replace(f"@{key}@", value)
+    return arm.assemble(text)
+
+
+# In the preview the pads of the parts that are on in the viewed pattern blink (Pascal's decision 02.11., docs/ideen/82-vorschau-part-reinholen.md):
+# a press brings such a part in, then its pad is lit steadily. The firmware's drawers write a pad's brightness (+0x4E of its entry) and a
+# copy (+0x30E); the blink only writes the first, 0 in the dark half for the pads it holds dark (V_DARK), the copy in the lit half and
+# whenever the preview, PART MUTE or the viewed side end. Its rate is the one of MENU's LED (mode 2, BLINK ticks of 40 ms); while MENU
+# blinks (VIEW:) the pads take its half, so both blink together. docs/messungen/2026-11-02-vorschau-pads-blinken.md
+BLINK_SOURCE = """
+.equ VIEW_W, @VIEW_W@
+.equ V_NUM, 0x40
+.equ V_COPY, 0x60
+.equ V_BLINK, 0x68              ; byte 0 the ticks of the own timer, byte 1 the half (1 lit, 0 dark); FF: no preview since power-on
+.equ V_DARK, 0x6C               ; one bit per part: its pad is held dark by the blink
+.equ VIEW_MUTE, @VIEW_MUTE@     ; the part mute getter's hook (view_mute): with VIEW_W the viewed pattern's mutes
+.equ CELL_W, 0xC0691388         ; the pointer the pad LEDs read the pattern's accessor through: VIEW_W while the pads are the viewed pattern's
+.equ LED_SEND, 0xC00875F4       ; (manager, led, force)
+.equ MODE_AT, 0xB58             ; manager + 0xB58: the pad mode, 0 PART MUTE
+.equ MENU_ENTRY, 0x4C + 8 * 7   ; MENU's LED entry: +1 mode (2 blinks), +3 on, +4 its ticks per half, +6 the ticks so far
+.equ PAD_ENTRY, 0x4C + 8 * 0x2C ; the red LED of pad 1 (0x2C + 2 * part), 16 bytes from one pad to the next
+.equ PAD_COPY, 0x30C + 8 * 0x2C
+.equ BLINK, 7                   ; as BLINK of SOURCE, MENU's blink: 280 ms lit, 280 ms dark
+.org @BLINK_CODE@
+    b view_tick                 ; +0 from the LED manager's tick (r4, r6 = the manager), sets r5 to 0 as the replaced instruction
+    b blink_draw                ; +4 (r0 = the manager) the pads in the blink's half, keeps r0
+
+; Runs every 40 ms from the start; until the first preview its state is FF (the image's): no literal up to view_tick_end.
+view_tick:
+    mov r12, #(VIEW_W & 0xFF000000)
+    orr r12, r12, #(VIEW_W & 0x00FF0000)
+    orr r12, r12, #(VIEW_W & 0x0000FF00)
+    orr r12, r12, #(VIEW_W & 0x000000FF)
+    ldrb r5, [r12, #V_BLINK]
+    cmp r5, #0xFF
+    bne vt_go
+    ldr r5, [r12, #V_NUM]
+    cmp r5, #249
+    bls vt_init
+    mov r5, #0
+    bx lr
+view_tick_end:
+vt_init:
+    mov r5, #0x100              ; the own timer at 0, the lit half, no pad held dark
+    str r5, [r12, #V_BLINK]
+    mov r5, #0
+    str r5, [r12, #V_DARK]
+vt_go:
+    push {r4, lr}
+    ldr r0, =CELL_W
+    ldr r0, [r0]
+    cmp r0, r12
+    bne vt_off
+    ldr r0, [r4, #MODE_AT]
+    cmp r0, #0
+    bne vt_off
+    add r1, r4, #MENU_ENTRY
+    ldrb r0, [r1, #1]
+    cmp r0, #2
+    bne vt_own
+    ldrb r0, [r1, #3]           ; MENU blinks: its half after this tick (the firmware's loop toggles it below when the ticks reach its count;
+    ldrb r2, [r1, #6]           ; the low bytes are enough, BLINK is 7)
+    ldrb r3, [r1, #4]
+    add r2, r2, #1
+    cmp r3, r2
+    eorls r0, r0, #1
+    mov r2, #0
+    b vt_half
+vt_own:
+    ldrb r2, [r12, #V_BLINK]
+    ldrb r0, [r12, #V_BLINK + 1]
+    add r2, r2, #1
+    cmp r2, #BLINK
+    eorhs r0, r0, #1
+    movhs r2, #0
+vt_half:
+    strb r2, [r12, #V_BLINK]
+    ldrb r1, [r12, #V_BLINK + 1]
+    cmp r0, r1
+    beq vt_out
+    strb r0, [r12, #V_BLINK + 1]
+    b vt_draw
+vt_off:
+    mov r0, #0x100              ; nothing blinks: the next blink begins with the lit half
+    str r0, [r12, #V_BLINK]
+    ldr r0, [r12, #V_DARK]
+    cmp r0, #0
+    beq vt_out
+vt_draw:
+    mov r0, r4
+    bl blink_draw
+vt_out:
+    mov r5, #0
+    pop {r4, pc}
+
+; r0 = the LED manager. In the dark half, while the pads are the viewed pattern's in PART MUTE, every pad of a part that is on there and not
+; brought in goes dark; every other pad the blink holds dark gets its drawn brightness back. Sent as the firmware sends a pad (not forced).
+; From the LED task (view_tick) and the UI task (view_refresh). Keeps r0, clobbers r1 to r3 and r12.
+blink_draw:
+    push {r0, r4, r5, r6, r7, r8, r9, lr}
+    mov r4, r0
+    ldr r5, =VIEW_W
+    ldrb r0, [r5, #V_BLINK]
+    cmp r0, #0xFF
+    beq bd_out
+    ldr r6, [r5, #V_DARK]
+    mov r7, #0                  ; 1: the blinking pads go dark
+    ldr r0, =CELL_W
+    ldr r0, [r0]
+    cmp r0, r5
+    bne bd_parts
+    ldr r0, [r4, #MODE_AT]
+    cmp r0, #0
+    bne bd_parts
+    ldrb r0, [r5, #V_BLINK + 1]
+    cmp r0, #0
+    moveq r7, #1
+bd_parts:
+    mov r8, #0
+bd_part:
+    mov r9, #1
+    mov r9, r9, lsl r8
+    cmp r7, #0
+    beq bd_light
+    ldr r0, [r5, #V_COPY]
+    tst r0, r9
+    bne bd_light
+    mov r0, r5
+    mov r1, r8
+    bl VIEW_MUTE
+    cmp r0, #0
+    bne bd_light
+    orr r6, r6, r9
+    mov r2, #0
+    b bd_send
+bd_light:
+    tst r6, r9
+    beq bd_next
+    bic r6, r6, r9
+    add r0, r4, r8, lsl #4
+    ldrb r2, [r0, #PAD_COPY + 2]
+bd_send:
+    add r0, r4, r8, lsl #4
+    strb r2, [r0, #PAD_ENTRY + 2]
+    mov r0, r4
+    mov r1, #0x2C
+    add r1, r1, r8, lsl #1
+    mov r2, #0
+    bl LED_SEND
+bd_next:
+    add r8, r8, #1
+    cmp r8, #16
+    blo bd_part
+    str r6, [r5, #V_DARK]
+bd_out:
+    pop {r0, r4, r5, r6, r7, r8, r9, pc}
+.pool
+"""
+
+
+def build_blink_code(view_mute):
+    text = BLINK_SOURCE
+    if SYNTH:
+        text = synthaddr.source(text, own=[(BLINK_CODE, BLINK_CODE_END)])
+    for key, value in {"VIEW_W": f"{VIEW_W:#x}", "BLINK_CODE": f"{BLINK_CODE:#x}", "VIEW_MUTE": f"{view_mute:#x}"}.items():
         text = text.replace(f"@{key}@", value)
     return arm.assemble(text)
 
@@ -1830,6 +2003,11 @@ def build_patch(vsb, build="hacktribe"):
     if view_at != VIEW_CODE or view_at + len(view_code) > VIEW_CODE_END:
         raise SystemExit("the view's code exceeds its area")
     symbols.update(view.symbols)
+    blink = build_blink_code(view.symbols["view_mute"])
+    (blink_at, blink_code), = blink.sections
+    if blink_at != BLINK_CODE or blink_at + len(blink_code) > BLINK_CODE_END:
+        raise SystemExit("the blink's code exceeds its area")
+    symbols.update(blink.symbols)
 
     def was(addr, n):
         return vsb[file_offset(addr):file_offset(addr) + n]
@@ -1868,7 +2046,8 @@ def build_patch(vsb, build="hacktribe"):
          (MUTE_GET, MUTE_GET_WORD, "the part mute getter does not start with ldr r3, [r0, #4]"),
          (MUTE_SET_CALL, bl_word(MUTE_SET_CALL, MUTE_SET), "the main screen's PART MUTE pad does not call the mute setter where the patch expects it"),
          (COPY_PART, COPY_PART_WORD, "Copy Part does not start as the patch expects"),
-         (MUTE_ALL_HOOK, MUTE_ALL_WORD, "the mode keys' function does not read SHIFT at PART MUTE where the patch expects it"))
+         (MUTE_ALL_HOOK, MUTE_ALL_WORD, "the mode keys' function does not read SHIFT at PART MUTE where the patch expects it"),
+         (TICK_HOOK, TICK_WORD, "the LED manager's tick does not clear its LED counter with mov r5, #0 where the patch expects it"))
     for addr, want, why in expected:
         if word(addr) != want:
             raise SystemExit(f"{why} in this VSB")
@@ -1900,6 +2079,9 @@ def build_patch(vsb, build="hacktribe"):
              "note": "sync group: scoped post-copy voice reset and cleanup"},
             {"file": file_offset(VIEW_CODE), "bytes": view_code.hex(), "expect": free(VIEW_CODE, len(view_code)),
              "note": "view: the viewed pattern's pads take the part mute presses, its mutes go along at the switch"},
+            {"file": file_offset(BLINK_CODE), "bytes": blink_code.hex(), "expect": free(BLINK_CODE, len(blink_code)),
+             "note": "view: the pads of the parts that are on in the viewed pattern blink until a press brings them in"},
+            hook(TICK_HOOK, "view_tick", True, "the LED manager's tick runs the blink of the view's pads, then clears its counter as before"),
             hook(MUTE_GET, "view_mute", False, "first instruction of the part mute getter jumps to the view (the display's mutes of the viewed pattern)"),
             hook(MUTE_SET_CALL, "view_copy", True, "the main screen's PART MUTE pad: a part unmuted on the viewed pattern's pads is copied into the playing pattern (Copy Part) first"),
             hook(MUTE_ALL_HOOK, "view_shift", False, "SHIFT + PART MUTE: while a pattern is viewed the pads turn between the viewed and the playing pattern"),
@@ -1927,6 +2109,7 @@ def build_patch(vsb, build="hacktribe"):
             hook(INFO_HOOK, "info_hook", False, "the label flag read of the info line's builder goes through the hook (view)"),
         ],
         "hooks": [
+            declare(TICK_HOOK, "instruction", "led-tick-body", "before", False, "every 40 ms the pads of the parts that are on in the viewed pattern go dark or lit in the half of the blink; without a preview only a state read"),
             declare(MUTE_ALL_HOOK, "instruction", "part-mute-shift", "replace", False, "SHIFT + PART MUTE while a pattern is viewed turns the pads between the viewed pattern and the playing one instead of unmuting all parts; without a view the firmware unmutes all as before"),
             declare(VOICE_BEGIN_CALL, "call", "pattern-load-voices", "replace", False, "same-group voice protection begins at the load"),
             declare(VOICE_SILENCE_CALL, "call", "pattern-load-voices", "replace", False, "global silencing outside a protected load"),
@@ -1970,6 +2153,8 @@ def build_patch(vsb, build="hacktribe"):
             {"file": file_offset(CMD_END), "length": 4, "why": "the command runner clears its busy byte after the first pattern load of the start, through pad_replay"},
             {"file": file_offset(INFO_HOOK), "length": 4, "why": "the main screen builds its info line during the start, through info_hook"},
             {"file": file_offset(MUTE_GET), "length": 4, "why": "the first pattern load reads the part mutes through the getter, through view_mute"},
+            {"file": file_offset(TICK_HOOK), "length": 4, "why": "the LED manager's 40 ms tick runs from the start, through view_tick"},
+            {"file": file_offset(BLINK_CODE), "length": symbols["view_tick_end"] - BLINK_CODE, "why": "the blink's table and view_tick up to its first way back: the state read (FF at start: no preview yet), the view number read, r5 cleared; no literal"},
             {"file": file_offset(VIEW_CODE), "length": symbols["view_start_end"] - VIEW_CODE, "why": "the view's table, view_mute (an address compare, then the replaced instruction and the way back) and view_apply from copy_hook (its state word FF at start: nothing taken); no literal"},
             {"file": file_offset(symbols["info_hook"]), "length": symbols["pad_gate"] - symbols["info_hook"], "why": "info_hook: the label flag read, the view state read when it is set (FF at start: no view), the way back, no literal"},
             {"file": file_offset(symbols["pad_replay"]), "length": symbols["view_text"] - symbols["pad_replay"], "why": "pad_replay and sync_hook, one span (check.py allows a run of changed bytes only inside one span): pad_replay clears the busy byte and reads the two counters (FF, equal: nothing kept), sync_hook is one load, a compare, then the replaced instruction and the way back; no literal in either"},
@@ -1977,7 +2162,7 @@ def build_patch(vsb, build="hacktribe"):
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C, MENU's LED at +0x20, the kept pad presses at +0x24, the voice-load guard at +0x38", "tools/patch/pattern_switch.py:STATE"),
             ramdecl.area(SG_BUF, SG_SIZE, "sync group: the values carried into the new pattern during one pattern load", "tools/patch/pattern_switch.py:SG_BUF"),
-            ramdecl.area(VIEW_W, VIEW_SIZE, "view: the accessor the display reads the browsed or confirmed pattern through, the number shown, the info line's index, the bank block of a sync group's carry, and the part mutes set on the viewed pattern's pads (pattern, touched, muted, taken at the switch, copy waiting, brought into the playing pattern) and the side the pads are on (SHIFT + PART MUTE)", "tools/patch/pattern_switch.py:VIEW_W"),
+            ramdecl.area(VIEW_W, VIEW_SIZE, "view: the accessor the display reads the browsed or confirmed pattern through, the number shown, the info line's index, the bank block of a sync group's carry, and the part mutes set on the viewed pattern's pads (pattern, touched, muted, taken at the switch, copy waiting, brought into the playing pattern), the side the pads are on (SHIFT + PART MUTE) and the blink of its pads (timer, half, pads held dark)", "tools/patch/pattern_switch.py:VIEW_W"),
         ],
     }
 
