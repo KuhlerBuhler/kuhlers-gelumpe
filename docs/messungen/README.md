@@ -32,6 +32,7 @@ Felder des Pattern-Blocks, der Parts und der Global-Einstellungen, wie sie die G
 - [Pattern senden: Glide geht verloren](2026-09-22-pattern-write-glide.md)
 - [Pattern-Kette und Pattern-Import von der Karte, im Emulator gemessen](2026-10-10-pattern-kette-import.md)
 - [Global-Menü: welches Byte, welche Werte, welches Label](2026-10-14-global-felder.md)
+- [Live-Schreibwege: welcher Setter jeden Wert schreibt und wann das Byte allein reicht, im Emulator](2026-11-03-live-schreibwege.md)
 
 
 ## Effekte
