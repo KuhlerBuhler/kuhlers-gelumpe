@@ -24,8 +24,7 @@ Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
   nichts wird kopiert. Noch einmal SHIFT + PART MUTE: zurück zu B. Jede neue Vorschau beginnt bei B.
 - Selbst festgelegt: das Rad innerhalb der Vorschau behält die Seite. Wer auf A die Mutes spielt und dabei weiterblättert, behält
   seine Pads. Endet die Vorschau (EXIT, Wechsel, Rad zurück auf das laufende Pattern), ist beim nächsten Mal wieder B dran.
-- Zurück auf B holt der erste Druck einen Part wieder, auch wenn er vorher schon geholt war. Was auf A am Mute geändert wurde, soll
-  nicht gegen die Anzeige von B laufen. Die Mutes, die auf B gesetzt waren, bleiben für den Wechsel.
+- Die Mutes, die auf B gesetzt waren, bleiben für den Wechsel. Wie geholte Parts beim Umschalten bleiben, steht unter 02.11.
 - SHIFT + PART MUTE hebt in der Firmware alle Mutes auf einmal auf (gemessen, [Tastenkombinationen](../tastenkombinationen.md)). In der
   Vorschau tut es das mit dem Patch nicht mehr, ohne Vorschau weiter wie immer.
 
@@ -36,8 +35,21 @@ Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 - Ein Druck holt den Part wie oben, sein Pad hört auf zu blinken und leuchtet. Der nächste Druck schaltet ihn aus.
 - Parts, die in B stumm sind, bleiben dunkel, ein Druck holt sie, dann leuchtet das Pad.
 - Takt wie MENU: 280 ms an, 280 ms aus. Blinkt MENU (`VIEW:`), blinken die Pads mit, bei `NEXT:` im selben Takt für sich.
-- Auf der Seite von A (SHIFT + PART MUTE), im SEQUENCER und mit EXIT beim Einschalten blinkt nichts.
+- Im SEQUENCER und mit EXIT beim Einschalten blinkt nichts. Auf der Seite von A blinken nur die geholten Parts (unten).
 - Gebaut, im Emulator geprüft (Hacktribe, rot, blau), am Gerät nichts. ([Messung](../messungen/2026-11-02-vorschau-pads-blinken.md))
+
+## Entschieden (02.11.): geholte Parts beim Umschalten
+
+Gemeldet: nach dem Holen ließ sich auf A der eigene Part nicht zurückholen, A spielte weiter den aus B. Und zurück auf B blinkte ein
+schon geholter Part wieder, nach zweimal Umschalten sah man nicht mehr, was geholt war. Selbst festgelegt:
+
+- Geholte Parts bleiben über SHIFT + PART MUTE gemerkt. Vergessen werden sie erst, wenn die Vorschau endet oder das Rad ein anderes
+  Pattern zeigt.
+- Auf der Seite von A blinken die Pads der geholten Parts, die an sind. Der erste Druck holt A seinen eigenen Part zurück, aus dem
+  Bank-Block von A, ungemutet. Das Pad leuchtet dann fest, danach schalten die Drücke wie ohne Vorschau.
+- Zurück auf B blinkt ein so zurückgegebener Part wieder, wie jeder Part, der in B an und nicht geholt ist. Ein Druck holt ihn neu.
+- Ohne Druck hin und her: der Part bleibt geholt, sein Pad leuchtet fest, der Druck schaltet ihn aus.
+- Gebaut, im Emulator geprüft (Hacktribe, blau), am Gerät nichts.
 
 ## Wie es geht
 
@@ -60,6 +72,9 @@ Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 - Ist der Motion-Speicher voll, zeigt die Firmware ihr Fehlerfenster wie bei Copy Part. (hergeleitet, ungeprüft)
 - Für die Dauer des Aufrufs steht in der gewählten Nummer die laufende. Der Haken am Sequenzende liest sie in der Ansicht nicht.
   (hergeleitet)
+- Zurückholen auf A gibt den Part aus dem Bank-Block von A, nicht das, was vorher live an ihm geändert war. (hergeleitet: Copy Part
+  liest den Bank-Block, wenn die Quelle nicht die gewählte Nummer ist)
+- Blättert man mit dem Rad weiter, sind die geholten Parts vergessen, auf A blinkt dann nichts mehr und A behält die geholten Parts.
 
 ## Am Gerät noch zu prüfen
 
@@ -72,6 +87,8 @@ Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 6. Blaue Electribe: dasselbe.
 7. In der Vorschau SHIFT + PART MUTE: normale Farben, die Pads schalten A, nichts wird kopiert. Noch einmal: Vorschaufarbe, der erste
    Druck holt den Part. Rad weiter: die Seite bleibt. EXIT, neu ansehen: wieder B.
+7a. Part auf B holen, SHIFT + PART MUTE: sein Pad blinkt. Druck: A spielt seinen eigenen Part wieder, das Pad leuchtet. Zurück auf B:
+   das Pad blinkt wieder. Ohne Druck zweimal umschalten: das Pad leuchtet fest.
 8. Ohne Vorschau hebt SHIFT + PART MUTE weiter alle Mutes auf.
 9. Blinken: in der Vorschau blinken die Pads der Parts, die in B an sind, im Takt von MENU, auch nach MENU (`NEXT:`). Ein Druck: das
    Pad leuchtet fest, der Part spielt. Noch ein Druck: dunkel. Die Pads der in B stummen Parts bleiben dunkel bis zum Druck.

@@ -45,7 +45,7 @@ Darum hängt der Patch an `0xC008774C`, ein `bl` statt `mov r5, #0`, der Patch s
   Pads beim nächsten Takt wieder an.
 - Zeichnet die Ansicht die Pads neu (`view_refresh`, nach einem Druck oder SHIFT + PART MUTE), ruft sie `blink_draw` auch, damit die
   Pads in der richtigen Hälfte stehen.
-- Der Code liegt bei `0xC0177A00` bis `0xC0177C00`, im `FF`-Lauf hinter den Insert-Records der Preset-Tabellen (in allen drei Builds
+- Der Code liegt bei `0xC0177A00` bis `0xC0177E00`, im `FF`-Lauf hinter den Insert-Records der Preset-Tabellen (in allen drei Builds
   `FF`, kein anderer Patch nennt ihn).
 
 ## Im Emulator geprüft (`tools/emu/pswitch_cases.py`, Gruppe `case_view_blink`)

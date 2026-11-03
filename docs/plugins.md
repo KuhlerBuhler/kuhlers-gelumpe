@@ -883,7 +883,7 @@ ein Hinweis, kein Schutz, jeder kann es setzen.
 **Bilddateien** (`korg.file.frame`): `KORG/blechtribe/Gif/GIF00.E2G` bis `GIF99.E2G`, little endian:
 Kennung `GGIF`, Version 1 (u16), Zahl der Bilder (u16), dann je Bild die Dauer in ms (u16), zwei Nullbytes und 1024
 Byte Displayspeicher (Byte `(y / 8) * 128 + x`, Bit `y % 8`). `tools/gif/gif2e2g.py` macht so eine Datei aus einem GIF
-(Pillow), `src/script/gif.mjs` liest sie im Browser. Ein Aufruf öffnet die Datei, springt zum Bild, liest es und schließt
+(Pillow), aus mehreren Bildern (etwa BMPs) eine Datei mit einem Bild je Eingabe in der genannten Reihenfolge, `src/script/gif.mjs` liest sie im Browser. Ein Aufruf öffnet die Datei, springt zum Bild, liest es und schließt
 sie wieder, über die FatFs-Funktionen der Firmware (auch `f_lseek`, `0xC009E404`, in Blau `0xC008AF5C`) und mit dem
 Dateiobjekt des Kartenladers. Er liest nur bei offenem Hauptbildschirm. Wie lange das
 Lesen von 1 KiB am Gerät dauert, ist nicht gemessen; die 5 ms des Rahmens bleiben die Grenze.
@@ -987,7 +987,7 @@ Die Seiten der Gruppen:
 | Plugin, OFF | `press  [ Enter ]` | ENTER fragt ("Enter = off"), ein zweites ENTER nimmt es heraus: das Plugin hält an, `e2sPlugin.all` wird ohne es neu geschrieben (auch leer, wenn es das letzte war), MANAGE PLUGINS meldet "off, file kept"; die `*.blech` im Ordner bleibt, das Plugin steht beim nächsten ENTER auf MANAGE PLUGINS als OFF in der Liste und lässt sich laden |
 | Plugin, REMOVE | `press  [ Enter ]` | ENTER fragt ("Enter = remove"), ein zweites ENTER tut, was OFF tut, und löscht danach die `*.blech` des Plugins von der Karte (`f_unlink` der Firmware): es steht nicht mehr in der Liste, MANAGE PLUGINS meldet "removed". Bei einem Plugin, das nur eine Datei ist, wird nur die Datei gelöscht, bei einem nur in `e2sPlugin.all` nur diese neu geschrieben. Die blaue Electribe hat kein `f_unlink`: dort bleibt die Datei, MANAGE PLUGINS meldet "file stays on card". Hat sich der Ordner seit dem Öffnen der Liste geändert, wird nichts gelöscht ("folder changed") ([Messung](messungen/2026-10-30-plugin-liste-64-entfernen.md)) |
 | DATA UTILITY, EXPORT ALL CUSTOMIZATIONS | (leer, `press  [ Enter ]`; der Titel heißt "EXPORT ALL CUSTOM", der ganze Name passt nicht in die Zeile) | ENTER oder WRITE schreibt die Anpassung als `KORG/blechtribe/e2sCustom.all`: derselbe Satz wie die Einstellungsdatei, ohne die Liste der Prüfsummen der Plugins, und meldet "exported". Beim Start liest noch nichts diese Datei; kopiert über `settings.a.bin` liest sie der Einstellungslader, und die Anpassung ist zurück |
-| DATA UTILITY, EXPORT ALL EFFECTS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt die Presets und Modulationstypen, wie die Firmware sie gerade im RAM hält, zurück in die Sammeldatei `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX und Modulation aus dem Baukasten): jeder Eintrag bleibt an seinem Platz, mit seinem `.e2fx`-Text, den der Editor zurückliest; ein Eintrag ohne Text bleibt, wie er ist; die Prüfsumme wird neu. Nur die Datei, die beim Einschalten geladen wurde: "no e2sFx.all" ohne geladene Datei, "bad e2sFx.all", wenn sie seitdem eine andere ist, dann wird nichts geschrieben. Nur auf der roten (die blaue hat keine Sammeldatei) |
+| DATA UTILITY, EXPORT ALL EFFECTS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt die Presets und Modulationstypen, wie die Firmware sie gerade im RAM hält, zurück in die Sammeldatei `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX und Modulation aus dem Baukasten): jeder Eintrag bleibt an seinem Platz, mit seinem `.e2fx`-Text, den der Editor zurückliest; die Prüfsumme wird neu. Gibt es keine Sammeldatei, legt es eine an (Einträge ohne Text, die lässt der Baukasten beim Laden aus). Eine vorhandene Datei nur, wenn sie beim Einschalten geladen wurde: "bad e2sFx.all", wenn sie seitdem eine andere oder kaputt ist, dann wird nichts geschrieben. Nur auf der roten (die blaue hat keine Sammeldatei) |
 | DATA UTILITY, EXPORT ALL PLUGINS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | öffnet die Seiten des Display-Lichts; EXIT führt zurück auf DISPLAY |
@@ -1107,7 +1107,7 @@ kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Sei
 
 ## Die Beispiel-Plugins
 
-Alle neun Apps stehen im Katalog der Seite Plugins und in `data/script/presets.mjs`. Sie laufen im Emulator
+Alle zehn Apps stehen im Katalog der Seite Plugins und in `data/script/presets.mjs`. Sie laufen im Emulator
 der Plugin-Laufzeit (Browser-VM), am Gerät ist von ihnen nichts geprüft. `test/script-plugins.test.mjs` spielt jede
 mit Eingaben durch. Die Kosten sind der teuerste Handler in Kosteneinheiten, gezählt in einem Lauf mit Eingaben
 (Tetris 3000 Rahmen, Mandelbrot mit vollständigen Bildern und Randansichten, Set-Timer 90 Sekunden). Die Zeit daneben ist **hergeleitet**: der Snake-Rahmen
@@ -1126,6 +1126,8 @@ Einheit anders sein.
 | Simon | GAMES | die 16 Pads leuchten eine Folge vor (ein Schritt 0,72 s, alle vier Runden etwas kürzer, nie unter 0,4 s), man spielt sie nach, jede Runde einen Schritt mehr; das Display zeigt Runde, Schritt und was zu tun ist; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2268 Byte | Rahmen höchstens 1673 Einheiten (Spielende), das Öffnen 1644 |
 | Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 3452 Byte | 2441 Einheiten, 0,46 ms |
 | GIF Player | TOOLS | spielt `GIF00.E2G` bis `GIF99.E2G` von der Karte ab: der Encoder wählt die Datei, Part links und rechts halbieren und verdoppeln das Tempo (25 bis 400 %), TAP hält an; fehlt die Datei, sagt er es. Zum Ausprobieren von Animationen am Display, ein Bild steht mindestens einen Rahmen (40 ms) | 972 Byte | Rahmen 3762 Einheiten, rund 0,72 ms (Bild allein 3086), über der Warnschwelle von 0,5 ms |
+| Image Viewer | TOOLS | zeigt die Bilder einer Datei `GIF00.E2G` bis `GIF99.E2G` einzeln, etwa mehrere BMPs, die `tools/gif/gif2e2g.py` in eine Datei gelegt hat: Part rechts und links blättern vor und zurück, nach dem letzten Bild kommt wieder das erste, der Encoder wählt die Datei. Oben links steht nach jedem Wechsel zwei Sekunden lang die Nummer (`2/3`, die Gesamtzahl erst, wenn er einmal durch ist), TAP lässt sie stehen oder blendet sie aus. Rückwärts vom ersten Bild zum letzten geht erst, wenn er die Zahl kennt, denn die Laufzeit sagt sie nicht vorher | 1128 Byte | Tastendruck höchstens 4414 Einheiten (über das letzte Bild hinaus: zwei Lesevorgänge und das Bild), rund 0,84 ms hergeleitet, über der Warnschwelle von 0,5 ms |
+| Filter Toggle | TOOLS | SHIFT + LPF, HPF oder BPF schaltet das Filter des gewählten Parts aus und wieder an, mit dem Typ, den diese Taste zuletzt hatte; SHIFT + eine andere Filtertaste gibt deren letzten Typ; die Filtertasten allein bleiben bei der Firmware. Geht auch bei geschlossener App | 1972 Byte | Rahmen 1575 Einheiten, rund 0,30 ms (Bildaufbau), das Öffnen 1331 |
 
 **Set-Timer** ist für den Einsatz im Set gedacht. Die Uhr ist `korg.millis()`, die die Laufzeit in jedem Rahmen
 nachführt, auch wenn die App geschlossen ist. Er abonniert nur `play`, die Tasten und `open` und `close`: geschlossen
@@ -1160,13 +1162,34 @@ BPM GLIDE im Menü BLECH schaltet es an (1) und aus (0), `korg.store` behält di
 Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
 (`test/script-bpm-glide.test.mjs`), am Gerät nicht.
 
+**Momentary Mute** (Wunsch aus der Community, [Idee 91](ideen/91-moment-mute.md)) läuft im Hintergrund. Im Modus PART
+MUTE schaltet ein Pad seinen Part nur stumm, solange es gehalten wird, wie beim Korg ESX: der Druck dreht den Part um, das
+Loslassen stellt ihn zurück. Ein spielender Part ist gehalten still, ein gemuteter spielt gehalten. Mehrere Pads gehen
+gleichzeitig. Aktiv ist es nur im Modus PART MUTE: die Firmware hält diesen Pad-Modus, bis eine andere Modus-Taste kommt
+(im Emulator gemessen), das Plugin folgt den Modus-Tasten und hält die Pads nur dann mit `korg.padHold` von der Firmware
+fern. In allen anderen Modi spielen und steppen die Pads wie immer, und mit gehaltenem SHIFT bleibt SHIFT + Pad bei der
+Firmware. Immer aktiv im Hintergrund würde die Pads auch in SEQUENCER oder KEYBOARD nehmen, darum nicht. Die Seite
+MOMENT MUTE im Menü BLECH schaltet es an (1) und aus (0: die Pads rasten wie ohne das Plugin), `korg.store` behält die
+Einstellung. Im Simulator geprüft (`test/script-moment-mute.test.mjs`), im Emulator und am Gerät nicht.
+
+**Filter Toggle** ([Idee 81](ideen/81-filter-schnellschalter.md)) braucht API 14. SHIFT + LPF, HPF oder BPF setzt den
+Filtertyp des gewählten Parts mit `korg.parts[i].filterType` auf OFF (0), dieselbe Kombination holt den Typ zurück, den
+diese Taste zuletzt hatte (LPF 1 bis 6, HPF 7 bis 11, BPF 12 bis 16, [Messung](messungen/2026-10-15-synth-filter.md)).
+Jeder Part hat je Taste einen eigenen Speicher, in Variablen des Plugins bis zum Ausschalten, nicht auf der Karte. Bei
+offener App gibt es mit `korg.passKeys` alle Tasten an die Firmware weiter und hält nur die drei Filtertasten zurück,
+solange SHIFT gedrückt ist; die Firmware sieht die Kombination dann nie. Bei geschlossener App dreht die Firmware den Typ
+erst weiter (die Reihe von Hacktribe), das Plugin setzt im nächsten Rahmen den richtigen (**hergeleitet**: die Firmware
+nimmt die Taste beim Eingang, das Plugin einen Rahmen später). Grenzen: kommt SHIFT weniger als einen Rahmen (40 ms) vor
+der Filtertaste, kann das Plugin schon den weitergedrehten Typ lesen; auf der blauen Electribe schreibt
+`korg.seq.setPartValue` nichts. Im Simulator geprüft (`test/script-plugins.test.mjs`), am Gerät nicht.
+
 ## Die Seite Plugins im Editor
 
 Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer und GIF Player unter TOOLS, dazu Lauflicht, Pulsieren und Takt-Blinker, Quelle
+und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker und Momentary Mute, Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
