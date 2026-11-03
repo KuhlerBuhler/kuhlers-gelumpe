@@ -72,7 +72,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let stockFile = null;         // Korg's original as dropped, and what classify made of it, to go back to on the other route
   let passed = null;            // the patched copy that passed the check
   let blech = null;             // the BLECH set (data/patches/blech.json) with its patches parsed, once loaded
-  let ownPatch = null;          // a BLECH.patch the user brought instead of the set of this version: { bytes, file }
+  let ownPatch = null;          // a .patch the user brought instead of the set of this version: { bytes, file }
   let usbNames = null;          // the variants of the optional patch usb-name, once loaded
   let hint = null;
   let updating = null;          // the file already carries BLECH of a known release: { present, options }, the set goes over it (src/blech-update.mjs)
@@ -181,7 +181,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("p", { className: "cee-patch-lead", textContent: t("patcher.device.lead") }), deviceGroup, deviceNote,
   ]);
   let cable = null;             // "red" or "blue": what the Electribe connected over USB said it is, null when none is or it cannot tell
-  // Step 2 chooses what goes on the file: BLECHTRIBE of this version or an own BLECH.patch, and on Korg's original Hacktribe as well.
+  // Step 2 chooses what goes on the file: BLECHTRIBE of this version or any own .patch file, and on Korg's original Hacktribe as well.
   const release = NEWS[0].version;
   const useLatest = el("input", { type: "checkbox", id: "cee-patch-latest", checked: true });
   const blechInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-blech-file", accept: ".patch", disabled: true });
