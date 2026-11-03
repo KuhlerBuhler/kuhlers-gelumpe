@@ -112,12 +112,12 @@ CMD_BUSY = 0xC002D634           # returns the command runner's busy byte (+0x10 
 CMD_END = 0xC002D81C            # strb r3, [r6, #0x10]: the command runner clears its busy byte (r3 = 0)
 CMD_END_WORD = 0xE5C63010
 VIEW_W = 0xC0173400             # the view's own accessor and state, in RAM only (between SG_BUF and the SysEx patch's table)
-VIEW_SIZE = 0x70
+VIEW_SIZE = 0x74
 V_NUM, V_LIDX, V_SGNUM = 0x40, 0x44, 0x48
 V_MNUM, V_MTOUCH, V_MUTE, V_TAKE = 0x4C, 0x50, 0x54, 0x58
-V_PEND, V_COPY, V_SIDE, V_BLINK, V_DARK = 0x5C, 0x60, 0x64, 0x68, 0x6C
+V_PEND, V_COPY, V_SIDE, V_BLINK, V_DARK, V_BACK = 0x5C, 0x60, 0x64, 0x68, 0x6C, 0x70
 BLINK_CODE = 0xC0177A00         # the blink of the view's pads, in the FF run behind the insert records of preset-tables (FF in all three builds)
-BLINK_CODE_END = 0xC0177C00
+BLINK_CODE_END = 0xC0177E00
 TICK_HOOK = 0xC008774C          # mov r5, #0 in the LED manager's 40 ms tick 0xC0087740, after r4 and r6 took the manager
 TICK_WORD = 0xE3A05000
 VIEW_CODE = 0xC0173480          # the view's pads (docs/messungen/2026-10-29-vorschau-pads.md), behind VIEW_W, up to the SysEx patch's table
@@ -1492,6 +1492,7 @@ VIEW_SOURCE = """
 .equ V_PEND, 0x5C               ; one bit per part: unmuted on the pads, its copy waits for the main screen (view_copy)
 .equ V_COPY, 0x60               ; one bit per part: brought into the playing pattern while this pattern is viewed
 .equ V_SIDE, 0x64               ; 1: the pads are the playing pattern's (SHIFT + PART MUTE), else the viewed one's
+.equ V_BACK, 0x70               ; one bit per part: pressed on the playing side while brought in, its own part waits to come back (view_copy)
 .equ PATPTR, 0xC033E6A4         ; the pattern in RAM, its accessor at + 0x400C
 .equ CELL_W, @CELL_W@           ; the pointer the pad LEDs read the pattern's accessor through
 .equ MUTE_ALL_BODY, @MUTE_ALL_BODY@
@@ -1508,6 +1509,9 @@ VIEW_SOURCE = """
 .equ PADS_REFRESH, @PADS_REFRESH@
 .equ MUTE_BODY, @MUTE_GET_BODY@
 .equ BLINK_DRAW, @BLINK_CODE@ + 4  ; (manager) the blinking pads in the half the blink is in (build_blink_code), keeps r0
+.equ BACK_COPY, @BLINK_CODE@ + 8   ; view_copy's other way: the playing pattern's own part back (build_blink_code)
+.equ PAD_SIDE, @BLINK_CODE@ + 12   ; view_pad's press by the side it is on (build_blink_code)
+.equ PAD_SEQ, @BLINK_CODE@ + 16    ; view_pad's SEQUENCER press (build_blink_code)
 .org @VIEW_CODE@
     b view_new                  ; +0  r4 = the pattern the view shows now (FFFFFFFF none)
     b view_pad                  ; +4  (pad, pressed) -> r0 = 1 when the view took it
@@ -1604,6 +1608,7 @@ vn_clear:
     str r1, [r12, #V_TAKE]
     str r1, [r12, #V_PEND]
     str r1, [r12, #V_COPY]
+    str r1, [r12, #V_BACK]
     bx lr
 vn_end:
     mov r1, #0                  ; every new view starts on the viewed pattern's side
@@ -1635,23 +1640,21 @@ view_pad:
     ldr r4, [r12, #V_NUM]
     cmp r4, #249
     bhi vp_no
-    ldr r3, [r12, #V_SIDE]
-    cmp r3, #1
-    beq vp_no                   ; the playing side: the pads are the firmware's, as without a view
     ldr r3, =LED_MGR
     ldr r3, [r3]
     cmp r3, #0
     beq vp_no
     ldr r3, [r3, #MODE_AT]
     cmp r3, #4
-    beq vp_took
+    beq PAD_SEQ                 ; (pad_seq, in the blink's area)
     cmp r3, #0
     bne vp_no
     cmp r0, #16
     bhs vp_no
     mov r3, #1
     mov r3, r3, lsl r0
-    ldr r1, [r12, #V_COPY]
+    b PAD_SIDE                  ; the playing side's press (pad_side, in the blink's area), else back to vp_viewed with r1 = V_COPY
+vp_viewed:
     tst r1, r3
     bne vp_flip                 ; brought in already: the playing pattern's mute follows the view's
     orr r1, r1, r3              ; the first press brings the part in, unmuted, whatever its mute in the bank
@@ -1676,9 +1679,6 @@ vp_draw:
     bl view_refresh
     mov r0, #0                  ; goes on to the firmware: view_copy or the firmware's own mute
     pop {r4, pc}
-vp_took:
-    mov r0, #1
-    pop {r4, pc}
 vp_no:
     mov r0, #0
     pop {r4, pc}
@@ -1697,7 +1697,7 @@ view_copy:
     ldr r5, [r12, #V_PEND]
     mov r6, #3
     ands r6, r5, r6, lsl r1
-    beq vc_set
+    beq BACK_COPY               ; not waiting for a copy: maybe for its own part (back_copy, in the blink's area)
     bic r5, r5, r6
     str r5, [r12, #V_PEND]
     sub sp, sp, #0x48           ; Copy Part's object: only +0x40 to +0x42 are read (and +0x41 written)
@@ -1724,8 +1724,9 @@ vc_set:
 ; Replaces SHIFT's read in the mode keys' function at PART MUTE pressed (r0 = the SHIFT object; r4 = the key, r5 = the object, r6 = 1 are
 ; the function's). Without SHIFT, or without a view, the firmware goes on (with SHIFT it unmutes all parts). With SHIFT while a pattern
 ; is viewed it turns the pads between the viewed pattern and the playing one instead (decision 30.10.): on the playing side the pad LEDs
-; read the pattern in RAM and the presses go to the firmware as without a view; back on the viewed side the first press on a part brings
-; it in again (V_COPY and V_PEND cleared). The mutes set on the viewed side stay for the switch. Then the key goes on as both of the
+; read the pattern in RAM and the presses go to the firmware as without a view, but a part brought in blinks and its first press gives the
+; playing pattern its own part back; the parts brought in stay so on both sides (decision 02.11.), a copy still waiting is dropped. The
+; mutes set on the viewed side stay for the switch. Then the key goes on as both of the
 ; firmware's ways end. Clobbers r0 to r3 and r12.
 view_shift:
     ldr r3, [r0, #0x358]        ; the replaced instruction: SHIFT held
@@ -1736,13 +1737,18 @@ view_shift:
     cmp r2, #249
     bhi MUTE_ALL_BODY           ; no view: the firmware's unmute of all parts (r3 is still SHIFT's flag)
     ldr r2, [r12, #V_SIDE]
-    cmp r2, #1
+    subs r2, r2, #1             ; 1 becomes 0, every other 1
     movne r2, #1
-    moveq r2, #0
     str r2, [r12, #V_SIDE]
+    ldr r1, [r12, #V_COPY]
+    ldr r3, [r12, #V_BACK]
+    orr r1, r1, r3              ; its own part did not come back yet: still brought in
+    ldr r3, [r12, #V_PEND]
+    bic r1, r1, r3              ; not copied yet: not brought in
+    str r1, [r12, #V_COPY]
     mov r1, #0
     str r1, [r12, #V_PEND]
-    str r1, [r12, #V_COPY]
+    str r1, [r12, #V_BACK]
     mov r1, r12                 ; the viewed side: the pads read the view's accessor
     cmp r2, #1
     bne vs_cell
@@ -1815,8 +1821,16 @@ BLINK_SOURCE = """
 .equ VIEW_W, @VIEW_W@
 .equ V_NUM, 0x40
 .equ V_COPY, 0x60
+.equ V_SIDE, 0x64               ; 1: the pads are the playing pattern's
 .equ V_BLINK, 0x68              ; byte 0 the ticks of the own timer, byte 1 the half (1 lit, 0 dark); FF: no preview since power-on
 .equ V_DARK, 0x6C               ; one bit per part: its pad is held dark by the blink
+.equ V_BACK, 0x70               ; one bit per part: its own part waits to come back into the playing pattern
+.equ PLAYER, 0xC002FAFC         ; returns the player: +0x318 the number that runs
+.equ MUTE_SET, @MUTE_SET@
+.equ COPY_PART, @COPY_PART@
+.equ VP_VIEWED, @VP_VIEWED@
+.equ VP_NO, @VP_NO@
+.equ VP_DRAW, @VP_DRAW@
 .equ VIEW_MUTE, @VIEW_MUTE@     ; the part mute getter's hook (view_mute): with VIEW_W the viewed pattern's mutes
 .equ CELL_W, 0xC0691388         ; the pointer the pad LEDs read the pattern's accessor through: VIEW_W while the pads are the viewed pattern's
 .equ LED_SEND, 0xC00875F4       ; (manager, led, force)
@@ -1828,6 +1842,61 @@ BLINK_SOURCE = """
 .org @BLINK_CODE@
     b view_tick                 ; +0 from the LED manager's tick (r4, r6 = the manager), sets r5 to 0 as the replaced instruction
     b blink_draw                ; +4 (r0 = the manager) the pads in the blink's half, keeps r0
+    b back_copy                 ; +8 from view_copy, its frame on the stack
+    b pad_side                  ; +12 from view_pad, its push {r4, lr} on the stack
+    b pad_seq                   ; +16 from view_pad, its push {r4, lr} on the stack
+
+; From view_pad (r3 = the part's bit, r12 = VIEW_W). The viewed side goes back to vp_viewed with r1 = V_COPY. On the playing side a part
+; brought in gets its own part back on the first press, unmuted (V_BACK, done by back_copy), then the presses are the firmware's, as
+; without a view (decision 02.11.).
+pad_side:
+    ldr r1, [r12, #V_COPY]
+    ldr r2, [r12, #V_SIDE]
+    cmp r2, #1
+    bne VP_VIEWED
+    tst r1, r3
+    beq VP_NO
+    bic r1, r1, r3
+    str r1, [r12, #V_COPY]
+    ldr r1, [r12, #V_BACK]
+    orr r1, r1, r3
+    str r1, [r12, #V_BACK]
+    b VP_DRAW
+
+; From view_pad in SEQUENCER: the viewed side takes the step press (1), on the playing side the steps are the firmware's (0).
+pad_seq:
+    ldr r3, [r12, #V_SIDE]
+    cmp r3, #1
+    moveq r0, #0
+    movne r0, #1
+    pop {r4, pc}
+
+; From view_copy (r1 = the part, r12 = VIEW_W, its push {r0 to r6, lr} on the stack), when no copy waits for the part: a part brought in
+; and pressed on the playing side (V_BACK, the pad's part or the one right of it) gets the playing pattern's own part back from its bank
+; block, set unmuted (decision 02.11.). The chosen number is the viewed one, so Copy Part reads the bank block of the one that runs as it
+; is. Then, as every other call, the mute setter. Lies here since the view's area is full.
+back_copy:
+    ldr r5, [r12, #V_BACK]
+    mov r6, #3
+    ands r6, r5, r6, lsl r1
+    beq bc_set
+    bic r5, r5, r6
+    str r5, [r12, #V_BACK]
+    sub sp, sp, #0x48           ; Copy Part's object: only +0x40 to +0x42 are read (and +0x41 written)
+    strb r1, [sp, #0x41]
+    strb r1, [sp, #0x42]
+    bl PLAYER
+    ldr r0, [r0, #0x318]
+    strb r0, [sp, #0x40]
+    mov r0, sp
+    ldrb r1, [sp, #0x42]
+    bl COPY_PART
+    add sp, sp, #0x48
+    mov r0, #0
+    str r0, [sp, #8]            ; r2: unmuted
+bc_set:
+    pop {r0, r1, r2, r3, r4, r5, r6, lr}
+    b MUTE_SET
 
 ; Runs every 40 ms from the start; until the first preview its state is FF (the image's): no literal up to view_tick_end.
 view_tick:
@@ -1854,7 +1923,14 @@ vt_go:
     ldr r0, =CELL_W
     ldr r0, [r0]
     cmp r0, r12
+    beq vt_mode
+    ldr r0, [r12, #V_SIDE]
+    cmp r0, #1
     bne vt_off
+    ldr r0, [r12, #V_NUM]
+    cmp r0, #249
+    bhi vt_off
+vt_mode:
     ldr r0, [r4, #MODE_AT]
     cmp r0, #0
     bne vt_off
@@ -1897,8 +1973,9 @@ vt_out:
     mov r5, #0
     pop {r4, pc}
 
-; r0 = the LED manager. In the dark half, while the pads are the viewed pattern's in PART MUTE, every pad of a part that is on there and not
-; brought in goes dark; every other pad the blink holds dark gets its drawn brightness back. Sent as the firmware sends a pad (not forced).
+; r0 = the LED manager. In the dark half, in PART MUTE, while the pads are the viewed pattern's every pad of a part that is on there and not
+; brought in goes dark, while they are the playing pattern's in a preview every pad of a part brought in that is on; every other pad the
+; blink holds dark gets its drawn brightness back. Sent as the firmware sends a pad (not forced).
 ; From the LED task (view_tick) and the UI task (view_refresh). Keeps r0, clobbers r1 to r3 and r12.
 blink_draw:
     push {r0, r4, r5, r6, r7, r8, r9, lr}
@@ -1908,17 +1985,26 @@ blink_draw:
     cmp r0, #0xFF
     beq bd_out
     ldr r6, [r5, #V_DARK]
-    mov r7, #0                  ; 1: the blinking pads go dark
+    mov r7, #0                  ; 1: the viewed side's blinking pads go dark, 2: the playing side's
     ldr r0, =CELL_W
     ldr r0, [r0]
     cmp r0, r5
+    moveq r3, #1
+    beq bd_mode
+    ldr r0, [r5, #V_SIDE]
+    cmp r0, #1
     bne bd_parts
+    ldr r0, [r5, #V_NUM]
+    cmp r0, #249
+    bhi bd_parts
+    mov r3, #2
+bd_mode:
     ldr r0, [r4, #MODE_AT]
     cmp r0, #0
     bne bd_parts
     ldrb r0, [r5, #V_BLINK + 1]
     cmp r0, #0
-    moveq r7, #1
+    moveq r7, r3
 bd_parts:
     mov r8, #0
 bd_part:
@@ -1927,9 +2013,13 @@ bd_part:
     cmp r7, #0
     beq bd_light
     ldr r0, [r5, #V_COPY]
-    tst r0, r9
+    and r0, r0, r9
+    cmp r7, #2
+    eoreq r0, r0, r9            ; the playing side blinks the parts brought in, the viewed side the others
+    cmp r0, #0
     bne bd_light
-    mov r0, r5
+    ldr r0, =CELL_W
+    ldr r0, [r0]
     mov r1, r8
     bl VIEW_MUTE
     cmp r0, #0
@@ -1962,11 +2052,13 @@ bd_out:
 """
 
 
-def build_blink_code(view_mute):
+def build_blink_code(view):
     text = BLINK_SOURCE
     if SYNTH:
         text = synthaddr.source(text, own=[(BLINK_CODE, BLINK_CODE_END)])
-    for key, value in {"VIEW_W": f"{VIEW_W:#x}", "BLINK_CODE": f"{BLINK_CODE:#x}", "VIEW_MUTE": f"{view_mute:#x}"}.items():
+    for key, value in {"VIEW_W": f"{VIEW_W:#x}", "BLINK_CODE": f"{BLINK_CODE:#x}", "VIEW_MUTE": f"{view['view_mute']:#x}",
+                       "MUTE_SET": f"{MUTE_SET:#x}", "COPY_PART": f"{COPY_PART:#x}", "VP_VIEWED": f"{view['vp_viewed']:#x}",
+                       "VP_NO": f"{view['vp_no']:#x}", "VP_DRAW": f"{view['vp_draw']:#x}"}.items():
         text = text.replace(f"@{key}@", value)
     return arm.assemble(text)
 
@@ -2001,12 +2093,12 @@ def build_patch(vsb, build="hacktribe"):
     view = build_view_code()
     (view_at, view_code), = view.sections
     if view_at != VIEW_CODE or view_at + len(view_code) > VIEW_CODE_END:
-        raise SystemExit("the view's code exceeds its area")
+        raise SystemExit(f"the view's code exceeds its area: {len(view_code):#x} of {VIEW_CODE_END - VIEW_CODE:#x}")
     symbols.update(view.symbols)
-    blink = build_blink_code(view.symbols["view_mute"])
+    blink = build_blink_code(view.symbols)
     (blink_at, blink_code), = blink.sections
     if blink_at != BLINK_CODE or blink_at + len(blink_code) > BLINK_CODE_END:
-        raise SystemExit("the blink's code exceeds its area")
+        raise SystemExit(f"the blink's code exceeds its area: {blink_at:#x} {len(blink_code):#x} of {BLINK_CODE_END - BLINK_CODE:#x}")
     symbols.update(blink.symbols)
 
     def was(addr, n):
@@ -2162,7 +2254,7 @@ def build_patch(vsb, build="hacktribe"):
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C, MENU's LED at +0x20, the kept pad presses at +0x24, the voice-load guard at +0x38", "tools/patch/pattern_switch.py:STATE"),
             ramdecl.area(SG_BUF, SG_SIZE, "sync group: the values carried into the new pattern during one pattern load", "tools/patch/pattern_switch.py:SG_BUF"),
-            ramdecl.area(VIEW_W, VIEW_SIZE, "view: the accessor the display reads the browsed or confirmed pattern through, the number shown, the info line's index, the bank block of a sync group's carry, and the part mutes set on the viewed pattern's pads (pattern, touched, muted, taken at the switch, copy waiting, brought into the playing pattern), the side the pads are on (SHIFT + PART MUTE) and the blink of its pads (timer, half, pads held dark)", "tools/patch/pattern_switch.py:VIEW_W"),
+            ramdecl.area(VIEW_W, VIEW_SIZE, "view: the accessor the display reads the browsed or confirmed pattern through, the number shown, the info line's index, the bank block of a sync group's carry, and the part mutes set on the viewed pattern's pads (pattern, touched, muted, taken at the switch, copy waiting, brought into the playing pattern, its own part waiting to come back), the side the pads are on (SHIFT + PART MUTE) and the blink of its pads (timer, half, pads held dark)", "tools/patch/pattern_switch.py:VIEW_W"),
         ],
     }
 
