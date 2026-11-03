@@ -1107,7 +1107,7 @@ kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Sei
 
 ## Die Beispiel-Plugins
 
-Alle neun Apps stehen im Katalog der Seite Plugins und in `data/script/presets.mjs`. Sie laufen im Emulator
+Alle zehn Apps stehen im Katalog der Seite Plugins und in `data/script/presets.mjs`. Sie laufen im Emulator
 der Plugin-Laufzeit (Browser-VM), am Gerät ist von ihnen nichts geprüft. `test/script-plugins.test.mjs` spielt jede
 mit Eingaben durch. Die Kosten sind der teuerste Handler in Kosteneinheiten, gezählt in einem Lauf mit Eingaben
 (Tetris 3000 Rahmen, Mandelbrot mit vollständigen Bildern und Randansichten, Set-Timer 90 Sekunden). Die Zeit daneben ist **hergeleitet**: der Snake-Rahmen
@@ -1126,6 +1126,7 @@ Einheit anders sein.
 | Simon | GAMES | die 16 Pads leuchten eine Folge vor (ein Schritt 0,72 s, alle vier Runden etwas kürzer, nie unter 0,4 s), man spielt sie nach, jede Runde einen Schritt mehr; das Display zeigt Runde, Schritt und was zu tun ist; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2268 Byte | Rahmen höchstens 1673 Einheiten (Spielende), das Öffnen 1644 |
 | Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 3452 Byte | 2441 Einheiten, 0,46 ms |
 | GIF Player | TOOLS | spielt `GIF00.E2G` bis `GIF99.E2G` von der Karte ab: der Encoder wählt die Datei, Part links und rechts halbieren und verdoppeln das Tempo (25 bis 400 %), TAP hält an; fehlt die Datei, sagt er es. Zum Ausprobieren von Animationen am Display, ein Bild steht mindestens einen Rahmen (40 ms) | 972 Byte | Rahmen 3762 Einheiten, rund 0,72 ms (Bild allein 3086), über der Warnschwelle von 0,5 ms |
+| Filter Toggle | TOOLS | SHIFT + LPF, HPF oder BPF schaltet das Filter des gewählten Parts aus und wieder an, mit dem Typ, den diese Taste zuletzt hatte; SHIFT + eine andere Filtertaste gibt deren letzten Typ; die Filtertasten allein bleiben bei der Firmware. Geht auch bei geschlossener App | 1972 Byte | Rahmen 1575 Einheiten, rund 0,30 ms (Bildaufbau), das Öffnen 1331 |
 
 **Set-Timer** ist für den Einsatz im Set gedacht. Die Uhr ist `korg.millis()`, die die Laufzeit in jedem Rahmen
 nachführt, auch wenn die App geschlossen ist. Er abonniert nur `play`, die Tasten und `open` und `close`: geschlossen
@@ -1159,6 +1160,17 @@ das neue Pattern erst dann im RAM hat. STOP setzt das Tempo zurück, mit dem das
 BPM GLIDE im Menü BLECH schaltet es an (1) und aus (0), `korg.store` behält die Einstellung. Weil `korg.tempo` das
 Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
 (`test/script-bpm-glide.test.mjs`), am Gerät nicht.
+
+**Filter Toggle** ([Idee 81](ideen/81-filter-schnellschalter.md)) braucht API 14. SHIFT + LPF, HPF oder BPF setzt den
+Filtertyp des gewählten Parts mit `korg.parts[i].filterType` auf OFF (0), dieselbe Kombination holt den Typ zurück, den
+diese Taste zuletzt hatte (LPF 1 bis 6, HPF 7 bis 11, BPF 12 bis 16, [Messung](messungen/2026-10-15-synth-filter.md)).
+Jeder Part hat je Taste einen eigenen Speicher, in Variablen des Plugins bis zum Ausschalten, nicht auf der Karte. Bei
+offener App gibt es mit `korg.passKeys` alle Tasten an die Firmware weiter und hält nur die drei Filtertasten zurück,
+solange SHIFT gedrückt ist; die Firmware sieht die Kombination dann nie. Bei geschlossener App dreht die Firmware den Typ
+erst weiter (die Reihe von Hacktribe), das Plugin setzt im nächsten Rahmen den richtigen (**hergeleitet**: die Firmware
+nimmt die Taste beim Eingang, das Plugin einen Rahmen später). Grenzen: kommt SHIFT weniger als einen Rahmen (40 ms) vor
+der Filtertaste, kann das Plugin schon den weitergedrehten Typ lesen; auf der blauen Electribe schreibt
+`korg.seq.setPartValue` nichts. Im Simulator geprüft (`test/script-plugins.test.mjs`), am Gerät nicht.
 
 ## Die Seite Plugins im Editor
 

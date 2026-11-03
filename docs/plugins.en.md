@@ -948,7 +948,7 @@ the whole display is his (the page number is not visible).
 
 ## The example plugins
 
-All nine apps are in the catalog of the Plugins page and in `data/script/presets.mjs`. They have run in the emulator of
+All ten apps are in the catalog of the Plugins page and in `data/script/presets.mjs`. They have run in the emulator of
 the plugin runtime (browser VM), nothing of them is checked on the device. `test/script-plugins.test.mjs` plays each one
 with input. The cost is the most expensive handler in cost units, counted in a run with input; the time next to it is
 **derived**: the Snake frame with 542 units took 0.103 ms in the emulator, so the 0.5 ms warning line is about 2630
@@ -965,6 +965,7 @@ units. Every app stays below it, the tests check that. On the device the time pe
 | Simon | GAMES | the 16 pads light a sequence (a step 0.72 s, a little shorter every fourth round, never below 0.4 s), you play it back, one more step each round; the display shows the round, the step and what to do; a wrong pad ends the game, TAP or a pad restarts | 2268 bytes | frame at most 1673 units (game over), opening 1644 |
 | Mandelbrot | GAMES | a finger on the touchpad pans, Part right and the encoder zoom in, Part left out, keys 1 and 2 set the iterations (8 to 64), TAP resets | 2436 bytes | 2135 units, 0.41 ms |
 | GIF Player | TOOLS | plays `GIF00.E2G` to `GIF99.E2G` from the card: the encoder picks the file, Part left and right halve and double the speed (25 to 400 %), TAP pauses; a missing file is said. For trying animations on the display, a frame stays at least one runtime frame (40 ms) | 972 bytes | frame 3762 units, about 0.72 ms (the picture alone 3086), above the warning line of 0.5 ms |
+| Filter Toggle | TOOLS | SHIFT + LPF, HPF or BPF turns the filter of the selected part off and on again with the type that key had last; SHIFT + another filter key gives that key's last type; the plain filter keys stay with the firmware. Works with the app closed too | 1972 bytes | frame 1575 units, about 0.30 ms (redraw), opening 1331 |
 
 **Set-Timer** is meant for use in a set. Its clock is `korg.millis()`, which the runtime keeps current every frame,
 also while the app is closed. It subscribes only to `play`, the keys, `open` and `close`: closed it costs a few
@@ -989,6 +990,16 @@ It reads the chain at the first step after PLAY or a pattern change, because onl
 pattern in RAM. STOP sets back the tempo the pattern started with. The page BPM GLIDE in the BLECH menu switches it on (1)
 and off (0), `korg.store` keeps the setting. Because `korg.tempo` sets the tempo of the pattern in RAM, it counts as an
 unsaved change until STOP. Checked in the simulator (`test/script-bpm-glide.test.mjs`), not on the device.
+
+**Filter Toggle** (idea 81) uses API 14. SHIFT + LPF, HPF or BPF sets the filter type of the selected part to OFF (0) with
+`korg.parts[i].filterType`; the same combination brings back the type that key had last (LPF 1 to 6, HPF 7 to 11, BPF 12
+to 16, [measurement](messungen/2026-10-15-synth-filter.md)). Each part has its own memory per key, in plugin variables
+until power off, not on the card. With the app open it passes every key to the firmware with `korg.passKeys` and keeps
+only the three filter keys while SHIFT is held, so the firmware never sees the combination. With the app closed the
+firmware turns the type first (Hacktribe's cycle) and the plugin sets the right one in the next frame (**derived**: the
+firmware handles the key on input, the plugin one frame later). Limits: a SHIFT pressed less than a frame (40 ms) before
+the filter key can read the type after the firmware's turn; on the blue Electribe `korg.seq.setPartValue` writes nothing.
+Checked in the simulator (`test/script-plugins.test.mjs`), not on the device.
 
 ## The Plugins page in the editor
 
