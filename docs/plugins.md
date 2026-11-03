@@ -1161,13 +1161,23 @@ BPM GLIDE im Menü BLECH schaltet es an (1) und aus (0), `korg.store` behält di
 Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
 (`test/script-bpm-glide.test.mjs`), am Gerät nicht.
 
+**Momentary Mute** (Wunsch aus der Community, [Idee 91](ideen/91-moment-mute.md)) läuft im Hintergrund. Im Modus PART
+MUTE schaltet ein Pad seinen Part nur stumm, solange es gehalten wird, wie beim Korg ESX: der Druck dreht den Part um, das
+Loslassen stellt ihn zurück. Ein spielender Part ist gehalten still, ein gemuteter spielt gehalten. Mehrere Pads gehen
+gleichzeitig. Aktiv ist es nur im Modus PART MUTE: die Firmware hält diesen Pad-Modus, bis eine andere Modus-Taste kommt
+(im Emulator gemessen), das Plugin folgt den Modus-Tasten und hält die Pads nur dann mit `korg.padHold` von der Firmware
+fern. In allen anderen Modi spielen und steppen die Pads wie immer, und mit gehaltenem SHIFT bleibt SHIFT + Pad bei der
+Firmware. Immer aktiv im Hintergrund würde die Pads auch in SEQUENCER oder KEYBOARD nehmen, darum nicht. Die Seite
+MOMENT MUTE im Menü BLECH schaltet es an (1) und aus (0: die Pads rasten wie ohne das Plugin), `korg.store` behält die
+Einstellung. Im Simulator geprüft (`test/script-moment-mute.test.mjs`), im Emulator und am Gerät nicht.
+
 ## Die Seite Plugins im Editor
 
 Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren und Takt-Blinker, Quelle
+und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker und Momentary Mute, Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem

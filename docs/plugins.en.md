@@ -991,13 +991,23 @@ pattern in RAM. STOP sets back the tempo the pattern started with. The page BPM 
 and off (0), `korg.store` keeps the setting. Because `korg.tempo` sets the tempo of the pattern in RAM, it counts as an
 unsaved change until STOP. Checked in the simulator (`test/script-bpm-glide.test.mjs`), not on the device.
 
+**Momentary Mute** (a wish from the community, [idea 91](ideen/91-moment-mute.md)) runs in the background. In PART
+MUTE mode a pad mutes its part only while it is held, like on the Korg ESX: the press flips the part, the release puts it
+back. A playing part is quiet while held, a muted part plays while held. Several pads may be held at once. It is only
+active in PART MUTE mode: the firmware keeps that pad mode until another mode key comes (measured in the emulator), the
+plugin follows the mode keys and keeps the pads from the firmware with `korg.padHold` only in that mode. In every other
+mode the pads play and step as always, and with SHIFT held SHIFT + pad stays the firmware's. Always on in the background
+would take the pads in SEQUENCER or KEYBOARD as well, so it is not. The page MOMENT MUTE in the BLECH menu switches it on
+(1) and off (0: the pads latch as without the plugin), `korg.store` keeps the setting. Checked in the simulator
+(`test/script-moment-mute.test.mjs`), not in the emulator and not on the device.
+
 ## The Plugins page in the editor
 
 The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren and Takt-Blinker; source
+and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker and Momentary Mute; source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and

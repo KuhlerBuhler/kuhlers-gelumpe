@@ -101,7 +101,7 @@ Ein Absturz oder Datenverlust ist akzeptabel. Schäden an Software, Hardware ode
 | 88. **Ratchet: ein Step löst 2 oder 4 Mal aus,** etwa die Snare auf einem Schritt. | Wunsch aus der Community (Oktober 2026), offen, ein Pull Request ist willkommen |  |
 | 89. **Mehrere Insert-Effekte auf einem Pad schichten.** | Wunsch aus der Community (Oktober 2026), offen; der Eingriff in die Soundengine wäre groß, Monate Arbeit |  |
 | 90. **Samples vor dem Ausschalten exportieren oder automatisch sichern:** das Gerät fragt beim Ausschalten, ob alle Samples exportiert werden sollen. Idee 57 deckt nur Patterns; mit dem Projektformat (Idee 64) würde beides automatisch gespeichert. | Wunsch aus der Community (Oktober 2026), offen | [Idee 57](ideen/57-ungespeichert-warnen.md), [Idee 64](ideen/64-projekte.md) |
-| 91. **Part-Mute nur solange gedrückt,** wie beim ESX. | Wunsch aus der Community (Oktober 2026), offen |  |
+| 91. **Part-Mute nur solange gedrückt,** wie beim ESX: Katalog-Plugin Momentary Mute, im Modus PART MUTE mutet ein gehaltenes Pad seinen Part bis zum Loslassen. | gebaut (Plugin, Simulator), Emulator und Gerät offen | [Idee 91](ideen/91-moment-mute.md) |
 | 92. **Sample-Wechsel in einem Part per LFO.** | Wunsch aus der Community (Oktober 2026), offen; Version 1.4 bringt ein anderes Sample-Wechseln ([Idee 64](ideen/64-projekte.md)) |  |
 | 93. **Bild-Betrachter für mehrere BMPs von der Karte,** als Plugin machbar. Der GIF Player existiert schon. | gebaut als Katalog-Plugin Image Viewer, im Simulator geprüft, am Gerät offen | [Idee 93](ideen/93-bild-betrachter.md) |
 | 94. **OSCs der EMX auf die E2 laden.** | Wunsch aus der Community (Oktober 2026), offen, noch nicht untersucht |  |
