@@ -201,6 +201,35 @@ part_value_return:
     mov r1, #ERR_OK
     bx lr
 
+; r0 field (PATTERN_FIELDS), r1 value: through the firmware's own setter for that field, the one the device's edit goes
+; through, so the sound engine and the screen follow. The value is clamped to the field's range (pattern_writes) first. The
+; setters per build live in tools/patch/script_hooks.py (PATTERN_SETTERS), one pair here each (pattern_setters): the function
+; and the word it gets in r0, r1 the value. They are still to be measured: a field without a setter (0) writes nothing.
+script_seq_set_pattern_value_glue:
+    cmp r0, #SCRIPT_PATTERN_FIELD_COUNT
+    bhs hw_bad_arg
+    ldr r3, =pattern_writes
+    ldr r3, [r3, r0, lsl #2]
+    cmp r3, #0
+    beq hw_bad_arg
+    mov r12, r3, lsl #16
+    mov r12, r12, asr #16
+    cmp r1, r12
+    movlt r1, r12
+    mov r12, r3, asr #16
+    cmp r1, r12
+    movgt r1, r12
+    ldr r3, =pattern_setters
+    add r3, r3, r0, lsl #3
+    ldr r12, [r3]
+    cmp r12, #0
+    beq part_value_return
+    ldr r0, [r3, #4]
+    push {lr}
+    blx r12
+    pop {lr}
+    b part_value_return
+
 ; r0 array, r1 pattern (-1 the one in RAM, 0 to 249 the bank), r2 offset in its block: one byte per slot, as far as the block
 ; goes -> r0 the bytes read.
 script_read_pattern_bytes_glue:
@@ -258,6 +287,32 @@ part_writes:
     .word SCRIPT_PART_WRITE_17
     .word SCRIPT_PART_WRITE_18
     .word SCRIPT_PART_WRITE_19
+
+pattern_writes:
+    .word SCRIPT_PATTERN_WRITE_0
+    .word SCRIPT_PATTERN_WRITE_1
+    .word SCRIPT_PATTERN_WRITE_2
+    .word SCRIPT_PATTERN_WRITE_3
+    .word SCRIPT_PATTERN_WRITE_4
+    .word SCRIPT_PATTERN_WRITE_5
+    .word SCRIPT_PATTERN_WRITE_6
+    .word SCRIPT_PATTERN_WRITE_7
+    .word SCRIPT_PATTERN_WRITE_8
+    .word SCRIPT_PATTERN_WRITE_9
+    .word SCRIPT_PATTERN_WRITE_10
+
+pattern_setters:
+    .word PV_SET_0, PV_ARG_0
+    .word PV_SET_1, PV_ARG_1
+    .word PV_SET_2, PV_ARG_2
+    .word PV_SET_3, PV_ARG_3
+    .word PV_SET_4, PV_ARG_4
+    .word PV_SET_5, PV_ARG_5
+    .word PV_SET_6, PV_ARG_6
+    .word PV_SET_7, PV_ARG_7
+    .word PV_SET_8, PV_ARG_8
+    .word PV_SET_9, PV_ARG_9
+    .word PV_SET_10, PV_ARG_10
 
 ; r0 part, r1 step -> r12 the step's record. Marks the frame as one that wrote steps (SQ_AT holds its own address). Clobbers r1.
 seq_record:

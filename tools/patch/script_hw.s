@@ -663,6 +663,251 @@ key_pass_reset:
     bx lr
 .pool
 
+; r0 runtime, r2 the plugin that took a hold, r12 the checksum of its block then -> r3 0 while that plugin is still in the
+; runtime's list, armed and holds the same block (an entry address a later load reuses holds another block). Clobbers r3.
+hold_owner_gone:
+    ldr r3, [r0, #RT_HEAD]
+hold_owner_find:
+    cmp r3, #0
+    beq hold_owner_lost
+    cmp r3, r2
+    beq hold_owner_found
+    ldr r3, [r3, #SCRIPT_ENTRY_NEXT]
+    b hold_owner_find
+hold_owner_found:
+    ldr r3, [r2, #SCRIPT_ENTRY_STATE]
+    cmp r3, #SCRIPT_STATE_ARMED
+    bne hold_owner_lost
+    ldr r3, [r2, #SCRIPT_ENTRY_BLOB]
+    ldr r3, [r3, #12]
+    subs r3, r3, r12
+    bx lr
+hold_owner_lost:
+    mov r3, #1
+    bx lr
+
+; korg.touchLockX: the input filter writes a fixed X into every touch message, after the plugins got the real one
+; (touch_lock_input, called from script_input_hook), so the firmware's touchpad modes see that X while Y stays the finger's. The
+; firmware takes (raw X >> 4) * 2 as its X on all three builds (0xC004567C on hacktribe and red, 0xC003F99C on the blue, measured
+; in the emulator), so the record holds the raw value (x >> 1) << 4 | 8, which gives it x rounded down to even. Then the plugin
+; that locked and the checksum of its block; the lock ends with touchLockX(-1) and when that plugin no longer runs
+; (script_touch_lock_guard). FF at power-on is no lock.
+.equ TL_RAW, 0
+.equ TL_OWNER, 4
+.equ TL_CRC, 8
+
+; r0 x (-1 to 127, checked by the VM). Only the VM writes the record, the input filter reads one word.
+script_touch_lock_x_glue:
+    ldr r2, =TOUCH_LOCK
+    cmp r0, #0
+    mvnlt r3, #0
+    movge r3, r0, lsr #1
+    movge r3, r3, lsl #4
+    orrge r3, r3, #8
+    str r3, [r2, #TL_RAW]
+    blt touch_lock_done
+    ldr r3, =HOOK_RUNTIME
+    ldr r3, [r3, #RT_ENTRY]
+    str r3, [r2, #TL_OWNER]
+    ldr r3, [r3, #SCRIPT_ENTRY_BLOB]
+    ldr r3, [r3, #12]
+    str r3, [r2, #TL_CRC]
+touch_lock_done:
+    mov r0, #0
+    mov r1, #ERR_OK
+    bx lr
+
+; r5 a touch message (class 5): bytes 0x0d and 0x0e are its X, high byte first. Clobbers r1.
+touch_lock_input:
+    ldr r1, =TOUCH_LOCK
+    ldr r1, [r1, #TL_RAW]
+    cmn r1, #1
+    bxeq lr
+    strb r1, [r5, #0x0e]
+    mov r1, r1, lsr #8
+    strb r1, [r5, #0x0d]
+    bx lr
+
+; r0 runtime. Ends the lock when the plugin that locked is gone from the list, no longer armed or holds another block.
+; Clobbers r1 to r3 and r12.
+script_touch_lock_guard:
+    ldr r1, =TOUCH_LOCK
+    ldr r2, [r1, #TL_RAW]
+    cmn r2, #1
+    bxeq lr
+    ldr r2, [r1, #TL_OWNER]
+    ldr r12, [r1, #TL_CRC]
+    push {lr}
+    bl hold_owner_gone
+    pop {lr}
+    cmp r3, #0
+    bxeq lr
+    mvn r2, #0
+    str r2, [r1, #TL_RAW]
+    bx lr
+.pool
+
+; korg.keyHold: a plugin keeps a key from the firmware, with or without an app (passKeys acts only while an app is open). The
+; input filter asks script_key_hold for every key message outside the BLECH menu, before the app's own keys. The record at
+; KEY_HOLD holds a word for keys 0 to 31 and one for 32 and 33 with a bit set for a key that still reaches the firmware (FF at
+; power-on is all free), two words with a bit clear for a key whose press was kept (so its release is kept as well, even when the
+; hold ended in between), then the plugin that held the last key and the checksum of its block. The hold ends with keyHold(key, 0)
+; and when that plugin no longer runs (script_key_hold_guard), not when an app closes. EXIT is never held, apps stay closable.
+.equ KY_FREE, 0
+.equ KY_KEPT, 8
+.equ KY_OWNER, 16
+.equ KY_CRC, 20
+
+; r0 key (0 to 33), r1 1 to hold, 0 to let go.
+script_key_hold_glue:
+    cmp r0, #KEY_EXIT
+    beq hw_bad_arg
+    ldr r2, =KEY_HOLD
+    cmp r0, #32
+    addhs r2, r2, #4
+    subhs r0, r0, #32
+    ldr r3, [r2, #KY_FREE]
+    mov r12, #1
+    cmp r1, #0
+    orreq r3, r3, r12, lsl r0
+    bicne r3, r3, r12, lsl r0
+    str r3, [r2, #KY_FREE]
+    beq key_hold_done
+    ldr r2, =KEY_HOLD
+    ldr r3, =HOOK_RUNTIME
+    ldr r3, [r3, #RT_ENTRY]
+    str r3, [r2, #KY_OWNER]
+    ldr r3, [r3, #SCRIPT_ENTRY_BLOB]
+    ldr r3, [r3, #12]
+    str r3, [r2, #KY_CRC]
+key_hold_done:
+    mov r0, #0
+    mov r1, #ERR_OK
+    bx lr
+
+; r5 a key message -> r0 nonzero when the firmware must not get it: a press of a held key, the release of a kept press.
+; Clobbers r1 to r3 and r12.
+script_key_hold:
+    ldrb r2, [r5, #0x0d]
+    mov r0, #0
+    cmp r2, #34
+    bxhs lr
+    ldr r12, =KEY_HOLD
+    cmp r2, #32
+    addhs r12, r12, #4
+    subhs r2, r2, #32
+    mov r3, #1
+    mov r3, r3, lsl r2
+    ldr r1, [r12, #KY_KEPT]
+    ldrb r2, [r5, #0x0e]
+    cmp r2, #0
+    beq key_hold_release
+    ldr r0, [r12, #KY_FREE]
+    bic r0, r3, r0
+    cmp r0, #0
+    bicne r1, r1, r3
+    orreq r1, r1, r3
+    b key_hold_store
+key_hold_release:
+    bic r0, r3, r1
+    orr r1, r1, r3
+key_hold_store:
+    str r1, [r12, #KY_KEPT]
+    bx lr
+
+; r0 runtime. Gives all keys back when the plugin that held the last one no longer runs. Clobbers r1 to r3 and r12.
+script_key_hold_guard:
+    ldr r1, =KEY_HOLD
+    ldr r2, [r1, #KY_FREE]
+    ldr r3, [r1, #KY_FREE+4]
+    and r2, r2, r3
+    cmn r2, #1
+    bxeq lr
+    ldr r2, [r1, #KY_OWNER]
+    ldr r12, [r1, #KY_CRC]
+    push {lr}
+    bl hold_owner_gone
+    pop {lr}
+    cmp r3, #0
+    bxeq lr
+    mvn r2, #0
+    str r2, [r1, #KY_FREE]
+    str r2, [r1, #KY_FREE+4]
+    bx lr
+.pool
+
+; korg.pressKey: a plugin gives the firmware a short press of a key. The press goes into the panel queue at once (rm_post in
+; script_remote.s, the way the remote's keys go), the release in the next frame (script_press_key_tick), so the firmware gets
+; both through its own panel path. Both carry PK_MARK in their last byte: the input filter passes them on untouched (no remap,
+; no hold, no app) and posts them to no plugin. The record at PRESS_KEY holds a word for keys 0 to 31 and one for 32 and 33,
+; a bit clear for a key whose release is still to go; FF at power-on is none. A key pressed again before its release went out
+; is not pressed twice. A full queue drops the press; a release waits for the next frame.
+.equ PK_UP, 0
+
+; r0 key (0 to 33). EXIT is refused, an app would stay open with the firmware on its own screen.
+script_press_key_glue:
+    cmp r0, #KEY_EXIT
+    beq hw_bad_arg
+    push {r4-r6, lr}
+    ldr r4, =PRESS_KEY
+    mov r5, r0
+    cmp r0, #32
+    addhs r4, r4, #4
+    subhs r0, r0, #32
+    mov r6, #1
+    mov r6, r6, lsl r0
+    ldr r3, [r4, #PK_UP]
+    tst r3, r6
+    beq press_key_done
+    mov r0, r5, lsl #8
+    orr r0, r0, #0x10000        ; type 0, the key, 1 (pressed)
+    mov r1, #PK_MARK_WORD
+    bl rm_post
+    cmp r0, #0
+    ldrne r3, [r4, #PK_UP]
+    bicne r3, r3, r6
+    strne r3, [r4, #PK_UP]
+press_key_done:
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4-r6, pc}
+
+; From the frame hook, before the plugins run: the release of every key a plugin pressed in the last frame. Clobbers r0 to r3
+; and r12.
+script_press_key_tick:
+    ldr r0, =PRESS_KEY
+    ldr r1, [r0, #PK_UP]
+    ldr r2, [r0, #PK_UP+4]
+    and r1, r1, r2
+    cmn r1, #1
+    bxeq lr
+    push {r4-r6, lr}
+    mov r5, #0
+press_tick_key:
+    ldr r4, =PRESS_KEY
+    cmp r5, #32
+    addhs r4, r4, #4
+    subhs r0, r5, #32
+    movlo r0, r5
+    mov r6, #1
+    mov r6, r6, lsl r0
+    ldr r3, [r4, #PK_UP]
+    tst r3, r6
+    bne press_tick_next
+    mov r0, r5, lsl #8          ; type 0, the key, 0 (released)
+    mov r1, #PK_MARK_WORD
+    bl rm_post
+    cmp r0, #0
+    ldrne r3, [r4, #PK_UP]
+    orrne r3, r3, r6
+    strne r3, [r4, #PK_UP]
+press_tick_next:
+    add r5, r5, #1
+    cmp r5, #34
+    blo press_tick_key
+    pop {r4-r6, pc}
+.pool
+
 ; korg.remapKey: one key the panel sends reaches the firmware and the plugins as another, while the plugin that asked for it
 ; is armed. The record lies in the card loader's work area, between RM_AT and FX_STATE_AT: the plugin's entry, the checksum
 ; of its block (an entry address a later load reuses holds another block) and the two key codes (from in bits 0 to 7, to in

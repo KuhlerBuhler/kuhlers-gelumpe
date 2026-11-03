@@ -295,6 +295,44 @@ class NativeHardwareTests(unittest.TestCase):
         self.assertEqual(m.call('script_seq_set_part_value_glue',16,1,1)[1],error)
         self.assertEqual(calls,[],'a read-only field is not written')
 
+    def test_set_pattern_value_writes_nothing_without_a_setter_and_calls_a_setter_with_the_clamped_value(self):
+        m,built = self.machine()
+        from unicorn import UC_HOOK_CODE
+        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_LR, UC_ARM_REG_PC
+        from tools.patch.script_hooks import PATTERN_SETTER_FIELDS, PATTERN_SETTERS, pattern_setter_actions
+        error = contract_data()['error']['API_ARG']
+        fields = json.loads(subprocess.check_output(['node','--input-type=module','-e',
+            "import {PATTERN_FIELDS} from './data/script/contract.mjs'; console.log(JSON.stringify(PATTERN_FIELDS.map(f => f.name)))"],cwd=ROOT))
+        self.assertEqual(list(PATTERN_SETTER_FIELDS),fields)
+        for build in PATTERN_SETTERS:
+            self.assertEqual(set(pattern_setter_actions(build).values()),{0},'%s: no setter measured yet'%build)
+        table = m.symbols['pattern_setters']
+        self.assertEqual(bytes(m.uc.mem_read(table,8*len(PATTERN_SETTER_FIELDS))),bytes(8*len(PATTERN_SETTER_FIELDS)))
+        from unicorn import UC_HOOK_MEM_WRITE
+        from unicorn.arm_const import UC_ARM_REG_SP
+        writes = []
+        hook = m.uc.hook_add(UC_HOOK_MEM_WRITE,lambda uc,access,address,*_:writes.append(address)
+                             if abs(address-uc.reg_read(UC_ARM_REG_SP))>0x100 else None)
+        for field in range(len(PATTERN_SETTER_FIELDS)):
+            self.assertEqual(m.call('script_seq_set_pattern_value_glue',field,5),(0,0),field)
+        m.uc.hook_del(hook)
+        self.assertEqual(writes,[],'without a setter nothing is written')
+        self.assertEqual(m.call('script_seq_set_pattern_value_glue',len(PATTERN_SETTER_FIELDS),5)[1],error)
+        # a setter entry: the function gets its word in r0 and the clamped value in r1
+        m.uc.mem_map(0xC0048000,0x1000)
+        calls = []
+        def setter(uc,*_):
+            calls.append((uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1)))
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
+        m.uc.hook_add(UC_HOOK_CODE,setter,begin=0xC0048100,end=0xC0048100)
+        m.write(table,0xC0048100); m.write(table+4,0x1234)             # tempo
+        m.write(table+9*8,0xC0048100); m.write(table+9*8+4,0x99)       # chainTo
+        self.assertEqual(m.call('script_seq_set_pattern_value_glue',0,9000),(0,0))
+        self.assertEqual(m.call('script_seq_set_pattern_value_glue',0,100),(0,0))
+        self.assertEqual(m.call('script_seq_set_pattern_value_glue',9,0xFFFFFFF0),(0,0))
+        self.assertEqual(m.call('script_seq_set_pattern_value_glue',9,17),(0,0))
+        self.assertEqual(calls,[(0x1234,3000),(0x1234,200),(0x99,0xFFFFFFFF),(0x99,17)],'tempo 200 to 3000, chainTo from -1')
+
     def test_mute_presses_the_pad_only_when_the_part_is_not_in_the_wanted_state(self):
         m,_ = self.machine()
         calls = self.stubs(m)

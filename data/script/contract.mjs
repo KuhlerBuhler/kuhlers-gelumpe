@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 14;
+export const API_VERSION = 15;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -359,6 +359,10 @@ const API_LIST = [
   [71, "korg.seq.setPartValue", [int("part", 0, 15), int("field", 0, 19), int("value")], "void", UI, 60, 14],
   [72, "korg.read.patternBytes", [arr("array"), int("pattern", -1, 249), int("offset", 0, 16383)], "int", UI, 6, 14, 1],
   [73, "korg.seq.writeSteps", [arr("array"), int("part", 0, 15), int("first", 0, 63)], "int", UI, 10, 14, 1],
+  [74, "korg.touchLockX", [int("x", -1, 127)], "void", UI, 20, 15],
+  [75, "korg.keyHold", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 15],
+  [76, "korg.pressKey", [int("key", 0, 33)], "void", UI, 30, 15],
+  [77, "korg.seq.setPatternValue", [int("field", 0, 10), int("value")], "void", UI, 60, 15],
 ];
 
 /**
@@ -464,6 +468,15 @@ export const PART_WRITES = Object.freeze({
   modType: [14, 13, 0, 71], modSpeed: [15, 12, 0, 127], modDepth: [16, 11, 0, 127], attack: [17, 9, 0, 127],
   decay: [18, 8, 0, 127], level: [19, 6, 0, 127], pan: [20, 7, -63, 63], ifxEdit: [27, 14, 0, 127],
   pitch: [28, 15, -63, 63], glide: [29, 16, 0, 127], oscEdit: [6, 1, 0, 127],
+});
+/**
+ * The PATTERN_FIELDS korg.seq.setPatternValue writes, by name: the range the value is clamped to, in the units
+ * korg.read.patternValue gives (the ranges of data/map/pattern.mjs, decoded by the field's kind: length 1 to 4 bars,
+ * Chain To -1 for none). The firmware's setters are per build in tools/patch/script_hooks.py (PATTERN_SETTERS).
+ */
+export const PATTERN_WRITES = Object.freeze({
+  tempo: [200, 3000], swing: [-48, 48], length: [1, 4], beat: [0, 4], key: [0, 11], scale: [0, 34], chordSet: [0, 4],
+  level: [0, 127], mfxType: [0, 99], chainTo: [-1, 249], chainRepeat: [0, 127],
 });
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
