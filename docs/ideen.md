@@ -103,7 +103,7 @@ Ein Absturz oder Datenverlust ist akzeptabel. Schäden an Software, Hardware ode
 | 90. **Samples vor dem Ausschalten exportieren oder automatisch sichern:** das Gerät fragt beim Ausschalten, ob alle Samples exportiert werden sollen. Idee 57 deckt nur Patterns; mit dem Projektformat (Idee 64) würde beides automatisch gespeichert. | Wunsch aus der Community (Oktober 2026), offen | [Idee 57](ideen/57-ungespeichert-warnen.md), [Idee 64](ideen/64-projekte.md) |
 | 91. **Part-Mute nur solange gedrückt,** wie beim ESX. | Wunsch aus der Community (Oktober 2026), offen |  |
 | 92. **Sample-Wechsel in einem Part per LFO.** | Wunsch aus der Community (Oktober 2026), offen; Version 1.4 bringt ein anderes Sample-Wechseln ([Idee 64](ideen/64-projekte.md)) |  |
-| 93. **Bild-Betrachter für mehrere BMPs von der Karte,** als Plugin machbar. Der GIF Player existiert schon. | Wunsch aus der Community (Oktober 2026), offen |  |
+| 93. **Bild-Betrachter für mehrere BMPs von der Karte,** als Plugin machbar. Der GIF Player existiert schon. | gebaut als Katalog-Plugin Image Viewer, im Simulator geprüft, am Gerät offen | [Idee 93](ideen/93-bild-betrachter.md) |
 | 94. **OSCs der EMX auf die E2 laden.** | Wunsch aus der Community (Oktober 2026), offen, noch nicht untersucht |  |
 | 95. **Einfacher Effekt-Baukasten** nach dem Touchpad-Modell, der auch ohne Vorwissen funktioniert. | Wunsch aus der Community (Oktober 2026), offen; bleibt vorerst, wie er ist |  |
 | 96. **Einheitliches, scrollbares Kontextmenü für Plugins** mit MENU und ENTER. | Wunsch aus der Community (Oktober 2026), offen; in Idee 74 nicht enthalten | [Idee 74](ideen/74-plugin-api-feedback.md) |
