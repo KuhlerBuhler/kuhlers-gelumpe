@@ -429,7 +429,7 @@ Plugin mit einem Fehler.
 | `korg.padHold(an)` | 1 hält Pad-Anschläge von der Firmware fern: kein Klang, keine Änderung am Step, das Plugin bekommt `pad` aber weiter. Die Laufzeit setzt dafür das Pad-Bit der Maske, die der Eingangsfilter vor der Firmware liest. 0 gibt die Pads zurück; das tut die Laufzeit auch selbst, wenn eine App schließt und wenn kein Plugin mehr läuft. Das Loslassen folgt immer seinem Anschlag: wurde der Anschlag zurückgehalten, bleibt auch das Loslassen bei den Plugins, sonst geht es an die Firmware. Ab API Version 12 | wie `korg.led` |
 | `korg.knobHold(index, an)` | 1 hält die Bewegungen des Reglers `index` (0 bis 10, die Indizes stehen unter Regler, OSC EDIT ist 9) von der Firmware fern: der Parameter bleibt stehen, das Plugin bekommt `knob` aber weiter, mit dem Rohwert. 0 gibt den Regler zurück. Die Laufzeit gibt alle Regler auch selbst zurück, sobald das Plugin, das zuletzt einen gehalten hat, nicht mehr läuft; eine App, die schließt, gibt sie nicht zurück, ein Filter läuft auch ohne App. Gilt außerhalb des Menüs BLECH. Ab API Version 13 | wie `korg.led` |
 | `korg.passKeys(taste, an)` | solange eine App offen ist, hält der Eingangsfilter die Tasten von der Firmware fern, außer REC, STOP, PLAY und EXIT. 1 lässt die Taste `taste` (0 bis 33, am besten ein Name wie `korg.key.PART_MUTE`) trotzdem zur Firmware, 0 hält sie fern, auch REC, STOP und PLAY. Das Plugin bekommt `buttonPress` und `buttonRelease` in beiden Fällen. Das Loslassen folgt seinem Anschlag wie bei `korg.padHold`. EXIT schließt die App immer. Schließt die App, gilt wieder die Vorgabe. Ab API Version 14 | wie `korg.led` |
-| `korg.touchLockX(x)` | hält das X des Touchpads, das die Firmware sieht, auf `x` (0 bis 127), Y bleibt das des Fingers; -1 lässt los. Die Firmware rechnet in Schritten von 2, `x` wird auf gerade abgerundet (127 ist 126). Das Plugin bekommt `touch` weiter mit dem echten X. Gilt ab der nächsten Touch-Nachricht und außerhalb des Menüs BLECH. Die Laufzeit lässt auch selbst los, sobald das Plugin nicht mehr läuft. Im Emulator gemessen auf Hacktribe, rot und blau, im Modus Master FX und Touch Scale; am Gerät nicht. Ab API Version 15 | wie `korg.led` |
+| `korg.touchLockX(x)` | hält das X des Touchpads, das die Firmware sieht, auf `x` (0 bis 127), Y bleibt das des Fingers; -1 lässt los. Im Modus Master FX und Touch Scale rechnet die Firmware in Schritten von 2, `x` wird auf gerade abgerundet (127 ist 126); im Modus Gate Arp sieht sie `x` genau. Ein Finger am rohen X `r` ist `x = r >> 3`. Das Plugin bekommt `touch` weiter mit dem echten X. Gilt ab der nächsten Touch-Nachricht und außerhalb des Menüs BLECH. Die Laufzeit lässt auch selbst los, sobald das Plugin nicht mehr läuft. Im Emulator gemessen auf Hacktribe, rot und blau, im Modus Master FX, Touch Scale und Gate Arp; am Gerät nicht. Ab API Version 15 | wie `korg.led` |
 | `korg.keyHold(taste, an)` | 1 hält die Taste `taste` (0 bis 33) von der Firmware fern, auch ohne offene App; das Plugin bekommt `buttonPress` und `buttonRelease` weiter. 0 gibt sie zurück. Das Loslassen folgt seinem Anschlag wie bei `korg.passKeys`. EXIT beendet das Plugin mit einem Fehler, Apps bleiben schließbar. Die Laufzeit gibt alle Tasten auch selbst zurück, sobald das Plugin, das zuletzt eine gehalten hat, nicht mehr läuft. Gilt außerhalb des Menüs BLECH. Im Emulator gemessen auf Hacktribe, rot und blau; am Gerät nicht. Ab API Version 15 | wie `korg.led` |
 | `korg.pressKey(taste)` | gibt der Firmware einen kurzen Druck der Taste `taste` (0 bis 33): der Anschlag geht sofort in die Warteschlange des Panels, das Loslassen im nächsten Frame, beides über denselben Weg wie die Tasten des Panels. Eine Markierung lässt beide an Umbelegung, `korg.keyHold`, App und Plugins vorbei, kein Plugin bekommt sie als `buttonPress`. Ein zweiter Druck, bevor das Loslassen raus ist, entfällt, eine volle Warteschlange verwirft den Druck. EXIT beendet das Plugin mit einem Fehler. Im Emulator gemessen auf Hacktribe, rot und blau (PLAY startet, STOP hält an); am Gerät nicht. Ab API Version 15 | wie `korg.led` |
 | `korg.knob(index, wert)` | gibt der Firmware den Wert `wert` (0 bis 255) für den Regler `index` (0 bis 10), über ihre eigene Reglerfunktion, als hätte der Regler ihn gesendet. Zusammen mit `korg.knobHold` filtert ein Plugin einen Regler, der springt. `korg.read.knob` zeigt weiter den Wert des Panels. Ab API Version 13 | wie `korg.led` |
@@ -1187,13 +1187,36 @@ nimmt die Taste beim Eingang, das Plugin einen Rahmen später). Grenzen: kommt S
 der Filtertaste, kann das Plugin schon den weitergedrehten Typ lesen; auf der blauen Electribe schreibt
 `korg.seq.setPartValue` nichts. Im Simulator geprüft (`test/script-plugins.test.mjs`), am Gerät nicht.
 
+**Gate Hold** ([Idee 72](ideen/72-gate-arp-note-halten.md)) braucht API 15 und läuft im Hintergrund. Im Modus Gate Arp
+bleibt die Note dort, wo der Finger das Touchpad zuerst berührt: `korg.touchLockX` hält das X fest, das die Firmware sieht,
+Y bleibt das des Fingers. Bewegt sich der Finger danach, wählt X von links nach rechts den Gate-Arp-Rhythmus des Patterns
+(die Seite GATE ARP im Pattern-Menü, 0 bis 49) mit `korg.seq.setPatternValue`. Finger weg setzt den Rhythmus zurück, den
+das Pattern hatte, ein Patternwechsel mit Finger auf dem Pad merkt sich den des neuen Patterns. Den Touchpad-Modus führt
+die Firmware, bis eine andere Modus-Taste kommt (im Emulator gemessen, [Messung](messungen/2026-11-03-plugin-api15.md)):
+GATE ARP schaltet Gate Arp ein, MASTER FX und TOUCH SCALE beenden es, SHIFT + GATE ARP und SHIFT + MASTER FX öffnen nur
+ihre Menüseite. Das Plugin folgt diesen Tasten; in Master FX und Touch Scale bleibt das Touchpad unberührt. Die Seite
+GATE HOLD im Menü BLECH schaltet es an (1) und aus (0). Plugins laufen einmal je Bild (40 ms): bewegt sich der Finger
+in den ersten 40 ms nach dem Aufsetzen, kann die Firmware diese Bewegung noch sehen (hergeleitet). Im Simulator
+(`test/script-gate-hold.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, rot, blau) geprüft,
+am Gerät nicht.
+
+**Key Pads** ([Idee 85](ideen/85-keyboard-tonart.md)) braucht API 15 und läuft im Hintergrund. KEYBOARD gehalten, ein Pad
+setzt den KEY des Patterns mit `korg.seq.setPatternValue`, über denselben Setter wie die Seite KEY im Pattern-Menü, wie
+TRANSPOSE bei den alten Electribes. Die Pads liegen wie eine Klaviatur: untere Reihe C D E F G A B C, obere Reihe die
+schwarzen Tasten darüber (C#, D#, F#, G#, A#), die übrigen Pads oben tun nichts. KEYBOARD gehört dem Plugin
+(`korg.keyHold`), auch ohne offene App; ein kurzer Druck ohne Pad geht beim Loslassen mit `korg.pressKey` an die Firmware
+und schaltet wie immer in den Modus KEYBOARD, mit Pad nicht. Solange KEYBOARD gedrückt ist, hält `korg.padHold` die Pads
+von der Firmware fern. SHIFT + KEYBOARD bleibt bei der Firmware. Die Seite KEY PADS im Menü BLECH schaltet es an (1) und
+aus (0). Im Simulator (`test/script-key-pads.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`,
+Hacktribe, rot, blau) geprüft, am Gerät nicht.
+
 ## Die Seite Plugins im Editor
 
 Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker und Momentary Mute, Quelle
+und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold und Key Pads, Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
