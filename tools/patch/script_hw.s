@@ -689,8 +689,9 @@ hold_owner_lost:
 
 ; korg.touchLockX: the input filter writes a fixed X into every touch message, after the plugins got the real one
 ; (touch_lock_input, called from script_input_hook), so the firmware's touchpad modes see that X while Y stays the finger's. The
-; firmware takes (raw X >> 4) * 2 as its X on all three builds (0xC004567C on hacktribe and red, 0xC003F99C on the blue, measured
-; in the emulator), so the record holds the raw value (x >> 1) << 4 | 8, which gives it x rounded down to even. Then the plugin
+; firmware takes (raw X >> 4) * 2 as its X in Master FX and Touch Scale mode (0xC004567C on hacktribe and red, 0xC003F99C on
+; the blue) and raw X >> 3 in Gate Arp mode (measured in the emulator on all three builds), so the record holds the raw value
+; x << 3: x rounded down to even in the first two, x itself in Gate Arp, the same X as a finger at raw x * 8. Then the plugin
 ; that locked and the checksum of its block; the lock ends with touchLockX(-1) and when that plugin no longer runs
 ; (script_touch_lock_guard). FF at power-on is no lock.
 .equ TL_RAW, 0
@@ -702,9 +703,7 @@ script_touch_lock_x_glue:
     ldr r2, =TOUCH_LOCK
     cmp r0, #0
     mvnlt r3, #0
-    movge r3, r0, lsr #1
-    movge r3, r3, lsl #4
-    orrge r3, r3, #8
+    movge r3, r0, lsl #3
     str r3, [r2, #TL_RAW]
     blt touch_lock_done
     ldr r3, =HOOK_RUNTIME
