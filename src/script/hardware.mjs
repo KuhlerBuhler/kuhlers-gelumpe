@@ -133,7 +133,8 @@ export class SimHardware {
 
   /**
    * korg.seq.setPatternValue in the pattern in RAM: the value clamped to the field's range and stored as korg.read.patternValue
-   * decodes it. The device writes nothing yet (no measured setter, tools/patch/script_hooks.py PATTERN_SETTERS).
+   * decodes it. The device calls the Pattern menu's setter (tools/patch/script_hooks.py PATTERN_SETTERS), which stores the
+   * same byte; its MFX TYPE ends at 31 on the synth, which the simulator does not know.
    */
   setPatternValue(field, value) {
     const f = PATTERN_FIELDS[field];

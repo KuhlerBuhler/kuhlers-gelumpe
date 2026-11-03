@@ -210,6 +210,7 @@ pattern_fields:
     .word SCRIPT_PATTERN_FIELD_8
     .word SCRIPT_PATTERN_FIELD_9
     .word SCRIPT_PATTERN_FIELD_10
+    .word SCRIPT_PATTERN_FIELD_11
 part_fields:
     .word SCRIPT_PART_FIELD_0
     .word SCRIPT_PART_FIELD_1

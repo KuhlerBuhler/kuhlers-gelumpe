@@ -2098,6 +2098,7 @@ export default {
   "api.pattern.mfxType": "Master efekt, jeho místo v menu Master.",
   "api.pattern.chainTo": "Chain To: další pattern, od 0 do 249, -1 bez řetězu.",
   "api.pattern.chainRepeat": "Chain Repeat: kolikrát pattern hraje, než řetěz půjde dál, alespoň 1.",
+  "api.pattern.gateArp": "Gate Arp: vzor Gate Arp, 0 až 49, jako stránka GATE ARP v menu Pattern.",
   "api.part.sample": "Sample, číslo slotu.",
   "api.part.filterType": "Typ filtru, od 0 do 16.",
   "api.part.cutoff": "Cutoff, od 0 do 127.",

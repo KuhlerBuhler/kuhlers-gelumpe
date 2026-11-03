@@ -295,43 +295,46 @@ class NativeHardwareTests(unittest.TestCase):
         self.assertEqual(m.call('script_seq_set_part_value_glue',16,1,1)[1],error)
         self.assertEqual(calls,[],'a read-only field is not written')
 
-    def test_set_pattern_value_writes_nothing_without_a_setter_and_calls_a_setter_with_the_clamped_value(self):
+    def test_set_pattern_value_calls_the_measured_setter_with_the_byte_the_menu_passes(self):
         m,built = self.machine()
         from unicorn import UC_HOOK_CODE
-        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_LR, UC_ARM_REG_PC
+        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_LR, UC_ARM_REG_PC
         from tools.patch.script_hooks import PATTERN_SETTER_FIELDS, PATTERN_SETTERS, pattern_setter_actions
         error = contract_data()['error']['API_ARG']
         fields = json.loads(subprocess.check_output(['node','--input-type=module','-e',
             "import {PATTERN_FIELDS} from './data/script/contract.mjs'; console.log(JSON.stringify(PATTERN_FIELDS.map(f => f.name)))"],cwd=ROOT))
         self.assertEqual(list(PATTERN_SETTER_FIELDS),fields)
         for build in PATTERN_SETTERS:
-            self.assertEqual(set(pattern_setter_actions(build).values()),{0},'%s: no setter measured yet'%build)
+            actions = pattern_setter_actions(build)
+            self.assertTrue(all(actions['PV_SET_%d'%i] for i in range(len(fields))),'%s: every field has a setter'%build)
+        self.assertEqual(pattern_setter_actions('synth')['PV_TOP_%d'%fields.index('mfxType')],31,'the synth MFX TYPE page ends at 31')
+        actions = pattern_setter_actions('hacktribe')
         table = m.symbols['pattern_setters']
-        self.assertEqual(bytes(m.uc.mem_read(table,8*len(PATTERN_SETTER_FIELDS))),bytes(8*len(PATTERN_SETTER_FIELDS)))
-        from unicorn import UC_HOOK_MEM_WRITE
-        from unicorn.arm_const import UC_ARM_REG_SP
-        writes = []
-        hook = m.uc.hook_add(UC_HOOK_MEM_WRITE,lambda uc,access,address,*_:writes.append(address)
-                             if abs(address-uc.reg_read(UC_ARM_REG_SP))>0x100 else None)
-        for field in range(len(PATTERN_SETTER_FIELDS)):
-            self.assertEqual(m.call('script_seq_set_pattern_value_glue',field,5),(0,0),field)
-        m.uc.hook_del(hook)
-        self.assertEqual(writes,[],'without a setter nothing is written')
-        self.assertEqual(m.call('script_seq_set_pattern_value_glue',len(PATTERN_SETTER_FIELDS),5)[1],error)
-        # a setter entry: the function gets its word in r0 and the clamped value in r1
-        m.uc.mem_map(0xC0048000,0x1000)
+        self.assertEqual(struct.unpack('<%dI'%(3*len(fields)),bytes(m.uc.mem_read(table,12*len(fields)))),
+                         tuple(v for i in range(len(fields)) for v in (actions['PV_SET_%d'%i],actions['PV_ARG_%d'%i],actions['PV_TOP_%d'%i])))
+        self.assertEqual(m.call('script_seq_set_pattern_value_glue',len(fields),5)[1],error)
         calls = []
-        def setter(uc,*_):
-            calls.append((uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1)))
+        def setter(uc,address,*_):
+            calls.append((address,uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1),uc.reg_read(UC_ARM_REG_R2)))
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
-        m.uc.hook_add(UC_HOOK_CODE,setter,begin=0xC0048100,end=0xC0048100)
-        m.write(table,0xC0048100); m.write(table+4,0x1234)             # tempo
-        m.write(table+9*8,0xC0048100); m.write(table+9*8+4,0x99)       # chainTo
-        self.assertEqual(m.call('script_seq_set_pattern_value_glue',0,9000),(0,0))
-        self.assertEqual(m.call('script_seq_set_pattern_value_glue',0,100),(0,0))
-        self.assertEqual(m.call('script_seq_set_pattern_value_glue',9,0xFFFFFFF0),(0,0))
-        self.assertEqual(m.call('script_seq_set_pattern_value_glue',9,17),(0,0))
-        self.assertEqual(calls,[(0x1234,3000),(0x1234,200),(0x99,0xFFFFFFFF),(0x99,17)],'tempo 200 to 3000, chainTo from -1')
+        for page in sorted({actions['PV_SET_%d'%i] & ~0xFFF for i in range(len(fields))}):
+            try: m.uc.mem_map(page,0x1000)
+            except Exception: pass
+        for i in range(len(fields)):
+            m.uc.hook_add(UC_HOOK_CODE,setter,begin=actions['PV_SET_%d'%i],end=actions['PV_SET_%d'%i])
+        obj = 0xC06B2798
+        at = {name: fields.index(name) for name in fields}
+        for name,value in (('tempo',9000),('tempo',100),('length',1),('length',99),('chainTo',0xFFFFFFF0),('chainTo',17),('mfxType',99),('gateArp',12)):
+            self.assertEqual(m.call('script_seq_set_pattern_value_glue',at[name],value),(0,0),name)
+        S = lambda name: actions['PV_SET_%d'%at[name]]
+        self.assertEqual(calls,[(S('tempo'),obj,3000,1),(S('tempo'),obj,200,1),(S('length'),obj,0,1),(S('length'),obj,3,1),
+                                (S('chainTo'),obj,0,1),(S('chainTo'),obj,18,1),(S('mfxType'),obj+0x4004,39,1),(S('gateArp'),obj,12,1)],
+                         'tempo 200 to 3000, bars minus 1, chain plus 1, MFX at the object plus 0x4004 up to 39')
+        # the synth's lower top for MFX TYPE
+        m.uc.mem_write(table+12*at['mfxType']+8,struct.pack('<I',31))
+        calls.clear()
+        m.call('script_seq_set_pattern_value_glue',at['mfxType'],35)
+        self.assertEqual(calls,[(S('mfxType'),obj+0x4004,31,1)])
 
     def test_mute_presses_the_pad_only_when_the_part_is_not_in_the_wanted_state(self):
         m,_ = self.machine()

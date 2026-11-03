@@ -2098,6 +2098,7 @@ export default {
   "api.pattern.mfxType": "Мастер-эффект, его место в мастер-меню.",
   "api.pattern.chainTo": "Chain To: следующий паттерн, от 0 до 249, -1 без цепочки.",
   "api.pattern.chainRepeat": "Chain Repeat: сколько раз играет паттерн, прежде чем цепочка пойдёт дальше, минимум 1.",
+  "api.pattern.gateArp": "Gate Arp: рисунок Gate Arp, от 0 до 49, как страница GATE ARP в меню Pattern.",
   "api.part.sample": "Сэмпл, номер слота.",
   "api.part.filterType": "Тип фильтра, от 0 до 16.",
   "api.part.cutoff": "Cutoff, от 0 до 127.",

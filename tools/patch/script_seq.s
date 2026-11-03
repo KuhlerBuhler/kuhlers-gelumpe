@@ -202,9 +202,12 @@ part_value_return:
     bx lr
 
 ; r0 field (PATTERN_FIELDS), r1 value: through the firmware's own setter for that field, the one the device's edit goes
-; through, so the sound engine and the screen follow. The value is clamped to the field's range (pattern_writes) first. The
-; setters per build live in tools/patch/script_hooks.py (PATTERN_SETTERS), one pair here each (pattern_setters): the function
-; and the word it gets in r0, r1 the value. They are still to be measured: a field without a setter (0) writes nothing.
+; through, so the sound engine and the screen follow. The value is clamped to the field's range (pattern_writes) and turned
+; from the units of korg.read.patternValue into the byte (bars 1 to 4 store 0 to 3, a chain -1 to 249 stores 0 to 250). The
+; setters per build live in tools/patch/script_hooks.py (PATTERN_SETTERS), three words here each (pattern_setters): the
+; function, the offset from the pattern object it gets in r0, and a lower top for the byte on this build (0 none); r1 the
+; byte, r2 1 as the menu passes. A field without a setter (0)
+; writes nothing (docs/messungen/2026-11-03-live-schreibwege.md).
 script_seq_set_pattern_value_glue:
     cmp r0, #SCRIPT_PATTERN_FIELD_COUNT
     bhs hw_bad_arg
@@ -219,15 +222,32 @@ script_seq_set_pattern_value_glue:
     mov r12, r3, asr #16
     cmp r1, r12
     movgt r1, r12
+    ldr r3, =pattern_fields
+    ldr r3, [r3, r0, lsl #2]
+    mov r3, r3, lsr #16
+    cmp r3, #3
+    subeq r1, r1, #1
+    cmp r3, #4
+    addeq r1, r1, #1
     ldr r3, =pattern_setters
-    add r3, r3, r0, lsl #3
+    add r0, r0, r0, lsl #1
+    add r3, r3, r0, lsl #2
     ldr r12, [r3]
     cmp r12, #0
     beq part_value_return
+    ldr r0, [r3, #8]
+    cmp r0, #0
+    beq pattern_value_top
+    cmp r1, r0
+    movgt r1, r0
+pattern_value_top:
     ldr r0, [r3, #4]
-    push {lr}
+    ldr r3, =HW_PATTERN_OBJECT
+    add r0, r0, r3
+    mov r2, #1
+    push {r4, lr}
     blx r12
-    pop {lr}
+    pop {r4, lr}
     b part_value_return
 
 ; r0 array, r1 pattern (-1 the one in RAM, 0 to 249 the bank), r2 offset in its block: one byte per slot, as far as the block
@@ -300,19 +320,21 @@ pattern_writes:
     .word SCRIPT_PATTERN_WRITE_8
     .word SCRIPT_PATTERN_WRITE_9
     .word SCRIPT_PATTERN_WRITE_10
+    .word SCRIPT_PATTERN_WRITE_11
 
 pattern_setters:
-    .word PV_SET_0, PV_ARG_0
-    .word PV_SET_1, PV_ARG_1
-    .word PV_SET_2, PV_ARG_2
-    .word PV_SET_3, PV_ARG_3
-    .word PV_SET_4, PV_ARG_4
-    .word PV_SET_5, PV_ARG_5
-    .word PV_SET_6, PV_ARG_6
-    .word PV_SET_7, PV_ARG_7
-    .word PV_SET_8, PV_ARG_8
-    .word PV_SET_9, PV_ARG_9
-    .word PV_SET_10, PV_ARG_10
+    .word PV_SET_0, PV_ARG_0, PV_TOP_0
+    .word PV_SET_1, PV_ARG_1, PV_TOP_1
+    .word PV_SET_2, PV_ARG_2, PV_TOP_2
+    .word PV_SET_3, PV_ARG_3, PV_TOP_3
+    .word PV_SET_4, PV_ARG_4, PV_TOP_4
+    .word PV_SET_5, PV_ARG_5, PV_TOP_5
+    .word PV_SET_6, PV_ARG_6, PV_TOP_6
+    .word PV_SET_7, PV_ARG_7, PV_TOP_7
+    .word PV_SET_8, PV_ARG_8, PV_TOP_8
+    .word PV_SET_9, PV_ARG_9, PV_TOP_9
+    .word PV_SET_10, PV_ARG_10, PV_TOP_10
+    .word PV_SET_11, PV_ARG_11, PV_TOP_11
 
 ; r0 part, r1 step -> r12 the step's record. Marks the frame as one that wrote steps (SQ_AT holds its own address). Clobbers r1.
 seq_record:

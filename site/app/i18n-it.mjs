@@ -2097,6 +2097,7 @@ export default {
   "api.pattern.mfxType": "Effetto master, la sua posizione nel menu Master.",
   "api.pattern.chainTo": "Chain To: il pattern successivo, da 0 a 249, -1 senza catena.",
   "api.pattern.chainRepeat": "Chain Repeat: quante volte suona il pattern prima che la catena prosegua, almeno 1.",
+  "api.pattern.gateArp": "Gate Arp: schema del Gate Arp, da 0 a 49, come la pagina GATE ARP del menu Pattern.",
   "api.part.sample": "Sample, il numero dello slot.",
   "api.part.filterType": "Tipo di filtro, da 0 a 16.",
   "api.part.cutoff": "Cutoff, da 0 a 127.",

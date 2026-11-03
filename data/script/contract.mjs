@@ -362,7 +362,7 @@ const API_LIST = [
   [74, "korg.touchLockX", [int("x", -1, 127)], "void", UI, 20, 15],
   [75, "korg.keyHold", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 15],
   [76, "korg.pressKey", [int("key", 0, 33)], "void", UI, 30, 15],
-  [77, "korg.seq.setPatternValue", [int("field", 0, 10), int("value")], "void", UI, 60, 15],
+  [77, "korg.seq.setPatternValue", [int("field", 0, 11), int("value")], "void", UI, 60, 15],
 ];
 
 /**
@@ -435,6 +435,7 @@ export const PATTERN_FIELDS = Object.freeze([
   field("mfxType", 61, "u8", text("api.pattern.mfxType")),
   field("chainTo", 15104, "chain", text("api.pattern.chainTo")),
   field("chainRepeat", 15106, "atLeast1", text("api.pattern.chainRepeat")),
+  field("gateArp", 49, "u8", text("api.pattern.gateArp")),
 ]);
 export const PART_FIELDS = Object.freeze([
   field("sample", 8, "u16", text("api.part.sample")),
@@ -476,7 +477,7 @@ export const PART_WRITES = Object.freeze({
  */
 export const PATTERN_WRITES = Object.freeze({
   tempo: [200, 3000], swing: [-48, 48], length: [1, 4], beat: [0, 4], key: [0, 11], scale: [0, 34], chordSet: [0, 4],
-  level: [0, 127], mfxType: [0, 99], chainTo: [-1, 249], chainRepeat: [0, 127],
+  level: [0, 127], mfxType: [0, 39], chainTo: [-1, 249], chainRepeat: [0, 127], gateArp: [0, 49],
 });
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });

@@ -2098,6 +2098,7 @@ export default {
   "api.pattern.mfxType": "Master-effect, zijn plek in het master-menu.",
   "api.pattern.chainTo": "Chain To: het volgende pattern, 0 tot 249, -1 zonder keten.",
   "api.pattern.chainRepeat": "Chain Repeat: hoe vaak het pattern speelt voordat de keten verdergaat, minstens 1.",
+  "api.pattern.gateArp": "Gate Arp: patroon van de Gate Arp, 0 tot 49, zoals de pagina GATE ARP van het Pattern-menu.",
   "api.part.sample": "Sample, het slotnummer.",
   "api.part.filterType": "Filtertype, 0 tot 16.",
   "api.part.cutoff": "Cutoff, 0 tot 127.",

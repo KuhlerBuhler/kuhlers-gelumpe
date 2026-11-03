@@ -81,27 +81,36 @@ WORDS = ((0xC006E664,0xE350002C,0xE350002D),
 VTABLE_OVER = ((8,'menu_slot_exit'),(12,'menu_slot_keys'),(16,'menu_slot_prev'),(20,'menu_slot_next'),(24,'menu_slot_enter'),(40,'menu_slot_value'))
 
 # korg.seq.setPatternValue (script_seq.s:pattern_setters): per build and PATTERN_FIELDS name (data/script/contract.mjs) the firmware
-# function that sets the value as the device's own edit does, and the word it gets in r0; r1 gets the value, clamped to
-# PATTERN_WRITES and in the units of korg.read.patternValue. A field without an entry writes nothing. Empty until the setters are
-# measured (docs/messungen); an entry goes in only with its measurement, the synth's with the blue's own addresses.
-PATTERN_SETTER_FIELDS = ('tempo','swing','length','beat','key','scale','chordSet','level','mfxType','chainTo','chainRepeat')
+# function that sets the value as the device's own edit does, and the offset from the pattern object it gets in r0; r1 gets the
+# byte (the value clamped to PATTERN_WRITES, from the units of korg.read.patternValue), r2 1. A third number is a lower top for
+# the byte on this build: the synth's MFX TYPE page goes to 31, the Sampler's to 39. A field without an entry writes nothing. Measured in the emulator, the menu page or key that changes the field calls the function
+# (docs/messungen/2026-11-03-live-schreibwege.md); red has the Sampler's addresses, the synth its own.
+PATTERN_SETTER_FIELDS = ('tempo','swing','length','beat','key','scale','chordSet','level','mfxType','chainTo','chainRepeat','gateArp')
+_SAMPLER_SETTERS = {'tempo': (0xC004A80C, 0), 'swing': (0xC004A594, 0), 'length': (0xC004A560, 0), 'beat': (0xC004A4F8, 0),
+                    'key': (0xC004A6FC, 0), 'scale': (0xC004A77C, 0), 'chordSet': (0xC004A534, 0), 'level': (0xC004A698, 0),
+                    'mfxType': (0xC0048A64, 0x4004), 'chainTo': (0xC004A5B0, 0), 'chainRepeat': (0xC004A5D4, 0),
+                    'gateArp': (0xC004A5F8, 0)}
 PATTERN_SETTERS = {
-    'hacktribe': {},
-    'stock': {},
-    'synth': {},
+    'hacktribe': _SAMPLER_SETTERS,
+    'stock': _SAMPLER_SETTERS,
+    'synth': {'tempo': (0xC00448EC, 0), 'swing': (0xC0044674, 0), 'length': (0xC0044640, 0), 'beat': (0xC00445F8, 0),
+              'key': (0xC00447DC, 0), 'scale': (0xC004485C, 0), 'chordSet': (0xC0044614, 0), 'level': (0xC0044778, 0),
+              'mfxType': (0xC0042CBC, 0x4004, 31), 'chainTo': (0xC0044690, 0), 'chainRepeat': (0xC00446B4, 0),
+              'gateArp': (0xC00446D8, 0)},
 }
 
 
 def pattern_setter_actions(build):
-    """The .equ values of the setter table: PV_SET_i the function, PV_ARG_i its r0, 0 and 0 for a field without a setter."""
+    """The .equ values of the setter table: PV_SET_i the function, PV_ARG_i the offset of its r0 from the pattern object, PV_TOP_i
+    the byte's top on this build (0 for the field's own); 0, 0 and 0 for a field without a setter."""
     setters = PATTERN_SETTERS[build]
     unknown = set(setters) - set(PATTERN_SETTER_FIELDS)
     if unknown:
         raise ValueError(f'pattern setters for unknown fields: {sorted(unknown)}')
     out = {}
     for i, name in enumerate(PATTERN_SETTER_FIELDS):
-        address, arg = setters.get(name, (0, 0))
-        out[f'PV_SET_{i}'], out[f'PV_ARG_{i}'] = address, arg
+        address, arg, top = (*setters.get(name, (0, 0)), 0)[:3]
+        out[f'PV_SET_{i}'], out[f'PV_ARG_{i}'], out[f'PV_TOP_{i}'] = address, arg, top
     return out
 
 

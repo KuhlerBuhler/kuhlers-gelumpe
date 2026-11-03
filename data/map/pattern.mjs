@@ -77,7 +77,7 @@ export default {
     f("pattern.mfx.touch", l("Pad berührt", "Pad touched"), 60, { area: "master", convert: "onOff", range: [0, 1], source: "measured", evidence: LIVE,
       note: "1, solange das Pad im Master-FX-Modus berührt ist",
       live: live("0xC00488A0", "0xC0042AF8", MFX, false, `${COPY} und der Zustand des Master-Effekts`) }),
-    f("pattern.mfx.type", l("Master-Effekt", "Master effect"), 61, { area: "master", convert: "plain", range: [0, 99], source: "measured", evidence: PATTERN_DIFF, note: "Platz im Master-Menü, mit Hacktribe über Korgs Bereich hinaus",
+    f("pattern.mfx.type", l("Master-Effekt", "Master effect"), 61, { area: "master", convert: "plain", range: [0, 39], source: "measured", evidence: PATTERN_DIFF, note: "Platz auf der Seite MFX TYPE: 0 bis 39 auf Hacktribe und rot, 0 bis 31 auf blau (Menü im Emulator gedreht, 2026-11-03)",
       live: live("0xC0048A64", "0xC0042CBC", MFX, false, `${COPY} (0x401D) und der Zustand des Master-Effekts`) }),
     f("pattern.mfx.padX", l("Pad X, zuletzt", "Pad X, last"), 62, { area: "master", convert: "plain", range: [0, 127], source: "measured", evidence: PATTERN_DIFF,
       live: live("0xC0048924", "0xC0042B7C", MFX, false, `${COPY} und der Zustand des Master-Effekts`) }),

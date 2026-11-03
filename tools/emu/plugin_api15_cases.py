@@ -1,11 +1,13 @@
 """Emulator cases of plugin API 15: korg.touchLockX gives the firmware's touchpad modes a fixed X while the plugins get the
 finger's, korg.keyHold keeps a key from the firmware without an app, korg.pressKey gives the firmware a short press through
-its panel path, and korg.seq.setPatternValue writes nothing while its setter table is empty.
+its panel path, and korg.seq.setPatternValue sets each pattern value through the firmware's own setter, the byte as the
+Pattern menu stores it.
 
     PYTHONPATH=tools/patch python3 tools/emu/plugin_api15_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 """
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -33,6 +35,14 @@ SCALE_MODE = {"hacktribe": 0xC0060830, "stock": 0xC0060830, "synth": 0xC00572E8}
 SHIFT, TOUCH_SCALE = 10, 5
 RAW_X, RAW_Y = 400, 500
 
+# korg.seq.setPatternValue: one value per field, each away from a pattern's usual one; mfxType past every build's top
+VALUES = {"tempo": 1234, "swing": -20, "length": 3, "beat": 2, "key": 5, "scale": 7, "chordSet": 3, "level": 77, "mfxType": 99,
+          "chainTo": 5, "chainRepeat": 9, "gateArp": 12}
+FIELDS = json.loads(subprocess.check_output(["node", "--input-type=module", "-e",
+    "import {PATTERN_FIELDS, PATTERN_WRITES} from './data/script/contract.mjs';"
+    "console.log(JSON.stringify(PATTERN_FIELDS.map(f => [f.name, f.offset, f.kind, PATTERN_WRITES[f.name]])))"], cwd=ROOT))
+SET_FIRST = 8
+
 PROGRAM = f"""let tx = -1; let plays = 0; let done = 0;
 korg.onEvent("touch", (x, y, first) => {{ tx = x; }});
 korg.onEvent("buttonPress", (k) => {{ if (k == korg.key.PLAY) plays = plays + 1; }});
@@ -47,8 +57,8 @@ korg.onEvent("frame", () => {{
   if (go == 5) korg.keyHold(korg.key.PLAY, 0);
   if (go == 6) korg.pressKey(korg.key.PLAY);
   if (go == 7) korg.pressKey(korg.key.STOP);
-  if (go == 8) korg.seq.setPatternValue(0, 1500);
-}});"""
+""" + "".join(f"\n  if (go == {SET_FIRST + i}) korg.seq.setPatternValue({i}, {VALUES[f[0]]});" for i, f in enumerate(FIELDS)) + """
+});"""
 
 
 def entry(name, ok, detail):
@@ -148,15 +158,30 @@ def key_cases(dev, program, at):
     return out
 
 
-def pattern_cases(dev, at):
+def expected(build, name, kind, write):
+    """The bytes the Pattern menu stores for VALUES[name]: clamped to the write range (MFX TYPE to 31 on the synth), bars
+    minus 1, Chain To plus 1, tempo as a u16."""
+    top = 31 if build == "synth" and name == "mfxType" else write[1]
+    v = min(top, max(write[0], VALUES[name]))
+    v = v - 1 if kind == "bars" else v + 1 if kind == "chain" else v
+    return v.to_bytes(2, "little") if kind == "u16" else bytes([v & 0xFF])
+
+
+def pattern_cases(dev, build, at):
     pattern = edit.pattern(dev)
-    before = dev.read(pattern, 0x4900)
-    command(dev, 8)
-    after = dev.read(pattern, 0x4900)
-    changed = [i for i in range(0x4900) if before[i] != after[i]]
-    state = dev.u32(at + 12)
-    return [entry("set_pattern_value_writes_nothing", not changed and state == 2 and not dev.m.asserts,
-                  f"changed {changed[:8]}, script state {state}")]
+    out = []
+    for i, (name, offset, kind, write) in enumerate(FIELDS):
+        want = expected(build, name, kind, write)
+        before = dev.read(pattern, 0x4900)
+        command(dev, SET_FIRST + i)
+        after = dev.read(pattern, 0x4900)
+        got = after[offset:offset + len(want)]
+        changed = [hex(j) for j in range(0x4900) if before[j] != after[j]]
+        state = dev.u32(at + 12)
+        out.append(entry(f"set_pattern_value_{name}", got == want and state == 2 and not dev.m.asserts,
+                         f"byte {offset} {got.hex()} (want {want.hex()}), changed {changed[:8]}, script state {state}"))
+    command(dev, 0)
+    return out
 
 
 def cases(vsb, flash=None):
@@ -167,7 +192,7 @@ def cases(vsb, flash=None):
     built = script_hooks.build(request["include"], build=build)
     program = request["programs"]["api15"]
     dev, at = edit.running(vsb, flash, built, request["programs"], "api15")
-    return touch_cases(dev, build, program, at) + key_cases(dev, program, at) + pattern_cases(dev, at)
+    return touch_cases(dev, build, program, at) + key_cases(dev, program, at) + pattern_cases(dev, build, at)
 
 
 def main():
