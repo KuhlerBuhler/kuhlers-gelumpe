@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import {
   FIELDS, BLOCKS, TABLES, instances, offsetOf, byteSpans, typeOf, readRaw, writeRaw, applies, conditionOffset,
 } from "../src/map/index.mjs";
@@ -17,6 +17,9 @@ const TRANSPORTS = new Set(["pattern-sysex", "e2sallpat", "e2spat", "global-syse
 const EDIT = new Set([undefined, "plain", "expert", "readonly"]);
 const FIRMWARE_BLOCKS = new Set(["firmware"]);
 const frozen = JSON.parse(readFileSync(new URL("./fixtures/known-offsets.json", import.meta.url), "utf8"));
+const synthTable = Object.fromEntries(readdirSync(new URL("../data/synth-map/", import.meta.url)).filter(n => n.endsWith(".json"))
+  .flatMap(n => JSON.parse(readFileSync(new URL(`../data/synth-map/${n}`, import.meta.url), "utf8")).entries ?? [])
+  .map(e => [e.from.toUpperCase().replace("0X", "0x"), e.to.toUpperCase().replace("0X", "0x")]));
 const frozenFindings = JSON.parse(readFileSync(new URL("./fixtures/known-findings.json", import.meta.url), "utf8"));
 
 /** The fixed forms evidence may take. A bare pointer at a document is not one of them. */
@@ -54,6 +57,36 @@ test("every field is complete", () => {
     typeOf(f);
     if (FIRMWARE_BLOCKS.has(f.block)) assert.ok(f.firmware, `${f.id}: lives in the firmware, needs a firmware version`);
   }
+});
+
+const LIVE_STATUS = new Set(["gemessen", "offline", "hergeleitet", "offen"]);
+const LIVE_KEYS = ["setter", "args", "plainWrite", "refresh", "status", "evidence"];
+
+// live: the write path of the running firmware (docs/geraetekarte.md, Schreibweg)
+test("every live write path names its setter on each build and a measurement", () => {
+  let n = 0;
+  for (const f of FIELDS.values()) {
+    if (!f.live) continue;
+    n++;
+    const w = f.live;
+    assert.deepEqual(Object.keys(w).sort(), [...LIVE_KEYS].sort(), `${f.id}: live has the keys ${LIVE_KEYS}`);
+    assert.deepEqual(Object.keys(w.setter).sort(), ["blue", "hacktribe", "red"], `${f.id}: a setter per build`);
+    for (const [build, at] of Object.entries(w.setter)) {
+      if (at === null) continue;
+      assert.match(at, /^0xC0[0-9A-F]{6}$/, `${f.id}: setter of ${build} is an address in the firmware`);
+    }
+    assert.ok(typeof w.args === "string" && w.args, `${f.id}: args`);
+    assert.ok(typeof w.refresh === "string" && w.refresh, `${f.id}: refresh`);
+    assert.ok([true, false, null].includes(w.plainWrite), `${f.id}: plainWrite is true, false or null`);
+    assert.ok(LIVE_STATUS.has(w.status), `${f.id}: status ${w.status}`);
+    if (w.status === "offen") assert.equal(w.plainWrite, null, `${f.id}: an open path cannot say a byte is enough`);
+    checkEvidence(`${f.id} live`, w.status === "gemessen" ? "measured" : "derived", w.evidence);
+    const blue = synthTable[w.setter.hacktribe];
+    if (w.setter.hacktribe && w.setter.blue && w.setter.hacktribe !== w.setter.blue) {
+      assert.equal(blue, w.setter.blue, `${f.id}: data/synth-map gives ${blue} for ${w.setter.hacktribe}`);
+    }
+  }
+  assert.ok(n > 40, `only ${n} live paths`);
 });
 
 test("ids are unique across blocks", () => {
