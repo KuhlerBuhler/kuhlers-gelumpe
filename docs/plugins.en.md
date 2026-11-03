@@ -948,7 +948,7 @@ the whole display is his (the page number is not visible).
 
 ## The example plugins
 
-All nine apps are in the catalog of the Plugins page and in `data/script/presets.mjs`. They have run in the emulator of
+All ten apps are in the catalog of the Plugins page and in `data/script/presets.mjs`. They have run in the emulator of
 the plugin runtime (browser VM), nothing of them is checked on the device. `test/script-plugins.test.mjs` plays each one
 with input. The cost is the most expensive handler in cost units, counted in a run with input; the time next to it is
 **derived**: the Snake frame with 542 units took 0.103 ms in the emulator, so the 0.5 ms warning line is about 2630
@@ -966,6 +966,7 @@ units. Every app stays below it, the tests check that. On the device the time pe
 | Mandelbrot | GAMES | a finger on the touchpad pans, Part right and the encoder zoom in, Part left out, keys 1 and 2 set the iterations (8 to 64), TAP resets | 2436 bytes | 2135 units, 0.41 ms |
 | GIF Player | TOOLS | plays `GIF00.E2G` to `GIF99.E2G` from the card: the encoder picks the file, Part left and right halve and double the speed (25 to 400 %), TAP pauses; a missing file is said. For trying animations on the display, a frame stays at least one runtime frame (40 ms) | 972 bytes | frame 3762 units, about 0.72 ms (the picture alone 3086), above the warning line of 0.5 ms |
 | Image Viewer | TOOLS | shows the pictures of a file `GIF00.E2G` to `GIF99.E2G` one at a time, for example several BMPs that `tools/gif/gif2e2g.py` put into one file: Part right and left page forward and back, after the last picture comes the first again, the encoder picks the file. After each change the top left corner shows the number for two seconds (`2/3`, the total only once it has been through the file), TAP keeps it there or hides it. Back from the first picture to the last works only once the count is known, the runtime does not tell it beforehand | 1128 bytes | key press at most 4414 units (past the last picture: two reads and the picture), about 0.84 ms derived, above the warning line of 0.5 ms |
+| Filter Toggle | TOOLS | SHIFT + LPF, HPF or BPF turns the filter of the selected part off and on again with the type that key had last; SHIFT + another filter key gives that key's last type; the plain filter keys stay with the firmware. Works with the app closed too | 1972 bytes | frame 1575 units, about 0.30 ms (redraw), opening 1331 |
 
 **Set-Timer** is meant for use in a set. Its clock is `korg.millis()`, which the runtime keeps current every frame,
 also while the app is closed. It subscribes only to `play`, the keys, `open` and `close`: closed it costs a few
@@ -1000,6 +1001,16 @@ mode the pads play and step as always, and with SHIFT held SHIFT + pad stays the
 would take the pads in SEQUENCER or KEYBOARD as well, so it is not. The page MOMENT MUTE in the BLECH menu switches it on
 (1) and off (0: the pads latch as without the plugin), `korg.store` keeps the setting. Checked in the simulator
 (`test/script-moment-mute.test.mjs`), not in the emulator and not on the device.
+
+**Filter Toggle** (idea 81) uses API 14. SHIFT + LPF, HPF or BPF sets the filter type of the selected part to OFF (0) with
+`korg.parts[i].filterType`; the same combination brings back the type that key had last (LPF 1 to 6, HPF 7 to 11, BPF 12
+to 16, [measurement](messungen/2026-10-15-synth-filter.md)). Each part has its own memory per key, in plugin variables
+until power off, not on the card. With the app open it passes every key to the firmware with `korg.passKeys` and keeps
+only the three filter keys while SHIFT is held, so the firmware never sees the combination. With the app closed the
+firmware turns the type first (Hacktribe's cycle) and the plugin sets the right one in the next frame (**derived**: the
+firmware handles the key on input, the plugin one frame later). Limits: a SHIFT pressed less than a frame (40 ms) before
+the filter key can read the type after the firmware's turn; on the blue Electribe `korg.seq.setPartValue` writes nothing.
+Checked in the simulator (`test/script-plugins.test.mjs`), not on the device.
 
 ## The Plugins page in the editor
 
