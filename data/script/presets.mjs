@@ -1639,6 +1639,113 @@ korg.onEvent("buttonPress", (key) => {
 `,
   }),
   Object.freeze({
+    id: "bmpviewer",
+    title: "Image Viewer",
+    description: text("catalog.bmpviewer.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-03",
+    controls: [text("catalog.bmpviewer.control1"), text("catalog.bmpviewer.control2"), text("catalog.bmpviewer.control3")],
+    source: `// Image Viewer, an app under TOOLS: shows the pictures of a picture file GIF00.E2G to GIF99.E2G from KORG/blechtribe/Gif/
+// on the card one at a time (tools/gif/gif2e2g.py puts several BMPs or other pictures into one file, one frame each).
+// Part right and left show the next and the previous picture, the encoder picks the file. After each change the top left
+// corner shows the number of the picture for two seconds, TAP keeps it there or hides it. Backwards past the first picture
+// goes to the last one once the viewer has been through the file and knows how many there are.
+korg.app("Image Viewer", "TOOLS");
+const pic = new Array(1024);
+let file = 0;
+let index = 0;
+let count = 0;
+let shown = 0;
+let label = 0;
+let until = 0;
+let isOpen = 0;
+
+function digits(n) {
+  let d = 1;
+  while (n >= 10) {
+    n = n / 10;
+    d += 1;
+  }
+  return d;
+}
+
+function draw() {
+  korg.display.clear();
+  korg.display.bitmap(pic, 0, 0, 128);
+  if (label == 0 && until == 0) return;
+  let width = digits(index + 1) * 6 + 3;
+  if (count > 0) width += digits(count) * 6 + 6;
+  korg.display.clearRect(0, 0, width, 9);
+  korg.display.number(index + 1, 1, 1);
+  if (count > 0) korg.display.textNumber("/", count, 1 + digits(index + 1) * 6, 1);
+}
+
+function show() {
+  let delay = korg.file.frame(pic, file, index);
+  if (delay == 0 && index > 0) {
+    count = index;
+    index = 0;
+    delay = korg.file.frame(pic, file, 0);
+  }
+  if (delay <= 0) {
+    shown = 0;
+    korg.display.clear();
+    korg.display.textNumber("GIF ", file, 4, 14);
+    korg.display.text("no file", 4, 26);
+    return;
+  }
+  shown = 1;
+  until = korg.millis() + 2000;
+  draw();
+}
+
+korg.onEvent("open", () => {
+  isOpen = 1;
+  show();
+});
+
+korg.onEvent("close", () => {
+  isOpen = 0;
+});
+
+korg.onEvent("frame", () => {
+  if (shown == 1 && until > 0 && korg.millis() >= until) {
+    until = 0;
+    draw();
+  }
+});
+
+korg.onEvent("encoder", (i, delta) => {
+  if (isOpen == 0) return;
+  file += delta;
+  if (file < 0) file = 0;
+  if (file > 99) file = 99;
+  index = 0;
+  count = 0;
+  show();
+});
+
+korg.onEvent("buttonPress", (key) => {
+  if (isOpen == 0) return;
+  if (key == korg.key.PART_RIGHT) {
+    index += 1;
+    show();
+  }
+  if (key == korg.key.PART_LEFT) {
+    if (index > 0) index -= 1;
+    else if (count > 0) index = count - 1;
+    show();
+  }
+  if (key == korg.key.TAP && shown == 1) {
+    label = 1 - label;
+    until = 0;
+    draw();
+  }
+});
+`,
+  }),
+  Object.freeze({
     id: "bpmglide",
     title: "BPM Glide",
     description: text("catalog.bpmglide.description"),
@@ -1918,6 +2025,73 @@ function nextBeat() {
 korg.onEvent("ready", () => { korg.every(500, blink); });
 korg.onEvent("play", () => { korg.cancel(beat); beat = korg.afterSteps(4, nextBeat); });
 korg.onEvent("stop", () => { korg.cancel(beat); padOff(); });
+`,
+  }),
+  Object.freeze({
+    id: "momentmute",
+    title: "Momentary Mute",
+    description: text("catalog.momentmute.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-03",
+    controls: [text("catalog.momentmute.control1"), text("catalog.momentmute.control2")],
+    source: `// Momentary Mute, a wish from the community: like on the Korg ESX, a pad in PART MUTE mode changes its part only while it
+// is held. The press flips the part (a playing part goes quiet, a muted one plays), the release puts it back. PART MUTE is
+// a pad mode of the firmware that stays on until another mode key is pressed; the plugin follows the mode keys and keeps
+// the pads from the firmware (korg.padHold) only in that mode and only while SHIFT is up, so every other mode and
+// SHIFT + pad stay the firmware's. The page MOMENT MUTE in the BLECH menu switches it on (1) and off (0: the pads latch
+// as without the plugin).
+const OTHER_MODES = [korg.key.PART_ERASE, korg.key.TRIGGER, korg.key.SEQUENCER, korg.key.KEYBOARD, korg.key.CHORD, korg.key.STEP_JUMP, korg.key.PATTERN_SET];
+// Per pad: 0 not held by the plugin, 1 held and the part played before, 2 held and the part was muted before.
+const held = new Array(16);
+let on = korg.store.get(0, 1);
+let page = korg.menu.add("MOMENT MUTE", 0, 1, on);
+let muting = 0;
+let shift = 0;
+
+function active() {
+  return on && muting && !shift ? 1 : 0;
+}
+
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.SHIFT) shift = 1;
+  if (key == korg.key.PART_MUTE) muting = 1;
+  for (let i = 0; i < OTHER_MODES.length; i++) {
+    if (key == OTHER_MODES[i]) muting = 0;
+  }
+  korg.padHold(active());
+});
+
+korg.onEvent("buttonRelease", (key) => {
+  if (key == korg.key.SHIFT) shift = 0;
+  korg.padHold(active());
+});
+
+// A release follows its press, so a pad the plugin held comes back here even when the mode changed meanwhile.
+korg.onEvent("pad", (index, down) => {
+  if (down) {
+    if (!active() || held[index]) return;
+    const was = korg.parts[index].muted;
+    held[index] = was + 1;
+    korg.parts[index].muted = 1 - was;
+  } else if (held[index]) {
+    korg.parts[index].muted = held[index] - 1;
+    held[index] = 0;
+  }
+});
+
+// Closing an app gives the pads back to the firmware, so the hold is set again each frame.
+korg.onEvent("frame", () => {
+  korg.padHold(active());
+});
+
+korg.onEvent("menu", (id, value) => {
+  if (id != page) return;
+  on = value;
+  korg.store.set(0, on);
+  korg.store.save();
+  korg.padHold(active());
+});
 `,
   }),
 ]);
