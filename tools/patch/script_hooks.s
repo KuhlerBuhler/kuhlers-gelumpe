@@ -2,6 +2,11 @@
 ; press was kept from the firmware: its release is kept from it as well, even when the hold ended in between, and a release
 ; whose press went through goes through, so the firmware never sees a pad held that is up, nor the other way round.
 .equ INPUT_PAD_BIT, 1 << 4
+; korg.pressKey: the last byte of the panel messages a plugin puts into the panel queue (script_press_key_glue). The panel's own
+; messages carry 0 there (measured in the emulator on all three builds); a message with the mark goes to the firmware untouched and
+; reaches no plugin, so a plugin's press never comes back to it as an event.
+.equ PK_MARK, 0xB7
+.equ PK_MARK_WORD, 0xB7000000
 
 script_input_hook:
     push {r0-r12, lr}
@@ -66,6 +71,9 @@ input_power_no:
     cmp r1, #1
     bne input_pass
 script_input_guard_end:
+    ldrb r1, [r0, #0x13]
+    cmp r1, #PK_MARK
+    beq input_pass
     bl remap_input
     ldr r0, [sp, #8]
     bl shortcut_input
@@ -205,12 +213,20 @@ input_post:
     add sp, sp, #16
     cmp r8, #0
     bne input_pass
+    cmp r6, #5
+    bleq touch_lock_input
     cmp r6, #0
     bne input_mask
     ldrb r1, [r5, #0x0d]
     cmp r1, #13
     beq input_pass
 input_mask:
+    cmp r6, #0
+    bne input_mask_held
+    bl script_key_hold
+    cmp r0, #0
+    bne input_drop
+input_mask_held:
     ldr r1, [r4, #RT_CAPTURE_MASK]
     ldr r2, =APP_STATE
     ldr r2, [r2]
@@ -424,6 +440,7 @@ frame_gate_open:
     bl blechy_follow
     bl shortcut_tick
     bl remote_tick
+    bl script_press_key_tick
     ldr r1, =APP_STATE
     ldr r1, [r1]
     cmp r1, #0
@@ -632,6 +649,10 @@ frame_finish:
     bl script_pad_hold_guard
     mov r0, r4
     bl script_knob_hold_guard
+    mov r0, r4
+    bl script_touch_lock_guard
+    mov r0, r4
+    bl script_key_hold_guard
     mov r0, r4
     bl script_display_blit
     bl display_calibrate

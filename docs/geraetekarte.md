@@ -53,6 +53,7 @@ Abbilds ist (die drei Sample-Tabellen), trägt `meta.table` mit Adresse, Abstand
 | `edit` | `readonly` oder `expert` für Felder, die nicht frei bearbeitbar sind |
 | `source` | `korg-spec`, `measured`, `derived` oder `unknown` |
 | `evidence` | worauf sich der Eintrag stützt, in fester Form (siehe unten) |
+| `live` | wie die laufende Firmware den Wert schreibt (siehe Schreibweg), nur bei Pattern-, Part- und Global-Feldern |
 
 Wie aus einem Eintrag eine Adresse wird, entscheidet je Weg eine eigene kleine
 Funktion (`src/map/address.mjs`), nicht der Eintrag. Ein Part-Feld liegt im
@@ -110,6 +111,35 @@ Prüfung in `test/factory-checks.mjs`, die lokal mit eigenen Dateien läuft:
 ```bash
 E2_VSB=/pfad/SYSTEM.VSB E2_PATTERNS=/pfad/backup.e2sallpat npm run test:local
 ```
+
+## Schreibweg
+
+`live` sagt, welche Funktion der Firmware den Wert schreibt, wenn man ihn am Gerät ändert, und ob ein Plugin oder ein
+Werkzeug das Byte im RAM auch selbst schreiben darf:
+
+```js
+live: {
+  setter: { hacktribe: "0xC004A594", red: "0xC004A594", blue: "0xC0044674" },
+  args: "(Pattern-Objekt, Wert, 1)",
+  plainWrite: true,
+  refresh: "nur die Meldung an die Beobachter, sonst nichts",
+  status: "gemessen",
+  evidence: "measure:2026-11-03/live-schreibwege",
+}
+```
+
+| Feld | Inhalt |
+|---|---|
+| `setter` | Adresse des Setters je Build, `null` wo keiner bekannt ist. Die blaue Adresse muss in `data/synth-map/` stehen |
+| `args` | was der Setter in `r0` bis `r3` und auf dem Stack bekommt |
+| `plainWrite` | `true`: das Byte allein ergibt im RAM dasselbe wie der Setter; `false`: der Setter zieht etwas nach; `null`: offen |
+| `refresh` | was der Setter außer dem Byte ändert |
+| `status` | `gemessen`, `offline`, `hergeleitet` oder `offen` |
+| `evidence` | Beleg in derselben Form wie oben |
+
+`test/map.test.mjs` prüft die Form, den Beleg und dass die blaue Adresse zur Tabelle in `data/synth-map/` passt. Die
+Fälle in `tools/emu/live_write_cases.py` messen jeden Eintrag im Emulator nach. Am Gerät ist keiner geprüft
+([Messung](messungen/2026-11-03-live-schreibwege.md)).
 
 ## Umrechnungen
 

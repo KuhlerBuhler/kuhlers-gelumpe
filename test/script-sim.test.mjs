@@ -374,6 +374,63 @@ test("korg.read.patternBytes and korg.seq.writeSteps copy the steps of a part fr
   assert.deepEqual(Array.from(live.subarray(step(live, 7, 1), step(live, 7, 1) + 5)), [1, 127, 1, 1, 49], "on, gate and velocity clamped to their ranges");
 });
 
+test("korg.keyHold keeps a key from the firmware without an app, korg.pressKey passes a press the plugins do not get", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("keys", `
+    let seen = 0;
+    korg.onEvent("ready", () => { korg.keyHold(korg.key.PLAY, 1); });
+    korg.onEvent("buttonPress", (key) => { seen = seen + 1; if (key == korg.key.PLAY && seen == 1) korg.pressKey(korg.key.STOP); if (key == korg.key.REC) korg.keyHold(korg.key.PLAY, 0); });
+  `)).ok);
+  sim.frame();
+  assert.equal(sim.hardware.keyHold[2], 1);
+  sim.hardware.transport = 1;
+  sim.post("buttonPress", 2);
+  sim.frame();
+  assert.deepEqual(sim.hardware.pressedKeys, [1], "the plugin got PLAY and pressed STOP");
+  assert.equal(sim.hardware.transport, 0, "STOP reached the firmware");
+  assert.equal(Array.from(sim.runtime.scripts[0].script.vars)[0], 1, "the pressed STOP is no event for the plugin");
+  sim.post("buttonPress", 2);
+  sim.frame();
+  assert.equal(sim.hardware.transport, 0, "PLAY held: the firmware does not start");
+  sim.post("buttonPress", 0);
+  sim.frame();
+  sim.post("buttonPress", 2);
+  sim.frame();
+  assert.equal(sim.hardware.transport, 1, "given back, PLAY starts the sequencer");
+});
+
+test("korg.keyHold and korg.pressKey refuse EXIT, korg.touchLockX is state in the simulated hardware", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("lock", `
+    korg.onEvent("ready", () => { korg.touchLockX(64); });
+    korg.onEvent("touch", (x, y) => { if (x > 900) korg.touchLockX(-1); });
+    korg.onEvent("buttonPress", () => { korg.pressKey(korg.key.EXIT); });
+  `)).ok);
+  sim.frame();
+  assert.equal(sim.hardware.touchLock, 64);
+  sim.post("touch", 1000, 300);
+  sim.frame();
+  assert.equal(sim.hardware.touchLock, -1, "the plugin gets the real X and lets go");
+  sim.post("buttonPress", 5);
+  const faults = sim.run(1);
+  assert.equal(faults[0]?.name, "API_ARG");
+});
+
+test("korg.seq.setPatternValue writes a value of the pattern that plays, clamped and stored as it is read", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("pattern", `
+    korg.onEvent("ready", () => {
+      korg.seq.setPatternValue(0, 5000); korg.seq.setPatternValue(1, -20); korg.seq.setPatternValue(2, 3);
+      korg.seq.setPatternValue(4, 7); korg.seq.setPatternValue(9, -1); korg.seq.setPatternValue(10, 4);
+    });
+  `)).ok);
+  sim.frame();
+  const read = field => sim.hardware.patternValue(-1, -1, field);
+  assert.deepEqual([0, 1, 2, 4, 9, 10].map(read), [3000, -20, 3, 7, -1, 4]);
+  const block = sim.hardware.patternBlock(-1);
+  assert.deepEqual([block[34], block[35], block[37], block[15104]], [3000 & 255, 3000 >> 8, 2, 0], "tempo little endian, length 3 bars as 2, no chain as 0");
+});
+
 test("korg.menu.add puts a page in the device menu, the user's change reaches the script as a menu event", () => {
   const device = new SimDevice();
   const loaded = device.load(build("menus", `

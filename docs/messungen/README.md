@@ -32,6 +32,7 @@ Felder des Pattern-Blocks, der Parts und der Global-Einstellungen, wie sie die G
 - [Pattern senden: Glide geht verloren](2026-09-22-pattern-write-glide.md)
 - [Pattern-Kette und Pattern-Import von der Karte, im Emulator gemessen](2026-10-10-pattern-kette-import.md)
 - [Global-Menü: welches Byte, welche Werte, welches Label](2026-10-14-global-felder.md)
+- [Live-Schreibwege: welcher Setter jeden Wert schreibt und wann das Byte allein reicht, im Emulator](2026-11-03-live-schreibwege.md)
 
 
 ## Effekte
@@ -162,6 +163,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Notenassistent: im KEYBOARD-Modus leuchten nach einer Note die passenden Pads rosa, Pad-Layout, Helligkeit der Pad-LEDs, im Emulator geprüft](2026-10-15-note-assistant.md)
 - [Synth-Filter auf Korgs Original: Tastenauswahl und Setter, Reihenfolge von Hacktribe, Muster mit Synth-Typ](2026-10-15-synth-filter.md)
 - [Würfeln am Gerät: SHIFT + PART ERASE würfelt eine Melodie für den gewählten Part, Step-Records im RAM, LAST STEP, Tonleitertabelle der Firmware, im Emulator geprüft](2026-10-16-wuerfeln.md)
+- [Plugin API 15: Pattern-Setter je Firmware, Bereich von MFX TYPE, Touchpad-X und Tastendruck, im Emulator](2026-11-03-plugin-api15.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
 
