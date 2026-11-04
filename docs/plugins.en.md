@@ -389,12 +389,16 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.padHold(on)` | 1 keeps pad presses from the firmware: no sound, no change to the step, while the plugin still gets `pad`. The runtime sets the pad bit of the mask the input filter reads before the firmware. 0 gives the pads back; the runtime does that itself as well when an app closes and when no plugin is left running. A release always follows its press: when the press was kept from the firmware, so is the release, otherwise it reaches the firmware. From API version 12 | like `korg.led` |
 | `korg.knobHold(index, on)` | 1 keeps the moves of knob `index` (0 to 10, the indexes are listed under Knobs, OSC EDIT is 9) from the firmware: the parameter stays where it is, the plugin still gets `knob` with the raw value. 0 gives the knob back. The runtime gives all knobs back on its own once the plugin that last held one no longer runs; an app closing does not give them back, a filter runs without an app too. Works outside the BLECH menu. From API version 13 | like `korg.led` |
 | `korg.passKeys(key, on)` | while an app is open, the input filter keeps the keys from the firmware, except REC, STOP, PLAY and EXIT. 1 lets the key `key` (0 to 33, best a name like `korg.key.PART_MUTE`) reach the firmware anyway, 0 keeps it from the firmware, REC, STOP and PLAY too. The plugin gets `buttonPress` and `buttonRelease` either way. A release follows its press as with `korg.padHold`. EXIT always closes the app. When the app closes, the defaults apply again. From API version 14 | like `korg.led` |
+| `korg.touchLockX(x)` | holds the touchpad X the firmware sees at `x` (0 to 127), Y stays the finger's; -1 lets go. In Master FX and Touch Scale mode the firmware counts in steps of 2, so `x` is rounded down to even (127 is 126); in Gate Arp mode it sees `x` exactly. A finger at raw X `r` is `x = r >> 3`. The plugin keeps getting `touch` with the real X. Takes effect with the next touch message, outside the BLECH menu. The runtime also lets go by itself once the plugin no longer runs. Measured in the emulator on hacktribe, red and blue, in Master FX, Touch Scale and Gate Arp mode; not on the device. From API version 15 | like `korg.led` |
+| `korg.keyHold(key, on)` | 1 keeps the key `key` (0 to 33) from the firmware, also without an open app; the plugin keeps getting `buttonPress` and `buttonRelease`. 0 gives it back. A release follows its press as with `korg.passKeys`. EXIT stops the plugin with an error, apps stay closable. The runtime also gives all keys back by itself once the plugin that held the last one no longer runs. Applies outside the BLECH menu. Measured in the emulator on hacktribe, red and blue; not on the device. From API version 15 | like `korg.led` |
+| `korg.pressKey(key)` | gives the firmware a short press of the key `key` (0 to 33): the press goes into the panel queue at once, the release in the next frame, both the same way as the panel's keys. A mark lets both past remapping, `korg.keyHold`, the app and the plugins; no plugin gets them as `buttonPress`. A second press before the release went out is dropped, a full queue drops the press. EXIT stops the plugin with an error. Measured in the emulator on hacktribe, red and blue (PLAY starts, STOP stops); not on the device. From API version 15 | like `korg.led` |
 | `korg.knob(index, value)` | gives the firmware the value `value` (0 to 255) for knob `index` (0 to 10), through its own knob handler, as if the knob had sent it. Together with `korg.knobHold` a plugin filters a knob that jumps. `korg.read.knob` keeps showing the panel's value. From API version 13 | like `korg.led` |
 | `korg.remapKey(from, to)` | the key `from` reaches the firmware and the plugins as the key `to` (both 0 to 33, best names like `korg.key.PART_ERASE`) while the plugin runs: the input filter rewrites the code in the panel message before the firmware reads it, so the firmware does exactly what it does with `to`. One remap holds for all plugins, the last one counts; the same key twice takes it back. EXIT cannot be remapped. From API version 8 | only in the body and in `ready` |
 | `korg.seq.setStep(part, step, note, velocity)` | writes step `step` (0 to 63) of part `part` (0 to 15) in the pattern that plays: `note` 0 to 127 with `velocity` 1 to 127 turns it on, with that note in the first note place (the other three empty) and the trigger on; `note` -1 or `velocity` 0 turns it off. The gate stays as it is. From API version 9 | like `korg.led` |
 | `korg.seq.setGate(part, step, gate)` | sets the gate of the step, 0 to 127; 96 is a whole step, 127 ties into the next note. From API version 9 | like `korg.led` |
 | `korg.seq.clearPart(part)` | turns all 64 steps of the part off; notes, gates and velocities stay. From API version 9 | like `korg.led` |
 | `korg.seq.setPartValue(part, value, x)` | sets the value `value` (its number in `PART_FIELDS`, as for `korg.read.patternValue`) of part `part` to `x`, clamped to its range, through the firmware function the knobs use: the pattern in RAM and the sound change as when turning the knob. For the selected part the parameter window opens as with the knob. `sample`, `ifxOn`, `ifxType`, `voiceAssign` and `mfxSend` stop the plugin with an error. More readable as `korg.parts[i].cutoff = x`. On the blue Electribe the function is not measured; there the call writes nothing. From API version 14 | like `korg.led` |
+| `korg.seq.setPatternValue(value, x)` | sets the value `value` (its number in `PATTERN_FIELDS`, as for `korg.read.patternValue` with `part` -1) of the pattern that plays to `x`, clamped to its range, through the firmware function the Pattern menu uses: the block then holds the same byte as after turning it in the menu. MFX TYPE only goes to 31 on blue. Checked in the emulator on hacktribe, red and blue ([measurement](messungen/2026-11-03-plugin-api15.md), German), not yet on the device. The table per firmware is in `tools/patch/script_hooks.py` (`PATTERN_SETTERS`). From API version 15 | like `korg.led` |
 | `korg.read.patternBytes(array, pattern, offset)` | copies bytes of a pattern into the array, one byte per slot: `pattern` -1 the one in RAM, 0 to 249 a stored one, from `offset` (0 to 16383) in the block of 16384 bytes, as many as the array has slots and the block reaches. Returns the number of bytes. The places are in `data/map/pattern.mjs`: part `p` starts at 2048 + 816 × `p`, its step `s` at 48 + 12 × `s` within it. From API version 14 | everywhere |
 | `korg.seq.writeSteps(array, part, first)` | writes steps from the array into part `part` of the pattern that plays, from step `first` (0 to 63): 12 slots per step as in the pattern (on, gate, velocity, trigger, four note places, four places the runtime leaves alone), as many whole steps as the array holds and up to step 63. Each value is clamped (on and trigger 0 to 1, gate 0 to 127, velocity 1 to 127, notes 0 to 128); the on byte goes last. Returns the number of steps. From API version 14 | like `korg.led` |
 
@@ -1012,13 +1016,35 @@ firmware handles the key on input, the plugin one frame later). Limits: a SHIFT 
 the filter key can read the type after the firmware's turn; on the blue Electribe `korg.seq.setPartValue` writes nothing.
 Checked in the simulator (`test/script-plugins.test.mjs`), not on the device.
 
+**Gate Hold** ([idea 72](ideen/72-gate-arp-note-halten.md)) uses API 15 and runs in the background. In Gate Arp mode
+the note stays where the finger first touched the touchpad: `korg.touchLockX` holds the X the firmware sees, Y stays the
+finger's. When the finger moves on, X from left to right picks the pattern's Gate Arp rhythm (the GATE ARP page of the
+Pattern menu, 0 to 49) with `korg.seq.setPatternValue`. Lifting the finger puts back the rhythm the pattern had; a pattern
+change with the finger down remembers the new pattern's. The touchpad mode is the firmware's until another mode key comes
+(measured in the emulator, [measurement](messungen/2026-11-03-plugin-api15.md), German): GATE ARP turns Gate Arp on,
+MASTER FX and TOUCH SCALE end it, SHIFT + GATE ARP and SHIFT + MASTER FX only open their menu page. The plugin follows
+those keys; in Master FX and Touch Scale the touchpad is left alone. The page GATE HOLD in the BLECH menu switches it on (1)
+and off (0). Plugins run once per frame (40 ms): a finger move in the first 40 ms after touching down can still reach
+the firmware (derived). Checked in the simulator (`test/script-gate-hold.test.mjs`) and in the emulator
+(`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red, blue), not on the device.
+
+**Key Pads** ([idea 85](ideen/85-keyboard-tonart.md)) uses API 15 and runs in the background. With KEYBOARD held a pad
+sets the pattern's KEY with `korg.seq.setPatternValue`, through the same setter as the KEY page of the Pattern menu, like
+TRANSPOSE on the old Electribes. The pads lie like a piano: the lower row C D E F G A B C, the upper row the black keys
+above them (C#, D#, F#, G#, A#), the other upper pads do nothing. KEYBOARD belongs to the plugin (`korg.keyHold`), also
+without an open app; a short press without a pad goes on to the firmware on release with `korg.pressKey` and switches to
+KEYBOARD mode as always, with a pad it does not. While KEYBOARD is down `korg.padHold` keeps the pads from the firmware.
+SHIFT + KEYBOARD stays the firmware's. The page KEY PADS in the BLECH menu switches it on (1) and off (0). Checked in the
+simulator (`test/script-key-pads.test.mjs`) and in the emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red,
+blue), not on the device.
+
 ## The Plugins page in the editor
 
 The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker and Momentary Mute; source
+and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold and Key Pads; source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
