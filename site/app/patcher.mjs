@@ -543,8 +543,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     routeBox.hidden = flow.origin !== "stock" || !!updating;
     synthSet.hidden = flow.origin !== "synth";
     blueHacktribe.hidden = flow.origin !== "synth";
-    // shown for every file, so the Electribe the copy is for is in view before anything is written; chosen only with Hacktribe
-    deviceBox.hidden = !flow.origin;
+    // The wizard's first page already names the Electribe: asked again only when the file came in without it,
+    // or when the file or the cable says another one than the user named.
+    const named = !!wiz.device && flow.device === hwOf() && !(cable && cable !== flow.device);
+    deviceBox.hidden = !flow.origin || named;
     for (const d of deviceInputs) { d.radio.checked = d.value === flow.device; d.radio.disabled = can.busy || !choosesDevice(flow); }
     deviceNote.textContent = !flow.origin ? "" : [
       !choosesDevice(flow) ? (flow.device === "blue" ? t("patcher.device.only.blue") : t("patcher.device.only.red")) :
