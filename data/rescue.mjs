@@ -6,6 +6,7 @@
 
 export const LINKS = {
   debrick: "https://github.com/bangcorrupt/hacktribe/wiki/Debrick",
+  hacktribe: "https://github.com/bangcorrupt/hacktribe",
   issues: "https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues",
   instagram: "https://www.instagram.com/kuhler_buhler/",
   korgRed: "https://www.korg.com/us/support/download/product/0/368/#software",
@@ -37,6 +38,59 @@ const DEBRICK = [{ link: "debrick", text: "rescue.link.debrick" }];
 const LATER = "rescue.say.later";
 
 export const BUTTONS = { again: "rescue.again", back: "rescue.back" };
+
+/**
+ * What a red test of the patcher is about: `patch` the patching itself stopped (the bytes at a spot are not those of a
+ * known 2.02), `start` a change in the head, the DSP program or the code of the start phase, `boot` a start or a rescue
+ * path that no longer works in the emulator, `feature` the test of a function (the cases of the patches), `run` the test
+ * did not run at all (no emulator).
+ */
+export const TEST_GROUPS = ["patch", "start", "boot", "feature", "run"];
+
+/** The checks of tools/emu/check.py by their group; every id with a module prefix ("menu:...") is a function test. */
+const START_CHECKS = ["header", "dsp_stream", "start_phase"];
+const BOOT_CHECKS = ["boot:normal", "boot:normal_blank", "update_offer", "panel_update", "kill_switch", "dsp_boot_once"];
+
+/**
+ * The key of the area of a function test by the prefix of its id (the `id` the cases in tools/emu/*_cases.py report), so Blechy
+ * can say what was tested in words.
+ */
+export const TEST_AREAS = {
+  menu: "rescue.area.menu", shortcut: "rescue.area.menu",
+  pswitch: "rescue.area.pattern", lastpattern: "rescue.area.pattern", initpattern: "rescue.area.pattern",
+  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples",
+  splash: "rescue.area.start", loadbar: "rescue.area.start", migrate: "rescue.area.start",
+  fxcard: "rescue.area.card", presets: "rescue.area.card", power_off: "rescue.area.card",
+  mfx: "rescue.area.sound", ifxidle: "rescue.area.sound", synthfilter: "rescue.area.sound",
+  tapmotion: "rescue.area.play", noteassist: "rescue.area.play", dice: "rescue.area.play", beateighth: "rescue.area.play", touchscalezero: "rescue.area.play",
+  remote: "rescue.area.midi", sysex: "rescue.area.midi",
+  plugin_edit: "rescue.area.plugin", plugin_api15: "rescue.area.plugin", plugin_catalog15: "rescue.area.plugin", timers: "rescue.area.plugin", objects: "rescue.area.plugin", live_write: "rescue.area.plugin", testmode: "rescue.area.plugin",
+  doom: "rescue.area.doom",
+};
+
+/** The group of one check id (see TEST_GROUPS), null for an id no group knows. */
+export function testGroup(id) {
+  if (typeof id !== "string") return null;
+  if (START_CHECKS.includes(id)) return "start";
+  if (BOOT_CHECKS.includes(id) || id.startsWith("start_mode:")) return "boot";
+  return TEST_AREAS[id.split(":")[0]] ? "feature" : null;
+}
+
+/**
+ * The first red check of a test report as { group, id, area }: what the patcher tells Blechy. A report that passed, or
+ * whose red checks no group knows, gives null.
+ */
+export function testFailure(report) {
+  for (const c of report?.checks ?? []) {
+    if (c.ok) continue;
+    const group = testGroup(c.id);
+    if (group) return { group, id: c.id, area: group === "feature" ? TEST_AREAS[c.id.split(":")[0]] : null };
+  }
+  return null;
+}
+
+/** Nodes the conversation can start at besides `start`: an app error opens `error`. */
+export const ENTRIES = ["error"];
 
 /** The answers to the first question: what the device shows, or that the app is where it sticks. */
 export const CASES = [
@@ -287,8 +341,60 @@ export const FLOW = {
     choices: [
       { label: "rescue.answer.notFound", to: "notfound" },
       { label: "rescue.answer.oldPatterns", to: "export" },
-      { label: "rescue.answer.checkFails", to: "check" },
+      { label: "rescue.answer.checkFails", to: "test" },
+      { label: "rescue.answer.somethingElse", to: "ask" },
     ],
+  },
+
+  // An error of the app itself, opened from its toast (site/app/toast.mjs): Blechy quotes it and goes on with its topic.
+  error: {
+    mood: "idle",
+    say: ["rescue.say.error.1", { quote: true }],
+    next: "app",
+  },
+
+  // The patcher's test is red (tools/emu/check.py): what failed, what it means, and the input to take.
+  test: {
+    mood: "idle",
+    say: ["rescue.say.test.1", "rescue.say.test.2"],
+    known: "test",
+    choices: [
+      ["patch", "rescue.answer.test.patch", "rescue.answer.test.patch.hint"],
+      ["start", "rescue.answer.test.start", "rescue.answer.test.start.hint"],
+      ["boot", "rescue.answer.test.boot", "rescue.answer.test.boot.hint"],
+      ["feature", "rescue.answer.test.feature", "rescue.answer.test.feature.hint"],
+      ["run", "rescue.answer.test.run", "rescue.answer.test.run.hint"],
+    ].map(([group, label, hint]) => ({ label, hint, to: `test:${group}`, value: group })),
+  },
+  "test:patch": {
+    mood: "idle",
+    say: ["rescue.say.testPatch.1", "rescue.say.testPatch.2"],
+    next: "normal:patch",
+  },
+  "test:start": {
+    mood: "idle",
+    say: ["rescue.say.testStart.1", "rescue.say.testStart.2"],
+    next: "normal:start",
+  },
+  "test:boot": {
+    mood: "idle",
+    say: ["rescue.say.testBoot.1", "rescue.say.testBoot.2"],
+    next: "normal:boot",
+  },
+  "test:feature": {
+    mood: "idle",
+    say: ["rescue.say.testFeature.1", "rescue.say.testFeature.2"],
+    next: "normal:feature",
+  },
+  "test:run": {
+    mood: "idle",
+    say: ["rescue.say.testRun.1", "rescue.say.testRun.2"],
+    choices: [{ label: "rescue.answer.checkGreen", to: "app:fixed" }, { label: "rescue.answer.checkRed", to: "check:report" }],
+  },
+  "test:screenshot": {
+    mood: "idle",
+    say: ["rescue.say.testScreenshot.1"],
+    next: "ask",
   },
   notfound: {
     mood: "idle",
@@ -436,6 +542,22 @@ export const FLOW = {
     say: [ASK, LATER],
   },
 };
+
+/**
+ * The main advice for a red test: a normal firmware as the input. Still red with one, a red function test may be the old
+ * emulator flash (`check`), the rest goes to Kuhler Buhler with what the patcher or the emulator reported.
+ */
+const NORMAL_THEN = { patch: "test:screenshot", start: "check:report", boot: "check:report", feature: "check" };
+for (const [group, then] of Object.entries(NORMAL_THEN)) {
+  FLOW[`normal:${group}`] = {
+    mood: "happy",
+    say: [
+      { key: "rescue.say.normal.1", links: { hacktribe: { link: "hacktribe", text: "rescue.link.hacktribe" } } },
+      { key: "rescue.say.normal.2", links: { red: { link: "korgRed", text: DEVICES.red.title }, blue: { link: "korgBlue", text: DEVICES.blue.title }, patcher: { link: "patcher", text: "nav.patcher" } } },
+    ],
+    choices: [{ label: "rescue.answer.checkGreen", to: "app:fixed" }, { label: "rescue.answer.normalStillRed", to: then }],
+  };
+}
 
 const download = (d, to) => ({
   mood: "idle",

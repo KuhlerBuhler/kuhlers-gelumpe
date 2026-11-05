@@ -16,6 +16,7 @@ import { isZip, unzipEntry } from "../../src/zip.mjs";
 import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim, restoreOriginal, canRestore } from "../../src/patcher.mjs";
 import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
 import { storedAnimation } from "./loading-anim.mjs";
+import { testFailure } from "../../data/rescue.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -59,7 +60,8 @@ function verdictText(input, items, waiting) {
   }
 }
 
-export function patcherPage(root, { emulator, show = () => {}, session = () => null, onTarget = () => {} }) {
+/** `onTest(failure)` hears the last test as testFailure (data/rescue.mjs) gives it: null when it passed, for the Rettung page. */
+export function patcherPage(root, { emulator, show = () => {}, session = () => null, onTarget = () => {}, onTest = () => {} }) {
   if (!document.querySelector("link[data-cee-patcher]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-patcher", "");
@@ -71,6 +73,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let input = null;             // the bytes the patches go on: the dropped file, or Korg's original turned into Hacktribe's
   let stockFile = null;         // Korg's original as dropped, and what classify made of it, to go back to on the other route
   let passed = null;            // the patched copy that passed the check
+  let failure = null;           // what the last run that did not pass is about (testFailure), for Blechy
   let blech = null;             // the BLECH set (data/patches/blech.json) with its patches parsed, once loaded
   let ownPatch = null;          // a .patch the user brought instead of the set of this version: { bytes, file }
   let usbNames = null;          // the variants of the optional patch usb-name, once loaded
@@ -477,7 +480,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     // A result is told once, as a toast; the line is only for the run itself.
     const result = passed_ ? [t("patcher.passed"), "ok"] : can.busy ? null : flow.error ? [t(flow.error), "error"] : failed ? [failed, "error"] : null;
     const key = result ? `${flow.phase}|${result[0]}` : null;
-    if (key !== toasted) { toasted = key; if (result) toast(result[0], result[1]); }
+    // an error's "Blechy fragen" goes straight to what this failure means
+    if (key !== toasted) { toasted = key; if (result) toast(result[0], result[1], failure ? { help: failure.group ? `test:${failure.group}` : "test" } : {}); }
   }
 
   /** One short line for a check that ran and did not pass; the list of all checks sits behind the disclosure. */
@@ -538,7 +542,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
     // A new file brings a new verdict: the toast of the old one goes, so two verdicts never stand side by side.
-    if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true }) : () => {}; }
+    if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true, help: "normal:patch" }) : () => {}; }
     toldVerdict = v?.text ?? "";
     routeBox.hidden = flow.origin !== "stock" || !!updating;
     synthSet.hidden = flow.origin !== "synth";
@@ -854,6 +858,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     if (!allowed(flow).patch) return;
     dispatch({ type: "patching", patches: planItems() });
     passed = null;
+    failure = null;
     try {
       const items = planItems();
       await tick();
@@ -871,6 +876,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
           const own = res.reasons.filter(r => r.startsWith(`${p.id}:`)).map(r => r.slice(p.id.length + 2));
           dispatch({ type: "patch", id: p.id, ok: false, detail: own.length ? own.join(" ") : t("patcher.patch.waiting") });
         }
+        failure = { group: "patch" };
         throw new Error(t("patcher.patch.failed", { reasons: res.reasons.join(" ") }));
       }
       for (const p of items) {
@@ -890,8 +896,14 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       const report = (testChoice === "quick" ? await verifiedReport(from, res.bytes, await loadVerified(), hardware) : null)
         ?? await emulator.check(from, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: testChoice === "quick", hardware });
       if (report.ok) passed = res.bytes;
+      // a red check no group knows still is a red test: Blechy then asks which kind it was
+      failure = report.ok ? null : testFailure(report) ?? { group: null };
+      onTest(failure);
       dispatch({ type: "checked", report });
     } catch (e) {
+      // the patching stopped, or the emulator did not run the test
+      failure ??= { group: "run" };
+      onTest(failure);
       dispatch({ type: "error", message: e.message });
     }
   }
@@ -954,7 +966,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   usbGet.addEventListener("click", async () => {
     const s = session();
-    if (!s) { toast(t("patcher.usb.notConnected"), "error"); return; }
+    if (!s) { toast(t("patcher.usb.notConnected"), "error", { help: "notfound" }); return; }
     usbGet.disabled = true;
     usbNote.hidden = false;
     try {
@@ -976,7 +988,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   usbPut.addEventListener("click", async () => {
     const s = session();
     if (!passed || !allowed(flow).download) return;
-    if (!s) { toast(t("patcher.usb.notConnected"), "error"); return; }
+    if (!s) { toast(t("patcher.usb.notConnected"), "error", { help: "notfound" }); return; }
     usbPut.disabled = true;
     usbNote.hidden = false;
     try {

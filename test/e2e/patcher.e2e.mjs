@@ -470,6 +470,25 @@ test("patcher: a failed emulator check leaves no download", async () => {
     assert.equal(await page.locator("#cee-patch-run").textContent(), "Noch einmal patchen und prüfen");
     await page.locator("#cee-patch-details > summary").click();
     assert.match(await page.locator("#cee-patch-checks").textContent(), /nicht bestanden Notschalter/);
+    // the toast's "Blechy fragen" opens the Rettung page at what a red rescue path means
+    const red = page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat einen Fehler gefunden (Notschalter" });
+    const message = await red.locator(".cee-toast-text").textContent();
+    await red.locator(".cee-toast-help").click();
+    await page.locator("#cee-rescue-quote").waitFor();
+    assert.equal(await page.evaluate(() => location.hash), "#rescue");
+    assert.equal(await page.locator("#cee-rescue-quote").textContent(), message);
+    await page.locator("#cee-rescue-answers:not([data-waiting])").waitFor({ state: "attached" });
+    const chat = await page.locator("#cee-rescue-chat").textContent();
+    assert.match(chat, /Rettungsweg ging nicht mehr/);
+    assert.match(chat, /Nimm als Eingabe eine normale Firmware/);
+    // asked from the start, Blechy knows which kind of red it was
+    await page.click("#cee-rescue-again");
+    await page.locator("#cee-rescue-answers button", { hasText: "Sie läuft, aber die App hakt" }).click();
+    await page.locator("#cee-rescue-answers button", { hasText: "Der Test im Patcher wird rot oder läuft nicht" }).click();
+    await page.locator("#cee-rescue-answers [data-known]").waitFor();
+    assert.match(await page.locator("#cee-rescue-answers [data-known]").textContent(), /Start oder ein Rettungsweg/);
+    assert.match(await page.locator("#cee-rescue-chat").textContent(), /zuletzt rot war: „Notschalter/);
+    assert.deepEqual(page.errors, []);
   } finally {
     fake.hooks.checkOk = true;
   }

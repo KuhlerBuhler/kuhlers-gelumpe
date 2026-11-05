@@ -5,6 +5,7 @@
  */
 import { el } from "./fields.mjs";
 import { FLOW, LINKS, BUTTONS, FOLDERS } from "../../data/rescue.mjs";
+import { checkName } from "../../src/patcher.mjs";
 import { e2Outline } from "./e2-art.mjs";
 import { t, tNodes } from "./i18n.mjs";
 
@@ -28,11 +29,14 @@ const words = (line, issue = {}) => {
   return tNodes(line.key, { ...line.vars, ...links });
 };
 
-const lines = (list, issue) => list.map(line => (line.path ? el("code", { className: "cee-rescue-path", textContent: line.path }) : el("p", {}, words(line, issue))));
+/** `quote` is the error the app reported, for a { quote: true } line; without one that line is left out. */
+const lines = (list, issue, quote) => list.map(line => (line.path ? el("code", { className: "cee-rescue-path", textContent: line.path })
+  : line.quote ? (quote ? el("blockquote", { className: "cee-rescue-quote", id: "cee-rescue-quote", textContent: quote }) : null)
+    : el("p", {}, words(line, issue))));
 
 /** What Blechy says in one node: the lines, a path on the card, what the app knows, and the official guide if there is one. */
-const say = (node, issue, known) => [
-  ...lines(node.say, issue),
+const say = (node, issue, known, quote) => [
+  ...lines(node.say, issue, quote),
   ...(known?.say ? lines(known.say, issue) : []),
   node.source ? el("p", { className: "cee-rescue-source" }, tNodes("rescue.source", { source: words(node.source) })) : null,
 ];
@@ -66,14 +70,26 @@ const KNOWN = {
     const path = `${target}SYSTEM.VSB`;
     return { say: ["rescue.known.target", { path }], value: FOLDERS.some(f => f.path === path) ? path : null };
   },
+  /** The last red test of the patcher (testFailure in data/rescue.mjs): its check in words and its group. */
+  async test(context) {
+    const failure = context.test?.();
+    if (!failure?.group) return null;
+    const check = failure.area ? t(failure.area) : failure.id ? t(checkName(failure.id)) : null;
+    return { say: [check ? { key: "rescue.known.test", vars: { check } } : failure.group === "patch" ? "rescue.known.testPatch" : "rescue.known.testRun"], value: failure.group };
+  },
 };
 
 const within = (promise, ms) => Promise.race([promise, new Promise(resolve => setTimeout(() => resolve(null), ms))]);
 
+/** The event an error toast sends to open the page at Blechy with that error (site/app/toast.mjs). */
+export const RESCUE_EVENT = "cee-rescue";
+
 /**
  * `context`: what the app knows, each optional. hardware() "red"/"blue" of the connected Electribe, firmware() "blech"
- * when a running BLECHTRIBE answers, target() the card folder of the patcher's last copy, read.midi() and read.version()
- * the result a `read` node goes on with.
+ * when a running BLECHTRIBE answers, target() the card folder of the patcher's last copy, test() the patcher's last red
+ * test ({ group, id, area }), read.midi() and read.version() the result a `read` node goes on with.
+ * An RESCUE_EVENT on window with { message, to } starts the conversation anew at the node `error`: Blechy quotes the
+ * message and goes on with the node `to` (a node of FLOW, else the question what in the app sticks).
  */
 export function rescuePage(root, context = {}) {
   const nodes = FLOW;
@@ -86,6 +102,8 @@ export function rescuePage(root, context = {}) {
   let timer = null;
   // What the app knew at each step, by its place in the path, so going back and on asks again.
   let known = [];
+  // The error the app reported when it opened the page, quoted by the node `error`.
+  let reported = null;
 
   const blechy = (mood, parts) => el("li", { className: "cee-rescue-say" }, [
     el("img", { className: "cee-rescue-blechy", src: MOODS[mood], alt: "", width: 45, height: 55 }),
@@ -95,8 +113,8 @@ export function rescuePage(root, context = {}) {
 
   /** A new issue that already says which way through the page the person took. */
   const issue = () => ({
-    title: t("rescue.issue.title", { answer: picked[0] ? t(picked[0]) : "" }),
-    body: t("rescue.issue.body", { answers: picked.filter(Boolean).map(p => `- ${t(p)}`).join("\n") }),
+    title: t("rescue.issue.title", { answer: picked[0] ? t(picked[0]) : reported ?? "" }),
+    body: t("rescue.issue.body", { answers: [...(reported ? [`- ${reported}`] : []), ...picked.filter(Boolean).map(p => `- ${t(p)}`)].join("\n") }),
   });
 
   /** Asks the app what it knows for the node at `at`, once, and shows it when the path is still there. */
@@ -119,7 +137,7 @@ export function rescuePage(root, context = {}) {
   }
 
   function render() {
-    chat.replaceChildren(...path.flatMap((id, i) => [blechy(nodes[id].mood, say(nodes[id], issue(), known[i])), picked[i] ? you(picked[i]) : null].filter(Boolean)));
+    chat.replaceChildren(...path.flatMap((id, i) => [blechy(nodes[id].mood, say(nodes[id], issue(), known[i], reported)), picked[i] ? you(picked[i]) : null].filter(Boolean)));
     const at = path.length - 1;
     const node = nodes[path[at]];
     const fits = known[at]?.value;
@@ -167,7 +185,16 @@ export function rescuePage(root, context = {}) {
     known = known.slice(0, path.length - 1);
     render();
   });
-  again.addEventListener("click", () => { path = ["start"]; picked = []; known = []; render(); });
+  again.addEventListener("click", () => { path = ["start"]; picked = []; known = []; reported = null; render(); });
+  window.addEventListener(RESCUE_EVENT, e => {
+    const { message = "", to = null } = e.detail ?? {};
+    reported = String(message) || null;
+    // the error first, then its topic right away: the person came here to read what it means
+    path = ["error", nodes[to] && to !== "error" ? to : nodes.error.next];
+    picked = [];
+    known = [];
+    render();
+  });
 
   root.replaceChildren(el("div", { className: "cee-rescue" }, [
     el("h1", { className: "cee-rescue-title ui-sr-only", textContent: t("nav.rescue") }),
