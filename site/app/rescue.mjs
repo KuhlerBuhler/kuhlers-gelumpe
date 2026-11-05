@@ -6,7 +6,10 @@
 import { el } from "./fields.mjs";
 import { FLOW, LINKS, BUTTONS, FOLDERS } from "../../data/rescue.mjs";
 import { e2Outline } from "./e2-art.mjs";
-import { t, tNodes } from "./i18n.mjs";
+import { t, tNodes, locale } from "./i18n.mjs";
+import { pickCard } from "./card-access.mjs";
+import { identify, planCard, applyPlan } from "../../src/card-check.mjs";
+import { VSB_SIZE } from "../../src/patcher.mjs";
 
 /** The pause before Blechy's next message when the one before only had something to read. */
 const PAUSE_MS = 1000;
@@ -20,12 +23,16 @@ const link = (href, text) => el("a", { className: "cee-text-link", href, ...(hre
 /** A link part { link, text }: a link to LINKS[link] with the text of that key; "issueNew" opens a new issue with `issue` filled in. */
 const linkTo = (part, issue) => link(part.link === "issueNew" ? `${LINKS.issues}/new?${new URLSearchParams(issue)}` : LINKS[part.link], t(part.text));
 
-/** A line of text: a key, a list of link parts, or { key, vars, links } where `{name}` in the text is the link `links.name`. */
+/**
+ * A line of text: a key, a list of link parts, or { key, vars, links, code } where `{name}` in the text is the link
+ * `links.name`, or `code.name` as a path on the card.
+ */
 const words = (line, issue = {}) => {
   if (Array.isArray(line)) return line.map(part => linkTo(part, issue));
   if (typeof line === "string") return [t(line)];
   const links = Object.fromEntries(Object.entries(line.links ?? {}).map(([name, part]) => [name, linkTo(part, issue)]));
-  return tNodes(line.key, { ...line.vars, ...links });
+  const code = Object.fromEntries(Object.entries(line.code ?? {}).map(([name, path]) => [name, el("code", { className: "cee-rescue-path", textContent: path })]));
+  return tNodes(line.key, { ...line.vars, ...links, ...code });
 };
 
 const lines = (list, issue) => list.map(line => (line.path ? el("code", { className: "cee-rescue-path", textContent: line.path }) : el("p", {}, words(line, issue))));
@@ -70,13 +77,31 @@ const KNOWN = {
 
 const within = (promise, ms) => Promise.race([promise, new Promise(resolve => setTimeout(() => resolve(null), ms))]);
 
+/** What Blechy says about one file on the card: what it is, then what is wrong with it for the place. */
+const WHAT = { stock: "rescue.card.what.stock", synth: "rescue.card.what.synth", hacktribe: "rescue.card.what.hacktribe", hacktribeBlue: "rescue.card.what.hacktribeBlue" };
+const PROBLEM = { unknown: "rescue.card.problem.unknown", other: "rescue.card.problem.other", folder: "rescue.card.problem.folder", name: "rescue.card.problem.name", case: "rescue.card.problem.case" };
+function fileLines(f) {
+  const what = f.known ? WHAT[f.known] : f.head ? "rescue.card.what.patched" : null;
+  const said = f.problems.map(p => (p === "size"
+    ? { key: "rescue.card.problem.size", vars: { size: f.size.toLocaleString(locale()), expected: VSB_SIZE.toLocaleString(locale()) } }
+    : PROBLEM[p]));
+  return [{ path: f.path }, ...(what ? [what] : []), ...(said.length ? said : ["rescue.card.problem.none"])];
+}
+
+const STEP = { aside: "rescue.card.step.aside", move: "rescue.card.step.move", rename: "rescue.card.step.rename" };
+const stepLine = s => ({ key: STEP[s.op], code: { from: s.from, to: s.to } });
+
 /**
  * `context`: what the app knows, each optional. hardware() "red"/"blue" of the connected Electribe, firmware() "blech"
  * when a running BLECHTRIBE answers, target() the card folder of the patcher's last copy, read.midi() and read.version()
  * the result a `read` node goes on with.
  */
 export function rescuePage(root, context = {}) {
-  const nodes = FLOW;
+  // the nodes of the flow, and those Blechy makes while he looks at a card (`card#n:...`)
+  let extra = {};
+  let looks = 0;
+  let picking = false;
+  const nodes = new Proxy(FLOW, { get: (flow, id) => flow[id] ?? extra[id] });
   const chat = el("ol", { className: "cee-rescue-chat", id: "cee-rescue-chat", "aria-live": "polite" });
   const answers = el("div", { className: "cee-rescue-answers", id: "cee-rescue-answers" });
   const back = el("button", { type: "button", className: "btn sm", id: "cee-rescue-back", textContent: t(BUTTONS.back) });
@@ -142,7 +167,7 @@ export function rescuePage(root, context = {}) {
     clearTimeout(timer);
     learn(at, node);
     // While Blechy still has something to say, the answers wait and tests can tell (data-waiting).
-    answers.toggleAttribute("data-waiting", !!(node.next || node.read));
+    answers.toggleAttribute("data-waiting", !!(node.next || node.read || node.busy));
     const was = path;
     if (node.next) timer = setTimeout(() => { path = [...path, node.next]; render(); }, PAUSE_MS);
     else if (node.read) timer = setTimeout(async () => {
@@ -152,7 +177,90 @@ export function rescuePage(root, context = {}) {
       render();
     }, PAUSE_MS);
   }
+  /** Goes on with Blechy's own node `node` under the id `id`. */
+  function add(id, node) {
+    extra[id] = node;
+    path = [...path, id];
+    render();
+  }
+
+  /**
+   * Blechy's look at the card for `target` ({path, heads}), from the answer `c`: the person picks the card, Blechy lists
+   * every .VSB on it with what is wrong, and offers the moves; the talk goes on at `c.to`. The dialog opens first, still
+   * inside the click.
+   */
+  async function look(c, target, label = c.label) {
+    const at = path.length - 1;
+    const was = path;
+    // one dialog at a time: a second click while it is open does nothing
+    if (picking) return;
+    picking = true;
+    let card;
+    try { card = await (context.pickCard ?? pickCard)(); } catch (e) { card = { error: e?.message ?? String(e) }; } finally { picking = false; }
+    if (!card || path !== was) return;
+    picked[at] = label;
+    const id = `card#${++looks}`;
+    if (card.error) return add(`${id}:failed`, failed(c, target, card.error));
+    add(`${id}:read`, { mood: "idle", say: [{ key: "rescue.card.reading", code: { name: card.name ?? "" } }], busy: true });
+    const reading = path;
+    let plan;
+    try {
+      // the folder of a running BLECH takes the head of its build: on a red that is only the Sampler's
+      const colour = target.heads.length > 1 ? await within(Promise.resolve(context.hardware?.()).catch(() => null), READ_MS) : null;
+      const heads = colour === "red" ? ["sampler"] : target.heads;
+      const files = [];
+      for (const entry of await card.list()) files.push(await identify(entry, card.read));
+      plan = planCard(files, { path: target.path, heads });
+    } catch (e) {
+      plan = { error: e?.message ?? String(e) };
+    }
+    if (path !== reading) return;
+    add(`${id}:report`, report(id, c, target, card, plan));
+  }
+
+  const pickAgain = (c, target) => ({ label: "rescue.answer.cardAgain", run: () => look(c, target, "rescue.answer.cardAgain") });
+  const failed = (c, target, error) => ({ mood: "sad", say: [{ key: "rescue.card.failed", vars: { error } }], choices: [pickAgain(c, target), { label: "rescue.answer.onCard", to: c.to }] });
+
+  function report(id, c, target, card, plan) {
+    if (plan.error) return failed(c, target, plan.error);
+    const found = plan.files.length ? ["rescue.card.found", ...plan.files.flatMap(fileLines)] : [];
+    if (plan.verdict === "empty") return { mood: "idle", say: ["rescue.card.empty"], choices: [pickAgain(c, target), { label: "rescue.answer.onCard", to: c.to }] };
+    if (plan.verdict === "wrong") return { mood: "sad", say: [...found, "rescue.card.none"], choices: [pickAgain(c, target), { label: "rescue.answer.onCard", to: c.to }] };
+    if (plan.verdict === "ok") return { mood: "happy", say: [...found, "rescue.card.ok"], choices: [{ label: "rescue.answer.goOn", to: c.to }] };
+    const steps = plan.steps.map(stepLine);
+    if (!card.writable) return { mood: "idle", say: [...found, "rescue.card.readonly", ...steps], choices: [pickAgain(c, target), { label: "rescue.answer.onCard", to: c.to }] };
+    return {
+      mood: "idle",
+      say: [...found, "rescue.card.plan", ...steps],
+      choices: [{ label: "rescue.answer.fixCard", id: "card-fix", run: () => fix(id, c, target, card, plan) }, { label: "rescue.answer.fixSelf", to: c.to }],
+    };
+  }
+
+  /** Runs the moves of the plan after the click, then says where everything is and goes on at `c.to`. */
+  async function fix(id, c, target, card, plan) {
+    picked[path.length - 1] = "rescue.answer.fixCard";
+    add(`${id}:fixing`, { mood: "idle", say: ["rescue.card.fixing"], busy: true });
+    const fixing = path;
+    let done;
+    try { done = await applyPlan(card, plan.steps); } catch (e) { done = { error: e?.message ?? String(e) }; }
+    if (path !== fixing) return;
+    if (done.error) return add(`${id}:failed`, failed(c, target, done.error));
+    const aside = done.find(s => s.op === "aside");
+    add(`${id}:done`, {
+      mood: "happy",
+      say: [
+        "rescue.card.done", { path: target.path },
+        ...(aside ? [{ key: "rescue.card.aside", code: { name: aside.to } }] : []),
+        ...(done.some(s => s.how === "copied") ? ["rescue.card.copied"] : []),
+        "rescue.card.eject",
+      ],
+      next: c.to,
+    });
+  }
+
   function choose(c) {
+    if (c.run) return c.run();
+    if (c.pick) return look(c, nodes[path.at(-1)].card);
     // the key: the answers read in the language of the moment, also in the issue
     picked[path.length - 1] = c.label;
     path = [...path, c.to];
@@ -167,7 +275,7 @@ export function rescuePage(root, context = {}) {
     known = known.slice(0, path.length - 1);
     render();
   });
-  again.addEventListener("click", () => { path = ["start"]; picked = []; known = []; render(); });
+  again.addEventListener("click", () => { path = ["start"]; picked = []; known = []; extra = {}; render(); });
 
   root.replaceChildren(el("div", { className: "cee-rescue" }, [
     el("h1", { className: "cee-rescue-title ui-sr-only", textContent: t("nav.rescue") }),
