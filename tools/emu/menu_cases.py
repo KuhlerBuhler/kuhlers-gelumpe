@@ -1524,7 +1524,8 @@ def cases_task(i):
 
 
 def splash_menu_cases(payload, flash=None):
-    """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT reads KORG/blechtribe/splash.bmp into the start image,
+    """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT lists the .bmp files in KORG/blechtribe, the dial picks one
+    and ENTER reads it into the start image,
     SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back; the
     three are a group of their own, the row SPLASH of CUSTOMIZATION opens it.
     Without the editor (the synth) the group keeps its 8 pages."""
@@ -1554,7 +1555,7 @@ def splash_menu_cases(payload, flash=None):
     press(dev, "menu", 0.6)
     after = texts_of(dev)
     stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(pic)
-    add("import", before == ("SPLASH IMPORT", "", PRESS) and after[:2] == ("SPLASH IMPORT", "loaded") and stored and not dev.m.asserts,
+    add("import", before == ("SPLASH IMPORT", "splash.bmp", PRESS) and after[:2] == ("SPLASH IMPORT", "loaded") and stored and not dev.m.asserts,
         f"{before} -> {after}, image {'stored' if stored else 'not stored'}")
     press(dev, "edit_next", 0.4)
     page = texts_of(dev)
@@ -1568,7 +1569,29 @@ def splash_menu_cases(payload, flash=None):
     bare = boot(payload, flash, files=CARD_FOLDER)
     goto_group(bare, GROUP_SPLASH, 0)
     press(bare, "menu", 0.6)
-    add("import_without_file", texts_of(bare)[1] == "no splash.bmp", str(texts_of(bare)))
+    add("import_without_file", texts_of(bare)[1] == "no .bmp file", str(texts_of(bare)))
+
+    # the list: only .bmp files, no names starting with a dot (macOS ._ files), the dial walks them and stops at the ends, ENTER takes
+    # the one shown; a name like Windows gives a second download
+    other = [[1 if (x * y) % 5 == 0 else 0 for x in range(128)] for y in range(64)]
+    files = {**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic), "/KORG/blechtribe/._splash.bmp": b"\0" * 4096,
+             "/KORG/blechtribe/notes.txt": b"x", "/KORG/blechtribe/splash (1).bmp": bmp(other)}
+    dev = boot(payload, flash, files=files)
+    goto_group(dev, GROUP_SPLASH, 0)
+    seen = [texts_of(dev)[1]]
+    for step in (1, 1, -1, -1, -1):
+        dev.turn(step, wait=0.3)
+        seen.append(texts_of(dev)[1])
+    names = {"splash.bmp": pic, "splash (1).bmp": other}
+    walked = sorted(seen[:2]) == sorted(names) and seen[2] == seen[1] and seen[3] == seen[0] and seen[4] == seen[5] == seen[0]
+    dev.turn(1, wait=0.3)
+    shown = texts_of(dev)[1]
+    press(dev, "menu", 0.6)
+    taken = texts_of(dev)[1]
+    stored = shown in names and dev.read(splash_editor.RECBUF + 8, 1024) == image_of(names[shown])
+    dev.turn(-1, wait=0.3)
+    add("list", walked and taken == "loaded" and stored and texts_of(dev)[1] == seen[0] and not dev.m.asserts,
+        f"dial {seen}, ENTER on {shown!r} -> {taken!r}, image {'stored' if stored else 'not stored'}, then {texts_of(dev)[1]!r}")
     from splash_cases import DESC13
     desc = lambda d: d.u32(DESC13)
     record_id = lambda d: struct.unpack_from("<I", d.m.flash.mem, splash_editor.FLASH_RECORD)[0]
