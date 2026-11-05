@@ -16,18 +16,24 @@ export const LINKS = {
   discord: "#discord",
 };
 
-/** The two Electribes and where Korg's own firmware for each lives: on Korg's page and on the card. */
+/**
+ * The two Electribes and where Korg's own firmware for each lives: on Korg's page and on the card. `heads`: the files
+ * the update there takes, by their head (src/card-check.mjs), for Blechy's look at the card.
+ */
 export const DEVICES = {
-  red: { title: "rescue.device.red", body: "red", link: "korgRed", name: "Electribe Sampler", path: "KORG/electribe sampler/System/SYSTEM.VSB" },
-  blue: { title: "rescue.device.blue", body: "blue", link: "korgBlue", name: "Electribe", path: "KORG/electribe/System/SYSTEM.VSB" },
+  red: { title: "rescue.device.red", body: "red", link: "korgRed", name: "Electribe Sampler", path: "KORG/electribe sampler/System/SYSTEM.VSB", heads: ["sampler"] },
+  blue: { title: "rescue.device.blue", body: "blue", link: "korgBlue", name: "Electribe", path: "KORG/electribe/System/SYSTEM.VSB", heads: ["synth"] },
 };
 
-/** The folder the running firmware reads its update from. Every folder is checked on devices with version 1.2. */
+/**
+ * The folder the running firmware reads its update from. Every folder is checked on devices with version 1.2. Hacktribe
+ * takes only the Sampler head, on the blue too; BLECH takes the head of its build, so both (src/patcher.mjs, HEADS).
+ */
 export const FOLDERS = [
-  { title: "rescue.folder.red", body: "red", path: "KORG/electribe sampler/System/SYSTEM.VSB" },
-  { title: "rescue.folder.blue", body: "blue", path: "KORG/electribe/System/SYSTEM.VSB" },
-  { title: "rescue.folder.hacktribe", body: "grey", path: "KORG/hacktribe/System/SYSTEM.VSB" },
-  { title: "rescue.folder.blech", body: "grey", path: "KORG/blechtribe/System/SYSTEM.VSB" },
+  { title: "rescue.folder.red", body: "red", path: "KORG/electribe sampler/System/SYSTEM.VSB", heads: ["sampler"] },
+  { title: "rescue.folder.blue", body: "blue", path: "KORG/electribe/System/SYSTEM.VSB", heads: ["synth"] },
+  { title: "rescue.folder.hacktribe", body: "grey", path: "KORG/hacktribe/System/SYSTEM.VSB", heads: ["sampler"] },
+  { title: "rescue.folder.blech", body: "grey", path: "KORG/blechtribe/System/SYSTEM.VSB", heads: ["sampler", "synth"] },
 ];
 
 /** Where to ask: a line with links, `{name}` in its text is the link `links.name`, whose `link` is a key of LINKS. */
@@ -443,15 +449,29 @@ const download = (d, to) => ({
   choices: [{ label: "rescue.answer.gotIt", to }],
 });
 const card = path => ["rescue.say.card", { path }];
+/**
+ * Where the file has to be, and the offer to look at the card: Blechy finds every .VSB on it and puts the right one
+ * there after one click (site/app/rescue.mjs, src/card-check.mjs). An answer with `pick` opens the card; its `to` is
+ * where the talk goes on after the look.
+ */
+const place = (id, { path, heads }, to) => {
+  FLOW[id] = { mood: "idle", say: card(path), choices: [{ label: "rescue.answer.onCard", to }, { label: "rescue.answer.showCard", hint: "rescue.answer.showCard.hint", to: `sd:${id}` }] };
+  FLOW[`sd:${id}`] = {
+    mood: "happy",
+    say: ["rescue.say.sd.1", "rescue.say.sd.2"],
+    card: { path, heads },
+    choices: [{ label: "rescue.answer.pickCard", to, pick: true, id: "card-pick" }, { label: "rescue.answer.onCard", to }],
+  };
+};
 
 for (const [key, d] of Object.entries(DEVICES)) {
   FLOW[`download:starts:${key}`] = download(d, "which");
   FLOW[`download:update:${key}`] = download(d, `card:${key}`);
-  FLOW[`card:${key}`] = { mood: "idle", say: card(d.path), choices: [{ label: "rescue.answer.onCard", to: "update:prompt" }] };
+  place(`card:${key}`, d, "update:prompt");
 }
 FOLDERS.forEach((f, i) => {
   FLOW[`folder:${i}`] = { mood: "idle", say: card(f.path), choices: [{ label: "rescue.answer.onCard", to: "update:menu" }] };
-  FLOW[`nofile:folder:${i}`] = { mood: "idle", say: card(f.path), choices: [{ label: "rescue.answer.onCard", to: "nofile:update" }] };
+  place(`nofile:folder:${i}`, f, "nofile:update");
 });
 
 /** The app version whose full check runs the patches' cases on a blank flash, so saved emulator patterns no longer fail it. */
