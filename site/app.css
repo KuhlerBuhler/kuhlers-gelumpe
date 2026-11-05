@@ -2520,12 +2520,16 @@ select,
 
 .cee-toast {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-3);
 }
 
 .cee-toast-text { flex: 1; min-width: 0; white-space: pre-line; }
 .cee-toast-action { flex: none; }
+/* The buttons get their own row under the text, so a narrow toast never squeezes the message. */
+.cee-toast-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); order: 1; flex-basis: 100%; }
+.cee-toast-help { flex: none; }
 .cee-toast-close { flex: none; margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1) calc(var(--space-1) * -1) 0; }
 
 /* Settings (settings.mjs). */
