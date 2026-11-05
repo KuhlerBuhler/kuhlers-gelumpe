@@ -771,5 +771,69 @@ class RestartAfterUpdateTest(unittest.TestCase):
         self.assertEqual(self.machines[1].payload, mine[0x100:])
 
 
+class LeaveTest(unittest.TestCase):
+    """How the service ends when the app that started it is gone."""
+
+    def stop_on(self, platform):
+        seen = {}
+        with unittest.mock.patch.object(server_module.lifetime, "watch", lambda pids, stop: seen.setdefault("stop", stop)), \
+                unittest.mock.patch.object(server_module.sys, "platform", platform), \
+                unittest.mock.patch.object(server_module, "hard_exit") as hard, \
+                unittest.mock.patch.object(server_module._thread, "interrupt_main") as interrupt, \
+                unittest.mock.patch.object(server_module.os, "kill") as kill:
+            server_module.watch_parent([1])
+            seen["stop"]()
+        return hard, interrupt, kill
+
+    def test_on_windows_a_hanging_way_out_still_ends_the_process(self):
+        hard, interrupt, kill = self.stop_on("win32")
+        hard.assert_called_once()
+        interrupt.assert_called_once()
+        kill.assert_not_called()
+
+    def test_elsewhere_sigterm_takes_the_way_with_the_hard_exit(self):
+        hard, interrupt, kill = self.stop_on("darwin")
+        kill.assert_called_once()
+        interrupt.assert_not_called()
+
+
+class AnnounceTest(unittest.TestCase):
+    """service.json names the app version that started the service; a desktop app of another version
+    starts its own instead of showing this one (src-tauri/src/main.rs, fits)."""
+
+    def announced(self, env):
+        import socket
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            with socket.socket() as s:
+                s.bind(("127.0.0.1", 0))
+                port = s.getsockname()[1]
+            proc = subprocess.Popen([sys.executable, str(Path(server_module.__file__)), "--port", str(port),
+                                     "--sd-dir", str(Path(tmp) / "sd"), "--flash-dir", str(Path(tmp) / "flash")],
+                                    env={**os.environ, **env}, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                announce = Path(tmp) / "sd" / "service.json"
+                deadline = time.monotonic() + 30
+                while time.monotonic() < deadline:
+                    try:
+                        return json.loads(announce.read_text())
+                    except (OSError, ValueError):
+                        time.sleep(0.05)
+                self.fail("no service.json")
+            finally:
+                proc.terminate()
+                proc.wait(20)
+
+    def test_the_app_version_is_announced(self):
+        info = self.announced({"GELUMPE_APP_VERSION": "9.9.9"})
+        self.assertEqual(info["version"], "9.9.9")
+        self.assertIn("pid", info)
+
+    def test_a_service_started_without_the_app_announces_no_version(self):
+        env = {k: v for k, v in os.environ.items() if k != "GELUMPE_APP_VERSION"}
+        with unittest.mock.patch.dict(os.environ, env, clear=True):
+            self.assertIsNone(self.announced({})["version"])
+
+
 if __name__ == "__main__":
     unittest.main()
