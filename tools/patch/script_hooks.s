@@ -655,6 +655,8 @@ frame_finish:
     bl display_calibrate
     mov r0, r4
     bl script_store_flush
+    mov r0, r4
+    bl objects_write_flush
     bl script_seq_flush
     ldr r1, [r4, #RT_PAUSED]
     cmp r1, #0

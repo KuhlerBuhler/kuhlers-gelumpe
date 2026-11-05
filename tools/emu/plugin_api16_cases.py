@@ -1,4 +1,4 @@
-"""Emulator cases of plugin API 16: what a plugin keeps from the firmware is its own mask (korg.keyMask, and what korg.keyHold,
+"""Emulator cases of plugin API 18: what a plugin keeps from the firmware is its own mask (korg.keyMask, and what korg.keyHold,
 korg.padHold and korg.knobHold set for the calling plugin), and the input filter masks an input while ANY running plugin
 masks it. Two plugins mask the same key, pads and knob: the firmware gets the input only when neither does, and both plugins
 get it either way.

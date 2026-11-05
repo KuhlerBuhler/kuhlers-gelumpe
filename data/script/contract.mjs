@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 16;
+export const API_VERSION = 18;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -370,7 +370,7 @@ const API_LIST = [
   [76, "korg.pressKey", [int("key", 0, 33)], "void", UI, 30, 15],
   [77, "korg.seq.setPatternValue", [int("field", 0, 11), int("value")], "void", UI, 60, 15],
   // the keys a plugin keeps from the firmware, as one mask: bit n of `low` is key n (0 to 31), bit n of `high` key 32 + n
-  [78, "korg.keyMask", [int("low"), int("high", 0, 3)], "void", UI, 20, 16],
+  [78, "korg.keyMask", [int("low"), int("high", 0, 3)], "void", UI, 20, 18],
 ];
 
 /**
