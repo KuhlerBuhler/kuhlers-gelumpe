@@ -20,6 +20,9 @@ export class SimHardware {
     this.transport = 0;
     this.tempo = 1200;
     this.pattern = 0;
+    /** The pattern the display shows (-1: the playing one) and the confirmed next pattern (-1: none), as the pattern switch sets them. */
+    this.viewed = -1;
+    this.next = -1;
     this.part = 0;
     this.steps = new Int32Array(16);
     this.mutes = new Uint8Array(16);
@@ -57,6 +60,8 @@ export class SimHardware {
       "korg.read.transport": () => this.transport,
       "korg.read.tempo": () => this.tempo,
       "korg.read.pattern": () => this.pattern,
+      "korg.read.viewedPattern": () => (this.viewed < 0 ? this.pattern : this.viewed),
+      "korg.read.nextPattern": () => this.next,
       "korg.read.part": () => this.part,
       "korg.read.step": part => this.steps[part],
       "korg.read.mute": part => this.mutes[part],

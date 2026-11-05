@@ -239,6 +239,8 @@ Rumpf.
 | `korg.tempo` | Tempo in Zehntel BPM, 1280 ist 128,0 | 100 bis 3000 | `korg.read.tempo()`, `korg.tempo(x)` |
 | `korg.transport` | 0 Stop, 1 Play, 2 Pause, 3 REC bereit, 4 Aufnahme | nein, dafür `korg.play()` und `korg.stop()` | `korg.read.transport()` |
 | `korg.selectedPattern` | gewähltes Pattern, 0 bis 249 | wählt ein anderes | `korg.read.pattern()`, `korg.pattern(x)` |
+| `korg.viewedPattern` | Pattern, das das Display zeigt, 0 bis 249 (ab API Version 16). Das Rad durchblättert beim Spielen ein anderes, das Display zeigt dann dieses, das spielende läuft weiter | nein | `korg.read.viewedPattern()` |
+| `korg.nextPattern` | nächstes Pattern, das der Patternwechsel bestätigt hat und das am Ende der Sequenz startet, 0 bis 249; -1, wenn keins wartet (ab API Version 16) | nein | `korg.read.nextPattern()` |
 | `korg.selectedPart` | gewählter Part, 0 bis 15, 16 für alle | 0 bis 15 | `korg.read.part()`, `korg.part(x)` |
 | `korg.parts[i].step` | Schrittzähler des Parts, 0 bis 63 | nein | `korg.read.step(i)` |
 | `korg.parts[i].muted` | 1, wenn der Part stumm ist | 1 stumm, 0 an | `korg.read.mute(i)`, `korg.mute(i, x)` |
@@ -411,6 +413,8 @@ Plugin mit einem Fehler.
 | `korg.read.transport()` | Zustand des Transports: 0 Stop, 1 Play, 2 Pause, 3 REC bereit, 4 Aufnahme | überall |
 | `korg.read.tempo()` | Tempo in Zehntel BPM (1600 gleich 160,0) | überall |
 | `korg.read.pattern()` | gewähltes Pattern, 0 bis 249 | überall |
+| `korg.read.viewedPattern()` | Pattern, das das Display zeigt, 0 bis 249: beim Blättern und nach MENU das angesehene (aus der Bank), sonst das spielende. Es folgt dem Pattern, das die Pads und die Info-Texte der Edit-Zeile zeigen. Ab API Version 16 | überall |
+| `korg.read.nextPattern()` | das bestätigte nächste Pattern, 0 bis 249, solange die Firmware es für das Sequenzende hält, sonst -1. Blättern allein (`VIEW:`) zählt nicht, erst MENU (`NEXT:`), und mit ausgeschaltetem PATTERN CONFIRM oder EXIT beim Einschalten bleibt es -1. Ab API Version 16 | überall |
 | `korg.read.part()` | gewählter Part 0 bis 15, 16 für alle | überall |
 | `korg.read.step(part)` | Schrittzähler des Parts, 0 bis 63 | überall |
 | `korg.read.mute(part)` | 1, wenn der Part gemutet ist | überall |

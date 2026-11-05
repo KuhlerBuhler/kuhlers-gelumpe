@@ -202,6 +202,8 @@ like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
 | `korg.tempo` | tempo in tenths of a BPM, 1280 is 128.0 | 100 to 3000 | `korg.read.tempo()`, `korg.tempo(x)` |
 | `korg.transport` | 0 stop, 1 play, 2 pause, 3 REC armed, 4 recording | no, use `korg.play()` and `korg.stop()` | `korg.read.transport()` |
 | `korg.selectedPattern` | selected pattern, 0 to 249 | selects another one | `korg.read.pattern()`, `korg.pattern(x)` |
+| `korg.viewedPattern` | pattern the display shows, 0 to 249 (from API version 16). While one plays, the wheel browses another and the display shows that one, the playing one goes on | no | `korg.read.viewedPattern()` |
+| `korg.nextPattern` | next pattern the pattern switch has confirmed, which starts at the end of the sequence, 0 to 249; -1 when none waits (from API version 16) | no | `korg.read.nextPattern()` |
 | `korg.selectedPart` | selected part, 0 to 15, 16 for all | 0 to 15 | `korg.read.part()`, `korg.part(x)` |
 | `korg.parts[i].step` | step counter of the part, 0 to 63 | no | `korg.read.step(i)` |
 | `korg.parts[i].muted` | 1 when the part is muted | 1 muted, 0 playing | `korg.read.mute(i)`, `korg.mute(i, x)` |
@@ -371,6 +373,8 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.read.transport()` | transport state: 0 stop, 1 play, 2 pause, 3 REC ready, 4 recording | everywhere |
 | `korg.read.tempo()` | tempo in tenths of a BPM (1600 is 160.0) | everywhere |
 | `korg.read.pattern()` | selected pattern, 0 to 249 | everywhere |
+| `korg.read.viewedPattern()` | pattern the display shows, 0 to 249: while browsing and after MENU the viewed one (from the bank), otherwise the playing one. It follows the pattern the pads and the info texts of the edit line show. From API version 16 | everywhere |
+| `korg.read.nextPattern()` | the confirmed next pattern, 0 to 249, while the firmware holds it for the sequence end, otherwise -1. Browsing alone (`VIEW:`) does not count, MENU (`NEXT:`) does; with PATTERN CONFIRM off or EXIT held at power-on it stays -1. From API version 16 | everywhere |
 | `korg.read.part()` | selected part 0 to 15, 16 for all | everywhere |
 | `korg.read.step(part)` | step counter of the part, 0 to 63 | everywhere |
 | `korg.read.mute(part)` | 1 if the part is muted | everywhere |

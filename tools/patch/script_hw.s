@@ -147,6 +147,58 @@ script_read_chain_mode_glue:
     mov r1, #ERR_OK
     bx lr
 
+.equ HW_VIEW_CELL, 0xC0691388   ; pointer to the accessor of the pattern the pads and info texts show (tools/patch/pattern_switch.py: CELL_W)
+.equ HW_PS_STATE, 0xC0180F00    ; run time state of the pattern switch: +4 a pattern is confirmed (1), +8 its number; FFFFFFFF without the patch
+.equ HW_PS_ARMED, 4
+.equ HW_PS_ARMNUM, 8
+.equ HW_PENDING_FLAG, 0x341     ; in the pattern selection object (HW_MODEL): a chosen number waits for the sequence end
+
+; -> the pattern the display shows, 0 to 249: the bank block the view's cell points into, else the pattern that runs (the one in RAM).
+script_read_viewed_pattern_glue:
+    ldr r0, =HW_VIEW_CELL
+    ldr r0, [r0]
+    cmp r0, #0
+    ldrne r0, [r0, #4]
+    cmp r0, #0
+    beq viewed_running
+    ldr r1, =SC_BANK
+    sub r0, r0, r1
+    add r0, r0, #4
+    cmp r0, #0x3E8000
+    bhs viewed_running
+    mov r0, r0, lsr #14
+    mov r1, #ERR_OK
+    bx lr
+viewed_running:
+    push {lr}
+    ldr r12, =SC_PLAYER
+    blx r12
+    ldr r0, [r0, #0x318]
+    mov r1, #ERR_OK
+    pop {pc}
+.pool
+
+; -> the next pattern the pattern switch has confirmed, 0 to 249, while the firmware still holds it for the sequence end, else -1.
+script_read_next_pattern_glue:
+    ldr r2, =HW_PS_STATE
+    ldr r0, [r2, #HW_PS_ARMED]
+    cmp r0, #1
+    bne next_pattern_none
+    ldr r1, =HW_MODEL
+    ldrb r1, [r1, #HW_PENDING_FLAG]
+    cmp r1, #0
+    beq next_pattern_none
+    ldr r0, [r2, #HW_PS_ARMNUM]
+    cmp r0, #250
+    bhs next_pattern_none
+    mov r1, #ERR_OK
+    bx lr
+next_pattern_none:
+    mvn r0, #0
+    mov r1, #ERR_OK
+    bx lr
+.pool
+
 ; r0 pattern (-1 the pattern in RAM, so an unsaved edit counts; 0 to 249 the bank, 0x4000 per pattern, the same block layout),
 ; r1 part (-1 a value of the pattern, 0 to 15 a value of that part), r2 field -> the value. The fields and how their bytes
 ; become the value are PATTERN_FIELDS and PART_FIELDS of data/script/contract.mjs: a table word holds the offset (bits 0 to
