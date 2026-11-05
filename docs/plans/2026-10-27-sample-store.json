@@ -250,8 +250,10 @@
     }
   ],
   "continuation": {
-    "report": "docs/messungen/2026-10-28-sample-swap-stimmen.md",
+    "report": "docs/messungen/2026-10-31-sample-dateibesitz.md",
     "status": "in_progress",
-    "next": "Native DSP-Abbrüche über alle Sperraufrufe und äußeren Fehlerpfade absichern; danach Dateibesitz und DSP-Versionsbindung gemeinsam anschließen."
+    "next": "Schutzlücken bei PLAYBACK, Aliasen, Journal-I/O und DSP-Gate schließen; Schutzcode und Dateibesitz verbinden. Danach Wiedergabeprototyp mit vorhandener großer Sammlung prüfen und anschließend dauerhaften Import vollständig anschließen.",
+    "completed_scope": "Gemeinsame catalogue_begin/end-Grenze im Laufzeitpatch und native Snapshot-Neustartfälle mit verschobener DSP-Zuordnung. Normale Speichermenüs noch nicht angeschlossen.",
+    "review_report": "docs/messungen/2026-10-31-sample-swap-schutz-review.md"
   }
 }

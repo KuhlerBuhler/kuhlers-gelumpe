@@ -38,6 +38,7 @@ export const CHAINS = {
     { id: "loader-close", sites: [0xC0036748] },
     { id: "loader-finish", sites: [0xC0036760] },
     { id: "loader-slot", sites: [0xC00366D8] },
+    { id: "loader-parse", sites: [0xC00366FC] },
     { id: "parser-descriptor", sites: [0xC003621C] },
     { id: "work-buffer", sites: [0xC00369F0] },
     { id: "ui-frame", sites: [0xC00836F4] },
@@ -47,6 +48,17 @@ export const CHAINS = {
     { id: "part-update", sites: [0xC0099FFC] },
     { id: "part-bind", sites: [0xC0099D88] },
     { id: "osc-choice", sites: [0xC0040DB4] },
+    { id: "export-all-open", sites: [0xC0039FB0] },
+  ],
+  "sample-swap-mutations": [
+    { id: "delete", sites: [0xC004E558] },
+    { id: "reserve", sites: [0xC004EDF0] },
+    { id: "start", sites: [0xC004E63C] },
+    { id: "end", sites: [0xC004E710] },
+    { id: "loop", sites: [0xC004E7E8] },
+    { id: "rename", sites: [0xC004E8C8] },
+    { id: "slice", sites: [0xC004E93C] },
+    { id: "restore", sites: [0xC004EFF4] },
   ],
   "sample-swap-native-dsp": [
     { id: "resource-acquire", sites: [

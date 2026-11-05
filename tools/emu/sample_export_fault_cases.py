@@ -51,7 +51,13 @@ def case(payload, failure, guarded=True):
         return 0 if failure == 'read' and address == c.DSP_DATA + 2 else read(address)
 
     box.m.read = stuck
+    if failure == 'read':
+        native.as_swap_step(box)
     result = box.dev.call(0xC0039CC4, 0xC100A000, 500)
+    # The stall ends with the export. Native traffic after the fault is no longer bounded (only the swap's own step is),
+    # so a DSP that stayed dead would hold up the next native transaction as in Korg's firmware.
+    box.m.read = read
+    box.run(0.2)
     volume = c.fat32.Volume(bytes(box.m.mmc.card.medium.data))
     try:
         files = [(path, volume.read(path)) for path, _ in volume.walk() if path.lower().endswith('.wav')]

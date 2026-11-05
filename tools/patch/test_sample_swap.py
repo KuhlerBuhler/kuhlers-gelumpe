@@ -25,6 +25,7 @@ class Swap:
         self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
         self.uc.mem_map(0xC0000000, 0x02000000)
         self.uc.mem_map(0xC2700000, 0x00200000)
+        self.uc.mem_map(p.SIG, 0x1000)
         sections, self.sym = p.build_code(SCREENS)
         for at, data in sections:
             self.uc.mem_write(at, data)
@@ -97,6 +98,8 @@ class Swap:
         self.uc.mem_write(meta, word(base) + word(length))
         self.uc.mem_write(meta + 11, bytes([1 if active else 0]))
         self.uc.mem_write(p.HDR + 16 + 4 * slot, word(0x1000 + slot if in_file else 0))
+        if active and in_file:
+            self.call("mark_clean", slot, self.u32(p.PROTECTION_REV))
 
     def parts(self, pattern, samples):
         for i in range(16):
@@ -280,6 +283,188 @@ class StepContext(unittest.TestCase):
                 self.assertEqual(s.state("GEN"), 7)
 
 
+class CatalogueOwnership(unittest.TestCase):
+    def setup_writer(self, *, close=0, read=0, short=False, recover=0, size=0x2000000):
+        s = Swap()
+        s.events = []
+        s.uc.mem_write(p.NATIVE_SCOPE, word(0))
+        s.set_state("TSTATE", 0)
+        s.set_state("FILE", 1)
+        s.set_state("FILEGEN", 7)
+        s.set_state("J_STATE", 1)
+        s.set_state("J_STAGED", 1)
+        s.set_state("SESSION", 7)
+        s.set_state("CFILL", 7)
+        s.set_state("REQ", 501)
+        s.uc.mem_write(p.STATE + p.PATH, b"SD:/own.all\0")
+        s.uc.mem_write(p.DIR + 500 * 16, word(p.ARENA_U))
+        header = bytearray(4096)
+        header[:16] = b"e2s sample all\x1a\0"
+        struct.pack_into("<I", header, 16 + 500 * 4, 4096)
+        s.header = bytes(header)
+        stubs = {"recover": (s.sym["store_recover"], recover),
+                 "open": (F["F_OPEN"], 0), "read": (F["F_READ"], read),
+                 "close": (F["F_CLOSE"], close)}
+        for name, (at, result) in stubs.items():
+            s.uc.mem_write(at, arm.assemble(f"mov r0, #{result}\nbx lr", origin=at).bytes)
+
+            def observe(uc, address, length, _, name=name):
+                self.assertEqual(uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80, 0, name)
+                s.events.append(name)
+                if name == "open":
+                    uc.mem_write(p.FIL + 12, word(size))
+                if name == "read":
+                    uc.mem_write(uc.reg_read(R.UC_ARM_REG_R1), s.header)
+                    uc.mem_write(uc.reg_read(R.UC_ARM_REG_R3), word(4092 if short else 4096))
+
+            s.uc.hook_add(unicorn.UC_HOOK_CODE, observe, begin=at, end=at)
+        s.uc.ctl_flush_tb()
+        return s
+
+    def test_writer_invalidates_jobs_and_closes_the_reader_before_recovery(self):
+        s = self.setup_writer()
+        self.assertEqual(s.call("catalogue_begin"), 0)
+        self.assertEqual(s.events, ["close", "recover", "open", "read", "close"])
+        self.assertEqual(s.owner(), (1, 1, 1, p.sample_owner.RECOVER))
+        self.assertEqual(s.uc.reg_read(R.UC_ARM_REG_R1), 1)
+        self.assertEqual(s.state("MODE"), 2)
+        self.assertEqual(s.state("GEN"), 8)
+        self.assertEqual(s.state("REQ"), 0xFFFFFFFF)
+        for name in ("J_STATE", "J_STAGED", "SESSION", "CFILL", "FILE"):
+            self.assertEqual(s.state(name), 0, name)
+        self.assertEqual(s.u32(p.DIR + 500 * 16), 0)
+
+    def test_writer_reads_the_real_index_after_success_or_failure(self):
+        for status in (0, 4):
+            with self.subTest(status=status):
+                s = self.setup_writer()
+                self.assertEqual(s.call("catalogue_begin"), 0)
+                changed = bytearray(s.header)
+                struct.pack_into("<I", changed, 16 + 500 * 4, 8192)
+                s.header = bytes(changed)
+                self.assertEqual(s.call("catalogue_end", 1, status), status)
+                self.assertEqual(s.owner(), (0, 1, 0, 0))
+                self.assertEqual(s.state("MODE"), 1)
+                self.assertEqual(s.u32(p.HDR + 16 + 500 * 4), 8192)
+                self.assertEqual(s.state("GEN"), 8)
+                self.assertEqual(s.state("FILE"), 0)
+
+    def test_writer_restores_small_library_mode(self):
+        s = self.setup_writer(size=8192)
+        self.assertEqual(s.call("catalogue_begin"), 0)
+        self.assertEqual(s.call("catalogue_end", 1, 0), 0)
+        self.assertEqual(s.state("MODE"), 0)
+
+    def test_another_owner_is_not_disturbed(self):
+        s = self.setup_writer()
+        self.assertEqual(s.call("owner_acquire", p.sample_owner.READ), 0)
+        before = bytes(s.uc.mem_read(p.STATE, p.STATE_END - p.STATE))
+        self.assertNotEqual(s.call("catalogue_begin"), 0)
+        self.assertEqual(bytes(s.uc.mem_read(p.STATE, len(before))), before)
+        self.assertEqual(s.events, [])
+
+    def test_stale_or_foreign_writer_tokens_do_no_io(self):
+        for foreign_reader in (False, True):
+            with self.subTest(foreign_reader=foreign_reader):
+                s = self.setup_writer()
+                if foreign_reader:
+                    self.assertEqual(s.call("owner_acquire", p.sample_owner.READ), 0)
+                    token = 1
+                else:
+                    self.assertEqual(s.call("catalogue_begin"), 0)
+                    token = 2
+                before = s.owner()
+                s.events.clear()
+                self.assertNotEqual(s.call("catalogue_end", token, 0), 0)
+                self.assertEqual(s.owner(), before)
+                self.assertEqual(s.events, [])
+
+    def test_writer_cleanup_requires_an_unmasked_task_context_before_io(self):
+        for control, depth, started in ((0x93, 0, 1), (0x12, 0, 1), (0x13, 1, 1), (0x13, 0, 0)):
+            with self.subTest(control=control, depth=depth, started=started):
+                s = self.setup_writer()
+                self.assertEqual(s.call("catalogue_begin"), 0)
+                s.uc.mem_write(p.sample_owner.IRQ_DEPTH, word(depth))
+                s.uc.mem_write(p.sample_owner.STARTED, word(started))
+                before = bytes(s.uc.mem_read(p.STATE, p.STATE_END - p.STATE))
+                s.events.clear()
+                self.assertNotEqual(s.call("catalogue_end", 1, 0, regs={R.UC_ARM_REG_CPSR: control}), 0)
+                self.assertEqual(bytes(s.uc.mem_read(p.STATE, len(before))), before)
+                self.assertEqual(s.events, [])
+
+    def test_failed_close_stops_before_recovery(self):
+        s = self.setup_writer(close=1)
+        self.assertNotEqual(s.call("catalogue_begin"), 0)
+        self.assertEqual(s.events, ["close"])
+        self.assertEqual(s.owner(), (0, 1, 1, 0))
+        self.assertEqual(s.state("MODE"), 2)
+        self.assertEqual(s.state("FILE"), 2)
+
+    def test_failed_recovery_or_index_read_remains_untrusted(self):
+        for options in ({"recover": 1}, {"read": 1}, {"short": True}):
+            with self.subTest(options=options):
+                s = self.setup_writer(**options)
+                self.assertNotEqual(s.call("catalogue_begin"), 0)
+                self.assertEqual(s.owner(), (0, 1, 1, 0))
+                self.assertEqual(s.state("MODE"), 2)
+                self.assertEqual(s.state("GEN"), 8)
+                self.assertEqual(s.u32(p.DIR + 500 * 16), 0)
+
+    def test_invalid_index_is_not_acknowledged(self):
+        for at, value in ((0, 0), (16 + 500 * 4, 1), (16 + 501 * 4, 0xFFFFFFF8)):
+            with self.subTest(at=at, value=value):
+                s = self.setup_writer()
+                header = bytearray(s.header)
+                struct.pack_into("<I", header, at, value)
+                s.header = bytes(header)
+                self.assertNotEqual(s.call("catalogue_begin"), 0)
+                self.assertEqual(s.owner(), (0, 1, 1, 0))
+
+    def test_dsp_fault_during_write_never_reenables_switching(self):
+        s = self.setup_writer()
+        self.assertEqual(s.call("catalogue_begin"), 0)
+        s.set_state("TSTATE", 1)
+        self.assertNotEqual(s.call("catalogue_end", 1, 0), 0)
+        self.assertEqual(s.owner(), (0, 1, 0, 0))
+        self.assertEqual(s.state("MODE"), 2)
+        self.assertEqual(s.state("TSTATE"), 1)
+
+    def test_failed_completion_does_not_acknowledge_or_reopen_the_catalogue(self):
+        for label, expected_file in (("store_recover", 0), ("read", 0), ("close", 2)):
+            with self.subTest(label=label):
+                s = self.setup_writer()
+                self.assertEqual(s.call("catalogue_begin"), 0)
+                at = s.sym[label] if label == "store_recover" else F["F_" + label.upper()]
+                s.uc.mem_write(at, arm.assemble("mov r0, #1\nbx lr", origin=at).bytes)
+                s.uc.ctl_flush_tb()
+                self.assertNotEqual(s.call("catalogue_end", 1, 0), 0)
+                self.assertEqual(s.owner(), (0, 1, 1, 0))
+                self.assertEqual(s.state("MODE"), 2)
+                self.assertEqual(s.state("FILE"), expected_file)
+                self.assertNotEqual(s.call("owner_acquire", p.sample_owner.READ), 0)
+
+    def test_bypassed_or_uninitialized_or_faulted_runtime_cannot_begin_a_write(self):
+        for address, value in ((p.NATIVE_SCOPE, 0xFFFFFFFF), (p.STATE, 0xFFFFFFFF),
+                               (p.STATE + p.OFF["TSTATE"], 1), (p.STATE + p.OFF["GEN"], 0xFFFFFFFF)):
+            with self.subTest(address=address):
+                s = self.setup_writer()
+                s.uc.mem_write(address, word(value))
+                self.assertNotEqual(s.call("catalogue_begin"), 0)
+                self.assertEqual(s.owner(), (0, 0, 0, 0))
+                self.assertEqual(s.events, [])
+
+    def test_generation_exhaustion_during_acquisition_cannot_wrap(self):
+        s = self.setup_writer()
+        s.set_state("GEN", 0xFFFFFFFE)
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: s.set_state("GEN", 0xFFFFFFFF),
+                      begin=s.sym["owner_acquire"], end=s.sym["owner_acquire"])
+        self.assertNotEqual(s.call("catalogue_begin"), 0)
+        self.assertEqual(s.state("GEN"), 0xFFFFFFFF)
+        self.assertEqual(s.owner(), (0, 1, 1, 0))
+        self.assertEqual(s.state("MODE"), 2)
+        self.assertEqual(s.events, [])
+
+
 class BootOwnership(unittest.TestCase):
     def library(self, result=0, *, checked=False, close_status=None, held=False):
         s = Swap()
@@ -408,12 +593,15 @@ class LibraryBypass(unittest.TestCase):
         self.assertEqual(s.state("MODE"), 0)
 
     def test_normal_boot_recovers_before_open_and_refuses_a_recovery_error(self):
-        for error in (0, 1):
+        # 1: the journal was refused before anything was written, the index is untouched and the file loads as it is.
+        # 3: writing the recovered index failed, the index is uncertain and the load is refused.
+        for error in (0, 1, 3):
             with self.subTest(error=error):
                 s, result, events = self.loader(recovery_error=error)
-                self.assertEqual(result, error)
-                self.assertEqual(events, ["recover"] if error else ["recover", "open"])
-                self.assertEqual(s.state("MODE"), 2 if error else 1)
+                refused = error > 1
+                self.assertEqual(result, 1 if refused else 0)
+                self.assertEqual(events, ["recover"] if refused else ["recover", "open"])
+                self.assertEqual(s.state("MODE"), 2 if refused else 1)
 
     def test_exit_does_not_clear_a_transport_fault(self):
         s, result, events = self.loader(held=True, fault=1)
@@ -519,7 +707,9 @@ class PartPublication(unittest.TestCase):
                             s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: entered.append(True),
                                           begin=continuation, end=continuation)
                             s.call(name, PART_BASE)
-                            self.assertEqual(bool(entered), fault == 0 and target != 601)
+                            # a latched fault holds back indexed user samples only: factory and empty choices still bind
+                            indexed = 500 <= target <= p.LAST_USER
+                            self.assertEqual(bool(entered), target != 601 and (fault == 0 or not indexed))
 
     def test_successful_publication_refreshes_only_parts_requesting_that_slot(self):
         s, record = self.setup_part()
@@ -530,7 +720,7 @@ class PartPublication(unittest.TestCase):
         update = 0xC0099FFC
         s.uc.mem_write(update, arm.assemble("bx lr", origin=update).bytes)
         s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *args: called.append(uc.reg_read(R.UC_ARM_REG_R0)), begin=update, end=update)
-        s.call("apply_ready_parts", 601)
+        s.call("apply_ready_parts", 601, s.u32(p.PROTECTION_REV))
         self.assertEqual(called, [PART_BASE])
 
 
@@ -550,6 +740,7 @@ class Resident(unittest.TestCase):
         s.slot(600, base=F["DSP_MIN"], length=0x100)
         s.slot(601, base=F["DSP_MIN"] + 0x100, length=0x100)
         self.alias(s, 602, 650 - 50, 600)
+        s.call("mark_clean", 602, s.u32(p.PROTECTION_REV))
         s.uc.mem_write(F["NAMES"] + 600 * 32 + 30, struct.pack("<H", 651))
         s.uc.mem_write(p.STATE + p.PROT, struct.pack("<32H", 601, *([0xFFFF] * 31)))
         s.uc.mem_write(PART_BASE + 0x34, struct.pack("<H", 601))
@@ -928,7 +1119,7 @@ class Place(unittest.TestCase):
         self.assertLess(counts["masked"], 5000)
         self.assertFalse(s.uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80)
         s.uc.reg_write(R.UC_ARM_REG_CPSR, 0x93)
-        self.assertEqual(s.call("evict_unused", slot), slot)
+        self.assertEqual(s.call("evict_unused", slot), 0)
         self.assertTrue(s.uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80)
 
     def test_a_candidate_used_after_the_snapshot_is_not_deleted(self):
@@ -936,7 +1127,7 @@ class Place(unittest.TestCase):
         s.slot(600, base=F["DSP_MIN"], length=0x100)
         s.uc.mem_write(s.sym["ss_cap"], word(0x100))
         source = f"ldr r1, ={PART_BASE + 0x34}\nmov r2, #600\n.word 0xe1c120b0\nmov r0, #600\nbx lr\n.pool"
-        s.uc.mem_write(s.sym["victim"], arm.assemble(source, origin=s.sym["victim"]).bytes)
+        s.uc.mem_write(s.sym["victim_prepared"], arm.assemble(source, origin=s.sym["victim_prepared"]).bytes)
         source = f"ldr r1, ={F['META'] + 600 * 0x45C + 11}\nmov r2, #0\nstrb r2, [r1]\nmov r0, #1\nbx lr\n.pool"
         s.uc.mem_write(F["DELETE"], arm.assemble(source, origin=F["DELETE"]).bytes)
         s.uc.reg_write(R.UC_ARM_REG_CPSR, 0x13)
@@ -1388,6 +1579,64 @@ class Encoding(unittest.TestCase):
         for at, data in sections:
             area = next(a for a in p.AREAS if a[0] <= at < a[1])
             self.assertLessEqual(at + len(data), area[1])
+
+
+class ChangedRows(unittest.TestCase):
+    """Rows the user changed since the start (import, sampling, a sample edit) are never moved out."""
+
+    def test_a_renamed_or_reimported_slot_stays(self):
+        s = Swap()
+        s.slot(600, base=F["DSP_MIN"], length=0x100)
+        s.uc.mem_write(F["NAMES"] + 600 * 32, b"imported")
+        self.assertEqual(s.call("victim"), 0)
+
+    def test_a_row_the_loader_never_recorded_stays(self):
+        s = Swap()
+        s.slot(600, base=F["DSP_MIN"], length=0x100)
+        s.uc.mem_write(p.SIG + 600 * 4, word(0))
+        self.assertEqual(s.call("victim"), 0)
+
+
+
+class ExportAll(unittest.TestCase):
+    def test_export_all_is_refused_while_the_dsp_holds_part_of_the_file(self):
+        for mode, refused in ((0, False), (1, True), (2, True), (0xFFFFFFFF, False)):
+            with self.subTest(mode=mode):
+                s = Swap()
+                s.set_state("MODE", mode)
+                opened = []
+                s.uc.mem_write(F["F_OPEN"], arm.assemble("mov r0, #0\nbx lr", origin=F["F_OPEN"]).bytes)
+                s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: opened.append(1), begin=F["F_OPEN"], end=F["F_OPEN"])
+                result = s.call("ss_export_open", 0xC1000000, 0xC1000100, 0x0A)
+                self.assertEqual(bool(opened), not refused)
+                self.assertEqual(result, 10 if refused else 0)
+
+
+class NativeGate(unittest.TestCase):
+    """The native DSP deadline bounds a transaction only while the swap's own step runs."""
+
+    def taken(self, mode, step):
+        s = Swap()
+        s.uc.mem_write(p.NATIVE_SCOPE, word(0))
+        s.set_state("MODE", mode)
+        s.set_state("INSTEP", step)
+        acquire = 0xC0000D80
+        s.uc.mem_write(acquire, arm.assemble("mov r0, #0\nbx lr", origin=acquire).bytes)
+        bounded = []
+
+        def stop(uc, *_):
+            bounded.append(1)
+            uc.reg_write(R.UC_ARM_REG_PC, TRAP)
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, stop, begin=s.sym["native_scope_enter"], end=s.sym["native_scope_enter"])
+        s.uc.reg_write(R.UC_ARM_REG_SP, STACK)
+        s.uc.reg_write(R.UC_ARM_REG_LR, TRAP)
+        s.uc.emu_start(s.sym["native_scope_take"], TRAP, count=10_000)
+        return bool(bounded)
+
+    def test_only_the_swaps_step_is_bounded(self):
+        for mode, step, bounded in ((1, 1, True), (1, 0, False), (0, 1, False), (2, 1, False), (0, 0, False)):
+            with self.subTest(mode=mode, step=step):
+                self.assertEqual(self.taken(mode, step), bounded)
 
 
 if __name__ == "__main__":

@@ -158,6 +158,28 @@ class Ownership(unittest.TestCase):
         self.assertEqual(m.call('owner_resolve', token, 0x93)[0], p.OK)
         self.assertEqual(m.call('owner_release', token, 0x93)[0], p.OK)
 
+    def test_recovery_io_requires_the_current_recovery_token_without_mutation(self):
+        for kind in (p.READ, p.WRITE, p.RECOVER):
+            with self.subTest(kind=kind):
+                m = Machine()
+                m.ready()
+                _, token = m.call('owner_acquire', kind)
+                before = m.state()
+                self.assertEqual(m.call('owner_check_recovery', token)[0], p.OK if kind == p.RECOVER else p.INVALID)
+                self.assertEqual(m.call('owner_check_recovery', token + 1)[0], p.INVALID)
+                self.assertEqual(m.state(), before)
+
+    def test_recovery_io_rejects_masked_or_non_task_contexts(self):
+        for control, depth, started in ((0x93, 0, 1), (0x12, 0, 1), (0x13, 1, 1), (0x13, 0, 0)):
+            with self.subTest(control=control, depth=depth, started=started):
+                m = Machine()
+                _, token = m.call('owner_acquire', p.RECOVER)
+                m.put(p.IRQ_DEPTH, depth)
+                m.put(p.STARTED, started)
+                before = m.state()
+                self.assertEqual(m.call('owner_check_recovery', token, control)[0], p.CONTEXT)
+                self.assertEqual(m.state(), before)
+
     def test_acquisition_also_works_in_system_mode(self):
         m = Machine()
         self.assertEqual(m.call('owner_acquire', p.RECOVER, 0x1F), (p.OK, 1))

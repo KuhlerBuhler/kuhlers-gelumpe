@@ -15,8 +15,11 @@ the sample is entered into its slot, so a cache written by someone else is never
     python3 tools/patch/sample_swap.py --vsb SYSTEM.VSB [--out data/patches/sample-swap.json]
 
 Swapping is on when the file is larger than the user bank and EXIT did not select the native loader. Native DSP transaction
-guards initialize at library entry unless cold-start EXIT selects the native path, and remain active for small libraries too.
-Earlier calls keep their native behavior.
+guards initialize at library entry unless cold-start EXIT selects the native path. They bound a native transaction only while
+the swap's own step runs (MODE 1 and INSTEP); every other native DSP call keeps Korg's behavior, without a deadline.
+A row the user changed since the start (import, sampling, resampling, a sample edit) is never evicted: the loader's and the
+swap's rows keep a signature (SIG), and only a row that still matches it may leave the DSP. EXPORT ALL SAMPLE is refused
+while the swap is on or failed, since the DSP then holds only part of the file.
 The blue Synth is refused: its RAM places are not mapped.
 
 Hooks (the same addresses in both builds, checked byte for byte):
@@ -30,6 +33,7 @@ Hooks (the same addresses in both builds, checked byte for byte):
   0xC002D684  the command task's dispatch: the posted step runs there, where the firmware does all its card work
   0xC005F1D4  the sequence end's switch: a pattern whose samples are not ready is not switched to
   0xC0079A74  the chain's switch: the same for the chain target, with the repeat counter kept at its last round
+  0xC0039FB0  EXPORT ALL SAMPLE's f_open: refused with FatFs' write protection while the DSP holds part of the file
 Boot recovery precedes the collection's open. The slot writer appends verified records and commits their index through a
 recovery journal; its import service is not yet bound to the normal controls. Nothing of the firmware is copied or written to flash.
 """
@@ -50,6 +54,7 @@ import sample_swap_io  # noqa: E402
 import sample_store  # noqa: E402
 import sample_import  # noqa: E402
 import sample_owner  # noqa: E402
+import sample_protection  # noqa: E402
 import native_dsp_scope  # noqa: E402
 import capture_fault  # noqa: E402
 import sample_export_fault  # noqa: E402
@@ -63,6 +68,7 @@ CODE2, CODE2_END = 0xC018A4C0, 0xC018AF00
 CODE3, CODE3_END = 0xC0189760, 0xC0189F00
 TRANSPORT, TRANSPORT_END = 0xC018BF40, 0xC018C400
 STORE_CODE, STORE_CODE_END = 0xC019A400, 0xC019C400
+PROTECTION_CODE, PROTECTION_CODE_END = 0xC019C400, 0xC019E000
 STATE, STATE_END = 0xC0188530, 0xC0188730
 FILE_OWNER, BOOT_LEASE = STATE + 0x1E4, STATE + 0x1F4
 # RAM above the interrupt stack, never touched by the firmware in any measured phase (docs/messungen/2026-10-22-ram-frei.md).
@@ -73,8 +79,11 @@ DESC = 0xC2767400               # a slot's descriptor as the parser built it
 DESC2 = 0xC2767900              # the copy the firmware's slot entry may change
 HDR = 0xC2768000                # the file's 4096-byte header: 16 bytes of name, then the slot offsets
 DIR = 0xC2769000                # per slot 16 bytes: cache entry, PCM bytes, sum, generation
+PROTECTION = DIR + 16000        # bitmap and scan cursor after the cache's 1000 records
+PROTECTION_REV = PROTECTION + sample_protection.REV
 LIST = 0xC276D000               # active DSP extents while a place is searched
-ARENA_U, ARENA_U_END = 0xC276F000, HIGH_END
+SIG = HIGH_END - 0x1000         # per slot one word: the signature of the row as the file loaded it, 0 for none
+ARENA_U, ARENA_U_END = 0xC276F000, SIG
 # The firmware's work buffer (giver 0xC00369F0): borrowed only while the cache is valid.
 ARENA_L, ARENA_L_END = 0xC1010000, 0xC273AA40
 
@@ -88,7 +97,7 @@ KILL = 0x2000                   # EXIT held at power-on
 # State words (STATE + offset). FF at power-on; the loader's f_open hook sets them when the swap goes on.
 FIELDS = """MODE GEN SESSION WASPLAY POSTED REQ FILE FILEGEN PREP P_LEN P_BITS P_FBYTES J_STATE J_SLOT J_SRC J_DST
 J_LEN J_DONE J_BITS J_BASE J_ENTRY J_SUM J_GEN J_STAGED J_TICKS CPTR CGEN CFILL PFULL LASTRUN T0 GOT HDRFOR
-TSTATE STAT_COUNT STAT_BYTES STAT_TICKS STAT_SRC""".split()
+TSTATE STAT_COUNT STAT_BYTES STAT_TICKS STAT_SRC INSTEP""".split()
 OFF = {name: 4 * i for i, name in enumerate(FIELDS)}
 FAILED = 0xA0                   # 1024 bits, a slot that cannot be loaded
 PROT = 0x120                    # 32 half words: the live pattern's and the target's samples
@@ -108,7 +117,8 @@ FIRMWARE = dict(
     PART=0xC009AF20, PART_UPDATE=0xC0099FFC, VOICE_USED=0xC009115C, VOICES=0xC06916A0,
     SAMPLE_LOADED=0xC004E3CC,
     PATPTR=0xC033E6A4, BANK=0xC08B2940, PANEL=0xC033E6F8,
-    NAMES=0xC047B080, META=0xC036AD88, MAP_A=0xC035738C, MAP_B=0xC035F06C, MAP_C=0xC0350644,
+    NAMES=0xC047B080, META=0xC036AD88, PLAYBACK=0xC0362EE8,
+    MAP_A=0xC035738C, MAP_B=0xC035F06C, MAP_C=0xC0350644,
     CURSOR=0xC00F9C80, DSP_MIN=0x365EC0, DSP_END=0x1C65EC0, TIMER=0x01F0D000,
     SWITCH=0xC0079AA8, SKIP_NEXT=0xC0036708, PARSE_OUT=0xC00363F0,
 )
@@ -125,6 +135,8 @@ SITES = [
      "the collection loader resolves and releases its file lease after returning"),
     (0xC00366D8, 0xE28D001C, None, "ss_skip", False, True,
      "the loader skips a slot the current pattern does not use while the swap is on"),
+    (0xC00366FC, None, 0xC0035B10, "ss_boot_parse", True, True,
+     "successful collection entries establish a baseline for their exact parser call"),
     (0xC003621C, 0xE59D1008, None, "ss_parse", False, True,
      "the sample parser returns with the descriptor when the swap reads a slot for itself"),
     (0xC00369F0, 0xE59F3008, None, "ss_giver", False, True,
@@ -145,6 +157,8 @@ SITES = [
      "an accepted pattern choice releases a previously deferred swap target"),
     (0xC0040DB4, None, 0xC004E3CC, "ss_choice", True, True,
      "the OSC iterator includes indexed user samples before their PCM is loaded"),
+    (0xC0039FB0, None, 0xC009DB60, "ss_export_open", True, False,
+     "EXPORT ALL SAMPLE does not rewrite e2sSample.all while the DSP holds only part of it"),
 ]
 SITES += [(site, original, calls, label, True, True, f"bounded native DSP transaction: {label}")
           for site, original, calls, label in native_dsp_scope.HOOKS]
@@ -152,6 +166,8 @@ SITES += [(site, capture_fault.ORIGINALS.get(site), 0xC004EF94 if site == 0xC008
            label, False, True, f"native capture fault propagation: {label}") for site, label in capture_fault.HOOKS]
 SITES += [(site, sample_export_fault.ORIGINALS[site], None, label, False, True,
            f"native sample export fault propagation: {label}") for site, label in sample_export_fault.HOOKS]
+SITES += [(site, original, None, label, False, True, 'physical sample mutation protection')
+          for site, original, label, *_ in sample_protection.MUTATIONS]
 
 # Native calls and the layouts they read, compared byte for byte in both red builds.
 CALLED = (
@@ -172,6 +188,7 @@ CALLED = (
     (0xC004E2F0, 0x34, "physical sample lookup"),
     (0xC0099D88, 0x320, "part sample binding and update"),
     (0xC0081F50, 0x11C, "accepted pattern selection"),
+    (0xC0039FA0, 0x2C, "full sample export: default path, f_open and its error return"),
 )
 
 
@@ -193,11 +210,14 @@ def halfword(source):
 def equs(screens):
     names = {**FIRMWARE, "SCREENS": screens, "ST": STATE, "CODE1": CODE1, "CODE2": CODE2, "CODE3": CODE3,
              "STORE_CODE": STORE_CODE, "STAGE": STAGE, "FIL": FIL, "DESC": DESC, "DESC2": DESC2,
-             "HDR": HDR, "DIR": DIR, "LIST": LIST, "ARENA_U": ARENA_U, "ARENA_U_END": ARENA_U_END, "ARENA_L": ARENA_L,
+             "PROTECTION_CODE": PROTECTION_CODE,
+             "PROTECTION_REV": PROTECTION_REV,
+             "HDR": HDR, "DIR": DIR, "LIST": LIST, "SIG": SIG, "ARENA_U": ARENA_U, "ARENA_U_END": ARENA_U_END, "ARENA_L": ARENA_L,
              "ARENA_L_END": ARENA_L_END, "CHUNK": CHUNK, "BUDGET": BUDGET, "MSG": MSG, "MAIN": MAIN, "KILL": KILL,
              "FAILED": FAILED, "PROT": PROT, "PATH": PATH, "STATE_WORDS": len(FIELDS),
              "LAST_USER": LAST_USER, "SAMPLE_COUNT": SAMPLE_COUNT, "CAP_DEFAULT": CAP_DEFAULT,
              "BUSY": sample_swap_io.BUSY, "FILE_OWNER": FILE_OWNER, "BOOT_LEASE": BOOT_LEASE,
+             "NATIVE_SCOPE": NATIVE_SCOPE,
              "FILE_READ": sample_owner.READ, "FILE_RECOVER": sample_owner.RECOVER, **OFF}
     return "".join(f".equ {k}, {v:#x}\n" for k, v in names.items())
 
@@ -322,6 +342,7 @@ fo_reset:
     str r0, [r11, #FILEGEN]
     bl clear_failed
     bl cache_reset
+    bl protection_init
     bl close_reader
     cmp r0, #0
     bne fo_fault
@@ -356,8 +377,8 @@ fo_recover:
 fo_journal:
     mov r0, r5
     bl store_recover
-    cmp r0, #0
-    bne fo_fault
+    cmp r0, #1
+    bhi fo_fault
 fo_open:
     mov r0, r4
     mov r1, r5
@@ -408,9 +429,6 @@ ss_skip:
     blne owner_resolve
 sk_owner_ready:
     ldr r12, =ST
-    ldr r0, [r12, #MODE]
-    cmp r0, #1
-    bne sk_load
     ldr r0, [r12, #HDRFOR]
     cmp r0, r5
     beq sk_have
@@ -424,6 +442,9 @@ sk_copy:
     subs r2, r2, #4
     bne sk_copy
 sk_have:
+    ldr r0, [r12, #MODE]
+    cmp r0, #1
+    bne sk_load
     sub r1, r8, r5
     sub r1, r1, #0x14
     mov r1, r1, lsr #2
@@ -770,8 +791,21 @@ re_no:
 
 ; r0 user slot: 1 when neither patterns, actual parts nor allocated voices use its physical sample.
 can_evict:
+    push {r4, lr}
+    mov r4, r0
+    bl protection_refresh
+    cmp r0, #0
+    movne r0, r4
+    blne can_evict_prepared
+    pop {r4, pc}
+
+can_evict_prepared:
     push {r4-r8, lr}
     mov r4, r0
+    bl protection_current
+    cmp r0, #0
+    beq ce_no
+    mov r0, r4
     cmp r4, #500
     blo ce_no
     ldr r1, =LAST_USER
@@ -841,6 +875,10 @@ ce_next_voice:
     add r7, r7, #1
     cmp r7, #24
     blo ce_voice
+    mov r0, r5
+    bl protection_dirty
+    cmp r0, #0
+    bne ce_no
     mov r0, #1
     pop {r4-r8, pc}
 ce_no:
@@ -850,10 +888,20 @@ ce_no:
 ; A snapshot candidate, rechecked by evict_unused before any metadata changes.
 victim:
     push {r4, lr}
+    bl protection_refresh
+    cmp r0, #0
+    popeq {r4, pc}
+    b vi_begin
+victim_prepared:
+    push {r4, lr}
+    bl protection_scan
+    cmp r0, #0
+    popeq {r4, pc}
+vi_begin:
     mov r4, #500
 vi_slot:
     mov r0, r4
-    bl can_evict
+    bl can_evict_prepared
     cmp r0, #0
     movne r0, r4
     popne {r4, pc}
@@ -866,17 +914,30 @@ vi_slot:
 
 ; r0 candidate slot: IRQs stay masked only across its final check and the CPU-only delete.
 evict_unused:
+    push {r4, lr}
+    mov r4, r0
+    bl protection_refresh
+    cmp r0, #0
+    movne r0, r4
+    blne evict_prepared
+    pop {r4, pc}
+
+evict_prepared:
     push {r4, r5, r8, lr}
     mov r4, r0
     .word 0xE10F8000
     orr r1, r8, #0x80
     .word 0xE121F001
+    bl protection_current
+    cmp r0, #0
+    moveq r4, #0
+    beq eu_done
     bl swap_ok
     cmp r0, #0
     moveq r4, #0
     beq eu_done
     mov r0, r4
-    bl can_evict
+    bl can_evict_prepared
     cmp r0, #0
     moveq r4, #0
     beq eu_done
@@ -885,7 +946,9 @@ evict_unused:
     ldrh r0, [r1, #30]
     sub r0, r0, #50
     bl DELETE
+evict_deleted:
     mov r4, r0
+    bl protection_removed
 eu_done:
     .word 0xE121F008
     mov r0, r4
@@ -942,9 +1005,6 @@ part_ready:
     cmp r0, #1
     cmpne r0, #2
     bne pr_yes
-    ldr r0, [r11, #TSTATE]
-    cmp r0, #0
-    bne pr_no
     ldr r0, [r4, #8]
     cmp r0, #0
     beq pr_no
@@ -958,6 +1018,9 @@ part_ready:
     ldr r0, [r0, r4, lsl #2]
     cmp r0, #0
     beq pr_yes
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #0
+    bne pr_no
     mov r0, r4
     bl resident
     pop {r4, pc}
@@ -968,8 +1031,20 @@ pr_no:
     mov r0, #0
     pop {r4, pc}
 
-; Refresh only parts that requested the sample whose transfer just completed.
+; Refresh only parts that requested the sample whose transfer just completed; first note its row as published.
 apply_ready_parts:
+    push {r4, lr}
+    mov r4, r0
+    bl mark_clean
+    cmp r0, #0
+    popeq {r4, pc}
+    mov r0, r4
+    bl refresh_ready_parts
+    mov r0, #1
+    pop {r4, pc}
+
+; r0 slot. Refresh current parts without acknowledging any file version.
+refresh_ready_parts:
     push {r4-r6, lr}
     mov r5, r0
     mov r4, #0
@@ -1011,6 +1086,7 @@ ss_step:
     ldr r0, [r11, #MODE]
     cmp r0, #1
     bne st_ret
+    str r0, [r11, #INSTEP]
     ldr r0, [r11, #TSTATE]
     cmp r0, #0
     movne r0, #2
@@ -1087,6 +1163,8 @@ st_ret:
     movne r0, #2
     strne r0, [r11, #MODE]
 st_leave:
+    mov r1, #0
+    str r1, [r11, #INSTEP]
     pop {r3-r11, pc}
 
 ; r0 = an earlier reading of timer 3: ticks since then.
@@ -1484,6 +1562,83 @@ ef_fail:
     pop {r4, pc}
 .pool
 
+; ------------------------------------------------------------- rows the user changed stay in the DSP
+; A row the loader or the swap put into the DSP keeps the signature it had then. Import, sampling, resampling and a sample
+; edit (WRITE or not yet) change the row or give the slot another one, so its signature no longer matches and the swap
+; never evicts it until the next start. The file has no copy of such a row.
+
+; r0 logical slot: metadata, playback points and name; zero means no physical row.
+slot_sig:
+    push {r4-r6, lr}
+    mov r4, r0
+    bl physical
+    ldr r1, =SAMPLE_COUNT
+    cmp r0, r1
+    movhs r0, #0
+    pophs {r4-r6, pc}
+    mov r5, r0
+    ldr r1, =0x45C
+    mul r2, r0, r1
+    ldr r1, =META
+    add r1, r1, r2
+    ldr r2, =0x45C / 4
+    ldr r6, =2166136261
+    ldr r12, =16777619
+sg_meta:
+    ldr r3, [r1], #4
+    eor r6, r6, r3
+    mul r6, r12, r6
+    subs r2, r2, #1
+    bne sg_meta
+    ldr r1, =PLAYBACK
+    add r1, r1, r5, lsl #4
+    mov r2, #4
+sg_playback:
+    ldr r3, [r1], #4
+    eor r6, r6, r3
+    mul r6, r12, r6
+    subs r2, r2, #1
+    bne sg_playback
+    ldr r1, =NAMES
+    add r1, r1, r4, lsl #5
+    mov r2, #8
+sg_name:
+    ldr r3, [r1], #4
+    eor r6, r6, r3
+    mul r6, r12, r6
+    subs r2, r2, #1
+    bne sg_name
+    movs r0, r6
+    moveq r0, #1
+    pop {r4-r6, pc}
+
+; r0 logical slot: 1 when its row is still the one the loader or the swap put there.
+slot_clean:
+    push {r4, lr}
+    mov r4, r0
+    bl slot_sig
+    cmp r0, #0
+    popeq {r4, pc}
+    ldr r1, =SIG
+    ldr r1, [r1, r4, lsl #2]
+    cmp r0, r1
+    movne r0, #0
+    moveq r0, #1
+    pop {r4, pc}
+
+; Replaces the bl f_open of EXPORT ALL SAMPLE (mode create and write). While the swap is on or failed, the DSP holds only
+; part of the file: the export would cut the collection down to it. It returns FatFs' write protection instead, and the
+; firmware leaves with its own error before the file is touched.
+ss_export_open:
+    ldr r12, =ST
+    ldr r12, [r12, #MODE]
+    cmp r12, #1
+    cmpne r12, #2
+    bne F_OPEN
+    mov r0, #10
+    bx lr
+.pool
+
 .org CODE3
 ; r0 = slot: the firmware's parser reads its metadata into DESC and stops before the slot or the DSP change; the file is
 ; then at the slot's audio. r0 = 0 when it went through.
@@ -1528,6 +1683,10 @@ start_install:
     mov r4, r0
     ldr r1, [r11, #GEN]
     str r1, [r11, #J_GEN]
+    bl protection_resume
+    cmp r0, #0
+    popeq {r4-r8, pc}
+    mov r0, r4
     bl cached
     cmp r0, #0
     beq si_card
@@ -1701,30 +1860,6 @@ jc_sum:
     mov r0, #1
     str r0, [r11, #J_STATE]
     pop {r4-r8, pc}
-
-; r0 = DSP bytes (a multiple of 32): a free place in the user bank, after moving out samples that neither the live pattern
-; nor the target use. r0 = 0 when there is none.
-place:
-    push {r4-r6, lr}
-    mov r4, r0
-    mov r5, #500
-pl_try:
-    mov r0, r4
-    bl first_fit
-    cmp r0, #0
-    popne {r4-r6, pc}
-    subs r5, r5, #1
-    beq pl_none
-    bl victim
-    cmp r0, #0
-    beq pl_none
-    bl evict_unused
-    cmp r0, #0
-    beq pl_none
-    b pl_try
-pl_none:
-    mov r0, #0
-    pop {r4-r6, pc}
 
 ; r0 = DSP bytes: the lowest 32-byte aligned place in the user bank, up to its budget, that overlaps no active sample.
 first_fit:
@@ -1973,6 +2108,7 @@ ck_desc:
     bne ck_cache_bad
 ck_publish:
     bl publish
+    mov r7, r1
     cmp r0, #1
     beq ck_end
     cmp r0, #2
@@ -1984,7 +2120,10 @@ ck_publish:
     cmp r0, #0
     beq ck_fail
     mov r0, r6
+    mov r1, r7
     bl apply_ready_parts
+    cmp r0, #0
+    beq ck_end
     ldr r0, [r11, #STAT_COUNT]
     add r0, r0, #1
     str r0, [r11, #STAT_COUNT]
@@ -2021,6 +2160,157 @@ ck_end:
 
 
 PUBLISH = r"""
+; Returns status in r0 and an exclusive recovery token in r1 on success.
+catalogue_begin:
+    push {r3-r8, r11, lr}
+    ldr r11, =ST
+    ldr r0, [r11, #MODE]
+    cmp r0, #2
+    bhi cat_refuse
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #0
+    bne cat_refuse
+    ldr r0, =NATIVE_SCOPE
+    ldr r0, [r0]
+    cmn r0, #1
+    beq cat_refuse
+    ldr r0, [r11, #GEN]
+    cmn r0, #1
+    beq cat_refuse
+    ldrb r0, [r11, #PATH]
+    cmp r0, #0
+    cmpne r0, #255
+    beq cat_refuse
+    mov r0, #FILE_RECOVER
+    bl owner_acquire
+    cmp r0, #0
+    bne cat_refuse
+    mov r4, r1
+    mov r0, #2
+    str r0, [r11, #MODE]
+    ldr r0, [r11, #GEN]
+    cmn r0, #1
+    beq cat_uncertain
+    add r0, r0, #1
+    str r0, [r11, #GEN]
+    mov r0, #0
+    str r0, [r11, #J_STATE]
+    str r0, [r11, #J_STAGED]
+    str r0, [r11, #SESSION]
+    str r0, [r11, #CFILL]
+    mvn r0, #0
+    str r0, [r11, #REQ]
+    bl cache_reset
+    bl clear_failed
+    bl close_reader
+    cmp r0, #0
+    bne cat_uncertain
+    bl catalogue_read
+    cmp r0, #0
+    bne cat_uncertain
+    mov r0, #0
+    mov r1, r4
+    pop {r3-r8, r11, pc}
+
+; r0 token, r1 operation status. Rechecks the durable catalogue even after a failed operation.
+catalogue_end:
+    push {r3-r8, r11, lr}
+    mov r4, r0
+    mov r5, r1
+    ldr r11, =ST
+    bl owner_check_recovery
+    cmp r0, #0
+    bne cat_refuse
+    bl close_reader
+    cmp r0, #0
+    bne cat_uncertain
+    bl catalogue_read
+    cmp r0, #0
+    bne cat_uncertain
+    mov r6, r1
+    mov r0, r4
+    bl owner_resolve
+    cmp r0, #0
+    bne cat_uncertain
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #0
+    movne r5, #4
+    movne r0, #2
+    bne cat_mode
+    ldr r0, =ss_cap
+    ldr r0, [r0]
+    add r0, r0, #4096
+    cmp r6, r0
+    movhi r0, #1
+    movls r0, #0
+cat_mode:
+    str r0, [r11, #MODE]
+    mov r0, r4
+    bl owner_release
+    cmp r0, #0
+    movne r5, #4
+    movne r0, #2
+    strne r0, [r11, #MODE]
+    mov r0, r5
+    mov r1, #0
+    pop {r3-r8, r11, pc}
+cat_uncertain:
+    mov r0, #2
+    str r0, [r11, #MODE]
+    mov r0, r4
+    bl owner_uncertain
+    mov r0, r4
+    bl owner_release
+cat_refuse:
+    mov r0, #4
+    mov r1, #0
+    pop {r3-r8, r11, pc}
+.pool
+
+; r11 state. Returns status in r0 and file size in r1. The file is closed on return.
+catalogue_read:
+    push {r4-r6, lr}
+    add r0, r11, #PATH
+    bl store_recover
+    cmp r0, #0
+    bne cat_read_bad
+    ldr r0, =FIL
+    add r1, r11, #PATH
+    mov r2, #1
+    bl F_OPEN
+    cmp r0, #0
+    bne cat_read_bad
+    mov r0, #1
+    str r0, [r11, #FILE]
+    ldr r0, =FIL
+    ldr r5, [r0, #12]
+    ldr r1, =HDR
+    mov r2, #4096
+    add r3, r11, #GOT
+    bl F_READ
+    mov r4, r0
+    cmp r4, #0
+    bne cat_read_close
+    ldr r0, [r11, #GOT]
+    cmp r0, #4096
+    movne r4, #1
+    bne cat_read_close
+    ldr r0, =HDR
+    mov r1, r5
+    bl store_header_valid
+    mov r4, r0
+cat_read_close:
+    bl close_reader
+    orrs r0, r0, r4
+    movne r0, #1
+    mov r1, r5
+    pop {r4-r6, pc}
+cat_read_bad:
+    mov r0, #1
+    mov r1, #0
+    pop {r4-r6, pc}
+.pool
+
 ; r11 state. Returns 0 committed, 1 stale, 2 paused, 3 native refusal.
 publish:
     push {r4-r6, lr}
@@ -2042,7 +2332,10 @@ publish:
     str r0, [r2]
     ldr r0, =DESC2
     bl RESERVE
+pub_reserved:
     mov r6, r0
+    ldr r1, =PROTECTION_REV
+    ldr r1, [r1]
     ldr r2, =CURSOR
     ldr r3, [r2]
     cmp r5, r3
@@ -2057,13 +2350,47 @@ pub_out:
 """
 
 
+PLACEMENT = r'''
+; r0 = DSP bytes (a multiple of 32): a free place in the user bank, after moving out samples that neither the live pattern
+; nor the target use. r0 = 0 when there is none.
+place:
+    push {r4-r6, lr}
+    mov r4, r0
+    mov r5, #500
+pl_try:
+    mov r0, r4
+    bl first_fit
+    cmp r0, #0
+    popne {r4-r6, pc}
+    bl protection_scan
+    cmp r0, #0
+    popeq {r4-r6, pc}
+    subs r5, r5, #1
+    beq pl_none
+    bl victim_prepared
+    cmp r0, #0
+    beq pl_none
+    bl evict_prepared
+    cmp r0, #0
+    beq pl_none
+    b pl_try
+pl_none:
+    mov r0, #0
+    pop {r4-r6, pc}
+
+.pool
+'''
+
+
 def source(screens):
     importer = sample_import.source(state=STATE, file=FIL, descriptor=DESC, normalizer=FIL + 0x240,
                                     prep=OFF["PREP"], bits=OFF["P_BITS"], file_bytes=OFF["P_FBYTES"])
     native = native_dsp_scope.driver_source(scope=NATIVE_SCOPE, fault=STATE + OFF["TSTATE"],
-                                           mode=STATE + OFF["MODE"], generation=STATE + OFF["GEN"])
+                                           mode=STATE + OFF["MODE"], generation=STATE + OFF["GEN"],
+                                           gate=STATE + OFF["INSTEP"])
     guards = capture_fault.source(STATE + OFF["TSTATE"]) + sample_export_fault.source(STATE + OFF["TSTATE"])
     body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer + sample_owner.source(FILE_OWNER) + PUBLISH + native + guards
+    body += "\n.org PROTECTION_CODE\n" + sample_protection.source(PROTECTION) + PLACEMENT
     return halfword(equs(screens) + f".equ transfer, {TRANSPORT:#x}\n" + body)
 
 
@@ -2083,6 +2410,7 @@ def screens_of(vsb):
 
 AREAS = ((CODE1, CODE1_END, "CODE1_END"), (CODE2, CODE2_END, "CODE2_END"), (CODE3, CODE3_END, "CODE3_END"),
          (STORE_CODE, STORE_CODE_END, "STORE_CODE_END"),
+         (PROTECTION_CODE, PROTECTION_CODE_END, "PROTECTION_CODE_END"),
          (TRANSPORT, TRANSPORT_END, "TRANSPORT_END"))
 
 
@@ -2108,6 +2436,7 @@ def build_patch(vsb, build=None):
     actual = native_dsp_scope.validate_firmware(vsb)
     capture_fault.validate_firmware(vsb)
     sample_export_fault.validate_firmware(vsb)
+    sample_protection.validate_firmware(vsb)
     if build not in (None, actual) or actual not in ("stock", "hacktribe"):
         raise SystemExit("only the mapped red Sampler builds, Korg's and Hacktribe, are supported")
     if struct.unpack_from("<I", vsb, file_offset(SAMPLE_COUNT_AT))[0] != SAMPLE_COUNT:
@@ -2145,14 +2474,15 @@ def build_patch(vsb, build=None):
         changes.append({"file": file_offset(site), "bytes": struct.pack("<I", new).hex(), "expect": sha(was(site)), "note": note})
         native = stub.startswith("native_scope_")
         guard = stub.startswith(("capture_", "export_"))
+        mutation = stub.startswith('protect_')
         if boot:
             start.append({"file": file_offset(site), "length": 4,
                           "why": "native DSP calls run during boot; uninitialized transactions retain their original behavior" if native
                           else "runs before the main screen and passes on at once while the swap is off"})
         selection = stub == 'ss_selection'
-        chain = "sample-swap-native-dsp" if native else "sample-swap-native-sample" if guard else "pattern-set" if selection else "sample-swap"
+        chain = "sample-swap-native-dsp" if native else "sample-swap-native-sample" if guard else "sample-swap-mutations" if mutation else "pattern-set" if selection else "sample-swap"
         hooks.append({"site": f"0x{site:08X}", "kind": "instruction", "chain": chain, "position": "after" if selection else "before",
-                      "swallow": native or guard or stub in ("ss_skip", "ss_parse", "ss_cmd", "ss_gate_chain"), "note": note})
+                      "swallow": native or guard or mutation or stub in ("ss_skip", "ss_parse", "ss_cmd", "ss_gate_chain"), "note": note})
     initial = sample_owner.INITIAL + bytes(4)
     if was(FILE_OWNER, len(initial)) != bytes([255]) * len(initial):
         raise SystemExit('the file ownership state is not free in this VSB')
@@ -2196,6 +2526,7 @@ CALLED_SHA = {
     0xC004E2F0: "675b2a102036631fc0d01634272bfb9fbf536b8f9ece00d30423b6d1a3a0fcd1",
     0xC0099D88: "9ce2ec5c3423766f300330cb1ae2e0b18713d17a29761e718a3ff3d7cf7b2556",
     0xC0081F50: "23bad452aa63f8f3f1e16b4e055bef0de6aee7a82db9ad13e29a45912796f11e",
+    0xC0039FA0: "68ef62c99f868a959b7e10e1e499c0e156dbf05af0596caa805038b250a141bd",
 }
 
 

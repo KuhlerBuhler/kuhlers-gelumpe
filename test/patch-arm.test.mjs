@@ -31,6 +31,7 @@ const elsewhere = {
   "sample-owner.test.mjs": ["test_sample_owner"],
   "sample-snapshot.test.mjs": ["test_sample_snapshot"],
   "sample-versions.test.mjs": ["test_sample_versions"],
+  "sample-protection.test.mjs": ["test_sample_protection"],
 };
 const owned = new Set(Object.values(elsewhere).flat().map(name => `${name}.py`));
 const modules = readdirSync(dir).filter(f => /^test_.*\.py$/.test(f) && !owned.has(f)).sort();

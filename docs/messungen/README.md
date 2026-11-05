@@ -92,6 +92,11 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Sample-Datei: Leserabschluss und exklusiver Dateibesitz](2026-10-29-sample-dateibesitz.md)
 - [Sample-Speicherung: native Bestätigungen und Tabellen](2026-10-30-sample-speichergrenzen.md), Sample-WRITE, Aufnahmebestätigung, Import ohne Kartenschreiben und alter NOR-Spiegel.
 - [Einzelnes Sample aus dem DSP dauerhaft speichern](2026-10-30-sample-snapshot.md), linearer Mono-/Stereo-Rückleser und unveränderte Einträge ohne erneutes Anhängen.
+- [Sample-Datei: gemeinsamer Schreibzugriff und erneutes Indexlesen](2026-10-31-sample-dateibesitz.md), Dateisperre, Cache-Abbruch und bestätigter Index nach Erfolg und Fehler.
+- [Sample-Swap: Schutzgrenzen nachgeprüft](2026-10-31-sample-swap-schutz-review.md), Wiedergabepunkte, Aliase, Journalfehler und Timeout-Grenzen vor dem Prototyp.
+- [Sample-Swap: Schutzcode und Dateibesitz verbunden](2026-11-04-sample-swap-integration.md), gemeinsamer Ausgangsstand und verbleibende Schutzlücken.
+- [Sample-Swap: physische Belegungen schützen](2026-11-05-sample-schutz.md), Wiedergabepunkte, Aliase, native Änderungen und geprüfte Startmarken.
+- [Sample-Swap: Gesamtexport und geänderte Zeilen schützen](2026-10-30-sample-swap-schutz.md), Schutz des überschreibenden Öffnens und erste Verdrängungsprüfung.
 - [Sample-Swap: ungeladene Samples am OSC-Drehgeber wählen](2026-10-30-sample-swap-oszillator.md), echter Encoder-Auftrag statt direkt gesetzter Auswahl.
 - [Ganzer Flash in einem Stand](2026-10-09-flash-dump.md)
 - [Menüzustand im RAM: welcher Bildschirm, welche Seite](2026-10-09-menuezustand.md)

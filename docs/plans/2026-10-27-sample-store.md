@@ -238,6 +238,14 @@ ohne vorherige DSP-Platzvergabe. Der Emulator prüft Import bei vollem DSP und
 Neustart ohne Gesamtexport. Dieser Dienst ist noch nicht mit der normalen
 Bedienung verbunden. Slotwahl, Cache-Besitz und Nachladen sind daher weiter offen.
 
+31.10.: Der Laufzeitpatch enthält eine gemeinsame Schreibgrenze für Dateibesitz,
+Cache-Abbruch und erneutes Indexlesen nach Erfolg oder Fehler. Der getrennte
+Snapshotadapter benutzt diese Grenze im Emulator. Permanente Fälle prüfen auf
+beiden roten Builds Mono, Stereo und eine verschobene DSP-Zuordnung nach Neustart.
+Frühe Initialisierung ohne vorhandene Sammlung, Import-Quellhandle, physische
+Versionsbindung und Anschluss der normalen Bestätigungen bleiben offen. Details
+stehen beim [gemeinsamen Dateizugriff](../messungen/2026-10-31-sample-dateibesitz.md).
+
 28.10.: Eigener Kartentest nach Neustart mit 13 bestätigten Aufrufen bestanden;
 Testdatei und Journal entfernt, benutzten RAM zurückgelesen und wiederhergestellt.
 Der Bibliothekslader verweigert einen gesetzten DSP-Protokollfehler jetzt vor

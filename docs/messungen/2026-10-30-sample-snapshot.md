@@ -1,6 +1,6 @@
 # Einzelnes Sample aus dem DSP dauerhaft speichern
 
-Stand: 30.10.2026. **Gemessen im Emulator** mit erzeugten Samples,
+Stand: 31.10.2026. **Gemessen im Emulator** mit erzeugten Samples,
 ohne Gerät, Klang oder Aufnahme-DMA. Ergänzung zu den
 [nativen Speichergrenzen](2026-10-30-sample-speichergrenzen.md).
 
@@ -64,28 +64,37 @@ Datei mit `0xFFFFFFFF` Byte bestätigt werden, ohne sie zu vergrößern.
 Diese Grenze wird mit verstreuten erzeugten Blöcken geprüft, ohne eine
 vollständige 4-GB-Datei im RAM aufzubauen.
 
-## Offen
+## Gemessen: verschobene Belegung nach Neustart
 
 Die gesonderte native Adapterprüfung besteht auf beiden roten Builds.
 Sie benutzt den echten Snapshot, DSP-Transport und FatFs: Ein veränderter
 Name und vollständige Mono- beziehungsweise Stereo-PCM werden angehängt,
 geprüft und nach Neustart korrekt geladen. Das direkt folgende gleiche
 Speichern lässt die Datei bytegleich und ruft `f_write` keinmal auf.
-Diese Adapterprüfung verwendet ursprüngliche identische Zuordnungen.
-Ein zusätzlicher Gegenversuch auf beiden Builds belegt die nötige
+Ein Gegenversuch auf beiden Builds belegt die nötige
 Normalisierung der Importnummer: Logisch 500 liegt im RAM über Import
 651 in Zeile 601. Ein unveränderter Dateiwert 651 lässt den Slot nach
 Neustart auf die ungeladene Zeile zeigen. Ausschließlich Dateifeld `+20`
 auf 550 geändert stellt Name und PCM korrekt wieder her. Der Adapter
-normalisiert dieses Feld inzwischen ebenfalls; der neue Modellfall
-besteht. Ein permanenter nativer Neustartfall mit dieser Zuordnung und
-dem korrigierten Adapter fehlt noch.
+normalisiert dieses Feld ebenfalls. Die permanenten nativen Fälle prüfen
+beide Zuordnungen für Mono und Stereo: die ursprüngliche identische
+Zuordnung und logisch 500 über Import 651 in Zeile 601. Nach Speichern
+und vollständigem Neustart stimmen Name und PCM; der andere Slot bleibt
+unverändert. Die alte PCM-Belegung bleibt beim Speichern erhalten.
+Das ist noch kein Nachweis über ausklingende Stimmen.
 
-Der gebaute Laufzeitpatch besteht sämtliche 742 Prüfungen für Stock und
-717 für Hacktribe, jeweils ohne Fehler. Der getrennte Snapshotadapter
-ist darin noch nicht eingebunden. Die bestätigten Sample-Menüs,
-die Versionszuordnung beim Ersetzen und die gemeinsame Freigabe von
-Cache und Dateien sind noch nicht an diesen Adapter angeschlossen.
+Die acht Fälle pro Build verwenden die neue
+[gemeinsame Schreibsperre](2026-10-31-sample-dateibesitz.md), einschließlich
+erneutem Lesen des tatsächlichen Index. Die Sample-Menüs rufen den Adapter
+weiterhin nicht auf.
+
+## Offen
+
+Der vorherige Laufzeitpatch bestand sämtliche 742 Prüfungen für Stock
+und 717 für Hacktribe. Diese Zahlen gelten vor dem Einbau der gemeinsamen
+Schreibsperre. Der getrennte Snapshotadapter ist im Laufzeitpatch noch
+nicht eingebunden. Die bestätigten Sample-Menüs und die Versionszuordnung
+beim Ersetzen sind noch nicht an diesen Adapter angeschlossen.
 Ein erfolgreicher Adapterversuch belegt daher noch kein Sample-WRITE
 über die normalen Bedienelemente. Der Gesamtexport bleibt bis zur
 fertigen Ablösung ein Veröffentlichungsblocker.

@@ -56,6 +56,22 @@ def validate(payload):
     validation_image(payload)
 
 
+def as_swap_step(box):
+    """Native transactions are bounded only inside the swap's own step (MODE 1 and INSTEP). A probe that makes the DSP
+    stall for good stands in for that step, else the native call would wait forever as in Korg's firmware."""
+    if 'INSTEP' in c.spec.OFF:
+        step = c.spec.STATE + c.spec.OFF['INSTEP']
+        box.m.uc.mem_write(c.spec.STATE + c.spec.OFF['MODE'], struct.pack('<I', 1))
+        box.m.uc.mem_write(step, struct.pack('<I', 1))
+        # no real step of the swap for this small collection: the frame would post one now that MODE is 1
+        box.m.uc.mem_write(c.spec.STATE + c.spec.OFF['POSTED'], struct.pack('<I', 0x7FFFFFFF))
+        # a real step of the swap that runs meanwhile clears the word when it ends: keep the stand-in in place
+        leave = box.sym['st_leave'] + 8
+        box.m.uc.hook_add(c.unicorn.UC_HOOK_CODE, lambda uc, *_: uc.mem_write(step, struct.pack('<I', 1)),
+                          begin=leave, end=leave)
+        box.m.uc.ctl_flush_tb()
+
+
 def install(box, *, origin=CODE, poll_budget=128):
     """Use the verified runtime driver or install it into a paused emulator."""
     payload = box.payload
@@ -176,12 +192,15 @@ def session(payload, flow=None, trace_resource=False):
                         fault=box.state('TSTATE'), scope=box.u32(POINTER), semaphore=box.u32(io.SEMA), resource=resource())
         rows.append(observed)
     ok = (all(check['ok'] for check in checks) and bool(rows)
-          and all(row['transactions'] > 0 and row['refused'] == row['faults'] == row['fault'] == row['scope'] == 0
+          # transactions: only those of the swap's own steps are bounded, a mode session may have none
+          and all(row['refused'] == row['faults'] == row['fault'] == row['scope'] == 0
                   and row['semaphore'] == 1 and row['code_unchanged'] for row in rows))
     return dict(ok=ok, checks=checks, observations=rows, boot_scoped=False)
 
 
-def probe(payload, stall=None, transaction='command', masked=False):
+def probe(payload, stall=None, transaction='command', masked=False, step=True, slow=0):
+    """`step`: the call runs as part of the swap's own step (MODE 1 and its step word set), the only time the deadline
+    bounds a native transaction. `slow`: the command status reads busy for that many polls, then ready."""
     if transaction not in TARGETS:
         raise ValueError('unknown native transaction')
     if stall == 'busy-status' and transaction != 'command':
@@ -189,7 +208,9 @@ def probe(payload, stall=None, transaction='command', masked=False):
     validate(payload)
     stereo = transaction == 'stereo'
     samples = {500: ('Own', 100), 501: ('Own stereo', 100, 48000, 'stereo16')} if stereo else {500: ('Own', 100)}
-    box = c.Box(payload, None, samples, [500, 500, 500] if stereo else [500], record_dsp=True)
+    # A budget below the file's size turns the swap on, so MODE is 1 as on a device with a large collection.
+    # With the swap on only the live pattern's samples are in the DSP: the stereo target 501 is one of them.
+    box = c.Box(payload, None, samples, [500, 501, 500] if stereo else [500], record_dsp=True, cap=0x100)
     symbols = install(box)
     runtime = runtime_symbols(payload) is not None
     uc = box.m.uc
@@ -235,8 +256,14 @@ def probe(payload, stall=None, transaction='command', masked=False):
     uc.hook_add(c.unicorn.UC_HOOK_CODE, released, begin=io.RELEASE, end=io.RELEASE)
     read, write = box.m.read, box.m.write
 
+    polls = [0]
+
     def stalled(address):
         if active[0]:
+            if address == c.DSP_DATA + 2 and slow:
+                polls[0] += 1
+                if polls[0] <= slow:
+                    return 0
             if address == c.DSP_DATA + 2 and stall == 'status':
                 return 0
             if address == c.DSP_DATA + 2 and stall == 'busy-status':
@@ -271,7 +298,10 @@ def probe(payload, stall=None, transaction='command', masked=False):
                 uc.mem_write(c.spec.STAGE + i * 2, struct.pack('<H', 0x4000 + i))
     else:
         arguments = []
-    before = dict(generation=box.state('GEN'), resource=box.u32(io.SEMA))
+    before = dict(generation=box.state('GEN'), resource=box.u32(io.SEMA), mode=box.state('MODE'))
+    if 'INSTEP' in c.spec.OFF:
+        box.m.uc.mem_write(c.spec.STATE + c.spec.OFF['INSTEP'], struct.pack('<I', int(step)))
+    started = box.m.time_ns
     try:
         box.dev.call(CALL, *arguments)
     finally:
@@ -280,18 +310,29 @@ def probe(payload, stall=None, transaction='command', masked=False):
     after = dict(generation=box.state('GEN'), resource=box.u32(io.SEMA), mode=box.state('MODE'),
                  fault=box.state('TSTATE'), scope=box.u32(POINTER))
     refused = any(value != 0 for value in enters)
-    expected_fault = int(stall is not None or masked)
+    elapsed_ms = (box.m.time_ns - started) / 1e6
+    expected_fault = int(step and (stall is not None or masked or slow > 0))
     pcm_matches = (None if transaction not in ('read', 'write') or expected_fault else
                    all((box.u16(c.spec.STAGE + i * 2) if transaction == 'read' else box.dsp.get(io.DSP_MIN + i * 2)) == 0x4000 + i for i in range(32)))
     frame_restored = (len(frames) == 2 and frames[1]['stack'] == frames[0]['stack'] - 8
                       and frames[1]['control'] == frames[0]['control']
                       and frames[1]['saved'][1:] == frames[0]['saved'][1:]
                       and frames[1]['popped'] == [frames[0]['saved'][0], frames[0]['link']])
-    ok = (after['fault'] == expected_fault and after['generation'] == before['generation'] + expected_fault
+    bounded = step
+    if not bounded:
+        # outside the swap's step the native transaction runs as in Korg's firmware: no scope, no deadline, no fault
+        ok = (before['mode'] == after['mode'] == 1 and after['fault'] == 0 and after['generation'] == before['generation']
+              and before['resource'] == after['resource'] == 1 and after['scope'] == 0 and not enters
+              and len(writes) > 0 and not box.m.asserts and (slow == 0 or elapsed_ms > 100))
+        return dict(ok=ok, stall=stall, transaction=transaction, masked=masked, step=step, slow=slow,
+                    slow_polls=polls[0], elapsed_emulator_ms=elapsed_ms, before=before, after=after,
+                    transactions=len(enters), port_writes=len(writes), asserts=box.m.asserts)
+    ok = (before['mode'] == 1 and after['fault'] == expected_fault and after['generation'] == before['generation'] + expected_fault
           and before['resource'] == after['resource'] == 1 and after['scope'] == 0
-          and sum(value == 0 for value in enters) == len(releases) and len(enters) > 0 and all(value == 0 for value in releases)
+          and sum(value == 0 for value in enters) == len(releases) and (len(enters) > 0) == bounded
+          and all(value == 0 for value in releases)
           and not writes_after_fault and pcm_matches is not False and frame_restored and refused == masked
-          and not box.m.asserts and (after['mode'] == 2 if expected_fault else len(writes) > 0)
+          and not box.m.asserts and (after['mode'] == 2 if expected_fault else len(writes) > 0 and after['mode'] == 1)
           and (not writes if refused or stall in ('status', 'busy-status', 'gpio') else len(writes) == 7 if stall == 'data-gpio' else True))
     if stereo:
         transition.update(after=box.u16(transition['part'] + 0x34),
@@ -302,6 +343,7 @@ def probe(payload, stall=None, transaction='command', masked=False):
             ok = (ok and transition['before'] == 500 and transition['after'] == 501
                   and transition['kind'] == kind and len(enters) == transactions)
     return dict(ok=ok, stall=stall, transaction=transaction, masked=masked, refused=refused, runtime_driver=runtime,
+                step=step, slow=slow, slow_polls=polls[0], elapsed_emulator_ms=elapsed_ms,
                 transition=transition if stereo else None,
                 pcm_matches=pcm_matches, frame_restored=frame_restored,
                 before=before, after=after, transactions=len(enters),
@@ -351,6 +393,15 @@ def runtime_cases(payload, flash=None):
     for stall, transaction, masked in choices:
         row = probe(payload, stall, transaction, masked)
         row['id'] = f'native_{transaction}_{stall or "ready"}_' + ('masked' if masked else 'unmasked')
+        rows.append(row)
+    # A DSP that answers after more than 100 ms: bounded inside the swap's own step, untouched everywhere else.
+    for step in (True, False):
+        row = probe(payload, None, 'command', False, step=step, slow=1_200_000)
+        row['id'] = 'native_slow_command_' + ('fails_inside_the_swap_step' if step else 'runs_outside_the_swap_step')
+        rows.append(row)
+    for step in (False,):
+        row = probe(payload, None, 'command', False, step=step)
+        row['id'] = 'native_command_ready_outside_the_swap_step'
         rows.append(row)
     return rows
 

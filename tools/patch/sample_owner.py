@@ -71,6 +71,13 @@ owner_readable:
     push {r4-r8, lr}
     mov r5, r0
     mov r6, #4
+    b own_context
+
+; r0 token. Checks a recovery lease before task-only file operations.
+owner_check_recovery:
+    push {r4-r8, lr}
+    mov r5, r0
+    mov r6, #5
 
 own_context:
     .word 0xE10F4000
@@ -79,7 +86,10 @@ own_context:
     cmpne r0, #0x1f
     bne own_bad_context
     cmp r6, #0
+    beq own_unmasked
+    cmp r6, #5
     bne own_depth
+own_unmasked:
     tst r4, #0x80
     bne own_bad_context
 own_depth:
@@ -132,6 +142,13 @@ own_owned:
     blo own_invalid
     cmp r0, #FO_RECOVER
     bhi own_invalid
+    cmp r6, #5
+    bne own_action
+    cmp r0, #FO_RECOVER
+    bne own_invalid
+    mov r0, #FO_OK
+    b own_done
+own_action:
     cmp r6, #1
     beq own_release
     cmp r6, #3

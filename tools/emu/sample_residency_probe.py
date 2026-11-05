@@ -53,7 +53,7 @@ def publish_native(box, descriptor, key, base):
 def trace_part_update(box, slot):
     """Record peripheral accesses while the native part refresh runs."""
     wrapper = 0xC1004000
-    code = f"push {{r4, r11, r12, lr}}\nldr r11, ={spec.STATE}\nbl {box.sym['apply_ready_parts']}\npop {{r4, r11, r12, pc}}\n.pool"
+    code = f"push {{r4, r11, r12, lr}}\nldr r11, ={spec.STATE}\nbl {box.sym['refresh_ready_parts']}\npop {{r4, r11, r12, pc}}\n.pool"
     box.m.uc.mem_write(wrapper, spec.arm.assemble(code, origin=wrapper).bytes)
     events, calls = [], []
 
@@ -192,6 +192,7 @@ def probe(payload, check_eviction=False, native_publication=False, kind="pcm16",
             record = box.u32(address + 8)
             put16(record + 8, 600)
         uc.mem_write(spec.STATE + spec.PROT, struct.pack("<32H", *([600] * 16 + [0xFFFF] * 16)))
+        uc.mem_write(spec.STATE + spec.OFF['MODE'], struct.pack('<I', 1))
         wrapper = 0xC1002000
         source = f"push {{r4, r11, r12, lr}}\nldr r11, ={spec.STATE}\nbl {box.sym['victim']}\npop {{r4, r11, r12, pc}}\n.pool"
         uc.mem_write(wrapper, spec.arm.assemble(source, origin=wrapper).bytes)
@@ -208,6 +209,7 @@ def probe(payload, check_eviction=False, native_publication=False, kind="pcm16",
                         candidate_with_old_voices=pinned, candidate_after_native_cleanup=released,
                         old_voice_busy_before=busy_before, old_voice_busy_after=busy_after,
                         released_voice_part_pointers_retained=stale_pointers,
+                        swap_activation_simulated=True,
                         completion_simulated=True)
     return dict(ok=new_pcm and old_pcm and unloaded and old_keys and old_voices and new_voice and retained_after_note
                 and box.meta_index(600) == physical and not box.m.asserts and eviction.get("ok", True)

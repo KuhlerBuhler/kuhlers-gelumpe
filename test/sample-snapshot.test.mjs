@@ -35,7 +35,7 @@ test("snapshot entries survive native FatFs writes and reload with the original 
       assert.equal(report.hardware_contact, false);
       assert.equal(report.audio, false);
       assert.equal(report.dma, false);
-      assert.equal(report.checks.length, 4);
+      assert.equal(report.checks.length, 8);
       assert.deepEqual(report.checks.filter(check => !check.ok), []);
     }
   } finally {
