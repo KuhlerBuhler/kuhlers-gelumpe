@@ -552,6 +552,27 @@ test("patcher: the hint names the folder the running firmware reads, not a guess
 });
 
 
+test("patcher: a file for another Electribe than the wizard named asks for the device again", async () => {
+  const original = await makeFirmware();
+  original.set([0x45, 0x32, 0], 0x10);
+  original.fill(0xff, 0x170100, 0x170140);
+  const hash = await sha256(original);
+  const page = await h.page();
+  await page.route(/\/src\/patcher\.mjs$/, async route => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replace(SYNTH_SHA256, hash) });
+  });
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-patcher");
+  await page.locator(".cee-patch-title").waitFor();
+  await wizard(page, "red", "blech");
+  await drop(page, original);
+  await page.click("#cee-patch-next");
+  assert.equal(await page.locator("#cee-patch-device-box").isVisible(), true, "the blue's file on a red named in the wizard is shown");
+  assert.match(await page.locator("#cee-patch-device-note").textContent(), /nur auf die blaue Electribe/);
+  assert.deepEqual(page.errors, []);
+});
+
 test("patcher: the blue original gets its synth set and trials the copy in electribe/System", async () => {
   const original = await makeFirmware();
   original.set([0x45, 0x32, 0], 0x10);
@@ -622,7 +643,7 @@ test("patcher: Korg's zip goes into the field as it is, and the app loads it fro
   await app.locator("#cee-patch-file-info", { hasText: "electribe_sampler_system_v202.zip › SYSTEM.VSB" }).waitFor();
   assert.deepEqual(await app.evaluate(() => window.__korgAsked), [["korg_firmware", { device: "red" }]]);
   await app.click("#cee-patch-next");
-  assert.equal(await app.locator("#cee-patch-device-box").isVisible(), true, "the Electribe is in view in step 2");
+  assert.equal(await app.locator("#cee-patch-device-box").isVisible(), false, "the wizard named the Electribe, step 2 does not ask again");
   assert.deepEqual(app.errors, []);
 });
 
@@ -814,6 +835,7 @@ test("patcher: with the box ticked hacktribe-2.patch comes straight from Hacktri
   assert.equal(await page.isChecked("#cee-patch-hacktribe-use"), true, "the route with Hacktribe");
   await page.locator("#cee-patch-hacktribe-info", { hasText: "hacktribe-2.patch: umgewandelt" }).waitFor();
   assert.equal(await page.locator("#cee-patch-device input[value=blue]").isChecked(), true, "for the Electribe named in the wizard");
+  assert.equal(await page.locator("#cee-patch-device-box").isVisible(), false, "and not asked a second time");
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
