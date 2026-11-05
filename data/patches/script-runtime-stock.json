@@ -554,7 +554,7 @@
   {
    "at": "0xC0188E90",
    "length": 12,
-   "what": "korg.knobHold: a bit per knob that reaches the firmware, the plugin that holds a knob and the checksum of its block",
+   "what": "korg.knobHold: a bit per knob that reaches the firmware, folded from the plugins' holds; the other two words are unused since API 16",
    "source": "tools/patch/script_hw.s:KH_FREE"
   },
   {
@@ -572,7 +572,7 @@
   {
    "at": "0xC0188EB8",
    "length": 24,
-   "what": "korg.keyHold: a bit per key that reaches the firmware, a bit per key whose press was kept, the plugin that holds and the checksum of its block",
+   "what": "korg.keyHold and korg.keyMask: a bit per key that reaches the firmware, folded from the plugins' holds, a bit per key whose press was kept; the last two words are unused since API 16",
    "source": "tools/patch/script_hw.s:KY_FREE"
   },
   {
