@@ -2039,7 +2039,7 @@ export default {
   "api.korg.touchLockX": "Trzyma X touchpada widziane przez firmware na x (od 0 do 127, co 2), -1 puszcza. Plugin nadal dostaje prawdziwy dotyk. Kończy się, gdy plugin się zatrzyma.",
   "api.korg.keyHold": "1 zatrzymuje klawisz key (od 0 do 33, nie EXIT) przed firmware, także bez aplikacji; plugin nadal dostaje klawisz. 0 go oddaje. Kończy się, gdy plugin się zatrzyma.",
   "api.korg.pressKey": "Przekazuje firmware krótkie naciśnięcie klawisza key (od 0 do 33, nie EXIT): wciśnięty teraz, puszczony w następnej klatce. Pluginy nie dostają go jako zdarzenia.",
-  "api.korg.keyMask": "Zatrzymuje przed firmware wszystkie klawisze maski tego pluginu: bit n z low to klawisz n (od 0 do 31), bit n z high klawisz 32 + n; pozostałe klawisze tego pluginu są oddawane. Klawisz pozostaje ukryty przed firmware, dopóki którykolwiek plugin go zatrzymuje; wszystkie pluginy go dostają. EXIT w masce to błąd.",
+  "api.korg.keyMask": "Zatrzymuje przed firmware klawisze maski tego pluginu: bit n z low to klawisz n (od 0 do 31), bit n z high klawisz 32 + n. Jego pozostałe klawisze wracają. EXIT to błąd.",
   "api.korg.seq.setPartValue": "Zapisuje wartość field (od 0 do 19, jak w korg.read.patternValue) partu part jak pokrętło, przyciętą do zakresu. Sample, IFX wł. i typ, voice assign i MFX send są tylko do odczytu.",
   "api.korg.read.patternBytes": "Czyta bajty patternu (-1 ten w RAM, od 0 do 249 bank) od offset do tablicy, jeden bajt na miejsce. Zwraca ile.",
   "api.korg.seq.writeSteps": "Zapisuje kroki po 12 miejsc (wł., gate, velocity, trigger, 4 nuty, 4 niezapisane) do partu part od kroku first, przycięte. Zwraca liczbę kroków.",

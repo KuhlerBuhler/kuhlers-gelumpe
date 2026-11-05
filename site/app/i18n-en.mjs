@@ -2039,7 +2039,7 @@ export default {
   "api.korg.touchLockX": "Holds the touchpad X the firmware sees at x (0 to 127, in steps of 2), -1 lets go. The plugin keeps getting the real touch. Ends when the plugin stops.",
   "api.korg.keyHold": "1 keeps key key (0 to 33, not EXIT) from the firmware, also without an app; the plugin still gets the key. 0 gives it back. Ends when the plugin stops.",
   "api.korg.pressKey": "Passes a short press of key key (0 to 33, not EXIT) to the firmware: pressed now, released in the next frame. Plugins do not get it as an event.",
-  "api.korg.keyMask": "Keeps every key of this plugin's mask from the firmware: bit n of low is key n (0 to 31), bit n of high key 32 + n; this plugin's other keys are given back. A key stays hidden from the firmware while any plugin keeps it; all plugins get it. EXIT in the mask is an error.",
+  "api.korg.keyMask": "Keeps the keys of this plugin's mask from the firmware: bit n of low is key n (0 to 31), bit n of high key 32 + n. Its other keys are given back. EXIT is an error.",
   "api.korg.seq.setPartValue": "Writes value field (0 to 19, as in korg.read.patternValue) of part part like a knob edit, clamped to its range. Sample, IFX on and type, voice assign and MFX send are read-only.",
   "api.korg.read.patternBytes": "Reads bytes of the pattern (-1 the one in RAM, 0 to 249 the bank) from offset into the array, one byte per slot. Returns how many.",
   "api.korg.seq.writeSteps": "Writes step records of 12 slots each (on, gate, velocity, trigger, 4 notes, 4 not written) into part part from step first, clamped. Returns the steps written.",

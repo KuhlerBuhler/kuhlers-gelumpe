@@ -2039,7 +2039,7 @@ export default {
   "api.korg.touchLockX": "Mantém o X do touchpad que a firmware vê em x (0 a 127, em passos de 2), -1 solta. O plugin continua a receber o toque real. Termina quando o plugin para.",
   "api.korg.keyHold": "1 retém a tecla key (0 a 33, não EXIT) da firmware, também sem app; o plugin continua a receber a tecla. 0 devolve-a. Termina quando o plugin para.",
   "api.korg.pressKey": "Passa à firmware um toque curto na tecla key (0 a 33, não EXIT): premida agora, solta no fotograma seguinte. Os plugins não o recebem como evento.",
-  "api.korg.keyMask": "Retém da firmware todas as teclas da máscara deste plugin: o bit n de low é a tecla n (0 a 31), o bit n de high a tecla 32 + n; as outras teclas deste plugin são devolvidas. Uma tecla fica escondida da firmware enquanto qualquer plugin a retiver; todos os plugins a recebem. EXIT na máscara é um erro.",
+  "api.korg.keyMask": "Retém da firmware as teclas da máscara deste plugin: o bit n de low é a tecla n (0 a 31), o bit n de high a tecla 32 + n. As outras teclas dele são devolvidas. EXIT é um erro.",
   "api.korg.seq.setPartValue": "Escreve o valor field (0 a 19, como em korg.read.patternValue) da parte part como um potenciómetro, limitado ao seu intervalo. Sample, IFX on e tipo, voice assign e MFX send são só de leitura.",
   "api.korg.read.patternBytes": "Lê bytes do pattern (-1 o da RAM, 0 a 249 o banco) a partir de offset para o array, um byte por posição. Devolve quantos.",
   "api.korg.seq.writeSteps": "Escreve passos de 12 posições cada (on, gate, velocity, trigger, 4 notas, 4 não escritas) na parte part a partir do passo first, limitados. Devolve os passos escritos.",
