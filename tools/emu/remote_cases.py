@@ -8,8 +8,8 @@ taken (the area is FF at power-on). A whole panel message (knob, encoder, pad pr
 reaches the firmware's dispatcher byte for byte as from the panel and leaves the device where the panel leaves it. What the
 computer holds down is let go on the release command, and by the device itself after 10 s without a command (a dropped
 link). The test mode's cases (testmode_cases.py), the plugin timers' (timer_cases.py), those of the plugin edits of API 14
-(plugin_edit_cases.py), the live write paths (live_write_cases.py) and those of the touchpad and key calls of API 15
-(plugin_api15_cases.py) run as groups of their own.
+(plugin_edit_cases.py), the live write paths (live_write_cases.py), those of the touchpad and key calls of API 15
+(plugin_api15_cases.py) and those of the object tree with the pages of the menu BLECH of API 17 (objects_cases.py) run as groups of their own.
 
     tools/emu/.venv/bin/python tools/emu/remote_cases.py cases --patched NEW.VSB [--flash dump.bin]
 """
@@ -190,12 +190,17 @@ def plugin_api15_group(payload, flash=None):
     return plugin_api15_cases.cases(bytes(0x100) + payload, flash)
 
 
+def objects_group(payload, flash=None):
+    import objects_cases
+    return objects_cases.cases(bytes(0x100) + payload, flash)
+
+
 def live_write_group(payload, flash=None):
     import live_write_cases
     return live_write_cases.cases(bytes(0x100) + payload, flash)
 
 
-GROUPS = (cases, message_cases, release_cases, testmode_group, timer_group, plugin_edit_group, live_write_group, plugin_api15_group)
+GROUPS = (cases, message_cases, release_cases, testmode_group, timer_group, plugin_edit_group, live_write_group, plugin_api15_group, objects_group)
 
 
 def cases_task(i):
