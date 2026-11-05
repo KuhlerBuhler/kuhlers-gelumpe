@@ -2657,6 +2657,8 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 /* The device's colour, as on its case, in the border. */
 .cee-device-card[data-device="red"] { --cee-device-tone: var(--color-status-error); }
 .cee-device-card[data-device="blue"] { --cee-device-tone: var(--color-chart-blue); }
+.cee-device-card[data-device="grey"] { --cee-device-tone: var(--color-text-secondary); }
+.cee-device-card[data-device="black"] { --cee-device-tone: var(--color-text-muted); }
 
 /* The device drawn in lines in its colour, left and centred beside the text. */
 .cee-device-card {

@@ -156,6 +156,25 @@ Seite den Weg über die Farbe wie bei "Invalid File". Im Menü nennt sie die Ste
 
 Danach fragt die Seite, welche Firmware läuft, und legt die Datei in deren Ordner.
 
+**Blechy schaut auf die Karte.** Wo die Seite den Zielpfad nennt (`card:*` und `nofile:folder:*`), bietet sie "Zeig mir
+deine SD-Karte" an. Gewählt wird der oberste Ordner der Karte, nicht die Datei. Die Seite sucht jede `.VSB` bis sechs
+Ordner tief (ohne `._`-Dateien und Systemordner), liest nur Dateien mit genau 2.097.408 Bytes und erkennt am Kopf
+(`headOf` in `src/card-check.mjs`), ob sie für die rote (Sampler) oder die blaue ist, an der SHA-256, ob Blechy sie
+kennt. Gemeldet werden falscher Name (`SYSTEM (1).VSB`, `SYSTEM.VSB.VSB`), andere Schreibweise, falscher Ordner,
+falsche Größe, unbekannter Kopf und die Datei der anderen Electribe (offline, Code). Für `blechtribe` gilt jeder der zwei
+Köpfe, auf einer angesteckten roten nur der Sampler-Kopf.
+
+Nach einem Klick verschiebt Blechy die passende Datei an den Zielpfad. Er löscht nie etwas: liegt dort schon eine
+Datei, heißt sie danach `SYSTEM.VSB.old` (oder `.old2` usw.), und er sagt es. Ordner vergleicht er ohne Groß- und
+Kleinschreibung, eine reine Änderung der Schreibweise geht über einen freien Zwischennamen. Dass FAT dabei Groß- und
+Kleinschreibung nicht unterscheidet, ist hergeleitet. Wo die Karte steckt:
+
+- App: der Ordnerdialog und jedes Lesen und Verschieben laufen in der App (`src-tauri/src/card.rs`), nur innerhalb des
+  gewählten Ordners, ohne `..` und ohne Links zu folgen; ein belegtes Ziel lehnt sie ab.
+- Chrome und Edge: `showDirectoryPicker` mit Schreibrecht. Ohne `move()` am Datei-Handle kopiert die Seite, das
+  Original bleibt liegen, und Blechy sagt das.
+- Safari und Firefox: nur lesen (`webkitdirectory`). Blechy zeigt dieselben Schritte, die Person führt sie selbst aus.
+
 **Die App findet die Electribe nicht.** Die Seite liest den MIDI-Bericht der App selbst (`midiVerdict` in
 `site/app/midi-report.mjs`, ohne den Browser zu fragen) und den Modus oben in der App:
 

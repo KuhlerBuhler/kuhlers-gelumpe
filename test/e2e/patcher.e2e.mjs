@@ -84,9 +84,10 @@ async function patcherPage() {
   return page;
 }
 
-/** The wizard in front of the way: which Electribe, then what to do. */
-async function wizard(page, device, goal) {
+/** The wizard in front of the way: which Electribe, which firmware runs on it, then what to do. */
+async function wizard(page, device, goal, firmware = "korg") {
   await page.click(`#cee-patch-wiz-${device}`);
+  await page.click(`#cee-patch-wiz-fw-${firmware}`);
   await page.click(`#cee-patch-wiz-${goal}`);
   await page.locator("#cee-patch-step-1:not([hidden])").waitFor();
 }
@@ -799,20 +800,36 @@ test("patcher: the test is a choice; no test needs the consent and goes straight
   assert.deepEqual(page.errors, []);
 });
 
-test("patcher: the wizard asks for the Electribe, then offers only what fits it, and step 1 shows only that path", async () => {
+test("patcher: the wizard asks for the Electribe and its firmware, then offers only what fits it, and step 1 shows only that path", async () => {
   const page = await patcherPage();
   assert.equal(await page.isVisible("#cee-patch-way"), false, "the way comes after the wizard");
   assert.equal(await page.locator("#cee-patch-wiz-1 h2").textContent(), "Welche Electribe hast du?");
   assert.deepEqual(await page.locator("#cee-patch-wiz-devices .cee-patch-pick").evaluateAll(l => l.map(b => [b.id, b.dataset.device])), [
-    ["cee-patch-wiz-blue", "blue"], ["cee-patch-wiz-red", "red"], ["cee-patch-wiz-blueHt", "blue"], ["cee-patch-wiz-redHt", "red"],
-  ], "four choices, each drawn in the colour of its case");
+    ["cee-patch-wiz-blue", "blue"], ["cee-patch-wiz-red", "red"], ["cee-patch-wiz-grey", "grey"], ["cee-patch-wiz-black", "black"],
+  ], "four Electribes, each drawn in the colour of its case");
+  const firmwares = () => page.locator("#cee-patch-wiz-firmwares .cee-patch-pick").evaluateAll(l => l.map(b => b.id.replace("cee-patch-wiz-fw-", "")));
   const goals = () => page.locator("#cee-patch-wiz-goals .cee-patch-pick").evaluateAll(l => l.map(b => b.id.replace("cee-patch-wiz-", "")));
-  await page.click("#cee-patch-wiz-redHt");
-  assert.deepEqual(await goals(), ["blech", "update"], "Hacktribe on Hacktribe is BLECH");
+  await page.click("#cee-patch-wiz-black");
+  assert.equal(await page.locator("#cee-patch-wiz-2 h2").textContent(), "Welche Firmware läuft drauf?");
+  assert.deepEqual(await firmwares(), ["korg", "ht", "blech", "blechHt"]);
+  await page.click("#cee-patch-wiz-fw-ht");
+  assert.deepEqual(await goals(), ["blech"], "Hacktribe on Hacktribe is BLECH");
   assert.match(await page.locator("#cee-patch-wiz-blech").textContent(), /BLECH \(Hacktribe\)/);
+  await page.click("#cee-patch-wiz-blech");
+  assert.equal(await page.isChecked("#cee-patch-hacktribe-fetch"), true, "Hacktribe on it: its patch is loaded too");
+  assert.equal(await page.isVisible("#cee-patch-korg-red"), true, "the black sampler takes the red's file");
+  await page.click("#cee-patch-back");
+  await page.click("#cee-patch-back");
+  await page.click("#cee-patch-wiz-fw-blechHt");
+  assert.deepEqual(await goals(), ["update", "blech"]);
+  await page.click("#cee-patch-back");
   await page.click("#cee-patch-back");
   await page.click("#cee-patch-wiz-blue");
-  assert.deepEqual(await goals(), ["blech", "blechHt", "update"]);
+  await page.click("#cee-patch-wiz-fw-korg");
+  assert.deepEqual(await goals(), ["blech", "blechHt"], "no update without BLECH on it");
+  await page.click("#cee-patch-back");
+  await page.click("#cee-patch-wiz-fw-blech");
+  assert.deepEqual(await goals(), ["update", "blech", "blechHt"]);
 
   await page.click("#cee-patch-wiz-update");
   assert.equal(await page.isVisible("#cee-patch-usb-get"), true, "the update over USB");
