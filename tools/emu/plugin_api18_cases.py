@@ -1,7 +1,7 @@
-"""Emulator cases of plugin API 16: korg.viewedPattern is the pattern the display shows (the wheel's browse and a confirmed next
+"""Emulator cases of plugin API 18: korg.viewedPattern is the pattern the display shows (the wheel's browse and a confirmed next
 pattern move it away from the playing one), korg.nextPattern the next pattern the pattern switch has confirmed, -1 when none.
 
-    PYTHONPATH=tools/patch python3 tools/emu/plugin_api16_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
+    PYTHONPATH=tools/patch python3 tools/emu/plugin_api18_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 """
 import argparse
 import json
@@ -23,7 +23,7 @@ korg.onEvent("frame", () => { viewed = korg.viewedPattern; next = korg.nextPatte
 
 
 def entry(name, ok, detail):
-    return {"id": f"plugin_api16:{name}", "ok": bool(ok), "detail": str(detail)}
+    return {"id": f"plugin_api18:{name}", "ok": bool(ok), "detail": str(detail)}
 
 
 class Run:
@@ -32,7 +32,7 @@ class Run:
     def __init__(self, vsb, flash, built, programs, program):
         self.box = ps.Box(vsb[0x100:], flash)
         self.program = program
-        self.at = edit.script_cases.install(self.box.dev, built, programs, ["api16"])["api16"]
+        self.at = edit.script_cases.install(self.box.dev, built, programs, ["api18"])["api18"]
 
     def look(self):
         self.box.run(0.1)
@@ -44,9 +44,9 @@ def cases(vsb, flash=None):
     payload = vsb[0x100:]
     ps.for_build(payload)
     build = identify(payload).build
-    request = edit.compiled({"api16": PROGRAM})
+    request = edit.compiled({"api18": PROGRAM})
     built = script_hooks.build(request["include"], build=build)
-    program = request["programs"]["api16"]
+    program = request["programs"]["api18"]
     mk = lambda: Run(vsb, flash, built, request["programs"], program)  # noqa: E731
     out = []
 

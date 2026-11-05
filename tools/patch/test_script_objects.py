@@ -8,8 +8,9 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
 
-INTENSITY, REPAIRS, NO_LEAF = 0, 1, 4      # data/script/objects.mjs (2 and 3 are the test mode and keepAwake)
+INTENSITY, REPAIRS, NO_LEAF = 0, 1, 29     # data/script/objects.mjs (2 and 3 are the test mode and keepAwake, 4 to 28 the pages of the menu BLECH)
 ERR_OK, ERR_API_ARG = 0, 15
+PATTERN_CONFIRM, TAP_MOTION, NOTE_ASSIST, LAST_PATTERN, STEREO_PAD, INIT_PATTERN, MENU_WRITE = 22, 23, 24, 25, 26, 27, 28
 
 @unittest.skipUnless(UNICORN_AVAILABLE,'Unicorn is required for native object tests')
 class NativeObjectTests(unittest.TestCase):
@@ -81,11 +82,55 @@ class NativeObjectTests(unittest.TestCase):
         from tools.patch.test_script_vm import contract_data
         include = contract_data()['include']
         count = int(include.split('.equ OBJ_COUNT, ',1)[1].split()[0],0)
-        self.assertEqual(object_rows(include).count('.word'),count)
+        self.assertEqual(object_rows(include).count('_OFFSET'),count)
+        self.assertEqual(object_rows(include).count('_MIRROR'),count)
         m,s = self.machine()
-        row = m.uc.mem_read(s['objects_table'],20)
+        row = m.uc.mem_read(s['objects_table'],24)
         self.assertEqual(struct.unpack_from('<4i',row),(-0x20,0,15,15))
         self.assertEqual(tuple(row[16:20]),(0,0,1,5))
+        self.assertEqual(struct.unpack_from('<I',row,20)[0],0)
+
+    def test_a_setting_word_a_patch_never_wrote_reads_as_the_factory_value(self):
+        m,s = self.machine()
+        for leaf,at in ((LAST_PATTERN,0xC014FEFC),(STEREO_PAD,0xC014FFFC)):
+            if not any(a <= at <= b for a,b,_ in m.uc.mem_regions()): m.uc.mem_map(at & ~0xFFF,0x1000)
+            m.uc.mem_write(at,struct.pack('<I',0xFFFFFFFF))
+            self.assertEqual(m.call('script_object_get_glue',leaf,-1 & 0xffffffff),(1,ERR_OK),leaf)
+            self.assertEqual(m.call('script_object_set_glue',leaf,-1 & 0xffffffff,0)[1],ERR_OK)
+            self.assertEqual(struct.unpack('<I',m.uc.mem_read(at,4))[0],0)
+            self.assertEqual(m.call('script_object_get_glue',leaf,-1 & 0xffffffff),(0,ERR_OK),leaf)
+
+    def test_a_feature_writes_the_page_word_and_the_word_its_patch_reads(self):
+        from tools.patch.script_hooks import MENU_STATE
+        m,s = self.machine()
+        for leaf,page,patch,value in ((PATTERN_CONFIRM,0x158,0xC0180F10,0),(TAP_MOTION,0x15C,0xC0188F00,2),(NOTE_ASSIST,0xFC,0xC0189F00,0)):
+            if not any(a <= patch <= b for a,b,_ in m.uc.mem_regions()): m.uc.mem_map(patch & ~0xFFF,0x1000)
+            page_at = (MENU_STATE + page) & 0xffffffff
+            if not any(a <= page_at <= b for a,b,_ in m.uc.mem_regions()): m.uc.mem_map(page_at & ~0xFFF,0x1000)
+            self.assertEqual(m.call('script_object_set_glue',leaf,-1 & 0xffffffff,value)[1],ERR_OK)
+            self.assertEqual(struct.unpack('<I',m.uc.mem_read(page_at,4))[0],value,leaf)
+            self.assertEqual(struct.unpack('<I',m.uc.mem_read(patch,4))[0],value,leaf)
+            self.assertEqual(m.call('script_object_get_glue',leaf,-1 & 0xffffffff),(value,ERR_OK),leaf)
+
+    def test_a_global_leaf_has_a_word_of_its_own_until_the_firmware_has_the_global_settings(self):
+        m,s = self.machine()
+        gp = 0xC0691324
+        if not any(a <= gp <= b for a,b,_ in m.uc.mem_regions()): m.uc.mem_map(gp & ~0xFFF,0x1000)
+        m.uc.mem_write(gp,struct.pack('<I',0))
+        self.assertEqual(m.call('script_object_set_glue',INIT_PATTERN,-1 & 0xffffffff,7)[1],ERR_OK)
+        self.assertEqual(m.call('script_object_get_glue',INIT_PATTERN,-1 & 0xffffffff),(7,ERR_OK))
+        block = 0xC0692000
+        if not any(a <= block <= b for a,b,_ in m.uc.mem_regions()): m.uc.mem_map(block & ~0xFFF,0x1000)
+        m.uc.mem_write(gp,struct.pack('<I',block))
+        m.uc.mem_write(block+247,bytes([42]))
+        self.assertEqual(m.call('script_object_get_glue',INIT_PATTERN,-1 & 0xffffffff),(42,ERR_OK))
+        self.assertEqual(m.call('script_object_set_glue',INIT_PATTERN,-1 & 0xffffffff,300)[1],ERR_OK)
+        self.assertEqual(m.uc.mem_read(block+247,1)[0],250)
+
+    def test_the_write_request_waits_for_the_main_screen_and_one_pause(self):
+        m,s = self.machine()
+        self.assertEqual(m.call('script_object_set_glue',MENU_WRITE,-1 & 0xffffffff,1)[1],ERR_OK)
+        self.assertEqual(m.uc.mem_read(s['objects_write'],1)[0],1)
 
 if __name__ == '__main__':
     unittest.main()

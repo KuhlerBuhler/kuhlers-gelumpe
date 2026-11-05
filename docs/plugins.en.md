@@ -202,8 +202,8 @@ like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
 | `korg.tempo` | tempo in tenths of a BPM, 1280 is 128.0 | 100 to 3000 | `korg.read.tempo()`, `korg.tempo(x)` |
 | `korg.transport` | 0 stop, 1 play, 2 pause, 3 REC armed, 4 recording | no, use `korg.play()` and `korg.stop()` | `korg.read.transport()` |
 | `korg.selectedPattern` | selected pattern, 0 to 249 | selects another one | `korg.read.pattern()`, `korg.pattern(x)` |
-| `korg.viewedPattern` | pattern the display shows, 0 to 249 (from API version 16). While one plays, the wheel browses another and the display shows that one, the playing one goes on | no | `korg.read.viewedPattern()` |
-| `korg.nextPattern` | next pattern the pattern switch has confirmed, which starts at the end of the sequence, 0 to 249; -1 when none waits (from API version 16) | no | `korg.read.nextPattern()` |
+| `korg.viewedPattern` | pattern the display shows, 0 to 249 (from API version 18). While one plays, the wheel browses another and the display shows that one, the playing one goes on | no | `korg.read.viewedPattern()` |
+| `korg.nextPattern` | next pattern the pattern switch has confirmed, which starts at the end of the sequence, 0 to 249; -1 when none waits (from API version 18) | no | `korg.read.nextPattern()` |
 | `korg.selectedPart` | selected part, 0 to 15, 16 for all | 0 to 15 | `korg.read.part()`, `korg.part(x)` |
 | `korg.parts[i].step` | step counter of the part, 0 to 63 | no | `korg.read.step(i)` |
 | `korg.parts[i].muted` | 1 when the part is muted | 1 muted, 0 playing | `korg.read.mute(i)`, `korg.mute(i, x)` |
@@ -266,6 +266,31 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.system.repairs` | how many values were clamped or reset since start | no | 0 to 2147483647 |
 | `korg.system.testMode` | whether the test mode is on: display, light and every LED dark, Auto Power Off held | no, over USB only; RAM only, off after a restart | 0 (off) to 1 (on) |
 | `korg.system.keepAwake()` | (a call, not a value) | starts the 4 hours of Auto Power Off again, as a key on the device does | |
+| `korg.menu.blech.customizations.display.red` | Red level of the display light (the pages BACKLIGHT HUE, SAT and BRIGHT show it as hue, saturation, brightness); all three at 0 is the stock white | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.display.green` | Green level of the display light | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.display.blue` | Blue level of the display light | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.display.invert` | display inverted (1), like the page DISPLAY INVERT | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.customizations.led.mode` | bottom LEDs: 0 meter, 1 color, 2 off (page BOTTOM LEDS) | yes, acts at once like the page | 0 to 2 |
+| `korg.menu.blech.customizations.led.red` | Red level of the bottom LEDs (pages LED HUE, SAT, BRIGHT); all three at 0 are the stock colors | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.led.green` | Green level of the bottom LEDs | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.led.blue` | Blue level of the bottom LEDs | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.led.meter.still` | color of METER STILL: 0 stock, 1 to 7 white, red, green, blue, yellow, cyan, pink, 8 rainbow, 9 off | yes, acts at once like the page | 0 to 9 |
+| `korg.menu.blech.customizations.led.meter.low` | color of METER LOW: 0 stock, 1 to 7 as above | yes, acts at once like the page | 0 to 7 |
+| `korg.menu.blech.customizations.led.meter.mid` | color of METER MID: 0 stock, 1 to 7 as above | yes, acts at once like the page | 0 to 7 |
+| `korg.menu.blech.customizations.led.meter.loud` | color of METER LOUD: 0 stock, 1 to 7 as above, 8 rainbow | yes, acts at once like the page | 0 to 8 |
+| `korg.menu.blech.customizations.padColor.part` | PAD COLOR: 0 red, 1 blue, 2 pink; never the same as SELECT COLOR, a write that would make them equal swaps the two | yes, acts at once like the page | 0 to 2 |
+| `korg.menu.blech.customizations.padColor.select` | SELECT COLOR: 0 red, 1 blue, 2 pink; same rule as PAD COLOR | yes, acts at once like the page | 0 to 2 |
+| `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, color of a pad that is lit and selected: 0 the color that is left, 1 red, 2 blue, 3 pink | yes, acts at once like the page | 0 to 3 |
+| `korg.menu.blech.customizations.powerSave.displayLight` | DISPLAY LIGHT in power save: 0 the firmware's own dim, 1 to 15 the light's intensity | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.powerSave.ledDimming` | LED DIMMING in power save as the dial's step: 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100 percent dimmed | yes, acts at once like the page | 0 to 11 |
+| `korg.menu.blech.features.mfx2` | MFX 2 on (1); takes effect at the next start, the page says so | yes | 0 to 1 |
+| `korg.menu.blech.features.patternConfirm` | PATTERN CONFIRM: a pattern change waits for a second press (1) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.tapMotion` | TAP MOTION: 0 off, 1 on, 2 once | yes, acts at once like the page | 0 to 2 |
+| `korg.menu.blech.features.noteAssist` | NOTE ASSIST: the pads show the notes that fit (1) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.lastPattern` | LAST PATTERN: open the pattern selected last at power-on (1) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.stereo1Pad` | STEREO 1 PAD: a stereo sample takes only its own pad (1) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.initPattern` | SET INIT PATTERN: the pattern INITIALIZE PATTERN copies; 0 the firmware's template | yes, acts at once like the page | 0 to 250 |
+| `korg.menu.blech.write()` | (a call, not a value) | writes the settings of the menu BLECH to the card as WRITE does on a page, see below | |
 
 ```js
 // Light off while the app is open, back as it was afterwards.
@@ -280,6 +305,32 @@ korg.onEvent("close", () => {
 });
 ```
 
+**The pages of BLECH (API 17).** Every page of CUSTOMIZATION and FEATURES has a leaf, and so has SET INIT
+PATTERN from DATA UTILITY. A leaf of this group needs API 17. Each write calls the apply function the page takes: the look
+pages set light, LEDs and display again, PAD COLOR, SELECT COLOR, OVERLAP and LED DIMMING go through the patch of the pad
+colors, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST also set the word their patch reads. The page then shows the new value.
+The pages show colors as hue, saturation and brightness; what is stored, and so what the leaves are, is red, green and blue
+with 0 to 15 each. A word a patch never wrote (LAST PATTERN, STEREO 1 PAD) reads as the factory value, as the patch treats
+it. Not a leaf: the actions of the pages (SPLASH IMPORT, DRAW and RESET, the exports), PLUGIN RUNTIME (a plugin that switches
+its own runtime off would leave the device without plugins at the next start) and SYNC GROUP (a setting of the pattern).
+
+**RAM only, until WRITE.** The values act at once but live in RAM only. They reach the card with WRITE on a page of the menu
+BLECH (the file `settings.a.bin` or `settings.b.bin`), not before; after a restart the last written state applies. The
+exception is SET INIT PATTERN: it lives in the firmware's Global settings, which the device saves at switch-off.
+`korg.menu.blech.write()` writes the settings file from a plugin, as WRITE does. It only asks: the write happens a moment
+later, only while the main screen or BLECH is open, and at the earliest 2 seconds after the last write, further calls before
+that stay one request. Without a card or on an error nothing more happens, as with WRITE in the menu. A plugin should call it
+sparingly, for example once it has set a value the user should keep.
+
+```js
+// Invert the display when the app opens and keep the setting.
+korg.app("Invert", "TOOLS");
+korg.onEvent("open", () => {
+  korg.menu.blech.customizations.display.invert = 1 - korg.menu.blech.customizations.display.invert;
+  korg.menu.blech.write();
+});
+```
+
 The test mode makes the device look switched off while it runs: display off, display light off, every LED at 0,
 also when the firmware, Blechy or another plugin sets them, and Auto Power Off does not switch it off. The device
 still takes keys, knobs and pads, and its picture can be read over USB. Only the computer switches it, over USB
@@ -287,7 +338,7 @@ still takes keys, knobs and pads, and its picture can be read over USB. Only the
 every start. When it ends, the light and the LEDs come back as they would be without the test mode; an LED a plugin
 set meanwhile shows that plugin's value.
 
-More branches (`korg.global`, `korg.patterns`, `korg.parts`, the other pages of BLECH) come with the next
+More branches (`korg.global`, `korg.patterns`, `korg.parts`) come with the next
 versions; the old names stay valid.
 
 ### Timers (API 11, BLECHTRIBE 1.3.8)
@@ -373,8 +424,8 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.read.transport()` | transport state: 0 stop, 1 play, 2 pause, 3 REC ready, 4 recording | everywhere |
 | `korg.read.tempo()` | tempo in tenths of a BPM (1600 is 160.0) | everywhere |
 | `korg.read.pattern()` | selected pattern, 0 to 249 | everywhere |
-| `korg.read.viewedPattern()` | pattern the display shows, 0 to 249: while browsing and after MENU the viewed one (from the bank), otherwise the playing one. It follows the pattern the pads and the info texts of the edit line show. From API version 16 | everywhere |
-| `korg.read.nextPattern()` | the confirmed next pattern, 0 to 249, while the firmware holds it for the sequence end, otherwise -1. Browsing alone (`VIEW:`) does not count, MENU (`NEXT:`) does; with PATTERN CONFIRM off or EXIT held at power-on it stays -1. From API version 16 | everywhere |
+| `korg.read.viewedPattern()` | pattern the display shows, 0 to 249: while browsing and after MENU the viewed one (from the bank), otherwise the playing one. It follows the pattern the pads and the info texts of the edit line show. From API version 18 | everywhere |
+| `korg.read.nextPattern()` | the confirmed next pattern, 0 to 249, while the firmware holds it for the sequence end, otherwise -1. Browsing alone (`VIEW:`) does not count, MENU (`NEXT:`) does; with PATTERN CONFIRM off or EXIT held at power-on it stays -1. From API version 18 | everywhere |
 | `korg.read.part()` | selected part 0 to 15, 16 for all | everywhere |
 | `korg.read.step(part)` | step counter of the part, 0 to 63 | everywhere |
 | `korg.read.mute(part)` | 1 if the part is muted | everywhere |
