@@ -1,6 +1,12 @@
 ; The object tree of the plugin API (data/script/objects.mjs): korg.get and korg.set reach every leaf through one table,
 ; a value outside its range is clamped and counted, and the stored ones are checked once the menu has read its settings.
-; In the code area at MORE3_START. A row (OBJ_ROW_SIZE bytes): offset, min, max, factory (words), base, type, apply, flags.
+; In the code area at MORE3_START. A row (OBJ_ROW_SIZE bytes): offset, min, max, factory, setter (words), base, type, apply, flags.
+.equ OBJ_SETTER_AT, 16
+.equ OBJ_BASE_AT, 20
+.equ OBJ_TYPE_AT, 21
+.equ OBJ_APPLY_AT, 22
+.equ OBJ_FLAGS_AT, 23
+.equ OBJ_GLOBAL_PTR, 0xC033E6A0     ; the pointer to the Global settings object, its block starts 4 bytes in
 .align 4
 ; korg.get(leaf, index) -> r0 = the value; no such leaf: API_ARG
 script_object_get_glue:
@@ -8,30 +14,48 @@ script_object_get_glue:
     bl objects_row
     cmp r4, #0
     beq objects_bad
-    ldrb r1, [r4, #17]
+    cmp r0, #0
+    beq objects_bad
+    ldrb r1, [r4, #OBJ_TYPE_AT]
     cmp r1, #0
     ldrbeq r0, [r0]
     ldrne r0, [r0]
     mov r1, #ERR_OK
     pop {r4, pc}
-; korg.set(leaf, index, value): clamps to the leaf's range (counted), writes, applies; no such leaf or read only: API_ARG
+; korg.set(leaf, index, value): clamps to the leaf's range (counted), writes, applies; no such leaf or read only: API_ARG.
+; A leaf with a setter (the Global settings) goes through the firmware's own setter, the one the Global menu calls with
+; (the Global object, the value, 1): it writes the byte and tells the sound engine, the display and the MIDI side.
 script_object_set_glue:
     push {r4-r6, lr}
     mov r5, r2
     bl objects_row
     cmp r4, #0
     beq objects_bad_set
-    ldrb r1, [r4, #19]
+    cmp r0, #0
+    beq objects_bad_set
+    ldrb r1, [r4, #OBJ_FLAGS_AT]
     tst r1, #1
     beq objects_bad_set
     mov r6, r0
     mov r0, r5
     bl objects_clamp
-    ldrb r1, [r4, #17]
+    ldr r12, [r4, #OBJ_SETTER_AT]
+    cmp r12, #0
+    bne objects_set_through
+    ldrb r1, [r4, #OBJ_TYPE_AT]
     cmp r1, #0
     strbeq r0, [r6]
     strne r0, [r6]
     bl objects_apply
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4-r6, pc}
+objects_set_through:
+    mov r1, r0
+    ldr r0, =OBJ_GLOBAL_PTR
+    ldr r0, [r0]
+    mov r2, #1
+    blx r12
     mov r0, #0
     mov r1, #ERR_OK
     pop {r4-r6, pc}
@@ -44,19 +68,32 @@ objects_bad:
     mov r1, #ERR_API_ARG
     pop {r4, pc}
 
-; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value
+; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (0: its base is not there yet, the Global
+; settings before the firmware has made them)
 objects_row:
     mov r4, #0
     cmp r0, #OBJ_COUNT
     bxhs lr
     ldr r4, =objects_table
-    add r1, r0, r0, lsl #2
-    add r4, r4, r1, lsl #2
-    ldrb r1, [r4, #16]
+    add r1, r0, r0, lsl #1
+    add r4, r4, r1, lsl #3
+    ldrb r1, [r4, #OBJ_BASE_AT]
+    cmp r1, #2
+    beq objects_row_global
     ldr r2, =objects_bases
     ldr r2, [r2, r1, lsl #2]
     ldr r0, [r4]
     add r0, r2, r0
+    bx lr
+objects_row_global:
+    ldr r2, =OBJ_GLOBAL_PTR
+    ldr r2, [r2]
+    cmp r2, #0
+    moveq r0, #0
+    bxeq lr
+    ldr r0, [r4]
+    add r0, r0, r2
+    add r0, r0, #4
     bx lr
 
 ; r0 = value, r4 = row -> r0 inside min and max; one more in objects_repairs when it was outside (r1 to r3 change)
@@ -76,9 +113,9 @@ objects_count:
     str r1, [r3]
     bx lr
 
-; r4 = row: makes the written value take effect
+; r4 = row: makes the written value take effect (a leaf with a setter has none here: the repair at start writes the byte alone)
 objects_apply:
-    ldrb r0, [r4, #18]
+    ldrb r0, [r4, #OBJ_APPLY_AT]
     cmp r0, #1
     beq menu_look_apply
     cmp r0, #2
@@ -86,7 +123,8 @@ objects_apply:
     bx lr
 
 ; Every stored leaf outside its range goes to the nearest valid value, or to its factory value with the reset flag; each
-; one counts. Called once the menu has read its settings (menu_arm_load), whatever left the value there.
+; one counts. Called once the menu has read its settings (menu_arm_load), whatever left the value there. A leaf whose base is
+; not there yet (the Global settings) is left for a later call.
 objects_repair:
     push {r4-r7, lr}
     mov r5, #0
@@ -96,11 +134,13 @@ objects_repair_next:
     mov r0, r5
     bl objects_row
     add r5, r5, #1
-    ldrb r1, [r4, #19]
+    cmp r0, #0
+    beq objects_repair_next
+    ldrb r1, [r4, #OBJ_FLAGS_AT]
     tst r1, #4
     beq objects_repair_next
     mov r6, r0
-    ldrb r1, [r4, #17]
+    ldrb r1, [r4, #OBJ_TYPE_AT]
     cmp r1, #0
     ldrbeq r0, [r6]
     ldrne r0, [r6]
@@ -108,10 +148,10 @@ objects_repair_next:
     bl objects_clamp
     cmp r0, r7
     beq objects_repair_next
-    ldrb r1, [r4, #19]
+    ldrb r1, [r4, #OBJ_FLAGS_AT]
     tst r1, #2
     ldrne r0, [r4, #12]
-    ldrb r1, [r4, #17]
+    ldrb r1, [r4, #OBJ_TYPE_AT]
     cmp r1, #0
     strbeq r0, [r6]
     strne r0, [r6]

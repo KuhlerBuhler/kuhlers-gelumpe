@@ -2037,6 +2037,7 @@ export default {
   "api.object.system.repairs": "Ile wartości od startu było poza zakresem i zostało przyciętych lub przywróconych.",
   "api.object.system.testMode": "Czy tryb testowy jest włączony (1): wyświetlacz, podświetlenie i wszystkie diody wygaszone, Auto Power Off wstrzymane. Przełączany tylko przez USB.",
   "api.object.system.keepAwake": "Uruchamia od nowa 4 godziny Auto Power Off, jak przycisk na urządzeniu.",
+  "api.object.global": "Ustawienie globalne, strona {page} w GLOBAL PARAMETERS; firmware zapisuje je przy wyłączaniu urządzenia.",
   "script.fault.objectLeaf": "brak liścia {leaf} w drzewie obiektów",
   "script.fault.objectReadOnly": "{path} można tylko odczytać",
   "compile.object.unknown": "{path} nie istnieje. {branch} ma: {names}.",

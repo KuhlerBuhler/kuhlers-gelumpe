@@ -2037,6 +2037,7 @@ export default {
   "api.object.system.repairs": "Hoeveel waarden sinds de start buiten hun bereik lagen en begrensd of teruggezet zijn.",
   "api.object.system.testMode": "Of de testmodus aan is (1): display, licht en alle leds donker, Auto Power Off tegengehouden. Alleen via USB te schakelen.",
   "api.object.system.keepAwake": "Start de 4 uur van Auto Power Off opnieuw, zoals een toets op het apparaat.",
+  "api.object.global": "Globale instelling, pagina {page} van GLOBAL PARAMETERS; de firmware slaat hem op bij het uitschakelen van het apparaat.",
   "script.fault.objectLeaf": "geen blad {leaf} in de objectboom",
   "script.fault.objectReadOnly": "{path} kan alleen gelezen worden",
   "compile.object.unknown": "{path} bestaat niet. {branch} heeft: {names}.",

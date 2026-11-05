@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 15;
+export const API_VERSION = 16;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;

@@ -2085,6 +2085,7 @@ export default {
   "api.object.system.repairs": "Wie viele Werte seit dem Start außerhalb ihres Bereichs lagen und geklemmt oder zurückgesetzt wurden.",
   "api.object.system.testMode": "Ob der Test-Modus an ist (1): Display, Licht und alle LEDs dunkel, Auto Power Off angehalten. Schalten nur über USB.",
   "api.object.system.keepAwake": "Startet die 4 Stunden von Auto Power Off neu, wie eine Taste am Gerät.",
+  "api.object.global": "Globale Einstellung, Seite {page} von GLOBAL PARAMETERS; die Firmware speichert sie beim Ausschalten.",
   "script.fault.objectLeaf": "kein Blatt {leaf} im Objektbaum",
   "script.fault.objectReadOnly": "{path} lässt sich nur lesen",
   "compile.object.unknown": "{path} gibt es nicht. {branch} hat: {names}.",

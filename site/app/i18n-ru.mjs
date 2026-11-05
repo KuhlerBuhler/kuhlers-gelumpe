@@ -2037,6 +2037,7 @@ export default {
   "api.object.system.repairs": "Сколько значений с момента запуска были вне диапазона и были ограничены или сброшены.",
   "api.object.system.testMode": "Включён ли тестовый режим (1): дисплей, подсветка и все светодиоды погашены, Auto Power Off удерживается. Переключается только по USB.",
   "api.object.system.keepAwake": "Запускает 4 часа Auto Power Off заново, как кнопка на устройстве.",
+  "api.object.global": "Глобальная настройка, страница {page} в GLOBAL PARAMETERS; прошивка сохраняет её при выключении устройства.",
   "script.fault.objectLeaf": "в дереве объектов нет листа {leaf}",
   "script.fault.objectReadOnly": "{path} можно только читать",
   "compile.object.unknown": "{path} не существует. В {branch} есть: {names}.",

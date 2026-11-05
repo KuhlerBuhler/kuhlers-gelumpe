@@ -2037,6 +2037,7 @@ export default {
   "api.object.system.repairs": "How many values were outside their range since start and were clamped or reset.",
   "api.object.system.testMode": "Whether the test mode is on (1): display, light and every LED dark, Auto Power Off held. Switched over USB only.",
   "api.object.system.keepAwake": "Starts the 4 hours of Auto Power Off again, as a key on the device does.",
+  "api.object.global": "Global setting, page {page} of GLOBAL PARAMETERS; the firmware saves it when the device is switched off.",
   "script.fault.objectLeaf": "no leaf {leaf} in the object tree",
   "script.fault.objectReadOnly": "{path} can only be read",
   "compile.object.unknown": "{path} does not exist. {branch} has: {names}.",

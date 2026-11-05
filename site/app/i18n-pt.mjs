@@ -2037,6 +2037,7 @@ export default {
   "api.object.system.repairs": "Quantos valores estiveram fora do intervalo desde o arranque e foram limitados ou repostos.",
   "api.object.system.testMode": "Se o modo de teste está ativo (1): ecrã, luz e todos os LED apagados, desligamento automático suspenso. Só se muda por USB.",
   "api.object.system.keepAwake": "Reinicia as 4 horas do desligamento automático, como uma tecla do aparelho.",
+  "api.object.global": "Ajuste global, página {page} de GLOBAL PARAMETERS; o firmware o guarda ao desligar o aparelho.",
   "script.fault.objectLeaf": "não há folha {leaf} na árvore de objetos",
   "script.fault.objectReadOnly": "{path} só pode ser lido",
   "compile.object.unknown": "{path} não existe. {branch} tem: {names}.",

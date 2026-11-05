@@ -2037,6 +2037,7 @@ export default {
   "api.object.system.repairs": "Combien de valeurs étaient hors de leur plage depuis le démarrage et ont été bornées ou réinitialisées.",
   "api.object.system.testMode": "Indique si le mode test est actif (1) : écran, lumière et toutes les LED éteints, arrêt automatique retenu. Commuté par USB uniquement.",
   "api.object.system.keepAwake": "Relance les 4 heures de l'arrêt automatique, comme une touche de l'appareil.",
+  "api.object.global": "Réglage global, page {page} de GLOBAL PARAMETERS ; le firmware l'enregistre à l'extinction de l'appareil.",
   "script.fault.objectLeaf": "pas de feuille {leaf} dans l'arbre d'objets",
   "script.fault.objectReadOnly": "{path} ne peut qu'être lu",
   "compile.object.unknown": "{path} n'existe pas. {branch} contient : {names}.",

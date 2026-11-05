@@ -104,6 +104,7 @@ class Compiler {
     this.labelCount = 0;
     this.edges = [];
     this.apiSites = [];
+    this.leafSince = 1;     // the newest leaf of the object tree the program names: it needs that API version
     this.topIndex = 0;
     this.app = null;
     this.data = [];
@@ -456,11 +457,13 @@ class Compiler {
 
   readProperty({ prop, index }, n, fn) {
     if (!prop.read) throw err(n, text("compile.prop.writeOnly", { prop: this.propertyName(prop) }));
+    this.leafSince = Math.max(this.leafSince, prop.since);
     return this.call(callNode(prop.read[0], this.propertyArgs(prop.read[1], index, null, n), n), fn);
   }
 
   writeProperty({ prop, index }, n, fn) {
     if (!prop.write) throw err(n.target, text("compile.prop.readOnly", { prop: this.propertyName(prop) }));
+    this.leafSince = Math.max(this.leafSince, prop.since);
     let value = n.value;
     const [min, max] = prop.range ?? [];
     if (prop.range && n.op === "=" && constValue(value) !== null && (constValue(value) < min || constValue(value) > max)) {
@@ -948,7 +951,7 @@ class Compiler {
     const handlers = this.handlers.map(h => ({ event: h.event, argc: h.argc, entry: asm.labels.get(h.entry) }));
     const parts = {
       name: this.name.slice(0, LIMITS.nameLength),
-      apiVersion: Math.max(1, ...this.apiSites.map(s => s.api.since), ...this.handlers.map(h => Math.max(0, ...ARG_SINCE(h)))),
+      apiVersion: Math.max(1, this.leafSince, ...this.apiSites.map(s => s.api.since), ...this.handlers.map(h => Math.max(0, ...ARG_SINCE(h)))),
       entry: asm.labels.get("start"),
       code: asm.code,
       varCount: this.nextSlot,

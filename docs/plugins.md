@@ -302,6 +302,25 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.system.repairs` | wie viele Werte seit dem Start geklemmt oder zurückgesetzt wurden | nein | 0 bis 2147483647 |
 | `korg.system.testMode` | ob der Test-Modus an ist: Display, Licht und alle LEDs dunkel, Auto Power Off angehalten | nein, nur über USB; nur im RAM, nach einem Neustart aus | 0 (aus) bis 1 (an) |
 | `korg.system.keepAwake()` | (ein Aufruf, kein Wert) | startet die 4 Stunden von Auto Power Off neu, wie eine Taste am Gerät | |
+| `korg.global.triggerMode` | Seite TRIGGER MODE von GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
+| `korg.global.velocityCurve` | Seite VELOCITY CURVE von GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | ja, wie das Menü, über die Funktion der Firmware | 0 bis 3 |
+| `korg.global.clockMode` | Seite CLOCK MODE von GLOBAL PARAMETERS: 0 Internal, 1 Auto, 2 External USB, 3 External MIDI, 4 External Sync | ja, wie das Menü, über die Funktion der Firmware | 0 bis 4 |
+| `korg.global.midiChannel` | Seite GLOBAL MIDI CH. von GLOBAL PARAMETERS: 0 bis 15 für Kanal 1 bis 16 | ja, wie das Menü, über die Funktion der Firmware | 0 bis 15 |
+| `korg.global.receiveFilter` | Seite MIDI RECEIVE FILTER von GLOBAL PARAMETERS: 0 Off, 1 Short, 2 Short + Program | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
+| `korg.global.sendFilter` | Seite MIDI SEND FILTER von GLOBAL PARAMETERS: 0 Off, 1 Short, 2 Short + Program | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
+| `korg.global.syncPolarity` | Seite SYNC POLARITY von GLOBAL PARAMETERS: 0 Hi, 1 Lo | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.syncResolution` | Seite SYNC UNIT von GLOBAL PARAMETERS: 0 1 Step, 1 2 Steps | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.metronome` | Seite METRONOME von GLOBAL PARAMETERS: 0 Off, 1 Rec 0, 2 Rec 1, 3 Rec 2, 4 On | ja, wie das Menü, über die Funktion der Firmware | 0 bis 4 |
+| `korg.global.tempoLock` | Seite TEMPO LOCK von GLOBAL PARAMETERS: 0 Off, 1 On | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.knobMode` | Seite KNOB MODE von GLOBAL PARAMETERS: 0 Jump, 1 Catch, 2 Value Scale | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
+| `korg.global.touchScaleRange` | Seite TOUCH SCALE RANGE von GLOBAL PARAMETERS: Oktaven, 0 spielt nur den Grundton | ja, wie das Menü, über die Funktion der Firmware | 0 bis 4 |
+| `korg.global.lcdContrast` | Seite LCD CONTRAST von GLOBAL PARAMETERS: 18 bis 42, das Display zeigt 1 bis 25 | ja, wie das Menü, über die Funktion der Firmware | 18 bis 42 |
+| `korg.global.audioInThru` | Seite AUDIO IN THRU von GLOBAL PARAMETERS: 0 Off, 1 On | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.batteryType` | Seite BATTERY TYPE von GLOBAL PARAMETERS: 0 Ni-MH, 1 Alkali | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.autoPowerOff` | Seite AUTO POWER OFF von GLOBAL PARAMETERS: 0 Disable, 1 4 hours | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.powerSave` | Seite POWER SAVE MODE von GLOBAL PARAMETERS: 0 Disable, 1 Auto, 2 Enable | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
+| `korg.global.patternChangeLock` | Seite PTN. CHANGE LOCK von GLOBAL PARAMETERS: 0 Off, 1 On | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.chainMode` | Seite CHAIN MODE von GLOBAL PARAMETERS: 0 Off, 1 On | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
 
 ```js
 // Licht aus, solange die App offen ist, danach wieder wie vorher.
@@ -323,7 +342,46 @@ Rechner schaltet ihn, über USB ([Test-Modus](test-modus.md)); ein Plugin liest 
 keines das Gerät bei jedem Start dunkel lassen kann. Beim Ausschalten kommen Licht und LEDs zurück, wie sie ohne
 Test-Modus wären; eine LED, die ein Plugin inzwischen gesetzt hat, zeigt dessen Wert.
 
-Weitere Zweige (`korg.global`, `korg.patterns`, `korg.parts`, die übrigen Seiten von BLECH) kommen mit den
+**Die Globals (`korg.global`, API 16).** Zu jeder bekannten Seite von GLOBAL PARAMETERS gibt es ein Blatt, mit dem
+Namen der Seite in camelCase und den Werten, die das Gerät speichert (`korg.global.midiChannel` 0 bis 15 ist Kanal 1 bis 16).
+Die Bereiche sind die Grenzen des Menüs. Nicht im Baum sind die Kennungen am Anfang und Ende des Blocks, die Bytes, die
+kein Menü ändert, und die Plätze 247 bis 249, die Patches von BLECH belegen. Ein Plugin, das ein Blatt nennt, braucht API 16.
+
+Setzen ruft dieselbe Funktion der Firmware, die auch die Seite im Menü beim Drehen ruft: sie schreibt das Byte und meldet
+es an Klangerzeugung, Display und MIDI-Seite (bei `tempoLock` stellt sie danach das Tempo neu). Der Wert wirkt sofort, ohne
+Neustart; die Seite im Menü zeigt ihn, sobald sie neu gezeichnet wird, also wenn man sie öffnet. Bei `clockMode` lehnt die
+Firmware das Setzen ab, solange der Transport in ihrem Zustand 6 bis 9 ist, genau wie im Menü. Ein Wert außerhalb der Grenzen
+wird auf die nächste Grenze geklemmt und gezählt, ein gespeicherter Wert außerhalb wird beim Start repariert: auf die nächste
+Grenze, ohne die Funktion der Firmware zu rufen. Im Emulator gemessen auf Hacktribe, Korg rot und Korg blau
+([Messung](messungen/2026-11-05-plugin-api16.md)); am Gerät nicht.
+
+**Speichern.** Dafür gibt es keinen Aufruf. Die Firmware speichert die Globals beim Ausschalten und bei WRITE auf der Seite
+GLOBAL PARAMETERS, wie sie auch das letzte Pattern behält. Ein Wert, den ein Plugin gesetzt hat, bleibt deshalb über den
+nächsten Neustart, auch wenn das Plugin dann nicht mehr läuft. Ein Plugin, das die Einstellung des Nutzers nur vorübergehend
+ändern will, setzt sie zurück, wie das Beispiel oben mit der Helligkeit.
+
+**Zustimmung.** Ein Plugin, das Globals setzt, braucht keine eigene Zustimmung. Ein fremdes Plugin (ein Block ohne das Bit
+"geprobt") läuft ohnehin erst nach WRITE=ALLOW; mit dieser Zustimmung darf es auch die Globals dauerhaft ändern. Wer WRITE=ALLOW gibt,
+erlaubt das also mit.
+
+```js
+// Metronom an und Kontrast eine Stufe höher, solange die App offen ist, danach wie vorher.
+let metro = 0;
+let contrast = 0;
+korg.app("Metronom", "TOOLS");
+korg.onEvent("open", () => {
+  metro = korg.global.metronome;
+  contrast = korg.global.lcdContrast;
+  korg.global.metronome = 4;
+  korg.global.lcdContrast = contrast + 1;
+});
+korg.onEvent("close", () => {
+  korg.global.metronome = metro;
+  korg.global.lcdContrast = contrast;
+});
+```
+
+Weitere Zweige (`korg.patterns`, `korg.parts`, die übrigen Seiten von BLECH) kommen mit den
 nächsten Versionen; die alten Namen bleiben gültig.
 
 ### Timer (API 11, BLECHTRIBE 1.3.8)
