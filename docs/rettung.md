@@ -195,10 +195,28 @@ EXPORT PATTERN schreibt das gespeicherte Pattern, also erst WRITE; Exporte liege
 bleibt nach der Übernahme mit den alten Kopien stehen, auf der blauen gibt es keine Übernahme und `KORG/electribe/`
 bleibt; Gerätedateien tragen immer den 01.01.2014.
 
-**Die volle Prüfung im Patcher wird rot.** Auf das Gerät kommt dann nichts. Vor App 1.3.7 scheitern die Fälle der Patches
-an Patterns, die im Emulator gespeichert sind; ab 1.3.7 laufen sie auf einem leeren Flash (`tools/emu/check.py`,
-`test/emulator-check-flash.test.mjs`). Die Seite liest die Version der App: darunter, oder im Browser ohne Version,
-nennt sie `~/.gelumpe/flash/flash.bin` zum Umbenennen; sonst und danach bittet sie um `~/.gelumpe/emu.log`.
+**Der Test im Patcher wird rot oder läuft nicht.** Auf das Gerät kommt dann nichts. Blechy fragt, was der Patcher
+meldet, in fünf Gruppen (`testGroup` und `testFailure` in `data/rescue.mjs`, die Kennungen aus `tools/emu/check.py`):
+
+| Gruppe | Kennungen | Was es heißt |
+|---|---|---|
+| Patchen | kein Bericht, `patcher.patch.failed` (`src/patch.mjs`) | An einer Patch-Stelle stehen andere Bytes als in Korgs 2.02 oder Hacktribe 2.02 |
+| Start | `header`, `dsp_stream`, `start_phase` | Ein Patch hat etwas geändert, das beim Einschalten läuft |
+| Rettungswege | `boot:*`, `update_offer`, `panel_update`, `start_mode:*`, `kill_switch`, `dsp_boot_once` | Der Start oder ein Rettungsweg geht nicht mehr |
+| Funktion | Kennung mit Präfix eines Fall-Moduls, `menu:`, `pswitch:` usw. (`TEST_AREAS`) | Ein Fall von BLECHTRIBE ist rot |
+| Lauf | der Emulator startet nicht oder antwortet nicht | Die Datei kann nichts dafür |
+
+Bei den ersten vier ist der Rat derselbe: als Eingabe eine normale Firmware nehmen, Korgs Original 2.02 oder Hacktribe
+2.02, und den Test wiederholen. Der Patcher meldet seinen letzten roten Test an die Seite (`onTest`), Blechy markiert
+dann die passende Gruppe mit "Sagt die App". Bleibt eine Funktion mit normaler Firmware rot, geht es weiter wie früher
+bei der vollen Prüfung: Vor App 1.3.7 scheitern die Fälle der Patches an Patterns, die im Emulator gespeichert sind; ab
+1.3.7 laufen sie auf einem leeren Flash (`tools/emu/check.py`, `test/emulator-check-flash.test.mjs`). Die Seite liest die
+Version der App: darunter, oder im Browser ohne Version, nennt sie `~/.gelumpe/flash/flash.bin` zum Umbenennen; sonst und
+danach bittet sie um `~/.gelumpe/emu.log`.
+
+**Blechy fragen in jeder Fehlermeldung.** Jeder Fehler-Toast der App (`site/app/toast.mjs`) hat den Knopf "Blechy
+fragen". Er öffnet diese Seite, Blechy zitiert die Meldung und springt zur passenden Stelle: ein roter Test zu seiner
+Gruppe, eine nicht gefundene Electribe zu "Die App findet sie nicht", alles andere zur Frage, was in der App hakt.
 
 **Was die Seite aus der App liest.** Nur, was die App ohnehin hat, nichts wird am Gerät neu gelesen oder geraten:
 die Farbe der angesteckten Electribe (`Session.hardware()`, wie im Patcher), ob dort BLECH läuft (BLECH INFO beim

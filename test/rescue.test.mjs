@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { FLOW, LINKS, FOLDERS, DEVICES, CASES, BUTTONS, checkVerdict } from "../data/rescue.mjs";
+import { FLOW, LINKS, FOLDERS, DEVICES, CASES, BUTTONS, checkVerdict, ENTRIES, TEST_GROUPS, TEST_AREAS, testGroup, testFailure } from "../data/rescue.mjs";
+import { readdirSync } from "node:fs";
 import { t } from "../site/app/i18n.mjs";
 
 const ROOT = new URL("../", import.meta.url);
@@ -11,6 +12,7 @@ const line = l => {
   if (typeof l === "string") return t(l);
   if (Array.isArray(l)) return l.map(part => t(part.text)).join("");
   if (l.path) return l.path;
+  if (l.quote) return "";
   return t(l.key, { ...l.vars, ...Object.fromEntries(Object.entries(l.links ?? {}).map(([name, part]) => [name, t(part.text)])) });
 };
 const text = node => [...node.say, ...(node.source ? [node.source] : [])].map(line).join("\n");
@@ -26,7 +28,7 @@ test("every text of the page is a key of the German table", () => {
     for (const l of [...n.say, ...(n.source ? [n.source] : [])]) {
       if (typeof l === "string") keys.push(l);
       else if (Array.isArray(l)) keys.push(...l.map(part => part.text));
-      else if (!l.path) keys.push(l.key, ...Object.values(l.links ?? {}).map(part => part.text));
+      else if (!l.path && !l.quote) keys.push(l.key, ...Object.values(l.links ?? {}).map(part => part.text));
     }
     for (const c of n.choices ?? []) keys.push(c.label, ...(c.hint ? [c.hint] : []));
   }
@@ -35,7 +37,7 @@ test("every text of the page is a key of the German table", () => {
 });
 
 test("every answer and every follow-up leads to a node, and every node is reached", () => {
-  const reached = new Set(["start"]);
+  const reached = new Set(["start", ...ENTRIES]);
   for (const [id, n] of nodes) {
     for (const c of n.choices ?? []) { assert.ok(FLOW[c.to], `${id} leads to missing ${c.to}`); reached.add(c.to); }
     if (n.next) { assert.ok(FLOW[n.next], `${id} follows on to missing ${n.next}`); reached.add(n.next); }
@@ -181,4 +183,34 @@ test("the full check: the app's version decides whether flash.bin is the cause, 
 
 test("in-app links stay in the app, links of the page go to LINKS", () => {
   for (const key of ["settings", "patcher", "discord"]) assert.match(LINKS[key], /^#\w+$/);
+});
+
+test("the patcher's test: every red check has a group, every case module an area, the advice is a normal firmware", () => {
+  assert.deepEqual(FLOW.test.choices.map(c => c.to), TEST_GROUPS.map(g => `test:${g}`));
+  assert.equal(testGroup("header"), "start");
+  assert.equal(testGroup("start_phase"), "start");
+  assert.equal(testGroup("boot:normal"), "boot");
+  assert.equal(testGroup("start_mode:00000001"), "boot");
+  assert.equal(testGroup("kill_switch"), "boot");
+  assert.equal(testGroup("menu:open"), "feature");
+  assert.equal(testGroup("verified"), null);
+  assert.equal(testFailure({ ok: true, checks: [] }), null);
+  assert.deepEqual(testFailure({ ok: false, checks: [{ id: "quick", ok: true }, { id: "pswitch:next", ok: false }] }), { group: "feature", id: "pswitch:next", area: "rescue.area.pattern" });
+  assert.deepEqual(testFailure({ ok: false, checks: [{ id: "update_offer", ok: false }] }), { group: "boot", id: "update_offer", area: null });
+  const emu = new URL("tools/emu/", ROOT);
+  const prefixes = new Set(readdirSync(emu).filter(f => f.endsWith("_cases.py"))
+    .flatMap(f => [...readFileSync(new URL(f, emu), "utf8").matchAll(/"id":\s*f?"([\w-]+):/g)].map(m => m[1])));
+  assert.ok(prefixes.size > 10, `only ${prefixes.size} case modules found`);
+  assert.deepEqual([...prefixes].filter(p => !TEST_AREAS[p]), []);
+  for (const g of ["patch", "start", "boot", "feature"]) {
+    assert.equal(FLOW[`test:${g}`].next, `normal:${g}`);
+    const links = JSON.stringify(FLOW[`normal:${g}`].say);
+    for (const l of ["hacktribe", "korgRed", "korgBlue"]) assert.match(links, new RegExp(`"link":"${l}"`), `normal:${g} links ${l}`);
+  }
+  assert.equal(FLOW.app.choices.find(c => c.label === "rescue.answer.checkFails").to, "test");
+});
+
+test("a reported error opens with the app's own words and goes on to the app's questions", () => {
+  assert.ok(FLOW.error.say.some(l => l.quote));
+  assert.equal(FLOW.error.next, "app");
 });
