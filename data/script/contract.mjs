@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 15;
+export const API_VERSION = 16;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -252,13 +252,19 @@ export const TIMERS = Object.freeze({
   fields: Object.freeze([["due", 0], ["period", 4], ["callback", 8], ["kind", 9], ["generation", 10]].map(([name, offset]) => Object.freeze({ name, offset }))),
 });
 
+/**
+ * What a plugin keeps from the firmware (the input filter masks an input when ANY running plugin masks it, the plugins get every
+ * input either way): four words in its entry, the keys 0 to 31, the keys 32 and 33, a bit per knob and 1 when it holds the pads.
+ */
+export const HOLDS_BYTES = 16;
 export const SCRIPT_ENTRY = Object.freeze({
-  size: 48 + EVENTS.length * 8 + 4 + STORE.slots * 4 + TIMERS.slots * TIMERS.recordSize,
+  size: 48 + EVENTS.length * 8 + 4 + STORE.slots * 4 + TIMERS.slots * TIMERS.recordSize + HOLDS_BYTES,
   fields: Object.freeze([
     ["next", 0], ["blob", 4], ["vars", 8], ["state", 12], ["fault", 16], ["offset", 20],
     ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 44 + EVENTS.length * 4], ["readySent", 44 + EVENTS.length * 8],
     ["storeMask", 48 + EVENTS.length * 8], ["store", 52 + EVENTS.length * 8], ["timers", 52 + EVENTS.length * 8 + STORE.slots * 4],
-  ].map(([name, offset]) => Object.freeze({ name, offset, words: name === "maxCost" || name === "maxEventTicks" ? EVENTS.length : name === "store" ? STORE.slots : name === "timers" ? TIMERS.slots * TIMERS.recordSize / 4 : 1 }))),
+    ["holds", 52 + EVENTS.length * 8 + STORE.slots * 4 + TIMERS.slots * TIMERS.recordSize],
+  ].map(([name, offset]) => Object.freeze({ name, offset, words: name === "maxCost" || name === "maxEventTicks" ? EVENTS.length : name === "store" ? STORE.slots : name === "timers" ? TIMERS.slots * TIMERS.recordSize / 4 : name === "holds" ? HOLDS_BYTES / 4 : 1 }))),
 });
 export const SCRIPT_STATE = Object.freeze({ LOADED: 1, ARMED: 2, DISABLED: 3 });
 
@@ -363,6 +369,8 @@ const API_LIST = [
   [75, "korg.keyHold", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 15],
   [76, "korg.pressKey", [int("key", 0, 33)], "void", UI, 30, 15],
   [77, "korg.seq.setPatternValue", [int("field", 0, 11), int("value")], "void", UI, 60, 15],
+  // the keys a plugin keeps from the firmware, as one mask: bit n of `low` is key n (0 to 31), bit n of `high` key 32 + n
+  [78, "korg.keyMask", [int("low"), int("high", 0, 3)], "void", UI, 20, 16],
 ];
 
 /**

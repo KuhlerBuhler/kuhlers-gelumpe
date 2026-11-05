@@ -29,7 +29,12 @@ export class SimHardware {
     this.patternBlocks = new Map();
     this.backlight = [1, 1, 1];
     this.ledHold = 0;
-    /** korg.padHold: 1 while pad presses reach the plugins only, not the firmware. An app's close gives the pads back. */
+    /**
+     * What plugins keep from the firmware is the fold of the holds of all armed plugins (`holders` gives their hold records, each
+     * { keys, knobs, pad }; the device sets it), so an input stays away from the firmware while ANY plugin keeps it and a plugin
+     * changes only its own records. padHold: 1 while pad presses reach the plugins only; an app's close gives the pads back.
+     */
+    this.holders = () => [];
     this.padHold = 0;
     /** korg.knobHold: one bit per knob whose moves reach the plugins only; korg.knob: the last value a plugin gave the firmware per knob. */
     this.knobHold = 0;
@@ -39,7 +44,7 @@ export class SimHardware {
     this.resetKeyPass();
     /** korg.touchLockX: the X the firmware sees while a finger is on the touchpad, -1 the finger's own. */
     this.touchLock = -1;
-    /** korg.keyHold: per key 1 when its presses reach the plugins only, also without an app. */
+    /** korg.keyHold and korg.keyMask: per key 1 when its presses reach the plugins only, also without an app. */
     this.keyHold = new Uint8Array(34);
     /** korg.pressKey: the keys plugins passed to the firmware as a short press, in order. */
     this.pressedKeys = [];
@@ -70,13 +75,19 @@ export class SimHardware {
       "korg.part": part => { this.part = part; this.emit("partChange", part); },
       "korg.backlight": (red, green, blue) => { this.backlight = [red, green, blue]; },
       "korg.ledHold": on => { this.ledHold = on; },
-      "korg.padHold": on => { this.padHold = on; },
-      "korg.knobHold": (index, on) => { this.knobHold = on ? this.knobHold | 1 << index : this.knobHold & ~(1 << index); },
+      // the four hold calls get the calling plugin's hold record first (ScriptRuntime passes it)
+      "korg.padHold": (holds, on) => { holds.pad = on; this.syncHolds(holds); },
+      "korg.knobHold": (holds, index, on) => { holds.knobs = on ? holds.knobs | 1 << index : holds.knobs & ~(1 << index); this.syncHolds(holds); },
       "korg.knob": (index, value) => { this.firmwareKnobs[index] = value; },
       "korg.passKeys": (key, on) => { this.keyPass[key] = on; },
       "korg.seq.setPartValue": (part, field, value) => this.setPartValue(part, field, value),
       "korg.touchLockX": x => { this.touchLock = x; },
-      "korg.keyHold": (key, on) => { this.keyExit("korg.keyHold", key); this.keyHold[key] = on; },
+      "korg.keyHold": (holds, key, on) => { this.keyExit("korg.keyHold", key); holds.keys[key] = on; this.syncHolds(holds); },
+      "korg.keyMask": (holds, low, high) => {
+        if ((low >>> KEY_EXIT) & 1) this.keyExit("korg.keyMask", KEY_EXIT);
+        for (let key = 0; key < 34; key++) holds.keys[key] = key < 32 ? (low >>> key) & 1 : (high >>> (key - 32)) & 1;
+        this.syncHolds(holds);
+      },
       "korg.pressKey": key => { this.keyExit("korg.pressKey", key); this.pressedKeys.push(key); this.firmwareKey(key); },
       "korg.seq.setPatternValue": (field, value) => this.setPatternValue(field, value),
       "korg.read.patternBytes": (slots, pattern, offset) => this.patternBytes(slots, pattern, offset),
@@ -104,6 +115,20 @@ export class SimHardware {
     const clamped = Math.min(o.max, Math.max(o.min, value));
     if (clamped !== value) this.objects[REPAIRS] += 1;
     this.objects[leaf] = clamped;
+  }
+
+  /** Folds the holds of the armed plugins, and of `running` (a plugin whose body runs before it is armed), into what the input filter reads. */
+  syncHolds(running = null) {
+    const all = [...this.holders()];
+    if (running && !all.includes(running)) all.push(running);
+    this.keyHold.fill(0);
+    this.padHold = 0;
+    this.knobHold = 0;
+    for (const h of all) {
+      for (let key = 0; key < 34; key++) if (h.keys[key]) this.keyHold[key] = 1;
+      if (h.pad) this.padHold = 1;
+      this.knobHold |= h.knobs;
+    }
   }
 
   /** The keys that reach the firmware while an app is open, as at power-on and after an app's close: REC, STOP and PLAY. */

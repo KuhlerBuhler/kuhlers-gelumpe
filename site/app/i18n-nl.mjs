@@ -2018,6 +2018,7 @@ export default {
   "api.korg.touchLockX": "Houdt de X van het touchpad die de firmware ziet op x (0 tot 127, in stappen van 2), -1 laat los. De plugin krijgt de echte aanraking nog steeds. Stopt als de plugin stopt.",
   "api.korg.keyHold": "1 houdt toets key (0 tot 33, niet EXIT) weg van de firmware, ook zonder app; de plugin krijgt de toets nog steeds. 0 geeft hem terug. Stopt als de plugin stopt.",
   "api.korg.pressKey": "Geeft de firmware een korte druk op toets key (0 tot 33, niet EXIT): nu ingedrukt, in het volgende frame losgelaten. Plugins krijgen hem niet als gebeurtenis.",
+  "api.korg.keyMask": "Houdt alle toetsen van het masker van deze plugin weg van de firmware: bit n van low is toets n (0 tot 31), bit n van high toets 32 + n; de andere toetsen van deze plugin worden teruggegeven. Een toets blijft voor de firmware verborgen zolang een plugin hem vasthoudt; alle plugins krijgen hem. EXIT in het masker is een fout.",
   "api.korg.seq.setPartValue": "Schrijft waarde field (0 tot 19, zoals bij korg.read.patternValue) van part part zoals een knop, begrensd tot het bereik. Sample, IFX aan en type, voice assign en MFX send zijn alleen-lezen.",
   "api.korg.read.patternBytes": "Leest bytes van het pattern (-1 dat in het RAM, 0 tot 249 de bank) vanaf offset in de array, een byte per plek. Geeft terug hoeveel.",
   "api.korg.seq.writeSteps": "Schrijft step-records van 12 plekken (aan, gate, velocity, trigger, 4 noten, 4 ongeschreven) in part part vanaf step first, begrensd. Geeft het aantal steps terug.",

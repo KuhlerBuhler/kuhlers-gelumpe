@@ -48,6 +48,7 @@ export const TABLE = [
   [/^tools\/emu\/timer_cases\.py$/, ["remote_cases"]],         // runs as a group of remote_cases
   [/^tools\/emu\/plugin_edit_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api15_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api16_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/live_write_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
 
   // the patches and the code they build, to the cases that test them (check.py's docstring, each has_hooks)

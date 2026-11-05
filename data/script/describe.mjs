@@ -49,6 +49,7 @@ export const API_DOCS = Object.freeze({
   "korg.touchLockX": text("api.korg.touchLockX"),
   "korg.keyHold": text("api.korg.keyHold"),
   "korg.pressKey": text("api.korg.pressKey"),
+  "korg.keyMask": text("api.korg.keyMask"),
   "korg.seq.setPartValue": text("api.korg.seq.setPartValue"),
   "korg.read.patternBytes": text("api.korg.read.patternBytes"),
   "korg.seq.writeSteps": text("api.korg.seq.writeSteps"),

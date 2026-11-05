@@ -214,7 +214,7 @@ script_app_close:
     mov r0, #0
     str r0, [r4, #SCRIPT_APPS_OPEN]
     mov r4, r1                      ; the pads and the keys go back to the firmware with the app (korg.padHold, korg.passKeys)
-    bl pad_hold_set
+    bl hold_pads_release
     bl key_pass_reset
     mov r1, r4
     ldr r2, =UI_REDRAW

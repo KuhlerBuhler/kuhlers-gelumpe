@@ -2066,6 +2066,7 @@ export default {
   "api.korg.touchLockX": "Hält das X des Touchpads, das die Firmware sieht, auf x (0 bis 127, in Schritten von 2), -1 lässt los. Das Plugin bekommt weiter die echte Berührung. Endet, wenn das Plugin aufhört.",
   "api.korg.keyHold": "1 hält die Taste key (0 bis 33, nicht EXIT) von der Firmware fern, auch ohne App; das Plugin bekommt die Taste weiter. 0 gibt sie zurück. Endet, wenn das Plugin aufhört.",
   "api.korg.pressKey": "Gibt der Firmware einen kurzen Druck der Taste key (0 bis 33, nicht EXIT): jetzt gedrückt, im nächsten Rahmen losgelassen. Plugins bekommen ihn nicht als Ereignis.",
+  "api.korg.keyMask": "Hält alle Tasten der Maske dieses Plugins von der Firmware fern: Bit n von low ist die Taste n (0 bis 31), Bit n von high die Taste 32 + n; die übrigen Tasten dieses Plugins gibt es zurück. Eine Taste bleibt der Firmware verborgen, solange irgendein Plugin sie hält; alle Plugins bekommen sie. EXIT in der Maske ist ein Fehler.",
   "api.korg.seq.setPartValue": "Schreibt den Wert field (0 bis 19, wie bei korg.read.patternValue) von Part part wie ein Regler, geklemmt. Sample, IFX an und Typ, Voice Assign und MFX Send lassen sich nur lesen.",
   "api.korg.read.patternBytes": "Liest Bytes des Patterns (-1 das im RAM, 0 bis 249 die Bank) ab offset ins Feld, ein Byte je Platz. Gibt zurück, wie viele.",
   "api.korg.seq.writeSteps": "Schreibt Step-Einträge zu je 12 Plätzen (an, Gate, Velocity, Trigger, 4 Noten, 4 ungeschrieben) in Part part ab Step first, geklemmt. Gibt die Zahl der Steps zurück.",
