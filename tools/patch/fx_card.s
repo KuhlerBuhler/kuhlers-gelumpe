@@ -36,6 +36,24 @@
 .equ FX_BAD_CHECKSUM, 9
 .equ FX_READ_ERROR, 10
 
+; -> r1 = the text for the third row of BLECH > VERSION, what the start did with e2sFx.all; 0 when it found no file. Clobbers r2.
+fx_status_text:
+    ldr r1, =HOOK_CARD+FX_STATE_AT
+    ldr r2, [r1, #FX_STATUS]
+    mov r1, #0
+    cmp r2, #FX_OK
+    ldreq r1, =str_fx_loaded
+    cmp r2, #FX_KILLED
+    ldreq r1, =str_fx_skipped
+    cmp r2, #FX_BAD_BUILD
+    ldreq r1, =str_fx_build
+    cmp r2, #FX_BAD_HEADER
+    cmpne r2, #FX_BAD_ENTRY
+    cmpne r2, #FX_BAD_CHECKSUM
+    cmpne r2, #FX_READ_ERROR
+    ldreq r1, =str_fx_bad
+    bx lr
+
 fx_card_load:
     push {r4-r11, lr}
     ldr r5, =HOOK_CARD
@@ -211,6 +229,8 @@ fx_entries_done:
     mov r10, #1
     b fx_pass
 fx_done_ok:
+    cmp r8, #0
+    blne fx_reapply
     mov r0, #FX_OK
     b fx_status
 fx_no_panel:
@@ -243,6 +263,75 @@ fx_status:
     cmp r0, #0
     blne card_close
     pop {r4-r11, pc}
+.pool
+
+; The pattern of the start set its effects before the loader ran, from the records of the firmware. Each type goes to the next
+; one and back through the setter the device's own edit calls, with the report: a setter given the type it holds does nothing,
+; and without the report nothing reaches the DSP (measured in the emulator). The master effect, then the insert of each part.
+.equ FX_PART_IFX, 26            ; the part edit's number of the insert effect (docs/messungen/2026-11-03-live-schreibwege.md)
+.equ FX_PART_SIZE, 0x330
+fx_reapply:
+    push {r4-r7, lr}
+    ldr r12, =FX_COUNT_MFX
+    blx r12
+    mov r6, r0
+    ldr r4, =SC_PATPTR
+    ldr r4, [r4]
+    ldrb r5, [r4, #4+61]
+    add r1, r5, #1
+    cmp r1, r6
+    movhs r1, #0
+    bl fx_set_mfx
+    mov r1, r5
+    bl fx_set_mfx
+    ldr r12, =FX_COUNT_IFX
+    blx r12
+    mov r6, r0
+    mov r7, #0
+fx_reapply_part:
+    mov r0, #FX_PART_SIZE
+    mul r0, r7, r0
+    add r0, r0, r4
+    add r0, r0, #0x800
+    ldrb r5, [r0, #4+33]
+    add r1, r5, #1
+    cmp r1, r6
+    movhs r1, #0
+    mov r0, r7
+    bl fx_set_ifx
+    mov r0, r7
+    mov r1, r5
+    bl fx_set_ifx
+    add r7, r7, #1
+    cmp r7, #16
+    blo fx_reapply_part
+    pop {r4-r7, pc}
+
+; r1 the master effect's type, set with the report
+fx_set_mfx:
+    push {lr}
+    ldr r0, =HW_PATTERN_OBJECT+PV_ARG_8
+    mov r2, #1
+    ldr r12, =PV_SET_8
+    blx r12
+    pop {pc}
+
+; r0 part, r1 its insert effect's type, through the part edit the knobs call, with the report
+fx_set_ifx:
+    push {lr}
+    sub sp, sp, #12
+    str r1, [sp]
+    mov r1, #1
+    str r1, [sp, #4]
+    orr r1, r0, #0x10
+    ldr r0, =HW_PART_EDITOR
+    ldr r0, [r0]
+    mov r2, #0
+    mov r3, #FX_PART_IFX
+    ldr r12, =HW_PART_EDIT
+    blx r12
+    add sp, sp, #12
+    pop {pc}
 .pool
 fx_path:
     .asciz "SD:KORG/blechtribe/Presets/e2sFx.all"
