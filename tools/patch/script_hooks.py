@@ -350,7 +350,7 @@ class BuiltHooks:
 def object_rows(constants):
     """The rows of the object table in script_objects.s, from the OBJ_ constants the include carries (data/script/objects.mjs)."""
     count=int(re.search(r'^\.equ OBJ_COUNT, (\S+)',constants,re.M).group(1),0)
-    row=lambda i: f'    .word OBJ_{i}_OFFSET, OBJ_{i}_MIN, OBJ_{i}_MAX, OBJ_{i}_FACTORY\n    .byte OBJ_{i}_BASE, OBJ_{i}_TYPE, OBJ_{i}_APPLY, OBJ_{i}_FLAGS'
+    row=lambda i: f'    .word OBJ_{i}_OFFSET, OBJ_{i}_MIN, OBJ_{i}_MAX, OBJ_{i}_FACTORY\n    .byte OBJ_{i}_BASE, OBJ_{i}_TYPE, OBJ_{i}_APPLY, OBJ_{i}_FLAGS\n    .word OBJ_{i}_MIRROR'
     return '\n'.join(row(i) for i in range(count))
 
 def build(include, glue=None, blechy=None, build='hacktribe'):
