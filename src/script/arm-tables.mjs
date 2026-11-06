@@ -169,7 +169,7 @@ export function asmInclude() {
   for (const o of OBJECTS) {
     eq(`OBJ_${o.id}_OFFSET`, o.offset); eq(`OBJ_${o.id}_MIN`, o.min); eq(`OBJ_${o.id}_MAX`, o.max); eq(`OBJ_${o.id}_FACTORY`, o.factory);
     eq(`OBJ_${o.id}_BASE`, OBJECT_BASES.indexOf(o.base)); eq(`OBJ_${o.id}_TYPE`, OBJECT_TYPES.indexOf(o.type));
-    eq(`OBJ_${o.id}_APPLY`, OBJECT_APPLY.indexOf(o.apply)); eq(`OBJ_${o.id}_FLAGS`, objectFlags(o));
+    eq(`OBJ_${o.id}_APPLY`, OBJECT_APPLY.indexOf(o.apply)); eq(`OBJ_${o.id}_FLAGS`, objectFlags(o)); eq(`OBJ_${o.id}_MIRROR`, o.mirror);
   }
   out.push(".align 4");
   out.push("script_dispatch:");

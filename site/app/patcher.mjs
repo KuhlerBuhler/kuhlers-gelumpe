@@ -16,6 +16,7 @@ import { isZip, unzipEntry } from "../../src/zip.mjs";
 import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim, restoreOriginal, canRestore } from "../../src/patcher.mjs";
 import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
 import { storedAnimation } from "./loading-anim.mjs";
+import { testFailure } from "../../data/rescue.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -59,7 +60,8 @@ function verdictText(input, items, waiting) {
   }
 }
 
-export function patcherPage(root, { emulator, show = () => {}, session = () => null, onTarget = () => {} }) {
+/** `onTest(failure)` hears the last test as testFailure (data/rescue.mjs) gives it: null when it passed, for the Rettung page. */
+export function patcherPage(root, { emulator, show = () => {}, session = () => null, onTarget = () => {}, onTest = () => {} }) {
   if (!document.querySelector("link[data-cee-patcher]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-patcher", "");
@@ -71,6 +73,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let input = null;             // the bytes the patches go on: the dropped file, or Korg's original turned into Hacktribe's
   let stockFile = null;         // Korg's original as dropped, and what classify made of it, to go back to on the other route
   let passed = null;            // the patched copy that passed the check
+  let failure = null;           // what the last run that did not pass is about (testFailure), for Blechy
   let blech = null;             // the BLECH set (data/patches/blech.json) with its patches parsed, once loaded
   let ownPatch = null;          // a .patch the user brought instead of the set of this version: { bytes, file }
   let usbNames = null;          // the variants of the optional patch usb-name, once loaded
@@ -273,17 +276,26 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [usbPut, download, afraid]);
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
 
-  // The wizard in front of the way: which Electribe, then what to do. Its answers pick what step 1 shows and set the
-  // route and the device the existing flow needs; a file dropped anywhere skips it.
-  const wiz = { step: 0, device: null, goal: null };
+  // The wizard in front of the way: which Electribe, which firmware runs on it, then what to do. Its answers pick
+  // what step 1 shows and set the route and the device the existing flow needs; a file dropped anywhere skips it.
+  const wiz = { step: 0, device: null, firmware: null, goal: null };
+  /** The step where the way begins, after the wizard's three pages. */
+  const WAY = 3;
+  // the first Electribes (grey synth, black sampler) take the same firmware as the blue and the red
   const WIZ_DEVICES = [
-    ["blue", "blue", "patcher.device.blue", "patcher.wiz.korg"],
-    ["red", "red", "patcher.device.red", "patcher.wiz.korg"],
-    ["blueHt", "blue", "patcher.wiz.blueHt", "patcher.wiz.htBlue"],
-    ["redHt", "red", "patcher.wiz.redHt", "patcher.wiz.ht"],
+    ["blue", "blue", "patcher.device.blue", "patcher.wiz.synth"],
+    ["red", "red", "patcher.device.red", "patcher.wiz.sampler"],
+    ["grey", "blue", "patcher.wiz.grey", "patcher.wiz.synth.first"],
+    ["black", "red", "patcher.wiz.black", "patcher.wiz.sampler.first"],
   ];
-  const hwOf = () => (wiz.device?.startsWith("blue") ? "blue" : "red");
-  const hasHt = () => !!wiz.device?.endsWith("Ht");
+  const WIZ_FIRMWARES = {
+    korg: ["patcher.wiz.fw.korg", () => "patcher.wiz.korg"],
+    ht: ["patcher.wiz.fw.ht", () => (hwOf() === "blue" ? "patcher.wiz.htBlue" : "patcher.wiz.ht")],
+    blech: ["patcher.wiz.fw.blech", () => "patcher.wiz.fw.blech.note"],
+    blechHt: ["patcher.wiz.fw.blechHt", () => "patcher.wiz.fw.blechHt.note"],
+  };
+  const hwOf = () => (WIZ_DEVICES.find(d => d[0] === wiz.device)?.[1] ?? "red");
+  const hasHt = () => wiz.firmware === "ht" || wiz.firmware === "blechHt";
   const needsHt = () => hasHt() || wiz.goal === "blechHt";
   const patching = () => wiz.goal === "blech" || wiz.goal === "blechHt";
   const pickList = (id, label, items) => {
@@ -291,24 +303,32 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     ul.setAttribute("aria-label", label);
     return ul;
   };
-  const wizDevices = pickList("cee-patch-wiz-devices", t("patcher.wiz.device"), WIZ_DEVICES.map(([id, tone, name, sub]) => {
+  const wizDevices = pickList("cee-patch-wiz-devices", t("patcher.wiz.device"), WIZ_DEVICES.map(([id, , name, sub]) => {
     const b = el("button", { type: "button", className: "cee-entry-step cee-device-card cee-patch-pick", id: `cee-patch-wiz-${id}` }, [
       e2Outline(t(name)), el("span", { className: "cee-device-card-text" }, [el("strong", { textContent: t(name) }), el("span", { textContent: t(sub) })]),
     ]);
-    b.dataset.device = tone;
-    b.addEventListener("click", () => { wiz.device = id; wiz.goal = null; wizGo(1); });
+    b.dataset.device = id;
+    b.addEventListener("click", () => { wiz.device = id; wiz.firmware = null; wiz.goal = null; wizGo(1); });
     return el("li", {}, [b]);
   }));
+  const wizFirmwares = pickList("cee-patch-wiz-firmwares", t("patcher.wiz.firmware"), []);
+  function renderFirmwares() {
+    wizFirmwares.replaceChildren(...Object.entries(WIZ_FIRMWARES).map(([id, [name, sub]]) => {
+      const b = el("button", { type: "button", className: "cee-entry-step cee-patch-pick", id: `cee-patch-wiz-fw-${id}` }, [el("strong", { textContent: t(name) }), el("span", { textContent: t(sub()) })]);
+      b.addEventListener("click", () => { wiz.firmware = id; wiz.goal = null; wizGo(2); });
+      return el("li", {}, [b]);
+    }));
+  }
   const wizGoals = pickList("cee-patch-wiz-goals", t("patcher.wiz.goal"), []);
   const GOALS = {
     blech: ["patcher.wiz.blech", () => (hasHt() ? "patcher.wiz.becomes.ht" : "patcher.wiz.becomes")],
     blechHt: ["patcher.wiz.blechHt", () => "patcher.wiz.becomes.ht"],
     update: ["patcher.wiz.update", () => "patcher.wiz.update.note"],
   };
+  // what fits the firmware on it: the update only where BLECH runs, Hacktribe on top of Hacktribe is the same file
+  const GOALS_FOR = { korg: ["blech", "blechHt"], ht: ["blech"], blech: ["update", "blech", "blechHt"], blechHt: ["update", "blech"] };
   function renderGoals() {
-    // Hacktribe on top of Hacktribe is the same file: a device that has it gets BLECH and the update only
-    const ids = hasHt() ? ["blech", "update"] : ["blech", "blechHt", "update"];
-    wizGoals.replaceChildren(...ids.map(id => {
+    wizGoals.replaceChildren(...(GOALS_FOR[wiz.firmware] ?? []).map(id => {
       const [name, sub] = GOALS[id];
       const b = el("button", { type: "button", className: "cee-entry-step cee-patch-pick", id: `cee-patch-wiz-${id}` }, [el("strong", { textContent: t(name) }), el("span", { textContent: t(sub()) })]);
       b.addEventListener("click", () => pickGoal(id));
@@ -317,6 +337,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   }
   const wizPanels = [
     [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.device") }), wizDevices, el("p", { className: "muted", id: "cee-patch-wiz-card", textContent: t("patcher.wiz.card") })],
+    [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.firmware") }), wizFirmwares],
     [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.goal") }), wizGoals, el("p", { className: "muted", id: "cee-patch-wiz-keeps", textContent: t("patcher.wiz.keeps") })],
   ].map((children, i) => el("div", { className: "cee-patch-panel", id: `cee-patch-wiz-${i + 1}`, tabIndex: -1, hidden: i > 0 }, children));
   const orLine = el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: t("patcher.or") });
@@ -358,10 +379,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   }
   function wizGo(to) {
     wiz.step = to;
-    if (to === 1) renderGoals();
-    if (to === 2) view = 0;
+    if (to === 1) renderFirmwares();
+    if (to === 2) renderGoals();
+    if (to === WAY) view = 0;
     render();
-    const panel = to < 2 ? wizPanels[to] : panels[view];
+    const panel = to < WAY ? wizPanels[to] : panels[view];
     panel.focus({ preventScroll: true });
     panel.scrollIntoView?.({ block: "nearest" });
   }
@@ -370,7 +392,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   function pickGoal(goal) {
     wiz.goal = goal;
     fetchHt.checked = needsHt();
-    wizGo(2);
+    wizGo(WAY);
     fitFlow();
     if (fetchHt.checked) fetchHacktribe();
   }
@@ -384,11 +406,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   back.addEventListener("click", () => {
     if (allowed(flow).busy) return;
-    if (wiz.step < 2) { if (wiz.step > 0) wizGo(wiz.step - 1); return; }
+    if (wiz.step < WAY) { if (wiz.step > 0) wizGo(wiz.step - 1); return; }
     if (view > 0) go(view - 1);
-    else wizGo(wiz.goal ? 1 : 0);
+    else wizGo(wiz.goal ? 2 : 0);
   });
-  next.addEventListener("click", () => { if (wiz.step === 2 && view < reach() && !allowed(flow).busy) go(view + 1); });
+  next.addEventListener("click", () => { if (wiz.step === WAY && view < reach() && !allowed(flow).busy) go(view + 1); });
 
   async function loadPatches(build = input ? buildOf(input) : "hacktribe") {
     const setUrl = build === "synth" ? BLECH_SYNTH_SET_URL : BLECH_SET_URL;
@@ -477,7 +499,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     // A result is told once, as a toast; the line is only for the run itself.
     const result = passed_ ? [t("patcher.passed"), "ok"] : can.busy ? null : flow.error ? [t(flow.error), "error"] : failed ? [failed, "error"] : null;
     const key = result ? `${flow.phase}|${result[0]}` : null;
-    if (key !== toasted) { toasted = key; if (result) toast(result[0], result[1]); }
+    // an error's "Blechy fragen" goes straight to what this failure means
+    if (key !== toasted) { toasted = key; if (result) toast(result[0], result[1], failure ? { help: failure.group ? `test:${failure.group}` : "test" } : {}); }
   }
 
   /** One short line for a check that ran and did not pass; the list of all checks sits behind the disclosure. */
@@ -497,7 +520,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       if (state === "current") li.setAttribute("aria-current", "step");
       return li;
     }));
-    const inWiz = wiz.step < 2;
+    const inWiz = wiz.step < WAY;
     wizPanels.forEach((p, i) => { p.hidden = wiz.step !== i; });
     way.hidden = inWiz;
     panels.forEach((p, i) => { p.hidden = inWiz || i !== view; });
@@ -538,13 +561,15 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
     // A new file brings a new verdict: the toast of the old one goes, so two verdicts never stand side by side.
-    if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true }) : () => {}; }
+    if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true, help: "normal:patch" }) : () => {}; }
     toldVerdict = v?.text ?? "";
     routeBox.hidden = flow.origin !== "stock" || !!updating;
     synthSet.hidden = flow.origin !== "synth";
     blueHacktribe.hidden = flow.origin !== "synth";
-    // shown for every file, so the Electribe the copy is for is in view before anything is written; chosen only with Hacktribe
-    deviceBox.hidden = !flow.origin;
+    // The wizard's first page already names the Electribe: asked again only when the file came in without it,
+    // or when the file or the cable says another one than the user named.
+    const named = !!wiz.device && flow.device === hwOf() && !(cable && cable !== flow.device);
+    deviceBox.hidden = !flow.origin || named;
     for (const d of deviceInputs) { d.radio.checked = d.value === flow.device; d.radio.disabled = can.busy || !choosesDevice(flow); }
     deviceNote.textContent = !flow.origin ? "" : [
       !choosesDevice(flow) ? (flow.device === "blue" ? t("patcher.device.only.blue") : t("patcher.device.only.red")) :
@@ -760,7 +785,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     original = bytes;
     stockFile = kind.kind === "stock" && !updating ? { bytes, kind } : null;
     passed = null;
-    wiz.step = 2;
+    wiz.step = WAY;
     dispatch({ type: "input", input: kind });
     fitFlow();
     await askCable();
@@ -852,6 +877,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     if (!allowed(flow).patch) return;
     dispatch({ type: "patching", patches: planItems() });
     passed = null;
+    failure = null;
     try {
       const items = planItems();
       await tick();
@@ -869,6 +895,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
           const own = res.reasons.filter(r => r.startsWith(`${p.id}:`)).map(r => r.slice(p.id.length + 2));
           dispatch({ type: "patch", id: p.id, ok: false, detail: own.length ? own.join(" ") : t("patcher.patch.waiting") });
         }
+        failure = { group: "patch" };
         throw new Error(t("patcher.patch.failed", { reasons: res.reasons.join(" ") }));
       }
       for (const p of items) {
@@ -888,8 +915,14 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       const report = (testChoice === "quick" ? await verifiedReport(from, res.bytes, await loadVerified(), hardware) : null)
         ?? await emulator.check(from, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: testChoice === "quick", hardware });
       if (report.ok) passed = res.bytes;
+      // a red check no group knows still is a red test: Blechy then asks which kind it was
+      failure = report.ok ? null : testFailure(report) ?? { group: null };
+      onTest(failure);
       dispatch({ type: "checked", report });
     } catch (e) {
+      // the patching stopped, or the emulator did not run the test
+      failure ??= { group: "run" };
+      onTest(failure);
       dispatch({ type: "error", message: e.message });
     }
   }
@@ -952,7 +985,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   usbGet.addEventListener("click", async () => {
     const s = session();
-    if (!s) { toast(t("patcher.usb.notConnected"), "error"); return; }
+    if (!s) { toast(t("patcher.usb.notConnected"), "error", { help: "notfound" }); return; }
     usbGet.disabled = true;
     usbNote.hidden = false;
     try {
@@ -974,7 +1007,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   usbPut.addEventListener("click", async () => {
     const s = session();
     if (!passed || !allowed(flow).download) return;
-    if (!s) { toast(t("patcher.usb.notConnected"), "error"); return; }
+    if (!s) { toast(t("patcher.usb.notConnected"), "error", { help: "notfound" }); return; }
     usbPut.disabled = true;
     usbNote.hidden = false;
     try {

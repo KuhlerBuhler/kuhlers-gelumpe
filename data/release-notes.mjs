@@ -4,6 +4,11 @@
  */
 export const RELEASE_NOTES = Object.freeze([
   {
+    "version": "1.4.2",
+    "de": "BLECH 1.4.2 und die App 1.4.2.\n\n**Behoben**\n- Der volle Test im Patcher schlug bei manchen auch mit 1.4.1 noch in der Startphase fehl. Grund: Unter Windows konnte der Emulator-Dienst der alten Version nach dem Beenden der App weiterlaufen, und die neue App hat sich an diesen alten Dienst gehängt, mit dem alten Fehler. Die App nimmt jetzt nur noch einen Dienst ihrer eigenen Version, einen alten beendet sie und startet ihren eigenen. Der Dienst beendet sich unter Windows außerdem sicher, wenn die App weg ist. BLECH selbst ist bis auf die Versionsnummer gleich wie 1.4.1.",
+    "en": "BLECH 1.4.2 and the app 1.4.2.\n\n**Fixed**\n- For some users the full check in the patcher still failed in the start phase with 1.4.1. The cause: on Windows the emulator service of the old version could keep running after the app ended, and the new app attached to that old service, with the old fault. The app now only uses a service of its own version; it ends an old one and starts its own. On Windows the service also reliably ends when the app is gone. BLECH itself is the same as 1.4.1 apart from the version number."
+  },
+  {
     "version": "1.4.1",
     "de": "BLECH 1.4.1 und die App 1.4.1.\n\n**Behoben**\n- Der volle Test im Patcher schlug auf Hacktribe-Dateien fehl (Startphase), und die App spielte deshalb nichts auf die Electribe. Der Fehler lag im Test selbst, nicht in der Firmware: eine Zeitmessung im Emulator ließ eine Einstellung zurück, nach der der Start im Emulator etwas früher fertig war als erwartet. BLECH selbst ist bis auf die Versionsnummer gleich wie 1.4.0.",
     "en": "BLECH 1.4.1 and the app 1.4.1.\n\n**Fixed**\n- The full check in the patcher failed on Hacktribe files (start phase), so the app put nothing onto the Electribe. The fault was in the check itself, not in the firmware: a timing measurement in the emulator left a setting behind that made the start in the emulator finish a bit earlier than expected. BLECH itself is the same as 1.4.0 apart from the version number."

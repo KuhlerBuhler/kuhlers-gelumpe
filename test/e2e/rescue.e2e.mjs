@@ -330,10 +330,49 @@ test("old patterns after an export: WRITE first, the folder KORG/blechtribe, the
   assert.deepEqual(page.errors, []);
 });
 
+test("a red test in the patcher: what each kind means, the advice of a normal firmware with Korg's and Hacktribe's links", async () => {
+  const page = await open();
+  await answer(page, CASES.find(c => c.id === "app").label);
+  await answer(page, "Der Test im Patcher wird rot oder läuft nicht");
+  assert.deepEqual(await page.locator("#cee-rescue-answers button .cee-rescue-answer").allTextContents(),
+    ["Das Patchen selbst klappt nicht", "Kopf, DSP-Programm oder Startphase", "Start oder ein Rettungsweg", "Der Test einer Funktion", "Der Test läuft gar nicht"]);
+  await answer(page, "Das Patchen selbst klappt nicht");
+  await settle(page);
+  const chat = await page.locator("#cee-rescue-chat").textContent();
+  assert.match(chat, /andere Bytes|andere, hört er auf/);
+  assert.match(chat, /Nimm als Eingabe eine normale Firmware/);
+  const links = await page.locator("#cee-rescue-chat a").evaluateAll(list => list.map(a => a.href));
+  for (const l of [rescue.LINKS.hacktribe, rescue.LINKS.korgRed, rescue.LINKS.korgBlue]) assert.ok(links.includes(l), l);
+  await answer(page, "Mit normaler Firmware immer noch rot");
+  await settle(page);
+  assert.match(await page.locator("#cee-rescue-chat").textContent(), /Screenshot vom Patcher[\s\S]*Kuhler Buhler/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("any error toast carries Blechy fragen: the page opens with the error quoted and asks what in the app sticks", async () => {
+  const page = await h.page();
+  await page.goto(h.url);
+  await page.evaluate(() => import(new URL("app/toast.mjs", document.baseURI).href).then(m => m.toast("Etwas ist schiefgegangen.", "error")));
+  const box = page.locator("#app-toasts .cee-toast", { hasText: "Etwas ist schiefgegangen." });
+  assert.equal(await box.locator(".cee-toast-help").textContent(), "Blechy fragen");
+  await box.locator(".cee-toast-help").click();
+  await page.locator("#cee-rescue-quote").waitFor();
+  await box.waitFor({ state: "detached" });
+  assert.equal(await page.locator("#cee-rescue-quote").textContent(), "Etwas ist schiefgegangen.");
+  await settle(page);
+  assert.equal(await page.locator("#cee-rescue-answers button", { hasText: "Der Test im Patcher wird rot oder läuft nicht" }).count(), 1, "the app's question follows");
+  assert.equal(await page.locator("#app-toasts .cee-toast-help").count(), 0);
+  const info = await page.evaluate(() => import(new URL("app/toast.mjs", document.baseURI).href).then(m => { m.toast("Nur eine Info.", "info"); return document.querySelectorAll("#app-toasts .cee-toast-help").length; }));
+  assert.equal(info, 0, "only errors ask Blechy");
+  assert.deepEqual(page.errors, []);
+});
+
 test("a red full check in the browser: the flash.bin of older apps, then the log", async () => {
   const page = await open();
   await answer(page, CASES.find(c => c.id === "app").label);
-  await answer(page, "Die volle Prüfung im Patcher wird rot");
+  await answer(page, "Der Test im Patcher wird rot oder läuft nicht");
+  await answer(page, "Der Test einer Funktion");
+  await answer(page, "Mit normaler Firmware immer noch rot");
   assert.match(await said(page), /Ab Version 1\.3\.7/, "the browser has no app version, so both cases are named");
   assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "~/.gelumpe/flash/flash.bin");
   await answer(page, "Immer noch rot");

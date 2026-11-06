@@ -13,12 +13,14 @@ const knobName = id => id.replace(/([a-z])([A-Z0-9])/g, "$1_$2").toUpperCase();
 /** `korg.knobs.LEVEL`: the knob names, from the panel table, as the index the knob event and korg.read.knob use. */
 export const KNOB_NAMES = Object.freeze(KNOBS.map(k => Object.freeze({ name: knobName(k.id), value: k.index, label: k.label })));
 
-const p = (path, read, write, text, range = null) => Object.freeze({ path, read, write, text, range });
+const p = (path, read, write, text, range = null, since = 0) => Object.freeze({ path, read, write, text, range, since });
 
 export const PROPERTIES = Object.freeze([
   p("korg.tempo", ["korg.read.tempo", []], ["korg.tempo", ["value"]], text("api.property.tempo")),
   p("korg.transport", ["korg.read.transport", []], null, text("api.property.transport")),
   p("korg.selectedPattern", ["korg.read.pattern", []], ["korg.pattern", ["value"]], text("api.property.selectedPattern")),
+  p("korg.viewedPattern", ["korg.read.viewedPattern", []], null, text("api.property.viewedPattern")),
+  p("korg.nextPattern", ["korg.read.nextPattern", []], null, text("api.property.nextPattern")),
   p("korg.selectedPart", ["korg.read.part", []], ["korg.part", ["value"]], text("api.property.selectedPart")),
   p("korg.parts[].step", ["korg.read.step", ["index"]], null, text("api.property.parts.step")),
   p("korg.parts[].muted", ["korg.read.mute", ["index"]], ["korg.mute", ["index", "value"]], text("api.property.parts.muted")),
@@ -31,7 +33,7 @@ export const PROPERTIES = Object.freeze([
   ...PART_FIELDS.map((f, i) => p(`korg.parts[].${f.name}`, ["korg.read.patternValue", [-1, "index", i]],
     PART_WRITES[f.name] ? ["korg.seq.setPartValue", ["index", i, "value"]] : null, text("api.property.parts", { field: f.text }))),
   // the object tree (data/script/objects.mjs): one call each way with the leaf's id, the runtime checks the range; actions are calls
-  ...OBJECTS.filter(o => !o.action).map(o => p(o.path, ["korg.get", [o.id, -1]], o.write ? ["korg.set", [o.id, -1, "value"]] : null, o.text, [o.min, o.max])),
+  ...OBJECTS.filter(o => !o.action).map(o => p(o.path, ["korg.get", [o.id, -1]], o.write ? ["korg.set", [o.id, -1, "value"]] : null, o.text, [o.min, o.max], o.since)),
 ]);
 
 export const PROPERTY_BY_PATH = new Map(PROPERTIES.map(x => [x.path, x]));

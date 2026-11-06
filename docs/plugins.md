@@ -239,6 +239,8 @@ Rumpf.
 | `korg.tempo` | Tempo in Zehntel BPM, 1280 ist 128,0 | 100 bis 3000 | `korg.read.tempo()`, `korg.tempo(x)` |
 | `korg.transport` | 0 Stop, 1 Play, 2 Pause, 3 REC bereit, 4 Aufnahme | nein, dafür `korg.play()` und `korg.stop()` | `korg.read.transport()` |
 | `korg.selectedPattern` | gewähltes Pattern, 0 bis 249 | wählt ein anderes | `korg.read.pattern()`, `korg.pattern(x)` |
+| `korg.viewedPattern` | Pattern, das das Display zeigt, 0 bis 249 (ab API Version 18). Das Rad durchblättert beim Spielen ein anderes, das Display zeigt dann dieses, das spielende läuft weiter | nein | `korg.read.viewedPattern()` |
+| `korg.nextPattern` | nächstes Pattern, das der Patternwechsel bestätigt hat und das am Ende der Sequenz startet, 0 bis 249; -1, wenn keins wartet (ab API Version 18) | nein | `korg.read.nextPattern()` |
 | `korg.selectedPart` | gewählter Part, 0 bis 15, 16 für alle | 0 bis 15 | `korg.read.part()`, `korg.part(x)` |
 | `korg.parts[i].step` | Schrittzähler des Parts, 0 bis 63 | nein | `korg.read.step(i)` |
 | `korg.parts[i].muted` | 1, wenn der Part stumm ist | 1 stumm, 0 an | `korg.read.mute(i)`, `korg.mute(i, x)` |
@@ -302,6 +304,50 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.system.repairs` | wie viele Werte seit dem Start geklemmt oder zurückgesetzt wurden | nein | 0 bis 2147483647 |
 | `korg.system.testMode` | ob der Test-Modus an ist: Display, Licht und alle LEDs dunkel, Auto Power Off angehalten | nein, nur über USB; nur im RAM, nach einem Neustart aus | 0 (aus) bis 1 (an) |
 | `korg.system.keepAwake()` | (ein Aufruf, kein Wert) | startet die 4 Stunden von Auto Power Off neu, wie eine Taste am Gerät | |
+| `korg.menu.blech.customizations.display.red` | Rotanteil des Display-Lichts (die Seiten BACKLIGHT HUE, SAT und BRIGHT zeigen ihn als Farbton, Sättigung, Helligkeit); alle drei auf 0 ist das Weiß der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.display.green` | Grünanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.display.blue` | Blauanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.display.invert` | Display invertiert (1), wie die Seite DISPLAY INVERT | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.customizations.led.mode` | untere LEDs: 0 Meter, 1 Farbe, 2 aus (Seite BOTTOM LEDS) | ja, wirkt sofort wie die Seite | 0 bis 2 |
+| `korg.menu.blech.customizations.led.red` | Rotanteil der unteren LEDs (Seiten LED HUE, SAT, BRIGHT); alle drei auf 0 sind die Farben der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.led.green` | Grünanteil der unteren LEDs | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.led.blue` | Blauanteil der unteren LEDs | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.led.meter.still` | Farbe von METER STILL: 0 Firmware, 1 bis 7 weiß, rot, grün, blau, gelb, cyan, rosa, 8 Regenbogen, 9 aus | ja, wirkt sofort wie die Seite | 0 bis 9 |
+| `korg.menu.blech.customizations.led.meter.low` | Farbe von METER LOW: 0 Firmware, 1 bis 7 wie oben | ja, wirkt sofort wie die Seite | 0 bis 7 |
+| `korg.menu.blech.customizations.led.meter.mid` | Farbe von METER MID: 0 Firmware, 1 bis 7 wie oben | ja, wirkt sofort wie die Seite | 0 bis 7 |
+| `korg.menu.blech.customizations.led.meter.loud` | Farbe von METER LOUD: 0 Firmware, 1 bis 7 wie oben, 8 Regenbogen | ja, wirkt sofort wie die Seite | 0 bis 8 |
+| `korg.menu.blech.customizations.padColor.part` | PAD COLOR: 0 rot, 1 blau, 2 rosa; nie gleich SELECT COLOR, ein Schreiben, das beide gleich machen würde, vertauscht sie | ja, wirkt sofort wie die Seite | 0 bis 2 |
+| `korg.menu.blech.customizations.padColor.select` | SELECT COLOR: 0 rot, 1 blau, 2 rosa; Regel wie bei PAD COLOR | ja, wirkt sofort wie die Seite | 0 bis 2 |
+| `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, Farbe eines Pads, das leuchtet und gewählt ist: 0 die Farbe, die bleibt, 1 rot, 2 blau, 3 rosa | ja, wirkt sofort wie die Seite | 0 bis 3 |
+| `korg.menu.blech.customizations.powerSave.displayLight` | DISPLAY LIGHT im Power Save: 0 das Dimmen der Firmware, 1 bis 15 Stärke des Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.powerSave.ledDimming` | LED DIMMING im Power Save als Schritt des Rads: 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100 Prozent gedimmt | ja, wirkt sofort wie die Seite | 0 bis 11 |
+| `korg.menu.blech.features.mfx2` | MFX 2 an (1); gilt ab dem nächsten Start, die Seite sagt das | ja | 0 bis 1 |
+| `korg.menu.blech.features.patternConfirm` | PATTERN CONFIRM: der Patternwechsel wartet auf einen zweiten Druck (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.tapMotion` | TAP MOTION: 0 aus, 1 an, 2 einmal | ja, wirkt sofort wie die Seite | 0 bis 2 |
+| `korg.menu.blech.features.noteAssist` | NOTE ASSIST: die Pads zeigen die Noten, die passen (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.lastPattern` | LAST PATTERN: beim Einschalten das zuletzt gewählte Pattern öffnen (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.stereo1Pad` | STEREO 1 PAD: ein Stereo-Sample belegt nur seinen eigenen Pad (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.initPattern` | SET INIT PATTERN: das Pattern, das INITIALIZE PATTERN kopiert; 0 die Vorlage der Firmware | ja, wirkt sofort wie die Seite | 0 bis 250 |
+| `korg.menu.blech.write()` | (ein Aufruf, kein Wert) | schreibt die Einstellungen des Menüs BLECH auf die Karte wie WRITE auf einer Seite, siehe unten | |
+| `korg.global.triggerMode` | Seite TRIGGER MODE von GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
+| `korg.global.velocityCurve` | Seite VELOCITY CURVE von GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | ja, wie das Menü, über die Funktion der Firmware | 0 bis 3 |
+| `korg.global.clockMode` | Seite CLOCK MODE von GLOBAL PARAMETERS: 0 Internal, 1 Auto, 2 External USB, 3 External MIDI, 4 External Sync | ja, wie das Menü, über die Funktion der Firmware | 0 bis 4 |
+| `korg.global.midiChannel` | Seite GLOBAL MIDI CH. von GLOBAL PARAMETERS: 0 bis 15 für Kanal 1 bis 16 | ja, wie das Menü, über die Funktion der Firmware | 0 bis 15 |
+| `korg.global.receiveFilter` | Seite MIDI RECEIVE FILTER von GLOBAL PARAMETERS: 0 Off, 1 Short, 2 Short + Program | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
+| `korg.global.sendFilter` | Seite MIDI SEND FILTER von GLOBAL PARAMETERS: 0 Off, 1 Short, 2 Short + Program | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
+| `korg.global.syncPolarity` | Seite SYNC POLARITY von GLOBAL PARAMETERS: 0 Hi, 1 Lo | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.syncResolution` | Seite SYNC UNIT von GLOBAL PARAMETERS: 0 1 Step, 1 2 Steps | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.metronome` | Seite METRONOME von GLOBAL PARAMETERS: 0 Off, 1 Rec 0, 2 Rec 1, 3 Rec 2, 4 On | ja, wie das Menü, über die Funktion der Firmware | 0 bis 4 |
+| `korg.global.tempoLock` | Seite TEMPO LOCK von GLOBAL PARAMETERS: 0 Off, 1 On | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.knobMode` | Seite KNOB MODE von GLOBAL PARAMETERS: 0 Jump, 1 Catch, 2 Value Scale | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
+| `korg.global.touchScaleRange` | Seite TOUCH SCALE RANGE von GLOBAL PARAMETERS: Oktaven, 0 spielt nur den Grundton | ja, wie das Menü, über die Funktion der Firmware | 0 bis 4 |
+| `korg.global.lcdContrast` | Seite LCD CONTRAST von GLOBAL PARAMETERS: 18 bis 42, das Display zeigt 1 bis 25 | ja, wie das Menü, über die Funktion der Firmware | 18 bis 42 |
+| `korg.global.audioInThru` | Seite AUDIO IN THRU von GLOBAL PARAMETERS: 0 Off, 1 On | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.batteryType` | Seite BATTERY TYPE von GLOBAL PARAMETERS: 0 Ni-MH, 1 Alkali | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.autoPowerOff` | Seite AUTO POWER OFF von GLOBAL PARAMETERS: 0 Disable, 1 4 hours | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.powerSave` | Seite POWER SAVE MODE von GLOBAL PARAMETERS: 0 Disable, 1 Auto, 2 Enable | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
+| `korg.global.patternChangeLock` | Seite PTN. CHANGE LOCK von GLOBAL PARAMETERS: 0 Off, 1 On | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
+| `korg.global.chainMode` | Seite CHAIN MODE von GLOBAL PARAMETERS: 0 Off, 1 On | ja, wie das Menü, über die Funktion der Firmware | 0 bis 1 |
 
 ```js
 // Licht aus, solange die App offen ist, danach wieder wie vorher.
@@ -316,6 +362,33 @@ korg.onEvent("close", () => {
 });
 ```
 
+**Die Seiten von BLECH (API 17).** Alle Seiten von CUSTOMIZATION und FEATURES haben ein Blatt, dazu das
+Blatt SET INIT PATTERN aus DATA UTILITY. Ein Blatt dieser Gruppe braucht API 17. Jede Schreibung ruft die Anwendefunktion, die
+auch die Seite nimmt: die Look-Seiten setzen Licht, LEDs und Display neu, PAD COLOR, SELECT COLOR, OVERLAP und LED DIMMING gehen
+durch den Patch der Pad-Farben, PATTERN CONFIRM, TAP MOTION und NOTE ASSIST setzen zusätzlich das Wort, das ihr Patch liest.
+Danach zeigt die Seite den neuen Wert. Die Farben zeigen die Seiten als Farbton, Sättigung und Helligkeit, gespeichert und
+darum als Blatt sichtbar sind Rot, Grün und Blau mit je 0 bis 15. Ein Wert, den ein Patch nie geschrieben hat (LAST PATTERN,
+STEREO 1 PAD), liest sich als Werkswert, wie der Patch ihn behandelt. Nicht als Blatt stehen die Aktionen der Seiten
+(SPLASH IMPORT, DRAW und RESET, die Exporte), PLUGIN RUNTIME (ein Plugin, das seine eigene Laufzeit ausschaltet, ließe das
+Gerät beim nächsten Start ohne Plugins) und SYNC GROUP (eine Einstellung des Patterns).
+
+**Nur im RAM, bis WRITE.** Die Werte gelten sofort, liegen aber nur im RAM. Auf die Karte kommen sie mit WRITE auf einer Seite
+des Menüs BLECH (die Datei `settings.a.bin` oder `settings.b.bin`), vorher nicht; nach einem Neustart gilt, was zuletzt
+geschrieben wurde. Ausnahme ist SET INIT PATTERN: es liegt in den Global-Einstellungen der Firmware, die das Gerät beim
+Ausschalten speichert. `korg.menu.blech.write()` schreibt die Einstellungsdatei aus dem Plugin, wie WRITE es tut. Es fragt nur
+an: geschrieben wird einen Moment später, nur solange der Hauptbildschirm oder BLECH offen ist, und frühestens 2 Sekunden nach
+dem letzten Schreiben, weitere Aufrufe davor bleiben eine Anfrage. Ohne Karte oder bei einem Fehler passiert nichts weiter, wie
+bei WRITE im Menü. Ein Plugin sollte es sparsam rufen, etwa wenn es einen Wert gesetzt hat, den der Anwender behalten soll.
+
+```js
+// Beim Öffnen der App das Display umkehren und die Einstellung behalten.
+korg.app("Invert", "TOOLS");
+korg.onEvent("open", () => {
+  korg.menu.blech.customizations.display.invert = 1 - korg.menu.blech.customizations.display.invert;
+  korg.menu.blech.write();
+});
+```
+
 Der Test-Modus lässt das Gerät aussehen wie ausgeschaltet, während es läuft: Display aus, Display-Licht aus,
 jede LED auf 0, auch wenn die Firmware, Blechy oder ein anderes Plugin sie setzt, und Auto Power Off schaltet
 nicht ab. Das Gerät nimmt weiter Tasten, Regler und Pads an, und sein Bild lässt sich über USB lesen. Nur der
@@ -323,7 +396,46 @@ Rechner schaltet ihn, über USB ([Test-Modus](test-modus.md)); ein Plugin liest 
 keines das Gerät bei jedem Start dunkel lassen kann. Beim Ausschalten kommen Licht und LEDs zurück, wie sie ohne
 Test-Modus wären; eine LED, die ein Plugin inzwischen gesetzt hat, zeigt dessen Wert.
 
-Weitere Zweige (`korg.global`, `korg.patterns`, `korg.parts`, die übrigen Seiten von BLECH) kommen mit den
+**Die Globals (`korg.global`, API 20).** Zu jeder bekannten Seite von GLOBAL PARAMETERS gibt es ein Blatt, mit dem
+Namen der Seite in camelCase und den Werten, die das Gerät speichert (`korg.global.midiChannel` 0 bis 15 ist Kanal 1 bis 16).
+Die Bereiche sind die Grenzen des Menüs. Nicht im Baum sind die Kennungen am Anfang und Ende des Blocks, die Bytes, die
+kein Menü ändert, und die Plätze 247 bis 249, die Patches von BLECH belegen. Ein Plugin, das ein Blatt nennt, braucht API 20.
+
+Setzen ruft dieselbe Funktion der Firmware, die auch die Seite im Menü beim Drehen ruft: sie schreibt das Byte und meldet
+es an Klangerzeugung, Display und MIDI-Seite (bei `tempoLock` stellt sie danach das Tempo neu). Der Wert wirkt sofort, ohne
+Neustart; die Seite im Menü zeigt ihn, sobald sie neu gezeichnet wird, also wenn man sie öffnet. Bei `clockMode` lehnt die
+Firmware das Setzen ab, solange der Transport in ihrem Zustand 6 bis 9 ist, genau wie im Menü. Ein Wert außerhalb der Grenzen
+wird auf die nächste Grenze geklemmt und gezählt, ein gespeicherter Wert außerhalb wird beim Start repariert: auf die nächste
+Grenze, ohne die Funktion der Firmware zu rufen. Im Emulator gemessen auf Hacktribe, Korg rot und Korg blau
+([Messung](messungen/2026-11-05-plugin-api20-globals.md)); am Gerät nicht.
+
+**Speichern.** Dafür gibt es keinen Aufruf. Die Firmware speichert die Globals beim Ausschalten und bei WRITE auf der Seite
+GLOBAL PARAMETERS, wie sie auch das letzte Pattern behält. Ein Wert, den ein Plugin gesetzt hat, bleibt deshalb über den
+nächsten Neustart, auch wenn das Plugin dann nicht mehr läuft. Ein Plugin, das die Einstellung des Nutzers nur vorübergehend
+ändern will, setzt sie zurück, wie das Beispiel oben mit der Helligkeit.
+
+**Zustimmung.** Ein Plugin, das Globals setzt, braucht keine eigene Zustimmung. Ein fremdes Plugin (ein Block ohne das Bit
+"geprobt") läuft ohnehin erst nach WRITE=ALLOW; mit dieser Zustimmung darf es auch die Globals dauerhaft ändern. Wer WRITE=ALLOW gibt,
+erlaubt das also mit.
+
+```js
+// Metronom an und Kontrast eine Stufe höher, solange die App offen ist, danach wie vorher.
+let metro = 0;
+let contrast = 0;
+korg.app("Metronom", "TOOLS");
+korg.onEvent("open", () => {
+  metro = korg.global.metronome;
+  contrast = korg.global.lcdContrast;
+  korg.global.metronome = 4;
+  korg.global.lcdContrast = contrast + 1;
+});
+korg.onEvent("close", () => {
+  korg.global.metronome = metro;
+  korg.global.lcdContrast = contrast;
+});
+```
+
+Weitere Zweige (`korg.patterns`, `korg.parts`) kommen mit den
 nächsten Versionen; die alten Namen bleiben gültig.
 
 ### Timer (API 11, BLECHTRIBE 1.3.8)
@@ -411,6 +523,8 @@ Plugin mit einem Fehler.
 | `korg.read.transport()` | Zustand des Transports: 0 Stop, 1 Play, 2 Pause, 3 REC bereit, 4 Aufnahme | überall |
 | `korg.read.tempo()` | Tempo in Zehntel BPM (1600 gleich 160,0) | überall |
 | `korg.read.pattern()` | gewähltes Pattern, 0 bis 249 | überall |
+| `korg.read.viewedPattern()` | Pattern, das das Display zeigt, 0 bis 249: beim Blättern und nach MENU das angesehene (aus der Bank), sonst das spielende. Es folgt dem Pattern, das die Pads und die Info-Texte der Edit-Zeile zeigen. Ab API Version 18 | überall |
+| `korg.read.nextPattern()` | das bestätigte nächste Pattern, 0 bis 249, solange die Firmware es für das Sequenzende hält, sonst -1. Blättern allein (`VIEW:`) zählt nicht, erst MENU (`NEXT:`), und mit ausgeschaltetem PATTERN CONFIRM oder EXIT beim Einschalten bleibt es -1. Ab API Version 18 | überall |
 | `korg.read.part()` | gewählter Part 0 bis 15, 16 für alle | überall |
 | `korg.read.step(part)` | Schrittzähler des Parts, 0 bis 63 | überall |
 | `korg.read.mute(part)` | 1, wenn der Part gemutet ist | überall |
@@ -426,12 +540,13 @@ Plugin mit einem Fehler.
 | `korg.backlight(rot, gruen, blau)` | die drei Farben des Display Lichts ein (1) oder aus (0), über die GPIO Funktion der Firmware; auf Batterie mit Power Save "Auto" überschreibt die Dimm Routine der Firmware die Farbe laufend; hat der Nutzer im Menü eine Mischfarbe mit Pegeln zwischen 1 und 14 gewählt, überschreibt auch deren PWM die Farbe | wie `korg.led` |
 | `korg.menu.add(name, min, max, wert)` | legt eine Seite im Menü BLECH am Gerät an und gibt ihre Nummer zurück (-1, wenn alle 12 Plätze belegt sind). `name` höchstens 15 Zeichen, die Seite zeigt `wert` (in `min` bis `max` geklemmt, Betrag unter 100 Millionen) und den Plugin-Namen. Wird am Hauptrad gedreht, bekommt das Plugin `menu`(nummer, wert). Derselbe Name vom selben Plugin ist dieselbe Seite. `min` über `max` ist ein Argumentfehler | nur im Rumpf und in `ready` |
 | `korg.ledHold(an)` | 1 hält die Firmware davon ab, die Panel LEDs neu zu schreiben (Pads, Tasten, untere RGB LEDs zeigen dann, was das Plugin gesetzt hat), 0 gibt sie zurück und lässt die Firmware alle LEDs neu senden; fällt das letzte laufende Plugin aus, gibt die Laufzeit sie selbst zurück | wie `korg.led` |
-| `korg.padHold(an)` | 1 hält Pad-Anschläge von der Firmware fern: kein Klang, keine Änderung am Step, das Plugin bekommt `pad` aber weiter. Die Laufzeit setzt dafür das Pad-Bit der Maske, die der Eingangsfilter vor der Firmware liest. 0 gibt die Pads zurück; das tut die Laufzeit auch selbst, wenn eine App schließt und wenn kein Plugin mehr läuft. Das Loslassen folgt immer seinem Anschlag: wurde der Anschlag zurückgehalten, bleibt auch das Loslassen bei den Plugins, sonst geht es an die Firmware. Ab API Version 12 | wie `korg.led` |
-| `korg.knobHold(index, an)` | 1 hält die Bewegungen des Reglers `index` (0 bis 10, die Indizes stehen unter Regler, OSC EDIT ist 9) von der Firmware fern: der Parameter bleibt stehen, das Plugin bekommt `knob` aber weiter, mit dem Rohwert. 0 gibt den Regler zurück. Die Laufzeit gibt alle Regler auch selbst zurück, sobald das Plugin, das zuletzt einen gehalten hat, nicht mehr läuft; eine App, die schließt, gibt sie nicht zurück, ein Filter läuft auch ohne App. Gilt außerhalb des Menüs BLECH. Ab API Version 13 | wie `korg.led` |
+| `korg.padHold(an)` | 1 hält Pad-Anschläge von der Firmware fern: kein Klang, keine Änderung am Step, das Plugin bekommt `pad` aber weiter. Die Laufzeit setzt dafür das Pad-Bit der Maske, die der Eingangsfilter vor der Firmware liest. 0 nimmt den Halt dieses Plugins zurück; die Pads gehen erst an die Firmware zurück, wenn kein laufendes Plugin sie mehr hält (Abschnitt Eingaben fernhalten). Die Laufzeit gibt sie auch selbst zurück, wenn eine App schließt, und ein Plugin, das nicht mehr läuft, hält nichts mehr. Das Loslassen folgt immer seinem Anschlag: wurde der Anschlag zurückgehalten, bleibt auch das Loslassen bei den Plugins, sonst geht es an die Firmware. Ab API Version 12 | wie `korg.led` |
+| `korg.knobHold(index, an)` | 1 hält die Bewegungen des Reglers `index` (0 bis 10, die Indizes stehen unter Regler, OSC EDIT ist 9) von der Firmware fern: der Parameter bleibt stehen, das Plugin bekommt `knob` aber weiter, mit dem Rohwert. 0 nimmt den Halt dieses Plugins zurück; ein Regler bleibt der Firmware verborgen, solange irgendein laufendes Plugin ihn hält. Ein Plugin, das nicht mehr läuft, hält nichts mehr; eine App, die schließt, gibt die Regler nicht zurück, ein Filter läuft auch ohne App. Gilt außerhalb des Menüs BLECH. Ab API Version 13 | wie `korg.led` |
 | `korg.passKeys(taste, an)` | solange eine App offen ist, hält der Eingangsfilter die Tasten von der Firmware fern, außer REC, STOP, PLAY und EXIT. 1 lässt die Taste `taste` (0 bis 33, am besten ein Name wie `korg.key.PART_MUTE`) trotzdem zur Firmware, 0 hält sie fern, auch REC, STOP und PLAY. Das Plugin bekommt `buttonPress` und `buttonRelease` in beiden Fällen. Das Loslassen folgt seinem Anschlag wie bei `korg.padHold`. EXIT schließt die App immer. Schließt die App, gilt wieder die Vorgabe. Ab API Version 14 | wie `korg.led` |
 | `korg.touchLockX(x)` | hält das X des Touchpads, das die Firmware sieht, auf `x` (0 bis 127), Y bleibt das des Fingers; -1 lässt los. Im Modus Master FX und Touch Scale rechnet die Firmware in Schritten von 2, `x` wird auf gerade abgerundet (127 ist 126); im Modus Gate Arp sieht sie `x` genau. Ein Finger am rohen X `r` ist `x = r >> 3`. Das Plugin bekommt `touch` weiter mit dem echten X. Gilt ab der nächsten Touch-Nachricht und außerhalb des Menüs BLECH. Die Laufzeit lässt auch selbst los, sobald das Plugin nicht mehr läuft. Im Emulator gemessen auf Hacktribe, rot und blau, im Modus Master FX, Touch Scale und Gate Arp; am Gerät nicht. Ab API Version 15 | wie `korg.led` |
-| `korg.keyHold(taste, an)` | 1 hält die Taste `taste` (0 bis 33) von der Firmware fern, auch ohne offene App; das Plugin bekommt `buttonPress` und `buttonRelease` weiter. 0 gibt sie zurück. Das Loslassen folgt seinem Anschlag wie bei `korg.passKeys`. EXIT beendet das Plugin mit einem Fehler, Apps bleiben schließbar. Die Laufzeit gibt alle Tasten auch selbst zurück, sobald das Plugin, das zuletzt eine gehalten hat, nicht mehr läuft. Gilt außerhalb des Menüs BLECH. Im Emulator gemessen auf Hacktribe, rot und blau; am Gerät nicht. Ab API Version 15 | wie `korg.led` |
+| `korg.keyHold(taste, an)` | 1 hält die Taste `taste` (0 bis 33) von der Firmware fern, auch ohne offene App; das Plugin bekommt `buttonPress` und `buttonRelease` weiter. 0 nimmt den Halt dieses Plugins zurück, ein anderes Plugin kann die Taste weiter halten. Das Loslassen folgt seinem Anschlag wie bei `korg.passKeys`. EXIT beendet das Plugin mit einem Fehler, Apps bleiben schließbar. Ein Plugin, das nicht mehr läuft, hält keine Taste mehr. Seit API Version 19 hat jedes Plugin seine eigene Maske (`korg.keyMask`), `korg.keyHold` ändert nur ein Bit darin. Gilt außerhalb des Menüs BLECH. Im Emulator gemessen auf Hacktribe, rot und blau; am Gerät nicht. Ab API Version 15 | wie `korg.led` |
 | `korg.pressKey(taste)` | gibt der Firmware einen kurzen Druck der Taste `taste` (0 bis 33): der Anschlag geht sofort in die Warteschlange des Panels, das Loslassen im nächsten Frame, beides über denselben Weg wie die Tasten des Panels. Eine Markierung lässt beide an Umbelegung, `korg.keyHold`, App und Plugins vorbei, kein Plugin bekommt sie als `buttonPress`. Ein zweiter Druck, bevor das Loslassen raus ist, entfällt, eine volle Warteschlange verwirft den Druck. EXIT beendet das Plugin mit einem Fehler. Im Emulator gemessen auf Hacktribe, rot und blau (PLAY startet, STOP hält an); am Gerät nicht. Ab API Version 15 | wie `korg.led` |
+| `korg.keyMask(low, high)` | setzt die ganze Tastenmaske dieses Plugins: Bit n von `low` ist die Taste n (0 bis 31, `1 << korg.key.PLAY`), Bit n von `high` die Taste 32 + n (`high` 0 bis 3). Jede Taste in der Maske hält das Plugin von der Firmware fern wie `korg.keyHold(taste, 1)`, jede andere gibt es zurück, andere Plugins bleiben unberührt. Das Plugin bekommt `buttonPress` und `buttonRelease` weiter. EXIT in der Maske beendet das Plugin mit einem Fehler. Was bei zwei Plugins mit derselben Taste gilt, steht im Abschnitt Eingaben fernhalten. Im Emulator gemessen auf Hacktribe, rot und blau; am Gerät nicht. Ab API Version 19 | wie `korg.led` |
 | `korg.knob(index, wert)` | gibt der Firmware den Wert `wert` (0 bis 255) für den Regler `index` (0 bis 10), über ihre eigene Reglerfunktion, als hätte der Regler ihn gesendet. Zusammen mit `korg.knobHold` filtert ein Plugin einen Regler, der springt. `korg.read.knob` zeigt weiter den Wert des Panels. Ab API Version 13 | wie `korg.led` |
 | `korg.remapKey(von, nach)` | die Taste `von` kommt bei der Firmware und bei den Plugins als Taste `nach` an (beide 0 bis 33, am besten Namen wie `korg.key.PART_ERASE`), solange das Plugin läuft: der Eingangsfilter schreibt den Code in der Panel-Nachricht um, bevor die Firmware sie liest, die Firmware tut also genau, was sie mit `nach` tut. Es gilt eine Umlegung für alle Plugins, die letzte zählt; dieselbe Taste zweimal hebt sie auf. EXIT lässt sich nicht umlegen. Ab API Version 8 | nur im Rumpf und in `ready` |
 | `korg.seq.setStep(part, step, note, velocity)` | schreibt Step `step` (0 bis 63) von Part `part` (0 bis 15) im Pattern, das läuft: `note` 0 bis 127 mit `velocity` 1 bis 127 schaltet ihn an, mit dieser Note auf dem ersten Notenplatz (die anderen drei leer) und Trigger an; `note` -1 oder `velocity` 0 schaltet ihn aus. Das Gate bleibt, wie es ist. Ab API Version 9 | wie `korg.led` |
@@ -580,6 +695,26 @@ in jedem Rahmen haben möchte, fordert ihn in `frame` erneut an. Eine feste
 vorausgesetzt. Das eigenständige Hostmodell wird ausdrücklich über
 `ScriptRuntime` und dessen `api["korg.led"]` verbunden; es gibt keine
 versteckte globale Warteschlange.
+
+### Eingaben fernhalten (API 19)
+
+Ein Plugin nimmt der Firmware Tasten, Pads und Regler weg, damit sie nur das Plugin bekommt: `korg.keyMask` und
+`korg.keyHold` für Tasten, `korg.padHold` für die Pads, `korg.knobHold` für Regler. Jedes Plugin hat dafür seine eigene
+Maske, die Aufrufe ändern nur die des aufrufenden Plugins. Der Eingangsfilter der Laufzeit gibt jede Eingabe an alle
+laufenden Plugins, die einen Handler dafür haben, und entscheidet danach, ob sie die Firmware sieht.
+
+- **Zwei Plugins, dieselbe Taste:** beide bekommen die Taste, die Firmware bekommt sie nicht, solange **irgendein**
+  laufendes Plugin sie hält. Lässt eines los, hält das andere weiter. Für Pads und Regler gilt dasselbe.
+- **Ein Plugin hört auf** (abgeschaltet, mit Fehler beendet, entfernt): seine Masken zählen ab dem Ende des nächsten Rahmens
+  nicht mehr. Was nur dieses Plugin gehalten hat, geht an die Firmware zurück.
+- **Eine App schließt:** sie gibt die Pads aller Plugins zurück (wie bisher); Tasten und Regler bleiben gehalten.
+- **Das Loslassen folgt dem Anschlag:** ein Anschlag, der der Firmware vorenthalten wurde, hält auch sein Loslassen von ihr
+  fern, auch wenn der Halt dazwischen endet; ein Anschlag, der durchging, lässt sein Loslassen durch.
+- **EXIT** lässt sich nicht halten (`korg.keyHold` und `korg.keyMask` beenden das Plugin mit einem Fehler), Apps bleiben
+  schließbar.
+- **Gemessen:** im Emulator auf Hacktribe, rot und blau mit zwei Plugins (`tools/emu/plugin_api19_cases.py`); am Gerät nicht.
+  Die Beispiel-Plugins Gate Hold, Key Pads, Momentary Mute und Filter Toggle laufen unverändert weiter, sie nutzen
+  `korg.keyHold`, `korg.padHold` und `korg.knobHold`.
 
 ### Namen für Tasten und LEDs
 
@@ -964,7 +1099,7 @@ VERSION, die keine Gruppe ist:
 | CUSTOMIZATION | DISPLAY, LED, dazu PAD COLOR, POWER SAVE und SPLASH, wo der Satz sie hat; siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
 | TOOLS | wie GAMES |
-| VERSION | keine Gruppe: oben die Version des Satzes, mit dem die Firmware gepatcht wurde (`BLECH 1.3.7`, aus dem Patch `blech-version`), darunter die Firmware, für die das Menü gebaut ist (HACKTRIBE, KORG RED, KORG BLUE). ENTER, WRITE und das Rad ändern nichts |
+| VERSION | keine Gruppe: oben die Version des Satzes, mit dem die Firmware gepatcht wurde (`BLECH 1.3.7`, aus dem Patch `blech-version`), darunter die Firmware, für die das Menü gebaut ist (HACKTRIBE, KORG RED, KORG BLUE). In der dritten Zeile, was der Start mit `KORG/blechtribe/Presets/e2sFx.all` gemacht hat: "effects loaded" (geladen, IFX und MFX der Parts gleich neu an den DSP geschickt), "effects skipped" (beim Start übersprungen), "e2sFx.all wrong fw" (Datei für eine andere Firmware) oder "bad e2sFx.all"; leer ohne Datei. ENTER, WRITE und das Rad ändern nichts |
 
 Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem Wert ON oder OFF, das Hauptrad ändert ihn:
 
@@ -1010,7 +1145,7 @@ Die Seiten der Gruppen:
 | PAD COLOR, SELECT COLOR | RED, BLUE, PINK | die Farbe des gewählten Parts, nie die von PAD COLOR; leuchten beide, zeigt das Pad die Farbe von OVERLAP; BLUE ist die Vorgabe |
 | PAD COLOR, OVERLAP | AUTO, RED, BLUE, PINK | die Farbe eines Pads, das zugleich leuchtet und gewählt ist; AUTO ist die dritte Farbe, die weder PAD COLOR noch SELECT COLOR ist |
 | CUSTOMIZATION, SPLASH | ENTER | öffnet die drei Seiten des Startbilds; EXIT führt zurück auf SPLASH. Nur wo der Satz den Startbild-Editor hat |
-| SPLASH, SPLASH IMPORT | ENTER | liest `KORG/blechtribe/splash.bmp` (128 x 64 Pixel, 1 Bit je Pixel, unkomprimiert; gezeichnet wird die dunklere Farbe) und speichert es als Startbild wie WRITE im Startbild-Editor; ab dem nächsten Start zu sehen. Meldet "loaded", "no splash.bmp" oder "not 128x64 1 bit" (dann bleibt alles, wie es war). Nur wo der Satz den Startbild-Editor hat, also nicht auf der blauen |
+| SPLASH, SPLASH IMPORT | Rad, ENTER | zeigt die `.bmp`-Dateien direkt in `KORG/blechtribe/` (keine Unterordner, keine Namen mit Punkt vorn wie die `._` von macOS), das Rad blättert in der Reihenfolge des Ordners. ENTER liest die gezeigte Datei (128 x 64 Pixel, 1 Bit je Pixel, unkomprimiert; gezeichnet wird die dunklere Farbe) und speichert sie als Startbild wie WRITE im Startbild-Editor; ab dem nächsten Start zu sehen. Meldet "loaded", "no .bmp file" oder "not 128x64 1 bit" (dann bleibt alles, wie es war). Nur wo der Satz den Startbild-Editor hat, also nicht auf der blauen |
 | SPLASH, SPLASH DRAW | ENTER | öffnet den Startbild-Editor (eine Seite des Global-Bildschirms, die nur von hier aus erreichbar ist): Rad bewegt den Cursor nach links und rechts, mit gehaltenem SHIFT hoch und runter, MENU kippt das Pixel, gehalten malt es dessen neue Farbe überall hin, wo der Cursor langläuft, WRITE speichert, EXIT verlässt den Editor. Nur wo der Satz den Startbild-Editor hat |
 | SPLASH, SPLASH RESET | ENTER | verwirft das gespeicherte Startbild (Import oder Editor), ab sofort und bei jedem weiteren Start kommt wieder das Startbild der Firmware; die Seite sagt "original back". Nur wo der Satz den Startbild-Editor hat |
 | FEATURES, PATTERN CONFIRM | ON, OFF | ON: ein anderes Pattern, das am Rad gewählt wird, wartet beim Spielen auf MENU (ENTER) und startet am Sequenzende; OFF: die Firmware wie ohne den Patch Patternwechsel; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 2 der Flags in der Einstellungsdatei Die Taste MENU zeigt, wo man drücken muss: sie blinkt, solange ein Pattern nur angesehen ist (VIEW:, auch gestoppt mit ungespeicherten Änderungen), und leuchtet, sobald es bestätigt ist (NEXT:), bis zum Wechsel; danach ist sie wieder so, wie die Firmware sie hatte. Dabei zeigen die Pads und, nach EDIT, die Info-Texte (OSC, Pitch und so weiter) das Pattern, das angesehen oder bestätigt ist ([Messung](messungen/2026-10-25-pattern-ansicht.md)). Die Pads gehören dann diesem Pattern und haben eine eigene Farbe: PART MUTE schaltet seine Mutes, die es beim Wechsel mitnimmt ([Messung](messungen/2026-10-29-vorschau-pads.md)). Der erste Druck auf ein Pad holt den Part mit Copy Part sofort ins laufende Pattern, nicht stumm, ohne Wechsel; danach schaltet sein Pad ihn dort ([Messung](messungen/2026-10-30-vorschau-part-reinholen.md)). |

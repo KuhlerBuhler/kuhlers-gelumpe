@@ -53,6 +53,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [Modulationsarten, Stufe 2: was die übrigen Bytes eines Eintrags tun, im Emulator gemessen](2026-10-15-modulation-stufe2.md)
 - [FX-Katalog neu: Notenwerte der Delays, unbenutzte Bausteine, laute Distortion](2026-10-22-fx-katalog-neu.md)
 - [FX-Katalog: Pegel gegen die Werkspresets, sechs Kopien pro Steuerzeile](2026-10-29-fx-katalog-pegel.md)
+- [Effekte aus e2sFx.all beim Start an den DSP, Status unter VERSION, SPLASH IMPORT als Dateiliste, im Emulator](2026-11-05-effekte-start-splash-liste.md)
 
 
 ## SysEx und Transport
@@ -164,6 +165,10 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Synth-Filter auf Korgs Original: Tastenauswahl und Setter, Reihenfolge von Hacktribe, Muster mit Synth-Typ](2026-10-15-synth-filter.md)
 - [Würfeln am Gerät: SHIFT + PART ERASE würfelt eine Melodie für den gewählten Part, Step-Records im RAM, LAST STEP, Tonleitertabelle der Firmware, im Emulator geprüft](2026-10-16-wuerfeln.md)
 - [Plugin API 15: Pattern-Setter je Firmware, Bereich von MFX TYPE, Touchpad-X und Tastendruck, im Emulator](2026-11-03-plugin-api15.md)
+- [Plugin API 19: Tasten, Pads und Regler von mehreren Plugins gehalten, im Emulator](2026-11-05-plugin-api19.md)
+- [Plugin API 20: die Globals als Blätter von korg.global, Setter, Speichern, Reparatur beim Start, im Emulator](2026-11-05-plugin-api20-globals.md)
+- [Plugin API 17: alle Seiten von CUSTOMIZATION und FEATURES als Blätter, Schreiben mit WRITE, im Emulator](2026-11-05-plugin-api17-blech-menue.md)
+- [Plugin API 18: angesehenes und nächstes Pattern lesen, im Emulator](2026-11-05-plugin-api18.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
 

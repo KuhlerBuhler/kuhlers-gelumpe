@@ -156,6 +156,25 @@ Seite den Weg über die Farbe wie bei "Invalid File". Im Menü nennt sie die Ste
 
 Danach fragt die Seite, welche Firmware läuft, und legt die Datei in deren Ordner.
 
+**Blechy schaut auf die Karte.** Wo die Seite den Zielpfad nennt (`card:*` und `nofile:folder:*`), bietet sie "Zeig mir
+deine SD-Karte" an. Gewählt wird der oberste Ordner der Karte, nicht die Datei. Die Seite sucht jede `.VSB` bis sechs
+Ordner tief (ohne `._`-Dateien und Systemordner), liest nur Dateien mit genau 2.097.408 Bytes und erkennt am Kopf
+(`headOf` in `src/card-check.mjs`), ob sie für die rote (Sampler) oder die blaue ist, an der SHA-256, ob Blechy sie
+kennt. Gemeldet werden falscher Name (`SYSTEM (1).VSB`, `SYSTEM.VSB.VSB`), andere Schreibweise, falscher Ordner,
+falsche Größe, unbekannter Kopf und die Datei der anderen Electribe (offline, Code). Für `blechtribe` gilt jeder der zwei
+Köpfe, auf einer angesteckten roten nur der Sampler-Kopf.
+
+Nach einem Klick verschiebt Blechy die passende Datei an den Zielpfad. Er löscht nie etwas: liegt dort schon eine
+Datei, heißt sie danach `SYSTEM.VSB.old` (oder `.old2` usw.), und er sagt es. Ordner vergleicht er ohne Groß- und
+Kleinschreibung, eine reine Änderung der Schreibweise geht über einen freien Zwischennamen. Dass FAT dabei Groß- und
+Kleinschreibung nicht unterscheidet, ist hergeleitet. Wo die Karte steckt:
+
+- App: der Ordnerdialog und jedes Lesen und Verschieben laufen in der App (`src-tauri/src/card.rs`), nur innerhalb des
+  gewählten Ordners, ohne `..` und ohne Links zu folgen; ein belegtes Ziel lehnt sie ab.
+- Chrome und Edge: `showDirectoryPicker` mit Schreibrecht. Ohne `move()` am Datei-Handle kopiert die Seite, das
+  Original bleibt liegen, und Blechy sagt das.
+- Safari und Firefox: nur lesen (`webkitdirectory`). Blechy zeigt dieselben Schritte, die Person führt sie selbst aus.
+
 **Die App findet die Electribe nicht.** Die Seite liest den MIDI-Bericht der App selbst (`midiVerdict` in
 `site/app/midi-report.mjs`, ohne den Browser zu fragen) und den Modus oben in der App:
 
@@ -176,10 +195,28 @@ EXPORT PATTERN schreibt das gespeicherte Pattern, also erst WRITE; Exporte liege
 bleibt nach der Übernahme mit den alten Kopien stehen, auf der blauen gibt es keine Übernahme und `KORG/electribe/`
 bleibt; Gerätedateien tragen immer den 01.01.2014.
 
-**Die volle Prüfung im Patcher wird rot.** Auf das Gerät kommt dann nichts. Vor App 1.3.7 scheitern die Fälle der Patches
-an Patterns, die im Emulator gespeichert sind; ab 1.3.7 laufen sie auf einem leeren Flash (`tools/emu/check.py`,
-`test/emulator-check-flash.test.mjs`). Die Seite liest die Version der App: darunter, oder im Browser ohne Version,
-nennt sie `~/.gelumpe/flash/flash.bin` zum Umbenennen; sonst und danach bittet sie um `~/.gelumpe/emu.log`.
+**Der Test im Patcher wird rot oder läuft nicht.** Auf das Gerät kommt dann nichts. Blechy fragt, was der Patcher
+meldet, in fünf Gruppen (`testGroup` und `testFailure` in `data/rescue.mjs`, die Kennungen aus `tools/emu/check.py`):
+
+| Gruppe | Kennungen | Was es heißt |
+|---|---|---|
+| Patchen | kein Bericht, `patcher.patch.failed` (`src/patch.mjs`) | An einer Patch-Stelle stehen andere Bytes als in Korgs 2.02 oder Hacktribe 2.02 |
+| Start | `header`, `dsp_stream`, `start_phase` | Ein Patch hat etwas geändert, das beim Einschalten läuft |
+| Rettungswege | `boot:*`, `update_offer`, `panel_update`, `start_mode:*`, `kill_switch`, `dsp_boot_once` | Der Start oder ein Rettungsweg geht nicht mehr |
+| Funktion | Kennung mit Präfix eines Fall-Moduls, `menu:`, `pswitch:` usw. (`TEST_AREAS`) | Ein Fall von BLECHTRIBE ist rot |
+| Lauf | der Emulator startet nicht oder antwortet nicht | Die Datei kann nichts dafür |
+
+Bei den ersten vier ist der Rat derselbe: als Eingabe eine normale Firmware nehmen, Korgs Original 2.02 oder Hacktribe
+2.02, und den Test wiederholen. Der Patcher meldet seinen letzten roten Test an die Seite (`onTest`), Blechy markiert
+dann die passende Gruppe mit "Sagt die App". Bleibt eine Funktion mit normaler Firmware rot, geht es weiter wie früher
+bei der vollen Prüfung: Vor App 1.3.7 scheitern die Fälle der Patches an Patterns, die im Emulator gespeichert sind; ab
+1.3.7 laufen sie auf einem leeren Flash (`tools/emu/check.py`, `test/emulator-check-flash.test.mjs`). Die Seite liest die
+Version der App: darunter, oder im Browser ohne Version, nennt sie `~/.gelumpe/flash/flash.bin` zum Umbenennen; sonst und
+danach bittet sie um `~/.gelumpe/emu.log`.
+
+**Blechy fragen in jeder Fehlermeldung.** Jeder Fehler-Toast der App (`site/app/toast.mjs`) hat den Knopf "Blechy
+fragen". Er öffnet diese Seite, Blechy zitiert die Meldung und springt zur passenden Stelle: ein roter Test zu seiner
+Gruppe, eine nicht gefundene Electribe zu "Die App findet sie nicht", alles andere zur Frage, was in der App hakt.
 
 **Was die Seite aus der App liest.** Nur, was die App ohnehin hat, nichts wird am Gerät neu gelesen oder geraten:
 die Farbe der angesteckten Electribe (`Session.hardware()`, wie im Patcher), ob dort BLECH läuft (BLECH INFO beim
