@@ -392,6 +392,21 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
    `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
    `main` endet nach dem ersten Schritt.
 
+**Checkliste je Release.** Was mit jeder Version mitgezogen wird. "Automatisch" heißt: ein Skript schreibt es oder
+ein Test schlägt fehl, wenn es fehlt.
+
+| Was | Wie | Automatisch |
+|-----|-----|-------------|
+| Version in `package.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, `blech-version` | `node tools/set-version.mjs X.Y.Z` | Skript, Test `blech-version` |
+| Notizen `release-notes/X.Y.Z.md` und `data/release-notes.mjs` | von Hand, dann `node tools/release-notes.mjs build` | Test, Prüfschritt "due" |
+| "Neueste Version von BLECHTRIBE" im Patcher | kommt aus den neuesten Notizen | ja, Test `blech-version` |
+| `data/known-releases.json`: Dateien mit älteren Versionen lassen sich ohne Original updaten | `node tools/known-releases.mjs --hacktribe H.VSB --stock RED.VSB --synth BLUE.VSB` mit allen Tags ab `v1.3.3` und `worktree`, die drei unveränderten 2.02-Dateien vom eigenen Rechner | Test `blech-version` meldet fehlende Versionen |
+| `data/patches/verified.json` | der Workflow "Verify patches" committet sie | ja |
+| Neuigkeiten nach dem Update (`data/news.mjs`, Schlüssel `news.vXYZ.*` in allen Sprachen) | von Hand, nur bei Versionen mit Neuem für Nutzer | nein |
+| Funktionslisten in `README.md` und `README.en.md` (Plugins, Fallstricke, Rettung) | von Hand | nein |
+| [Fahrplan](fahrplan.md): die Version unter "Erschienen" eintragen, den Rest nachziehen | von Hand | nein |
+| Plugin-API-Version und neue Funktionen in [plugins.md](plugins.md) und `plugins.en.md` | mit dem Feature-PR | nein |
+
 **Format der Notizen** (`release-notes/X.Y.Z.md`): eine Datei, erst Deutsch, dann eine Zeile `## English` und darunter
 dieselben Notizen auf Englisch. Die Datei enthält nur die Notizen, keinen Download-Abschnitt und keine "Ohne App
 patchen"-Zeile: `tools/release.mjs` setzt oben in jede Sprache einen Block (ein Link je System, Mac-Chip-Hinweis,
