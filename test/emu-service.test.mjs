@@ -23,7 +23,9 @@ const env = !local ? { ...process.env, E2_VSB: "" } : process.env;
 async function unittest(target) {
   const r = await run(python, ["-m", "unittest", target], { timeout: 600_000, cwd: dir, env });
   assert.ifError(r.error);
-  assert.equal(r.status, 0, r.stderr);
+  // A run the system ended has no exit status, and "null" alone hides whether it was killed for memory.
+  const why = r.signal ? `was killed by ${r.signal}` : `exited ${r.status}`;
+  assert.equal(r.status, 0, `${target} ${why}\n${r.stderr || r.stdout}`);
 }
 
 describe("emulator service and models", { concurrency: slots, skip }, () => {
