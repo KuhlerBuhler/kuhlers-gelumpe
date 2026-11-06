@@ -180,7 +180,7 @@ test("korg.menu.blech.write() is a call without values and needs API 17", () => 
   assert.match(refused(`korg.onEvent("ready", () => { korg.menu.blech.write = 1; });`), /write/);
 });
 
-// korg.global.*: every known field of the Global map, API 18 (plan phase 6).
+// korg.global.*: every known field of the Global map, API 20 (plan phase 6).
 const GLOBAL = OBJECTS.filter(o => o.path.startsWith("korg.global."));
 
 test("korg.global has a leaf for every known field of the map and none for the unknown runs or the markers", () => {
@@ -201,7 +201,7 @@ test("a Global leaf sits on the firmware's Global object, is stored, repaired to
     assert.equal(o.stored, true, o.path);
     assert.equal(o.reset, false, o.path);
     assert.equal(o.apply, "setter", o.path);
-    assert.equal(o.since, 18, o.path);
+    assert.equal(o.since, 20, o.path);
     assert.match(o.page, /^[A-Z. ]+$/, o.path);
     assert.ok(o.min <= o.factory && o.factory <= o.max, o.path);
   }
@@ -211,9 +211,9 @@ test("slots 247 to 249 of the Global object, which our patches use, are no leaf 
   assert.equal(GLOBAL.some(o => o.offset >= 247 && o.offset <= 249), false);
 });
 
-test("a program that names a Global leaf needs API 18", () => {
-  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { korg.global.metronome = 3; });`)).header.apiVersion, 18);
-  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let m = korg.global.metronome; });`)).header.apiVersion, 18);
+test("a program that names a Global leaf needs API 20", () => {
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { korg.global.metronome = 3; });`)).header.apiVersion, 20);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let m = korg.global.metronome; });`)).header.apiVersion, 20);
   assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { ${INTENSITY} = 3; });`)).header.apiVersion, 10);
 });
 

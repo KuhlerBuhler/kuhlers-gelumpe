@@ -202,6 +202,8 @@ like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
 | `korg.tempo` | tempo in tenths of a BPM, 1280 is 128.0 | 100 to 3000 | `korg.read.tempo()`, `korg.tempo(x)` |
 | `korg.transport` | 0 stop, 1 play, 2 pause, 3 REC armed, 4 recording | no, use `korg.play()` and `korg.stop()` | `korg.read.transport()` |
 | `korg.selectedPattern` | selected pattern, 0 to 249 | selects another one | `korg.read.pattern()`, `korg.pattern(x)` |
+| `korg.viewedPattern` | pattern the display shows, 0 to 249 (from API version 18). While one plays, the wheel browses another and the display shows that one, the playing one goes on | no | `korg.read.viewedPattern()` |
+| `korg.nextPattern` | next pattern the pattern switch has confirmed, which starts at the end of the sequence, 0 to 249; -1 when none waits (from API version 18) | no | `korg.read.nextPattern()` |
 | `korg.selectedPart` | selected part, 0 to 15, 16 for all | 0 to 15 | `korg.read.part()`, `korg.part(x)` |
 | `korg.parts[i].step` | step counter of the part, 0 to 63 | no | `korg.read.step(i)` |
 | `korg.parts[i].muted` | 1 when the part is muted | 1 muted, 0 playing | `korg.read.mute(i)`, `korg.mute(i, x)` |
@@ -355,10 +357,10 @@ still takes keys, knobs and pads, and its picture can be read over USB. Only the
 every start. When it ends, the light and the LEDs come back as they would be without the test mode; an LED a plugin
 set meanwhile shows that plugin's value.
 
-**The globals (`korg.global`, API 18).** Every known page of GLOBAL PARAMETERS has a leaf, named after the page in camelCase
+**The globals (`korg.global`, API 20).** Every known page of GLOBAL PARAMETERS has a leaf, named after the page in camelCase
 and holding the values the device stores (`korg.global.midiChannel` 0 to 15 is channel 1 to 16). The ranges are the
 menu's limits. Not in the tree are the markers at the start and end of the block, the bytes no menu changes, and the slots 247
-to 249 that BLECH's patches use. A plugin that names a leaf needs API 18.
+to 249 that BLECH's patches use. A plugin that names a leaf needs API 20.
 
 Setting calls the same firmware function the page calls when you turn it in the menu: it writes the byte and tells the sound
 engine, the display and the MIDI side (for `tempoLock` it then sets the tempo again). The value takes effect at once, without
@@ -366,7 +368,7 @@ a restart; the menu page shows it as soon as it is drawn again, that is when you
 refuses to set while the transport is in its state 6 to 9, exactly as in the menu. A value outside the limits is clamped to
 the nearest limit and counted, a stored value outside is repaired at start: to the nearest limit, without calling the
 firmware function. Measured in the emulator on hacktribe, Korg red and Korg blue
-([measurement](messungen/2026-11-05-plugin-api18-globals.md), German); not on the device.
+([measurement](messungen/2026-11-05-plugin-api20-globals.md), German); not on the device.
 
 **Saving.** There is no call for it. The firmware saves the globals when the device is switched off and on WRITE on the page
 GLOBAL PARAMETERS, as it also keeps the last pattern. A value a plugin set therefore stays over the next restart, even if the
@@ -480,6 +482,8 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.read.transport()` | transport state: 0 stop, 1 play, 2 pause, 3 REC ready, 4 recording | everywhere |
 | `korg.read.tempo()` | tempo in tenths of a BPM (1600 is 160.0) | everywhere |
 | `korg.read.pattern()` | selected pattern, 0 to 249 | everywhere |
+| `korg.read.viewedPattern()` | pattern the display shows, 0 to 249: while browsing and after MENU the viewed one (from the bank), otherwise the playing one. It follows the pattern the pads and the info texts of the edit line show. From API version 18 | everywhere |
+| `korg.read.nextPattern()` | the confirmed next pattern, 0 to 249, while the firmware holds it for the sequence end, otherwise -1. Browsing alone (`VIEW:`) does not count, MENU (`NEXT:`) does; with PATTERN CONFIRM off or EXIT held at power-on it stays -1. From API version 18 | everywhere |
 | `korg.read.part()` | selected part 0 to 15, 16 for all | everywhere |
 | `korg.read.step(part)` | step counter of the part, 0 to 63 | everywhere |
 | `korg.read.mute(part)` | 1 if the part is muted | everywhere |
@@ -495,12 +499,13 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.backlight(red, green, blue)` | switch the three colours of the display light on (1) or off (0), through the firmware's GPIO function; on battery with Power Save "Auto" the firmware's dimming routine keeps overwriting the colour; if the user chose a mixed colour with levels between 1 and 14 in the menu, its PWM overwrites the colour as well | like `korg.led` |
 | `korg.menu.add(name, min, max, value)` | creates a page in the BLECH menu on the device and returns its number (-1 if all 12 places are taken). `name` at most 15 characters, the page shows `value` (clamped to `min` to `max`, magnitude below 100 million) and the plugin name. When the main dial is turned, the plugin gets `menu`(number, value). The same name from the same plugin is the same page. `min` above `max` is an argument error | body and `ready` only |
 | `korg.ledHold(on)` | 1 stops the firmware from rewriting the panel LEDs (pads, keys and lower RGB LEDs then show what the plugin set), 0 gives them back and makes the firmware resend all LEDs; if the last running plugin fails, the runtime gives them back itself | like `korg.led` |
-| `korg.padHold(on)` | 1 keeps pad presses from the firmware: no sound, no change to the step, while the plugin still gets `pad`. The runtime sets the pad bit of the mask the input filter reads before the firmware. 0 gives the pads back; the runtime does that itself as well when an app closes and when no plugin is left running. A release always follows its press: when the press was kept from the firmware, so is the release, otherwise it reaches the firmware. From API version 12 | like `korg.led` |
-| `korg.knobHold(index, on)` | 1 keeps the moves of knob `index` (0 to 10, the indexes are listed under Knobs, OSC EDIT is 9) from the firmware: the parameter stays where it is, the plugin still gets `knob` with the raw value. 0 gives the knob back. The runtime gives all knobs back on its own once the plugin that last held one no longer runs; an app closing does not give them back, a filter runs without an app too. Works outside the BLECH menu. From API version 13 | like `korg.led` |
+| `korg.padHold(on)` | 1 keeps pad presses from the firmware: no sound, no change to the step, while the plugin still gets `pad`. The runtime sets the pad bit of the mask the input filter reads before the firmware. 0 takes back this plugin's hold; the pads go back to the firmware only when no running plugin holds them any more (section Keeping inputs from the firmware). The runtime also gives them back when an app closes, and a plugin that no longer runs holds nothing. A release always follows its press: when the press was kept from the firmware, so is the release, otherwise it reaches the firmware. From API version 12 | like `korg.led` |
+| `korg.knobHold(index, on)` | 1 keeps the moves of knob `index` (0 to 10, the indexes are listed under Knobs, OSC EDIT is 9) from the firmware: the parameter stays where it is, the plugin still gets `knob` with the raw value. 0 takes back this plugin's hold; a knob stays hidden from the firmware while any running plugin holds it. A plugin that no longer runs holds nothing; an app closing does not give the knobs back, a filter runs without an app too. Works outside the BLECH menu. From API version 13 | like `korg.led` |
 | `korg.passKeys(key, on)` | while an app is open, the input filter keeps the keys from the firmware, except REC, STOP, PLAY and EXIT. 1 lets the key `key` (0 to 33, best a name like `korg.key.PART_MUTE`) reach the firmware anyway, 0 keeps it from the firmware, REC, STOP and PLAY too. The plugin gets `buttonPress` and `buttonRelease` either way. A release follows its press as with `korg.padHold`. EXIT always closes the app. When the app closes, the defaults apply again. From API version 14 | like `korg.led` |
 | `korg.touchLockX(x)` | holds the touchpad X the firmware sees at `x` (0 to 127), Y stays the finger's; -1 lets go. In Master FX and Touch Scale mode the firmware counts in steps of 2, so `x` is rounded down to even (127 is 126); in Gate Arp mode it sees `x` exactly. A finger at raw X `r` is `x = r >> 3`. The plugin keeps getting `touch` with the real X. Takes effect with the next touch message, outside the BLECH menu. The runtime also lets go by itself once the plugin no longer runs. Measured in the emulator on hacktribe, red and blue, in Master FX, Touch Scale and Gate Arp mode; not on the device. From API version 15 | like `korg.led` |
-| `korg.keyHold(key, on)` | 1 keeps the key `key` (0 to 33) from the firmware, also without an open app; the plugin keeps getting `buttonPress` and `buttonRelease`. 0 gives it back. A release follows its press as with `korg.passKeys`. EXIT stops the plugin with an error, apps stay closable. The runtime also gives all keys back by itself once the plugin that held the last one no longer runs. Applies outside the BLECH menu. Measured in the emulator on hacktribe, red and blue; not on the device. From API version 15 | like `korg.led` |
+| `korg.keyHold(key, on)` | 1 keeps the key `key` (0 to 33) from the firmware, also without an open app; the plugin keeps getting `buttonPress` and `buttonRelease`. 0 takes back this plugin's hold, another plugin may keep holding the key. A release follows its press as with `korg.passKeys`. EXIT stops the plugin with an error, apps stay closable. A plugin that no longer runs holds no key. Since API version 19 every plugin has its own mask (`korg.keyMask`), `korg.keyHold` changes one bit of it. Applies outside the BLECH menu. Measured in the emulator on hacktribe, red and blue; not on the device. From API version 15 | like `korg.led` |
 | `korg.pressKey(key)` | gives the firmware a short press of the key `key` (0 to 33): the press goes into the panel queue at once, the release in the next frame, both the same way as the panel's keys. A mark lets both past remapping, `korg.keyHold`, the app and the plugins; no plugin gets them as `buttonPress`. A second press before the release went out is dropped, a full queue drops the press. EXIT stops the plugin with an error. Measured in the emulator on hacktribe, red and blue (PLAY starts, STOP stops); not on the device. From API version 15 | like `korg.led` |
+| `korg.keyMask(low, high)` | sets this plugin's whole key mask: bit n of `low` is key n (0 to 31, `1 << korg.key.PLAY`), bit n of `high` key 32 + n (`high` 0 to 3). Every key in the mask is kept from the firmware like `korg.keyHold(key, 1)`, every other one is given back, other plugins are left alone. The plugin keeps getting `buttonPress` and `buttonRelease`. EXIT in the mask stops the plugin with an error. What happens with two plugins on the same key is in the section Keeping inputs from the firmware. Measured in the emulator on hacktribe, red and blue; not on the device. From API version 19 | like `korg.led` |
 | `korg.knob(index, value)` | gives the firmware the value `value` (0 to 255) for knob `index` (0 to 10), through its own knob handler, as if the knob had sent it. Together with `korg.knobHold` a plugin filters a knob that jumps. `korg.read.knob` keeps showing the panel's value. From API version 13 | like `korg.led` |
 | `korg.remapKey(from, to)` | the key `from` reaches the firmware and the plugins as the key `to` (both 0 to 33, best names like `korg.key.PART_ERASE`) while the plugin runs: the input filter rewrites the code in the panel message before the firmware reads it, so the firmware does exactly what it does with `to`. One remap holds for all plugins, the last one counts; the same key twice takes it back. EXIT cannot be remapped. From API version 8 | only in the body and in `ready` |
 | `korg.seq.setStep(part, step, note, velocity)` | writes step `step` (0 to 63) of part `part` (0 to 15) in the pattern that plays: `note` 0 to 127 with `velocity` 1 to 127 turns it on, with that note in the first note place (the other three empty) and the trigger on; `note` -1 or `velocity` 0 turns it off. The gate stays as it is. From API version 9 | like `korg.led` |
@@ -617,6 +622,25 @@ derived default: 16 packets at 25 Hz make at most 400 plugin packets a second, n
 on the device. The firmware may keep changing LEDs. A new frame therefore forgets what was last sent,
 without resending old requests on its own. A plugin that wants a value in every frame requests it again in
 `frame`. Detail: [German page](plugins.md#funktionen-der-electribe).
+
+### Keeping inputs from the firmware (API 19)
+
+A plugin takes keys, pads and knobs away from the firmware so that only the plugin gets them: `korg.keyMask` and
+`korg.keyHold` for keys, `korg.padHold` for the pads, `korg.knobHold` for knobs. Every plugin has its own mask for this,
+the calls change only the mask of the calling plugin. The runtime's input filter gives every input to all running
+plugins that have a handler for it, and then decides whether the firmware sees it.
+
+- **Two plugins, the same key:** both get the key, the firmware does not while **any** running plugin holds it. When one
+  lets go, the other keeps holding. The same goes for pads and knobs.
+- **A plugin stops** (switched off, ended with an error, removed): its masks stop counting at the end of the next frame.
+  What only that plugin held goes back to the firmware.
+- **An app closes:** it gives the pads of all plugins back (as before); keys and knobs stay held.
+- **A release follows its press:** a press kept from the firmware keeps its release from it as well, even when the hold
+  ends in between; a press that went through lets its release through.
+- **EXIT** cannot be held (`korg.keyHold` and `korg.keyMask` stop the plugin with an error), apps stay closable.
+- **Measured:** in the emulator on hacktribe, red and blue with two plugins (`tools/emu/plugin_api19_cases.py`); not on
+  the device. The example plugins Gate Hold, Key Pads, Momentary Mute and Filter Toggle keep working unchanged, they use
+  `korg.keyHold`, `korg.padHold` and `korg.knobHold`.
 
 ### Names for keys and LEDs
 

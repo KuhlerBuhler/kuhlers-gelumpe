@@ -1,4 +1,4 @@
-"""Emulator cases of the Global leaves of the plugin API 16 (`korg.global.*`, data/script/objects.mjs): every leaf takes a value
+"""Emulator cases of the Global leaves of the plugin API 20 (`korg.global.*`, data/script/objects.mjs): every leaf takes a value
 through the firmware's own setter and the Global menu shows it as if the menu had turned it, a plugin sets them by path, the
 firmware keeps them through WRITE and through the switch-off, and a stored value outside the menu's limits is repaired at start.
 

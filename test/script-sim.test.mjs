@@ -7,6 +7,7 @@ import { SimDevice, probe, FRAME_MS } from "../src/script/sim.mjs";
 import { Display, WIDTH, HEIGHT } from "../src/script/display.mjs";
 import { Workspace, validName, sourceKey } from "../src/script/workspace.mjs";
 import { exportGate } from "../src/script/gate.mjs";
+import { KEY_NAMES } from "../data/script/names.mjs";
 
 const preset = id => PRESETS.find(p => p.id === id);
 const build = (name, source) => {
@@ -16,6 +17,7 @@ const build = (name, source) => {
 };
 const blockOf = id => build(id, preset(id).source);
 const fixture = name => readFileSync(new URL(`./fixtures/scripts/${name}`, import.meta.url), "utf8");
+const korgKey = name => KEY_NAMES.find(n => n.name === name).value;
 const klickerBlock = () => build("klicker", fixture("klicker.js"));
 
 test("every preset compiles; the Snake fixture the other tests run still compiles on its own", () => {
@@ -397,6 +399,73 @@ test("korg.keyHold keeps a key from the firmware without an app, korg.pressKey p
   sim.post("buttonPress", 2);
   sim.frame();
   assert.equal(sim.hardware.transport, 1, "given back, PLAY starts the sequencer");
+});
+
+test("two plugins masking the same key: both get it, the firmware does not while either masks it", () => {
+  const sim = new SimDevice();
+  const PLAY = 2, REC = 0;
+  assert.ok(sim.load(build("first", `
+    let seen = 0;
+    korg.onEvent("ready", () => { korg.keyMask((1 << korg.key.PLAY) | (1 << korg.key.PART_MUTE), 0); });
+    korg.onEvent("buttonPress", (key) => { seen = seen + 1; if (key == korg.key.REC) korg.keyMask(0, 0); });
+  `)).ok);
+  assert.ok(sim.load(build("second", `
+    let seen = 0;
+    korg.onEvent("ready", () => { korg.keyHold(korg.key.PLAY, 1); });
+    korg.onEvent("buttonPress", (key) => { seen = seen + 1; if (key == korg.key.STOP) korg.keyHold(korg.key.PLAY, 0); });
+  `)).ok);
+  sim.frame();
+  const seen = i => Array.from(sim.runtime.scripts[i].script.vars)[0];
+  assert.equal(sim.hardware.keyHold[PLAY], 1);
+  assert.equal(sim.hardware.keyHold[korgKey("PART_MUTE")], 1);
+  sim.post("buttonPress", PLAY);
+  sim.frame();
+  assert.deepEqual([seen(0), seen(1)], [1, 1], "every plugin gets the event, whoever masks it");
+  assert.equal(sim.hardware.transport, 0, "masked: the firmware does not start");
+  sim.post("buttonPress", REC);
+  sim.frame();
+  assert.equal(sim.hardware.keyHold[PLAY], 1, "the first plugin's mask is empty now, the second still keeps PLAY");
+  assert.equal(sim.hardware.keyHold[korgKey("PART_MUTE")], 0, "what only the first kept is free");
+  sim.post("buttonPress", PLAY);
+  sim.frame();
+  assert.equal(sim.hardware.transport, 0);
+  sim.post("buttonPress", korgKey("STOP"));
+  sim.frame();
+  assert.equal(sim.hardware.keyHold[PLAY], 0, "nobody keeps PLAY: the firmware gets it");
+  sim.post("buttonPress", PLAY);
+  sim.frame();
+  assert.equal(sim.hardware.transport, 1);
+});
+
+test("a plugin that stops running lets go of its keys, knobs and pads, the others keep theirs", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("a", `
+    korg.onEvent("ready", () => { korg.keyHold(korg.key.PLAY, 1); korg.knobHold(9, 1); korg.padHold(1); });
+  `)).ok);
+  assert.ok(sim.load(build("b", `
+    korg.onEvent("ready", () => { korg.keyHold(korg.key.PLAY, 1); korg.knobHold(3, 1); });
+    korg.onEvent("buttonPress", () => { korg.pressKey(korg.key.EXIT); });
+  `)).ok);
+  sim.frame();
+  assert.deepEqual([sim.hardware.keyHold[2], sim.hardware.knobHold, sim.hardware.padHold], [1, 1 << 9 | 1 << 3, 1]);
+  sim.post("buttonPress", 7);
+  sim.frame();
+  assert.equal(sim.runtime.scripts[1].script.state, "disabled", "b faulted");
+  sim.frame();
+  assert.deepEqual([sim.hardware.keyHold[2], sim.hardware.knobHold, sim.hardware.padHold], [1, 1 << 9, 1], "a keeps what it held");
+});
+
+test("korg.keyMask refuses EXIT in the mask and takes keys 32 and 33 from the second word", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("mask", `
+    korg.onEvent("ready", () => { korg.keyMask(0, 3); });
+    korg.onEvent("buttonPress", () => { korg.keyMask(1 << korg.key.EXIT, 0); });
+  `)).ok);
+  sim.frame();
+  assert.deepEqual([sim.hardware.keyHold[32], sim.hardware.keyHold[33], sim.hardware.keyHold[31]], [1, 1, 0]);
+  sim.post("buttonPress", 5);
+  const faults = sim.run(1);
+  assert.equal(faults[0]?.name, "API_ARG");
 });
 
 test("korg.keyHold and korg.pressKey refuse EXIT, korg.touchLockX is state in the simulated hardware", () => {

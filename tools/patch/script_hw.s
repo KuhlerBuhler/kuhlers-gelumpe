@@ -147,6 +147,58 @@ script_read_chain_mode_glue:
     mov r1, #ERR_OK
     bx lr
 
+.equ HW_VIEW_CELL, 0xC0691388   ; pointer to the accessor of the pattern the pads and info texts show (tools/patch/pattern_switch.py: CELL_W)
+.equ HW_PS_STATE, 0xC0180F00    ; run time state of the pattern switch: +4 a pattern is confirmed (1), +8 its number; FFFFFFFF without the patch
+.equ HW_PS_ARMED, 4
+.equ HW_PS_ARMNUM, 8
+.equ HW_PENDING_FLAG, 0x341     ; in the pattern selection object (HW_MODEL): a chosen number waits for the sequence end
+
+; -> the pattern the display shows, 0 to 249: the bank block the view's cell points into, else the pattern that runs (the one in RAM).
+script_read_viewed_pattern_glue:
+    ldr r0, =HW_VIEW_CELL
+    ldr r0, [r0]
+    cmp r0, #0
+    ldrne r0, [r0, #4]
+    cmp r0, #0
+    beq viewed_running
+    ldr r1, =SC_BANK
+    sub r0, r0, r1
+    add r0, r0, #4
+    cmp r0, #0x3E8000
+    bhs viewed_running
+    mov r0, r0, lsr #14
+    mov r1, #ERR_OK
+    bx lr
+viewed_running:
+    push {lr}
+    ldr r12, =SC_PLAYER
+    blx r12
+    ldr r0, [r0, #0x318]
+    mov r1, #ERR_OK
+    pop {pc}
+.pool
+
+; -> the next pattern the pattern switch has confirmed, 0 to 249, while the firmware still holds it for the sequence end, else -1.
+script_read_next_pattern_glue:
+    ldr r2, =HW_PS_STATE
+    ldr r0, [r2, #HW_PS_ARMED]
+    cmp r0, #1
+    bne next_pattern_none
+    ldr r1, =HW_MODEL
+    ldrb r1, [r1, #HW_PENDING_FLAG]
+    cmp r1, #0
+    beq next_pattern_none
+    ldr r0, [r2, #HW_PS_ARMNUM]
+    cmp r0, #250
+    bhs next_pattern_none
+    mov r1, #ERR_OK
+    bx lr
+next_pattern_none:
+    mvn r0, #0
+    mov r1, #ERR_OK
+    bx lr
+.pool
+
 ; r0 pattern (-1 the pattern in RAM, so an unsaved edit counts; 0 to 249 the bank, 0x4000 per pattern, the same block layout),
 ; r1 part (-1 a value of the pattern, 0 to 15 a value of that part), r2 field -> the value. The fields and how their bytes
 ; become the value are PATTERN_FIELDS and PART_FIELDS of data/script/contract.mjs: a table word holds the offset (bits 0 to
@@ -462,14 +514,104 @@ led_guard_release:
     pop {pc}
 .pool
 
-; korg.padHold: pad presses stop reaching the firmware (no sound, no step edit) while the plugins still get `pad`. It is the
-; pad bit of the capture mask the input filter reads (input_mask_pad in script_hooks.s). The hold ends with padHold(0), when
-; an app closes (script_app_close) and when no plugin is left to run (script_pad_hold_guard).
+; What a plugin keeps from the firmware (korg.padHold, korg.knobHold, korg.keyHold, korg.keyMask): every plugin has four words
+; in its own entry (SCRIPT_ENTRY_HOLDS: the keys 0 to 31, the keys 32 and 33, a bit per knob, 1 for the pads), the calls change
+; only the caller's words, and holds_sync folds the words of all running plugins into what the input filter reads: a key, knob
+; or the pads stay away from the firmware when ANY running plugin keeps them, the plugins get every input either way. A plugin
+; that stops (switched off, faulted, removed) lets go of all its holds at the next frame's end. An app's close gives the pads
+; back to all plugins (hold_pads_release), as it did when there was one pad flag.
+.equ HD_KEYS, SCRIPT_ENTRY_HOLDS
+.equ HD_KEYS_HI, SCRIPT_ENTRY_HOLDS+4
+.equ HD_KNOBS, SCRIPT_ENTRY_HOLDS+8
+.equ HD_PAD, SCRIPT_ENTRY_HOLDS+12
 
-; r0 1 to keep the pad presses from the firmware, 0 to give them back.
+; r0 runtime, r1 a plugin to count although it is not armed yet (the one whose body runs), or 0. Folds the holds of the armed
+; plugins into the key words (KY_FREE), the knob word (KH_FREE) and the pad bit of the capture mask. Clobbers r0 to r3 and r12.
+holds_sync:
+    push {r4-r8, lr}
+    mov r4, r0
+    mov r8, r1
+    mov r5, #0
+    mov r6, #0
+    mov r7, #0
+    ldr r1, [r4, #RT_HEAD]
+holds_next:
+    cmp r1, #0
+    beq holds_fold
+    cmp r1, r8
+    beq holds_count
+    ldr r0, [r1, #SCRIPT_ENTRY_STATE]
+    cmp r0, #SCRIPT_STATE_ARMED
+    bne holds_skip
+holds_count:
+    ldr r0, [r1, #HD_KEYS]
+    orr r5, r5, r0
+    ldr r0, [r1, #HD_KEYS_HI]
+    orr r6, r6, r0
+    ldr r0, [r1, #HD_KNOBS]
+    orr r7, r7, r0
+    ldr r0, [r1, #HD_PAD]
+    cmp r0, #0
+    movne r0, #1
+    orrne r7, r7, r0, lsl #31
+holds_skip:
+    ldr r1, [r1, #SCRIPT_ENTRY_NEXT]
+    b holds_next
+holds_fold:
+    ldr r1, =KEY_HOLD
+    mvn r0, r5
+    str r0, [r1, #KY_FREE]
+    mvn r0, r6
+    str r0, [r1, #KY_FREE+4]
+    ldr r1, =KNOB_HOLD
+    bic r0, r7, #0x80000000
+    mvn r0, r0
+    str r0, [r1, #KH_FREE]
+    mov r0, r7, lsr #31
+    bl pad_hold_set
+    pop {r4-r8, pc}
+
+; Folds with the running plugin counted: a hold set in its body, which runs before it is armed, works at once.
+hold_sync_caller:
+    ldr r0, =HOOK_RUNTIME
+    ldr r1, [r0, #RT_ENTRY]
+    b holds_sync
+
+; -> r3 the running plugin's entry, r2 clobbered
+hold_entry:
+    ldr r2, =HOOK_RUNTIME
+    ldr r3, [r2, #RT_ENTRY]
+    bx lr
+
+; The pads go back to the firmware: no plugin holds them any more. Preserves r4 to r8. Clobbers r0 to r3 and r12.
+hold_pads_release:
+    push {lr}
+    ldr r0, =HOOK_RUNTIME
+    ldr r1, [r0, #RT_HEAD]
+    mov r2, #0
+holds_pad_next:
+    cmp r1, #0
+    beq holds_pad_done
+    str r2, [r1, #HD_PAD]
+    ldr r1, [r1, #SCRIPT_ENTRY_NEXT]
+    b holds_pad_next
+holds_pad_done:
+    mov r1, #0
+    bl holds_sync
+    pop {pc}
+
+; korg.padHold: pad presses stop reaching the firmware (no sound, no step edit) while the plugins still get `pad`. It is the
+; pad bit of the capture mask the input filter reads (input_mask_pad in script_hooks.s), set while any plugin holds the pads.
+; The hold ends with padHold(0), when an app closes (script_app_close) and when the plugin that holds no longer runs.
+
+; r0 1 to keep the pad presses from the firmware, 0 to give them back (for this plugin).
 script_pad_hold_glue:
     push {lr}
-    bl pad_hold_set
+    bl hold_entry
+    cmp r0, #0
+    movne r0, #1
+    str r0, [r3, #HD_PAD]
+    bl hold_sync_caller
     mov r0, #0
     mov r1, #ERR_OK
     pop {pc}
@@ -488,63 +630,30 @@ pad_hold_set:
     str r1, [r2, #SCRIPT_CONTROL_CAPTURE_MASK]
     .word 0xE121F003 ; msr cpsr_c, r3
     bx lr
-
-; r0 runtime. Gives the pads back when a script held them and none is left to run, as script_led_hold_guard does the LEDs.
-; Clobbers r0 to r3 and r12.
-script_pad_hold_guard:
-    ldr r1, [r0, #SCRIPT_CONTROL_CAPTURE_MASK]
-    tst r1, #INPUT_PAD_BIT
-    bxeq lr
-    ldr r2, [r0, #RT_HEAD]
-pad_guard_entry:
-    cmp r2, #0
-    beq pad_guard_release
-    ldr r3, [r2, #SCRIPT_ENTRY_STATE]
-    cmp r3, #SCRIPT_STATE_ARMED
-    bne pad_guard_next
-    ldr r3, [r2, #SCRIPT_ENTRY_BLOB]
-    ldr r12, =HOOK_POOL
-    cmp r3, r12
-    bxhs lr
-pad_guard_next:
-    ldr r2, [r2, #SCRIPT_ENTRY_NEXT]
-    b pad_guard_entry
-pad_guard_release:
-    push {lr}
-    mov r0, #0
-    bl pad_hold_set
-    pop {pc}
 .pool
 
 ; korg.knobHold and korg.knob: a plugin keeps a knob's moves from the firmware and sets the knob's value itself, to filter a
 ; knob that jumps. The record at KNOB_HOLD holds a bit per knob that still reaches the firmware (the input filter reads it,
-; input_mask_knob in script_hooks.s), then the plugin that held the last knob and the checksum of its block, as korg.remapKey
-; keeps its owner. The bits count the free knobs, so the FF of the power-on is all knobs free. The hold ends with knobHold(i, 0)
-; and when that plugin no longer runs (script_knob_hold_guard), not when an app closes: a filter runs without an app.
+; input_mask_knob in script_hooks.s), made by holds_sync from the plugins' holds: the FF of the power-on is all knobs free. The
+; hold ends with knobHold(i, 0) and when the plugin that holds no longer runs, not when an app closes: a filter runs without an app.
 .equ KH_FREE, 0
-.equ KH_OWNER, 4
-.equ KH_CRC, 8
 
-; r0 knob (0 to 10), r1 1 to hold, 0 to let go. Only the VM writes the record, the input filter reads one word.
+; r0 knob (0 to 10), r1 1 to hold, 0 to let go (for this plugin). Only the VM writes the record, the input filter reads one word.
 script_knob_hold_glue:
-    ldr r2, =KNOB_HOLD
-    ldr r3, [r2, #KH_FREE]
-    mov r12, #1
+    push {lr}
+    mov r12, r0
+    bl hold_entry
+    add r3, r3, #HD_KNOBS
+    ldr r0, [r3]
+    mov r2, #1
     cmp r1, #0
-    orreq r3, r3, r12, lsl r0
-    bicne r3, r3, r12, lsl r0
-    str r3, [r2, #KH_FREE]
-    beq knob_hold_done
-    ldr r3, =HOOK_RUNTIME
-    ldr r3, [r3, #RT_ENTRY]
-    str r3, [r2, #KH_OWNER]
-    ldr r3, [r3, #SCRIPT_ENTRY_BLOB]
-    ldr r3, [r3, #12]
-    str r3, [r2, #KH_CRC]
-knob_hold_done:
+    biceq r0, r0, r2, lsl r12
+    orrne r0, r0, r2, lsl r12
+    str r0, [r3]
+    bl hold_sync_caller
     mov r0, #0
     mov r1, #ERR_OK
-    bx lr
+    pop {pc}
 
 ; r0 knob (0 to 10), r1 value (0 to 255): the firmware's knob handler, as if the knob had sent it.
 script_knob_glue:
@@ -554,36 +663,6 @@ script_knob_glue:
     mov r0, #0
     mov r1, #ERR_OK
     pop {pc}
-
-; r0 runtime. Lets the knobs go when the plugin that holds them is gone from the list, no longer armed or holds another block.
-; Clobbers r1 to r3 and r12.
-script_knob_hold_guard:
-    ldr r1, =KNOB_HOLD
-    ldr r2, [r1, #KH_FREE]
-    cmn r2, #1
-    bxeq lr
-    ldr r2, [r1, #KH_OWNER]
-    ldr r3, [r0, #RT_HEAD]
-knob_guard_find:
-    cmp r3, #0
-    beq knob_guard_release
-    cmp r3, r2
-    beq knob_guard_owner
-    ldr r3, [r3, #SCRIPT_ENTRY_NEXT]
-    b knob_guard_find
-knob_guard_owner:
-    ldr r3, [r2, #SCRIPT_ENTRY_STATE]
-    cmp r3, #SCRIPT_STATE_ARMED
-    bne knob_guard_release
-    ldr r3, [r2, #SCRIPT_ENTRY_BLOB]
-    ldr r3, [r3, #12]
-    ldr r12, [r1, #KH_CRC]
-    cmp r3, r12
-    bxeq lr
-knob_guard_release:
-    mvn r2, #0
-    str r2, [r1, #KH_FREE]
-    bx lr
 .pool
 
 ; korg.passKeys: while an app is open, the input filter keeps the keys from the firmware but REC, STOP, PLAY and EXIT
@@ -747,43 +826,53 @@ script_touch_lock_guard:
     bx lr
 .pool
 
-; korg.keyHold: a plugin keeps a key from the firmware, with or without an app (passKeys acts only while an app is open). The
-; input filter asks script_key_hold for every key message outside the BLECH menu, before the app's own keys. The record at
-; KEY_HOLD holds a word for keys 0 to 31 and one for 32 and 33 with a bit set for a key that still reaches the firmware (FF at
-; power-on is all free), two words with a bit clear for a key whose press was kept (so its release is kept as well, even when the
-; hold ended in between), then the plugin that held the last key and the checksum of its block. The hold ends with keyHold(key, 0)
-; and when that plugin no longer runs (script_key_hold_guard), not when an app closes. EXIT is never held, apps stay closable.
+; korg.keyHold and korg.keyMask: a plugin keeps keys from the firmware, with or without an app (passKeys acts only while an app is
+; open). The input filter asks script_key_hold for every key message outside the BLECH menu, before the app's own keys. The record
+; at KEY_HOLD holds a word for keys 0 to 31 and one for 32 and 33 with a bit set for a key that still reaches the firmware (FF at
+; power-on is all free; holds_sync makes them from the plugins' holds), then two words with a bit clear for a key whose press was
+; kept (so its release is kept as well, even when the hold ended in between). A key is kept while ANY running plugin keeps it. The
+; hold ends with keyHold(key, 0), a keyMask without the key and when the plugin that holds no longer runs, not when an app closes.
+; EXIT is never held, apps stay closable.
 .equ KY_FREE, 0
 .equ KY_KEPT, 8
-.equ KY_OWNER, 16
-.equ KY_CRC, 20
 
-; r0 key (0 to 33), r1 1 to hold, 0 to let go.
+; r0 key (0 to 33), r1 1 to hold, 0 to let go (for this plugin).
 script_key_hold_glue:
     cmp r0, #KEY_EXIT
     beq hw_bad_arg
-    ldr r2, =KEY_HOLD
-    cmp r0, #32
-    addhs r2, r2, #4
-    subhs r0, r0, #32
-    ldr r3, [r2, #KY_FREE]
-    mov r12, #1
+    push {lr}
+    mov r12, r0
+    bl hold_entry
+    add r3, r3, #HD_KEYS
+    cmp r12, #32
+    addhs r3, r3, #4
+    subhs r12, r12, #32
+    ldr r0, [r3]
+    mov r2, #1
     cmp r1, #0
-    orreq r3, r3, r12, lsl r0
-    bicne r3, r3, r12, lsl r0
-    str r3, [r2, #KY_FREE]
-    beq key_hold_done
-    ldr r2, =KEY_HOLD
-    ldr r3, =HOOK_RUNTIME
-    ldr r3, [r3, #RT_ENTRY]
-    str r3, [r2, #KY_OWNER]
-    ldr r3, [r3, #SCRIPT_ENTRY_BLOB]
-    ldr r3, [r3, #12]
-    str r3, [r2, #KY_CRC]
-key_hold_done:
+    biceq r0, r0, r2, lsl r12
+    orrne r0, r0, r2, lsl r12
+    str r0, [r3]
+    bl hold_sync_caller
     mov r0, #0
     mov r1, #ERR_OK
-    bx lr
+    pop {pc}
+
+; r0 the keys 0 to 31, r1 the keys 32 and 33 (checked by the VM), as the mask of this plugin: every key in it is kept, every one
+; not in it is let go, as far as this plugin is concerned. EXIT in the mask is refused.
+script_key_mask_glue:
+    mov r2, #1
+    tst r0, r2, lsl #KEY_EXIT
+    bne hw_bad_arg
+    push {lr}
+    mov r12, r0
+    bl hold_entry
+    str r12, [r3, #HD_KEYS]
+    str r1, [r3, #HD_KEYS_HI]
+    bl hold_sync_caller
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {pc}
 
 ; r5 a key message -> r0 nonzero when the firmware must not get it: a press of a held key, the release of a kept press.
 ; Clobbers r1 to r3 and r12.
@@ -813,26 +902,6 @@ key_hold_release:
     orr r1, r1, r3
 key_hold_store:
     str r1, [r12, #KY_KEPT]
-    bx lr
-
-; r0 runtime. Gives all keys back when the plugin that held the last one no longer runs. Clobbers r1 to r3 and r12.
-script_key_hold_guard:
-    ldr r1, =KEY_HOLD
-    ldr r2, [r1, #KY_FREE]
-    ldr r3, [r1, #KY_FREE+4]
-    and r2, r2, r3
-    cmn r2, #1
-    bxeq lr
-    ldr r2, [r1, #KY_OWNER]
-    ldr r12, [r1, #KY_CRC]
-    push {lr}
-    bl hold_owner_gone
-    pop {lr}
-    cmp r3, #0
-    bxeq lr
-    mvn r2, #0
-    str r2, [r1, #KY_FREE]
-    str r2, [r1, #KY_FREE+4]
     bx lr
 .pool
 

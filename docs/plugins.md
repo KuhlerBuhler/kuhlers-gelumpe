@@ -239,6 +239,8 @@ Rumpf.
 | `korg.tempo` | Tempo in Zehntel BPM, 1280 ist 128,0 | 100 bis 3000 | `korg.read.tempo()`, `korg.tempo(x)` |
 | `korg.transport` | 0 Stop, 1 Play, 2 Pause, 3 REC bereit, 4 Aufnahme | nein, dafür `korg.play()` und `korg.stop()` | `korg.read.transport()` |
 | `korg.selectedPattern` | gewähltes Pattern, 0 bis 249 | wählt ein anderes | `korg.read.pattern()`, `korg.pattern(x)` |
+| `korg.viewedPattern` | Pattern, das das Display zeigt, 0 bis 249 (ab API Version 18). Das Rad durchblättert beim Spielen ein anderes, das Display zeigt dann dieses, das spielende läuft weiter | nein | `korg.read.viewedPattern()` |
+| `korg.nextPattern` | nächstes Pattern, das der Patternwechsel bestätigt hat und das am Ende der Sequenz startet, 0 bis 249; -1, wenn keins wartet (ab API Version 18) | nein | `korg.read.nextPattern()` |
 | `korg.selectedPart` | gewählter Part, 0 bis 15, 16 für alle | 0 bis 15 | `korg.read.part()`, `korg.part(x)` |
 | `korg.parts[i].step` | Schrittzähler des Parts, 0 bis 63 | nein | `korg.read.step(i)` |
 | `korg.parts[i].muted` | 1, wenn der Part stumm ist | 1 stumm, 0 an | `korg.read.mute(i)`, `korg.mute(i, x)` |
@@ -394,10 +396,10 @@ Rechner schaltet ihn, über USB ([Test-Modus](test-modus.md)); ein Plugin liest 
 keines das Gerät bei jedem Start dunkel lassen kann. Beim Ausschalten kommen Licht und LEDs zurück, wie sie ohne
 Test-Modus wären; eine LED, die ein Plugin inzwischen gesetzt hat, zeigt dessen Wert.
 
-**Die Globals (`korg.global`, API 18).** Zu jeder bekannten Seite von GLOBAL PARAMETERS gibt es ein Blatt, mit dem
+**Die Globals (`korg.global`, API 20).** Zu jeder bekannten Seite von GLOBAL PARAMETERS gibt es ein Blatt, mit dem
 Namen der Seite in camelCase und den Werten, die das Gerät speichert (`korg.global.midiChannel` 0 bis 15 ist Kanal 1 bis 16).
 Die Bereiche sind die Grenzen des Menüs. Nicht im Baum sind die Kennungen am Anfang und Ende des Blocks, die Bytes, die
-kein Menü ändert, und die Plätze 247 bis 249, die Patches von BLECH belegen. Ein Plugin, das ein Blatt nennt, braucht API 18.
+kein Menü ändert, und die Plätze 247 bis 249, die Patches von BLECH belegen. Ein Plugin, das ein Blatt nennt, braucht API 20.
 
 Setzen ruft dieselbe Funktion der Firmware, die auch die Seite im Menü beim Drehen ruft: sie schreibt das Byte und meldet
 es an Klangerzeugung, Display und MIDI-Seite (bei `tempoLock` stellt sie danach das Tempo neu). Der Wert wirkt sofort, ohne
@@ -405,7 +407,7 @@ Neustart; die Seite im Menü zeigt ihn, sobald sie neu gezeichnet wird, also wen
 Firmware das Setzen ab, solange der Transport in ihrem Zustand 6 bis 9 ist, genau wie im Menü. Ein Wert außerhalb der Grenzen
 wird auf die nächste Grenze geklemmt und gezählt, ein gespeicherter Wert außerhalb wird beim Start repariert: auf die nächste
 Grenze, ohne die Funktion der Firmware zu rufen. Im Emulator gemessen auf Hacktribe, Korg rot und Korg blau
-([Messung](messungen/2026-11-05-plugin-api18-globals.md)); am Gerät nicht.
+([Messung](messungen/2026-11-05-plugin-api20-globals.md)); am Gerät nicht.
 
 **Speichern.** Dafür gibt es keinen Aufruf. Die Firmware speichert die Globals beim Ausschalten und bei WRITE auf der Seite
 GLOBAL PARAMETERS, wie sie auch das letzte Pattern behält. Ein Wert, den ein Plugin gesetzt hat, bleibt deshalb über den
@@ -521,6 +523,8 @@ Plugin mit einem Fehler.
 | `korg.read.transport()` | Zustand des Transports: 0 Stop, 1 Play, 2 Pause, 3 REC bereit, 4 Aufnahme | überall |
 | `korg.read.tempo()` | Tempo in Zehntel BPM (1600 gleich 160,0) | überall |
 | `korg.read.pattern()` | gewähltes Pattern, 0 bis 249 | überall |
+| `korg.read.viewedPattern()` | Pattern, das das Display zeigt, 0 bis 249: beim Blättern und nach MENU das angesehene (aus der Bank), sonst das spielende. Es folgt dem Pattern, das die Pads und die Info-Texte der Edit-Zeile zeigen. Ab API Version 18 | überall |
+| `korg.read.nextPattern()` | das bestätigte nächste Pattern, 0 bis 249, solange die Firmware es für das Sequenzende hält, sonst -1. Blättern allein (`VIEW:`) zählt nicht, erst MENU (`NEXT:`), und mit ausgeschaltetem PATTERN CONFIRM oder EXIT beim Einschalten bleibt es -1. Ab API Version 18 | überall |
 | `korg.read.part()` | gewählter Part 0 bis 15, 16 für alle | überall |
 | `korg.read.step(part)` | Schrittzähler des Parts, 0 bis 63 | überall |
 | `korg.read.mute(part)` | 1, wenn der Part gemutet ist | überall |
@@ -536,12 +540,13 @@ Plugin mit einem Fehler.
 | `korg.backlight(rot, gruen, blau)` | die drei Farben des Display Lichts ein (1) oder aus (0), über die GPIO Funktion der Firmware; auf Batterie mit Power Save "Auto" überschreibt die Dimm Routine der Firmware die Farbe laufend; hat der Nutzer im Menü eine Mischfarbe mit Pegeln zwischen 1 und 14 gewählt, überschreibt auch deren PWM die Farbe | wie `korg.led` |
 | `korg.menu.add(name, min, max, wert)` | legt eine Seite im Menü BLECH am Gerät an und gibt ihre Nummer zurück (-1, wenn alle 12 Plätze belegt sind). `name` höchstens 15 Zeichen, die Seite zeigt `wert` (in `min` bis `max` geklemmt, Betrag unter 100 Millionen) und den Plugin-Namen. Wird am Hauptrad gedreht, bekommt das Plugin `menu`(nummer, wert). Derselbe Name vom selben Plugin ist dieselbe Seite. `min` über `max` ist ein Argumentfehler | nur im Rumpf und in `ready` |
 | `korg.ledHold(an)` | 1 hält die Firmware davon ab, die Panel LEDs neu zu schreiben (Pads, Tasten, untere RGB LEDs zeigen dann, was das Plugin gesetzt hat), 0 gibt sie zurück und lässt die Firmware alle LEDs neu senden; fällt das letzte laufende Plugin aus, gibt die Laufzeit sie selbst zurück | wie `korg.led` |
-| `korg.padHold(an)` | 1 hält Pad-Anschläge von der Firmware fern: kein Klang, keine Änderung am Step, das Plugin bekommt `pad` aber weiter. Die Laufzeit setzt dafür das Pad-Bit der Maske, die der Eingangsfilter vor der Firmware liest. 0 gibt die Pads zurück; das tut die Laufzeit auch selbst, wenn eine App schließt und wenn kein Plugin mehr läuft. Das Loslassen folgt immer seinem Anschlag: wurde der Anschlag zurückgehalten, bleibt auch das Loslassen bei den Plugins, sonst geht es an die Firmware. Ab API Version 12 | wie `korg.led` |
-| `korg.knobHold(index, an)` | 1 hält die Bewegungen des Reglers `index` (0 bis 10, die Indizes stehen unter Regler, OSC EDIT ist 9) von der Firmware fern: der Parameter bleibt stehen, das Plugin bekommt `knob` aber weiter, mit dem Rohwert. 0 gibt den Regler zurück. Die Laufzeit gibt alle Regler auch selbst zurück, sobald das Plugin, das zuletzt einen gehalten hat, nicht mehr läuft; eine App, die schließt, gibt sie nicht zurück, ein Filter läuft auch ohne App. Gilt außerhalb des Menüs BLECH. Ab API Version 13 | wie `korg.led` |
+| `korg.padHold(an)` | 1 hält Pad-Anschläge von der Firmware fern: kein Klang, keine Änderung am Step, das Plugin bekommt `pad` aber weiter. Die Laufzeit setzt dafür das Pad-Bit der Maske, die der Eingangsfilter vor der Firmware liest. 0 nimmt den Halt dieses Plugins zurück; die Pads gehen erst an die Firmware zurück, wenn kein laufendes Plugin sie mehr hält (Abschnitt Eingaben fernhalten). Die Laufzeit gibt sie auch selbst zurück, wenn eine App schließt, und ein Plugin, das nicht mehr läuft, hält nichts mehr. Das Loslassen folgt immer seinem Anschlag: wurde der Anschlag zurückgehalten, bleibt auch das Loslassen bei den Plugins, sonst geht es an die Firmware. Ab API Version 12 | wie `korg.led` |
+| `korg.knobHold(index, an)` | 1 hält die Bewegungen des Reglers `index` (0 bis 10, die Indizes stehen unter Regler, OSC EDIT ist 9) von der Firmware fern: der Parameter bleibt stehen, das Plugin bekommt `knob` aber weiter, mit dem Rohwert. 0 nimmt den Halt dieses Plugins zurück; ein Regler bleibt der Firmware verborgen, solange irgendein laufendes Plugin ihn hält. Ein Plugin, das nicht mehr läuft, hält nichts mehr; eine App, die schließt, gibt die Regler nicht zurück, ein Filter läuft auch ohne App. Gilt außerhalb des Menüs BLECH. Ab API Version 13 | wie `korg.led` |
 | `korg.passKeys(taste, an)` | solange eine App offen ist, hält der Eingangsfilter die Tasten von der Firmware fern, außer REC, STOP, PLAY und EXIT. 1 lässt die Taste `taste` (0 bis 33, am besten ein Name wie `korg.key.PART_MUTE`) trotzdem zur Firmware, 0 hält sie fern, auch REC, STOP und PLAY. Das Plugin bekommt `buttonPress` und `buttonRelease` in beiden Fällen. Das Loslassen folgt seinem Anschlag wie bei `korg.padHold`. EXIT schließt die App immer. Schließt die App, gilt wieder die Vorgabe. Ab API Version 14 | wie `korg.led` |
 | `korg.touchLockX(x)` | hält das X des Touchpads, das die Firmware sieht, auf `x` (0 bis 127), Y bleibt das des Fingers; -1 lässt los. Im Modus Master FX und Touch Scale rechnet die Firmware in Schritten von 2, `x` wird auf gerade abgerundet (127 ist 126); im Modus Gate Arp sieht sie `x` genau. Ein Finger am rohen X `r` ist `x = r >> 3`. Das Plugin bekommt `touch` weiter mit dem echten X. Gilt ab der nächsten Touch-Nachricht und außerhalb des Menüs BLECH. Die Laufzeit lässt auch selbst los, sobald das Plugin nicht mehr läuft. Im Emulator gemessen auf Hacktribe, rot und blau, im Modus Master FX, Touch Scale und Gate Arp; am Gerät nicht. Ab API Version 15 | wie `korg.led` |
-| `korg.keyHold(taste, an)` | 1 hält die Taste `taste` (0 bis 33) von der Firmware fern, auch ohne offene App; das Plugin bekommt `buttonPress` und `buttonRelease` weiter. 0 gibt sie zurück. Das Loslassen folgt seinem Anschlag wie bei `korg.passKeys`. EXIT beendet das Plugin mit einem Fehler, Apps bleiben schließbar. Die Laufzeit gibt alle Tasten auch selbst zurück, sobald das Plugin, das zuletzt eine gehalten hat, nicht mehr läuft. Gilt außerhalb des Menüs BLECH. Im Emulator gemessen auf Hacktribe, rot und blau; am Gerät nicht. Ab API Version 15 | wie `korg.led` |
+| `korg.keyHold(taste, an)` | 1 hält die Taste `taste` (0 bis 33) von der Firmware fern, auch ohne offene App; das Plugin bekommt `buttonPress` und `buttonRelease` weiter. 0 nimmt den Halt dieses Plugins zurück, ein anderes Plugin kann die Taste weiter halten. Das Loslassen folgt seinem Anschlag wie bei `korg.passKeys`. EXIT beendet das Plugin mit einem Fehler, Apps bleiben schließbar. Ein Plugin, das nicht mehr läuft, hält keine Taste mehr. Seit API Version 19 hat jedes Plugin seine eigene Maske (`korg.keyMask`), `korg.keyHold` ändert nur ein Bit darin. Gilt außerhalb des Menüs BLECH. Im Emulator gemessen auf Hacktribe, rot und blau; am Gerät nicht. Ab API Version 15 | wie `korg.led` |
 | `korg.pressKey(taste)` | gibt der Firmware einen kurzen Druck der Taste `taste` (0 bis 33): der Anschlag geht sofort in die Warteschlange des Panels, das Loslassen im nächsten Frame, beides über denselben Weg wie die Tasten des Panels. Eine Markierung lässt beide an Umbelegung, `korg.keyHold`, App und Plugins vorbei, kein Plugin bekommt sie als `buttonPress`. Ein zweiter Druck, bevor das Loslassen raus ist, entfällt, eine volle Warteschlange verwirft den Druck. EXIT beendet das Plugin mit einem Fehler. Im Emulator gemessen auf Hacktribe, rot und blau (PLAY startet, STOP hält an); am Gerät nicht. Ab API Version 15 | wie `korg.led` |
+| `korg.keyMask(low, high)` | setzt die ganze Tastenmaske dieses Plugins: Bit n von `low` ist die Taste n (0 bis 31, `1 << korg.key.PLAY`), Bit n von `high` die Taste 32 + n (`high` 0 bis 3). Jede Taste in der Maske hält das Plugin von der Firmware fern wie `korg.keyHold(taste, 1)`, jede andere gibt es zurück, andere Plugins bleiben unberührt. Das Plugin bekommt `buttonPress` und `buttonRelease` weiter. EXIT in der Maske beendet das Plugin mit einem Fehler. Was bei zwei Plugins mit derselben Taste gilt, steht im Abschnitt Eingaben fernhalten. Im Emulator gemessen auf Hacktribe, rot und blau; am Gerät nicht. Ab API Version 19 | wie `korg.led` |
 | `korg.knob(index, wert)` | gibt der Firmware den Wert `wert` (0 bis 255) für den Regler `index` (0 bis 10), über ihre eigene Reglerfunktion, als hätte der Regler ihn gesendet. Zusammen mit `korg.knobHold` filtert ein Plugin einen Regler, der springt. `korg.read.knob` zeigt weiter den Wert des Panels. Ab API Version 13 | wie `korg.led` |
 | `korg.remapKey(von, nach)` | die Taste `von` kommt bei der Firmware und bei den Plugins als Taste `nach` an (beide 0 bis 33, am besten Namen wie `korg.key.PART_ERASE`), solange das Plugin läuft: der Eingangsfilter schreibt den Code in der Panel-Nachricht um, bevor die Firmware sie liest, die Firmware tut also genau, was sie mit `nach` tut. Es gilt eine Umlegung für alle Plugins, die letzte zählt; dieselbe Taste zweimal hebt sie auf. EXIT lässt sich nicht umlegen. Ab API Version 8 | nur im Rumpf und in `ready` |
 | `korg.seq.setStep(part, step, note, velocity)` | schreibt Step `step` (0 bis 63) von Part `part` (0 bis 15) im Pattern, das läuft: `note` 0 bis 127 mit `velocity` 1 bis 127 schaltet ihn an, mit dieser Note auf dem ersten Notenplatz (die anderen drei leer) und Trigger an; `note` -1 oder `velocity` 0 schaltet ihn aus. Das Gate bleibt, wie es ist. Ab API Version 9 | wie `korg.led` |
@@ -690,6 +695,26 @@ in jedem Rahmen haben möchte, fordert ihn in `frame` erneut an. Eine feste
 vorausgesetzt. Das eigenständige Hostmodell wird ausdrücklich über
 `ScriptRuntime` und dessen `api["korg.led"]` verbunden; es gibt keine
 versteckte globale Warteschlange.
+
+### Eingaben fernhalten (API 19)
+
+Ein Plugin nimmt der Firmware Tasten, Pads und Regler weg, damit sie nur das Plugin bekommt: `korg.keyMask` und
+`korg.keyHold` für Tasten, `korg.padHold` für die Pads, `korg.knobHold` für Regler. Jedes Plugin hat dafür seine eigene
+Maske, die Aufrufe ändern nur die des aufrufenden Plugins. Der Eingangsfilter der Laufzeit gibt jede Eingabe an alle
+laufenden Plugins, die einen Handler dafür haben, und entscheidet danach, ob sie die Firmware sieht.
+
+- **Zwei Plugins, dieselbe Taste:** beide bekommen die Taste, die Firmware bekommt sie nicht, solange **irgendein**
+  laufendes Plugin sie hält. Lässt eines los, hält das andere weiter. Für Pads und Regler gilt dasselbe.
+- **Ein Plugin hört auf** (abgeschaltet, mit Fehler beendet, entfernt): seine Masken zählen ab dem Ende des nächsten Rahmens
+  nicht mehr. Was nur dieses Plugin gehalten hat, geht an die Firmware zurück.
+- **Eine App schließt:** sie gibt die Pads aller Plugins zurück (wie bisher); Tasten und Regler bleiben gehalten.
+- **Das Loslassen folgt dem Anschlag:** ein Anschlag, der der Firmware vorenthalten wurde, hält auch sein Loslassen von ihr
+  fern, auch wenn der Halt dazwischen endet; ein Anschlag, der durchging, lässt sein Loslassen durch.
+- **EXIT** lässt sich nicht halten (`korg.keyHold` und `korg.keyMask` beenden das Plugin mit einem Fehler), Apps bleiben
+  schließbar.
+- **Gemessen:** im Emulator auf Hacktribe, rot und blau mit zwei Plugins (`tools/emu/plugin_api19_cases.py`); am Gerät nicht.
+  Die Beispiel-Plugins Gate Hold, Key Pads, Momentary Mute und Filter Toggle laufen unverändert weiter, sie nutzen
+  `korg.keyHold`, `korg.padHold` und `korg.knobHold`.
 
 ### Namen für Tasten und LEDs
 

@@ -1,4 +1,4 @@
-# Plugin API 18: die Globals als Blätter von `korg.global`
+# Plugin API 20: die Globals als Blätter von `korg.global`
 
 Stand 5. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
 mit dem BLECH-Satz. Fälle: `tools/emu/global_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**

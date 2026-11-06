@@ -72,7 +72,7 @@ function globalLeaves() {
     if (!f?.range || f.source === "unknown") throw new Error(`korg.global.${name}: no known field ${field} in data/map/global.mjs`);
     return leaf(GLOBAL_FIRST + i, `korg.global.${name}`, {
       base: "global", offset: f.where.offset + 4, type: "u8", min: f.range[0], max: f.range[1], factory, write: true,
-      stored: true, apply: "setter", since: 18, unit: "value", field, page, text: text("api.object.global", { page }),
+      stored: true, apply: "setter", since: 20, unit: "value", field, page, text: text("api.object.global", { page }),
     });
   });
 }
