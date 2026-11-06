@@ -369,8 +369,10 @@ const API_LIST = [
   [75, "korg.keyHold", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 15],
   [76, "korg.pressKey", [int("key", 0, 33)], "void", UI, 30, 15],
   [77, "korg.seq.setPatternValue", [int("field", 0, 11), int("value")], "void", UI, 60, 15],
+  [78, "korg.read.viewedPattern", [], "int", ALL, 6, 18],
+  [79, "korg.read.nextPattern", [], "int", ALL, 6, 18],
   // the keys a plugin keeps from the firmware, as one mask: bit n of `low` is key n (0 to 31), bit n of `high` key 32 + n
-  [78, "korg.keyMask", [int("low"), int("high", 0, 3)], "void", UI, 20, 18],
+  [80, "korg.keyMask", [int("low"), int("high", 0, 3)], "void", UI, 20, 19],
 ];
 
 /**

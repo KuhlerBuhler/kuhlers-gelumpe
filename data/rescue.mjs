@@ -70,7 +70,7 @@ export const TEST_AREAS = {
   mfx: "rescue.area.sound", ifxidle: "rescue.area.sound", synthfilter: "rescue.area.sound",
   tapmotion: "rescue.area.play", noteassist: "rescue.area.play", dice: "rescue.area.play", beateighth: "rescue.area.play", touchscalezero: "rescue.area.play",
   remote: "rescue.area.midi", sysex: "rescue.area.midi",
-  plugin_edit: "rescue.area.plugin", plugin_api15: "rescue.area.plugin", plugin_api16: "rescue.area.plugin", plugin_catalog15: "rescue.area.plugin", timers: "rescue.area.plugin", objects: "rescue.area.plugin", live_write: "rescue.area.plugin", testmode: "rescue.area.plugin",
+  plugin_edit: "rescue.area.plugin", plugin_api15: "rescue.area.plugin", plugin_api18: "rescue.area.plugin", plugin_api19: "rescue.area.plugin", plugin_catalog15: "rescue.area.plugin", timers: "rescue.area.plugin", objects: "rescue.area.plugin", live_write: "rescue.area.plugin", testmode: "rescue.area.plugin",
   doom: "rescue.area.doom",
 };
 

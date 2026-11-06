@@ -1,9 +1,9 @@
-"""Emulator cases of plugin API 18: what a plugin keeps from the firmware is its own mask (korg.keyMask, and what korg.keyHold,
+"""Emulator cases of plugin API 19: what a plugin keeps from the firmware is its own mask (korg.keyMask, and what korg.keyHold,
 korg.padHold and korg.knobHold set for the calling plugin), and the input filter masks an input while ANY running plugin
 masks it. Two plugins mask the same key, pads and knob: the firmware gets the input only when neither does, and both plugins
 get it either way.
 
-    PYTHONPATH=tools/patch python3 tools/emu/plugin_api16_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
+    PYTHONPATH=tools/patch python3 tools/emu/plugin_api19_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 """
 import argparse
 import json
@@ -52,7 +52,7 @@ PROGRAMS = {
 
 
 def entry(name, ok, detail):
-    return {"id": f"plugin_api16:{name}", "ok": bool(ok), "detail": str(detail)}
+    return {"id": f"plugin_api19:{name}", "ok": bool(ok), "detail": str(detail)}
 
 
 def command(dev, go, wait=0.3):

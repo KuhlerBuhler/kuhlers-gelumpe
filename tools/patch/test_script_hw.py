@@ -113,6 +113,31 @@ class NativeHardwareTests(unittest.TestCase):
             m.uc.mem_write(0xC06A2A94 + 31,bytes([byte]))
             self.assertEqual(m.call('script_read_chain_mode_glue'),(want,0))
 
+    def test_the_viewed_pattern_is_the_bank_block_the_view_cell_points_into(self):
+        m,_ = self.machine()
+        cell,accessor,bank = 0xC0691388,0xC0690100,0xC08B2940
+        m.write(cell,accessor)
+        for number in (0,3,249):
+            m.write(accessor + 4,bank + number * 0x4000 - 4)
+            self.assertEqual(m.call('script_read_viewed_pattern_glue'),(number,0))
+
+    def test_the_next_pattern_needs_the_confirmation_and_the_pending_flag(self):
+        m,_ = self.machine()
+        state,model = 0xC0180F00,0xC06B2108
+        m.write(state + 4,0xFFFFFFFF); m.write(state + 8,0xFFFFFFFF)
+        m.uc.mem_write(model + 0x341,bytes([1]))
+        self.assertEqual(m.call('script_read_next_pattern_glue'),(0xFFFFFFFF,0),'no pattern switch: nothing confirmed')
+        m.write(state + 4,1); m.write(state + 8,42)
+        self.assertEqual(m.call('script_read_next_pattern_glue'),(42,0))
+        m.uc.mem_write(model + 0x341,bytes([0]))
+        self.assertEqual(m.call('script_read_next_pattern_glue'),(0xFFFFFFFF,0),'the firmware dropped it')
+        m.uc.mem_write(model + 0x341,bytes([1]))
+        m.write(state + 8,250)
+        self.assertEqual(m.call('script_read_next_pattern_glue'),(0xFFFFFFFF,0),'a number outside the bank')
+        m.write(state + 4,0)
+        m.write(state + 8,5)
+        self.assertEqual(m.call('script_read_next_pattern_glue'),(0xFFFFFFFF,0),'only browsing')
+
     def test_remap_key_records_the_calling_plugin_and_refuses_exit(self):
         m,built = self.machine()
         remap = built.layout['card'] + built.symbols['RP_AT']

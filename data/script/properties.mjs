@@ -19,6 +19,8 @@ export const PROPERTIES = Object.freeze([
   p("korg.tempo", ["korg.read.tempo", []], ["korg.tempo", ["value"]], text("api.property.tempo")),
   p("korg.transport", ["korg.read.transport", []], null, text("api.property.transport")),
   p("korg.selectedPattern", ["korg.read.pattern", []], ["korg.pattern", ["value"]], text("api.property.selectedPattern")),
+  p("korg.viewedPattern", ["korg.read.viewedPattern", []], null, text("api.property.viewedPattern")),
+  p("korg.nextPattern", ["korg.read.nextPattern", []], null, text("api.property.nextPattern")),
   p("korg.selectedPart", ["korg.read.part", []], ["korg.part", ["value"]], text("api.property.selectedPart")),
   p("korg.parts[].step", ["korg.read.step", ["index"]], null, text("api.property.parts.step")),
   p("korg.parts[].muted", ["korg.read.mute", ["index"]], ["korg.mute", ["index", "value"]], text("api.property.parts.muted")),
