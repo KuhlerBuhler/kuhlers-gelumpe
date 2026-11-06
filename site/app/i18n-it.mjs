@@ -1538,6 +1538,7 @@ export default {
   "patcher.checks": "Tutti i controlli dell'emulatore ({count})",
   "patcher.check.ok": "superato",
   "patcher.check.failed": "non superato",
+  "patcher.check.skipped": "saltato",
   "patcher.untested": "Questo file non è testato. Al primo avvio tieni pronto EXIT: così l'Electribe parte senza le patch. ",
   "patcher.after": "Se dopo qualcosa non parte: {rescue} mostra la strada documentata per tornare indietro.",
   "patcher.target": "Il nuovo file va sulla scheda SD dell'Electribe, qui:",

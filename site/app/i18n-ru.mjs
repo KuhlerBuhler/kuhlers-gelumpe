@@ -1539,6 +1539,7 @@ export default {
   "patcher.checks": "Все проверки эмулятора ({count})",
   "patcher.check.ok": "пройдено",
   "patcher.check.failed": "не пройдено",
+  "patcher.check.skipped": "пропущено",
   "patcher.untested": "Этот файл не тестировался. При первом запуске держи наготове EXIT: с ним Electribe запускается без патчей. ",
   "patcher.after": "Если после этого что-то не запускается: {rescue} покажет задокументированный путь назад.",
   "patcher.target": "Новый файл нужно положить на SD-карту Electribe, вот сюда:",

@@ -621,7 +621,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     checksBox.hidden = !checks.length;
     document.getElementById("cee-patch-details-title").textContent = t("patcher.checks", { count: checks.length });
     checkList.replaceChildren(...checks.map(c => el("li", { className: "ui-row" }, [
-      pill(c.ok ? "ok" : "error", c.ok ? t("patcher.check.ok") : t("patcher.check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
+      pill(c.skipped ? "info" : c.ok ? "ok" : "error", t(c.skipped ? "patcher.check.skipped" : c.ok ? "patcher.check.ok" : "patcher.check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
     ])));
 
     result.hidden = !can.download;
