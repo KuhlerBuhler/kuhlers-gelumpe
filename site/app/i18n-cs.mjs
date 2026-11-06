@@ -1537,6 +1537,7 @@ export default {
   "patcher.checks": "Všechny kontroly emulátoru ({count})",
   "patcher.check.ok": "prošlo",
   "patcher.check.failed": "neprošlo",
+  "patcher.check.skipped": "přeskočeno",
   "patcher.untested": "Tenhle soubor není otestovaný. Při prvním startu měj po ruce EXIT: s ním Electribe nastartuje bez patchů. ",
   "patcher.after": "Kdyby pak něco nenastartovalo: {rescue} ukazuje zdokumentovanou cestu zpátky.",
   "patcher.target": "Nový soubor patří na SD kartu Electribe, sem:",

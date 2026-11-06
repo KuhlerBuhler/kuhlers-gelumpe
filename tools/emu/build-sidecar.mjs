@@ -10,7 +10,8 @@
  * for an external binary. No firmware goes in: the binary is only the code.
  */
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { pythonEnv, targetTriple } from "./python-env.mjs";
 import { clearCfgInFile } from "./pe-flags.mjs";
@@ -47,7 +48,11 @@ if (stamp.error || stamp.status !== 0 || !/^[0-9a-f]{64}$/.test(stamp.stdout.tri
   console.error(`Quellhash fehlgeschlagen: ${stamp.stderr || stamp.error?.message || stamp.stdout}`);
   process.exit(1);
 }
-writeFileSync(`${work}/source-hash.txt`, stamp.stdout.trim());
+// The app has no node: the cases' node snippets run here once, and their results go into the bundle (node_json.py).
+run(...command(python, [path("record_node_json.py"), `${work}/node-results.json`]));
+// The results come from src/script and data/script, which the source hash does not cover: they go into the stamp too.
+const results = createHash("sha256").update(readFileSync(`${work}/node-results.json`)).digest("hex");
+writeFileSync(`${work}/source-hash.txt`, createHash("sha256").update(stamp.stdout.trim() + results).digest("hex"));
 run(...command(python, [
   "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile",
   "--name", "gelumpe-emu",
@@ -65,6 +70,7 @@ run(...command(python, [
   "--add-data", `${path("../../assets/blechy/splash.bin")}${sep}assets/blechy`,
   "--add-data", `${path("../../assets/blechy/loading.blla")}${sep}assets/blechy`,
   "--add-data", `${work}/source-hash.txt${sep}.`,
+  "--add-data", `${work}/node-results.json${sep}.`,
   // build_bootstrap reads its layout next to itself; frozen, that is the bundle's root.
   "--add-data", `${path("../doom/layout.json")}${sep}.`,
   // Blechy's sprites and the display font: the power-off and card-error pictures are drawn from them when a check builds them.
