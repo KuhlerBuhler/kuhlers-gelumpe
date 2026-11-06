@@ -84,10 +84,14 @@ test("the values of a pattern have names: the pattern that plays, every stored p
   ]) assert.equal(blob(named), blob(call), named);
   for (const [named, call] of [
     ["korg.parts[2].cutoff = 64;", "korg.seq.setPartValue(2, 2, 64);"],
+    ["korg.current.tempo = 1200;", "korg.seq.setPatternValue(0, 1200);"],
+    ["korg.current.key += 1;", "korg.seq.setPatternValue(4, korg.read.patternValue(-1, -1, 4) + 1);"],
+    ["korg.pattern.current.syncGroup = 7;", "korg.current.syncGroup = 7;"],
     ["korg.parts[0].pitch += 1;", "korg.seq.setPartValue(0, 15, korg.read.patternValue(-1, 0, 15) + 1);"],
   ]) assert.equal(blob(named), blob(call), named);
   assert.match(error("korg.parts[1].sample = 3;"), /nur lesen/);
-  assert.match(error("korg.current.tempo = 1200;"), /nur lesen/);
+  assert.match(error("korg.parts[1].ifxType = 3;"), /nur lesen/);
+  assert.match(error("korg.patterns[1].tempo = 1200;"), /nur lesen/);
   assert.match(error("let t = korg.patterns[1].nope;"), /gibt es nicht/);
 
   const { SimDevice } = await import("../src/script/sim.mjs");

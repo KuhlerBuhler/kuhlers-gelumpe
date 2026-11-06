@@ -315,10 +315,48 @@ class NativeHardwareTests(unittest.TestCase):
         self.assertEqual(m.call('script_seq_set_part_value_glue',0,1,0xFFFFFFFF),(0,0))
         self.assertEqual(calls[0][4:6],(10,0),'filter type at least 0')
         calls.clear()
-        for field in (0,12,13,17,19,20):
+        for field in (0,13,20):
             self.assertEqual(m.call('script_seq_set_part_value_glue',0,field,1)[1],error,field)
         self.assertEqual(m.call('script_seq_set_part_value_glue',16,1,1)[1],error)
         self.assertEqual(calls,[],'a read-only field is not written')
+
+    def test_set_part_value_calls_the_direct_setter_of_ifx_on_voice_assign_and_mfx_send(self):
+        m,built = self.machine()
+        from unicorn import UC_HOOK_CODE
+        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_LR, UC_ARM_REG_PC
+        from tools.patch.script_hooks import PART_SETTER_FIELDS, PART_SETTERS, part_setter_actions
+        fields = json.loads(subprocess.check_output(['node','--input-type=module','-e',
+            "import {PART_FIELDS} from './data/script/contract.mjs'; console.log(JSON.stringify(PART_FIELDS.map(f => f.name)))"],cwd=ROOT))
+        self.assertEqual(list(PART_SETTER_FIELDS),fields)
+        for build in PART_SETTERS:
+            self.assertEqual(sorted(PART_SETTERS[build]),['mfxSend','voiceAssign'],build)
+        actions = part_setter_actions('hacktribe')
+        table = m.symbols['part_setters']
+        self.assertEqual(struct.unpack('<%dI'%len(fields),bytes(m.uc.mem_read(table,4*len(fields)))),
+                         tuple(actions['PS_SET_%d'%i] for i in range(len(fields))))
+        try: m.uc.mem_map(0xC0049000,0x1000)
+        except Exception: pass
+        calls = []
+        def setter(uc,address,*_):
+            calls.append((address,uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1),uc.reg_read(UC_ARM_REG_R2),uc.reg_read(UC_ARM_REG_R3)))
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
+        for address in PART_SETTERS['hacktribe'].values():
+            m.uc.hook_add(UC_HOOK_CODE,setter,begin=address,end=address)
+        at = {name: fields.index(name) for name in fields}
+        for name,value in (('voiceAssign',2),('voiceAssign',9),('mfxSend',0xFFFFFFFF)):
+            self.assertEqual(m.call('script_seq_set_part_value_glue',4,at[name],value),(0,0),name)
+        obj = 0xC06B2798 + 0x400C
+        self.assertEqual(calls,[(0xC00493A0,obj,4,2,1),(0xC00493A0,obj,4,3,1),(0xC00496D4,obj,4,0,1)],
+                         'clamped to the field range, (object + 0x400C, part, value, 1)')
+
+    def test_set_pattern_value_stores_the_sync_group_as_a_halfword(self):
+        m,_ = self.machine()
+        fields = json.loads(subprocess.check_output(['node','--input-type=module','-e',
+            "import {PATTERN_FIELDS} from './data/script/contract.mjs'; console.log(JSON.stringify(PATTERN_FIELDS.map(f => f.name)))"],cwd=ROOT))
+        at = 0xC06B2798 + 4 + 0x3B80
+        for value,stored in ((517,517),(5000,999),(0xFFFFFFFF,0)):
+            self.assertEqual(m.call('script_seq_set_pattern_value_glue',fields.index('syncGroup'),value),(0,0))
+            self.assertEqual(struct.unpack('<H',bytes(m.uc.mem_read(at,2)))[0],stored,value)
 
     def test_set_pattern_value_calls_the_measured_setter_with_the_byte_the_menu_passes(self):
         m,built = self.machine()
@@ -331,7 +369,7 @@ class NativeHardwareTests(unittest.TestCase):
         self.assertEqual(list(PATTERN_SETTER_FIELDS),fields)
         for build in PATTERN_SETTERS:
             actions = pattern_setter_actions(build)
-            self.assertTrue(all(actions['PV_SET_%d'%i] for i in range(len(fields))),'%s: every field has a setter'%build)
+            self.assertTrue(all(actions['PV_SET_%d'%i] for i in range(len(fields))),'%s: every field has a setter or a store'%build)
         self.assertEqual(pattern_setter_actions('synth')['PV_TOP_%d'%fields.index('mfxType')],31,'the synth MFX TYPE page ends at 31')
         actions = pattern_setter_actions('hacktribe')
         table = m.symbols['pattern_setters']
@@ -342,11 +380,11 @@ class NativeHardwareTests(unittest.TestCase):
         def setter(uc,address,*_):
             calls.append((address,uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1),uc.reg_read(UC_ARM_REG_R2)))
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
-        for page in sorted({actions['PV_SET_%d'%i] & ~0xFFF for i in range(len(fields))}):
+        for page in sorted({actions['PV_SET_%d'%i] & ~0xFFF for i in range(len(fields)) if actions['PV_SET_%d'%i] > 1}):
             try: m.uc.mem_map(page,0x1000)
             except Exception: pass
         for i in range(len(fields)):
-            m.uc.hook_add(UC_HOOK_CODE,setter,begin=actions['PV_SET_%d'%i],end=actions['PV_SET_%d'%i])
+            if actions['PV_SET_%d'%i] > 1: m.uc.hook_add(UC_HOOK_CODE,setter,begin=actions['PV_SET_%d'%i],end=actions['PV_SET_%d'%i])
         obj = 0xC06B2798
         at = {name: fields.index(name) for name in fields}
         for name,value in (('tempo',9000),('tempo',100),('length',1),('length',99),('chainTo',0xFFFFFFF0),('chainTo',17),('mfxType',99),('gateArp',12)):

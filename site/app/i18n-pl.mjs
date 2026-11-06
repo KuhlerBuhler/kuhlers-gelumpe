@@ -2166,6 +2166,7 @@ export default {
   "api.pattern.chainTo": "Chain To: następny pattern, od 0 do 249, -1 bez łańcucha.",
   "api.pattern.chainRepeat": "Chain Repeat: ile razy pattern gra, zanim łańcuch pójdzie dalej, co najmniej 1.",
   "api.pattern.gateArp": "Gate Arp: wzór Gate Arp, od 0 do 49, jak strona GATE ARP w menu Pattern.",
+  "api.pattern.syncGroup": "Sync Group: grupa synchronizacji patternu, od 0 (wył.) do 999, jak strona SYNC GROUP w menu Pattern.",
   "api.part.sample": "Sample, numer slotu.",
   "api.part.filterType": "Typ filtra, od 0 do 16.",
   "api.part.cutoff": "Cutoff, od 0 do 127.",

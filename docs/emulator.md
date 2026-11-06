@@ -716,7 +716,11 @@ mit Fehlertext.
 `bootmap.py` bootet eine VSB auf 17 Startwegen (normal, Update-Abfrage,
 Panel-Update, jeder Startmodus, Notschalter) und listet den Code, der bis
 zum ersten Hauptbildschirm läuft, und die Bytes des Abbilds, die dabei
-gelesen werden. `check.py` macht daraus die Prüfung für eine gepatchte
+gelesen werden. Die Startphase endet genau dort, wo die Firmware den
+Hauptbildschirm setzt, nicht erst am Ende der 20-ms-Zeitscheibe, in der das
+passiert: Code, der erst auf dem Hauptbildschirm läuft (etwa der Bildhaken der
+Skript-Laufzeit hinter seinem Tor), zählt nicht mit, egal wie der Bildtakt zum
+Hauptbildschirm liegt. `check.py` macht daraus die Prüfung für eine gepatchte
 Kopie: alle Startwege müssen ankommen, und kein geändertes Byte darf in
 Code oder Daten der Startphase liegen, außer Daten, die die Karte kennt
 (`--allow`, etwa das Startbild). Ein Lauf dauert rund anderthalb Minuten.

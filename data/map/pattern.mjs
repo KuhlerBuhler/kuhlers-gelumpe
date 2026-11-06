@@ -100,6 +100,8 @@ export default {
     f("pattern.chainRepeat", l("Chain Repeat"), 15106, { area: "pattern", convert: "plain", range: [0, 127], source: "measured", evidence: CHAIN,
       note: "Das Gerät zeigt 0 und 1 beide als 1; ein auf 3 gestellter Wert steht im Byte als 3",
       live: live("0xC004A5D4", "0xC00446B4", PAT, true, NOTIFY) }),
+    f("pattern.syncGroup", l("Sync Group"), 15232, { area: "pattern", type: "u16le", convert: "syncGroup", range: [0, 999], source: "measured", evidence: "measure:2026-11-06/plugin-api21-pattern-parts",
+      note: "Gelumpe-Feld, das die Korg-Firmware nicht kennt: Seite SYNC GROUP im EDIT-Menü, 0 heißt aus" }),
 
     f("motion.part", l("Motion: Part"), 256, { area: "motion", repeat: [{ count: 24, stride: 1, label: l("Slot") }], convert: "motionPart", range: [0, 17], edit: "expert", source: "korg-spec", evidence: MOTION_SPEC, note: "am Gerät nicht geprüft" }),
     f("motion.destination", l("Motion: Ziel", "Motion: destination"), 280, { area: "motion", repeat: [{ count: 24, stride: 1, label: l("Slot") }], convert: "motionDestination", range: [0, 19], edit: "expert", source: "korg-spec", evidence: MOTION_SPEC, note: "am Gerät nicht geprüft" }),

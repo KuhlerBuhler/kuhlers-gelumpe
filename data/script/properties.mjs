@@ -5,7 +5,7 @@
  */
 import { text } from "../../src/text.mjs";
 import { KNOBS } from "../panel.mjs";
-import { PATTERN_FIELDS, PART_FIELDS, PART_WRITES } from "./contract.mjs";
+import { PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PART_WRITE_SINCE, PATTERN_FIELD_SINCE } from "./contract.mjs";
 import { OBJECTS } from "./objects.mjs";
 
 const knobName = id => id.replace(/([a-z])([A-Z0-9])/g, "$1_$2").toUpperCase();
@@ -13,7 +13,10 @@ const knobName = id => id.replace(/([a-z])([A-Z0-9])/g, "$1_$2").toUpperCase();
 /** `korg.knobs.LEVEL`: the knob names, from the panel table, as the index the knob event and korg.read.knob use. */
 export const KNOB_NAMES = Object.freeze(KNOBS.map(k => Object.freeze({ name: knobName(k.id), value: k.index, label: k.label })));
 
-const p = (path, read, write, text, range = null, since = 0) => Object.freeze({ path, read, write, text, range, since });
+// since: the API version reading or writing needs; writeSince: the one writing needs, when it came later than reading
+const p = (path, read, write, text, range = null, since = 0, writeSince = since) => Object.freeze({ path, read, write, text, range, since, writeSince });
+const current = (path, f, i) => p(path, ["korg.read.patternValue", [-1, -1, i]], ["korg.seq.setPatternValue", [i, "value"]],
+  text("api.property.current", { field: f.text }), null, Math.max(PATTERN_FIELD_SINCE[f.name] ?? 0, path.startsWith("korg.pattern.") ? 21 : 0));
 
 export const PROPERTIES = Object.freeze([
   p("korg.tempo", ["korg.read.tempo", []], ["korg.tempo", ["value"]], text("api.property.tempo")),
@@ -28,10 +31,13 @@ export const PROPERTIES = Object.freeze([
   p("korg.store[]", ["korg.store.get", ["index", 0]], ["korg.store.set", ["index", "value"]], text("api.property.store")),
   p("korg.leds[]", null, ["korg.led", ["index", "value"]], text("api.property.leds")),
   p("korg.chainMode", ["korg.read.chainMode", []], null, text("api.property.chainMode")),
-  ...PATTERN_FIELDS.map((f, i) => p(`korg.current.${f.name}`, ["korg.read.patternValue", [-1, -1, i]], null, text("api.property.current", { field: f.text }))),
-  ...PATTERN_FIELDS.map((f, i) => p(`korg.patterns[].${f.name}`, ["korg.read.patternValue", ["index", -1, i]], null, text("api.property.patterns", { field: f.text }))),
+  ...PATTERN_FIELDS.map((f, i) => current(`korg.pattern.current.${f.name}`, f, i)),
+  ...PATTERN_FIELDS.map((f, i) => current(`korg.current.${f.name}`, f, i)),
+  ...PATTERN_FIELDS.map((f, i) => p(`korg.patterns[].${f.name}`, ["korg.read.patternValue", ["index", -1, i]], null, text("api.property.patterns", { field: f.text }),
+    null, PATTERN_FIELD_SINCE[f.name] ?? 0)),
   ...PART_FIELDS.map((f, i) => p(`korg.parts[].${f.name}`, ["korg.read.patternValue", [-1, "index", i]],
-    PART_WRITES[f.name] ? ["korg.seq.setPartValue", ["index", i, "value"]] : null, text("api.property.parts", { field: f.text }))),
+    PART_WRITES[f.name] ? ["korg.seq.setPartValue", ["index", i, "value"]] : null, text("api.property.parts", { field: f.text }),
+    null, 0, PART_WRITE_SINCE[f.name] ?? 0)),
   // the object tree (data/script/objects.mjs): one call each way with the leaf's id, the runtime checks the range; actions are calls
   ...OBJECTS.filter(o => !o.action).map(o => p(o.path, ["korg.get", [o.id, -1]], o.write ? ["korg.set", [o.id, -1, "value"]] : null, o.text, [o.min, o.max], o.since)),
 ]);
