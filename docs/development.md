@@ -56,26 +56,22 @@ einschaltet.
 
 Ein Release legt dasselbe Abbild auch in GitHubs Paketregister ab, für linux/amd64
 und linux/arm64 (`.github/workflows/docker-image.yml`, von `release.yml`
-aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Den
-Namen trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
+aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Seit
+dem Release 1.4.0 liegt es dort, unter beiden Architekturen; frühere Versionen
+gibt es im Paketregister nicht, das erste Abbild kam mit diesem Release. Den Namen
+trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
 `docker compose pull` und danach `docker compose up`, ohne dass du selbst baust.
-Bis zum ersten Release mit diesem Workflow gibt es das Paket noch nicht, bis
-dahin führt `docker compose pull` zu einem Fehler und `docker compose up --build`
-bleibt der Weg. Ein Release startet nur Workflows, wie sie auf `main` liegen,
-und `docker-image.yml` kam über `develop`; das Paket entsteht also mit dem ersten
-Release, das diesen Stand nach `main` bringt. `docker compose up --build` baut auch
-dann aus diesem Ordner, wenn
-das Abbild schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres
-`pull` ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
+`docker compose up --build` baut auch dann aus diesem Ordner, wenn das Abbild
+schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres `pull`
+ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
 keinem Abbild.
 
 Eine bestimmte Version statt `:latest` nimmt `GELUMPE_IMAGE`, etwa
-`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.3.7 docker compose pull`. Die
+`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.4.0 docker compose pull`. Die
 Variable gilt für `pull` und `up`; in einer `.env` neben `docker-compose.yaml`
 steht sie für beide. Von Hand (Actions, "Container image", mit einem Tag) lässt
-sich ein Abbild neu bauen, sobald der Workflow auf `main` liegt; vorher steht er
-nicht in der Liste, und ein Release startet ihn nicht. `:latest` wandert dabei nur
-mit, wenn "latest" angehakt ist.
+sich ein Abbild neu bauen; `:latest` wandert dabei nur mit, wenn "latest"
+angehakt ist.
 
 ## Hinter einem Proxy
 
