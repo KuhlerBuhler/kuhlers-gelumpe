@@ -34,14 +34,14 @@ korg.onEvent("frame", () => {{
   done = go;
 """
 PROGRAMS = {
-    "api16a": HEAD + """  if (go == 1) korg.keyMask(1 << korg.key.PLAY, 0);
+    "api19a": HEAD + """  if (go == 1) korg.keyMask(1 << korg.key.PLAY, 0);
   if (go == 2) korg.keyMask(0, 0);
   if (go == 5) korg.padHold(1);
   if (go == 6) korg.padHold(0);
   if (go == 7) korg.knobHold(9, 1);
   if (go == 8) korg.knobHold(9, 0);
 });""",
-    "api16b": HEAD + """  if (go == 3) korg.keyHold(korg.key.PLAY, 1);
+    "api19b": HEAD + """  if (go == 3) korg.keyHold(korg.key.PLAY, 1);
   if (go == 4) korg.keyHold(korg.key.PLAY, 0);
   if (go == 9) korg.padHold(1);
   if (go == 10) korg.padHold(0);
@@ -82,9 +82,9 @@ def cases(vsb, flash=None):
                      f"transport after PLAY {started}"))
 
     command(dev, 1)
-    before = plays("api16a"), plays("api16b")
+    before = plays("api19a"), plays("api19b")
     edit.tap_key(dev, PLAY, 0.3)
-    one = dev.u32(TRANSPORT), plays("api16a") - before[0], plays("api16b") - before[1]
+    one = dev.u32(TRANSPORT), plays("api19a") - before[0], plays("api19b") - before[1]
     out.append(entry("a_key_mask_keeps_the_key_and_both_plugins_get_it", one == (0, 1, 1) and not dev.m.asserts,
                      f"transport {one[0]}, presses seen by a {one[1]}, by b {one[2]}"))
     command(dev, 3)
@@ -92,7 +92,7 @@ def cases(vsb, flash=None):
     edit.tap_key(dev, PLAY, 0.3)
     both = dev.u32(TRANSPORT)
     out.append(entry("two_plugins_one_key_the_second_keeps_it_when_the_first_lets_go", both == 0 and not dev.m.asserts,
-                     f"transport {both}, plugins' presses {plays('api16a') - before[0]} and {plays('api16b') - before[1]} since the mask"))
+                     f"transport {both}, plugins' presses {plays('api19a') - before[0]} and {plays('api19b') - before[1]} since the mask"))
     command(dev, 4)
     edit.tap_key(dev, PLAY, 0.3)
     free = dev.u32(TRANSPORT)
@@ -117,8 +117,8 @@ def cases(vsb, flash=None):
     command(dev, 12)
     out.append(entry("a_knob_is_masked_while_either_plugin_holds_it", still == 0xFFFFFFFF ^ 1 << 9 and knobs() == 0xFFFFFFFF and not dev.m.asserts,
                      f"knob word with b {still:#x}, with none {knobs():#x}"))
-    out.append(entry("both_plugins_still_run", dev.u32(at["api16a"] + 12) == 2 and dev.u32(at["api16b"] + 12) == 2,
-                     f"states {dev.u32(at['api16a'] + 12)} and {dev.u32(at['api16b'] + 12)}"))
+    out.append(entry("both_plugins_still_run", dev.u32(at["api19a"] + 12) == 2 and dev.u32(at["api19b"] + 12) == 2,
+                     f"states {dev.u32(at['api19a'] + 12)} and {dev.u32(at['api19b'] + 12)}"))
     return out
 
 
