@@ -389,6 +389,7 @@ def seq_cases(request, programs, built, patched, flash, check):
         return bad
 
     check("seq-schreibt-wie-der-browser", seq.a(0xC06B2798) + 4 == pattern and not same(request["seq"]["ready"]), same(request["seq"]["ready"])[:4])
+    check("seq-gate-tie-byte", records()[15][1] == 255, records()[15][1])
     lit = lambda: sorted(n for n in range(16) if seq.m.leds.get(0x2C + 2 * n, 0) > 0)
     seq.press(0x15, 0.4)                                     # SEQUENCER: the pads show the steps of bar 1
     before = lit()

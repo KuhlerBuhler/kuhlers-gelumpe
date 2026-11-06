@@ -10,8 +10,56 @@
 .equ SQ_AT, 0xFD8               ; one word in the card loader's work area, behind the record of korg.remapKey (RP_AT) and before the
 .equ SQ_SIZE, 4                 ; state of fx_card.s: its own address while steps wait for the pads to draw them (FF at power-on is not)
 
+; Read the active pattern's step bytes. Reads do not mark the pattern as edited.
+script_seq_get_on_glue:
+    cmp r0, #16
+    cmplo r1, #SCRIPT_STEP_COUNT
+    bhs hw_bad_arg
+    push {lr}
+    bl seq_address
+    ldrb r0, [r12, #SCRIPT_STEP_ON]
+    mov r1, #ERR_OK
+    pop {pc}
+
+script_seq_get_gate_glue:
+    cmp r0, #16
+    cmplo r1, #SCRIPT_STEP_COUNT
+    bhs hw_bad_arg
+    push {lr}
+    bl seq_address
+    ldrb r0, [r12, #SCRIPT_STEP_GATE]
+    mov r1, #ERR_OK
+    pop {pc}
+
+script_seq_get_velocity_glue:
+    cmp r0, #16
+    cmplo r1, #SCRIPT_STEP_COUNT
+    bhs hw_bad_arg
+    push {lr}
+    bl seq_address
+    ldrb r0, [r12, #SCRIPT_STEP_VELOCITY]
+    mov r1, #ERR_OK
+    pop {pc}
+
+; r0 part, r1 step, r2 note slot -> the MIDI note, or -1 when that slot is empty.
+script_seq_get_note_glue:
+    cmp r0, #16
+    cmplo r1, #SCRIPT_STEP_COUNT
+    bhs hw_bad_arg
+    cmp r2, #4
+    bhs hw_bad_arg
+    push {lr}
+    bl seq_address
+    add r12, r12, #SCRIPT_STEP_NOTES
+    ldrb r0, [r12, r2]
+    cmp r0, #0
+    mvneq r0, #0
+    subne r0, r0, #1
+    mov r1, #ERR_OK
+    pop {pc}
+
 ; r0 part, r1 step, r2 note (-1 for none), r3 velocity. A note with a velocity above 0 turns the step on with that note in the
-; first note place (the other three cleared) and the trigger on; note -1 or velocity 0 turns it off. The gate stays.
+; first note place (the other three cleared); the trigger byte is preserved. Note -1 or velocity 0 turns it off.
 script_seq_set_step_glue:
     cmp r0, #16
     cmplo r1, #SCRIPT_STEP_COUNT
@@ -22,7 +70,7 @@ script_seq_set_step_glue:
     cmpge r3, #1
     movlt r1, #0
     strblt r1, [r12, #SCRIPT_STEP_ON]
-    blt seq_done
+    blt seq_step_done
     strb r3, [r12, #SCRIPT_STEP_VELOCITY]
     add r2, r2, #1
     strb r2, [r12, #SCRIPT_STEP_NOTES]
@@ -31,22 +79,33 @@ script_seq_set_step_glue:
     strb r1, [r12, #SCRIPT_STEP_NOTES+2]
     strb r1, [r12, #SCRIPT_STEP_NOTES+3]
     mov r1, #1
-    strb r1, [r12, #SCRIPT_STEP_TRIGGER]
     strb r1, [r12, #SCRIPT_STEP_ON]
-seq_done:
+seq_step_done:
     mov r0, #0
     mov r1, #ERR_OK
     pop {pc}
 
-; r0 part, r1 step, r2 gate 0 to 127 (127 ties into the next note).
+; r0 part, r1 step, r2 gate 0 to 96 or 255 (TIE). Writes only the gate byte.
 script_seq_set_gate_glue:
     cmp r0, #16
     cmplo r1, #SCRIPT_STEP_COUNT
     bhs hw_bad_arg
+    cmp r2, #96
+    bls seq_gate_valid
+    cmp r2, #255
+    bne hw_bad_arg
+seq_gate_valid:
     push {lr}
     bl seq_record
     strb r2, [r12, #SCRIPT_STEP_GATE]
-    b seq_done
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {pc}
+
+seq_done:
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {pc}
 
 ; r0 part: every step of it off, nothing else of the steps changes.
 script_seq_clear_part_glue:
@@ -66,14 +125,20 @@ seq_clear_loop:
 
 ; r0 part, r1 step -> r12 the step's record. Marks the frame as one that wrote steps (SQ_AT holds its own address). Clobbers r1.
 seq_record:
+    push {lr}
+    bl seq_address
+    ldr r1, =HOOK_CARD+SQ_AT
+    str r1, [r1]
+    pop {pc}
+
+; r0 part, r1 step -> r12 the step's record. Does not mark it as written.
+seq_address:
     ldr r12, =SCRIPT_PART_STRIDE
     mul r12, r0, r12
     add r12, r12, r1, lsl #3
     add r12, r12, r1, lsl #2
     ldr r1, =HW_PATTERN_OBJECT+4+SCRIPT_PART_BASE+SCRIPT_STEP_BASE
     add r12, r12, r1
-    ldr r1, =HOOK_CARD+SQ_AT
-    str r1, [r1]
     bx lr
 
 ; At the end of a frame in which a plugin wrote steps, once the main screen is up: the firmware's own message for the section

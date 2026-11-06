@@ -5,7 +5,7 @@
  * library, so it runs in Node and the tests drive it directly. site/app/script-editor.mjs wires it to CodeMirror.
  * Its words are texts of the table (src/text.mjs), read through getters, so they follow the language the page shows now.
  */
-import { API, API_BY_NAME, EVENTS, EVENT_BY_NAME, SCRIPT_APPS, LIMITS } from "../../data/script/contract.mjs";
+import { API_BY_NAME, PUBLIC_API, PUBLIC_API_BY_NAME, EVENTS, EVENT_BY_NAME, SCRIPT_APPS, LIMITS } from "../../data/script/contract.mjs";
 import { API_DOCS, ON_EVENT_DOC, EVENT_DOCS, GROUP_DOCS, NAME_FAMILY_DOCS } from "../../data/script/describe.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
 import { PROPERTIES, KNOB_NAMES } from "../../data/script/properties.mjs";
@@ -129,7 +129,7 @@ function leafInfo(leaf) {
 /** The names that follow a branch of the object tree: its children, and the API calls under the same name (korg.menu.add). */
 function branchNames(path) {
   const depth = path.split(".").length;
-  const calls = API.filter(a => a.name.startsWith(`${path}.`) && a.name.split(".").length === depth + 1).map(a => a.name.split(".").at(-1));
+  const calls = PUBLIC_API.filter(a => a.name.startsWith(`${path}.`) && a.name.split(".").length === depth + 1).map(a => a.name.split(".").at(-1));
   return [...objectChildren(path), ...calls.filter(c => !objectChildren(path).includes(c))];
 }
 
@@ -143,8 +143,8 @@ const treeInfo = path => (OBJECT_BY_PATH.has(path) ? leafInfo(OBJECT_BY_PATH.get
 /** An API entry by its name; `korg.tempo` without a bracket behind it is the property. */
 const infoFor = (name, called = true) => (name === ON_EVENT_DOC.name ? ON_EVENT_INFO
   : treeInfo(name) ? treeInfo(name)
-  : called && API_BY_NAME.has(name) ? apiInfo(API_BY_NAME.get(name))
-    : objectInfo(name) ?? (API_BY_NAME.has(name) ? apiInfo(API_BY_NAME.get(name)) : null));
+  : called && PUBLIC_API_BY_NAME.has(name) ? apiInfo(PUBLIC_API_BY_NAME.get(name))
+    : objectInfo(name) ?? (PUBLIC_API_BY_NAME.has(name) ? apiInfo(PUBLIC_API_BY_NAME.get(name)) : null));
 
 /**
  * Walk the source up to `pos` and say where the caret is: in code, in a string or in a comment, and
@@ -209,8 +209,8 @@ function treeOptions(path) {
   return branchNames(path).map(name => {
     const full = `${path}.${name}`;
     if (OBJECT_BY_PATH.has(full)) return leafOption(OBJECT_BY_PATH.get(full));
-    if (API_BY_NAME.has(full)) {
-      const entry = API_BY_NAME.get(full);
+    if (PUBLIC_API_BY_NAME.has(full)) {
+      const entry = PUBLIC_API_BY_NAME.get(full);
       return { label: name, type: "function", detail: `(${entry.args.map(a => a.name).join(", ")})`, info: apiInfo(entry), snippet: callSnippet(entry, name) };
     }
     return { label: name, type: "namespace", get detail() { return say("script.editor.branch"); }, info: branchInfo(full), apply: `${name}.`, retrigger: true };
@@ -231,7 +231,7 @@ function propertyOption(prop) {
 }
 
 /** The options for every name a plugin may write after `korg.`, with `korg` itself for the first letters. */
-const KORG_OPTIONS = Object.freeze([...PROPERTIES.map(propertyOption), ...API.map(apiOption), ...OBJECTS.filter(o => o.action).map(o => leafOption(o, o.path)),
+const KORG_OPTIONS = Object.freeze([...PROPERTIES.map(propertyOption), ...PUBLIC_API.map(apiOption), ...OBJECTS.filter(o => o.action).map(o => leafOption(o, o.path)),
   ON_EVENT_OPTION, NAMESPACE_OPTION, ...TREE_ROOTS]);
 
 const KNOB_OPTIONS = Object.freeze(KNOB_NAMES.map(k => ({

@@ -14,6 +14,7 @@ export const SEQ_WRITE = `
   korg.onEvent("ready", () => {
     korg.seq.clearPart(0);
     for (let s = 0; s < 16; s += 2) { korg.seq.setStep(0, s, 60 + s, 100); korg.seq.setGate(0, s, 48); }
+    korg.seq.setGate(0, 15, 255);
     korg.seq.setStep(0, 1, 40, 100);
     korg.seq.setStep(0, 1, -1, 100);
     written = 1;

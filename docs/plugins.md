@@ -227,9 +227,9 @@ Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 ### Die Electribe als Objekte
 
 Was die Electribe gerade tut, liest und setzt ein Plugin wie eine Variable: `korg.tempo` ist das Tempo,
-`korg.tempo = 1280;` stellt es um, `korg.parts[3].muted = 1;` schaltet Part 4 stumm. Das sind keine
+`korg.tempo = 1280;` stellt es um, `korg.parts[3].level = 110;` setzt den Pegel des Parts mit Index 3. Das sind keine
 Objekte der Sprache, die man in einer Variablen halten könnte. Der Übersetzer macht aus jedem Lesen und
-Setzen den Aufruf, der in der Tabelle unten daneben steht, und der Block ist derselbe. Darum läuft ein
+Setzen den passenden Geräteaufruf; die Schreibweise bleibt im Block dieselbe. Darum läuft ein
 so geschriebenes Plugin auf jedem Gerät, auf dem diese Aufrufe laufen, auch mit BLECHTRIBE 1.2. Es gelten
 dieselben Grenzen und Ereignisse wie für den Aufruf: `korg.tempo = …` geht wie `korg.tempo(…)` nicht im
 Rumpf.
@@ -241,26 +241,60 @@ Rumpf.
 | `korg.selectedPattern` | gewähltes Pattern, 0 bis 249 | wählt ein anderes | `korg.read.pattern()`, `korg.pattern(x)` |
 | `korg.selectedPart` | gewählter Part, 0 bis 15, 16 für alle | 0 bis 15 | `korg.read.part()`, `korg.part(x)` |
 | `korg.parts[i].step` | Schrittzähler des Parts, 0 bis 63 | nein | `korg.read.step(i)` |
-| `korg.parts[i].muted` | 1, wenn der Part stumm ist | 1 stumm, 0 an | `korg.read.mute(i)`, `korg.mute(i, x)` |
+| `korg.parts[i].muted` | 1, wenn der Part stumm ist | nein | `korg.read.mute(i)` |
 | `korg.knobs.LEVEL`, `korg.knobs[i]` | letzter Wert des Reglers, bis er bewegt wurde 0 | nein | `korg.read.knob(i)` |
 | `korg.store[i]` | gespeicherter Wert von Platz 0 bis 15, sonst 0 | ja, auf die Karte mit `korg.store.save()` | `korg.store.get(i, 0)`, `korg.store.set(i, x)` |
 | `korg.led.TAP`, `korg.leds[i]` | nein | Helligkeit 0 bis 255 | `korg.led(i, x)` |
 | `korg.chainMode` | 1, wenn CHAIN MODE im Global-Menü an ist (nur dann kettet die Firmware) | nein | `korg.read.chainMode()` |
 | `korg.current.tempo` und die anderen Werte unten | das Pattern, das gerade läuft, mit ungespeicherten Änderungen | nein | `korg.read.patternValue(-1, -1, wert)` |
 | `korg.patterns[i].tempo` und die anderen Werte unten | Pattern `i` (0 bis 249), so wie es gespeichert ist | nein | `korg.read.patternValue(i, -1, wert)` |
-| `korg.parts[i].cutoff` und die anderen Part-Werte unten | Part `i` (0 bis 15) im Pattern, das gerade läuft | nein | `korg.read.patternValue(-1, i, wert)` |
+| `korg.parts[i].cutoff` und die anderen Part-Werte unten | Part `i` (0 bis 15) im Pattern, das gerade läuft | nur die dreizehn Felder unten | `korg.read.patternValue(-1, i, wert)` |
 
 **Werte eines Patterns** (`korg.current.…`, `korg.patterns[i].…`): `tempo` (Zehntel BPM), `swing` (-48 bis 48), `length`
 (Takte, 1 bis 4), `beat` (0 16tel, 1 32tel, 2 8tel-Triolen, 3 16tel-Triolen, 4 8tel mit BLECH), `key` (0 C bis 11 H), `scale`, `chordSet`,
 `level`, `mfxType`, `chainTo` (das nächste Pattern, 0 bis 249, -1 ohne Kette), `chainRepeat` (mindestens 1).
 **Werte eines Parts** (`korg.parts[i].…`): `sample` (Slot), `filterType`, `cutoff`, `resonance`, `egInt` (-63 bis 63),
 `modType`, `modSpeed`, `modDepth`, `attack`, `decay`, `level`, `pan` (-63 links bis 63 rechts), `ifxOn`, `ifxType`,
-`ifxEdit`, `pitch` (-63 bis 63), `glide`, `voiceAssign`, `oscEdit`, `mfxSend`. Alle Werte lassen sich nur lesen, in den
-Einheiten des Geräts (meist 0 bis 127). Die Liste und woher jeder Wert kommt, steht in `data/script/contract.mjs`
-(`PATTERN_FIELDS`, `PART_FIELDS`), gemessen sind die Stellen in der Gerätekarte `data/map/pattern.mjs`. Ab API Version 8.
+`ifxEdit`, `pitch` (-63 bis 63), `glide`, `voiceAssign`, `oscEdit`, `mfxSend`. Alle Werte lassen sich lesen, aber nur
+`cutoff`, `level`, `pan`, `pitch`, `resonance`, `egInt`, `modDepth`, `modSpeed`, `attack`, `decay`, `glide`, `ifxEdit` und `oscEdit`
+lassen sich über `korg.parts[i].<feld> = wert` setzen. `i` wählt den Part direkt, auch wenn ein anderer Part
+ausgewählt ist. Geschrieben wird in den Part des aktuellen Patterns im RAM. Es gelten jeweils der Bereich
+des Feldes und die Einheiten des Geräts (meist 0 bis 127). Ein Wert,
+der erst zur Laufzeit außerhalb des Bereichs liegt, wird geklemmt und unter `korg.system.repairs` gezählt. Sample und
+IFX sind Slot- beziehungsweise Menü-Nummern. Die Änderung betrifft das aktuelle Pattern im RAM, nicht gespeicherte
+Patterns; das Speichern am Gerät bleibt manuell. Die Liste, Bereiche und Offsets stehen in `data/script/contract.mjs`
+(`PATTERN_FIELDS`, `PART_FIELDS`); die Stellen sind in `data/map/pattern.mjs` gemessen. Lesen gibt es ab API 8,
+Schreiben der dreizehn Part-Werte ab API 14. Die Zuweisung synchronisiert für diese Werte auch das zweite Firmware-Byte.
+Die Mirror-Adressen von Cutoff und Glide sind im Emulator für alle 16 Parts gemessen, noch nicht am Gerät
+([Messung](messungen/2026-11-06-glide-mirror.md)). Beim Schreiben eines der dreizehn Werte ruft der Sampler-Laufzeitcode
+den Firmwarepfad zur Parameter-Aktualisierung auf: `0xC0048460` mit Ziel-Part und feldspezifischem Code, danach
+`0xC0059720` mit Part, Setter-ID und Wert. Signierte Werte von PAN, EG INT und OSC PITCH werden für den Setter auf
+den Reglerbereich verschoben. Der Pfad ist aus Hacktribe-Firmware 2.02 hergeleitet und im Emulator an den Pattern-Bytes
+geprüft; der Emulator bildet den DSP nicht ab. Ein Schreiben in den Pattern-RAM allein aktualisiert den Klang nicht:
+Jede Zuweisung eines dieser dreizehn Werte muss auch über diesen Firmwarepfad laufen. Die sofortige Klangaktualisierung
+durch den Pfad wurde am Gerät am 2026-11-06 bestätigt. Für Synth ist der
+entsprechende Firmwarepfad noch nicht zugeordnet. Die Typ-12-Benachrichtigung wird beim Schreiben nicht mehr gesendet;
+sie könnte weiterhin für eine Aktualisierung der Parameteranzeige nützlich sein
+([Erinnerung](../PARAMETER-REFRESH-REMINDER.md)).
+Ob `sample`, `filterType` und `ifxType` dadurch die Engine oder eine klingende Stimme sofort umschalten, ist noch ungeprüft.
+
+```js
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.TAP) {
+    korg.parts[3].pitch = 12;
+    korg.parts[3].resonance = 24;
+    korg.parts[3].level = 110;
+    korg.parts[3].cutoff = 63;
+    korg.parts[3].glide = 47;
+    korg.parts[3].ifxEdit = 48;
+    korg.parts[3].oscEdit = 32;
+  }
+});
+```
 
 `+=`, `-=` und die anderen zusammengesetzten Zuweisungen gehen bei allem, was sich lesen und setzen lässt,
-dazu `++` und `--`: `korg.tempo += 10;` liest das Tempo und setzt es um 1,0 BPM höher. Der Index in den
+dazu `++` und `--`: `korg.tempo += 10;` liest das Tempo und setzt es um 1,0 BPM höher. Bei den dreizehn schreibbaren
+Part-Werten geht zum Beispiel `korg.parts[3].level += 1;`. Die anderen Part-Werte sind nur lesbar. Der Index in den
 Klammern darf dabei keinen Funktionsaufruf enthalten. `korg.led.TAP` allein ist weiter die Nummer der
 LED, so wie in `korg.led(korg.led.TAP, 255)`; erst als linke Seite einer Zuweisung setzt es die LED.
 
@@ -271,7 +305,7 @@ Die Regler haben die Namen aus der Tabelle des Panels: `LEVEL`, `PAN`, `PITCH`, 
 ```js
 // Ab dem 16. Schritt von Part 1 wird Part 4 stumm, bei jedem Takt neu.
 korg.onEvent("step", (step) => {
-  korg.parts[3].muted = korg.parts[0].step >= 15 ? 1 : 0;
+  korg.mute(3, korg.parts[0].step >= 15 ? 1 : 0);
 });
 korg.onEvent("buttonPress", (key) => {
   if (key == korg.key.TAP) korg.tempo += 10;
@@ -427,9 +461,19 @@ Plugin mit einem Fehler.
 | `korg.ledHold(an)` | 1 hält die Firmware davon ab, die Panel LEDs neu zu schreiben (Pads, Tasten, untere RGB LEDs zeigen dann, was das Plugin gesetzt hat), 0 gibt sie zurück und lässt die Firmware alle LEDs neu senden; fällt das letzte laufende Plugin aus, gibt die Laufzeit sie selbst zurück | wie `korg.led` |
 | `korg.padHold(an)` | 1 hält Pad-Anschläge von der Firmware fern: kein Klang, keine Änderung am Step, das Plugin bekommt `pad` aber weiter. Die Laufzeit setzt dafür das Pad-Bit der Maske, die der Eingangsfilter vor der Firmware liest. 0 gibt die Pads zurück; das tut die Laufzeit auch selbst, wenn eine App schließt und wenn kein Plugin mehr läuft. Das Loslassen folgt immer seinem Anschlag: wurde der Anschlag zurückgehalten, bleibt auch das Loslassen bei den Plugins, sonst geht es an die Firmware. Ab API Version 12 | wie `korg.led` |
 | `korg.remapKey(von, nach)` | die Taste `von` kommt bei der Firmware und bei den Plugins als Taste `nach` an (beide 0 bis 33, am besten Namen wie `korg.key.PART_ERASE`), solange das Plugin läuft: der Eingangsfilter schreibt den Code in der Panel-Nachricht um, bevor die Firmware sie liest, die Firmware tut also genau, was sie mit `nach` tut. Es gilt eine Umlegung für alle Plugins, die letzte zählt; dieselbe Taste zweimal hebt sie auf. EXIT lässt sich nicht umlegen. Ab API Version 8 | nur im Rumpf und in `ready` |
-| `korg.seq.setStep(part, step, note, velocity)` | schreibt Step `step` (0 bis 63) von Part `part` (0 bis 15) im Pattern, das läuft: `note` 0 bis 127 mit `velocity` 1 bis 127 schaltet ihn an, mit dieser Note auf dem ersten Notenplatz (die anderen drei leer) und Trigger an; `note` -1 oder `velocity` 0 schaltet ihn aus. Das Gate bleibt, wie es ist. Ab API Version 9 | wie `korg.led` |
-| `korg.seq.setGate(part, step, gate)` | setzt das Gate des Steps, 0 bis 127; 96 ist ein ganzer Schritt, 127 bindet an die nächste Note (Tie). Ab API Version 9 | wie `korg.led` |
+| `korg.seq.getOn(part, step)` | 1, wenn Step `step` (0 bis 63) von Part `part` (0 bis 15) im laufenden Pattern an ist, sonst 0. Ab API Version 13 | wie `korg.led` |
+| `korg.seq.getGate(part, step)` | Gate-Byte des Steps: 0 bis 96 oder 255 (`FF`) für TIE. Ab API Version 13 | wie `korg.led` |
+| `korg.seq.getNote(part, step, slot)` | MIDI-Note im Notenplatz `slot` (0 bis 3), 0 bis 127; -1, wenn der Platz leer ist. Liest den gespeicherten Wert auch dann, wenn der Step aus ist. Ab API Version 13 | wie `korg.led` |
+| `korg.seq.getVelocity(part, step)` | Velocity des Steps als Byte; normalerweise 1 bis 127. Ab API Version 13 | wie `korg.led` |
+| `korg.seq.setStep(part, step, note, velocity)` | schreibt Step `step` (0 bis 63) von Part `part` (0 bis 15) im Pattern, das läuft: `note` 0 bis 127 mit `velocity` 1 bis 127 schaltet ihn an und setzt diese Note auf den ersten Notenplatz (die anderen drei werden geleert). Gate und Trigger bleiben unverändert. `note` -1 oder `velocity` 0 schaltet nur den Step aus. Ab API Version 9 | wie `korg.led` |
+| `korg.seq.setGate(part, step, gate)` | setzt nur das Gate-Byte des Steps: 0 bis 96 oder 255 (`FF`) für TIE. Der Trigger bleibt unverändert. Der Step selbst bleibt unverändert an oder aus. Ab API Version 9 | wie `korg.led` |
 | `korg.seq.clearPart(part)` | schaltet alle 64 Steps des Parts aus, Noten, Gates und Velocity bleiben stehen. Ab API Version 9 | wie `korg.led` |
+
+**Steps lesen** (ab API Version 13): Die vier `korg.seq.get…` Funktionen lesen die bekannten Step-Felder aus dem Pattern im RAM,
+das gerade läuft oder bearbeitet wird. Ein Plugin kann damit Part und Steps durchlaufen und Note, Velocity und Gate auslesen.
+`getNote` nimmt zusätzlich den Notenplatz 0 bis 3; eine leere Stelle ergibt -1. `getOn` muss separat geprüft werden, weil
+Noten und Velocity auch nach dem Ausschalten eines Steps gespeichert bleiben. Die Funktionen lesen nur diese Step-Felder,
+keine beliebigen RAM-Adressen. Im Emulator geprüft, am Gerät noch nicht.
 
 **Steps schreiben** (`tools/patch/script_seq.s`, ab API Version 9): `korg.seq.*` schreibt in das Pattern im RAM,
 das gerade läuft oder bearbeitet wird, genau wie das Würfeln mit SHIFT + PART ERASE

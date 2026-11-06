@@ -27,6 +27,8 @@ Felder des Pattern-Blocks, der Parts und der Global-Einstellungen, wie sie die G
 - [Hüllkurve (Part-Byte 20 Attack, 21 Decay)](2026-09-17-envelope-time.md)
 - [Filtertypen (Part-Byte 12)](2026-09-17-filter-types.md)
 - [Glide (Part-Byte 37)](2026-09-17-glide-time.md)
+- [CUTOFF- und Glide-Mirror auf allen Parts im Emulator](2026-11-06-glide-mirror.md)
+- [Firmwarepfad fuer Part-Parameter, im Emulator geprueft](2026-11-06-part-param-refresh.md)
 - [Modulation: Typ, Speed, Depth (Part-Bytes 16, 17, 18)](2026-09-17-mod-speed-depth.md)
 - [Osc Pitch (Part-Byte 36)](2026-09-17-osc-pitch.md)
 - [Pattern senden: Glide geht verloren](2026-09-22-pattern-write-glide.md)

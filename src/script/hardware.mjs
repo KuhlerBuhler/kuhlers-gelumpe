@@ -48,6 +48,7 @@ export class SimHardware {
       "korg.read.knob": index => this.knobs[index],
       "korg.read.chainMode": () => this.chainMode,
       "korg.read.patternValue": (pattern, part, field) => this.patternValue(pattern, part, field),
+      "korg.write.partValue": (part, field, value) => this.writePartValue(part, field, value),
       "korg.play": () => { if (this.transport !== 1) { this.transport = 1; this.emit("play"); } },
       "korg.stop": () => { if (this.transport !== 0) { this.transport = 0; this.steps.fill(0); this.emit("stop"); } },
       "korg.pattern": index => { this.pattern = index; this.emit("patternChange", index); },
@@ -57,8 +58,20 @@ export class SimHardware {
       "korg.ledHold": on => { this.ledHold = on; },
       "korg.padHold": on => { this.padHold = on; },
       "korg.mute": (part, muted) => { if (this.mutes[part] !== muted) { this.mutes[part] = muted; this.emit("mute", part, muted); } },
+      "korg.seq.getOn": (part, step) => this.stepValue(part, step).on,
+      "korg.seq.getGate": (part, step) => this.stepValue(part, step).gate,
+      "korg.seq.getNote": (part, step, slot) => {
+        const note = this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.notes + slot];
+        return note === 0 ? -1 : note - 1;
+      },
+      "korg.seq.getVelocity": (part, step) => this.stepValue(part, step).velocity,
       "korg.seq.setStep": (part, step, note, velocity) => this.setStep(part, step, note, velocity),
-      "korg.seq.setGate": (part, step, gate) => { this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.gate] = gate; },
+      "korg.seq.setGate": (part, step, gate) => {
+        if (gate > 96 && gate !== 255) throw new ScriptFault(ERROR.API_ARG, `korg.seq.setGate: gate = ${gate}, erlaubt 0 bis 96 oder 255`);
+        const block = this.patternBlock(-1);
+        const at = this.stepAt(part, step);
+        block[at + PATTERN_STEPS.gate] = gate;
+      },
       "korg.get": leaf => this.objectGet(leaf),
       "korg.set": (leaf, index, value) => this.objectSet(leaf, value),
       "korg.seq.clearPart": part => { for (let step = 0; step < PATTERN_STEPS.count; step++) this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.on] = 0; },
@@ -84,7 +97,7 @@ export class SimHardware {
   /** Where a step's record starts in the pattern block. */
   stepAt(part, step) { return PATTERN_PARTS.base + part * PATTERN_PARTS.stride + PATTERN_STEPS.base + step * PATTERN_STEPS.stride; }
 
-  /** korg.seq.setStep in the pattern in RAM, byte for byte what the ARM runtime writes: a note turns the step on, -1 or velocity 0 off. */
+  /** korg.seq.setStep in RAM: the trigger byte is preserved. */
   setStep(part, step, note, velocity) {
     const block = this.patternBlock(-1);
     const at = this.stepAt(part, step);
@@ -92,7 +105,6 @@ export class SimHardware {
     block[at + PATTERN_STEPS.velocity] = velocity;
     block.fill(0, at + PATTERN_STEPS.notes, at + PATTERN_STEPS.notes + 4);
     block[at + PATTERN_STEPS.notes] = note + 1;
-    block[at + PATTERN_STEPS.trigger] = 1;
     block[at + PATTERN_STEPS.on] = 1;
   }
 
@@ -118,6 +130,22 @@ export class SimHardware {
       case "chain": return raw >= 1 && raw <= 250 ? raw - 1 : -1;
       case "atLeast1": return Math.max(raw, 1);
       default: return raw;
+    }
+  }
+
+  /** Writes a bounded Part value to the live pattern block, matching the ARM runtime. */
+  writePartValue(part, field, value) {
+    const f = PART_FIELDS[field];
+    if (!f) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.patternValue", { field })));
+    const clamped = Math.min(f.max, Math.max(f.min, value));
+    if (clamped !== value) this.objects[REPAIRS] += 1;
+    const block = this.patternBlock(-1);
+    const at = PATTERN_PARTS.base + part * PATTERN_PARTS.stride + f.offset;
+    if (f.kind === "u16") {
+      block[at] = clamped & 0xFF;
+      block[at + 1] = clamped >>> 8;
+    } else {
+      block[at] = clamped & 0xFF;
     }
   }
 

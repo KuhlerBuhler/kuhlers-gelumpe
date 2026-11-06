@@ -60,8 +60,8 @@ für Byte.
 | Tonart und Tonleiter ins Pattern | schreibt `pattern.key` und `pattern.scale` mit der Nummer aus der Liste des Geräts (nur Melodie) |
 
 Die Vorschau ist das Step-Raster des Editors. Ein Schritt, den du dort änderst, gilt für dieses
-Ergebnis, bis du Regler bewegst oder neu würfelst. Das Gate geht nur bis 96, 127 (Tie) schreibt der
-Würfel nicht.
+Ergebnis, bis du Regler bewegst oder neu würfelst. Das Gate geht nur bis 96, `FF` ist TIE. TIE
+schreibt der Würfel nicht.
 
 ## Namen
 

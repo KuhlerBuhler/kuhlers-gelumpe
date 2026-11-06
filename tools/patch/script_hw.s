@@ -198,6 +198,104 @@ pattern_value_done:
     bx lr
 .pool
 
+; r0 part, r1 field, r2 value -> bounded write in the live pattern's Part record.
+script_write_part_value_glue:
+    push {r4-r7, lr}
+    cmp r0, #16
+    bhs write_part_bad
+    cmp r1, #SCRIPT_PART_FIELD_COUNT
+    bhs write_part_bad
+    mov r4, r0
+    mov r5, r1
+    mov r6, r2
+    ldr r7, =part_field_bounds
+    add r7, r7, r5, lsl #3
+    ldr r0, [r7]
+    cmp r6, r0
+    movlt r6, r0
+    blt write_part_repair
+    ldr r0, [r7, #4]
+    cmp r6, r0
+    movgt r6, r0
+    bgt write_part_repair
+    b write_part_address
+write_part_repair:
+    ldr r0, =objects_state
+    ldr r1, [r0]
+    add r1, r1, #1
+    str r1, [r0]
+write_part_address:
+    ldr r7, =part_fields
+    ldr r7, [r7, r5, lsl #2]
+    ldr r3, =HW_PATTERN_OBJECT+4+SCRIPT_PART_BASE
+    ldr r0, =SCRIPT_PART_STRIDE
+    mla r3, r4, r0, r3
+    mov r0, r7, lsl #16
+    add r3, r3, r0, lsr #16
+    mov r0, r7, lsr #16
+    cmp r0, #2
+    bne write_part_byte
+    strb r6, [r3]
+    mov r0, r6, lsr #8
+    strb r0, [r3, #1]
+    b write_part_done
+write_part_byte:
+    strb r6, [r3]
+    ldr r7, =part_value_mirrors
+    ldr r7, [r7, r5, lsl #2]
+    cmn r7, #1
+    beq write_part_done
+    ldr r3, =HW_PATTERN_OBJECT
+    add r3, r3, r7
+    add r3, r3, r4, lsl #5
+    add r3, r3, r4, lsl #2
+    strb r6, [r3]
+write_part_done:
+    ldr r7, =part_value_apply_codes
+    ldr r7, [r7, r5, lsl #2]
+    cmn r7, #1
+    beq write_part_return
+    ldr r12, =HW_PARAM_APPLY
+    cmp r12, #0
+    beq write_part_return
+    ldr r12, =HW_PARAM_SET
+    cmp r12, #0
+    beq write_part_return
+    sub sp, sp, #12
+    ldr r0, =HW_PARAM_CONTEXT
+    ldr r0, [r0]
+    orr r1, r4, #0x10
+    mov r2, #0
+    mov r3, r7
+    str r6, [sp]
+    mov r7, #0
+    str r7, [sp, #4]
+    ldr r12, =HW_PARAM_APPLY
+    blx r12
+    add sp, sp, #12
+    ldr r7, =part_value_setter_ids
+    ldr r7, [r7, r5, lsl #2]
+    cmn r7, #1
+    beq write_part_return
+    add r0, r4, #1
+    mov r1, r7
+    mov r2, r6
+    ldr r7, =part_value_setter_bias
+    ldr r7, [r7, r5, lsl #2]
+    add r2, r2, r7
+    mov r3, #1
+    ldr r12, =HW_PARAM_SET
+    blx r12
+write_part_return:
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4-r7, pc}
+write_part_bad:
+    mov r0, #0
+    mov r1, #ERR_API_ARG
+    pop {r4-r7, pc}
+.pool
+
 pattern_fields:
     .word SCRIPT_PATTERN_FIELD_0
     .word SCRIPT_PATTERN_FIELD_1
@@ -231,6 +329,52 @@ part_fields:
     .word SCRIPT_PART_FIELD_17
     .word SCRIPT_PART_FIELD_18
     .word SCRIPT_PART_FIELD_19
+part_field_bounds:
+    .word SCRIPT_PART_FIELD_MIN_0, SCRIPT_PART_FIELD_MAX_0
+    .word SCRIPT_PART_FIELD_MIN_1, SCRIPT_PART_FIELD_MAX_1
+    .word SCRIPT_PART_FIELD_MIN_2, SCRIPT_PART_FIELD_MAX_2
+    .word SCRIPT_PART_FIELD_MIN_3, SCRIPT_PART_FIELD_MAX_3
+    .word SCRIPT_PART_FIELD_MIN_4, SCRIPT_PART_FIELD_MAX_4
+    .word SCRIPT_PART_FIELD_MIN_5, SCRIPT_PART_FIELD_MAX_5
+    .word SCRIPT_PART_FIELD_MIN_6, SCRIPT_PART_FIELD_MAX_6
+    .word SCRIPT_PART_FIELD_MIN_7, SCRIPT_PART_FIELD_MAX_7
+    .word SCRIPT_PART_FIELD_MIN_8, SCRIPT_PART_FIELD_MAX_8
+    .word SCRIPT_PART_FIELD_MIN_9, SCRIPT_PART_FIELD_MAX_9
+    .word SCRIPT_PART_FIELD_MIN_10, SCRIPT_PART_FIELD_MAX_10
+    .word SCRIPT_PART_FIELD_MIN_11, SCRIPT_PART_FIELD_MAX_11
+    .word SCRIPT_PART_FIELD_MIN_12, SCRIPT_PART_FIELD_MAX_12
+    .word SCRIPT_PART_FIELD_MIN_13, SCRIPT_PART_FIELD_MAX_13
+    .word SCRIPT_PART_FIELD_MIN_14, SCRIPT_PART_FIELD_MAX_14
+    .word SCRIPT_PART_FIELD_MIN_15, SCRIPT_PART_FIELD_MAX_15
+    .word SCRIPT_PART_FIELD_MIN_16, SCRIPT_PART_FIELD_MAX_16
+    .word SCRIPT_PART_FIELD_MIN_17, SCRIPT_PART_FIELD_MAX_17
+    .word SCRIPT_PART_FIELD_MIN_18, SCRIPT_PART_FIELD_MAX_18
+    .word SCRIPT_PART_FIELD_MIN_19, SCRIPT_PART_FIELD_MAX_19
+
+; Pattern-object-relative mirrors, indexed like PART_FIELDS; FFFFFFFF means no mirror.
+part_value_mirrors:
+    .word 0xFFFFFFFF, 0xFFFFFFFF, 0x403F, 0x4040, 0x4041
+    .word 0xFFFFFFFF, 0x4043, 0x4044, 0x4046, 0x4047
+    .word 0x404A, 0x404B, 0xFFFFFFFF, 0xFFFFFFFF, 0x4050
+    .word 0x4052, 0x4053, 0xFFFFFFFF, 0x403D, 0xFFFFFFFF
+
+; Firmware apply codes, setter IDs and normalized control values, indexed like PART_FIELDS.
+; A bias of 64 converts signed PAN, EG INT and PITCH values to the knob range.
+part_value_apply_codes:
+    .word 0xFFFFFFFF, 0xFFFFFFFF, 11, 12, 13
+    .word 0xFFFFFFFF, 15, 16, 17, 18
+    .word 19, 20, 0xFFFFFFFF, 0xFFFFFFFF, 27
+    .word 28, 29, 0xFFFFFFFF, 6, 0xFFFFFFFF
+part_value_setter_ids:
+    .word 0xFFFFFFFF, 0xFFFFFFFF, 5, 6, 7
+    .word 0xFFFFFFFF, 9, 8, 12, 13
+    .word 10, 11, 0xFFFFFFFF, 0xFFFFFFFF, 14
+    .word 2, 3, 0xFFFFFFFF, 4, 0xFFFFFFFF
+part_value_setter_bias:
+    .word 0, 0, 0, 0, 64
+    .word 0, 0, 0, 0, 0
+    .word 0, 64, 0, 0, 0
+    .word 64, 0, 0, 0, 0
 
 hw_bad_arg:
     mov r0, #0

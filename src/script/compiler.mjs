@@ -19,7 +19,7 @@
  *   top level, once. Only an open app draws on the display (see docs/plugins.md).
  */
 import {
-  LIMITS, BUDGET, EVENT_BY_NAME, EVENTS, API_BY_NAME, QUEUED_EVENTS, APP_EVENTS, INTERNAL_EVENTS, SCRIPT_APPS, ARRAY_HANDLE, EVENT_ARG_SINCE,
+  LIMITS, BUDGET, EVENT_BY_NAME, EVENTS, API_BY_NAME, INTERNAL_API_NAMES, QUEUED_EVENTS, APP_EVENTS, INTERNAL_EVENTS, SCRIPT_APPS, ARRAY_HANDLE, EVENT_ARG_SINCE,
 } from "../../data/script/contract.mjs";
 import { NAMES } from "../../data/script/names.mjs";
 import { PROPERTY_BY_PATH, KNOB_NAMES } from "../../data/script/properties.mjs";
@@ -54,9 +54,9 @@ function pathOf(node) {
 }
 
 /** A call node for an API entry, as if the plugin had written it: `korg.read.step(i)`. */
-function callNode(name, args, at) {
+function callNode(name, args, at, internal = false) {
   const callee = name.split(".").reduce((object, part) => (object ? { type: "Member", object, name: part, line: at.line, col: at.col } : { type: "Ident", name: part, line: at.line, col: at.col }), null);
-  return { type: "Call", callee, args, line: at.line, col: at.col };
+  return { type: "Call", callee, args, line: at.line, col: at.col, internal };
 }
 
 /** The number a literal (or a negated literal) stands for, else null. */
@@ -471,7 +471,7 @@ class Compiler {
       if (!prop.read) throw err(n.target, text("compile.prop.compound", { prop: this.propertyName(prop), op: n.op }));
       value = { type: "Binary", op: n.op.slice(0, -1), left: n.target, right: n.value, line: n.line, col: n.col };
     }
-    this.call(callNode(prop.write[0], this.propertyArgs(prop.write[1], index, value, n), n), fn);
+    this.call(callNode(prop.write[0], this.propertyArgs(prop.write[1], index, value, n), n, true), fn);
     this.emit(fn, "DROP");
     return undefined;
   }
@@ -490,6 +490,7 @@ class Compiler {
     const name = path.join(".");
     if (name === "korg.onEvent") throw err(n, text("compile.onEvent.expression"));
     if (name === "korg.app") throw err(n, text("compile.app.expression"));
+    if (INTERNAL_API_NAMES.includes(name) && !n.internal) throw err(n, text("compile.call.unknown", { name }));
     if (path.length === 1) {
       const f = this.funcs.get(name);
       if (!f) throw err(n, this.lookupQuiet(name, fn) ? text("compile.call.notFunc", { name }) : text("compile.call.unknown", { name }));

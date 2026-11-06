@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 12;
+export const API_VERSION = 14;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -331,7 +331,7 @@ const API_LIST = [
   [43, "korg.read.patternValue", [int("pattern", -1, 249), int("part", -1, 15), int("field", 0, 31)], "int", ALL, 6, 8],
   [44, "korg.remapKey", [int("from", 0, 33), int("to", 0, 33)], "void", MENU_ADD, 20, 8],
   [45, "korg.seq.setStep", [int("part", 0, 15), int("step", 0, 63), int("note", -1, 127), int("velocity", 0, 127)], "void", UI, 6, 9],
-  [46, "korg.seq.setGate", [int("part", 0, 15), int("step", 0, 63), int("gate", 0, 127)], "void", UI, 4, 9],
+  [46, "korg.seq.setGate", [int("part", 0, 15), int("step", 0, 63), int("gate", 0, 255)], "void", UI, 4, 9],
   [47, "korg.seq.clearPart", [int("part", 0, 15)], "void", UI, 30, 9],
   [48, "korg.play", [], "void", UI, 30, 3],
   [49, "korg.stop", [], "void", UI, 30, 3],
@@ -353,6 +353,11 @@ const API_LIST = [
   [65, "korg.afterSteps", [int("steps", 1, TIMERS.maxSteps), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
   [66, "korg.cancel", [int("timer", -1, TIMERS.slots * 32 - 1)], "void", TIMER_USE, 6, 11],
   [67, "korg.padHold", [int("on", 0, 1)], "void", UI, 20, 12],
+  [68, "korg.seq.getOn", [int("part", 0, 15), int("step", 0, 63)], "int", UI, 3, 13],
+  [69, "korg.seq.getGate", [int("part", 0, 15), int("step", 0, 63)], "int", UI, 3, 13],
+  [70, "korg.seq.getNote", [int("part", 0, 15), int("step", 0, 63), int("slot", 0, 3)], "int", UI, 4, 13],
+  [71, "korg.seq.getVelocity", [int("part", 0, 15), int("step", 0, 63)], "int", UI, 3, 13],
+  [72, "korg.write.partValue", [int("part", 0, 15), int("field", 0, 19), int("value")], "void", UI, 8, 14],
 ];
 
 /**
@@ -379,6 +384,9 @@ export const ARRAY_HANDLE = Object.freeze({
 
 export const API_BY_ID = new Map(API.map(a => [a.id, a]));
 export const API_BY_NAME = new Map(API.map(a => [a.name, a]));
+export const INTERNAL_API_NAMES = Object.freeze(["korg.write.partValue"]);
+export const PUBLIC_API = Object.freeze(API.filter(a => !INTERNAL_API_NAMES.includes(a.name)));
+export const PUBLIC_API_BY_NAME = new Map(PUBLIC_API.map(a => [a.name, a]));
 
 const LED_API = API_BY_NAME.get("korg.led");
 const LED_COUNT = LED_API.args[0].max + 1;
@@ -412,7 +420,9 @@ export const SCRIPT_LED_VALID = Object.freeze({ DESIRED: 1, DELIVERED: 2 });
  * Field indices are never reused or renumbered; new fields go at the end.
  */
 export const PATTERN_FIELD_KINDS = Object.freeze(["u8", "s8", "u16", "bars", "chain", "atLeast1"]);
-const field = (name, offset, kind, text) => Object.freeze({ name, offset, kind, text });
+const field = (name, offset, kind, text, min = null, max = null) => Object.freeze({
+  name, offset, kind, text, ...(min === null ? {} : { min, max }),
+});
 export const PATTERN_FIELDS = Object.freeze([
   field("tempo", 34, "u16", text("api.pattern.tempo")),
   field("swing", 36, "s8", text("api.pattern.swing")),
@@ -427,35 +437,35 @@ export const PATTERN_FIELDS = Object.freeze([
   field("chainRepeat", 15106, "atLeast1", text("api.pattern.chainRepeat")),
 ]);
 export const PART_FIELDS = Object.freeze([
-  field("sample", 8, "u16", text("api.part.sample")),
-  field("filterType", 12, "u8", text("api.part.filterType")),
-  field("cutoff", 13, "u8", text("api.part.cutoff")),
-  field("resonance", 14, "u8", text("api.part.resonance")),
-  field("egInt", 15, "s8", text("api.part.egInt")),
-  field("modType", 16, "u8", text("api.part.modType")),
-  field("modSpeed", 17, "u8", text("api.part.modSpeed")),
-  field("modDepth", 18, "u8", text("api.part.modDepth")),
-  field("attack", 20, "u8", text("api.part.attack")),
-  field("decay", 21, "u8", text("api.part.decay")),
-  field("level", 24, "u8", text("api.part.level")),
-  field("pan", 25, "s8", text("api.part.pan")),
-  field("ifxOn", 32, "u8", text("api.part.ifxOn")),
-  field("ifxType", 33, "u8", text("api.part.ifxType")),
-  field("ifxEdit", 34, "u8", text("api.part.ifxEdit")),
-  field("pitch", 36, "s8", text("api.part.pitch")),
-  field("glide", 37, "u8", text("api.part.glide")),
-  field("voiceAssign", 2, "u8", text("api.part.voiceAssign")),
-  field("oscEdit", 11, "u8", text("api.part.oscEdit")),
-  field("mfxSend", 27, "u8", text("api.part.mfxSend")),
+  field("sample", 8, "u16", text("api.part.sample"), 0, 999),
+  field("filterType", 12, "u8", text("api.part.filterType"), 0, 16),
+  field("cutoff", 13, "u8", text("api.part.cutoff"), 0, 127),
+  field("resonance", 14, "u8", text("api.part.resonance"), 0, 127),
+  field("egInt", 15, "s8", text("api.part.egInt"), -63, 63),
+  field("modType", 16, "u8", text("api.part.modType"), 0, 71),
+  field("modSpeed", 17, "u8", text("api.part.modSpeed"), 0, 127),
+  field("modDepth", 18, "u8", text("api.part.modDepth"), 0, 127),
+  field("attack", 20, "u8", text("api.part.attack"), 0, 127),
+  field("decay", 21, "u8", text("api.part.decay"), 0, 127),
+  field("level", 24, "u8", text("api.part.level"), 0, 127),
+  field("pan", 25, "s8", text("api.part.pan"), -63, 63),
+  field("ifxOn", 32, "u8", text("api.part.ifxOn"), 0, 1),
+  field("ifxType", 33, "u8", text("api.part.ifxType"), 0, 99),
+  field("ifxEdit", 34, "u8", text("api.part.ifxEdit"), 0, 127),
+  field("pitch", 36, "s8", text("api.part.pitch"), -63, 63),
+  field("glide", 37, "u8", text("api.part.glide"), 0, 127),
+  field("voiceAssign", 2, "u8", text("api.part.voiceAssign"), 0, 3),
+  field("oscEdit", 11, "u8", text("api.part.oscEdit"), 0, 127),
+  field("mfxSend", 27, "u8", text("api.part.mfxSend"), 0, 1),
 ]);
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
 
 /**
  * The steps korg.seq.* writes, in a part of the pattern in RAM: `count` records of `stride` bytes from `base` in the part
- * (data/map/pattern.mjs, step.*). A record holds on, gate (127 a tie), velocity, trigger and four note places, each the
- * note plus one, 0 for none. setStep writes on, velocity, trigger and the first note place and clears the other three, as
- * the dice patch does (tools/patch/dice.py), or with note -1 or velocity 0 only the on byte; setGate writes the gate;
+ * (data/map/pattern.mjs, step.*). A record holds on, gate (0 to 96, or 255 for a tie), velocity, trigger and four note places, each the
+ * note plus one, 0 for none. setStep writes on, velocity and the first note place and clears the other three; it never
+ * changes the trigger byte. With note -1 or velocity 0 only the on byte changes. setGate writes only the gate byte.
  * clearPart sets every on byte to 0. The pads draw the steps again once at the end of the frame.
  */
 export const PATTERN_STEPS = Object.freeze({ base: 0x30, stride: 12, count: 64, on: 0, gate: 1, velocity: 2, trigger: 3, notes: 4 });

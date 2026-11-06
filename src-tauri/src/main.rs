@@ -73,7 +73,7 @@ fn service_command() -> Result<Command, String> {
     Ok(cmd)
 }
 
-fn start_service(port: u16, token: &str, version: &str, again: bool) -> Result<Child, String> {
+fn start_service(port: u16, token: &str, again: bool) -> Result<Child, String> {
     let mut cmd = service_command()?;
     // The frozen service is a console program: started from a window app, Windows opens a console window
     // for it, and closing that window ends the emulator. It gets none; its output goes to the log anyway.
@@ -93,9 +93,7 @@ fn start_service(port: u16, token: &str, version: &str, again: bool) -> Result<C
         .arg("https://tauri.localhost")
         .arg("--parent-pid")
         .arg(std::process::id().to_string())
-        .env("E2_EMU_TOKEN", token)
-        // Written into service.json: a later app reuses this service only when it is its own version.
-        .env("GELUMPE_APP_VERSION", version);
+        .env("E2_EMU_TOKEN", token);
     // What the service prints goes to ~/.gelumpe/emu.log, so a failure on a user's machine can be read afterwards.
     if let Some(log) = log_file(again) {
         if let (Ok(out), Ok(err)) = (log.try_clone(), log.try_clone()) {
@@ -171,21 +169,10 @@ fn announce_file() -> Option<PathBuf> {
     Some(root.join("service.json"))
 }
 
-/// A service that announced itself in service.json and answers /status for its token.
-struct Running {
-    port: u16,
-    token: String,
-    pid: Option<u32>,
-    /// The app version that started it; none for one started by `npm start` or `npm run emu`, and for one
-    /// an app before 1.4.2 started.
-    version: Option<String>,
-}
-
-/// The service somebody else started (`npm start`, `npm run emu`, an app
-/// still running or one that ended without taking its service along), only
-/// when it is alive: /status answers with the token of the file. A stale
-/// file (the service crashed) finds nothing.
-fn running_service() -> Option<Running> {
+/// Port and token of a service somebody else started (`npm start`, `npm run
+/// emu`), only when it is alive: the file names a living pid and /status
+/// answers with that token. A stale file (the service crashed) finds nothing.
+fn running_service() -> Option<(u16, String)> {
     let info: serde_json::Value =
         serde_json::from_slice(&std::fs::read(announce_file()?).ok()?).ok()?;
     let port = u16::try_from(info.get("port")?.as_u64()?).ok()?;
@@ -196,90 +183,7 @@ fn running_service() -> Option<Running> {
     {
         return None;
     }
-    let pid = info
-        .get("pid")
-        .and_then(|p| p.as_u64())
-        .and_then(|p| u32::try_from(p).ok());
-    let version = info
-        .get("version")
-        .and_then(|v| v.as_str())
-        .map(str::to_string);
-    answers(port, &token).then_some(Running {
-        port,
-        token,
-        pid,
-        version,
-    })
-}
-
-/// Whether this app may use a running service. A release app only takes one of its own version: a service an
-/// older app left behind (its app crashed, or the update replaced it while it ran) runs the old checks and
-/// emulator, and the window would show the new version on top of it. A debug build takes any, for `npm start`.
-fn fits(found: Option<&str>, own: &str) -> bool {
-    cfg!(debug_assertions) || found == Some(own)
-}
-
-/// Ends a service of another version so this app can start its own on the same card folder. It answered
-/// /status for the token of service.json, so it is one of ours. Asked to leave first where the system can
-/// (it saves card and flash), killed when it is still there after 15 s.
-fn end_stale(found: &Running) -> Result<(), String> {
-    let Some(pid) = found.pid else {
-        return Err("Ein Emulator-Dienst einer anderen Version läuft noch und nennt keine Prozessnummer. Bitte beende ihn (Task-Manager / Aktivitätsanzeige) und starte die App neu.".into());
-    };
-    eprintln!(
-        "Emulator-Dienst der Version {} (pid {pid}) läuft noch, beende ihn.",
-        found.version.as_deref().unwrap_or("unbekannt")
-    );
-    #[cfg(unix)]
-    unsafe {
-        libc::kill(pid as i32, libc::SIGTERM);
-    }
-    #[cfg(not(unix))]
-    kill_pid(pid);
-    let deadline = Instant::now() + Duration::from_secs(15);
-    while Instant::now() < deadline {
-        if !alive(pid) {
-            return Ok(());
-        }
-        std::thread::sleep(Duration::from_millis(100));
-    }
-    #[cfg(unix)]
-    unsafe {
-        libc::kill(pid as i32, libc::SIGKILL);
-    }
-    #[cfg(not(unix))]
-    kill_pid(pid);
-    std::thread::sleep(Duration::from_millis(500));
-    if alive(pid) {
-        return Err(format!("Der alte Emulator-Dienst (pid {pid}) lässt sich nicht beenden. Bitte beende ihn (Task-Manager / Aktivitätsanzeige) und starte die App neu."));
-    }
-    Ok(())
-}
-
-#[cfg(unix)]
-fn alive(pid: u32) -> bool {
-    unsafe { libc::kill(pid as i32, 0) == 0 }
-}
-
-/// tasklist names the process while it runs; the service has no window to close, so it is killed.
-#[cfg(not(unix))]
-fn alive(pid: u32) -> bool {
-    use std::os::windows::process::CommandExt;
-    Command::new("tasklist")
-        .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
-        .creation_flags(0x0800_0000)
-        .output()
-        .map(|out| String::from_utf8_lossy(&out.stdout).contains(&format!("\"{pid}\"")))
-        .unwrap_or(false)
-}
-
-#[cfg(not(unix))]
-fn kill_pid(pid: u32) {
-    use std::os::windows::process::CommandExt;
-    let _ = Command::new("taskkill")
-        .args(["/PID", &pid.to_string(), "/F"])
-        .creation_flags(0x0800_0000)
-        .status();
+    answers(port, &token).then_some((port, token))
 }
 
 /// Whether a service on `port` answers /status for `token`.
@@ -305,13 +209,7 @@ fn answers(port: u16, token: &str) -> bool {
 /// Keeps a service on `port` with `token` for as long as the app runs: when the one this app started ends,
 /// or the one somebody else started stops answering, it starts its own there again. Waits 1 s before the
 /// first try and doubles up to 30 s while starts keep failing; a service that ran for a minute resets that.
-fn watchdog(
-    port: u16,
-    token: String,
-    version: String,
-    child: Arc<Mutex<Option<Child>>>,
-    quitting: Arc<AtomicBool>,
-) {
+fn watchdog(port: u16, token: String, child: Arc<Mutex<Option<Child>>>, quitting: Arc<AtomicBool>) {
     std::thread::spawn(move || {
         let mut pause = Duration::from_secs(1);
         let mut since = Instant::now();
@@ -349,7 +247,7 @@ fn watchdog(
             if quitting.load(Ordering::SeqCst) {
                 return;
             }
-            match start_service(port, &token, &version, true) {
+            match start_service(port, &token, true) {
                 Ok(mut started) => {
                     let up = wait_for(port, &mut started).is_ok();
                     let Ok(mut slot) = child.lock() else { return };
@@ -558,18 +456,13 @@ fn on_a_screen(app: &AppHandle, p: &Placement) -> bool {
 /// Start (or find) the service and open the window. Any failure comes back
 /// as text for a dialog; nothing in here panics.
 fn open_app(app: &tauri::App) -> Result<(), String> {
-    let version = app.package_info().version.to_string();
-    let found = running_service();
-    let (port, token, own) = match found {
-        // Somebody else's service of this version: show it, and never stop it.
-        Some(found) if fits(found.version.as_deref(), &version) => (found.port, found.token, None),
-        found => {
-            if let Some(stale) = found {
-                end_stale(&stale)?;
-            }
+    let (port, token, own) = match running_service() {
+        // Somebody else's service: show it, and never stop it.
+        Some((port, token)) => (port, token, None),
+        None => {
             let port = free_port().map_err(|e| format!("Kein freier Port: {e}"))?;
             let token = token()?;
-            let mut child = start_service(port, &token, &version, false)?;
+            let mut child = start_service(port, &token, false)?;
             if let Err(message) = wait_for(port, &mut child) {
                 stop_service(child);
                 return Err(message);
@@ -584,11 +477,11 @@ fn open_app(app: &tauri::App) -> Result<(), String> {
     watchdog(
         port,
         token.clone(),
-        version.clone(),
         service.child.clone(),
         service.quitting.clone(),
     );
     app.manage(service);
+    let version = app.package_info().version.to_string();
     let native_midi = cfg!(any(target_os = "macos", target_os = "linux"));
     let saved = load_placement(app.handle());
     app.manage(Placed(Mutex::new(saved)));

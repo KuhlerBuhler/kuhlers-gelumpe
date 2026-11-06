@@ -1,6 +1,6 @@
 # TAP und Reglerbewegungen: Recherche im Emulator
 
-Stand 2026-10-15. Kein Gerätezugriff. Alles ist im Emulator gemessen (Firmware 2.02 mit Hacktribe, eigene
+Stand 2026-11-06. Kein Gerätezugriff. Alles ist im Emulator gemessen (Firmware 2.02 mit Hacktribe, eigene
 `SYSTEM.VSB`, eigener Flash-Dump), nichts am Gerät. `tools/emu/tap_motion_probe.py` wiederholt jede Messung
 (`E2_VSB=... E2_FLASH=... tools/emu/.venv/bin/python tools/emu/tap_motion_probe.py`, rund 20 Minuten), die Namen der
 Prüfungen stehen in Klammern. Die Skizze der Funktion, die daraus folgt, steht in [Idee 39](../ideen/39-automationen-tap.md).
@@ -36,6 +36,21 @@ Verteilerfunktion `0xC002837C` (Typ in `msg+0xC`, Daten `msg+0xD` bis `+0x10`). 
 wert, 1, 0)`. Das setzt den Parameter und meldet danach mit `0xC0083B2C` (Typ 12) an die UiTask. Die Wege für Tasten (`0xC0042BB8`),
 Drehgeber (`0xC00419B4`), Pads (`0xC0044874`) und Touchpad (`0xC004596C`) stehen im Hintergrund zur [Plugin-Laufzeit](../hintergrund/skript-laufzeit.md).
 
+**Parameter-Meldung an die UiTask (gemessen am 2026-11-06).** `0xC0083B2C` baut mit `0xC0070AF0` eine Nachricht vom Typ 12 und stellt sie mit `0xC0083FE8` in die UiTask-Queue. Die beiden Nutzdatenwörter stehen bei `+8` und `+0xC`: Parameter-ID und umgerechneter Wert. Im Emulator ergaben Reglerwert 200 und Part 0:
+
+| Eingabe | Parameter-ID | Gemeldeter Wert | Pattern-Byte und Kopie |
+|---|---:|---:|---:|
+| PAN, Reglerindex 1 | 1 | 36 | `0x81D`, `0x404B` = 36 |
+| EG INT, Reglerindex 4 | 4 | 36 | `0x813`, `0x4041` = 36 |
+| MOD. SPEED, Reglerindex 10 | 10 | 100 | `0x815`, `0x4043` = 100 |
+| MOD. DEPTH, Reglerindex 5 | 5 | 100 | `0x816`, `0x4044` = 100 |
+| IFX EDIT, Reglerindex 7 | 7 | 100 | `0x826`, `0x4050` = 100 |
+| OSC PITCH, Reglerindex 2 | 11 | 36 | `0x828`, `0x4052` = 36 |
+| OSC EDIT, Reglerindex 9 | 9 | 100 | `0x80F`, `0x403D` = 100 |
+| SHIFT + OSC PITCH, Reglerindex 2 | 12 | 100 | `0x829`, `0x4053` = 100 |
+
+Die Messung erfasste dieselben IDs und Werte direkt beim Einreihen der Nachricht. Die Parameter-ID ist nicht immer der Reglerindex: OSC PITCH und GLIDE verwenden beide Reglerindex 2, aber die IDs 11 und 12. Typ 12 ist der Nachrichtentyp, nicht die GLIDE-ID. Diese Nachricht benachrichtigt die UiTask; sie ist kein belegter DSP-Refresh. Der Emulator bildet den DSP nicht nach.
+
 **Aufruf aus dem Rahmenhaken (gemessen, `knob-call-equals-uart`).** Von 11 Reglern mit je 5 Werten (0, 64, 128, 200, 255)
 wurde jeder Fall zweimal auf einer frischen Kopie desselben gebooteten Geräts gespielt: einmal als Panel-Nachricht, einmal als Aufruf
 von `0xC0040A50` aus dem Rahmenhaken (`Dev.call` am Haken `0xC00836FC`, dieselbe UiTask-Stelle, an der die Laufzeit ihre
@@ -55,8 +70,9 @@ Glue-Funktionen ruft). In 55 von 55 Fällen sind die geänderten Bytes des Patte
 | 9 SAMPLE/OSC EDIT | `0x80F` | `0x403D` |
 | 10 MOD. SPEED | `0x815` | `0x4043` |
 
-Bei Part 1 liegt die Kopie 0x382E hinter dem Byte. Das Byte eines Parts weiter liegt 0x330 weiter, die Kopie 0x24 weiter
-(Part 2, Regler 0: `0xB4C` und `0x406E`, `knob-second-part-offset`).
+Bei den meisten Feldern liegt die Kopie von Part 1 `0x382E` hinter dem Byte. Bei Pitch und IFX Edit ist der Abstand `0x382A`.
+Das Byte eines Parts weiter liegt `0x330` weiter, die Kopie `0x24` weiter (Part 2, Regler 0: `0xB4C` und `0x406E`,
+`knob-second-part-offset`).
 
 - **Wertebereich (gemessen, `knob-value-to-byte`).** Bei Regler 0 (Pegel, Vorgabe 52) steht im Byte `wert >> 1` und nichts begrenzt es:
   255 ergibt 127, 256 ergibt 128, 511 ergibt 255, 1023 ergibt 255. Ein Wert, der `wert >> 1` nicht ändert (0 und 1 bei Vorgabe 52,

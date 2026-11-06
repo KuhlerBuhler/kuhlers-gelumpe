@@ -778,25 +778,12 @@ def watch_parent(pids):
     def stop():
         # Both end in the KeyboardInterrupt path of main(), which saves card and flash. SIGTERM has a
         # handler of ours; interrupt_main does nothing when the parent started us with SIGINT ignored.
-        # On Windows nothing else ends a way out that hangs, and a service left behind is what the next app
-        # finds in service.json, so the same hard exit as leave() in main().
-        if sys.platform == "win32":
-            hard_exit()
-            _thread.interrupt_main()
-        else:
-            os.kill(os.getpid(), signal.SIGTERM)
+        os.kill(os.getpid(), signal.SIGTERM) if sys.platform != "win32" else _thread.interrupt_main()
 
     lifetime.watch(pids, stop)
 
 
 HARD_EXIT_S = 10
-
-
-def hard_exit():
-    """Ends the process after HARD_EXIT_S, for when the way out (saving card and flash) hangs."""
-    timer = threading.Timer(HARD_EXIT_S, os._exit, (1,))
-    timer.daemon = True
-    timer.start()
 
 
 def inside_temp(path):
@@ -853,7 +840,9 @@ def main():
 
     def leave(*_):
         # If the way out below hangs (a stuck machine thread), do not stay behind as a process nobody owns.
-        hard_exit()
+        timer = threading.Timer(HARD_EXIT_S, os._exit, (1,))
+        timer.daemon = True
+        timer.start()
         raise KeyboardInterrupt            # unwinds to the save below, also for kill and a closed terminal
 
     for name in ("SIGTERM", "SIGHUP"):
@@ -862,7 +851,7 @@ def main():
     if args.parent_pid:
         watch_parent(args.parent_pid)
     shown = args.host if args.host not in ("0.0.0.0", "::") else "127.0.0.1"
-    print(f"Emulator läuft auf http://{shown}:{args.port}" + (f" (App {os.environ['GELUMPE_APP_VERSION']})" if os.environ.get("GELUMPE_APP_VERSION") else ""))
+    print(f"Emulator läuft auf http://{shown}:{args.port}")
     print(f"Die Karte ist der Ordner {store.dir}")
     print(f"Der Flash ist die Datei {emu.flash_store.path}")
     print(f"Display-Trägheit: dunkel {lcd_tau[0]:g} s, hell {lcd_tau[1]:g} s")
@@ -871,8 +860,7 @@ def main():
     try:                                   # port and token for the desktop app, owner only, gone when we leave
         fd = os.open(announce, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w") as f:
-            # version: the desktop app that started us; another version does not reuse this service.
-            json.dump({"port": args.port, "token": token, "pid": os.getpid(), "version": os.environ.get("GELUMPE_APP_VERSION")}, f)
+            json.dump({"port": args.port, "token": token, "pid": os.getpid()}, f)
     except OSError as error:
         print(f"service.json: {error}", file=sys.stderr)
     try:

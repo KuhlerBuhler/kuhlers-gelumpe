@@ -102,8 +102,13 @@ export function asmInclude() {
   eq("SCRIPT_KNOBS", SCRIPT_KNOBS);
   eq("SCRIPT_PATTERN_FIELD_COUNT", PATTERN_FIELDS.length);
   eq("SCRIPT_PART_FIELD_COUNT", PART_FIELDS.length);
+  eq("SCRIPT_PATTERN_LENGTH_OFFSET", PATTERN_FIELDS.find(f => f.name === "length").offset);
   PATTERN_FIELDS.forEach((f, i) => eq(`SCRIPT_PATTERN_FIELD_${i}`, f.offset | (PATTERN_FIELD_KINDS.indexOf(f.kind) << 16)));
-  PART_FIELDS.forEach((f, i) => eq(`SCRIPT_PART_FIELD_${i}`, f.offset | (PATTERN_FIELD_KINDS.indexOf(f.kind) << 16)));
+  PART_FIELDS.forEach((f, i) => {
+    eq(`SCRIPT_PART_FIELD_${i}`, f.offset | (PATTERN_FIELD_KINDS.indexOf(f.kind) << 16));
+    eq(`SCRIPT_PART_FIELD_MIN_${i}`, f.min);
+    eq(`SCRIPT_PART_FIELD_MAX_${i}`, f.max);
+  });
   eq("SCRIPT_PART_BASE", PATTERN_PARTS.base);
   eq("SCRIPT_PART_STRIDE", PATTERN_PARTS.stride);
   for (const [name, value] of Object.entries(PATTERN_STEPS)) eq(`SCRIPT_STEP_${sym(name)}`, value);

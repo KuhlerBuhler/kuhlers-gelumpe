@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compile, formatError } from "../src/script/compiler.mjs";
-import { API_BY_NAME } from "../data/script/contract.mjs";
+import { API_BY_NAME, PART_FIELDS } from "../data/script/contract.mjs";
 import { PROPERTIES, KNOB_NAMES } from "../data/script/properties.mjs";
 import { KNOBS } from "../data/panel.mjs";
 
@@ -29,7 +29,6 @@ const SAME = [
   ["let t = korg.selectedPart;", "let t = korg.read.part();"],
   ["let t = korg.parts[2].step;", "let t = korg.read.step(2);"],
   ["let t = korg.parts[2].muted;", "let t = korg.read.mute(2);"],
-  ["korg.parts[5].muted = 1;", "korg.mute(5, 1);"],
   ["let t = korg.knobs.LEVEL + korg.knobs[3];", "let t = korg.read.knob(0) + korg.read.knob(3);"],
   ["korg.store[2] = 7;", "korg.store.set(2, 7);"],
   ["let t = korg.store[2];", "let t = korg.store.get(2, 0);"],
@@ -40,6 +39,24 @@ const SAME = [
 
 test("a property compiles to the same block as the call it stands for", () => {
   for (const [property, call] of SAME) assert.equal(blob(property), blob(call), property);
+});
+
+test("only the thirteen tested Part fields are writable properties", () => {
+  const writable = ["cutoff", "resonance", "egInt", "modSpeed", "modDepth", "attack", "decay", "level", "pan", "ifxEdit", "pitch", "glide", "oscEdit"];
+  const fields = PROPERTIES.filter(prop => prop.path.startsWith("korg.parts[].") && prop.write);
+  assert.deepEqual(fields.map(prop => prop.path.slice("korg.parts[].".length)), writable);
+  for (const name of writable) {
+    const prop = PROPERTIES.find(candidate => candidate.path === `korg.parts[].${name}`);
+    const index = PART_FIELDS.findIndex(field => field.name === name);
+    assert.deepEqual(prop.write, ["korg.write.partValue", ["index", index, "value"]], name);
+    const result = compile(`function f() { korg.parts[4].${name} = ${prop.range[0]}; } korg.onEvent("step", f);`);
+    assert.ok(result.ok, `${name}: ${result.errors?.map(formatError).join("\n")}`);
+  }
+  for (const name of ["sample", "filterType", "modType", "ifxOn", "ifxType", "voiceAssign", "mfxSend"]) {
+    assert.equal(compile(`function f() { korg.parts[4].${name} = 0; } korg.onEvent("step", f);`).ok, false, name);
+  }
+  assert.equal(compile("function f() { korg.write.partValue(1, 8, 64); } korg.onEvent(\"step\", f);").ok, false);
+  assert.equal(compile("function f() { korg.paramSet.level(64); } korg.onEvent(\"step\", f);").ok, false);
 });
 
 test("every property names API entries that exist, and the knob names follow the panel table", () => {
@@ -60,8 +77,9 @@ test("what a property cannot do is said in words", () => {
   assert.match(error("let t = korg.leds[1];"), /lässt sich nur setzen/);
   assert.match(error("let t = korg.parts[1];"), /ist ein Objekt.*korg\.parts\[i\]\.step, korg\.parts\[i\]\.muted, korg\.parts\[i\]\.sample/);
   assert.match(error("let t = korg.parts[1].volume;"), /gibt es nicht\. Es gibt: \.step, \.muted, \.sample/);
+  assert.match(error("korg.parts[1].muted = 1;"), /lässt sich nur lesen/);
   assert.match(error("let t = korg.knobs.CUTOFF;"), /keinen Regler.*LEVEL/);
-  assert.match(error("korg.parts[korg.read.part()].muted += 1;"), /Index keinen Funktionsaufruf/);
+  assert.match(error("korg.store[korg.read.part()] += 1;"), /Index keinen Funktionsaufruf/);
   assert.match(error("let t = korg.millis;"), /„korg\.millis“ ist eine Funktion, schreib „korg\.millis\(\)“/);
   assert.match(error("korg.foo = 3;"), /lässt sich nicht setzen/);
 });
@@ -98,3 +116,68 @@ korg.onEvent("ready", () => {
   const v = name => loaded.script.vars[r.info.symbols[name].slot];
   assert.deepEqual([v("tempo"), v("swing"), v("bars"), v("pan"), v("next")], [1755, -10, 3, -63, -1]);
 });
+
+test("Part property writes target the indexed part and clamp values in the pattern RAM", async () => {
+  const { SimDevice } = await import("../src/script/sim.mjs");
+  const source = `let high = 200; let repairs = 0;
+korg.onEvent("ready", () => {
+  korg.parts[5].level = high;
+  korg.parts[5].cutoff = 63;
+  korg.parts[5].pan = -20;
+  korg.parts[5].pitch = -30;
+  korg.parts[5].resonance = 24;
+  korg.parts[5].egInt = -20;
+  korg.parts[5].modDepth = 65;
+  korg.parts[5].modSpeed = 34;
+  korg.parts[5].attack = 11;
+  korg.parts[5].attack += 1;
+  korg.parts[5].decay = 70;
+  korg.parts[5].ifxEdit = 85;
+  korg.parts[5].glide = 47;
+  korg.parts[5].oscEdit = 22;
+  repairs = korg.system.repairs;
+});`;
+  const result = compile(source);
+  assert.ok(result.ok, result.errors?.map(formatError).join("\n"));
+  const device = new SimDevice();
+  device.hardware.part = 0;
+  device.hardware.patternBlock(7)[0x800 + 13] = 42;
+  assert.ok(device.load(result.blob).ok);
+  device.run(2);
+  assert.deepEqual([
+    device.hardware.patternValue(-1, 5, 10),
+    device.hardware.patternValue(-1, 5, 11),
+    device.hardware.patternValue(-1, 5, 15),
+    device.hardware.patternValue(-1, 5, 3),
+    device.hardware.patternValue(-1, 5, 4),
+    device.hardware.patternValue(-1, 5, 7),
+    device.hardware.patternValue(-1, 5, 6),
+    device.hardware.patternValue(-1, 5, 8),
+    device.hardware.patternValue(-1, 5, 9),
+    device.hardware.patternValue(-1, 5, 14),
+    device.hardware.patternValue(-1, 5, 2),
+    device.hardware.patternValue(-1, 5, 16),
+    device.hardware.patternValue(-1, 5, 18),
+    device.hardware.patternValue(7, 0, 2),
+    device.hardware.patternValue(-1, 0, 10),
+    repairsValue(device),
+  ], [127, -20, -30, 24, -20, 65, 34, 12, 70, 85, 63, 47, 22, 42, 0, 1]);
+  assert.equal(device.hardware.patternValue(-1, 0, 10), 0);
+  assert.match(error("korg.parts[5].level = 128;"), /0.*127.*128/);
+});
+
+test("Part property writes still target the explicit part when all parts are selected", async () => {
+  const { SimDevice } = await import("../src/script/sim.mjs");
+  const result = compile('korg.onEvent("ready", () => { korg.parts[1].attack = 96; });');
+  assert.ok(result.ok, result.errors?.map(formatError).join("\n"));
+  const device = new SimDevice();
+  device.hardware.part = 16;
+  assert.ok(device.load(result.blob).ok);
+  assert.deepEqual(device.run(2), []);
+  assert.equal(device.hardware.patternValue(-1, 1, 8), 96);
+  assert.equal(device.hardware.patternValue(-1, 0, 8), 0);
+});
+
+function repairsValue(device) {
+  return device.hardware.objects[1];
+}

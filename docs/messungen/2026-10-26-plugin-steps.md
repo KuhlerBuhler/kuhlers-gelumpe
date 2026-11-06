@@ -1,16 +1,25 @@
 # Plugins schreiben Steps: korg.seq
 
-Stand 2026-10-26. Kein Gerätezugriff, alles im Emulator (Firmware 2.02 mit Hacktribe, Korgs eigene 2.02 und die blaue
-Electribe 2.02, eigene `SYSTEM.VSB`, ohne eigenen Flash). Am Gerät ist nichts gehört. Marker: **gemessen** (im Emulator),
-**hergeleitet**, **offen**.
+Stand 2026-11-02. Laufzeitprüfungen im Emulator (Firmware 2.02 mit Hacktribe, Korgs eigene 2.02 und die blaue
+Electribe 2.02, eigene `SYSTEM.VSB`, ohne eigenen Flash). Dazu eine Rückmeldung vom Gerätetest mit Hacktribe für Synth.
+Marker: **gemessen** (im Emulator oder am Gerät), **hergeleitet**, **offen**.
+
+Rückmeldung vom Gerät: Das Gate eines Steps beeinflusst den Trigger des folgenden Steps. Die Plugin-Aufrufe setzen diese
+Beziehung nicht mehr selbst um: `setStep` und `setGate` lassen das Trigger-Byte unverändert.
+
+Rückmeldung aus einem Gerätetest: Die Gate-Bytes `00`, `3F` und `60` bedeuten 0, 63 und 96. Danach folgt direkt `FF`
+für TIE. `setGate` akzeptiert deshalb nur 0 bis 96 sowie 255; `getGate` liest das Byte unverändert zurück.
+
+Gerätetest am 2026-11-02, Hacktribe für Synth: Eine Sequenz mit TIE auf allen Steps verhielt sich auch nach dem
+Transponieren mit `setStep` weiterhin wie eine TIE-Sequenz.
 
 Wunsch: Plugins sollen in den Sequencer schreiben können, etwa für Melodie- oder Arpeggio-Generatoren. Gebaut ist API Version 9
 mit drei Aufrufen (`data/script/contract.mjs`, Code in `tools/patch/script_seq.s`):
 
 | Aufruf | schreibt |
 |---|---|
-| `korg.seq.setStep(part, step, note, velocity)` | Note 0 bis 127 mit Velocity 1 bis 127: An, Velocity, Trigger und den ersten Notenplatz (Note plus eins), die drei anderen Notenplätze 0. Note -1 oder Velocity 0: nur das An-Byte auf 0 |
-| `korg.seq.setGate(part, step, gate)` | das Gate-Byte, 0 bis 127 |
+| `korg.seq.setStep(part, step, note, velocity)` | Note 0 bis 127 mit Velocity 1 bis 127: An, Velocity, den ersten Notenplatz (Note plus eins) und die drei anderen Notenplätze auf 0. Gate und Trigger bleiben unverändert. Note -1 oder Velocity 0: nur das An-Byte auf 0 |
+| `korg.seq.setGate(part, step, gate)` | nur das Gate-Byte; das Trigger-Byte bleibt unverändert |
 | `korg.seq.clearPart(part)` | das An-Byte aller 64 Steps auf 0 |
 
 ## Wo die Steps liegen
@@ -32,6 +41,7 @@ mit Note 50.
 | Fall | Ergebnis (gemessen, alle drei Builds gleich) |
 |---|---|
 | `seq-schreibt-wie-der-browser` | die 64 Steps von Part 1 im RAM nach `ready`: jedes An-Byte und jedes Byte eines Steps, der an ist, wie im Browsermodell (`src/script/hardware.mjs`) |
+| `seq-gate-tie-byte` | `setGate(..., 255)` schreibt `FF` als Gate-Byte |
 | `seq-tap-wie-der-browser` | nach TAP ebenso |
 | `seq-pads-zeigen-die-steps` | SEQUENCER-Modus: die Pads zeigen die Steps 1, 3, 5, 7, 9, 11, 13 und 15; nach TAP ohne weitere Taste 3, 5, 6, 7, 9, 11, 13 und 15 |
 | `seq-ungespeichert` | das Wort der Laufzeit für ungespeicherte Änderungen (`SC_DIRTY`, die atmende WRITE-LED) ist 1, ohne das Plugin 0 |
