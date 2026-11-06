@@ -84,7 +84,8 @@ test("the compiler passes a global array by its first slot and length and refuse
 });
 
 test("the API version of a block follows what it uses", () => {
-  assert.equal(API_VERSION, 17);
+  assert.equal(API_VERSION, 18);
+  assert.equal(apiVersionOf("korg.onEvent(\"frame\", () => { let v = korg.viewedPattern + korg.nextPattern; });"), 18, "the viewed and next pattern need API 18");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.features.tapMotion = 2; });"), 17, "a page of the menu BLECH needs API 17");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.write(); });"), 17, "writing the menu's settings needs API 17");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.customizations.display.intensity = 3; });"), 10, "the first leaf stays API 10");

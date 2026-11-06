@@ -30,6 +30,8 @@ export const API_DOCS = Object.freeze({
   "korg.read.knob": text("api.korg.read.knob"),
   "korg.read.chainMode": text("api.korg.read.chainMode"),
   "korg.read.patternValue": text("api.korg.read.patternValue"),
+  "korg.read.viewedPattern": text("api.korg.read.viewedPattern"),
+  "korg.read.nextPattern": text("api.korg.read.nextPattern"),
   "korg.remapKey": text("api.korg.remapKey"),
   "korg.play": text("api.korg.play"),
   "korg.stop": text("api.korg.stop"),

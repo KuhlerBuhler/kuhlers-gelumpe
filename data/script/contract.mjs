@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 17;
+export const API_VERSION = 18;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -363,6 +363,8 @@ const API_LIST = [
   [75, "korg.keyHold", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 15],
   [76, "korg.pressKey", [int("key", 0, 33)], "void", UI, 30, 15],
   [77, "korg.seq.setPatternValue", [int("field", 0, 11), int("value")], "void", UI, 60, 15],
+  [78, "korg.read.viewedPattern", [], "int", ALL, 6, 18],
+  [79, "korg.read.nextPattern", [], "int", ALL, 6, 18],
 ];
 
 /**
