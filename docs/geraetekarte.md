@@ -173,7 +173,7 @@ Umrechnung neu geschrieben.
 |---|---|---|
 | Pattern: Name, Tempo, Swing, Länge, Beat, Key, Scale, Groove, MFX | Pattern senden, Backup-Datei | Korg-Spec, mit Differenzproben bestätigt |
 | 16 Parts: Sample, Osc Pitch, Filter, Cutoff, Resonanz, Hüllkurve, Glide, Modulation, IFX, Amp | wie oben | großteils gemessen, Byte 38 offen |
-| Steps: An, Trigger, Gate, Velocity, vier Noten | wie oben | belegt. Ein Step klingt nur, wenn An und Trigger gesetzt sind. |
+| Steps: An, Trigger, Gate, Velocity, vier Noten | wie oben | belegt. Trigger 0 zählt nur hinter einem TIE (Gate über 96): dann kein neuer Anschlag ([Messung](messungen/2026-11-06-step-trigger.md)). |
 | Motion Sequences | wie oben | Korg-Spec, am Gerät nicht geprüft |
 | IFX- und MFX-Presets | live ins RAM (Hacktribe), Firmware (beide Builds, über die Zeigerfelder) | weitgehend, 23 von 28 Map-Bytes unbekannt; bei Korgs Build nur aus der Datei, mit dem Patch `preset-tables` bis 128 Plätze je Art |
 | 72 Modulationsarten | Firmware | Name, Ziel, Vorgabe-Tiefe, Vorgabe-Speed und Kurve editierbar (Seite Modulationen), Wellenform, Sync, Polarität bekannt, Felder ab `+0x29` offen |
