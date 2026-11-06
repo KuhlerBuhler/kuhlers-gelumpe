@@ -145,7 +145,8 @@ steps_clamp:
 ; r0 part, r1 field (PART_FIELDS), r2 value: through the firmware's part edit, the setter the knobs go through, which writes
 ; the pattern in RAM and the sound engine's copy. The value is clamped to the field's range first, the setter does not check
 ; it. For the selected part the parameter window opens as a knob opens it. A build without the setter (HW_PART_EDIT 0) writes
-; nothing.
+; nothing. A field with a direct setter of its own (part_setters, PART_SETTERS in tools/patch/script_hooks.py) goes through
+; that one instead, with (pattern object + 0x400C, part, value, 1) as the Part menu calls it.
 script_seq_set_part_value_glue:
     cmp r0, #16
     cmplo r1, #SCRIPT_PART_FIELD_COUNT
@@ -154,11 +155,6 @@ script_seq_set_part_value_glue:
     ldr r3, [r3, r1, lsl #2]
     cmp r3, #0
     beq hw_bad_arg
-    ldr r12, =HW_PART_EDIT
-    cmp r12, #0
-    beq part_value_return
-    push {r4-r6, lr}
-    sub sp, sp, #16
     mov r12, r3, lsl #8
     mov r12, r12, asr #24
     cmp r2, r12
@@ -166,6 +162,24 @@ script_seq_set_part_value_glue:
     mov r12, r3, asr #24
     cmp r2, r12
     movgt r2, r12
+    ldr r12, =part_setters
+    ldr r12, [r12, r1, lsl #2]
+    cmp r12, #0
+    beq part_value_edit
+    mov r1, r0
+    ldr r0, =HW_PATTERN_OBJECT+0x400C
+    and r2, r2, #255
+    mov r3, #1
+    push {r4, lr}
+    blx r12
+    pop {r4, lr}
+    b part_value_return
+part_value_edit:
+    ldr r12, =HW_PART_EDIT
+    cmp r12, #0
+    beq part_value_return
+    push {r4-r6, lr}
+    sub sp, sp, #16
     and r5, r2, #255
     mov r4, r0
     mov r6, r3
@@ -206,8 +220,8 @@ part_value_return:
 ; from the units of korg.read.patternValue into the byte (bars 1 to 4 store 0 to 3, a chain -1 to 249 stores 0 to 250). The
 ; setters per build live in tools/patch/script_hooks.py (PATTERN_SETTERS), three words here each (pattern_setters): the
 ; function, the offset from the pattern object it gets in r0, and a lower top for the byte on this build (0 none); r1 the
-; byte, r2 1 as the menu passes. A field without a setter (0)
-; writes nothing (docs/messungen/2026-11-03-live-schreibwege.md).
+; byte, r2 1 as the menu passes. A field without a setter (0) writes nothing (docs/messungen/2026-11-03-live-schreibwege.md);
+; setter 1 stores the value as a halfword at that offset of the pattern in RAM, as the SYNC GROUP page does.
 script_seq_set_pattern_value_glue:
     cmp r0, #SCRIPT_PATTERN_FIELD_COUNT
     bhs hw_bad_arg
@@ -235,6 +249,8 @@ script_seq_set_pattern_value_glue:
     ldr r12, [r3]
     cmp r12, #0
     beq part_value_return
+    cmp r12, #1
+    beq pattern_value_store
     ldr r0, [r3, #8]
     cmp r0, #0
     beq pattern_value_top
@@ -248,6 +264,14 @@ pattern_value_top:
     push {r4, lr}
     blx r12
     pop {r4, lr}
+    b part_value_return
+pattern_value_store:
+    ldr r0, [r3, #4]
+    ldr r3, =HW_PATTERN_OBJECT+4
+    add r0, r0, r3
+    strb r1, [r0]
+    mov r1, r1, lsr #8
+    strb r1, [r0, #1]
     b part_value_return
 
 ; r0 array, r1 pattern (-1 the one in RAM, 0 to 249 the bank), r2 offset in its block: one byte per slot, as far as the block
@@ -308,6 +332,28 @@ part_writes:
     .word SCRIPT_PART_WRITE_18
     .word SCRIPT_PART_WRITE_19
 
+part_setters:
+    .word PS_SET_0
+    .word PS_SET_1
+    .word PS_SET_2
+    .word PS_SET_3
+    .word PS_SET_4
+    .word PS_SET_5
+    .word PS_SET_6
+    .word PS_SET_7
+    .word PS_SET_8
+    .word PS_SET_9
+    .word PS_SET_10
+    .word PS_SET_11
+    .word PS_SET_12
+    .word PS_SET_13
+    .word PS_SET_14
+    .word PS_SET_15
+    .word PS_SET_16
+    .word PS_SET_17
+    .word PS_SET_18
+    .word PS_SET_19
+
 pattern_writes:
     .word SCRIPT_PATTERN_WRITE_0
     .word SCRIPT_PATTERN_WRITE_1
@@ -321,6 +367,7 @@ pattern_writes:
     .word SCRIPT_PATTERN_WRITE_9
     .word SCRIPT_PATTERN_WRITE_10
     .word SCRIPT_PATTERN_WRITE_11
+    .word SCRIPT_PATTERN_WRITE_12
 
 pattern_setters:
     .word PV_SET_0, PV_ARG_0, PV_TOP_0
@@ -335,6 +382,7 @@ pattern_setters:
     .word PV_SET_9, PV_ARG_9, PV_TOP_9
     .word PV_SET_10, PV_ARG_10, PV_TOP_10
     .word PV_SET_11, PV_ARG_11, PV_TOP_11
+    .word PV_SET_12, PV_ARG_12, PV_TOP_12
 
 ; r0 part, r1 step -> r12 the step's record. Marks the frame as one that wrote steps (SQ_AT holds its own address). Clobbers r1.
 seq_record:

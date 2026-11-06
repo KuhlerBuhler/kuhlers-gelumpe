@@ -84,20 +84,44 @@ VTABLE_OVER = ((8,'menu_slot_exit'),(12,'menu_slot_keys'),(16,'menu_slot_prev'),
 # function that sets the value as the device's own edit does, and the offset from the pattern object it gets in r0; r1 gets the
 # byte (the value clamped to PATTERN_WRITES, from the units of korg.read.patternValue), r2 1. A third number is a lower top for
 # the byte on this build: the synth's MFX TYPE page goes to 31, the Sampler's to 39. A field without an entry writes nothing. Measured in the emulator, the menu page or key that changes the field calls the function
-# (docs/messungen/2026-11-03-live-schreibwege.md); red has the Sampler's addresses, the synth its own.
-PATTERN_SETTER_FIELDS = ('tempo','swing','length','beat','key','scale','chordSet','level','mfxType','chainTo','chainRepeat','gateArp')
+# (docs/messungen/2026-11-03-live-schreibwege.md); red has the Sampler's addresses, the synth its own. Function 1 is no
+# firmware setter: the glue stores the value as a halfword at the offset in the pattern in RAM, as the SYNC GROUP page does.
+PATTERN_SETTER_FIELDS = ('tempo','swing','length','beat','key','scale','chordSet','level','mfxType','chainTo','chainRepeat','gateArp','syncGroup')
+_SYNC_GROUP_STORE = (1, 0x3B80)
 _SAMPLER_SETTERS = {'tempo': (0xC004A80C, 0), 'swing': (0xC004A594, 0), 'length': (0xC004A560, 0), 'beat': (0xC004A4F8, 0),
                     'key': (0xC004A6FC, 0), 'scale': (0xC004A77C, 0), 'chordSet': (0xC004A534, 0), 'level': (0xC004A698, 0),
                     'mfxType': (0xC0048A64, 0x4004), 'chainTo': (0xC004A5B0, 0), 'chainRepeat': (0xC004A5D4, 0),
-                    'gateArp': (0xC004A5F8, 0)}
+                    'gateArp': (0xC004A5F8, 0), 'syncGroup': _SYNC_GROUP_STORE}
 PATTERN_SETTERS = {
     'hacktribe': _SAMPLER_SETTERS,
     'stock': _SAMPLER_SETTERS,
     'synth': {'tempo': (0xC00448EC, 0), 'swing': (0xC0044674, 0), 'length': (0xC0044640, 0), 'beat': (0xC00445F8, 0),
               'key': (0xC00447DC, 0), 'scale': (0xC004485C, 0), 'chordSet': (0xC0044614, 0), 'level': (0xC0044778, 0),
               'mfxType': (0xC0042CBC, 0x4004, 31), 'chainTo': (0xC0044690, 0), 'chainRepeat': (0xC00446B4, 0),
-              'gateArp': (0xC00446D8, 0)},
+              'gateArp': (0xC00446D8, 0), 'syncGroup': _SYNC_GROUP_STORE},
 }
+
+# korg.seq.setPartValue (script_seq.s:part_setters): per build and PART_FIELDS name the firmware's direct setter of a part
+# value, called with (pattern object + 0x400C, part, value, 1) as the Part menu and the MFX SEND key call it; it writes the
+# pattern and the sound engine's copy. Fields without one go through the part edit (PART_WRITES). Measured in the emulator
+# (docs/messungen/2026-11-06-plugin-api21-pattern-parts.md); red has the Sampler's addresses.
+PART_SETTER_FIELDS = ('sample','filterType','cutoff','resonance','egInt','modType','modSpeed','modDepth','attack','decay','level',
+                      'pan','ifxOn','ifxType','ifxEdit','pitch','glide','voiceAssign','oscEdit','mfxSend')
+_SAMPLER_PART_SETTERS = {'voiceAssign': 0xC00493A0, 'mfxSend': 0xC00496D4}
+PART_SETTERS = {
+    'hacktribe': _SAMPLER_PART_SETTERS,
+    'stock': _SAMPLER_PART_SETTERS,
+    'synth': {'voiceAssign': 0xC0043560, 'mfxSend': 0xC00437F0},
+}
+
+
+def part_setter_actions(build):
+    """The .equ values of the part setter table: PS_SET_i the function, 0 for a field that goes through the part edit."""
+    setters = PART_SETTERS[build]
+    unknown = set(setters) - set(PART_SETTER_FIELDS)
+    if unknown:
+        raise ValueError(f'part setters for unknown fields: {sorted(unknown)}')
+    return {f'PS_SET_{i}': setters.get(name, 0) for i, name in enumerate(PART_SETTER_FIELDS)}
 
 
 def pattern_setter_actions(build):
@@ -153,7 +177,7 @@ def runtime_profile(build):
                                               FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
                                               BUILD_BASE=4 if build == 'stock' else 0,
                                               # DATA UTILITY's list: its functions (counter "n/14"), and the bits of our pages there the build has (script_menu.s, menu_du_mask)
-                                              DU_PAGES=14, DU_BUILT=7, **pattern_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
+                                              DU_PAGES=14, DU_BUILT=7, **pattern_setter_actions(build), **part_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
@@ -182,7 +206,7 @@ def runtime_profile(build):
         # functions, 16 masked words equal (fwmap); the frame buffer has the same address; MG_FLUSH (MG_LCD, 2 or 3, 0) sends the
         # frame buffer, as Korg's PCM loader does for its bar (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)
         MG_WORK=0xC0190100, MG_MKDIR=0xC008B510, FS_UNLINK=0, MG_GETFREE=0xC008B3B4, MG_ALLOC=0xC0026240, MG_FREE=0xC0026248,
-        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3, **pattern_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
