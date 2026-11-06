@@ -63,11 +63,22 @@ test("setStep, setGate and clearPart write the bytes of the pattern in RAM and n
   const block = device.hardware.patternBlock(-1);
   const at = device.hardware.stepAt(2, 5);
   assert.deepEqual([...block.subarray(at, at + 12)], [1, 127, 100, 1, 61, 0, 0, 0, 7, 7, 7, 7], "the other note places cleared, the rest of the record kept");
-  assert.deepEqual(device.hardware.stepValue(2, 6), { on: 0, gate: 0, velocity: 90, trigger: 1, note: 61 }, "note -1 turns only the step off");
+  assert.deepEqual(device.hardware.stepValue(2, 6), { on: 0, gate: 0, velocity: 90, trigger: 0, note: 61 }, "note -1 turns only the step off; behind the TIE of step 5 the trigger is 0");
   assert.deepEqual(device.hardware.stepValue(2, 7).on, 0, "velocity 0 turns it off as well");
   assert.deepEqual(device.hardware.stepValue(15, 63), { on: 1, gate: 0, velocity: 1, trigger: 1, note: 127 });
   assert.deepEqual(device.hardware.stepValue(4, 0), { on: 0, gate: 0, velocity: 127, trigger: 1, note: 0 }, "clearPart turns the steps off and leaves the notes");
   assert.equal(device.hardware.stepAt(2, 5), PATTERN_PARTS.base + 2 * PATTERN_PARTS.stride + PATTERN_STEPS.base + 5 * PATTERN_STEPS.stride);
+});
+
+test("setStep writes trigger 0 behind a TIE, so a tied chain of one note is one note", () => {
+  const device = loaded(`korg.onEvent("ready", () => {
+    for (let step = 0; step <= 63; step = step + 1) { korg.seq.setStep(0, step, 63, 100); korg.seq.setGate(0, step, 127); }
+    korg.seq.setStep(1, 0, 60, 100); korg.seq.setGate(1, 0, 96); korg.seq.setStep(1, 1, 60, 100);
+    korg.seq.setStep(1, 2, 60, 100); korg.seq.setGate(1, 2, 97); korg.seq.setStep(1, 2, -1, 100); korg.seq.setStep(1, 3, 60, 100);
+  });`);
+  const triggers = part => Array.from({ length: 64 }, (_, i) => device.hardware.stepValue(part, i).trigger);
+  assert.deepEqual(triggers(0), [1, ...Array(63).fill(0)], "the first step strikes, the tied ones go on");
+  assert.deepEqual(triggers(1).slice(0, 4), [1, 1, 1, 1], "a gate of 96 is no TIE, and a step that is off ties nothing");
 });
 
 test("korg.seq.getOn, getGate, getNote and getVelocity are version 22, for every event, with the documented ranges", () => {

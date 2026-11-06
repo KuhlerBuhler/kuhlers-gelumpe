@@ -231,6 +231,14 @@ class NativeHardwareTests(unittest.TestCase):
         self.assertEqual(record(3,17)[:5],bytes([0,127,90,1,1]),'velocity 0 turns it off as well')
         self.assertEqual(m.call('script_seq_set_step_glue',15,63,127,1),(0,0))
         self.assertEqual(record(15,63)[:5],bytes([1,0,1,1,128]))
+        # the trigger behind a TIE: 0 when the step before is on with a gate above 96, as the firmware writes it for a TIE
+        for before, trigger in ((bytes([1,127]),0), (bytes([1,97]),0), (bytes([1,255]),0), (bytes([1,96]),1), (bytes([0,127]),1)):
+            m.uc.mem_write(step(5,20),before)
+            m.call('script_seq_set_step_glue',5,21,60,100)
+            self.assertEqual(record(5,21)[3],trigger,f'step before {before.hex()}')
+        m.uc.mem_write(step(5,63),bytes([1,127]))
+        m.call('script_seq_set_step_glue',5,0,60,100)
+        self.assertEqual(record(5,0)[3],1,'step 0 has no step before')
         for part in (2,4):
             for index in range(64): m.uc.mem_write(step(part,index),bytes([1,50,60,1,61,0,0,0]))
         m.write(0xC06B2108 + 0x344,2)

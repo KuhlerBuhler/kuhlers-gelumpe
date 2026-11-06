@@ -509,8 +509,9 @@ export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 
 
 /**
  * The steps korg.seq.* writes, in a part of the pattern in RAM: `count` records of `stride` bytes from `base` in the part
- * (data/map/pattern.mjs, step.*). A record holds on, gate (127 a tie), velocity, trigger and four note places, each the
- * note plus one, 0 for none. setStep writes on, velocity, trigger and the first note place and clears the other three, as
+ * (data/map/pattern.mjs, step.*). A record holds on, gate (above 96 a tie), velocity, trigger and four note places, each the
+ * note plus one, 0 for none. setStep writes on, velocity, trigger (0 behind a step on with a TIE, gate above 96; 1 else) and the
+ * first note place and clears the other three, as
  * the dice patch does (tools/patch/dice.py), or with note -1 or velocity 0 only the on byte; setGate writes the gate;
  * clearPart sets every on byte to 0. The pads draw the steps again once at the end of the frame. getOn, getGate and
  * getVelocity return their byte as it is, getNote the note of a place (-1 for 0); they mark nothing for the pads.
