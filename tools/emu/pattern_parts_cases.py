@@ -8,7 +8,6 @@ The measurements are in docs/messungen/2026-11-06-plugin-api21-pattern-parts.md.
 """
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -18,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from tools.patch import script_hooks  # noqa: E402
 import menu_cases  # noqa: E402
+import node_json  # noqa: E402
 import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
@@ -51,6 +51,12 @@ korg.onEvent("ready", () => {
 });"""
 
 
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    fields()
+    edit.compiled({"values": PROGRAM})
+
+
 def entry(name, ok, detail):
     return {"id": f"pattern_parts:{name}", "ok": bool(ok), "detail": str(detail)}
 
@@ -58,7 +64,7 @@ def entry(name, ok, detail):
 def fields():
     code = ("import {PATTERN_FIELDS, PART_FIELDS} from './data/script/contract.mjs';"
             "process.stdout.write(JSON.stringify([PATTERN_FIELDS.map(f => f.name), PART_FIELDS.map(f => [f.name, f.offset])]))")
-    pattern, part = json.loads(subprocess.run(["node", "--input-type=module", "-e", code], cwd=ROOT, capture_output=True, text=True, check=True).stdout)
+    pattern, part = node_json.run(code)
     return pattern, part
 
 

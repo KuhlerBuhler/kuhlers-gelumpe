@@ -6,7 +6,6 @@ korg.seq.writeSteps copy a part of a stored pattern into the one that plays, and
 """
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -16,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from tools.patch import script_hooks  # noqa: E402
 import menu_cases  # noqa: E402
+import node_json  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
@@ -68,21 +68,15 @@ korg.onEvent("frame", () => {{
 def compiled(programs):
     """The include of the contract and the blobs and symbols of the programs, from the compiler of this checkout. The blocks
     are marked as probed by the editor, so an app on the card runs without the user allowing it in the menu."""
-    code = """
-import { asmInclude } from "./src/script/arm-tables.mjs";
-import { compile } from "./src/script/compiler.mjs";
-import { markProbed } from "./src/script/blob.mjs";
-const programs = JSON.parse(process.argv[1]);
-const out = { include: asmInclude(), programs: {} };
-for (const [name, source] of Object.entries(programs)) {
-  const r = compile(source, { name });
-  if (!r.ok) { console.error(name, r.errors.map(e => e.message).join("; ")); process.exit(1); }
-  out.programs[name] = { blob: Buffer.from(markProbed(r.blob)).toString("hex"), symbols: r.info.symbols };
-}
-process.stdout.write(JSON.stringify(out));
-"""
-    result = subprocess.run(["node", "--input-type=module", "-e", code, json.dumps(programs)], cwd=ROOT, capture_output=True, text=True, check=True)
-    return json.loads(result.stdout)
+    return node_json.compiled(programs, probed=True)
+
+
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    # edit_cases compiles the edit with the LEVEL the knob left, a part value of 0 to 127
+    for level in range(128):
+        compiled({"edit": PROGRAMS["edit"].replace("LEVEL", str(level))})
+    compiled({k: v for k, v in PROGRAMS.items() if k != "edit"})
 
 
 def entry(name, ok, detail):

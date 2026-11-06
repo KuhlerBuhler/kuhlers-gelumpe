@@ -7,7 +7,6 @@ Pattern menu stores it.
 """
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -19,6 +18,7 @@ import unicorn  # noqa: E402
 from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
 import menu_cases  # noqa: E402
+import node_json  # noqa: E402
 import plugin_edit_cases as edit  # noqa: E402
 import remote_cases  # noqa: E402
 from firmware import identify  # noqa: E402
@@ -38,9 +38,9 @@ RAW_X, RAW_Y = 400, 500
 # korg.seq.setPatternValue: one value per field, each away from a pattern's usual one; mfxType past every build's top, syncGroup past 999
 VALUES = {"tempo": 1234, "swing": -20, "length": 3, "beat": 2, "key": 5, "scale": 7, "chordSet": 3, "level": 77, "mfxType": 99,
           "chainTo": 5, "chainRepeat": 9, "gateArp": 12, "syncGroup": 1500}
-FIELDS = json.loads(subprocess.check_output(["node", "--input-type=module", "-e",
+FIELDS = node_json.run(
     "import {PATTERN_FIELDS, PATTERN_WRITES} from './data/script/contract.mjs';"
-    "console.log(JSON.stringify(PATTERN_FIELDS.map(f => [f.name, f.offset, f.kind, PATTERN_WRITES[f.name]])))"], cwd=ROOT))
+    "console.log(JSON.stringify(PATTERN_FIELDS.map(f => [f.name, f.offset, f.kind, PATTERN_WRITES[f.name]])))")
 SET_FIRST = 8
 
 PROGRAM = f"""let tx = -1; let plays = 0; let done = 0;
@@ -59,6 +59,11 @@ korg.onEvent("frame", () => {{
   if (go == 7) korg.pressKey(korg.key.STOP);
 """ + "".join(f"\n  if (go == {SET_FIRST + i}) korg.seq.setPatternValue({i}, {VALUES[f[0]]});" for i, f in enumerate(FIELDS)) + """
 });"""
+
+
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    edit.compiled({"api15": PROGRAM})       # FIELDS is asked for when the module is imported
 
 
 def entry(name, ok, detail):
