@@ -1351,13 +1351,28 @@ von der Firmware fern. SHIFT + KEYBOARD bleibt bei der Firmware. Die Seite KEY P
 aus (0). Im Simulator (`test/script-key-pads.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`,
 Hacktribe, rot, blau) geprüft, am Gerät nicht.
 
+**Step Copy** braucht API 15 und läuft im Hintergrund. Es kopiert die Steps eines Takts (16 Steps) des Patterns, das läuft,
+in einen anderen Takt, damit eine Figur nicht noch einmal eingespielt werden muss. Ein Pattern ist 1 bis 4 Takte lang. Drei
+Seiten im Menü BLECH: STEP COPY FROM (Quelltakt, 1 bis 4), STEP COPY TO (Zieltakt 1 bis 4, 0 ist jeder Takt nach der Quelle
+bis zur Länge des Patterns) und STEP COPY (1 kopiert den gewählten Part, 2 alle 16 Parts, 0 nichts). Kopiert wird, wenn das
+Rad 0,6 s auf 1 oder 2 geruht hat, die Werte beim Drehen dazwischen kopieren nichts; zum erneuten Kopieren auf 0 und zurück
+drehen. Kopiert wird je Step: an oder aus, die vier Notenplätze (also auch Akkorde), Velocity, Gate und Trigger, mit
+`korg.read.patternBytes` und `korg.seq.writeSteps`. Ein Zieltakt hinter der Länge verlängert das Pattern bis dorthin
+(`korg.seq.setPatternValue`, der Setter von LENGTH im Pattern-Menü), "jeder Takt danach" bleibt in der Länge. Ein Quelltakt
+hinter der Länge oder derselbe Takt als Quelle und Ziel kopiert nichts. **Nicht kopiert:** die Motion Sequence (die API
+liest Motion-Bytes, hat aber keinen Aufruf, der sie schreibt) und die Werte des Parts. Gespeichert wird nichts: WRITE
+sichert das Pattern wie immer. Firmware: die hier gemessene Seitenliste ([Tastenkombinationen](tastenkombinationen.md))
+kennt COPY PART (Part Util 1/4) und CLEAR SEQUENCE, aber kein Kopieren eines Takts innerhalb eines Patterns. Im Simulator
+(`test/script-step-copy.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, rot, blau) geprüft,
+am Gerät nicht.
+
 ## Die Seite Plugins im Editor
 
 Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold und Key Pads, Quelle
+und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold, Key Pads und Step Copy, Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem

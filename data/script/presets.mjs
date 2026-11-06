@@ -2211,4 +2211,79 @@ korg.onEvent("menu", (id, value) => {
 });
 `,
   }),
+  Object.freeze({
+    id: "stepcopy",
+    title: "Step Copy",
+    description: text("catalog.stepcopy.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-06",
+    controls: [text("catalog.stepcopy.control1"), text("catalog.stepcopy.control2")],
+    source: `// Step Copy: copies the steps of one bar of the pattern in RAM into another bar, so a figure recorded once does not have
+// to be played in again. The pages in the BLECH menu: STEP COPY FROM the source bar (1 to 4), STEP COPY TO the target bar
+// (1 to 4, 0 all bars after the source up to the pattern's length), STEP COPY what to copy (0 nothing, 1 the selected
+// part, 2 all 16 parts). The copy runs once the dial has rested on 1 or 2 for 0.6 s, so the values passed on the way
+// copy nothing; 0 and back copies again. Steps are copied whole (on, gate, velocity, trigger, the four note places).
+// A target bar beyond the pattern's length lengthens the pattern to that bar (the Pattern menu's LENGTH setter).
+// A source bar beyond the length copies nothing. Motion data and the part values stay as they are.
+const BAR = 192;
+let from = korg.store.get(0, 1);
+let to = korg.store.get(1, 2);
+let mode = 0;
+let timer = -1;
+let pageFrom = korg.menu.add("STEP COPY FROM", 1, 4, from);
+let pageTo = korg.menu.add("STEP COPY TO", 0, 4, to);
+let pageGo = korg.menu.add("STEP COPY", 0, 2, 0);
+const steps = new Array(BAR);
+
+function copyBar(part, src, dst) {
+  korg.read.patternBytes(steps, -1, 2048 + 816 * part + 48 + BAR * src);
+  korg.seq.writeSteps(steps, part, 16 * dst);
+}
+
+function copyParts(src, dst) {
+  if (mode == 2) {
+    for (let p = 0; p < 16; p++) copyBar(p, src, dst);
+  } else {
+    const part = korg.read.part();
+    if (part < 16) copyBar(part, src, dst);
+  }
+}
+
+function run() {
+  timer = -1;
+  if (mode == 0) return;
+  const src = from - 1;
+  let bars = korg.current.length;
+  if (src >= bars) return;
+  if (to > bars) {
+    korg.seq.setPatternValue(2, to);
+    bars = to;
+  }
+  if (to == 0) {
+    for (let dst = src + 1; dst < bars; dst++) copyParts(src, dst);
+  } else if (to - 1 != src) {
+    copyParts(src, to - 1);
+  }
+}
+
+korg.onEvent("menu", (id, value) => {
+  if (id == pageFrom) {
+    from = value;
+    korg.store.set(0, value);
+    korg.store.save();
+  }
+  if (id == pageTo) {
+    to = value;
+    korg.store.set(1, value);
+    korg.store.save();
+  }
+  if (id == pageGo) {
+    mode = value;
+    korg.cancel(timer);
+    timer = korg.after(600, run);
+  }
+});
+`,
+  }),
 ]);

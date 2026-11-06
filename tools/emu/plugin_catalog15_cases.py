@@ -1,7 +1,7 @@
 """Emulator cases of the catalog plugins on plugin API 15, as the catalog ships them: Gate Hold fixes the note in Gate Arp
 mode and lets X pick the pattern's Gate Arp rhythm, Key Pads sets the pattern's KEY with KEYBOARD held and a pad, a
-short press of KEYBOARD alone still reaches the firmware, and Momentary Mute leaves the firmware in PART MUTE mode only
-while PART MUTE is held.
+short press of KEYBOARD alone still reaches the firmware, Momentary Mute leaves the firmware in PART MUTE mode only
+while PART MUTE is held, and Step Copy copies the steps of one bar into another from its pages in the BLECH menu.
 
     PYTHONPATH=tools/patch python3 tools/emu/plugin_catalog15_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 """
@@ -30,7 +30,7 @@ PRESETS = json.loads(subprocess.check_output(["node", "--input-type=module", "-e
     "import {PATTERN_FIELDS} from './data/script/contract.mjs';"
     "const s = id => PRESETS.find(p => p.id === id).source;"
     "const at = n => PATTERN_FIELDS.find(f => f.name === n).offset;"
-    "console.log(JSON.stringify({gatehold: s('gatehold'), keypads: s('keypads'), momentmute: s('momentmute'),"
+    "console.log(JSON.stringify({gatehold: s('gatehold'), keypads: s('keypads'), momentmute: s('momentmute'), stepcopy: s('stepcopy'),"
     " gateArp: at('gateArp'), key: at('key')}))"], cwd=ROOT))
 GATE_ARP, TOUCH_SCALE, SHIFT, PART_MUTE, TRIGGER, SEQUENCER, KEYBOARD = 4, 5, 10, 16, 19, 21, 23
 LEDMGR = 0xC0345A1C             # the LED manager; +0xB58 the pad mode: 0 PART MUTE, 3 TRIGGER, 4 SEQUENCER
@@ -191,6 +191,76 @@ def moment_mute_cases(dev):
     return out
 
 
+def step_copy_cases(vsb, flash, build):
+    """The pages of Step Copy are turned in MANAGE PLUGINS (page 1 FROM, 2 TO, 3 COPY): the copy runs 0.6 s after the dial rests."""
+    payload = vsb[0x100:]
+    request = edit.compiled({"stepcopy": PRESETS["stepcopy"]})
+    built = script_hooks.build(request["include"], build=build)
+    dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True, seconds=2.0)
+    edit.script_cases.install(dev, built, request["programs"], ["stepcopy"])
+    dev.run(0.3)
+    base = edit.pattern(dev)
+    part = dev.u32(dev.a(edit.PART))
+    other = (part + 1) % 16
+    empty = [bytes(8)] * 16
+
+    def record(p, step):
+        return base + 2048 + 816 * p + 48 + 12 * step
+
+    def bar(p, n):
+        # writeSteps clamps the velocity to 1 or more, so an empty step is compared without it
+        steps = [bytes(dev.read(record(p, 16 * n + s), 8)) for s in range(16)]
+        return [x if x[0] else bytes([0, x[1], 0]) + x[3:] for x in steps]
+
+    def put(p, n, step, note, velocity):
+        edit.poke(dev, record(p, 16 * n + step), [1, 60 + step, velocity, 1, note + 1, 0, 0, 0])
+
+    def length(bars):
+        edit.poke(dev, base + 37, [bars - 1])
+
+    def turn(n, steps, wait=1.0):
+        menu_cases.goto_plugin(dev, 0, n)
+        dev.turn(steps, wait=wait)
+
+    out = []
+    length(4)
+    for p in (part, other):
+        for s in range(64):
+            edit.poke(dev, record(p, s), [0] * 8)
+    for s, (note, vel) in {0: (36, 100), 5: (40, 77), 15: (43, 90)}.items():
+        put(part, 0, s, note, vel)
+    put(other, 0, 2, 50, 64)
+    turn(3, 1)
+    out.append(entry("step_copy_part_into_bar_2", bar(part, 1) == bar(part, 0) and bar(part, 1)[5][2] == 77
+                     and bar(other, 1) == empty and bar(part, 2) == empty and not dev.m.asserts,
+                     f"bar 2 equals bar 1 {bar(part, 1) == bar(part, 0)}, other part untouched {bar(other, 1) == empty}, "
+                     f"bar 3 untouched {bar(part, 2) == empty}"))
+
+    turn(3, -1)
+    turn(2, 1)
+    turn(3, 2)
+    out.append(entry("step_copy_all_parts_into_bar_3", bar(part, 2) == bar(part, 0) and bar(other, 2) == bar(other, 0)
+                     and bar(other, 2)[2][4] == 51 and bar(part, 3) == empty and not dev.m.asserts,
+                     f"bar 3 of both parts equals bar 1, bar 4 untouched {bar(part, 3) == empty}"))
+
+    length(1)
+    turn(3, -2)
+    turn(2, 1)
+    turn(3, 1)
+    grown = dev.read(base + 37, 1)[0]
+    out.append(entry("step_copy_target_beyond_length_lengthens", grown == 3 and bar(part, 3) == bar(part, 0) and not dev.m.asserts,
+                     f"length byte {grown} (want 3), bar 4 equals bar 1 {bar(part, 3) == bar(part, 0)}"))
+
+    length(2)
+    turn(3, -2)
+    turn(1, 3)
+    before = bar(part, 0) + bar(part, 1)
+    turn(3, 1)
+    out.append(entry("step_copy_source_beyond_length_copies_nothing", bar(part, 0) + bar(part, 1) == before
+                     and dev.read(base + 37, 1)[0] == 1 and not dev.m.asserts, "source bar 4 of a 2 bar pattern: no change"))
+    return out
+
+
 def cases(vsb, flash=None):
     payload = vsb[0x100:]
     menu_cases.for_build(payload)
@@ -200,7 +270,7 @@ def cases(vsb, flash=None):
     dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True, seconds=2.0)
     edit.script_cases.install(dev, built, request["programs"], PLUGINS)
     dev.run(0.3)
-    return gate_hold_cases(dev, build) + key_pads_cases(dev) + moment_mute_cases(dev)
+    return gate_hold_cases(dev, build) + key_pads_cases(dev) + moment_mute_cases(dev) + step_copy_cases(vsb, flash, build)
 
 
 def main():
