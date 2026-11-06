@@ -106,6 +106,7 @@ export const CASES = [
   { id: "nofile", label: "rescue.case.nofile", hint: "rescue.case.nofile.hint" },
   { id: "zero", label: "rescue.case.zero", hint: "rescue.case.zero.hint" },
   { id: "silent", label: "rescue.case.silent", hint: "rescue.case.silent.hint" },
+  { id: "samples", label: "rescue.case.samples", hint: "rescue.case.samples.hint" },
   { id: "app", label: "rescue.case.app", hint: "rescue.case.app.hint" },
 ];
 
@@ -338,6 +339,37 @@ export const FLOW = {
       { label: "rescue.answer.againNoFile", to: "ask" },
       { label: "rescue.answer.invalidFile", to: "invalid:menu" },
     ],
+  },
+
+  // Hacktribe installed by accident: the samples are gone, the way back is BLECHTRIBE without Hacktribe (docs/messungen/2026-11-06-hacktribe-samples.md).
+  samples: {
+    mood: "sad",
+    say: ["rescue.say.samples.1", "rescue.say.samples.2"],
+    choices: [{ label: "rescue.answer.samplesHave", to: "samples:restore" }, { label: "rescue.answer.samplesLost", to: "samples:lost" }],
+  },
+  "samples:restore": {
+    mood: "happy",
+    say: ["rescue.say.samplesRestore.1", { path: "KORG/blechtribe/Sample/e2sSample.all" }, "rescue.say.samplesRestore.2"],
+    next: "samples:way",
+  },
+  "samples:lost": {
+    mood: "sad",
+    say: ["rescue.say.samplesLost.1", "rescue.say.samplesLost.2"],
+    next: "samples:way",
+  },
+  "samples:way": {
+    mood: "idle",
+    say: [
+      { key: "rescue.say.samplesWay.1", links: { patcher: { link: "patcher", text: "nav.patcher" } } },
+      "rescue.say.samplesWay.2",
+    ],
+    known: "hardware",
+    choices: Object.entries(DEVICES).map(([key, d]) => ({ label: d.title, to: key === "blue" ? "samples:blue" : "which", art: d.body, value: key })),
+  },
+  "samples:blue": {
+    mood: "idle",
+    say: ["rescue.say.samplesBlue.1"],
+    choices: [{ label: "rescue.answer.samplesBlueBlech", to: "which" }, { label: "rescue.answer.samplesBlueHt", to: "invalid:head", art: DEVICES.blue.body }],
   },
 
   // The device runs; the app, the patcher or the patterns are where it sticks.

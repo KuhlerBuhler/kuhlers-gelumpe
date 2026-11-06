@@ -92,11 +92,15 @@ async function wizard(page, device, goal, firmware = "korg") {
   await page.locator("#cee-patch-step-1:not([hidden])").waitFor();
 }
 
+/** Step 2 of a copy with Hacktribe on an Electribe that does not run it yet waits for the box about the samples. */
+const ackHt = async page => { const box = page.locator("#cee-patch-ht-ack"); if (await box.isVisible()) await box.check(); };
+
 const drop = (page, bytes) => page.setInputFiles("#cee-patch-file", h.file("SYSTEM.VSB", bytes));
 
 async function patched(page, vsb) {
   await drop(page, vsb);
   await page.click("#cee-patch-next");
+  await ackHt(page);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
@@ -149,6 +153,7 @@ test("patcher: Weiter and Zurück walk the four steps, Korg's firmware cards sit
   await page.click("#cee-patch-back");
   assert.equal(await page.isVisible("#cee-patch-step-1"), true);
   await page.click("#cee-patch-next");
+  await ackHt(page);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.locator("#cee-patch-step-3").waitFor();
@@ -199,6 +204,7 @@ test("patcher: a file with BLECH of an older release is updated straight over, n
   await drop(page, older.bytes);
   await page.locator("#app-toasts .cee-toast", { hasText: "Die App legt die aktuelle Fassung direkt darüber" }).waitFor();
   await page.click("#cee-patch-next");
+  await ackHt(page);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
@@ -222,6 +228,7 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   const vsb = await makeFirmware();
   await drop(page, vsb);
   await page.click("#cee-patch-next");
+  await ackHt(page);
   await page.click("#cee-patch-next");
   assert.equal(await page.locator("#cee-patch-result").isVisible(), false, "nothing to download before the check");
   await page.click("#cee-patch-run");
@@ -288,6 +295,7 @@ test("patcher: the device name Electribe 3 is off by default, goes on when picke
   assert.ok(!(await plan()).includes("Gerätename: Electribe 3"));
   await page.check("#cee-patch-usb-name");
   assert.equal((await plan()).at(-1), "Gerätename: Electribe 3", "picked, it is listed with the patches");
+  await ackHt(page);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
@@ -296,6 +304,7 @@ test("patcher: the device name Electribe 3 is off by default, goes on when picke
   await page.click("#cee-patch-back");
   await page.uncheck("#cee-patch-usb-name");
   assert.equal(await page.isDisabled("#cee-patch-download"), true, "another choice is another copy: the checked one goes");
+  await ackHt(page);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
@@ -322,6 +331,7 @@ test("patcher: a progress response parsed after completion cannot reset the fini
   try {
     await drop(page, await makeFirmware());
     await page.click("#cee-patch-next");
+    await ackHt(page);
     await page.click("#cee-patch-next");
     await page.click("#cee-patch-run");
     await page.waitForFunction(() => typeof window.__releaseCheckProgress === "function");
@@ -379,6 +389,8 @@ test("patcher: Korg's original asks for the user's own hacktribe-2.patch, conver
   await page.locator("#cee-patch-hacktribe-info", { hasText: "hacktribe-2.patch: umgewandelt" }).waitFor();
   assert.equal(await page.locator("#cee-patch-needs").getAttribute("data-disabled"), null, "the field stays open and names the file it took, it does not dim");
   assert.equal(await page.isDisabled("#cee-patch-hacktribe-file"), false, "and takes another patch file");
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "Weiter waits for the box about the samples");
+  await page.check("#cee-patch-ht-ack");
   await page.click("#cee-patch-next");
   assert.equal(await needs.isVisible(), false);
   assert.equal(await page.locator("#app-toasts .cee-toast[data-kind=error]").count(), 2, "the two wrong files told their error, the conversion adds none");
@@ -462,6 +474,7 @@ test("patcher: a failed emulator check leaves no download", async () => {
   try {
     await drop(page, await makeFirmware());
     await page.click("#cee-patch-next");
+    await ackHt(page);
     await page.click("#cee-patch-next");
     await page.click("#cee-patch-run");
     await page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat einen Fehler gefunden (Notschalter" }).waitFor();
@@ -505,6 +518,7 @@ test("patcher: while the check runs the bar and the groups follow the service's 
   try {
     await drop(page, await makeFirmware());
     await page.click("#cee-patch-next");
+    await ackHt(page);
     await page.click("#cee-patch-next");
     await page.click("#cee-patch-run");
     await page.locator("#cee-patch-groups li", { hasText: "Menü" }).waitFor();
@@ -532,6 +546,7 @@ test("patcher: with no emulator service the check cannot run and the reason is s
   await page.click("#cee-tab-patcher");
   await drop(page, await makeFirmware());
   await page.click("#cee-patch-next");
+  await ackHt(page);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.locator("#app-toasts .cee-toast.err", { hasText: "antwortet nicht" }).waitFor();
@@ -753,6 +768,7 @@ test("patcher: Hacktribe for the blue is patched with the Sampler head, checked 
   await page.click("#cee-patch-next");
   assert.equal(await page.locator("#cee-patch-device input[value=blue]").isChecked(), true, "the head says blue");
   assert.deepEqual(await page.locator("#cee-patch-device .cee-device-card").evaluateAll(l => l.map(c => [c.dataset.device, !!c.querySelector(".cee-e2-outline")])), [["red", true], ["blue", true]], "the two Electribes drawn as on the Korg cards");
+  await ackHt(page);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
@@ -773,6 +789,7 @@ test("patcher: the test is a choice; no test needs the consent and goes straight
   const page = await patcherPage();
   await drop(page, await makeFirmware());
   await page.click("#cee-patch-next");
+  await ackHt(page);
   await page.click("#cee-patch-next");
   assert.equal(await page.locator("#cee-patch-test input:checked").getAttribute("value"), "quick", "the quick test of today is the default");
   assert.equal(await page.locator("#cee-patch-run").textContent(), "Patchen und testen");
@@ -906,4 +923,50 @@ test("patcher: without network the Hacktribe download says so and the field for 
   await page.click("#cee-patch-next");
   assert.equal(await page.isDisabled("#cee-patch-hacktribe-file"), false, "the own file can still be dropped");
   assert.deepEqual(page.errors.filter(e => !e.includes("ERR_INTERNET_DISCONNECTED")), [], "only the blocked request itself");
+});
+
+test("patcher: Hacktribe onto an Electribe that does not run it needs the box about the samples, one that runs it does not", async () => {
+  const page = await patcherPage();
+  const vsb = withHacktribeRun(await makeFirmware());
+  const warn = page.locator("#cee-patch-ht-warn");
+  // the wizard names Korg's firmware and the goal BLECH + Hacktribe: the goal page already warns
+  await page.click("#cee-patch-wiz-red");
+  await page.click("#cee-patch-wiz-fw-korg");
+  await page.locator("#cee-patch-wiz-blechHt").waitFor();
+  assert.equal(await page.locator("#cee-patch-wiz-ht-warn").isVisible(), true, "the goal page warns before Hacktribe is chosen");
+  assert.match(await page.locator("#cee-patch-wiz-ht-warn").textContent(), /Plätze 1 bis 500.*e2sSample\.all/);
+  await page.click("#cee-patch-wiz-blechHt");
+  await page.locator("#cee-patch-step-1:not([hidden])").waitFor();
+  await drop(page, vsb);
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
+  await page.click("#cee-patch-next");
+  await warn.waitFor();
+  const text = await warn.textContent();
+  assert.match(text, /Plätzen 1 bis 500/);
+  assert.match(text, /e2sSample\.all in KORG\/electribe sampler\/Sample\//);
+  assert.match(text, /KORG\/hacktribe\/Sample\//);
+  assert.equal(await page.locator("#cee-patch-ht-ack").isChecked(), false, "not ticked for the user");
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "Weiter waits for the box");
+  assert.equal(await page.locator("#cee-patch-ht-rescue").getAttribute("href"), "#rescue");
+  await page.check("#cee-patch-ht-ack");
+  assert.equal(await page.isDisabled("#cee-patch-next"), false);
+  await page.uncheck("#cee-patch-ht-ack");
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "taking the tick back closes the way again");
+  await page.check("#cee-patch-ht-ack");
+  await page.click("#cee-patch-next");
+  await page.click("#cee-patch-run");
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
+  await page.click("#cee-patch-next");
+  assert.equal(await page.isDisabled("#cee-patch-download"), false);
+  assert.deepEqual(page.errors, []);
+
+  // Hacktribe already runs: nothing is added, nothing to tick
+  const again = await patcherPage();
+  await wizard(again, "red", "blech", "ht");
+  await drop(again, vsb);
+  await again.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
+  await again.click("#cee-patch-next");
+  assert.equal(await again.locator("#cee-patch-ht-warn").isVisible(), false);
+  assert.equal(await again.isDisabled("#cee-patch-next"), false);
+  assert.deepEqual(again.errors, []);
 });

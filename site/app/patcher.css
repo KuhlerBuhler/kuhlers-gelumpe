@@ -355,3 +355,36 @@
 .cee-patch-pick strong {
   font-size: var(--text-lg);
 }
+
+/* Hacktribe takes the samples away: the warning before it goes on the card, and its acknowledgement. */
+.cee-patch-warn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 2px solid var(--color-border-danger);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-panel-alt);
+  line-height: 1.6;
+}
+
+.cee-patch-warn > * {
+  margin: 0;
+}
+
+.cee-patch-warn[hidden],
+.cee-patch-warn-line[hidden] {
+  display: none;
+}
+
+.cee-patch-warn-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--color-text-danger);
+}
+
+.cee-patch-warn-line {
+  margin: 0;
+  color: var(--color-text-danger);
+  line-height: 1.6;
+}

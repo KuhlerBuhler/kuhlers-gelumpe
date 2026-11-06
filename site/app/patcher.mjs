@@ -247,6 +247,24 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const consentBox = el("label", { className: "cee-patch-consent", id: "cee-patch-consent-box", hidden: true }, [consent,
     el("span", { textContent: t("patcher.consent") })]);
   const testBox = el("div", { className: "cee-patch-test-box", id: "cee-patch-test-box" }, [el("h2", { className: "cee-patch-usb-title", textContent: t("patcher.test.title") }), testGroup, testNote, consentBox]);
+  // Hacktribe takes the samples away (docs/messungen/2026-11-06-hacktribe-samples.md): the way on waits for the box.
+  const htAck = el("input", { type: "checkbox", id: "cee-patch-ht-ack" });
+  htAck.addEventListener("change", () => render());
+  const htWarn = el("section", { className: "cee-patch-warn", id: "cee-patch-ht-warn", hidden: true }, [
+    el("h2", { className: "cee-patch-warn-title", textContent: t("patcher.htWarn.title") }),
+    el("p", { textContent: t("patcher.htWarn.slots") }),
+    el("p", { textContent: t("patcher.htWarn.backup") }),
+    el("p", {}, tNodes("patcher.htWarn.done", { rescue: el("a", { className: "cee-text-link", id: "cee-patch-ht-rescue", href: "#rescue", textContent: t("nav.rescue") }) })),
+    el("label", { className: "cee-check", id: "cee-patch-ht-ack-box" }, [htAck, el("span", { textContent: t("patcher.htWarn.ack") })]),
+  ]);
+  const htWizWarn = el("p", { className: "cee-patch-warn-line", id: "cee-patch-wiz-ht-warn", textContent: t("patcher.htWarn.wiz"), hidden: true });
+  /** A copy with Hacktribe goes onto an Electribe that does not run it yet: Korg's original or BLECH, or a dropped Hacktribe file the wizard did not name. */
+  const installsHt = () => {
+    if (updating) return false;
+    if (flow.origin === "stock") return flow.route === "hacktribe" && !hasHt();
+    return flow.origin === "hacktribe" && !hasHt();
+  };
+  const htReady = () => !installsHt() || htAck.checked;
   const planList = el("ul", { className: "cee-patch-plan", id: "cee-patch-plan" });
   const plan = el("div", { className: "cee-patch-plan-box" }, [
     el("p", { className: "cee-patch-lead", textContent: t("patcher.plan") }),
@@ -338,14 +356,14 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const wizPanels = [
     [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.device") }), wizDevices, el("p", { className: "muted", id: "cee-patch-wiz-card", textContent: t("patcher.wiz.card") })],
     [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.firmware") }), wizFirmwares],
-    [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.goal") }), wizGoals, el("p", { className: "muted", id: "cee-patch-wiz-keeps", textContent: t("patcher.wiz.keeps") })],
+    [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.goal") }), wizGoals, el("p", { className: "muted", id: "cee-patch-wiz-keeps", textContent: t("patcher.wiz.keeps") }), htWizWarn],
   ].map((children, i) => el("div", { className: "cee-patch-panel", id: `cee-patch-wiz-${i + 1}`, tabIndex: -1, hidden: i > 0 }, children));
   const orLine = el("p", { className: "cee-patch-or", id: "cee-patch-or", textContent: t("patcher.or") });
 
   // One panel per step of the way; Zurück and Weiter move between them, the flow decides how far Weiter may go.
   const panels = [
     [usbBox, orLine, korg, drop, verdictBox],
-    [blechBox, routeBox, deviceBox, plan, synthSet, blueHacktribe],
+    [htWarn, blechBox, routeBox, deviceBox, plan, synthSet, blueHacktribe],
     [testBox, bar, note, groupList, checksBox],
     [target, result, done],
   ].map((children, i) => el("div", { className: "cee-patch-panel", id: `cee-patch-step-${i + 1}`, tabIndex: -1, hidden: i > 0 }, children));
@@ -391,6 +409,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   /** The goal sets what step 1 offers, ticks the Hacktribe download when the target needs it and fits a file already taken. */
   function pickGoal(goal) {
     wiz.goal = goal;
+    htAck.checked = false;
     fetchHt.checked = needsHt();
     wizGo(WAY);
     fitFlow();
@@ -542,7 +561,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     back.hidden = wiz.step === 0;
     back.disabled = can.busy;
     next.hidden = inWiz || view === 3 || (view === 2 && reach() < 3);
-    next.disabled = can.busy || view >= reach();
+    next.disabled = can.busy || view >= reach() || (view === 1 && !htReady());
     planList.replaceChildren(...planItems().map(p => el("li", { textContent: t(p.label) })));
     blechInput.disabled = useLatest.checked || can.busy;
     blechDrop.toggleAttribute("data-disabled", useLatest.checked);
@@ -564,6 +583,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true, help: "normal:patch" }) : () => {}; }
     toldVerdict = v?.text ?? "";
     routeBox.hidden = flow.origin !== "stock" || !!updating;
+    htWarn.hidden = !installsHt();
+    htWizWarn.hidden = wiz.step !== 2 || !(wiz.firmware === "korg" || wiz.firmware === "blech");
     synthSet.hidden = flow.origin !== "synth";
     blueHacktribe.hidden = flow.origin !== "synth";
     // The wizard's first page already names the Electribe: asked again only when the file came in without it,
@@ -584,7 +605,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     patchInput.disabled = can.busy || flow.route !== "hacktribe";
     patchInfo.textContent = flow.route === "hacktribe" && flow.phase !== "needs-patch" && patchName ? t("patcher.hacktribe.converted", { file: patchName }) : "";
     run.hidden = inWiz || view !== 2;
-    run.disabled = !can.patch || (!useLatest.checked && !ownPatch) || (testChoice === "none" && !consent.checked);
+    run.disabled = !can.patch || !htReady() || (!useLatest.checked && !ownPatch) || (testChoice === "none" && !consent.checked);
     run.textContent = flow.phase === "failed" || flow.phase === "passed" || flow.phase === "downloaded" ? t("patcher.run.again") : testChoice === "none" ? t("patcher.run.untested") : t("patcher.run");
     for (const input of testInputs) { input.radio.checked = input.value === testChoice; input.radio.disabled = can.busy; }
     testNote.textContent = t(TESTS.find(([v]) => v === testChoice)[2]);
@@ -604,9 +625,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
     result.hidden = !can.download;
     usbPut.hidden = !session();
-    usbPut.disabled = !can.download;
+    usbPut.disabled = !can.download || !htReady();
     usbGet.disabled = can.busy;
-    download.disabled = !can.download;
+    download.disabled = !can.download || !htReady();
     afraid.disabled = !can.test;
     // the update test runs the dropped file; it stands for the device only when it is made for the same Electribe
     afraid.hidden = !rehearsable();
@@ -817,6 +838,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     input = stockFile.bytes;
     passed = null;
     dispatch({ type: "route", route, input: stockFile.kind });
+    htAck.checked = false;
     if (route === "hacktribe" && fetchHt.checked) fetchHacktribe();
   }
 
@@ -1006,7 +1028,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   usbPut.addEventListener("click", async () => {
     const s = session();
-    if (!passed || !allowed(flow).download) return;
+    if (!passed || !allowed(flow).download || !htReady()) return;
     if (!s) { toast(t("patcher.usb.notConnected"), "error", { help: "notfound" }); return; }
     usbPut.disabled = true;
     usbNote.hidden = false;
@@ -1016,12 +1038,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       usbNote.hidden = true;
       toast(e.message, "error");
     } finally {
-      usbPut.disabled = !allowed(flow).download;
+      usbPut.disabled = !allowed(flow).download || !htReady();
     }
   });
 
   download.addEventListener("click", () => {
-    if (!passed || !allowed(flow).download) return;
+    if (!passed || !allowed(flow).download || !htReady()) return;
     saveFile(passed, "SYSTEM.VSB");
     dispatch({ type: "downloaded" });
     buildDone();

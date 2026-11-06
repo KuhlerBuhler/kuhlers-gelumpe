@@ -399,3 +399,27 @@ test("a connected BLECHTRIBE is named, and its folder is marked among the answer
   assert.equal(await page.locator("#cee-rescue-answers [data-known] .cee-rescue-known").textContent(), "Sagt die App");
   assert.deepEqual(page.errors, []);
 });
+
+test("Hacktribe by accident: with the file it goes back to the card folder, without it the loss is said, then the way to BLECHTRIBE without Hacktribe", async () => {
+  const page = await open();
+  await answer(page, CASES.find(c => c.id === "samples").label);
+  assert.match(await page.locator("#cee-rescue-chat").textContent(), /Hacktribe belegt die Plätze 1 bis 500/);
+  await answer(page, "Ja, ich hab die Datei");
+  await settle(page);
+  assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "KORG/blechtribe/Sample/e2sSample.all");
+  await settle(page);
+  assert.match(await said(page), /antwortest du bei der Firmware, die gerade läuft, mit Original/);
+  await answer(page, DEVICES.red.title);
+  assert.match(await said(page), /Welche Firmware läuft gerade/);
+  assert.deepEqual(page.errors, []);
+
+  await page.click("#cee-rescue-again");
+  await answer(page, CASES.find(c => c.id === "samples").label);
+  await answer(page, "Nein, ich habe nichts gesichert");
+  await settle(page);
+  assert.match(await page.locator("#cee-rescue-chat").textContent(), /Ohne Kopie kann die App sie nicht zurückholen/);
+  await settle(page);
+  await answer(page, DEVICES.blue.title);
+  assert.match(await said(page), /Läuft nur Hacktribe, geht es nicht ohne Handarbeit/);
+  assert.deepEqual(page.errors, []);
+});
