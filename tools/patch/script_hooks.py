@@ -349,10 +349,30 @@ class BuiltHooks:
         output[offset:offset+vt_len]=vtable
         return bytes(output)
 
-def object_rows(constants):
-    """The rows of the object table in script_objects.s, from the OBJ_ constants the include carries (data/script/objects.mjs)."""
+# The Global menu's setters, by the byte of the Global block they write: (Sampler = Hacktribe and red, synth). The object tree
+# (script_objects.s) calls the one of a leaf with apply "setter" as (the Global object, the value, 1), as the menu does. Measured
+# in docs/messungen/2026-11-03-live-schreibwege.md and listed per field in data/map/global.mjs (`live.setter`); a test holds the two equal.
+GLOBAL_SETTERS = {
+    16: (0xC00471B0, 0xC004147C), 17: (0xC00471C0, 0xC004148C), 18: (0xC00471F8, 0xC00414C4), 19: (0xC00475BC, 0xC0041888),
+    20: (0xC0047230, 0xC00414FC), 27: (0xC00472D8, 0xC00415A4), 28: (0xC00472E8, 0xC00415B4), 29: (0xC0047380, 0xC004164C),
+    30: (0xC0047584, 0xC0041850), 31: (0xC00475CC, 0xC0041898), 32: (0xC00472F8, 0xC00415C4), 33: (0xC0047308, 0xC00415D4),
+    36: (0xC0047788, 0xC0041A54), 37: (0xC0047348, 0xC0041614), 38: (0xC004754C, 0xC0041818), 40: (0xC00473D4, 0xC00416A0),
+    41: (0xC0047454, 0xC0041720), 42: (0xC004748C, 0xC0041758), 43: (0xC00474E0, 0xC00417AC),
+}
+OBJECT_BASE_GLOBAL = 3
+OBJECT_APPLY_SETTER = 3
+
+def object_rows(constants, build='hacktribe'):
+    """The rows of the object table in script_objects.s, from the OBJ_ constants the include carries (data/script/objects.mjs).
+    A leaf on the Global settings with apply "setter" gets the setter of its byte on this build (the leaf's offset is the dump
+    offset plus the word in front of the block), 0 when it has none."""
     count=int(re.search(r'^\.equ OBJ_COUNT, (\S+)',constants,re.M).group(1),0)
-    row=lambda i: f'    .word OBJ_{i}_OFFSET, OBJ_{i}_MIN, OBJ_{i}_MAX, OBJ_{i}_FACTORY\n    .byte OBJ_{i}_BASE, OBJ_{i}_TYPE, OBJ_{i}_APPLY, OBJ_{i}_FLAGS\n    .word OBJ_{i}_MIRROR'
+    value=lambda i,name: int(re.search(rf'^\.equ OBJ_{i}_{name}, (\S+)',constants,re.M).group(1),0)
+    def setter(i):
+        if value(i,'BASE')!=OBJECT_BASE_GLOBAL or value(i,'APPLY')!=OBJECT_APPLY_SETTER: return 0
+        pair=GLOBAL_SETTERS.get(value(i,'OFFSET')-4)
+        return pair[1 if build=='synth' else 0] if pair else 0
+    row=lambda i: f'    .word OBJ_{i}_OFFSET, OBJ_{i}_MIN, OBJ_{i}_MAX, OBJ_{i}_FACTORY\n    .byte OBJ_{i}_BASE, OBJ_{i}_TYPE, OBJ_{i}_APPLY, OBJ_{i}_FLAGS\n    .word OBJ_{i}_MIRROR, {setter(i):#x}'
     return '\n'.join(row(i) for i in range(count))
 
 def build(include, glue=None, blechy=None, build='hacktribe'):
@@ -384,7 +404,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
         source = '\n'.join(line for line in source.splitlines() if not line.lstrip().startswith(';'))
         source = synthaddr.source(source, own=[(synthaddr.FREE_FROM,0xC0200000)], keep=[0xC07FFC00,0xC07FFFF8])
     variant = 'synth' if build == 'synth' else 'sampler'
-    source = source.replace('@OBJECT_ROWS@', object_rows(constants))
+    source = source.replace('@OBJECT_ROWS@', object_rows(constants, build))
     source = source.replace('@START_WRAPPER@', read([f'script_start_{variant}.s', 'script_boot_light.s']))
     source = source.replace('@MENU_TOPLEVEL@', Path(__file__).with_name(f'script_toplevel_{variant}.s').read_text())
     actions = '\n'.join(f'.equ {name}, {value}' for name, value in profile.actions.items())

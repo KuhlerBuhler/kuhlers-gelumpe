@@ -2097,6 +2097,7 @@ export default {
   "api.object.features.stereo1Pad": "STEREO 1 PAD: zda stereo sample zabere jen svůj pad (1) nebo ne (0).",
   "api.object.features.initPattern": "SET INIT PATTERN: pattern, který kopíruje INITIALIZE PATTERN, 0 šablona firmwaru, 1 až 250 pattern tak, jak ho počítá stránka.",
   "api.object.menu.write": "Zapíše nastavení menu BLECH na kartu jako WRITE na stránce, o chvíli později a jen dokud je otevřená hlavní obrazovka nebo BLECH. Bez toho hodnoty zůstanou v RAM.",
+  "api.object.global": "Globální nastavení, stránka {page} v GLOBAL PARAMETERS; firmware ho uloží při vypnutí přístroje.",
   "script.fault.objectLeaf": "ve stromu objektů není list {leaf}",
   "script.fault.objectReadOnly": "{path} lze jen číst",
   "compile.object.unknown": "{path} neexistuje. {branch} má: {names}.",

@@ -2097,6 +2097,7 @@ export default {
   "api.object.features.stereo1Pad": "STEREO 1 PAD: занимает ли стерео-сэмпл только свой пад (1) или нет (0).",
   "api.object.features.initPattern": "SET INIT PATTERN: паттерн, который копирует INITIALIZE PATTERN, 0 шаблон прошивки, от 1 до 250 паттерн так, как его считает страница.",
   "api.object.menu.write": "Записывает настройки меню BLECH на карту как WRITE на странице, чуть позже и только пока открыт главный экран или BLECH. Без этого значения остаются в RAM.",
+  "api.object.global": "Глобальная настройка, страница {page} в GLOBAL PARAMETERS; прошивка сохраняет её при выключении устройства.",
   "script.fault.objectLeaf": "в дереве объектов нет листа {leaf}",
   "script.fault.objectReadOnly": "{path} можно только читать",
   "compile.object.unknown": "{path} не существует. В {branch} есть: {names}.",

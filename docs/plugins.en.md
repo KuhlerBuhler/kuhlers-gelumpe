@@ -291,6 +291,25 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.menu.blech.features.stereo1Pad` | STEREO 1 PAD: a stereo sample takes only its own pad (1) | yes, acts at once like the page | 0 to 1 |
 | `korg.menu.blech.features.initPattern` | SET INIT PATTERN: the pattern INITIALIZE PATTERN copies; 0 the firmware's template | yes, acts at once like the page | 0 to 250 |
 | `korg.menu.blech.write()` | (a call, not a value) | writes the settings of the menu BLECH to the card as WRITE does on a page, see below | |
+| `korg.global.triggerMode` | page TRIGGER MODE of GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | yes, as the menu does, through the firmware's own function | 0 to 2 |
+| `korg.global.velocityCurve` | page VELOCITY CURVE of GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | yes, as the menu does, through the firmware's own function | 0 to 3 |
+| `korg.global.clockMode` | page CLOCK MODE of GLOBAL PARAMETERS: 0 Internal, 1 Auto, 2 External USB, 3 External MIDI, 4 External Sync | yes, as the menu does, through the firmware's own function | 0 to 4 |
+| `korg.global.midiChannel` | page GLOBAL MIDI CH. of GLOBAL PARAMETERS: 0 to 15 for channel 1 to 16 | yes, as the menu does, through the firmware's own function | 0 to 15 |
+| `korg.global.receiveFilter` | page MIDI RECEIVE FILTER of GLOBAL PARAMETERS: 0 Off, 1 Short, 2 Short + Program | yes, as the menu does, through the firmware's own function | 0 to 2 |
+| `korg.global.sendFilter` | page MIDI SEND FILTER of GLOBAL PARAMETERS: 0 Off, 1 Short, 2 Short + Program | yes, as the menu does, through the firmware's own function | 0 to 2 |
+| `korg.global.syncPolarity` | page SYNC POLARITY of GLOBAL PARAMETERS: 0 Hi, 1 Lo | yes, as the menu does, through the firmware's own function | 0 to 1 |
+| `korg.global.syncResolution` | page SYNC UNIT of GLOBAL PARAMETERS: 0 1 Step, 1 2 Steps | yes, as the menu does, through the firmware's own function | 0 to 1 |
+| `korg.global.metronome` | page METRONOME of GLOBAL PARAMETERS: 0 Off, 1 Rec 0, 2 Rec 1, 3 Rec 2, 4 On | yes, as the menu does, through the firmware's own function | 0 to 4 |
+| `korg.global.tempoLock` | page TEMPO LOCK of GLOBAL PARAMETERS: 0 Off, 1 On | yes, as the menu does, through the firmware's own function | 0 to 1 |
+| `korg.global.knobMode` | page KNOB MODE of GLOBAL PARAMETERS: 0 Jump, 1 Catch, 2 Value Scale | yes, as the menu does, through the firmware's own function | 0 to 2 |
+| `korg.global.touchScaleRange` | page TOUCH SCALE RANGE of GLOBAL PARAMETERS: octaves, 0 plays only the root | yes, as the menu does, through the firmware's own function | 0 to 4 |
+| `korg.global.lcdContrast` | page LCD CONTRAST of GLOBAL PARAMETERS: 18 to 42, the display shows 1 to 25 | yes, as the menu does, through the firmware's own function | 18 to 42 |
+| `korg.global.audioInThru` | page AUDIO IN THRU of GLOBAL PARAMETERS: 0 Off, 1 On | yes, as the menu does, through the firmware's own function | 0 to 1 |
+| `korg.global.batteryType` | page BATTERY TYPE of GLOBAL PARAMETERS: 0 Ni-MH, 1 Alkali | yes, as the menu does, through the firmware's own function | 0 to 1 |
+| `korg.global.autoPowerOff` | page AUTO POWER OFF of GLOBAL PARAMETERS: 0 Disable, 1 4 hours | yes, as the menu does, through the firmware's own function | 0 to 1 |
+| `korg.global.powerSave` | page POWER SAVE MODE of GLOBAL PARAMETERS: 0 Disable, 1 Auto, 2 Enable | yes, as the menu does, through the firmware's own function | 0 to 2 |
+| `korg.global.patternChangeLock` | page PTN. CHANGE LOCK of GLOBAL PARAMETERS: 0 Off, 1 On | yes, as the menu does, through the firmware's own function | 0 to 1 |
+| `korg.global.chainMode` | page CHAIN MODE of GLOBAL PARAMETERS: 0 Off, 1 On | yes, as the menu does, through the firmware's own function | 0 to 1 |
 
 ```js
 // Light off while the app is open, back as it was afterwards.
@@ -338,7 +357,46 @@ still takes keys, knobs and pads, and its picture can be read over USB. Only the
 every start. When it ends, the light and the LEDs come back as they would be without the test mode; an LED a plugin
 set meanwhile shows that plugin's value.
 
-More branches (`korg.global`, `korg.patterns`, `korg.parts`) come with the next
+**The globals (`korg.global`, API 20).** Every known page of GLOBAL PARAMETERS has a leaf, named after the page in camelCase
+and holding the values the device stores (`korg.global.midiChannel` 0 to 15 is channel 1 to 16). The ranges are the
+menu's limits. Not in the tree are the markers at the start and end of the block, the bytes no menu changes, and the slots 247
+to 249 that BLECH's patches use. A plugin that names a leaf needs API 20.
+
+Setting calls the same firmware function the page calls when you turn it in the menu: it writes the byte and tells the sound
+engine, the display and the MIDI side (for `tempoLock` it then sets the tempo again). The value takes effect at once, without
+a restart; the menu page shows it as soon as it is drawn again, that is when you open it. For `clockMode` the firmware
+refuses to set while the transport is in its state 6 to 9, exactly as in the menu. A value outside the limits is clamped to
+the nearest limit and counted, a stored value outside is repaired at start: to the nearest limit, without calling the
+firmware function. Measured in the emulator on hacktribe, Korg red and Korg blue
+([measurement](messungen/2026-11-05-plugin-api20-globals.md), German); not on the device.
+
+**Saving.** There is no call for it. The firmware saves the globals when the device is switched off and on WRITE on the page
+GLOBAL PARAMETERS, as it also keeps the last pattern. A value a plugin set therefore stays over the next restart, even if the
+plugin no longer runs then. A plugin that only wants to change the user's setting for a while sets it back, like the
+brightness example above.
+
+**Approval.** A plugin that sets globals needs no approval of its own. A foreign plugin (a block without the "probed" bit)
+only runs after WRITE=ALLOW anyway; with that approval it may also change the globals for good. Whoever gives WRITE=ALLOW
+allows that too.
+
+```js
+// Metronome on and contrast one step up while the app is open, back as it was afterwards.
+let metro = 0;
+let contrast = 0;
+korg.app("Metronome", "TOOLS");
+korg.onEvent("open", () => {
+  metro = korg.global.metronome;
+  contrast = korg.global.lcdContrast;
+  korg.global.metronome = 4;
+  korg.global.lcdContrast = contrast + 1;
+});
+korg.onEvent("close", () => {
+  korg.global.metronome = metro;
+  korg.global.lcdContrast = contrast;
+});
+```
+
+More branches (`korg.patterns`, `korg.parts`) come with the next
 versions; the old names stay valid.
 
 ### Timers (API 11, BLECHTRIBE 1.3.8)

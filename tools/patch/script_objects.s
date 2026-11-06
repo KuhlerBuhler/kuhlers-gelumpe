@@ -1,11 +1,12 @@
 ; The object tree of the plugin API (data/script/objects.mjs): korg.get and korg.set reach every leaf through one table,
 ; a value outside its range is clamped and counted, and the stored ones are checked once the menu has read its settings.
-; In the code area at MORE3_START. A row (OBJ_ROW_SIZE bytes): offset, min, max, factory (words), base, type, apply, flags (bytes), mirror (word).
+; In the code area at MORE3_START. A row (OBJ_ROW_SIZE bytes): offset, min, max, factory (words), base, type, apply, flags (bytes), mirror, setter (words).
 ; The bases are the order of OBJECT_BASES (test/script-objects.test.mjs holds them): 0 MENU_STATE + offset, 1 the state words below + offset,
 ; 2 the absolute address offset, 3 the Global settings the firmware keeps + offset, 4 no address, offset picks a call into the patch pad-colors.
 .equ OBJ_BASE_ABS, 2
 .equ OBJ_BASE_GLOBAL, 3
 .equ OBJ_BASE_PAD, 4
+.equ OBJ_SETTER_AT, 24            ; the Global menu's setter for the leaf on this build, 0 none (apply "setter")
 .align 4
 ; korg.get(leaf, index) -> r0 = the value; no such leaf: API_ARG. A word above the leaf's range (a setting word a patch never
 ; wrote reads FFFFFFFF) reads as the factory value, which is what the patch does with it.
@@ -59,6 +60,9 @@ script_object_set_glue:
     ldrb r1, [r4, #16]
     cmp r1, #OBJ_BASE_PAD
     beq objects_pad_set
+    ldr r12, [r4, #OBJ_SETTER_AT]   ; a Global setting goes through the firmware's own setter (Global object, value, 1), as the menu calls it
+    cmp r12, #0
+    bne objects_set_through
     ldrb r1, [r4, #17]
     cmp r1, #0
     strbeq r0, [r6]
@@ -76,6 +80,15 @@ objects_set_done:
     mov r0, #0
     mov r1, #ERR_OK
     pop {r4-r6, pc}
+objects_set_through:
+    mov r1, r0
+    ldr r0, =GLOBALS_PTR
+    ldr r0, [r0]
+    cmp r0, #0
+    beq objects_bad_set
+    mov r2, #1
+    blx r12
+    b objects_set_done
 objects_bad_set:
     mov r0, #0
     mov r1, #ERR_API_ARG
@@ -108,8 +121,8 @@ objects_row:
     cmp r0, #OBJ_COUNT
     bxhs lr
     ldr r4, =objects_table
-    add r1, r0, r0, lsl #1
-    add r4, r4, r1, lsl #3
+    rsb r1, r0, r0, lsl #3          ; 7 words a row
+    add r4, r4, r1, lsl #2
     ldrb r1, [r4, #16]
     ldr r0, [r4]
     cmp r1, #OBJ_BASE_ABS
@@ -167,6 +180,9 @@ objects_repair_next:
     mov r0, r5
     bl objects_row
     add r5, r5, #1
+    ldr r1, =objects_dummy          ; a Global leaf before the firmware has its Global settings: nothing stored to check yet
+    cmp r0, r1
+    beq objects_repair_next
     ldrb r1, [r4, #19]
     tst r1, #4
     beq objects_repair_next

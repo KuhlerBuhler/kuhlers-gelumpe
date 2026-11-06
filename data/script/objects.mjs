@@ -16,20 +16,66 @@
  *   stored   saved somewhere (settings file, Globals, pattern): the runtime checks it at start and after loading
  *   reset    a stored value outside the range goes back to `factory` instead of the nearest valid value
  *   apply    what makes a written value take effect: "none", "look" (the firmware's LEDs and backlight, menu_look_apply),
- *            "keepAwake" (Auto Power Off starts its 4 hours again)
+ *            "keepAwake" (Auto Power Off starts its 4 hours again), "setter" (the Global menu's own setter for the byte, per
+ *            firmware in tools/patch/script_hooks.py GLOBAL_SETTERS; none on a build: the byte is written alone)
  *   mirror   a second place the written value goes to as a word (the setting word the patch behind a page reads), 0 none
  *   action   a call instead of a value: `korg.system.keepAwake()` compiles to korg.set(id, -1, 1), it is not read
  */
 import { text } from "../../src/text.mjs";
+import globalMap from "../map/global.mjs";
 
 export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad"]);
 export const OBJECT_TYPES = Object.freeze(["u8", "u32"]);
-export const OBJECT_APPLY = Object.freeze(["none", "look", "keepAwake"]);
-/** Bytes of one row of the runtime's table: offset, min, max, factory (words), then base, type, apply, flags (bytes), then mirror (word). */
-export const OBJECT_ROW_SIZE = 24;
+export const OBJECT_APPLY = Object.freeze(["none", "look", "keepAwake", "setter"]);
+/** Bytes of one row of the runtime's table: offset, min, max, factory (words), then base, type, apply, flags (bytes), then mirror and setter (words). */
+export const OBJECT_ROW_SIZE = 28;
 export const OBJECT_FLAGS = Object.freeze({ write: 1, reset: 2, stored: 4 });
 
 const leaf = (id, path, o) => Object.freeze({ id, path, reset: false, stored: false, apply: "none", action: false, mirror: 0, ...o });
+
+/**
+ * korg.global.*: one leaf per known field of data/map/global.mjs (no `unknown` run, not the two markers), in the order of the
+ * Global menu's pages. [leaf name, field id in the map, page, factory (the firmware's default table, same on all three
+ * builds)]. The range is the map's, which is the menu's (measure:2026-10-14/global-felder). `offset` is the one of the base
+ * "global", the object the firmware keeps, so the dump offset of the map plus the word in front of the block. Slots 247 to 249 of
+ * the object belong to our patches and have no leaf here. The ids go on after the leaves above and are never changed: a new
+ * field goes at the end of this list.
+ */
+const GLOBALS = [
+  ["triggerMode", "triggerMode", "TRIGGER MODE", 0],
+  ["velocityCurve", "velocityCurve", "VELOCITY CURVE", 0],
+  ["clockMode", "clockMode", "CLOCK MODE", 0],
+  ["midiChannel", "channel", "GLOBAL MIDI CH.", 0],
+  ["receiveFilter", "receiveFilter", "MIDI RECEIVE FILTER", 0],
+  ["sendFilter", "sendFilter", "MIDI SEND FILTER", 0],
+  ["syncPolarity", "syncPolarity", "SYNC POLARITY", 0],
+  ["syncResolution", "syncResolution", "SYNC UNIT", 1],
+  ["metronome", "metronome", "METRONOME", 1],
+  ["tempoLock", "tempoLock", "TEMPO LOCK", 0],
+  ["knobMode", "knobMode", "KNOB MODE", 0],
+  ["touchScaleRange", "touchScaleRange", "TOUCH SCALE RANGE", 1],
+  ["lcdContrast", "lcdContrast", "LCD CONTRAST", 34],
+  ["audioInThru", "audioInThru", "AUDIO IN THRU", 0],
+  ["batteryType", "batteryMode", "BATTERY TYPE", 0],
+  ["autoPowerOff", "autoPowerOff", "AUTO POWER OFF", 1],
+  ["powerSave", "powerSave", "POWER SAVE MODE", 0],
+  ["patternChangeLock", "patternChangeLock", "PTN. CHANGE LOCK", 0],
+  ["chainMode", "chainMode", "CHAIN MODE", 0],
+];
+
+/** The id of the first Global leaf: the ones before it are the leaves of API 10 to 17. */
+const GLOBAL_FIRST = 29;
+
+function globalLeaves() {
+  return GLOBALS.map(([name, field, page, factory], i) => {
+    const f = globalMap.fields.find(x => x.id === `global.${field}`);
+    if (!f?.range || f.source === "unknown") throw new Error(`korg.global.${name}: no known field ${field} in data/map/global.mjs`);
+    return leaf(GLOBAL_FIRST + i, `korg.global.${name}`, {
+      base: "global", offset: f.where.offset + 4, type: "u8", min: f.range[0], max: f.range[1], factory, write: true,
+      stored: true, apply: "setter", since: 20, unit: "value", field, page, text: text("api.object.global", { page }),
+    });
+  });
+}
 
 export const OBJECTS = Object.freeze([
   leaf(0, "korg.menu.blech.customizations.display.intensity", {
@@ -155,6 +201,7 @@ export const OBJECTS = Object.freeze([
     base: "runtime", offset: 6, type: "u8", min: 0, max: 1, factory: 0, write: true, action: true, since: 17,
     unit: "action", text: text("api.object.menu.write"),
   }),
+  ...globalLeaves(),
 ]);
 
 export const OBJECT_BY_PATH = new Map(OBJECTS.map(o => [o.path, o]));

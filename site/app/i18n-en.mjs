@@ -2097,6 +2097,7 @@ export default {
   "api.object.features.stereo1Pad": "STEREO 1 PAD: whether a stereo sample takes only its own pad (1) or not (0).",
   "api.object.features.initPattern": "SET INIT PATTERN: the pattern INITIALIZE PATTERN copies, 0 the firmware's template, 1 to 250 a pattern as the page counts it.",
   "api.object.menu.write": "Writes the settings of the menu BLECH to the card like WRITE on a page, a moment later and only while the main screen or BLECH is open. Without it the values stay in RAM.",
+  "api.object.global": "Global setting, page {page} of GLOBAL PARAMETERS; the firmware saves it when the device is switched off.",
   "script.fault.objectLeaf": "no leaf {leaf} in the object tree",
   "script.fault.objectReadOnly": "{path} can only be read",
   "compile.object.unknown": "{path} does not exist. {branch} has: {names}.",

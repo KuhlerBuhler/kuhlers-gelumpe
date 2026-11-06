@@ -2097,6 +2097,7 @@ export default {
   "api.object.features.stereo1Pad": "STEREO 1 PAD: of een stereosample alleen zijn eigen pad gebruikt (1) of niet (0).",
   "api.object.features.initPattern": "SET INIT PATTERN: het pattern dat INITIALIZE PATTERN kopieert, 0 het sjabloon van de firmware, 1 tot 250 een pattern zoals de pagina het telt.",
   "api.object.menu.write": "Schrijft de instellingen van het menu BLECH naar de kaart zoals WRITE op een pagina, even later en alleen zolang het hoofdscherm of BLECH open is. Zonder blijven de waarden in het RAM.",
+  "api.object.global": "Globale instelling, pagina {page} van GLOBAL PARAMETERS; de firmware slaat hem op bij het uitschakelen van het apparaat.",
   "script.fault.objectLeaf": "geen blad {leaf} in de objectboom",
   "script.fault.objectReadOnly": "{path} kan alleen gelezen worden",
   "compile.object.unknown": "{path} bestaat niet. {branch} heeft: {names}.",

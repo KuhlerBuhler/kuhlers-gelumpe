@@ -2145,6 +2145,7 @@ export default {
   "api.object.features.stereo1Pad": "STEREO 1 PAD: ob ein Stereo-Sample nur seinen eigenen Pad belegt (1) oder nicht (0).",
   "api.object.features.initPattern": "SET INIT PATTERN: das Pattern, das INITIALIZE PATTERN kopiert, 0 die Vorlage der Firmware, 1 bis 250 ein Pattern, wie die Seite es zählt.",
   "api.object.menu.write": "Schreibt die Einstellungen des Menüs BLECH auf die Karte wie WRITE auf einer Seite, einen Moment später und nur, solange der Hauptbildschirm oder BLECH offen ist. Ohne sie bleiben die Werte im RAM.",
+  "api.object.global": "Globale Einstellung, Seite {page} von GLOBAL PARAMETERS; die Firmware speichert sie beim Ausschalten.",
   "script.fault.objectLeaf": "kein Blatt {leaf} im Objektbaum",
   "script.fault.objectReadOnly": "{path} lässt sich nur lesen",
   "compile.object.unknown": "{path} gibt es nicht. {branch} hat: {names}.",

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { API_VERSION } from "../data/script/contract.mjs";
+import globalMap from "../data/map/global.mjs";
 import { OBJECTS, OBJECT_BY_PATH, OBJECT_BASES, objectChildren } from "../data/script/objects.mjs";
 import { PROPERTY_BY_PATH } from "../data/script/properties.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
@@ -177,4 +178,53 @@ test("korg.menu.blech.write() is a call without values and needs API 17", () => 
   assert.equal(device.hardware.objects[OBJECT_BY_PATH.get("korg.menu.blech.write").id], 1);
   assert.match(refused(`korg.onEvent("ready", () => { korg.menu.blech.write(1); });`), /korg\.menu\.blech\.write/);
   assert.match(refused(`korg.onEvent("ready", () => { korg.menu.blech.write = 1; });`), /write/);
+});
+
+// korg.global.*: every known field of the Global map, API 20 (plan phase 6).
+const GLOBAL = OBJECTS.filter(o => o.path.startsWith("korg.global."));
+
+test("korg.global has a leaf for every known field of the map and none for the unknown runs or the markers", () => {
+  const known = globalMap.fields.filter(f => f.range && f.source !== "unknown");
+  assert.equal(GLOBAL.length, known.length);
+  for (const f of known) {
+    const leaf = GLOBAL.find(o => o.offset === f.where.offset + 4);
+    assert.ok(leaf, f.id);
+    assert.deepEqual([leaf.min, leaf.max], f.range, f.id);
+  }
+  assert.equal(GLOBAL.some(o => o.offset < 16 + 4 || o.offset > 43 + 4), false, "no byte of the unknown runs, nor GLST or GLED");
+  assert.equal(new Set(GLOBAL.map(o => o.offset)).size, GLOBAL.length);
+});
+
+test("a Global leaf sits on the firmware's Global object, is stored, repaired to the nearest value and goes through the firmware setter", () => {
+  for (const o of GLOBAL) {
+    assert.equal(o.base, "global", o.path);
+    assert.equal(o.stored, true, o.path);
+    assert.equal(o.reset, false, o.path);
+    assert.equal(o.apply, "setter", o.path);
+    assert.equal(o.since, 20, o.path);
+    assert.match(o.page, /^[A-Z. ]+$/, o.path);
+    assert.ok(o.min <= o.factory && o.factory <= o.max, o.path);
+  }
+});
+
+test("slots 247 to 249 of the Global object, which our patches use, are no leaf of korg.global", () => {
+  assert.equal(GLOBAL.some(o => o.offset >= 247 && o.offset <= 249), false);
+});
+
+test("a program that names a Global leaf needs API 20", () => {
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { korg.global.metronome = 3; });`)).header.apiVersion, 20);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let m = korg.global.metronome; });`)).header.apiVersion, 20);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { ${INTENSITY} = 3; });`)).header.apiVersion, 10);
+});
+
+test("a Global leaf sets and reads in the simulator, clamps and counts a value outside the menu's limits", () => {
+  const device = run(`let big = 9; let low = 0; korg.onEvent("ready", () => { korg.global.lcdContrast = low; korg.store.set(0, korg.global.lcdContrast);
+    korg.global.sendFilter = big; korg.store.set(1, korg.global.sendFilter); korg.store.set(2, korg.system.repairs); });`);
+  assert.deepEqual([stored(device, 0), stored(device, 1), stored(device, 2)], [18, 2, 2]);
+});
+
+test("the compiler refuses a known Global value outside the menu's limits and a misspelled Global leaf", () => {
+  assert.match(refused(`korg.onEvent("ready", () => { korg.global.midiChannel = 16; });`), /0.*15.*16/);
+  assert.match(refused(`korg.onEvent("ready", () => { korg.global.lcdContrast = 5; });`), /18.*42/);
+  assert.match(refused(`korg.onEvent("ready", () => { korg.global.metronom = 1; });`), /korg\.global\.metronom.*metronome/);
 });
