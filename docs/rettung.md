@@ -139,7 +139,8 @@ siehe oben). Die Seite fragt, wann die Meldung kommt:
   rote mit Korgs Original, im Patcher die blaue gewählt); neu patchen mit der richtigen Farbe, der Patcher nennt die
   Farbe selbst, wenn die Electribe angesteckt ist (`patcher.device.cable.*`, offline, Code). Korgs Datei: rot und blau
   ohne Hacktribe gehen den Weg über den Ordner der laufenden Firmware; blau mit Hacktribe braucht die zwei Kopf-Bytes
-  aus dem Absatz oben. Das macht die App nicht, die Seite führt dann zum Kontakt.
+  aus dem Absatz oben. Die Seite macht die Datei aus Korgs blauer `SYSTEM.VSB` (nur die von Korg, jede andere
+  lehnt sie ab; `korgBlueForSampler` in `src/patcher.mjs`). Der ganze Weg mit Belegen: [Zurück zu Korgs Original](original-zurueck.md).
 
 **Error, No File.** Dort, wo die Firmware sucht, liegt keine Datei mit genau diesem Namen. Beim Einschalten geht die
 Seite den Weg über die Farbe wie bei "Invalid File". Im Menü nennt sie die Stellen, an denen es im Discord hing

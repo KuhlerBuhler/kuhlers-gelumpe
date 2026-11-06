@@ -107,6 +107,7 @@ export const CASES = [
   { id: "zero", label: "rescue.case.zero", hint: "rescue.case.zero.hint" },
   { id: "silent", label: "rescue.case.silent", hint: "rescue.case.silent.hint" },
   { id: "app", label: "rescue.case.app", hint: "rescue.case.app.hint" },
+  { id: "back", label: "rescue.case.back", hint: "rescue.case.back.hint" },
 ];
 
 /**
@@ -293,13 +294,38 @@ export const FLOW = {
     choices: [
       { label: DEVICES.red.title, to: "download:starts:red", art: DEVICES.red.body },
       { label: "rescue.answer.blueNoHacktribe", to: "download:starts:blue", art: DEVICES.blue.body },
-      { label: "rescue.answer.blueHacktribe", to: "invalid:head", art: DEVICES.blue.body },
+      { label: "rescue.answer.blueHacktribe", to: "back:head", art: DEVICES.blue.body },
     ],
   },
-  "invalid:head": {
-    mood: "sad",
-    say: ["rescue.say.invalidHead.1"],
-    next: "ask",
+
+  // Back to Korg's original while BLECH or Hacktribe runs. `file` names the file step the page adds (site/app/rescue.mjs).
+  back: {
+    mood: "happy",
+    say: ["rescue.say.back.1", "rescue.say.back.2"],
+    next: "back:color",
+  },
+  "back:color": {
+    mood: "idle",
+    say: ["rescue.say.colorUpdate.1"],
+    known: "hardware",
+    choices: [
+      { label: DEVICES.red.title, to: "download:starts:red", art: DEVICES.red.body, value: "red" },
+      { label: DEVICES.blue.title, to: "back:blue", art: DEVICES.blue.body, value: "blue" },
+    ],
+  },
+  "back:blue": {
+    mood: "idle",
+    say: ["rescue.say.backBlue.1"],
+    choices: [
+      { label: "rescue.answer.blueSynthSet", to: "download:starts:blue" },
+      { label: "rescue.answer.runsHacktribe", to: "back:head" },
+    ],
+  },
+  "back:head": {
+    mood: "idle",
+    say: ["rescue.say.backHead.1", { key: "rescue.say.download", vars: { name: DEVICES.blue.name }, links: { link: { link: DEVICES.blue.link, text: "rescue.link.korg" } } }, "rescue.say.backHead.2"],
+    file: "korgBlueHead",
+    choices: [{ label: "rescue.answer.fileSaved", to: "which" }],
   },
 
   // "Error, No File": nothing where the device looks. The name, the folder System, or the folder of another firmware.
