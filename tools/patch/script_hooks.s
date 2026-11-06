@@ -646,13 +646,10 @@ frame_finish:
     mov r0, r4
     bl script_led_hold_guard
     mov r0, r4
-    bl script_pad_hold_guard
-    mov r0, r4
-    bl script_knob_hold_guard
+    mov r1, #0
+    bl holds_sync
     mov r0, r4
     bl script_touch_lock_guard
-    mov r0, r4
-    bl script_key_hold_guard
     mov r0, r4
     bl script_display_blit
     bl display_calibrate

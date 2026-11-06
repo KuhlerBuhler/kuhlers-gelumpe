@@ -2052,6 +2052,7 @@ export default {
   "api.korg.touchLockX": "Drží X touchpadu, které vidí firmware, na x (0 až 127, po krocích 2), -1 uvolní. Plugin dál dostává skutečný dotyk. Skončí, když plugin skončí.",
   "api.korg.keyHold": "1 zadrží klávesu key (0 až 33, ne EXIT) před firmwarem, i bez aplikace; plugin klávesu dál dostává. 0 ji vrátí. Skončí, když plugin skončí.",
   "api.korg.pressKey": "Předá firmwaru krátký stisk klávesy key (0 až 33, ne EXIT): stisk teď, uvolnění v dalším snímku. Pluginy ho nedostanou jako událost.",
+  "api.korg.keyMask": "Zadrží před firmwarem klávesy masky tohoto pluginu: bit n z low je klávesa n (0 až 31), bit n z high klávesa 32 + n. Ostatní jeho klávesy vrátí. EXIT je chyba.",
   "api.korg.seq.setPartValue": "Zapíše hodnotu field (0 až 19, jako u korg.read.patternValue) partu part jako potenciometr, ořízne ji do rozsahu. Sample, IFX zap. a typ, voice assign a MFX send jsou jen ke čtení.",
   "api.korg.read.patternBytes": "Načte bajty patternu (-1 ten v RAM, 0 až 249 banka) od offset do pole, jeden bajt na místo. Vrátí jejich počet.",
   "api.korg.seq.writeSteps": "Zapíše záznamy kroků po 12 místech (zap., gate, velocity, trigger, 4 noty, 4 nezapsané) do partu part od kroku first, oříznuté. Vrátí počet kroků.",

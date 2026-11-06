@@ -2051,6 +2051,7 @@ export default {
   "api.korg.touchLockX": "Tiene la X del touchpad vista dal firmware a x (da 0 a 127, a passi di 2), -1 la rilascia. Il plugin continua a ricevere il tocco reale. Finisce quando il plugin si ferma.",
   "api.korg.keyHold": "1 trattiene il tasto key (da 0 a 33, non EXIT) dal firmware, anche senza app; il plugin riceve ancora il tasto. 0 lo restituisce. Finisce quando il plugin si ferma.",
   "api.korg.pressKey": "Passa al firmware una pressione breve del tasto key (da 0 a 33, non EXIT): premuto ora, rilasciato nel fotogramma successivo. I plugin non la ricevono come evento.",
+  "api.korg.keyMask": "Trattiene dal firmware i tasti della maschera di questo plugin: il bit n di low è il tasto n (da 0 a 31), il bit n di high il tasto 32 + n. Gli altri suoi tasti tornano indietro. EXIT è un errore.",
   "api.korg.seq.setPartValue": "Scrive il valore field (da 0 a 19, come korg.read.patternValue) della parte part come una manopola, limitato al suo intervallo. Sample, IFX on e tipo, voice assign e MFX send sono solo in lettura.",
   "api.korg.read.patternBytes": "Legge byte del pattern (-1 quello in RAM, da 0 a 249 il banco) da offset nell'array, un byte per posto. Restituisce quanti.",
   "api.korg.seq.writeSteps": "Scrive step da 12 posti ciascuno (on, gate, velocity, trigger, 4 note, 4 non scritti) nella parte part dallo step first, limitati. Restituisce gli step scritti.",
