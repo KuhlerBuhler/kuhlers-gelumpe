@@ -70,9 +70,40 @@ test("setStep, setGate and clearPart write the bytes of the pattern in RAM and n
   assert.equal(device.hardware.stepAt(2, 5), PATTERN_PARTS.base + 2 * PATTERN_PARTS.stride + PATTERN_STEPS.base + 5 * PATTERN_STEPS.stride);
 });
 
+test("korg.seq.getOn, getGate, getNote and getVelocity are version 22, for every event, with the documented ranges", () => {
+  for (const name of ["korg.seq.getOn", "korg.seq.getGate", "korg.seq.getNote", "korg.seq.getVelocity"]) {
+    const api = API_BY_NAME.get(name);
+    assert.equal(api.since, 22, name);
+    assert.equal(api.returns, "int", name);
+    assert.ok(api.events.includes("start") && api.events.includes("save") && api.events.includes("step"), name);
+  }
+  assert.deepEqual(API_BY_NAME.get("korg.seq.getNote").args.map(a => [a.name, a.min, a.max]), [["part", 0, 15], ["step", 0, 63], ["slot", 0, 3]]);
+  assert.deepEqual(API_BY_NAME.get("korg.seq.getGate").args.map(a => [a.name, a.min, a.max]), [["part", 0, 15], ["step", 0, 63]]);
+  assert.equal(decodeBlob(build("korg.onEvent(\"step\", (s) => { let g = korg.seq.getGate(0, s); });")).header.apiVersion, 22);
+});
+
+test("the getters return the bytes of the step as they are, getNote -1 for an empty place", () => {
+  const device = loaded(`korg.onEvent("ready", () => {
+    korg.store.set(0, korg.seq.getOn(3, 9));
+    korg.store.set(1, korg.seq.getGate(3, 9));
+    korg.store.set(2, korg.seq.getVelocity(3, 9));
+    korg.store.set(3, korg.seq.getNote(3, 9, 0));
+    korg.store.set(4, korg.seq.getNote(3, 9, 1));
+    korg.store.set(5, korg.seq.getNote(3, 9, 2));
+    korg.store.set(6, korg.seq.getNote(3, 9, 3));
+    korg.store.set(7, korg.seq.getGate(15, 63));
+  });`, d => {
+    const block = d.hardware.patternBlock(-1);
+    block.set([1, 255, 101, 1, 61, 0, 128, 1, 7, 7, 7, 7], d.hardware.stepAt(3, 9));
+    block[d.hardware.stepAt(15, 63) + PATTERN_STEPS.gate] = 127;
+  });
+  assert.deepEqual([...device.runtime.scripts[0].store.values.slice(0, 8)], [1, 255, 101, 60, -1, 127, 0, 127], "gate 255 comes back raw, not clamped");
+});
+
 test("values out of range end the plugin with an argument error", () => {
   for (const call of ["korg.seq.setStep(16, 0, 60, 100)", "korg.seq.setStep(0, 64, 60, 100)", "korg.seq.setStep(0, 0, 128, 100)",
-    "korg.seq.setStep(0, 0, -2, 100)", "korg.seq.setStep(0, 0, 60, 128)", "korg.seq.setGate(0, 0, 128)", "korg.seq.clearPart(-1)"]) {
+    "korg.seq.setStep(0, 0, -2, 100)", "korg.seq.setStep(0, 0, 60, 128)", "korg.seq.setGate(0, 0, 128)", "korg.seq.clearPart(-1)",
+    "korg.seq.getOn(16, 0)", "korg.seq.getGate(0, 64)", "korg.seq.getVelocity(-1, 0)", "korg.seq.getNote(0, 0, 4)", "korg.seq.getNote(0, 0, -1)"]) {
     const device = loaded(`let p = 0; korg.onEvent("ready", () => { ${call.replace("(", "(p + ")}; });`);
     assert.equal(device.status().scripts[0].fault?.code, ERROR.API_ARG, call);
   }

@@ -248,6 +248,26 @@ class NativeHardwareTests(unittest.TestCase):
         m.call('script_seq_flush')
         self.assertEqual(told,[(0xC06B2108 + 4,(0x0B | 2 << 8,0))],'one message: the section that is shown, to the model\'s observers')
 
+    def test_seq_reads_return_the_step_bytes_and_mark_nothing(self):
+        m,built = self.machine()
+        error = contract_data()['error']['API_ARG']
+        step = lambda part,index: 0xC06B2798 + 4 + 0x800 + 0x330 * part + 0x30 + 12 * index
+        flag = built.layout['card'] + built.symbols['SQ_AT']
+        m.write(flag,0xFFFFFFFF)
+        m.uc.mem_write(step(3,17),bytes([1,255,9,1,61,0,128,1,7,7,7,7]))
+        m.uc.mem_write(step(15,63),bytes([0,127,100,0,0,0,0,0]))
+        self.assertEqual(m.call('script_seq_get_on_glue',3,17),(1,0))
+        self.assertEqual(m.call('script_seq_get_gate_glue',3,17),(255,0),'the gate byte as it is')
+        self.assertEqual(m.call('script_seq_get_velocity_glue',3,17),(9,0))
+        self.assertEqual([m.call('script_seq_get_note_glue',3,17,slot)[0] for slot in range(4)],[60,0xFFFFFFFF,127,0],'the note plus one in RAM, -1 for 0')
+        self.assertEqual([m.call(f'script_seq_get_{name}_glue',15,63)[0] for name in ('on','gate','velocity')],[0,127,100])
+        self.assertEqual(m.read(flag),0xFFFFFFFF,'reads do not make the pads draw the steps again')
+        for name,args in [('on',(16,0)),('gate',(0,64)),('velocity',(16,63)),('note',(0,0,4)),('note',(16,0,0))]:
+            self.assertEqual(m.call(f'script_seq_get_{name}_glue',*args)[1],error,(name,args))
+        self.assertEqual(m.call('script_seq_set_gate_glue',3,17,40),(0,0))
+        self.assertEqual(m.read(flag),flag,'a write still marks the frame')
+        self.assertEqual(bytes(m.uc.mem_read(step(3,17),12)),bytes([1,40,9,1,61,0,128,1,7,7,7,7]),'setGate writes only the gate')
+
     def array(self,m,built,values,base=4):
         """The running script's variables at m.input+0x6800, the array from slot `base` -> its handle."""
         entry,vars_at = m.input + 0x6000,m.input + 0x6800
