@@ -643,7 +643,7 @@ plugins that have a handler for it, and then decides whether the firmware sees i
   ends in between; a press that went through lets its release through.
 - **EXIT** cannot be held (`korg.keyHold` and `korg.keyMask` stop the plugin with an error), apps stay closable.
 - **Measured:** in the emulator on hacktribe, red and blue with two plugins (`tools/emu/plugin_api19_cases.py`); not on
-  the device. The example plugins Gate Hold, Key Pads, Momentary Mute and Filter Toggle keep working unchanged, they use
+  the device. The example plugins Gate Hold, Key Pads and Filter Toggle keep working unchanged, they use
   `korg.keyHold`, `korg.padHold` and `korg.knobHold`.
 
 ### Names for keys and LEDs
@@ -1133,15 +1133,16 @@ pattern in RAM. STOP sets back the tempo the pattern started with. The page BPM 
 and off (0), `korg.store` keeps the setting. Because `korg.tempo` sets the tempo of the pattern in RAM, it counts as an
 unsaved change until STOP. Checked in the simulator (`test/script-bpm-glide.test.mjs`), not on the device.
 
-**Momentary Mute** (a wish from the community, [idea 91](ideen/91-moment-mute.md)) runs in the background. In PART
-MUTE mode a pad mutes its part only while it is held, like on the Korg ESX: the press flips the part, the release puts it
-back. A playing part is quiet while held, a muted part plays while held. Several pads may be held at once. It is only
-active in PART MUTE mode: the firmware keeps that pad mode until another mode key comes (measured in the emulator), the
-plugin follows the mode keys and keeps the pads from the firmware with `korg.padHold` only in that mode. In every other
-mode the pads play and step as always, and with SHIFT held SHIFT + pad stays the firmware's. Always on in the background
-would take the pads in SEQUENCER or KEYBOARD as well, so it is not. The page MOMENT MUTE in the BLECH menu switches it on
-(1) and off (0: the pads latch as without the plugin), `korg.store` keeps the setting. Checked in the simulator
-(`test/script-moment-mute.test.mjs`), not in the emulator and not on the device.
+**Momentary Mute** (a wish from the community, modelled on the Korg ESX, [idea 91](ideen/91-moment-mute.md)) needs API 15
+and runs in the background. Mutes change only while PART MUTE is held: with PART MUTE held, a pad switches its part off or
+on again, and the pads show the mutes. With PART MUTE released, the pads play as in TRIGGER mode and show what TRIGGER
+shows. The firmware does all of it: PART MUTE switches its pad mode on the press and keeps it after the release (measured
+in the emulator). On the release of PART MUTE the plugin presses TRIGGER for the firmware with `korg.pressKey`, nothing
+more; it holds no keys and no pads. The TRIGGER key lights afterwards, because the firmware is in TRIGGER mode. SHIFT +
+PART MUTE stays the firmware's, and another mode key pressed while PART MUTE is held keeps its mode. The page MOMENT MUTE
+in the BLECH menu switches it on (1) and off (0: PART MUTE stays a mode as without the plugin), `korg.store` keeps the
+setting. Checked in the simulator (`test/script-moment-mute.test.mjs`) and in the emulator
+(`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red, blue), not on the device.
 
 **Filter Toggle** (idea 81) uses API 14. SHIFT + LPF, HPF or BPF sets the filter type of the selected part to OFF (0) with
 `korg.parts[i].filterType`; the same combination brings back the type that key had last (LPF 1 to 6, HPF 7 to 11, BPF 12

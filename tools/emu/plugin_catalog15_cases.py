@@ -1,6 +1,7 @@
 """Emulator cases of the catalog plugins on plugin API 15, as the catalog ships them: Gate Hold fixes the note in Gate Arp
-mode and lets X pick the pattern's Gate Arp rhythm, Key Pads sets the pattern's KEY with KEYBOARD held and a pad, and a
-short press of KEYBOARD alone still reaches the firmware.
+mode and lets X pick the pattern's Gate Arp rhythm, Key Pads sets the pattern's KEY with KEYBOARD held and a pad, a
+short press of KEYBOARD alone still reaches the firmware, and Momentary Mute leaves the firmware in PART MUTE mode only
+while PART MUTE is held.
 
     PYTHONPATH=tools/patch python3 tools/emu/plugin_catalog15_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 """
@@ -29,8 +30,11 @@ PRESETS = json.loads(subprocess.check_output(["node", "--input-type=module", "-e
     "import {PATTERN_FIELDS} from './data/script/contract.mjs';"
     "const s = id => PRESETS.find(p => p.id === id).source;"
     "const at = n => PATTERN_FIELDS.find(f => f.name === n).offset;"
-    "console.log(JSON.stringify({gatehold: s('gatehold'), keypads: s('keypads'), gateArp: at('gateArp'), key: at('key')}))"], cwd=ROOT))
-GATE_ARP, TOUCH_SCALE, SHIFT, KEYBOARD = 4, 5, 10, 23
+    "console.log(JSON.stringify({gatehold: s('gatehold'), keypads: s('keypads'), momentmute: s('momentmute'),"
+    " gateArp: at('gateArp'), key: at('key')}))"], cwd=ROOT))
+GATE_ARP, TOUCH_SCALE, SHIFT, PART_MUTE, TRIGGER, SEQUENCER, KEYBOARD = 4, 5, 10, 16, 19, 21, 23
+LEDMGR = 0xC0345A1C             # the LED manager; +0xB58 the pad mode: 0 PART MUTE, 3 TRIGGER, 4 SEQUENCER
+PLUGINS = ["gatehold", "keypads", "momentmute"]
 RAW_Y = 500
 # Per pad the KEY Key Pads sets, -1 none: the lower row (pads 9 to 16) C D E F G A B C, the upper row the black keys.
 NOTES = [-1, 1, 3, -1, 6, 8, 10, -1, 0, 2, 4, 5, 7, 9, 11, 0]
@@ -89,19 +93,25 @@ def gate_hold_cases(dev, build):
     return out
 
 
+def marked_presses(dev, key):
+    """The down (1) and up (0) of each press of `key` that korg.pressKey hands over, seen at the dispatcher's start before
+    the input filter (they carry the mark 0xB7)."""
+    marked = []
+
+    def dispatch(uc, *_):
+        msg = bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R0) + 0xC, 8))
+        if msg[0] == 0 and msg[1] == key and msg[7] == 0xB7:
+            marked.append(msg[2])
+    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, dispatch, begin=dev.a(remote_cases.DISPATCH), end=dev.a(remote_cases.DISPATCH))
+    dev.m.uc.ctl_flush_tb()
+    return marked
+
+
 def key_pads_cases(dev):
     pattern = edit.pattern(dev)
     at = PRESETS["key"]
     key = lambda: dev.read(pattern + at, 1)[0]  # noqa: E731
-    marked = []
-
-    # the dispatcher's start, before the input filter: a press korg.pressKey hands over carries the mark 0xB7
-    def dispatch(uc, *_):
-        msg = bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R0) + 0xC, 8))
-        if msg[0] == 0 and msg[1] == KEYBOARD and msg[7] == 0xB7:
-            marked.append(msg[2])
-    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, dispatch, begin=dev.a(remote_cases.DISPATCH), end=dev.a(remote_cases.DISPATCH))
-    dev.m.uc.ctl_flush_tb()
+    marked = marked_presses(dev, KEYBOARD)
 
     out = []
     edit.poke(dev, pattern + at, [0])
@@ -127,16 +137,70 @@ def key_pads_cases(dev):
     return out
 
 
+def moment_mute_cases(dev):
+    """PART MUTE held: the firmware's PART MUTE mode, the pads toggle mutes and keep them. Released: TRIGGER mode."""
+    mode = lambda: dev.u32(dev.u32(dev.a(LEDMGR)) + 0xB58)  # noqa: E731
+    mutes = lambda: [dev.read(dev.a(edit.MUTE) + 0x330 * i, 1)[0] for i in range(16)]  # noqa: E731
+    part = lambda: dev.u32(dev.a(edit.PART))  # noqa: E731
+    toggled = lambda was, pads: [m ^ (1 if i in pads else 0) for i, m in enumerate(was)]  # noqa: E731
+    marked = marked_presses(dev, TRIGGER)
+
+    def key(k, down, wait=0.15):
+        dev.m.send([0, k, down, 0, 0])
+        dev.run(wait)
+
+    out = []
+    edit.tap_key(dev, SEQUENCER, 0.3)
+    before = mutes()
+    key(PART_MUTE, 1)
+    held = mode()
+    for index in (3, 5, 5, 7):
+        edit.pad(dev, index)
+    edited = mutes()
+    # pad 10 goes down while PART MUTE is held and comes up after its release
+    dev.m.send([4, 9, 0, 100, 1])
+    dev.run(0.12)
+    key(PART_MUTE, 0, 0.3)
+    dev.m.send([4, 9, 0, 0, 0])
+    dev.run(0.12)
+    want = toggled(before, (3, 7, 9))
+    out.append(entry("moment_mute_held_pads_toggle", held == 0 and edited == toggled(before, (3, 7)) and mutes() == want
+                     and not dev.m.asserts,
+                     f"pad mode while held {held} (want 0), mutes {before} -> {edited} -> {mutes()} (want {want})"))
+    after = mutes()
+    edit.pad(dev, 11)
+    out.append(entry("moment_mute_release_is_trigger", mode() == 3 and marked == [1, 0] and mutes() == after
+                     and part() == 11 and not dev.m.asserts,
+                     f"pad mode after the release {mode()} (want 3), TRIGGER passed on {marked} (want press and release), "
+                     f"pad 12 selects part {part()} (want 11), mutes kept {mutes() == after}"))
+
+    edit.tap_key(dev, SEQUENCER, 0.3)
+    marked.clear()
+    key(PART_MUTE, 1)
+    edit.tap_key(dev, SEQUENCER)
+    key(PART_MUTE, 0, 0.3)
+    chosen = mode()
+    key(SHIFT, 1)
+    key(PART_MUTE, 1)
+    key(PART_MUTE, 0)
+    key(SHIFT, 0, 0.3)
+    out.append(entry("moment_mute_leaves_mode_keys_and_shift_alone", chosen == 4 and mode() == 4 and marked == []
+                     and not dev.m.asserts,
+                     f"SEQUENCER while held keeps {chosen}, after SHIFT + PART MUTE {mode()} (want 4), "
+                     f"TRIGGER passed on {marked}"))
+    return out
+
+
 def cases(vsb, flash=None):
     payload = vsb[0x100:]
     menu_cases.for_build(payload)
     build = identify(payload).build
-    request = edit.compiled({"gatehold": PRESETS["gatehold"], "keypads": PRESETS["keypads"]})
+    request = edit.compiled({name: PRESETS[name] for name in PLUGINS})
     built = script_hooks.build(request["include"], build=build)
     dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True, seconds=2.0)
-    edit.script_cases.install(dev, built, request["programs"], ["gatehold", "keypads"])
+    edit.script_cases.install(dev, built, request["programs"], PLUGINS)
     dev.run(0.3)
-    return gate_hold_cases(dev, build) + key_pads_cases(dev)
+    return gate_hold_cases(dev, build) + key_pads_cases(dev) + moment_mute_cases(dev)
 
 
 def main():
