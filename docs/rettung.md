@@ -132,8 +132,8 @@ dahinter belegt ist und was offen bleibt, steht in der [Messung](messungen/2026-
 3. Zurück zu BLECHTRIBE ohne Hacktribe: im Patcher bei der laufenden Firmware "Original" wählen (auch wenn Hacktribe drauf
    ist) und als Ziel BLECH, dann Korgs Original-Datei. Die fertige `SYSTEM.VSB` kommt in den Ordner der Firmware, die jetzt
    läuft (`KORG/hacktribe/System/`), danach weiter wie bei "Welche Firmware läuft gerade".
-4. Blau: läuft BLECHTRIBE mit Hacktribe, geht es wie bei Rot. Läuft nur Hacktribe, braucht Korgs blaue Datei zwei geänderte
-   Kopf-Bytes ([Tabelle oben](#welche-datei-in-welchen-ordner)), das macht die App nicht, Blechy führt zum Kontakt.
+4. Blau: läuft BLECHTRIBE mit Hacktribe, geht es wie bei Rot. Läuft nur Hacktribe, geht es über den Schritt der Seite, der Korgs blaue Datei
+   mit dem Sampler-Kopf speichert (`back:head`), danach BLECH im Patcher.
 
 Vor dem Patchen mit Hacktribe zeigt der Patcher die Warnung samt Haken (`cee-patch-ht-ack`); ohne den Haken geht Weiter,
 Patchen und Speichern nicht.
@@ -158,7 +158,8 @@ siehe oben). Die Seite fragt, wann die Meldung kommt:
   rote mit Korgs Original, im Patcher die blaue gewählt); neu patchen mit der richtigen Farbe, der Patcher nennt die
   Farbe selbst, wenn die Electribe angesteckt ist (`patcher.device.cable.*`, offline, Code). Korgs Datei: rot und blau
   ohne Hacktribe gehen den Weg über den Ordner der laufenden Firmware; blau mit Hacktribe braucht die zwei Kopf-Bytes
-  aus dem Absatz oben. Das macht die App nicht, die Seite führt dann zum Kontakt.
+  aus dem Absatz oben. Die Seite macht die Datei aus Korgs blauer `SYSTEM.VSB` (nur die von Korg, jede andere
+  lehnt sie ab; `korgBlueForSampler` in `src/patcher.mjs`). Der ganze Weg mit Belegen: [Zurück zu Korgs Original](original-zurueck.md).
 
 **Error, No File.** Dort, wo die Firmware sucht, liegt keine Datei mit genau diesem Namen. Beim Einschalten geht die
 Seite den Weg über die Farbe wie bei "Invalid File". Im Menü nennt sie die Stellen, an denen es im Discord hing

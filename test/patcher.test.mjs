@@ -595,3 +595,17 @@ test("a file of the wrong size, or patches that do not fit Korg's file, give no 
   assert.deepEqual(await restoreOriginal(patched, changed, patches), { ok: false, why: "patches" });
   assert.equal(canRestore(korg), true);
 });
+
+test("korgBlueForSampler: Korg's blue file gets the Sampler head, any other file is refused", async () => {
+  const { korgBlueForSampler } = await import("../src/patcher.mjs");
+  const vsb = await makeFirmware();
+  vsb.set([0x45, 0x32, 0], 0x10);
+  vsb[0x2e] = 0x23;
+  const hash = await sha256(vsb);
+  const res = await korgBlueForSampler(vsb, { hash });
+  assert.equal(res.ok, true);
+  assert.deepEqual([...res.bytes.keys()].filter(i => res.bytes[i] !== vsb[i]), [0x12, 0x2e], "only the two head bytes change");
+  assert.deepEqual([res.bytes[0x12], res.bytes[0x2e]], [0x53, 0x24]);
+  assert.deepEqual(await korgBlueForSampler(vsb), { ok: false, why: "notKorgBlue" });
+  assert.deepEqual(await korgBlueForSampler(vsb.subarray(0, 100), { hash }), { ok: false, why: "size" });
+});

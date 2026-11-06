@@ -5,7 +5,9 @@
  */
 import { el } from "./fields.mjs";
 import { FLOW, LINKS, BUTTONS, FOLDERS } from "../../data/rescue.mjs";
-import { checkName } from "../../src/patcher.mjs";
+import { checkName, korgBlueForSampler } from "../../src/patcher.mjs";
+import { saveFile } from "./save-file.mjs";
+import { toast } from "./toast.mjs";
 import { e2Outline } from "./e2-art.mjs";
 import { t, tNodes, locale } from "./i18n.mjs";
 import { pickCard } from "./card-access.mjs";
@@ -86,6 +88,15 @@ const KNOWN = {
   },
 };
 
+/** The file steps of a node (`file`): the user's own file in, the file for the card out. */
+const FILES = {
+  korgBlueHead: async bytes => {
+    const res = await korgBlueForSampler(bytes);
+    if (!res.ok) return toast(t(res.why === "size" ? "rescue.file.size" : "rescue.file.notKorgBlue"), "error");
+    saveFile(res.bytes, "SYSTEM.VSB", { note: t("rescue.file.saved") });
+  },
+};
+
 const within = (promise, ms) => Promise.race([promise, new Promise(resolve => setTimeout(() => resolve(null), ms))]);
 
 /** The event an error toast sends to open the page at Blechy with that error (site/app/toast.mjs). */
@@ -122,6 +133,7 @@ export function rescuePage(root, context = {}) {
   const answers = el("div", { className: "cee-rescue-answers", id: "cee-rescue-answers" });
   const back = el("button", { type: "button", className: "btn sm", id: "cee-rescue-back", textContent: t(BUTTONS.back) });
   const again = el("button", { type: "button", className: "btn sm", id: "cee-rescue-again", textContent: t(BUTTONS.again) });
+  const input = el("input", { type: "file", id: "cee-rescue-input", hidden: true, tabIndex: -1 });
   let path = ["start"];
   let picked = [];
   let timer = null;
@@ -167,7 +179,13 @@ export function rescuePage(root, context = {}) {
     const node = nodes[path[at]];
     const fits = known[at]?.value;
     const choices = node.choices ?? [];
-    answers.replaceChildren(...choices.map(c => {
+    const pick = node.file ? [el("button", { type: "button", className: "btn", id: "cee-rescue-file", onclick: () => input.click(), textContent: t("rescue.answer.pickBlue") })] : [];
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      input.value = "";
+      if (file && node.file) await FILES[node.file](new Uint8Array(await file.arrayBuffer()));
+    };
+    answers.replaceChildren(...pick, ...choices.map(c => {
       const mark = fits != null && c.value === fits;
       const b = el("button", { type: "button", className: `btn${c.art ? " cee-rescue-folder" : ""}`, onclick: () => choose(c) }, [
         c.art ? art(c) : null,
@@ -179,7 +197,7 @@ export function rescuePage(root, context = {}) {
       if (mark) b.dataset.known = "";
       return b;
     }));
-    answers.hidden = !choices.length;
+    answers.hidden = !choices.length && !pick.length;
     back.disabled = path.length < 2;
     chat.lastElementChild?.scrollIntoView?.({ block: "nearest" });
     clearTimeout(timer);
@@ -309,6 +327,7 @@ export function rescuePage(root, context = {}) {
     el("h1", { className: "cee-rescue-title ui-sr-only", textContent: t("nav.rescue") }),
     chat,
     answers,
+    input,
     el("div", { className: "actions cee-rescue-nav" }, [back, again]),
   ]));
   render();

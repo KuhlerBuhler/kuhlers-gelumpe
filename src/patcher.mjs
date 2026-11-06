@@ -38,6 +38,13 @@ export function withHead(bytes, head) {
 }
 export const samplerHead = bytes => withHead(bytes, "sampler");
 
+/** Korg's blue 2.02 with the Sampler head: the only form Hacktribe's updater accepts on the blue. `hash` is for tests. */
+export async function korgBlueForSampler(bytes, { hash = SYNTH_SHA256 } = {}) {
+  if (bytes.length !== VSB_SIZE) return { ok: false, why: "size" };
+  if (await sha256(bytes) !== hash) return { ok: false, why: "notKorgBlue" };
+  return { ok: true, bytes: samplerHead(bytes) };
+}
+
 /**
  * Korg's System Updater 2.02 per Electribe: the support page with Korg's licence agreement, and the zip on Korg's download
  * server. The page offers the download only after the user accepted the agreement; the app fetches it natively

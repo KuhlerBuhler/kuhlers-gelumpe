@@ -130,8 +130,8 @@ test("Invalid File: at the start through the colour and the Hacktribe question; 
   assert.equal(FLOW["invalid:prompt"].next, "color:update");
   assert.deepEqual(FLOW["invalid:menu"].choices.map(c => c.to), ["invalid:patcher", "invalid:korg"]);
   assert.match(text(FLOW["invalid:patcher"]), /Farbe deiner Electribe/);
-  assert.deepEqual(FLOW["invalid:korg"].choices.map(c => c.to), ["download:starts:red", "download:starts:blue", "invalid:head"]);
-  assert.equal(FLOW["invalid:head"].next, "ask", "the head bytes are not done for the user, the way leads to Kuhler Buhler");
+  assert.deepEqual(FLOW["invalid:korg"].choices.map(c => c.to), ["download:starts:red", "download:starts:blue", "back:head"]);
+  assert.equal(FLOW["back:head"].file, "korgBlueHead", "the head bytes are done for the user: the app makes the file from Korg's own");
   for (const id of ["update:prompt", "update:menu", "nofile:update"]) assert.ok(FLOW[id].choices.some(c => c.to.startsWith("invalid:")), `${id} knows Invalid File`);
 });
 
@@ -225,7 +225,18 @@ test("Hacktribe by accident: a case of the first question, samples with or witho
   assert.match(text(FLOW["samples:way"]), /Original.*BLECH/s, "the way back goes through Korg's original, not the Hacktribe file");
   assert.match(text(FLOW["samples:way"]), /KORG\/hacktribe\/System\//, "the file goes where the running firmware reads it");
   assert.deepEqual(FLOW["samples:way"].choices.map(c => c.to), ["which", "samples:blue"]);
-  assert.deepEqual(FLOW["samples:blue"].choices.map(c => c.to), ["which", "invalid:head"]);
+  assert.deepEqual(FLOW["samples:blue"].choices.map(c => c.to), ["which", "back:head"]);
   const doc = readFileSync(new URL("docs/rettung.md", ROOT), "utf8");
   assert.match(doc, /Hacktribe aus Versehen/);
+});
+
+test("back to Korg's original: red goes the usual way, blue asks what runs, Hacktribe gets the file with the Sampler head", () => {
+  assert.equal(FLOW.start.choices.at(-1).to, "back");
+  assert.equal(FLOW.back.next, "back:color");
+  assert.deepEqual(FLOW["back:color"].choices.map(c => c.to), ["download:starts:red", "back:blue"]);
+  assert.deepEqual(FLOW["back:blue"].choices.map(c => c.to), ["download:starts:blue", "back:head"]);
+  assert.deepEqual(FLOW["back:head"].choices.map(c => c.to), ["which"]);
+  assert.match(text(FLOW.back), /Original-Firmware/);
+  assert.match(text(FLOW.back), /KORG\/blechtribe\//);
+  assert.match(text(FLOW["back:head"]), /zwei Bytes/);
 });
