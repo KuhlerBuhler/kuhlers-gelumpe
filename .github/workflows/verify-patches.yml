@@ -40,6 +40,7 @@ on:
       - "data/findings.mjs"
       - "data/hooks.mjs"
       - "data/originals.mjs"
+      - "data/emu/**"
       - "data/synth-sites.mjs"
       - "data/map/**"
       - "data/script/**"
@@ -258,11 +259,16 @@ jobs:
           printf '\000' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=18 conv=notrunc status=none
           printf '\043' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=46 conv=notrunc status=none
           echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
+      # GELUMPE_NODE_RESULTS=strict: a case whose answer from Node data/emu/node-results.json lacks fails here, as it
+      # would in the app, which has no Node (tools/emu/node_json.py)
       - if: needs.ref.outputs.full == 'true'
+        env:
+          GELUMPE_NODE_RESULTS: strict
         run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
       - if: needs.ref.outputs.full != 'true'
         env:
           CASES: ${{ needs.ref.outputs.cases }}
+          GELUMPE_NODE_RESULTS: strict
         run: npm run -s verify:patches -- --cases "$CASES" "$RUNNER_TEMP/SYSTEM.VSB"
       # The collection on the card end to end with the editor's own writer (src/fx-collection.mjs), on the red builds
       # that carry the loader, whenever the fx_card cases run: the cases above build the file in Python.

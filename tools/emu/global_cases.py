@@ -8,7 +8,6 @@ The measurements are in docs/messungen/2026-11-05-plugin-api16.md.
 """
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -20,6 +19,7 @@ import unicorn  # noqa: E402
 from unicorn.arm_const import UC_ARM_REG_R2, UC_ARM_REG_R3  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
 import menu_cases  # noqa: E402
+import node_json  # noqa: E402
 import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
@@ -59,6 +59,12 @@ korg.onEvent("ready", () => {
 });"""
 
 
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    tree()
+    edit.compiled({"global": PROGRAM})
+
+
 def entry(name, ok, detail):
     return {"id": f"global:{name}", "ok": bool(ok), "detail": str(detail)}
 
@@ -68,7 +74,7 @@ def tree():
     code = ("import {OBJECTS} from './data/script/objects.mjs';"
             "process.stdout.write(JSON.stringify(OBJECTS.filter(o => o.path.startsWith('korg.global.')).map(o => "
             "[o.id, o.path.split('.').pop(), o.offset - 4, o.min, o.max, o.factory, o.write])))")
-    return json.loads(subprocess.run(["node", "--input-type=module", "-e", code], cwd=ROOT, capture_output=True, text=True, check=True).stdout)
+    return node_json.run(code)
 
 
 class World:
