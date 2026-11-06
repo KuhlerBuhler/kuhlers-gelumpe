@@ -889,6 +889,7 @@ test("patcher: with the box ticked hacktribe-2.patch comes straight from Hacktri
   await page.locator("#cee-patch-hacktribe-info", { hasText: "hacktribe-2.patch: umgewandelt" }).waitFor();
   assert.equal(await page.locator("#cee-patch-device input[value=blue]").isChecked(), true, "for the Electribe named in the wizard");
   assert.equal(await page.locator("#cee-patch-device-box").isVisible(), false, "and not asked a second time");
+  await ackHt(page);
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);
