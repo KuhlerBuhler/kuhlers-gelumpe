@@ -6,7 +6,6 @@ korg.seq.writeSteps copy a part of a stored pattern into the one that plays, and
 """
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -16,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from tools.patch import script_hooks  # noqa: E402
 import menu_cases  # noqa: E402
+import node_json  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
@@ -81,8 +81,7 @@ for (const [name, source] of Object.entries(programs)) {
 }
 process.stdout.write(JSON.stringify(out));
 """
-    result = subprocess.run(["node", "--input-type=module", "-e", code, json.dumps(programs)], cwd=ROOT, capture_output=True, text=True, check=True)
-    return json.loads(result.stdout)
+    return node_json.run(code, json.dumps(programs))
 
 
 def entry(name, ok, detail):
