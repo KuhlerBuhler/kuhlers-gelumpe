@@ -169,6 +169,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 20: die Globals als Blätter von korg.global, Setter, Speichern, Reparatur beim Start, im Emulator](2026-11-05-plugin-api20-globals.md)
 - [Plugin API 17: alle Seiten von CUSTOMIZATION und FEATURES als Blätter, Schreiben mit WRITE, im Emulator](2026-11-05-plugin-api17-blech-menue.md)
 - [Plugin API 18: angesehenes und nächstes Pattern lesen, im Emulator](2026-11-05-plugin-api18.md)
+- [Plugin API 21: Pattern und Parts schreibbar, Seiten des Pattern-Menüs, Sync Group, was nur lesbar bleibt, im Emulator](2026-11-06-plugin-api21-pattern-parts.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
 

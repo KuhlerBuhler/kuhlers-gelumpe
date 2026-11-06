@@ -84,10 +84,15 @@ test("the compiler passes a global array by its first slot and length and refuse
 });
 
 test("the API version of a block follows what it uses", () => {
-  assert.equal(API_VERSION, 20);
+  assert.equal(API_VERSION, 21);
   assert.equal(apiVersionOf("korg.onEvent(\"frame\", () => { let v = korg.viewedPattern + korg.nextPattern; });"), 18, "the viewed and next pattern need API 18");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.keyMask(1 << korg.key.PLAY, 0); });"), 19, "a key mask needs API 19");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.global.metronome = 2; });"), 20, "a Global leaf needs API 20");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.pattern.current.tempo = 1200; });"), 21, "korg.pattern.current needs API 21");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.current.tempo = 1200; });"), 15, "writing korg.current goes through setPatternValue, API 15");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let g = korg.current.syncGroup; });"), 21, "the sync group needs API 21");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.parts[2].mfxSend = 1; });"), 21, "writing MFX send needs API 21");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let v = korg.parts[2].mfxSend; });"), 8, "reading MFX send stays at korg.read.patternValue");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.features.tapMotion = 2; });"), 17, "a page of the menu BLECH needs API 17");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.write(); });"), 17, "writing the menu's settings needs API 17");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.customizations.display.intensity = 3; });"), 10, "the first leaf stays API 10");

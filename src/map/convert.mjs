@@ -304,6 +304,11 @@ export const CONVERTERS = {
     fromRaw: r => r, format: r => (r === 0xffff ? "kein Sample" : String(r)),
   }),
 
+  syncGroup: numeric({
+    name: "syncGroup", unit: null, domain: [0, 999],
+    fromRaw: r => r, format: r => (r === 0 ? "aus" : String(r)),
+  }),
+
   /** Shown counting from one, stored from zero: channels. */
   oneBased: numeric({
     name: "oneBased", unit: null, domain: [0, 127],

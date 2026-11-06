@@ -35,9 +35,9 @@ SCALE_MODE = {"hacktribe": 0xC0060830, "stock": 0xC0060830, "synth": 0xC00572E8}
 SHIFT, TOUCH_SCALE = 10, 5
 RAW_X, RAW_Y = 400, 500
 
-# korg.seq.setPatternValue: one value per field, each away from a pattern's usual one; mfxType past every build's top
+# korg.seq.setPatternValue: one value per field, each away from a pattern's usual one; mfxType past every build's top, syncGroup past 999
 VALUES = {"tempo": 1234, "swing": -20, "length": 3, "beat": 2, "key": 5, "scale": 7, "chordSet": 3, "level": 77, "mfxType": 99,
-          "chainTo": 5, "chainRepeat": 9, "gateArp": 12}
+          "chainTo": 5, "chainRepeat": 9, "gateArp": 12, "syncGroup": 1500}
 FIELDS = json.loads(subprocess.check_output(["node", "--input-type=module", "-e",
     "import {PATTERN_FIELDS, PATTERN_WRITES} from './data/script/contract.mjs';"
     "console.log(JSON.stringify(PATTERN_FIELDS.map(f => [f.name, f.offset, f.kind, PATTERN_WRITES[f.name]])))"], cwd=ROOT))
