@@ -1176,13 +1176,28 @@ SHIFT + KEYBOARD stays the firmware's. The page KEY PADS in the BLECH menu switc
 simulator (`test/script-key-pads.test.mjs`) and in the emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red,
 blue), not on the device.
 
+**Step Copy** uses API 15 and runs in the background. It copies the steps of one bar (16 steps) of the pattern that plays
+into another bar, so a figure recorded once does not have to be played in again. A pattern is 1 to 4 bars long. Three pages
+in the BLECH menu: STEP COPY FROM (source bar, 1 to 4), STEP COPY TO (target bar 1 to 4, 0 is every bar after the source up
+to the pattern's length) and STEP COPY (1 copies the selected part, 2 all 16 parts, 0 nothing). The copy runs when the dial
+has rested on 1 or 2 for 0.6 s, so the values passed on the way copy nothing; to copy again turn to 0 and back. What is
+copied: per step on or off, note places (all four, so chords too), velocity, gate and trigger, with
+`korg.read.patternBytes` and `korg.seq.writeSteps`. A target bar beyond the length lengthens the pattern to that bar
+(`korg.seq.setPatternValue`, the Pattern menu's LENGTH setter); "every bar after" stays within the length. A source bar
+beyond the length, or the same bar as source and target, copies nothing. **Not copied:** the motion sequence (the API reads
+motion bytes but has no call that writes them) and the part values. Nothing is saved: WRITE stores the pattern as always.
+Stock firmware: the page list measured in this project ([key combinations](tastenkombinationen.md), German) has COPY PART
+(Part Util 1/4) and CLEAR SEQUENCE, but no copy of a bar inside a pattern. Checked in the simulator
+(`test/script-step-copy.test.mjs`) and in the emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red, blue), not on
+the device.
+
 ## The Plugins page in the editor
 
 The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold and Key Pads; source
+and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold, Key Pads and Step Copy; source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
