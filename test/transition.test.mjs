@@ -342,12 +342,15 @@ test("every transition passes the pattern checks and survives the single file ro
   for (const it of makeTransitions(s.a, s.b, { count: 5 }).items) assert.deepEqual(checkTransition(it.pattern, s.a).filter(f => f.severity === "error"), [], it.name);
 });
 
-test("a step that is on without trigger is reported, a broken frame too", () => {
+test("a new warning is reported, a step on without trigger is not, a broken frame is an error", () => {
   const { a, b } = pair();
   const { items } = makeTransitions(a, b, { count: 1 });
   const t = items[0].pattern;
   t.setRaw("step.on", [9, 3], 1);
-  assert.ok(checkTransition(t, a).some(f => /Trigger/.test(f.message)));
+  t.setRaw("step.trigger", [9, 3], 0);
+  assert.ok(!checkTransition(t, a).some(f => /Trigger/.test(f.message)));
+  t.setRaw("part.glide", [9], 64);
+  assert.ok(checkTransition(t, a).some(f => /Glide/.test(f.message)));
   t.bytes[0] = 0;
   assert.ok(checkTransition(t, a).some(f => f.severity === "error"));
 });
