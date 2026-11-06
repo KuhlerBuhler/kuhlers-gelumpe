@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 20;
+export const API_VERSION = 21;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -368,7 +368,7 @@ const API_LIST = [
   [74, "korg.touchLockX", [int("x", -1, 127)], "void", UI, 20, 15],
   [75, "korg.keyHold", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 15],
   [76, "korg.pressKey", [int("key", 0, 33)], "void", UI, 30, 15],
-  [77, "korg.seq.setPatternValue", [int("field", 0, 11), int("value")], "void", UI, 60, 15],
+  [77, "korg.seq.setPatternValue", [int("field", 0, 12), int("value")], "void", UI, 60, 15],
   [78, "korg.read.viewedPattern", [], "int", ALL, 6, 18],
   [79, "korg.read.nextPattern", [], "int", ALL, 6, 18],
   // the keys a plugin keeps from the firmware, as one mask: bit n of `low` is key n (0 to 31), bit n of `high` key 32 + n
@@ -446,6 +446,7 @@ export const PATTERN_FIELDS = Object.freeze([
   field("chainTo", 15104, "chain", text("api.pattern.chainTo")),
   field("chainRepeat", 15106, "atLeast1", text("api.pattern.chainRepeat")),
   field("gateArp", 49, "u8", text("api.pattern.gateArp")),
+  field("syncGroup", 15232, "u16", text("api.pattern.syncGroup")),
 ]);
 export const PART_FIELDS = Object.freeze([
   field("sample", 8, "u16", text("api.part.sample")),
@@ -472,23 +473,32 @@ export const PART_FIELDS = Object.freeze([
 /**
  * The PART_FIELDS korg.seq.setPartValue writes, by name: the firmware's parameter number of its part edit (the setter the
  * knobs go through, which writes the pattern and the sound engine's copy), the code of the parameter window a knob opens,
- * and the range the value is clamped to. Fields not listed (sample, IFX on and type, voice assign, MFX send) stay read-only.
+ * and the range the value is clamped to. Voice assign and MFX send go through the firmware's direct setter of the field
+ * instead (tools/patch/script_hooks.py, PART_SETTERS), parameter number and window code are 0 there. Fields not listed
+ * (sample, IFX on, IFX type) stay read-only (docs/messungen/2026-11-06-plugin-api21-pattern-parts.md).
  */
 export const PART_WRITES = Object.freeze({
   filterType: [10, 10, 0, 16], cutoff: [11, 3, 0, 127], resonance: [12, 4, 0, 127], egInt: [13, 5, -63, 63],
   modType: [14, 13, 0, 71], modSpeed: [15, 12, 0, 127], modDepth: [16, 11, 0, 127], attack: [17, 9, 0, 127],
   decay: [18, 8, 0, 127], level: [19, 6, 0, 127], pan: [20, 7, -63, 63], ifxEdit: [27, 14, 0, 127],
   pitch: [28, 15, -63, 63], glide: [29, 16, 0, 127], oscEdit: [6, 1, 0, 127],
+  voiceAssign: [0, 0, 0, 3], mfxSend: [0, 0, 0, 1],
 });
+/** The PART_WRITES fields that came with a later API version than korg.seq.setPartValue: the version, by name. */
+export const PART_WRITE_SINCE = Object.freeze({ voiceAssign: 21, mfxSend: 21 });
 /**
  * The PATTERN_FIELDS korg.seq.setPatternValue writes, by name: the range the value is clamped to, in the units
  * korg.read.patternValue gives (the ranges of data/map/pattern.mjs, decoded by the field's kind: length 1 to 4 bars,
- * Chain To -1 for none). The firmware's setters are per build in tools/patch/script_hooks.py (PATTERN_SETTERS).
+ * Chain To -1 for none). The firmware's setters are per build in tools/patch/script_hooks.py (PATTERN_SETTERS); Sync Group
+ * has none, it is stored as the SYNC GROUP page of the EDIT menu stores it.
  */
 export const PATTERN_WRITES = Object.freeze({
   tempo: [200, 3000], swing: [-48, 48], length: [1, 4], beat: [0, 4], key: [0, 11], scale: [0, 34], chordSet: [0, 4],
   level: [0, 127], mfxType: [0, 39], chainTo: [-1, 249], chainRepeat: [0, 127], gateArp: [0, 49],
+  syncGroup: [0, 999],
 });
+/** The PATTERN_FIELDS that came with a later API version than korg.read.patternValue: the version, by name. */
+export const PATTERN_FIELD_SINCE = Object.freeze({ syncGroup: 21 });
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
 

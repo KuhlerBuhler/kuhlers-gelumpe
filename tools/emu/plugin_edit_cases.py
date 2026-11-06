@@ -32,7 +32,7 @@ KNOB_LAST = 0x42A4              # from the pattern block: the stock firmware's l
 APP_PAGE = 1                   # the page of the app in TOOLS, behind Blechy
 SOURCE, TARGET, COMMAND = 5, 7, 9     # the stored pattern copied from, the part copied into, the pattern whose byte starts a step
 
-# the part values the copy carries over, by PART_FIELDS index: every writable one, modType before its speed and depth
+# the part values the copy carries over, by PART_FIELDS index: every one the part edit writes, modType before its speed and depth
 WRITABLE = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 18]
 PART_OFFSETS = {1: 12, 2: 13, 3: 14, 4: 15, 5: 16, 6: 17, 7: 18, 8: 20, 9: 21, 10: 24, 11: 25, 14: 34, 15: 36, 16: 37, 18: 11}
 

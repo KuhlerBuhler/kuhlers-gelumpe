@@ -463,7 +463,7 @@ class Compiler {
 
   writeProperty({ prop, index }, n, fn) {
     if (!prop.write) throw err(n.target, text("compile.prop.readOnly", { prop: this.propertyName(prop) }));
-    this.leafSince = Math.max(this.leafSince, prop.since);
+    this.leafSince = Math.max(this.leafSince, prop.writeSince);
     let value = n.value;
     const [min, max] = prop.range ?? [];
     if (prop.range && n.op === "=" && constValue(value) !== null && (constValue(value) < min || constValue(value) > max)) {

@@ -211,18 +211,22 @@ like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
 | `korg.store[i]` | stored value of slot 0 to 15, otherwise 0 | yes, to the card with `korg.store.save()` | `korg.store.get(i, 0)`, `korg.store.set(i, x)` |
 | `korg.led.TAP`, `korg.leds[i]` | no | brightness 0 to 255 | `korg.led(i, x)` |
 | `korg.chainMode` | 1 when CHAIN MODE is on in the Global menu (only then does the firmware chain) | no | `korg.read.chainMode()` |
-| `korg.current.tempo` and the other values below | the pattern that plays, with its unsaved changes | no | `korg.read.patternValue(-1, -1, value)` |
+| `korg.pattern.current.tempo` (also `korg.current.tempo`) and the other values below | the pattern that plays, with its unsaved changes | yes, through the firmware function of the Pattern menu (`korg.pattern.current` from API version 21, `korg.current` from 15) | `korg.read.patternValue(-1, -1, value)`, `korg.seq.setPatternValue(value, x)` |
 | `korg.patterns[i].tempo` and the other values below | pattern `i` (0 to 249) as stored | no | `korg.read.patternValue(i, -1, value)` |
-| `korg.parts[i].cutoff` and the other part values below | part `i` (0 to 15) in the pattern that plays | yes, except `sample`, `ifxOn`, `ifxType`, `voiceAssign` and `mfxSend` (from API version 14) | `korg.read.patternValue(-1, i, value)`, `korg.seq.setPartValue(i, value, x)` |
+| `korg.parts[i].cutoff` and the other part values below | part `i` (0 to 15) in the pattern that plays | yes, except `sample`, `ifxOn` and `ifxType` (from API version 14; `voiceAssign` and `mfxSend` from 21) | `korg.read.patternValue(-1, i, value)`, `korg.seq.setPartValue(i, value, x)` |
 
-**Values of a pattern** (`korg.current.…`, `korg.patterns[i].…`): `tempo` (tenths of BPM), `swing` (-48 to 48), `length`
+**Values of a pattern** (`korg.pattern.current.…`, `korg.current.…`, `korg.patterns[i].…`): `tempo` (tenths of BPM), `swing` (-48 to 48), `length`
 (bars, 1 to 4), `beat` (0 16ths, 1 32nds, 2 8th triplets, 3 16th triplets, 4 8ths with BLECH), `key` (0 C to 11 B), `scale`, `chordSet`,
-`level`, `mfxType`, `chainTo` (the next pattern, 0 to 249, -1 without a chain), `chainRepeat` (at least 1).
+`level`, `mfxType`, `chainTo` (the next pattern, 0 to 249, -1 without a chain), `chainRepeat` (at least 1), `syncGroup` (0 off, 1 to 999; from API version 21).
 **Values of a part** (`korg.parts[i].…`): `sample` (slot), `filterType`, `cutoff`, `resonance`, `egInt` (-63 to 63),
 `modType`, `modSpeed`, `modDepth`, `attack`, `decay`, `level`, `pan` (-63 left to 63 right), `ifxOn`, `ifxType`,
 `ifxEdit`, `pitch` (-63 to 63), `glide`, `voiceAssign`, `oscEdit`, `mfxSend`. The values are in the device's units
-(mostly 0 to 127). The values of a pattern are read only; those of a part can also be set from API version 14, see
-`korg.seq.setPartValue` below. The list and where each value comes from is in `data/script/contract.mjs` (`PATTERN_FIELDS`,
+(mostly 0 to 127). The values of the pattern that plays and of its parts can also be set, see
+`korg.seq.setPatternValue` and `korg.seq.setPartValue` below; those of a stored pattern (`korg.patterns[i]`) are read only.
+`sample` stays read only (the slot number does not fit the byte the call writes, and an empty slot is not measured), and so
+does `ifxType`: the firmware has 59 types on hacktribe, 48 on red and 38 on blue, its menu wraps around at the end, and the
+device map still lists 0 to 99. `ifxOn` stays read only too: after setting it, the IFX ON key also calls the sound engine and
+MIDI with values of its own, so setting it alone leaves the sound engine's copy different from the key. The list and where each value comes from is in `data/script/contract.mjs` (`PATTERN_FIELDS`,
 `PART_FIELDS`); the places are measured in the device map `data/map/pattern.mjs`. From API version 8.
 
 `+=`, `-=` and the other compound assignments work on everything that can be read and set, and so do
@@ -396,8 +400,8 @@ korg.onEvent("close", () => {
 });
 ```
 
-More branches (`korg.patterns`, `korg.parts`) come with the next
-versions; the old names stay valid.
+`korg.pattern.current` is the name of the pattern that plays in the object tree; `korg.current` stays valid and means the
+same values.
 
 ### Timers (API 11, BLECHTRIBE 1.3.8)
 
@@ -511,8 +515,8 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.seq.setStep(part, step, note, velocity)` | writes step `step` (0 to 63) of part `part` (0 to 15) in the pattern that plays: `note` 0 to 127 with `velocity` 1 to 127 turns it on, with that note in the first note place (the other three empty) and the trigger on; `note` -1 or `velocity` 0 turns it off. The gate stays as it is. From API version 9 | like `korg.led` |
 | `korg.seq.setGate(part, step, gate)` | sets the gate of the step, 0 to 127; 96 is a whole step, 127 ties into the next note. From API version 9 | like `korg.led` |
 | `korg.seq.clearPart(part)` | turns all 64 steps of the part off; notes, gates and velocities stay. From API version 9 | like `korg.led` |
-| `korg.seq.setPartValue(part, value, x)` | sets the value `value` (its number in `PART_FIELDS`, as for `korg.read.patternValue`) of part `part` to `x`, clamped to its range, through the firmware function the knobs use: the pattern in RAM and the sound change as when turning the knob. For the selected part the parameter window opens as with the knob. `sample`, `ifxOn`, `ifxType`, `voiceAssign` and `mfxSend` stop the plugin with an error. More readable as `korg.parts[i].cutoff = x`. On the blue Electribe the function is not measured; there the call writes nothing. From API version 14 | like `korg.led` |
-| `korg.seq.setPatternValue(value, x)` | sets the value `value` (its number in `PATTERN_FIELDS`, as for `korg.read.patternValue` with `part` -1) of the pattern that plays to `x`, clamped to its range, through the firmware function the Pattern menu uses: the block then holds the same byte as after turning it in the menu. MFX TYPE only goes to 31 on blue. Checked in the emulator on hacktribe, red and blue ([measurement](messungen/2026-11-03-plugin-api15.md), German), not yet on the device. The table per firmware is in `tools/patch/script_hooks.py` (`PATTERN_SETTERS`). From API version 15 | like `korg.led` |
+| `korg.seq.setPartValue(part, value, x)` | sets the value `value` (its number in `PART_FIELDS`, as for `korg.read.patternValue`) of part `part` to `x`, clamped to its range, through the firmware function the knobs use: the pattern in RAM and the sound change as when turning the knob. For the selected part the parameter window opens as with the knob. `voiceAssign` and `mfxSend` (from API version 21) go through the firmware function the VOICE ASSIGN page of the Part menu and the MFX SEND key call; they write the pattern and the sound engine's copy on all three firmwares, without the parameter window. `sample`, `ifxOn` and `ifxType` stop the plugin with an error. More readable as `korg.parts[i].cutoff = x`. On the blue Electribe the knob function is not measured; there the call writes nothing for the knob values. Checked in the emulator ([measurement](messungen/2026-11-06-plugin-api21-pattern-parts.md), German). From API version 14 | like `korg.led` |
+| `korg.seq.setPatternValue(value, x)` | sets the value `value` (its number in `PATTERN_FIELDS`, as for `korg.read.patternValue` with `part` -1) of the pattern that plays to `x`, clamped to its range, through the firmware function the Pattern menu uses: the block then holds the same byte as after turning it in the menu. MFX TYPE only goes to 31 on blue. `syncGroup` (value 12, from API version 21) has no firmware function, the firmware does not know it; the call writes it into the block as the SYNC GROUP page does. Checked in the emulator on hacktribe, red and blue ([measurement](messungen/2026-11-03-plugin-api15.md), German), not yet on the device. The table per firmware is in `tools/patch/script_hooks.py` (`PATTERN_SETTERS`). From API version 15 | like `korg.led` |
 | `korg.read.patternBytes(array, pattern, offset)` | copies bytes of a pattern into the array, one byte per slot: `pattern` -1 the one in RAM, 0 to 249 a stored one, from `offset` (0 to 16383) in the block of 16384 bytes, as many as the array has slots and the block reaches. Returns the number of bytes. The places are in `data/map/pattern.mjs`: part `p` starts at 2048 + 816 × `p`, its step `s` at 48 + 12 × `s` within it. From API version 14 | everywhere |
 | `korg.seq.writeSteps(array, part, first)` | writes steps from the array into part `part` of the pattern that plays, from step `first` (0 to 63): 12 slots per step as in the pattern (on, gate, velocity, trigger, four note places, four places the runtime leaves alone), as many whole steps as the array holds and up to step 63. Each value is clamped (on and trigger 0 to 1, gate 0 to 127, velocity 1 to 127, notes 0 to 128); the on byte goes last. Returns the number of steps. From API version 14 | like `korg.led` |
 
