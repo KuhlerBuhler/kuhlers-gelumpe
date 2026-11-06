@@ -167,6 +167,53 @@ def case_exit(payload, flash):
     return [result("exit_held", status in (0, 4) and unchanged, f"status {STATUS.get(status, status)}, records unchanged {unchanged}")]
 
 
+def case_boot_effects(payload, flash):
+    """The pattern of the start set its effects before the loader ran: the loader sends them again, so the DSP plays the records
+    of the file. The last transfers of the start are the ones selecting the same record on a start without the file sends."""
+    import preset_cases
+    from mfx_cases import DspLog, same_dsp
+
+    class Box(preset_cases.Box):
+        def __init__(self, files):
+            self.dev = Dev(bytes(payload), flash, 0)
+            self.dsp = DspLog(self.dev.m)
+            self.dev.m.insert_card(card(files))
+            self.dev.run(BOOT_S)
+
+    ab = lambda changes: [t for t in changes if t[0] == 0xAB]
+    build = 2 if build_of(payload) == "stock" else 1
+    base = Box({})
+    n = base.count("ifx")
+    out = []
+    for kind, k in (("ifx", 5), ("mfx", 5)):
+        dev = Box({CARD_FILE: collection(build, [entry(kind, 0, base.record(kind, k))])})
+        start = ab(dev.dsp.changes())
+        if kind == "ifx":
+            base.goto_ifx(k - 1, n); base.dsp.clear(); base.step_ifx(1); base.dev.run(1.0)
+        else:
+            base.set_mfx(3); base.dev.run(.5); base.dsp.clear(); base.set_mfx(k); base.dev.run(1.0)
+        tail = ab(base.dsp.changes())[-3:]
+        sent = len(tail) == 3 and any(same_dsp(start[i:i + 3], tail) for i in range(len(start) - 2))
+        out.append(result(f"boot_{kind}_sent", sent and state(dev.dev)[0] == 2 and not dev.dev.m.asserts,
+                          f"status {STATUS.get(state(dev.dev)[0])}, the record of the file reached the DSP at the start: {sent}"))
+    return out
+
+
+def case_version_text(payload, flash):
+    """BLECH > VERSION says in its third row what the start did with e2sFx.all: nothing without a file."""
+    base, before, want, good = plan(payload, flash)
+    build = 2 if build_of(payload) == "stock" else 1
+    out = []
+    for name, files, expect in (("none", {}, ""), ("loaded", {CARD_FILE: collection(build, good)}, "effects loaded"),
+                                ("build", {CARD_FILE: collection(3 - build, good)}, "e2sFx.all wrong fw"),
+                                ("checksum", {CARD_FILE: collection(build, good, crc_wrong=True)}, "bad e2sFx.all")):
+        dev = boot(payload, flash, files)
+        menu_cases.goto_top(dev, menu_cases.LIST_VERSION)
+        line3 = menu_cases.texts_of(dev)[2]
+        out.append(result(f"version_{name}", line3 == expect and not dev.m.asserts, f"third row {line3!r}, want {expect!r}"))
+    return out
+
+
 def export(dev):
     """DATA UTILITY, our page EXPORT ALL EFFECTS, ENTER: the value it shows after, and the collection on the card then."""
     menu_cases.INIT_PAGE = dev.read(menu_cases.INIT_CODE, 4) != b"\xff" * 4
@@ -258,7 +305,7 @@ def export_new(payload, flash, build):
     return out
 
 
-GROUPS = (case_good, case_refused, case_exit, case_export)
+GROUPS = (case_good, case_refused, case_exit, case_export, case_boot_effects, case_version_text)
 
 
 def group_entries(payload, flash, i):

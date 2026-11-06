@@ -84,9 +84,10 @@ async function patcherPage() {
   return page;
 }
 
-/** The wizard in front of the way: which Electribe, then what to do. */
-async function wizard(page, device, goal) {
+/** The wizard in front of the way: which Electribe, which firmware runs on it, then what to do. */
+async function wizard(page, device, goal, firmware = "korg") {
   await page.click(`#cee-patch-wiz-${device}`);
+  await page.click(`#cee-patch-wiz-fw-${firmware}`);
   await page.click(`#cee-patch-wiz-${goal}`);
   await page.locator("#cee-patch-step-1:not([hidden])").waitFor();
 }
@@ -470,6 +471,25 @@ test("patcher: a failed emulator check leaves no download", async () => {
     assert.equal(await page.locator("#cee-patch-run").textContent(), "Noch einmal patchen und prüfen");
     await page.locator("#cee-patch-details > summary").click();
     assert.match(await page.locator("#cee-patch-checks").textContent(), /nicht bestanden Notschalter/);
+    // the toast's "Blechy fragen" opens the Rettung page at what a red rescue path means
+    const red = page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat einen Fehler gefunden (Notschalter" });
+    const message = await red.locator(".cee-toast-text").textContent();
+    await red.locator(".cee-toast-help").click();
+    await page.locator("#cee-rescue-quote").waitFor();
+    assert.equal(await page.evaluate(() => location.hash), "#rescue");
+    assert.equal(await page.locator("#cee-rescue-quote").textContent(), message);
+    await page.locator("#cee-rescue-answers:not([data-waiting])").waitFor({ state: "attached" });
+    const chat = await page.locator("#cee-rescue-chat").textContent();
+    assert.match(chat, /Rettungsweg ging nicht mehr/);
+    assert.match(chat, /Nimm als Eingabe eine normale Firmware/);
+    // asked from the start, Blechy knows which kind of red it was
+    await page.click("#cee-rescue-again");
+    await page.locator("#cee-rescue-answers button", { hasText: "Sie läuft, aber die App hakt" }).click();
+    await page.locator("#cee-rescue-answers button", { hasText: "Der Test im Patcher wird rot oder läuft nicht" }).click();
+    await page.locator("#cee-rescue-answers [data-known]").waitFor();
+    assert.match(await page.locator("#cee-rescue-answers [data-known]").textContent(), /Start oder ein Rettungsweg/);
+    assert.match(await page.locator("#cee-rescue-chat").textContent(), /zuletzt rot war: „Notschalter/);
+    assert.deepEqual(page.errors, []);
   } finally {
     fake.hooks.checkOk = true;
   }
@@ -552,6 +572,27 @@ test("patcher: the hint names the folder the running firmware reads, not a guess
 });
 
 
+test("patcher: a file for another Electribe than the wizard named asks for the device again", async () => {
+  const original = await makeFirmware();
+  original.set([0x45, 0x32, 0], 0x10);
+  original.fill(0xff, 0x170100, 0x170140);
+  const hash = await sha256(original);
+  const page = await h.page();
+  await page.route(/\/src\/patcher\.mjs$/, async route => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replace(SYNTH_SHA256, hash) });
+  });
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-patcher");
+  await page.locator(".cee-patch-title").waitFor();
+  await wizard(page, "red", "blech");
+  await drop(page, original);
+  await page.click("#cee-patch-next");
+  assert.equal(await page.locator("#cee-patch-device-box").isVisible(), true, "the blue's file on a red named in the wizard is shown");
+  assert.match(await page.locator("#cee-patch-device-note").textContent(), /nur auf die blaue Electribe/);
+  assert.deepEqual(page.errors, []);
+});
+
 test("patcher: the blue original gets its synth set and trials the copy in electribe/System", async () => {
   const original = await makeFirmware();
   original.set([0x45, 0x32, 0], 0x10);
@@ -622,7 +663,7 @@ test("patcher: Korg's zip goes into the field as it is, and the app loads it fro
   await app.locator("#cee-patch-file-info", { hasText: "electribe_sampler_system_v202.zip › SYSTEM.VSB" }).waitFor();
   assert.deepEqual(await app.evaluate(() => window.__korgAsked), [["korg_firmware", { device: "red" }]]);
   await app.click("#cee-patch-next");
-  assert.equal(await app.locator("#cee-patch-device-box").isVisible(), true, "the Electribe is in view in step 2");
+  assert.equal(await app.locator("#cee-patch-device-box").isVisible(), false, "the wizard named the Electribe, step 2 does not ask again");
   assert.deepEqual(app.errors, []);
 });
 
@@ -759,20 +800,36 @@ test("patcher: the test is a choice; no test needs the consent and goes straight
   assert.deepEqual(page.errors, []);
 });
 
-test("patcher: the wizard asks for the Electribe, then offers only what fits it, and step 1 shows only that path", async () => {
+test("patcher: the wizard asks for the Electribe and its firmware, then offers only what fits it, and step 1 shows only that path", async () => {
   const page = await patcherPage();
   assert.equal(await page.isVisible("#cee-patch-way"), false, "the way comes after the wizard");
   assert.equal(await page.locator("#cee-patch-wiz-1 h2").textContent(), "Welche Electribe hast du?");
   assert.deepEqual(await page.locator("#cee-patch-wiz-devices .cee-patch-pick").evaluateAll(l => l.map(b => [b.id, b.dataset.device])), [
-    ["cee-patch-wiz-blue", "blue"], ["cee-patch-wiz-red", "red"], ["cee-patch-wiz-blueHt", "blue"], ["cee-patch-wiz-redHt", "red"],
-  ], "four choices, each drawn in the colour of its case");
+    ["cee-patch-wiz-blue", "blue"], ["cee-patch-wiz-red", "red"], ["cee-patch-wiz-grey", "grey"], ["cee-patch-wiz-black", "black"],
+  ], "four Electribes, each drawn in the colour of its case");
+  const firmwares = () => page.locator("#cee-patch-wiz-firmwares .cee-patch-pick").evaluateAll(l => l.map(b => b.id.replace("cee-patch-wiz-fw-", "")));
   const goals = () => page.locator("#cee-patch-wiz-goals .cee-patch-pick").evaluateAll(l => l.map(b => b.id.replace("cee-patch-wiz-", "")));
-  await page.click("#cee-patch-wiz-redHt");
-  assert.deepEqual(await goals(), ["blech", "update"], "Hacktribe on Hacktribe is BLECH");
+  await page.click("#cee-patch-wiz-black");
+  assert.equal(await page.locator("#cee-patch-wiz-2 h2").textContent(), "Welche Firmware läuft drauf?");
+  assert.deepEqual(await firmwares(), ["korg", "ht", "blech", "blechHt"]);
+  await page.click("#cee-patch-wiz-fw-ht");
+  assert.deepEqual(await goals(), ["blech"], "Hacktribe on Hacktribe is BLECH");
   assert.match(await page.locator("#cee-patch-wiz-blech").textContent(), /BLECH \(Hacktribe\)/);
+  await page.click("#cee-patch-wiz-blech");
+  assert.equal(await page.isChecked("#cee-patch-hacktribe-fetch"), true, "Hacktribe on it: its patch is loaded too");
+  assert.equal(await page.isVisible("#cee-patch-korg-red"), true, "the black sampler takes the red's file");
+  await page.click("#cee-patch-back");
+  await page.click("#cee-patch-back");
+  await page.click("#cee-patch-wiz-fw-blechHt");
+  assert.deepEqual(await goals(), ["update", "blech"]);
+  await page.click("#cee-patch-back");
   await page.click("#cee-patch-back");
   await page.click("#cee-patch-wiz-blue");
-  assert.deepEqual(await goals(), ["blech", "blechHt", "update"]);
+  await page.click("#cee-patch-wiz-fw-korg");
+  assert.deepEqual(await goals(), ["blech", "blechHt"], "no update without BLECH on it");
+  await page.click("#cee-patch-back");
+  await page.click("#cee-patch-wiz-fw-blech");
+  assert.deepEqual(await goals(), ["update", "blech", "blechHt"]);
 
   await page.click("#cee-patch-wiz-update");
   assert.equal(await page.isVisible("#cee-patch-usb-get"), true, "the update over USB");
@@ -814,6 +871,7 @@ test("patcher: with the box ticked hacktribe-2.patch comes straight from Hacktri
   assert.equal(await page.isChecked("#cee-patch-hacktribe-use"), true, "the route with Hacktribe");
   await page.locator("#cee-patch-hacktribe-info", { hasText: "hacktribe-2.patch: umgewandelt" }).waitFor();
   assert.equal(await page.locator("#cee-patch-device input[value=blue]").isChecked(), true, "for the Electribe named in the wizard");
+  assert.equal(await page.locator("#cee-patch-device-box").isVisible(), false, "and not asked a second time");
   await page.click("#cee-patch-next");
   await page.click("#cee-patch-run");
   await page.waitForFunction(() => !document.querySelector("#cee-patch-download").disabled);

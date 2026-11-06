@@ -48,6 +48,7 @@
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
+.equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
 .equ M_TM, 0x15C              ; the other word of that gap: the page TAP MOTION, 1 on (the default), 0 off, 2 once
 .equ TM_SETTING, 0xC0188F00   ; the setting word of the patch tap-motion: never written (FFFFFFFF) or 1 is on, 0 is off, 2 is once
 .equ M_NA, 0xFC               ; the page NOTE ASSIST, 1 on (the default), 0 off
@@ -1695,7 +1696,8 @@ menu_texts_clear:
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
-; VERSION: the set's version text (the patch blech-version) as the title, the firmware this runtime is built for as the value
+; VERSION: the set's version text (the patch blech-version) as the title, the firmware this runtime is built for as the value, under
+; it what the start did with e2sFx.all
 menu_text_version:
     add r0, r5, #M_TITLE
     ldr r1, =VERSION_TEXT
@@ -1707,6 +1709,10 @@ menu_text_version:
     ldr r1, [r1, #BUILD_BASE]
     add r0, r5, #M_VALUE
     bl menu_copy
+    bl fx_status_text
+    cmp r1, #0
+    addne r0, r5, #M_LINE3
+    blne menu_copy
     pop {r4, r5, r6, r7, pc}
 ; the page BLECH in the ring and the groups of the list look like Data Util: the name as the title, "press  [ Enter ]" under it
 menu_text_ring:
@@ -2010,8 +2016,8 @@ menu_pc_call:
     mov r1, r2
     bx r12
 
-; SPLASH IMPORT (22): ENTER reads KORG/blechtribe/splash.bmp into the start image; SPLASH DRAW (23): ENTER opens the editor;
-; SPLASH RESET (35): ENTER drops the stored image, the start image of the firmware comes back
+; SPLASH IMPORT (22): the dial picks a .bmp file in KORG/blechtribe, ENTER reads it into the start image; SPLASH DRAW (23): ENTER
+; opens the editor; SPLASH RESET (35): ENTER drops the stored image, the start image of the firmware comes back
 menu_text_splash:
     mov r6, r0
     mov r0, #3
@@ -2023,10 +2029,23 @@ menu_text_splash:
     cmp r6, #35
     ldreq r1, =str_splash_reset
     bl menu_copy
+    cmp r6, #22
+    beq menu_text_splash_pick
+menu_text_splash_status:
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
     bne menu_text_status_value
     b menu_text_press
+menu_text_splash_pick:          ; the name of the file the dial is on, or that the folder has none; what ENTER did goes over it
+    ldr r0, [r5, #M_SPLASH_SEL]
+    bl splash_pick
+    str r1, [r5, #M_SPLASH_SEL]
+    cmp r0, #0
+    ldreq r1, =str_splash_nofile
+    ldrne r1, =LIST_PATH+SPLASH_NAME_AT
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_splash_status
 
 ; PATTERN CONFIRM: whether the pattern change waits for a second press (the patch pattern-switch reads the word PS_SETTING)
 menu_text_pc:
@@ -3311,11 +3330,13 @@ menu_list:
     strb r0, [r1]
     mov r0, #1
     str r0, [r4, #M_LISTED]
+    ldr r0, =import_folder
     bl menu_dir_open
     cmp r0, #0
     bne menu_list_out
     mov r6, #0
 menu_list_next:
+    ldr r0, =str_suffix
     bl menu_dir_next
     cmp r0, #0
     beq menu_list_done
@@ -3351,6 +3372,13 @@ menu_list_out:
     pop {r4-r6, pc}
 str_suffix:
     .asciz ".blech"
+str_bmp:
+    .asciz ".bmp"
+splash_folder:
+    .asciz "SD:KORG/blechtribe"
+splash_prefix:
+    .asciz "SD:KORG/blechtribe/"
+.equ SPLASH_NAME_AT, 19         ; the length of splash_prefix: where the name starts in LIST_PATH
 import_folder:
     .asciz "SD:KORG/blechtribe/Plugin"
 import_prefix:
@@ -3358,25 +3386,26 @@ import_prefix:
 .align 4
 .pool
 
-; -> r0 = the FatFs result of opening KORG/blechtribe/Plugin at LIST_DIR, long names into LIST_LFN. Clobbers r1 to r3 and r12.
+; r0 = a folder -> r0 = the FatFs result of opening it at LIST_DIR, long names into LIST_LFN. Clobbers r1 to r3 and r12.
 menu_dir_open:
     push {lr}
     ldr r1, =LIST_INFO
-    ldr r0, =LIST_LFN
-    str r0, [r1, #0x18]
-    mov r0, #63
-    str r0, [r1, #0x1C]
+    ldr r2, =LIST_LFN
+    str r2, [r1, #0x18]
+    mov r2, #63
+    str r2, [r1, #0x1C]
+    mov r1, r0
     ldr r0, =LIST_DIR
-    ldr r1, =import_folder
     ldr r12, =FS_OPENDIR
     blx r12
     pop {pc}
 
-; The next entry of the folder open at LIST_DIR whose name may be a plugin's: no folder, not hidden or system, not starting with a dot,
-; 7 to 31 characters that end in ".blech" (any case). -> r0 = that name (LIST_LFN, or the short name in LIST_INFO), 0 at the end of the
-; folder or when it cannot be read. Clobbers r1 to r3 and r12.
+; r0 = a suffix in lower case (".blech", ".bmp") -> r0 = the next entry of the folder open at LIST_DIR that may be such a file: no folder,
+; not hidden or system, not starting with a dot, up to 31 characters that end in the suffix (any case) behind at least one more
+; (LIST_LFN, or the short name in LIST_INFO); 0 at the end of the folder or when it cannot be read. Clobbers r1 to r3 and r12.
 menu_dir_next:
-    push {r4-r6, lr}
+    push {r4-r7, lr}
+    mov r7, r0
     ldr r4, =LIST_INFO
 menu_dir_next_entry:
     ldr r6, =LIST_LFN
@@ -3406,14 +3435,19 @@ menu_dir_next_len:
     cmp r0, #0
     addne r5, r5, #1
     bne menu_dir_next_len
-    cmp r5, #7
-    blo menu_dir_next_entry
+    mov r3, #0
+menu_dir_next_suffix_len:
+    ldrb r0, [r7, r3]
+    cmp r0, #0
+    addne r3, r3, #1
+    bne menu_dir_next_suffix_len
+    cmp r5, r3
+    bls menu_dir_next_entry
     cmp r5, #31
     bhi menu_dir_next_entry
-    sub r2, r5, #6
+    sub r2, r5, r3
     add r2, r6, r2
-    ldr r1, =str_suffix
-    mov r3, #6
+    mov r1, r7
 menu_dir_next_suffix:
     ldrb r0, [r2], #1
     orr r0, r0, #0x20
@@ -3423,10 +3457,47 @@ menu_dir_next_suffix:
     subs r3, r3, #1
     bne menu_dir_next_suffix
     mov r0, r6
-    pop {r4-r6, pc}
+    pop {r4-r7, pc}
 menu_dir_next_end:
     mov r0, #0
-    pop {r4-r6, pc}
+    pop {r4-r7, pc}
+.pool
+
+; r0 = a place among the .bmp files in KORG/blechtribe, in the order of the folder -> r0 = how many there are, r1 = the place taken
+; (the last file where r0 is past it, 0 without files), LIST_PATH the path of that file. Clobbers r2, r3 and r12.
+splash_pick:
+    push {r4, r5, lr}
+    mov r4, r0
+    mov r5, #0
+    ldr r0, =LIST_PATH
+    ldr r1, =splash_prefix
+    bl menu_copy
+    ldr r0, =splash_folder
+    bl menu_dir_open
+    cmp r0, #0
+    bne splash_pick_out
+splash_pick_next:
+    ldr r0, =str_bmp
+    bl menu_dir_next
+    cmp r0, #0
+    beq splash_pick_close
+    cmp r5, r4
+    movls r1, r0
+    ldrls r0, =LIST_PATH+SPLASH_NAME_AT
+    blls menu_copy
+    add r5, r5, #1
+    b splash_pick_next
+splash_pick_close:
+    ldr r0, =LIST_DIR
+    ldr r12, =FS_CLOSEDIR
+    blx r12
+splash_pick_out:
+    mov r0, r5
+    subs r1, r5, #1
+    movmi r1, #0
+    cmp r4, r1
+    movlo r1, r4
+    pop {r4, r5, pc}
 .pool
 
 ; r0 = a file's index in the list -> r0 = its name, read again from the folder at its place (LIST_ORD), with LIST_PATH its path; 0 when
@@ -3437,11 +3508,13 @@ menu_find_listed:
     mov r4, r0
     ldr r1, =LIST_ORD
     ldrb r5, [r1, r4]
+    ldr r0, =import_folder
     bl menu_dir_open
     cmp r0, #0
     movne r0, #0
     popne {r4-r6, pc}
 menu_find_listed_next:
+    ldr r0, =str_suffix
     bl menu_dir_next
     movs r6, r0
     beq menu_find_listed_close
@@ -4269,6 +4342,8 @@ menu_slot_value:
     bl menu_kind
     cmp r0, #18
     beq menu_value_pc
+    cmp r0, #22
+    beq menu_value_splash
     cmp r0, #20
     beq menu_value_tm
     cmp r0, #21
@@ -4444,6 +4519,15 @@ menu_value_pc:
     str r1, [r6, #M_PC]
     ldr r2, =PS_SETTING
     str r1, [r2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; SPLASH IMPORT: the dial walks the .bmp files, the text stops it at the last one
+menu_value_splash:
+    ldr r1, [r6, #M_SPLASH_SEL]
+    adds r1, r1, r5
+    movmi r1, #0
+    str r1, [r6, #M_SPLASH_SEL]
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
@@ -4756,8 +4840,16 @@ menu_keys_export_fx:
 menu_keys_splash_import:
     cmp r6, #0x09
     bne menu_keys_done
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_SPLASH_SEL]
+    bl splash_pick
+    cmp r0, #0
+    moveq r0, #1                ; no .bmp file there: said as the editor's no file
+    beq menu_keys_splash_said
+    ldr r0, =LIST_PATH
     ldr r12, =SPLASH_IMPORT
     blx r12
+menu_keys_splash_said:
     add r0, r0, #0x40           ; 0x40 stored, 0x41 no file, 0x42 not such a BMP, 0x43 the flash write failed
     ldr r1, =MENU_STATE
     str r0, [r1, #M_STATUS]
@@ -5039,6 +5131,12 @@ str_fx_nofile:
     .asciz "no e2sFx.all"
 str_fx_bad:
     .asciz "bad e2sFx.all"
+str_fx_loaded:                  ; VERSION, the third row: what the start did with e2sFx.all
+    .asciz "effects loaded"
+str_fx_skipped:
+    .asciz "effects skipped"
+str_fx_build:
+    .asciz "e2sFx.all wrong fw"
 str_tab_global:
     .asciz "Global"
 str_tab_du:
@@ -5084,7 +5182,7 @@ str_splash_reset_done:
 str_splash_saved:
     .asciz "loaded"
 str_splash_nofile:
-    .asciz "no splash.bmp"
+    .asciz "no .bmp file"
 str_splash_format:
     .asciz "not 128x64 1 bit"
 str_pc:
