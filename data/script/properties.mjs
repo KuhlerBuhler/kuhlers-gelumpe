@@ -13,7 +13,7 @@ const knobName = id => id.replace(/([a-z])([A-Z0-9])/g, "$1_$2").toUpperCase();
 /** `korg.knobs.LEVEL`: the knob names, from the panel table, as the index the knob event and korg.read.knob use. */
 export const KNOB_NAMES = Object.freeze(KNOBS.map(k => Object.freeze({ name: knobName(k.id), value: k.index, label: k.label })));
 
-const p = (path, read, write, text, range = null, since = 1) => Object.freeze({ path, read, write, text, range, since });
+const p = (path, read, write, text, range = null, since = 0) => Object.freeze({ path, read, write, text, range, since });
 
 export const PROPERTIES = Object.freeze([
   p("korg.tempo", ["korg.read.tempo", []], ["korg.tempo", ["value"]], text("api.property.tempo")),

@@ -302,6 +302,31 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.system.repairs` | wie viele Werte seit dem Start geklemmt oder zurückgesetzt wurden | nein | 0 bis 2147483647 |
 | `korg.system.testMode` | ob der Test-Modus an ist: Display, Licht und alle LEDs dunkel, Auto Power Off angehalten | nein, nur über USB; nur im RAM, nach einem Neustart aus | 0 (aus) bis 1 (an) |
 | `korg.system.keepAwake()` | (ein Aufruf, kein Wert) | startet die 4 Stunden von Auto Power Off neu, wie eine Taste am Gerät | |
+| `korg.menu.blech.customizations.display.red` | Rotanteil des Display-Lichts (die Seiten BACKLIGHT HUE, SAT und BRIGHT zeigen ihn als Farbton, Sättigung, Helligkeit); alle drei auf 0 ist das Weiß der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.display.green` | Grünanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.display.blue` | Blauanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.display.invert` | Display invertiert (1), wie die Seite DISPLAY INVERT | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.customizations.led.mode` | untere LEDs: 0 Meter, 1 Farbe, 2 aus (Seite BOTTOM LEDS) | ja, wirkt sofort wie die Seite | 0 bis 2 |
+| `korg.menu.blech.customizations.led.red` | Rotanteil der unteren LEDs (Seiten LED HUE, SAT, BRIGHT); alle drei auf 0 sind die Farben der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.led.green` | Grünanteil der unteren LEDs | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.led.blue` | Blauanteil der unteren LEDs | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.led.meter.still` | Farbe von METER STILL: 0 Firmware, 1 bis 7 weiß, rot, grün, blau, gelb, cyan, rosa, 8 Regenbogen, 9 aus | ja, wirkt sofort wie die Seite | 0 bis 9 |
+| `korg.menu.blech.customizations.led.meter.low` | Farbe von METER LOW: 0 Firmware, 1 bis 7 wie oben | ja, wirkt sofort wie die Seite | 0 bis 7 |
+| `korg.menu.blech.customizations.led.meter.mid` | Farbe von METER MID: 0 Firmware, 1 bis 7 wie oben | ja, wirkt sofort wie die Seite | 0 bis 7 |
+| `korg.menu.blech.customizations.led.meter.loud` | Farbe von METER LOUD: 0 Firmware, 1 bis 7 wie oben, 8 Regenbogen | ja, wirkt sofort wie die Seite | 0 bis 8 |
+| `korg.menu.blech.customizations.padColor.part` | PAD COLOR: 0 rot, 1 blau, 2 rosa; nie gleich SELECT COLOR, ein Schreiben, das beide gleich machen würde, vertauscht sie | ja, wirkt sofort wie die Seite | 0 bis 2 |
+| `korg.menu.blech.customizations.padColor.select` | SELECT COLOR: 0 rot, 1 blau, 2 rosa; Regel wie bei PAD COLOR | ja, wirkt sofort wie die Seite | 0 bis 2 |
+| `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, Farbe eines Pads, das leuchtet und gewählt ist: 0 die Farbe, die bleibt, 1 rot, 2 blau, 3 rosa | ja, wirkt sofort wie die Seite | 0 bis 3 |
+| `korg.menu.blech.customizations.powerSave.displayLight` | DISPLAY LIGHT im Power Save: 0 das Dimmen der Firmware, 1 bis 15 Stärke des Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
+| `korg.menu.blech.customizations.powerSave.ledDimming` | LED DIMMING im Power Save als Schritt des Rads: 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100 Prozent gedimmt | ja, wirkt sofort wie die Seite | 0 bis 11 |
+| `korg.menu.blech.features.mfx2` | MFX 2 an (1); gilt ab dem nächsten Start, die Seite sagt das | ja | 0 bis 1 |
+| `korg.menu.blech.features.patternConfirm` | PATTERN CONFIRM: der Patternwechsel wartet auf einen zweiten Druck (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.tapMotion` | TAP MOTION: 0 aus, 1 an, 2 einmal | ja, wirkt sofort wie die Seite | 0 bis 2 |
+| `korg.menu.blech.features.noteAssist` | NOTE ASSIST: die Pads zeigen die Noten, die passen (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.lastPattern` | LAST PATTERN: beim Einschalten das zuletzt gewählte Pattern öffnen (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.stereo1Pad` | STEREO 1 PAD: ein Stereo-Sample belegt nur seinen eigenen Pad (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.initPattern` | SET INIT PATTERN: das Pattern, das INITIALIZE PATTERN kopiert; 0 die Vorlage der Firmware | ja, wirkt sofort wie die Seite | 0 bis 250 |
+| `korg.menu.blech.write()` | (ein Aufruf, kein Wert) | schreibt die Einstellungen des Menüs BLECH auf die Karte wie WRITE auf einer Seite, siehe unten | |
 | `korg.global.triggerMode` | Seite TRIGGER MODE von GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
 | `korg.global.velocityCurve` | Seite VELOCITY CURVE von GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | ja, wie das Menü, über die Funktion der Firmware | 0 bis 3 |
 | `korg.global.clockMode` | Seite CLOCK MODE von GLOBAL PARAMETERS: 0 Internal, 1 Auto, 2 External USB, 3 External MIDI, 4 External Sync | ja, wie das Menü, über die Funktion der Firmware | 0 bis 4 |
@@ -335,6 +360,33 @@ korg.onEvent("close", () => {
 });
 ```
 
+**Die Seiten von BLECH (API 17).** Alle Seiten von CUSTOMIZATION und FEATURES haben ein Blatt, dazu das
+Blatt SET INIT PATTERN aus DATA UTILITY. Ein Blatt dieser Gruppe braucht API 17. Jede Schreibung ruft die Anwendefunktion, die
+auch die Seite nimmt: die Look-Seiten setzen Licht, LEDs und Display neu, PAD COLOR, SELECT COLOR, OVERLAP und LED DIMMING gehen
+durch den Patch der Pad-Farben, PATTERN CONFIRM, TAP MOTION und NOTE ASSIST setzen zusätzlich das Wort, das ihr Patch liest.
+Danach zeigt die Seite den neuen Wert. Die Farben zeigen die Seiten als Farbton, Sättigung und Helligkeit, gespeichert und
+darum als Blatt sichtbar sind Rot, Grün und Blau mit je 0 bis 15. Ein Wert, den ein Patch nie geschrieben hat (LAST PATTERN,
+STEREO 1 PAD), liest sich als Werkswert, wie der Patch ihn behandelt. Nicht als Blatt stehen die Aktionen der Seiten
+(SPLASH IMPORT, DRAW und RESET, die Exporte), PLUGIN RUNTIME (ein Plugin, das seine eigene Laufzeit ausschaltet, ließe das
+Gerät beim nächsten Start ohne Plugins) und SYNC GROUP (eine Einstellung des Patterns).
+
+**Nur im RAM, bis WRITE.** Die Werte gelten sofort, liegen aber nur im RAM. Auf die Karte kommen sie mit WRITE auf einer Seite
+des Menüs BLECH (die Datei `settings.a.bin` oder `settings.b.bin`), vorher nicht; nach einem Neustart gilt, was zuletzt
+geschrieben wurde. Ausnahme ist SET INIT PATTERN: es liegt in den Global-Einstellungen der Firmware, die das Gerät beim
+Ausschalten speichert. `korg.menu.blech.write()` schreibt die Einstellungsdatei aus dem Plugin, wie WRITE es tut. Es fragt nur
+an: geschrieben wird einen Moment später, nur solange der Hauptbildschirm oder BLECH offen ist, und frühestens 2 Sekunden nach
+dem letzten Schreiben, weitere Aufrufe davor bleiben eine Anfrage. Ohne Karte oder bei einem Fehler passiert nichts weiter, wie
+bei WRITE im Menü. Ein Plugin sollte es sparsam rufen, etwa wenn es einen Wert gesetzt hat, den der Anwender behalten soll.
+
+```js
+// Beim Öffnen der App das Display umkehren und die Einstellung behalten.
+korg.app("Invert", "TOOLS");
+korg.onEvent("open", () => {
+  korg.menu.blech.customizations.display.invert = 1 - korg.menu.blech.customizations.display.invert;
+  korg.menu.blech.write();
+});
+```
+
 Der Test-Modus lässt das Gerät aussehen wie ausgeschaltet, während es läuft: Display aus, Display-Licht aus,
 jede LED auf 0, auch wenn die Firmware, Blechy oder ein anderes Plugin sie setzt, und Auto Power Off schaltet
 nicht ab. Das Gerät nimmt weiter Tasten, Regler und Pads an, und sein Bild lässt sich über USB lesen. Nur der
@@ -342,10 +394,10 @@ Rechner schaltet ihn, über USB ([Test-Modus](test-modus.md)); ein Plugin liest 
 keines das Gerät bei jedem Start dunkel lassen kann. Beim Ausschalten kommen Licht und LEDs zurück, wie sie ohne
 Test-Modus wären; eine LED, die ein Plugin inzwischen gesetzt hat, zeigt dessen Wert.
 
-**Die Globals (`korg.global`, API 16).** Zu jeder bekannten Seite von GLOBAL PARAMETERS gibt es ein Blatt, mit dem
+**Die Globals (`korg.global`, API 18).** Zu jeder bekannten Seite von GLOBAL PARAMETERS gibt es ein Blatt, mit dem
 Namen der Seite in camelCase und den Werten, die das Gerät speichert (`korg.global.midiChannel` 0 bis 15 ist Kanal 1 bis 16).
 Die Bereiche sind die Grenzen des Menüs. Nicht im Baum sind die Kennungen am Anfang und Ende des Blocks, die Bytes, die
-kein Menü ändert, und die Plätze 247 bis 249, die Patches von BLECH belegen. Ein Plugin, das ein Blatt nennt, braucht API 16.
+kein Menü ändert, und die Plätze 247 bis 249, die Patches von BLECH belegen. Ein Plugin, das ein Blatt nennt, braucht API 18.
 
 Setzen ruft dieselbe Funktion der Firmware, die auch die Seite im Menü beim Drehen ruft: sie schreibt das Byte und meldet
 es an Klangerzeugung, Display und MIDI-Seite (bei `tempoLock` stellt sie danach das Tempo neu). Der Wert wirkt sofort, ohne
@@ -353,7 +405,7 @@ Neustart; die Seite im Menü zeigt ihn, sobald sie neu gezeichnet wird, also wen
 Firmware das Setzen ab, solange der Transport in ihrem Zustand 6 bis 9 ist, genau wie im Menü. Ein Wert außerhalb der Grenzen
 wird auf die nächste Grenze geklemmt und gezählt, ein gespeicherter Wert außerhalb wird beim Start repariert: auf die nächste
 Grenze, ohne die Funktion der Firmware zu rufen. Im Emulator gemessen auf Hacktribe, Korg rot und Korg blau
-([Messung](messungen/2026-11-05-plugin-api16.md)); am Gerät nicht.
+([Messung](messungen/2026-11-05-plugin-api18-globals.md)); am Gerät nicht.
 
 **Speichern.** Dafür gibt es keinen Aufruf. Die Firmware speichert die Globals beim Ausschalten und bei WRITE auf der Seite
 GLOBAL PARAMETERS, wie sie auch das letzte Pattern behält. Ein Wert, den ein Plugin gesetzt hat, bleibt deshalb über den
@@ -381,7 +433,7 @@ korg.onEvent("close", () => {
 });
 ```
 
-Weitere Zweige (`korg.patterns`, `korg.parts`, die übrigen Seiten von BLECH) kommen mit den
+Weitere Zweige (`korg.patterns`, `korg.parts`) kommen mit den
 nächsten Versionen; die alten Namen bleiben gültig.
 
 ### Timer (API 11, BLECHTRIBE 1.3.8)

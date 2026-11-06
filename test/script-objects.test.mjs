@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { API_BY_NAME, API_VERSION } from "../data/script/contract.mjs";
+import { API_VERSION } from "../data/script/contract.mjs";
 import globalMap from "../data/map/global.mjs";
-import { OBJECTS, OBJECT_BY_PATH, objectChildren } from "../data/script/objects.mjs";
+import { OBJECTS, OBJECT_BY_PATH, OBJECT_BASES, objectChildren } from "../data/script/objects.mjs";
 import { PROPERTY_BY_PATH } from "../data/script/properties.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { decodeBlob } from "../src/script/blob.mjs";
@@ -45,7 +45,7 @@ test("ids are unique and dense, every leaf is a property with its range, an acti
     assert.deepEqual(prop.write, o.write ? ["korg.set", [o.id, -1, "value"]] : null);
     assert.deepEqual(prop.range, [o.min, o.max]);
     assert.ok(o.min <= o.factory && o.factory <= o.max, o.path);
-    assert.ok(o.since === 10 || o.since === API_VERSION, o.path);
+    assert.ok(o.since >= 10 && o.since <= API_VERSION, o.path);
   }
 });
 
@@ -90,9 +90,10 @@ test("the compiler refuses an unknown path, a read-only leaf and a known value o
 });
 
 test("the children of a branch are what error messages and the editor list", () => {
-  assert.deepEqual(objectChildren("korg.menu.blech"), ["customizations"]);
-  assert.equal(objectChildren("korg").includes("global"), true);
-  assert.deepEqual(objectChildren("korg.menu.blech.customizations.display"), ["intensity"]);
+  assert.deepEqual(objectChildren("korg.menu.blech"), ["customizations", "features", "write"]);
+  assert.deepEqual(objectChildren("korg.menu.blech.customizations"), ["display", "led", "padColor", "powerSave"]);
+  assert.deepEqual(objectChildren("korg.menu.blech.customizations.display"), ["intensity", "red", "green", "blue", "invert"]);
+  assert.deepEqual(objectChildren("korg.menu.blech.customizations.led.meter"), ["still", "low", "mid", "loud"]);
   assert.deepEqual(objectChildren(INTENSITY), []);
 });
 
@@ -126,39 +127,93 @@ test("a plugin reads the test mode but cannot switch it; the remote runtime writ
   assert.ok(state.indexOf("objects_test_mode:") > 0 && OBJECT_BY_PATH.get("korg.system.testMode").offset === 4);
 });
 
-// korg.global.*: every known field of the Global map, API 16 (plan phase 6).
-const GLOBAL = OBJECTS.filter(o => o.base === "global");
+// API 17: every page of CUSTOMIZATION and FEATURES (phase 8 of the plan).
+const MENU_S = readFileSync(new URL("../tools/patch/script_menu.s", import.meta.url), "utf8");
+const signed = name => { const v = MENU_S.match(new RegExp(`^\\.equ ${name}, (-?)(0x[0-9A-Fa-f]+|\\d+)`, "m")); return (v[1] ? -1 : 1) * Number(v[2]); };
+
+test("the leaves of the menu pages sit where the menu keeps them", () => {
+  const at = {
+    "customizations.display.red": "M_BL_R", "customizations.display.green": "M_BL_G", "customizations.display.blue": "M_BL_B",
+    "customizations.display.invert": "M_INV", "customizations.led.mode": "M_LED_MODE",
+    "customizations.led.red": "M_LED_R", "customizations.led.green": "M_LED_G", "customizations.led.blue": "M_LED_B",
+    "customizations.powerSave.displayLight": "MX_SAVE", "features.mfx2": "M_SET_MFX",
+    "features.patternConfirm": "M_PC", "features.tapMotion": "M_TM", "features.noteAssist": "M_NA", "features.initPattern": "IP_SLOT",
+  };
+  for (const [path, name] of Object.entries(at)) assert.equal(OBJECT_BY_PATH.get(`korg.menu.blech.${path}`).offset, signed(name), path);
+  const meter = signed("MX_METER");
+  ["still", "low", "mid", "loud"].forEach((zone, i) => assert.equal(OBJECT_BY_PATH.get(`korg.menu.blech.customizations.led.meter.${zone}`).offset, meter + i, zone));
+  for (const [path, name] of [["features.patternConfirm", "PS_SETTING"], ["features.tapMotion", "TM_SETTING"], ["features.noteAssist", "NA_SETTING"]]) {
+    assert.equal(OBJECT_BY_PATH.get(`korg.menu.blech.${path}`).mirror, signed(name), path);
+  }
+  assert.equal(OBJECT_BY_PATH.get("korg.menu.blech.features.lastPattern").offset, signed("LP_SETTING"));
+  assert.equal(OBJECT_BY_PATH.get("korg.menu.blech.features.stereo1Pad").offset, signed("SP_SETTING"));
+});
+
+test("the range of a leaf is the range the page's dial runs through", () => {
+  const meter = MENU_S.slice(MENU_S.indexOf("menu_slot_value:"), MENU_S.indexOf("menu_value_byte:"));
+  assert.match(meter, /METER_RAINBOW[^\n]*\n[^]*METER_OFF/);
+  const top = name => OBJECT_BY_PATH.get(`korg.menu.blech.customizations.led.meter.${name}`).max;
+  assert.deepEqual(["still", "low", "mid", "loud"].map(top), [signed("METER_OFF"), 7, 7, signed("METER_RAINBOW")]);
+  assert.equal(OBJECT_BY_PATH.get("korg.menu.blech.features.tapMotion").max, 2);
+  assert.equal(OBJECT_BY_PATH.get("korg.menu.blech.features.initPattern").max, 250);
+  assert.equal(OBJECT_BY_PATH.get("korg.menu.blech.customizations.powerSave.ledDimming").max, MENU_S.match(/^led_dim_percent:[^]*?\.byte ([^\n]+)/m)[1].split(",").length - 1);
+});
+
+test("the bases of the table are the ones script_objects.s knows by number", () => {
+  const objects = readFileSync(new URL("../tools/patch/script_objects.s", import.meta.url), "utf8");
+  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"]]) {
+    assert.equal(Number(objects.match(new RegExp(`^\\.equ ${name}, (\\d+)`, "m"))[1]), OBJECT_BASES.indexOf(base), name);
+  }
+});
+
+test("a plugin sets a page and the simulated device keeps it inside the range", () => {
+  const P = "korg.menu.blech";
+  const device = run(`let v = 9; korg.onEvent("ready", () => { ${P}.features.tapMotion = 2; ${P}.customizations.padColor.select = v; ${P}.customizations.led.meter.still = v + 3;
+    korg.store.set(0, ${P}.features.tapMotion); korg.store.set(1, ${P}.customizations.padColor.select); korg.store.set(2, ${P}.customizations.led.meter.still); korg.store.set(3, ${P}.features.stereo1Pad); });`);
+  assert.deepEqual([0, 1, 2, 3].map(i => stored(device, i)), [2, 2, 9, 1]);
+});
+
+test("korg.menu.blech.write() is a call without values and needs API 17", () => {
+  const device = run(`korg.onEvent("ready", () => { korg.menu.blech.write(); });`);
+  assert.equal(device.hardware.objects[OBJECT_BY_PATH.get("korg.menu.blech.write").id], 1);
+  assert.match(refused(`korg.onEvent("ready", () => { korg.menu.blech.write(1); });`), /korg\.menu\.blech\.write/);
+  assert.match(refused(`korg.onEvent("ready", () => { korg.menu.blech.write = 1; });`), /write/);
+});
+
+// korg.global.*: every known field of the Global map, API 18 (plan phase 6).
+const GLOBAL = OBJECTS.filter(o => o.path.startsWith("korg.global."));
 
 test("korg.global has a leaf for every known field of the map and none for the unknown runs or the markers", () => {
   const known = globalMap.fields.filter(f => f.range && f.source !== "unknown");
   assert.equal(GLOBAL.length, known.length);
   for (const f of known) {
-    const leaf = GLOBAL.find(o => o.offset === f.where.offset);
+    const leaf = GLOBAL.find(o => o.offset === f.where.offset + 4);
     assert.ok(leaf, f.id);
     assert.deepEqual([leaf.min, leaf.max], f.range, f.id);
   }
-  assert.equal(GLOBAL.some(o => o.offset < 16 || o.offset > 43), false, "no byte of the unknown runs, nor GLST or GLED");
+  assert.equal(GLOBAL.some(o => o.offset < 16 + 4 || o.offset > 43 + 4), false, "no byte of the unknown runs, nor GLST or GLED");
   assert.equal(new Set(GLOBAL.map(o => o.offset)).size, GLOBAL.length);
 });
 
-test("a Global leaf is stored, repaired by the nearest value, goes through the firmware setter and has the page it is on", () => {
+test("a Global leaf sits on the firmware's Global object, is stored, repaired to the nearest value and goes through the firmware setter", () => {
   for (const o of GLOBAL) {
+    assert.equal(o.base, "global", o.path);
     assert.equal(o.stored, true, o.path);
     assert.equal(o.reset, false, o.path);
     assert.equal(o.apply, "setter", o.path);
-    assert.equal(o.since, 16, o.path);
+    assert.equal(o.since, 18, o.path);
     assert.match(o.page, /^[A-Z. ]+$/, o.path);
     assert.ok(o.min <= o.factory && o.factory <= o.max, o.path);
   }
 });
 
-test("slots 247 to 249, which our patches use, are not in the tree", () => {
+test("slots 247 to 249 of the Global object, which our patches use, are no leaf of korg.global", () => {
   assert.equal(GLOBAL.some(o => o.offset >= 247 && o.offset <= 249), false);
 });
 
-test("a program that names a Global leaf needs API 16, one that only uses the first leaves still needs 10", () => {
-  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { korg.global.metronome = 3; });`)).header.apiVersion, 16);
-  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let m = korg.global.metronome; });`)).header.apiVersion, 16);
+test("a program that names a Global leaf needs API 18", () => {
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { korg.global.metronome = 3; });`)).header.apiVersion, 18);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let m = korg.global.metronome; });`)).header.apiVersion, 18);
   assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { ${INTENSITY} = 3; });`)).header.apiVersion, 10);
 });
 
@@ -172,8 +227,4 @@ test("the compiler refuses a known Global value outside the menu's limits and a 
   assert.match(refused(`korg.onEvent("ready", () => { korg.global.midiChannel = 16; });`), /0.*15.*16/);
   assert.match(refused(`korg.onEvent("ready", () => { korg.global.lcdContrast = 5; });`), /18.*42/);
   assert.match(refused(`korg.onEvent("ready", () => { korg.global.metronom = 1; });`), /korg\.global\.metronom.*metronome/);
-});
-
-test("the Global leaves a plugin may not set are the ones that were not measured", () => {
-  for (const o of GLOBAL) assert.equal(o.write, true, o.path);
 });

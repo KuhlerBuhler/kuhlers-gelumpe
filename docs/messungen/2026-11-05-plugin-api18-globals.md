@@ -1,4 +1,4 @@
-# Plugin API 16: die Globals als Blätter von `korg.global`
+# Plugin API 18: die Globals als Blätter von `korg.global`
 
 Stand 5. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
 mit dem BLECH-Satz. Fälle: `tools/emu/global_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**
@@ -10,8 +10,8 @@ Neustart wirkt, das Menü ihn zeigt, die Firmware ihn behält und ein ungültige
 
 ## Weg
 
-Ein Blatt `korg.global.<name>` hat die Basis "global": das Global-Objekt steht hinter dem Zeiger bei `0xC033E6A0`, sein Block ab
-+4 (Offsets wie in der [Gerätekarte](../geraetekarte.md)). Lesen liest das Byte. Setzen klemmt auf den Bereich der Karte (die Grenzen
+Ein Blatt `korg.global.<name>` hat die Basis "global": das Global-Objekt steht hinter dem Zeiger bei `0xC0691324` (derselbe Wert wie
+`[0xC033E6A0]`), sein Block ab +4; der Offset des Blatts ist der der [Gerätekarte](../geraetekarte.md) plus 4. Lesen liest das Byte. Setzen klemmt auf den Bereich der Karte (die Grenzen
 des Menüs, [Messung vom 14. Oktober](2026-10-14-global-felder.md)), zählt eine Klemmung in `korg.system.repairs` und ruft dann die
 Funktion der Firmware, die auch die Seite im Menü beim Drehen ruft: `(Global-Objekt, Wert, 1)`, die Adressen je Firmware aus den
 [Live-Schreibwegen](2026-11-03-live-schreibwege.md) (`GLOBAL_SETTERS` in `tools/patch/script_hooks.py`, ein Test hält sie gleich

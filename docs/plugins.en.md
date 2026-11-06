@@ -264,6 +264,31 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.system.repairs` | how many values were clamped or reset since start | no | 0 to 2147483647 |
 | `korg.system.testMode` | whether the test mode is on: display, light and every LED dark, Auto Power Off held | no, over USB only; RAM only, off after a restart | 0 (off) to 1 (on) |
 | `korg.system.keepAwake()` | (a call, not a value) | starts the 4 hours of Auto Power Off again, as a key on the device does | |
+| `korg.menu.blech.customizations.display.red` | Red level of the display light (the pages BACKLIGHT HUE, SAT and BRIGHT show it as hue, saturation, brightness); all three at 0 is the stock white | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.display.green` | Green level of the display light | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.display.blue` | Blue level of the display light | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.display.invert` | display inverted (1), like the page DISPLAY INVERT | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.customizations.led.mode` | bottom LEDs: 0 meter, 1 color, 2 off (page BOTTOM LEDS) | yes, acts at once like the page | 0 to 2 |
+| `korg.menu.blech.customizations.led.red` | Red level of the bottom LEDs (pages LED HUE, SAT, BRIGHT); all three at 0 are the stock colors | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.led.green` | Green level of the bottom LEDs | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.led.blue` | Blue level of the bottom LEDs | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.led.meter.still` | color of METER STILL: 0 stock, 1 to 7 white, red, green, blue, yellow, cyan, pink, 8 rainbow, 9 off | yes, acts at once like the page | 0 to 9 |
+| `korg.menu.blech.customizations.led.meter.low` | color of METER LOW: 0 stock, 1 to 7 as above | yes, acts at once like the page | 0 to 7 |
+| `korg.menu.blech.customizations.led.meter.mid` | color of METER MID: 0 stock, 1 to 7 as above | yes, acts at once like the page | 0 to 7 |
+| `korg.menu.blech.customizations.led.meter.loud` | color of METER LOUD: 0 stock, 1 to 7 as above, 8 rainbow | yes, acts at once like the page | 0 to 8 |
+| `korg.menu.blech.customizations.padColor.part` | PAD COLOR: 0 red, 1 blue, 2 pink; never the same as SELECT COLOR, a write that would make them equal swaps the two | yes, acts at once like the page | 0 to 2 |
+| `korg.menu.blech.customizations.padColor.select` | SELECT COLOR: 0 red, 1 blue, 2 pink; same rule as PAD COLOR | yes, acts at once like the page | 0 to 2 |
+| `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, color of a pad that is lit and selected: 0 the color that is left, 1 red, 2 blue, 3 pink | yes, acts at once like the page | 0 to 3 |
+| `korg.menu.blech.customizations.powerSave.displayLight` | DISPLAY LIGHT in power save: 0 the firmware's own dim, 1 to 15 the light's intensity | yes, acts at once like the page | 0 to 15 |
+| `korg.menu.blech.customizations.powerSave.ledDimming` | LED DIMMING in power save as the dial's step: 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100 percent dimmed | yes, acts at once like the page | 0 to 11 |
+| `korg.menu.blech.features.mfx2` | MFX 2 on (1); takes effect at the next start, the page says so | yes | 0 to 1 |
+| `korg.menu.blech.features.patternConfirm` | PATTERN CONFIRM: a pattern change waits for a second press (1) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.tapMotion` | TAP MOTION: 0 off, 1 on, 2 once | yes, acts at once like the page | 0 to 2 |
+| `korg.menu.blech.features.noteAssist` | NOTE ASSIST: the pads show the notes that fit (1) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.lastPattern` | LAST PATTERN: open the pattern selected last at power-on (1) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.stereo1Pad` | STEREO 1 PAD: a stereo sample takes only its own pad (1) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.initPattern` | SET INIT PATTERN: the pattern INITIALIZE PATTERN copies; 0 the firmware's template | yes, acts at once like the page | 0 to 250 |
+| `korg.menu.blech.write()` | (a call, not a value) | writes the settings of the menu BLECH to the card as WRITE does on a page, see below | |
 | `korg.global.triggerMode` | page TRIGGER MODE of GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | yes, as the menu does, through the firmware's own function | 0 to 2 |
 | `korg.global.velocityCurve` | page VELOCITY CURVE of GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | yes, as the menu does, through the firmware's own function | 0 to 3 |
 | `korg.global.clockMode` | page CLOCK MODE of GLOBAL PARAMETERS: 0 Internal, 1 Auto, 2 External USB, 3 External MIDI, 4 External Sync | yes, as the menu does, through the firmware's own function | 0 to 4 |
@@ -297,6 +322,32 @@ korg.onEvent("close", () => {
 });
 ```
 
+**The pages of BLECH (API 17).** Every page of CUSTOMIZATION and FEATURES has a leaf, and so has SET INIT
+PATTERN from DATA UTILITY. A leaf of this group needs API 17. Each write calls the apply function the page takes: the look
+pages set light, LEDs and display again, PAD COLOR, SELECT COLOR, OVERLAP and LED DIMMING go through the patch of the pad
+colors, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST also set the word their patch reads. The page then shows the new value.
+The pages show colors as hue, saturation and brightness; what is stored, and so what the leaves are, is red, green and blue
+with 0 to 15 each. A word a patch never wrote (LAST PATTERN, STEREO 1 PAD) reads as the factory value, as the patch treats
+it. Not a leaf: the actions of the pages (SPLASH IMPORT, DRAW and RESET, the exports), PLUGIN RUNTIME (a plugin that switches
+its own runtime off would leave the device without plugins at the next start) and SYNC GROUP (a setting of the pattern).
+
+**RAM only, until WRITE.** The values act at once but live in RAM only. They reach the card with WRITE on a page of the menu
+BLECH (the file `settings.a.bin` or `settings.b.bin`), not before; after a restart the last written state applies. The
+exception is SET INIT PATTERN: it lives in the firmware's Global settings, which the device saves at switch-off.
+`korg.menu.blech.write()` writes the settings file from a plugin, as WRITE does. It only asks: the write happens a moment
+later, only while the main screen or BLECH is open, and at the earliest 2 seconds after the last write, further calls before
+that stay one request. Without a card or on an error nothing more happens, as with WRITE in the menu. A plugin should call it
+sparingly, for example once it has set a value the user should keep.
+
+```js
+// Invert the display when the app opens and keep the setting.
+korg.app("Invert", "TOOLS");
+korg.onEvent("open", () => {
+  korg.menu.blech.customizations.display.invert = 1 - korg.menu.blech.customizations.display.invert;
+  korg.menu.blech.write();
+});
+```
+
 The test mode makes the device look switched off while it runs: display off, display light off, every LED at 0,
 also when the firmware, Blechy or another plugin sets them, and Auto Power Off does not switch it off. The device
 still takes keys, knobs and pads, and its picture can be read over USB. Only the computer switches it, over USB
@@ -304,10 +355,10 @@ still takes keys, knobs and pads, and its picture can be read over USB. Only the
 every start. When it ends, the light and the LEDs come back as they would be without the test mode; an LED a plugin
 set meanwhile shows that plugin's value.
 
-**The globals (`korg.global`, API 16).** Every known page of GLOBAL PARAMETERS has a leaf, named after the page in camelCase
+**The globals (`korg.global`, API 18).** Every known page of GLOBAL PARAMETERS has a leaf, named after the page in camelCase
 and holding the values the device stores (`korg.global.midiChannel` 0 to 15 is channel 1 to 16). The ranges are the
 menu's limits. Not in the tree are the markers at the start and end of the block, the bytes no menu changes, and the slots 247
-to 249 that BLECH's patches use. A plugin that names a leaf needs API 16.
+to 249 that BLECH's patches use. A plugin that names a leaf needs API 18.
 
 Setting calls the same firmware function the page calls when you turn it in the menu: it writes the byte and tells the sound
 engine, the display and the MIDI side (for `tempoLock` it then sets the tempo again). The value takes effect at once, without
@@ -315,7 +366,7 @@ a restart; the menu page shows it as soon as it is drawn again, that is when you
 refuses to set while the transport is in its state 6 to 9, exactly as in the menu. A value outside the limits is clamped to
 the nearest limit and counted, a stored value outside is repaired at start: to the nearest limit, without calling the
 firmware function. Measured in the emulator on hacktribe, Korg red and Korg blue
-([measurement](messungen/2026-11-05-plugin-api16.md), German); not on the device.
+([measurement](messungen/2026-11-05-plugin-api18-globals.md), German); not on the device.
 
 **Saving.** There is no call for it. The firmware saves the globals when the device is switched off and on WRITE on the page
 GLOBAL PARAMETERS, as it also keeps the last pattern. A value a plugin set therefore stays over the next restart, even if the
@@ -343,7 +394,7 @@ korg.onEvent("close", () => {
 });
 ```
 
-More branches (`korg.patterns`, `korg.parts`, the other pages of BLECH) come with the next
+More branches (`korg.patterns`, `korg.parts`) come with the next
 versions; the old names stay valid.
 
 ### Timers (API 11, BLECHTRIBE 1.3.8)

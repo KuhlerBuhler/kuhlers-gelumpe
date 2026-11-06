@@ -26,7 +26,8 @@ from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
 from splash_cases import Dev, user_flash  # noqa: E402
 
-GLOBALS_PTR = 0xC033E6A0        # the pointer to the Global settings object, its block (GLST) starts 4 bytes in
+GLOBALS_PTR = 0xC0691324        # the pointer to the Global settings object, its block (GLST) starts 4 bytes in (the same value as [0xC033E6A0])
+GLOBALS_PTR_TWIN = 0xC033E6A0
 BLOCK = 4
 FLASH_AT = 0x230000             # where the firmware keeps the block: WRITE on the Global menu and the switch-off write it there
 PARAM_WRITER = 0xC004B208       # the sound engine copy writer the setters report to: (object, x, parameter, value) in r0 to r3
@@ -63,10 +64,10 @@ def entry(name, ok, detail):
 
 
 def tree():
-    """The leaves of korg.global: [id, name, dump offset, min, max, factory, writable]."""
+    """The leaves of korg.global: [id, name, dump offset (the leaf's offset is 4 more, behind the word in front of the block), min, max, factory, writable]."""
     code = ("import {OBJECTS} from './data/script/objects.mjs';"
-            "process.stdout.write(JSON.stringify(OBJECTS.filter(o => o.base === 'global').map(o => "
-            "[o.id, o.path.split('.').pop(), o.offset, o.min, o.max, o.factory, o.write])))")
+            "process.stdout.write(JSON.stringify(OBJECTS.filter(o => o.path.startsWith('korg.global.')).map(o => "
+            "[o.id, o.path.split('.').pop(), o.offset - 4, o.min, o.max, o.factory, o.write])))")
     return json.loads(subprocess.run(["node", "--input-type=module", "-e", code], cwd=ROOT, capture_output=True, text=True, check=True).stdout)
 
 
@@ -176,6 +177,12 @@ def leaf_cases(w):
                 bad.append(f"no report {PARAMS[name]:#x}")
         out.append(entry(f"{name}_set", write and not bad and not w.dev.m.asserts, f"{seen}, asserts {w.dev.m.asserts}"))
     return out
+
+
+def pointer_case(w):
+    """The two places the firmware keeps the Global object's address hold the same one, and the block starts with GLST."""
+    a, b = w.dev.u32(GLOBALS_PTR), w.dev.u32(GLOBALS_PTR_TWIN)
+    return [entry("pointer_is_the_global_object", a == b and w.dev.read(a + BLOCK, 4) == b"GLST", f"{a:#x} and {b:#x}")]
 
 
 def read_only_cases(w):
@@ -297,7 +304,7 @@ def cases(vsb, flash=None):
     leaves = tree()
     out = []
     w = World(vsb, flash, leaves)
-    out += leaf_cases(w) + read_only_cases(w)
+    out += pointer_case(w) + leaf_cases(w) + read_only_cases(w)
     w = World(vsb, flash, leaves, w.built)
     out += twin_cases(w)
     w = World(vsb, flash, leaves, w.built)

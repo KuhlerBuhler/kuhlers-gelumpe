@@ -104,7 +104,7 @@ class Compiler {
     this.labelCount = 0;
     this.edges = [];
     this.apiSites = [];
-    this.leafSince = 1;     // the newest leaf of the object tree the program names: it needs that API version
+    this.leafSince = 0;   // the newest API version of the object tree leaves the plugin names (a leaf has its own `since`)
     this.topIndex = 0;
     this.app = null;
     this.data = [];
@@ -507,6 +507,7 @@ class Compiler {
     if (action?.action) {
       if (n.args.length) throw err(n, text("compile.api.argc.many", { name, count: 0, list: "", given: n.args.length }));
       const num = value => ({ type: "Num", value, line: n.line, col: n.col });
+      this.leafSince = Math.max(this.leafSince, action.since);
       return this.call(callNode("korg.set", [num(action.id), num(-1), num(1)], n), fn);
     }
     const api = API_BY_NAME.get(name);

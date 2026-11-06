@@ -357,18 +357,20 @@ GLOBAL_SETTERS = {
     36: (0xC0047788, 0xC0041A54), 37: (0xC0047348, 0xC0041614), 38: (0xC004754C, 0xC0041818), 40: (0xC00473D4, 0xC00416A0),
     41: (0xC0047454, 0xC0041720), 42: (0xC004748C, 0xC0041758), 43: (0xC00474E0, 0xC00417AC),
 }
-OBJECT_BASE_GLOBAL = 2
+OBJECT_BASE_GLOBAL = 3
+OBJECT_APPLY_SETTER = 3
 
 def object_rows(constants, build='hacktribe'):
     """The rows of the object table in script_objects.s, from the OBJ_ constants the include carries (data/script/objects.mjs).
-    A leaf on the Global settings gets the setter of its byte on this build, 0 when it has none."""
+    A leaf on the Global settings with apply "setter" gets the setter of its byte on this build (the leaf's offset is the dump
+    offset plus the word in front of the block), 0 when it has none."""
     count=int(re.search(r'^\.equ OBJ_COUNT, (\S+)',constants,re.M).group(1),0)
     value=lambda i,name: int(re.search(rf'^\.equ OBJ_{i}_{name}, (\S+)',constants,re.M).group(1),0)
     def setter(i):
-        if value(i,'BASE')!=OBJECT_BASE_GLOBAL or value(i,'APPLY')!=3: return 0
-        pair=GLOBAL_SETTERS.get(value(i,'OFFSET'))
+        if value(i,'BASE')!=OBJECT_BASE_GLOBAL or value(i,'APPLY')!=OBJECT_APPLY_SETTER: return 0
+        pair=GLOBAL_SETTERS.get(value(i,'OFFSET')-4)
         return pair[1 if build=='synth' else 0] if pair else 0
-    row=lambda i: f'    .word OBJ_{i}_OFFSET, OBJ_{i}_MIN, OBJ_{i}_MAX, OBJ_{i}_FACTORY, {setter(i):#x}\n    .byte OBJ_{i}_BASE, OBJ_{i}_TYPE, OBJ_{i}_APPLY, OBJ_{i}_FLAGS'
+    row=lambda i: f'    .word OBJ_{i}_OFFSET, OBJ_{i}_MIN, OBJ_{i}_MAX, OBJ_{i}_FACTORY\n    .byte OBJ_{i}_BASE, OBJ_{i}_TYPE, OBJ_{i}_APPLY, OBJ_{i}_FLAGS\n    .word OBJ_{i}_MIRROR, {setter(i):#x}'
     return '\n'.join(row(i) for i in range(count))
 
 def build(include, glue=None, blechy=None, build='hacktribe'):
