@@ -53,9 +53,12 @@ Die Getter geben das Gate-Byte unverändert zurück. Was die Werte bedeuten, ste
   `0xC0049214`), nicht im Emulator gefahren.
 - Die Anzeige zeigt TIE für jeden Wert über 96 (Formatierer `0xC008D124`), also auch für 255. Ebenfalls nur aus dem Code.
 - Gate 127 endet im MIDI-Ausgang genau am Beginn des nächsten Steps, wie ein Gate von 96 ([Würfeln](2026-10-16-wuerfeln.md)).
-- PR #379 nennt 255 als Wert für TIE. Wie der Sequencer 255 spielt, ist hier **nicht gemessen**.
+- **Gemessen** im Emulator (Hacktribe 2.02, Note-on und Note-off der Engine): die Step-Wiedergabe (`0xC005FC40`) setzt bei
+  Gate über 96 die Restdauer auf -1, also TIE; 127 und 255 spielen gleich. Folgt ein Step mit derselben Note und Trigger 0,
+  läuft die Note ohne neuen Anschlag weiter, mit Trigger 1 schlägt sie neu an. In der Werksbank des Samplers stehen nur
+  0 bis 96, 127 (300 mal) und 255 (6447 mal). PR #379 nennt 255 als TIE, das passt.
 
 ## Offen
 
 - Gerät: die Getter am Gerät lesen lassen, auch auf einem Pattern, das von Hand mit TIE eingegeben wurde.
-- Gate 255: abspielen und gegen 127 vergleichen.
+- Gate 255 auf der blauen abspielen (gemessen ist nur Hacktribe).

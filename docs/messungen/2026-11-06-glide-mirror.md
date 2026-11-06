@@ -1,6 +1,6 @@
 # CUTOFF- und Glide-Mirror auf allen Parts
 
-Stand 6. November 2026. **Quelle:** aus PR #379, Gerätemessung des Autors, hier nicht nachgemessen. Laut PR im Emulator mit
+Stand 6. November 2026. **Quelle:** aus PR #379, hier nicht nachgemessen. Laut PR im Emulator mit
 einer eigenen Hacktribe-`SYSTEM.VSB` (Firmware 2.02) gemessen, ohne Flash-Abbild, Start auf dem Hauptbild mit dem Startpattern.
 Die Offsets sind relativ zum Zeiger auf das Pattern-Objekt (`0xC033E6A4`), der Block beginnt bei +4.
 
