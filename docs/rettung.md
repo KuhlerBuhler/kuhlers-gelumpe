@@ -119,6 +119,25 @@ Bei 2 und 3 fragt die Seite nach der Farbe: für die blaue Electribe liegt Korgs
 Karte nur, wenn "00" stehen bleibt, so wie am Gerät am 23.10.; endet er nicht, nennt sie das Kabel. Ohne gesicherte
 Original-Datei nimmt Fall 1 ebenfalls Korgs Datei von Korgs Download-Seite.
 
+## Hacktribe aus Versehen, Samples weg
+
+Der Fall "Ich hab aus Versehen Hacktribe installiert" der Seite (`samples` in `data/rescue.mjs`) geht vier Schritte. Was
+dahinter belegt ist und was offen bleibt, steht in der [Messung](messungen/2026-11-06-hacktribe-samples.md).
+
+1. Blechy fragt, ob die `e2sSample.all` noch irgendwo liegt (Karte, `KORG/electribe sampler/Sample/`, `KORG/hacktribe/Sample/`
+   oder Sicherung auf dem Rechner). Ja: nach dem Update nach `KORG/blechtribe/Sample/e2sSample.all`, oder die Frage von
+   BLECHTRIBE beim ersten Start nach dem Kopieren des alten Ordners mit ja beantworten.
+2. Nein: die App kann sie nicht zurückholen, Blechy nennt Rechner, Cloud, Papierkorb und eine Rettungs-Software für gelöschte
+   Dateien (hergeleitet), und dass die Werks-Samples laut Hacktribe im Gerät bleiben.
+3. Zurück zu BLECHTRIBE ohne Hacktribe: im Patcher bei der laufenden Firmware "Original" wählen (auch wenn Hacktribe drauf
+   ist) und als Ziel BLECH, dann Korgs Original-Datei. Die fertige `SYSTEM.VSB` kommt in den Ordner der Firmware, die jetzt
+   läuft (`KORG/hacktribe/System/`), danach weiter wie bei "Welche Firmware läuft gerade".
+4. Blau: läuft BLECHTRIBE mit Hacktribe, geht es wie bei Rot. Läuft nur Hacktribe, geht es über den Schritt der Seite, der Korgs blaue Datei
+   mit dem Sampler-Kopf speichert (`back:head`), danach BLECH im Patcher.
+
+Vor dem Patchen mit Hacktribe zeigt der Patcher die Warnung samt Haken (`cee-patch-ht-ack`); ohne den Haken geht Weiter,
+Patchen und Speichern nicht.
+
 ## Meldungen beim Update und Ärger mit der App
 
 Neben den vier Fällen fragt die Seite nach "Error, Invalid File", "Error, No File" und nach Ärger mit der App. Die

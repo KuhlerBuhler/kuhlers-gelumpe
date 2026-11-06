@@ -271,5 +271,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Vorschau: ein gedrückter Part kommt mit Copy Part ins laufende Pattern](2026-10-30-vorschau-part-reinholen.md)
 - [Vorschau: die Pads der Parts, die im angesehenen Pattern an sind, blinken](2026-11-02-vorschau-pads-blinken.md)
 - [Part-Werte schreiben wie ein Regler, Steps kopieren und speichern (API 14)](2026-11-02-part-werte-schreiben.md)
+- [Hacktribe und die Samples: Quellen, Befunde, offene Fragen](2026-11-06-hacktribe-samples.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

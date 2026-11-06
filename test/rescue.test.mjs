@@ -215,6 +215,21 @@ test("a reported error opens with the app's own words and goes on to the app's q
   assert.equal(FLOW.error.next, "app");
 });
 
+test("Hacktribe by accident: a case of the first question, samples with or without a copy, then BLECHTRIBE without Hacktribe", () => {
+  assert.ok(CASES.some(c => c.id === "samples"));
+  assert.deepEqual(FLOW.samples.choices.map(c => c.to), ["samples:restore", "samples:lost"]);
+  assert.equal(FLOW["samples:restore"].say.find(l => l.path).path, "KORG/blechtribe/Sample/e2sSample.all");
+  assert.equal(FLOW["samples:restore"].next, "samples:way");
+  assert.equal(FLOW["samples:lost"].next, "samples:way");
+  assert.match(text(FLOW["samples:lost"]), /Ohne Kopie kann die App sie nicht zurückholen/, "the loss is said plainly");
+  assert.match(text(FLOW["samples:way"]), /Original.*BLECH/s, "the way back goes through Korg's original, not the Hacktribe file");
+  assert.match(text(FLOW["samples:way"]), /KORG\/hacktribe\/System\//, "the file goes where the running firmware reads it");
+  assert.deepEqual(FLOW["samples:way"].choices.map(c => c.to), ["which", "samples:blue"]);
+  assert.deepEqual(FLOW["samples:blue"].choices.map(c => c.to), ["which", "back:head"]);
+  const doc = readFileSync(new URL("docs/rettung.md", ROOT), "utf8");
+  assert.match(doc, /Hacktribe aus Versehen/);
+});
+
 test("back to Korg's original: red goes the usual way, blue asks what runs, Hacktribe gets the file with the Sampler head", () => {
   assert.equal(FLOW.start.choices.at(-1).to, "back");
   assert.equal(FLOW.back.next, "back:color");
