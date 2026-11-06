@@ -4,6 +4,8 @@ import { setUp, go } from "./harness.mjs";
 import { makeFirmware } from "../helpers.mjs";
 import * as rescue from "../../data/rescue.mjs";
 import { t } from "../../site/app/i18n.mjs";
+import { sha256 } from "../../src/firmware.mjs";
+import { SYNTH_SHA256 } from "../../src/patcher.mjs";
 
 // The data holds keys of the table; the page shows their German text.
 const CASES = rescue.CASES.map(c => ({ ...c, label: t(c.label), hint: t(c.hint) }));
@@ -255,17 +257,54 @@ test("Invalid File at the start on a blue that once had Hacktribe: Korg's Sample
   assert.deepEqual(page.errors, []);
 });
 
-test("Invalid File in the menu with Hacktribe on the blue ends at Kuhler Buhler, not at a guess", async () => {
+test("Invalid File in the menu with Hacktribe on the blue leads to the file step, not to a guess", async () => {
   const page = await open();
   await answer(page, CASES.find(c => c.id === "invalid").label);
   await answer(page, "Im Menü bei SOFTWARE UPDATE");
   await answer(page, "Korgs Original-Firmware");
   await answer(page, "Blau, mit Hacktribe");
   await settle(page);
-  const chat = await page.locator("#cee-rescue-chat").textContent();
-  assert.match(chat, /zwei Bytes/);
-  assert.match(chat, /GitHub Issue/);
+  assert.match(await page.locator("#cee-rescue-chat").textContent(), /zwei Bytes/);
+  assert.equal(await page.locator("#cee-rescue-file").count(), 1);
   assert.deepEqual(page.errors, []);
+});
+
+test("back to Korg's original on the blue with Hacktribe: Korg's file in, the same file with the Sampler head out, then the folder", async () => {
+  const korg = await makeFirmware([]);
+  korg.set([0x45, 0x32, 0], 0x10);
+  korg[0x2e] = 0x23;
+  const page = await h.page();
+  await page.route(/\/src\/patcher\.mjs$/, async route => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replace(SYNTH_SHA256, await sha256(korg)) });
+  });
+  await page.goto(`${h.url}#rescue`);
+  await page.locator("#cee-rescue .cee-rescue").waitFor();
+  await answer(page, CASES.find(c => c.id === "back").label);
+  await settle(page);
+  assert.match(await page.locator("#cee-rescue-chat").textContent(), /KORG\/blechtribe\//);
+  await answer(page, DEVICES.blue.title);
+  await answer(page, "Hacktribe, oder BLECHTRIBE mit Hacktribe");
+  await settle(page);
+  const bytes = await h.download(page, () => page.setInputFiles("#cee-rescue-input", h.file("korg-blue.VSB", korg)));
+  assert.deepEqual([bytes[0x12], bytes[0x2e], bytes.length], [0x53, 0x24, korg.length]);
+  assert.equal(bytes.filter((b, i) => b !== korg[i]).length, 2, "only the head differs");
+  await answer(page, "Ist gespeichert");
+  await settle(page);
+  assert.match(await page.locator("#cee-rescue-chat").textContent(), /Welche Firmware läuft gerade/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("back to Korg's original: any other file is refused with a toast and nothing is saved", async () => {
+  const page = await open();
+  await answer(page, CASES.find(c => c.id === "back").label);
+  await settle(page);
+  await answer(page, DEVICES.blue.title);
+  await answer(page, "Hacktribe, oder BLECHTRIBE mit Hacktribe");
+  await settle(page);
+  await page.setInputFiles("#cee-rescue-input", h.file("other.VSB", new Uint8Array(100)));
+  await page.locator("#app-toasts .cee-toast", { hasText: "nicht die Größe" }).waitFor();
+  assert.deepEqual(page.errors.filter(e => !/Failed to load resource/.test(e)), []);
 });
 
 test("No File in the menu: name, folder System, no renamed folder, the patcher's Electribe, then the folder of the running firmware", async () => {
