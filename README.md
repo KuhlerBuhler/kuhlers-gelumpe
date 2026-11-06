@@ -97,6 +97,7 @@ meint den Synth-Satz auf Korg 2.02. Hacktribe selbst unterstützt laut Projekt b
 | Nachteil | Was das für dich heißt |
 |---|---|
 | Die Werks-Samplebank wird durch Oszillatoren ersetzt | Die eigenen Samples liegen auf 501 bis 999. Werks-Samples müssen für Hacktribe umgewandelt und in die eigene Bank geladen werden. |
+| Deine Samples sind danach nicht mehr da | Hacktribe liest einen eigenen Ordner, und seine Anleitung sagt, `e2sSample.all` zu löschen. Sichere vorher den `Sample`-Ordner deiner jetzigen Firmware (`KORG/electribe sampler/` oder `KORG/blechtribe/`), die App fragt das mit einem Häkchen ab. Schon passiert? Die Seite Rettung hat den Fall "Ich hab aus Versehen Hacktribe installiert". |
 | Alte Patterns können anders klingen | Oszillator- und Effektzuordnungen ändern sich. Nach dem Umstieg die eigenen Patterns durchhören und bei Bedarf neu zuordnen. |
 | Zusätzlicher Firmwarewechsel | Wer Korgs Original nutzt, braucht zuerst eine passende Hacktribe-Datei. BLECHTRIBE kann auch direkt auf dem Original bleiben. |
 
@@ -274,7 +275,8 @@ dorthin, danach am Gerät Menü -> BLECH -> PLUGINS -> MANAGE PLUGINS. Geschrieb
 übersetzt das in Bytecode für eine kleine VM in der Firmware. Wenn ein Plugin einen Fehler hat, wird
 nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
 [docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
-Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Image Viewer, Filter Toggle, Lauflicht, Pulsieren und Takt-Blinker.
+Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Image Viewer, BPM Glide, Filter Toggle,
+Momentary Mute, Gate Hold, Key Pads, Step Copy, Lauflicht, Pulsieren und Takt-Blinker.
 
 ## Der Emulator
 
@@ -296,6 +298,8 @@ Ein falscher Schreibzugriff oder eine fehlerhafte Firmware kann das Gerät häng
   also bei einer Abweichung nicht aus.
 - **Zurück:** die gesicherte Original-`SYSTEM.VSB` wieder aufspielen. Wie das geübt wurde, steht in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
+- **Zurück zu Korgs Original, auch von der blauen:** Schritt für Schritt in
+  [docs/original-zurueck.md](docs/original-zurueck.md) und als Fall auf der Seite Rettung.
 - **Wenn das Gerät nicht mehr startet:** die Seite "Rettung" im Editor fragt, was du siehst, und führt
   dich den dokumentierten Weg zurück. Der Bootloader bleibt tabu, dahinter
   hilft nur JTAG ([docs/rettung.md](docs/rettung.md)).
