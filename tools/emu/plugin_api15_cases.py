@@ -61,6 +61,11 @@ korg.onEvent("frame", () => {{
 });"""
 
 
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    edit.compiled({"api15": PROGRAM})       # FIELDS is asked for when the module is imported
+
+
 def entry(name, ok, detail):
     return {"id": f"plugin_api15:{name}", "ok": bool(ok), "detail": str(detail)}
 

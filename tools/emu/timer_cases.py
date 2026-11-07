@@ -53,19 +53,12 @@ korg.onEvent("step", (s) => {
 
 def compiled():
     """The include of the contract, and the blobs and symbols of PROGRAMS, from the compiler of this checkout."""
-    code = """
-import { asmInclude } from "./src/script/arm-tables.mjs";
-import { compile } from "./src/script/compiler.mjs";
-const programs = JSON.parse(process.argv[1]);
-const out = { include: asmInclude(), programs: {} };
-for (const [name, source] of Object.entries(programs)) {
-  const r = compile(source, { name });
-  if (!r.ok) { console.error(name, r.errors.map(e => e.message).join("; ")); process.exit(1); }
-  out.programs[name] = { blob: Buffer.from(r.blob).toString("hex"), symbols: r.info.symbols };
-}
-process.stdout.write(JSON.stringify(out));
-"""
-    return node_json.run(code, json.dumps(PROGRAMS))
+    return node_json.compiled(PROGRAMS)
+
+
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    compiled()
 
 
 def entry(name, ok, detail):

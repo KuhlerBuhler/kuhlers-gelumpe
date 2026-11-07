@@ -10,7 +10,6 @@ import hashlib
 import json
 import platform
 import struct
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT), str(ROOT / "tools/patch"), str(Path(__file__).parent)]
 import macro_contract as contract
+import node_json
 
 BASE = 0xC0000000
 CODE, CODE_BYTES = contract.CODE, contract.CODE_BYTES
@@ -83,7 +83,7 @@ for(const f of fs.readdirSync('data/patches').filter(f=>f.endsWith('.json')).sor
 }
 console.log(JSON.stringify(spans));
 """
-    return json.loads(subprocess.check_output(["node", "--input-type=module", "-e", script, build], cwd=ROOT, text=True))
+    return node_json.run(script, build)
 
 
 def ownership_digest(build):
@@ -455,18 +455,26 @@ def tempo_measurement(image, addresses):
                 asserts=m.asserts)
 
 
-def event_measurement(image, build):
-    import fat32
-    if build != "hacktribe":
-        return dict(status="not run", reason="comparison cases specify the Hacktribe recorder")
-    geometry_script = """
+GEOMETRY = """
 import p from './data/map/pattern.mjs';
 console.log(JSON.stringify(Object.fromEntries(['sample','level','mute'].map(id=>{
  const f=p.fields.find(f=>f.id==='part.'+id);
  return [id,{offset:f.where.offset,stride:f.repeat[0].stride}];
 }))));
 """
-    geometry = json.loads(subprocess.check_output(["node", "--input-type=module", "-e", geometry_script], cwd=ROOT, text=True))
+
+
+def node_requests():
+    """Every answer this module asks Node for (node_json.py) that tools/emu/node_results.py keeps in its file. Not
+    patch_ownership: it reads data/patches, which every rebuild of a patch changes, and this research tool runs with Node."""
+    node_json.run(GEOMETRY)
+
+
+def event_measurement(image, build):
+    import fat32
+    if build != "hacktribe":
+        return dict(status="not run", reason="comparison cases specify the Hacktribe recorder")
+    geometry = node_json.run(GEOMETRY)
     def main_screen(dev):
         for _ in range(10):
             if dev.screen()["number"] == 1:
