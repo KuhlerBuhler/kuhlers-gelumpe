@@ -27,12 +27,14 @@ Felder des Pattern-Blocks, der Parts und der Global-Einstellungen, wie sie die G
 - [Hüllkurve (Part-Byte 20 Attack, 21 Decay)](2026-09-17-envelope-time.md)
 - [Filtertypen (Part-Byte 12)](2026-09-17-filter-types.md)
 - [Glide (Part-Byte 37)](2026-09-17-glide-time.md)
+- [CUTOFF- und Glide-Mirror auf allen Parts (aus PR #379, hier nicht nachgemessen)](2026-11-06-glide-mirror.md)
 - [Modulation: Typ, Speed, Depth (Part-Bytes 16, 17, 18)](2026-09-17-mod-speed-depth.md)
 - [Osc Pitch (Part-Byte 36)](2026-09-17-osc-pitch.md)
 - [Pattern senden: Glide geht verloren](2026-09-22-pattern-write-glide.md)
 - [Pattern-Kette und Pattern-Import von der Karte, im Emulator gemessen](2026-10-10-pattern-kette-import.md)
 - [Global-Menü: welches Byte, welche Werte, welches Label](2026-10-14-global-felder.md)
 - [Live-Schreibwege: welcher Setter jeden Wert schreibt und wann das Byte allein reicht, im Emulator](2026-11-03-live-schreibwege.md)
+- [Step-Trigger: zählt nur hinter einem TIE, Legato bei Mono1 und Poly1, im Emulator](2026-11-06-step-trigger.md)
 
 
 ## Effekte
@@ -170,6 +172,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 17: alle Seiten von CUSTOMIZATION und FEATURES als Blätter, Schreiben mit WRITE, im Emulator](2026-11-05-plugin-api17-blech-menue.md)
 - [Plugin API 18: angesehenes und nächstes Pattern lesen, im Emulator](2026-11-05-plugin-api18.md)
 - [Plugin API 21: Pattern und Parts schreibbar, Seiten des Pattern-Menüs, Sync Group, was nur lesbar bleibt, im Emulator](2026-11-06-plugin-api21-pattern-parts.md)
+- [Plugin API 22: Steps lesen (an, Gate, Note, Velocity), Lesen ohne Neuzeichnen der Pads, im Emulator](2026-11-06-plugin-api22-step-getters.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
 
