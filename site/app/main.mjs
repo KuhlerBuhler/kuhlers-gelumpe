@@ -677,13 +677,16 @@ function boot() {
   popout.realDevice(areas?.current === "device");
   // The folder the patcher named for its last copy, for the Rettung page; it lasts until the app closes.
   let target = null;
-  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null, onTarget: folder => { target = folder; } });
+  // The patcher's last red test, for Blechy; it lasts until the app closes, a passed test clears it.
+  let tested = null;
+  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null, onTarget: folder => { target = folder; }, onTest: failure => { tested = failure; } });
   // A session on the emulator's port is no Electribe, so the Rettung page only asks one on a cable.
   const cabled = () => (device.session && device.session.port !== emulator?.port && !device.session.sender.disconnected ? device.session : null);
   rescuePage($("#cee-rescue"), {
     hardware: () => cabled()?.hardware?.() ?? null,
     firmware: () => (cabled()?.device?.blech ? "blech" : null),
     target: () => target,
+    test: () => tested,
     read: {
       midi: async () => midiVerdict(await collectMidi({ transport, permissions: navigator.permissions, usb: usb.state, app: window.__GELUMPE_APP, agent: navigator.userAgent }), mode),
       version: () => checkVerdict(window.__GELUMPE_APP?.version),

@@ -32,7 +32,7 @@ export function createAutoConnect({ usb, attempt, enabled = () => true, toast, d
     failures++;
     if (failures === 1) toast(t("device.auto.retry"), "info");
     else if (failures === 2) toast(t("device.auto.still"), "info");
-    else toast(t("device.auto.gaveUp"), "error", { action: { label: t("device.auto.diagnose"), run: diagnose } });
+    else toast(t("device.auto.gaveUp"), "error", { action: { label: t("device.auto.diagnose"), run: diagnose }, help: "notfound" });
     if (failures < 3) schedule(retry[failures - 1]);
     else stopped = true;
   }

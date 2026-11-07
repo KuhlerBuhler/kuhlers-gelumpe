@@ -3,7 +3,8 @@
 Wunsch: beim Gate Arp bleibt die gedrückte Note fest, X auf dem Touchpad steuert die Gate-Arp-Einstellung
 aus dem Menü.
 
-Stand 2026-10-27: **untersucht, im Emulator gemessen (rot und blau), nichts gebaut, am Gerät nichts.** Marker: **gemessen**,
+Stand 2026-11-03: **gebaut als Plugin Gate Hold im Katalog (API 15), im Simulator und Emulator geprüft (Hacktribe, rot,
+blau), am Gerät nichts.** Beschreibung in [plugins.md](../plugins.md). Marker: **gemessen**,
 **hergeleitet**, **ungeprüft**.
 
 ## Befund

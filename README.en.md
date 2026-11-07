@@ -91,6 +91,7 @@ Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIB
 | Drawback | What it means for you |
 |---|---|
 | Oscillators replace the factory sample bank | Your own samples use slots 501 to 999. Factory samples need conversion before loading into the user bank. |
+| Your samples are gone afterwards | Hacktribe reads its own folder, and its how-to says to delete `e2sSample.all`. Back up the `Sample` folder of your current firmware first (`KORG/electribe sampler/` or `KORG/blechtribe/`); the app asks you to confirm that with a checkbox. Already happened? The Rescue page has the case "I installed Hacktribe by accident". |
 | Existing patterns may sound different | Oscillator and effect assignments change. Listen to your patterns after switching and reassign sounds where needed. |
 | An extra firmware change | Starting from Korg's original requires a suitable Hacktribe file first. BLECHTRIBE also works directly on Korg's original. |
 
@@ -215,7 +216,8 @@ Menü -> BLECH -> PLUGINS -> MANAGE PLUGINS. The code is a subset of JavaScript,
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
-Mandelbrot, GIF Player, Lauflicht, Pulsieren and Takt-Blinker.
+Mandelbrot, GIF Player, Image Viewer, BPM Glide, Filter Toggle, Momentary Mute, Gate Hold, Key Pads,
+Step Copy, Lauflicht, Pulsieren and Takt-Blinker.
 
 ## The emulator
 
@@ -235,6 +237,8 @@ A wrong write or a faulty firmware can hang the device. So:
   looks wrong.
 - **Way back:** put the saved original `SYSTEM.VSB` back. How that was rehearsed is in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
+- **Back to Korg's original, also from the blue:** step by step in
+  [docs/original-zurueck.en.md](docs/original-zurueck.en.md) and as a case on the Rescue page.
 - **If the device no longer starts:** the "Rettung" page in the editor (German) asks what you see and
   walks you back along the documented recovery. The bootloader is never
   touched, beyond it only JTAG helps ([docs/rettung.md](docs/rettung.md)).

@@ -32,6 +32,7 @@ Felder des Pattern-Blocks, der Parts und der Global-Einstellungen, wie sie die G
 - [Pattern senden: Glide geht verloren](2026-09-22-pattern-write-glide.md)
 - [Pattern-Kette und Pattern-Import von der Karte, im Emulator gemessen](2026-10-10-pattern-kette-import.md)
 - [Global-Menü: welches Byte, welche Werte, welches Label](2026-10-14-global-felder.md)
+- [Live-Schreibwege: welcher Setter jeden Wert schreibt und wann das Byte allein reicht, im Emulator](2026-11-03-live-schreibwege.md)
 
 
 ## Effekte
@@ -52,6 +53,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [Modulationsarten, Stufe 2: was die übrigen Bytes eines Eintrags tun, im Emulator gemessen](2026-10-15-modulation-stufe2.md)
 - [FX-Katalog neu: Notenwerte der Delays, unbenutzte Bausteine, laute Distortion](2026-10-22-fx-katalog-neu.md)
 - [FX-Katalog: Pegel gegen die Werkspresets, sechs Kopien pro Steuerzeile](2026-10-29-fx-katalog-pegel.md)
+- [Effekte aus e2sFx.all beim Start an den DSP, Status unter VERSION, SPLASH IMPORT als Dateiliste, im Emulator](2026-11-05-effekte-start-splash-liste.md)
 
 
 ## SysEx und Transport
@@ -162,6 +164,12 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Notenassistent: im KEYBOARD-Modus leuchten nach einer Note die passenden Pads rosa, Pad-Layout, Helligkeit der Pad-LEDs, im Emulator geprüft](2026-10-15-note-assistant.md)
 - [Synth-Filter auf Korgs Original: Tastenauswahl und Setter, Reihenfolge von Hacktribe, Muster mit Synth-Typ](2026-10-15-synth-filter.md)
 - [Würfeln am Gerät: SHIFT + PART ERASE würfelt eine Melodie für den gewählten Part, Step-Records im RAM, LAST STEP, Tonleitertabelle der Firmware, im Emulator geprüft](2026-10-16-wuerfeln.md)
+- [Plugin API 15: Pattern-Setter je Firmware, Bereich von MFX TYPE, Touchpad-X und Tastendruck, im Emulator](2026-11-03-plugin-api15.md)
+- [Plugin API 19: Tasten, Pads und Regler von mehreren Plugins gehalten, im Emulator](2026-11-05-plugin-api19.md)
+- [Plugin API 20: die Globals als Blätter von korg.global, Setter, Speichern, Reparatur beim Start, im Emulator](2026-11-05-plugin-api20-globals.md)
+- [Plugin API 17: alle Seiten von CUSTOMIZATION und FEATURES als Blätter, Schreiben mit WRITE, im Emulator](2026-11-05-plugin-api17-blech-menue.md)
+- [Plugin API 18: angesehenes und nächstes Pattern lesen, im Emulator](2026-11-05-plugin-api18.md)
+- [Plugin API 21: Pattern und Parts schreibbar, Seiten des Pattern-Menüs, Sync Group, was nur lesbar bleibt, im Emulator](2026-11-06-plugin-api21-pattern-parts.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
 
@@ -261,5 +269,8 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Uhr und Timer der Plugin-Laufzeit: Rahmen, Tick-Zähler, korg.after und korg.afterSteps](2026-10-29-plugin-timer.md)
 - [Vorschau: die Pads gehören dem angesehenen Pattern, Mutes gehen beim Wechsel mit](2026-10-29-vorschau-pads.md)
 - [Vorschau: ein gedrückter Part kommt mit Copy Part ins laufende Pattern](2026-10-30-vorschau-part-reinholen.md)
+- [Vorschau: die Pads der Parts, die im angesehenen Pattern an sind, blinken](2026-11-02-vorschau-pads-blinken.md)
+- [Part-Werte schreiben wie ein Regler, Steps kopieren und speichern (API 14)](2026-11-02-part-werte-schreiben.md)
+- [Hacktribe und die Samples: Quellen, Befunde, offene Fragen](2026-11-06-hacktribe-samples.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

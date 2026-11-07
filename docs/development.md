@@ -56,26 +56,22 @@ einschaltet.
 
 Ein Release legt dasselbe Abbild auch in GitHubs Paketregister ab, für linux/amd64
 und linux/arm64 (`.github/workflows/docker-image.yml`, von `release.yml`
-aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Den
-Namen trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
+aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Seit
+dem Release 1.4.0 liegt es dort, unter beiden Architekturen; frühere Versionen
+gibt es im Paketregister nicht, das erste Abbild kam mit diesem Release. Den Namen
+trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
 `docker compose pull` und danach `docker compose up`, ohne dass du selbst baust.
-Bis zum ersten Release mit diesem Workflow gibt es das Paket noch nicht, bis
-dahin führt `docker compose pull` zu einem Fehler und `docker compose up --build`
-bleibt der Weg. Ein Release startet nur Workflows, wie sie auf `main` liegen,
-und `docker-image.yml` kam über `develop`; das Paket entsteht also mit dem ersten
-Release, das diesen Stand nach `main` bringt. `docker compose up --build` baut auch
-dann aus diesem Ordner, wenn
-das Abbild schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres
-`pull` ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
+`docker compose up --build` baut auch dann aus diesem Ordner, wenn das Abbild
+schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres `pull`
+ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
 keinem Abbild.
 
 Eine bestimmte Version statt `:latest` nimmt `GELUMPE_IMAGE`, etwa
-`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.3.7 docker compose pull`. Die
+`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.4.0 docker compose pull`. Die
 Variable gilt für `pull` und `up`; in einer `.env` neben `docker-compose.yaml`
 steht sie für beide. Von Hand (Actions, "Container image", mit einem Tag) lässt
-sich ein Abbild neu bauen, sobald der Workflow auf `main` liegt; vorher steht er
-nicht in der Liste, und ein Release startet ihn nicht. `:latest` wandert dabei nur
-mit, wenn "latest" angehakt ist.
+sich ein Abbild neu bauen; `:latest` wandert dabei nur mit, wenn "latest"
+angehakt ist.
 
 ## Hinter einem Proxy
 
@@ -395,6 +391,21 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
    2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
    `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
    `main` endet nach dem ersten Schritt.
+
+**Checkliste je Release.** Was mit jeder Version mitgezogen wird. "Automatisch" heißt: ein Skript schreibt es oder
+ein Test schlägt fehl, wenn es fehlt.
+
+| Was | Wie | Automatisch |
+|-----|-----|-------------|
+| Version in `package.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, `blech-version` | `node tools/set-version.mjs X.Y.Z` | Skript, Test `blech-version` |
+| Notizen `release-notes/X.Y.Z.md` und `data/release-notes.mjs` | von Hand, dann `node tools/release-notes.mjs build` | Test, Prüfschritt "due" |
+| "Neueste Version von BLECHTRIBE" im Patcher | kommt aus den neuesten Notizen | ja, Test `blech-version` |
+| `data/known-releases.json`: Dateien mit älteren Versionen lassen sich ohne Original updaten | `node tools/known-releases.mjs --hacktribe H.VSB --stock RED.VSB --synth BLUE.VSB` mit allen Tags ab `v1.3.3` und `worktree`, die drei unveränderten 2.02-Dateien vom eigenen Rechner | Test `blech-version` meldet fehlende Versionen |
+| `data/patches/verified.json` | der Workflow "Verify patches" committet sie | ja |
+| Neuigkeiten nach dem Update (`data/news.mjs`, Schlüssel `news.vXYZ.*` in allen Sprachen) | von Hand, nur bei Versionen mit Neuem für Nutzer | nein |
+| Funktionslisten in `README.md` und `README.en.md` (Plugins, Fallstricke, Rettung) | von Hand | nein |
+| [Fahrplan](fahrplan.md): die Version unter "Erschienen" eintragen, den Rest nachziehen | von Hand | nein |
+| Plugin-API-Version und neue Funktionen in [plugins.md](plugins.md) und `plugins.en.md` | mit dem Feature-PR | nein |
 
 **Format der Notizen** (`release-notes/X.Y.Z.md`): eine Datei, erst Deutsch, dann eine Zeile `## English` und darunter
 dieselben Notizen auf Englisch. Die Datei enthält nur die Notizen, keinen Download-Abschnitt und keine "Ohne App

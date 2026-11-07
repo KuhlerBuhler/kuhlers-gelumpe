@@ -762,15 +762,18 @@ splash_reset:
 reset_out:
     pop {{r4, pc}}
 
-; ---- the start image from the card: KORG/blechtribe/splash.bmp, 128 x 64 pixels, 1 bit per pixel, not compressed.
+; ---- the start image from the card: r0 = the path of a BMP file (the menu's SPLASH IMPORT passes the one its dial is on; below
+; 0x10000, as from a caller that passes none, KORG/blechtribe/splash.bmp), 128 x 64 pixels, 1 bit per pixel, not compressed.
 ; The darker of the two colours is drawn. Stored in flash like WRITE in the editor and drawn from the next start on.
 ; r0 = 0 stored, 1 no file, 2 not such a BMP (nothing stored), 3 the flash write failed.
 splash_import:
     push {{r4, r5, r6, r7, r8, lr}}
+    cmp r0, #0x10000
+    ldrlo r1, =import_path
+    movhs r1, r0
     ldr r4, =FIL
     ldr r5, =RECBUF
     mov r0, r4
-    ldr r1, =import_path
     mov r2, #1
     bl FS_OPEN
     cmp r0, #0

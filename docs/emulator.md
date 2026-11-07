@@ -39,7 +39,13 @@ Was er nicht ist:
   SDSC; bei USB ein Kabel; bei der Stromversorgung Batteriestand und Netzteil
   (das Batteriesymbol bleibt gleich).
 - Keine eingebauten Firmwaredaten und keine Hardwareverbindung. Der Emulator
-  braucht keine Node-Laufzeit, nur Python.
+  braucht keine Node-Laufzeit, nur Python. Was einige Fälle aus dem
+  JavaScript des Repositorys brauchen (übersetzte Plugins, Feldlisten,
+  Presets), steht vorberechnet in `data/emu/node-results.json` und geht mit
+  in die App. Nach einer Änderung an Compiler, Vertrag, Presets oder Karte
+  die Datei neu schreiben: `tools/emu/.venv/bin/python
+  tools/emu/node_results.py`. `test/node-results.test.mjs` schlägt fehl,
+  solange sie veraltet ist.
 
 Die Messungen tragen die Marker **gemessen** (am Gerät), **hergeleitet**,
 **offen**, **offline** (im Emulator am Originalcode beobachtet) und
@@ -716,7 +722,11 @@ mit Fehlertext.
 `bootmap.py` bootet eine VSB auf 17 Startwegen (normal, Update-Abfrage,
 Panel-Update, jeder Startmodus, Notschalter) und listet den Code, der bis
 zum ersten Hauptbildschirm läuft, und die Bytes des Abbilds, die dabei
-gelesen werden. `check.py` macht daraus die Prüfung für eine gepatchte
+gelesen werden. Die Startphase endet genau dort, wo die Firmware den
+Hauptbildschirm setzt, nicht erst am Ende der 20-ms-Zeitscheibe, in der das
+passiert: Code, der erst auf dem Hauptbildschirm läuft (etwa der Bildhaken der
+Skript-Laufzeit hinter seinem Tor), zählt nicht mit, egal wie der Bildtakt zum
+Hauptbildschirm liegt. `check.py` macht daraus die Prüfung für eine gepatchte
 Kopie: alle Startwege müssen ankommen, und kein geändertes Byte darf in
 Code oder Daten der Startphase liegen, außer Daten, die die Karte kennt
 (`--allow`, etwa das Startbild). Ein Lauf dauert rund anderthalb Minuten.

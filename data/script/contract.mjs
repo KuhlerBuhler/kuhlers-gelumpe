@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 12;
+export const API_VERSION = 21;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -252,13 +252,19 @@ export const TIMERS = Object.freeze({
   fields: Object.freeze([["due", 0], ["period", 4], ["callback", 8], ["kind", 9], ["generation", 10]].map(([name, offset]) => Object.freeze({ name, offset }))),
 });
 
+/**
+ * What a plugin keeps from the firmware (the input filter masks an input when ANY running plugin masks it, the plugins get every
+ * input either way): four words in its entry, the keys 0 to 31, the keys 32 and 33, a bit per knob and 1 when it holds the pads.
+ */
+export const HOLDS_BYTES = 16;
 export const SCRIPT_ENTRY = Object.freeze({
-  size: 48 + EVENTS.length * 8 + 4 + STORE.slots * 4 + TIMERS.slots * TIMERS.recordSize,
+  size: 48 + EVENTS.length * 8 + 4 + STORE.slots * 4 + TIMERS.slots * TIMERS.recordSize + HOLDS_BYTES,
   fields: Object.freeze([
     ["next", 0], ["blob", 4], ["vars", 8], ["state", 12], ["fault", 16], ["offset", 20],
     ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 44 + EVENTS.length * 4], ["readySent", 44 + EVENTS.length * 8],
     ["storeMask", 48 + EVENTS.length * 8], ["store", 52 + EVENTS.length * 8], ["timers", 52 + EVENTS.length * 8 + STORE.slots * 4],
-  ].map(([name, offset]) => Object.freeze({ name, offset, words: name === "maxCost" || name === "maxEventTicks" ? EVENTS.length : name === "store" ? STORE.slots : name === "timers" ? TIMERS.slots * TIMERS.recordSize / 4 : 1 }))),
+    ["holds", 52 + EVENTS.length * 8 + STORE.slots * 4 + TIMERS.slots * TIMERS.recordSize],
+  ].map(([name, offset]) => Object.freeze({ name, offset, words: name === "maxCost" || name === "maxEventTicks" ? EVENTS.length : name === "store" ? STORE.slots : name === "timers" ? TIMERS.slots * TIMERS.recordSize / 4 : name === "holds" ? HOLDS_BYTES / 4 : 1 }))),
 });
 export const SCRIPT_STATE = Object.freeze({ LOADED: 1, ARMED: 2, DISABLED: 3 });
 
@@ -353,6 +359,20 @@ const API_LIST = [
   [65, "korg.afterSteps", [int("steps", 1, TIMERS.maxSteps), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
   [66, "korg.cancel", [int("timer", -1, TIMERS.slots * 32 - 1)], "void", TIMER_USE, 6, 11],
   [67, "korg.padHold", [int("on", 0, 1)], "void", UI, 20, 12],
+  [68, "korg.knobHold", [int("index", 0, 10), int("on", 0, 1)], "void", UI, 20, 13],
+  [69, "korg.knob", [int("index", 0, 10), int("value", 0, 255)], "void", UI, 30, 13],
+  [70, "korg.passKeys", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 14],
+  [71, "korg.seq.setPartValue", [int("part", 0, 15), int("field", 0, 19), int("value")], "void", UI, 60, 14],
+  [72, "korg.read.patternBytes", [arr("array"), int("pattern", -1, 249), int("offset", 0, 16383)], "int", UI, 6, 14, 1],
+  [73, "korg.seq.writeSteps", [arr("array"), int("part", 0, 15), int("first", 0, 63)], "int", UI, 10, 14, 1],
+  [74, "korg.touchLockX", [int("x", -1, 127)], "void", UI, 20, 15],
+  [75, "korg.keyHold", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 15],
+  [76, "korg.pressKey", [int("key", 0, 33)], "void", UI, 30, 15],
+  [77, "korg.seq.setPatternValue", [int("field", 0, 12), int("value")], "void", UI, 60, 15],
+  [78, "korg.read.viewedPattern", [], "int", ALL, 6, 18],
+  [79, "korg.read.nextPattern", [], "int", ALL, 6, 18],
+  // the keys a plugin keeps from the firmware, as one mask: bit n of `low` is key n (0 to 31), bit n of `high` key 32 + n
+  [80, "korg.keyMask", [int("low"), int("high", 0, 3)], "void", UI, 20, 19],
 ];
 
 /**
@@ -425,6 +445,8 @@ export const PATTERN_FIELDS = Object.freeze([
   field("mfxType", 61, "u8", text("api.pattern.mfxType")),
   field("chainTo", 15104, "chain", text("api.pattern.chainTo")),
   field("chainRepeat", 15106, "atLeast1", text("api.pattern.chainRepeat")),
+  field("gateArp", 49, "u8", text("api.pattern.gateArp")),
+  field("syncGroup", 15232, "u16", text("api.pattern.syncGroup")),
 ]);
 export const PART_FIELDS = Object.freeze([
   field("sample", 8, "u16", text("api.part.sample")),
@@ -448,6 +470,35 @@ export const PART_FIELDS = Object.freeze([
   field("oscEdit", 11, "u8", text("api.part.oscEdit")),
   field("mfxSend", 27, "u8", text("api.part.mfxSend")),
 ]);
+/**
+ * The PART_FIELDS korg.seq.setPartValue writes, by name: the firmware's parameter number of its part edit (the setter the
+ * knobs go through, which writes the pattern and the sound engine's copy), the code of the parameter window a knob opens,
+ * and the range the value is clamped to. Voice assign and MFX send go through the firmware's direct setter of the field
+ * instead (tools/patch/script_hooks.py, PART_SETTERS), parameter number and window code are 0 there. Fields not listed
+ * (sample, IFX on, IFX type) stay read-only (docs/messungen/2026-11-06-plugin-api21-pattern-parts.md).
+ */
+export const PART_WRITES = Object.freeze({
+  filterType: [10, 10, 0, 16], cutoff: [11, 3, 0, 127], resonance: [12, 4, 0, 127], egInt: [13, 5, -63, 63],
+  modType: [14, 13, 0, 71], modSpeed: [15, 12, 0, 127], modDepth: [16, 11, 0, 127], attack: [17, 9, 0, 127],
+  decay: [18, 8, 0, 127], level: [19, 6, 0, 127], pan: [20, 7, -63, 63], ifxEdit: [27, 14, 0, 127],
+  pitch: [28, 15, -63, 63], glide: [29, 16, 0, 127], oscEdit: [6, 1, 0, 127],
+  voiceAssign: [0, 0, 0, 3], mfxSend: [0, 0, 0, 1],
+});
+/** The PART_WRITES fields that came with a later API version than korg.seq.setPartValue: the version, by name. */
+export const PART_WRITE_SINCE = Object.freeze({ voiceAssign: 21, mfxSend: 21 });
+/**
+ * The PATTERN_FIELDS korg.seq.setPatternValue writes, by name: the range the value is clamped to, in the units
+ * korg.read.patternValue gives (the ranges of data/map/pattern.mjs, decoded by the field's kind: length 1 to 4 bars,
+ * Chain To -1 for none). The firmware's setters are per build in tools/patch/script_hooks.py (PATTERN_SETTERS); Sync Group
+ * has none, it is stored as the SYNC GROUP page of the EDIT menu stores it.
+ */
+export const PATTERN_WRITES = Object.freeze({
+  tempo: [200, 3000], swing: [-48, 48], length: [1, 4], beat: [0, 4], key: [0, 11], scale: [0, 34], chordSet: [0, 4],
+  level: [0, 127], mfxType: [0, 39], chainTo: [-1, 249], chainRepeat: [0, 127], gateArp: [0, 49],
+  syncGroup: [0, 999],
+});
+/** The PATTERN_FIELDS that came with a later API version than korg.read.patternValue: the version, by name. */
+export const PATTERN_FIELD_SINCE = Object.freeze({ syncGroup: 21 });
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
 

@@ -133,6 +133,8 @@ SOURCE = """
     b pc_over_get               ; +20 -> r0 = OVERLAP
     b pc_keep_set               ; +24 (LED DIMMING step 0 to 11, 0 the 75 percent of before): stored, the LEDs sent again later
     b pc_keep_get               ; +28 -> r0 = the LED DIMMING step
+b pc_colour_get             ; +32 (kind 24 PAD COLOR or 25 SELECT COLOR) -> r0 = its colour, 0 red, 1 blue, 2 pink
+b pc_colour_set             ; +36 (kind, colour): stored, the pads sent again later; a colour the other kind has swaps the two
 
 ; -> r0 = PART, r1 = SELECT; never written (or nonsense) is red and blue. Clobbers r12.
 pc_colours:
@@ -245,6 +247,37 @@ pc_keep_get:
     cmp r0, #11
     movhi r0, #0
     bx lr
+
+; r0 = kind 24 (PART) or 25 (SELECT) -> r0 = its colour. Keeps r2 to r11.
+pc_colour_get:
+    push {lr}
+    mov r2, r0
+    bl pc_colours
+    cmp r2, #24
+    movne r0, r1
+    pop {pc}
+
+; r0 = kind 24 (PART) or 25 (SELECT), r1 = the colour 0 to 2: stored as pc_set stores it (the pads go out again with the next LED
+; message). PART and SELECT are never the same: when the colour is the other kind's, that one takes this kind's old colour.
+; Keeps r4 to r11.
+pc_colour_set:
+    push {lr}
+    mov r2, r0
+    mov r3, r1
+    bl pc_colours
+    cmp r2, #24
+    bne pcs_select
+    cmp r3, r1
+    moveq r1, r0
+    mov r0, r3
+    b pcs_store
+pcs_select:
+    cmp r3, r0
+    moveq r0, r1
+    mov r1, r3
+pcs_store:
+    bl pc_set
+    pop {pc}
 
 pc_from_look:
     mov r1, r0, lsr #29

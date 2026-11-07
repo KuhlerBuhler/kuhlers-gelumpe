@@ -46,6 +46,17 @@ export const TABLE = [
   ...CASE_MODULES.map(m => [new RegExp(`^tools/emu/${m}\\.py$`), [m]]),
   [/^tools\/emu\/testmode_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
   [/^tools\/emu\/timer_cases\.py$/, ["remote_cases"]],         // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_edit_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api15_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api18_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api19_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/global_cases\.py$/, ["remote_cases"]],         // runs as a group of remote_cases
+  [/^tools\/emu\/pattern_parts_cases\.py$/, ["remote_cases"]],  // runs as a group of remote_cases
+  [/^tools\/emu\/live_write_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/objects_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
+  // what the case modules get from Node (node_json.py): only groups of remote_cases ask; the writer of the file checks nothing
+  [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases"]],
+  [/^tools\/emu\/node_results\.py$/, []],
 
   // the patches and the code they build, to the cases that test them (check.py's docstring, each has_hooks)
   [/^tools\/patch\/mfx_switch\.py$|^data\/patches\/mfx-switch[^/]*\.json$/, MFX_USERS],
@@ -54,7 +65,7 @@ export const TABLE = [
   [/^tools\/patch\/blech_version\.mjs$|^data\/patches\/blech-version[^/]*\.json$/, ["menu_cases"]],
   [/^tools\/patch\/script_shortcuts\.s$/, ["shortcut_cases"]],
   [/^tools\/patch\/script_migrate\.s$/, ["migrate_cases"]],
-  [/^tools\/patch\/script_remote\.s$/, ["remote_cases"]],
+  [/^tools\/patch\/script_remote\.s$|^tools\/patch\/script_objects\.s$/, ["remote_cases"]],
   [/^tools\/patch\/fx_card\.s$|^src\/fx-collection\.mjs$/, ["fx_card_cases"]],
   [/^tools\/patch\/pattern_switch\.py$|^data\/patches\/pattern-switch[^/]*\.json$/, ["pswitch_cases"]],
   [/^tools\/patch\/tap_motion\.py$|^data\/patches\/tap-motion[^/]*\.json$/, ["tap_motion_cases"]],

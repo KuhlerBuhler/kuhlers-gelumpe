@@ -200,7 +200,7 @@ wenn `KORG/blechtribe/Sample/e2sSample.all` fehlt und `KORG/hacktribe/Sample/e2s
 |---|---|---|---|---|---|---|
 | 1. rot, nur BLECH | Korgs rote 2.02 (`1d0f0689`) | `blech.json`, Teile für Korgs Original | Sampler | `KORG/electribe sampler/System/` | `KORG/blechtribe/System/` | gebaut, am Gerät bestätigt |
 | 2. rot, BLECH + Hacktribe | `7cb4825c` (aus der roten 2.02 plus `hacktribe-2.patch`) | `blech.json`, Teile für Hacktribe | Sampler | `KORG/hacktribe/System/` | `KORG/blechtribe/System/` | gebaut |
-| 3. blau, BLECH-Synth-Satz | Korgs blaue 2.02 (`41fc5f1c`) | `blech-synth.json` | Synth (unverändert) | `KORG/electribe/System/` | `KORG/electribe/System/` | gebaut, im Emulator geprüft, am Gerät offen |
+| 3. blau, BLECH-Synth-Satz | Korgs blaue 2.02 (`41fc5f1c`) | `blech-synth.json` | Synth (unverändert) | `KORG/electribe/System/` | `KORG/blechtribe/System/` | gebaut, im Emulator geprüft, am Gerät offen |
 | 4. blau, BLECH + Hacktribe (neu) | wie Route 2 (auch die Datei aus Hacktribes `-e`, nach Zurücksetzen auf Sampler-Kopf) | `blech.json`, Teile für Hacktribe, dazu Auswahl der Teile (Doom, Hintergrundlicht) | von Korgs Blau aus: Synth (`0x12 = 0x00`, `0x2E = 0x23`); von Hacktribe oder BLECH aus: Sampler | `KORG/electribe/System/` (von Korg blau) oder `KORG/hacktribe/System/` (von Hacktribe) | `KORG/blechtribe/System/`, Kopf Sampler | Idee; Emulator-Teilbeweis in diesem Dokument, Gerät offen |
 
 Der Unterschied zwischen Route 3 und 4: Route 3 ist Korgs Synth-Firmware mit unserem Satz (eigene Adressen, kein Hacktribe). Route 4
