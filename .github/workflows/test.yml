@@ -45,7 +45,7 @@ jobs:
       # The raw-value check and the spacing check run with the suites (test/raw-values.test.mjs, test/e2e/design.e2e.mjs).
       - if: matrix.part == 1
         run: npx --yes @google/design.md@0.4.0 lint DESIGN.md
-      - run: python3 -m pip install -r tools/emu/requirements.txt
+      - run: python3 -m pip install -r tools/emu/requirements.txt -r tools/emu/spettro/requirements.txt
       # npm run test:ci with the part: an option after the file pattern would not reach node --test.
       - run: node --test --test-timeout=300000 --test-shard=${{ matrix.part }}/2 "test/*.test.mjs"
         env:

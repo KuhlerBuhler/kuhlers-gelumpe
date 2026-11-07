@@ -1,0 +1,75 @@
+{
+  "baseSha256": "a4259cfadb7d4c9929353d01b4ef7f259d0d3149d39e7b5d7ae9f40e7f450629",
+  "regions": [
+    {
+      "at": "0xc00141f8",
+      "length": 584,
+      "sha256": "4a182e45a186a9fc78e799126e8a38d0adcd2988b979de6e026297a51b61aff7"
+    },
+    {
+      "at": "0xc0000d80",
+      "length": 64,
+      "sha256": "88d77f80fd8b8658b9c74e853d62d8cea1788e170b75b0132b194a7b5f6124f2"
+    },
+    {
+      "at": "0xc0000ca8",
+      "length": 64,
+      "sha256": "98d37d2e1c33fc59f7d3750312676de435ab9ce518992eb0d70a12a75a8a7b6f"
+    },
+    {
+      "at": "0xc00014ec",
+      "length": 64,
+      "sha256": "f2e7ba1e0c30316dd321c7cf87c16b7b68ef454d441093df5fb9ca477354e632"
+    },
+    {
+      "at": "0xc001251c",
+      "length": 128,
+      "sha256": "d9c406de93c1c8b354771854fbe1c35da4ea887436e2f61e26b364402a717113"
+    },
+    {
+      "at": "0xc0014afc",
+      "length": 128,
+      "sha256": "6aff2831dbe97b2869afb5156b34e9d0ef045de643bb86efb930994857111975"
+    },
+    {
+      "at": "0xc0015c98",
+      "length": 64,
+      "sha256": "0a0511f4e6636e4a04b2bfccfad4c634aeb5f46f6feaf6e53764e08415182fdb"
+    },
+    {
+      "at": "0xc0028dcc",
+      "length": 16,
+      "sha256": "3840b0ae0fc2809de026dac41ec53900fbc18a715907646c353197bc1b8853ce"
+    },
+    {
+      "at": "0xc004e41c",
+      "length": 92,
+      "sha256": "c90341161878348c26f2fa0a76191757818d198f39873c525c6d8996bce34a98"
+    },
+    {
+      "at": "0xc004e2f0",
+      "length": 52,
+      "sha256": "675b2a102036631fc0d01634272bfb9fbf536b8f9ece00d30423b6d1a3a0fcd1"
+    },
+    {
+      "at": "0xc007ddcc",
+      "length": 60,
+      "sha256": "087afaf40fb9e799e19c195b3ca46bffffac661b454c09577fb11760a51381e6"
+    },
+    {
+      "at": "0xc002d844",
+      "length": 140,
+      "sha256": "9b77a635011836bec328c24fb0782677f0661e020648136a3a148eb7d973a62b"
+    },
+    {
+      "at": "0xc000085c",
+      "length": 64,
+      "sha256": "e98572ff76dae050c73d81d276fffc26f61904efc8ff57b5689da48cd770b433"
+    },
+    {
+      "at": "0xc00f9e10",
+      "length": 271008,
+      "sha256": "83259e30eec2c6586c3756fa3a75d1f831f02e2436d950c4fdb648322a9ca774"
+    }
+  ]
+}

@@ -10,7 +10,12 @@
  * 2026-10-12-skript-laufzeit.md and 2026-10-12-patternwechsel.md, and the
  * two built patches.
  */
+import { SPETTRO_SITES } from "./spettro-sites.mjs";
+
 export const CHAINS = {
+  "spettro-command": [{ id: "task-service", sites: [SPETTRO_SITES.command] }],
+  "spettro-display": [{ id: "runtime-blit", sites: [SPETTRO_SITES.display] }],
+  "spettro-input": [{ id: "runtime-app-mask", sites: [SPETTRO_SITES.input] }],
   "start": [
     { id: "after-flash-mark", sites: [0xC00289D8, 0xC0025E48] },   // the second is the synth build's
     { id: "after-rescue-paths", sites: [0xC002ADAC] },
