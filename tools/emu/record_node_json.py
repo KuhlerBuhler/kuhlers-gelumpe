@@ -22,6 +22,7 @@ CALLS = {
     "plugin_api15_cases": ['edit.compiled({"api15": PROGRAM})'],
     "plugin_api18_cases": ['edit.compiled({"api18": PROGRAM})'],
     "plugin_api19_cases": ['edit.compiled(PROGRAMS)'],
+    "plugin_api22_cases": ['edit.compiled({"api22": PROGRAM})'],
     "plugin_catalog15_cases": ['edit.compiled({"stepcopy": PRESETS["stepcopy"]})', 'edit.compiled({name: PRESETS[name] for name in PLUGINS})'],
     "plugin_edit_cases": ['compiled({"edit": PROGRAMS["edit"].replace("LEVEL", "0")})',
                           'compiled({"edit": PROGRAMS["edit"].replace("LEVEL", str(level))})',

@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 21;
+export const API_VERSION = 22;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -373,6 +373,11 @@ const API_LIST = [
   [79, "korg.read.nextPattern", [], "int", ALL, 6, 18],
   // the keys a plugin keeps from the firmware, as one mask: bit n of `low` is key n (0 to 31), bit n of `high` key 32 + n
   [80, "korg.keyMask", [int("low"), int("high", 0, 3)], "void", UI, 20, 19],
+  // the bytes of a step in the pattern in RAM, as they are (PATTERN_STEPS); reads only, like korg.read.patternValue they work in every event
+  [81, "korg.seq.getOn", [int("part", 0, 15), int("step", 0, 63)], "int", ALL, 4, 22],
+  [82, "korg.seq.getGate", [int("part", 0, 15), int("step", 0, 63)], "int", ALL, 4, 22],
+  [83, "korg.seq.getNote", [int("part", 0, 15), int("step", 0, 63), int("slot", 0, 3)], "int", ALL, 4, 22],
+  [84, "korg.seq.getVelocity", [int("part", 0, 15), int("step", 0, 63)], "int", ALL, 4, 22],
 ];
 
 /**
@@ -504,10 +509,12 @@ export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 
 
 /**
  * The steps korg.seq.* writes, in a part of the pattern in RAM: `count` records of `stride` bytes from `base` in the part
- * (data/map/pattern.mjs, step.*). A record holds on, gate (127 a tie), velocity, trigger and four note places, each the
- * note plus one, 0 for none. setStep writes on, velocity, trigger and the first note place and clears the other three, as
+ * (data/map/pattern.mjs, step.*). A record holds on, gate (above 96 a tie), velocity, trigger and four note places, each the
+ * note plus one, 0 for none. setStep writes on, velocity, trigger (0 behind a step on with a TIE, gate above 96; 1 else) and the
+ * first note place and clears the other three, as
  * the dice patch does (tools/patch/dice.py), or with note -1 or velocity 0 only the on byte; setGate writes the gate;
- * clearPart sets every on byte to 0. The pads draw the steps again once at the end of the frame.
+ * clearPart sets every on byte to 0. The pads draw the steps again once at the end of the frame. getOn, getGate and
+ * getVelocity return their byte as it is, getNote the note of a place (-1 for 0); they mark nothing for the pads.
  */
 export const PATTERN_STEPS = Object.freeze({ base: 0x30, stride: 12, count: 64, on: 0, gate: 1, velocity: 2, trigger: 3, notes: 4 });
 
