@@ -82,8 +82,9 @@ Beleg. Alles ist am Gerät abgeglichen:
   überprüft werden. Ein Ausgangspegel von 95, während Werks-Presets nur 32 bis 36
   verwenden, übersteuert bei jeder Einstellung.
 
-Für Patterns gibt es bisher eine Regel (`src/pattern-rules.mjs`): ein Step mit "An" und
-ohne "Trigger" klingt nicht, das ist eine Warnung.
+Für Patterns gibt es bisher eine Regel (`src/pattern-rules.mjs`): Glide in einem Part geht beim Senden
+verloren, das ist eine Warnung. Einen Step mit "An" und ohne "Trigger" meldet der Linter nicht: er klingt,
+Trigger 0 zählt nur hinter einem TIE ([Messung](messungen/2026-11-06-step-trigger.md)).
 
 Für Samples gibt es vier Regeln (`src/sample-rules.mjs`), alle Warnungen, weil Name und Tune je
 einmal am Gerät geschrieben wurden und alles darüber hinaus ungetestet ist: ein leerer Name, ein
