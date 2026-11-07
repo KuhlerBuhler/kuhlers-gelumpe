@@ -42,6 +42,11 @@ korg.onEvent("ready", () => {
 });"""
 
 
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    edit.compiled({"api22": PROGRAM})
+
+
 def entry(name, ok, detail):
     return {"id": f"plugin_api22:{name}", "ok": bool(ok), "detail": str(detail)}
 

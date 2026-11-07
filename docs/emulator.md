@@ -39,7 +39,13 @@ Was er nicht ist:
   SDSC; bei USB ein Kabel; bei der Stromversorgung Batteriestand und Netzteil
   (das Batteriesymbol bleibt gleich).
 - Keine eingebauten Firmwaredaten und keine Hardwareverbindung. Der Emulator
-  braucht keine Node-Laufzeit, nur Python.
+  braucht keine Node-Laufzeit, nur Python. Was einige Fälle aus dem
+  JavaScript des Repositorys brauchen (übersetzte Plugins, Feldlisten,
+  Presets), steht vorberechnet in `data/emu/node-results.json` und geht mit
+  in die App. Nach einer Änderung an Compiler, Vertrag, Presets oder Karte
+  die Datei neu schreiben: `tools/emu/.venv/bin/python
+  tools/emu/node_results.py`. `test/node-results.test.mjs` schlägt fehl,
+  solange sie veraltet ist.
 
 Die Messungen tragen die Marker **gemessen** (am Gerät), **hergeleitet**,
 **offen**, **offline** (im Emulator am Originalcode beobachtet) und
