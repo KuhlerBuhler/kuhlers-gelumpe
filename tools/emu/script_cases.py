@@ -584,11 +584,12 @@ def menu_script_cases(programs, built, patched, flash, check):
           and kept_off.u32(entry + 12) == 1 and not kept_off.m.asserts,
           dict(listed=[hex(value) for value in listed], state=kept_off.u32(entry + 12)))
 
-    # MANAGE PLUGINS: ENTER opens the list of the plugins, ENTER on one its pages (DESCRIPTION, its own, OFF, REMOVE), which wrap; REMOVE
-    # asks once, then writes e2sPlugin.all without it (no file to delete here) and goes back to MANAGE PLUGINS; EXIT goes up one level each time
+    # PLUGINS: ENTER opens the list of the plugins of MANAGE PLUGINS straight away, ENTER on one its pages (DESCRIPTION, its own, OFF,
+    # REMOVE), which wrap; REMOVE asks once, then writes e2sPlugin.all without it (no file to delete here) and goes back to MANAGE PLUGINS;
+    # EXIT goes up one level each time, out of the list back to the row PLUGINS
     gone = with_card(patched, flash, {CARD_FILE: archive(blocks)})
     gone.run(2)
-    menu_cases.goto_group(gone, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_MANAGE)
+    menu_cases.goto_top(gone, menu_cases.LIST_PLUGINS)
     edit = texts(gone)
     menu_cases.press(gone, "menu", wait=0.4)
     opened = (menu_cases.state(gone, menu_cases.S_LEVEL), menu_cases.counter(gone), texts(gone), menu_cases.tab(gone))
@@ -598,9 +599,9 @@ def menu_script_cases(programs, built, patched, flash, check):
     up = (menu_cases.state(gone, menu_cases.S_LEVEL), menu_cases.state(gone, menu_cases.S_PAGE), texts(gone))
     menu_cases.press(gone, "exit", wait=0.4)
     left = (menu_cases.state(gone, menu_cases.S_LEVEL), menu_cases.state(gone, menu_cases.S_PAGE), texts(gone))
-    check("plugin-verwalten-oeffnet-und-exit", edit == ("MANAGE PLUGINS", "", menu_cases.PRESS) and opened == (menu_cases.LEVEL_PLUGIN, (0, 2), ("healthy", "ON", ""), "Plugins")
+    check("plugin-verwalten-oeffnet-und-exit", edit == ("PLUGINS", "", menu_cases.PRESS) and opened == (menu_cases.LEVEL_PLUGIN, (0, 2), ("healthy", "ON", ""), "Plugins")
           and inside == (menu_cases.LEVEL_PSUB, (0, 3), "Plugins") and up == (menu_cases.LEVEL_PLUGIN, 0, ("healthy", "ON", ""))
-          and left == (2, menu_cases.PLUGIN_MANAGE, edit) and not gone.m.asserts, dict(edit=edit, opened=opened, inside=inside, up=up, left=left))
+          and left == (1, menu_cases.LIST_PLUGINS, edit) and not gone.m.asserts, dict(edit=edit, opened=opened, inside=inside, up=up, left=left))
     menu_cases.press(gone, "menu", wait=0.4)
     menu_cases.press(gone, "menu", wait=0.4)
     menu_cases.press(gone, "edit_prev", wait=0.4)
@@ -821,7 +822,7 @@ def import_cases(programs, built, patched, flash, check):
     picture = lambda: dev.read(runtime + sym["RT_DISPLAY"], 1024)
     shown = lambda: dev.read(sym["SCRIPT_DISPLAY_RAM"], 1024)
     image = lambda: bytes(dev.read(sym["HOOK_INPUT"], 16 + 84))
-    menu_cases.goto_group(dev, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_MANAGE)
+    menu_cases.goto_top(dev, menu_cases.LIST_PLUGINS)
     asking = texts()
     menu_cases.press(dev, "menu", wait=0.5)
     opened = (state(menu_cases.S_LEVEL), menu_cases.counter(dev), menu_cases.tab(dev))
@@ -831,7 +832,7 @@ def import_cases(programs, built, patched, flash, check):
         names.append(texts())
     menu_cases.press(dev, "edit_next", wait=0.3)
     wrapped = texts()
-    check("liste-aus-den-dateien", asking == ("MANAGE PLUGINS", "", menu_cases.PRESS) and opened == (menu_cases.LEVEL_PLUGIN, (0, 3), "Plugins") and state(48) == 3
+    check("liste-aus-den-dateien", asking == ("PLUGINS", "", menu_cases.PRESS) and opened == (menu_cases.LEVEL_PLUGIN, (0, 3), "Plugins") and state(48) == 3
           and names == [(name(healthy_block), "OFF", ""), (name(foreign_block), "OFF", ""), (name(broken), "OFF", "")] and wrapped == names[0]
           and state(56) == 0, dict(asking=asking, opened=opened, names=names, wrapped=wrapped, count=state(48)))
     check("liste-versteckte-dateien-fehlen", state(48) == 3, dict(count=state(48), why="short, zero, notes and the ._ files are no plugins"))
@@ -892,7 +893,7 @@ def import_cases(programs, built, patched, flash, check):
     menu_cases.press(dev, "exit", wait=0.5)
     left = (state(menu_cases.S_LEVEL), state(menu_cases.S_PAGE), byte(0xF9), texts())
     check("beschreibung-verlassen-zeichnet-neu", up == (menu_cases.LEVEL_PLUGIN, 2, 0, (name(broken), "OFF", ""))
-          and left == (2, menu_cases.PLUGIN_MANAGE, 0, ("MANAGE PLUGINS", "", menu_cases.PRESS)), dict(up=up, left=left))
+          and left == (1, menu_cases.LIST_PLUGINS, 0, ("PLUGINS", "", menu_cases.PRESS)), dict(up=up, left=left))
     # the list again: the loaded ones first, the file that is not loaded last, nothing twice
     menu_cases.press(dev, "menu", wait=0.5)
     rows = {}
