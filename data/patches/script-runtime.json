@@ -494,6 +494,11 @@
    "why": "Die EXIT-Shortcuts und KEY PADS im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und SHIFT und lassen jede Meldung durch, solange weder EXIT noch KEYBOARD (KEY PADS an) auf dem Hauptbildschirm gehalten wird; ein Pad, dessen Anschlag KEY PADS nahm, behält auch sein Loslassen."
   },
   {
+   "file": 1422804,
+   "length": 332,
+   "why": "KEY PADS im Eingangsfilter: mit scharfem Menü liest es jede Panel-Meldung schon vor dem Hauptbildschirm und lässt sie durch, solange KEYBOARD nicht gehalten wird."
+  },
+  {
    "file": 1423792,
    "length": 92,
    "why": "Literale der EXIT-Shortcuts und von KEY PADS."
