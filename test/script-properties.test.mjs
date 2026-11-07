@@ -89,8 +89,11 @@ test("the values of a pattern have names: the pattern that plays, every stored p
     ["korg.pattern.current.syncGroup = 7;", "korg.current.syncGroup = 7;"],
     ["korg.parts[0].pitch += 1;", "korg.seq.setPartValue(0, 15, korg.read.patternValue(-1, 0, 15) + 1);"],
   ]) assert.equal(blob(named), blob(call), named);
-  assert.match(error("korg.parts[1].sample = 3;"), /nur lesen/);
-  assert.match(error("korg.parts[1].ifxType = 3;"), /nur lesen/);
+  for (const [named, call] of [
+    ["korg.parts[1].sample = 3;", "korg.seq.setPartValue(1, 0, 3);"],
+    ["korg.parts[1].ifxType = 3;", "korg.seq.setPartValue(1, 13, 3);"],
+    ["korg.parts[1].ampEg = 1;", "korg.seq.setPartValue(1, 20, 1);"],
+  ]) assert.equal(blob(named).slice(16), blob(call).slice(16), `${named}: the same code, the header names API 23`);
   assert.match(error("korg.patterns[1].tempo = 1200;"), /nur lesen/);
   assert.match(error("let t = korg.patterns[1].nope;"), /gibt es nicht/);
 

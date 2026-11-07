@@ -197,7 +197,11 @@ steps_clamp:
 ; the pattern in RAM and the sound engine's copy. The value is clamped to the field's range first, the setter does not check
 ; it. For the selected part the parameter window opens as a knob opens it. A build without the setter (HW_PART_EDIT 0) writes
 ; nothing. A field with a direct setter of its own (part_setters, PART_SETTERS in tools/patch/script_hooks.py) goes through
-; that one instead, with (pattern object + 0x400C, part, value, 1) as the Part menu calls it.
+; that one instead, with (pattern object + 0x400C, part, value, 1) as the Part menu calls it. Three words per field there: the
+; function, the mode and its argument (PART_MODES): 1 key tells the part panel's observers what the key would (its LED), 2 IFX
+; ON also hands the value to the firmware's parameter set as the IFX ON key does, 3 top clamps to the byte at the argument (a
+; field without a setter then goes through the part edit), 4 sample takes the whole slot number and only a slot the SAMPLE
+; knob stops on.
 script_seq_set_part_value_glue:
     cmp r0, #16
     cmplo r1, #SCRIPT_PART_FIELD_COUNT
@@ -206,6 +210,14 @@ script_seq_set_part_value_glue:
     ldr r3, [r3, r1, lsl #2]
     cmp r3, #0
     beq hw_bad_arg
+    push {r4-r8, lr}
+    ldr r12, =part_setters
+    add r12, r12, r1, lsl #3
+    add r12, r12, r1, lsl #2
+    ldmia r12, {r6-r8}              ; r6 the setter, r7 the mode, r8 its argument
+    mov r4, r0
+    cmp r7, #4
+    beq part_value_sample
     mov r12, r3, lsl #8
     mov r12, r12, asr #24
     cmp r2, r12
@@ -213,27 +225,78 @@ script_seq_set_part_value_glue:
     mov r12, r3, asr #24
     cmp r2, r12
     movgt r2, r12
-    ldr r12, =part_setters
-    ldr r12, [r12, r1, lsl #2]
-    cmp r12, #0
+    cmp r7, #3
+    bne part_value_clamped
+    ldr r12, [r8]                   ; the setter's `cmp r2, #top`: only a plain immediate counts, else nothing is written
+    ldr r0, =0xFFFFFF00
+    and r0, r12, r0
+    ldr r5, =0xE3520000
+    cmp r0, r5
+    bne part_value_return
+    and r12, r12, #255
+    cmp r2, r12
+    movgt r2, r12
+part_value_clamped:
+    and r5, r2, #255
+    cmp r6, #0
+    moveq r6, r3
     beq part_value_edit
-    mov r1, r0
+    mov r1, r4
     ldr r0, =HW_PATTERN_OBJECT+0x400C
-    and r2, r2, #255
+    mov r2, r5
+    cmp r7, #2
+    moveq r3, #0
+    movne r3, #1
+    blx r6
+    cmp r7, #2
+    bne part_value_key
+    movs r2, r5
+    movne r2, #127
+    add r0, r4, #1
+    and r1, r8, #255
     mov r3, #1
-    push {r4, lr}
+    ldr r12, =HW_PARAM_SET
     blx r12
-    pop {r4, lr}
+    mov r8, r8, lsr #8
+part_value_key:
+    cmp r7, #1
+    cmpne r7, #2
+    bne part_value_return
+    ldr r0, =HW_PART
+    ldr r0, [r0]
+    cmp r0, r4
+    bne part_value_return
+    sub sp, sp, #8
+    strb r8, [sp]
+    strb r5, [sp, #1]
+    ldr r0, =HW_KEY_PANEL
+    ldr r0, [r0]
+    add r0, r0, #4
+    mov r1, sp
+    ldr r12, =SEQ_NOTIFY
+    blx r12
+    add sp, sp, #8
     b part_value_return
+part_value_sample:
+    cmp r2, #0
+    movlt r2, #0
+    cmp r2, r8
+    movgt r2, r8
+    mov r5, r2
+    mov r6, r3
+    ldr r12, =HW_SAMPLE_NEXT
+    cmp r12, #0
+    beq part_value_return
+    mov r0, r5
+    mov r1, #1
+    blx r12
+    cmp r0, r5
+    bne part_value_return
 part_value_edit:
     ldr r12, =HW_PART_EDIT
     cmp r12, #0
     beq part_value_return
-    push {r4-r6, lr}
     sub sp, sp, #16
-    and r5, r2, #255
-    mov r4, r0
-    mov r6, r3
     str r5, [sp]
     mov r12, #0
     str r12, [sp, #4]
@@ -260,8 +323,9 @@ part_value_edit:
     blx r12
 part_value_done:
     add sp, sp, #16
-    pop {r4-r6, lr}
 part_value_return:
+    pop {r4-r8, lr}
+value_ok:
     mov r0, #0
     mov r1, #ERR_OK
     bx lr
@@ -299,7 +363,7 @@ script_seq_set_pattern_value_glue:
     add r3, r3, r0, lsl #2
     ldr r12, [r3]
     cmp r12, #0
-    beq part_value_return
+    beq value_ok
     cmp r12, #1
     beq pattern_value_store
     ldr r0, [r3, #8]
@@ -315,7 +379,7 @@ pattern_value_top:
     push {r4, lr}
     blx r12
     pop {r4, lr}
-    b part_value_return
+    b value_ok
 pattern_value_store:
     ldr r0, [r3, #4]
     ldr r3, =HW_PATTERN_OBJECT+4
@@ -323,7 +387,7 @@ pattern_value_store:
     strb r1, [r0]
     mov r1, r1, lsr #8
     strb r1, [r0, #1]
-    b part_value_return
+    b value_ok
 
 ; r0 array, r1 pattern (-1 the one in RAM, 0 to 249 the bank), r2 offset in its block: one byte per slot, as far as the block
 ; goes -> r0 the bytes read.
@@ -382,28 +446,30 @@ part_writes:
     .word SCRIPT_PART_WRITE_17
     .word SCRIPT_PART_WRITE_18
     .word SCRIPT_PART_WRITE_19
+    .word SCRIPT_PART_WRITE_20
 
 part_setters:
-    .word PS_SET_0
-    .word PS_SET_1
-    .word PS_SET_2
-    .word PS_SET_3
-    .word PS_SET_4
-    .word PS_SET_5
-    .word PS_SET_6
-    .word PS_SET_7
-    .word PS_SET_8
-    .word PS_SET_9
-    .word PS_SET_10
-    .word PS_SET_11
-    .word PS_SET_12
-    .word PS_SET_13
-    .word PS_SET_14
-    .word PS_SET_15
-    .word PS_SET_16
-    .word PS_SET_17
-    .word PS_SET_18
-    .word PS_SET_19
+    .word PS_SET_0, PS_MODE_0, PS_ARG_0
+    .word PS_SET_1, PS_MODE_1, PS_ARG_1
+    .word PS_SET_2, PS_MODE_2, PS_ARG_2
+    .word PS_SET_3, PS_MODE_3, PS_ARG_3
+    .word PS_SET_4, PS_MODE_4, PS_ARG_4
+    .word PS_SET_5, PS_MODE_5, PS_ARG_5
+    .word PS_SET_6, PS_MODE_6, PS_ARG_6
+    .word PS_SET_7, PS_MODE_7, PS_ARG_7
+    .word PS_SET_8, PS_MODE_8, PS_ARG_8
+    .word PS_SET_9, PS_MODE_9, PS_ARG_9
+    .word PS_SET_10, PS_MODE_10, PS_ARG_10
+    .word PS_SET_11, PS_MODE_11, PS_ARG_11
+    .word PS_SET_12, PS_MODE_12, PS_ARG_12
+    .word PS_SET_13, PS_MODE_13, PS_ARG_13
+    .word PS_SET_14, PS_MODE_14, PS_ARG_14
+    .word PS_SET_15, PS_MODE_15, PS_ARG_15
+    .word PS_SET_16, PS_MODE_16, PS_ARG_16
+    .word PS_SET_17, PS_MODE_17, PS_ARG_17
+    .word PS_SET_18, PS_MODE_18, PS_ARG_18
+    .word PS_SET_19, PS_MODE_19, PS_ARG_19
+    .word PS_SET_20, PS_MODE_20, PS_ARG_20
 
 pattern_writes:
     .word SCRIPT_PATTERN_WRITE_0

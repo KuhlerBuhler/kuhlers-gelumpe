@@ -285,6 +285,7 @@ part_fields:
     .word SCRIPT_PART_FIELD_17
     .word SCRIPT_PART_FIELD_18
     .word SCRIPT_PART_FIELD_19
+    .word SCRIPT_PART_FIELD_20
 
 hw_bad_arg:
     mov r0, #0

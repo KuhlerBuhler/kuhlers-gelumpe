@@ -2213,6 +2213,7 @@ export default {
   "api.part.voiceAssign": "Voice Assign, 0 bis 3.",
   "api.part.oscEdit": "Osc Edit, 0 bis 127.",
   "api.part.mfxSend": "1, wenn der Part an den Master-Effekt geht.",
+  "api.part.ampEg": "1, wenn beim Part die AMP EG (Lautstärke-Hüllkurve) an ist.",
   "api.error.ok": "kein Fehler",
   "api.error.fuel": "Rechenbudget aufgebraucht (Endlosschleife?)",
   "api.error.badOpcode": "ungültiger Befehl",

@@ -2165,6 +2165,7 @@ export default {
   "api.part.voiceAssign": "Voice Assign, 0 tot 3.",
   "api.part.oscEdit": "Osc Edit, 0 tot 127.",
   "api.part.mfxSend": "1 als de part naar het master-effect gaat.",
+  "api.part.ampEg": "1 als de AMP EG (volume-envelope) van de part aan staat.",
   "api.error.ok": "geen fout",
   "api.error.fuel": "rekenbudget opgebruikt (eindeloze lus?)",
   "api.error.badOpcode": "ongeldig commando",

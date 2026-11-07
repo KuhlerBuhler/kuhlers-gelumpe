@@ -2165,6 +2165,7 @@ export default {
   "api.part.voiceAssign": "Voice Assign, 0 à 3.",
   "api.part.oscEdit": "Osc Edit, 0 à 127.",
   "api.part.mfxSend": "1 si la part va vers l'effet master.",
+  "api.part.ampEg": "1 si l'AMP EG (enveloppe de volume) de la part est activé.",
   "api.error.ok": "pas d'erreur",
   "api.error.fuel": "budget de calcul épuisé (boucle infinie ?)",
   "api.error.badOpcode": "instruction invalide",

@@ -146,12 +146,19 @@ export class SimHardware {
   /** korg.passKeys as the input filter reads it: 1 when the key reaches the firmware while an app is open. */
   keyPasses(key) { return this.keyPass[key]; }
 
-  /** korg.seq.setPartValue in the pattern in RAM: the value clamped to the field's range, a signed one as its byte. */
+  /**
+   * korg.seq.setPartValue in the pattern in RAM: the value clamped to the field's range, a signed one as its byte, a u16 one
+   * (sample) as its two bytes. The device writes a sample only to a slot that holds one; the simulator has no samples and
+   * takes any slot in the range.
+   */
   setPartValue(part, field, value) {
     const f = PART_FIELDS[field];
     const w = f && PART_WRITES[f.name];
     if (!w) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectReadOnly", { path: `korg.parts[${part}].${f?.name ?? field}` })));
-    this.patternBlock(-1)[PATTERN_PARTS.base + part * PATTERN_PARTS.stride + f.offset] = Math.min(w[3], Math.max(w[2], value)) & 255;
+    const at = PATTERN_PARTS.base + part * PATTERN_PARTS.stride + f.offset, v = Math.min(w[3], Math.max(w[2], value));
+    const block = this.patternBlock(-1);
+    block[at] = v & 255;
+    if (f.kind === "u16") block[at + 1] = (v >> 8) & 255;
   }
 
   /** EXIT stays with the firmware: korg.keyHold and korg.pressKey refuse it, as the ARM runtime does. */

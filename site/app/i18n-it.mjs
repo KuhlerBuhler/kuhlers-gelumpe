@@ -2164,6 +2164,7 @@ export default {
   "api.part.voiceAssign": "Voice Assign, da 0 a 3.",
   "api.part.oscEdit": "Osc Edit, da 0 a 127.",
   "api.part.mfxSend": "1 se il part va all'effetto master.",
+  "api.part.ampEg": "1 se l'AMP EG (inviluppo di volume) del part è attivo.",
   "api.error.ok": "nessun errore",
   "api.error.fuel": "budget di calcolo esaurito (ciclo infinito?)",
   "api.error.badOpcode": "istruzione non valida",

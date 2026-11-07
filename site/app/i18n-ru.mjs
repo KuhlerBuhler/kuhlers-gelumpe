@@ -2165,6 +2165,7 @@ export default {
   "api.part.voiceAssign": "Voice Assign, от 0 до 3.",
   "api.part.oscEdit": "Osc Edit, от 0 до 127.",
   "api.part.mfxSend": "1, если парт идёт на мастер-эффект.",
+  "api.part.ampEg": "1, если у парта включён AMP EG (огибающая громкости).",
   "api.error.ok": "без ошибки",
   "api.error.fuel": "Бюджет вычислений исчерпан (бесконечный цикл?)",
   "api.error.badOpcode": "недопустимая команда",

@@ -2165,6 +2165,7 @@ export default {
   "api.part.voiceAssign": "Voice Assign, od 0 do 3.",
   "api.part.oscEdit": "Osc Edit, od 0 do 127.",
   "api.part.mfxSend": "1, pokud part jde do master efektu.",
+  "api.part.ampEg": "1, pokud je u partu zapnutá AMP EG (obálka hlasitosti).",
   "api.error.ok": "žádná chyba",
   "api.error.fuel": "Výpočetní rozpočet vyčerpán (nekonečná smyčka?)",
   "api.error.badOpcode": "neplatný příkaz",
