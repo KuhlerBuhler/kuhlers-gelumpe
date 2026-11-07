@@ -7,7 +7,6 @@ while PART MUTE is held, and Step Copy copies the steps of one bar into another 
 """
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -19,19 +18,20 @@ import unicorn  # noqa: E402
 from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
 import menu_cases  # noqa: E402
+import node_json  # noqa: E402
 import plugin_edit_cases as edit  # noqa: E402
 import remote_cases  # noqa: E402
 from plugin_api15_cases import SCALE_MODE, TOUCH_KEY  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
 
-PRESETS = json.loads(subprocess.check_output(["node", "--input-type=module", "-e",
+PRESETS = node_json.run(
     "import {PRESETS} from './data/script/presets.mjs';"
     "import {PATTERN_FIELDS} from './data/script/contract.mjs';"
     "const s = id => PRESETS.find(p => p.id === id).source;"
     "const at = n => PATTERN_FIELDS.find(f => f.name === n).offset;"
     "console.log(JSON.stringify({gatehold: s('gatehold'), keypads: s('keypads'), momentmute: s('momentmute'), stepcopy: s('stepcopy'),"
-    " gateArp: at('gateArp'), key: at('key')}))"], cwd=ROOT))
+    " gateArp: at('gateArp'), key: at('key')}))")
 GATE_ARP, TOUCH_SCALE, SHIFT, PART_MUTE, TRIGGER, SEQUENCER, KEYBOARD = 4, 5, 10, 16, 19, 21, 23
 LEDMGR = 0xC0345A1C             # the LED manager; +0xB58 the pad mode: 0 PART MUTE, 3 TRIGGER, 4 SEQUENCER
 PLUGINS = ["gatehold", "keypads", "momentmute"]

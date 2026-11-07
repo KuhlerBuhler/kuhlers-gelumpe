@@ -38,17 +38,16 @@ test("browser pattern transport: a cutoff changes, is read back, and undo restor
   assert.deepEqual(page.errors, []);
 });
 
-test("browser pattern transport: a step without trigger requires confirmation and sends nothing before it", async () => {
+test("browser pattern transport: a warning requires confirmation and sends nothing before it", async () => {
   const page = await open();
   const result = await page.evaluate(async () => {
     const { session, pattern, start, sim } = await (await import("/test-support/patterns.mjs")).patternSession();
-    pattern.setRaw("step.on", [0, 0], 1);
-    pattern.setRaw("step.trigger", [0, 0], 0);
+    pattern.setRaw("part.glide", [2], 64);
     const res = await session.apply({ kind: "patternSend", block: pattern.bytes });
     return { confirm: res.needsConfirmation, reasons: res.gate.reasons.map(r => r.code), unchanged: sim.device.pattern.every((b, i) => b === start[i]) };
   });
   assert.equal(result.confirm, true);
-  assert.ok(result.reasons.includes("step-without-trigger"));
+  assert.ok(result.reasons.includes("glide-dropped"));
   assert.equal(result.unchanged, true);
   assert.deepEqual(page.errors, []);
 });

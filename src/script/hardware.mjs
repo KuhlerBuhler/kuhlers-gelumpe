@@ -227,7 +227,9 @@ export class SimHardware {
     block[at + PATTERN_STEPS.velocity] = velocity;
     block.fill(0, at + PATTERN_STEPS.notes, at + PATTERN_STEPS.notes + 4);
     block[at + PATTERN_STEPS.notes] = note + 1;
-    block[at + PATTERN_STEPS.trigger] = 1;
+    // trigger 0 behind a step that is on with a TIE (gate above 96): the same note goes on without a new strike
+    const before = at - PATTERN_STEPS.stride;
+    block[at + PATTERN_STEPS.trigger] = step > 0 && block[before + PATTERN_STEPS.on] && block[before + PATTERN_STEPS.gate] > 96 ? 0 : 1;
     block[at + PATTERN_STEPS.on] = 1;
   }
 

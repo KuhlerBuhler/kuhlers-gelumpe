@@ -272,7 +272,6 @@ node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 | `tools/emu/` | Emulator: Maschine, Dienst, virtuelle SD, Prüfläufe |
 | `tools/patch/` | Patches (ARM-Code, Haken, Plugin-VM) und ihre Python-Tests |
 | `tools/device/` | Werkzeuge am echten Gerät: Flash lesen, LEDs, Bildschirm, FatFs-Sonde |
-| `tools/set/` | Befehlszeile für den Übergangs-Generator (`src/transition.mjs`) und die Auswertung von Pattern-Sets ([set/uebergaenge.md](set/uebergaenge.md)) |
 | `tools/release*.mjs`, `tools/set-version.mjs` | Release |
 | `tools/alsa-sysex.*` | Linux-Sender für große SysEx-Nachrichten ([alsa-sysex.md](../tools/alsa-sysex.md)) |
 | `src-tauri/` | die Desktop-App |

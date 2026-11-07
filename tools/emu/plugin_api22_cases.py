@@ -95,6 +95,16 @@ def glue_cases(w):
     return out
 
 
+def tie_cases(w):
+    """setStep behind a TIE: the loop of a plugin that fills a part with one tied note. Trigger 0 on every step behind a TIE, as
+    the firmware writes it, so the chain plays as one note (docs/messungen/2026-11-06-step-trigger.md)."""
+    for step in range(64):
+        w.dev.call(w.s["script_seq_set_step_glue"], 2, step, 63, 100)
+        w.dev.call(w.s["script_seq_set_gate_glue"], 2, step, 127)
+    triggers = [w.dev.read(w.step_at(2, step) + 3, 1)[0] for step in range(64)]
+    return [entry("set_step_after_tie", triggers == [1] + [0] * 63 and not w.dev.m.asserts, f"triggers of part 2: {triggers}")]
+
+
 def plugin_cases(w):
     w.put()
     program = w.request["programs"]["api22"]
@@ -109,6 +119,7 @@ def plugin_cases(w):
 def cases(vsb, flash=None):
     w = World(vsb, flash)
     out = glue_cases(w)
+    out += tie_cases(w)
     w = World(vsb, flash, w.built)
     out += plugin_cases(w)
     return out

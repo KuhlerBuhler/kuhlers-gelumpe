@@ -45,18 +45,21 @@ seq_got:
     pop {pc}
 
 ; r0 part, r1 step, r2 note (-1 for none), r3 velocity. A note with a velocity above 0 turns the step on with that note in the
-; first note place (the other three cleared) and the trigger on; note -1 or velocity 0 turns it off. The gate stays.
+; first note place (the other three cleared); note -1 or velocity 0 turns it off. The gate stays. The trigger is 1, or 0 when
+; the step before is on with a TIE (gate above 96), as the firmware writes it when a TIE is set: then the same note goes on
+; without a new strike (docs/messungen/2026-11-06-step-trigger.md). From API 22; before, always 1.
 script_seq_set_step_glue:
     cmp r0, #16
     cmplo r1, #SCRIPT_STEP_COUNT
     bhs hw_bad_arg
-    push {lr}
+    push {r4, lr}
+    mov r4, r1                  ; the step: seq_record clobbers r1
     bl seq_record
     cmp r2, #0
     cmpge r3, #1
     movlt r1, #0
     strblt r1, [r12, #SCRIPT_STEP_ON]
-    blt seq_done
+    blt seq_step_done
     strb r3, [r12, #SCRIPT_STEP_VELOCITY]
     add r2, r2, #1
     strb r2, [r12, #SCRIPT_STEP_NOTES]
@@ -65,14 +68,28 @@ script_seq_set_step_glue:
     strb r1, [r12, #SCRIPT_STEP_NOTES+2]
     strb r1, [r12, #SCRIPT_STEP_NOTES+3]
     mov r1, #1
+    cmp r4, #0
+    beq seq_step_trigger
+    ldrb r0, [r12, #SCRIPT_STEP_ON-SCRIPT_STEP_STRIDE]
+    cmp r0, #0
+    ldrbne r0, [r12, #SCRIPT_STEP_GATE-SCRIPT_STEP_STRIDE]
+    cmpne r0, #96
+    movhi r1, #0
+seq_step_trigger:
     strb r1, [r12, #SCRIPT_STEP_TRIGGER]
+    mov r1, #1
     strb r1, [r12, #SCRIPT_STEP_ON]
+seq_step_done:
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4, pc}
+
 seq_done:
     mov r0, #0
     mov r1, #ERR_OK
     pop {pc}
 
-; r0 part, r1 step, r2 gate 0 to 127 (127 ties into the next note).
+; r0 part, r1 step, r2 gate 0 to 127 (above 96 ties into the next note).
 script_seq_set_gate_glue:
     cmp r0, #16
     cmplo r1, #SCRIPT_STEP_COUNT

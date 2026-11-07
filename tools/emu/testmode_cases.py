@@ -14,7 +14,6 @@ value, and Auto Power Off counts again. A plugin only reads the switch; with EXI
 import argparse
 import json
 import struct
-import subprocess
 import sys
 from pathlib import Path
 
@@ -24,6 +23,7 @@ sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import menu_cases  # noqa: E402
+import node_json  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
@@ -164,8 +164,7 @@ const w = compile(process.argv[2], { name: "writes" });
 process.stdout.write(JSON.stringify({ include: asmInclude(), programs: { testmode: { blob: Buffer.from(r.blob).toString("hex") } },
   refused: w.ok ? null : w.errors.map(e => e.message).join("; ") }));
 """
-    result = subprocess.run(["node", "--input-type=module", "-e", code, PROGRAM, WRITES], cwd=ROOT, capture_output=True, text=True, check=True)
-    return json.loads(result.stdout)
+    return node_json.run(code, PROGRAM, WRITES)
 
 
 def plugin_cases(payload, flash):

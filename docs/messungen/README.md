@@ -34,6 +34,7 @@ Felder des Pattern-Blocks, der Parts und der Global-Einstellungen, wie sie die G
 - [Pattern-Kette und Pattern-Import von der Karte, im Emulator gemessen](2026-10-10-pattern-kette-import.md)
 - [Global-Menü: welches Byte, welche Werte, welches Label](2026-10-14-global-felder.md)
 - [Live-Schreibwege: welcher Setter jeden Wert schreibt und wann das Byte allein reicht, im Emulator](2026-11-03-live-schreibwege.md)
+- [Step-Trigger: zählt nur hinter einem TIE, Legato bei Mono1 und Poly1, im Emulator](2026-11-06-step-trigger.md)
 
 
 ## Effekte
