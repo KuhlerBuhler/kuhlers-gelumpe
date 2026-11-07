@@ -1539,6 +1539,7 @@ export default {
   "patcher.checks": "Todas as verificações do emulador ({count})",
   "patcher.check.ok": "passou",
   "patcher.check.failed": "falhou",
+  "patcher.check.skipped": "ignorado",
   "patcher.untested": "Este ficheiro não foi testado. No primeiro arranque tem EXIT à mão: com ele a Electribe arranca sem os patches. ",
   "patcher.after": "Se depois algo não arrancar: {rescue} mostra o caminho documentado de volta.",
   "patcher.target": "O ficheiro novo vai para o cartão SD da Electribe, para aqui:",

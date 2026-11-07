@@ -1539,6 +1539,7 @@ export default {
   "patcher.checks": "Alle controles van de emulator ({count})",
   "patcher.check.ok": "geslaagd",
   "patcher.check.failed": "niet geslaagd",
+  "patcher.check.skipped": "overgeslagen",
   "patcher.untested": "Dit bestand is niet getest. Houd bij de eerste start EXIT klaar: daarmee start de Electribe zonder de patches. ",
   "patcher.after": "Start er daarna iets niet: {rescue} toont de gedocumenteerde weg terug.",
   "patcher.target": "Het nieuwe bestand hoort op de SD-kaart van de Electribe, hierheen:",
