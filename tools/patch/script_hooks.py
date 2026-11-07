@@ -102,26 +102,51 @@ PATTERN_SETTERS = {
 }
 
 # korg.seq.setPartValue (script_seq.s:part_setters): per build and PART_FIELDS name the firmware's direct setter of a part
-# value, called with (pattern object + 0x400C, part, value, 1) as the Part menu and the MFX SEND key call it; it writes the
-# pattern and the sound engine's copy. Fields without one go through the part edit (PART_WRITES). Measured in the emulator
-# (docs/messungen/2026-11-06-plugin-api21-pattern-parts.md); red has the Sampler's addresses.
+# value, called with (pattern object + 0x400C, part, value, 1) as the Part menu, the MFX SEND, AMP EG and IFX ON keys and the IFX
+# encoder's part edit call it; it writes the pattern and the sound engine's copy. Fields without one go through the part edit
+# (PART_WRITES). The second number is what the glue does around the call (PART_MODES), the third its argument.
+# Measured in the emulator (docs/messungen/2026-11-06-plugin-api21-pattern-parts.md,
+# docs/messungen/2026-11-07-plugin-api23-part-writes.md); red has the Sampler's addresses.
 PART_SETTER_FIELDS = ('sample','filterType','cutoff','resonance','egInt','modType','modSpeed','modDepth','attack','decay','level',
-                      'pan','ifxOn','ifxType','ifxEdit','pitch','glide','voiceAssign','oscEdit','mfxSend')
-_SAMPLER_PART_SETTERS = {'voiceAssign': 0xC00493A0, 'mfxSend': 0xC00496D4}
+                      'pan','ifxOn','ifxType','ifxEdit','pitch','glide','voiceAssign','oscEdit','mfxSend','ampEg')
+# 0 the call alone; 1 key: afterwards, for the selected part, the key's message (argument) to the observers of the part panel,
+# which lights the key's LED; 2 IFX ON: the setter without its own report, then the value as 127 or 0 to the firmware's parameter
+# set (argument bits 0 to 7 the parameter, 8 to 15 the key's message), as the IFX ON key does; 3 top: the value clamped to the byte
+# at the argument, the immediate of the setter's own `cmp r2, #top` (the IFX type count minus one, which the effect catalog
+# raises), then the setter or, without one, the part edit; 4 sample: the slot clamped to 0 to the argument and taken only when the SAMPLE knob would stop on it (HW_SAMPLE_NEXT),
+# then the part edit with the whole slot number
+PART_MODES = {'plain': 0, 'key': 1, 'ifxOn': 2, 'top': 3, 'sample': 4}
+_SAMPLER_PART_SETTERS = {'voiceAssign': (0xC00493A0, 'plain', 0), 'mfxSend': (0xC00496D4, 'key', 1),
+                         'ampEg': (0xC0049664, 'key', 2), 'ifxOn': (0xC0049DEC, 'ifxOn', 0x311),
+                         'ifxType': (0, 'top', 0xC0049EF0), 'sample': (0, 'sample', 999)}
 PART_SETTERS = {
     'hacktribe': _SAMPLER_PART_SETTERS,
     'stock': _SAMPLER_PART_SETTERS,
-    'synth': {'voiceAssign': 0xC0043560, 'mfxSend': 0xC00437F0},
+    'synth': {'voiceAssign': (0xC0043560, 'plain', 0), 'mfxSend': (0xC00437F0, 'key', 1), 'ampEg': (0xC0043780, 'key', 2),
+              'ifxOn': (0xC0043F08, 'ifxOn', 0x311), 'ifxType': (0xC0044000, 'top', 0xC004400C)},
+}
+# the firmware's functions and pointers the modes need, per build: the parameter set the IFX ON key calls (part + 1, parameter,
+# value, 1), the pointer to the part panel whose observers light the keys, the SAMPLE knob's search for the next slot it stops on
+# (slot, direction) -> slot; 0 where a build has none (the synth has no samples, its part edit is not measured)
+PART_HELPERS = {
+    'hacktribe': dict(HW_PARAM_SET=0xC0059720, HW_KEY_PANEL=0xC03487E4, HW_SAMPLE_NEXT=0xC0040D50),
+    'stock': dict(HW_PARAM_SET=0xC0059720, HW_KEY_PANEL=0xC03487E4, HW_SAMPLE_NEXT=0xC0040D50),
+    'synth': dict(HW_PARAM_SET=0xC005013C, HW_KEY_PANEL=0xC03484F8, HW_SAMPLE_NEXT=0),
 }
 
 
 def part_setter_actions(build):
-    """The .equ values of the part setter table: PS_SET_i the function, 0 for a field that goes through the part edit."""
+    """The .equ values of the part setter table: PS_SET_i the function (0 for a field that goes through the part edit), PS_MODE_i
+    what the glue does around it (PART_MODES) and PS_ARG_i its argument; and the helpers of PART_HELPERS."""
     setters = PART_SETTERS[build]
     unknown = set(setters) - set(PART_SETTER_FIELDS)
     if unknown:
         raise ValueError(f'part setters for unknown fields: {sorted(unknown)}')
-    return {f'PS_SET_{i}': setters.get(name, 0) for i, name in enumerate(PART_SETTER_FIELDS)}
+    out = dict(PART_HELPERS[build])
+    for i, name in enumerate(PART_SETTER_FIELDS):
+        address, mode, arg = setters.get(name, (0, 'plain', 0))
+        out[f'PS_SET_{i}'], out[f'PS_MODE_{i}'], out[f'PS_ARG_{i}'] = address, PART_MODES[mode], arg
+    return out
 
 
 def pattern_setter_actions(build):

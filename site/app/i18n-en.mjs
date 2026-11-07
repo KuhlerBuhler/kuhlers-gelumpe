@@ -2215,6 +2215,7 @@ export default {
   "api.part.voiceAssign": "Voice Assign, 0 to 3.",
   "api.part.oscEdit": "Osc Edit, 0 to 127.",
   "api.part.mfxSend": "1 if the part goes to the master effect.",
+  "api.part.ampEg": "1 if the part's AMP EG (volume envelope) is on.",
   "api.error.ok": "no error",
   "api.error.fuel": "computing budget used up (endless loop?)",
   "api.error.badOpcode": "invalid instruction",

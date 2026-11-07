@@ -172,6 +172,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 18: angesehenes und nächstes Pattern lesen, im Emulator](2026-11-05-plugin-api18.md)
 - [Plugin API 21: Pattern und Parts schreibbar, Seiten des Pattern-Menüs, Sync Group, was nur lesbar bleibt, im Emulator](2026-11-06-plugin-api21-pattern-parts.md)
 - [Plugin API 22: Steps lesen (an, Gate, Note, Velocity), Lesen ohne Neuzeichnen der Pads, im Emulator](2026-11-06-plugin-api22-step-getters.md)
+- [Plugin API 23: IFX ON, IFX TYPE, Sample und AMP EG schreibbar, LEDs der Part-Tasten, im Emulator](2026-11-07-plugin-api23-part-writes.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
 

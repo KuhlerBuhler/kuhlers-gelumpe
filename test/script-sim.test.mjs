@@ -337,19 +337,24 @@ test("korg.passKeys chooses the keys that reach the firmware while the app is op
   assert.deepEqual([sim.hardware.keyPasses(10), sim.hardware.keyPasses(2)], [0, 1], "EXIT closes the app and the keys are back to their defaults");
 });
 
-test("korg.seq.setPartValue writes a part value clamped to its range, read-only values are an argument error", () => {
+test("korg.seq.setPartValue writes a part value clamped to its range, a field past the list is an argument error", () => {
   const sim = new SimDevice();
   assert.ok(sim.load(build("parts", `
-    korg.onEvent("ready", () => { korg.parts[3].pitch = -100; korg.parts[3].cutoff = 64; korg.seq.setPartValue(0, 10, 300); });
-    korg.onEvent("buttonPress", () => { korg.seq.setPartValue(1, 0, 2); });
+    korg.onEvent("ready", () => {
+      korg.parts[3].pitch = -100; korg.parts[3].cutoff = 64; korg.seq.setPartValue(0, 10, 300);
+      korg.parts[2].sample = 300; korg.parts[4].sample = 5000; korg.parts[2].ampEg = 9; korg.parts[2].ifxType = 200;
+    });
+    korg.onEvent("buttonPress", () => { korg.seq.setPartValue(1, 21, 2); });
   `)).ok);
   sim.frame();
   const at = (part, offset) => sim.hardware.patternBlock(-1)[0x800 + part * 0x330 + offset];
   assert.deepEqual([at(3, 36), at(3, 13), at(0, 24)], [0xC1, 64, 127], "pitch -63 as a signed byte, level clamped to 127");
   assert.equal(sim.hardware.patternValue(-1, 3, 15), -63);
+  assert.deepEqual([sim.hardware.patternValue(-1, 2, 0), sim.hardware.patternValue(-1, 4, 0)], [300, 999], "the sample as its two bytes, up to 999");
+  assert.deepEqual([at(2, 26), at(2, 33)], [1, 127], "AMP EG on or off; IFX type to 127, the device stops at its type count");
   sim.post("buttonPress", 3);
   const faults = sim.run(1);
-  assert.equal(faults[0]?.name, "API_ARG", "the sample is read-only");
+  assert.equal(faults[0]?.name, "API_ARG", "there is no field 21");
 });
 
 test("korg.read.patternBytes and korg.seq.writeSteps copy the steps of a part from a stored pattern into the one that plays", () => {

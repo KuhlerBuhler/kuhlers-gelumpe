@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 22;
+export const API_VERSION = 23;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -362,7 +362,7 @@ const API_LIST = [
   [68, "korg.knobHold", [int("index", 0, 10), int("on", 0, 1)], "void", UI, 20, 13],
   [69, "korg.knob", [int("index", 0, 10), int("value", 0, 255)], "void", UI, 30, 13],
   [70, "korg.passKeys", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 14],
-  [71, "korg.seq.setPartValue", [int("part", 0, 15), int("field", 0, 19), int("value")], "void", UI, 60, 14],
+  [71, "korg.seq.setPartValue", [int("part", 0, 15), int("field", 0, 31), int("value")], "void", UI, 60, 14],
   [72, "korg.read.patternBytes", [arr("array"), int("pattern", -1, 249), int("offset", 0, 16383)], "int", UI, 6, 14, 1],
   [73, "korg.seq.writeSteps", [arr("array"), int("part", 0, 15), int("first", 0, 63)], "int", UI, 10, 14, 1],
   [74, "korg.touchLockX", [int("x", -1, 127)], "void", UI, 20, 15],
@@ -474,23 +474,29 @@ export const PART_FIELDS = Object.freeze([
   field("voiceAssign", 2, "u8", text("api.part.voiceAssign")),
   field("oscEdit", 11, "u8", text("api.part.oscEdit")),
   field("mfxSend", 27, "u8", text("api.part.mfxSend")),
+  field("ampEg", 26, "u8", text("api.part.ampEg")),
 ]);
 /**
  * The PART_FIELDS korg.seq.setPartValue writes, by name: the firmware's parameter number of its part edit (the setter the
  * knobs go through, which writes the pattern and the sound engine's copy), the code of the parameter window a knob opens,
- * and the range the value is clamped to. Voice assign and MFX send go through the firmware's direct setter of the field
- * instead (tools/patch/script_hooks.py, PART_SETTERS), parameter number and window code are 0 there. Fields not listed
- * (sample, IFX on, IFX type) stay read-only (docs/messungen/2026-11-06-plugin-api21-pattern-parts.md).
+ * and the range the value is clamped to. Voice assign, MFX send, AMP EG, IFX on and IFX type go through the firmware's direct
+ * setter of the field instead (tools/patch/script_hooks.py, PART_SETTERS), parameter number and window code are 0 there; IFX
+ * type is clamped further to the build's type count. Sample goes through the part edit with the whole slot number, 0 to 999,
+ * and only to a slot the SAMPLE knob stops on (docs/messungen/2026-11-06-plugin-api21-pattern-parts.md,
+ * docs/messungen/2026-11-07-plugin-api23-part-writes.md).
  */
 export const PART_WRITES = Object.freeze({
   filterType: [10, 10, 0, 16], cutoff: [11, 3, 0, 127], resonance: [12, 4, 0, 127], egInt: [13, 5, -63, 63],
   modType: [14, 13, 0, 71], modSpeed: [15, 12, 0, 127], modDepth: [16, 11, 0, 127], attack: [17, 9, 0, 127],
   decay: [18, 8, 0, 127], level: [19, 6, 0, 127], pan: [20, 7, -63, 63], ifxEdit: [27, 14, 0, 127],
   pitch: [28, 15, -63, 63], glide: [29, 16, 0, 127], oscEdit: [6, 1, 0, 127],
-  voiceAssign: [0, 0, 0, 3], mfxSend: [0, 0, 0, 1],
+  voiceAssign: [0, 0, 0, 3], mfxSend: [0, 0, 0, 1], ampEg: [0, 0, 0, 1], ifxOn: [0, 0, 0, 1], ifxType: [26, 13, 0, 127],
+  sample: [8, 0, 0, 999],
 });
 /** The PART_WRITES fields that came with a later API version than korg.seq.setPartValue: the version, by name. */
-export const PART_WRITE_SINCE = Object.freeze({ voiceAssign: 21, mfxSend: 21 });
+export const PART_WRITE_SINCE = Object.freeze({ voiceAssign: 21, mfxSend: 21, ampEg: 23, ifxOn: 23, ifxType: 23, sample: 23 });
+/** The PART_FIELDS that came with a later API version than korg.read.patternValue: the version, by name. */
+export const PART_FIELD_SINCE = Object.freeze({ ampEg: 23 });
 /**
  * The PATTERN_FIELDS korg.seq.setPatternValue writes, by name: the range the value is clamped to, in the units
  * korg.read.patternValue gives (the ranges of data/map/pattern.mjs, decoded by the field's kind: length 1 to 4 bars,

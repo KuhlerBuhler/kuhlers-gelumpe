@@ -1,6 +1,7 @@
 """Emulator cases of the pattern and part values a plugin writes from API 21 (`korg.pattern.current.*`, `korg.current.*`,
 `korg.parts[i].*`): each value set by a plugin leaves the pattern in RAM, the sound engine's copy behind it and the page of the
-Pattern or Part menu as the menu's own turn (or the key) does; the values without a setter stay as they are.
+Pattern or Part menu as the menu's own turn (or the key) does. Sample, IFX on and IFX type, read-only in API 21, are written
+from API 23 (plugin_api23_cases.py).
 
     PYTHONPATH=tools/patch python3 tools/emu/pattern_parts_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 
@@ -34,7 +35,6 @@ PATTERN_PAGES = {"tempo": 0, "swing": 1, "beat": 2, "length": 3, "mfxType": 5, "
                  "chainTo": 13, "chainRepeat": 14, "syncGroup": 15}
 PART_PAGES = {"voiceAssign": 19}     # the Part menu counts on from the 16 pages of the Pattern menu
 PART_KEYS = {"mfxSend": 0x1A}
-READ_ONLY = ("sample", "ifxOn", "ifxType")
 # rows 0 to 54 of the picture: the bottom rows hold a status line that is not part of the value
 KEEP = bytes(0xFF if row < 6 else 0x7F if row == 6 else 0 for row in range(8) for _ in range(128))
 
@@ -170,10 +170,6 @@ def part_cases(w):
         out.append(entry(f"{name}_like_the_key", menu[at] != start[at] and menu == plugin and any(i >= 4 + COPY for i in changed(start, plugin))
                          and not w.dev.m.asserts,
                          f"key set {start[at]} -> {menu[at]}, plugin differs at {[(hex(i - 4), menu[i], plugin[i]) for i in changed(menu, plugin)][:6]}"))
-    for name in READ_ONLY:
-        before = w.state()
-        w.set_part(2, name, 5)
-        out.append(entry(f"{name}_read_only", w.state() == before and not w.dev.m.asserts, f"changed {[hex(i - 4) for i in changed(before, w.state())][:6]}"))
     return out
 
 
