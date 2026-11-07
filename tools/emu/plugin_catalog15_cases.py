@@ -40,6 +40,12 @@ RAW_Y = 500
 NOTES = [-1, 1, 3, -1, 6, 8, 10, -1, 0, 2, 4, 5, 7, 9, 11, 0]
 
 
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    edit.compiled({"stepcopy": PRESETS["stepcopy"]})       # PRESETS is asked for when the module is imported
+    edit.compiled({name: PRESETS[name] for name in PLUGINS})
+
+
 def entry(name, ok, detail):
     return {"id": f"plugin_catalog15:{name}", "ok": bool(ok), "detail": str(detail)}
 

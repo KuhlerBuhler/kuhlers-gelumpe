@@ -45,6 +45,11 @@ korg.onEvent("frame", () => {
 WRITES = 'korg.onEvent("ready", () => { korg.system.testMode = 1; });'
 
 
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    compiled()
+
+
 def entry(name, ok, detail):
     return {"id": f"testmode:{name}", "ok": bool(ok), "detail": str(detail)}
 
@@ -155,16 +160,10 @@ def awake_cases(payload, flash):
 
 
 def compiled():
-    code = """
-import { asmInclude } from "./src/script/arm-tables.mjs";
-import { compile } from "./src/script/compiler.mjs";
-const r = compile(process.argv[1], { name: "testmode" });
-if (!r.ok) { console.error(r.errors.map(e => e.message).join("; ")); process.exit(1); }
-const w = compile(process.argv[2], { name: "writes" });
-process.stdout.write(JSON.stringify({ include: asmInclude(), programs: { testmode: { blob: Buffer.from(r.blob).toString("hex") } },
-  refused: w.ok ? null : w.errors.map(e => e.message).join("; ") }));
-"""
-    return node_json.run(code, PROGRAM, WRITES)
+    request = node_json.compiled({"testmode": PROGRAM})
+    writes = node_json.program("writes", WRITES)
+    request["refused"] = writes.get("errors")
+    return request
 
 
 def plugin_cases(payload, flash):

@@ -68,20 +68,15 @@ korg.onEvent("frame", () => {{
 def compiled(programs):
     """The include of the contract and the blobs and symbols of the programs, from the compiler of this checkout. The blocks
     are marked as probed by the editor, so an app on the card runs without the user allowing it in the menu."""
-    code = """
-import { asmInclude } from "./src/script/arm-tables.mjs";
-import { compile } from "./src/script/compiler.mjs";
-import { markProbed } from "./src/script/blob.mjs";
-const programs = JSON.parse(process.argv[1]);
-const out = { include: asmInclude(), programs: {} };
-for (const [name, source] of Object.entries(programs)) {
-  const r = compile(source, { name });
-  if (!r.ok) { console.error(name, r.errors.map(e => e.message).join("; ")); process.exit(1); }
-  out.programs[name] = { blob: Buffer.from(markProbed(r.blob)).toString("hex"), symbols: r.info.symbols };
-}
-process.stdout.write(JSON.stringify(out));
-"""
-    return node_json.run(code, json.dumps(programs))
+    return node_json.compiled(programs, probed=True)
+
+
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    # edit_cases compiles the edit with the LEVEL the knob left, a part value of 0 to 127
+    for level in range(128):
+        compiled({"edit": PROGRAMS["edit"].replace("LEVEL", str(level))})
+    compiled({k: v for k, v in PROGRAMS.items() if k != "edit"})
 
 
 def entry(name, ok, detail):
