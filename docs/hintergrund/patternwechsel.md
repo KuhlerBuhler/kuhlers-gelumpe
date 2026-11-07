@@ -378,7 +378,7 @@ Plätze, passt das Modell `10 ms + n * Frame`. Bleibt sie bei gleichen Effekten,
 | Maßnahme | Aufwand | Risiko | Wann |
 |---|---|---|---|
 | Gegenprobe am Gerät (2.7) | wenige Minuten, kein Code | keins | **zuerst** |
-| Im Editor die Zahl der Effektwechsel je Patternpaar anzeigen und im Übergangs-Generator (`tools/set/transition.mjs`) die Effekttypen des Vorgängers übernehmen | Stunden | keins (Daten, nichts am Gerät) | wenn die Gegenprobe die Ursache bestätigt |
+| Im Editor die Zahl der Effektwechsel je Patternpaar anzeigen | Stunden | keins (Daten, nichts am Gerät) | wenn die Gegenprobe die Ursache bestätigt |
 | Kleine Wartezeit patchen: Konstante 10 bei `0xC003E244` (Wartezeit zwischen `0x30` und `0x31`) auf einen kleineren Wert | eine Stunde bis zum Prototyp, Gerätetest nötig | mittel: ob der DSP die Zeit braucht, ist offen; ein falscher Wert kann den Effekt hängen lassen | nur wenn die Gegenprobe eine Gesamtlücke von 100 ms zeigt und der Anteil dieser 10 ms sinnvoll ist (sie sind nur ein Teil) |
 | Vorladen des Patterns aus dem Flash | n/a | n/a | **nicht bauen**, kein Flash-Zugriff beim Wechsel |
 | Am Gerät messen, wie schnell der DSP die Frames quittiert (Zeitstempel im Patch, per SysEx auslesen) | ein bis zwei Tage, DSP-Gerätezugriff nötig | gering, wenn nur gelesen | wenn die Hypothese stimmt und die Lücke verkürzt werden soll |

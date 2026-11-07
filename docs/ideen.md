@@ -58,7 +58,7 @@ Ein Absturz oder Datenverlust ist akzeptabel. Schäden an Software, Hardware ode
 | 44. **MFX 2 auf TOUCH SCALE:** ein zweiter Master-Effekttyp pro Pattern. | läuft am Gerät, Startmodus im Emulator | [Idee 44](ideen/44-mfx-2.md), [am Gerät](messungen/2026-10-13-mfx-umschalter-geraet.md) |
 | 45. **Blechy beim Ein- und Ausschalten:** Ton und eigenes Power-Off-Bild. | Bild gebaut und im Emulator geprüft, Ton offen | [Idee 45](ideen/45-blechy-ein-aus.md), [Messung](messungen/2026-10-15-blechy-power-off.md) |
 | 46. **Patternwechsel erst nach Bestätigung.** | im Emulator gebaut, am Gerät offen | [Idee 46](ideen/46-patternwechsel-bestaetigung.md), [Messung](messungen/2026-10-15-patternwechsel.md), [Patternwechsel](hintergrund/patternwechsel.md) |
-| 47. **Übergänge automatisieren:** Übergangs-Patterns aus zwei Patterns bauen. | im Editor bedienbar, am Gerät ungehört | [Idee 47](ideen/47-uebergaenge.md) |
+| 47. **Übergänge automatisieren:** Übergangs-Patterns aus zwei Patterns bauen. | verworfen, der Generator ist mit Seite, Befehlszeile und Doku wieder entfernt | |
 | 48. **Lücke beim Patternwechsel:** Stille von etwa 100 ms. | Ursache hergeleitet, am Gerät offen | [Idee 48](ideen/48-luecke-patternwechsel.md) |
 | 49. **Eigene Filtertypen,** auch ein persönlicher. Ein neuer Typ aus vorhandenen DSP-Kernen ist ARM-seitig möglich, ein neuer Kern braucht die DSP-Forschung (Idee 26). | Idee | [DSP, erster Blick](hintergrund/dsp-erster-blick.md) |
 | 50. **Plugins für eigene Features** (Hauptfokus). | gebaut im Emulator, am Gerät nichts getestet | [Idee 50](ideen/50-plugins.md), [Plugins](plugins.md) |
