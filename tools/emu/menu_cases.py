@@ -651,10 +651,15 @@ def list_cases(payload, flash=None):
     title = version_texts(payload)[0]
     add("version_page", shown == (*version_texts(payload), "") and (title == "BLECH" or re.fullmatch(r"BLECH \d+\.\d+\.\d+", title))
         and after == (MENU, 1, LIST_VERSION, shown, 0) and not dev.m.asserts, f"{shown}, after ENTER, WRITE and the dial {after}")
+    # ENTER on PLUGINS opens the list of MANAGE PLUGINS straight away; without plugins its one page says so, EXIT goes back to the row
     goto_top(dev, LIST_PLUGINS)
-    press(dev, "menu")
+    press(dev, "menu", wait=0.4)
     inside = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), counter(dev), texts_of(dev))
-    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 1), ("MANAGE PLUGINS", "", PRESS)) and tab(dev) == "Plugins", str(inside))
+    plugins_tab = tab(dev)
+    press(dev, "exit", wait=0.4)
+    out_again = (state(dev, S_LEVEL), state(dev, S_PAGE), text(dev, S_TITLE))
+    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 1), ("MANAGE PLUGINS", "No Plugin", "")) and plugins_tab == "Plugins"
+        and out_again == (1, LIST_PLUGINS, "PLUGINS"), f"{inside}, EXIT {out_again}")
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
@@ -1023,10 +1028,10 @@ def settings_cases(payload, flash=None):
     press(empty, "write", wait=0.6)
     add("export_without_scripts", page == ("EXPORT ALL PLUGINS", "") and text(empty, S_VALUE) == "no plugins" and bytes(empty.m.mmc.card.medium.data) == before,
         f"{page}, then {text(empty, S_VALUE)!r}")
-    goto_group(empty, GROUP_PLUGINS, PLUGIN_MANAGE)
+    goto_top(empty, LIST_PLUGINS)
     edit = texts_of(empty)
     press(empty, "menu", wait=0.4)
-    add("manage_plugins_without_plugins", edit == ("MANAGE PLUGINS", "", PRESS) and texts_of(empty) == ("MANAGE PLUGINS", "No Plugin", "")
+    add("manage_plugins_without_plugins", edit == ("PLUGINS", "", PRESS) and texts_of(empty) == ("MANAGE PLUGINS", "No Plugin", "")
         and (state(empty, S_LEVEL), state(empty, S_PAGE)) == (2, PLUGIN_MANAGE) and not empty.m.asserts,
         f"{edit}, ENTER says {texts_of(empty)} and stays: level {state(empty, S_LEVEL)}, page {state(empty, S_PAGE)}")
 

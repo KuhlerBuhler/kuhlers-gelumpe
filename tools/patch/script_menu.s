@@ -2648,8 +2648,9 @@ menu_confirm_add:
 ; the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION, 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR, 8 POWER
 ; SAVE, 9 SPLASH). Those five are rows of CUSTOMIZATION that open their pages; EXIT there goes back to that row. FEATURES holds the
 ; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST, LAST PATTERN, STEREO 1 PAD and KEY PADS (the main dial
-; changes them, WRITE keeps them). PLUGINS holds MANAGE PLUGINS: ENTER opens level 5 (M_LEVEL_PLUGIN), one page a plugin with its name and its state, the dial
-; switches it on and off; ENTER there opens level 6 (M_LEVEL_PSUB), the pages of that plugin: DESCRIPTION, the pages it added
+; changes them, WRITE keeps them). ENTER on PLUGINS opens level 5 (M_LEVEL_PLUGIN) straight away, one page a plugin with its name and its
+; state, the dial switches it on and off, EXIT goes back to the row PLUGINS; the one page of the group, MANAGE PLUGINS, only shows when
+; there is no plugin or after OFF and REMOVE, ENTER there opens the list again; ENTER on a plugin opens level 6 (M_LEVEL_PSUB), the pages of that plugin: DESCRIPTION, the pages it added
 ; (korg.menu.add), OFF and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
 ; Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, behind BLECH, on which Blechy, the app built into BLECH, shows
 ; himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP between the Pattern and
@@ -4798,10 +4799,24 @@ menu_keys_psub:                 ; ENTER on a plugin of MANAGE PLUGINS: its pages
     str r0, [r2, #M_LISTED]
     b menu_keys_done
 menu_keys_group:
+    cmp r0, #16                 ; the row PLUGINS: straight into the list of MANAGE PLUGINS, its one page is skipped
+    cmpeq r1, #0
+    beq menu_keys_plugins
     mov r0, r1
     mov r1, r4
     bl menu_go_in
     pop {r4, r5, r6, pc}
+menu_keys_plugins:              ; in the group PLUGINS (level 2) as menu_go_in goes in, then as ENTER on MANAGE PLUGINS
+    ldr r2, =MENU_STATE
+    ldr r3, [r2, #M_PAGE]
+    str r3, [r2, #M_TOP]
+    mov r3, #2
+    str r3, [r2, #M_LEVEL]
+    mov r3, #0
+    str r3, [r2, #M_GROUP]
+    str r3, [r2, #M_PAGE]
+    str r3, [r2, #M_ENTER]
+    b menu_keys_pedit_go
 menu_keys_app:
     mov r0, r1
     bl script_app_open
@@ -4812,10 +4827,12 @@ menu_keys_app:
     mov r1, #0
     ldr pc, =SWITCH_SCREEN
 ; MANAGE PLUGINS: ENTER reads the files of the plugin folder and opens the list of the plugins (level 5) on the one shown last,
-; "No Plugin" when there is none, WRITE saves as on the other pages
+; "No Plugin" when there is none, WRITE saves as on the other pages. ENTER or WRITE on the row PLUGINS of level 1 does the same
+; (menu_keys_plugins): the page MANAGE PLUGINS only shows when there is no plugin or after OFF and REMOVE, with what they did
 menu_keys_pedit:
     cmp r6, #0x09
     bne menu_keys_save
+menu_keys_pedit_go:
     bl menu_list
     ldr r2, =MENU_STATE
     mov r0, #0
@@ -4971,15 +4988,9 @@ menu_exit_show:
     mov r0, r4
     bl menu_show
     pop {r1, r2, r4, pc}
-menu_exit_plugin:                ; out of the list of the plugins: back to MANAGE PLUGINS
-    mov r12, #2
-    str r12, [r2, #M_LEVEL]
-    mov r12, #0
-    str r12, [r2, #M_PAGE]
-    str r12, [r2, #M_ENTER]
-    str r12, [r2, #M_STATUS]
-    str r12, [r2, #M_LISTED]
-    b menu_exit_show
+menu_exit_plugin:                ; out of the list of the plugins: back to the row PLUGINS of level 1, as out of the group
+    mov r3, #2
+    b menu_exit_up
 menu_exit_psub:                  ; out of the pages of one plugin: back to its page in the list
     mov r12, #M_LEVEL_PLUGIN
     str r12, [r2, #M_LEVEL]
