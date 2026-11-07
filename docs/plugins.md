@@ -719,7 +719,7 @@ laufenden Plugins, die einen Handler dafür haben, und entscheidet danach, ob si
 - **EXIT** lässt sich nicht halten (`korg.keyHold` und `korg.keyMask` beenden das Plugin mit einem Fehler), Apps bleiben
   schließbar.
 - **Gemessen:** im Emulator auf Hacktribe, rot und blau mit zwei Plugins (`tools/emu/plugin_api19_cases.py`); am Gerät nicht.
-  Die Beispiel-Plugins Gate Hold, Key Pads und Filter Toggle laufen unverändert weiter, sie nutzen
+  Die Beispiel-Plugins Gate Hold und Filter Toggle laufen unverändert weiter, sie nutzen
   `korg.keyHold`, `korg.padHold` und `korg.knobHold`.
 
 ### Namen für Tasten und LEDs
@@ -1343,15 +1343,11 @@ in den ersten 40 ms nach dem Aufsetzen, kann die Firmware diese Bewegung noch se
 (`test/script-gate-hold.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, rot, blau) geprüft,
 am Gerät nicht.
 
-**Key Pads** ([Idee 85](ideen/85-keyboard-tonart.md)) braucht API 15 und läuft im Hintergrund. KEYBOARD gehalten, ein Pad
-setzt den KEY des Patterns mit `korg.seq.setPatternValue`, über denselben Setter wie die Seite KEY im Pattern-Menü, wie
-TRANSPOSE bei den alten Electribes. Die Pads liegen wie eine Klaviatur: untere Reihe C D E F G A B C, obere Reihe die
-schwarzen Tasten darüber (C#, D#, F#, G#, A#), die übrigen Pads oben tun nichts. KEYBOARD gehört dem Plugin
-(`korg.keyHold`), auch ohne offene App; ein kurzer Druck ohne Pad geht beim Loslassen mit `korg.pressKey` an die Firmware
-und schaltet wie immer in den Modus KEYBOARD, mit Pad nicht. Solange KEYBOARD gedrückt ist, hält `korg.padHold` die Pads
-von der Firmware fern. SHIFT + KEYBOARD bleibt bei der Firmware. Die Seite KEY PADS im Menü BLECH schaltet es an (1) und
-aus (0). Im Simulator (`test/script-key-pads.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`,
-Hacktribe, rot, blau) geprüft, am Gerät nicht.
+**Key Pads** ([Idee 85](ideen/85-keyboard-tonart.md)) war bis 2026-11-07 ein Plugin dieses Katalogs (API 15). Seitdem ist
+es als KEY PADS fest in der Laufzeit des BLECH-Menüs eingebaut und braucht kein Plugin auf der Karte: KEYBOARD gehalten +
+Pad setzt den KEY, das Wertefenster der Firmware zeigt ihn, der Schalter liegt unter BLECH > FEATURES > KEY PADS
+([Tastenkombinationen](tastenkombinationen.md), [Messung](messungen/2026-11-07-key-pads-eingebaut.md)). Im Katalog steht
+es nicht mehr.
 
 **Step Copy** braucht API 15 und läuft im Hintergrund. Es kopiert die Steps eines Takts (16 Steps) des Patterns, das läuft,
 in einen anderen Takt, damit eine Figur nicht noch einmal eingespielt werden muss. Ein Pattern ist 1 bis 4 Takte lang. Drei
@@ -1374,7 +1370,7 @@ Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokument
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold, Key Pads und Step Copy, Quelle
+und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold und Step Copy, Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem

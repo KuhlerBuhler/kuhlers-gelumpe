@@ -73,7 +73,18 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC00623C0,0xE92D4010,'menu_du_prev'),
          (0xC0062448,0xE92D4010,'menu_du_next'),
          (0xC0038D34,0xE3A03000,'script_early_hook'),
-         (0xC00289D8,0xE3500F49,'boot_light_hook'))
+         (0xC00289D8,0xE3500F49,'boot_light_hook'),
+         # KEY PADS (script_shortcuts.s): the parameter window's draw function calls its title, value and mark functions here
+         (0xC008A1C8,0xEBFFB95D,'kp_title_hook'),
+         (0xC008A1F4,0xEBFFBB0C,'kp_value_hook'),
+         (0xC008A244,0xEBFFB868,'kp_check_hook'))
+# The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
+# message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
+KEY_PADS_SAMPLER = dict(KP_TITLE_AT=0xC008A1C8, KP_TITLE_FN=0xC0078744, KP_VALUE_AT=0xC008A1F4, KP_VALUE_FN=0xC0078E2C,
+                        KP_CHECK_AT=0xC008A244, KP_CHECK_FN=0xC00783EC, KP_WINDOW=0xC03487EC)
+KEY_PADS_SYNTH = dict(KP_TITLE_AT=0xC0079AD8, KP_TITLE_FN=0xC006B404, KP_VALUE_AT=0xC0079B04, KP_VALUE_FN=0xC006B864,
+                      KP_CHECK_AT=0xC0079B5C, KP_CHECK_FN=0xC006B454, KP_WINDOW=0xC0348500)
+KEY_PADS_SYNTH_WORDS = {'kp_title_hook': 0xEBFFC649, 'kp_value_hook': 0xEBFFC756, 'kp_check_hook': 0xEBFFC63C}
 # Words that change to a plain value instead of a branch: the screen factory's bound and its table literal.
 WORDS = ((0xC006E664,0xE350002C,0xE350002D),
          (0xC006E68C,0xC00F9CD8,MENU_TABLE))
@@ -202,7 +213,7 @@ def runtime_profile(build):
                                               FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
                                               BUILD_BASE=4 if build == 'stock' else 0,
                                               # DATA UTILITY's list: its functions (counter "n/14"), and the bits of our pages there the build has (script_menu.s, menu_du_mask)
-                                              DU_PAGES=14, DU_BUILT=7, **pattern_setter_actions(build), **part_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
+                                              DU_PAGES=14, DU_BUILT=7, **KEY_PADS_SAMPLER, **pattern_setter_actions(build), **part_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
@@ -214,6 +225,8 @@ def runtime_profile(build):
             address, expected = 0xC0028170, 0xE5D43004
         elif name == 'menu_toplevel':
             address, expected = 0xC0061DDC, 0xE594301C
+        elif name in KEY_PADS_SYNTH_WORDS:
+            address, expected = KEY_PADS_SYNTH[name.replace('kp_', 'KP_').replace('_hook', '_AT').upper()], KEY_PADS_SYNTH_WORDS[name]
         else:
             address = synthaddr.tr(address)
         sites.append((address, expected, name))
@@ -231,7 +244,7 @@ def runtime_profile(build):
         # functions, 16 masked words equal (fwmap); the frame buffer has the same address; MG_FLUSH (MG_LCD, 2 or 3, 0) sends the
         # frame buffer, as Korg's PCM loader does for its bar (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)
         MG_WORK=0xC0190100, MG_MKDIR=0xC008B510, FS_UNLINK=0, MG_GETFREE=0xC008B3B4, MG_ALLOC=0xC0026240, MG_FREE=0xC0026248,
-        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3, **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
@@ -295,8 +308,9 @@ class BuiltHooks:
             ('menu_needs_confirm','menu_confirm','Der Kartenlader fragt für jedes geladene Plugin, ob es erst auf eine Zustimmung wartet; ohne Plugins läuft das nicht.'),
             ('menu_recount','menu_recount_end','Nach dem Laden zählt das Menü die Plugins und stellt die Seitenzahl ein.'),
             ('led_meter_hook','look_hooks_end','Die Haken der Anpassung (untere LEDs, Hintergrundlicht, Software-PWM, Display umkehren) geben die Firmware sofort zurück, wenn das Menü nicht scharf ist oder die Firmware das Licht für Power Save dimmt.'),
-            ('shortcut_input','shortcut_tick','Die EXIT-Shortcuts im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und lassen jede Meldung durch, solange EXIT nicht auf dem Hauptbildschirm gehalten wird.'),
-            ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts.'),
+            ('shortcut_input','shortcut_tick','Die EXIT-Shortcuts und KEY PADS im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und SHIFT und lassen jede Meldung durch, solange weder EXIT noch KEYBOARD (KEY PADS an) auf dem Hauptbildschirm gehalten wird; ein Pad, dessen Anschlag KEY PADS nahm, behält auch sein Loslassen.'),
+            ('kp_input','kp_tick','KEY PADS im Eingangsfilter: mit scharfem Menü liest es jede Panel-Meldung schon vor dem Hauptbildschirm und lässt sie durch, solange KEYBOARD nicht gehalten wird.'),
+            ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts und von KEY PADS.'),
             ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel, EXIT und die Ordner der Karte; nur wenn es keinen blechtribe-Ordner, aber einen hacktribe- oder electribe-sampler-Ordner gibt (auf der blauen: keinen blechtribe-Ordner, aber einen electribe-Ordner), fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU.'),
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),

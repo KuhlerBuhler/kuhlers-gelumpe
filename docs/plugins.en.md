@@ -645,7 +645,7 @@ plugins that have a handler for it, and then decides whether the firmware sees i
   ends in between; a press that went through lets its release through.
 - **EXIT** cannot be held (`korg.keyHold` and `korg.keyMask` stop the plugin with an error), apps stay closable.
 - **Measured:** in the emulator on hacktribe, red and blue with two plugins (`tools/emu/plugin_api19_cases.py`); not on
-  the device. The example plugins Gate Hold, Key Pads and Filter Toggle keep working unchanged, they use
+  the device. The example plugins Gate Hold and Filter Toggle keep working unchanged, they use
   `korg.keyHold`, `korg.padHold` and `korg.knobHold`.
 
 ### Names for keys and LEDs
@@ -1168,15 +1168,10 @@ and off (0). Plugins run once per frame (40 ms): a finger move in the first 40 m
 the firmware (derived). Checked in the simulator (`test/script-gate-hold.test.mjs`) and in the emulator
 (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red, blue), not on the device.
 
-**Key Pads** ([idea 85](ideen/85-keyboard-tonart.md)) uses API 15 and runs in the background. With KEYBOARD held a pad
-sets the pattern's KEY with `korg.seq.setPatternValue`, through the same setter as the KEY page of the Pattern menu, like
-TRANSPOSE on the old Electribes. The pads lie like a piano: the lower row C D E F G A B C, the upper row the black keys
-above them (C#, D#, F#, G#, A#), the other upper pads do nothing. KEYBOARD belongs to the plugin (`korg.keyHold`), also
-without an open app; a short press without a pad goes on to the firmware on release with `korg.pressKey` and switches to
-KEYBOARD mode as always, with a pad it does not. While KEYBOARD is down `korg.padHold` keeps the pads from the firmware.
-SHIFT + KEYBOARD stays the firmware's. The page KEY PADS in the BLECH menu switches it on (1) and off (0). Checked in the
-simulator (`test/script-key-pads.test.mjs`) and in the emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red,
-blue), not on the device.
+**Key Pads** ([idea 85](ideen/85-keyboard-tonart.md)) was a plugin of this catalog (API 15) until 2026-11-07. Since then
+it is built into the runtime of the BLECH menu as KEY PADS and needs no plugin on the card: KEYBOARD held + pad sets the
+KEY, the firmware's value window shows it, the switch is BLECH > FEATURES > KEY PADS
+([measurement](messungen/2026-11-07-key-pads-eingebaut.md)). It is no longer in the catalog.
 
 **Step Copy** uses API 15 and runs in the background. It copies the steps of one bar (16 steps) of the pattern that plays
 into another bar, so a figure recorded once does not have to be played in again. A pattern is 1 to 4 bars long. Three pages
@@ -1199,7 +1194,7 @@ The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins),
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold, Key Pads and Step Copy; source
+and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold and Step Copy; source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and

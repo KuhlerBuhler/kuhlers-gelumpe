@@ -136,7 +136,7 @@ Pattern-Daten und (bei Pad und Touchpad als zweitem Element) der MIDI-Ausgang es
 
 | Kombination | Wirkung | Beleg |
 |---|---|---|
-| TRIGGER, SEQUENCER, KEYBOARD oder CHORD **halten** + Pad | wählt den Part des Pads **still**: keine Note an MIDI-Out (die angetippten Modi senden Note bzw. Akkord, hier nichts), kein Schritt im SEQUENCER-Modus, nur die blaue Part-LED wandert | gemessen (MIDI-Ausgang, LEDs), Handbuch (Korg FAQ 367, schnelles Part-Wählen), offline `0xC0043F10` (liest die Zustände der Tasten 19, 21, 23, 24 = TRIGGER, SEQUENCER, KEYBOARD, CHORD) |
+| TRIGGER, SEQUENCER, KEYBOARD oder CHORD **halten** + Pad | wählt den Part des Pads **still** (mit BLECH setzt KEYBOARD + Pad stattdessen den KEY, siehe unten): keine Note an MIDI-Out (die angetippten Modi senden Note bzw. Akkord, hier nichts), kein Schritt im SEQUENCER-Modus, nur die blaue Part-LED wandert | gemessen (MIDI-Ausgang, LEDs), Handbuch (Korg FAQ 367, schnelles Part-Wählen), offline `0xC0043F10` (liest die Zustände der Tasten 19, 21, 23, 24 = TRIGGER, SEQUENCER, KEYBOARD, CHORD) |
 | PATTERN SET **halten** + Pad | legt das gerade gewählte Pattern auf das Pad. Danach ruft PATTERN SET (angetippt, Modus an) + dasselbe Pad es ab (Pattern-Hash wie zuvor, MIDI Bank/Programm-Wechsel). Gruppe 1 bis 4 über die Tasten 1 bis 4. | gemessen, Handbuch OM S.6 und S.11 |
 | PART ERASE (Modus an) + Pad **halten**, nur beim Abspielen | löscht die Noten des Parts, solange das Pad gehalten wird (Pattern-Bytes: 1 Note nach 0,1 s, 26 Bytes nach 1 s, 75 Bytes nach 3 s). Im Stand passiert nichts. | gemessen, Handbuch OM S.6, S.12, S.13 |
 | GATE ARP an + Trigger-Pad **halten** + Touchpad | Gate-Arpeggiator: Ohne gehaltenes Pad keine Noten. X ändert die Rate (x=100: 5 Noten in 1,5 s, x=900: 15 Noten), Y die Länge. | gemessen (MIDI-Ausgang, X-Achse), Handbuch OM S.10 bis 11 (Y-Achse nur Handbuch) |
@@ -156,6 +156,7 @@ Pattern-Daten und (bei Pad und Touchpad als zweitem Element) der MIDI-Ausgang es
 |---|---|---|
 | EXIT **halten** + WRITE | speichert das Pattern sofort an seinen eigenen Platz (ohne das Zielwahl-Fenster zu bestätigen) | gemessen, `docs/messungen/2026-10-19-exit-shortcuts.md` |
 | EXIT **halten** + Pad | setzt den Klang eines Parts auf die gespeicherten Werte zurück, die Steps bleiben; SEQUENCER und STEP JUMP: der gewählte Part, sonst der Part des Pads | gemessen, ebenda |
+| KEYBOARD **halten** + Pad (Hauptbildschirm) | KEY PADS: setzt den KEY des Patterns auf den Ton des Pads, untere Reihe C D E F G A B C, obere Reihe die schwarzen Tasten (Pads 1, 4 und 8 tun nichts); das Wertefenster der Firmware zeigt "KEY" und den Ton. KEYBOARD kurz allein schaltet wie immer den Modus, SHIFT + KEYBOARD bleibt bei der Firmware. Mit BLECH > FEATURES > KEY PADS OFF wählt die Kombination wie ohne BLECH den Part still. Auch auf der blauen | gemessen, `docs/messungen/2026-11-07-key-pads-eingebaut.md` |
 
 Die Modus-Tasten (TRIGGER, SEQUENCER, KEYBOARD, CHORD, PART MUTE, PART ERASE, STEP JUMP,
 PATTERN SET) bleiben nach dem Loslassen an. Sie müssen nicht gehalten werden, nur die ersten
