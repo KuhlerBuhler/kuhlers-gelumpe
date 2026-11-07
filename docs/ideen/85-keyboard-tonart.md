@@ -3,9 +3,11 @@
 Wunsch (31.10.): wie Transpose auf den alten Electribes (EA-1 mkII: TRANSPOSE gehalten, Step-Tasten wählen den
 Wert), aber über den KEY der Electribe 2. KEYBOARD gehalten, ein Pad gedrückt: der KEY des Patterns springt auf den Ton
 des Pads. Kein eigenes Verschieben der Noten, die Firmware macht mit dem neuen KEY, was sie am Menü auch macht.
-Stand 2026-11-03: **gebaut als Plugin Key Pads im Katalog (API 15, `korg.keyHold`, `korg.pressKey`,
-`korg.seq.setPatternValue`), im Simulator und Emulator geprüft (Hacktribe, rot, blau), am Gerät nichts.** Beschreibung in
-[plugins.md](../plugins.md). Der Abschnitt zu API 14 unten ist der Stand davor. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
+Stand 2026-11-07: **fest eingebaut als KEY PADS in der Laufzeit des BLECH-Menüs (`tools/patch/script_shortcuts.s`),
+ohne Plugin auf der Karte; das Wertefenster der Firmware zeigt den neuen KEY; Schalter BLECH > FEATURES > KEY PADS;
+im Emulator geprüft (Hacktribe, rot, blau), am Gerät nichts.** Messung in
+[2026-11-07-key-pads-eingebaut.md](../messungen/2026-11-07-key-pads-eingebaut.md). Das Plugin Key Pads (API 15, Stand
+2026-11-03) ist damit aus dem Katalog genommen. Die Abschnitte zu API 14 und zum Plugin unten sind der Stand davor. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 
 ## Was es schon gibt
 

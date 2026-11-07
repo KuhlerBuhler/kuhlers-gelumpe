@@ -15,23 +15,34 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import menu_cases  # noqa: E402
 import synthaddr  # noqa: E402
+import unicorn  # noqa: E402
+from unicorn.arm_const import UC_ARM_REG_R0  # noqa: E402
 from machine import load_flash  # noqa: E402
 from pswitch_cases import Box, play  # noqa: E402
+from tools.patch import script_hooks  # noqa: E402
 
 PATPTR = 0xC033E6A4
 LEDMGR = 0xC0345A1C
-EXIT, WRITE, TRIGGER, SEQUENCER = 0x0D, 0x0E, 0x13, 0x15
+EXIT, WRITE, SHIFT, TRIGGER, SEQUENCER = 0x0D, 0x0E, 0x0A, 0x13, 0x15
 PART_MUTE, PART_ERASE, KEYBOARD, CHORD, STEP_JUMP, PATTERN_SET = 0x10, 0x11, 0x17, 0x18, 0x19, 0x1B
 WRITE_LED = 0x0B
 WINDOW = 18                     # the firmware's Write window
 PART, STRIDE, SOUND = 0x800, 0x330, range(2, 0x30)
 STEPS = 0x30                    # the steps of a part start here, 12 bytes each
 KILL = menu_cases.KILL
+KEY_AT = 39                     # KEY of the pattern, 0 to 11
+KEY_PADS_ON = script_hooks.MENU_STATE + 0x104   # M_KP: the page KEY PADS (tools/patch/script_menu.s)
+# Per pad the KEY that KEY PADS sets, -1 none: the lower row (pads 9 to 16) C D E F G A B C, the upper row the black keys.
+KEY_NOTES = [-1, 1, 3, -1, 6, 8, 10, -1, 0, 2, 4, 5, 7, 9, 11, 0]
+KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+DRAW_TEXT = {False: 0xC003F7D0, True: 0xC003A408}   # the firmware's text draw (text, x, y, ...), Sampler and synth
+DISPATCH = 0xC002837C           # the dispatcher of panel messages, before the input filter
 
 
 def has_hooks(payload):
@@ -260,7 +271,75 @@ def case_pad_state(payload, flash):
             entry("pad_xy_is_not_an_edit", touched == {0} and not box.m.asserts, f"pad X and Y changed in RAM: WRITE LED {sorted(touched)}")]
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_kill, case_unsaved, case_pad_state)
+def case_key_pads(payload, flash):
+    """KEY PADS: KEYBOARD held on the main screen, a pad sets the KEY of the pattern and the firmware's parameter window shows
+    "KEY" and the note; a short press of KEYBOARD alone reaches the firmware (marked) and switches to KEYBOARD mode; SHIFT +
+    KEYBOARD and the page switched OFF leave KEYBOARD to the firmware, whose KEYBOARD + pad selects the part."""
+    box = SBox(payload, flash)
+    key = lambda: box.live()[KEY_AT]  # noqa: E731
+    mode = lambda: box.u32(box.u32(LEDMGR) + 0xB58)  # noqa: E731
+    texts, marked = [], []
+
+    def draw(uc, *_):
+        texts.append(bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R0), 8)).split(b"\0")[0].decode("latin-1"))
+
+    def dispatch(uc, *_):
+        msg = bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R0) + 0xC, 8))
+        if msg[0] == 0 and msg[1] == KEYBOARD and msg[7] == 0xB7:
+            marked.append(msg[2])
+    at = DRAW_TEXT[box.dev.synth]
+    box.m.uc.hook_add(unicorn.UC_HOOK_CODE, draw, begin=at, end=at)
+    at = box.dev.a(DISPATCH)
+    box.m.uc.hook_add(unicorn.UC_HOOK_CODE, dispatch, begin=at, end=at)
+    box.m.uc.ctl_flush_tb()
+
+    def held(k, down, wait=0.2):
+        box.m.press(k, down)
+        box.run(wait)
+
+    out = []
+    box.poke(KEY_AT, 0)
+    part = box.selected()
+    held(KEYBOARD, True)
+    got, shown = [], []
+    for n in range(16):
+        texts.clear()
+        box.pad(n)
+        got.append(key())
+        if KEY_NOTES[n] >= 0:
+            shown.append(KEY_NAMES[KEY_NOTES[n]] in texts and "KEY" in texts)
+    held(KEYBOARD, False, 0.3)
+    want, last = [], 0
+    for n in KEY_NOTES:
+        last = n if n >= 0 else last
+        want.append(last)
+    out.append(entry("key_pads_set_the_key", got == want and box.selected() == part and marked == [] and not box.m.asserts,
+                     f"KEY after each pad {got} (want {want}), part {box.selected()} (was {part}), KEYBOARD passed on {marked}"))
+    out.append(entry("key_pads_window_shows_the_key", all(shown) and not box.m.asserts,
+                     f"parameter window per pad with a note (KEY and the note): {shown}"))
+
+    box.dev.press(KEYBOARD, 0.4)
+    out.append(entry("key_pads_short_press_reaches_the_firmware", marked == [1, 0] and mode() == 5 and key() == want[-1]
+                     and box.dev.read(script_hooks.PRESS_KEY, 8) == b"\xff" * 8 and not box.m.asserts,
+                     f"KEYBOARD passed on {marked} (want press and release), pad mode {mode()} (want 5 KEYBOARD), KEY {key()}"))
+
+    marked.clear()
+    box.poke(KEY_AT, 0)
+    held(SHIFT, True)
+    held(KEYBOARD, True)
+    held(KEYBOARD, False)
+    held(SHIFT, False)
+    box.m.uc.mem_write(KEY_PADS_ON, (0).to_bytes(4, "little"))
+    held(KEYBOARD, True)
+    box.pad(12)
+    held(KEYBOARD, False, 0.3)
+    out.append(entry("key_pads_shift_and_off_are_stock", key() == 0 and box.selected() == 12 and marked == [] and not box.m.asserts,
+                     f"after SHIFT + KEYBOARD and KEY PADS OFF + KEYBOARD + pad 13: KEY {key()} (want 0), part {box.selected()} "
+                     f"(want 12, the firmware's part select), marked presses {marked}"))
+    return out
+
+
+GROUPS = (case_save, case_reset, case_reset_modes, case_kill, case_unsaved, case_pad_state, case_key_pads)
 
 
 def group_entries(payload, flash, i):
