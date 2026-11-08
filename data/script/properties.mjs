@@ -31,6 +31,7 @@ export const PROPERTIES = Object.freeze([
   p("korg.store[]", ["korg.store.get", ["index", 0]], ["korg.store.set", ["index", "value"]], text("api.property.store")),
   p("korg.leds[]", null, ["korg.led", ["index", "value"]], text("api.property.leds")),
   p("korg.chainMode", ["korg.read.chainMode", []], null, text("api.property.chainMode")),
+  p("korg.display.popups", ["korg.read.popups", []], ["korg.display.popups", ["value"]], text("api.property.popups"), [0, 1], 24),
   ...PATTERN_FIELDS.map((f, i) => current(`korg.pattern.current.${f.name}`, f, i)),
   ...PATTERN_FIELDS.map((f, i) => current(`korg.current.${f.name}`, f, i)),
   ...PATTERN_FIELDS.map((f, i) => p(`korg.patterns[].${f.name}`, ["korg.read.patternValue", ["index", -1, i]], null, text("api.property.patterns", { field: f.text }),
