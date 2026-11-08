@@ -2158,8 +2158,8 @@ menu_texts_clear:
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
-; VERSION: the set's version text (the patch blech-version) as the title, the firmware this runtime is built for as the value, under
-; it what the start did with e2sFx.all
+; VERSION: the set's version text (the patch blech-version) as the title, the firmware this runtime is built for as the value, behind
+; it what the start did with e2sFx.all ("HACKTRIBE FX"). The third row would be drawn on the row of the value, over the firmware.
 menu_text_version:
     add r0, r5, #M_TITLE
     ldr r1, =VERSION_TEXT
@@ -2171,9 +2171,12 @@ menu_text_version:
     ldr r1, [r1, #BUILD_BASE]
     add r0, r5, #M_VALUE
     bl menu_copy
+    mov r4, r0
     bl fx_status_text
     cmp r1, #0
-    addne r0, r5, #M_LINE3
+    movne r2, #0x20
+    strbne r2, [r4], #1
+    movne r0, r4
     blne menu_copy
     pop {r4, r5, r6, r7, pc}
 ; the page BLECH in the ring and the groups of the list look like Data Util: the name as the title, "press  [ Enter ]" under it
@@ -5654,12 +5657,14 @@ str_fx_nofile:
     .asciz "no e2sFx.all"
 str_fx_bad:
     .asciz "bad e2sFx.all"
-str_fx_loaded:                  ; VERSION, the third row: what the start did with e2sFx.all
-    .asciz "effects loaded"
+str_fx_loaded:                  ; VERSION, behind the firmware: what the start did with e2sFx.all; the longest ends at column 124
+    .asciz "FX"
 str_fx_skipped:
-    .asciz "effects skipped"
+    .asciz "FX off"
 str_fx_build:
-    .asciz "e2sFx.all wrong fw"
+    .asciz "FX fw?"
+str_fx_tag_bad:
+    .asciz "FX bad"
 str_tab_global:
     .asciz "Global"
 str_tab_du:
