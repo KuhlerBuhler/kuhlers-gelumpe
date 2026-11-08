@@ -959,7 +959,7 @@ page VERSION, which is no group:
 | CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
 | TOOLS | like GAMES |
-| VERSION | no group: on top the version of the set the firmware was patched with (`BLECH 1.3.7`, from the patch `blech-version`), below it the firmware the menu is built for (HACKTRIBE, KORG RED, KORG BLUE). The third row says what the start did with `KORG/blechtribe/Presets/e2sFx.all`: "effects loaded" (loaded, and the IFX and MFX of the parts sent to the DSP again at once), "effects skipped" (skipped at the start), "e2sFx.all wrong fw" (a file for another firmware) or "bad e2sFx.all"; empty without a file. ENTER, WRITE and the dial change nothing |
+| VERSION | no group: on top the version of the set the firmware was patched with (`BLECH 1.3.7`, from the patch `blech-version`), below it the firmware the menu is built for (HACKTRIBE, KORG RED, KORG BLUE). Behind the firmware it says what the start did with `KORG/blechtribe/Presets/e2sFx.all`: "FX" (loaded, and the IFX and MFX of the parts sent to the DSP again at once, so for example "HACKTRIBE FX"), "FX off" (skipped at the start), "FX fw?" (a file for another firmware) or "FX bad" (a broken file); nothing without a file. ENTER, WRITE and the dial change nothing |
 
 The pages of FEATURES (the tag names the group "Feature"), each with the value ON or OFF, the main dial changes it:
 
