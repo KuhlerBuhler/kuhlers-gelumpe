@@ -248,6 +248,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [USB: was das Gerät anbietet und was eine zweite Schnittstelle bräuchte](2026-10-24-usb.md)
 - [Hacktribes Flash-Schreibbefehl gesperrt, Pattern-Schreibvorgänge nach 0x53 bis 0x56](2026-10-24-hacktribe-flash.md)
 - [BLECH mit Hacktribe auf der blauen: Start, Update-Wege, Kartenordner](2026-10-26-blech-hacktribe-blau.md)
+- [Die rote als blaue: Korgs Synth-Firmware auf dem Sampler und zurück, mit einem Wort](2026-11-08-rot-als-blau.md)
 - [Letztes Pattern beim Einschalten: wo die Firmware 001 nimmt, wo die Nummer bleibt](2026-10-28-letztes-pattern.md)
 - [Schalter LAST PATTERN, Doom ohne Dateien startet den Sampler](2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md)
 - [Eigenes Init-Pattern: wie INITIALIZE PATTERN die Vorlage nimmt](2026-10-28-init-pattern.md)
