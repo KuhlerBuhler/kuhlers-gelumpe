@@ -28,6 +28,8 @@ Seite sagt. Verglichen wurde Pixel für Pixel: IMPORT SAMPLE mit fünf `.wav` un
 | Cursor: das Dreieck links, die Liste bleibt stehen, bis der Cursor die drei Zeilen verlassen würde. Bildlaufleiste wie die Firmware (Höhe 43/n, mindestens 2, ab vier Einträgen) | gemessen |
 | Der Zähler im Kopf zählt in SPLASH IMPORT die Dateien (1/5 bis 5/5, das Rad hält an der letzten); ohne Datei bleibt der Zähler der Seiten | gemessen |
 | SPLASH IMPORT ohne Datei: NO .BMP FILE in der Mitte, sonst kein Text | gemessen |
+| SPLASH IMPORT, langer Name (`a-very-long-name-here.bmp`): die Zeile zeigt `a-very-long..`, die Schrift endet bei x 102, die Bildlaufleiste beginnt bei x 120; die Zeilen überlappen nicht | gemessen |
+| Nach jedem Schritt (Rad, ENTER, von SPLASH DRAW zurück) gleicht alles unter dem Schild der Seite, die auf leerem Bild neu gezeichnet wird: 0 Pixel übrig, 0 fehlen (`menu:splash_no_file_value_clean`, `menu:splash_list_value_clean`, `menu:splash_long_name_cut`); ein absichtlich gesetztes Byte fällt mit 8 Pixeln auf | gemessen |
 | Plugin-Liste: Zähler, EDIT, Rad, ENTER und EXIT wie vorher; die Fälle der Liste in `script_cases.py` laufen unverändert | gemessen |
 | Auf blau zeichnet die Plugin-Liste genauso, ohne das Muster des BLECH-Themas am Rand. SPLASH IMPORT gibt es dort nicht (kein Startbild-Editor) | gemessen |
 
