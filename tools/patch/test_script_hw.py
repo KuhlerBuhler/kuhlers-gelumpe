@@ -276,6 +276,19 @@ class NativeHardwareTests(unittest.TestCase):
         self.assertEqual(m.read(flag),flag,'a write still marks the frame')
         self.assertEqual(bytes(m.uc.mem_read(step(3,17),12)),bytes([1,40,9,1,61,0,128,1,7,7,7,7]),'setGate writes only the gate')
 
+    def midi(self,m,calls):
+        """Stubs for the MIDI object (answers 0xC0045000) and the CC sender, which records ('cc', object, channel, id, raw)."""
+        from unicorn import UC_HOOK_CODE
+        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_LR, UC_ARM_REG_PC
+        def obj(uc,*_):
+            uc.reg_write(UC_ARM_REG_R0,0xC0045000)
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
+        def cc(uc,*_):
+            calls.append(('cc',*(uc.reg_read(r) for r in (UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3))))
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
+        m.uc.hook_add(UC_HOOK_CODE,obj,begin=0xC0045320,end=0xC0045320)
+        m.uc.hook_add(UC_HOOK_CODE,cc,begin=0xC00405EC,end=0xC00405EC)
+
     def array(self,m,built,values,base=4):
         """The running script's variables at m.input+0x6800, the array from slot `base` -> its handle."""
         entry,vars_at = m.input + 0x6000,m.input + 0x6800
@@ -316,7 +329,7 @@ class NativeHardwareTests(unittest.TestCase):
         m,built = self.machine()
         from unicorn import UC_HOOK_CODE
         from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
-        for page in (0xC0048000,0xC0070000): m.uc.mem_map(page,0x1000)
+        for page in (0xC0040000,0xC0045000,0xC0048000,0xC0070000): m.uc.mem_map(page,0x1000)
         m.uc.mem_map(0xC0348000,0x1000)
         m.write(0xC034886C,0xC0348100)
         m.write(0xC03487EC,0xC0348200)
@@ -331,19 +344,21 @@ class NativeHardwareTests(unittest.TestCase):
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
         m.uc.hook_add(UC_HOOK_CODE,edit,begin=0xC0048460,end=0xC0048460)
         m.uc.hook_add(UC_HOOK_CODE,notify,begin=0xC0070688,end=0xC0070688)
+        self.midi(m,calls)
         error = contract_data()['error']['API_ARG']
         m.write(0xC06B2428,3)
         self.assertEqual(m.call('script_seq_set_part_value_glue',3,15,0xFFFFFF9C),(0,0))
-        self.assertEqual(calls,[('edit',0xC0348100,0x13,0,28,0xC1,0),('window',0xC0348204,15,0xC1)],
-                         'pitch -100 is clamped to -63, set as its byte; the window shows it like the knob')
+        self.assertEqual(calls,[('edit',0xC0348100,0x13,0,28,0xC1,0),('window',0xC0348204,15,0xC1),('cc',0xC0045000,4,2,2)],
+                         'pitch -100 is clamped to -63, set as its byte; the window shows it like the knob; the knob\'s CC 2 on '
+                         'the part\'s channel, the value plus 64 times two')
         calls.clear()
         self.assertEqual(m.call('script_seq_set_part_value_glue',7,10,300),(0,0))
-        self.assertEqual(calls,[('edit',0xC0348100,0x17,0,19,127,0)],'another part than the selected one: no window')
+        self.assertEqual(calls,[('edit',0xC0348100,0x17,0,19,127,0),('cc',0xC0045000,8,0xA,254)],'another part than the selected one: no window')
         calls.clear()
         self.assertEqual(m.call('script_seq_set_part_value_glue',0,1,0xFFFFFFFF),(0,0))
         self.assertEqual(calls[0][4:6],(10,0),'filter type at least 0')
         calls.clear()
-        self.assertEqual(m.call('script_seq_set_part_value_glue',0,21,1)[1],error)
+        self.assertEqual(m.call('script_seq_set_part_value_glue',0,28,1)[1],error)
         self.assertEqual(m.call('script_seq_set_part_value_glue',16,1,1)[1],error)
         self.assertEqual(calls,[],'a field or part out of range is not written')
         m.uc.mem_map(0xC0049000,0x1000)
@@ -360,7 +375,7 @@ class NativeHardwareTests(unittest.TestCase):
         m,_ = self.machine()
         from unicorn import UC_HOOK_CODE
         from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
-        for page in (0xC0040000,0xC0048000,0xC0070000): m.uc.mem_map(page,0x1000)
+        for page in (0xC0040000,0xC0048000,0xC004E000,0xC0070000): m.uc.mem_map(page,0x1000)
         m.uc.mem_map(0xC0348000,0x1000)
         m.write(0xC034886C,0xC0348100)
         m.write(0xC03487EC,0xC0348200)
@@ -377,12 +392,17 @@ class NativeHardwareTests(unittest.TestCase):
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
         m.uc.hook_add(UC_HOOK_CODE,edit,begin=0xC0048460,end=0xC0048460)
         m.uc.hook_add(UC_HOOK_CODE,notify,begin=0xC0070688,end=0xC0070688)
+        def sliced(uc,address,size,_):
+            uc.reg_write(UC_ARM_REG_R0,1 if uc.reg_read(UC_ARM_REG_R0) == 7 else 0)
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
         m.uc.hook_add(UC_HOOK_CODE,next_slot,begin=0xC0040D50,end=0xC0040D50)
+        m.uc.hook_add(UC_HOOK_CODE,sliced,begin=0xC004E478,end=0xC004E478)
         m.write(0xC06B2428,9)
         for value in (300,7,0xFFFFFFFF,500,5000):
             self.assertEqual(m.call('script_seq_set_part_value_glue',2,0,value),(0,0),value)
-        self.assertEqual(calls,[('edit',0x12,8,300,0),('edit',0x12,8,7,0),('edit',0x12,8,0,0)],
-                         'the whole slot number through the part edit; a slot the knob skips (500, 5000 clamped to 999) is not written')
+        self.assertEqual(calls,[('edit',0x12,8,300,0),('edit',0x12,8,7,0),('edit',0x12,0x1E,0xFFFFFFFF,0),('edit',0x12,8,0,0)],
+                         'the whole slot number through the part edit; on a sliced sample (7) the slice -1 as the SAMPLE knob turned '
+                         'up; a slot the knob skips (500, 5000 clamped to 999) is not written')
 
     def test_set_part_value_calls_the_direct_setters_and_tells_the_part_panel_as_the_keys_do(self):
         m,built = self.machine()
@@ -392,14 +412,17 @@ class NativeHardwareTests(unittest.TestCase):
         fields = json.loads(subprocess.check_output(['node','--input-type=module','-e',
             "import {PART_FIELDS} from './data/script/contract.mjs'; console.log(JSON.stringify(PART_FIELDS.map(f => f.name)))"],cwd=ROOT))
         self.assertEqual(list(PART_SETTER_FIELDS),fields)
-        self.assertEqual(sorted(PART_SETTERS['hacktribe']),['ampEg','ifxOn','ifxType','mfxSend','sample','voiceAssign'])
+        pages = ['grooveDepth','grooveType','lastStep','motionMode','padVelocity','priority','scaleMode']
+        self.assertEqual(sorted(PART_SETTERS['hacktribe']),sorted(['ampEg','ifxOn','ifxType','mfxSend','sample','voiceAssign'] + pages))
         self.assertEqual(PART_SETTERS['stock'],PART_SETTERS['hacktribe'])
-        self.assertEqual(sorted(PART_SETTERS['synth']),['ampEg','ifxOn','ifxType','mfxSend','voiceAssign'],'no samples on the synth')
+        self.assertEqual(sorted(PART_SETTERS['synth']),sorted(['ampEg','ifxOn','ifxType','mfxSend','sample','voiceAssign'] + pages))
+        self.assertEqual(part_setter_actions('synth')['HW_SAMPLE_NEXT'],0,'no samples on the synth: the sample mode writes nothing')
         actions = part_setter_actions('hacktribe')
         table = m.symbols['part_setters']
-        self.assertEqual(struct.unpack('<%dI'%(3*len(fields)),bytes(m.uc.mem_read(table,12*len(fields)))),
-                         tuple(v for i in range(len(fields)) for v in (actions['PS_SET_%d'%i],actions['PS_MODE_%d'%i],actions['PS_ARG_%d'%i])))
-        for page in (0xC0049000,0xC0059000,0xC0070000,0xC0348000):
+        self.assertEqual(struct.unpack('<%dI'%(4*len(fields)),bytes(m.uc.mem_read(table,16*len(fields)))),
+                         tuple(v for i in range(len(fields)) for v in (actions['PS_SET_%d'%i],actions['PS_MODE_%d'%i],actions['PS_ARG_%d'%i],
+                                                                        actions['PS_CC_%d'%i])))
+        for page in (0xC0040000,0xC0045000,0xC0048000,0xC0049000,0xC0059000,0xC0070000,0xC0348000):
             try: m.uc.mem_map(page,0x1000)
             except Exception: pass
         m.write(0xC03487E4,0xC0348300)
@@ -414,21 +437,24 @@ class NativeHardwareTests(unittest.TestCase):
             if address: m.uc.hook_add(UC_HOOK_CODE,setter,begin=address,end=address)
         m.uc.hook_add(UC_HOOK_CODE,setter,begin=0xC0059720,end=0xC0059720)
         m.uc.hook_add(UC_HOOK_CODE,notify,begin=0xC0070688,end=0xC0070688)
+        self.midi(m,calls)
         at = {name: fields.index(name) for name in fields}
         m.write(0xC06B2428,9)
         for name,value in (('voiceAssign',2),('voiceAssign',9),('mfxSend',0xFFFFFFFF),('ampEg',7),('ifxOn',1)):
             self.assertEqual(m.call('script_seq_set_part_value_glue',4,at[name],value),(0,0),name)
         obj = 0xC06B2798 + 0x400C
-        self.assertEqual(calls,[(0xC00493A0,obj,4,2,1),(0xC00493A0,obj,4,3,1),(0xC00496D4,obj,4,0,1),(0xC0049664,obj,4,1,1),
-                                (0xC0049DEC,obj,4,1,0),(0xC0059720,5,0x11,127,1)],
+        cc = lambda id,raw: ('cc',0xC0045000,5,id,raw)
+        self.assertEqual(calls,[(0xC00493A0,obj,4,2,1),(0xC00493A0,obj,4,3,1),(0xC00496D4,obj,4,0,1),cc(0x12,0),(0xC0049664,obj,4,1,1),
+                                (0xC0049DEC,obj,4,1,0),(0xC0059720,5,0x11,127,1),cc(0x11,254)],
                          'clamped to the field range, (object + 0x400C, part, value, 1); IFX ON without its own report, then the '
-                         'parameter set as the key does; no LED for a part that is not selected')
+                         'parameter set as the key does; no LED for a part that is not selected; MFX SEND and IFX ON send the '
+                         'key\'s CC, 127 or 0')
         calls.clear()
         m.write(0xC06B2428,4)
         for name,value in (('mfxSend',1),('ampEg',0),('ifxOn',0)):
             self.assertEqual(m.call('script_seq_set_part_value_glue',4,at[name],value),(0,0),name)
-        self.assertEqual(calls,[(0xC00496D4,obj,4,1,1),('notify',0xC0348304,1,1),(0xC0049664,obj,4,0,1),('notify',0xC0348304,2,0),
-                                (0xC0049DEC,obj,4,0,0),(0xC0059720,5,0x11,0,1),('notify',0xC0348304,3,0)],
+        self.assertEqual(calls,[(0xC00496D4,obj,4,1,1),('notify',0xC0348304,1,1),cc(0x12,254),(0xC0049664,obj,4,0,1),('notify',0xC0348304,2,0),
+                                (0xC0049DEC,obj,4,0,0),(0xC0059720,5,0x11,0,1),('notify',0xC0348304,3,0),cc(0x11,0)],
                          'the selected part: the key\'s message to the part panel, which lights its LED')
 
     def test_set_pattern_value_stores_the_sync_group_as_a_halfword(self):

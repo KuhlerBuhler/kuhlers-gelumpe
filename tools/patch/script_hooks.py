@@ -101,19 +101,32 @@ VTABLE_OVER = ((8,'menu_slot_exit'),(12,'menu_slot_keys'),(16,'menu_slot_prev'),
 # the byte on this build: the synth's MFX TYPE page goes to 31, the Sampler's to 39. A field without an entry writes nothing. Measured in the emulator, the menu page or key that changes the field calls the function
 # (docs/messungen/2026-11-03-live-schreibwege.md); red has the Sampler's addresses, the synth its own. Function 1 is no
 # firmware setter: the glue stores the value as a halfword at the offset in the pattern in RAM, as the SYNC GROUP page does.
-PATTERN_SETTER_FIELDS = ('tempo','swing','length','beat','key','scale','chordSet','level','mfxType','chainTo','chainRepeat','gateArp','syncGroup')
+# Since API 24 a third number may carry more than the top (pattern_setter_actions): ALTERNATE(i) calls the setter as the
+# ALTERNATE pages of the Pattern menu do, (pattern object, i, byte, 1). Function 2 is no setter either: the glue presses the key
+# (the second number, as korg.pressKey) when the byte at the third number of the pattern in RAM differs from the value, so MFX HOLD
+# changes as its key changes it, with LED, effect and touchpad. CC(id) sends the byte after the setter as the touchpad sends it,
+# the MIDI CC sender's id on the global channel (docs/messungen/2026-11-08-plugin-api24-part-cc.md).
+PATTERN_SETTER_FIELDS = ('tempo','swing','length','beat','key','scale','chordSet','level','mfxType','chainTo','chainRepeat','gateArp','syncGroup',
+                         'alternate1314','alternate1516','mfxHold','mfxPadX','mfxPadY')
+ALTERNATE = lambda i: (i + 1) << 16
+CC = lambda cc: cc << 24
+_MFX_HOLD_KEY = (2, 7, 65)
 _SYNC_GROUP_STORE = (1, 0x3B80)
 _SAMPLER_SETTERS = {'tempo': (0xC004A80C, 0), 'swing': (0xC004A594, 0), 'length': (0xC004A560, 0), 'beat': (0xC004A4F8, 0),
                     'key': (0xC004A6FC, 0), 'scale': (0xC004A77C, 0), 'chordSet': (0xC004A534, 0), 'level': (0xC004A698, 0),
                     'mfxType': (0xC0048A64, 0x4004), 'chainTo': (0xC004A5B0, 0), 'chainRepeat': (0xC004A5D4, 0),
-                    'gateArp': (0xC004A5F8, 0), 'syncGroup': _SYNC_GROUP_STORE}
+                    'gateArp': (0xC004A5F8, 0), 'syncGroup': _SYNC_GROUP_STORE,
+                    'alternate1314': (0xC004A614, 0, ALTERNATE(0)), 'alternate1516': (0xC004A614, 0, ALTERNATE(1)),
+                    'mfxHold': _MFX_HOLD_KEY, 'mfxPadX': (0xC0048924, 0x4004, CC(0xF)), 'mfxPadY': (0xC0048984, 0x4004, CC(0x10))}
 PATTERN_SETTERS = {
     'hacktribe': _SAMPLER_SETTERS,
     'stock': _SAMPLER_SETTERS,
     'synth': {'tempo': (0xC00448EC, 0), 'swing': (0xC0044674, 0), 'length': (0xC0044640, 0), 'beat': (0xC00445F8, 0),
               'key': (0xC00447DC, 0), 'scale': (0xC004485C, 0), 'chordSet': (0xC0044614, 0), 'level': (0xC0044778, 0),
               'mfxType': (0xC0042CBC, 0x4004, 31), 'chainTo': (0xC0044690, 0), 'chainRepeat': (0xC00446B4, 0),
-              'gateArp': (0xC00446D8, 0), 'syncGroup': _SYNC_GROUP_STORE},
+              'gateArp': (0xC00446D8, 0), 'syncGroup': _SYNC_GROUP_STORE,
+              'alternate1314': (0xC00446F4, 0, ALTERNATE(0)), 'alternate1516': (0xC00446F4, 0, ALTERNATE(1)),
+              'mfxHold': _MFX_HOLD_KEY, 'mfxPadX': (0xC0042B7C, 0x4004, CC(0xF)), 'mfxPadY': (0xC0042BDC, 0x4004, CC(0x10))},
 }
 
 # korg.seq.setPartValue (script_seq.s:part_setters): per build and PART_FIELDS name the firmware's direct setter of a part
@@ -123,7 +136,8 @@ PATTERN_SETTERS = {
 # Measured in the emulator (docs/messungen/2026-11-06-plugin-api21-pattern-parts.md,
 # docs/messungen/2026-11-07-plugin-api23-part-writes.md); red has the Sampler's addresses.
 PART_SETTER_FIELDS = ('sample','filterType','cutoff','resonance','egInt','modType','modSpeed','modDepth','attack','decay','level',
-                      'pan','ifxOn','ifxType','ifxEdit','pitch','glide','voiceAssign','oscEdit','mfxSend','ampEg')
+                      'pan','ifxOn','ifxType','ifxEdit','pitch','glide','voiceAssign','oscEdit','mfxSend','ampEg',
+                      'lastStep','motionMode','padVelocity','scaleMode','priority','grooveType','grooveDepth')
 # 0 the call alone; 1 key: afterwards, for the selected part, the key's message (argument) to the observers of the part panel,
 # which lights the key's LED; 2 IFX ON: the setter without its own report, then the value as 127 or 0 to the firmware's parameter
 # set (argument bits 0 to 7 the parameter, 8 to 15 the key's message), as the IFX ON key does; 3 top: the value clamped to the byte
@@ -133,20 +147,37 @@ PART_SETTER_FIELDS = ('sample','filterType','cutoff','resonance','egInt','modTyp
 PART_MODES = {'plain': 0, 'key': 1, 'ifxOn': 2, 'top': 3, 'sample': 4}
 _SAMPLER_PART_SETTERS = {'voiceAssign': (0xC00493A0, 'plain', 0), 'mfxSend': (0xC00496D4, 'key', 1),
                          'ampEg': (0xC0049664, 'key', 2), 'ifxOn': (0xC0049DEC, 'ifxOn', 0x311),
-                         'ifxType': (0, 'top', 0xC0049EF0), 'sample': (0, 'sample', 999)}
+                         'ifxType': (0, 'top', 0xC0049EF0), 'sample': (0, 'sample', 999),
+                         'lastStep': (0xC0048CE8, 'plain', 0), 'motionMode': (0xC0049410, 'plain', 0),
+                         'padVelocity': (0xC0049478, 'plain', 0), 'scaleMode': (0xC00492A0, 'plain', 0),
+                         'priority': (0xC00494E8, 'plain', 0), 'grooveType': (0xC0049DA4, 'top', 0xC0049DA4),
+                         'grooveDepth': (0xC0049D7C, 'plain', 0)}
 PART_SETTERS = {
     'hacktribe': _SAMPLER_PART_SETTERS,
     'stock': _SAMPLER_PART_SETTERS,
     'synth': {'voiceAssign': (0xC0043560, 'plain', 0), 'mfxSend': (0xC00437F0, 'key', 1), 'ampEg': (0xC0043780, 'key', 2),
-              'ifxOn': (0xC0043F08, 'ifxOn', 0x311), 'ifxType': (0xC0044000, 'top', 0xC004400C)},
+              'ifxOn': (0xC0043F08, 'ifxOn', 0x311), 'ifxType': (0, 'top', 0xC004400C),
+              'sample': (0, 'sample', 999),     # no HW_SAMPLE_NEXT: no samples, the part edit is not called
+              'lastStep': (0xC0042EC4, 'plain', 0), 'motionMode': (0xC00435D0, 'plain', 0),
+              'padVelocity': (0xC0043638, 'plain', 0), 'scaleMode': (0xC0043460, 'plain', 0),
+              'priority': (0xC00436A8, 'plain', 0), 'grooveType': (0xC0043EC0, 'top', 0xC0043EC0),
+              'grooveDepth': (0xC0043E98, 'plain', 0)},
 }
+# what the knob, encoder or key of a field sends as MIDI CC, the same on all builds: the id the firmware's CC sender takes
+# (HW_CC: MIDI object, part + 1, id, raw), +0x100 for a signed field (the value + 64), +0x200 for an on/off one (127 or 0); the
+# raw value is the CC value times two, as the knob passes it. Fields without one send nothing, as their encoder or menu page
+# (docs/messungen/2026-11-08-plugin-api24-part-cc.md)
+PART_CC = {'level': 0xA, 'pan': 0x10B, 'pitch': 0x102, 'glide': 0x3, 'oscEdit': 0x4, 'cutoff': 0x5, 'resonance': 0x6,
+           'egInt': 0x107, 'modDepth': 0x8, 'modSpeed': 0x9, 'attack': 0xC, 'decay': 0xD, 'ifxEdit': 0xE, 'ifxOn': 0x211,
+           'mfxSend': 0x212}
 # the firmware's functions and pointers the modes need, per build: the parameter set the IFX ON key calls (part + 1, parameter,
 # value, 1), the pointer to the part panel whose observers light the keys, the SAMPLE knob's search for the next slot it stops on
-# (slot, direction) -> slot; 0 where a build has none (the synth has no samples, its part edit is not measured)
+# (slot, direction) -> slot, whether a slot holds a sliced sample (slot) -> nonzero, the MIDI object and the CC sender the knobs
+# call; 0 where a build has none (the synth has no samples)
 PART_HELPERS = {
-    'hacktribe': dict(HW_PARAM_SET=0xC0059720, HW_KEY_PANEL=0xC03487E4, HW_SAMPLE_NEXT=0xC0040D50),
-    'stock': dict(HW_PARAM_SET=0xC0059720, HW_KEY_PANEL=0xC03487E4, HW_SAMPLE_NEXT=0xC0040D50),
-    'synth': dict(HW_PARAM_SET=0xC005013C, HW_KEY_PANEL=0xC03484F8, HW_SAMPLE_NEXT=0),
+    'hacktribe': dict(HW_PARAM_SET=0xC0059720, HW_KEY_PANEL=0xC03487E4, HW_SAMPLE_NEXT=0xC0040D50, HW_SAMPLE_SLICED=0xC004E478, HW_MIDI_OBJ=0xC0045320, HW_CC=0xC00405EC),
+    'stock': dict(HW_PARAM_SET=0xC0059720, HW_KEY_PANEL=0xC03487E4, HW_SAMPLE_NEXT=0xC0040D50, HW_SAMPLE_SLICED=0xC004E478, HW_MIDI_OBJ=0xC0045320, HW_CC=0xC00405EC),
+    'synth': dict(HW_PARAM_SET=0xC005013C, HW_KEY_PANEL=0xC03484F8, HW_SAMPLE_NEXT=0, HW_SAMPLE_SLICED=0, HW_MIDI_OBJ=0xC003F640, HW_CC=0xC003B224),
 }
 
 
@@ -161,12 +192,14 @@ def part_setter_actions(build):
     for i, name in enumerate(PART_SETTER_FIELDS):
         address, mode, arg = setters.get(name, (0, 'plain', 0))
         out[f'PS_SET_{i}'], out[f'PS_MODE_{i}'], out[f'PS_ARG_{i}'] = address, PART_MODES[mode], arg
+        out[f'PS_CC_{i}'] = PART_CC.get(name, 0)
     return out
 
 
 def pattern_setter_actions(build):
     """The .equ values of the setter table: PV_SET_i the function, PV_ARG_i the offset of its r0 from the pattern object, PV_TOP_i
-    the byte's top on this build (0 for the field's own); 0, 0 and 0 for a field without a setter."""
+    the byte's top on this build in bits 0 to 15 (0 for the field's own), ALTERNATE's index + 1 in bits 16 to 23, CC's id in bits
+    24 to 31; for function 2 the key and the byte's offset in the pattern; 0, 0 and 0 for a field without a setter."""
     setters = PATTERN_SETTERS[build]
     unknown = set(setters) - set(PATTERN_SETTER_FIELDS)
     if unknown:
@@ -244,7 +277,9 @@ def runtime_profile(build):
         (0xC00DFA68,148,'a65f40522347f45bab9a10802914b4a69900ab66e455c279c57c8aa4f48368fd'),
         (0xC00C9BD8,72,'9890f118100188fed55d3f35b6cc98c22191484ac62c8e1b55fb0794c0089277'),
         37, 28, 28, dict(HW_PANEL_KEY=0xC003D158, HW_KNOB=0xC003B688, HW_PART_SELECT=0xC0072338, HW_MUTE_OBJECT=0xC0596DF8,
-        HW_PART_EDIT=0, HW_PART_EDITOR=0, HW_PARAM_WINDOW=0,   # the part edit is not measured on the synth: setPartValue writes nothing
+        # korg.seq.setPartValue: the part edit the knobs call, its object, the observers of the parameter window
+        # (docs/messungen/2026-11-08-plugin-api24-part-cc.md)
+        HW_PART_EDIT=0xC0042700, HW_PART_EDITOR=0xC0348570, HW_PARAM_WINDOW=0xC0348500,
         POWER_HOLD_MASK=0, SHORTCUTS=1, REMOTE=1, HW_ENCODER=0,
         SC_LEDMGR=synthaddr.tr(0xC0345A1C), SC_PLAYER=synthaddr.tr(0xC002FAFC), SC_PATPTR=synthaddr.tr(0xC033E6A4),
         SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_LEDSEND=synthaddr.tr(0xC00875F4),
@@ -481,7 +516,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     actions = '\n'.join(f'.equ {name}, {value}' for name, value in profile.actions.items())
     hooks=assemble(actions+'\n'+source,origin=origin)
     linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_PAD_HOLD':hooks.symbols['script_pad_hold_glue'],'API_KORG_KNOB_HOLD':hooks.symbols['script_knob_hold_glue'],'API_KORG_KNOB':hooks.symbols['script_knob_glue'],'API_KORG_PASS_KEYS':hooks.symbols['script_pass_keys_glue'],'API_KORG_TOUCH_LOCK_X':hooks.symbols['script_touch_lock_x_glue'],'API_KORG_KEY_HOLD':hooks.symbols['script_key_hold_glue'],'API_KORG_KEY_MASK':hooks.symbols['script_key_mask_glue'],'API_KORG_PRESS_KEY':hooks.symbols['script_press_key_glue'],'API_KORG_READ_PATTERN_BYTES':hooks.symbols['script_read_pattern_bytes_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_glue'],'API_KORG_GET':hooks.symbols['script_object_get_glue'],'API_KORG_SET':hooks.symbols['script_object_set_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_timer_{name.lower()}_glue'] for name in ['AFTER','EVERY','AFTER_STEPS','CANCEL']},**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},'API_KORG_READ_CHAIN_MODE':hooks.symbols['script_read_chain_mode_glue'],'API_KORG_READ_VIEWED_PATTERN':hooks.symbols['script_read_viewed_pattern_glue'],'API_KORG_READ_NEXT_PATTERN':hooks.symbols['script_read_next_pattern_glue'],'API_KORG_READ_PATTERN_VALUE':hooks.symbols['script_read_pattern_value_glue'],'API_KORG_REMAP_KEY':hooks.symbols['script_remap_key_glue'],**{f'API_KORG_SEQ_{name}':hooks.symbols[f'script_seq_{name.lower()}_glue'] for name in ['SET_STEP','SET_GATE','CLEAR_PART','SET_PART_VALUE','WRITE_STEPS','SET_PATTERN_VALUE','GET_ON','GET_GATE','GET_NOTE','GET_VELOCITY']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
-        for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number')]}}
+        for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number'),('POPUPS','popups')]},'API_KORG_READ_POPUPS':hooks.symbols['script_read_popups_glue']}
     vm=build_vm(include,origin=MORE3_START,glue=linked_glue)
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
     pool_end=POOL+vm.symbols['SCRIPT_POOL_BYTES']
