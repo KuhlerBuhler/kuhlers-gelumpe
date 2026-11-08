@@ -86,6 +86,9 @@ export class SimHardware {
       "korg.knob": (index, value) => { this.firmwareKnobs[index] = value; },
       "korg.passKeys": (key, on) => { this.keyPass[key] = on; },
       "korg.seq.setPartValue": (part, field, value) => this.setPartValue(part, field, value),
+      // whether this plugin's writes open the parameter window; the simulator has no window, it keeps the choice
+      "korg.display.popups": (holds, on) => { holds.quiet = on ? 0 : 1; },
+      "korg.read.popups": holds => (holds.quiet ? 0 : 1),
       "korg.touchLockX": x => { this.touchLock = x; },
       "korg.keyHold": (holds, key, on) => { this.keyExit("korg.keyHold", key); holds.keys[key] = on; this.syncHolds(holds); },
       "korg.keyMask": (holds, low, high) => {
