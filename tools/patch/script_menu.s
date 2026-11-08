@@ -1710,8 +1710,8 @@ menu_texts_clear:
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
-; VERSION: the set's version text (the patch blech-version) as the title, the firmware this runtime is built for as the value, under
-; it what the start did with e2sFx.all
+; VERSION: the set's version text (the patch blech-version) as the title, the firmware this runtime is built for as the value, behind
+; it what the start did with e2sFx.all ("HACKTRIBE FX"). The third row would be drawn on the row of the value, over the firmware.
 menu_text_version:
     add r0, r5, #M_TITLE
     ldr r1, =VERSION_TEXT
@@ -1723,9 +1723,12 @@ menu_text_version:
     ldr r1, [r1, #BUILD_BASE]
     add r0, r5, #M_VALUE
     bl menu_copy
+    mov r4, r0
     bl fx_status_text
     cmp r1, #0
-    addne r0, r5, #M_LINE3
+    movne r2, #0x20
+    strbne r2, [r4], #1
+    movne r0, r4
     blne menu_copy
     pop {r4, r5, r6, r7, pc}
 ; the page BLECH in the ring and the groups of the list look like Data Util: the name as the title, "press  [ Enter ]" under it
@@ -2050,16 +2053,31 @@ menu_text_splash_status:
     cmp r1, #0
     bne menu_text_status_value
     b menu_text_press
-menu_text_splash_pick:          ; the name of the file the dial is on, or that the folder has none; what ENTER did goes over it
-    ldr r0, [r5, #M_SPLASH_SEL]
+menu_text_splash_pick:          ; the name of the file the dial is on, or that the folder has none; what ENTER did goes over it.
+    ldr r0, [r5, #M_SPLASH_SEL] ; No "press  [ Enter ]": the firmware draws it on the row of the value, over the name
     bl splash_pick
     str r1, [r5, #M_SPLASH_SEL]
-    cmp r0, #0
+    movs r6, r0
     ldreq r1, =str_splash_nofile
     ldrne r1, =LIST_PATH+SPLASH_NAME_AT
     add r0, r5, #M_VALUE
     bl menu_copy
-    b menu_text_splash_status
+    cmp r6, #0                  ; a longer name runs its letters into each other: it loses ".bmp" and is cut to fit
+    beq menu_text_splash_value
+    add r1, r5, #M_VALUE
+    sub r2, r0, r1
+    cmp r2, #SPLASH_SHOW
+    bls menu_text_splash_value
+    sub r2, r2, #4
+    cmp r2, #SPLASH_SHOW
+    movhi r2, #SPLASH_SHOW
+    mov r3, #0
+    strb r3, [r1, r2]
+menu_text_splash_value:
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status_value
+    pop {r4, r5, r6, r7, pc}
 
 ; PATTERN CONFIRM: whether the pattern change waits for a second press (the patch pattern-switch reads the word PS_SETTING)
 menu_text_pc:
@@ -3413,6 +3431,7 @@ splash_folder:
 splash_prefix:
     .asciz "SD:KORG/blechtribe/"
 .equ SPLASH_NAME_AT, 19         ; the length of splash_prefix: where the name starts in LIST_PATH
+.equ SPLASH_SHOW, 11            ; characters of a name SPLASH IMPORT shows: 11 of the widest letter (m) end at column 124 (emulator)
 import_folder:
     .asciz "SD:KORG/blechtribe/Plugin"
 import_prefix:
@@ -5186,12 +5205,14 @@ str_fx_nofile:
     .asciz "no e2sFx.all"
 str_fx_bad:
     .asciz "bad e2sFx.all"
-str_fx_loaded:                  ; VERSION, the third row: what the start did with e2sFx.all
-    .asciz "effects loaded"
+str_fx_loaded:                  ; VERSION, behind the firmware: what the start did with e2sFx.all; the longest ends at column 124
+    .asciz "FX"
 str_fx_skipped:
-    .asciz "effects skipped"
+    .asciz "FX off"
 str_fx_build:
-    .asciz "e2sFx.all wrong fw"
+    .asciz "FX fw?"
+str_fx_tag_bad:
+    .asciz "FX bad"
 str_tab_global:
     .asciz "Global"
 str_tab_du:

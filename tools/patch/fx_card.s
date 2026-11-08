@@ -36,7 +36,7 @@
 .equ FX_BAD_CHECKSUM, 9
 .equ FX_READ_ERROR, 10
 
-; -> r1 = the text for the third row of BLECH > VERSION, what the start did with e2sFx.all; 0 when it found no file. Clobbers r2.
+; -> r1 = the text behind the firmware in BLECH > VERSION, what the start did with e2sFx.all; 0 when it found no file. Clobbers r2.
 fx_status_text:
     ldr r1, =HOOK_CARD+FX_STATE_AT
     ldr r2, [r1, #FX_STATUS]
@@ -51,7 +51,7 @@ fx_status_text:
     cmpne r2, #FX_BAD_ENTRY
     cmpne r2, #FX_BAD_CHECKSUM
     cmpne r2, #FX_READ_ERROR
-    ldreq r1, =str_fx_bad
+    ldreq r1, =str_fx_tag_bad
     bx lr
 
 fx_card_load:

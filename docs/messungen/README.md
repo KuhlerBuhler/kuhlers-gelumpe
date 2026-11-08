@@ -56,6 +56,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [FX-Katalog neu: Notenwerte der Delays, unbenutzte Bausteine, laute Distortion](2026-10-22-fx-katalog-neu.md)
 - [FX-Katalog: Pegel gegen die Werkspresets, sechs Kopien pro Steuerzeile](2026-10-29-fx-katalog-pegel.md)
 - [Effekte aus e2sFx.all beim Start an den DSP, Status unter VERSION, SPLASH IMPORT als Dateiliste, im Emulator](2026-11-05-effekte-start-splash-liste.md)
+- [SPLASH IMPORT: Name ohne Zeile darüber, lange Namen gekürzt, VERSION mit Effektstatus in einer Zeile, im Emulator](2026-11-08-splash-import-wertzeile.md)
 
 
 ## SysEx und Transport
