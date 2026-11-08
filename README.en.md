@@ -76,6 +76,8 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Confirm before changing patterns | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Sync groups (patterns play as one) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Quick save (EXIT + WRITE), reset a part (EXIT + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| KEY from the pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Filter off and on (SHIFT + filter key) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Chords in pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Note assistant | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -112,7 +114,7 @@ The normal Electribe is on the left, BLECHTRIBE on the right. The animations use
 
 Open **Firmware Patcher**, drop your own `SYSTEM.VSB` (Korg's original 2.02 for sampler or synth, or Hacktribe 2.02) onto the page and choose the patches. Before downloading, the emulator boots the result and checks the main screen, update prompt, start modes and emergency switch. This takes a few minutes; the page shows which group is running. It then explains how to install the file on the device. All patches and their limits are in [docs/patcher.en.md](docs/patcher.en.md). To patch without the app, use `BLECH.patch` or the matching `.bsdiff` from the release as described there.
 
-On the sampler, BLECHTRIBE includes the BLECH menu, plugins, display and LED colours, pattern confirmation, sync groups, TAP Motion, a note assistant in KEYBOARD mode, random melodies (SHIFT + PART ERASE), EXIT + WRITE to save, EXIT + Pad to reset a part's sound, pink chord steps, migration of your existing sample folder, Blechy, loading progress, clearer sample errors and Doom (SHIFT + TAP at power-on; [licence](docs/doom-lizenz.md), German).
+On the sampler, BLECHTRIBE includes the BLECH menu, plugins, display and LED colours, pattern confirmation, sync groups, TAP Motion, a note assistant in KEYBOARD mode, KEYBOARD + Pad to set the KEY, SHIFT + filter key to turn the filter off and on, random melodies (SHIFT + PART ERASE), EXIT + WRITE to save, EXIT + Pad to reset a part's sound, pink chord steps, migration of your existing sample folder, Blechy, loading progress, clearer sample errors and Doom (SHIFT + TAP at power-on; [licence](docs/doom-lizenz.md), German).
 
 ## For tinkerers
 
@@ -212,12 +214,12 @@ A plugin gives the Electribe a new function. You put it on the device through th
 `KORG/blechtribe/Plugin/`. The folder is called `Plugin`, singular, not "Plugins", and it is the same on the
 red and the blue Electribe. The firmware does not create it, you do. With the device connected you can skip
 the card: in the Plugins area the button "Aufs Gerät" writes the plugin there over USB, then on the device
-Menü -> BLECH -> PLUGINS -> MANAGE PLUGINS. The code is a subset of JavaScript, the editor compiles it to bytecode for a
+Menü -> BLECH -> PLUGINS. The code is a subset of JavaScript, the editor compiles it to bytecode for a
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
-Mandelbrot, GIF Player, Image Viewer, BPM Glide, Filter Toggle, Momentary Mute, Gate Hold, Key Pads,
-Step Copy, Lauflicht, Pulsieren and Takt-Blinker.
+Mandelbrot, GIF Player, Image Viewer, BPM Glide, Momentary Mute, Gate Hold, Step Copy,
+Lauflicht, Pulsieren and Takt-Blinker.
 
 ## The emulator
 

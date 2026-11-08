@@ -80,6 +80,8 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Patternwechsel erst nach Bestätigung | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Sync-Gruppen (Patterns spielen wie eins) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Schnell speichern (EXIT + WRITE), Part zurücksetzen (EXIT + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| KEY über die Pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Filter an und aus (SHIFT + Filtertaste) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Akkorde in Pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Notenassistent | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -132,7 +134,7 @@ Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches 
 `.bsdiff`-Datei aus dem Release, das steht da auch.
 
 Was BLECH auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
-LEDs, Patternwechsel erst nach Bestätigung, Sync-Gruppen, TAP Motion, den Notenassistenten im KEYBOARD-Modus, einen
+LEDs, Patternwechsel erst nach Bestätigung, Sync-Gruppen, TAP Motion, den Notenassistenten im KEYBOARD-Modus, KEYBOARD + Pad setzt den KEY, SHIFT + Filtertaste schaltet das Filter aus und an, einen
 Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
 zurück, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
 hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
@@ -271,12 +273,12 @@ Mit einem Plugin bringst du der Electribe was Neues bei. Es kommt über die SD-K
 `KORG/blechtribe/Plugin/`. Der Ordner heißt `Plugin`, Einzahl, nicht "Plugins", und er ist bei der roten
 und der blauen Electribe derselbe. Die Firmware legt ihn nicht selbst an, du erstellst ihn. Ist das Gerät
 verbunden, geht es auch ohne Karte: im Bereich Plugins schreibt der Knopf "Aufs Gerät" das Plugin per USB
-dorthin, danach am Gerät Menü -> BLECH -> PLUGINS -> MANAGE PLUGINS. Geschrieben wird in einer abgespeckten Form von JavaScript, der Editor
+dorthin, danach am Gerät Menü -> BLECH -> PLUGINS. Geschrieben wird in einer abgespeckten Form von JavaScript, der Editor
 übersetzt das in Bytecode für eine kleine VM in der Firmware. Wenn ein Plugin einen Fehler hat, wird
 nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
 [docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
-Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Image Viewer, BPM Glide, Filter Toggle,
-Momentary Mute, Gate Hold, Key Pads, Step Copy, Lauflicht, Pulsieren und Takt-Blinker.
+Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Image Viewer, BPM Glide,
+Momentary Mute, Gate Hold, Step Copy, Lauflicht, Pulsieren und Takt-Blinker.
 
 ## Der Emulator
 

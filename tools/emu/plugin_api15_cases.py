@@ -37,7 +37,8 @@ RAW_X, RAW_Y = 400, 500
 
 # korg.seq.setPatternValue: one value per field, each away from a pattern's usual one; mfxType past every build's top, syncGroup past 999
 VALUES = {"tempo": 1234, "swing": -20, "length": 3, "beat": 2, "key": 5, "scale": 7, "chordSet": 3, "level": 77, "mfxType": 99,
-          "chainTo": 5, "chainRepeat": 9, "gateArp": 12, "syncGroup": 1500}
+          "chainTo": 5, "chainRepeat": 9, "gateArp": 12, "syncGroup": 1500, "alternate1314": 1, "alternate1516": 1, "mfxHold": 1,
+          "mfxPadX": 50, "mfxPadY": 60}
 FIELDS = node_json.run(
     "import {PATTERN_FIELDS, PATTERN_WRITES} from './data/script/contract.mjs';"
     "console.log(JSON.stringify(PATTERN_FIELDS.map(f => [f.name, f.offset, f.kind, PATTERN_WRITES[f.name]])))")

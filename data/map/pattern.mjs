@@ -158,7 +158,7 @@ export default {
     part("byte38", l("Byte 38, unbekannt", "Byte 38, unknown"), 38, { edit: "expert", source: "unknown", note: "belegt, Bedeutung unbekannt" }),
 
     step("on", l("An", "On"), 0, { convert: "onOff", range: [0, 1], source: "measured", evidence: PATTERN_DIFF }),
-    step("gate", l("Gate"), 1, { convert: "gateTime", range: [0, 127], source: "korg-spec", evidence: PART_SPEC, note: "255 kommt oft vor und ist ungeklärt" }),
+    step("gate", l("Gate"), 1, { convert: "gateTime", range: [0, 127], source: "korg-spec", evidence: PART_SPEC, note: "über 96 spielt als TIE, 127 und 255 gleich (im Emulator gemessen, docs/messungen/2026-11-06-step-trigger.md)" }),
     step("velocity", l("Velocity"), 2, { convert: "plain", range: [1, 127], source: "measured", evidence: PATTERN_DIFF }),
     step("trigger", l("Trigger"), 3, { convert: "onOff", range: [0, 1], source: "measured", evidence: PATTERN_DIFF }),
     f("step.note", l("Note"), STEP_BASE + 4, { area: "steps", repeat: [...STEP, { count: 4, stride: 1, label: l("Note") }], convert: "stepNote", range: [0, 128], source: "measured", evidence: PATTERN_DIFF }),

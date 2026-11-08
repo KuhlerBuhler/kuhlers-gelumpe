@@ -54,6 +54,9 @@ Seite 16 und 17 sind schon Part-Seiten. Das Part-Menü (Bildschirm 7) zählt von
 | Ein Plugin setzt und liest über `korg.pattern.current.*`, `korg.current.*` und `korg.parts[1].*`: Tempo, Tonart, Sync Group, Level, Voice Assign und MFX Send stehen im RAM und kommen gelesen zurück | gemessen |
 | Die 15 Reglerwerte der Parts (Part-Edit) schreiben auf blau nichts, weil der Part-Edit dort nicht vermessen ist; das galt schon vor API 21 | aus API 14 übernommen |
 
+Nachtrag 7. November 2026: `sample`, `ifxOn` und `ifxType` sind ab API 23 schreibbar, die Rollen von `0xC00405EC` (MIDI) und
+`0xC0059720` (Klangerzeugung) sind dort richtiggestellt ([Messung](2026-11-07-plugin-api23-part-writes.md)).
+
 ## Abweichung von der Spec
 
 Die Spec nennt für `syncGroup` die Werte OFF, ONCE und ON. Die Firmware kennt das Feld nicht, es ist ein Gelumpe-Feld: ein u16 bei

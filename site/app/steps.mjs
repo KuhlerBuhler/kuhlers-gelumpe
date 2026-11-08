@@ -78,7 +78,9 @@ export function stepEditor(doc) {
     const s = stepIndex(focus);
     const on = doc.get("step.on", [part, s]) === 1;
     const trigger = doc.get("step.trigger", [part, s]) === 1;
-    warning.hidden = !(on && !trigger);
+    // Trigger 0 only matters after a TIE (gate above 96) on the step before; otherwise the step plays as with trigger 1.
+    const afterTie = s > 0 && doc.get("step.on", [part, s - 1]) === 1 && doc.get("step.gate", [part, s - 1]) > 96;
+    warning.hidden = !(on && !trigger && afterTie);
     warning.textContent = warning.hidden ? "" : t("steps.noTrigger");
   }
 
@@ -93,7 +95,7 @@ export function stepEditor(doc) {
     doc.group(() => {
       if (on) { doc.set("step.on", ix(i), 0); return; }
       doc.set("step.on", ix(i), 1);
-      // A step sounds only with both on and trigger set.
+      // Trigger 1 so the step always strikes anew, even after a TIE.
       if (doc.get("step.trigger", ix(i)) !== 1) doc.set("step.trigger", ix(i), 1);
       if (doc.get("step.note", [...ix(i), 0]) === 0) doc.set("step.note", [...ix(i), 0], DEFAULT_NOTE_RAW);
     });

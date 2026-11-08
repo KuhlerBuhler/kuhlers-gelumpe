@@ -2,8 +2,8 @@
 
 Wunsch (Community, 30.10.): SHIFT + Filtertaste schaltet das Filter schnell an und aus und holt beim Wiedereinschalten denselben
 Filtertyp zurück, statt wie bei Hacktribe durch alle Modi zu wechseln. Je Taste ein eigener Speicher: von LPF Acid auf HPF
-wechseln gibt den zuletzt benutzten HPF-Typ (zum Beispiel OB HPF). Stand 2026-11-03: **als Plugin Filter Toggle im Katalog
-gebaut (API 14), im Simulator geprüft, am Gerät nichts.** Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
+wechseln gibt den zuletzt benutzten HPF-Typ (zum Beispiel OB HPF). Stand 2026-11-08: **fest eingebaut als FILTER TOGGLE
+(BLECH > FEATURES), im Emulator geprüft (Hacktribe, rot, blau), am Gerät nichts.** Bis dahin war es das Plugin Filter Toggle. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 
 ## Was es schon gibt
 
@@ -17,9 +17,17 @@ gebaut (API 14), im Simulator geprüft, am Gerät nichts.** Marker: **gemessen**
 - Plugins setzen Part-Werte mit `korg.parts[i].filterType = x` und lassen bei offener App mit `korg.passKeys` einzelne
   Tasten an die Firmware durch (beides API 14, [Plugins](../plugins.md)).
 
-## Gebaut: das Plugin Filter Toggle
+## Fest eingebaut: FILTER TOGGLE (2026-11-08)
 
-Eine App unter TOOLS im Katalog (`data/script/presets.mjs`, Beschreibung in [Plugins](../plugins.md#die-beispiel-plugins)).
+In der Laufzeit des BLECH-Menüs (`tools/patch/script_shortcuts.s`, `ft_select`), ohne Plugin auf der Karte. Die Filtertaste
+geht immer an die Firmware; FILTER TOGGLE ersetzt nur den neuen Typ auf ihrem eigenen Weg, der den Typ schreibt. So kommt
+das Fenster "FILTER TYPE" der Firmware, auch auf der blauen. Der Schalter liegt unter BLECH > FEATURES > FILTER TOGGLE (an,
+Bit 5 von Byte 5 der Einstellungsdatei ist AUS). Der Speicher gilt je Part und Familie bis zum Ausschalten. Belege und
+Grenzen: [Messung](../messungen/2026-11-08-filter-toggle-eingebaut.md). Damit fallen die Grenzen unten weg.
+
+## Vorher: das Plugin Filter Toggle (bis 2026-11-08)
+
+Eine App unter TOOLS im Katalog, heute nicht mehr dort (`data/script/presets.mjs`, Beschreibung in [Plugins](../plugins.md#die-beispiel-plugins)).
 
 - SHIFT + Taste der Familie, die der Part gerade hat: Filter aus (Typ 0). Noch einmal: der Typ, den die Taste zuletzt hatte.
 - SHIFT + Taste einer anderen Familie: deren letzter Typ, ohne Speicher deren electribe-Filter.
@@ -28,10 +36,9 @@ Eine App unter TOOLS im Katalog (`data/script/presets.mjs`, Beschreibung in [Plu
 - Bei offener App gehen alle Tasten an die Firmware, nur die drei Filtertasten nicht, solange SHIFT gedrückt ist. Bei
   geschlossener App dreht die Firmware den Typ zuerst weiter, das Plugin setzt im nächsten Rahmen den richtigen.
   (hergeleitet, im Simulator mit der gemessenen Reihe von Hacktribe nachgestellt)
-- Tests: `test/script-plugins.test.mjs` (aus, zurück zum alten Typ, Speicher je Taste und Part, Taste allein unverändert,
-  geschlossene App).
+- Tests: früher `test/script-plugins.test.mjs`, mit dem Plugin entfernt.
 
-## Was der Plugin-API fehlt
+## Was der Plugin-API fehlte
 
 - **Tasten ohne offene App zurückhalten.** `korg.passKeys` gilt nur bei offener App. Geschlossen sieht die Firmware SHIFT +
   Filtertaste und dreht den Typ weiter, bevor das Plugin ihn setzt; am Display springt kurz der Zwischentyp auf. Gebraucht
@@ -43,12 +50,11 @@ Eine App unter TOOLS im Katalog (`data/script/presets.mjs`, Beschreibung in [Plu
 ## Offen
 
 - Was "aus" am Klang bedeutet (Filter umgangen oder Cutoff voll offen). Am Gerät hören.
-- Alles am Gerät: Reihenfolge Firmware vor Plugin bei geschlossener App, das Parameterfenster beim Setzen, Patternwechsel.
+- Alles am Gerät: das Fenster beim Setzen, Patternwechsel.
 - Ob auch ein Wechsel der Taste ohne SHIFT den Speicher benutzen soll (LPF Acid, dann HPF gibt den letzten HPF-Typ). Das
   Plugin lässt die Taste allein heute bei der Firmware.
-- Ein Patch in der Firmware (Plan unten) bleibt der Weg ohne die Grenzen oben.
 
-## Plan für einen Firmware-Patch (grob, hergeleitet)
+## Plan für einen Firmware-Patch (umgesetzt 2026-11-08, Standard an statt aus)
 
 1. Tastenauswahl aus Idee 55 lesen (`tools/patch/`), die Stelle finden, an der der Typ gesetzt wird.
 2. Je Taste ein Byte "letzter Typ", beim Tastendruck befüllt.

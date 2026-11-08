@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 21;
+export const API_VERSION = 25;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -362,17 +362,33 @@ const API_LIST = [
   [68, "korg.knobHold", [int("index", 0, 10), int("on", 0, 1)], "void", UI, 20, 13],
   [69, "korg.knob", [int("index", 0, 10), int("value", 0, 255)], "void", UI, 30, 13],
   [70, "korg.passKeys", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 14],
-  [71, "korg.seq.setPartValue", [int("part", 0, 15), int("field", 0, 19), int("value")], "void", UI, 60, 14],
+  [71, "korg.seq.setPartValue", [int("part", 0, 15), int("field", 0, 31), int("value")], "void", UI, 60, 14],
   [72, "korg.read.patternBytes", [arr("array"), int("pattern", -1, 249), int("offset", 0, 16383)], "int", UI, 6, 14, 1],
   [73, "korg.seq.writeSteps", [arr("array"), int("part", 0, 15), int("first", 0, 63)], "int", UI, 10, 14, 1],
   [74, "korg.touchLockX", [int("x", -1, 127)], "void", UI, 20, 15],
   [75, "korg.keyHold", [int("key", 0, 33), int("on", 0, 1)], "void", UI, 20, 15],
   [76, "korg.pressKey", [int("key", 0, 33)], "void", UI, 30, 15],
-  [77, "korg.seq.setPatternValue", [int("field", 0, 12), int("value")], "void", UI, 60, 15],
+  [77, "korg.seq.setPatternValue", [int("field", 0, 31), int("value")], "void", UI, 60, 15],
   [78, "korg.read.viewedPattern", [], "int", ALL, 6, 18],
   [79, "korg.read.nextPattern", [], "int", ALL, 6, 18],
   // the keys a plugin keeps from the firmware, as one mask: bit n of `low` is key n (0 to 31), bit n of `high` key 32 + n
   [80, "korg.keyMask", [int("low"), int("high", 0, 3)], "void", UI, 20, 19],
+  // the bytes of a step in the pattern in RAM, as they are (PATTERN_STEPS); reads only, like korg.read.patternValue they work in every event
+  [81, "korg.seq.getOn", [int("part", 0, 15), int("step", 0, 63)], "int", ALL, 4, 22],
+  [82, "korg.seq.getGate", [int("part", 0, 15), int("step", 0, 63)], "int", ALL, 4, 22],
+  [83, "korg.seq.getNote", [int("part", 0, 15), int("step", 0, 63), int("slot", 0, 3)], "int", ALL, 4, 22],
+  [84, "korg.seq.getVelocity", [int("part", 0, 15), int("step", 0, 63)], "int", ALL, 4, 22],
+  // whether this plugin's writes open the firmware's parameter window as a knob does (1, the default) or leave it shut (0)
+  [85, "korg.display.popups", [int("on", 0, 1)], "void", UI, 20, 24],
+  [86, "korg.read.popups", [], "int", ALL, 4, 24],
+  // the panel as a finger works it (API 25): each call puts the message the panel sends into the panel queue, marked, so it reaches
+  // the firmware past remap, holds, app and shortcuts and no plugin; ids from 100, so they stay clear of the calls of API 24
+  [100, "korg.keyDown", [int("key", 0, 33)], "void", UI, 30, 25],
+  [101, "korg.keyUp", [int("key", 0, 33)], "void", UI, 30, 25],
+  [102, "korg.padDown", [int("pad", 0, 15), int("velocity", 1, 127)], "void", UI, 30, 25],
+  [103, "korg.padUp", [int("pad", 0, 15)], "void", UI, 30, 25],
+  [104, "korg.encoder", [int("index", 0, 4), int("delta", -127, 127)], "void", UI, 30, 25],
+  [105, "korg.touch", [int("x", -1, 1023), int("y", 0, 1023)], "void", UI, 40, 25],
 ];
 
 /**
@@ -447,6 +463,11 @@ export const PATTERN_FIELDS = Object.freeze([
   field("chainRepeat", 15106, "atLeast1", text("api.pattern.chainRepeat")),
   field("gateArp", 49, "u8", text("api.pattern.gateArp")),
   field("syncGroup", 15232, "u16", text("api.pattern.syncGroup")),
+  field("alternate1314", 68, "u8", text("api.pattern.alternate1314")),
+  field("alternate1516", 69, "u8", text("api.pattern.alternate1516")),
+  field("mfxHold", 65, "u8", text("api.pattern.mfxHold")),
+  field("mfxPadX", 62, "u8", text("api.pattern.mfxPadX")),
+  field("mfxPadY", 63, "u8", text("api.pattern.mfxPadY")),
 ]);
 export const PART_FIELDS = Object.freeze([
   field("sample", 8, "u16", text("api.part.sample")),
@@ -469,23 +490,42 @@ export const PART_FIELDS = Object.freeze([
   field("voiceAssign", 2, "u8", text("api.part.voiceAssign")),
   field("oscEdit", 11, "u8", text("api.part.oscEdit")),
   field("mfxSend", 27, "u8", text("api.part.mfxSend")),
+  field("ampEg", 26, "u8", text("api.part.ampEg")),
+  field("lastStep", 0, "u8", text("api.part.lastStep")),
+  field("motionMode", 3, "u8", text("api.part.motionMode")),
+  field("padVelocity", 4, "u8", text("api.part.padVelocity")),
+  field("scaleMode", 5, "u8", text("api.part.scaleMode")),
+  field("priority", 6, "u8", text("api.part.priority")),
+  field("grooveType", 28, "u8", text("api.part.grooveType")),
+  field("grooveDepth", 29, "u8", text("api.part.grooveDepth")),
 ]);
 /**
  * The PART_FIELDS korg.seq.setPartValue writes, by name: the firmware's parameter number of its part edit (the setter the
  * knobs go through, which writes the pattern and the sound engine's copy), the code of the parameter window a knob opens,
- * and the range the value is clamped to. Voice assign and MFX send go through the firmware's direct setter of the field
- * instead (tools/patch/script_hooks.py, PART_SETTERS), parameter number and window code are 0 there. Fields not listed
- * (sample, IFX on, IFX type) stay read-only (docs/messungen/2026-11-06-plugin-api21-pattern-parts.md).
+ * and the range the value is clamped to. Voice assign, MFX send, AMP EG, IFX on and IFX type go through the firmware's direct
+ * setter of the field instead (tools/patch/script_hooks.py, PART_SETTERS), parameter number and window code are 0 there; IFX
+ * type is clamped further to the build's type count. Sample goes through the part edit with the whole slot number, 0 to 999,
+ * and only to a slot the SAMPLE knob stops on, on a sliced sample with its slice as well. Since API 24 the fields the menu
+ * pages of the Part menu set (last step to groove depth) go through that page's setter, and a value whose knob, encoder or key
+ * sends a MIDI CC sends the same CC (PART_CC in script_hooks.py; docs/messungen/2026-11-06-plugin-api21-pattern-parts.md,
+ * docs/messungen/2026-11-07-plugin-api23-part-writes.md, docs/messungen/2026-11-08-plugin-api24-part-cc.md).
  */
 export const PART_WRITES = Object.freeze({
   filterType: [10, 10, 0, 16], cutoff: [11, 3, 0, 127], resonance: [12, 4, 0, 127], egInt: [13, 5, -63, 63],
   modType: [14, 13, 0, 71], modSpeed: [15, 12, 0, 127], modDepth: [16, 11, 0, 127], attack: [17, 9, 0, 127],
   decay: [18, 8, 0, 127], level: [19, 6, 0, 127], pan: [20, 7, -63, 63], ifxEdit: [27, 14, 0, 127],
   pitch: [28, 15, -63, 63], glide: [29, 16, 0, 127], oscEdit: [6, 1, 0, 127],
-  voiceAssign: [0, 0, 0, 3], mfxSend: [0, 0, 0, 1],
+  voiceAssign: [0, 0, 0, 3], mfxSend: [0, 0, 0, 1], ampEg: [0, 0, 0, 1], ifxOn: [0, 0, 0, 1], ifxType: [26, 13, 0, 127],
+  sample: [8, 0, 0, 999],
+  lastStep: [0, 0, 0, 15], motionMode: [0, 0, 0, 2], padVelocity: [0, 0, 0, 1], scaleMode: [0, 0, 0, 1], priority: [0, 0, 0, 1],
+  grooveType: [0, 0, 0, 127], grooveDepth: [0, 0, 0, 127],
 });
 /** The PART_WRITES fields that came with a later API version than korg.seq.setPartValue: the version, by name. */
-export const PART_WRITE_SINCE = Object.freeze({ voiceAssign: 21, mfxSend: 21 });
+export const PART_WRITE_SINCE = Object.freeze({ voiceAssign: 21, mfxSend: 21, ampEg: 23, ifxOn: 23, ifxType: 23, sample: 23,
+  lastStep: 24, motionMode: 24, padVelocity: 24, scaleMode: 24, priority: 24, grooveType: 24, grooveDepth: 24 });
+/** The PART_FIELDS that came with a later API version than korg.read.patternValue: the version, by name. */
+export const PART_FIELD_SINCE = Object.freeze({ ampEg: 23, lastStep: 24, motionMode: 24, padVelocity: 24, scaleMode: 24, priority: 24,
+  grooveType: 24, grooveDepth: 24 });
 /**
  * The PATTERN_FIELDS korg.seq.setPatternValue writes, by name: the range the value is clamped to, in the units
  * korg.read.patternValue gives (the ranges of data/map/pattern.mjs, decoded by the field's kind: length 1 to 4 bars,
@@ -495,19 +535,22 @@ export const PART_WRITE_SINCE = Object.freeze({ voiceAssign: 21, mfxSend: 21 });
 export const PATTERN_WRITES = Object.freeze({
   tempo: [200, 3000], swing: [-48, 48], length: [1, 4], beat: [0, 4], key: [0, 11], scale: [0, 34], chordSet: [0, 4],
   level: [0, 127], mfxType: [0, 39], chainTo: [-1, 249], chainRepeat: [0, 127], gateArp: [0, 49],
-  syncGroup: [0, 999],
+  syncGroup: [0, 999], alternate1314: [0, 1], alternate1516: [0, 1], mfxHold: [0, 1], mfxPadX: [0, 127], mfxPadY: [0, 127],
 });
 /** The PATTERN_FIELDS that came with a later API version than korg.read.patternValue: the version, by name. */
-export const PATTERN_FIELD_SINCE = Object.freeze({ syncGroup: 21 });
+export const PATTERN_FIELD_SINCE = Object.freeze({ syncGroup: 21, alternate1314: 24, alternate1516: 24, mfxHold: 24, mfxPadX: 24,
+  mfxPadY: 24 });
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
 
 /**
  * The steps korg.seq.* writes, in a part of the pattern in RAM: `count` records of `stride` bytes from `base` in the part
- * (data/map/pattern.mjs, step.*). A record holds on, gate (127 a tie), velocity, trigger and four note places, each the
- * note plus one, 0 for none. setStep writes on, velocity, trigger and the first note place and clears the other three, as
+ * (data/map/pattern.mjs, step.*). A record holds on, gate (above 96 a tie), velocity, trigger and four note places, each the
+ * note plus one, 0 for none. setStep writes on, velocity, trigger (0 behind a step on with a TIE, gate above 96; 1 else) and the
+ * first note place and clears the other three, as
  * the dice patch does (tools/patch/dice.py), or with note -1 or velocity 0 only the on byte; setGate writes the gate;
- * clearPart sets every on byte to 0. The pads draw the steps again once at the end of the frame.
+ * clearPart sets every on byte to 0. The pads draw the steps again once at the end of the frame. getOn, getGate and
+ * getVelocity return their byte as it is, getNote the note of a place (-1 for 0); they mark nothing for the pads.
  */
 export const PATTERN_STEPS = Object.freeze({ base: 0x30, stride: 12, count: 64, on: 0, gate: 1, velocity: 2, trigger: 3, notes: 4 });
 

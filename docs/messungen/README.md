@@ -27,12 +27,14 @@ Felder des Pattern-Blocks, der Parts und der Global-Einstellungen, wie sie die G
 - [Hüllkurve (Part-Byte 20 Attack, 21 Decay)](2026-09-17-envelope-time.md)
 - [Filtertypen (Part-Byte 12)](2026-09-17-filter-types.md)
 - [Glide (Part-Byte 37)](2026-09-17-glide-time.md)
+- [CUTOFF- und Glide-Mirror auf allen Parts (aus PR #379, hier nicht nachgemessen)](2026-11-06-glide-mirror.md)
 - [Modulation: Typ, Speed, Depth (Part-Bytes 16, 17, 18)](2026-09-17-mod-speed-depth.md)
 - [Osc Pitch (Part-Byte 36)](2026-09-17-osc-pitch.md)
 - [Pattern senden: Glide geht verloren](2026-09-22-pattern-write-glide.md)
 - [Pattern-Kette und Pattern-Import von der Karte, im Emulator gemessen](2026-10-10-pattern-kette-import.md)
 - [Global-Menü: welches Byte, welche Werte, welches Label](2026-10-14-global-felder.md)
 - [Live-Schreibwege: welcher Setter jeden Wert schreibt und wann das Byte allein reicht, im Emulator](2026-11-03-live-schreibwege.md)
+- [Step-Trigger: zählt nur hinter einem TIE, Legato bei Mono1 und Poly1, im Emulator](2026-11-06-step-trigger.md)
 
 
 ## Effekte
@@ -54,6 +56,8 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [FX-Katalog neu: Notenwerte der Delays, unbenutzte Bausteine, laute Distortion](2026-10-22-fx-katalog-neu.md)
 - [FX-Katalog: Pegel gegen die Werkspresets, sechs Kopien pro Steuerzeile](2026-10-29-fx-katalog-pegel.md)
 - [Effekte aus e2sFx.all beim Start an den DSP, Status unter VERSION, SPLASH IMPORT als Dateiliste, im Emulator](2026-11-05-effekte-start-splash-liste.md)
+- [SPLASH IMPORT: Name ohne Zeile darüber, lange Namen gekürzt, VERSION mit Effektstatus in einer Zeile, im Emulator](2026-11-08-splash-import-wertzeile.md)
+- [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: was es kostet](2026-11-08-blau-eigene-effekte.md)
 
 
 ## SysEx und Transport
@@ -128,6 +132,7 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [21.10.2026: SysEx-Puffer mit 19 KiB mehr Platz, im Emulator und nativ geprüft](2026-10-21-patch-effizienz-sysex.md)
 - [22.10.2026: Gemeinsame CRC, Speicherfüllung und kombinierte Rechenbefehle](2026-10-22-patch-effizienz-helfer.md)
 - [20.10.2026: Laufzeit und Platz der BLECH-Patches](2026-10-20-patch-performance.md)
+- [8.11.2026: CPU-Last mit BLECH, was am Gerät zu sehen ist und was jeder Patch kostet, im Emulator](2026-11-08-cpu-last-blech.md)
 
 - [Startbild-Editor im Menü Global (Idee 35): gebaut und im Emulator geprüft](2026-10-10-startbild-editor.md)
 - [MFX 2 auf TOUCH SCALE (Idee 44): gebaut und im Emulator geprüft](2026-10-10-mfx-umschalter.md)
@@ -170,6 +175,11 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 17: alle Seiten von CUSTOMIZATION und FEATURES als Blätter, Schreiben mit WRITE, im Emulator](2026-11-05-plugin-api17-blech-menue.md)
 - [Plugin API 18: angesehenes und nächstes Pattern lesen, im Emulator](2026-11-05-plugin-api18.md)
 - [Plugin API 21: Pattern und Parts schreibbar, Seiten des Pattern-Menüs, Sync Group, was nur lesbar bleibt, im Emulator](2026-11-06-plugin-api21-pattern-parts.md)
+- [Plugin API 22: Steps lesen (an, Gate, Note, Velocity), Lesen ohne Neuzeichnen der Pads, im Emulator](2026-11-06-plugin-api22-step-getters.md)
+- [Plugin API 23: IFX ON, IFX TYPE, Sample und AMP EG schreibbar, LEDs der Part-Tasten, im Emulator](2026-11-07-plugin-api23-part-writes.md)
+- [Plugin API 24: MIDI-CC wie Regler und Tasten, Part-Edit auf blau, neue Part- und Pattern-Werte, Slices, Fensterschalter, im Emulator](2026-11-08-plugin-api24-part-cc.md)
+- [Plugin-Liste und SPLASH IMPORT als Dateibrowser der Firmware, Pixelvergleich mit IMPORT SAMPLE, im Emulator](2026-11-08-plugin-liste-browser.md)
+- [Plugin API 25: Tasten, Pads, Encoder und Touchpad wie ein Finger, korg.knob gegen den Regler, im Emulator](2026-11-08-plugin-api25-panel-calls.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
 
@@ -218,6 +228,9 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Pong: kurzer Ballschweif, Life: Zeichnen und Berechnen verzahnen](2026-10-19-pong-life.md)
 - [Mandelbrot: offene Rechtecke in einer Arbeitsliste](2026-10-19-mandelbrot-arbeitsliste.md)
 - [EXIT-Shortcuts: speichern und Part zurücksetzen](2026-10-19-exit-shortcuts.md)
+- [KEY PADS fest eingebaut: KEYBOARD + Pad setzt den KEY, das Wertefenster zeigt ihn, im Emulator](2026-11-07-key-pads-eingebaut.md)
+- [KEY PADS chromatisch: Pad 1 C bis Pad 12 B, Pads 13 bis 16 tun nichts, im Emulator](2026-11-08-key-pads-chromatisch.md)
+- [FILTER TOGGLE fest eingebaut: SHIFT + Filtertaste schaltet das Filter aus und an, mit dem Fenster der Firmware, im Emulator](2026-11-08-filter-toggle-eingebaut.md)
 - [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
 - [Notenassistent: Helligkeit nach Passung, stehen lassen und ausblenden](2026-10-19-notenassistent-helligkeit.md)
