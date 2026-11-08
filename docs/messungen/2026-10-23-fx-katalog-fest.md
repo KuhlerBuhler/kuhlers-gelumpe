@@ -13,7 +13,7 @@ die Sammeldatei auf der Karte überschreiben. Im Emulator geprüft, **am Gerät 
 - Ein Effekt, dessen Name im Menü schon steht, wird ausgelassen. Zweimal angewendet kommt nichts dazu.
 - Die Plätze hängen davon ab, wie viele Presets die Firmware schon hat. Was der Katalog schreibt, bleibt deshalb Nutzerdaten
   der Patch-Datei (`src/patchfile.mjs`), ihre Fingerabdrücke hängen nicht davon ab.
-- Nur rot (Hacktribe und Korgs Original), die blaue hat andere Bausteine.
+- Nur rot (Hacktribe und Korgs Original). Die blaue hat dieselben Bausteine und Records, der Karte fehlen nur ihre Orte ([eigene Effekte auf der blauen](2026-11-08-blau-eigene-effekte.md)).
 
 ## Gemessen (`tools/emu/preset_cases.py`, Basis: BLECH-Satz ohne Katalog)
 
