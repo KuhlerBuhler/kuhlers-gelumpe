@@ -1,0 +1,34 @@
+{
+ "entries": [
+  {
+   "from": "0xC003F10C",
+   "to": "0xC0039D44",
+   "kind": "code",
+   "why": "set the drawing colour; the drawing functions 0xC003F650, 0xC003F730 and 0xC003F7D0 sit 0x53C8 lower in the synth (their entries), at that distance the first 7 words are equal (compared with both images)"
+  },
+  {
+   "from": "0xC003F55C",
+   "to": "0xC003A194",
+   "kind": "code",
+   "why": "fill a rectangle; 0x53C8 lower as its neighbours 0xC003F650 and 0xC003F730, 60 words equal but one bl offset (its callee moved, compared with both images)"
+  },
+  {
+   "from": "0xC003F4D8",
+   "to": "0xC003A110",
+   "kind": "code",
+   "why": "the frame of a rectangle; 0x53C8 lower as its neighbours, 32 words equal (compared with both images)"
+  },
+  {
+   "from": "0xC003F904",
+   "to": "0xC003A53C",
+   "kind": "code",
+   "why": "text centred on a column; 0x53C8 lower as its neighbours, 15 words equal (compared with both images)"
+  },
+  {
+   "from": "0xC00021FC",
+   "to": "0xC0001EC8",
+   "kind": "code",
+   "why": "signed division, the same function, same code True (tools/patch/fwmap.py)"
+  }
+ ]
+}
