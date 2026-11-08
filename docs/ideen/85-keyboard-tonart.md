@@ -7,7 +7,8 @@ Stand 2026-11-07: **fest eingebaut als KEY PADS in der Laufzeit des BLECH-Menüs
 ohne Plugin auf der Karte; das Wertefenster der Firmware zeigt den neuen KEY; Schalter BLECH > FEATURES > KEY PADS;
 im Emulator geprüft (Hacktribe, rot, blau), am Gerät nichts.** Messung in
 [2026-11-07-key-pads-eingebaut.md](../messungen/2026-11-07-key-pads-eingebaut.md). Das Plugin Key Pads (API 15, Stand
-2026-11-03) ist damit aus dem Katalog genommen. Die Abschnitte zu API 14 und zum Plugin unten sind der Stand davor. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
+2026-11-03) ist damit aus dem Katalog genommen. Seit 2026-11-08 liegen die Töne chromatisch auf den Pads (Pad 1 C bis Pad 12 B,
+Pads 13 bis 16 tun nichts, [Messung](../messungen/2026-11-08-key-pads-chromatisch.md)). Die Abschnitte zu API 14 und zum Plugin unten sind der Stand davor. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 
 ## Was es schon gibt
 
@@ -18,7 +19,7 @@ im Emulator geprüft (Hacktribe, rot, blau), am Gerät nichts.** Messung in
 
 ## Vorschlag
 
-- KEYBOARD gehalten + Pad setzt den KEY. Belegung wie im KEYBOARD-Modus: untere Reihe C D E F G A B C, obere Reihe die
+- KEYBOARD gehalten + Pad setzt den KEY. Belegung im Vorschlag (gebaut ist inzwischen die chromatische, siehe oben) wie im KEYBOARD-Modus: untere Reihe C D E F G A B C, obere Reihe die
   schwarzen Tasten; jedes Pad wählt den Ton, den es dort spielt, das zweite C wieder C.
 - Gesetzt wird über denselben Weg wie die Seite KEY im Pattern-Menü, damit Anzeige und Klang gleich reagieren.
 - Optional: die KEYBOARD-LED blinkt, solange der KEY nicht C ist.

@@ -909,7 +909,7 @@ class HookTests(unittest.TestCase):
             self.assertEqual(change['bytes'],data.hex())
             self.assertEqual(change['expect'],hashlib.sha256(b'\xff'*len(data)).hexdigest())
         first=len(built.sections)
-        for change,(address,word,_) in zip(patch['changes'][first:first+len(SITES)],SITES):
+        for change,(address,word,_) in zip(patch['changes'][first:first+len(SITES)],built.profile.sites):   # the build's sites (FILTER TOGGLE differs on Hacktribe)
             self.assertEqual(change['file'],address-RAM_BASE+0x100)
             self.assertEqual(change['expect'],hashlib.sha256(struct.pack('<I',word)).hexdigest())
             self.assertEqual(int.from_bytes(bytes.fromhex(change['bytes']),'little')>>24,0xea)
@@ -921,7 +921,7 @@ class HookTests(unittest.TestCase):
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
         card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
-        self.assertEqual(len(patch['startPhase']),60)
+        self.assertEqual(len(patch['startPhase']),61)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]
@@ -941,13 +941,13 @@ class HookTests(unittest.TestCase):
         from tools.patch.script_hooks import build,SITES,WORDS,RAM_BASE
         built=build(contract_data()['include'])
         base=bytearray(b'\xff'*0x200100)
-        for address,value,_ in SITES:
+        for address,value,_ in built.profile.sites:
             struct.pack_into('<I',base,address-RAM_BASE+0x100,value)
         for address,value,_ in WORDS:
             struct.pack_into('<I',base,address-RAM_BASE+0x100,value)
         struct.pack_into('<I',base,0xC0083710-RAM_BASE+0x100,0xC031BB2C)
         patched=built.apply(base)
-        for address,_,name in SITES:
+        for address,_,name in built.profile.sites:
             word=struct.unpack_from('<I',patched,address-RAM_BASE+0x100)[0]
             self.assertEqual(word>>24,0xea)
         for address in [0xC0083710,built.layout['code'],built.layout['runtime'],built.layout['pool'],built.layout['card'],built.layout['input']]:
@@ -1156,7 +1156,7 @@ class MenuSettingsTests(unittest.TestCase):
             for run, mfx, pc, na, tm in itertools.product(range(2), range(2), range(2), range(2), range(3)):
                 with self.subTest(build=build_name, run=run, mfx=mfx, pc=pc, na=na, tm=tm):
                     machine.uc.mem_write(state - 32, bytes(544))
-                    for name, value in [('M_SET_RUN', run), ('M_SET_MFX', mfx), ('M_PC', pc), ('M_NA', na), ('M_TM', tm), ('M_KP', 1)]:
+                    for name, value in [('M_SET_RUN', run), ('M_SET_MFX', mfx), ('M_PC', pc), ('M_NA', na), ('M_TM', tm), ('M_KP', 1), ('M_FT', 1)]:
                         machine.write(state + symbols[name], value)
                     for name, value in [('MX_INTENS', 9), ('MX_SAVE', 5)]:
                         machine.uc.mem_write((state + symbols[name]) & 0xffffffff, bytes([value]))
@@ -1205,6 +1205,12 @@ class MenuSettingsTests(unittest.TestCase):
             opened.clear()
             machine.call('menu_settings_save')
             self.assertEqual((opened[0][5], opened[0][7]), (0x1D, 0))
+            # FILTER TOGGLE OFF is bit 5
+            machine.write(state + symbols['M_FT'], 0)
+            opened.clear()
+            machine.call('menu_settings_save')
+            self.assertEqual((opened[0][5], opened[0][7]), (0x3D, 0))
+            machine.write(state + symbols['M_FT'], 1)
             machine.write(state + symbols['M_KP'], 1)
             machine.write(symbols['SP_CODE'], 0xFFFFFFFF)
             machine.write(symbols['LP_CODE'], 0xFFFFFFFF)
