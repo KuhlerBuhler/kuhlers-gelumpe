@@ -2050,16 +2050,31 @@ menu_text_splash_status:
     cmp r1, #0
     bne menu_text_status_value
     b menu_text_press
-menu_text_splash_pick:          ; the name of the file the dial is on, or that the folder has none; what ENTER did goes over it
-    ldr r0, [r5, #M_SPLASH_SEL]
+menu_text_splash_pick:          ; the name of the file the dial is on, or that the folder has none; what ENTER did goes over it.
+    ldr r0, [r5, #M_SPLASH_SEL] ; No "press  [ Enter ]": the firmware draws it on the row of the value, over the name
     bl splash_pick
     str r1, [r5, #M_SPLASH_SEL]
-    cmp r0, #0
+    movs r6, r0
     ldreq r1, =str_splash_nofile
     ldrne r1, =LIST_PATH+SPLASH_NAME_AT
     add r0, r5, #M_VALUE
     bl menu_copy
-    b menu_text_splash_status
+    cmp r6, #0                  ; a longer name runs its letters into each other: it loses ".bmp" and is cut to fit
+    beq menu_text_splash_value
+    add r1, r5, #M_VALUE
+    sub r2, r0, r1
+    cmp r2, #SPLASH_SHOW
+    bls menu_text_splash_value
+    sub r2, r2, #4
+    cmp r2, #SPLASH_SHOW
+    movhi r2, #SPLASH_SHOW
+    mov r3, #0
+    strb r3, [r1, r2]
+menu_text_splash_value:
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status_value
+    pop {r4, r5, r6, r7, pc}
 
 ; PATTERN CONFIRM: whether the pattern change waits for a second press (the patch pattern-switch reads the word PS_SETTING)
 menu_text_pc:
@@ -3413,6 +3428,7 @@ splash_folder:
 splash_prefix:
     .asciz "SD:KORG/blechtribe/"
 .equ SPLASH_NAME_AT, 19         ; the length of splash_prefix: where the name starts in LIST_PATH
+.equ SPLASH_SHOW, 11            ; characters of a name SPLASH IMPORT shows: 11 of the widest letter (m) end at column 124 (emulator)
 import_folder:
     .asciz "SD:KORG/blechtribe/Plugin"
 import_prefix:
