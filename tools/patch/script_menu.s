@@ -53,6 +53,22 @@
 .equ TM_SETTING, 0xC0188F00   ; the setting word of the patch tap-motion: never written (FFFFFFFF) or 1 is on, 0 is off, 2 is once
 .equ M_NA, 0xFC               ; the page NOTE ASSIST, 1 on (the default), 0 off
 .equ NA_SETTING, 0xC0189F00   ; the setting word of the patch note-assistant: never written (FFFFFFFF) or 1 is on, 0 is off
+.equ M_BRW_ROWS, 0x118        ; the list of the plugins and SPLASH IMPORT as the firmware's file browser (menu_brw_fill), in the gap of the
+                              ; old settings buffers (KEY PADS has 0x108 to 0x113): the three rows shown, BRW_ROW bytes each, the icon byte
+                              ; and the name as shown, zero ended
+.equ M_BRW_N, 0x148           ; its rows, 0 for none
+.equ M_BRW_SEL, 0x14C         ; the row the cursor is on
+.equ M_BRW_TOP, 0x150         ; the row shown first
+.equ M_BRW_ON, 0x154          ; byte: 0 no browser, 1 the browser with its rows, 2 the browser of an empty folder
+.equ M_BRW_VT, 0x160          ; the class of the browser's widget: the firmware's EDIT widget class with our draw slot, BRW_VT_WORDS words
+.equ M_BRW_NOTE, 0x190        ; 32 bytes: the line under the rows in the small font, empty for none
+.equ BRW_ROW, 16
+.equ BRW_VT_WORDS, 12
+.equ BRW_GLYPH, 0x3F          ; the icon byte: the firmware's glyph (8 its file icon), 0 for none,
+.equ BRW_NOEXT, 0x40          ; the name without its extension,
+.equ BRW_HOLLOW, 0x80         ; the page icon without its lines (a plugin that is not running)
+.equ BRW_FILE, 8
+.equ BRW_NOTE_Y, 54
 .equ M_KP, 0x104              ; the page KEY PADS, 1 on (the default), 0 off (script_shortcuts.s reads it); bit 4 of byte 5 of the settings file is OFF
 .equ M_FT, 0x160              ; the page FILTER TOGGLE, 1 on (the default), 0 off (script_shortcuts.s reads it); bit 5 of byte 5 of the settings file is OFF
 .equ GPIO_BASE, 0x01E26000
@@ -1558,6 +1574,26 @@ menu_construct:
     str r7, [r4, #0x28]
     str r7, [sp, #0x4]
     bl 0xC00614FC
+    mov r0, #56                 ; the browser's widget, last so it draws over the text lines (menu_brw_draw)
+    bl 0xC0028DCC
+    mov r7, r0
+    bl 0xC0085464               ; built as the EDIT widget, then given the class with our draw slot
+    ldr r2, [r7]
+    ldr r3, =MENU_STATE+M_BRW_VT
+    mov r12, #0
+menu_brw_class:
+    ldr r1, [r2, r12, lsl #2]
+    str r1, [r3, r12, lsl #2]
+    add r12, r12, #1
+    cmp r12, #BRW_VT_WORDS
+    blo menu_brw_class
+    ldr r1, =menu_brw_draw
+    str r1, [r3, #8]
+    str r3, [r7]
+    mov r0, r6
+    mov r1, r5
+    str r7, [sp, #0x4]
+    bl 0xC00614FC
     mov r0, r4
     bl menu_show
     mov r0, r4
@@ -1574,22 +1610,434 @@ menu_show:
     bl menu_texts
     bl menu_tab_text
     bl menu_desc_frame
+    bl menu_brw_fill
     ldr r0, [r4, #0x24]
     add r1, r5, #M_TITLE
+    bl menu_brw_text
     bl 0xC00857E4
     ldr r0, [r4, #0x24]
     add r1, r5, #M_VALUE
+    bl menu_brw_text
     bl 0xC0085828
     ldr r0, [r4, #0x24]
     add r1, r5, #M_LINE3
+    bl menu_brw_text
     bl 0xC0085888
     bl menu_counter_args
     ldr r0, [r4, #0x28]
     bl 0xC008A8A8
     mov r2, #0
     str r2, [r5, #M_RAW]
+    bl menu_brw_mark
     pop {r4, r5, pc}
 .pool
+
+; ---- the list of the plugins (level 5) and SPLASH IMPORT as the firmware's file browser (DATA UTILITY, IMPORT SAMPLE: screen 39)
+; The page keeps its header (tab, counter "n/N", EDIT and the status icons); the three text lines are handed an empty text and a widget of our own,
+; the last of the screen, draws the rows over them with the firmware's drawing functions at the places its browser uses (the list at
+; 0xC0085BB4, the cursor at 0xC0085B0C, the scroll bar at 0xC0085A0C): three rows in the big font, the file icon in front of the name,
+; the name without its extension and cut as the firmware cuts it (12 characters and ".." when longer than 14), the cursor triangle on
+; the left edge, the scroll bar on the right. Keys and dial do what they did. A plugin that is not running has a blank page icon (no lines);
+; what the old value line said beyond ON and OFF (ENTER=ALLOW, a fault and its line, what was done) stands under the rows in the
+; small font. An empty folder of SPLASH IMPORT shows NO .BMP FILE where the firmware shows NO FILE.
+
+; r5 = MENU_STATE, after menu_texts. Fills the rows of the browser, or switches it off on any other page (the screen is then drawn
+; again as a whole, so nothing of the rows stays). Clobbers r0 to r3 and r12.
+menu_brw_fill:
+    push {r4, r6-r11, lr}
+    ldrb r9, [r5, #M_BRW_ON]
+    mov r0, #0
+    strb r0, [r5, #M_BRW_NOTE]
+    ldr r1, [r5, #M_LEVEL]
+    cmp r1, #M_LEVEL_PLUGIN
+    beq menu_brw_plugins
+    ldr r0, [r5, #M_PAGE]
+    bl menu_kind
+    cmp r0, #22
+    beq menu_brw_splash
+    mov r0, #0
+    strb r0, [r5, #M_BRW_ON]
+    cmp r9, #0
+    ldrne r1, =UI_REDRAW
+    movne r0, #1
+    strbne r0, [r1]
+    pop {r4, r6-r11, pc}
+menu_brw_plugins:               ; the value line goes under the rows when it says more than ON or OFF
+    add r0, r5, #M_VALUE
+    ldr r1, =str_on
+    bl menu_brw_same
+    cmp r0, #0
+    addeq r0, r5, #M_VALUE
+    ldreq r1, =str_off
+    bleq menu_brw_same
+    cmp r0, #0
+    addeq r0, r5, #M_BRW_NOTE
+    addeq r1, r5, #M_VALUE
+    bleq menu_copy
+    bl menu_page_count
+    mov r6, r0
+    ldr r7, [r5, #M_PAGE]
+    mov r8, #1
+    b menu_brw_rows
+menu_brw_splash:                ; the value line goes under the rows only when it says what ENTER did
+    ldr r0, [r5, #M_STATUS]
+    cmp r0, #0
+    addne r0, r5, #M_BRW_NOTE
+    addne r1, r5, #M_VALUE
+    blne menu_copy
+    ldr r0, [r5, #M_SPLASH_SEL]
+    bl splash_pick
+    mov r6, r0
+    mov r7, r1
+    mov r8, #0
+menu_brw_rows:
+    cmp r6, #0
+    moveq r0, #2
+    movne r0, #1
+    strb r0, [r5, #M_BRW_ON]
+    str r6, [r5, #M_BRW_N]
+    str r7, [r5, #M_BRW_SEL]
+    ldr r10, [r5, #M_BRW_TOP]   ; the cursor moves within the three rows, the list moves when it would leave them
+    cmp r7, r10
+    movlo r10, r7
+    sub r0, r7, #2
+    cmp r10, r0
+    movlt r10, r0
+    subs r0, r6, #3
+    movmi r0, #0
+    cmp r10, r0
+    movgt r10, r0
+    str r10, [r5, #M_BRW_TOP]
+    add r11, r5, #M_BRW_ROWS
+    ldrb r0, [r5, #M_PSEL]      ; menu_kind sets M_PSEL to each row it is asked about; the page's own stays
+    push {r0}
+    mov r4, #0
+menu_brw_row:
+    add r0, r10, r4
+    mov r1, #0
+    strb r1, [r11]
+    strb r1, [r11, #1]
+    cmp r0, r6
+    bhs menu_brw_row_next
+    cmp r8, #0
+    beq menu_brw_row_bmp
+    mov r9, r0
+    bl menu_kind
+    cmp r0, #47                 ; LIST FULL: a row without an icon
+    ldreq r1, =str_list_full
+    moveq r2, #0
+    beq menu_brw_row_name
+    mov r0, r9
+    bl menu_psel_name
+    push {r1}
+    mov r0, r9
+    bl menu_entry
+    pop {r1}
+    mov r2, #BRW_HOLLOW+BRW_FILE
+    cmp r0, #0
+    beq menu_brw_row_name
+    ldr r3, [r0, #SCRIPT_ENTRY_STATE]
+    cmp r3, #SCRIPT_STATE_ARMED
+    moveq r2, #BRW_FILE
+    b menu_brw_row_name
+menu_brw_row_bmp:
+    bl splash_pick
+    ldr r1, =LIST_PATH+SPLASH_NAME_AT
+    mov r2, #BRW_FILE+BRW_NOEXT
+menu_brw_row_name:
+    strb r2, [r11]
+    add r0, r11, #1
+    bl menu_brw_cut
+menu_brw_row_next:
+    add r11, r11, #BRW_ROW
+    add r4, r4, #1
+    cmp r4, #3
+    blo menu_brw_row
+    pop {r0}
+    strb r0, [r5, #M_PSEL]
+    ldrb r0, [r5, #M_BRW_ON]
+    cmp r0, #2                  ; the empty folder says only that it is empty
+    moveq r0, #0
+    strbeq r0, [r5, #M_BRW_NOTE]
+    pop {r4, r6-r11, pc}
+.pool
+
+; r1 = one of the three text lines -> r1 = an empty text while the browser shows (the lines keep what the page says). Clobbers r2.
+menu_brw_text:
+    ldrb r2, [r5, #M_BRW_ON]
+    cmp r2, #0
+    ldrne r1, =str_brw_none
+    bx lr
+
+; r0, r1 = two zero ended texts -> r0 = 1 when they are the same, else 0. Clobbers r2 and r3.
+menu_brw_same:
+    ldrb r2, [r0], #1
+    ldrb r3, [r1], #1
+    cmp r2, r3
+    movne r0, #0
+    bxne lr
+    cmp r2, #0
+    bne menu_brw_same
+    mov r0, #1
+    bx lr
+
+; r0 = destination, r1 = a name, r2 = the row's icon byte (BRW_NOEXT: the name loses its extension). Copies the name as the firmware's
+; browser shows it: at most 14 characters, a longer one cut to 12 and "..". Clobbers r0 to r3 and r12.
+menu_brw_cut:
+    mov r3, #0
+menu_brw_cut_len:
+    ldrb r12, [r1, r3]
+    cmp r12, #0
+    addne r3, r3, #1
+    bne menu_brw_cut_len
+    tst r2, #BRW_NOEXT
+    beq menu_brw_cut_go
+    mov r2, r3
+menu_brw_cut_dot:
+    subs r2, r2, #1
+    bmi menu_brw_cut_go
+    ldrb r12, [r1, r2]
+    cmp r12, #0x2E               ; '.'
+    bne menu_brw_cut_dot
+    mov r3, r2
+menu_brw_cut_go:
+    cmp r3, #14
+    movhi r2, #12
+    movls r2, r3
+menu_brw_cut_copy:
+    subs r2, r2, #1
+    ldrbpl r12, [r1], #1
+    strbpl r12, [r0], #1
+    bpl menu_brw_cut_copy
+    cmp r3, #14
+    movhi r12, #0x2E
+    strbhi r12, [r0], #1
+    strbhi r12, [r0], #1
+    mov r12, #0
+    strb r12, [r0]
+    bx lr
+
+; r4 = the screen object: flags the browser's widget (the one of our class among the object's widgets) to draw at the next frame.
+menu_brw_mark:
+    ldr r0, [r4, #0x10]
+    ldr r1, [r4, #0x14]
+    ldr r2, =MENU_STATE+M_BRW_VT
+menu_brw_mark_loop:
+    cmp r0, r1
+    bxhs lr
+    ldr r3, [r0], #4
+    cmp r3, #0
+    beq menu_brw_mark_loop
+    ldr r12, [r3]
+    cmp r12, r2
+    bne menu_brw_mark_loop
+    mov r12, #1
+    strb r12, [r3, #0x14]
+    bx lr
+.pool
+
+; this = r0, the browser's widget: slot 2 of its class, called every frame by the screen manager after the text lines (it sets the
+; flag at +0x14 of every widget when it draws the whole screen, menu_brw_mark sets it when the page changed). Draws what
+; menu_brw_fill put down, with the calls and the places of the firmware's browser.
+menu_brw_draw:
+    ldrb r1, [r0, #0x14]
+    cmp r1, #0
+    bxeq lr
+    mov r1, #0
+    strb r1, [r0, #0x14]
+    ldr r2, =MENU_STATE
+    ldrb r1, [r2, #M_BRW_ON]
+    cmp r1, #0
+    bxeq lr
+    push {r4-r8, lr}
+    sub sp, sp, #16
+    mov r4, r2
+    mov r0, #0                  ; the list: its field cleared, the rows in font 2
+    bl menu_brw_colour
+    mov r0, #10
+    mov r1, #10
+    mov r2, #0x76
+    mov r3, #0x36
+    bl 0xC003F55C
+    mov r0, #0xFF
+    bl menu_brw_colour
+    mov r0, #2
+    str r0, [sp]
+    mov r0, sp
+    bl 0xC003F730
+    ldrb r0, [r4, #M_BRW_ON]
+    cmp r0, #2
+    bne menu_brw_draw_rows
+    mov r0, #0x19               ; empty: one line in the middle, as NO FILE
+    str r0, [sp]
+    mov r0, #0x40
+    str r0, [sp, #4]
+    ldr r0, =str_brw_empty
+    mov r1, sp
+    add r2, sp, #4
+    bl 0xC003F904
+    b menu_brw_draw_cursor
+menu_brw_draw_rows:
+    add r5, r4, #M_BRW_ROWS
+    mov r6, #0x0D               ; the icon's top; the name one pixel higher
+menu_brw_draw_row:              ; as the firmware: colour and font again for each row (a glyph leaves its own colour), the name, then the icon
+    ldrb r0, [r5, #1]
+    cmp r0, #0
+    beq menu_brw_draw_next
+    mov r0, #0xFF
+    bl menu_brw_colour
+    mov r0, #2
+    str r0, [sp]
+    mov r0, sp
+    bl 0xC003F730
+    mov r0, #0
+    str r0, [sp]
+    add r0, r5, #1
+    mov r1, #0x16
+    sub r2, r6, #1
+    mov r3, #0
+    bl 0xC003F7D0
+    ldrb r7, [r5]
+    ands r0, r7, #BRW_GLYPH
+    beq menu_brw_draw_next
+    str r0, [sp]
+    mov r0, #10
+    str r0, [sp, #4]
+    str r6, [sp, #8]
+    mov r0, sp
+    add r1, sp, #4
+    add r2, sp, #8
+    bl 0xC003F650
+    tst r7, #BRW_HOLLOW         ; not running: the two lines inside the page of the icon cleared (blech-theme's glyph 8), a blank page
+    beq menu_brw_draw_next
+    mov r0, #0
+    bl menu_brw_colour
+    mov r0, #13
+    add r1, r6, #6
+    mov r2, #5
+    mov r3, #3
+    bl 0xC003F55C
+menu_brw_draw_next:
+    add r5, r5, #BRW_ROW
+    add r6, r6, #12
+    cmp r6, #0x0D+36
+    blo menu_brw_draw_row
+menu_brw_draw_cursor:           ; the cursor: its column cleared, the triangle at the row of the selected one
+    mov r0, #0
+    bl menu_brw_colour
+    mov r0, #0
+    mov r1, #10
+    mov r2, #5
+    mov r3, #0x36
+    bl 0xC003F55C
+    ldr r0, [r4, #M_BRW_N]
+    cmp r0, #0
+    beq menu_brw_draw_bar
+    ldr r0, [r4, #M_BRW_SEL]
+    ldr r1, [r4, #M_BRW_TOP]
+    sub r0, r0, r1
+    mov r1, #12
+    mul r2, r0, r1
+    add r2, r2, #0x0F
+    mov r0, #10
+    str r0, [sp]
+    mov r0, #0
+    str r0, [sp, #4]
+    str r2, [sp, #8]
+    mov r0, sp
+    add r1, sp, #4
+    add r2, sp, #8
+    bl 0xC003F650
+menu_brw_draw_bar:              ; the scroll bar: a frame 8 wide and 43 high, inside it the part shown when there are more than three
+    mov r0, #0
+    bl menu_brw_colour
+    bl menu_brw_frame
+    mov r0, #0xFF
+    bl menu_brw_colour
+    bl menu_brw_frame
+    ldr r6, [r4, #M_BRW_N]
+    cmp r6, #3
+    ble menu_brw_draw_note
+    mov r0, #0x2B
+    mov r1, r6
+    bl 0xC00021FC
+    cmp r0, #2
+    movlt r0, #2
+    mov r7, r0
+    ldr r8, [r4, #M_BRW_SEL]
+    mov r0, #0x2B
+    mul r0, r8, r0
+    mov r1, r6
+    bl 0xC00021FC
+    add r1, r0, r7
+    cmp r1, #0x2B
+    rsbgt r0, r7, #0x2B
+    sub r1, r6, #1
+    cmp r8, r1
+    rsbeq r0, r7, #0x2B
+    add r0, r0, #9
+    str r0, [sp, #4]
+    str r7, [sp, #12]
+    mov r0, #0x78
+    str r0, [sp]
+    mov r0, #8
+    str r0, [sp, #8]
+    mov r0, sp
+    add r1, sp, #4
+    add r2, sp, #8
+    add r3, sp, #12
+    bl 0xC003F4D8
+menu_brw_draw_note:             ; what the old value line said beyond ON and OFF, in font 0 under the rows
+    ldrb r0, [r4, #M_BRW_NOTE]
+    cmp r0, #0
+    beq menu_brw_draw_done
+    mov r0, #0
+    str r0, [sp]
+    mov r0, sp
+    bl 0xC003F730
+    mov r0, #0
+    str r0, [sp]
+    add r0, r4, #M_BRW_NOTE
+    mov r1, #0x16
+    mov r2, #BRW_NOTE_Y
+    mov r3, #0
+    bl 0xC003F7D0
+menu_brw_draw_done:
+    add sp, sp, #16
+    pop {r4-r8, pc}
+
+; the frame of the scroll bar at its place (0xC0085A74), in the colour set
+menu_brw_frame:
+    push {lr}
+    sub sp, sp, #20
+    mov r0, #0x78
+    str r0, [sp]
+    mov r0, #9
+    str r0, [sp, #4]
+    mov r0, #8
+    str r0, [sp, #8]
+    mov r0, #0x2B
+    str r0, [sp, #12]
+    mov r0, sp
+    add r1, sp, #4
+    add r2, sp, #8
+    add r3, sp, #12
+    bl 0xC003F4D8
+    add sp, sp, #20
+    pop {pc}
+
+; r0 = the colour (0 clear, 0xFF set) for the firmware's drawing functions
+menu_brw_colour:
+    push {r0, lr}
+    mov r0, sp
+    bl 0xC003F10C
+    pop {r0, pc}
+.pool
+str_brw_empty:
+    .asciz "NO .BMP FILE"
+str_brw_none:
+    .byte 0
+    .align 4
 
 ; r0 = page. Writes the title and the value into the buffers of MENU_STATE. The firmware's third line (the unit) is drawn
 ; from a fixed column (28) on the row of the value, so any value wider than a character or two runs into it: it is
@@ -3066,6 +3514,10 @@ menu_counter_level:
     mov r2, r0
     ldr r3, =MENU_STATE
     ldr r1, [r3, #M_PAGE]
+    ldrb r0, [r3, #M_BRW_ON]    ; SPLASH IMPORT with files counts them, as the firmware's browser
+    cmp r0, #1
+    ldreq r1, [r3, #M_BRW_SEL]
+    ldreq r2, [r3, #M_BRW_N]
     pop {pc}
 .pool
 
