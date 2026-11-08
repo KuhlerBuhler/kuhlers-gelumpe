@@ -84,7 +84,7 @@ test("the compiler passes a global array by its first slot and length and refuse
 });
 
 test("the API version of a block follows what it uses", () => {
-  assert.equal(API_VERSION, 24);
+  assert.equal(API_VERSION, 25);
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let g = korg.seq.getGate(0, 0); });"), 22, "reading a step needs API 22");
   assert.equal(apiVersionOf("korg.onEvent(\"frame\", () => { let v = korg.viewedPattern + korg.nextPattern; });"), 18, "the viewed and next pattern need API 18");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.keyMask(1 << korg.key.PLAY, 0); });"), 19, "a key mask needs API 19");
@@ -100,6 +100,7 @@ test("the API version of a block follows what it uses", () => {
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.parts[2].lastStep = 8; });"), 24, "the last step needs API 24");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.current.mfxHold = 1; });"), 24, "MFX hold needs API 24");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.display.popups = 0; });"), 24, "the popups switch needs API 24");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.keyDown(korg.key.SHIFT); });"), 25, "the panel calls are new in API 25");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let v = korg.parts[2].ifxType; });"), 8, "reading IFX type stays at korg.read.patternValue");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.features.tapMotion = 2; });"), 17, "a page of the menu BLECH needs API 17");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.write(); });"), 17, "writing the menu's settings needs API 17");

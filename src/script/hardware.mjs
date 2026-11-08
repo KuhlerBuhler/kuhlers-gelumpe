@@ -51,6 +51,15 @@ export class SimHardware {
     this.keyHold = new Uint8Array(34);
     /** korg.pressKey: the keys plugins passed to the firmware as a short press, in order. */
     this.pressedKeys = [];
+    /**
+     * The panel calls of API 25 (korg.keyDown and the others): the messages plugins gave the firmware, in order, as [call, ...args];
+     * `down` the keys (34 the touchpad) and `padsDown` the pads a plugin holds down, so a second down or an up without a down sends
+     * nothing, as on the device. `closeApp` is set by the device: EXIT closes an open app first.
+     */
+    this.firmwareInputs = [];
+    this.down = new Uint8Array(35);
+    this.padsDown = new Uint8Array(16);
+    this.closeApp = () => {};
     /** Set by the device before each input: whether an app is open, so the keys an app keeps do not reach the firmware. */
     this.appOpen = false;
     /** The leaves of the object tree by id (data/script/objects.mjs), at their factory values; `repairs` is korg.system.repairs. */
@@ -96,7 +105,20 @@ export class SimHardware {
         for (let key = 0; key < 34; key++) holds.keys[key] = key < 32 ? (low >>> key) & 1 : (high >>> (key - 32)) & 1;
         this.syncHolds(holds);
       },
-      "korg.pressKey": key => { this.keyExit("korg.pressKey", key); this.pressedKeys.push(key); this.firmwareKey(key); },
+      "korg.pressKey": key => { if (key === KEY_EXIT) this.closeApp(); this.pressedKeys.push(key); this.firmwareKey(key); },
+      "korg.keyDown": key => {
+        if (this.down[key]) return;
+        if (key === KEY_EXIT) this.closeApp();
+        this.down[key] = 1; this.firmwareInputs.push(["keyDown", key]); this.firmwareKey(key);
+      },
+      "korg.keyUp": key => { if (this.down[key]) { this.down[key] = 0; this.firmwareInputs.push(["keyUp", key]); } },
+      "korg.padDown": (pad, velocity) => { if (!this.padsDown[pad]) { this.padsDown[pad] = 1; this.firmwareInputs.push(["padDown", pad, velocity]); } },
+      "korg.padUp": pad => { if (this.padsDown[pad]) { this.padsDown[pad] = 0; this.firmwareInputs.push(["padUp", pad]); } },
+      "korg.encoder": (index, delta) => { if (delta) this.firmwareInputs.push(["encoder", index, delta]); },
+      "korg.touch": (x, y) => {
+        if (x < 0) { if (this.down[KEY_TOUCHPAD]) { this.down[KEY_TOUCHPAD] = 0; this.firmwareInputs.push(["touchUp"]); } return; }
+        this.down[KEY_TOUCHPAD] = 1; this.firmwareInputs.push(["touch", x, y]);
+      },
       "korg.seq.setPatternValue": (field, value) => this.setPatternValue(field, value),
       "korg.read.patternBytes": (slots, pattern, offset) => this.patternBytes(slots, pattern, offset),
       "korg.seq.writeSteps": (slots, part, first) => this.writeSteps(slots, part, first),
@@ -164,7 +186,7 @@ export class SimHardware {
     if (f.kind === "u16") block[at + 1] = (v >> 8) & 255;
   }
 
-  /** EXIT stays with the firmware: korg.keyHold and korg.pressKey refuse it, as the ARM runtime does. */
+  /** EXIT stays with the firmware: korg.keyHold and korg.keyMask refuse it, as the ARM runtime does. */
   keyExit(name, key) {
     if (key === KEY_EXIT) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.keyExit", { name })));
   }
