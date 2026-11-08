@@ -1273,7 +1273,6 @@ export default {
   "bk.export.which": "Que lugares",
   "bk.export.none": "Define primeiro, em baixo, pelo menos um lugar.",
   "bk.export.firmware": "Para isto a página precisa da tua firmware: em Emulador, arrasta o SYSTEM.VSB para o display. Fica no teu computador.",
-  "bk.export.synth": "O ficheiro coletivo por enquanto só existe para o sampler vermelho.",
   "bk.shelf": "Efeitos ou modulações",
   "bk.pages": "Áreas do Kit de montar",
   "emu.state.empty": "pronto",

@@ -8,6 +8,8 @@
   "data/patches/blechtribe-synth.json",
   "data/patches/splash-synth.json",
   "data/patches/blech-theme-synth.json",
+  "data/patches/preset-tables-synth.json",
+  "data/patches/fx-catalog.json",
   "data/patches/power-off-synth.json",
   "data/patches/last-pattern-synth.json",
   "data/patches/init-pattern-synth.json",

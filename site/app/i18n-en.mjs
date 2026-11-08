@@ -1273,7 +1273,6 @@ export default {
   "bk.export.which": "Which slots",
   "bk.export.none": "First assign at least one slot below.",
   "bk.export.firmware": "For that the page needs your firmware: drag the SYSTEM.VSB onto the display in the Emulator area. It stays on your computer.",
-  "bk.export.synth": "The combined file only exists for the red sampler so far.",
   "bk.shelf": "Effects or modulations",
   "bk.pages": "Builder areas",
   "emu.state.empty": "ready",

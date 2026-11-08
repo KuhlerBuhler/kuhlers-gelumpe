@@ -1273,7 +1273,6 @@ export default {
   "bk.export.which": "Welke plekken",
   "bk.export.none": "Bepaal eerst hieronder minstens een plek.",
   "bk.export.firmware": "Hiervoor heeft de pagina je firmware nodig: sleep bij Emulator de SYSTEM.VSB op het display. Hij blijft op je computer.",
-  "bk.export.synth": "Het verzamelbestand bestaat voorlopig alleen voor de rode sampler.",
   "bk.shelf": "Effecten of modulaties",
   "bk.pages": "Onderdelen van de Bouwdoos",
   "emu.state.empty": "klaar",

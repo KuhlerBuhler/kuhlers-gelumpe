@@ -23,6 +23,7 @@ script_card_hook:
     bl blechy_boot
     ldr r0, =HOOK_RUNTIME
     bl script_card_load
+    bl fx_card_load
     bl menu_recount
 synth_start_native:
     pop {r12, lr}

@@ -12,7 +12,9 @@
  */
 import { field, sitesOf, readRaw, POINTER_TABLES } from "./map/index.mjs";
 import { checkInstruction } from "./guards.mjs";
-import { ramToFile, RAM_BASE } from "./map/address.mjs";
+import { ramToFile, fileToRam, RAM_BASE } from "./map/address.mjs";
+import { buildOf } from "./firmware.mjs";
+import { SAMPLER_OF_SYNTH } from "../data/synth-sites.mjs";
 
 export const RECORD = 0x20c;
 const IMAGE = 0x200100;
@@ -23,12 +25,32 @@ export const RESERVE = Object.fromEntries(["ifx", "mfx"].map(kind => [kind, POIN
 /** `mov r2, #length` before the `mla` that finds a part's row in the insert knob memory; not among the map's sites (the length edit of the map leaves it). */
 const IFX_ROW = 0x98184;
 
+/** The blue Electribe 2's firmware has the same getters, arrays and menu code at other addresses (data/synth-map/preset-tables.json). */
+const SYNTH_OF = new Map([...SAMPLER_OF_SYNTH].map(([synth, sampler]) => [sampler, synth]));
+const synthPlace = ram => {
+  const to = SYNTH_OF.get(ram);
+  if (to === undefined) throw new Error(`${ram.toString(16)} has no entry in data/synth-map/`);
+  return to;
+};
+/** The file offset of a Sampler place (given as file offset) in this image. */
+const placeOf = (bytes, file) => (buildOf(bytes) === "synth" ? ramToFile(synthPlace(fileToRam(file))) : file);
+const ramPlace = (bytes, ram) => fileToRam(placeOf(bytes, ramToFile(ram)));
+
+/** The menu length fields with the places this image has them at. */
+function menuField(bytes, kind) {
+  const f = field(kind === "mfx" ? "menu.mfxCount" : "menu.ifxCount");
+  if (buildOf(bytes) !== "synth") return f;
+  return f.sites
+    ? { ...f, sites: f.sites.map(s => ({ ...s, file: placeOf(bytes, s.file) })) }
+    : { ...f, where: { ...f.where, offset: placeOf(bytes, f.where.offset) } };
+}
+
 const u32 = (bytes, file) => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(file, true);
 const setU32 = (bytes, file, v) => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint32(file, v >>> 0, true);
 
 /** `mov r0, #n` and `cmp r0, #n` with the condition and registers of the firmware's clamp; the immediate is the last byte. */
 const clampOf = (bytes, kind) => {
-  const word = u32(bytes, ramToFile(GETTER[kind].clamp));
+  const word = u32(bytes, ramToFile(ramPlace(bytes, GETTER[kind].clamp)));
   return (word & 0xffffff00) === 0x23a00000 ? (word & 0xff) : null;
 };
 
@@ -41,7 +63,7 @@ export function locatePresets(bytes) {
   if (bytes.length !== IMAGE) return null;
   const out = {};
   for (const kind of ["ifx", "mfx"]) {
-    const array = u32(bytes, ramToFile(GETTER[kind].literal));
+    const array = u32(bytes, ramToFile(ramPlace(bytes, GETTER[kind].literal)));
     const top = clampOf(bytes, kind);
     if (top === null || top < 1 || array < RAM_BASE || array % 4 || array + 4 * (top + 1) > RAM_BASE + IMAGE - 0x100) return null;
     for (let i = 0; i <= top; i++) {
@@ -76,22 +98,23 @@ export async function pointersMatch(bytes, readRam) {
 
 /** What the menu offers now. The insert length is stored in several places; `agreed` says whether they match. */
 export function menuLength(bytes, kind) {
-  if (kind === "mfx") return { value: readRaw(bytes, field("menu.mfxCount")), agreed: true };
-  const { value, agreed } = readRaw(bytes, field("menu.ifxCount"));
+  if (kind === "mfx") return { value: readRaw(bytes, menuField(bytes, "mfx")), agreed: true };
+  const { value, agreed } = readRaw(bytes, menuField(bytes, "ifx"));
   return { value, agreed };
 }
 
 /** Write the menu length, in every place it lives. The map's range (100) is the firmware's old one, the capacity here is the patch's. */
 function setMenuLength(bytes, kind, n) {
   if (kind === "mfx") {
-    const f = field("menu.mfxCount");
+    const f = menuField(bytes, "mfx");
     const at = f.where.offset;
     checkInstruction(bytes.subarray(at, at + 4), { ...f.instruction, range: [1, 255] }, f.id);
     bytes[at] = n;
     return;
   }
-  for (const s of sitesOf(field("menu.ifxCount"), n)) bytes[s.offset] = s.value;
-  if (((u32(bytes, IFX_ROW) & 0xffffff00) >>> 0) === 0xe3a02000) bytes[IFX_ROW] = n;
+  for (const s of sitesOf(menuField(bytes, "ifx"), n)) bytes[s.offset] = s.value;
+  const row = placeOf(bytes, IFX_ROW);
+  if (((u32(bytes, row) & 0xffffff00) >>> 0) === 0xe3a02000) bytes[row] = n;
 }
 
 /** The name of a record, for messages. */
@@ -170,6 +193,6 @@ export function presetSpans(bytes) {
     data.push([ramToFile(RESERVE[kind].ram), RESERVE[kind].slots * RECORD]);
     if (where[kind].capacity > 100) data.push([ramToFile(where[kind].array) + 400, 4 * (where[kind].capacity - 100)]);
   }
-  const code = [...field("menu.ifxCount").sites.map(s => [s.file, 1]), [IFX_ROW, 1], [field("menu.mfxCount").where.offset, 1]];
+  const code = [...menuField(bytes, "ifx").sites.map(s => [s.file, 1]), [placeOf(bytes, IFX_ROW), 1], [menuField(bytes, "mfx").where.offset, 1]];
   return { data, code };
 }

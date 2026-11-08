@@ -1273,7 +1273,6 @@ export default {
   "bk.export.which": "Která místa",
   "bk.export.none": "Nejdřív dole urči aspoň jedno místo.",
   "bk.export.firmware": "Stránka k tomu potřebuje tvůj firmware: v sekci Emulátor přetáhni SYSTEM.VSB na displej. Zůstane na tvém počítači.",
-  "bk.export.synth": "Souhrnný soubor zatím existuje jen pro červený sampler.",
   "bk.shelf": "Efekty nebo modulace",
   "bk.pages": "Sekce Baukasten",
   "emu.state.empty": "připraveno",

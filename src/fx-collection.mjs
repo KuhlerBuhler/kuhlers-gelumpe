@@ -26,7 +26,7 @@ export const COLLECTION_VERSION = 1;
 export const HEADER_SIZE = 24;
 export const ENTRY_HEAD = 8;
 export const MAX_TEXT = 0x2000;
-export const BUILDS = { hacktribe: 1, stock: 2 };
+export const BUILDS = { hacktribe: 1, stock: 2, synth: 3 };
 export const KIND = { ifx: 1, mfx: 2, mod: 3 };
 export const MOD_RECORD = TABLES.get("table.modType").stride;
 export const MOD_COUNT = TABLES.get("table.modType").count;
@@ -119,7 +119,7 @@ const RISKY_CODES = new Set(["stage2-fatal", "stage2-silent", "stage1-needs-solo
 /** @param {{risky?: boolean}} [options] risky: let the measured bad block combinations through, the rest stays barred */
 export function collectionEntry(preset, vsb, index, units, { risky = false } = {}) {
   const build = buildOf(vsb);
-  if (!(build in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für den roten Sampler, mit Korgs Firmware oder mit Hacktribe." };
+  if (!(build in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für Korgs Firmware 2.02 (rot und blau) und für Hacktribe." };
   if (preset.kind === "mod") {
     const table = locateModTable(vsb);
     if (!table.ok) return { ok: false, reason: table.reasons[0] };
@@ -152,7 +152,7 @@ export function collectionEntry(preset, vsb, index, units, { risky = false } = {
  * @returns {{ok: true, entry: object} | {ok: false, reason: string}}
  */
 export function factoryEntry(vsb, kind, from, index, units) {
-  if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für den roten Sampler, mit Korgs Firmware oder mit Hacktribe." };
+  if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für Korgs Firmware 2.02 (rot und blau) und für Hacktribe." };
   if (kind === "mod") {
     const table = locateModTable(vsb);
     if (!table.ok) return { ok: false, reason: table.reasons[0] };
@@ -167,13 +167,13 @@ export function factoryEntry(vsb, kind, from, index, units) {
 }
 
 /**
- * Every effect and modulation type of a firmware of the red sampler (Korg's 2.02 or Hacktribe) as .e2fx v2 text, so the
+ * Every effect and modulation type of a firmware (Korg's 2.02, red or blue, or Hacktribe) as .e2fx v2 text, so the
  * Baukasten can take them over as own pieces: who has Korg's original file gets its presets back, nothing of it is shipped.
  * Empty places are left out.
  * @returns {{ok: true, pieces: {kind: "ifx"|"mfx"|"mod", slot: number, name: string, text: string}[]} | {ok: false, reason: string}}
  */
 export function firmwarePresets(vsb, units) {
-  if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Presets lassen sich aus der Firmware des roten Samplers holen, Korgs Original 2.02 oder Hacktribe." };
+  if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Presets lassen sich aus Korgs Firmware 2.02 (rot und blau) oder Hacktribe holen." };
   const pieces = [];
   for (const kind of ["mfx", "ifx"]) {
     for (let slot = 1; recordOf(vsb, kind, slot); slot++) {
@@ -191,6 +191,6 @@ export function firmwarePresets(vsb, units) {
       if (preset.name.trim()) pieces.push({ kind: "mod", slot, name: preset.name, text: fxText(preset) });
     }
   }
-  if (!pieces.length) return { ok: false, reason: "In dieser Datei sind keine Presets zu finden. Nimm eine SYSTEM.VSB des roten Samplers." };
+  if (!pieces.length) return { ok: false, reason: "In dieser Datei sind keine Presets zu finden. Nimm eine SYSTEM.VSB der Electribe 2." };
   return { ok: true, pieces };
 }

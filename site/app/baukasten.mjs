@@ -1004,7 +1004,6 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     if (!wanted.length) { toast(t("bk.export.none"), "error"); return; }
     if (!vsb) { toast(t("bk.export.firmware"), "error"); return; }
     const build = buildOf(vsb);
-    if (build === "synth") { toast(t("bk.export.synth"), "error"); return; }
     await loadUnits();
     const entries = [];
     for (const w of wanted) {

@@ -1273,7 +1273,6 @@ export default {
   "bk.export.which": "Które miejsca",
   "bk.export.none": "Najpierw ustal na dole co najmniej jedno miejsce.",
   "bk.export.firmware": "Strona potrzebuje do tego twojego firmware: w sekcji Emulator przeciągnij SYSTEM.VSB na wyświetlacz. Zostaje na twoim komputerze.",
-  "bk.export.synth": "Plik zbiorczy jest na razie tylko dla czerwonego samplera.",
   "bk.shelf": "Efekty lub modulacje",
   "bk.pages": "Sekcje Baukasten",
   "emu.state.empty": "gotowy",

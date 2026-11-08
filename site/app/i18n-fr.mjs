@@ -1273,7 +1273,6 @@ export default {
   "bk.export.which": "Quelles places",
   "bk.export.none": "Attribue d'abord au moins une place plus bas.",
   "bk.export.firmware": "Pour ça, la page a besoin de ton firmware : glisse le SYSTEM.VSB sur l'écran dans la section Émulateur. Il reste sur ton ordi.",
-  "bk.export.synth": "Le fichier groupé n'existe pour l'instant que pour le sampler rouge.",
   "bk.shelf": "Effets ou modulations",
   "bk.pages": "Sections de l'Atelier",
   "emu.state.empty": "prêt",

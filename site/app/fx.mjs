@@ -112,8 +112,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     await units();
     const id = await identify(bytes);
     state.identity = id;
-    // Korg's own build is not "known" (its presets are not Hacktribe's), but its presets are read through the pointer arrays all the same
-    const stock = id.build === "stock" && !!locatePresets(bytes);
+    // Korg's own builds, red and blue, are not "known" (their presets are not Hacktribe's), but their presets are read through the pointer arrays all the same
+    const stock = (id.build === "stock" || id.build === "synth") && !!locatePresets(bytes);
     if (!id.known && !stock) {
       identity.replaceChildren(...(id.build === "stock" ? [] : [pill("error", t("presets.unknown")), ` ${id.reasons.join(" ")}`]));
       if (!embedded) window.ui?.rejectFile(fileInput, t("presets.notMeasured"));

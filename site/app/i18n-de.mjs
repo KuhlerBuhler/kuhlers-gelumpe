@@ -1314,7 +1314,6 @@ export default {
   "bk.export.which": "Welche Plätze",
   "bk.export.none": "Leg zuerst unten mindestens einen Platz fest.",
   "bk.export.firmware": "Dafür braucht die Seite deine Firmware: im Bereich Emulator die SYSTEM.VSB aufs Display ziehen. Sie bleibt auf deinem Rechner.",
-  "bk.export.synth": "Die Sammeldatei gibt es bisher nur für den roten Sampler.",
   "bk.shelf": "Effekte oder Modulationen",
   "bk.pages": "Bereiche des Baukastens",
 
