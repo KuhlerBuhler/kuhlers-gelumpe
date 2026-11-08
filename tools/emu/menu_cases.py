@@ -153,9 +153,9 @@ def version_texts(payload):
 
 
 def feature_pages():
-    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches, KEY PADS last (SYNC GROUP
-    is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
-    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS"]
+    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches, KEY PADS and FILTER
+    TOGGLE last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS", "FILTER TOGGLE"]
 
 
 def feature_count():
@@ -182,6 +182,7 @@ LEVEL_GLOBAL = 7                                                      # level 7:
 LEVEL_DU = 8                                                          # level 8: our pages of DATA UTILITY, behind the firmware's functions
 GLOBAL_PAGES = 20                                                     # the firmware's pages of GLOBAL PARAMETERS (screen 9)
 S_PSEL = 0xFB                                                         # byte: the plugin the pages of level 6 are about (the page of level 5 it was opened from)
+S_BRW_ON = 0x154                                                      # byte: M_BRW_ON, nonzero while the page shows as the firmware's file browser
 PLUGIN_MANAGE = 0                                                     # the one page of PLUGINS: MANAGE PLUGINS
 PLUGIN_DESCRIPTION = 0                                                # the first page of one plugin; the pages it added follow, then OFF, REMOVE is the last
 PRESS = "press  [ Enter ]"                                            # the third line of every Data Util page
@@ -314,10 +315,14 @@ def page_overlap(dev):
     """None when the page on screen is clean, else what is wrong with it. Clean means: the third line is empty or is the Data Util
     line `press  [ Enter ]` under an empty value (the firmware draws the line from column 28 on the row of the value, so any
     value runs into it), the value alone and the line alone share no pixel, neither the title, the value nor the line reach the
-    edge of the display (a text that is too wide is cut off), and the tab's label is whole beside its counter."""
+    edge of the display (a text that is too wide is cut off), and the tab's label is whole beside its counter. A page shown as the
+    file browser (the plugin list, SPLASH IMPORT) does not draw the three lines, so only its label is checked."""
     title, value, line3 = texts_of(dev)
     shown = frame(dev)
     wrong = []
+    if dev.read(STATE + S_BRW_ON, 1)[0]:
+        problem = label_problem(dev, tab(dev))
+        return [problem] if problem else None
     if line3 and (line3 != PRESS or value):
         wrong.append(f"third line {line3!r} beside value {value!r}")
     only_value = lit(draw_texts(dev, value, ""))
@@ -337,7 +342,16 @@ def page_overlap(dev):
 
 def value_row_leftovers(dev):
     """The pixels of the value row on screen that the value alone does not draw (what an earlier text left there or the third line
-    drew over it), and those of the value that are missing. Redraws the value row, so call it last before the next key."""
+    drew over it), and those of the value that are missing. Redraws the value row, so call it last before the next key.
+    On a file browser page the rows hold the browser, not the value: everything below the tab is held against the page drawn again
+    on a blank frame."""
+    if dev.read(STATE + S_BRW_ON, 1)[0]:
+        shown = lit(frame(dev), range(8, 64))
+        dev.m.uc.mem_write(0xC031B310 + 128, b"\0" * (1024 - 128))
+        dev.m.uc.mem_write(dev.a(UI_REDRAW), b"\1")
+        dev.run(0.3)
+        alone = lit(frame(dev), range(8, 64))
+        return shown - alone, alone - shown
     shown = lit(frame(dev), range(30, 47))
     alone = lit(draw_texts(dev, texts_of(dev)[1], ""), range(30, 47))
     return shown - alone, alone - shown
@@ -889,7 +903,7 @@ def read_settings_look(image):
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
         head = {1: 16, 2: 20, 3: 20}.get(version)
-        if head is None or extras & ~0x1F:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF
+        if head is None or extras & ~0x3F:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF
             continue
         size = head + 4 * count
         if count > (64 if version == 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -1068,6 +1082,7 @@ TM_ONCE_BIT = 32                      # bit 5 of the flags of the settings file:
 TM_OFF_BIT = 8                        # bit 3 of the flags of the settings file: TAP MOTION is off
 S_NA = 0xFC                           # the page NOTE ASSIST: 1 on (the default), 0 off
 S_KP = 0x104                          # the page KEY PADS: 1 on (the default), 0 off
+S_FT = 0x1C0                          # the page FILTER TOGGLE: 1 on (the default), 0 off
 NA_SETTING = 0xC0189F00               # the word of the patch note-assistant: FFFFFFFF never written, 1 on, 0 off
 NA_OFF_BIT = 16                       # bit 4 of the flags of the settings file: NOTE ASSIST is off
 PS_SETTING = 0xC0180F10               # the word of the patch pattern-switch: FFFFFFFF never written, 1 on, 0 off
@@ -1562,7 +1577,7 @@ def splash_menu_cases(payload, flash=None):
     inside = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev))
     press(dev, "exit", 0.4)
     out_again = (state(dev, S_GROUP), state(dev, S_PAGE), texts_of(dev)[0])
-    add("group_of_its_own", row == ("SPLASH", "", PRESS) and inside == (2, GROUP_SPLASH, (0, 3), "Splash") and out_again == (GROUP_CUSTOM, CUSTOM_SPLASH, "SPLASH")
+    add("group_of_its_own", row == ("SPLASH", "", PRESS) and inside == (2, GROUP_SPLASH, (0, 1), "Splash") and out_again == (GROUP_CUSTOM, CUSTOM_SPLASH, "SPLASH")
         and not dev.m.asserts, f"row {row}, ENTER {inside}, EXIT {out_again}")
     goto_group(dev, GROUP_SPLASH, 0)
     before = texts_of(dev)
@@ -1591,6 +1606,11 @@ def splash_menu_cases(payload, flash=None):
     goto_group(bare, GROUP_SPLASH, 0)
     press(bare, "menu", 0.6)
     add("import_without_file", texts_of(bare)[1] == "no .bmp file", str(texts_of(bare)))
+    lit_rows = {y for y in range(10, 62) for x in range(3, 120) if (bare.fb()[(y // 8) * 128 + x] >> (y % 8)) & 1}
+    add("browser_empty", bare.read(STATE + S_BRW_ON, 1)[0] == 2 and lit_rows and max(lit_rows) - min(lit_rows) < 10,
+        f"browser {bare.read(STATE + S_BRW_ON, 1)[0]}, rows lit between the edges {sorted(lit_rows)}")
+    differ = browser_against_import_sample(payload, flash)
+    add("browser_like_import_sample", differ == 0, f"{differ} pixels differ from the firmware's IMPORT SAMPLE (rows 10 to 63)")
 
     # the list: only .bmp files, no names starting with a dot (macOS ._ files), the dial walks them and stops at the ends, ENTER takes
     # the one shown; a name like Windows gives a second download
@@ -1627,6 +1647,10 @@ def splash_menu_cases(payload, flash=None):
     dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/a-very-long-name-here.bmp": bmp(other)})
     goto_group(dev, GROUP_SPLASH, 0)
     long_texts, long_crowded = texts_of(dev), page_overlap(dev)
+    if dev.read(STATE + S_BRW_ON, 1)[0]:     # the browser row: ".." after the cut name, clear of the scrollbar (x 120 on)
+        near_bar = {p for p in lit(frame(dev), range(10, 51)) if 108 <= p[0] < 120}
+        long_crowded = long_crowded or (f"row ink next to the scrollbar {sorted(near_bar)[:4]}" if near_bar else None)
+        long_crowded = long_crowded or (lambda e, m: f"{len(e)} pixels left over, {len(m)} missing" if e or m else None)(*value_row_leftovers(dev))
     press(dev, "menu", 0.6)
     stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(other)
     add("long_name_cut", long_texts == ("SPLASH IMPORT", "a-very-long", "") and long_crowded is None and texts_of(dev)[1] == "loaded" and stored
@@ -1653,6 +1677,51 @@ def splash_menu_cases(payload, flash=None):
     again.run(1.2)
     add("reset_kept_after_restart", desc(again) == orig and not again.m.asserts, f"next start draws {desc(again):#x}, the VSB's image is {orig:#x}")
     return out
+
+
+def browser_against_import_sample(payload, flash=None, turns=4):
+    """SPLASH IMPORT against the firmware's own file browser (DATA UTILITY, IMPORT SAMPLE, screen 39) with the same names: five
+    .wav files and the folder KORG there, KORG.bmp and the five names as .bmp here. After `turns` steps of the dial the folder row is
+    out of sight (its icon is the folder's), so rows 10 to 63 (below the header with its tab) are compared -> the pixels that differ,
+    or None when IMPORT SAMPLE was not reached."""
+    import highram_watch as hw
+    import fat32
+    from splash_cases import bmp
+    names =["Clap Melodic Long", "Claps Synthwave", "Deep House Tom", "Kick", "Snare 909 roomy"]
+    rows = lambda fb: {(x, y) for y in range(10, 64) for x in range(128) if (fb[(y // 8) * 128 + x] >> (y % 8)) & 1}
+    img = fat32.format_image(64 * 1024 * 1024)
+    vol = fat32.Volume(img)
+    for name in names:
+        vol.write(f"/{name}.wav", hw.plain_wav(2000))
+    vol.write(f"/KORG/{hw.folder(payload)}/Sample/x.txt", b"x")
+    vol.close()
+    ref = Dev(payload, flash, 0)
+    ref.m.insert_card(SDCard(MemoryMedium(img)))
+    ref.run(1.2)
+    for _ in range(40):
+        if ref.m.screen() == 1:
+            break
+        ref.run(0.5)
+    ref.run(2)
+    ref.call(SWITCH_SCREEN, 14, 0)
+    ref.run(0.4)
+    for key, count, wait in (("menu", 1, 0.5), ("right", 8, 0.25), ("menu", 1, 1.5)):
+        for _ in range(count):
+            ref.m.press(hw.KEYS[key], True)
+            ref.run(0.1)
+            ref.m.press(hw.KEYS[key], False)
+            ref.run(wait)
+    if ref.m.screen() != 39:
+        return None
+    for _ in range(turns):
+        ref.turn(1, 0.8)
+    pic = [[0] * 128 for _ in range(64)]
+    files = {**CARD_FOLDER, "/KORG/blechtribe/KORG.bmp": bmp(pic), **{f"/KORG/blechtribe/{name}.bmp": bmp(pic) for name in names}}
+    ours = boot(payload, flash, files=files)
+    goto_group(ours, GROUP_SPLASH, 0)
+    for _ in range(turns):
+        ours.turn(1, wait=0.4)
+    return len(rows(ref.fb()) ^ rows(ours.fb()))
 
 
 def splash_cases_display(image):
@@ -2281,31 +2350,33 @@ def last_pattern_menu_cases(payload, flash=None):
 
 
 KP_OFF = 16                           # bit 4 of byte 5 of the settings file: KEY PADS is off
+FT_OFF = 32                           # bit 5 of byte 5: FILTER TOGGLE is off
 
 
-def key_pads_menu_cases(payload, flash=None):
-    """The page KEY PADS, the last of FEATURES: ON is the default (no file, a file without the bit), the dial switches it at once,
-    WRITE keeps OFF as bit 4 of byte 5 of the settings file (next to the meter's bits), the next start reads it."""
+def switch_menu_cases(payload, flash, name, title, slot, bit, from_end):
+    """A switch page near the end of FEATURES (KEY PADS, FILTER TOGGLE): ON is the default (no file, a file without the bit), the
+    dial switches it at once, WRITE keeps OFF as its bit of byte 5 of the settings file (next to the meter's bits), the next start
+    reads it."""
     out = []
 
-    def add(name, ok, detail):
-        out.append({"id": f"menu:key_pads_{name}", "ok": bool(ok), "detail": detail})
+    def add(case, ok, detail):
+        out.append({"id": f"menu:{name}_{case}", "ok": bool(ok), "detail": detail})
 
     dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     bare = boot(payload, flash, adapter=True, card=False)
     plain = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(2, 3, look_word(), extras=1)}, adapter=True)
-    add("default_on", state(dev, S_KP) == 1 and state(bare, S_KP) == 1 and state(plain, S_KP) == 1,
-        f"card {state(dev, S_KP)}, no card {state(bare, S_KP)}, file without the bit {state(plain, S_KP)}")
+    add("default_on", state(dev, slot) == 1 and state(bare, slot) == 1 and state(plain, slot) == 1,
+        f"card {state(dev, slot)}, no card {state(bare, slot)}, file without the bit {state(plain, slot)}")
 
-    page_at = feature_pages().index("KEY PADS")
+    page_at = feature_pages().index(title)
     goto_group(dev, GROUP_FEATURES, page_at)
     page = texts_of(dev), counter(dev), tab(dev)
     dev.turn(-1, wait=0.3)
-    off = texts_of(dev), state(dev, S_KP)
+    off = texts_of(dev), state(dev, slot)
     dev.turn(1, wait=0.3)
-    back = texts_of(dev), state(dev, S_KP)
-    add("page", page == (("KEY PADS", "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - 1, f"{page}")
-    add("dial_acts_at_once", off == (("KEY PADS", "OFF", ""), 0) and back == (("KEY PADS", "ON", ""), 1) and not dev.m.asserts,
+    back = texts_of(dev), state(dev, slot)
+    add("page", page == ((title, "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - from_end, f"{page}")
+    add("dial_acts_at_once", off == ((title, "OFF", ""), 0) and back == ((title, "ON", ""), 1) and not dev.m.asserts,
         f"{off}, back {back}")
 
     # WRITE keeps OFF in byte 5 next to METER LOUD RAINBOW, which writes the byte whole
@@ -2316,22 +2387,32 @@ def key_pads_menu_cases(payload, flash=None):
     image = keep.m.mmc.card.medium.data
     files = read_settings_look(image)
     extras = settings_extras(image).get("b", 0)
-    add("file_holds_off", "b" in files and extras == 1 | KP_OFF, f"byte 5 {extras:#x}, {files}")
+    add("file_holds_off", "b" in files and extras == 1 | bit, f"byte 5 {extras:#x}, {files}")
     again = Dev(payload, flash, 0)
     again.m.adapter = True
     again.m.insert_card(SDCard(MemoryMedium(bytearray(image))))
     again.run(2.0)
     goto_group(again, GROUP_FEATURES, page_at)
-    add("start_reads_off", state(again, S_KP) == 0 and texts_of(again) == ("KEY PADS", "OFF", "") and not again.m.asserts,
-        f"{state(again, S_KP)}, {texts_of(again)}")
+    add("start_reads_off", state(again, slot) == 0 and texts_of(again) == (title, "OFF", "") and not again.m.asserts,
+        f"{state(again, slot)}, {texts_of(again)}")
 
     # ON written again clears the bit and leaves the meter's
     again.turn(1, wait=0.3)
     press(again, "write", wait=0.6)
     newest = max(read_settings_look(again.m.mmc.card.medium.data).items(), key=lambda kv: kv[1][0])[0]
     extras = settings_extras(again.m.mmc.card.medium.data).get(newest, 0)
-    add("file_holds_on", state(again, S_KP) == 1 and extras == 1, f"{state(again, S_KP)}, byte 5 {extras:#x}")
+    add("file_holds_on", state(again, slot) == 1 and extras == 1, f"{state(again, slot)}, byte 5 {extras:#x}")
     return out
+
+
+def key_pads_menu_cases(payload, flash=None):
+    """The page KEY PADS, second to last of FEATURES (bit 4 of byte 5)."""
+    return switch_menu_cases(payload, flash, "key_pads", "KEY PADS", S_KP, KP_OFF, 2)
+
+
+def filter_toggle_menu_cases(payload, flash=None):
+    """The page FILTER TOGGLE, the last of FEATURES (bit 5 of byte 5)."""
+    return switch_menu_cases(payload, flash, "filter_toggle", "FILTER TOGGLE", S_FT, FT_OFF, 1)
 
 
 EARLY_SITE = 0xC0038D34               # the first instruction of the command that loads e2sSample.all: the early hook of the menu
@@ -2614,7 +2695,7 @@ def synth_start_cases(payload, flash=None):
 
 def look_rest():
     """The suites look_cases runs after its own cases, in that order."""
-    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, default_level_cases, early_look_cases)
+    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, filter_toggle_menu_cases, default_level_cases, early_look_cases)
 
 
 def look_parts():
@@ -2625,7 +2706,7 @@ def look_parts():
             calibration_cases)
 
 
-LOOK_PARTS = 11
+LOOK_PARTS = 1 + len(look_rest()) + 3      # look_parts() without importing calibrate_cases
 
 
 def look_cases_task(i):

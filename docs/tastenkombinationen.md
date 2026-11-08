@@ -68,7 +68,7 @@ steht, gilt die Zeile in allen diesen Zuständen.
 | SHIFT + PART ERASE | wie PART ERASE allein: der Modus PART ERASE geht an (LED `0x21` auf 255), Display und Pattern bleiben, wie sie sind. Mit dem Patch Würfeln würfelt die Kombination eine Melodie und der Modus bleibt aus | gemessen, 2026-10-16 ([Messung](messungen/2026-10-16-wuerfeln.md)) |
 | SHIFT + TRIGGER, SEQUENCER, KEYBOARD, STEP JUMP, PATTERN SET, MFX SEND | wie ohne SHIFT | gemessen, offline: die Modus-Tasten lesen SHIFT (`0xC006FF60`), reagieren aber nur bei CHORD |
 | SHIFT + CHORD | Pattern-Seite 9 CHORD SET. Der Chord-Modus schaltet trotzdem um. | gemessen, Handbuch PG S.11, offline `0xC006FF60` (SHIFT und Taste 0x18) |
-| SHIFT + LPF, HPF, BPF | wie ohne SHIFT (Filtertyp wechseln) | gemessen |
+| SHIFT + LPF, HPF, BPF | wie ohne SHIFT (Filtertyp wechseln). Mit BLECH: FILTER TOGGLE, siehe unten | gemessen |
 | SHIFT + 1, 2, 3, 4 | nichts | gemessen |
 | SHIFT + AMP EG, IFX ON | wie ohne SHIFT | gemessen |
 | SHIFT + Touchpad berühren | nichts | gemessen |
@@ -156,7 +156,8 @@ Pattern-Daten und (bei Pad und Touchpad als zweitem Element) der MIDI-Ausgang es
 |---|---|---|
 | EXIT **halten** + WRITE | speichert das Pattern sofort an seinen eigenen Platz (ohne das Zielwahl-Fenster zu bestätigen) | gemessen, `docs/messungen/2026-10-19-exit-shortcuts.md` |
 | EXIT **halten** + Pad | setzt den Klang eines Parts auf die gespeicherten Werte zurück, die Steps bleiben; SEQUENCER und STEP JUMP: der gewählte Part, sonst der Part des Pads | gemessen, ebenda |
-| KEYBOARD **halten** + Pad (Hauptbildschirm) | KEY PADS: setzt den KEY des Patterns auf den Ton des Pads, untere Reihe C D E F G A B C, obere Reihe die schwarzen Tasten (Pads 1, 4 und 8 tun nichts); das Wertefenster der Firmware zeigt "KEY" und den Ton. KEYBOARD kurz allein schaltet wie immer den Modus, SHIFT + KEYBOARD bleibt bei der Firmware. Mit BLECH > FEATURES > KEY PADS OFF wählt die Kombination wie ohne BLECH den Part still. Auch auf der blauen | gemessen, `docs/messungen/2026-11-07-key-pads-eingebaut.md` |
+| KEYBOARD **halten** + Pad (Hauptbildschirm) | KEY PADS: setzt den KEY des Patterns auf den Ton des Pads, chromatisch in Pad-Reihenfolge: Pad 1 C, Pad 2 C#, Pad 3 D bis Pad 12 B; Pads 13 bis 16 tun nichts; das Wertefenster der Firmware zeigt "KEY" und den Ton. KEYBOARD kurz allein schaltet wie immer den Modus, SHIFT + KEYBOARD bleibt bei der Firmware. Mit BLECH > FEATURES > KEY PADS OFF wählt die Kombination wie ohne BLECH den Part still. Auch auf der blauen | gemessen, `docs/messungen/2026-11-07-key-pads-eingebaut.md`, Belegung `docs/messungen/2026-11-08-key-pads-chromatisch.md` |
+| SHIFT **halten** + LPF, HPF oder BPF | FILTER TOGGLE: schaltet das Filter des gewählten Parts aus (Typ OFF), dieselbe Kombination wieder an mit dem Typ, den die Taste zuletzt hatte; SHIFT + eine andere Filtertaste gibt deren letzten Typ, ohne Speicher deren ersten (LPF electribe, HPF electribe, BPF electribe). Je Part ein eigener Speicher bis zum Ausschalten. Das Fenster "FILTER TYPE" der Firmware zeigt den Typ, die LEDs folgen. Die Taste allein dreht wie immer weiter. Mit BLECH > FEATURES > FILTER TOGGLE OFF oder EXIT beim Einschalten wie ohne BLECH. Auch auf der blauen | gemessen (Emulator), `docs/messungen/2026-11-08-filter-toggle-eingebaut.md` |
 
 Die Modus-Tasten (TRIGGER, SEQUENCER, KEYBOARD, CHORD, PART MUTE, PART ERASE, STEP JUMP,
 PATTERN SET) bleiben nach dem Loslassen an. Sie müssen nicht gehalten werden, nur die ersten

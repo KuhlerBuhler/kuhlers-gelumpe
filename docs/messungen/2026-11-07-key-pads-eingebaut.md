@@ -2,7 +2,8 @@
 
 Stand 07.11.2026, nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau), kein Gerät. Zu
 [Idee 85](../ideen/85-keyboard-tonart.md). Vorher gab es das als Plugin Key Pads im Katalog (API 15,
-[Messung](2026-11-03-plugin-api15.md)); das Plugin ist aus dem Katalog genommen.
+[Messung](2026-11-03-plugin-api15.md)); das Plugin ist aus dem Katalog genommen. Die Belegung der Pads unten ist der Stand
+vom 07.11.; seit dem 08.11. liegen die Töne chromatisch auf den Pads ([Messung](2026-11-08-key-pads-chromatisch.md)).
 
 ## Was es tut
 

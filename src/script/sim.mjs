@@ -30,6 +30,7 @@ export class SimDevice {
     this.runtime = null;
     this.hardware = new SimHardware((event, ...args) => this.runtime?.post(event, ...args));
     this.hardware.holders = () => this.runtime?.holders() ?? [];
+    this.hardware.closeApp = () => { if (this.runtime?.open) this.runtime.closeApp(); };
     this.frames = 0;
     this.recording = null;
     this.coverage = [];

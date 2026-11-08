@@ -39,8 +39,8 @@ class HookTests(unittest.TestCase):
         machine.call('script_runtime_init',machine.runtime,machine.arena,131072)
         from tools.patch.script_hooks import MENU_STATE
         machine.uc.mem_write(MENU_STATE,b'\xff'*0x200)    # an unarmed menu reads FF, as in the image
-        from tools.patch.script_hooks import KEY_PASS,PRESS_KEY_END
-        machine.uc.mem_write(KEY_PASS,b'\xff'*(PRESS_KEY_END-KEY_PASS))    # FF as in the image: keys at their defaults, no lock, hold or press
+        from tools.patch.script_hooks import KEY_PASS,SIM_INPUT_END
+        machine.uc.mem_write(KEY_PASS,b'\xff'*(SIM_INPUT_END-KEY_PASS))    # FF as in the image: keys at their defaults, no lock, hold, press or key down
         machine.uc.mem_map(0xC0028000,4096)
         machine.uc.mem_map(0xC0083000,4096)
         machine.write(0xC0083710,0xC031BB2C)
@@ -731,8 +731,9 @@ class HookTests(unittest.TestCase):
         machine.call('script_press_key_glue',33)
         machine.call('script_press_key_tick')
         self.assertEqual(posted[3:],[(0x12100,mark),(0x2100,mark)])
-        error=contract_data()['error']['API_ARG']
-        self.assertEqual(machine.call('script_press_key_glue',13)[1],error,'EXIT is refused')
+        self.assertEqual(machine.call('script_press_key_glue',13),(0,0),'EXIT is pressed as well since API 25')
+        machine.call('script_press_key_tick')
+        self.assertEqual(posted[5:],[(0x10D00,mark),(0xD00,mark)])
         # the marked message reaches the firmware past remap, hold, app and plugins
         machine.call('script_key_hold_glue',2,1)
         self.assertEqual(machine.call('script_app_open',0)[0],1)
@@ -741,6 +742,73 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.input(machine,[0,2,0,0,0],mark=0xB7),0xC0028380)
         self.assertEqual(self.drain(machine),[],'no plugin sees it')
         self.assertEqual(self.input(machine,[0,2,1,0,0]),machine.stop,'without the mark the hold keeps it')
+
+    def test_panel_calls_post_marked_messages_and_let_go_when_the_plugin_stops(self):
+        machine,built=self.machine()
+        entry=self.app_script(machine)
+        base=self.declare(machine,built,[entry])
+        machine.write(entry+12,2)
+        machine.write(machine.runtime+built.symbols['RT_ENTRY'],entry)
+        from tools.patch.script_hooks import SIM_INPUT as record
+        posted,full,noted=[],[False],[]
+        def rm_post(uc,*_):
+            posted.append((uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1)))
+            uc.reg_write(UC_ARM_REG_R0,0 if full[0] else 1)
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
+        at=machine.symbols['rm_post_quiet']
+        machine.uc.hook_add(UC_HOOK_CODE,rm_post,begin=at,end=at)
+        note=machine.symbols['rm_held_note']
+        machine.uc.hook_add(UC_HOOK_CODE,lambda uc,*_: noted.append(1),begin=note,end=note)
+        mark=0xB7000000
+        words=lambda: tuple(machine.read(record+4*i) for i in range(3))
+        none=(0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF)
+        self.assertEqual(words(),none,'FF: nothing down')
+        self.assertEqual(machine.call('script_key_down_glue',10),(0,0))
+        self.assertEqual(machine.call('script_key_down_glue',10),(0,0))
+        self.assertEqual(posted,[(0x10A00,mark)],'SHIFT down once, marked')
+        self.assertEqual(words()[0],0xFFFFFFFF^1<<10)
+        self.assertEqual((machine.read(record+12),machine.read(record+16)),(entry,machine.read(machine.read(entry+built.symbols['SCRIPT_ENTRY_BLOB'])+12)),'the plugin that holds it')
+        machine.call('script_key_up_glue',10)
+        machine.call('script_key_up_glue',10)
+        self.assertEqual(posted[1:],[(0xA00,mark)],'up once')
+        machine.call('script_key_up_glue',2)
+        self.assertEqual(len(posted),2,'an up without a down sends nothing')
+        machine.call('script_pad_down_glue',3,100)
+        machine.call('script_pad_up_glue',3)
+        self.assertEqual(posted[2:],[(0x64000304,mark|1),(0x304,mark)],'pad 4 velocity 100 on, then velocity 0 off')
+        machine.call('script_encoder_glue',2,0xFFFFFFFF)
+        machine.call('script_encoder_glue',4,5)
+        machine.call('script_encoder_glue',1,0)
+        self.assertEqual(posted[4:],[(0xFF000201,mark),(0x05000401,mark)],'CUTOFF -1, IFX +5, a delta of 0 sends nothing')
+        machine.call('script_touch_glue',400,700)
+        machine.call('script_touch_glue',1023,0)
+        machine.call('script_touch_glue',0xFFFFFFFF,0)
+        machine.call('script_touch_glue',0xFFFFFFFF,0)
+        self.assertEqual(posted[6:],[(0x12200,mark),(0x02900105,mark|0xBC),(0xFF0305,mark),(0x2200,mark)],
+                         'the touchpad key at the first position only, the positions as xh xl yh yl, one release')
+        self.assertEqual(words(),none)
+        self.assertEqual(noted,[],'the remote does not note them: its release after 10 s leaves them alone')
+        full[0]=True
+        machine.call('script_pad_down_glue',0,1)
+        self.assertEqual(words(),none,'a full queue: nothing down')
+        full[0]=False
+        machine.call('script_key_down_glue',33)
+        machine.call('script_pad_down_glue',15,127)
+        machine.call('script_touch_glue',10,10)
+        machine.call('script_sim_input_guard',machine.runtime)
+        self.assertNotEqual(words(),none,'an armed owner keeps what it holds')
+        machine.write(entry+12,3)
+        del posted[:]
+        machine.call('script_sim_input_guard',machine.runtime)
+        self.assertEqual(posted,[(0x2100,mark),(0x2200,mark),(0xF04,mark)],'a plugin that faulted lets go of key 33, the touchpad and pad 16')
+        self.assertEqual(words(),none)
+        machine.write(entry+12,2)
+        machine.write(base,entry)
+        del posted[:]
+        machine.call('script_key_down_glue',13)
+        self.assertEqual(machine.read(base),0,'EXIT closes the open app')
+        self.assertEqual(posted,[(0x10D00,mark)],'and goes to the firmware')
+        machine.call('script_key_up_glue',13)
 
     def test_the_app_closes_when_the_main_screen_is_gone(self):
         machine,built=self.machine()
@@ -841,7 +909,7 @@ class HookTests(unittest.TestCase):
             self.assertEqual(change['bytes'],data.hex())
             self.assertEqual(change['expect'],hashlib.sha256(b'\xff'*len(data)).hexdigest())
         first=len(built.sections)
-        for change,(address,word,_) in zip(patch['changes'][first:first+len(SITES)],SITES):
+        for change,(address,word,_) in zip(patch['changes'][first:first+len(SITES)],built.profile.sites):   # the build's sites (FILTER TOGGLE differs on Hacktribe)
             self.assertEqual(change['file'],address-RAM_BASE+0x100)
             self.assertEqual(change['expect'],hashlib.sha256(struct.pack('<I',word)).hexdigest())
             self.assertEqual(int.from_bytes(bytes.fromhex(change['bytes']),'little')>>24,0xea)
@@ -853,7 +921,7 @@ class HookTests(unittest.TestCase):
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
         card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
-        self.assertEqual(len(patch['startPhase']),60)
+        self.assertEqual(len(patch['startPhase']),61)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]
@@ -873,13 +941,13 @@ class HookTests(unittest.TestCase):
         from tools.patch.script_hooks import build,SITES,WORDS,RAM_BASE
         built=build(contract_data()['include'])
         base=bytearray(b'\xff'*0x200100)
-        for address,value,_ in SITES:
+        for address,value,_ in built.profile.sites:
             struct.pack_into('<I',base,address-RAM_BASE+0x100,value)
         for address,value,_ in WORDS:
             struct.pack_into('<I',base,address-RAM_BASE+0x100,value)
         struct.pack_into('<I',base,0xC0083710-RAM_BASE+0x100,0xC031BB2C)
         patched=built.apply(base)
-        for address,_,name in SITES:
+        for address,_,name in built.profile.sites:
             word=struct.unpack_from('<I',patched,address-RAM_BASE+0x100)[0]
             self.assertEqual(word>>24,0xea)
         for address in [0xC0083710,built.layout['code'],built.layout['runtime'],built.layout['pool'],built.layout['card'],built.layout['input']]:
@@ -1088,7 +1156,7 @@ class MenuSettingsTests(unittest.TestCase):
             for run, mfx, pc, na, tm in itertools.product(range(2), range(2), range(2), range(2), range(3)):
                 with self.subTest(build=build_name, run=run, mfx=mfx, pc=pc, na=na, tm=tm):
                     machine.uc.mem_write(state - 32, bytes(544))
-                    for name, value in [('M_SET_RUN', run), ('M_SET_MFX', mfx), ('M_PC', pc), ('M_NA', na), ('M_TM', tm), ('M_KP', 1)]:
+                    for name, value in [('M_SET_RUN', run), ('M_SET_MFX', mfx), ('M_PC', pc), ('M_NA', na), ('M_TM', tm), ('M_KP', 1), ('M_FT', 1)]:
                         machine.write(state + symbols[name], value)
                     for name, value in [('MX_INTENS', 9), ('MX_SAVE', 5)]:
                         machine.uc.mem_write((state + symbols[name]) & 0xffffffff, bytes([value]))
@@ -1137,6 +1205,12 @@ class MenuSettingsTests(unittest.TestCase):
             opened.clear()
             machine.call('menu_settings_save')
             self.assertEqual((opened[0][5], opened[0][7]), (0x1D, 0))
+            # FILTER TOGGLE OFF is bit 5
+            machine.write(state + symbols['M_FT'], 0)
+            opened.clear()
+            machine.call('menu_settings_save')
+            self.assertEqual((opened[0][5], opened[0][7]), (0x3D, 0))
+            machine.write(state + symbols['M_FT'], 1)
             machine.write(state + symbols['M_KP'], 1)
             machine.write(symbols['SP_CODE'], 0xFFFFFFFF)
             machine.write(symbols['LP_CODE'], 0xFFFFFFFF)

@@ -35,7 +35,9 @@ TOUCH_LOCK_END = TOUCH_LOCK + 12 # checksum; FF at power-on is no lock
 KEY_HOLD = TOUCH_LOCK_END        # korg.keyHold (script_hw.s:KY_FREE): the free keys, the keys whose press was kept, two words unused since API 19;
 KEY_HOLD_END = KEY_HOLD + 24     # FF at power-on is all keys free
 PRESS_KEY = KEY_HOLD_END         # korg.pressKey (script_hw.s:PK_UP): the keys whose release goes out in the next frame, inverted, so
-PRESS_KEY_END = PRESS_KEY + 8    # FF at power-on is none. The rest a reserve
+PRESS_KEY_END = PRESS_KEY + 8    # FF at power-on is none
+SIM_INPUT = PRESS_KEY_END        # korg.keyDown, korg.padDown, korg.touch (script_hw.s:SI_UP): what a plugin holds down on the panel, inverted,
+SIM_INPUT_END = SIM_INPUT + 20   # the plugin that holds it and its checksum; FF at power-on is nothing down. The rest a reserve
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 RUNTIME = 0xC01AE000
@@ -77,7 +79,11 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          # KEY PADS (script_shortcuts.s): the parameter window's draw function calls its title, value and mark functions here
          (0xC008A1C8,0xEBFFB95D,'kp_title_hook'),
          (0xC008A1F4,0xEBFFBB0C,'kp_value_hook'),
-         (0xC008A244,0xEBFFB868,'kp_check_hook'))
+         (0xC008A244,0xEBFFB868,'kp_check_hook'),
+         # FILTER TOGGLE (script_shortcuts.s): the filter key handler's path that sets the type, mov r0, #8 (FT_BACK goes on behind it);
+         # Hacktribe has its own handler (FILTER_TOGGLE_HACKTRIBE), Korg's stays unused there
+         (0xC006FDEC,0xE3A00008,'ft_select'))
+FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
 KEY_PADS_SAMPLER = dict(KP_TITLE_AT=0xC008A1C8, KP_TITLE_FN=0xC0078744, KP_VALUE_AT=0xC008A1F4, KP_VALUE_FN=0xC0078E2C,
@@ -232,7 +238,9 @@ def runtime_profile(build):
     if build not in ('hacktribe', 'stock', 'synth'):
         raise ValueError(f'unknown runtime build: {build}')
     if build != 'synth':
-        return RuntimeProfile(build, SITES, WORDS, LITERALS, MENU_TABLE_SOURCE, MENU_VTABLE_SOURCE,
+        ft_at = FILTER_TOGGLE_HACKTRIBE if build == 'hacktribe' else 0xC006FDEC
+        sites = tuple((ft_at if name == 'ft_select' else address, expected, name) for address, expected, name in SITES)
+        return RuntimeProfile(build, sites, WORDS, LITERALS, MENU_TABLE_SOURCE, MENU_VTABLE_SOURCE,
                               45, 29, 29, dict(HW_PANEL_KEY=0xC0042BB8, HW_KNOB=0xC0040A50, HW_PART_SELECT=0xC0081BB4,
                                               # korg.seq.setPartValue: the part edit the knobs call, its object, the observers of the parameter window
                                               HW_PART_EDIT=0xC0048460, HW_PART_EDITOR=0xC034886C, HW_PARAM_WINDOW=0xC03487EC,
@@ -246,7 +254,7 @@ def runtime_profile(build):
                                               FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
                                               BUILD_BASE=4 if build == 'stock' else 0,
                                               # DATA UTILITY's list: its functions (counter "n/14"), and the bits of our pages there the build has (script_menu.s, menu_du_mask)
-                                              DU_PAGES=14, DU_BUILT=7, **KEY_PADS_SAMPLER, **pattern_setter_actions(build), **part_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
+                                              DU_PAGES=14, DU_BUILT=7, FT_BACK=ft_at+4, **KEY_PADS_SAMPLER, **pattern_setter_actions(build), **part_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
@@ -258,6 +266,8 @@ def runtime_profile(build):
             address, expected = 0xC0028170, 0xE5D43004
         elif name == 'menu_toplevel':
             address, expected = 0xC0061DDC, 0xE594301C
+        elif name == 'ft_select':
+            address = 0xC0062F14
         elif name in KEY_PADS_SYNTH_WORDS:
             address, expected = KEY_PADS_SYNTH[name.replace('kp_', 'KP_').replace('_hook', '_AT').upper()], KEY_PADS_SYNTH_WORDS[name]
         else:
@@ -279,7 +289,7 @@ def runtime_profile(build):
         # functions, 16 masked words equal (fwmap); the frame buffer has the same address; MG_FLUSH (MG_LCD, 2 or 3, 0) sends the
         # frame buffer, as Korg's PCM loader does for its bar (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)
         MG_WORK=0xC0190100, MG_MKDIR=0xC008B510, FS_UNLINK=0, MG_GETFREE=0xC008B3B4, MG_ALLOC=0xC0026240, MG_FREE=0xC0026248,
-        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3, **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3, FT_BACK=0xC0062F18, **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
@@ -343,9 +353,9 @@ class BuiltHooks:
             ('menu_needs_confirm','menu_confirm','Der Kartenlader fragt für jedes geladene Plugin, ob es erst auf eine Zustimmung wartet; ohne Plugins läuft das nicht.'),
             ('menu_recount','menu_recount_end','Nach dem Laden zählt das Menü die Plugins und stellt die Seitenzahl ein.'),
             ('led_meter_hook','look_hooks_end','Die Haken der Anpassung (untere LEDs, Hintergrundlicht, Software-PWM, Display umkehren) geben die Firmware sofort zurück, wenn das Menü nicht scharf ist oder die Firmware das Licht für Power Save dimmt.'),
-            ('shortcut_input','shortcut_tick','Die EXIT-Shortcuts und KEY PADS im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und SHIFT und lassen jede Meldung durch, solange weder EXIT noch KEYBOARD (KEY PADS an) auf dem Hauptbildschirm gehalten wird; ein Pad, dessen Anschlag KEY PADS nahm, behält auch sein Loslassen.'),
-            ('kp_input','kp_tick','KEY PADS im Eingangsfilter: mit scharfem Menü liest es jede Panel-Meldung schon vor dem Hauptbildschirm und lässt sie durch, solange KEYBOARD nicht gehalten wird.'),
-            ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts und von KEY PADS.'),
+            ('shortcut_input','shortcut_tick','Die EXIT-Shortcuts, KEY PADS und FILTER TOGGLE im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und SHIFT und lassen jede Meldung durch, solange weder EXIT noch KEYBOARD (KEY PADS an) auf dem Hauptbildschirm gehalten wird; ein Pad, dessen Anschlag KEY PADS nahm, behält auch sein Loslassen.'),
+            ('kp_input','kp_tick','KEY PADS und FILTER TOGGLE im Eingangsfilter: mit scharfem Menü liest es jede Panel-Meldung schon vor dem Hauptbildschirm und lässt sie durch, solange KEYBOARD nicht gehalten wird; eine Filtertaste geht immer durch, FILTER TOGGLE merkt sich nur, ob SHIFT dabei gehalten war.'),
+            ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts, von KEY PADS und FILTER TOGGLE.'),
             ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel, EXIT und die Ordner der Karte; nur wenn es keinen blechtribe-Ordner, aber einen hacktribe- oder electribe-sampler-Ordner gibt (auf der blauen: keinen blechtribe-Ordner, aber einen electribe-Ordner), fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU.'),
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
@@ -402,7 +412,8 @@ class BuiltHooks:
             area(TOUCH_LOCK,TOUCH_LOCK_END-TOUCH_LOCK,'korg.touchLockX: the X the input filter writes into touch messages, the plugin that locks it and the checksum of its block','tools/patch/script_hw.s:TL_RAW'),
             area(KEY_HOLD,KEY_HOLD_END-KEY_HOLD,'korg.keyHold and korg.keyMask: a bit per key that reaches the firmware, folded from the plugins\' holds, a bit per key whose press was kept; the last two words are unused since API 19','tools/patch/script_hw.s:KY_FREE'),
             area(PRESS_KEY,PRESS_KEY_END-PRESS_KEY,'korg.pressKey: a bit per key whose release goes to the firmware in the next frame','tools/patch/script_hw.s:PK_UP'),
-            area(PRESS_KEY_END,MORE2_END-PRESS_KEY_END,'the rest of the third code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:PRESS_KEY_END')]+(
+            area(SIM_INPUT,SIM_INPUT_END-SIM_INPUT,'korg.keyDown, korg.padDown and korg.touch: a bit per key, the touchpad and a bit per pad a plugin holds down, the plugin that holds them and the checksum of its block','tools/patch/script_hw.s:SI_UP'),
+            area(SIM_INPUT_END,MORE2_END-SIM_INPUT_END,'the rest of the third code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:SIM_INPUT_END')]+(
             [area(self.profile.actions['MG_WORK'],0xF00,'work area of the folder copy at the first start: state, file and folder objects, paths','tools/patch/script_migrate.s:MG_ACTIVE')]
             if self.profile.actions.get('MG_WORK') else [])
 
@@ -485,7 +496,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += '\n'+ '\n'.join(f'.equ VM_{name.upper()}, {vm.symbols[name]}' for name in ['script_run_event','script_runtime_init','script_load_block','script_load_block_ex'])
     constants += f'\n.equ VM_CRC_UPDATE, {vm.symbols["crc_update"]}'
     constants += ''.join(f'\n.equ {name.upper()}, {vm.symbols[name]}' for name in ['script_font','script_error_names'])
-    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
+    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
     files = ['script_hooks.s','script_card.s','script_builtin.s','script_menu.s',
@@ -507,7 +518,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     source = source.replace('@MENU_TOPLEVEL@', Path(__file__).with_name(f'script_toplevel_{variant}.s').read_text())
     actions = '\n'.join(f'.equ {name}, {value}' for name, value in profile.actions.items())
     hooks=assemble(actions+'\n'+source,origin=origin)
-    linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_PAD_HOLD':hooks.symbols['script_pad_hold_glue'],'API_KORG_KNOB_HOLD':hooks.symbols['script_knob_hold_glue'],'API_KORG_KNOB':hooks.symbols['script_knob_glue'],'API_KORG_PASS_KEYS':hooks.symbols['script_pass_keys_glue'],'API_KORG_TOUCH_LOCK_X':hooks.symbols['script_touch_lock_x_glue'],'API_KORG_KEY_HOLD':hooks.symbols['script_key_hold_glue'],'API_KORG_KEY_MASK':hooks.symbols['script_key_mask_glue'],'API_KORG_PRESS_KEY':hooks.symbols['script_press_key_glue'],'API_KORG_READ_PATTERN_BYTES':hooks.symbols['script_read_pattern_bytes_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_glue'],'API_KORG_GET':hooks.symbols['script_object_get_glue'],'API_KORG_SET':hooks.symbols['script_object_set_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_timer_{name.lower()}_glue'] for name in ['AFTER','EVERY','AFTER_STEPS','CANCEL']},**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},'API_KORG_READ_CHAIN_MODE':hooks.symbols['script_read_chain_mode_glue'],'API_KORG_READ_VIEWED_PATTERN':hooks.symbols['script_read_viewed_pattern_glue'],'API_KORG_READ_NEXT_PATTERN':hooks.symbols['script_read_next_pattern_glue'],'API_KORG_READ_PATTERN_VALUE':hooks.symbols['script_read_pattern_value_glue'],'API_KORG_REMAP_KEY':hooks.symbols['script_remap_key_glue'],**{f'API_KORG_SEQ_{name}':hooks.symbols[f'script_seq_{name.lower()}_glue'] for name in ['SET_STEP','SET_GATE','CLEAR_PART','SET_PART_VALUE','WRITE_STEPS','SET_PATTERN_VALUE','GET_ON','GET_GATE','GET_NOTE','GET_VELOCITY']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
+    linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_PAD_HOLD':hooks.symbols['script_pad_hold_glue'],'API_KORG_KNOB_HOLD':hooks.symbols['script_knob_hold_glue'],'API_KORG_KNOB':hooks.symbols['script_knob_glue'],'API_KORG_PASS_KEYS':hooks.symbols['script_pass_keys_glue'],'API_KORG_TOUCH_LOCK_X':hooks.symbols['script_touch_lock_x_glue'],'API_KORG_KEY_HOLD':hooks.symbols['script_key_hold_glue'],'API_KORG_KEY_MASK':hooks.symbols['script_key_mask_glue'],'API_KORG_PRESS_KEY':hooks.symbols['script_press_key_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['KEY_DOWN','KEY_UP','PAD_DOWN','PAD_UP','ENCODER','TOUCH']},'API_KORG_READ_PATTERN_BYTES':hooks.symbols['script_read_pattern_bytes_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_glue'],'API_KORG_GET':hooks.symbols['script_object_get_glue'],'API_KORG_SET':hooks.symbols['script_object_set_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_timer_{name.lower()}_glue'] for name in ['AFTER','EVERY','AFTER_STEPS','CANCEL']},**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},'API_KORG_READ_CHAIN_MODE':hooks.symbols['script_read_chain_mode_glue'],'API_KORG_READ_VIEWED_PATTERN':hooks.symbols['script_read_viewed_pattern_glue'],'API_KORG_READ_NEXT_PATTERN':hooks.symbols['script_read_next_pattern_glue'],'API_KORG_READ_PATTERN_VALUE':hooks.symbols['script_read_pattern_value_glue'],'API_KORG_REMAP_KEY':hooks.symbols['script_remap_key_glue'],**{f'API_KORG_SEQ_{name}':hooks.symbols[f'script_seq_{name.lower()}_glue'] for name in ['SET_STEP','SET_GATE','CLEAR_PART','SET_PART_VALUE','WRITE_STEPS','SET_PATTERN_VALUE','GET_ON','GET_GATE','GET_NOTE','GET_VELOCITY']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
         for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number'),('POPUPS','popups')]},'API_KORG_READ_POPUPS':hooks.symbols['script_read_popups_glue']}
     vm=build_vm(include,origin=MORE3_START,glue=linked_glue)
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
