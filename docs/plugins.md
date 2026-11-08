@@ -1345,8 +1345,10 @@ am Gerät nicht.
 
 **Key Pads** ([Idee 85](ideen/85-keyboard-tonart.md)) war bis 2026-11-07 ein Plugin dieses Katalogs (API 15). Seitdem ist
 es als KEY PADS fest in der Laufzeit des BLECH-Menüs eingebaut und braucht kein Plugin auf der Karte: KEYBOARD gehalten +
-Pad setzt den KEY, das Wertefenster der Firmware zeigt ihn, der Schalter liegt unter BLECH > FEATURES > KEY PADS
-([Tastenkombinationen](tastenkombinationen.md), [Messung](messungen/2026-11-07-key-pads-eingebaut.md)). Im Katalog steht
+Pad setzt den KEY (chromatisch in Pad-Reihenfolge: Pad 1 C, Pad 2 C# bis Pad 12 B, Pads 13 bis 16 tun nichts), das
+Wertefenster der Firmware zeigt ihn, der Schalter liegt unter BLECH > FEATURES > KEY PADS
+([Tastenkombinationen](tastenkombinationen.md), [Messung](messungen/2026-11-07-key-pads-eingebaut.md),
+[Belegung](messungen/2026-11-08-key-pads-chromatisch.md)). Im Katalog steht
 es nicht mehr.
 
 **Step Copy** braucht API 15 und läuft im Hintergrund. Es kopiert die Steps eines Takts (16 Steps) des Patterns, das läuft,

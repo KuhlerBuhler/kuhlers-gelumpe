@@ -530,7 +530,7 @@ export default {
   "features.noteAssist.how": "Modo KEYBOARD, toca una nota. Se desactiva en Menú -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY con los pads",
   "features.keyPads.text": "Mantén KEYBOARD y pulsa un pad: el KEY del patrón salta a la nota del pad, como TRANSPOSE en las Electribe antiguas. Una pulsación corta sola cambia al modo KEYBOARD como siempre.",
-  "features.keyPads.how": "KEYBOARD pulsado + pad: fila inferior de C a C, fila superior las teclas negras. Se desactiva en Menú -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD pulsado + pad: pads 1 a 12 cromáticos de C a B, pads 13 a 16 no hacen nada. Se desactiva en Menú -> BLECH -> FEATURES -> KEY PADS.",
   "features.dice.title": "Dados",
   "features.dice.text": "Escribe una melodía nueva en el Part elegido, a partir de la tonalidad y la escala del pattern. Solo se guarda con WRITE.",
   "features.dice.how": "SHIFT + PART ERASE.",

@@ -12,6 +12,7 @@ EXIT held at power-on both are the firmware's.
 
 import argparse
 import json
+import struct
 import sys
 from pathlib import Path
 
@@ -22,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import menu_cases  # noqa: E402
 import synthaddr  # noqa: E402
 import unicorn  # noqa: E402
-from unicorn.arm_const import UC_ARM_REG_R0  # noqa: E402
+from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1  # noqa: E402
 from machine import load_flash  # noqa: E402
 from pswitch_cases import Box, play  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
@@ -38,11 +39,12 @@ STEPS = 0x30                    # the steps of a part start here, 12 bytes each
 KILL = menu_cases.KILL
 KEY_AT = 39                     # KEY of the pattern, 0 to 11
 KEY_PADS_ON = script_hooks.MENU_STATE + 0x104   # M_KP: the page KEY PADS (tools/patch/script_menu.s)
-# Per pad the KEY that KEY PADS sets, -1 none: the lower row (pads 9 to 16) C D E F G A B C, the upper row the black keys.
-KEY_NOTES = [-1, 1, 3, -1, 6, 8, 10, -1, 0, 2, 4, 5, 7, 9, 11, 0]
+# Per pad the KEY that KEY PADS sets, -1 none: chromatic in pad order, pad 1 C to pad 12 B; pads 13 to 16 set nothing.
+KEY_NOTES = list(range(12)) + [-1] * 4
 KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 DRAW_TEXT = {False: 0xC003F7D0, True: 0xC003A408}   # the firmware's text draw (text, x, y, ...), Sampler and synth
 DISPATCH = 0xC002837C           # the dispatcher of panel messages, before the input filter
+SEQ_NOTIFY = 0xC0070688         # (observers, message): KEY PADS opens the parameter window with {0x5A, KEY} through it
 
 
 def has_hooks(payload):
@@ -287,10 +289,18 @@ def case_key_pads(payload, flash):
         msg = bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R0) + 0xC, 8))
         if msg[0] == 0 and msg[1] == KEYBOARD and msg[7] == 0xB7:
             marked.append(msg[2])
+
+    def notify(uc, *_):
+        code, value = struct.unpack("<II", bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R1), 8)))
+        if code == 0x5A:
+            opened.append(value)
+    opened = []
     at = DRAW_TEXT[box.dev.synth]
     box.m.uc.hook_add(unicorn.UC_HOOK_CODE, draw, begin=at, end=at)
     at = box.dev.a(DISPATCH)
     box.m.uc.hook_add(unicorn.UC_HOOK_CODE, dispatch, begin=at, end=at)
+    at = box.dev.a(SEQ_NOTIFY)
+    box.m.uc.hook_add(unicorn.UC_HOOK_CODE, notify, begin=at, end=at)
     box.m.uc.ctl_flush_tb()
 
     def held(k, down, wait=0.2):
@@ -301,25 +311,27 @@ def case_key_pads(payload, flash):
     box.poke(KEY_AT, 0)
     part = box.selected()
     held(KEYBOARD, True)
-    got, shown = [], []
+    got, shown, windows = [], [], []
     for n in range(16):
         texts.clear()
+        opened.clear()
+        if KEY_NOTES[n] < 0:
+            box.poke(KEY_AT, 3)             # a pad without a note leaves any KEY as it is
         box.pad(n)
         got.append(key())
+        windows.append(list(opened))
         if KEY_NOTES[n] >= 0:
             shown.append(KEY_NAMES[KEY_NOTES[n]] in texts and "KEY" in texts)
     held(KEYBOARD, False, 0.3)
-    want, last = [], 0
-    for n in KEY_NOTES:
-        last = n if n >= 0 else last
-        want.append(last)
+    want = [n if n >= 0 else 3 for n in KEY_NOTES]
     out.append(entry("key_pads_set_the_key", got == want and box.selected() == part and marked == [] and not box.m.asserts,
-                     f"KEY after each pad {got} (want {want}), part {box.selected()} (was {part}), KEYBOARD passed on {marked}"))
-    out.append(entry("key_pads_window_shows_the_key", all(shown) and not box.m.asserts,
-                     f"parameter window per pad with a note (KEY and the note): {shown}"))
+                     f"KEY after each of the 16 pads {got} (want {want}), part {box.selected()} (was {part}), KEYBOARD passed on {marked}"))
+    out.append(entry("key_pads_window_shows_the_key", len(shown) == 12 and all(shown)
+                     and windows == [[n] if n >= 0 else [] for n in KEY_NOTES] and not box.m.asserts,
+                     f"pads 1 to 12, window with KEY and the note: {shown}; window messages per pad {windows}"))
 
     box.dev.press(KEYBOARD, 0.4)
-    out.append(entry("key_pads_short_press_reaches_the_firmware", marked == [1, 0] and mode() == 5 and key() == want[-1]
+    out.append(entry("key_pads_short_press_reaches_the_firmware", marked == [1, 0] and mode() == 5 and key() == 3
                      and box.dev.read(script_hooks.PRESS_KEY, 8) == b"\xff" * 8 and not box.m.asserts,
                      f"KEYBOARD passed on {marked} (want press and release), pad mode {mode()} (want 5 KEYBOARD), KEY {key()}"))
 

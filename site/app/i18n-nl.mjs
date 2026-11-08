@@ -531,7 +531,7 @@ export default {
   "features.noteAssist.how": "KEYBOARD-modus, een noot spelen. Uitzetten bij Menu -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY met de pads",
   "features.keyPads.text": "Houd KEYBOARD vast en druk op een pad: de KEY van het pattern springt naar de toon van de pad, zoals TRANSPOSE op de oude Electribes. Kort alleen indrukken schakelt zoals altijd naar KEYBOARD-modus.",
-  "features.keyPads.how": "KEYBOARD vast + pad: onderste rij C tot C, bovenste rij de zwarte toetsen. Uitzetten bij Menu -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD vast + pad: pads 1 tot 12 chromatisch van C tot B, pads 13 tot 16 doen niets. Uitzetten bij Menu -> BLECH -> FEATURES -> KEY PADS.",
   "features.dice.title": "Dobbelen",
   "features.dice.text": "Schrijft een nieuwe melodie in de gekozen part, uit toonsoort en toonladder van het pattern. Opgeslagen wordt pas met WRITE.",
   "features.dice.how": "SHIFT + PART ERASE.",

@@ -156,7 +156,7 @@ Pattern-Daten und (bei Pad und Touchpad als zweitem Element) der MIDI-Ausgang es
 |---|---|---|
 | EXIT **halten** + WRITE | speichert das Pattern sofort an seinen eigenen Platz (ohne das Zielwahl-Fenster zu bestätigen) | gemessen, `docs/messungen/2026-10-19-exit-shortcuts.md` |
 | EXIT **halten** + Pad | setzt den Klang eines Parts auf die gespeicherten Werte zurück, die Steps bleiben; SEQUENCER und STEP JUMP: der gewählte Part, sonst der Part des Pads | gemessen, ebenda |
-| KEYBOARD **halten** + Pad (Hauptbildschirm) | KEY PADS: setzt den KEY des Patterns auf den Ton des Pads, untere Reihe C D E F G A B C, obere Reihe die schwarzen Tasten (Pads 1, 4 und 8 tun nichts); das Wertefenster der Firmware zeigt "KEY" und den Ton. KEYBOARD kurz allein schaltet wie immer den Modus, SHIFT + KEYBOARD bleibt bei der Firmware. Mit BLECH > FEATURES > KEY PADS OFF wählt die Kombination wie ohne BLECH den Part still. Auch auf der blauen | gemessen, `docs/messungen/2026-11-07-key-pads-eingebaut.md` |
+| KEYBOARD **halten** + Pad (Hauptbildschirm) | KEY PADS: setzt den KEY des Patterns auf den Ton des Pads, chromatisch in Pad-Reihenfolge: Pad 1 C, Pad 2 C#, Pad 3 D bis Pad 12 B; Pads 13 bis 16 tun nichts; das Wertefenster der Firmware zeigt "KEY" und den Ton. KEYBOARD kurz allein schaltet wie immer den Modus, SHIFT + KEYBOARD bleibt bei der Firmware. Mit BLECH > FEATURES > KEY PADS OFF wählt die Kombination wie ohne BLECH den Part still. Auch auf der blauen | gemessen, `docs/messungen/2026-11-07-key-pads-eingebaut.md`, Belegung `docs/messungen/2026-11-08-key-pads-chromatisch.md` |
 
 Die Modus-Tasten (TRIGGER, SEQUENCER, KEYBOARD, CHORD, PART MUTE, PART ERASE, STEP JUMP,
 PATTERN SET) bleiben nach dem Loslassen an. Sie müssen nicht gehalten werden, nur die ersten

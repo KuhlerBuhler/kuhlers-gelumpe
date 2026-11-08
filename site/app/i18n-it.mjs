@@ -530,7 +530,7 @@ export default {
   "features.noteAssist.how": "Modalità KEYBOARD, suona una nota. Si disattiva in Menu -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY dai pad",
   "features.keyPads.text": "Tieni premuto KEYBOARD e premi un pad: il KEY del pattern salta alla nota del pad, come TRANSPOSE sulle vecchie Electribe. Una pressione breve da solo passa alla modalità KEYBOARD come sempre.",
-  "features.keyPads.how": "KEYBOARD premuto + pad: fila in basso da C a C, fila in alto i tasti neri. Si disattiva in Menu -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD premuto + pad: pad da 1 a 12 cromatici da C a B, pad da 13 a 16 non fanno nulla. Si disattiva in Menu -> BLECH -> FEATURES -> KEY PADS.",
   "features.dice.title": "Dadi",
   "features.dice.text": "Scrive una nuova melodia nel Part scelto, dalla tonalità e dalla scala del pattern. Si salva solo con WRITE.",
   "features.dice.how": "SHIFT + PART ERASE.",

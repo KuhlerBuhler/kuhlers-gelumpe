@@ -192,8 +192,8 @@ sc_tick_done:
     pop {r4-r6, pc}
 
 ; KEY PADS (idea 85, built in since the plugin keypads): KEYBOARD held on the main screen, a pad sets the KEY of the pattern, like
-; TRANSPOSE on the old Electribes. The pads lie like a piano: the lower row C D E F G A B C, the upper row the black keys above
-; them (C#, D#, F#, G#, A#); the other upper pads do nothing. The KEY goes through the Pattern menu's setter (field 4 of
+; TRANSPOSE on the old Electribes. The pads go up chromatically in pad order: pad 1 C, pad 2 C#, ... pad 12 B; pads 13 to 16
+; set nothing (their press is still taken while KEYBOARD is held). The KEY goes through the Pattern menu's setter (field 4 of
 ; script_seq_set_pattern_value_glue), and the firmware's parameter window, the one a knob opens, shows "KEY" and the note.
 ; KEYBOARD is held away from the firmware: a short press without a pad goes on to it on release (script_press_key_glue, marked)
 ; and switches to KEYBOARD mode as always; with a pad it does not. SHIFT + KEYBOARD stays the firmware's, so does KEYBOARD while
@@ -382,9 +382,9 @@ kp_check_hook:
     ldr r12, =KP_CHECK_FN
     bx r12
 
-; per pad the KEY it sets plus 1, 0 none; pads 1 to 8 are the upper row
+; per pad the KEY it sets plus 1, 0 none
 kp_notes:
-    .byte 0, 2, 4, 0, 7, 9, 11, 0, 1, 3, 5, 6, 8, 10, 12, 1
+    .byte 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 0, 0, 0
 kp_names:
     .asciz "C"
     .space 2

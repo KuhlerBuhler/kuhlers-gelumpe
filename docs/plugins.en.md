@@ -1170,8 +1170,9 @@ the firmware (derived). Checked in the simulator (`test/script-gate-hold.test.mj
 
 **Key Pads** ([idea 85](ideen/85-keyboard-tonart.md)) was a plugin of this catalog (API 15) until 2026-11-07. Since then
 it is built into the runtime of the BLECH menu as KEY PADS and needs no plugin on the card: KEYBOARD held + pad sets the
-KEY, the firmware's value window shows it, the switch is BLECH > FEATURES > KEY PADS
-([measurement](messungen/2026-11-07-key-pads-eingebaut.md)). It is no longer in the catalog.
+KEY (chromatically in pad order: pad 1 C, pad 2 C# up to pad 12 B, pads 13 to 16 do nothing), the firmware's value
+window shows it, the switch is BLECH > FEATURES > KEY PADS ([measurement](messungen/2026-11-07-key-pads-eingebaut.md),
+[mapping](messungen/2026-11-08-key-pads-chromatisch.md)). It is no longer in the catalog.
 
 **Step Copy** uses API 15 and runs in the background. It copies the steps of one bar (16 steps) of the pattern that plays
 into another bar, so a figure recorded once does not have to be played in again. A pattern is 1 to 4 bars long. Three pages

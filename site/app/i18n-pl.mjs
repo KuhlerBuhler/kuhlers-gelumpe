@@ -531,7 +531,7 @@ export default {
   "features.noteAssist.how": "Tryb KEYBOARD, zagraj nutę. Wyłączysz w Menu -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY z padów",
   "features.keyPads.text": "Przytrzymaj KEYBOARD i naciśnij pad: KEY patternu przeskakuje na dźwięk padu, jak TRANSPOSE w starych Electribe. Krótkie naciśnięcie samego KEYBOARD przełącza tryb jak zwykle.",
-  "features.keyPads.how": "KEYBOARD przytrzymany + pad: dolny rząd C do C, górny rząd czarne klawisze. Wyłączysz w Menu -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD przytrzymany + pad: pady 1 do 12 chromatycznie od C do B, pady 13 do 16 nic nie robią. Wyłączysz w Menu -> BLECH -> FEATURES -> KEY PADS.",
   "features.dice.title": "Kostka",
   "features.dice.text": "Pisze nową melodię w wybranym parcie, z tonacji i skali patternu. Zapisuje się dopiero przez WRITE.",
   "features.dice.how": "SHIFT + PART ERASE.",

@@ -531,7 +531,7 @@ export default {
   "features.noteAssist.how": "KEYBOARD mode, play a note. Switch off under Menu -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY from the pads",
   "features.keyPads.text": "Hold KEYBOARD and press a pad: the pattern's KEY jumps to that pad's note, like TRANSPOSE on the old Electribes. A short press alone still switches to KEYBOARD mode.",
-  "features.keyPads.how": "KEYBOARD held + pad: lower row C to C, upper row the black keys. Switch off under Menu -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD held + pad: pads 1 to 12 go chromatically from C to B, pads 13 to 16 do nothing. Switch off under Menu -> BLECH -> FEATURES -> KEY PADS.",
   "features.dice.title": "Dice",
   "features.dice.text": "Writes a new melody into the selected part, from the key and scale of the pattern. It's only saved with WRITE.",
   "features.dice.how": "SHIFT + PART ERASE.",

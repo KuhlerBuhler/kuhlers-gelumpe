@@ -531,7 +531,7 @@ export default {
   "features.noteAssist.how": "Режим KEYBOARD, зіграй ноту. Вимикається в Меню -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY з педів",
   "features.keyPads.text": "Утримуйте KEYBOARD і натисніть пед: KEY патерну переходить на ноту педа, як TRANSPOSE на старих Electribe. Коротке натискання самої KEYBOARD як завжди перемикає режим.",
-  "features.keyPads.how": "KEYBOARD утримується + пед: нижній ряд C до C, верхній ряд чорні клавіші. Вимикається в Меню -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD утримується + пед: педи з 1 по 12 хроматично від C до B, педи з 13 по 16 нічого не роблять. Вимикається в Меню -> BLECH -> FEATURES -> KEY PADS.",
   "features.dice.title": "Кубики",
   "features.dice.text": "Пише нову мелодію у вибраний парт, з тональності і гами патерна. Зберігається лише через WRITE.",
   "features.dice.how": "SHIFT + PART ERASE.",

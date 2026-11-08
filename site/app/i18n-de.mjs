@@ -561,7 +561,7 @@ export default {
   "features.noteAssist.how": "KEYBOARD-Modus, eine Note spielen. Abschalten unter Menü -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY über die Pads",
   "features.keyPads.text": "KEYBOARD halten und ein Pad drücken: der KEY des Patterns springt auf den Ton des Pads, wie TRANSPOSE bei den alten Electribes. Kurz allein gedrückt schaltet KEYBOARD wie immer den Modus.",
-  "features.keyPads.how": "KEYBOARD gehalten + Pad: untere Reihe C bis C, obere Reihe die schwarzen Tasten. Abschalten unter Menü -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD gehalten + Pad: Pads 1 bis 12 chromatisch von C bis B, Pads 13 bis 16 tun nichts. Abschalten unter Menü -> BLECH -> FEATURES -> KEY PADS.",
   "features.dice.title": "Würfeln",
   "features.dice.text": "Schreibt eine neue Melodie in den gewählten Part, aus Tonart und Tonleiter des Patterns. Gespeichert wird erst mit WRITE.",
   "features.dice.how": "SHIFT + PART ERASE.",

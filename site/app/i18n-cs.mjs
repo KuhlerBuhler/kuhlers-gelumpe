@@ -531,7 +531,7 @@ export default {
   "features.noteAssist.how": "Režim KEYBOARD, zahraj notu. Vypnout jde v Menu -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY z padů",
   "features.keyPads.text": "Držte KEYBOARD a stiskněte pad: KEY patternu skočí na tón padu, jako TRANSPOSE na starých Electribe. Krátký stisk samotného KEYBOARD přepne režim jako vždy.",
-  "features.keyPads.how": "KEYBOARD držen + pad: dolní řada C až C, horní řada černé klávesy. Vypnout jde v Menu -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD držen + pad: pady 1 až 12 chromaticky od C do B, pady 13 až 16 nic nedělají. Vypnout jde v Menu -> BLECH -> FEATURES -> KEY PADS.",
   "features.dice.title": "Kostka",
   "features.dice.text": "Napíše novou melodii do vybraného partu, z tóniny a stupnice patternu. Uloží se až přes WRITE.",
   "features.dice.how": "SHIFT + PART ERASE.",
