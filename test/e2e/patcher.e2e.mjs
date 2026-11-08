@@ -276,6 +276,7 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   await page.goto(`${page.url().split("#")[0]}#rescue`);
   const rescueAnswer = label => page.locator("#cee-rescue-answers:not([data-waiting]) button", { hasText: label }).first().click();
   await rescueAnswer("Da steht Error und No File");
+  await rescueAnswer("Rot");
   await rescueAnswer("Im Menü bei SOFTWARE UPDATE");
   await page.locator("#cee-rescue-answers [data-known]").waitFor();
   assert.match(await page.locator("#cee-rescue-answers [data-known]").textContent(), /Hacktribe/);
