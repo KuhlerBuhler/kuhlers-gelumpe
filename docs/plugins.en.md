@@ -645,8 +645,7 @@ plugins that have a handler for it, and then decides whether the firmware sees i
   ends in between; a press that went through lets its release through.
 - **EXIT** cannot be held (`korg.keyHold` and `korg.keyMask` stop the plugin with an error), apps stay closable.
 - **Measured:** in the emulator on hacktribe, red and blue with two plugins (`tools/emu/plugin_api19_cases.py`); not on
-  the device. The example plugins Gate Hold and Filter Toggle keep working unchanged, they use
-  `korg.keyHold`, `korg.padHold` and `korg.knobHold`.
+  the device. The example plugin Gate Hold keeps working unchanged.
 
 ### Names for keys and LEDs
 
@@ -1109,7 +1108,6 @@ units. Every app stays below it, the tests check that. On the device the time pe
 | Mandelbrot | GAMES | a finger on the touchpad pans, Part right and the encoder zoom in, Part left out, keys 1 and 2 set the iterations (8 to 64), TAP resets | 2436 bytes | 2135 units, 0.41 ms |
 | GIF Player | TOOLS | plays `GIF00.E2G` to `GIF99.E2G` from the card: the encoder picks the file, Part left and right halve and double the speed (25 to 400 %), TAP pauses; a missing file is said. For trying animations on the display, a frame stays at least one runtime frame (40 ms) | 972 bytes | frame 3762 units, about 0.72 ms (the picture alone 3086), above the warning line of 0.5 ms |
 | Image Viewer | TOOLS | shows the pictures of a file `GIF00.E2G` to `GIF99.E2G` one at a time, for example several BMPs that `tools/gif/gif2e2g.py` put into one file: Part right and left page forward and back, after the last picture comes the first again, the encoder picks the file. After each change the top left corner shows the number for two seconds (`2/3`, the total only once it has been through the file), TAP keeps it there or hides it. Back from the first picture to the last works only once the count is known, the runtime does not tell it beforehand | 1128 bytes | key press at most 4414 units (past the last picture: two reads and the picture), about 0.84 ms derived, above the warning line of 0.5 ms |
-| Filter Toggle | TOOLS | SHIFT + LPF, HPF or BPF turns the filter of the selected part off and on again with the type that key had last; SHIFT + another filter key gives that key's last type; the plain filter keys stay with the firmware. Works with the app closed too | 1972 bytes | frame 1575 units, about 0.30 ms (redraw), opening 1331 |
 
 **Set-Timer** is meant for use in a set. Its clock is `korg.millis()`, which the runtime keeps current every frame,
 also while the app is closed. It subscribes only to `play`, the keys, `open` and `close`: closed it costs a few
@@ -1146,15 +1144,15 @@ in the BLECH menu switches it on (1) and off (0: PART MUTE stays a mode as witho
 setting. Checked in the simulator (`test/script-moment-mute.test.mjs`) and in the emulator
 (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red, blue), not on the device.
 
-**Filter Toggle** (idea 81) uses API 14. SHIFT + LPF, HPF or BPF sets the filter type of the selected part to OFF (0) with
-`korg.parts[i].filterType`; the same combination brings back the type that key had last (LPF 1 to 6, HPF 7 to 11, BPF 12
-to 16, [measurement](messungen/2026-10-15-synth-filter.md)). Each part has its own memory per key, in plugin variables
-until power off, not on the card. With the app open it passes every key to the firmware with `korg.passKeys` and keeps
-only the three filter keys while SHIFT is held, so the firmware never sees the combination. With the app closed the
-firmware turns the type first (Hacktribe's cycle) and the plugin sets the right one in the next frame (**derived**: the
-firmware handles the key on input, the plugin one frame later). Limits: a SHIFT pressed less than a frame (40 ms) before
-the filter key can read the type after the firmware's turn; on the blue Electribe `korg.seq.setPartValue` writes nothing.
-Checked in the simulator (`test/script-plugins.test.mjs`), not on the device.
+**Filter Toggle** (idea 81) was a plugin of this catalog (API 14) until 2026-11-08. Since then it is built into the
+runtime of the BLECH menu as FILTER TOGGLE and needs no plugin on the card: SHIFT + LPF, HPF or BPF turns the filter of
+the selected part off, the same combination turns it on again with the type that key had last, SHIFT + another filter key
+gives that key's last type, per part. The firmware sets the type its own way, with its "FILTER TYPE" window, on the blue
+one too. The switch is BLECH > FEATURES > FILTER TOGGLE ([measurement](messungen/2026-11-08-filter-toggle-eingebaut.md),
+German). It is no longer in the catalog. If the old plugin is still on the card: with its app closed it sets, one frame
+later, the same type FILTER TOGGLE already set; with its app open it keeps SHIFT + filter key from the firmware, so only
+the plugin switches, without the window (**derived** from the plugin's source, not measured). Best remove the plugin from
+the card or switch FILTER TOGGLE off.
 
 **Gate Hold** ([idea 72](ideen/72-gate-arp-note-halten.md)) uses API 15 and runs in the background. In Gate Arp mode
 the note stays where the finger first touched the touchpad: `korg.touchLockX` holds the X the firmware sees, Y stays the

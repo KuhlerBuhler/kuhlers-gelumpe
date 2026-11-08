@@ -45,6 +45,14 @@ KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 DRAW_TEXT = {False: 0xC003F7D0, True: 0xC003A408}   # the firmware's text draw (text, x, y, ...), Sampler and synth
 DISPATCH = 0xC002837C           # the dispatcher of panel messages, before the input filter
 SEQ_NOTIFY = 0xC0070688         # (observers, message): KEY PADS opens the parameter window with {0x5A, KEY} through it
+FILTER_TOGGLE_ON = script_hooks.MENU_STATE + 0x160   # M_FT: the page FILTER TOGGLE (tools/patch/script_menu.s)
+FILTER_AT = 0x80C               # the filter type of part 1 in the pattern file (live()); 0 OFF, 1 to 6 LPF, 7 to 11 HPF, 12 to 16 BPF
+FILTER_KEYS = {"lpf": 0x12, "hpf": 0x14, "bpf": 0x16}
+FILTER_LEDS = (0x0C, 0x0D, 0x0E)
+FILTER_NOTIFY = 0xC004B208      # (this, part, parameter, value): the firmware's message that a parameter changed
+FILTER_PARAM = 29               # its number for the filter type
+# Per key, the type from which one press of the hardware key lands on a type (synth_filter_cases.MEASURED)
+FIRMWARE_FROM = {"lpf": {0: 6, 2: 1, 3: 2}, "hpf": {0: 11, 7: 0, 8: 7}, "bpf": {12: 0}}
 
 
 def has_hooks(payload):
@@ -351,7 +359,134 @@ def case_key_pads(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_kill, case_unsaved, case_pad_state, case_key_pads)
+class FTBox(SBox):
+    """A device for FILTER TOGGLE: SHIFT + a filter key, and what the press leaves behind (the part's type, the LEDs of LPF, HPF
+    and BPF, the texts drawn, the frame, the firmware's parameter messages for the filter type)."""
+
+    def __init__(self, payload, flash=None, held=0):
+        super().__init__(payload, flash, held)
+        self.texts, self.notices = [], []
+        uc = self.m.uc
+
+        def draw(u, *_):
+            self.texts.append(bytes(u.mem_read(u.reg_read(UC_ARM_REG_R0), 16)).split(b"\0")[0].decode("latin-1"))
+
+        def notice(u, *_):
+            regs = (unicorn.arm_const.UC_ARM_REG_R2, unicorn.arm_const.UC_ARM_REG_R3)
+            parameter, value = (u.reg_read(r) & 0xFFFFFFFF for r in regs)
+            if parameter == FILTER_PARAM:
+                self.notices.append(value)
+        at = DRAW_TEXT[self.dev.synth]
+        uc.hook_add(unicorn.UC_HOOK_CODE, draw, begin=at, end=at)
+        at = self.dev.a(FILTER_NOTIFY)
+        uc.hook_add(unicorn.UC_HOOK_CODE, notice, begin=at, end=at)
+        uc.ctl_flush_tb()
+
+    def ftype(self, part):
+        return self.live()[FILTER_AT + STRIDE * part]
+
+    def set_ftype(self, part, value):
+        self.poke(FILTER_AT + STRIDE * part, value)
+
+    def select(self, part):
+        """The firmware's part select, KEYBOARD + pad, with KEY PADS off for it."""
+        self.m.uc.mem_write(KEY_PADS_ON, (0).to_bytes(4, "little"))
+        self.m.press(KEYBOARD, True)
+        self.run(0.2)
+        self.pad(part)
+        self.m.press(KEYBOARD, False)
+        self.run(0.3)
+        self.m.uc.mem_write(KEY_PADS_ON, (1).to_bytes(4, "little"))
+
+    def shift_key(self, key):
+        """SHIFT held, the filter key pressed and released; returns what the press left behind (the texts each once: how often
+        the window redraws in 0.4 s varies), taken while SHIFT is still held."""
+        self.m.press(SHIFT, True)
+        self.run(0.2)
+        self.texts.clear()
+        self.notices.clear()
+        self.dev.press(key, 0.4)
+        part = self.selected()
+        look = (self.ftype(part), tuple(self.m.leds.get(x, 0) for x in FILTER_LEDS), tuple(dict.fromkeys(self.texts)), list(self.notices),
+                bytes(self.dev.fb()))
+        self.m.press(SHIFT, False)
+        self.run(0.3)
+        return look
+
+
+def case_filter_toggle(payload, flash):
+    """FILTER TOGGLE: SHIFT + LPF, HPF or BPF turns the filter of the selected part off, the same combination turns it on again
+    with the type that key had last (per part and key), SHIFT + another filter key goes to that key's last type, the family's
+    first type before it had one. Twin probe: every press is set against a press of the hardware filter key on a second device,
+    from the type whose firmware step lands on the same type; the stored type, the LEDs, the texts of the firmware's "FILTER TYPE"
+    window, the frame and the firmware's parameter message must be the same. FILTER TOGGLE OFF and EXIT held at power-on are the
+    firmware's own keys."""
+    toggle, twin = FTBox(payload, flash), FTBox(payload, flash)
+    twin.m.uc.mem_write(FILTER_TOGGLE_ON, (0).to_bytes(4, "little"))     # the twin's SHIFT + key is the firmware's own key
+    out, rows = [], []
+    for box in (toggle, twin):
+        box.select(0)
+
+    def step(label, part, key, want, start=None):
+        if start is not None:
+            toggle.set_ftype(part, start)
+        got = toggle.shift_key(FILTER_KEYS[key])
+        twin.set_ftype(part, FIRMWARE_FROM[key][want])
+        ref = twin.shift_key(FILTER_KEYS[key])
+        rows.append((label, got[0], want, ref[0], got[1] == ref[1], got[2] == ref[2], got[3] == ref[3], got[4] == ref[4], got[2]))
+
+    step("MS20 LPF, SHIFT+LPF: off", 0, "lpf", 0, start=2)
+    step("SHIFT+LPF again: MS20 LPF back", 0, "lpf", 2)
+    step("SHIFT+HPF: electribe HPF, the first", 0, "hpf", 7)
+    for box in (toggle, twin):
+        box.dev.press(FILTER_KEYS["hpf"], 0.4)      # the plain key cycles as always: MS20 HPF
+    plain = toggle.ftype(0)
+    step("SHIFT+LPF: MS20 LPF, its last", 0, "lpf", 2)
+    step("SHIFT+HPF: MS20 HPF, its last", 0, "hpf", 8)
+    step("SHIFT+HPF again: off", 0, "hpf", 0)
+    step("SHIFT+BPF: electribe BPF, the first", 0, "bpf", 12)
+    for box in (toggle, twin):
+        box.select(3)
+    step("part 4 MG LPF, SHIFT+LPF: off", 3, "lpf", 0, start=3)
+    step("part 4 SHIFT+LPF: MG LPF, its own last", 3, "lpf", 3)
+    for box in (toggle, twin):
+        box.select(0)
+    step("part 1 SHIFT+LPF: MS20 LPF, part 1's last", 0, "lpf", 2)
+
+    bad = [r for r in rows if not (r[1] == r[2] == r[3])]
+    out.append(entry("filter_toggle_types", not bad and plain == 8 and not toggle.m.asserts and not twin.m.asserts,
+                     f"type after each SHIFT + key (got, want, the hardware key's): {[(r[0], r[1], r[2], r[3]) for r in rows]}; "
+                     f"plain HPF from electribe HPF {plain} (want 8)"))
+    out.append(entry("filter_toggle_twin_leds", all(r[4] for r in rows), f"LEDs of LPF, HPF, BPF equal the hardware key's: {[r[4] for r in rows]}"))
+    out.append(entry("filter_toggle_twin_window", all(r[5] for r in rows) and all("FILTER TYPE" in " ".join(r[8]) or r[2] == 0 for r in rows),
+                     f"the texts drawn equal the hardware key's: {[r[5] for r in rows]}; drawn {[r[8] for r in rows][:3]}"))
+    out.append(entry("filter_toggle_twin_message", all(r[6] for r in rows), f"the firmware's parameter message equals the hardware key's: {[r[6] for r in rows]}"))
+    out.append(entry("filter_toggle_twin_frame", all(r[7] for r in rows), f"the frame equals the hardware key's: {[r[7] for r in rows]}"))
+
+    def stock(box):
+        """From MS20 LPF two presses of SHIFT + LPF, then the same with the plain key."""
+        part = box.selected()
+        box.set_ftype(part, 2)
+        shifted = [box.shift_key(FILTER_KEYS["lpf"])[0] for _ in range(2)]
+        box.set_ftype(part, 2)
+        plain = []
+        for _ in range(2):
+            box.dev.press(FILTER_KEYS["lpf"], 0.4)
+            plain.append(box.ftype(part))
+        return shifted, plain
+
+    toggle.m.uc.mem_write(FILTER_TOGGLE_ON, (0).to_bytes(4, "little"))
+    off = stock(toggle)
+    killed = FTBox(payload, flash, held=KILL)
+    kill = stock(killed)
+    out.append(entry("filter_toggle_off_and_kill_are_stock", off[0] == off[1] and kill[0] == kill[1] and off[0] != [0, 2]
+                     and not toggle.m.asserts and not killed.m.asserts,
+                     f"from MS20 LPF, SHIFT + LPF twice and LPF twice: FILTER TOGGLE OFF {off}, EXIT held at power-on {kill} "
+                     f"(the same both ways, the firmware's steps)"))
+    return out
+
+
+GROUPS = (case_save, case_reset, case_reset_modes, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):
