@@ -182,6 +182,7 @@ LEVEL_GLOBAL = 7                                                      # level 7:
 LEVEL_DU = 8                                                          # level 8: our pages of DATA UTILITY, behind the firmware's functions
 GLOBAL_PAGES = 20                                                     # the firmware's pages of GLOBAL PARAMETERS (screen 9)
 S_PSEL = 0xFB                                                         # byte: the plugin the pages of level 6 are about (the page of level 5 it was opened from)
+S_BRW_ON = 0x154                                                      # byte: M_BRW_ON, nonzero while the page shows as the firmware's file browser
 PLUGIN_MANAGE = 0                                                     # the one page of PLUGINS: MANAGE PLUGINS
 PLUGIN_DESCRIPTION = 0                                                # the first page of one plugin; the pages it added follow, then OFF, REMOVE is the last
 PRESS = "press  [ Enter ]"                                            # the third line of every Data Util page
@@ -314,10 +315,14 @@ def page_overlap(dev):
     """None when the page on screen is clean, else what is wrong with it. Clean means: the third line is empty or is the Data Util
     line `press  [ Enter ]` under an empty value (the firmware draws the line from column 28 on the row of the value, so any
     value runs into it), the value alone and the line alone share no pixel, neither the title, the value nor the line reach the
-    edge of the display (a text that is too wide is cut off), and the tab's label is whole beside its counter."""
+    edge of the display (a text that is too wide is cut off), and the tab's label is whole beside its counter. A page shown as the
+    file browser (the plugin list, SPLASH IMPORT) does not draw the three lines, so only its label is checked."""
     title, value, line3 = texts_of(dev)
     shown = frame(dev)
     wrong = []
+    if dev.read(STATE + S_BRW_ON, 1)[0]:
+        problem = label_problem(dev, tab(dev))
+        return [problem] if problem else None
     if line3 and (line3 != PRESS or value):
         wrong.append(f"third line {line3!r} beside value {value!r}")
     only_value = lit(draw_texts(dev, value, ""))
@@ -337,7 +342,16 @@ def page_overlap(dev):
 
 def value_row_leftovers(dev):
     """The pixels of the value row on screen that the value alone does not draw (what an earlier text left there or the third line
-    drew over it), and those of the value that are missing. Redraws the value row, so call it last before the next key."""
+    drew over it), and those of the value that are missing. Redraws the value row, so call it last before the next key.
+    On a file browser page the rows hold the browser, not the value: everything below the tab is held against the page drawn again
+    on a blank frame."""
+    if dev.read(STATE + S_BRW_ON, 1)[0]:
+        shown = lit(frame(dev), range(8, 64))
+        dev.m.uc.mem_write(0xC031B310 + 128, b"\0" * (1024 - 128))
+        dev.m.uc.mem_write(dev.a(UI_REDRAW), b"\1")
+        dev.run(0.3)
+        alone = lit(frame(dev), range(8, 64))
+        return shown - alone, alone - shown
     shown = lit(frame(dev), range(30, 47))
     alone = lit(draw_texts(dev, texts_of(dev)[1], ""), range(30, 47))
     return shown - alone, alone - shown
@@ -1562,7 +1576,7 @@ def splash_menu_cases(payload, flash=None):
     inside = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev))
     press(dev, "exit", 0.4)
     out_again = (state(dev, S_GROUP), state(dev, S_PAGE), texts_of(dev)[0])
-    add("group_of_its_own", row == ("SPLASH", "", PRESS) and inside == (2, GROUP_SPLASH, (0, 3), "Splash") and out_again == (GROUP_CUSTOM, CUSTOM_SPLASH, "SPLASH")
+    add("group_of_its_own", row == ("SPLASH", "", PRESS) and inside == (2, GROUP_SPLASH, (0, 1), "Splash") and out_again == (GROUP_CUSTOM, CUSTOM_SPLASH, "SPLASH")
         and not dev.m.asserts, f"row {row}, ENTER {inside}, EXIT {out_again}")
     goto_group(dev, GROUP_SPLASH, 0)
     before = texts_of(dev)
@@ -1591,6 +1605,11 @@ def splash_menu_cases(payload, flash=None):
     goto_group(bare, GROUP_SPLASH, 0)
     press(bare, "menu", 0.6)
     add("import_without_file", texts_of(bare)[1] == "no .bmp file", str(texts_of(bare)))
+    lit_rows = {y for y in range(10, 62) for x in range(3, 120) if (bare.fb()[(y // 8) * 128 + x] >> (y % 8)) & 1}
+    add("browser_empty", bare.read(STATE + S_BRW_ON, 1)[0] == 2 and lit_rows and max(lit_rows) - min(lit_rows) < 10,
+        f"browser {bare.read(STATE + S_BRW_ON, 1)[0]}, rows lit between the edges {sorted(lit_rows)}")
+    differ = browser_against_import_sample(payload, flash)
+    add("browser_like_import_sample", differ == 0, f"{differ} pixels differ from the firmware's IMPORT SAMPLE (rows 10 to 63)")
 
     # the list: only .bmp files, no names starting with a dot (macOS ._ files), the dial walks them and stops at the ends, ENTER takes
     # the one shown; a name like Windows gives a second download
@@ -1627,6 +1646,10 @@ def splash_menu_cases(payload, flash=None):
     dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/a-very-long-name-here.bmp": bmp(other)})
     goto_group(dev, GROUP_SPLASH, 0)
     long_texts, long_crowded = texts_of(dev), page_overlap(dev)
+    if dev.read(STATE + S_BRW_ON, 1)[0]:     # the browser row: ".." after the cut name, clear of the scrollbar (x 120 on)
+        near_bar = {p for p in lit(frame(dev), range(10, 51)) if 108 <= p[0] < 120}
+        long_crowded = long_crowded or (f"row ink next to the scrollbar {sorted(near_bar)[:4]}" if near_bar else None)
+        long_crowded = long_crowded or (lambda e, m: f"{len(e)} pixels left over, {len(m)} missing" if e or m else None)(*value_row_leftovers(dev))
     press(dev, "menu", 0.6)
     stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(other)
     add("long_name_cut", long_texts == ("SPLASH IMPORT", "a-very-long", "") and long_crowded is None and texts_of(dev)[1] == "loaded" and stored
@@ -1653,6 +1676,51 @@ def splash_menu_cases(payload, flash=None):
     again.run(1.2)
     add("reset_kept_after_restart", desc(again) == orig and not again.m.asserts, f"next start draws {desc(again):#x}, the VSB's image is {orig:#x}")
     return out
+
+
+def browser_against_import_sample(payload, flash=None, turns=4):
+    """SPLASH IMPORT against the firmware's own file browser (DATA UTILITY, IMPORT SAMPLE, screen 39) with the same names: five
+    .wav files and the folder KORG there, KORG.bmp and the five names as .bmp here. After `turns` steps of the dial the folder row is
+    out of sight (its icon is the folder's), so rows 10 to 63 (below the header with its tab) are compared -> the pixels that differ,
+    or None when IMPORT SAMPLE was not reached."""
+    import highram_watch as hw
+    import fat32
+    from splash_cases import bmp
+    names =["Clap Melodic Long", "Claps Synthwave", "Deep House Tom", "Kick", "Snare 909 roomy"]
+    rows = lambda fb: {(x, y) for y in range(10, 64) for x in range(128) if (fb[(y // 8) * 128 + x] >> (y % 8)) & 1}
+    img = fat32.format_image(64 * 1024 * 1024)
+    vol = fat32.Volume(img)
+    for name in names:
+        vol.write(f"/{name}.wav", hw.plain_wav(2000))
+    vol.write(f"/KORG/{hw.folder(payload)}/Sample/x.txt", b"x")
+    vol.close()
+    ref = Dev(payload, flash, 0)
+    ref.m.insert_card(SDCard(MemoryMedium(img)))
+    ref.run(1.2)
+    for _ in range(40):
+        if ref.m.screen() == 1:
+            break
+        ref.run(0.5)
+    ref.run(2)
+    ref.call(SWITCH_SCREEN, 14, 0)
+    ref.run(0.4)
+    for key, count, wait in (("menu", 1, 0.5), ("right", 8, 0.25), ("menu", 1, 1.5)):
+        for _ in range(count):
+            ref.m.press(hw.KEYS[key], True)
+            ref.run(0.1)
+            ref.m.press(hw.KEYS[key], False)
+            ref.run(wait)
+    if ref.m.screen() != 39:
+        return None
+    for _ in range(turns):
+        ref.turn(1, 0.8)
+    pic = [[0] * 128 for _ in range(64)]
+    files = {**CARD_FOLDER, "/KORG/blechtribe/KORG.bmp": bmp(pic), **{f"/KORG/blechtribe/{name}.bmp": bmp(pic) for name in names}}
+    ours = boot(payload, flash, files=files)
+    goto_group(ours, GROUP_SPLASH, 0)
+    for _ in range(turns):
+        ours.turn(1, wait=0.4)
+    return len(rows(ref.fb()) ^ rows(ours.fb()))
 
 
 def splash_cases_display(image):

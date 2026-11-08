@@ -178,6 +178,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 22: Steps lesen (an, Gate, Note, Velocity), Lesen ohne Neuzeichnen der Pads, im Emulator](2026-11-06-plugin-api22-step-getters.md)
 - [Plugin API 23: IFX ON, IFX TYPE, Sample und AMP EG schreibbar, LEDs der Part-Tasten, im Emulator](2026-11-07-plugin-api23-part-writes.md)
 - [Plugin API 24: MIDI-CC wie Regler und Tasten, Part-Edit auf blau, neue Part- und Pattern-Werte, Slices, Fensterschalter, im Emulator](2026-11-08-plugin-api24-part-cc.md)
+- [Plugin-Liste und SPLASH IMPORT als Dateibrowser der Firmware, Pixelvergleich mit IMPORT SAMPLE, im Emulator](2026-11-08-plugin-liste-browser.md)
 - [Plugin API 25: Tasten, Pads, Encoder und Touchpad wie ein Finger, korg.knob gegen den Regler, im Emulator](2026-11-08-plugin-api25-panel-calls.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
