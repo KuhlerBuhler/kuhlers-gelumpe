@@ -16,10 +16,10 @@ test("the shared script pool and entry layout are one declarative contract", () 
   assert.deepEqual(contract.SCRIPT_ENTRY.fields.map(f => [f.name, f.offset]), [
     ["next", 0], ["blob", 4], ["vars", 8], ["state", 12], ["fault", 16], ["offset", 20],
     ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 136], ["readySent", 228],
-    ["storeMask", 232], ["store", 236], ["timers", 300],
+    ["storeMask", 232], ["store", 236], ["timers", 300], ["holds", 396],
   ]);
-  assert.equal(contract.SCRIPT_ENTRY.size, 48 + EVENTS.length * 8 + 4 + contract.STORE.slots * 4 + contract.TIMERS.slots * contract.TIMERS.recordSize);
-  assert.equal(contract.SCRIPT_ENTRY.size, 396);
+  assert.equal(contract.SCRIPT_ENTRY.size, 48 + EVENTS.length * 8 + 4 + contract.STORE.slots * 4 + contract.TIMERS.slots * contract.TIMERS.recordSize + contract.HOLDS_BYTES);
+  assert.equal(contract.SCRIPT_ENTRY.size, 412);
   let offset = 0;
   for (const field of contract.SCRIPT_ENTRY.fields) {
     assert.equal(field.offset, offset);
@@ -99,7 +99,7 @@ test("LED state and transport budgets share one generated contract", () => {
   ]);
   assert.deepEqual(contract.SCRIPT_LED_VALID, { DESIRED: 1, DELIVERED: 2 });
   assert.equal(API.find(a => a.name === "korg.led").id, 1);
-  assert.equal(API_VERSION, 12);
+  assert.equal(API_VERSION, 24);
   const equ = Object.fromEntries([...asmInclude().matchAll(/^\.equ (\w+), (\w+)$/gm)].map(m => [m[1], Number(m[2])]));
   for (const [name, value] of Object.entries(led).filter(([, value]) => typeof value === "number")) {
     assert.equal(equ[`SCRIPT_LED_${name.replace(/([a-z])([A-Z])/g, "$1_$2").toUpperCase()}`], value);
@@ -168,6 +168,12 @@ test("event ids, API ids and error codes are pinned", () => {
     56: "korg.backlight", 57: "korg.ledHold", 58: "korg.menu.add", 59: "korg.app",
     60: "korg.file.frame", 61: "korg.get", 62: "korg.set",
     63: "korg.after", 64: "korg.every", 65: "korg.afterSteps", 66: "korg.cancel", 67: "korg.padHold",
+    68: "korg.knobHold", 69: "korg.knob",
+    70: "korg.passKeys", 71: "korg.seq.setPartValue", 72: "korg.read.patternBytes", 73: "korg.seq.writeSteps",
+    74: "korg.touchLockX", 75: "korg.keyHold", 76: "korg.pressKey", 77: "korg.seq.setPatternValue",
+    78: "korg.read.viewedPattern", 79: "korg.read.nextPattern", 80: "korg.keyMask",
+    81: "korg.seq.getOn", 82: "korg.seq.getGate", 83: "korg.seq.getNote", 84: "korg.seq.getVelocity",
+    85: "korg.display.popups", 86: "korg.read.popups",
   });
   assert.deepEqual(ERRORS.map(e => e.code), ERRORS.map((_, i) => i));
   assert.equal(ERROR.FUEL, 1);
@@ -177,7 +183,7 @@ test("event ids, API ids and error codes are pinned", () => {
   assert.equal(ERROR.STACK, 5);
   assert.equal(ERROR.BAD_JUMP, 6);
   assert.equal(FORMAT_VERSION, 2);
-  assert.equal(API_VERSION, 12);
+  assert.equal(API_VERSION, 24);
   assert.deepEqual(API.filter(a => a.since === 2).map(a => a.name), ["korg.store.get", "korg.store.set", "korg.store.save"]);
   assert.deepEqual(API.filter(a => a.since === 3).map(a => a.name).slice(0, 2), ["korg.read.transport", "korg.read.tempo"]);
   assert.deepEqual(API.filter(a => a.since === 4).map(a => a.name), ["korg.menu.add"]);
@@ -358,4 +364,18 @@ test("the include assembles in the repository's ARM assembler to the same bytes"
   assert.equal(got.script_op_operands, hex(t.opOperands));
   assert.equal(got.script_event_argc, hex(t.eventArgc));
   assert.equal(got.script_api_table, hex(t.apiTable));
+});
+
+test("the ranges korg.seq.setPatternValue clamps to are those of the pattern map, decoded as korg.read.patternValue reads them", async () => {
+  const { default: map } = await import("../data/map/pattern.mjs");
+  const decode = { bars: v => v + 1, chain: v => v - 1 };
+  for (const f of contract.PATTERN_FIELDS) {
+    const entry = map.fields.find(m => m.where.offset === f.offset && m.range);
+    assert.ok(entry, `${f.name} has a map entry with a range`);
+    const range = entry.range.map(decode[f.kind] ?? (v => v));
+    assert.deepEqual(contract.PATTERN_WRITES[f.name], range, f.name);
+  }
+  const equ = Object.fromEntries([...asmInclude().matchAll(/^\.equ (\w+), (\w+)$/gm)].map(m => [m[1], Number(m[2])]));
+  assert.equal(equ.SCRIPT_PATTERN_WRITE_0, 200 | 3000 << 16, "tempo: minimum and maximum as halfwords");
+  assert.equal(equ.SCRIPT_PATTERN_WRITE_9, (0xFFFF | 249 << 16) >>> 0, "Chain To: -1 for none");
 });

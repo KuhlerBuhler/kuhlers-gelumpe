@@ -664,6 +664,7 @@ fn main() {
             Arc::new(NativeDriver),
             MidiConfig::default(),
         ))
+        .manage(kuhlers_gelumpe::card::CardRoot::default())
         .invoke_handler(tauri::generate_handler![
             midi::midi_list,
             midi::midi_open,
@@ -672,7 +673,12 @@ fn main() {
             midi::midi_read,
             midi::midi_close,
             kuhlers_gelumpe::update::update_install,
-            kuhlers_gelumpe::korg::korg_firmware
+            kuhlers_gelumpe::korg::korg_firmware,
+            kuhlers_gelumpe::card::card_pick,
+            kuhlers_gelumpe::card::card_list,
+            kuhlers_gelumpe::card::card_read,
+            kuhlers_gelumpe::card::card_exists,
+            kuhlers_gelumpe::card::card_move
         ])
         // A second launch focuses the window of the first and leaves.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {

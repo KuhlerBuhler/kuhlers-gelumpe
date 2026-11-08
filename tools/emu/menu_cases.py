@@ -153,9 +153,9 @@ def version_texts(payload):
 
 
 def feature_pages():
-    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches (SYNC GROUP is a page of the
-    ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
-    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE
+    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches, KEY PADS last (SYNC GROUP
+    is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS"]
 
 
 def feature_count():
@@ -335,7 +335,15 @@ def page_overlap(dev):
     return wrong or None
 
 
-APPS_STATE_SIZE = 168                                                 # SCRIPT_APPS.stateSize in data/script/contract.mjs: the table of apps ends the runtime
+def value_row_leftovers(dev):
+    """The pixels of the value row on screen that the value alone does not draw (what an earlier text left there or the third line
+    drew over it), and those of the value that are missing. Redraws the value row, so call it last before the next key."""
+    shown = lit(frame(dev), range(30, 47))
+    alone = lit(draw_texts(dev, texts_of(dev)[1], ""), range(30, 47))
+    return shown - alone, alone - shown
+
+
+APPS_STATE_SIZE = 168                                                # SCRIPT_APPS.stateSize in data/script/contract.mjs: the table of apps ends the runtime
 
 
 def apps_open_address():
@@ -651,10 +659,15 @@ def list_cases(payload, flash=None):
     title = version_texts(payload)[0]
     add("version_page", shown == (*version_texts(payload), "") and (title == "BLECH" or re.fullmatch(r"BLECH \d+\.\d+\.\d+", title))
         and after == (MENU, 1, LIST_VERSION, shown, 0) and not dev.m.asserts, f"{shown}, after ENTER, WRITE and the dial {after}")
+    # ENTER on PLUGINS opens the list of MANAGE PLUGINS straight away; without plugins its one page says so, EXIT goes back to the row
     goto_top(dev, LIST_PLUGINS)
-    press(dev, "menu")
+    press(dev, "menu", wait=0.4)
     inside = (dev.screen()["number"], state(dev, S_LEVEL), state(dev, S_GROUP), state(dev, S_PAGE), counter(dev), texts_of(dev))
-    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 1), ("MANAGE PLUGINS", "", PRESS)) and tab(dev) == "Plugins", str(inside))
+    plugins_tab = tab(dev)
+    press(dev, "exit", wait=0.4)
+    out_again = (state(dev, S_LEVEL), state(dev, S_PAGE), text(dev, S_TITLE))
+    add("enter_goes_into_the_group", inside == (MENU, 2, GROUP_PLUGINS, 0, (0, 1), ("MANAGE PLUGINS", "No Plugin", "")) and plugins_tab == "Plugins"
+        and out_again == (1, LIST_PLUGINS, "PLUGINS"), f"{inside}, EXIT {out_again}")
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
@@ -876,7 +889,7 @@ def read_settings_look(image):
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
         head = {1: 16, 2: 20, 3: 20}.get(version)
-        if head is None or extras & ~0xF:    # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF
+        if head is None or extras & ~0x1F:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF
             continue
         size = head + 4 * count
         if count > (64 if version == 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -1023,10 +1036,10 @@ def settings_cases(payload, flash=None):
     press(empty, "write", wait=0.6)
     add("export_without_scripts", page == ("EXPORT ALL PLUGINS", "") and text(empty, S_VALUE) == "no plugins" and bytes(empty.m.mmc.card.medium.data) == before,
         f"{page}, then {text(empty, S_VALUE)!r}")
-    goto_group(empty, GROUP_PLUGINS, PLUGIN_MANAGE)
+    goto_top(empty, LIST_PLUGINS)
     edit = texts_of(empty)
     press(empty, "menu", wait=0.4)
-    add("manage_plugins_without_plugins", edit == ("MANAGE PLUGINS", "", PRESS) and texts_of(empty) == ("MANAGE PLUGINS", "No Plugin", "")
+    add("manage_plugins_without_plugins", edit == ("PLUGINS", "", PRESS) and texts_of(empty) == ("MANAGE PLUGINS", "No Plugin", "")
         and (state(empty, S_LEVEL), state(empty, S_PAGE)) == (2, PLUGIN_MANAGE) and not empty.m.asserts,
         f"{edit}, ENTER says {texts_of(empty)} and stays: level {state(empty, S_LEVEL)}, page {state(empty, S_PAGE)}")
 
@@ -1054,6 +1067,7 @@ TM_SETTING = 0xC0188F00               # the word of the patch tap-motion: FFFFFF
 TM_ONCE_BIT = 32                      # bit 5 of the flags of the settings file: TAP MOTION is ONCE (bit 3, off, wins)
 TM_OFF_BIT = 8                        # bit 3 of the flags of the settings file: TAP MOTION is off
 S_NA = 0xFC                           # the page NOTE ASSIST: 1 on (the default), 0 off
+S_KP = 0x104                          # the page KEY PADS: 1 on (the default), 0 off
 NA_SETTING = 0xC0189F00               # the word of the patch note-assistant: FFFFFFFF never written, 1 on, 0 off
 NA_OFF_BIT = 16                       # bit 4 of the flags of the settings file: NOTE ASSIST is off
 PS_SETTING = 0xC0180F10               # the word of the patch pattern-switch: FFFFFFFF never written, 1 on, 0 off
@@ -1524,8 +1538,9 @@ def cases_task(i):
 
 
 def splash_menu_cases(payload, flash=None):
-    """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT reads KORG/blechtribe/splash.bmp into the start image,
-    SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back; the
+    """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT lists the .bmp files in KORG/blechtribe, the dial picks one
+    and ENTER reads it into the start image; the value row shows the name alone (a name of more than 11 characters without ".bmp", cut
+    to 11), SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back; the
     three are a group of their own, the row SPLASH of CUSTOMIZATION opens it.
     Without the editor (the synth) the group keeps its 8 pages."""
     from splash_cases import bmp, image_of
@@ -1554,7 +1569,7 @@ def splash_menu_cases(payload, flash=None):
     press(dev, "menu", 0.6)
     after = texts_of(dev)
     stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(pic)
-    add("import", before == ("SPLASH IMPORT", "", PRESS) and after[:2] == ("SPLASH IMPORT", "loaded") and stored and not dev.m.asserts,
+    add("import", before == ("SPLASH IMPORT", "splash.bmp", "") and after[:2] == ("SPLASH IMPORT", "loaded") and stored and not dev.m.asserts,
         f"{before} -> {after}, image {'stored' if stored else 'not stored'}")
     press(dev, "edit_next", 0.4)
     page = texts_of(dev)
@@ -1566,9 +1581,56 @@ def splash_menu_cases(payload, flash=None):
     add("draw_opens_the_editor", page == ("SPLASH DRAW", "", PRESS) and dev.screen()["number"] == 9 and dev.screen()["page"] == splash_editor.PAGE and st == 1
         and len(differ) <= 1 and not dev.m.asserts, f"{page}, screen {dev.screen()}, editor mode {st}, display bytes not the image (battery aside): {differ}")
     bare = boot(payload, flash, files=CARD_FOLDER)
+    # the value row shows the value alone: no "press  [ Enter ]" on its row, nothing left of SPLASH DRAW's line from before the key
+    goto_group(bare, GROUP_SPLASH, 1)
+    press(bare, "edit_prev", 0.4)
+    nofile = texts_of(bare)
+    extra, missing = value_row_leftovers(bare)
+    add("no_file_value_clean", nofile == ("SPLASH IMPORT", "no .bmp file", "") and not extra and not missing and not bare.m.asserts,
+        f"{nofile}, {len(extra)} pixels beside the value, {len(missing)} of it missing")
     goto_group(bare, GROUP_SPLASH, 0)
     press(bare, "menu", 0.6)
-    add("import_without_file", texts_of(bare)[1] == "no splash.bmp", str(texts_of(bare)))
+    add("import_without_file", texts_of(bare)[1] == "no .bmp file", str(texts_of(bare)))
+
+    # the list: only .bmp files, no names starting with a dot (macOS ._ files), the dial walks them and stops at the ends, ENTER takes
+    # the one shown; a name like Windows gives a second download
+    other = [[1 if (x * y) % 5 == 0 else 0 for x in range(128)] for y in range(64)]
+    files = {**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic), "/KORG/blechtribe/._splash.bmp": b"\0" * 4096,
+             "/KORG/blechtribe/notes.txt": b"x", "/KORG/blechtribe/splash (1).bmp": bmp(other)}
+    dev = boot(payload, flash, files=files)
+    goto_group(dev, GROUP_SPLASH, 0)
+    seen = [texts_of(dev)[1]]
+    for step in (1, 1, -1, -1, -1):
+        dev.turn(step, wait=0.3)
+        seen.append(texts_of(dev)[1])
+    names = {"splash.bmp": pic, "splash (1)": other}   # a name of more than 11 characters is shown without ".bmp"
+    walked = sorted(seen[:2]) == sorted(names) and seen[2] == seen[1] and seen[3] == seen[0] and seen[4] == seen[5] == seen[0]
+    dev.turn(1, wait=0.3)
+    shown = texts_of(dev)[1]
+    press(dev, "menu", 0.6)
+    taken = texts_of(dev)[1]
+    stored = shown in names and dev.read(splash_editor.RECBUF + 8, 1024) == image_of(names[shown])
+    dev.turn(-1, wait=0.3)
+    add("list", walked and taken == "loaded" and stored and texts_of(dev)[1] == seen[0] and not dev.m.asserts,
+        f"dial {seen}, ENTER on {shown!r} -> {taken!r}, image {'stored' if stored else 'not stored'}, then {texts_of(dev)[1]!r}")
+    clean = []
+    for step in (0, 1):                      # a name, the next name over it, then what ENTER said over that
+        if step:
+            dev.turn(step, wait=0.3)
+        clean.append((texts_of(dev), *map(len, value_row_leftovers(dev))))
+    dev.turn(-1, wait=0.3)
+    press(dev, "menu", 0.6)
+    clean.append((texts_of(dev), *map(len, value_row_leftovers(dev))))
+    add("list_value_clean", [c[0][1:] for c in clean] == [(seen[0], ""), (seen[1], ""), ("loaded", "")] and all(c[1:] == (0, 0) for c in clean)
+        and not dev.m.asserts, f"(texts, pixels beside the value, missing): {clean}")
+    # a long name is cut to 11 characters (12 of the widest letter run into each other), ENTER still reads the file of that name
+    dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/a-very-long-name-here.bmp": bmp(other)})
+    goto_group(dev, GROUP_SPLASH, 0)
+    long_texts, long_crowded = texts_of(dev), page_overlap(dev)
+    press(dev, "menu", 0.6)
+    stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(other)
+    add("long_name_cut", long_texts == ("SPLASH IMPORT", "a-very-long", "") and long_crowded is None and texts_of(dev)[1] == "loaded" and stored
+        and not dev.m.asserts, f"{long_texts}, {long_crowded}, ENTER -> {texts_of(dev)[1]!r}, image {'stored' if stored else 'not stored'}")
     from splash_cases import DESC13
     desc = lambda d: d.u32(DESC13)
     record_id = lambda d: struct.unpack_from("<I", d.m.flash.mem, splash_editor.FLASH_RECORD)[0]
@@ -2218,6 +2280,60 @@ def last_pattern_menu_cases(payload, flash=None):
     return out
 
 
+KP_OFF = 16                           # bit 4 of byte 5 of the settings file: KEY PADS is off
+
+
+def key_pads_menu_cases(payload, flash=None):
+    """The page KEY PADS, the last of FEATURES: ON is the default (no file, a file without the bit), the dial switches it at once,
+    WRITE keeps OFF as bit 4 of byte 5 of the settings file (next to the meter's bits), the next start reads it."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:key_pads_{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    bare = boot(payload, flash, adapter=True, card=False)
+    plain = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(2, 3, look_word(), extras=1)}, adapter=True)
+    add("default_on", state(dev, S_KP) == 1 and state(bare, S_KP) == 1 and state(plain, S_KP) == 1,
+        f"card {state(dev, S_KP)}, no card {state(bare, S_KP)}, file without the bit {state(plain, S_KP)}")
+
+    page_at = feature_pages().index("KEY PADS")
+    goto_group(dev, GROUP_FEATURES, page_at)
+    page = texts_of(dev), counter(dev), tab(dev)
+    dev.turn(-1, wait=0.3)
+    off = texts_of(dev), state(dev, S_KP)
+    dev.turn(1, wait=0.3)
+    back = texts_of(dev), state(dev, S_KP)
+    add("page", page == (("KEY PADS", "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - 1, f"{page}")
+    add("dial_acts_at_once", off == (("KEY PADS", "OFF", ""), 0) and back == (("KEY PADS", "ON", ""), 1) and not dev.m.asserts,
+        f"{off}, back {back}")
+
+    # WRITE keeps OFF in byte 5 next to METER LOUD RAINBOW, which writes the byte whole
+    keep = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(2, 3, look_word(), extras=1)}, adapter=True)
+    goto_group(keep, GROUP_FEATURES, page_at)
+    keep.turn(-1, wait=0.3)
+    press(keep, "write", wait=0.6)
+    image = keep.m.mmc.card.medium.data
+    files = read_settings_look(image)
+    extras = settings_extras(image).get("b", 0)
+    add("file_holds_off", "b" in files and extras == 1 | KP_OFF, f"byte 5 {extras:#x}, {files}")
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(image))))
+    again.run(2.0)
+    goto_group(again, GROUP_FEATURES, page_at)
+    add("start_reads_off", state(again, S_KP) == 0 and texts_of(again) == ("KEY PADS", "OFF", "") and not again.m.asserts,
+        f"{state(again, S_KP)}, {texts_of(again)}")
+
+    # ON written again clears the bit and leaves the meter's
+    again.turn(1, wait=0.3)
+    press(again, "write", wait=0.6)
+    newest = max(read_settings_look(again.m.mmc.card.medium.data).items(), key=lambda kv: kv[1][0])[0]
+    extras = settings_extras(again.m.mmc.card.medium.data).get(newest, 0)
+    add("file_holds_on", state(again, S_KP) == 1 and extras == 1, f"{state(again, S_KP)}, byte 5 {extras:#x}")
+    return out
+
+
 EARLY_SITE = 0xC0038D34               # the first instruction of the command that loads e2sSample.all: the early hook of the menu
 SAMPLE_LOADER = 0xC00364F0            # the sample loader itself, called from that command
 
@@ -2498,7 +2614,7 @@ def synth_start_cases(payload, flash=None):
 
 def look_rest():
     """The suites look_cases runs after its own cases, in that order."""
-    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, default_level_cases, early_look_cases)
+    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, default_level_cases, early_look_cases)
 
 
 def look_parts():

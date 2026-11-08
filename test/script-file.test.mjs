@@ -131,3 +131,96 @@ Image.new("L", (64, 32), 255).save("${dir}/half.png")
   assert.equal(readGifFrame(new Uint8Array(readFileSync(`${dir}/GIF05.E2G`)), 0, slots), 60);
   assert.ok(Array.from(slots).every(v => v === 255), "a picture of half the size scales up to the whole display");
 });
+
+function viewer(card) {
+  const r = compile(PRESETS.find(p => p.id === "bmpviewer").source, { name: "bmpviewer" });
+  assert.ok(r.ok, r.errors?.map(formatError).join("\n"));
+  let now = 0;
+  const device = new SimDevice({ card, now: () => now });
+  const loaded = device.load(r.blob);
+  assert.ok(loaded.ok);
+  device.frame();
+  assert.ok(device.openApp(0));
+  device.frame();
+  return { device, step: (ms = 40) => { now += ms; device.frame(); }, v: name => loaded.script.vars[r.info.symbols[name].slot] };
+}
+
+test("the Image Viewer pages through the pictures of a file with Part, shows the number for two seconds and wraps around", () => {
+  const pics = [3, 5, 7].map(frameOf);
+  const shows = (p, i) => Array.from(p.device.display.bytes).every((b, at) => b === pics[i][at]);
+  const corner = p => Array.from(p.device.display.bytes.subarray(0, 30)).join(",");
+  const p = viewer(new Map([[gifPath(2), packGif(pics.map(bytes => ({ delay: 100, bytes })))]]));
+  assert.ok(p.device.display.rows().join("\n").includes("#"), "no file 0: it says so in text");
+  assert.equal(p.v("shown"), 0);
+  p.device.post("encoder", 0, 2);
+  p.step();
+  assert.equal(p.v("file"), 2);
+  assert.equal(p.v("index"), 0);
+  assert.ok(!shows(p, 0), "the number covers the corner");
+  const one = corner(p);
+  p.step(2000);
+  assert.ok(shows(p, 0), "after two seconds the picture alone");
+  p.device.post("buttonPress", key("PART_RIGHT"));
+  p.step();
+  assert.equal(p.v("index"), 1);
+  assert.ok(!shows(p, 1));
+  assert.notEqual(corner(p), one, "another number on another picture");
+  p.step(2000);
+  assert.ok(shows(p, 1));
+  p.device.post("buttonPress", key("PART_RIGHT"));
+  p.step();
+  p.step(2000);
+  assert.ok(shows(p, 2));
+  assert.equal(p.v("count"), 0, "the count is not known yet");
+  p.device.post("buttonPress", key("PART_RIGHT"));
+  p.step();
+  p.step(2000);
+  assert.equal(p.v("index"), 0, "past the last picture it starts again");
+  assert.equal(p.v("count"), 3);
+  assert.ok(shows(p, 0));
+  p.device.post("buttonPress", key("PART_LEFT"));
+  p.step();
+  p.step(2000);
+  assert.equal(p.v("index"), 2, "back from the first goes to the last once the count is known");
+  assert.ok(shows(p, 2));
+  p.device.post("buttonPress", key("PART_LEFT"));
+  p.step();
+  p.step(2000);
+  assert.ok(shows(p, 1));
+  p.device.post("buttonPress", key("TAP"));
+  p.step();
+  p.step(5000);
+  assert.ok(!shows(p, 1), "TAP keeps the number");
+  p.device.post("buttonPress", key("TAP"));
+  p.step();
+  assert.ok(shows(p, 1), "a second TAP hides it");
+  p.device.post("encoder", 0, -1);
+  p.step();
+  assert.equal(p.v("shown"), 0, "file 1 is missing");
+  assert.equal(p.v("count"), 0, "a new file forgets the count");
+  assert.equal(p.device.status().scripts[0].fault ?? null, null);
+});
+
+test("gif2e2g puts several BMPs into one file, one frame each in the order given", t => {
+  const dir = mkdtempSync(join(tmpdir(), "e2g-bmp-"));
+  const make = `
+from PIL import Image
+a = Image.new("1", (128, 64), 0); a.putpixel((3, 4), 1); a.save("${dir}/a.bmp")
+Image.new("1", (128, 64), 1).save("${dir}/b.bmp")
+c = Image.new("L", (128, 64), 0); c.putpixel((127, 0), 255); c.save("${dir}/c.bmp")
+`;
+  const made = spawnSync("python3", ["-c", make], { encoding: "utf8" });
+  if (made.status) { t.skip(`Pillow: ${made.stderr.trim().split("\n").pop()}`); return; }
+  const run = spawnSync("python3", ["tools/gif/gif2e2g.py", `${dir}/a.bmp`, `${dir}/b.bmp`, `${dir}/c.bmp`, "6", "--out", dir], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  const file = new Uint8Array(readFileSync(`${dir}/GIF06.E2G`));
+  const slots = new Int32Array(1024);
+  const lit = () => { const out = []; slots.forEach((v, i) => { for (let bit = 0; bit < 8; bit++) if ((v >> bit) & 1) out.push([i % 128, (i >> 7) * 8 + bit]); }); return out; };
+  assert.equal(readGifFrame(file, 0, slots), 100, "a still picture gets 100 ms");
+  assert.deepEqual(lit(), [[3, 4]]);
+  assert.equal(readGifFrame(file, 1, slots), 100);
+  assert.ok(Array.from(slots).every(v => v === 255));
+  assert.equal(readGifFrame(file, 2, slots), 100);
+  assert.deepEqual(lit(), [[127, 0]]);
+  assert.equal(readGifFrame(file, 3, slots), 0);
+});

@@ -50,3 +50,11 @@ test("the folder test reads the forms the case modules use", () => {
   assert.equal(folderOf('Path(__file__).resolve().parents[1] / "patch"'), "tools/patch");
   assert.equal(folderOf("Path(__file__).resolve().parents[2]"), ".");
 });
+
+test("build-sidecar bundles the answers the cases once got from Node, where node_json.py looks for them", () => {
+  const build = read(`${emu}/build-sidecar.mjs`);
+  const helper = read(`${emu}/node_json.py`);
+  assert.match(helper, /^DATA = Path\(getattr\(sys, "_MEIPASS", ""\) or REPO\)/m, "frozen, the file is read from the bundle");
+  assert.match(helper, /^FILE = DATA \/ "data" \/ "emu" \/ "node-results\.json"$/m);
+  assert.match(build, /"--add-data", `\$\{path\("\.\.\/\.\.\/data\/emu\/node-results\.json"\)\}\$\{sep\}data\/emu`/);
+});

@@ -1,20 +1,50 @@
 ; The object tree of the plugin API (data/script/objects.mjs): korg.get and korg.set reach every leaf through one table,
 ; a value outside its range is clamped and counted, and the stored ones are checked once the menu has read its settings.
-; In the code area at MORE3_START. A row (OBJ_ROW_SIZE bytes): offset, min, max, factory (words), base, type, apply, flags.
+; In the code area at MORE3_START. A row (OBJ_ROW_SIZE bytes): offset, min, max, factory (words), base, type, apply, flags (bytes), mirror, setter (words).
+; The bases are the order of OBJECT_BASES (test/script-objects.test.mjs holds them): 0 MENU_STATE + offset, 1 the state words below + offset,
+; 2 the absolute address offset, 3 the Global settings the firmware keeps + offset, 4 no address, offset picks a call into the patch pad-colors.
+.equ OBJ_BASE_ABS, 2
+.equ OBJ_BASE_GLOBAL, 3
+.equ OBJ_BASE_PAD, 4
+.equ OBJ_SETTER_AT, 24            ; the Global menu's setter for the leaf on this build, 0 none (apply "setter")
 .align 4
-; korg.get(leaf, index) -> r0 = the value; no such leaf: API_ARG
+; korg.get(leaf, index) -> r0 = the value; no such leaf: API_ARG. A word above the leaf's range (a setting word a patch never
+; wrote reads FFFFFFFF) reads as the factory value, which is what the patch does with it.
 script_object_get_glue:
-    push {r4, lr}
+    push {r4, r5, lr}
     bl objects_row
     cmp r4, #0
-    beq objects_bad
+    beq objects_bad_get
+    ldrb r1, [r4, #16]
+    cmp r1, #OBJ_BASE_PAD
+    beq objects_pad_get
     ldrb r1, [r4, #17]
     cmp r1, #0
     ldrbeq r0, [r0]
     ldrne r0, [r0]
+objects_get_done:
+    ldr r1, [r4, #8]
+    cmp r0, r1
+    ldrhi r0, [r4, #12]
     mov r1, #ERR_OK
-    pop {r4, pc}
-; korg.set(leaf, index, value): clamps to the leaf's range (counted), writes, applies; no such leaf or read only: API_ARG
+    pop {r4, r5, pc}
+objects_bad_get:
+    mov r0, #0
+    mov r1, #ERR_API_ARG
+    pop {r4, r5, pc}
+; PAD COLOR, SELECT COLOR, OVERLAP and LED DIMMING live in the patch pad-colors (menu_pc_call: 0 where the set has no such patch)
+objects_pad_get:
+    ldr r5, [r4]
+    add r0, r5, #24                 ; the kind of PAD COLOR (24) or SELECT COLOR (25) for the entry +32
+    cmp r5, #2
+    movlo r1, #32
+    moveq r1, #20
+    movhi r1, #28
+    bl menu_pc_call
+    cmp r5, #3
+    bleq led_dim_index              ; the patch's step -> the place in led_dim_percent the page counts by
+    b objects_get_done
+; korg.set(leaf, index, value): clamps to the leaf's range (counted), writes, mirrors, applies; no such leaf or read only: API_ARG
 script_object_set_glue:
     push {r4-r6, lr}
     mov r5, r2
@@ -27,36 +57,90 @@ script_object_set_glue:
     mov r6, r0
     mov r0, r5
     bl objects_clamp
+    ldrb r1, [r4, #16]
+    cmp r1, #OBJ_BASE_PAD
+    beq objects_pad_set
+    ldr r12, [r4, #OBJ_SETTER_AT]   ; a Global setting goes through the firmware's own setter (Global object, value, 1), as the menu calls it
+    cmp r12, #0
+    bne objects_set_through
     ldrb r1, [r4, #17]
     cmp r1, #0
     strbeq r0, [r6]
     strne r0, [r6]
+    ldr r1, [r4, #20]               ; the word a patch reads the setting from, next to the one the page shows
+    cmp r1, #0
+    strne r0, [r1]
     bl objects_apply
+objects_set_done:
+    ldr r1, =MENU_STATE             ; what the page said last ("SAVED") gives way to the new value
+    ldr r2, [r1, #M_ON]
+    cmp r2, #1
+    moveq r2, #0
+    streq r2, [r1, #M_STATUS]
     mov r0, #0
     mov r1, #ERR_OK
     pop {r4-r6, pc}
+objects_set_through:
+    mov r1, r0
+    ldr r0, =GLOBALS_PTR
+    ldr r0, [r0]
+    cmp r0, #0
+    beq objects_bad_set
+    mov r2, #1
+    blx r12
+    b objects_set_done
 objects_bad_set:
     mov r0, #0
     mov r1, #ERR_API_ARG
     pop {r4-r6, pc}
-objects_bad:
-    mov r0, #0
-    mov r1, #ERR_API_ARG
-    pop {r4, pc}
+; r0 = the value, r4 = the row: the entries of the patch pad-colors (menu_pc_call takes the arguments r0 and r2)
+objects_pad_set:
+    ldr r1, [r4]
+    cmp r1, #2
+    blo objects_pad_colour
+    beq objects_pad_over
+    add r0, r0, #4                  ; LED DIMMING: the page's place -> the patch's step (the step 0 is 75 percent)
+    cmp r0, #12
+    subhs r0, r0, #12
+    mov r1, #24
+    b objects_pad_call
+objects_pad_over:
+    mov r1, #16
+    b objects_pad_call
+objects_pad_colour:
+    mov r2, r0                      ; the colour; the entry swaps PAD and SELECT where the write would make them the same
+    add r0, r1, #24
+    mov r1, #36
+objects_pad_call:
+    bl menu_pc_call
+    b objects_set_done
 
-; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value
+; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; base 4 has none)
 objects_row:
     mov r4, #0
     cmp r0, #OBJ_COUNT
     bxhs lr
     ldr r4, =objects_table
-    add r1, r0, r0, lsl #2
+    rsb r1, r0, r0, lsl #3          ; 7 words a row
     add r4, r4, r1, lsl #2
     ldrb r1, [r4, #16]
+    ldr r0, [r4]
+    cmp r1, #OBJ_BASE_ABS
+    bxeq lr
+    cmp r1, #OBJ_BASE_PAD
+    bxeq lr
+    cmp r1, #OBJ_BASE_GLOBAL
+    beq objects_row_global
     ldr r2, =objects_bases
     ldr r2, [r2, r1, lsl #2]
-    ldr r0, [r4]
     add r0, r2, r0
+    bx lr
+objects_row_global:                 ; before the Global settings exist the value is a word of its own, 0
+    ldr r2, =GLOBALS_PTR
+    ldr r2, [r2]
+    cmp r2, #0
+    addne r0, r2, r0
+    ldreq r0, =objects_dummy
     bx lr
 
 ; r0 = value, r4 = row -> r0 inside min and max; one more in objects_repairs when it was outside (r1 to r3 change)
@@ -96,6 +180,9 @@ objects_repair_next:
     mov r0, r5
     bl objects_row
     add r5, r5, #1
+    ldr r1, =objects_dummy          ; a Global leaf before the firmware has its Global settings: nothing stored to check yet
+    cmp r0, r1
+    beq objects_repair_next
     ldrb r1, [r4, #19]
     tst r1, #4
     beq objects_repair_next
@@ -119,6 +206,43 @@ objects_repair_next:
     b objects_repair_next
 objects_repair_out:
     pop {r4-r7, pc}
+; The frame hook (r0 = runtime): korg.menu.blech.write() asked for the settings file. Written as WRITE on a page writes it, once the
+; main screen or BLECH is up (the card is idle there, as for the store of the plugins) and STORE_MIN_PAUSE_FRAMES after the last one.
+; A request while the menu is not armed (EXIT at power-on) is dropped: there are no settings to write.
+objects_write_flush:
+    ldr r1, =objects_write
+    ldrb r2, [r1]
+    cmp r2, #1
+    bxne lr
+    ldr r2, =MENU_STATE
+    ldr r2, [r2, #M_ON]
+    cmp r2, #1
+    movne r2, #0
+    strbne r2, [r1]
+    bxne lr
+    ldr r2, =SCREEN_MANAGER
+    ldr r2, [r2]
+    cmp r2, #0
+    bxeq lr
+    cmn r2, #1
+    bxeq lr
+    ldr r2, [r2, #0x2c]
+    cmp r2, #1
+    cmpne r2, #MENU_SCREEN
+    bxne lr
+    ldr r2, =objects_write_frame
+    ldr r3, [r2]
+    ldr r12, [r0, #SCRIPT_CONTROL_FRAMES]
+    cmp r3, #0
+    beq objects_write_go
+    sub r3, r12, r3
+    cmp r3, #STORE_MIN_PAUSE_FRAMES
+    bxlo lr
+objects_write_go:
+    str r12, [r2]
+    mov r3, #0
+    strb r3, [r1]
+    b menu_settings_save
 .pool
 
 .align 4
@@ -130,7 +254,13 @@ objects_repairs:
 objects_test_mode:
     .byte 0                         ; korg.system.testMode, 0 at power-on; set over USB only (script_remote.s, RM_TEST)
 objects_keep_awake:
-    .byte 0, 0, 0                   ; korg.system.keepAwake() writes 1 here
+    .byte 0                         ; korg.system.keepAwake() writes 1 here
+objects_write:
+    .byte 0, 0                      ; korg.menu.blech.write() writes 1 here, objects_write_flush takes it
+objects_dummy:
+    .word 0                         ; the value of a Global leaf before the firmware has its Global settings
+objects_write_frame:
+    .word 0                         ; the frame of the last write
 objects_table:
 @OBJECT_ROWS@
 .align 4

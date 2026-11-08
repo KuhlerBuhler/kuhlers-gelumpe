@@ -29,6 +29,13 @@ schiefgeht, geben diese Docs nicht.
   zurück, bevor die Schritte kommen ([Gerätetests](geraetetests/README.md)). Wer es macht, macht es auf
   eigenes Risiko und ohne Gewähr.
 
+## Kann ich zurück zu Korgs Original, auch auf der blauen?
+
+Ja. Korgs unveränderte Datei kommt wie ein normales Update zurück, die blaue mit BLECHTRIBE nimmt sie aus
+`KORG/blechtribe/System/`. Im Emulator schreibt das Update nur den Firmware-Bereich und danach ist der Flash byteweise wie vorher
+(**gemessen**, Emulator); am echten blauen Gerät ist der Weg noch **offen**. Läuft Hacktribe auf der blauen, braucht die Datei zwei
+geänderte Kopf-Bytes, die Seite Rettung macht sie. Schritt für Schritt: [Zurück zu Korgs Original](original-zurueck.md).
+
 ## Die Electribe sagt "Error, No File". Was ist falsch?
 
 Kurz: Name, Ordner oder der Ordner einer anderen Firmware. Die Seite [Rettung](rettung.md) im Editor geht es mit dir durch.
@@ -53,7 +60,8 @@ Die Firmware hat eine Datei gefunden, die nicht zu ihr passt, und schreibt nicht
   halten und nimmt dann nur eine Sampler-Datei unter `KORG/electribe sampler/System/` (**hergeleitet**, ein Gerätefall
   im Discord, welcher Weg dort half, ist **offen**).
 - **Zurück zu Korgs blauer Firmware, während Hacktribe läuft:** Die Datei braucht zwei geänderte Kopf-Bytes, siehe
-  [Rettung](rettung.md#welche-datei-in-welchen-ordner). Die App macht das noch nicht.
+  [Rettung](rettung.md#welche-datei-in-welchen-ordner). Die Seite Rettung macht die Datei aus deiner
+  Korg-Datei, siehe [Zurück zu Korgs Original](original-zurueck.md).
 
 ## Die App findet meine Electribe nicht
 

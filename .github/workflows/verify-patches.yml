@@ -40,6 +40,7 @@ on:
       - "data/findings.mjs"
       - "data/hooks.mjs"
       - "data/originals.mjs"
+      - "data/emu/**"
       - "data/synth-sites.mjs"
       - "data/map/**"
       - "data/script/**"
@@ -258,11 +259,16 @@ jobs:
           printf '\000' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=18 conv=notrunc status=none
           printf '\043' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=46 conv=notrunc status=none
           echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
+      # GELUMPE_NODE_RESULTS=strict: a case whose answer from Node data/emu/node-results.json lacks fails here, as it
+      # would in the app, which has no Node (tools/emu/node_json.py)
       - if: needs.ref.outputs.full == 'true'
+        env:
+          GELUMPE_NODE_RESULTS: strict
         run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
       - if: needs.ref.outputs.full != 'true'
         env:
           CASES: ${{ needs.ref.outputs.cases }}
+          GELUMPE_NODE_RESULTS: strict
         run: npm run -s verify:patches -- --cases "$CASES" "$RUNNER_TEMP/SYSTEM.VSB"
       # The collection on the card end to end with the editor's own writer (src/fx-collection.mjs), on the red builds
       # that carry the loader, whenever the fx_card cases run: the cases above build the file in Python.
@@ -272,6 +278,16 @@ jobs:
           E2_EMU_REQUIRED: "1"
           E2_VSB: ${{ runner.temp }}/SYSTEM.VSB
         run: node --test test/emulator-fxcard.test.mjs
+      # The app's copy with a 100 ms poll slice: the start phase has to end at the main screen. The hacktribe job covers
+      # Hacktribe on the blue too (the same copy, checked with --hardware blue).
+      - name: The start phase ends at the main screen
+        if: matrix.name != 'hacktribe-blue'
+        env:
+          E2_EMU_REQUIRED: "1"
+          E2_VSB: ${{ matrix.name == 'hacktribe' && format('{0}/SYSTEM.VSB', runner.temp) || '' }}
+          E2_STOCK_VSB: ${{ matrix.name == 'red' && format('{0}/SYSTEM.VSB', runner.temp) || '' }}
+          E2_BLUE_VSB: ${{ matrix.name == 'blue' && format('{0}/SYSTEM.VSB', runner.temp) || '' }}
+        run: node --test --test-timeout=3600000 test/emulator-start-phase.test.mjs
       # Also after a failed check: a failed case is a result like a passed one. Results not written for two weeks go.
       - if: always() && needs.ref.outputs.full != 'true'
         run: find ~/.cache/gelumpe/task -type f -mtime +14 -delete 2>/dev/null || true

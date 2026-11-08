@@ -84,7 +84,33 @@ test("the compiler passes a global array by its first slot and length and refuse
 });
 
 test("the API version of a block follows what it uses", () => {
-  assert.equal(API_VERSION, 12);
+  assert.equal(API_VERSION, 24);
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let g = korg.seq.getGate(0, 0); });"), 22, "reading a step needs API 22");
+  assert.equal(apiVersionOf("korg.onEvent(\"frame\", () => { let v = korg.viewedPattern + korg.nextPattern; });"), 18, "the viewed and next pattern need API 18");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.keyMask(1 << korg.key.PLAY, 0); });"), 19, "a key mask needs API 19");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.global.metronome = 2; });"), 20, "a Global leaf needs API 20");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.pattern.current.tempo = 1200; });"), 21, "korg.pattern.current needs API 21");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.current.tempo = 1200; });"), 15, "writing korg.current goes through setPatternValue, API 15");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let g = korg.current.syncGroup; });"), 21, "the sync group needs API 21");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.parts[2].mfxSend = 1; });"), 21, "writing MFX send needs API 21");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let v = korg.parts[2].mfxSend; });"), 8, "reading MFX send stays at korg.read.patternValue");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.parts[2].ifxOn = 1; });"), 23, "writing IFX on needs API 23");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.parts[2].sample = 5; });"), 23, "writing the sample needs API 23");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let v = korg.parts[2].ampEg; });"), 23, "AMP EG is new in API 23");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.parts[2].lastStep = 8; });"), 24, "the last step needs API 24");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.current.mfxHold = 1; });"), 24, "MFX hold needs API 24");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.display.popups = 0; });"), 24, "the popups switch needs API 24");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let v = korg.parts[2].ifxType; });"), 8, "reading IFX type stays at korg.read.patternValue");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.features.tapMotion = 2; });"), 17, "a page of the menu BLECH needs API 17");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.write(); });"), 17, "writing the menu's settings needs API 17");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.customizations.display.intensity = 3; });"), 10, "the first leaf stays API 10");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.touchLockX(64); });"), 15, "the touch lock needs API 15");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.keyHold(korg.key.PLAY, 1); korg.pressKey(korg.key.STOP); });"), 15, "the key hold and key press need API 15");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.seq.setPatternValue(4, 2); });"), 15, "a pattern value write needs API 15");
+  assert.equal(apiVersionOf("korg.onEvent(\"open\", () => { korg.passKeys(korg.key.SHIFT, 1); });"), 14, "passing keys on needs API 14");
+  assert.equal(apiVersionOf("korg.onEvent(\"frame\", () => { korg.parts[0].pitch = 3; });"), 14, "writing a part value needs API 14");
+  assert.equal(apiVersionOf("const a = new Array(12); korg.onEvent(\"frame\", () => { korg.read.patternBytes(a, -1, 0); korg.seq.writeSteps(a, 0, 0); });"), 14, "pattern bytes need API 14");
+  assert.equal(apiVersionOf("korg.onEvent(\"knob\", (index, value) => { korg.knobHold(9, 1); korg.knob(9, value); });"), 13, "the knob hold needs API 13");
   assert.equal(apiVersionOf("korg.onEvent(\"pad\", () => { korg.padHold(1); });"), 12, "the pad hold needs API 12");
   assert.equal(apiVersionOf("korg.after(100, () => { });"), 11, "a timer needs API 11");
   assert.equal(apiVersionOf("korg.onEvent(\"frame\", () => { korg.menu.blech.customizations.display.intensity = 0; });"), 10, "a path of the object tree needs API 10");

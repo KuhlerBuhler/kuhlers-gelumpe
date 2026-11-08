@@ -2,6 +2,11 @@
 ; press was kept from the firmware: its release is kept from it as well, even when the hold ended in between, and a release
 ; whose press went through goes through, so the firmware never sees a pad held that is up, nor the other way round.
 .equ INPUT_PAD_BIT, 1 << 4
+; korg.pressKey: the last byte of the panel messages a plugin puts into the panel queue (script_press_key_glue). The panel's own
+; messages carry 0 there (measured in the emulator on all three builds); a message with the mark goes to the firmware untouched and
+; reaches no plugin, so a plugin's press never comes back to it as an event.
+.equ PK_MARK, 0xB7
+.equ PK_MARK_WORD, 0xB7000000
 
 script_input_hook:
     push {r0-r12, lr}
@@ -66,6 +71,9 @@ input_power_no:
     cmp r1, #1
     bne input_pass
 script_input_guard_end:
+    ldrb r1, [r0, #0x13]
+    cmp r1, #PK_MARK
+    beq input_pass
     bl remap_input
     ldr r0, [sp, #8]
     bl shortcut_input
@@ -205,12 +213,20 @@ input_post:
     add sp, sp, #16
     cmp r8, #0
     bne input_pass
+    cmp r6, #5
+    bleq touch_lock_input
     cmp r6, #0
     bne input_mask
     ldrb r1, [r5, #0x0d]
     cmp r1, #13
     beq input_pass
 input_mask:
+    cmp r6, #0
+    bne input_mask_held
+    bl script_key_hold
+    cmp r0, #0
+    bne input_drop
+input_mask_held:
     ldr r1, [r4, #RT_CAPTURE_MASK]
     ldr r2, =APP_STATE
     ldr r2, [r2]
@@ -218,18 +234,16 @@ input_mask:
     beq input_mask_go
     cmp r6, #0
     bne input_mask_app
-    ldrb r2, [r5, #0x0d]
-    cmp r2, #0
-    beq input_mask_go
-    cmp r2, #1
-    beq input_mask_go
-    cmp r2, #2
-    beq input_mask_go
+    bl script_key_pass
+    cmp r0, #0
+    bne input_mask_go
 input_mask_app:
     orr r1, r1, #1
 input_mask_go:
     cmp r6, #4
     beq input_mask_pad
+    cmp r6, #2
+    beq input_mask_knob
 input_mask_bit:
     mov r2, #1
     mov r2, r2, lsl r6
@@ -240,6 +254,17 @@ input_drop:
     .word 0xE12FF00C ; msr cpsr_cxsf, r12
     pop {r0-r12, lr}
     bx lr
+; korg.knobHold: a knob whose bit is clear in KNOB_HOLD stays away from the firmware (script_knob_hold_glue).
+input_mask_knob:
+    ldrb r2, [r5, #0x0d]
+    cmp r2, #SCRIPT_KNOBS
+    bhs input_mask_bit
+    ldr r3, =KNOB_HOLD
+    ldr r3, [r3]
+    mov r0, #1
+    tst r3, r0, lsl r2
+    beq input_drop
+    b input_mask_bit
 input_mask_pad:
     ldrb r2, [r5, #0x0d]
     cmp r2, #16
@@ -415,6 +440,7 @@ frame_gate_open:
     bl blechy_follow
     bl shortcut_tick
     bl remote_tick
+    bl script_press_key_tick
     ldr r1, =APP_STATE
     ldr r1, [r1]
     cmp r1, #0
@@ -620,12 +646,17 @@ frame_finish:
     mov r0, r4
     bl script_led_hold_guard
     mov r0, r4
-    bl script_pad_hold_guard
+    mov r1, #0
+    bl holds_sync
+    mov r0, r4
+    bl script_touch_lock_guard
     mov r0, r4
     bl script_display_blit
     bl display_calibrate
     mov r0, r4
     bl script_store_flush
+    mov r0, r4
+    bl objects_write_flush
     bl script_seq_flush
     ldr r1, [r4, #RT_PAUSED]
     cmp r1, #0

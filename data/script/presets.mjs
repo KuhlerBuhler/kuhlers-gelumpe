@@ -1639,6 +1639,113 @@ korg.onEvent("buttonPress", (key) => {
 `,
   }),
   Object.freeze({
+    id: "bmpviewer",
+    title: "Image Viewer",
+    description: text("catalog.bmpviewer.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-03",
+    controls: [text("catalog.bmpviewer.control1"), text("catalog.bmpviewer.control2"), text("catalog.bmpviewer.control3")],
+    source: `// Image Viewer, an app under TOOLS: shows the pictures of a picture file GIF00.E2G to GIF99.E2G from KORG/blechtribe/Gif/
+// on the card one at a time (tools/gif/gif2e2g.py puts several BMPs or other pictures into one file, one frame each).
+// Part right and left show the next and the previous picture, the encoder picks the file. After each change the top left
+// corner shows the number of the picture for two seconds, TAP keeps it there or hides it. Backwards past the first picture
+// goes to the last one once the viewer has been through the file and knows how many there are.
+korg.app("Image Viewer", "TOOLS");
+const pic = new Array(1024);
+let file = 0;
+let index = 0;
+let count = 0;
+let shown = 0;
+let label = 0;
+let until = 0;
+let isOpen = 0;
+
+function digits(n) {
+  let d = 1;
+  while (n >= 10) {
+    n = n / 10;
+    d += 1;
+  }
+  return d;
+}
+
+function draw() {
+  korg.display.clear();
+  korg.display.bitmap(pic, 0, 0, 128);
+  if (label == 0 && until == 0) return;
+  let width = digits(index + 1) * 6 + 3;
+  if (count > 0) width += digits(count) * 6 + 6;
+  korg.display.clearRect(0, 0, width, 9);
+  korg.display.number(index + 1, 1, 1);
+  if (count > 0) korg.display.textNumber("/", count, 1 + digits(index + 1) * 6, 1);
+}
+
+function show() {
+  let delay = korg.file.frame(pic, file, index);
+  if (delay == 0 && index > 0) {
+    count = index;
+    index = 0;
+    delay = korg.file.frame(pic, file, 0);
+  }
+  if (delay <= 0) {
+    shown = 0;
+    korg.display.clear();
+    korg.display.textNumber("GIF ", file, 4, 14);
+    korg.display.text("no file", 4, 26);
+    return;
+  }
+  shown = 1;
+  until = korg.millis() + 2000;
+  draw();
+}
+
+korg.onEvent("open", () => {
+  isOpen = 1;
+  show();
+});
+
+korg.onEvent("close", () => {
+  isOpen = 0;
+});
+
+korg.onEvent("frame", () => {
+  if (shown == 1 && until > 0 && korg.millis() >= until) {
+    until = 0;
+    draw();
+  }
+});
+
+korg.onEvent("encoder", (i, delta) => {
+  if (isOpen == 0) return;
+  file += delta;
+  if (file < 0) file = 0;
+  if (file > 99) file = 99;
+  index = 0;
+  count = 0;
+  show();
+});
+
+korg.onEvent("buttonPress", (key) => {
+  if (isOpen == 0) return;
+  if (key == korg.key.PART_RIGHT) {
+    index += 1;
+    show();
+  }
+  if (key == korg.key.PART_LEFT) {
+    if (index > 0) index -= 1;
+    else if (count > 0) index = count - 1;
+    show();
+  }
+  if (key == korg.key.TAP && shown == 1) {
+    label = 1 - label;
+    until = 0;
+    draw();
+  }
+});
+`,
+  }),
+  Object.freeze({
     id: "bpmglide",
     title: "BPM Glide",
     description: text("catalog.bpmglide.description"),
@@ -1707,6 +1814,137 @@ korg.onEvent("menu", (id, value) => {
   korg.store.save();
   if (!on) giveBack();
   pending = 1;
+});
+`,
+  }),
+  Object.freeze({
+    id: "filtertoggle",
+    title: "Filter Toggle",
+    description: text("catalog.filtertoggle.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-03",
+    controls: [text("catalog.filtertoggle.control1"), text("catalog.filtertoggle.control2")],
+    source: `// Filter Toggle, an app under TOOLS: SHIFT + LPF, HPF or BPF turns the filter of the selected part off, and the same
+// combination turns it on again with the type that key had last, kept per part and key until power off. SHIFT and another
+// filter key goes straight to that key's last type. The plain filter keys stay with the firmware and its cycling.
+// While the app is open the firmware never sees SHIFT and a filter key (korg.passKeys, every other key passes); while it is
+// closed the firmware turns the type first and the plugin sets the right one in the next frame.
+// Types: 0 OFF, 1 to 6 the LPF family, 7 to 11 HPF, 12 to 16 BPF.
+korg.app("Filter Toggle", "TOOLS");
+const FIRST = [1, 7, 12];
+const last = new Array(48);
+let shift = 0;
+let before = 0;
+let isOpen = 0;
+let shownPart = -1;
+let shownType = -1;
+
+function family(type) {
+  if (type >= 12) return 2;
+  if (type >= 7) return 1;
+  if (type >= 1) return 0;
+  return -1;
+}
+
+function keyFamily(key) {
+  if (key == korg.key.LPF) return 0;
+  if (key == korg.key.HPF) return 1;
+  if (key == korg.key.BPF) return 2;
+  return -1;
+}
+
+function remember(part, type) {
+  let f = family(type);
+  if (f >= 0) last[part * 3 + f] = type;
+}
+
+function holdFilters(hold) {
+  korg.passKeys(korg.key.LPF, 1 - hold);
+  korg.passKeys(korg.key.HPF, 1 - hold);
+  korg.passKeys(korg.key.BPF, 1 - hold);
+}
+
+function toggle(part, f) {
+  let type = 0;
+  if (family(before) != f) type = last[part * 3 + f];
+  if (family(before) != f && type == 0) type = FIRST[f];
+  korg.parts[part].filterType = type;
+  before = type;
+}
+
+// The model names as the firmware lists them; HPF and BPF have no MG.
+function typeName(type, y) {
+  let f = family(type);
+  if (f < 0) { korg.display.text("OFF", 4, y); return; }
+  if (f == 0) korg.display.text("LPF", 4, y);
+  if (f == 1) korg.display.text("HPF", 4, y);
+  if (f == 2) korg.display.text("BPF", 4, y);
+  let model = type - FIRST[f];
+  if (f > 0 && model >= 2) model += 1;
+  if (model == 0) korg.display.text("electribe", 28, y);
+  if (model == 1) korg.display.text("MS20", 28, y);
+  if (model == 2) korg.display.text("MG", 28, y);
+  if (model == 3) korg.display.text("P5", 28, y);
+  if (model == 4) korg.display.text("OB", 28, y);
+  if (model == 5) korg.display.text("Acid", 28, y);
+}
+
+function draw(part, type) {
+  korg.display.clear();
+  korg.display.text("Filter Toggle", 4, 2);
+  if (part < 16) korg.display.textNumber("Part ", part + 1, 4, 20);
+  else korg.display.text("all parts", 4, 20);
+  if (part < 16) typeName(type, 32);
+  korg.display.text("SHIFT+LPF/HPF/BPF", 4, 55);
+}
+
+korg.onEvent("open", () => {
+  isOpen = 1;
+  for (let key = 0; key < 34; key++) korg.passKeys(key, 1);
+  holdFilters(shift);
+  shownPart = -1;
+});
+
+korg.onEvent("close", () => {
+  isOpen = 0;
+});
+
+korg.onEvent("frame", () => {
+  let part = korg.selectedPart;
+  let type = 0;
+  if (part < 16) type = korg.parts[part].filterType;
+  if (part < 16) remember(part, type);
+  if (part != shownPart || type != shownType) draw(part, type);
+  shownPart = part;
+  shownType = type;
+});
+
+korg.onEvent("partChange", (part) => {
+  if (shift && part < 16) before = korg.parts[part].filterType;
+});
+
+korg.onEvent("buttonPress", (key) => {
+  let part = korg.selectedPart;
+  if (key == korg.key.SHIFT) {
+    shift = 1;
+    if (isOpen) holdFilters(1);
+    if (part < 16) before = korg.parts[part].filterType;
+    if (part < 16) remember(part, before);
+    return;
+  }
+  let f = keyFamily(key);
+  if (shift && f >= 0 && part < 16) toggle(part, f);
+});
+
+korg.onEvent("buttonRelease", (key) => {
+  let part = korg.selectedPart;
+  if (key == korg.key.SHIFT) {
+    shift = 0;
+    if (isOpen) holdFilters(0);
+    return;
+  }
+  if (!shift && keyFamily(key) >= 0 && part < 16) remember(part, korg.parts[part].filterType);
 });
 `,
   }),
@@ -1787,6 +2025,200 @@ function nextBeat() {
 korg.onEvent("ready", () => { korg.every(500, blink); });
 korg.onEvent("play", () => { korg.cancel(beat); beat = korg.afterSteps(4, nextBeat); });
 korg.onEvent("stop", () => { korg.cancel(beat); padOff(); });
+`,
+  }),
+  Object.freeze({
+    id: "momentmute",
+    title: "Momentary Mute",
+    description: text("catalog.momentmute.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-03",
+    controls: [text("catalog.momentmute.control1"), text("catalog.momentmute.control2")],
+    source: `// Momentary Mute, a wish from the community: mutes change only while PART MUTE is held. PART MUTE held, a pad switches its
+// part on or off and the pads show the mutes; PART MUTE released, the pads trigger as in TRIGGER mode. All of it is the
+// firmware's: PART MUTE switches the pad mode on its press and keeps it after the release (measured in the emulator), so
+// the plugin only presses TRIGGER for the firmware when PART MUTE comes up (korg.pressKey). SHIFT + PART MUTE stays the
+// firmware's, and another mode key pressed while PART MUTE is held keeps its mode. The page MOMENT MUTE in the BLECH menu
+// switches it on (1) and off (0: PART MUTE stays a mode as without the plugin).
+const MODES = [korg.key.PART_ERASE, korg.key.TRIGGER, korg.key.SEQUENCER, korg.key.KEYBOARD, korg.key.CHORD, korg.key.STEP_JUMP, korg.key.PATTERN_SET];
+let on = korg.store.get(0, 1);
+let page = korg.menu.add("MOMENT MUTE", 0, 1, on);
+let shift = 0;
+let held = 0;
+
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.SHIFT) shift = 1;
+  if (key == korg.key.PART_MUTE) held = on && !shift ? 1 : 0;
+  for (let i = 0; i < MODES.length; i++) {
+    if (key == MODES[i]) held = 0;
+  }
+});
+
+korg.onEvent("buttonRelease", (key) => {
+  if (key == korg.key.SHIFT) shift = 0;
+  if (key != korg.key.PART_MUTE || !held) return;
+  held = 0;
+  if (on) korg.pressKey(korg.key.TRIGGER);
+});
+
+korg.onEvent("menu", (id, value) => {
+  if (id != page) return;
+  on = value;
+  korg.store.set(0, on);
+  korg.store.save();
+});
+`,
+  }),
+  Object.freeze({
+    id: "gatehold",
+    title: "Gate Hold",
+    description: text("catalog.gatehold.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-03",
+    controls: [text("catalog.gatehold.control1"), text("catalog.gatehold.control2")],
+    source: `// Gate Hold (idea 72): in Gate Arp mode the note stays where the finger first touched, and moving the finger along X picks
+// the Gate Arp rhythm of the pattern (the Pattern menu's GATE ARP, 0 to 49, left to right). Y stays the firmware's. Letting
+// go of the touchpad puts back the rhythm the pattern had, so nothing changes unsaved. The touchpad mode is the firmware's
+// and stays on until another mode key comes (measured in the emulator): GATE ARP sets Gate Arp, MASTER FX and TOUCH SCALE
+// leave it, with SHIFT GATE ARP and MASTER FX open their menu pages and keep the mode. The plugin follows those keys and only
+// holds the touch X (korg.touchLockX) in Gate Arp mode. The page GATE HOLD in the BLECH menu switches it on (1) and off (0).
+const GATE_ARP = 11;
+let on = korg.store.get(0, 1);
+let page = korg.menu.add("GATE HOLD", 0, 1, on);
+let gate = 0;
+let shift = 0;
+let holding = 0;
+let base = 0;
+let rhythm = -1;
+
+function letGo() {
+  if (!holding) return;
+  if (rhythm >= 0 && rhythm != base) korg.seq.setPatternValue(GATE_ARP, base);
+  korg.touchLockX(-1);
+  holding = 0;
+}
+
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.SHIFT) shift = 1;
+  if (key == korg.key.GATE_ARP && !shift) gate = 1;
+  if (key == korg.key.MASTER_FX && !shift) gate = 0;
+  if (key == korg.key.TOUCH_SCALE) gate = 0;
+  if (!gate) letGo();
+});
+
+korg.onEvent("buttonRelease", (key) => {
+  if (key == korg.key.SHIFT) shift = 0;
+  if (key == korg.key.TOUCHPAD) letGo();
+});
+
+// The first position plays the note and fixes it (the firmware counts X in 128 steps), the ones after pick the rhythm.
+korg.onEvent("touch", (x, y, first) => {
+  if (!on || !gate) return;
+  if (first || !holding) {
+    letGo();
+    base = korg.current.gateArp;
+    rhythm = -1;
+    korg.touchLockX(x >> 3);
+    holding = 1;
+    return;
+  }
+  const r = (x * 50) >> 10;
+  if (r == rhythm) return;
+  rhythm = r;
+  korg.seq.setPatternValue(GATE_ARP, r);
+});
+
+// A new pattern brings its own rhythm: that one comes back on release.
+korg.onEvent("patternChange", () => {
+  if (!holding) return;
+  base = korg.current.gateArp;
+  rhythm = -1;
+});
+
+korg.onEvent("menu", (id, value) => {
+  if (id != page) return;
+  on = value;
+  korg.store.set(0, on);
+  korg.store.save();
+  if (!on) letGo();
+});
+`,
+  }),
+  Object.freeze({
+    id: "stepcopy",
+    title: "Step Copy",
+    description: text("catalog.stepcopy.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-06",
+    controls: [text("catalog.stepcopy.control1"), text("catalog.stepcopy.control2")],
+    source: `// Step Copy: copies the steps of one bar of the pattern in RAM into another bar, so a figure recorded once does not have
+// to be played in again. The pages in the BLECH menu: STEP COPY FROM the source bar (1 to 4), STEP COPY TO the target bar
+// (1 to 4, 0 all bars after the source up to the pattern's length), STEP COPY what to copy (0 nothing, 1 the selected
+// part, 2 all 16 parts). The copy runs once the dial has rested on 1 or 2 for 0.6 s, so the values passed on the way
+// copy nothing; 0 and back copies again. Steps are copied whole (on, gate, velocity, trigger, the four note places).
+// A target bar beyond the pattern's length lengthens the pattern to that bar (the Pattern menu's LENGTH setter).
+// A source bar beyond the length copies nothing. Motion data and the part values stay as they are.
+const BAR = 192;
+let from = korg.store.get(0, 1);
+let to = korg.store.get(1, 2);
+let mode = 0;
+let timer = -1;
+let pageFrom = korg.menu.add("STEP COPY FROM", 1, 4, from);
+let pageTo = korg.menu.add("STEP COPY TO", 0, 4, to);
+let pageGo = korg.menu.add("STEP COPY", 0, 2, 0);
+const steps = new Array(BAR);
+
+function copyBar(part, src, dst) {
+  korg.read.patternBytes(steps, -1, 2048 + 816 * part + 48 + BAR * src);
+  korg.seq.writeSteps(steps, part, 16 * dst);
+}
+
+function copyParts(src, dst) {
+  if (mode == 2) {
+    for (let p = 0; p < 16; p++) copyBar(p, src, dst);
+  } else {
+    const part = korg.read.part();
+    if (part < 16) copyBar(part, src, dst);
+  }
+}
+
+function run() {
+  timer = -1;
+  if (mode == 0) return;
+  const src = from - 1;
+  let bars = korg.current.length;
+  if (src >= bars) return;
+  if (to > bars) {
+    korg.seq.setPatternValue(2, to);
+    bars = to;
+  }
+  if (to == 0) {
+    for (let dst = src + 1; dst < bars; dst++) copyParts(src, dst);
+  } else if (to - 1 != src) {
+    copyParts(src, to - 1);
+  }
+}
+
+korg.onEvent("menu", (id, value) => {
+  if (id == pageFrom) {
+    from = value;
+    korg.store.set(0, value);
+    korg.store.save();
+  }
+  if (id == pageTo) {
+    to = value;
+    korg.store.set(1, value);
+    korg.store.save();
+  }
+  if (id == pageGo) {
+    mode = value;
+    korg.cancel(timer);
+    timer = korg.after(600, run);
+  }
+});
 `,
   }),
 ]);

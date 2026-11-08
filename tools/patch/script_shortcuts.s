@@ -40,6 +40,10 @@ shortcut_input:
     ldr r1, [r1, #0x18]
     tst r1, #0x2000
     bne sc_pass
+    mov r0, r4
+    bl kp_input
+    cmp r0, #0
+    bne sc_drop
     ldrb r1, [r4, #0x0c]
     cmp r1, #4
     beq sc_pad
@@ -183,8 +187,232 @@ sc_tick_copy:
     ldr r12, =SC_LOAD
     blx r12
 sc_tick_done:
+    bl kp_tick
     bl sc_unsaved
     pop {r4-r6, pc}
+
+; KEY PADS (idea 85, built in since the plugin keypads): KEYBOARD held on the main screen, a pad sets the KEY of the pattern, like
+; TRANSPOSE on the old Electribes. The pads lie like a piano: the lower row C D E F G A B C, the upper row the black keys above
+; them (C#, D#, F#, G#, A#); the other upper pads do nothing. The KEY goes through the Pattern menu's setter (field 4 of
+; script_seq_set_pattern_value_glue), and the firmware's parameter window, the one a knob opens, shows "KEY" and the note.
+; KEYBOARD is held away from the firmware: a short press without a pad goes on to it on release (script_press_key_glue, marked)
+; and switches to KEYBOARD mode as always; with a pad it does not. SHIFT + KEYBOARD stays the firmware's, so does KEYBOARD while
+; an app is open. The press of a pad taken here takes its release too. The page KEY PADS of FEATURES switches it (M_KP).
+.equ KP_HELD, 0x108             ; bytes of MENU_STATE: 1 while KEYBOARD is held for KEY PADS
+.equ KP_USED, 0x109             ; 1 once a pad was pressed while it is held
+.equ KP_SHIFT, 0x10A            ; 1 while SHIFT is held
+.equ KP_PRESS, 0x10B            ; 1: the next tick gives the firmware a short press of KEYBOARD
+.equ KP_KEY, 0x10C              ; the KEY (plus 1) the next tick sets, 0 none
+.equ KP_PADS, 0x110             ; word: the pads whose press was taken, their release is taken too
+.equ KP_KEY_SHIFT, 10
+.equ KP_KEY_KEYBOARD, 23
+.equ KP_FIELD, 4                ; KEY in PATTERN_FIELDS
+.equ KP_CODE, 0x5A              ; our code in the parameter window (the firmware's go from 0 to 0x12)
+.equ KP_WIN_CODE, 0x318         ; the parameter window: its code, value and changed flag
+.equ KP_WIN_VALUE, 0x31C
+.equ KP_WIN_CHANGED, 0x320
+
+; r0 = the panel message. Returns r0 = 1 to drop it. Clobbers r0 to r3 and r12.
+kp_input:
+    ldr r3, =MENU_STATE
+    ldr r1, [r3, #M_ON]         ; an unarmed menu reads FF everywhere (EXIT at power-on, before the arming): stock
+    cmp r1, #1
+    bne kp_pass
+    ldrb r1, [r0, #0x0c]
+    cmp r1, #4
+    beq kp_pad
+    cmp r1, #0
+    bne kp_pass
+    ldrb r1, [r0, #0x0d]
+    ldrb r2, [r0, #0x0e]
+    cmp r2, #0
+    movne r2, #1
+    cmp r1, #KP_KEY_SHIFT
+    strbeq r2, [r3, #KP_SHIFT]
+    beq kp_pass
+    cmp r1, #KP_KEY_KEYBOARD
+    bne kp_pass
+    cmp r2, #0
+    beq kp_release
+    ldr r1, [r3, #M_KP]
+    cmp r1, #1
+    bne kp_pass
+    ldrb r1, [r3, #KP_SHIFT]
+    cmp r1, #0
+    bne kp_pass
+    ldr r1, =APP_STATE
+    ldr r1, [r1]
+    cmp r1, #0
+    bne kp_pass
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    beq kp_pass
+    ldr r1, [r1, #0x2c]
+    cmp r1, #1
+    bne kp_pass
+    strb r1, [r3, #KP_HELD]
+    mov r1, #0
+    strb r1, [r3, #KP_USED]
+    b kp_drop
+kp_release:
+    ldrb r1, [r3, #KP_HELD]
+    cmp r1, #0
+    beq kp_pass
+    mov r1, #0
+    strb r1, [r3, #KP_HELD]
+    ldrb r1, [r3, #KP_USED]
+    cmp r1, #0
+    moveq r1, #1
+    strbeq r1, [r3, #KP_PRESS]
+    b kp_drop
+kp_pad:
+    ldrb r2, [r0, #0x10]
+    ldrb r1, [r0, #0x0d]
+    cmp r1, #16
+    bhs kp_pass
+    mov r12, #1
+    mov r12, r12, lsl r1
+    ldr r0, [r3, #KP_PADS]
+    cmp r2, #0
+    bne kp_pad_down
+    tst r0, r12
+    beq kp_pass
+    bic r0, r0, r12
+    str r0, [r3, #KP_PADS]
+    b kp_drop
+kp_pad_down:
+    tst r0, r12                 ; again while it is down (pressure): ours as well
+    bne kp_drop
+    ldrb r2, [r3, #KP_HELD]
+    cmp r2, #0
+    beq kp_pass
+    orr r0, r0, r12
+    str r0, [r3, #KP_PADS]
+    mov r2, #1
+    strb r2, [r3, #KP_USED]
+    ldr r2, =kp_notes
+    ldrb r2, [r2, r1]
+    cmp r2, #0
+    strbne r2, [r3, #KP_KEY]
+kp_drop:
+    mov r0, #1
+    bx lr
+kp_pass:
+    mov r0, #0
+    bx lr
+
+; From shortcut_tick (UI task): the short press of KEYBOARD, then the KEY through the setter and the parameter window.
+; Clobbers r0 to r3 and r12.
+kp_tick:
+    push {r4, r5, r6, lr}
+    ldr r4, =MENU_STATE
+    ldr r0, [r4, #M_ON]         ; unarmed: the bytes read FF, nothing is ours
+    cmp r0, #1
+    bne kp_tick_done
+    ldrb r0, [r4, #KP_PRESS]
+    cmp r0, #0
+    beq kp_tick_key
+    mov r0, #0
+    strb r0, [r4, #KP_PRESS]
+    mov r0, #KP_KEY_KEYBOARD
+    bl script_press_key_glue
+kp_tick_key:
+    ldrb r5, [r4, #KP_KEY]
+    subs r5, r5, #1
+    bmi kp_tick_done
+    mov r0, #0
+    strb r0, [r4, #KP_KEY]
+    mov r0, #KP_FIELD
+    mov r1, r5
+    bl script_seq_set_pattern_value_glue
+    ldr r0, =KP_WINDOW
+    cmp r0, #0
+    beq kp_tick_done
+    ldr r0, [r0]
+    cmp r0, #0
+    cmnne r0, #1
+    beq kp_tick_done
+    sub sp, sp, #8
+    mov r1, #KP_CODE
+    str r1, [sp]
+    str r5, [sp, #4]
+    add r0, r0, #4
+    mov r1, sp
+    ldr r12, =SEQ_NOTIFY
+    blx r12
+    add sp, sp, #8
+kp_tick_done:
+    pop {r4, r5, r6, pc}
+
+; The three calls of the parameter window's draw function (KP_TITLE_AT, KP_VALUE_AT, KP_CHECK_AT, per build in script_hooks.py)
+; branch here with r0 = the window: for our code the title "KEY", the note, and no extra mark; any other code goes on to the
+; firmware's function, which returns to the draw function behind the call.
+kp_title_hook:
+    ldr lr, =KP_TITLE_AT+4
+    ldr r12, [r0, #KP_WIN_CODE]
+    cmp r12, #KP_CODE
+    ldreq r0, =str_kp_title
+    bxeq lr
+    ldr r12, =KP_TITLE_FN
+    bx r12
+
+kp_value_hook:
+    ldr lr, =KP_VALUE_AT+4
+    ldr r12, [r0, #KP_WIN_CODE]
+    cmp r12, #KP_CODE
+    ldrne r12, =KP_VALUE_FN
+    bxne r12
+    mov r12, #0
+    strb r12, [r0, #KP_WIN_CHANGED]
+    ldr r12, [r0, #KP_WIN_VALUE]
+    cmp r12, #11
+    movhi r12, #0
+    ldr r0, =kp_names
+    add r0, r0, r12, lsl #2
+    bx lr
+
+kp_check_hook:
+    ldr lr, =KP_CHECK_AT+4
+    ldr r12, [r0, #KP_WIN_CODE]
+    cmp r12, #KP_CODE
+    moveq r0, #0
+    bxeq lr
+    ldr r12, =KP_CHECK_FN
+    bx r12
+
+; per pad the KEY it sets plus 1, 0 none; pads 1 to 8 are the upper row
+kp_notes:
+    .byte 0, 2, 4, 0, 7, 9, 11, 0, 1, 3, 5, 6, 8, 10, 12, 1
+kp_names:
+    .asciz "C"
+    .space 2
+    .asciz "C#"
+    .space 1
+    .asciz "D"
+    .space 2
+    .asciz "D#"
+    .space 1
+    .asciz "E"
+    .space 2
+    .asciz "F"
+    .space 2
+    .asciz "F#"
+    .space 1
+    .asciz "G"
+    .space 2
+    .asciz "G#"
+    .space 1
+    .asciz "A"
+    .space 2
+    .asciz "A#"
+    .space 1
+    .asciz "B"
+    .space 2
+str_kp_title:
+    .asciz "KEY"
+.align 2
 
 ; The WRITE LED breathes while the pattern in RAM differs from its place in the bank (unsaved, device wish 19.10.): every 8 frames
 ; the two are compared word by word (bytes 0x3C, 0x3E and 0x3F left out: the firmware rewrites the pad's touch on every load, a touch of
