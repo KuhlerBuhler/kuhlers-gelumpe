@@ -8,7 +8,7 @@ import { FLOW, LINKS, BUTTONS, FOLDERS, destOf, passSteps } from "../../data/res
 import { checkName, korgBlueForSampler } from "../../src/patcher.mjs";
 import { saveFile } from "./save-file.mjs";
 import { toast } from "./toast.mjs";
-import { e2Outline } from "./e2-art.mjs";
+import { e2Outline, e2Keys } from "./e2-art.mjs";
 import { t, tNodes, locale } from "./i18n.mjs";
 import { pickCard } from "./card-access.mjs";
 import { identify, planCard, applyPlan } from "../../src/card-check.mjs";
@@ -54,9 +54,27 @@ function folderTree(path) {
   return el("div", { className: "cee-rescue-treebox" }, [root, pathCode(path)]);
 }
 
+/** The keys a step presses, drawn on the device: `press` filled, `near` outlined, with a line under the drawing. */
+const KEY_ART = {
+  enter: { press: ["menu"], caption: "rescue.keys.enter" },
+  menu: { press: ["menu"], near: ["editLeft", "editRight"], caption: "rescue.keys.menu" },
+};
+const keysFigure = name => {
+  const { caption, ...keys } = KEY_ART[name];
+  return el("figure", { className: "cee-rescue-figure cee-rescue-keys" }, [e2Keys(t("rescue.keys.alt"), keys), el("figcaption", { textContent: t(caption) })]);
+};
+
+/** A picture of a page outside the app, as it looked when it was taken, with what to click on it. */
+const shotFigure = src => el("figure", { className: "cee-rescue-figure cee-rescue-shot" }, [
+  el("img", { src, alt: t("rescue.shot.alt"), width: 1200, height: 345, loading: "lazy", decoding: "async" }),
+  el("figcaption", { textContent: t("rescue.shot.caption") }),
+]);
+
 /** `quote` is the error the app reported, for a { quote: true } line; without one that line is left out. */
 const lines = (list, issue, quote) => list.map(line => (line.path ? pathCode(line.path)
   : line.tree ? folderTree(line.tree)
+  : line.keys ? keysFigure(line.keys)
+  : line.shot ? shotFigure(line.shot)
   : line.quote ? (quote ? el("blockquote", { className: "cee-rescue-quote", id: "cee-rescue-quote", textContent: quote }) : null)
     : el("p", {}, words(line, issue))));
 
@@ -185,10 +203,14 @@ export function rescuePage(root, context = {}) {
     within(KNOWN[node.known](context).catch(() => null), READ_MS).then(found => {
       if (path !== was || !found) return;
       known[at] = found;
+      // What the app knows answers the question about the file put on last: on to the folder question, which shows it.
+      if (node.passTo) path = [...path.slice(0, -1), node.passTo];
       render();
+      const now = path;
+      const step = nodes[path[at]];
       // What the app was told by the device itself needs no question; back brings the question.
-      const fits = found.auto && !noAuto.has(at) && facts[node.ask] == null && node.choices?.find(c => c.value === found.value);
-      if (fits) timer = setTimeout(() => { if (path === was) choose(fits); }, PAUSE_MS);
+      const fits = found.auto && !noAuto.has(at) && facts[step.ask] == null && step.choices?.find(c => c.value === found.value);
+      if (fits) timer = setTimeout(() => { if (path === now) choose(fits); }, PAUSE_MS);
     });
   }
 
@@ -243,7 +265,9 @@ export function rescuePage(root, context = {}) {
     chat.replaceChildren(...path.flatMap((id, i) => [blechy(nodes[id].mood, say(nodes[id], issue(), known[i], reported)), picked[i] ? you(picked[i]) : null].filter(Boolean)));
     const at = path.length - 1;
     const node = nodes[path[at]];
-    const fits = known[at]?.value;
+    // the file put on last marks what likely runs; what the app read itself comes first
+    const last = node.ask === "firmware" && facts.last !== "unknown" ? facts.last : null;
+    const fits = known[at]?.value ?? last;
     const choices = node.choices ?? [];
     const pick = node.file ? [dropZone(node, at)] : [];
     answers.replaceChildren(...pick, ...choices.map(c => {
@@ -254,7 +278,7 @@ export function rescuePage(root, context = {}) {
         c.art ? art(c) : null,
         el("span", { className: "cee-rescue-answer", textContent: t(c.label) }),
         c.hint ? el("span", { className: "cee-rescue-hint", textContent: t(c.hint) }) : null,
-        mark ? el("span", { className: "cee-rescue-hint cee-rescue-known", textContent: t("rescue.known.pick") }) : null,
+        mark ? el("span", { className: "cee-rescue-hint cee-rescue-known", textContent: t(known[at]?.value != null ? "rescue.known.pick" : "rescue.known.last") }) : null,
         chosenBefore ? el("span", { className: "cee-rescue-hint cee-rescue-known", textContent: t("rescue.known.before") }) : null,
       ]);
       if (c.id) b.id = `cee-rescue-case-${c.id}`;

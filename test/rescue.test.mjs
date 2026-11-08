@@ -13,7 +13,7 @@ const line = l => {
   if (Array.isArray(l)) return l.map(part => t(part.text)).join("");
   if (l.path) return l.path;
   if (l.tree) return l.tree;
-  if (l.quote) return "";
+  if (l.quote || l.keys || l.shot) return "";
   return t(l.key, { ...l.vars, ...Object.fromEntries(Object.entries(l.links ?? {}).map(([name, part]) => [name, t(part.text)])) });
 };
 const text = node => [...node.say, ...(node.source ? [node.source] : [])].map(line).join("\n");
@@ -31,7 +31,7 @@ test("every text of the page is a key of the German table", () => {
     for (const l of [...n.say, ...(n.source ? [n.source] : [])]) {
       if (typeof l === "string") keys.push(l);
       else if (Array.isArray(l)) keys.push(...l.map(part => part.text));
-      else if (!l.path && !l.tree && !l.quote) keys.push(l.key, ...Object.values(l.links ?? {}).map(part => part.text));
+      else if (!l.path && !l.tree && !l.quote && !l.keys && !l.shot) keys.push(l.key, ...Object.values(l.links ?? {}).map(part => part.text));
     }
     for (const c of n.choices ?? []) keys.push(c.label, ...(c.hint ? [c.hint] : []));
   }
@@ -104,7 +104,7 @@ test("Korg's file: the exact page of the 2.02 update, named by its ZIP, and only
   assert.match(LINKS.korgBlue, /\/software\/0\/367\/2578\/$/);
   for (const key of ["red", "blue"]) {
     assert.match(text(FLOW[`download:${key}:go`]), new RegExp(DEVICES[key].zip.replace(/\./g, "\\.")));
-    assert.equal(FLOW[`download:${key}:go`].choices[0].to, "firmware:file", "after the download the folder of what runs now");
+    assert.equal(FLOW[`download:${key}:go`].choices[0].to, "firmware:last", "after the download the folder of what runs now");
   }
   // the way back asks what runs before it sends anyone to a download
   assert.equal(FLOW.back.next, "back:firmware");
@@ -223,7 +223,7 @@ test("a way that did not work looks at the card once more, then asks what the di
   assert.equal(passSteps("recheck:prompt", { color: "blue" }).id, "sd:card:blue");
   assert.deepEqual(FLOW.stuck.choices.map(c => c.to), ["zero:cable", "prompt", "nofile", "invalid", "dark", "ask"]);
   assert.ok(FLOW["update:prompt"].choices.some(c => c.label === "rescue.answer.noPrompt" && c.to === "noprompt"), "no update question has its own answer");
-  assert.deepEqual(FLOW.noprompt.choices.map(c => c.to), ["firmware:file", "silent"]);
+  assert.deepEqual(FLOW.noprompt.choices.map(c => c.to), ["firmware:last", "silent"]);
 });
 
 test("Blechy speaks plainly, nobody gets shouted at, and the hard cases name the official guide", () => {
@@ -270,7 +270,7 @@ test("No File: the name SYSTEM.VSB, the folder of the running firmware, no renam
   assert.match(menu, /Benenn keinen Ordner um/);
   assert.match(menu, /blechtribe/);
   assert.match(menu, /richtige Electribe gewählt/);
-  assert.equal(FLOW["nofile:menu"].next, "nofile:which");
+  assert.equal(FLOW["nofile:menu"].next, "nofile:last");
   assert.equal(FLOW["nofile:which"].known, "firmware", "the folder the patcher named, or the running BLECHTRIBE, is marked");
   assert.match(t("rescue.say.card"), /SYSTEM \(1\)\.VSB/, "every card step names the file name");
   assert.equal(FLOW["nofile:prompt"].next, "color:update");
@@ -387,9 +387,39 @@ test("back to Korg's original: what runs decides the file, a blue with Hacktribe
   assert.equal(way("blue", "unknown"), "back:blueHt");
   assert.equal(way("red", "korg"), "back:already");
   assert.equal(FLOW["back:head"].file, "korgBlueHead", "the head bytes are done for the user: the app makes the file from Korg's own");
-  assert.equal(FLOW["back:head"].done, "firmware:file", "after the file only the folder, what runs is already known");
+  assert.equal(FLOW["back:head"].done, "firmware:last", "after the file only the folder, what runs is already known");
   assert.equal(FLOW["back:head"].choices, undefined, "no 'saved' answer without a file");
   assert.match(text(FLOW.back), /Original-Firmware/);
   assert.match(text(FLOW.back), /KORG\/blechtribe\//);
   assert.doesNotMatch(text(FLOW["back:head"]), /zwei Bytes|Sampler-Code|Kopf/);
+});
+
+test("the file put on last is asked before the folder, only when what runs is not known, and \"not known\" leads to all folders", () => {
+  for (const [id, to] of [["firmware:last", "firmware:file"], ["nofile:last", "nofile:which"]]) {
+    const n = FLOW[id];
+    assert.equal(n.ask, "last", id);
+    assert.equal(n.passTo, to, id);
+    assert.deepEqual(n.choices.map(c => c.value), ["korg", "hacktribe", "blech", "unknown"], id);
+    assert.ok(n.choices.slice(0, 3).every(c => c.to === to), `${id} goes on to the folder question`);
+    assert.equal(n.choices[3].label, "rescue.answer.dontKnow");
+    // what runs known: the question is skipped
+    assert.equal(passSteps(id, { firmware: "blech", color: "red" }).id, to === "firmware:file" ? "folder:blech" : passSteps(to, { firmware: "blech", color: "red" }).id);
+  }
+  // "not known" sets what runs to unknown, so the folder question is skipped and all folders follow
+  const dontKnow = FLOW["firmware:last"].choices[3];
+  const facts = { color: "blue", ...dontKnow.set };
+  assert.equal(passSteps(destOf(dontKnow, facts), facts).id, "folder:all:blue");
+  // an answer is only a hint: the folder question is still asked
+  assert.equal(passSteps("firmware:last", { color: "red", last: "hacktribe" }).id, "firmware:file");
+});
+
+test("the steps with MENU show the drawn keys, and Korg's download steps show the shot of the button", () => {
+  for (const id of ["update:menu", "nofile:update"]) assert.ok(FLOW[id].say.some(l => l.keys === "menu"), id);
+  assert.ok(FLOW["update:prompt"].say.some(l => l.keys === "enter"));
+  for (const key of Object.keys(DEVICES)) {
+    assert.match(DEVICES[key].shot, /^img\/rescue\/korg-download-(red|blue)\.webp$/);
+    assert.ok(readdirSync(new URL("site/img/rescue/", ROOT)).includes(DEVICES[key].shot.split("/").pop()), key);
+    for (const id of [`download:update:${key}`, `download:${key}:go`]) assert.ok(FLOW[id].say.some(l => l.shot === DEVICES[key].shot), id);
+  }
+  assert.ok(FLOW["back:head"].say.some(l => l.shot === DEVICES.blue.shot));
 });
