@@ -200,17 +200,24 @@ def case_boot_effects(payload, flash):
 
 
 def case_version_text(payload, flash):
-    """BLECH > VERSION says in its third row what the start did with e2sFx.all: nothing without a file."""
+    """BLECH > VERSION says behind the firmware what the start did with e2sFx.all, nothing without a file. The third row stays empty:
+    the firmware draws it on the row of the value. The value row on screen holds exactly the pixels of the value alone."""
     base, before, want, good = plan(payload, flash)
     build = 2 if build_of(payload) == "stock" else 1
+    firmware = menu_cases.BASE_NAMES[build_of(payload)]
     out = []
-    for name, files, expect in (("none", {}, ""), ("loaded", {CARD_FILE: collection(build, good)}, "effects loaded"),
-                                ("build", {CARD_FILE: collection(3 - build, good)}, "e2sFx.all wrong fw"),
-                                ("checksum", {CARD_FILE: collection(build, good, crc_wrong=True)}, "bad e2sFx.all")):
+    for name, files, tag in (("none", {}, ""), ("loaded", {CARD_FILE: collection(build, good)}, " FX"),
+                             ("build", {CARD_FILE: collection(3 - build, good)}, " FX fw?"),
+                             ("checksum", {CARD_FILE: collection(build, good, crc_wrong=True)}, " FX bad")):
         dev = boot(payload, flash, files)
         menu_cases.goto_top(dev, menu_cases.LIST_VERSION)
-        line3 = menu_cases.texts_of(dev)[2]
-        out.append(result(f"version_{name}", line3 == expect and not dev.m.asserts, f"third row {line3!r}, want {expect!r}"))
+        texts = menu_cases.texts_of(dev)
+        crowded = menu_cases.page_overlap(dev)
+        menu_cases.goto_top(dev, menu_cases.LIST_VERSION)
+        extra, missing = menu_cases.value_row_leftovers(dev)
+        out.append(result(f"version_{name}", texts[1:] == (firmware + tag, "") and crowded is None and not extra and not missing and not dev.m.asserts,
+                          f"value and third row {texts[1:]}, want {(firmware + tag, '')}; {crowded}; {len(extra)} pixels beside the value, "
+                          f"{len(missing)} of it missing"))
     return out
 
 

@@ -17,17 +17,19 @@ Beleg: ein Datensatz IFX bzw. MFX Nummer 5 in der Datei, der als Folge von drei 
 Typs ohne Datei entsteht, ist unter den Übertragungen des Starts mit Datei (`boot_ifx_sent`, `boot_mfx_sent`, beide
 Firmwares). **Offen:** ob das Umschalten das Pattern als geändert markiert.
 
-## Dritte Zeile von VERSION
+## Effektstatus unter VERSION
 
-BLECH > VERSION zeigt unter der Firmware, was der Start mit der Datei gemacht hat (Status bei `HOOK_CARD+0xFE0`):
+BLECH > VERSION zeigt hinter der Firmware, was der Start mit der Datei gemacht hat (Status bei `HOOK_CARD+0xFE0`), in derselben
+Zeile, z. B. `HACKTRIBE FX`. Eine dritte Zeile zeichnet die Firmware auf die Zeile des Werts, darum steht der Status dort nicht
+([Messung vom 8.11.](2026-11-08-splash-import-wertzeile.md)):
 
-| Status | Zeile 3 |
+| Status | hinter der Firmware |
 |---|---|
-| geladen | `effects loaded` |
-| beim Start übersprungen (Sperrtasten) | `effects skipped` |
-| Datei für eine andere Firmware | `e2sFx.all wrong fw` |
-| Kopf, Eintrag, Prüfsumme oder Lesen falsch | `bad e2sFx.all` |
-| keine Datei | leer |
+| geladen | `FX` |
+| beim Start übersprungen (Sperrtasten) | `FX off` |
+| Datei für eine andere Firmware | `FX fw?` |
+| Kopf, Eintrag, Prüfsumme oder Lesen falsch | `FX bad` |
+| keine Datei | nichts |
 
 Gemessen: keine Datei, gute Datei, falsche Firmware, falsche Prüfsumme (`version_*`, beide Firmwares).
 

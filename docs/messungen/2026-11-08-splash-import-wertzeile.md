@@ -36,9 +36,27 @@ mit dem vollen Namen.
 | `splash_import` | Texte vor ENTER `splash.bmp` ohne dritte Zeile | gemessen |
 | `splash_long_name_cut` | `a-very-long-name-here.bmp` zeigt `a-very-long`, kein Text am Rand, ENTER speichert genau dieses Bild | gemessen |
 
-## Offen: VERSION
+## VERSION
 
-`Menü -> BLECH -> VERSION` hat dasselbe Problem, sobald der Start `e2sFx.all` geladen hat: Wert `HACKTRIBE` und dritte Zeile
-`effects loaded` liegen übereinander (`page_overlap`: 35 gemeinsame Pixel, **gemessen**). Ohne Datei ist die dritte Zeile leer
-und die Seite sauber. Hier lässt sich nicht einfach eine Zeile weglassen, ohne eine der beiden Angaben zu verlieren. Das bleibt
-eine eigene Änderung.
+`Menü -> BLECH -> VERSION` hatte dasselbe Problem, sobald der Start `e2sFx.all` gefunden hatte: Wert `HACKTRIBE` und dritte Zeile
+`effects loaded` lagen übereinander (`page_overlap`: 35 gemeinsame Pixel, **gemessen**). Ohne Datei war die dritte Zeile leer und
+die Seite sauber.
+
+Der Effektstatus steht jetzt als kurzes Kürzel hinter der Firmware in der Wertzeile (`menu_text_version`, Texte in
+`tools/patch/script_menu.s`), die dritte Zeile bleibt leer. Breiten mit `draw_texts` **gemessen**, Rand bei Spalte 125:
+
+| Status | Wert | letzte Spalte HACKTRIBE / KORG RED |
+|---|---|---|
+| keine Datei | `HACKTRIBE` | unverändert |
+| geladen | `HACKTRIBE FX` | 94 / 89 |
+| beim Start übersprungen | `HACKTRIBE FX off` | 118 / 113 |
+| Datei für eine andere Firmware | `HACKTRIBE FX fw?` | 120 / 115 |
+| Datei kaputt | `HACKTRIBE FX bad` | 122 / 117 |
+
+Die ausgeschriebenen Texte passen nicht: `HACKTRIBE FX skipped` und `HACKTRIBE FX wrong fw` laufen über die ganze Zeile. Die blaue
+Electribe hat keine Effektdatei, dort steht nur `KORG BLUE`.
+
+Fälle `fxcard:version_none`, `version_loaded`, `version_build`, `version_checksum` (`tools/emu/fx_card_cases.py`): Wert wie in
+der Tabelle, dritte Zeile leer, kein `page_overlap`, die Pixel der Wertzeile genau die des Werts allein. **Gemessen** auf Hacktribe
+und Korg rot, vor dem Fix rot (91 bis 139 Pixel neben dem Wert). `FX off` ist nur in der Breite gemessen, der Fall braucht die
+Sperrtasten beim Start.
