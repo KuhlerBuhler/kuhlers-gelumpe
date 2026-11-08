@@ -962,13 +962,15 @@ key_hold_store:
 ; is not pressed twice. A full queue drops the press; a release waits for the next frame.
 .equ PK_UP, 0
 
-; r0 key (0 to 33). EXIT is refused, an app would stay open with the firmware on its own screen.
+; r0 key (0 to 33). EXIT closes an open app first, as the input filter does for the panel's EXIT (since API 25; it was
+; refused before, the app stayed open with the firmware on its own screen).
 script_press_key_glue:
-    cmp r0, #KEY_EXIT
-    beq hw_bad_arg
     push {r4-r6, lr}
-    ldr r4, =PRESS_KEY
     mov r5, r0
+    cmp r0, #KEY_EXIT
+    bleq script_app_close
+    mov r0, r5
+    ldr r4, =PRESS_KEY
     cmp r0, #32
     addhs r4, r4, #4
     subhs r0, r0, #32
@@ -1023,6 +1025,268 @@ press_tick_next:
     add r5, r5, #1
     cmp r5, #34
     blo press_tick_key
+    pop {r4-r6, pc}
+.pool
+
+; The panel as a finger works it (API 25): korg.keyDown and korg.keyUp, korg.padDown and korg.padUp, korg.encoder and korg.touch
+; put the message the panel sends for the control into the panel queue (rm_post_quiet in script_remote.s), with PK_MARK in its
+; last byte like korg.pressKey: the input filter passes it to the firmware untouched (no remap, no hold, no app, no shortcut, no
+; touch lock) and posts it to no plugin, so a plugin's own pad is never kept by its own korg.padHold and never comes back to it as
+; `pad`. The record at SIM_INPUT holds a bit per key (two words, the touchpad as bit 2 of the second) and per pad, clear while the
+; plugin holds it down, so a second down or an up without a down sends nothing; then the plugin that put the last one down and
+; the checksum of its block. When that plugin no longer runs, the frame's end lets go of everything still down
+; (script_sim_input_guard). FF at power-on is nothing down. A full queue drops the message and leaves the bit as it was.
+.equ SI_UP, 0
+.equ SI_UP_HI, 4
+.equ SI_PADS, 8
+.equ SI_OWNER, 12
+.equ SI_CRC, 16
+.equ SI_TOUCH_BIT, 4
+.equ SI_TOUCH_DOWN, 0x12200     ; type 0, the touchpad key (0x22), 1 (pressed)
+.equ SI_TOUCH_UP, 0x2200        ; type 0, the touchpad key, 0 (released)
+
+; r0 key (0 to 33) -> r4 the address of its word in SIM_INPUT, r6 its bit. Clobbers r0.
+si_key_word:
+    ldr r4, =SIM_INPUT
+    cmp r0, #32
+    addhs r4, r4, #4
+    subhs r0, r0, #32
+    mov r6, #1
+    mov r6, r6, lsl r0
+    bx lr
+
+; The running plugin holds what is down now. Clobbers r2 and r3.
+si_owner:
+    ldr r2, =SIM_INPUT
+    ldr r3, =HOOK_RUNTIME
+    ldr r3, [r3, #RT_ENTRY]
+    str r3, [r2, #SI_OWNER]
+    ldr r3, [r3, #SCRIPT_ENTRY_BLOB]
+    ldr r3, [r3, #12]
+    str r3, [r2, #SI_CRC]
+    bx lr
+
+; r0 the first four bytes of a panel message, r1 the fifth -> r0 0 when the queue was full. Clobbers r1 to r3 and r12.
+si_post:
+    orr r1, r1, #PK_MARK_WORD
+    b rm_post_quiet
+
+; r0 key (0 to 33): the key goes down for the firmware and stays down until korg.keyUp. EXIT closes an open app first.
+script_key_down_glue:
+    push {r4-r6, lr}
+    mov r5, r0
+    bl si_key_word
+    ldr r3, [r4]
+    tst r3, r6
+    beq si_done
+    cmp r5, #KEY_EXIT
+    bleq script_app_close
+    mov r0, r5, lsl #8
+    orr r0, r0, #0x10000        ; type 0, the key, 1 (pressed)
+    mov r1, #0
+    bl si_post
+    cmp r0, #0
+    beq si_done
+    ldr r3, [r4]
+    bic r3, r3, r6
+    str r3, [r4]
+    bl si_owner
+si_done:
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4-r6, pc}
+
+; r0 key (0 to 33): the release of a key this plugin put down.
+script_key_up_glue:
+    push {r4-r6, lr}
+    mov r5, r0
+    bl si_key_word
+    ldr r3, [r4]
+    tst r3, r6
+    bne si_done
+    mov r0, r5, lsl #8          ; type 0, the key, 0 (released)
+    mov r1, #0
+    bl si_post
+    cmp r0, #0
+    ldrne r3, [r4]
+    orrne r3, r3, r6
+    strne r3, [r4]
+    b si_done
+
+; r0 pad (0 to 15), r1 velocity (1 to 127): the pad is hit and stays down until korg.padUp.
+script_pad_down_glue:
+    push {r4-r6, lr}
+    ldr r4, =SIM_INPUT+SI_PADS
+    mov r6, #1
+    mov r6, r6, lsl r0
+    ldr r3, [r4]
+    tst r3, r6
+    beq si_done
+    mov r0, r0, lsl #8
+    orr r0, r0, #4              ; type 4, the pad, 0, the velocity; then 1 (on)
+    orr r0, r0, r1, lsl #24
+    mov r1, #1
+    bl si_post
+    cmp r0, #0
+    beq si_done
+    ldr r3, [r4]
+    bic r3, r3, r6
+    str r3, [r4]
+    bl si_owner
+    b si_done
+
+; r0 pad (0 to 15): the release of a pad this plugin hit, velocity 0 and off as the panel sends it.
+script_pad_up_glue:
+    push {r4-r6, lr}
+    ldr r4, =SIM_INPUT+SI_PADS
+    mov r6, #1
+    mov r6, r6, lsl r0
+    ldr r3, [r4]
+    tst r3, r6
+    bne si_done
+    mov r0, r0, lsl #8
+    orr r0, r0, #4              ; type 4, the pad, 0, 0; then 0 (off)
+    mov r1, #0
+    bl si_post
+    cmp r0, #0
+    ldrne r3, [r4]
+    orrne r3, r3, r6
+    strne r3, [r4]
+    b si_done
+
+; r0 encoder (0 to 4), r1 delta (-127 to 127, 0 sends nothing): one turn as the panel sends it, the delta as a signed byte.
+script_encoder_glue:
+    push {r4-r6, lr}
+    cmp r1, #0
+    beq si_done
+    and r1, r1, #0xFF
+    mov r0, r0, lsl #8
+    orr r0, r0, #1              ; type 1, the encoder, 0, the delta
+    orr r0, r0, r1, lsl #24
+    mov r1, #0
+    bl si_post
+    b si_done
+
+; r0 x (-1 to 1023), r1 y (0 to 1023): a finger on the touchpad at x, y, as the panel sends it: the touchpad key goes down at the
+; first position, then the position; x -1 lifts the finger (the key's release).
+script_touch_glue:
+    push {r4-r6, lr}
+    ldr r4, =SIM_INPUT+SI_UP_HI
+    mov r6, #SI_TOUCH_BIT
+    cmp r0, #0
+    blt touch_up
+    orr r5, r0, r1, lsl #16
+    ldr r3, [r4]
+    tst r3, r6
+    beq touch_move
+    ldr r0, =SI_TOUCH_DOWN
+    mov r1, #0
+    bl si_post
+    cmp r0, #0
+    beq si_done
+    ldr r3, [r4]
+    bic r3, r3, r6
+    str r3, [r4]
+    bl si_owner
+touch_move:
+    mov r2, r5, lsl #16
+    mov r2, r2, lsr #16         ; x
+    mov r0, #5                  ; type 5, x high, x low, y high; then y low
+    mov r3, r2, lsr #8
+    orr r0, r0, r3, lsl #8
+    and r3, r2, #0xFF
+    orr r0, r0, r3, lsl #16
+    mov r2, r5, lsr #16         ; y
+    mov r3, r2, lsr #8
+    orr r0, r0, r3, lsl #24
+    and r1, r2, #0xFF
+    bl si_post
+    b si_done
+touch_up:
+    ldr r3, [r4]
+    tst r3, r6
+    bne si_done
+    mov r0, #SI_TOUCH_UP
+    mov r1, #0
+    bl si_post
+    cmp r0, #0
+    ldrne r3, [r4]
+    orrne r3, r3, r6
+    strne r3, [r4]
+    b si_done
+
+; r0 runtime. When something is still down and the plugin that put it down is gone from the list, no longer armed or holds
+; another block, everything goes up. Preserves r4. Clobbers r0 to r3 and r12.
+script_sim_input_guard:
+    ldr r1, =SIM_INPUT
+    ldr r2, [r1, #SI_UP]
+    cmn r2, #1
+    bne si_guard_owner
+    ldr r2, [r1, #SI_UP_HI]
+    and r2, r2, #7
+    cmp r2, #7
+    bne si_guard_owner
+    ldr r2, [r1, #SI_PADS]
+    mov r2, r2, lsl #16
+    cmn r2, #0x10000
+    bxeq lr
+si_guard_owner:
+    ldr r2, [r1, #SI_OWNER]
+    ldr r12, [r1, #SI_CRC]
+    push {r4-r6, lr}
+    bl hold_owner_gone
+    cmp r3, #0
+    popeq {r4-r6, pc}
+    mov r5, #0
+si_release_key:
+    mov r0, r5
+    bl si_key_word
+    ldr r3, [r4]
+    tst r3, r6
+    bne si_release_key_next
+    mov r0, r5, lsl #8
+    mov r1, #0
+    bl si_post
+    cmp r0, #0
+    ldrne r3, [r4]
+    orrne r3, r3, r6
+    strne r3, [r4]
+si_release_key_next:
+    add r5, r5, #1
+    cmp r5, #34
+    blo si_release_key
+    ldr r4, =SIM_INPUT+SI_UP_HI
+    ldr r3, [r4]
+    tst r3, #SI_TOUCH_BIT
+    bne si_release_pads
+    mov r0, #SI_TOUCH_UP
+    mov r1, #0
+    bl si_post
+    cmp r0, #0
+    ldrne r3, [r4]
+    orrne r3, r3, #SI_TOUCH_BIT
+    strne r3, [r4]
+si_release_pads:
+    mov r5, #0
+si_release_pad:
+    ldr r4, =SIM_INPUT+SI_PADS
+    mov r6, #1
+    mov r6, r6, lsl r5
+    ldr r3, [r4]
+    tst r3, r6
+    bne si_release_pad_next
+    mov r0, r5, lsl #8
+    orr r0, r0, #4
+    mov r1, #0
+    bl si_post
+    cmp r0, #0
+    ldrne r3, [r4]
+    orrne r3, r3, r6
+    strne r3, [r4]
+si_release_pad_next:
+    add r5, r5, #1
+    cmp r5, #16
+    blo si_release_pad
     pop {r4-r6, pc}
 .pool
 

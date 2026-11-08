@@ -449,7 +449,7 @@ test("a plugin that stops running lets go of its keys, knobs and pads, the other
   `)).ok);
   assert.ok(sim.load(build("b", `
     korg.onEvent("ready", () => { korg.keyHold(korg.key.PLAY, 1); korg.knobHold(3, 1); });
-    korg.onEvent("buttonPress", () => { korg.pressKey(korg.key.EXIT); });
+    korg.onEvent("buttonPress", () => { korg.keyHold(korg.key.EXIT, 1); });
   `)).ok);
   sim.frame();
   assert.deepEqual([sim.hardware.keyHold[2], sim.hardware.knobHold, sim.hardware.padHold], [1, 1 << 9 | 1 << 3, 1]);
@@ -473,12 +473,12 @@ test("korg.keyMask refuses EXIT in the mask and takes keys 32 and 33 from the se
   assert.equal(faults[0]?.name, "API_ARG");
 });
 
-test("korg.keyHold and korg.pressKey refuse EXIT, korg.touchLockX is state in the simulated hardware", () => {
+test("korg.keyHold refuses EXIT, korg.touchLockX is state in the simulated hardware", () => {
   const sim = new SimDevice();
   assert.ok(sim.load(build("lock", `
     korg.onEvent("ready", () => { korg.touchLockX(64); });
     korg.onEvent("touch", (x, y) => { if (x > 900) korg.touchLockX(-1); });
-    korg.onEvent("buttonPress", () => { korg.pressKey(korg.key.EXIT); });
+    korg.onEvent("buttonPress", () => { korg.keyHold(korg.key.EXIT, 1); });
   `)).ok);
   sim.frame();
   assert.equal(sim.hardware.touchLock, 64);
@@ -538,4 +538,34 @@ test("korg.menu.add is only for start and ready, takes a range that is a range, 
   many.load(build("many", Array.from({ length: 14 }, (_, i) => `let p${i} = korg.menu.add("page${i}", 0, 9, 0);`).join("\n")));
   assert.equal(many.menus.length, 12);
   assert.equal(many.runtime.scripts[0].script.vars[12], -1, "the thirteenth page is refused with -1");
+});
+
+test("the panel calls of API 25 hand the firmware down and up like a finger, a second down sends nothing", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("panel", `
+    korg.onEvent("ready", () => {
+      korg.keyDown(korg.key.SHIFT); korg.keyDown(korg.key.SHIFT); korg.keyUp(korg.key.SHIFT); korg.keyUp(korg.key.SHIFT);
+      korg.padDown(3, 100); korg.padDown(3, 50); korg.padUp(3); korg.padUp(3);
+      korg.encoder(1, -1); korg.encoder(4, 0); korg.touch(-1, 0); korg.touch(512, 700); korg.touch(-1, 0);
+      korg.keyDown(korg.key.PLAY);
+    });
+  `)).ok);
+  sim.frame();
+  const shift = korgKey("SHIFT");
+  assert.deepEqual(sim.hardware.firmwareInputs, [
+    ["keyDown", shift], ["keyUp", shift], ["padDown", 3, 100], ["padUp", 3], ["encoder", 1, -1], ["touch", 512, 700], ["touchUp"],
+    ["keyDown", korgKey("PLAY")],
+  ]);
+  assert.equal(sim.hardware.transport, 1, "PLAY down reached the firmware");
+});
+
+test("korg.pressKey and korg.keyDown take EXIT since API 25 and close an open app first", () => {
+  const sim = new SimDevice();
+  let closed = 0;
+  sim.hardware.closeApp = () => { closed++; };
+  assert.ok(sim.load(build("exit", `korg.onEvent("ready", () => { korg.pressKey(korg.key.EXIT); korg.keyDown(korg.key.EXIT); korg.keyUp(korg.key.EXIT); });`)).ok);
+  sim.frame();
+  assert.deepEqual(sim.hardware.pressedKeys, [korgKey("EXIT")]);
+  assert.deepEqual(sim.hardware.firmwareInputs, [["keyDown", korgKey("EXIT")], ["keyUp", korgKey("EXIT")]]);
+  assert.equal(closed, 2);
 });

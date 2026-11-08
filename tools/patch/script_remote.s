@@ -126,6 +126,15 @@ rm_return:
 ; Auto Power Off, as the reader does for every byte, and notes what is held down. Clobbers r1 to r3 and r12.
 rm_post:
     push {r4-r8, lr}
+    mov r8, #1
+    b rm_post_go
+
+; The same for the panel calls of a plugin (script_hw.s, korg.keyDown and the others), without noting what is held: the plugin
+; holds it, not the computer, so the remote's release after RM_IDLE_FRAMES leaves it alone.
+rm_post_quiet:
+    push {r4-r8, lr}
+    mov r8, #0
+rm_post_go:
     sub sp, sp, #8
     stmia sp, {r0, r1}
     mov r5, r0
@@ -147,7 +156,8 @@ rm_post:
     bl testmode_keep_awake
     mov r0, r5
     mov r1, r6
-    bl rm_held_note
+    cmp r8, #0
+    blne rm_held_note
 rm_post_out:
     mov r0, r7
     add sp, sp, #8
