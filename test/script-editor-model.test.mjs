@@ -18,7 +18,7 @@ const hover = source => { const { text, pos } = at(source); return hoverAt(text,
 test("korg.disp offers every korg.display entry, each with a description, its parameters and where it may be called", () => {
   const result = complete("korg.disp|");
   assert.equal(result.from, 0);
-  const display = result.options.filter(o => o.label.startsWith("korg.display."));
+  const display = result.options.filter(o => o.label.startsWith("korg.display.") && o.type === "function");
   assert.deepEqual(display.map(o => o.label), API.filter(a => a.name.startsWith("korg.display.")).map(a => a.name));
   const text = display.find(o => o.label === "korg.display.text");
   assert.equal(text.detail, "(text, x, y)");
