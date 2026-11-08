@@ -335,7 +335,15 @@ def page_overlap(dev):
     return wrong or None
 
 
-APPS_STATE_SIZE = 168                                                 # SCRIPT_APPS.stateSize in data/script/contract.mjs: the table of apps ends the runtime
+def value_row_leftovers(dev):
+    """The pixels of the value row on screen that the value alone does not draw (what an earlier text left there or the third line
+    drew over it), and those of the value that are missing. Redraws the value row, so call it last before the next key."""
+    shown = lit(frame(dev), range(30, 47))
+    alone = lit(draw_texts(dev, texts_of(dev)[1], ""), range(30, 47))
+    return shown - alone, alone - shown
+
+
+APPS_STATE_SIZE = 168                                                # SCRIPT_APPS.stateSize in data/script/contract.mjs: the table of apps ends the runtime
 
 
 def apps_open_address():
@@ -1532,8 +1540,8 @@ def cases_task(i):
 
 def splash_menu_cases(payload, flash=None):
     """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT lists the .bmp files in KORG/blechtribe, the dial picks one
-    and ENTER reads it into the start image,
-    SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back; the
+    and ENTER reads it into the start image; the value row shows the name alone (a name of more than 11 characters without ".bmp", cut
+    to 11), SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back; the
     three are a group of their own, the row SPLASH of CUSTOMIZATION opens it.
     Without the editor (the synth) the group keeps its 8 pages."""
     from splash_cases import bmp, image_of
@@ -1562,7 +1570,7 @@ def splash_menu_cases(payload, flash=None):
     press(dev, "menu", 0.6)
     after = texts_of(dev)
     stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(pic)
-    add("import", before == ("SPLASH IMPORT", "splash.bmp", PRESS) and after[:2] == ("SPLASH IMPORT", "loaded") and stored and not dev.m.asserts,
+    add("import", before == ("SPLASH IMPORT", "splash.bmp", "") and after[:2] == ("SPLASH IMPORT", "loaded") and stored and not dev.m.asserts,
         f"{before} -> {after}, image {'stored' if stored else 'not stored'}")
     press(dev, "edit_next", 0.4)
     page = texts_of(dev)
@@ -1574,6 +1582,13 @@ def splash_menu_cases(payload, flash=None):
     add("draw_opens_the_editor", page == ("SPLASH DRAW", "", PRESS) and dev.screen()["number"] == 9 and dev.screen()["page"] == splash_editor.PAGE and st == 1
         and len(differ) <= 1 and not dev.m.asserts, f"{page}, screen {dev.screen()}, editor mode {st}, display bytes not the image (battery aside): {differ}")
     bare = boot(payload, flash, files=CARD_FOLDER)
+    # the value row shows the value alone: no "press  [ Enter ]" on its row, nothing left of SPLASH DRAW's line from before the key
+    goto_group(bare, GROUP_SPLASH, 1)
+    press(bare, "edit_prev", 0.4)
+    nofile = texts_of(bare)
+    extra, missing = value_row_leftovers(bare)
+    add("no_file_value_clean", nofile == ("SPLASH IMPORT", "no .bmp file", "") and not extra and not missing and not bare.m.asserts,
+        f"{nofile}, {len(extra)} pixels beside the value, {len(missing)} of it missing")
     goto_group(bare, GROUP_SPLASH, 0)
     press(bare, "menu", 0.6)
     add("import_without_file", texts_of(bare)[1] == "no .bmp file", str(texts_of(bare)))
@@ -1589,7 +1604,7 @@ def splash_menu_cases(payload, flash=None):
     for step in (1, 1, -1, -1, -1):
         dev.turn(step, wait=0.3)
         seen.append(texts_of(dev)[1])
-    names = {"splash.bmp": pic, "splash (1).bmp": other}
+    names = {"splash.bmp": pic, "splash (1)": other}   # a name of more than 11 characters is shown without ".bmp"
     walked = sorted(seen[:2]) == sorted(names) and seen[2] == seen[1] and seen[3] == seen[0] and seen[4] == seen[5] == seen[0]
     dev.turn(1, wait=0.3)
     shown = texts_of(dev)[1]
@@ -1599,6 +1614,24 @@ def splash_menu_cases(payload, flash=None):
     dev.turn(-1, wait=0.3)
     add("list", walked and taken == "loaded" and stored and texts_of(dev)[1] == seen[0] and not dev.m.asserts,
         f"dial {seen}, ENTER on {shown!r} -> {taken!r}, image {'stored' if stored else 'not stored'}, then {texts_of(dev)[1]!r}")
+    clean = []
+    for step in (0, 1):                      # a name, the next name over it, then what ENTER said over that
+        if step:
+            dev.turn(step, wait=0.3)
+        clean.append((texts_of(dev), *map(len, value_row_leftovers(dev))))
+    dev.turn(-1, wait=0.3)
+    press(dev, "menu", 0.6)
+    clean.append((texts_of(dev), *map(len, value_row_leftovers(dev))))
+    add("list_value_clean", [c[0][1:] for c in clean] == [(seen[0], ""), (seen[1], ""), ("loaded", "")] and all(c[1:] == (0, 0) for c in clean)
+        and not dev.m.asserts, f"(texts, pixels beside the value, missing): {clean}")
+    # a long name is cut to 11 characters (12 of the widest letter run into each other), ENTER still reads the file of that name
+    dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/a-very-long-name-here.bmp": bmp(other)})
+    goto_group(dev, GROUP_SPLASH, 0)
+    long_texts, long_crowded = texts_of(dev), page_overlap(dev)
+    press(dev, "menu", 0.6)
+    stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(other)
+    add("long_name_cut", long_texts == ("SPLASH IMPORT", "a-very-long", "") and long_crowded is None and texts_of(dev)[1] == "loaded" and stored
+        and not dev.m.asserts, f"{long_texts}, {long_crowded}, ENTER -> {texts_of(dev)[1]!r}, image {'stored' if stored else 'not stored'}")
     from splash_cases import DESC13
     desc = lambda d: d.u32(DESC13)
     record_id = lambda d: struct.unpack_from("<I", d.m.flash.mem, splash_editor.FLASH_RECORD)[0]
