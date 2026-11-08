@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 23;
+export const API_VERSION = 25;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -378,6 +378,14 @@ const API_LIST = [
   [82, "korg.seq.getGate", [int("part", 0, 15), int("step", 0, 63)], "int", ALL, 4, 22],
   [83, "korg.seq.getNote", [int("part", 0, 15), int("step", 0, 63), int("slot", 0, 3)], "int", ALL, 4, 22],
   [84, "korg.seq.getVelocity", [int("part", 0, 15), int("step", 0, 63)], "int", ALL, 4, 22],
+  // the panel as a finger works it (API 25): each call puts the message the panel sends into the panel queue, marked, so it reaches
+  // the firmware past remap, holds, app and shortcuts and no plugin; ids from 100, so they stay clear of the calls of API 24
+  [100, "korg.keyDown", [int("key", 0, 33)], "void", UI, 30, 25],
+  [101, "korg.keyUp", [int("key", 0, 33)], "void", UI, 30, 25],
+  [102, "korg.padDown", [int("pad", 0, 15), int("velocity", 1, 127)], "void", UI, 30, 25],
+  [103, "korg.padUp", [int("pad", 0, 15)], "void", UI, 30, 25],
+  [104, "korg.encoder", [int("index", 0, 4), int("delta", -127, 127)], "void", UI, 30, 25],
+  [105, "korg.touch", [int("x", -1, 1023), int("y", 0, 1023)], "void", UI, 40, 25],
 ];
 
 /**
