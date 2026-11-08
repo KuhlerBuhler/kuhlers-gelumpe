@@ -1107,7 +1107,7 @@ VERSION, die keine Gruppe ist:
 | CUSTOMIZATION | DISPLAY, LED, dazu PAD COLOR, POWER SAVE und SPLASH, wo der Satz sie hat; siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
 | TOOLS | wie GAMES |
-| VERSION | keine Gruppe: oben die Version des Satzes, mit dem die Firmware gepatcht wurde (`BLECH 1.3.7`, aus dem Patch `blech-version`), darunter die Firmware, für die das Menü gebaut ist (HACKTRIBE, KORG RED, KORG BLUE). In der dritten Zeile, was der Start mit `KORG/blechtribe/Presets/e2sFx.all` gemacht hat: "effects loaded" (geladen, IFX und MFX der Parts gleich neu an den DSP geschickt), "effects skipped" (beim Start übersprungen), "e2sFx.all wrong fw" (Datei für eine andere Firmware) oder "bad e2sFx.all"; leer ohne Datei. ENTER, WRITE und das Rad ändern nichts |
+| VERSION | keine Gruppe: oben die Version des Satzes, mit dem die Firmware gepatcht wurde (`BLECH 1.3.7`, aus dem Patch `blech-version`), darunter die Firmware, für die das Menü gebaut ist (HACKTRIBE, KORG RED, KORG BLUE). Hinter der Firmware, was der Start mit `KORG/blechtribe/Presets/e2sFx.all` gemacht hat: "FX" (geladen, IFX und MFX der Parts gleich neu an den DSP geschickt, also z. B. "HACKTRIBE FX"), "FX off" (beim Start übersprungen), "FX fw?" (Datei für eine andere Firmware) oder "FX bad" (Datei kaputt); nichts ohne Datei. ENTER, WRITE und das Rad ändern nichts |
 
 Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem Wert ON oder OFF, das Hauptrad ändert ihn:
 
