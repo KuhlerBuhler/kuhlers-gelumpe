@@ -294,8 +294,8 @@ probieren, Ausgabe und Display notieren.
     Melden: ok, sonst die Meldung des Geräts und die Größen.
 
 15. **Plugin laden.** Ein `.blech` aus dem Editor ("Als .blech speichern") nach
-    `KORG/blechtribe/Plugin/` legen (auf einem Mac liegen dort oft auch `._Name.blech` Dateien), am Gerät im Menü, Gruppe
-    PLUGINS, auf MANAGE PLUGINS ENTER drücken. EDIT blättert durch die Liste, je Plugin eine Seite: oben der Name, darunter
+    `KORG/blechtribe/Plugin/` legen (auf einem Mac liegen dort oft auch `._Name.blech` Dateien), am Gerät im Menü auf
+    PLUGINS ENTER drücken (die Liste öffnet direkt, ohne die Seite MANAGE PLUGINS dazwischen). EDIT blättert durch die Liste, je Plugin eine Seite: oben der Name, darunter
     der Stand. Ein nicht geladenes zeigt OFF; das Hauptrad nach oben lädt es, WRITE behält den Stand. ENTER auf einem
     Plugin öffnet seine Seiten: DESCRIPTION, seine eigenen Seiten, OFF, REMOVE; EXIT führt zurück auf das Plugin in der Liste.
     Erwartet: nur echte Plugin Dateien stehen in der Liste (keine mit Punkt am Anfang), ein Plugin kommt nur einmal vor,

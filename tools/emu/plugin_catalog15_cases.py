@@ -1,6 +1,5 @@
 """Emulator cases of the catalog plugins on plugin API 15, as the catalog ships them: Gate Hold fixes the note in Gate Arp
-mode and lets X pick the pattern's Gate Arp rhythm, Key Pads sets the pattern's KEY with KEYBOARD held and a pad, a
-short press of KEYBOARD alone still reaches the firmware, Momentary Mute leaves the firmware in PART MUTE mode only
+mode and lets X pick the pattern's Gate Arp rhythm, Momentary Mute leaves the firmware in PART MUTE mode only
 while PART MUTE is held, and Step Copy copies the steps of one bar into another from its pages in the BLECH menu.
 
     PYTHONPATH=tools/patch python3 tools/emu/plugin_catalog15_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
@@ -30,14 +29,12 @@ PRESETS = node_json.run(
     "import {PATTERN_FIELDS} from './data/script/contract.mjs';"
     "const s = id => PRESETS.find(p => p.id === id).source;"
     "const at = n => PATTERN_FIELDS.find(f => f.name === n).offset;"
-    "console.log(JSON.stringify({gatehold: s('gatehold'), keypads: s('keypads'), momentmute: s('momentmute'), stepcopy: s('stepcopy'),"
-    " gateArp: at('gateArp'), key: at('key')}))")
-GATE_ARP, TOUCH_SCALE, SHIFT, PART_MUTE, TRIGGER, SEQUENCER, KEYBOARD = 4, 5, 10, 16, 19, 21, 23
+    "console.log(JSON.stringify({gatehold: s('gatehold'), momentmute: s('momentmute'), stepcopy: s('stepcopy'),"
+    " gateArp: at('gateArp')}))")
+GATE_ARP, TOUCH_SCALE, SHIFT, PART_MUTE, TRIGGER, SEQUENCER = 4, 5, 10, 16, 19, 21
 LEDMGR = 0xC0345A1C             # the LED manager; +0xB58 the pad mode: 0 PART MUTE, 3 TRIGGER, 4 SEQUENCER
-PLUGINS = ["gatehold", "keypads", "momentmute"]
+PLUGINS = ["gatehold", "momentmute"]
 RAW_Y = 500
-# Per pad the KEY Key Pads sets, -1 none: the lower row (pads 9 to 16) C D E F G A B C, the upper row the black keys.
-NOTES = [-1, 1, 3, -1, 6, 8, 10, -1, 0, 2, 4, 5, 7, 9, 11, 0]
 
 
 def node_requests():
@@ -111,36 +108,6 @@ def marked_presses(dev, key):
     dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, dispatch, begin=dev.a(remote_cases.DISPATCH), end=dev.a(remote_cases.DISPATCH))
     dev.m.uc.ctl_flush_tb()
     return marked
-
-
-def key_pads_cases(dev):
-    pattern = edit.pattern(dev)
-    at = PRESETS["key"]
-    key = lambda: dev.read(pattern + at, 1)[0]  # noqa: E731
-    marked = marked_presses(dev, KEYBOARD)
-
-    out = []
-    edit.poke(dev, pattern + at, [0])
-    dev.m.send([0, KEYBOARD, 1, 0, 0])
-    dev.run(0.15)
-    got = []
-    for index in range(16):
-        edit.pad(dev, index)
-        got.append(key())
-    dev.m.send([0, KEYBOARD, 0, 0, 0])
-    dev.run(0.3)
-    want, last = [], 0
-    for n in NOTES:
-        last = n if n >= 0 else last
-        want.append(last)
-    out.append(entry("key_pads_set_the_key", got == want and marked == [] and not dev.m.asserts,
-                     f"KEY after each pad {got} (want {want}), KEYBOARD passed on {marked}"))
-
-    edit.tap_key(dev, KEYBOARD, 0.4)
-    out.append(entry("key_pads_short_press_reaches_the_firmware", marked == [1, 0] and key() == want[-1]
-                     and dev.read(script_hooks.PRESS_KEY, 8) == b"\xff" * 8 and not dev.m.asserts,
-                     f"KEYBOARD passed on {marked} (want press and release), KEY {key()}"))
-    return out
 
 
 def moment_mute_cases(dev):
@@ -276,7 +243,7 @@ def cases(vsb, flash=None):
     dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True, seconds=2.0)
     edit.script_cases.install(dev, built, request["programs"], PLUGINS)
     dev.run(0.3)
-    return gate_hold_cases(dev, build) + key_pads_cases(dev) + moment_mute_cases(dev) + step_copy_cases(vsb, flash, build)
+    return gate_hold_cases(dev, build) + moment_mute_cases(dev) + step_copy_cases(vsb, flash, build)
 
 
 def main():

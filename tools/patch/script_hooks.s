@@ -651,6 +651,8 @@ frame_finish:
     mov r0, r4
     bl script_touch_lock_guard
     mov r0, r4
+    bl script_sim_input_guard
+    mov r0, r4
     bl script_display_blit
     bl display_calibrate
     mov r0, r4

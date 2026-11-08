@@ -19,9 +19,6 @@ gelesen), **hergeleitet**, **offen**.
 | [rettung.md](rettung.md) | Die Seite Rettung: der dokumentierte Weg zurück, Ordner je Firmware, das Stoppschild |
 | [patcher.md](patcher.md) | Die Firmware patchen: Patchformat, Haken, Regeln, Notschalter, BLECH-Patchdatei ([English](patcher.en.md)) |
 | [emulator.md](emulator.md) | Der Emulator: Installation, Dienst, Karte und Flash, Boot, Prüfläufe |
-| [set/pattern-aufspielen.md](set/pattern-aufspielen.md) | Einzelne Patterns von der Karte auf die Electribe bringen |
-| [set/uebergaenge.md](set/uebergaenge.md) | Übergangs-Patterns für ein Set erzeugen |
-| [set/pattern-werkzeuge.md](set/pattern-werkzeuge.md) | Die Seite Pattern-Werkzeuge: Übergänge bauen und Parts würfeln, Ausgabe als Datei, Sicherung oder ans Gerät |
 | [geraetetests/](geraetetests/README.md) | Anleitungen, um BLECH und die Kartenfunktionen an einem eigenen Gerät zu testen |
 
 ## Wie es gebaut ist

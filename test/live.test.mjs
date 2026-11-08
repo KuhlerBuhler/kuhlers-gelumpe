@@ -327,14 +327,22 @@ test("globals: a dump of the wrong length or frame fails the dry run", async () 
   }
 });
 
-test("patterns: a step on without trigger is a warning that waits for a yes", async () => {
-  const { session, sim } = await patternSession();
+test("patterns: a step on without trigger plays, the linter does not warn about it", async () => {
+  const { session } = await patternSession();
   const p = new Pattern(edited());
   p.setRaw("step.on", [0, 0], 1);
   p.setRaw("step.trigger", [0, 0], 0);
   const res = await session.apply({ kind: "patternSend", block: p.bytes });
+  assert.ok(!(res.gate?.reasons ?? []).some(r => r.code === "step-without-trigger"));
+});
+
+test("patterns: a warning waits for a yes", async () => {
+  const { session, sim } = await patternSession();
+  const p = new Pattern(edited());
+  p.setRaw("part.glide", [2], 64);
+  const res = await session.apply({ kind: "patternSend", block: p.bytes });
   assert.equal(res.needsConfirmation, true);
-  assert.equal(res.gate.reasons[0].code, "step-without-trigger");
+  assert.equal(res.gate.reasons[0].code, "glide-dropped");
   assert.equal(new Pattern(sim.device.pattern).name, "Am Geraet", "nothing sent before the yes");
 });
 
