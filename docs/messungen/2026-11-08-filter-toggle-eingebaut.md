@@ -20,9 +20,9 @@ Drücken der Taste ohne SHIFT.
 
 | Teil | Wo | Marker |
 |---|---|---|
-| Eingang: LPF, HPF, BPF (Tasten 0x12, 0x14, 0x16) im Eingangsfilter; notiert in `FT_KEY` (MENU_STATE + 0x164), ob SHIFT gehalten ist (Familie plus 1) oder nicht (0), und lässt die Taste durch | `tools/patch/script_shortcuts.s:ft_input` (im Startphasen-Abschnitt `kp_input`) | gemessen |
-| Typ ersetzen: Haken auf dem Befehl `mov r0, #8` im Handler, r4 = neuer Typ der Firmware, r5 = alter; merkt r5 und den Typ der Firmware je Part und Familie in `FT_LAST` (48 Byte ab MENU_STATE + 0x168), setzt r4 neu und springt zurück | `ft_select`, `script_hooks.py` (SITES, `FILTER_TOGGLE_HACKTRIBE`) | gemessen |
-| Schalter: `M_FT` (MENU_STATE + 0x160), Seite 49 der Liste FEATURES | `tools/patch/script_menu.s` | gemessen |
+| Eingang: LPF, HPF, BPF (Tasten 0x12, 0x14, 0x16) im Eingangsfilter; notiert in `FT_KEY` (MENU_STATE + 0x1C4), ob SHIFT gehalten ist (Familie plus 1) oder nicht (0), und lässt die Taste durch | `tools/patch/script_shortcuts.s:ft_input` (im Startphasen-Abschnitt `kp_input`) | gemessen |
+| Typ ersetzen: Haken auf dem Befehl `mov r0, #8` im Handler, r4 = neuer Typ der Firmware, r5 = alter; merkt r5 und den Typ der Firmware je Part und Familie in `FT_LAST` (48 Byte ab MENU_STATE + 0x1C8), setzt r4 neu und springt zurück | `ft_select`, `script_hooks.py` (SITES, `FILTER_TOGGLE_HACKTRIBE`) | gemessen |
+| Schalter: `M_FT` (MENU_STATE + 0x1C0), Seite 49 der Liste FEATURES | `tools/patch/script_menu.s` | gemessen |
 
 Adressen des Hakens (dahinter geht es bei Adresse + 4 weiter):
 
@@ -32,7 +32,7 @@ Adressen des Hakens (dahinter geht es bei Adresse + 4 weiter):
 | Korg blau 2.02 | `0xC0062F14` | offline gelesen, gemessen |
 | Hacktribe 2.02 | `0xC01501F0`, eigener Filter-Handler von Hacktribe; der Korg-Weg bei `0xC006FDEC` läuft dort nie (Sonde: Haltepunkt nicht erreicht, der Typ wird aus `0xC0150xxx` geschrieben) | gemessen |
 
-Der Bereich MENU_STATE + 0x160 bis + 0x1B7 war vorher unbenutzt (offline gelesen in `script_*.s`).
+Der Bereich MENU_STATE + 0x1C0 bis + 0x1F7 war vorher unbenutzt (offline gelesen in `script_*.s`); `menu_arm` setzt die 0x200 Byte von MENU_STATE beim Start auf 0.
 
 ## Prüfung
 

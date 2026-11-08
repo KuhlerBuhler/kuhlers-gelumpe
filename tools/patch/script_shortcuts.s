@@ -211,8 +211,8 @@ sc_tick_done:
 .equ KP_WIN_CODE, 0x318         ; the parameter window: its code, value and changed flag
 .equ KP_WIN_VALUE, 0x31C
 .equ KP_WIN_CHANGED, 0x320
-.equ FT_KEY, 0x164              ; FILTER TOGGLE (ft_select), byte of MENU_STATE: the family (plus 1) of the key pressed with SHIFT, 0 a plain press
-.equ FT_LAST, 0x168             ; 48 bytes: per part and family the type it had last, 0 none yet
+.equ FT_KEY, 0x1C4              ; FILTER TOGGLE (ft_select), byte of MENU_STATE: the family (plus 1) of the key pressed with SHIFT, 0 a plain press
+.equ FT_LAST, 0x1C8             ; 48 bytes: per part and family the type it had last, 0 none yet
 .equ FT_KEY_LPF, 0x12
 .equ FT_KEY_HPF, 0x14
 .equ FT_KEY_BPF, 0x16

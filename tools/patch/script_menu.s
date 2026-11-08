@@ -70,7 +70,7 @@
 .equ BRW_FILE, 8
 .equ BRW_NOTE_Y, 54
 .equ M_KP, 0x104              ; the page KEY PADS, 1 on (the default), 0 off (script_shortcuts.s reads it); bit 4 of byte 5 of the settings file is OFF
-.equ M_FT, 0x160              ; the page FILTER TOGGLE, 1 on (the default), 0 off (script_shortcuts.s reads it); bit 5 of byte 5 of the settings file is OFF
+.equ M_FT, 0x1C0              ; the page FILTER TOGGLE, 1 on (the default), 0 off (script_shortcuts.s reads it); bit 5 of byte 5 of the settings file is OFF
 .equ GPIO_BASE, 0x01E26000
 .equ GPIO_WRITE, 0xC0016BB4
 .equ GPIO_IN67, 0x01E26098    ; GPIO IN_DATA67; bit 31 (GPIO 7.15) is low while the power key is held
