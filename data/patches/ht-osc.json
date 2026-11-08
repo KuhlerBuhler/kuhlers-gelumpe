@@ -101,9 +101,14 @@
    "why": "the factory start names the slots, which now calls ho_fill"
   },
   {
+   "file": 628900,
+   "length": 4,
+   "why": "the voice's slot lookup runs when the first pattern loads at start, which now calls ho_voice"
+  },
+  {
    "file": 1372416,
    "length": 2788,
-   "why": "ho_fill runs with that call; it reads the setting word and the held keys"
+   "why": "ho_fill and ho_voice run with those calls; they read the setting word and the held keys"
   }
  ],
  "ram": [

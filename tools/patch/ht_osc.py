@@ -317,7 +317,8 @@ def build_patch(vsb):
         "startPhase": [
             {"file": file_offset(FILE_SITE), "length": 4, "why": "the start from e2sSample.all names the slots, which now calls ho_fill"},
             {"file": file_offset(FACTORY_SITE), "length": 4, "why": "the factory start names the slots, which now calls ho_fill"},
-            {"file": file_offset(CODE_AT), "length": len(code), "why": "ho_fill runs with that call; it reads the setting word and the held keys"},
+            {"file": file_offset(VOICE_SITE), "length": 4, "why": "the voice's slot lookup runs when the first pattern loads at start, which now calls ho_voice"},
+            {"file": file_offset(CODE_AT), "length": len(code), "why": "ho_fill and ho_voice run with those calls; they read the setting word and the held keys"},
         ],
         "ram": [ramdecl.area(SETTING, 4, "the setting word of HT OSC: FFFFFFFF or 1 on, 0 off; the BLECH menu writes it", "tools/patch/ht_osc.py:SETTING")],
     }
