@@ -46,6 +46,8 @@ export const API_DOCS = Object.freeze({
   "korg.seq.getGate": text("api.korg.seq.getGate"),
   "korg.seq.getNote": text("api.korg.seq.getNote"),
   "korg.seq.getVelocity": text("api.korg.seq.getVelocity"),
+  "korg.display.popups": text("api.korg.display.popups"),
+  "korg.read.popups": text("api.korg.read.popups"),
   "korg.backlight": text("api.korg.backlight"),
   "korg.ledHold": text("api.korg.ledHold"),
   "korg.padHold": text("api.korg.padHold"),

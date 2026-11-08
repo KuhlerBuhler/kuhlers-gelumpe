@@ -264,6 +264,11 @@ pattern_fields:
     .word SCRIPT_PATTERN_FIELD_10
     .word SCRIPT_PATTERN_FIELD_11
     .word SCRIPT_PATTERN_FIELD_12
+    .word SCRIPT_PATTERN_FIELD_13
+    .word SCRIPT_PATTERN_FIELD_14
+    .word SCRIPT_PATTERN_FIELD_15
+    .word SCRIPT_PATTERN_FIELD_16
+    .word SCRIPT_PATTERN_FIELD_17
 part_fields:
     .word SCRIPT_PART_FIELD_0
     .word SCRIPT_PART_FIELD_1
@@ -286,6 +291,13 @@ part_fields:
     .word SCRIPT_PART_FIELD_18
     .word SCRIPT_PART_FIELD_19
     .word SCRIPT_PART_FIELD_20
+    .word SCRIPT_PART_FIELD_21
+    .word SCRIPT_PART_FIELD_22
+    .word SCRIPT_PART_FIELD_23
+    .word SCRIPT_PART_FIELD_24
+    .word SCRIPT_PART_FIELD_25
+    .word SCRIPT_PART_FIELD_26
+    .word SCRIPT_PART_FIELD_27
 
 hw_bad_arg:
     mov r0, #0
@@ -526,6 +538,7 @@ led_guard_release:
 .equ HD_KEYS_HI, SCRIPT_ENTRY_HOLDS+4
 .equ HD_KNOBS, SCRIPT_ENTRY_HOLDS+8
 .equ HD_PAD, SCRIPT_ENTRY_HOLDS+12
+.equ HD_QUIET, 2                    ; in HD_PAD: korg.display.popups(0), bit 0 is the pad hold
 
 ; r0 runtime, r1 a plugin to count although it is not armed yet (the one whose body runs), or 0. Folds the holds of the armed
 ; plugins into the key words (KY_FREE), the knob word (KH_FREE) and the pad bit of the capture mask. Clobbers r0 to r3 and r12.
@@ -553,8 +566,7 @@ holds_count:
     ldr r0, [r1, #HD_KNOBS]
     orr r7, r7, r0
     ldr r0, [r1, #HD_PAD]
-    cmp r0, #0
-    movne r0, #1
+    ands r0, r0, #1
     orrne r7, r7, r0, lsl #31
 holds_skip:
     ldr r1, [r1, #SCRIPT_ENTRY_NEXT]
@@ -590,10 +602,11 @@ hold_pads_release:
     push {lr}
     ldr r0, =HOOK_RUNTIME
     ldr r1, [r0, #RT_HEAD]
-    mov r2, #0
 holds_pad_next:
     cmp r1, #0
     beq holds_pad_done
+    ldr r2, [r1, #HD_PAD]
+    bic r2, r2, #1
     str r2, [r1, #HD_PAD]
     ldr r1, [r1, #SCRIPT_ENTRY_NEXT]
     b holds_pad_next
@@ -610,13 +623,47 @@ holds_pad_done:
 script_pad_hold_glue:
     push {lr}
     bl hold_entry
+    ldr r2, [r3, #HD_PAD]
+    bic r2, r2, #1
     cmp r0, #0
-    movne r0, #1
-    str r0, [r3, #HD_PAD]
+    orrne r2, r2, #1
+    str r2, [r3, #HD_PAD]
     bl hold_sync_caller
     mov r0, #0
     mov r1, #ERR_OK
     pop {pc}
+
+; korg.display.popups: r0 0 keeps the parameter window shut on this plugin's writes (korg.seq.setPartValue), 1 lets it open as a
+; knob opens it (the default). A bit in the plugin's own pad word (HD_QUIET), so it ends with the plugin.
+script_display_popups_glue:
+    push {lr}
+    bl hold_entry
+    ldr r2, [r3, #HD_PAD]
+    cmp r0, #0
+    orreq r2, r2, #HD_QUIET
+    bicne r2, r2, #HD_QUIET
+    str r2, [r3, #HD_PAD]
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {pc}
+
+; -> r0 1 while the running plugin lets the parameter window open, 0 while it keeps it shut
+script_read_popups_glue:
+    push {lr}
+    bl popups_quiet
+    moveq r0, #1
+    movne r0, #0
+    mov r1, #ERR_OK
+    pop {pc}
+
+; -> NE while the running plugin keeps the parameter window shut. Clobbers r0.
+popups_quiet:
+    ldr r0, =HOOK_RUNTIME
+    ldr r0, [r0, #RT_ENTRY]
+    cmp r0, #0
+    ldrne r0, [r0, #HD_PAD]
+    tstne r0, #HD_QUIET
+    bx lr
 
 ; r0 1 sets, 0 clears the pad bit of the capture mask, with the interrupts off: the input filter writes the same word.
 ; Clobbers r0 to r3.

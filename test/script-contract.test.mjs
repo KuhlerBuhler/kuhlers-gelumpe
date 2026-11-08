@@ -173,6 +173,7 @@ test("event ids, API ids and error codes are pinned", () => {
     74: "korg.touchLockX", 75: "korg.keyHold", 76: "korg.pressKey", 77: "korg.seq.setPatternValue",
     78: "korg.read.viewedPattern", 79: "korg.read.nextPattern", 80: "korg.keyMask",
     81: "korg.seq.getOn", 82: "korg.seq.getGate", 83: "korg.seq.getNote", 84: "korg.seq.getVelocity",
+    85: "korg.display.popups", 86: "korg.read.popups",
     100: "korg.keyDown", 101: "korg.keyUp", 102: "korg.padDown", 103: "korg.padUp", 104: "korg.encoder", 105: "korg.touch",
   });
   assert.deepEqual(ERRORS.map(e => e.code), ERRORS.map((_, i) => i));

@@ -28,7 +28,6 @@ TRANSPORT = 0xC06BC318
 MUTE = 0xC06B2F9D               # a part's mute byte, 0x330 per part
 PART_AT = lambda part: 0x800 + 0x330 * part     # noqa: E731
 STEP_AT = lambda part, step: PART_AT(part) + 0x30 + 12 * step   # noqa: E731
-KNOB_LAST = 0x42A4              # from the pattern block: the stock firmware's last value of the LEVEL knob
 APP_PAGE = 1                   # the page of the app in TOOLS, behind Blechy
 SOURCE, TARGET, COMMAND = 5, 7, 9     # the stored pattern copied from, the part copied into, the pattern whose byte starts a step
 
@@ -164,7 +163,7 @@ def keys_cases(vsb, flash, programs):
     return out
 
 
-def edit_cases(vsb, flash, synth, built):
+def edit_cases(vsb, flash, built):
     out = []
     # the firmware's own knob: LEVEL of part 0 to a value, then the plugin sets the same value in another device
     knob, _ = running(vsb, flash, built, compiled({"edit": PROGRAMS["edit"].replace("LEVEL", "0")})["programs"], "edit")
@@ -173,8 +172,7 @@ def edit_cases(vsb, flash, synth, built):
     knob.run(0.3)
     level = knob.read(pattern(knob) + PART_AT(0) + 24, 1)[0]
     by_knob = knob.read(pattern(knob), 0x4900)
-    # the knob writes KNOB_LAST on stock firmware, an edit does not
-    knob_changed = sorted(i for i in range(0x4900) if before[i] != by_knob[i] and not KNOB_LAST <= i < KNOB_LAST + 4)
+    knob_changed = sorted(i for i in range(0x4900) if before[i] != by_knob[i])
     knob_screen = knob.fb()
 
     request = compiled({"edit": PROGRAMS["edit"].replace("LEVEL", str(level))})
@@ -185,9 +183,6 @@ def edit_cases(vsb, flash, synth, built):
     dev.run(0.3)
     after = dev.read(at, 0x4900)
     changed = sorted(i for i in range(0x4900) if before[i] != after[i])
-    if synth:
-        out.append(entry("set_part_value_writes_nothing_on_blue", not changed and not dev.m.asserts, f"changed {changed}"))
-        return out
     out.append(entry("set_part_value_like_the_knob", changed == knob_changed and after[PART_AT(0) + 24] == level and level != before[PART_AT(0) + 24]
                      and not dev.m.asserts, f"level {level}, by plugin {changed}, by knob {knob_changed}"))
     out.append(entry("set_part_value_opens_the_window", dev.fb() == knob_screen, "the display as after the knob"))
@@ -198,7 +193,9 @@ def edit_cases(vsb, flash, synth, built):
     dev.run(0.3)
     after = dev.read(at, 0x4900)
     changed = sorted(i for i in range(0x4900) if other[i] != after[i])
-    out.append(entry("set_part_value_clamps_another_part", after[PART_AT(5) + 36] == 0xC1 and len(changed) == 2 and not dev.m.asserts,
+    # from 0x4200 red and blue keep the last value the MIDI CC path sent, the knob as the call (set_part_value_like_the_knob)
+    out.append(entry("set_part_value_clamps_another_part", after[PART_AT(5) + 36] == 0xC1 and len([i for i in changed if i < 0x4200]) == 2
+                     and not dev.m.asserts,
                      f"pitch byte {after[PART_AT(5) + 36]:#x}, changed {changed}, display kept {dev.fb() == screen}"))
     poke(dev, dev.a(BANK) + COMMAND * 0x4000 + PART_AT(0) + 12, [3])
     dev.run(0.3)
@@ -207,7 +204,7 @@ def edit_cases(vsb, flash, synth, built):
     return out
 
 
-def copy_cases(vsb, flash, programs, synth, built):
+def copy_cases(vsb, flash, programs, built):
     out = []
     dev, entry_at = running(vsb, flash, built, programs, "copy")
     bank = dev.a(BANK)
@@ -235,8 +232,7 @@ def copy_cases(vsb, flash, programs, synth, built):
     params = {field: live[PART_AT(TARGET) + PART_OFFSETS[field]] for field in want}
     source_now = dev.read(source + PART_AT(2), 0x40)
     want = {field: source_now[PART_OFFSETS[field]] for field in want}
-    if not synth:
-        out.append(entry("set_part_value_copies_the_part_values", params == want, f"part {TARGET} {params}, source {want}"))
+    out.append(entry("set_part_value_copies_the_part_values", params == want, f"part {TARGET} {params}, source {want}"))
 
     ram = dev.read(at, 0x4000)
     n = dev.u32(RUNNING)
@@ -258,11 +254,10 @@ def copy_cases(vsb, flash, programs, synth, built):
 def cases(vsb, flash=None):
     payload = vsb[0x100:]
     menu_cases.for_build(payload)
-    synth = identify(payload).build == "synth"
     request = compiled({k: v for k, v in PROGRAMS.items() if k != "edit"})
     built = script_hooks.build(request["include"], build=identify(payload).build)
-    return (keys_cases(vsb, flash, request["programs"]) + edit_cases(vsb, flash, synth, built)
-            + copy_cases(vsb, flash, request["programs"], synth, built))
+    return (keys_cases(vsb, flash, request["programs"]) + edit_cases(vsb, flash, built)
+            + copy_cases(vsb, flash, request["programs"], built))
 
 
 def main():

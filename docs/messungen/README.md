@@ -130,6 +130,7 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [21.10.2026: SysEx-Puffer mit 19 KiB mehr Platz, im Emulator und nativ geprüft](2026-10-21-patch-effizienz-sysex.md)
 - [22.10.2026: Gemeinsame CRC, Speicherfüllung und kombinierte Rechenbefehle](2026-10-22-patch-effizienz-helfer.md)
 - [20.10.2026: Laufzeit und Platz der BLECH-Patches](2026-10-20-patch-performance.md)
+- [8.11.2026: CPU-Last mit BLECH, was am Gerät zu sehen ist und was jeder Patch kostet, im Emulator](2026-11-08-cpu-last-blech.md)
 
 - [Startbild-Editor im Menü Global (Idee 35): gebaut und im Emulator geprüft](2026-10-10-startbild-editor.md)
 - [MFX 2 auf TOUCH SCALE (Idee 44): gebaut und im Emulator geprüft](2026-10-10-mfx-umschalter.md)
@@ -174,6 +175,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 21: Pattern und Parts schreibbar, Seiten des Pattern-Menüs, Sync Group, was nur lesbar bleibt, im Emulator](2026-11-06-plugin-api21-pattern-parts.md)
 - [Plugin API 22: Steps lesen (an, Gate, Note, Velocity), Lesen ohne Neuzeichnen der Pads, im Emulator](2026-11-06-plugin-api22-step-getters.md)
 - [Plugin API 23: IFX ON, IFX TYPE, Sample und AMP EG schreibbar, LEDs der Part-Tasten, im Emulator](2026-11-07-plugin-api23-part-writes.md)
+- [Plugin API 24: MIDI-CC wie Regler und Tasten, Part-Edit auf blau, neue Part- und Pattern-Werte, Slices, Fensterschalter, im Emulator](2026-11-08-plugin-api24-part-cc.md)
 - [Plugin API 25: Tasten, Pads, Encoder und Touchpad wie ein Finger, korg.knob gegen den Regler, im Emulator](2026-11-08-plugin-api25-panel-calls.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)

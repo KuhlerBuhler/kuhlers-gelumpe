@@ -344,7 +344,7 @@ test("korg.seq.setPartValue writes a part value clamped to its range, a field pa
       korg.parts[3].pitch = -100; korg.parts[3].cutoff = 64; korg.seq.setPartValue(0, 10, 300);
       korg.parts[2].sample = 300; korg.parts[4].sample = 5000; korg.parts[2].ampEg = 9; korg.parts[2].ifxType = 200;
     });
-    korg.onEvent("buttonPress", () => { korg.seq.setPartValue(1, 21, 2); });
+    korg.onEvent("buttonPress", () => { korg.seq.setPartValue(1, 28, 2); });
   `)).ok);
   sim.frame();
   const at = (part, offset) => sim.hardware.patternBlock(-1)[0x800 + part * 0x330 + offset];
@@ -354,7 +354,7 @@ test("korg.seq.setPartValue writes a part value clamped to its range, a field pa
   assert.deepEqual([at(2, 26), at(2, 33)], [1, 127], "AMP EG on or off; IFX type to 127, the device stops at its type count");
   sim.post("buttonPress", 3);
   const faults = sim.run(1);
-  assert.equal(faults[0]?.name, "API_ARG", "there is no field 21");
+  assert.equal(faults[0]?.name, "API_ARG", "there is no field 28");
 });
 
 test("korg.read.patternBytes and korg.seq.writeSteps copy the steps of a part from a stored pattern into the one that plays", () => {

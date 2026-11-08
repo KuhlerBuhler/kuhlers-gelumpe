@@ -14,8 +14,11 @@ import { KEY_NAMES } from "../../data/script/names.mjs";
 
 const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
 
-/** The calls that keep inputs from the firmware: each plugin has its own record of them, the hardware folds them (SimHardware.syncHolds). */
-const HOLD_CALLS = ["korg.padHold", "korg.knobHold", "korg.keyHold", "korg.keyMask"];
+/**
+ * The calls that keep inputs from the firmware: each plugin has its own record of them, the hardware folds them (SimHardware.syncHolds).
+ * korg.display.popups lives in the same record, as on the device (HD_QUIET in the pad word).
+ */
+const HOLD_CALLS = ["korg.padHold", "korg.knobHold", "korg.keyHold", "korg.keyMask", "korg.display.popups", "korg.read.popups"];
 
 /** How many pages scripts may add to the device's menu. */
 export const MENU_ITEMS = 12;
@@ -89,7 +92,7 @@ export class ScriptRuntime {
       return { ok: false, error: fail(ERROR.VARS_BUDGET, render(text("script.load.slots", { name: parts.header.name, needed: parts.header.varCount, size: kib(parts.header.varCount), free, total: this.varSlots, totalSize: kib(this.varSlots) }))) };
     }
     const script = new Script(parts, verified.info);
-    const entry = { script, poolBytes, readySent: false, holds: { keys: new Uint8Array(34), knobs: 0, pad: 0 }, onStep, maxCost: {}, maxMs: {}, warnings: 0, slowest: { event: null, ms: 0 }, store: { mask: 0, values: new Int32Array(STORE.slots) },
+    const entry = { script, poolBytes, readySent: false, holds: { keys: new Uint8Array(34), knobs: 0, pad: 0, quiet: 0 }, onStep, maxCost: {}, maxMs: {}, warnings: 0, slowest: { event: null, ms: 0 }, store: { mask: 0, values: new Int32Array(STORE.slots) },
       timers: Array.from({ length: TIMERS.slots }, () => ({ kind: TIMERS.KIND.FREE, due: 0, period: 0, callback: 0, generation: 0 })) };
     const saved = this.storage?.load(parts.header.name);
     if (saved) { entry.store.mask = saved.mask >>> 0; entry.store.values.set(Array.from(saved.values).slice(0, STORE.slots)); }

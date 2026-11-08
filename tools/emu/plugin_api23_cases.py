@@ -146,8 +146,7 @@ def encoder_twin(w, name, index):
     w.set_part(0, name, want)
     plugin, drawn = w.state(), w.dev.fb()
     diff = changed(menu, plugin)
-    # the synth has no part edit measured: its IFX type goes through the setter alone, without the encoder's window
-    screen = shown == drawn or w.build == "synth"
+    screen = shown == drawn
     return (menu != start and not diff and shown != picture and screen and not w.dev.m.asserts,
             f"encoder set {want}, encoder changed {[hex(i - 4) for i in changed(start, menu)][:8]}, plugin differs at "
             f"{[(hex(i - 4), menu[i], plugin[i]) for i in diff][:6]}, screen as the encoder's {shown == drawn}, asserts {w.dev.m.asserts}")
