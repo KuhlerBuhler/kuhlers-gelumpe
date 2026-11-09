@@ -32,6 +32,9 @@ npm run test:local   # Werksprüfungen mit eigenen Dateien, brauchen E2_VSB und 
 npm run test:all     # Unit- und Browsertests nebeneinander, mit E2_VSB auch Emulator
 ```
 
+In VS Code startet F5 `npm start` und öffnet den Editor unter http://127.0.0.1:8737 in Chrome
+(`.vscode/launch.json`, `.vscode/tasks.json`).
+
 ## Im Container
 
 `docker compose up --build` baut die Seite und den Emulator in ein Abbild und

@@ -40,6 +40,8 @@ symlink the venv of the main checkout (`ln -s <main>/tools/emu/.venv tools/emu/.
 and `tools/verify-patches.mjs` start `tools/emu/.venv/bin/python` and fail without it. Both are
 gitignored; never commit them or a symlink to them.
 
+In VS Code, F5 runs `npm start` and opens the editor at `http://127.0.0.1:8737` (`.vscode/launch.json`, `.vscode/tasks.json`).
+
 ## Build and test
 
 ```bash
@@ -127,7 +129,7 @@ Docs state what holds now; before and after belong in commits and release notes.
 ## Firmware patches
 
 - **Core features are built into the firmware**, with a switch under `Menü -> BLECH -> FEATURES`
-  (Key Pads, Filter Toggle, LAST PATTERN, STEREO 1 PAD, HT OSC). A catalog plugin is for extras, not
+  (Key Pads, Filter Toggle, LAST PATTERN, STEREO 1 PAD). A catalog plugin is for extras, not
   for playing features. Screens use the firmware's own look: its value window for a value, the file
   browser for a list, never a hand-drawn screen.
 - A new patch is `tools/patch/<name>.py` (builder), `data/patches/<name>.json` (and `-synth.json` for
@@ -155,6 +157,12 @@ Docs state what holds now; before and after belong in commits and release notes.
 - A plugin write acts like the hardware: the same MIDI CC the knob or key sends, the same window the
   firmware shows (a plugin may switch the window off). Prove a new write against the hardware path in
   the emulator, with a case in `tools/emu/plugin_api<N>_cases.py`.
+- That includes the way to the sound engine. A part write (`script_seq_set_part_value_glue` in
+  `tools/patch/script_seq.s`) does the part edit, then the parameter set (`HW_PARAM_SET` in
+  `tools/patch/script_hooks.py`) for knob values and CUTOFF, the dispatcher refresh (flag 1, `PART_REFRESH`)
+  for `sample`, `modType`, `ifxType` and `filterType`, and the part panel message for the filter LEDs, as the
+  control does. A twin probe compares these calls, not only pattern RAM, screen, LEDs and MIDI
+  ([docs/messungen/2026-11-09-plugin-part-dsp.md](docs/messungen/2026-11-09-plugin-part-dsp.md)).
 - Document every new call in [docs/plugins.md](docs/plugins.md) and
   [docs/plugins.en.md](docs/plugins.en.md); their examples are compiled by `test/script-app.test.mjs`.
 

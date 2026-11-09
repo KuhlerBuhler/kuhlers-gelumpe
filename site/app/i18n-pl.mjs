@@ -582,7 +582,7 @@ export default {
   "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD: ON (domyślnie) lub OFF, OFF przywraca parę firmware'u. Działa od razu, WRITE to zapisuje.",
   "features.htOsc.title": "Oscylatory Hacktribe na wolnych miejscach",
   "features.htOsc.text": "Na własnym firmware Korga puste miejsca 422 do 497 mają teraz 76 oscylatorów z Hacktribe: DUAL, OCT, CHIP i RING, do tego X i VPM w krokach. Pokrętło OSC dochodzi do nich za samplami fabrycznymi, twoje sample od 501 zostają na swoich miejscach.",
-  "features.htOsc.how": "BLECH > FEATURES > HT OSC: ON (domyślnie) lub OFF, OFF zostawia miejsca puste jak dotąd. Działa od następnego startu, WRITE to zapisuje.",
+  "features.htOsc.how": "Zawsze włączone, bez przełącznika: te miejsca zawsze były puste. Z EXIT przytrzymanym przy włączaniu zostają puste jak w firmware.",
   "features.beatEighth.title": "BEAT 8: patterny dwa razy dłuższe",
   "features.beatEighth.text": "Piąta wartość 8 na stronie BEAT robi z każdego kroku ósemkę: pattern trwa dwa razy dłużej, przy 160 BPM jak przy 80, a MIDI clock i synchronizacja zostają w prawdziwym tempie.",
   "features.beatEighth.how": "Pattern menu > BEAT: wybierz 8, WRITE zapisuje to z patternem. Na firmware Korga bez BLECH taki pattern gra o wiele za szybko.",
