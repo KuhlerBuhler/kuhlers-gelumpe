@@ -302,7 +302,7 @@ Ein falscher Schreibzugriff oder eine fehlerhafte Firmware kann das Gerät häng
   speichern, was gerade im RAM steht, schalte also bei einer Abweichung nicht aus.
 - **Zurück:** die gesicherte Original-`SYSTEM.VSB` wieder aufspielen. Wie das geübt wurde, steht in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
-- **Wenn das Gerät nicht mehr startet:** die Seite "Rettung" im Editor fragt, was du siehst, und führt
+- **Wenn das Gerät nicht mehr startet:** die Seite "Blechy" im Editor fragt, was du siehst, und führt
   dich den dokumentierten Weg zurück. Der Bootloader bleibt tabu, dahinter
   hilft nur JTAG ([docs/rettung.md](docs/rettung.md)).
 - **Selbst testen:** die [Gerätetests](docs/geraetetests/README.md) beschreiben, wie du BLECH und die

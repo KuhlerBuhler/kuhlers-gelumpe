@@ -238,7 +238,7 @@ A wrong write or a faulty firmware can hang the device. So:
   is in RAM, so do not power off if something looks wrong.
 - **Way back:** put the saved original `SYSTEM.VSB` back. How that was rehearsed is in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
-- **If the device no longer starts:** the "Rettung" page in the editor (German) asks what you see and
+- **If the device no longer starts:** the "Blechy" page in the editor asks what you see and
   walks you back along the documented recovery. The bootloader is never
   touched, beyond it only JTAG helps ([docs/rettung.md](docs/rettung.md)).
 - **Test it yourself:** the [device tests](docs/geraetetests/README.md) describe how to repeat BLECH and
