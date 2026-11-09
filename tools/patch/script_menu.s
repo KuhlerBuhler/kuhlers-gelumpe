@@ -112,11 +112,6 @@
 ; STEREO 1 PAD: the patch stereo-pad (tools/patch/stereo_pad.py), FF where the set does not have it; the page writes its setting word
 .equ SP_CODE, 0xC014FF00
 .equ SP_SETTING, 0xC014FFFC     ; FFFFFFFF (never written) or 1 is on, 0 is off; bit 2 of byte 5 of the settings file is OFF
-; HT OSC: the patch ht-osc (tools/patch/ht_osc.py), FF where the set does not have it; the page writes its setting word, and
-; HO_APPLY (its first word) clears the slots the start filled when the settings say OFF
-.equ HO_CODE, 0xC014F000
-.equ HO_APPLY, 0xC014F000
-.equ HO_SETTING, 0xC014FBFC     ; FFFFFFFF (never written) or 1 is on, 0 is off; bit 6 of byte 5 of the settings file is OFF
 .equ VERSION_TEXT, 0xC014FCF0   ; the patch blech-version (tools/patch/blech_version.mjs): "BLECH 1.3.7", NUL padded, FF where the set does not have it
 .equ SPLASH_IMPORT, 0xC01A2500 ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
@@ -235,7 +230,7 @@ menu_arm_load_end:
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
 ; magic, version u16 (1, 2 or 3), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
-; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON; byte 5: bit 0 METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 HT OSC OFF, bit 7 AUTO SAVE OFF), version 2 and 3 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
+; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON; byte 5: bit 0 METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 unused: it was HT OSC OFF, an older file may have it, it is read as nothing, bit 7 AUTO SAVE OFF), version 2 and 3 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes (both up to 16 checksums), version 3 24 to 280 bytes (up to
@@ -337,17 +332,6 @@ menu_load_sp_done:
     and r2, r2, #1
     eor r2, r2, #1
     str r2, [r4, #M_FT]
-    ldr r12, =HO_CODE
-    ldr r12, [r12]
-    cmn r12, #1
-    beq menu_load_ho_done
-    ldrb r2, [r0, #5]           ; bit 6 of byte 5: HT OSC is OFF
-    mov r2, r2, lsr #6
-    and r2, r2, #1
-    eor r2, r2, #1
-    ldr r12, =HO_SETTING
-    str r2, [r12]
-menu_load_ho_done:
     ldrb r2, [r0, #5]           ; bit 7 of byte 5: AUTO SAVE is OFF
     mov r2, r2, lsr #7
     and r2, r2, #1
@@ -455,11 +439,6 @@ menu_load_look:
 menu_load_none:                 ; no settings file: the stock white, whatever colour the start took from Global byte 250
     bl boot_light_settle
 menu_load_out:
-    ldr r12, =HO_CODE           ; HT OSC: the start filled the slots before the settings were read; OFF clears them again
-    ldr r12, [r12]
-    cmn r12, #1
-    ldrne r12, =HO_APPLY
-    blxne r12
     pop {r4-r8, pc}
 .pool
 
@@ -495,7 +474,7 @@ menu_file_read:
     bne menu_read_fail
     ldrb r0, [r7, #4]
     ldrb r1, [r7, #5]
-    bics r1, r1, #0xFF          ; byte 5: bit 0 (LOUD RAINBOW), bit 1 (STILL OFF), bit 2 (STEREO 1 PAD OFF), bit 3 (LAST PATTERN OFF), bit 4 (KEY PADS OFF), bit 5 (FILTER TOGGLE OFF), bit 6 (HT OSC OFF) and bit 7 (AUTO SAVE OFF)
+    bics r1, r1, #0xFF          ; byte 5: only bit 0 (LOUD RAINBOW), bit 1 (STILL OFF), bit 2 (STEREO 1 PAD OFF), bit 3 (LAST PATTERN OFF), bit 4 (KEY PADS OFF), bit 5 (FILTER TOGGLE OFF), bit 6 (unused, the former HT OSC OFF: a file with it still loads) and bit 7 (AUTO SAVE OFF) may be set
     bne menu_read_fail
     sub r0, r0, #1              ; version 1, 2 or 3
     cmp r0, #SETTINGS_VERSION-1
@@ -656,17 +635,6 @@ menu_save_lp_done:
     ldrbeq r1, [r7, #5]
     orreq r1, r1, #32
     strbeq r1, [r7, #5]
-    ldr r1, =HO_CODE            ; HT OSC OFF: bit 6 of byte 5
-    ldr r1, [r1]
-    cmn r1, #1
-    beq menu_save_ho_done
-    ldr r1, =HO_SETTING
-    ldr r1, [r1]
-    cmp r1, #0
-    ldrbeq r1, [r7, #5]
-    orreq r1, r1, #64
-    strbeq r1, [r7, #5]
-menu_save_ho_done:
     ldr r1, [r4, #M_AS]         ; AUTO SAVE OFF: bit 7 of byte 5
     cmp r1, #0
     ldrbeq r1, [r7, #5]
@@ -2312,8 +2280,6 @@ menu_texts_clear:
     beq menu_text_kp
     cmp r0, #49
     beq menu_text_ft
-    cmp r0, #50
-    beq menu_text_ho
     cmp r0, #51
     beq menu_text_as
     cmp r0, #7
@@ -2749,20 +2715,6 @@ menu_text_ft:
     ldr r1, =str_ft
     bl menu_copy
     ldr r2, [r5, #M_FT]
-    ldr r1, =str_off
-    cmp r2, #0
-    ldrne r1, =str_on
-    add r0, r5, #M_VALUE
-    bl menu_copy
-    b menu_text_look_line3
-; HT OSC: whether the slots 422 to 497 hold Hacktribe's oscillators (the patch ht-osc reads the word HO_SETTING at the start)
-menu_text_ho:
-    mov r0, #3
-    bl menu_title_prefix
-    ldr r1, =str_ho
-    bl menu_copy
-    ldr r2, =HO_SETTING
-    ldr r2, [r2]
     ldr r1, =str_off
     cmp r2, #0
     ldrne r1, =str_on
@@ -3328,7 +3280,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 46 OFF, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 50 HT OSC, 51 AUTO SAVE), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 46 OFF, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE; 50 was HT OSC), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -3413,7 +3365,7 @@ menu_kind_sub:
     mov r1, #0
     b menu_kind_done
 menu_kind_features:
-    bl menu_page_count          ; KEY PADS, FILTER TOGGLE and AUTO SAVE are the last pages, behind LAST PATTERN, STEREO 1 PAD and HT OSC where the set has them
+    bl menu_page_count          ; KEY PADS, FILTER TOGGLE and AUTO SAVE are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them
     mov r1, #0
     sub r0, r0, #1
     cmp r5, r0
@@ -3427,15 +3379,6 @@ menu_kind_features:
     cmp r5, r0
     moveq r0, #48
     beq menu_kind_done
-    sub r0, r0, #1
-    cmp r5, r0
-    bne menu_kind_features_fixed
-    ldr r12, =HO_CODE
-    ldr r12, [r12]
-    cmn r12, #1
-    movne r0, #50               ; HT OSC in front of KEY PADS where the set has it
-    bne menu_kind_done
-menu_kind_features_fixed:
     mov r0, #21
     cmp r5, #4
     moveq r0, #45               ; LAST PATTERN where the set has it, STEREO 1 PAD behind it (or at 4 without LAST PATTERN)
@@ -3613,16 +3556,12 @@ menu_count_features:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #7                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE and AUTO SAVE, LAST PATTERN, STEREO 1 PAD and HT OSC where the set has their patches
+    mov r0, #7                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE and AUTO SAVE, LAST PATTERN and STEREO 1 PAD where the set has their patches
     ldr r1, =LP_CODE
     ldr r1, [r1]
     cmn r1, #1
     addne r0, r0, #1
     ldr r1, =SP_CODE
-    ldr r1, [r1]
-    cmn r1, #1
-    addne r0, r0, #1
-    ldr r1, =HO_CODE
     ldr r1, [r1]
     cmn r1, #1
     addne r0, r0, #1
@@ -5083,8 +5022,6 @@ menu_slot_value:
     beq menu_value_kp
     cmp r0, #49
     beq menu_value_ft
-    cmp r0, #50
-    beq menu_value_ho
     cmp r0, #51
     beq menu_value_as
     cmp r0, #24
@@ -5308,16 +5245,6 @@ menu_value_ft:
     cmp r5, #0
     movle r1, #0
     str r1, [r6, #M_FT]
-    mov r3, #0
-    str r3, [r6, #M_STATUS]
-    b menu_value_done
-; HT OSC acts at the next start: the word of the patch ht-osc follows, WRITE keeps it
-menu_value_ho:
-    mov r1, #1
-    cmp r5, #0
-    movle r1, #0
-    ldr r2, =HO_SETTING
-    str r1, [r2]
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
@@ -5983,8 +5910,6 @@ str_as:
     .asciz "AUTO SAVE"
 str_sp:
     .asciz "STEREO 1 PAD"
-str_ho:
-    .asciz "HT OSC"
 str_lp:
     .asciz "LAST PATTERN"
 str_mg:

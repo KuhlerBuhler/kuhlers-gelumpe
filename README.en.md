@@ -87,7 +87,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Update over USB from the app | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 
-Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIBE to a Korg original does not add Hacktribe's features. The exception is the Hacktribe oscillators on the free slots 422 to 497 of the red BLECHTRIBE (switch HT OSC under BLECH, FEATURES). The blue BLECHTRIBE column describes the Synth set on Korg 2.02. Hacktribe itself supports both hardware types.
+Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIBE to a Korg original does not add Hacktribe's features. The exception is the Hacktribe oscillators on the free slots 422 to 497 of the red BLECHTRIBE, always on, no switch. The blue BLECHTRIBE column describes the Synth set on Korg 2.02. Hacktribe itself supports both hardware types.
 
 **Hacktribe trade-offs:**
 

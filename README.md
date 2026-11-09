@@ -94,7 +94,7 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 
 Hacktribe ist eine eigene Firmwarebasis. BLECHTRIBE ergänzt sie; es schaltet diese
 Hacktribe-Funktionen auf einem Korg-Original nicht automatisch frei. Ausnahme sind die Hacktribe-Oszillatoren
-auf den freien Plätzen 422 bis 497 der roten BLECHTRIBE (Schalter HT OSC unter BLECH, FEATURES). Die blaue BLECHTRIBE-Spalte
+auf den freien Plätzen 422 bis 497 der roten BLECHTRIBE, immer an, ohne Schalter. Die blaue BLECHTRIBE-Spalte
 meint den Synth-Satz auf Korg 2.02. Hacktribe selbst unterstützt laut Projekt beide Hardwaretypen.
 
 **Was du bei Hacktribe abwägen musst:**

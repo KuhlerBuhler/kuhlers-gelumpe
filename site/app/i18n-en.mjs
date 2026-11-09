@@ -585,7 +585,7 @@ export default {
   "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD: ON (the default) or OFF, OFF brings back the firmware's pair. Applies at once, WRITE keeps it.",
   "features.htOsc.title": "Hacktribe oscillators on the empty slots",
   "features.htOsc.text": "On Korg's own firmware the empty slots 422 to 497 hold 76 of Hacktribe's oscillators: DUAL, OCT, CHIP and RING, and X and VPM in steps. The OSC dial reaches them behind the factory samples, your samples from 501 on stay where they are.",
-  "features.htOsc.how": "BLECH > FEATURES > HT OSC: ON (the default) or OFF, OFF leaves the slots empty as before. Applies at the next start, WRITE keeps it.",
+  "features.htOsc.how": "Always on, no switch: the slots were always empty. With EXIT held at power-on they stay empty as in the firmware.",
   "features.beatEighth.title": "BEAT 8: patterns twice as long",
   "features.beatEighth.text": "A fifth value 8 on the page BEAT makes every step an eighth note: the pattern runs twice as long, at 160 BPM as at 80, while MIDI clock and sync stay at the real tempo.",
   "features.beatEighth.how": "Pattern menu > BEAT: choose 8, WRITE saves it with the pattern. On Korg's firmware without BLECH such a pattern runs far too fast.",

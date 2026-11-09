@@ -585,7 +585,7 @@ export default {
   "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD: ON (predefinido) ou OFF, OFF devolve o par do firmware. Vale logo, WRITE guarda-o.",
   "features.htOsc.title": "Osciladores do Hacktribe nas posições livres",
   "features.htOsc.text": "No firmware da própria Korg as posições vazias 422 a 497 têm agora 76 osciladores do Hacktribe: DUAL, OCT, CHIP e RING, e ainda X e VPM por passos. O botão OSC chega a eles depois das amostras de fábrica, as tuas amostras a partir de 501 ficam onde estão.",
-  "features.htOsc.how": "BLECH > FEATURES > HT OSC: ON (predefinido) ou OFF, OFF deixa as posições vazias como antes. Vale a partir do próximo arranque, WRITE guarda-o.",
+  "features.htOsc.how": "Sempre ligado, sem interruptor: as posições estavam sempre vazias. Com EXIT premido ao ligar ficam vazias como no firmware.",
   "features.beatEighth.title": "BEAT 8: patterns com o dobro da duração",
   "features.beatEighth.text": "Um quinto valor 8 na página BEAT faz de cada passo uma colcheia: o pattern dura o dobro, a 160 BPM como a 80, e o MIDI clock e a sincronização ficam no tempo real.",
   "features.beatEighth.how": "Pattern menu > BEAT: escolher 8, WRITE guarda-o com o pattern. No firmware da Korg sem BLECH um pattern assim toca depressa demais.",
