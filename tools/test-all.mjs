@@ -11,7 +11,9 @@
  */
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { loadGate } from "./load-gate.mjs";
 
+await loadGate();
 const root = fileURLToPath(new URL("../", import.meta.url));
 const unitEnv = process.env.E2_VSB && process.env.E2_PATTERNS ? { E2_LOCAL_REQUIRED: "1" }
   : process.env.E2_VSB ? { E2_EMU_REQUIRED: "1" } : {};

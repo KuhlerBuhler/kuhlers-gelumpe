@@ -2725,6 +2725,8 @@ def settings_cases_task():
 
 
 def main():
+    import lifetime
+    lifetime.load_gate()
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=["cases"])
     parser.add_argument("--base", required=True)

@@ -590,6 +590,8 @@ def event_measurement(image, build):
 
 
 def main():
+    import lifetime
+    lifetime.load_gate()
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     research = sub.add_parser("research")
