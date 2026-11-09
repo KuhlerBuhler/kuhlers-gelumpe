@@ -8,6 +8,7 @@ from pathlib import Path
 
 import swap_cases as c
 import native_dsp_scope as scope
+import native_dsp_acquire as acquire
 import sample_swap_io as io
 
 CODE, CALL = 0xC1005000, 0xC100A000
@@ -54,22 +55,6 @@ def validation_image(payload):
 
 def validate(payload):
     validation_image(payload)
-
-
-def as_swap_step(box):
-    """Native transactions are bounded only inside the swap's own step (MODE 1 and INSTEP). A probe that makes the DSP
-    stall for good stands in for that step, else the native call would wait forever as in Korg's firmware."""
-    if 'INSTEP' in c.spec.OFF:
-        step = c.spec.STATE + c.spec.OFF['INSTEP']
-        box.m.uc.mem_write(c.spec.STATE + c.spec.OFF['MODE'], struct.pack('<I', 1))
-        box.m.uc.mem_write(step, struct.pack('<I', 1))
-        # no real step of the swap for this small collection: the frame would post one now that MODE is 1
-        box.m.uc.mem_write(c.spec.STATE + c.spec.OFF['POSTED'], struct.pack('<I', 0x7FFFFFFF))
-        # a real step of the swap that runs meanwhile clears the word when it ends: keep the stand-in in place
-        leave = box.sym['st_leave'] + 8
-        box.m.uc.hook_add(c.unicorn.UC_HOOK_CODE, lambda uc, *_: uc.mem_write(step, struct.pack('<I', 1)),
-                          begin=leave, end=leave)
-        box.m.uc.ctl_flush_tb()
 
 
 def install(box, *, origin=CODE, poll_budget=128):
@@ -130,6 +115,12 @@ def watch_resource(box, symbols):
 
     for address, kind in ((scope.ACQUIRE, 'take'), (io.RELEASE, 'release')):
         uc.hook_add(c.unicorn.UC_HOOK_CODE, entered(kind), begin=address, end=address)
+    if 'native_resource_acquired' in symbols:
+        def granted(machine, *_):
+            recent.append(dict(stage='grant', kind='guard', task=box.u32(acquire.CURRENT_TASK),
+                               counter=box.u32(io.SEMA), control=machine.reg_read(regs.UC_ARM_REG_CPSR) & 255))
+        at = symbols['native_resource_acquired']
+        uc.hook_add(c.unicorn.UC_HOOK_CODE, granted, begin=at, end=at)
     for address in returns:
         uc.hook_add(c.unicorn.UC_HOOK_CODE, returned, begin=address, end=address)
     return lambda: dict(recent=list(recent), failed=failed, pending=list(pending.values()))
@@ -171,7 +162,8 @@ def session(payload, flow=None, trace_resource=False):
             expected = bytes(self.m.uc.mem_read(start, end - start))
             observed = dict(transactions=0, refused=0, faults=0, failures=[], origin=start, bytes=end - start)
             observations.append((self, observed, expected, resource))
-            for label, key in (('native_scope_enter', 'transactions'), ('native_scope_refused', 'refused'), ('native_scope_abort', 'faults')):
+            for label, key in (('native_scope_enter', 'transactions'), ('native_scope_enter_locked', 'transactions'),
+                               ('native_scope_cancel', 'refused'), ('native_scope_refused', 'refused'), ('native_scope_abort', 'faults')):
                 def count(*_, key=key):
                     observed[key] += 1
                     if key != 'transactions' and len(observed['failures']) < 8:
@@ -222,6 +214,7 @@ def probe(payload, stall=None, transaction='command', masked=False, step=True, s
     return_site = assembled.symbols['call_return']
 
     active, enters, releases, writes, writes_after_fault = [False], [], [], [], []
+    cancellations = []
     frames, transition = [], {}
 
     def frame(machine):
@@ -233,6 +226,9 @@ def probe(payload, stall=None, transaction='command', masked=False, step=True, s
     def called(machine, *args):
         active[0] = True
         frames.append(frame(machine))
+        if 'INSTEP_TASK' in c.spec.OFF:
+            owner = box.u32(acquire.CURRENT_TASK) if step else 0
+            uc.mem_write(c.spec.STATE + c.spec.OFF['INSTEP_TASK'], struct.pack('<I', owner))
         if stereo:
             part = machine.reg_read(box.m.A.UC_ARM_REG_R0)
             transition.update(part=part, before=box.u16(part + 0x34))
@@ -245,9 +241,12 @@ def probe(payload, stall=None, transaction='command', masked=False, step=True, s
 
     uc.hook_add(c.unicorn.UC_HOOK_CODE, called, begin=CALL, end=CALL)
     uc.hook_add(c.unicorn.UC_HOOK_CODE, returning, begin=return_site, end=return_site)
-    for address in (symbols['native_scope_enter'], symbols['native_scope_refused']):
+    for address in (symbols['native_scope_enter'], symbols['native_scope_enter_locked']):
         uc.hook_add(c.unicorn.UC_HOOK_CODE, lambda machine, *args: enters.append(machine.reg_read(box.m.A.UC_ARM_REG_R0)) if active[0] else None,
                     begin=address, end=address)
+
+    uc.hook_add(c.unicorn.UC_HOOK_CODE, lambda *_: cancellations.append(True) if active[0] else None,
+                begin=symbols['native_scope_cancel'], end=symbols['native_scope_cancel'])
 
     def released(machine, *args):
         if active[0] and machine.reg_read(box.m.A.UC_ARM_REG_R0) == 1:
@@ -309,11 +308,11 @@ def probe(payload, stall=None, transaction='command', masked=False, step=True, s
         box.m.read, box.m.write = read, write
     after = dict(generation=box.state('GEN'), resource=box.u32(io.SEMA), mode=box.state('MODE'),
                  fault=box.state('TSTATE'), scope=box.u32(POINTER))
-    refused = any(value != 0 for value in enters)
+    refused = bool(cancellations)
     elapsed_ms = (box.m.time_ns - started) / 1e6
     bounded = step or transaction in ('read', 'write')
-    expected_fault = int(bounded and (stall is not None or masked or slow > 0))
-    pcm_matches = (None if transaction not in ('read', 'write') or expected_fault else
+    expected_fault = int(bounded and not masked and (stall is not None or slow > 0))
+    pcm_matches = (None if transaction not in ('read', 'write') or expected_fault or refused else
                    all((box.u16(c.spec.STAGE + i * 2) if transaction == 'read' else box.dsp.get(io.DSP_MIN + i * 2)) == 0x4000 + i for i in range(32)))
     frame_restored = (len(frames) == 2 and frames[1]['stack'] == frames[0]['stack'] - 8
                       and frames[1]['control'] == frames[0]['control']
@@ -329,10 +328,10 @@ def probe(payload, stall=None, transaction='command', masked=False, step=True, s
                     transactions=len(enters), port_writes=len(writes), asserts=box.m.asserts)
     ok = (before['mode'] == 1 and after['fault'] == (io.LATCHED if expected_fault else 0) and after['generation'] == before['generation'] + expected_fault
           and before['resource'] == after['resource'] == 1 and after['scope'] == 0
-          and sum(value == 0 for value in enters) == len(releases) and (len(enters) > 0) == bounded
+          and sum(value == 0 for value in enters) == len(releases) and (len(enters) > 0) == (bounded and not masked)
           and all(value == 0 for value in releases)
           and not writes_after_fault and pcm_matches is not False and frame_restored and refused == masked
-          and not box.m.asserts and (after['mode'] == 2 if expected_fault else len(writes) > 0 and after['mode'] == 1)
+          and not box.m.asserts and (after['mode'] == 2 if expected_fault else (refused or len(writes) > 0) and after['mode'] == 1)
           and (not writes if refused or stall in ('status', 'busy-status', 'gpio') else len(writes) == 7 if stall == 'data-gpio' else True))
     if stereo:
         transition.update(after=box.u16(transition['part'] + 0x34),
@@ -403,6 +402,8 @@ def runtime_cases(payload, flash=None):
         row = probe(payload, None, 'command', False, step=step)
         row['id'] = 'native_command_ready_outside_the_swap_step'
         rows.append(row)
+    from native_dsp_owner_cases import runtime_cases as ownership_cases
+    rows.extend(ownership_cases(payload))
     return rows
 
 

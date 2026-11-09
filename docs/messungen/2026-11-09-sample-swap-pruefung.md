@@ -13,7 +13,8 @@ vollständige Laufprotokolle liegen außerhalb des Repos.
 Die später geprüfte [Korrektur des PCM-Bereichsschutzes](2026-11-09-sample-pcm-bereichsschutz.md)
 schließt die unten beschriebene direkte Blockschreiber-Lücke im Emulator.
 Die folgenden roten Gegenproben dokumentieren den Stand vor dieser Korrektur.
-Besitzerprüfung, Aufnahmeveröffentlichung und die Gerätefreigabe bleiben offen.
+Die weitere [Besitzerprüfung nach Ressourcenwarten](2026-11-09-native-dsp-besitz.md)
+behandelt den Erwerbspfad. Aufnahmeveröffentlichung und Gerätefreigabe bleiben offen.
 
 ## Korrektur zur Hacktribe-Testbasis
 

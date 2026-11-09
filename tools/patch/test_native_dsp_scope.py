@@ -7,6 +7,7 @@ from unicorn import arm_const as R
 
 import arm
 import native_dsp_scope as p
+import native_dsp_acquire as acquisition
 
 CODE, STATE, STACK, TRAP = 0xC1000000, 0xC1100000, 0xC1F00000, 0xC1200000
 RELEASE = CODE + 0x4000
@@ -20,14 +21,26 @@ def word(value):
 
 
 class Machine:
-    def __init__(self, *, polls=5, clock=True, step=0, start=0, irq=False, gate=False):
+    def __init__(self, *, polls=5, clock=True, step=0, start=0, irq=False, gate=False, guarded=False):
         self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
         self.uc.mem_map(0xC0000000, 0x02000000)
         self.uc.mem_map(p.TIMER, 4096)
-        code, self.symbols = p.build_code(CODE, scope=SCOPE, fault=FAULT, mode=MODE,
-                                          generation=GEN, release=RELEASE, acquire=ACQUIRE, poll_budget=polls,
-                                          gate=STATE + 32 if gate else None)
-        self.uc.mem_write(CODE, code)
+        kwargs = dict(scope=SCOPE, fault=FAULT, mode=MODE, generation=GEN,
+                      release=RELEASE, acquire=ACQUIRE, poll_budget=polls,
+                      gate=STATE + 32 if gate else None)
+        if guarded:
+            kwargs.update(current_task=STATE + 36, session=STATE + 40, owner=STATE + 0x200,
+                          acquire_guard='native_resource_take')
+        source = p.source(**kwargs)
+        if guarded:
+            source += acquisition.source(fault=FAULT, mode=MODE, generation=GEN, gate=STATE + 32,
+                                         session=STATE + 40, owner=STATE + 0x200, scope=SCOPE,
+                                         current_task=STATE + 36, sema=SEMA, tick=STATE + 48,
+                                         delay=CODE + 0x4200, release=RELEASE, attempts=4, timeout_ms=5)
+        assembled = arm.assemble(source, origin=CODE)
+        self.symbols = assembled.symbols
+        self.uc.mem_write(CODE, assembled.bytes)
+        self.guarded = guarded
         self.uc.mem_write(TRAP, word(0xE1A00000))
         self.put(MODE, 1)
         self.put(GEN, 7)
@@ -45,6 +58,18 @@ class Machine:
         self.uc.hook_add(unicorn.UC_HOOK_CODE, self.release, begin=RELEASE, end=RELEASE)
         self.uc.mem_write(ACQUIRE, arm.assemble('bx lr', origin=ACQUIRE).bytes)
         self.uc.hook_add(unicorn.UC_HOOK_CODE, self.acquire, begin=ACQUIRE, end=ACQUIRE)
+        if guarded:
+            self.put(SEMA, 1)
+            self.put(STATE + 36, 0xC06A2524)
+            self.put(acquisition.STARTED, 1)
+            at = CODE + 0x4200
+            self.uc.mem_write(at, arm.assemble('bx lr', origin=at).bytes)
+            def yield_tick(uc, *_):
+                self.put(STATE + 48, self.u32(STATE + 48) + 1)
+                uc.reg_write(R.UC_ARM_REG_R0, 0)
+            self.uc.hook_add(unicorn.UC_HOOK_CODE, yield_tick, begin=at, end=at)
+            at = self.symbols['native_resource_acquired']
+            self.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: self.acquires.append((1, 0)), begin=at, end=at)
         self.initial = {R.UC_ARM_REG_R0 + i: 0x12340000 + i * 0x100 for i in range(4, 12)}
         self.initial[R.UC_ARM_REG_R11] = 0xC1D00000
         self.control = 0x93 if irq else 0x13
@@ -73,7 +98,7 @@ class Machine:
         uc.reg_write(R.UC_ARM_REG_R0, status & 0xFFFFFFFF)
 
     def run(self, ticks=1, deep=False, borrowed=False, refused=False, intruder=False,
-            native=False, close=False, bare=False):
+            native=False, close=False, bare=False, foreign=False):
         entry = CODE + 0x3000
         label = 'native_scope_take' if native else ('native_scope_refused' if refused else ('native_scope_enter_borrowed' if borrowed else 'native_scope_enter'))
         text = f'''
@@ -95,6 +120,8 @@ class Machine:
         ticks_code = ''.join(f"bl {self.symbols['native_scope_tick']}\n" for _ in range(ticks))
         if intruder:
             text += 'bl intruder_interrupt\n'
+        if foreign:
+            text += 'bl foreign_interrupt\n'
         text += "bl deep_call\n" if deep else ticks_code
         release = (f'mov r0, #1\nbl {self.symbols["native_scope_close"]}' if close or native else
                    f'bl {self.symbols["native_scope_leave"]}\n' + ('' if borrowed or refused else f'mov r0, #1\nbl {RELEASE}'))
@@ -134,6 +161,27 @@ class Machine:
                 add r11, sp, #4
                 sub sp, sp, #32
                 bl {self.symbols['native_scope_refused']}
+                sub sp, r11, #4
+                pop {{r11, pc}}
+            '''
+        if foreign:
+            text += f'''
+            foreign_interrupt:
+                push {{r4, lr}}
+                ldr r4, ={STATE + 36}
+                ldr r0, ={0xC06A2544}
+                str r0, [r4]
+                bl foreign_call
+                ldr r0, ={0xC06A2524}
+                str r0, [r4]
+                pop {{r4, pc}}
+            foreign_call:
+                push {{r11, lr}}
+                add r11, sp, #4
+                bl {self.symbols['native_scope_tick']}
+                bl {self.symbols['native_scope_leave']}
+                mov r0, #1
+                bl {self.symbols['native_scope_close']}
                 sub sp, r11, #4
                 pop {{r11, pc}}
             '''
@@ -466,6 +514,82 @@ class Recovery(unittest.TestCase):
         self.assert_returned(m)
         self.assertEqual(m.u32(SUCCESS), 0)
         self.assertEqual(m.u32(GEN), 7)
+
+
+class AcquisitionOwnership(unittest.TestCase):
+    def test_a_preexisting_fault_cancels_without_mutating_the_library(self):
+        m = Machine(guarded=True)
+        m.put(FAULT, 2)
+        m.run(native=True)
+        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT), m.u32(MODE), m.u32(GEN)), (0, 2, 1, 7))
+        self.assertEqual((m.u32(SEMA), m.u32(SCOPE), m.releases), (1, 0, []))
+
+    def test_locked_publication_preserves_an_unexpected_outer_scope(self):
+        m = Machine(guarded=True)
+        outer = STATE + 0x500
+        controls = []
+        def intrude(uc, *_):
+            controls.append(uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80)
+            m.put(SCOPE, outer)
+        at = m.symbols['native_scope_acquired']
+        m.uc.hook_add(unicorn.UC_HOOK_CODE, intrude, begin=at, end=at)
+        m.run(native=True)
+        self.assertEqual(controls, [0x80])
+        self.assertEqual((m.u32(SUCCESS), m.u32(SCOPE), m.u32(SEMA)), (0, outer, 1))
+        self.assertEqual((m.u32(MODE), m.u32(GEN), m.u32(FAULT)), (1, 7, 0))
+        self.assertEqual(len(m.releases), 1)
+        self.assertFalse(m.releases[0]['control'] & 0x80)
+
+    def test_foreign_poll_leave_and_close_preserve_the_owner_and_its_budget(self):
+        m = Machine(guarded=True, polls=2)
+        m.run(native=True, foreign=True)
+        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT), m.u32(SCOPE), m.u32(SEMA)), (1, 0, 0, 1))
+        self.assertEqual(len(m.releases), 1)
+
+    def test_a_changed_identity_during_the_body_unwinds_only_its_own_lease(self):
+        for field in (GEN, MODE, STATE + 40, STATE + 0x200):
+            with self.subTest(field=field):
+                m = Machine(guarded=True)
+                at = m.symbols['native_scope_tick']
+                m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_, field=field:
+                              m.put(field, m.u32(field) + 1), begin=at, end=at)
+                m.run(native=True)
+                self.assertEqual((m.u32(SUCCESS), m.u32(FAULT), m.u32(SCOPE), m.u32(SEMA)), (0, 2, 0, 1))
+                self.assertEqual(len(m.releases), 1)
+
+    def test_a_busy_or_masked_pre_io_refusal_does_not_poison_the_library(self):
+        for irq, free in ((False, False), (True, True)):
+            with self.subTest(irq=irq):
+                m = Machine(guarded=True, irq=irq)
+                m.put(SEMA, int(free))
+                m.run(native=True)
+                self.assertEqual((m.u32(SUCCESS), m.u32(FAULT), m.u32(MODE), m.u32(GEN)), (0, 0, 1, 7))
+                self.assertEqual((m.u32(SCOPE), m.u32(SEMA), m.releases), (0, int(free), []))
+
+    def test_a_changed_generation_mode_or_step_after_wait_cannot_reach_the_body(self):
+        for address, changed in ((GEN, 8), (MODE, 2), (STATE + 32, 0)):
+            with self.subTest(address=address):
+                m = Machine(gate=True, guarded=True)
+                m.put(STATE + 32, 1)
+                m.put(SEMA, 1)
+                m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_, address=address, changed=changed:
+                              m.put(address, changed), begin=m.symbols['native_resource_acquired'], end=m.symbols['native_resource_acquired'])
+                m.run(native=True)
+                self.assertEqual(m.u32(SUCCESS), 0)
+                self.assertEqual(m.u32(SEMA), 1)
+                self.assertEqual(len(m.releases), 1)
+                self.assertEqual(m.u32(SCOPE), 0)
+
+    def test_an_acquisition_must_not_replace_another_active_recovery_frame(self):
+        m = Machine(guarded=True)
+        outer = STATE + 0x500
+        m.put(SEMA, 1)
+        m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: m.put(SCOPE, outer), begin=m.symbols['native_resource_acquired'], end=m.symbols['native_resource_acquired'])
+        m.run(native=True)
+        self.assertEqual(m.u32(SUCCESS), 0)
+        self.assertEqual(m.u32(SCOPE), outer)
+        self.assertEqual(m.u32(SEMA), 1)
+        self.assertEqual(len(m.releases), 1)
 
 
 if __name__ == '__main__':

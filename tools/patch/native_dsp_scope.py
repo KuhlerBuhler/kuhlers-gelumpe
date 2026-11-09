@@ -6,8 +6,8 @@ Take wraps acquisition; close restores the native SP and releases its lease.
 Leave clears the context for callers whose own epilogue restores SP.
 Abort releases an owned resource once and returns to the native caller.
 Borrowed resources remain with their outer caller on success and failure.
-Refused acquisition aborts without releasing a resource.
-Active scopes must be serialized; borrowing a lease does not nest scopes.
+Guarded acquisition failures cancel only their caller without changing library state.
+An active scope cannot be replaced. Borrowing a lease does not nest scopes.
 This module installs no firmware hooks.
 Before initialization, native acquisition and release retain their original
 behavior. Initialization preserves an active scope and any latched fault.
@@ -15,11 +15,12 @@ The kernel release runs with IRQs enabled; abort restores the caller's
 interrupt control before returning.
 """
 import hashlib
+import re
 
 import arm
 from sample_swap_io import TIMER, TIMER_HZ, DEADLINE_TICKS, POLL_BUDGET, RELEASE, LATCHED, validate_firmware as validate_transport
 
-CONTEXT_BYTES = 96
+CONTEXT_BYTES = 144
 ACQUIRE = 0xC0000D80
 RESOURCE_SITES = (
     (0xc0012794, 0xc00127a4), (0xc0012800, 0xc0012820),
@@ -59,20 +60,94 @@ def validate_firmware(vsb):
 
 
 def source(*, scope, fault, mode, generation, release=RELEASE, acquire=ACQUIRE,
-           timer=TIMER, poll_budget=POLL_BUDGET, gate=None):
+           timer=TIMER, poll_budget=POLL_BUDGET, gate=None, gate_owner=None,
+           current_task=None, owner=None, session=None, acquire_guard=None, part='all'):
     """Initialized sample reads/writes are always bounded. Other transactions use
     the optional MODE/INSTEP gate; uninitialized calls retain native behavior."""
     values = dict(NS_SCOPE=scope, NS_FAULT=fault, NS_MODE=mode, NS_GEN=generation,
                   NS_RELEASE=release, NS_ACQUIRE=acquire, NS_TIMER=timer, NS_HZ=TIMER_HZ,
-                  NS_DEADLINE=DEADLINE_TICKS, NS_POLLS=poll_budget, NS_LATCHED=LATCHED)
-    if gate is not None:
-        values['NS_GATE'] = gate
-    if any(value & 3 for value in (scope, fault, mode, generation, release, acquire, timer, gate or 0)):
+                  NS_DEADLINE=DEADLINE_TICKS, NS_POLLS=poll_budget, NS_LATCHED=LATCHED, NS_CONTEXT=CONTEXT_BYTES)
+    fields = [('NS_CURRENT_TASK', current_task, 80), ('NS_GEN', generation, 84),
+              ('NS_MODE', mode, 88), ('NS_GATE', gate, 92), ('NS_SESSION', session, 96),
+              ('NS_OWNER', owner, 100)]
+    if gate_owner is not None:
+        if gate is None or current_task is None:
+            raise ValueError('a step owner needs a gate and current task')
+        fields.append(('NS_GATE_OWNER', gate_owner, 116))
+    for name, address, _ in fields:
+        if address is not None:
+            values[name] = address
+    if any(value & 3 for value in (scope, fault, mode, generation, release, acquire, timer,
+                                   *(address for _, address, _ in fields if address is not None))):
         raise ValueError('scope addresses must be word aligned')
     if not 0 < poll_budget <= 0xFFFFFFFF:
         raise ValueError('positive 32-bit poll budget required')
-    take = GATED_TAKE if gate is not None else TAKE
-    return ''.join(f'.equ {name}, {value:#x}\n' for name, value in values.items()) + SOURCE.replace('@TAKE@', take)
+    if acquire_guard is not None and not re.fullmatch(r'[A-Za-z_]\w*', acquire_guard, flags=re.ASCII):
+        raise ValueError('an assembler label is required for the acquisition guard')
+    identities = [(name, offset) for name, address, offset in fields if address is not None]
+    if owner is not None:
+        identities.extend((f'NS_OWNER + {i}', 100 + i) for i in (4, 8, 12))
+    snapshots = '\n'.join(f'    ldr r0, ={name}\n    ldr r0, [r0]\n    str r0, [r12, #{offset}]'
+                          for name, offset in identities)
+    task_check = '' if current_task is None else (r'''    ldr r0, =NS_CURRENT_TASK
+    ldr r0, [r0]
+    ldr r1, [r12, #80]
+    cmp r0, r1
+''')
+    ownership = '' if gate_owner is None else r'''    ldr r12, =NS_GATE_OWNER
+    ldr r12, [r12]
+    cmp r12, #0
+    beq ns_take_native
+    push {r0, r1}
+    ldr r0, =NS_CURRENT_TASK
+    ldr r0, [r0]
+    cmp r12, r0
+    pop {r0, r1}
+    bne ns_take_native
+'''
+    take = (GATED_TAKE if gate is not None else TAKE).replace('@STEP_OWNER@', ownership)
+    if acquire_guard is not None:
+        take = take.replace('b native_scope_refused', 'b native_scope_cancel')
+    plain = '    b NS_ACQUIRE' if acquire_guard is None else f'''    push {{r4, lr}}
+    .word 0xE10F4000
+    mov r1, #0
+    bl {acquire_guard}
+    cmp r0, #0
+    mov r12, r4
+    pop {{r4, lr}}
+    bne native_scope_cancel
+    .word 0xE121F00C
+    .word 0xE128F00C
+    bx lr'''
+    call = r'''    push {r4, lr}
+    bl NS_ACQUIRE
+native_scope_acquired:
+    pop {r4, lr}
+    cmp r0, #0
+    bne native_scope_refused
+    b native_scope_enter''' if acquire_guard is None else f'''    push {{r4, lr}}
+    .word 0xE10F4000
+    mov r1, #1
+    bl {acquire_guard}
+native_scope_acquired:
+    cmp r0, #0
+    mov r12, r4
+    pop {{r4, lr}}
+    bne native_scope_cancel
+    b native_scope_enter_locked'''
+    body = SOURCE.replace('@TAKE@', take).replace('@TAKE_CALL@', call).replace('@PLAIN@', plain)
+    body = body.replace('@SNAPSHOT@', snapshots)
+    body = body.replace('@TICK_TASK@', task_check + '    bxne lr' if task_check else '')
+    body = body.replace('@CLOSE_TASK@', task_check + '    bne native_scope_cancel' if task_check else '')
+    body = body.replace('@LEAVE_TASK@', task_check + '    bne ns_leave_out' if task_check else '')
+    helper = HELPERS.replace('@IDENTITY_COUNT@', str(len(identities)))
+    helper = helper.replace('@IDENTITY_FIELDS@', '\n'.join(f'    .word {name}\n    .word {offset}'
+                                                          for name, offset in identities))
+    if part not in ('all', 'core', 'helpers'):
+        raise ValueError('unknown scope source part')
+    if part == 'helpers':
+        return helper
+    return ''.join(f'.equ {name}, {value:#x}\n' for name, value in values.items()) + body + (helper if part == 'all' else '')
 
 
 def build_code(origin, **kwargs):
@@ -112,49 +187,60 @@ ns_init_out:
 
 native_scope_take:
 @TAKE@
-    push {r4, lr}
-    bl NS_ACQUIRE
-native_scope_acquired:
-    pop {r4, lr}
-    cmp r0, #0
-    bne native_scope_refused
-    b native_scope_enter
+@TAKE_CALL@
 
-; The native FP stays fixed; the final native epilogue discards the context.
 native_scope_enter:
-    sub sp, sp, #96
+    sub sp, sp, #NS_CONTEXT
     str r12, [sp, #64]
+    .word 0xE10FC000
+    str r12, [sp, #72]
+    mov r12, #1
+    str r12, [sp, #80]
+    b ns_enter_saved
+native_scope_enter_locked:
+    sub sp, sp, #NS_CONTEXT
+    str r12, [sp, #64]
+    str r12, [sp, #72]
     mov r12, #1
     str r12, [sp, #80]
     b ns_enter_saved
 native_scope_enter_borrowed:
-    sub sp, sp, #96
+    sub sp, sp, #NS_CONTEXT
     str r12, [sp, #64]
+    .word 0xE10FC000
+    str r12, [sp, #72]
     mov r12, #0
     str r12, [sp, #80]
     b ns_enter_saved
 native_scope_refused:
-    sub sp, sp, #96
+    sub sp, sp, #NS_CONTEXT
     str r12, [sp, #64]
+    .word 0xE10FC000
+    str r12, [sp, #72]
     mov r12, #2
     str r12, [sp, #80]
 ns_enter_saved:
+    ldr r12, [sp, #72]
+    orr r12, r12, #0x80
+    .word 0xE121F00C
     add r12, sp, #16
     stmia r12, {r0-r11}
     str lr, [r12, #52]
-    .word 0xE10F0000
-    str r0, [r12, #56]
-    add r0, sp, #96
+    add r0, sp, #NS_CONTEXT
     str r0, [r12, #60]
+@SNAPSHOT@
     ldr r0, [r12, #64]
     cmp r0, #2
     beq native_scope_abort
     ldr r0, =NS_SCOPE
+    ldr r1, [r0]
+    cmp r1, #0
+    bne native_scope_cancel_acquired
     str r12, [r0]
     ldr r0, =NS_FAULT
     ldr r0, [r0]
-    cmp r0, #0
-    bne native_scope_abort
+    cmp r0, #1
+    bhi native_scope_abort
     ldr r0, =NS_POLLS
     str r0, [r12, #76]
     mov r0, #0
@@ -178,6 +264,7 @@ ns_enter_saved:
     str r0, [r12, #72]
 ns_enter_done:
     ldr r0, [r12, #56]
+    .word 0xE121F000
     .word 0xE128F000
     ldmia r12, {r0-r12, lr}
     bx lr
@@ -190,10 +277,16 @@ native_scope_tick:
     bxeq lr
     cmn r12, #1
     bxeq lr
+@TICK_TASK@
+    push {r2, lr}
+    bl native_scope_identity
+    pop {r2, lr}
+    cmp r0, #0
+    beq native_scope_abort
     ldr r0, =NS_FAULT
     ldr r0, [r0]
-    cmp r0, #0
-    bne native_scope_abort
+    cmp r0, #1
+    bhi native_scope_abort
     ldr r0, [r12, #76]
     subs r0, r0, #1
     str r0, [r12, #76]
@@ -216,12 +309,22 @@ native_scope_tick:
 
 ; The caller still owns resource 1 and executes its original release next.
 native_scope_leave:
-    push {r0, r1}
+    push {r0-r3, r12, lr}
+    ldr r0, =NS_SCOPE
+    ldr r12, [r0]
+    cmp r12, #0
+    beq ns_leave_out
+    cmn r12, #1
+    beq ns_leave_out
+@LEAVE_TASK@
+    ldr r1, [r12, #44]
+    cmp r1, r11
+    bne ns_leave_out
     ldr r0, =NS_SCOPE
     mov r1, #0
     str r1, [r0]
-    pop {r0, r1}
-    bx lr
+ns_leave_out:
+    pop {r0-r3, r12, pc}
 
 ; Restore the native SP before its release and epilogue.
 native_scope_close:
@@ -231,13 +334,19 @@ native_scope_close:
     beq NS_RELEASE
     cmn r12, #1
     beq NS_RELEASE
+@CLOSE_TASK@
     ldr r0, [r12, #44]
     cmp r0, r11
-    bne native_scope_refused
+    bne native_scope_cancel
+    push {r2, lr}
+    bl native_scope_identity
+    pop {r2, lr}
+    cmp r0, #0
+    beq native_scope_abort
     ldr r0, =NS_FAULT
     ldr r0, [r0]
-    cmp r0, #0
-    bne native_scope_abort
+    cmp r0, #1
+    bhi native_scope_abort
     ldr r1, [r12, #64]
     ldr r0, [r12, #60]
     ldr r2, =NS_SCOPE
@@ -315,16 +424,19 @@ TAKE_CHECK = r'''    push {r12, lr}
     ldr r12, =NS_SCOPE
     ldr r12, [r12]
     cmn r12, #1
-    beq ns_take_native
+    beq ns_take_cold
     ldr r12, =NS_FAULT
     ldr r12, [r12]
     cmp r12, #1
     bhi ns_take_refused
 '''
 
-TAKE_END = r'''ns_take_native:
+TAKE_END = r'''ns_take_cold:
     pop {r12, lr}
     b NS_ACQUIRE
+ns_take_native:
+    pop {r12, lr}
+@PLAIN@
 ns_take_refused:
     pop {r12, lr}
     b native_scope_refused
@@ -346,6 +458,7 @@ GATED_TAKE = TAKE_CHECK + r'''    ldr r12, =0xC001424C
     ldr r12, [r12]
     cmp r12, #0
     beq ns_take_native
+@STEP_OWNER@
 ns_sample_take:
     pop {r12, lr}
     b ns_take_bounded
@@ -367,3 +480,59 @@ native_scope_gpio:
 .pool
 native_scope_driver_end:
 '''
+
+
+HELPERS = r"""
+native_scope_identity:
+    ldr r1, =native_identity_fields
+    mov r2, #@IDENTITY_COUNT@
+ns_identity_loop:
+    ldmia r1!, {r0, r3}
+    ldr r0, [r0]
+    ldr r3, [r12, r3]
+    cmp r0, r3
+    bne ns_identity_no
+    subs r2, r2, #1
+    bne ns_identity_loop
+    mov r0, #1
+    bx lr
+ns_identity_no:
+    mov r0, #0
+    bx lr
+.pool
+native_identity_fields:
+@IDENTITY_FIELDS@
+
+; No protocol was entered; cancel only this FP-based caller.
+native_scope_cancel:
+    mov r12, r11
+    ldr r2, [r12]
+    ldr r11, [r12, #-4]
+    add sp, r12, #4
+    mov r1, lr
+    ldr r12, =0xC001424C
+    cmp r1, r12
+    ldrne r12, =0xC00142D8
+    cmpne r1, r12
+    ldrne r12, =0xC0014278
+    cmpne r1, r12
+    ldrne r12, =0xC00142FC
+    cmpne r1, r12
+    moveq r0, #4
+    movne r0, #0
+    bx r2
+
+native_scope_cancel_acquired:
+    mov r4, r12
+    sub sp, r4, #16
+    ldr r0, [r4, #64]
+    cmp r0, #1
+    bne ns_return
+    ldr r0, [r4, #56]
+    bic r0, r0, #0x80
+    .word 0xE121F000
+    mov r0, #1
+    bl NS_RELEASE
+    b ns_return
+.pool
+"""

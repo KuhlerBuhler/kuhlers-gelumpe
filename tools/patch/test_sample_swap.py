@@ -1793,23 +1793,47 @@ class ExportAll(unittest.TestCase):
 class NativeGate(unittest.TestCase):
     """The native DSP deadline bounds a transaction only while the swap's own step runs."""
 
-    def taken(self, mode, step):
+    def taken(self, mode, step, *, foreign=False):
         s = Swap()
+        task = 0xC06A2524
+        s.uc.mem_map(p.native_dsp_scope.TIMER, 4096)
         s.uc.mem_write(p.NATIVE_SCOPE, word(0))
-        s.set_state("MODE", mode)
-        s.set_state("INSTEP", step)
-        acquire = 0xC0000D80
-        s.uc.mem_write(acquire, arm.assemble("mov r0, #0\nbx lr", origin=acquire).bytes)
+        s.uc.mem_write(p.native_dsp_acquire.CURRENT_TASK, word(task))
+        s.uc.mem_write(p.sample_swap_io.SEMA, word(1))
+        s.set_state('MODE', mode)
+        s.set_state('INSTEP', step)
+        s.set_state('INSTEP_TASK', task + 32 if foreign else task)
+        release = p.sample_swap_io.RELEASE
+        source = f"""ldr r1, ={p.sample_swap_io.SEMA}
+        ldr r2, [r1]
+        add r2, r2, #1
+        str r2, [r1]
+        mov r0, #0
+        bx lr
+        .pool"""
+        s.uc.mem_write(release, arm.assemble(source, origin=release).bytes)
         bounded = []
-
-        def stop(uc, *_):
-            bounded.append(1)
-            uc.reg_write(R.UC_ARM_REG_PC, TRAP)
-        s.uc.hook_add(unicorn.UC_HOOK_CODE, stop, begin=s.sym["native_scope_enter"], end=s.sym["native_scope_enter"])
-        s.uc.reg_write(R.UC_ARM_REG_SP, STACK)
-        s.uc.reg_write(R.UC_ARM_REG_LR, TRAP)
-        s.uc.emu_start(s.sym["native_scope_take"], TRAP, count=10_000)
+        for label in ('native_scope_enter', 'native_scope_enter_locked'):
+            at = s.sym[label]
+            s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: bounded.append(1), begin=at, end=at)
+        at = 0xC100A000
+        source = f"""push {{r11, lr}}
+        add r11, sp, #4
+        mov r0, #1
+        bl {s.sym['native_scope_take']}
+        mov r0, #1
+        bl {s.sym['native_scope_close']}
+        sub sp, r11, #4
+        pop {{r11, pc}}
+        .pool"""
+        s.uc.mem_write(at, arm.assemble(source, origin=at).bytes)
+        s.call(at)
+        self.assertEqual(s.u32(p.NATIVE_SCOPE), 0)
+        self.assertEqual(s.u32(p.sample_swap_io.SEMA), 1)
         return bool(bounded)
+
+    def test_another_tasks_step_does_not_bound_an_unrelated_call(self):
+        self.assertFalse(self.taken(1, 1, foreign=True))
 
     def test_only_the_swaps_step_is_bounded(self):
         for mode, step, bounded in ((1, 1, True), (1, 0, False), (0, 1, False), (2, 1, False), (0, 0, False)):

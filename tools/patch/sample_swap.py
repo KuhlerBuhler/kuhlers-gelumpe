@@ -15,8 +15,8 @@ the sample is entered into its slot, so a cache written by someone else is never
     python3 tools/patch/sample_swap.py --vsb SYSTEM.VSB [--out data/patches/sample-swap.json]
 
 Swapping is on when the file is larger than the user bank and EXIT did not select the native loader. Native DSP transaction
-guards initialize at library entry unless cold-start EXIT selects the native path. They bound a native transaction only while
-the swap's own step runs (MODE 1 and INSTEP); every other native DSP call keeps Korg's behavior, without a deadline.
+guards initialize at library entry unless cold-start EXIT selects the native path. Resource acquisition yields with a one-second deadline. Native sample transfers and transactions in the swap's own
+task-bound step have protocol deadlines; unrelated native commands retain their original protocol waits.
 A row the user changed since the start (import, sampling, resampling, a sample edit) is never evicted: the loader's and the
 swap's rows keep a signature (SIG), and only a row that still matches it may leave the DSP. EXPORT ALL SAMPLE is refused
 while the swap is on or failed, since the DSP then holds only part of the file.
@@ -58,6 +58,7 @@ import sample_owner  # noqa: E402
 import sample_protection  # noqa: E402
 import sample_pcm  # noqa: E402
 import native_dsp_scope  # noqa: E402
+import native_dsp_acquire  # noqa: E402
 import capture_fault  # noqa: E402
 import sample_export_fault  # noqa: E402
 
@@ -99,7 +100,7 @@ KILL = 0x2000                   # EXIT held at power-on
 # State words (STATE + offset). FF at power-on; the loader's f_open hook sets them when the swap goes on.
 FIELDS = """MODE GEN SESSION WASPLAY POSTED REQ FILE FILEGEN PREP P_LEN P_BITS P_FBYTES J_STATE J_SLOT J_SRC J_DST
 J_LEN J_DONE J_BITS J_BASE J_ENTRY J_SUM J_GEN J_STAGED J_TICKS CPTR CGEN CFILL PFULL LASTRUN T0 GOT HDRFOR
-TSTATE STAT_COUNT STAT_BYTES STAT_TICKS STAT_SRC INSTEP""".split()
+TSTATE STAT_COUNT STAT_BYTES STAT_TICKS STAT_SRC INSTEP INSTEP_TASK""".split()
 OFF = {name: 4 * i for i, name in enumerate(FIELDS)}
 FAILED = 0xA0                   # 1024 bits, a slot that cannot be loaded
 PROT = 0x120                    # 32 half words: the live pattern's and the target's samples
@@ -1085,6 +1086,9 @@ ss_step:
     ldr r0, [r11, #MODE]
     cmp r0, #1
     bne st_ret
+    ldr r1, =0xc06a289c
+    ldr r1, [r1]
+    str r1, [r11, #INSTEP_TASK]
     str r0, [r11, #INSTEP]
     ldr r0, [r11, #TSTATE]
     cmp r0, #1
@@ -1164,6 +1168,7 @@ st_ret:
 st_leave:
     mov r1, #0
     str r1, [r11, #INSTEP]
+    str r1, [r11, #INSTEP_TASK]
     pop {r3-r11, pc}
 
 ; r0 = an earlier reading of timer 3: ticks since then.
@@ -2409,12 +2414,20 @@ pl_none:
 def source(screens):
     importer = sample_import.source(state=STATE, file=FIL, descriptor=DESC, normalizer=FIL + 0x240,
                                     prep=OFF["PREP"], bits=OFF["P_BITS"], file_bytes=OFF["P_FBYTES"])
-    native = native_dsp_scope.driver_source(scope=NATIVE_SCOPE, fault=STATE + OFF["TSTATE"],
-                                           mode=STATE + OFF["MODE"], generation=STATE + OFF["GEN"],
-                                           gate=STATE + OFF["INSTEP"])
+    scope_args = dict(scope=NATIVE_SCOPE, fault=STATE + OFF['TSTATE'],
+                      mode=STATE + OFF['MODE'], generation=STATE + OFF['GEN'],
+                      gate=STATE + OFF['INSTEP'], gate_owner=STATE + OFF['INSTEP_TASK'],
+                      current_task=native_dsp_acquire.CURRENT_TASK, owner=FILE_OWNER,
+                      session=STATE + OFF['SESSION'], acquire_guard='native_resource_take')
+    native = native_dsp_scope.driver_source(**scope_args, part='core')
+    acquire = native_dsp_acquire.source(scope=NATIVE_SCOPE, fault=STATE + OFF['TSTATE'],
+                                        mode=STATE + OFF['MODE'], generation=STATE + OFF['GEN'],
+                                        gate=STATE + OFF['INSTEP'], session=STATE + OFF['SESSION'],
+                                        owner=FILE_OWNER, gate_owner=STATE + OFF['INSTEP_TASK'])
     guards = capture_fault.source(STATE + OFF["TSTATE"]) + sample_export_fault.source(STATE + OFF["TSTATE"])
     body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer + sample_owner.source(FILE_OWNER) + PUBLISH + native + guards
     body += "\n.org PROTECTION_CODE\n" + sample_protection.source(PROTECTION) + PLACEMENT + sample_pcm.source() + sample_names.source()
+    body += acquire + native_dsp_scope.source(**scope_args, part='helpers')
     return halfword(equs(screens) + f".equ transfer, {TRANSPORT:#x}\n" + body)
 
 
@@ -2459,6 +2472,7 @@ def build_patch(vsb, build=None):
     if len(vsb) != 0x200100:
         raise SystemExit("a VSB has 0x200100 bytes")
     actual = native_dsp_scope.validate_firmware(vsb)
+    native_dsp_acquire.validate_firmware(vsb)
     capture_fault.validate_firmware(vsb)
     sample_export_fault.validate_firmware(vsb)
     sample_protection.validate_firmware(vsb)
