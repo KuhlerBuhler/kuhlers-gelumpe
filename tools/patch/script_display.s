@@ -394,6 +394,9 @@ script_display_blit:
     ldrb r3, [r2, #M_DESC_ON]   ; the page DESCRIPTION draws its description into the picture (menu_desc_frame)
     cmp r3, #1
     beq blit_menu
+    ldrb r3, [r2, #M_EGG]       ; the egg on the page VERSION draws its show into the picture (script_egg.s)
+    cmp r3, #1
+    beq blit_menu
 blit_app:
     ldr r3, =APP_STATE
     ldr r3, [r3]

@@ -1606,6 +1606,8 @@ menu_show:
     push {r4, r5, lr}
     mov r4, r0
     ldr r5, =MENU_STATE
+    mov r0, #0                  ; any other key between them: the MENU presses for the egg count from 0 again
+    strb r0, [r5, #M_EGG_N]
     ldr r0, [r5, #M_PAGE]
     bl menu_texts
     bl menu_tab_text
@@ -2175,6 +2177,9 @@ menu_texts_clear:
 ; VERSION: the set's version text (the patch blech-version) as the title, the firmware this runtime is built for as the value, behind
 ; it what the start did with e2sFx.all ("HACKTRIBE FX"). The third row would be drawn on the row of the value, over the firmware.
 menu_text_version:
+    ldrb r0, [r5, #M_EGG]       ; after the egg's first show: NEW SAMPLE Unlocked for two seconds (script_egg.s)
+    cmp r0, #2
+    beq menu_text_egg
     add r0, r5, #M_TITLE
     ldr r1, =VERSION_TEXT
     ldrb r2, [r1]
@@ -2192,6 +2197,14 @@ menu_text_version:
     strbne r2, [r4], #1
     movne r0, r4
     blne menu_copy
+    pop {r4, r5, r6, r7, pc}
+menu_text_egg:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_egg_new
+    bl menu_copy
+    add r0, r5, #M_VALUE
+    ldr r1, =str_egg_unlocked
+    bl menu_copy
     pop {r4, r5, r6, r7, pc}
 ; the page BLECH in the ring and the groups of the list look like Data Util: the name as the title, "press  [ Enter ]" under it
 menu_text_ring:
@@ -4726,6 +4739,10 @@ menu_export_custom:
 
 ; ---- slots of the class, this = r0
 menu_slot_prev:
+    ldr r3, =MENU_STATE         ; the egg's show and its message take no key but EXIT (script_egg.s)
+    ldrb r3, [r3, #M_EGG]
+    cmp r3, #0
+    bxne lr
     push {r4, lr}
     mov r4, r0
     ldr r2, =MENU_STATE
@@ -4806,6 +4823,10 @@ menu_prev_blechy:
 .pool
 
 menu_slot_next:
+    ldr r3, =MENU_STATE         ; the egg's show and its message take no key but EXIT (script_egg.s)
+    ldrb r3, [r3, #M_EGG]
+    cmp r3, #0
+    bxne lr
     push {r4, lr}
     mov r4, r0
     bl menu_page_count
@@ -4870,6 +4891,10 @@ menu_next_pattern:
 
 ; r1 = steps of the main dial
 menu_slot_value:
+    ldr r3, =MENU_STATE         ; the egg's show and its message take no key but EXIT (script_egg.s)
+    ldrb r3, [r3, #M_EGG]
+    cmp r3, #0
+    bxne lr
     push {r4, r5, r6, lr}
     mov r4, r0
     mov r5, r1
@@ -5242,6 +5267,10 @@ menu_value_desc:
 menu_slot_keys:
     cmp r2, #1
     bxne lr
+    ldr r3, =MENU_STATE         ; the egg's show and its message take no key but EXIT (script_egg.s)
+    ldrb r3, [r3, #M_EGG]
+    cmp r3, #0
+    bxne lr
     cmp r1, #0x0E
     cmpne r1, #0x09
     bxne lr
@@ -5460,6 +5489,10 @@ menu_slot_exit:
     cmp r1, #13
     cmpeq r2, #1
     bne menu_exit_stock
+    ldr r3, =MENU_STATE         ; EXIT ends the egg's show or its message (script_egg.s)
+    ldrb r3, [r3, #M_EGG]
+    cmp r3, #0
+    bne egg_exit
     push {r1, r2, r4, lr}
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_LEVEL]
@@ -5531,8 +5564,14 @@ menu_exit_stock:
     ldr pc, =0xC0060F04
 .pool
 
-; MENU is the firmware's slot of its own and does not come through the key slot on a press: it is ENTER here.
+; MENU is the firmware's slot of its own and does not come through the key slot on a press: it is ENTER here. On VERSION it
+; is counted for the egg first (egg_menu_press), the page itself does nothing with it.
 menu_slot_enter:
+    push {r0, lr}
+    bl egg_menu_press
+    cmp r0, #0
+    pop {r0, lr}
+    bxne lr
     mov r1, #0x09
     mov r2, #1
     b menu_slot_keys
