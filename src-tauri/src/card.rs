@@ -11,7 +11,9 @@ use std::time::UNIX_EPOCH;
 
 use serde::Serialize;
 use tauri::{ipc::Response, AppHandle, State, WebviewWindow};
+#[cfg(desktop)]
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::FilePath;
 
 use crate::midi::trusted_origin;
 
@@ -193,6 +195,17 @@ fn root(state: &State<'_, CardRoot>) -> Result<PathBuf, String> {
         .ok_or("Es ist keine Karte gewählt.".into())
 }
 
+#[cfg(desktop)]
+fn pick_folder(app: AppHandle) -> Result<Option<FilePath>, String> {
+    Ok(app.dialog().file().blocking_pick_folder())
+}
+
+/// Android's folder picker hands out a document tree, not a path these commands could walk.
+#[cfg(mobile)]
+fn pick_folder(_app: AppHandle) -> Result<Option<FilePath>, String> {
+    Err("Die Android-App kann noch keinen Kartenordner öffnen.".into())
+}
+
 /// Opens the folder dialog; the name of the picked folder, or None when the person cancels.
 #[tauri::command]
 pub async fn card_pick(
@@ -201,10 +214,9 @@ pub async fn card_pick(
     state: State<'_, CardRoot>,
 ) -> Result<Option<String>, String> {
     allow(&window)?;
-    let picked =
-        tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
-            .await
-            .map_err(|e| e.to_string())?;
+    let picked = tauri::async_runtime::spawn_blocking(move || pick_folder(app))
+        .await
+        .map_err(|e| e.to_string())??;
     let Some(picked) = picked else {
         return Ok(None);
     };

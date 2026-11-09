@@ -1,3 +1,7 @@
+#[cfg(desktop)]
+mod backend;
+#[cfg(mobile)]
+#[path = "midi/none.rs"]
 mod backend;
 mod service;
 pub use backend::NativeDriver;
