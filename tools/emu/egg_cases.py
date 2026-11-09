@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import menu_cases as mc  # noqa: E402
 import last_pattern_cases  # noqa: E402
 
-M_EGG, M_EGG_N = 0x1F8, 0x1F9           # bytes of MENU_STATE (script_egg.s)
+M_EGG = mc.script_hooks.EGG_WORK         # the egg's state byte (script_egg.s:M_EGG)
 EGG_SLOT = 251                          # *GLOBALS + 251
 EGG_FLASH = 0x2300F7                    # that byte in the flash (byte 247 of the Globals block at 0x230000)
 UNLOCKED = 0x5A
@@ -26,7 +26,7 @@ STEP = 0.05                              # the look every 50 ms
 
 
 def egg(dev):
-    return dev.read(mc.STATE + M_EGG, 1)[0]
+    return dev.read(M_EGG, 1)[0]
 
 
 def unlock_byte(dev):
@@ -73,6 +73,39 @@ def colours(samples):
 
 
 def cases(payload, flash=None):
+    return show_cases(payload, flash) + auto_save_cases(payload, flash)
+
+
+def light_of(dev):
+    return tuple(mc.state(dev, mc.S_BL_R + 4 * k) for k in range(3))
+
+
+def auto_save_cases(payload, flash=None):
+    """AUTO SAVE (on by default) compares the settings, the colour of the display light among them, when the BLECH screen is left.
+    A screen switch of the firmware during the show ends the show first: the settings file keeps the colour from before, and the
+    Globals with the unlock are not written either (the BLECH screen was left from level 1, not GLOBAL)."""
+    dev = mc.boot(payload, flash, files=mc.CARD_FOLDER)
+    dev.payload = payload
+    mc.goto_top(dev, mc.LIST_VERSION)
+    snap = dev.u32(mc.STATE + 0x1F8)                    # M_SNAP: AUTO SAVE took the checksum on entering
+    light = light_of(dev)
+    card = bytes(dev.m.mmc.card.medium.data)
+    mc.count_erases(dev)
+    presses(dev, 5)
+    dev.run(1.0)
+    during = (egg(dev), light_of(dev))
+    mc.go(dev, 8)                                       # the firmware switches away while the show runs
+    dev.run(0.5)
+    after = (egg(dev), light_of(dev), dev.m.screen())
+    same = bytes(dev.m.mmc.card.medium.data) == card
+    return [{"id": "menu:egg_auto_save_keeps_the_show_out",
+             "ok": bool(snap != 0 and during[0] == 1 and during[1] != light and after == (0, light, 8) and same and dev.erases == []
+                        and not dev.m.asserts),
+             "detail": f"checksum on entering {snap:#x}, light {light}, during the show {during}, after the switch {after}, "
+                       f"card {'unchanged' if same else 'written'}, erases {dev.erases}"}]
+
+
+def show_cases(payload, flash=None):
     out = []
 
     def add(name, ok, detail):

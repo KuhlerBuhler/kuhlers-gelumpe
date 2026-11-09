@@ -6,6 +6,7 @@
  * be reached, come from the notes the app carries (data/release-notes.mjs).
  */
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { toast } from "./toast.mjs";
 import { t, tNodes, locale, language } from "./i18n.mjs";
 import { isNewer } from "./update.mjs";
@@ -92,9 +93,8 @@ function release(r) {
   const side = el("header", { className: "cee-release-side" }, [
     el("h2", {}, [el("a", { className: "cee-text-link", href: r.html_url, target: "_blank", rel: "noopener noreferrer", textContent: r.tag_name })]),
     el("time", { dateTime: r.published_at, textContent: date(r.published_at) }),
-    r.prerelease ? el("span", { className: "cee-status", textContent: t("changelog.prerelease") }) : null,
+    r.prerelease ? stateText("warn", t("changelog.prerelease")) : null,
   ]);
-  side.querySelector(".cee-status")?.setAttribute("data-tone", "warn");
   const get = downloads(r.assets);
   return el("article", { className: "cee-release" }, [
     side,

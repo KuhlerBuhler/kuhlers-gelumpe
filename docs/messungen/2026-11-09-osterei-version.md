@@ -54,15 +54,30 @@ Wunsch: im internen Flash, nicht in der Einstellungsdatei auf der Karte.
 
 ## Speicher
 
-- **Offline:** Die Bytes des Menüzustands bei `0x1C4` bis `0x1F7` belegt FILTER TOGGLE (`FT_KEY`, `FT_LAST`). Frei waren nur
-  `0x1F8` bis `0x1FF`: dort liegen die Bytes des Ostereis (Zustand, Zähler, Bild, erstes Mal, Farbton, Licht vorher).
-  Die drei Wörter (Startzeit, Blinkschritt, Bildschirmobjekt) liegen in `EGG_WORK`, 16 Byte hinter `SIM_INPUT` in der Reserve
-  von MORE2. Sie werden nur gelesen, solange das Byte sagt, dass die Show läuft, das FF beim Einschalten stört also nicht.
+- **Offline:** Der Menüzustand (`MENU_STATE`, 0x200 Byte) ist voll: `0x1C4` bis `0x1F7` belegt FILTER TOGGLE, `0x1F8` bis
+  `0x1FF` belegt seit #414 AUTO SAVE (`M_SNAP`, `M_AS`). Das Osterei liegt deshalb ganz in `EGG_WORK`, den letzten 20 Byte der
+  Reserve von MORE2 hinter `SIM_INPUT` (bis `MORE2_END`): Zustand, Zähler, Bild, erstes Mal, Farbton, Licht vorher, dann
+  Startzeit, Blinkschritt und Bildschirmobjekt. `menu_arm` setzt sie auf 0. Vorher stehen dort FF, das zählt als aus (die
+  Show läuft nur bei 1, die Meldung nur bei 2).
+
+## AUTO SAVE
+
+- **Offline:** AUTO SAVE schreibt beim Verlassen von GLOBAL PARAMETERS den ganzen Global-Block, wenn ein Byte vom gespeicherten
+  Stand abweicht. Byte 251 gehört dazu. Ist das Ei schon freigeschaltet, landet die 0x5A dadurch früher im Flash als erst beim
+  Ausschalten. Zurück auf 0 setzt AUTO SAVE das Byte nie, es schreibt nur den Stand aus dem RAM. Das Ei selbst schreibt
+  weiterhin nichts.
+- **Offline:** Beim Verlassen des BLECH-Bildschirms vergleicht AUTO SAVE die CRC der Einstellungen, dazu gehört die Farbe des
+  Displaylichts. Läuft die Show noch (ein Schalter der Firmware wechselt den Bildschirm), beendet `autosave_leave` sie vorher
+  und gibt die alte Farbe zurück. Die Farbe der Show landet so nie in der Einstellungsdatei.
+- **Gemessen:** Fall `egg_auto_save_keeps_the_show_out` auf Hacktribe, Rot und Blau: Show läuft (Licht z. B. `(3, 15, 0)`),
+  die Firmware wechselt auf Bildschirm 8, danach ist die Show aus, das Licht wieder wie vorher, die Karte unverändert und der
+  Flash ohne Löschvorgang. Ohne das Beenden in `autosave_leave` hätte die abweichende Farbe die CRC geändert (hergeleitet,
+  nicht gegengemessen).
 
 ## Startzeit
 
 - **Gemessen:** `check.py --quick` auf allen drei Builds, siehe PR. Die Show hängt nur am Frame-Haken, der bei
-  M_EGG = 0 nach drei Befehlen zurückkehrt. Am Start ändert sich nichts.
+  M_EGG = 0 nach fünf Befehlen zurückkehrt. Am Start ändert sich nichts.
 
 ## Sample 500 (offen, nicht gebaut)
 
@@ -111,5 +126,6 @@ Ziel: nach der Freischaltung liegt auf Platz 500 (Index 499) ein Sample BLECH, a
 | `egg_later_shows_skip_the_message` | zweites Mal ohne Meldung |
 | `egg_unlock_kept_in_the_flash` | `0x2300F7 = 0x5A` nach dem Ausschalten |
 | `egg_unlock_survives_a_restart` | Byte 251 nach Neustart, Show ohne Meldung |
+| `egg_auto_save_keeps_the_show_out` | Bildschirmwechsel der Firmware während der Show: Show aus, Licht wie vorher, Karte unverändert, kein Löschen im Flash |
 
 Ergebnisse je Build: siehe PR.

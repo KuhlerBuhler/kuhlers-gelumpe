@@ -63,6 +63,8 @@ export async function setUp(routes = () => [], { realDevices = false, emu = null
           if (!("autoConnect" in saved)) localStorage.setItem("cee.settings", JSON.stringify({ ...saved, autoConnect: false }));
         } catch { /* blocked storage: the default holds */ }
       });
+      // Chrome has a save dialog the tests cannot answer: the pages take the download, a test that wants the dialog stubs it.
+      await context.addInitScript(() => { delete window.showSaveFilePicker; });
       context.setDefaultTimeout(20_000);
       // The changelog page asks GitHub for the releases; tests never reach the network and see none.
       await context.route("https://api.github.com/**", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));

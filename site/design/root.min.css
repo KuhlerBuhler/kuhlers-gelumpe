@@ -1461,47 +1461,6 @@ button.ui-row {
   gap: var(--space-1);
 }
 
-/* ========== STATUS-PILLE (ui-pill) ==========
-   Immer mit Wort, der Punkt ist nur Zusatz. data-tone: ok, warn, error, info, running, neutral. */
-.ui-pill {
-  box-sizing: border-box;
-  min-height: 26px;
-  padding: 0 var(--space-3) 0 var(--space-2);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--color-border-muted);
-  background: var(--color-surface-panel-alt);
-  font-size: var(--text-2xs);
-  font-weight: 500;
-  color: var(--fg-1);
-  white-space: nowrap;
-}
-
-.ui-pill::before {
-  content: "";
-  flex-shrink: 0;
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-pill);
-  background: var(--fg-2);
-}
-
-.ui-pill[data-tone="ok"] { color: var(--color-status-ok-text); }
-.ui-pill[data-tone="ok"]::before { background: var(--color-status-ok); }
-.ui-pill[data-tone="warn"] { color: var(--color-status-warn-text); }
-.ui-pill[data-tone="warn"]::before { background: var(--color-status-warn); }
-.ui-pill[data-tone="error"] { color: var(--color-status-error-text); }
-.ui-pill[data-tone="error"]::before { background: var(--color-status-error); }
-.ui-pill[data-tone="info"] { color: var(--color-status-info-text); }
-.ui-pill[data-tone="info"]::before { background: var(--color-status-info); }
-.ui-pill[data-tone="running"] { color: var(--color-status-info-text); }
-.ui-pill[data-tone="running"]::before {
-  background: var(--color-status-info);
-  animation: ui-pulse 1.2s ease-in-out infinite;
-}
-
 /* ========== CHIPS (ui-chip, ui-chipgroup, ui-filterbar) ========== */
 .ui-chip {
   box-sizing: border-box;
@@ -1908,8 +1867,7 @@ button.ui-chip:not([aria-pressed="true"]):hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-skeleton,
-  .ui-pill[data-tone="running"]::before {
+  .ui-skeleton {
     animation: none;
   }
 }

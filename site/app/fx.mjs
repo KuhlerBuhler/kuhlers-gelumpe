@@ -7,6 +7,7 @@
  * firmware file comes in phase 4a.
  */
 import { el, control } from "./fields.mjs";
+import { stateText, setStateText } from "./state.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { field, fieldsOf, readRaw, writeRaw, typeOf, BLOCKS } from "../../src/map/index.mjs";
@@ -31,12 +32,6 @@ const SEVERITY = {
 };
 const META = BLOCKS.get("fxRecord").meta;
 const STAGE_INDEX = { ifx1: 0, ifx2: 1, mfx: 2 };
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
-};
 
 /** Byte ranges of the record nobody understands, for the expert report. */
 const UNKNOWN = fieldsOf("fxRecord").filter(f => f.source === "unknown");
@@ -115,7 +110,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     // Korg's own build is not "known" (its presets are not Hacktribe's), but its presets are read through the pointer arrays all the same
     const stock = id.build === "stock" && !!locatePresets(bytes);
     if (!id.known && !stock) {
-      identity.replaceChildren(...(id.build === "stock" ? [] : [pill("error", t("presets.unknown")), ` ${id.reasons.join(" ")}`]));
+      identity.replaceChildren(...(id.build === "stock" ? [] : [stateText("error", t("presets.unknown")), ` ${id.reasons.join(" ")}`]));
       if (!embedded) window.ui?.rejectFile(fileInput, t("presets.notMeasured"));
       picker.hidden = true;
       return false;
@@ -385,7 +380,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
         const values = Object.entries(s.params).map(([name, v]) => `${labelFor(name).de} ${v}`).join(", ");
         return el("div", { className: "cee-group", id }, [
           el("h3", { textContent: t("presets.suggest.title", { label: s.label.de }) }),
-          el("p", {}, [pill("warn", t("presets.suggest.untested")), ` ${s.hint}`]),
+          el("p", {}, [stateText("warn", t("presets.suggest.untested")), ` ${s.hint}`]),
           el("p", { className: "muted cee-small", textContent: t("presets.suggest.sets", { values }) }),
           refusal ? el("p", { className: "cee-hint", id: `${id}-refusal`, textContent: refusal }) : apply,
         ]);
@@ -423,12 +418,12 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const list = el("ul", { className: "ui-list" });
     for (const f of findings) {
       const [tone, word] = SEVERITY[f.severity];
-      list.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(f.text)}` })]));
+      list.append(el("li", { className: "ui-row" }, [stateText(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(f.text)}` })]));
     }
     const unknown = unknownChanges(state.original.bytes, state.rec.bytes).length;
     verdict.replaceChildren(
       el("h3", { textContent: t("samples.gate") }),
-      findings.length ? list : el("p", {}, [pill("ok", t("samples.clean")), ` ${t("samples.noFindings")}`]),
+      findings.length ? list : el("p", {}, [stateText("ok", t("samples.clean")), ` ${t("samples.noFindings")}`]),
       unknown ? el("p", { className: "cee-hint", textContent: t("presets.unknownBytes", { count: unknown }) }) : "",
     );
   }
@@ -438,15 +433,13 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const bar = el("div", { className: "ui-progress", role: "progressbar" }, [el("span", { className: "ui-progress-bar" })]);
     bar.setAttribute("aria-valuemin", "0");
     bar.setAttribute("aria-valuemax", "100");
-    const state = el("span", { className: "cee-status", textContent: t("samples.job.running") });
-    state.dataset.tone = "running";
+    const jobState = stateText("running", t("samples.job.running"));
     const meta = el("span", { className: "ui-job-meta" });
-    job.replaceChildren(el("div", { className: "ui-job-head" }, [el("span", { className: "ui-job-name", textContent: name }), state]), bar, meta);
+    job.replaceChildren(el("div", { className: "ui-job-head" }, [el("span", { className: "ui-job-name", textContent: name }), jobState]), bar, meta);
     return {
       step(n, total) { window.ui?.setProgress(bar, Math.round((n / total) * 100), name); meta.textContent = t("samples.job.step", { n, total }); },
       done(ok, text) {
-        state.textContent = ok ? t("samples.job.done") : t("samples.job.failed");
-        state.dataset.tone = ok ? "ok" : "error";
+        setStateText(jobState, ok ? "ok" : "error", ok ? t("samples.job.done") : t("samples.job.failed"));
         bar.dataset.tone = ok ? "ok" : "error";
         window.ui?.setProgress(bar, 100, name, ok ? undefined : { valueText: t("samples.job.failed") });
         meta.textContent = text;
@@ -491,7 +484,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     const list = el("ul", { className: "ui-list", id: `${prefix}-blocked` });
     for (const r of reasons) {
       const [tone, word] = SEVERITY[r.severity] ?? ["error", "backup.locked"];
-      list.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(r.text ?? r.message)}` })]));
+      list.append(el("li", { className: "ui-row" }, [stateText(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(r.text ?? r.message)}` })]));
     }
     verdict.replaceChildren(el("h3", { textContent: t("samples.blocked") }), list);
     device.log?.(t("backup.blocked", { reasons: reasons[0]?.message ?? "" }), "error");
@@ -624,7 +617,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       exportNote.textContent = t("presets.checking");
       const report = await emu.check(state.base, res.bytes, res.allow, res.allowCode);
       exportChecks.replaceChildren(...report.checks.map(c => el("li", { className: "ui-row" }, [
-        pill(c.ok ? "ok" : "error", c.ok ? t("check.passed") : t("check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
+        stateText(c.ok ? "ok" : "error", c.ok ? t("check.passed") : t("check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
       ])));
       exportChecks.hidden = false;
       const good = report.checks.filter(c => c.ok).length;

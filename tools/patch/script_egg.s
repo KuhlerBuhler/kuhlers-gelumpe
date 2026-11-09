@@ -11,16 +11,16 @@
 ; Drawing is the firmware's: the word in its title font (font 3, the BLECH theme's where the set has it) and the start image (image
 ; 13, the user's own when the splash editor stored one) through its drawing functions into its frame buffer, taken from there into the
 ; runtime's picture, which the frame hook copies over the frame buffer each frame while the show runs (script_display_blit).
-.equ M_EGG, 0x1F8               ; bytes of MENU_STATE behind FILTER TOGGLE's (script_shortcuts.s:FT_LAST), zeroed at arm: 0 off, 1 the
-                                ; show runs, 2 the message NEW SAMPLE after the first show
-.equ M_EGG_N, 0x1F9             ; the MENU presses in a row on VERSION
-.equ M_EGG_PIC, 0x1FA           ; the picture shown (0 the word, 1 the start image), FF none yet
-.equ M_EGG_FIRST, 0x1FB         ; 1 when this show unlocked the sample
-.equ M_EGG_HUE, 0x1FC           ; the hue the light shows, FF none yet
-.equ M_EGG_BL, 0x1FD            ; 3 bytes: the display light's colour (M_BL_R, G, B) before the show
-.equ EGG_T0, 0                  ; words at EGG_WORK (script_hooks.py): word: the runtime's milliseconds at the start of the show or of the message (script_hooks.py:EGG_WORK)
-.equ EGG_STEP, 4                ; word: the blink step last sent (milliseconds / EGG_BLINK_MS), FFFFFFFF none
-.equ EGG_OBJ, 8                 ; word: the menu screen object the show runs on
+.equ M_EGG, 0                   ; the egg's 20 bytes at EGG_WORK (script_hooks.py), zeroed at arm (menu_arm), FF before: byte, 1 the
+                                ; show runs, 2 the message NEW SAMPLE after the first show, anything else off
+.equ M_EGG_N, 1                 ; byte: the MENU presses in a row on VERSION
+.equ M_EGG_PIC, 2               ; byte: the picture shown (0 the word, 1 the start image), FF none yet
+.equ M_EGG_FIRST, 3             ; byte: 1 when this show unlocked the sample
+.equ M_EGG_HUE, 4               ; byte: the hue the light shows, FF none yet
+.equ M_EGG_BL, 5                ; 3 bytes: the display light's colour (M_BL_R, G, B) before the show
+.equ EGG_T0, 8                  ; word: the runtime's milliseconds at the start of the show or of the message
+.equ EGG_STEP, 12               ; word: the blink step last sent (milliseconds / EGG_BLINK_MS), FFFFFFFF none
+.equ EGG_OBJ, 16                ; word: the menu screen object the show runs on
 .equ EGG_PRESSES, 5
 .equ EGG_BLINK_MS, 250
 .equ EGG_MSG_MS, 2000
@@ -36,15 +36,16 @@
 egg_menu_press:
     push {r4, r5, lr}
     mov r4, r0
-    ldr r5, =MENU_STATE
+    ldr r5, =EGG_WORK
     ldrb r0, [r5, #M_EGG]
     cmp r0, #0
     movne r0, #1                ; during the show and the message MENU does nothing
     popne {r4, r5, pc}
-    ldr r0, [r5, #M_LEVEL]
+    ldr r1, =MENU_STATE
+    ldr r0, [r1, #M_LEVEL]
     cmp r0, #1
     bne egg_press_other
-    ldr r0, [r5, #M_PAGE]
+    ldr r0, [r1, #M_PAGE]
     bl menu_kind
     cmp r0, #41
     bne egg_press_other
@@ -67,21 +68,21 @@ egg_press_other:
 ; r0 = object. Starts the show and unlocks the sample (the Global byte, in RAM only).
 egg_start:
     push {r4, r5, lr}
-    ldr r5, =MENU_STATE
-    ldr r1, =EGG_WORK
-    str r0, [r1, #EGG_OBJ]
+    ldr r5, =EGG_WORK
+    str r0, [r5, #EGG_OBJ]
     mvn r0, #0
-    str r0, [r1, #EGG_STEP]
+    str r0, [r5, #EGG_STEP]
     mov r0, #0
     strb r0, [r5, #M_EGG_N]
     mov r0, #0xFF
     strb r0, [r5, #M_EGG_PIC]
     strb r0, [r5, #M_EGG_HUE]
-    ldr r0, [r5, #M_BL_R]
+    ldr r1, =MENU_STATE
+    ldr r0, [r1, #M_BL_R]
     strb r0, [r5, #M_EGG_BL]
-    ldr r0, [r5, #M_BL_G]
+    ldr r0, [r1, #M_BL_G]
     strb r0, [r5, #M_EGG_BL+1]
-    ldr r0, [r5, #M_BL_B]
+    ldr r0, [r1, #M_BL_B]
     strb r0, [r5, #M_EGG_BL+2]
     mov r4, #0
     ldr r1, =GLOBALS_PTR
@@ -97,8 +98,7 @@ egg_start_clock:
     strb r4, [r5, #M_EGG_FIRST]
     ldr r0, =HOOK_RUNTIME
     bl script_clock_update
-    ldr r1, =EGG_WORK
-    str r0, [r1, #EGG_T0]
+    str r0, [r5, #EGG_T0]
     ldr r0, =HOOK_RUNTIME
     mov r1, #1
     str r1, [r0, #SCRIPT_CONTROL_DISPLAY_ACTIVE]
@@ -114,7 +114,7 @@ egg_start_clock:
 egg_exit:
     push {r4, r5, lr}
     mov r4, r0
-    ldr r5, =MENU_STATE
+    ldr r5, =EGG_WORK
     ldrb r0, [r5, #M_EGG]
     cmp r0, #1
     bne egg_exit_page
@@ -126,9 +126,8 @@ egg_exit:
     strb r0, [r5, #M_EGG_FIRST]
     ldr r0, =HOOK_RUNTIME
     bl script_clock_update
-    ldr r1, =EGG_WORK
-    str r0, [r1, #EGG_T0]
-    str r4, [r1, #EGG_OBJ]
+    str r0, [r5, #EGG_T0]
+    str r4, [r5, #EGG_OBJ]
     mov r0, #2
     strb r0, [r5, #M_EGG]
     mov r0, r4
@@ -147,11 +146,12 @@ egg_exit_page:
 egg_end:
     push {r4, lr}
     ldr r4, =MENU_STATE
-    ldrb r0, [r4, #M_EGG_BL]
+    ldr r1, =EGG_WORK
+    ldrb r0, [r1, #M_EGG_BL]
     str r0, [r4, #M_BL_R]
-    ldrb r0, [r4, #M_EGG_BL+1]
+    ldrb r0, [r1, #M_EGG_BL+1]
     str r0, [r4, #M_BL_G]
-    ldrb r0, [r4, #M_EGG_BL+2]
+    ldrb r0, [r1, #M_EGG_BL+2]
     str r0, [r4, #M_BL_B]
     bl menu_look_apply
     ldr r0, =HOOK_RUNTIME
@@ -176,13 +176,15 @@ egg_end_pending:
 ; light, the picture each second; ends the message after EGG_MSG_MS. When the firmware shows anything but the list of the BLECH
 ; menu (a key of its own switched the screen) the show ends as with EXIT, without the message. Keeps r4 to r11.
 egg_frame:
-    ldr r1, =MENU_STATE
+    ldr r1, =EGG_WORK
     ldrb r2, [r1, #M_EGG]
-    cmp r2, #0
-    bxeq lr
+    cmp r2, #1                  ; FF before the menu is armed counts as off
+    cmpne r2, #2
+    bxne lr
     push {r4-r8, lr}
     mov r4, r0
-    mov r5, r1
+    mov r8, r1
+    ldr r5, =MENU_STATE
     ldr r1, =SCREEN_MANAGER
     ldr r1, [r1]
     cmp r1, #0
@@ -197,10 +199,9 @@ egg_frame:
     bne egg_frame_abort
     mov r0, r4
     bl script_clock_update
-    ldr r8, =EGG_WORK
     ldr r1, [r8, #EGG_T0]
     sub r6, r0, r1
-    ldrb r2, [r5, #M_EGG]
+    ldrb r2, [r8, #M_EGG]
     cmp r2, #2
     beq egg_frame_message
     mov r0, r6                  ; t / 250
@@ -220,10 +221,10 @@ egg_frame_hue:
     mov r1, #96
     bl egg_div
     mov r0, r1
-    ldrb r1, [r5, #M_EGG_HUE]
+    ldrb r1, [r8, #M_EGG_HUE]
     cmp r0, r1
     beq egg_frame_pic
-    strb r0, [r5, #M_EGG_HUE]
+    strb r0, [r8, #M_EGG_HUE]
     mov r1, #15
     mov r2, #15
     bl look_hsv_rgb
@@ -236,10 +237,10 @@ egg_frame_pic:
     ldr r1, =EGG_PIC_MS
     bl egg_div
     and r0, r0, #1
-    ldrb r1, [r5, #M_EGG_PIC]
+    ldrb r1, [r8, #M_EGG_PIC]
     cmp r0, r1
     beq egg_frame_out
-    strb r0, [r5, #M_EGG_PIC]
+    strb r0, [r8, #M_EGG_PIC]
     cmp r0, #0
     bne egg_frame_image
     bl egg_draw_word
@@ -253,16 +254,16 @@ egg_frame_message:
     cmp r6, r0
     blo egg_frame_out
     mov r0, #0
-    strb r0, [r5, #M_EGG]
+    strb r0, [r8, #M_EGG]
     ldr r0, [r8, #EGG_OBJ]
     bl menu_show
     b egg_frame_out
 egg_frame_abort:
-    ldrb r0, [r5, #M_EGG]
+    ldrb r0, [r8, #M_EGG]
     cmp r0, #1
     bleq egg_end
     mov r0, #0
-    strb r0, [r5, #M_EGG]
+    strb r0, [r8, #M_EGG]
     b egg_frame_out
 .pool
 

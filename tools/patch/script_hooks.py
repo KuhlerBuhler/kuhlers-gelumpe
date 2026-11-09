@@ -38,8 +38,9 @@ PRESS_KEY = KEY_HOLD_END         # korg.pressKey (script_hw.s:PK_UP): the keys w
 PRESS_KEY_END = PRESS_KEY + 8    # FF at power-on is none
 SIM_INPUT = PRESS_KEY_END        # korg.keyDown, korg.padDown, korg.touch (script_hw.s:SI_UP): what a plugin holds down on the panel, inverted,
 SIM_INPUT_END = SIM_INPUT + 20   # the plugin that holds it and its checksum; FF at power-on is nothing down
-EGG_WORK = SIM_INPUT_END         # the words of the egg on the page VERSION (script_egg.s:EGG_T0), read only while its byte in MENU_STATE
-EGG_WORK_END = EGG_WORK + 16     # says it runs, so FF at power-on needs no clearing. The rest a reserve
+EGG_WORK = SIM_INPUT_END         # the egg on the page VERSION (script_egg.s:M_EGG), zeroed when the menu is armed (menu_arm); FF before,
+EGG_WORK_END = EGG_WORK + 20     # which the egg reads as off. MENU_STATE is full. Nothing left as a reserve
+assert EGG_WORK_END == MORE2_END
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 RUNTIME = 0xC01AE000
@@ -84,7 +85,9 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC008A244,0xEBFFB868,'kp_check_hook'),
          # FILTER TOGGLE (script_shortcuts.s): the filter key handler's path that sets the type, mov r0, #8 (FT_BACK goes on behind it);
          # Hacktribe has its own handler (FILTER_TOGGLE_HACKTRIBE), Korg's stays unused there
-         (0xC006FDEC,0xE3A00008,'ft_select'))
+         (0xC006FDEC,0xE3A00008,'ft_select'),
+         # AUTO SAVE (script_menu.s): SWITCH_SCREEN's bl to the screen manager behind the check that the screen changes
+         (0xC0083D7C,0xEBFEA4B1,'autosave_switch_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
@@ -277,6 +280,8 @@ def runtime_profile(build):
             address, expected = 0xC0061DDC, 0xE594301C
         elif name == 'ft_select':
             address = 0xC0062F14
+        elif name == 'autosave_switch_hook':
+            address, expected = synthaddr.tr(address), 0xEBFED795   # bl 0xC002A1AC, the synth's screen manager getter
         elif name in KEY_PADS_SYNTH_WORDS:
             address, expected = KEY_PADS_SYNTH[name.replace('kp_', 'KP_').replace('_hook', '_AT').upper()], KEY_PADS_SYNTH_WORDS[name]
         else:
@@ -367,7 +372,7 @@ class BuiltHooks:
             ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts, von KEY PADS und FILTER TOGGLE.'),
             ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel und EXIT, legt KORG/blechtribe mit seinen Unterordnern an und prüft die Ordner der Karte; nur wenn blechtribe keine e2sSample.all hat, aber ein hacktribe- oder electribe-sampler-Ordner (auf der blauen: blechtribe keine .e2allpat, aber KORG/electribe), fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU.'),
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
-            ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
+            ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE, Seitenzähler und der Bildschirmwechsel (AUTO SAVE) laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
         ]:
             if start in self.symbols and end in self.symbols:
                 spans.append((self.symbols[start],self.symbols[end],why))
@@ -380,6 +385,7 @@ class BuiltHooks:
         menu_hooks+=[dict(site=f'0x{address:08X}',kind='instruction',chain='backlight',position='before',swallow=False)
             for address in (0xC0016C98,0xC0016CE0,0xC0016D28,0xC00289F4)]
         menu_hooks+=[dict(site='0xC00161A4',kind='instruction',chain='lcd-invert',position='before',swallow=False)]
+        menu_hooks+=[dict(site='0xC0083D7C',kind='instruction',chain='screen-switch',position='before',swallow=False)]
         menu_hooks+=[dict(site='0xC006E664',kind='instruction',chain='menu-ring',position='replace',swallow=False),
             dict(site='0xC006E68C',kind='literal',chain='menu-ring',position='replace',swallow=False)]
         menu_hooks+=[dict(site='0xC0038D34',kind='instruction',chain='start',position='before',swallow=False)]
@@ -422,8 +428,7 @@ class BuiltHooks:
             area(KEY_HOLD,KEY_HOLD_END-KEY_HOLD,'korg.keyHold and korg.keyMask: a bit per key that reaches the firmware, folded from the plugins\' holds, a bit per key whose press was kept; the last two words are unused since API 19','tools/patch/script_hw.s:KY_FREE'),
             area(PRESS_KEY,PRESS_KEY_END-PRESS_KEY,'korg.pressKey: a bit per key whose release goes to the firmware in the next frame','tools/patch/script_hw.s:PK_UP'),
             area(SIM_INPUT,SIM_INPUT_END-SIM_INPUT,'korg.keyDown, korg.padDown and korg.touch: a bit per key, the touchpad and a bit per pad a plugin holds down, the plugin that holds them and the checksum of its block','tools/patch/script_hw.s:SI_UP'),
-            area(EGG_WORK,EGG_WORK_END-EGG_WORK,'the egg on the page VERSION: the milliseconds it started at, the blink step last sent, the menu screen object','tools/patch/script_egg.s:EGG_T0'),
-            area(EGG_WORK_END,MORE2_END-EGG_WORK_END,'the rest of the third code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:EGG_WORK_END')]+(
+            area(EGG_WORK,EGG_WORK_END-EGG_WORK,'the egg on the page VERSION: its state bytes, the milliseconds it started at, the blink step last sent, the menu screen object','tools/patch/script_egg.s:M_EGG')]+(
             [area(self.profile.actions['MG_WORK'],0xF00,'work area of the folder copy at the first start: state, file and folder objects, paths','tools/patch/script_migrate.s:MG_ACTIVE')]
             if self.profile.actions.get('MG_WORK') else [])
 
