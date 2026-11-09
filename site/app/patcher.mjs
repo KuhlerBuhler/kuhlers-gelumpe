@@ -1,6 +1,7 @@
 /** The Patcher page: the user's own SYSTEM.VSB, BLECH patched on in the browser, checked in the emulator, then offered for download. Logic: src/patcher.mjs. */
 import { e2Outline } from "./e2-art.mjs";
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { icon } from "./icons.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
@@ -24,13 +25,6 @@ const STYLE = new URL("./patcher.css", import.meta.url).href;
 /** Where the update test put the file, in the words of the device. */
 const hintFor = folder => t("patcher.hint", { folder });
 
-/** The state as plain text with a small icon in front, so the word and the icon say it, not a colour: no chip, no dot. */
-const STATE_ICONS = { ok: "check", error: "x", warn: "alert", info: "info" };
-const state = (tone, word) => {
-  const s = el("span", { className: "cee-patch-state" }, [icon(STATE_ICONS[tone] ?? "info"), el("span", { textContent: word })]);
-  s.dataset.tone = tone;
-  return s;
-};
 
 const tick = () => new Promise(r => setTimeout(r, 0));
 
@@ -705,7 +699,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     drop.toggleAttribute("data-filled", !!held && !!flow.origin);
     fileInfo.textContent = held;
     const v = verdict(flow, blech?.items ?? [], !!pending);
-    verdictBox.replaceChildren(...(v ? [state(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
+    verdictBox.replaceChildren(...(v ? [stateText(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
     // A new file brings a new verdict: the toast of the old one goes, so two verdicts never stand side by side.
     if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true, ...toRescue("normal:patch") }) : () => {}; }
@@ -757,7 +751,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     failHelp.hidden = !flow.report || flow.report.ok;
     document.getElementById("cee-patch-details-title").textContent = t("patcher.checks", { count: checks.length });
     checkList.replaceChildren(...checks.map(c => el("li", { className: "ui-row" }, [
-      state(c.skipped ? "info" : c.ok ? "ok" : "error", t(c.skipped ? "patcher.check.skipped" : c.ok ? "patcher.check.ok" : "patcher.check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
+      stateText(c.skipped ? "info" : c.ok ? "ok" : "error", t(c.skipped ? "patcher.check.skipped" : c.ok ? "patcher.check.ok" : "patcher.check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
     ])));
 
     result.hidden = !can.download;

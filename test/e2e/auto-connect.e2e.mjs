@@ -33,7 +33,7 @@ async function plugged() {
     // Whether the page ever said "connected" while the navbar still offered to connect.
     window.__gap = false;
     new MutationObserver(() => {
-      const ok = document.querySelector(".cee-device-status .cee-status[data-tone=ok]");
+      const ok = document.querySelector(".cee-device-status .cee-state[data-tone=ok]");
       if (ok && !document.querySelector("#cee-nav-state #cee-disconnect")) window.__gap = true;
     }).observe(document, { subtree: true, childList: true, characterData: true });
   });

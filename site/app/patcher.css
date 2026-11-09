@@ -472,19 +472,3 @@
 .cee-patch-korg-card:hover .cee-device-card-out {
   color: var(--color-text-secondary);
 }
-
-/* A state in the verdict and the check list: an icon and the word in the text colour, no chip, no dot */
-.cee-patch-state {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-inline-end: var(--space-2);
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--color-text-primary);
-}
-
-.cee-patch-state .cee-icon {
-  width: var(--space-4);
-  height: var(--space-4);
-}

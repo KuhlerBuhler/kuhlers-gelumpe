@@ -263,7 +263,7 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   await page.locator("#cee-patch-details > summary").click();
   assert.match(await page.locator("#cee-patch-checks").textContent(), /bestanden Notschalter/, "the single checks stay behind the disclosure");
   // a state is an icon and the word in the text colour: no chip, no dot, no status colour
-  const state = page.locator("#cee-patch-checks .cee-patch-state").first();
+  const state = page.locator("#cee-patch-checks .cee-state").first();
   assert.deepEqual(await state.evaluate(s => [s.dataset.tone, s.querySelector("svg")?.classList.contains("lucide-check"), getComputedStyle(s).backgroundColor, getComputedStyle(s).borderTopWidth, getComputedStyle(s, "::before").content]), ["ok", true, "rgba(0, 0, 0, 0)", "0px", "none"]);
   assert.equal(await page.locator("#cee-patcher .cee-status, #cee-patcher .ui-pill").count(), 0, "no pill in the patcher");
   assert.equal(await page.locator("#cee-patch-done").isVisible(), false, "the guide comes after the download");
@@ -514,7 +514,7 @@ test("patcher: a failed emulator check leaves no download", async () => {
     assert.equal(await page.locator("#cee-patch-run").textContent(), "Noch einmal patchen und prüfen");
     await page.locator("#cee-patch-details > summary").click();
     assert.match(await page.locator("#cee-patch-checks").textContent(), /nicht bestanden Notschalter/);
-    assert.equal(await page.locator("#cee-patch-checks .cee-patch-state[data-tone=error] svg.lucide-x").count() > 0, true, "a failed check carries the cross");
+    assert.equal(await page.locator("#cee-patch-checks .cee-state[data-tone=error] svg.lucide-x").count() > 0, true, "a failed check carries the cross");
     // the page itself points at the Rettung page too, not only the toast
     assert.equal(await page.locator("#cee-patch-fail-help").isVisible(), true);
     assert.equal(await page.locator("#cee-patch-fail-rescue").getAttribute("href"), "#rescue");
