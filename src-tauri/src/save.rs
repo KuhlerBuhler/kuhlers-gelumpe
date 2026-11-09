@@ -295,7 +295,10 @@ mod tests {
                 root: card.display().to_string(),
                 volume: "E2 CARD".into(),
                 path: card
-                    .join("KORG/hacktribe/System/SYSTEM.VSB")
+                    .join("KORG")
+                    .join("hacktribe")
+                    .join("System")
+                    .join(FILE)
                     .display()
                     .to_string(),
                 system_exists: true,
