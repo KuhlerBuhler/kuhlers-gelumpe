@@ -318,7 +318,7 @@ export function emulatorSuite(index, parts) {
     fake.seen.inputs.length = 0;
     await page.click("#cee-send");
     const ok = page.locator("dialog[open] button[value=ok]");
-    const job = page.locator("#cee-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
+    const job = page.locator("#cee-fx .ui-job .cee-state").filter({ hasText: /Fertig|Fehlgeschlagen/ });
     await Promise.race([ok.waitFor().then(() => ok.click(), () => {}), job.waitFor()]);   // a gate warning asks first
     await job.waitFor({ timeout: 15_000 });
     assert.equal(await job.textContent(), "Fertig");
@@ -361,7 +361,7 @@ export function emulatorSuite(index, parts) {
     fake.seen.midi.length = 0;
     await page.click("#cee-send");
     const ok = page.locator("dialog[open] button[value=ok]");
-    const job = page.locator("#cee-area-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
+    const job = page.locator("#cee-area-fx .ui-job .cee-state").filter({ hasText: /Fertig|Fehlgeschlagen/ });
     await Promise.race([ok.waitFor().then(() => ok.click(), () => {}), job.waitFor()]);
     await job.waitFor({ timeout: 15_000 });
     assert.equal(await job.textContent(), "Fertig");

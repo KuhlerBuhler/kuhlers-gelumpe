@@ -617,7 +617,14 @@ benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige F
 - **Gerätename:** ein Häkchen in Schritt 2 legt den Patch `usb-name` in der Fassung für das Build der Datei dazu
   (`USB_NAME_URLS` in `src/patcher.mjs`), auch auf eine mitgebrachte `BLECH.patch`. Aus per Voreinstellung, weil
   DAW-Zuordnungen am alten Portnamen hängen. Ein anderes Häkchen macht eine neue Kopie, die alte Prüfung gilt dann nicht mehr.
-- **Nach dem Download:** Anleitung mit dem Kartenordner des laufenden Systems. Hacktribe liest
+- **Speichern:** in der App sucht Schritt 4 alle 2 s die eingesteckte Karte (macOS `/Volumes/*`, Windows die
+  Laufwerksbuchstaben, Linux `/media/$USER/*` und `/run/media/$USER/*`) mit dem KORG-Ordner des Ziels
+  (`runningFolder`/`folderOf`), zeigt den vollen Pfad und schreibt mit "Speichern" nur dorthin, legt `System/` an, wenn
+  es fehlt, und sagt vorher, wenn eine SYSTEM.VSB ersetzt wird; passen mehrere Karten, wählt man eine
+  (`src-tauri/src/save.rs`, `site/app/save-target.mjs`). Daneben bleibt der Speichern-Dialog der App mit dem Namen
+  SYSTEM.VSB. Im Browser der Speichern-Dialog (`showSaveFilePicker`), wo es ihn gibt, sonst der Download. Abbrechen
+  speichert nichts und lässt den Knopf benutzbar.
+- **Nach dem Speichern:** Anleitung mit dem Kartenordner des laufenden Systems. Hacktribe liest
   `KORG/hacktribe/System/SYSTEM.VSB` (gemessen, `docs/messungen/2026-10-08-firmware-rueckweg.md`),
   die originale Firmware `KORG/electribe sampler/System/SYSTEM.VSB` (Korg Release Note 2.02,
   Seite 2: Ordner [System] unter [KORG][electribe sampler]). Dazu der Notausgang EXIT beim Einschalten.

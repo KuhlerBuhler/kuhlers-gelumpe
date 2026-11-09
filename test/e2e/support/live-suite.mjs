@@ -52,7 +52,7 @@ export function liveSuite(index, parts) {
     const running = Date.now();
     await go(page, "device");
     await page.click("#cee-connect");
-    await page.locator(".cee-device-status .cee-status").filter({ hasNotText: "getrennt" }).waitFor();
+    await page.locator(".cee-device-status .cee-state").filter({ hasNotText: "getrennt" }).waitFor();
     await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
     // The Presets page has no file picker: it takes the firmware chosen in the sidebar of the emulator page.
     await page.evaluate(() => { location.hash = "fx"; });
@@ -87,7 +87,7 @@ export function liveSuite(index, parts) {
     await go(page, "device");
     const facts = await page.locator(".cee-facts").textContent();
     assert.match(facts, /Globaler Kanal\s*10/);
-    const pills = await page.locator(".cee-facts .cee-status").allTextContents();
+    const pills = await page.locator(".cee-facts .cee-state").allTextContents();
     assert.deepEqual(pills, ["bekannt", "Hacktribe"]);
     // The sidebar polls the device's screen state (0xc03404c0), which the stand-in's small image does not hold; any other fault is a real one.
     assert.deepEqual(await page.evaluate(() => window.__ceeSim.faults.map(f => f.message).filter(m => !m.startsWith("read at 0xc03404c0"))), []);
@@ -99,8 +99,8 @@ export function liveSuite(index, parts) {
     const before = await peek(page, SLOT50 + 0x135);
     await nudgeFirstParam(page);
     await page.click("#cee-send");
-    await page.locator(".ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ }).waitFor();
-    assert.equal(await page.locator(".ui-job .cee-status").textContent(), "Fertig");
+    await page.locator(".ui-job .cee-state").filter({ hasText: /Fertig|Fehlgeschlagen/ }).waitFor();
+    assert.equal(await page.locator(".ui-job .cee-state").textContent(), "Fertig");
     assert.equal((await peek(page, SLOT50 + 0x135))[0], before[0] + 1);
     await page.click("#cee-live-undo");
     await page.locator(".ui-job-meta").filter({ hasText: "Alter Stand" }).waitFor();
@@ -137,8 +137,8 @@ export function liveSuite(index, parts) {
     await page.goto(h.url);
     await page.setInputFiles("#cee-emu-vsb", h.file("other.vsb", new Uint8Array(0x200100)));
     await page.evaluate(() => { location.hash = "fx"; });
-    await page.locator("#cee-vsb-identity .cee-status").waitFor({ timeout: 15_000 });
-    assert.equal(await page.locator("#cee-vsb-identity .cee-status").textContent(), "unbekannt");
+    await page.locator("#cee-vsb-identity .cee-state").waitFor({ timeout: 15_000 });
+    assert.equal(await page.locator("#cee-vsb-identity .cee-state").textContent(), "unbekannt");
     assert.equal(await page.locator("#cee-fx-slot").count(), 0);
   });
 
@@ -157,7 +157,7 @@ export function liveSuite(index, parts) {
     await nudgeFirstParam(page);
     await arm(page);
     await page.click("#cee-send");
-    await page.locator(".ui-job .cee-status").filter({ hasText: "Fehlgeschlagen" }).waitFor({ timeout: 15000 });
+    await page.locator(".ui-job .cee-state").filter({ hasText: "Fehlgeschlagen" }).waitFor({ timeout: 15000 });
     const meta = await page.locator(".ui-job-meta").textContent();
     assert.match(meta, /Keine Antwort/);
     assert.match(meta, /Stand/, "what the read-back found is said");
@@ -173,7 +173,7 @@ export function liveSuite(index, parts) {
     await nudgeFirstParam(page);
     await arm(page);
     await page.click("#cee-send");
-    await page.locator(".ui-job .cee-status").filter({ hasText: "Fehlgeschlagen" }).waitFor();
+    await page.locator(".ui-job .cee-state").filter({ hasText: "Fehlgeschlagen" }).waitFor();
     assert.match(await page.locator(".ui-job-meta").textContent(), /Zurückgelesen passt nicht/);
     await page.click("#cee-send");
     await page.locator("#cee-blocked").waitFor();
@@ -189,7 +189,7 @@ export function liveSuite(index, parts) {
     await nudgeFirstParam(page);
     await arm(page);
     await page.click("#cee-send");
-    await page.locator(".ui-job .cee-status").filter({ hasText: "Fehlgeschlagen" }).waitFor();
+    await page.locator(".ui-job .cee-state").filter({ hasText: "Fehlgeschlagen" }).waitFor();
     assert.match(await page.locator(".ui-job-meta").textContent(), /abgezogen/);
     await page.locator("#cee-blocked").waitFor();
     assert.match(await page.locator("#cee-blocked").textContent(), /geht an dieses Gerät nichts mehr/);
@@ -213,7 +213,7 @@ export function liveSuite(index, parts) {
     assert.equal(await byte.inputValue(), "7", "cancellation keeps the unsent edit");
     await page.click("#cee-send");
     await page.locator("dialog.ui-dialog[open]").getByRole("button", { name: "Senden" }).click();
-    await page.locator(".ui-job .cee-status").filter({ hasText: "Fertig" }).waitFor();
+    await page.locator(".ui-job .cee-state").filter({ hasText: "Fertig" }).waitFor();
     assert.notDeepEqual(await peek(page, SLOT50, 0x20c), before);
   });
 

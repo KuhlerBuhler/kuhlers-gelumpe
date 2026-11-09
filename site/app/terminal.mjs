@@ -9,6 +9,7 @@
  * no way here to skip the rehearsal.
  */
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { HELP } from "../../src/korg.mjs";
 import { NOTE_LIMIT } from "../../src/terminal.mjs";
 import { describeUnits } from "../../src/rehearsal.mjs";
@@ -24,12 +25,6 @@ function show(value) {
   if (Array.isArray(value) && value.every(v => typeof v === "string")) return value.join("\n");
   try { return JSON.stringify(value, (k, v) => (typeof v === "bigint" ? String(v) : v), 2); } catch { return String(value); }
 }
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
-};
 
 /** The names the library KORG has, taken from its help lines, and run(). */
 const LIBRARY = [...new Set([...HELP.join("\n").matchAll(/^(KORG\.[\w.]+)/gm)].map(m => m[1])), "run"];
@@ -98,7 +93,7 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
     const mode = terminal.mode;
     const missing = lack();
     target.hidden = mode !== "device" && !missing;
-    target.replaceChildren(...(missing ? [pill("error", t("console.noCommands.tag")), ` ${t("console.noCommands")}`] : [pill("warn", t("console.viaEmu")), ` ${deviceNote()}`]));
+    target.replaceChildren(...(missing ? [stateText("error", t("console.noCommands.tag")), ` ${t("console.noCommands")}`] : [stateText("warn", t("console.viaEmu")), ` ${deviceNote()}`]));
     const told = target.hidden ? "" : missing ? t("console.noCommands") : deviceNote();
     if (told && told !== toldTarget && !missing) toast(told, "info");
     toldTarget = told;
@@ -126,15 +121,15 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
     const units = describeUnits(record);
     const frames = record.units.reduce((n, u) => n + u.steps.length + (u.cleanup?.steps.length ?? 0), 0);
     const head = sent
-      ? [pill("ok", t("console.sent")), ` ${t(record.units.length === 1 ? "console.sent.one" : "console.sent.many", { count: record.units.length })}`]
+      ? [stateText("ok", t("console.sent")), ` ${t(record.units.length === 1 ? "console.sent.one" : "console.sent.many", { count: record.units.length })}`]
       : record.ok
-      ? [pill("ok", t("console.passed")), ` ${t(record.units.length === 1 ? "console.passed.one" : "console.passed.many", { count: record.units.length, frames })}`]
-      : [pill("error", t("console.failed")), ` ${t("console.failed.text", { reason: record.reason })}`];
+      ? [stateText("ok", t("console.passed")), ` ${t(record.units.length === 1 ? "console.passed.one" : "console.passed.many", { count: record.units.length, frames })}`]
+      : [stateText("error", t("console.failed")), ` ${t("console.failed.text", { reason: record.reason })}`];
     rehearsal.replaceChildren(...[
       el("p", { className: "cee-term-rehearsal-head" }, head),
       record.ok && !record.sendable ? el("p", { className: "muted", textContent: record.whyNot }) : null,
       ...units.map(u => el("details", { className: "ui-details" }, [
-        el("summary", {}, [pill(u.ok ? "ok" : "error", u.ok ? "ok" : t("common.error")), ` ${u.title}: ${u.note}`]),
+        el("summary", {}, [stateText(u.ok ? "ok" : "error", u.ok ? "ok" : t("common.error")), ` ${u.title}: ${u.note}`]),
         el("ol", { className: "cee-term-steps" }, u.steps.map(s => el("li", { textContent: s.text, className: s.failed ? "cee-term-failed" : "" }))),
       ])),
       el("p", { className: "cee-term-stale muted", hidden: true, textContent: t("console.stale") }),
