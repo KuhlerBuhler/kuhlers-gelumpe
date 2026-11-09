@@ -2574,7 +2574,7 @@ export default {
   "rescue.area.plugin": "Plugins",
   "rescue.area.doom": "Doom",
   "rescue.say.start.3": "Voor de meeste wegen heb je een computer met SD-kaartlezer nodig. Op een telefoon kun je hier alleen meelezen.",
-  "rescue.say.color.1": "Welke kleur heeft je Electribe? Dat vraag ik maar één keer.",
+  "rescue.say.color.1": "Welke kleur heeft je Electribe?",
   "rescue.say.colorHelp.1": "Kijk naar het apparaat: de rode is de Sampler en daarop staat „electribe sampler”. De blauwe is de Synth en daarop staat alleen „electribe”.",
   "rescue.device.red.hint": "Electribe 2 Sampler, op het apparaat staat „electribe sampler”.",
   "rescue.device.blue.hint": "Electribe 2 (Synth), op het apparaat staat „electribe”.",
