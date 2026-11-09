@@ -2574,7 +2574,7 @@ export default {
   "rescue.area.plugin": "Pluginy",
   "rescue.area.doom": "Doom",
   "rescue.say.start.3": "Pro většinu cest potřebuješ počítač se čtečkou SD karet. Na telefonu si tu můžeš jen číst.",
-  "rescue.say.color.1": "Jakou barvu má tvoje Electribe? Ptám se jen jednou.",
+  "rescue.say.color.1": "Jakou barvu má tvoje Electribe?",
   "rescue.say.colorHelp.1": "Podívej se na přístroj: červená je Sampler a stojí na ní „electribe sampler“. Modrá je Synth a stojí na ní jen „electribe“.",
   "rescue.device.red.hint": "Electribe 2 Sampler, na přístroji stojí „electribe sampler“.",
   "rescue.device.blue.hint": "Electribe 2 (Synth), na přístroji stojí „electribe“.",

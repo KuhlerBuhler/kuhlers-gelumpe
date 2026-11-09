@@ -2573,7 +2573,7 @@ export default {
   "rescue.area.plugin": "Plugin",
   "rescue.area.doom": "Doom",
   "rescue.say.start.3": "Per la maggior parte delle strade serve un computer con un lettore di schede SD. Da telefono qui puoi solo leggere.",
-  "rescue.say.color.1": "Di che colore è la tua Electribe? Lo chiedo solo una volta.",
+  "rescue.say.color.1": "Di che colore è la tua Electribe?",
   "rescue.say.colorHelp.1": "Guarda il dispositivo: la rossa è il Sampler e c'è scritto «electribe sampler». La blu è il Synth e c'è scritto solo «electribe».",
   "rescue.device.red.hint": "Electribe 2 Sampler, sul dispositivo c'è scritto «electribe sampler».",
   "rescue.device.blue.hint": "Electribe 2 (Synth), sul dispositivo c'è scritto «electribe».",
