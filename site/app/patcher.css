@@ -40,6 +40,8 @@
 .cee-patch-bar[hidden],
 .cee-patch-groups[hidden],
 .cee-patch-result[hidden],
+.cee-patch-sd[hidden],
+.cee-patch-sd-pick[hidden],
 .cee-patch-done[hidden] {
   display: none;
 }
@@ -275,6 +277,32 @@
   overflow-wrap: anywhere;
 }
 
+/* In the app: the card it found, the full place of the file on it. */
+.cee-patch-sd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+
+.cee-patch-sd > * {
+  margin: 0;
+}
+
+.cee-patch-sd-pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cee-patch-sd-choice {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
 /* Korg's System Updater: the sentence and the two device cards, one block. */
 .cee-patch-korg {
   display: flex;
@@ -307,15 +335,10 @@
   pointer-events: none;
 }
 
-/* "Für welche Electribe": the device cards as radio buttons; the chosen one in the colour of its case. */
+/* "Für welche Electribe": the device cards as radio buttons. */
 .cee-patch-device-card {
   cursor: pointer;
   padding-right: var(--space-4);
-}
-
-.cee-patch-device-card:has(input:checked) {
-  border-color: var(--cee-device-tone);
-  background: var(--color-surface-panel);
 }
 
 .cee-patch-device-card:has(input:disabled) {
@@ -326,9 +349,74 @@
   opacity: 0.45;
 }
 
-.cee-patch-device-card:has(input:focus-visible) {
+.cee-patch-device-card:has(input:focus-visible),
+.cee-patch-card:has(input:focus-visible) {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
+}
+
+/* Every choice of the patcher is a card: a click chooses, Weiter goes on. The chosen card is framed in the accent and
+   carries a filled circle with a tick on its top right corner, half over the frame. The circle is a decoration of the
+   frame, not content in the flow: the grid gap and the panel gap leave it room. */
+.cee-patch-pick,
+.cee-patch-card {
+  position: relative;
+}
+
+.cee-patch-card {
+  cursor: pointer;
+}
+
+.cee-patch-pick[aria-checked="true"],
+.cee-patch-card:has(input:checked) {
+  border-color: var(--color-accent-primary);
+  background: var(--color-surface-panel);
+}
+
+.cee-patch-mark {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  translate: 50% -50%;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-primary);
+  color: var(--color-accent-primary-contrast);
+}
+
+.cee-patch-mark svg {
+  width: var(--space-4);
+  height: var(--space-4);
+  stroke-width: 3;
+}
+
+.cee-patch-pick[aria-checked="true"] .cee-patch-mark,
+.cee-patch-card:has(input:checked) .cee-patch-mark {
+  display: flex;
+}
+
+/* A goal the earlier answers rule out: shown with why, but it takes no click. */
+.cee-patch-pick[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.cee-patch-pick[aria-disabled="true"]:hover {
+  border-color: var(--color-border-muted);
+}
+
+/* The test choice of step 3 as cards, three in a row while there is room. */
+#cee-patch-test {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+/* What the goal leaves out of a step is not shown. */
+.cee-patch-panel > [hidden] {
+  display: none;
 }
 
 /* The wizard in front of the way: one question, big choices. */

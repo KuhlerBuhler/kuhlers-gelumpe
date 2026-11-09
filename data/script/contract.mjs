@@ -512,7 +512,7 @@ export const PART_FIELDS = Object.freeze([
  */
 export const PART_WRITES = Object.freeze({
   filterType: [10, 10, 0, 16], cutoff: [11, 3, 0, 127], resonance: [12, 4, 0, 127], egInt: [13, 5, -63, 63],
-  modType: [14, 13, 0, 71], modSpeed: [15, 12, 0, 127], modDepth: [16, 11, 0, 127], attack: [17, 9, 0, 127],
+  modType: [14, 10, 0, 71], modSpeed: [15, 12, 0, 127], modDepth: [16, 11, 0, 127], attack: [17, 9, 0, 127],
   decay: [18, 8, 0, 127], level: [19, 6, 0, 127], pan: [20, 7, -63, 63], ifxEdit: [27, 14, 0, 127],
   pitch: [28, 15, -63, 63], glide: [29, 16, 0, 127], oscEdit: [6, 1, 0, 127],
   voiceAssign: [0, 0, 0, 3], mfxSend: [0, 0, 0, 1], ampEg: [0, 0, 0, 1], ifxOn: [0, 0, 0, 1], ifxType: [26, 13, 0, 127],

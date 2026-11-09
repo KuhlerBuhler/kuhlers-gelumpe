@@ -191,6 +191,8 @@ def cases(payload, flash=None):
 
 
 def main():
+    import lifetime
+    lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("command", choices=["cases"])
     p.add_argument("--patched", required=True, type=Path)

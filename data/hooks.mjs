@@ -57,6 +57,12 @@ export const CHAINS = {
     { id: "part-mode", sites: [0xC007DE08] },
     { id: "voice-mode", sites: [0xC0099E2C] },
   ],
+  "ht-osc": [
+    { id: "slot-names", sites: [0xC004E354, 0xC004F5A8] },
+    { id: "import-refusal", sites: [0xC00362A4] },
+    { id: "osc-select", sites: [0xC0040D64] },
+    { id: "voice-slot", sites: [0xC00997A4] },
+  ],
   "sequence-end": [{ id: "pattern-number", sites: [0xC005F1C4] }],
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
@@ -102,6 +108,7 @@ export const CHAINS = {
   "data-util-screen": [{ id: "edit-slots", sites: [0xC00623C0, 0xC0062448] }],
   "menu-top-level": [{ id: "screen-switch", sites: [0xC006E8D8, 0xC0061DDC] }],
   "menu-write": [{ id: "write-key", sites: [0xC006F094] }],
+  "screen-switch": [{ id: "switch-post", sites: [0xC0083D7C, 0xC0074350] }],   // the second is the synth build's
   "menu-counter": [{ id: "page-counter", sites: [0xC008A83C, 0xC008A8A8] }],
   "led-meter": [{ id: "meter-update", sites: [0xC0088284] }],
   "backlight": [

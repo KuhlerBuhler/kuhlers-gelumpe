@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classify, convertStock, samplerHead, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE, USB_NAME_URLS, optionFor, patchLabel, restoreOriginal, canRestore, KNOWN_ORIGINALS } from "../src/patcher.mjs";
+import { classify, convertStock, samplerHead, withHead, headFor, runsHacktribe, runningFolder, goalsFor, goalMismatch, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE, USB_NAME_URLS, optionFor, patchLabel, restoreOriginal, canRestore, KNOWN_ORIGINALS } from "../src/patcher.mjs";
 import { applyPatches, splashPatch, patchesPresent, SPLASH_W, SPLASH_H } from "../src/patch.mjs";
 import { sha256 } from "../src/firmware.mjs";
 import { render, isText } from "../src/text.mjs";
@@ -108,8 +108,8 @@ test("itemsFor: the items of a set that apply to a build, one per id", () => {
   const set = { items: [{ id: "a" }, { id: "f" }, { id: "f" }], patches: [{ id: "a", builds: ["hacktribe", "stock"] }, { id: "f", builds: ["hacktribe"] }, { id: "f", builds: ["stock"] }] };
   assert.deepEqual(itemsFor(set, "hacktribe"), [set.items[0], set.items[1]]);
   assert.deepEqual(itemsFor(set, "stock"), [set.items[0], set.items[2]]);
-  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "beat-eighth", "touch-scale-zero", "blech-version", "doom-loader", "blech-sysex"]);
-  assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 1, "the synth filters are for Korg's build only");
+  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "ht-osc", "beat-eighth", "touch-scale-zero", "blech-version", "doom-loader", "blech-sysex"]);
+  assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 2, "the synth filters and the Hacktribe oscillators are for Korg's build only");
 });
 
 test("BLECH is the set data/patches/blech.json: every patch it lists, in its order, with its id and a label from the app's tables", async () => {
@@ -608,4 +608,65 @@ test("korgBlueForSampler: Korg's blue file gets the Sampler head, any other file
   assert.deepEqual([res.bytes[0x12], res.bytes[0x2e]], [0x53, 0x24]);
   assert.deepEqual(await korgBlueForSampler(vsb), { ok: false, why: "notKorgBlue" });
   assert.deepEqual(await korgBlueForSampler(vsb.subarray(0, 100), { hash }), { ok: false, why: "size" });
+});
+
+test("wizard goals: every firmware offers the targets it can reach, the blue under Hacktribe reaches BLECH alone only over the original", () => {
+  const ids = (runs, hw) => goalsFor(runs, hw).map(g => (g.locked ? `${g.id}!` : g.id));
+  for (const hw of ["red", "blue"]) {
+    assert.deepEqual(ids("korg", hw), ["blech", "blechHt"]);
+    assert.deepEqual(ids("blech", hw), ["updateUsb", "updateCard", "blechHt", "original"]);
+  }
+  assert.deepEqual(ids("ht", "red"), ["blech", "blechHt", "original"]);
+  assert.deepEqual(ids("ht", "blue"), ["blech!", "blechHt", "original"]);
+  assert.deepEqual(ids("blechHt", "red"), ["updateUsb", "updateCard", "blech", "original"]);
+  assert.deepEqual(ids("blechHt", "blue"), ["updateUsb", "updateCard", "blech!", "original"]);
+  assert.equal(goalsFor("ht", "blue")[0].locked, "patcher.wiz.blech.blueHt");
+  assert.deepEqual(goalsFor(null, "red"), []);
+  assert.deepEqual(["korg", "ht", "blech", "blechHt", null].map(runsHacktribe), [false, true, false, true, false]);
+});
+
+test("wizard goals: the running firmware decides the card folder", () => {
+  assert.equal(runningFolder("korg", "red"), "KORG/electribe sampler/System/");
+  assert.equal(runningFolder("korg", "blue"), "KORG/electribe/System/");
+  for (const hw of ["red", "blue"]) {
+    assert.equal(runningFolder("ht", hw), "KORG/hacktribe/System/");
+    assert.equal(runningFolder("blech", hw), `KORG/${BLECH_FOLDER}/System/`);
+    assert.equal(runningFolder("blechHt", hw), `KORG/${BLECH_FOLDER}/System/`);
+  }
+});
+
+test("wizard goals: a taken file that does not fit the goal is named", () => {
+  const of = origin => ({ origin });
+  assert.equal(goalMismatch("original", of("stock"), "red"), null);
+  assert.equal(goalMismatch("original", of("synth"), "blue"), null);
+  assert.equal(goalMismatch("original", of("stock"), "blue"), "patcher.goal.wrong.original", "the red's file is not the blue's original");
+  assert.equal(goalMismatch("original", of("hacktribe"), "red"), "patcher.goal.wrong.original");
+  assert.equal(goalMismatch("blech", of("hacktribe"), "red"), "patcher.goal.wrong.ht");
+  assert.equal(goalMismatch("blech", of("stock"), "red"), null);
+  assert.equal(goalMismatch("blechHt", of("synth"), "blue"), "patcher.goal.wrong.blue");
+  assert.equal(goalMismatch("blechHt", of("stock"), "blue"), null, "Hacktribe for the blue is made from the red's file");
+  assert.equal(goalMismatch("blechHt", of("hacktribe"), "red"), null);
+  assert.equal(goalMismatch("updateCard", of("hacktribe"), "red"), null);
+  assert.equal(goalMismatch("original", {}, "red"), null, "no file, nothing to name");
+});
+
+test("headFor: Hacktribe for the blue keeps the Sampler head once Hacktribe runs on it", () => {
+  const flow = { origin: "stock", route: "hacktribe", device: "blue" };
+  assert.equal(headFor(flow), "blue");
+  assert.equal(headFor(flow, "korg"), "blue");
+  assert.equal(headFor(flow, "ht"), null);
+  assert.equal(headFor(flow, "blechHt"), null);
+  assert.equal(headFor({ ...flow, device: "red" }, "korg"), null);
+});
+
+test("flow: back to the original passes Korg's own file without patches or test", () => {
+  const ready = step(newFlow(), { type: "input", input: stockInput });
+  const flow = step(ready, { type: "original" });
+  assert.deepEqual([flow.phase, flow.original, flow.untested, flow.report], ["passed", true, false, null]);
+  assert.deepEqual(flow.steps.map(s => s.id), ["read"]);
+  assert.equal(allowed(flow).download, true);
+  assert.equal(step(step(ready, { type: "route", route: "hacktribe", input: stockInput }), { type: "original" }).phase, "needs-patch", "not on the Hacktribe route");
+  const ht = step(newFlow(), { type: "input", input: hacktribe });
+  assert.equal(step(ht, { type: "original" }), ht, "a Hacktribe file is no original");
+  assert.equal(step(flow, { type: "options" }).original, false, "new options start over");
 });

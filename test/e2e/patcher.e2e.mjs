@@ -13,7 +13,7 @@ import { addRelease, emptyKnown } from "../../src/blech-update.mjs";
 import { fixture as patchSet, COPY_TO } from "../support/patch-set.mjs";
 import { field } from "../../src/map/index.mjs";
 import { RELEASE_NOTES } from "../../data/release-notes.mjs";
-import { STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, SYNTH_SHA256, KORG_DOWNLOADS } from "../../src/patcher.mjs";
+import { samplerHead, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, SYNTH_SHA256, KORG_DOWNLOADS } from "../../src/patcher.mjs";
 import { expected, fakeFirmware, fixture, sha } from "../fixtures/bsdiff/data.mjs";
 
 // The real BLECH patches only fit Korg's bytes, which never come into the repository. The page
@@ -84,16 +84,27 @@ async function patcherPage() {
   return page;
 }
 
-/** The wizard in front of the way: which Electribe, which firmware runs on it, then what to do. */
+/** The wizard in front of the way: which Electribe, which firmware runs on it, then what to do; a card chooses, Weiter goes on. */
 async function wizard(page, device, goal, firmware = "korg") {
   await page.click(`#cee-patch-wiz-${device}`);
+  await page.click("#cee-patch-next");
   await page.click(`#cee-patch-wiz-fw-${firmware}`);
+  await page.click("#cee-patch-next");
   await page.click(`#cee-patch-wiz-${goal}`);
+  await page.click("#cee-patch-next");
   await page.locator("#cee-patch-step-1:not([hidden])").waitFor();
 }
 
 /** Step 2 of a copy with Hacktribe on an Electribe that does not run it yet waits for the box about the samples. */
 const ackHt = async page => { const box = page.locator("#cee-patch-ht-ack"); if (await box.isVisible()) await box.check(); };
+
+/** Toasts that stay lie over the buttons: closed, as the user would. */
+async function closeToasts(page) {
+  // a closed toast is still in the DOM for 250 ms, so only the open ones are clicked
+  const open = page.locator("#app-toasts .cee-toast:not([data-closing]) .cee-toast-close");
+  while (await open.count()) await open.first().click();
+  await page.waitForFunction(() => !document.querySelector("#app-toasts .cee-toast.visible"));
+}
 
 const drop = (page, bytes) => page.setInputFiles("#cee-patch-file", h.file("SYSTEM.VSB", bytes));
 
@@ -120,7 +131,7 @@ test("patcher: the page holds the title, no big image, a drop zone and nothing o
 test("patcher: Weiter and Zurück walk the four steps, Korg's firmware cards sit on the first", async () => {
   const page = await patcherPage();
   assert.equal(await page.isVisible("#cee-patch-back"), false, "no way back from the first page");
-  await wizard(page, "red", "blech");
+  await wizard(page, "red", "blechHt");
   const cards = page.locator("#cee-patch-step-1 #cee-patch-firmware .cee-device-card");
   assert.deepEqual(await cards.evaluateAll(list => list.map(c => [c.dataset.device, c.tagName, c.getAttribute("href"), c.tabIndex, getComputedStyle(c).cursor])), [
     ["red", "DIV", null, -1, "auto"],
@@ -147,6 +158,7 @@ test("patcher: Weiter and Zurück walk the four steps, Korg's firmware cards sit
   await drop(page, await makeFirmware());
   await page.waitForFunction(() => document.querySelector("#cee-patch-file-info").textContent === "SYSTEM.VSB: Hacktribe 2.02 erkannt");
   assert.equal(await page.locator("#cee-patcher .ui-dropzone:has(#cee-patch-file)").getAttribute("data-filled"), "", "the field shows that it holds a file");
+  await closeToasts(page);
   await page.click("#cee-patch-next");
   assert.equal(await page.isVisible("#cee-patch-step-2"), true);
   assert.equal((await page.evaluate(() => window.__opened)).length, 1, "with a file of the user's own Weiter loads nothing from Korg");
@@ -250,6 +262,10 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   assert.equal(await page.locator("#cee-patch-bar").getAttribute("aria-valuenow"), "100");
   await page.locator("#cee-patch-details > summary").click();
   assert.match(await page.locator("#cee-patch-checks").textContent(), /bestanden Notschalter/, "the single checks stay behind the disclosure");
+  // a state is an icon and the word in the text colour: no chip, no dot, no status colour
+  const state = page.locator("#cee-patch-checks .cee-state").first();
+  assert.deepEqual(await state.evaluate(s => [s.dataset.tone, s.querySelector("svg")?.classList.contains("lucide-check"), getComputedStyle(s).backgroundColor, getComputedStyle(s).borderTopWidth, getComputedStyle(s, "::before").content]), ["ok", true, "rgba(0, 0, 0, 0)", "0px", "none"]);
+  assert.equal(await page.locator("#cee-patcher .cee-status, #cee-patcher .ui-pill").count(), 0, "no pill in the patcher");
   assert.equal(await page.locator("#cee-patch-done").isVisible(), false, "the guide comes after the download");
 
   const { length, allow, allowCode, pair, hardware } = fake.seen.check;
@@ -498,6 +514,7 @@ test("patcher: a failed emulator check leaves no download", async () => {
     assert.equal(await page.locator("#cee-patch-run").textContent(), "Noch einmal patchen und prüfen");
     await page.locator("#cee-patch-details > summary").click();
     assert.match(await page.locator("#cee-patch-checks").textContent(), /nicht bestanden Notschalter/);
+    assert.equal(await page.locator("#cee-patch-checks .cee-state[data-tone=error] svg.lucide-x").count() > 0, true, "a failed check carries the cross");
     // the page itself points at the Rettung page too, not only the toast
     assert.equal(await page.locator("#cee-patch-fail-help").isVisible(), true);
     assert.equal(await page.locator("#cee-patch-fail-rescue").getAttribute("href"), "#rescue");
@@ -686,7 +703,7 @@ test("patcher: Korg's zip goes into the field as it is, and the app loads it fro
   await app.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await app.click("#cee-tab-patcher");
   await app.locator(".cee-patch-title").waitFor();
-  await wizard(app, "red", "blech");
+  await wizard(app, "red", "blechHt");
   assert.equal(await app.getAttribute("#cee-patch-korg-red", "href"), null, "in the app the card has no link to Korg's site, only the app's own download");
   assert.match(await app.locator("#cee-patch-korg-red").textContent(), /Nimm zuerst unten Korgs Lizenz an/);
   assert.equal(await app.isDisabled("#cee-patch-next"), true, "no licence, no file: Weiter waits");
@@ -716,7 +733,7 @@ test("patcher: in the app a file of the user's own stays when Weiter is clicked 
   await app.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await app.click("#cee-tab-patcher");
   await app.locator(".cee-patch-title").waitFor();
-  await wizard(app, "red", "blech");
+  await wizard(app, "red", "blechHt");
   await app.check("#cee-patch-korg-licence");
   await app.setInputFiles("#cee-patch-file", h.file("own.VSB", vsb));
   await app.locator("#cee-patch-file-info", { hasText: "own.VSB: Hacktribe 2.02 erkannt" }).waitFor();
@@ -766,7 +783,8 @@ test("patcher: in the app with the licence a changed Korg file is replaced by Ko
   assert.deepEqual(await page.evaluate(() => window.__korgAsked), [["korg_firmware", { device: "red" }]]);
   await page.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
   await page.click("#cee-patch-next");
-  await page.locator("#cee-patch-route").waitFor();
+  await page.locator("#cee-patch-step-2:not([hidden])").waitFor();
+  assert.equal(await page.isVisible("#cee-patch-route"), false, "the goal BLECH leaves no Hacktribe to tick");
   assert.equal(await page.locator("#app-toasts .cee-toast", { hasText: "Die App kann Korgs Original" }).count(), 0);
   assert.deepEqual(page.errors, []);
 });
@@ -866,48 +884,112 @@ test("patcher: the wizard asks for the Electribe and its firmware, then offers o
   const page = await patcherPage();
   assert.equal(await page.isVisible("#cee-patch-way"), false, "the way comes after the wizard");
   assert.equal(await page.locator("#cee-patch-wiz-1 h2").textContent(), "Welche Electribe hast du?");
-  assert.deepEqual(await page.locator("#cee-patch-wiz-devices .cee-patch-pick").evaluateAll(l => l.map(b => [b.id, b.dataset.device])), [
-    ["cee-patch-wiz-blue", "blue"], ["cee-patch-wiz-red", "red"], ["cee-patch-wiz-grey", "grey"], ["cee-patch-wiz-black", "black"],
-  ], "four Electribes, each drawn in the colour of its case");
+  assert.deepEqual(await page.locator("#cee-patch-wiz-devices .cee-patch-pick").evaluateAll(l => l.map(b => [b.id, b.dataset.device, b.getAttribute("role")])), [
+    ["cee-patch-wiz-blue", "blue", "radio"], ["cee-patch-wiz-red", "red", "radio"], ["cee-patch-wiz-grey", "grey", "radio"], ["cee-patch-wiz-black", "black", "radio"],
+  ], "four Electribes, each drawn in the colour of its case, one to choose");
+  assert.equal(await page.getAttribute("#cee-patch-wiz-devices", "role"), "radiogroup");
+  assert.match(await page.locator("#cee-patch-wiz-grey").textContent(), /^Electribe \(grau\)Synth$/, "the first ones carry no extra line");
+  assert.match(await page.locator("#cee-patch-wiz-black").textContent(), /^Electribe Sampler \(schwarz\)Sampler$/);
   const firmwares = () => page.locator("#cee-patch-wiz-firmwares .cee-patch-pick").evaluateAll(l => l.map(b => b.id.replace("cee-patch-wiz-fw-", "")));
   const goals = () => page.locator("#cee-patch-wiz-goals .cee-patch-pick").evaluateAll(l => l.map(b => b.id.replace("cee-patch-wiz-", "")));
+  const checked = group => page.locator(`#${group} [aria-checked=true]`).evaluateAll(l => l.map(b => b.id));
+  const mark = id => page.locator(`#${id} .cee-patch-mark`).isVisible();
+
+  // a card only chooses: Weiter goes on, and waits until something is chosen
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "nothing chosen yet");
+  assert.equal(await page.isVisible("#cee-patch-back"), false);
+  assert.deepEqual(await checked("cee-patch-wiz-devices"), []);
   await page.click("#cee-patch-wiz-black");
+  assert.equal(await page.isVisible("#cee-patch-wiz-1"), true, "the click stays on the page");
+  assert.deepEqual(await checked("cee-patch-wiz-devices"), ["cee-patch-wiz-black"]);
+  assert.equal(await mark("cee-patch-wiz-black"), true, "the chosen card carries the check mark");
+  assert.equal(await mark("cee-patch-wiz-red"), false);
+  const border = await page.locator("#cee-patch-wiz-black").evaluate(b => [getComputedStyle(b).borderTopColor, getComputedStyle(b.querySelector(".cee-patch-mark")).backgroundColor]);
+  const accent = await page.evaluate(() => { const s = document.createElement("span"); s.style.color = "var(--color-accent-primary)"; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; });
+  assert.deepEqual(border, [accent, accent], "border and mark in the accent");
+  // the arrow keys move the choice inside the group
+  await page.focus("#cee-patch-wiz-black");
+  await page.keyboard.press("ArrowLeft");
+  assert.deepEqual(await checked("cee-patch-wiz-devices"), ["cee-patch-wiz-grey"]);
+  await page.keyboard.press("ArrowRight");
+  assert.deepEqual(await checked("cee-patch-wiz-devices"), ["cee-patch-wiz-black"]);
+  assert.equal(await page.evaluate(() => document.activeElement.id), "cee-patch-wiz-black");
+  assert.equal(await page.isDisabled("#cee-patch-next"), false);
+  await page.click("#cee-patch-next");
+
   assert.equal(await page.locator("#cee-patch-wiz-2 h2").textContent(), "Welche Firmware läuft drauf?");
   assert.deepEqual(await firmwares(), ["korg", "ht", "blech", "blechHt"]);
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the next page waits for its own choice");
+  assert.equal(await page.isVisible("#cee-patch-back"), true);
   await page.click("#cee-patch-wiz-fw-ht");
-  assert.deepEqual(await goals(), ["blech"], "Hacktribe on Hacktribe is BLECH");
-  assert.match(await page.locator("#cee-patch-wiz-blech").textContent(), /BLECH \(Hacktribe\)/);
-  await page.click("#cee-patch-wiz-blech");
+  await page.click("#cee-patch-next");
+  assert.deepEqual(await goals(), ["blech", "blechHt", "original"], "from Hacktribe: BLECH alone, BLECH on Hacktribe, or back to Korg's");
+  assert.match(await page.locator("#cee-patch-wiz-blech").textContent(), /Hacktribe kommt runter/);
+  assert.equal(await page.isDisabled("#cee-patch-next"), true);
+  await page.click("#cee-patch-wiz-blechHt");
+  await page.click("#cee-patch-next");
+  await page.locator("#cee-patch-step-1:not([hidden])").waitFor();
   assert.equal(await page.isChecked("#cee-patch-hacktribe-fetch"), true, "Hacktribe on it: its patch is loaded too");
   assert.equal(await page.isVisible("#cee-patch-korg-red"), true, "the black sampler takes the red's file");
+  assert.equal(await page.isVisible("#cee-patch-usb"), false, "no USB on a new install");
+
   await page.click("#cee-patch-back");
+  assert.deepEqual(await checked("cee-patch-wiz-goals"), ["cee-patch-wiz-blechHt"], "back keeps the choice");
   await page.click("#cee-patch-back");
   await page.click("#cee-patch-wiz-fw-blechHt");
-  assert.deepEqual(await goals(), ["update", "blech"]);
+  await page.click("#cee-patch-next");
+  assert.deepEqual(await goals(), ["updateUsb", "updateCard", "blech", "original"]);
   await page.click("#cee-patch-back");
   await page.click("#cee-patch-back");
   await page.click("#cee-patch-wiz-blue");
+  await page.click("#cee-patch-next");
+  assert.deepEqual(await checked("cee-patch-wiz-firmwares"), [], "another Electribe asks for its firmware anew");
   await page.click("#cee-patch-wiz-fw-korg");
-  assert.deepEqual(await goals(), ["blech", "blechHt"], "no update without BLECH on it");
+  await page.click("#cee-patch-next");
+  assert.deepEqual(await goals(), ["blech", "blechHt"], "no update and no way back without BLECH or Hacktribe on it");
+  await page.click("#cee-patch-back");
+  await page.click("#cee-patch-wiz-fw-ht");
+  await page.click("#cee-patch-next");
+  assert.equal(await page.getAttribute("#cee-patch-wiz-blech", "aria-disabled"), "true", "the blue under Hacktribe reaches BLECH alone only over the original");
+  assert.match(await page.locator("#cee-patch-wiz-blech").textContent(), /in zwei Schritten/);
+  await page.locator("#cee-patch-wiz-blech").dispatchEvent("click");
+  assert.deepEqual(await checked("cee-patch-wiz-goals"), [], "the locked card takes no click");
+  assert.equal(await page.isDisabled("#cee-patch-next"), true);
   await page.click("#cee-patch-back");
   await page.click("#cee-patch-wiz-fw-blech");
-  assert.deepEqual(await goals(), ["update", "blech", "blechHt"]);
+  await page.click("#cee-patch-next");
+  assert.deepEqual(await goals(), ["updateUsb", "updateCard", "blechHt", "original"]);
 
-  await page.click("#cee-patch-wiz-update");
+  // the update over USB: no file to drop, no download, the copy goes back over the cable
+  await page.click("#cee-patch-wiz-updateUsb");
+  await page.click("#cee-patch-next");
   assert.equal(await page.isVisible("#cee-patch-usb-get"), true, "the update over USB");
   assert.equal(await page.isVisible("#cee-patch-korg"), false, "no Korg download for an update");
-  assert.equal(await page.isVisible("#cee-patch-file"), true, "the file from the card still goes in");
+  assert.equal(await page.isVisible("#cee-patch-file"), false, "no file field while USB is the way");
+  assert.equal(await page.isVisible("#cee-patch-or"), false);
+  // the update over the card: the file from the card, no USB
+  await page.click("#cee-patch-back");
+  await page.click("#cee-patch-wiz-updateCard");
+  await page.click("#cee-patch-next");
+  assert.equal(await page.isVisible("#cee-patch-usb"), false, "no USB for the update over the card");
+  assert.equal(await page.isVisible("#cee-patch-korg"), false);
+  assert.equal(await page.isVisible("#cee-patch-file"), true, "the file from the card goes in");
+  assert.match(await page.locator("#cee-patch-update-lead").textContent(), /KORG\/blechtribe\/System\//, "from the folder BLECH runs from");
 
   await page.click("#cee-patch-back");
   await page.click("#cee-patch-wiz-blechHt");
+  assert.equal(await page.isVisible("#cee-patch-wiz-ht-warn"), true, "Hacktribe is not on it yet: the samples warning");
+  await page.click("#cee-patch-next");
   assert.equal(await page.isVisible("#cee-patch-usb"), false, "no update box on a new install");
   assert.equal(await page.isVisible("#cee-patch-korg-red"), true, "Hacktribe is made from Korg's red file, also for the blue");
   assert.equal(await page.isVisible("#cee-patch-korg-blue"), false);
   assert.equal(await page.isChecked("#cee-patch-hacktribe-fetch"), true, "the target needs Hacktribe: its patch is loaded too");
   await page.click("#cee-patch-back");
-  await page.click("#cee-patch-wiz-blech");
-  assert.equal(await page.isVisible("#cee-patch-korg-blue"), true, "BLECH on the blue's own firmware");
-  assert.equal(await page.isVisible("#cee-patch-hacktribe-fetch-box"), false, "no Hacktribe without Hacktribe");
+  await page.click("#cee-patch-wiz-original");
+  await page.click("#cee-patch-next");
+  assert.equal(await page.isVisible("#cee-patch-korg-blue"), true, "back to the blue's own firmware");
+  assert.equal(await page.isVisible("#cee-patch-hacktribe-fetch-box"), false, "no Hacktribe on the way back");
+  assert.equal(await page.locator("#cee-patch-way li").count(), 2, "the way back has two steps: the file and the card");
   assert.deepEqual(page.errors, []);
 });
 
@@ -975,13 +1057,19 @@ test("patcher: Hacktribe onto an Electribe that does not run it needs the box ab
   const page = await patcherPage();
   const vsb = withHacktribeRun(await makeFirmware());
   const warn = page.locator("#cee-patch-ht-warn");
-  // the wizard names Korg's firmware and the goal BLECH + Hacktribe: the goal page already warns
+  // the wizard names Korg's firmware: the goal page warns only once BLECH + Hacktribe is selected
   await page.click("#cee-patch-wiz-red");
+  await page.click("#cee-patch-next");
   await page.click("#cee-patch-wiz-fw-korg");
+  await page.click("#cee-patch-next");
   await page.locator("#cee-patch-wiz-blechHt").waitFor();
-  assert.equal(await page.locator("#cee-patch-wiz-ht-warn").isVisible(), true, "the goal page warns before Hacktribe is chosen");
-  assert.match(await page.locator("#cee-patch-wiz-ht-warn").textContent(), /Plätze 1 bis 500.*e2sSample\.all/);
+  assert.equal(await page.locator("#cee-patch-wiz-ht-warn").isVisible(), false, "no warning before a goal is chosen");
+  await page.click("#cee-patch-wiz-blech");
+  assert.equal(await page.locator("#cee-patch-wiz-ht-warn").isVisible(), false, "BLECH alone keeps the samples");
   await page.click("#cee-patch-wiz-blechHt");
+  assert.equal(await page.locator("#cee-patch-wiz-ht-warn").isVisible(), true, "the warning follows the Hacktribe goal");
+  assert.match(await page.locator("#cee-patch-wiz-ht-warn").textContent(), /Plätze 1 bis 500.*e2sSample\.all/);
+  await page.click("#cee-patch-next");
   await page.locator("#cee-patch-step-1:not([hidden])").waitFor();
   await drop(page, vsb);
   await page.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
@@ -1008,11 +1096,262 @@ test("patcher: Hacktribe onto an Electribe that does not run it needs the box ab
 
   // Hacktribe already runs: nothing is added, nothing to tick
   const again = await patcherPage();
-  await wizard(again, "red", "blech", "ht");
+  await wizard(again, "red", "blechHt", "ht");
   await drop(again, vsb);
   await again.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
   await again.click("#cee-patch-next");
   assert.equal(await again.locator("#cee-patch-ht-warn").isVisible(), false);
   assert.equal(await again.isDisabled("#cee-patch-next"), false);
   assert.deepEqual(again.errors, []);
+});
+
+test("patcher: back to Korg's original on the red takes Korg's file as it is, skips patches and test, and names the running firmware's folder", async () => {
+  const original = asStock(await makeFirmware());
+  const page = await stockPage(original);
+  await wizard(page, "red", "original", "blech");
+  assert.match(await page.locator("#cee-patch-korg").textContent(), /Korgs Original 2\.02/);
+  // a file that is not Korg's original does not fit the way back
+  await drop(page, withHacktribeRun(await makeFirmware()));
+  await page.locator("#app-toasts .cee-toast", { hasText: "Das ist nicht Korgs Original 2.02" }).waitFor();
+  await closeToasts(page);
+  assert.equal(await page.isVisible("#cee-patch-goal-hint"), true);
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the wrong file opens no step");
+  await drop(page, original);
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
+  assert.equal(await page.isVisible("#cee-patch-goal-hint"), false);
+  await page.click("#cee-patch-next");
+  await page.locator("#cee-patch-step-4:not([hidden])").waitFor();
+  assert.equal(await page.locator("#cee-patch-path").textContent(), "KORG/blechtribe/System/SYSTEM.VSB", "the folder BLECH runs from");
+  assert.equal(await page.isVisible("#cee-patch-afraid"), false, "nothing patched, nothing to try");
+  assert.equal(await page.isVisible("#cee-patch-original-head"), false);
+  const downloaded = await h.download(page, () => page.click("#cee-patch-download"));
+  assert.deepEqual(downloaded, original, "Korg's file, byte for byte");
+  const done = await page.locator("#cee-patch-done").textContent();
+  assert.match(done, /Zurück zu Korgs Original/);
+  assert.match(await page.locator("#cee-patch-guide-after").textContent(), /KORG\/electribe sampler\/.*KORG\/blechtribe\//);
+  // Zurück walks the way back: the file, then the wizard
+  await page.click("#cee-patch-back");
+  await page.locator("#cee-patch-step-1:not([hidden])").waitFor();
+  await page.click("#cee-patch-back");
+  await page.locator("#cee-patch-wiz-3:not([hidden])").waitFor();
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher: back to Korg's original on the blue under Hacktribe gets the Sampler head and goes to KORG/hacktribe/System", async () => {
+  const original = await makeFirmware();
+  original.set([0x45, 0x32, 0], 0x10);
+  original.fill(0xff, 0x170100, 0x170140);
+  const hash = await sha256(original);
+  const page = await h.page();
+  await page.route(/\/src\/patcher\.mjs$/, async route => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replace(SYNTH_SHA256, hash) });
+  });
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-patcher");
+  await page.locator(".cee-patch-title").waitFor();
+  await wizard(page, "blue", "original", "ht");
+  assert.equal(await page.isVisible("#cee-patch-korg-blue"), true);
+  assert.equal(await page.isVisible("#cee-patch-korg-red"), false);
+  await drop(page, original);
+  await page.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
+  await page.click("#cee-patch-next");
+  assert.equal(await page.locator("#cee-patch-path").textContent(), "KORG/hacktribe/System/SYSTEM.VSB");
+  assert.equal(await page.isVisible("#cee-patch-original-head"), true, "the head is named");
+  const downloaded = await h.download(page, () => page.click("#cee-patch-download"));
+  assert.deepEqual(downloaded, samplerHead(original), "Korg's blue file with the Sampler head");
+  assert.notDeepEqual(downloaded, original);
+  assert.match(await page.locator("#cee-patch-guide-after").textContent(), /KORG\/electribe\/.*KORG\/hacktribe\//);
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher: from Hacktribe to BLECH alone the red's Korg file is patched without Hacktribe for KORG/hacktribe/System", async () => {
+  const { original } = await fakeFirmware();
+  const page = await h.page();
+  await page.route(/\/src\/patcher\.mjs$/, async route => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replace(STOCK_SHA256, expected.fake.original) });
+  });
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-patcher");
+  await page.locator(".cee-patch-title").waitFor();
+  await wizard(page, "red", "blech", "ht");
+  await drop(page, withHacktribeRun(await makeFirmware()));
+  await page.locator("#app-toasts .cee-toast", { hasText: "In dieser Datei steckt Hacktribe" }).waitFor();
+  await closeToasts(page);
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the Hacktribe file does not fit BLECH alone");
+  await patched(page, original);
+  assert.equal(await page.isVisible("#cee-patch-ht-warn"), false);
+  assert.equal(await page.locator("#cee-patch-path").textContent(), "KORG/hacktribe/System/SYSTEM.VSB", "the folder Hacktribe runs from");
+  await h.download(page, () => page.click("#cee-patch-download"));
+  assert.doesNotMatch(await page.locator("#cee-patch-done").textContent(), /Zurück zu Korgs Original/);
+  assert.match(await page.locator("#cee-patch-guide-copy").textContent(), /KORG\/hacktribe\/.*KORG\/blechtribe\//, "the samples come from where Hacktribe kept them");
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher: Korg's blue file does not fit the goal BLECH + Hacktribe", async () => {
+  const original = await makeFirmware();
+  original.set([0x45, 0x32, 0], 0x10);
+  original.fill(0xff, 0x170100, 0x170140);
+  const hash = await sha256(original);
+  const page = await h.page();
+  await page.route(/\/src\/patcher\.mjs$/, async route => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replace(SYNTH_SHA256, hash) });
+  });
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-patcher");
+  await page.locator(".cee-patch-title").waitFor();
+  await wizard(page, "blue", "blechHt");
+  await drop(page, original);
+  await page.locator("#app-toasts .cee-toast", { hasText: "Aus der Firmware der blauen geht kein Hacktribe" }).waitFor();
+  assert.equal(await page.isDisabled("#cee-patch-next"), true);
+  assert.deepEqual(page.errors, []);
+});
+
+/** The app's commands for saving (src-tauri/src/save.rs), answered from window.__cards and window.__pick; window.__asked keeps every call. */
+function appSave() {
+  window.__asked = [];
+  window.__cards = [];
+  window.__pick = "/Users/me/Desktop/SYSTEM.VSB";
+  window.__TAURI__ = { core: { invoke: async (command, args) => {
+    window.__asked.push([command, args?.bytes ? { ...args, bytes: args.bytes.length } : args]);
+    if (command === "save_cards") return window.__cards;
+    if (command === "save_card") return window.__cards.find(c => c.root === args.root).path;
+    if (command === "save_pick") return window.__pick;
+    return [];
+  } } };
+}
+
+async function pageWith(init) {
+  const page = await h.page();
+  await page.addInitScript(init);
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-patcher");
+  await page.locator(".cee-patch-title").waitFor();
+  return page;
+}
+
+const sdCard = (root, { systemExists = true, vsbExists = false } = {}) => ({ root, volume: root.split("/").pop(), path: `${root}/KORG/hacktribe/System/SYSTEM.VSB`, systemExists, vsbExists });
+const asked = (page, command) => page.evaluate(c => window.__asked.filter(a => a[0] === c).map(a => a[1]), command);
+
+test("patcher in the app: no card, then a card put in later shows by itself with its full path, and Speichern writes there", async () => {
+  const page = await pageWith(appSave);
+  const vsb = await makeFirmware();
+  await patched(page, vsb);
+  await closeToasts(page);
+  await page.locator("#cee-patch-sd-lead", { hasText: "Keine SD-Karte der Electribe gefunden" }).waitFor();
+  assert.equal(await page.isVisible("#cee-patch-sd-save"), false, "no card, no Speichern");
+  assert.equal(await page.isVisible("#cee-patch-sd-path"), false);
+  const download = page.locator("#cee-patch-download");
+  assert.equal(await download.textContent(), "Firmware speichern (SYSTEM.VSB) …");
+  assert.equal(await download.evaluate(b => b.classList.contains("cee-primary")), true, "without a card the dialog is the main action");
+
+  await page.evaluate(c => { window.__cards = [c]; }, sdCard("/Volumes/E2", { vsbExists: true }));
+  await page.locator("#cee-patch-sd-path", { hasText: "/Volumes/E2/KORG/hacktribe/System/SYSTEM.VSB" }).waitFor({ timeout: 5000 });
+  assert.equal(await page.locator("#cee-patch-sd-lead").textContent(), "SD-Karte der Electribe gefunden. Die Datei kommt hierhin:");
+  assert.equal(await page.locator("#cee-patch-sd-over").textContent(), "Dort liegt schon eine SYSTEM.VSB. Speichern ersetzt sie.");
+  assert.equal(await page.isVisible("#cee-patch-sd-over"), true);
+  assert.equal(await page.isVisible("#cee-patch-sd-system"), false);
+  assert.equal(await page.isVisible("#cee-patch-sd-pick"), false, "one card, nothing to pick");
+  assert.equal(await page.locator("#cee-patch-sd-save").textContent(), "Speichern");
+  assert.equal(await download.textContent(), "Woanders speichern …", "the dialog stays as the second way");
+  assert.equal(await download.evaluate(b => b.classList.contains("cee-primary")), false);
+  assert.ok((await asked(page, "save_cards")).every(a => a.target === "KORG/hacktribe/System/"), "the app looks for the folder of the firmware that runs");
+  // the note is plain text: no pill, no dot
+  assert.deepEqual(await page.locator("#cee-patch-sd-over").evaluate(p => [getComputedStyle(p).backgroundColor, getComputedStyle(p, "::before").content]), ["rgba(0, 0, 0, 0)", "none"]);
+
+  await page.click("#cee-patch-sd-save");
+  const guide = page.locator("#cee-patch-done");
+  await guide.waitFor();
+  assert.deepEqual(await asked(page, "save_card"), [{ root: "/Volumes/E2", target: "KORG/hacktribe/System/", bytes: vsb.length }]);
+  assert.match(await guide.locator("#cee-patch-guide-vsb").textContent(), /Die neue SYSTEM\.VSB liegt schon auf der Karte: \/Volumes\/E2\/KORG\/hacktribe\/System\/SYSTEM\.VSB\. Wirf die Karte richtig aus/);
+  assert.equal(await guide.locator("#cee-patch-saved").count(), 0, "the card step says where, no second line");
+  assert.doesNotMatch(await guide.textContent(), /Downloads|heruntergeladen/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher in the app: several cards are picked from, a missing System folder is named, leaving the step stops looking", async () => {
+  const page = await pageWith(appSave);
+  await page.evaluate(cards => { window.__cards = cards; }, [sdCard("/Volumes/A"), sdCard("/media/me/B", { systemExists: false })]);
+  await patched(page, await makeFirmware());
+  await closeToasts(page);
+  await page.locator("#cee-patch-sd-pick input").nth(1).waitFor();
+  assert.equal(await page.locator("#cee-patch-sd-lead").textContent(), "Mehrere Karten passen. Wähl die aus deiner Electribe:");
+  assert.equal(await page.locator("#cee-patch-sd-pick input:checked").count(), 0, "no card is taken for the user");
+  assert.equal(await page.isVisible("#cee-patch-sd-save"), false);
+  await page.locator("#cee-patch-sd-pick label", { hasText: "/media/me/B" }).click();
+  assert.equal(await page.locator("#cee-patch-sd-path").textContent(), "/media/me/B/KORG/hacktribe/System/SYSTEM.VSB");
+  assert.equal(await page.locator("#cee-patch-sd-system").textContent(), "Dort fehlt der Ordner System. Speichern legt ihn an.");
+  assert.equal(await page.isVisible("#cee-patch-sd-system"), true);
+  assert.equal(await page.isVisible("#cee-patch-sd-over"), false);
+  assert.equal(await page.isVisible("#cee-patch-sd-save"), true);
+
+  await page.click("#cee-patch-back");
+  const looked = (await asked(page, "save_cards")).length;
+  await page.waitForTimeout(4500);
+  assert.equal((await asked(page, "save_cards")).length, looked, "no look for a card off the save step");
+  await page.click("#cee-patch-next");
+  await page.waitForFunction(n => window.__asked.filter(a => a[0] === "save_cards").length > n, looked, { timeout: 5000 });
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher in the app: the save dialog names where it saved, a cancel saves nothing and the button stays", async () => {
+  const page = await pageWith(appSave);
+  await page.evaluate(() => { window.__pick = null; });
+  await patched(page, await makeFirmware());
+  await closeToasts(page);
+  await page.click("#cee-patch-download");
+  await page.locator("#cee-patch-save-note", { hasText: "Nichts gespeichert. Du kannst jederzeit nochmal speichern." }).waitFor();
+  assert.equal(await page.isVisible("#cee-patch-done"), false);
+  assert.equal(await page.isDisabled("#cee-patch-download"), false, "the button stays usable");
+  assert.equal(await page.locator(".cee-toast[data-kind=error]").count(), 0, "a cancel is no error");
+
+  await page.evaluate(() => { window.__pick = "/Users/me/Desktop/SYSTEM.VSB"; });
+  await page.click("#cee-patch-download");
+  const guide = page.locator("#cee-patch-done");
+  await guide.waitFor();
+  assert.equal(await page.isVisible("#cee-patch-save-note"), false);
+  assert.equal(await guide.locator("#cee-patch-saved").textContent(), "Gespeichert unter /Users/me/Desktop/SYSTEM.VSB");
+  assert.match(await guide.locator("#cee-patch-guide-vsb").textContent(), /^Kopiere die gespeicherte SYSTEM\.VSB nach KORG\/hacktribe\/System\//);
+  assert.deepEqual((await asked(page, "save_pick")).map(a => a.name), ["SYSTEM.VSB", "SYSTEM.VSB"]);
+  assert.doesNotMatch(await guide.textContent(), /Downloads|heruntergeladen/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher in the browser: the save dialog where there is one, a cancel saves nothing; without it the download as before", async () => {
+  const page = await pageWith(() => {
+    window.__abort = true;
+    window.__written = [];
+    window.showSaveFilePicker = async options => {
+      window.__written.push(options.suggestedName);
+      if (window.__abort) throw new DOMException("cancelled", "AbortError");
+      return { createWritable: async () => ({ write: async b => window.__written.push(b.length), close: async () => {} }) };
+    };
+  });
+  const vsb = await makeFirmware();
+  await patched(page, vsb);
+  await closeToasts(page);
+  assert.equal(await page.isVisible("#cee-patch-sd"), false, "the browser looks for no card");
+  assert.equal(await page.locator("#cee-patch-download").textContent(), "Firmware speichern (SYSTEM.VSB) …");
+  await page.click("#cee-patch-download");
+  await page.locator("#cee-patch-save-note", { hasText: "Nichts gespeichert" }).waitFor();
+  assert.equal(await page.isDisabled("#cee-patch-download"), false);
+  await page.evaluate(() => { window.__abort = false; });
+  await page.click("#cee-patch-download");
+  await page.locator("#cee-patch-done").waitFor();
+  assert.deepEqual(await page.evaluate(() => window.__written), ["SYSTEM.VSB", "SYSTEM.VSB", vsb.length]);
+  assert.equal(await page.locator("#cee-patch-saved").textContent(), "Die Datei ist gespeichert.");
+  assert.doesNotMatch(await page.locator("#cee-patch-done").textContent(), /Downloads|heruntergeladen/);
+
+  const plain = await patcherPage();
+  await patched(plain, vsb);
+  await closeToasts(plain);
+  assert.equal(await plain.locator("#cee-patch-download").textContent(), "Firmware herunterladen (SYSTEM.VSB)", "no dialog: the download as before");
+  const bytes = await h.download(plain, () => plain.click("#cee-patch-download"));
+  assert.equal(bytes.length, vsb.length);
+  await plain.locator("#cee-patch-done").waitFor();
+  assert.equal(await plain.locator("#cee-patch-saved").textContent(), "Die Datei ist gespeichert.");
+  assert.match(await plain.locator("#cee-patch-guide-vsb").textContent(), /^Kopiere die gespeicherte SYSTEM\.VSB/);
+  assert.deepEqual([...page.errors, ...plain.errors], []);
 });

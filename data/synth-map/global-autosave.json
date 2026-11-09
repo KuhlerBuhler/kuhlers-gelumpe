@@ -1,0 +1,7 @@
+{
+ "entries": [
+  {"from": "0xC0083D7C", "to": "0xC0074350", "kind": "code", "why": "SWITCH_SCREEN's second bl to the screen manager getter, behind cmp r4, r3 / beq (target equals the screen shown): read in both, same sequence, the synth's getter 0xC002A1AC"},
+  {"from": "0xC0083D80", "to": "0xC0074354", "kind": "code", "why": "mov r3, #1 behind that bl, where the hook goes on: read in both"},
+  {"from": "0xC002D5D8", "to": "0xC002A73C", "kind": "code", "why": "the post function (command, arg, arg) that WRITE on GLOBAL PARAMETERS calls with 0xB: fwmap same code"}
+ ]
+}

@@ -676,7 +676,7 @@ ist nur verschoben. Messung und Belege:
   `electribe` (hergeleitet).
 - Die Seite erkennt die Datei am Kopf und sagt das in einer Zeile. Editor, Effekt-Editor, Patches, Plugins und
   Samples sind für den Sampler und werden für diese Firmware nicht angeboten.
-- Nicht geprüft: `check.py` und die Prüffälle der Patches gegen den Synth, ein benutzter Flash, die Karte.
+- `check.py` und die Prüffälle des Synth-Satzes laufen gegen Korgs blaue 2.02 (Workflow "Verify patches", Job `blue`). Nicht geprüft: ein benutzter Flash, die Karte.
 - Wie der Synth seine PCM-Wellen lädt, wie die Oszillator-Tabelle auf sie zeigt und ob BLECH dort Samples von der Karte
   zu Oszillatoren machen könnte, steht in [Samples auf der blauen Electribe 2](messungen/2026-10-15-synth-samples.md). Ein Flash mit der PCM-Bank aus den WAV-Dateien der blauen Electribe baut `tools/emu/synth_pcm_flash.py` (lokal, nie ins Repository; [Messung](messungen/2026-10-15-synth-pcm-flash.md)).
   `tools/emu/synth_probe.py` ist das Werkzeug dazu (Bank lesen, Oszillator-Tabelle, Start mit einer selbstgebauten Bank,

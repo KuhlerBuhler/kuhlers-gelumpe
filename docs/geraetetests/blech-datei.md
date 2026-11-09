@@ -426,6 +426,20 @@ probieren, Ausgabe und Display notieren.
     Melden: ok mit der SHA-256 und der Dauer, sonst die Meldung und die Adresse. Die Datei **nicht** weitergeben ohne Rücksprache, sie enthält Korgs Firmware und Daten;
     bei der blauen Electribe brauchen wir daraus nur, ob der Bereich ab `0x800000` die PCM-Bank im erwarteten Aufbau trägt (`tools/emu/synth_probe.py bank DATEI` auf dem eigenen Rechner).
 
+23. **HT OSC: Hacktribes Oszillatoren auf der roten Firmware (nur rot).** Voraussetzung: der BLECH-Satz auf Korgs roter 2.02, Karte mit der
+    eigenen `e2sSample.all`. Im Emulator gemessen ist, dass die Einträge stehen, der Regler sie erreicht, die Datei lädt und ein Pattern sie
+    behält ([Messung](../messungen/2026-11-08-ht-osc-freie-plaetze.md)); wie sie klingen, kann nur das Gerät zeigen.
+
+    1. Einschalten, Part 1 wählen, OSC-Regler bis 420 (letztes Werks-Sample), dann eine Raste weiter. Erwartet: 422 DUAL-SAW. Weiter drehen
+       bis 497 VPM-SINE 32, die nächste Raste springt auf 501. Jeden Oszillator kurz anspielen.
+    2. Mit Hacktribe vergleichen, wenn eins da ist: DUAL-SAW, CHIP-NOISE, X-SAW 0, X-SAW +12, VPM-SINE 4. Erwartet: gleicher Klang.
+    3. Osc Edit auf DUAL-SAW und auf X-SAW 0 drehen. Erwartet: der Klang ändert sich wie unter Hacktribe.
+    4. Part 1 auf 431 (CHIP-TRI 2), WRITE, aus- und einschalten. Erwartet: Part 1 steht auf 431 und klingt gleich.
+    5. BLECH > FEATURES ansehen. Erwartet: keine Seite HT OSC, die Oszillatoren sind immer an.
+    6. Mit EXIT beim Einschalten: wie die Firmware, 422 heißt `Sample422`.
+
+    Melden: ok je Schritt, sonst welcher Oszillator anders klingt oder stumm ist (mit Platznummer).
+
 Nach dem Test das Ergebnis je Schritt notieren: ok, anders, nicht gelaufen.
 
 ## 7. Ergebnisse und Messungen
@@ -461,3 +475,4 @@ Alle Angaben ohne Gerät sind im Emulator gemessen, mit der echten Firmware und 
 | Rettung, wenn die laufende Firmware nicht mehr startet; ob die Datei unter `KORG/electribe sampler/System/` dafür taugt | offen | [Messung](../messungen/2026-10-10-rueckweg-geuebt.md), [Quellenprüfung](../messungen/2026-10-08-firmware-rueckweg.md) |
 | Verhalten der Firmware bei einem fehlerhaften oder abgebrochenen Update | offen | [Hintergrund](../hintergrund/virtuelle-sd.md) |
 | Ursache für die zurückgesetzten Globals vom 13.10. | offen | [Messung](../messungen/2026-10-13-globals-zurueckgesetzt.md) |
+| HT OSC: Klang der 76 Oszillatoren auf 422 bis 497, Osc Edit dort, ein Pattern auf 431 nach Neustart | im Emulator gemessen (Einträge, Regler, Datei, Export, Pattern), Klang am Gerät offen | 08.11., [Messung](../messungen/2026-11-08-ht-osc-freie-plaetze.md) |
