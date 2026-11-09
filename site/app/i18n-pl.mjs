@@ -2568,7 +2568,7 @@ export default {
   "rescue.area.plugin": "Wtyczki",
   "rescue.area.doom": "Doom",
   "rescue.say.start.3": "Do większości dróg potrzebujesz komputera z czytnikiem kart SD. Na telefonie możesz tu tylko poczytać.",
-  "rescue.say.color.1": "Jakiego koloru jest twoja Electribe? Pytam o to tylko raz.",
+  "rescue.say.color.1": "Jakiego koloru jest twoja Electribe?",
   "rescue.say.colorHelp.1": "Spójrz na urządzenie: czerwona to Sampler i jest na niej napis „electribe sampler”. Niebieska to Synth i jest na niej tylko „electribe”.",
   "rescue.device.red.hint": "Electribe 2 Sampler, na urządzeniu jest napis „electribe sampler”.",
   "rescue.device.blue.hint": "Electribe 2 (Synth), na urządzeniu jest napis „electribe”.",
