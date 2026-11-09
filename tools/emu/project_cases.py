@@ -573,6 +573,8 @@ def research(payload, include_mfx=True, full=False):
 
 
 def main():
+    import lifetime
+    lifetime.load_gate()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("command", choices=["research"])
     parser.add_argument("--base", required=True, type=Path)

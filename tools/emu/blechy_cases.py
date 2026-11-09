@@ -317,6 +317,8 @@ def run(vsb, flash, request, png_dir):
 
 
 def main():
+    import lifetime
+    lifetime.load_gate()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", required=True, type=Path)
     parser.add_argument("--flash", nargs="*", default=[], type=Path)

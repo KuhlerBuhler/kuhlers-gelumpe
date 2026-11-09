@@ -131,6 +131,9 @@ Workflows, laufen nur die Einheitstests, die Dokumente lesen, und keine Browsert
 
 `npm run test:e2e` startet die Testdateien nacheinander, damit nicht
 für jeden CPU-Kern eine eigene Chrome-Instanz um denselben Rechner konkurriert.
+
+Jeder lokale Testlauf (`npm test`, `test:e2e`, `test:all`, `test:emu`, `test:local`, `verify:patches`, `check.py`, `menu_cases.py` und die übrigen `*_cases.py`) prüft zuerst die Auslastung (`tools/load-gate.mjs`) und startet nicht, solange das 1-Minuten-Lastmittel mindestens 0,8 mal die Kernzahl beträgt oder weniger als 10 % Speicher frei sind. Er meldet das in einer Zeile, prüft alle 15 s neu und bricht nach 20 Minuten mit Fehlercode ab. `GELUMPE_LOAD_GATE=off` überspringt die Prüfung, `GELUMPE_LOAD_MAX` (Faktor der Kerne), `GELUMPE_LOAD_WAIT` (Sekunden) und `GELUMPE_LOAD_POLL` (Sekunden) stellen sie ein. In CI (`CI` gesetzt) entfällt sie, und verschachtelte Läufe warten nicht doppelt (`GELUMPE_LOAD_GATE_PASSED`). Direkt gestartetes `node --test` ist nicht abgesichert, dafür `node tools/load-gate.mjs node --test ...` voranstellen.
+
 Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt starten:
 
 ```bash
