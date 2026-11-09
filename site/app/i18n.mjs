@@ -59,7 +59,8 @@ export function t(key, vars = {}) {
 /** Device metadata predates keyed app texts; preserve its German fallback and explicit translations. */
 export function localize(value, vars = {}) {
   const source = value && typeof value === "object" ? value[lang] ?? value.de : value;
-  return fill(String(DEVICE_TEXTS[lang]?.[source] ?? source ?? ""), vars);
+  const table = DEVICE_TEXTS[lang];
+  return fill(String(table && Object.hasOwn(table, source) ? table[source] : source ?? ""), vars);
 }
 
 useTexts(t, locale, localize);
